@@ -241,7 +241,14 @@ export type {
   JsonRpcPeerOptions,
   FrameAuditReason,
 } from "./realtime/JsonRpcPeer";
-export { IDENTITY_REFRESH_CLOSE_CODE } from "./realtime/closeCodes";
+export {
+  IDENTITY_DEAD_CLOSE_CODE,
+  ORIGIN_REFUSED_CLOSE_CODE,
+  NOT_FOUND_CLOSE_CODE,
+  IDENTITY_REFRESH_CLOSE_CODE,
+  TOKEN_EXPIRED_CLOSE_CODE,
+} from "./realtime/closeCodes";
+export type { TokenStatus } from "./realtime/tokenStatus";
 export { TransportState } from "./realtime/IRealtimeTransport";
 export type {
   IRealtimeTransport,

@@ -26,7 +26,7 @@
  *     `partner` (`ephemeral`) et est refusé par `test-keycloak` (`require`) ;
  *     un jeton signé par l'application ouvre la même zone ;
  *  7. temps réel (#525) : une socket ouverte par un jeton Keycloak se ferme
- *     (4001) une fois `exp` passé, une socket ouverte par une session BFF
+ *     (4006, jeton expiré) une fois `exp` passé, une socket ouverte par une session BFF
  *     Keycloak se ferme à la déconnexion — et dans les deux cas, une socket
  *     TÉMOIN encore valable survit au même tick ;
  *  8. rotation des clés (#525) : une clé neuve ajoutée au realm pendant que
@@ -50,6 +50,7 @@ import {
   requestClientCredentialsToken,
 } from "@nodefony/security";
 import type { IOAuthProvider } from "@nodefony/security";
+import { TOKEN_EXPIRED_CLOSE_CODE } from "nodefony";
 import WebSocket from "ws";
 
 const ISSUER = process.env.NF_KEYCLOAK_ISSUER ?? "";
@@ -1176,7 +1177,7 @@ describe.skipIf(!ISSUER || !CLIENT_ID || !CLIENT_SECRET)(
       // sockets sont re-validées par le MÊME tick ; seule celle dont
       // l'identité est morte doit tomber.
 
-      it("jeton Keycloak expiré → la socket se ferme (4001) après `exp`, celle d'un jeton vivant survit", async () => {
+      it("jeton Keycloak expiré → la socket se ferme (4006) après `exp`, celle d'un jeton vivant survit", async () => {
         const { username } = realmUser();
         // `test-keycloak` exige un compte local (`require`) : le login BFF le pose.
         await browserLogin(username);
@@ -1216,7 +1217,9 @@ describe.skipIf(!ISSUER || !CLIENT_ID || !CLIENT_SECRET)(
             shortExp - Date.now() + REVOCATION_WINDOW_MS,
             "fermeture de la socket au jeton expiré",
           );
-          expect(code, "fermée par la révocation").toBe(4001);
+          expect(code, "fermée pour jeton expiré").toBe(
+            TOKEN_EXPIRED_CLOSE_CODE,
+          );
           expect(at, "fermée APRÈS l'expiration").toBeGreaterThanOrEqual(
             shortExp,
           );

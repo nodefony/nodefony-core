@@ -1,5 +1,7 @@
 import {
+  IDENTITY_DEAD_CLOSE_CODE,
   IDENTITY_REFRESH_CLOSE_CODE,
+  TOKEN_EXPIRED_CLOSE_CODE,
   JsonRpcPeer,
   NODEFONY_CHANNEL_NAMESPACE,
   RevocationWatch,
@@ -279,7 +281,13 @@ export class RealtimeHub {
   // JAMAIS. Même implémentation que les flux SSE (`RevocationWatch`).
   readonly #revocation = new RevocationWatch<IRevocableConnection>({
     isValid: (entry) => entry.token.isValid?.(),
-    revoke: (entry) => entry.close(4001, "session revoked"),
+    // La cause, quand le jeton la connaît : un jeton porteur arrivé à `exp` ferme
+    // en 4006 (un jeton neuf suffirait), tout le reste en 4001 (ADR-0021 §S11).
+    status: (entry) => entry.token.status?.(),
+    revoke: (entry, status) =>
+      status === "expired"
+        ? entry.close(TOKEN_EXPIRED_CLOSE_CODE, "token expired")
+        : entry.close(IDENTITY_DEAD_CLOSE_CODE, "session revoked"),
     identityOf: (entry) => entry.token.getUserIdentifier(),
     // Droits changés, identité vivante : code RECONNECTABLE — le client revient
     // aussitôt avec son identité à jour (4001 l'arrêterait).

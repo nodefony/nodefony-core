@@ -26,6 +26,8 @@ import {
   JsonRpcServerError,
   isJsonRpcId,
   jsonRpcFailure,
+  IDENTITY_DEAD_CLOSE_CODE,
+  ORIGIN_REFUSED_CLOSE_CODE,
 } from "nodefony";
 import type { ContextType, WebsocketContext } from "@nodefony/http";
 import {
@@ -533,7 +535,7 @@ export abstract class RealtimeController<
         `WS realtime upgrade refused: Origin "${handshake.origin ?? "(missing)"}" not allowed`,
         "WARNING",
       );
-      conn.close(4003, "origin not allowed");
+      conn.close(ORIGIN_REFUSED_CLOSE_CODE, "origin not allowed");
       return;
     }
 
@@ -555,7 +557,7 @@ export abstract class RealtimeController<
           `WS realtime auth failed (${authenticator.name}): ${err.message}`,
           "WARNING",
         );
-        conn.close(4001, "unauthorized");
+        conn.close(IDENTITY_DEAD_CLOSE_CODE, "unauthorized");
         return;
       }
     } else {

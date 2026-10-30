@@ -1,5 +1,8 @@
 import { expect } from "vitest";
-import { IDENTITY_REFRESH_CLOSE_CODE } from "../realtime/closeCodes";
+import {
+  IDENTITY_REFRESH_CLOSE_CODE,
+  TOKEN_EXPIRED_CLOSE_CODE,
+} from "../realtime/closeCodes";
 import {
   closeCodeToNotice,
   deniedToNotice,
@@ -159,5 +162,18 @@ describe("NodefonySocket — 4005, droits mis à jour (#591)", () => {
   it("notice d'information, pas d'erreur", () => {
     const notice = closeCodeToNotice(IDENTITY_REFRESH_CLOSE_CODE, "");
     expect(notice?.level).to.equal("info");
+  });
+});
+
+describe("NodefonySocket — jeton porteur expiré (4006, ADR-0021 §S11)", () => {
+  it("4006 est DÉFINITIF : le client 10.0 ne se reconnecte pas", () => {
+    expect(isReconnectableCloseCode(TOKEN_EXPIRED_CLOSE_CODE)).to.equal(false);
+  });
+
+  it("closeCodeToNotice(4006) dit qu'un jeton neuf suffirait", () => {
+    const n = closeCodeToNotice(TOKEN_EXPIRED_CLOSE_CODE);
+    expect(n?.level).to.equal("error");
+    expect(n?.message).to.contain("jeton a expiré");
+    expect(n?.message).to.contain("jeton neuf");
   });
 });

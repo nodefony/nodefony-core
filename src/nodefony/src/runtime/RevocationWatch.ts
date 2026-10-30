@@ -1,3 +1,5 @@
+import type { TokenStatus } from "../realtime/tokenStatus";
+
 /**
  * Période de re-validation des connexions à identité RÉVOCABLE, en ms.
  *
@@ -37,8 +39,19 @@ export interface IRevocationPolicy<T> {
    * (fail-closed). `undefined` = rien à re-valider, l'entrée reste.
    */
   isValid(entry: T): Promise<boolean> | boolean | undefined;
-  /** Ferme la connexion de l'entrée — appelée une fois, l'entrée déjà retirée. */
-  revoke(entry: T): void;
+  /**
+   * La CAUSE de l'état de l'entrée, quand son identité sait la dire (jeton porteur) :
+   * `active` la garde, `expired` ou `revoked` la ferme. Consultée AVANT
+   * {@link IRevocationPolicy.isValid} ; `undefined` (ou méthode absente) = la cause
+   * n'est pas connaissable, `isValid` décide et son `false` vaut `revoked`.
+   */
+  status?(entry: T): Promise<TokenStatus | undefined> | TokenStatus | undefined;
+  /**
+   * Ferme la connexion de l'entrée — appelée une fois, l'entrée déjà retirée.
+   * `status` dit pourquoi : `expired` (jeton porteur arrivé à `exp`) ou `revoked`
+   * (tout le reste, y compris une re-validation qui a levé).
+   */
+  revoke(entry: T, status: Exclude<TokenStatus, "active">): void;
   /**
    * Identifiant de connexion de l'identité figée par l'entrée — `undefined` si
    * elle n'en porte pas. Sans cette méthode, {@link RevocationWatch.refreshIdentity}
@@ -131,20 +144,29 @@ export class RevocationWatch<T> {
     return pass;
   }
 
+  /** La cause d'abord quand l'entrée la connaît, sinon le verdict booléen (`false` = révoqué). */
+  async #statusOf(entry: T): Promise<TokenStatus | undefined> {
+    const status = await this.#policy.status?.(entry);
+    if (status !== undefined) return status;
+    const valid = await this.#policy.isValid(entry);
+    if (valid === undefined) return undefined;
+    return valid ? "active" : "revoked";
+  }
+
   async #runPass(): Promise<void> {
     if (this.#entries === null) return;
     // Instantané : fermer une connexion la désinscrit pendant la passe.
     for (const entry of Array.from(this.#entries)) {
-      let valid: boolean | undefined;
+      let status: TokenStatus | undefined;
       try {
-        valid = await this.#policy.isValid(entry);
+        status = await this.#statusOf(entry);
       } catch {
-        valid = false;
+        status = "revoked"; // fail-closed : qui ne peut pas prouver est mort
       }
-      if (valid !== false) continue;
+      if (status === undefined || status === "active") continue;
       this.unregister(entry);
       try {
-        this.#policy.revoke(entry);
+        this.#policy.revoke(entry, status);
       } catch {
         /* connexion déjà fermée : son propre nettoyage finira le travail */
       }
@@ -170,7 +192,8 @@ export class RevocationWatch<T> {
       try {
         // Appel en MÉTHODE : une politique qui lit `this` le garde.
         if (policy.refresh) policy.refresh(entry);
-        else policy.revoke(entry);
+        // Sans voie de reconnexion, un changement d'identité vaut une révocation.
+        else policy.revoke(entry, "revoked");
       } catch {
         /* connexion déjà fermée : son propre nettoyage finira le travail */
       }

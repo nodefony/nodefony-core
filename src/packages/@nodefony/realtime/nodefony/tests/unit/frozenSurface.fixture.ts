@@ -11,9 +11,11 @@
 
 /** Codes de fermeture de la socket, registre `src/nodefony/src/realtime/closeCodes.ts` (S11). */
 export const FROZEN_CLOSE_CODES = [
-  { code: 4001, name: "IDENTITY_DEAD_CLOSE_CODE", ticket: 706 },
+  { code: 4001, name: "IDENTITY_DEAD_CLOSE_CODE" },
+  { code: 4003, name: "ORIGIN_REFUSED_CLOSE_CODE" },
+  { code: 4004, name: "NOT_FOUND_CLOSE_CODE" },
   { code: 4005, name: "IDENTITY_REFRESH_CLOSE_CODE" },
-  { code: 4006, name: "TOKEN_EXPIRED_CLOSE_CODE", ticket: 706 },
+  { code: 4006, name: "TOKEN_EXPIRED_CLOSE_CODE" },
   { code: 4007, name: "BACKPRESSURE_CLOSE_CODE", ticket: 703 },
   { code: 1013, name: "TRY_AGAIN_LATER_CLOSE_CODE", ticket: 622 },
 ] as const;

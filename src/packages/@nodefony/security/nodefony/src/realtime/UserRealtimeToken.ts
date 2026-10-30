@@ -1,3 +1,4 @@
+import type { TokenStatus } from "nodefony";
 import type { IUser } from "@nodefony/user";
 import type { IRealtimeToken } from "./realtimeContracts";
 
@@ -38,6 +39,8 @@ export class UserRealtimeToken implements IRealtimeToken {
    * `null` = aucune re-validation câblée (best-effort).
    */
   readonly #revalidate: ((nowMs?: number) => Promise<boolean>) | null;
+  /** Cause de l'état d'un jeton porteur ; `null` pour une session. */
+  readonly #status: ((nowMs?: number) => Promise<TokenStatus>) | null;
 
   /**
    * Scopes délégués repris du jeton du firewall (clé API / JWT / OAuth). Vide
@@ -58,6 +61,8 @@ export class UserRealtimeToken implements IRealtimeToken {
    * @param type - mode d'authentification réel (défaut `"session"`).
    * @param scopes - scopes délégués du jeton d'origine (défaut aucun).
    * @param confirmAccount - relecture du compte, payée sur `api.request` seul.
+   * @param status - la CAUSE de l'état, pour un jeton porteur (expiré ou révoqué) ;
+   *   `null` pour une session, qui n'a qu'un verdict.
    */
   constructor(
     user: IUser,
@@ -65,8 +70,10 @@ export class UserRealtimeToken implements IRealtimeToken {
     type: string = "session",
     scopes: readonly string[] = EMPTY_SCOPES,
     confirmAccount: (() => Promise<boolean>) | null = null,
+    status: ((nowMs?: number) => Promise<TokenStatus>) | null = null,
   ) {
     this.#confirmAccount = confirmAccount;
+    this.#status = status;
     this.#user = user;
     this.#revalidate = revalidate;
     this.type = type;
@@ -87,6 +94,18 @@ export class UserRealtimeToken implements IRealtimeToken {
    */
   isValid(nowMs?: number): Promise<boolean> {
     return this.#revalidate ? this.#revalidate(nowMs) : Promise.resolve(true);
+  }
+
+  /**
+   * La cause de l'état de l'identité — `expired` ferme la socket en 4006, `revoked`
+   * en 4001 (ADR-0021 §S11). Sans cause câblée (session), dérivée de
+   * {@link isValid} : `false` vaut `revoked`.
+   *
+   * @param nowMs - horloge injectable (epoch ms) ; par défaut l'heure courante.
+   */
+  async status(nowMs?: number): Promise<TokenStatus> {
+    if (this.#status !== null) return this.#status(nowMs);
+    return (await this.isValid(nowMs)) ? "active" : "revoked";
   }
 
   /**

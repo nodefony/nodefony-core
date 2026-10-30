@@ -545,3 +545,65 @@ describe("Identité realtime — jeton d'un émetteur TIERS (P6.9)", () => {
     assert.equal(await token.isValid?.(NOW), false);
   });
 });
+
+/**
+ * La CAUSE de la mort d'une identité (ADR-0021 §S11, #706) : le hub en tire le
+ * code de fermeture — `expired` → 4006 (un jeton neuf suffirait), `revoked` → 4001.
+ * Révoqué l'emporte sur expiré ; une session ne connaît pas sa cause.
+ */
+describe("Identité realtime — la cause : expiré ou révoqué (ADR-0021 §S11)", () => {
+  it("jeton porteur arrivé à `exp` → `expired`", async () => {
+    const auth = new FirewallRealtimeAuthenticator(() => ({
+      isJtiDenied: async () => false,
+      getInvalidBefore: async () => null,
+    }));
+    const token = await inScope(
+      {
+        user: alice,
+        token: bearerToken("jwt", { exp: SEC(NOW) - 1, sub: "alice" }, "jti-1"),
+      },
+      () => auth.authenticate(HANDSHAKE),
+    );
+    assert.equal(await token.status?.(NOW), "expired");
+  });
+
+  it("🔴 jeton révoqué ET expiré → `revoked` (la révocation l'emporte)", async () => {
+    const auth = new FirewallRealtimeAuthenticator(() => ({
+      isJtiDenied: async (jti: string) => jti === "jti-42",
+      getInvalidBefore: async () => null,
+    }));
+    const token = await inScope(
+      {
+        user: alice,
+        token: bearerToken(
+          "jwt",
+          { exp: SEC(NOW) - 1, sub: "alice" },
+          "jti-42",
+        ),
+      },
+      () => auth.authenticate(HANDSHAKE),
+    );
+    assert.equal(await token.status?.(NOW), "revoked");
+  });
+
+  it("jeton vivant → `active`", async () => {
+    const auth = new FirewallRealtimeAuthenticator();
+    const token = await inScope(
+      {
+        user: alice,
+        token: bearerToken("jwt", { exp: SEC(NOW) + 3600, sub: "alice" }),
+      },
+      () => auth.authenticate(HANDSHAKE),
+    );
+    assert.equal(await token.status?.(NOW), "active");
+  });
+
+  it("session détruite → `revoked` : sa cause n'est pas connaissable (4001)", async () => {
+    const auth = new FirewallRealtimeAuthenticator();
+    const token = await inScope(
+      { user: alice, context: sessionCtx("sess-1", null) },
+      () => auth.authenticate(HANDSHAKE),
+    );
+    assert.equal(await token.status?.(), "revoked");
+  });
+});

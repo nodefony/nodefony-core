@@ -5,7 +5,11 @@ import {
   type IRevocableConnection,
 } from "../../src/server/RealtimeHub";
 import type { IRealtimeToken } from "../../interfaces/IRealtimeToken";
-import { IDENTITY_REFRESH_CLOSE_CODE } from "nodefony";
+import {
+  IDENTITY_DEAD_CLOSE_CODE,
+  IDENTITY_REFRESH_CLOSE_CODE,
+  TOKEN_EXPIRED_CLOSE_CODE,
+} from "nodefony";
 
 /**
  * Phase 0.6 — REVUE TOTALE realtime, F4 : révocation asymétrique (blue « B »).
@@ -143,5 +147,68 @@ describe("hub : droits d'une identité changés → ses sockets se reconnectent 
     ]);
     assert.deepEqual(other.closes, []);
     hub.unregisterRevocable(other.entry);
+  });
+});
+
+/**
+ * Le code de fermeture suit la CAUSE (ADR-0021 §S11, #706) : un jeton porteur
+ * arrivé à `exp` ferme en 4006 — un jeton neuf suffirait —, tout le reste en 4001.
+ */
+describe("hub : le code de fermeture suit la cause (ADR-0021 §S11)", () => {
+  function bearer(status: "active" | "expired" | "revoked"): IRealtimeToken {
+    return {
+      type: "jwt",
+      getUserIdentifier: () => "agent",
+      isAuthenticated: () => true,
+      getRoles: () => [],
+      getScopes: () => [],
+      getAttribute: () => undefined,
+      isValid: async () => status === "active",
+      status: async () => status,
+    };
+  }
+
+  function closesOf(token: IRealtimeToken): {
+    hub: RealtimeHub;
+    entry: IRevocableConnection;
+    closes: Array<{ code: number; reason: string }>;
+  } {
+    const hub = new RealtimeHub();
+    const closes: Array<{ code: number; reason: string }> = [];
+    const entry: IRevocableConnection = {
+      token,
+      close: (code, reason) => closes.push({ code, reason }),
+    };
+    hub.registerRevocable(entry);
+    return { hub, entry, closes };
+  }
+
+  it("jeton porteur expiré → 4006 (TOKEN_EXPIRED_CLOSE_CODE)", async () => {
+    const { hub, closes } = closesOf(bearer("expired"));
+    await hub.revalidateRevocable();
+    assert.deepEqual(closes, [
+      { code: TOKEN_EXPIRED_CLOSE_CODE, reason: "token expired" },
+    ]);
+  });
+
+  it("jeton porteur révoqué → 4001 (IDENTITY_DEAD_CLOSE_CODE)", async () => {
+    const { hub, closes } = closesOf(bearer("revoked"));
+    await hub.revalidateRevocable();
+    assert.deepEqual(closes, [
+      { code: IDENTITY_DEAD_CLOSE_CODE, reason: "session revoked" },
+    ]);
+  });
+
+  it("jeton porteur vivant → socket intacte", async () => {
+    const { hub, entry, closes } = closesOf(bearer("active"));
+    await hub.revalidateRevocable();
+    assert.equal(closes.length, 0);
+    hub.unregisterRevocable(entry);
+  });
+
+  it("identité SANS cause (session) dont isValid est faux → 4001, jamais 4006", async () => {
+    const { hub, closes } = closesOf(sessionToken(false));
+    await hub.revalidateRevocable();
+    assert.equal(closes[0]!.code, IDENTITY_DEAD_CLOSE_CODE);
   });
 });

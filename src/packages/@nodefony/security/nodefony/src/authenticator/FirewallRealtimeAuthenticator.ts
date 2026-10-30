@@ -1,4 +1,4 @@
-import { Nodefony, RequestContext } from "nodefony";
+import { Nodefony, RequestContext, type TokenStatus } from "nodefony";
 import { authenticatedUser } from "@nodefony/user";
 import type { IUser, IUserProvider } from "@nodefony/user";
 import { isBoundToAccount } from "../accountBinding";
@@ -10,6 +10,14 @@ import type {
   IRealtimeToken,
 } from "../realtime/realtimeContracts";
 import { UserRealtimeToken } from "../realtime/UserRealtimeToken";
+import { tokenStatusOf } from "../token/tokenStatus";
+
+/** Le verdict booléen d'un état : seul `active` fait vivre l'identité. */
+function toValidity(
+  status: (nowMs?: number) => Promise<TokenStatus>,
+): (nowMs?: number) => Promise<boolean> {
+  return async (nowMs?: number) => (await status(nowMs)) === "active";
+}
 
 /**
  * Authenticator realtime des identités résolues par le **firewall** — équivalent
@@ -109,7 +117,16 @@ export class FirewallRealtimeAuthenticator implements IRealtimeAuthenticator {
     }
     const issued = readFirewallToken();
     const type = issuedType(issued);
-    const revalidate = this.#revalidatorFor(user, issued, type);
+    // Un jeton porteur dit POURQUOI il est mort (expiré ou révoqué) ; une session
+    // non : elle n'a qu'un verdict, et son `false` ferme en 4001.
+    const status =
+      type === "session"
+        ? null
+        : this.#buildBearerStatus(issued, user.identifier, type);
+    const revalidate =
+      status === null
+        ? buildSessionRevalidator(user.identifier)
+        : toValidity(status);
 
     // Les scopes suivent l'identité : sans eux, `ScopeVoter` verrait un jeton
     // machine sans aucun droit délégué et refuserait tout. Vide pour un humain,
@@ -122,6 +139,7 @@ export class FirewallRealtimeAuthenticator implements IRealtimeAuthenticator {
       type,
       scopes,
       this.#accountConfirmationFor(user, type),
+      status,
     );
   }
 
@@ -188,29 +206,34 @@ export class FirewallRealtimeAuthenticator implements IRealtimeAuthenticator {
   ): (nowMs?: number) => Promise<boolean> {
     return type === "session"
       ? buildSessionRevalidator(user.identifier)
-      : this.#buildBearerRevalidator(issued as IToken, user.identifier, type);
+      : toValidity(this.#buildBearerStatus(issued, user.identifier, type));
   }
 
   /**
-   * Re-validation d'une identité portée par un **jeton** (JWT, clé API, OAuth) :
-   * rejoue les trois conditions qui tuent un jeton, sans jamais parler de session.
+   * État d'une identité portée par un **jeton** (JWT, clé API, OAuth) : rejoue les
+   * trois conditions qui tuent un jeton, sans jamais parler de session, et en rend
+   * la CAUSE — `expired` ferme la socket en 4006, `revoked` en 4001 (ADR-0021 §S11).
+   *
+   * **Révoqué l'emporte sur expiré** : la liste de refus est interrogée AVANT de
+   * conclure à l'expiration, et l'ordre est celui de `tokenStatusOf`, appelé
+   * plutôt que recopié. Un jeton révoqué puis arrivé à `exp` ferme donc en 4001.
    *
    * `exp` est vérifié **sans personne** (la borne voyage dans le jeton) ; le store
    * n'ajoute que la révocation *avant terme*. C'est pourquoi un store en panne ne
    * coupe pas les sockets d'agents : ce serait une panne de disponibilité déguisée
    * en mesure de sécurité, alors que la borne du jeton tient toujours.
    */
-  #buildBearerRevalidator(
-    issued: IToken,
+  #buildBearerStatus(
+    issued: IToken | undefined,
     identifier: string,
     type: string,
-  ): (nowMs?: number) => Promise<boolean> {
+  ): (nowMs?: number) => Promise<TokenStatus> {
     const claims =
-      issued.getAttribute<Record<string, unknown>>("claims") ?? EMPTY_CLAIMS;
+      issued?.getAttribute<Record<string, unknown>>("claims") ?? EMPTY_CLAIMS;
     const expMs = secondsToMs(claims.exp);
     const iatMs = secondsToMs(claims.iat);
     const jti =
-      issued.getAttribute<string>("jti") ??
+      issued?.getAttribute<string>("jti") ??
       (typeof claims.jti === "string" ? claims.jti : null);
     const resolveStore = this.#resolveStore;
 
@@ -236,30 +259,39 @@ export class FirewallRealtimeAuthenticator implements IRealtimeAuthenticator {
           `Ensure the authenticator forwards the token claims.`,
         "WARNING",
       );
-      return () => Promise.resolve(false);
+      return () => Promise.resolve("revoked");
     }
 
-    return async (nowMs: number = Date.now()): Promise<boolean> => {
-      if (expMs !== null && nowMs >= expMs) return false;
-      if (!resolveStore) return true; // borne seule, déjà vérifiée ci-dessus
+    /** `true` révoqué, `false` non, `null` = le store n'a pas pu répondre. */
+    const isRevoked = async (): Promise<boolean | null> => {
+      if (!resolveStore) return false; // aucune révocation avant terme possible
       let store: IRealtimeRevocationStore | null;
       try {
         store = resolveStore();
       } catch {
-        // Store injoignable → on s'en tient à ce que le jeton prouve tout seul.
-        return expMs !== null;
+        return null;
       }
-      if (!store) return expMs !== null;
+      if (!store) return null;
       try {
-        if (jti !== null && (await store.isJtiDenied(jti))) return false;
+        if (jti !== null && (await store.isJtiDenied(jti))) return true;
         const invalidBefore = await store.getInvalidBefore(identifier);
-        if (invalidBefore !== null && iatMs !== null && iatMs < invalidBefore) {
-          return false;
-        }
-        return true;
+        return (
+          invalidBefore !== null && iatMs !== null && iatMs < invalidBefore
+        );
       } catch {
-        return expMs !== null;
+        return null;
       }
+    };
+
+    return async (nowMs: number = Date.now()): Promise<TokenStatus> => {
+      const revoked = await isRevoked();
+      // Store injoignable : on s'en tient à ce que le jeton prouve tout seul — sa
+      // borne. Sans borne, rien ne prouve qu'il vit encore (fail-closed).
+      if (revoked === null && expMs === null) return "revoked";
+      return tokenStatusOf(
+        { revokedAt: revoked === true ? nowMs : null, expiresAt: expMs },
+        nowMs,
+      );
     };
   }
 }

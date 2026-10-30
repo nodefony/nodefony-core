@@ -4,7 +4,13 @@ import { AsyncResource } from "node:async_hooks";
 import { logColor } from "nodefony";
 import { ServerType, SchemeType } from "../../../service/http-kernel.js";
 import { Severity, Msgid, Message, nodefonyError, Scope } from "nodefony";
-import { RequestContext, frameRequestId } from "nodefony";
+import {
+  RequestContext,
+  frameRequestId,
+  IDENTITY_DEAD_CLOSE_CODE,
+  NOT_FOUND_CLOSE_CODE,
+  ORIGIN_REFUSED_CLOSE_CODE,
+} from "nodefony";
 import Ws from "ws";
 import type { IncomingMessage } from "node:http";
 import WebsocketResponse from "./Response.js";
@@ -100,7 +106,7 @@ export function toWsCloseCode(code: number | undefined | null): number {
   if (code >= 500 && code < 600) return 1011; // HTTP 5xx → internal error (§7.4.1)
   // auth/forbidden/host non autoritaire (421 trustedHosts) → policy violation
   if (code === 401 || code === 403 || code === 421) return 1008;
-  if (code >= 400 && code < 500) return 4004; // autre 4xx (404…) → privé app unique
+  if (code >= 400 && code < 500) return NOT_FOUND_CLOSE_CODE; // autre 4xx (404…) → privé app unique
   return 1011; // inconnu / hors plage / invalide → internal error
 }
 
@@ -123,15 +129,15 @@ export function toHandshakeStatus(code: number | undefined | null): number {
     case 1007: // invalid payload
       return 400;
     case 1008: // policy violation (origine, autorisation)
-    case 4003:
+    case ORIGIN_REFUSED_CLOSE_CODE:
       return 403;
-    case 4001: // session révoquée
+    case IDENTITY_DEAD_CLOSE_CODE: // session révoquée
       return 401;
     case 1009: // message too big
       return 413;
     case 1013: // try again later
       return 503;
-    case 4004:
+    case NOT_FOUND_CLOSE_CODE:
       return 404;
     default:
       return 500;
@@ -486,7 +492,7 @@ class WebsocketContext extends Context implements IWebsocketContextInterface {
           }
         });
     } else if (!this.isRejected()) {
-      this.reject(4004, "Not Found");
+      this.reject(NOT_FOUND_CLOSE_CODE, "Not Found");
       this.rejected = true;
       this.webSocketState = "error";
     }
@@ -664,7 +670,7 @@ class WebsocketContext extends Context implements IWebsocketContextInterface {
         // oxlint-disable-next-line typescript/return-await
         return callAsPromise(this.resolver, [message]);
       } else if (!this.rejected) {
-        this.reject(4004, "Not Found");
+        this.reject(NOT_FOUND_CLOSE_CODE, "Not Found");
         this.rejected = true;
       }
       return undefined;

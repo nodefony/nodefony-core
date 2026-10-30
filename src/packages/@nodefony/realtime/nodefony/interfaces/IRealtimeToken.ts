@@ -1,3 +1,4 @@
+import type { TokenStatus } from "nodefony";
 /**
  * Jeton realtime — surface MINIMALE de l'identité d'une connexion WebSocket.
  *
@@ -55,6 +56,15 @@ export interface IRealtimeToken {
    * (publish/subscribe), payé seulement sur `api.request`.
    */
   isValid?(nowMs?: number): boolean | Promise<boolean>;
+  /**
+   * La CAUSE de l'état de l'identité, quand elle est connaissable : `active`,
+   * `expired` (jeton porteur arrivé à `exp`) ou `revoked` (révoqué l'emporte sur
+   * expiré). Le hub en tire le code de fermeture d'une socket ouverte : `expired` →
+   * `TOKEN_EXPIRED_CLOSE_CODE` (4006), sinon `IDENTITY_DEAD_CLOSE_CODE` (4001) —
+   * ADR-0021 §S11. Optionnel : absent, `isValid` décide et son `false` vaut 4001
+   * (une session ne sait pas dire si elle a expiré ou été détruite).
+   */
+  status?(nowMs?: number): TokenStatus | Promise<TokenStatus>;
 
   /**
    * Le COMPTE qui a ouvert la socket existe-t-il toujours, actif, et est-ce

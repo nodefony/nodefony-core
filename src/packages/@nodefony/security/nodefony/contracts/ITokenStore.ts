@@ -15,7 +15,7 @@
  *     auto-porté émis avant un instant T est rejeté → « déconnexion globale » / ban).
  */
 
-import type { IPage, IPageQuery, ISortableSource } from "nodefony";
+import type { IPage, IPageQuery, ISortableSource, TokenStatus } from "nodefony";
 
 /** Raison de révocation d'un jeton — tracée pour l'audit de sécurité. */
 export type TokenRevokeReason =
@@ -182,8 +182,12 @@ export interface ITokenListQuery extends IPageQuery {
   status?: TokenStatus;
 }
 
-/** État de vie d'un jeton — partition exhaustive, évaluée révoqué → expiré → actif. */
-export type TokenStatus = "active" | "expired" | "revoked";
+/**
+ * État de vie d'un jeton — partition exhaustive, évaluée révoqué → expiré → actif.
+ * Défini au cœur (le temps réel le lit aussi, sans dépendre de la sécurité) et
+ * réexporté ici sous le même nom.
+ */
+export type { TokenStatus } from "nodefony";
 
 /**
  * Contrat du store de jetons — implémentations enregistrées via

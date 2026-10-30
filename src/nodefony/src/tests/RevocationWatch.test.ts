@@ -3,6 +3,7 @@ import {
   RevocationWatch,
   REVOCATION_REVALIDATE_MS,
 } from "../runtime/RevocationWatch";
+import type { TokenStatus } from "../realtime/tokenStatus";
 
 /**
  * Le registre des connexions longues à identité révocable — partagé par le hub
@@ -184,5 +185,48 @@ describe("RevocationWatch.refreshIdentity — droits changés (#591)", () => {
     blind.register(b);
     expect(blind.refreshIdentity("boss")).to.equal(0);
     blind.unregister(b);
+  });
+});
+
+describe("RevocationWatch — la cause voyage jusqu'à revoke (ADR-0021 §S11)", () => {
+  type Entry = { name: string; status?: TokenStatus; valid?: boolean };
+  function run(entries: Entry[], statusThrows = false) {
+    const revoked: Array<[string, string]> = [];
+    const watch = new RevocationWatch<Entry>({
+      isValid: (e) => e.valid,
+      status: (e) => {
+        if (statusThrows) throw new Error("store down");
+        return e.status;
+      },
+      revoke: (e, status) => revoked.push([e.name, status]),
+    });
+    for (const e of entries) watch.register(e);
+    return { watch, revoked };
+  }
+
+  it("`expired` et `revoked` arrivent tels quels ; `active` garde l'entrée", async () => {
+    const { watch, revoked } = run([
+      { name: "a", status: "expired" },
+      { name: "b", status: "revoked" },
+      { name: "c", status: "active" },
+    ]);
+    await watch.revalidate();
+    expect(revoked).to.deep.equal([
+      ["a", "expired"],
+      ["b", "revoked"],
+    ]);
+    expect(watch.size).to.equal(1);
+  });
+
+  it("sans cause, `isValid` décide : son `false` vaut `revoked`", async () => {
+    const { watch, revoked } = run([{ name: "s", valid: false }]);
+    await watch.revalidate();
+    expect(revoked).to.deep.equal([["s", "revoked"]]);
+  });
+
+  it("fail-closed : une cause qui lève vaut `revoked`", async () => {
+    const { watch, revoked } = run([{ name: "x", status: "active" }], true);
+    await watch.revalidate();
+    expect(revoked).to.deep.equal([["x", "revoked"]]);
   });
 });

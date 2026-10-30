@@ -8,7 +8,13 @@
  */
 
 import type { IRealtimeDenied } from "../../realtime/RealtimeEventMap";
-import { IDENTITY_REFRESH_CLOSE_CODE } from "../../realtime/closeCodes";
+import {
+  IDENTITY_DEAD_CLOSE_CODE,
+  IDENTITY_REFRESH_CLOSE_CODE,
+  NOT_FOUND_CLOSE_CODE,
+  ORIGIN_REFUSED_CLOSE_CODE,
+  TOKEN_EXPIRED_CLOSE_CODE,
+} from "../../realtime/closeCodes";
 import { JsonRpcError } from "../../jsonrpc/index";
 
 // Contrat de protocole isomorphe (le serveur émet `realtime:denied` avec CE type).
@@ -122,21 +128,27 @@ export function closeCodeToNotice(
       level = "error";
       message = "Erreur serveur temps réel";
       break;
-    case 4001:
+    case IDENTITY_DEAD_CLOSE_CODE:
       // Code privé Nodefony (RealtimeController / RealtimeHub) : authentification
       // refusée, ou session révoquée en cours de route.
       level = "error";
       message = "Session temps réel refusée ou révoquée";
       break;
-    case 4003:
+    case ORIGIN_REFUSED_CLOSE_CODE:
       // Code privé Nodefony (RealtimeController) : origine refusée.
       level = "error";
       message = "Origine refusée par le serveur temps réel";
       break;
-    case 4004:
+    case NOT_FOUND_CLOSE_CODE:
       // Code privé Nodefony (toWsCloseCode) : 4xx applicatif (404…).
       level = "error";
       message = "Ressource temps réel introuvable";
+      break;
+    case TOKEN_EXPIRED_CLOSE_CODE:
+      // Jeton porteur arrivé à `exp` sur une socket ouverte : un jeton neuf
+      // suffirait, mais le client 10.0 ne sait pas en obtenir un — définitif.
+      level = "error";
+      message = "Votre jeton a expiré — reconnectez-vous avec un jeton neuf";
       break;
     case IDENTITY_REFRESH_CLOSE_CODE:
       // Droits de l'identité changés (rôles) : fermeture pour reconnexion,
@@ -169,13 +181,23 @@ export function closeCodeToNotice(
  * réessayant : fin propre (1000), erreurs de protocole/négociation
  * (1002/1003/1007/1010), violation de politique = 401/403 mappés (1008), et
  * les codes privés Nodefony : authentification refusée ou session révoquée
- * (4001), origine refusée (4003), ressource introuvable (4004). Une boucle de
+ * (4001), origine refusée (4003), ressource introuvable (4004), jeton porteur
+ * expiré (4006 — le client 10.0 ne sait pas en obtenir un neuf). Une boucle de
  * reco sur ces codes martèle le serveur pour rien (vécu : un anonyme sur un
  * endpoint protégé) — et après une révocation, elle rejouerait l'identité
  * révoquée à chaque tentative.
  */
 const FATAL_CLOSE_CODES: ReadonlySet<number> = new Set([
-  1000, 1002, 1003, 1007, 1008, 1010, 4001, 4003, 4004,
+  1000,
+  1002,
+  1003,
+  1007,
+  1008,
+  1010,
+  IDENTITY_DEAD_CLOSE_CODE,
+  ORIGIN_REFUSED_CLOSE_CODE,
+  NOT_FOUND_CLOSE_CODE,
+  TOKEN_EXPIRED_CLOSE_CODE,
 ]);
 
 /**

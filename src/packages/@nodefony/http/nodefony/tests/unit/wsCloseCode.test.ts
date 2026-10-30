@@ -1,3 +1,4 @@
+import { TOKEN_EXPIRED_CLOSE_CODE } from "nodefony";
 /// <reference types="node" />
 import { expect } from "vitest";
 import {
@@ -117,5 +118,21 @@ describe("toHandshakeStatus — statut d'un handshake refusé avant le 101 (#596
     // 401/403 → 1008 (fermeture) et 1008 → 403 (handshake) : jamais 1011/500,
     // qui ferait reconnecter le client en boucle.
     expect(toHandshakeStatus(toWsCloseCode(403))).to.equal(403);
+  });
+});
+
+describe("toWsCloseCode / toHandshakeStatus — jamais 4006 avant le 101 (ADR-0021 §S11)", () => {
+  it("un refus d'authentification à la poignée de main reste 401 → 1008", () => {
+    expect(toWsCloseCode(401)).to.equal(1008);
+  });
+
+  it("aucun statut HTTP ne se traduit en 4006 : un jeton expiré à l'entrée n'est pas distingué", () => {
+    // Un refus distinct dirait à qui tient un jeton volé qu'il a été émis par
+    // l'application (S-rt-69) : 4006 n'existe que sur une socket OUVERTE.
+    for (let status = 400; status < 600; status += 1) {
+      expect(toWsCloseCode(status), `HTTP ${status}`).to.not.equal(
+        TOKEN_EXPIRED_CLOSE_CODE,
+      );
+    }
   });
 });
