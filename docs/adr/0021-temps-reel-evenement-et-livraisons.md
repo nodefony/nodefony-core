@@ -650,6 +650,8 @@ client qui décide de revenir lisent la même constante.
 | Code   | Constante                     | Cause                                                                                                                     | Client 10.0              |
 | ------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
 | `4001` | `IDENTITY_DEAD_CLOSE_CODE`    | identité morte : `authenticate` lève, session détruite, jeton RÉVOQUÉ                                                     | s'arrête                 |
+| `4003` | `ORIGIN_REFUSED_CLOSE_CODE`   | origine refusée à la poignée de main (RFC 6455 §10.2)                                                                     | s'arrête                 |
+| `4004` | `NOT_FOUND_CLOSE_CODE`        | ressource temps réel introuvable (4xx applicatif sans équivalent RFC)                                                     | s'arrête                 |
 | `4005` | `IDENTITY_REFRESH_CLOSE_CODE` | droits changés, identité vivante                                                                                          | revient aussitôt         |
 | `4006` | `TOKEN_EXPIRED_CLOSE_CODE`    | le jeton PORTEUR d'une socket ouverte a atteint son `exp`                                                                 | s'arrête (définitif)     |
 | `4007` | `BACKPRESSURE_CLOSE_CODE`     | émis par le CLIENT : sa file d'envoi ne se vide plus (ADR-0022 §5 C1, #703)                                               | se reconnecte            |

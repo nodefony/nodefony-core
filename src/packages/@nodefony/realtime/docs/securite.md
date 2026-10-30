@@ -633,19 +633,45 @@ inscrit et l'arrête dès que le registre se vide : zéro timer au repos. Pério
 
 Ce que `realtimeRevocation.attack.test.ts` prouve exactement :
 
-| Cas                                        | Comportement prouvé                                      |
-| ------------------------------------------ | -------------------------------------------------------- |
-| `isValid()` renvoie `false`                | `close(4001, "session revoked")`                         |
-| `isValid()` renvoie `true`                 | socket **intacte** (contrôle positif, pas de faux refus) |
-| `isValid()` **throw** (store indisponible) | socket fermée — fail-closed, parité avec `api.request`   |
-| déjà révoqué                               | retiré du registre avant le close → aucun re-close       |
-| déconnexion propre                         | `unregisterRevocable` → plus jamais re-validé            |
-| registre vide                              | tick no-op, aucun crash                                  |
+| Cas                                        | Comportement prouvé                                       |
+| ------------------------------------------ | --------------------------------------------------------- |
+| `isValid()` renvoie `false`                | `close(4001, "session revoked")`                          |
+| `status()` rend `expired` (jeton porteur)  | `close(4006, "token expired")`                            |
+| `status()` rend `revoked`                  | `close(4001, "session revoked")`, même si `exp` est passé |
+| `isValid()` renvoie `true`                 | socket **intacte** (contrôle positif, pas de faux refus)  |
+| `isValid()` **throw** (store indisponible) | socket fermée — fail-closed, parité avec `api.request`    |
+| déjà révoqué                               | retiré du registre avant le close → aucun re-close        |
+| déconnexion propre                         | `unregisterRevocable` → plus jamais re-validé             |
+| registre vide                              | tick no-op, aucun crash                                   |
 
 La source de vérité côté security est `buildSessionRevalidator()`
 (`FirewallRealtimeAuthenticator.ts#buildSessionRevalidator`) : il relit la session BFF **par son id capturé au handshake**
 et vérifie qu'elle est toujours vivante **et toujours celle du même utilisateur** — ce second point
 attrape le changement de compte sur un navigateur partagé.
+
+**Le code de fermeture dit la cause** (`realtime/closeCodes.ts`, ADR-0021 §S11). Un jeton porteur
+sait pourquoi il est mort : `IRealtimeToken.status()` rend `expired` ou `revoked`, et la
+révocation l'emporte — la liste de refus est interrogée avant de conclure à l'expiration.
+
+| Cause sur une socket OUVERTE                                  | Code                                   | Client 10.0          |
+| ------------------------------------------------------------- | -------------------------------------- | -------------------- |
+| jeton porteur arrivé à `exp`                                  | `4006` (`TOKEN_EXPIRED_CLOSE_CODE`)    | s'arrête (définitif) |
+| jeton porteur révoqué (`jti`, `invalidBefore`), expiré ou non | `4001` (`IDENTITY_DEAD_CLOSE_CODE`)    | s'arrête             |
+| session expirée ou détruite (la cause n'est pas connaissable) | `4001`                                 | s'arrête             |
+| droits changés, identité vivante                              | `4005` (`IDENTITY_REFRESH_CLOSE_CODE`) | revient aussitôt     |
+| refus à la poignée de main, quel qu'il soit                   | 401 uniforme → `1008`                  | s'arrête             |
+
+> [!IMPORTANT]
+> **Jamais de `4006` à la poignée de main.** Un refus distinct y dirait à qui tient un jeton volé
+> qu'il a été émis par l'application : un jeton expiré présenté à l'entrée reçoit le même 401 que
+> n'importe quel autre refus.
+
+**Recette — un jeton d'une heure sur une socket de sept jours.** La socket vit plus longtemps que son
+jeton : au bout d'une heure, elle est fermée en `4006`, et le client 10.0 ne revient pas seul. C'est
+à l'application de **recréer sa socket avec un jeton neuf avant `exp`** — par exemple obtenir un
+nouveau jeton cinq minutes avant l'échéance, ouvrir la nouvelle socket, puis fermer l'ancienne.
+Un client qui saura obtenir un jeton frais de lui-même viendra dans une version 10.x, sans que le
+serveur change.
 
 **Un changement de rôles coupe sur-le-champ, sans attendre le tick.** Quand une mise à jour du compte
 touche ses rôles, le hub ferme toutes les sockets de cette identité avec le code **4005**
@@ -793,7 +819,7 @@ n'est pas appliquée.
 | Norme                                 | Application                                                                                  |
 | ------------------------------------- | -------------------------------------------------------------------------------------------- |
 | **RFC 6455 §10.2** (Origin)           | Contrôle d'origine à l'upgrade, aux deux étages                                              |
-| **RFC 6455 §7.4.2** (codes 4000-4999) | `4001` unauthorized / session revoked, `4003` origin not allowed                             |
+| **RFC 6455 §7.4.2** (codes 4000-4999) | `4001` unauthorized / session revoked, `4003` origin not allowed, `4006` token expired       |
 | **RFC 6455 §7.4.1 / registre IANA**   | `1008` Policy Violation (origine transport), `1009` Message Too Big, `1013` Try Again Later  |
 | **RFC 6455 §4.1**                     | `Sec-WebSocket-Protocol` normalisé en liste dans le DTO de handshake                         |
 | **RFC 9110 §7.2**                     | Comparaison du `Host` par le matcher d'authenticator                                         |

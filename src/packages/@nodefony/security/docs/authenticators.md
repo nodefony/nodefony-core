@@ -348,8 +348,9 @@ l'ALS. `FirewallRealtimeAuthenticator.supports()` ne fait que le constater
   ouverte (logout, changement de compte, `jti` denylisté). En mode session,
   `buildSessionRevalidator()` re-lit `storage.read(id)` et compare l'identifiant ; toute erreur de
   lecture invalide, fail-closed (`FirewallRealtimeAuthenticator.ts#SessionLike.storage`). En mode jeton porteur, la
-  preuve est autre : `exp`, `jti` denylisté, `invalidBefore`
-  (`FirewallRealtimeAuthenticator.ts#FirewallRealtimeAuthenticator.#buildBearerRevalidator`).
+  preuve est autre : `jti` denylisté, `invalidBefore`, puis `exp` — dans cet ordre, car révoqué
+  l'emporte sur expiré — et la cause est rendue : un jeton expiré ferme la socket en `4006`, un jeton
+  révoqué en `4001` (`FirewallRealtimeAuthenticator.ts#FirewallRealtimeAuthenticator.#buildBearerStatus`).
 
 > [!NOTE]
 > **Asymétrie de révocation HTTP↔WS (assumée)** : le jeton realtime est figé au handshake (les

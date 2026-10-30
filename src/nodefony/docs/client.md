@@ -341,8 +341,11 @@ stateDiagram-v2
 La subtilité utile est la distinction entre fermeture **transitoire** et **définitive**.
 `isReconnectableCloseCode()` (`client/realtime/notice.ts#isReconnectableCloseCode`) lit le code de fermeture : une perte
 réseau (1006) ou un redémarrage serveur (1011) relancent la boucle de reconnexion ; un refus de
-politique (1008, c'est-à-dire un 401/403 traduit), une session refusée ou révoquée (4001) et une
-origine refusée (4003) ne la relancent **pas**. Un refus AU HANDSHAKE (le serveur répond 401/403
+politique (1008, c'est-à-dire un 401/403 traduit), une identité refusée ou révoquée (4001), une
+origine refusée (4003), une ressource introuvable (4004) et un **jeton porteur expiré** (4006) ne la
+relancent **pas**. Ces codes vivent dans un seul registre, exporté par `nodefony`
+(`realtime/closeCodes.ts#TOKEN_EXPIRED_CLOSE_CODE` et ses voisins) : comparez à la constante, jamais
+au nombre. Un refus AU HANDSHAKE (le serveur répond 401/403
 avant le `101`) arrive, lui, comme un `1006` que le navigateur ne distingue pas d'une panne : le
 client pose alors une requête HTTP sur la même adresse (option `probe`) et un 401/403/404 vaut le
 même refus définitif. Sans cette règle, un visiteur anonyme martèlerait
@@ -992,6 +995,7 @@ Le détail du builder, du rechargement à chaud et du rendu de la page côté se
 | Une donnée mal formée traverse l'écran sans erreur              | `request<T>()` **convertit** le type, il ne valide rien                                                                                       | Valider au bord (Zod, déjà dépendance du framework) toute donnée sensible ou non maîtrisée                       |
 | Les erreurs de la page n'arrivent pas au journal du pod         | `clientLogs.enabled` fermé, visiteur anonyme, ou sévérité au-delà de `maxSeverity`                                                            | Voir [Les journaux de l'onglet](#-les-journaux-de-longlet-remontés-au-pod)                                       |
 | Le canal reste ouvert alors que l'écran a « coupé » le direct   | Le composant abonné est resté monté ; aucune liaison n'a d'interrupteur                                                                       | Démonter le composant abonné                                                                                     |
+| La socket se ferme en 4006 au bout d'une heure                  | Le jeton porteur qui l'a ouverte a atteint son `exp` ; un client 10.0 ne sait pas en obtenir un neuf, il s'arrête                             | Recréer la socket avec un jeton frais AVANT `exp` (voir la recette de la page Sécurité du temps réel)            |
 | L'interface affiche des rôles périmés après un changement       | Rôles mémorisés à la connexion ; la socket s'est reconnectée (4005) avec les nouveaux                                                         | Lire l'identité par `onIdentity()` ou le hook du moteur                                                          |
 | Deux instances de React après ajout de `nodefony/react`         | React empaqueté au lieu d'être externe                                                                                                        | Déjà traité au build (`rolldown.config.ts#browserShim`) ; vérifier ses propres alias                             |
 
