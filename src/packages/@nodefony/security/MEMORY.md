@@ -96,8 +96,9 @@ Consomme `@nodefony/user`. Coupling http→security = **type-only** (`Firewall`/
     `subject` ne se justifie que si l'on PRODUIT l'espace de noms (l'app est son propre émetteur : décor
     `src/modules/test`, émetteur `https://localhost:5152`). Composition dans `localIdentifierFor`
     (`src/authenticator/externalSubject.ts`) — séparateur `#`, **injectif** car RFC 8414 §2 interdit le
-    fragment dans un `issuer`. S'applique AUSSI en `ephemeral` : aucun compte n'est pris, mais deux
-    annuaires homonymes se confondraient dans l'audit, les compteurs et les canaux realtime privés.
+    fragment dans un `issuer`. En `ephemeral`, TOUJOURS `prefixed`, quel que soit `subjectMapping`
+    (qui ne règle que la recherche d'un compte, et aucun n'est cherché) : sinon deux annuaires
+    homonymes se confondraient dans l'audit, les compteurs et les canaux realtime privés.
     Émetteur vérifié absent de la table ⇒ **503**, jamais un rattachement deviné.
   - `subjectPolicy` : **`require`** (défaut) = `loadUserByIdentifier(<identifiant composé>)`,
     absent/inactif/verrouillé ⇒ 401 ·

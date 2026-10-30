@@ -643,6 +643,38 @@ describe("ExternalJwtAuthenticator — appelant purement machine (policy `epheme
       "une identité éphémère ne doit rien emporter de la précédente",
     );
   });
+
+  it("🔴 l'émetteur reste dans l'identifiant même sous `subjectMapping: \"subject\"` — deux annuaires, un même `sub`, deux appelants", async () => {
+    // `subject` dit « les sujets de cet émetteur SONT nos logins » : il ne sert
+    // qu'à chercher un compte local. En `ephemeral`, aucun compte n'est cherché —
+    // le réglage n'y ferait qu'effacer l'émetteur, et deux agents homonymes
+    // partageraient audit, compteur de limitation et canal privé.
+    const OTHER = "https://login.partner.example";
+    const auth = build(
+      {
+        accessTokenVerifier: (token: string): Promise<IAccessPrincipal> =>
+          Promise.resolve({
+            issuer: peekIssuer(token) ?? "",
+            subject: "agent-7",
+            scopes: [],
+          }),
+      },
+      {
+        subjectPolicy: "ephemeral",
+        subjectMapping: "subject",
+        issuers: [ISSUER, OTHER],
+      },
+    );
+    const identify = async (iss: string): Promise<string> => {
+      const raw = jws({ iss, sub: "agent-7" });
+      const token = await auth.authenticate(
+        await auth.createToken(httpContext(`Bearer ${raw}`)),
+      );
+      return token.getUser().identifier;
+    };
+    assert.equal(await identify(ISSUER), EXT_ID);
+    assert.equal(await identify(OTHER), `${OTHER}#agent-7`);
+  });
 });
 
 describe("ExternalJwtAuthenticator — politique de sujet PAR ZONE", () => {

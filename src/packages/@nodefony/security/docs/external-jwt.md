@@ -98,6 +98,10 @@ rattaché au compte local du même nom.
 `subject` ne se déclare donc que si l'on maîtrise l'espace de noms de cet émetteur : typiquement
 parce qu'il **est** cette application, ou parce que ses sujets sont déjà des identifiants locaux.
 
+`subjectMapping` ne règle que la **recherche d'un compte local** : sous `subjectPolicy: "ephemeral"`,
+où aucun compte n'est cherché, l'identifiant de l'appelant est **toujours** `<issuer>#<sub>`, quel
+que soit le réglage (`ExternalSubjectResolver.ts#ExternalSubjectResolver.resolve`).
+
 ### `subjectPolicy` — qui a le droit d'exister
 
 - **`require`** (défaut) — le sujet doit correspondre à un compte local (`loadUserByIdentifier`).

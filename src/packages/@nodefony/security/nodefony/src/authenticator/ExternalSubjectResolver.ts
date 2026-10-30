@@ -214,24 +214,25 @@ export class ExternalSubjectResolver {
           `rattachement des sujets — configuration incohérente.`,
       );
     }
-    // UNE seule composition, quelle que soit la politique. En `ephemeral` aussi
-    // le sujet doit porter son émetteur : sans cela, deux annuaires distincts
-    // produisent le même appelant machine — même ligne d'audit, même compteur
-    // de limitation, même canal realtime privé. Aucun compte n'est pris, mais
-    // deux identités se confondent, ce qui est le même défaut d'espace de noms.
-    const identifier = localIdentifierFor(issuer, subject, mapping);
     // La zone qui déclare sa politique gagne sur la globale — et apporte SES
     // rôles, jamais ceux de la globale (`SecuredArea` les résout au boot).
     const policy = area?.subjectPolicy ?? this.#policy;
     if (policy === "ephemeral") {
+      // En `ephemeral`, le sujet porte TOUJOURS son émetteur, quel que soit le
+      // `subjectMapping` : ce réglage ne sert qu'à CHERCHER un compte local, et
+      // aucun n'est cherché ici. Le laisser jouer effacerait l'émetteur — deux
+      // annuaires distincts produiraient le même appelant machine : même ligne
+      // d'audit, même compteur de limitation, même canal realtime privé.
       // Identité qui ne survit pas à la requête : rien n'est écrit, rien n'est
       // à nettoyer.
+      const identifier = localIdentifierFor(issuer, subject, "prefixed");
       return new BaseUser({
         id: identifier,
         identifier,
         roles: [...(area?.ephemeralRoles ?? this.#ephemeralRoles)],
       });
     }
+    const identifier = localIdentifierFor(issuer, subject, mapping);
     const provider = this.#resolveUserProvider();
     let user: IUser | null = null;
     // L'émetteur est celui d'un fournisseur de connexion : le compte que la
