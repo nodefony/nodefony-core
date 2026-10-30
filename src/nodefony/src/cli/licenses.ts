@@ -90,6 +90,12 @@ export const ALLOWED: ReadonlySet<string> = new Set([
   // CUMULENT. `@bufbuild/protobuf` (via `sass-embedded`) : Apache-2.0, avec les
   // fichiers dérivés de Google Protobuf restés BSD-3-Clause.
   "(Apache-2.0 AND BSD-3-Clause)",
+  // Source disponible, PAS libre : interdit pendant deux ans d'en tirer un
+  // produit CONCURRENT de son éditeur, puis devient Apache-2.0. Examinée pour
+  // `sentry` (via lighthouse → `@sentry/node` → `@sentry/bundler-plugins`) :
+  // dépendance de pair du devkit, installée par l'utilisateur, jamais
+  // redistribuée par Nodefony, et sans rapport avec un produit de suivi d'erreurs.
+  "FSL-1.1-Apache-2.0",
 ]);
 
 /**
@@ -97,7 +103,8 @@ export const ALLOWED: ReadonlySet<string> = new Set([
  *
  * Toutes celles de {@link ALLOWED} autorisent l'usage commercial, la
  * modification et la redistribution dans un produit propriétaire — c'est ce qui
- * les rend acceptables ici. Elles ne se distinguent donc que par ce qu'elles
+ * les rend acceptables ici. Une seule y met une borne : `FSL-1.1-Apache-2.0`
+ * exclut, deux ans durant, un produit concurrent de son éditeur. Elles ne se distinguent donc que par ce qu'elles
  * EXIGENT en retour, et c'est la seule chose utile à lire en face d'un
  * décompte : personne ne relit quinze textes de licence.
  *
@@ -137,6 +144,10 @@ export const LICENSE_DUTY: ReadonlyMap<string, string> = new Map([
   [
     "(Apache-2.0 AND BSD-3-Clause)",
     "CUMUL : notice et NOTICE d'Apache, plus la notice BSD sans invoquer le nom des auteurs",
+  ],
+  [
+    "FSL-1.1-Apache-2.0",
+    "aucun produit CONCURRENT de l'éditeur pendant deux ans, puis Apache-2.0 ; garder la notice",
   ],
 ]);
 
