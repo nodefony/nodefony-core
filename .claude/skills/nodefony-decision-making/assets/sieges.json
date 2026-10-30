@@ -8,20 +8,20 @@
   "sieges": {
     "contradicteur": {
       "modele": "fable",
-      "raison": "prouvé (2 tables) : en #702, une passe par tour de convergence (3) — chaque passe a fait tomber la forme proposée, dont un défaut de sécurité dans le code existant ; le siège le plus cher (11,60 $) ET celui dont les constats changent la décision. Faux : deux ABSENCES affirmées à tort (un test, une identité sans compte)",
-      "tables": 2,
-      "constatsRendus": 32,
-      "constatsRetenus": 30,
+      "raison": "prouvé (3 tables) : en #702, chaque passe a fait tomber la forme proposée ; au tour « quand allow », 8 constats sur 8 retenus, dont une décision acceptée que le dossier du principal avait ratée (ADR-0022 §6) — le siège le plus cher ET celui dont les constats changent la décision. Faux : deux ABSENCES affirmées à tort (tables précédentes)",
+      "tables": 3,
+      "constatsRendus": 40,
+      "constatsRetenus": 38,
       "constatsFaux": 2,
       "essais": [],
-      "coutUsd": 18.14
+      "coutUsd": 22.45
     },
     "attaquant": {
       "modele": "fable",
       "raison": "point de départ fable ; essai sonnet 1/2 en #702 (non contrôlé) : constats propres (user:null, === true strict, identité gelée, revendications inter-locataires), aucun faux. Un second essai concordant, contrôlé, le fera descendre",
-      "tables": 2,
-      "constatsRendus": 27,
-      "constatsRetenus": 20,
+      "tables": 3,
+      "constatsRendus": 30,
+      "constatsRetenus": 23,
       "constatsFaux": 0,
       "essais": [
         {
@@ -30,49 +30,56 @@
           "vers": "sonnet",
           "controle": false,
           "verdict": "concordant — 16 constats retenus sur 20, aucun faux ; essai NON contrôlé (pas de siège fable en parallèle, décision de l’auteur pour le coût)"
+        },
+        {
+          "table": "#702 (quand allow)",
+          "de": "fable",
+          "vers": "sonnet",
+          "controle": false,
+          "verdict": "concordant — 3 attaques neuves retenues (réessai qui réutilise l’abonnement capturé, file partagée sans quota, précédence des motifs), dont un défaut du code vérifié ; aucun faux ; NON contrôlé. 3 tables jouées : la prochaine fait l’essai CONTRÔLÉ (fable et sonnet en parallèle, §9)"
         }
       ],
-      "coutUsd": 6.17
+      "coutUsd": 6.59
     },
     "gardien-compatibilite": {
       "modele": "sonnet",
       "raison": "point de départ : appliquer une politique écrite à un cas",
-      "tables": 2,
-      "constatsRendus": 24,
-      "constatsRetenus": 17,
+      "tables": 3,
+      "constatsRendus": 34,
+      "constatsRetenus": 25,
       "constatsFaux": 0,
       "essais": [],
-      "coutUsd": 1.74
+      "coutUsd": 2.03
     },
     "specialiste-perf": {
       "modele": "sonnet",
-      "raison": "point de départ : confronter aux règles du chemin chaud et aux mesures",
-      "tables": 0,
-      "constatsRendus": 0,
-      "constatsRetenus": 0,
+      "raison": "1 table (#702) : seul siège à voir qu’un verdict retenu par (abonnement, canal) ne borne rien quand chaque ressource a son canal — constat qui a fait reporter le choix à une mesure",
+      "tables": 1,
+      "constatsRendus": 4,
+      "constatsRetenus": 3,
       "constatsFaux": 0,
       "essais": [],
-      "coutUsd": 0
+      "coutUsd": 0.41
     },
     "exploitant": {
       "modele": "sonnet",
       "raison": "point de départ : repérer ce qui casse en silence en production",
-      "tables": 2,
-      "constatsRendus": 19,
-      "constatsRetenus": 15,
+      "tables": 3,
+      "constatsRendus": 23,
+      "constatsRetenus": 17,
       "constatsFaux": 0,
       "essais": [],
-      "coutUsd": 1.16
+      "coutUsd": 1.42
     },
     "developpeur-application": {
       "modele": "sonnet",
-      "raison": "point de départ : écrire le code imposé par la décision",
-      "tables": 2,
-      "constatsRendus": 19,
-      "constatsRetenus": 11,
+      "raison": "vue = kit d’une application générée seul (skill livré nodefony-dev, doc publique) : a montré que « arguments seuls » était inécrivable sans accès aux services — constat qui a changé la signature (troisième argument)",
+      "tables": 3,
+      "constatsRendus": 24,
+      "constatsRetenus": 15,
       "constatsFaux": 0,
       "essais": [],
-      "coutUsd": 1.25
+      "coutUsd": 1.87
     },
     "auteur-extension": {
       "modele": "sonnet",

@@ -497,9 +497,11 @@ boolean | Promise<boolean>` — l'identité d'admission commune aux trois livrai
     jusqu'à son éjection explicite (#623, `realtime:closed { reason: "evicted" }`).
   - Le nom : `allow` (pas `admit`, qui ne se devine pas). Une liste de membres est **une** façon
     d'écrire `allow`, pas une primitive (S7).
-  - **À revalider au code, avec l'auteur, signatures sous les yeux** : (a) comment `allow` atteint
-    les services de l'application (une flèche dans les arguments d'un décorateur n'a ni `this` ni
-    injection) ; (b) le miroir structurel de `IChannelPolicy` dans
+  - **À revalider au code, avec l'auteur, signatures sous les yeux** : (a) la FORME de l'accès
+    aux services — le principe est tranché par ADR-0021 §S10 bis : un troisième argument
+    `services`, résolu sur le conteneur du noyau (une flèche dans les arguments d'un décorateur n'a
+    ni `this` ni injection, et aucune instance de contrôleur n'existe à l'émission d'un webhook) ;
+    (b) le miroir structurel de `IChannelPolicy` dans
     `src/packages/@nodefony/security/nodefony/src/realtime/realtimeContracts.ts` — un test compare
     les deux formes ; (c) la garde `isChannelPolicy` des décorateurs, qui doit accepter une
     fonction ; (d) la valeur du délai ; (e) ce que montre une introspection des politiques (une

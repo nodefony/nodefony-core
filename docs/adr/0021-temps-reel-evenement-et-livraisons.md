@@ -390,9 +390,59 @@ la sentinelle mentirait) ; les revendications du jeton dans l'identité (point 2
 rupture** : une règle déclarative `{ owner: true }` où le framework compare lui-même la fin du nom
 de canal à `id` — un ajout d'API, à peser dans #622.
 
-**Reste à trancher** : QUAND `allow` est évalué pour chaque livraison — compte introuvable à
-l'émission d'un webhook, scopes d'un abonnement, émetteur retiré de la liste d'autorisation,
-journal et compteur des refus.
+#### S10 bis. Le contrat d'`allow`, publié avec 10.0
+
+**Décision (validée par l'auteur le 2026-10-30, après la table d'experts de #702 sur QUAND
+`allow` est évalué) :** le TSDoc d'`allow` et la page publique de la sécurité temps réel disent,
+dès 10.0 :
+
+```ts
+allow?: (
+  channel: string,
+  who: ISubscriberIdentity,
+  services: IAllowServices, // accès aux services de l'application ; type exact fixé au code de #622
+) => boolean | Promise<boolean>;
+```
+
+1. **Ses arguments, et rien d'autre.** Ni contexte de requête, ni session : à l'émission d'un
+   webhook il n'y en a pas, et un `allow` qui les lirait passerait tous ses tests sur la socket
+   puis refuserait 100 % des webhooks, sans un mot (S-rt-63). `services` est la voie vers les
+   données de l'application (une appartenance en base) : il est résolu sur le conteneur du noyau,
+   présent dans les trois livraisons. Sans lui, la règle pousserait vers le contexte de requête,
+   ou vers un accesseur global hors injection.
+2. **Il peut être appelé plus d'une fois pour un même abonné** — rejeu à la reconnexion
+   (ADR-0022 §6), réabonnement après un changement d'identité, livraison d'un webhook : il doit
+   être idempotent et sans effet de bord. Le nombre d'appels n'est pas une garantie du contrat.
+3. **Son délai est borné** ; une exception, une promesse rejetée ou un délai dépassé valent refus
+   à l'admission (S10 point 5). Le sort d'une panne à l'émission d'un webhook est réglé avec les
+   abonnements par API (W6) : une panne n'y sera jamais traitée comme un verdict `false`
+   (S-rt-60).
+4. **Il s'ajoute aux exigences de SA politique** (`authenticated`, `roles`, `scopes`, puis
+   `allow`). Un canal ne résout qu'une politique — le nom exact, sinon le motif le plus
+   spécifique (`src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts#RealtimeHub.resolveChannelPolicy`) :
+   une politique plus spécifique remplace la sienne en entier, `allow` compris.
+5. **`who.scopes` porte les scopes du jeton qui a ouvert CETTE livraison** ; il est vide pour une
+   session et pour un webhook (rien n'est stocké avec l'abonnement, S10 point 6).
+
+- **Rupture si différé : OUI** (gardien de la compatibilité, table #702) : déclarer « ses
+  arguments seuls » après 10.0 rendrait faux un `allow` qui lit le contexte, sans qu'il ait
+  changé. Le troisième argument, lui, est un ajout : la forme de `IAllowServices` se fixe au code
+  de #622, avec l'auteur.
+- **Gardé par** (#622) : un test joue le MÊME `allow` à l'admission d'une socket et à l'émission
+  d'un webhook et exige le même verdict ; un `allow` qui lit le contexte de requête est refusé
+  par ce test ; un test prouve qu'une politique plus spécifique sans `allow` ouvre le canal.
+
+**Reporté aux abonnements par API (W6, 10.1), sans rupture** : quand un webhook évalue `allow`
+(à chaque tentative, verdict retenu ou non — W-a, à la création seulement, est écarté : un
+abonnement à motif n'a aucun canal à passer, et un droit vu une fois survit à la personne) ; un
+verdict retenu par `(abonnement, canal)` ne borne pas le coût de S-rt-59 quand chaque ressource a
+son canal — à mesurer avant de choisir ; le stockage des scopes avec l'abonnement ; un quota par
+abonnement dans la file des livraisons.
+
+**Reste à trancher** : l'émetteur retiré de la liste acceptée (une socket ouverte par jeton n'y
+est pas revalidée) ; le changement d'identité entre exemplaires (S-rt-61) ; le nom du compteur des
+refus — ni `droppedTotal` (« jeté faute de place », S9) ni `failedTotal` (« refusé par la
+destination ») : un refus n'est pas une perte.
 
 ### Ce qui reste hors du socle
 
