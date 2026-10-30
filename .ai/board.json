@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-30T18:42:08.124Z",
+  "generatedAt": "2026-10-30T18:50:23.828Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -5535,7 +5535,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
-      "jours": 1,
+      "jours": 2,
       "ordre": 6.0315,
       "debut": "2026-11-03",
       "cible": "2026-11-03",
@@ -5612,7 +5612,7 @@
       "title": "test(media): lancer les tests audio dans un vrai navigateur",
       "url": "https://github.com/nodefony/nodefony-core/issues/631",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -5676,7 +5676,7 @@
       "title": "docs(realtime): montrer par l'exemple les grands cas d'usage du temps réel",
       "url": "https://github.com/nodefony/nodefony-core/issues/700",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,

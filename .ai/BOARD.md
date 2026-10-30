@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-30 18:42** (UTC).
+> Empreinte prise le **2026-10-30 18:50** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -119,7 +119,7 @@ Ordre 6.03 · P2 — décision · 32 j · jalon 10.0.0-beta · frise 2026-10-29 
 | 6.0312 | P1 — figé à la création | 1 | 2026-11-02 → 11-02 | #704 | feat(realtime)!: exiger une charge structurée, compter les sceaux refusés |
 | 6.0313 | P1 — figé à la création | 1 | 2026-11-03 → 11-03 | #705 | fix(security): aligner les abonnements webhook sur les motifs des canaux |
 | 6.0314 | P1 — figé à la création | 1 | 2026-11-03 → 11-03 | #706 | feat(realtime)!: fermer en 4006 la socket dont le jeton porteur expire |
-| 6.0315 | P1 — figé à la création | 1 | 2026-11-03 → 11-03 | #703 | feat(realtime): borner la socket, envois en trop jetés et trames comptées |
+| 6.0315 | P1 — figé à la création | 2 | 2026-11-03 → 11-03 | #703 | feat(realtime): borner la socket, envois en trop jetés et trames comptées |
 | 6.032 | P2 — décision | 2 | 2026-11-04 → 11-04 | #628 | feat(realtime): tenir le serveur au même contrat que le client |
 | 6.033 | P2 — décision | 3 | 2026-11-11 → 11-11 | #618 | feat(realtime): router les trames binaires vers leur canal |
 | 6.034 | P2 — décision | 3 | 2026-11-05 → 11-05 | #622 | feat(realtime): admettre un abonné de canal par son identité |

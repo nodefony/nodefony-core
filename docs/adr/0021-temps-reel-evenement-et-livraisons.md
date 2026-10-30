@@ -343,21 +343,23 @@ dépend de la garde. Il n'y a donc pas de compteur générique des refus : chaqu
 dans un ensemble fermé, et son unité s'écrit avec son nom — comme pour les quatre compteurs
 ci-dessus.
 
-| Nom                         | Ce qu'il compte                                                                   | Unité                           | Où                     |
-| --------------------------- | --------------------------------------------------------------------------------- | ------------------------------- | ---------------------- |
-| `ingressRejectedTotal`      | message du bus refusé à l'entrée (canal non déclaré diffusé)                      | un message reçu d'un exemplaire | sonde du hub, existant |
-| `systemFloorDeniedTotal`    | abonnement refusé par le plancher des canaux de plateforme                        | une demande d'abonnement        | sonde du hub, existant |
-| `sealRejectedTotal`         | message du bus dont le sceau ne se vérifie pas (S6)                               | un message reçu d'un exemplaire | #704                   |
-| `allowTimedOutTotal`        | `allow` qui n'a pas répondu dans `realtime.allowTimeoutMs` (S10 bis)              | un appel d'`allow`              | #622                   |
-| `allowSaturatedTotal`       | demande rendue `unavailable` sans appel d'`allow` (plafond global, coupe-circuit) | une demande d'abonnement        | #622                   |
-| `authenticateTimedOutTotal` | `authenticate()` sans réponse dans `realtime.authenticateTimeoutMs` (S11)         | une poignée de main             | #622                   |
+| Nom                         | Ce qu'il compte                                                                                           | Unité                           | Où                     |
+| --------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------- | ---------------------- |
+| `ingressRejectedTotal`      | message du bus refusé à l'entrée (canal non déclaré diffusé)                                              | un message reçu d'un exemplaire | sonde du hub, existant |
+| `systemFloorDeniedTotal`    | abonnement refusé par le plancher des canaux de plateforme                                                | une demande d'abonnement        | sonde du hub, existant |
+| `sealRejectedTotal`         | message du bus dont le sceau ne se vérifie pas (S6)                                                       | un message reçu d'un exemplaire | #704                   |
+| `allowTimedOutTotal`        | `allow` qui n'a pas répondu dans `realtime.allowTimeoutMs` (S10 bis)                                      | un appel d'`allow`              | #622                   |
+| `allowSaturatedTotal`       | demande rendue `unavailable` sans appel d'`allow` (plafond global, coupe-circuit)                         | une demande d'abonnement        | #622                   |
+| `frameRateRejectedTotal`    | trame entrante écartée par la borne de débit, avant tout décodage (ADR-0022 §5 C2, désactivée par défaut) | une trame reçue                 | #703                   |
+| `authenticateTimedOutTotal` | `authenticate()` sans réponse dans `realtime.authenticateTimeoutMs` (S11)                                 | une poignée de main             | #622                   |
 
 - **Le FILTRAGE n'est pas un refus** (S-rt-67). Un `allow` qui rend `false` à l'émission d'un
   webhook dit « ce message n'est pas pour toi » — 400 000 fois par seconde dans un usage normal
   (S-rt-59). Il n'entre dans aucun compteur de refus : il noierait les refus de sécurité (verrou,
   sceau, plancher) qu'un exploitant doit voir monter.
 - **Rupture si différé : OUI pour les noms** : les deux déjà publiés (`ingressRejectedTotal`,
-  `systemFloorDeniedTotal`), `sealRejectedTotal` (#704), `allowTimedOutTotal`,
+  `systemFloorDeniedTotal`), `sealRejectedTotal` (#704), `frameRateRejectedTotal` (#703 ; le
+  compteur existe dès 10.0 même si la borne reste désactivée), `allowTimedOutTotal`,
   `allowSaturatedTotal` et `authenticateTimedOutTotal` (#622) — tous naissent avec 10.0. Un total générique
   calculé À LA LECTURE (somme des causes) reste un ajout possible en 10.x.
 - **Écarté** : `deniedTotal` ou `rejectedTotal` générique (option A/B de la table) — il additionne

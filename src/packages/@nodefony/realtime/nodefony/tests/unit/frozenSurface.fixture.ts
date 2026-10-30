@@ -31,6 +31,7 @@ export const FROZEN_REFUSAL_COUNTERS = [
   { name: "ingressRejectedTotal" },
   { name: "systemFloorDeniedTotal" },
   { name: "sealRejectedTotal", ticket: 704 },
+  { name: "frameRateRejectedTotal", ticket: 703 },
   { name: "allowTimedOutTotal", ticket: 622 },
   { name: "allowSaturatedTotal", ticket: 622 },
   { name: "authenticateTimedOutTotal", ticket: 622 },
