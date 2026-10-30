@@ -148,7 +148,8 @@ dans l'écho du handshake, et le défaut d'écho de `ws` ne change pas en 10.x (
   jeu à état figé (protobuf, un schéma par message).
 - Écarté : MessagePack au socle (pas une norme IETF ; enfichable si un écosystème le réclame) ;
   BSON (stockage) ; un schéma obligatoire pour l'enveloppe ; un décodeur CBOR maison avant le
-  banc. La bibliothèque CBOR sort d'un banc contre `JSON.parse` natif — octets, µs par frame,
+  banc. Le choix est sorti d'un banc contre `JSON.parse` natif (fait, ci-dessous) — et aucune
+  bibliothèque ne l'a passé : le codec retenu est le NÔTRE (« Retenu » ci-dessous). Le banc a mesuré octets, µs par frame,
   poids dans `.size-budgets.json` — sur des critères écrits d'avance : objets ordinaires sans
   conversion par frame, aucun `Buffer` (le client est un navigateur), aucun module natif
   obligatoire (Windows), CBOR standard sans extension propriétaire (un pair d'un autre langage
@@ -894,13 +895,14 @@ fin de flux (section 7). Aucun vocabulaire d'A2A n'entre dans la socket.
   utilisateur) diffusés par un message ordinaire du backplane, sans méthode neuve sur `IBackplane`.
 - #628 livre la forme figée d'`IRealtimeContract` au cœur (§4 : quatre clés, `Jsonify<T>` aux
   quatre points de réception, socket + SSE + webhook), `Listen` en troisième générique de
-  `RealtimeController` avec défaut, les types utilitaires et `defineRealtimeContract` ; #618 livre `IFrameCodec`, CBOR, les trois noms de
+  `RealtimeController` avec défaut, les types utilitaires et `defineRealtimeContract` ; #618 BRANCHE le codec CBOR déjà écrit et publié
+  (`src/nodefony/src/realtime/codec/`, `nodefony/cbor`) par `IFrameCodec`, les trois noms de
   sous-protocole et le binaire routé ; #622 et #623 les canaux privés ; #629 les contrôles 2 à 5.
 - **Preuves à apporter** : B1 à B4 vus rouges en débranchant (#618) ; un `Uint8Array` intact par
   le pilote Redis (#618, S8) ; un champ inconnu dans `subscribe` ignoré par un serveur publié
-  (#629, contrôle 5) ; un éjecté sur un pod non servi par un autre (#623) ; la bibliothèque CBOR
-  choisie au banc (#618) ; le poids du moteur protobuf dans `nodefony/client` face à
-  `.size-budgets.json` (#618).
+  (#629, contrôle 5) ; un éjecté sur un pod non servi par un autre (#623) ; le codec CBOR
+  maison branché sur le pair, octets intacts sans copie au décodage (#618) ; le poids du moteur
+  protobuf dans `nodefony/client` face à `.size-budgets.json` (#694, avec protobuf — §2).
 - À l'accord de l'auteur : un tsconfig neutre pour le serveur du paquet realtime (section 10).
 - `docs/protocole.md` écrit la reconnexion et la fin de flux avant qu'un protocole tiers s'y appuie.
 
