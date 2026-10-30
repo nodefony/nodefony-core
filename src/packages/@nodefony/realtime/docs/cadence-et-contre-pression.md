@@ -16,10 +16,11 @@ tags:
     contre-pression,
     sonde,
     1013,
+    4007,
   ]
 version: "doc"
 status: stable
-updated: 2026-10-07
+updated: 2026-10-30
 source: "src/packages/@nodefony/realtime/docs/cadence-et-contre-pression.md"
 coverageModule: realtime
 ---
@@ -70,6 +71,8 @@ flowchart LR
 | **File d'envoi**                      | `bufferedAmount`                              | Les octets acceptés par la socket mais pas encore partis sur le réseau.                                        |
 | **Solde de refus**                    | `_nfDropStreak`                               | Compteur par connexion : +1 par trame refusée, −1 par trame envoyée.                                           |
 | **1013**                              | _Try Again Later_                             | Code de fermeture WebSocket : « reviens plus tard ». Le client le traite comme transitoire et se reconnecte.   |
+| **4007**                              | `BACKPRESSURE_CLOSE_CODE`                     | Code privé Nodefony : le CLIENT ferme parce que SA file d'envoi ne se vide plus. Il se reconnecte ensuite.     |
+| **Borne de débit**                    | `maxFramesPerSecond`                          | Nombre de trames qu'une connexion peut envoyer au serveur par seconde. Au-delà, la trame est écartée.          |
 | **Canal d'état / canal d'événements** | _latest-wins_ / _every-message-counts_        | État : seule la dernière valeur compte. Événements : chaque message compte.                                    |
 | **Sonde**                             | _probe_                                       | Lecture instantanée des compteurs du hub, exposée par HTTP et par un canal de santé.                           |
 | **Abonner avant de couper**           | _make-before-break_                           | Changer de canal en s'abonnant au nouveau avant de quitter l'ancien : aucun trou dans le flux.                 |
@@ -500,6 +503,65 @@ Le client **n'apprend jamais** les seuils : il ne reçoit que leur effet.
   définitifs (`FATAL_CLOSE_CODES`, `notice.ts#FATAL_CLOSE_CODES`), donc `isReconnectableCloseCode()`
   (`notice.ts#isReconnectableCloseCode`) répond oui, et il se reconnecte avec une attente croissante.
 
+### Côté navigateur — la même règle, fermée en `4007`
+
+Un client peut lui aussi produire plus vite que le réseau n'écoule : un jeu qui émet trente
+positions par seconde sur une connexion mobile accumule des positions déjà périmées dans la file
+du navigateur. `NodefonySocket` applique alors **la même règle que le serveur** — elle vit au
+cœur, `backpressure.ts#decideBackpressure`, et les deux côtés l'appellent :
+
+```ts
+import { NodefonySocket } from "nodefony/client";
+
+const socket = new NodefonySocket({
+  url: "/game/realtime",
+  // Au-delà de 64 Kio en attente, la position est jetée au lieu d'être mise en file.
+  maxBufferedAmount: 64 * 1024,
+  // Solde de 200 positions jetées : la connexion est jugée morte, fermée puis rouverte.
+  backpressureCloseAfterDrops: 200,
+});
+
+socket.emit("game:move", { x: 12, y: 4 }); // part, ou est jetée et comptée
+console.log(socket.framesDropped); // positions jetées depuis la création
+```
+
+- Le client lit `bufferedAmount` **avant** de sérialiser : une frame jetée ne coûte pas son
+  `JSON.stringify`. `emit`, `request` et `sendBinary` passent tous par là ; une requête jetée est
+  rejetée aussitôt, sans attendre son délai.
+- Quand le solde atteint `backpressureCloseAfterDrops` (1 000 par défaut), le client ferme en
+  **`4007`** et se reconnecte comme après n'importe quelle coupure. Pas en `1013` : un navigateur
+  n'accepte que `1000` et `3000`-`4999` dans `WebSocket.close()`, et lèverait une erreur.
+- **Désactivé par défaut** dans toute la série 10 : sans `maxBufferedAmount`, rien n'est jamais jeté.
+
+### Dans l'autre sens — borner les trames reçues
+
+Le serveur borne aussi ce qu'il **reçoit**. Un client hostile qui envoie des milliers de trames par
+seconde ferait décoder chacune : la borne de débit les écarte **avant** tout décodage.
+
+```ts
+// nodefony.config.ts — section websocket ET websocketSecure
+use("@nodefony/http", {
+  websocket: { maxFramesPerSecond: 200, frameRateCloseAfterRejects: 1000 },
+  websocketSecure: {
+    maxFramesPerSecond: 200,
+    frameRateCloseAfterRejects: 1000,
+  },
+});
+```
+
+- On compte des **trames**, pas des octets : la taille est déjà bornée par `maxPayload`. Texte et
+  binaire suivent la même règle.
+- Le compte se fait à l'arrivée de la trame brute, dans `@nodefony/http`
+  (`wsFrameRate.ts#admitFrame`) : une trame écartée ne paie ni la conversion en texte, ni le
+  routage, ni `JSON.parse`, ni le décodage binaire.
+- Une trame écartée est **comptée** (`frameRateRejectedTotal`, dans la sonde du hub) ; la connexion
+  reste ouverte. Elle n'est fermée en **`1008`** (violation de politique) que lorsque le solde de
+  refus atteint `frameRateCloseAfterRejects` — jamais au premier dépassement. Le solde descend
+  d'une unité par trame admise : seul un flux qui dépasse **le double** de la borne le fait monter.
+- **Désactivée par défaut** (`maxFramesPerSecond: 0`) dans toute la série 10 : un seul test par
+  trame, aucune lecture d'horloge, aucune allocation. Repère : 50 trames/s d'audio passent avec
+  marge sous une borne de 200.
+
 ## 🔌 Comment les deux étages se rencontrent
 
 Aucune ligne de code ne relie la contre-pression du serveur à la cadence du client. Ils se
@@ -533,6 +595,10 @@ sans activer de trace.
 | `slowConsumers`       | les connexions dont la file atteint `slowConsumer.bytes` (1 Mio par défaut) | non nul = au moins un client prend du retard            |
 | `drops`               | les trames refusées, cumulées                                               | qui **augmente** = la contre-pression agit en ce moment |
 
+Les refus ont leurs propres compteurs, à côté du bloc `backpressure`. **`frameRateRejectedTotal`**
+compte les trames reçues écartées par la borne de débit — cumul du **processus**, relevé dans
+`@nodefony/http`, car une trame écartée n'atteint aucun hub. `0` tant que la borne est désactivée.
+
 > [!IMPORTANT]
 > **`slowConsumer.bytes` compte, il ne freine pas.** C'est le réglage de la **sonde**
 > (`@nodefony/realtime`), pas de la contre-pression (`@nodefony/http`). Le baisser fait apparaître
@@ -557,6 +623,10 @@ Le détail champ par champ et le flux de santé : [Observabilité de la socket](
 | `maxBackpressure`                                     | `@nodefony/http`     | 4 Mio          | file d'envoi au-delà de laquelle la politique s'applique ; 0 = coupé |
 | `backpressurePolicy`                                  | `@nodefony/http`     | `drop`         | `drop` jette la trame ; `close` ferme au premier dépassement         |
 | `backpressureCloseAfterDrops`                         | `@nodefony/http`     | 1000           | solde de refus qui déclenche la fermeture `1013` ; 0 = jamais        |
+| `maxFramesPerSecond`                                  | `@nodefony/http`     | 0              | trames reçues admises par seconde et par connexion ; 0 = coupé       |
+| `frameRateCloseAfterRejects`                          | `@nodefony/http`     | 1000           | solde de trames écartées qui ferme en `1008` ; 0 = jamais            |
+| `maxBufferedAmount` (`NodefonySocket`)                | `nodefony`           | 0              | file d'envoi du navigateur au-delà de laquelle on jette ; 0 = coupé  |
+| `backpressureCloseAfterDrops` (`NodefonySocket`)      | `nodefony`           | 1000           | solde de frames jetées qui ferme en `4007` ; 0 = jamais              |
 | `slowConsumer.bytes`                                  | `@nodefony/realtime` | 1 Mio          | seuil de **comptage** de la sonde ; n'agit sur rien                  |
 | `intervalMs` (hook / client)                          | `nodefony`           | —              | cadence **désirée** ; l'AIMD ne descend jamais en dessous            |
 | `ladder`, `maxMs`                                     | `nodefony`           | ×2, 60 s       | l'échelle des cadences possibles                                     |
@@ -576,6 +646,8 @@ La table complète des réglages du module et leurs schémas : [Configuration](c
 | ---------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
 | RFC 6455 §7.4 — codes de fermeture             | une fermeture porte un code ; la plage 1000-2999 est réservée et enregistrée à l'IANA | ferme en `1013` (`backpressure`)                                                      |
 | Registre IANA des codes de fermeture WebSocket | `1013` = _Try Again Later_ : condition temporaire du serveur                          | le client le traite comme transitoire et se reconnecte                                |
+| RFC 6455 §7.4.1 — `1008`                       | _Policy Violation_ : le pair a enfreint une politique du serveur                      | ferme la connexion qui dépasse durablement la borne de débit entrante                 |
+| WHATWG WebSockets — `close(code)`              | seuls `1000` et `3000`-`4999` sont admis, sinon `InvalidAccessError`                  | le navigateur ferme sa contre-pression en `4007`, jamais en `1013`                    |
 | RFC 5681 — contrôle de congestion TCP          | augmentation additive, diminution multiplicative                                      | **inspiration** de l'AIMD de cadence, appliquée à des abonnements et non à des octets |
 | JSON-RPC 2.0                                   | requêtes, réponses, notifications                                                     | aucune notion de cadence ni de file : tout ce mécanisme est propre à Nodefony         |
 
@@ -596,15 +668,18 @@ La table complète des réglages du module et leurs schémas : [Configuration](c
 
 ## 🧪 Tests
 
-| Suite                                                   | Ce qui est prouvé                                                                                                                         |
-| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `AdaptiveRate.test.ts` (`nodefony`)                     | la machine pure : échelle ×2, première trame sans décision, famine immédiate, reprise après N bons échantillons, chien de garde           |
-| `channelRate.test.ts` (`nodefony`)                      | le nom cadencé : canal nu pour le défaut, suffixe sinon, bornage côté serveur                                                             |
-| `RealtimeNotice.test.ts` (`nodefony`)                   | `1013` fait partie des fermetures transitoires qui déclenchent la reconnexion                                                             |
-| `wsBackpressure.test.ts` (`@nodefony/http`)             | `decideSend()` : désactivé à 0, nominal sous le seuil, `drop` sans fermer, `close` en `1013`                                              |
-| `backpressureConfig.test.ts` (`@nodefony/realtime`)     | le transport temps réel applique la règle de `@nodefony/http` : refus compté, fermeture après N, **le solde décroît** sur un pic passager |
-| `WsConnectionTransport.test.ts` (`@nodefony/realtime`)  | le transport : envoi seulement sur socket ouverte, fermeture déléguée                                                                     |
-| `cadencePressureFigures.test.ts` (`@nodefony/realtime`) | **les courbes de cette page** : rejoue les trois scénarios avec le vrai code et compare chaque valeur                                     |
+| Suite                                                   | Ce qui est prouvé                                                                                                                          |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `AdaptiveRate.test.ts` (`nodefony`)                     | la machine pure : échelle ×2, première trame sans décision, famine immédiate, reprise après N bons échantillons, chien de garde            |
+| `channelRate.test.ts` (`nodefony`)                      | le nom cadencé : canal nu pour le défaut, suffixe sinon, bornage côté serveur                                                              |
+| `RealtimeNotice.test.ts` (`nodefony`)                   | `1013` fait partie des fermetures transitoires qui déclenchent la reconnexion                                                              |
+| `realtimeBackpressure.test.ts` (`nodefony`)             | la règle pure du cœur : un verdict par cas (`send`, `drop`, `close`), le solde qui monte au refus et redescend à l'envoi                   |
+| `clientBackpressure.test.ts` (`nodefony`)               | le navigateur : rien de jeté sans borne ; au-delà, `emit`/`request`/`sendBinary` jettent et comptent ; solde atteint → `4007`, reconnexion |
+| `wsBackpressure.test.ts` (`@nodefony/http`)             | `decideSend()` : désactivé à 0, nominal sous le seuil, `drop` sans fermer, `close` en `1013`                                               |
+| `wsFrameRate.test.ts` (`@nodefony/http`)                | la borne entrante : aucune fenêtre à 0, rafale écartée **sans décodage**, flux soutenu fermé en `1008`                                     |
+| `backpressureConfig.test.ts` (`@nodefony/realtime`)     | le transport temps réel applique la règle de `@nodefony/http` : refus compté, fermeture après N, **le solde décroît** sur un pic passager  |
+| `WsConnectionTransport.test.ts` (`@nodefony/realtime`)  | le transport : envoi seulement sur socket ouverte, fermeture déléguée                                                                      |
+| `cadencePressureFigures.test.ts` (`@nodefony/realtime`) | **les courbes de cette page** : rejoue les trois scénarios avec le vrai code et compare chaque valeur                                      |
 
 Deux bancs complètent, hors des suites (skill `nodefony-load-test`) :
 
@@ -619,7 +694,8 @@ pas éprouvée de bout en bout.
 ```bash
 cd src/nodefony && npx vitest run src/tests/AdaptiveRate.test.ts src/tests/channelRate.test.ts
 cd src/packages/@nodefony/realtime && npm test
-cd src/packages/@nodefony/http && npx vitest run nodefony/tests/unit/wsBackpressure.test.ts
+cd src/packages/@nodefony/http && npx vitest run nodefony/tests/unit/wsBackpressure.test.ts nodefony/tests/unit/wsFrameRate.test.ts
+cd src/nodefony && npx vitest run src/tests/realtimeBackpressure.test.ts src/tests/clientBackpressure.test.ts
 ```
 
 ## Ce qu'il faut retenir

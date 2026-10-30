@@ -26,7 +26,7 @@ tags:
   ]
 version: "doc"
 status: stable
-updated: 2026-07-19
+updated: 2026-10-30
 source: "src/nodefony/docs/client.md"
 ---
 
@@ -310,16 +310,18 @@ recevoir des messages poussés et **répondre** à des requêtes venues du serve
 `NodefonySocketOptions` (`client/realtime/NodefonySocket.ts#NodefonySocketOptions`). Toutes les clés sont facultatives ;
 seule l'adresse doit être connue au moment de `connect()`.
 
-| Option              | Défaut  | Effet                                                                                                                                                                                                                                            |
-| ------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `url`               | —       | Point d'entrée WebSocket. Relatif (`/api/live/realtime`) : résolu contre la page, `http(s)` devenant `ws(s)`. Absente au `connect()` et sans argument → `requireUrl` lève une erreur qui le dit (`NodefonySocket.ts#NodefonySocket.requireUrl`). |
-| `token`             | —       | Jeton ajouté à l'URL de connexion en paramètre `token` (`NodefonySocket.ts#NodefonySocketOptions.token`). Inutile quand la session passe par le cookie — le cas par défaut, et le seul qui ne fait pas voyager le secret dans une adresse.       |
-| `autoReconnect`     | `true`  | `false` coupe la reconnexion automatique après une fermeture transitoire (`NodefonySocket.ts#NodefonySocket.settleClose`). Une fermeture définitive ne relance jamais, quelle que soit la valeur.                                                |
-| `reconnectDelay`    | `1000`  | Premier délai entre deux tentatives (ms) ; il double à chaque échec, avec une gigue, sans jamais descendre sous 100 ms (`NodefonySocket.ts#reconnectDelay`).                                                                                     |
-| `reconnectDelayMax` | `30000` | Plafond de ce délai (ms) (`NodefonySocket.ts#NodefonySocket.scheduleReconnect`).                                                                                                                                                                 |
-| `connectTimeout`    | `10000` | Délai d'ouverture (ms) : une poignée de main sans réponse est abandonnée, la promesse d'ouverture rejette et la reconnexion prend le relais. `0` retire la borne (`NodefonySocket.ts#NodefonySocket.openSocket`).                                |
-| `heartbeatInterval` | `30000` | Intervalle du ping qui maintient la connexion et en mesure l'aller-retour (ms) (`NodefonySocket.ts#NodefonySocket.startHeartbeat`).                                                                                                              |
-| `banner`            | `true`  | Annonce du framework dans la console et handle `nodefony` (`NodefonySocket.ts#NodefonySocket.constructor`). `false` pour une application publiée qui ne veut rien dans la console de ses utilisateurs.                                           |
+| Option                        | Défaut  | Effet                                                                                                                                                                                                                                                                                   |
+| ----------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `url`                         | —       | Point d'entrée WebSocket. Relatif (`/api/live/realtime`) : résolu contre la page, `http(s)` devenant `ws(s)`. Absente au `connect()` et sans argument → `requireUrl` lève une erreur qui le dit (`NodefonySocket.ts#NodefonySocket.requireUrl`).                                        |
+| `token`                       | —       | Jeton ajouté à l'URL de connexion en paramètre `token` (`NodefonySocket.ts#NodefonySocketOptions.token`). Inutile quand la session passe par le cookie — le cas par défaut, et le seul qui ne fait pas voyager le secret dans une adresse.                                              |
+| `autoReconnect`               | `true`  | `false` coupe la reconnexion automatique après une fermeture transitoire (`NodefonySocket.ts#NodefonySocket.settleClose`). Une fermeture définitive ne relance jamais, quelle que soit la valeur.                                                                                       |
+| `reconnectDelay`              | `1000`  | Premier délai entre deux tentatives (ms) ; il double à chaque échec, avec une gigue, sans jamais descendre sous 100 ms (`NodefonySocket.ts#reconnectDelay`).                                                                                                                            |
+| `reconnectDelayMax`           | `30000` | Plafond de ce délai (ms) (`NodefonySocket.ts#NodefonySocket.scheduleReconnect`).                                                                                                                                                                                                        |
+| `connectTimeout`              | `10000` | Délai d'ouverture (ms) : une poignée de main sans réponse est abandonnée, la promesse d'ouverture rejette et la reconnexion prend le relais. `0` retire la borne (`NodefonySocket.ts#NodefonySocket.openSocket`).                                                                       |
+| `heartbeatInterval`           | `30000` | Intervalle du ping qui maintient la connexion et en mesure l'aller-retour (ms) (`NodefonySocket.ts#NodefonySocket.startHeartbeat`).                                                                                                                                                     |
+| `maxBufferedAmount`           | `0`     | Seuil (octets) de la file d'envoi du navigateur au-delà duquel une frame sortante est **jetée** et comptée (`framesDropped`) au lieu d'être mise en file ; `emit`, `request` et `sendBinary` rendent alors `false` (`NodefonySocket.ts#NodefonySocket.admitOutbound`). `0` = désactivé. |
+| `backpressureCloseAfterDrops` | `1000`  | Solde de frames jetées (+1 jetée, −1 partie) qui fait fermer la socket en `4007` puis se reconnecter (`realtime/closeCodes.ts#BACKPRESSURE_CLOSE_CODE`). Sans effet sans `maxBufferedAmount` ; `0` = ne jamais fermer.                                                                  |
+| `banner`                      | `true`  | Annonce du framework dans la console et handle `nodefony` (`NodefonySocket.ts#NodefonySocket.constructor`). `false` pour une application publiée qui ne veut rien dans la console de ses utilisateurs.                                                                                  |
 
 ⚠️ Avec `shared()`, les options ne s'appliquent qu'à la **première** création pour une URL : les
 appels suivants rendent l'instance existante, réglages compris.
@@ -351,6 +353,11 @@ client pose alors une requête HTTP sur la même adresse (option `probe`) et un 
 même refus définitif. Sans cette règle, un visiteur anonyme martèlerait
 indéfiniment un point d'entrée protégé — et une session révoquée rejouerait son identité à chaque
 tentative.
+
+Un code privé fait exception dans l'autre sens : **`4007`** est émis par le client lui-même,
+quand sa file d'envoi ne se vide plus (`maxBufferedAmount`). Il est **transitoire** : la connexion
+repart à vide. Le serveur, pour la même cause, ferme en `1013`, code qu'un navigateur n'a pas le
+droit d'émettre (`WebSocket.close` n'admet que `1000` et `3000`-`4999`).
 
 Le délai entre tentatives double à chaque échec — `scheduleReconnect()`
 (`client/realtime/NodefonySocket.ts#NodefonySocket.scheduleReconnect`) — plafonné à 30 secondes par défaut. Trois garde-fous

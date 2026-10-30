@@ -22,7 +22,7 @@ tags:
   ]
 version: "doc"
 status: stable
-updated: 2026-07-19
+updated: 2026-10-30
 source: "src/packages/@nodefony/http/docs/servers.md"
 coverageModule: http
 coverageFiles: servers/server-http.ts,servers/server-https.ts,servers/server-websocket.ts,certificates.ts
@@ -552,22 +552,26 @@ Depuis `http2Schema` (`config.ts#http2Schema`), appliqué seulement si défini
 Depuis `websocketSchema` (`config.ts#websocketSchema`). Les deux sections partagent la forme et les défauts ; le WSS
 lit `websocketSecure` (`config.ts#httpConfigSchema`).
 
-| Option                   | Type                | Défaut  | Effet                                                                                    |
-| ------------------------ | ------------------- | ------- | ---------------------------------------------------------------------------------------- |
-| `keepaliveInterval`      | ms                  | `20000` | Intervalle des pings — détecte les connexions zombies.                                   |
-| `keepaliveGracePeriod`   | ms                  | `10000` | Délai de grâce après un ping sans réponse avant fermeture.                               |
-| `closeTimeout`           | ms                  | `5000`  | Délai de fermeture propre avant destruction de la socket.                                |
-| `maxPayload`             | octets              | `1 MiB` | Taille max d'un message entrant → au-delà, **close 1009** (`config.ts#websocketSchema`). |
-| `allowedOrigins`         | bool \| str \| list | `false` | Allowlist d'`Origin` au handshake — **anti-CSWSH** (`config.ts#websocketSchema`).        |
-| `perMessageDeflate`      | bool \| objet       | `false` | Compression RFC 7692. Désactivée par défaut : coût CPU/RAM + risque de _zip bomb_.       |
-| `skipUTF8Validation`     | bool                | `false` | Désactive la validation UTF-8 des frames texte (RFC 6455 §8.1). À laisser `false`.       |
-| `autoPong`               | bool                | `true`  | Répond automatiquement aux pings entrants (RFC 6455 §5.5.2-3). À laisser `true`.         |
-| `allowSynchronousEvents` | bool                | `true`  | Émet plusieurs frames d'un même chunk réseau de façon synchrone (débit vs équité).       |
-| `maxBackpressure`        | octets              | `4 MiB` | Seuil du tampon d'envoi par connexion (client lent à recevoir) — anti-OOM.               |
-| `backpressurePolicy`     | `drop` \| `close`   | `drop`  | Au-delà du seuil : sauter la frame, ou fermer le client (close 1013).                    |
+| Option                        | Type                | Défaut  | Effet                                                                                    |
+| ----------------------------- | ------------------- | ------- | ---------------------------------------------------------------------------------------- |
+| `keepaliveInterval`           | ms                  | `20000` | Intervalle des pings — détecte les connexions zombies.                                   |
+| `keepaliveGracePeriod`        | ms                  | `10000` | Délai de grâce après un ping sans réponse avant fermeture.                               |
+| `closeTimeout`                | ms                  | `5000`  | Délai de fermeture propre avant destruction de la socket.                                |
+| `maxPayload`                  | octets              | `1 MiB` | Taille max d'un message entrant → au-delà, **close 1009** (`config.ts#websocketSchema`). |
+| `allowedOrigins`              | bool \| str \| list | `false` | Allowlist d'`Origin` au handshake — **anti-CSWSH** (`config.ts#websocketSchema`).        |
+| `perMessageDeflate`           | bool \| objet       | `false` | Compression RFC 7692. Désactivée par défaut : coût CPU/RAM + risque de _zip bomb_.       |
+| `skipUTF8Validation`          | bool                | `false` | Désactive la validation UTF-8 des frames texte (RFC 6455 §8.1). À laisser `false`.       |
+| `autoPong`                    | bool                | `true`  | Répond automatiquement aux pings entrants (RFC 6455 §5.5.2-3). À laisser `true`.         |
+| `allowSynchronousEvents`      | bool                | `true`  | Émet plusieurs frames d'un même chunk réseau de façon synchrone (débit vs équité).       |
+| `maxBackpressure`             | octets              | `4 MiB` | Seuil du tampon d'envoi par connexion (client lent à recevoir) — anti-OOM.               |
+| `backpressurePolicy`          | `drop` \| `close`   | `drop`  | Au-delà du seuil : sauter la frame, ou fermer le client (close 1013).                    |
+| `backpressureCloseAfterDrops` | frames              | `1000`  | Solde de frames refusées (+1 refus, −1 envoi) qui ferme en 1013 ; `0` = jamais.          |
+| `maxFramesPerSecond`          | trames / s          | `0`     | Trames REÇUES admises par connexion ; au-delà, écartées avant décodage. `0` = coupé.     |
+| `frameRateCloseAfterRejects`  | trames              | `1000`  | Solde de trames écartées (+1 écartée, −1 admise) qui ferme en 1008 ; `0` = jamais.       |
 
 > [!WARNING]
-> `keepalive*`, `closeTimeout`, `maxBackpressure` et `backpressurePolicy` sont des **réglages
+> `keepalive*`, `closeTimeout`, `maxBackpressure`, `backpressurePolicy`,
+> `backpressureCloseAfterDrops`, `maxFramesPerSecond` et `frameRateCloseAfterRejects` sont des **réglages
 > Nodefony**, pas des options de `ws` : la bibliothèque les ignore, c'est le framework qui les
 > implémente. À l'inverse, `server`, `noServer`, `clientTracking`, `host`, `port` et `backlog` sont
 > **gérés par Nodefony** et non exposés — les forcer n'aurait pas d'effet.
@@ -951,6 +955,13 @@ descripteur et du TLS, et couvre tous les pods. Ne l'activer que sur une machine
 (4 MiB) protège contre le client **lent à recevoir**, dont le tampon d'envoi gonflerait jusqu'à
 l'OOM — un seul lent peut plomber une diffusion générale. La politique par défaut, `drop`, saute la
 frame et garde le client connecté.
+
+Dans l'autre sens, `maxFramesPerSecond` borne le **nombre** de trames qu'une connexion envoie
+(désactivé par défaut). Le compte se fait à l'arrivée de la trame brute
+(`wsFrameRate.ts#admitFrame`) : une trame écartée ne paie ni décodage ni routage, elle est
+comptée (`frameRateRejectedTotal()`, relayé par la sonde du hub temps réel) et la connexion reste
+ouverte — jusqu'à ce que le solde de refus atteigne `frameRateCloseAfterRejects`, qui ferme en
+**1008**. Seul un flux au-delà du double de la borne fait monter ce solde ; un pic passager non.
 
 ## ⚡ Performance & mémoire
 
