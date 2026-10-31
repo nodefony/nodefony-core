@@ -16,7 +16,7 @@ import HttpContext, {
 //     laissait les requêtes keep-alive 2+ à 120 s au lieu du responseTimeout.
 //   - h2 (response.stream) : per-stream historique conservé.
 
-interface FakeSocket extends net.Socket {
+interface FakeSocket {
   timeout: number | undefined;
   setTimeoutCalls: number[];
   listeners: Record<string, Array<() => void>>;
@@ -24,6 +24,7 @@ interface FakeSocket extends net.Socket {
   on(ev: string, cb: () => void): void;
   fireTimeout(): void;
   destroyed: number;
+  destroy(): void;
 }
 
 // Une VRAIE `net.Socket` par son prototype (le routeur ignore tout le reste),
