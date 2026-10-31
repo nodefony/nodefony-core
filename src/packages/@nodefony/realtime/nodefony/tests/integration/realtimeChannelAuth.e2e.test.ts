@@ -8,7 +8,19 @@ import {
   RealtimeInbound,
 } from "../../decorators/realtimeDecorators.js";
 import type { ContextType } from "@nodefony/http";
-import type { RealtimePublish } from "../../interfaces/IRealtimeController.js";
+// Depuis `nodefony`, comme le contrôleur : l'ALS n'est pas un singleton global,
+// un import du cœur EN SOURCE en ouvrirait un second que le contrôleur ne lit pas.
+import {
+  RequestContext,
+  type ChannelAllowFunction,
+  type ISubscriberIdentity,
+  type RequestContextPayload,
+} from "nodefony";
+import type {
+  RealtimeInboundHandler,
+  RealtimePublish,
+} from "../../interfaces/IRealtimeController.js";
+import { ANONYMOUS_REALTIME_TOKEN } from "../../src/server/AnonymousRealtimeToken.js";
 import type { IRealtimeWelcome } from "../../../../../../nodefony/src/realtime/RealtimeEventMap.js";
 import type { IRealtimeAuthenticator } from "../../interfaces/IRealtimeAuthenticator.js";
 import type { IRealtimeToken } from "../../interfaces/IRealtimeToken.js";
@@ -182,7 +194,18 @@ class AuthRt extends RealtimeController {
   }
 }
 
-function makeServer(wire: LoopbackWire, environment?: string): AuthRt {
+/** Ce que `makeServer` sait monter : un contrôleur qu'on nourrit de trames brutes. */
+interface IFeedableRt extends RealtimeController {
+  feed(raw: string | null): void;
+}
+type FeedableRtClass = new (ctx: ContextType) => IFeedableRt;
+
+function makeServer(
+  wire: LoopbackWire,
+  environment?: string,
+  Rt: FeedableRtClass = AuthRt,
+  context?: RequestContextPayload,
+): IFeedableRt {
   const conn = {
     get readyState() {
       return wire.serverConnOpen ? OPEN : TransportState.CLOSED;
@@ -206,7 +229,7 @@ function makeServer(wire: LoopbackWire, environment?: string): AuthRt {
     remoteAddress: "127.0.0.1",
     origin: "",
   };
-  const rt = new AuthRt(ctx as unknown as ContextType);
+  const rt = new Rt(ctx as unknown as ContextType);
   // Le mode d'exécution du kernel décide si un refus dit POURQUOI. Les autres
   // scénarios de ce fichier montent le contrôleur sans kernel : `environment`
   // y vaut `undefined`, qui vaut production — leurs refus restent donc nus, et
@@ -216,7 +239,13 @@ function makeServer(wire: LoopbackWire, environment?: string): AuthRt {
     // module d'identité, c'est ce que le refus doit constater.
     rt.kernel = { environment, modules: {} } as unknown as typeof rt.kernel;
   }
-  wire.feedServer = (raw) => rt.feed(raw);
+  // Comme `WebsocketContext`, qui lie son écouteur au contexte de la poignée de
+  // main : chaque trame est traitée SOUS ce contexte — c'est ce qui rend
+  // observable un `allow` qui le lirait au lieu de ses arguments.
+  wire.feedServer =
+    context === undefined
+      ? (raw) => rt.feed(raw)
+      : (raw) => RequestContext.run(context, () => rt.feed(raw));
   return rt;
 }
 
@@ -264,6 +293,12 @@ const testAuth: IRealtimeAuthenticator = {
   authenticate: async () => currentToken,
 };
 
+/** Une trame descendante telle que le SERVEUR l'a émise, capturée sur le câble. */
+interface IWireFrame {
+  method?: string;
+  params?: unknown;
+}
+
 /**
  * Configure le hub (token + verrou) AVANT le handshake, puis connecte un pair.
  *
@@ -275,7 +310,13 @@ const testAuth: IRealtimeAuthenticator = {
 async function connectAs(
   token: IRealtimeToken,
   environment?: string,
-): Promise<{ client: NodefonySocket; welcome: Partial<IRealtimeWelcome> }> {
+  opts: { Rt?: FeedableRtClass; context?: RequestContextPayload } = {},
+): Promise<{
+  client: NodefonySocket;
+  welcome: Partial<IRealtimeWelcome>;
+  server: IFeedableRt;
+  frames: IWireFrame[];
+}> {
   const hub = getRealtimeHub();
   hub.clear();
   currentToken = token;
@@ -300,17 +341,19 @@ async function connectAs(
   // Écoute du câble AVANT le handshake : le welcome est la toute première frame
   // descendante, l'installer après la connexion la manquerait.
   let welcome: Partial<IRealtimeWelcome> = {};
+  const frames: IWireFrame[] = [];
   const deliver = wire.deliverToClient.bind(wire);
   wire.deliverToClient = (raw: string): void => {
     try {
-      const f = JSON.parse(raw) as { method?: string; params?: unknown };
+      const f = JSON.parse(raw) as IWireFrame;
+      frames.push(f);
       if (f.method === "realtime:welcome") welcome = f.params ?? {};
     } catch {
       /* frame illisible : le banc du protocole s'en occupe, pas celui-ci */
     }
     deliver(raw);
   };
-  makeServer(wire, environment);
+  const server = makeServer(wire, environment, opts.Rt, opts.context);
   const transport = new LoopbackClientTransport(wire);
   const client = new NodefonySocket(
     { url: "ws://loopback/realtime", autoReconnect: false },
@@ -319,7 +362,7 @@ async function connectAs(
   await client.connect();
   await flush();
   await flush();
-  return { client, welcome };
+  return { client, welcome, server, frames };
 }
 
 // ── La matrice : canal × prédicat d'autorisation attendu ──────────────────
@@ -746,5 +789,430 @@ describe("MATRICE E2E — ce que le welcome ANNONCE (channels × identité)", ()
         );
       }
     }
+  });
+});
+
+// ── #622 — l'admission par l'IDENTITÉ, de bout en bout ─────────────────────
+//
+// Le canal personnel `user:<id>` : une politique de MOTIF portant `allow`, que
+// le contrôleur déclare comme une application le ferait. Les unitaires
+// (`channelAdmissionQueue`, `frameAdmission`) prouvent la mécanique ; ce banc
+// prouve la JONCTION avec le vrai client et le vrai verrou de sécurité — et
+// chaque verdict se lit sur la TRAME émise, jamais sur ce que le client en a
+// retenu (il recopie l'identité champ par champ et masquerait une fuite).
+
+/** Appels d'`allow` depuis le dernier `beforeEach` : la preuve du « une fois ». */
+let allowCalls = 0;
+/** La règle du canal personnel, telle qu'une application l'écrit (S10 bis). */
+const byIdentity: ChannelAllowFunction = (channel, who) =>
+  channel === `user:${who.id}`;
+/**
+ * Une règle FAUTIVE : elle lit le contexte de requête au lieu de ses arguments.
+ * Sur la socket elle tombe juste (la trame est traitée sous le contexte de la
+ * poignée de main) ; à l'émission d'un webhook il n'y a pas de contexte, et elle
+ * refuse tout, sans un mot (S10 bis point 1).
+ */
+const readsRequestContext: ChannelAllowFunction = (channel) => {
+  const user = RequestContext.getUser();
+  const id =
+    typeof user === "object" && user !== null && "id" in user
+      ? String(user.id)
+      : null;
+  return channel === `user:${id}`;
+};
+let admissionRule: ChannelAllowFunction = byIdentity;
+const countedAllow: ChannelAllowFunction = (channel, who) => {
+  allowCalls += 1;
+  return admissionRule(channel, who);
+};
+
+class AdmitRt extends RealtimeController {
+  readonly received: Record<string, number> = {};
+  constructor(ctx: ContextType) {
+    super("admit-rt", ctx);
+  }
+
+  // La politique du MOTIF : le producteur décoré ne sert que le nom exact, les
+  // canaux `user:<id>` sont servis par la fabrique dynamique ci-dessous.
+  @RealtimeChannel("user:*", { allow: countedAllow })
+  userChannels(channel: string, publish: RealtimePublish): () => void {
+    publish(channel, { ok: true, channel });
+    return () => {};
+  }
+
+  // Plus spécifique que le motif, SANS `allow` : elle le remplace en entier.
+  @RealtimeChannel("user:public", { authenticated: false })
+  userPublic(channel: string, publish: RealtimePublish): () => void {
+    publish(channel, { ok: true, channel });
+    return () => {};
+  }
+
+  override createRealtimeChannel(
+    channel: string,
+    publish: RealtimePublish,
+  ): (() => void) | null {
+    if (!channel.startsWith("user:")) return null;
+    publish(channel, { ok: true, channel });
+    return () => {};
+  }
+
+  override realtimeInbound(): Record<string, RealtimeInboundHandler> {
+    const count =
+      (name: string): RealtimeInboundHandler =>
+      () => {
+        this.received[name] = (this.received[name] ?? 0) + 1;
+      };
+    return { "user:42": count("user:42"), "user:43": count("user:43") };
+  }
+
+  feed(raw: string | null): void {
+    this.handleRealtime(raw);
+  }
+}
+
+/** Un compte LOCAL : `id` stable, login différent — `allow` doit lire `who.id`. */
+const accountToken = (id: string): IRealtimeToken => {
+  const who: ISubscriberIdentity = Object.freeze({
+    type: "session",
+    authenticated: true,
+    id,
+    userIdentifier: `login-${id}`,
+    roles: Object.freeze(["ROLE_USER"]),
+    scopes: Object.freeze([]),
+    issuer: null,
+    account: true,
+  });
+  return {
+    ...mkToken("session", true, ["ROLE_USER"], []),
+    getUserIdentifier: () => who.userIdentifier,
+    getIdentity: () => who,
+  };
+};
+const ACCOUNTS = { u42: accountToken("42"), u43: accountToken("43") } as const;
+
+const fieldOf = (f: IWireFrame, key: string): unknown =>
+  typeof f.params === "object" && f.params !== null && key in f.params
+    ? Reflect.get(f.params, key)
+    : undefined;
+const acksOn = (frames: readonly IWireFrame[]): unknown[] =>
+  frames
+    .filter((f) => f.method === "realtime:subscribed")
+    .map((f) => fieldOf(f, "channel"));
+const deniedOn = (frames: readonly IWireFrame[]): unknown[][] =>
+  frames
+    .filter((f) => f.method === "realtime:denied")
+    .map((f) => [fieldOf(f, "channel"), fieldOf(f, "reason")]);
+
+function asAdmitRt(server: IFeedableRt): AdmitRt {
+  if (!(server instanceof AdmitRt)) throw new Error("banc : AdmitRt attendu");
+  return server;
+}
+
+async function subscribeAs(
+  token: IRealtimeToken,
+  channel: string,
+  context?: RequestContextPayload,
+) {
+  const s = await connectAs(token, undefined, {
+    Rt: AdmitRt,
+    ...(context === undefined ? {} : { context }),
+  });
+  const ticks: unknown[] = [];
+  s.client.on(channel, (p) => ticks.push(p));
+  s.client.subscribe(channel);
+  await flush();
+  await flush();
+  return { ...s, ticks };
+}
+
+/** Le contexte que `WebsocketContext` aurait ouvert pour la poignée de main de `id`. */
+const handshakeContext = (id: string): RequestContextPayload => ({
+  requestId: `handshake-${id}`,
+  user: { id },
+});
+
+/**
+ * Le verdict d'`allow` tel que l'émission d'un webhook le demanderait : la
+ * MÊME règle, résolue par le hub, appelée hors de toute connexion et de tout
+ * contexte de requête.
+ */
+async function emissionVerdict(
+  channel: string,
+  who: ISubscriberIdentity,
+): Promise<boolean> {
+  expect(RequestContext.get(), "aucun contexte à l'émission").to.equal(
+    undefined,
+  );
+  const rule = getRealtimeHub().resolveChannelAdmission(channel);
+  if (rule === null) throw new Error(`banc : aucune règle pour ${channel}`);
+  return rule.allow(channel, who);
+}
+
+describe("#622 — admission par l'identité de bout en bout (motif user:*)", () => {
+  beforeEach(() => {
+    getRealtimeHub().clear();
+    allowCalls = 0;
+    admissionRule = byIdentity;
+  });
+
+  const MATRIX: ReadonlyArray<{
+    readonly label: string;
+    readonly token: IRealtimeToken;
+    readonly channel: string;
+    readonly granted: boolean;
+    /** Appels d'`allow` attendus : un refus d'office ne le consulte pas. */
+    readonly calls: number;
+  }> = [
+    {
+      label: "42",
+      token: ACCOUNTS.u42,
+      channel: "user:42",
+      granted: true,
+      calls: 1,
+    },
+    {
+      label: "43",
+      token: ACCOUNTS.u43,
+      channel: "user:42",
+      granted: false,
+      calls: 1,
+    },
+    // Le login n'est pas l'identifiant : un e-mail change, `id` non.
+    {
+      label: "42 par son login",
+      token: ACCOUNTS.u42,
+      channel: "user:login-42",
+      granted: false,
+      calls: 1,
+    },
+    // L'anonyme est refusé d'office : la politique ne dit pas `anonymous: true`.
+    {
+      label: "anonyme",
+      token: ANONYMOUS_REALTIME_TOKEN,
+      channel: "user:42",
+      granted: false,
+      calls: 0,
+    },
+    // Un authentificateur sans `getIdentity` n'entre sur aucun canal à `allow`.
+    {
+      label: "jeton sans getIdentity",
+      token: TOKENS.user,
+      channel: "user:42",
+      granted: false,
+      calls: 0,
+    },
+  ];
+
+  for (const c of MATRIX) {
+    const verdict = c.granted
+      ? "realtime:subscribed"
+      : "realtime:denied forbidden";
+    it(`${c.label} × ${c.channel} → ${verdict} (allow appelé ${c.calls} fois)`, async () => {
+      const { client, frames, ticks } = await subscribeAs(c.token, c.channel);
+      if (c.granted) {
+        expect(acksOn(frames)).to.deep.equal([c.channel]);
+        expect(ticks).to.deep.equal([{ ok: true, channel: c.channel }]);
+        expect(deniedOn(frames)).to.deep.equal([]);
+      } else {
+        expect(acksOn(frames)).to.deep.equal([]);
+        expect(ticks).to.deep.equal([]);
+        expect(deniedOn(frames)).to.deep.equal([[c.channel, "forbidden"]]);
+      }
+      expect(allowCalls).to.equal(c.calls);
+      client.disconnect();
+    });
+  }
+
+  it("allow appelé UNE fois pour l'abonnement, puis N trames entrantes passent sans lui", async () => {
+    const { client, server, frames } = await subscribeAs(
+      ACCOUNTS.u42,
+      "user:42",
+    );
+    for (let n = 0; n < 5; n++) client.emit("user:42", { n });
+    await flush();
+    await flush();
+    expect(asAdmitRt(server).received["user:42"]).to.equal(5);
+    expect(allowCalls, "jamais par trame").to.equal(1);
+    expect(deniedOn(frames)).to.deep.equal([]);
+    client.disconnect();
+  });
+
+  it("trame entrante sur un canal à allow SANS abonnement : refusée, allow jamais consulté", async () => {
+    const { client, server, frames } = await connectAs(
+      ACCOUNTS.u42,
+      undefined,
+      {
+        Rt: AdmitRt,
+      },
+    );
+    client.emit("user:42", { n: 1 });
+    await flush();
+    await flush();
+    expect(asAdmitRt(server).received["user:42"]).to.equal(undefined);
+    expect(deniedOn(frames)).to.deep.equal([["user:42", "forbidden"]]);
+    expect(allowCalls).to.equal(0);
+    client.disconnect();
+  });
+
+  it("abonné à SON canal, la trame vers celui d'un autre reste refusée", async () => {
+    const { client, server, frames } = await subscribeAs(
+      ACCOUNTS.u42,
+      "user:42",
+    );
+    client.emit("user:43", { n: 1 });
+    await flush();
+    await flush();
+    expect(asAdmitRt(server).received["user:43"]).to.equal(undefined);
+    expect(deniedOn(frames)).to.deep.equal([["user:43", "forbidden"]]);
+    client.disconnect();
+  });
+
+  it("une politique plus spécifique SANS allow ouvre le canal, même à l'anonyme", async () => {
+    const { client, frames } = await subscribeAs(
+      ANONYMOUS_REALTIME_TOKEN,
+      "user:public",
+    );
+    expect(acksOn(frames)).to.deep.equal(["user:public"]);
+    expect(allowCalls).to.equal(0);
+    client.disconnect();
+  });
+
+  /**
+   * L'invariant « l'accueil et le `subscribe` rendent le MÊME verdict » (banc du
+   * welcome ci-dessus) ne vaut que pour les politiques SANS `allow` — c'est
+   * pourquoi `CHANNELS` n'en porte aucune. Le welcome n'annonce que ce que le
+   * verrou laisse passer ; `allow` se joue au `subscribe`, canal par canal. Le
+   * consulter à la poignée de main coûterait un appel par canal déclaré et par
+   * connexion — pour annoncer un MOTIF, dont aucun nom concret n'est connu.
+   */
+  it("le welcome annonce le motif sur le seul verdict du verrou — allow n'est jamais joué à la poignée de main", async () => {
+    const { client, welcome, frames } = await connectAs(
+      ACCOUNTS.u43,
+      undefined,
+      {
+        Rt: AdmitRt,
+      },
+    );
+    expect(welcome.channels).to.include("user:*");
+    expect(allowCalls, "aucun appel à la poignée de main").to.equal(0);
+    client.subscribe("user:42");
+    await flush();
+    await flush();
+    expect(deniedOn(frames)).to.deep.equal([["user:42", "forbidden"]]);
+    client.disconnect();
+  });
+
+  it("le MÊME allow rend le même verdict sur la socket et à l'émission d'un webhook (S10 bis)", async () => {
+    for (const [id, token, granted] of [
+      ["42", ACCOUNTS.u42, true],
+      ["43", ACCOUNTS.u43, false],
+    ] as const) {
+      const s = await subscribeAs(token, "user:42", handshakeContext(id));
+      const onSocket = acksOn(s.frames).includes("user:42");
+      s.client.disconnect();
+      const who = token.getIdentity?.();
+      if (who === undefined) throw new Error("banc : identité attendue");
+      expect(onSocket, `socket ${id}`).to.equal(granted);
+      expect(await emissionVerdict("user:42", who), `émission ${id}`).to.equal(
+        onSocket,
+      );
+    }
+  });
+
+  it("contrôle : un allow qui lit le contexte de requête diverge — le test ci-dessus le refuserait", async () => {
+    admissionRule = readsRequestContext;
+    const s = await subscribeAs(
+      ACCOUNTS.u42,
+      "user:42",
+      handshakeContext("42"),
+    );
+    const onSocket = acksOn(s.frames).includes("user:42");
+    s.client.disconnect();
+    const who = ACCOUNTS.u42.getIdentity?.();
+    if (who === undefined) throw new Error("banc : identité attendue");
+    expect(
+      onSocket,
+      "la socket l'admet, sous le contexte de la poignée de main",
+    ).to.equal(true);
+    expect(
+      await emissionVerdict("user:42", who),
+      "l'émission le refuse",
+    ).to.equal(false);
+  });
+});
+
+// ── #622 — poignée de main bornée : le client REVIENT après le 1013 ────────
+
+/** Transport qui relève les codes de fermeture reçus du serveur. */
+class RecordingTransport extends LoopbackClientTransport {
+  constructor(
+    wire: LoopbackWire,
+    private readonly codes: number[],
+  ) {
+    super(wire);
+  }
+  override onClose(cb: (code: number, reason: string) => void): void {
+    super.onClose((code, reason) => {
+      this.codes.push(code);
+      cb(code, reason);
+    });
+  }
+}
+
+async function until(cond: () => boolean, budgetMs = 1000): Promise<void> {
+  const end = Date.now() + budgetMs;
+  while (!cond()) {
+    if (Date.now() > end) throw new Error("banc : condition jamais atteinte");
+    await new Promise((r) => setTimeout(r, 2));
+  }
+}
+
+describe("#622 — authenticate bloqué : 1013, puis le vrai client revient (ADR-0021 §S11)", () => {
+  beforeEach(() => getRealtimeHub().clear());
+
+  it("1ʳᵉ poignée de main sans réponse → 1013 ; le client se reconnecte SEUL et reçoit son welcome", async () => {
+    const hub = getRealtimeHub();
+    hub.admissionBudget.authenticateTimeoutMs = 15;
+    let attempts = 0;
+    hub.useAuthenticator(
+      { pattern: /.*/ },
+      {
+        name: "slow_db",
+        supports: () => true,
+        // La base ne répond jamais à la première demande, puis répond.
+        authenticate: () => {
+          attempts += 1;
+          return attempts === 1
+            ? new Promise<IRealtimeToken>(() => {})
+            : Promise.resolve(TOKENS.user);
+        },
+      },
+    );
+    const codes: number[] = [];
+    let wires = 0;
+    const client = new NodefonySocket(
+      {
+        url: "ws://loopback/realtime",
+        autoReconnect: true,
+        reconnectDelay: 1,
+        reconnectDelayMax: 1,
+      },
+      () => {
+        wires += 1;
+        const wire = new LoopbackWire();
+        makeServer(wire);
+        return new RecordingTransport(wire, codes);
+      },
+    );
+    await client.connect();
+    await until(() => client.identity !== null);
+    expect(codes, "fermé en 1013, une fois").to.deep.equal([1013]);
+    expect(attempts, "une seconde poignée de main").to.equal(2);
+    expect(wires, "une nouvelle connexion, ouverte par le client").to.equal(2);
+    expect(client.identity?.userIdentifier).to.equal(
+      TOKENS.user.getUserIdentifier(),
+    );
+    expect(hub.probe().authenticateTimedOutTotal).to.equal(1);
+    client.disconnect();
   });
 });
