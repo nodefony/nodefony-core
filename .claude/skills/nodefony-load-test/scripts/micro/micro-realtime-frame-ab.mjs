@@ -25,7 +25,7 @@
  * chiffre publié.
  *
  * Usage :
- *   node micro-realtime-frame-ab.mjs --a <dist avant> --b <dist après> [--runs 7]
+ *   node micro-realtime-frame-ab.mjs --a <dist avant> --b <dist après> [--runs 7] [--payload tiny|real]
  *   (un `dist` = le dossier `dist/` de @nodefony/realtime, ou sa copie)
  * Mode enfant (interne) : --child <dist> <chemin>
  */
@@ -78,7 +78,28 @@ async function child(dist, which) {
   };
 
   const ping = '{"jsonrpc":"2.0","method":"ping"}';
-  const payload = { n: 1, s: "x" };
+  // `--payload real` : la forme d'une sonde de console (une dizaine de champs, un
+  // tableau d'objets, deux niveaux) — un parcours de la charge y coûte ce qu'il coûte
+  // en vrai, là où `tiny` le minore.
+  const payload =
+    process.argv[5] === "real"
+      ? {
+          ts: 1730000000000,
+          pod: "pod-a",
+          connections: 42,
+          pendingBytes: 1234,
+          droppedTotal: 0,
+          memory: { rss: 81234567, heapUsed: 41234567, heapTotal: 61234567 },
+          eventLoop: { p50: 0.4, p99: 2.1 },
+          channels: Array.from({ length: 8 }, (_, i) => ({
+            name: `canal:${i}`,
+            subscribers: i * 3,
+            messages: i * 100,
+            bytes: i * 4096,
+          })),
+          tags: ["prod", "eu-west", "v10"],
+        }
+      : { n: 1, s: "x" };
   const bin = Buffer.from([1, 2, 3, 4]);
   const step = {
     inbound: () => rt.handleRealtime(ping),
@@ -106,15 +127,20 @@ function parent() {
   const a = opt("--a");
   const b = opt("--b");
   const runs = Number(opt("--runs", "7"));
+  const payloadKind = opt("--payload", "tiny");
   if (!a || !b) {
     console.error("usage : --a <dist avant> --b <dist après> [--runs 7]");
     process.exit(2);
   }
   const self = new URL(import.meta.url).pathname;
   const measure = (dist, which) => {
-    const r = spawnSync(process.execPath, [self, "--child", dist, which], {
-      encoding: "utf8",
-    });
+    const r = spawnSync(
+      process.execPath,
+      [self, "--child", dist, which, payloadKind],
+      {
+        encoding: "utf8",
+      },
+    );
     if (r.status !== 0) {
       console.error(r.stderr || r.stdout);
       process.exit(1);
