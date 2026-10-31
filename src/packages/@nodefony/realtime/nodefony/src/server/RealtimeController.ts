@@ -83,6 +83,7 @@ import {
   ConnectionAdmission,
   type IChannelAdmissionRule,
 } from "./connectionAdmission";
+import { admitByRule, gateFrame, releaseRuleAdmission } from "./frameAdmission";
 
 /**
  * Une action RPC n'a ni variables de route ni URL : `@Param` et `@Query` y
@@ -643,10 +644,17 @@ export abstract class RealtimeController<
     // parse JSON que cette même frame vient de subir, c'est un prix nul, et le
     // trou d'autorisation se ferme par construction.
     //
-    // `peer` est capturé par closure (clé du mapping `peer → token`) — référence
-    // DIFFÉRÉE, jamais évaluée pendant la construction, donc pas de TDZ.
+    // Trame CHAUDE (ADR-0022 §6, décision 1 ter) : un canal admis — ouvert par
+    // `allow`, ou dont le verrou a déjà dit oui — coûte UNE lecture de propriété.
+    // Le reste est jugé par `gateFrame`, qui consulte le verrou.
+    //
+    // `state` est capturé par closure — référence DIFFÉRÉE : aucune trame n'est
+    // lue avant la fin de cette méthode, synchrone depuis l'authentification.
     {
-      peerOptions.beforeDispatch = (frame) => hub.runAuthorizer(frame, peer);
+      peerOptions.beforeDispatch = (frame) => {
+        if (state.admitted?.[frame.method] === true) return true;
+        return gateFrame(state, frame, hub);
+      };
       peerOptions.onFrameAudit = (reason, frame, auditedPeer) => {
         // Zero Trust : une frame REFUSÉE est tracée (audit P6.14, cold path). Les
         // autres motifs (invalid/method_not_found/internal_error) sont déjà gérés
@@ -670,7 +678,15 @@ export abstract class RealtimeController<
         if (channel !== undefined) {
           // Cold path (refus rare) : le geste ne se compose qu'ici, jamais sur
           // le trajet d'une frame acceptée.
-          const hint = identityHint(this.kernel);
+          // Une trame entrante sur un canal à `allow` que l'abonnement n'a pas
+          // admis : la cause n'est pas un rôle manquant, et le dire autrement
+          // enverrait chercher au mauvais endroit.
+          const unadmitted =
+            f.method === channel &&
+            state.inbound !== null &&
+            Object.hasOwn(state.inbound, channel) &&
+            hub.resolveChannelAdmission(channel) !== null;
+          const hint = unadmitted ? null : identityHint(this.kernel);
           // Type de PROTOCOLE isomorphe (core) : un seul contrat, garanti par le
           // compilateur des deux bouts (serveur émet ⇄ client `ingestDenied`).
           const denied: IRealtimeDenied = {
@@ -682,15 +698,19 @@ export abstract class RealtimeController<
             // transport là où une politique a simplement fait son travail.
             ...deniedDetail(
               this.kernel?.environment,
-              `le verrou de frame a refusé l'accès à « ${channel} » pour cette ` +
-                `identité : vérifie les rôles ou scopes exigés par le canal ` +
-                `(décorateur \`@RealtimeChannel(nom, { roles })\` ou clé ` +
-                `\`realtimeChannels\` de la configuration de sécurité), et ceux ` +
-                `que porte le jeton — le \`realtime:welcome\` te les rend` +
-                // Le diagnostic ne suffit pas : sans identité à présenter, il
-                // n'y a RIEN à vérifier. Le geste est donc joint au détail, qui
-                // ne franchit déjà pas la production.
-                (hint === null ? "" : `. ${hint}`),
+              unadmitted
+                ? `« ${channel} » n'accepte d'entrée que des connexions que sa ` +
+                    `règle \`allow\` a admises : abonne-toi d'abord au canal ` +
+                    `(\`subscribe\`), puis pousse une fois l'abonnement acquitté`
+                : `le verrou de frame a refusé l'accès à « ${channel} » pour cette ` +
+                    `identité : vérifie les rôles ou scopes exigés par le canal ` +
+                    `(décorateur \`@RealtimeChannel(nom, { roles })\` ou clé ` +
+                    `\`realtimeChannels\` de la configuration de sécurité), et ceux ` +
+                    `que porte le jeton — le \`realtime:welcome\` te les rend` +
+                    // Le diagnostic ne suffit pas : sans identité à présenter, il
+                    // n'y a RIEN à vérifier. Le geste est donc joint au détail, qui
+                    // ne franchit déjà pas la production.
+                    (hint === null ? "" : `. ${hint}`),
             ),
           };
           auditedPeer.notify("realtime:denied", denied);
@@ -820,6 +840,10 @@ export abstract class RealtimeController<
     // `null` si AUCUN des deux n'en déclare → 0 lookup sur le chemin notification.
     const decoratedInbound = getRealtimeInbound(this);
     const overrideInbound = this.realtimeInbound();
+    // Objet ordinaire, de même forme pour chaque connexion de ce contrôleur : la
+    // lecture la plus rapide sur la trame chaude. Un `method` hérité de son
+    // prototype (`__proto__`, `toString`) n'arrive jamais jusqu'ici — `gateFrame`
+    // le refuse avant la distribution.
     const inboundMap: Record<string, RealtimeInboundHandler> = {
       ...decoratedInbound,
       ...overrideInbound,
@@ -858,6 +882,8 @@ export abstract class RealtimeController<
       channels: new Map(),
       inbound,
       admission: null,
+      admitted: null,
+      retained: null,
     };
     ctx.__nfRealtime = state;
 
@@ -878,6 +904,12 @@ export abstract class RealtimeController<
         state.admission.close();
         state.admission = null;
       }
+      // Verdicts retenus : la connexion sort du registre que le hub vide quand
+      // une politique arrive après coup — celui qui l'y a inscrite (`hub`,
+      // capturé au branchement, que `gateFrame` a reçu), pas `liveHub`. Sans
+      // condition : un `delete` par fermeture, et aucun état du registre (vidé
+      // ou non depuis) ne peut y retenir une connexion morte.
+      hub.untrackRetainedVerdicts(state);
       liveHub.unregisterConnection(transport); // sonde : sortie symétrique du registre
       if (revocable) liveHub.unregisterRevocable(revocable); // F4 : sortie du tick de révocation
       transport.fireClose();
@@ -1072,7 +1104,12 @@ export abstract class RealtimeController<
       }
       admission = new ConnectionAdmission(
         {
-          open: (ch) => this.openChannel(state, ch),
+          open: (ch) => {
+            this.openChannel(state, ch);
+            // Admis par sa règle ET servi : ses trames entrantes passent sans
+            // le verrou, le temps de l'abonnement.
+            if (state.channels.has(ch)) admitByRule(state, ch);
+          },
           deny: (ch, reason, detail, retryAfterMs) => {
             this.denyChannel(state, ch, reason, detail, retryAfterMs);
             this.log(`WS subscribe refusé (${reason}) → ${ch}`, "DEBUG");
@@ -1556,6 +1593,7 @@ export abstract class RealtimeController<
     if (sink) {
       getRealtimeHub().unsubscribe(channel, sink);
       state.channels.delete(channel);
+      releaseRuleAdmission(state, channel);
       this.log(`WS unsubscribe → ${channel}`, "DEBUG");
       return;
     }

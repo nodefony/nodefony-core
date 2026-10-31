@@ -16,6 +16,8 @@ import {
 import type { IChannelAdmission } from "nodefony";
 import { AdmissionBudget, type IAdmissionLimits } from "./admissionBudget";
 import type { IChannelAdmissionRule } from "./connectionAdmission";
+import { dropRetainedVerdicts } from "./frameAdmission";
+import type { IRealtimeConnectionState } from "../../interfaces/IRealtimeConnectionState";
 import { isAdmissionClass } from "../../decorators/realtimeDecorators";
 import { frameRateRejectedTotal } from "@nodefony/http";
 import type {
@@ -380,6 +382,11 @@ export class RealtimeHub {
   // que PERSONNE n'a faites, et un journal d'audit inondé de non-évènements
   // cesse d'être lu. `null` = aucune sonde → on ne filtre rien (cf probeChannel).
   #channelProbe: FrameAuthorizer | null = null;
+  // Connexions qui ont retenu au moins un « oui » du verrou (ADR-0022 §6,
+  // décision 1 ter). Lazy ; jamais lu par trame — seulement quand le verrou ou
+  // une politique change, pour vider ces verdicts une fois. Aucun compteur de
+  // version comparé à chaque trame.
+  #retainers: Set<IRealtimeConnectionState> | null = null;
 
   // Seam #1b — registre des politiques de canal DÉCLARÉES (`@RealtimeChannel`/
   // `@RealtimeInbound` avec opts), indexé par nom de canal/méthode. Le hub ne
@@ -1133,6 +1140,8 @@ export class RealtimeHub {
     options?: { readonly silentProbe?: FrameAuthorizer | null },
   ): void {
     this.#frameAuthorizer = authorizer;
+    // Un « oui » retenu valait pour l'ANCIEN verrou.
+    this.#dropRetainedVerdicts();
     // 🔴 Posée par le MÊME appel, volontairement : deux seams séparés se
     // dépareillent le jour où quelqu'un n'en pose qu'un — et la dégradation
     // serait MUETTE (le welcome recommencerait à tout annoncer, sans erreur).
@@ -1250,6 +1259,9 @@ export class RealtimeHub {
       policy,
       admission: admissionRuleOf(name, policy, admission),
     };
+    // Inscrite après coup, la politique peut couvrir un canal dont le verrou a
+    // déjà dit oui sous l'ancienne : ces verdicts sont oubliés, une fois.
+    this.#dropRetainedVerdicts();
     // Un canal déclaré dans un namespace réservé hérite du plancher de la
     // plateforme (rôle d'administration), qui l'emporte sur la politique écrite
     // ici. Sans cet avertissement, l'auteur verrait ses utilisateurs refusés sur
@@ -1482,8 +1494,57 @@ export class RealtimeHub {
   }
 
   runAuthorizer(frame: unknown, peer: JsonRpcPeer): boolean {
-    if (this.#frameAuthorizer === null) return true;
-    return this.#frameAuthorizer(frame, this.getTokenForPeer(peer));
+    const authorizer = this.#frameAuthorizer;
+    if (authorizer === null) return true;
+    // Fermé par défaut, comme `allow` : seul `true` laisse passer. Un verrou
+    // écrit `async` par erreur rend une promesse — « vraie », elle admettait
+    // tout, et le « oui » se retenait. Un verrou qui LÈVE refuse la trame au
+    // lieu de remonter jusqu'au transport : un verrou qui lirait une charge
+    // forgée par le client en ferait un déni de service à distance.
+    try {
+      // Lu en `unknown` : le type promet un booléen, un verrou écrit en
+      // JavaScript ou déclaré `async` peut rendre autre chose.
+      const verdict: unknown = authorizer(frame, this.getTokenForPeer(peer));
+      return verdict === true;
+    } catch (e) {
+      this.#notifyOnce(
+        "frame-authorizer-threw",
+        "le verrou des trames a levé une exception — trame refusée : " +
+          (e instanceof Error ? e.message : String(e)),
+      );
+      return false;
+    }
+  }
+
+  /**
+   * Inscrit une connexion qui vient de retenir son premier « oui » du verrou.
+   *
+   * Appelé par `gateFrame`, jamais par trame chaude ; à équilibrer par
+   * {@link untrackRetainedVerdicts} à la fermeture.
+   *
+   * @param state - état de la connexion.
+   */
+  trackRetainedVerdicts(state: IRealtimeConnectionState): void {
+    (this.#retainers ??= new Set<IRealtimeConnectionState>()).add(state);
+  }
+
+  /**
+   * Retire une connexion fermée du registre des verdicts retenus.
+   *
+   * @param state - état de la connexion.
+   */
+  untrackRetainedVerdicts(state: IRealtimeConnectionState): void {
+    this.#retainers?.delete(state);
+  }
+
+  // Le verrou ou une politique vient de changer : chaque connexion oublie les
+  // « oui » qu'elle avait retenus, et sort du registre (elle y revient au
+  // prochain). Cold path.
+  #dropRetainedVerdicts(): void {
+    const retainers = this.#retainers;
+    if (retainers === null) return;
+    for (const state of retainers) dropRetainedVerdicts(state);
+    this.#retainers = null;
   }
 
   /**
@@ -1500,13 +1561,25 @@ export class RealtimeHub {
    * @returns `true` si un `subscribe` sur ce canal serait accepté.
    */
   probeChannel(channel: string, peer: JsonRpcPeer): boolean {
-    if (this.#channelProbe === null) return true;
+    const probe = this.#channelProbe;
+    if (probe === null) return true;
     // La frame que `subscribe` produirait — la sonde et le verrou lisent donc
-    // exactement la même forme, et aucune règle n'est réécrite ici.
-    return this.#channelProbe(
-      { method: "subscribe", params: { channel } },
-      this.getTokenForPeer(peer),
-    );
+    // exactement la même forme, et aucune règle n'est réécrite ici. Une sonde
+    // qui lève échoue OUVERT (la règle ci-dessus) au lieu de casser la poignée
+    // de main : c'est le verrou, pas l'annonce, qui protège l'accès.
+    try {
+      return probe(
+        { method: "subscribe", params: { channel } },
+        this.getTokenForPeer(peer),
+      );
+    } catch (e) {
+      this.#notifyOnce(
+        "channel-probe-threw",
+        "la sonde des canaux annoncés a levé une exception — canal annoncé : " +
+          (e instanceof Error ? e.message : String(e)),
+      );
+      return true;
+    }
   }
 
   /** Authenticators enregistrés (debug / tests). Lecture seule. */
@@ -1534,6 +1607,7 @@ export class RealtimeHub {
     this.#authenticators = null;
     this.#peerTokens = null;
     this.#frameAuthorizer = null;
+    this.#dropRetainedVerdicts();
     this.#channelPolicies?.clear();
     this.#channelPolicies = null;
     this.#channelPolicyPatterns = null;

@@ -215,9 +215,17 @@ export interface JsonRpcPeerOptions<
    * pré-cacher la décision côté authenticator au handshake.
    *
    * Branchement P6 : reading metadata `@IsGranted` du handler + voters → `boolean`.
+   *
+   * La trame arrive DÉJÀ CLASSÉE (requête ou notification, `method` chaîne) :
+   * aucun garde de forme ni conversion à refaire sur le chemin chaud. Un hook
+   * écrit pour `unknown` reste accepté — un paramètre plus étroit ne casse
+   * aucune fonction existante.
    */
   beforeDispatch?:
-    | ((frame: unknown, peer: IRealtimePeer<Emit, Actions>) => boolean)
+    | ((
+        frame: IJsonRpcRequest | IJsonRpcNotification,
+        peer: IRealtimePeer<Emit, Actions>,
+      ) => boolean)
     | undefined;
   /**
    * **Seam audit 5/5 (P13 → P6.14)** — fire-and-forget sur évènements
@@ -465,7 +473,7 @@ export class JsonRpcPeer<
 
     // Seam sécu 1/5 : gate AVANT le dispatch (request ET notification). Hot-path
     // sync — `undefined` → bypass 0-coût. Cf JsonRpcPeerOptions.beforeDispatch.
-    if (this.opts.beforeDispatch && !this.opts.beforeDispatch(msg, this)) {
+    if (this.opts.beforeDispatch && !this.opts.beforeDispatch(frame, this)) {
       this.opts.onFrameAudit?.("denied", msg, this);
       if (isRequest) {
         // Requête refusée : code de la plage `Server error` (JSON-RPC 2.0
