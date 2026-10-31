@@ -31,6 +31,7 @@ import {
   TransportState,
   type IRealtimeTransport,
 } from "../../../../../../nodefony/src/realtime/IRealtimeTransport.js";
+import { LoopbackClientTransport, LoopbackWire } from "../helpers/loopback.js";
 
 /**
  * INTÉGRATION BÉTON « la socket Nodefony » — VRAI `NodefonySocket` (navigateur,
@@ -57,67 +58,12 @@ const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
  * Câble loopback : aiguille les frames STRING entre les deux pairs, toujours en
  * `queueMicrotask` (découple send→receive, évite la réentrance synchrone).
  */
-class LoopbackWire {
-  /** `controller.handleRealtime` (null = handshake). Branché par `makeServer`. */
-  feedServer: ((raw: string | null) => void) | null = null;
-  /** pump entrant du transport client (`onMessage`). Branché par le transport. */
-  pumpClient: ((raw: string) => void) | null = null;
-  /** `onClose` du transport client. Branché par le transport. */
-  closeClient: ((code: number, reason: string) => void) | null = null;
-  /** état de la connexion serveur (lu par `WsConnectionTransport.send`). */
-  serverConnOpen = true;
-
-  /** serveur → client (appelé par `conn.send`). */
-  deliverToClient(raw: string): void {
-    queueMicrotask(() => this.pumpClient?.(raw));
-  }
-  /** client → serveur (appelé par `clientTransport.send`). */
-  deliverToServer(raw: string): void {
-    queueMicrotask(() => this.feedServer?.(raw));
-  }
-}
 
 /**
  * Transport client loopback ({@link IRealtimeTransport}) injecté dans le VRAI
  * `NodefonySocket`. `connect()` ouvre + déclenche le handshake serveur (le vrai
  * pipeline framework appelle `handleRealtime(null)` à l'upgrade).
  */
-class LoopbackClientTransport implements IRealtimeTransport {
-  readyState: number = TransportState.CONNECTING;
-  private _onOpen: (() => void) | null = null;
-  private _onClose: ((code: number, reason: string) => void) | null = null;
-
-  constructor(private readonly wire: LoopbackWire) {}
-
-  connect(): void {
-    this.readyState = TransportState.OPEN;
-    queueMicrotask(() => {
-      this._onOpen?.();
-      this.wire.feedServer?.(null); // handshake serveur
-    });
-  }
-  send(raw: string): void {
-    if (this.readyState !== TransportState.OPEN) return;
-    this.wire.deliverToServer(raw);
-  }
-  close(code = 1000, reason = ""): void {
-    this.readyState = TransportState.CLOSED;
-    this._onClose?.(code, reason);
-  }
-  onOpen(cb: () => void): void {
-    this._onOpen = cb;
-  }
-  onMessage(cb: (raw: string) => void): void {
-    this.wire.pumpClient = cb;
-  }
-  onClose(cb: (code: number, reason: string) => void): void {
-    this._onClose = cb;
-    this.wire.closeClient = cb;
-  }
-  onError(): void {
-    /* erreurs surfacées par close */
-  }
-}
 
 /** Sous-classe serveur de test : déclare actions/canaux/inbound + ponts de test. */
 class LoopbackRt extends RealtimeController {

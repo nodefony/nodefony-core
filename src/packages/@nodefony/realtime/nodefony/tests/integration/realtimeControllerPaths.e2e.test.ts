@@ -25,6 +25,7 @@ import {
   TransportState,
   type IRealtimeTransport,
 } from "../../../../../../nodefony/src/realtime/IRealtimeTransport.js";
+import { LoopbackClientTransport, LoopbackWire } from "../helpers/loopback.js";
 
 /**
  * E2E des CHEMINS du {@link RealtimeController} (pipeline WS complet, vrai client
@@ -36,59 +37,6 @@ import {
 
 const OPEN = 1;
 const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
-
-class LoopbackWire {
-  feedServer: ((raw: string | null) => void) | null = null;
-  pumpClient: ((raw: string) => void) | null = null;
-  closeClient: ((code: number, reason: string) => void) | null = null;
-  serverConnOpen = true;
-  deliverToClient(raw: string): void {
-    queueMicrotask(() => this.pumpClient?.(raw));
-  }
-  deliverToServer(raw: string): void {
-    queueMicrotask(() => this.feedServer?.(raw));
-  }
-}
-
-class LoopbackClientTransport implements IRealtimeTransport {
-  readyState: number = TransportState.CONNECTING;
-  lastCloseCode: number | null = null;
-  private _onOpen: (() => void) | null = null;
-  private _onClose: ((code: number, reason: string) => void) | null = null;
-  constructor(private readonly wire: LoopbackWire) {}
-  connect(): void {
-    this.readyState = TransportState.OPEN;
-    queueMicrotask(() => {
-      this._onOpen?.();
-      this.wire.feedServer?.(null);
-    });
-  }
-  send(raw: string): void {
-    if (this.readyState !== TransportState.OPEN) return;
-    this.wire.deliverToServer(raw);
-  }
-  close(code = 1000, reason = ""): void {
-    this.readyState = TransportState.CLOSED;
-    this.lastCloseCode = code;
-    this._onClose?.(code, reason);
-  }
-  onOpen(cb: () => void): void {
-    this._onOpen = cb;
-  }
-  onMessage(cb: (raw: string) => void): void {
-    this.wire.pumpClient = cb;
-  }
-  onClose(cb: (code: number, reason: string) => void): void {
-    this._onClose = cb;
-    this.wire.closeClient = (code, reason) => {
-      this.lastCloseCode = code;
-      cb(code, reason);
-    };
-  }
-  onError(): void {
-    /* surfacé par close */
-  }
-}
 
 // Router factice pour le pont `api.request` — comportement piloté par scénario.
 type RouterMode =

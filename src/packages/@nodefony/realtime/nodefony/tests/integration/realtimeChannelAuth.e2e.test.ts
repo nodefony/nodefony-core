@@ -39,6 +39,7 @@ import {
   TransportState,
   type IRealtimeTransport,
 } from "../../../../../../nodefony/src/realtime/IRealtimeTransport.js";
+import { LoopbackClientTransport, LoopbackWire } from "../helpers/loopback.js";
 
 /**
  * MATRICE E2E « protection des canaux » — VRAI {@link NodefonySocket} ↔ VRAI
@@ -59,54 +60,6 @@ import {
 
 const OPEN = 1;
 const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
-
-class LoopbackWire {
-  feedServer: ((raw: string | null) => void) | null = null;
-  pumpClient: ((raw: string) => void) | null = null;
-  closeClient: ((code: number, reason: string) => void) | null = null;
-  serverConnOpen = true;
-  deliverToClient(raw: string): void {
-    queueMicrotask(() => this.pumpClient?.(raw));
-  }
-  deliverToServer(raw: string): void {
-    queueMicrotask(() => this.feedServer?.(raw));
-  }
-}
-
-class LoopbackClientTransport implements IRealtimeTransport {
-  readyState: number = TransportState.CONNECTING;
-  private _onOpen: (() => void) | null = null;
-  private _onClose: ((code: number, reason: string) => void) | null = null;
-  constructor(private readonly wire: LoopbackWire) {}
-  connect(): void {
-    this.readyState = TransportState.OPEN;
-    queueMicrotask(() => {
-      this._onOpen?.();
-      this.wire.feedServer?.(null); // handshake serveur
-    });
-  }
-  send(raw: string): void {
-    if (this.readyState !== TransportState.OPEN) return;
-    this.wire.deliverToServer(raw);
-  }
-  close(code = 1000, reason = ""): void {
-    this.readyState = TransportState.CLOSED;
-    this._onClose?.(code, reason);
-  }
-  onOpen(cb: () => void): void {
-    this._onOpen = cb;
-  }
-  onMessage(cb: (raw: string) => void): void {
-    this.wire.pumpClient = cb;
-  }
-  onClose(cb: (code: number, reason: string) => void): void {
-    this._onClose = cb;
-    this.wire.closeClient = cb;
-  }
-  onError(): void {
-    /* erreurs surfacées par close */
-  }
-}
 
 /**
  * Controller de test : un canal par classe de protection, chacun déclaré via
@@ -1154,22 +1107,6 @@ describe("#622 — admission par l'identité de bout en bout (motif user:*)", ()
 
 // ── #622 — poignée de main bornée : le client REVIENT après le 1013 ────────
 
-/** Transport qui relève les codes de fermeture reçus du serveur. */
-class RecordingTransport extends LoopbackClientTransport {
-  constructor(
-    wire: LoopbackWire,
-    private readonly codes: number[],
-  ) {
-    super(wire);
-  }
-  override onClose(cb: (code: number, reason: string) => void): void {
-    super.onClose((code, reason) => {
-      this.codes.push(code);
-      cb(code, reason);
-    });
-  }
-}
-
 async function until(cond: () => boolean, budgetMs = 1000): Promise<void> {
   const end = Date.now() + budgetMs;
   while (!cond()) {
@@ -1199,8 +1136,7 @@ describe("#622 — authenticate bloqué : 1013, puis le vrai client revient (ADR
         },
       },
     );
-    const codes: number[] = [];
-    let wires = 0;
+    const transports: LoopbackClientTransport[] = [];
     const client = new NodefonySocket(
       {
         url: "ws://loopback/realtime",
@@ -1209,17 +1145,24 @@ describe("#622 — authenticate bloqué : 1013, puis le vrai client revient (ADR
         reconnectDelayMax: 1,
       },
       () => {
-        wires += 1;
         const wire = new LoopbackWire();
         makeServer(wire);
-        return new RecordingTransport(wire, codes);
+        const transport = new LoopbackClientTransport(wire);
+        transports.push(transport);
+        return transport;
       },
     );
     await client.connect();
     await until(() => client.identity !== null);
-    expect(codes, "fermé en 1013, une fois").to.deep.equal([1013]);
+    expect(
+      transports.flatMap((t) => t.serverCloseCodes),
+      "fermé en 1013, une fois",
+    ).to.deep.equal([1013]);
     expect(attempts, "une seconde poignée de main").to.equal(2);
-    expect(wires, "une nouvelle connexion, ouverte par le client").to.equal(2);
+    expect(
+      transports,
+      "une nouvelle connexion, ouverte par le client",
+    ).to.have.length(2);
     expect(client.identity?.userIdentifier).to.equal(
       TOKENS.user.getUserIdentifier(),
     );
