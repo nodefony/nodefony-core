@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-31 00:52** (UTC).
+> Empreinte prise le **2026-10-31 00:59** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -124,7 +124,7 @@ Ordre 6.03 · P2 — décision · 19.75 j · jalon 10.0.0-beta · frise 2026-10-
 | 6.0343 | P2 — décision | 0.5 | 2026-11-07 → 11-07 | #709 | feat(client): typer les hooks React et Vue par le contrat |
 | 6.0344 | P2 — décision | 1 | 2026-11-09 → 11-09 | #710 | feat(realtime): livrer un message privé à une personne |
 | 6.0345 | P1 — figé à la création | 1 | 2026-11-09 → 11-09 | #699 | feat(security)!: durcir la CSP par défaut sans bloquer le temps réel |
-| 6.0345 | P2 — décision | 1 | 2026-11-10 → 11-10 | #711 | refactor(studio): typer les canaux de Studio par un contrat |
+| 6.03455 | P2 — décision | 1 | 2026-11-10 → 11-10 | #711 | refactor(studio): typer les canaux de Studio par un contrat |
 | 6.0346 | P2 — décision | 0.5 | 2026-11-10 → 11-10 | #631 | test(media): lancer les tests audio dans un vrai navigateur |
 | 6.0347 | P2 — décision | 0.5 | 2026-11-12 → 11-12 | #629 | test(realtime): garder l'isomorphisme par des contrôles qui mordent |
 | 6.035 | P2 — décision | 0.5 | 2026-11-06 → 11-06 | #623 | feat(realtime): identifier les abonnés d'un canal côté serveur |
