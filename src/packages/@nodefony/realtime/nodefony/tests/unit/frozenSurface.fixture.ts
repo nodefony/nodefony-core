@@ -36,7 +36,7 @@ export const FROZEN_REFUSAL_COUNTERS = [
   { name: "frameRateRejectedTotal" },
   { name: "allowTimedOutTotal" },
   { name: "allowSaturatedTotal" },
-  { name: "authenticateTimedOutTotal", ticket: 622 },
+  { name: "authenticateTimedOutTotal" },
 ] as const;
 
 /**

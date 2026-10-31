@@ -273,6 +273,23 @@ export const realtimeConfigSchema = z
       slowConsumerSchema.parse({}),
     ),
     limits: limitsSchema.default(() => limitsSchema.parse({})),
+    authenticateTimeoutMs: z
+      .number()
+      .int()
+      .positive()
+      // Même borne que `allowTimeoutMs` : au-delà, `setTimeout` ramène le délai à 1 ms.
+      .max(2_147_483_647)
+      .default(10_000)
+      .describe(
+        "Délai (ms) de l'authentification à la poignée de main WebSocket. Dépassé, " +
+          "la connexion est fermée en 1013 (« try again later ») : le client recule " +
+          "puis revient, et une identité arrivée après coup est ignorée " +
+          "(`authenticateTimedOutTotal`). Jamais 4001 : un refus définitif " +
+          "arrêterait un client légitime à chaque panne de base. Défaut 10000 : " +
+          "l'authentification relit souvent une session en base ou une clé distante ; " +
+          "10 s couvrent une base chargée, et au-delà retenir la connexion ne " +
+          "l'authentifierait pas plus vite — elle occuperait seulement une place.",
+      ),
     allowTimeoutMs: z
       .number()
       .int()

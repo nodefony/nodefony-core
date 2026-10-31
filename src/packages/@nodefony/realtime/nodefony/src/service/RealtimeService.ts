@@ -117,9 +117,11 @@ class RealtimeService extends Service {
     hub.setMaxChannelsPerConnection(
       this.#config.limits.maxChannelsPerConnection,
     );
-    // #622 — bornes de l'admission `allow` (délai, appels en vol par connexion
-    // et par exemplaire), lues par la file de chaque connexion.
+    // #622 — bornes des admissions : délai de l'authentification à la poignée
+    // de main, puis celles d'`allow` (délai, appels en vol par connexion et par
+    // exemplaire), lues par la file de chaque connexion.
     hub.setAdmissionLimits({
+      authenticateTimeoutMs: this.#config.authenticateTimeoutMs,
       allowTimeoutMs: this.#config.allowTimeoutMs,
       maxPendingAllowsPerConnection: this.#config.maxPendingAllowsPerConnection,
       maxPendingAllowsTotal: this.#config.maxPendingAllowsTotal,

@@ -29,6 +29,8 @@ import {
   jsonRpcFailure,
   IDENTITY_DEAD_CLOSE_CODE,
   ORIGIN_REFUSED_CLOSE_CODE,
+  TRY_AGAIN_LATER_CLOSE_CODE,
+  TransportState,
 } from "nodefony";
 import type { ContextType, WebsocketContext } from "@nodefony/http";
 import {
@@ -44,6 +46,7 @@ import {
 } from "@nodefony/framework";
 import type { ControllerScope } from "@nodefony/framework";
 import { createSyslogUplinkHandler } from "./syslogUplink";
+import { AUTHENTICATE_TIMED_OUT } from "./admissionBudget";
 import {
   WsConnectionTransport,
   type RawWsConnection,
@@ -539,6 +542,8 @@ export abstract class RealtimeController<
    * Échecs (close WebSocket, codes plage applicative RFC 6455 §7.4.2) :
    *  - Origin refusée    → code 4003 (`forbidden`).
    *  - `authenticate` throw → code 4001 (`unauthorized`).
+   *  - `authenticate` sans réponse dans `authenticateTimeoutMs` → code 1013
+   *    (`try again later`, ADR-0021 §S11) : le client recule puis revient.
    */
   private async onHandshake(ctx: WebsocketContext): Promise<void> {
     if (ctx.__nfRealtime?.welcomed) return;
@@ -563,7 +568,29 @@ export abstract class RealtimeController<
     let token: IRealtimeToken;
     if (authenticator?.supports(handshake)) {
       try {
-        token = await authenticator.authenticate(handshake);
+        // Borné (ADR-0021 §S11) : une base bloquée ne retient plus chaque
+        // connexion entrante. Une identité arrivée après le délai est ignorée.
+        const outcome = await hub.admissionBudget.authenticateWithin(
+          authenticator.authenticate(handshake),
+        );
+        if (outcome === AUTHENTICATE_TIMED_OUT) {
+          // Ni `onFailure` ni 4001 : ce n'est pas un refus d'identité, et un
+          // compteur d'échecs (anti-force brute) ne doit pas monter quand la
+          // base tombe. Journal limité en fréquence, comme celui d'`allow`.
+          if (
+            hub.admissionBudget.shouldWarn("authenticate", performance.now())
+          ) {
+            this.log(
+              `WS realtime auth (${authenticator.name}) sans réponse en ` +
+                `${hub.admissionBudget.authenticateTimeoutMs} ms ` +
+                `(authenticateTimeoutMs) — connexion fermée en 1013, le client reviendra`,
+              "WARNING",
+            );
+          }
+          conn.close(TRY_AGAIN_LATER_CLOSE_CODE, "try again later");
+          return;
+        }
+        token = outcome;
         authenticator.onSuccess?.(handshake, token);
       } catch (e) {
         const err = e instanceof Error ? e : new Error(String(e));
@@ -582,6 +609,11 @@ export abstract class RealtimeController<
     } else {
       token = ANONYMOUS_REALTIME_TOKEN;
     }
+    // Le client a pu partir PENDANT l'authentification : `onFinish` a alors
+    // déjà été tiré, avant que le nettoyage ne soit branché plus bas — tout ce
+    // qui suit (registre des connexions, révocation, verdicts retenus) resterait
+    // inscrit à vie. Rien à servir à une socket fermée.
+    if (conn.readyState !== TransportState.OPEN) return;
 
     // Contre-pression de CETTE connexion : réglages lus sur le serveur WebSocket
     // qui la sert — source UNIQUE, partagée avec `send`/`broadcast` HTTP. Cold

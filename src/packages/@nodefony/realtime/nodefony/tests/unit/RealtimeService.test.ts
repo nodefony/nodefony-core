@@ -376,6 +376,31 @@ describe("RealtimeService — façade DI du hub realtime", () => {
       expect(budget.acquire()).to.equal(-1);
       expect(budget.acquire()).to.equal(0, "plafond global de 2 posé");
     });
+
+    it("init pose authenticateTimeoutMs sur le hub ; défaut 10 000 ms", async () => {
+      const { module } = buildModuleMock(
+        defineRealtimeConfig({ authenticateTimeoutMs: 4321 }),
+      );
+      await new RealtimeService(module).init(module);
+      expect(getRealtimeHub().admissionBudget.authenticateTimeoutMs).to.equal(
+        4321,
+      );
+
+      getRealtimeHub().clear();
+      const { module: byDefault } = buildModuleMock();
+      await new RealtimeService(byDefault).init(byDefault);
+      expect(getRealtimeHub().admissionBudget.authenticateTimeoutMs).to.equal(
+        10_000,
+      );
+    });
+
+    it("authenticateTimeoutMs refuse 0 et ce qui dépasse la borne de setTimeout", () => {
+      for (const authenticateTimeoutMs of [0, 2_147_483_648]) {
+        expect(() =>
+          defineRealtimeConfig({ authenticateTimeoutMs }),
+        ).to.throw();
+      }
+    });
   });
 
   describe("introspection (getConfig / probe)", () => {

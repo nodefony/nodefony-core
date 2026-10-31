@@ -23,6 +23,7 @@ describe("studio / clusterSupervision.mapInstanceToSupervision", () => {
     frameRateRejectedTotal: 0,
     allowTimedOutTotal: 0,
     allowSaturatedTotal: 0,
+    authenticateTimedOutTotal: 0,
     connectionCount: 0,
     bytesSentTotal: 0,
     messagesSentTotal: 0,

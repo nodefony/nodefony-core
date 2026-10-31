@@ -113,6 +113,13 @@ export interface IRealtimeProbe {
    * ouvert, ou délai épuisé dans la file d'une connexion.
    */
   allowSaturatedTotal: number;
+  /**
+   * Poignées de main fermées en `1013` faute d'authentification dans
+   * `authenticateTimeoutMs` — monotone, unité : une poignée de main. Le client
+   * recule puis revient. `> 0` qui monte = la base ou le service qui porte les
+   * identités ne répond plus.
+   */
+  authenticateTimedOutTotal: number;
   /** Connexions realtime vivantes. */
   connectionCount: number;
   /** Somme cumulée des octets envoyés, toutes connexions (monotone). */

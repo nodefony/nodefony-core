@@ -101,6 +101,7 @@ describe("#622 — budget des admissions de l'exemplaire", () => {
   it("release rend la place ; jamais de compte négatif qui ouvrirait le plafond", () => {
     const budget = new AdmissionBudget();
     budget.configure({
+      authenticateTimeoutMs: 10_000,
       allowTimeoutMs: 100,
       maxPendingAllowsPerConnection: 1,
       maxPendingAllowsTotal: 1,
@@ -183,6 +184,7 @@ describe("#622 — budget des admissions de l'exemplaire", () => {
     fakeClock();
     const budget = new AdmissionBudget();
     budget.configure({
+      authenticateTimeoutMs: 10_000,
       allowTimeoutMs: 10,
       maxPendingAllowsPerConnection: 1,
       maxPendingAllowsTotal: 1,
@@ -213,6 +215,7 @@ function queue(
 ) {
   const budget = new AdmissionBudget();
   budget.configure({
+    authenticateTimeoutMs: 10_000,
     allowTimeoutMs: limits.timeout ?? 1000,
     maxPendingAllowsPerConnection: limits.perConnection ?? 8,
     maxPendingAllowsTotal: limits.total ?? 512,
@@ -497,6 +500,7 @@ describe("#622 — règle asynchrone : délai, file, plafonds", () => {
   it("plafond GLOBAL partagé entre connexions → unavailable sans appel, sans délai annoncé", async () => {
     const budget = new AdmissionBudget();
     budget.configure({
+      authenticateTimeoutMs: 10_000,
       allowTimeoutMs: 1000,
       maxPendingAllowsPerConnection: 8,
       maxPendingAllowsTotal: 1,
@@ -1013,6 +1017,7 @@ describe("#622 — admission au subscribe, dans le contrôleur", () => {
   it("la sonde expose allowTimedOutTotal et allowSaturatedTotal ; clear() les remet à zéro", () => {
     const hub = getRealtimeHub();
     hub.setAdmissionLimits({
+      authenticateTimeoutMs: 10_000,
       allowTimeoutMs: 100,
       maxPendingAllowsPerConnection: 1,
       maxPendingAllowsTotal: 1,

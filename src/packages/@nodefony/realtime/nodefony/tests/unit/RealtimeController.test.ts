@@ -488,6 +488,132 @@ describe("RealtimeController — base endpoint WS (protocole factorisé)", () =>
       expect(sent).to.have.length(0); // pas de welcome
     });
 
+    describe("poignée de main bornée — authenticateTimeoutMs (ADR-0021 §S11)", () => {
+      const DEADLINE = 15;
+      const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+      /** Authentificateur dont on règle la réponse à la main ; trace ses crochets. */
+      function controlled() {
+        let settle: ((t: IRealtimeToken) => void) | null = null;
+        let fail: ((e: Error) => void) | null = null;
+        const calls = { success: 0, failure: 0 };
+        const auth: IRealtimeAuthenticator = {
+          name: "slow_db",
+          supports: () => true,
+          authenticate: () =>
+            new Promise<IRealtimeToken>((resolve, reject) => {
+              settle = resolve;
+              fail = reject;
+            }),
+          onSuccess: () => {
+            calls.success++;
+          },
+          onFailure: () => {
+            calls.failure++;
+          },
+        };
+        getRealtimeHub().useAuthenticator({ pattern: "/realtime" }, auth);
+        getRealtimeHub().admissionBudget.authenticateTimeoutMs = DEADLINE;
+        return {
+          calls,
+          resolve: (t: IRealtimeToken) => settle?.(t),
+          reject: (e: Error) => fail?.(e),
+        };
+      }
+      const customToken: IRealtimeToken = {
+        type: "jwt",
+        getUserIdentifier: () => "alice",
+        isAuthenticated: () => true,
+        getRoles: () => ["ROLE_USER"],
+        getScopes: () => [],
+        getAttribute: () => undefined,
+      };
+
+      it("authenticate bloqué → close 1013 « try again later », compté, sans welcome ni onFailure", async () => {
+        const { calls } = controlled();
+        const { ctx, sent, closes } = makeCtx({ url: "/realtime" });
+        new TestRt(ctx).feed(null);
+        await wait(DEADLINE * 3);
+        expect(closes).to.deep.equal([
+          { code: 1013, reason: "try again later" },
+        ]);
+        expect(sent).to.have.length(0);
+        // Une base en panne n'est pas un refus d'identité : l'anti-force brute
+        // branché sur onFailure ne doit pas monter.
+        expect(calls.failure).to.equal(0);
+        expect(getRealtimeHub().probe().authenticateTimedOutTotal).to.equal(1);
+      });
+
+      it("identité arrivée APRÈS le délai : ignorée — ni onSuccess, ni welcome, une seule fermeture", async () => {
+        const auth = controlled();
+        const { ctx, sent, closes } = makeCtx({ url: "/realtime" });
+        new TestRt(ctx).feed(null);
+        await wait(DEADLINE * 3);
+        auth.resolve(customToken);
+        await wait(0);
+        expect(auth.calls.success).to.equal(0);
+        expect(sent).to.have.length(0);
+        expect(closes).to.have.length(1);
+        expect(getRealtimeHub().probe().connectionCount).to.equal(0);
+      });
+
+      it("rejet arrivé APRÈS le délai : ignoré, aucune exception ne remonte", async () => {
+        const auth = controlled();
+        const { ctx, closes } = makeCtx({ url: "/realtime" });
+        new TestRt(ctx).feed(null);
+        await wait(DEADLINE * 3);
+        auth.reject(new Error("base revenue en erreur"));
+        await wait(0);
+        expect(auth.calls.failure).to.equal(0);
+        expect(closes).to.deep.equal([
+          { code: 1013, reason: "try again later" },
+        ]);
+      });
+
+      it("réponse DANS le délai : le minuteur est coupé — aucune fermeture après l'échéance", async () => {
+        const auth = controlled();
+        const { ctx, sent, closes } = makeCtx({ url: "/realtime" });
+        new TestRt(ctx).feed(null);
+        auth.resolve(customToken);
+        await wait(DEADLINE * 3);
+        expect(sent[0]!.method).to.equal("realtime:welcome");
+        expect(closes).to.have.length(0);
+        expect(getRealtimeHub().probe().authenticateTimedOutTotal).to.equal(0);
+      });
+
+      it("deux poignées de main en dépassement : deux comptées, UN seul avertissement (fenêtre)", async () => {
+        controlled();
+        const warnings: string[] = [];
+        class Logged extends TestRt {
+          override log(pci: unknown, severity?: unknown): never {
+            if (severity === "WARNING") warnings.push(String(pci));
+            return undefined as never;
+          }
+        }
+        new Logged(makeCtx({ url: "/realtime" }).ctx).feed(null);
+        new Logged(makeCtx({ url: "/realtime" }).ctx).feed(null);
+        await wait(DEADLINE * 3);
+        expect(getRealtimeHub().probe().authenticateTimedOutTotal).to.equal(2);
+        expect(warnings).to.have.length(1);
+        expect(warnings[0]).to.match(
+          /slow_db.*15 ms \(authenticateTimeoutMs\)/,
+        );
+      });
+
+      it("client parti PENDANT l'authentification : rien n'est inscrit au hub, aucun welcome", async () => {
+        const auth = controlled();
+        const { ctx, sent } = makeCtx({ url: "/realtime" });
+        new TestRt(ctx).feed(null);
+        // `onFinish` est tiré à ce moment-là par le contexte, avant que le
+        // contrôleur n'ait branché son nettoyage : il ne se rejouera pas.
+        ctx.connection.readyState = 3;
+        auth.resolve(customToken);
+        await wait(0);
+        expect(sent).to.have.length(0);
+        expect(getRealtimeHub().probe().connectionCount).to.equal(0);
+        expect(auth.calls.success).to.equal(1);
+      });
+    });
+
     it("une exception INATTENDUE au handshake ferme la socket en 1011 au lieu de la laisser muette", async () => {
       class Broken extends TestRt {
         errors: string[] = [];

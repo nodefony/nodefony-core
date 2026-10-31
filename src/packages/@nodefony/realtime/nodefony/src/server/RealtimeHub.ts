@@ -1001,6 +1001,7 @@ export class RealtimeHub {
       frameRateRejectedTotal: frameRateRejectedTotal(),
       allowTimedOutTotal: this.admissionBudget.timedOutTotal,
       allowSaturatedTotal: this.admissionBudget.saturatedTotal,
+      authenticateTimedOutTotal: this.admissionBudget.authenticateTimedOutTotal,
       connectionCount,
       bytesSentTotal,
       messagesSentTotal,
@@ -1103,7 +1104,7 @@ export class RealtimeHub {
   }
 
   /**
-   * Pose les bornes des admissions (`allowTimeoutMs`, `maxPendingAllowsPerConnection`, `maxPendingAllowsTotal`) — 1× au boot par `RealtimeService.init()`.
+   * Pose les bornes des admissions (`authenticateTimeoutMs`, `allowTimeoutMs`, `maxPendingAllowsPerConnection`, `maxPendingAllowsTotal`) — 1× au boot par `RealtimeService.init()`.
    */
   setAdmissionLimits(limits: IAdmissionLimits): void {
     this.admissionBudget.configure(limits);
