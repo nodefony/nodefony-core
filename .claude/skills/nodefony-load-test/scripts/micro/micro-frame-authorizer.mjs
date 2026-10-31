@@ -26,7 +26,14 @@
  *
  * Usage (racine du dépôt, `dist` à jour de @nodefony/realtime et @nodefony/security) :
  *   node .claude/skills/nodefony-load-test/scripts/micro/micro-frame-authorizer.mjs [--runs 7]
- * Mode enfant (interne) : --child <chemin> <mesure>
+ *
+ * AVANT/APRÈS dans le MÊME run : `--baseline <dist>` désigne une copie du `dist`
+ * de @nodefony/realtime bâtie sur l'état de référence (ex. `git show HEAD:…` puis
+ * build, copie sous `tmp/bench/`). Les mesures `nolock` et `lock` des deux `dist`
+ * sont alors ALTERNÉES, run par run : deux runs pris à une heure d'écart mesurent
+ * aussi la dérive de la machine, et l'écart se lit à tort comme un effet du diff.
+ *
+ * Mode enfant (interne) : --child <chemin> <mesure> [<dist realtime>]
  */
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -35,7 +42,7 @@ import { pathToFileURL } from "node:url";
 const WARM = 2e5;
 const N = 2e6;
 const ROOT = process.cwd();
-const RT = path.join(ROOT, "src/packages/@nodefony/realtime/dist");
+const DEFAULT_RT = path.join(ROOT, "src/packages/@nodefony/realtime/dist");
 const SEC = path.join(ROOT, "src/packages/@nodefony/security/dist");
 
 const args = process.argv.slice(2);
@@ -45,13 +52,13 @@ const opt = (name, def) => {
 };
 
 if (args[0] === "--child") {
-  await child(args[1], args[2]);
+  await child(args[1], args[2], args[3] ?? DEFAULT_RT);
 } else {
   parent();
 }
 
 /** Mesure UN chemin, UNE variante, imprime `ns/trame` en JSON. */
-async function child(which, variant) {
+async function child(which, variant, RT) {
   await import("reflect-metadata");
   const load = (dir, rel) => import(pathToFileURL(path.join(dir, rel)).href);
   const { RealtimeController, RealtimeInbound, getRealtimeHub } = await load(
@@ -152,11 +159,15 @@ function fail(message) {
 function parent() {
   const runs = Number(opt("--runs", "7"));
   const self = new URL(import.meta.url).pathname;
-  const measure = (which, variant) => {
-    const r = spawnSync(process.execPath, [self, "--child", which, variant], {
-      encoding: "utf8",
-      cwd: ROOT,
-    });
+  const measure = (which, variant, rt = DEFAULT_RT) => {
+    const r = spawnSync(
+      process.execPath,
+      [self, "--child", which, variant, rt],
+      {
+        encoding: "utf8",
+        cwd: ROOT,
+      },
+    );
     if (r.status !== 0) {
       console.error(r.stderr || r.stdout);
       process.exit(1);
@@ -167,6 +178,37 @@ function parent() {
     [...xs].sort((x, y) => x - y)[Math.floor(xs.length / 2)];
   const spread = (xs) =>
     `${Math.min(...xs).toFixed(0)}–${Math.max(...xs).toFixed(0)}`;
+  const baseline = opt("--baseline", null);
+  if (baseline !== null) {
+    const ref = path.resolve(ROOT, baseline);
+    const rows = [];
+    for (const which of ["free", "roles"]) {
+      const S = { avantSans: [], avantAvec: [], apresSans: [], apresAvec: [] };
+      for (let i = 0; i < runs; i++) {
+        S.avantSans.push(measure(which, "nolock", ref));
+        S.apresSans.push(measure(which, "nolock"));
+        S.avantAvec.push(measure(which, "lock", ref));
+        S.apresAvec.push(measure(which, "lock"));
+      }
+      const m = Object.fromEntries(
+        Object.entries(S).map(([k, v]) => [k, median(v)]),
+      );
+      const pct = (x, y) => (((x - y) / y) * 100).toFixed(1);
+      rows.push({
+        canal: which,
+        "avant sans verrou": m.avantSans.toFixed(0),
+        "avant avec verrou": m.avantAvec.toFixed(0),
+        "après sans verrou": m.apresSans.toFixed(0),
+        "après avec verrou": m.apresAvec.toFixed(0),
+        "après avec / avant sans %": pct(m.apresAvec, m.avantSans),
+        "après sans / avant sans %": pct(m.apresSans, m.avantSans),
+        "étendue avant sans": spread(S.avantSans),
+        "étendue après avec": spread(S.apresAvec),
+      });
+    }
+    console.table(rows);
+    return;
+  }
   const rows = [];
   for (const which of ["free", "roles"]) {
     const S = { nolock: [], lock: [], memo: [], lockonly: [] };
