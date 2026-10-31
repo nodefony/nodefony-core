@@ -33,7 +33,7 @@ import Http2Request from "../http2/Request";
 import Http2Response from "../http2/Response";
 import http2 from "node:http2";
 import http from "node:http";
-import type { Socket } from "node:net";
+import net from "node:net";
 import url, { URL } from "node:url";
 import Session from "../../../src/session/session";
 import Cookie from "../../cookies/cookie";
@@ -88,47 +88,56 @@ export type HttpRsponseType = Http2Response | HttpResponse;
 // (h1 keep-alive), plus par requête : `response.setTimeout` re-payait à CHAQUE
 // requête un re-arm de timer + une closure `once` pour une valeur CONSTANTE
 // par serveur (`httpKernel.responseTimeout[type]`) — ~2,6 % du profil CPU
-// (`setStreamTimeout`). Le handler permanent (1/socket) route vers le context
-// ACTIF via WeakMap → la sémantique 408/504 + abort PAR REQUÊTE est intacte.
+// (`setStreamTimeout`). L'écouteur du SERVEUR (`routeSocketTimeout`) route vers
+// le context ACTIF via WeakMap → la sémantique 408/504 + abort PAR REQUÊTE est intacte.
 // L'entrée est RETIRÉE au nettoyage du contexte (`clean`) : sans cela, une
 // connexion persistante INACTIVE gardait le contexte entier de sa dernière
 // requête jusqu'à sa fermeture — un contexte par connexion du pool d'un
 // répartiteur de charge, en permanence (#561). HTTP/2 : hors de ce chemin
 // (per-stream).
 const socketActiveContext = new WeakMap<object, HttpContext>();
-const socketTimeoutArmed = new WeakSet<object>();
 
 /**
- * Gestionnaire `timeout` PERMANENT d'une socket h1, fabriqué hors de toute
- * méthode : une fermeture créée dans `HttpContext.setTimeout()` partageait
- * l'environnement d'une autre qui lit `this`, et retenait ainsi le contexte de
- * la PREMIÈRE requête de la connexion tant que celle-ci vivait (#561).
+ * Route le délai d'inactivité d'une socket HTTP/1.1 vers la requête qu'elle
+ * porte : 408/504 si une requête est en cours, fermeture si la connexion
+ * persistante est inactive. Écouteur `timeout` du SERVEUR — un seul pour
+ * toutes ses connexions —, que Node appelle avec la socket en argument
+ * (`socketOnTimeout` → `server.emit("timeout", socket)`).
  *
- * @param socket - la socket h1 dont on route le délai d'inactivité
- * @returns l'écouteur à attacher une fois par socket
+ * Pourquoi au serveur et pas sur la socket : Node y pose déjà son propre
+ * écouteur `timeout`, et un second faisait créer à `EventEmitter` un tableau
+ * d'écouteurs par CONNEXION. Ce site d'allocation, partagé avec tout le
+ * processus et toujours survivant (une connexion vit longtemps), finissait
+ * par être basculé dans le vieux tas par V8 (pretenuring) — dans un démarrage
+ * sur trois environ, mesuré sous charge. Le graphe de chaque requête y
+ * restait alors accroché jusqu'à la collecte complète suivante : +45 % de CPU
+ * par requête, 14 à 19 collectes complètes au lieu de 3. Un écouteur par
+ * serveur supprime aussi une fermeture et une entrée de registre par connexion.
+ *
+ * @param socket - la socket dont le délai a expiré ; une session HTTP/2 (même
+ *   événement sur un serveur `allowHTTP1`) est laissée à son propre délai
  */
-function idleSocketTimeoutHandler(socket: Socket): () => void {
-  return () => {
-    const ctx = socketActiveContext.get(socket);
-    // `cleaned` d'abord : après `clean()`, `response.response` vaut null
-    // et le test d'envoi seul prendrait un contexte MORT pour actif.
-    if (
-      ctx !== undefined &&
-      !ctx.cleaned &&
-      !ctx.response.response?.writableEnded
-    ) {
-      ctx._onTimeout();
-      return;
-    }
-    // Socket INACTIF (keep-alive entre deux requêtes) : le fermer ici.
-    // Node ne le fait plus lui-même — le serveur passe un callback à
-    // `server.setTimeout` (`server-http.ts`, `server-https.ts`), et un
-    // écouteur `timeout` côté serveur suspend la destruction automatique.
-    // Sans cette fermeture, `keepAliveTimeout` restait lettre morte : la
-    // connexion vivait jusqu'à ce que le CLIENT la ferme, en retenant son
-    // dernier contexte.
-    socket.destroy();
-  };
+export function routeSocketTimeout(socket: unknown): void {
+  if (!(socket instanceof net.Socket)) {
+    return;
+  }
+  const ctx = socketActiveContext.get(socket);
+  // `cleaned` d'abord : après `clean()`, `response.response` vaut null
+  // et le test d'envoi seul prendrait un contexte MORT pour actif.
+  if (
+    ctx !== undefined &&
+    !ctx.cleaned &&
+    !ctx.response.response?.writableEnded
+  ) {
+    ctx._onTimeout();
+    return;
+  }
+  // Socket INACTIF (keep-alive entre deux requêtes, ou avant la première) :
+  // le fermer ici. Node ne le fait plus lui-même — un écouteur `timeout` côté
+  // serveur suspend la destruction automatique. Sans cette fermeture,
+  // `keepAliveTimeout` restait lettre morte : la connexion vivait jusqu'à ce
+  // que le CLIENT la ferme, en retenant son dernier contexte.
+  socket.destroy();
 }
 
 // Sonde perf in-situ (cf http-kernel.ts) — flag lu 1× ; éteinte, les
@@ -389,7 +398,8 @@ class HttpContext extends Context implements IHttpContextInterface {
       });
       return;
     }
-    // h1 (+ h1 sur TLS) — T3 : router le context actif, handler armé 1 fois.
+    // h1 (+ h1 sur TLS) — T3 : le serveur route le délai vers le context actif
+    // (`routeSocketTimeout`, un écouteur par serveur) ; ici, l'inscrire.
     const socket = (res as http.ServerResponse).socket;
     if (!socket) {
       return;
@@ -405,13 +415,6 @@ class HttpContext extends Context implements IHttpContextInterface {
     const ms = this.response.timeout as number;
     if (socket.timeout !== ms) {
       socket.setTimeout(ms);
-    }
-    if (!socketTimeoutArmed.has(socket)) {
-      socketTimeoutArmed.add(socket);
-      // `on` (PAS `once`, et UNE closure par socket — plus une par requête) :
-      // le handler survit aux fires no-op (idle keep-alive) et route toujours
-      // vers le context ACTIF du socket.
-      socket.on("timeout", idleSocketTimeoutHandler(socket));
     }
   }
 

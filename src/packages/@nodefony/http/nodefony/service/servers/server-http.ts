@@ -18,6 +18,7 @@ import http from "node:http";
 import http2 from "node:http2";
 import { AddressInfo } from "node:net";
 import { handleClientError } from "./clientError";
+import { routeSocketTimeout } from "../../src/context/http/HttpContext";
 import { createDrainTerminator, type IDrainTerminator } from "./serverShutdown";
 import { bindWithFallback, buildBindPlan } from "../../src/servers/portBinder";
 import {
@@ -87,6 +88,9 @@ class ServerHttp extends Service {
         if (this.options.maxHeadersCount) {
           this.server.maxHeadersCount = this.options.maxHeadersCount;
         }
+        // Délai d'inactivité des sockets : UN écouteur pour tout le serveur
+        // (jamais un par connexion — cf `routeSocketTimeout`).
+        this.server.on("timeout", routeSocketTimeout);
         if (this.options.timeout) {
           this.server.setTimeout(this.options.timeout, () => {
             this.fire("onTimeout", this);

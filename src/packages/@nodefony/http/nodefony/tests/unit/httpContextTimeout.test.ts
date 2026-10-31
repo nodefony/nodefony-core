@@ -1,17 +1,22 @@
 /// <reference types="node" />
 import { expect } from "vitest";
-import HttpContext from "../../src/context/http/HttpContext.js";
+import net from "node:net";
+import HttpContext, {
+  routeSocketTimeout,
+} from "../../src/context/http/HttpContext.js";
 
 // T3 (profil delta vs Express) — mécanisme socket-timeout de HttpContext.setTimeout :
-//   - h1 : 1 closure handler PAR SOCKET (plus une par requête), routée vers le
-//     context ACTIF via WeakMap ;
+//   - h1 : AUCUN écouteur sur la socket — l'écouteur `timeout` du SERVEUR
+//     (`routeSocketTimeout`) route vers le context ACTIF via WeakMap. Un écouteur
+//     par socket faisait créer un tableau d'écouteurs par connexion, site que V8
+//     finissait par basculer dans le vieux tas (régime GC dégradé, +45 % CPU/req) ;
 //   - re-arm CONDITIONNEL : node écrase le timeout aux transitions keep-alive
 //     (server.timeout 120 s / keepAliveTimeout 5 s) → si `socket.timeout !== ms`
 //     on ré-arme, sinon 0 appel. Le bug couvert : un arm « 1× par socket » naïf
 //     laissait les requêtes keep-alive 2+ à 120 s au lieu du responseTimeout.
 //   - h2 (response.stream) : per-stream historique conservé.
 
-interface FakeSocket {
+interface FakeSocket extends net.Socket {
   timeout: number | undefined;
   setTimeoutCalls: number[];
   listeners: Record<string, Array<() => void>>;
@@ -19,29 +24,41 @@ interface FakeSocket {
   on(ev: string, cb: () => void): void;
   fireTimeout(): void;
   destroyed: number;
-  destroy(): void;
 }
 
+// Une VRAIE `net.Socket` par son prototype (le routeur ignore tout le reste),
+// sans descripteur ni connexion : propriétés propres posées par-dessus.
 function makeSocket(): FakeSocket {
-  return {
-    timeout: undefined,
-    setTimeoutCalls: [],
-    listeners: {},
-    setTimeout(ms: number) {
-      this.timeout = ms;
-      this.setTimeoutCalls.push(ms);
+  const socket = Object.create(net.Socket.prototype) as FakeSocket;
+  Object.defineProperties(socket, {
+    timeout: { value: undefined, writable: true },
+    setTimeoutCalls: { value: [] },
+    listeners: { value: {} },
+    setTimeout: {
+      value(this: FakeSocket, ms: number) {
+        this.timeout = ms;
+        this.setTimeoutCalls.push(ms);
+      },
     },
-    on(ev: string, cb: () => void) {
-      (this.listeners[ev] ??= []).push(cb);
+    on: {
+      value(this: FakeSocket, ev: string, cb: () => void) {
+        (this.listeners[ev] ??= []).push(cb);
+      },
     },
-    fireTimeout() {
-      for (const cb of this.listeners["timeout"] ?? []) cb();
+    // Ce que fait Node : `socketOnTimeout` → `server.emit("timeout", socket)`.
+    fireTimeout: {
+      value(this: FakeSocket) {
+        routeSocketTimeout(this);
+      },
     },
-    destroyed: 0,
-    destroy() {
-      this.destroyed++;
+    destroyed: { value: 0, writable: true },
+    destroy: {
+      value(this: FakeSocket) {
+        this.destroyed++;
+      },
     },
-  };
+  });
+  return socket;
 }
 
 // Context minimal : setTimeout() ne lit que this.response — pas besoin du ctor
@@ -70,19 +87,19 @@ function makeCtx(
 }
 
 describe("HttpContext.setTimeout — socket timeout T3 (h1)", () => {
-  it("1re requête : arme le socket à responseTimeout + 1 handler", () => {
+  it("1re requête : arme le socket à responseTimeout, AUCUN écouteur sur la socket", () => {
     const s = makeSocket();
     makeCtx(s).setTimeout();
     expect(s.setTimeoutCalls).to.deep.equal([30000]);
-    expect(s.listeners["timeout"]).to.have.lengthOf(1);
+    expect(s.listeners["timeout"]).to.equal(undefined);
   });
 
-  it("requête suivante, timeout intact → 0 re-arm, 0 handler ajouté", () => {
+  it("requête suivante, timeout intact → 0 re-arm, toujours aucun écouteur", () => {
     const s = makeSocket();
     makeCtx(s).setTimeout();
     makeCtx(s).setTimeout(); // requête 2, socket.timeout === 30000
     expect(s.setTimeoutCalls).to.have.lengthOf(1);
-    expect(s.listeners["timeout"]).to.have.lengthOf(1);
+    expect(s.listeners["timeout"]).to.equal(undefined);
   });
 
   it("node a écrasé le timeout (cycle keep-alive) → re-arm au responseTimeout (LE bug couvert)", () => {
@@ -93,9 +110,9 @@ describe("HttpContext.setTimeout — socket timeout T3 (h1)", () => {
     makeCtx(s).setTimeout(); // requête 2
     expect(s.timeout).to.equal(30000, "requêtes 2+ gardent responseTimeout");
     expect(s.setTimeoutCalls).to.deep.equal([30000, 30000]);
-    expect(s.listeners["timeout"]).to.have.lengthOf(
-      1,
-      "toujours 1 seul handler",
+    expect(s.listeners["timeout"]).to.equal(
+      undefined,
+      "toujours aucun écouteur sur la socket",
     );
   });
 
@@ -145,6 +162,12 @@ describe("HttpContext.setTimeout — socket timeout T3 (h1)", () => {
     s.fireTimeout();
     expect(ctx.fired).to.equal(1);
     expect(s.destroyed).to.equal(0);
+  });
+
+  it("une session HTTP/2 (même événement sur un serveur allowHTTP1) est ignorée", () => {
+    let destroyed = 0;
+    routeSocketTimeout({ destroy: () => destroyed++ });
+    expect(destroyed).to.equal(0);
   });
 
   it("HTTP/2 (response.stream) : per-stream historique — pas de chemin socket", () => {

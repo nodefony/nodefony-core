@@ -599,7 +599,10 @@ règle appliquée partout est la même — ne rien allouer tant que personne ne 
   (`Context.ts#Context.stopClock`, règle `timingMode.ts#resolveTimingMode`).
 - **Le délai d'inactivité est armé par socket, pas par requête** —
   `HttpContext.setTimeout()` (`HttpContext.ts#HttpContext.setTimeout`) : en keep-alive, ré-armer un minuteur à chaque
-  requête coûtait pour une valeur constante.
+  requête coûtait pour une valeur constante. Son expiration est routée par UN écouteur du serveur
+  (`HttpContext.ts#routeSocketTimeout`), jamais par un écouteur posé sur chaque connexion : Node y
+  en pose déjà un, et le second faisait allouer un tableau d'écouteurs par connexion — site que V8
+  finissait par allouer dans le vieux tas, en y entraînant le graphe de chaque requête.
 - **Session paresseuse** : ni intention de route ni cookie entrant → aucune session, aucune écriture
   (`http-kernel.ts#HttpKernel.onError`).
 

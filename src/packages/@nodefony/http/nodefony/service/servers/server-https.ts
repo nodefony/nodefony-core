@@ -26,6 +26,7 @@ import {
 //import net from "node:net";
 import { AddressInfo } from "node:net";
 import { handleClientError, handleSessionError } from "./clientError";
+import { routeSocketTimeout } from "../../src/context/http/HttpContext";
 import { bindWithFallback, buildBindPlan } from "../../src/servers/portBinder";
 import {
   asServersConfig,
@@ -110,6 +111,9 @@ class ServerHttps extends Service {
         const server = https.createServer(opt);
         this.server = server;
         this.httpTerminator = this.terminator();
+        // Délai d'inactivité des sockets : UN écouteur pour tout le serveur
+        // (jamais un par connexion — cf `routeSocketTimeout`).
+        server.on("timeout", routeSocketTimeout);
         if (this.options.timeout) {
           server.setTimeout(this.options.timeout, () => {
             this.fire("onTimeout", this);
@@ -195,6 +199,9 @@ class ServerHttps extends Service {
         );
         this.server = http2.createSecureServer(opt);
         this.httpTerminator = this.terminator();
+        // HTTP/1.1 par `allowHTTP1` : ses sockets émettent leur délai sur CE
+        // serveur ; les sessions HTTP/2 aussi, et `routeSocketTimeout` les ignore.
+        this.server.on("timeout", routeSocketTimeout);
         // Timeout HTTP/2 — sur Http2Server le timeout d'inactivité par défaut
         // est 0 (désactivé) → sessions lentes/idle non bornées. Il borne
         // l'inactivité de session (keepAliveTimeout est un concept HTTP/1).
