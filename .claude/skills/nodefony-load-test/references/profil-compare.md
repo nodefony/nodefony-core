@@ -45,6 +45,19 @@ Les règles qui en découlent :
    alternées, dispersion < 1 %). `bisect-perf.sh` ne tranche que sur un saut de plus de
    ~25 points.
 
+6. **Un démarrage de Nodefony sur trois environ tombe dans un régime GC DÉGRADÉ**, et y reste :
+   le pretenuring de V8 bascule des sites d'allocation partagés pendant le renouvellement des
+   connexions (chauffe puis mesure), tout le graphe de la requête part alors dans le vieux tas —
+   +45 % de CPU par requête, 14-19 collectes complètes au lieu de 3. Deux runs « identiques » ne
+   mesurent donc pas toujours le même régime : c'est une source de la dispersion entre séries.
+   Le constater : `node --trace-gc-nvp …` et compter les `"gc":"mc"` sur la fenêtre (3 = normal) ;
+   le prouver : `--no-allocation-site-pretenuring` le fait disparaître sans changer le coût
+   normal. Ne pas comparer un run dégradé à un run normal.
+7. **La ligne « GC µs/req » de `wait-compare` lit des durées `perf_hooks`, pas des pauses V8** :
+   elle a annoncé ×34 face à Nest quand `--trace-gc-nvp` rendait des collectes jeunes
+   équivalentes (0,15 µs/req des deux côtés). Le coût réel du GC se lit à `--trace-gc-nvp`
+   (pauses, octets promus) et au CPU des fils `node-V8Worker` (`sample`).
+
 ## Ce que le profil ne voit pas — `wait-compare.sh` et `native-sample.mjs`
 
 Le profil V8 échantillonne le JavaScript ; il ne dit ni si le process ATTEND, ni ce que coûtent
