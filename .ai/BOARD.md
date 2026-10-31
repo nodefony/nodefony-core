@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-31 01:02** (UTC).
+> Empreinte prise le **2026-10-31 01:45** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,7 +20,7 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 90% | 216 | 24 | 2026-11-12 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 90% | 217 | 23 | 2026-11-12 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 98% | 135 | 3 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 11% | 5 | 42 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 30 | — |
@@ -35,7 +35,7 @@
 
 Ordre 6.03 · P2 — décision · 19.75 j · jalon 10.0.0-beta · frise 2026-10-29 → 11-16
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 24 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 23 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -112,14 +112,13 @@ Ordre 6.03 · P2 — décision · 19.75 j · jalon 10.0.0-beta · frise 2026-10-
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-beta — 24 ouverts
+## Jalon 10.0.0-beta — 23 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
 | 6.03 | P2 — décision | 19.75 | 2026-10-29 → 11-16 | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
 | 6.033 | P2 — décision | 1 | 2026-11-11 → 11-11 | #618 | feat(realtime): router les trames binaires vers leur canal |
 | 6.034 | P2 — décision | 1 | 2026-11-05 → 11-05 | #622 | feat(realtime)!: admettre un abonné de canal par son identité |
-| 6.0341 | P2 — décision | 1 | 2026-11-04 → 11-04 | #707 | feat(realtime): typer la diffusion serveur par le contrat |
 | 6.0342 | P2 — décision | 1 | 2026-11-07 → 11-07 | #708 | feat(realtime): typer les actions du pont par leur schéma |
 | 6.0343 | P2 — décision | 0.5 | 2026-11-07 → 11-07 | #709 | feat(client): typer les hooks React et Vue par le contrat |
 | 6.0344 | P2 — décision | 1 | 2026-11-09 → 11-09 | #710 | feat(realtime): livrer un message privé à une personne |
