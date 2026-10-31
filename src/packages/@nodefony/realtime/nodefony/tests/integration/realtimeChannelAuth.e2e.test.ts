@@ -766,14 +766,25 @@ describe("MATRICE E2E — ce que le welcome ANNONCE (channels × identité)", ()
    * propres tests : celle-ci les confronte canal par canal, identité par
    * identité. Si elle tombe, c'est que l'annonce et le refus ne disent plus la
    * même chose — la faute la plus coûteuse possible ici.
+   *
+   * L'invariant ne vaut QUE pour les politiques SANS `allow` : le welcome ne
+   * joue jamais `allow` (il se décide au `subscribe`, canal par canal — banc
+   * « admission par l'identité » plus bas). Le test le vérifie au lieu de le
+   * supposer : un canal à `allow` glissé dans `CHANNELS` le fait tomber.
    */
-  it("la sonde du welcome et le verrou de subscribe rendent le MÊME verdict", async () => {
+  it("la sonde du welcome et le verrou de subscribe rendent le MÊME verdict (politiques sans allow)", async () => {
     // 🔴 Le décor d'abord : `hub.clear()` vide le registre des politiques, qui
     // n'est peuplé qu'au MONTAGE du contrôleur. Sans cette connexion, aucun
     // canal n'a de politique, tout est libre, et la comparaison serait verte
     // pour la mauvaise raison — elle a d'ailleurs commencé par l'être.
     await connectAs(TOKENS.anon);
     const hub = getRealtimeHub();
+    for (const c of CHANNELS) {
+      expect(
+        hub.resolveChannelAdmission(c.channel),
+        `${c.channel} : hors du périmètre de l'invariant (allow)`,
+      ).to.equal(null);
+    }
     const verrou = buildFrameAuthorizer(firewall, {
       channelResolver: hub,
       systemRules: DEFAULT_SYSTEM_RULES,

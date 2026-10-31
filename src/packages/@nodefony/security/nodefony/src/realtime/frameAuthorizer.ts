@@ -333,7 +333,10 @@ function authorizeApiRequest(
   token: IRealtimeToken,
   onDeny?: FrameDenyReporter,
 ): boolean {
-  const path = (params as { path?: unknown } | undefined)?.path;
+  const path =
+    typeof params === "object" && params !== null && "path" in params
+      ? params.path
+      : undefined;
   // params invalides → laisser passer : le handler `api.request` renverra -32602
   // (on ne duplique pas sa validation ; le verrou ne décide QUE l'autorisation).
   if (typeof path !== "string") return true;
@@ -411,13 +414,22 @@ export function buildFrameAuthorizer(
   const systemRules = options?.systemRules ?? DEFAULT_SYSTEM_RULES;
   const onDeny = options?.onDeny;
   return (frame: unknown, token: IRealtimeToken): boolean => {
-    const f = frame as { method?: unknown; params?: unknown } | undefined;
-    const method = f?.method;
+    // La trame arrive du réseau : on la RÉTRÉCIT, on ne la convertit pas. Une
+    // trame sans `method` n'est soumise à aucune règle (le pair la rejette).
+    if (typeof frame !== "object" || frame === null || !("method" in frame)) {
+      return true;
+    }
+    const method = frame.method;
     if (method === "api.request") {
-      return authorizeApiRequest(firewall, f?.params, token, onDeny);
+      const params = "params" in frame ? frame.params : undefined;
+      return authorizeApiRequest(firewall, params, token, onDeny);
     }
     if (method === "subscribe") {
-      const channel = (f?.params as { channel?: unknown } | undefined)?.channel;
+      const params = "params" in frame ? frame.params : undefined;
+      const channel =
+        typeof params === "object" && params !== null && "channel" in params
+          ? params.channel
+          : undefined;
       // params invalides → laisser passer : `startChannel` ignore un canal absent.
       if (typeof channel !== "string") return true;
       return authorizeChannel(

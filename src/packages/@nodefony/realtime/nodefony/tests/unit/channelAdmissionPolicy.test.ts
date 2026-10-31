@@ -109,6 +109,26 @@ class NeedsMissing extends Service implements IChannelAdmission {
   }
 }
 
+/** Le service qu'une règle d'admission lit : l'appartenance « en base ». */
+@injectable("roomMembers622")
+class RoomMembers extends Service {
+  readonly members: ReadonlySet<string> = new Set(["acc-1"]);
+  constructor() {
+    super("roomMembers622", new Container());
+  }
+}
+
+/** Classe d'admission qui reçoit son service par le CONSTRUCTEUR (S10 bis). */
+@injectable()
+class MemberAdmission extends Service implements IChannelAdmission {
+  constructor(@Inject("roomMembers622") readonly roomMembers: RoomMembers) {
+    super("memberAdmission", new Container());
+  }
+  allow(_channel: string, who: ISubscriberIdentity): boolean {
+    return who.id !== null && this.roomMembers.members.has(who.id);
+  }
+}
+
 @injectable()
 class NoAllowMethod extends Service {
   constructor() {
@@ -462,6 +482,25 @@ describe("#622 — résolution des classes d'admission au démarrage", () => {
       "canal room:*, admission RoomAdmission, résolue",
       "canal suite:*, admission RoomAdmission, résolue",
     ]);
+  });
+
+  it("admise avec sa dépendance injectée : la règle lit le service reçu par son constructeur", () => {
+    const resolve = createAdmissionResolver(
+      () => undefined,
+      () => {},
+    );
+    const admission = resolve(MemberAdmission, "room:*");
+    assert.ok(admission instanceof MemberAdmission);
+    assert.ok(
+      admission.roomMembers instanceof RoomMembers,
+      "dépendance injectée",
+    );
+    assert.equal(admission.allow("room:1", WHO), true, "membre : admis");
+    assert.equal(
+      admission.allow("room:1", { ...WHO, id: "acc-2" }),
+      false,
+      "non-membre : refusé",
+    );
   });
 
   for (const [Cls, scope] of [
