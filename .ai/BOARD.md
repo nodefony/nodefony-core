@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-31 09:25** (UTC).
+> Empreinte prise le **2026-10-31 09:31** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -86,7 +86,7 @@ Ordre 6.03 · P2 — décision · 19.75 j · jalon 10.0.0-beta · frise 2026-10-
 | 170.1 | P2 — décision | 3 | — | #695 | feat(http): déclarer et servir un service gRPC depuis un module |
 | 170.2 | P2 — décision | 0.5 | — | #696 | fix(cli): router gRPC vers h2c dans la config nginx générée |
 | 170.3 | P3 — fin de cycle | 1 | — | #697 | feat(http): exposer la réflexion et la santé gRPC standard |
-| 171 | P2 — décision | 3 | — | #712 | perf(http): réduire l'écart de 10 µs par requête face à NestJS |
+| 171 | P2 — décision | 3 | — | #712 | perf(http): ne payer par requête que le travail que la route consomme |
 
 ## Jalon 13.0.0 — 1 ouverts
 

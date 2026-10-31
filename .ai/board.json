@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-31T09:25:29.436Z",
+  "generatedAt": "2026-10-31T09:31:53.131Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -9326,7 +9326,7 @@
       "title": "feat(realtime): servir le bus par Kafka pour la retention",
       "url": "https://github.com/nodefony/nodefony-core/issues/243",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "11.0.0",
       "priorite": "P3 — fin de cycle",
       "jours": 1,
@@ -9593,10 +9593,10 @@
     },
     {
       "number": 712,
-      "title": "perf(http): réduire l'écart de 10 µs par requête face à NestJS",
+      "title": "perf(http): ne payer par requête que le travail que la route consomme",
       "url": "https://github.com/nodefony/nodefony-core/issues/712",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 3,
