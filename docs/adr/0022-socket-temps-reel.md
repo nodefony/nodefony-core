@@ -615,7 +615,7 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
   retenue.** `allow` — flèche `(channel, who: ISubscriberIdentity)` ou classe `@injectable`
   implémentant `IChannelAdmission` (ADR-0021 §S10 bis) ; `who` est l'identité d'admission commune
   aux trois livraisons, une donnée plate et non le jeton (ADR-0021 §S10) —, membre optionnel de
-  `src/packages/@nodefony/realtime/nodefony/interfaces/IChannelPolicy.ts#IChannelPolicy`, évalué
+  `src/nodefony/src/realtime/channelAdmission.ts#IChannelPolicy`, évalué
   APRÈS `authenticated` / `roles` / `scopes`.
   - Appelé **une seule fois, au `subscribe`** : un salon privé ou une invitation par courriel
     vivent en base, et l'abonnement est un chemin rare — une requête y est normale.

@@ -469,11 +469,25 @@ radicalement :
 
 `IRealtimeDenied` (`RealtimeEventMap.ts#IRealtimeDenied`) porte `channel` et `reason` — plus un `detail` optionnel, posé hors production seulement — et le motif
 est **générique**. Jamais « il te manque `ROLE_ADMIN` » : ce serait un oracle d'autorisation, un
-attaquant y lirait la carte des droits. Trois motifs circulent : `forbidden` (le verrou a dit non),
-`limit` (le plafond de canaux de la connexion est atteint, `RealtimeController.ts#RealtimeController.onRealtimeNotification`) et `unknown`
-(aucun producteur ne sert ce nom — jamais un oracle : un canal gardé rend `forbidden`, qu'il existe ou
-non). Côté client,
-`onDenied()` (`NodefonySocket.ts#NodefonySocket.onDenied`) branche un handler dessus.
+attaquant y lirait la carte des droits. Quatre motifs circulent, et l'union est FERMÉE
+(`RealtimeEventMap.ts#RealtimeDeniedReason`) — un motif inconnu reçu d'un serveur plus récent est
+replié sur `forbidden` :
+
+<!-- prettier-ignore -->
+| Motif | Sens | Le client réessaie ? |
+| --- | --- | --- |
+| `forbidden` | le verrou ou la règle d'admission `allow` a dit non | jamais — le droit ne changera pas en réessayant |
+| `limit` | le plafond de canaux de la connexion est atteint (`RealtimeController.ts#RealtimeController.onRealtimeNotification`) | jamais |
+| `unknown` | aucun producteur ne sert ce nom — jamais un oracle : un canal gardé rend `forbidden`, qu'il existe ou non | jamais |
+| `unavailable` | la règle `allow` n'a pas répondu à temps, ou le serveur protège sa base (plafond, coupe-circuit) | **oui**, le seul : trois fois au plus |
+
+`unavailable` peut porter `retryAfterMs` : le délai, en millisecondes, pendant lequel le serveur
+n'appellera plus la règle (coupe-circuit ouvert). Le client attend ce délai, puis ajoute un recul
+exponentiel à **gigue complète** — un tirage uniforme entre zéro et 1 s, 2 s, puis 4 s — pour que
+mille clients refusés au même instant ne reviennent pas au même instant. Il ne rejoue que le
+`subscribe` concerné, jamais la connexion. Côté client,
+`onDenied()` (`NodefonySocket.ts#NodefonySocket.onDenied`) branche un handler dessus ; il ne voit que le
+refus DÉFINITIF, après le dernier réessai.
 
 ### L'abonnement accepté s'acquitte
 
@@ -496,6 +510,18 @@ antérieur — répute l'abonnement actif dès le rejeu, au lieu d'attendre pour
 > Un `-32403 Forbidden` circule dans d'anciennes notes. **Ce code n'existe pas** dans Nodefony, et il
 > n'est réservé par aucune norme. Le refus d'autorisation est `-32001` sur une requête, et une
 > notification `realtime:denied` sur une notification.
+
+### La fermeture qui dit « reviens plus tard »
+
+Une frame refusée laisse la connexion ouverte ; certaines causes, elles, la ferment. Le code de
+fermeture dit alors ce que le client doit faire (`closeCodes.ts`, le registre complet est dans
+[`securite.md`](./securite.md)). Un seul est une invitation à revenir : `1013` « try again later »
+(RFC 6455 §7.4.1). Le serveur l'émet quand l'authentification n'a pas répondu à temps à la poignée
+de main (`authenticateTimeoutMs`), ou quand le client ne vide plus sa file d'envoi. Le client le
+range parmi les fermetures reconnectables (`notice.ts#isReconnectableCloseCode`) : il recule, puis
+rouvre une connexion neuve, rejoue son `welcome` et ses abonnements. Un navigateur ne peut pas
+émettre `1013` lui-même (`WebSocket.close()` n'accepte que `1000` et `3000`-`4999`) : c'est
+toujours le serveur qui ferme.
 
 ## 🔐 Ce que le protocole ne décide pas
 

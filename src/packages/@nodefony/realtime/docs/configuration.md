@@ -295,6 +295,10 @@ expliquent quand et pourquoi en changer.
 | `cluster.probe.enabled` | `boolean` | `true` | branche la sonde agrégée du pod en worker de cluster. `false` = aucun minuteur, aucun IPC |
 | `slowConsumer.bytes` | `number` entier > 0 | `1048576` (1 MiB) | seuil de **comptage** des consommateurs lents dans la sonde. Observe, n'agit pas |
 | `limits.maxChannelsPerConnection` | `number > 0` \| `null` | `256` | plafond de canaux par connexion ; au-delà le `subscribe` est refusé. `null` = illimité |
+| `authenticateTimeoutMs` | `number` entier > 0 | `10000` | délai de l'authentification à la poignée de main ; dépassé, fermeture `1013` et le client revient |
+| `allowTimeoutMs` | `number` entier > 0 | `5000` | délai d'une règle d'admission `allow`, attente en file comprise ; dépassé, motif `unavailable` |
+| `maxPendingAllowsPerConnection` | `number` entier > 0 | `8` | appels d'`allow` en vol pour une connexion ; au-delà la demande attend son tour |
+| `maxPendingAllowsTotal` | `number` entier > 0 | `512` | appels d'`allow` en vol pour l'exemplaire ; au-delà `unavailable` sans appel |
 | `csrf.checkOrigin.enabled` | `boolean` | `false` | active le contrôle d'`Origin` à l'ouverture de la socket |
 | `csrf.checkOrigin.allowList` | `string[]` | `[]` | origines acceptées, **comparaison exacte**. Vide + activé = tout est refusé |
 | `csrf.checkOrigin.allowMissingOrigin` | `boolean` | `false` | accepter une ouverture sans en-tête `Origin` (clients non-navigateur) |
@@ -490,6 +494,43 @@ les clients — un tableau de bord interne qui compose des dizaines de flux, par
 > [!NOTE]
 > Le plafond est **par connexion**, pas global. Cent connexions à 256 canaux restent possibles :
 > c'est une garde contre un client abusif, pas contre une charge légitime mal dimensionnée.
+
+### Les délais et plafonds de l'admission — quand la base ne répond plus
+
+Deux moments demandent une réponse à l'extérieur du processus : l'**authentification** à la poignée
+de main (relire une session, vérifier une clé distante) et la règle d'**admission** `allow` d'un canal
+(lire une appartenance en base). Quand la base ralentit ou tombe, ces quatre clés décident de ce que
+le serveur retient, et de ce qu'il rend au client. Elles sont appliquées par
+`AdmissionBudget` (`admissionBudget.ts#AdmissionBudget`), posées par `RealtimeService.init()`
+(`RealtimeService.ts#RealtimeService.init`).
+
+<!-- prettier-ignore -->
+| Clé | Défaut | Ce qui se passe au-delà | Pourquoi ce défaut |
+| --- | --- | --- | --- |
+| `authenticateTimeoutMs` | `10000` | la socket est fermée en `1013` « try again later » ; le client recule puis revient ; une identité arrivée après coup est ignorée | l'authentification relit souvent une session en base ou une clé distante ; 10 s couvrent une base chargée, et au-delà retenir la connexion ne l'authentifierait pas plus vite — elle occuperait seulement une place |
+| `allowTimeoutMs` | `5000` | l'abonné reçoit `realtime:denied` motif `unavailable` et réessaie ; un verdict tardif est ignoré, jamais une admission | une lecture saine répond en millisecondes ; 5 s couvrent une base chargée sans laisser un écran vide au-delà de ce qu'un humain attend |
+| `maxPendingAllowsPerConnection` | `8` | la demande d'abonnement **attend son tour** — jamais refusée | assez pour ouvrir plusieurs canaux en parallèle, assez peu pour qu'une connexion ne monopolise pas le pool de la base (souvent 10) ; refuser casserait le rejeu au `welcome`, qui renvoie tous les canaux d'un coup |
+| `maxPendingAllowsTotal` | `512` | `unavailable` sans appeler la règle | à ce niveau la base est déjà l'étranglement : empiler davantage d'appels n'admettrait personne plus vite, et retarderait la reprise |
+
+Deux comportements ne se règlent pas, et c'est voulu : le **coupe-circuit** (50 délais dépassés en
+5 s suspendent les appels pendant 5 s, avec un `retryAfterMs` rendu au client) et le **réessai
+client** (trois au plus, recul exponentiel à gigue complète). Exposés en réglage, ils
+deviendraient le premier levier tourné pendant un incident — exactement le moment où ils
+protègent la base.
+
+```typescript
+// nodefony.config.ts — une base lente, assumée : on attend plus, on retient moins
+use("@nodefony/realtime", {
+  authenticateTimeoutMs: 15_000,
+  allowTimeoutMs: 8000,
+  maxPendingAllowsTotal: 256,
+});
+```
+
+Les quatre clés refusent `0`, un nombre négatif ou non entier, et tout délai au-delà de
+`2 147 483 647` ms : `setTimeout` ramènerait ce délai à 1 ms, et chaque appel échouerait aussitôt.
+Le comportement vu par l'abonné : [`securite.md`](./securite.md) ; les compteurs qui disent quand
+ces bornes travaillent : [`observabilite.md`](./observabilite.md).
 
 ### `csrf.checkOrigin` — qui a le droit d'ouvrir la socket
 

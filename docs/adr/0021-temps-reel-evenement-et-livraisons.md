@@ -494,18 +494,18 @@ allow?:
      d'injection pour la seule admission serait une deuxième implémentation d'une même règle ;
    - elle est **enregistrée et résolue au démarrage du noyau, une fois**, jamais par appel ni à la
      première poignée de main : un exemplaire qui n'émet que des webhooks doit avoir ses
-     politiques. Aujourd'hui `RealtimeHub.registerChannelPolicy` n'est appelé que depuis
-     `src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts#RealtimeController.onHandshake` :
-     #622 déplace l'enregistrement au démarrage ;
+     politiques. L'inscription se fait à `Realtime.onKernelReady`
+     (`src/packages/@nodefony/realtime/nodefony/src/server/channelPolicyRegistry.ts#registerControllerPolicies`) ;
+     une classe d'admission qui y aurait échappé fait échouer la poignée de main (`1011`), elle
+     n'est jamais résolue à la volée ;
    - une dépendance absente fait **échouer le démarrage en nommant la classe ET le canal** ; une
      portée `request` est refusée au démarrage (un singleton seulement : une instance sert tous
      les abonnés) ; une classe sans méthode `allow` est refusée au démarrage en la nommant ;
    - flèche et classe se distinguent par la **métadonnée `@injectable`**, jamais par le texte de la
-     fonction (`class …`) : la garde `isChannelPolicy`
-     (`src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts#isChannelPolicy`),
-     qui aujourd'hui ne lit que `authenticated`/`roles`/`scopes` et laisse passer toute clé
-     inconnue sans la lire — un `allow` posé avant #622 est accepté et ignoré —, accepte les deux
-     formes d'`allow` et **refuse toute clé inconnue** (règle de sévérité des schémas du dépôt :
+     fonction (`class …`) (`src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts#isAdmissionClass`) ;
+     la garde de la politique
+     (`src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts#channelPolicyDefect`)
+     accepte les deux formes d'`allow` et **refuse toute clé inconnue** (règle de sévérité des schémas du dépôt :
      une faute de frappe dans une politique de sécurité ne s'ignore pas) ;
    - une instance sert tous les abonnés en même temps : elle ne garde **aucun état par abonné**
      (TSDoc, page publique ; un test joue deux `allow` concurrents d'une classe qui mémorise `who`
@@ -664,8 +664,8 @@ client qui décide de revenir lisent la même constante.
 | `4007` | `BACKPRESSURE_CLOSE_CODE`     | émis par le CLIENT : sa file d'envoi ne se vide plus (ADR-0022 §5 C1, #703)                                               | se reconnecte            |
 | `1013` | `TRY_AGAIN_LATER_CLOSE_CODE`  | indisponibilité passagère : `authenticate` sans réponse dans le délai, ou client qui ne draine plus (contre-pression, S5) | revient (recul existant) |
 
-Aujourd'hui `4001` est un littéral, écrit cinq fois (serveur et client) ; #706 pose
-`IDENTITY_DEAD_CLOSE_CODE` dans le registre et remplace les cinq occurrences — le registre unique
+`4001` n'est écrit qu'une fois, `IDENTITY_DEAD_CLOSE_CODE`
+(`src/nodefony/src/realtime/closeCodes.ts`) ; serveur et client le lisent — le registre unique
 n'est vrai qu'à ce prix.
 
 **`4006` — le jeton porteur expire.** Depuis la règle `exp`/`iat` obligatoires (ci-dessus),
@@ -698,14 +698,16 @@ provisionnés le même jour expirent dans le même tick (S-rt-64).
 - **SSE : rien.** `EventSource` reçoit 401 à sa reconnexion et s'arrête (WHATWG §9.2).
 - Le code `4007` est pris par la contre-pression (#703), qui prévoyait un code neuf.
 
-**`1013` — `authenticate` trop lent à la poignée de main.** Aujourd'hui
-`src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts#RealtimeController.onHandshake`
-attend `authenticate()` sans borne : une base bloquée retient chaque connexion entrante, sans
-limite. La règle est celle d'`allow` (S10 bis point 3) :
+**`1013` — `authenticate` trop lent à la poignée de main.** Sans borne, une base bloquée
+retiendrait chaque connexion entrante, sans limite. La règle est celle d'`allow` (S10 bis
+point 3), appliquée par
+`src/packages/@nodefony/realtime/nodefony/src/server/admissionBudget.ts#AdmissionBudget.authenticateWithin` :
 
-- clé `realtime.authenticateTimeoutMs`, défaut fixé par #622 avant 10.0 ; le minuteur n'est armé
-  que si `authenticate` rend une promesse, `clearTimeout` à la résolution ; une identité arrivée
-  après le délai est **ignorée**, jamais admise ;
+- clé `realtime.authenticateTimeoutMs`, défaut **10 000 ms** (une base chargée répond bien en
+  deçà ; un délai trop court fermerait des clients légitimes, qui reviendraient aussitôt) ;
+  `authenticate` rend toujours une promesse (contrat `IRealtimeAuthenticator`) : le minuteur est
+  armé à chaque poignée de main, `clearTimeout` à la résolution ; une identité arrivée après le
+  délai est **ignorée**, jamais admise ;
 - au dépassement, fermeture `1013` « Try Again Later » (RFC 6455 §7.4.1, registre IANA) : un
   code STANDARD, que le client 10.0 traite déjà comme reconnectable, avec son recul. Jamais
   `4001` : définitif, il arrêterait un client légitime à chaque panne de base ;

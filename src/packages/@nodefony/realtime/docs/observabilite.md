@@ -303,6 +303,28 @@ compte à part dans `sealRejectedTotal` (relayé au même niveau de la sonde, et
 cours (des exemplaires n'ont pas encore le même), un producteur mal configuré, ou quelqu'un qui
 écrit sur votre bus sans connaître le secret.
 
+### Admission — les refus par cause
+
+Quatre compteurs monotones disent POURQUOI un abonné n'est pas entré, quand la cause n'est pas son
+droit. Un refus de droit (`forbidden`) n'est pas compté ici : c'est le comportement normal d'un canal
+gardé. Ce que comptent ceux-ci, c'est une infrastructure qui ne suit plus, ou une configuration
+incomplète (`IRealtimeProbe.ts#IRealtimeProbe`).
+
+<!-- prettier-ignore -->
+| Champ | Unité | Ce qu'il compte | Quand il monte |
+| --- | --- | --- | --- |
+| `authenticateTimedOutTotal` | une poignée de main | connexions fermées en `1013` faute d'authentification dans `authenticateTimeoutMs` | la base ou le service qui porte les identités ne répond plus ; les clients reculent puis reviennent |
+| `allowTimedOutTotal` | un appel d'`allow` | règles d'admission restées sans réponse dans `allowTimeoutMs` ; l'abonné a reçu `unavailable` et réessaie | la base que lisent les règles ne suit plus ; 50 en 5 s ouvrent le coupe-circuit |
+| `allowSaturatedTotal` | une demande | demandes rendues `unavailable` SANS appeler la règle : plafond `maxPendingAllowsTotal` atteint, coupe-circuit ouvert, ou délai épuisé dans la file d'une connexion | une tempête de reconnexion, ou une base lente qui fait déborder les places |
+| `systemFloorDeniedTotal` | un abonnement | canaux de plateforme (`syslog:`, `orm:`…) refusés faute de module de sécurité chargé | une configuration incomplète autant qu'une tentative d'accès — dans les deux cas, quelque chose est à regarder |
+
+Les trois premiers vont ensemble : `allowTimedOutTotal` qui monte puis `allowSaturatedTotal` qui
+s'envole, c'est la base qui a cessé de répondre et le serveur qui se protège — la base reçoit au plus
+`maxPendingAllowsTotal` appels à la fois, jamais une rafale proportionnelle au nombre de clients. Un
+`WARNING` limité à un par fenêtre de 10 s accompagne chaque famille dans le journal. Les réglages et
+leur raison : [`configuration.md`](./configuration.md) ; le comportement vu par l'abonné :
+[`securite.md`](./securite.md).
+
 ### Connexions et volume
 
 `connectionCount`, `bytesSentTotal`, `messagesSentTotal` — vivants pour la première, cumulés pour les

@@ -310,7 +310,13 @@ n'est jamais traitée.
 3. Résolution de l'authenticator par `RealtimeHub.resolveAuthenticator()` (`RealtimeHub.ts#RealtimeHub.resolveAuthenticator`) :
    les matchers sont testés dans l'ordre d'enregistrement, **le premier qui matche capture**.
 4. `authenticator.authenticate(handshake)` — **async autorisé** (on est en cold path, une fois par
-   connexion : lire un store est acceptable ici, jamais par frame).
+   connexion : lire un store est acceptable ici, jamais par frame), et **borné** par
+   `authenticateTimeoutMs` (10 s par défaut, `admissionBudget.ts#AdmissionBudget.authenticateWithin`).
+   Au-delà, la socket est fermée en `1013` « try again later » : le client recule puis revient, et une
+   identité arrivée après coup est ignorée. Ni `onFailure` ni `4001` — une base en panne n'est pas un
+   refus d'identité, et un code définitif arrêterait un client légitime à chaque panne. Compteur
+   `authenticateTimedOutTotal`, un `WARNING` par fenêtre de 10 s. Un client parti pendant
+   l'authentification n'est jamais inscrit au hub.
 5. Pose du token sur la WeakMap `peer → token` via `RealtimeHub.setTokenForPeer()`
    (`RealtimeHub.ts#RealtimeHub.setTokenForPeer`), **avant** l'envoi du `welcome` : le lookup est garanti dès la première
    frame.
@@ -499,9 +505,12 @@ cumulatifs (ET) ; un axe absent n'impose rien :
 | `scopes`        | un des scopes suffit — axe API (JWT, clé API), une session BFF n'en porte pas | comparaison directe                                   |
 
 Une policy **vide** n'est pas enregistrée : `definePolicy()` (`realtimeDecorators.ts#definePolicy`) ignore un
-objet sans contrainte — le canal reste libre, le registre reste vide. Les déclarations sont publiées
-au hub **au handshake**, pas au boot (`RealtimeHub.registerChannelPolicy()`, `RealtimeHub.ts#RealtimeHub.registerChannelPolicy`,
-idempotent) ; le décideur les relit par `RealtimeService.resolveChannelPolicy()`
+objet sans contrainte — le canal reste libre, le registre reste vide. Les déclarations sont inscrites
+au hub **au démarrage** (`channelPolicyRegistry.ts#registerControllerPolicies`, à `onKernelReady`) :
+un exemplaire qui n'a encore vu aucune poignée de main a déjà ses politiques — celui qui n'émet
+que des webhooks aussi. Un contrôleur échappé au démarrage s'inscrit à sa première poignée de main
+(`RealtimeHub.registerChannelPolicy()`, `RealtimeHub.ts#RealtimeHub.registerChannelPolicy`, idempotent) ;
+le décideur les relit par `RealtimeService.resolveChannelPolicy()`
 (`RealtimeService.ts#RealtimeService.resolveChannelPolicy`).
 
 ### ⚠️ Une policy est attachée à un nom EXACT — les canaux dérivés n'héritent pas
@@ -538,6 +547,157 @@ Deux façons de fermer, selon l'intention :
 
 > Le nom exact l'emporte sur un motif ; entre deux motifs, le plus spécifique gagne. Un `*` dans un
 > nom souscrit est refusé : il désigne un motif de politique, jamais un canal.
+
+### 🪪 `allow` — admettre un abonné par SON identité
+
+Les trois axes décrivent une **classe** d'identité : « un administrateur », « un service qui porte
+`metrics:read` ». Ils ne savent pas dire « **ce** compte, et lui seul, sur **ce** canal » — la boîte
+aux lettres `user:42`, la salle d'une partie, le tableau de bord d'une seule usine. C'est le rôle
+d'`allow` : une règle qui reçoit le canal demandé et l'identité de l'abonné, et répond oui ou non.
+Elle se joue au `subscribe`, une fois, dans le contrôleur
+(`RealtimeController.ts#RealtimeController.startChannel`) ; la règle elle-même est un contrat du cœur
+(`channelAdmission.ts#IChannelAdmission`), isomorphe : rien n'y dépend de la socket.
+
+**La forme courte — une flèche, pour une règle qui ne lit rien :**
+
+```typescript
+// nodefony/controllers/InboxRealtimeController.ts
+import { controller, route } from "@nodefony/framework";
+import { Context } from "@nodefony/http";
+import { RealtimeChannel, RealtimeController } from "@nodefony/realtime";
+import type { RealtimePublish } from "@nodefony/realtime";
+
+@controller("/rt")
+class InboxRealtimeController extends RealtimeController {
+  constructor(context: Context) {
+    super("InboxRealtimeController", context);
+  }
+
+  @route("inbox-ws", {
+    path: "/inbox",
+    requirements: { methods: ["WEBSOCKET"] },
+  })
+  async realtime(message: string | Buffer | null): Promise<void> {
+    this.handleRealtime(message);
+  }
+
+  // La règle du MOTIF : `user:42` n'est ouvert qu'au compte 42.
+  @RealtimeChannel("user:*", {
+    allow: (channel, who) => channel === `user:${who.id}`,
+  })
+  inbox(): () => void {
+    return () => {};
+  }
+
+  // Un producteur décoré ne sert que son nom exact : les canaux `user:<id>`
+  // sont servis par la fabrique dynamique.
+  override createRealtimeChannel(
+    channel: string,
+    publish: RealtimePublish,
+  ): (() => void) | null {
+    if (!channel.startsWith("user:")) return null;
+    publish(channel, { unread: 0 });
+    return () => {};
+  }
+}
+
+export default InboxRealtimeController;
+```
+
+Le compte 42 reçoit `realtime:subscribed` pour `user:42` ; le compte 43 et l'anonyme reçoivent
+`realtime:denied`, motif `forbidden` — prouvé de bout en bout, vrai client et vrai verrou, par
+`realtimeChannelAuth.e2e.test.ts`.
+
+**La forme longue — une classe, dès que la règle lit les données de l'application.** Ses services lui
+arrivent par le constructeur, comme à tout service ; elle se déclare dans `@services([…])` de son
+module, et le décorateur la nomme :
+
+```typescript
+// nodefony/services/RoomAdmission.ts
+import { Inject, Module, Service, injectable } from "nodefony";
+import type { IChannelAdmission, ISubscriberIdentity } from "nodefony";
+import type RoomMembersService from "./RoomMembersService";
+
+@injectable()
+class RoomAdmission extends Service implements IChannelAdmission {
+  constructor(
+    module: Module,
+    @Inject("RoomMembersService") private readonly members: RoomMembersService,
+  ) {
+    super(
+      "roomAdmission",
+      module.container ?? undefined,
+      module.notificationsCenter,
+    );
+  }
+
+  // `room:<partie>` n'est ouvert qu'aux joueurs de la partie.
+  async allow(channel: string, who: ISubscriberIdentity): Promise<boolean> {
+    if (who.id === null) return false;
+    return this.members.isPlayer(channel.slice("room:".length), who.id);
+  }
+}
+
+export default RoomAdmission;
+
+// Dans le contrôleur :
+//   @RealtimeChannel("room:*", { allow: RoomAdmission })
+```
+
+Le démarrage résout la classe une fois et journalise « canal room:\*, admission RoomAdmission,
+résolue » (`channelPolicyRegistry.ts#createAdmissionResolver`). Une dépendance absente, une portée
+autre que singleton, une classe sans méthode `allow` font **échouer le démarrage** en nommant la
+classe et le canal — jamais un refus silencieux de 100 % des abonnés en production. Une seule
+instance sert tous les abonnés en même temps : elle ne garde **aucun état par abonné**.
+
+Un **module npm** livre sa politique de la même façon : la classe vit dans le module, déclarée dans
+ses `@services([…])`, son contrôleur la nomme. L'application qui l'installe n'écrit rien.
+
+**Le contrat, en six règles :**
+
+| Règle                                         | Pourquoi                                                                                                                                                                                                                                              |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Ses arguments, et rien d'autre**            | ni contexte de requête, ni session : à l'émission d'un webhook il n'y en a pas. Une règle qui les lirait passerait tous ses tests sur la socket, puis refuserait tout ailleurs                                                                        |
+| **`who.id`, jamais le login**                 | un e-mail change, un login libéré se réattribue ; `id` est l'identifiant stable du compte, `null` pour l'anonyme                                                                                                                                      |
+| **Seul `true` admet**                         | `1`, `"yes"`, un objet refusent — une réponse ambiguë ne vaut pas un oui                                                                                                                                                                              |
+| **L'anonyme est refusé d'office**             | sans même appeler la règle, sauf `anonymous: true` dans la politique ; un authentificateur qui ne fournit pas d'identité d'admission (`getIdentity`) n'entre sur aucun canal à `allow`                                                                |
+| **Elle s'ajoute aux trois axes**              | `authenticated`, `roles`, `scopes` d'abord (le verrou), puis `allow` (l'abonnement). Une politique plus spécifique remplace celle du motif EN ENTIER, `allow` compris : `@RealtimeChannel("user:public", { authenticated: false })` ouvre ce canal-là |
+| **Une fois par abonnement, jamais par trame** | admis, les trames entrantes du canal passent sans la rappeler ; une trame entrante sur un canal à `allow` SANS abonnement préalable est refusée                                                                                                       |
+
+Le `realtime:welcome` annonce un canal à `allow` sur le seul verdict du verrou : la règle n'est
+jamais jouée à la poignée de main — elle coûterait un appel par canal déclaré et par connexion, pour
+annoncer un motif dont aucun nom concret n'est connu.
+
+**Quand la règle est lente ou en panne** — la base qu'elle lit ne répond plus :
+
+<!-- prettier-ignore -->
+| Situation | L'abonné reçoit | Le serveur |
+| --- | --- | --- |
+| la règle lève, ou sa promesse est rejetée | `realtime:denied` `forbidden` (fermé par défaut) | un `WARNING` par fenêtre de 10 s |
+| aucune réponse dans `allowTimeoutMs` (5 s) | `unavailable` | `allowTimedOutTotal` ; un verdict arrivé après coup est ignoré, jamais une admission |
+| plus de `maxPendingAllowsPerConnection` (8) appels en vol sur la connexion | rien : la demande **attend son tour** | — le rejeu de tous les abonnements au `welcome` n'en perd aucun |
+| plus de `maxPendingAllowsTotal` (512) appels en vol sur l'exemplaire | `unavailable`, sans appel | `allowSaturatedTotal` |
+| 50 délais dépassés en 5 s | `unavailable` et `retryAfterMs`, sans appel, pendant 5 s (coupe-circuit) | `allowSaturatedTotal` |
+
+Un délai dépassé n'est **pas** un refus de droit : le client réessaie `unavailable` au plus trois
+fois, avec un recul exponentiel à gigue complète, après `retryAfterMs` quand il est donné.
+`forbidden` et `limit` ne se réessaient jamais. Le tout reste borné : 300 passerelles qui rejouent
+10 000 abonnements contre une base **bloquée** déclenchent environ 1 600 appels de la règle, jamais
+plus de 512 à la fois, et la tempête s'éteint en moins d'une minute
+(`admissionStorm.e2e.test.ts`). Réglages : [`configuration.md`](./configuration.md) ; compteurs :
+[`observabilite.md`](./observabilite.md).
+
+**Le prix assumé — une réponse retenue.** Une admission ne se périme pas seule : un membre retiré
+d'une salle reste abonné tant que sa connexion vit, la règle n'est pas rejouée. Pour couper tout de
+suite, on ferme sa connexion (la révocation, [verrou 4](#-verrou-4--la-révocation--une-socket-survit-à-sa-session)).
+L'éjection ciblée d'un abonné n'existe pas encore, et elle sera locale à l'exemplaire.
+
+**`room:*` et `pattern: "room:"` — deux grammaires, une même famille.** Le décorateur écrit un motif
+(`"room:*"`) ; la configuration de `@nodefony/security` écrit un préfixe
+(`realtimeChannels: [{ pattern: "room:", roles }]`). Ils couvrent les mêmes canaux. La règle de
+configuration est jugée par le verrou AVANT la politique du décorateur et la remplace de ce côté —
+c'est ainsi qu'une exploitation durcit un namespace sans toucher au code ; elle ne porte jamais
+d'`allow`, qui reste déclaré sur le décorateur et s'applique toujours à l'abonnement.
 
 ### ⚠️ La condition d'activation — le point critique
 
@@ -660,6 +820,8 @@ révocation l'emporte — la liste de refus est interrogée avant de conclure à
 | session expirée ou détruite (la cause n'est pas connaissable) | `4001`                                 | s'arrête             |
 | droits changés, identité vivante                              | `4005` (`IDENTITY_REFRESH_CLOSE_CODE`) | revient aussitôt     |
 | refus à la poignée de main, quel qu'il soit                   | 401 uniforme → `1008`                  | s'arrête             |
+| authentification sans réponse dans `authenticateTimeoutMs`    | `1013` (`TRY_AGAIN_LATER_CLOSE_CODE`)  | revient, avec recul  |
+| client qui ne vide plus sa file (contre-pression)             | `1013`                                 | revient, avec recul  |
 
 > [!IMPORTANT]
 > **Jamais de `4006` à la poignée de main.** Un refus distinct y dirait à qui tient un jeton volé
@@ -702,7 +864,8 @@ Aucune lecture de base par tick ni par frame : le coût n'existe qu'à la mise �
 ## 🚧 Plafonds anti-abus — borner une connexion
 
 Une connexion ouverte est une ressource. Trois bornes existent ; il faut aussi savoir ce qui **n'est
-pas** borné.
+pas** borné. Les appels en vol de la règle `allow` ont leurs propres plafonds, par connexion et par
+exemplaire : voir [`allow` — quand la règle est lente](#-allow--admettre-un-abonné-par-son-identité).
 
 ### Canaux par connexion
 
@@ -816,16 +979,16 @@ n'est pas appliquée.
 
 ## 📜 Normes appliquées
 
-| Norme                                 | Application                                                                                  |
-| ------------------------------------- | -------------------------------------------------------------------------------------------- |
-| **RFC 6455 §10.2** (Origin)           | Contrôle d'origine à l'upgrade, aux deux étages                                              |
-| **RFC 6455 §7.4.2** (codes 4000-4999) | `4001` unauthorized / session revoked, `4003` origin not allowed, `4006` token expired       |
-| **RFC 6455 §7.4.1 / registre IANA**   | `1008` Policy Violation (origine transport), `1009` Message Too Big, `1013` Try Again Later  |
-| **RFC 6455 §4.1**                     | `Sec-WebSocket-Protocol` normalisé en liste dans le DTO de handshake                         |
-| **RFC 9110 §7.2**                     | Comparaison du `Host` par le matcher d'authenticator                                         |
-| **JSON-RPC 2.0 §5.1**                 | `-32001` (plage `Server error`) pour une requête refusée, `-32602` pour des params invalides |
-| **OWASP WSTG-CLNT-10**                | Anti-CSWSH : validation d'`Origin` obligatoire, les navigateurs n'appliquent pas CORS aux WS |
-| **Zero Trust / OWASP A01**            | Zone protégée + anonyme = refus ; token toujours présent, jamais `null`                      |
+| Norme                                 | Application                                                                                                                                  |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| **RFC 6455 §10.2** (Origin)           | Contrôle d'origine à l'upgrade, aux deux étages                                                                                              |
+| **RFC 6455 §7.4.2** (codes 4000-4999) | `4001` unauthorized / session revoked, `4003` origin not allowed, `4006` token expired                                                       |
+| **RFC 6455 §7.4.1 / registre IANA**   | `1008` Policy Violation (origine transport), `1009` Message Too Big, `1013` Try Again Later (contre-pression, authentification sans réponse) |
+| **RFC 6455 §4.1**                     | `Sec-WebSocket-Protocol` normalisé en liste dans le DTO de handshake                                                                         |
+| **RFC 9110 §7.2**                     | Comparaison du `Host` par le matcher d'authenticator                                                                                         |
+| **JSON-RPC 2.0 §5.1**                 | `-32001` (plage `Server error`) pour une requête refusée, `-32602` pour des params invalides                                                 |
+| **OWASP WSTG-CLNT-10**                | Anti-CSWSH : validation d'`Origin` obligatoire, les navigateurs n'appliquent pas CORS aux WS                                                 |
+| **Zero Trust / OWASP A01**            | Zone protégée + anonyme = refus ; token toujours présent, jamais `null`                                                                      |
 
 ## 📡 Observabilité — Studio
 

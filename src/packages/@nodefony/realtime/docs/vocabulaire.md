@@ -667,7 +667,7 @@ un refus a donc toujours un auteur identifiable.
 Les exigences déclarées d'un canal : authentifié, rôles, scopes. Elles s'attachent au **nom** du
 canal, pas à la méthode qui l'implémente — parce que c'est le nom que le pare-feu résout.
 
-`IChannelPolicy` (`IChannelPolicy.ts#IChannelPolicy`), déclaration par `@RealtimeChannel`
+`IChannelPolicy` (`nodefony/src/realtime/channelAdmission.ts#IChannelPolicy`), déclaration par `@RealtimeChannel`
 (`realtimeDecorators.ts#RealtimeChannel`), résolution `resolveChannelPolicy()` (`RealtimeHub.ts#RealtimeHub.resolveChannelPolicy`).
 
 ### `verrou de frame` — la décision par frame
