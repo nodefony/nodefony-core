@@ -14,7 +14,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   zod: "^4.6.7",
   // Runtime des helpers TypeScript (`importHelpers`) — dépendance d'un paquet
   // PUBLIABLE : un module local d'application ne l'émet pas, son bundler inline.
-  tslib: "2.8.1",
+  tslib: "2.9.1",
   // Le code GÉNÉRÉ importe `drizzle-orm/<dialecte>-core` en direct (l'entité est
   // du Drizzle natif) : c'est donc une dépendance DE L'APPLICATION, pas seulement
   // du module ORM. Sans elle, la résolution ne tient que par le hissage npm des
