@@ -28,7 +28,7 @@ Audit de la dérive `external` ⇄ manifeste, sur TOUT le dépôt — core, pack
 Suite de l'audit `external` — écrite pour le faire ÉCHOUER, pas pour l'accompagner.
 
 - **Lancé par** : `npm run test:externals` · `npm run test:tooling`
-- **Utilise** : `gates/check-externals.mjs`
+- **Utilise** : `gates/check-externals.mjs` · `deps/shims/deepmerge/index.js`
 
 ## [`check-import-specifiers.mjs`](check-import-specifiers.mjs)
 

@@ -10,7 +10,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { analyzeScript } from "./script-doc.mjs";
+import { analyzeScript, createLaunchFinder } from "./script-doc.mjs";
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nf-script-doc-"));
 afterAll(() => fs.rmSync(dir, { recursive: true, force: true }));
@@ -60,5 +60,28 @@ describe("analyzeScript — les options d'un script", () => {
       '/**\n * Banc.\n *   node bench.mjs [--port P]\n */\nconst PORT = arg("port", "5251");\n// --port\n',
     );
     expect(analyzeScript(file).flags).toEqual(["--port"]);
+  });
+});
+
+describe("createLaunchFinder — un runner lancé sur un DOSSIER", () => {
+  const finder = (scripts) =>
+    createLaunchFinder(new Map(), JSON.stringify({ scripts }));
+
+  it("un test rangé PLUSIEURS niveaux sous le dossier ciblé est lancé", () => {
+    const { appelants } = finder({ tooling: "vitest run scripts/deps" });
+    expect(appelants("scripts/deps/shims/x/index.test.mjs")).toContainEqual({
+      label: "un script npm (cible-dossier)",
+      name: "npm run tooling",
+    });
+  });
+
+  it("un dossier cité comme SOUS-CHAÎNE d'un chemin ne lance rien", () => {
+    const { appelants } = finder({ one: "node scripts/deps/check.mjs" });
+    expect(appelants("scripts/deps/shims/x/index.test.mjs")).toEqual([]);
+  });
+
+  it("un outil (non-test) du sous-dossier n'est pas blanchi par la cible-dossier", () => {
+    const { appelants } = finder({ tooling: "vitest run scripts/deps" });
+    expect(appelants("scripts/deps/shims/x/index.mjs")).toEqual([]);
   });
 });

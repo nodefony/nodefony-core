@@ -447,15 +447,25 @@ export function createLaunchFinder(sourcesByPath, pkgText) {
     // sûre : une cible-dossier ne blanchit pas les outils qui vivent à côté
     // (`pack-all.mjs`, `fix-dts-extensions.mjs`), qu'aucun runner ne ramasse.
     if (/\.test\.[cm]?[jt]sx?$/u.test(base)) {
-      const dossier = k.slice(0, k.lastIndexOf("/") + 1);
+      // TOUS les dossiers ancêtres, pas le seul parent : le runner DESCEND —
+      // `vitest run scripts/deps` lance `scripts/deps/shims/deepmerge/index.test.mjs`.
+      // Au-delà du parent, un ancêtre d'UN seul segment (`scripts`) est exclu :
+      // ce mot nu figure dans les workflows comme simple argument (`git add docs
+      // scripts`) et blanchirait tout test du dépôt.
+      const ancestors = [];
+      for (let i = k.lastIndexOf("/"); i > 0; i = k.lastIndexOf("/", i - 1)) {
+        const dir = k.slice(0, i);
+        if (ancestors.length && !dir.includes("/")) break;
+        ancestors.push(dir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+      }
       // Le dossier doit être un ARGUMENT entier (`vitest run scripts/gates`),
       // pas une sous-chaîne : `node scripts/gates/size-check.mjs` contient
       // `scripts/gates/` sans lancer aucun test du dossier.
       const cible = new RegExp(
-        `(?:^|\\s)${dossier.slice(0, -1).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/?(?=\\s|$)`,
+        `(?:^|\\s)(?:${ancestors.join("|")})/?(?=\\s|$)`,
         "mu",
       );
-      if (dossier) {
+      if (ancestors.length) {
         for (const [n, v] of scriptsNpm)
           if (cible.test(v))
             out.push({

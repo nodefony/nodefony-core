@@ -67,7 +67,7 @@ Catalogue des variables d'environnement — projection DÉRIVÉE, jamais saisie.
 - **Usage** : `node scripts/generate/generate-man.mjs --check`
 - **Appelé par** : `release/release.mjs`
 - **Testé par** : `src/nodefony/src/tests/manPage.test.ts`
-- **Utilise** : `lib/repo-root.mjs`
+- **Utilise** : `lib/repo-root.mjs` · `deps/shims/deepmerge/index.js`
 
 ## [`generate-password-blocklist.mjs`](generate-password-blocklist.mjs)
 

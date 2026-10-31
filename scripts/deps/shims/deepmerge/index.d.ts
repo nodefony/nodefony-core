@@ -1,3 +1,9 @@
+/**
+ * Types de deepmerge 4.3.1, inchangés — le shim ne modifie que le comportement
+ * (garde contre la pollution de prototype, voir `index.js`).
+ *
+ * @usage import deepmerge from "deepmerge"  // résolu vers ce shim par les overrides de la racine
+ */
 declare function deepmerge<T>(
   x: Partial<T>,
   y: Partial<T>,

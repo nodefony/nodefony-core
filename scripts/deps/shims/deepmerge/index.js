@@ -13,6 +13,7 @@
  * amont corrigée paraît : `npm run deps:gate` (CI) rougit le jour où l'amont
  * publie au-dessus de la base du shim.
  *
+ * @usage "overrides": { "deepmerge": "$deepmerge" }  // package.json racine, avec devDependencies.deepmerge = "file:scripts/deps/shims/deepmerge"
  * @module deepmerge
  */
 

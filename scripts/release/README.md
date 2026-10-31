@@ -103,14 +103,14 @@ Les types publiés d'un paquet n'importent-ils que ce que l'installeur RECEVRA ?
 - **Usage** : `node scripts/release/dts-deps.mjs`
 - **Appelé par** : aucun automate
 - **Testé par** : `release/dts-deps.test.mjs`
-- **Utilise** : `lib/workspaces.mjs`
+- **Utilise** : `lib/workspaces.mjs` · `deps/shims/deepmerge/index.js`
 
 ## [`dts-deps.test.mjs`](dts-deps.test.mjs)
 
 Les types publiés n'importent-ils que ce que l'installeur reçoit ? Branches pures d'abord (disque injecté), puis le contrôle RÉEL des `dist` du dépôt — c'est lui qui a rendu les 14 `TS7016` de `@nodefony/http` et du cœur visibles sans réseau (cf `dts-deps.mjs`).
 
 - **Lancé par** : `npm run test:release`
-- **Utilise** : `release/dts-deps.mjs`
+- **Utilise** : `deps/shims/deepmerge/index.d.ts` · `deps/shims/deepmerge/index.js` · `release/dts-deps.mjs`
 
 ## [`env-docs.test.mjs`](env-docs.test.mjs)
 
@@ -124,6 +124,7 @@ Post-processing des `.d.ts` générés : ajoute les extensions AUX SPECIFIERS RE
 
 - **Usage** : `node scripts/release/fix-dts-extensions.mjs <dir> [--quiet]`
 - **Appelé par** : `release/pack-all.mjs`
+- **Utilise** : `deps/shims/deepmerge/index.d.ts` · `deps/shims/deepmerge/index.js`
 
 ## [`hub-description.mjs`](hub-description.mjs)
 
@@ -160,13 +161,14 @@ Le contrôle de la page Docker Hub, éprouvé SANS réseau.
 - **Usage** : `node scripts/release/image-gate.mjs --files <inventaire.txt>`
 - **Appelé par** : `npm run release:image-gate` · `release.yml` · `release/smoke-docker.sh`
 - **Testé par** : `release/image-gate.test.mjs`
+- **Utilise** : `deps/shims/deepmerge/index.js`
 
 ## [`image-gate.test.mjs`](image-gate.test.mjs)
 
 Le contrôle qui refuse une image porteuse d'un secret, éprouvé SANS docker.
 
 - **Lancé par** : `npm run test:release`
-- **Utilise** : `release/image-gate.mjs`
+- **Utilise** : `deps/shims/deepmerge/index.js` · `release/image-gate.mjs`
 
 ## [`image-labels-gate.mjs`](image-labels-gate.mjs)
 
@@ -212,7 +214,7 @@ Pack release des workspaces publiables (modèle B — N-packages lockstep).
 La confrontation des README publiés, éprouvée SANS npm ni réseau.
 
 - **Lancé par** : `npm run test:release`
-- **Utilise** : `release/readme-gate.mjs`
+- **Utilise** : `deps/shims/deepmerge/index.js` · `release/readme-gate.mjs`
 
 ## [`release-core.mjs`](release-core.mjs)
 
@@ -229,7 +231,7 @@ Suite du cœur de release — écrite pour FAIRE ÉCHOUER le script, pas pour l'
 
 - **Variable** `BON`
 - **Lancé par** : `npm run test:release`
-- **Utilise** : `lib/workspaces.mjs` · `release/release-core.mjs` · `release/release.mjs`
+- **Utilise** : `lib/workspaces.mjs` · `deps/shims/deepmerge/index.d.ts` · `deps/shims/deepmerge/index.js` · `release/release-core.mjs` · `release/release.mjs`
 
 ## [`release.mjs`](release.mjs)
 
@@ -245,7 +247,7 @@ release.mjs — PRÉPARE une release Nodefony, et refuse tout ce qui ne se rattr
 - **Variable** `VERSION`
 - **Appelé par** : `npm run release` · `node.js.yml` · `release-preflight.yml` · `release.yml`
 - **Testé par** : `release/release-core.test.mjs`
-- **Utilise** : `lib/workspaces.mjs` · `gates/size-check.mjs` · `generate/generate-man.mjs` · `release/accueil-gate.mjs` · `release/api-diff-core.mjs` · `release/api-diff.mjs` · `release/attendre-ci.mjs` · `release/pack-all.mjs` · `release/readme-gate.mjs` · `release/release-core.mjs`
+- **Utilise** : `lib/workspaces.mjs` · `gates/size-check.mjs` · `deps/shims/deepmerge/index.js` · `generate/generate-man.mjs` · `release/accueil-gate.mjs` · `release/api-diff-core.mjs` · `release/api-diff.mjs` · `release/attendre-ci.mjs` · `release/pack-all.mjs` · `release/readme-gate.mjs` · `release/release-core.mjs`
 
 ## [`smoke-docker.sh`](smoke-docker.sh)
 
@@ -268,6 +270,7 @@ Smoke test release (modèle B) + preuve Dockerfile/graceful shutdown/frontend.
 Les types d'un paquet du cœur se résolvent-ils DEPUIS SON TARBALL ?
 
 - **Lancé par** : `npm run test:release`
+- **Utilise** : `deps/shims/deepmerge/index.d.ts`
 
 ## [`types-rigor.mjs`](types-rigor.mjs)
 

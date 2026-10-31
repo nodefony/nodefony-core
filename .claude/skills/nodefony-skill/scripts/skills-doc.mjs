@@ -1081,6 +1081,10 @@ function repoScripts() {
  */
 const SCRIPT_SUBDIRS = [
   ["deps/lib", "Helpers propres à l'inventaire des dépendances."],
+  [
+    "deps/shims/deepmerge",
+    "Remplaçant interne de `deepmerge` (aucune version amont saine, GHSA-gcqx-w48m-w2h4), branché par les `overrides` de la racine. À retirer quand `npm run deps:gate` signale une version amont au-dessus de sa base.",
+  ],
   ["site/lib", "Helpers propres au rendu du site de documentation."],
   [
     "test/lib",

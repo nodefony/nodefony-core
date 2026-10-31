@@ -15,6 +15,7 @@ de forge, autre script). Tout est extrait du source — l'en-tête du script (`@
 | [`scaffold/`](scaffold/README.md) | Contrôles et mise en forme des gabarits d'application. | 3 |
 | [`deps/`](deps/README.md) | Inventaire et garde des dépendances, gabarits compris. | 3 |
 | [`deps/lib/`](deps/lib/README.md) | Helpers propres à l'inventaire des dépendances. | 1 |
+| [`deps/shims/deepmerge/`](deps/shims/deepmerge/README.md) | Remplaçant interne de `deepmerge` (aucune version amont saine, GHSA-gcqx-w48m-w2h4), branché par les `overrides` de la racine. À retirer quand `npm run deps:gate` signale une version amont au-dessus de sa base. | 3 |
 | [`test/`](test/README.md) | Orchestration des suites de test et de la couverture. | 4 |
 | [`test/lib/`](test/lib/README.md) | Helpers de l'orchestrateur de tests : verdicts sur les conteneurs d'infra, remise à zéro de MongoDB. | 3 |
 | [`test/vitest/`](test/vitest/README.md) | Socles partagés par TOUTES les configs vitest du dépôt — garde des dossiers temporaires, gates d'infrastructure, décorateurs oxc, cache de transformation — et la config des suites lancées depuis la racine. Importés par les configs, jamais lancés à la main. | 5 |

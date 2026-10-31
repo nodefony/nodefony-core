@@ -19,7 +19,7 @@ Index de tout l'outillage : [`scripts/`](../README.md).
 ## [`api-reference.test.mjs`](api-reference.test.mjs)
 
 - **Lancé par** : `npm run test:tooling`
-- **Utilise** : `site/lib/api-reference.mjs`
+- **Utilise** : `deps/shims/deepmerge/index.d.ts` · `deps/shims/deepmerge/index.js` · `site/lib/api-reference.mjs`
 
 ## [`assemble-site.mjs`](assemble-site.mjs)
 
@@ -51,7 +51,7 @@ Construit le SITE de documentation publié — toute la doc Nodefony en HTML aut
 - **Variable** `STYLE_CODE`
 - **Variable** `VERSION`
 - **Appelé par** : `node.js.yml` · `.githooks/pre-push` · `site/build-site.mjs` · `.claude/skills/nodefony-devkit-bench/scripts/bench-first-impression.mjs` · `.claude/skills/nodefony-documentation/scripts/doc-lint.mjs` · `.claude/skills/nodefony-documentation/scripts/render-figures.mjs`
-- **Utilise** : `lib/repo-root.mjs` · `site/lib/api-reference.mjs` · `site/lib/html-text.mjs` · `site/lib/markdown-source.mjs` · `site/lib/out-dir.mjs` · `site/lib/site-versions.mjs` · `site/markdown-highlight.mjs`
+- **Utilise** : `lib/repo-root.mjs` · `deps/shims/deepmerge/index.js` · `site/lib/api-reference.mjs` · `site/lib/html-text.mjs` · `site/lib/markdown-source.mjs` · `site/lib/out-dir.mjs` · `site/lib/site-versions.mjs` · `site/markdown-highlight.mjs`
 
 ## [`build-perf-site.mjs`](build-perf-site.mjs)
 

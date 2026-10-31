@@ -616,6 +616,81 @@
       "testedBy": []
     },
     {
+      "path": "scripts/deps/shims/deepmerge/index.d.ts",
+      "test": false,
+      "purpose": "Types de deepmerge 4.3.1, inchangés — le shim ne modifie que le comportement (garde contre la pollution de prototype, voir `index.js`).",
+      "usage": [
+        "import deepmerge from \"deepmerge\"  // résolu vers ce shim par les overrides de la racine"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/release/fix-dts-extensions.mjs",
+        ".claude/skills/nodefony-release/scripts/compare-dts-exports.mjs"
+      ],
+      "testedBy": [
+        "scripts/release/dts-deps.test.mjs",
+        "scripts/release/release-core.test.mjs",
+        "scripts/release/tarball-types.test.mjs",
+        "scripts/site/api-reference.test.mjs",
+        ".claude/skills/nodefony-identifiers/scripts/check-identifier-language.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/deps/shims/deepmerge/index.js",
+      "test": false,
+      "purpose": "deepmerge 4.3.1 (MIT, Josh Duff — `license.txt`), à l'identique, plus UNE garde : les clés `__proto__`, `constructor` et `prototype` ne sont jamais écrites dans l'objet rendu.",
+      "usage": [
+        "\"overrides\": { \"deepmerge\": \"$deepmerge\" }  // package.json racine, avec devDependencies.deepmerge = \"file:scripts/deps/shims/deepmerge\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "pages.yml",
+        "scaffold.yml",
+        "scripts/generate/generate-man.mjs",
+        "scripts/release/dts-deps.mjs",
+        "scripts/release/fix-dts-extensions.mjs",
+        "scripts/release/image-gate.mjs",
+        "scripts/release/release.mjs",
+        "scripts/site/build-docs-site.mjs",
+        ".claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.selftest.mjs",
+        ".claude/skills/nodefony-devkit-bench/scripts/lib/gate-porte-client.selftest.mjs",
+        ".claude/skills/nodefony-devkit-bench/scripts/lib/identites.selftest.mjs",
+        ".claude/skills/nodefony-load-test/scripts/micro/micro-cbor-codec.mjs",
+        ".claude/skills/nodefony-load-test/scripts/micro/micro-frame-authorizer.mjs",
+        ".claude/skills/nodefony-load-test/scripts/micro/micro-orm-hot-path-ab.mjs",
+        ".claude/skills/nodefony-load-test/scripts/micro/micro-realtime-frame-ab.mjs",
+        ".claude/skills/nodefony-session/scripts/session-resume.mjs"
+      ],
+      "testedBy": [
+        "scripts/deps/shims/deepmerge/index.test.mjs",
+        "scripts/gates/check-externals.test.mjs",
+        "scripts/release/dts-deps.test.mjs",
+        "scripts/release/image-gate.test.mjs",
+        "scripts/release/readme-gate.test.mjs",
+        "scripts/release/release-core.test.mjs",
+        "scripts/site/api-reference.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/deps/shims/deepmerge/index.test.mjs",
+      "test": true,
+      "purpose": "Le shim de deepmerge (overrides de la racine) : la pollution de prototype de GHSA-gcqx-w48m-w2h4 est refusée — vue ROUGE sur deepmerge 4.3.1 (cibles `Object.create(null)` et primitive : `polluted === true`) — et le comportement d'origine est conservé, celui dont dépend le plugin Svelte. /",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
+      ],
+      "testedBy": [
+        ".claude/skills/nodefony-skill/lib/script-doc.test.mjs"
+      ]
+    },
+    {
       "path": "scripts/test/coverage-all.ts",
       "test": false,
       "purpose": "Rejoue la couverture de CHAQUE module qui en déclare une, avec le DÉCOR d'infra — et dit ce qu'elle n'a pas mesuré.",
@@ -7166,6 +7241,61 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/bisect-perf.sh",
+            "purpose": "Bissection d'une RÉGRESSION de coût par requête — quel commit a fait monter le ratio Nodefony / témoin du profil comparé ?",
+            "usage": [],
+            "options": [
+              {
+                "flag": "--date",
+                "help": ""
+              },
+              {
+                "flag": "--detach",
+                "help": ""
+              },
+              {
+                "flag": "--format",
+                "help": ""
+              },
+              {
+                "flag": "--no-audit",
+                "help": ""
+              },
+              {
+                "flag": "--no-fund",
+                "help": ""
+              },
+              {
+                "flag": "--short",
+                "help": ""
+              },
+              {
+                "flag": "--step",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "BAD",
+                "help": ""
+              },
+              {
+                "name": "NF_BISECT_WT",
+                "help": ""
+              },
+              {
+                "name": "THRESHOLD",
+                "help": ""
+              },
+              {
+                "name": "WITNESS",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/boot-bench.mjs",
             "purpose": "boot-bench.mjs — mesure le temps de boot d'un mode Nodefony (du spawn jusqu'à ce que les serveurs écoutent) et compte le nombre de `new Kernel()` via NF_KERNEL_TRACE_FILE.",
             "usage": [
@@ -8419,6 +8549,10 @@
               },
               {
                 "name": "BENCH_STREAMS",
+                "help": ""
+              },
+              {
+                "name": "NF_PROFILE_APP_ROOT",
                 "help": ""
               },
               {
