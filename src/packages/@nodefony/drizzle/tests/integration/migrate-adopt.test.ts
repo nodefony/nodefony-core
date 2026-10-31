@@ -116,9 +116,13 @@ interface ICible {
  * délai, aucune n'appartenant au code — le même banc relancé seul rend 765
  * verts. Le numéro de processus est le plus petit discriminant qui tienne les
  * deux contraintes, et `afterEach` le nettoie comme avant.
+ *
+ * Sous `tmp/apps/` (une application d'essai), jamais à la racine de `tmp/` :
+ * un décor qu'un test interrompu n'a pas nettoyé y reste rangé, et l'élagage de
+ * `scripts/repo/tmp-layout.mjs` le retrouve.
  */
 const APP = (dialect: SqlDialect): string =>
-  path.join(REPO_ROOT, "tmp", `orm-adopt-${dialect}-${process.pid}`);
+  path.join(REPO_ROOT, "tmp", "apps", `orm-adopt-${dialect}-${process.pid}`);
 
 const PG_URL = process.env.NF_PG_URL;
 const MYSQL_URL = process.env.NF_MYSQL_URL;
