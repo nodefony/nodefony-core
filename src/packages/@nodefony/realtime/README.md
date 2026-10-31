@@ -162,7 +162,9 @@ Détail des réglages : [`docs/configuration.md`](./docs/configuration.md).
 | `LoopbackBackplane` / `ClusterBackplane` / `RedisBackplane` | classes | Les 3 drivers natifs |
 | `registerBackplaneDriver` / `getBackplaneDriver` / `listBackplaneDrivers` | functions | Registre ouvert de drivers |
 | `IBackplane` | interface | Contrat d'un fond de panier |
-| `ContractRealtimeController<C>` | classe | Base d'un contrôleur qui implémente un contrat (`realtimeActions()` complète) |
+| `ContractRealtimeController<C>` | classe | Base d'un contrôleur qui implémente un contrat (`realtimeActions()` complète si le contrat déclare des `serverMethods`, rien sinon) |
+| `getRealtimeHub<C>()` | fonction | Le hub lu par le contrat (`IContractRealtimeHub<C>`) : `publish` d'un service vérifié ; sans paramètre, le hub libre |
+| `ContractRealtimePublish<C>` | type | Le `publish` d'une fabrique de canal, typé par le contrat |
 | `RealtimePolicy` | décorateur | Politiques d'accès par nom, posées sur la classe ; noms vérifiés contre le contrat |
 | `IRealtimeAuthenticator` / `IRealtimeToken` / `IRealtimeHandshake` | interfaces | Seams sécurité du handshake |
 | `ANONYMOUS_REALTIME_TOKEN` | const | Jeton anonyme gelé — fallback Zero Trust |

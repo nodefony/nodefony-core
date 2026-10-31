@@ -18,6 +18,7 @@ export type {
 export type {
   IRealtimeController,
   RealtimePublish,
+  ContractRealtimePublish,
   RealtimeInboundHandler,
 } from "./IRealtimeController";
 

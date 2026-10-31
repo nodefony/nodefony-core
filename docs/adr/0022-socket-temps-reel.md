@@ -473,7 +473,10 @@ class ChatRt extends ContractRealtimeController<ChatContract> {
 - **(iv) se ferme par `realtimeActions()` abstraite et COMPLÈTE**, typée par `serverMethods`. Un
   décorateur ne voit jamais la classe entière : c'est la seule construction qui fait d'une
   méthode OUBLIÉE une erreur de compilation (§10, garde-fou 2). Un contrat sans `serverMethods`
-  la satisfait par `return {}`. Les entrées client (`realtimeInbound()`) restent facultatives
+  n'a rien à écrire : `ContractRealtimeController<C>` est un constructeur typé qui rend la forme
+  STRICTE (`ContractRealtimeControllerStrict`, table abstraite) quand `C` déclare des méthodes,
+  et le SOCLE (`ContractRealtimeControllerBase`, table vide héritée) sinon — une sous-classe vide
+  de plus à l'exécution, rien d'autre (#707). Les entrées client (`realtimeInbound()`) restent facultatives
   canal par canal : accepter une entrée est une permission, pas une promesse.
 - **La table sert SEULE les méthodes d'un contrat — règle de perf.** Lui ajouter
   `@RealtimeAction` pour porter une politique fabriquait, à chaque connexion, un handler aussitôt
@@ -496,15 +499,24 @@ class ChatRt extends ContractRealtimeController<ChatContract> {
   jour**). Règle de méthode qui en sort : une API se juge à la LIGNE que le développeur écrit pour
   le cas courant, la mécanique vient après.
   - **Diffusion (D2)** : une seule forme, partout — contrôleur, service, tâche, boucle de jeu :
-    `getRealtimeHub<C>().publish(canal, charge)`, générique EN FIN avec défaut (sans paramètre,
-    libre comme avant). Même objet hub, aucune conversion : une interface à signatures de MÉTHODE
-    que `RealtimeHub` satisfait par bivariance — prouvé au compilateur ; la charge est
+    `getRealtimeHub<C>().publish(canal, charge)`, par SURCHARGE : sans paramètre, le hub entier
+    (`RealtimeHub`), libre comme avant ; avec, `IContractRealtimeHub<C>` — mêmes méthodes, seul
+    `publish` typé. Même objet hub, aucune conversion, JS émis identique : une interface à
+    signature de MÉTHODE que `RealtimeHub` satisfait par bivariance — prouvé au compilateur ; la charge est
     `EventPayload<…> & object`, si bien qu'une charge scalaire, refusée à l'exécution par
     `src/nodefony/src/realtime/payload.ts#isRealtimePayload`, l'est désormais à la compilation.
     Écarté : un `this.broadcast` propre au contrôleur (deux formes pour un geste). #707.
-  - **Fabriques (D7)** : `RealtimePublishOf<C>` type le `publish` reçu par `@RealtimeChannel` ET
-    par la surcharge `createRealtimeChannel`, lu sur la même étiquette de classe que
-    `@RealtimePolicy`. #707.
+  - **Fabriques (D7)** : `ContractRealtimePublish<C>` type le `publish` reçu par
+    `@RealtimeChannel` ET par la surcharge `createRealtimeChannel` — la fonction reçue reste la
+    forme libre, que le type contractuel admet. #707.
+  - **Nommage de la porte (décision de l'auteur, #707)** : trois mots, trois sens, sans
+    recouvrement. `Contract…<C>` = la même chose que sa forme libre, lue à travers le contrat
+    ENTIER (`ContractRealtimeController`, `ContractRealtimePublish`, `IContractRealtimeHub`,
+    `ContractRealtimeMethodHandlers`, et au cœur `Contract{Server,Client}{Emit,Listen,Actions}`).
+    `Typed…<…>` = la version typée d'un type libre par ses types DIRECTS (charge, réponse, carte,
+    clé : `TypedRpcActionHandler`, `TypedRealtimeInboundHandler`). `…Of<X>` = LECTURE du X
+    porté par un nom ou une classe (`RealtimeContractOf`, `ConfigOf`). Les noms neufs du client
+    (type rendu par `fromContract`, hooks — #709) suivent la même règle.
   - **Actions (D4)** : le type d'une action du pont vient du SCHÉMA de sa route, seule source —
     celle que le serveur valide (`src/packages/@nodefony/framework/nodefony/src/routeSchema.ts#IRouteSchema`).
     Le contrat la RÉFÉRENCE par une clé additive `serverRoutes` (`"POST /chat/send": { body:

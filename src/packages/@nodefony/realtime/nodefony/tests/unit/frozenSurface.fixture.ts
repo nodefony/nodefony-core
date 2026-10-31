@@ -38,3 +38,22 @@ export const FROZEN_REFUSAL_COUNTERS = [
   { name: "allowSaturatedTotal", ticket: 622 },
   { name: "authenticateTimedOutTotal", ticket: 622 },
 ] as const;
+
+/**
+ * Porte du CONTRAT temps réel côté serveur (ADR-0022 §4) — les noms qu'une
+ * application écrit dans son code. Règle de nommage : `Contract…<C>` = la même
+ * chose que sa forme libre, lue à travers le contrat.
+ */
+export const FROZEN_CONTRACT_VALUES = [
+  { name: "ContractRealtimeController" },
+  { name: "getRealtimeHub" },
+] as const;
+
+/** Types de la même porte : vérifiés à la compilation par `frozenSurface.test.ts`. */
+export const FROZEN_CONTRACT_TYPES = [
+  { name: "ContractRealtimePublish" },
+  { name: "IContractRealtimeHub" },
+  { name: "ContractRealtimeMethodHandlers" },
+  { name: "ContractPolicyNames" },
+  { name: "RealtimeContractOf" },
+] as const;

@@ -13,6 +13,12 @@ import {
   MAX_CHANNEL_PATTERN_WILDCARDS,
 } from "nodefony";
 import { frameRateRejectedTotal } from "@nodefony/http";
+import type {
+  ContractServerEmit,
+  EventNames,
+  EventPayload,
+  IRealtimeContract,
+} from "nodefony";
 import type { RealtimePublish } from "../../interfaces/IRealtimeController";
 import type { IClientLogsLimits } from "../../interfaces/IClientLogsLimits";
 import type { IChannelPolicy } from "../../interfaces/IChannelPolicy";
@@ -1269,14 +1275,14 @@ export class RealtimeHub {
    * DYNAMIQUE n'est couvert par aucune politique déclarée, alors que d'autres
    * canaux du module en portent une.
    *
-   * Le registre des politiques est indexé par nom **EXACT** : `@RealtimeChannel`
-   * déclare `"chat:room"`, mais un canal dérivé (`chat:room:1000` — cadence,
-   * forage, suffixe) est servi par la fabrique dynamique et **ne matche pas**.
-   * L'auteur croit alors son canal gardé ; il ne l'est pas, et rien ne le lui
-   * dit. C'est ce silence qu'on ferme ici — et depuis qu'une politique peut se
-   * déclarer par MOTIF (`chat:room:*`), cet avertissement ne parle plus que des
-   * canaux qu'aucun motif ne couvre : il désigne un vrai trou, pas une limite
-   * de l'outil.
+   * Le registre des politiques lit le nom **EXACT**, puis les **MOTIFS**
+   * déclarés ({@link resolveChannelPolicy}) : `@RealtimeChannel` déclare
+   * `"chat:room"`, mais un canal dérivé (`chat:room:1000` — cadence, forage,
+   * suffixe) servi par la fabrique dynamique ne matche ce nom que si un motif
+   * (`chat:room:*`) le couvre. Sans motif, l'auteur croit son canal gardé ; il
+   * ne l'est pas, et rien ne le lui dit. C'est ce silence qu'on ferme ici :
+   * l'avertissement ne parle que des canaux qu'aucun motif ne couvre — un vrai
+   * trou, pas une limite de l'outil.
    *
    * Appelé par le contrôleur, seul à savoir par quelle voie le canal a été
    * servi. Muet si aucune politique n'est déclarée (module aux canaux libres :
@@ -1468,7 +1474,55 @@ function compileMatcher(
 // Hub partagé du process (1 pod = 1 hub). Lazy : pas d'instance tant qu'inutilisé.
 let _hub: RealtimeHub | null = null;
 
-/** Renvoie le hub realtime du process (singleton lazy). */
+/**
+ * Le hub lu à travers le contrat `C` : mêmes méthodes que {@link RealtimeHub},
+ * mais `publish` n'accepte que les canaux de `serverToClient`, chacun avec la
+ * charge qu'il déclare. C'est le MÊME objet que le hub libre — une vue de type,
+ * sans un octet ni une instruction de plus.
+ *
+ * @typeParam C - le contrat de l'application.
+ */
+export interface IContractRealtimeHub<C extends IRealtimeContract> extends Omit<
+  RealtimeHub,
+  "publish"
+> {
+  /**
+   * Publie sur un canal déclaré par le contrat (fan-out local, puis backplane
+   * si le canal est broadcast) — cf {@link RealtimeHub.publish}.
+   *
+   * @throws TypeError si la charge n'est pas un objet ({@link isRealtimePayload}).
+   */
+  publish<K extends EventNames<ContractServerEmit<C>>>(
+    channel: K,
+    payload: EventPayload<ContractServerEmit<C>, K> & object,
+  ): void;
+}
+
+/**
+ * Renvoie le hub realtime du process (singleton lazy) — forme LIBRE : tout nom
+ * de canal, toute charge objet.
+ */
+export function getRealtimeHub(): RealtimeHub;
+/**
+ * Renvoie le hub realtime du process lu à travers le contrat `C` : la diffusion
+ * d'un service, d'un job ou d'une boucle de jeu est vérifiée par le contrat
+ * partagé avec le navigateur. Même objet que la forme libre : 0 octet, 0 ns.
+ *
+ * Le contrat est choisi par l'appelant — rien n'empêche d'en nommer un autre que
+ * celui du contrôleur qui sert le canal ; c'est le fichier partagé qui fait foi.
+ *
+ * @typeParam C - le contrat de l'application.
+ *
+ * @example
+ * ```ts
+ * const chat = getRealtimeHub<ChatContract>();
+ * chat.publish("chat:room", { from: "ana", text: "salut" }); // charge vérifiée
+ * getRealtimeHub().publish("n'importe:quoi", { x: 1 });       // forme libre
+ * ```
+ */
+export function getRealtimeHub<
+  C extends IRealtimeContract,
+>(): IContractRealtimeHub<C>;
 export function getRealtimeHub(): RealtimeHub {
   return (_hub ??= new RealtimeHub());
 }

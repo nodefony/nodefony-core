@@ -398,11 +398,39 @@ export class OrdersRealtime extends ContractRealtimeController<OrdersContract> {
 | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `NodefonySocket.fromContract<C>()` (client)       | émet `clientToServer` · reçoit `serverToClient` · appelle `serverMethods` · implémente `clientMethods`                   |
 | `extends ContractRealtimeController<C>` (serveur) | émet `serverToClient` · reçoit `clientToServer` · implémente `serverMethods` · appelle `clientMethods` (`requestClient`) |
+| `getRealtimeHub<C>()` (service, tâche, jeu)       | `publish` n'accepte que les canaux de `serverToClient`, avec leur charge                                                 |
+| `ContractRealtimePublish<C>` (fabrique de canal)  | le `publish` reçu par `@RealtimeChannel` / `createRealtimeChannel`, même règle                                           |
 | `renderSse<ContractServerEmit<C>>()` (serveur)    | `event:` = un canal de `serverToClient`, la charge est celle du canal                                                    |
 | `@RealtimePolicy({ … })` (serveur)                | chaque nom doit être une méthode ou un canal du contrat                                                                  |
 
 Les quatre clés sont **facultatives** : un tableau de bord ne déclare que `serverToClient`, et son
-contrôleur écrit `realtimeActions() { return {}; }`. Une direction non déclarée reste libre.
+contrôleur n'écrit rien de plus que `extends ContractRealtimeController<C> {}` — la table des
+méthodes n'est due que si le contrat déclare des `serverMethods`. Une direction non déclarée reste
+libre.
+
+### Diffuser depuis un service — le même contrat
+
+Le cas le plus courant ne passe par aucun contrôleur : un service, une tâche, une boucle de jeu
+publient. Le hub se lit à travers le contrat, et une faute de frappe ne compile plus :
+
+```ts
+import { getRealtimeHub } from "@nodefony/realtime";
+import type { ChatContract } from "../shared/chat";
+
+const chat = getRealtimeHub<ChatContract>(); // même objet hub : 0 octet, 0 ns de plus
+chat.publish("chat:room", message); // charge vérifiée par le contrat
+getRealtimeHub().publish("n'importe:quoi", { x: 1 }); // sans paramètre : libre, comme avant
+```
+
+Une fabrique de canal déclare son `publish` de la même façon :
+`presence(_channel: string, publish: ContractRealtimePublish<ChatContract>)`. Le contrat est choisi
+par l'appelant : c'est le fichier partagé qui fait foi.
+
+> [!NOTE]
+> **Lire les noms.** `Contract…<C>` est la même chose que sa forme libre, lue à travers le contrat :
+> `RealtimeController` → `ContractRealtimeController<C>`, `RealtimePublish` →
+> `ContractRealtimePublish<C>`, `RealtimeHub` → `IContractRealtimeHub<C>`. `Typed…` type un handler
+> par ses types directs ; `…Of<X>` lit ce que porte une classe (`RealtimeContractOf`).
 
 ### Deux cas réels — l'atelier et la partie
 
@@ -520,10 +548,7 @@ export class ArenaRealtime extends ContractRealtimeController<ArenaContract> {
     super("arena", context);
   }
 
-  // Aucune méthode serveur dans ce contrat : la table complète est vide.
-  protected realtimeActions() {
-    return {};
-  }
+  // Aucune méthode serveur dans ce contrat : aucune table à écrire.
 
   // L'entrée est TYPÉE, mais vient du réseau : bornée avant d'être appliquée.
   protected override realtimeInbound() {
@@ -572,6 +597,8 @@ et plantait au navigateur ; avec elle, `m.start` est une `string` et l'éditeur 
 | un canal émis **hors** `serverToClient`                              | `notifyClient`, `realtimeChannels()`, `renderSse`                    |
 | une entrée acceptée sur un canal que le **serveur** émet (inversion) | `realtimeInbound()`                                                  |
 | une charge fausse sur un canal ou une méthode connus                 | client et serveur                                                    |
+| une diffusion de service hors contrat (nom ou charge)                | `getRealtimeHub<C>().publish`, `ContractRealtimePublish<C>`          |
+| une charge **scalaire** (`3`, `"ok"`) — refusée aussi à l'exécution  | `getRealtimeHub<C>().publish`, `ContractRealtimePublish<C>`          |
 
 > [!IMPORTANT]
 > **La table sert SEULE les méthodes d'un contrat — c'est une règle de performance.** N'ajoute pas

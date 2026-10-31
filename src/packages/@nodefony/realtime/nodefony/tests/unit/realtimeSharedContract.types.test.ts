@@ -12,7 +12,16 @@ import {
   type ContractServerEmit,
 } from "nodefony";
 import { ContractRealtimeController } from "../../src/server/ContractRealtimeController.js";
-import { RealtimePolicy } from "../../decorators/realtimeDecorators.js";
+import {
+  RealtimeChannel,
+  RealtimePolicy,
+} from "../../decorators/realtimeDecorators.js";
+import {
+  getRealtimeHub,
+  type IContractRealtimeHub,
+  type RealtimeHub,
+} from "../../src/server/RealtimeHub.js";
+import type { ContractRealtimePublish } from "../../interfaces/IRealtimeController.js";
 import { NodefonySocket } from "../../../../../../nodefony/src/client/realtime/NodefonySocket.js";
 // Par la SOURCE, comme `NodefonySocket` : via `"nodefony"`, le contrat serait lu
 // dans `dist/types`, et la garde `@ts-expect-error` ci-dessous jugerait un build.
@@ -304,16 +313,73 @@ function _contractOnly(): void {
   }
   void InvertedInboundRt;
 
-  // Un contrat SANS `serverMethods` (tableau de bord) : la table vide suffit.
+  // Un contrat SANS `serverMethods` (tableau de bord) : rien à écrire.
   interface DashContract extends IRealtimeContract {
     serverToClient: { "dash:cpu": { load: number } };
   }
-  class DashRt extends ContractRealtimeController<DashContract> {
+  class DashRt extends ContractRealtimeController<DashContract> {}
+  void DashRt;
+
+  // …mais un contrat AVEC `serverMethods` garde le garde-fou : la table est due.
+  // @ts-expect-error MÉTHODES NON SERVIES : `realtimeActions()` est abstraite ici
+  class ForgottenRt extends ContractRealtimeController<ChatContract> {}
+  void ForgottenRt;
+}
+
+// ── DIFFUSION SERVEUR (#707) : un service, un job, une boucle de jeu publient par
+//    le hub — `getRealtimeHub<C>()` le lit à travers le contrat, sans rien coûter.
+interface ScoreContract extends IRealtimeContract {
+  serverToClient: { "game:score": number };
+}
+
+function _broadcastOnly(): void {
+  const chat = getRealtimeHub<ChatContract>();
+  expectType<IContractRealtimeHub<ChatContract>>(chat);
+  chat.publish("chat:room", { from: "s", text: "t", at: new Date() });
+  chat.publish("user:bob", { unread: 1 }); // canal à motif
+  // @ts-expect-error FAUTE DE FRAPPE dans la charge du salon (`autor`)
+  chat.publish("chat:room", { autor: "a", text: "t", at: new Date() });
+  // @ts-expect-error CHARGE FAUSSE sur un canal à motif
+  chat.publish("user:bob", { unread: "1" });
+  // @ts-expect-error CANAL HORS D'Emit : `chat:typing` est ce que le client émet
+  chat.publish("chat:typing", { on: true, at: new Date() });
+  // @ts-expect-error SCALAIRE : refusé par le hub à l'exécution, le type le dit avant
+  getRealtimeHub<ScoreContract>().publish("game:score", 3);
+  // Le reste du hub est là, inchangé.
+  expectType<number>(chat.subscriberCount("chat:room"));
+
+  // Sans paramètre : forme libre, le hub complet comme avant.
+  const free = getRealtimeHub();
+  expectType<RealtimeHub>(free);
+  free.publish("n'importe:quoi", { x: 1 });
+
+  // FABRIQUES : le `publish` reçu se déclare par le contrat, sur les deux voies.
+  class FactoryRt extends ContractRealtimeController<ChatContract> {
     protected realtimeActions() {
-      return {};
+      return {
+        "chat:send": () => ({ id: "1" }),
+        "chat:history": () => ({ last: new Date() }),
+      };
+    }
+    @RealtimeChannel("chat:room")
+    room(_channel: string, publish: ContractRealtimePublish<ChatContract>) {
+      publish("chat:room", { from: "s", text: "t", at: new Date() });
+      // @ts-expect-error FABRIQUE DÉCORÉE : charge fausse
+      publish("chat:room", { mauvais: 1 });
+      return () => undefined;
+    }
+    override createRealtimeChannel(
+      channel: string,
+      publish: ContractRealtimePublish<ChatContract>,
+    ) {
+      if (channel !== "user:7") return null;
+      publish("user:7", { unread: 0 });
+      // @ts-expect-error FABRIQUE DYNAMIQUE : charge fausse
+      publish("user:7", { unread: "0" });
+      return () => undefined;
     }
   }
-  void DashRt;
+  void FactoryRt;
 }
 
 describe("Realtime — contrat de canaux typé partagé (L3, compile-only)", () => {
@@ -322,5 +388,8 @@ describe("Realtime — contrat de canaux typé partagé (L3, compile-only)", () 
   });
   it("compile : une seule map type le client ET le serveur", () => {
     void _typeOnly;
+  });
+  it("compile : la diffusion serveur est vérifiée par le contrat (#707)", () => {
+    void _broadcastOnly;
   });
 });

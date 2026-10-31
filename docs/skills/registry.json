@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-10-30",
+  "generatedAt": "2026-10-31",
   "count": 41,
   "repoScripts": [
     {
@@ -12111,8 +12111,8 @@
       ],
       "description": "Ajoute un flux temps réel à une application Nodefony par la bonne couche — un `RealtimeController` et ses décorateurs de canal — au lieu de recomposer un WebSocket à la main. Porte la façon de fermer un canal à certains rôles, le piège du canal public par défaut, celui du canal dont le nom est calculé, et la façade cliente à employer côté navigateur. À charger AVANT d'écrire du code WebSocket, un canal, ou un abonnement client. Dit aussi quand un flux SSE suffit, et sa façade, et comment typer les deux bouts par un contrat déclaré une fois. Déclencheurs : \"flux temps réel\", \"websocket\", \"canal\", \"push\", \"notifications en direct\", \"abonnement\", \"RealtimeController\", \"@RealtimeChannel\", \"socket client\", \"temps réel privé\", \"réserver un canal à un rôle\", \"mon canal est public\", \"diffuser à plusieurs onglets\", \"SSE\", \"server-sent events\", \"EventSource\", \"barre de progression\", \"réponse en streaming\", \"typer les canaux\", \"contrat temps réel\", \"action introuvable -32601\".",
       "cost": {
-        "bodyLines": 195,
-        "approxTokens": 2333
+        "bodyLines": 198,
+        "approxTokens": 2394
       },
       "requires": [],
       "resources": {
@@ -12181,7 +12181,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "195",
+            "detail": "198",
             "advisory": true
           }
         ]

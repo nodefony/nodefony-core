@@ -1020,9 +1020,10 @@ export abstract class RealtimeController<
     // cette porte qui applique le plancher des canaux de plateforme ; un service
     // interne du serveur, lui, passe par `subscribe` et n'est pas concerné.
     // Par quelle voie le canal a-t-il été servi ? Le hub l'ignore ; nous seuls
-    // le savons. Un canal servi par la fabrique DYNAMIQUE n'a pas de politique
-    // déclarée (registre indexé par nom exact) → on le DIT plutôt que de
-    // laisser croire à une garde qui n'existe pas.
+    // le savons. Un canal servi par la fabrique DYNAMIQUE peut n'être couvert
+    // par aucune politique — ni nom exact, ni motif (`user:*`) : le hub vérifie
+    // (`noticeUnguardedDynamicChannel` → `resolveChannelPolicy`) et le DIT
+    // plutôt que de laisser croire à une garde qui n'existe pas.
     let servedByPattern = false;
     // Posé par la fermeture ci-dessous : TypeScript ne voit pas l'affectation.
     const isServedByPattern = (): boolean => servedByPattern;

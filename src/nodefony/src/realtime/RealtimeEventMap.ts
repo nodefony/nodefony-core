@@ -269,7 +269,8 @@ export type Jsonify<T, D extends number = 10> = unknown extends T
  * Le fichier du contrat ne contient QUE des types : 0 octet compilé, et le
  * navigateur qui l'importe ne tire aucun code serveur. Chaque côté entre par sa
  * porte : `NodefonySocket.fromContract<C>()` (client) et
- * `implementRealtimeContract<C>()` (`@nodefony/realtime`). Le type n'est pas une
+ * `extends ContractRealtimeController<C>` (`@nodefony/realtime`) ; un service
+ * diffuse par `getRealtimeHub<C>()`. Le type n'est pas une
  * validation : la garde de canal s'applique à toutes les livraisons.
  *
  * @example

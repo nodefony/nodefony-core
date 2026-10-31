@@ -1,11 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { RealtimeHub } from "../../src/server/RealtimeHub";
 import type { IRealtimeProbe } from "../../interfaces/IRealtimeProbe.js";
+import type { IRealtimeContract } from "nodefony";
+import * as realtime from "../../../index.js";
+import type {
+  ContractPolicyNames,
+  ContractRealtimeMethodHandlers,
+  ContractRealtimePublish,
+  IContractRealtimeHub,
+  RealtimeContractOf,
+} from "../../../index.js";
 // Par la SOURCE du cœur : via `"nodefony"`, on jugerait un `dist` qui peut dater.
 import * as closeCodes from "../../../../../../nodefony/src/realtime/closeCodes.js";
 import type { RealtimeDeniedReason } from "../../../../../../nodefony/src/realtime/RealtimeEventMap.js";
 import {
   FROZEN_CLOSE_CODES,
+  FROZEN_CONTRACT_TYPES,
+  FROZEN_CONTRACT_VALUES,
   FROZEN_DENIED_REASONS,
   FROZEN_REFUSAL_COUNTERS,
 } from "./frozenSurface.fixture";
@@ -54,6 +65,29 @@ export type CountersPendingAbsent = Assert<
   None<Extract<NamesOf<Pending<Counters>>, keyof IRealtimeProbe>>
 >;
 
+// Types de la porte du contrat : chaque nom figé est importé par l'index public
+// (sinon cette table ne compile pas), et la table ne porte que des noms figés.
+interface IProbeContract extends IRealtimeContract {
+  serverToClient: { "probe:tick": { n: number } };
+  serverMethods: { "probe:ping": { in: void; out: { ok: boolean } } };
+}
+interface IContractTypeExports {
+  ContractRealtimePublish: ContractRealtimePublish<IProbeContract>;
+  IContractRealtimeHub: IContractRealtimeHub<IProbeContract>;
+  ContractRealtimeMethodHandlers: ContractRealtimeMethodHandlers<IProbeContract>;
+  ContractPolicyNames: ContractPolicyNames<IProbeContract>;
+  RealtimeContractOf: RealtimeContractOf<
+    typeof realtime.ContractRealtimeController
+  >;
+}
+type ContractTypes = (typeof FROZEN_CONTRACT_TYPES)[number];
+export type ContractTypesPublished = Assert<
+  Subset<NamesOf<Published<ContractTypes>>, keyof IContractTypeExports>
+>;
+export type ContractTypesClosed = Assert<
+  Subset<keyof IContractTypeExports, NamesOf<ContractTypes>>
+>;
+
 const pending = (e: Entry): string =>
   e.ticket === undefined ? "" : ` (attendu de #${e.ticket})`;
 
@@ -93,6 +127,13 @@ describe("surface temps réel figée par 10.0", () => {
     }
     const codes = FROZEN_CLOSE_CODES.map((e) => e.code);
     expect(new Set(codes).size).toBe(codes.length);
+  });
+
+  it("la porte du contrat exporte chaque valeur figée, depuis l'index public", () => {
+    const values: Record<string, unknown> = realtime;
+    for (const e of FROZEN_CONTRACT_VALUES) {
+      expect(typeof values[e.name], e.name).toBe("function");
+    }
   });
 
   it("la sonde du hub n'expose comme compteurs de refus que ceux de la fixture", () => {

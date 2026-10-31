@@ -1,7 +1,45 @@
-import type { EventNames, EventPayload, EventsMap } from "nodefony";
+import type {
+  ContractServerEmit,
+  EventNames,
+  EventPayload,
+  EventsMap,
+  IRealtimeContract,
+} from "nodefony";
 
-/** Publie une charge sur un canal (notification serveur→client). */
+/**
+ * Publie une charge sur un canal (notification serveur→client) — forme LIBRE :
+ * tout nom, toute charge objet. Sous un contrat, préférer {@link ContractRealtimePublish}.
+ */
 export type RealtimePublish = (channel: string, payload?: object) => void;
+
+/**
+ * Publie sur un canal DÉCLARÉ par le contrat `C` : le nom est l'un des canaux de
+ * `serverToClient`, la charge est celle qu'il déclare. Une faute de frappe dans
+ * le nom ou dans la charge ne compile pas.
+ *
+ * C'est le `publish` qu'une fabrique de canal déclare sous un contrat — méthode
+ * `@RealtimeChannel` ou surcharge `createRealtimeChannel`. La fonction reçue à
+ * l'exécution est la même qu'en forme libre ({@link RealtimePublish}) : seul le
+ * compilateur voit la différence. La charge est un objet : le hub refuse un
+ * scalaire à l'exécution (`isRealtimePayload`), le type le dit avant.
+ *
+ * @typeParam C - le contrat de l'application.
+ *
+ * @example
+ * ```ts
+ * @RealtimeChannel("chat:presence", { authenticated: true })
+ * presence(_channel: string, publish: ContractRealtimePublish<ChatContract>) {
+ *   publish("chat:presence", { online: 3 });
+ *   return () => undefined;
+ * }
+ * ```
+ */
+export type ContractRealtimePublish<C extends IRealtimeContract> = <
+  K extends EventNames<ContractServerEmit<C>>,
+>(
+  channel: K,
+  payload: EventPayload<ContractServerEmit<C>, K> & object,
+) => void;
 
 /**
  * Handler d'un message ENTRANT sur un canal full-duplex (client → serveur). C'est le

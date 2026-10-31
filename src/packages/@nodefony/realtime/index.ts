@@ -479,17 +479,23 @@ export type { RealtimeChannelFactory } from "./nodefony/decorators/realtimeDecor
 
 // Porte du serveur d'un contrat temps réel (ADR-0022 §4) — le client entre par
 // `NodefonySocket.fromContract` (nodefony/client).
-export { ContractRealtimeController } from "./nodefony/src/server/ContractRealtimeController";
+export {
+  ContractRealtimeController,
+  ContractRealtimeControllerBase,
+  ContractRealtimeControllerStrict,
+} from "./nodefony/src/server/ContractRealtimeController";
 export type {
-  RealtimeMethodHandlers,
+  ContractRealtimeMethodHandlers,
   ContractPolicyNames,
   RealtimeContractOf,
 } from "./nodefony/src/server/ContractRealtimeController";
 
 // Types publics
+export type { IContractRealtimeHub } from "./nodefony/src/server/RealtimeHub";
 export type {
   IRealtimeController,
   RealtimePublish,
+  ContractRealtimePublish,
   RealtimeInboundHandler,
   TypedRealtimeInboundHandler,
   RealtimeInboundHandlers,

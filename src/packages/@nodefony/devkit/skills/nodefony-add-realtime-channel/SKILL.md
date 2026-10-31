@@ -179,7 +179,10 @@ class OpsRealtime extends ContractRealtimeController<OpsContract> {
   une méthode qu'elle sert déjà (un handler fabriqué puis écrasé à chaque connexion, et
   `@Body` ignoré). La politique se pose sur la classe, par `@RealtimePolicy` ; un nom hors
   contrat y est refusé à la compilation.
-- **Un contrat sans `serverMethods`** (tableau de bord) : `realtimeActions() { return {}; }`.
+- **Un contrat sans `serverMethods`** (tableau de bord) : rien à écrire, `realtimeActions()` n'est due
+  que si le contrat déclare des méthodes.
+- **Diffuser depuis un service** : `getRealtimeHub<C>().publish(canal, charge)` — nom et charge vérifiés
+  par le contrat ; une fabrique de canal déclare `publish: ContractRealtimePublish<C>`.
 - **Le flux SSE lit la même carte** : `this.renderSse<ContractServerEmit<OpsContract>>()`.
 - **Le type n'est pas une validation** : les entrées restent non fiables, la politique de canal
   reste la seule garde.
