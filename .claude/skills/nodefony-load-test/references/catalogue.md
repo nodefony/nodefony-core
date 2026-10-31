@@ -227,6 +227,10 @@ d'un serveur coupé n'est plus celui du serveur complet), `span-probe.mjs` envel
 d'un étage sur le serveur COMPLET et rend leur temps inclusif en ns/req (`span-analyze.mjs`),
 enveloppe étalonnée, plus l'INVENTAIRE des écouteurs du Kernel et de HttpKernel. Deux appels
 qui ne s'emboîtent pas (enfant plus cher que son parent) désignent une frontière ASYNCHRONE.
+Trois jeux, par `NF_SPAN_SET` : `guards` (défaut, l'étage des gardes), `chain` (la chaîne
+entière, `onHttpRequest` → `teardownHttp`, un étage = parent − enfant) et `action` (l'intérieur
+de `HttpContext.handle` jusqu'aux `writeHead`/`end`/`setHeader` de `node:http` — la part que
+le témoin paie aussi, à retrancher avant d'imputer un écart au framework).
 
 **Garde de décor** — `decor-probe.mjs`, préchargé dans tout serveur Nodefony de
 `wait-compare.sh` et `span-run.sh` : refus (code 3, ligne `decor-probe: REFUS` au journal) si

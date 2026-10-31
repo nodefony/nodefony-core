@@ -8898,6 +8898,10 @@
               {
                 "name": "NF_SPAN_PROBE_OUT",
                 "help": ""
+              },
+              {
+                "name": "NF_SPAN_SET",
+                "help": ""
               }
             ],
             "output": "",

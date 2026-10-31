@@ -28,11 +28,52 @@ if (outDir) {
     await import("@nodefony/http");
   const { Firewall } = await import("@nodefony/security");
   const { Nodefony } = await import("nodefony");
+  const { Router } = await import("@nodefony/framework");
   const K = HttpKernel.prototype;
-  // [prototype, méthode, libellé] — l'étage « gardes » de la bissection
-  // (entre les coupes `route` et `action`), plus ses deux bornes.
+  // `NF_SPAN_SET=chain` : la chaîne ENTIÈRE, étage par étage (temps inclusifs
+  // emboîtés : le coût d'un étage = parent − enfant). Défaut : l'étage
+  // « gardes » de la bissection (entre les coupes `route` et `action`), plus
+  // ses deux bornes.
   /** @type {Array<[Record<string, unknown>, string, string]>} */
-  const targets = [
+  const chain = [
+    [K, "onHttpRequest", "onHttpRequest (tout)"],
+    [K, "createHttpContext", "createHttpContext (scope + contexte)"],
+    [K, "serveHttpContext", "serveHttpContext (traceparent + ALS + suite)"],
+    [K, "runHttpPipeline", "runHttpPipeline (CORS + suite)"],
+    [K, "routeHttpRequest", "routeHttpRequest (routeur + suite)"],
+    [Router.prototype, "resolve", "Router.resolve"],
+    [K, "serveHttpRequest", "serveHttpRequest (étage + action)"],
+    [HttpContext.prototype, "handle", "HttpContext.handle (action)"],
+    [K, "teardownHttp", "teardownHttp"],
+  ];
+  // `NF_SPAN_SET=action` : l'intérieur de `HttpContext.handle`, jusqu'aux
+  // écritures de `node:http` — part que le témoin paie aussi.
+  const { Resolver, Controller } = await import("@nodefony/framework");
+  const { HttpResponse } = await import("@nodefony/http");
+  const http = await import("node:http");
+  const NodeRes = http.ServerResponse.prototype;
+  /** @type {Array<[Record<string, unknown>, string, string]>} */
+  const action = [
+    [K, "serveHttpRequest", "serveHttpRequest (étage + action)"],
+    [HttpContext.prototype, "handle", "HttpContext.handle (action)"],
+    [HttpContext.prototype, "setTimeout", "HttpContext.setTimeout"],
+    [HttpContext.prototype, "setMetaData", "HttpContext.setMetaData"],
+    [Resolver.prototype, "callController", "Resolver.callController"],
+    [Controller.prototype, "renderJson", "Controller.renderJson"],
+    [HttpContext.prototype, "send", "HttpContext.send"],
+    [HttpResponse.prototype, "send", "HttpResponse.send"],
+    [HttpResponse.prototype, "writeHead", "HttpResponse.writeHead"],
+    [NodeRes, "writeHead", "node ServerResponse.writeHead"],
+    [NodeRes, "end", "node ServerResponse.end"],
+    [NodeRes, "setHeader", "node ServerResponse.setHeader (toute la requête)"],
+    [
+      Firewall.prototype,
+      "applySecurityHeaders",
+      "Firewall.applySecurityHeaders",
+    ],
+  ];
+  /** @type {Array<[Record<string, unknown>, string, string]>} */
+  const guards = [
     [K, "serveHttpRequest", "serveHttpRequest (étage + action)"],
     [HttpContext.prototype, "handle", "HttpContext.handle (action)"],
     [HttpRequest.prototype, "initialize", "HttpRequest.initialize (corps)"],
@@ -46,6 +87,8 @@ if (outDir) {
     [HttpContext.prototype, "phaseStart", "phaseStart"],
     [HttpContext.prototype, "phaseEnd", "phaseEnd"],
   ];
+  const sets = { chain, action, guards };
+  const targets = sets[process.env.NF_SPAN_SET ?? "guards"] ?? guards;
   let active = false;
   let requests = 0;
   const stats = Object.create(null);

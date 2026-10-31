@@ -5,7 +5,7 @@
 # cible prouvée 200, chauffe non comptée, fenêtre SIGUSR2), sans témoin : la
 # sonde attribue, elle ne compare pas.
 #
-# Usage : span-run.sh [runs=3]
+# Usage : [NF_SPAN_SET=guards|chain|action] span-run.sh [runs=3]
 # Sortie : tmp/profiles/span/run-<n>/<pid>.spans.json, puis le tableau (span-analyze.mjs).
 # ⚠️ Tue ce qui écoute sur 5151 — arrêter le serveur de dev avant.
 # ─────────────────────────────────────────────────────────────────────────────
