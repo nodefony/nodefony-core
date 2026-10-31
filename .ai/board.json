@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-30T23:52:34.188Z",
+  "generatedAt": "2026-10-31T00:52:37.762Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 216,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 19,
+      "open": 24,
       "title": "10.0.0-beta"
     },
     {
@@ -201,7 +201,7 @@
       "status": "Todo",
       "milestone": "10.1.0",
       "priorite": "P1 — figé à la création",
-      "jours": 6,
+      "jours": 5.5,
       "ordre": 1,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
@@ -5423,7 +5423,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
-      "jours": 16.5,
+      "jours": 19.75,
       "ordre": 6.03,
       "debut": "2026-10-29",
       "cible": "2026-11-16",
@@ -5592,6 +5592,70 @@
       ]
     },
     {
+      "number": 707,
+      "title": "feat(realtime): typer la diffusion serveur par le contrat",
+      "url": "https://github.com/nodefony/nodefony-core/issues/707",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 6.0341,
+      "debut": "2026-11-04",
+      "cible": "2026-11-04",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 708,
+      "title": "feat(realtime): typer les actions du pont par leur schéma",
+      "url": "https://github.com/nodefony/nodefony-core/issues/708",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 6.0342,
+      "debut": "2026-11-07",
+      "cible": "2026-11-07",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 709,
+      "title": "feat(client): typer les hooks React et Vue par le contrat",
+      "url": "https://github.com/nodefony/nodefony-core/issues/709",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 6.0343,
+      "debut": "2026-11-07",
+      "cible": "2026-11-07",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 710,
+      "title": "feat(realtime): livrer un message privé à une personne",
+      "url": "https://github.com/nodefony/nodefony-core/issues/710",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 6.0344,
+      "debut": "2026-11-09",
+      "cible": "2026-11-09",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
       "number": 699,
       "title": "feat(security)!: durcir la CSP par défaut sans bloquer le temps réel",
       "url": "https://github.com/nodefony/nodefony-core/issues/699",
@@ -5603,6 +5667,22 @@
       "ordre": 6.0345,
       "debut": "2026-11-09",
       "cible": "2026-11-09",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 711,
+      "title": "refactor(studio): typer les canaux de Studio par un contrat",
+      "url": "https://github.com/nodefony/nodefony-core/issues/711",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 6.0345,
+      "debut": "2026-11-10",
+      "cible": "2026-11-10",
       "labels": [
         "beta-6"
       ]
@@ -9363,7 +9443,7 @@
       "status": "Todo",
       "milestone": "11.0.0",
       "priorite": "P2 — décision",
-      "jours": 15,
+      "jours": 3,
       "ordre": 165,
       "debut": null,
       "cible": null,
@@ -9809,7 +9889,7 @@
       "status": "Todo",
       "milestone": null,
       "priorite": "P3 — fin de cycle",
-      "jours": 11,
+      "jours": 5,
       "ordre": 913,
       "debut": null,
       "cible": null,

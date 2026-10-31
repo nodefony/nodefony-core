@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-30 23:52** (UTC).
+> Empreinte prise le **2026-10-31 00:52** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,7 +20,7 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 92% | 216 | 19 | 2026-11-12 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 90% | 216 | 24 | 2026-11-12 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 98% | 135 | 3 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 11% | 5 | 42 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 30 | — |
@@ -33,9 +33,9 @@
 
 **#621 — feat(realtime): compléter le temps réel : binaire, canaux privés, voix**
 
-Ordre 6.03 · P2 — décision · 16.5 j · jalon 10.0.0-beta · frise 2026-10-29 → 11-16
+Ordre 6.03 · P2 — décision · 19.75 j · jalon 10.0.0-beta · frise 2026-10-29 → 11-16
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 19 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 24 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -44,7 +44,7 @@ Ordre 6.03 · P2 — décision · 16.5 j · jalon 10.0.0-beta · frise 2026-10-2
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 1 | P1 — figé à la création | 6 | 2026-11-16 → 12-15 | #83 | feat(notification): doter le framework de l'envoi de messages sortants |
+| 1 | P1 — figé à la création | 5.5 | 2026-11-16 → 12-15 | #83 | feat(notification): doter le framework de l'envoi de messages sortants |
 | 2 | P2 — décision | 1 | 2026-11-26 → 11-26 | #378 | feat(core): rendre traduisibles les textes du framework |
 | 3.93 | P1 — figé à la création | 5 | — | #268 | feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe |
 | 3.945 | P1 — figé à la création | 2 | — | #522 | feat(studio): ajouter un écran Identité pour les fournisseurs de connexion |
@@ -103,7 +103,7 @@ Ordre 6.03 · P2 — décision · 16.5 j · jalon 10.0.0-beta · frise 2026-10-2
 | 163 | P3 — fin de cycle | 1 | — | #243 | feat(realtime): servir le bus par Kafka pour la retention |
 | 164 | P2 — décision | 1 | — | #244 | feat(security): trancher le serveur d'autorisation et le mTLS |
 | 164.5 | P3 — fin de cycle | 5 | — | #637 | feat(framework): servir une API GraphQL dérivée des services CRUD |
-| 165 | P2 — décision | 15 | — | #459 | feat(media): modèle média partagé et moteur audio du navigateur |
+| 165 | P2 — décision | 3 | — | #459 | feat(media): modèle média partagé et moteur audio du navigateur |
 
 ## Jalon outillage-agents — 2 ouverts
 
@@ -112,14 +112,19 @@ Ordre 6.03 · P2 — décision · 16.5 j · jalon 10.0.0-beta · frise 2026-10-2
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-beta — 19 ouverts
+## Jalon 10.0.0-beta — 24 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 6.03 | P2 — décision | 16.5 | 2026-10-29 → 11-16 | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
+| 6.03 | P2 — décision | 19.75 | 2026-10-29 → 11-16 | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
 | 6.033 | P2 — décision | 1 | 2026-11-11 → 11-11 | #618 | feat(realtime): router les trames binaires vers leur canal |
 | 6.034 | P2 — décision | 1 | 2026-11-05 → 11-05 | #622 | feat(realtime)!: admettre un abonné de canal par son identité |
+| 6.0341 | P2 — décision | 1 | 2026-11-04 → 11-04 | #707 | feat(realtime): typer la diffusion serveur par le contrat |
+| 6.0342 | P2 — décision | 1 | 2026-11-07 → 11-07 | #708 | feat(realtime): typer les actions du pont par leur schéma |
+| 6.0343 | P2 — décision | 0.5 | 2026-11-07 → 11-07 | #709 | feat(client): typer les hooks React et Vue par le contrat |
+| 6.0344 | P2 — décision | 1 | 2026-11-09 → 11-09 | #710 | feat(realtime): livrer un message privé à une personne |
 | 6.0345 | P1 — figé à la création | 1 | 2026-11-09 → 11-09 | #699 | feat(security)!: durcir la CSP par défaut sans bloquer le temps réel |
+| 6.0345 | P2 — décision | 1 | 2026-11-10 → 11-10 | #711 | refactor(studio): typer les canaux de Studio par un contrat |
 | 6.0346 | P2 — décision | 0.5 | 2026-11-10 → 11-10 | #631 | test(media): lancer les tests audio dans un vrai navigateur |
 | 6.0347 | P2 — décision | 0.5 | 2026-11-12 → 11-12 | #629 | test(realtime): garder l'isomorphisme par des contrôles qui mordent |
 | 6.035 | P2 — décision | 0.5 | 2026-11-06 → 11-06 | #623 | feat(realtime): identifier les abonnés d'un canal côté serveur |
@@ -150,7 +155,7 @@ Ordre 6.03 · P2 — décision · 16.5 j · jalon 10.0.0-beta · frise 2026-10-2
 | 909 | P2 — décision | 1 | — | #501 | feat(core): typer la résolution des services par leur nom |
 | 910 | P2 — décision | 1 | — | #504 | feat(runtime): porter l'identité d'une requête dans un traitement différé |
 | 912 | P2 — décision | 2 | — | #532 | chore(scripts): fiabiliser et alléger l'outillage du dépôt |
-| 913 | P3 — fin de cycle | 11 | — | #534 | feat(cli): ajouter barre figée et invite au serveur de développement |
+| 913 | P3 — fin de cycle | 5 | — | #534 | feat(cli): ajouter barre figée et invite au serveur de développement |
 | 913.4 | P2 — décision | 2 | — | #538 | feat(cli): ajouter une invite de commandes sous la barre d'état |
 | 913.5 | P3 — fin de cycle | 3 | — | #539 | feat(cli): brancher un assistant à modèle local sur l'invite |
 | 913.6 | P2 — décision | 5 | — | #692 | perf(cli): faire porter Vite par le superviseur de développement |

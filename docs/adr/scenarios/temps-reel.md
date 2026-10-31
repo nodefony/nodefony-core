@@ -195,6 +195,54 @@ Sur la socket, la trame `subscribe` tourne dans la bulle de contexte de la conne
 - **Décisions jugées** : S11
 - **A fait changer** : S11 (2026-10-30 — un code par cause, un seul registre)
 
+### S-rt-74 — Alice écrit en privé à Bob, cinq onglets sur deux pods
+
+- **Situation** : Bob a trois onglets sur deux pods, Alice deux ; un message privé part d'Alice.
+- **Catégorie** : usages hétérogènes
+- **Tient si** : tous les onglets de Bob le reçoivent, tous ceux d'Alice voient l'écho, personne d'autre — sans que l'application déclare le canal ni sa diffusion.
+- **Décisions jugées** : ADR-0022 §6 (livrer à une identité), §4 (diffusion)
+- **A fait changer** : la brique « livrer à une identité » fournie par le framework (#710)
+
+### S-rt-75 — Un service, pas un contrôleur, publie et envoie en privé
+
+- **Situation** : une modération automatique, ou le webhook entrant d'un CRM, publie dans un salon et écrit à une personne.
+- **Catégorie** : usages hétérogènes
+- **Tient si** : la diffusion typée est atteignable hors contrôleur, sous la même forme.
+- **Décisions jugées** : ADR-0022 §4 (D2)
+- **A fait changer** : une seule forme `getRealtimeHub<C>()` plutôt qu'une méthode de contrôleur (#707)
+
+### S-rt-76 — Le même `send` par curl, par fetch et par la socket
+
+- **Situation** : une intégration, un test et l'écran appellent l'envoi d'un message.
+- **Catégorie** : usages hétérogènes
+- **Tient si** : une validation, une réponse, un type — la source étant le schéma de la route.
+- **Décisions jugées** : ADR-0022 §4 (D4)
+- **A fait changer** : le type d'une action vient du schéma de sa route ; `send` ne devient pas une méthode du contrat (#708)
+
+### S-rt-77 — Un canal produit par le serveur, lu par seize écrans
+
+- **Situation** : la console d'administration relit la santé de la socket dans seize écrans, sous un type déclaré côté lecteur.
+- **Catégorie** : usages hétérogènes
+- **Tient si** : une charge renommée côté serveur fait échouer la compilation du front.
+- **Décisions jugées** : ADR-0022 §4 (D3)
+- **A fait changer** : les hooks React et Vue lisent le contrat (#709, #711)
+
+### S-rt-78 — Un visiteur anonyme dans un chat de support
+
+- **Situation** : un visiteur sans compte parle en privé à un agent.
+- **Catégorie** : usages hétérogènes
+- **Tient si** : le cas s'écrit par un salon privé de l'application ; la livraison à une identité, réservée aux comptes, ne l'accueille pas.
+- **Décisions jugées** : ADR-0022 §6 (D1)
+- **A fait changer** : la brique est réservée aux comptes
+
+### S-rt-79 — Le rejeu d'un envoi après coupure, ou un double clic
+
+- **Situation** : la socket tombe avant la réponse de `send` ; le client rejoue.
+- **Catégorie** : usages hétérogènes
+- **Tient si** : Bob reçoit un seul message.
+- **Décisions jugées** : ADR-0022 §4 (D4)
+- **A fait changer** : le geste reste une route : l'idempotence est portée par le pont
+
 ## Charge
 
 ### S-rt-9 — 60 coups/s × 1 000 joueurs sur un canal à rôles
@@ -266,6 +314,14 @@ Sur la socket, la trame `subscribe` tourne dans la bulle de contexte de la conne
   durée d'une passe se mesure et se voit.
 - **Décisions jugées** : S10, S11
 - **A fait changer** : aucune (défaut de code, `src/nodefony/src/runtime/RevocationWatch.ts#RevocationWatch.register`)
+
+### S-rt-80 — Dix mille canaux personnels sur deux pods
+
+- **Situation** : 10 000 connexions abonnées chacune à son canal personnel, deux pods reliés par Redis.
+- **Catégorie** : charge
+- **Tient si** : le coût est payé par les seuls onglets qui écoutent — mesuré 494 octets par abonnement, envoi ~60 ns ; le bus (deux scellements par message avec écho) se mesure au banc multi-pods.
+- **Décisions jugées** : ADR-0022 §6 (D1)
+- **A fait changer** : jamais d'abonnement d'office à la connexion
 
 ## Panne et réseau
 
@@ -417,6 +473,14 @@ Sur la socket, la trame `subscribe` tourne dans la bulle de contexte de la conne
   l'écrit dans la page des webhooks, et un test à deux pods la borne.
 - **Décisions jugées** : W7, S10
 - **A fait changer** : aucune
+
+### S-rt-81 — Un canal privé oublié dans la diffusion
+
+- **Situation** : Alice sur le pod A, Bob sur le pod B, un canal privé non déclaré diffusable : Bob ne reçoit rien, sans erreur — vert sur un seul process.
+- **Catégorie** : plusieurs instances
+- **Tient si** : le canal personnel est déclaré par le framework ; pour les canaux de l'application, l'oubli se voit (compteur côté émetteur, préfixes listés au démarrage).
+- **Décisions jugées** : ADR-0022 §6 (D5)
+- **A fait changer** : `localOnlyTotal` et la liste des préfixes (#710)
 
 ## Versions qui cohabitent
 
@@ -592,6 +656,22 @@ Sur la socket, la trame `subscribe` tourne dans la bulle de contexte de la conne
 - **Décisions jugées** : S10 bis
 - **A fait changer** : S10 bis (2026-10-30 — `maxPendingAllowsPerConnection`, `maxPendingAllowsTotal` ;
   revue du gel : file d'attente au-delà du plafond par connexion, jamais `limit`)
+
+### S-rt-82 — Mallory sonde l'existence d'un compte
+
+- **Situation** : Mallory demande `user:999` puis `user:bob` et compare les refus.
+- **Catégorie** : attaquant
+- **Tient si** : les deux refus sont identiques (motif et détail) : l'admission ne lit que l'identité du demandeur, le verrou passe avant la fabrique.
+- **Décisions jugées** : ADR-0022 §6 (D1)
+- **A fait changer** : test du refus uniforme exigé (#622)
+
+### S-rt-83 — Mallory signe la frappe d'Alice
+
+- **Situation** : une trame entrante porte `author: "alice"` envoyée par Mallory.
+- **Catégorie** : attaquant
+- **Tient si** : l'auteur vient de l'identité de la connexion remise au handler, jamais de la trame.
+- **Décisions jugées** : ADR-0022 §6 (identité au handler d'entrée)
+- **A fait changer** : `who` remis au handler d'entrée (#622)
 
 ## Plateformes
 

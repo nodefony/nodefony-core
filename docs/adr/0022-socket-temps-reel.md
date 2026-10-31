@@ -490,10 +490,40 @@ class ChatRt extends ContractRealtimeController<ChatContract> {
 - **SSE** : `Controller.ts#Controller.renderSse` prend la carte en générique EN FIN avec défaut
   (`renderSse<ContractServerEmit<C>>()`) ; flux multiplexé (`send(data, { event })`) ou un flux
   = un canal (carte d'un canal, `send(data)`). Sans paramètre, le flux reste libre (porte MCP).
-- **Limites constatées, renvoyées à la table ronde de #622** (le chat de référence, messages
-  privés compris) : pas de diffusion typée depuis le contrôleur (`getRealtimeHub().publish` reste
-  libre), `publish` d'une fabrique `@RealtimeChannel` non typé, routes du pont `api.request` hors
-  contrat. Elles se règlent ensemble, parce que le message privé pèse sur les trois.
+- **Les trois limites du contrat, tranchées par la table ronde de #622** (le chat de référence,
+  messages privés compris ; six sièges, dont le contradicteur ; **décisions tranchées par l'agent
+  sur délégation de l'auteur le 2026-10-31, la page de référence validée par l'auteur le même
+  jour**). Règle de méthode qui en sort : une API se juge à la LIGNE que le développeur écrit pour
+  le cas courant, la mécanique vient après.
+  - **Diffusion (D2)** : une seule forme, partout — contrôleur, service, tâche, boucle de jeu :
+    `getRealtimeHub<C>().publish(canal, charge)`, générique EN FIN avec défaut (sans paramètre,
+    libre comme avant). Même objet hub, aucune conversion : une interface à signatures de MÉTHODE
+    que `RealtimeHub` satisfait par bivariance — prouvé au compilateur ; la charge est
+    `EventPayload<…> & object`, si bien qu'une charge scalaire, refusée à l'exécution par
+    `src/nodefony/src/realtime/payload.ts#isRealtimePayload`, l'est désormais à la compilation.
+    Écarté : un `this.broadcast` propre au contrôleur (deux formes pour un geste). #707.
+  - **Fabriques (D7)** : `RealtimePublishOf<C>` type le `publish` reçu par `@RealtimeChannel` ET
+    par la surcharge `createRealtimeChannel`, lu sur la même étiquette de classe que
+    `@RealtimePolicy`. #707.
+  - **Actions (D4)** : le type d'une action du pont vient du SCHÉMA de sa route, seule source —
+    celle que le serveur valide (`src/packages/@nodefony/framework/nodefony/src/routeSchema.ts#IRouteSchema`).
+    Le contrat la RÉFÉRENCE par une clé additive `serverRoutes` (`"POST /chat/send": { body:
+typeof SendBody; result: … }`, import de type seul) ; un contrôle au démarrage refuse une
+    entrée sans route montée de même méthode et même schéma. Les méthodes du client prennent le
+    nom du verbe HTTP que la route déclare — `get`, `post` (et les autres verbes si le pont les
+    sert) — et la clé d'idempotence se pose seule ; `request` et `mutate` sont renommés avant
+    10.0 stable (pré-versions, semver 2.0 §9). Écarté : faire de `send` une `serverMethods` — elle
+    perdrait la re-validation d'identité à chaque appel, `@Idempotent` et la validation, que le
+    pont porte (`RealtimeController.ts#RealtimeController.invokeApiRequest`) ; recopier la forme
+    du corps dans le contrat (deux sources). #708.
+  - **Lecture côté navigateur (D3)** : les hooks React et Vue prennent la socket typée
+    (`useNodefonyChannelData(chat, "chat:presence", initial)`) ; nom et charge déduits, plus de
+    `<T>` écrit par le lecteur. Studio, premier consommateur, porte son contrat partagé et
+    supprime son miroir `HealthPayload`. #709, #711.
+  - **Canal ou route — la règle enseignée** : le canal porte les FLUX (diffusés, éphémères,
+    attribués par l'identité de la connexion, §6) ; la route porte les GESTES qui changent un état
+    (identité revérifiée, droits, validation, idempotence, réponse, appelable en HTTP).
+  - Page de référence du chat : réécrite par #700 dans `src/packages/@nodefony/realtime/docs/cookbook-chat.md`.
 - **Webhook** : l'émission applicative n'existe pas encore (ADR-0023 W3, en 10.1, #70). Elle se
   typera par la même carte `ContractServerEmit<C>` — exigence inscrite sur #70.
 - Preuves : `src/packages/@nodefony/realtime/nodefony/tests/unit/realtimeSharedContract.types.test.ts`
@@ -831,6 +861,43 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
 - **Rupture si différé après 10.0 : NON**, parce que membre optionnel, notification neuve et API
   neuve sont additifs. Écrire maintenant « appartenance locale, ordres par nom diffusés » évite
   qu'une application s'appuie sur une portée cluster qu'on ne tient pas (S5).
+
+**Décision (validée par l'auteur le 2026-10-31, table ronde de #622) : livrer à une identité est
+une brique du framework (D1).** Le développeur écrit son chat — contrat, actions, base,
+historique, salons, présence ; le framework garantit qu'un message adressé à une personne
+n'atteint qu'elle, sur tous ses onglets et tous les pods.
+
+- Surface : `getRealtimeHub<C>().publishToUser(id, charge)` côté serveur, `socket.onUser(handler)`
+  côté navigateur — rien à déclarer.
+- Mécanique, écrite une fois : le canal `user:<id>` (ADR-0021 §S10, `id` stable) ; une politique
+  INTÉGRÉE — connexion authentifiée, admission par **égalité de chaîne** avec l'`id` du
+  demandeur, jamais par découpage ; une fabrique intégrée ; le préfixe déclaré diffusable par le
+  framework. Le verrou passant avant la fabrique et l'admission ne lisant que l'identité du
+  demandeur, `user:999` (inexistant) et `user:bob` (pas le sien) reçoivent le MÊME refus : ni
+  oracle d'existence, ni oracle de présence.
+- Jamais d'abonnement d'office : l'onglet s'abonne quand son écran écoute. Mesuré sur le hub
+  (10 000 canaux, trois passes) : **494 octets par onglet abonné**, envoi ~60 ns (~185 ns nom
+  construit) — une application qui ne s'en sert pas paie zéro.
+  Script : `.claude/skills/nodefony-load-test/scripts/micro/micro-user-channel.mjs`.
+- Usages qui la justifient (socle : ≥ 3 hétérogènes) : notifier l'utilisateur 42 (S-rt-31), trois
+  onglets (S-rt-4), alerte machine à un opérateur, inventaire privé d'un joueur, message privé.
+- Réservée aux COMPTES : un visiteur anonyme n'a pas d'identifiant qui survive à une reconnexion ;
+  le chat de support anonyme passe par un salon privé de l'application (`support:<id>` + `allow`).
+- Écartés : l'assemblage à la main par chaque application (une dizaine de lignes, chaque oubli
+  silencieux) ; un canal par paire `dm:<a>:<b>` (tri canonique, découpage d'un `:`, croissance
+  en n²) ; un registre identité → connexions (`notifyUser`) — oracle de présence, annuaire, et
+  hors canal il casse l'enveloppe figée (S6) ou devient un canal déguisé ; l'abonnement d'office.
+- Les canaux de l'APPLICATION restent opt-in (`@RealtimeBroadcast`) : certains sont propres à un
+  pod par nature (forage de Studio). L'oubli devient visible : compteur `localOnlyTotal` quand un
+  bus est configuré, préfixes diffusés listés au démarrage (D5).
+- #710 ; il s'appuie sur `RealtimeIdentity.id` (#622).
+
+**Décision (validée par l'auteur le 2026-10-31) : le handler d'entrée reçoit l'identité.**
+`@RealtimeInbound` et `realtimeInbound()` reçoivent `who` (la même identité d'admission que
+`allow`) en troisième argument, sans allocation par trame. Un flux attribué à haute fréquence —
+frappe en cours, coups d'un joueur, mesures d'une sonde — passe ainsi par le canal, l'auteur pris
+au serveur et non déclaré par le client. Limite écrite : identité figée au handshake, coupée au
+tick de révocation ; un geste qui change un état passe par une route. Porté par #622.
 
 ### 7. La reprise côté socket
 

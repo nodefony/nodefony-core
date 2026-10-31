@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-30
+updated: 2026-10-31
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-load-test/SKILL.md"
 ---
@@ -80,7 +80,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
 | `references/ab-perf-mono-prod.md` | Niveau 3 — A/B perf mono prod : détails | 148 |
-| `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 404 |
+| `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 405 |
 | `references/profil-compare.md` | Profil comparé — le coût d'une requête face à un témoin équitable | 65 |
 | `references/protocoles-bancs-charge.md` | Protocoles détaillés des bancs de charge les plus utilisés | 237 |
 | `references/reperes-empiriques.md` | Repères empiriques — pour situer un résultat | 30 |
