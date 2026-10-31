@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-31 09:31** (UTC).
+> Empreinte prise le **2026-10-31 20:13** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,10 +20,10 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 90% | 217 | 23 | 2026-11-12 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 90% | 218 | 23 | 2026-11-12 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 98% | 135 | 3 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 10% | 5 | 43 | 2026-12-15 |
-| **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 30 | — |
+| **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 33 | — |
 | **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 7 | — |
 | **12.0.0** | ![12.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/5?style=flat-square&label=) `██░░░░░░░░` 15% | 2 | 11 | — |
 | **13.0.0** | ![13.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/9?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 1 | — |
@@ -119,7 +119,7 @@ Ordre 6.03 · P2 — décision · 19.75 j · jalon 10.0.0-beta · frise 2026-10-
 | --- | --- | ---: | --- | --- | --- |
 | 6.03 | P2 — décision | 19.75 | 2026-10-29 → 11-16 | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
 | 6.033 | P2 — décision | 1 | 2026-11-11 → 11-11 | #618 | feat(realtime): router les trames binaires vers leur canal |
-| 6.034 | P2 — décision | 1 | 2026-11-05 → 11-05 | #622 | feat(realtime)!: admettre un abonné de canal par son identité |
+| 6.0341 | P2 — décision | 0.5 | — | #713 | ci(adr): refuser une décision différée qui promet un travail sans ticket |
 | 6.0342 | P2 — décision | 1 | 2026-11-07 → 11-07 | #708 | feat(realtime): typer les actions du pont par leur schéma |
 | 6.0343 | P2 — décision | 0.5 | 2026-11-07 → 11-07 | #709 | feat(client): typer les hooks React et Vue par le contrat |
 | 6.0344 | P2 — décision | 1 | 2026-11-09 → 11-09 | #710 | feat(realtime): livrer un message privé à une personne |
@@ -178,7 +178,7 @@ Ordre 6.03 · P2 — décision · 19.75 j · jalon 10.0.0-beta · frise 2026-10-
 | 924.8 | P3 — fin de cycle | 1 | — | #676 | refactor(types): vérifier les données reçues dans les petits paquets |
 | 924.9 | P2 — décision | 0.5 | — | #687 | fix(orm): ne plus générer en production les tables d'un module de dev |
 
-## Jalon 10.2.0 — 30 ouverts
+## Jalon 10.2.0 — 33 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -212,6 +212,9 @@ Ordre 6.03 · P2 — décision · 19.75 j · jalon 10.0.0-beta · frise 2026-10-
 | 163.05 | P2 — décision | 1 | — | #239 | feat(realtime): declarer un canal parametre par un motif |
 | 163.3 | P2 — décision | 1 | — | #625 | feat(media): livrer le modèle média partagé, sans dépendance au navigateur |
 | 163.6 | P2 — décision | 3 | — | #626 | feat(realtime): transcrire la voix du navigateur sur la socket |
+| 163.7 | P3 — fin de cycle | — | — | #714 | feat(realtime): livrer les ajouts différés des ADR temps réel |
+| 163.71 | P3 — fin de cycle | 2 | — | #715 | feat(realtime): reprendre un abonnement depuis un curseur |
+| 163.72 | P3 — fin de cycle | 1 | — | #716 | feat(realtime): signaler la fin d'un canal par realtime:closed |
 
 ## Jalon 10.0.0 — 3 ouverts
 
