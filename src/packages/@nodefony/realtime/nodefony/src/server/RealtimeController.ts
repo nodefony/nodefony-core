@@ -67,12 +67,12 @@ import {
   getRealtimeActions,
   getRealtimeChannels,
   getRealtimeInbound,
-  getRealtimeChannelPolicies,
   DEFAULT_ACTION_POLICY,
   type RealtimeChannelFactory,
   type RealtimeActionWrapper,
 } from "../../decorators/realtimeDecorators";
 import { welcomeEnv } from "./welcomeEnv";
+import { registerControllerPolicies } from "./channelPolicyRegistry";
 import { welcomeIdentityOf } from "./welcomeIdentity";
 import { isRecord } from "../guards";
 import { subscribedAckFrame } from "./subscribedAck";
@@ -722,9 +722,12 @@ export abstract class RealtimeController<
       // `@RealtimeAction` pose déjà sa politique ; l'override `realtimeActions()`
       // n'a aucun endroit où en écrire une — sans cette ligne, il resterait la
       // porte ouverte d'à côté (le verrou laisse passer ce qu'aucune politique
-      // ne couvre). On ne pose QUE si rien n'est déclaré : une politique
-      // existante, plus stricte ou volontairement ouverte, est conservée.
-      if (hub.resolveChannelPolicy(name) === null) {
+      // ne couvre). On ne pose QUE si rien n'est déclaré SOUS CE NOM : une
+      // politique existante, plus stricte ou volontairement ouverte, est
+      // conservée — mais un MOTIF de canal (`orders:*`, inscrit dès le
+      // démarrage) ne vaut pas déclaration pour une action, qui resterait sinon
+      // ouverte par une famille de canaux publique.
+      if (!hub.hasExactChannelPolicy(name)) {
         hub.registerChannelPolicy(name, DEFAULT_ACTION_POLICY);
       }
     }
@@ -741,29 +744,24 @@ export abstract class RealtimeController<
     // au reflect-metadata.
     this._decoratedChannels = getRealtimeChannels(this);
 
-    // Politiques d'autorisation décorées (`@RealtimeChannel`/`@RealtimeInbound`
-    // avec opts) → registre du hub (cold path, idempotent). `@nodefony/security`
-    // les lit au `subscribe`/inbound via `resolveChannelPolicy`. `null` si aucun
-    // canal décoré n'est protégé → 0 enregistrement.
-    const channelPolicies = getRealtimeChannelPolicies(this);
-    if (channelPolicies) {
-      for (const [name, policy] of Object.entries(channelPolicies)) {
-        hub.registerChannelPolicy(name, policy);
-      }
-      // F1 (revue 0.6) — fail-LOUD : une policy de canal n'est appliquée que si un
-      // frameAuthorizer est câblé (par @nodefony/security au boot des zones realtime).
-      // Sans lui, la policy est INERTE (canal servable mais NON gardé) → dégradation
-      // silencieuse. On alerte (jamais en silence) : le canal se croit gardé, il est
-      // ouvert. Cf project_resilience_no_silent_degradation.
-      if (hub.hasUnenforcedChannelPolicies() && !warnedUnenforcedPolicies) {
-        warnedUnenforcedPolicies = true;
-        this.log(
-          "Realtime channel policies declared but NO frame authorizer is wired — " +
-            "these policies are NOT enforced (a protected channel is currently open). " +
-            "Load @nodefony/security with a realtime zone to enforce them.",
-          "WARNING",
-        );
-      }
+    // Politiques déclarées → registre du hub. Le démarrage du noyau les inscrit
+    // pour tout contrôleur connu (`Realtime.onKernelReady`) : ici, il ne reste
+    // qu'un `has`. Une classe qui y aurait échappé s'inscrit à sa première
+    // poignée de main — sans résolveur, si bien qu'une classe d'admission y est
+    // REFUSÉE (fail-closed) plutôt que résolue hors du démarrage.
+    registerControllerPolicies(hub, this.constructor, null);
+    // F1 (revue 0.6) — fail-LOUD : une politique n'est appliquée que si un
+    // frameAuthorizer est câblé (par @nodefony/security au boot des zones
+    // realtime). Sans lui, elle est INERTE (canal servable mais NON gardé) : on
+    // le DIT, une fois. Cf project_resilience_no_silent_degradation.
+    if (!warnedUnenforcedPolicies && hub.hasUnenforcedChannelPolicies()) {
+      warnedUnenforcedPolicies = true;
+      this.log(
+        "Realtime channel policies declared but NO frame authorizer is wired — " +
+          "these policies are NOT enforced (a protected channel is currently open). " +
+          "Load @nodefony/security with a realtime zone to enforce them.",
+        "WARNING",
+      );
     }
 
     // F82 cas (2) — le hub ferme les canaux de PLATEFORME quand aucun module de

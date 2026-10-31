@@ -44,6 +44,10 @@ import RealtimeService from "./nodefony/src/service/RealtimeService";
 
 // Symboles serveur exportés (les surfaces consommateurs userland).
 import RealtimeController from "./nodefony/src/server/RealtimeController";
+import {
+  createAdmissionResolver,
+  registerControllerPolicies,
+} from "./nodefony/src/server/channelPolicyRegistry";
 import ServerRealtimeSocket, {
   serverSocket,
 } from "./nodefony/src/server/ServerRealtimeSocket";
@@ -275,6 +279,37 @@ class Realtime extends Module<IRealtimeConfig> {
     // Sonde pod (cluster worker) — différée ici pour lire `cluster.probe.enabled`
     // (config indisponible dans le callback `onCluster` du constructeur).
     this.#wireClusterProbe(this.#clusterRole);
+    return this;
+  }
+
+  /**
+   * Phase `onReady` — inscrit au hub les politiques de canal de TOUS les contrôleurs temps réel connus, et résout leurs classes d'admission, avant que le moindre serveur n'écoute.
+   *
+   * Pas à `onKernelBoot` : chaque module enregistre ses contrôleurs dans SON
+   * `onBoot` (`@controllers`), et ceux d'un module listé après celui-ci n'y
+   * seraient pas encore. `onReady` passe après tous les `onBoot` et avant
+   * `initServers` : aucune poignée de main ne précède l'inscription, et un
+   * exemplaire qui n'émet que des webhooks a ses politiques comme les autres.
+   *
+   * @throws BootConfigurationError Politique illisible, `allow` sur une
+   *   action, classe d'admission sans singleton, sans `allow` ou dont une
+   *   dépendance manque — la classe et le canal sont nommés.
+   */
+  override async onKernelReady(): Promise<this> {
+    if (!this.config.enabled) return this;
+    const hub = getRealtimeHub();
+    const container = this.kernel?.container;
+    const resolveAdmission = createAdmissionResolver(
+      (key) => container?.get(key),
+      (message) => this.log(message, "INFO"),
+    );
+    const controllers = Module.controllers;
+    for (const key in controllers) {
+      const ctor = controllers[key];
+      if (ctor !== undefined && ctor.prototype instanceof RealtimeController) {
+        registerControllerPolicies(hub, ctor, resolveAdmission);
+      }
+    }
     return this;
   }
 

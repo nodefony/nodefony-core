@@ -11,7 +11,10 @@ import {
   compileChannelPattern,
   countWildcards,
   MAX_CHANNEL_PATTERN_WILDCARDS,
+  BootConfigurationError,
 } from "nodefony";
+import type { ChannelAllowFunction, IChannelAdmission } from "nodefony";
+import { isAdmissionClass } from "../../decorators/realtimeDecorators";
 import { frameRateRejectedTotal } from "@nodefony/http";
 import type {
   ContractServerEmit,
@@ -219,6 +222,42 @@ interface ChannelState {
 }
 
 /**
+ * Entrée du registre des politiques : la déclaration, et — quand elle porte `allow` — la règle d'admission prête à appeler.
+ */
+interface IChannelPolicyEntry {
+  readonly policy: IChannelPolicy;
+  readonly admit: ChannelAllowFunction | null;
+}
+
+/**
+ * Règle d'admission prête à appeler d'une politique, ou `null` sans `allow`.
+ *
+ * Une flèche se retient telle quelle. Une classe exige son instance — résolue au
+ * démarrage, jamais ici : le hub n'a pas d'injecteur, et résoudre à la première
+ * poignée de main laisserait sans politique un exemplaire qui n'émet que des
+ * webhooks. La méthode est liée une fois, pour que le `subscribe` n'appelle
+ * qu'une fonction.
+ */
+function admitOf(
+  name: string,
+  policy: IChannelPolicy,
+  admission: IChannelAdmission | undefined,
+): ChannelAllowFunction | null {
+  const allow = policy.allow;
+  if (allow === undefined) return null;
+  if (!isAdmissionClass(allow)) return allow;
+  if (!(admission instanceof allow)) {
+    throw new BootConfigurationError(
+      `canal temps réel « ${name} » : la classe d'admission ${allow.name} ` +
+        `n'a pas été résolue au démarrage du noyau. Son contrôleur doit être ` +
+        `déclaré par @controllers dans un module : c'est là que le framework ` +
+        `l'inscrit et résout ses dépendances.`,
+    );
+  }
+  return admission.allow.bind(admission);
+}
+
+/**
  * RealtimeHub — broker temps réel **PAR INSTANCE** (1 pod = 1 process = 1 hub local).
  *
  * Élève le realtime serveur du modèle **per-connexion** (chaque connexion son propre
@@ -344,8 +383,16 @@ export class RealtimeHub {
   // DÉCIDE rien (il ignore la hiérarchie de rôles et l'identité réelle) : il
   // collecte la déclaration et l'expose à `@nodefony/security`, seul décideur.
   // Lazy : `null` tant qu'aucun controller décoré ne publie de policy → 0 alloc
-  // sur un hub aux canaux libres. Alimenté (idempotent) au handshake.
-  #channelPolicies: Map<string, IChannelPolicy> | null = null;
+  // sur un hub aux canaux libres. Alimenté au démarrage du noyau (contrôleurs
+  // connus), et à la première poignée de main d'une classe qui y aurait échappé.
+  #channelPolicies: Map<string, IChannelPolicyEntry> | null = null;
+
+  /**
+   * Classes de contrôleur dont les politiques sont déjà inscrites — `null`
+   * tant qu'aucune ne l'est. Une poignée de main n'en paie qu'un `has` :
+   * l'inscription elle-même n'a lieu qu'une fois par classe.
+   */
+  #policyOwners: WeakSet<object> | null = null;
 
   /**
    * Politiques déclarées par MOTIF de nom (`chat:room:*`), triées du plus
@@ -362,12 +409,13 @@ export class RealtimeHub {
    * moment de la lecture : entre `chat:*` et `chat:room:*`, c'est le second qui
    * doit gagner sur `chat:room:12`, et l'ordre le dit une fois pour toutes.
    */
-  #channelPolicyPatterns: Array<{
-    source: string;
-    re: RegExp;
-    weight: number;
-    policy: IChannelPolicy;
-  }> | null = null;
+  #channelPolicyPatterns: Array<
+    IChannelPolicyEntry & {
+      readonly source: string;
+      readonly re: RegExp;
+      readonly weight: number;
+    }
+  > | null = null;
 
   // Registre des canaux SYSTÈME (plateforme) — factory par nom EXACT, fournie par
   // un module bas niveau (`@nodefony/security` → `nodefony:audit`) au boot, SANS
@@ -1163,9 +1211,26 @@ export class RealtimeHub {
    *
    * @param name   - nom exact du canal (subscribe), de la méthode inbound, ou
    *   MOTIF de famille s'il contient `*`.
+   * Une politique à `allow` porte sa règle d'admission : une flèche est
+   * retenue telle quelle ; une classe exige son instance, résolue au démarrage
+   * par l'injecteur, dont la méthode est liée ICI, une fois — le `subscribe`
+   * n'appelle qu'une fonction prête.
+   *
    * @param policy - exigences ({@link IChannelPolicy}) lues par security.
+   * @param admission - instance de la classe d'admission quand `policy.allow`
+   *   en est une ; ignorée sinon.
+   * @throws BootConfigurationError La politique désigne une classe d'admission
+   *   et aucune instance de CETTE classe n'est fournie.
    */
-  registerChannelPolicy(name: string, policy: IChannelPolicy): void {
+  registerChannelPolicy(
+    name: string,
+    policy: IChannelPolicy,
+    admission?: IChannelAdmission,
+  ): void {
+    const entry: IChannelPolicyEntry = {
+      policy,
+      admit: admitOf(name, policy, admission),
+    };
     // Un canal déclaré dans un namespace réservé hérite du plancher de la
     // plateforme (rôle d'administration), qui l'emporte sur la politique écrite
     // ici. Sans cet avertissement, l'auteur verrait ses utilisateurs refusés sur
@@ -1185,12 +1250,12 @@ export class RealtimeHub {
     // de signaler : `chat:room` ne couvrait pas `chat:room:1000`, servi par la
     // fabrique dynamique, et l'auteur croyait son canal gardé.
     if (name.includes("*")) {
-      this.#registerChannelPolicyPattern(name, policy);
+      this.#registerChannelPolicyPattern(name, entry);
       return;
     }
-    (this.#channelPolicies ??= new Map<string, IChannelPolicy>()).set(
+    (this.#channelPolicies ??= new Map<string, IChannelPolicyEntry>()).set(
       name,
-      policy,
+      entry,
     );
   }
 
@@ -1214,7 +1279,10 @@ export class RealtimeHub {
    * `.` reste un point, un `(` reste une parenthèse — sans quoi une déclaration
    * anodine deviendrait une expression, avec ce que cela ouvre.
    */
-  #registerChannelPolicyPattern(source: string, policy: IChannelPolicy): void {
+  #registerChannelPolicyPattern(
+    source: string,
+    entry: IChannelPolicyEntry,
+  ): void {
     const re = compileChannelPattern(source);
     if (re === null) {
       this.#notifyOnce(
@@ -1231,7 +1299,7 @@ export class RealtimeHub {
     const weight = source.split("*").join("").length;
     const policies = (this.#channelPolicyPatterns ??= []);
     const existing = policies.findIndex((p) => p.source === source);
-    const policyEntry = { source, re, weight: weight, policy };
+    const policyEntry = { source, re, weight, ...entry };
     if (existing >= 0) {
       // Idempotent, comme la voie exacte : deux controllers d'un même endpoint
       // déclarent le même motif.
@@ -1249,6 +1317,39 @@ export class RealtimeHub {
    * la frame `subscribe`/inbound. O(1), 0 alloc quand le registre est vide.
    */
   resolveChannelPolicy(name: string): IChannelPolicy | null {
+    return this.#resolvePolicyEntry(name)?.policy ?? null;
+  }
+
+  /**
+   * Règle d'admission prête à appeler pour ce canal — `null` s'il ne déclare pas `allow`. Lue au `subscribe`, jamais par trame.
+   *
+   * Même résolution que {@link resolveChannelPolicy} (nom exact, puis motif le
+   * plus spécifique) : la règle suit TOUJOURS la politique qui s'applique.
+   */
+  resolveChannelAdmission(name: string): ChannelAllowFunction | null {
+    return this.#resolvePolicyEntry(name)?.admit ?? null;
+  }
+
+  /**
+   * Les politiques de cette classe de contrôleur sont-elles déjà inscrites ? Une poignée de main n'en paie que ce `has`.
+   *
+   * @param owner - le constructeur du contrôleur.
+   */
+  hasPolicyOwner(owner: object): boolean {
+    return this.#policyOwners?.has(owner) === true;
+  }
+
+  /**
+   * Marque les politiques de cette classe comme inscrites — APRÈS l'inscription réussie, jamais avant : une politique refusée doit l'être de nouveau à la poignée de main suivante, pas laisser le canal ouvert.
+   *
+   * @param owner - le constructeur du contrôleur.
+   */
+  addPolicyOwner(owner: object): void {
+    (this.#policyOwners ??= new WeakSet<object>()).add(owner);
+  }
+
+  /** Entrée du registre qui s'applique à ce nom — exact d'abord, puis motif. */
+  #resolvePolicyEntry(name: string): IChannelPolicyEntry | null {
     const exact = this.#channelPolicies?.get(name);
     if (exact !== undefined) return exact;
     // Les motifs ne coûtent QUE s'il en existe : une application qui n'en
@@ -1257,9 +1358,18 @@ export class RealtimeHub {
     const patterns = this.#channelPolicyPatterns;
     if (patterns === null) return null;
     for (const pattern of patterns) {
-      if (pattern.re.test(name)) return pattern.policy;
+      if (pattern.re.test(name)) return pattern;
     }
     return null;
+  }
+
+  /**
+   * Une politique est-elle déclarée sous ce nom EXACT — motifs ignorés ? C'est la question du défaut fermé des actions.
+   *
+   * @param name - nom d'action ou de canal.
+   */
+  hasExactChannelPolicy(name: string): boolean {
+    return this.#channelPolicies?.has(name) === true;
   }
 
   /** Des politiques de canal sont-elles déclarées (au moins une) ? */
@@ -1408,6 +1518,7 @@ export class RealtimeHub {
     this.#channelPolicies?.clear();
     this.#channelPolicies = null;
     this.#channelPolicyPatterns = null;
+    this.#policyOwners = null;
     this.#originGuard = null;
     // Détache le backplane (reset). On ne `stop()` PAS ici : le hub n'en est pas
     // l'owner (créé/détruit par le module qui l'a branché) — il le libère lui-même.

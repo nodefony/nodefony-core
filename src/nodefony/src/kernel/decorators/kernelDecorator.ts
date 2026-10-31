@@ -7,7 +7,11 @@ import "reflect-metadata";
 import Module from "../Module";
 import { ServiceConstructor } from "../Kernel";
 import Service from "../../Service";
-import Injector, { DIScope, InjectableOptions } from "../injector/injector";
+import Injector, {
+  DI_SCOPE_METADATA,
+  DIScope,
+  InjectableOptions,
+} from "../injector/injector";
 import {
   orderServicesByDependencies,
   registeredNameOf,
@@ -173,7 +177,7 @@ function injectable(
     }
 
     Injector.register(regName, constructor);
-    Reflect.defineMetadata("di:scope", scope, constructor);
+    Reflect.defineMetadata(DI_SCOPE_METADATA, scope, constructor);
     return constructor;
   };
 }

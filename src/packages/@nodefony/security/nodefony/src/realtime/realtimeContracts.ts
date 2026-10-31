@@ -1,4 +1,8 @@
-import type { ISubscriberIdentity, TokenStatus } from "nodefony";
+import type {
+  IChannelPolicy,
+  ISubscriberIdentity,
+  TokenStatus,
+} from "nodefony";
 /**
  * Miroirs STRUCTURELS des contrats `@nodefony/realtime` — **zéro import** du
  * module realtime (ni runtime ni type-only).
@@ -104,25 +108,17 @@ export type FrameAuthorizer = (
 ) => boolean;
 
 /**
- * Politique d'autorisation d'un **canal** (miroir de `ChannelPolicy` realtime) —
- * exigences à satisfaire pour `subscribe`/inbound. Toutes les contraintes posées
- * sont cumulatives (ET) ; un champ absent = pas de contrainte sur cet axe. Une
- * politique entièrement vide = canal libre (équivaut à `null`).
+ * Politique d'autorisation d'un canal — déclaration UNIQUE au cœur (`nodefony`), que le
+ * hub realtime transporte et que ce module juge. Plus de miroir structurel : la
+ * copie dérivait en silence, chacune passant ses propres tests.
  *
- * Résolue 1× au `subscribe` (cold path : un client s'abonne rarement), comparée
- * au token déjà chargé au handshake → 0 lecture base. Deux origines : déclaration
- * **métier** (`@RealtimeChannel(name, opts)`, portée par le hub realtime) et
- * **plateforme** (`defineSecurityConfig().realtimeChannels` + namespaces système
- * réservés, portée par security — cf {@link buildFrameAuthorizer}).
+ * Résolue au `subscribe`/inbound (chemin froid), comparée au jeton déjà chargé
+ * à la poignée de main → 0 lecture base. Deux origines : déclaration MÉTIER
+ * (`@RealtimeChannel(nom, politique)`, portée par le hub) et PLATEFORME
+ * (`defineSecurityConfig().realtimeChannels` + namespaces système réservés —
+ * cf {@link buildFrameAuthorizer}).
  */
-export interface IChannelPolicy {
-  /** Exige une connexion authentifiée (token non anonyme). */
-  readonly authenticated?: boolean | undefined;
-  /** Un de ces rôles suffit (évalué AVEC la hiérarchie de rôles du firewall). */
-  readonly roles?: readonly string[] | undefined;
-  /** Un de ces scopes suffit (axe API : JWT/clé API ; session BFF n'en porte pas). */
-  readonly scopes?: readonly string[] | undefined;
-}
+export type { IChannelPolicy };
 
 /**
  * Surface consommée du `realtimeService` (miroir partiel de `RealtimeService`) —

@@ -83,3 +83,34 @@ export type ChannelAdmissionClass = new (...args: never[]) => IChannelAdmission;
  * ne s'importent pas, partagent UNE définition au lieu de deux miroirs.
  */
 export type ChannelAllow = ChannelAllowFunction | ChannelAdmissionClass;
+
+/**
+ * Politique d'autorisation d'un canal temps réel — ce qu'il faut satisfaire pour s'y abonner (`subscribe`) ou y pousser (canal entrant), déclarée par `@RealtimeChannel(nom, politique)`.
+ *
+ * Déclaration UNIQUE, au cœur : `@nodefony/realtime` la transporte, `@nodefony/security`
+ * la juge, et aucun des deux n'importe l'autre — deux copies dériveraient en
+ * silence, chacune passant ses propres tests.
+ *
+ * Les champs se cumulent (ET) ; un champ absent ne contraint rien ; une
+ * politique vide laisse le canal libre. Toute autre clé est REFUSÉE au
+ * démarrage : une faute de frappe dans une règle de sécurité ne s'ignore pas.
+ */
+export interface IChannelPolicy {
+  /** Exige une connexion authentifiée (jeton non anonyme). */
+  readonly authenticated?: boolean | undefined;
+  /** Un de ces rôles suffit (évalué AVEC la hiérarchie de rôles, côté sécurité). */
+  readonly roles?: readonly string[] | undefined;
+  /** Un de ces scopes suffit (axe API : JWT, clé d'API ; une session n'en porte pas). */
+  readonly scopes?: readonly string[] | undefined;
+  /**
+   * Règle d'admission PAR ABONNÉ, demandée une fois au `subscribe` après les
+   * exigences ci-dessus : une flèche qui ne lit que ses arguments, ou une
+   * classe `@injectable` résolue au démarrage (contrat : {@link IChannelAdmission.allow}).
+   */
+  readonly allow?: ChannelAllow | undefined;
+  /**
+   * Un canal à `allow` refuse l'anonyme d'office ; `true` le lui présente
+   * (`who.id === null`). Sans `allow`, la clé n'a pas de sens et est refusée.
+   */
+  readonly anonymous?: boolean | undefined;
+}

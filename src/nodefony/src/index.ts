@@ -328,6 +328,7 @@ export type {
   ChannelAllowFunction,
   ChannelAdmissionClass,
   ChannelAllow,
+  IChannelPolicy,
 } from "./realtime/channelAdmission";
 
 // ─── Errors ───────────────────────────────────────────────────────────────────

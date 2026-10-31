@@ -19,7 +19,12 @@
  *  `undefined` (pas d'allocation), fallback sur les overrides classiques.
  */
 import "reflect-metadata";
-import type { RpcActionHandler } from "nodefony";
+import { BootConfigurationError, Injector } from "nodefony";
+import type {
+  ChannelAdmissionClass,
+  ChannelAllow,
+  RpcActionHandler,
+} from "nodefony";
 import type {
   RealtimePublish,
   RealtimeInboundHandler,
@@ -62,23 +67,105 @@ function isStringArray(value: unknown): value is readonly string[] {
   );
 }
 
-/** Vrai si la valeur a la forme d'une {@link IChannelPolicy}. */
-function isChannelPolicy(value: unknown): value is IChannelPolicy {
-  if (!isRecord(value)) return false;
-  const { authenticated, roles, scopes } = value;
-  return (
-    (authenticated === undefined || typeof authenticated === "boolean") &&
-    (roles === undefined || isStringArray(roles)) &&
-    (scopes === undefined || isStringArray(scopes))
-  );
+/**
+ * Clés qu'une politique de canal peut porter — toute autre est refusée : une
+ * faute de frappe (`role`, `alow`) dans une règle de sécurité ne s'ignore pas.
+ */
+const POLICY_KEYS: ReadonlySet<string> = new Set([
+  "authenticated",
+  "roles",
+  "scopes",
+  "allow",
+  "anonymous",
+]);
+
+/**
+ * `allow` désigne-t-il une classe d'admission (`@injectable`) plutôt qu'une flèche ?
+ *
+ * Tranché par la métadonnée `@injectable`, jamais par le texte de la fonction
+ * (`class …`), qu'un minifieur réécrit (ADR-0021 §S10 bis).
+ *
+ * @param allow - valeur du membre `allow` d'une politique déjà validée.
+ * @returns `true` pour une classe à résoudre par l'injecteur.
+ */
+export function isAdmissionClass(
+  allow: ChannelAllow,
+): allow is ChannelAdmissionClass {
+  return Injector.isInjectable(allow);
 }
 
-/** Vrai si chaque entrée du registre est une {@link IChannelPolicy}. */
-function isPolicyMap(
+/**
+ * Défaut d'une politique de canal, ou `null` si elle est recevable — en clair, pour que le refus au démarrage dise QUOI corriger.
+ *
+ * @param value - valeur lue sous la métadonnée des politiques (`unknown` :
+ *   `Reflect.defineMetadata` est public).
+ * @returns la raison du refus, ou `null`.
+ */
+export function channelPolicyDefect(value: unknown): string | null {
+  if (!isRecord(value)) return "la politique n'est pas un objet";
+  for (const key of Object.keys(value)) {
+    if (!POLICY_KEYS.has(key)) {
+      return `clé inconnue « ${key} » (clés admises : ${[...POLICY_KEYS].join(", ")})`;
+    }
+  }
+  const { authenticated, roles, scopes, allow, anonymous } = value;
+  if (authenticated !== undefined && typeof authenticated !== "boolean") {
+    return "« authenticated » doit être un booléen";
+  }
+  if (roles !== undefined && !isStringArray(roles)) {
+    return "« roles » doit être un tableau de chaînes";
+  }
+  if (scopes !== undefined && !isStringArray(scopes)) {
+    return "« scopes » doit être un tableau de chaînes";
+  }
+  if (anonymous !== undefined && typeof anonymous !== "boolean") {
+    return "« anonymous » doit être un booléen";
+  }
+  if (allow === undefined) {
+    // Sans `allow`, l'anonyme se règle par `authenticated` : la clé ne
+    // changerait rien, et laisserait croire à une admission qui n'existe pas.
+    return anonymous === undefined
+      ? null
+      : "« anonymous » n'a de sens qu'avec « allow »";
+  }
+  if (typeof allow !== "function") {
+    return "« allow » doit être une fonction ou une classe @injectable";
+  }
+  if (anonymous === true && authenticated === true) {
+    return "« anonymous: true » contredit « authenticated: true »";
+  }
+  // Une classe oubliée sans `@injectable` serait APPELÉE comme une flèche et
+  // lèverait à chaque abonné — un refus de 100 % sans un mot. Reconnue à sa
+  // méthode `allow` de prototype, qu'une flèche n'a pas.
+  const proto: unknown = Reflect.get(allow, "prototype");
+  if (
+    !Injector.isInjectable(allow) &&
+    isRecord(proto) &&
+    typeof proto.allow === "function"
+  ) {
+    return `« allow » est une classe (${allow.name}) sans @injectable`;
+  }
+  return null;
+}
+
+/**
+ * Exige que chaque entrée du registre soit une politique recevable — sinon le démarrage s'arrête en nommant la classe, le canal et le défaut.
+ *
+ * Une politique illisible ne se laisse jamais tomber : sans elle, le canal
+ * s'ouvrirait à qui la politique fermait (fail-closed).
+ */
+function assertPolicyMap(
+  owner: string,
   map: Record<string, unknown>,
-): map is Record<string, IChannelPolicy> {
-  for (const name in map) if (!isChannelPolicy(map[name])) return false;
-  return true;
+): asserts map is Record<string, IChannelPolicy> {
+  for (const name in map) {
+    const defect = channelPolicyDefect(map[name]);
+    if (defect !== null) {
+      throw new BootConfigurationError(
+        `${owner} : politique du canal temps réel « ${name} » refusée — ${defect}`,
+      );
+    }
+  }
 }
 
 /** Méthode de l'instance que désigne une entrée de registre, ou `undefined`. */
@@ -86,6 +173,14 @@ function methodOf(instance: object, prop: unknown): unknown {
   return typeof prop === "string" || typeof prop === "symbol"
     ? Reflect.get(instance, prop)
     : undefined;
+}
+
+/** La politique porte-t-elle au moins une clé propre non `undefined` ? */
+function hasDefinedKey(policy: object): boolean {
+  for (const key of Object.keys(policy)) {
+    if (Reflect.get(policy, key) !== undefined) return true;
+  }
+  return false;
 }
 
 /** Libération d'un canal dont la fabrique décorée n'en a rendu aucune. */
@@ -99,14 +194,10 @@ function definePolicy(
 ): void {
   // Pas de politique, ou objet vide (aucune contrainte) → ne rien stocker : le
   // canal reste libre, `resolveChannelPolicy` renverra `undefined` (0 alloc).
-  if (
-    !policy ||
-    (policy.authenticated === undefined &&
-      policy.roles === undefined &&
-      policy.scopes === undefined)
-  ) {
-    return;
-  }
+  // Vide = aucune clé PROPRE définie : un `{ allow }` seul est une politique
+  // (l'oublier ici ouvrait le canal à tous), et une clé inconnue est gardée
+  // pour être REFUSÉE au démarrage, pas effacée.
+  if (!policy || !hasDefinedKey(policy)) return;
   // Copie : sur une sous-classe, la lecture rend l'objet du PARENT.
   const map = { ...readMetadataMap(POLICIES_KEY, ctor) };
   map[name] = policy;
@@ -431,25 +522,44 @@ export function getRealtimeInbound(
 }
 
 /**
- * Lecture (lazy, au handshake) des politiques d'autorisation déclarées
- * (`@RealtimeChannel`/`@RealtimeInbound` avec opts). `null` si aucune → le
- * controller n'enregistre rien au hub (0 alloc). Donnée pure (pas de `bind` :
- * une policy n'est pas une méthode), renvoyée telle quelle pour publication au
- * hub realtime, qui l'expose à `@nodefony/security`.
+ * La classe déclare-t-elle une ACTION (`@RealtimeAction`) sous ce nom ? Sert à refuser un `allow` posé sur une action, que rien n'appliquerait.
+ *
+ * @param ctor - constructeur du contrôleur.
+ * @param name - nom d'action ou de canal.
+ */
+export function declaresAction(ctor: object, name: string): boolean {
+  const map = readMetadataMap(ACTIONS_KEY, ctor);
+  return map !== undefined && Object.prototype.hasOwnProperty.call(map, name);
+}
+
+/**
+ * Politiques d'autorisation déclarées sur une CLASSE de contrôleur (`@RealtimeChannel`/`@RealtimeInbound`/`@RealtimePolicy` avec politique), validées — lues au démarrage du noyau, jamais par trame.
+ *
+ * @param ctor - constructeur du contrôleur.
+ * @returns nom de canal ou de méthode → politique, ou `null` si la classe n'en
+ *   déclare aucune (0 allocation).
+ * @throws BootConfigurationError Une politique est illisible : la classe, le
+ *   canal et le défaut sont nommés.
+ */
+export function getChannelPoliciesOf(
+  ctor: object,
+): Record<string, IChannelPolicy> | null {
+  const map = readMetadataMap(POLICIES_KEY, ctor);
+  if (map === undefined) return null;
+  assertPolicyMap(typeof ctor === "function" ? ctor.name : "(contrôleur)", map);
+  return map;
+}
+
+/**
+ * Politiques déclarées sur la classe d'une instance de contrôleur — même lecture que {@link getChannelPoliciesOf}.
+ *
+ * @param instance - contrôleur instancié.
+ * @returns nom → politique, ou `null` si aucune.
  */
 export function getRealtimeChannelPolicies(
   instance: object,
 ): Record<string, IChannelPolicy> | null {
-  const map = readMetadataMap(POLICIES_KEY, instance.constructor);
-  if (map === undefined) return null;
-  // Une politique illisible ne se laisse pas tomber : sans elle, le canal
-  // s'ouvrirait à qui la politique fermait (fail-closed).
-  if (!isPolicyMap(map)) {
-    throw new TypeError(
-      `${instance.constructor.name} : politique de canal temps réel illisible`,
-    );
-  }
-  return map;
+  return getChannelPoliciesOf(instance.constructor);
 }
 
 /**

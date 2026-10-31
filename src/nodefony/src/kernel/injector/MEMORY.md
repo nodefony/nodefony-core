@@ -59,7 +59,8 @@ WARN quand il écrase une clé du container).
              (RequestContext.requireScope) ; ctor(scope, ...deps) ; clean() LIFO à leaveScope
 ```
 
-Stocké : `Reflect.defineMetadata("di:scope", scope, Ctor)` par `@injectable`.
+Stocké : `Reflect.defineMetadata(DI_SCOPE_METADATA, scope, Ctor)` par `@injectable` (`DI_SCOPE_METADATA = "di:scope"`, seule source de la clé).
+`Injector.isInjectable(v)` = métadonnée PROPRE (`hasOwnMetadata`) → prédicat `v is ServiceConstructor`. Sous-classe non décorée = FAUX (portée héritée, inscrite nulle part). Jamais le texte `class …` (minifieur). Lu par la règle `allow` des canaux temps réel.
 `Injector.scopeOf(Ctor)` = portée DÉCLARÉE (`di:scope ?? "singleton"`) — pilote la résolution.
 `_lifetimeOf(Ctor)` (privé) = durée de vie EFFECTIVE d'un détenteur : statique `scope`
 (contrôleur, `@Scope`) d'abord, sinon `scopeOf`. Lu SEULEMENT quand un service `request` est

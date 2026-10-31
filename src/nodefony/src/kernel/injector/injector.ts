@@ -30,6 +30,11 @@ export interface InjectableOptions {
   scope?: DIScope;
 }
 
+/**
+ * Clé de métadonnée que `@injectable` pose sur CHAQUE classe qu'il marque (sa portée) : la SEULE trace qui distingue une classe injectable d'une fonction ordinaire.
+ */
+export const DI_SCOPE_METADATA = "di:scope";
+
 const DI_SCOPES: ReadonlySet<string> = new Set<DIScope>([
   "singleton",
   "transient",
@@ -162,10 +167,27 @@ class Injector extends Service {
    * @param service - le constructeur
    * @returns sa portée déclarée
    */
+  /**
+   * La valeur est-elle une classe marquée `@injectable` ELLE-MÊME — pas seulement héritière d'une classe qui l'est ?
+   *
+   * Lit la métadonnée PROPRE : une sous-classe non décorée hérite de la portée de
+   * son parent par la chaîne des prototypes, mais elle n'est inscrite nulle part
+   * à son nom. Jamais le texte de la fonction (`class …`) : un minifieur le réécrit.
+   *
+   * @param value - n'importe quelle valeur.
+   * @returns `true` pour une classe décorée de `@injectable` — donc un constructeur de `Service`, seule forme que le décorateur accepte.
+   */
+  static isInjectable(value: unknown): value is ServiceConstructor {
+    return (
+      typeof value === "function" &&
+      Reflect.hasOwnMetadata(DI_SCOPE_METADATA, value)
+    );
+  }
+
   static scopeOf(service: ServiceConstructor): DIScope {
     return (
-      (Reflect.getMetadata("di:scope", service) as DIScope | undefined) ??
-      "singleton"
+      (Reflect.getMetadata(DI_SCOPE_METADATA, service) as
+        DIScope | undefined) ?? "singleton"
     );
   }
 
