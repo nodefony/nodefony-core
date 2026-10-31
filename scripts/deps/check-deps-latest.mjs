@@ -530,7 +530,17 @@ if (AS_JSON) {
 // l'arbre installé, et ce sont les seuls que le dépôt refuse de grouper.
 const majeurs = rows.filter((r) => r.kind === "major");
 const blocages = new Map();
-if (majeurs.length) {
+// Même parcours, autre constat : une montée qu'une DÉPENDANCE ordinaire d'un
+// paquet installé exclut ne casse pas `npm ci` — npm pose une seconde copie à
+// côté, sans un mot. Pour un pilote, deux copies = deux `bson`, et un
+// `ObjectId` de l'une échoue au `instanceof` de l'autre. Vécu : `mongodb`
+// 7.8.0 proposé alors que `mongoose` exige `~7.7` — rien ne l'a dit, ni ce
+// rapport ni la garde. Constat pour TOUT écart (une mineure suffit).
+const dedoublements = new Map();
+const visees = new Map(
+  behindRows.filter((r) => r.target).map((r) => [r.name, r.target]),
+);
+if (visees.size) {
   const cibles = new Set(majeurs.map((r) => r.name));
   const racines = [path.join(ROOT, "node_modules")];
   for (const racine of racines) {
@@ -556,6 +566,17 @@ if (majeurs.length) {
           );
         } catch {
           continue;
+        }
+        const deps = pkg.dependencies ?? {};
+        for (const [cible, visee] of visees) {
+          const plage = deps[cible];
+          if (!plage || !semver.validRange(plage)) continue;
+          if (semver.satisfies(visee, plage)) continue;
+          if (!dedoublements.has(cible)) dedoublements.set(cible, []);
+          dedoublements.get(cible).push({
+            par: `${pkg.name}@${pkg.version}`,
+            plage,
+          });
         }
         const peers = pkg.peerDependencies ?? {};
         for (const cible of cibles) {
@@ -597,6 +618,17 @@ for (const r of AS_JSON ? [] : majeursUniques) {
   }
   process.stdout.write(
     "     Rien à faire ici : la levée viendra de l'amont. Ce rapport le dira.\n",
+  );
+}
+for (const [name, qui] of AS_JSON ? [] : dedoublements) {
+  process.stdout.write(
+    `\n⚠️  ${name} ${visees.get(name)} se DÉDOUBLERAIT — une seconde copie s'installerait à côté :\n`,
+  );
+  for (const q of qui.slice(0, 8)) {
+    process.stdout.write(`     ${q.par} exige ${name} ${q.plage}\n`);
+  }
+  process.stdout.write(
+    "     Ne monter que si deux copies peuvent coexister (ni pilote, ni classes partagées).\n",
   );
 }
 
