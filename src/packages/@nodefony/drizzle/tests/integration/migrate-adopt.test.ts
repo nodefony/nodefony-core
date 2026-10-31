@@ -123,6 +123,16 @@ const APP = (dialect: SqlDialect): string =>
 const PG_URL = process.env.NF_PG_URL;
 const MYSQL_URL = process.env.NF_MYSQL_URL;
 
+/**
+ * Budget d'un cas d'adoption. Chaque cas lance `drizzle-kit` (`spawnSync`, un
+ * esbuild par appel) une ou deux fois : 1,5 à 7,5 s seul, 12 à 20 s sous une
+ * passe turbo qui fait tourner trente espaces de travail. Le défaut de 20 s
+ * mesurait la MACHINE — le cas PostgreSQL l'a franchi (`test:all -- --load`,
+ * vert 3/3 isolé). Il couvre un lancement de processus, il ne borne aucune
+ * performance.
+ */
+const ADOPT_BUDGET = { timeout: 60_000 };
+
 const CIBLES: ICible[] = [
   {
     dialect: "sqlite",
@@ -290,7 +300,7 @@ for (const cible of CIBLES) {
 
   const suite = cible.actif ? describe : describe.skip;
 
-  suite(`Adopter une base déjà en place ${cible.label}`, () => {
+  suite(`Adopter une base déjà en place ${cible.label}`, ADOPT_BUDGET, () => {
     /**
      * MariaDB écrit le type JSON en `longtext` + `CHECK (json_valid(…))`, et
      * l'outil de lecture de schéma meurt sur ces contraintes — sans un mot, et
