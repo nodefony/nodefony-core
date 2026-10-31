@@ -286,6 +286,9 @@ interface IRealtimeControllerBridge {
   handleRealtime(message: string | Buffer | null): void;
 }
 
+/** Compteur des vhosts de harnais — un par harnais à identité, jamais réutilisé. */
+let harnessCount = 0;
+
 /**
  * Monte un controller temps réel sur une fausse connexion et rend de quoi le
  * piloter.
@@ -305,14 +308,21 @@ export function createRealtimeHarness<C extends RealtimeController>(
   const hub = getRealtimeHub();
   if (options.resetHub !== false) hub.clear();
 
+  // Chaque harnais à identité capture SES poignées de main par un vhost qui
+  // lui est propre : le hub retient le PREMIER authentificateur qui matche, et
+  // un motif commun (`/.*/`) donnait l'identité du premier harnais à toutes les
+  // connexions d'un hub partagé (`resetHub: false`) — deux comptes devenaient un.
+  let headers = options.headers ?? {};
   if (options.identity !== undefined) {
     const token = options.identity;
+    const host = headers["host"] ?? `harness-${++harnessCount}.invalid`;
+    headers = { ...headers, host };
     const authenticator: IRealtimeAuthenticator = {
       name: "harness",
       supports: () => true,
       authenticate: () => Promise.resolve(token),
     };
-    hub.useAuthenticator({ pattern: /.*/u }, authenticator);
+    hub.useAuthenticator({ pattern: /.*/u, host }, authenticator);
   }
   if (options.frameAuthorizer !== undefined) {
     hub.setFrameAuthorizer(options.frameAuthorizer);
@@ -344,7 +354,7 @@ export function createRealtimeHarness<C extends RealtimeController>(
     once: (event: string, fn: () => void): void => {
       if (event === "onFinish") onFinish = fn;
     },
-    request: { headers: options.headers ?? {}, url },
+    request: { headers, url },
     cookies: options.cookies ?? {},
     url,
     remoteAddress: "127.0.0.1",
