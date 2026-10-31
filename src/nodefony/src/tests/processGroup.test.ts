@@ -67,7 +67,12 @@ describe.skipIf(process.platform === "win32")(
       await exited;
       expect(isProcessGroupAlive(pgid)).to.equal(true);
       process.kill(-pgid, "SIGKILL"); // tout le groupe
-      expect(await waitGroupDead(pgid, 2000)).to.equal(true);
-    });
+      // Budget LARGE, assertion intacte : l'orphelin tué reste zombie — donc
+      // membre du groupe — jusqu'à ce qu'init le récolte, et sous une passe
+      // parallèle chargée cette récolte a dépassé 2 s (rouge isolé vert 3/3).
+      // Un membre vivant ne meurt jamais, quel que soit le délai : 10 s ne
+      // masquent aucun défaut, ils cessent seulement de mesurer la machine.
+      expect(await waitGroupDead(pgid, 10_000)).to.equal(true);
+    }, 15_000);
   },
 );
