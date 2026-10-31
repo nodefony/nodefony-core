@@ -333,7 +333,11 @@ class Realtime extends Module<IRealtimeConfig> {
   async #wireBackplane(): Promise<void> {
     const config = this.config;
     const hub = getRealtimeHub();
-    if (hub.backplane !== null) return; // custom (instance/DI) déjà branché
+    // custom (instance/DI) déjà branché : seule la liste des préfixes reste à dire.
+    if (hub.backplane !== null) {
+      this.#logBroadcastPrefixes(hub);
+      return;
+    }
 
     const driverName = config.backplane.driver;
     const factory = getBackplaneDriver(driverName);
@@ -391,6 +395,22 @@ class Realtime extends Module<IRealtimeConfig> {
       `realtime backplane  driver=${info.driver} kind=${info.kind} ` +
         `origin=${info.originId} cross-pod=${info.crossPod ? "yes" : "no"}` +
         (info.channel ? ` channel=${info.channel}` : ""),
+      "INFO",
+    );
+    this.#logBroadcastPrefixes(hub);
+  }
+
+  /**
+   * Dit au démarrage QUELS canaux traversent le bus : les autres restent sur ce
+   * serveur, et un abonné d'un autre serveur n'en reçoit rien — sans erreur.
+   * Lu une fois, à côté de la ligne du backplane (D5, ADR-0022 §6).
+   */
+  #logBroadcastPrefixes(hub: RealtimeHub): void {
+    const prefixes = hub.broadcastPrefixes();
+    this.log(
+      `realtime diffusion entre serveurs : ${prefixes.map((p) => `${p}*`).join(", ")} ` +
+        `— tout autre canal reste sur ce serveur (\`@RealtimeBroadcast\` pour le diffuser ; ` +
+        `oublis comptés par la sonde, \`localOnlyTotal\`)`,
       "INFO",
     );
   }

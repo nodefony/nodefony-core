@@ -104,6 +104,10 @@ export type {
   ContractClientActions,
 } from "../../realtime/RealtimeEventMap";
 import { PLATFORM_METHODS } from "../../realtime/platformChannels";
+import {
+  userChannel,
+  type UserChannelPayload,
+} from "../../realtime/userChannel";
 import { isJsonRpcId } from "../../jsonrpc/index";
 import {
   isRealtimePayload,
@@ -1204,6 +1208,55 @@ export class NodefonySocket<
    */
   onIdentity(handler: (identity: RealtimeIdentity | null) => void): () => void {
     return this.on(LOCAL_EVENTS.identity, handler as never);
+  }
+
+  /**
+   * Reçoit les messages adressés à l'identité de CETTE connexion — `publishToUser(id, charge)` côté serveur (ADR-0022 §6, D1).
+   *
+   * Abonne cet onglet à son canal personnel `user:<id>`, l'`id` venant du
+   * `realtime:welcome` : rien à connaître ni à construire. Suit l'identité —
+   * pas encore annoncée, l'abonnement part au welcome ; une reconnexion sous un
+   * autre compte change de canal ; un anonyme ou une déconnexion volontaire n'en
+   * tient aucun. Jamais d'abonnement d'office : l'onglet s'abonne quand son écran
+   * écoute, et la fonction rendue le désabonne.
+   *
+   * @param handler - reçoit la charge que le contrat déclare pour le canal
+   *   personnel (clé gabarit `` [k: `user:${string}`]: … ``).
+   * @returns désabonnement (handler retiré, `unsubscribe` au dernier consommateur).
+   *
+   * @example
+   * ```ts
+   * useEffect(() => chat.onUser((m) => addPrivate(m)), []);
+   * ```
+   */
+  onUser(handler: (payload: UserChannelPayload<Listen>) => void): () => void {
+    let channel: string | null = null;
+    const follow = (identity: RealtimeIdentity | null): void => {
+      const next =
+        identity !== null && identity.authenticated && identity.id !== null
+          ? userChannel(identity.id)
+          : null;
+      if (next === channel) return;
+      if (channel !== null) {
+        this.handlers.get(channel)?.delete(handler);
+        this.unsubscribe(channel);
+      }
+      channel = next;
+      if (next === null) return;
+      let set = this.handlers.get(next);
+      if (!set) {
+        set = new Set();
+        this.handlers.set(next, set);
+      }
+      set.add(handler);
+      this.subscribe(next);
+    };
+    follow(this._identity);
+    const offIdentity = this.onIdentity(follow);
+    return () => {
+      offIdentity();
+      follow(null);
+    };
   }
 
   /**

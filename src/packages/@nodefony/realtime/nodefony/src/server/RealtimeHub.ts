@@ -12,8 +12,11 @@ import {
   countWildcards,
   MAX_CHANNEL_PATTERN_WILDCARDS,
   BootConfigurationError,
+  USER_CHANNEL_PREFIX,
+  isOwnUserChannel,
+  userChannel,
 } from "nodefony";
-import type { IChannelAdmission } from "nodefony";
+import type { IChannelAdmission, UserChannelPayload } from "nodefony";
 import { AdmissionBudget, type IAdmissionLimits } from "./admissionBudget";
 import type { IChannelAdmissionRule } from "./connectionAdmission";
 import { dropRetainedVerdicts } from "./frameAdmission";
@@ -263,6 +266,25 @@ function admissionRuleOf(
 }
 
 /**
+ * Politique INTÉGRÉE du canal personnel `user:<id>` (ADR-0022 §6, D1) — connexion authentifiée, admise sur SON canal seulement.
+ *
+ * Constante de module : elle ne s'inscrit nulle part, donc aucun `clear()`,
+ * aucun ordre de démarrage, aucun oubli ne peut la retirer. Elle sert de REPLI :
+ * une politique que l'application écrit sur `user:…` (nom exact ou motif)
+ * l'emporte, comme toute déclaration explicite.
+ */
+const USER_CHANNEL_POLICY: IChannelPolicyEntry = Object.freeze({
+  policy: Object.freeze({ authenticated: true, allow: isOwnUserChannel }),
+  admission: Object.freeze({ allow: isOwnUserChannel, anonymous: false }),
+});
+
+/**
+ * Fabrique intégrée du canal personnel : il n'a pas de source, seul `publish`
+ * l'alimente. Partagée par tous les canaux `user:` — aucune allocation par canal.
+ */
+const USER_CHANNEL_DISPOSE = (): void => {};
+
+/**
  * RealtimeHub — broker temps réel **PAR INSTANCE** (1 pod = 1 process = 1 hub local).
  *
  * Élève le realtime serveur du modèle **per-connexion** (chaque connexion son propre
@@ -306,6 +328,11 @@ export class RealtimeHub {
   // « fail-loud » de cette porte : le hub est sans dépendance (aucun logger), la
   // sonde est son unique canal de signalement. Cf {@link #admitFromBackplane}.
   #ingressRejectedTotal = 0;
+
+  // Publications restées sur ce serveur ALORS qu'un bus est branché (canal non
+  // déclaré diffusable) — monotone. Jamais compté sans bus : la question ne se
+  // pose pas. Un `++` sur un chemin déjà froid (le forward vient d'être refusé).
+  #localOnlyTotal = 0;
 
   // Abonnements clients refusés par le plancher des canaux de plateforme (F82) :
   // canal réservé demandé alors qu'aucun module de sécurité n'est chargé. Cumul
@@ -654,7 +681,13 @@ export class RealtimeHub {
     // Inconnu du controller → dernier recours : factory de canal SYSTÈME
     // (plateforme) enregistrée par un module bas niveau (nodefony:audit…).
     const sys = this.#systemChannelFactories?.get(channel);
-    return sys ? sys(channel, publishFn) : null;
+    if (sys) return sys(channel, publishFn);
+    // Canal personnel : fabrique intégrée, sans source. Une demande venue du
+    // réseau n'arrive ici qu'après le verrou et la règle d'admission, qui ont
+    // déjà dit « c'est le tien » ; un service du serveur, lui, peut l'écouter.
+    return channel.startsWith(USER_CHANNEL_PREFIX)
+      ? USER_CHANNEL_DISPOSE
+      : null;
   }
 
   /**
@@ -705,7 +738,12 @@ export class RealtimeHub {
     // Forward opt-in : flag caché si le canal a un état local, sinon politique à la volée
     // (publish serveur vers un canal sans abonné ici mais avec des abonnés ailleurs).
     const forward = st !== undefined ? st.forward : this.#isBroadcast(channel);
-    if (!forward) return;
+    if (!forward) {
+      // Un bus est là, et ce canal reste sur ce serveur : voulu (sonde d'un pod)
+      // ou oubli de `@RealtimeBroadcast` — la sonde le rend visible (D5).
+      this.#localOnlyTotal += 1;
+      return;
+    }
     // Des octets ne traversent pas encore le bus : Redis et l'IPC du cluster
     // sérialisent en JSON, qui rend un `Uint8Array` en objet ordinaire. Refusés
     // plutôt que déformés (ADR-0021 S6/S8) ; la voie binaire du bus = #618.
@@ -717,6 +755,29 @@ export class RealtimeHub {
       return;
     }
     this.#backplane.publish(channel, payload);
+  }
+
+  /**
+   * Livre une charge à UNE identité — tous ses onglets, tous les serveurs, et personne d'autre (ADR-0022 §6, D1).
+   *
+   * Publie sur son canal personnel `user:<userId>` : seuls les onglets de cette
+   * identité ont pu s'y abonner (politique intégrée, admission par égalité de
+   * chaîne), et le préfixe traverse le bus dès qu'un bus est branché. Rien à
+   * déclarer côté application. Personne n'écoute ? La charge est perdue, sans
+   * erreur : c'est une diffusion, pas une boîte aux lettres.
+   *
+   * @param userId - l'`id` STABLE du compte (`RealtimeIdentity.id`), jamais le
+   *   login.
+   * @param payload - objet, tableau ou octets ; omise = signal sans charge.
+   * @throws TypeError si la charge est un scalaire ou `null` (cf {@link publish}).
+   */
+  publishToUser(userId: string, payload?: object): void {
+    this.publish(userChannel(userId), payload);
+  }
+
+  /** Préfixes déclarés diffusables entre serveurs, dans l'ordre de déclaration — lu par la ligne de démarrage. */
+  broadcastPrefixes(): readonly string[] {
+    return this.#broadcastPrefixes ?? [];
   }
 
   /**
@@ -819,6 +880,9 @@ export class RealtimeHub {
    */
   setBackplane(backplane: IBackplane): IBackplane {
     this.#backplane = backplane;
+    // Le canal personnel doit atteindre l'identité sur TOUS les serveurs : son
+    // préfixe est diffusé par le framework, sans déclaration de l'application.
+    this.markBroadcastChannel(USER_CHANNEL_PREFIX);
     backplane.onMessage((msg) => this.#admitFromBackplane(msg));
     const started = backplane.start();
     // `start()` peut être asynchrone (Redis : abonnement au canal). Son échec
@@ -993,6 +1057,7 @@ export class RealtimeHub {
       fanoutTotal: this.#fanoutTotal,
       inboundTotal: this.#inboundTotal,
       ingressRejectedTotal: this.#ingressRejectedTotal,
+      localOnlyTotal: this.#localOnlyTotal,
       systemFloorDeniedTotal: this.#systemFloorDeniedTotal,
       // Compté par le driver (seul à ouvrir l'enveloppe), relayé ici à côté des
       // autres refus de la sonde : 0 sans bus scellé.
@@ -1388,11 +1453,14 @@ export class RealtimeHub {
     // déclare aucun sort ici sans avoir rien parcouru. La liste est déjà triée
     // du plus spécifique au plus général — le premier qui matche est le bon.
     const patterns = this.#channelPolicyPatterns;
-    if (patterns === null) return null;
-    for (const pattern of patterns) {
-      if (pattern.re.test(name)) return pattern;
+    if (patterns !== null) {
+      for (const pattern of patterns) {
+        if (pattern.re.test(name)) return pattern;
+      }
     }
-    return null;
+    // Repli : le canal personnel porte sa politique intégrée, que l'application
+    // n'a rien eu à déclarer (et qu'elle surcharge si elle déclare `user:…`).
+    return name.startsWith(USER_CHANNEL_PREFIX) ? USER_CHANNEL_POLICY : null;
   }
 
   /**
@@ -1621,6 +1689,7 @@ export class RealtimeHub {
     this.#fanoutTotal = 0;
     this.#inboundTotal = 0;
     this.#ingressRejectedTotal = 0;
+    this.#localOnlyTotal = 0;
     this.#systemFloorDeniedTotal = 0;
     this.admissionBudget.reset();
     // Les avertissements de plateforme aussi : sans ce reset, un motif déjà émis
@@ -1690,8 +1759,20 @@ let _hub: RealtimeHub | null = null;
  */
 export interface IContractRealtimeHub<C extends IRealtimeContract> extends Omit<
   RealtimeHub,
-  "publish"
+  "publish" | "publishToUser"
 > {
+  /**
+   * Livre à UNE identité la charge que le contrat déclare pour le canal
+   * personnel (clé gabarit `` [k: `user:${string}`]: … `` de `serverToClient`)
+   * — cf {@link RealtimeHub.publishToUser}. Contrat sans cette clé : ne compile
+   * pas, la forme du message privé se déclare d'abord.
+   *
+   * @param userId - l'`id` STABLE du compte, jamais le login.
+   */
+  publishToUser(
+    userId: string,
+    payload: UserChannelPayload<ContractServerEmit<C>> & object,
+  ): void;
   /**
    * Publie sur un canal déclaré par le contrat (fan-out local, puis backplane
    * si le canal est broadcast) — cf {@link RealtimeHub.publish}.

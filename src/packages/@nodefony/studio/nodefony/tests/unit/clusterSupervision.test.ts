@@ -18,6 +18,7 @@ describe("studio / clusterSupervision.mapInstanceToSupervision", () => {
     fanoutTotal: 0,
     inboundTotal: 0,
     ingressRejectedTotal: 0,
+    localOnlyTotal: 0,
     systemFloorDeniedTotal: 0,
     sealRejectedTotal: 0,
     frameRateRejectedTotal: 0,

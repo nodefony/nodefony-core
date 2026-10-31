@@ -548,6 +548,54 @@ Deux façons de fermer, selon l'intention :
 > Le nom exact l'emporte sur un motif ; entre deux motifs, le plus spécifique gagne. Un `*` dans un
 > nom souscrit est refusé : il désigne un motif de politique, jamais un canal.
 
+### 📬 Le canal personnel `user:<id>` — fourni, rien à déclarer
+
+Livrer un message à **une** personne — sur tous ses onglets, sur tous les serveurs, et à personne
+d'autre — est une brique du framework. L'application n'écrit ni canal, ni règle, ni déclaration de
+diffusion :
+
+```typescript
+// côté serveur — un service, un job, un contrôleur
+getRealtimeHub<ChatContract>().publishToUser(bob.id, message);
+
+// côté navigateur — cet onglet s'abonne quand son écran écoute
+useEffect(() => chat.onUser((m) => addPrivate(m)), []);
+```
+
+La forme du message se déclare dans le contrat, par la clé gabarit du canal personnel :
+
+```typescript
+interface ChatContract extends IRealtimeContract {
+  serverToClient: {
+    [channel: `user:${string}`]: { from: string; text: string };
+  };
+}
+```
+
+Ce que le framework garantit, écrit une fois :
+
+| Garantie                  | Comment                                                                                                                                                                                                    |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Toi seul**              | Politique intégrée : connexion authentifiée, admission par **égalité de chaîne** avec `user:<ton id>` (`userChannel.ts#isOwnUserChannel`). Jamais un découpage : l'identité `4` n'entre pas sur `user:42`. |
+| **Aucun oracle**          | Le verrou passe avant la fabrique, et la règle ne lit que l'identité du demandeur, jamais une base : `user:999` (inexistant) et `user:bob` (pas le tien) reçoivent le **même** `forbidden`.                |
+| **Tous les serveurs**     | Dès qu'un bus est branché, le préfixe `user:` est diffusé par le framework (`RealtimeHub.ts#RealtimeHub.setBackplane`).                                                                                    |
+| **Sans sécurité chargée** | La règle s'applique quand même : `allow` ne fait que retirer des abonnés.                                                                                                                                  |
+| **Jamais d'office**       | Rien n'est ouvert à la connexion : une application qui n'appelle jamais `onUser` ne paie rien. Mesuré : 494 octets par onglet abonné, envoi ~60 ns.                                                        |
+
+L'`id` est l'identifiant **stable** du compte (`RealtimeIdentity.id`), jamais le login : un login
+libéré se réattribue, et le nouveau compte recevrait les messages de l'ancien. Un appelant sans
+compte local (`<émetteur>#<sujet>`, connexion d'un fournisseur d'identité) a lui aussi son canal ;
+un **anonyme** n'en a pas — il n'a pas d'identifiant qui survive à une reconnexion. Le support
+anonyme passe par un salon privé de l'application (`support:<conversation>` + `allow`, ci-dessous).
+
+**Le prix assumé** : un compte supprimé garde son abonnement jusqu'à son éjection explicite. Et une
+publication sans abonné est perdue sans erreur — c'est une diffusion, pas une boîte aux lettres :
+l'historique d'une conversation vit dans la base de l'application.
+
+**Surcharger la règle** : une politique que l'application écrit sur `user:…` (nom exact ou motif)
+l'emporte sur la règle intégrée — c'est ainsi qu'on ouvre `user:public` à tous. Une telle
+déclaration remplace la garantie « toi seul » : à n'écrire qu'en connaissance de cause.
+
 ### 🪪 `allow` — admettre un abonné par SON identité
 
 Les trois axes décrivent une **classe** d'identité : « un administrateur », « un service qui porte
@@ -557,6 +605,10 @@ d'`allow` : une règle qui reçoit le canal demandé et l'identité de l'abonné
 Elle se joue au `subscribe`, une fois, dans le contrôleur
 (`RealtimeController.ts#RealtimeController.startChannel`) ; la règle elle-même est un contrat du cœur
 (`channelAdmission.ts#IChannelAdmission`), isomorphe : rien n'y dépend de la socket.
+
+> L'exemple ci-dessous écrit à la main la règle de `user:*` pour montrer la mécanique. Pour le canal
+> personnel lui-même, **ne rien écrire** : le framework le fournit (section précédente), et une
+> politique écrite ainsi remplacerait la sienne.
 
 **La forme courte — une flèche, pour une règle qui ne lit rien :**
 

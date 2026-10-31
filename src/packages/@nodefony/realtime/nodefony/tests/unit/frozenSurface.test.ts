@@ -18,8 +18,10 @@ import {
   FROZEN_CONTRACT_TYPES,
   FROZEN_CONTRACT_VALUES,
   FROZEN_DENIED_REASONS,
+  FROZEN_PERSONAL_CHANNEL,
   FROZEN_REFUSAL_COUNTERS,
 } from "./frozenSurface.fixture";
+import { NodefonySocket } from "../../../../../../nodefony/src/client/realtime/NodefonySocket.js";
 
 /**
  * Surface temps réel figée par 10.0 (ADR-0021 §S9, §S11 ; ADR-0022 §6) : ce que
@@ -86,6 +88,25 @@ export type ContractTypesPublished = Assert<
 >;
 export type ContractTypesClosed = Assert<
   Subset<keyof IContractTypeExports, NamesOf<ContractTypes>>
+>;
+
+// Canal personnel : chaque nom figé existe sur le type qui le porte.
+type Personal = (typeof FROZEN_PERSONAL_CHANNEL)[number];
+interface IPersonalOwners {
+  RealtimeHub: keyof RealtimeHub;
+  NodefonySocket: keyof NodefonySocket;
+  IRealtimeProbe: keyof IRealtimeProbe;
+}
+type PersonalOk<E> = E extends {
+  name: infer N;
+  on: infer O extends keyof IPersonalOwners;
+}
+  ? N extends IPersonalOwners[O]
+    ? true
+    : false
+  : false;
+export type PersonalPublished = Assert<
+  [PersonalOk<Personal>] extends [true] ? true : false
 >;
 
 const pending = (e: Entry): string =>
@@ -161,6 +182,18 @@ describe("surface temps réel figée par 10.0", () => {
     for (const e of FROZEN_REFUSAL_COUNTERS) {
       if ("ticket" in e) continue;
       expect(refusals, e.name).toContain(e.name);
+    }
+  });
+
+  it("le canal personnel expose ses noms figés à l'exécution", () => {
+    const hub = new RealtimeHub();
+    const owners: Record<string, Record<string, unknown>> = {
+      RealtimeHub: { publishToUser: hub.publishToUser },
+      NodefonySocket: { onUser: NodefonySocket.prototype.onUser },
+      IRealtimeProbe: { localOnlyTotal: hub.probe().localOnlyTotal },
+    };
+    for (const e of FROZEN_PERSONAL_CHANNEL) {
+      expect(owners[e.on]?.[e.name], `${e.on}.${e.name}`).toBeDefined();
     }
   });
 });

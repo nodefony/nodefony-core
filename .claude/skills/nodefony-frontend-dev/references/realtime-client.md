@@ -236,7 +236,9 @@ onIdentity(handler: (id: RealtimeIdentity | null) => void): () => void;  // even
 
 Le serveur pousse `realtime:welcome` en **1ʳᵉ frame** après le handshake (`IRealtimeWelcome`, `RealtimeEventMap.ts#IRealtimeWelcome`). Le client l'ingère (`ingestWelcome`) : mémorise l'identité résolue + les capabilities (canaux/actions découvrables) puis émet `__identity__`. `identity` est `null` tant qu'aucun welcome n'est reçu ; une fois reçu, un anonyme a `authenticated: false` (jamais `null`).
 
-`RealtimeIdentity` (`RealtimeEventMap.ts#RealtimeIdentity`) : `{ type, authenticated, userIdentifier, roles, scopes }`. Brique du gating front : `authenticated:false` → écran login **sans** route `/auth/me`. Les `roles` sont **résolus serveur** (cf RBAC isomorphe, [`isomorphic.md`](./isomorphic.md) §6). Rafraîchie à chaque (re)welcome ; remise à `null` au `disconnect()` volontaire (une perte réseau garde la dernière identité jusqu'au prochain welcome → évite un flash login pendant une micro-reco).
+**Message privé — `onUser(handler): () => void`** (`NodefonySocket.ts#NodefonySocket.onUser`) : abonne CET onglet à son canal personnel `user:<id>` (l'`id` vient du welcome) et suit l'identité — welcome tardif, changement de compte (quitte l'ancien canal), `disconnect()`/anonyme → aucun canal. Jamais d'office : à appeler quand l'écran écoute (`useEffect(() => chat.onUser(addPrivate), [])`). Charge typée par la clé ``[k: `user:${string}`]: P`` du contrat. Côté serveur : `getRealtimeHub<C>().publishToUser(id, charge)`.
+
+`RealtimeIdentity` (`RealtimeEventMap.ts#RealtimeIdentity`) : `{ type, authenticated, id, userIdentifier, roles, scopes }` — `id` = clé STABLE des canaux personnels (`null` pour l'anonyme), jamais le login. Brique du gating front : `authenticated:false` → écran login **sans** route `/auth/me`. Les `roles` sont **résolus serveur** (cf RBAC isomorphe, [`isomorphic.md`](./isomorphic.md) §6). Rafraîchie à chaque (re)welcome ; remise à `null` au `disconnect()` volontaire (une perte réseau garde la dernière identité jusqu'au prochain welcome → évite un flash login pendant une micro-reco).
 
 ---
 

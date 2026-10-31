@@ -67,6 +67,7 @@ export function mergeClusterHealth(
     fanoutTotal: 0,
     inboundTotal: 0,
     ingressRejectedTotal: 0,
+    localOnlyTotal: 0,
     connectionCount: 0,
     bytesSentTotal: 0,
     messagesSentTotal: 0,
@@ -86,6 +87,7 @@ export function mergeClusterHealth(
     totals.fanoutTotal += h.fanoutTotal;
     totals.inboundTotal += h.inboundTotal;
     totals.ingressRejectedTotal += h.ingressRejectedTotal;
+    totals.localOnlyTotal += h.localOnlyTotal;
     totals.connectionCount += h.connectionCount;
     totals.bytesSentTotal += h.bytesSentTotal;
     totals.messagesSentTotal += h.messagesSentTotal;

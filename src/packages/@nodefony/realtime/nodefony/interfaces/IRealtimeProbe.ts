@@ -79,6 +79,13 @@ export interface IRealtimeProbe {
    */
   ingressRejectedTotal: number;
   /**
+   * Publications restées sur CE serveur alors qu'un bus est branché — canal non
+   * déclaré diffusable (`@RealtimeBroadcast`) — monotone ; toujours 0 sans bus.
+   * Voulu pour un canal propre au pod (forage de Studio, barre de débogage) ;
+   * ailleurs, c'est l'oubli qui prive les abonnés des autres serveurs, en silence.
+   */
+  localOnlyTotal: number;
+  /**
    * Abonnements clients REFUSÉS par le plancher des canaux de plateforme —
    * monotone. Un canal réservé (`syslog:`, `orm:`…) a été demandé alors qu'aucun
    * module de sécurité n'est chargé : sans identité vérifiable, le hub ferme.
@@ -226,6 +233,8 @@ export interface IRealtimeClusterHealth {
     inboundTotal: number;
     /** Ingress backplane refusés, tous workers (signal de sécurité pod-wide). */
     ingressRejectedTotal: number;
+    /** Publications restées sur leur worker malgré le bus, tous workers. */
+    localOnlyTotal: number;
     connectionCount: number;
     bytesSentTotal: number;
     messagesSentTotal: number;

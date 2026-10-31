@@ -393,6 +393,8 @@ Tout est exporté depuis `@nodefony/realtime` (`rt/index.ts`), sauf les briques 
 - `unsubscribe(channel, sink)` — `dispose()` le provider au **dernier** abonné.
 - `publish(channel, payload)` — fan-out local (`#fanout`) **+** `#backplane.publish` SI le canal est broadcast. Mono-process : un seul test `#backplane === null` payé.
 - `publishLocal(channel, payload)` — fan-out local **SEUL** (voie d'ingress backplane, jamais re-propagée).
+- `publishToUser(userId, payload)` — livre à UNE identité (canal `user:<id>`, ADR-0022 §6) : politique, fabrique et diffusion INTÉGRÉES (repli : une politique app sur `user:…` gagne). Client : `NodefonySocket.onUser(handler)`. Règle pure au cœur `realtime/userChannel.ts#isOwnUserChannel`. Charge typée par la clé ``[k: `user:${string}`]: P`` du contrat. Jamais le login comme `userId`.
+- `localOnlyTotal` (sonde) — publications restées locales alors qu'un bus est branché ; `broadcastPrefixes()` les préfixes diffusés (ligne de boot).
 - `markBroadcastChannel(prefix)` — déclare un préfixe cross-process (réévalue les canaux déjà actifs). Défaut : **aucun** → tout instance-local (anti-fuite Zero Trust).
 - `setBackplane(bp): IBackplane` — câble `bp.onMessage → publishLocal` + `bp.start()`. `get backplane`.
 

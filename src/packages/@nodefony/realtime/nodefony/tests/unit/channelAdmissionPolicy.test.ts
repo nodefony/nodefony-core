@@ -9,6 +9,7 @@ import {
   Module,
   Service,
   injectable,
+  isOwnUserChannel,
 } from "nodefony";
 import type {
   IChannelAdmission,
@@ -396,7 +397,13 @@ describe("#622 — le hub précalcule la règle d'admission", () => {
     const owner = ownerWith({ "user:*": { allow: arrow } });
     registerControllerPolicies(hub, owner, null);
     hub.clear();
-    assert.equal(hub.resolveChannelAdmission("user:acc-1"), null);
+    // La règle de l'application est partie ; reste la règle INTÉGRÉE du canal
+    // personnel (#710), qu'aucun `clear()` ne retire.
+    assert.equal(
+      hub.resolveChannelAdmission("user:acc-1")?.allow,
+      isOwnUserChannel,
+    );
+    assert.equal(hub.resolveChannelAdmission("room:acc-1"), null);
     assert.equal(hub.hasPolicyOwner(owner), false);
   });
 });

@@ -268,6 +268,7 @@ Le contrat est `IRealtimeProbe` (`IRealtimeProbe.ts#IRealtimeProbe`). Quatre fam
 | `inboundTotal`         | Frames poussées par les clients sur les canaux entrants, via `RealtimeHub.recordInbound()` (`RealtimeHub.ts#RealtimeHub.recordInbound`). |
 | `ingressRejectedTotal` | Messages venus du **backplane** et jetés parce que leur canal n'est pas déclaré diffusable.                                              |
 | `sealRejectedTotal`    | Messages venus du **backplane** et jetés parce que leur sceau ne se vérifie pas. `0` sans bus scellé.                                    |
+| `localOnlyTotal`       | Publications restées sur ce serveur alors qu'un bus est branché (canal non diffusable). `0` sans bus.                                    |
 
 Le rapport `fanoutTotal / publishTotal` est la mesure la plus parlante de la page : c'est la **taille
 moyenne d'un salon**. S'il vaut 1, chaque publication ne touche qu'une personne — un canal par client,
@@ -302,6 +303,23 @@ compte à part dans `sealRejectedTotal` (relayé au même niveau de la sonde, et
 `backplane.sealRejectedTotal`). Quand celui-là grimpe, trois lectures : une rotation du secret en
 cours (des exemplaires n'ont pas encore le même), un producteur mal configuré, ou quelqu'un qui
 écrit sur votre bus sans connaître le secret.
+
+### Restés sur ce serveur — l'oubli de diffusion rendu visible
+
+`localOnlyTotal` compte les publications restées sur **ce** serveur alors qu'un bus est branché :
+leur canal n'est pas déclaré diffusable (`@RealtimeBroadcast`). Sans bus, il vaut toujours zéro —
+la question ne se pose pas. Coût : un `++` sur un chemin déjà froid, aucune allocation.
+
+Deux lectures quand il grimpe :
+
+- **voulue** — un canal propre au serveur par nature : le forage de Studio, la barre de débogage,
+  la sonde d'un exemplaire ;
+- **oubli** — un canal applicatif (`chat:`, `alertes:`) dont les abonnés des AUTRES serveurs ne
+  reçoivent rien, sans erreur. Ajouter `@RealtimeBroadcast("chat:")` sur son contrôleur.
+
+Au démarrage, la ligne `realtime diffusion entre serveurs : …` liste les préfixes diffusés (le
+canal personnel `user:` y figure d'office dès qu'un bus est branché) : tout ce qui n'y est pas
+reste local.
 
 ### Admission — les refus par cause
 
@@ -500,6 +518,7 @@ mérite d'être connue :
 | ---------------------------------------------------------------- | ----------- | -------------------------------------------------------------------------- |
 | `publishTotal`, `fanoutTotal`, `connectionCount`, octets, frames | **somme**   | Le pod fait la somme de ce que font ses workers.                           |
 | `ingressRejectedTotal`                                           | somme       | Un refus reste un refus, quel que soit le worker qui l'a opposé.           |
+| `localOnlyTotal`                                                 | somme       | Une publication restée locale l'est sur le worker qui l'a émise.           |
 | `backpressure.maxBufferedAmount`                                 | **maximum** | La santé d'une flotte se juge sur son **pire** membre, pas sur sa moyenne. |
 | `slowConsumers`, `drops`                                         | somme       | Ce sont des dénombrements.                                                 |
 

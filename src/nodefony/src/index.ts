@@ -330,6 +330,12 @@ export type {
   ChannelAllow,
   IChannelPolicy,
 } from "./realtime/channelAdmission";
+export {
+  USER_CHANNEL_PREFIX,
+  userChannel,
+  isOwnUserChannel,
+} from "./realtime/userChannel";
+export type { UserChannelPayload } from "./realtime/userChannel";
 
 // ─── Errors ───────────────────────────────────────────────────────────────────
 export { default as nodefonyError, registerErrorAdapter } from "./Error";

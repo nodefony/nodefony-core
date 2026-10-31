@@ -57,3 +57,13 @@ export const FROZEN_CONTRACT_TYPES = [
   { name: "ContractPolicyNames" },
   { name: "RealtimeContractOf" },
 ] as const;
+
+/**
+ * Canal personnel (ADR-0022 §6, D1, #710) — ce qu'une application appelle pour
+ * livrer à une personne, et le compteur qui rend visible un canal oublié du bus.
+ */
+export const FROZEN_PERSONAL_CHANNEL = [
+  { name: "publishToUser", on: "RealtimeHub" },
+  { name: "onUser", on: "NodefonySocket" },
+  { name: "localOnlyTotal", on: "IRealtimeProbe" },
+] as const;

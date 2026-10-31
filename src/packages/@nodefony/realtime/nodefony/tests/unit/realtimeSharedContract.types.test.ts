@@ -345,6 +345,17 @@ function _broadcastOnly(): void {
   chat.publish("chat:typing", { on: true, at: new Date() });
   // @ts-expect-error SCALAIRE : refusé par le hub à l'exécution, le type le dit avant
   getRealtimeHub<ScoreContract>().publish("game:score", 3);
+  // CANAL PERSONNEL (#710) : la charge est celle de la clé gabarit `user:${string}`.
+  chat.publishToUser("bob", { unread: 1 });
+  // @ts-expect-error CHARGE FAUSSE pour le message privé
+  chat.publishToUser("bob", { unread: "1" });
+  // @ts-expect-error CONTRAT SANS canal personnel : la forme se déclare d'abord
+  getRealtimeHub<ScoreContract>().publishToUser("bob", { unread: 1 });
+  getRealtimeHub().publishToUser("bob", { libre: true }); // forme libre
+  const tab = NodefonySocket.fromContract<ChatContract>();
+  tab.onUser((m) => expectType<number>(m.unread));
+  // @ts-expect-error champ absent de la charge déclarée
+  tab.onUser((m) => m.text);
   // Le reste du hub est là, inchangé.
   expectType<number>(chat.subscriberCount("chat:room"));
 
