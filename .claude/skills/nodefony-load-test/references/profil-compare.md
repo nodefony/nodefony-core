@@ -45,14 +45,16 @@ Les règles qui en découlent :
    alternées, dispersion < 1 %). `bisect-perf.sh` ne tranche que sur un saut de plus de
    ~25 points.
 
-6. **Un démarrage de Nodefony sur trois environ tombe dans un régime GC DÉGRADÉ**, et y reste :
-   le pretenuring de V8 bascule des sites d'allocation partagés pendant le renouvellement des
-   connexions (chauffe puis mesure), tout le graphe de la requête part alors dans le vieux tas —
-   +45 % de CPU par requête, 14-19 collectes complètes au lieu de 3. Deux runs « identiques » ne
-   mesurent donc pas toujours le même régime : c'est une source de la dispersion entre séries.
-   Le constater : `node --trace-gc-nvp …` et compter les `"gc":"mc"` sur la fenêtre (3 = normal) ;
-   le prouver : `--no-allocation-site-pretenuring` le fait disparaître sans changer le coût
-   normal. Ne pas comparer un run dégradé à un run normal.
+6. **Un run peut tomber dans un régime GC DÉGRADÉ et y rester** — à compter sur PLUSIEURS
+   démarrages, un seul ne le montre pas. Signature : `node --trace-gc-nvp …`, plus de 3
+   `"gc":"mc"` sur la fenêtre, ~10 Mo promus par scavenge, +45 % de CPU par requête. Cause
+   vécue : le pretenuring de V8 bascule un site d'allocation PARTAGÉ entre objets de connexion
+   (survivants) et le chemin de requête — tout le graphe de la requête part alors au vieux tas.
+   Le prouver : `--no-allocation-site-pretenuring` le fait disparaître ; nommer le site :
+   `--trace-deopt`, motif « dependent allocation site tenuring changed », présent dans le seul
+   run dégradé. Cas corrigé : un 2ᵉ écouteur `timeout` par socket (`_addListener` allouait
+   `[existing, listener]` par connexion) → écouteur unique au serveur
+   (`HttpContext.ts#routeSocketTimeout`). Critère de correction : 0 épisode sur ≥ 15 démarrages.
 7. **La ligne « GC µs/req » de `wait-compare` lit des durées `perf_hooks`, pas des pauses V8** :
    elle a annoncé ×34 face à Nest quand `--trace-gc-nvp` rendait des collectes jeunes
    équivalentes (0,15 µs/req des deux côtés). Le coût réel du GC se lit à `--trace-gc-nvp`
