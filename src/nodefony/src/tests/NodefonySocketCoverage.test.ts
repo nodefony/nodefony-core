@@ -268,6 +268,32 @@ describe("NodefonySocket — heartbeat + stats sampler (timers)", () => {
     client.disconnect();
   });
 
+  it("stats sampler : aucun intervalle avant connect, coupé par disconnect, réarmé au connect suivant", async () => {
+    // Armé dans le constructeur et jamais arrêté, l'intervalle retenait
+    // l'instance pour la vie du processus et allouait chaque seconde.
+    const before = vi.getTimerCount();
+    const idle = newClient();
+    expect(vi.getTimerCount(), "socket jamais connectée : aucun minuteur").toBe(
+      before,
+    );
+    idle.disconnect();
+    const client = await connected();
+    let ticks = 0;
+    client.on("__stats__" as never, (() => ticks++) as never);
+    vi.advanceTimersByTime(1000);
+    expect(ticks).toBe(1);
+    client.disconnect();
+    vi.advanceTimersByTime(5000);
+    expect(ticks, "plus aucun échantillon après disconnect").toBe(1);
+    expect(vi.getTimerCount()).toBe(before);
+    const p = client.connect();
+    current().fireOpen();
+    await p;
+    vi.advanceTimersByTime(1000);
+    expect(ticks, "réarmé par le connect suivant").toBe(2);
+    client.disconnect();
+  });
+
   it("stats sampler : calcule rate/series par canal toutes les secondes (__stats__)", async () => {
     const client = await connected();
     let statsTicks = 0;

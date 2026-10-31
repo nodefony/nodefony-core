@@ -672,7 +672,6 @@ export class NodefonySocket<
   ) {
     this.transportFactory =
       transportFactory ?? ((url: string) => new BrowserWsTransport(url));
-    this.startStatsSampler();
     // Le diagnostic ne se compose pas (ADR-0007 D7 révisé) : une socket nue
     // annonce le framework et se rend inspectable, exactement comme le ferait un
     // noyau. Quand il y en a un, il s'est annoncé AVANT de nous fabriquer — le
@@ -836,6 +835,10 @@ export class NodefonySocket<
       return;
     this.intentionalClose = false;
     this.opts.url = url ?? this.requireUrl();
+    // Échantillonneur armé à la connexion, coupé par `disconnect()` : armé dans
+    // le constructeur, un intervalle jamais arrêté retenait l'instance (et
+    // allouait chaque seconde) pour la vie du processus.
+    this.startStatsSampler();
     return this.openSocket();
   }
 
@@ -848,6 +851,10 @@ export class NodefonySocket<
   disconnect(): void {
     this.intentionalClose = true;
     this.clearTimers();
+    if (this.statsTimer !== null) {
+      clearInterval(this.statsTimer);
+      this.statsTimer = null;
+    }
     this.transport?.close(1000, "client disconnect");
     // Logout = on annule les requêtes sortantes en vol (rejet immédiat plutôt que
     // timeout). Le peer reste réutilisable (un `connect()` ultérieur repart propre).
