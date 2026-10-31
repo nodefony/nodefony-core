@@ -273,6 +273,14 @@ export type {
 export { rateChannel, parseRate, isRateChannel } from "./realtime/channelRate";
 export type { RateBounds } from "./realtime/channelRate";
 export { isRealtimePayload, realtimePayloadError } from "./realtime/payload";
+export { JSON_PROTOCOL } from "./realtime/IFrameCodec";
+export type { IFrameCodec } from "./realtime/IFrameCodec";
+export {
+  JSON_FRAME_CODEC,
+  JSON_BYTES_FRAME_CODEC,
+  BYTES_MARKER,
+  containsBytes,
+} from "./realtime/jsonFrameCodec";
 export {
   MAX_CHANNEL_PATTERN_WILDCARDS,
   compileChannelPattern,

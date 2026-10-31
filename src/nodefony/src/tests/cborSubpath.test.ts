@@ -9,6 +9,7 @@ import * as cbor from "../client/cbor/index";
 describe("CBOR / sous-chemin nodefony/cbor", () => {
   it("nodefony/cbor expose exactement le contrat public du codec", () => {
     expect(Object.keys(cbor).sort()).toEqual([
+      "CBOR_FRAME_CODEC",
       "CBOR_PROTOCOL",
       "CborError",
       "decodeCbor",
@@ -23,6 +24,7 @@ describe("CBOR / sous-chemin nodefony/cbor", () => {
       "decodeCbor",
       "CborError",
       "CBOR_PROTOCOL",
+      "CBOR_FRAME_CODEC",
     ]) {
       expect(Object.hasOwn(client, name)).toBe(false);
     }
