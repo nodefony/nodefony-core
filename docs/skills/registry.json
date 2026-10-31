@@ -9091,6 +9091,10 @@
                 "help": ""
               },
               {
+                "name": "NF_WAIT_APP_ROOT",
+                "help": ""
+              },
+              {
                 "name": "NF_WAIT_CUTS",
                 "help": ""
               },

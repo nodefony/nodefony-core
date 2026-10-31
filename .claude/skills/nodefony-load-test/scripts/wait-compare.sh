@@ -16,6 +16,8 @@
 # NF_WAIT_CUTS="entry context pipeline route action" : bissection par
 #   COURT-CIRCUIT — chaque manche sert aussi Nodefony coupé à chaque étage
 #   (`cut-probe.mjs`), et `cut-analyze.mjs` rend le coût de chaque étage.
+# NF_WAIT_APP_ROOT : dossier d'où Nodefony est lancé (défaut la racine du dépôt) —
+#   un worktree pour mesurer un AUTRE commit face au même témoin.
 # Sortie : tmp/profiles/wait/<camp>-<n>/{<pid>.json,wrk.txt} + le tableau (wait-analyze.mjs).
 # ─────────────────────────────────────────────────────────────────────────────
 set -u
@@ -26,7 +28,7 @@ PAIRS="${2:-3}"
 BASE="${NF_WAIT_DIR:-$ROOT/tmp/profiles/wait}"
 CONN="${BENCH_CONN:-128}"
 DUR="${BENCH_DUR:-20}"
-cd "$ROOT"
+cd "${NF_WAIT_APP_ROOT:-$ROOT}"
 node src/nodefony/bin/nodefony stop >/dev/null 2>&1 || true
 . "$DIR/kill-guard.sh"; kill_listeners 5151; kill_listeners 5161; sleep 1
 . "$DIR/machine-regime.sh"
