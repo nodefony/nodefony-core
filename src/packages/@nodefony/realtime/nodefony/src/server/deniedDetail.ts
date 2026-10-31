@@ -24,6 +24,14 @@ export function deniedDetail(
   env: string | undefined | null,
   detail: string,
 ): { detail?: string } {
-  if (!env || env === "production") return {};
-  return { detail };
+  return explainsDenials(env) ? { detail } : {};
+}
+
+/**
+ * Le détail d'un refus part-il au client dans ce mode ? Hors production seulement — la règle de {@link deniedDetail}, lue AVANT de rédiger la phrase : en production, aucune chaîne n'est composée pour être jetée.
+ *
+ * @param env - le mode du kernel serveur, s'il est connu ; une absence vaut production.
+ */
+export function explainsDenials(env: string | undefined | null): boolean {
+  return !!env && env !== "production";
 }

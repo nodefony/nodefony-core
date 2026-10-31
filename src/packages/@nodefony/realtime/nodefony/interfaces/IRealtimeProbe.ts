@@ -100,6 +100,19 @@ export interface IRealtimeProbe {
    * `maxFramesPerSecond` vaut 0 (défaut de la série 10).
    */
   frameRateRejectedTotal: number;
+  /**
+   * Appels d'`allow` restés SANS RÉPONSE dans `allowTimeoutMs` — monotone, unité : un
+   * appel d'`allow`. L'abonné a reçu `unavailable` et réessaie. `> 0` qui monte =
+   * la base ou le service que lisent les règles d'admission ne suit plus ; 50 en
+   * 5 s ouvrent le coupe-circuit.
+   */
+  allowTimedOutTotal: number;
+  /**
+   * Demandes d'abonnement rendues `unavailable` SANS appel d'`allow` — monotone,
+   * unité : une demande. Plafond `maxPendingAllowsTotal` atteint, coupe-circuit
+   * ouvert, ou délai épuisé dans la file d'une connexion.
+   */
+  allowSaturatedTotal: number;
   /** Connexions realtime vivantes. */
   connectionCount: number;
   /** Somme cumulée des octets envoyés, toutes connexions (monotone). */

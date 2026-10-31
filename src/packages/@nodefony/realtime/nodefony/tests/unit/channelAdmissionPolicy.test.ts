@@ -286,10 +286,23 @@ describe("#622 — flèche ou classe : tranché par la métadonnée @injectable"
 });
 
 describe("#622 — le hub précalcule la règle d'admission", () => {
-  it("flèche : retenue telle quelle, sans enveloppe", () => {
+  it("flèche : retenue telle quelle, sans enveloppe ; la règle est construite UNE fois", () => {
     const hub = new RealtimeHub();
     hub.registerChannelPolicy("user:*", { allow: arrow });
-    assert.equal(hub.resolveChannelAdmission("user:acc-1"), arrow);
+    const rule = hub.resolveChannelAdmission("user:acc-1");
+    assert.equal(rule?.allow, arrow);
+    assert.equal(rule?.anonymous, false, "anonyme refusé d'office par défaut");
+    assert.equal(
+      hub.resolveChannelAdmission("user:acc-2"),
+      rule,
+      "même objet à chaque subscribe : 0 allocation",
+    );
+  });
+
+  it("`anonymous: true` est porté par la règle", () => {
+    const hub = new RealtimeHub();
+    hub.registerChannelPolicy("support:*", { allow: arrow, anonymous: true });
+    assert.equal(hub.resolveChannelAdmission("support:1")?.anonymous, true);
   });
 
   it("sans allow, ou canal inconnu → null", () => {
@@ -303,12 +316,12 @@ describe("#622 — le hub précalcule la règle d'admission", () => {
     const hub = new RealtimeHub();
     const admission = new RoomAdmission();
     hub.registerChannelPolicy("room:*", { allow: RoomAdmission }, admission);
-    const admit = hub.resolveChannelAdmission("room:1");
-    assert.ok(admit !== null);
+    const admit = hub.resolveChannelAdmission("room:1")?.allow;
+    assert.ok(admit !== undefined);
     assert.equal(admit("room:1", WHO), true);
     assert.equal(admit("lobby", WHO), false);
     assert.equal(
-      hub.resolveChannelAdmission("room:2"),
+      hub.resolveChannelAdmission("room:2")?.allow,
       admit,
       "liée une fois, pas par appel",
     );
@@ -342,8 +355,8 @@ describe("#622 — le hub précalcule la règle d'admission", () => {
     hub.registerChannelPolicy("room:*", { allow: arrow });
     hub.registerChannelPolicy("room:vip", { allow: vip });
     hub.registerChannelPolicy("room:open", { authenticated: true });
-    assert.equal(hub.resolveChannelAdmission("room:42"), arrow);
-    assert.equal(hub.resolveChannelAdmission("room:vip"), vip);
+    assert.equal(hub.resolveChannelAdmission("room:42")?.allow, arrow);
+    assert.equal(hub.resolveChannelAdmission("room:vip")?.allow, vip);
     assert.equal(hub.resolveChannelAdmission("room:open"), null);
     assert.deepEqual(hub.resolveChannelPolicy("room:open"), {
       authenticated: true,
@@ -376,7 +389,7 @@ describe("#622 — inscription des politiques d'une classe", () => {
     assert.equal(hub.hasPolicyOwner(owner), true);
     Reflect.defineMetadata(POLICIES_KEY, { "user:*": { roles: ["X"] } }, owner);
     registerControllerPolicies(hub, owner, null);
-    assert.equal(hub.resolveChannelAdmission("user:acc-1"), arrow);
+    assert.equal(hub.resolveChannelAdmission("user:acc-1")?.allow, arrow);
   });
 
   it("un refus NE marque PAS la classe : refusée de nouveau, jamais laissée ouverte", () => {
@@ -553,7 +566,10 @@ describe("#622 — inscription au démarrage (onKernelReady) et à la poignée d
     }
     const hub = getRealtimeHub();
     assert.equal(hub.hasPolicyOwner(BootCtrl), true);
-    assert.equal(hub.resolveChannelAdmission("room:1")?.("room:1", WHO), true);
+    assert.equal(
+      hub.resolveChannelAdmission("room:1")?.allow("room:1", WHO),
+      true,
+    );
     assert.equal(hub.resolveChannelPolicy("foreign:x"), null);
     assert.deepEqual(logs, ["canal room:*, admission RoomAdmission, résolue"]);
   });
@@ -597,7 +613,10 @@ describe("#622 — inscription au démarrage (onKernelReady) et à la poignée d
     }
     new LateCtrl(fakeCtx()).feed();
     await new Promise<void>((resolve) => setImmediate(resolve));
-    assert.equal(getRealtimeHub().resolveChannelAdmission("user:acc-1"), arrow);
+    assert.equal(
+      getRealtimeHub().resolveChannelAdmission("user:acc-1")?.allow,
+      arrow,
+    );
   });
 
   it("une classe d'admission échappée au démarrage fait ÉCHOUER la poignée de main (fail-closed, 1011)", async () => {

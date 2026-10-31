@@ -1,6 +1,7 @@
 import type { JsonRpcPeer } from "nodefony";
 import type { WsConnectionTransport } from "../src/transport/WsConnectionTransport";
 import type { ChannelSink } from "../src/server/RealtimeHub";
+import type { ConnectionAdmission } from "../src/server/connectionAdmission";
 import type { RealtimeInboundHandler } from "./IRealtimeController";
 
 /**
@@ -27,6 +28,11 @@ export interface IRealtimeConnectionState {
   channels: Map<string, ChannelSink>;
   /** Canaux full-duplex qui acceptent une entrée client ; `null` s'il n'y en a aucun. */
   inbound: Record<string, RealtimeInboundHandler> | null;
+  /**
+   * File d'admission aux canaux à `allow` — `null` tant que la connexion n'a
+   * demandé aucun de ces canaux (la plupart ne le font jamais).
+   */
+  admission: ConnectionAdmission | null;
 }
 
 declare module "@nodefony/http" {

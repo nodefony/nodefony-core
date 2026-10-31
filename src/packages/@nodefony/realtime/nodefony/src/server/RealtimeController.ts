@@ -13,6 +13,7 @@ import {
   type JsonRpcPeerOptions,
   type IRealtimeWelcome,
   type IRealtimeDenied,
+  type RealtimeDeniedReason,
   type EventsMap,
   type ActionsMap,
   type DefaultEventsMap,
@@ -51,6 +52,7 @@ import {
   getRealtimeHub,
   type ChannelSink,
   type IRevocableConnection,
+  type RealtimeHub,
 } from "./RealtimeHub";
 import { ANONYMOUS_REALTIME_TOKEN } from "./AnonymousRealtimeToken";
 import type {
@@ -76,7 +78,11 @@ import { registerControllerPolicies } from "./channelPolicyRegistry";
 import { welcomeIdentityOf } from "./welcomeIdentity";
 import { isRecord } from "../guards";
 import { subscribedAckFrame } from "./subscribedAck";
-import { deniedDetail } from "./deniedDetail";
+import { deniedDetail, explainsDenials } from "./deniedDetail";
+import {
+  ConnectionAdmission,
+  type IChannelAdmissionRule,
+} from "./connectionAdmission";
 
 /**
  * Une action RPC n'a ni variables de route ni URL : `@Param` et `@Query` y
@@ -168,6 +174,11 @@ function webSocketServerOf(
 // (aucun frameAuthorizer câblé) n'est émis qu'UNE fois par process, quel que soit le
 // nombre de connexions/controllers. Une fois suffit à alerter l'exploitant.
 let warnedUnenforcedPolicies = false;
+
+// Même garde pour un jeton sans `getIdentity` demandé sur un canal à `allow` :
+// WARNING la première fois, DEBUG ensuite — un refus par subscribe sous flood
+// ne doit pas devenir un amplificateur de journaux.
+let warnedNoIdentity = false;
 
 /**
  * RealtimeController — base d'un endpoint WebSocket temps réel SERVEUR (JSON-RPC 2.0).
@@ -846,6 +857,7 @@ export abstract class RealtimeController<
       transport,
       channels: new Map(),
       inbound,
+      admission: null,
     };
     ctx.__nfRealtime = state;
 
@@ -860,6 +872,12 @@ export abstract class RealtimeController<
         liveHub.unsubscribe(channel, sink);
       }
       state.channels.clear();
+      // Admissions en attente : minuteur coupé, places du budget rendues,
+      // verdicts à venir jetés.
+      if (state.admission !== null) {
+        state.admission.close();
+        state.admission = null;
+      }
       liveHub.unregisterConnection(transport); // sonde : sortie symétrique du registre
       if (revocable) liveHub.unregisterRevocable(revocable); // F4 : sortie du tick de révocation
       transport.fireClose();
@@ -955,7 +973,14 @@ export abstract class RealtimeController<
     state.transport.send(subscribedAckFrame(channel));
   }
 
-  /** Abonne la connexion à un canal via le hub partagé (idempotent par connexion). */
+  /**
+   * Abonne la connexion à un canal via le hub partagé (idempotent par connexion).
+   *
+   * Un canal dont la politique déclare `allow` passe d'abord par la file
+   * d'admission de la connexion ; tout autre canal s'ouvre tout de suite, sans
+   * rien lire de plus qu'aujourd'hui (une recherche de politique au `subscribe`,
+   * trame de contrôle rare).
+   */
   private startChannel(ctx: WebsocketContext, channel?: string): void {
     if (!channel) return;
     const state = ctx.__nfRealtime;
@@ -966,34 +991,129 @@ export abstract class RealtimeController<
       this.acknowledgeSubscription(state, channel);
       return;
     }
+    const admission = state.admission;
+    // Déjà en attente de son verdict (rejeu, double envoi) : c'est lui qui
+    // répondra — un second appel d'`allow` ne dirait rien de plus.
+    if (admission?.revive(channel) === true) return;
+    const hub = getRealtimeHub();
     // F6a (revue 0.6) — cap anti-OOM : plafond de canaux par connexion. Chaque
     // canal ouvert = 1 ticker hub + provider + entrée Map → un socket qui subscribe
     // à N canaux sans borne = OOM. Vérifié APRÈS l'idempotence (un re-subscribe d'un
     // canal déjà tenu ne compte pas). `null` = illimité (opt-out explicite). Sous le
-    // seuil, le multiplexage N-canaux reste libre (North Star).
-    const cap = getRealtimeHub().maxChannelsPerConnection;
-    if (cap !== null && state.channels.size >= cap) {
+    // seuil, le multiplexage N-canaux reste libre (North Star). Les demandes qui
+    // attendent leur admission comptent : c'est ce qui borne la file (ADR-0021
+    // §S10 bis point 3), contrôlée AVANT tout appel d'`allow`.
+    const cap = hub.maxChannelsPerConnection;
+    if (
+      cap !== null &&
+      state.channels.size + (admission === null ? 0 : admission.unsettled) >=
+        cap
+    ) {
       // Refus OBSERVABLE (pas de dégradation silencieuse : sinon le client se croit
-      // abonné). `realtime:denied` = convention existante ; motif `limit` (une borne
-      // de ressource n'est pas un secret, ≠ oracle d'autorisation). Log DEBUG et NON
-      // WARNING : un log par subscribe refusé sous flood serait un amplificateur.
-      const denied: IRealtimeDenied = {
+      // abonné). Motif `limit` (une borne de ressource n'est pas un secret, ≠ oracle
+      // d'autorisation). Log DEBUG et NON WARNING : un log par subscribe refusé sous
+      // flood serait un amplificateur.
+      this.denyChannel(
+        state,
         channel,
-        reason: "limit",
-        ...deniedDetail(
-          this.kernel?.environment,
-          `plafond de ${cap} canaux par connexion atteint : désabonne-toi d'un ` +
-            `canal avant d'en ouvrir un autre, ou relève ` +
-            `\`maxChannelsPerConnection\` dans la configuration realtime`,
-        ),
-      };
-      state.peer.notify("realtime:denied", denied);
+        "limit",
+        `plafond de ${cap} canaux par connexion atteint : désabonne-toi d'un ` +
+          `canal avant d'en ouvrir un autre, ou relève ` +
+          `\`maxChannelsPerConnection\` dans la configuration realtime`,
+      );
       this.log(
         `WS subscribe refusé (cap ${cap} canaux/connexion atteint) → ${channel}`,
         "DEBUG",
       );
       return;
     }
+    const rule = hub.resolveChannelAdmission(channel);
+    if (rule === null) {
+      this.openChannel(state, channel);
+      return;
+    }
+    this.admitChannel(state, channel, rule, hub);
+  }
+
+  /**
+   * Soumet l'abonnement à la règle `allow` du canal — APRÈS le verrou des trames, qui a déjà jugé `authenticated`/`roles`/`scopes` (ADR-0022 §6, décision 1 ter, moment 2).
+   *
+   * `allow` s'applique même sans module de sécurité : il ne fait que retirer
+   * des abonnés, jamais en ajouter — l'ignorer ouvrirait `user:<id>` à tous.
+   * La file de la connexion n'est créée qu'à son premier canal à `allow`.
+   */
+  private admitChannel(
+    state: IRealtimeConnectionState,
+    channel: string,
+    rule: IChannelAdmissionRule,
+    hub: RealtimeHub,
+  ): void {
+    let admission = state.admission;
+    if (admission === null) {
+      // Identité gelée par l'authentificateur (référence mémorisée sur le
+      // jeton) : rien n'est recopié ici.
+      const who = hub.getTokenForPeer(state.peer).getIdentity?.();
+      if (who === undefined) {
+        // Jamais un `id` déduit du login : sans identité d'admission, aucun
+        // canal à `allow` (ADR-0021 §S10 point 5).
+        this.denyChannel(
+          state,
+          channel,
+          "forbidden",
+          `l'authentificateur de cette connexion ne produit pas d'identité ` +
+            `d'admission (\`getIdentity\`) : aucun canal à \`allow\` ne lui est ouvert`,
+        );
+        this.log(
+          `WS subscribe refusé : jeton sans getIdentity sur un canal à allow → ${channel}`,
+          warnedNoIdentity ? "DEBUG" : "WARNING",
+        );
+        warnedNoIdentity = true;
+        return;
+      }
+      admission = new ConnectionAdmission(
+        {
+          open: (ch) => this.openChannel(state, ch),
+          deny: (ch, reason, detail, retryAfterMs) => {
+            this.denyChannel(state, ch, reason, detail, retryAfterMs);
+            this.log(`WS subscribe refusé (${reason}) → ${ch}`, "DEBUG");
+          },
+          warn: (message) => this.log(message, "WARNING"),
+        },
+        hub.admissionBudget,
+        who,
+        explainsDenials(this.kernel?.environment),
+      );
+      state.admission = admission;
+    }
+    admission.request(channel, rule);
+  }
+
+  /**
+   * Rend un refus d'abonnement observable (`realtime:denied`) — le détail ne part qu'hors production.
+   *
+   * @param detail - phrase pour le développeur ; `undefined` quand l'appelant
+   *   ne l'a pas rédigée (production).
+   */
+  private denyChannel(
+    state: IRealtimeConnectionState,
+    channel: string,
+    reason: RealtimeDeniedReason,
+    detail: string | undefined,
+    retryAfterMs?: number,
+  ): void {
+    const denied: IRealtimeDenied = {
+      channel,
+      reason,
+      ...(detail === undefined
+        ? {}
+        : deniedDetail(this.kernel?.environment, detail)),
+      ...(retryAfterMs === undefined ? {} : { retryAfterMs }),
+    };
+    state.peer.notify("realtime:denied", denied);
+  }
+
+  /** Ouvre l'abonnement au hub et l'acquitte — canal sans `allow`, ou admis par sa règle. */
+  private openChannel(state: IRealtimeConnectionState, channel: string): void {
     // Sink de CETTE connexion : pousse la charge fan-outée par le hub sur son peer.
     // Quand le canal a plusieurs abonnés, le hub a déjà sérialisé la frame — une
     // seule fois pour tous : on l'écrit telle quelle sur le transport, au lieu de
@@ -1055,22 +1175,19 @@ export abstract class RealtimeController<
     // hub n'a trouvé personne pour PRODUIRE ce canal : nom mal orthographié ou
     // module absent. Le dire n'ouvre aucun oracle — un canal gardé est tranché en
     // amont par le verrou de frame, donc rendu `forbidden` qu'il existe ou non.
-    const denied: IRealtimeDenied = {
+    this.denyChannel(
+      state,
       channel,
-      reason: floor ? "forbidden" : "unknown",
-      ...deniedDetail(
-        this.kernel?.environment,
-        floor
-          ? `« ${channel} » appartient au namespace de plateforme, dont le ` +
-              `plancher est CLOS tant qu'aucun module de sécurité n'est chargé — ` +
-              `ce n'est pas ton identité qui est en cause`
-          : `aucun producteur pour « ${channel} » sur ce pod : vérifie ` +
-              `l'orthographe du canal, puis qu'un \`@RealtimeChannel("${channel}")\` ` +
-              `est bien déclaré dans un controller CHARGÉ (le runtime lit \`dist/\`, ` +
-              `pas les sources)`,
-      ),
-    };
-    state.peer.notify("realtime:denied", denied);
+      floor ? "forbidden" : "unknown",
+      floor
+        ? `« ${channel} » appartient au namespace de plateforme, dont le ` +
+            `plancher est CLOS tant qu'aucun module de sécurité n'est chargé — ` +
+            `ce n'est pas ton identité qui est en cause`
+        : `aucun producteur pour « ${channel} » sur ce pod : vérifie ` +
+            `l'orthographe du canal, puis qu'un \`@RealtimeChannel("${channel}")\` ` +
+            `est bien déclaré dans un controller CHARGÉ (le runtime lit \`dist/\`, ` +
+            `pas les sources)`,
+    );
     // DEBUG et non WARNING : un log par subscribe refusé sous flood serait un
     // amplificateur (même raison qu'au plafond de canaux).
     this.log(
@@ -1440,7 +1557,10 @@ export abstract class RealtimeController<
       getRealtimeHub().unsubscribe(channel, sink);
       state.channels.delete(channel);
       this.log(`WS unsubscribe → ${channel}`, "DEBUG");
+      return;
     }
+    // Pas encore ouvert : s'il attend son admission, son verdict sera jeté.
+    state.admission?.cancel(channel);
   }
 }
 

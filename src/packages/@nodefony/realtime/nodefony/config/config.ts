@@ -273,6 +273,46 @@ export const realtimeConfigSchema = z
       slowConsumerSchema.parse({}),
     ),
     limits: limitsSchema.default(() => limitsSchema.parse({})),
+    allowTimeoutMs: z
+      .number()
+      .int()
+      .positive()
+      // Borne de `setTimeout` : au-delà, Node ramène le délai à 1 ms et toute
+      // admission asynchrone échouerait aussitôt en `unavailable`.
+      .max(2_147_483_647)
+      .default(5000)
+      .describe(
+        "Délai (ms) de la règle d'admission `allow` d'un canal, compté depuis la " +
+          "réception du `subscribe`, attente en file comprise. Dépassé, l'abonné " +
+          "reçoit `realtime:denied` motif `unavailable` et réessaie ; un verdict " +
+          "arrivé après coup est ignoré, jamais une admission. Le minuteur n'est " +
+          "armé que si `allow` rend une promesse. Défaut 5000 : une lecture en " +
+          "base saine répond en millisecondes, 5 s couvrent une base chargée sans " +
+          "laisser un écran vide au-delà de ce qu'un humain attend.",
+      ),
+    maxPendingAllowsPerConnection: z
+      .number()
+      .int()
+      .positive()
+      .default(8)
+      .describe(
+        "Appels de `allow` en vol pour UNE connexion. Au-delà, la demande " +
+          "d'abonnement ATTEND son tour (jamais refusée : le rejeu au `welcome` " +
+          "renvoie tous les canaux d'un coup). Défaut 8 : assez pour ouvrir " +
+          "plusieurs canaux en parallèle, assez peu pour qu'une connexion ne " +
+          "monopolise pas le pool de connexions à la base (souvent 10).",
+      ),
+    maxPendingAllowsTotal: z
+      .number()
+      .int()
+      .positive()
+      .default(512)
+      .describe(
+        "Appels de `allow` en vol pour TOUT l'exemplaire. Au-delà, la demande " +
+          "reçoit `unavailable` sans appel (`allowSaturatedTotal`). Défaut 512 : " +
+          "à ce niveau la base est déjà l'étranglement ; empiler davantage " +
+          "d'appels n'admettrait personne plus vite et retarderait la reprise.",
+      ),
     csrf: csrfSchema.default(() => csrfSchema.parse({})),
     clientLogs: clientLogsSchema.default(() => clientLogsSchema.parse({})),
   })

@@ -358,6 +358,26 @@ describe("RealtimeService — façade DI du hub realtime", () => {
     });
   });
 
+  describe("#622 — bornes des admissions depuis la configuration", () => {
+    it("init pose allowTimeoutMs, maxPendingAllowsPerConnection et maxPendingAllowsTotal sur le hub", async () => {
+      const { module } = buildModuleMock(
+        defineRealtimeConfig({
+          allowTimeoutMs: 1234,
+          maxPendingAllowsPerConnection: 3,
+          maxPendingAllowsTotal: 2,
+        }),
+      );
+      const svc = new RealtimeService(module);
+      await svc.init(module);
+      const budget = getRealtimeHub().admissionBudget;
+      expect(budget.timeoutMs).to.equal(1234);
+      expect(budget.maxPerConnection).to.equal(3);
+      expect(budget.acquire()).to.equal(-1);
+      expect(budget.acquire()).to.equal(-1);
+      expect(budget.acquire()).to.equal(0, "plafond global de 2 posé");
+    });
+  });
+
   describe("introspection (getConfig / probe)", () => {
     it("getConfig AVANT init → throw 'not initialized'", () => {
       const { module } = buildModuleMock();

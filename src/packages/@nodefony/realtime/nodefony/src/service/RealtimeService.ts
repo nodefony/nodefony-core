@@ -117,6 +117,13 @@ class RealtimeService extends Service {
     hub.setMaxChannelsPerConnection(
       this.#config.limits.maxChannelsPerConnection,
     );
+    // #622 — bornes de l'admission `allow` (délai, appels en vol par connexion
+    // et par exemplaire), lues par la file de chaque connexion.
+    hub.setAdmissionLimits({
+      allowTimeoutMs: this.#config.allowTimeoutMs,
+      maxPendingAllowsPerConnection: this.#config.maxPendingAllowsPerConnection,
+      maxPendingAllowsTotal: this.#config.maxPendingAllowsTotal,
+    });
     // F9 (revue 0.6) — câble le seuil de comptage des consommateurs lents de la
     // sonde depuis la config (avant : clé morte, la sonde lisait une constante).
     hub.setSlowConsumerBytes(this.#config.slowConsumer.bytes);

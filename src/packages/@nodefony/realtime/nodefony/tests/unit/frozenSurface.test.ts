@@ -106,8 +106,11 @@ describe("surface temps réel figée par 10.0", () => {
   });
 
   it("un code attendu n'existe pas encore : son ticket retire `ticket` en le livrant", () => {
-    for (const e of FROZEN_CLOSE_CODES) {
-      if (!("ticket" in e)) continue;
+    // Élargi à `Entry` : une fois tous les codes livrés, le littéral n'a plus
+    // aucune entrée `ticket` et le rétrécir donnerait `never`.
+    const entries: readonly Entry[] = FROZEN_CLOSE_CODES;
+    for (const e of entries) {
+      if (e.ticket === undefined) continue;
       expect(
         exported.has(e.name),
         `${e.name} est livré : retirer « ticket: ${e.ticket} » de la fixture`,

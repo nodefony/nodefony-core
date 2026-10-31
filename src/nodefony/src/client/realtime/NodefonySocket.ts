@@ -240,6 +240,39 @@ const RECONNECT_DELAY_FLOOR = 100;
 const TIMER_MAX = 2 ** 31 - 1;
 
 /**
+ * Réessais d'un abonnement refusé `unavailable` (ADR-0021 §S10 bis point 3) :
+ * trois au plus, recul exponentiel à gigue COMPLÈTE depuis 1 s — fenêtres
+ * [0, 1 s[, [0, 2 s[, [0, 4 s[. La gigue complète étale dans toute la fenêtre
+ * les milliers d'abonnés refusés au même instant par une base saturée : une
+ * gigue partielle les ferait revenir ensemble.
+ */
+const ADMISSION_RETRY_MAX = 3;
+const ADMISSION_RETRY_BASE_MS = 1000;
+
+/** Un réessai d'admission programmé pour un canal. */
+interface IAdmissionRetry {
+  /** Réessais déjà programmés pour ce canal (1 à {@link ADMISSION_RETRY_MAX}). */
+  readonly attempt: number;
+  readonly timer: ReturnType<typeof setTimeout>;
+}
+
+/**
+ * Délai du réessai `attempt` (0 = le premier) d'un abonnement `unavailable` : gigue complète sur la fenêtre, APRÈS le délai que le serveur impose s'il en pose un.
+ *
+ * @param attempt - réessais déjà faits pour ce canal.
+ * @param retryAfterMs - délai minimal annoncé par le serveur (coupe-circuit),
+ *   déjà validé fini et positif par l'appelant.
+ * @returns un délai entier dans `[0, TIMER_MAX]`.
+ */
+function admissionRetryDelay(
+  attempt: number,
+  retryAfterMs: number | undefined,
+): number {
+  const jitter = Math.random() * ADMISSION_RETRY_BASE_MS * 2 ** attempt;
+  return Math.min(Math.round((retryAfterMs ?? 0) + jitter), TIMER_MAX);
+}
+
+/**
  * Durée d'ouverture (ms) au-delà de laquelle une connexion compte comme STABLE et
  * remet le back-off à zéro. Un serveur qui accepte puis coupe aussitôt ne le remet
  * donc jamais : il est ménagé de plus en plus, au lieu d'être sondé à cadence fixe.
@@ -576,6 +609,10 @@ export class NodefonySocket<
   // personne n'attend). Elles TRAVERSENT une reconnexion : le rejeu des
   // abonnements y appelle un nouvel acquittement.
   private _ackWaiters: Map<string, IAckWaiter[]> | null = null;
+  // Réessais d'admission en cours, par canal — lazy (`null` tant qu'aucun
+  // `unavailable` n'est reçu, le cas de presque toutes les connexions).
+  // `Map` : quelques entrées, posées et retirées au fil des refus.
+  private _admissionRetries: Map<string, IAdmissionRetry> | null = null;
   private reconnectAttempt = 0;
   private _nextRetryAt: number | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1098,6 +1135,7 @@ export class NodefonySocket<
     if (cur <= 1) {
       this._subscriptions.delete(c);
       this._acked?.delete(c);
+      if (this._admissionRetries !== null) this.dropAdmissionRetry(c);
       this.rejectAckWaiters(c, unsubscribedBeforeAck);
       // Avant le welcome, le serveur n'a rien enregistré : retirer l'entrée suffit.
       if (this._welcomed) this._emitRaw("unsubscribe", { channel: c });
@@ -1705,6 +1743,7 @@ export class NodefonySocket<
     if (typeof channel !== "string" || !this._subscriptions.has(channel))
       return;
     (this._acked ??= new Set()).add(channel);
+    if (this._admissionRetries !== null) this.dropAdmissionRetry(channel);
     if (this._ackWaiters !== null) this.resolveAckWaiters(channel);
     // La charge n'est construite que si quelqu'un écoute : sans écouteur, un
     // acquittement ne coûte qu'une entrée de Set.
@@ -1794,6 +1833,16 @@ export class NodefonySocket<
       typeof rawRetry === "number" && Number.isFinite(rawRetry) && rawRetry >= 0
         ? rawRetry
         : undefined;
+    // Indécidable pour l'instant : le seul `subscribe` concerné est rejoué en
+    // silence — l'attente `whenSubscribed` continue, aucun écran ne clignote.
+    // Le refus ne remonte qu'une fois les réessais épuisés.
+    if (
+      reason === "unavailable" &&
+      this._subscriptions.has(channel) &&
+      this.scheduleAdmissionRetry(channel, retryAfterMs)
+    ) {
+      return;
+    }
     const denied: IRealtimeDenied = {
       channel,
       reason,
@@ -2114,7 +2163,56 @@ export class NodefonySocket<
     }, interval);
   }
 
+  /**
+   * Programme le réessai d'un abonnement refusé `unavailable`.
+   *
+   * @returns `false` quand les réessais du canal sont épuisés : le refus doit
+   *   alors remonter à l'application.
+   */
+  private scheduleAdmissionRetry(
+    channel: string,
+    retryAfterMs: number | undefined,
+  ): boolean {
+    const retries = (this._admissionRetries ??= new Map<
+      string,
+      IAdmissionRetry
+    >());
+    const attempt = retries.get(channel)?.attempt ?? 0;
+    if (attempt >= ADMISSION_RETRY_MAX) {
+      retries.delete(channel);
+      return false;
+    }
+    // Sans garde à l'échéance : tout ce qui rendrait ce rejeu faux coupe le
+    // minuteur avant — désabonnement et acquittement (`dropAdmissionRetry`),
+    // déconnexion et fermeture (`clearTimers`).
+    const timer = setTimeout(
+      () => {
+        this._emitRaw("subscribe", { channel });
+      },
+      admissionRetryDelay(attempt, retryAfterMs),
+    );
+    retries.set(channel, { attempt: attempt + 1, timer });
+    return true;
+  }
+
+  /** Oublie le réessai d'un canal (acquitté ou rendu) et coupe son minuteur. */
+  private dropAdmissionRetry(channel: string): void {
+    const retries = this._admissionRetries;
+    if (retries === null) return;
+    const retry = retries.get(channel);
+    if (retry === undefined) return;
+    clearTimeout(retry.timer);
+    retries.delete(channel);
+  }
+
   private clearTimers(): void {
+    // Une connexion fermée emporte ses réessais : le rejeu du prochain
+    // `welcome` redemande chaque canal, avec des tentatives neuves.
+    if (this._admissionRetries !== null) {
+      for (const retry of this._admissionRetries.values())
+        clearTimeout(retry.timer);
+      this._admissionRetries = null;
+    }
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
     if (this.connectTimer) clearTimeout(this.connectTimer);

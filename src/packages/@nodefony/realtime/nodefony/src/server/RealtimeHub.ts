@@ -13,7 +13,9 @@ import {
   MAX_CHANNEL_PATTERN_WILDCARDS,
   BootConfigurationError,
 } from "nodefony";
-import type { ChannelAllowFunction, IChannelAdmission } from "nodefony";
+import type { IChannelAdmission } from "nodefony";
+import { AdmissionBudget, type IAdmissionLimits } from "./admissionBudget";
+import type { IChannelAdmissionRule } from "./connectionAdmission";
 import { isAdmissionClass } from "../../decorators/realtimeDecorators";
 import { frameRateRejectedTotal } from "@nodefony/http";
 import type {
@@ -226,7 +228,7 @@ interface ChannelState {
  */
 interface IChannelPolicyEntry {
   readonly policy: IChannelPolicy;
-  readonly admit: ChannelAllowFunction | null;
+  readonly admission: IChannelAdmissionRule | null;
 }
 
 /**
@@ -235,17 +237,18 @@ interface IChannelPolicyEntry {
  * Une flèche se retient telle quelle. Une classe exige son instance — résolue au
  * démarrage, jamais ici : le hub n'a pas d'injecteur, et résoudre à la première
  * poignée de main laisserait sans politique un exemplaire qui n'émet que des
- * webhooks. La méthode est liée une fois, pour que le `subscribe` n'appelle
- * qu'une fonction.
+ * webhooks. La méthode est liée une fois, et la règle se construit une fois :
+ * le `subscribe` n'alloue rien et n'appelle qu'une fonction.
  */
-function admitOf(
+function admissionRuleOf(
   name: string,
   policy: IChannelPolicy,
   admission: IChannelAdmission | undefined,
-): ChannelAllowFunction | null {
+): IChannelAdmissionRule | null {
   const allow = policy.allow;
   if (allow === undefined) return null;
-  if (!isAdmissionClass(allow)) return allow;
+  const anonymous = policy.anonymous === true;
+  if (!isAdmissionClass(allow)) return { allow, anonymous };
   if (!(admission instanceof allow)) {
     throw new BootConfigurationError(
       `canal temps réel « ${name} » : la classe d'admission ${allow.name} ` +
@@ -254,7 +257,7 @@ function admitOf(
         `l'inscrit et résout ses dépendances.`,
     );
   }
-  return admission.allow.bind(admission);
+  return { allow: admission.allow.bind(admission), anonymous };
 }
 
 /**
@@ -450,6 +453,13 @@ export class RealtimeHub {
   // config était MORTE : la sonde lisait la constante). Métrique d'observabilité
   // uniquement — l'ACTION de back-pressure a ses propres seuils dans WsConnectionTransport.
   #slowConsumerBytes: number = SLOW_CONSUMER_BYTES;
+
+  /**
+   * Budget des admissions de l'exemplaire (appels d'`allow` en vol, coupe-circuit,
+   * `allowTimedOutTotal`/`allowSaturatedTotal`) — partagé par les files de toutes
+   * les connexions. Bornes posées par {@link setAdmissionLimits} au boot.
+   */
+  readonly admissionBudget = new AdmissionBudget();
 
   // Politique de forward PAR CANAL (Phase 4). Préfixes des canaux **broadcast**
   // (cross-process). Lazy : `null` tant qu'aucun canal broadcast n'est déclaré →
@@ -982,6 +992,8 @@ export class RealtimeHub {
       sealRejectedTotal: backplane.sealRejectedTotal ?? 0,
       // Compté par `@nodefony/http` avant le routage : aucun hub ne voit la trame.
       frameRateRejectedTotal: frameRateRejectedTotal(),
+      allowTimedOutTotal: this.admissionBudget.timedOutTotal,
+      allowSaturatedTotal: this.admissionBudget.saturatedTotal,
       connectionCount,
       bytesSentTotal,
       messagesSentTotal,
@@ -1081,6 +1093,13 @@ export class RealtimeHub {
    */
   setSlowConsumerBytes(bytes: number): void {
     this.#slowConsumerBytes = bytes;
+  }
+
+  /**
+   * Pose les bornes des admissions (`allowTimeoutMs`, `maxPendingAllowsPerConnection`, `maxPendingAllowsTotal`) — 1× au boot par `RealtimeService.init()`.
+   */
+  setAdmissionLimits(limits: IAdmissionLimits): void {
+    this.admissionBudget.configure(limits);
   }
 
   /**
@@ -1229,7 +1248,7 @@ export class RealtimeHub {
   ): void {
     const entry: IChannelPolicyEntry = {
       policy,
-      admit: admitOf(name, policy, admission),
+      admission: admissionRuleOf(name, policy, admission),
     };
     // Un canal déclaré dans un namespace réservé hérite du plancher de la
     // plateforme (rôle d'administration), qui l'emporte sur la politique écrite
@@ -1326,8 +1345,8 @@ export class RealtimeHub {
    * Même résolution que {@link resolveChannelPolicy} (nom exact, puis motif le
    * plus spécifique) : la règle suit TOUJOURS la politique qui s'applique.
    */
-  resolveChannelAdmission(name: string): ChannelAllowFunction | null {
-    return this.#resolvePolicyEntry(name)?.admit ?? null;
+  resolveChannelAdmission(name: string): IChannelAdmissionRule | null {
+    return this.#resolvePolicyEntry(name)?.admission ?? null;
   }
 
   /**
@@ -1528,6 +1547,7 @@ export class RealtimeHub {
     this.#inboundTotal = 0;
     this.#ingressRejectedTotal = 0;
     this.#systemFloorDeniedTotal = 0;
+    this.admissionBudget.reset();
     // Les avertissements de plateforme aussi : sans ce reset, un motif déjà émis
     // reste marqué « vu » pour le process entier. Un test qui vérifie une alerte
     // passe alors seul et échoue en suite — et surtout, un hub réinitialisé se
