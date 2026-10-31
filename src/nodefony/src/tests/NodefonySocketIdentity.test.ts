@@ -22,6 +22,7 @@ function newClient(): { client: NodefonySocket; internal: Internals } {
 const anon = {
   type: "anonymous",
   authenticated: false,
+  id: null,
   userIdentifier: "anonymous",
   roles: ["ROLE_ANONYMOUS"],
   scopes: [],
@@ -29,6 +30,7 @@ const anon = {
 const admin = {
   type: "session",
   authenticated: true,
+  id: "1",
   userIdentifier: "admin",
   roles: ["ROLE_ADMIN"],
   scopes: [],

@@ -1,9 +1,25 @@
-import type { TokenStatus } from "nodefony";
+import type { ISubscriberIdentity, TokenStatus } from "nodefony";
 import type { IUser } from "@nodefony/user";
 import type { IRealtimeToken } from "./realtimeContracts";
 
 /** Aucun scope — figé et partagé (0 allocation pour le cas humain, le plus courant). */
 const EMPTY_SCOPES: readonly string[] = Object.freeze([]);
+
+/**
+ * Ce que l'identité d'admission tient du jeton d'ORIGINE et que l'utilisateur ne dit pas : son émetteur, et l'existence d'un compte local relisible.
+ */
+export interface IRealtimeAdmissionSource {
+  /** `iss` du jeton vérifié ; `null` sans jeton (session, clé d'API). */
+  readonly issuer: string | null;
+  /** `false` pour un appelant machine sans compte local (`<émetteur>#<sujet>`). */
+  readonly account: boolean;
+}
+
+/** Une session ou une clé d'API : aucun émetteur, un compte local — figé et partagé. */
+export const LOCAL_ACCOUNT: IRealtimeAdmissionSource = Object.freeze({
+  issuer: null,
+  account: true,
+});
 
 /**
  * Adaptateur `IUser` → `IRealtimeToken` (jeton realtime).
@@ -55,6 +71,16 @@ export class UserRealtimeToken implements IRealtimeToken {
    */
   readonly #confirmAccount: (() => Promise<boolean>) | null;
 
+  /** Émetteur et compte, repris du jeton d'origine pour l'identité d'admission. */
+  readonly #admission: IRealtimeAdmissionSource;
+
+  /**
+   * Identité d'admission, construite au PREMIER appel puis rendue telle quelle :
+   * `null` tant que personne ne l'a demandée (un jeton construit pour un test ou
+   * un pont qui ne la lit jamais ne la paie pas).
+   */
+  #identity: ISubscriberIdentity | null = null;
+
   /**
    * @param user - identité authentifiée résolue par le firewall.
    * @param revalidate - preuve de vie de l'identité, adaptée à son mode.
@@ -63,6 +89,8 @@ export class UserRealtimeToken implements IRealtimeToken {
    * @param confirmAccount - relecture du compte, payée sur `api.request` seul.
    * @param status - la CAUSE de l'état, pour un jeton porteur (expiré ou révoqué) ;
    *   `null` pour une session, qui n'a qu'un verdict.
+   * @param admission - émetteur et compte local du jeton d'origine (défaut :
+   *   aucun émetteur, compte local — une session).
    */
   constructor(
     user: IUser,
@@ -71,7 +99,9 @@ export class UserRealtimeToken implements IRealtimeToken {
     scopes: readonly string[] = EMPTY_SCOPES,
     confirmAccount: (() => Promise<boolean>) | null = null,
     status: ((nowMs?: number) => Promise<TokenStatus>) | null = null,
+    admission: IRealtimeAdmissionSource = LOCAL_ACCOUNT,
   ) {
+    this.#admission = admission;
     this.#confirmAccount = confirmAccount;
     this.#status = status;
     this.#user = user;
@@ -139,6 +169,32 @@ export class UserRealtimeToken implements IRealtimeToken {
    */
   getScopes(): string[] {
     return [...this.#scopes];
+  }
+
+  /**
+   * Identité d'admission gelée de la connexion — la donnée plate que reçoit la règle `allow` d'un canal (ADR-0021 §S10).
+   *
+   * Construite une fois, au premier appel, puis rendue par RÉFÉRENCE : les rôles
+   * y sont copiés et gelés une seule fois (là où {@link getRoles} recopie à
+   * chaque appel), si bien que ni le `welcome` ni l'admission ne recopient
+   * plus rien. Gelée : une règle `allow` ne peut pas s'ajouter un rôle.
+   * `id` est l'identifiant immuable du compte, jamais son login.
+   */
+  getIdentity(): ISubscriberIdentity {
+    if (this.#identity !== null) return this.#identity;
+    const user = this.#user;
+    const scopes = this.#scopes;
+    this.#identity = Object.freeze({
+      type: this.type,
+      authenticated: true,
+      id: user.id,
+      userIdentifier: user.identifier,
+      roles: Object.freeze([...user.roles]),
+      scopes: Object.isFrozen(scopes) ? scopes : Object.freeze([...scopes]),
+      issuer: this.#admission.issuer,
+      account: this.#admission.account,
+    });
+    return this.#identity;
   }
 
   // Accesseur typé par l'appelant, par construction : retirer `T` casserait

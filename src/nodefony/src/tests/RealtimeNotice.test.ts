@@ -130,6 +130,17 @@ describe("NodefonySocket — deniedToNotice (refus de canal, pendant FRAME)", ()
     expect(n.message).to.not.match(/refus/i);
     expect(n.level).to.equal("error");
   });
+
+  it("indisponibilité passagère : dit le NOUVEL ESSAI, jamais un refus, et reste un avertissement", () => {
+    // `unavailable` ne dit rien du droit de l'abonné : la règle d'admission n'a
+    // pas répondu à temps. Un « accès refusé » enverrait chercher un droit qui
+    // ne manque pas, alors que le client réessaie déjà de lui-même.
+    const n = deniedToNotice({ channel: "room:42", reason: "unavailable" });
+    expect(n.message).to.contain("room:42");
+    expect(n.message).to.not.match(/refus/i);
+    expect(n.message).to.match(/indisponible/i);
+    expect(n.level).to.equal("warning");
+  });
 });
 
 describe("NodefonySocket — isReconnectableCloseCode (respect sémantique RFC 6455)", () => {

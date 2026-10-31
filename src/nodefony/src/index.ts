@@ -248,6 +248,7 @@ export {
   IDENTITY_REFRESH_CLOSE_CODE,
   TOKEN_EXPIRED_CLOSE_CODE,
   BACKPRESSURE_CLOSE_CODE,
+  TRY_AGAIN_LATER_CLOSE_CODE,
 } from "./realtime/closeCodes";
 export { decideBackpressure, nextDropBalance } from "./realtime/backpressure";
 export type {
@@ -318,8 +319,16 @@ export type {
   RealtimeIdentity,
   IRealtimeWelcome,
   IRealtimeDenied,
+  RealtimeDeniedReason,
   IRealtimeSubscribed,
 } from "./realtime/RealtimeEventMap";
+export type {
+  ISubscriberIdentity,
+  IChannelAdmission,
+  ChannelAllowFunction,
+  ChannelAdmissionClass,
+  ChannelAllow,
+} from "./realtime/channelAdmission";
 
 // ─── Errors ───────────────────────────────────────────────────────────────────
 export { default as nodefonyError, registerErrorAdapter } from "./Error";

@@ -480,6 +480,28 @@ describe("Identité realtime — jeton d'un émetteur TIERS (P6.9)", () => {
     assert.equal(await token.isValid?.(NOW), true);
   });
 
+  // ── identité d'ADMISSION (ADR-0021 §S10) : émetteur et compte, constatés ──
+
+  it("appelant machine ÉPHÉMÈRE → identité d'admission `account: false`, émetteur VÉRIFIÉ, `id` = `<émetteur>#<sujet>`", async () => {
+    const auth = new FirewallRealtimeAuthenticator();
+    const issued = await issuedByExternal({
+      subject: "agent-7",
+      scopes: ["orders:read"],
+      expiresAt: SEC(NOW) + 3600,
+    });
+    const machine = issued.getUser();
+    const token = await inScope({ user: machine, token: issued }, () =>
+      auth.authenticate(HANDSHAKE),
+    );
+    const who = token.getIdentity?.();
+    assert.ok(who !== undefined);
+    assert.equal(who.account, false);
+    assert.equal(who.issuer, EXT_ISSUER);
+    assert.equal(who.id, machine.id);
+    assert.equal(who.authenticated, true);
+    assert.deepEqual([...who.scopes], ["orders:read"]);
+  });
+
   it("🔴 tombe quand le jeton tiers EXPIRE — la socket ne lui survit pas", async () => {
     // LE vecteur. Sans la borne remontée par le vérificateur puis posée par
     // l'authenticator, cette socket vivait indéfiniment.

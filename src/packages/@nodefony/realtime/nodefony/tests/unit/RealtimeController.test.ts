@@ -9,7 +9,7 @@ import type {
 } from "../../interfaces/IRealtimeController.js";
 import type { IRealtimeAuthenticator } from "../../interfaces/IRealtimeAuthenticator.js";
 import type { IRealtimeToken } from "../../interfaces/IRealtimeToken.js";
-import type { RpcActionHandler } from "nodefony";
+import type { ISubscriberIdentity, RpcActionHandler } from "nodefony";
 import type { ContextType } from "@nodefony/http";
 
 const OPEN = 1;
@@ -140,6 +140,7 @@ describe("RealtimeController — base endpoint WS (protocole factorisé)", () =>
       expect(params.identity).to.deep.equal({
         type: "anonymous",
         authenticated: false,
+        id: null,
         userIdentifier: "anonymous",
         roles: ["ROLE_ANONYMOUS"],
         scopes: [],
@@ -409,10 +410,58 @@ describe("RealtimeController — base endpoint WS (protocole factorisé)", () =>
       expect(params.identity).to.deep.equal({
         type: "jwt",
         authenticated: true,
+        id: null,
         userIdentifier: "user-42",
         roles: ["ROLE_USER", "ROLE_ADMIN"],
         scopes: ["chat:write"],
       });
+    });
+
+    it("welcome d'une identité d'admission : la TRAME émise porte `id`, et JAMAIS `issuer` ni `account`", async () => {
+      // Le client recopie l'identité champ par champ : une fuite côté serveur
+      // ne se verrait pas dans `client.identity`. C'est la trame elle-même qui
+      // doit être propre — l'émetteur d'un jeton tiers n'a rien à faire chez le
+      // client (ADR-0021 §S10 point 1).
+      const who: ISubscriberIdentity = Object.freeze({
+        type: "jwt",
+        authenticated: true,
+        id: "acc-42",
+        userIdentifier: "user-42",
+        roles: Object.freeze(["ROLE_USER"]),
+        scopes: Object.freeze([]),
+        issuer: "https://sso.example.test",
+        account: false,
+      });
+      const customToken: IRealtimeToken = {
+        type: "jwt",
+        getUserIdentifier: () => "user-42",
+        isAuthenticated: () => true,
+        getRoles: () => ["ROLE_USER"],
+        getScopes: () => [],
+        getAttribute: () => undefined,
+        getIdentity: () => who,
+      };
+      getRealtimeHub().useAuthenticator(
+        { pattern: "/realtime" },
+        {
+          name: "fake_sso",
+          supports: () => true,
+          authenticate: async () => customToken,
+        },
+      );
+      const { ctx, sent } = makeCtx({ url: "/realtime" });
+      new TestRt(ctx).feed(null);
+      await new Promise((r) => setTimeout(r, 0));
+      const params = sent[0]!.params as Record<string, unknown>;
+      expect(Object.keys(params.identity as object).sort()).to.deep.equal([
+        "authenticated",
+        "id",
+        "roles",
+        "scopes",
+        "type",
+        "userIdentifier",
+      ]);
+      expect((params.identity as { id: unknown }).id).to.equal("acc-42");
     });
 
     it("authenticate() throw → close 4001 + onFailure appelé + pas de welcome", async () => {

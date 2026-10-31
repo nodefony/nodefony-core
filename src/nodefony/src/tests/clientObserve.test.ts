@@ -309,6 +309,7 @@ describe("observeState / observeIdentity — l'état courant, puis ses transitio
       identity: {
         type: "session",
         authenticated: true,
+        id: "alice-1",
         userIdentifier: "alice",
         roles: [],
         scopes: [],
@@ -463,6 +464,7 @@ describe("socketSnapshot — ce que le client sait de sa PROPRE socket", () => {
       identity: {
         type: "session",
         authenticated: true,
+        id: "admin-1",
         userIdentifier: "admin",
         roles: ["ROLE_ADMIN"],
         scopes: [],

@@ -2,6 +2,7 @@ import Ws, { WebSocketServer, ServerOptions } from "ws";
 import {
   decideBackpressure,
   nextDropBalance,
+  TRY_AGAIN_LATER_CLOSE_CODE,
   type BackpressurePolicy,
   type BackpressureVerdict,
 } from "nodefony";
@@ -124,6 +125,6 @@ export const decideSend = (
   ws._nfDrops = (ws._nfDrops ?? 0) + 1;
   ws._nfDropStreak = nextDropBalance(verdict, balance);
   // RFC 6455 §7.4.1 1013 « Try Again Later » : le client peut reculer puis revenir.
-  if (verdict === "close") ws.close(1013, "backpressure");
+  if (verdict === "close") ws.close(TRY_AGAIN_LATER_CLOSE_CODE, "backpressure");
   return verdict;
 };

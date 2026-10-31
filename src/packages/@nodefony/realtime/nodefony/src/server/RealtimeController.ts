@@ -73,6 +73,7 @@ import {
   type RealtimeActionWrapper,
 } from "../../decorators/realtimeDecorators";
 import { welcomeEnv } from "./welcomeEnv";
+import { welcomeIdentityOf } from "./welcomeIdentity";
 import { isRecord } from "../guards";
 import { subscribedAckFrame } from "./subscribedAck";
 import { deniedDetail } from "./deniedDetail";
@@ -906,13 +907,7 @@ export abstract class RealtimeController<
       // acquittement qu'un serveur ancien n'enverrait jamais.
       subscriptionAcks: true,
       ...welcomeEnv(env),
-      identity: {
-        type: token.type,
-        authenticated: token.isAuthenticated(),
-        userIdentifier: token.getUserIdentifier(),
-        roles: token.getRoles(),
-        scopes: token.getScopes(),
-      },
+      identity: welcomeIdentityOf(token),
     };
     peer.notify("realtime:welcome", welcome);
     this.log("WS realtime client connected", "INFO");

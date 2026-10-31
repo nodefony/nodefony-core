@@ -95,6 +95,7 @@ export { RpcError } from "../../realtime/JsonRpcPeer";
 export type {
   RealtimeIdentity,
   IRealtimeWelcome,
+  RealtimeDeniedReason,
   IRealtimeSubscribed,
   IRealtimeContract,
   Jsonify,
@@ -449,12 +450,16 @@ function stringsOf(value: unknown): string[] | null {
 function identityOf(value: unknown): RealtimeIdentity | null {
   const type = fieldOf(value, "type");
   const authenticated = fieldOf(value, "authenticated");
+  const id = fieldOf(value, "id");
   const userIdentifier = fieldOf(value, "userIdentifier");
   const roles = fieldOf(value, "roles");
   const scopes = fieldOf(value, "scopes");
   if (
     typeof type !== "string" ||
     typeof authenticated !== "boolean" ||
+    // `id` est REQUIS (`null` compris) : absent, l'identité n'est pas celle du
+    // contrat, et un canal personnel `user:${id}` deviendrait `user:undefined`.
+    (id !== null && typeof id !== "string") ||
     typeof userIdentifier !== "string" ||
     !Array.isArray(roles) ||
     !Array.isArray(scopes)
@@ -467,6 +472,7 @@ function identityOf(value: unknown): RealtimeIdentity | null {
   return {
     type,
     authenticated,
+    id,
     userIdentifier,
     roles: roleList,
     scopes: scopeList,
@@ -1767,7 +1773,9 @@ export class NodefonySocket<
     // prudent : il n'annonce jamais qu'un accès était possible.
     const brut = fieldOf(params, "reason");
     const reason: IRealtimeDenied["reason"] =
-      brut === "unknown" || brut === "limit" ? brut : "forbidden";
+      brut === "unknown" || brut === "limit" || brut === "unavailable"
+        ? brut
+        : "forbidden";
     // Le DÉTAIL est repris tel quel quand le serveur en pose un — il n'existe
     // qu'hors production (`deniedDetail`, côté serveur), et il porte ce qu'il
     // faut regarder là où `reason`, générique par construction, ne dit rien.
@@ -1777,10 +1785,20 @@ export class NodefonySocket<
     // l'écran attend du texte.
     const rawDetail = fieldOf(params, "detail");
     const detail = typeof rawDetail === "string" ? rawDetail : undefined;
+    // Un délai d'attente n'a de sens qu'avec `unavailable`, et seulement s'il
+    // est un nombre fini positif : une frame hostile ne fixe pas l'horloge du
+    // client à `Infinity`.
+    const rawRetry =
+      reason === "unavailable" ? fieldOf(params, "retryAfterMs") : undefined;
+    const retryAfterMs =
+      typeof rawRetry === "number" && Number.isFinite(rawRetry) && rawRetry >= 0
+        ? rawRetry
+        : undefined;
     const denied: IRealtimeDenied = {
       channel,
       reason,
       ...(detail === undefined ? {} : { detail }),
+      ...(retryAfterMs === undefined ? {} : { retryAfterMs }),
     };
     this.fireNotice(deniedToNotice(denied));
     this.fireLocal(LOCAL_EVENTS.denied, denied);

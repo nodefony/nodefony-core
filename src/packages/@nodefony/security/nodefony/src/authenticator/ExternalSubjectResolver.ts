@@ -28,6 +28,27 @@ const INVALID_TOKEN = "Invalid token";
 /** Comment le sujet d'un jeton devient un utilisateur de cette application. */
 export type ExternalSubjectPolicy = "require" | "ephemeral";
 
+/**
+ * Les utilisateurs FABRIQUÉS en mode `ephemeral` — aucun compte local derrière.
+ * Faible : l'entrée meurt avec l'utilisateur, à la fin de sa requête ou de sa
+ * socket ; rien n'est à nettoyer.
+ */
+const EPHEMERAL_SUBJECTS = new WeakSet<IUser>();
+
+/**
+ * Cet utilisateur a-t-il été fabriqué pour un appelant machine SANS compte local (mode `ephemeral`) ?
+ *
+ * L'identité d'admission temps réel en tire `account: false` : rien ne
+ * pourrait relire cet appelant par son `id` (`<émetteur>#<sujet>`), et un
+ * abonnement durable ne doit pas s'y adosser (ADR-0021 §S10 point 6). Lu sur
+ * le FAIT (l'objet vient du résolveur), jamais déduit de la forme de `id`.
+ *
+ * @param user - utilisateur résolu par le pare-feu.
+ */
+export function isEphemeralSubject(user: IUser): boolean {
+  return EPHEMERAL_SUBJECTS.has(user);
+}
+
 /** Un émetteur reconnu, et la façon dont ses sujets entrent chez nous. */
 export interface IExternalIssuerBinding {
   /** Émetteur de confiance, sous sa forme canonique. */
@@ -226,11 +247,13 @@ export class ExternalSubjectResolver {
       // Identité qui ne survit pas à la requête : rien n'est écrit, rien n'est
       // à nettoyer.
       const identifier = localIdentifierFor(issuer, subject, "prefixed");
-      return new BaseUser({
+      const ephemeral = new BaseUser({
         id: identifier,
         identifier,
         roles: [...(area?.ephemeralRoles ?? this.#ephemeralRoles)],
       });
+      EPHEMERAL_SUBJECTS.add(ephemeral);
+      return ephemeral;
     }
     const identifier = localIdentifierFor(issuer, subject, mapping);
     const provider = this.#resolveUserProvider();

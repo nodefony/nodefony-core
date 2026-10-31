@@ -1,4 +1,4 @@
-import type { TokenStatus } from "nodefony";
+import type { ISubscriberIdentity, TokenStatus } from "nodefony";
 /**
  * Miroirs STRUCTURELS des contrats `@nodefony/realtime` — **zéro import** du
  * module realtime (ni runtime ni type-only).
@@ -52,6 +52,12 @@ export interface IRealtimeToken {
    * confirmé). Relit l'annuaire : payé sur `api.request` seul, jamais au tick.
    */
   confirmAccount?(): Promise<boolean>;
+  /**
+   * Identité d'admission gelée de la connexion (miroir de
+   * `IRealtimeToken.getIdentity` realtime) — ce que reçoit la règle `allow`
+   * d'un canal. Absente, la connexion n'entre sur aucun canal à `allow`.
+   */
+  getIdentity?(): ISubscriberIdentity;
 }
 
 /**

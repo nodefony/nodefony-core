@@ -1,4 +1,4 @@
-import type { TokenStatus } from "nodefony";
+import type { ISubscriberIdentity, TokenStatus } from "nodefony";
 /**
  * Jeton realtime — surface MINIMALE de l'identité d'une connexion WebSocket.
  *
@@ -79,4 +79,16 @@ export interface IRealtimeToken {
    * qui le paierait pour chaque socket ouverte, à chaque tour.
    */
   confirmAccount?(): Promise<boolean>;
+
+  /**
+   * Identité d'ADMISSION de la connexion — la donnée plate que reçoit la règle `allow` d'un canal, construite UNE fois et gelée.
+   *
+   * Rend toujours la MÊME référence : elle est lue au `welcome` puis à chaque
+   * admission, jamais recalculée. Optionnelle pour un authentificateur tiers ;
+   * absente, la connexion n'entre sur AUCUN canal qui déclare `allow` (refus
+   * `forbidden` et une ligne de journal) — jamais un `id` déduit de
+   * {@link getUserIdentifier}, qui est un login et se réattribue
+   * (ADR-0021 §S10).
+   */
+  getIdentity?(): ISubscriberIdentity;
 }

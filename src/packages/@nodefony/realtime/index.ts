@@ -454,7 +454,10 @@ export {
 };
 
 // Token anonyme (singleton gelé) — fallback Zero Trust quand aucun matcher capture.
-export { ANONYMOUS_REALTIME_TOKEN } from "./nodefony/src/server/AnonymousRealtimeToken";
+export {
+  ANONYMOUS_REALTIME_TOKEN,
+  ANONYMOUS_SUBSCRIBER_IDENTITY,
+} from "./nodefony/src/server/AnonymousRealtimeToken";
 
 // Builder type-safe + JSON Schema (Bloc A étape 5).
 export {

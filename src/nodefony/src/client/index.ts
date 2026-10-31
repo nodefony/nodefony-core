@@ -40,6 +40,9 @@ export type {
   RealtimeIdentity,
   IRealtimeWelcome,
   IRealtimeDenied,
+  // Motif fermé de la trame de refus : un `switch` exhaustif côté écran doit
+  // pouvoir le NOMMER (le compilateur rappelle alors chaque motif ajouté).
+  RealtimeDeniedReason,
   IRealtimeSubscribed,
   // Charge utile de `onReconnect` / `observeReconnect` : l'écran qui rend un
   // compte à rebours doit pouvoir NOMMER ce qu'il reçoit.

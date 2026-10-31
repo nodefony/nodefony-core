@@ -17,7 +17,7 @@ export const FROZEN_CLOSE_CODES = [
   { code: 4005, name: "IDENTITY_REFRESH_CLOSE_CODE" },
   { code: 4006, name: "TOKEN_EXPIRED_CLOSE_CODE" },
   { code: 4007, name: "BACKPRESSURE_CLOSE_CODE" },
-  { code: 1013, name: "TRY_AGAIN_LATER_CLOSE_CODE", ticket: 622 },
+  { code: 1013, name: "TRY_AGAIN_LATER_CLOSE_CODE" },
 ] as const;
 
 /** Motifs fermés de `realtime:denied` (`RealtimeDeniedReason`, S10 bis point 3). */
@@ -25,7 +25,7 @@ export const FROZEN_DENIED_REASONS = [
   { name: "forbidden" },
   { name: "limit" },
   { name: "unknown" },
-  { name: "unavailable", ticket: 622 },
+  { name: "unavailable" },
 ] as const;
 
 /** Compteurs de REFUS, un par cause, ensemble fermé (S9) — sonde du hub. */

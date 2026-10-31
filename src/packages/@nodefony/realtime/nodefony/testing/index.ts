@@ -206,6 +206,7 @@ const DENIED_REASONS = {
   forbidden: true,
   limit: true,
   unknown: true,
+  unavailable: true,
 } as const satisfies Record<DeniedReason, true>;
 
 function isDeniedReason(reason: string): reason is DeniedReason {

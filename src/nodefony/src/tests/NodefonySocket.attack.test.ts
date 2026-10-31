@@ -633,6 +633,7 @@ describe("RED-TEAM NodefonySocket — serveur WebSocket hostile", () => {
     const identity = {
       type: "session",
       authenticated: true,
+      id: "42",
       userIdentifier: "user-42",
       roles: ["ROLE_USER"],
       scopes: [],
@@ -652,6 +653,143 @@ describe("RED-TEAM NodefonySocket — serveur WebSocket hostile", () => {
     expect(c.identity).to.deep.equal(identity);
     expect(c.serverChannels).to.deep.equal(["a"]);
     expect(c.serverMethods).to.deep.equal(["m"]);
+  });
+
+  // `id` est la clé des canaux personnels (`user:${id}`) : un serveur hostile ou
+  // ancien qui l'omet, ou qui y glisse autre chose qu'une chaîne, ferait
+  // s'abonner le client à `user:undefined` ou `user:[object Object]`.
+  for (const [label, id] of [
+    ["absent", undefined],
+    ["nombre", 42],
+    ["objet", { toString: "x" }],
+    ["booléen", true],
+  ] as const) {
+    it(`V5 · welcome dont l'id est ${label} → identité REFUSÉE (null)`, async () => {
+      const identity: Record<string, unknown> = {
+        type: "session",
+        authenticated: true,
+        userIdentifier: "user-42",
+        roles: ["ROLE_USER"],
+        scopes: [],
+      };
+      if (id !== undefined) identity.id = id;
+      const decor = await serve((ws) => {
+        ws.send(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            method: "realtime:welcome",
+            params: { identity, channels: ["a"] },
+          }),
+        );
+      });
+      const c = make({ url: decor.url, autoReconnect: false });
+      await c.connect();
+      await wait(100);
+      expect(c.identity).to.equal(null);
+      expect(c.serverChannels).to.deep.equal(["a"]);
+    });
+  }
+
+  it("V5 · welcome ANONYME : `id: null` est une identité valide", async () => {
+    const identity = {
+      type: "anonymous",
+      authenticated: false,
+      id: null,
+      userIdentifier: "anonymous",
+      roles: ["ROLE_ANONYMOUS"],
+      scopes: [],
+    };
+    const decor = await serve((ws) => {
+      ws.send(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          method: "realtime:welcome",
+          params: { identity, channels: [] },
+        }),
+      );
+    });
+    const c = make({ url: decor.url, autoReconnect: false });
+    await c.connect();
+    await wait(100);
+    expect(c.identity).to.deep.equal(identity);
+  });
+
+  // ─── V5 · refus `unavailable` : le délai d'attente vient du réseau ───────────
+  // `retryAfterMs` fixe l'horloge du client : une frame hostile ne doit lui
+  // imposer ni `Infinity`, ni un négatif, ni une chaîne, et le champ n'a de
+  // sens qu'avec `unavailable`.
+  async function deniedSeen(params: unknown): Promise<unknown> {
+    const decor = await serve((ws) => {
+      ws.send(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          method: "realtime:welcome",
+          params: {},
+        }),
+      );
+      ws.send(
+        JSON.stringify({ jsonrpc: "2.0", method: "realtime:denied", params }),
+      );
+    });
+    const c = make({ url: decor.url, autoReconnect: false });
+    let seen: unknown = null;
+    c.onDenied((d) => {
+      seen = d;
+    });
+    await c.connect();
+    await wait(100);
+    return seen;
+  }
+
+  it("V5 · `unavailable` + `retryAfterMs` fini positif → motif ET délai conservés", async () => {
+    expect(
+      await deniedSeen({
+        channel: "room:1",
+        reason: "unavailable",
+        retryAfterMs: 2500,
+      }),
+    ).to.deep.equal({
+      channel: "room:1",
+      reason: "unavailable",
+      retryAfterMs: 2500,
+    });
+  });
+
+  for (const [label, retryAfterMs] of [
+    ["Infinity (null en JSON)", null],
+    ["négatif", -1],
+    ["chaîne", "2500"],
+    ["objet", { valueOf: 2500 }],
+  ] as const) {
+    it(`V5 · \`unavailable\` + retryAfterMs ${label} → délai IGNORÉ`, async () => {
+      expect(
+        await deniedSeen({
+          channel: "room:1",
+          reason: "unavailable",
+          retryAfterMs,
+        }),
+      ).to.deep.equal({ channel: "room:1", reason: "unavailable" });
+    });
+  }
+
+  it("V5 · `retryAfterMs` sur un autre motif que `unavailable` → IGNORÉ", async () => {
+    expect(
+      await deniedSeen({
+        channel: "room:1",
+        reason: "limit",
+        retryAfterMs: 2500,
+      }),
+    ).to.deep.equal({ channel: "room:1", reason: "limit" });
+  });
+
+  it("V5 · motif inventé → replié sur `forbidden`, jamais sur `unavailable` (qui se réessaie)", async () => {
+    expect(
+      await deniedSeen({
+        channel: "room:1",
+        reason: "unavailable-ish",
+        retryAfterMs: 1,
+      }),
+    ).to.deep.equal({ channel: "room:1", reason: "forbidden" });
   });
 
   // ─── V6 : reconnexions synchronisées ──────────────────────────────────────

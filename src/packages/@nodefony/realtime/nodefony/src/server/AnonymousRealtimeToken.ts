@@ -1,4 +1,26 @@
+import type { ISubscriberIdentity } from "nodefony";
 import type { IRealtimeToken } from "../../interfaces/IRealtimeToken";
+
+/**
+ * Identité d'admission de l'ANONYME — gelée et partagée par toutes les connexions non authentifiées (0 allocation par connexion).
+ *
+ * Porte l'invariant de l'ADR-0021 §S10 : anonyme ⇔ `authenticated === false`,
+ * `id === null` et `issuer === null`. Un canal qui déclare `allow` refuse
+ * cette identité d'office, sauf option explicite `anonymous: true` — ce qui
+ * garantit que `user:${who.id}` ne vaut jamais `"user:null"`.
+ */
+export const ANONYMOUS_SUBSCRIBER_IDENTITY: ISubscriberIdentity = Object.freeze(
+  {
+    type: "anonymous",
+    authenticated: false,
+    id: null,
+    userIdentifier: "anonymous",
+    roles: Object.freeze(["ROLE_ANONYMOUS"]),
+    scopes: Object.freeze([]),
+    issuer: null,
+    account: false,
+  },
+);
 
 /**
  * Token realtime ANONYME — fallback Zero Trust quand aucun matcher
@@ -33,6 +55,9 @@ export const ANONYMOUS_REALTIME_TOKEN: IRealtimeToken = Object.freeze({
   // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
   getAttribute<T = unknown>(_key: string): T | undefined {
     return undefined;
+  },
+  getIdentity(): ISubscriberIdentity {
+    return ANONYMOUS_SUBSCRIBER_IDENTITY;
   },
 });
 

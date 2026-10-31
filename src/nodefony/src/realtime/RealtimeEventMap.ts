@@ -403,12 +403,22 @@ export interface RealtimeIdentity {
   type: string;
   /** `false` pour un visiteur anonyme (Zero Trust : toujours présent, jamais `null`). */
   authenticated: boolean;
-  /** Identifiant logique du porteur (`"anonymous"`, `"user-42"`, …). */
+  /**
+   * Identifiant STABLE et OPAQUE du compte — la clé des canaux personnels
+   * (`user:${id}`) ; `null` pour l'anonyme, et pour un authentificateur qui ne
+   * produit pas d'identité d'admission (`IRealtimeToken.getIdentity` absent).
+   *
+   * Jamais le login : un e-mail change, un login libéré se réattribue, et le
+   * nouveau compte hériterait des canaux de l'ancien. C'est l'identifiant du
+   * compte local, ou `<émetteur>#<sujet>` pour un appelant sans compte.
+   */
+  id: string | null;
+  /** Identifiant logique du porteur (`"anonymous"`, `"user-42"`, …) — affichage et audit, jamais une clé de canal. */
   userIdentifier: string;
   /** Rôles **plats** (RBAC, sans hiérarchie résolue) — `["ROLE_ANONYMOUS"]` si anonyme. */
-  roles: string[];
+  roles: readonly string[];
   /** Scopes accordés (clés API / OAuth) — `[]` en session BFF web. */
-  scopes: string[];
+  scopes: readonly string[];
 }
 
 /**
@@ -506,6 +516,13 @@ export interface IRealtimeDenied {
    * `reason` refuse d'être. Une absence vaut production, jamais l'inverse.
    */
   detail?: string;
+  /**
+   * Délai minimal, en millisecondes, avant de réessayer — posé seulement avec
+   * `reason: "unavailable"`, quand le serveur sait combien de temps il restera
+   * indisponible (coupe-circuit ouvert). Le client attend AU MOINS ce délai ;
+   * absent, il suit son seul recul.
+   */
+  retryAfterMs?: number;
 }
 
 /**
@@ -523,5 +540,12 @@ export interface IRealtimeDenied {
  *   module non chargé). Ce n'est pas un refus d'accès, et le distinguer ne
  *   révèle rien : un canal gardé est tranché en amont, donc rendu `"forbidden"`
  *   qu'il existe ou non.
+ * - `"unavailable"` — INDÉCIDABLE pour l'instant : la règle d'admission
+ *   (`allow`) n'a pas répondu dans son délai, ou l'exemplaire est saturé
+ *   d'admissions en cours. Ce n'est PAS un verdict sur le droit de l'abonné —
+ *   le client réessaie ce seul abonnement (recul exponentiel à gigue complète,
+ *   trois tentatives au plus), en respectant `retryAfterMs` s'il est posé.
+ *   Les trois autres motifs ne se réessaient jamais.
  */
-export type RealtimeDeniedReason = "forbidden" | "limit" | "unknown";
+export type RealtimeDeniedReason =
+  "forbidden" | "limit" | "unknown" | "unavailable";

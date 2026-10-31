@@ -9,7 +9,12 @@ import type {
   IRealtimeHandshake,
   IRealtimeToken,
 } from "../realtime/realtimeContracts";
-import { UserRealtimeToken } from "../realtime/UserRealtimeToken";
+import {
+  LOCAL_ACCOUNT,
+  UserRealtimeToken,
+  type IRealtimeAdmissionSource,
+} from "../realtime/UserRealtimeToken";
+import { isEphemeralSubject } from "./ExternalSubjectResolver";
 import { tokenStatusOf } from "../token/tokenStatus";
 
 /** Le verdict booléen d'un état : seul `active` fait vivre l'identité. */
@@ -140,6 +145,7 @@ export class FirewallRealtimeAuthenticator implements IRealtimeAuthenticator {
       scopes,
       this.#accountConfirmationFor(user, type),
       status,
+      admissionSourceOf(issued, user),
     );
   }
 
@@ -334,6 +340,33 @@ function issuedType(issued: IToken | undefined): string {
     ? issued.type
     : "session";
 }
+
+/**
+ * Émetteur et compte local de l'identité, pour l'identité d'admission temps réel (ADR-0021 §S10).
+ *
+ * L'émetteur est celui que l'authentificateur a VÉRIFIÉ et posé sur le jeton
+ * (attribut `issuer` : JWT de l'application, JWT tiers) ; `null` sans jeton
+ * porteur (session, clé d'API). Le compte est absent pour le seul appelant
+ * machine fabriqué en mode `ephemeral` — constaté sur l'objet, jamais déduit
+ * de la forme de son `id`.
+ */
+function admissionSourceOf(
+  issued: IToken | undefined,
+  user: IUser,
+): IRealtimeAdmissionSource {
+  const issuer = issued?.getAttribute("issuer");
+  const account = !isEphemeralSubject(user);
+  if (typeof issuer !== "string" || issuer === "") {
+    return account ? LOCAL_ACCOUNT : EPHEMERAL_WITHOUT_ISSUER;
+  }
+  return { issuer, account };
+}
+
+/** Filet : un sujet éphémère sans émetteur posé (ne devrait pas exister). */
+const EPHEMERAL_WITHOUT_ISSUER: IRealtimeAdmissionSource = Object.freeze({
+  issuer: null,
+  account: false,
+});
 
 /** Le jeton posé dans l'ALS par `firewall.handleSecurity`, s'il y en a un. */
 function readFirewallToken(): IToken | undefined {

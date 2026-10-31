@@ -7,7 +7,10 @@
  * sans connaître l'origine → réutilisable par TOUTE app (`import … from "nodefony"`).
  */
 
-import type { IRealtimeDenied } from "../../realtime/RealtimeEventMap";
+import type {
+  IRealtimeDenied,
+  RealtimeDeniedReason,
+} from "../../realtime/RealtimeEventMap";
 import {
   IDENTITY_DEAD_CLOSE_CODE,
   IDENTITY_REFRESH_CLOSE_CODE,
@@ -58,21 +61,47 @@ export interface NodefonyNotice {
  * @returns une notice prête à afficher (toujours, contrairement au close-code).
  */
 export function deniedToNotice(denied: IRealtimeDenied): NodefonyNotice {
-  const message =
-    denied.reason === "unknown"
-      ? `Canal « ${denied.channel} » inconnu du serveur : personne ne le produit (nom exact ? module chargé ?)`
-      : denied.reason === "limit"
-        ? `Canal « ${denied.channel} » non ouvert : trop d'abonnements sur cette connexion`
-        : `Accès au canal « ${denied.channel} » refusé`;
   return {
-    // Un canal inconnu est une erreur de CÂBLAGE, pas une panne : elle se corrige
-    // en une frappe, et n'a pas la gravité d'un refus d'autorisation.
-    level: denied.reason === "unknown" ? "warning" : "error",
+    level: deniedLevel(denied.reason),
     title: "Temps réel",
-    message,
+    message: deniedMessage(denied),
     source: "realtime",
     ts: Date.now(),
   };
+}
+
+/**
+ * Phrase d'un refus, par motif — `switch` EXHAUSTIF : un motif ajouté à
+ * {@link RealtimeDeniedReason} sans sa phrase ne compile pas.
+ */
+function deniedMessage(denied: IRealtimeDenied): string {
+  switch (denied.reason) {
+    case "unknown":
+      return `Canal « ${denied.channel} » inconnu du serveur : personne ne le produit (nom exact ? module chargé ?)`;
+    case "limit":
+      return `Canal « ${denied.channel} » non ouvert : trop d'abonnements sur cette connexion`;
+    case "unavailable":
+      return `Canal « ${denied.channel} » momentanément indisponible : nouvel essai automatique`;
+    case "forbidden":
+      return `Accès au canal « ${denied.channel} » refusé`;
+  }
+}
+
+/**
+ * Gravité d'un refus. Un canal inconnu est une erreur de CÂBLAGE, pas une
+ * panne : elle se corrige en une frappe. Une indisponibilité est passagère et
+ * se réessaie seule. Ni l'une ni l'autre n'a la gravité d'un refus
+ * d'autorisation ou d'un plafond atteint.
+ */
+function deniedLevel(reason: RealtimeDeniedReason): NoticeLevel {
+  switch (reason) {
+    case "unknown":
+    case "unavailable":
+      return "warning";
+    case "limit":
+    case "forbidden":
+      return "error";
+  }
 }
 
 /**

@@ -528,6 +528,7 @@ describe("NodefonySocket — log protocole, redaction, erreurs serveur", () => {
           identity: {
             type: "session",
             authenticated: true,
+            id: "u-1",
             userIdentifier: "u",
             roles: [],
             scopes: [],

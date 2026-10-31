@@ -1,9 +1,25 @@
 /**
- * Registre UNIQUE des codes de fermeture privés de la socket Nodefony (plage
- * 4000-4999, RFC 6455 §7.4.2), lu par le serveur qui ferme et par le client qui
- * décide de revenir — ADR-0021 §S11. Un code écrit en littéral ailleurs ferait
- * diverger les deux côtés sans que rien ne le dise.
+ * Registre UNIQUE des codes de fermeture de la socket Nodefony — privés (plage
+ * 4000-4999, RFC 6455 §7.4.2) et le seul code du registre IANA que le serveur
+ * émet lui-même pour une cause qui lui est propre (`1013`) —, lu par le serveur
+ * qui ferme et par le client qui décide de revenir — ADR-0021 §S11. Un code
+ * écrit en littéral ailleurs ferait diverger les deux côtés sans que rien ne le
+ * dise.
  */
+
+/**
+ * Code de fermeture de l'indisponibilité PASSAGÈRE (« Try Again Later », RFC 6455 §7.4.1, registre IANA) : le client revient avec son recul habituel.
+ *
+ * Émis par le serveur dans deux cas : `authenticate` n'a pas répondu dans
+ * `realtime.authenticateTimeoutMs` à la poignée de main, ou le client ne draine
+ * plus ce qu'on lui envoie (contre-pression). Jamais
+ * {@link IDENTITY_DEAD_CLOSE_CODE} pour une base lente : ce code-là est
+ * définitif, et un client légitime s'arrêterait à chaque panne. Le navigateur
+ * ne peut pas l'émettre (`WebSocket.close` n'admet que `1000` et
+ * `3000`-`4999`, WHATWG) : seul le serveur ferme en `1013`, le client le
+ * reconnaît.
+ */
+export const TRY_AGAIN_LATER_CLOSE_CODE = 1013;
 
 /**
  * Code de fermeture de l'identité MORTE — `authenticate` a levé, la session est détruite ou le jeton RÉVOQUÉ : le client ne se reconnecte pas.

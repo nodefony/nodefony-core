@@ -8,7 +8,12 @@ import { serverSocket } from "../../src/server/ServerRealtimeSocket.js";
 // classe pour que `err instanceof RpcError` du peer la reconnaisse comme erreur
 // applicative (sinon → -32603 opaque). Le client, lui, tourne sur le SOURCE (cf
 // import plus bas) et reconstruit SA propre `RpcError` à partir du JSON reçu.
-import { RpcError as RpcErrorServer, type RpcActionHandler } from "nodefony";
+import {
+  RpcError as RpcErrorServer,
+  type ISubscriberIdentity,
+  type RealtimeIdentity,
+  type RpcActionHandler,
+} from "nodefony";
 import type { ContextType } from "@nodefony/http";
 import type {
   RealtimePublish,
@@ -521,9 +526,67 @@ describe("Realtime loopback E2E — VRAI client ↔ VRAI serveur (la jonction)",
     expect(client.identity).to.deep.equal({
       type: "jwt",
       authenticated: true,
+      id: null,
       userIdentifier: "user-42",
       roles: ["ROLE_USER", "ROLE_ADMIN"],
       scopes: ["chat:write"],
+    });
+  });
+
+  // ISOMORPHISME : l'identité que le serveur produit et celle que le client lit
+  // sont la MÊME, à travers le wire réel (JSON) — et la partie serveur de
+  // l'identité d'admission (`issuer`, `account`) ne traverse JAMAIS.
+  it("welcome AUTHENTIFIÉ avec identité d'admission → le client lit le MÊME `id`, jamais `issuer` ni `account`", async () => {
+    const who: ISubscriberIdentity = Object.freeze({
+      type: "jwt",
+      authenticated: true,
+      id: "acc-7f3a",
+      userIdentifier: "alice@example.test",
+      roles: Object.freeze(["ROLE_USER"]),
+      scopes: Object.freeze(["chat:write"]),
+      issuer: "https://sso.example.test",
+      account: true,
+    });
+    const token: IRealtimeToken = {
+      type: "jwt",
+      getUserIdentifier: () => "alice@example.test",
+      isAuthenticated: () => true,
+      getRoles: () => ["ROLE_USER"],
+      getScopes: () => ["chat:write"],
+      getAttribute: () => undefined,
+      getIdentity: () => who,
+    };
+    getRealtimeHub().useAuthenticator(
+      { pattern: "/realtime" },
+      {
+        name: "fake_sso",
+        supports: () => true,
+        authenticate: async () => token,
+      },
+    );
+    const { client } = await connectPair({}, { url: "/realtime" });
+    const expected: RealtimeIdentity = {
+      type: "jwt",
+      authenticated: true,
+      id: "acc-7f3a",
+      userIdentifier: "alice@example.test",
+      roles: ["ROLE_USER"],
+      scopes: ["chat:write"],
+    };
+    expect(client.identity).to.deep.equal(expected);
+    expect(client.identity).to.not.have.property("issuer");
+    expect(client.identity).to.not.have.property("account");
+  });
+
+  it("welcome ANONYME → `id: null` lu tel quel par le client (invariant de l'anonyme)", async () => {
+    const { client } = await connectPair();
+    expect(client.identity).to.deep.equal({
+      type: "anonymous",
+      authenticated: false,
+      id: null,
+      userIdentifier: "anonymous",
+      roles: ["ROLE_ANONYMOUS"],
+      scopes: [],
     });
   });
 
