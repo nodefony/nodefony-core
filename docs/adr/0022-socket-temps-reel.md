@@ -140,6 +140,22 @@ dans l'écho du handshake, et le défaut d'écho de `ws` ne change pas en 10.x (
     publient une `Date` aujourd'hui) ; **tout transporter** à la superjson (format maison que ni
     un client d'un autre langage ni le relais ne lisent). Précédent du modèle commun : WAMP, dont
     le routeur traduit entre clients JSON, CBOR et MessagePack.
+- **Les octets dans le codec JSON — activés, jamais payés par défaut.** **Décision (validée par
+  l'auteur le 2026-10-31, après la mesure du §9) :** la convention déclarée est
+  `{"$bytes":"<base64url sans bourrage>"}` (alphabet RFC 4648 §5, celui de la conversion CBOR → JSON
+  de RFC 8949 §6.1), réanimée en `Uint8Array` à la réception ; le marqueur doit être SEUL dans son
+  objet, sinon l'objet reste applicatif. Émettre la convention exige de DÉTECTER les octets, donc un
+  parcours de la charge : mesuré **+27 %** (charge minuscule) à **+35 %** (sonde de console) sur
+  `notify`, **+20 %** sur `inbound`
+  (`.claude/skills/nodefony-load-test/scripts/micro/micro-realtime-frame-ab.mjs`, 2 × 15 runs, deux
+  passages de même signe). Le parcours n'est donc armé **que si l'application active un codec
+  binaire** côté serveur (l'activation qu'exige déjà le calendrier ci-dessus). Sans activation, le
+  codec JSON reste les deux appels natifs — « aucun appel de plus » tient — et des octets imbriqués
+  y arrivent déformés comme avant #618, l'application prévenue une fois. Code :
+  `src/nodefony/src/realtime/jsonFrameCodec.ts`, gardé par `src/nodefony/src/tests/jsonFrameCodec.test.ts`.
+  - Écarté : **parcours toujours armé** (chaque application paierait ~30 % par trame texte pour un
+    service que la plupart n'emploient pas) ; **codec JSON sans convention** (contredit la décision
+    du 2026-10-29 portée par #618 : le client texte rend un `Uint8Array`).
 - **Débogage par décodage à l'observation**, jamais en changeant le fil : le traceur WS
   (`src/packages/@nodefony/http/nodefony/src/context/websocket/wsLogContent.ts#formatWsLogContent`),
   Studio et la barre de debug affichent une trame binaire décodée ; coût nul en production, où
