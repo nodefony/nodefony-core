@@ -381,6 +381,42 @@ for (let i = 0; i < names.length; i += CONCURRENCY) {
   await Promise.all(names.slice(i, i + CONCURRENCY).map(fetchOne));
 }
 
+// ── 2bis. Shims locaux — DIRE le jour où l'amont publie au-dessus d'eux ─────
+//
+// Un shim (`scripts/deps/shims/<paquet>`, branché par les overrides de la
+// racine) remplace un paquet dont AUCUNE version publiée n'est saine. Il est
+// fait pour disparaître : le jour où l'amont publie une version au-dessus de
+// sa base, il faut le savoir — et `npm audit` ne le dira jamais, il n'audite
+// pas un lien local. Base = version du shim sans son suffixe
+// (`4.3.1-nodefony.1` → 4.3.1).
+const SHIM_PREFIX = "file:scripts/deps/shims/";
+const rootManifest = JSON.parse(
+  fs.readFileSync(path.join(ROOT, "package.json"), "utf8"),
+);
+const shims = Object.entries(rootManifest.devDependencies ?? {})
+  .filter(([, spec]) => spec.startsWith(SHIM_PREFIX))
+  .map(([name, spec]) => {
+    const own = JSON.parse(
+      fs.readFileSync(
+        path.join(ROOT, spec.slice("file:".length), "package.json"),
+        "utf8",
+      ),
+    );
+    return { name, base: semver.coerce(own.version)?.version ?? own.version };
+  });
+await Promise.all(
+  shims.filter((x) => !published.has(x.name)).map((x) => fetchOne(x.name)),
+);
+/** Shims dont l'amont a publié au moins une version stable au-dessus de la base. */
+const shimsOutgrown = shims
+  .map((x) => ({
+    ...x,
+    above: (published.get(x.name) ?? []).filter(
+      (v) => semver.valid(v) && !semver.prerelease(v) && semver.gt(v, x.base),
+    ),
+  }))
+  .filter((x) => x.above.length > 0);
+
 // ── 3. Comparer ─────────────────────────────────────────────────────────────
 
 const rows = [];
@@ -620,6 +656,14 @@ for (const r of AS_JSON ? [] : majeursUniques) {
     "     Rien à faire ici : la levée viendra de l'amont. Ce rapport le dira.\n",
   );
 }
+for (const x of AS_JSON ? [] : shims) {
+  const outgrown = shimsOutgrown.find((o) => o.name === x.name);
+  process.stdout.write(
+    outgrown
+      ? `\n🧹 shim ${x.name} (base ${x.base}) : l'amont publie ${outgrown.above.join(", ")} — vérifier que l'avis est corrigé, puis RETIRER le shim (devDependencies + overrides + scripts/deps/shims/${x.name}). Sinon, relever la base du shim pour en prendre acte.\n`
+      : `\n🩹 shim ${x.name} (base ${x.base}) : aucune version amont au-dessus — le shim reste.\n`,
+  );
+}
 for (const [name, qui] of AS_JSON ? [] : dedoublements) {
   process.stdout.write(
     `\n⚠️  ${name} ${visees.get(name)} se DÉDOUBLERAIT — une seconde copie s'installerait à côté :\n`,
@@ -824,6 +868,22 @@ if (ARGS.has("--gate")) {
       `\n  ${failed.length} paquet(s) non résolus par le registre — le verdict tient` +
         ` sur le verrou, il en est seulement plus strict.\n`,
     );
+  }
+  // Un shim dépassé par l'amont ROUGIT la garde une fois par publication : la
+  // décision (retirer, ou relever sa base) ne se prend jamais si rien ne la
+  // réclame — un shim oublié est une copie de paquet qui ne reçoit plus rien.
+  if (shimsOutgrown.length) {
+    process.stderr.write(
+      `\n❌ garde des dépendances : ${shimsOutgrown.length} shim(s) dépassé(s) par l'amont\n` +
+        shimsOutgrown
+          .map(
+            (x) =>
+              `   ${x.name} : base ${x.base}, l'amont publie ${x.above.join(", ")} — retirer le shim, ou relever sa base`,
+          )
+          .join("\n") +
+        "\n",
+    );
+    process.exit(1);
   }
   if (fatals.length) {
     process.stderr.write(

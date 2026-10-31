@@ -1,0 +1,16 @@
+{
+  "name": "deepmerge",
+  "version": "4.3.1-nodefony.1",
+  "description": "deepmerge 4.3.1, sans la pollution de prototype (GHSA-gcqx-w48m-w2h4) — branché par les overrides de la racine.",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    }
+  },
+  "license": "MIT"
+}
