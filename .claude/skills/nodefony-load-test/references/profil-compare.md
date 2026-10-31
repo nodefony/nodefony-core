@@ -36,6 +36,14 @@ Les règles qui en découlent :
    des gros leviers (> 5 %).
 4. **Deux profils pris à des heures différentes ne se comparent pas en absolu** (le témoin a varié
    de 34,5 à 39 µs/req d'un run à l'autre) : on compare l'ÉCART, pris dans le même run.
+5. **Le RATIO d'UN profil comparé n'est pas un verdict non plus** : à décor et commit identiques,
+   six passes alternées ont rendu de 111 à 133 % (et 149 % une heure plus tôt, machine plus
+   froide). Un ratio isolé ne classe donc ni un commit ni une régression — vécu : « 102 % fin
+   septembre, 149 % aujourd'hui » lu comme une régression, réfuté par la bissection, dont les
+   deux bornes se sont rangées à l'envers (121 % au bon commit, 111 % au mauvais). Le profil
+   NOMME les postes ; l'écart se CHIFFRE par `wait-compare.sh` (CPU du fil principal, paires
+   alternées, dispersion < 1 %). `bisect-perf.sh` ne tranche que sur un saut de plus de
+   ~25 points.
 
 ## Ce que le profil ne voit pas — `wait-compare.sh` et `native-sample.mjs`
 

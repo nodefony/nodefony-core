@@ -17,6 +17,8 @@
 #   contrôle et wrk compris. C'est le seul moyen de profiler la session, le
 #   pare-feu et le rechargement de l'utilisateur ; sans lui, une route protégée
 #   répond 401 et le contrôle refuse de mesurer),
+#   NF_PROFILE_APP_ROOT (dossier d'où le serveur est lancé, défaut la racine du
+#   dépôt — un worktree pour profiler un AUTRE commit, cf bisect-perf.sh),
 #   BENCH_PROTO=h2c (charge HTTP/2 en clair par h2load : BENCH_CONN connexions ×
 #   BENCH_STREAMS flux, 4 × 16 par défaut, la forme d'un proxy ; <port> est alors
 #   celui de servers.h2c, activé par XENV=NF__APP__SERVERS__H2C__ENABLED=true).
@@ -39,7 +41,7 @@ if curl -s ${CURL_PROTO[@]+"${CURL_PROTO[@]}"} -o /dev/null --max-time 1 "http:/
   echo "❌ le port $PORT répond déjà — arrêter ce serveur avant de profiler"; exit 1
 fi
 rm -rf "$OUT"; mkdir -p "$OUT"
-cd "$ROOT"
+cd "${NF_PROFILE_APP_ROOT:-$ROOT}"
 # `PORT` fixe le port HTTP de l'app : en h2c, <port> est celui de servers.h2c, et
 # le poser ici mettrait HTTP sur le même port — démarrage refusé (h2cPortConflict),
 # en silence puisque les journaux sont coupés.
