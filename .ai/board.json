@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-01T10:05:48.164Z",
+  "generatedAt": "2026-11-01T13:12:45.229Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 219,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 24,
+      "open": 28,
       "title": "10.0.0-beta"
     },
     {
@@ -56,7 +56,7 @@
       "closed": 5,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 44,
+      "open": 40,
       "title": "10.1.0"
     }
   ],
@@ -5423,7 +5423,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
-      "jours": 19.75,
+      "jours": 16.75,
       "ordre": 6.03,
       "debut": "2026-10-29",
       "cible": "2026-11-16",
@@ -5609,7 +5609,7 @@
     },
     {
       "number": 713,
-      "title": "ci(adr): refuser une décision différée qui promet un travail sans ticket",
+      "title": "ci(adr): vérifier que les promesses des ADR ont un ticket qui les porte",
       "url": "https://github.com/nodefony/nodefony-core/issues/713",
       "state": "OPEN",
       "status": "Todo",
@@ -5818,22 +5818,6 @@
       ]
     },
     {
-      "number": 719,
-      "title": "fix(debugbar): relire la session après connexion, sans recharger la page",
-      "url": "https://github.com/nodefony/nodefony-core/issues/719",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 0.5,
-      "ordre": 6.04,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-6"
-      ]
-    },
-    {
       "number": 446,
       "title": "test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation",
       "url": "https://github.com/nodefony/nodefony-core/issues/446",
@@ -5919,11 +5903,27 @@
       ]
     },
     {
+      "number": 719,
+      "title": "fix(debugbar): relire la session après connexion, sans recharger la page",
+      "url": "https://github.com/nodefony/nodefony-core/issues/719",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 6.046,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
       "number": 720,
       "title": "feat(debugbar): afficher le détail complet de la socket temps réel",
       "url": "https://github.com/nodefony/nodefony-core/issues/720",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 2,
@@ -6410,6 +6410,70 @@
       "debut": null,
       "cible": null,
       "labels": []
+    },
+    {
+      "number": 694,
+      "title": "feat(http): servir des services gRPC dans le pipeline HTTP/2",
+      "url": "https://github.com/nodefony/nodefony-core/issues/694",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 4.5,
+      "ordre": 7.01,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-7"
+      ]
+    },
+    {
+      "number": 695,
+      "title": "feat(http): déclarer et servir un service gRPC depuis un module",
+      "url": "https://github.com/nodefony/nodefony-core/issues/695",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 3,
+      "ordre": 7.02,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-7"
+      ]
+    },
+    {
+      "number": 696,
+      "title": "fix(cli): router gRPC vers h2c dans la config nginx générée",
+      "url": "https://github.com/nodefony/nodefony-core/issues/696",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 7.03,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-7"
+      ]
+    },
+    {
+      "number": 697,
+      "title": "feat(http): exposer la réflexion et la santé gRPC standard",
+      "url": "https://github.com/nodefony/nodefony-core/issues/697",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P3 — fin de cycle",
+      "jours": 1,
+      "ordre": 7.04,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-7"
+      ]
     },
     {
       "number": 223,
@@ -8762,7 +8826,7 @@
       "title": "chore(core): trancher l'héritage des dépendances déclarées",
       "url": "https://github.com/nodefony/nodefony-core/issues/75",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.2.0",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -9607,62 +9671,6 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 170,
-      "debut": null,
-      "cible": null,
-      "labels": []
-    },
-    {
-      "number": 694,
-      "title": "feat(http): servir des services gRPC dans le pipeline HTTP/2",
-      "url": "https://github.com/nodefony/nodefony-core/issues/694",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.1.0",
-      "priorite": "P2 — décision",
-      "jours": 4.5,
-      "ordre": 170,
-      "debut": null,
-      "cible": null,
-      "labels": []
-    },
-    {
-      "number": 695,
-      "title": "feat(http): déclarer et servir un service gRPC depuis un module",
-      "url": "https://github.com/nodefony/nodefony-core/issues/695",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.1.0",
-      "priorite": "P2 — décision",
-      "jours": 3,
-      "ordre": 170.1,
-      "debut": null,
-      "cible": null,
-      "labels": []
-    },
-    {
-      "number": 696,
-      "title": "fix(cli): router gRPC vers h2c dans la config nginx générée",
-      "url": "https://github.com/nodefony/nodefony-core/issues/696",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.1.0",
-      "priorite": "P2 — décision",
-      "jours": 0.5,
-      "ordre": 170.2,
-      "debut": null,
-      "cible": null,
-      "labels": []
-    },
-    {
-      "number": 697,
-      "title": "feat(http): exposer la réflexion et la santé gRPC standard",
-      "url": "https://github.com/nodefony/nodefony-core/issues/697",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.1.0",
-      "priorite": "P3 — fin de cycle",
-      "jours": 1,
-      "ordre": 170.3,
       "debut": null,
       "cible": null,
       "labels": []
