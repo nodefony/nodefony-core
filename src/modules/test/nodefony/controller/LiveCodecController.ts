@@ -7,6 +7,7 @@ import {
 } from "@nodefony/realtime";
 import type { RealtimePublish } from "@nodefony/realtime";
 import { Context } from "@nodefony/http";
+import { RpcError } from "nodefony";
 
 /**
  * Diffusion du canal `codec:tick`, tant qu'un abonné écoute — `null` au départ
@@ -47,6 +48,18 @@ class LiveCodecController extends RealtimeController {
   @RealtimeAction("codec:echo", { authenticated: false })
   echo(params: unknown): { echoed: unknown } {
     return { echoed: params };
+  }
+
+  /**
+   * Refuse volontairement : une `RpcError` dont le code et les données — octets
+   * compris — doivent traverser le codec à l'identique.
+   */
+  @RealtimeAction("codec:fail", { authenticated: false })
+  fail(): never {
+    throw new RpcError("refusé", -32000, {
+      status: 409,
+      data: new Uint8Array([4, 2]),
+    });
   }
 
   /**

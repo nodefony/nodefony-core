@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { fileURLToPath } from "node:url";
 import { startSpareApp, type ISpareApp } from "nodefony/testing";
-import { NodefonySocket } from "nodefony/client";
+import { NodefonySocket, RpcError } from "nodefony/client";
 import { CBOR_FRAME_CODEC } from "nodefony/cbor";
 import { JSON_BYTES_FRAME_CODEC, type IFrameCodec } from "nodefony";
 
@@ -220,6 +220,30 @@ describe.skipIf(!RUN)("Codec CBOR sur un vrai serveur WebSocket (#618)", () => {
       >("codec:echo", { data: bytes });
       expect(res.echoed.data).toBeInstanceOf(Uint8Array);
       expect([...res.echoed.data]).toEqual([...bytes]);
+    } finally {
+      client.disconnect();
+    }
+  });
+
+  it("NodefonySocket : une RpcError traverse CBOR, code et données (octets compris) fidèles", async () => {
+    const client = await openClient(CBOR_FRAME_CODEC);
+    try {
+      // Sans ce contrôle, un serveur qui répondrait en texte passerait le test.
+      expect(client.codec).toBe(CBOR);
+      let err: unknown = null;
+      try {
+        await client.request("codec:fail");
+      } catch (e) {
+        err = e;
+      }
+      expect(err).toBeInstanceOf(RpcError);
+      const rpc = err as RpcError;
+      expect(rpc.code).toBe(-32000);
+      expect(rpc.message).toBe("refusé");
+      const data = rpc.data as { status: number; data: Uint8Array };
+      expect(data.status).toBe(409);
+      expect(data.data).toBeInstanceOf(Uint8Array);
+      expect([...data.data]).toEqual([4, 2]);
     } finally {
       client.disconnect();
     }

@@ -69,7 +69,11 @@ class CodecRt extends RealtimeController {
   // Canal de diffusion : le banc publie lui-même par le hub. `nodefony:bench`
   // A un producteur : seul le plancher de la plateforme peut le refuser.
   override createRealtimeChannel(channel: string): (() => void) | null {
-    return channel === "tick" || channel === "nodefony:bench" ? () => {} : null;
+    return channel === "tick" ||
+      channel === "tock" ||
+      channel === "nodefony:bench"
+      ? () => {}
+      : null;
   }
 
   feed(raw: RealtimeFrameData | null): void {
@@ -280,6 +284,47 @@ describe("Codec binaire côté serveur — négociation, accueil, bascule (#618)
     expect(res.echoed).toBe(true);
   });
 
+  it("trames CBOR illisibles en rafale : chacune comptée, UN seul journal par connexion", async () => {
+    const { server, wire } = await connect(true, `${CBOR}, ${TEXT}`);
+    const log = vi.spyOn(server.rt, "log");
+    wire.deliverToServer(new Uint8Array([0xbf, 0x61]));
+    wire.deliverToServer(new Uint8Array([0x5f]));
+    wire.deliverToServer(new Uint8Array([0xff]));
+    await flush();
+    expect(server.malformed()).toBe(3);
+    // Un client hostile inonderait le journal à coût nul : il ne le dit qu'une fois.
+    const warned = log.mock.calls.filter(([m]) =>
+      String(m).includes("illisible"),
+    );
+    expect(warned).toHaveLength(1);
+    expect(warned[0]?.[1]).toBe("WARNING");
+  });
+
+  it("des octets publiés sur un canal n'atteignent QUE ses abonnés, intacts", async () => {
+    const onTick = await connect(true, `${CBOR}, ${TEXT}`);
+    const onTock = await connect(true, `${CBOR}, ${TEXT}`);
+    const gotTick: Uint8Array[] = [];
+    const gotTock: unknown[] = [];
+    onTick.client.on("tick", (p) =>
+      gotTick.push((p as { data: Uint8Array }).data),
+    );
+    onTock.client.on("tock", (p) => gotTock.push(p));
+    // Le témoin écoute AUSSI `tick` sans s'y abonner : un routage qui
+    // ignorerait le canal le servirait quand même.
+    onTock.client.on("tick", (p) => gotTock.push(p));
+    onTick.client.subscribe("tick");
+    onTock.client.subscribe("tock");
+    await flush();
+    await flush();
+    const bytes = new Uint8Array([0, 1, 127, 128, 255]);
+    getRealtimeHub().publish("tick", { data: bytes });
+    await flush();
+    expect(gotTick).toHaveLength(1);
+    expect(gotTick[0]).toBeInstanceOf(Uint8Array);
+    expect([...(gotTick[0] ?? [])]).toEqual([...bytes]);
+    expect(gotTock).toEqual([]);
+  });
+
   it("sous codec binaire, le flux brut est fermé dans les deux sens", async () => {
     const { server, wire } = await connect(true, `${CBOR}, ${TEXT}`);
     // Entrant : une frame CBOR valide n'atteint jamais le crochet brut.
@@ -368,6 +413,32 @@ describe("Portes B1 à B4 sous codec binaire — des octets passent les MÊMES c
     hub.setFrameCodec(SERVER_CBOR);
   });
   afterEach(() => getRealtimeHub().clear());
+
+  it("B2 sous `allow` — une trame d'octets sans abonnement admis est refusée `forbidden`, jamais distribuée", async () => {
+    const hub = getRealtimeHub();
+    let allowCalls = 0;
+    hub.registerChannelPolicy("upload", {
+      allow: () => {
+        allowCalls += 1;
+        return true;
+      },
+    });
+    hub.setFrameAuthorizer(() => true);
+    const { client, server } = await connect(true, `${CBOR}, ${TEXT}`);
+    client.emit("upload", { data: new Uint8Array([1, 2, 3]) });
+    await flush();
+    expect(server.rt.inbound).toEqual([]);
+    // La même lecture que pour une trame texte : `allow` ne se joue qu'au subscribe.
+    expect(allowCalls).toBe(0);
+    const denied = framesAfterWelcome(server).filter(
+      (f) => f.method === "realtime:denied",
+    );
+    expect(denied.map((f) => f.params)).toMatchObject([
+      { channel: "upload", reason: "forbidden" },
+    ]);
+    // Le refus part dans le codec de la connexion, jamais en texte à part.
+    expect(server.sent.at(-1)).toBeInstanceOf(Uint8Array);
+  });
 
   it("B1 — le verrou lit la trame DÉCODÉE, octets en `Uint8Array`, et son refus tient : le handler ne reçoit rien", async () => {
     const { client, server } = await connect(true, `${CBOR}, ${TEXT}`);

@@ -64,11 +64,11 @@ src/modules/test/
 
 ### Vitrines de front — `LiveSalonController` + `LiveSyslogController`
 
-| Route                       | Méthode   | Description                                                                                                                  |
-| --------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `/api/live/realtime`        | WEBSOCKET | socket des quatre vitrines : canal libre `live:salon`, pont `api.request`                                                    |
-| `/nodefony/test/api/syslog` | GET (SSE) | journal du serveur en direct, événements `log` (INFO et plus graves), reprise `Last-Event-ID`                                |
-| `/api/live/codec`           | WEBSOCKET | banc du codec binaire (`LiveCodecController`) : actions OUVERTES `codec:echo`, `codec:publish` → canal `codec:tick` (octets) |
+| Route                       | Méthode   | Description                                                                                                                                                      |
+| --------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/live/realtime`        | WEBSOCKET | socket des quatre vitrines : canal libre `live:salon`, pont `api.request`                                                                                        |
+| `/nodefony/test/api/syslog` | GET (SSE) | journal du serveur en direct, événements `log` (INFO et plus graves), reprise `Last-Event-ID`                                                                    |
+| `/api/live/codec`           | WEBSOCKET | banc du codec binaire (`LiveCodecController`) : actions OUVERTES `codec:echo`, `codec:fail` (`RpcError` à octets), `codec:publish` → canal `codec:tick` (octets) |
 
 - `/api/live/codec` sert `realtime/…/integration/realtimeCodecServer.e2e.test.ts` (lot `test:cluster`,
   exemplaire `production` jetable, `NF_REALTIME_CODEC=cbor`). Ses actions portent
