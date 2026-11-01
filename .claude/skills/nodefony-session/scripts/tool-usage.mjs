@@ -7,26 +7,24 @@
  * chaque tour suivant. Ce module la mesure dans les transcripts du projet :
  * taille × nombre de tours qui la relisent, par famille d'outil.
  *
- * Il rend aussi la LECTURE DE CODE d'une session — appels `show-symbol`, tranches
- * `sed -n`, `cat` bruts, `Read` sans borne, refus de la règle 6 du hook — pour
- * que `session:end` dise à chaque clôture si l'outil est adopté ou si le réflexe
- * de la tranche devinée a repris. Une règle qu'on ne mesure pas, on la croit
- * suivie.
+ * Il rend aussi la LECTURE DE CODE d'une session : appels `show-symbol`, tranches
+ * refusées par la garde, et surtout les tranches PASSÉES. La garde (`code-slice.mjs`,
+ * lue ici telle quelle) refuse toute tranche de code : il n'y a donc plus de réflexe à
+ * surveiller, seulement un trou de garde à signaler — une tranche passée, c'est une
+ * forme que la règle ne reconnaît pas encore, à lui apprendre.
  *
  * @usage node tool-usage.mjs            # lecture de code de la session COURANTE
  * @usage node tool-usage.mjs --all      # coût par famille d'outil, toutes sessions
  */
 import fs from "node:fs";
+import {
+  bashSliceRefusal,
+  readSliceRefusal,
+} from "../../../hooks/code-slice.mjs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-
-const CODE = /\.(ts|tsx|mts|mjs)$/;
-const SED_SLICE =
-  /sed\s+-n\s+['"]?(\d+),(\d+)p['"]?\s+['"]?([^\s;|&'"]+\.(?:ts|tsx|mts|mjs))/g;
-const RAW_CAT =
-  /(?:^|[;&(])\s*cat\s+['"]?[^\s;|&<>'"]+\.(?:ts|tsx|mts|mjs)['"]?\s*(?:;|&&|$)/;
 
 /** Dossier des transcripts Claude Code du dépôt (même règle de nom que la mémoire). */
 export function transcriptsDir(root) {
@@ -70,15 +68,9 @@ export function analyseTranscript(file) {
   const calls = new Map();
   const results = [];
   const seen = new Set();
-  const reading = {
-    showSymbol: 0,
-    slices: 0,
-    sliceLines: 0,
-    bigSlices: 0,
-    rawCats: 0,
-    unboundedReads: 0,
-    refused: 0,
-  };
+  const reading = { showSymbol: 0, refused: 0, passed: [] };
+  /** Appels qui lisent du code par tranche, en attente de leur résultat. */
+  const slices = new Map();
   let turns = 0;
   for (const line of fs.readFileSync(file, "utf8").split("\n")) {
     let o;
@@ -97,25 +89,32 @@ export function analyseTranscript(file) {
       for (const p of content) {
         if (p.type !== "tool_use") continue;
         calls.set(p.id, familyOf(p.name, p.input));
-        if (p.name === "Read" && CODE.test(String(p.input?.file_path ?? "")))
-          if (p.input.limit === undefined) reading.unboundedReads++;
-        if (p.name !== "Bash") continue;
-        const cmd = String(p.input?.command ?? "");
-        if (cmd.includes("show-symbol.mjs")) reading.showSymbol++;
-        for (const m of cmd.matchAll(SED_SLICE)) {
-          reading.slices++;
-          const n = Number(m[2]) - Number(m[1]) + 1;
-          reading.sliceLines += n;
-          // Le seuil de la règle 6 du hook : en deçà, la tranche est permise.
-          if (n > 60) reading.bigSlices++;
+        const input = p.input ?? {};
+        if (p.name === "Read") {
+          const file = String(input.file_path ?? "");
+          if (
+            readSliceRefusal(
+              file,
+              String(input.offset ?? ""),
+              String(input.limit ?? ""),
+            )
+          )
+            slices.set(p.id, `Read ${file}`);
         }
-        if (RAW_CAT.test(cmd)) reading.rawCats++;
+        if (p.name !== "Bash") continue;
+        const cmd = String(input.command ?? "");
+        if (cmd.includes("show-symbol.mjs")) reading.showSymbol++;
+        if (bashSliceRefusal(cmd)) slices.set(p.id, cmd);
       }
     } else if (o.type === "user") {
       for (const p of content) {
         if (p.type !== "tool_result") continue;
         const t = textOf(p.content);
-        if (t.includes("lire du code par tranche")) reading.refused++;
+        const slice = slices.get(p.tool_use_id);
+        if (slice !== undefined) {
+          if (t.includes("REFUS —")) reading.refused++;
+          else reading.passed.push(slice.slice(0, 120));
+        }
         results.push({
           family: calls.get(p.tool_use_id) ?? "?",
           tokens: Math.ceil(t.length / 4),
@@ -131,15 +130,11 @@ export function analyseTranscript(file) {
 
 /** La ligne de lecture de code, telle que `session:end` l'imprime. */
 export function readingLine({ reading: r }) {
-  // Seules comptent les lectures que la règle 6 refuserait : une tranche courte
-  // est permise, et la compter ferait crier l'alerte à faux.
-  const tranches = r.bigSlices + r.rawCats;
+  const line = `Lecture de code : ${r.showSymbol} show-symbol · ${r.refused} tranche(s) refusée(s) par la garde`;
+  if (!r.passed.length) return line;
   return (
-    `Lecture de code : ${r.showSymbol} show-symbol · ${r.slices} tranche(s) sed (${r.sliceLines} l., dont ${r.bigSlices} > 60 l.)` +
-    ` · ${r.rawCats} cat brut · ${r.unboundedReads} Read sans borne · ${r.refused} refus` +
-    (tranches > r.showSymbol
-      ? " — ⚠️ la tranche devinée domine : `show-symbol --outline` puis `F.ts#Symbole`"
-      : "")
+    `${line}\n🚨 ${r.passed.length} tranche(s) de code PASSÉE(S) — trou de la garde, à apprendre à .claude/hooks/code-slice.mjs :\n` +
+    r.passed.map((c) => `   ${c}`).join("\n")
   );
 }
 

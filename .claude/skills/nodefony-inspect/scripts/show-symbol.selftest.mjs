@@ -94,7 +94,67 @@ try {
     "une fin de chemin ambiguë liste les fichiers au lieu d'en choisir un",
     r.stdout,
   );
-  console.log(echecs ? `\n${echecs} cas en échec` : "\n5 cas conformes");
+  const blocs = [
+    'import { a } from "./a";', //   1
+    'import { b } from "./b";', //   2
+    "", //                           3
+    'describe("suite", () => {', //  4
+    '  it("cas un", () => {', //     5
+    "    expect(1).toBe(1);", //     6
+    "  });", //                      7
+    '  it("cas deux", () => {});', // 8
+    "});", //                        9
+    'export { a } from "./a";', //   10
+    "export {", //                   11
+    "  b,", //                       12
+    '} from "./b";', //              13
+  ];
+  fs.writeFileSync(
+    path.join(racine, "src", "a", "blocs.test.ts"),
+    blocs.join("\n"),
+  );
+  execFileSync("git", ["add", "-A"], { cwd: racine });
+  r = run("--outline", "a/blocs.test.ts");
+  check(
+    r.status === 0 &&
+      [
+        "1-2  [imports]",
+        '4-9  describe "suite"',
+        '5-7    it "cas un"',
+        '8-8    it "cas deux"',
+        "10-13  [exports]",
+      ].every((l) => r.stdout.includes(l)),
+    "le plan liste aussi les blocs SANS NOM : imports, describe/it imbriqués, ré-exports",
+    r.stdout,
+  );
+  r = run("a/blocs.test.ts:6");
+  check(
+    r.status === 0 &&
+      r.stdout.startsWith('== src/a/blocs.test.ts:5-7 — it "cas un"') &&
+      r.stdout.trim().split("\n").length === 4,
+    "une ligne rend l'unité la plus INTÉRIEURE qui la contient : le `it`, pas le `describe`",
+    r.stdout,
+  );
+  r = run("a/svc.ts:7");
+  check(
+    r.status === 0 && r.stdout.startsWith("== src/a/svc.ts:5-8 — Svc.start"),
+    "une ligne dans une méthode rend la méthode, pas la classe",
+    r.stdout,
+  );
+  r = run("a/blocs.test.ts:12");
+  check(
+    r.status === 0 &&
+      r.stdout.startsWith("== src/a/blocs.test.ts:11-13 — [exports]"),
+    "une ligne d'un barrel rend SON instruction d'export, pas tout le groupe",
+    r.stdout,
+  );
+  r = run("a/blocs.test.ts:400");
+  check(
+    r.status === 1 && r.stdout.includes("aucune unité"),
+    "une ligne hors du fichier fait échouer l'outil en le disant",
+    r.stdout,
+  );
+  console.log(echecs ? `\n${echecs} cas en échec` : "\n10 cas conformes");
   process.exitCode = echecs ? 1 : 0;
 } finally {
   fs.rmSync(racine, { recursive: true, force: true });

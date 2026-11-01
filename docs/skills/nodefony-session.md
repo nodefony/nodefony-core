@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-30
+updated: 2026-11-01
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-session/SKILL.md"
 ---
@@ -99,8 +99,8 @@ script, donc toujours à jour après régénération.
 | `scripts/session-lib.mjs` | Règles PURES de la reprise et de la clôture de session — sans réseau, sans disque : `session-resume.mjs` et `session-end.mjs` les appellent, leurs tests les éprouvent. | `--chek` `--format` `--help` `--json` `--since` | — |
 | `scripts/session-lib.test.mjs` | Règles pures de la reprise et de la clôture — chaque cas porte le défaut réel qu'il empêche de revenir. / | — | — |
 | `scripts/session-resume.mjs` | session-resume.mjs — la reprise de session en UN appel, sortie bornée (~30 l). | `--offline` | — |
-| `scripts/tool-usage.mjs` | tool-usage.mjs — ce que les sorties d'outils coûtent, et comment on lit le code. | `--all` `--outline` `--show-toplevel` | — |
-| `scripts/tool-usage.selftest.mjs` | Éprouve `tool-usage.mjs` sur un transcript FORGÉ : chaque forme de lecture de code doit être comptée dans sa case, la relecture d'une sortie doit valoir sa taille × les tours qui la suivent, et l'alerte ne doit crier que sur ce que la règle 6 du hook refuserait — une tranche courte est permise. | — | — |
+| `scripts/tool-usage.mjs` | tool-usage.mjs — ce que les sorties d'outils coûtent, et comment on lit le code. | `--all` `--show-toplevel` | — |
+| `scripts/tool-usage.selftest.mjs` | Éprouve `tool-usage.mjs` sur un transcript FORGÉ : une tranche de code refusée par la garde est comptée comme refus, une tranche PASSÉE (résultat sans refus) est nommée comme trou de la garde, et la relecture d'une sortie vaut sa taille × les tours qui la suivent. La règle de tranche est celle de `code-slice.mjs`, lue telle quelle. | — | — |
 
 **Invocation telle que documentée dans chaque script :**
 

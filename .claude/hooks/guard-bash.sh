@@ -113,63 +113,18 @@ if printf '%s' "$cmd" | grep -qE '(^|[;&|(`]|do|then|\$\()[[:space:]]*g?timeout[
   fi
 fi
 
-# 6. Lire du CODE par grosse tranche — `sed -n 100,250p f.ts`, `cat f.ts`. Mesuré sur les
-#    415 sessions du dépôt : lire du code par tranches pèse ~65 % de ce que les sorties
-#    d'outils coûtent en relecture (`sed` seul : 33 %, 8 102 appels). On imprime 150 lignes
-#    pour en lire 20, et la sortie se repaie à CHAQUE tour suivant. Une règle écrite ne
-#    change pas ce réflexe ; le refus, si — à condition de donner la commande qui remplace.
-#    `show-symbol.mjs` borne la lecture par l'AST : la déclaration ENTIÈRE, rien autour —
-#    il ne raccourcit pas, il remplace une borne devinée par une borne exacte. Le refus ne
-#    doit jamais faire lire MOINS que nécessaire : l'outil Read reste libre pour le fichier
-#    entier, et le message le dit. Tolérés : une tranche ≤ 60 lignes, un `cat` filtré
-#    (`| grep`), un fichier court, tout ce qui n'est pas du code source.
-SHOW=".claude/skills/nodefony-inspect/scripts/show-symbol.mjs"
-lecture_refusee() {
-  deny "REFUS — lire du code par tranche ($1) : on imprime tout pour en lire quelques lignes, et la sortie se repaie à CHAQUE tour suivant (premier poste de dépense mesuré). Plan du fichier : \`node $SHOW --outline $2\` ; puis une déclaration entière, TSDoc compris : \`node $SHOW '$2#Classe.methode'\` (ou \`#fonction\`), plusieurs d'un coup si besoin — rien n'est tronqué. Une tranche courte (≤ 60 lignes) reste permise ; s'il faut VRAIMENT le fichier entier (refactor global, code de haut niveau d'un script), l'outil Read le lit, sciemment."
-}
-# 6bis. La tranche COURTE qui coupe une déclaration. Le plafond de 60 lignes se contournait
-#       en multipliant les tranches courtes : mesuré par `session:end`, neuf sessions de
-#       suite à 10-70 tranches contre 2-19 `show-symbol` — deviner les bornes d'une méthode
-#       au lieu de lire la déclaration. La question « est-ce une déclaration ? » se tranche
-#       ici par l'AST (le plan de `show-symbol`), pas par l'agent. Une déclaration de moins
-#       de 3 lignes ne compte pas (une constante se lit en passant) ; une tranche qui ne coupe
-#       AUCUNE déclaration (en-tête d'imports, corps d'un `describe`, littéral) passe.
-#       Fichier illisible par l'outil (non suivi, absent) → on laisse passer : la garde ne
-#       refuse que ce qu'elle sait remplacer.
-SHOW_ABS="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/skills/nodefony-inspect/scripts/show-symbol.mjs"
-tranche_coupe_declaration() { # $1 début, $2 fin, $3 fichier → noms coupés (vide = rien)
-  local f=$3 p
-  case $f in /*) p=$f ;; *) p="${cwd:-.}/$f" ;; esac
-  [ -f "$p" ] && [ -f "$SHOW_ABS" ] || return 0
-  node "$SHOW_ABS" --outline "$p" 2>/dev/null | awk -v a="$1" -v b="$2" '
-    match($0, /^ +[0-9]+-[0-9]+ +[^ ]/) {
-      split($1, r, "-"); s = r[1] + 0; e = r[2] + 0
-      if (e - s >= 2 && s <= b && e >= a) print (e - s) " " $2
-    }' | sort -n | head -3 | cut -d' ' -f2-
-}
-re_sed="sed[[:space:]]+-n[[:space:]]+['\"]?([0-9]+),([0-9]+)p['\"]?[[:space:]]+['\"]?([^[:space:];|&'\"]+\.(ts|tsx|mts|mjs))"
-reste=$cmd
-while [[ $reste =~ $re_sed ]]; do
-  debut=${BASH_REMATCH[1]} fin=${BASH_REMATCH[2]} fichier=${BASH_REMATCH[3]} motif=${BASH_REMATCH[0]}
-  if ((fin - debut + 1 > 60)); then
-    lecture_refusee "$((fin - debut + 1)) lignes" "$fichier"
-  fi
-  coupes=$(tranche_coupe_declaration "$debut" "$fin" "$fichier")
-  if [ -n "$coupes" ]; then
-    cmds=$(printf '%s\n' "$coupes" | sed "s|.*|  node $SHOW '$fichier#&'|")
-    deny "REFUS — la tranche $debut-$fin de $fichier coupe une déclaration : ses bornes sont devinées, la déclaration se lit ENTIÈRE, TSDoc compris (plusieurs d'un coup si besoin) :
-$cmds
-Plan du fichier : \`node $SHOW --outline $fichier\`. Une tranche qui ne coupe AUCUNE déclaration (en-tête d'imports, corps de test, littéral) reste permise ; le fichier entier, c'est l'outil Read."
-  fi
-  reste=${reste#*"$motif"}
-done
-re_cat="(^|[;&(])[[:space:]]*cat[[:space:]]+['\"]?([^[:space:];|&<>'\"]+\.(ts|tsx|mts|mjs))['\"]?[[:space:]]*(;|&&|$)"
-if [[ $cmd =~ $re_cat ]]; then
-  f=${BASH_REMATCH[2]}
-  case $f in /*) p=$f ;; *) p="${cwd:-.}/$f" ;; esac
-  n=$( [ -f "$p" ] && wc -l <"$p" | tr -d ' ' || echo 0)
-  if [ "$n" -gt 150 ]; then lecture_refusee "fichier entier, $n lignes" "$f"; fi
-fi
+# 6. et 8 à 14. Les règles qui exigent de COMPRENDRE la commande (guillemets, heredocs,
+#    étapes de pipeline) vivent en Node, un seul lancement par commande :
+#    6  lire du code par tranche — TOUTE tranche (`code-slice.mjs`, partagé avec guard-read)
+#    8  trailer `Co-Authored-By: Claude`      11 `rm -rf` → demande à l'auteur (ask)
+#    9  sortie de test/build | head|tail       12 `gh issue|pr comment` chaîné
+#    10 `$?` lu après un pipe                  13 `--no-verify`   14 `git add -A` / `.`
+#    Raisons, mesures et commandes de remplacement : `bash-rules.mjs`.
+verdict_node=$(printf '%s' "$cmd" | node "$(dirname "${BASH_SOURCE[0]}")/bash-rules.mjs" 2>/dev/null)
+case $verdict_node in
+  "deny "*) deny "${verdict_node#deny }" ;;
+  "ask "*) ask "${verdict_node#ask }" ;;
+esac
 
 # 7. Pas de Python dans l'outillage : Node (`.mjs`/`.ts`) ou rien. La règle était écrite et
 #    n'a pas tenu — 3 993 appels `python3` mesurés, dont 167 en échec. Un script Python ne

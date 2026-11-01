@@ -44,20 +44,11 @@ const scriptKindOf = (file) =>
       ? ts.ScriptKind.JS
       : ts.ScriptKind.TS;
 
-const nameOf = (n) =>
-  n &&
-  (ts.isIdentifier(n) || ts.isPrivateIdentifier(n) || ts.isStringLiteral(n))
-    ? n.text
-    : null;
-
 /**
- * Analyse un texte source et rend ses déclarations nommées.
- *
- * @param file - nom du fichier : son extension choisit la grammaire (TS, TSX, JS).
- * @param text - contenu du fichier.
- * @returns {ICodeDeclarations} les déclarations et les lignes du texte.
+ * L'AST d'un texte source et ses deux règles de lignes : `lineOf` (base 1) et
+ * `startOf`, qui fait commencer un nœud à son EN-TÊTE (TSDoc, `//` collés).
  */
-export function parseDeclarations(file, text) {
+function sourceOf(file, text) {
   const sf = ts.createSourceFile(
     file,
     text,
@@ -76,6 +67,24 @@ export function parseDeclarations(file, text) {
     }
     return start;
   };
+  return { sf, lineOf, startOf };
+}
+
+const nameOf = (n) =>
+  n &&
+  (ts.isIdentifier(n) || ts.isPrivateIdentifier(n) || ts.isStringLiteral(n))
+    ? n.text
+    : null;
+
+/**
+ * Analyse un texte source et rend ses déclarations nommées.
+ *
+ * @param file - nom du fichier : son extension choisit la grammaire (TS, TSX, JS).
+ * @param text - contenu du fichier.
+ * @returns {ICodeDeclarations} les déclarations et les lignes du texte.
+ */
+export function parseDeclarations(file, text) {
+  const { sf, lineOf, startOf } = sourceOf(file, text);
   const list = [];
   const push = (node, name, parent = null) =>
     list.push({
@@ -119,6 +128,117 @@ export function parseDeclarations(file, text) {
       d.bodyless &&
       list.some((o) => o.qualified === d.qualified && !o.bodyless);
   return { list, lines: text.split("\n") };
+}
+
+/** Appels qui ouvrent un bloc de test (`describe.each(…)(…)`, `it.skip` compris). */
+const TEST_CALLS = new Set([
+  "describe",
+  "suite",
+  "it",
+  "test",
+  "bench",
+  "beforeAll",
+  "beforeEach",
+  "afterAll",
+  "afterEach",
+]);
+
+/** L'identifiant racine d'un appelé : `describe` pour `describe.each([…])`. */
+function calleeRoot(expr) {
+  let e = expr;
+  while (ts.isCallExpression(e) || ts.isPropertyAccessExpression(e))
+    e = e.expression;
+  return ts.isIdentifier(e) ? e.text : null;
+}
+
+/**
+ * @typedef {object} ICodeBlock
+ * @property {string} label - `[imports]`, `[exports]`, `describe "titre"`, `[if]`…
+ * @property {number} depth - profondeur d'imbrication des blocs de test (0 au premier niveau).
+ * @property {number} start - première ligne (base 1), en-tête compris.
+ * @property {number} end - dernière ligne (base 1).
+ * @property {boolean} grouped - une instruction d'un groupe d'imports ou de
+ *   ré-exports : absente du plan (le groupe y figure), visée par une ligne.
+ */
+
+/**
+ * Les blocs SANS NOM d'un fichier — ceux que {@link parseDeclarations} ne voit
+ * pas et qu'on finissait par lire en tranche devinée : imports et ré-exports
+ * (regroupés quand ils se suivent), blocs `describe`/`it`/`test` imbriqués,
+ * instructions de premier niveau d'un script (`if`, `for`, `main()`…).
+ *
+ * @param file - nom du fichier : son extension choisit la grammaire.
+ * @param text - contenu du fichier.
+ * @returns {ICodeBlock[]} dans l'ordre du fichier.
+ */
+export function parseBlocks(file, text) {
+  const { sf, lineOf, startOf } = sourceOf(file, text);
+  const blocks = [];
+  const add = (label, node, depth = 0, grouped = false) =>
+    blocks.push({
+      label,
+      depth,
+      start: startOf(node),
+      end: lineOf(node.getEnd()),
+      grouped,
+    });
+  const testBlocks = (node, depth) => {
+    if (!ts.isExpressionStatement(node)) return false;
+    const call = node.expression;
+    if (!ts.isCallExpression(call)) return false;
+    const root = calleeRoot(call.expression);
+    if (!root || !TEST_CALLS.has(root)) return false;
+    const title = call.arguments[0];
+    const named =
+      title &&
+      (ts.isStringLiteral(title) || ts.isNoSubstitutionTemplateLiteral(title));
+    add(
+      named ? `${root} ${JSON.stringify(title.text)}` : `[${root}]`,
+      node,
+      depth,
+    );
+    for (const arg of call.arguments)
+      if (
+        (ts.isArrowFunction(arg) || ts.isFunctionExpression(arg)) &&
+        arg.body &&
+        ts.isBlock(arg.body)
+      )
+        for (const st of arg.body.statements) testBlocks(st, depth + 1);
+    return true;
+  };
+  let group = null;
+  for (const st of sf.statements) {
+    const kind = ts.isImportDeclaration(st)
+      ? "[imports]"
+      : ts.isExportDeclaration(st)
+        ? "[exports]"
+        : null;
+    if (kind && group?.label === kind) {
+      group.end = lineOf(st.getEnd());
+      add(kind, st, 0, true);
+      continue;
+    }
+    group = null;
+    if (kind) {
+      add(kind, st);
+      group = blocks[blocks.length - 1];
+      add(kind, st, 0, true);
+      continue;
+    }
+    if (testBlocks(st, 0)) continue;
+    if (ts.isExportAssignment(st)) {
+      add("[export default]", st);
+      continue;
+    }
+    // Les déclarations nommées appartiennent à parseDeclarations.
+    if (ts.isVariableStatement(st) || nameOf(st.name)) continue;
+    if (lineOf(st.getEnd()) - lineOf(st.getStart(sf)) < 1) continue;
+    const word = ts.SyntaxKind[st.kind]
+      .replace(/Statement$/, "")
+      .replace(/^\w/, (c) => c.toLowerCase());
+    add(`[${word}]`, st);
+  }
+  return blocks;
 }
 
 const cache = new Map();

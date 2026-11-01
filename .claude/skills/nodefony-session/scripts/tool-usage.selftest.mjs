@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// Éprouve `tool-usage.mjs` sur un transcript FORGÉ : chaque forme de lecture de
-// code doit être comptée dans sa case, la relecture d'une sortie doit valoir sa
-// taille × les tours qui la suivent, et l'alerte ne doit crier que sur ce que la
-// règle 6 du hook refuserait — une tranche courte est permise.
+// Éprouve `tool-usage.mjs` sur un transcript FORGÉ : une tranche de code refusée
+// par la garde est comptée comme refus, une tranche PASSÉE (résultat sans refus) est
+// nommée comme trou de la garde, et la relecture d'une sortie vaut sa taille × les
+// tours qui la suivent. La règle de tranche est celle de `code-slice.mjs`, lue telle quelle.
 //
 // `@usage` node .claude/skills/nodefony-session/scripts/tool-usage.selftest.mjs
 import fs from "node:fs";
@@ -44,15 +44,29 @@ try {
     ecrire([
       tour("m1", [
         ["t1", "Bash", { command: "sed -n '1,200p' src/a.ts" }],
-        ["t2", "Bash", { command: "sed -n 10,30p src/b.ts" }],
+        ["t2", "Bash", { command: "sed -n 10,12p src/b.ts" }],
         ["t3", "Bash", { command: "node x/show-symbol.mjs 'a.ts#A.b'" }],
         ["t4", "Read", { file_path: "/r/src/c.ts" }],
-        ["t5", "Read", { file_path: "/r/src/c.ts", limit: 40 }],
+        ["t5", "Read", { file_path: "/r/src/c.ts", offset: 10, limit: 40 }],
         ["t6", "Bash", { command: "cat src/d.ts" }],
         ["t7", "Bash", { command: "cat src/d.ts | grep x" }],
+        ["t8", "Bash", { command: "sed -n 1,90p notes.md" }],
       ]),
       resultat("t1", "x".repeat(400)),
-      resultat("t6", "REFUS — lire du code par tranche (fichier entier)"),
+      resultat(
+        "t2",
+        "PreToolUse:Bash hook error: REFUS — lire du code par tranche",
+      ),
+      resultat(
+        "t5",
+        "PreToolUse:Read hook error: REFUS — lire du code par tranche",
+      ),
+      resultat(
+        "t6",
+        "PreToolUse:Bash hook error: REFUS — lire du code par tranche",
+      ),
+      resultat("t7", "l1"),
+      resultat("t8", "y"),
       tour("m2", []),
       tour("m2", []), // même réponse répétée : un seul tour
       tour("m3", []),
@@ -60,17 +74,14 @@ try {
   );
   const r = a.reading;
   check(
-    r.slices === 2 && r.sliceLines === 221 && r.bigSlices === 1,
-    "chaque tranche sed est comptée, et seule celle de plus de 60 lignes est refusable",
+    r.showSymbol === 1 && r.refused === 3,
+    "show-symbol compté ; trois refus (tranche courte, Read borné, cat entier)",
     JSON.stringify(r),
   );
   check(
-    r.showSymbol === 1 &&
-      r.rawCats === 1 &&
-      r.unboundedReads === 1 &&
-      r.refused === 1,
-    "show-symbol, cat brut (pas le cat filtré), Read sans borne et refus du hook",
-    JSON.stringify(r),
+    r.passed.length === 1 && r.passed[0].startsWith("sed -n '1,200p' src/a.ts"),
+    "seule la tranche de code SANS refus est un trou ; cat filtré, Read entier et Markdown n'en sont pas",
+    JSON.stringify(r.passed),
   );
   const t1 = a.results.find((x) => x.family === "sed");
   check(
@@ -79,40 +90,24 @@ try {
     JSON.stringify({ turns: a.turns, t1 }),
   );
   check(
-    readingLine(a).includes("(221 l., dont 1 > 60 l.)") &&
-      readingLine(a).includes("1 cat brut") &&
-      readingLine(a).includes("⚠️"),
-    "la ligne nomme chaque compte ; 1 show-symbol contre 2 lectures refusables : alerte",
+    readingLine(a).includes("1 show-symbol · 3 tranche(s) refusée(s)") &&
+      readingLine(a).includes("🚨 1 tranche(s) de code PASSÉE(S)") &&
+      readingLine(a).includes("sed -n '1,200p' src/a.ts"),
+    "la ligne nomme les comptes et CITE la tranche passée",
     readingLine(a),
   );
   const b = analyseTranscript(
     ecrire([
-      tour("m1", [
-        ["t1", "Bash", { command: "sed -n '1,200p' src/a.ts" }],
-        ["t2", "Bash", { command: "sed -n 5,20p src/a.ts" }],
-        ["t3", "Bash", { command: "sed -n 5,20p src/a.ts" }],
-      ]),
+      tour("m1", [["t1", "Bash", { command: "sed -n 5,20p src/a.ts" }]]),
+      resultat("t1", "REFUS — lire du code par tranche"),
     ]),
   );
   check(
-    readingLine(b).includes("⚠️"),
-    "l'alerte crie quand la grosse tranche l'emporte",
+    !readingLine(b).includes("🚨"),
+    "des refus seuls : aucune alerte, la garde a fait son travail",
     readingLine(b),
   );
-  const c = analyseTranscript(
-    ecrire([
-      tour("m1", [
-        ["t1", "Bash", { command: "sed -n 5,20p src/a.ts" }],
-        ["t2", "Bash", { command: "sed -n 5,40p src/b.ts" }],
-      ]),
-    ]),
-  );
-  check(
-    !readingLine(c).includes("⚠️"),
-    "des tranches COURTES seules ne font pas crier l'alerte",
-    readingLine(c),
-  );
-  console.log(echecs ? `\n${echecs} cas en échec` : "\n6 cas conformes");
+  console.log(echecs ? `\n${echecs} cas en échec` : "\n5 cas conformes");
   process.exitCode = echecs ? 1 : 0;
 } finally {
   fs.rmSync(dir, { recursive: true, force: true });

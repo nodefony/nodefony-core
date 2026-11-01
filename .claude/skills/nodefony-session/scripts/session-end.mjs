@@ -233,9 +233,8 @@ function prepare() {
       say("⚠️ lint illisible — `npm run ticket:lint`");
     }
   }
-  // Comment la session a LU le code : l'outil par symbole est-il adopté, ou la
-  // tranche devinée a-t-elle repris ? Mesuré à chaque clôture — une règle qu'on
-  // ne mesure pas, on la croit suivie.
+  // Comment la session a LU le code. La garde refuse toute tranche : ne s'imprime
+  // donc d'alerte que pour une tranche PASSÉE, c'est-à-dire un trou de la garde.
   try {
     const t = currentTranscript(transcriptsDir(ROOT));
     if (t) say(readingLine(analyseTranscript(t)));

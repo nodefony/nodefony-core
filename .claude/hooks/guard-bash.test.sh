@@ -52,7 +52,7 @@ for c in 'git reset --hard' 'git clean -fd' 'git stash' 'git stash push -m x' \
 
 echo "=== ARBRE SALE — doivent PASSER (lecture seule, ou geste qui ne perd rien) ==="
 for c in 'git stash list' 'git stash show -p' 'git status --short' 'git log -6' \
-  'git add -A' 'git commit -m x' 'git diff --stat' 'git push origin main' \
+  'git add -u' 'git commit -m x' 'git diff --stat' 'git push origin main' \
   'echo "ne jamais git reset"' 'git stash list | head -1' 'git stash show -p | wc -l'; do t PASSE "$c"; done
 
 echo "=== push --force — refus inconditionnel (l'historique distant, lui, n'a pas d'état local) ==="
@@ -95,37 +95,72 @@ export NF_GUARD_HAS_TIMEOUT=1
 t PASSE 'timeout 300 npm test'
 unset NF_GUARD_HAS_TIMEOUT
 
-echo "=== règle 6 — code lu par GROSSE tranche : doit REFUSER ==="
-seq 200 | sed 's/^/\/\/ l/' >"$R/gros.ts"
-seq 20 | sed 's/^/\/\/ l/' >"$R/petit.ts"
-for c in "sed -n '100,250p' src/x.ts" 'sed -n 1,200p a/b.tsx' \
-  "rg -n foo x.ts && sed -n '10,120p' src/y.mjs" 'cat gros.ts' 'ls && cat gros.ts'; do
+echo "=== règle 6 — TOUTE tranche de code, sans tolérance : doit REFUSER ==="
+# Chaque cas est une forme vécue : la tranche courte, celle qui ne coupait aucune
+# déclaration, la cible en variable ($F), le cat seul ou passé à un découpeur, head/tail/awk.
+for c in "sed -n '100,250p' src/x.ts" 'sed -n 1,200p a/b.tsx' "sed -n '5,10p' a.ts" \
+  "sed -n 1,3p code.ts" "sed -n '12p' x.mjs" "sed -n '10,\$p' x.ts" "sed -n 10,+5p x.cjs" \
+  "rg -n foo x.ts && sed -n '10,12p' src/y.mjs" 'F=src/a.ts; sed -n 1,80p $F' \
+  'sed -n 1,34p "$F"' 'cat gros.ts' 'ls && cat petit.ts' 'cat -n x.ts | sed -n 20,40p' \
+  'nl x.ts | head -30' 'head -40 x.ts' 'head -n 40 x.ts' 'tail -n 20 src/x.mts' \
+  "awk 'NR>=10 && NR<=40' x.ts" 'echo $(sed -n 1,5p x.ts)'; do
   t deny "$c"
 done
-echo "=== règle 6 — tranche courte, fichier court, cat filtré, non-code : doivent PASSER ==="
-for c in "sed -n '100,140p' src/x.ts" 'sed -n 1,500p notes.md' 'cat petit.ts' \
-  'cat gros.ts | grep l1' "sed -n '5,10p' a.ts; sed -n '20,70p' b.ts" \
-  "sed -i 's/a/b/' x.ts"; do
+echo "=== règle 6 — non-code, recherche, fichier copié, écriture : doivent PASSER ==="
+for c in 'sed -n 1,500p notes.md' 'tail -n 50 "$LOG"' 'tail -f tmp/runs/x.log' \
+  'cat gros.ts | grep l1' 'rg -n foo x.ts | head -20' 'cat a.ts > b.ts' \
+  "sed -i 's/a/b/' x.ts" "awk '{print \$1}' x.ts" 'head -c 100 data.bin' \
+  'node -e "require(1) | sed -n 1,5p x.ts"' 'git log --oneline | head -5' \
+  "cat > a.ts <<'EOF'
+sed -n 1,80p x.ts
+EOF"; do
   t PASSE "$c"
 done
 
-echo "=== règle 6bis — tranche COURTE qui coupe une déclaration : doit REFUSER ==="
-# Un vrai fichier TypeScript : l'AST décide, pas un motif de texte.
-{
-  printf 'import { a } from "./a";\nimport { b } from "./b";\n\n'
-  printf '/** Doc. */\nexport function longue(x: number): number {\n'
-  seq 12 | sed 's/^/  x += 1;/'
-  printf '  return x;\n}\n\nconst court = 1;\n\n'
-  printf 'export class Boite {\n  methode(): number {\n'
-  seq 6 | sed 's/^/    void 0;/'
-  printf '    return 1;\n  }\n}\n'
-} >"$R/code.ts"
-for c in "sed -n '8,12p' code.ts" "sed -n 1,10p code.ts" "sed -n '27,29p' code.ts" \
-  "ls; sed -n '1,2p' code.ts && sed -n '24,25p' code.ts"; do
+echo "=== règle 6 — outil Read (guard-read.sh) ==="
+G="$(dirname "$H")/guard-read.sh"
+r() { # r <attendu> <fichier> <offset> <limit>
+  local d
+  d=$(jq -n --arg f "$2" --arg o "$3" --arg l "$4" \
+    '{tool_input:({file_path:$f} + (if $o=="" then {} else {offset:($o|tonumber)} end) + (if $l=="" then {} else {limit:($l|tonumber)} end))}' |
+    bash "$G" | jq -r '.hookSpecificOutput.permissionDecision' 2>/dev/null)
+  d=${d:-PASSE}
+  if [ "$d" = "$1" ]; then printf '  ok   Read %-36s %s\n' "$2 $3/$4" "$d"
+  else printf '  KO   Read %-36s %s (attendu %s)\n' "$2 $3/$4" "$d" "$1"; ko=$((ko + 1)); fi
+}
+r deny /r/x.ts 100 40
+r deny /r/x.mjs "" 30
+r PASSE /r/x.ts "" ""
+r PASSE /r/notes.md 100 40
+
+echo "=== règles 8 à 14 — gestes mesurés sur les transcripts : doivent REFUSER ==="
+# Le trailer est ASSEMBLÉ ici : écrit en clair dans une commande Bash, il ferait mordre
+# la règle 8 sur la commande qui édite ce banc (vécu en l'écrivant).
+TR="Co-Authored-By"": Claude"
+for c in "git commit -m \"feat: x
+
+$TR Opus <noreply@anthropic.com>\"" \
+  "git commit -F- <<'EOF'
+fix: y
+
+$TR <n@a.com>
+EOF" \
+  'npm test 2>&1 | tail -20' 'npx vitest run x.test.ts | head -50' \
+  'npm run build 2>&1 | grep -i error | head' 'npx tsc --noEmit -p . | tail -5' \
+  'npm run test:memory 2>&1 | tail -30' \
+  'npx vitest run | grep FAIL; echo "exit $?"' 'node x.mjs | tee tmp/runs/a.log; echo $?' \
+  'git add . && git commit -m x' 'git -C src add -A' 'git add --all' \
+  'git commit --no-verify -m x' 'git push --no-verify' \
+  'gh issue comment 618 --body x && git push' 'git push; gh pr comment 3 -b ok'; do
   t deny "$c"
 done
-echo "=== règle 6bis — en-tête d'imports, constante d'une ligne, fichier inconnu : doivent PASSER ==="
-for c in "sed -n '1,3p' code.ts" "sed -n '21,21p' code.ts" "sed -n '5,9p' absent.ts"; do
+for c in 'rm -rf tmp/bench/x' 'rm -fr a' 'rm -r -f b' 'ls && rm --recursive --force c'; do t ask "$c"; done
+echo "=== règles 8 à 14 — voisins légitimes : doivent PASSER ==="
+for c in 'git commit -m "docs: pas de trailer Co-Authored"' 'npm test > tmp/runs/t.log 2>&1; echo "exit $?"' \
+  'set -o pipefail; node a.mjs | grep x; echo $?' 'ls 2>&1 | grep x' 'git log --oneline | head -5' \
+  'rg -n foo src | head -20' 'npm run dev | tail -f' 'git add -- a.ts b.ts' 'git add -u' \
+  'gh issue comment 618 --body "x && y"' 'rm -f a.txt' 'rm -r vide/' 'echo "rm -rf x"' \
+  'node -e "a | tail; echo $?"'; do
   t PASSE "$c"
 done
 

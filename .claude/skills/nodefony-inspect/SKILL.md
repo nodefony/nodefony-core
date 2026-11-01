@@ -145,9 +145,11 @@ relecture — on imprime 150 lignes pour en lire 20, et la sortie se repaie à c
 
 ```bash
 S=.claude/skills/nodefony-inspect/scripts/show-symbol.mjs
-node $S --outline http-kernel.ts                  # le PLAN : une ligne par déclaration, avec sa plage
+node $S --outline http-kernel.ts                  # le PLAN : déclarations ET blocs sans nom, avec leur plage
 node $S 'http-kernel.ts#HttpKernel.handleHttp'    # UNE déclaration, entière, TSDoc compris, numérotée
 node $S 'NodefonySocket.ts#connect' 'a.ts#helper' # plusieurs d'un coup ; un membre nu s'il est unique
+node $S 'http-kernel.ts:412'                      # l'unité qui CONTIENT la ligne (erreur tsc/vitest/oxlint)
+node $S 'x.test.ts:88-90'                         # le bloc `it` le plus intérieur qui contient la plage
 ```
 
 Méthode privée (`#x`), accesseur, constructeur, fonction non exportée, test : tout ce qui est DÉCLARÉ
@@ -160,13 +162,19 @@ des seuls exportés.
   clés de config, commentaires. Le geste : `rg -n X` pour tout trouver, puis `show-symbol` pour LIRE
   précisément ce qu'il a trouvé — au lieu d'un `sed -n` sur une plage devinée autour du résultat.
 - **Pas un raccourci.** Il ne tronque jamais : une méthode de 300 lignes sort en entier. Le plan
-  (`--outline`) ne liste que les déclarations NOMMÉES — ni les fonctions imbriquées, ni les membres d'un
-  objet littéral, ni le code de haut niveau d'un script. Pour celui-là, ou quand il faut vraiment le
-  fichier entier (refactor global), l'outil `Read` le lit, sciemment.
+  (`--outline`) liste les déclarations nommées ET les blocs sans nom (`parseBlocks`) : imports et
+  ré-exports regroupés, `describe`/`it`/`test` imbriqués, instructions de premier niveau d'un
+  script (`[if]`, `[for]`, `[expression]`). Une ligne visée dans un barrel rend SON instruction
+  d'export ; un nom dans un barrel se cherche par `rg -n nom index.ts`. Le fichier entier (refactor
+  global) : l'outil `Read`, sans borne, sciemment.
 
-Le hook `guard-bash.sh` (règle 6) refuse `sed -n A,Bp` au-delà de 60 lignes sur du code et un `cat`
-brut d'un fichier source de plus de 150 lignes, en donnant la commande ci-dessus. Autotest :
-`scripts/show-symbol.selftest.mjs`.
+**Aucune tranche de code n'est permise** — toute ligne appartient à une unité que l'outil imprime.
+Les hooks `guard-bash.sh` (règle 6) et `guard-read.sh` refusent `sed -n`, `head`/`tail`,
+`awk 'NR…'`, un `cat`/`nl` seul ou passé à un découpeur, une cible en `$VAR` non résolue, et
+`Read` avec `offset`/`limit` sur un fichier de code, en donnant la commande `F.ts:LIGNE` qui
+remplace. Règle unique : `.claude/hooks/code-slice.mjs` (lue aussi par `session:end`, qui ne
+signale plus qu'une tranche PASSÉE — un trou de la garde). Autotests :
+`scripts/show-symbol.selftest.mjs`, `.claude/hooks/guard-bash.test.sh`.
 
 ## 5. Comment un module est câblé (config, services, routes)
 
