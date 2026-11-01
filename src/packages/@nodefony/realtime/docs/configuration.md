@@ -281,13 +281,14 @@ regarder quand un message ne traverse pas.
 
 ## ⚙️ Le schéma, clé par clé
 
-Sept blocs, seize clés au total. Le tableau donne la vérité complète ; les sections qui suivent
+Vingt et une clés au total. Le tableau donne la vérité complète ; les sections qui suivent
 expliquent quand et pourquoi en changer.
 
 <!-- prettier-ignore -->
 | Clé | Type | Défaut | Effet |
 | --- | --- | --- | --- |
 | `enabled` | `boolean` | `true` | `false` = module chargé mais inerte : ni API d'administration, ni backplane, ni sonde, ni garde |
+| `codec` | `"json"` \| `"cbor"` | `"json"` | forme des frames sur le fil. `"cbor"` = accordé à tout client qui l'offre, les autres restent en texte avec la convention d'octets `$bytes` |
 | `backplane.driver` | `string` | `"loopback"` | nom résolu dans le registre de drivers ; inconnu → avertissement, le hub reste local |
 | `backplane.namespace` | `string?` | _absent_ → nom d'app | cloison du transport partagé ; suffixe le canal pub/sub. Motif `^[\w.-]+$` |
 | `backplane.secret` | `string?` (≥ 32) | _absent_ | scelle les messages du transport partagé (HMAC) ; identique sur tous les pods. Absent = bus ouvert + avertissement au boot |
@@ -328,6 +329,41 @@ inerte (`RealtimeService.init()`, `RealtimeService.ts#RealtimeService.init`).
 
 Le bon usage : un environnement où le temps réel n'a pas de sens (une commande CLI, un banc). Pour
 désactiver vraiment, retire le module du manifeste.
+
+### `codec` — la forme des frames sur le fil
+
+Le codec ne change pas ce qu'une frame **dit**, seulement la forme qu'elle prend sur le fil : c'est
+toujours du JSON-RPC 2.0, écrit en texte ou en CBOR (ADR-0022 §2). Le défaut `"json"` est le bon
+réglage tant que les charges sont des objets ordinaires. Passe à `"cbor"` dès que des **octets**
+circulent dans un canal (document partagé, série de mesures, audio) :
+
+```ts ignore
+// nodefony.config.ts
+use("@nodefony/realtime", { codec: "cbor" });
+```
+
+Ce que le serveur fait alors, connexion par connexion (`frameCodecNegotiation.ts#negotiateFrameCodec`) :
+
+| Le client…                                                   | Fil retenu                                      | Les octets d'une charge                                               |
+| ------------------------------------------------------------ | ----------------------------------------------- | --------------------------------------------------------------------- |
+| offre `nodefony.jsonrpc.cbor.v1` (`codec: CBOR_FRAME_CODEC`) | CBOR, annoncé dans `realtime:welcome` (`codec`) | chaîne d'octets native, sans base64                                   |
+| n'offre rien (client ancien, autre langage, `curl`)          | JSON-RPC texte                                  | `{"$bytes":"<base64url>"}`, annoncé par le champ `bytes` de l'accueil |
+
+Aucun client ne casse : celui qui ne connaît pas CBOR reste en texte et reçoit les mêmes données.
+Un canal suivi par les deux sortes de connexions paie **un encodage par codec**, jamais un par
+abonné (`RealtimeHub.ts#ChannelFrame`).
+
+Trois conséquences à connaître avant d'activer :
+
+- **Le flux binaire brut ne sert plus les connexions CBOR.** Sur une telle connexion, toute trame
+  binaire est une frame du codec : `onRealtimeBinary()` n'y est jamais appelée et
+  `sendBinaryToClient()` n'y écrit rien. Il ne sert plus que les connexions restées en texte.
+- **Un objet applicatif de la forme exacte `{"$bytes": "<chaîne>"}` est refusé** à l'envoi vers une
+  connexion texte : le client le relirait en octets. La règle est détaillée dans
+  [Protocole](./protocole.md#des-octets-dans-la-charge--une-frame-comme-les-autres).
+- **`NF_REALTIME_CODEC=json` remet le fil en texte** pour le lire dans l'inspecteur réseau du
+  navigateur. C'est une exception de débogage : en texte, la taille des trames et la contre-pression
+  changent, donc une mesure prise ainsi ne vaut pas pour la production.
 
 ### `backplane.driver` — qui relaie les publications
 
@@ -732,7 +768,7 @@ Le détail du contrat, de l'anti-écho et du cycle de vie d'un driver est dans
 
 ## ⚙️ Variables d'environnement et précédence
 
-Six variables influent sur le module. Trois lui sont propres, les autres viennent du cœur ou du
+Huit variables influent sur le module. Cinq lui sont propres, les autres viennent du cœur ou du
 mode cluster. Les trois premières décrivent un **déploiement** — le fond de panier auquel ce
 processus se raccorde — et c'est pour cela qu'elles ne vivent pas dans un fichier versionné.
 
@@ -741,6 +777,7 @@ processus se raccorde — et c'est pour cela qu'elles ne vivent pas dans un fich
 | `NF_REALTIME_DRIVER`              | ce module              | remplace `backplane.driver` — nom libre, un pilote inconnu est signalé     |
 | `NF_REALTIME_BACKPLANE_NAMESPACE` | ce module              | remplace `backplane.namespace` — sépare deux déploiements de la même app   |
 | `NF_REALTIME_BACKPLANE_SECRET`    | ce module              | remplace `backplane.secret` — scelle le transport partagé (≥ 32 car.)      |
+| `NF_REALTIME_CODEC`               | ce module              | remplace `codec` — `json` remet le fil en texte, pour déboguer seulement   |
 | `NF__REALTIME__<CHEMIN>`          | mécanisme du cœur      | remplace n'importe quelle clé, par son chemin. Ex. `NF__REALTIME__ENABLED` |
 | `NF_CLUSTER`                      | posée par le lancement | à `1`, le driver `cluster` s'active en worker. Ne la pose pas à la main    |
 | `NF_CLUSTER_PROBE`                | ce module              | à `0`, coupe la sonde de pod même si `cluster.probe.enabled` est vrai      |
@@ -750,14 +787,14 @@ L'ordre de recouvrement, du plus faible au plus fort :
 
 1. **Les valeurs d'usine du schéma** — ce que tu obtiens sans rien écrire.
 2. **La configuration de l'application** — ton `use("@nodefony/realtime", { … })`.
-3. **`NF_REALTIME_DRIVER`**, **`NF_REALTIME_BACKPLANE_NAMESPACE`** et
-   **`NF_REALTIME_BACKPLANE_SECRET`** — posées par le Kernel après la fusion et **avant** la
+3. **`NF_REALTIME_DRIVER`**, **`NF_REALTIME_BACKPLANE_NAMESPACE`**,
+   **`NF_REALTIME_BACKPLANE_SECRET`** et **`NF_REALTIME_CODEC`** — posées par le Kernel après la fusion et **avant** la
    validation Zod (`applyEnvShortcuts`, `Kernel.ts#Kernel.applyEnvConfigOverrides`) : une valeur fausse **arrête le démarrage** en nommant la
    variable (un secret de moins de 32 caractères, un espace de noms qui contient `:`). Chacune
    accepte aussi sa forme `<NOM>_FILE` (secret monté par Docker ou Kubernetes).
 4. **`NF__REALTIME__<CHEMIN>`** — même moment, même validation. Un chemin introuvable produit un
    avertissement avec une suggestion, jamais une clé fantôme. Viser le **même** champ qu'une des
-   trois variables ci-dessus est une ambiguïté : refusée en production, et en développement
+   quatre variables ci-dessus est une ambiguïté : refusée en production, et en développement
    `NF__…` l'emporte avec un avertissement qui nomme les deux.
 
 Le mécanisme générique mérite d'être connu : le double tiret bas sépare les niveaux, les segments
@@ -830,16 +867,18 @@ Trois endroits, par ordre de fiabilité décroissante.
 
 ## ⚠️ Pièges
 
-| Symptôme                                                                            | Cause                                                                                                  | Correction                                                                                 |
-| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| Un message n'arrive qu'à la moitié des clients, sans aucune erreur                  | plusieurs répliques avec `driver: "loopback"`                                                          | passer à `redis` et déclarer `@nodefony/redis` dans le manifeste                           |
-| Driver `redis` configuré, journal `RealtimeHub reste local`                         | module `@nodefony/redis` absent du manifeste, ou connexions `publish`/`subscribe` indisponibles        | déclarer le module ; vérifier que Redis répond                                             |
-| Le fan-out traverse, mais des messages d'un autre environnement arrivent            | `backplane.namespace` non posé : deux déploiements de la même application dérivent le même canal       | poser un namespace explicite et distinct par environnement                                 |
-| Le démarrage échoue avec `clé inconnue : …`                                         | clé absente du schéma strict (faute de frappe, ou clé retirée)                                         | corriger ou retirer la clé que nomme le message                                            |
-| Baisser `slowConsumer.bytes` ne ferme pas les clients lents                         | cette clé ne pilote que le **comptage** de la sonde                                                    | régler `websocketSecure.maxBackpressure` / `.backpressureCloseAfterDrops` (@nodefony/http) |
-| Toutes les connexions tombent en `4003` après activation du contrôle d'origine      | `allowList` vide, ou origine non identique au caractère près (port, schéma, sous-domaine)              | inscrire l'origine exacte ; un client non-navigateur relève de `allowMissingOrigin`        |
-| `enabled: false` posé « pour désactiver », et la garde d'origine ne s'applique plus | le service devient inerte et ne pose plus les politiques sur le hub                                    | retirer le module du manifeste plutôt que l'éteindre                                       |
-| Le plafond de canaux semble ignoré en test                                          | il ne l'est pas : le hub porte le même défaut de 256 sans configuration (`RealtimeHub.ts#RealtimeHub`) | vérifier le motif de refus `realtime:denied` côté client                                   |
+| Symptôme                                                                            | Cause                                                                                                  | Correction                                                                                                                            |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Un message n'arrive qu'à la moitié des clients, sans aucune erreur                  | plusieurs répliques avec `driver: "loopback"`                                                          | passer à `redis` et déclarer `@nodefony/redis` dans le manifeste                                                                      |
+| Driver `redis` configuré, journal `RealtimeHub reste local`                         | module `@nodefony/redis` absent du manifeste, ou connexions `publish`/`subscribe` indisponibles        | déclarer le module ; vérifier que Redis répond                                                                                        |
+| Le fan-out traverse, mais des messages d'un autre environnement arrivent            | `backplane.namespace` non posé : deux déploiements de la même application dérivent le même canal       | poser un namespace explicite et distinct par environnement                                                                            |
+| Le démarrage échoue avec `clé inconnue : …`                                         | clé absente du schéma strict (faute de frappe, ou clé retirée)                                         | corriger ou retirer la clé que nomme le message                                                                                       |
+| Baisser `slowConsumer.bytes` ne ferme pas les clients lents                         | cette clé ne pilote que le **comptage** de la sonde                                                    | régler `websocketSecure.maxBackpressure` / `.backpressureCloseAfterDrops` (@nodefony/http)                                            |
+| Toutes les connexions tombent en `4003` après activation du contrôle d'origine      | `allowList` vide, ou origine non identique au caractère près (port, schéma, sous-domaine)              | inscrire l'origine exacte ; un client non-navigateur relève de `allowMissingOrigin`                                                   |
+| `enabled: false` posé « pour désactiver », et la garde d'origine ne s'applique plus | le service devient inerte et ne pose plus les politiques sur le hub                                    | retirer le module du manifeste plutôt que l'éteindre                                                                                  |
+| Le plafond de canaux semble ignoré en test                                          | il ne l'est pas : le hub porte le même défaut de 256 sans configuration (`RealtimeHub.ts#RealtimeHub`) | vérifier le motif de refus `realtime:denied` côté client                                                                              |
+| `codec: "cbor"` posé, et `onRealtimeBinary()` ne reçoit plus rien                   | sur une connexion CBOR, toute trame binaire est une frame du codec (ADR-0022 §2)                       | publier les octets dans un canal ; le flux brut ne sert que les connexions texte                                                      |
+| `codec: "cbor"` posé, et le navigateur reste en texte                               | le client n'a pas offert le codec : `codec: CBOR_FRAME_CODEC` absent, ou passé après la 1ʳᵉ création   | l'offrir à la PREMIÈRE création de la socket ([client](../../../../nodefony/docs/client.md#choisir-le-codec-de-trame--texte-ou-cbor)) |
 
 ## 🧪 Tests & couverture
 

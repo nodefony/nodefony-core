@@ -235,6 +235,14 @@ connexion restée en texte porte les octets sous la convention `{"$bytes": …}`
 aussi en `Uint8Array`. Le déroulé, les cas limites et la mesure texte contre CBOR sont dans
 [Client isomorphe — Choisir le codec de trame](client.md#choisir-le-codec-de-trame--texte-ou-cbor).
 
+Le reste du chemin vit dans le module temps réel :
+
+- **Activer le codec côté serveur** : la clé `codec: "cbor"` de `@nodefony/realtime` —
+  [Configuration](../../packages/@nodefony/realtime/docs/configuration.md#codec--la-forme-des-frames-sur-le-fil).
+- **Ce qu'est une frame qui porte des octets**, et pourquoi un objet `{ $bytes: "<chaîne>" }`
+  écrit par l'application est refusé sur une connexion texte —
+  [Protocole](../../packages/@nodefony/realtime/docs/protocole.md#des-octets-dans-la-charge--une-frame-comme-les-autres).
+
 ## 📜 Normes appliquées
 
 | Norme                            | Ce qu'on en applique                                                                                              |
@@ -260,6 +268,9 @@ changerait leur ordre, que JSON conserve.
 - **`CborError` sur un `bigint`** → JSON le refuse aussi → convertir en chaîne ou en nombre.
 - **Une structure très profonde fait lever le moteur à l'encodage** (`RangeError`) → comme
   `JSON.stringify` → aplatir la donnée ; au décodage, c'est `maxDepth` qui la borne.
+- **`TypeError : codec JSON : objet {"$bytes": …} non issu d'octets`** → ce n'est pas CBOR : un
+  abonné resté en texte relirait cet objet en octets → envoyer un vrai `Uint8Array`, ou donner à
+  l'objet une seconde clé.
 
 ## 🧪 Tests & couverture
 
