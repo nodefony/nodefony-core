@@ -495,4 +495,24 @@ describe("`$bytes` forgé sous codec actif — refusé aux abonnés texte, dit U
     expect(errors).toHaveLength(1);
     expect(errors[0]).toMatch(/non issu d'octets/);
   });
+
+  it("côté CLIENT texte : `emit` lève comme sur une charge cyclique, rien ne part, la connexion sert encore", async () => {
+    const { client, server } = await connect(false, undefined);
+    // Le client a pris la convention sur annonce du serveur.
+    expect(JSON.parse(server.sent[0] as string).params.bytes).toBe("$bytes");
+    const before = server.rt.inbound.length;
+    // Même contrat qu'une charge cyclique : l'appelant reçoit l'erreur là où il a
+    // passé la donnée, rien n'est écrit sur le fil.
+    expect(() => client.emit("upload", { note: { $bytes: "AAEC" } })).toThrow(
+      /non issu d'octets sous la clé "note"/,
+    );
+    await flush();
+    // Rien n'a franchi le fil : le serveur l'aurait relu en octets.
+    expect(server.rt.inbound.length).toBe(before);
+    client.emit("upload", { data: new Uint8Array([5]) });
+    await flush();
+    const got = server.rt.inbound as Array<{ data: Uint8Array }>;
+    expect(got).toHaveLength(before + 1);
+    expect([...(got[before]?.data ?? [])]).toEqual([5]);
+  });
 });

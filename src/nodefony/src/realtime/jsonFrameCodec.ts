@@ -87,10 +87,19 @@ function isLoneMarker(value: unknown): boolean {
  * le REFUSE plutôt que de laisser la même publication changer de nature selon le
  * codec du récepteur. La valeur n'est jamais recopiée dans le message.
  */
+/** Longueur de clé recopiée dans le message d'un marqueur forgé. */
+const MAX_KEY_SHOWN = 64;
+
 function forgedMarkerError(key: string): TypeError {
+  // La clé est choisie par l'émetteur et finit au journal : bornée, puis échappée
+  // par `JSON.stringify` (sauts de ligne, séquences ANSI) — ni ligne de journal
+  // forgée, ni inondation (CWE-117).
+  const shown = JSON.stringify(
+    key.length > MAX_KEY_SHOWN ? `${key.slice(0, MAX_KEY_SHOWN)}…` : key,
+  );
   return new TypeError(
     `codec JSON : objet {"${BYTES_MARKER}": …} non issu d'octets` +
-      (key === "" ? "" : ` sous la clé "${key}"`) +
+      (key === "" ? "" : ` sous la clé ${shown}`) +
       " — le récepteur le relirait en octets ; envoyer un Uint8Array, ou ajouter une autre clé à l'objet",
   );
 }

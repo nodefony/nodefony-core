@@ -283,6 +283,23 @@ describe("JSON_BYTES_FRAME_CODEC — un marqueur FORGÉ est refusé à l'émissi
     );
   });
 
+  it("la clé, choisie par l'émetteur, entre au journal ÉCHAPPÉE et BORNÉE : ni ligne forgée, ni inondation (CWE-117)", () => {
+    const messageFor = (key: string): string => {
+      try {
+        JSON_BYTES_FRAME_CODEC.encode({
+          params: { [key]: { [BYTES_MARKER]: "AAEC" } },
+        });
+      } catch (e) {
+        return e instanceof Error ? e.message : String(e);
+      }
+      return "";
+    };
+    const forging = messageFor("x\nERROR faux journal \u001b[31m");
+    expect(forging).not.toMatch(/[\n\r\u001b]/);
+    expect(forging).toContain(String.raw`\n`);
+    expect(messageFor("k".repeat(100_000)).length).toBeLessThan(400);
+  });
+
   it("le message ne recopie jamais la valeur forgée", () => {
     let message = "";
     try {
