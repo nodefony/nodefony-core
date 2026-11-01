@@ -3,6 +3,7 @@ import { RealtimeHub } from "../../src/server/RealtimeHub.js";
 import { ServerRealtimeSocket } from "../../src/server/ServerRealtimeSocket.js";
 import { LoopbackBackplane } from "../../src/backplane/LoopbackBackplane.js";
 import type { RealtimePublish } from "../../interfaces/IRealtimeController.js";
+import { frameCodecSet } from "nodefony";
 
 /** Fabrique qui ne connaît AUCUN canal — le cas « canal inconnu du controller ». */
 const unknownChannel = (): null => null;
@@ -176,29 +177,30 @@ describe("RealtimeHub — l'écoute passive n'ouvre aucune porte", () => {
   it("la mutualisation de frame s'active au réveil (sérialiseur du client apporté)", () => {
     const hub = new RealtimeHub();
     new ServerRealtimeSocket(hub).subscribe("live:4"); // passif, sans sérialiseur
-    let serializeCalls = 0;
-    const seen: Array<string | undefined> = [];
+    let buildCalls = 0;
+    const seen: Array<string | Uint8Array | undefined> = [];
     let pub: RealtimePublish | null = null;
-    const serialize = (p: unknown): string => {
-      serializeCalls++;
-      return JSON.stringify(p);
+    const buildFrame = (p: unknown): unknown => {
+      buildCalls++;
+      return p;
     };
+    const text = frameCodecSet().text;
     hub.subscribeClient(
       "live:4",
-      (_p, raw) => seen.push(raw),
+      (_p, frame) => seen.push(frame?.encodeFor(text)),
       (_ch, publish) => {
         pub = publish;
         return () => {};
       },
-      serialize,
+      buildFrame,
     );
     hub.subscribeClient(
       "live:4",
-      (_p, raw) => seen.push(raw),
+      (_p, frame) => seen.push(frame?.encodeFor(text)),
       () => () => {},
     );
     pub!("live:4", { v: 1 });
-    expect(serializeCalls).to.equal(1); // une seule fois pour tous les abonnés
+    expect(buildCalls).to.equal(1); // une seule fois pour tous les abonnés
     expect(seen).to.contain('{"v":1}');
   });
 });

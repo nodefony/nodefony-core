@@ -579,7 +579,9 @@ export type {
 export type {
   ChannelSink,
   ChannelFactory,
+  ChannelFrameBuilder,
 } from "./nodefony/src/server/RealtimeHub";
+export { ChannelFrame } from "./nodefony/src/server/RealtimeHub";
 export type {
   IBackplane,
   IBackplaneMessage,

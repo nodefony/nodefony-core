@@ -1,120 +1,147 @@
 import { describe, it, expect } from "vitest";
-import { RealtimeHub } from "../../src/server/RealtimeHub.js";
-import { JsonRpcPeer } from "nodefony";
+import {
+  RealtimeHub,
+  type ChannelFrame,
+} from "../../src/server/RealtimeHub.js";
+import { JsonRpcPeer, frameCodecSet, type IFrameCodec } from "nodefony";
+import { CBOR_FRAME_CODEC } from "nodefony/cbor";
 
 /**
- * **Fan-out mutualisé (plan S1)** — sur un canal diffusé, la frame envoyée est
- * IDENTIQUE pour tous les abonnés : la sérialiser une fois par abonné revient à
- * refaire N fois le même calcul. Le hub étant agnostique du protocole, c'est
- * l'abonné qui lui fournit un sérialiseur ; le hub décide quand il vaut le coup.
+ * **Fan-out mutualisé (plan S1, ADR-0022 §2)** — sur un canal diffusé, la frame
+ * envoyée est IDENTIQUE pour tous les abonnés d'un même codec : l'encoder une fois
+ * par abonné revient à refaire N fois le même calcul. Le hub étant agnostique du
+ * protocole, c'est l'abonné qui lui fournit la fabrique de frame ; le hub construit
+ * la frame une fois, et chaque codec l'encode une fois.
  *
  * Ce que ces tests verrouillent :
- *  - le travail est fait UNE fois quel que soit le nombre d'abonnés ;
- *  - la frame reçue est **exactement** celle du chemin non mutualisé (aucune
- *    divergence de format possible entre les deux voies) ;
+ *  - la frame est construite UNE fois et encodée UNE fois PAR codec, quel que soit
+ *    le nombre d'abonnés ;
+ *  - chaque abonné reçoit la trame de SON codec (texte ou octets), jamais celle d'un
+ *    autre ;
+ *  - la trame reçue est **exactement** celle du chemin non mutualisé ;
+ *  - un codec qu'aucun abonné n'utilise n'est jamais appelé ;
  *  - le chemin historique (sink à un seul argument) est intact ;
- *  - une charge non sérialisable ne casse pas le fan-out — chaque abonné retombe
- *    sur son propre filet.
+ *  - une frame non encodable ne casse pas le fan-out — chaque abonné retombe sur
+ *    son propre filet.
  */
 
-/** Charge qui compte combien de fois elle est sérialisée. */
-function countingPayload(): { value: { v: number }; count: () => number } {
+const TEXT = frameCodecSet().text;
+
+/** Trames reçues par les abonnés — `"NON_MUTUALISE"` quand le hub n'a rien partagé. */
+type Out = Array<string | Uint8Array>;
+
+/** Codec qui compte ses encodages, sans rien changer à ce qu'il rend. */
+function counting(codec: IFrameCodec): {
+  codec: IFrameCodec;
+  count: () => number;
+} {
   let n = 0;
-  const value = {
-    v: 1,
-    toJSON(): unknown {
-      n += 1;
-      return { v: 1 };
+  return {
+    codec: {
+      protocol: codec.protocol,
+      encode(frame: unknown) {
+        n += 1;
+        return codec.encode(frame);
+      },
+      decode: (data) => codec.decode(data),
     },
+    count: () => n,
   };
-  return { value: value, count: () => n };
 }
 
-/** Sérialiseur d'un canal : la frame JSON-RPC de notification, telle qu'envoyée. */
-const serializeNotification =
-  (channel: string) =>
-  (payload: unknown): string =>
-    JSON.stringify(JsonRpcPeer.buildNotification(channel, payload));
+/** Fabrique de frame d'un canal, qui compte ses appels. */
+function countingBuilder(channel: string): {
+  build: (payload: unknown) => unknown;
+  count: () => number;
+} {
+  let n = 0;
+  return {
+    build: (payload) => {
+      n += 1;
+      return JsonRpcPeer.buildNotification(channel, payload);
+    },
+    count: () => n,
+  };
+}
 
-describe("Fan-out — sérialisation mutualisée (plan S1)", () => {
-  it("N abonnés ⇒ UNE seule sérialisation (au lieu de N)", () => {
+/** Abonne un sink qui écrit, comme le contrôleur, la trame de SON codec. */
+function subscribeWith(
+  hub: RealtimeHub,
+  codec: IFrameCodec,
+  build: (payload: unknown) => unknown,
+  out: Out,
+): void {
+  hub.subscribe(
+    "chat:room",
+    (_p, frame?: ChannelFrame) =>
+      out.push(frame?.encodeFor(codec) ?? "NON_MUTUALISE"),
+    () => () => {},
+    build,
+  );
+}
+
+describe("Fan-out — frame construite une fois, encodée une fois PAR codec", () => {
+  it("N abonnés du même codec ⇒ UNE construction, UN encodage", () => {
     const hub = new RealtimeHub();
-    const received: string[] = [];
-    const sink = (_p: unknown, raw?: string): void => {
-      received.push(raw ?? "NON_MUTUALISE");
-    };
-    // 3 abonnés sur le même canal, tous servis par le même provider.
-    hub.subscribe(
-      "chat:room",
-      sink,
-      () => () => {},
-      serializeNotification("chat:room"),
-    );
-    hub.subscribe(
-      "chat:room",
-      (_p, raw) => received.push(raw ?? "NON_MUTUALISE"),
-      () => () => {},
-      serializeNotification("chat:room"),
-    );
-    hub.subscribe(
-      "chat:room",
-      (_p, raw) => received.push(raw ?? "NON_MUTUALISE"),
-      () => () => {},
-      serializeNotification("chat:room"),
-    );
+    const text = counting(TEXT);
+    const binary = counting(CBOR_FRAME_CODEC);
+    const builder = countingBuilder("chat:room");
+    const out: Out = [];
+    for (let i = 0; i < 3; i++)
+      subscribeWith(hub, text.codec, builder.build, out);
 
-    const { value, count } = countingPayload();
-    hub.publish("chat:room", value);
+    hub.publish("chat:room", { v: 1 });
 
-    expect(received).to.have.lengthOf(3);
-    expect(count()).to.equal(1); // le cœur du plan S1
+    expect(out).to.have.lengthOf(3);
+    expect(builder.count()).to.equal(1);
+    expect(text.count()).to.equal(1); // le cœur du plan S1
+    expect(binary.count()).to.equal(0); // paresseux : aucun abonné CBOR
   });
 
-  it("la frame mutualisée est EXACTEMENT celle du chemin par abonné", () => {
+  it("abonnés texte ET CBOR ⇒ deux encodages, chacun reçoit la trame de son codec", () => {
     const hub = new RealtimeHub();
-    let mutualisee = "";
-    hub.subscribe(
-      "chat:room",
-      (_p, raw) => {
-        mutualisee = raw ?? "";
-      },
-      () => () => {},
-      serializeNotification("chat:room"),
-    );
-    hub.subscribe(
-      "chat:room",
-      () => {},
-      () => () => {},
-      serializeNotification("chat:room"),
-    );
+    const text = counting(TEXT);
+    const binary = counting(CBOR_FRAME_CODEC);
+    const builder = countingBuilder("chat:room");
+    const textOut: Out = [];
+    const binOut: Out = [];
+    // Entrelacés : l'ordre d'arrivée ne doit rien changer au compte.
+    subscribeWith(hub, text.codec, builder.build, textOut);
+    subscribeWith(hub, binary.codec, builder.build, binOut);
+    subscribeWith(hub, text.codec, builder.build, textOut);
+    subscribeWith(hub, binary.codec, builder.build, binOut);
 
-    hub.publish("chat:room", { msg: "hello", n: 42 });
+    const payload = { msg: "hello", n: 42, data: new Uint8Array([0, 255]) };
+    hub.publish("chat:room", payload);
 
-    // Référence : ce qu'un peer aurait envoyé via `notify`.
-    const attendue = JSON.stringify(
-      JsonRpcPeer.buildNotification("chat:room", { msg: "hello", n: 42 }),
-    );
-    expect(mutualisee).to.equal(attendue);
+    expect(builder.count()).to.equal(1);
+    expect(text.count()).to.equal(1);
+    expect(binary.count()).to.equal(1);
+    const frame = JsonRpcPeer.buildNotification("chat:room", payload);
+    // Exactement ce que le pair de chaque connexion aurait écrit via `notify`.
+    expect(textOut).to.deep.equal([TEXT.encode(frame), TEXT.encode(frame)]);
+    expect(binOut).to.have.lengthOf(2);
+    for (const raw of binOut) {
+      expect(raw).to.be.instanceOf(Uint8Array);
+      expect([...(raw as Uint8Array)]).to.deep.equal([
+        ...(CBOR_FRAME_CODEC.encode(frame) as Uint8Array),
+      ]);
+    }
   });
 
   it("un seul abonné ⇒ pas de mutualisation (on ne paie pas ce qui ne sert à rien)", () => {
     const hub = new RealtimeHub();
-    let recu: string | undefined = "pas-appele";
-    hub.subscribe(
-      "chat:room",
-      (_p, raw) => {
-        recu = raw;
-      },
-      () => () => {},
-      serializeNotification("chat:room"),
-    );
+    const builder = countingBuilder("chat:room");
+    const out: Out = [];
+    subscribeWith(hub, TEXT, builder.build, out);
 
     hub.publish("chat:room", { a: 1 });
 
-    expect(recu).to.equal(undefined); // l'abonné sérialise lui-même, comme avant
+    expect(out).to.deep.equal(["NON_MUTUALISE"]); // l'abonné encode lui-même
+    expect(builder.count()).to.equal(0);
   });
 
-  it("CONTRÔLE — canal SANS sérialiseur : le chemin historique est intact", () => {
+  it("CONTRÔLE — canal SANS fabrique de frame : le chemin historique est intact", () => {
     const hub = new RealtimeHub();
     const recus: unknown[] = [];
     // Sink à un seul argument, tel qu'écrit avant le plan S1.
@@ -134,28 +161,41 @@ describe("Fan-out — sérialisation mutualisée (plan S1)", () => {
     expect(recus).to.deep.equal([{ load: 0.5 }, { load: 0.5 }]);
   });
 
-  it("charge NON sérialisable : le fan-out tient, chaque abonné garde son filet", () => {
+  it("frame NON encodable : le fan-out tient, un seul essai par codec, chaque abonné garde son filet", () => {
     const hub = new RealtimeHub();
-    const vus: (string | undefined)[] = [];
+    const text = counting(TEXT);
+    const builder = countingBuilder("chat:room");
+    const out: Out = [];
     const cyclique: Record<string, unknown> = {};
-    cyclique.self = cyclique; // JSON.stringify lève
-
-    hub.subscribe(
-      "chat:room",
-      (_p, raw) => vus.push(raw),
-      () => () => {},
-      serializeNotification("chat:room"),
-    );
-    hub.subscribe(
-      "chat:room",
-      (_p, raw) => vus.push(raw),
-      () => () => {},
-      serializeNotification("chat:room"),
-    );
+    cyclique.self = cyclique; // l'encodage lève
+    for (let i = 0; i < 3; i++)
+      subscribeWith(hub, text.codec, builder.build, out);
 
     expect(() => hub.publish("chat:room", cyclique)).to.not.throw();
-    // Pas de frame mutualisée → chacun retombe sur son propre chemin (qui log et
-    // répond une erreur), exactement comme avant le plan S1.
-    expect(vus).to.deep.equal([undefined, undefined]);
+    // Pas de trame mutualisée → chacun retombe sur son propre chemin (qui log et
+    // répond une erreur), exactement comme avant le plan S1 ; l'échec n'est pas
+    // retenté pour chaque abonné.
+    expect(out).to.deep.equal([
+      "NON_MUTUALISE",
+      "NON_MUTUALISE",
+      "NON_MUTUALISE",
+    ]);
+    expect(text.count()).to.equal(1);
+  });
+
+  it("un troisième codec reste servi, sans mise en cache", () => {
+    const hub = new RealtimeHub();
+    const a = counting(TEXT);
+    const b = counting(CBOR_FRAME_CODEC);
+    const c = counting(TEXT);
+    const builder = countingBuilder("chat:room");
+    const out: Out = [];
+    for (const codec of [a.codec, b.codec, c.codec, c.codec])
+      subscribeWith(hub, codec, builder.build, out);
+
+    hub.publish("chat:room", { v: 3 });
+
+    expect(out.every((raw) => raw !== "NON_MUTUALISE")).to.equal(true);
+    expect([a.count(), b.count(), c.count()]).to.deep.equal([1, 1, 2]);
   });
 });

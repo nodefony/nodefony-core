@@ -162,14 +162,21 @@ quand l'appliquer.
 
 Mécanique :
 
-- `ChannelSink = (payload, serialized?) => void` — 2ᵉ argument **optionnel** : un sink historique à
+- `ChannelSink = (payload, frame?: ChannelFrame) => void` — 2ᵉ argument **optionnel** : un sink à
   un paramètre l'ignore, rien ne casse.
-- `ChannelSerializer` posé par `subscribe(channel, sink, factory, serialize?)`, mémorisé dans
-  `ChannelState.serialize` (le 1ᵉʳ abonné qui en fournit un ouvre la mutualisation pour les suivants).
-- `#fanout` : si `serialize !== null && sinks.size > 1` → **une** sérialisation, passée à tous.
+- `ChannelFrameBuilder` (rend la frame OBJET, pas ses octets) posé par
+  `subscribe(channel, sink, factory, buildFrame?)`, mémorisé dans `ChannelState.buildFrame` (le 1ᵉʳ
+  abonné qui en fournit une ouvre la mutualisation pour les suivants).
+- `#fanout` : si `buildFrame !== null && sinks.size > 1` → **une** `ChannelFrame` par publication ;
+  chaque sink appelle `frame.encodeFor(peer.codec)` → encodage **paresseux, une fois PAR codec**
+  (2 places : texte + binaire du hub). Sous CBOR, un canal suivi en texte ET en CBOR paie 2
+  encodages, jamais N. Encodage qui lève → `undefined` → le sink repasse par `peer.notify` (filet).
   Un seul abonné ⇒ rien à mutualiser ⇒ chemin d'avant, **0 surcoût**.
+- Gotcha : la frame mutualisée ne s'écrit JAMAIS sans le codec de la connexion — l'ancienne chaîne
+  JSON partagée partait en trame texte vers un abonné CBOR, et sans la convention `$bytes` vers un
+  abonné texte d'un hub CBOR.
 - `JsonRpcPeer.buildNotification(method, params)` = **source unique** de la frame (délègue à
-  `jsonRpcNotification` du cœur, `jsonrpc/`), utilisée par `notify()` ET par le sérialiseur → les
+  `jsonRpcNotification` du cœur, `jsonrpc/`), utilisée par `notify()` ET par la fabrique → les
   deux voies ne peuvent pas diverger (test d'égalité stricte).
 - `RealtimeController` : `sink = (p, raw) => raw !== undefined ? state.transport.send(raw) : peer.notify(channel, p)`.
 

@@ -1252,13 +1252,20 @@ export abstract class RealtimeController<
   /** Ouvre l'abonnement au hub et l'acquitte — canal sans `allow`, ou admis par sa règle. */
   private openChannel(state: IRealtimeConnectionState, channel: string): void {
     // Sink de CETTE connexion : pousse la charge fan-outée par le hub sur son peer.
-    // Quand le canal a plusieurs abonnés, le hub a déjà sérialisé la frame — une
-    // seule fois pour tous : on l'écrit telle quelle sur le transport, au lieu de
-    // refaire le même `JSON.stringify` par connexion. La frame vient de la source
-    // unique `JsonRpcPeer.buildNotification`, donc les deux voies sont identiques.
-    const sink: ChannelSink = (payload, serialized) => {
-      if (serialized !== undefined) state.transport.send(serialized);
-      else state.peer.notify(channel, payload);
+    // Quand le canal a plusieurs abonnés, le hub a construit la frame une fois
+    // pour tous : on demande son encodage pour le codec de CETTE connexion —
+    // partagé avec toutes celles du même codec — et on l'écrit telle quelle, au
+    // lieu de réencoder par connexion. La frame vient de la source unique
+    // `JsonRpcPeer.buildNotification`, donc les deux voies sont identiques.
+    const sink: ChannelSink = (payload, frame) => {
+      if (frame !== undefined) {
+        const data = frame.encodeFor(state.peer.codec);
+        if (data !== undefined) {
+          state.transport.send(data);
+          return;
+        }
+      }
+      state.peer.notify(channel, payload);
     };
     // Le hub PARTAGE le provider entre connexions (1 ticker/canal/pod) ; la factory
     // (appelée au 1ᵉʳ abonné) doit capturer des deps long-lived — cf createRealtimeChannel.
@@ -1288,9 +1295,9 @@ export abstract class RealtimeController<
         return dispose;
       },
       // Le hub ignore JSON-RPC : c'est l'abonné qui lui dit comment fabriquer la
-      // frame du canal. Appelé au plus une fois par publication, jamais par abonné.
-      (payload) =>
-        JSON.stringify(JsonRpcPeer.buildNotification(channel, payload)),
+      // frame du canal. Appelé au plus une fois par publication, jamais par abonné ;
+      // l'encodage se fait ensuite une fois par codec (`ChannelFrame`).
+      (payload) => JsonRpcPeer.buildNotification(channel, payload),
     );
     if (ok) {
       state.channels.set(channel, sink);

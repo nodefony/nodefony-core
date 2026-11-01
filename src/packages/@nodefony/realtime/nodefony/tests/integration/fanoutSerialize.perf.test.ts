@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { RealtimeHub } from "../../src/server/RealtimeHub.js";
-import { JsonRpcPeer } from "nodefony";
+import {
+  RealtimeHub,
+  type ChannelFrame,
+} from "../../src/server/RealtimeHub.js";
+import { JsonRpcPeer, frameCodecSet } from "nodefony";
 
 /**
  * **Ce que le plan S1 économise, mesuré sur l'étage seul** — opt-in `NF_RUN_PERF=1`
@@ -9,7 +12,7 @@ import { JsonRpcPeer } from "nodefony";
  * Pourquoi ici et pas au banc multi-pods : le banc sature le transport WebSocket
  * et sa variance atteint un facteur 3 d'un tir à l'autre — il ne peut pas isoler
  * un écart de quelques dizaines de pour-cent. On mesure donc l'étage concerné, et
- * les **deux chemins dans le même binaire** (`serialize` est optionnel), ce qui
+ * les **deux chemins dans le même binaire** (`buildFrame` est optionnel), ce qui
  * élimine tout biais de compilation.
  *
  * Ce que la mesure dit — et ne dit pas : elle chiffre le travail de sérialisation
@@ -23,10 +26,14 @@ const NF_RUN_PERF = process.env.NF_RUN_PERF === "1";
 const ABONNES = 200;
 const PUBLICATIONS = 2000;
 
-const serializer =
+const TEXT = frameCodecSet().text;
+const builder =
   (channel: string) =>
-  (payload: unknown): string =>
-    JSON.stringify(JsonRpcPeer.buildNotification(channel, payload));
+  (payload: unknown): unknown =>
+    JsonRpcPeer.buildNotification(channel, payload);
+/** Ce que le pair écrit quand rien n'a été mutualisé : construire puis encoder. */
+const encodeAlone = (channel: string, payload: unknown): string =>
+  TEXT.encode(JsonRpcPeer.buildNotification(channel, payload)) as string;
 
 /**
  * Chronomètre le fan-out d'un canal à `ABONNES` abonnés, avec ou sans frame
@@ -41,17 +48,18 @@ function mesure(
   charge: object,
 ): { ms: number; octets: number } {
   const hub = new RealtimeHub();
-  const serialize = serializer("chat:room1");
+  const build = builder("chat:room1");
   let octets = 0;
   for (let i = 0; i < ABONNES; i += 1) {
-    const sink = (payload: unknown, prete?: string): void => {
-      octets += (prete ?? serialize(payload)).length;
+    const sink = (payload: unknown, frame?: ChannelFrame): void => {
+      octets += (frame?.encodeFor(TEXT) ?? encodeAlone("chat:room1", payload))
+        .length;
     };
     hub.subscribe(
       "chat:room1",
       sink,
       () => () => {},
-      mutualise ? serialize : undefined,
+      mutualise ? build : undefined,
     );
   }
   const t0 = performance.now();
@@ -82,15 +90,17 @@ describe("Fan-out mutualisé — coût de sérialisation (NF_RUN_PERF=1)", () =>
   it.skipIf(!NF_RUN_PERF)("un seul abonné : aucun surcoût introduit", () => {
     const charge = { seq: 1, pad: "x".repeat(2000) };
     const hub = new RealtimeHub();
-    const serialize = serializer("chat:room1");
     let appels = 0;
     hub.subscribe(
       "chat:room1",
-      (p, prete) => {
-        appels += (prete ?? serialize(p)).length > 0 ? 1 : 0;
+      (p, frame) => {
+        appels +=
+          (frame?.encodeFor(TEXT) ?? encodeAlone("chat:room1", p)).length > 0
+            ? 1
+            : 0;
       },
       () => () => {},
-      serialize,
+      builder("chat:room1"),
     );
     for (let i = 0; i < 100; i += 1) hub.publish("chat:room1", charge);
     expect(appels).to.equal(100); // chemin d'avant, strictement

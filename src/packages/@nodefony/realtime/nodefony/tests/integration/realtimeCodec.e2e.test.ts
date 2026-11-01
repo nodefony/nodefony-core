@@ -53,6 +53,11 @@ class CodecRt extends RealtimeController {
     this.rawFrames.push(data);
   }
 
+  // Canal de diffusion : le banc publie lui-même par le hub.
+  override createRealtimeChannel(channel: string): (() => void) | null {
+    return channel === "tick" ? () => {} : null;
+  }
+
   feed(raw: RealtimeFrameData | null): void {
     this.handleRealtime(raw);
   }
@@ -246,6 +251,38 @@ describe("Codec binaire côté serveur — négociation, accueil, bascule (#618)
     const before = server.sent.length;
     expect(server.rt.pushRaw(new Uint8Array([1, 2, 3]))).toBe(false);
     expect(server.sent.length).toBe(before);
+  });
+
+  it("diffusion à un client CBOR et à un client texte : chacun reçoit la trame de SON codec", async () => {
+    const cbor = await connect(true, `${CBOR}, ${TEXT}`);
+    const text = await connect(false, undefined);
+    const gotCbor: Array<{ seq: number; data: Uint8Array }> = [];
+    const gotText: Array<{ seq: number }> = [];
+    cbor.client.on("tick", (p) =>
+      gotCbor.push(p as { seq: number; data: Uint8Array }),
+    );
+    text.client.on("tick", (p) => gotText.push(p as { seq: number }));
+    cbor.client.subscribe("tick");
+    text.client.subscribe("tick");
+    await flush();
+    await flush();
+    const fromCbor = cbor.server.sent.length;
+    const fromText = text.server.sent.length;
+    // Deux abonnés : la frame est mutualisée par le hub, encodée par codec.
+    getRealtimeHub().publish("tick", {
+      seq: 7,
+      data: new Uint8Array([1, 2, 3]),
+    });
+    await flush();
+    const cborFrames = cbor.server.sent.slice(fromCbor);
+    const textFrames = text.server.sent.slice(fromText);
+    expect(cborFrames).toHaveLength(1);
+    expect(cborFrames[0]).toBeInstanceOf(Uint8Array);
+    expect(textFrames).toHaveLength(1);
+    expect(typeof textFrames[0]).toBe("string");
+    expect(gotCbor).toHaveLength(1);
+    expect(gotCbor.map((p) => [p.seq, [...p.data]])).toEqual([[7, [1, 2, 3]]]);
+    expect(gotText.map((p) => p.seq)).toEqual([7]);
   });
 
   it("connexion TEXTE : le flux brut sert comme avant", async () => {

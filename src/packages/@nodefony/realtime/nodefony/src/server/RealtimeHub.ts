@@ -18,6 +18,7 @@ import {
   frameCodecSet,
   type IFrameCodec,
   type IFrameCodecSet,
+  type RealtimeFrameData,
 } from "nodefony";
 import type { IChannelAdmission, UserChannelPayload } from "nodefony";
 import { AdmissionBudget, type IAdmissionLimits } from "./admissionBudget";
@@ -173,19 +174,75 @@ export interface IRevocableConnection {
  * Sink d'un canal : pousse une charge vers UNE connexion abonnée (son `peer.notify`).
  * 1 sink = 1 connexion. Le hub fan-out la charge à tous les sinks d'un canal.
  *
- * `serialized` n'est fourni que si le canal a déclaré un {@link ChannelSerializer}
- * ET qu'il a plusieurs abonnés : la frame ayant été sérialisée une fois pour tous,
- * le sink peut l'envoyer telle quelle au lieu de refaire le travail. Absent, le
- * sink se débrouille comme avant — un sink historique à un seul paramètre ignore
- * simplement l'argument.
+ * `frame` n'est fourni que si le canal a déclaré un {@link ChannelFrameBuilder} ET
+ * qu'il a plusieurs abonnés : la frame est la MÊME pour tous, le sink en demande
+ * l'encodage pour le codec de SA connexion ({@link ChannelFrame.encodeFor}) au lieu
+ * de refaire le travail. Absent, le sink se débrouille comme avant — un sink à un
+ * seul paramètre ignore simplement l'argument.
  */
-export type ChannelSink = (payload: unknown, serialized?: string) => void;
+export type ChannelSink = (payload: unknown, frame?: ChannelFrame) => void;
 
 /**
- * Sérialiseur de la frame d'un canal, fourni par l'abonné (le hub ignore tout du
- * protocole). Appelé **au plus une fois par publication**, jamais par abonné.
+ * Fabrique la frame protocolaire d'un canal (l'objet, pas ses octets), fournie par
+ * l'abonné : le hub ignore tout du protocole. Appelée **au plus une fois par
+ * publication**, jamais par abonné ; l'encodage, lui, se fait une fois par codec.
  */
-export type ChannelSerializer = (payload: unknown) => string;
+export type ChannelFrameBuilder = (payload: unknown) => unknown;
+
+/**
+ * Frame d'UNE publication diffusée à plusieurs abonnés, encodée **au plus une fois
+ * par codec** (ADR-0022 §2) : un canal suivi par des connexions texte et CBOR paie
+ * deux encodages, jamais un par connexion. L'encodage est paresseux — un codec
+ * qu'aucun abonné n'utilise ne coûte rien.
+ *
+ * Deux places suffisent : un hub sert au plus son codec texte et son codec
+ * binaire. Un troisième codec reste servi, sans mise en cache.
+ */
+export class ChannelFrame {
+  // Champs ordinaires, tous posés au constructeur (forme d'objet stable) :
+  // objet alloué à CHAQUE publication diffusée, lu par CHAQUE abonné.
+  private readonly message: unknown;
+  private codecA: IFrameCodec | null;
+  private dataA: RealtimeFrameData | undefined;
+  private codecB: IFrameCodec | null;
+  private dataB: RealtimeFrameData | undefined;
+
+  /** @param message - la frame protocolaire, telle que rendue par le {@link ChannelFrameBuilder}. */
+  constructor(message: unknown) {
+    this.message = message;
+    this.codecA = null;
+    this.dataA = undefined;
+    this.codecB = null;
+    this.dataB = undefined;
+  }
+
+  /**
+   * Rend la frame encodée pour un codec, en l'encodant à la première demande.
+   *
+   * @param codec - le codec de la connexion qui va l'écrire.
+   * @returns la trame à écrire telle quelle, ou `undefined` si la frame n'est pas
+   *   encodable : l'abonné reprend alors son chemin habituel, qui porte le filet
+   *   (journal et réponse d'erreur au client concerné).
+   */
+  encodeFor(codec: IFrameCodec): RealtimeFrameData | undefined {
+    if (codec === this.codecA) return this.dataA;
+    if (codec === this.codecB) return this.dataB;
+    let data: RealtimeFrameData | undefined;
+    try {
+      data = codec.encode(this.message);
+    } catch {
+      data = undefined; // échec retenu : pas de nouvel essai par abonné
+    }
+    if (this.codecA === null) {
+      this.codecA = codec;
+      this.dataA = data;
+    } else if (this.codecB === null) {
+      this.codecB = codec;
+      this.dataB = data;
+    }
+    return data;
+  }
+}
 
 /**
  * Fabrique le provider PARTAGÉ d'un canal (listener/ticker qui pousse via `publish`).
@@ -217,10 +274,10 @@ interface ChannelState {
   /** abonnés locaux (1 sink = 1 connexion). */
   sinks: Set<ChannelSink>;
   /**
-   * Sérialiseur de frame du canal, posé par le 1ᵉʳ abonné qui en fournit un.
+   * Fabrique de frame du canal, posée par le 1ᵉʳ abonné qui en fournit une.
    * `null` = canal sans mutualisation possible (sink historique) → chemin d'avant.
    */
-  serialize: ChannelSerializer | null;
+  buildFrame: ChannelFrameBuilder | null;
   /** publications cumulées sur ce canal (monotone) — sonde fan-out. */
   messages: number;
   /**
@@ -532,7 +589,7 @@ export class RealtimeHub {
     channel: string,
     sink: ChannelSink,
     factory: ChannelFactory,
-    serialize?: ChannelSerializer,
+    buildFrame?: ChannelFrameBuilder,
   ): boolean {
     // 🔴 Un `*` désigne un MOTIF de politique, jamais un canal. Sans ce refus,
     // un client pourrait s'abonner littéralement à `chat:room:*` : le nom ne
@@ -563,7 +620,7 @@ export class RealtimeHub {
       );
       return false;
     }
-    return this.subscribe(channel, sink, factory, serialize);
+    return this.subscribe(channel, sink, factory, buildFrame);
   }
 
   /**
@@ -583,17 +640,17 @@ export class RealtimeHub {
     channel: string,
     sink: ChannelSink,
     factory: ChannelFactory,
-    serialize?: ChannelSerializer,
+    buildFrame?: ChannelFrameBuilder,
   ): boolean {
     const channels = (this.#channels ??= new Map<string, ChannelState>());
     let st = channels.get(channel);
     if (st) {
       if (st.owned) {
         st.sinks.add(sink);
-        // Canal déjà ouvert par un abonné sans sérialiseur : le premier qui en
-        // apporte un ouvre la mutualisation pour les suivants.
-        if (st.serialize === null && serialize !== undefined) {
-          st.serialize = serialize;
+        // Canal déjà ouvert par un abonné sans fabrique de frame : le premier
+        // qui en apporte une ouvre la mutualisation pour les suivants.
+        if (st.buildFrame === null && buildFrame !== undefined) {
+          st.buildFrame = buildFrame;
         }
         return true;
       }
@@ -608,7 +665,7 @@ export class RealtimeHub {
       }
       st.dispose = dispose;
       st.owned = true;
-      if (serialize !== undefined) st.serialize = serialize;
+      if (buildFrame !== undefined) st.buildFrame = buildFrame;
       return true;
     }
     // 1ᵉʳ abonné : on inscrit le sink AVANT de créer le provider (capte son 1ᵉʳ push).
@@ -617,7 +674,7 @@ export class RealtimeHub {
       dispose: null,
       owned: false,
       sinks: new Set([sink]),
-      serialize: serialize ?? null,
+      buildFrame: buildFrame ?? null,
       messages: 0,
       forward: this.#isBroadcast(channel),
     };
@@ -657,7 +714,7 @@ export class RealtimeHub {
       dispose: null,
       owned: false,
       sinks: new Set([sink]),
-      serialize: null,
+      buildFrame: null,
       messages: 0,
       forward: this.#isBroadcast(channel),
     });
@@ -803,23 +860,24 @@ export class RealtimeHub {
     this.#publishTotal += 1;
     st.messages += 1;
     this.#fanoutTotal += st.sinks.size;
-    // Diffusion à plusieurs : la frame est la MÊME pour tous → on la sérialise
-    // une fois ici plutôt que N fois dans les sinks. À un seul abonné il n'y a
-    // rien à mutualiser, et on ne paie donc rien de plus qu'avant.
-    let raw: string | undefined;
-    if (st.serialize !== null && st.sinks.size > 1) {
+    // Diffusion à plusieurs : la frame est la MÊME pour tous → on la construit
+    // une fois ici, et chaque codec l'encode une fois (`ChannelFrame`), plutôt
+    // que N fois dans les sinks. À un seul abonné il n'y a rien à mutualiser, et
+    // on ne paie donc rien de plus qu'avant.
+    let frame: ChannelFrame | undefined;
+    if (st.buildFrame !== null && st.sinks.size > 1) {
       try {
-        raw = st.serialize(payload);
+        frame = new ChannelFrame(st.buildFrame(payload));
       } catch {
-        // Charge non sérialisable : on ne casse pas le fan-out. Chaque sink
-        // reprend son chemin habituel, qui porte déjà son filet (log + réponse
-        // d'erreur au client concerné).
-        raw = undefined;
+        // Frame impossible à construire : on ne casse pas le fan-out. Chaque
+        // sink reprend son chemin habituel, qui porte déjà son filet (log +
+        // réponse d'erreur au client concerné).
+        frame = undefined;
       }
     }
     for (const sink of st.sinks) {
       try {
-        sink(payload, raw);
+        sink(payload, frame);
       } catch {
         /* une connexion fautive ne casse pas le fan-out aux autres */
       }
