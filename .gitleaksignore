@@ -49,3 +49,9 @@
 # valeur d'une colonne `uuid` jouée par la sonde. Le champ a été renommé
 # `badge` (`0a5166792`) ; seul l'historique publié garde l'ancienne ligne.
 51066ef06cb7191cc23c35c1b90715b4a0cf3d95:.claude/skills/nodefony-devkit-bench/suites/portability.e2e.test.ts:generic-api-key:203
+
+# Secret de backplane d'un BANC multi-pods (Redis local, base 15), écrit en dur
+# dans `bus-bytes.mjs` (`491c050e3`). Il ne protège rien : la valeur est tirée au
+# lancement depuis `1698ba793` (`randomBytes`) ; seul l'historique publié garde
+# l'ancienne ligne.
+491c050e3b6944932425a5db6bbcb62274115feb:.claude/skills/nodefony-multipod-bench/scripts/bus-bytes.mjs:generic-api-key:39
