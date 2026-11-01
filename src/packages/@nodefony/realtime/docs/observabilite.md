@@ -343,10 +343,23 @@ s'envole, c'est la base qui a cessé de répondre et le serveur qui se protège 
 leur raison : [`configuration.md`](./configuration.md) ; le comportement vu par l'abonné :
 [`securite.md`](./securite.md).
 
+### Trames écartées à l'entrée
+
+Deux compteurs monotones disent combien de trames reçues n'ont pas pu être lues. Elles ne reçoivent
+aucune réponse et la connexion reste ouverte : répondre à une trame illisible offrirait à un client
+défectueux une boucle, et à un curieux un écho de ce que le décodeur accepte. Le journal en dit la
+première de chaque connexion, jamais les suivantes.
+
+<!-- prettier-ignore -->
+| Champ | Unité | Ce qu'il compte | Quand il monte |
+| --- | --- | --- | --- |
+| `binaryDiscardedTotal` | une trame reçue | trames binaires reçues sur une connexion texte dont le contrôleur ne lit pas les octets bruts (`onRealtimeBinary`) | un client envoie un flux que personne n'attend, ou le lecteur a été oublié côté serveur |
+| `malformedDiscardedTotal` | une trame reçue | trames illisibles pour le codec de la connexion : JSON invalide, CBOR tronqué | un client défectueux, ou quelqu'un qui sonde le décodeur |
+
 ### Connexions et volume
 
 `connectionCount`, `bytesSentTotal`, `messagesSentTotal` — vivants pour la première, cumulés pour les
-deux autres. Le débit en octets par seconde se dérive de deux photos.
+deux autres, connexions fermées comprises. Le débit en octets par seconde se dérive de deux photos.
 
 ### Back-pressure — le risque numéro un
 
