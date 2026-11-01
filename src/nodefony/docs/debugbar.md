@@ -255,7 +255,7 @@ mountDebugBar({
   url: "/nodefony/studio/api/realtime", // adresse du canal temps réel
   client: maSocket, // socket déjà ouverte à partager
   position: "bottom", // ou "top"
-  open: false, // panneau déplié au montage
+  open: true, // force le panneau déplié au montage (absent : l'état laissé par l'utilisateur)
   network: true, // requêtes de la page dans l'onglet Requêtes (instrumente fetch/XHR)
   env: "development", // environnement affiché avant toute mesure (posé par le serveur)
   page: { requestId }, // la requête qui a rendu la page (posé par le serveur)
