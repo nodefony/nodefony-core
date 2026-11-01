@@ -16,6 +16,7 @@ import {
   isOwnUserChannel,
   userChannel,
   frameCodecSet,
+  containsBytes,
   type IFrameCodec,
   type IFrameCodecSet,
   type RealtimeFrameData,
@@ -558,6 +559,9 @@ export class RealtimeHub {
   #slowConsumerBytes: number = SLOW_CONSUMER_BYTES;
   // Codecs de frame (ADR-0022 §2) : texte seul tant que la config n'active rien.
   #frameCodecs: IFrameCodecSet = frameCodecSet();
+  // Le bus porte-t-il les octets intacts ? Vrai quand un codec binaire est posé ET
+  // que le backplane l'a accepté (`IBackplane.enableBytes`, ADR-0021 S6).
+  #busBytes = false;
 
   /**
    * Budget des admissions de l'exemplaire (appels d'`allow` en vol, coupe-circuit,
@@ -815,17 +819,44 @@ export class RealtimeHub {
       this.#localOnlyTotal += 1;
       return;
     }
-    // Des octets ne traversent pas encore le bus : Redis et l'IPC du cluster
-    // sérialisent en JSON, qui rend un `Uint8Array` en objet ordinaire. Refusés
-    // plutôt que déformés (ADR-0021 S6/S8) ; la voie binaire du bus = #618.
-    if (ArrayBuffer.isView(payload) || payload instanceof ArrayBuffer) {
+    // Des octets que le bus ne porte pas intacts sont refusés plutôt que déformés
+    // (ADR-0021 S6/S8) : ils restent livrés aux abonnés de ce serveur.
+    if (this.#busRefuses(payload)) {
       this.#notifyOnce(
         "backplane:binary",
-        `realtime: le canal « ${channel} » publie des octets — ils ne traversent pas encore le bus entre serveurs (ils y seraient déformés) : seuls les abonnés de ce serveur les reçoivent (#618)`,
+        this.#busBytes
+          ? `realtime: le canal « ${channel} » publie des octets hors \`Uint8Array\` — le bus entre serveurs ne porte que des \`Uint8Array\` : seuls les abonnés de ce serveur les reçoivent`
+          : `realtime: le canal « ${channel} » publie des octets — sans codec binaire côté serveur (\`codec: "cbor"\`) ou sans backplane qui les porte, ils ne traversent pas le bus entre serveurs (ils y seraient déformés) : seuls les abonnés de ce serveur les reçoivent`,
       );
       return;
     }
     this.#backplane.publish(channel, payload);
+  }
+
+  /**
+   * Le bus refuse-t-il cette charge ? Un `Uint8Array` voyage quand le bus porte
+   * les octets ({@link #busBytes}) ; toute autre vue binaire, jamais.
+   *
+   * Sans bus binaire, le parcours en profondeur n'est payé que si un codec
+   * binaire est posé — seul cas où une charge à octets est légitime ; sans codec,
+   * seule la charge de premier niveau est examinée, comme avant le codec.
+   */
+  #busRefuses(payload: object | undefined): boolean {
+    const topLevel =
+      ArrayBuffer.isView(payload) || payload instanceof ArrayBuffer;
+    if (this.#busBytes) return topLevel && !(payload instanceof Uint8Array);
+    if (this.#frameCodecs.binary !== null)
+      return topLevel || containsBytes(payload);
+    return topLevel;
+  }
+
+  /** Arme les octets sur le bus quand codec binaire ET backplane sont posés, dans n'importe quel ordre. */
+  #armBusBytes(): void {
+    const codec = this.#frameCodecs.binary;
+    this.#busBytes =
+      codec !== null &&
+      this.#backplane !== null &&
+      this.#backplane.enableBytes?.(codec) === true;
   }
 
   /**
@@ -956,6 +987,8 @@ export class RealtimeHub {
     // préfixe est diffusé par le framework, sans déclaration de l'application.
     this.markBroadcastChannel(USER_CHANNEL_PREFIX);
     backplane.onMessage((msg) => this.#admitFromBackplane(msg));
+    // Avant `start()` : un driver armé avant de démarrer s'abonne d'un coup aux deux sujets.
+    this.#armBusBytes();
     const started = backplane.start();
     // `start()` peut être asynchrone (Redis : abonnement au canal). Son échec
     // n'était rattrapé par personne → rejet non géré. On le signale par le canal
@@ -1272,6 +1305,7 @@ export class RealtimeHub {
    */
   setFrameCodec(codec?: IFrameCodec): void {
     this.#frameCodecs = frameCodecSet(codec);
+    this.#armBusBytes();
   }
 
   /**
@@ -1791,6 +1825,7 @@ export class RealtimeHub {
     // Détache le backplane (reset). On ne `stop()` PAS ici : le hub n'en est pas
     // l'owner (créé/détruit par le module qui l'a branché) — il le libère lui-même.
     this.#backplane = null;
+    this.#busBytes = false;
     this.#publishTotal = 0;
     this.#fanoutTotal = 0;
     this.#closedBytesSent = 0;

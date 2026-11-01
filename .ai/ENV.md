@@ -205,8 +205,8 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_BROWSER_VIEWPORT` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:92` |
 | `NF_BROWSER_WHOAMI` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:142` |
 | `NF_BROWSER_WIDTHS` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:1014` |
-| `NF_CLUSTER` | `src/nodefony/src/service/cluster/clusterMaster.ts:51` |
-| `NF_CLUSTER_PROBE` | `src/nodefony/src/service/cluster/clusterMaster.ts:56` |
+| `NF_CLUSTER` | `src/nodefony/src/service/cluster/clusterMaster.ts:56` |
+| `NF_CLUSTER_PROBE` | `src/nodefony/src/service/cluster/clusterMaster.ts:66` |
 | `NF_DATABASE_URL` | `src/nodefony/src/tests/CliIntegration.test.ts:2619` |
 | `NF_DEPS_REGISTRY` | `scripts/deps/check-deps-latest.mjs:80` |
 | `NF_DEPS_ROOT` | `scripts/deps/check-deps-latest.mjs:78` |
@@ -239,8 +239,8 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_REALTIME_BACKPLANE_NAMESPACE` | `src/packages/@nodefony/realtime/nodefony/tests/unit/defineRealtimeConfig.test.ts:164` |
 | `NF_REALTIME_BACKPLANE_SECRET` | `src/packages/@nodefony/realtime/nodefony/tests/unit/defineRealtimeConfig.test.ts:165` |
 | `NF_REALTIME_DRIVER` | `src/packages/@nodefony/realtime/nodefony/tests/unit/defineRealtimeConfig.test.ts:163` |
-| `NF_REDIS_HOST` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:24` |
-| `NF_REDIS_PASSWORD` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:23` |
+| `NF_REDIS_HOST` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:25` |
+| `NF_REDIS_PASSWORD` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:24` |
 | `NF_REDIS_PORT` | `src/nodefony/src/tests/envShortcuts.test.ts:251` |
 | `NF_RELEASE_REPO` | `scripts/release/pack-all.mjs:102` |
 | `NF_START` | `src/nodefony/src/kernel/Kernel.ts:565` |

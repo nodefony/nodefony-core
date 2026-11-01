@@ -435,6 +435,8 @@ export type {
 } from "./service/cluster/ClusterProbeAggregator";
 export {
   CLUSTER_RT_KIND,
+  CLUSTER_IPC_SERIALIZATION_ENV,
+  CLUSTER_IPC_ADVANCED,
   CLUSTER_PROBE_KIND,
   CLUSTER_PROBE_SNAPSHOT_KIND,
   CLUSTER_PROBE_CTL_KIND,

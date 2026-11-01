@@ -104,6 +104,10 @@ export const RESERVED_ENV = Object.freeze({
     name: "NF_CLUSTER",
     role: "posée par le maître de grappe dans chaque worker",
   },
+  NF_CLUSTER_IPC_SERIALIZATION: {
+    name: "NF_CLUSTER_IPC_SERIALIZATION",
+    role: "posée par le maître de grappe dans chaque worker : son canal IPC est en clonage structuré (`advanced`), qui porte les octets du temps réel intacts",
+  },
   NF_MCP_TOKEN: {
     name: "NF_MCP_TOKEN",
     role: "jeton d'accès au serveur MCP de l'application, lu par le client de l'agent (`nodefony ai:mcp --auth`)",

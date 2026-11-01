@@ -157,3 +157,31 @@ describe("ClusterBackplane — charge absente (ADR-0021 S1)", () => {
     expect(got[0]!.payload).to.equal(undefined);
   });
 });
+
+describe("ClusterBackplane — octets (ADR-0021 S6)", () => {
+  const noop: IClusterBackplaneTransport = {
+    send() {},
+    onReceive() {},
+  };
+
+  it("canal constaté `advanced` : enableBytes rend true, la carte d'identité le dit", () => {
+    const bp = new ClusterBackplane(
+      { ...noop, carriesBytes: () => true },
+      "w1",
+    );
+    expect(bp.enableBytes()).toBe(true);
+    expect(bp.describe().bytes).toBe(true);
+  });
+
+  it("canal JSON, ou transport muet sur la question : les octets restent sur ce process", () => {
+    const json = new ClusterBackplane(
+      { ...noop, carriesBytes: () => false },
+      "w1",
+    );
+    const mute = new ClusterBackplane(noop, "w2");
+    expect(json.enableBytes()).toBe(false);
+    expect(mute.enableBytes()).toBe(false);
+    expect(json.describe().bytes).toBeUndefined();
+    expect(mute.describe().bytes).toBeUndefined();
+  });
+});

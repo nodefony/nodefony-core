@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import type { IFrameCodec } from "nodefony";
 import type { IBackplaneMessage } from "../../interfaces/IBackplane.js";
 
 /**
@@ -149,10 +150,138 @@ export function openBackplaneEnvelope(
     payloadText ?? "null",
     secret,
   );
+  return sameSeal(provided, expected) ? msg : null;
+}
+
+/**
+ * Compare deux sceaux base64url à temps constant.
+ *
+ * Longueurs différentes → `timingSafeEqual` lève ; on tranche avant (la longueur
+ * du sceau n'est pas un secret : c'est celle de SHA-256).
+ */
+function sameSeal(provided: string, expected: string): boolean {
   const a = Buffer.from(provided, "base64url");
   const b = Buffer.from(expected, "base64url");
-  // Longueurs différentes → timingSafeEqual throw ; on tranche avant (la longueur
-  // du sceau n'est pas un secret : c'est celle de SHA-256).
-  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
-  return msg;
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/**
+ * Sceau d'une enveloppe BINAIRE : la même chaîne canonique que le texte, où le
+ * troisième fragment est la charge ENCODÉE par le codec au lieu de son JSON.
+ * Les deux premiers fragments restent des chaînes JSON échappées : aucun
+ * décalage de frontière n'est possible, et la charge, en dernier, n'a pas de
+ * frontière à garder.
+ */
+function sealBytes(
+  originId: string,
+  channel: string,
+  payloadBytes: Uint8Array,
+  secret: string,
+): string {
+  return createHmac("sha256", secret)
+    .update(`${JSON.stringify(originId)}\n${JSON.stringify(channel)}\n`)
+    .update(payloadBytes)
+    .digest("base64url");
+}
+
+/** Encode par le codec, et refuse un codec texte : le sujet binaire porte des octets. */
+function encodeBytes(codec: IFrameCodec, value: unknown): Uint8Array {
+  const out = codec.encode(value);
+  if (typeof out === "string")
+    throw new TypeError(
+      `backplane : le codec « ${codec.protocol} » rend du texte — le sujet binaire du bus exige un codec binaire`,
+    );
+  return out;
+}
+
+/**
+ * Encode un message backplane pour le **sujet binaire** du bus (ADR-0021 S6) :
+ * la MÊME enveloppe `{ channel, payload, originId }`, encodée par le codec
+ * binaire du serveur, octets natifs dans `payload`, scellée si un secret est
+ * fourni.
+ *
+ * Scellée, la charge est encodée deux fois — une pour le sceau, une dans
+ * l'enveloppe : le codec générique ne permet pas d'assembler l'enveloppe à
+ * partir de fragments déjà encodés, comme le fait la voie texte.
+ *
+ * @param msg - message à transporter (canal, charge, origine).
+ * @param codec - le codec binaire du serveur (`CBOR_FRAME_CODEC` de `nodefony/cbor`).
+ * @param secret - secret partagé entre pods ; `null`/`undefined` → enveloppe nue.
+ * @returns les octets à publier sur le sujet binaire.
+ * @throws TypeError si le codec rend du texte.
+ */
+export function sealBackplaneEnvelopeBytes(
+  msg: IBackplaneMessage,
+  codec: IFrameCodec,
+  secret?: string | null,
+): Uint8Array {
+  // Une charge absente voyage `null`, comme sous sceau sur la voie texte.
+  const payload = msg.payload ?? null;
+  if (!secret)
+    return encodeBytes(codec, {
+      channel: msg.channel,
+      payload,
+      originId: msg.originId,
+    });
+  const sig = sealBytes(
+    msg.originId,
+    msg.channel,
+    encodeBytes(codec, payload),
+    secret,
+  );
+  return encodeBytes(codec, {
+    channel: msg.channel,
+    payload,
+    originId: msg.originId,
+    [SEAL_FIELD]: sig,
+  });
+}
+
+/**
+ * Décode et **vérifie** une enveloppe reçue sur le sujet binaire du bus — même
+ * règle que {@link openBackplaneEnvelope} : fail-closed strict sous un secret,
+ * aucun downgrade en retirant `sig`.
+ *
+ * Le sceau se recalcule sur le RÉ-ENCODAGE de la charge décodée, comme la voie
+ * texte le fait sur sa re-sérialisation : le codec CBOR du cœur rend la forme la
+ * plus courte de chaque valeur, donc émetteur et récepteur signent les mêmes
+ * octets.
+ *
+ * @param raw - octets lus sur le sujet binaire.
+ * @param codec - le codec binaire du serveur.
+ * @param secret - secret partagé attendu, ou `null`/`undefined` si aucun.
+ * @returns le message vérifié, ou `null` s'il doit être ignoré.
+ */
+export function openBackplaneEnvelopeBytes(
+  raw: Uint8Array,
+  codec: IFrameCodec,
+  secret?: string | null,
+): IBackplaneMessage | null {
+  let parsed: unknown;
+  try {
+    parsed = codec.decode(raw);
+  } catch {
+    return null; // octets illisibles sur un canal partagé
+  }
+  if (!isEnvelope(parsed)) return null;
+  const msg: IBackplaneMessage = {
+    channel: parsed.channel,
+    payload: parsed.payload === null ? undefined : parsed.payload,
+    originId: parsed.originId,
+  };
+  if (!secret) return msg;
+  const provided = parsed[SEAL_FIELD];
+  if (typeof provided !== "string") return null;
+  let payloadBytes: Uint8Array;
+  try {
+    payloadBytes = encodeBytes(codec, parsed.payload ?? null);
+  } catch {
+    return null;
+  }
+  return sameSeal(
+    provided,
+    sealBytes(msg.originId, msg.channel, payloadBytes, secret),
+  )
+    ? msg
+    : null;
 }

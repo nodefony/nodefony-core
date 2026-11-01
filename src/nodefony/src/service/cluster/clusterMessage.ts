@@ -22,6 +22,24 @@
 export const CLUSTER_RT_KIND = "nf:rt" as const;
 
 /**
+ * Variable que le master pose sur les workers qu'il forke, valeur
+ * {@link CLUSTER_IPC_ADVANCED} : leur canal IPC est en sérialisation `advanced`
+ * (clonage structuré), qui porte un `Uint8Array` intact là où le JSON le rend en
+ * objet ordinaire (ADR-0021 S6).
+ *
+ * Pourquoi une variable : Node consomme et EFFACE la sienne
+ * (`NODE_CHANNEL_SERIALIZATION_MODE`) au démarrage du worker, et n'expose pas le
+ * mode du canal. La poser au même endroit que le mode lui-même garde les deux
+ * liés ; un worker forké par un autre code ne la porte pas, et le `ClusterBackplane`
+ * garde alors les octets sur son process plutôt que de les déformer.
+ */
+export const CLUSTER_IPC_SERIALIZATION_ENV =
+  "NF_CLUSTER_IPC_SERIALIZATION" as const;
+
+/** Valeur de {@link CLUSTER_IPC_SERIALIZATION_ENV} : canal IPC en clonage structuré. */
+export const CLUSTER_IPC_ADVANCED = "advanced" as const;
+
+/**
  * `kind` d'une **remontée de sonde** worker → master (Phase 4c). Chaque worker envoie
  * périodiquement sa santé per-instance (opaque pour le master) ; le
  * {@link "./ClusterProbeAggregator"} les collecte. Le {@link "./ClusterRelay"} IGNORE

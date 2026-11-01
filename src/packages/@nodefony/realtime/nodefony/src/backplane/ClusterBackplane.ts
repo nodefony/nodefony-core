@@ -4,16 +4,20 @@ import type {
   IBackplaneMessage,
   IBackplaneInfo,
 } from "../../interfaces/IBackplane.js";
-import { CLUSTER_RT_KIND } from "nodefony";
+import {
+  CLUSTER_IPC_ADVANCED,
+  CLUSTER_IPC_SERIALIZATION_ENV,
+  CLUSTER_RT_KIND,
+} from "nodefony";
 import { resolveBackplaneOriginId } from "./originId.js";
 
 /**
  * Enveloppe IPC d'une publication realtime = {@link IBackplaneMessage} + discriminant.
- * Sérialisée une fois par `process.send`/`worker.send`, en **JSON** : les workers
- * naissent par `cluster.fork()` sans `serialization: "advanced"`
- * (`src/nodefony/src/service/cluster/ClusterManager.ts#IClusterRuntime.fork`) → le
- * `payload` suit les règles de `JSON.stringify` (une `Date` devient une chaîne, une
- * clé `undefined` disparaît), comme sur le bus Redis.
+ * Sérialisée une fois par `process.send`/`worker.send`. Le master de Nodefony forke
+ * ses workers en sérialisation `advanced` (clonage structuré,
+ * `src/nodefony/src/service/cluster/clusterMaster.ts#startClusterMaster`) : un
+ * `Uint8Array` y traverse intact, sans codec — l'IPC ne quitte pas la machine, il
+ * n'a ni sceau ni second sujet à porter.
  */
 export interface ClusterBackplaneEnvelope extends IBackplaneMessage {
   readonly kind: typeof CLUSTER_RT_KIND;
@@ -37,6 +41,11 @@ export interface IClusterBackplaneTransport {
    * Appelé une seule fois, au `start()`.
    */
   onReceive(cb: (msg: unknown) => void): void;
+  /**
+   * Le canal porte-t-il un `Uint8Array` intact (sérialisation `advanced`) ?
+   * Optionnel : absent, les octets restent sur ce process.
+   */
+  carriesBytes?(): boolean;
 }
 
 /**
@@ -52,6 +61,14 @@ export const processIpcTransport: IClusterBackplaneTransport = {
   },
   onReceive(cb) {
     process.on("message", (msg) => cb(msg));
+  },
+  carriesBytes() {
+    // Posée par le master de Nodefony avec le mode lui-même : un worker forké
+    // ailleurs, en JSON, ne la porte pas (cf `CLUSTER_IPC_SERIALIZATION_ENV`).
+    return (
+      process.channel !== undefined &&
+      process.env[CLUSTER_IPC_SERIALIZATION_ENV] === CLUSTER_IPC_ADVANCED
+    );
   },
 };
 
@@ -97,6 +114,8 @@ export class ClusterBackplane implements IBackplane {
   readonly #transport: IClusterBackplaneTransport;
   #handler: BackplaneHandler | null = null;
   #started = false;
+  /** Vrai une fois {@link enableBytes} constaté que le canal porte les octets. */
+  #bytes = false;
 
   constructor(
     transport: IClusterBackplaneTransport = processIpcTransport,
@@ -131,6 +150,17 @@ export class ClusterBackplane implements IBackplane {
     this.#handler = handler;
   }
 
+  /**
+   * Les octets traversent l'IPC tels quels quand le canal est en clonage
+   * structuré : aucun codec n'est appliqué, l'argument est ignoré.
+   *
+   * @returns `true` si le transport constate un canal `advanced`.
+   */
+  enableBytes(): boolean {
+    this.#bytes = this.#transport.carriesBytes?.() === true;
+    return this.#bytes;
+  }
+
   /** Tri + anti-echo + délégation au handler. Robuste : ignore tout message non-realtime. */
   #ingress(msg: unknown): void {
     if (!isEnvelope(msg)) return; // pas une publication realtime
@@ -155,6 +185,7 @@ export class ClusterBackplane implements IBackplane {
       originId: this.originId,
       // IPC = fan-out entre workers d'un MÊME pod, pas multi-host.
       crossPod: false,
+      ...(this.#bytes && { bytes: true }),
     };
   }
 }

@@ -152,7 +152,7 @@ class SharedBus {
     let mine: ((m: string) => void) | null = null;
     return {
       publish(_channel, message): void {
-        bus.#subs.forEach((l) => l(message));
+        if (typeof message === "string") bus.#subs.forEach((l) => l(message));
       },
       subscribe(_channel, onMessage): void {
         mine = onMessage;

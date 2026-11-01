@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { createClient, type RedisClientType } from "redis";
+import { CBOR_FRAME_CODEC } from "nodefony/cbor";
 import {
   RedisBackplane,
   createRedisServiceTransport,
@@ -637,6 +638,103 @@ describe.skipIf(!REDIS_UP)(
         payload: "après reconnexion",
         originId: "pod-A",
       });
+    });
+  },
+);
+
+describe.skipIf(!REDIS_UP)(
+  "RedisBackplane — sujet binaire sur un Redis réel (ADR-0021 S6, #618)",
+  () => {
+    const clients: RedisClientType[] = [];
+    const backplanes: RedisBackplane[] = [];
+    const channel = `nodefony:rt:test:bytes:${Date.now()}`;
+
+    async function mkPod(
+      originId: string,
+      secret: string | null,
+    ): Promise<RedisBackplane> {
+      const pub = mkClient();
+      const sub = mkClient();
+      await pub.connect();
+      await sub.connect();
+      clients.push(pub, sub);
+      const bp = new RedisBackplane(
+        createRedisServiceTransport(pub, sub, sub),
+        originId,
+        channel,
+        secret,
+      );
+      backplanes.push(bp);
+      return bp;
+    }
+
+    afterEach(async () => {
+      await Promise.allSettled(backplanes.map((b) => b.stop()));
+      backplanes.length = 0;
+      await Promise.allSettled(
+        clients.map(async (c) => {
+          if (c.isOpen) await c.quit();
+        }),
+      );
+      clients.length = 0;
+    });
+
+    it.each([
+      ["nu", null],
+      ["scellé", "secret-partagé"],
+    ])(
+      "bus %s : les 256 valeurs d'octet traversent Redis intactes, imbriquées comme en tête",
+      async (_n, secret) => {
+        const a = await mkPod("pod-A", secret);
+        const b = await mkPod("pod-B", secret);
+        a.enableBytes(CBOR_FRAME_CODEC);
+        b.enableBytes(CBOR_FRAME_CODEC);
+        const got: IBackplaneMessage[] = [];
+        b.onMessage((m) => got.push(m));
+        await a.start();
+        await b.start();
+
+        // Toutes les valeurs, dont celles qu'un décodage UTF-8 détruirait (0x80-0xFF).
+        const all = Uint8Array.from({ length: 256 }, (_v, i) => i);
+        a.publish("media:room1", all);
+        a.publish("media:room1", { seq: 2, frame: all.subarray(250) });
+        await until(() => got.length === 2, "B reçoit les deux publications");
+
+        expect(got[0]?.payload).to.be.instanceOf(Uint8Array);
+        expect(Array.from(got[0]?.payload as Uint8Array)).to.deep.equal(
+          Array.from(all),
+        );
+        const nested = got[1]?.payload as { seq: number; frame: Uint8Array };
+        expect(nested.seq).to.equal(2);
+        expect(Array.from(nested.frame)).to.deep.equal([
+          250, 251, 252, 253, 254, 255,
+        ]);
+        expect(b.describe().sealRejectedTotal ?? 0).to.equal(0);
+      },
+    );
+
+    it("un exemplaire non armé, sur le même Redis, ne reçoit rien du sujet binaire", async () => {
+      const a = await mkPod("pod-A", null);
+      const old = await mkPod("pod-old", null);
+      a.enableBytes(CBOR_FRAME_CODEC);
+      const got: IBackplaneMessage[] = [];
+      old.onMessage((m) => got.push(m));
+      await a.start();
+      await old.start();
+      a.publish("media:room1", new Uint8Array([1, 2, 3]));
+      // Sentinelle texte publiée APRÈS : quand elle arrive, l'éventuel octet serait passé.
+      a.publish("chat:room", { text: "sentinelle" });
+      await until(
+        () => got.length > 0,
+        "l'ancien exemplaire reçoit la sentinelle",
+      );
+      expect(got).to.deep.equal([
+        {
+          channel: "chat:room",
+          payload: { text: "sentinelle" },
+          originId: "pod-A",
+        },
+      ]);
     });
   },
 );

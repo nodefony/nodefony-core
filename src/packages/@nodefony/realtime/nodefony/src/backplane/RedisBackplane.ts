@@ -4,9 +4,15 @@ import type {
   IBackplaneMessage,
   IBackplaneInfo,
 } from "../../interfaces/IBackplane.js";
+import { containsBytes, type IFrameCodec } from "nodefony";
 import { resolveBackplaneOriginId } from "./originId.js";
 import { isCallable, isRecord, isThenable } from "../guards.js";
-import { openBackplaneEnvelope, sealBackplaneEnvelope } from "./envelope.js";
+import {
+  openBackplaneEnvelope,
+  openBackplaneEnvelopeBytes,
+  sealBackplaneEnvelope,
+  sealBackplaneEnvelopeBytes,
+} from "./envelope.js";
 import {
   BackplanePublishQueue,
   DEFAULT_MAX_QUEUE_BYTES,
@@ -40,6 +46,23 @@ export function resolveRedisChannel(namespace?: string): string {
 }
 
 /**
+ * Construit le **sujet binaire** du bus (ADR-0021 S6) : le canal texte suffixé du
+ * protocole du codec. Un second sujet, versionné par son nom, que les exemplaires
+ * plus anciens n'écoutent pas — le message texte n'est pas touché, et un codec
+ * binaire d'un autre format aurait son propre sujet.
+ *
+ * @param redisChannel - le canal texte effectif ({@link resolveRedisChannel}).
+ * @param codec - le codec binaire du serveur.
+ * @returns le nom du canal Redis qui porte les enveloppes binaires.
+ */
+export function resolveRedisBytesChannel(
+  redisChannel: string,
+  codec: IFrameCodec,
+): string {
+  return `${redisChannel}:${codec.protocol}`;
+}
+
+/**
  * Transport pub/sub du backplane Redis — abstrait `PUBLISH` / `SUBSCRIBE` derrière
  * un seam **injectable** (même pattern que `IClusterBackplaneTransport`). Permet de
  * prouver le routage + l'anti-echo **sans Redis** (bus en mémoire dans les tests),
@@ -56,7 +79,10 @@ export interface IRedisBackplaneTransport {
    * {@link BackplanePublishQueue}). Un transport synchrone (bus mémoire de test) rend
    * `void` — il n'a pas de file, la borne reste alors inerte.
    */
-  publish(channel: string, message: string): void | Promise<unknown>;
+  publish(
+    channel: string,
+    message: string | Uint8Array,
+  ): void | Promise<unknown>;
   /**
    * Abonne au canal Redis. Le listener reçoit le message brut (string) ; le tri
    * (parse + anti-echo) est fait par le backplane. Async (Redis) ou sync (fake).
@@ -64,6 +90,15 @@ export interface IRedisBackplaneTransport {
   subscribe(
     channel: string,
     onMessage: (message: string) => void,
+  ): void | Promise<void>;
+  /**
+   * Abonne au canal Redis en mode **octets** : le listener reçoit le message tel
+   * que publié, sans décodage UTF-8 (sujet binaire, ADR-0021 S6). Optionnel : un
+   * transport qui ne l'offre pas laisse les octets sur le serveur qui les publie.
+   */
+  subscribeBytes?(
+    channel: string,
+    onMessage: (message: Uint8Array) => void,
   ): void | Promise<void>;
   /** Désabonne du canal Redis et libère le listener associé. Idempotent. */
   unsubscribe(channel: string): void | Promise<void>;
@@ -75,43 +110,49 @@ export interface IRedisBackplaneTransport {
  * en dépendance de `@nodefony/realtime`.
  */
 export interface IRedisPublisher {
-  publish(channel: string, message: string): unknown;
+  publish(channel: string, message: string | Buffer): unknown;
 }
+
+/** Écouteur texte d'un client Redis abonné. */
+type RedisTextListener = (message: string, channel: string) => unknown;
+/** Écouteur octets d'un client Redis abonné (`bufferMode`). */
+type RedisBytesListener = (message: Buffer, channel: Buffer) => unknown;
 
 /**
  * Client Redis **subscriber** dédié — surface structurelle minimale (compatible
  * `RedisClientType` v5). Un client abonné ne peut plus émettre de commandes
  * normales (protocole Redis) → publisher et subscriber sont 2 connexions distinctes
  * (cf `@nodefony/redis` : connexions `publish` / `subscribe`).
+ *
  */
 export interface IRedisSubscriber {
-  subscribe(
-    channel: string,
-    listener: (message: string, channel: string) => unknown,
-  ): unknown;
-  unsubscribe(
-    channel: string,
-    listener?: (message: string, channel: string) => unknown,
-  ): unknown;
+  subscribe(channel: string, listener: RedisTextListener): unknown;
+  unsubscribe(channel: string, listener?: RedisTextListener): unknown;
 }
 
 /**
- * Adapte deux clients Redis (publisher + subscriber dédié) au seam
- * {@link IRedisBackplaneTransport}. SEUL point de contact avec la lib `redis` —
- * et même ici le couplage est **structurel** (aucun import). Le consommateur
- * branche typiquement les connexions du module `@nodefony/redis` :
+ * Client Redis abonné en mode **octets** — le troisième argument `true`
+ * (`bufferMode` de node-redis) rend les messages en `Buffer`, sans décodage
+ * UTF-8 : c'est lui qui porte le sujet binaire intact (ADR-0021 S6).
  *
- * ```ts
- * const redis = kernel.get("redis"); // RedisService
- * const bp = new RedisBackplane(
- *   createRedisServiceTransport(redis.getClient("publish")!, redis.getClient("subscribe")!),
- * );
- * defineRealtimeConfig({ backplane: { driver: "redis" } }, { backplane: bp });
- * ```
- *
- * Le listener Redis est conservé pour un `unsubscribe(channel, listener)` ciblé
- * (n'arrache pas d'éventuels autres abonnés du même client).
+ * Interface SÉPARÉE de {@link IRedisSubscriber}, et non une surcharge de
+ * celle-ci : les deux formes réunies dans une même interface ne sont plus
+ * satisfaites ni par le type de node-redis (générique sur le mode), ni par une
+ * doublure de test qui ne connaît que le texte. Séparées, chacune l'est.
  */
+export interface IRedisBytesSubscriber {
+  subscribe(
+    channel: string,
+    listener: RedisBytesListener,
+    bufferMode: true,
+  ): unknown;
+  unsubscribe(
+    channel: string,
+    listener: RedisBytesListener,
+    bufferMode: true,
+  ): unknown;
+}
+
 /**
  * Vrai si la valeur expose la surface d'un client Redis publisher — vérifié au
  * démarrage, sur le client que rend le service `redis`.
@@ -129,40 +170,101 @@ export function isRedisSubscriber(value: unknown): value is IRedisSubscriber {
   );
 }
 
+/**
+ * Vrai si la valeur expose la surface d'un client abonné capable du mode octets.
+ *
+ * La forme ne dit pas si le troisième argument est compris : ce garde vaut pour
+ * le client que rend le service `redis` (node-redis, qui l'accepte). Un client qui
+ * l'ignorerait livrerait du texte au sujet binaire — illisible pour le codec,
+ * donc jeté, compté sous un secret (`sealRejectedTotal`), jamais réinjecté.
+ */
+export function isRedisBytesSubscriber(
+  value: unknown,
+): value is IRedisBytesSubscriber {
+  return isRedisSubscriber(value);
+}
+
 /** Ramène l'acquittement d'une commande Redis au contrat du transport. */
 function settled(ack: unknown): void | Promise<void> {
   return isThenable(ack) ? ack.then(() => undefined) : undefined;
 }
 
+/** Écouteur posé sur un canal Redis, avec le mode qui a servi à l'abonner. */
+type RegisteredListener =
+  | { readonly bytes: false; readonly fn: RedisTextListener }
+  | { readonly bytes: true; readonly fn: RedisBytesListener };
+
+/**
+ * Adapte deux clients Redis (publisher + subscriber dédié) au seam
+ * {@link IRedisBackplaneTransport}. SEUL point de contact avec la lib `redis` —
+ * et même ici le couplage est **structurel** (aucun import). Le consommateur
+ * branche typiquement les connexions du module `@nodefony/redis` :
+ *
+ * ```ts
+ * const redis = kernel.get("redis"); // RedisService
+ * const bp = new RedisBackplane(
+ *   createRedisServiceTransport(redis.getClient("publish")!, redis.getClient("subscribe")!),
+ * );
+ * defineRealtimeConfig({ backplane: { driver: "redis" } }, { backplane: bp });
+ * ```
+ *
+ * Chaque listener Redis est conservé, par canal, pour un `unsubscribe(channel,
+ * listener)` ciblé (n'arrache pas d'éventuels autres abonnés du même client).
+ *
+ * @param publisher - connexion de publication.
+ * @param subscriber - connexion d'abonnement dédiée.
+ * @param bytesSubscriber - la MÊME connexion d'abonnement, vue en mode octets
+ *   ({@link IRedisBytesSubscriber}) ; absente, le transport n'offre pas de sujet
+ *   binaire et les octets restent sur le serveur qui les publie.
+ * @returns le transport du {@link RedisBackplane}.
+ */
 export function createRedisServiceTransport(
   publisher: IRedisPublisher,
   subscriber: IRedisSubscriber,
+  bytesSubscriber?: IRedisBytesSubscriber,
 ): IRedisBackplaneTransport {
-  let listener: ((message: string, channel: string) => void) | null = null;
-  return {
+  // Un écouteur PAR canal : le sujet texte et le sujet binaire sont deux canaux
+  // Redis, chacun désabonné avec SON écouteur et SON mode.
+  const listeners = new Map<string, RegisteredListener>();
+  const transport: IRedisBackplaneTransport = {
     publish(channel, message): void | Promise<unknown> {
       // Retourné, pas avalé : c'est l'acquittement qui rend sa place dans la file
       // bornée du backplane — et le rejet y est absorbé (un `void` ici laissait
       // remonter un `unhandledRejection` quand Redis coupait en plein envoi).
       // Une vérification de forme par publication (quelques ns face à un
       // aller-retour réseau) plutôt qu'une conversion crue sur parole.
-      const ack = publisher.publish(channel, message);
+      // Des octets passent en `Buffer` VUE sur la même mémoire : aucune copie.
+      const ack = publisher.publish(
+        channel,
+        typeof message === "string"
+          ? message
+          : Buffer.from(message.buffer, message.byteOffset, message.byteLength),
+      );
       return isThenable(ack) ? ack : undefined;
     },
     subscribe(channel, onMessage): void | Promise<void> {
-      listener = (message): void => onMessage(message);
-      return settled(subscriber.subscribe(channel, listener));
+      const fn: RedisTextListener = (message): void => onMessage(message);
+      listeners.set(channel, { bytes: false, fn });
+      return settled(subscriber.subscribe(channel, fn));
     },
     unsubscribe(channel): void | Promise<void> {
-      const current = listener;
-      listener = null;
-      return settled(
-        current
-          ? subscriber.unsubscribe(channel, current)
-          : subscriber.unsubscribe(channel),
-      );
+      const current = listeners.get(channel);
+      listeners.delete(channel);
+      if (current === undefined)
+        return settled(subscriber.unsubscribe(channel));
+      if (!current.bytes)
+        return settled(subscriber.unsubscribe(channel, current.fn));
+      return settled(bytesSubscriber?.unsubscribe(channel, current.fn, true));
     },
   };
+  if (bytesSubscriber !== undefined) {
+    transport.subscribeBytes = (channel, onMessage): void | Promise<void> => {
+      const fn: RedisBytesListener = (message): void => onMessage(message);
+      listeners.set(channel, { bytes: true, fn });
+      return settled(bytesSubscriber.subscribe(channel, fn, true));
+    };
+  }
+  return transport;
 }
 
 /**
@@ -232,6 +334,12 @@ export class RedisBackplane implements IBackplane {
   #sealRejectedTotal = 0;
   #handler: BackplaneHandler | null = null;
   #started = false;
+  /**
+   * Sujet binaire : son codec et son canal Redis ({@link resolveRedisBytesChannel}) ;
+   * `null` tant que {@link enableBytes} n'a pas armé les octets.
+   */
+  #bytes: { readonly codec: IFrameCodec; readonly channel: string } | null =
+    null;
 
   constructor(
     transport: IRedisBackplaneTransport,
@@ -258,8 +366,48 @@ export class RedisBackplane implements IBackplane {
   async start(): Promise<void> {
     if (this.#started) return;
     this.#started = true;
-    await this.#transport.subscribe(this.#redisChannel, (raw) =>
-      this.#ingress(raw),
+    await Promise.all([
+      this.#transport.subscribe(this.#redisChannel, (raw) =>
+        this.#ingress(raw),
+      ),
+      this.#subscribeBytes(),
+    ]);
+  }
+
+  /**
+   * Arme le sujet binaire (ADR-0021 S6) : les charges qui contiennent des octets
+   * partent en enveloppe encodée par `codec` sur un second canal Redis, et ce
+   * canal est écouté. Les charges sans octets gardent le sujet texte, intact pour
+   * les exemplaires plus anciens. Idempotent.
+   *
+   * @param codec - le codec binaire du serveur.
+   * @returns `false` si le transport ne sait pas s'abonner en octets.
+   */
+  enableBytes(codec: IFrameCodec): boolean {
+    if (this.#transport.subscribeBytes === undefined) return false;
+    if (this.#bytes !== null) return true;
+    this.#bytes = {
+      codec,
+      channel: resolveRedisBytesChannel(this.#redisChannel, codec),
+    };
+    // Armé après `start()` : l'abonnement part maintenant ; avant, `start()` le fera.
+    if (this.#started) {
+      void this.#subscribeBytes().catch((err: unknown) =>
+        this.#notice?.(
+          `backplane : abonnement au sujet binaire en échec — les octets des autres exemplaires ne seront pas reçus (${err instanceof Error ? err.message : String(err)})`,
+          "WARNING",
+        ),
+      );
+    }
+    return true;
+  }
+
+  /** Abonne le sujet binaire s'il est armé ; sinon rien. */
+  async #subscribeBytes(): Promise<void> {
+    const bytes = this.#bytes;
+    if (bytes === null) return;
+    await this.#transport.subscribeBytes?.(bytes.channel, (raw) =>
+      this.#ingressBytes(raw, bytes.codec),
     );
   }
 
@@ -278,6 +426,16 @@ export class RedisBackplane implements IBackplane {
       payload,
       originId: this.originId,
     };
+    // Le parcours qui cherche des octets n'est payé que si le sujet binaire est
+    // armé — même règle que la convention `$bytes` du codec texte (ADR-0022 §2).
+    const bytes = this.#bytes;
+    if (bytes !== null && containsBytes(payload)) {
+      const bin = sealBackplaneEnvelopeBytes(env, bytes.codec, this.#secret);
+      this.#queue.send(bin.byteLength, () =>
+        this.#transport.publish(bytes.channel, bin),
+      );
+      return;
+    }
     const raw = sealBackplaneEnvelope(env, this.#secret);
     // `byteLength` mesure ce qui partira réellement sur la socket (UTF-8) ; son
     // coût est négligeable devant le HMAC déjà calculé sur la même chaîne.
@@ -310,6 +468,17 @@ export class RedisBackplane implements IBackplane {
     this.#handler?.(msg);
   }
 
+  /** Même tri que {@link #ingress}, sur le sujet binaire : décodage, sceau, anti-echo. */
+  #ingressBytes(raw: Uint8Array, codec: IFrameCodec): void {
+    const msg = openBackplaneEnvelopeBytes(raw, codec, this.#secret);
+    if (msg === null) {
+      if (this.#secret !== null) this.#sealRejected();
+      return;
+    }
+    if (msg.originId === this.originId) return;
+    this.#handler?.(msg);
+  }
+
   /** Compte un sceau refusé ; annonce le premier, puis un sur cent (pas d'inondation du journal). */
   #sealRejected(): void {
     this.#sealRejectedTotal += 1;
@@ -328,7 +497,12 @@ export class RedisBackplane implements IBackplane {
     this.#handler = null;
     if (!this.#started) return;
     this.#started = false;
-    await this.#transport.unsubscribe(this.#redisChannel);
+    await Promise.all([
+      this.#transport.unsubscribe(this.#redisChannel),
+      this.#bytes !== null
+        ? this.#transport.unsubscribe(this.#bytes.channel)
+        : undefined,
+    ]);
   }
 
   describe(): IBackplaneInfo {
@@ -343,6 +517,7 @@ export class RedisBackplane implements IBackplane {
         sealRejectedTotal: this.#sealRejectedTotal,
       }),
       queue: this.#queue.describe(),
+      ...(this.#bytes !== null && { bytes: true }),
     };
   }
 }

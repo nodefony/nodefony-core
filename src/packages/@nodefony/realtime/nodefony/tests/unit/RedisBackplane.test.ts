@@ -17,7 +17,7 @@ import type { IBackplaneMessage } from "../../interfaces/IBackplane.js";
 class FakeRedisBus {
   readonly #subs = new Map<string, Set<(m: string) => void>>();
   /** Enveloppes JSON publiées (introspection des tests). */
-  readonly published: { channel: string; message: string }[] = [];
+  readonly published: { channel: string; message: string | Uint8Array }[] = [];
 
   transport(): IRedisBackplaneTransport {
     const bus = this;
@@ -25,7 +25,9 @@ class FakeRedisBus {
     return {
       publish(channel, message): void {
         bus.published.push({ channel, message });
-        bus.#subs.get(channel)?.forEach((l) => l(message));
+        // Bus texte seul : le sujet binaire a sa doublure (`RedisBackplaneBytes.test.ts`).
+        if (typeof message === "string")
+          bus.#subs.get(channel)?.forEach((l) => l(message));
       },
       subscribe(channel, onMessage): void {
         mine = onMessage;
@@ -109,7 +111,9 @@ describe("RedisBackplane (pub/sub cross-pod)", () => {
     bp.publish("nodefony:orm:health", { rps: 12 });
     expect(bus.published).to.have.lengthOf(1);
     expect(bus.published[0]!.channel).to.equal(REDIS_RT_CHANNEL);
-    expect(JSON.parse(bus.published[0]!.message)).to.deep.equal({
+    const message = bus.published[0]!.message;
+    expect(typeof message).to.equal("string");
+    expect(JSON.parse(String(message))).to.deep.equal({
       channel: "nodefony:orm:health",
       payload: { rps: 12 },
       originId: "pod-A",

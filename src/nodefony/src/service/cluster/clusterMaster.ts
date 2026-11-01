@@ -4,6 +4,10 @@ import { Severity } from "../../syslog/Pdu";
 import { ClusterManager } from "./ClusterManager";
 import { ClusterRelay } from "./ClusterRelay";
 import { ClusterProbeAggregator } from "./ClusterProbeAggregator";
+import {
+  CLUSTER_IPC_ADVANCED,
+  CLUSTER_IPC_SERIALIZATION_ENV,
+} from "./clusterMessage";
 
 /** Logger des composants cluster — aligné sur `ClusterManager`/`Relay`/`Aggregator`. */
 export type ClusterLog = (msg: string, severity?: Severity) => void;
@@ -24,7 +28,8 @@ export interface ClusterMasterHandles {
  *
  * Le master ne sert **aucun HTTP** : il est superviseur + gateway IPC. Il
  * 1. marque `NF_CLUSTER=1` (hérité au fork → le module Framework branche le
- *    ClusterBackplane sur son RealtimeHub),
+ *    ClusterBackplane sur son RealtimeHub) et passe l'IPC en sérialisation
+ *    `advanced`, qui porte les octets intacts ({@link CLUSTER_IPC_SERIALIZATION_ENV}),
  * 2. branche le {@link ClusterRelay} (fan-out realtime cross-process intra-pod) et,
  *    sauf `NF_CLUSTER_PROBE=0`, le {@link ClusterProbeAggregator} (vue pod, push),
  * 3. fork N workers via {@link ClusterManager} (respawn backoff + graceful shutdown).
@@ -49,6 +54,11 @@ export function startClusterMaster(opts: {
   process.title = `nodefony master [cluster ${workers}w]`;
   // Marque les workers (héritage env au fork) → branchement du ClusterBackplane.
   process.env.NF_CLUSTER = "1";
+  // Canal IPC en clonage structuré : un `Uint8Array` publié sur un canal diffusé
+  // traverse le relais intact (ADR-0021 S6). Le JSON le rendait en objet ordinaire.
+  // Posé AVANT tout fork, et annoncé aux workers par la variable qui va avec.
+  cluster.setupPrimary({ serialization: "advanced" });
+  process.env[CLUSTER_IPC_SERIALIZATION_ENV] = CLUSTER_IPC_ADVANCED;
 
   const relay = new ClusterRelay({ log });
   // Sonde agrégée : opt-in, désactivable (NF_CLUSTER_PROBE=0) → bypass total.

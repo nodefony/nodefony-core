@@ -25,6 +25,7 @@
  *
  * Cf vision « la socket Nodefony » + mémoire `project_cluster_backplane_vision`.
  */
+import type { IFrameCodec } from "nodefony";
 
 /**
  * Compteurs de la **file d'envoi** d'un backplane à transport réseau : ce qui est
@@ -105,6 +106,12 @@ export interface IBackplaneInfo {
    * Absent quand le transport n'a pas de file (mono-process, IPC synchrone).
    */
   queue?: IBackplaneQueueInfo;
+  /**
+   * Les octets d'une charge traversent-ils le bus intacts ({@link IBackplane.enableBytes}) ?
+   * `true` seulement quand le serveur a un codec binaire ET que le transport sait les
+   * porter. Absent : les octets restent sur ce serveur (ADR-0021 S6).
+   */
+  bytes?: boolean;
 }
 
 /**
@@ -133,6 +140,20 @@ export interface IBackplane {
    * Un seul handler à la fois — un appel ultérieur remplace le précédent.
    */
   onMessage(handler: BackplaneHandler): void;
+
+  /**
+   * Arme le transport des **octets** (ADR-0021 S6) : après un `true`, une charge qui
+   * est ou contient un `Uint8Array` traverse {@link publish} intacte jusqu'aux autres
+   * pairs. Appelé par le hub, une fois, quand le serveur a un codec binaire.
+   *
+   * Optionnel : un driver qui ne l'implémente pas — ou qui rend `false` — garde ses
+   * messages texte inchangés, et le hub retient les octets sur ce serveur en
+   * prévenant l'exploitant une fois, plutôt que de les laisser se déformer.
+   *
+   * @param codec - le codec binaire du serveur (`CBOR_FRAME_CODEC` de `nodefony/cbor`).
+   * @returns `true` si les octets traverseront le bus intacts.
+   */
+  enableBytes?(codec: IFrameCodec): boolean;
 
   /** Arrête le transport et libère les ressources (connexions, listeners). Idempotent. */
   stop(): void | Promise<void>;

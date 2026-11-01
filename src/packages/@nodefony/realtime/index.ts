@@ -61,9 +61,11 @@ import LoopbackBackplane from "./nodefony/src/backplane/LoopbackBackplane";
 import RedisBackplane, {
   createRedisServiceTransport,
   resolveRedisChannel,
+  resolveRedisBytesChannel,
   REDIS_RT_CHANNEL,
   isRedisPublisher,
   isRedisSubscriber,
+  isRedisBytesSubscriber,
 } from "./nodefony/src/backplane/RedisBackplane";
 import { resolveBackplaneOriginId } from "./nodefony/src/backplane/originId";
 import ClusterBackplane, {
@@ -158,7 +160,13 @@ registerBackplaneDriver(RedisBackplane.driver, (ctx) => {
     );
   }
   return new RedisBackplane(
-    createRedisServiceTransport(publisher, subscriber),
+    // La même connexion d'abonnement, vue en mode octets : elle porte le sujet
+    // binaire quand le serveur a un codec binaire (ADR-0021 S6).
+    createRedisServiceTransport(
+      publisher,
+      subscriber,
+      isRedisBytesSubscriber(subscriber) ? subscriber : undefined,
+    ),
     ctx.originId,
     resolveRedisChannel(namespace),
     secret,
@@ -488,6 +496,7 @@ export {
   RedisBackplane,
   createRedisServiceTransport,
   resolveRedisChannel,
+  resolveRedisBytesChannel,
   resolveBackplaneOriginId,
   REDIS_RT_CHANNEL,
   registerBackplaneDriver,
@@ -596,6 +605,7 @@ export type {
   IRedisBackplaneTransport,
   IRedisPublisher,
   IRedisSubscriber,
+  IRedisBytesSubscriber,
 } from "./nodefony/src/backplane/RedisBackplane";
 export type {
   BackplaneFactory,
