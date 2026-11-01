@@ -65,8 +65,17 @@
       "default": "./dist/client/client/syslog/index.js"
     },
     "./cbor": {
-      "types": "./dist/client/types/src/client/cbor/index.d.ts",
-      "default": "./dist/client/client/cbor/index.js"
+      "browser": {
+        "import": {
+          "types": "./dist/client/types/src/client/cbor/index.d.ts",
+          "default": "./dist/client/client/cbor/index.js"
+        }
+      },
+      "import": {
+        "types": "./dist/client/types/src/client/cbor/index.d.ts",
+        "default": "./dist/node/client/cbor/index.js"
+      },
+      "default": "./dist/node/client/cbor/index.js"
     },
     "./debugbar.js": "./dist/client/debugbar.standalone.js",
     "./login.js": "./dist/login/login.js",

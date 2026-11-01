@@ -42,8 +42,19 @@ const external: string[] = [
 // `src/bundler/index.ts` = entrée SÉPARÉE (subpath `nodefony/bundler`) : jamais
 // réexportée par `src/index.ts` — elle importe `rolldown` (peerDep optionnelle),
 // le barrel principal ne doit pas le tirer.
+//
+// `src/client/cbor/index.ts` (subpath `nodefony/cbor`) est AUSSI bâti ici : un
+// serveur qui l'importe doit retomber sur les modules de `dist/node/`, ceux du
+// barrel principal. Servi par le seul build client, il tirait sa propre copie de
+// `jsonFrameCodec` — deux exemplaires dans un même process, une comparaison par
+// identité fausse sans un mot (`src/tests/cborSubpathIdentity.test.ts`).
 const nodeConfig: RolldownOptions = defineConfig({
-  input: ["src/index.ts", "src/bundler/index.ts", "src/testing/index.ts"],
+  input: [
+    "src/index.ts",
+    "src/bundler/index.ts",
+    "src/testing/index.ts",
+    "src/client/cbor/index.ts",
+  ],
   platform: "node",
   tsconfig: "tsconfig.json",
   external: nodefonyExternalMatcher(external),
