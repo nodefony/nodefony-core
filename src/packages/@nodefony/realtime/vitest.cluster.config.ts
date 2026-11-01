@@ -17,7 +17,12 @@ export const expectations: GateExpectations = [
     label: "Cluster e2e (IPC + Redis)",
     // Les deux topologies de la promesse centrale du framework : le
     // fan-out entre PROCESS (fork, sans infra) et entre PODS (Redis).
-    proof: ["e2e cluster IPC", "e2e cluster Redis"],
+    proof: [
+      "e2e cluster IPC",
+      "e2e cluster Redis",
+      // Le codec binaire sur un vrai serveur : un exemplaire jetable de l'app.
+      "Codec CBOR sur un vrai serveur WebSocket",
+    ],
     // `npm test` ne joue plus ces bancs : le mode d'emploi doit nommer le
     // lot, sinon il envoie chercher là où il n'y a rien.
     command: "npm run test:cluster",
@@ -25,7 +30,11 @@ export const expectations: GateExpectations = [
 ];
 
 /**
- * Lot SÉPARÉ pour les deux bancs qui forkent de VRAIS process.
+ * Lot SÉPARÉ pour les bancs qui démarrent de VRAIS process.
+ *
+ * `realtimeCodecServer.e2e` y est rangé pour la même raison : il démarre un
+ * exemplaire `production` JETABLE de l'application (`startSpareApp`), dont le
+ * boot est lui aussi borné dans le temps.
  *
  * `clusterIpc.e2e` et `redisCluster.e2e` montent une topologie multi-process
  * complète : chaque worker est un `fork()` qui charge `tsx`, puis tout le module
@@ -64,8 +73,9 @@ export default defineConfig({
     include: [
       "nodefony/tests/integration/clusterIpc.e2e.test.ts",
       "nodefony/tests/integration/redisCluster.e2e.test.ts",
+      "nodefony/tests/integration/realtimeCodecServer.e2e.test.ts",
     ],
-    // Les deux fichiers forkent chacun jusqu'à trois process : les jouer
+    // Les fichiers forkent chacun jusqu'à trois process : les jouer
     // ensemble reproduirait, à l'échelle du lot, la contention qu'on vient
     // d'écarter à l'échelle du dépôt.
     fileParallelism: false,

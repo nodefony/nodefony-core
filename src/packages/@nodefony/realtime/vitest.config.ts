@@ -62,7 +62,7 @@ export default defineConfig({
       "nodefony/tests/unit/**/*.test.ts",
       "nodefony/tests/integration/**/*.test.ts",
     ],
-    // Les deux bancs qui forkent de VRAIS process vivent dans leur propre lot
+    // Les bancs qui démarrent de VRAIS process vivent dans leur propre lot
     // (`vitest.cluster.config.ts`, `npm run test:cluster`). Ici, ils tourneraient
     // au milieu d'une passe qui sature déjà les cœurs : le boot d'un worker
     // dépasse alors le budget d'attente du master, et le banc rend un rouge qui
@@ -72,6 +72,7 @@ export default defineConfig({
       ...configDefaults.exclude,
       "nodefony/tests/integration/clusterIpc.e2e.test.ts",
       "nodefony/tests/integration/redisCluster.e2e.test.ts",
+      "nodefony/tests/integration/realtimeCodecServer.e2e.test.ts",
     ],
     // Marge confortable : plusieurs bancs enchaînent des attentes de 150 ms × N.
     testTimeout: 15000,
