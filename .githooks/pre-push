@@ -74,3 +74,16 @@ npm run typecheck || {
   echo "   Puis  : git commit && git push" >&2
   exit 1
 }
+# APRÈS le build : `nodefony env --example` lit les schémas de config depuis les
+# `dist` — frais ici, pas forcément au commit. Même gate que la CI (job statique) :
+# une clé `.meta({ env })` neuve sans `.env.example` régénéré y tombait sur les
+# six systèmes, sans qu'aucun hook local ne l'ait vue.
+npx nodefony env --example --check || {
+  echo "" >&2
+  echo "❌ pre-push REFUSÉ : .env.example ne suit plus env.ts ni les schémas de config des modules." >&2
+  echo "   Pourquoi : la notice des variables est générée ; une variable NF_ ajoutée ou retirée sans" >&2
+  echo "   la régénérer laisse la notice mentir — et la CI la refuse sur tous les systèmes." >&2
+  echo "   Faire : npx nodefony env --example" >&2
+  echo "   Puis  : git add .env.example && git commit && git push" >&2
+  exit 1
+}
