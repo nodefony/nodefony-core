@@ -48,6 +48,7 @@ function makeCtx(
   };
   const ctx = {
     type: "websocket",
+    outboundTracer: () => null,
     connection: conn,
     once: (event: string, fn: () => void) => {
       if (event === "onFinish") onFinish = fn;

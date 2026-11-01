@@ -141,6 +141,7 @@ async function connectPair(): Promise<{
   };
   const ctx = {
     type: "websocket",
+    outboundTracer: () => null,
     connection: conn,
     once: () => {},
     request: { headers: {}, url: "/realtime" },

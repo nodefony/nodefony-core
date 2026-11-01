@@ -77,6 +77,8 @@ interface IServerSide {
   malformed: () => number | undefined;
   /** Protocole du codec confié au traceur WS (`frameCodec`), `undefined` si aucun. */
   tracedCodec: () => string | undefined;
+  /** Trames sortantes confiées au traceur WS (`outboundTracer`). */
+  traced: unknown[];
 }
 
 function makeServer(
@@ -85,6 +87,7 @@ function makeServer(
 ): IServerSide {
   const selected: (string | false)[] = [];
   const sent: RealtimeFrameData[] = [];
+  const traced: unknown[] = [];
   const conn = {
     get readyState() {
       return wire.serverConnOpen ? 1 : TransportState.CLOSED;
@@ -104,6 +107,8 @@ function makeServer(
   if (offer !== undefined) headers["sec-websocket-protocol"] = offer;
   const ctx = {
     type: "websocket",
+    // Traceur hors production : collecte ce que le serveur lui confie.
+    outboundTracer: () => (data: unknown) => traced.push(data),
     connection: conn,
     once: () => undefined,
     request: { headers, url: "/realtime" },
@@ -129,6 +134,7 @@ function makeServer(
     sent,
     malformed: () => state.__nfRealtime?.transport.malformedDiscarded,
     tracedCodec: () => ctx.frameCodec?.protocol,
+    traced,
   };
 }
 
@@ -192,6 +198,10 @@ describe("Codec binaire côté serveur — négociation, accueil, bascule (#618)
     expect(server.sent.slice(1).every((f) => f instanceof Uint8Array)).toBe(
       true,
     );
+    // Trace sortante : la RÉPONSE seule (frame à `id`), jamais l'accueil, qui
+    // est une notification.
+    expect(server.traced).toHaveLength(1);
+    expect(server.traced[0]).toBe(server.sent[server.sent.length - 1]);
   });
 
   it("client CBOR ↔ serveur CBOR : une RpcError traverse le codec, code et data fidèles", async () => {
@@ -293,6 +303,9 @@ describe("Codec binaire côté serveur — négociation, accueil, bascule (#618)
     expect(gotCbor).toHaveLength(1);
     expect(gotCbor.map((p) => [p.seq, [...p.data]])).toEqual([[7, [1, 2, 3]]]);
     expect(gotText.map((p) => p.seq)).toEqual([7]);
+    // Une diffusion de canal n'est jamais tracée (volume, boucle du journal).
+    expect(cbor.server.traced).toEqual([]);
+    expect(text.server.traced).toEqual([]);
   });
 
   it("connexion TEXTE : le flux brut sert comme avant", async () => {

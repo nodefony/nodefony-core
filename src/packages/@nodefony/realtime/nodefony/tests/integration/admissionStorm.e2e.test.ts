@@ -98,6 +98,7 @@ function mount(wire: LoopbackWire): void {
   };
   const ctx = {
     type: "websocket",
+    outboundTracer: () => null,
     connection: conn,
     once: () => {},
     request: { headers: {}, url: "/realtime" },

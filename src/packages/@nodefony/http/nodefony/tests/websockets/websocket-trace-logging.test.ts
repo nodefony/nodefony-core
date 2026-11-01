@@ -196,5 +196,46 @@ describe.skipIf(IS_PROD_TARGET)(
         "binaire résumé",
       ).to.equal(true);
     });
+
+    // Le temps réel écrit droit sur la socket, pas par `context.send` : sans
+    // `outboundTracer`, le Suivi de requête ne montrait que la moitié entrante.
+    it("temps réel : la RÉPONSE d'une requête est tracée en SEND, l'accueil (notification) ne l'est pas", async () => {
+      const rid = `trace-rt-${Math.random().toString(36).slice(2, 10)}`;
+      await new Promise<void>((resolve, reject) => {
+        const ws = new WebSocket(`${WSS}/api/live/realtime`, {
+          ...wsOpts,
+          headers: { "x-request-id": rid },
+        });
+        const timer = setTimeout(() => {
+          ws.terminate();
+          reject(new Error("pas de réponse à la requête tracée"));
+        }, 8000);
+        ws.on("message", (raw) => {
+          const text = Buffer.isBuffer(raw) ? raw.toString("utf8") : "";
+          const frame = JSON.parse(text) as { method?: string; id?: number };
+          if (frame.method === "realtime:welcome") {
+            ws.send('{"jsonrpc":"2.0","id":7,"method":"trace:nope"}');
+          } else if (frame.id === 7) {
+            clearTimeout(timer);
+            ws.close();
+          }
+        });
+        ws.on("close", () => resolve());
+        ws.on("error", reject);
+      });
+
+      const rows = await searchByRequestId(rid);
+      const send = rows
+        .filter((r) => r.msgid === "WS SEND")
+        .map((r) => String(r.payload));
+      expect(
+        send.some((p) => p.includes('"id":7') && p.includes("-32601")),
+        "réponse JSON-RPC tracée en SEND",
+      ).to.equal(true);
+      expect(
+        send.some((p) => p.includes("realtime:welcome")),
+        "une notification n'est jamais tracée en SEND",
+      ).to.equal(false);
+    });
   },
 );

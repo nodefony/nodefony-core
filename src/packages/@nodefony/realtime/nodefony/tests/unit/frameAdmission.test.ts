@@ -43,6 +43,7 @@ function makeCtx() {
   let onFinish: (() => void) | null = null;
   const ctx = {
     type: "websocket",
+    outboundTracer: () => null,
     connection: {
       readyState: OPEN,
       send: (data: string, cb?: (err?: Error) => void) => {

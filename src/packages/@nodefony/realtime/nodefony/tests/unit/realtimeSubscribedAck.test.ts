@@ -31,6 +31,7 @@ function makeCtx() {
   };
   const ctx = {
     type: "websocket",
+    outboundTracer: () => null,
     connection: conn,
     once: () => {},
     request: { headers: {}, url: "/" },

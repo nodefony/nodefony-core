@@ -702,13 +702,28 @@ export abstract class RealtimeController<
     const codecs = hub.frameCodecs;
     const negotiated = this.#codec ?? codecs.text;
     const binaryCodec = negotiated === codecs.binary ? negotiated : null;
+    // Trace SORTANTE, hors production seulement (`null` sinon) : choisie UNE
+    // fois ici, l'écriture ne paie rien par trame en production.
+    const outbound = ctx.outboundTracer();
     const peerOptions: JsonRpcPeerOptions = {
       codec: codecs.text,
       // Le peer ENCODE avec le codec de la connexion (ADR-0022 §4) ; le
       // transport n'écrit que le résultat. Le filet d'une charge non encodable
       // (réponse → `-32603` générique, notification → `onError`) vit dans le
       // peer, le même des deux côtés de la socket.
-      write: (data) => transport.send(data),
+      // Seules les frames à `id` sont tracées — réponses et requêtes du serveur,
+      // la moitié de l'échange que le traceur ne voyait pas. Jamais une
+      // notification : les diffusions de canaux font le volume, et une trame du
+      // canal `nodefony:syslog` tracée produirait une ligne de journal, donc une
+      // trame, donc une ligne… Les diffusions mutualisées du hub ne passent pas
+      // par ici non plus.
+      write:
+        outbound === null
+          ? (data) => transport.send(data)
+          : (data, frame) => {
+              transport.send(data);
+              if (carriesId(frame)) outbound(data);
+            },
       onNotification: (method, params) =>
         this.onRealtimeNotification(ctx, method, params),
       onError: (context, err) =>
@@ -1711,6 +1726,19 @@ export abstract class RealtimeController<
     // Pas encore ouvert : s'il attend son admission, son verdict sera jeté.
     state.admission?.cancel(channel);
   }
+}
+
+/**
+ * Une frame JSON-RPC porte-t-elle un `id` — réponse ou requête, jamais une
+ * notification ? Même règle que `isNotification` du cœur (`id` absent), sur une
+ * frame non typée.
+ */
+function carriesId(frame: unknown): boolean {
+  return (
+    typeof frame === "object" &&
+    frame !== null &&
+    Reflect.get(frame, "id") !== undefined
+  );
 }
 
 /**

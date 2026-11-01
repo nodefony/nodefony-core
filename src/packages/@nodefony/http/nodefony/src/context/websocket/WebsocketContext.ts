@@ -562,6 +562,30 @@ class WebsocketContext extends Context implements IWebsocketContextInterface {
   }
 
   /**
+   * Le contenu des messages est-il journalisé ? Hors production seulement —
+   * décidé une fois pour le processus (P8 : runtime ∈ {development, production},
+   * `resolveRuntimeEnv`).
+   */
+  private tracesMessageContent(): boolean {
+    wsContentLogging ??= this.kernel?.environment !== "production";
+    return wsContentLogging;
+  }
+
+  /**
+   * Traceur des trames SORTANTES écrites hors de {@link send} — le temps réel
+   * écrit droit sur la socket. À demander UNE fois par connexion : `null` en
+   * production, donc l'appelant choisit son chemin d'écriture à l'ouverture et
+   * ne paie rien par trame.
+   *
+   * @returns une fonction qui journalise une trame comme `send` (`WS SEND`),
+   *   ou `null` quand le contenu des messages n'est pas journalisé.
+   */
+  outboundTracer(): ((data: unknown) => void) | null {
+    if (!this.tracesMessageContent()) return null;
+    return (data) => this.logMessageContent("SEND", data);
+  }
+
+  /**
    * Logge le CONTENU d'un message WS (corrélé `requestId` via l'override `log`),
    * gaté hors prod et borné — le Suivi de requête (Studio) le surface alors par
    * direction. Hot path : le gate booléen court-circuite en prod AVANT toute
@@ -574,10 +598,7 @@ class WebsocketContext extends Context implements IWebsocketContextInterface {
     dir: "RECEIVE" | "SEND" | "BROADCAST",
     data: unknown,
   ): void {
-    // P8 : runtime ∈ {development, production} (resolveRuntimeEnv) —
-    // le check "prod" était mort.
-    wsContentLogging ??= this.kernel?.environment !== "production";
-    if (!wsContentLogging) return;
+    if (!this.tracesMessageContent()) return;
     this.log(
       formatWsLogContent(data, WS_LOG_CONTENT_CAP, this.frameCodec),
       "DEBUG",

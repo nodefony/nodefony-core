@@ -265,6 +265,7 @@ function makeServer(
   let frameSeq = 0;
   const ctx = {
     type: "websocket",
+    outboundTracer: () => null,
     connection: conn,
     once: (event: string, fn: () => void) => {
       if (event === "onFinish") lastFinish = fn;
@@ -717,6 +718,7 @@ describe("RealtimeController E2E — edge dégradés & parsing", () => {
     const wire = new LoopbackWire();
     const ctx = {
       type: "websocket",
+      outboundTracer: () => null,
       connection: null,
       once: () => {},
       request: { headers: {}, url: "/realtime" },

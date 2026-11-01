@@ -350,6 +350,8 @@ export function createRealtimeHarness<C extends RealtimeController>(
   };
   const context = {
     type: "websocket",
+    // Production : aucune trace sortante, le chemin d'écriture le plus court.
+    outboundTracer: () => null,
     connection,
     once: (event: string, fn: () => void): void => {
       if (event === "onFinish") onFinish = fn;

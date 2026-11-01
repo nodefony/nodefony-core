@@ -564,6 +564,7 @@ describe("#622 — résolution des classes d'admission au démarrage", () => {
 function fakeCtx(closes: number[] = []) {
   return {
     type: "websocket",
+    outboundTracer: () => null,
     connection: {
       readyState: 1,
       send: (_d: string, cb?: () => void) => cb?.(),
