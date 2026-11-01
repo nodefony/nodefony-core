@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-30
+updated: 2026-11-01
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-multipod-bench/SKILL.md"
 ---
@@ -28,12 +28,12 @@ source: ".claude/skills/nodefony-multipod-bench/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Exécuter, diagnostiquer, mesurer |
-| Corps | 143 lignes |
-| Coût d'activation | ~3 031 tokens (le corps est chargé à l'invocation) |
+| Corps | 145 lignes |
+| Coût d'activation | ~3 168 tokens (le corps est chargé à l'invocation) |
 | Description | 988 / 1024 caractères |
 | Déclencheurs | 12 |
 | Ressources `references/` | 2 page(s) |
-| Scripts | 12 |
+| Scripts | 14 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -85,10 +85,12 @@ script, donc toujours à jour après régénération.
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
 | `scripts/bench.mjs` | Banc de charge F83 — latence de bout en bout d'un fan-out CROSS-POD. | — | — |
+| `scripts/bus-bytes.mjs` | bus-bytes.mjs — ce que coûtent des OCTETS sur le bus Redis entre deux serveurs : JSON + base64 (ce qu'une application devait faire avant le sujet binaire) contre le sujet binaire CBOR (ADR-0021 S6, #618). | `--child` `--flood` `--out` `--pings` `--runs` `--secret` `--sizes` `--window` | `NF_REDIS_TEST_URL` |
 | `scripts/db-outage-pod.mjs` | **Banc — une application Nodefony en PRODUCTION face à la chute de sa base.** | `--container` `--db` `--format` `--port` `--workers` | `BASE` `BOX` `NF_DATABASE_URL` `WORKERS` |
 | `scripts/db-persistance-pod.mjs` | Banc E2E SYSTÈME — une donnée écrite par HTTP survit-elle au pod qui l'a écrite ? | `--url` | `CLE` `MODE` `NF_DATABASE_URL` `PORT` `URL_BASE` |
 | `scripts/db-readiness-pod.mjs` | **Banc — ce que la sonde de disponibilité fait d'un schéma qui ne colle pas.** | `--container` `--db` `--format` `--port` | `BASE` `PORT` |
 | `scripts/forge.mjs` | — | — | — |
+| `scripts/ipc-bytes.mjs` | ipc-bytes.mjs — ce que coûte la sérialisation `advanced` (clonage structuré) de l'IPC du cluster, que le master pose depuis #618, face au JSON d'avant : - OCTETS : JSON + base64 (avant) contre `Uint8Array` brut en `advanced` ; - TEXTE ORDINAIRE : la même enveloppe realtime en JSON et en `advanced` — le changement s'applique à TOUT l'IPC, il ne doit pas ralentir le cas courant. | `--child` `--flood` `--pings` `--runs` `--sizes` `--window` | — |
 | `scripts/latency.mjs` | Latence PURE du chemin cross-pod, hors saturation : 1 client, messages espacés (aucun backlog). Mesure : publish A1 → sceau → Redis → ingress A2 → fan-out → frame WS. node latency.mjs <portRx> <portTx> <nbMessages> <intervalleMs> / | — | — |
 | `scripts/listen.mjs` | Écouteur du banc F83 — WebSocket brut parlant le JSON-RPC 2.0 de la socket Nodefony. Se connecte au pod demandé, s'abonne à `chat:room1`, et rend en JSON tout ce qui est arrivé pendant la fenêtre d'écoute. | — | — |
 | `scripts/mempeak.sh` | Pic mémoire d'un pod pendant une rafale de publications. | — | — |
@@ -101,9 +103,11 @@ script, donc toujours à jour après régénération.
 
 ```bash
 node bench.mjs <portRécepteur> <portÉmetteur> <connexions> <rafales>
+node .claude/skills/nodefony-multipod-bench/scripts/bus-bytes.mjs \
 node db-outage-pod.mjs [--workers N] [--container NOM] [--port P] [--db NOM]
 node db-persistance-pod.mjs                          # sqlite fichier (local, sans docker)
 node db-readiness-pod.mjs [--container NOM] [--port P] [--db NOM]
+Usage : node .claude/skills/nodefony-multipod-bench/scripts/ipc-bytes.mjs \
 node latency.mjs <portRx> <portTx> <nbMessages> <intervalleMs>
 node listen.mjs <port> <secondes>
 bash scripts/run.sh [dossier] [namespace]
@@ -111,7 +115,7 @@ bash scripts/setup.sh [dossier] [namespace]
 node soak.mjs <portRx> <portTx> <paliers> <secondesParPalier>
 ```
 
-**Toutes les variables lues par ce skill** : `APP` · `BASE` · `BOX` · `CLE` · `MODE` · `NF_BENCH_SECRET` · `NF_DATABASE_URL` · `PORT` · `URL_BASE` · `WORKERS`
+**Toutes les variables lues par ce skill** : `APP` · `BASE` · `BOX` · `CLE` · `MODE` · `NF_BENCH_SECRET` · `NF_DATABASE_URL` · `NF_REDIS_TEST_URL` · `PORT` · `URL_BASE` · `WORKERS`
 
 ## Conformité au standard Agent Skills
 
@@ -132,7 +136,7 @@ node soak.mjs <portRx> <portTx> <paliers> <secondesParPalier>
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 143 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 145 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

@@ -123,7 +123,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme · ⚙️ 77 scripts · 📎 5 réf" },
   { "icon": "🛰️", "title": "multipod-bench", "href": "skills/nodefony-multipod-bench.md",
     "desc": "Monte un banc MULTI-PODS réel — plusieurs applications partageant un bus Redis — pour prouver un comportement cluster invisible aux tests unitaires : fan-out cross-pod, cloisonnement entre applications, injection depuis le bus, latence et débit de bout en bout.",
-    "meta": "🟢 conforme · ⚙️ 12 scripts · 📎 2 réf" },
+    "meta": "🟢 conforme · ⚙️ 14 scripts · 📎 2 réf" },
   { "icon": "🚀", "title": "start-server", "href": "skills/nodefony-start-server.md",
     "desc": "Lance le serveur Nodefony en mode développement pour les tests d'intégration — script unique start.sh (1 commande, 1 approbation) : build conditionnel du module test, kill ports, spawn detached du DevSupervisor (auto-restart), wait boot fail-fast, health check.",
     "meta": "🟢 conforme · ⚙️ 2 scripts" },

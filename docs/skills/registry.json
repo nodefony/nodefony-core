@@ -9556,8 +9556,8 @@
       ],
       "description": "Monte un banc MULTI-PODS réel — plusieurs applications partageant un bus Redis — pour prouver un comportement cluster invisible aux tests unitaires : fan-out cross-pod, cloisonnement entre applications, injection depuis le bus, latence et débit de bout en bout. Fournit le décor (Redis docker, apps liées au framework, ports dédiés), les scripts de mesure (latence, charge, coût de publication, forge d'enveloppe scellée), la matrice d'attaque du backplane et les pièges du lancement multi-instances. À charger AVANT de monter le décor ou de lancer un script : sans le protocole, un banc saturé mesure un backlog et non une latence, et une infra éteinte en route rend les tests silencieusement verts. Déclencheurs : \"banc multi-pods\", \"tester en cluster\", \"cross-pod\", \"deux apps\", \"plusieurs pods\", \"injection backplane\", \"bus Redis partagé\", \"fan-out cross-pod\", \"prouver en réel\", \"backplane secret\", \"est-ce que ça marche à plusieurs instances ?\", \"les apps sont-elles cloisonnées ?\".",
       "cost": {
-        "bodyLines": 143,
-        "approxTokens": 3031
+        "bodyLines": 145,
+        "approxTokens": 3168
       },
       "requires": [
         "serveur UP",
@@ -9580,6 +9580,55 @@
             ],
             "options": [],
             "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/bus-bytes.mjs",
+            "purpose": "bus-bytes.mjs — ce que coûtent des OCTETS sur le bus Redis entre deux serveurs : JSON + base64 (ce qu'une application devait faire avant le sujet binaire) contre le sujet binaire CBOR (ADR-0021 S6, #618).",
+            "usage": [
+              "node .claude/skills/nodefony-multipod-bench/scripts/bus-bytes.mjs \\"
+            ],
+            "options": [
+              {
+                "flag": "--child",
+                "help": ""
+              },
+              {
+                "flag": "--flood",
+                "help": ""
+              },
+              {
+                "flag": "--out",
+                "help": ""
+              },
+              {
+                "flag": "--pings",
+                "help": ""
+              },
+              {
+                "flag": "--runs",
+                "help": ""
+              },
+              {
+                "flag": "--secret",
+                "help": ""
+              },
+              {
+                "flag": "--sizes",
+                "help": ""
+              },
+              {
+                "flag": "--window",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "NF_REDIS_TEST_URL",
+                "help": ""
+              }
+            ],
             "output": "",
             "selfDocumented": false
           },
@@ -9711,6 +9760,42 @@
             "purpose": "",
             "usage": [],
             "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/ipc-bytes.mjs",
+            "purpose": "ipc-bytes.mjs — ce que coûte la sérialisation `advanced` (clonage structuré) de l'IPC du cluster, que le master pose depuis #618, face au JSON d'avant : - OCTETS : JSON + base64 (avant) contre `Uint8Array` brut en `advanced` ; - TEXTE ORDINAIRE : la même enveloppe realtime en JSON et en `advanced` — le changement s'applique à TOUT l'IPC, il ne doit pas ralentir le cas courant.",
+            "usage": [
+              "Usage : node .claude/skills/nodefony-multipod-bench/scripts/ipc-bytes.mjs \\"
+            ],
+            "options": [
+              {
+                "flag": "--child",
+                "help": ""
+              },
+              {
+                "flag": "--flood",
+                "help": ""
+              },
+              {
+                "flag": "--pings",
+                "help": ""
+              },
+              {
+                "flag": "--runs",
+                "help": ""
+              },
+              {
+                "flag": "--sizes",
+                "help": ""
+              },
+              {
+                "flag": "--window",
+                "help": ""
+              }
+            ],
             "env": [],
             "output": "",
             "selfDocumented": false
@@ -9902,7 +9987,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "143",
+            "detail": "145",
             "advisory": true
           }
         ]
