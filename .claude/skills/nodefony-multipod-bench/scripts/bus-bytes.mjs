@@ -24,7 +24,7 @@ import { randomBytes } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { createClient } from "redis";
 import { CBOR_FRAME_CODEC } from "nodefony/cbor";
 import {
@@ -36,7 +36,9 @@ const SELF = fileURLToPath(import.meta.url);
 const ROOT = path.resolve(path.dirname(SELF), "..", "..", "..", "..");
 const URL =
   process.env.NF_REDIS_TEST_URL ?? "redis://:nodefony-dev@127.0.0.1:6379/15";
-const SECRET_VALUE = "bench-secret-0123456789abcdef0123456789";
+// Tiré à chaque lancement : le banc n'a besoin que d'un secret PARTAGÉ avec ses
+// enfants (passé par argv), jamais d'une valeur fixe versionnée.
+const SECRET_VALUE = randomBytes(32).toString("base64url");
 const ACK_EVERY = 32;
 const MODES = ["json-b64", "cbor"];
 
@@ -220,10 +222,12 @@ async function oneRun({ mode, bytes, secret, pings, flood, window, run }) {
 /** Taille exacte de l'enveloppe sur le fil, par les fonctions du driver (dist). */
 async function wireSizes(bytes, secret) {
   const envelope = await import(
-    path.join(
-      ROOT,
-      "src/packages/@nodefony/realtime/dist/nodefony/src/backplane/envelope.js",
-    )
+    pathToFileURL(
+      path.join(
+        ROOT,
+        "src/packages/@nodefony/realtime/dist/nodefony/src/backplane/envelope.js",
+      ),
+    ).href
   );
   const msg = (mode) => ({
     channel: "flood",
