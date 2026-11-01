@@ -344,11 +344,11 @@ La pile se lit de haut en bas ; chaque étage ne connaît que son voisin du dess
 dispatch des notifications, gestion des erreurs, `dispose()` propre. Deux points
 d'interception y sont posés :
 
-- `beforeDispatch` (`JsonRpcPeer.ts#JsonRpcPeerOptions.beforeDispatch`) — un verrou **synchrone** appelé avant tout
+- `beforeDispatch` (`JsonRpcPeer.ts#IJsonRpcPeerHooks.beforeDispatch`) — un verrou **synchrone** appelé avant tout
   traitement de frame. Il rend `true`/`false`. Un refus sur une requête produit
   `-32001 unauthorized` ; sur une notification, la frame est jetée
   (`JsonRpcPeer.ts#JsonRpcPeer.receive`).
-- `onFrameAudit` (`JsonRpcPeer.ts#JsonRpcPeerOptions.onFrameAudit`) — la trace des événements protocolaires notables
+- `onFrameAudit` (`JsonRpcPeer.ts#IJsonRpcPeerHooks.onFrameAudit`) — la trace des événements protocolaires notables
   (frame invalide, refusée, méthode inconnue, erreur interne).
 
 La contrainte de synchronisme n'est pas un oubli : un `await` par frame coûterait une

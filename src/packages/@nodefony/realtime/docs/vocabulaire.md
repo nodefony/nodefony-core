@@ -481,7 +481,7 @@ et de ses handlers. Aucune dépendance Node — le même fichier tourne dans le 
 Le geste du pair sur une frame entrante : décider de sa nature, trouver le handler, l'appeler,
 renvoyer la réponse s'il en faut une. Ce n'est pas une méthode publique — c'est un **moment**, et
 c'est précisément là que se greffe le [verrou de frame](#verrou-de-frame--la-décision-par-frame),
-par le crochet `beforeDispatch` (`JsonRpcPeer.ts#JsonRpcPeerOptions.beforeDispatch`).
+par le crochet `beforeDispatch` (`JsonRpcPeer.ts#IJsonRpcPeerHooks.beforeDispatch`).
 
 ### `transport` — la couche octets
 
@@ -713,7 +713,7 @@ Le signal émis sur les événements protocolaires qui méritent une trace : fra
 refusée, méthode inconnue, erreur interne. Émis sans attente, avec le pair — ce qui permet de
 retrouver **qui** a été refusé, pas seulement d'où venait le paquet.
 
-`FrameAuditReason` (`JsonRpcPeer.ts#FrameAuditReason`), crochet `onFrameAudit` (`JsonRpcPeer.ts#JsonRpcPeerOptions.onFrameAudit`).
+`FrameAuditReason` (`JsonRpcPeer.ts#FrameAuditReason`), crochet `onFrameAudit` (`JsonRpcPeer.ts#IJsonRpcPeerHooks.onFrameAudit`).
 
 ### `seam` — le point de greffe
 
@@ -721,8 +721,8 @@ Littéralement une **couture** : un point prévu dans une couche basse pour qu'u
 greffe du comportement **sans modifier la couche basse**. Le module en expose cinq, et c'est ce qui
 permet à la couche sécurité de se brancher sans qu'aucune ligne de realtime ne la connaisse.
 
-Les deux du protocole sont `beforeDispatch` (`JsonRpcPeer.ts#JsonRpcPeerOptions.beforeDispatch`) et `onFrameAudit`
-(`JsonRpcPeer.ts#JsonRpcPeerOptions.onFrameAudit`) ; les trois du hub sont l'authenticator, le matcher et le contrôle d'origine.
+Les deux du protocole sont `beforeDispatch` (`JsonRpcPeer.ts#IJsonRpcPeerHooks.beforeDispatch`) et `onFrameAudit`
+(`JsonRpcPeer.ts#IJsonRpcPeerHooks.onFrameAudit`) ; les trois du hub sont l'authenticator, le matcher et le contrôle d'origine.
 
 → [Sécurité](./securite.md) pour le détail de chacun.
 
