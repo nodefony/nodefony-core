@@ -24,9 +24,11 @@ projet + issue épinglée, dans le même run), et le chemin du `_state` à écri
 `--no-publish` évite les deux vitrines ; `--since <rév>` force le début de la plage.
 
 - La ligne **« Lecture de code »** (`scripts/tool-usage.mjs`, calculée par le script, zéro appel
-  d'outil) dit comment la session a lu le code : `show-symbol` contre les lectures que la règle 6 du
-  hook refuserait. Une ⚠️ = le réflexe de la tranche devinée a repris : le dire au user, pas de
-  ticket. `node scripts/tool-usage.mjs --all` rend le coût par famille d'outil, toutes sessions.
+  d'outil) compte les `show-symbol` et les tranches refusées par la garde (`.claude/hooks/code-slice.mjs`,
+  qui les refuse TOUTES). Rien à surveiller. Un 🚨 « tranche PASSÉE » = une forme que la garde ne
+  reconnaît pas : l'apprendre à `code-slice.mjs` avec son cas au banc `guard-bash.test.sh` —
+  sauf si la commande date d'avant la pose de la garde (transcript repris après compactage).
+  `node scripts/tool-usage.mjs --all` rend le coût par famille d'outil, toutes sessions.
 - L'**index mémoire** n'y garde que le dernier pointeur d'état (`pruneStatePointers`) : il est chargé
   à chaque session, la reprise lit le `_state` sur le disque. Les fichiers restent.
 - Le tableau en erreur **bloque l'empreinte** : une empreinte prise sur un tableau incohérent grave
@@ -97,13 +99,14 @@ chevauchent, et l'on ne sait plus quel run juge quel commit. Donc :
 ```bash
 git push                                    # le dépôt — commits + .ai/ + docs/ (cf règle ci-dessus)
 MEM="$HOME/.claude/projects/-Users-cci-repository-nodefony-core/memory"
-git -C "$MEM" add -A
+git -C "$MEM" add -- "$MEM"                # la mémoire, fichiers neufs compris
+git -C "$MEM" add -u                         # le reste suivi de ~/.claude (CLAUDE.md, réglages)
 git -C "$MEM" -c user.name="Christophe CAMENSULI" -c user.email="ccamensuli@gmail.com" \
   commit -q -m "session <date>: <focus court>" && git -C "$MEM" push -q
 ```
 
-La mémoire vit HORS du dépôt, dans le dépôt git privé de `~/.claude` tout entier (`git add -A`
-sauvegarde aussi le `CLAUDE.md` global et les réglages). Non poussée, un crash la perd. La
+La mémoire vit HORS du dépôt, dans le dépôt git privé de `~/.claude` tout entier (`add -u`
+sauvegarde aussi le `CLAUDE.md` global et les réglages ; `git add -A` est refusé par la garde). Non poussée, un crash la perd. La
 restauration sur un poste neuf vit dans `~/.claude/README.md` — ne pas la recopier ici. ⚠️ Le
 dossier de mémoire encode le CHEMIN ABSOLU du projet : un poste qui range le dépôt ailleurs ne voit
 plus aucune mémoire, sans le dire.
