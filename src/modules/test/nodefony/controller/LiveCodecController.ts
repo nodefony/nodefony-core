@@ -7,7 +7,7 @@ import {
 } from "@nodefony/realtime";
 import type { RealtimePublish } from "@nodefony/realtime";
 import { Context } from "@nodefony/http";
-import { RpcError } from "nodefony";
+import { JsonRpcServerError, RpcError } from "nodefony";
 
 /**
  * Diffusion du canal `codec:tick`, tant qu'un abonné écoute — `null` au départ
@@ -56,7 +56,7 @@ class LiveCodecController extends RealtimeController {
    */
   @RealtimeAction("codec:fail", { authenticated: false })
   fail(): never {
-    throw new RpcError("refusé", -32000, {
+    throw new RpcError("refusé", JsonRpcServerError.DEFAULT, {
       status: 409,
       data: new Uint8Array([4, 2]),
     });
