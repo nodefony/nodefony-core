@@ -1,6 +1,6 @@
 import { STATUS_CODES, type IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
-import type { WebSocket, WebSocketServer } from "ws";
+import { WebSocketServer, type ServerOptions, type WebSocket } from "ws";
 import { refuseUpgrade } from "../proxy/forward";
 import { websocketHandshakeProblem } from "../proxy/rules";
 
@@ -38,6 +38,18 @@ export interface IUpgradeAdmission {
    */
   accept(): WebSocket | null | Promise<WebSocket | null>;
   /**
+   * Retient le sous-protocole que le serveur renverra dans le `101` (RFC 6455
+   * §4.2.2 : « the subprotocol the server is ready to use »), à appeler AVANT
+   * {@link accept}. Sans choix, la règle d'avant s'applique : l'option
+   * `handleProtocols` de la configuration `ws`, sinon le premier offert.
+   *
+   * Un choix absent de l'offre du client n'est jamais renvoyé — la norme ne
+   * permet que l'un des sous-protocoles offerts, ou aucun.
+   *
+   * @param protocol - le sous-protocole choisi, `false` pour n'en renvoyer aucun
+   */
+  selectSubprotocol(protocol: string | false): void;
+  /**
    * Refuse par un statut HTTP, AVANT le `101` (RFC 6455 §4.2.2).
    *
    * @param status - statut du refus (`401`, `403`, `429`…)
@@ -54,6 +66,71 @@ export type UpgradeAdmit = (
   req: IncomingMessage,
   admission: IUpgradeAdmission,
 ) => void;
+
+/**
+ * Sous-protocole choisi par handshake, entre {@link IUpgradeAdmission.selectSubprotocol}
+ * et le rappel `handleProtocols` de `ws` — qui ne reçoit que la requête. Une
+ * table faible plutôt qu'une variable « en cours » : un `verifyClient`
+ * asynchrone sépare les deux instants, et deux handshakes s'y croiseraient.
+ * Une entrée n'existe que pour un handshake qui a choisi.
+ */
+const chosenSubprotocols = new WeakMap<IncomingMessage, string | false>();
+
+/** Signature de l'option `handleProtocols` de `ws` (`ServerOptions`). */
+export type SubprotocolHandler = (
+  protocols: Set<string>,
+  request: IncomingMessage,
+) => string | false;
+
+/**
+ * Fabrique l'option `handleProtocols` du serveur `ws` de Nodefony : le choix
+ * retenu par l'admission ({@link IUpgradeAdmission.selectSubprotocol}) s'il y
+ * en a un, sinon `fallback` (celle de la configuration), sinon le premier
+ * offert — le défaut de `ws` 8, conservé pour tout contrôleur qui ne choisit
+ * pas.
+ *
+ * @param fallback - l'option `handleProtocols` de la configuration, s'il y en a une
+ * @returns le rappel à passer à `new WebSocketServer({ handleProtocols })`
+ */
+export function createSubprotocolHandler(
+  fallback?: SubprotocolHandler,
+): SubprotocolHandler {
+  return (protocols, request) => {
+    const chosen = chosenSubprotocols.get(request);
+    if (chosen !== undefined) {
+      chosenSubprotocols.delete(request);
+      return chosen !== false && protocols.has(chosen) ? chosen : false;
+    }
+    if (fallback !== undefined) return fallback(protocols, request);
+    const first = protocols.values().next();
+    return first.done === true ? false : first.value;
+  };
+}
+
+/**
+ * Construit le serveur `ws` de Nodefony à partir des options de la
+ * configuration, en forçant ce que Nodefony gère — seul endroit où ces
+ * options sont posées, pour le serveur clair comme pour le sécurisé :
+ *
+ * - `noServer` : l'upgrade passe d'abord par le proxy inverse, puis par
+ *   {@link attachUpgradeDispatch} ;
+ * - `clientTracking` : requis par `broadcast()` et le heartbeat ;
+ * - `handleProtocols` : le sous-protocole CHOISI par le contrôleur
+ *   ({@link createSubprotocolHandler}), celui de la configuration à défaut.
+ *
+ * @param options - options `ws` issues de la configuration du serveur WebSocket
+ * @returns le serveur, sans écoute propre
+ */
+export function createNodefonyWebSocketServer(
+  options: ServerOptions,
+): WebSocketServer {
+  return new WebSocketServer({
+    ...options,
+    noServer: true,
+    clientTracking: true,
+    handleProtocols: createSubprotocolHandler(options.handleProtocols),
+  });
+}
 
 /** Défaut sans noyau : tout upgrade conforme est accepté puis émis en `connection`. */
 function acceptAll(wss: WebSocketServer): UpgradeAdmit {
@@ -94,6 +171,12 @@ class UpgradeAdmission implements IUpgradeAdmission {
   ) {
     this.#onPendingError = () => socket.destroy();
     socket.on("error", this.#onPendingError);
+  }
+
+  selectSubprotocol(protocol: string | false): void {
+    // Après le verdict, `ws` a déjà répondu : un choix tardif ne mentirait pas
+    // au client, il resterait seulement dans la table — on l'écarte.
+    if (!this.#settled) chosenSubprotocols.set(this.req, protocol);
   }
 
   #settle(): boolean {
@@ -140,6 +223,7 @@ class UpgradeAdmission implements IUpgradeAdmission {
     headers?: Readonly<Record<string, string | number>> | null,
   ): void {
     if (!this.#settle()) return;
+    chosenSubprotocols.delete(this.req);
     refuseUpgrade(
       this.socket,
       status,

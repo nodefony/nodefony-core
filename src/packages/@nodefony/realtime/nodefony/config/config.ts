@@ -267,6 +267,22 @@ export const realtimeConfigSchema = z
         "Active le module realtime au boot. Recommandation prod : true. " +
           "false = module chargé mais inerte (registry, mais aucun hub/listener actif).",
       ),
+    codec: z
+      .enum(["json", "cbor"])
+      .default("json")
+      .describe(
+        "Codec binaire des frames, accordé aux clients qui l'offrent (ADR-0022 §2). " +
+          "`json` (défaut) : JSON-RPC texte seul, le fil d'avant les codecs. `cbor` : " +
+          "le serveur charge le codec CBOR (RFC 8949) au démarrage et l'accorde à tout " +
+          "client qui offre `nodefony.jsonrpc.cbor.v1` ; les autres restent en texte, " +
+          "avec la convention d'octets `$bytes`. Les octets d'une charge voyagent alors " +
+          "sans base64, et toute trame binaire d'une connexion CBOR est une frame : le " +
+          "flux brut (`onRealtimeBinary`, `sendBinaryToClient`) n'y sert plus. Env : " +
+          "`NF_REALTIME_CODEC` — `NF_REALTIME_CODEC=json` remet le fil en texte pour " +
+          "le lire dans le navigateur, une exception de débogage : en texte, la taille " +
+          "des trames et la contre-pression changent.",
+      )
+      .meta({ env: "NF_REALTIME_CODEC" }),
     backplane: backplaneSchema.default(() => backplaneSchema.parse({})),
     cluster: clusterSchema.default(() => clusterSchema.parse({})),
     slowConsumer: slowConsumerSchema.default(() =>

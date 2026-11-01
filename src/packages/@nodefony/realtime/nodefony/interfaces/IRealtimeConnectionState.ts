@@ -1,4 +1,4 @@
-import type { JsonRpcPeer } from "nodefony";
+import type { IFrameCodec, JsonRpcPeer } from "nodefony";
 import type { WsConnectionTransport } from "../src/transport/WsConnectionTransport";
 import type { ChannelSink } from "../src/server/RealtimeHub";
 import type { ConnectionAdmission } from "../src/server/connectionAdmission";
@@ -24,6 +24,13 @@ export interface IRealtimeConnectionState {
   peer: JsonRpcPeer;
   /** Le transport qui relie le pair à la socket (contre-pression, sonde). */
   transport: WsConnectionTransport;
+  /**
+   * Le codec BINAIRE accordé à cette connexion au handshake (ADR-0022 §2), `null`
+   * pour une connexion restée en texte. Non nul, toute trame binaire reçue est une
+   * frame du codec, et le flux brut (`onRealtimeBinary`, `sendBinaryToClient`) est
+   * refusé : les octets passent par les canaux, et leurs portes.
+   */
+  binaryCodec: IFrameCodec | null;
   /** Canal → sink de CETTE connexion auprès du hub partagé, pour s'en désabonner. */
   channels: Map<string, ChannelSink>;
   /**

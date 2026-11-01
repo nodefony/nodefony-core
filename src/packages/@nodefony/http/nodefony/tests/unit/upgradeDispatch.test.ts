@@ -10,6 +10,8 @@ import net, { type AddressInfo } from "node:net";
 import WebSocket, { WebSocketServer } from "ws";
 import {
   attachUpgradeDispatch,
+  createNodefonyWebSocketServer,
+  createSubprotocolHandler,
   type UpgradeAdmit,
 } from "../../src/servers/upgradeDispatch";
 
@@ -279,5 +281,83 @@ describe("attachUpgradeDispatch — admission asynchrone (#596)", () => {
       admission.refuse(500);
     });
     expect(await attemptFull(srv.port)).toBe("open");
+  });
+});
+
+/**
+ * #618 — le serveur renvoie le sous-protocole qu'il a CHOISI (RFC 6455 §4.2.2),
+ * jamais le premier offert — défaut de `ws` sans `handleProtocols`, qui ferait
+ * dire `nodefony.jsonrpc.cbor.v1` au navigateur d'une connexion restée en texte.
+ */
+describe("createNodefonyWebSocketServer — sous-protocole choisi (#618)", () => {
+  const CBOR = "nodefony.jsonrpc.cbor.v1";
+  const TEXT = "nodefony.jsonrpc.v1";
+
+  async function serveChoosing(
+    choose: ((admission: Parameters<UpgradeAdmit>[1]) => void) | null,
+  ): Promise<number> {
+    const server = http.createServer();
+    const wss = createNodefonyWebSocketServer({});
+    const detach = attachUpgradeDispatch(
+      server,
+      wss,
+      () => null,
+      () => null,
+      (req, admission) => {
+        choose?.(admission);
+        const ws = admission.accept();
+        if (ws instanceof WebSocket) wss.emit("connection", ws, req);
+      },
+    );
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", resolve),
+    );
+    closers.push(
+      () =>
+        new Promise<void>((resolve) => {
+          detach();
+          for (const c of wss.clients) c.terminate();
+          wss.close();
+          server.close(() => resolve());
+        }),
+    );
+    return (server.address() as AddressInfo).port;
+  }
+
+  function open(port: number, offer: string[]): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const ws = new WebSocket(`ws://127.0.0.1:${port}/x`, offer);
+      closers.push(async () => ws.terminate());
+      ws.once("open", () => resolve(ws.protocol));
+      ws.once("error", reject);
+    });
+  }
+
+  it("le choix de l'admission est renvoyé, pas le premier offert", async () => {
+    const port = await serveChoosing((admission) =>
+      admission.selectSubprotocol(TEXT),
+    );
+    expect(await open(port, [CBOR, TEXT])).toBe(TEXT);
+  });
+
+  it("un choix absent de l'offre n'est jamais renvoyé : aucun en-tête", async () => {
+    const port = await serveChoosing((admission) =>
+      admission.selectSubprotocol("evil"),
+    );
+    // Le client `ws` refuse une réponse sans sous-protocole quand il en a offert :
+    // c'est la preuve, côté client, qu'aucun en-tête n'est parti.
+    await expect(open(port, [CBOR, TEXT])).rejects.toThrow(/no subprotocol/i);
+  });
+
+  it("sans choix, la règle d'avant : le premier offert", async () => {
+    const port = await serveChoosing(null);
+    expect(await open(port, [CBOR, TEXT])).toBe(CBOR);
+  });
+
+  it("sans choix, l'option handleProtocols de la configuration garde la main", () => {
+    const handler = createSubprotocolHandler(() => "config");
+    const req = new http.IncomingMessage(new net.Socket());
+    expect(handler(new Set([CBOR, TEXT]), req)).toBe("config");
+    expect(createSubprotocolHandler()(new Set(), req)).toBe(false);
   });
 });

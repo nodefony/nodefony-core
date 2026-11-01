@@ -15,6 +15,9 @@ import {
   USER_CHANNEL_PREFIX,
   isOwnUserChannel,
   userChannel,
+  frameCodecSet,
+  type IFrameCodec,
+  type IFrameCodecSet,
 } from "nodefony";
 import type { IChannelAdmission, UserChannelPayload } from "nodefony";
 import { AdmissionBudget, type IAdmissionLimits } from "./admissionBudget";
@@ -487,6 +490,8 @@ export class RealtimeHub {
   // config était MORTE : la sonde lisait la constante). Métrique d'observabilité
   // uniquement — l'ACTION de back-pressure a ses propres seuils dans WsConnectionTransport.
   #slowConsumerBytes: number = SLOW_CONSUMER_BYTES;
+  // Codecs de frame (ADR-0022 §2) : texte seul tant que la config n'active rien.
+  #frameCodecs: IFrameCodecSet = frameCodecSet();
 
   /**
    * Budget des admissions de l'exemplaire (appels d'`allow` en vol, coupe-circuit,
@@ -1169,6 +1174,25 @@ export class RealtimeHub {
   }
 
   /**
+   * Les codecs de frame du serveur (ADR-0022 §2) : le texte, et le codec binaire
+   * accordé aux clients qui l'offrent — `null` tant que la configuration n'en
+   * active aucun. Lu une fois par connexion, au handshake, jamais par trame.
+   */
+  get frameCodecs(): IFrameCodecSet {
+    return this.#frameCodecs;
+  }
+
+  /**
+   * Pose le codec binaire du serveur — 1× au boot par `RealtimeService.init()`,
+   * depuis la clé `codec` de la configuration. Sans argument : texte seul.
+   *
+   * @param codec - le codec activé (`CBOR_FRAME_CODEC` de `nodefony/cbor`).
+   */
+  setFrameCodec(codec?: IFrameCodec): void {
+    this.#frameCodecs = frameCodecSet(codec);
+  }
+
+  /**
    * Pose les bornes des admissions (`authenticateTimeoutMs`, `allowTimeoutMs`, `maxPendingAllowsPerConnection`, `maxPendingAllowsTotal`) — 1× au boot par `RealtimeService.init()`.
    */
   setAdmissionLimits(limits: IAdmissionLimits): void {
@@ -1692,6 +1716,7 @@ export class RealtimeHub {
     this.#localOnlyTotal = 0;
     this.#systemFloorDeniedTotal = 0;
     this.admissionBudget.reset();
+    this.#frameCodecs = frameCodecSet();
     // Les avertissements de plateforme aussi : sans ce reset, un motif déjà émis
     // reste marqué « vu » pour le process entier. Un test qui vérifie une alerte
     // passe alors seul et échoue en suite — et surtout, un hub réinitialisé se

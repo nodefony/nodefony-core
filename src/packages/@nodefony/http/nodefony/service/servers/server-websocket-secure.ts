@@ -1,4 +1,4 @@
-import Ws, { WebSocketServer, ServerOptions } from "ws";
+import Ws, { WebSocketServer } from "ws";
 import { Service, Container, Module, FamilyType, Inject } from "nodefony";
 import type { DefaultOptionsService } from "nodefony";
 import type { IHttpConfig } from "../../config/config";
@@ -15,7 +15,10 @@ import { AddressInfo } from "node:net";
 import https from "node:https";
 import httpsServers from "./server-https";
 import { startHeartbeat } from "./wsHeartbeat";
-import { attachUpgradeDispatch } from "../../src/servers/upgradeDispatch";
+import {
+  attachUpgradeDispatch,
+  createNodefonyWebSocketServer,
+} from "../../src/servers/upgradeDispatch";
 
 class WebsocketSecure extends Service {
   // Section `websocketSecure` de la config du module (schéma Zod, défauts appliqués).
@@ -84,11 +87,7 @@ class WebsocketSecure extends Service {
         // RFC 6455 §7.4.1 : `maxPayload` → close 1009 « Message Too Big ».
         // `noServer` : l'upgrade passe d'abord par le proxy inverse, puis ici
         // (cf `attachUpgradeDispatch` — un seul écouteur `upgrade`).
-        this.server = new WebSocketServer({
-          ...(this.options as ServerOptions),
-          noServer: true,
-          clientTracking: true,
-        });
+        this.server = createNodefonyWebSocketServer(this.options);
         this.#detachUpgrade = attachUpgradeDispatch(
           serverHttps.server as https.Server,
           this.server,

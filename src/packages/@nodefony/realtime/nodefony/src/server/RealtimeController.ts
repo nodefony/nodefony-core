@@ -12,6 +12,8 @@ import {
   type RpcActionHandler,
   type JsonRpcPeerOptions,
   type IRealtimeWelcome,
+  type IFrameCodec,
+  negotiateFrameCodec,
   type IRealtimeDenied,
   type RealtimeDeniedReason,
   type EventsMap,
@@ -180,6 +182,9 @@ let warnedUnenforcedPolicies = false;
 // Même garde pour un jeton sans `getIdentity` demandé sur un canal à `allow` :
 // WARNING la première fois, DEBUG ensuite — un refus par subscribe sous flood
 // ne doit pas devenir un amplificateur de journaux.
+/** Connexions déjà prévenues du flux brut refusé sous codec binaire — alloué au premier refus. */
+let rawBinaryNoticed: WeakSet<IRealtimeConnectionState> | null = null;
+
 let warnedNoIdentity = false;
 
 /**
@@ -244,6 +249,12 @@ export abstract class RealtimeController<
   }
 
   /**
+   * Le codec négocié au handshake (ADR-0022 §2), `null` hors WebSocket. Choisi par
+   * le constructeur : c'est la dernière fenêtre avant le `101`.
+   */
+  readonly #codec: IFrameCodec | null;
+
+  /**
    * @param name - nom du service (celui de la classe, par convention).
    * @param context - le contexte de la connexion.
    * @throws BootConfigurationError si la classe se déclare singleton.
@@ -254,6 +265,36 @@ export abstract class RealtimeController<
     new.target.assertScope();
     super(name, context);
     this.#connection = isWebsocketContext(context) ? context : null;
+    this.#codec =
+      this.#connection !== null ? this.#negotiateCodec(this.#connection) : null;
+  }
+
+  /**
+   * Choisit le codec de la connexion d'après l'offre du handshake (ADR-0022 §2)
+   * et le confie à l'admission, qui le renverra dans le `101` (RFC 6455 §4.2.2 :
+   * le sous-protocole CHOISI, jamais le premier offert). Le contrôleur WS est
+   * construit AVANT l'acceptation (`HttpKernel.handleWebsocket`) : c'est la
+   * dernière fenêtre où ce choix atteint encore le client. Le client, lui, lit
+   * le codec dans `realtime:welcome`, jamais dans cet écho.
+   *
+   * Rien n'est retenu pour un client qui n'offre aucun sous-protocole — le cas
+   * de toute connexion d'avant les codecs. Un `forward` reconstruit une
+   * instance après l'acceptation : son choix, identique, est alors ignoré.
+   *
+   * @param ctx - le contexte de la connexion.
+   * @returns le codec à annoncer dans l'accueil, puis à employer.
+   */
+  #negotiateCodec(ctx: WebsocketContext): IFrameCodec {
+    const offered = offeredSubprotocols(
+      ctx.request?.headers["sec-websocket-protocol"],
+    );
+    const codec = negotiateFrameCodec(getRealtimeHub().frameCodecs, offered);
+    if (offered.length > 0) {
+      ctx.admission?.selectSubprotocol(
+        offered.includes(codec.protocol) ? codec.protocol : false,
+      );
+    }
+    return codec;
   }
 
   /**
@@ -362,7 +403,7 @@ export abstract class RealtimeController<
    * `NodefonySocket.replaySubscriptions` et les deux cas « la fenêtre où le serveur
    * écoute (welcome) » de `NodefonySocketCoverage.test.ts`.
    */
-  protected handleRealtime(message: string | Buffer | null): void {
+  protected handleRealtime(message: string | Uint8Array | null): void {
     const ctx = this.#connection;
     if (ctx === null) throw this.outsideWebsocketError();
     if (message == null) {
@@ -396,8 +437,15 @@ export abstract class RealtimeController<
       state?.transport.feed(message);
       return;
     }
-    // Binaire — chemin froid. Avant le welcome, aucun état : écarté comme le texte.
-    if (state !== undefined) this.receiveBinary(state.transport, message);
+    // Binaire. Avant le welcome, aucun état : écarté comme le texte. Sous codec
+    // binaire, la trame EST une frame du codec : elle suit le chemin du texte —
+    // décodage, verrou, gardes (ADR-0022 §3). Sinon, chemin froid du flux brut.
+    if (state === undefined) return;
+    if (state.binaryCodec !== null) {
+      state.transport.feed(message);
+      return;
+    }
+    this.receiveBinary(state.transport, message);
   }
 
   /**
@@ -418,6 +466,10 @@ export abstract class RealtimeController<
    * canal du JSON-RPC. La connexion, elle, a déjà franchi Origin, l'authentificateur
    * et le pare-feu. L'identité se lit par `RequestContext.getAuthenticatedUser()`,
    * et toute décision d'accès sur une trame binaire appartient à l'application.
+   *
+   * ⚠️ Connexions TEXTE seulement : une connexion qui a négocié un codec binaire
+   * (configuration `codec: "cbor"`) lit toute trame binaire comme une frame du
+   * codec, et cette méthode n'y est jamais appelée (ADR-0022 §2).
    *
    * ⚠️ Un `DataView` se construit sur `data.buffer` AVEC `data.byteOffset` et
    * `data.byteLength` : un `Buffer` issu du pool de Node ne commence pas à 0.
@@ -510,11 +562,36 @@ export abstract class RealtimeController<
    * client. Même contre-pression que les frames JSON-RPC.
    *
    * @param data - les octets à émettre (`Uint8Array`, donc un `Buffer` aussi).
-   * @returns `false` si le handshake n'est pas terminé, la connexion fermée ou
-   *   la trame jetée par la contre-pression.
+   * Sur une connexion qui a négocié un codec BINAIRE, refusé (ADR-0022 §2) : le
+   * client y lirait ces octets comme une frame du codec. Des octets passent
+   * alors par un canal, avec ses portes.
+   *
+   * @returns `false` si le handshake n'est pas terminé, la connexion fermée, la
+   *   trame jetée par la contre-pression, ou la connexion en codec binaire.
    */
   protected sendBinaryToClient(data: Uint8Array): boolean {
-    return this.coldConnState()?.transport.sendBinary(data) ?? false;
+    const state = this.coldConnState();
+    if (state === undefined) return false;
+    if (state.binaryCodec !== null) {
+      this.noticeRawBinaryUnderCodec(state);
+      return false;
+    }
+    return state.transport.sendBinary(data);
+  }
+
+  /**
+   * Journalise, une fois par connexion, le flux brut refusé sous codec binaire.
+   *
+   * @param state - l'état de la connexion.
+   */
+  private noticeRawBinaryUnderCodec(state: IRealtimeConnectionState): void {
+    rawBinaryNoticed ??= new WeakSet();
+    if (rawBinaryNoticed.has(state)) return;
+    rawBinaryNoticed.add(state);
+    this.log(
+      `WS realtime : sendBinaryToClient refusé — la connexion parle ${state.binaryCodec?.protocol ?? "un codec binaire"}, ses trames binaires sont des frames du codec ; publier les octets sur un canal`,
+      "WARNING",
+    );
   }
 
   /**
@@ -620,7 +697,13 @@ export abstract class RealtimeController<
       conn,
       readBackpressureOptions(webSocketServerOf(ctx)),
     );
+    // Codecs de la connexion (ADR-0022 §2) : le pair démarre en TEXTE — l'accueil
+    // est toujours une trame texte `v1` — et ne bascule qu'après l'avoir émis.
+    const codecs = hub.frameCodecs;
+    const negotiated = this.#codec ?? codecs.text;
+    const binaryCodec = negotiated === codecs.binary ? negotiated : null;
     const peerOptions: JsonRpcPeerOptions = {
+      codec: codecs.text,
       // Le peer ENCODE avec le codec de la connexion (ADR-0022 §4) ; le
       // transport n'écrit que le résultat. Le filet d'une charge non encodable
       // (réponse → `-32603` générique, notification → `onError`) vit dans le
@@ -732,10 +815,14 @@ export abstract class RealtimeController<
       try {
         parsed = peer.decode(raw);
       } catch {
-        // Jamais en silence (#617) : comptée, journalisée à la première.
+        // Jamais en silence (#617) : comptée, journalisée à la première. Même
+        // règle pour une trame binaire illisible par le codec : aucune réponse
+        // (`-32700` serait un oracle pour un fuzzer), la connexion reste ouverte.
         if (transport.discard("malformed") === 1) {
           this.log(
-            "WS realtime : trame texte illisible (pas du JSON) reçue et écartée",
+            typeof raw === "string"
+              ? "WS realtime : trame texte illisible (pas du JSON) reçue et écartée"
+              : `WS realtime : trame binaire illisible pour ${peer.codec.protocol} reçue et écartée`,
             "WARNING",
           );
         }
@@ -885,6 +972,7 @@ export abstract class RealtimeController<
       welcomed: true,
       peer,
       transport,
+      binaryCodec,
       channels: new Map(),
       inbound,
       admission: null,
@@ -963,7 +1051,13 @@ export abstract class RealtimeController<
       ...welcomeEnv(env),
       identity: welcomeIdentityOf(token),
     };
+    // Le champ n'existe que pour un codec binaire accordé : absent, le client
+    // reste en texte — comme face à un serveur d'avant les codecs.
+    if (binaryCodec !== null) welcome.codec = binaryCodec.protocol;
     peer.notify("realtime:welcome", welcome);
+    // Bascule APRÈS l'accueil, émis en texte : les frames suivantes emploient le
+    // codec accordé, dans les deux sens.
+    if (binaryCodec !== null) peer.codec = binaryCodec;
     this.log("WS realtime client connected", "INFO");
   }
 
@@ -1619,6 +1713,21 @@ export abstract class RealtimeController<
  * - `protocols` : la liste des sous-protocoles annoncés (`Sec-WebSocket-Protocol`,
  *   csv séparé virgule selon RFC 6455 §4.1).
  */
+/**
+ * Les sous-protocoles offerts au handshake (`Sec-WebSocket-Protocol`, liste
+ * séparée par des virgules, RFC 6455 §4.1), dans l'ordre de préférence du
+ * client — la lecture unique du DTO du handshake et de la négociation du codec.
+ *
+ * @param raw - l'en-tête tel que Node le rend : chaîne, liste, ou absent.
+ * @returns les noms, sans espaces ni entrées vides ; `[]` sans en-tête.
+ */
+function offeredSubprotocols(raw: string | string[] | undefined): string[] {
+  if (raw === undefined) return [];
+  const values =
+    typeof raw === "string" ? raw.split(",") : raw.flatMap((p) => p.split(","));
+  return values.map((x) => x.trim()).filter((x) => x.length > 0);
+}
+
 function buildHandshakeFromContext(ctx: WebsocketContext): IRealtimeHandshake {
   const req = ctx.request;
   const headers = (req?.headers ?? {}) as Record<
@@ -1637,19 +1746,7 @@ function buildHandshakeFromContext(ctx: WebsocketContext): IRealtimeHandshake {
     if (c && typeof c.value === "string") cookies.set(name, c.value);
   }
 
-  // Sec-WebSocket-Protocol : peut être string CSV ou string[] ; on normalise.
-  const rawProto = headers["sec-websocket-protocol"];
-  let protocols: string[];
-  if (Array.isArray(rawProto)) {
-    protocols = rawProto.flatMap((p) => p.split(",").map((x) => x.trim()));
-  } else if (typeof rawProto === "string") {
-    protocols = rawProto
-      .split(",")
-      .map((x) => x.trim())
-      .filter(Boolean);
-  } else {
-    protocols = [];
-  }
+  const protocols = offeredSubprotocols(headers["sec-websocket-protocol"]);
 
   return {
     headers,

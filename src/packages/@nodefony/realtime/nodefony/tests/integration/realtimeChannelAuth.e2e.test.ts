@@ -142,14 +142,14 @@ class AuthRt extends RealtimeController {
     return { "legacy:run": () => ({ ran: true }) };
   }
 
-  feed(raw: string | null): void {
+  feed(raw: string | Uint8Array | null): void {
     this.handleRealtime(raw);
   }
 }
 
 /** Ce que `makeServer` sait monter : un contrôleur qu'on nourrit de trames brutes. */
 interface IFeedableRt extends RealtimeController {
-  feed(raw: string | null): void;
+  feed(raw: string | Uint8Array | null): void;
 }
 type FeedableRtClass = new (ctx: ContextType) => IFeedableRt;
 
@@ -829,7 +829,7 @@ class AdmitRt extends RealtimeController {
     return { "user:42": count("user:42"), "user:43": count("user:43") };
   }
 
-  feed(raw: string | null): void {
+  feed(raw: string | Uint8Array | null): void {
     this.handleRealtime(raw);
   }
 }

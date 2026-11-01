@@ -77,7 +77,7 @@ class PlantRt extends RealtimeController {
     return () => {};
   }
 
-  feed(raw: string | null): void {
+  feed(raw: string | Uint8Array | null): void {
     this.handleRealtime(raw);
   }
 }

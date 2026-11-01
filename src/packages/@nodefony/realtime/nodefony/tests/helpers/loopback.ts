@@ -1,6 +1,7 @@
 import {
   TransportState,
   type IRealtimeTransport,
+  type RealtimeFrameData,
 } from "../../../../../../nodefony/src/realtime/IRealtimeTransport.js";
 
 /**
@@ -14,21 +15,21 @@ import {
  */
 export class LoopbackWire {
   /** `controller.handleRealtime` (null = handshake). Branché par le banc. */
-  feedServer: ((raw: string | null) => void) | null = null;
+  feedServer: ((raw: RealtimeFrameData | null) => void) | null = null;
   /** Pompe entrante du transport client (`onMessage`). Branchée par le transport. */
-  pumpClient: ((raw: string) => void) | null = null;
+  pumpClient: ((raw: RealtimeFrameData) => void) | null = null;
   /** `onClose` du transport client. Branché par le transport. */
   closeClient: ((code: number, reason: string) => void) | null = null;
   /** État de la connexion serveur (lu par sa fausse connexion). */
   serverConnOpen = true;
 
   /** Serveur → client (appelé par `conn.send`). */
-  deliverToClient(raw: string): void {
+  deliverToClient(raw: RealtimeFrameData): void {
     queueMicrotask(() => this.pumpClient?.(raw));
   }
 
   /** Client → serveur (appelé par `clientTransport.send`). */
-  deliverToServer(raw: string): void {
+  deliverToServer(raw: RealtimeFrameData): void {
     queueMicrotask(() => this.feedServer?.(raw));
   }
 }
@@ -50,7 +51,7 @@ export class LoopbackClientTransport implements IRealtimeTransport {
       this.wire.feedServer?.(null); // handshake serveur
     });
   }
-  send(raw: string): void {
+  send(raw: RealtimeFrameData): void {
     if (this.readyState !== TransportState.OPEN) return;
     this.wire.deliverToServer(raw);
   }
@@ -62,7 +63,7 @@ export class LoopbackClientTransport implements IRealtimeTransport {
   onOpen(cb: () => void): void {
     this._onOpen = cb;
   }
-  onMessage(cb: (raw: string) => void): void {
+  onMessage(cb: (raw: RealtimeFrameData) => void): void {
     this.wire.pumpClient = cb;
   }
   onClose(cb: (code: number, reason: string) => void): void {

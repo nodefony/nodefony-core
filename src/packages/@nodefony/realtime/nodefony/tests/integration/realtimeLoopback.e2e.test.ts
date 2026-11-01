@@ -109,7 +109,7 @@ class LoopbackRt extends RealtimeController {
   }
 
   /** Pont test : la route WS appelle normalement `handleRealtime`. */
-  feed(raw: string | null): void {
+  feed(raw: string | Uint8Array | null): void {
     this.handleRealtime(raw);
   }
 

@@ -114,7 +114,7 @@ class UplinkRt extends RealtimeController {
   constructor(ctx: ContextType) {
     super("uplink-rt", ctx);
   }
-  feed(raw: string | null): void {
+  feed(raw: string | Uint8Array | null): void {
     this.handleRealtime(raw);
   }
 }

@@ -129,6 +129,14 @@ class RealtimeService extends Service {
     // F9 (revue 0.6) — câble le seuil de comptage des consommateurs lents de la
     // sonde depuis la config (avant : clé morte, la sonde lisait une constante).
     hub.setSlowConsumerBytes(this.#config.slowConsumer.bytes);
+    // #618 — codec binaire des frames (ADR-0022 §2). Le module CBOR ne se charge
+    // que s'il est configuré : une application en texte n'en paie pas l'import.
+    if (this.#config.codec === "cbor") {
+      const { CBOR_FRAME_CODEC } = await import("nodefony/cbor");
+      hub.setFrameCodec(CBOR_FRAME_CODEC);
+    } else {
+      hub.setFrameCodec();
+    }
     // #35 — réception des journaux du navigateur. Surface d'ÉCRITURE : fermée tant
     // que la config ne l'ouvre pas, et `null` signifie qu'aucun handler entrant ne
     // sera déclaré (pas un handler qui refuse — un canal qui n'existe pas).

@@ -123,6 +123,7 @@ describe("defineRealtimeConfig — builder + Zod", () => {
       expect(
         Object.fromEntries(found.map((s) => [s.env, s.path.join(".")])),
       ).toEqual({
+        NF_REALTIME_CODEC: "codec",
         NF_REALTIME_DRIVER: "backplane.driver",
         NF_REALTIME_BACKPLANE_NAMESPACE: "backplane.namespace",
         NF_REALTIME_BACKPLANE_SECRET: "backplane.secret",
@@ -130,6 +131,7 @@ describe("defineRealtimeConfig — builder + Zod", () => {
       const secret = Object.fromEntries(found.map((s) => [s.env, s.secret]));
       expect(secret.NF_REALTIME_BACKPLANE_SECRET).toBe(true);
       expect(secret.NF_REALTIME_DRIVER).toBe(false);
+      expect(secret.NF_REALTIME_CODEC).toBe(false);
       expect(secret.NF_REALTIME_BACKPLANE_NAMESPACE).toBe(false);
     });
 

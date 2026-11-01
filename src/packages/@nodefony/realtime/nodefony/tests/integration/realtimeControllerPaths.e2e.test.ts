@@ -213,7 +213,7 @@ class ApiRt extends RealtimeController {
       delete this.publishers[channel];
     };
   }
-  feed(raw: string | null): void {
+  feed(raw: string | Uint8Array | null): void {
     this.handleRealtime(raw);
   }
   callBeforeWelcome(): Promise<unknown> {

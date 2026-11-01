@@ -109,7 +109,7 @@ class WiredRt extends RealtimeController {
     publish(channel, { ok: true, channel });
     return () => {};
   }
-  feed(raw: string | null): void {
+  feed(raw: string | Uint8Array | null): void {
     this.handleRealtime(raw);
   }
 }

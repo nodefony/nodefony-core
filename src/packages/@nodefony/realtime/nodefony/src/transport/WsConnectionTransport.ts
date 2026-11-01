@@ -1,6 +1,7 @@
 import {
   TransportState,
   type IRealtimeTransport,
+  type RealtimeFrameData,
   type RealtimeOutboundData,
 } from "nodefony";
 import { decideSend, type WsBackpressurePolicy } from "@nodefony/http";
@@ -49,10 +50,21 @@ export interface RawWsConnection {
  * la fermeture est signalée par `fireClose()` (hook `onFinish` du Context). Le
  * `connect`/`onOpen` sont des no-op (la connexion est déjà ouverte au handshake).
  */
+/**
+ * Vrai si les octets reposent sur un `ArrayBuffer` ordinaire — ce que le pair
+ * et ses codecs reçoivent (`RealtimeFrameData`), jamais un `SharedArrayBuffer`.
+ *
+ * @param bytes - les octets reçus.
+ * @returns `true` si la vue porte sur un `ArrayBuffer`.
+ */
+function isOwnedBytes(bytes: Uint8Array): bytes is Uint8Array<ArrayBuffer> {
+  return bytes.buffer instanceof ArrayBuffer;
+}
+
 export class WsConnectionTransport
   implements IRealtimeTransport, IRealtimeConnProbe
 {
-  private _onMessage: ((raw: string) => void) | null = null;
+  private _onMessage: ((raw: RealtimeFrameData) => void) | null = null;
   private _onClose: ((code: number, reason: string) => void) | null = null;
   // Compteurs d'auto-observabilité (sonde socket). Primitives → 0 alloc ; incrément
   // O(1) par `send` (pas de syscall, pas de stringify supplémentaire). Toujours-ON :
@@ -148,7 +160,7 @@ export class WsConnectionTransport
    * Compte une trame ENTRANTE écartée et rend le cumul de sa nature — `1` dit
    * « première », le seul instant où l'appelant journalise.
    *
-   * @param kind - `binary` (sans lecteur) ou `malformed` (texte non JSON).
+   * @param kind - `binary` (sans lecteur) ou `malformed` (illisible par le codec).
    * @returns le cumul de cette nature, après incrément.
    */
   discard(kind: "binary" | "malformed"): number {
@@ -162,7 +174,7 @@ export class WsConnectionTransport
     return this._binaryDiscarded;
   }
 
-  /** Cumul de trames TEXTE reçues et écartées parce que non JSON — monotone. */
+  /** Cumul de trames reçues et écartées parce qu'illisibles par le codec de la connexion — monotone. */
   get malformedDiscarded(): number {
     return this._malformedDiscarded;
   }
@@ -198,7 +210,7 @@ export class WsConnectionTransport
   onOpen(): void {
     /* déjà ouverte — no-op */
   }
-  onMessage(cb: (raw: string) => void): void {
+  onMessage(cb: (raw: RealtimeFrameData) => void): void {
     this._onMessage = cb;
   }
   onClose(cb: (code: number, reason: string) => void): void {
@@ -208,9 +220,23 @@ export class WsConnectionTransport
     /* erreurs gérées par le pipeline framework */
   }
 
-  /** Pump entrant : le pipeline framework pousse ici chaque message reçu. */
-  feed(raw: string): void {
-    this._onMessage?.(raw);
+  /**
+   * Pump entrant : le pipeline framework pousse ici chaque frame reçue — texte,
+   * ou octets d'une connexion qui a négocié un codec binaire (ADR-0022 §2).
+   *
+   * Une vue sur un `SharedArrayBuffer` n'est pas une trame : `ws` livre
+   * toujours un `Buffer` sur un `ArrayBuffer`, le type de Node l'admet
+   * seulement. Elle est comptée comme illisible, jamais transmise au pair.
+   *
+   * @param raw - la trame telle que reçue.
+   */
+  feed(raw: string | Uint8Array): void {
+    // Le texte, chemin de chaque frame JSON-RPC, ne paie que ce `typeof`.
+    if (typeof raw === "string" || isOwnedBytes(raw)) {
+      this._onMessage?.(raw);
+      return;
+    }
+    this._malformedDiscarded += 1;
   }
 
   /** Fermeture : appelée par le owner sur `onFinish` (close WS). */

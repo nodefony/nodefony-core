@@ -51,10 +51,32 @@ describe("WsConnectionTransport — transport serveur (wrap connexion ws)", () =
   it("feed → le handler onMessage reçoit la frame brute", () => {
     const { conn } = mockConn();
     const t = new WsConnectionTransport(conn);
-    const got: string[] = [];
+    const got: unknown[] = [];
     t.onMessage((raw) => got.push(raw));
     t.feed('{"a":1}');
     expect(got).to.deep.equal(['{"a":1}']);
+  });
+
+  it("feed d'octets (#618) : une vue sur un ArrayBuffer passe telle quelle, sans copie", () => {
+    const { conn } = mockConn();
+    const t = new WsConnectionTransport(conn);
+    const got: unknown[] = [];
+    t.onMessage((raw) => got.push(raw));
+    const bytes = Buffer.from([1, 2, 3]);
+    t.feed(bytes);
+    expect(got).to.have.length(1);
+    expect(got[0]).to.equal(bytes);
+    expect(t.malformedDiscarded).to.equal(0);
+  });
+
+  it("feed d'octets (#618) : une vue sur un SharedArrayBuffer n'atteint jamais le pair, comptée illisible", () => {
+    const { conn } = mockConn();
+    const t = new WsConnectionTransport(conn);
+    const got: unknown[] = [];
+    t.onMessage((raw) => got.push(raw));
+    t.feed(new Uint8Array(new SharedArrayBuffer(4)));
+    expect(got).to.deep.equal([]);
+    expect(t.malformedDiscarded).to.equal(1);
   });
 
   it("fireClose → le handler onClose reçoit code/reason", () => {
