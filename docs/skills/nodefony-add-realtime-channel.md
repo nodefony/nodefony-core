@@ -28,23 +28,23 @@ source: "src/packages/@nodefony/devkit/skills/nodefony-add-realtime-channel/SKIL
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Autres |
-| Corps | 229 lignes |
-| Coût d'activation | ~2 940 tokens (le corps est chargé à l'invocation) |
-| Description | 998 / 1024 caractères |
-| Déclencheurs | 23 |
-| Ressources `references/` | 0 page(s) |
+| Corps | 241 lignes |
+| Coût d'activation | ~3 172 tokens (le corps est chargé à l'invocation) |
+| Description | 1008 / 1024 caractères |
+| Déclencheurs | 25 |
+| Ressources `references/` | 1 page(s) |
 | Scripts | 0 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
-Ajoute un flux temps réel à une application Nodefony par la bonne couche — un `RealtimeController` et ses décorateurs de canal — au lieu de recomposer un WebSocket à la main. Porte la façon de fermer un canal à certains rôles, le piège du canal public par défaut, celui du canal dont le nom est calculé, et la façade cliente à employer côté navigateur. À charger AVANT d'écrire du code WebSocket, un canal, ou un abonnement client. Dit aussi quand un flux SSE suffit, et sa façade, et comment typer les deux bouts par un contrat déclaré une fois.
+Ajoute un flux temps réel à une application Nodefony par la bonne couche — un `RealtimeController` et ses décorateurs de canal — au lieu de recomposer un WebSocket à la main. Porte la façon de fermer un canal à certains rôles, le piège du canal public par défaut, celui du canal dont le nom est calculé, et la façade cliente à employer côté navigateur. À charger AVANT d'écrire du code WebSocket, un canal, ou un abonnement client. Dit aussi quand un flux SSE suffit, sa façade, et comment typer les deux bouts par un contrat déclaré une fois.
 
 ## Quand il se déclenche
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
 
-`flux temps réel` · `websocket` · `canal` · `push` · `notifications en direct` · `abonnement` · `RealtimeController` · `@RealtimeChannel` · `socket client` · `temps réel privé` · `réserver un canal à un rôle` · `mon canal est public` · `diffuser à plusieurs onglets` · `SSE` · `server-sent events` · `EventSource` · `barre de progression` · `réponse en streaming` · `typer les canaux` · `contrat temps réel` · `action introuvable -32601` · `octets` · `CBOR`
+`flux temps réel` · `websocket` · `canal` · `push` · `notifications en direct` · `abonnement` · `RealtimeController` · `@RealtimeChannel` · `socket client` · `temps réel privé` · `réserver un canal à un rôle` · `mon canal est public` · `diffuser à plusieurs onglets` · `SSE` · `EventSource` · `barre de progression` · `réponse en streaming` · `typer les canaux` · `contrat temps réel` · `action introuvable -32601` · `octets` · `CBOR` · `binaire` · `Uint8Array` · `$bytes`
 
 ## Ce que contient le corps
 
@@ -60,6 +60,15 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 - Prouver
 - Voisins
 
+## Références (chargées à la demande)
+
+Détail déporté hors du corps — chargé seulement quand la tâche l'exige (divulgation progressive).
+
+| Fichier | Ce qu'il couvre | Lignes |
+| --- | --- | --: |
+| `references/binaire.md` | Des octets dans le temps réel — mode d'emploi complet | 186 |
+
+
 ## Conformité au standard Agent Skills
 
 > [!NOTE]
@@ -72,14 +81,14 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
 | en-tête analysable par un vrai parseur YAML | ℹ️ normatif | ✅ |  | spec § frontmatter : « YAML frontmatter » — un en-tête que YAML refuse n'est pas rendu par GitHub, alors que le parseur de l'agent, tolérant, l'accepte sans un mot |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 998 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 1008 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 229 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 241 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

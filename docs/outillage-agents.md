@@ -208,7 +208,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme" },
   { "icon": "🔧", "title": "add-realtime-channel", "href": "skills/nodefony-add-realtime-channel.md",
     "desc": "Ajoute un flux temps réel à une application Nodefony par la bonne couche — un `RealtimeController` et ses décorateurs de canal — au lieu de recomposer un WebSocket à la main.",
-    "meta": "🟢 conforme" },
+    "meta": "🟢 conforme · 📎 1 réf" },
   { "icon": "🔧", "title": "add-service", "href": "skills/nodefony-add-service.md",
     "desc": "Crée un service injectable dans une application Nodefony par `nodefony create service`, et le fait entrer dans le conteneur — la moitié qu'on oublie. Porte la distinction entre le nom de la CLASSE et le nom de l'INSTANCE, les deux façons d'obtenir un service depuis un autre (`@Inject` au…",
     "meta": "🟢 conforme" },

@@ -6,13 +6,14 @@ description: >
   Porte la façon de fermer un canal à certains rôles, le piège du canal public par défaut, celui
   du canal dont le nom est calculé, et la façade cliente à employer côté navigateur. À charger
   AVANT d'écrire du code WebSocket, un canal, ou un abonnement client.
-  Dit aussi quand un flux SSE suffit, et sa façade, et comment typer les deux bouts par un
+  Dit aussi quand un flux SSE suffit, sa façade, et comment typer les deux bouts par un
   contrat déclaré une fois.
   Déclencheurs : "flux temps réel", "websocket", "canal", "push", "notifications en direct",
   "abonnement", "RealtimeController", "@RealtimeChannel", "socket client", "temps réel privé",
   "réserver un canal à un rôle", "mon canal est public", "diffuser à plusieurs onglets",
-  "SSE", "server-sent events", "EventSource", "barre de progression", "réponse en streaming",
-  "typer les canaux", "contrat temps réel", "action introuvable -32601", "octets", "CBOR".
+  "SSE", "EventSource", "barre de progression", "réponse en streaming",
+  "typer les canaux", "contrat temps réel", "action introuvable -32601", "octets", "CBOR",
+  "binaire", "Uint8Array", "$bytes".
 ---
 
 # add-realtime-channel — le temps réel par sa couche
@@ -127,7 +128,8 @@ send(@Body("text") text: string, @CurrentUser() user: IUser) {
 import { NodefonySocket } from "nodefony/client";
 
 const client = NodefonySocket.shared({ url: "/api/live/realtime" });
-client.subscribe("ops:alerts", (payload) => { … });
+client.subscribe("ops:alerts");                 // un seul argument : la demande
+client.on("ops:alerts", (payload) => { … });    // le handler, geste distinct
 ```
 
 L'adresse est **obligatoire** : `shared()` sans `url` lève une erreur, parce que la route dépend de
@@ -138,6 +140,14 @@ En React, les hooks du paquet client font la même chose avec le cycle de vie du
 n'expose pas ces symboles et le compilateur refuse.
 
 ## Des octets dans un canal — offrir le codec CBOR
+
+> 📦 **Des octets à faire passer ? Lis [`references/binaire.md`](references/binaire.md) AVANT
+> d'écrire la première ligne.** Il porte la mise en place des deux côtés, le choix canal / flux
+> brut et sa conséquence de sécurité, chaque message d'erreur avec sa cause et ton geste, et ce qui
+> rate SANS message. Ce qui suit n'en est que le résumé.
+
+Côté serveur, une ligne : `use("@nodefony/realtime", { codec: "cbor" })`. Sans elle, un
+`Uint8Array` part en objet déformé `{"0":1,…}`, sans aucune erreur.
 
 Le défaut est JSON-RPC **texte**, et il le reste pour des messages ordinaires : JSON est natif,
 rapide, et ne coûte rien à télécharger. Dès qu'une charge **contient des octets** — un document
@@ -166,7 +176,10 @@ client.on("doc:42", (charge) => { … }); // un Uint8Array arrive en Uint8Array
 - **N'invente pas d'en-tête binaire maison** pour router des octets : une charge qui contient un
   `Uint8Array` passe par `publish` / `on(canal)`, avec les mêmes politiques de canal que le texte.
   `onBinary()` / `sendBinary()` ne servent qu'un protocole binaire propre à l'application, sur une
-  connexion texte.
+  connexion texte — et leur pendant serveur `onRealtimeBinary()` est **hors des gardes** : toute
+  décision d'accès y est à toi.
+- **Un objet `{ $bytes: "<chaîne>" }` à clé unique est refusé** (`TypeError`) sur une connexion
+  texte : un client le relirait en octets. Envoie un vrai `Uint8Array`, ou donne-lui une autre clé.
 
 ## Typer les deux bouts — un contrat, déclaré UNE fois
 
