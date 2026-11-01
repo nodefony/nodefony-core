@@ -110,7 +110,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   "@angular/core": "~22.2.4",
   "@angular/common": "~22.2.4",
   "@angular/platform-browser": "~22.2.4",
-  "@analogjs/vite-plugin-angular": "^2.9.2",
+  "@analogjs/vite-plugin-angular": "^2.9.4",
   "@angular/build": "~22.2.5",
   "@angular/compiler-cli": "~22.2.4",
 };

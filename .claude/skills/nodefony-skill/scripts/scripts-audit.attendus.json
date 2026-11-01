@@ -65,6 +65,7 @@
     ".claude/skills/nodefony-load-test/scripts/micro/micro-update-pick.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-user-channel.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-write-head.mjs",
+    ".claude/skills/nodefony-load-test/scripts/micro/micro-ws-unmask.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-zone-match.mjs",
     ".claude/skills/nodefony-load-test/scripts/poc-bench.mjs",
     ".claude/skills/nodefony-load-test/scripts/poc-hmr-perf.mjs",

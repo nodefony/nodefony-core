@@ -63,7 +63,7 @@
     "qs": "^6.17.1",
     "serve-static": "2.2.1",
     "tslib": "2.9.1",
-    "ws": "8.22.0",
+    "ws": "8.22.1",
     "xml2js": "0.6.2"
   },
   "devDependencies": {

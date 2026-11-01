@@ -56,7 +56,7 @@
     "nodefony": "^10.0.0-beta.5",
     "tsx": "4.23.15",
     "vitest": "5.0.5",
-    "ws": "8.22.0"
+    "ws": "8.22.1"
   },
   "license": "Apache-2.0",
   "readmeFilename": "README.md",
