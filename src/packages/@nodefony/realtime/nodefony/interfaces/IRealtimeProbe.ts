@@ -41,6 +41,16 @@ export interface IRealtimeConnProbe {
    * coupe un slow-consumer (`close 1013`). `> 0` = ce client n'absorbe pas le flux.
    */
   readonly dropped: number;
+  /**
+   * Cumul de trames BINAIRES reçues et écartées faute de lecteur (monotone) :
+   * connexion texte sans `onRealtimeBinary`. Absent = la connexion ne compte pas.
+   */
+  readonly binaryDiscarded?: number;
+  /**
+   * Cumul de trames reçues et écartées parce qu'illisibles par le codec de la
+   * connexion (monotone). Absent = la connexion ne compte pas.
+   */
+  readonly malformedDiscarded?: number;
 }
 
 /** Stat per-canal du hub (fan-out). */
@@ -127,11 +137,25 @@ export interface IRealtimeProbe {
    * identités ne répond plus.
    */
   authenticateTimedOutTotal: number;
+  /**
+   * Trames BINAIRES reçues et écartées faute de lecteur — monotone, unité : une trame
+   * reçue. Une connexion texte dont le contrôleur ne surcharge pas `onRealtimeBinary`
+   * n'a personne pour lire des octets bruts. `> 0` = un client envoie un flux que
+   * personne n'attend : client mal configuré, ou lecteur oublié côté serveur.
+   */
+  binaryDiscardedTotal: number;
+  /**
+   * Trames reçues et écartées parce qu'illisibles par le codec de la connexion — JSON
+   * invalide, CBOR tronqué — monotone, unité : une trame reçue. Aucune réponse n'est
+   * rendue et la connexion est conservée (ADR-0022 §2). `> 0` qui monte = un client
+   * défectueux, ou quelqu'un qui sonde le décodeur.
+   */
+  malformedDiscardedTotal: number;
   /** Connexions realtime vivantes. */
   connectionCount: number;
-  /** Somme cumulée des octets envoyés, toutes connexions (monotone). */
+  /** Somme cumulée des octets envoyés, toutes connexions, fermées comprises (monotone). */
   bytesSentTotal: number;
-  /** Somme cumulée des frames envoyées, toutes connexions (monotone). */
+  /** Somme cumulée des frames envoyées, toutes connexions, fermées comprises (monotone). */
   messagesSentTotal: number;
   /** Backpressure agrégée (instantanée) — risque #1. */
   backpressure: {

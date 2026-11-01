@@ -37,6 +37,8 @@ export const FROZEN_REFUSAL_COUNTERS = [
   { name: "allowTimedOutTotal" },
   { name: "allowSaturatedTotal" },
   { name: "authenticateTimedOutTotal" },
+  { name: "binaryDiscardedTotal" },
+  { name: "malformedDiscardedTotal" },
 ] as const;
 
 /**

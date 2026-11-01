@@ -261,6 +261,58 @@ describe("RealtimeHub.probe — auto-observabilité (fan-out + backpressure)", (
     expect(p.backpressure.totalBufferedAmount).to.equal(0);
   });
 
+  it("trames écartées : sommées sur les connexions vivantes, 0 pour qui ne compte pas", () => {
+    const hub = new RealtimeHub();
+    hub.registerConnection(
+      fakeConn({ binaryDiscarded: 2, malformedDiscarded: 5 }),
+    );
+    hub.registerConnection(fakeConn({ malformedDiscarded: 1 }));
+    hub.registerConnection(fakeConn()); // connexion sans ces compteurs
+    const p = hub.probe();
+    expect(p.binaryDiscardedTotal).to.equal(2);
+    expect(p.malformedDiscardedTotal).to.equal(6);
+  });
+
+  it("les cumuls restent MONOTONES quand une connexion se ferme", () => {
+    const hub = new RealtimeHub();
+    const gone = fakeConn({
+      bytesSent: 100,
+      messagesSent: 4,
+      dropped: 2,
+      binaryDiscarded: 1,
+      malformedDiscarded: 3,
+    });
+    const alive = fakeConn({
+      bytesSent: 10,
+      messagesSent: 1,
+      malformedDiscarded: 1,
+    });
+    hub.registerConnection(gone);
+    hub.registerConnection(alive);
+    const before = hub.probe();
+    hub.unregisterConnection(gone);
+    hub.unregisterConnection(gone); // une double sortie ne compte pas deux fois
+    const after = hub.probe();
+    expect(after.connectionCount).to.equal(1);
+    for (const p of [before, after]) {
+      expect(p.bytesSentTotal).to.equal(110);
+      expect(p.messagesSentTotal).to.equal(5);
+      expect(p.backpressure.drops).to.equal(2);
+      expect(p.binaryDiscardedTotal).to.equal(1);
+      expect(p.malformedDiscardedTotal).to.equal(4);
+    }
+    // `clear()` (reset de test / arrêt) repart de zéro.
+    hub.clear();
+    const reset = hub.probe();
+    expect([
+      reset.bytesSentTotal,
+      reset.messagesSentTotal,
+      reset.backpressure.drops,
+      reset.binaryDiscardedTotal,
+      reset.malformedDiscardedTotal,
+    ]).to.deep.equal([0, 0, 0, 0, 0]);
+  });
+
   it("recordInbound compte les frames full-duplex entrantes", () => {
     const hub = new RealtimeHub();
     hub.recordInbound();

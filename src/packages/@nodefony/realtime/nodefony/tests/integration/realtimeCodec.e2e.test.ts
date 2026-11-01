@@ -231,6 +231,8 @@ describe("Codec binaire côté serveur — négociation, accueil, bascule (#618)
     await flush();
     expect(server.sent.length).toBe(before);
     expect(server.malformed()).toBe(1);
+    // Visible dans la sonde du hub, pas seulement sur la connexion.
+    expect(getRealtimeHub().probe().malformedDiscardedTotal).toBe(1);
     // La connexion sert toujours.
     const res = await client.request<"echo", { echoed: boolean }>("echo", true);
     expect(res.echoed).toBe(true);

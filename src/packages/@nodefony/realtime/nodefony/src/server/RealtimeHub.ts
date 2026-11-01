@@ -380,6 +380,15 @@ export class RealtimeHub {
   // débit/s se dérive côté lecteur. Cf {@link probe}.
   #publishTotal = 0;
   #fanoutTotal = 0;
+  // Part des connexions FERMÉES dans les cumuls par connexion de la sonde : sans
+  // elle, `bytesSentTotal`, `drops` ou `malformedDiscardedTotal` redescendraient
+  // à chaque fermeture — un débit dérivé négatif, et un refus qui disparaît avec la
+  // connexion fautive. Versée une fois, à la sortie du registre (jamais par frame).
+  #closedBytesSent = 0;
+  #closedMessagesSent = 0;
+  #closedDropped = 0;
+  #closedBinaryDiscarded = 0;
+  #closedMalformedDiscarded = 0;
   #inboundTotal = 0;
 
   // Messages d'ingress backplane REFUSÉS par le contrôle d'admission (F83) : canal
@@ -1011,9 +1020,18 @@ export class RealtimeHub {
     (this.#connections ??= new Set<IRealtimeConnProbe>()).add(conn);
   }
 
-  /** Retire une connexion du registre de la sonde (au close). No-op si absente. */
+  /**
+   * Retire une connexion du registre de la sonde (au close) et verse ses cumuls à
+   * ceux des connexions fermées : les totaux de {@link probe} restent monotones.
+   * No-op si absente — une double sortie ne compte pas deux fois.
+   */
   unregisterConnection(conn: IRealtimeConnProbe): void {
-    this.#connections?.delete(conn);
+    if (this.#connections?.delete(conn) !== true) return;
+    this.#closedBytesSent += conn.bytesSent;
+    this.#closedMessagesSent += conn.messagesSent;
+    this.#closedDropped += conn.dropped;
+    this.#closedBinaryDiscarded += conn.binaryDiscarded ?? 0;
+    this.#closedMalformedDiscarded += conn.malformedDiscarded ?? 0;
   }
 
   /**
@@ -1086,18 +1104,22 @@ export class RealtimeHub {
       }
     }
     let connectionCount = 0;
-    let bytesSentTotal = 0;
-    let messagesSentTotal = 0;
+    let bytesSentTotal = this.#closedBytesSent;
+    let messagesSentTotal = this.#closedMessagesSent;
     let maxBufferedAmount = 0;
     let totalBufferedAmount = 0;
     let slowConsumers = 0;
-    let drops = 0;
+    let drops = this.#closedDropped;
+    let binaryDiscardedTotal = this.#closedBinaryDiscarded;
+    let malformedDiscardedTotal = this.#closedMalformedDiscarded;
     if (this.#connections) {
       for (const c of this.#connections) {
         connectionCount += 1;
         bytesSentTotal += c.bytesSent;
         messagesSentTotal += c.messagesSent;
         drops += c.dropped;
+        binaryDiscardedTotal += c.binaryDiscarded ?? 0;
+        malformedDiscardedTotal += c.malformedDiscarded ?? 0;
         const buf = c.bufferedAmount;
         if (buf > maxBufferedAmount) maxBufferedAmount = buf;
         totalBufferedAmount += buf;
@@ -1130,6 +1152,8 @@ export class RealtimeHub {
       allowTimedOutTotal: this.admissionBudget.timedOutTotal,
       allowSaturatedTotal: this.admissionBudget.saturatedTotal,
       authenticateTimedOutTotal: this.admissionBudget.authenticateTimedOutTotal,
+      binaryDiscardedTotal,
+      malformedDiscardedTotal,
       connectionCount,
       bytesSentTotal,
       messagesSentTotal,
@@ -1769,6 +1793,11 @@ export class RealtimeHub {
     this.#backplane = null;
     this.#publishTotal = 0;
     this.#fanoutTotal = 0;
+    this.#closedBytesSent = 0;
+    this.#closedMessagesSent = 0;
+    this.#closedDropped = 0;
+    this.#closedBinaryDiscarded = 0;
+    this.#closedMalformedDiscarded = 0;
     this.#inboundTotal = 0;
     this.#ingressRejectedTotal = 0;
     this.#localOnlyTotal = 0;

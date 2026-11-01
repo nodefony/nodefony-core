@@ -455,7 +455,7 @@ export abstract class RealtimeController<
    *
    * Le protocole temps réel est du JSON-RPC texte : il ne sait pas à quel canal
    * une trame binaire appartient. Sans cette méthode, une trame binaire est
-   * écartée, comptée (`binaryDiscarded` de la sonde de connexion) et journalisée
+   * écartée, comptée (`binaryDiscardedTotal` de la sonde du hub) et journalisée
    * une fois par connexion. La surcharger la reçoit telle quelle, octets exacts,
    * en `Uint8Array` — le type que livre aussi `NodefonySocket.onBinary` dans le
    * navigateur : un décodeur s'écrit une fois pour les deux côtés. À l'exécution

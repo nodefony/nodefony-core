@@ -45,7 +45,7 @@ type Counters = (typeof FROZEN_REFUSAL_COUNTERS)[number];
 /** Une clé de sonde est un compteur de REFUS si son nom le dit (S9 : un par cause). */
 type RefusalKeys = Extract<
   keyof IRealtimeProbe,
-  `${string}${"Rejected" | "Denied" | "TimedOut" | "Saturated"}Total`
+  `${string}${"Rejected" | "Denied" | "TimedOut" | "Saturated" | "Discarded"}Total`
 >;
 
 // Chaque motif publié existe ; aucun motif hors fixture ; aucun attendu déjà livré.
@@ -163,7 +163,7 @@ describe("surface temps réel figée par 10.0", () => {
   it("la sonde du hub n'expose comme compteurs de refus que ceux de la fixture", () => {
     const probe = new RealtimeHub().probe();
     const refusals = Object.keys(probe).filter((k) =>
-      /(?:Rejected|Denied|TimedOut|Saturated)Total$/u.test(k),
+      /(?:Rejected|Denied|TimedOut|Saturated|Discarded)Total$/u.test(k),
     );
     const frozen = new Map<string, Entry>(
       FROZEN_REFUSAL_COUNTERS.map((e) => [e.name, e]),
