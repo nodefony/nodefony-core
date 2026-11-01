@@ -32,6 +32,7 @@ function appel(
     startedAt: id,
     requestId,
     traceparent: null,
+    serverDate: null,
     pending: requestId === null,
     error: null,
   };

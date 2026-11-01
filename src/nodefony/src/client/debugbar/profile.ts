@@ -35,8 +35,44 @@ export type ProfileSummary = IProfileSummary;
 export type ProfileState =
   | { status: "loading" }
   | { status: "ready"; profile: ProfileEntry }
-  | { status: "missing" }
+  | {
+      status: "missing";
+      /** Démarrage du profileur (ms epoch, horloge du serveur), si le 404 le dit. */
+      startedAt: number | null;
+      /** Dernier vidage du tampon (ms epoch, horloge du serveur), `null` si aucun. */
+      clearedAt: number | null;
+    }
   | { status: "error"; message: string };
+
+/** Pourquoi un profil manque : processus redémarré, tampon vidé, ou on ne sait pas. */
+export type MissingProfileCause = "restarted" | "cleared" | "unknown";
+
+/**
+ * Tranche pourquoi le profil d'une requête manque, sur la SEULE horloge du
+ * serveur : l'en-tête `Date` de la réponse profilée contre le démarrage et le
+ * dernier vidage que rend le 404 du profileur. Jamais l'horloge du navigateur.
+ *
+ * `Date` est tronqué à la seconde : la requête a pu être servie jusqu'à 999 ms
+ * après l'instant qu'il donne. La cause n'est donc affirmée que si elle est
+ * CERTAINE ; dans le doute, `unknown`.
+ *
+ * @param serverDate - en-tête `Date` brut de la réponse, `null` si absent.
+ * @param startedAt - démarrage du profileur, `null` si inconnu.
+ * @param clearedAt - dernier vidage du tampon, `null` si aucun.
+ * @returns la cause certaine, ou `unknown` (évincé, ou requête non mesurée).
+ */
+export function missingProfileCause(
+  serverDate: string | null,
+  startedAt: number | null,
+  clearedAt: number | null,
+): MissingProfileCause {
+  if (serverDate === null) return "unknown";
+  const served = Date.parse(serverDate);
+  if (Number.isNaN(served)) return "unknown";
+  if (startedAt !== null && served + 1000 <= startedAt) return "restarted";
+  if (clearedAt !== null && served + 1000 <= clearedAt) return "cleared";
+  return "unknown";
+}
 
 /** Une barre du waterfall (positions en % du span total). */
 export interface WaterfallBar {

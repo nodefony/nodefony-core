@@ -15,7 +15,8 @@ import { aggregateProfiles } from "../src/profiler/aggregate";
  *    `?connection=<requestId>` : les seules frames de cette socket WebSocket
  *  - `GET /nodefony/profiler/api/summary` → les profils de l'anneau agrégés par
  *    route (percentiles, phases, formes SQL, N+1, erreurs — `aggregateProfiles`)
- *  - `GET /nodefony/profiler/api/{id}`    → profil complet (phases) d'un requestId
+ *  - `GET /nodefony/profiler/api/{id}`    → profil complet (phases) d'un requestId ;
+ *    absent → 404 `{ startedAt, clearedAt }` : depuis quand l'anneau sait quelque chose
  *  - `DELETE /nodefony/profiler/api/recent` → vide le ring buffer
  *
  * La debug bar (toute page, dev) lit `X-Request-Id` de SON appel AJAX puis
@@ -76,9 +77,17 @@ export function createProfilerAdminApi(profiler: Profiler): IAdminApi {
         const { id = "" } = params;
         const entry = profiler.get(id);
         if (!entry) {
+          // `startedAt`/`clearedAt` (horloge du serveur) : le lecteur compare
+          // à l'en-tête `Date` de la réponse profilée — la MÊME horloge — pour
+          // dire « serveur redémarré » ou « tampon vidé » plutôt que « évincé ».
           return {
             status: 404,
-            body: { error: "Profile not found", requestId: params.id },
+            body: {
+              error: "Profile not found",
+              requestId: params.id,
+              startedAt: profiler.startedAt,
+              clearedAt: profiler.clearedAt,
+            },
           };
         }
         return entry;

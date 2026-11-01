@@ -85,6 +85,8 @@ import {
   computeWaterfall,
   isError as isNetError,
   isToolingCall,
+  missingProfileCause,
+  type MissingProfileCause,
   type ProfileEntry,
   type ProfileSummary,
 } from "./profile";
@@ -107,6 +109,27 @@ const CHANNELS = {
 const DEFAULT_PATH = "/nodefony/studio/api/realtime";
 /** Base du data-plane profiler (data-plane admin `IAdminApi` namespace `profiler`). */
 const DEFAULT_PROFILER_BASE = "/nodefony/profiler/api";
+
+/**
+ * Pourquoi un profil manque, dit à l'utilisateur. Le profileur ne garde ses
+ * profils qu'en mémoire : un redémarrage du serveur — une sauvegarde de fichier
+ * source suffit en développement — les perd tous, sans rien d'évincé.
+ */
+const MISSING_PROFILE_TEXT: Readonly<Record<MissingProfileCause, string>> = {
+  restarted:
+    "profil perdu : le serveur a redémarré depuis cette requête (une sauvegarde de fichier source suffit en développement) — le profileur ne garde ses profils qu'en mémoire.",
+  cleared:
+    "profil perdu : le tampon du profileur a été vidé depuis cette requête.",
+  unknown:
+    "profil introuvable : évincé du tampon, ou requête que le profileur ne mesure pas (outillage, hors <code>timing.tooling</code>).",
+};
+
+/** Champ numérique d'un corps JSON non typé, `null` s'il manque ou n'est pas un nombre. */
+function numberField(body: unknown, key: string): number | null {
+  if (typeof body !== "object" || body === null) return null;
+  const value: unknown = Reflect.get(body, key);
+  return typeof value === "number" ? value : null;
+}
 /** La recherche des Journaux de la console — le back que la vue Journaux réutilise. */
 const SYSLOG_SEARCH = "/nodefony/syslog/api/logs/search";
 const HOST_ID = "nodefony-debugbar";
@@ -186,7 +209,11 @@ export interface DebugBarOptions {
   client?: NodefonySocket;
   /** Position verticale du widget. Défaut `bottom`. */
   position?: "bottom" | "top";
-  /** Ouvre le panneau au montage. Défaut `false`. */
+  /**
+   * Ouvre le panneau au montage. Défaut : l'état laissé par l'utilisateur
+   * (persisté, un rafraîchissement le retrouve), fermé la première fois. Une
+   * valeur explicite l'emporte.
+   */
   open?: boolean;
   /** Contexte frontend (active la carte Frontend + la sonde HMR Vite). */
   frontend?: DebugBarFrontend;
@@ -819,6 +846,8 @@ const LS = {
   visible: "nf.debugbar.visible",
   min: "nf.debugbar.min",
   side: "nf.debugbar.side",
+  // Panneau déplié : un rafraîchissement de la page le retrouve tel quel.
+  open: "nf.debugbar.open",
   tab: "nf.debugbar.tab",
   h: "nf.debugbar.h",
   // Temps réel OFF par défaut (perf) : opt-in via le bouton de la barre — sinon
@@ -1047,7 +1076,7 @@ export class DebugBar {
   constructor(opts: DebugBarOptions = {}) {
     this.url = opts.url ?? DEFAULT_PATH;
     this.position = opts.position ?? "bottom";
-    this.startOpen = opts.open ?? false;
+    this.startOpen = opts.open ?? lsGet(LS.open, "0") === "1";
     this.initialEnv = opts.env ?? "";
     this.pageRequestId = opts.page?.requestId ?? null;
     // Client TOUJOURS partagé : `opts.client` explicite OU le singleton par URL
@@ -1156,6 +1185,7 @@ export class DebugBar {
     const bar = this.bar;
     if (!bar) return;
     bar.classList.toggle("open", open);
+    lsSet(LS.open, open ? "1" : "0");
     const verb = open ? "Fermer" : "Ouvrir";
     const btn = this.el.btnToggle;
     if (btn) {
@@ -2395,6 +2425,8 @@ export class DebugBar {
       startedAt: 0,
       requestId: this.pageRequestId,
       traceparent: null,
+      // La réponse de la page elle-même : ses en-têtes ne sont pas lisibles en JS.
+      serverDate: null,
       pending: false,
       error: null,
     });
@@ -2862,7 +2894,14 @@ export class DebugBar {
     this.ownFetch(`${this.profilerBase}/${encodeURIComponent(requestId)}`)
       .then(async (res) => {
         if (res.status === 404) {
-          this.net.setProfileState(requestId, { status: "missing" });
+          // Le 404 dit depuis quand l'anneau sait quelque chose : de quoi
+          // distinguer un redémarrage d'une éviction (`missingProfileCause`).
+          const body: unknown = await res.json().catch(() => null);
+          this.net.setProfileState(requestId, {
+            status: "missing",
+            startedAt: numberField(body, "startedAt"),
+            clearedAt: numberField(body, "clearedAt"),
+          });
           return;
         }
         const ct = res.headers.get("content-type") ?? "";
@@ -3360,7 +3399,7 @@ export class DebugBar {
       if (!st || st.status === "loading") {
         body = `<div class="det-loading">profil <b>${escapeHtml(shortId(rid))}</b> — chargement…</div>`;
       } else if (st.status === "missing") {
-        body = `<div class="det-err">profil introuvable (évincé du tampon, ou requête sans mesure de temps).</div>`;
+        body = `<div class="det-err">${MISSING_PROFILE_TEXT[missingProfileCause(e?.serverDate ?? null, st.startedAt, st.clearedAt)]}</div>`;
       } else if (st.status === "error") {
         body = `<div class="det-err">erreur du profileur : ${escapeHtml(st.message)}</div>`;
       } else {

@@ -151,6 +151,9 @@ function monter(opts: { page?: { requestId: string } } = {}): void {
   q(".tab[data-tab='requests']").click();
 }
 
+/** En-tête `Date` d'une réponse servie avant le redémarrage du serveur. */
+const VIEUX_DATE = "Sun, 01 Nov 2026 10:00:00 GMT";
+
 beforeEach(() => {
   handlers = new Map();
   recherches = [];
@@ -228,7 +231,32 @@ beforeEach(() => {
           phases: [{ name: "action", startMs: 0, durationMs: 1 }],
           queries: [{ sql: "select 1", startMs: 0, durationMs: 0.1 }],
         });
+      // Profil d'une requête servie par le processus d'AVANT : le 404 dit
+      // depuis quand le profileur tourne (horloge du serveur).
+      if (url.endsWith("/rid-vieux"))
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              error: "Profile not found",
+              startedAt: Date.parse(VIEUX_DATE) + 60_000,
+              clearedAt: null,
+            }),
+            { status: 404, headers: { "content-type": "application/json" } },
+          ),
+        );
       return Promise.resolve(new Response("", { status: 404 }));
+    }
+    if (url.includes("/vieux")) {
+      return Promise.resolve(
+        new Response("{}", {
+          status: 200,
+          headers: {
+            "content-type": "application/json",
+            "x-request-id": "rid-vieux",
+            date: VIEUX_DATE,
+          },
+        }),
+      );
     }
     if (url.includes("/flux")) {
       return Promise.resolve(
@@ -740,5 +768,19 @@ describe("sans session administrateur — la barre ne tente rien qu'on lui refus
     await image();
     expect(connexions).toBe(1);
     expect(recherches.length).toBeGreaterThan(0);
+  });
+});
+
+describe("vue Page — un profil qui manque dit POURQUOI", () => {
+  it("🔴 requête servie AVANT le redémarrage du serveur : la barre le dit, sans parler d'éviction", async () => {
+    await window.fetch("/vieux");
+    await image();
+    ligneReq("/vieux").click();
+    await image();
+    await image();
+    expect(profils.some((u) => u.endsWith("/rid-vieux"))).toBe(true);
+    const side = q("[data-el='logSide']").textContent ?? "";
+    expect(side).toContain("le serveur a redémarré depuis cette requête");
+    expect(side).not.toContain("évincé");
   });
 });

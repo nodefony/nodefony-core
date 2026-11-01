@@ -18,6 +18,7 @@ const appel = (id: number): NetEntry => ({
   startedAt: 0,
   requestId: null,
   traceparent: null,
+  serverDate: null,
   pending: true,
   error: null,
 });

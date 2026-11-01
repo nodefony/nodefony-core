@@ -6,6 +6,7 @@ import {
   phaseTier,
   type ProfilePhase,
 } from "../client/debugbar/profile";
+import { missingProfileCause } from "../client/debugbar/profile";
 import type { NetEntry } from "../client/debugbar/network";
 
 /** Fabrique une NetEntry minimale. */
@@ -21,6 +22,7 @@ function net(over: Partial<NetEntry> = {}): NetEntry {
     startedAt: 0,
     requestId: "req-1",
     traceparent: null,
+    serverDate: null,
     pending: false,
     error: null,
     ...over,
@@ -72,7 +74,11 @@ describe("DebugBar Network — modèle (pur)", () => {
   it("clear : réinitialise tout", () => {
     const m = new NetworkModel();
     m.ingest(net({ id: 1, status: 500 }));
-    m.setProfileState("req-1", { status: "missing" });
+    m.setProfileState("req-1", {
+      status: "missing",
+      startedAt: null,
+      clearedAt: null,
+    });
     m.clear();
     expect(m.total).to.equal(0);
     expect(m.errors).to.equal(0);
@@ -120,5 +126,39 @@ describe("DebugBar Network — waterfall (pur)", () => {
     expect(phaseTier("action")).to.equal("action");
     expect(phaseTier("initialize")).to.equal("init");
     expect(phaseTier("inconnue")).to.equal("other");
+  });
+});
+
+// La cause d'un profil manquant se tranche sur la SEULE horloge du serveur :
+// l'en-tête `Date` (à la seconde) contre le démarrage et le vidage du profileur.
+describe("missingProfileCause — redémarré, vidé, ou inconnu", () => {
+  const served = "Sun, 01 Nov 2026 10:00:00 GMT";
+  const at = Date.parse(served);
+
+  it("servie une seconde pleine avant le démarrage → redémarré", () => {
+    expect(missingProfileCause(served, at + 1000, null)).to.equal("restarted");
+  });
+
+  it("même seconde que le démarrage → rien d'affirmé (Date est tronqué)", () => {
+    expect(missingProfileCause(served, at + 999, null)).to.equal("unknown");
+  });
+
+  it("servie après le démarrage mais avant un vidage → vidé", () => {
+    expect(missingProfileCause(served, at - 5000, at + 2000)).to.equal(
+      "cleared",
+    );
+  });
+
+  it("servie après démarrage et vidage → évincée ou non mesurée", () => {
+    expect(missingProfileCause(served, at - 5000, at - 1000)).to.equal(
+      "unknown",
+    );
+  });
+
+  it("sans en-tête Date, ou illisible → inconnu", () => {
+    expect(missingProfileCause(null, at + 60_000, null)).to.equal("unknown");
+    expect(missingProfileCause("pas une date", at + 60_000, null)).to.equal(
+      "unknown",
+    );
   });
 });

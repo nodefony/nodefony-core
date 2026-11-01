@@ -92,3 +92,37 @@ describe("ProfilerAdminApi — summary", () => {
     expect(paths.indexOf("summary")).toBeLessThan(paths.indexOf("{id}"));
   });
 });
+
+describe("ProfilerAdminApi — profil absent", () => {
+  function byId(p: Profiler, id: string) {
+    const ep = createProfilerAdminApi(p)
+      .adminEndpoints()
+      .find((e) => e.path === "{id}");
+    if (!ep) throw new Error("endpoint {id} absent");
+    return ep.handler({
+      params: { id },
+      query: {},
+      body: null,
+      user: null,
+      roles: [],
+    });
+  }
+
+  it("🔴 le 404 dit depuis quand l'anneau sait quelque chose (démarrage, vidage)", async () => {
+    const before = Date.now();
+    const p = new Profiler();
+    const fresh = (await byId(p, "inconnu")) as {
+      status: number;
+      body: { startedAt: number; clearedAt: number | null };
+    };
+    expect(fresh.status).toBe(404);
+    expect(fresh.body.startedAt).toBeGreaterThanOrEqual(before);
+    expect(fresh.body.clearedAt).toBeNull();
+    p.clear();
+    const cleared = (await byId(p, "inconnu")) as {
+      body: { startedAt: number; clearedAt: number | null };
+    };
+    expect(cleared.body.clearedAt).toBeGreaterThanOrEqual(fresh.body.startedAt);
+    expect(cleared.body.startedAt).toBe(fresh.body.startedAt);
+  });
+});

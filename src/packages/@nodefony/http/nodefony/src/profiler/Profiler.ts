@@ -157,6 +157,14 @@ export class Profiler implements IProfilerReader {
   private readonly _caps: Record<ProfileLane, number>;
   /** Dernier numéro d'ordre attribué (0 = aucun profil collecté). */
   private _seq = 0;
+  /**
+   * Démarrage du profileur, donc du processus (ms epoch, horloge du serveur) :
+   * aucune requête servie avant n'est connue. Rendu avec un profil absent, pour
+   * que le lecteur dise « le serveur a redémarré » plutôt que « évincé ».
+   */
+  readonly startedAt: number = Date.now();
+  /** Dernier vidage des anneaux (ms epoch), `null` s'il n'y en a jamais eu. */
+  private _clearedAt: number | null = null;
 
   /**
    * @param cap - capacité de l'anneau de l'application.
@@ -297,12 +305,18 @@ export class Profiler implements IProfilerReader {
     return app.size + tooling.size + asset.size;
   }
 
-  /** Vide les anneaux. */
+  /** Vide les anneaux, et retient l'instant du vidage ({@link clearedAt}). */
   clear(): void {
     const { app, tooling, asset } = this._lanes;
     app.clear();
     tooling.clear();
     asset.clear();
+    this._clearedAt = Date.now();
+  }
+
+  /** Dernier vidage des anneaux (ms epoch, horloge du serveur), `null` si aucun. */
+  get clearedAt(): number | null {
+    return this._clearedAt;
   }
 
   /**

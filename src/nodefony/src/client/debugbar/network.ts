@@ -85,6 +85,11 @@ export interface NetEntry {
   startedAt: number;
   /** `X-Request-Id` de la réponse → clé du profil serveur. `null` si absent. */
   requestId: string | null;
+  /**
+   * En-tête `Date` de la réponse — horloge du SERVEUR, à la seconde. Gardé brut :
+   * analysé seulement quand le profil manque, pour dire « serveur redémarré ».
+   */
+  serverDate: string | null;
   /** `traceparent` W3C (RFC-propre) de la réponse, pour la corrélation distribuée. */
   traceparent: string | null;
   /** Vrai tant que la réponse n'est pas arrivée. */
@@ -183,6 +188,7 @@ export function installNetworkInterceptor(
             startedAt: performance.now(),
             requestId: null,
             traceparent: null,
+            serverDate: null,
             pending: true,
             error: null,
           };
@@ -195,6 +201,7 @@ export function installNetworkInterceptor(
                 entry.ok = res.ok;
                 entry.requestId = res.headers.get(REQUEST_ID_HEADER);
                 entry.traceparent = res.headers.get(TRACEPARENT_HEADER);
+                entry.serverDate = res.headers.get("date");
                 entry.durationMs = round(performance.now() - entry.startedAt);
                 entry.pending = false;
                 if (isEventStreamResponse(res)) watchFetchStream(entry, args);
@@ -255,6 +262,7 @@ export function installNetworkInterceptor(
             startedAt: 0,
             requestId: null,
             traceparent: null,
+            serverDate: null,
             pending: true,
             error: null,
           });
@@ -279,6 +287,7 @@ export function installNetworkInterceptor(
             entry.requestId = this.getResponseHeader(REQUEST_ID_HEADER) || null;
             entry.traceparent =
               this.getResponseHeader(TRACEPARENT_HEADER) || null;
+            entry.serverDate = this.getResponseHeader("date") || null;
             entry.durationMs = round(performance.now() - entry.startedAt);
             entry.error = error;
             entry.pending = false;
@@ -324,6 +333,7 @@ export function installNetworkInterceptor(
       startedAt: performance.now(),
       requestId: null,
       traceparent: null,
+      serverDate: null,
       pending: true,
       error: null,
       stream,

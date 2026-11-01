@@ -364,3 +364,35 @@ describe("feuille de style — ce qui part dans la page", () => {
     expect(fautives).toEqual([]);
   });
 });
+
+describe("rafraîchissement — le panneau se retrouve tel qu'on l'a laissé", () => {
+  /** Démonte puis remonte SANS option `open`, comme après un rechargement. */
+  const reload = (): void => {
+    bar?.unmount?.();
+    document.getElementById("nodefony-debugbar")?.remove();
+    bar = new DebugBar({ client: fakeClient(), network: false });
+    bar.mount();
+  };
+
+  it("🔴 ouvert par l'utilisateur, il reste ouvert après un rechargement", () => {
+    reload(); // première visite : fermé
+    expect(isOpen()).toBe(false);
+    q("[data-el='btnToggle']").click();
+    expect(isOpen()).toBe(true);
+    reload();
+    expect(isOpen()).toBe(true);
+  });
+
+  it("refermé, il reste fermé ; une option `open` explicite l'emporte", () => {
+    reload();
+    q("[data-el='btnToggle']").click();
+    q("[data-el='btnToggle']").click();
+    reload();
+    expect(isOpen()).toBe(false);
+    bar?.unmount?.();
+    document.getElementById("nodefony-debugbar")?.remove();
+    bar = new DebugBar({ client: fakeClient(), network: false, open: true });
+    bar.mount();
+    expect(isOpen()).toBe(true);
+  });
+});
