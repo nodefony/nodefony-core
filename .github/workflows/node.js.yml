@@ -328,6 +328,17 @@ jobs:
         shell: bash
         run: npm run test:tooling
 
+      # Les gardes de l'agent (`.claude/hooks/`) sont des GATES : un banc qu'on ne lance
+      # qu'à la main finit par mentir. Celui-ci joue chaque règle des deux côtés (elle
+      # mord, ses voisins légitimes passent), plus les deux outils qu'elle prescrit.
+      - name: Gate — gardes de l'agent (hooks) et outils de lecture du code
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
+        shell: bash
+        run: |
+          bash .claude/hooks/guard-bash.test.sh
+          node .claude/skills/nodefony-inspect/scripts/show-symbol.selftest.mjs
+          node .claude/skills/nodefony-session/scripts/tool-usage.selftest.mjs
+
       # Un tag d'action se DÉPLACE ; un SHA non. Couvre la forge ET les
       # workflows que chaque application générée exécutera.
       - name: Gate — actions épinglées par SHA (dépôt + gabarits) · aucune annulation de CI
