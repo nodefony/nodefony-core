@@ -24,7 +24,7 @@ import { LoopbackClientTransport, LoopbackWire } from "../helpers/loopback.js";
  *
  * VRAI `NodefonySocket` ↔ VRAI `RealtimeController`, fil loopback : seul le
  * transport est simulé, le protocole et les codecs sont réels. L'aller-retour
- * sur un vrai serveur WebSocket est le banc d'intégration de `@nodefony/http`.
+ * sur un vrai serveur WebSocket : `realtimeCodecServer.e2e` (lot `test:cluster`).
  */
 
 const CBOR = "nodefony.jsonrpc.cbor.v1";
@@ -221,9 +221,10 @@ describe("Codec binaire côté serveur — négociation, accueil, bascule (#618)
     getRealtimeHub().setFrameCodec();
     const { client, server } = await connect(true, `${CBOR}, ${TEXT}`);
     expect(server.selected).toEqual([TEXT]);
-    expect(JSON.parse(server.sent[0] as string).params).not.toHaveProperty(
-      "codec",
-    );
+    const welcome = JSON.parse(server.sent[0] as string).params;
+    expect(welcome).not.toHaveProperty("codec");
+    // Serveur sans codec : il n'émet pas la convention, il ne l'annonce pas.
+    expect(welcome).not.toHaveProperty("bytesMarker");
     expect(client.codec).toBe(TEXT);
     expect(server.tracedCodec()).toBeUndefined();
     const res = await client.request<"echo", { echoed: number }>("echo", 7);
@@ -236,8 +237,19 @@ describe("Codec binaire côté serveur — négociation, accueil, bascule (#618)
     expect(offered).toBeUndefined();
     expect(server.selected).toEqual([]);
     expect(client.codec).toBe(TEXT);
+    // Le serveur émet la convention d'octets sur ce texte : il l'annonce, et le
+    // client sans codec relit des `Uint8Array` sans rien avoir importé.
+    expect(JSON.parse(server.sent[0] as string).params.bytesMarker).toBe(
+      "$bytes",
+    );
     const res = await client.request<"echo", { echoed: string }>("echo", "a");
     expect(res.echoed).toBe("a");
+    const bytes = await client.request<"echo", { echoed: Uint8Array }>(
+      "echo",
+      new Uint8Array([4, 0, 255]),
+    );
+    expect(bytes.echoed).toBeInstanceOf(Uint8Array);
+    expect([...bytes.echoed]).toEqual([4, 0, 255]);
     expect(server.sent.every((f) => typeof f === "string")).toBe(true);
   });
 

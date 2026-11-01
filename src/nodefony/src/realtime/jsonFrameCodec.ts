@@ -110,9 +110,15 @@ export const JSON_FRAME_CODEC = {
  * L'émission paie un parcours de la charge ({@link containsBytes}) — mesuré +27 à +35 %
  * par trame, d'où son armement à l'activation seulement. La réception ne paie qu'un
  * `includes` sur le texte, puis le reviver si le marqueur y figure.
+ *
+ * Un client ne l'arme pas de lui-même : il le prend quand l'accueil du serveur annonce
+ * la convention (`bytesMarker`, `adoptFrameCodec`). Sur le fil d'un serveur sans codec,
+ * un objet applicatif `{"$bytes": …}` changerait sinon de nature.
  */
 export const JSON_BYTES_FRAME_CODEC = {
   protocol: JSON_PROTOCOL,
+  // Annoncé par le serveur dans l'accueil : un client resté en texte s'y accorde.
+  bytesMarker: BYTES_MARKER,
   encode(frame: unknown): string {
     return containsBytes(frame)
       ? JSON.stringify(frame, bytesReplacer)

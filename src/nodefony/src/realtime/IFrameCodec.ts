@@ -51,4 +51,11 @@ export interface IFrameCodec {
    * absent, le texte reste le JSON natif.
    */
   readonly textCodec?: IFrameCodec;
+  /**
+   * Pour un codec TEXTE : le marqueur de la convention d'octets qu'il émet et
+   * réanime (`$bytes`). Le serveur l'annonce dans `realtime:welcome`
+   * (`bytesMarker`) pour qu'un client resté en texte relise les octets ; absent,
+   * le texte est le JSON natif et des octets imbriqués y arrivent déformés.
+   */
+  readonly bytesMarker?: string;
 }

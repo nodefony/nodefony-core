@@ -472,6 +472,13 @@ export interface IRealtimeWelcome {
    * qu'il le parle ou non.
    */
   codec?: string;
+  /**
+   * Marqueur de la convention d'octets (`$bytes`) que le serveur émet sur cette
+   * connexion TEXTE — posé quand il a activé un codec binaire que le client n'a pas
+   * pris (ADR-0022 §2). Le client passe alors au JSON à convention, sans rien avoir
+   * importé, et rend des `Uint8Array`. Absent : JSON natif, comme avant les codecs.
+   */
+  bytesMarker?: string;
 }
 
 /**

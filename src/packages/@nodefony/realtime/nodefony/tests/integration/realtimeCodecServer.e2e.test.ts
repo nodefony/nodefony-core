@@ -229,7 +229,8 @@ describe.skipIf(!RUN)("Codec CBOR sur un vrai serveur WebSocket (#618)", () => {
     const cbor = await openClient(CBOR_FRAME_CODEC);
     // Texte qui a activé la convention d'octets : il réanime `$bytes`.
     const bytesText = await openClient(JSON_BYTES_FRAME_CODEC);
-    // Texte nu : le fil d'avant les codecs, sans parcours de la charge.
+    // Texte nu : aucun codec importé — l'accueil (`bytesMarker`) lui fait
+    // prendre la convention d'octets.
     const plain = await openClient(undefined);
     const clients = [cbor, bytesText, plain];
     try {
@@ -251,16 +252,15 @@ describe.skipIf(!RUN)("Codec CBOR sur un vrai serveur WebSocket (#618)", () => {
         .poll(() => got.map((g) => g.length), { timeout: 5000 })
         .toEqual([1, 1, 1]);
       expect(got.map((g) => g[0]?.seq)).toEqual([42, 42, 42]);
-      // CBOR et texte à convention : les MÊMES octets, en `Uint8Array`.
-      for (const g of [got[0], got[1]]) {
-        const data = g?.[0]?.data;
+      // Les trois : les MÊMES octets, en `Uint8Array` — le texte nu compris,
+      // sans rien avoir importé (`bytesMarker` de l'accueil).
+      for (const g of got) {
+        const data = g[0]?.data;
         expect(data).toBeInstanceOf(Uint8Array);
         expect(data instanceof Uint8Array ? [...data] : null).toEqual([
           1, 2, 3, 255,
         ]);
       }
-      // Texte nu : l'enveloppe telle qu'émise, base64url sans bourrage.
-      expect(got[2]?.[0]?.data).toEqual({ $bytes: "AQID_w" });
     } finally {
       for (const c of clients) c.disconnect();
     }

@@ -10,7 +10,11 @@
  * connexion, jamais par trame.
  */
 import { JSON_PROTOCOL, type IFrameCodec } from "./IFrameCodec";
-import { JSON_FRAME_CODEC } from "./jsonFrameCodec";
+import {
+  BYTES_MARKER,
+  JSON_BYTES_FRAME_CODEC,
+  JSON_FRAME_CODEC,
+} from "./jsonFrameCodec";
 
 /**
  * Les codecs d'un pair, fixés une fois pour sa durée de vie.
@@ -18,8 +22,9 @@ import { JSON_FRAME_CODEC } from "./jsonFrameCodec";
  * La règle des octets en texte tient ici, des deux côtés : la convention `$bytes`
  * n'est armée que si un codec binaire est activé — sinon le texte reste les deux
  * appels natifs, sans parcours de la charge (ADR-0022 §2, mesure du §9). Le codec
- * à convention est apporté par le codec binaire lui-même (`IFrameCodec.textCodec`) :
- * une page qui n'active rien ne télécharge ni lui ni le base64url.
+ * à convention est apporté par le codec binaire lui-même (`IFrameCodec.textCodec`) ;
+ * côté client, l'accueil d'un serveur qui l'émet le fait aussi prendre
+ * ({@link adoptFrameCodec}) — d'où sa présence dans le paquet client, ~0,6 Ko gzip.
  */
 export interface IFrameCodecSet {
   /** Le codec des connexions texte (`nodefony.jsonrpc.v1`) et de l'accueil. */
@@ -85,21 +90,33 @@ export function negotiateFrameCodec(
 }
 
 /**
- * Côté CLIENT : le codec que l'accueil annonce (champ `codec` de `realtime:welcome`).
+ * Côté CLIENT : le codec que l'accueil annonce (champs `codec` et `bytesMarker` de
+ * `realtime:welcome`).
  *
  * Absent ou `nodefony.jsonrpc.v1` : le texte — un serveur sans codec ne pose pas le
  * champ. Le codec binaire offert : lui. Tout autre valeur est une faute du serveur,
  * qui n'a le droit de choisir que dans l'offre : `null`, à signaler.
  *
+ * En texte, `bytesMarker` dit que le serveur émet la convention d'octets : le JSON
+ * natif cède alors la place au JSON à convention, sans que la page ait rien importé.
+ * Un codec texte choisi par l'application est gardé tel quel, et un marqueur inconnu
+ * laisse le texte natif — les octets y arrivent sous leur enveloppe, rien ne casse.
+ *
  * @param set - les codecs du client ({@link frameCodecSet}).
  * @param announced - la valeur du champ `codec` de l'accueil, telle que reçue.
+ * @param bytesMarker - la valeur du champ `bytesMarker` de l'accueil, telle que reçue.
  * @returns le codec à employer, ou `null` si l'annonce sort de l'offre.
  */
 export function adoptFrameCodec(
   set: IFrameCodecSet,
   announced: unknown,
+  bytesMarker?: unknown,
 ): IFrameCodec | null {
-  if (announced === undefined || announced === JSON_PROTOCOL) return set.text;
+  if (announced === undefined || announced === JSON_PROTOCOL) {
+    return bytesMarker === BYTES_MARKER && set.text === JSON_FRAME_CODEC
+      ? JSON_BYTES_FRAME_CODEC
+      : set.text;
+  }
   // `announced` n'est plus `undefined` : sans codec binaire, la comparaison échoue.
   return announced === set.binary?.protocol ? set.binary : null;
 }

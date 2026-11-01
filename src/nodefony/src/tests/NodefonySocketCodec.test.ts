@@ -174,6 +174,32 @@ describe("négociation du codec — règle pure, partagée client/serveur", () =
     expect(adoptFrameCodec(frameCodecSet(), CBOR_PROTOCOL)).to.equal(null);
   });
 
+  it("client en texte : `bytesMarker` annoncé → JSON à convention, sauf codec texte choisi ou marqueur inconnu", () => {
+    const plain = frameCodecSet();
+    // Le serveur émet la convention : le texte natif cède la place.
+    expect(adoptFrameCodec(plain, undefined, BYTES_MARKER)).to.equal(
+      JSON_BYTES_FRAME_CODEC,
+    );
+    expect(adoptFrameCodec(plain, JSON_PROTOCOL, BYTES_MARKER)).to.equal(
+      JSON_BYTES_FRAME_CODEC,
+    );
+    // Sans annonce, ou marqueur inconnu : le fil d'avant les codecs.
+    expect(adoptFrameCodec(plain, undefined)).to.equal(JSON_FRAME_CODEC);
+    expect(adoptFrameCodec(plain, undefined, "$octets")).to.equal(
+      JSON_FRAME_CODEC,
+    );
+    // Un codec texte choisi par l'application n'est jamais remplacé.
+    const custom: IFrameCodec = { ...JSON_FRAME_CODEC };
+    expect(
+      adoptFrameCodec(frameCodecSet(custom), undefined, BYTES_MARKER),
+    ).to.equal(custom);
+    // Le binaire retenu prime : le marqueur ne concerne que le texte.
+    const cbor = frameCodecSet(CBOR_FRAME_CODEC);
+    expect(adoptFrameCodec(cbor, CBOR_PROTOCOL, BYTES_MARKER)).to.equal(
+      CBOR_FRAME_CODEC,
+    );
+  });
+
   it("aller-retour : offre → choix → annonce → adoption, les deux bouts parlent le MÊME format", () => {
     for (const clientCodec of [undefined, CBOR_FRAME_CODEC]) {
       for (const serverCodec of [undefined, CBOR_FRAME_CODEC]) {
@@ -215,6 +241,51 @@ describe("NodefonySocket — sans codec : le fil d'avant, octet pour octet", () 
       }),
     );
     expect(transport.binary).to.have.length(0);
+    client.disconnect();
+  });
+
+  it("accueil qui annonce `bytesMarker` → les octets d'une charge arrivent en Uint8Array, sans rien importer", async () => {
+    const { client, transport } = await connected(undefined, {
+      bytesMarker: BYTES_MARKER,
+    });
+    expect(client.codec).to.equal(JSON_PROTOCOL);
+    const got: unknown[] = [];
+    client.on("c", (p) => got.push(p));
+    transport.receive(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        method: "c",
+        params: {
+          b: { [BYTES_MARKER]: toBase64Url(new Uint8Array([1, 255])) },
+        },
+      }),
+    );
+    expect(got).to.have.length(1);
+    const b = (got[0] as { b: unknown }).b;
+    expect(b).to.be.instanceOf(Uint8Array);
+    expect([...(b as Uint8Array)]).to.deep.equal([1, 255]);
+    // Dans l'autre sens, la même convention : le serveur la relit.
+    client.publish("c", { b: new Uint8Array([7]) });
+    expect(JSON.parse(transport.text.at(-1)!)).to.deep.equal({
+      jsonrpc: "2.0",
+      method: "c",
+      params: { b: { [BYTES_MARKER]: toBase64Url(new Uint8Array([7])) } },
+    });
+    client.disconnect();
+  });
+
+  it("accueil SANS `bytesMarker` : un objet applicatif `$bytes` reste un objet", async () => {
+    const { client, transport } = await connected();
+    const got: unknown[] = [];
+    client.on("c", (p) => got.push(p));
+    transport.receive(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        method: "c",
+        params: { b: { [BYTES_MARKER]: "AQL_" } },
+      }),
+    );
+    expect(got).to.deep.equal([{ b: { [BYTES_MARKER]: "AQL_" } }]);
     client.disconnect();
   });
 

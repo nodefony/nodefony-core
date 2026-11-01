@@ -201,6 +201,29 @@ describe("JSON_FRAME_CODEC — le défaut ne parcourt rien (ADR-0022 §2, décis
     const got = JSON_FRAME_CODEC.decode(`{"d":{"${BYTES_MARKER}":"AQL_"}}`);
     expect(got).toEqual({ d: { [BYTES_MARKER]: "AQL_" } });
   });
+
+  // Preuve de la décision (option écartée : « réanimer `$bytes` par défaut au
+  // décodage, derrière un `includes` ») : sur le fil d'un serveur SANS codec, un
+  // objet applicatif qui porte ce nom changerait de nature, ou ferait jeter la
+  // trame entière. Le défaut ne peut donc pas réanimer : seule une annonce du
+  // serveur (champ `bytesMarker` de l'accueil) dit que la convention est armée.
+  it("réanimer par défaut altérerait le fil d'un serveur sans codec : valeur changée ou trame jetée", () => {
+    const applicative = `{"d":{"${BYTES_MARKER}":"AQL_"}}`;
+    const unreadable = `{"d":{"${BYTES_MARKER}":"pas de l'octet !"}}`;
+    // Ce que l'application a émis, et ce que le défaut lui rend.
+    expect(JSON_FRAME_CODEC.decode(applicative)).toEqual({
+      d: { [BYTES_MARKER]: "AQL_" },
+    });
+    expect(JSON_FRAME_CODEC.decode(unreadable)).toEqual({
+      d: { [BYTES_MARKER]: "pas de l'octet !" },
+    });
+    // La même trame sous la convention : un objet devient des octets…
+    expect(JSON_BYTES_FRAME_CODEC.decode(applicative)).toEqual({
+      d: new Uint8Array([1, 2, 255]),
+    });
+    // … et une chaîne quelconque fait refuser toute la trame.
+    expect(() => JSON_BYTES_FRAME_CODEC.decode(unreadable)).toThrow(TypeError);
+  });
 });
 
 describe("CBOR_FRAME_CODEC — la frame en CBOR, et la même valeur à l'arrivée", () => {

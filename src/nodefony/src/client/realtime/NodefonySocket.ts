@@ -197,7 +197,9 @@ export interface NodefonySocketOptions {
   /**
    * Codec BINAIRE à offrir au serveur — `CBOR_FRAME_CODEC`, importé de
    * `nodefony/cbor` (ADR-0022 §2). Absent : aucune offre, JSON-RPC texte, le
-   * fil d'avant #618 octet pour octet.
+   * fil d'avant #618 octet pour octet — sauf si l'accueil annonce `bytesMarker` :
+   * le serveur émet alors la convention d'octets, et la socket la relit en
+   * `Uint8Array` sans rien importer de plus.
    *
    * Le client offre le sous-protocole du codec, puis `nodefony.jsonrpc.v1` ; le
    * serveur choisit et annonce son choix dans `realtime:welcome` — jamais dans
@@ -992,10 +994,11 @@ export class NodefonySocket<
    * Adopte le codec que l'accueil annonce (ADR-0022 §2) — chemin froid, une fois
    * par connexion. Absent ou `nodefony.jsonrpc.v1` : le texte. Celui qu'on a
    * offert : il porte toutes les frames qui suivent. Un autre : faute du serveur,
-   * dite par une notice, et la connexion reste en texte.
+   * dite par une notice, et la connexion reste en texte. En texte, `bytesMarker`
+   * fait prendre le JSON à convention d'octets.
    */
-  private adoptCodec(announced: unknown): void {
-    const adopted = adoptFrameCodec(this.codecs, announced);
+  private adoptCodec(announced: unknown, bytesMarker: unknown): void {
+    const adopted = adoptFrameCodec(this.codecs, announced, bytesMarker);
     if (adopted !== null) {
       this.peer.codec = adopted;
       if (adopted === this.codecs.binary && this._binaryHandlers !== null)
@@ -1979,7 +1982,7 @@ export class NodefonySocket<
     this._subscriptionAcks = fieldOf(params, "subscriptionAcks") === true;
     // Avant le rejeu des abonnements (`dispatchNotification`) : ils partent déjà
     // dans le codec retenu.
-    this.adoptCodec(fieldOf(params, "codec"));
+    this.adoptCodec(fieldOf(params, "codec"), fieldOf(params, "bytesMarker"));
     if (params === null || typeof params !== "object") return;
     this._identity = identityOf(fieldOf(params, "identity"));
     this._serverChannels = stringsOf(fieldOf(params, "channels"));

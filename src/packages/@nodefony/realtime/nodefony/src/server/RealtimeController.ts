@@ -1069,6 +1069,10 @@ export abstract class RealtimeController<
     // Le champ n'existe que pour un codec binaire accordé : absent, le client
     // reste en texte — comme face à un serveur d'avant les codecs.
     if (binaryCodec !== null) welcome.codec = binaryCodec.protocol;
+    // Resté en texte face à un serveur qui émet la convention d'octets : le dire,
+    // pour que le client relise des `Uint8Array` sans avoir importé de codec.
+    else if (peer.codec.bytesMarker !== undefined)
+      welcome.bytesMarker = peer.codec.bytesMarker;
     peer.notify("realtime:welcome", welcome);
     // Bascule APRÈS l'accueil, émis en texte : les frames suivantes emploient le
     // codec accordé, dans les deux sens.
