@@ -1072,7 +1072,7 @@ export abstract class RealtimeController<
     // Resté en texte face à un serveur qui émet la convention d'octets : le dire,
     // pour que le client relise des `Uint8Array` sans avoir importé de codec.
     else if (peer.codec.bytesMarker !== undefined)
-      welcome.bytesMarker = peer.codec.bytesMarker;
+      welcome.bytes = peer.codec.bytesMarker;
     peer.notify("realtime:welcome", welcome);
     // Bascule APRÈS l'accueil, émis en texte : les frames suivantes emploient le
     // codec accordé, dans les deux sens.

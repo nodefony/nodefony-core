@@ -229,7 +229,7 @@ describe.skipIf(!RUN)("Codec CBOR sur un vrai serveur WebSocket (#618)", () => {
     const cbor = await openClient(CBOR_FRAME_CODEC);
     // Texte qui a activé la convention d'octets : il réanime `$bytes`.
     const bytesText = await openClient(JSON_BYTES_FRAME_CODEC);
-    // Texte nu : aucun codec importé — l'accueil (`bytesMarker`) lui fait
+    // Texte nu : aucun codec importé — l'accueil (champ `bytes`) lui fait
     // prendre la convention d'octets.
     const plain = await openClient(undefined);
     const clients = [cbor, bytesText, plain];
@@ -253,7 +253,7 @@ describe.skipIf(!RUN)("Codec CBOR sur un vrai serveur WebSocket (#618)", () => {
         .toEqual([1, 1, 1]);
       expect(got.map((g) => g[0]?.seq)).toEqual([42, 42, 42]);
       // Les trois : les MÊMES octets, en `Uint8Array` — le texte nu compris,
-      // sans rien avoir importé (`bytesMarker` de l'accueil).
+      // sans rien avoir importé (champ `bytes` de l'accueil).
       for (const g of got) {
         const data = g[0]?.data;
         expect(data).toBeInstanceOf(Uint8Array);

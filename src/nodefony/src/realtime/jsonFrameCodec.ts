@@ -112,7 +112,7 @@ export const JSON_FRAME_CODEC = {
  * `includes` sur le texte, puis le reviver si le marqueur y figure.
  *
  * Un client ne l'arme pas de lui-même : il le prend quand l'accueil du serveur annonce
- * la convention (`bytesMarker`, `adoptFrameCodec`). Sur le fil d'un serveur sans codec,
+ * la convention (champ `bytes`, `adoptFrameCodec`). Sur le fil d'un serveur sans codec,
  * un objet applicatif `{"$bytes": …}` changerait sinon de nature.
  */
 export const JSON_BYTES_FRAME_CODEC = {

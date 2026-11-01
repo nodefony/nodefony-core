@@ -478,7 +478,7 @@ export interface IRealtimeWelcome {
    * pris (ADR-0022 §2). Le client passe alors au JSON à convention, sans rien avoir
    * importé, et rend des `Uint8Array`. Absent : JSON natif, comme avant les codecs.
    */
-  bytesMarker?: string;
+  bytes?: string;
 }
 
 /**

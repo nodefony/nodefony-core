@@ -224,7 +224,7 @@ describe("Codec binaire côté serveur — négociation, accueil, bascule (#618)
     const welcome = JSON.parse(server.sent[0] as string).params;
     expect(welcome).not.toHaveProperty("codec");
     // Serveur sans codec : il n'émet pas la convention, il ne l'annonce pas.
-    expect(welcome).not.toHaveProperty("bytesMarker");
+    expect(welcome).not.toHaveProperty("bytes");
     expect(client.codec).toBe(TEXT);
     expect(server.tracedCodec()).toBeUndefined();
     const res = await client.request<"echo", { echoed: number }>("echo", 7);
@@ -239,9 +239,7 @@ describe("Codec binaire côté serveur — négociation, accueil, bascule (#618)
     expect(client.codec).toBe(TEXT);
     // Le serveur émet la convention d'octets sur ce texte : il l'annonce, et le
     // client sans codec relit des `Uint8Array` sans rien avoir importé.
-    expect(JSON.parse(server.sent[0] as string).params.bytesMarker).toBe(
-      "$bytes",
-    );
+    expect(JSON.parse(server.sent[0] as string).params.bytes).toBe("$bytes");
     const res = await client.request<"echo", { echoed: string }>("echo", "a");
     expect(res.echoed).toBe("a");
     const bytes = await client.request<"echo", { echoed: Uint8Array }>(

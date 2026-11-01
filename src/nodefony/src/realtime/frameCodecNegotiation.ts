@@ -90,21 +90,21 @@ export function negotiateFrameCodec(
 }
 
 /**
- * Côté CLIENT : le codec que l'accueil annonce (champs `codec` et `bytesMarker` de
+ * Côté CLIENT : le codec que l'accueil annonce (champs `codec` et `bytes` de
  * `realtime:welcome`).
  *
  * Absent ou `nodefony.jsonrpc.v1` : le texte — un serveur sans codec ne pose pas le
  * champ. Le codec binaire offert : lui. Tout autre valeur est une faute du serveur,
  * qui n'a le droit de choisir que dans l'offre : `null`, à signaler.
  *
- * En texte, `bytesMarker` dit que le serveur émet la convention d'octets : le JSON
+ * En texte, `bytes` dit que le serveur émet la convention d'octets : le JSON
  * natif cède alors la place au JSON à convention, sans que la page ait rien importé.
  * Un codec texte choisi par l'application est gardé tel quel, et un marqueur inconnu
  * laisse le texte natif — les octets y arrivent sous leur enveloppe, rien ne casse.
  *
  * @param set - les codecs du client ({@link frameCodecSet}).
  * @param announced - la valeur du champ `codec` de l'accueil, telle que reçue.
- * @param bytesMarker - la valeur du champ `bytesMarker` de l'accueil, telle que reçue.
+ * @param bytesMarker - la valeur du champ `bytes` de l'accueil, telle que reçue.
  * @returns le codec à employer, ou `null` si l'annonce sort de l'offre.
  */
 export function adoptFrameCodec(

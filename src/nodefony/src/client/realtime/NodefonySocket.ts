@@ -197,7 +197,7 @@ export interface NodefonySocketOptions {
   /**
    * Codec BINAIRE à offrir au serveur — `CBOR_FRAME_CODEC`, importé de
    * `nodefony/cbor` (ADR-0022 §2). Absent : aucune offre, JSON-RPC texte, le
-   * fil d'avant #618 octet pour octet — sauf si l'accueil annonce `bytesMarker` :
+   * fil d'avant #618 octet pour octet — sauf si l'accueil annonce `bytes` :
    * le serveur émet alors la convention d'octets, et la socket la relit en
    * `Uint8Array` sans rien importer de plus.
    *
@@ -994,7 +994,7 @@ export class NodefonySocket<
    * Adopte le codec que l'accueil annonce (ADR-0022 §2) — chemin froid, une fois
    * par connexion. Absent ou `nodefony.jsonrpc.v1` : le texte. Celui qu'on a
    * offert : il porte toutes les frames qui suivent. Un autre : faute du serveur,
-   * dite par une notice, et la connexion reste en texte. En texte, `bytesMarker`
+   * dite par une notice, et la connexion reste en texte. En texte, le champ `bytes`
    * fait prendre le JSON à convention d'octets.
    */
   private adoptCodec(announced: unknown, bytesMarker: unknown): void {
@@ -1982,7 +1982,7 @@ export class NodefonySocket<
     this._subscriptionAcks = fieldOf(params, "subscriptionAcks") === true;
     // Avant le rejeu des abonnements (`dispatchNotification`) : ils partent déjà
     // dans le codec retenu.
-    this.adoptCodec(fieldOf(params, "codec"), fieldOf(params, "bytesMarker"));
+    this.adoptCodec(fieldOf(params, "codec"), fieldOf(params, "bytes"));
     if (params === null || typeof params !== "object") return;
     this._identity = identityOf(fieldOf(params, "identity"));
     this._serverChannels = stringsOf(fieldOf(params, "channels"));

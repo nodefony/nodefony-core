@@ -174,7 +174,7 @@ describe("négociation du codec — règle pure, partagée client/serveur", () =
     expect(adoptFrameCodec(frameCodecSet(), CBOR_PROTOCOL)).to.equal(null);
   });
 
-  it("client en texte : `bytesMarker` annoncé → JSON à convention, sauf codec texte choisi ou marqueur inconnu", () => {
+  it("client en texte : `bytes` annoncé → JSON à convention, sauf codec texte choisi ou marqueur inconnu", () => {
     const plain = frameCodecSet();
     // Le serveur émet la convention : le texte natif cède la place.
     expect(adoptFrameCodec(plain, undefined, BYTES_MARKER)).to.equal(
@@ -244,9 +244,9 @@ describe("NodefonySocket — sans codec : le fil d'avant, octet pour octet", () 
     client.disconnect();
   });
 
-  it("accueil qui annonce `bytesMarker` → les octets d'une charge arrivent en Uint8Array, sans rien importer", async () => {
+  it("accueil qui annonce `bytes` → les octets d'une charge arrivent en Uint8Array, sans rien importer", async () => {
     const { client, transport } = await connected(undefined, {
-      bytesMarker: BYTES_MARKER,
+      bytes: BYTES_MARKER,
     });
     expect(client.codec).to.equal(JSON_PROTOCOL);
     const got: unknown[] = [];
@@ -274,7 +274,7 @@ describe("NodefonySocket — sans codec : le fil d'avant, octet pour octet", () 
     client.disconnect();
   });
 
-  it("accueil SANS `bytesMarker` : un objet applicatif `$bytes` reste un objet", async () => {
+  it("accueil SANS `bytes` : un objet applicatif `$bytes` reste un objet", async () => {
     const { client, transport } = await connected();
     const got: unknown[] = [];
     client.on("c", (p) => got.push(p));

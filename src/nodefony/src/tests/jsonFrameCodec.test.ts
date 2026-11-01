@@ -206,7 +206,7 @@ describe("JSON_FRAME_CODEC — le défaut ne parcourt rien (ADR-0022 §2, décis
   // décodage, derrière un `includes` ») : sur le fil d'un serveur SANS codec, un
   // objet applicatif qui porte ce nom changerait de nature, ou ferait jeter la
   // trame entière. Le défaut ne peut donc pas réanimer : seule une annonce du
-  // serveur (champ `bytesMarker` de l'accueil) dit que la convention est armée.
+  // serveur (champ `bytes` de l'accueil) dit que la convention est armée.
   it("réanimer par défaut altérerait le fil d'un serveur sans codec : valeur changée ou trame jetée", () => {
     const applicative = `{"d":{"${BYTES_MARKER}":"AQL_"}}`;
     const unreadable = `{"d":{"${BYTES_MARKER}":"pas de l'octet !"}}`;
