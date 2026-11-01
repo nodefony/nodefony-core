@@ -12,9 +12,107 @@
  *
  * Usage : printf '%s' "$cmd" | node bash-rules.mjs   → `deny <raison>`, `ask <raison>`, ou rien
  */
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { bashSliceRefusal, parse } from "./code-slice.mjs";
+
+/**
+ * Le dépôt git qui contient `cwd` — la frontière des suppressions permises. Lu une
+ * fois, et seulement quand une suppression récursive apparaît (chemin froid).
+ *
+ * @param cwd - le répertoire de travail de la commande.
+ * @returns la racine du dépôt, ou null hors de tout dépôt.
+ */
+function repoRootOf(cwd) {
+  try {
+    return execFileSync("git", ["-C", cwd, "rev-parse", "--show-toplevel"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Le chemin RÉEL de `p`, même s'il n'existe pas encore : la partie existante passe par
+ * `realpath`, le reste s'y recolle. Sans cela, un lien symbolique (`/var` →
+ * `/private/var` sous macOS, où git rend le chemin réel) ferait juger « hors du
+ * dépôt » une cible qui y est.
+ */
+function realish(p) {
+  let head = p;
+  let tail = "";
+  while (!fs.existsSync(head)) {
+    const parent = path.dirname(head);
+    if (parent === head) return p;
+    tail =
+      tail === "" ? path.basename(head) : path.join(path.basename(head), tail);
+    head = parent;
+  }
+  const real = fs.realpathSync(head);
+  return tail === "" ? real : path.join(real, tail);
+}
+
+/** `a` est `b`, ou un de ses ancêtres. */
+function isSelfOrAncestor(a, b) {
+  return b === a || b.startsWith(a.endsWith(path.sep) ? a : a + path.sep);
+}
+
+/**
+ * 11. Suppression récursive : le danger se juge sur la CIBLE, pas sur le geste (règle
+ * de l'auteur : bloquer `rm -rf /` et toute suppression HORS du dépôt, laisser les
+ * autres). Trois verdicts par cible :
+ *  - REFUS : la racine du système, le dossier personnel ou un de leurs ancêtres, le
+ *    dépôt lui-même ou un de ses ancêtres, son `.git`, tout chemin hors du dépôt ;
+ *  - DEMANDE : une cible qu'on ne sait pas résoudre ici (variable, substitution,
+ *    `cd` qu'on ne sait pas suivre) — l'identité n'est pas prouvée ;
+ *  - rien : dans le dépôt (`tmp/`, `dist/`…).
+ * Un glob se juge sur le dossier qu'il vide : `rm -rf *` à la racine vide le dépôt.
+ *
+ * @param targets - les cibles de `rm`, options retirées.
+ * @param cwd - le répertoire où la commande s'exécute, null s'il est inconnu.
+ * @param root - la racine du dépôt, null hors dépôt.
+ * @returns le verdict, ou null si toutes les cibles sont dans le dépôt.
+ */
+function removalVerdict(targets, cwd, root) {
+  const home = realish(os.homedir());
+  let unknown = null;
+  for (const t of targets) {
+    if (
+      /[$`]/.test(t) ||
+      (cwd === null && !path.isAbsolute(t) && !t.startsWith("~"))
+    ) {
+      unknown ??= t;
+      continue;
+    }
+    let p = t === "~" || t.startsWith("~/") ? home + t.slice(1) : t;
+    // Un glob vide le dossier qui le porte : on juge ce dossier.
+    const glob = p.search(/[*?[]/);
+    if (glob !== -1) p = p.slice(0, p.lastIndexOf("/", glob) + 1) || ".";
+    const abs = realish(path.resolve(cwd ?? "/", p));
+    const fatal =
+      abs === path.parse(abs).root ||
+      isSelfOrAncestor(abs, home) ||
+      (root !== null &&
+        (isSelfOrAncestor(abs, root) ||
+          isSelfOrAncestor(path.join(root, ".git"), abs)));
+    if (fatal || root === null || !isSelfOrAncestor(root, abs))
+      return {
+        decision: "deny",
+        reason: `REFUS — suppression récursive ${fatal ? "DESTRUCTRICE" : "HORS du dépôt"} : « ${t} » → ${abs}${root === null ? " (aucun dépôt git autour du répertoire courant)" : ` (dépôt : ${root})`}. Règle de l'auteur : jamais \`rm -rf\` sur la racine, le dossier personnel, le dépôt ou son \`.git\`, ni hors du dépôt. Un nettoyage hors du dépôt se PROPOSE à l'auteur (\`! rm -rf …\`), il ne s'exécute pas.`,
+      };
+  }
+  if (unknown !== null)
+    return {
+      decision: "ask",
+      reason: `suppression récursive dont la cible ne se résout pas ici (« ${unknown} » : variable, substitution ou \`cd\` non suivi) — l'auteur confirme. Écrire la cible en clair, relative au dépôt, la laisse passer sans question.`,
+    };
+  return null;
+}
 
 /** Le verbe d'une étape et ses arguments, affectations de tête sautées. */
 function verbOf(words) {
@@ -54,8 +152,14 @@ function isTestOrBuild(verb, args) {
  * Le verdict d'une commande : `{ decision: "deny" | "ask", reason }`, ou null.
  *
  * @param cmd - la commande Bash telle que l'agent l'envoie.
+ * @param startCwd - le répertoire où elle s'exécute (le `cwd` du payload du hook).
  */
-export function bashVerdict(cmd) {
+export function bashVerdict(
+  cmd,
+  startCwd = process.env.NF_GUARD_CWD || process.cwd(),
+) {
+  let cwd = startCwd;
+  let root = null;
   const slice = bashSliceRefusal(cmd);
   if (slice) return { decision: "deny", reason: slice };
 
@@ -104,18 +208,30 @@ export function bashVerdict(cmd) {
     }
 
     for (const [verb, args] of verbs) {
-      // 11. `rm -rf` : jamais sans demander, même un décor temporaire (règle de l'auteur).
+      // Le `cd` déplace la cible des suppressions qui le suivent : on le suit quand il
+      // est littéral, sinon le répertoire devient inconnu.
+      if (verb === "cd") {
+        const to = args[0];
+        if (to === undefined || to === "~") cwd = os.homedir();
+        else if (/[$`]/.test(to) || to === "-") cwd = null;
+        else if (to.startsWith("~/")) cwd = os.homedir() + to.slice(1);
+        else if (path.isAbsolute(to)) cwd = to;
+        else if (cwd !== null) cwd = path.resolve(cwd, to);
+        continue;
+      }
+      // 11. Suppression récursive : jugée sur sa cible (cf `removalVerdict`).
       if (
         verb === "rm" &&
-        args.some((a) => /^-[a-zA-Z]*r/i.test(a) || a === "--recursive") &&
-        args.some((a) => /^-[a-zA-Z]*f/.test(a) || a === "--force")
-      )
-        return {
-          decision: "ask",
-          reason:
-            "`rm -rf` — l'auteur confirme chaque suppression récursive (règle : jamais sans demander, même un décor temporaire). Cible : " +
-            args.filter((a) => !a.startsWith("-")).join(" "),
-        };
+        args.some((a) => /^-[a-zA-Z]*[rR]/.test(a) || a === "--recursive")
+      ) {
+        // La frontière est le dépôt de DÉPART : un `cd` vers un autre dépôt
+        // n'élargit pas le droit de supprimer.
+        root ??= repoRootOf(startCwd);
+        const targets = args.filter((a) => !a.startsWith("-"));
+        const v = removalVerdict(targets, cwd, root);
+        if (v) return v;
+        continue;
+      }
       if (verb !== "git" && verb !== "gh") continue;
       if (verb === "gh") {
         // 12. `gh issue|pr comment` chaîné : le classifieur refuse la commande composée.

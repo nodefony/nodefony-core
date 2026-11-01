@@ -154,7 +154,20 @@ EOF" \
   'gh issue comment 618 --body x && git push' 'git push; gh pr comment 3 -b ok'; do
   t deny "$c"
 done
-for c in 'rm -rf tmp/bench/x' 'rm -fr a' 'rm -r -f b' 'ls && rm --recursive --force c'; do t ask "$c"; done
+echo "=== règle 11 — suppression récursive DESTRUCTRICE ou HORS du dépôt : doit REFUSER ==="
+# Le dépôt est le dépôt JETABLE du banc ($R) : c'est lui la frontière.
+for c in 'rm -rf /' 'rm -rf /*' 'rm -rf ~' 'rm -rf ~/projets' 'rm -rf /tmp/x' \
+  'rm -rf ..' 'rm -rf .' 'rm -rf *' 'rm -rf ./*' 'rm -rf .git' 'rm -r ../voisin' \
+  'cd /tmp && rm -rf x' 'ls && rm --recursive --force /etc' 'rm -fr a /usr/local'; do
+  t deny "$c"
+done
+echo "=== règle 11 — cible non résoluble ici : l'auteur confirme ==="
+for c in 'rm -rf $B/x' 'rm -rf "$(pwd)/x"' 'cd $D && rm -rf x'; do t ask "$c"; done
+echo "=== règle 11 — DANS le dépôt : doit PASSER ==="
+for c in 'rm -rf tmp/bench/x' 'rm -fr a' 'rm -r -f b' 'rm -rf tmp/*' 'rm -rf ./dist' \
+  'rm -rf a/../b' "rm -rf $R/tmp/x" "cd $R/sub && rm -rf x"; do
+  t PASSE "$c"
+done
 echo "=== règles 8 à 14 — voisins légitimes : doivent PASSER ==="
 for c in 'git commit -m "docs: pas de trailer Co-Authored"' 'npm test > tmp/runs/t.log 2>&1; echo "exit $?"' \
   'set -o pipefail; node a.mjs | grep x; echo $?' 'ls 2>&1 | grep x' 'git log --oneline | head -5' \

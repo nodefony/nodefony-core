@@ -116,12 +116,12 @@ fi
 # 6. et 8 à 14. Les règles qui exigent de COMPRENDRE la commande (guillemets, heredocs,
 #    étapes de pipeline) vivent en Node, un seul lancement par commande :
 #    6  lire du code par tranche — TOUTE tranche (`code-slice.mjs`, partagé avec guard-read)
-#    8  trailer `Co-Authored-By: Claude`      11 `rm -rf` → demande à l'auteur (ask)
+#    8  trailer `Co-Authored-By: Claude`      11 `rm -r` : refus hors dépôt / racine, demande si cible non résolue
 #    9  sortie de test/build | head|tail       12 `gh issue|pr comment` chaîné
 #    10 `$?` lu après un pipe                  13 `--no-verify`   14 `git add -A` / `.`
 #    15 message de commit refusé par commitlint (même config), AVANT le pre-commit
 #    Raisons, mesures et commandes de remplacement : `bash-rules.mjs`.
-verdict_node=$(printf '%s' "$cmd" | node "$(dirname "${BASH_SOURCE[0]}")/bash-rules.mjs" 2>/dev/null)
+verdict_node=$(printf '%s' "$cmd" | NF_GUARD_CWD="$cwd" node "$(dirname "${BASH_SOURCE[0]}")/bash-rules.mjs" 2>/dev/null)
 case $verdict_node in
   "deny "*) deny "${verdict_node#deny }" ;;
   "ask "*) ask "${verdict_node#ask }" ;;
