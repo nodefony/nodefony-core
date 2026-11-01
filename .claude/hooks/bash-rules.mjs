@@ -63,14 +63,36 @@ function isSelfOrAncestor(a, b) {
 }
 
 /**
+ * Zones jetables HORS du dépôt où une suppression récursive est permise — leur
+ * CONTENU, jamais leur racine : le dossier temporaire du système (`os.tmpdir()`, et
+ * `/tmp` résolu — `/private/tmp` sous macOS) et `~/.claude` (bloc-notes et traces
+ * de session). Résolues comme les cibles, pour que la comparaison porte sur le même
+ * chemin réel.
+ *
+ * @param home - le dossier personnel, déjà résolu.
+ * @returns les racines des zones, sans doublon.
+ */
+function scratchZones(home) {
+  return [
+    ...new Set([
+      realish(os.tmpdir()),
+      realish("/tmp"),
+      realish(path.join(home, ".claude")),
+    ]),
+  ];
+}
+
+/**
  * 11. Suppression récursive : le danger se juge sur la CIBLE, pas sur le geste (règle
- * de l'auteur : bloquer `rm -rf /` et toute suppression HORS du dépôt, laisser les
- * autres). Trois verdicts par cible :
+ * de l'auteur : bloquer `rm -rf /` et toute suppression HORS du dépôt et des zones
+ * jetables, laisser les autres). Trois verdicts par cible :
  *  - REFUS : la racine du système, le dossier personnel ou un de leurs ancêtres, le
- *    dépôt lui-même ou un de ses ancêtres, son `.git`, tout chemin hors du dépôt ;
+ *    dépôt lui-même ou un de ses ancêtres, son `.git`, la RACINE d'une zone jetable,
+ *    tout autre chemin hors du dépôt ;
  *  - DEMANDE : une cible qu'on ne sait pas résoudre ici (variable, substitution,
  *    `cd` qu'on ne sait pas suivre) — l'identité n'est pas prouvée ;
- *  - rien : dans le dépôt (`tmp/`, `dist/`…).
+ *  - rien : dans le dépôt (`tmp/`, `dist/`…), ou DANS une zone jetable
+ *    ({@link scratchZones}).
  * Un glob se juge sur le dossier qu'il vide : `rm -rf *` à la racine vide le dépôt.
  *
  * @param targets - les cibles de `rm`, options retirées.
@@ -80,6 +102,7 @@ function isSelfOrAncestor(a, b) {
  */
 function removalVerdict(targets, cwd, root) {
   const home = realish(os.homedir());
+  const zones = scratchZones(home);
   let unknown = null;
   for (const t of targets) {
     if (
@@ -100,10 +123,14 @@ function removalVerdict(targets, cwd, root) {
       (root !== null &&
         (isSelfOrAncestor(abs, root) ||
           isSelfOrAncestor(path.join(root, ".git"), abs)));
-    if (fatal || root === null || !isSelfOrAncestor(root, abs))
+    // Une zone jetable se vide, elle ne s'efface pas : sa racine n'est pas « dedans »
+    // (`abs !== z`), donc refusée comme tout chemin hors du dépôt — nommée DESTRUCTRICE.
+    const zoneRoot = zones.includes(abs);
+    const inZone = zones.some((z) => abs !== z && isSelfOrAncestor(z, abs));
+    if (fatal || (!inZone && (root === null || !isSelfOrAncestor(root, abs))))
       return {
         decision: "deny",
-        reason: `REFUS — suppression récursive ${fatal ? "DESTRUCTRICE" : "HORS du dépôt"} : « ${t} » → ${abs}${root === null ? " (aucun dépôt git autour du répertoire courant)" : ` (dépôt : ${root})`}. Règle de l'auteur : jamais \`rm -rf\` sur la racine, le dossier personnel, le dépôt ou son \`.git\`, ni hors du dépôt. Un nettoyage hors du dépôt se PROPOSE à l'auteur (\`! rm -rf …\`), il ne s'exécute pas.`,
+        reason: `REFUS — suppression récursive ${fatal || zoneRoot ? "DESTRUCTRICE" : "HORS du dépôt"} : « ${t} » → ${abs}${root === null ? " (aucun dépôt git autour du répertoire courant)" : ` (dépôt : ${root})`}. Règle de l'auteur : jamais \`rm -rf\` sur la racine, le dossier personnel, le dépôt ou son \`.git\`, ni sur la racine d'une zone jetable (${zones.join(", ")}) ; hors du dépôt, seul le CONTENU de ces zones se supprime. Ailleurs, un nettoyage se PROPOSE à l'auteur (\`! rm -rf …\`), il ne s'exécute pas.`,
       };
   }
   if (unknown !== null)

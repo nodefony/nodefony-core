@@ -156,16 +156,22 @@ EOF" \
 done
 echo "=== règle 11 — suppression récursive DESTRUCTRICE ou HORS du dépôt : doit REFUSER ==="
 # Le dépôt est le dépôt JETABLE du banc ($R) : c'est lui la frontière.
-for c in 'rm -rf /' 'rm -rf /*' 'rm -rf ~' 'rm -rf ~/projets' 'rm -rf /tmp/x' \
-  'rm -rf ..' 'rm -rf .' 'rm -rf *' 'rm -rf ./*' 'rm -rf .git' 'rm -r ../voisin' \
-  'cd /tmp && rm -rf x' 'ls && rm --recursive --force /etc' 'rm -fr a /usr/local'; do
+# Zone jetable : son CONTENU se supprime, sa racine jamais (un glob vide la racine).
+T=$(node -p 'require("node:os").tmpdir()')
+for c in 'rm -rf /' 'rm -rf /*' 'rm -rf ~' 'rm -rf ~/projets' \
+  'rm -rf ..' 'rm -rf .' 'rm -rf *' 'rm -rf ./*' 'rm -rf .git' 'rm -r ~/voisin' \
+  'ls && rm --recursive --force /etc' 'rm -fr a /usr/local' \
+  'rm -rf /tmp' 'rm -rf /tmp/' 'rm -rf /tmp/*' "rm -rf $T" "rm -rf $T/*" \
+  'rm -rf ~/.claude' 'rm -rf ~/.claude/' 'rm -rf ~/.claude/*' 'rm -rf ~/.claude/../projets'; do
   t deny "$c"
 done
 echo "=== règle 11 — cible non résoluble ici : l'auteur confirme ==="
 for c in 'rm -rf $B/x' 'rm -rf "$(pwd)/x"' 'cd $D && rm -rf x'; do t ask "$c"; done
 echo "=== règle 11 — DANS le dépôt : doit PASSER ==="
 for c in 'rm -rf tmp/bench/x' 'rm -fr a' 'rm -r -f b' 'rm -rf tmp/*' 'rm -rf ./dist' \
-  'rm -rf a/../b' "rm -rf $R/tmp/x" "cd $R/sub && rm -rf x"; do
+  'rm -rf a/../b' "rm -rf $R/tmp/x" "cd $R/sub && rm -rf x" \
+  'rm -rf /tmp/x' 'cd /tmp && rm -rf x' "rm -rf $T/nf-banc-x" \
+  'rm -rf ~/.claude/projects/x/scratchpad' 'rm -rf ~/.claude/plugins/cache/y'; do
   t PASSE "$c"
 done
 echo "=== règles 8 à 14 — voisins légitimes : doivent PASSER ==="
