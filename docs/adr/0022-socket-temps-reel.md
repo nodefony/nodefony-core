@@ -177,6 +177,21 @@ dans l'écho du handshake, et le défaut d'écho de `ws` ne change pas en 10.x (
     (`NodefonySocket.onBinary`/`sendBinary`, `RealtimeController.onRealtimeBinary`) est refusé
     avec une notice et ne sert que les connexions texte. Des octets passent par les canaux, qui
     ont les portes B1 à B4 (§3).
+- **Le client texte prend la convention sur ANNONCE du serveur (validé par l'auteur le
+  2026-11-01).** Un serveur qui a activé un codec binaire émet `$bytes` sur ses connexions
+  texte ; il le dit dans `realtime:welcome` par le champ **`bytes`** (valeur
+  `IFrameCodec.bytesMarker`, `"$bytes"` ; la valeur nomme la convention, une autre serait
+  ignorée par le client actuel), et le client passe alors au JSON à convention sans
+  avoir rien importé (`src/nodefony/src/realtime/frameCodecNegotiation.ts#adoptFrameCodec`). Un
+  codec texte choisi par l'application est gardé ; un marqueur inconnu laisse le JSON natif.
+  Coût : le codec à convention et le base64url entrent dans le paquet client, mesuré
+  **+0,57 Ko gzip** (esbuild minifié) ; aucun coût par trame tant que le serveur n'annonce rien.
+  - Écarté : **réanimer `$bytes` par défaut au décodage** — sur le fil d'un serveur sans codec,
+    un objet applicatif `{"$bytes": …}` deviendrait des octets, ou ferait jeter la trame entière
+    si sa chaîne n'est pas du base64url (preuve :
+    `src/nodefony/src/tests/jsonFrameCodec.test.ts`, « réanimer par défaut altérerait le fil ») ;
+    **exporter le codec à convention et laisser la page l'importer** — sûr, mais le serveur sait
+    ce que la page devrait deviner.
 - **Débogage par décodage à l'observation**, jamais en changeant le fil : le traceur WS
   (`src/packages/@nodefony/http/nodefony/src/context/websocket/wsLogContent.ts#formatWsLogContent`),
   Studio et la barre de debug affichent une trame binaire décodée ; coût nul en production, où

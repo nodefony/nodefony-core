@@ -160,9 +160,9 @@ client.on("doc:42", (charge) => { … }); // un Uint8Array arrive en Uint8Array
 - **Passe `codec` à la PREMIÈRE création** de la socket partagée (souvent le noyau client) : un
   `shared()` suivant rend l'instance existante, réglages compris (la console le dit en développement).
 - **Ne déduis rien de l'écho du handshake** : le codec retenu se lit dans `socket.codec`, annoncé
-  par le serveur à l'accueil. Un serveur qui ne choisit pas reste en texte, rien ne casse — et les
-  octets voyagent alors en `{"$bytes": "…"}`, réanimés en `Uint8Array`. Le serveur de cette version
-  ne choisit pas encore de codec : offrir est sans risque, l'effet vient avec la version qui le branche.
+  par le serveur à l'accueil. Un serveur qui n'a activé aucun codec reste en texte natif, rien ne
+  casse. S'il en a activé un (`codec: "cbor"`) que la page n'a pas pris, il l'annonce par le champ
+  `bytes` de l'accueil, et la socket relit les octets en `Uint8Array` sans rien importer.
 - **N'invente pas d'en-tête binaire maison** pour router des octets : une charge qui contient un
   `Uint8Array` passe par `publish` / `on(canal)`, avec les mêmes politiques de canal que le texte.
   `onBinary()` / `sendBinary()` ne servent qu'un protocole binaire propre à l'application, sur une

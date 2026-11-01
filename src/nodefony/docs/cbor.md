@@ -231,7 +231,8 @@ console.log(socket.codec); // « nodefony.jsonrpc.v1 » tant que l'accueil n'a r
 
 Le client l'offre au handshake, le serveur choisit et l'annonce dans `realtime:welcome` ; une
 connexion restée en texte porte les octets sous la convention `{"$bytes": …}`
-(`IFrameCodec.textCodec`). Le déroulé, les cas limites et la mesure texte contre CBOR sont dans
+(`IFrameCodec.textCodec`), annoncée par le champ `bytes` de l'accueil : un client sans codec les relit
+aussi en `Uint8Array`. Le déroulé, les cas limites et la mesure texte contre CBOR sont dans
 [Client isomorphe — Choisir le codec de trame](client.md#choisir-le-codec-de-trame--texte-ou-cbor).
 
 ## 📜 Normes appliquées

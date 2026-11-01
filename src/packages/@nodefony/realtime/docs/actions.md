@@ -576,7 +576,8 @@ Ce que j'**envoie** est le type déclaré ; ce que je **reçois** est `Jsonify<T
 de ce type, quel que soit le codec. Une `Date` arrive en `string`, un membre fonction ou
 `undefined` disparaît, `bigint` n'a pas de forme JSON. Seul `Uint8Array` reste `Uint8Array` — en
 chaîne d'octets native sous le codec CBOR, sous la convention `{"$bytes":"<base64url>"}` sur une
-connexion texte dont l'application a activé le binaire (ADR-0022 §2).
+connexion texte dont l'application a activé le binaire, annoncée par le champ `bytes` de l'accueil :
+un client sans codec les relit aussi en `Uint8Array` (ADR-0022 §2).
 
 | Qui reçoit                                               | Quoi             | Type reçu    |
 | -------------------------------------------------------- | ---------------- | ------------ |

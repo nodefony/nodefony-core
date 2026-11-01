@@ -29,7 +29,7 @@ source: "src/packages/@nodefony/devkit/skills/nodefony-add-realtime-channel/SKIL
 | Version | — (non versionné) |
 | Famille | Autres |
 | Corps | 229 lignes |
-| Coût d'activation | ~2 944 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~2 940 tokens (le corps est chargé à l'invocation) |
 | Description | 998 / 1024 caractères |
 | Déclencheurs | 23 |
 | Ressources `references/` | 0 page(s) |

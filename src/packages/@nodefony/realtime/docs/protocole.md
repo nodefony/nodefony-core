@@ -278,8 +278,13 @@ Un septième champ, **`codec`**, est réservé au codec de trame retenu pour les
 (`RealtimeEventMap.ts#IRealtimeWelcome.codec`, ADR-0022 §2) : un des sous-protocoles que le client a
 offerts au handshake. **Absent, il vaut `nodefony.jsonrpc.v1`** — JSON-RPC texte —, et le codec ne se
 déduit jamais de l'écho `Sec-WebSocket-Protocol`, que `ws` renvoie qu'il parle le sous-protocole ou
-non. Le client sait l'offrir et l'adopter (`frameCodecNegotiation.ts#adoptFrameCodec`) ; le serveur de
-cette version ne le choisit pas encore (#618), et n'émet donc jamais le champ.
+non. Le client sait l'offrir et l'adopter (`frameCodecNegotiation.ts#adoptFrameCodec`) ; le serveur le
+choisit quand l'application active `codec: "cbor"`, et renvoie ce choix dans le handshake.
+
+Un huitième, **`bytes`**, dit qu'une connexion restée en texte reçoit les octets sous la convention
+`{"$bytes":"<base64url>"}` (`RealtimeEventMap.ts#IRealtimeWelcome.bytes`) : le serveur l'émet quand il a
+activé un codec binaire que le client n'a pas pris, et le client relit alors des `Uint8Array` sans rien
+importer. Absent : JSON natif. La valeur nomme la convention ; une valeur inconnue laisse le JSON natif.
 
 ## 🔌 Anatomie d'une frame, champ par champ
 
@@ -404,7 +409,7 @@ sequenceDiagram
   participant P as JsonRpcPeer (serveur)
   participant H as RealtimeHub
   C->>P: handshake WebSocket
-  P-->>C: realtime:welcome — ts, protocol, channels, methods, identity, codec?
+  P-->>C: realtime:welcome — ts, protocol, channels, methods, identity, codec?, bytes?
   C->>P: subscribe — params.channel = "nodefony:orm:health"
   Note over P,H: le hub crée le producteur au 1er abonné
   P-->>C: nodefony:orm:health — params { queries: 42 }
