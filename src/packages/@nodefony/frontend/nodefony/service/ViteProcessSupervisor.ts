@@ -226,6 +226,30 @@ export function startupTimeoutMessage(
     : base;
 }
 
+/** Caractères de la sortie de vite joints au message d'un arrêt prématuré. */
+const EXIT_OUTPUT_TAIL_CHARS = 800;
+
+/**
+ * Message d'un vite sorti AVANT d'annoncer son adresse : le code de sortie, suivi de la
+ * fin de ce qu'il a écrit. Sans cette fin, la cause (config illisible, dépendance
+ * absente, port pris) reste muette — vécu en intégration continue, un rouge que rien ne
+ * permettait d'instruire.
+ *
+ * @param code - code de sortie du process, `null` s'il a été tué par un signal.
+ * @param signal - signal qui l'a terminé, s'il y en a un.
+ * @param observed - sortie (stdout + stderr) accumulée avant l'arrêt, sans codes ANSI.
+ * @returns le message, borné à {@link EXIT_OUTPUT_TAIL_CHARS} caractères de sortie.
+ */
+export function exitBeforeReadyMessage(
+  code: number | null,
+  signal: string | null,
+  observed: string,
+): string {
+  const base = `vite exited (code=${code}, signal=${signal}) before ready`;
+  const tail = observed.trim().slice(-EXIT_OUTPUT_TAIL_CHARS);
+  return tail === "" ? base : `${base} — sortie de vite :\n${tail}`;
+}
+
 /**
  * Superviseur Vite résilient — branche POC `poc/frontend-child`.
  *
@@ -618,7 +642,7 @@ export class ViteProcessSupervisor implements IViteSupervisor {
           // détecteur que `isPortInUseError` (une 2ᵉ regex divergeait : celle-ci
           // cherchait « Port X is in use » quand Vite écrit « Port X is ALREADY
           // in use » → elle ne matchait jamais, et la famille Vite mourait).
-          const msg = `vite exited (code=${code}, signal=${signal}) before ready`;
+          const msg = exitBeforeReadyMessage(code, signal, buffer);
           this.state = "errored";
           this.lastError = msg;
           if (isPortInUseMessage(buffer)) {

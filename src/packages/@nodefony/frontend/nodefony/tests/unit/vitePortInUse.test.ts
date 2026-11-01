@@ -1,6 +1,7 @@
 /// <reference types="node" />
 import { expect } from "vitest";
 import {
+  exitBeforeReadyMessage,
   isPortInUseMessage,
   startupTimeoutMessage,
 } from "../../service/ViteProcessSupervisor";
@@ -141,6 +142,40 @@ describe("Vite — reconnaître un port occupé", () => {
           startupTimeoutMessage(20_000, "optimizing dependencies…"),
         ),
       ).to.equal(false);
+    });
+  });
+
+  /**
+   * Un vite sorti avant d'être prêt doit DIRE pourquoi. Vécu en intégration continue :
+   * « vite exited (code=1) before ready », rien d'autre — la cause était dans le
+   * tampon, et le message la jetait.
+   */
+  describe("arrêt avant d'être prêt — la sortie de vite voyage avec le message", () => {
+    it("la fin de la sortie est jointe, et un port occupé y reste reconnaissable", () => {
+      const msg = exitBeforeReadyMessage(
+        1,
+        null,
+        "[vite] failed to load config from vite.config.generated.mjs\nError: Cannot find module '@vitejs/plugin-vue'",
+      );
+      expect(msg).to.contain("code=1");
+      expect(msg).to.contain("Cannot find module '@vitejs/plugin-vue'");
+      expect(
+        isPortInUseMessage(
+          exitBeforeReadyMessage(1, null, "Error: Port 5173 is already in use"),
+        ),
+      ).to.equal(true);
+    });
+
+    it("bornée : une sortie énorme ne garde que sa fin", () => {
+      const msg = exitBeforeReadyMessage(1, null, "x".repeat(10_000) + "CAUSE");
+      expect(msg.length).to.be.lessThan(1_000);
+      expect(msg.endsWith("CAUSE")).to.equal(true);
+    });
+
+    it("sans sortie : le message nu, sans suffixe vide", () => {
+      expect(exitBeforeReadyMessage(null, "SIGKILL", "  ")).to.equal(
+        "vite exited (code=null, signal=SIGKILL) before ready",
+      );
     });
   });
 });
