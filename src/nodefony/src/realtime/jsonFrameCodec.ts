@@ -62,9 +62,37 @@ function walk(value: unknown, depth: number): boolean {
  */
 function bytesReplacer(this: unknown, key: string, value: unknown): unknown {
   const original = isRecord(this) ? this[key] : value;
-  return original instanceof Uint8Array
-    ? { [BYTES_MARKER]: toBase64Url(original) }
-    : value;
+  if (original instanceof Uint8Array)
+    return { [BYTES_MARKER]: toBase64Url(original) };
+  if (isLoneMarker(value)) throw forgedMarkerError(key);
+  return value;
+}
+
+/**
+ * Dit si une valeur a exactement la forme que le récepteur réanime en octets :
+ * un objet dont la SEULE clé est le marqueur, porteur d'une chaîne. Même règle
+ * que {@link bytesReviver}, lue de l'autre côté du fil.
+ */
+function isLoneMarker(value: unknown): boolean {
+  if (!isRecord(value) || Array.isArray(value)) return false;
+  if (typeof value[BYTES_MARKER] !== "string") return false;
+  for (const key in value) if (key !== BYTES_MARKER) return false;
+  return true;
+}
+
+/**
+ * Un objet applicatif qui a la forme exacte du marqueur ne peut pas traverser ce
+ * codec : le récepteur le relirait en octets (ou jetterait la trame entière si sa
+ * chaîne n'est pas du base64url), alors qu'un abonné CBOR recevrait l'objet. On
+ * le REFUSE plutôt que de laisser la même publication changer de nature selon le
+ * codec du récepteur. La valeur n'est jamais recopiée dans le message.
+ */
+function forgedMarkerError(key: string): TypeError {
+  return new TypeError(
+    `codec JSON : objet {"${BYTES_MARKER}": …} non issu d'octets` +
+      (key === "" ? "" : ` sous la clé "${key}"`) +
+      " — le récepteur le relirait en octets ; envoyer un Uint8Array, ou ajouter une autre clé à l'objet",
+  );
 }
 
 function bytesReviver(_key: string, value: unknown): unknown {
@@ -82,8 +110,15 @@ function binaryFrameError(): TypeError {
   );
 }
 
-/** Motif cherché dans le texte reçu avant de payer le reviver. */
-const MARKER_PROBE = `"${BYTES_MARKER}"`;
+/**
+ * Motif cherché dans le texte avant de payer le reviver (réception) ou le replacer
+ * (émission). SANS guillemets, volontairement : un motif qui commence par `"` bute
+ * sur chaque guillemet du JSON, et V8 bascule alors sur une recherche à table qu'il
+ * reconstruit à chaque appel — mesuré ~220 ns sur une trame de 80 octets, contre
+ * quelques dizaines avec `$bytes`, caractère rare dans du JSON. Un filtre large ne
+ * coûte que des faux positifs, que le reviver et le replacer tranchent.
+ */
+const MARKER_PROBE = BYTES_MARKER;
 
 /**
  * Le codec JSON par défaut de la socket : `JSON.stringify` / `JSON.parse`, rien d'autre.
@@ -111,6 +146,10 @@ export const JSON_FRAME_CODEC = {
  * par trame, d'où son armement à l'activation seulement. La réception ne paie qu'un
  * `includes` sur le texte, puis le reviver si le marqueur y figure.
  *
+ * Un objet applicatif qui a la forme EXACTE du marqueur (seule clé, valeur chaîne) est
+ * refusé à l'émission : relu en octets d'un côté, en objet de l'autre, il changerait de
+ * nature selon le codec du récepteur (ADR-0022 §2).
+ *
  * Un client ne l'arme pas de lui-même : il le prend quand l'accueil du serveur annonce
  * la convention (champ `bytes`, `adoptFrameCodec`). Sur le fil d'un serveur sans codec,
  * un objet applicatif `{"$bytes": …}` changerait sinon de nature.
@@ -120,9 +159,15 @@ export const JSON_BYTES_FRAME_CODEC = {
   // Annoncé par le serveur dans l'accueil : un client resté en texte s'y accorde.
   bytesMarker: BYTES_MARKER,
   encode(frame: unknown): string {
-    return containsBytes(frame)
-      ? JSON.stringify(frame, bytesReplacer)
-      : JSON.stringify(frame);
+    if (containsBytes(frame)) return JSON.stringify(frame, bytesReplacer);
+    const text = JSON.stringify(frame);
+    // Sans octets, le marqueur n'a rien à faire dans le texte produit : présent,
+    // c'est un objet applicatif qui en a la forme, ou une simple chaîne qui le
+    // contient. Le replacer tranche, et lève sur le premier cas. Coût sur le
+    // chemin normal : un `includes`, le même que paie le décodage.
+    if (text.includes(MARKER_PROBE))
+      return JSON.stringify(frame, bytesReplacer);
+    return text;
   },
   decode(data: string | Uint8Array): unknown {
     if (typeof data !== "string") throw binaryFrameError();

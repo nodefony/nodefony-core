@@ -256,3 +256,66 @@ describe("CBOR_FRAME_CODEC — la frame en CBOR, et la même valeur à l'arrivé
     ).toBe(true);
   });
 });
+
+describe("JSON_BYTES_FRAME_CODEC — un marqueur FORGÉ est refusé à l'émission (#618, ADR-0022 §2)", () => {
+  const forged = (marker: string) => ({
+    jsonrpc: "2.0",
+    method: "chat",
+    params: { note: { [BYTES_MARKER]: marker } },
+  });
+
+  it("sans octets dans la charge : l'objet qui a la forme exacte du marqueur lève, en nommant sa clé", () => {
+    expect(() => JSON_BYTES_FRAME_CODEC.encode(forged("AAEC"))).toThrow(
+      /non issu d'octets sous la clé "note"/,
+    );
+    // Une chaîne invalide aurait fait jeter la trame chez chaque abonné texte.
+    expect(() => JSON_BYTES_FRAME_CODEC.encode(forged("!!!"))).toThrow(
+      TypeError,
+    );
+  });
+
+  it("à côté de vrais octets : les octets passent, le forgé lève quand même", () => {
+    const frame = {
+      params: { real: new Uint8Array([1]), ...forged("AAEC").params },
+    };
+    expect(() => JSON_BYTES_FRAME_CODEC.encode(frame)).toThrow(
+      /sous la clé "note"/,
+    );
+  });
+
+  it("le message ne recopie jamais la valeur forgée", () => {
+    let message = "";
+    try {
+      JSON_BYTES_FRAME_CODEC.encode(forged("SECRET-VALUE"));
+    } catch (e) {
+      message = e instanceof Error ? e.message : String(e);
+    }
+    expect(message).not.toContain("SECRET-VALUE");
+  });
+
+  it("un `toJSON` qui rend la forme du marqueur est refusé aussi : c'est le texte émis qui compte", () => {
+    const sneaky = { toJSON: () => ({ [BYTES_MARKER]: "AAEC" }) };
+    expect(() => JSON_BYTES_FRAME_CODEC.encode({ params: { sneaky } })).toThrow(
+      TypeError,
+    );
+  });
+
+  it("ce que le récepteur garde en objet passe intact : marqueur accompagné, non chaîne, ou simple texte", () => {
+    const frame = {
+      a: { [BYTES_MARKER]: "AAEC", x: 1 },
+      b: { [BYTES_MARKER]: 3 },
+      c: `il a écrit "${BYTES_MARKER}" dans le salon`,
+      d: [BYTES_MARKER],
+    };
+    const text = JSON_BYTES_FRAME_CODEC.encode(frame);
+    // Octet pour octet ce que JSON.stringify rend, et relu à l'identique.
+    expect(text).toBe(JSON.stringify(frame));
+    expect(JSON_BYTES_FRAME_CODEC.decode(text)).toEqual(frame);
+  });
+
+  it("le codec JSON natif n'est pas concerné : sans convention, rien n'est réanimé, rien n'est refusé", () => {
+    expect(JSON_FRAME_CODEC.encode(forged("AAEC"))).toBe(
+      JSON.stringify(forged("AAEC")),
+    );
+  });
+});

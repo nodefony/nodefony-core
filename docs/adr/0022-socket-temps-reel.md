@@ -164,6 +164,22 @@ dans l'écho du handshake, et le défaut d'écho de `ws` ne change pas en 10.x (
   - Écarté : **parcours toujours armé** (chaque application paierait ~30 % par trame texte pour un
     service que la plupart n'emploient pas) ; **codec JSON sans convention** (contredit la décision
     du 2026-10-29 portée par #618 : le client texte rend un `Uint8Array`).
+  - **Un marqueur FORGÉ est refusé à l'émission (validé par l'auteur le 2026-11-01).** Un objet
+    applicatif qui a la forme exacte du marqueur (seule clé, valeur chaîne) sans venir d'octets —
+    carte texte envoyée par un client CBOR, `params` relayés tels quels par l'application — serait
+    relu en octets par un abonné texte, ou ferait jeter la trame entière si sa chaîne n'est pas du
+    base64url, pendant qu'un abonné CBOR recevrait l'objet. Le codec à convention lève donc sur cet
+    objet, en nommant sa clé et sans recopier la valeur ; la diffusion mutualisée laisse UN abonné
+    dire l'échec (`src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts#ChannelFrame.claimFailure`),
+    jamais une ligne de journal et un encodage par abonné. Coût sur le chemin normal : un
+    `includes` sur le texte produit, motif `$bytes` SANS guillemets (avec, V8 bascule sur une
+    recherche à table reconstruite à chaque appel) — mesuré +12 % à l'encodage d'une trame de
+    80 octets, +0,5 % à 11 Ko, et −19 % / −6 % au décodage, qui portait le motif à guillemets.
+    Gardé par `src/nodefony/src/tests/jsonFrameCodec.test.ts` et
+    `src/packages/@nodefony/realtime/nodefony/tests/integration/realtimeCodec.e2e.test.ts`.
+    - Écarté : **échapper** l'objet à la manière d'EJSON (`{"$escape": …}`) — fidèle, mais un
+      second marqueur sur un fil gelé, et incompatible avec le reviver de `JSON.parse`, qui
+      travaille des feuilles vers la racine.
 - **Trois précisions de câblage (validées par l'auteur le 2026-11-01) :**
   - le champ de `realtime:welcome` qui porte le codec retenu s'appelle **`codec`**, et sa valeur
     est exactement `IFrameCodec.protocol` (`src/nodefony/src/realtime/frameCodecNegotiation.ts#adoptFrameCodec`) ;

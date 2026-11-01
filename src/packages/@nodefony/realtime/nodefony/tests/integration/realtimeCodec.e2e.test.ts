@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import "reflect-metadata";
 import { RealtimeController } from "../../src/server/RealtimeController.js";
 import { getRealtimeHub } from "../../src/server/RealtimeHub.js";
@@ -446,5 +446,53 @@ describe("Portes B1 à B4 sous codec binaire — des octets passent les MÊMES c
     };
     // Sonde orpheline : elle masquerait encore `tick` sans aucun verrou posé.
     expect(welcome.params.channels).toContain("tick");
+  });
+});
+
+describe("`$bytes` forgé sous codec actif — refusé aux abonnés texte, dit UNE fois (#618, ADR-0022 §2)", () => {
+  beforeEach(() => {
+    const hub = getRealtimeHub();
+    hub.clear();
+    hub.setFrameCodec(SERVER_CBOR);
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    getRealtimeHub().clear();
+  });
+
+  it("l'abonné CBOR reçoit l'objet tel quel, aucun abonné texte ne le relit en octets, un seul journal d'erreur", async () => {
+    const errors: string[] = [];
+    vi.spyOn(CodecRt.prototype, "log").mockImplementation(function (
+      pci: unknown,
+      severity?: unknown,
+    ) {
+      if (severity === "ERROR") errors.push(String(pci));
+      return undefined as never;
+    });
+    const cbor = await connect(true, `${CBOR}, ${TEXT}`);
+    const texts = [
+      await connect(false, undefined),
+      await connect(false, undefined),
+      await connect(false, undefined),
+    ];
+    const gotCbor: unknown[] = [];
+    const gotText: unknown[] = [];
+    cbor.client.on("tick", (p) => gotCbor.push(p));
+    cbor.client.subscribe("tick");
+    for (const t of texts) {
+      t.client.on("tick", (p) => gotText.push(p));
+      t.client.subscribe("tick");
+    }
+    await flush();
+    await flush();
+    getRealtimeHub().publish("tick", { note: { $bytes: "!!!" } });
+    await flush();
+    // CBOR : la carte reste une carte, rien n'est réanimé.
+    expect(gotCbor).toEqual([{ note: { $bytes: "!!!" } }]);
+    // Texte : refusée à l'encodage — ni relue en octets, ni jetée en silence.
+    expect(gotText).toEqual([]);
+    // Un seul abonné texte dit l'échec : jamais une ligne par abonné.
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatch(/non issu d'octets/);
   });
 });

@@ -207,6 +207,9 @@ export class ChannelFrame {
   private dataA: RealtimeFrameData | undefined;
   private codecB: IFrameCodec | null;
   private dataB: RealtimeFrameData | undefined;
+  // Échec d'encodage déjà RÉCLAMÉ par un abonné, par place (cf claimFailure).
+  private claimedA: boolean;
+  private claimedB: boolean;
 
   /** @param message - la frame protocolaire, telle que rendue par le {@link ChannelFrameBuilder}. */
   constructor(message: unknown) {
@@ -215,6 +218,8 @@ export class ChannelFrame {
     this.dataA = undefined;
     this.codecB = null;
     this.dataB = undefined;
+    this.claimedA = false;
+    this.claimedB = false;
   }
 
   /**
@@ -222,8 +227,8 @@ export class ChannelFrame {
    *
    * @param codec - le codec de la connexion qui va l'écrire.
    * @returns la trame à écrire telle quelle, ou `undefined` si la frame n'est pas
-   *   encodable : l'abonné reprend alors son chemin habituel, qui porte le filet
-   *   (journal et réponse d'erreur au client concerné).
+   *   encodable : l'abonné qui en {@link ChannelFrame.claimFailure | réclame}
+   *   l'échec reprend son chemin habituel, qui porte le filet (journal).
    */
   encodeFor(codec: IFrameCodec): RealtimeFrameData | undefined {
     if (codec === this.codecA) return this.dataA;
@@ -242,6 +247,33 @@ export class ChannelFrame {
       this.dataB = data;
     }
     return data;
+  }
+
+  /**
+   * Réclame l'échec d'encodage de cette frame pour un codec : `true` au PREMIER
+   * abonné qui le demande, `false` ensuite.
+   *
+   * Un seul abonné reprend alors son chemin habituel, dont le filet journalise
+   * l'échec ; les autres sautent la trame, qu'ils ne pourraient pas encoder non
+   * plus. Sans cela, une charge non encodable — un `$bytes` forgé par un client,
+   * une valeur cyclique — coûtait un encodage et une ligne de journal PAR abonné.
+   * Un codec hors des deux places réclame à chaque fois : il n'est pas retenu.
+   *
+   * @param codec - le codec dont {@link ChannelFrame.encodeFor} a rendu `undefined`.
+   * @returns `true` si l'appelant doit dire l'échec.
+   */
+  claimFailure(codec: IFrameCodec): boolean {
+    if (codec === this.codecA) {
+      if (this.claimedA) return false;
+      this.claimedA = true;
+      return true;
+    }
+    if (codec === this.codecB) {
+      if (this.claimedB) return false;
+      this.claimedB = true;
+      return true;
+    }
+    return true;
   }
 }
 

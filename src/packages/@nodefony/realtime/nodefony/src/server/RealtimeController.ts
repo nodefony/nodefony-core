@@ -1287,6 +1287,9 @@ export abstract class RealtimeController<
           state.transport.send(data);
           return;
         }
+        // Non encodable : un seul abonné le dit (filet du peer), les autres
+        // sautent — même codec, même échec, rien à réessayer.
+        if (!frame.claimFailure(state.peer.codec)) return;
       }
       state.peer.notify(channel, payload);
     };
