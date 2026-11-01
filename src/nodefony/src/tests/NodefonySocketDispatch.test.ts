@@ -4,21 +4,23 @@ import { NodefonySocket } from "../client/realtime/NodefonySocket";
 /**
  * Discrimination des frames JSON-RPC 2.0 : le RÔLE se lit sur `method`, pas sur
  * `id`. On exerce `handleMessage` (point d'arrivée des frames) sans vrai WebSocket
- * — `request()` enregistre un pending, `send()` est stubé pour capter une réponse
+ * — `request()` enregistre un pending, `writeFrame()` est stubé pour capter une réponse
  * sortante. Verrouille le fix « entrant vs sortant » des 2 directions.
  */
 interface Internals {
   handleMessage(raw: string): void;
-  send(msg: unknown): boolean | void;
+  admitFrame(): boolean;
+  writeFrame(data: unknown, msg: unknown): boolean | void;
 }
 
 /**
- * Simule un transport OUVERT. Sans ce stub, `send` répond `false` (aucune socket
+ * Simule un transport OUVERT. Sans ce stub, `admitFrame` répond `false` (aucune socket
  * dans ce décor) et le peer rejette la requête AVANT qu'on puisse lui livrer sa
  * réponse — on ne testerait plus la corrélation, seulement l'absence de socket.
  */
 const openTransport = (internal: Internals): void => {
-  internal.send = () => true;
+  internal.admitFrame = () => true;
+  internal.writeFrame = () => true;
 };
 
 function newClient(): { client: NodefonySocket; internal: Internals } {
@@ -68,7 +70,8 @@ describe("NodefonySocket — discrimination des frames (entrant vs sortant)", ()
   it("REQUÊTE entrante (method + id) → le client répond -32601, PAS traitée comme une réponse", () => {
     const { client, internal } = newClient();
     const out: unknown[] = [];
-    internal.send = (m) => {
+    internal.admitFrame = () => true;
+    internal.writeFrame = (_data, m) => {
       out.push(m);
       return true; // transport ouvert simulé
     };
@@ -89,7 +92,8 @@ describe("NodefonySocket — discrimination des frames (entrant vs sortant)", ()
   it("REQUÊTE entrante à id STRING (JSON-RPC autorise string) → répond avec le même id string", () => {
     const { client, internal } = newClient();
     const out: Array<{ id?: unknown }> = [];
-    internal.send = (m) => {
+    internal.admitFrame = () => true;
+    internal.writeFrame = (_data, m) => {
       out.push(m as { id?: unknown });
       return true; // transport ouvert simulé
     };
@@ -106,7 +110,8 @@ describe("NodefonySocket — discrimination des frames (entrant vs sortant)", ()
     const received: unknown[] = [];
     client.on("nodefony:dashboard", (p) => received.push(p));
     const out: unknown[] = [];
-    internal.send = (m) => {
+    internal.admitFrame = () => true;
+    internal.writeFrame = (_data, m) => {
       out.push(m);
       return true; // transport ouvert simulé
     };
@@ -127,7 +132,8 @@ describe("NodefonySocket — discrimination des frames (entrant vs sortant)", ()
     const received: unknown[] = [];
     client.on("x", (p) => received.push(p));
     const out: unknown[] = [];
-    internal.send = (m) => {
+    internal.admitFrame = () => true;
+    internal.writeFrame = (_data, m) => {
       out.push(m);
       return true; // transport ouvert simulé
     };

@@ -25,8 +25,6 @@ import {
   type ActionResult,
   JsonRpcError,
   JsonRpcServerError,
-  isJsonRpcId,
-  jsonRpcFailure,
   IDENTITY_DEAD_CLOSE_CODE,
   ORIGIN_REFUSED_CLOSE_CODE,
   TRY_AGAIN_LATER_CLOSE_CODE,
@@ -623,35 +621,11 @@ export abstract class RealtimeController<
       readBackpressureOptions(webSocketServerOf(ctx)),
     );
     const peerOptions: JsonRpcPeerOptions = {
-      // Fail-safe : un payload non JSON-safe (structure circulaire…) ne doit
-      // JAMAIS casser la chaîne du peer — sinon unhandledRejection serveur +
-      // timeout SILENCIEUX côté client (aucune réponse n'est émise). On répond
-      // `-32603` générique (Zero Trust : zéro détail de structure au pair) et
-      // on logge l'ERROR serveur (fail-loud, cf « pas de dégradation
-      // silencieuse »). Une notification (sans `id`) fautive est droppée.
-      send: (frame) => {
-        let json: string;
-        try {
-          json = JSON.stringify(frame);
-        } catch (e) {
-          this.log(
-            `WS realtime send: payload non sérialisable — ${
-              e instanceof Error ? e.message : String(e)
-            }`,
-            "ERROR",
-          );
-          const id = isRecord(frame) ? frame.id : undefined;
-          if (!isJsonRpcId(id)) return;
-          json = JSON.stringify(
-            jsonRpcFailure(
-              id,
-              JsonRpcError.INTERNAL_ERROR,
-              "internal error: non-serializable payload",
-            ),
-          );
-        }
-        transport.send(json);
-      },
+      // Le peer ENCODE avec le codec de la connexion (ADR-0022 §4) ; le
+      // transport n'écrit que le résultat. Le filet d'une charge non encodable
+      // (réponse → `-32603` générique, notification → `onError`) vit dans le
+      // peer, le même des deux côtés de la socket.
+      write: (data) => transport.send(data),
       onNotification: (method, params) =>
         this.onRealtimeNotification(ctx, method, params),
       onError: (context, err) =>
@@ -756,7 +730,7 @@ export abstract class RealtimeController<
     transport.onMessage((raw) => {
       let parsed: unknown;
       try {
-        parsed = JSON.parse(raw);
+        parsed = peer.decode(raw);
       } catch {
         // Jamais en silence (#617) : comptée, journalisée à la première.
         if (transport.discard("malformed") === 1) {

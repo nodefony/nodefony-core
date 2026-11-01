@@ -72,6 +72,9 @@ export type {
   RpcNotificationHandler,
   JsonRpcErrorObject,
   JsonRpcPeerOptions,
+  IJsonRpcPeerHooks,
+  IJsonRpcFrameSink,
+  IJsonRpcWireSink,
 } from "../realtime/JsonRpcPeer";
 // Briques JSON-RPC 2.0 partagées avec le serveur (`jsonrpc/`) : un client qui
 // lit un code d'erreur le compare à la MÊME constante que le serveur émet.

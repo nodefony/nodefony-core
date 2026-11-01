@@ -239,6 +239,9 @@ export type {
   RpcTracedResult,
   JsonRpcErrorObject,
   JsonRpcPeerOptions,
+  IJsonRpcPeerHooks,
+  IJsonRpcFrameSink,
+  IJsonRpcWireSink,
   FrameAuditReason,
 } from "./realtime/JsonRpcPeer";
 export {

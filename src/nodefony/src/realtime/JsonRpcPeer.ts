@@ -57,6 +57,8 @@ import {
   type JsonRpcFrameKind,
   type JsonRpcId,
 } from "../jsonrpc/index";
+import type { IFrameCodec } from "./IFrameCodec";
+import { JSON_FRAME_CODEC } from "./jsonFrameCodec";
 
 export type { JsonRpcFrameKind } from "../jsonrpc/index";
 
@@ -182,11 +184,12 @@ export type JsonRpcNotification = IJsonRpcNotification;
 export type FrameAuditReason =
   "invalid" | "denied" | "method_not_found" | "internal_error";
 
-export interface JsonRpcPeerOptions<
-  Emit extends EventsMap = DefaultEventsMap,
-  Listen extends EventsMap = DefaultEventsMap,
-  Actions extends ActionsMap = DefaultActionsMap,
-> {
+/**
+ * Sortie d'un pair qui laisse la SÉRIALISATION à son transport : il reçoit la
+ * frame en objet. Forme historique, conservée pour les transports qui ne
+ * parlent pas de codec (relais en mémoire, tests).
+ */
+export interface IJsonRpcFrameSink {
   /**
    * Envoie une frame sérialisable sur le transport (le peer ignore le transport).
    *
@@ -197,9 +200,59 @@ export interface JsonRpcPeerOptions<
    * (comportement historique des transports qui ne savent pas répondre).
    */
   send: (frame: unknown) => boolean | void;
+  write?: never;
+  admit?: never;
+  codec?: never;
+}
+
+/**
+ * Sortie d'un pair qui SÉRIALISE lui-même, avec son codec courant (ADR-0022 §4,
+ * ligne (i) : les codecs vivent dans le pair partagé, jamais dans le client ni
+ * dans le contrôleur). Le transport ne reçoit que des données prêtes pour le fil.
+ */
+export interface IJsonRpcWireSink {
+  /**
+   * Écrit une frame DÉJÀ encodée sur le transport.
+   *
+   * @param data - la frame encodée par le codec courant : une chaîne (trame
+   *   texte) ou des octets (trame binaire).
+   * @param frame - la même frame en objet, pour qui la journalise — à ne pas
+   *   réencoder.
+   * @returns `false` si la frame n'est pas partie (même contrat que
+   *   {@link IJsonRpcFrameSink.send}).
+   */
+  write: (
+    data: string | Uint8Array<ArrayBuffer>,
+    frame: unknown,
+  ) => boolean | void;
+  /**
+   * Contre-pression AVANT l'encodage : `false` → la frame n'est ni encodée ni
+   * écrite, et compte comme non émise. Absent → toujours admise.
+   */
+  admit?: (() => boolean) | undefined;
+  /**
+   * Codec du début de connexion — le texte `nodefony.jsonrpc.v1` par défaut,
+   * celui de l'accueil. La bascule se fait ensuite par {@link JsonRpcPeer.codec}.
+   */
+  codec?: IFrameCodec | undefined;
+  send?: never;
+}
+
+/**
+ * Crochets d'un pair JSON-RPC, communs aux deux formes de sortie.
+ */
+export interface IJsonRpcPeerHooks<
+  Emit extends EventsMap = DefaultEventsMap,
+  Listen extends EventsMap = DefaultEventsMap,
+  Actions extends ActionsMap = DefaultActionsMap,
+> {
   /** Notifications entrantes (`method` sans `id`) : pub/sub côté client, subscribe/unsubscribe côté serveur. */
   onNotification?: RpcNotificationHandler<Listen> | undefined;
-  /** Erreur interne d'un handler — détail JAMAIS renvoyé au pair (loggé ici). */
+  /**
+   * Erreur interne — détail JAMAIS renvoyé au pair (journalisé ici) : un handler
+   * qui lève, une réponse ou une notification que le codec ne sait pas encoder.
+   * Absent, une notification non encodable lève chez l'appelant de `notify`.
+   */
   onError?: ((context: string, err: unknown) => void) | undefined;
   /**
    * **Seam sécurité 1/5 (P13 → P6)** — gate `beforeDispatch` appelé AVANT le
@@ -249,6 +302,17 @@ export interface JsonRpcPeerOptions<
       ) => void)
     | undefined;
 }
+
+/**
+ * Options d'un {@link JsonRpcPeer} : ses crochets, et UNE sortie — `send` (le
+ * transport sérialise) ou `write` (le pair encode avec son codec).
+ */
+export type JsonRpcPeerOptions<
+  Emit extends EventsMap = DefaultEventsMap,
+  Listen extends EventsMap = DefaultEventsMap,
+  Actions extends ActionsMap = DefaultActionsMap,
+> = IJsonRpcPeerHooks<Emit, Listen, Actions> &
+  (IJsonRpcFrameSink | IJsonRpcWireSink);
 
 /**
  * Surface BIDIRECTIONNELLE d'un endpoint temps réel — **contrat ISOMORPHE**,
@@ -328,10 +392,48 @@ export class JsonRpcPeer<
   // Registre des actions exposées (requêtes entrantes). Lazy : la plupart des pairs
   // (ex. client) n'exposent aucune action → pas d'alloc « au cas où ».
   private actions: Map<string, RpcActionHandler> | null = null;
+  // Codec COURANT (ADR-0022 §4) : encode les émissions d'une sortie `write`,
+  // relit l'entrée par `decode`. Le texte jusqu'à l'accueil.
+  private _codec: IFrameCodec;
+  // Les deux sorties possibles, résolues une fois : une seule est posée.
+  private readonly writeOut: IJsonRpcWireSink["write"] | null;
+  private readonly sendOut: IJsonRpcFrameSink["send"] | null;
+  private readonly admitOut: (() => boolean) | null;
 
   constructor(
     private readonly opts: JsonRpcPeerOptions<Emit, Listen, Actions>,
-  ) {}
+  ) {
+    this.writeOut = opts.write ?? null;
+    this.sendOut = opts.send ?? null;
+    this.admitOut = opts.admit ?? null;
+    this._codec = opts.codec ?? JSON_FRAME_CODEC;
+  }
+
+  /**
+   * Codec de la connexion — celui qui encode les émissions (sortie `write`) et
+   * relit l'entrée ({@link decode}). L'orchestrateur le bascule une fois, quand
+   * l'accueil a dit le codec retenu, et le remet au texte à chaque reconnexion.
+   */
+  get codec(): IFrameCodec {
+    return this._codec;
+  }
+
+  set codec(codec: IFrameCodec) {
+    this._codec = codec;
+  }
+
+  /**
+   * Relit une trame reçue avec le codec courant — la frame rendue se confie
+   * ensuite à {@link receive}.
+   *
+   * @param data - la trame telle que reçue, texte ou octets.
+   * @returns la frame décodée.
+   * @throws Quand la trame est illisible pour ce codec : l'appelant la compte
+   *   comme malformée.
+   */
+  decode(data: string | Uint8Array): unknown {
+    return this._codec.decode(data);
+  }
 
   /** Expose une action (requête entrante `method`+`id` → `result`). Idempotent. */
   register<K extends ActionNames<Actions>>(
@@ -436,14 +538,22 @@ export class JsonRpcPeer<
    * notification n'attend rien en retour : sans cette valeur, une frame perdue
    * ne laisserait aucune trace chez l'appelant. Les appels qui se rattrapent
    * seuls (ré-abonnement au reconnect) peuvent l'ignorer.
+   * @throws Quand le codec ne sait pas encoder la charge et qu'aucun `onError`
+   *   n'est posé — avec `onError`, l'erreur y est rapportée et rend `false`.
    */
   notify<K extends EventNames<Emit>>(
     method: K,
     params?: EventPayload<Emit, K>,
   ): boolean {
-    return (
-      this.opts.send(JsonRpcPeer.buildNotification(method, params)) !== false
-    );
+    const frame = JsonRpcPeer.buildNotification(method, params);
+    const onError = this.opts.onError;
+    if (onError === undefined) return this.emit(frame);
+    try {
+      return this.emit(frame);
+    } catch (err) {
+      onError(`notify ${method}`, err);
+      return false;
+    }
   }
 
   /**
@@ -478,7 +588,7 @@ export class JsonRpcPeer<
       if (isRequest) {
         // Requête refusée : code de la plage `Server error` (JSON-RPC 2.0
         // §5.1), message GÉNÉRIQUE (Zero Trust : ne révèle pas pourquoi).
-        this.opts.send(
+        this.emit(
           jsonRpcFailure(
             (frame as IJsonRpcRequest).id,
             REALTIME_UNAUTHORIZED,
@@ -523,6 +633,52 @@ export class JsonRpcPeer<
 
   // ── interne ───────────────────────────────────────────────────────────────
 
+  /**
+   * Émet une frame par la sortie posée — chemin chaud, un appel par frame.
+   * Sortie `write` : admission, puis encodage par le codec COURANT, puis écriture.
+   *
+   * @returns `false` si la frame n'est pas partie.
+   * @throws Quand le codec ne sait pas l'encoder (structure circulaire, `bigint`).
+   */
+  private emit(frame: unknown): boolean {
+    const write = this.writeOut;
+    if (write !== null) {
+      if (this.admitOut !== null && !this.admitOut()) return false;
+      return write(this._codec.encode(frame), frame) !== false;
+    }
+    return this.sendOut !== null && this.sendOut(frame) !== false;
+  }
+
+  /**
+   * Répond à une requête entrante sans JAMAIS casser la chaîne du pair : une
+   * réponse que le codec ne sait pas encoder devient un `-32603` générique (le
+   * pair n'apprend rien de la structure — Zero Trust), le détail part à
+   * `onError`. Sans ce filet, l'appelant distant attendrait son délai pour une
+   * réponse jamais émise.
+   */
+  private reply(
+    id: JsonRpcId,
+    method: string,
+    rawFrame: unknown,
+    frame: unknown,
+  ): void {
+    try {
+      this.emit(frame);
+    } catch (err) {
+      this.opts.onError?.(`rpc ${method} : réponse non encodable`, err);
+      this.opts.onFrameAudit?.("internal_error", rawFrame, this);
+      // Libellé établi : il dit la cause (charge non encodable) sans rien de sa
+      // structure, et le client l’a déjà rencontré — il ne change pas.
+      this.emit(
+        jsonRpcFailure(
+          id,
+          JsonRpcError.INTERNAL_ERROR,
+          "internal error: non-serializable payload",
+        ),
+      );
+    }
+  }
+
   private startCall<T>(
     method: string,
     params: unknown,
@@ -550,7 +706,18 @@ export class JsonRpcPeer<
       });
       // Un transport qui répond `false` n'a PAS émis : inutile de faire patienter
       // l'appelant jusqu'au timeout (30 s par défaut) pour une frame perdue.
-      if (this.opts.send(jsonRpcRequest(id, method, params)) === false) {
+      // Des paramètres que le codec ne sait pas encoder échouent CHEZ
+      // l'appelant, maintenant — jamais une réponse forgée vers le pair.
+      let sent: boolean;
+      try {
+        sent = this.emit(jsonRpcRequest(id, method, params));
+      } catch (err) {
+        clearTimeout(timer);
+        pending.delete(id);
+        reject(err instanceof Error ? err : new Error(String(err)));
+        return;
+      }
+      if (!sent) {
         clearTimeout(timer);
         pending.delete(id);
         reject(new Error(`RPC non émis (transport indisponible) : ${method}`));
@@ -567,7 +734,7 @@ export class JsonRpcPeer<
     const handler = this.actions?.get(method);
     if (!handler) {
       this.opts.onFrameAudit?.("method_not_found", rawFrame, this);
-      this.opts.send(
+      this.emit(
         jsonRpcFailure(
           id,
           JsonRpcError.METHOD_NOT_FOUND,
@@ -584,27 +751,31 @@ export class JsonRpcPeer<
           // frame) → elle voyage en champ FRÈRE, le `result` reste la valeur nue.
           if (result instanceof RpcEnvelope) {
             // `instanceof` sur une classe générique rend `RpcEnvelope<any>`.
-            const reply: IJsonRpcSuccess & { meta?: RpcMeta } = jsonRpcSuccess(
-              id,
-              result.result as unknown,
-            );
-            reply.meta = result.meta;
-            this.opts.send(reply);
+            const success: IJsonRpcSuccess & { meta?: RpcMeta } =
+              jsonRpcSuccess(id, result.result as unknown);
+            success.meta = result.meta;
+            this.reply(id, method, rawFrame, success);
             return;
           }
-          this.opts.send(jsonRpcSuccess(id, result));
+          this.reply(id, method, rawFrame, jsonRpcSuccess(id, result));
         },
         (err: unknown) => {
           // Erreur APPLICATIVE assumée (RpcError) → renvoyée fidèlement au pair
           // (pas un internal_error : ni onError ni audit — le handler a choisi
           // d'exposer ce refus, il peut l'auditer lui-même s'il est notable).
           if (err instanceof RpcError) {
-            this.opts.send(jsonRpcFailure(id, err.code, err.message, err.data));
+            // `data` vient de l'application : il peut ne pas s'encoder.
+            this.reply(
+              id,
+              method,
+              rawFrame,
+              jsonRpcFailure(id, err.code, err.message, err.data),
+            );
             return;
           }
           this.opts.onError?.(`rpc ${method}`, err);
           this.opts.onFrameAudit?.("internal_error", rawFrame, this);
-          this.opts.send(
+          this.emit(
             jsonRpcFailure(id, JsonRpcError.INTERNAL_ERROR, "internal error"),
           );
         },

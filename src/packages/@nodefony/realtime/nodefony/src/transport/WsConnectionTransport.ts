@@ -1,4 +1,8 @@
-import { TransportState, type IRealtimeTransport } from "nodefony";
+import {
+  TransportState,
+  type IRealtimeTransport,
+  type RealtimeOutboundData,
+} from "nodefony";
 import { decideSend, type WsBackpressurePolicy } from "@nodefony/http";
 import type { IRealtimeConnProbe } from "../../interfaces/IRealtimeProbe";
 
@@ -86,7 +90,7 @@ export class WsConnectionTransport
     /* déjà ouverte par le serveur — no-op */
   }
 
-  send(raw: string): void {
+  send(raw: RealtimeOutboundData): void {
     if (this.conn.readyState !== TransportState.OPEN) return;
     // Contre-pression : la RÈGLE est celle de `@nodefony/http` (une seule
     // implémentation pour `send`/`broadcast` HTTP et pour le realtime). Elle
@@ -103,7 +107,8 @@ export class WsConnectionTransport
       this._dropped += 1;
       return; // `decideSend` a déjà fermé la socket si c'était la décision
     }
-    // `raw.length` (≈ octets pour l'ASCII/JSON ; O(1) en V8) compté AVANT l'envoi :
+    // `raw.length` (caractères d’un texte ≈ octets pour l’ASCII/JSON, octets d’une
+    // trame binaire ; O(1)) compté AVANT l’envoi :
     // un échec d'envoi reste rare et la file `ws` retient quand même la frame.
     this._bytesSent += raw.length;
     this._messagesSent += 1;

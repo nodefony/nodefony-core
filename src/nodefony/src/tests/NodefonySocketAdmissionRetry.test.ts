@@ -9,7 +9,8 @@ import { NodefonySocket } from "../client/realtime/NodefonySocket";
  */
 interface Internals {
   handleMessage(raw: string): void;
-  send(msg: unknown): boolean | void;
+  admitFrame(): boolean;
+  writeFrame(data: unknown, msg: unknown): boolean | void;
 }
 
 const frame = (method: string, params: unknown): string =>
@@ -29,7 +30,8 @@ function connected() {
   });
   const internal = client as unknown as Internals;
   const subscribes: string[] = [];
-  internal.send = (msg: unknown) => {
+  internal.admitFrame = () => true;
+  internal.writeFrame = (_data: unknown, msg: unknown) => {
     const f: unknown = typeof msg === "string" ? JSON.parse(msg) : msg;
     if (
       typeof f === "object" &&

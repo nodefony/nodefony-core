@@ -650,14 +650,17 @@ export class NodefonySocket<
   // (request/notify/stream/receive/register/erreurs/corrélation d'id) ; il ne
   // garde que le « client » (transport, reconnect, heartbeat, stats, frameLog,
   // ref-count subscribe, identité). `pending`/`actions` du peer sont LAZY (0 alloc
-  // tant qu'aucune requête sortante / action exposée). `send` est déréférencé à
-  // chaque frame (pas `.bind`) → un test qui remplace `client.send` reste intercepté.
+  // tant qu'aucune requête sortante / action exposée). Le CODEC de la connexion vit
+  // dans le peer (ADR-0022 §4) : il encode ses émissions, le client admet puis
+  // écrit. `admitFrame`/`writeFrame` sont déréférencés à chaque frame (pas
+  // `.bind`) → un test qui les remplace reste intercepté.
   private readonly peer: JsonRpcPeer<Emit, Listen, Actions> = new JsonRpcPeer<
     Emit,
     Listen,
     Actions
   >({
-    send: (frame) => this.send(frame),
+    admit: () => this.admitFrame(),
+    write: (data, frame) => this.writeFrame(data, frame),
     onNotification: (method, params) =>
       this.dispatchNotification(method, params),
   });
@@ -715,10 +718,6 @@ export class NodefonySocket<
   // la très grande majorité des sockets ne reçoit jamais de binaire.
   private _binaryHandlers: Set<(data: Uint8Array<ArrayBuffer>) => void> | null =
     null;
-  // Codec de la connexion COURANTE (ADR-0022 §2) : le texte jusqu'à l'accueil,
-  // puis celui que `realtime:welcome` annonce. Remis au texte à chaque tentative,
-  // qui ouvre une session serveur neuve.
-  private _codec: IFrameCodec;
   // Les codecs de CETTE socket, fixés une fois par la règle partagée avec le
   // serveur (`frameCodecSet`) : texte, binaire offert, offre de sous-protocoles.
   private readonly codecs: IFrameCodecSet;
@@ -768,7 +767,7 @@ export class NodefonySocket<
         new BrowserWsTransport(url, protocols));
     // Une fois par socket, jamais par trame : qui est le texte, qui est offert.
     this.codecs = frameCodecSet(opts.codec);
-    this._codec = this.codecs.text;
+    this.peer.codec = this.codecs.text;
     // Le diagnostic ne se compose pas (ADR-0007 D7 révisé) : une socket nue
     // annonce le framework et se rend inspectable, exactement comme le ferait un
     // noyau. Quand il y en a un, il s'est annoncé AVANT de nous fabriquer — le
@@ -984,7 +983,7 @@ export class NodefonySocket<
     this._identity = null;
     this._serverChannels = null;
     this._serverMethods = null;
-    this._codec = this.codecs.text;
+    this.peer.codec = this.codecs.text;
     this.fireLocal(LOCAL_EVENTS.identity, null);
     this.setState("disconnected");
   }
@@ -998,12 +997,12 @@ export class NodefonySocket<
   private adoptCodec(announced: unknown): void {
     const adopted = adoptFrameCodec(this.codecs, announced);
     if (adopted !== null) {
-      this._codec = adopted;
+      this.peer.codec = adopted;
       if (adopted === this.codecs.binary && this._binaryHandlers !== null)
         this.noticeRawBinary();
       return;
     }
-    this._codec = this.codecs.text;
+    this.peer.codec = this.codecs.text;
     this.fireNotice(
       unofferedCodecNotice(
         typeof announced === "string" ? announced : typeof announced,
@@ -1015,7 +1014,7 @@ export class NodefonySocket<
   private noticeRawBinary(): void {
     if (this._rawBinaryNoticed) return;
     this._rawBinaryNoticed = true;
-    this.fireNotice(rawBinaryUnderCodecNotice(this._codec.protocol));
+    this.fireNotice(rawBinaryUnderCodecNotice(this.peer.codec.protocol));
   }
 
   /** Pub/sub local — handler sur un event server-pushed (notification JSON-RPC). */
@@ -1447,7 +1446,7 @@ export class NodefonySocket<
    */
   onBinary(handler: (data: Uint8Array<ArrayBuffer>) => void): () => void {
     (this._binaryHandlers ??= new Set()).add(handler);
-    if (this._codec === this.codecs.binary) this.noticeRawBinary();
+    if (this.peer.codec === this.codecs.binary) this.noticeRawBinary();
     return () => {
       this._binaryHandlers?.delete(handler);
       if (this._binaryHandlers?.size === 0) this._binaryHandlers = null;
@@ -1470,7 +1469,7 @@ export class NodefonySocket<
       return false;
     }
     // Sous codec binaire, le serveur lirait ces octets comme une frame du codec.
-    if (this._codec === this.codecs.binary) {
+    if (this.peer.codec === this.codecs.binary) {
       this.noticeRawBinary();
       return false;
     }
@@ -1887,7 +1886,7 @@ export class NodefonySocket<
    * `describeCodec`.
    */
   get codec(): string {
-    return this._codec.protocol;
+    return this.peer.codec.protocol;
   }
 
   /** Snapshot des stats par canal (msgCount/rate/series). Les objets sont les
@@ -2180,7 +2179,7 @@ export class NodefonySocket<
       this._welcomed = false;
       this._acked = null;
       // L'accueil de CETTE connexion dira son codec ; d'ici là, le texte.
-      this._codec = this.codecs.text;
+      this.peer.codec = this.codecs.text;
       this._rawBinaryNoticed = false;
       this.setState(this.reconnectAttempt > 0 ? "reconnecting" : "connecting");
       // Un écouteur d'état a pu appeler `disconnect()` : rien ne s'ouvre après.
@@ -2562,7 +2561,8 @@ export class NodefonySocket<
   }
 
   /**
-   * Émet une frame si — et seulement si — le transport est ouvert.
+   * Admet une frame à l'émission si — et seulement si — le transport est ouvert
+   * et la contre-pression la laisse passer.
    *
    * La frame n'est **pas** mise en file d'attente : rejouer une intention après
    * coup peut être pire que la perdre (une commande obsolète appliquée en
@@ -2571,19 +2571,37 @@ export class NodefonySocket<
    * requête corrélée est rejetée aussitôt par {@link JsonRpcPeer} plutôt qu'au
    * bout de son timeout, et l'utilisateur est prévenu une fois par épisode.
    *
-   * @param msg - la frame JSON-RPC à sérialiser.
-   * @returns `true` si la frame est partie, `false` si le transport était fermé.
+   * Appelée par le peer AVANT d'encoder : une frame refusée ne coûte aucune
+   * sérialisation.
+   *
+   * @returns `true` si la frame peut partir, `false` si le transport était
+   *   fermé ou la contre-pression l'a jetée.
    */
-  private send(msg: unknown): boolean {
+  private admitFrame(): boolean {
     if (this.transport?.readyState !== TransportState.OPEN) {
       this._framesUnsent++;
       return false;
     }
-    if (!this.admitOutbound(this.transport)) return false;
-    const raw = this._codec.encode(msg);
-    this.transport.send(raw);
+    return this.admitOutbound(this.transport);
+  }
+
+  /**
+   * Écrit une frame que le peer vient d'encoder avec le codec de la connexion.
+   *
+   * @param data - la frame encodée (texte, ou octets sous codec binaire).
+   * @param msg - la même frame en objet, pour le journal protocole.
+   * @returns `true` si la frame est partie.
+   */
+  private writeFrame(
+    data: string | Uint8Array<ArrayBuffer>,
+    msg: unknown,
+  ): boolean {
+    // `admitFrame` vient de constater le transport ouvert, dans le même appel.
+    const transport = this.transport;
+    if (transport === null) return false;
+    transport.send(data);
     if (this._frameLogOn)
-      this.recordFrame("out", msg, raw.length, typeof raw !== "string");
+      this.recordFrame("out", msg, data.length, typeof data !== "string");
     return true;
   }
 
@@ -2609,7 +2627,7 @@ export class NodefonySocket<
   }
 
   private handleMessage(raw: RealtimeFrameData): void {
-    const codec = this._codec;
+    const codec = this.peer.codec;
     // Binaire HORS codec binaire : pas une frame JSON-RPC, le flux brut de
     // l'application. Sous codec binaire, toute trame passe par le codec.
     if (typeof raw !== "string" && codec !== this.codecs.binary) {
@@ -2630,7 +2648,7 @@ export class NodefonySocket<
     }
     let msg: unknown;
     try {
-      msg = codec.decode(raw);
+      msg = this.peer.decode(raw);
     } catch {
       if (++this._malformedFramesDiscarded === 1)
         this.fireNotice(discardedFrameNotice("malformed", codec.protocol));
