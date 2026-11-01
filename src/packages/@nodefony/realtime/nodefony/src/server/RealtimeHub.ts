@@ -1816,6 +1816,10 @@ export class RealtimeHub {
     this.#authenticators = null;
     this.#peerTokens = null;
     this.#frameAuthorizer = null;
+    // Posée par le même appel que le verrou (`setFrameAuthorizer`) : elle tombe
+    // avec lui, sinon une sonde orpheline masquerait encore des canaux à
+    // l'accueil sans qu'aucun verrou ne soit posé.
+    this.#channelProbe = null;
     this.#dropRetainedVerdicts();
     this.#channelPolicies?.clear();
     this.#channelPolicies = null;

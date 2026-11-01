@@ -1,7 +1,8 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import "reflect-metadata";
 import { RealtimeController } from "../../src/server/RealtimeController.js";
 import { getRealtimeHub } from "../../src/server/RealtimeHub.js";
+import type { RealtimeInboundHandler } from "../../interfaces/IRealtimeController.js";
 // Serveur : le codec et `RpcError` du dist `nodefony`, ceux que charge le service.
 import { RpcError as RpcErrorServer, type RpcActionHandler } from "nodefony";
 import { CBOR_FRAME_CODEC as SERVER_CBOR } from "nodefony/cbor";
@@ -53,9 +54,22 @@ class CodecRt extends RealtimeController {
     this.rawFrames.push(data);
   }
 
-  // Canal de diffusion : le banc publie lui-même par le hub.
+  /** Charges reçues par le canal entrant `upload` — telles que le handler les voit. */
+  readonly inbound: unknown[] = [];
+
+  override realtimeInbound(): Record<string, RealtimeInboundHandler> {
+    return { upload: (params) => void this.inbound.push(params) };
+  }
+
+  // Annoncé à l'accueil, sous réserve de la sonde des canaux (porte B2).
+  override realtimeChannels(): string[] {
+    return ["tick"];
+  }
+
+  // Canal de diffusion : le banc publie lui-même par le hub. `nodefony:bench`
+  // A un producteur : seul le plancher de la plateforme peut le refuser.
   override createRealtimeChannel(channel: string): (() => void) | null {
-    return channel === "tick" ? () => {} : null;
+    return channel === "tick" || channel === "nodefony:bench" ? () => {} : null;
   }
 
   feed(raw: RealtimeFrameData | null): void {
@@ -325,5 +339,112 @@ describe("Codec binaire côté serveur — négociation, accueil, bascule (#618)
     await flush();
     expect(server.rt.rawFrames.map((f) => [...f])).toEqual([[9, 8, 7]]);
     expect(server.rt.pushRaw(new Uint8Array([1]))).toBe(true);
+  });
+});
+
+/** Trames émises par le serveur APRÈS l'accueil, décodées selon leur opcode. */
+function framesAfterWelcome(s: IServerSide): Array<Record<string, unknown>> {
+  return s.sent
+    .slice(1)
+    .map(
+      (f) =>
+        (f instanceof Uint8Array
+          ? SERVER_CBOR.decode(f)
+          : JSON.parse(f as string)) as Record<string, unknown>,
+    );
+}
+
+/** Canaux nommés par les refus (`realtime:denied`) poussés au client. */
+function deniedChannels(s: IServerSide): string[] {
+  return framesAfterWelcome(s)
+    .filter((f) => f.method === "realtime:denied")
+    .map((f) => (f.params as { channel: string }).channel);
+}
+
+describe("Portes B1 à B4 sous codec binaire — des octets passent les MÊMES contrôles que le texte (#618, ADR-0022 §3)", () => {
+  beforeEach(() => {
+    const hub = getRealtimeHub();
+    hub.clear();
+    hub.setFrameCodec(SERVER_CBOR);
+  });
+  afterEach(() => getRealtimeHub().clear());
+
+  it("B1 — le verrou lit la trame DÉCODÉE, octets en `Uint8Array`, et son refus tient : le handler ne reçoit rien", async () => {
+    const { client, server } = await connect(true, `${CBOR}, ${TEXT}`);
+    const seen: unknown[] = [];
+    getRealtimeHub().setFrameAuthorizer((frame) => {
+      seen.push(frame);
+      return false;
+    });
+    client.emit("upload", { data: new Uint8Array([1, 2, 3]) });
+    await flush();
+    expect(server.rt.inbound).toEqual([]);
+    expect(seen).toHaveLength(1);
+    // Le verrou voit ce que verrait le handler : jamais une forme encodée à part.
+    const data = (seen[0] as { params: { data: unknown } }).params.data;
+    expect(data).toBeInstanceOf(Uint8Array);
+    expect(data instanceof Uint8Array ? [...data] : null).toEqual([1, 2, 3]);
+  });
+
+  it("B2 — plancher de la plateforme : un canal réservé, pourtant produit, est refusé à une connexion CBOR", async () => {
+    const { client, server } = await connect(true, `${CBOR}, ${TEXT}`);
+    client.subscribe("nodefony:bench");
+    await flush();
+    await flush();
+    expect(deniedChannels(server)).toEqual(["nodefony:bench"]);
+    expect(
+      framesAfterWelcome(server).some(
+        (f) => f.method === "realtime:subscribed",
+      ),
+    ).toBe(false);
+  });
+
+  it("B2 — la sonde des canaux annoncés filtre l'accueil d'une connexion CBOR", async () => {
+    getRealtimeHub().setFrameAuthorizer(() => true, {
+      silentProbe: (frame) =>
+        (frame as { params: { channel: string } }).params.channel !== "tick",
+    });
+    const { server } = await connect(true, `${CBOR}, ${TEXT}`);
+    const welcome = JSON.parse(server.sent[0] as string) as {
+      params: { codec: string; channels: string[] };
+    };
+    expect(welcome.params.codec).toBe(CBOR);
+    expect(welcome.params.channels).not.toContain("tick");
+  });
+
+  it("B3 — un refus se DIT : `realtime:denied` part en trame BINAIRE et nomme le canal", async () => {
+    const { client, server } = await connect(true, `${CBOR}, ${TEXT}`);
+    getRealtimeHub().setFrameAuthorizer(() => false);
+    const before = server.sent.length;
+    client.emit("upload", { data: new Uint8Array([7]) });
+    await flush();
+    const out = server.sent.slice(before);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toBeInstanceOf(Uint8Array);
+    expect(deniedChannels(server)).toEqual(["upload"]);
+  });
+
+  it("B4 — la sonde compte la trame d'octets entrante, livrée intacte au handler", async () => {
+    const { client, server } = await connect(true, `${CBOR}, ${TEXT}`);
+    client.emit("upload", { data: new Uint8Array([0, 255]) });
+    await flush();
+    const got = server.rt.inbound as Array<{ data: Uint8Array }>;
+    expect(got).toHaveLength(1);
+    expect(got[0]?.data).toBeInstanceOf(Uint8Array);
+    expect([...(got[0]?.data ?? [])]).toEqual([0, 255]);
+    expect(getRealtimeHub().probe().inboundTotal).toBe(1);
+  });
+
+  it("`clear()` retire la sonde des canaux AVEC le verrou — posés ensemble, ils tombent ensemble", async () => {
+    const hub = getRealtimeHub();
+    hub.setFrameAuthorizer(() => true, { silentProbe: () => false });
+    hub.clear();
+    hub.setFrameCodec(SERVER_CBOR);
+    const { server } = await connect(true, `${CBOR}, ${TEXT}`);
+    const welcome = JSON.parse(server.sent[0] as string) as {
+      params: { channels: string[] };
+    };
+    // Sonde orpheline : elle masquerait encore `tick` sans aucun verrou posé.
+    expect(welcome.params.channels).toContain("tick");
   });
 });
