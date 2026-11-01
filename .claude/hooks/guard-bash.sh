@@ -119,6 +119,7 @@ fi
 #    8  trailer `Co-Authored-By: Claude`      11 `rm -rf` → demande à l'auteur (ask)
 #    9  sortie de test/build | head|tail       12 `gh issue|pr comment` chaîné
 #    10 `$?` lu après un pipe                  13 `--no-verify`   14 `git add -A` / `.`
+#    15 message de commit refusé par commitlint (même config), AVANT le pre-commit
 #    Raisons, mesures et commandes de remplacement : `bash-rules.mjs`.
 verdict_node=$(printf '%s' "$cmd" | node "$(dirname "${BASH_SOURCE[0]}")/bash-rules.mjs" 2>/dev/null)
 case $verdict_node in

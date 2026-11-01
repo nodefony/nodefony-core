@@ -52,7 +52,7 @@ for c in 'git reset --hard' 'git clean -fd' 'git stash' 'git stash push -m x' \
 
 echo "=== ARBRE SALE — doivent PASSER (lecture seule, ou geste qui ne perd rien) ==="
 for c in 'git stash list' 'git stash show -p' 'git status --short' 'git log -6' \
-  'git add -u' 'git commit -m x' 'git diff --stat' 'git push origin main' \
+  'git add -u' 'git commit -m "fix: x"' 'git diff --stat' 'git push origin main' \
   'echo "ne jamais git reset"' 'git stash list | head -1' 'git stash show -p | wc -l'; do t PASSE "$c"; done
 
 echo "=== push --force — refus inconditionnel (l'historique distant, lui, n'a pas d'état local) ==="
@@ -161,6 +161,27 @@ for c in 'git commit -m "docs: pas de trailer Co-Authored"' 'npm test > tmp/runs
   'rg -n foo src | head -20' 'npm run dev | tail -f' 'git add -- a.ts b.ts' 'git add -u' \
   'gh issue comment 618 --body "x && y"' 'rm -f a.txt' 'rm -r vide/' 'echo "rm -rf x"' \
   'node -e "a | tail; echo $?"'; do
+  t PASSE "$c"
+done
+
+echo "=== règle 15 — message de commit refusé par commitlint AVANT le pre-commit : doit REFUSER ==="
+LONG="chore(board): $(printf 'x%.0s' $(seq 100))"
+for c in 'git commit -m "docs(adr): ADR-0022 fixe le codec"' "git commit -qm \"$LONG\"" \
+  'git commit -m "Correction sans type"' 'git commit -m "fix(http): finir par un point."' \
+  "git commit -q -F- <<'EOF'
+feat(realtime): Majuscule en tête
+
+Corps.
+EOF"; do
+  t deny "$c"
+done
+echo "=== règle 15 — messages conformes, commit sans message lisible : doivent PASSER ==="
+for c in 'git commit -q -m "fix(http): corriger une chose" -m "Corps libre, Majuscules permises."' \
+  'git commit --amend --no-edit' 'git commit' "git commit -q -F- <<'EOF'
+feat(realtime): router les trames binaires
+
+Corps.
+EOF"; do
   t PASSE "$c"
 done
 

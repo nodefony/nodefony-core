@@ -154,7 +154,81 @@ export function bashVerdict(cmd) {
   return null;
 }
 
+/**
+ * Le message d'un `git commit` tel qu'il partira : les `-m` (joints comme git les joint),
+ * `-F <fichier>`, ou `-F -` alimenté par un heredoc. `null` si la commande ne commite
+ * pas, ou si le message n'est pas lisible ici (éditeur, `--amend` sans `-m`, `-C`).
+ *
+ * @param cmd - la commande Bash BRUTE (le heredoc y est encore).
+ */
+export function commitMessageOf(cmd) {
+  for (const stages of parse(cmd))
+    for (const words of stages) {
+      const [verb, args] = verbOf(words);
+      const g = verb === "git" ? gitArgs(args) : [];
+      if (g[0] !== "commit") continue;
+      const parts = [];
+      for (let i = 1; i < g.length; i++) {
+        const a = g[i];
+        if (/^-[a-zA-Z]*m$/.test(a) || a === "--message")
+          parts.push(g[++i] ?? "");
+        else if (a.startsWith("--message=")) parts.push(a.slice(10));
+        else if (
+          /^-[a-zA-Z]*F-?$/.test(a) ||
+          a === "--file" ||
+          a.startsWith("--file=")
+        ) {
+          // `-F -`, `-F-`, `--file=-` : le message vient de stdin, donc du heredoc.
+          const file = a.endsWith("-")
+            ? "-"
+            : a.startsWith("--file=")
+              ? a.slice(7)
+              : (g[++i] ?? "");
+          if (file === "-") {
+            const m =
+              /(?:-F\s*-|--file=-)\s*<<-?\s*(['"]?)(\w+)\1[^\n]*\n([\s\S]*?)\n\s*\2(?=\s|$)/.exec(
+                cmd,
+              );
+            if (m) parts.push(m[3]);
+          } else if (fs.existsSync(file))
+            parts.push(fs.readFileSync(file, "utf8"));
+        }
+      }
+      return parts.length ? parts.join("\n\n") : null;
+    }
+  return null;
+}
+
+/**
+ * 15. Le message de commit passé à commitlint AVANT le commit — avec la configuration
+ * du dépôt, donc les MÊMES règles que le hook `commit-msg`. Sans cela, un sujet trop
+ * long ou à majuscule n'était refusé qu'après tout le pre-commit (prettier, oxlint,
+ * contrôle des skills) : récurrent, et chaque essai repayait la passe entière.
+ *
+ * @param cmd - la commande Bash brute.
+ * @returns le verdict de refus, ou null.
+ */
+export async function commitVerdict(cmd) {
+  const message = commitMessageOf(cmd);
+  if (message === null) return null;
+  const { default: load } = await import("@commitlint/load");
+  const { default: lint } = await import("@commitlint/lint");
+  const cfg = await load({}, { cwd: process.cwd() });
+  const report = await lint(
+    message,
+    cfg.rules,
+    cfg.parserPreset ? { parserOpts: cfg.parserPreset.parserOpts } : {},
+  );
+  if (report.valid) return null;
+  const header = message.split("\n")[0];
+  return {
+    decision: "deny",
+    reason: `REFUS — le message de commit serait refusé par commitlint, APRÈS tout le pre-commit : ${report.errors.map((e) => `${e.name} (${e.message})`).join(" ; ")}. Sujet (${header.length} car.) : « ${header} ». Forme : \`type(portée): sujet en minuscule, sans point final\`, en-tête ≤ 100 caractères — le détail va dans le corps.`,
+  };
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const v = bashVerdict(fs.readFileSync(0, "utf8"));
+  const cmd = fs.readFileSync(0, "utf8");
+  const v = bashVerdict(cmd) ?? (await commitVerdict(cmd).catch(() => null));
   if (v) process.stdout.write(`${v.decision} ${v.reason}`);
 }
