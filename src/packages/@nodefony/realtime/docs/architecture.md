@@ -648,23 +648,37 @@ sa recette mérite qu'on s'y arrête :
 > celle qui ne lève aucune erreur. L'`originId` est résolu à la construction : coût nul par
 > message.
 
-### Des octets ne traversent pas (encore) le bus
+### Des octets sur le bus
 
-Les drivers `redis` et `cluster` sérialisent le message en JSON, et JSON ne sait pas porter des
-octets : un `Uint8Array` y deviendrait un objet ordinaire (`{"0":1,"1":2}`), sans erreur. Le
-hub refuse donc de les envoyer sur le bus (`RealtimeHub.ts#RealtimeHub.publish`) : des octets
-publiés sur un canal diffusé sont livrés **intacts aux abonnés du serveur qui les publie**,
-et un avertissement de plateforme, émis une seule fois, nomme le canal.
+JSON ne sait pas porter des octets : un `Uint8Array` y devient un objet ordinaire
+(`{"0":1,"1":2}`), sans erreur. Les octets traversent donc le bus par une voie à eux, ouverte
+quand le serveur a un codec binaire (`codec: "cbor"`, [configuration](configuration.md)) :
 
-| Charge publiée sur un canal diffusé    | Abonnés de ce serveur | Abonnés des autres serveurs    |
-| -------------------------------------- | --------------------- | ------------------------------ |
-| valeur JSON (`{ text: "bonjour" }`)    | reçue                 | reçue                          |
-| `Uint8Array`, vue typée, `ArrayBuffer` | reçue, intacte        | **non envoyée**, avertissement |
-| objet qui **contient** des octets      | reçue                 | ⚠️ déformée : à éviter         |
+- **`redis`** : un **second canal**, nommé d'après le codec
+  (`nodefony:realtime:<cloison>:nodefony.jsonrpc.cbor.v1`,
+  `RedisBackplane.ts#resolveRedisBytesChannel`). Il porte la même enveloppe
+  `{ channel, payload, originId }`, encodée en CBOR, octets natifs dans `payload`, scellée
+  comme le texte. Une charge sans octets garde le canal texte : un serveur plus ancien, qui
+  n'écoute pas le second canal, continue de recevoir tout le reste.
+- **`cluster`** : le master forke ses workers en sérialisation `advanced` (clonage
+  structuré) — un `Uint8Array` traverse le relais tel quel, sans codec ni sceau : l'IPC ne
+  quitte pas la machine.
 
-La dernière ligne est la limite de ce garde-fou : il ne fouille pas l'intérieur d'un objet, ce
-qui coûterait sur chaque publication. La voie binaire du bus (octets bruts sur un sujet séparé,
-que les serveurs plus anciens n'écoutent pas) est l'objet de #618.
+Le hub ne confie des octets au bus que si le driver les accepte
+(`IBackplane.enableBytes`, `RealtimeHub.ts#RealtimeHub.publish`). Sinon il les garde sur le
+serveur qui les publie, et un avertissement de plateforme, émis une seule fois, nomme le canal.
+
+| Charge publiée sur un canal diffusé    | Abonnés de ce serveur | Autres serveurs, codec binaire + driver capable | Autres serveurs, sinon         |
+| -------------------------------------- | --------------------- | ----------------------------------------------- | ------------------------------ |
+| valeur JSON (`{ text: "bonjour" }`)    | reçue                 | reçue                                           | reçue                          |
+| `Uint8Array`                           | reçue, intacte        | reçue, intacte                                  | **non envoyée**, avertissement |
+| objet qui **contient** un `Uint8Array` | reçue, intacte        | reçue, intacte                                  | **non envoyée**, avertissement |
+| autre vue typée, `ArrayBuffer`         | reçue, intacte        | **non envoyée**, avertissement                  | **non envoyée**, avertissement |
+
+Sans codec binaire, seule la charge de premier niveau est examinée : chercher des octets au
+fond d'un objet coûterait sur chaque publication d'une application qui n'en publie pas. Un
+objet qui contient des octets sans codec binaire reste donc déformé sur le bus — comme il
+l'est déjà pour les navigateurs, qui le reçoivent en JSON.
 
 ### Le cloisonnement du canal Redis
 

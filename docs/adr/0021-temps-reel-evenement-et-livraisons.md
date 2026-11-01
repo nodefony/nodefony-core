@@ -234,8 +234,16 @@ base64 dans `payload` (un tiers plus lourd, et du calcul à chaque message) ; un
 maison (canal, origine, sceau) suivi des octets — une seconde grammaire, avec son propre
 décodeur et sa propre vérification du sceau, qui divergeraient en silence de la première.
 
-Jusque-là, des octets publiés sur un canal diffusé **ne partent pas sur le bus** : ils restent
-livrés intacts aux abonnés locaux, et l'exploitant est prévenu une fois
+**Livré (#618).** Le second sujet Redis se nomme d'après le protocole du codec
+(`src/packages/@nodefony/realtime/nodefony/src/backplane/RedisBackplane.ts#resolveRedisBytesChannel`) ;
+l'enveloppe binaire et son sceau vivent à côté du texte
+(`src/packages/@nodefony/realtime/nodefony/src/backplane/envelope.ts#sealBackplaneEnvelopeBytes`).
+Le relais IPC porte les octets par la sérialisation `advanced` des workers, posée par le master
+(`src/nodefony/src/service/cluster/clusterMaster.ts#startClusterMaster`) : l'IPC ne relie qu'un
+master à ses workers, il n'a ni sceau ni second sujet à porter. Un driver accepte les octets
+par `IBackplane.enableBytes` ; à défaut — pas de codec binaire, ou un driver qui ne sait pas —
+les octets publiés sur un canal diffusé **ne partent pas sur le bus** : ils restent livrés
+intacts aux abonnés locaux, et l'exploitant est prévenu une fois
 (`src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts#RealtimeHub.publish`). Avant
 ce garde-fou, `JSON.stringify` les rendait en objet ordinaire (`{"0":1,"1":2}`), sans erreur.
 
@@ -294,12 +302,12 @@ sont des octets, et des octets sont un `Uint8Array` des deux côtés
 manière, jamais un `JSON.stringify` qui rendrait un objet (`[1, 2, 255]` devient
 `{"0":1,"1":2,"2":255}`, sans erreur).
 
-| Transport | Ce que le code tient                                                                                                                                                                                                                       |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Socket    | trame binaire, octets intacts                                                                                                                                                                                                              |
-| Backplane | **refusés** plutôt que déformés : livrés aux seuls abonnés locaux, l'exploitant prévenu une fois (`src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts#RealtimeHub.publish`) ; voie brute sur un second sujet (S6, #618)    |
-| Flux SSE  | **refusés** : `TypeError` qui dit d'encoder soi-même en base64 avec le type MIME (`src/packages/@nodefony/http/nodefony/src/context/http/SseStream.ts#serialize`) — un flux SSE n'est que du texte UTF-8 (WHATWG HTML §9.2)                |
-| Webhook   | **sans objet en 10.0** : seuls les événements de sécurité partent, sans octets ; la règle se décide avec l'émission applicative (ADR-0023 W3, 10.1), sous la contrainte « jamais des octets déformés » (S-rt-3) — table du gel, 2026-10-30 |
+| Transport | Ce que le code tient                                                                                                                                                                                                                                                      |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Socket    | trame binaire, octets intacts                                                                                                                                                                                                                                             |
+| Backplane | octets intacts sous codec binaire : second sujet Redis en CBOR scellé, IPC en clonage structuré (S6) ; sans codec binaire ou driver incapable, **refusés** plutôt que déformés (`src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts#RealtimeHub.publish`) |
+| Flux SSE  | **refusés** : `TypeError` qui dit d'encoder soi-même en base64 avec le type MIME (`src/packages/@nodefony/http/nodefony/src/context/http/SseStream.ts#serialize`) — un flux SSE n'est que du texte UTF-8 (WHATWG HTML §9.2)                                               |
+| Webhook   | **sans objet en 10.0** : seuls les événements de sécurité partent, sans octets ; la règle se décide avec l'émission applicative (ADR-0023 W3, 10.1), sous la contrainte « jamais des octets déformés » (S-rt-3) — table du gel, 2026-10-30                                |
 
 Un `Uint8Array` IMBRIQUÉ dans une charge JSON suit la convention du codec
 ([ADR-0022](0022-socket-temps-reel.md) §3, #618 : chaîne d'octets en CBOR, base64 déclaré en
