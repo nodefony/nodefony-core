@@ -309,24 +309,74 @@ export type DiscardedFrameKind = "binary" | "malformed";
  * trame : un flux binaire à 60 Hz ne doit pas devenir 60 notices par seconde.
  *
  * Le message nomme le GESTE, parce que les deux causes n'appellent pas le même :
- * une trame binaire n'est pas une faute — le protocole temps réel est du
- * JSON-RPC texte, et un flux binaire se lit par `onBinary()` ; une trame texte
- * illisible, elle, est un défaut du pair. Code `-32700` (JSON-RPC 2.0 §5.1,
- * « Parse error ») : dans les deux cas, ce qui est arrivé n'est pas du JSON.
+ * une trame binaire sur une connexion JSON-RPC texte n'est pas une faute — elle
+ * n'y a simplement pas de canal, et se lit par `onBinary()` ; des octets routés
+ * par canal demandent un codec binaire. Une trame illisible pour le codec de la
+ * connexion, elle, est un défaut du pair. Code `-32700` (JSON-RPC 2.0 §5.1,
+ * « Parse error ») : dans les deux cas, la trame ne se décode pas en frame.
  *
- * @param kind - `binary` (trame binaire sans lecteur) ou `malformed` (texte non JSON)
+ * @param kind - `binary` (trame binaire sans lecteur, connexion texte) ou
+ *   `malformed` (trame que le codec ne décode pas)
+ * @param protocol - sous-protocole du codec en vigueur, nommé dans le message `malformed`
  * @returns la notice à afficher
  */
-export function discardedFrameNotice(kind: DiscardedFrameKind): NodefonyNotice {
+export function discardedFrameNotice(
+  kind: DiscardedFrameKind,
+  protocol: string,
+): NodefonyNotice {
   return {
     level: "warning",
     title: "Temps réel",
     message:
       kind === "binary"
-        ? "Trame binaire reçue et écartée : le protocole temps réel est du JSON-RPC texte. Pour lire un flux binaire, s'y abonner avec onBinary()"
-        : "Trame texte illisible reçue et écartée : ce n'est pas du JSON (pair défaillant ?)",
+        ? "Trame binaire écartée : en JSON-RPC texte elle n'a pas de canal — onBinary() pour un protocole propre, option codec (nodefony/cbor) pour des octets par canal"
+        : `Trame illisible écartée : elle ne se décode pas en ${protocol} (pair défaillant ?)`,
     source: "realtime",
     code: JsonRpcError.PARSE_ERROR,
+    ts: Date.now(),
+  };
+}
+
+/**
+ * Notice d'un accueil qui annonce un codec que le client n'a PAS offert.
+ *
+ * Un serveur conforme ne choisit que parmi l'offre (RFC 6455 §4.1 dit la même
+ * chose de l'écho du handshake) : le client reste donc en JSON-RPC texte, et ce
+ * qui arrive dans un autre format est écarté. Le dire est la seule façon que la
+ * panne ne passe pas pour une socket muette.
+ *
+ * @param protocol - le sous-protocole annoncé par `realtime:welcome`
+ * @returns la notice à afficher
+ */
+export function unofferedCodecNotice(protocol: string): NodefonyNotice {
+  return {
+    level: "error",
+    title: "Temps réel",
+    message: `Codec « ${protocol} » annoncé sans avoir été offert : la connexion reste en JSON-RPC texte`,
+    source: "realtime",
+    code: JsonRpcError.PARSE_ERROR,
+    ts: Date.now(),
+  };
+}
+
+/**
+ * Notice d'un flux binaire BRUT (`onBinary` / `sendBinary`) sur une connexion qui
+ * parle un codec binaire.
+ *
+ * Sous un codec binaire, toute trame binaire est une frame JSON-RPC du codec : un
+ * protocole binaire propre à l'application n'y a plus de place — il appartient aux
+ * connexions `nodefony.jsonrpc.v1`. Les octets d'un canal, eux, passent par
+ * `publish` et `on(canal)`, sans base64. Émise une fois par connexion.
+ *
+ * @param protocol - le sous-protocole du codec en vigueur
+ * @returns la notice à afficher
+ */
+export function rawBinaryUnderCodecNotice(protocol: string): NodefonyNotice {
+  return {
+    level: "warning",
+    title: "Temps réel",
+    message: `Flux binaire brut indisponible sous ${protocol} : publier les octets sur un canal ; onBinary() et sendBinary() servent les connexions texte`,
+    source: "realtime",
     ts: Date.now(),
   };
 }

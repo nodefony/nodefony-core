@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-11-01 08:35** (UTC).
+> Empreinte prise le **2026-11-01 08:51** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -141,7 +141,7 @@ Ordre 6.03 · P2 — décision · 19.75 j · jalon 10.0.0-beta · frise 2026-10-
 | 6.12 | P2 — décision | 0.5 | 2026-11-19 → 11-19 | #89 | docs(notification): faire la veille des canaux de communication attendus |
 | 6.2 | P1 — figé à la création | 1 | 2026-11-20 → 11-20 | #659 | docs(performance): remesurer les pages de performance avant la release |
 
-## Backlog — aucune date promise · 32 ouverts
+## Backlog — aucune date promise · 33 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -177,6 +177,7 @@ Ordre 6.03 · P2 — décision · 19.75 j · jalon 10.0.0-beta · frise 2026-10-
 | 924.7 | P3 — fin de cycle | 1 | — | #675 | refactor(studio): vérifier les réponses du serveur au lieu de forcer leur type |
 | 924.8 | P3 — fin de cycle | 1 | — | #676 | refactor(types): vérifier les données reçues dans les petits paquets |
 | 924.9 | P2 — décision | 0.5 | — | #687 | fix(orm): ne plus générer en production les tables d'un module de dev |
+| 925 | P3 — fin de cycle | 1 | — | #718 | feat(http): écouter sur un fichier de socket Unix derrière un relais local |
 
 ## Jalon 10.2.0 — 33 ouverts
 

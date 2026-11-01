@@ -50,7 +50,7 @@ const off = c.on("nodefony:supervision", (p) => {
   /* … */
 }); // off() pour se désabonner
 const data = await c.request<"method", T>("method", params); // RPC requête/réponse
-// getters : state · subscribedChannels · framesReceived · frameLog (ring lazy : émis seulement si listener)
+// getters : state · codec · subscribedChannels · framesReceived · frameLog (allumé en dev ; en prod éteint jusqu'à lecture ou écouteur LOCAL_EVENTS.frame)
 ```
 
 - 🚨 **1 SEULE socket par origine** (`shared` singleton) — Studio ET debug bar la partagent. **TOUS** les

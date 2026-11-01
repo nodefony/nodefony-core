@@ -1,10 +1,10 @@
 /**
  * localEvents — **noms des événements LOCAUX du client temps réel**.
  *
- * Ces sept noms ne voyagent jamais sur le fil : ils ne servent qu'à propager, dans
+ * Ces huit noms ne voyagent jamais sur le fil : ils ne servent qu'à propager, dans
  * la page, ce que le client vient d'apprendre (changement d'état de connexion,
  * identité résolue au welcome, échantillon de statistiques, notice normalisée,
- * refus ou acquittement de canal). Ils partagent la table de `on()`/`off()` avec les canaux
+ * refus ou acquittement de canal, trame du journal protocole). Ils partagent la table de `on()`/`off()` avec les canaux
  * réseau ; le double soulignement est ce qui les en distingue.
  *
  * **La table est la source unique**, exactement pour la même raison que
@@ -44,6 +44,11 @@ export const LOCAL_EVENTS = {
   subscribed: "__subscribed__",
   /** Tentative de reconnexion programmée (numéro d'essai, délai, échéance). */
   reconnect: "__reconnect__",
+  /**
+   * Trame du journal protocole (`RealtimeFrame`), pour une console ouverte. S'y
+   * abonner ALLUME le journal en production, où il est éteint par défaut.
+   */
+  frame: "__frame__",
 } as const;
 
 /** Un des noms d'événement local de la table {@link LOCAL_EVENTS}. */
@@ -63,6 +68,7 @@ export function isLocalEvent(event: string): event is LocalEvent {
     event === LOCAL_EVENTS.notice ||
     event === LOCAL_EVENTS.denied ||
     event === LOCAL_EVENTS.subscribed ||
-    event === LOCAL_EVENTS.reconnect
+    event === LOCAL_EVENTS.reconnect ||
+    event === LOCAL_EVENTS.frame
   );
 }

@@ -574,8 +574,9 @@ diffuse l'état à cadence fixe, par un canal partagé — voir
 
 Ce que j'**envoie** est le type déclaré ; ce que je **reçois** est `Jsonify<T>` : ce que JSON rend
 de ce type, quel que soit le codec. Une `Date` arrive en `string`, un membre fonction ou
-`undefined` disparaît, `bigint` n'a pas de forme JSON. Seul `Uint8Array` reste `Uint8Array` — les
-octets voyagent dans une trame binaire, jamais dans le JSON.
+`undefined` disparaît, `bigint` n'a pas de forme JSON. Seul `Uint8Array` reste `Uint8Array` — en
+chaîne d'octets native sous le codec CBOR, sous la convention `{"$bytes":"<base64url>"}` sur une
+connexion texte dont l'application a activé le binaire (ADR-0022 §2).
 
 | Qui reçoit                                               | Quoi             | Type reçu    |
 | -------------------------------------------------------- | ---------------- | ------------ |

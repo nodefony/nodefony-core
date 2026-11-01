@@ -65,7 +65,7 @@ import {
   DataGrid,
   type DataGridColumn,
 } from "../components/ui";
-import { PLATFORM_CHANNELS } from "nodefony";
+import { LOCAL_EVENTS, PLATFORM_CHANNELS } from "nodefony";
 
 /** Version de la doc des fiches d'aide du Hub (badge `DocHint`). */
 const HUB_DOC = "v1.0";
@@ -780,10 +780,11 @@ export const RealtimeConsole = observer(() => {
   // Keepalive logs (ref-compté) → l'activité realtime reste visible même hors page.
   useNodefonyChannel(PLATFORM_CHANNELS.syslog, () => {});
 
-  // Capture des frames : l'abonnement à `__frame__` enclenche le ring côté client.
+  // Capture des frames : écouter `LOCAL_EVENTS.frame` ALLUME le journal du client
+  // (éteint en production tant qu'aucune console ne le demande).
   useEffect(() => {
     setFrames([...client.frameLog]);
-    const off = client.on("__frame__", (f) => {
+    const off = client.on(LOCAL_EVENTS.frame, (f) => {
       if (pausedRef.current) return;
       const frame = f as RealtimeFrame;
       setFrames((prev) => {

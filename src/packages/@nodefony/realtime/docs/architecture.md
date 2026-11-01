@@ -445,7 +445,8 @@ Les étapes, dans l'ordre exact du code :
    est révocable, préfixes de canaux broadcast, canaux entrants.
 6. **Message de bienvenue** `realtime:welcome` : canaux et méthodes découvrables, plus
    l'identité résolue (type, authentifié ou non, rôles, portées). Le client sait **qui il
-   est** sans appeler la moindre route.
+   est** sans appeler la moindre route. Le champ `codec`, quand il est posé, dit le codec de
+   trame des frames suivantes ; absent, c'est JSON-RPC texte (ADR-0022 §2).
 
 À la fermeture, un unique `onFinish` (`RealtimeController.ts#RealtimeController.onHandshake`) fait le ménage complet :
 désabonnement de chaque canal tenu, retrait des deux registres, `fireClose()` du transport,

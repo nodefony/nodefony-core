@@ -44,4 +44,11 @@ export interface IFrameCodec {
    *   malformée.
    */
   decode(data: string | Uint8Array): unknown;
+  /**
+   * Pour un codec BINAIRE : le codec texte qui l'accompagne quand une connexion
+   * reste en `nodefony.jsonrpc.v1` — le JSON à convention d'octets (ADR-0022 §2).
+   * Porté par le codec binaire, il ne pèse que sur la page qui active ce codec ;
+   * absent, le texte reste le JSON natif.
+   */
+  readonly textCodec?: IFrameCodec;
 }

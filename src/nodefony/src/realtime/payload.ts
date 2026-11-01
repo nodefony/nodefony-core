@@ -29,6 +29,20 @@ export function isRealtimePayload(value: unknown): value is object | undefined {
 }
 
 /**
+ * Étiquette d'une charge binaire dans un journal — `[binary N B]`, jamais un vidage.
+ *
+ * `JSON.stringify(new Uint8Array(…))` rend `{"0":…,"1":…}`, énorme et faux ; un
+ * journal (frames du client, barre de debug, console de Studio) n'affiche donc que
+ * la taille. Même étiquette que le traceur WS du serveur.
+ *
+ * @param byteLength - taille de la charge, en octets.
+ * @returns l'étiquette à afficher à la place des octets.
+ */
+export function binaryPayloadLabel(byteLength: number): string {
+  return `[binary ${byteLength} B]`;
+}
+
+/**
  * Construit l'erreur levée quand un producteur publie une charge refusée par {@link isRealtimePayload}.
  *
  * Partagée par les deux bords pour que le message soit le même côté serveur et côté

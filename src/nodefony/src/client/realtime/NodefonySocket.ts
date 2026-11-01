@@ -15,6 +15,8 @@ import {
   isProbeRefusal,
   probeRefusalNotice,
   discardedFrameNotice,
+  unofferedCodecNotice,
+  rawBinaryUnderCodecNotice,
 } from "./notice";
 import {
   JsonRpcPeer,
@@ -68,12 +70,15 @@ import type {
   ContractClientActions,
 } from "../../realtime/RealtimeEventMap";
 import { unrefTimer } from "../../runtime/unrefTimer";
+import { CircularBuffer } from "../../runtime/CircularBuffer";
 import { BrowserWsTransport } from "./BrowserWsTransport";
 import { describeSocket, socketSnapshot } from "./snapshot";
 import {
   announceRealtime,
   hasKernel,
   consoleDetails,
+  isDevBuild,
+  isVerbose,
   noteServerEnv,
 } from "../announce";
 import {
@@ -110,9 +115,16 @@ import {
 } from "../../realtime/userChannel";
 import { isJsonRpcId } from "../../jsonrpc/index";
 import {
+  binaryPayloadLabel,
   isRealtimePayload,
   realtimePayloadError,
 } from "../../realtime/payload";
+import type { IFrameCodec } from "../../realtime/IFrameCodec";
+import {
+  adoptFrameCodec,
+  frameCodecSet,
+  type IFrameCodecSet,
+} from "../../realtime/frameCodecNegotiation";
 import {
   decideBackpressure,
   nextDropBalance,
@@ -182,6 +194,30 @@ export interface NodefonySocketOptions {
    * jamais fermer. Défaut `1000`, comme `backpressureCloseAfterDrops` du serveur.
    */
   backpressureCloseAfterDrops?: number | undefined;
+  /**
+   * Codec BINAIRE à offrir au serveur — `CBOR_FRAME_CODEC`, importé de
+   * `nodefony/cbor` (ADR-0022 §2). Absent : aucune offre, JSON-RPC texte, le
+   * fil d'avant #618 octet pour octet.
+   *
+   * Le client offre le sous-protocole du codec, puis `nodefony.jsonrpc.v1` ; le
+   * serveur choisit et annonce son choix dans `realtime:welcome` — jamais dans
+   * l'écho du handshake. Retenu, le codec porte toutes les frames qui suivent
+   * l'accueil, dans les deux sens, et une charge qui est ou contient un
+   * `Uint8Array` arrive à `on(canal)` en `Uint8Array`, sans base64. Non
+   * retenu (serveur sans ce codec), la connexion reste en texte, convention
+   * `{"$bytes": …}` armée pour les octets.
+   *
+   * Le codec ne pèse que sur la page qui l'importe : `nodefony/client` ne
+   * contient que le codec JSON. Un codec dont le sous-protocole est
+   * `nodefony.jsonrpc.v1` n'est pas offert : il remplace le codec texte.
+   *
+   * @example
+   * ```ts
+   * import { CBOR_FRAME_CODEC } from "nodefony/cbor";
+   * const socket = new NodefonySocket({ url: "/realtime", codec: CBOR_FRAME_CODEC });
+   * ```
+   */
+  codec?: IFrameCodec | undefined;
 }
 
 /** Solde de frames jetées qui ferme la socket, faute de `backpressureCloseAfterDrops`. */
@@ -217,20 +253,47 @@ export interface RealtimeFrame {
   id?: number | undefined;
   /** Canal pub/sub (`params.channel`), si présent. */
   channel?: string | undefined;
-  /** Payload affichable — champs sensibles **redactés** (token/secret…). */
+  /**
+   * Payload affichable — champs sensibles **redactés** (token/secret…), octets
+   * résumés en `[binary N B]` (jamais vidés).
+   */
   payload: unknown;
+  /** Taille sur le fil : caractères d'une trame texte, octets d'une trame binaire ; `0` si inconnue. */
+  size: number;
+  /** Trame binaire (codec binaire de la connexion), sinon trame texte. */
+  binary: boolean;
 }
 
 /** Taille max du ring du log protocole (inspecteur realtime). */
 const FRAME_LOG_MAX = 300;
 
 /**
- * Budget du log protocole, en caractères sérialisés. Le compte de trames seul ne
- * borne rien : 300 trames de 2 Mo retenaient 80 Mo choisis par le serveur.
+ * Budget du log protocole, en unités du fil (caractères d'une trame texte, octets
+ * d'une trame binaire). Le compte de trames seul ne borne rien : 300 trames de
+ * 2 Mo retenaient 80 Mo choisis par le serveur.
  */
 const FRAME_LOG_MAX_CHARS = 2 * 1024 * 1024;
 
-/** Au-delà, une trame n'est journalisée qu'en résumé (méthode, id, canal, taille). */
+/** Au-delà (mêmes unités), une trame n'est journalisée qu'en résumé (méthode, id, canal, taille). */
+
+/** Une entrée du journal protocole : la RÉF brute, la construction est différée. */
+interface IFrameLogEntry {
+  ts: number;
+  dir: "in" | "out";
+  /** La frame décodée, ou son résumé si elle dépasse {@link FRAME_LOG_ENTRY_MAX_CHARS}. */
+  msg: unknown;
+  /** Taille sur le fil (caractères ou octets). */
+  size: number;
+  binary: boolean;
+}
+
+/**
+ * Ce qu'une entrée retient du budget : sa taille, ou rien quand seul son résumé
+ * est gardé — dérivé, donc jamais stocké.
+ */
+function frameLogCost(size: number): number {
+  return size > FRAME_LOG_ENTRY_MAX_CHARS ? 0 : size;
+}
 const FRAME_LOG_ENTRY_MAX_CHARS = 64 * 1024;
 
 /**
@@ -398,9 +461,13 @@ async function fetchProbe(
  * jamais la charge. Garde les clés `result`/`error` pour que le log en lise la
  * nature.
  */
-function frameSummary(msg: unknown, size: number): Record<string, unknown> {
+function frameSummary(
+  msg: unknown,
+  size: number,
+  binary: boolean,
+): Record<string, unknown> {
   const out: Record<string, unknown> = {
-    truncated: `${size} caractères — charge non journalisée`,
+    truncated: `${size} ${binary ? "octets" : "caractères"} — charge non journalisée`,
   };
   if (msg === null || typeof msg !== "object") return out;
   if ("method" in msg && typeof msg.method === "string")
@@ -428,7 +495,12 @@ const FRAME_REDACT_RE =
 
 /** Copie d'un payload JSON-RPC avec masquage des champs sensibles (bornée en profondeur). */
 function redactFrame(value: unknown, depth = 0): unknown {
-  if (depth > 4 || value === null || typeof value !== "object") return value;
+  if (value === null || typeof value !== "object") return value;
+  // AVANT la borne de profondeur et avant `Object.entries` : une vue de 64 Ko
+  // énumérée rendrait 65 536 entrées. La taille suffit au journal.
+  if (ArrayBuffer.isView(value)) return binaryPayloadLabel(value.byteLength);
+  if (value instanceof ArrayBuffer) return binaryPayloadLabel(value.byteLength);
+  if (depth > 4) return value;
   if (Array.isArray(value)) return value.map((v) => redactFrame(v, depth + 1));
   // `fromEntries` crée des propriétés PROPRES : une clé `__proto__` reçue reste
   // une donnée, là où une affectation `out[k] = …` changerait le prototype.
@@ -643,6 +715,15 @@ export class NodefonySocket<
   // la très grande majorité des sockets ne reçoit jamais de binaire.
   private _binaryHandlers: Set<(data: Uint8Array<ArrayBuffer>) => void> | null =
     null;
+  // Codec de la connexion COURANTE (ADR-0022 §2) : le texte jusqu'à l'accueil,
+  // puis celui que `realtime:welcome` annonce. Remis au texte à chaque tentative,
+  // qui ouvre une session serveur neuve.
+  private _codec: IFrameCodec;
+  // Les codecs de CETTE socket, fixés une fois par la règle partagée avec le
+  // serveur (`frameCodecSet`) : texte, binaire offert, offre de sous-protocoles.
+  private readonly codecs: IFrameCodecSet;
+  // Flux binaire brut refusé sous codec binaire : déjà signalé sur CETTE connexion.
+  private _rawBinaryNoticed = false;
   // Vaut `true` tant qu'on ne s'est jamais connecté : une frame émise avant la
   // première connexion est un séquencement d'application, pas une coupure — la
   // signaler comme telle serait un faux avertissement. Remis à `false` à chaque
@@ -652,15 +733,22 @@ export class NodefonySocket<
   private _lastFrameMethod: string | null = null;
   private statsTimer: ReturnType<typeof setInterval> | null = null;
   private readonly _prevSampled = new Map<string, number>();
-  // Log protocole (inspecteur realtime) — ring ALWAYS-ON mais bon marché : on ne
-  // pousse qu'une RÉF brute (`{ts,dir,msg}`) ; la construction + la redaction
-  // sont DIFFÉRÉES à la lecture (`frameLog`) ou au live (`__frame__`). Toujours
-  // alimenté → la console « retrace l'instant » dès l'ouverture (pas de vide).
-  private _rawFrames:
-    { ts: number; dir: "in" | "out"; msg: unknown; size: number }[] | null =
-    null;
-  // Somme des `size` du ring — tenue à jour au push/shift, jamais recalculée.
+  // Log protocole (inspecteur realtime) : une RÉF brute par trame, construction et
+  // redaction DIFFÉRÉES à la lecture (`frameLog`) ou au live (`LOCAL_EVENTS.frame`).
+  // Anneau O(1) (`CircularBuffer`, le seul du dépôt) : un `Array.shift()` y
+  // recopiait jusqu'à FRAME_LOG_MAX cases à CHAQUE trame une fois plein.
+  private _rawFrames: CircularBuffer<IFrameLogEntry> | null = null;
+  // Le journal est-il ALLUMÉ ? En développement (bundle dev, ou serveur qui annonce
+  // un mode hors production), dès l'ouverture : la console « retrace l'instant ».
+  // En production, éteint — coût NUL par trame — jusqu'à ce qu'une console le
+  // demande (lecture de `frameLog`, écouteur `LOCAL_EVENTS.frame`).
+  private _frameLogOn = isDevBuild();
+  // Somme des coûts du ring (`frameLogCost`) — tenue à jour au push/shift,
+  // jamais recalculée.
   private _rawFramesChars = 0;
+  // Horodatage de la trame entrante en cours d'ingestion : UN `Date.now()` par
+  // trame, partagé par le journal et les statistiques.
+  private _inboundAt = 0;
   // Identité résolue + capabilities annoncées par le serveur au `realtime:welcome`
   // (cold path, 1×/connexion). `null` tant que pas reçu → lazy, 0 alloc « au cas
   // où ». Réfs brutes vers les objets du welcome (pas de copie).
@@ -675,7 +763,12 @@ export class NodefonySocket<
     transportFactory?: RealtimeTransportFactory,
   ) {
     this.transportFactory =
-      transportFactory ?? ((url: string) => new BrowserWsTransport(url));
+      transportFactory ??
+      ((url: string, protocols?: readonly string[]) =>
+        new BrowserWsTransport(url, protocols));
+    // Une fois par socket, jamais par trame : qui est le texte, qui est offert.
+    this.codecs = frameCodecSet(opts.codec);
+    this._codec = this.codecs.text;
     // Le diagnostic ne se compose pas (ADR-0007 D7 révisé) : une socket nue
     // annonce le framework et se rend inspectable, exactement comme le ferait un
     // noyau. Quand il y en a un, il s'est annoncé AVANT de nous fabriquer — le
@@ -700,6 +793,16 @@ export class NodefonySocket<
     if (!client) {
       client = new NodefonySocket({ ...opts, url: key });
       map.set(key, client);
+    } else if (
+      opts.codec !== undefined &&
+      opts.codec !== client.opts.codec &&
+      isVerbose()
+    ) {
+      // Les options ne s'appliquent qu'à la création : un codec demandé après coup
+      // serait ignoré EN SILENCE, et la page croirait parler binaire.
+      console.warn(
+        `[nodefony] ${key} : codec « ${opts.codec.protocol} » ignoré, la socket partagée existe déjà — le passer à sa PREMIÈRE création`,
+      );
     }
     return client;
   }
@@ -881,8 +984,38 @@ export class NodefonySocket<
     this._identity = null;
     this._serverChannels = null;
     this._serverMethods = null;
+    this._codec = this.codecs.text;
     this.fireLocal(LOCAL_EVENTS.identity, null);
     this.setState("disconnected");
+  }
+
+  /**
+   * Adopte le codec que l'accueil annonce (ADR-0022 §2) — chemin froid, une fois
+   * par connexion. Absent ou `nodefony.jsonrpc.v1` : le texte. Celui qu'on a
+   * offert : il porte toutes les frames qui suivent. Un autre : faute du serveur,
+   * dite par une notice, et la connexion reste en texte.
+   */
+  private adoptCodec(announced: unknown): void {
+    const adopted = adoptFrameCodec(this.codecs, announced);
+    if (adopted !== null) {
+      this._codec = adopted;
+      if (adopted === this.codecs.binary && this._binaryHandlers !== null)
+        this.noticeRawBinary();
+      return;
+    }
+    this._codec = this.codecs.text;
+    this.fireNotice(
+      unofferedCodecNotice(
+        typeof announced === "string" ? announced : typeof announced,
+      ),
+    );
+  }
+
+  /** Signale, une fois par connexion, le flux brut refusé sous codec binaire. */
+  private noticeRawBinary(): void {
+    if (this._rawBinaryNoticed) return;
+    this._rawBinaryNoticed = true;
+    this.fireNotice(rawBinaryUnderCodecNotice(this._codec.protocol));
   }
 
   /** Pub/sub local — handler sur un event server-pushed (notification JSON-RPC). */
@@ -892,6 +1025,8 @@ export class NodefonySocket<
       ? (payload: EventPayload<Listen, K>) => void
       : RealtimeHandler,
   ): () => void {
+    // Une console qui écoute le journal l'allume (éteint en production).
+    if (event === LOCAL_EVENTS.frame) this._frameLogOn = true;
     let set = this.handlers.get(event);
     if (!set) {
       set = new Set();
@@ -1312,6 +1447,7 @@ export class NodefonySocket<
    */
   onBinary(handler: (data: Uint8Array<ArrayBuffer>) => void): () => void {
     (this._binaryHandlers ??= new Set()).add(handler);
+    if (this._codec === this.codecs.binary) this.noticeRawBinary();
     return () => {
       this._binaryHandlers?.delete(handler);
       if (this._binaryHandlers?.size === 0) this._binaryHandlers = null;
@@ -1331,6 +1467,11 @@ export class NodefonySocket<
   sendBinary(data: Uint8Array<ArrayBuffer>): boolean {
     if (this.transport?.readyState !== TransportState.OPEN) {
       this._framesUnsent++;
+      return false;
+    }
+    // Sous codec binaire, le serveur lirait ces octets comme une frame du codec.
+    if (this._codec === this.codecs.binary) {
+      this.noticeRawBinary();
       return false;
     }
     if (!this.admitOutbound(this.transport)) return false;
@@ -1667,12 +1808,16 @@ export class NodefonySocket<
    * moteur. Renvoie sa nature. Une frame `invalid` peut porter une erreur GLOBALE
    * serveur (`{jsonrpc, error}` hors spec JSON-RPC) → notice (cf {@link handleServerError}).
    *
-   * @param frame - la frame déjà parsée.
-   * @param size - sa taille sérialisée (caractères), pour le budget du log protocole.
+   * @param frame - la frame déjà décodée.
+   * @param size - sa taille sur le fil (caractères, ou octets d'une trame
+   *   binaire), pour le budget du log protocole.
+   * @param binary - la frame est arrivée en trame binaire (codec binaire).
    * @returns la nature de la frame selon le moteur JSON-RPC.
    */
-  receive(frame: unknown, size = 0): JsonRpcFrameKind {
-    this.recordFrame("in", frame, size); // log protocole (lazy)
+  receive(frame: unknown, size = 0, binary = false): JsonRpcFrameKind {
+    const ts = Date.now();
+    this._inboundAt = ts;
+    if (this._frameLogOn) this.recordFrame("in", frame, size, binary, ts);
     const kind = this.peer.receive(frame);
     if (kind === "invalid") this.handleServerError(frame);
     return kind;
@@ -1735,6 +1880,16 @@ export class NodefonySocket<
     return this._lastFrameMethod;
   }
 
+  /**
+   * Sous-protocole du codec en vigueur sur la connexion — `nodefony.jsonrpc.v1`
+   * tant que l'accueil n'en a pas annoncé un autre, et de nouveau après une
+   * coupure, jusqu'à l'accueil suivant (ADR-0022 §2). Mis en mots par
+   * `describeCodec`.
+   */
+  get codec(): string {
+    return this._codec.protocol;
+  }
+
   /** Snapshot des stats par canal (msgCount/rate/series). Les objets sont les
    *  refs internes — à LIRE, pas à muter (copier les valeurs si besoin). */
   getStats(): MessageStats[] {
@@ -1750,7 +1905,8 @@ export class NodefonySocket<
 
   /** Comptabilise une notification entrante (avant dispatch aux handlers). */
   private trackFrame(method: string): void {
-    const now = Date.now();
+    // Posé par `receive`, qui seul mène ici (moteur → `dispatchNotification`).
+    const now = this._inboundAt;
     this._framesReceived++;
     this._lastFrameAt = now;
     this._lastFrameMethod = method;
@@ -1822,6 +1978,9 @@ export class NodefonySocket<
     // Avant la sortie anticipée : un welcome partiel/legacy n'annonce rien, et
     // c'est précisément le cas où il ne faut pas attendre d'acquittement.
     this._subscriptionAcks = fieldOf(params, "subscriptionAcks") === true;
+    // Avant le rejeu des abonnements (`dispatchNotification`) : ils partent déjà
+    // dans le codec retenu.
+    this.adoptCodec(fieldOf(params, "codec"));
     if (params === null || typeof params !== "object") return;
     this._identity = identityOf(fieldOf(params, "identity"));
     this._serverChannels = stringsOf(fieldOf(params, "channels"));
@@ -1832,6 +1991,8 @@ export class NodefonySocket<
     // peut pas voir.
     const env = fieldOf(params, "env");
     noteServerEnv(typeof env === "string" ? env : undefined);
+    // Serveur hors production : le journal s'allume comme en développement.
+    if (isVerbose()) this._frameLogOn = true;
     // Détail dans la console — SEULEMENT s'il n'y a pas de noyau : quand il y en
     // a un, c'est lui qui parle, il a plus à dire (état, identité, services).
     // C'est le moment juste : avant l'accueil, il n'y aurait rien à montrer.
@@ -1928,21 +2089,26 @@ export class NodefonySocket<
     } else if (method === "realtime:subscribed") this.ingestSubscribed(params);
     else if (method === "realtime:denied") this.ingestDenied(params);
     this.trackFrame(method); // stats génériques avant dispatch
-    this.handlers.get(method)?.forEach((h) => {
-      try {
-        h(params);
-      } catch {
-        /* ignore handler errors */
+    // `for…of` plutôt que `forEach((h) => …)` : aucune closure allouée par trame.
+    const listeners = this.handlers.get(method);
+    if (listeners !== undefined)
+      for (const h of listeners) {
+        try {
+          h(params);
+        } catch {
+          /* ignore handler errors */
+        }
       }
-    });
     // wildcard
-    this.handlers.get("*")?.forEach((h) => {
-      try {
-        h(method, params);
-      } catch {
-        /* ignore */
+    const wildcard = this.handlers.get("*");
+    if (wildcard !== undefined)
+      for (const h of wildcard) {
+        try {
+          h(method, params);
+        } catch {
+          /* ignore */
+        }
       }
-    });
   }
 
   /**
@@ -1996,13 +2162,15 @@ export class NodefonySocket<
 
   /** Déclenche les handlers locaux d'un event interne (pas d'envoi réseau). */
   private fireLocal(event: string, ...args: unknown[]): void {
-    this.handlers.get(event)?.forEach((h) => {
+    const listeners = this.handlers.get(event);
+    if (listeners === undefined) return;
+    for (const h of listeners) {
       try {
         h(...args);
       } catch {
         /* ignore handler errors */
       }
-    });
+    }
   }
 
   private openSocket(): Promise<void> {
@@ -2011,6 +2179,9 @@ export class NodefonySocket<
       // que le welcome de CETTE connexion n'est pas arrivé.
       this._welcomed = false;
       this._acked = null;
+      // L'accueil de CETTE connexion dira son codec ; d'ici là, le texte.
+      this._codec = this.codecs.text;
+      this._rawBinaryNoticed = false;
       this.setState(this.reconnectAttempt > 0 ? "reconnecting" : "connecting");
       // Un écouteur d'état a pu appeler `disconnect()` : rien ne s'ouvre après.
       if (this.intentionalClose) {
@@ -2032,7 +2203,7 @@ export class NodefonySocket<
         if (this.opts.token) url.searchParams.set("token", this.opts.token);
         // Transport NEUF à chaque tentative (le précédent est clos). Le transport
         // ne sait QUE ouvrir/envoyer/fermer ; l'orchestration reste ici.
-        transport = this.transportFactory(url.toString());
+        transport = this.transportFactory(url.toString(), this.codecs.offer);
         this.transport = transport;
         this._dropBalance = 0;
       } catch (e) {
@@ -2282,19 +2453,24 @@ export class NodefonySocket<
   }
 
   /**
-   * Log protocole : les `FRAME_LOG_MAX` dernières frames JSON-RPC (redactées),
-   * enregistrées EN CONTINU → la console « retrace l'instant » dès l'ouverture
-   * (jamais de démarrage à vide). Construction + redaction faites ici, à la lecture.
+   * Log protocole : les `FRAME_LOG_MAX` dernières frames JSON-RPC (redactées).
+   *
+   * En développement, enregistrées dès l'ouverture : la console « retrace
+   * l'instant ». En production le journal est éteint, sans coût par trame ; la
+   * PREMIÈRE lecture l'allume, et il se remplit à partir de là. Construction +
+   * redaction faites ici, à la lecture.
    */
   get frameLog(): readonly RealtimeFrame[] {
-    return (this._rawFrames ?? []).map((f) =>
-      NodefonySocket.buildFrame(f.dir, f.msg, f.ts),
+    this._frameLogOn = true;
+    // Chemin froid (lecture de la console) : la copie de l'anneau ne coûte qu'ici.
+    return (this._rawFrames?.toArray() ?? []).map((f) =>
+      NodefonySocket.buildFrame(f.dir, f.msg, f.ts, f.size, f.binary),
     );
   }
 
   /** Purge le log protocole. */
   clearFrameLog(): void {
-    if (this._rawFrames) this._rawFrames.length = 0;
+    this._rawFrames?.clear();
     this._rawFramesChars = 0;
   }
 
@@ -2305,34 +2481,63 @@ export class NodefonySocket<
    * que le budget est dépassé. Émet `__frame__` (frame construite) seulement si
    * la console écoute.
    *
-   * @param size - taille sérialisée de la frame (caractères), `0` si inconnue.
+   * @param size - taille de la frame sur le fil (caractères, ou octets d'une
+   *   trame binaire), `0` si inconnue.
+   * @param binary - la frame a voyagé en trame binaire.
+   * @param ts - horodatage déjà lu par l'appelant (une lecture d'horloge par trame).
    */
-  private recordFrame(dir: "in" | "out", msg: unknown, size: number): void {
-    const ts = Date.now();
-    const big = size > FRAME_LOG_ENTRY_MAX_CHARS;
-    const kept = big ? frameSummary(msg, size) : msg;
-    const keptSize = big ? 0 : size;
-    const ring = (this._rawFrames ??= []);
-    ring.push({ ts, dir, msg: kept, size: keptSize });
-    this._rawFramesChars += keptSize;
-    while (
-      ring.length > FRAME_LOG_MAX ||
-      this._rawFramesChars > FRAME_LOG_MAX_CHARS
-    ) {
-      const old = ring.shift();
-      if (!old) break;
-      this._rawFramesChars -= old.size;
+  private recordFrame(
+    dir: "in" | "out",
+    msg: unknown,
+    size: number,
+    binary: boolean,
+    ts: number = Date.now(),
+  ): void {
+    const cost = frameLogCost(size);
+    // Un résumé ne retient plus la charge : il ne coûte rien au budget.
+    const kept = cost === 0 && size > 0 ? frameSummary(msg, size, binary) : msg;
+    const ring = (this._rawFrames ??= new CircularBuffer<IFrameLogEntry>(
+      FRAME_LOG_MAX,
+    ));
+    // Plein : la plus ancienne sort ICI, pour que son coût quitte le budget —
+    // `push` l'écraserait sans le dire. Son objet est RECYCLÉ : en régime établi,
+    // journaliser une trame n'alloue rien (le journal ne rend que des copies,
+    // `buildFrame`, jamais ses entrées).
+    let entry: IFrameLogEntry | undefined;
+    if (ring.length === FRAME_LOG_MAX) {
+      entry = ring.shift();
+      if (entry !== undefined) this._rawFramesChars -= frameLogCost(entry.size);
     }
-    const listeners = this.handlers.get("__frame__");
+    if (entry === undefined) entry = { ts, dir, msg: kept, size, binary };
+    else {
+      entry.ts = ts;
+      entry.dir = dir;
+      entry.msg = kept;
+      entry.size = size;
+      entry.binary = binary;
+    }
+    ring.push(entry);
+    this._rawFramesChars += cost;
+    while (this._rawFramesChars > FRAME_LOG_MAX_CHARS) {
+      const old = ring.shift();
+      if (old === undefined) break;
+      this._rawFramesChars -= frameLogCost(old.size);
+    }
+    const listeners = this.handlers.get(LOCAL_EVENTS.frame);
     if (listeners && listeners.size > 0)
-      this.fireLocal("__frame__", NodefonySocket.buildFrame(dir, kept, ts));
+      this.fireLocal(
+        LOCAL_EVENTS.frame,
+        NodefonySocket.buildFrame(dir, kept, ts, size, binary),
+      );
   }
 
-  /** Construit une frame affichable (kind/canal/id + payload redacté). */
+  /** Construit une frame affichable (kind/canal/id + payload redacté, taille et nature sur le fil). */
   private static buildFrame(
     dir: "in" | "out",
     msg: unknown,
     ts: number,
+    size: number,
+    binary: boolean,
   ): RealtimeFrame {
     const method = fieldOf(msg, "method");
     const id = fieldOf(msg, "id");
@@ -2351,6 +2556,8 @@ export class NodefonySocket<
       id: typeof id === "number" ? id : undefined,
       channel,
       payload: redactFrame(msg),
+      size,
+      binary,
     };
   }
 
@@ -2373,9 +2580,10 @@ export class NodefonySocket<
       return false;
     }
     if (!this.admitOutbound(this.transport)) return false;
-    const raw = JSON.stringify(msg);
+    const raw = this._codec.encode(msg);
     this.transport.send(raw);
-    this.recordFrame("out", msg, raw.length);
+    if (this._frameLogOn)
+      this.recordFrame("out", msg, raw.length, typeof raw !== "string");
     return true;
   }
 
@@ -2401,7 +2609,10 @@ export class NodefonySocket<
   }
 
   private handleMessage(raw: RealtimeFrameData): void {
-    if (typeof raw !== "string") {
+    const codec = this._codec;
+    // Binaire HORS codec binaire : pas une frame JSON-RPC, le flux brut de
+    // l'application. Sous codec binaire, toute trame passe par le codec.
+    if (typeof raw !== "string" && codec !== this.codecs.binary) {
       if (this._binaryHandlers !== null) {
         for (const h of this._binaryHandlers) {
           try {
@@ -2414,21 +2625,21 @@ export class NodefonySocket<
       }
       // Jamais en silence (#451) : une notice à la PREMIÈRE, un compteur ensuite.
       if (++this._binaryFramesDiscarded === 1)
-        this.fireNotice(discardedFrameNotice("binary"));
+        this.fireNotice(discardedFrameNotice("binary", codec.protocol));
       return;
     }
     let msg: unknown;
     try {
-      msg = JSON.parse(raw);
+      msg = codec.decode(raw);
     } catch {
       if (++this._malformedFramesDiscarded === 1)
-        this.fireNotice(discardedFrameNotice("malformed"));
+        this.fireNotice(discardedFrameNotice("malformed", codec.protocol));
       return;
     }
     // Discrimination (request/notification/response), routage et corrélation d'id
     // délégués au moteur isomorphe via `receive` (log + welcome + stats + handlers
     // y sont rebranchés). Plus aucune classification dupliquée côté client.
-    this.receive(msg, raw.length);
+    this.receive(msg, raw.length, typeof raw !== "string");
   }
 
   private setState(s: RealtimeState): void {

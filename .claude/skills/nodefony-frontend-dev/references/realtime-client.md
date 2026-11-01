@@ -15,6 +15,7 @@ Source : `src/nodefony/src/client/realtime/NodefonySocket.ts` (1300 l). Contrats
 5. [RPC : `request`, `mutate`, `ping`, `stream` + pont `api.request`](#5-rpc--request-mutate-ping-stream--pont-apirequest)
 6. [Duplex serveur→client : `register`/`notify`](#6-duplex-serveurclient--registernotify)
 7. [Identité & découverte (`welcome`)](#7-identite--decouverte-welcome)
+   - [7 bis. Codec de trame — texte ou CBOR](#7-bis-codec-de-trame--texte-ou-cbor)
 8. [Notices & refus de canal](#8-notices--refus-de-canal)
 9. [Stats & inspecteur de frames](#9-stats--inspecteur-de-frames)
 10. [Cadence adaptative (`adaptiveChannel`)](#10-cadence-adaptative-adaptivechannel)
@@ -234,13 +235,25 @@ get serverMethods(): readonly string[] | null;    // actions RPC annoncées (:46
 onIdentity(handler: (id: RealtimeIdentity | null) => void): () => void;  // event local __identity__ (:481)
 ```
 
-Le serveur pousse `realtime:welcome` en **1ʳᵉ frame** après le handshake (`IRealtimeWelcome`, `RealtimeEventMap.ts#IRealtimeWelcome`). Le client l'ingère (`ingestWelcome`) : mémorise l'identité résolue + les capabilities (canaux/actions découvrables) puis émet `__identity__`. `identity` est `null` tant qu'aucun welcome n'est reçu ; une fois reçu, un anonyme a `authenticated: false` (jamais `null`).
+Le serveur pousse `realtime:welcome` en **1ʳᵉ frame** après le handshake (`IRealtimeWelcome`, `RealtimeEventMap.ts#IRealtimeWelcome`). Le client l'ingère (`ingestWelcome`) : adopte le codec annoncé (champ `codec`), mémorise l'identité résolue + les capabilities (canaux/actions découvrables) puis émet `__identity__`. `identity` est `null` tant qu'aucun welcome n'est reçu ; une fois reçu, un anonyme a `authenticated: false` (jamais `null`).
 
 **Message privé — `onUser(handler): () => void`** (`NodefonySocket.ts#NodefonySocket.onUser`) : abonne CET onglet à son canal personnel `user:<id>` (l'`id` vient du welcome) et suit l'identité — welcome tardif, changement de compte (quitte l'ancien canal), `disconnect()`/anonyme → aucun canal. Jamais d'office : à appeler quand l'écran écoute (`useEffect(() => chat.onUser(addPrivate), [])`). Charge typée par la clé ``[k: `user:${string}`]: P`` du contrat. Côté serveur : `getRealtimeHub<C>().publishToUser(id, charge)`.
 
 `RealtimeIdentity` (`RealtimeEventMap.ts#RealtimeIdentity`) : `{ type, authenticated, id, userIdentifier, roles, scopes }` — `id` = clé STABLE des canaux personnels (`null` pour l'anonyme), jamais le login. Brique du gating front : `authenticated:false` → écran login **sans** route `/auth/me`. Les `roles` sont **résolus serveur** (cf RBAC isomorphe, [`isomorphic.md`](./isomorphic.md) §6). Rafraîchie à chaque (re)welcome ; remise à `null` au `disconnect()` volontaire (une perte réseau garde la dernière identité jusqu'au prochain welcome → évite un flash login pendant une micro-reco).
 
 ---
+
+## 7 bis. Codec de trame — texte ou CBOR
+
+ADR-0022 §2. L'enveloppe reste JSON-RPC 2.0 ; le codec n'est que la forme sur le fil.
+
+- **Option** `codec?: IFrameCodec` (`NodefonySocket.ts#NodefonySocketOptions.codec`) — `CBOR_FRAME_CODEC` de `nodefony/cbor` (hors `nodefony/client` : la page qui ne l'importe pas ne le télécharge pas). Absent : aucune offre, JSON natif (`JSON_FRAME_CODEC`, deux appels natifs), fil identique à avant.
+- **Règle partagée client/serveur** : `realtime/frameCodecNegotiation.ts` — `frameCodecSet(codec)` (texte, binaire, offre ; calculé UNE fois par socket), `negotiateFrameCodec(set, offered)` (serveur), `adoptFrameCodec(set, announced)` (client, `null` = annonce hors offre). Le texte d'une socket qui offre CBOR = `codec.textCodec` (`JSON_BYTES_FRAME_CODEC`, convention `{"$bytes":"<base64url>"}`) — porté par le codec binaire, donc absent du bundle de base.
+- **Séquence** : offre `[cbor.v1, v1]` au handshake (`RealtimeTransportFactory(url, protocols?)`) → accueil TEXTE `v1` portant `codec` → `adoptCodec` AVANT le rejeu des abonnements (ils partent déjà dans le codec) → toutes les frames suivantes par `_codec.encode/decode`, réception texte tolérée. Reconnexion / `disconnect()` → retour au texte jusqu'à l'accueil suivant. `socket.codec` = sous-protocole en vigueur ; `describeCodec()` le met en mots (console, vignette, noyau, barre de debug).
+- **Jamais l'écho** `Sec-WebSocket-Protocol` : `ws` renvoie le premier offert, qu'il le parle ou non.
+- **Sous codec binaire** : chaque trame binaire est une frame du codec ; `onBinary` ne reçoit rien, `sendBinary` rend `false` (notice une fois par connexion, `rawBinaryUnderCodecNotice`). Annonce hors offre → `unofferedCodecNotice`, reste texte.
+- **Quand l'offrir (à dire à l'agent d'une app)** : charge qui contient des `Uint8Array` → CBOR (4 Ko d'octets : ≈ 790 ns contre ≈ 26 µs en JSON `$bytes`, −25 % d'octets). Objets ordinaires → JSON (réception au même niveau, émission ~2,9× plus chère en CBOR, −30 % d'octets). Mesure : `.claude/skills/nodefony-load-test/scripts/micro/micro-client-socket-ab.mjs`.
+- **État** : le serveur ne choisit pas encore de codec (#618, lot serveur) — l'accueil n'a pas de champ `codec`, la connexion reste en texte.
 
 ## 8. Notices & refus de canal
 
@@ -271,7 +284,7 @@ clearFrameLog(): void;                               // (:1034)
 ```
 
 - `MessageStats` (alias de `IChannelStats`, `IRealtimeSocket.ts#IChannelStats.method`) = `{ method, msgCount, lastMessage, rate, series }`. Le débit `rate` (msg/s) + la `series` (VU-mètre, 32 points) sont échantillonnés **1×/s** (`startStatsSampler`, timer `unref`), puis l'event local `__stats__` est émis pour les consommateurs réactifs.
-- `frameLog` : ring ALWAYS-ON des `FRAME_LOG_MAX = 300` dernières frames, **redactées** (clés sensibles `token|password|secret|api_key|authorization|bearer` → `[redacted]`, `FRAME_REDACT_RE`). Coût à l'écriture = 1 push de réf brute ; construction + redaction **différées** à la lecture (ou au live `__frame__` si la console écoute). → l'inspecteur « retrace l'instant » dès l'ouverture, sans démarrer à vide.
+- `frameLog` : anneau O(1) (`CircularBuffer`, entrée évincée recyclée) des `FRAME_LOG_MAX = 300` dernières frames, **redactées** (clés sensibles `token|password|secret|api_key|authorization|bearer` → `[redacted]`, `FRAME_REDACT_RE` ; octets → `[binary N B]`, `binaryPayloadLabel`). Construction + redaction **différées** à la lecture (ou au live `LOCAL_EVENTS.frame`). **ALLUMÉ** dès l'ouverture en développement (`isDevBuild()`, ou serveur annonçant un env hors production) ; **ÉTEINT en production** — coût nul par trame — jusqu'à la première lecture de `frameLog` ou au premier écouteur `LOCAL_EVENTS.frame`. `RealtimeFrame` porte `size` (caractères ou octets) et `binary`.
 
 Events LOCAUX (jamais réseau, branchables via `on`) : `__state__`, `__identity__`, `__notice__`, `__denied__`, `__reconnect__`, `__stats__`, `__frame__`, `*` (wildcard : handler reçoit `(method, params)`).
 

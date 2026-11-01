@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-01T08:35:22.846Z",
+  "generatedAt": "2026-11-01T08:51:02.008Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10346,6 +10346,22 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 924.9,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 718,
+      "title": "feat(http): écouter sur un fichier de socket Unix derrière un relais local",
+      "url": "https://github.com/nodefony/nodefony-core/issues/718",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P3 — fin de cycle",
+      "jours": 1,
+      "ordre": 925,
       "debut": null,
       "cible": null,
       "labels": [

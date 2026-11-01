@@ -435,6 +435,7 @@ describe("socketSnapshot — ce que le client sait de sa PROPRE socket", () => {
     expect(lignes.map((l) => l.label)).toEqual([
       "adresse",
       "état",
+      "format",
       "identité",
       "canaux tenus",
       "canaux offerts",
@@ -446,6 +447,8 @@ describe("socketSnapshot — ce que le client sait de sa PROPRE socket", () => {
     expect(par.adresse).toBe("ws://loopback/realtime");
     expect(par["état"]).toBe("connecté");
     expect(par["canaux tenus"]).toBe("live:salon");
+    // Accueil sans champ `codec` : le texte, et la ligne le nomme.
+    expect(par.format).toBe("JSON-RPC 2.0 · texte (nodefony.jsonrpc.v1)");
     // L'accueil du mock n'a pas de paramètres : aucune identité n'est connue,
     // et la ligne le dit plutôt que d'affirmer « anonyme ».
     expect(par["identité"]).toBe("— (avant l'accueil)");
@@ -633,7 +636,7 @@ describe("les noms d'événements locaux ne sortent PAS de leur table", () => {
     return acc;
   }
 
-  it("isLocalEvent reconnaît les six noms de la table, et rien d'autre", () => {
+  it("isLocalEvent reconnaît tous les noms de la table, et rien d'autre", () => {
     for (const nom of Object.values(LOCAL_EVENTS)) {
       expect(isLocalEvent(nom)).toBe(true);
     }

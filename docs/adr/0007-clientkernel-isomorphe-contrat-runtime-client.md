@@ -456,6 +456,18 @@ tarball existe et la tentation de « voir plus tard » gagne.
 > une brique **dev-only**, qu'aucun utilisateur ne télécharge en production, serait un mauvais
 > échange. Le budget qui protège l'utilisateur reste celui de `nodefony/client`, inchangé.
 >
+> **Révisé le 2026-11-01 — `nodefony/client` relevé à 32 KB, `nodefony/debugbar` à 47 KB**
+> (décision de l'auteur). Le binaire temps réel (#618, ADR-0022 §2) entre dans la socket :
+> négociation du codec de trame (`frameCodecNegotiation.ts`, ≈ 0,25 KB), anneau O(1) du journal
+> de trames (`CircularBuffer`, ≈ 0,33 KB — mesuré 64,7 → 20,2 ns par trame), notices et ligne
+> « format » de la description. Mesuré sur le `dist` publié : `client` **30,8 KB**, `debugbar`
+> **45,3 KB**. L'écart contre le commit précédent, mesuré sur les sources par le même bundler, est de
+> +1,0 KB pour `client` et +1,2 KB pour `debugbar` — après avoir sorti de l'entrée de base le JSON à convention
+> d'octets et le base64url, que seul le codec binaire apporte désormais. La barre dépassait déjà ses
+> 44 KB avant ce changement (44,1 KB à la source). La marge rendue (1,2 KB et 1,7 KB) couvre le lot serveur, qui
+> ne touche pas le client. Le codec CBOR lui-même reste HORS de `nodefony/client` (sous-chemin
+> `nodefony/cbor`, budget 6 KB inchangé) : une page qui ne l'active pas ne le télécharge pas.
+>
 > Un dépassement de budget = blocker de release, pas un warning.
 > L'implémentation Phase 3.2 commence par un **prototype + mesure** avant tout engagement de code
 > définitif (garde-fou déjà acté dans la vision).

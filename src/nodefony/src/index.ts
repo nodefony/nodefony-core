@@ -272,7 +272,11 @@ export type {
 } from "./realtime/IRealtimeSocket";
 export { rateChannel, parseRate, isRateChannel } from "./realtime/channelRate";
 export type { RateBounds } from "./realtime/channelRate";
-export { isRealtimePayload, realtimePayloadError } from "./realtime/payload";
+export {
+  isRealtimePayload,
+  realtimePayloadError,
+  binaryPayloadLabel,
+} from "./realtime/payload";
 export { JSON_PROTOCOL } from "./realtime/IFrameCodec";
 export type { IFrameCodec } from "./realtime/IFrameCodec";
 export {
@@ -281,6 +285,12 @@ export {
   BYTES_MARKER,
   containsBytes,
 } from "./realtime/jsonFrameCodec";
+export {
+  frameCodecSet,
+  negotiateFrameCodec,
+  adoptFrameCodec,
+} from "./realtime/frameCodecNegotiation";
+export type { IFrameCodecSet } from "./realtime/frameCodecNegotiation";
 export {
   MAX_CHANNEL_PATTERN_WILDCARDS,
   compileChannelPattern,

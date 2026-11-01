@@ -462,6 +462,16 @@ export interface IRealtimeWelcome {
    * qu'il l'a rejoué au welcome — la garantie d'avant, sans plus.
    */
   subscriptionAcks?: boolean;
+  /**
+   * Sous-protocole du codec retenu pour les frames qui SUIVENT cet accueil — l'un de
+   * ceux que le client a offerts au handshake (ADR-0022 §2, cf `IFrameCodec`).
+   *
+   * ⚠️ **Une absence vaut `nodefony.jsonrpc.v1`** (JSON-RPC texte) : un serveur sans
+   * branchement du codec ne pose pas ce champ. Et l'écho `Sec-WebSocket-Protocol`
+   * du handshake ne fait jamais foi — `ws` renvoie le premier sous-protocole offert,
+   * qu'il le parle ou non.
+   */
+  codec?: string;
 }
 
 /**

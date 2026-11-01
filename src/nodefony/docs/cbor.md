@@ -213,6 +213,27 @@ Côté mémoire :
 Le banc qui produit ces chiffres se rejoue :
 `node .claude/skills/nodefony-load-test/scripts/micro/micro-cbor-codec.mjs`.
 
+## Sur la socket — `CBOR_FRAME_CODEC`
+
+Le codec de frame de la socket temps réel (`realtime/codec/frameCodec.ts#CBOR_FRAME_CODEC`, sous-protocole
+`nodefony.jsonrpc.cbor.v1`) s'importe du même sous-chemin et se passe à la socket du navigateur :
+
+```ts
+import { NodefonySocket } from "nodefony/client";
+import { CBOR_FRAME_CODEC } from "nodefony/cbor";
+
+const socket = NodefonySocket.shared({
+  url: "/realtime",
+  codec: CBOR_FRAME_CODEC,
+});
+console.log(socket.codec); // « nodefony.jsonrpc.v1 » tant que l'accueil n'a rien annoncé
+```
+
+Le client l'offre au handshake, le serveur choisit et l'annonce dans `realtime:welcome` ; une
+connexion restée en texte porte les octets sous la convention `{"$bytes": …}`
+(`IFrameCodec.textCodec`). Le déroulé, les cas limites et la mesure texte contre CBOR sont dans
+[Client isomorphe — Choisir le codec de trame](client.md#choisir-le-codec-de-trame--texte-ou-cbor).
+
 ## 📜 Normes appliquées
 
 | Norme                            | Ce qu'on en applique                                                                                              |
@@ -258,7 +279,7 @@ Familles présentes :
 ## 🔗 Pour aller plus loin
 
 - ⬆️ **Retour au hub** : [@nodefony/core — vue d'ensemble](index.md) · [Toute la documentation](../../../docs/index.md)
-- 🧭 **Pages sœurs** : [Client isomorphe](client.md) — la socket côté navigateur, que CBOR servira ·
+- 🧭 **Pages sœurs** : [Client isomorphe](client.md) — la socket côté navigateur, qui offre CBOR par son option `codec` ·
   [Journalisation](syslog.md)
 - Les décisions et leurs raisons → [ADR-0022 — la socket temps réel](../../../docs/adr/0022-socket-temps-reel.md)
   · [ADR-0021 — l'événement et ses livraisons](../../../docs/adr/0021-temps-reel-evenement-et-livraisons.md)

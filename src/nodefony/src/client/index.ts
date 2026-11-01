@@ -98,6 +98,11 @@ export type {
   IJsonRpcSuccess,
   IJsonRpcFailure,
 } from "../jsonrpc/index";
+// Le codec de frame (ADR-0022 §2) : le contrat, et le nom du format texte. Les
+// codecs binaires vivent dans leur sous-chemin (`nodefony/cbor`), pour que la
+// page qui ne les active pas ne les télécharge pas.
+export { JSON_PROTOCOL } from "../realtime/IFrameCodec";
+export type { IFrameCodec } from "../realtime/IFrameCodec";
 export type {
   IRealtimeTransport,
   TransportStateValue,
@@ -267,6 +272,7 @@ export {
   observeSnapshot,
   socketSnapshot,
   describeSocket,
+  describeCodec,
   adaptiveRebindKey,
 } from "./realtime/observe";
 export type {

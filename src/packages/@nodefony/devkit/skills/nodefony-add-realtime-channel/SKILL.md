@@ -12,7 +12,7 @@ description: >
   "abonnement", "RealtimeController", "@RealtimeChannel", "socket client", "temps réel privé",
   "réserver un canal à un rôle", "mon canal est public", "diffuser à plusieurs onglets",
   "SSE", "server-sent events", "EventSource", "barre de progression", "réponse en streaming",
-  "typer les canaux", "contrat temps réel", "action introuvable -32601".
+  "typer les canaux", "contrat temps réel", "action introuvable -32601", "octets", "CBOR".
 ---
 
 # add-realtime-channel — le temps réel par sa couche
@@ -136,6 +136,37 @@ l'application. Une application générée monte `/api/live/realtime`.
 En React, les hooks du paquet client font la même chose avec le cycle de vie du composant.
 **Importe depuis `nodefony/client`**, jamais depuis la racine `nodefony` : côté navigateur, elle
 n'expose pas ces symboles et le compilateur refuse.
+
+## Des octets dans un canal — offrir le codec CBOR
+
+Le défaut est JSON-RPC **texte**, et il le reste pour des messages ordinaires : JSON est natif,
+rapide, et ne coûte rien à télécharger. Dès qu'une charge **contient des octets** — un document
+partagé (Yjs, Automerge), une série de mesures, de l'audio, une image —, offre le codec CBOR :
+
+```ts
+import { NodefonySocket } from "nodefony/client";
+import { CBOR_FRAME_CODEC } from "nodefony/cbor";
+
+const client = NodefonySocket.shared({ url: "/api/live/realtime", codec: CBOR_FRAME_CODEC });
+client.on("doc:42", (charge) => { … }); // un Uint8Array arrive en Uint8Array
+```
+
+| La charge…                                   | Codec            | Pourquoi                                                  |
+| -------------------------------------------- | ---------------- | --------------------------------------------------------- |
+| objets ordinaires (texte, nombres, listes)   | **aucun** (JSON) | au même niveau en réception, plus rapide en émission      |
+| contient des `Uint8Array`                    | **CBOR**         | ≈ 30× plus rapide à la réception, ~25 % d'octets en moins |
+| réseau lent ou facturé, beaucoup de messages | CBOR à envisager | ~30 % d'octets en moins, même sans octets                 |
+
+- **Passe `codec` à la PREMIÈRE création** de la socket partagée (souvent le noyau client) : un
+  `shared()` suivant rend l'instance existante, réglages compris (la console le dit en développement).
+- **Ne déduis rien de l'écho du handshake** : le codec retenu se lit dans `socket.codec`, annoncé
+  par le serveur à l'accueil. Un serveur qui ne choisit pas reste en texte, rien ne casse — et les
+  octets voyagent alors en `{"$bytes": "…"}`, réanimés en `Uint8Array`. Le serveur de cette version
+  ne choisit pas encore de codec : offrir est sans risque, l'effet vient avec la version qui le branche.
+- **N'invente pas d'en-tête binaire maison** pour router des octets : une charge qui contient un
+  `Uint8Array` passe par `publish` / `on(canal)`, avec les mêmes politiques de canal que le texte.
+  `onBinary()` / `sendBinary()` ne servent qu'un protocole binaire propre à l'application, sur une
+  connexion texte.
 
 ## Typer les deux bouts — un contrat, déclaré UNE fois
 

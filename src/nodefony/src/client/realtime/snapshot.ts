@@ -3,8 +3,8 @@
  *
  * Séparé d'`observe.ts` pour une raison de graphe : `NodefonySocket` décrit sa
  * socket dans la console avec {@link describeSocket}, et `observe.ts` importe
- * `NodefonySocket`. Ce fichier n'importe que des TYPES — les deux le lisent sans
- * cycle.
+ * `NodefonySocket`. Ce fichier n'importe que des TYPES et une constante sans
+ * dépendance — les deux le lisent sans cycle.
  *
  * @module nodefony/client
  */
@@ -13,6 +13,7 @@ import type {
   RealtimeIdentity,
   RealtimeState,
 } from "./NodefonySocket";
+import { JSON_PROTOCOL } from "../../realtime/IFrameCodec";
 
 /**
  * Ce qu'une socket doit savoir dire d'elle-même pour être photographiée — la
@@ -23,6 +24,7 @@ export type SnapshotSource = Pick<
   NodefonySocket,
   | "url"
   | "state"
+  | "codec"
   | "subscribedChannels"
   | "framesReceived"
   | "framesUnsent"
@@ -54,6 +56,8 @@ export interface SocketSnapshot {
   url: string | null;
   /** État de la connexion. */
   state: RealtimeState;
+  /** Sous-protocole du codec en vigueur — `nodefony.jsonrpc.v1` tant que l'accueil n'en annonce pas d'autre. */
+  codec: string;
   /** Canaux effectivement tenus par cette connexion. */
   channels: readonly string[];
   /** Trames reçues depuis l'ouverture. */
@@ -84,6 +88,7 @@ export function socketSnapshot(client: SnapshotSource): SocketSnapshot {
   return {
     url: client.url,
     state: client.state,
+    codec: client.codec,
     channels: client.subscribedChannels,
     frames: client.framesReceived,
     unsent: client.framesUnsent,
@@ -105,6 +110,17 @@ export interface SocketDetailRow {
   value: string;
   /** Une phrase qui dit ce que la valeur signifie, ou ce qu'elle garantit. */
   hint: string;
+}
+
+/**
+ * Le format des frames d'une connexion, mis en mots — la MÊME phrase dans la
+ * console, la vignette d'une page, la barre de debug et le diagnostic du noyau.
+ *
+ * @param protocol - sous-protocole du codec en vigueur (`NodefonySocket.codec`).
+ * @returns par exemple « JSON-RPC 2.0 · binaire (nodefony.jsonrpc.cbor.v1) ».
+ */
+export function describeCodec(protocol: string): string {
+  return `JSON-RPC 2.0 · ${protocol === JSON_PROTOCOL ? "texte" : "binaire"} (${protocol})`;
 }
 
 /** L'état de la connexion, dit en français — un écran ne parle pas machine. */
@@ -143,6 +159,11 @@ export function describeSocket(snapshot: SocketSnapshot): SocketDetailRow[] {
       label: "état",
       value: STATE_WORDS[snapshot.state],
       hint: "Coupée, la socket se reconnecte seule et rejoue ses abonnements : la page n'a rien à écrire pour ça.",
+    },
+    {
+      label: "format",
+      value: describeCodec(snapshot.codec),
+      hint: "Choisi par le serveur parmi l'offre du client, annoncé à l'accueil ; en binaire, les octets passent sans base64.",
     },
     {
       label: "identité",

@@ -11,7 +11,8 @@ import { TransportState } from "../../realtime/IRealtimeTransport";
  * relaie les events. L'orchestration (reconnect, backoff, heartbeat, state machine)
  * vit AU-DESSUS dans `NodefonySocket` — qui crée un transport NEUF à chaque tentative.
  *
- * L'URL reçue est déjà normalisée (ws/wss, token) par l'appelant.
+ * L'URL reçue est déjà normalisée (ws/wss, token) par l'appelant ; l'offre de
+ * sous-protocoles aussi (cf `RealtimeTransportFactory`).
  */
 export class BrowserWsTransport implements IRealtimeTransport {
   private ws: WebSocket | null = null;
@@ -20,7 +21,15 @@ export class BrowserWsTransport implements IRealtimeTransport {
   private _onClose: ((code: number, reason: string) => void) | null = null;
   private _onError: ((err: unknown) => void) | null = null;
 
-  constructor(private readonly url: string) {}
+  /**
+   * @param url - adresse `ws:`/`wss:` déjà normalisée.
+   * @param protocols - sous-protocoles offerts (RFC 6455 §1.9), par préférence ;
+   *   absent = aucun en-tête `Sec-WebSocket-Protocol`, le handshake d'avant #618.
+   */
+  constructor(
+    private readonly url: string,
+    private readonly protocols?: readonly string[],
+  ) {}
 
   connect(): void {
     // `addEventListener` plutôt qu'une affectation `onopen = …` : une affectation
@@ -28,7 +37,12 @@ export class BrowserWsTransport implements IRealtimeTransport {
     // posé sur la même socket. Ici la socket vient d'être créée, donc rien n'est
     // encore écrasé — mais la forme qui ne peut pas voler un gestionnaire est
     // celle qu'on veut voir recopiée.
-    const ws = new WebSocket(this.url);
+    // La copie de l'offre : `WebSocket` exige un `string[]` mutable. Une par
+    // tentative de connexion, jamais par trame.
+    const ws =
+      this.protocols === undefined
+        ? new WebSocket(this.url)
+        : new WebSocket(this.url, [...this.protocols]);
     // `arraybuffer` plutôt que le défaut `blob` : la taille se lit sans attendre,
     // et une trame binaire reste à sa place dans l'ordre des trames texte.
     ws.binaryType = "arraybuffer";

@@ -81,5 +81,15 @@ export interface IRealtimeTransport {
   onError(cb: (err: unknown) => void): void;
 }
 
-/** Fabrique d'un transport pour une URL — injectable (tests, transports alternatifs). */
-export type RealtimeTransportFactory = (url: string) => IRealtimeTransport;
+/**
+ * Fabrique d'un transport pour une URL — injectable (tests, transports alternatifs).
+ *
+ * `protocols` est l'offre de sous-protocoles (RFC 6455 §1.9, `Sec-WebSocket-Protocol`),
+ * par ordre de préférence ; absente quand le client n'en offre aucun. Un transport
+ * qui ne négocie rien peut l'ignorer : le codec retenu se lit dans `realtime:welcome`,
+ * jamais dans l'écho du handshake (ADR-0022 §2).
+ */
+export type RealtimeTransportFactory = (
+  url: string,
+  protocols?: readonly string[],
+) => IRealtimeTransport;

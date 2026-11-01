@@ -19,6 +19,8 @@ import { CBOR_PROTOCOL } from "./index";
  */
 export const CBOR_FRAME_CODEC = {
   protocol: CBOR_PROTOCOL,
+  // Une connexion restée en texte porte les octets sous la convention `$bytes`.
+  textCodec: JSON_BYTES_FRAME_CODEC,
   encode(frame: unknown): Uint8Array<ArrayBuffer> {
     return encodeCbor(frame);
   },

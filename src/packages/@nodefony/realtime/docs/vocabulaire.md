@@ -305,7 +305,8 @@ front**. Une différence assumée : `request()` n'y est pas supporté — au-des
 ### `accueil` (welcome) — la première frame
 
 La notification `realtime:welcome`, poussée par le serveur juste après le handshake. Elle annonce le
-protocole, les canaux que ce visiteur peut obtenir, les actions de l'endpoint, et l'identité résolue. Un client
+protocole, les canaux que ce visiteur peut obtenir, les actions de l'endpoint, l'identité résolue et, quand
+le client en a offert un, le codec de trame retenu (`codec`, absent = JSON-RPC texte). Un client
 attend cette frame avant de pousser quoi que ce soit.
 
 `IRealtimeWelcome` (`RealtimeEventMap.ts#IRealtimeWelcome`).

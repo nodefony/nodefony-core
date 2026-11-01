@@ -381,7 +381,7 @@ export function observeAdaptiveChannel(
 
 // L'instantané et sa description vivent dans `snapshot.ts` (sans cycle avec
 // `NodefonySocket`) ; ils restent publiés d'ici, comme avant.
-export { socketSnapshot, describeSocket } from "./snapshot";
+export { socketSnapshot, describeSocket, describeCodec } from "./snapshot";
 export type { SocketSnapshot, SocketDetailRow } from "./snapshot";
 
 /**

@@ -24,6 +24,7 @@
 import Service from "../Service";
 import type Syslog from "../syslog/Syslog";
 import { NodefonySocket } from "./realtime/NodefonySocket";
+import { describeCodec } from "./realtime/snapshot";
 import {
   announceKernel,
   consoleDetails,
@@ -257,6 +258,7 @@ export class NodefonyKernel implements INodefonyKernel {
       ["identité", this.identity ? this.identity.key : "anonyme"],
       ["temps réel", socket ? (socket.url ?? "socket fournie") : "aucun"],
       ["socket", socket ? socket.state : "—"],
+      ["format", socket ? describeCodec(socket.codec) : "—"],
     ];
     for (const name of this.#services ? Object.keys(this.#services) : [])
       rows.push([`service · ${name}`, "composé"]);

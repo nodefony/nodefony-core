@@ -322,9 +322,11 @@ seule l'adresse doit être connue au moment de `connect()`.
 | `maxBufferedAmount`           | `0`     | Seuil (octets) de la file d'envoi du navigateur au-delà duquel une frame sortante est **jetée** et comptée (`framesDropped`) au lieu d'être mise en file ; `emit`, `request` et `sendBinary` rendent alors `false` (`NodefonySocket.ts#NodefonySocket.admitOutbound`). `0` = désactivé. |
 | `backpressureCloseAfterDrops` | `1000`  | Solde de frames jetées (+1 jetée, −1 partie) qui fait fermer la socket en `4007` puis se reconnecter (`realtime/closeCodes.ts#BACKPRESSURE_CLOSE_CODE`). Sans effet sans `maxBufferedAmount` ; `0` = ne jamais fermer.                                                                  |
 | `banner`                      | `true`  | Annonce du framework dans la console et handle `nodefony` (`NodefonySocket.ts#NodefonySocket.constructor`). `false` pour une application publiée qui ne veut rien dans la console de ses utilisateurs.                                                                                  |
+| `codec`                       | —       | Codec de trame **binaire** à offrir au serveur — `CBOR_FRAME_CODEC`, importé de `nodefony/cbor` (`NodefonySocket.ts#NodefonySocketOptions.codec`). Absent : JSON-RPC texte, rien n'est offert. Voir [Choisir le codec de trame](#choisir-le-codec-de-trame--texte-ou-cbor).             |
 
 ⚠️ Avec `shared()`, les options ne s'appliquent qu'à la **première** création pour une URL : les
-appels suivants rendent l'instance existante, réglages compris.
+appels suivants rendent l'instance existante, réglages compris. Un `codec` demandé après coup est
+donc ignoré — et, en développement, la console le dit (`NodefonySocket.ts#NodefonySocket.shared`).
 
 ### Ouvrir, perdre, retrouver la connexion
 
@@ -450,6 +452,11 @@ que la console du navigateur affiche en développement, et de la vignette « Le 
 l'intérieur » des quatre vitrines — écrit dans chaque page, le texte des explications divergerait
 de celui de la console à la première retouche.
 
+La ligne **« format »** dit le codec en vigueur — « JSON-RPC 2.0 · texte » ou « JSON-RPC 2.0 · binaire »,
+suivi du sous-protocole —, mise en mots par `describeCodec()` (`client/realtime/snapshot.ts#describeCodec`). La
+même phrase figure dans le diagnostic du noyau client et dans le champ « protocole » de la barre de
+debug : une seule source pour les trois.
+
 ### Identité et refus — l'interface sait sans demander
 
 L'identité de la connexion n'est pas devinée par le front : le serveur l'annonce dans sa première
@@ -480,28 +487,36 @@ ne fait rien d'autre : ouvrir, envoyer, fermer, relayer quatre événements. Tou
 
 Cette séparation a une conséquence directe et très utile : le client accepte une **fabrique de
 transport** injectée en second argument de son constructeur
-(`client/realtime/NodefonySocket.ts#toSocketUrl`). Les tests branchent un transport factice et exercent toute
+(`realtime/IRealtimeTransport.ts#RealtimeTransportFactory`) — elle reçoit l'adresse et l'offre de
+sous-protocoles. Les tests branchent un transport factice et exercent toute
 la machine à états **sans ouvrir une seule socket**. C'est ce qui rend les 177 cas de test de cette
 page possibles hors navigateur.
 
 Le transport relaie **tout**, binaire compris (`binaryType = "arraybuffer"`) : il ne trie pas, parce
-qu'un tri à cet étage rendait l'écart invisible pour tout ce qui est au-dessus.
+qu'un tri à cet étage rendait l'écart invisible pour tout ce qui est au-dessus. C'est la socket qui
+décide de ce qu'elle lit, selon le codec que l'accueil a retenu.
 
 ### Le binaire — écarté bruyamment, ou lu par toi
 
-Le protocole temps réel est du **JSON-RPC texte** : il ne sait pas à quel canal une trame binaire
-appartient, et ne la route donc pas. Ce qui se passe à la réception, selon le cas :
+Sur une connexion **JSON-RPC texte** — le défaut —, une trame binaire n'a pas de canal : le
+protocole ne la route donc pas. Sous un **codec binaire** retenu à l'accueil, c'est l'inverse : chaque
+trame binaire est une frame du codec, routée comme le texte (voir
+[Choisir le codec de trame](#choisir-le-codec-de-trame--texte-ou-cbor)). Ce qui se passe à la réception,
+selon le cas :
 
-| Trame reçue                 | Sans lecteur                                                           | Avec `onBinary(handler)`                     |
-| --------------------------- | ---------------------------------------------------------------------- | -------------------------------------------- |
-| Binaire                     | écartée, comptée (`binaryFramesDiscarded`), **une** notice `-32700`    | remise telle quelle (`Uint8Array`), en ordre |
-| Texte qui n'est pas du JSON | écartée, comptée (`malformedFramesDiscarded`), **une** notice `-32700` | idem — `onBinary` ne lit que le binaire      |
+| Trame reçue                      | Sans lecteur                                                           | Avec `onBinary(handler)`                     |
+| -------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------- |
+| Binaire, connexion texte         | écartée, comptée (`binaryFramesDiscarded`), **une** notice `-32700`    | remise telle quelle (`Uint8Array`), en ordre |
+| Binaire, connexion CBOR          | décodée par le codec, remise à `on(canal)`                             | idem — `onBinary` ne reçoit rien, une notice |
+| Trame que le codec ne décode pas | écartée, comptée (`malformedFramesDiscarded`), **une** notice `-32700` | idem — `onBinary` ne lit que le binaire brut |
 
 La notice part à la PREMIÈRE trame de chaque nature, jamais à chaque trame : un flux à 60 Hz ne
 devient pas soixante notices par seconde. En sortie, `sendBinary(octets)` émet sans sérialiser
 (un `Uint8Array`) et suit la règle de `send` : transport fermé → `false`, compté dans
 `framesUnsent` (`client/realtime/NodefonySocket.ts#NodefonySocket.onBinary`,
-`client/realtime/NodefonySocket.ts#NodefonySocket.sendBinary`).
+`client/realtime/NodefonySocket.ts#NodefonySocket.sendBinary`). Sous codec binaire, `sendBinary`
+rend `false` et le dit par une notice, une fois par connexion : le serveur lirait ces octets comme
+une frame du codec. Les octets d'un canal y passent par `publish`, sans base64.
 
 Les octets ont le **même type des deux côtés** : `onBinary` livre un `Uint8Array`, comme
 `RealtimeController.onRealtimeBinary` côté serveur (où c'est un `Buffer`, qui en est un). Un
@@ -511,23 +526,73 @@ sans copier les octets. Pour un `DataView`, passer la tranche entière —
 commence pas à 0 dans son tampon.
 
 `onBinary` est un **point d'extension**, pas un protocole : la corrélation d'une trame (quel canal,
-quelle requête) appartient alors à l'application, par exemple par un en-tête qu'elle définit.
+quelle requête) appartient alors à l'application, par exemple par un en-tête qu'elle définit. Il ne
+sert que les connexions JSON-RPC texte.
+
+### Choisir le codec de trame — texte ou CBOR
+
+L'enveloppe reste JSON-RPC 2.0 quel que soit le codec : il n'en est que la forme sur le fil
+(ADR-0022 §2). Par défaut, JSON texte. Une application qui transporte des **octets** — un document
+partagé, une série de mesures, de l'audio — offre le codec CBOR :
+
+```ts
+import { NodefonySocket } from "nodefony/client";
+import { CBOR_FRAME_CODEC } from "nodefony/cbor";
+
+const socket = NodefonySocket.shared({
+  url: "/realtime",
+  codec: CBOR_FRAME_CODEC,
+});
+socket.on("doc:42", (charge) => {
+  // une charge qui est, ou contient, des octets les rend en Uint8Array
+  console.log(charge);
+});
+socket.subscribe("doc:42");
+```
+
+Ce qui se passe, dans l'ordre :
+
+1. **Le client offre** au handshake `nodefony.jsonrpc.cbor.v1` puis `nodefony.jsonrpc.v1`
+   (`Sec-WebSocket-Protocol`, RFC 6455 §1.9).
+2. **Le serveur choisit** et l'annonce dans le champ `codec` de `realtime:welcome` — jamais dans
+   l'écho du handshake, que `ws` renvoie qu'il parle le sous-protocole ou non. Absent : texte.
+3. **Le client adopte** l'annonce (`realtime/frameCodecNegotiation.ts#adoptFrameCodec`, la même règle que
+   le serveur appelle de son côté). Retenu, le codec porte toutes les frames qui suivent, dans les
+   deux sens ; `socket.codec` (`client/realtime/NodefonySocket.ts#NodefonySocket.codec`) le dit. Une
+   annonce hors de l'offre est une faute du serveur : notice d'erreur, la connexion reste en texte.
+
+Un serveur qui ne choisit pas de codec n'émet pas le champ : la connexion reste en texte, rien ne
+casse. Les octets y voyagent sous la convention `{"$bytes":"<base64url>"}`, réanimée en `Uint8Array`
+à la réception. Le serveur de cette version ne choisit pas encore de codec (#618) : offrir CBOR est
+dès aujourd'hui sans risque, et prend effet dès qu'il le fait.
+
+| Charge                   | Texte JSON           | CBOR                  | Sur le fil         |
+| ------------------------ | -------------------- | --------------------- | ------------------ |
+| Petit objet, réception   | ≈ au même niveau     | ≈ au même niveau      | **−30 %** d'octets |
+| Petit objet, émission    | plus rapide          | plus lent             | **−30 %** d'octets |
+| 4 Ko d'octets, réception | base64 + réanimation | **≈ 33× plus rapide** | **−25 %** d'octets |
+
+D'où la règle : **CBOR n'est jamais le défaut**. Sur des messages ordinaires, JSON est natif et ne
+coûte rien à télécharger ; dès que des octets circulent, CBOR les porte sans base64 ni copie. Le
+codec ne pèse que sur la page qui importe `nodefony/cbor`.
 
 ### Ce que le client alloue — et ce qu'il n'alloue pas
 
 Un onglet ouvert huit heures ne pardonne pas les allocations gratuites. Les choix visibles au code :
 
-- **Le journal de protocole est différé.** Chaque trame est poussée dans un anneau borné à 300
-  entrées sous forme de **référence brute** ; la mise en forme et le masquage des secrets ne sont
-  faits qu'à la **lecture** — `recordFrame()` (`client/realtime/NodefonySocket.ts#NodefonySocket.recordFrame`). Un
-  inspecteur qu'on n'ouvre jamais ne coûte donc presque rien.
+- **Le journal de protocole est différé — et éteint en production.** En développement, chaque trame
+  est poussée dans un anneau O(1) borné à 300 entrées sous forme de **référence brute**, l'entrée
+  évincée recyclée ; la mise en forme et le masquage des secrets ne sont faits qu'à la **lecture** —
+  `recordFrame()` (`client/realtime/NodefonySocket.ts#NodefonySocket.recordFrame`). En production, le journal ne
+  s'allume qu'à la première lecture de `frameLog` ou au premier écouteur `LOCAL_EVENTS.frame` (la
+  console de Studio) : sans console ouverte, il ne coûte **rien** par trame.
 - **Les secrets ne transitent pas en clair dans l'inspecteur.** `redactFrame()`
   (`client/realtime/NodefonySocket.ts#redactFrame`) remplace toute clé ressemblant à un jeton, un mot de
   passe ou une autorisation, avec une profondeur bornée.
 - **Ce qui n'a pas servi n'existe pas.** L'anneau de trames, l'identité et les capacités annoncées
   démarrent à `null` et ne sont alloués qu'au premier usage.
 - **L'échantillonnage de débit ne retient pas le processus.** Le minuteur de statistiques est
-  déréférencé (`client/realtime/NodefonySocket.ts#NodefonySocket.request`) — utile quand le même code tourne dans un
+  déréférencé (`client/realtime/NodefonySocket.ts#NodefonySocket.startStatsSampler`) — utile quand le même code tourne dans un
   test Node.
 
 ## ⚡ Cadence adaptative — une capacité du CLIENT
@@ -938,7 +1003,8 @@ croiser.
 Une barre de développement type « bandeau de profilage », montée par `mountDebugBar()`
 (`client/debugbar/index.ts#mountDebugBar`). Elle ouvre **la même** socket temps réel que le reste de la page,
 intercepte les appels réseau et affiche la cascade des phases serveur d'une requête. Rendue en Shadow
-DOM, sans aucune dépendance d'interface.
+DOM, sans aucune dépendance d'interface. Son panneau temps réel affiche le codec en vigueur (champ
+« protocole », `describeCodec()`).
 
 En pratique tu ne l'appelles pas : en développement, `@nodefony/frontend` l'injecte lui-même dans la
 page, en la résolvant depuis le paquet installé (`ViteConfigGenerator.ts#ViteConfigGenerator.toMjs`). Tu l'appelles à la
@@ -982,29 +1048,32 @@ Le détail du builder, du rechargement à chaud et du rendu de la page côté se
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                                        | Cause (dans le code)                                                                                                                          | Correction                                                                                                       |
-| --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `Cannot find module 'nodefony/realtime'`                        | Ce subpath **n'existe pas** — le champ `exports` n'en déclare aucun sous ce nom                                                               | Importer depuis `nodefony/client`                                                                                |
-| `has no exported member 'NodefonySocket'` dans un fichier front | Import depuis `"nodefony"` typé par la condition **Node** (outil sans condition `browser`)                                                    | Importer explicitement depuis `nodefony/client`                                                                  |
-| `RealtimeIdentity` introuvable à l'import                       | Version antérieure : le type n'était réexporté ni par `nodefony/client` ni par `nodefony/react`                                               | Corrigé — `import type { RealtimeIdentity } from "nodefony/client"` (ou `nodefony/react`)                        |
-| Le canal est silencieux, aucun message                          | `on()` installé sans `subscribe()` — le serveur ne pousse pas                                                                                 | Appeler les deux (`client/realtime/NodefonySocket.ts#NodefonySocket.subscribe`)                                  |
-| Notice « Trame binaire reçue et écartée »                       | Le serveur émet du binaire, que le protocole JSON-RPC ne route pas (`client/realtime/NodefonySocket.ts#NodefonySocket.binaryFramesDiscarded`) | Le lire par `onBinary(handler)`, ou ne pas en émettre sur cette socket                                           |
-| Un composant démonté coupe le flux d'un autre                   | Attendu et **déjà traité** : les abonnements sont ref-comptés                                                                                 | Ne pas contourner l'API en émettant `unsubscribe` à la main                                                      |
-| Après une reconnexion, plus rien n'arrive                       | Le serveur repart d'un état vide ; le client ré-émet ses abonnements                                                                          | Comportement natif ; vérifier que l'abonnement passe bien par `subscribe()`                                      |
-| La reconnexion ne repart jamais                                 | Fermeture **définitive** (1008 = 401/403 traduit), reconnexion volontairement coupée                                                          | Corriger la cause (se connecter) puis `retryNow()` (`client/realtime/NodefonySocket.ts#NodefonySocket.retryNow`) |
-| Deux connexions WebSocket pour la même page                     | Deux `new NodefonySocket(…)` au lieu de l'instance partagée                                                                                   | `NodefonySocket.shared()` (`client/realtime/NodefonySocket.ts#NodefonySocket.shared`)                            |
-| Les trames envoyées juste après la connexion sont perdues       | `send()` abandonne la trame tant que le transport n'est pas ouvert (`client/realtime/NodefonySocket.ts#NodefonySocket.send`)                  | Émettre après la résolution de `connect()`                                                                       |
-| La cadence adaptative « perd » des messages                     | Employée sur un canal d'**événements**, où décimer supprime des éléments                                                                      | La réserver aux canaux d'état, ou passer `enabled: false`                                                        |
-| `hasAnyRole(roles, [])` rend `false` et surprend                | Aucune exigence ne peut être satisfaite (`client/roles/roles.ts#hasAnyRole`)                                                                  | Convention assumée ; `hasAllRoles` avec une liste vide rend `true`                                               |
-| `RoleRegistry` lève au 32ᵉ rôle                                 | Limite des entiers 32 bits signés (`client/roles/registry.ts#RoleRegistry`)                                                                   | Rester sur les chaînes / `RoleSet` au-delà de 31 rôles                                                           |
-| Un bouton masqué au front reste appelable                       | Le RBAC client est de l'ergonomie, pas un contrôle                                                                                            | Protéger la route côté serveur — c'est lui l'autorité                                                            |
-| `request("/x", { id: 3 })` ignore ses paramètres                | En forme chemin, le 2ᵉ argument est le **délai d'attente** (`client/realtime/NodefonySocket.ts#NodefonySocket.request`)                       | Paramètres dans le chemin ou la requête ; un corps passe par `mutate()`                                          |
-| Une donnée mal formée traverse l'écran sans erreur              | `request<T>()` **convertit** le type, il ne valide rien                                                                                       | Valider au bord (Zod, déjà dépendance du framework) toute donnée sensible ou non maîtrisée                       |
-| Les erreurs de la page n'arrivent pas au journal du pod         | `clientLogs.enabled` fermé, visiteur anonyme, ou sévérité au-delà de `maxSeverity`                                                            | Voir [Les journaux de l'onglet](#-les-journaux-de-longlet-remontés-au-pod)                                       |
-| Le canal reste ouvert alors que l'écran a « coupé » le direct   | Le composant abonné est resté monté ; aucune liaison n'a d'interrupteur                                                                       | Démonter le composant abonné                                                                                     |
-| La socket se ferme en 4006 au bout d'une heure                  | Le jeton porteur qui l'a ouverte a atteint son `exp` ; un client 10.0 ne sait pas en obtenir un neuf, il s'arrête                             | Recréer la socket avec un jeton frais AVANT `exp` (voir la recette de la page Sécurité du temps réel)            |
-| L'interface affiche des rôles périmés après un changement       | Rôles mémorisés à la connexion ; la socket s'est reconnectée (4005) avec les nouveaux                                                         | Lire l'identité par `onIdentity()` ou le hook du moteur                                                          |
-| Deux instances de React après ajout de `nodefony/react`         | React empaqueté au lieu d'être externe                                                                                                        | Déjà traité au build (`rolldown.config.ts#browserShim`) ; vérifier ses propres alias                             |
+| Symptôme                                                        | Cause (dans le code)                                                                                                                                  | Correction                                                                                                        |
+| --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `Cannot find module 'nodefony/realtime'`                        | Ce subpath **n'existe pas** — le champ `exports` n'en déclare aucun sous ce nom                                                                       | Importer depuis `nodefony/client`                                                                                 |
+| `has no exported member 'NodefonySocket'` dans un fichier front | Import depuis `"nodefony"` typé par la condition **Node** (outil sans condition `browser`)                                                            | Importer explicitement depuis `nodefony/client`                                                                   |
+| `RealtimeIdentity` introuvable à l'import                       | Version antérieure : le type n'était réexporté ni par `nodefony/client` ni par `nodefony/react`                                                       | Corrigé — `import type { RealtimeIdentity } from "nodefony/client"` (ou `nodefony/react`)                         |
+| Le canal est silencieux, aucun message                          | `on()` installé sans `subscribe()` — le serveur ne pousse pas                                                                                         | Appeler les deux (`client/realtime/NodefonySocket.ts#NodefonySocket.subscribe`)                                   |
+| Notice « Trame binaire écartée »                                | Le serveur émet du binaire sur une connexion texte, où il n'a pas de canal (`client/realtime/NodefonySocket.ts#NodefonySocket.binaryFramesDiscarded`) | Le lire par `onBinary(handler)`, offrir `codec: CBOR_FRAME_CODEC` pour des octets par canal, ou ne pas en émettre |
+| Une charge arrive en `{ $bytes: "…" }`                          | Le serveur porte des octets en texte, et ce client n'a pas activé de codec binaire (`realtime/frameCodecNegotiation.ts#frameCodecSet`)                | Passer `codec: CBOR_FRAME_CODEC` : la convention est alors réanimée en `Uint8Array`                               |
+| `onBinary` ne reçoit plus rien, `sendBinary` rend `false`       | La connexion parle CBOR : chaque trame binaire y est une frame du codec                                                                               | Publier les octets sur un canal (`publish` / `on(canal)`) ; le flux brut sert les connexions texte                |
+| Le codec demandé n'est pas pris (`socket.codec` reste texte)    | `shared()` a rendu une socket déjà créée sans codec, ou le serveur ne l'a pas retenu (`client/realtime/NodefonySocket.ts#NodefonySocket.shared`)      | Passer `codec` à la PREMIÈRE création (noyau) ; lire l'avertissement de la console en développement               |
+| Un composant démonté coupe le flux d'un autre                   | Attendu et **déjà traité** : les abonnements sont ref-comptés                                                                                         | Ne pas contourner l'API en émettant `unsubscribe` à la main                                                       |
+| Après une reconnexion, plus rien n'arrive                       | Le serveur repart d'un état vide ; le client ré-émet ses abonnements                                                                                  | Comportement natif ; vérifier que l'abonnement passe bien par `subscribe()`                                       |
+| La reconnexion ne repart jamais                                 | Fermeture **définitive** (1008 = 401/403 traduit), reconnexion volontairement coupée                                                                  | Corriger la cause (se connecter) puis `retryNow()` (`client/realtime/NodefonySocket.ts#NodefonySocket.retryNow`)  |
+| Deux connexions WebSocket pour la même page                     | Deux `new NodefonySocket(…)` au lieu de l'instance partagée                                                                                           | `NodefonySocket.shared()` (`client/realtime/NodefonySocket.ts#NodefonySocket.shared`)                             |
+| Les trames envoyées juste après la connexion sont perdues       | `send()` abandonne la trame tant que le transport n'est pas ouvert (`client/realtime/NodefonySocket.ts#NodefonySocket.send`)                          | Émettre après la résolution de `connect()`                                                                        |
+| La cadence adaptative « perd » des messages                     | Employée sur un canal d'**événements**, où décimer supprime des éléments                                                                              | La réserver aux canaux d'état, ou passer `enabled: false`                                                         |
+| `hasAnyRole(roles, [])` rend `false` et surprend                | Aucune exigence ne peut être satisfaite (`client/roles/roles.ts#hasAnyRole`)                                                                          | Convention assumée ; `hasAllRoles` avec une liste vide rend `true`                                                |
+| `RoleRegistry` lève au 32ᵉ rôle                                 | Limite des entiers 32 bits signés (`client/roles/registry.ts#RoleRegistry`)                                                                           | Rester sur les chaînes / `RoleSet` au-delà de 31 rôles                                                            |
+| Un bouton masqué au front reste appelable                       | Le RBAC client est de l'ergonomie, pas un contrôle                                                                                                    | Protéger la route côté serveur — c'est lui l'autorité                                                             |
+| `request("/x", { id: 3 })` ignore ses paramètres                | En forme chemin, le 2ᵉ argument est le **délai d'attente** (`client/realtime/NodefonySocket.ts#NodefonySocket.request`)                               | Paramètres dans le chemin ou la requête ; un corps passe par `mutate()`                                           |
+| Une donnée mal formée traverse l'écran sans erreur              | `request<T>()` **convertit** le type, il ne valide rien                                                                                               | Valider au bord (Zod, déjà dépendance du framework) toute donnée sensible ou non maîtrisée                        |
+| Les erreurs de la page n'arrivent pas au journal du pod         | `clientLogs.enabled` fermé, visiteur anonyme, ou sévérité au-delà de `maxSeverity`                                                                    | Voir [Les journaux de l'onglet](#-les-journaux-de-longlet-remontés-au-pod)                                        |
+| Le canal reste ouvert alors que l'écran a « coupé » le direct   | Le composant abonné est resté monté ; aucune liaison n'a d'interrupteur                                                                               | Démonter le composant abonné                                                                                      |
+| La socket se ferme en 4006 au bout d'une heure                  | Le jeton porteur qui l'a ouverte a atteint son `exp` ; un client 10.0 ne sait pas en obtenir un neuf, il s'arrête                                     | Recréer la socket avec un jeton frais AVANT `exp` (voir la recette de la page Sécurité du temps réel)             |
+| L'interface affiche des rôles périmés après un changement       | Rôles mémorisés à la connexion ; la socket s'est reconnectée (4005) avec les nouveaux                                                                 | Lire l'identité par `onIdentity()` ou le hook du moteur                                                           |
+| Deux instances de React après ajout de `nodefony/react`         | React empaqueté au lieu d'être externe                                                                                                                | Déjà traité au build (`rolldown.config.ts#browserShim`) ; vérifier ses propres alias                              |
 
 ## 🧪 Tests & couverture
 

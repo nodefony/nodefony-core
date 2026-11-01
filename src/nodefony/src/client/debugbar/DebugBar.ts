@@ -28,6 +28,7 @@
  * W3C (RFC-propre) est aussi remonté.
  */
 import { NodefonySocket } from "../realtime/NodefonySocket";
+import { describeCodec } from "../realtime/snapshot";
 import { AUTH_ME_PATH } from "../../runtime/authRoutes";
 import {
   DebugBarModel,
@@ -3050,7 +3051,7 @@ export class DebugBar {
     this.text("rtBig", String(this.rtRate));
     this.setPoints("rtLine", "rtArea", this.rtSeries, "rt", 38);
     this.text("rtTransport", "WebSocket");
-    this.text("rtProto", "JSON-RPC 2.0");
+    this.text("rtProto", describeCodec(this.client.codec));
     this.text("rtState", v.state);
     this.cls("rtState", `v ${live ? "ok" : "warn"}`);
     this.text("rtFrames", String(this.client.framesReceived));
