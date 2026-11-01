@@ -1057,7 +1057,11 @@ export abstract class RealtimeController<
     peer.notify("realtime:welcome", welcome);
     // Bascule APRÈS l'accueil, émis en texte : les frames suivantes emploient le
     // codec accordé, dans les deux sens.
-    if (binaryCodec !== null) peer.codec = binaryCodec;
+    if (binaryCodec !== null) {
+      peer.codec = binaryCodec;
+      // Le traceur WS (hors production) décode alors les trames binaires.
+      ctx.frameCodec = binaryCodec;
+    }
     this.log("WS realtime client connected", "INFO");
   }
 

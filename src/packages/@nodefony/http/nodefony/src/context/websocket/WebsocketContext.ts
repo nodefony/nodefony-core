@@ -4,6 +4,7 @@ import { AsyncResource } from "node:async_hooks";
 import { logColor } from "nodefony";
 import { ServerType, SchemeType } from "../../../service/http-kernel.js";
 import { Severity, Msgid, Message, nodefonyError, Scope } from "nodefony";
+import type { IFrameCodec } from "nodefony";
 import {
   RequestContext,
   frameRequestId,
@@ -29,7 +30,7 @@ import type {
   IWebsocketContext,
 } from "../../../interfaces/IContext.js";
 import { ProxyType } from "../http/HttpContext.js";
-import { formatWsLogContent } from "./wsLogContent.js";
+import { formatWsLogContent, WS_LOG_CONTENT_CAP } from "./wsLogContent.js";
 import {
   admitFrame,
   readFrameRateBound,
@@ -192,6 +193,13 @@ class WebsocketContext extends Context implements IWebsocketContextInterface {
   override request: WsIncomingMessage | null;
   override response: WebsocketResponse | null = null;
   acceptedProtocol?: string | undefined;
+  /**
+   * Codec des trames BINAIRES de cette connexion, posé par la couche qui l'a négocié
+   * (le temps réel, ADR-0022 §2). Hors production, le traceur s'en sert pour
+   * afficher une trame binaire décodée plutôt que sa seule taille ; jamais lu en
+   * production. `null` = octets bruts, résumés à leur taille.
+   */
+  frameCodec: IFrameCodec | null = null;
   port: number | string;
   rejected: boolean = false;
   // BUG-003 — set once connect() has wired the close→onFinish→teardown path.
@@ -570,7 +578,11 @@ class WebsocketContext extends Context implements IWebsocketContextInterface {
     // le check "prod" était mort.
     wsContentLogging ??= this.kernel?.environment !== "production";
     if (!wsContentLogging) return;
-    this.log(formatWsLogContent(data), "DEBUG", `WS ${dir}`);
+    this.log(
+      formatWsLogContent(data, WS_LOG_CONTENT_CAP, this.frameCodec),
+      "DEBUG",
+      `WS ${dir}`,
+    );
   }
 
   /**

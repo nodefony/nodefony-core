@@ -75,6 +75,8 @@ interface IServerSide {
   sent: RealtimeFrameData[];
   /** Trames illisibles comptées par le transport de la connexion. */
   malformed: () => number | undefined;
+  /** Protocole du codec confié au traceur WS (`frameCodec`), `undefined` si aucun. */
+  tracedCodec: () => string | undefined;
 }
 
 function makeServer(
@@ -113,6 +115,8 @@ function makeServer(
     admission: {
       selectSubprotocol: (p: string | false) => selected.push(p),
     },
+    // Lu par le traceur WS hors production : posé par la bascule de codec.
+    frameCodec: null as { protocol: string } | null,
   };
   const rt = new CodecRt(ctx as unknown as ContextType);
   wire.feedServer = (raw) => rt.feed(raw);
@@ -124,6 +128,7 @@ function makeServer(
     selected,
     sent,
     malformed: () => state.__nfRealtime?.transport.malformedDiscarded,
+    tracedCodec: () => ctx.frameCodec?.protocol,
   };
 }
 
@@ -174,6 +179,8 @@ describe("Codec binaire côté serveur — négociation, accueil, bascule (#618)
     expect(typeof welcome).toBe("string");
     expect(JSON.parse(welcome as string).params.codec).toBe(CBOR);
     expect(client.codec).toBe(CBOR);
+    // Le traceur WS décode désormais les trames binaires de cette connexion.
+    expect(server.tracedCodec()).toBe(CBOR);
     const bytes = new Uint8Array([0, 1, 2, 254, 255]);
     const res = await client.request<"echo", { echoed: { data: Uint8Array } }>(
       "echo",
@@ -208,6 +215,7 @@ describe("Codec binaire côté serveur — négociation, accueil, bascule (#618)
       "codec",
     );
     expect(client.codec).toBe(TEXT);
+    expect(server.tracedCodec()).toBeUndefined();
     const res = await client.request<"echo", { echoed: number }>("echo", 7);
     expect(res.echoed).toBe(7);
     expect(server.sent.every((f) => typeof f === "string")).toBe(true);

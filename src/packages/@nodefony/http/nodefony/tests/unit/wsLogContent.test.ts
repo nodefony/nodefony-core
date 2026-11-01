@@ -5,6 +5,7 @@ import {
   formatWsLogContent,
   WS_LOG_CONTENT_CAP,
 } from "../../src/context/websocket/wsLogContent.js";
+import { CBOR_FRAME_CODEC } from "nodefony/cbor";
 
 // Durcissement aux limites du formatage de contenu WS (seam Suivi de requête).
 // Spec : string tronquée ; TOUTE charge binaire (Buffer/ArrayBuffer/TypedArray/
@@ -105,5 +106,65 @@ describe("formatWsLogContent — bornage & sûreté", () => {
     expect(formatWsLogContent(true)).to.equal("true");
     const fn = formatWsLogContent(() => 1);
     expect(fn).to.be.a("string").and.not.equal("");
+  });
+});
+
+// ADR-0022 §2 — débogage par décodage à l'observation : sous codec binaire, le
+// traceur rend la trame LISIBLE, sans jamais vider ses octets.
+describe("formatWsLogContent — trame d'un codec binaire décodée (#618)", () => {
+  const CBOR = CBOR_FRAME_CODEC.protocol;
+  const encode = (frame: unknown): Buffer =>
+    Buffer.from(CBOR_FRAME_CODEC.encode(frame) as Uint8Array);
+
+  it("trame CBOR (Buffer de ws) → étiquette + protocole + frame en JSON", () => {
+    const raw = encode({ jsonrpc: "2.0", method: "chat", params: { n: 1 } });
+    expect(
+      formatWsLogContent(raw, WS_LOG_CONTENT_CAP, CBOR_FRAME_CODEC),
+    ).to.equal(
+      `[binary ${raw.length} B] ${CBOR} {"jsonrpc":"2.0","method":"chat","params":{"n":1}}`,
+    );
+  });
+
+  it("octets imbriqués dans la frame → leur étiquette, jamais un objet indexé", () => {
+    const raw = encode({
+      jsonrpc: "2.0",
+      method: "up",
+      params: new Uint8Array(70_000),
+    });
+    const out = formatWsLogContent(raw, WS_LOG_CONTENT_CAP, CBOR_FRAME_CODEC);
+    expect(out).to.contain('"params":"[binary 70000 B]"');
+    expect(out).to.not.contain('"0":');
+  });
+
+  it("trame illisible → signalée, sans lever", () => {
+    const raw = Buffer.from([0xbf, 0x61]); // carte indéfinie jamais refermée
+    expect(
+      formatWsLogContent(raw, WS_LOG_CONTENT_CAP, CBOR_FRAME_CODEC),
+    ).to.equal(`[binary 2 B] ${CBOR} illisible`);
+  });
+
+  it("frame décodée bornée par le cap", () => {
+    const raw = encode({
+      jsonrpc: "2.0",
+      method: "x",
+      params: "y".repeat(500),
+    });
+    const out = formatWsLogContent(raw, 64, CBOR_FRAME_CODEC);
+    expect(out).to.have.length(65);
+    expect(out.endsWith("…")).to.equal(true);
+  });
+
+  it("CONTRÔLE — sans codec, ou en fragments : la seule taille, comme avant", () => {
+    const raw = encode({ jsonrpc: "2.0", method: "chat" });
+    expect(formatWsLogContent(raw)).to.equal(`[binary ${raw.length} B]`);
+    expect(
+      formatWsLogContent([raw, raw], WS_LOG_CONTENT_CAP, CBOR_FRAME_CODEC),
+    ).to.equal(`[binary ${raw.length * 2} B]`);
+  });
+
+  it("une trame TEXTE reste rendue telle quelle, codec ou pas", () => {
+    expect(
+      formatWsLogContent('{"a":1}', WS_LOG_CONTENT_CAP, CBOR_FRAME_CODEC),
+    ).to.equal('{"a":1}');
   });
 });

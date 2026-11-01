@@ -247,6 +247,7 @@ nommées (`root d0`→`@r1`→…→`@nodefony`), fallback backend ; mounts pré
 
 ## Request Tracing — requestId
 
+- **Contenu des trames WS** (`WebsocketContext.logMessageContent` → `wsLogContent.ts#formatWsLogContent`) : gaté hors production AVANT toute construction (0 coût en prod). Binaire → `binaryPayloadLabel` (cœur, même étiquette que le client). `WebsocketContext.frameCodec` (`null` par défaut, posé par le temps réel à la bascule CBOR) → trame binaire DÉCODÉE : `[binary N B] <protocole> <JSON>`, octets imbriqués étiquetés (replacer qui lit `this[key]` : un `Buffer` décodé passe par `toJSON` AVANT le replacer). Fragments / `Blob` → taille seule. ⚠️ Les trames SORTANTES du temps réel vont droit à `ws` (`WsConnectionTransport`) : le traceur ne voit que l'entrée d'une connexion temps réel.
 - `Context.requestId = randomUUID()` — UUID v4 généré à construction (base class)
 - `HttpContext` constructor : if `request.headers["x-request-id"]` → override requestId
 - `WebsocketContext` constructor : if `req.headers["x-request-id"]` → override requestId
