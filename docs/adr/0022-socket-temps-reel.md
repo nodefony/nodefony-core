@@ -107,8 +107,16 @@ dans l'écho du handshake, et le défaut d'écho de `ws` ne change pas en 10.x (
   aboutit. Elle n'est aujourd'hui dans l'arbre que par le module de test et l'outillage de build
   (`npm ls @bufbuild/protobuf`) : aucun paquet publié ne l'installe, l'ajouter serait une
   dépendance neuve pour chaque application.
-- **Calendrier.** Les trois noms sont réservés dès 10.0. Aucun codec autre que JSON n'est dans le
-  paquet de base : chacun est optionnel, chargé par la seule application qui l'active. Le codec
+- **Calendrier.** Les trois noms sont réservés dès 10.0. **Activation (revue de l'auteur,
+  2026-10-29, une fois le codec CBOR écrit au cœur — remplace « optionnel, chargé par la seule
+  application qui l'active », dont le motif était d'éviter une dépendance npm, disparue) :** CBOR
+  s'active **par la configuration seule, sans paquet à installer**, et son code ne pèse que là où
+  il est activé — rien dans le bundle d'une application qui ne l'active pas
+  (`.size-budgets.json`). Côté navigateur : l'option `codec` de `NodefonySocket`, avec
+  `CBOR_FRAME_CODEC` importé de `nodefony/cbor` (seul sous-chemin qui le contient). Côté serveur :
+  une clé de la configuration du module temps réel, posée par le lot serveur de #618, qui charge
+  le codec au démarrage. Le paquet de base (`nodefony`, `nodefony/client`) ne contient que le
+  codec JSON. Les codecs vivent dans le pair PARTAGÉ (`JsonRpcPeer`, §4 ligne (i)). Le codec
   **CBOR** est écrit, au cœur (`src/nodefony/src/realtime/codec/`, sous-chemin `nodefony/cbor`,
   hors de `nodefony` et de `nodefony/client`) ; son branchement — `IFrameCodec`, offre du
   sous-protocole par le client, choix annoncé dans l'accueil — revient à #618,
@@ -156,6 +164,19 @@ dans l'écho du handshake, et le défaut d'écho de `ws` ne change pas en 10.x (
   - Écarté : **parcours toujours armé** (chaque application paierait ~30 % par trame texte pour un
     service que la plupart n'emploient pas) ; **codec JSON sans convention** (contredit la décision
     du 2026-10-29 portée par #618 : le client texte rend un `Uint8Array`).
+- **Trois précisions de câblage (validées par l'auteur le 2026-11-01) :**
+  - le champ de `realtime:welcome` qui porte le codec retenu s'appelle **`codec`**, et sa valeur
+    est exactement `IFrameCodec.protocol` (`src/nodefony/src/realtime/frameCodecNegotiation.ts#adoptFrameCodec`) ;
+    absent, la connexion reste en texte ;
+  - le serveur **renvoie dans le handshake le sous-protocole qu'il a CHOISI** (RFC 6455 §4.2.2 :
+    « the subprotocol the server is ready to use »), jamais le premier offert — défaut de `ws`
+    8.22 sans `handleProtocols` (`protocols.values().next().value`), qui ferait dire à
+    `socket.protocol` du navigateur `nodefony.jsonrpc.cbor.v1` sur une connexion restée en
+    texte. Additif : le client lit toujours le codec dans l'accueil, jamais dans cet écho ;
+  - sous codec **binaire**, toute trame binaire est une frame du codec : le flux brut
+    (`NodefonySocket.onBinary`/`sendBinary`, `RealtimeController.onRealtimeBinary`) est refusé
+    avec une notice et ne sert que les connexions texte. Des octets passent par les canaux, qui
+    ont les portes B1 à B4 (§3).
 - **Débogage par décodage à l'observation**, jamais en changeant le fil : le traceur WS
   (`src/packages/@nodefony/http/nodefony/src/context/websocket/wsLogContent.ts#formatWsLogContent`),
   Studio et la barre de debug affichent une trame binaire décodée ; coût nul en production, où

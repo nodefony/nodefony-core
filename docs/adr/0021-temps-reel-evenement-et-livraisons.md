@@ -222,11 +222,17 @@ réutilise la même règle sur le nombre de trames reçues par seconde, avant to
 Toute extension vit **dans** `payload`.
 
 Le figement ne ferme pas la porte au **binaire**. Des octets traverseront le bus **bruts**, sur
-un **second sujet versionné** — un en-tête court (canal, origine, sceau) suivi des octets, sans
-conversion — que les exemplaires plus anciens n'écoutent pas : ce message-ci n'est pas touché.
-Le client Redis l'autorise (`publish` accepte des octets, `subscribe` en mode tampon les rend
-bruts). Mécanique dans #618. Écarté : des octets encodés en base64 dans `payload` (un tiers plus
-lourd, et du calcul à chaque message).
+un **second sujet versionné** que les exemplaires plus anciens n'écoutent pas : ce message-ci
+n'est pas touché. **Format de ce sujet (précision de l'auteur, 2026-10-29, une fois le codec CBOR
+écrit au cœur) : la MÊME enveloppe `{ channel, payload, originId }`, encodée par le codec CBOR du
+cœur** (`src/nodefony/src/realtime/codec/`), octets natifs dans `payload`, sceau calculé de la
+même manière. Une seule grammaire pour les deux sujets — la décision 3 de l'ADR-0022 refuse une
+seconde grammaire sur la socket, le bus suit la même règle. Le client Redis l'autorise (`publish`
+accepte des octets, `subscribe` en mode tampon les rend bruts) ; le relais IPC du cluster doit
+les porter intacts lui aussi. Mécanique et preuves dans #618. Écarté : des octets encodés en
+base64 dans `payload` (un tiers plus lourd, et du calcul à chaque message) ; un en-tête court
+maison (canal, origine, sceau) suivi des octets — une seconde grammaire, avec son propre
+décodeur et sa propre vérification du sceau, qui divergeraient en silence de la première.
 
 Jusque-là, des octets publiés sur un canal diffusé **ne partent pas sur le bus** : ils restent
 livrés intacts aux abonnés locaux, et l'exploitant est prévenu une fois
