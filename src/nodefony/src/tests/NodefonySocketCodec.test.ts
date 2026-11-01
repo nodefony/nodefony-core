@@ -561,26 +561,79 @@ describe("NodefonySocket — journal, instantané et diagnostic disent le format
   });
 });
 
-describe("NodefonySocket.shared — un codec ignoré se dit", () => {
-  afterEach(() => {
+describe("NodefonySocket.shared — un codec demandé après la création", () => {
+  const sharedMap = (): Map<string, NodefonySocket> => {
     const g = globalThis as { __nfRealtime__?: Map<string, NodefonySocket> };
-    g.__nfRealtime__?.clear();
+    return (g.__nfRealtime__ ??= new Map<string, NodefonySocket>());
+  };
+  afterEach(() => {
+    sharedMap().clear();
     vi.restoreAllMocks();
   });
 
-  it("socket déjà créée sans codec : la seconde demande avertit en développement", () => {
+  it("aucune connexion ouverte : le codec est adopté, sans avertissement, et l'offre le porte", async () => {
+    // Cas de la barre de debug : elle crée la socket partagée SANS codec, puis
+    // l'application demande le sien avant le login.
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    const a = NodefonySocket.shared({ url: "ws://x/partagee", banner: false });
+    const s = setup();
+    sharedMap().set("ws://x/realtime", s.client);
     const b = NodefonySocket.shared({
-      url: "ws://x/partagee",
+      url: "ws://x/realtime",
       codec: CBOR_FRAME_CODEC,
     });
-    expect(b).to.equal(a);
+    expect(b).to.equal(s.client);
+    expect(warn).not.toHaveBeenCalled();
+    const p = s.client.connect();
+    s.transports[0]!.open({ codec: CBOR_PROTOCOL });
+    await p;
+    expect(s.transports[0]!.protocols).to.include(CBOR_PROTOCOL);
+    expect(s.client.codec).to.equal(CBOR_PROTOCOL);
+  });
+
+  it("connexion déjà ouverte : le codec est ignoré et l'avertissement le dit", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const s = await connected();
+    sharedMap().set("ws://x/realtime", s.client);
+    NodefonySocket.shared({ url: "ws://x/realtime", codec: CBOR_FRAME_CODEC });
     expect(warn).toHaveBeenCalledTimes(1);
     expect(String(warn.mock.calls[0]![0])).to.include(CBOR_PROTOCOL);
-    // Même codec redemandé : rien à dire.
-    NodefonySocket.shared({ url: "ws://x/partagee" });
+    expect(s.client.codec).to.equal(JSON_PROTOCOL);
+    // Sans codec demandé : rien à dire.
+    NodefonySocket.shared({ url: "ws://x/realtime" });
     expect(warn).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("NodefonySocket.wireStats — compteurs du fil", () => {
+  it("armés au premier appel : ce qui précède n'est pas compté, ce qui suit l'est dans les deux sens", async () => {
+    const { client, transport } = await connected(CBOR_FRAME_CODEC, {
+      codec: CBOR_PROTOCOL,
+    });
+    transport.receive(cborNotification("avant", { n: 1 }));
+    const wire = client.wireStats();
+    expect(wire.framesIn).to.equal(0);
+    const frame = cborNotification("apres", { n: 2 });
+    transport.receive(frame);
+    expect(wire.framesIn).to.equal(1);
+    expect(wire.binaryIn).to.equal(1);
+    expect(wire.sizeIn).to.equal(frame.byteLength);
+    expect(wire.decodeMs).to.be.greaterThan(0);
+    client.publish("c", { b: new Uint8Array([7]) });
+    expect(wire.framesOut).to.equal(1);
+    expect(wire.binaryOut).to.equal(1);
+    expect(wire.sizeOut).to.equal(transport.binary.at(-1)!.byteLength);
+    // Même objet à chaque lecture : la référence vivante.
+    expect(client.wireStats()).to.equal(wire);
+  });
+
+  it("trame texte : comptée en caractères, pas en binaire", async () => {
+    const { client, transport } = await connected();
+    const wire = client.wireStats();
+    const text = JSON.stringify({ jsonrpc: "2.0", method: "m", params: 1 });
+    transport.receive(text);
+    expect(wire.framesIn).to.equal(1);
+    expect(wire.binaryIn).to.equal(0);
+    expect(wire.sizeIn).to.equal(text.length);
   });
 });
 

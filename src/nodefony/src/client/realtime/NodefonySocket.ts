@@ -240,6 +240,31 @@ export type RealtimeProbe = (
  */
 export type MessageStats = IChannelStats;
 
+/**
+ * Compteurs du fil d'une socket : trames et tailles dans chaque sens, temps passé à
+ * décoder. Cumulés depuis le premier appel de {@link NodefonySocket.wireStats} — un
+ * débit ou une moyenne se calcule par différence entre deux lectures.
+ *
+ * La taille suit la convention du journal protocole : caractères d'une trame texte,
+ * octets d'une trame binaire.
+ */
+export interface IWireStats {
+  /** Trames reçues puis décodées par le codec de la connexion. */
+  framesIn: number;
+  /** Trames écrites sur le transport. */
+  framesOut: number;
+  /** Taille cumulée des trames reçues. */
+  sizeIn: number;
+  /** Taille cumulée des trames écrites. */
+  sizeOut: number;
+  /** Trames binaires parmi les reçues. */
+  binaryIn: number;
+  /** Trames binaires parmi les écrites. */
+  binaryOut: number;
+  /** Temps cumulé passé à décoder les trames reçues, en millisecondes. */
+  decodeMs: number;
+}
+
 /** Points conservés dans la série de débit (~32 s à 1 échantillon/s). */
 const STATS_SERIES_POINTS = 32;
 
@@ -722,7 +747,11 @@ export class NodefonySocket<
     null;
   // Les codecs de CETTE socket, fixés une fois par la règle partagée avec le
   // serveur (`frameCodecSet`) : texte, binaire offert, offre de sous-protocoles.
-  private readonly codecs: IFrameCodecSet;
+  // Réassignés une seule fois au plus, avant toute connexion (`adoptRequestedCodec`).
+  private codecs: IFrameCodecSet;
+  // Compteurs du fil, `null` tant que personne ne les lit (`wireStats`) : la trame ne
+  // paie alors qu'un test.
+  private _wire: IWireStats | null = null;
   // Flux binaire brut refusé sous codec binaire : déjà signalé sur CETTE connexion.
   private _rawBinaryNoticed = false;
   // Vaut `true` tant qu'on ne s'est jamais connecté : une frame émise avant la
@@ -797,12 +826,17 @@ export class NodefonySocket<
     } else if (
       opts.codec !== undefined &&
       opts.codec !== client.opts.codec &&
+      // Les options ne s'appliquent qu'à la création — sauf le codec tant qu'aucune
+      // connexion n'est ouverte : il ne se négocie qu'au handshake, rien n'est encore
+      // décidé. Cas courant : la barre de debug crée la socket partagée avant que
+      // l'application ne demande le sien.
+      !client.adoptRequestedCodec(opts.codec) &&
       isVerbose()
     ) {
-      // Les options ne s'appliquent qu'à la création : un codec demandé après coup
-      // serait ignoré EN SILENCE, et la page croirait parler binaire.
+      // Connexion déjà ouverte : le codec serait ignoré EN SILENCE, et la page
+      // croirait parler binaire.
       console.warn(
-        `[nodefony] ${key} : codec « ${opts.codec.protocol} » ignoré, la socket partagée existe déjà — le passer à sa PREMIÈRE création`,
+        `[nodefony] ${key} : codec « ${opts.codec.protocol} » ignoré, la socket partagée est déjà connectée — le passer à sa création, ou avant la connexion`,
       );
     }
     return client;
@@ -1825,6 +1859,41 @@ export class NodefonySocket<
     return kind;
   }
 
+  /**
+   * Compteurs du fil de cette socket (trames, tailles, temps de décodage), armés au
+   * PREMIER appel : avant, aucun compte n'est tenu et une trame ne paie qu'un test.
+   * L'objet rendu est la référence vivante — à LIRE, pas à muter.
+   *
+   * @returns les compteurs, cumulés depuis le premier appel.
+   */
+  wireStats(): Readonly<IWireStats> {
+    return (this._wire ??= {
+      framesIn: 0,
+      framesOut: 0,
+      sizeIn: 0,
+      sizeOut: 0,
+      binaryIn: 0,
+      binaryOut: 0,
+      decodeMs: 0,
+    });
+  }
+
+  /**
+   * Adopte un codec demandé APRÈS la création, tant qu'aucune connexion n'est
+   * ouverte — le codec ne se négocie qu'au handshake, l'offre suivante le portera.
+   * Chemin froid, appelé par {@link NodefonySocket.shared}.
+   *
+   * @param codec - le codec demandé.
+   * @returns `false` si une connexion est ouverte ou en cours : le codec est ignoré.
+   */
+  private adoptRequestedCodec(codec: IFrameCodec): boolean {
+    if (this.transport !== null) return false;
+    this.opts.codec = codec;
+    this.codecs = frameCodecSet(codec);
+    this.peer.codec = this.codecs.text;
+    return true;
+  }
+
   /** Annule les requêtes sortantes en attente (fermeture transport / logout). */
   dispose(reason?: string): void {
     this.peer.dispose(reason);
@@ -2603,6 +2672,12 @@ export class NodefonySocket<
     const transport = this.transport;
     if (transport === null) return false;
     transport.send(data);
+    const wire = this._wire;
+    if (wire !== null) {
+      wire.framesOut++;
+      wire.sizeOut += data.length;
+      if (typeof data !== "string") wire.binaryOut++;
+    }
     if (this._frameLogOn)
       this.recordFrame("out", msg, data.length, typeof data !== "string");
     return true;
@@ -2649,6 +2724,9 @@ export class NodefonySocket<
         this.fireNotice(discardedFrameNotice("binary", codec.protocol));
       return;
     }
+    // Compteurs armés seulement si quelqu'un les lit : sinon un test, aucune horloge.
+    const wire = this._wire;
+    const startedAt = wire === null ? 0 : performance.now();
     let msg: unknown;
     try {
       msg = this.peer.decode(raw);
@@ -2657,10 +2735,17 @@ export class NodefonySocket<
         this.fireNotice(discardedFrameNotice("malformed", codec.protocol));
       return;
     }
+    const binary = typeof raw !== "string";
+    if (wire !== null) {
+      wire.decodeMs += performance.now() - startedAt;
+      wire.framesIn++;
+      wire.sizeIn += raw.length;
+      if (binary) wire.binaryIn++;
+    }
     // Discrimination (request/notification/response), routage et corrélation d'id
     // délégués au moteur isomorphe via `receive` (log + welcome + stats + handlers
     // y sont rebranchés). Plus aucune classification dupliquée côté client.
-    this.receive(msg, raw.length, typeof raw !== "string");
+    this.receive(msg, raw.length, binary);
   }
 
   private setState(s: RealtimeState): void {

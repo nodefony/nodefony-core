@@ -31,6 +31,7 @@ export type {
   NodefonySocketOptions,
   MessageStats,
   RealtimeFrame,
+  IWireStats,
   KernelPingResult,
   IApiCallResult,
   // Ré-export DX promis par `NodefonySocket.ts` : le consommateur navigateur
