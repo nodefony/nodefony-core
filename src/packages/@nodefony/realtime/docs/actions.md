@@ -807,6 +807,7 @@ fois ? »**.
 | ------------------------------ | ------------------------------ | ------------------------------------ |
 | `nodefony:kernel:ping`         | oui — lecture pure             | oui                                  |
 | `nodefony:kernel:gc`           | oui — l'effet est un cycle GC  | oui, mais coûteux (pause du process) |
+| `nodefony:realtime:throughput` | oui — charge déterministe      | oui, mais jusqu'à 1 Mo par appel     |
 | `api.request` en lecture       | oui — c'est un `GET`           | oui                                  |
 | `nodefony:scaffold:cancel`     | oui — annuler deux fois annule | oui                                  |
 | `nodefony:scaffold:run`        | **non** — crée un travail      | **non** : deux appels, deux jobs     |
