@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-11-02 10:46** (UTC).
+> Empreinte prise le **2026-11-02 12:00** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,7 +20,7 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 90% | 222 | 25 | 2026-11-12 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 90% | 223 | 25 | 2026-11-12 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 98% | 135 | 3 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 11% | 5 | 40 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 33 | — |
@@ -115,9 +115,9 @@ Ordre 6.03 · P2 — décision · 16.75 j · jalon 10.0.0-beta · frise 2026-10-
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
 | 6.03 | P2 — décision | 16.75 | 2026-10-29 → 11-16 | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
-| 6.0343 | P2 — décision | 0.5 | 2026-11-07 → 11-07 | #709 | feat(client): typer les hooks React et Vue par le contrat |
 | 6.0345 | P1 — figé à la création | 1 | 2026-11-09 → 11-09 | #699 | feat(security)!: durcir la CSP par défaut sans bloquer le temps réel |
 | 6.03455 | P2 — décision | 1 | 2026-11-10 → 11-10 | #711 | refactor(studio): typer les canaux de Studio par un contrat |
+| 6.03456 | P1 — figé à la création | 1 | — | #723 | feat(cli): vérifier les types des composants front générés |
 | 6.0346 | P2 — décision | 0.5 | 2026-11-10 → 11-10 | #631 | test(media): lancer les tests audio dans un vrai navigateur |
 | 6.0347 | P2 — décision | 0.5 | 2026-11-12 → 11-12 | #629 | test(realtime): garder l'isomorphisme par des contrôles qui mordent |
 | 6.035 | P2 — décision | 0.5 | 2026-11-06 → 11-06 | #623 | feat(realtime): identifier les abonnés d'un canal côté serveur |

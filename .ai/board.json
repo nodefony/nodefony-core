@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T10:46:23.921Z",
+  "generatedAt": "2026-11-02T12:00:42.738Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,7 +39,7 @@
       "title": "13.0.0"
     },
     {
-      "closed": 222,
+      "closed": 223,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
       "open": 25,
@@ -5643,8 +5643,8 @@
       "number": 709,
       "title": "feat(client): typer les hooks React et Vue par le contrat",
       "url": "https://github.com/nodefony/nodefony-core/issues/709",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -5699,6 +5699,22 @@
       "ordre": 6.03455,
       "debut": "2026-11-10",
       "cible": "2026-11-10",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 723,
+      "title": "feat(cli): vérifier les types des composants front générés",
+      "url": "https://github.com/nodefony/nodefony-core/issues/723",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 6.03456,
+      "debut": null,
+      "cible": null,
       "labels": [
         "beta-6"
       ]
