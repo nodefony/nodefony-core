@@ -3,7 +3,7 @@ name: nodefony-add-realtime-channel
 metadata:
   version: 2.0.0
 description: >
-  Choisit et branche la brique temps réel que le framework fournit déjà — canal, entrée client,
+  Choisit et branche la brique temps réel que Nodefony fournit déjà — canal, entrée client,
   action, canal personnel, canal à membres, flux SSE, contrat typé, octets — au lieu d'un
   WebSocket, d'une liste noire ou d'un contrôle d'accès écrits à la main. Part du besoin (salon
   privé avec exclusion, jeu, sondes, tableau de bord, notification à une personne, tâche longue)

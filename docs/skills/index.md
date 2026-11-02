@@ -167,7 +167,7 @@ source: "docs/skills/index.md"
     "desc": "Crée une ressource complète dans une application Nodefony — entité, schémas de validation, service CRUD, controller REST+WebSocket et tests — par le générateur `nodefony create entity`, sur SQL comme sur MongoDB.",
     "meta": "🟢 conforme" },
   { "icon": "🔧", "title": "add-realtime-channel", "href": "nodefony-add-realtime-channel.md",
-    "desc": "Choisit et branche la brique temps réel que le framework fournit déjà — canal, entrée client, action, canal personnel, canal à membres, flux SSE, contrat typé, octets — au lieu d'un WebSocket, d'une liste noire ou d'un contrôle d'accès écrits à la main.",
+    "desc": "Choisit et branche la brique temps réel que Nodefony fournit déjà — canal, entrée client, action, canal personnel, canal à membres, flux SSE, contrat typé, octets — au lieu d'un WebSocket, d'une liste noire ou d'un contrôle d'accès écrits à la main.",
     "meta": "🟢 conforme v2.0.0 · 📎 2 réf" },
   { "icon": "🔧", "title": "add-service", "href": "nodefony-add-service.md",
     "desc": "Crée un service injectable dans une application Nodefony par `nodefony create service`, et le fait entrer dans le conteneur — la moitié qu'on oublie. Porte la distinction entre le nom de la CLASSE et le nom de l'INSTANCE, les deux façons d'obtenir un service depuis un autre (`@Inject` au…",

@@ -12,7 +12,7 @@ source: "src/packages/@nodefony/devkit/skills/nodefony-add-realtime-channel/SKIL
 
 # `nodefony-add-realtime-channel`
 
-> Choisit et branche la brique temps réel que le framework fournit déjà — canal, entrée client, action, canal personnel, canal à membres, flux SSE, contrat typé, octets — au lieu d'un WebSocket, d'une liste noire ou d'un contrôle d'accès écrits à la main.
+> Choisit et branche la brique temps réel que Nodefony fournit déjà — canal, entrée client, action, canal personnel, canal à membres, flux SSE, contrat typé, octets — au lieu d'un WebSocket, d'une liste noire ou d'un contrôle d'accès écrits à la main.
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-add-realtime-channel**
 
@@ -29,8 +29,8 @@ source: "src/packages/@nodefony/devkit/skills/nodefony-add-realtime-channel/SKIL
 | Version | `2.0.0` |
 | Famille | Autres |
 | Corps | 372 lignes |
-| Coût d'activation | ~5 905 tokens (le corps est chargé à l'invocation) |
-| Description | 1011 / 1024 caractères |
+| Coût d'activation | ~5 904 tokens (le corps est chargé à l'invocation) |
+| Description | 1007 / 1024 caractères |
 | Déclencheurs | 21 |
 | Ressources `references/` | 2 page(s) |
 | Scripts | 0 |
@@ -38,7 +38,7 @@ source: "src/packages/@nodefony/devkit/skills/nodefony-add-realtime-channel/SKIL
 
 ## Ce qu'il fait
 
-Choisit et branche la brique temps réel que le framework fournit déjà — canal, entrée client, action, canal personnel, canal à membres, flux SSE, contrat typé, octets — au lieu d'un WebSocket, d'une liste noire ou d'un contrôle d'accès écrits à la main. Part du besoin (salon privé avec exclusion, jeu, sondes, tableau de bord, notification à une personne, tâche longue) et mène à la ligne à écrire, à l'exemple installé et à son test. Porte ce qui ne se voit qu'en production : plusieurs serveurs, reconnexion, révocation, contre-pression. À charger AVANT d'écrire un canal, un abonnement client ou un flux.
+Choisit et branche la brique temps réel que Nodefony fournit déjà — canal, entrée client, action, canal personnel, canal à membres, flux SSE, contrat typé, octets — au lieu d'un WebSocket, d'une liste noire ou d'un contrôle d'accès écrits à la main. Part du besoin (salon privé avec exclusion, jeu, sondes, tableau de bord, notification à une personne, tâche longue) et mène à la ligne à écrire, à l'exemple installé et à son test. Porte ce qui ne se voit qu'en production : plusieurs serveurs, reconnexion, révocation, contre-pression. À charger AVANT d'écrire un canal, un abonnement client ou un flux.
 
 ## Skills voisins
 
@@ -88,7 +88,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
 | en-tête analysable par un vrai parseur YAML | ℹ️ normatif | ✅ |  | spec § frontmatter : « YAML frontmatter » — un en-tête que YAML refuse n'est pas rendu par GitHub, alors que le parseur de l'agent, tolérant, l'accepte sans un mot |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 1011 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 1007 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
