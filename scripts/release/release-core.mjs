@@ -1573,6 +1573,32 @@ export function referenceDeCompat(brut, versionLocale) {
 }
 
 /**
+ * Verdict du banc de compatibilité entre versions, selon la référence.
+ *
+ * Une référence en PRÉ-VERSION ne promet rien (semver 2.0.0 §9) : une rupture
+ * entre `beta.5` et `beta.6`, ou entre la dernière pré-version et la première
+ * stable, est ACCEPTÉE — elle est annoncée, pour le changelog, sans bloquer la
+ * publication. Une référence STABLE porte la garantie publique : une rupture
+ * bloque.
+ *
+ * @param reference - la version publiée éprouvée
+ * @param compatible - le banc est-il vert ?
+ * @returns `{ code, message }` — code 0 (passe) ou 1 (bloque)
+ */
+export function verdictCompat(reference, compatible) {
+  if (compatible) return { code: 0, message: `compatible avec ${reference}` };
+  if (validerVersion(reference).prerelease !== null)
+    return {
+      code: 0,
+      message: `⚠️ RUPTURE avec ${reference} — ACCEPTÉE : une pré-version ne promet rien (semver §9). À écrire au changelog (\`**Breaking:**\`), avec ce que l'ancien client ou l'ancien pod cesse de comprendre.`,
+    };
+  return {
+    code: 1,
+    message: `⛔ RUPTURE avec ${reference}, version STABLE : la garantie publique interdit de publier. Corriger, ou déclarer la rupture en majeure (docs/guides/compatibilite.md).`,
+  };
+}
+
+/**
  * Canal npm qui sert les installations d'une version : son identifiant de
  * pré-version (`10.0.0-beta.6` → `beta`), sinon `latest`.
  *

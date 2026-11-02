@@ -47,7 +47,7 @@ derrière les commandes npm qui font autorité :
 | `npm run release:pack` | `scripts/release/pack-all.mjs` | Un tarball par publiable, manifeste tel quel |
 | `npm run release:smoke [-- --scenario X]` | `scripts/release/smoke-docker.sh` | Installation VIERGE en conteneur |
 | `npm run release:image-gate -- <image>` | `scripts/release/image-gate.mjs` | REFUSE une image porteuse d'un secret, couche par couche |
-| `npm run release:compat` | `scripts/release/compat.mjs` | Client publié ↔ serveur courant, et l'inverse (socket). Job `compat`, dont `publier` dépend. Sortie 2 = n'a pas pu installer la référence |
+| `npm run release:compat` | `scripts/release/compat.mjs` | Client publié ↔ serveur courant, et l'inverse (socket). Job `compat`, dont `publier` dépend. Rupture face à une PRÉ-VERSION : acceptée et annoncée (à écrire au changelog) ; face à une STABLE : bloque. Sortie 2 = n'a pas pu installer la référence |
 | `npm run release -- --version <v> --promouvoir` | `scripts/release/release.mjs` | Les gestes mécaniques entre l'estampille et le tag (un seul push). Ne tague jamais |
 | `npm run release -- --deprecate [--publish]` | `scripts/release/release.mjs` | Les paquets historiques, APRÈS la publication |
 | `npm run release -- --dist-tags [--publish]` | `scripts/release/release.mjs` | Le `latest` resté sur la préversion précédente |

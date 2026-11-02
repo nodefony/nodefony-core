@@ -315,8 +315,15 @@ stable d'une majeure, sa dernière pré-version — et joue le client publié fa
 puis l'inverse. Un onglet ouvert garde son code pendant des heures, un déploiement progressif fait
 coexister deux serveurs : une trame que l'autre version ne sait plus lire ne se voit ni au smoke
 (une seule version) ni dans les suites (le dépôt contre lui-même). La forge le lance dans le job
-`compat` de `release.yml`, dont `publier` dépend ; un rouge est une rupture de fil, qui se corrige
-ou se DÉCLARE (majeure, nouvelle version de sous-protocole) — jamais un banc qu'on contourne.
+`compat` de `release.yml`, dont `publier` dépend.
+
+Le verdict dépend de la référence (`verdictCompat`, `scripts/release/release-core.mjs`) :
+
+- **référence en pré-version** (beta.5 → beta.6, ou dernière beta → 10.0.0) : une rupture est
+  **acceptée** — une pré-version ne promet rien (semver §9) — et ANNONCÉE, pour l'écrire au
+  changelog (`**Breaking:**`) ;
+- **référence stable** (10.0.0 → 10.0.1, 10.1…) : une rupture **bloque**. Elle se corrige, ou se
+  déclare en majeure — jamais un banc qu'on contourne.
 
 ### 7.2bis Mesure de performance de la version — geste MANUEL, avant le tag
 

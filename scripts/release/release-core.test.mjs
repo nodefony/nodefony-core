@@ -29,6 +29,7 @@ import {
   lireVueNpm,
   referenceDeCompat,
   canalDeVersion,
+  verdictCompat,
   paquetsNonServis,
   planDeReprise,
   verdictPaquetsNeufs,
@@ -2225,6 +2226,26 @@ describe("referenceDeCompat", () => {
     expect(referenceDeCompat("", "10.0.0-beta.6")).toBeNull();
     expect(referenceDeCompat("[]", "10.0.0-beta.6")).toBeNull();
     expect(referenceDeCompat(reel, "10.0")).toBeNull();
+  });
+});
+
+describe("verdictCompat", () => {
+  it("vert : passe", () => {
+    expect(verdictCompat("10.0.0-beta.5", true).code).toBe(0);
+    expect(verdictCompat("10.0.0", true).code).toBe(0);
+  });
+
+  it("rupture face à une PRÉ-VERSION : acceptée, mais annoncée pour le changelog", () => {
+    const v = verdictCompat("10.0.0-beta.5", false);
+    expect(v.code).toBe(0);
+    expect(v.message).toMatch(/RUPTURE/);
+    expect(v.message).toMatch(/changelog/);
+  });
+
+  it("🔴 rupture face à une version STABLE : bloque", () => {
+    const v = verdictCompat("10.0.0", false);
+    expect(v.code).toBe(1);
+    expect(v.message).toMatch(/STABLE/);
   });
 });
 

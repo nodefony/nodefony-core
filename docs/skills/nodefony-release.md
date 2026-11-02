@@ -29,7 +29,7 @@ source: ".claude/skills/nodefony-release/SKILL.md"
 | Version | `2.4.0` |
 | Famille | Publier et distribuer |
 | Corps | 424 lignes |
-| Coût d'activation | ~8 769 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~8 796 tokens (le corps est chargé à l'invocation) |
 | Description | 1013 / 1024 caractères |
 | Déclencheurs | 17 |
 | Ressources `references/` | 0 page(s) |

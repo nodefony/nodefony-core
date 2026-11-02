@@ -23,8 +23,10 @@
  *
  * Préalable : le cœur bâti (`npm run build`) — le serveur courant l'importe.
  *
- * Code : 0 = compatible (ou aucune version de la majeure en ligne, annoncé),
- * 1 = rupture constatée, 2 = vérification impossible (réseau, installation).
+ * Code (`verdictCompat`, cœur de release) : 0 = compatible, OU rupture face à
+ * une PRÉ-VERSION — acceptée (semver §9), annoncée pour le changelog —, OU
+ * aucune version de la majeure en ligne ; 1 = rupture face à une version
+ * STABLE (garantie publique) ; 2 = vérification impossible (réseau, installation).
  *
  * @usage npm run release:compat
  * @usage npm run release:compat -- --version <version publiée>
@@ -37,6 +39,7 @@ import {
   canalDeVersion,
   referenceDeCompat,
   validerVersion,
+  verdictCompat,
 } from "./release-core.mjs";
 
 const ROOT = path.resolve(
@@ -166,4 +169,8 @@ const bench = run(
     env: { ...process.env, NF_COMPAT_DIR: dir, NF_COMPAT_VERSION: version },
   },
 );
-process.exit(bench.status === 0 ? 0 : 1);
+const verdict = verdictCompat(version, bench.status === 0);
+(verdict.code === 0 ? console.log : console.error)(
+  `release:compat — ${verdict.message}`,
+);
+process.exit(verdict.code);
