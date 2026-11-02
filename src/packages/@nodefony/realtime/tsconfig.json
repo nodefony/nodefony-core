@@ -4,7 +4,7 @@
     "outDir": "./dist",
     "emitDecoratorMetadata": false,
     "experimentalDecorators": true,
-    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "lib": ["ESNext"],
     "target": "ES2024",
     "module": "ESNext",
     "strict": true,

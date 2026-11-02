@@ -2,6 +2,9 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "noEmit": true,
+    // Les tests importent le client NAVIGATEUR en source (`NodefonySocket`) : le DOM
+    // est à eux. Le code serveur (`tsconfig.json`) compile SANS — un `window` y rougit.
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "rootDir": "../../../..",
     "types": ["node", "vitest/globals"],
     "noUnusedLocals": false,

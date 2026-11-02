@@ -1079,9 +1079,9 @@ copie, une allocation à l'abonnement, un codec remplaçant `JSON.parse` se mesu
 | 4   | fixtures d'octets **dorées** : accueil, requête, réponse, erreur, notification, trame à octets, par codec — **et l'enveloppe backplane**, trois champs plus sceau (`src/packages/@nodefony/realtime/nodefony/src/backplane/envelope.ts#sealBackplaneEnvelope`) | **livré dans Node** (#629) : `src/nodefony/src/tests/frameGolden.test.ts` (3 codecs) et `src/packages/@nodefony/realtime/nodefony/tests/unit/backplaneEnvelopeGolden.test.ts`, références sous `fixtures/golden/`, vues rouges sur une mutation symétrique ; dans un vrai navigateur : #631. Un octet changé = rupture de fil **déclarée**, fixtures régénérées (`-u`) dans le même commit                                                                           | `npm test` du cœur et du paquet realtime ; navigateur par #631                  |
 | 5   | compatibilité **entre versions** : client de la dernière version publiée ↔ serveur courant, et l'inverse                                                                                                                                                       | **livré** (#629) : `scripts/release/compat.mjs`, banc `src/packages/@nodefony/realtime/nodefony/tests/compat/crossVersion.compat.test.ts` ; référence lue sur npm (`scripts/release/release-core.mjs#referenceDeCompat`) ; vu rouge dans les deux sens. Rupture face à une référence en pré-version : acceptée et annoncée (semver §9) ; face à une stable : bloque (`scripts/release/release-core.mjs#verdictCompat`). Le serveur garde `v1` tant qu'il est annoncé | `npm run release:compat` — job `compat` de `release.yml`, dont `publier` dépend |
 
-Constaté et non gardé : `src/packages/@nodefony/realtime/tsconfig.json` compile le **serveur**
-avec le DOM. Proposé, à l'accord de l'auteur (c'est un tsconfig) : un second projet neutre pour
-`nodefony/src/**` du paquet, `lib: ["ES2022"]`, `types: ["node"]`, dans son `typecheck`. Une
+Gardé aussi (#629) : `src/packages/@nodefony/realtime/tsconfig.json` compile le **serveur** sans
+le DOM (`lib: ["ESNext"]`, `types: ["node"]`) — un `window` y rougit au `npm run typecheck` du
+paquet ; seul `tsconfig.tests.json` le réintroduit, ses tests important le client navigateur. Une
 rupture de fil suit la politique de l'API : majeure, et une version de sous-protocole de plus.
 
 - **Rupture si différé après 10.0 : NON** — mais sans le contrôle 5 une rupture de fil ne se
