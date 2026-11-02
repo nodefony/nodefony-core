@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T14:41:53.583Z",
+  "generatedAt": "2026-11-02T17:32:27.440Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,7 +39,7 @@
       "title": "13.0.0"
     },
     {
-      "closed": 224,
+      "closed": 225,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
       "open": 24,
@@ -56,7 +56,7 @@
       "closed": 5,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 40,
+      "open": 41,
       "title": "10.1.0"
     }
   ],
@@ -2714,6 +2714,20 @@
       "labels": [
         "beta-3"
       ]
+    },
+    {
+      "number": 725,
+      "title": "feat(realtime): empêcher le rejeu d'une éjection sur un canal durable",
+      "url": "https://github.com/nodefony/nodefony-core/issues/725",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.1.0",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 3.96,
+      "debut": null,
+      "cible": null,
+      "labels": []
     },
     {
       "number": 546,
@@ -5755,8 +5769,8 @@
       "number": 623,
       "title": "feat(realtime): identifier les abonnés d'un canal côté serveur",
       "url": "https://github.com/nodefony/nodefony-core/issues/623",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -6485,6 +6499,22 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 7.04,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-7"
+      ]
+    },
+    {
+      "number": 724,
+      "title": "feat(framework): renvoyer en flux une source quelconque",
+      "url": "https://github.com/nodefony/nodefony-core/issues/724",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 7.05,
       "debut": null,
       "cible": null,
       "labels": [

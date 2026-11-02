@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-11-02 14:41** (UTC).
+> Empreinte prise le **2026-11-02 17:32** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,9 +20,9 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 90% | 224 | 24 | 2026-11-12 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 90% | 225 | 24 | 2026-11-12 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 98% | 135 | 3 | 2026-11-15 |
-| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 11% | 5 | 40 | 2026-12-15 |
+| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 11% | 5 | 41 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 33 | — |
 | **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 7 | — |
 | **12.0.0** | ![12.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/5?style=flat-square&label=) `██░░░░░░░░` 15% | 2 | 11 | — |
@@ -40,7 +40,7 @@ Ordre 6.03 · P2 — décision · 16.75 j · jalon 10.0.0-beta · frise 2026-10-
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.1.0 — 40 ouverts
+## Jalon 10.1.0 — 41 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -50,6 +50,7 @@ Ordre 6.03 · P2 — décision · 16.75 j · jalon 10.0.0-beta · frise 2026-10-
 | 3.945 | P1 — figé à la création | 2 | — | #522 | feat(studio): ajouter un écran Identité pour les fournisseurs de connexion |
 | 3.95 | P2 — décision | 1 | — | #523 | feat(security): guider la connexion Keycloak et brancher plusieurs realms |
 | 3.955 | P2 — décision | 2 | — | #524 | feat(security): lier un compte existant à Keycloak et exporter les comptes |
+| 3.96 | P2 — décision | 1 | — | #725 | feat(realtime): empêcher le rejeu d'une éjection sur un canal durable |
 | 17 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #84 | feat(mail): créer le module et son service d'envoi |
 | 18 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #85 | feat(mail): composer un courriel depuis un gabarit |
 | 19 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #86 | feat(mail): envoyer un courriel en ligne de commande |
@@ -119,7 +120,6 @@ Ordre 6.03 · P2 — décision · 16.75 j · jalon 10.0.0-beta · frise 2026-10-
 | 6.03456 | P1 — figé à la création | 1 | — | #723 | feat(cli): vérifier les types des composants front générés |
 | 6.0346 | P2 — décision | 0.5 | 2026-11-10 → 11-10 | #631 | test(media): lancer les tests audio dans un vrai navigateur |
 | 6.0347 | P2 — décision | 0.5 | 2026-11-12 → 11-12 | #629 | test(realtime): garder l'isomorphisme par des contrôles qui mordent |
-| 6.035 | P2 — décision | 0.5 | 2026-11-06 → 11-06 | #623 | feat(realtime): identifier les abonnés d'un canal côté serveur |
 | 6.0355 | P2 — décision | 0.5 | 2026-11-09 → 11-09 | #701 | test(realtime): exporter une suite de conformité des drivers du bus |
 | 6.0367 | P2 — décision | 0.5 | 2026-11-13 → 11-13 | #700 | docs(realtime): montrer par l'exemple les grands cas d'usage du temps réel |
 | 6.037 | P2 — décision | 1 | 2026-11-16 → 11-16 | #555 | feat(studio): montrer en direct la contre-pression du temps réel |
@@ -138,6 +138,7 @@ Ordre 6.03 · P2 — décision · 16.75 j · jalon 10.0.0-beta · frise 2026-10-
 | 7.02 | P2 — décision | 3 | — | #695 | feat(http): déclarer et servir un service gRPC depuis un module |
 | 7.03 | P2 — décision | 0.5 | — | #696 | fix(cli): router gRPC vers h2c dans la config nginx générée |
 | 7.04 | P3 — fin de cycle | 1 | — | #697 | feat(http): exposer la réflexion et la santé gRPC standard |
+| 7.05 | P2 — décision | 2 | — | #724 | feat(framework): renvoyer en flux une source quelconque |
 
 ## Backlog — aucune date promise · 35 ouverts
 
