@@ -18,7 +18,7 @@ source: ".claude/skills/nodefony-frontend-dev/SKILL.md"
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.0.0`.
+> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.1.0`.
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -26,7 +26,7 @@ source: ".claude/skills/nodefony-frontend-dev/SKILL.md"
 
 | | |
 | --- | --- |
-| Version | `1.0.0` |
+| Version | `1.1.0` |
 | Famille | Développer le framework |
 | Corps | 116 lignes |
 | Coût d'activation | ~3 434 tokens (le corps est chargé à l'invocation) |
@@ -72,7 +72,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/front-quality.md` | Qualité front (Nodefony) — temps réel calme · perf CSS · a11y · sécu | 154 |
 | `references/isomorphic.md` | Cœur isomorphe nodefony côté navigateur | 271 |
 | `references/patterns.md` | Patterns d'écran front (Nodefony) — framework-agnostique | 168 |
-| `references/realtime-client.md` | NodefonySocket & hooks React (nodefony/client, nodefony/react) | 637 |
+| `references/realtime-client.md` | NodefonySocket & hooks React (nodefony/client, nodefony/react) | 640 |
 
 _(+ 11 fichiers dans des sous-dossiers : specs et normes bundlées hors ligne.)_
 

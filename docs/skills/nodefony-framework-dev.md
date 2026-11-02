@@ -18,7 +18,7 @@ source: ".claude/skills/nodefony-framework-dev/SKILL.md"
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v2.2.0`.
+> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v2.3.0`.
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -26,7 +26,7 @@ source: ".claude/skills/nodefony-framework-dev/SKILL.md"
 
 | | |
 | --- | --- |
-| Version | `2.2.0` |
+| Version | `2.3.0` |
 | Famille | Développer le framework |
 | Corps | 410 lignes |
 | Coût d'activation | ~9 752 tokens (le corps est chargé à l'invocation) |

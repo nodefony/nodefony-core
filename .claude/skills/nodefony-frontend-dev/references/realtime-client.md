@@ -12,7 +12,7 @@ Source : `src/nodefony/src/client/realtime/NodefonySocket.ts` (1300 l). Contrats
 2. [Obtenir un client : `shared` / constructeur / `connect`](#2-obtenir-un-client--shared--constructeur--connect)
 3. [État de connexion & reconnexion](#3-etat-de-connexion--reconnexion)
 4. [Pub/sub : `subscribe`/`unsubscribe`/`on`/`publish` (ref-comptage)](#4-pubsub--subscribeunsubscribeonpublish-ref-comptage)
-5. [RPC : `request`, `mutate`, `ping`, `stream` + pont `api.request`](#5-rpc--request-mutate-ping-stream--pont-apirequest)
+5. [RPC : `request`, `ping`, `stream` + pont `get`/`post`/…](#5-rpc--request-ping-stream--pont-getpost)
 6. [Duplex serveur→client : `register`/`notify`](#6-duplex-serveurclient--registernotify)
 7. [Identité & découverte (`welcome`)](#7-identite--decouverte-welcome)
    - [7 bis. Codec de trame — texte ou CBOR](#7-bis-codec-de-trame--texte-ou-cbor)
@@ -141,7 +141,7 @@ Convention de **cadence dans le nom du canal** (`channelRate.ts`) : `base` nu = 
 
 ---
 
-## 5. RPC : `request`, `mutate`, `ping`, `stream` + pont `api.request`
+## 5. RPC : `request`, `ping`, `stream` + pont `get`/`post`/…
 
 ```ts
 // Trois surcharges (NodefonySocket.ts#NodefonySocket) :
@@ -153,35 +153,38 @@ request<K extends ActionNames<Actions>>(method: K, params?, …);  // contrat IR
 > 🔴 **Rupture 10.0.0** — la forme `request<MonType>("ma:methode")` (un seul générique = le
 > RÉSULTAT) N'EXISTE PLUS : c'était un attrape-tout `(method: string, params?: unknown)` qui
 > rendait inopérant le contrôle des `params` (un payload hors contrat compilait). S'écrit
-> désormais `request<"ma:methode", MonType>("ma:methode")`. La forme PATH est inchangée.
+> désormais `request<"ma:methode", MonType>("ma:methode")`. `request` n'appelle plus QUE des
+> actions RPC par leur nom : la forme chemin (`request("/x")`) est retirée → `get`.
 
-- **Forme RPC** : `request("nodefony:kernel:ping", params, timeout)` → requête JSON-RPC corrélée, Promise résolue avec `result`, rejette avec `RpcError` sur `error`/timeout (défaut 30000 ms).
-- **Forme PATH** (« API souveraine » : 1 action controller = N transports) : un argument commençant par `/` est détecté au runtime (charCode 47) et réécrit en méthode `api.request` avec `params = { path }`. Le 2ᵉ argument devient alors le **timeout**. Exemple :
-  ```ts
-  const modules = await socket.request("/nodefony/kernel/api/modules");
-  // = la même action controller que le GET REST, via la socket.
-  ```
-  Échec → `RpcError` dont `data.status` porte le statut HTTP équivalent (404 path inconnu, 403 refus…). Un path commence toujours par `/`, une méthode JSON-RPC jamais → zéro collision.
+- **Forme RPC** : `request("nodefony:kernel:ping", params, timeout)` → requête JSON-RPC corrélée, Promise résolue avec `result`, rejette avec `RpcError` sur `error`/timeout (défaut 30000 ms). Un chemin passé à `request` est un NOM de méthode → `-32601`.
 
-### `mutate` — écriture idempotente
+### Le pont API — `get`, `post`, `put`, `patch`, `delete`
 
-```ts
-mutate<T>(path: `/${string}`, init: {
-  method: "POST" | "PUT" | "PATCH" | "DELETE";
-  body?: unknown;
-  idempotencyKey: string;          // OBLIGATOIRE
-  timeoutMs?: number;              // défaut 30000
-}): Promise<T>;                    // NodefonySocket.ts#NodefonySocket.disconnect
-```
-
-Pendant **écriture** de `request` (qui ne fait que des GET). Transporte la méthode HTTP logique + le corps + une **clé d'idempotence obligatoire** : une socket reconnecte et peut rejouer une frame en vol → la clé dédoublonne le rejeu (anti double-effet) côté serveur. Échec → `RpcError` (`data.status` : 400 clé absente, 409 rejeu concurrent, 403 refus, 404 path inconnu…).
+« API souveraine » : 1 action controller = N transports. Chaque méthode porte le VERBE HTTP que la
+route déclare (`methods: ["POST", "WEBSOCKET"]` ↔ `socket.post(…)`) et rejoue la route par la
+méthode JSON-RPC `api.request` (`NodefonySocket.ts#NodefonySocket.get`, `#NodefonySocket.post`) :
 
 ```ts
-await socket.mutate("/nodefony/security/api/apikeys/42/revoke", {
-  method: "POST",
-  idempotencyKey: crypto.randomUUID(),
-});
+const modules = await socket.get("/nodefony/kernel/api/modules"); // ≡ GET REST
+const page = await socket.get("/chat/history", { query: { limit: 20 } }); // query sérialisée dans le chemin
+const { sentAt } = await socket.post("/chat/send", { text }); // clé d'idempotence posée SEULE
+await socket.delete("/chat/messages/{id}", undefined, { params: { id } }); // gabarit rempli par la socket
+await socket.post("/orders", panier, { idempotencyKey: panier.id }); // dédoublonner une INTENTION
 ```
+
+- **Lecture** : la trame ne porte que `{ path }`. **Écriture** : `{ path, method, body, idempotencyKey }` —
+  la clé (`createIdempotencyKey`, cœur, isomorphe) est une par appel, réutilisée par le rejeu après
+  reconnexion ; `@Idempotent` côté serveur dédoublonne.
+- **Paramètres de chemin** : on NOMME le gabarit (`"/chat/messages/{id}"`) et on passe `params` ;
+  `fillRoutePath` (cœur, `runtime/routePath.ts`) encode chaque valeur pour SON segment et lève un
+  `TypeError` AVANT l'envoi si une valeur manque, est vide, vaut `.` ou `..`.
+- **Typé par le contrat** (`NodefonySocket.fromContract<C>()`) : la clé `serverRoutes` du contrat
+  (`"<VERBE> <chemin>": { body?: typeof S; query?: typeof S; params?: typeof S; result }`) type le
+  corps, la query, les params et le résultat (`Jsonify`) ; hors contrat, tout reste libre (`get<T>(…)`).
+- Échec → `RpcError` dont `data.status` porte le statut HTTP équivalent (400/422 corps refusé, 403
+  refus, 404 chemin inconnu, 405 route sans transport `WEBSOCKET`, 409 rejeu concurrent).
+- Le serveur route le chemin dans la forme que HTTP lui donne (WHATWG + barres finales retirées) :
+  `/x/` et `/x` atteignent la même route par les deux portes.
 
 ### `ping` — RTT
 
@@ -203,7 +206,7 @@ Helper réutilisable (topbar, debug bar) : mesure le round-trip via la méthode 
 `RpcError` (réexportée par `nodefony/client`, `JsonRpcPeer.ts`) : `{ message, code, data? }`. `code`/`data` préservés de bout en bout — un appelant discrimine un 404 d'un refus voter via `e.data.status` sans parser le message :
 
 ```ts
-try { await socket.request("/nodefony/x"); }
+try { await socket.get("/nodefony/x"); }
 catch (e) { if (e instanceof RpcError && (e.data as any)?.status === 404) … }
 ```
 
@@ -626,8 +629,8 @@ Côté serveur (contrat jumeau) : `this.renderSse()` → skill `nodefony-framewo
 ## 12. Gotchas
 
 - **`on` ≠ `subscribe`** : `on(channel, h)` reçoit, `subscribe(channel)` demande au serveur. Il faut les DEUX (les hooks `useNodefonyChannel*` font les deux pour toi).
-- **`mutate` : `idempotencyKey` obligatoire** — l'omettre = 400 serveur (anti double-effet sur rejeu de socket). Utiliser `crypto.randomUUID()` par mutation.
-- **Forme PATH de `request`** : le 2ᵉ argument est le **timeout** (pas des params) ; seul un path GET passe par là (`request("/x", 5000)`). Pour passer un body → `mutate`.
+- **Une écriture du pont porte TOUJOURS sa clé d'idempotence** : la socket la pose (`createIdempotencyKey`) ; un client HTTP qui se replie après un échec socket REPREND la même (`options.idempotencyKey`), sinon le repli double l'effet.
+- **`request("/x")` rend `-32601`** : un chemin s'appelle par `get`/`post`/…, `request` ne vise qu'une action RPC par son nom.
 - **Réponse mémorisée ≠ replay d'un `render` manuel** (côté serveur idempotence) : la valeur rejouée est la valeur RETOURNÉE par l'action.
 - **`onNotice`/`useNodefonyNotifications` : monter une seule fois** (shell) sinon toasts dupliqués.
 - **Canaux d'événements ≠ cadence adaptative** : ne JAMAIS `adaptiveChannel`/`useNodefonyAdaptiveChannel*` sur syslog/frames (chaque item compte) — réservé aux canaux d'ÉTAT latest-wins.

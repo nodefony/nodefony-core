@@ -61,10 +61,10 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v3.1.0 · ⚙️ 20 scripts · 📎 2 réf" },
   { "icon": "⚙️", "title": "framework-dev", "href": "nodefony-framework-dev.md",
     "desc": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM).",
-    "meta": "🟢 conforme v2.2.0 · 📎 11 réf" },
+    "meta": "🟢 conforme v2.3.0 · 📎 11 réf" },
   { "icon": "🎨", "title": "frontend-dev", "href": "nodefony-frontend-dev.md",
     "desc": "Kit de dev FRONT de Nodefony — full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`NodefonySocket`, hooks React), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), connexion sans interface…",
-    "meta": "🟢 conforme v1.0.0 · 📎 6 réf" },
+    "meta": "🟢 conforme v1.1.0 · 📎 6 réf" },
   { "icon": "🖥️", "title": "studio-dev", "href": "nodefony-studio-dev.md",
     "desc": "Kit de dev du frontend Studio de Nodefony (@nodefony/studio, React 19) — l'app admin interne du framework. Construire un écran (page / dashboard / panneau / onglet) vite et bien en réutilisant le UI kit (PageHeader, PageLayout, DataGrid, DataState, StatCard, KpiCard, JsonViewer, MiniChart,…",
     "meta": "🟢 conforme v2.1.0 · 📎 6 réf" }
@@ -204,8 +204,8 @@ source: "docs/skills/index.md"
 | [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.5.0 | 534 | 9 | 21 | ✅ |
 | [`nodefony-devops`](nodefony-devops.md) | 1.1.0 | 136 | 0 | 0 | ✅ |
 | [`nodefony-documentation`](nodefony-documentation.md) | 3.1.0 | 486 | 2 | 20 | ✅ |
-| [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.2.0 | 410 | 11 | 0 | ✅ |
-| [`nodefony-frontend-dev`](nodefony-frontend-dev.md) | 1.0.0 | 116 | 6 | 0 | ✅ |
+| [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.3.0 | 410 | 11 | 0 | ✅ |
+| [`nodefony-frontend-dev`](nodefony-frontend-dev.md) | 1.1.0 | 116 | 6 | 0 | ✅ |
 | [`nodefony-html-report`](nodefony-html-report.md) | — | 368 | 3 | 9 | ✅ |
 | [`nodefony-identifiers`](nodefony-identifiers.md) | 1.0.0 | 219 | 0 | 7 | ✅ |
 | [`nodefony-inspect`](nodefony-inspect.md) | 1.1.0 | 322 | 0 | 2 | ✅ |

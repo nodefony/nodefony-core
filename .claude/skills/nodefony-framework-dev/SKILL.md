@@ -1,7 +1,7 @@
 ---
 name: nodefony-framework-dev
 metadata:
-  version: 2.2.0
+  version: 2.3.0
 description: >
   Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs,
   WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services,
