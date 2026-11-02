@@ -13,7 +13,11 @@
  *   `transport.feed` → `JSON.parse` → dispatch d'une notification ;
  * - `notify`   : `notifyClient` — lecture de l'état → `peer.notify` → sérialisation
  *   → `transport.send` ;
- * - `binary`   : une frame binaire écartée (chemin froid, compteur).
+ * - `binary`   : une frame binaire écartée (chemin froid, compteur) ;
+ * - `publish`  : `hub.publish` sur un canal où PUB_SUBSCRIBERS connexions sont
+ *   abonnées par le contrôleur (fan-out : frame mutualisée, un sink par
+ *   connexion) — le chiffre est par PUBLICATION, donc pour PUB_SUBSCRIBERS
+ *   livraisons.
  *
  * L'émission réseau est neutralisée (`send` vide) : le harnais lit et valide
  * chaque trame sortante, ce qui mesurerait le harnais, pas le contrôleur.
@@ -26,6 +30,7 @@
  *
  * Usage :
  *   node micro-realtime-frame-ab.mjs --a <dist avant> --b <dist après> [--runs 7] [--payload tiny|real]
+ *        [--paths inbound,notify,binary,publish]
  *   (un `dist` = le dossier `dist/` de @nodefony/realtime, ou sa copie)
  * Mode enfant (interne) : --child <dist> <chemin>
  */
@@ -36,6 +41,9 @@ import { pathToFileURL } from "node:url";
 const WARM = 2e5;
 const N = 2e6;
 const BINARY_N = 2e5;
+const PUB_N = 2e5;
+const PUB_SUBSCRIBERS = 16;
+const PUB_CHANNEL = "bench:pub";
 
 const args = process.argv.slice(2);
 const opt = (name, def) => {
@@ -66,16 +74,41 @@ async function child(dist, which) {
     realtimeActions() {
       return {};
     }
+    // Canal du chemin `publish` : servi, sans producteur (le banc publie).
+    createRealtimeChannel(channel) {
+      return channel === PUB_CHANNEL ? () => {} : null;
+    }
   }
   const h = createRealtimeHarness((ctx) => new BenchRt(ctx));
   await h.connect();
   const rt = h.controller;
+  // `publish` : PUB_SUBSCRIBERS connexions sur le MÊME hub, abonnées AVANT de
+  // neutraliser l'émission (le harnais doit lire leur acquittement).
+  const harnesses = [h];
+  if (which === "publish") {
+    await h.subscribe(PUB_CHANNEL);
+    for (let i = 1; i < PUB_SUBSCRIBERS; i++) {
+      const extra = createRealtimeHarness((ctx) => new BenchRt(ctx), {
+        resetHub: false,
+      });
+      await extra.connect();
+      await extra.subscribe(PUB_CHANNEL);
+      harnesses.push(extra);
+    }
+    const count = h.hub.subscriberCount(PUB_CHANNEL);
+    if (count !== PUB_SUBSCRIBERS) {
+      console.error(`publish : ${count} abonnés au lieu de ${PUB_SUBSCRIBERS}`);
+      process.exit(1);
+    }
+  }
   // Neutralise l'émission : seul le contrôleur est mesuré.
   let sent = 0;
-  rt.context.connection.send = (_data, cb) => {
-    sent++;
-    cb?.();
-  };
+  for (const x of harnesses) {
+    x.controller.context.connection.send = (_data, cb) => {
+      sent++;
+      cb?.();
+    };
+  }
 
   const ping = '{"jsonrpc":"2.0","method":"ping"}';
   // `--payload real` : la forme d'une sonde de console (une dizaine de champs, un
@@ -105,9 +138,10 @@ async function child(dist, which) {
     inbound: () => rt.handleRealtime(ping),
     notify: () => rt.notifyClient("bench:tick", payload),
     binary: () => rt.handleRealtime(bin),
+    publish: () => h.hub.publish(PUB_CHANNEL, payload),
   }[which];
   if (step === undefined) throw new Error(`chemin inconnu : ${which}`);
-  const n = which === "binary" ? BINARY_N : N;
+  const n = which === "binary" ? BINARY_N : which === "publish" ? PUB_N : N;
 
   for (let i = 0; i < WARM; i++) step();
   const t0 = process.hrtime.bigint();
@@ -119,6 +153,13 @@ async function child(dist, which) {
     console.error(`notify : ${sent} trames émises pour ${n} appels`);
     process.exit(1);
   }
+  if (which === "publish" && sent < (PUB_N + WARM) * PUB_SUBSCRIBERS) {
+    console.error(
+      `publish : ${sent} trames émises pour ${(PUB_N + WARM) * PUB_SUBSCRIBERS} livraisons`,
+    );
+    process.exit(1);
+  }
+  for (const x of harnesses.slice(1)) x.close();
   h.dispose();
   console.log(JSON.stringify({ ns }));
 }
@@ -152,7 +193,9 @@ function parent() {
     return s[Math.floor(s.length / 2)];
   };
   const rows = [];
-  for (const which of ["inbound", "notify", "binary"]) {
+  for (const which of opt("--paths", "inbound,notify,binary,publish").split(
+    ",",
+  )) {
     const A = [];
     const B = [];
     for (let i = 0; i < runs; i++) {
