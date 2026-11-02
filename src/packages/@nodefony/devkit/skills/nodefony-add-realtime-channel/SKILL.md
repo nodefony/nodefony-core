@@ -85,29 +85,34 @@ aucun rôle particulier n'est requis.
 
 ## 🔴 Le piège du canal dont le nom est calculé
 
-La politique d'un `@RealtimeChannel` est indexée par le nom **EXACT** du canal. Un canal dont le
-nom se construit à l'exécution (`` `room:${id}` ``) **n'est couvert par aucun décorateur** — il
-naît public, et rien ne le signale.
+La politique de `@RealtimeChannel("room:lobby", …)` vaut pour CE nom exact. `room:42`, construit
+à l'exécution, n'est pas couvert : il naît public, et rien ne le signale. Une famille de canaux se
+déclare par un **motif**, et la question à se poser est « qui a le droit d'entrer dans `room:42` ? » :
+
+| Qui entre dans `room:42` ?        | Écrire                                                       |
+| --------------------------------- | ------------------------------------------------------------ |
+| tout compte connecté, ou un rôle  | `@RealtimeChannel("room:*", { roles: ["ROLE_USER"] })`       |
+| **les seuls membres de CE salon** | `@RealtimeChannel("room:*", { allow: (channel, who) => … })` |
 
 ```ts
-@RealtimeChannel("room:lobby", { authenticated: true })   // ✅ couvert
-// `room:42` construit à la volée                          // 🔴 PAS couvert par le décorateur
+// L'appartenance vit en base ; `allow` la lit au `subscribe` — et à chaque reconnexion.
+@RealtimeChannel("room:*", {
+  allow: async (channel, who) => who.id !== null && (await isMember(channel, who.id)),
+})
+room(): () => void {
+  return () => {};
+}
 ```
 
-La parade est une règle **par préfixe** dans la configuration de sécurité, qui garde à la fois
-les canaux ET les actions dont le nom commence ainsi :
+**Exclure quelqu'un** = retirer son appartenance (`allow` dira non), PUIS
+`getRealtimeHub().evictUser(canal, id)`, qui coupe ce qu'il reçoit déjà. L'éjection seule ne
+suffit pas : son navigateur rejoue `subscribe` au rechargement. Un rôle ne suffit pas non plus :
+il dit qui est connecté, jamais qui est membre.
 
-```ts
-use("@nodefony/security", {
-  realtimeChannels: [
-    { pattern: "room:", authenticated: true, roles: ["ROLE_USER"] },
-  ],
-});
-```
-
-Elle exprime une classe d'identité (connecté, rôles). « Seuls les participants de la salle 42 »
-s'écrit par `allow` sur le motif (`@RealtimeChannel("room:*", { allow })`) — exemple ci-dessous.
-Ne le simule jamais avec un nom de canal difficile à deviner.
+La règle par préfixe de la configuration de sécurité
+(`realtimeChannels: [{ pattern: "room:", roles: [...] }]`) garde une famille de canaux ET
+d'actions par une classe d'identité ; elle n'exprime pas l'appartenance. Ne simule jamais un salon
+privé par un nom de canal difficile à deviner.
 
 ## Je veux… → l'exemple
 
