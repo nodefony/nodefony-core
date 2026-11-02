@@ -1,226 +1,280 @@
 ---
 name: nodefony-add-realtime-channel
+metadata:
+  version: 2.0.0
 description: >
-  Ajoute un flux temps réel à une application Nodefony par la bonne couche — un
-  `RealtimeController` et ses décorateurs de canal — au lieu de recomposer un WebSocket à la main.
-  Porte la façon de fermer un canal à certains rôles, le piège du canal public par défaut, celui
-  du canal dont le nom est calculé, et la façade cliente à employer côté navigateur. À charger
-  AVANT d'écrire du code WebSocket, un canal, ou un abonnement client.
-  Dit aussi quand un flux SSE suffit, sa façade, et comment typer les deux bouts par un
-  contrat déclaré une fois.
-  Déclencheurs : "flux temps réel", "websocket", "canal", "push", "notifications en direct",
-  "abonnement", "RealtimeController", "@RealtimeChannel", "socket client", "temps réel privé",
-  "réserver un canal à un rôle", "mon canal est public", "diffuser à plusieurs onglets",
-  "SSE", "EventSource", "barre de progression", "réponse en streaming",
-  "typer les canaux", "contrat temps réel", "action introuvable -32601", "octets", "CBOR",
-  "binaire", "Uint8Array", "$bytes", "salon privé".
+  Choisit et branche la brique temps réel que le framework fournit déjà — canal, entrée client,
+  action, canal personnel, canal à membres, flux SSE, contrat typé, octets — au lieu d'un
+  WebSocket, d'une liste noire ou d'un contrôle d'accès écrits à la main. Part du besoin (salon
+  privé avec exclusion, jeu, sondes, tableau de bord, notification à une personne, tâche longue)
+  et mène à la ligne à écrire, à l'exemple installé et à son test. Porte ce qui ne se voit qu'en
+  production : plusieurs serveurs, reconnexion, révocation, contre-pression. À charger AVANT
+  d'écrire un canal, un abonnement client ou un flux.
+  Déclencheurs : "temps réel", "websocket", "canal", "push", "notifications en direct",
+  "abonnement", "salon privé", "exclure un membre", "réserver un canal à un rôle", "mon canal
+  est public", "prévenir un utilisateur", "progression d'une tâche", "SSE", "EventSource",
+  "réponse en streaming", "contrat temps réel", "-32601", "CBOR",
+  "Uint8Array", "ça marche en local, plus en cluster", "l'exclu revient".
 ---
 
-# add-realtime-channel — le temps réel par sa couche
+# add-realtime-channel — le temps réel par sa brique
 
-> 🧭 **Tu es arrivé ici directement ? Charge aussi `nodefony-dev`** — il porte la conduite
-> commune (par où commencer, comment prouver que c'est fait) et les pièges qui coûtent une heure,
-> serveur comme front. Cette page-ci ne couvre QUE son geste.
+> 🧭 **Arrivé ici directement ? Charge aussi `nodefony-dev`** : il porte la conduite commune (par
+> où commencer, comment prouver, les pièges du serveur et du front). Cette page ne couvre QUE le
+> temps réel.
 >
-> Et si une réponse te manque, elle est probablement INSTALLÉE : `rg` ne descend pas dans
-> `node_modules`, donc 70 pages de documentation y paraissent absentes. Une commande les lit, avec
-> la ligne exacte :
-> `node node_modules/@nodefony/devkit/skills/nodefony-dev/scripts/docs.mjs <termes>`.
+> Les pages de référence sont INSTALLÉES (`rg` ne descend pas dans `node_modules`). Une commande
+> les trouve et rend leur chemin — **exécute-la, puis lis la page** :
+>
+> ```bash
+> node node_modules/@nodefony/devkit/skills/nodefony-dev/scripts/docs.mjs --open cas-d-usage
+> node node_modules/@nodefony/devkit/skills/nodefony-dev/scripts/docs.mjs salon allow evict
+> ```
 
-> ⚖️ **La confiance n'exclut pas le contrôle.** Un canal sans politique est **public par
-> construction** — c'est le comportement voulu du framework, pas un oubli. Ce qui n'est pas
-> déclaré fermé est ouvert.
+> ⚖️ **La confiance n'exclut pas le contrôle.** Un **canal** sans politique est public par
+> construction ; une **action** sans politique est fermée (connexion authentifiée exigée). Ce qui
+> n'est pas déclaré n'est pas gardé — et ce que le framework porte déjà ne se réécrit pas.
 
-## Le geste
+## 1. Quel besoin → quelle brique
+
+Lis la ligne qui ressemble à ton besoin, écris ce qu'elle dit, puis ouvre la page citée. Pour
+chaque cas, `cas-d-usage.md` montre trois fichiers — le serveur, le navigateur, le test —
+exécutés par la suite du framework : **copie le test avec le serveur**.
+
+| Je veux…                                                      | La brique (et rien d'autre)                                                                                          | Page installée                         |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| pousser un flux que des écrans lisent                         | `@RealtimeChannel("nom")` ; un seul producteur par canal et par serveur, créé au premier abonné                      | `cas-d-usage.md` (tableau de bord)     |
+| le réserver à un rôle                                         | `@RealtimeChannel("nom", { roles: ["ROLE_X"] })`                                                                     | `securite.md`                          |
+| une famille de canaux (`room:<id>`, `task:<id>`)              | motif `"room:*"` + `createRealtimeChannel()` qui sert (ou refuse, `null`) chaque nom                                 | `securite.md` (nom exact vs dérivés)   |
+| **ce compte-là et lui seul** (salon privé, invitation)        | `allow: (channel, who) => …` sur le motif — l'appartenance vit en base, `allow` la lit                               | `cas-d-usage.md` (salon privé)         |
+| exclure quelqu'un, pour de bon                                | retirer l'appartenance (`allow` dira non), PUIS `getRealtimeHub().evictUser(canal, id)` — jamais de liste noire      | `canaux-a-membres.md`                  |
+| placer quelqu'un dans un canal sans qu'il s'abonne            | `getRealtimeHub().subscribeConnection(canal, connection)` depuis une entrée client, après avoir écrit l'appartenance | `cas-d-usage.md` (recherche de partie) |
+| prévenir UNE personne, tous ses onglets, tous les serveurs    | `getRealtimeHub().publishToUser(id, charge)` / `socket.onUser(h)` — rien à déclarer                                  | `cas-d-usage.md` (notification)        |
+| suivre une tâche longue (agent, export)                       | le serveur nomme `task:<uuid>`, impose l'abonnement, publie, puis `closeChannel()` → `ended`                         | `cas-d-usage.md` (tâche d'agent)       |
+| recevoir ce que le client pousse (coups de jeu, mesures)      | `@RealtimeInbound("game:move", politique)` — `params` non fiable, `connection.userId` = l'auteur                     | `cas-d-usage.md` (jeu, sondes)         |
+| un appel avec réponse (un devis, un historique)               | `@RealtimeAction("x:y")` (fermée par défaut) — ou une ROUTE appelée par `socket.post()` si ça change un état         | `actions.md`                           |
+| le serveur pousse, le client écoute, sur UNE requête          | `this.renderSse()` dans une action ordinaire ; `new NodefonySse(url)` côté client                                    | `http/docs/sse.md`                     |
+| typer les deux bouts une fois                                 | `interface C extends IRealtimeContract` + `NodefonySocket.fromContract<C>()` + `ContractRealtimeController<C>`       | `actions.md` (contrat)                 |
+| des octets (document partagé, audio, image, mesures binaires) | `use("@nodefony/realtime", { codec: "cbor" })` et `Uint8Array` dans la charge — même canal, mêmes gardes             | `references/binaire.md`                |
+| ça marche avec deux onglets, plus en cluster                  | `@RealtimeBroadcast("prefix:")` sur la classe (défaut : un canal reste sur son serveur)                              | `references/production.md`             |
+
+Les chemins complets : `node_modules/@nodefony/realtime/docs/<page>.md`,
+`node_modules/@nodefony/http/docs/sse.md`, `node_modules/nodefony/docs/client.md`.
+
+**Canal ou route ?** Le canal porte les FLUX (diffusés, éphémères, attribués par l'identité de la
+connexion). Un GESTE qui change un état (envoyer un message conservé, payer, inviter) est une
+**route** `POST` avec `@IsGranted` et `@Idempotent`, que le navigateur appelle par
+`socket.post("/chemin", corps)` : identité revérifiée à chaque appel, validation, rejeu sans
+doublon. Détail : `actions.md` (« Le pont API »).
+
+## 2. Le geste
 
 ```bash
-npx nodefony create controller Ops --kind realtime
+npx nodefony create controller Room --kind realtime
 ```
 
-Produit une sous-classe de `RealtimeController` avec son canal décoré et une action, plus le
-câblage. **N'écris pas de `new WebSocket(...)` ni de `ws.on(...)` côté serveur** : le bas niveau
-existe, il est employé par le framework, et le reprendre à la main te prive du routage par canal,
-de l'authentification partagée avec HTTP, et de la contre-pression.
+Produit une sous-classe de `RealtimeController`, avec un canal de démonstration, une action, une
+entrée client, et **son test** (`createRealtimeHarness`). Nomme le contrôleur par son USAGE
+(`RoomChat`, `Arena`), pas par une entité : `create entity Room` après `create controller Room`
+est refusé (nom déjà référencé). Une application générée sert déjà `/api/live/realtime`
+(`LiveController`, canal `live:events`) : c'est le canal public témoin, il doit continuer de
+répondre après ta modification.
 
-## WebSocket, ou un simple flux SSE ?
+**N'écris ni `new WebSocket(...)` côté serveur, ni `ws.on(...)`, ni un `WebSocketServer`** : le
+bas niveau existe, le framework l'emploie ; le reprendre te prive du routage par canal, de
+l'identité partagée avec HTTP, de la reconnexion et de la contre-pression.
 
-| Besoin                                                         | Choisir                                     |
-| -------------------------------------------------------------- | ------------------------------------------- |
-| Le serveur pousse, le client écoute (progression, journal)     | **SSE** — une réponse HTTP qui ne finit pas |
-| La réponse d'UNE requête arrive par morceaux (modèle, export)  | **SSE** sur cette requête                   |
-| Échange dans les deux sens, canaux, état partagé entre onglets | **WebSocket** — le reste de cette page      |
+**Si tu retires ou renommes le canal de démonstration du contrôleur généré, adapte son test dans
+la foulée** — ne laisse pas un banc rouge que tu finirais par ignorer.
 
-SSE n'est pas une route d'un genre particulier : l'action d'une route ordinaire choisit de
-répondre en flux.
+## 3. Les quatre mots du serveur
 
 ```ts
-@route("progress-run", { path: "/run" })
-async run() {
-  const sse = await this.renderSse();          // en-têtes, battement, contre-pression
-  await sse.send({ step: "calcul" }, { event: "step" });
-  return sse.close();
+import type { ContextType } from "@nodefony/http";
+import {
+  RealtimeAction,
+  RealtimeChannel,
+  RealtimeController,
+  RealtimeInbound,
+  getRealtimeHub,
+} from "@nodefony/realtime";
+import type { IRealtimeConnection } from "@nodefony/realtime";
+import { CurrentUser } from "@nodefony/framework";
+import type { IUser } from "@nodefony/user";
+
+export class OpsRealtime extends RealtimeController {
+  constructor(context: ContextType) {
+    super("OpsRealtime", context);
+  }
+
+  // CANAL (flux serveur → abonnés) : la fabrique rend le nettoyage. Un seul producteur
+  // par canal et par serveur, partagé entre connexions : ne capture jamais `this.context`.
+  @RealtimeChannel("ops:alerts", { roles: ["ROLE_ADMIN"] })
+  alerts(): () => void {
+    return () => {};
+  }
+
+  // ENTRÉE (le client pousse, sans réponse) : `params` vient du réseau, valide-le ;
+  // l'auteur est `connection.userId`, jamais un champ de la charge.
+  @RealtimeInbound("ops:ack", { authenticated: true })
+  ack(params: unknown, _reply: unknown, connection: IRealtimeConnection): void {
+    if (connection.userId === null || !isAck(params)) return;
+    getRealtimeHub().publish("ops:alerts", {
+      acked: params.id,
+      by: connection.userId,
+    });
+  }
+
+  // ACTION (appel avec réponse) : FERMÉE par défaut ; `@CurrentUser()` comme sur une route.
+  @RealtimeAction("ops:whoami")
+  whoami(@CurrentUser() user: IUser): { identifier: string } {
+    return { identifier: user.identifier };
+  }
+}
+
+function isAck(v: unknown): v is { id: string } {
+  return (
+    typeof v === "object" && v !== null && "id" in v && typeof v.id === "string"
+  );
 }
 ```
 
-`this.acceptsSse()` dit si le client a demandé `text/event-stream` (une même route peut répondre
-en JSON ou en flux). Côté navigateur, `new NodefonySse(url)` (`nodefony/client`), qui se lit comme
-`EventSource` ; les liaisons de front existent comme pour la socket. **N'écris jamais
-`Content-Type: text/event-stream` à la main** : tu perdrais le battement qui empêche un proxy de
-couper la connexion, et la contre-pression (`await sse.send()` freine si le client lit lentement).
-Détail : `node_modules/@nodefony/http/docs/sse.md`.
+- **Publier depuis n'importe où** (service, tâche, minuteur, boucle de jeu) :
+  `getRealtimeHub().publish(canal, charge)`. La charge est un objet, un tableau, des octets ou
+  rien — **un scalaire lève** (`publish("c", 42)` → `TypeError`) : écris `{ value: 42 }`.
+- **Un canal au nom calculé ne se publie pas par la variable `publishToChannel` du contrôleur
+  généré** (elle ne sert qu'un nom exact) : `getRealtimeHub().publish(\`room:${id}\`, charge)`.
+- **État ou événement ?** Une position, une jauge : seule la dernière valeur compte — garde-la et
+  diffuse au rythme du serveur (`setInterval`, `unref()`), jamais à chaque réception. Un message
+  de chat : chacun compte — persiste-le AVANT de le publier.
+- **Une famille de canaux** (`room:*`) : le décorateur ne sert que le nom EXACT. Ajoute
+  `override createRealtimeChannel(channel) { return exists(channel) ? () => {} : null; }` ;
+  `null` = canal inconnu, le client reçoit `realtime:denied { reason: "unknown" }`. Un canal à
+  durée de vie porte l'identifiant de son instance dans son nom (`game:42:a1b2`), et la fabrique
+  rend `null` une fois l'instance finie.
 
-## Fermer un canal
+## 4. Qui a le droit — la politique, et ce qu'elle ne couvre pas
 
-```ts
-@RealtimeChannel("ops:alerts", { roles: ["ROLE_ADMIN"] })
-export class OpsController extends RealtimeController {
-  @RealtimeAction("ops:snapshot", { roles: ["ROLE_ADMIN"] })
-  async snapshot() { … }
-}
-```
-
-Deux niveaux, et ils sont indépendants : la **politique du canal** décide qui peut s'abonner, la
-politique d'une **action** décide qui peut la déclencher. `{ authenticated: true }` suffit quand
-aucun rôle particulier n'est requis.
-
-## 🔴 Le piège du canal dont le nom est calculé
-
-La politique de `@RealtimeChannel("room:lobby", …)` vaut pour CE nom exact. `room:42`, construit
-à l'exécution, n'est pas couvert : il naît public, et rien ne le signale. Une famille de canaux se
-déclare par un **motif**, et la question à se poser est « qui a le droit d'entrer dans `room:42` ? » :
-
-| Qui entre dans `room:42` ?        | Écrire                                                       |
-| --------------------------------- | ------------------------------------------------------------ |
-| tout compte connecté, ou un rôle  | `@RealtimeChannel("room:*", { roles: ["ROLE_USER"] })`       |
-| **les seuls membres de CE salon** | `@RealtimeChannel("room:*", { allow: (channel, who) => … })` |
+Politique = `{ authenticated?, roles?, scopes?, allow?, anonymous? }` — toute autre clé est
+refusée au démarrage. Les clés se cumulent. Un rôle dit **qui est connecté** ; `allow` dit **ce
+compte sur ce canal**.
 
 ```ts
-// L'appartenance vit en base ; `allow` la lit au `subscribe` — et à chaque reconnexion.
+// L'appartenance vit en base (entité générée) ; `allow` la lit UNE fois, au `subscribe` —
+// et à chaque reconnexion, puisque le navigateur rejoue ses abonnements.
 @RealtimeChannel("room:*", {
-  allow: async (channel, who) => who.id !== null && (await isMember(channel, who.id)),
+  allow: async (channel, who) =>
+    who.id !== null &&
+    (await getRoomMemberService().findOne({ room: channel.slice("room:".length), user: who.id })) !==
+      null,
 })
 room(): () => void {
   return () => {};
 }
 
-// 🔴 Le motif pose la POLITIQUE de toute la famille, pas la FABRIQUE : une fabrique
-// décorée n'est trouvée que par son nom exact. `room:42` est servi par celle-ci —
-// sans elle, l'abonnement est refusé (`realtime:denied { reason: "unknown" }`).
+// 🔴 Le motif pose la POLITIQUE de toute la famille, pas la FABRIQUE : sans celle-ci,
+// `room:42` est refusé (`realtime:denied { reason: "unknown" }`).
 override createRealtimeChannel(channel: string): (() => void) | null {
   return channel.startsWith("room:") ? () => {} : null;
 }
 ```
 
-**Exclure quelqu'un** = retirer son appartenance (`allow` dira non), PUIS
-`getRealtimeHub().evictUser(canal, id)`, qui coupe ce qu'il reçoit déjà. L'éjection seule ne
-suffit pas : son navigateur rejoue `subscribe` au rechargement. Un rôle ne suffit pas non plus :
-il dit qui est connecté, jamais qui est membre.
+- `who` est une donnée plate (`id`, `authenticated`, `roles`, `scopes`, `issuer`, `account`) :
+  `allow` ne lit **que ses arguments** — ni contexte de requête, ni session. Seul `=== true`
+  admet ; lever ou rejeter = `forbidden` ; trop lent = `unavailable` (le client réessaie seul).
+  Dès que la règle lit la base par des services, écris-la en **classe `@injectable`** résolue au
+  démarrage (`securite.md`, « forme longue ») : une dépendance absente y refuse le démarrage en
+  nommant la classe, au lieu de refuser tous les abonnés sans un mot.
+- **Lire l'appartenance** : `getXxxService()` est l'accesseur que `create entity Xxx` a généré ;
+  une colonne de référence se filtre par l'identifiant de la cible
+  (`findOne({ room: roomId, user: who.id })`). N'invente ni service, ni injection, ni `as never`.
+- **Exclure** = retirer l'appartenance, PUIS `getRealtimeHub().evictUser(canal, who.id)` (tous ses
+  onglets, tous les serveurs ; `realtime:closed { reason: "evicted" }`). L'éjection seule ne
+  suffit pas : son navigateur rejoue `subscribe` au rechargement, et `allow` tranche alors. Une
+  liste noire à côté d'`allow` diverge en silence : interdit.
+- **Le modérateur est un attribut d'appartenance** (`RoomMember.role`), pas un rôle global de
+  l'application. Et l'entité d'appartenance se génère **sans ressource REST** (`--no-controller`) :
+  un CRUD ouvert laisserait chacun s'inviter lui-même.
+- **Une entrée ou une action n'hérite PAS de la politique du canal.**
+  `@RealtimeInbound("room:send")` porte la sienne, et vérifie l'appartenance avec
+  `connection.userId` par le MÊME registre qu'`allow` — ou devient une route `POST` (§1).
+- **Le nom exact l'emporte sur le motif, et le remplace EN ENTIER** : une politique
+  `@RealtimeChannel("room:lobby", { authenticated: true })` ouvre `room:lobby` à tout compte
+  connecté malgré l'`allow` de `room:*`.
+- **`user:<id>` est fourni** : politique intégrée (compte connecté, son propre id seulement),
+  diffusé entre serveurs, rien à déclarer. N'écris jamais de politique sur `user:…`.
+- **Ne ferme pas la zone pour fermer un canal.** La politique se pose sur le canal ; une zone
+  `^/api` privée de `"anonymous"` emporte le reste de l'application, démonstrations et tests
+  fournis compris. Réserver une route : skill `nodefony-protect-route`.
+- **Condition d'activation** : rôles, portées et `authenticated` ne sont appliqués que si
+  `@nodefony/security` est chargé avec une zone qui couvre la socket (`realtime: true`, défaut).
+  Sinon le serveur l'écrit en WARNING au premier handshake. `allow` s'applique toujours.
+- La configuration de sécurité `realtimeChannels: [{ pattern: "room:", roles: […] }]` durcit une
+  famille sans toucher au code ; elle n'exprime jamais l'appartenance. Ne simule jamais un salon
+  privé par un nom de canal difficile à deviner.
 
-La règle par préfixe de la configuration de sécurité
-(`realtimeChannels: [{ pattern: "room:", roles: [...] }]`) garde une famille de canaux ET
-d'actions par une classe d'identité ; elle n'exprime pas l'appartenance. Ne simule jamais un salon
-privé par un nom de canal difficile à deviner.
-
-## Je veux… → l'exemple
-
-Chaque cas a son exemple court, exécuté par la suite de tests du module, avec le choix qui le
-justifie et l'erreur qui ne se voit qu'en production. **Lis l'exemple AVANT d'écrire** :
-`node_modules/@nodefony/realtime/docs/cas-d-usage.md` (celui de la version installée).
-
-| Je veux…                                                | Ce qui décide                                              |
-| ------------------------------------------------------- | ---------------------------------------------------------- |
-| des déplacements de jeu, 60 par seconde                 | la dernière position seule, diffusée au tick du serveur    |
-| placer un joueur dans une partie sans qu'il s'abonne    | l'appartenance écrite là où `allow` la lit, puis imposer   |
-| un salon sur invitation, dont on peut exclure quelqu'un | `allow` exclut ; `evictUser` coupe — jamais de liste noire |
-| des capteurs qui écrivent, des écrans qui lisent        | la portée du jeton pour écrire, un rôle pour lire          |
-| prévenir une personne sur tous ses onglets              | `publishToUser` / `onUser` — rien à déclarer               |
-| montrer la progression d'une tâche à son demandeur      | le serveur nomme le canal, l'impose, le termine            |
-
-## Savoir QUI appelle une action
-
-Les paramètres décorés d'une route valent aussi dans une `@RealtimeAction` : `@Body("clé")` lit la
-charge de l'appel, `@CurrentUser()` l'utilisateur de la connexion (`undefined` pour un anonyme).
-L'auteur d'un message se prend là, côté SERVEUR — jamais dans la charge, où le client peut mentir.
+## 5. Côté client — la façade, jamais le socket nu
 
 ```ts
-@RealtimeAction("chat:send")
-send(@Body("text") text: string, @CurrentUser() user: IUser) {
-  return { author: user.identifier, text };
+import { NodefonySocket } from "nodefony/client";
+
+const socket = NodefonySocket.shared({ url: "/api/live/realtime" }); // UNE socket par page
+socket.subscribe("ops:alerts"); // DEMANDE le flux (rejoué à chaque reconnexion)
+socket.on("ops:alerts", (alert) => render(alert)); // REÇOIT ; deux gestes distincts
+socket.emit("ops:ack", { id: "a1" }); // entrée client, sans réponse
+const me = await socket.request("ops:whoami"); // action, avec réponse (30 s)
+socket.onDenied(({ channel, reason }) => {}); // forbidden | limit | unknown | unavailable
+socket.onClosed(({ channel, reason }) => {}); // ended | evicted — le client ne rejoue pas
+await socket.whenSubscribed("ops:alerts"); // avant de charger l'état initial
+socket.onUser((note) => {}); // les messages adressés à CE compte
+```
+
+- **Importe de `nodefony/client`**, jamais de la racine `nodefony` dans un bundle navigateur ;
+  `nodefony/realtime` n'existe pas.
+- `shared()` sans `url` lève ; les options ne comptent qu'à la PREMIÈRE création (codec compris).
+- Vues : `nodefony/react` (`<NodefonyProvider url="…">`, `useNodefony()`,
+  `useNodefonyChannelData(socket, "canal", initial)`, `useNodefonyChannel(socket, "canal", h)`),
+  mêmes noms en `nodefony/vue`. Un composant monte et démonte son abonnement ; la socket
+  appartient à la page. Détail : `node_modules/nodefony/docs/client.md`.
+- Le navigateur ne voit un refus de handshake (401/403) que comme une coupure : la socket sonde
+  l'adresse en HTTP et s'arrête d'elle-même ; tu n'as rien à écrire.
+
+## 6. SSE ou socket ?
+
+| Besoin                                                               | Choisir                                     |
+| -------------------------------------------------------------------- | ------------------------------------------- |
+| Le serveur pousse sur UNE requête (progression, réponse d'un modèle) | **SSE** — une réponse HTTP qui ne finit pas |
+| Un réseau d'entreprise bloque les WebSocket                          | **SSE** — c'est une réponse HTTP ordinaire  |
+| Deux sens, canaux, plusieurs onglets, identité par connexion         | **socket** — le reste de cette page         |
+
+```ts
+@route("progress-run", { path: "/run" })
+async run() {
+  const sse = await this.renderSse(); // en-têtes, battement, contre-pression
+  await sse.send({ step: "calcul" }, { event: "step" });
+  return sse.close();
 }
 ```
 
-## Côté client — la façade, pas le socket
+`this.acceptsSse()` laisse la même route répondre en JSON ou en flux. Client :
+`new NodefonySse(url)` (`nodefony/client`), liaison `useNodefonySse`. **N'écris jamais
+`Content-Type: text/event-stream` à la main** : tu perdrais le battement qui empêche un proxy de
+couper, et la contre-pression (`await sse.send()` freine si le client lit lentement). Un flux SSE
+n'est pas un canal : il n'est pas gardé par une politique de canal, mais par la zone et
+`@IsGranted` de sa route. Détail : `node_modules/@nodefony/http/docs/sse.md`.
+
+## 7. Un contrat, déclaré UNE fois
+
+Dès que navigateur et serveur échangent plus qu'un canal : sans contrat, chaque côté type ce qu'il
+envoie, jamais ce que l'autre implémente — une méthode oubliée compile puis rend `-32601`.
 
 ```ts
-import { NodefonySocket } from "nodefony/client";
-
-const client = NodefonySocket.shared({ url: "/api/live/realtime" });
-client.subscribe("ops:alerts");                 // un seul argument : la demande
-client.on("ops:alerts", (payload) => { … });    // le handler, geste distinct
-```
-
-L'adresse est **obligatoire** : `shared()` sans `url` lève une erreur, parce que la route dépend de
-l'application. Une application générée monte `/api/live/realtime`.
-
-En React, les hooks du paquet client font la même chose avec le cycle de vie du composant.
-**Importe depuis `nodefony/client`**, jamais depuis la racine `nodefony` : côté navigateur, elle
-n'expose pas ces symboles et le compilateur refuse.
-
-## Des octets dans un canal — offrir le codec CBOR
-
-> 📦 **Des octets à faire passer ? Lis [`references/binaire.md`](references/binaire.md) AVANT
-> d'écrire la première ligne.** Il porte la mise en place des deux côtés, le choix canal / flux
-> brut et sa conséquence de sécurité, chaque message d'erreur avec sa cause et ton geste, et ce qui
-> rate SANS message. Ce qui suit n'en est que le résumé.
-
-Côté serveur, une ligne : `use("@nodefony/realtime", { codec: "cbor" })`. Sans elle, un
-`Uint8Array` part en objet déformé `{"0":1,…}`, sans aucune erreur.
-
-Le défaut est JSON-RPC **texte**, et il le reste pour des messages ordinaires : JSON est natif,
-rapide, et ne coûte rien à télécharger. Dès qu'une charge **contient des octets** — un document
-partagé (Yjs, Automerge), une série de mesures, de l'audio, une image —, offre le codec CBOR :
-
-```ts
-import { NodefonySocket } from "nodefony/client";
-import { CBOR_FRAME_CODEC } from "nodefony/cbor";
-
-const client = NodefonySocket.shared({ url: "/api/live/realtime", codec: CBOR_FRAME_CODEC });
-client.on("doc:42", (charge) => { … }); // un Uint8Array arrive en Uint8Array
-```
-
-| La charge…                                   | Codec            | Pourquoi                                                  |
-| -------------------------------------------- | ---------------- | --------------------------------------------------------- |
-| objets ordinaires (texte, nombres, listes)   | **aucun** (JSON) | au même niveau en réception, plus rapide en émission      |
-| contient des `Uint8Array`                    | **CBOR**         | ≈ 30× plus rapide à la réception, ~25 % d'octets en moins |
-| réseau lent ou facturé, beaucoup de messages | CBOR à envisager | ~30 % d'octets en moins, même sans octets                 |
-
-- **Passe `codec` à la PREMIÈRE création** de la socket partagée (souvent le noyau client) : un
-  `shared()` suivant rend l'instance existante, réglages compris (la console le dit en développement).
-- **Ne déduis rien de l'écho du handshake** : le codec retenu se lit dans `socket.codec`, annoncé
-  par le serveur à l'accueil. Un serveur qui n'a activé aucun codec reste en texte natif, rien ne
-  casse. S'il en a activé un (`codec: "cbor"`) que la page n'a pas pris, il l'annonce par le champ
-  `bytes` de l'accueil, et la socket relit les octets en `Uint8Array` sans rien importer.
-- **N'invente pas d'en-tête binaire maison** pour router des octets : une charge qui contient un
-  `Uint8Array` passe par `publish` / `on(canal)`, avec les mêmes politiques de canal que le texte.
-  `onBinary()` / `sendBinary()` ne servent qu'un protocole binaire propre à l'application, sur une
-  connexion texte — et leur pendant serveur `onRealtimeBinary()` est **hors des gardes** : toute
-  décision d'accès y est à toi.
-- **Un objet `{ $bytes: "<chaîne>" }` à clé unique est refusé** (`TypeError`) sur une connexion
-  texte : un client le relirait en octets. Envoie un vrai `Uint8Array`, ou donne-lui une autre clé.
-
-## Typer les deux bouts — un contrat, déclaré UNE fois
-
-Dès que le navigateur et le serveur échangent plus qu'un canal, déclare un **contrat** : sans lui,
-chaque côté type ce qu'il envoie, jamais ce que l'autre implémente — une action oubliée ou de
-forme fausse compile, puis rend `-32601` en production.
-
-```ts
-// shared/ops.ts — types SEULS : 0 octet compilé, le navigateur n'importe aucun code serveur
+// shared/ops.ts — types SEULS : 0 octet compilé, aucun import de code serveur
 import type { IRealtimeContract } from "nodefony/client";
 
 export interface OpsContract extends IRealtimeContract {
-  serverToClient: { "ops:alerts": { level: string; at: Date } }; // poussé par le serveur
-  clientToServer: { "ops:ack": { id: string } }; // envoyé par le client
+  serverToClient: { "ops:alerts": { level: string; at: Date } };
+  clientToServer: { "ops:ack": { id: string } };
   serverMethods: {
     "ops:mute": { in: { id: string }; out: { muted: boolean } };
   };
@@ -228,7 +282,7 @@ export interface OpsContract extends IRealtimeContract {
 ```
 
 ```ts
-// navigateur — la porte du client
+// navigateur
 const ops = NodefonySocket.fromContract<OpsContract>({
   url: "/api/live/realtime",
 });
@@ -236,49 +290,100 @@ ops.on("ops:alerts", (a) => a.at); // `string` : ce que JSON fait d'une Date
 ```
 
 ```ts
-// serveur — la porte du serveur ; le contrat s'écrit UNE fois, sur `extends`
+// serveur — le contrat s'écrit UNE fois, sur `extends` ; la table sert SEULE les méthodes
 @RealtimePolicy({ "ops:mute": { roles: ["ROLE_OPS"] } })
 class OpsRealtime extends ContractRealtimeController<OpsContract> {
-  protected realtimeActions() {
-    // TOUTES les méthodes du contrat : une oubliée ne compile pas
-    return { "ops:mute": (p: { id: string }) => ({ muted: p.id.length > 0 }) };
+  protected override realtimeActions() {
+    return { "ops:mute": (p: { id: string }) => ({ muted: p.id.length > 0 }) }; // une oubliée ne compile pas
   }
 }
 ```
 
-- **La table de `realtimeActions()` sert SEULE les méthodes** : n'ajoute pas `@RealtimeAction` à
-  une méthode qu'elle sert déjà (un handler fabriqué puis écrasé à chaque connexion, et
-  `@Body` ignoré). La politique se pose sur la classe, par `@RealtimePolicy` ; un nom hors
-  contrat y est refusé à la compilation.
-- **Un contrat sans `serverMethods`** (tableau de bord) : rien à écrire, `realtimeActions()` n'est due
-  que si le contrat déclare des méthodes.
-- **Diffuser depuis un service** : `getRealtimeHub<C>().publish(canal, charge)` — nom et charge vérifiés
-  par le contrat ; une fabrique de canal déclare `publish: ContractRealtimePublish<C>`.
-- **Le flux SSE lit la même carte** : `this.renderSse<ContractServerEmit<OpsContract>>()`.
-- **Le type n'est pas une validation** : les entrées restent non fiables, la politique de canal
-  reste la seule garde.
+- N'ajoute pas `@RealtimeAction` à une méthode de la table ; la politique va sur la classe par
+  `@RealtimePolicy` (un nom hors contrat ne compile pas). Sans `serverMethods`, rien à écrire.
+- Diffuser : `getRealtimeHub<OpsContract>().publish(canal, charge)` — nom et charge vérifiés ; une
+  fabrique de canal déclare `publish: ContractRealtimePublish<OpsContract>` ; le flux SSE lit la
+  même carte (`this.renderSse<ContractServerEmit<OpsContract>>()`).
+- Routes du pont : clé `serverRoutes` → le client appelle `ops.post("/ops/mute", corps)`.
+- **Le type n'est pas une validation** : la politique reste la seule garde.
 
-## Ne pas ouvrir plus que le canal demandé
+## 8. Ce qui ne se voit qu'en production — lis-le avant de dire « fait »
 
-Fermer « toute la zone `^/api` » pour protéger un canal emporte le reste de l'application avec
-lui — y compris les démonstrations publiques posées par le scaffold. La politique se pose **sur le
-canal**, pas sur l'espace HTTP qui l'entoure.
+Résumé ; chaque ligne est détaillée dans [`references/production.md`](references/production.md).
 
-## Prouver
+- **Plusieurs serveurs** : un canal reste sur son serveur tant que sa classe ne porte pas
+  `@RealtimeBroadcast("prefix:")` — sur TOUS les serveurs, pas seulement l'émetteur. L'application
+  générée tourne en `backplane.driver: "cluster"` : deux onglets sur un seul processus ne prouvent
+  rien. La sonde compte l'oubli (`localOnlyTotal`). `user:` est diffusé par le framework.
+- **Reconnexion** : le client rejoue ses abonnements au `welcome` — pas les messages manqués. Une
+  discussion se reprend par une route (`GET …/history?since=`) ; déduplique sur l'identifiant
+  persistant.
+- **Aucune garantie de livraison** : au plus une fois, un trou jamais réordonné. Une alarme qui ne
+  doit pas se perdre porte son identifiant dans la charge, un accusé, une réémission applicative.
+- **Révocation** : une socket survit à sa session jusqu'à la revalidation (30 s). Rôles changés →
+  `4005` (revient aussitôt, lis `onIdentity`) ; session morte → `4001` ; jeton porteur expiré →
+  `4006` (définitif : recrée la socket avant `exp`). Compare aux constantes de `nodefony`, jamais
+  aux nombres.
+- **Contre-pression** : un client lent est jeté puis fermé (`1013`) par le serveur (`websocket` ET
+  `websocketSecure` de `@nodefony/http`) ; `drop` ne trie pas. Côté navigateur, `maxBufferedAmount`
+  jette un coup périmé au lieu de l'empiler (jeu, capteur).
+- **`allow` lent** : `unavailable`, réessayé 3 fois par le client ; en rafale au redémarrage
+  (N clients × M canaux). Un bus partagé doit être **privé** (un ordre d'éjection capté se rejoue).
+
+## 9. Des octets dans un canal
+
+Côté serveur, une ligne : `use("@nodefony/realtime", { codec: "cbor" })`. Sans elle, un
+`Uint8Array` part en `{"0":1,…}` **sans erreur**. Côté navigateur, offre le codec à la PREMIÈRE
+création : `NodefonySocket.shared({ url, codec: CBOR_FRAME_CODEC })` (`nodefony/cbor`). Les octets
+passent par `publish` / `on(canal)` sous les mêmes politiques ; `onRealtimeBinary()` est **hors des
+gardes**. Mise en place, messages d'erreur, ce qui rate sans message :
+[`references/binaire.md`](references/binaire.md) — à lire AVANT la première ligne.
+
+## 10. Prouver
 
 ```bash
 npm test
-npx nodefony inspect routes --json   # les canaux montés, tels que l'application les voit
+npx nodefony inspect routes --json
 ```
 
-Puis, avec trois identités comme pour une route : un anonyme ne reçoit pas le flux réservé, un
-compte sans le rôle non plus, l'administrateur oui — **et le canal public du scaffold répond
-toujours** (s'il s'est fermé, une politique a débordé).
+Le harnais parle le protocole sans serveur ni navigateur ; chaque cas de `cas-d-usage.md` en
+montre un test complet. Le patron :
 
-## Voisins
+```ts
+import { getRealtimeHub } from "@nodefony/realtime";
+import { createRealtimeHarness } from "@nodefony/realtime/testing";
+import {
+  createTestFrameAuthorizer,
+  createTestIdentity,
+} from "@nodefony/security/testing";
 
-| Besoin                         | Skill                    |
-| ------------------------------ | ------------------------ |
-| Réserver une route HTTP        | `nodefony-protect-route` |
-| Une ressource complète stockée | `nodefony-add-crud`      |
-| Un service métier injectable   | `nodefony-add-service`   |
+const bob = createRealtimeHarness((ctx) => new RoomRealtime(ctx), {
+  identity: createTestIdentity({ identifier: "bob" }), // `who.id` = "bob" ; `id:` pour une clé distincte
+  frameAuthorizer: createTestFrameAuthorizer(getRealtimeHub()), // le VRAI verrou : sans lui, `roles` n'est pas jugé
+});
+await bob.connect();
+await bob.subscribe("room:7"); // acquitté : `bob.subscriptions()` ; refusé : `bob.denials()`
+await bob.notify("room:send", { room: "room:7", text: "salut" }); // entrée client
+bob.messages("room:7"); // ce qu'il a reçu, dans l'ordre
+bob.received.filter((f) => f.method === "realtime:closed"); // evicted | ended
+bob.dispose();
+```
+
+- Sans `identity` : connexion **anonyme**. Plusieurs harnais sur le même hub : `resetHub` au
+  premier seulement — c'est ainsi qu'on éprouve qu'une publication atteint l'un et pas l'autre.
+- **Vois le test rouge une fois** : retire `allow` (ou `roles`), l'intrus doit entrer ; remets-le.
+- L'exclusion se prouve : exclu → `realtime:closed evicted`, puis un nouveau `subscribe` refusé.
+- **Et le canal public témoin répond toujours** (`live:events` d'une application générée) : s'il
+  s'est fermé, une politique ou une zone a débordé.
+- La santé en marche : `GET /nodefony/realtime/api/health` (rôle d'administration) —
+  `publishTotal` qui monte sans `fanoutTotal` = tu publies dans le vide (nom mal orthographié).
+
+## 11. Voisins
+
+| Besoin                                                   | Skill                    |
+| -------------------------------------------------------- | ------------------------ |
+| Réserver une route HTTP, une page                        | `nodefony-protect-route` |
+| Une ressource complète stockée (l'entité d'appartenance) | `nodefony-add-crud`      |
+| Un service métier injectable (la classe d'admission)     | `nodefony-add-service`   |
+| Voir l'écran, piloter une socket depuis la page          | `nodefony-browser`       |
+| Un canal qui répondait ne répond plus                    | `nodefony-troubleshoot`  |
