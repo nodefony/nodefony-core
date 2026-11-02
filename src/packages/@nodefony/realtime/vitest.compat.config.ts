@@ -1,6 +1,7 @@
 import { defineConfig } from "vitest/config";
 import { oxcDecorators } from "../../../../scripts/test/vitest/oxc.ts";
 import { transformCache } from "../../../../scripts/test/vitest/perf.ts";
+import { tmpGuard } from "../../../../scripts/test/vitest/tmp-guard.ts";
 
 /**
  * Banc de compatibilité ENTRE VERSIONS de la socket (#629) — client publié ↔
@@ -17,6 +18,7 @@ export default defineConfig({
     globals: true,
     include: ["nodefony/tests/compat/**/*.compat.test.ts"],
     testTimeout: 15000,
+    globalSetup: tmpGuard(),
   },
   oxc: oxcDecorators,
 });
