@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T20:50:27.759Z",
+  "generatedAt": "2026-11-02T22:36:58.137Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,7 +39,7 @@
       "title": "13.0.0"
     },
     {
-      "closed": 227,
+      "closed": 228,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
       "open": 22,
@@ -5801,14 +5801,30 @@
       "number": 700,
       "title": "docs(realtime): montrer par l'exemple les grands cas d'usage du temps réel",
       "url": "https://github.com/nodefony/nodefony-core/issues/700",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 6.0367,
       "debut": "2026-11-13",
       "cible": "2026-11-13",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 726,
+      "title": "docs(devkit): refondre le skill temps réel avec des exemples prouvés",
+      "url": "https://github.com/nodefony/nodefony-core/issues/726",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 6.0368,
+      "debut": null,
+      "cible": null,
       "labels": [
         "beta-6"
       ]

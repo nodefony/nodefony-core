@@ -32,6 +32,7 @@
  *
  * @packageDocumentation
  */
+import type { ISubscriberIdentity } from "nodefony";
 import { RoleHierarchyWalker } from "../src/RoleHierarchyWalker";
 import {
   buildFrameAuthorizer,
@@ -47,6 +48,12 @@ import type {
 export interface ITestIdentityOptions {
   /** Identifiant de l'utilisateur (défaut `"alice"`). */
   readonly identifier?: string;
+  /**
+   * Identifiant IMMUABLE du compte (défaut : `identifier`) — l'`id` que lit la
+   * règle `allow` d'un canal, distinct du login comme au runtime. Le poser quand
+   * l'appartenance se relit par la clé primaire de l'entité.
+   */
+  readonly id?: string;
   /** Rôles portés (défaut `["ROLE_USER"]`) — ceux qu'aurait résolus le pare-feu. */
   readonly roles?: readonly string[];
   /** Scopes portés (défaut aucun) — l'axe des jetons d'API, pas de la session. */
@@ -76,6 +83,7 @@ export function createTestIdentity(
   const roles = options.roles ?? ["ROLE_USER"];
   return new TestToken(
     identifier,
+    options.id ?? identifier,
     roles,
     options.scopes ?? [],
     options.user ?? { identifier, roles: [...roles] },
@@ -85,13 +93,37 @@ export function createTestIdentity(
 /** Le jeton que rend {@link createTestIdentity}. */
 class TestToken implements IRealtimeToken {
   readonly type = "session";
+  #identity: ISubscriberIdentity | null = null;
 
   constructor(
     private readonly identifier: string,
+    private readonly id: string,
     private readonly roles: readonly string[],
     private readonly scopes: readonly string[],
     private readonly user: unknown,
   ) {}
+
+  /**
+   * Identité d'admission gelée — ce que reçoit la règle `allow` d'un canal.
+   *
+   * Même forme que celle du jeton du pare-feu (`UserRealtimeToken.getIdentity`) :
+   * sans elle, tout canal à `allow` refusait la connexion d'essai, et une
+   * application ne pouvait éprouver un salon privé qu'en écrivant son propre jeton.
+   */
+  getIdentity(): ISubscriberIdentity {
+    if (this.#identity !== null) return this.#identity;
+    this.#identity = Object.freeze({
+      type: this.type,
+      authenticated: true,
+      id: this.id,
+      userIdentifier: this.identifier,
+      roles: Object.freeze([...this.roles]),
+      scopes: Object.freeze([...this.scopes]),
+      issuer: null,
+      account: true,
+    });
+    return this.#identity;
+  }
 
   getUserIdentifier(): string {
     return this.identifier;

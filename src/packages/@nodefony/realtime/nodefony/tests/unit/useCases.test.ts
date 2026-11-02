@@ -2,13 +2,12 @@ import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import type { ISubscriberIdentity } from "nodefony";
 import { RealtimeController } from "../../src/server/RealtimeController";
 import { RealtimeChannel } from "../../decorators/realtimeDecorators";
 import { getRealtimeHub } from "../../src/server/RealtimeHub";
 import { createRealtimeHarness } from "../../testing/index";
 import type { IRealtimeHarness } from "../../testing/index";
-import type { IRealtimeToken } from "../../interfaces/IRealtimeToken";
+import { createTestIdentity } from "@nodefony/security/testing";
 import {
   ArenaRealtime,
   positions,
@@ -35,37 +34,15 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const fixturesDir = path.join(here, "..", "fixtures", "use-cases");
 const pagePath = path.join(here, "..", "..", "..", "docs", "cas-d-usage.md");
 
-function tokenOf(id: string, roles: string[] = ["ROLE_USER"]): IRealtimeToken {
-  const who: ISubscriberIdentity = Object.freeze({
-    type: "session",
-    authenticated: true,
-    id,
-    userIdentifier: id,
-    roles: Object.freeze([...roles]),
-    scopes: Object.freeze([]),
-    issuer: null,
-    account: true,
-  });
-  return {
-    type: "session",
-    getUserIdentifier: () => id,
-    isAuthenticated: () => true,
-    getRoles: () => roles,
-    getScopes: () => [],
-    getAttribute: () => undefined,
-    getIdentity: () => who,
-  };
-}
-
 let open: IRealtimeHarness<RealtimeController>[] = [];
 
 async function connect<C extends RealtimeController>(
   make: (ctx: ConstructorParameters<typeof RealtimeController>[1]) => C,
   user: string,
-  roles?: string[],
+  roles: string[] = ["ROLE_USER"],
 ): Promise<IRealtimeHarness<C>> {
   const h = createRealtimeHarness(make, {
-    identity: tokenOf(user, roles),
+    identity: createTestIdentity({ identifier: user, roles }),
     resetHub: open.length === 0,
   });
   await h.connect();

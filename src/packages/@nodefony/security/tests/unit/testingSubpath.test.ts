@@ -105,4 +105,35 @@ describe("createTestIdentity", () => {
     id.getRoles().push("ROLE_ADMIN");
     assert.deepEqual(id.getRoles(), ["ROLE_USER"]);
   });
+
+  it("porte l'identité d'admission que lit la règle `allow` d'un canal", () => {
+    const tok = createTestIdentity({
+      identifier: "bob",
+      id: "42",
+      roles: ["ROLE_EDITOR"],
+      scopes: ["read"],
+    });
+    const who = tok.getIdentity?.();
+    assert.deepEqual(who, {
+      type: "session",
+      authenticated: true,
+      id: "42",
+      userIdentifier: "bob",
+      roles: ["ROLE_EDITOR"],
+      scopes: ["read"],
+      issuer: null,
+      account: true,
+    });
+    // Gelée et rendue par référence, comme le jeton du pare-feu.
+    assert.equal(Object.isFrozen(who), true);
+    assert.equal(Object.isFrozen(who?.roles), true);
+    assert.equal(tok.getIdentity?.(), who);
+  });
+
+  it("sans `id`, l'identité d'admission reprend l'identifiant", () => {
+    assert.equal(
+      createTestIdentity({ identifier: "carol" }).getIdentity?.()?.id,
+      "carol",
+    );
+  });
 });
