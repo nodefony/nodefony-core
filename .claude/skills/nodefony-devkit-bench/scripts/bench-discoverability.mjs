@@ -5321,9 +5321,12 @@ export const TASKS = [
       },
       {
         kind: "code",
+        // Une STRUCTURE (déclarée ou manipulée), jamais un mot : « Member kicked
+        // successfully » dans un message de retour n'est pas une liste noire
+        // (faux rouge vécu sur la 3e passe du premier run à trois répétitions).
         name: "pas de liste noire inventée (exclus tenus à côté de l'appartenance)",
         pattern:
-          /\b(?:banned\w*|black[_-]?list\w*|block[_-]?list\w*|deny[_-]?list\w*|kicked\w*|excluded(?:Users|Members|Ids)\w*)\b/iu,
+          /\b(?:banned|black[_-]?list|block[_-]?list|deny[_-]?list|kicked|excluded)(?:Users|Members|Ids|List|Set|Map)?\s*(?:[:=]|\??\.(?:add|has|set|get|push|includes|delete)\()/iu,
         where: "addedTs",
         invert: true,
       },

@@ -3440,7 +3440,7 @@ const SAMPLES = {
   },
   "45 :: pas de liste noire inventée (exclus tenus à côté de l'appartenance)": {
     pass: {
-      addedTs: `    guests.get(room)?.delete(user);\n    getRealtimeHub().evictUser(room, user);`,
+      addedTs: `    guests.get(room)?.delete(user);\n    getRealtimeHub().evictUser(room, user);\n    return { success: true, message: "Member kicked successfully" };`,
     },
     fail: {
       addedTs: `const bannedUsers = new Map<string, Set<string>>();\n    bannedUsers.get(room)?.add(user);`,
