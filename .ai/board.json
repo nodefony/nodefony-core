@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T00:33:30.904Z",
+  "generatedAt": "2026-11-02T02:13:17.978Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 219,
+      "closed": 220,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 28,
+      "open": 27,
       "title": "10.0.0-beta"
     },
     {
@@ -5563,8 +5563,8 @@
       "number": 618,
       "title": "feat(realtime): router les trames binaires vers leur canal",
       "url": "https://github.com/nodefony/nodefony-core/issues/618",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -10402,6 +10402,38 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 925,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 722,
+      "title": "perf(studio): ne plus redessiner toute la page Supervision à chaque mesure",
+      "url": "https://github.com/nodefony/nodefony-core/issues/722",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 925.1,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 721,
+      "title": "feat(studio): montrer dans la console ce que le binaire fait gagner",
+      "url": "https://github.com/nodefony/nodefony-core/issues/721",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P3 — fin de cycle",
+      "jours": 2,
+      "ordre": 925.2,
       "debut": null,
       "cible": null,
       "labels": [
