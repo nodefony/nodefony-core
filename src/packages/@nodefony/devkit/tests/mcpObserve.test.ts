@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { describe, it, expect } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ADMIN_DEFAULT_ROLE,
   type IAdminApi,
@@ -27,6 +27,33 @@ import {
 import { builtinMcpTools } from "../nodefony/mcp/tools";
 
 const CALLER: IMcpCaller = { authenticated: false, scopes: [], roles: [] };
+
+// Le temps des fenêtres est SIMULÉ. `observe` dort par `node:timers/promises`
+// et mesure son échéance par `performance.now()` : les deux se simulent
+// (`fakeNodeBuiltins`), si bien qu'une fenêtre d'une seconde passe d'un coup.
+// Les instants et l'ordre des événements restent ceux qu'aurait vus le temps
+// réel — seule l'attente disparaît (≈ 19 s de la suite).
+beforeEach(() => {
+  vi.useFakeTimers({
+    toFake: [
+      "setTimeout",
+      "clearTimeout",
+      "setInterval",
+      "clearInterval",
+      "performance",
+    ],
+    fakeNodeBuiltins: true,
+  });
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+/** Fait passer d'un coup le temps simulé qu'attend l'appel, puis rend son résultat. */
+async function settle<T>(pending: T | Promise<T>): Promise<T> {
+  await vi.runAllTimersAsync();
+  return pending;
+}
 
 /** Sonde du process factice : compte ses libérations. */
 function fakeProbe(): IObserveProbe & { disposed: number } {
@@ -116,7 +143,7 @@ describe("nodefony_observe — observer l'application qui tourne", () => {
       });
       collect(profiler);
     }, 100);
-    const out = text(await pending);
+    const out = text(await settle(pending));
     expect(out).toMatch(/^Verdict : anomalies \(1\)/);
     expect(out).toContain("N+1 — route `orders.list` (OrdersController.list)");
     expect(out).toContain('`select * from "items" where "order_id" = ?`');
@@ -132,7 +159,7 @@ describe("nodefony_observe — observer l'application qui tourne", () => {
       createProbe: fakeProbe,
     });
     const g = gate();
-    await tool.handler({ durationSec: 1 }, CALLER, g.run);
+    await settle(tool.handler({ durationSec: 1 }, CALLER, g.run));
     // Un départ + un par relevé (5 relevés de 200 ms dans 1 s).
     expect(g.progress.length).toBeGreaterThanOrEqual(5);
     expect(g.progress[0]!.message).toContain("observation démarrée");
@@ -154,7 +181,9 @@ describe("nodefony_observe — observer l'application qui tourne", () => {
     const g = gate();
     const started = performance.now();
     setTimeout(() => g.controller.abort(), 100);
-    const out = text(await tool.handler({ durationSec: 30 }, CALLER, g.run));
+    const out = text(
+      await settle(tool.handler({ durationSec: 30 }, CALLER, g.run)),
+    );
     expect(performance.now() - started).toBeLessThan(1000);
     expect(out).toContain("observation abandonnée");
     expect(out).toContain("observation INCOMPLÈTE");
@@ -172,7 +201,7 @@ describe("nodefony_observe — observer l'application qui tourne", () => {
     setTimeout(() => {
       for (let i = 0; i < 10; i++) collect(profiler);
     }, 50);
-    const out = text(await pending);
+    const out = text(await settle(pending));
     expect(out).toContain("6 profil(s) perdu(s) avant lecture");
     expect(out).toContain("observation INCOMPLÈTE");
   });
@@ -194,7 +223,7 @@ describe("nodefony_observe — observer l'application qui tourne", () => {
       collect(profiler);
       collect(profiler);
     }, 50);
-    const out = text(await pending);
+    const out = text(await settle(pending));
     expect(out).toContain("1 requête(s) (1 HTTP");
     expect(out).toContain(
       "restreinte à la route `home` (2 autre(s) écartée(s))",
@@ -213,7 +242,7 @@ describe("nodefony_observe — observer l'application qui tourne", () => {
       collect(profiler, { status: 401 });
       collect(profiler, { status: 401 });
     }, 50);
-    const out = text(await pending);
+    const out = text(await settle(pending));
     expect(out).toContain("Refus (hors percentiles) : `orders.list` 401×2");
   });
 
@@ -223,7 +252,7 @@ describe("nodefony_observe — observer l'application qui tourne", () => {
       tickMs: 100,
       createProbe: fakeProbe,
     });
-    const out = text(await tool.handler({ durationSec: 1 }, CALLER));
+    const out = text(await settle(tool.handler({ durationSec: 1 }, CALLER)));
     expect(out).toMatch(/^Verdict : rien à juger — observation INCOMPLÈTE/);
     expect(out).toContain("cet outil n'en génère pas");
   });
@@ -236,7 +265,9 @@ describe("nodefony_observe — observer l'application qui tourne", () => {
     });
     const g = gate();
     setTimeout(() => g.controller.abort(), 100);
-    const out = text(await tool.handler({ durationSec: 600 }, CALLER, g.run));
+    const out = text(
+      await settle(tool.handler({ durationSec: 600 }, CALLER, g.run)),
+    );
     expect(out).toContain("durationSec ramenée à 50 s");
   });
 
@@ -249,7 +280,7 @@ describe("nodefony_observe — observer l'application qui tourne", () => {
         dispose() {},
       }),
     });
-    const out = text(await tool.handler({ durationSec: 1 }, CALLER));
+    const out = text(await settle(tool.handler({ durationSec: 1 }, CALLER)));
     expect(out).toContain("pire blocage 150 ms");
     expect(out).toContain(
       "Boucle d'événements bloquée — jusqu'à 150 ms d'un tenant",
@@ -262,7 +293,7 @@ describe("nodefony_observe — observer l'application qui tourne", () => {
       tickMs: 100,
       createProbe: fakeProbe,
     });
-    const out = text(await tool.handler({ durationSec: 1 }, CALLER));
+    const out = text(await settle(tool.handler({ durationSec: 1 }, CALLER)));
     expect(out).toContain("retard moyen 1.0 ms, pire blocage 2.0 ms");
     expect(out).not.toContain("bloquée");
   });
@@ -273,14 +304,14 @@ describe("nodefony_observe — observer l'application qui tourne", () => {
       getProfiler: () => asProfilerReader(profiler),
       servesTraffic: () => false,
     });
-    const result = await tool.handler({ durationSec: 30 }, CALLER);
+    const result = await settle(tool.handler({ durationSec: 30 }, CALLER));
     expect(result.isError).toBe(true);
     expect(text(result)).toBe(NOT_SERVING_MESSAGE);
   });
 
   it("répond en isError quand l'application n'a pas de profileur", async () => {
     const tool = observeTool({ getProfiler: () => undefined });
-    const result = await tool.handler({}, CALLER);
+    const result = await settle(tool.handler({}, CALLER));
     expect(result.isError).toBe(true);
     expect(text(result)).toContain("Aucun profileur");
   });
@@ -388,7 +419,7 @@ describe("nodefony_observe — journaux des erreurs et arrêt du serveur", () =>
     });
     const pending = tool.handler({ durationSec: 1 }, CALLER, gate().run);
     setTimeout(() => collect(profiler, { status: 500 }), 50);
-    const out = text(await pending);
+    const out = text(await settle(pending));
     expect(reader.calls).toHaveLength(1);
     // Lu au premier relevé après l'erreur, pas en fin de fenêtre.
     expect(reader.calls[0]!.at).toBeLessThan(500);
@@ -409,7 +440,7 @@ describe("nodefony_observe — journaux des erreurs et arrêt du serveur", () =>
     });
     const pending = tool.handler({ durationSec: 1 }, CALLER, gate().run);
     setTimeout(() => collect(profiler, { status: 500 }), 50);
-    expect(text(await pending)).toContain(
+    expect(text(await settle(pending))).toContain(
       "aucune ligne retrouvée : déjà évincée",
     );
   });
@@ -428,7 +459,7 @@ describe("nodefony_observe — journaux des erreurs et arrêt du serveur", () =>
       collect(profiler, { status: 500, url: "/nodefony/profiler/api/recent" });
       for (let i = 0; i < 15; i++) collect(profiler, { status: 500 });
     }, 50);
-    await pending;
+    await settle(pending);
     expect(reader.calls).toHaveLength(10);
   });
 
@@ -450,7 +481,7 @@ describe("nodefony_observe — journaux des erreurs et arrêt du serveur", () =>
         }),
       50,
     );
-    await pending;
+    await settle(pending);
     expect(reader.calls).toHaveLength(0);
   });
 
@@ -463,7 +494,7 @@ describe("nodefony_observe — journaux des erreurs et arrêt du serveur", () =>
     });
     const pending = tool.handler({ durationSec: 1 }, CALLER, gate().run);
     setTimeout(() => collect(profiler, { status: 500 }), 50);
-    expect(text(await pending)).toContain("nodefony_admin_call");
+    expect(text(await settle(pending))).toContain("nodefony_admin_call");
   });
 
   it("le serveur s'arrête : rapport partiel, et l'arrêt attend qu'il soit rendu", async () => {
@@ -502,7 +533,7 @@ describe("nodefony_observe — journaux des erreurs et arrêt du serveur", () =>
         order.push("arrêt repris");
       });
     }, 100);
-    const out = text(await pending);
+    const out = text(await settle(pending));
     await stopping;
     expect(performance.now() - started).toBeLessThan(1500);
     expect(out).toContain("observation interrompue");
@@ -522,7 +553,7 @@ describe("nodefony_observe — journaux des erreurs et arrêt du serveur", () =>
         unsubscribed += 1;
       },
     });
-    await tool.handler({ durationSec: 1 }, CALLER);
+    await settle(tool.handler({ durationSec: 1 }, CALLER));
     expect(unsubscribed).toBe(1);
   });
 });
@@ -613,7 +644,7 @@ describe("nodefony_observe — le journal lu par le plan d'administration", () =
         resolver: { route: { name: "orders.list" } },
       });
     }, 50);
-    const out = text(await pending);
+    const out = text(await settle(pending));
     expect(out).toContain(
       "    WARNING [orm] requête lente sur orders\n" +
         "    ERROR [req] GET 500 /orders 1.4ms [obs-err] Cannot read 'total'",
@@ -655,7 +686,7 @@ describe("nodefony_observe — le journal lu par le plan d'administration", () =
         resolver: { route: { name: "orders.list" } },
       });
     }, 50);
-    const out = text(await pending);
+    const out = text(await settle(pending));
     expect(out).toContain(
       "1 ligne(s) de détail écartée(s), aucune de niveau WARNING ou plus grave",
     );
@@ -684,7 +715,7 @@ describe("nodefony_observe — le journal lu par le plan d'administration", () =
         });
       }
     }, 50);
-    const out = text(await pending);
+    const out = text(await settle(pending));
     expect(out).toContain(
       "Journal des requêtes en erreur : non lu — journal réservé aux appelants authentifiés",
     );
@@ -715,7 +746,7 @@ describe("nodefony_observe — producteur syslog absent", () => {
         resolver: { route: { name: "orders.list" } },
       });
     }, 50);
-    const out = text(await pending);
+    const out = text(await settle(pending));
     expect(out).toContain(
       "le producteur `syslog` du plan d'administration n'est pas chargé",
     );
@@ -739,7 +770,7 @@ describe("nodefony_observe — lisibilité du journal", () => {
     setTimeout(() => {
       for (let i = 0; i < 6; i++) collect(profiler, { status: 500 });
     }, 50);
-    const out = text(await pending);
+    const out = text(await settle(pending));
     expect(out.match(/ERROR \[req\] boom/g)).toHaveLength(3);
   });
 });
