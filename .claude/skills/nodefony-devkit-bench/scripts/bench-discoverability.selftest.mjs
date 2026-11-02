@@ -3416,6 +3416,46 @@ const SAMPLES = {
       },
     ],
   },
+
+  // ── T45 — salon privé avec exclusion ──────────────────────────────────────
+  "45 :: a lu la doc realtime (cas d'usage, canal à membres ou sécurité)": {
+    pass: {
+      transcript: `{"file_path":"node_modules/@nodefony/realtime/docs/cas-d-usage.md"}`,
+    },
+    fail: { transcript: `{"file_path":"/app/package.json"}` },
+  },
+  "45 :: l'admission au salon passe par `allow`": {
+    pass: {
+      content: `  @RealtimeChannel("room:*", {\n    allow: async (channel, who) => isGuest(channel, who.id),\n  })\n  room() {}`,
+    },
+    // Le contournement : le motif est fermé par un rôle, l'appartenance n'est
+    // jugée nulle part — tout membre connecté entre dans tous les salons.
+    fail: {
+      content: `  @RealtimeChannel("room:*", { roles: ["ROLE_USER"] })\n  room() {}`,
+    },
+  },
+  "45 :: l'exclusion coupe par le hub (evictUser / evictConnection)": {
+    pass: { addedTs: `    getRealtimeHub().evictUser(room, user);` },
+    fail: { addedTs: `    guests.get(room)?.delete(user);` },
+  },
+  "45 :: pas de liste noire inventée (exclus tenus à côté de l'appartenance)": {
+    pass: {
+      addedTs: `    guests.get(room)?.delete(user);\n    getRealtimeHub().evictUser(room, user);`,
+    },
+    fail: {
+      addedTs: `const bannedUsers = new Map<string, Set<string>>();\n    bannedUsers.get(room)?.add(user);`,
+    },
+  },
+  "45 :: pas de WS bas-niveau bricolé (WebSocket/ws recomposés à la main)": {
+    pass: { addedTs: `  @RealtimeChannel("room:*", { allow })\n  room() {}` },
+    fail: { addedTs: `const socket = new WebSocket("ws://localhost/room");` },
+  },
+  "45 :: aucune brique de sécurité éteinte en configuration": {
+    pass: { added: `  @RealtimeChannel("room:*", { allow })` },
+    fail: {
+      added: `    use("@nodefony/security", { firewall: { enabled: false } }),`,
+    },
+  },
 };
 
 const key = (task, probe) => `${task.id} :: ${probe.name}`;

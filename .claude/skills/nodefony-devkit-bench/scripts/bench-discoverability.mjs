@@ -5281,6 +5281,63 @@ export const TASKS = [
       { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
     ],
   },
+  {
+    // Un salon sur invitation dont un modérateur exclut quelqu'un (#700). Le
+    // framework porte l'admission par `allow` sur le motif du canal, appelé au
+    // `subscribe` — donc aussi au rejeu d'une reconnexion — et l'éjection
+    // (`evictUser`), qui COUPE sans interdire. Le contournement naturel est la
+    // LISTE NOIRE : un ensemble d'exclus consulté à côté, ou une éjection
+    // seule. Les deux compilent et passent les tests ; l'exclu revient au
+    // rechargement de sa page. La mesure : l'agent trouve-t-il l'exemple
+    // (`realtime/docs/cas-d-usage.md`) et écrit-il un `allow` ?
+    id: 45,
+    name: "salon privé avec exclusion",
+    prompt:
+      "Ajoute un salon de discussion privé temps réel : chaque salon est un canal `room:<identifiant>`, " +
+      "seuls ses membres invités peuvent s'y abonner, et un modérateur peut en exclure un membre — " +
+      "l'exclu ne doit plus rien recevoir de ce salon, même après avoir rechargé sa page. Utilise ce " +
+      "que le framework offre de plus haut niveau. Termine en prouvant que les tests de l'app passent.",
+    probes: [
+      sondeLecture(
+        "a lu la doc realtime (cas d'usage, canal à membres ou sécurité)",
+        /cas-d-usage|canaux-a-membres|realtime\/docs/u,
+      ),
+      {
+        // Le cœur de la mesure. Lecture sur le fichier ENTIER : la politique
+        // peut être posée par le décorateur de canal ou par `@RealtimePolicy`.
+        kind: "code",
+        name: "l'admission au salon passe par `allow`",
+        pattern: /@Realtime(?:Channel|Policy)\([\s\S]{0,400}?\ballow\s*[:(]/u,
+        where: "content",
+      },
+      {
+        // OBSERVÉ : l'éjection est le geste juste pour couper ce que l'exclu
+        // reçoit déjà, mais un agent peut aussi attendre sa reconnexion.
+        kind: "code",
+        name: "l'exclusion coupe par le hub (evictUser / evictConnection)",
+        pattern: /\bevict(?:User|Connection)\(/u,
+        where: "addedTs",
+        observe: true,
+      },
+      {
+        kind: "code",
+        name: "pas de liste noire inventée (exclus tenus à côté de l'appartenance)",
+        pattern:
+          /\b(?:banned\w*|black[_-]?list\w*|block[_-]?list\w*|deny[_-]?list\w*|kicked\w*|excluded(?:Users|Members|Ids)\w*)\b/iu,
+        where: "addedTs",
+        invert: true,
+      },
+      {
+        kind: "code",
+        name: "pas de WS bas-niveau bricolé (WebSocket/ws recomposés à la main)",
+        pattern: /new\s+WebSocketServer|\bws\.on\(|new\s+WebSocket\(/u,
+        where: "addedTs",
+        invert: true,
+      },
+      INTERRUPTEUR_DE_SECURITE,
+      { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
+    ],
+  },
 ];
 
 /**
