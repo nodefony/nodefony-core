@@ -7,6 +7,7 @@ import {
   extend,
   isEmptyObject,
   isPlainObject,
+  ownField,
   isUndefined,
   isRegExp,
   isContainer,
@@ -144,6 +145,11 @@ export {
   createThroughputPayload,
 } from "../realtime/throughputProbe";
 export type { ThroughputPayloadSize } from "../realtime/throughputProbe";
+// Formes d'un plan de génération : lues par un écran de préview (Studio).
+export type {
+  IScaffoldChange,
+  IDiffLine,
+} from "../cli/scaffold/scaffoldChange";
 export {
   SUPERVISION_HISTORY_COLUMNS,
   SUPERVISION_LOOP_BANDS,
@@ -210,6 +216,7 @@ export {
   extend,
   isEmptyObject,
   isPlainObject,
+  ownField,
   isUndefined,
   isRegExp,
   isContainer,

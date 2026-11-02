@@ -78,6 +78,7 @@ import type {
   ContractRouteResult,
 } from "../../realtime/RealtimeEventMap";
 import { unrefTimer } from "../../runtime/unrefTimer";
+import { ownField } from "../../runtime/ownField";
 import { CircularBuffer } from "../../runtime/CircularBuffer";
 import { BrowserWsTransport } from "./BrowserWsTransport";
 import { describeSocket, socketSnapshot } from "./snapshot";
@@ -577,7 +578,7 @@ function redactFrame(value: unknown, depth = 0): unknown {
  */
 /** La charge d'un acquittement `realtime:subscribed` a-t-elle sa forme ? */
 function isSubscribedAck(value: unknown): value is IRealtimeSubscribed {
-  return typeof fieldOf(value, "channel") === "string";
+  return typeof ownField(value, "channel") === "string";
 }
 
 /** Une attente `whenSubscribed` en cours : ses deux issues. */
@@ -593,14 +594,6 @@ const unsubscribedBeforeAck = (channel: string): string =>
 const deniedBeforeAck = (channel: string): string =>
   `[nodefony] abonnement à « ${channel} » refusé par le serveur`;
 
-function fieldOf(value: unknown, key: string): unknown {
-  // Propriété PROPRE seulement : `constructor` ou `toString` hérités ne sont
-  // pas des champs envoyés par le serveur.
-  return value !== null && typeof value === "object"
-    ? Object.getOwnPropertyDescriptor(value, key)?.value
-    : undefined;
-}
-
 /** Les chaînes d'une liste reçue (le reste est écarté) ; `null` si ce n'est pas une liste. */
 function stringsOf(value: unknown): string[] | null {
   return Array.isArray(value)
@@ -615,12 +608,12 @@ function stringsOf(value: unknown): string[] | null {
  * `roles.includes("ROLE_ADMIN")`.
  */
 function identityOf(value: unknown): RealtimeIdentity | null {
-  const type = fieldOf(value, "type");
-  const authenticated = fieldOf(value, "authenticated");
-  const id = fieldOf(value, "id");
-  const userIdentifier = fieldOf(value, "userIdentifier");
-  const roles = fieldOf(value, "roles");
-  const scopes = fieldOf(value, "scopes");
+  const type = ownField(value, "type");
+  const authenticated = ownField(value, "authenticated");
+  const id = ownField(value, "id");
+  const userIdentifier = ownField(value, "userIdentifier");
+  const roles = ownField(value, "roles");
+  const scopes = ownField(value, "scopes");
   if (
     typeof type !== "string" ||
     typeof authenticated !== "boolean" ||
@@ -2282,7 +2275,7 @@ export class NodefonySocket<
    * un canal rendu entre-temps est ignoré. Cold path (1×/canal et par connexion).
    */
   private ingestSubscribed(params: unknown): void {
-    const channel = fieldOf(params, "channel");
+    const channel = ownField(params, "channel");
     if (typeof channel !== "string" || !this._subscriptions.has(channel))
       return;
     (this._acked ??= new Set()).add(channel);
@@ -2304,19 +2297,19 @@ export class NodefonySocket<
   private ingestWelcome(params: unknown): void {
     // Avant la sortie anticipée : un welcome partiel/legacy n'annonce rien, et
     // c'est précisément le cas où il ne faut pas attendre d'acquittement.
-    this._subscriptionAcks = fieldOf(params, "subscriptionAcks") === true;
+    this._subscriptionAcks = ownField(params, "subscriptionAcks") === true;
     // Avant le rejeu des abonnements (`dispatchNotification`) : ils partent déjà
     // dans le codec retenu.
-    this.adoptCodec(fieldOf(params, "codec"), fieldOf(params, "bytes"));
+    this.adoptCodec(ownField(params, "codec"), ownField(params, "bytes"));
     if (params === null || typeof params !== "object") return;
-    this._identity = identityOf(fieldOf(params, "identity"));
-    this._serverChannels = stringsOf(fieldOf(params, "channels"));
-    this._serverMethods = stringsOf(fieldOf(params, "methods"));
+    this._identity = identityOf(ownField(params, "identity"));
+    this._serverChannels = stringsOf(ownField(params, "channels"));
+    this._serverMethods = stringsOf(ownField(params, "methods"));
     // Le serveur dit son mode quand il n'est pas en production : c'est ce qui
     // permet de parler dans la console d'un bundle bâti pour la production mais
     // servi par un serveur de développement, cas qu'`import.meta.env.DEV` ne
     // peut pas voir.
-    const env = fieldOf(params, "env");
+    const env = ownField(params, "env");
     noteServerEnv(typeof env === "string" ? env : undefined);
     // Serveur hors production : le journal s'allume comme en développement.
     if (isVerbose()) this._frameLogOn = true;
@@ -2352,13 +2345,13 @@ export class NodefonySocket<
    * payload partiel (motif par défaut `forbidden`). Cold path (refus rare).
    */
   private ingestDenied(params: unknown): void {
-    const rawChannel = fieldOf(params, "channel");
+    const rawChannel = ownField(params, "channel");
     const channel = typeof rawChannel === "string" ? rawChannel : "";
     // Motif NORMALISÉ sur le contrat : un serveur plus récent (ou un pont mal
     // écrit) qui inventerait un motif ne doit pas faire tomber l'écran dans un
     // cas que personne ne traite. Repli sur `forbidden`, le motif le plus
     // prudent : il n'annonce jamais qu'un accès était possible.
-    const brut = fieldOf(params, "reason");
+    const brut = ownField(params, "reason");
     const reason: IRealtimeDenied["reason"] =
       brut === "unknown" || brut === "limit" || brut === "unavailable"
         ? brut
@@ -2370,13 +2363,13 @@ export class NodefonySocket<
     // protocole que du code lit, c'est une phrase qu'un humain lit. Filtré sur
     // le TYPE seulement — une frame hostile ne doit pas glisser un objet là où
     // l'écran attend du texte.
-    const rawDetail = fieldOf(params, "detail");
+    const rawDetail = ownField(params, "detail");
     const detail = typeof rawDetail === "string" ? rawDetail : undefined;
     // Un délai d'attente n'a de sens qu'avec `unavailable`, et seulement s'il
     // est un nombre fini positif : une frame hostile ne fixe pas l'horloge du
     // client à `Infinity`.
     const rawRetry =
-      reason === "unavailable" ? fieldOf(params, "retryAfterMs") : undefined;
+      reason === "unavailable" ? ownField(params, "retryAfterMs") : undefined;
     const retryAfterMs =
       typeof rawRetry === "number" && Number.isFinite(rawRetry) && rawRetry >= 0
         ? rawRetry
@@ -2866,16 +2859,16 @@ export class NodefonySocket<
     size: number,
     binary: boolean,
   ): RealtimeFrame {
-    const method = fieldOf(msg, "method");
-    const id = fieldOf(msg, "id");
+    const method = ownField(msg, "method");
+    const id = ownField(msg, "id");
     let kind = "?";
     let channel: string | undefined;
     if (typeof method === "string") {
       kind = method;
-      const c = fieldOf(fieldOf(msg, "params"), "channel");
+      const c = ownField(ownField(msg, "params"), "channel");
       if (typeof c === "string") channel = c;
-    } else if (fieldOf(msg, "error") !== undefined) kind = "error";
-    else if (fieldOf(msg, "result") !== undefined) kind = "response";
+    } else if (ownField(msg, "error") !== undefined) kind = "error";
+    else if (ownField(msg, "result") !== undefined) kind = "response";
     return {
       ts,
       dir,

@@ -18,6 +18,7 @@
  */
 import type {
   IPlatformRealtimeContract,
+  IScaffoldChange,
   KernelPingResult,
   NodefonySocket,
   PLATFORM_CHANNELS,
@@ -43,6 +44,16 @@ export interface IKernelGcResult {
   freed?: number;
 }
 
+/**
+ * Réponse de `nodefony:scaffold:preview` — le PLAN d’une génération, sans
+ * rien écrire : la destination résolue et chaque fichier créé ou réécrit (avec
+ * son contenu actuel quand il serait remplacé).
+ */
+export interface IScaffoldPreview {
+  dest: string;
+  changes: IScaffoldChange[];
+}
+
 /** Réponse de `nodefony:realtime:throughput` — la charge de taille fixe demandée. */
 export interface IThroughputResult {
   size: ThroughputPayloadSize;
@@ -64,14 +75,10 @@ interface IStudioMethodShapes {
   ping: { out: KernelPingResult };
   /** Force un cycle GC si le pod tourne avec `--expose-gc`. */
   gc: { out: IKernelGcResult };
-  /**
-   * Plan d'un scaffold sans rien écrire. Aucun écran ne l'appelle par la
-   * socket : la forme du plan (`IScaffoldChange`, cœur serveur) n'est pas
-   * publiée au navigateur, d'où un résultat à lire en `unknown`.
-   */
+  /** Plan d’un scaffold sans rien écrire — mêmes réponses, mêmes gardes que `run`. */
   scaffoldPreview: {
     in: { type: string; answers?: TAnswers };
-    out: unknown;
+    out: IScaffoldPreview;
   };
   /** Démarre un job de génération ; la suite se lit sur `nodefony:scaffold:job@<id>`. */
   scaffoldRun: {

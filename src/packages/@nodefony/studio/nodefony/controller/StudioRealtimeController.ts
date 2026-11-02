@@ -18,7 +18,12 @@ import {
 } from "nodefony";
 import type { KernelPingResult } from "nodefony/client";
 import { fetchAdminEndpoint } from "../src/adminFetch";
-import { readAnswers, rpcParam } from "../src/rpcParams";
+import {
+  parseActionParams,
+  scaffoldCancelParamsSchema,
+  scaffoldPreviewParamsSchema,
+  scaffoldRunParamsSchema,
+} from "../src/actionParams";
 import {
   createSyslogBridge,
   createStatsTicker,
@@ -35,11 +40,11 @@ import {
   type ScaffoldStep,
   type IScaffoldJobState,
 } from "../service/ScaffoldService";
-import type { IScaffoldChange } from "nodefony";
 import { PLATFORM_CHANNELS, PLATFORM_METHODS } from "nodefony";
 // Types seuls (effacés au build) : le contrat est partagé avec le navigateur.
 import type {
   IKernelGcResult,
+  IScaffoldPreview,
   IThroughputResult,
   StudioContract,
 } from "../../frontend/src/realtime/studioContract";
@@ -175,14 +180,12 @@ class StudioRealtimeController extends ContractRealtimeController<StudioContract
     const svc = this.get<ScaffoldService>("scaffold");
     if (!svc?.enabled) throw new Error("scaffold is development-only");
 
-    const type = rpcParam(params, "type");
-    if (typeof type !== "string") throw new Error("type manquant");
-
+    const { type, answers, steps } = parseActionParams(
+      scaffoldRunParamsSchema,
+      params,
+    );
     // Allowlist : tout ce qui n'est pas une étape connue est jeté, pas exécuté.
-    const raw = rpcParam(params, "steps");
-    const steps = (Array.isArray(raw) ? raw : []).filter(isScaffoldStep);
-
-    return svc.start(type, readAnswers(rpcParam(params, "answers")), steps);
+    return svc.start(type, answers ?? {}, (steps ?? []).filter(isScaffoldStep));
   }
 
   /**
@@ -195,23 +198,21 @@ class StudioRealtimeController extends ContractRealtimeController<StudioContract
    *
    * @throws si le service est absent ou hors développement, ou si le moteur refuse.
    */
-  private actionScaffoldPreview(params: unknown): {
-    dest: string;
-    changes: IScaffoldChange[];
-  } {
+  private actionScaffoldPreview(params: unknown): IScaffoldPreview {
     const svc = this.get<ScaffoldService>("scaffold");
     if (!svc?.enabled) throw new Error("scaffold is development-only");
-    const type = rpcParam(params, "type");
-    if (typeof type !== "string") throw new Error("type manquant");
-    return svc.preview(type, readAnswers(rpcParam(params, "answers")));
+    const { type, answers } = parseActionParams(
+      scaffoldPreviewParamsSchema,
+      params,
+    );
+    return svc.preview(type, answers ?? {});
   }
 
   /** Interrompt le process en cours d'un job (bouton « arrêter »). */
   private actionScaffoldCancel(params: unknown): { cancelled: boolean } {
     const svc = this.get<ScaffoldService>("scaffold");
     if (!svc?.enabled) throw new Error("scaffold is development-only");
-    const id = rpcParam(params, "id");
-    if (typeof id !== "string") throw new Error("id manquant");
+    const { id } = parseActionParams(scaffoldCancelParamsSchema, params);
     return { cancelled: svc.cancel(id) };
   }
 

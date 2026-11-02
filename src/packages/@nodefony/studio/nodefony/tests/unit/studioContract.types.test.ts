@@ -18,6 +18,12 @@ import type {
 } from "../../../frontend/src/realtime/studioContract";
 import type { IScaffoldJobState } from "../../../frontend/src/routes/create/createModel";
 import type { ContractRealtimeMethodHandlers } from "@nodefony/realtime";
+import type { z } from "zod";
+import type {
+  scaffoldCancelParamsSchema,
+  scaffoldPreviewParamsSchema,
+  scaffoldRunParamsSchema,
+} from "../../src/actionParams";
 
 /** Côté navigateur : ce que la socket typée rend. */
 export function clientSide(socket: StudioSocket): void {
@@ -54,6 +60,57 @@ export function serverSide(ping: () => KernelPingResult): void {
   };
   void partial;
 }
+
+/** `in` d'une méthode du contrat. */
+type ContractIn<K extends keyof StudioContract["serverMethods"]> =
+  StudioContract["serverMethods"][K] extends { in: infer I } ? I : never;
+
+/**
+ * Le contrat ET le schéma décrivent la même charge — confrontés ici, car ils
+ * vivent de part et d'autre de la frontière du navigateur. Deux gardes par
+ * méthode : mêmes clés, et tout appel conforme au contrat passe le schéma (un
+ * client typé n'est jamais refusé par le serveur).
+ */
+type SameKeys<A, B> = [keyof A] extends [keyof B]
+  ? [keyof B] extends [keyof A]
+    ? true
+    : false
+  : false;
+export const contractMatchesSchemas: {
+  run: [
+    SameKeys<
+      ContractIn<typeof PLATFORM_METHODS.scaffoldRun>,
+      z.input<typeof scaffoldRunParamsSchema>
+    >,
+    ContractIn<typeof PLATFORM_METHODS.scaffoldRun> extends z.input<
+      typeof scaffoldRunParamsSchema
+    >
+      ? true
+      : false,
+  ];
+  preview: [
+    SameKeys<
+      ContractIn<typeof PLATFORM_METHODS.scaffoldPreview>,
+      z.input<typeof scaffoldPreviewParamsSchema>
+    >,
+    ContractIn<typeof PLATFORM_METHODS.scaffoldPreview> extends z.input<
+      typeof scaffoldPreviewParamsSchema
+    >
+      ? true
+      : false,
+  ];
+  cancel: [
+    SameKeys<
+      ContractIn<typeof PLATFORM_METHODS.scaffoldCancel>,
+      z.input<typeof scaffoldCancelParamsSchema>
+    >,
+    ContractIn<typeof PLATFORM_METHODS.scaffoldCancel> extends z.input<
+      typeof scaffoldCancelParamsSchema
+    >
+      ? true
+      : false,
+  ];
+} = { run: [true, true], preview: [true, true], cancel: [true, true] };
 
 describe("StudioContract", () => {
   it("nomme les six méthodes de plateforme que le contrôleur sert", () => {

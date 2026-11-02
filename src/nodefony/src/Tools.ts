@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Container from "./Container";
 import { isPlainObject } from "./runtime/isPlainObject";
+import { ownField } from "./runtime/ownField";
 
 // ─── Natif — suppression des dépendances lodash-es ───────────────────────────
 
@@ -406,6 +407,7 @@ export {
   extend,
   isEmptyObject,
   isPlainObject,
+  ownField,
   isUndefined,
   isRegExp,
   isContainer,

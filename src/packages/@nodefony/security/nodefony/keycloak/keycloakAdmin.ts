@@ -1,3 +1,4 @@
+import { ownField } from "nodefony";
 import type { LoginPageSkin } from "nodefony";
 import type { IOAuthCheck } from "../src/oauth/providerDiagnosis.js";
 import type { ISecurityConfig } from "../config/config.js";
@@ -309,12 +310,8 @@ export class KeycloakAdminClient {
       );
     }
     const payload: unknown = await response.json();
-    const field = (key: string): unknown =>
-      typeof payload === "object" && payload !== null
-        ? Object.getOwnPropertyDescriptor(payload, key)?.value
-        : undefined;
-    const accessToken = field("access_token");
-    const expiresIn = field("expires_in");
+    const accessToken = ownField(payload, "access_token");
+    const expiresIn = ownField(payload, "expires_in");
     if (typeof accessToken !== "string" || accessToken === "") {
       throw new KeycloakAdminError(
         "Keycloak n'a rendu aucun jeton d'administration",

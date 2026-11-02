@@ -3,12 +3,12 @@
  * (`ModuleDetail`) et l'onglet Noyau de la page Configuration : une seule façon
  * de lire un refus du serveur.
  */
+import { ownField } from "nodefony";
 import { ApiError } from "../../services/ApiClient";
 
 /** Texte d'une propriété PROPRE d'un corps JSON inconnu, sans conversion de type. */
 function text(o: unknown, k: string): string | undefined {
-  if (typeof o !== "object" || o === null) return undefined;
-  const v: unknown = Object.getOwnPropertyDescriptor(o, k)?.value;
+  const v = ownField(o, k);
   return typeof v === "string" ? v : undefined;
 }
 

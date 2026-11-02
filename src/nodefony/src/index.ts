@@ -604,6 +604,7 @@ export {
   finallyMaybe,
   isEmptyObject,
   isPlainObject,
+  ownField,
   isUndefined,
   isRegExp,
   isContainer,

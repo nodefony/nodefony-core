@@ -212,7 +212,15 @@ nodefonyError; // ← anciennement exporté comme "Error" (cassant)
 // DI
 (Inject, injectable, services);
 // Utils
-(extend, typeOf, isArray, isPromise, isPlainObject, isFunction, isContainer);
+(extend,
+  typeOf,
+  isArray,
+  isPromise,
+  isPlainObject,
+  ownField,
+  isFunction,
+  isContainer);
+// ownField(v, k) = LA lecture d'un champ PROPRE d'une charge `unknown` (runtime/ownField.ts, feuille isomorphe) — jamais `(v as {k?})` ni getOwnPropertyDescriptor recopié
 // Types (import type)
 (IKernel, IService, IContainer, IScope, IModule, ISyslog);
 (DynamicService, ProtoService, Scopes);

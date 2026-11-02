@@ -62,8 +62,9 @@ paint = `GET /nodefony/realtime/api/health`. Panneau « Hub » = KpiCard canaux/
   réutilisable `conn.ping()` (RTT). Le `realtime:welcome` annonce `params.methods` → **actions découvrables**.
 - Côté serveur : `realtimeActions()` rend `ContractRealtimeMethodHandlers<StudioContract>` — une méthode
   du contrat oubliée ne compile pas. Les handlers reçoivent `params: unknown` et le lisent par
-  `nodefony/src/rpcParams.ts` (`rpcParam`, `readAnswers`) : le type `in` du contrat ne décrit qu'un
-  client conforme, jamais ce qui arrive du réseau
+  `nodefony/src/actionParams.ts#parseActionParams` contre un SCHÉMA zod (`-32602` + `data.fields` si
+  invalide) : le type `in` du contrat ne décrit qu’un client conforme, jamais ce qui arrive du réseau.
+  Schéma et `in` sont confrontés par `nodefony/tests/unit/studioContract.types.test.ts`
   (`nodefony:kernel:ping`/`nodefony:kernel:gc`, et `nodefony:realtime:throughput` → `StudioRealtimeController.ts#StudioRealtimeController.actionThroughput` :
   rend `{ size, bytes }`, tailles FERMÉES 1 Ko / 64 Ko / 1 Mo — sonde du coût d'un codec sur le fil). Inconnu → `-32601` ; throw → `-32603` générique. **Pour ajouter une action serveur
   → skill `nodefony-framework-dev`.** Le générique (protocole, RTT) vit dans la lib/le framework, PAS dupliqué front.
