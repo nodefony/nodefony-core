@@ -102,7 +102,7 @@ export const expectations: GateExpectations = modeExpectations;
 
 /**` + `memory.test.ts`) → c'est la non-régression rapide.
  *
- * Séquentiel forcé (`fileParallelism:false` + `singleFork`) : tous les fichiers tapent
+ * Séquentiel forcé (`fileParallelism:false`, un fichier à la fois) : tous les fichiers tapent
  * LE MÊME serveur — la parallélisation introduirait du bruit (sessions, ports, ordering).
  * Mocha tournait déjà en un seul process séquentiel : on préserve ce comportement.
  */

@@ -77,9 +77,9 @@ export default defineConfig({
     ],
     // Les fichiers forkent chacun jusqu'à trois process : les jouer
     // ensemble reproduirait, à l'échelle du lot, la contention qu'on vient
-    // d'écarter à l'échelle du dépôt.
+    // d'écarter à l'échelle du dépôt. Un fichier à la fois suffit (l'ancien
+    // `poolOptions.forks.singleFork` n'est plus lu depuis Vitest 4).
     fileParallelism: false,
-    poolOptions: { forks: { singleFork: true } },
     // Même marge que la config par défaut : le boot d'un worker (tsx + import de
     // `nodefony`) tient largement dedans quand la machine n'est pas disputée.
     testTimeout: 15000,

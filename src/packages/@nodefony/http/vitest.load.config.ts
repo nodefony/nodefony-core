@@ -23,7 +23,7 @@ export const expectations: GateExpectations = [];
  * cycle de vie / mémoire (cf CLAUDE.md « RÈGLE ABSOLUE PERF & MÉMOIRE »), pas à chaque
  * non-régression.
  *
- * Séquentiel STRICT (`fileParallelism:false` + `singleFork`) : OBLIGATOIRE ici — les deltas
+ * Séquentiel STRICT (`fileParallelism:false`, un fichier à la fois) : OBLIGATOIRE ici — les deltas
  * de heap serveur et les comptes de scopes ALS seraient corrompus par des requêtes
  * concurrentes inter-fichiers. Timeout 600 s (les bancs de charge montent à 10 min).
  * Le gate mémoire seul : `vitest run --config vitest.load.config.ts nodefony/tests/http/memory.test.ts`.
