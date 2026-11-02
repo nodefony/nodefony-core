@@ -12,8 +12,13 @@
  * Fichier NEUTRE (ni Node, ni DOM) : il voyage dans le paquet du navigateur.
  */
 
-/** Une variable de chemin : `{nom}`. */
-const PATH_VARIABLE = /\{([^}]+)\}/gu;
+/**
+ * Une variable de chemin : `{nom}`. Le nom exclut `{` et `/` — une variable
+ * tient dans UN segment —, ce qui rend la lecture LINÉAIRE : avec `[^}]`, une
+ * suite de « { » jamais refermés faisait relire tout le reste de la chaîne à
+ * chaque position (ReDoS polynomial, 2,4 s sur 50 000 caractères).
+ */
+const PATH_VARIABLE = /\{([^{}/]+)\}/gu;
 
 /**
  * Noms des variables d'un chemin de route, dans l'ordre d'apparition.

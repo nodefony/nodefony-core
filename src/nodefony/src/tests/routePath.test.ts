@@ -55,4 +55,14 @@ describe("routePath — gabarit d'un chemin de route", () => {
       );
     }
   });
+
+  it("🔴 linéaire sur un chemin hostile : des « { » jamais refermés", () => {
+    // Le gabarit vient du code, mais `fillRoutePath` le reçoit d'un appelant :
+    // une lecture quadratique y mettait 2,4 s sur 50 000 « { » (ReDoS).
+    const hostile = "/" + "{".repeat(50_000);
+    const start = performance.now();
+    expect(routePathParams(hostile)).toEqual([]);
+    expect(fillRoutePath(hostile, {})).toBe(hostile);
+    expect(performance.now() - start).toBeLessThan(100);
+  });
 });
