@@ -212,6 +212,17 @@ interface FlowReport {
 }
 
 const HISTORY = 60;
+/**
+ * Fenêtre des courbes des sondes process, en DURÉE : à 250 ms, 60 points ne
+ * couvriraient plus que 15 s. Le nombre de points suit donc la cadence
+ * (jamais moins de {@link HISTORY}, d'où un comportement inchangé à ≥ 1 s).
+ */
+const STATS_WINDOW_MS = 60_000;
+
+/** Cadence lisible : `250 ms`, `1 s`, `2,5 s`. */
+function fmtCadence(ms: number): string {
+  return ms < 1000 ? `${ms} ms` : `${(ms / 1000).toLocaleString("fr-FR")} s`;
+}
 const MB = 1024 ** 2;
 
 /**
@@ -584,9 +595,17 @@ export const DashboardSupervision = observer(() => {
     return () => window.clearInterval(id);
   }, [live, effectiveMs]);
 
+  // Points retenus par série de sondes : relu à chaque tick par une référence,
+  // les gestionnaires du socket pouvant être des fermetures d'un rendu passé.
+  const statsPointsRef = useRef(HISTORY);
+  statsPointsRef.current = Math.max(
+    HISTORY,
+    Math.round(STATS_WINDOW_MS / Math.max(effectiveMs, 1)),
+  );
   const cap = (arr: number[], v: number): number[] => {
     const n = [...arr, v];
-    return n.length > HISTORY ? n.slice(-HISTORY) : n;
+    const max = statsPointsRef.current;
+    return n.length > max ? n.slice(-max) : n;
   };
 
   // Infos kernel statiques (env, version, pid).
@@ -702,19 +721,25 @@ export const DashboardSupervision = observer(() => {
     const hp = ceil > 0 ? Math.round((s.memory.heapUsed / ceil) * 100) : 0;
     setSysHist((prev) => {
       const next = [...prev, { cpu: s.cpuPercent, heap: hp }];
-      return next.length > HISTORY ? next.slice(-HISTORY) : next;
+      return next.length > statsPointsRef.current
+        ? next.slice(-statsPointsRef.current)
+        : next;
     });
     setMemHist((prev) => {
       const next = [
         ...prev,
         { heap: s.memory.heapUsed / MB, rss: s.memory.rss / MB },
       ];
-      return next.length > HISTORY ? next.slice(-HISTORY) : next;
+      return next.length > statsPointsRef.current
+        ? next.slice(-statsPointsRef.current)
+        : next;
     });
     // Erreurs comptées CÔTÉ SERVEUR sur l'intervalle (plus de nodefony:syslog ici).
     setErrHist((prev) => {
       const next = [...prev, s.errCount ?? 0];
-      return next.length > HISTORY ? next.slice(-HISTORY) : next;
+      return next.length > statsPointsRef.current
+        ? next.slice(-statsPointsRef.current)
+        : next;
     });
   };
 
@@ -914,7 +939,7 @@ export const DashboardSupervision = observer(() => {
   if (realtimeStale)
     alerts.push({
       color: "orange",
-      msg: `Temps réel en retard — rafraîchi ~toutes les ${(observedGapMs / 1000).toFixed(0)} s (cadence demandée ${(liveMs / 1000).toFixed(0)} s)`,
+      msg: `Temps réel en retard — rafraîchi ~toutes les ${(observedGapMs / 1000).toFixed(0)} s (cadence demandée ${fmtCadence(liveMs)})`,
       help: "Les mesures arrivent en retard : la boucle d'événements du serveur est saturée (forte charge WS/HTTP) → le ticker temps réel ne tient plus sa cadence. Le dashboard n'est PAS planté, il est AFFAMÉ. Conséquence : les latences mesurées côté serveur (ex. ping ORM) sont gonflées par l'attente d'ordonnancement, PAS par la base.",
     });
 
@@ -959,7 +984,7 @@ export const DashboardSupervision = observer(() => {
 
   // Légende du suffixe d'aide selon le mode (rend les ⓘ contextuelles/honnêtes).
   const liveSuffix = live
-    ? `Temps réel ON (${auto ? `auto ~${effectiveMs / 1000}s` : `${liveMs / 1000}s`}).`
+    ? `Temps réel ON (${auto ? `auto ~${fmtCadence(effectiveMs)}` : fmtCadence(liveMs)}).`
     : "Temps réel OFF — snapshot statique (activez pour les courbes).";
   const chartHint = "En attente des premières mesures…";
 
@@ -1175,10 +1200,7 @@ export const DashboardSupervision = observer(() => {
                 title="Cadence auto (AIMD) — cadence réelle appliquée. Recule sous charge serveur, remonte quand c'est fluide. Réglage global dans le Hub."
                 style={{ fontVariantNumeric: "tabular-nums" }}
               >
-                auto ~
-                {effectiveMs < 1000
-                  ? `${effectiveMs}ms`
-                  : `${effectiveMs / 1000}s`}
+                auto ~{fmtCadence(effectiveMs)}
               </Badge>
             ) : null}
             {/* Badge « retard » (famine realtime) dans la top bar STICKY → toujours
@@ -1273,6 +1295,8 @@ export const DashboardSupervision = observer(() => {
                   value={String(liveMs)}
                   onChange={(v) => setLiveMs(Number(v))}
                   data={[
+                    { label: "250 ms", value: "250" },
+                    { label: "500 ms", value: "500" },
                     { label: "1 s", value: "1000" },
                     { label: "2 s", value: "2000" },
                     { label: "5 s", value: "5000" },
@@ -2192,7 +2216,7 @@ export const DashboardSupervision = observer(() => {
                     gc ? (
                       <Badge variant="light" color={gcOverheadColor}>
                         {gcOverhead.toFixed(1)}% · {gc.pauseMs.toFixed(0)} ms/
-                        {liveMs / 1000}s
+                        {fmtCadence(liveMs)}
                       </Badge>
                     ) : undefined
                   }
@@ -2222,7 +2246,7 @@ export const DashboardSupervision = observer(() => {
                                   label: "Overhead",
                                   value: `${gcOverhead.toFixed(1)}%`,
                                   color: gcOverheadColor,
-                                  info: `Part de l'intervalle (${liveMs / 1000}s) passée en pause GC (monde arrêté) = temps CPU volé par le GC. >1% = pression notable, >5% = le GC dégrade la latence. Pause totale : ${gc.pauseMs.toFixed(1)} ms.`,
+                                  info: `Part de l'intervalle (${fmtCadence(liveMs)}) passée en pause GC (monde arrêté) = temps CPU volé par le GC. >1% = pression notable, >5% = le GC dégrade la latence. Pause totale : ${gc.pauseMs.toFixed(1)} ms.`,
                                 },
                                 {
                                   k: "cycles",
@@ -3052,7 +3076,7 @@ export const DashboardSupervision = observer(() => {
                                   : undefined
                               }
                             >
-                              {stats.ctx.involuntary} /{liveMs / 1000}s
+                              {stats.ctx.involuntary} /{fmtCadence(liveMs)}
                             </Text>
                           </FlashValue>
                         ) : (
@@ -3082,7 +3106,7 @@ export const DashboardSupervision = observer(() => {
                       v={
                         stats?.ctx ? (
                           <FlashValue value={stats.ctx.voluntary}>
-                            {stats.ctx.voluntary} /{liveMs / 1000}s
+                            {stats.ctx.voluntary} /{fmtCadence(liveMs)}
                           </FlashValue>
                         ) : (
                           <Text inherit c="dimmed">
