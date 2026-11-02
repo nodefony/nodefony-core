@@ -19,6 +19,7 @@ import {
   rawBinaryUnderCodecNotice,
 } from "./notice";
 import { createIdempotencyKey } from "../../realtime/idempotencyKey";
+import { fillRoutePath } from "../../runtime/routePath";
 import {
   JsonRpcPeer,
   type IRealtimePeer,
@@ -73,6 +74,7 @@ import type {
   RoutesMap,
   ContractRouteBody,
   ContractRouteQuery,
+  ContractRouteParams,
   ContractRouteResult,
 } from "../../realtime/RealtimeEventMap";
 import { unrefTimer } from "../../runtime/unrefTimer";
@@ -119,7 +121,9 @@ export type {
   RoutesMap,
   ContractRouteBody,
   ContractRouteQuery,
+  ContractRouteParams,
   ContractRouteResult,
+  RoutePathParamNames,
 } from "../../realtime/RealtimeEventMap";
 import { PLATFORM_METHODS } from "../../realtime/platformChannels";
 import {
@@ -656,12 +660,18 @@ export interface RealtimeReconnectInfo {
 }
 
 /** Options d'une lecture par le pont (`get`). */
-export interface IBridgeReadOptions<Q = unknown> {
+export interface IBridgeReadOptions<Q = unknown, PR = unknown> {
   /**
    * Query, sérialisée dans le chemin (`?a=1&b=2`, une clé répétée par élément
    * d'un tableau). Valeurs scalaires seulement ; `undefined`/`null` omis.
    */
   query?: Q;
+  /**
+   * Valeurs des variables du gabarit (`/chat/messages/{id}` → `{ id }`), chacune
+   * encodée pour tenir dans UN segment. Une variable sans valeur, ou une valeur
+   * vide, `.` ou `..`, est refusée avant l'envoi (`TypeError`).
+   */
+  params?: PR;
   /** Délai avant rejet, en ms (défaut 30 s). */
   timeoutMs?: number;
 }
@@ -669,7 +679,8 @@ export interface IBridgeReadOptions<Q = unknown> {
 /** Options d'une écriture par le pont (`post`, `put`, `patch`, `delete`). */
 export interface IBridgeWriteOptions<
   Q = unknown,
-> extends IBridgeReadOptions<Q> {
+  PR = unknown,
+> extends IBridgeReadOptions<Q, PR> {
   /**
    * Clé d'idempotence — générée par défaut, une par appel. À fournir pour
    * dédoublonner une INTENTION (double clic : même clé pour deux appels), ou
@@ -699,30 +710,53 @@ type BridgeActions = {
   "api.request": { in: IBridgeRequestParams; out: unknown };
 };
 
+/** `true` quand une valeur DOIT être fournie (un champ exigé, au moins). */
+type MustProvide<V> = undefined extends V ? false : {} extends V ? false : true;
+
+/** Les champs d'options que la route exige : la query, les paramètres de chemin. */
+type ProvidedFields<Q, PR> = (MustProvide<Q> extends true
+  ? { query: Q }
+  : unknown) &
+  (MustProvide<PR> extends true ? { params: PR } : unknown);
+
 /**
- * Arguments d'une lecture : `options` devient OBLIGATOIRE quand la query
- * déclarée exige un champ.
+ * Arguments d'une lecture : `options` devient OBLIGATOIRE quand la query ou les
+ * paramètres de chemin de la route exigent une valeur.
  */
-type BridgeReadArgs<Q> = undefined extends Q
-  ? [options?: IBridgeReadOptions<Q>]
-  : {} extends Q
-    ? [options?: IBridgeReadOptions<Q>]
-    : [options: IBridgeReadOptions<Q> & { query: Q }];
+type BridgeReadArgs<Q, PR> = true extends MustProvide<Q> | MustProvide<PR>
+  ? [options: IBridgeReadOptions<Q, PR> & ProvidedFields<Q, PR>]
+  : [options?: IBridgeReadOptions<Q, PR>];
 
 /**
  * Arguments d'une écriture : le corps est OBLIGATOIRE quand le schéma de la
- * route l'exige, absent quand la route déclarée n'en a pas, libre hors contrat.
+ * route l'exige, absent quand la route déclarée n'en a pas, libre hors contrat ;
+ * `options` devient obligatoire quand le gabarit porte des variables — le corps
+ * se passe alors en clair, `undefined` s'il n'y en a pas.
  */
-type BridgeWriteArgs<R extends RoutesMap, K extends string> =
-  undefined extends ContractRouteBody<R, K>
+type BridgeWriteArgs<R extends RoutesMap, K extends string, P extends string> =
+  true extends MustProvide<ContractRouteParams<R, K, P>>
     ? [
-        body?: ContractRouteBody<R, K>,
-        options?: IBridgeWriteOptions<ContractRouteQuery<R, K>>,
-      ]
-    : [
         body: ContractRouteBody<R, K>,
-        options?: IBridgeWriteOptions<ContractRouteQuery<R, K>>,
-      ];
+        options: IBridgeWriteOptions<
+          ContractRouteQuery<R, K>,
+          ContractRouteParams<R, K, P>
+        > & { params: ContractRouteParams<R, K, P> },
+      ]
+    : undefined extends ContractRouteBody<R, K>
+      ? [
+          body?: ContractRouteBody<R, K>,
+          options?: IBridgeWriteOptions<
+            ContractRouteQuery<R, K>,
+            ContractRouteParams<R, K, P>
+          >,
+        ]
+      : [
+          body: ContractRouteBody<R, K>,
+          options?: IBridgeWriteOptions<
+            ContractRouteQuery<R, K>,
+            ContractRouteParams<R, K, P>
+          >,
+        ];
 
 /** Ajoute une query au chemin — scalaires seulement, `undefined`/`null` omis. */
 function withQuery(path: string, query: unknown): string {
@@ -1800,7 +1834,10 @@ export class NodefonySocket<
    */
   get<T = unknown, P extends `/${string}` = `/${string}`>(
     path: P,
-    ...options: BridgeReadArgs<ContractRouteQuery<Routes, `GET ${P}`>>
+    ...options: BridgeReadArgs<
+      ContractRouteQuery<Routes, `GET ${P}`>,
+      ContractRouteParams<Routes, `GET ${P}`, P>
+    >
   ): Promise<ContractRouteResult<Routes, `GET ${P}`, T>>;
   get(path: `/${string}`, options?: IBridgeReadOptions): Promise<unknown> {
     return this.bridge("GET", path, undefined, options);
@@ -1829,7 +1866,7 @@ export class NodefonySocket<
    */
   post<T = unknown, P extends `/${string}` = `/${string}`>(
     path: P,
-    ...args: BridgeWriteArgs<Routes, `POST ${P}`>
+    ...args: BridgeWriteArgs<Routes, `POST ${P}`, P>
   ): Promise<ContractRouteResult<Routes, `POST ${P}`, T>>;
   post(
     path: `/${string}`,
@@ -1842,7 +1879,7 @@ export class NodefonySocket<
   /** Remplace par le pont (`PUT`) — mêmes règles que {@link post}. */
   put<T = unknown, P extends `/${string}` = `/${string}`>(
     path: P,
-    ...args: BridgeWriteArgs<Routes, `PUT ${P}`>
+    ...args: BridgeWriteArgs<Routes, `PUT ${P}`, P>
   ): Promise<ContractRouteResult<Routes, `PUT ${P}`, T>>;
   put(
     path: `/${string}`,
@@ -1855,7 +1892,7 @@ export class NodefonySocket<
   /** Modifie par le pont (`PATCH`) — mêmes règles que {@link post}. */
   patch<T = unknown, P extends `/${string}` = `/${string}`>(
     path: P,
-    ...args: BridgeWriteArgs<Routes, `PATCH ${P}`>
+    ...args: BridgeWriteArgs<Routes, `PATCH ${P}`, P>
   ): Promise<ContractRouteResult<Routes, `PATCH ${P}`, T>>;
   patch(
     path: `/${string}`,
@@ -1868,7 +1905,7 @@ export class NodefonySocket<
   /** Supprime par le pont (`DELETE`) — mêmes règles que {@link post}. */
   delete<T = unknown, P extends `/${string}` = `/${string}`>(
     path: P,
-    ...args: BridgeWriteArgs<Routes, `DELETE ${P}`>
+    ...args: BridgeWriteArgs<Routes, `DELETE ${P}`, P>
   ): Promise<ContractRouteResult<Routes, `DELETE ${P}`, T>>;
   delete(
     path: `/${string}`,
@@ -1889,8 +1926,12 @@ export class NodefonySocket<
     body: unknown,
     options: IBridgeWriteOptions | undefined,
   ): Promise<unknown> {
-    const target =
-      options?.query === undefined ? path : withQuery(path, options.query);
+    // Un gabarit (`/chat/messages/{id}`) se remplit AVANT tout : chaque valeur
+    // encodée pour son segment. Un chemin concret ne paie qu'un `includes`.
+    let target: string = path.includes("{")
+      ? fillRoutePath(path, options?.params)
+      : path;
+    if (options?.query !== undefined) target = withQuery(target, options.query);
     const params: IBridgeRequestParams =
       method === "GET"
         ? { path: target }

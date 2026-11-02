@@ -526,6 +526,28 @@ describe("E2E isomorphe — ce qui casse : reconnexion, refus, pont", () => {
   );
 
   it(
+    "une route à paramètre appelée par son GABARIT rend la valeur du GET REST concret",
+    async () => {
+      installWebSocket(cookie);
+      const live = connectShared({ url: HUB });
+      live.start();
+      await until("connecté", () => live.socket.state === "connected");
+
+      // La socket remplit `{name}` ; le Router réel le reconnaît et le décode.
+      const parSocket = await live.socket.get(
+        "/nodefony/kernel/api/module/{name}",
+        { params: { name: "http" } },
+      );
+      const parRest = await request("/nodefony/kernel/api/module/http", "GET", {
+        cookie,
+      });
+      expect(parRest.status).toBe(200);
+      expect(parSocket).toEqual(parRest.body);
+    },
+    TIMEOUT,
+  );
+
+  it(
     "le pont refuse une route inconnue par une ERREUR NOMMÉE, pas par un silence",
     async () => {
       installWebSocket(cookie);

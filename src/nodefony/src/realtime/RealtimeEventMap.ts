@@ -198,6 +198,11 @@ export interface IContractRoute {
   body?: IStandardSchemaV1;
   /** Schéma de la query (`schema: { query }` de la route). */
   query?: IStandardSchemaV1;
+  /**
+   * Schéma des paramètres de chemin (`schema: { params }` de la route) ; absent,
+   * leurs noms sont lus dans le gabarit de la clé (`{id}`).
+   */
+  params?: IStandardSchemaV1;
   /** Ce que l'action rend. */
   result: unknown;
 }
@@ -212,7 +217,7 @@ export type RoutesMap = Record<`${BridgeVerb} /${string}`, IContractRoute>;
 type RoutePart<
   R,
   K extends keyof R,
-  M extends "body" | "query",
+  M extends "body" | "query" | "params",
 > = M extends keyof R[K]
   ? R[K] extends Partial<Record<M, infer S>>
     ? S extends IStandardSchemaV1
@@ -228,6 +233,36 @@ type RoutePart<
  */
 export type ContractRouteBody<R extends RoutesMap, K extends string> =
   K extends LiteralKeys<R> ? RoutePart<R, K, "body"> : unknown;
+
+/**
+ * Noms des variables d'un gabarit de chemin — `"/a/{id}/b/{slug}"` → `"id" | "slug"` ;
+ * `never` sans variable. Même lecture que `routePathParams` (`runtime/routePath.ts`).
+ */
+export type RoutePathParamNames<P extends string> =
+  P extends `${string}{${infer Name}}${infer Rest}`
+    ? Name | RoutePathParamNames<Rest>
+    : never;
+
+/** Les valeurs d'un gabarit sans schéma : une par variable, `undefined` sans variable. */
+type TemplateParams<P extends string> = [RoutePathParamNames<P>] extends [never]
+  ? undefined
+  : Record<RoutePathParamNames<P>, string | number>;
+
+/**
+ * Les paramètres de chemin qu'accepte une route du pont : l'entrée de son schéma
+ * `params` quand la route déclarée en a un, sinon une valeur par `{nom}` du
+ * gabarit `P` — sous contrat comme hors contrat.
+ */
+export type ContractRouteParams<
+  R extends RoutesMap,
+  K extends string,
+  P extends string,
+> =
+  K extends LiteralKeys<R>
+    ? "params" extends keyof R[K & keyof R]
+      ? RoutePart<R, K & keyof R, "params">
+      : TemplateParams<P>
+    : TemplateParams<P>;
 
 /** La query qu'accepte une route du pont — pendant de {@link ContractRouteBody}. */
 export type ContractRouteQuery<R extends RoutesMap, K extends string> =
@@ -387,7 +422,7 @@ export type ContractClientRoutes<C extends IRealtimeContract> = ContractSide<
 /**
  * Table de VALEURS qu'un contrôleur de contrat déclare pour que le démarrage
  * vérifie ses `serverRoutes` : une entrée par route du contrat, portant le
- * schéma même que la route valide (`body`, `query`). Écrite côté serveur
+ * schéma même que la route valide (`body`, `query`, `params`). Écrite côté serveur
  * seulement — le navigateur ne la voit jamais, donc n'embarque aucun schéma.
  *
  * @example
@@ -403,7 +438,7 @@ export type ContractClientRoutes<C extends IRealtimeContract> = ContractSide<
 export type ContractRouteSchemas<C extends IRealtimeContract> = {
   [K in LiteralKeys<ContractClientRoutes<C>>]: {
     [
-      P in keyof ContractClientRoutes<C>[K] & ("body" | "query")
+      P in keyof ContractClientRoutes<C>[K] & ("body" | "query" | "params")
     ]: ContractClientRoutes<C>[K][P];
   };
 };

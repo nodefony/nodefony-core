@@ -2,6 +2,7 @@ import type { AdminHttpMethod, IAdminEndpoint } from "../../types/IAdminApi";
 import type { IAdminBrokerLike } from "../inspect/adminSubjects";
 import type { IAdminCaller } from "./adminCaller";
 import { isAdminGranted, resolveAdminRole } from "./adminRbac";
+import { routePathParams } from "../../runtime/routePath";
 
 /**
  * Un endpoint du plan d'administration, tel qu'une porte sans session peut le
@@ -74,23 +75,6 @@ export interface IAdminCatalogView {
   denied: number;
   /** Écartés par la restriction de lecture demandée ({@link IAdminCatalogQuery}). */
   filtered: number;
-}
-
-/** Variables d'un chemin de route (`module/{name}/docs/{slug}` → name, slug). */
-const PATH_VARIABLE = /\{([^}]+)\}/gu;
-
-/**
- * Noms des variables portées par un chemin de route.
- *
- * @param path - chemin déclaré par le producteur.
- * @returns les noms, dans l'ordre d'apparition.
- */
-function pathParams(path: string): string[] {
-  const found: string[] = [];
-  for (const match of path.matchAll(PATH_VARIABLE)) {
-    if (match[1]) found.push(match[1]);
-  }
-  return found;
 }
 
 /**
@@ -225,7 +209,7 @@ export function adminReadCatalog(
         path: endpoint.path,
         method: "GET",
         summary: endpoint.summary ?? "",
-        params: pathParams(endpoint.path),
+        params: routePathParams(endpoint.path),
         ...(endpoint.page ? { page: readPageCapabilities(endpoint.page) } : {}),
       };
       if (!matches(entry, terms)) {

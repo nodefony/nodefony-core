@@ -1112,8 +1112,26 @@ await chatSocket.post("/chat/send"); // ✗ le schéma exige un corps
 
 Un chemin **hors contrat** reste libre — `chatSocket.get("/stats")` rend `unknown`,
 `chatSocket.get<Stats>("/stats")` le type choisi — : le contrat type ce qu'il déclare, il n'interdit
-rien d'autre. Une route à paramètre (`/messages/{id}`) n'est pas typée par le contrat : la clé est un
-chemin littéral.
+rien d'autre.
+
+Une route à **paramètre de chemin** se déclare par son gabarit — la clé est le chemin de la route,
+`{id}` compris — et s'appelle en NOMMANT ce gabarit ; la socket le remplit :
+
+```ts ignore
+// contrat — la route valide `schema: { params: IdParams }`
+"GET /chat/messages/{id}": { params: typeof IdParams; result: ChatMessage };
+
+// navigateur
+const m = await chatSocket.get("/chat/messages/{id}", { params: { id } });
+await chatSocket.get("/chat/messages/{id}");                 // ✗ `params.id` manquant
+```
+
+Chaque valeur est encodée pour tenir dans **un** segment : un identifiant qui contient `/` ou `?`
+ne peut pas détourner l'appel vers une autre route, et une valeur vide, `.` ou `..` — que la
+normalisation du chemin résoudrait en remontant d'un cran — est refusée avant l'envoi. Sans
+schéma `params`, les valeurs sont typées par les `{noms}` du gabarit. Seuls des segments
+`{nom}` entiers se déclarent : une contrainte s'écrit dans `requirements` de la route, pas en
+ligne (`{id}(\d+)`) — le démarrage le refuse en nommant l'entrée.
 
 #### Ce que le démarrage refuse
 

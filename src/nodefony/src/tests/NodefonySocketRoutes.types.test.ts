@@ -24,6 +24,7 @@ const SendBody = z.object({
 });
 const HistoryQuery = z.object({ limit: z.number().int() });
 const PageQuery = z.object({ page: z.number().optional() });
+const IdParams = z.object({ id: z.string() });
 
 interface ChatMessage {
   text: string;
@@ -36,6 +37,8 @@ interface ChatContract extends IRealtimeContract {
     "GET /chat/history": { query: typeof HistoryQuery; result: ChatMessage[] };
     "GET /chat/rooms": { query: typeof PageQuery; result: string[] };
     "DELETE /chat/message": { result: void };
+    "GET /chat/messages/{id}": { params: typeof IdParams; result: ChatMessage };
+    "DELETE /chat/messages/{id}": { result: { deleted: string } };
   };
 }
 
@@ -86,6 +89,32 @@ function _typeOnly(): void {
   // @ts-expect-error — renommé : `post`/`put`/`patch`/`delete`
   void chat.mutate("/chat/send", { method: "POST", idempotencyKey: "k" });
 
+  // ── Routes à paramètres de chemin : on NOMME le gabarit, la socket le remplit ─
+  // Schéma `params` déclaré : les valeurs sont son entrée.
+  expectType<Promise<{ text: string; at: string }>>(
+    chat.get("/chat/messages/{id}", { params: { id: "42" } }),
+  );
+  // @ts-expect-error — le gabarit porte `{id}` : les options sont exigées
+  void chat.get("/chat/messages/{id}");
+  // @ts-expect-error — `params` exigé
+  void chat.get("/chat/messages/{id}", { timeoutMs: 10 });
+  // @ts-expect-error — le schéma attend une chaîne
+  void chat.get("/chat/messages/{id}", { params: { id: 42 } });
+  // @ts-expect-error — `idd` n'est pas une variable de la route
+  void chat.get("/chat/messages/{id}", { params: { idd: "42" } });
+  // Sans schéma : une valeur par `{nom}` du gabarit, texte ou nombre.
+  expectType<Promise<{ deleted: string }>>(
+    chat.delete("/chat/messages/{id}", undefined, { params: { id: 7 } }),
+  );
+  // @ts-expect-error — `params` exigé
+  void chat.delete("/chat/messages/{id}");
+  // Hors contrat, le gabarit type quand même ses variables.
+  expectType<Promise<unknown>>(
+    chat.get("/ailleurs/{a}/{b}", { params: { a: 1, b: "z" } }),
+  );
+  // @ts-expect-error — `b` manque
+  void chat.get("/ailleurs/{a}/{b}", { params: { a: 1 } });
+
   // ── Socket non paramétrée : permissive ────────────────────────────────────
   const raw = new NodefonySocket({ url: "/x" });
   expectType<Promise<unknown>>(raw.post("/chat/send", { texte: "x" }));
@@ -96,12 +125,16 @@ function _typeOnly(): void {
     "GET /chat/history": { query: HistoryQuery },
     "GET /chat/rooms": { query: PageQuery },
     "DELETE /chat/message": {},
+    "GET /chat/messages/{id}": { params: IdParams },
+    "DELETE /chat/messages/{id}": {},
   } satisfies ContractRouteSchemas<ChatContract>;
   void routes;
   const missing = {
     "POST /chat/send": { body: SendBody },
     "GET /chat/history": { query: HistoryQuery },
     "GET /chat/rooms": { query: PageQuery },
+    "GET /chat/messages/{id}": { params: IdParams },
+    "DELETE /chat/messages/{id}": {},
     // @ts-expect-error — `DELETE /chat/message` manque à la table
   } satisfies ContractRouteSchemas<ChatContract>;
   void missing;
@@ -111,8 +144,20 @@ function _typeOnly(): void {
     "GET /chat/history": { query: HistoryQuery },
     "GET /chat/rooms": { query: PageQuery },
     "DELETE /chat/message": {},
+    "GET /chat/messages/{id}": { params: IdParams },
+    "DELETE /chat/messages/{id}": {},
   } satisfies ContractRouteSchemas<ChatContract>;
   void wrongSchema;
+  const missingParams = {
+    "POST /chat/send": { body: SendBody },
+    "GET /chat/history": { query: HistoryQuery },
+    "GET /chat/rooms": { query: PageQuery },
+    "DELETE /chat/message": {},
+    // @ts-expect-error — le schéma `params` de la route manque
+    "GET /chat/messages/{id}": {},
+    "DELETE /chat/messages/{id}": {},
+  } satisfies ContractRouteSchemas<ChatContract>;
+  void missingParams;
 }
 void _typeOnly;
 

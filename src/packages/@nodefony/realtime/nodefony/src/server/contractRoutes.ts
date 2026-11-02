@@ -1,4 +1,4 @@
-import { BootConfigurationError } from "nodefony";
+import { BootConfigurationError, isSimpleRouteTemplate } from "nodefony";
 import type { BridgeVerb } from "nodefony";
 import { isRecord } from "../guards";
 
@@ -12,7 +12,11 @@ export interface IMountedBridgeRoute {
   /** Méthodes acceptées, en capitales ; `undefined` = toutes. */
   readonly methods: ReadonlySet<string> | undefined;
   /** Schémas d'entrée de l'action (`schema` de la route), ou `null`. */
-  readonly schema: { readonly body?: unknown; readonly query?: unknown } | null;
+  readonly schema: {
+    readonly body?: unknown;
+    readonly query?: unknown;
+    readonly params?: unknown;
+  } | null;
 }
 
 const BRIDGE_VERBS: ReadonlySet<string> = new Set<BridgeVerb>([
@@ -22,7 +26,7 @@ const BRIDGE_VERBS: ReadonlySet<string> = new Set<BridgeVerb>([
   "PATCH",
   "DELETE",
 ]);
-const ROUTE_PARTS = ["body", "query"] as const;
+const ROUTE_PARTS = ["body", "query", "params"] as const;
 
 /** Chemin comparable : barres finales retirées, la racine reste `/`. */
 function normalizePath(path: string): string {
@@ -102,15 +106,27 @@ export function assertContractRoutes(
     const declared = table[entry];
     if (!isRecord(declared)) {
       throw new BootConfigurationError(
-        `${where} : la valeur s'écrit { body?, query? } (les schémas de la route).`,
+        `${where} : la valeur s'écrit { body?, query?, params? } (les schémas de la route).`,
       );
     }
     for (const key in declared) {
-      if (key !== "body" && key !== "query") {
+      if (key !== "body" && key !== "query" && key !== "params") {
         throw new BootConfigurationError(
-          `${where} : clé « ${key} » inconnue — seuls body et query se déclarent.`,
+          `${where} : clé « ${key} » inconnue — seuls body, query et params se déclarent.`,
         );
       }
+    }
+    // Un gabarit de contrat n'admet que des segments `{nom}` entiers : la
+    // socket le remplit avec la grammaire simple du cœur (`fillRoutePath`), et
+    // une contrainte en ligne ou un segment facultatif y seraient lus autrement
+    // que par le routeur. Une telle route se contraint par `requirements`.
+    if (!isSimpleRouteTemplate(rawPath)) {
+      throw new BootConfigurationError(
+        `${where} : seuls des segments « {nom} » entiers se déclarent dans un ` +
+          `contrat — pas de contrainte en ligne « {id}(\\d+) », de segment ` +
+          `facultatif « {slug}? » ni de variable collée « .{format} ». ` +
+          `Contraindre la variable par « requirements » sur la route.`,
+      );
     }
     const path = normalizePath(rawPath);
     const atPath = mounted.filter((r) => normalizePath(r.path) === path);

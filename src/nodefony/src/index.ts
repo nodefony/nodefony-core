@@ -374,7 +374,9 @@ export type {
   RoutesMap,
   ContractRouteBody,
   ContractRouteQuery,
+  ContractRouteParams,
   ContractRouteResult,
+  RoutePathParamNames,
   RealtimeIdentity,
   IRealtimeWelcome,
   IRealtimeDenied,
@@ -819,6 +821,13 @@ export {
   SchemaValidationError,
   toSchemaValidationIssues,
 } from "./runtime/standardSchema";
+// Gabarit d'un chemin de route (`/chat/messages/{id}`) — lu, rempli et vérifié
+// hors du routeur ; isomorphe (aussi dans `nodefony/client`).
+export {
+  routePathParams,
+  isSimpleRouteTemplate,
+  fillRoutePath,
+} from "./runtime/routePath";
 export type {
   IStandardSchemaV1,
   IStandardSchemaProps,

@@ -505,6 +505,45 @@ describe("NodefonySocket — RPC (path, ping, register)", () => {
     client.disconnect();
   });
 
+  it("gabarit + params → chemin rempli, chaque valeur encodée pour son segment", async () => {
+    const client = await connected();
+    void client
+      .get("/chat/messages/{id}", {
+        params: { id: "a/b" },
+        query: { v: 1 },
+        timeoutMs: 50,
+      })
+      .catch(() => undefined);
+    expect(lastBridgeFrame().params.path).to.equal("/chat/messages/a%2Fb?v=1");
+    void client
+      .delete("/chat/messages/{id}", undefined, {
+        params: { id: 7 },
+        timeoutMs: 50,
+      })
+      .catch(() => undefined);
+    expect(lastBridgeFrame().params).to.include({
+      path: "/chat/messages/7",
+      method: "DELETE",
+    });
+    client.disconnect();
+  });
+
+  it("gabarit sans sa valeur, ou valeur `..` → TypeError AVANT d'émettre", async () => {
+    const client = await connected();
+    const before = current().sent.length;
+    // Appel non typé : ce que ferait un JavaScript, ou une valeur venue du réseau.
+    const untyped: (path: `/${string}`, o?: object) => Promise<unknown> = (
+      path,
+      o,
+    ) => client.get(path, o);
+    expect(() => untyped("/chat/messages/{id}")).to.throw(TypeError, /« id »/);
+    expect(() =>
+      client.get("/chat/messages/{id}", { params: { id: ".." } }),
+    ).to.throw(TypeError, /« \.\. »/);
+    expect(current().sent.length).to.equal(before);
+    client.disconnect();
+  });
+
   it("post → verbe + corps + clé d'idempotence GÉNÉRÉE, une par appel", async () => {
     const client = await connected();
     void client

@@ -596,6 +596,20 @@ typeof SendBody; result: … }`, import de type seul) ; un contrôle au démarra
     perdrait la re-validation d'identité à chaque appel, `@Idempotent` et la validation, que le
     pont porte (`RealtimeController.ts#RealtimeController.invokeApiRequest`) ; recopier la forme
     du corps dans le contrat (deux sources). #708.
+    **Décision (validée par l'auteur le 2026-11-02) :** une route à paramètre de chemin se
+    déclare par son GABARIT — la clé est le chemin de la route, `"GET /chat/messages/{id}"` — et
+    s'appelle en le nommant (`chat.get("/chat/messages/{id}", { params: { id } })`) ; la socket
+    le remplit (`src/nodefony/src/runtime/routePath.ts#fillRoutePath`), chaque valeur encodée pour
+    SON segment, et refuse une valeur manquante, vide, `.` ou `..` (la normalisation la
+    résoudrait). `params` = entrée du schéma `params` de la route, sinon les `{noms}` du gabarit.
+    Seuls des segments `{nom}` entiers se déclarent (`routePath.ts#isSimpleRouteTemplate`, refus
+    au démarrage) ; une contrainte passe par `requirements`. Une seule lecture de la forme simple
+    au cœur (`routePathParams`, partagée avec le catalogue d'administration), confrontée au
+    Router par `src/packages/@nodefony/framework/nodefony/tests/unit/routePathParity.test.ts`.
+    Écarté : appeler par l'URL concrète typée par un motif (`"GET /m/${string}"`) — une clé en
+    motif échappe à `ContractRouteSchemas`, et le contrôle au démarrage se taisait (constaté à la
+    compilation). Corollaire : le pont route le chemin dans la forme que HTTP lui donne
+    (`parseRequestTarget`, `@nodefony/http`), sinon `/x/` divergeait d'une porte à l'autre. #708.
   - **Lecture côté navigateur (D3)** : les hooks React et Vue prennent la socket typée
     (`useNodefonyChannelData(chat, "chat:presence", initial)`) ; nom et charge déduits, plus de
     `<T>` écrit par le lecteur. Studio, premier consommateur, porte son contrat partagé et

@@ -26,6 +26,7 @@ const schema = (): IStandardSchemaV1 => ({
 const SendBody = schema();
 const OtherBody = schema();
 const HistoryQuery = schema();
+const IdParams = schema();
 
 const mounted: IMountedBridgeRoute[] = [
   {
@@ -40,6 +41,12 @@ const mounted: IMountedBridgeRoute[] = [
   },
   { path: "/chat/rooms", methods: undefined, schema: null },
   { path: "/chat/http-only", methods: new Set(["POST"]), schema: null },
+  {
+    path: "/chat/messages/{id}",
+    methods: new Set(["GET", "DELETE", "WEBSOCKET"]),
+    schema: { params: IdParams },
+  },
+  { path: "/items/{id}(\\d+)", methods: undefined, schema: null },
 ];
 
 /** Le message de l'erreur de démarrage levée, ou `null` si rien n'est levé. */
@@ -92,11 +99,38 @@ describe("contrat de routes — contrôle au démarrage", () => {
     );
   });
 
+  it("accepte un gabarit simple avec le MÊME schéma params, refuse un autre", () => {
+    expect(
+      failure({
+        "GET /chat/messages/{id}": { params: IdParams },
+        "DELETE /chat/messages/{id}": { params: IdParams },
+      }),
+    ).to.equal(null);
+    expect(failure({ "GET /chat/messages/{id}": {} })).to.match(
+      /« params » n'est pas déclaré, mais la route en valide un/,
+    );
+    expect(
+      failure({ "GET /chat/messages/{id}": { params: OtherBody } }),
+    ).to.match(/« params » n'est pas celui que la route valide/);
+  });
+
+  it("refuse un gabarit qui n'est pas fait de segments « {nom} » entiers", () => {
+    for (const key of [
+      "GET /items/{id}(\\d+)",
+      "GET /docs/{slug}?",
+      "GET /export/{name}.{format}",
+    ]) {
+      expect(failure({ [key]: {} }), key).to.match(
+        /seuls des segments « \{nom\} » entiers/,
+      );
+    }
+  });
+
   it("refuse une clé ou une valeur mal formée", () => {
     expect(failure({ "SEND /chat/send": {} })).to.match(/<VERBE> <chemin>/);
     expect(failure({ "POST chat/send": {} })).to.match(/<VERBE> <chemin>/);
     expect(failure({ "POST /chat/send": null })).to.match(
-      /\{ body\?, query\? \}/,
+      /\{ body\?, query\?, params\? \}/,
     );
     expect(
       failure({ "POST /chat/send": { body: SendBody, result: 1 } }),

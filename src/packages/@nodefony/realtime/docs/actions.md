@@ -925,8 +925,12 @@ l'implémente déclare donc la **valeur** — la table statique `serverRoutes`, 
 ContractRouteSchemas<C>` — et le démarrage la confronte aux routes montées
 (`contractRoutes.ts#assertContractRoutes`) : route absente, route sans transport `WEBSOCKET` pour ce
 verbe, ou autre schéma que celui que la route valide → démarrage refusé, l'entrée nommée. Un
-chemin hors contrat reste libre ; une route à paramètre (`/messages/{id}`) n'est pas typée, la clé
-étant un chemin littéral. Le chat complet, messages privés compris :
+chemin hors contrat reste libre. Une route à **paramètre de chemin** se déclare par son gabarit
+(`"GET /chat/messages/{id}": { params: typeof IdParams; result }`) et s'appelle en le nommant :
+`chat.get("/chat/messages/{id}", { params: { id } })` — la socket encode chaque valeur pour son
+segment (`runtime/routePath.ts#fillRoutePath`) et refuse une valeur manquante, vide, `.` ou `..`.
+Seuls des segments `{nom}` entiers se déclarent (`routePath.ts#isSimpleRouteTemplate`) : une
+contrainte passe par `requirements`. Le chat complet, messages privés compris :
 [cookbook](./cookbook-chat.md#quatre--un-contrat-pour-les-deux-côtés--lenvoi-et-les-messages-privés-typés).
 
 ## ⚠️ Pièges

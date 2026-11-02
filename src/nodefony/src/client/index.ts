@@ -18,6 +18,7 @@ import {
 } from "../Tools";
 import { NodefonySocket } from "./realtime/NodefonySocket";
 import { createIdempotencyKey } from "../realtime/idempotencyKey";
+import { fillRoutePath, routePathParams } from "../runtime/routePath";
 import { NodefonySse } from "./sse/NodefonySse";
 import { SseParser, SseLimitError, SSE_MAX_EVENT_SIZE } from "./sse/SseParser";
 import { closeCodeToNotice } from "./realtime/notice";
@@ -63,7 +64,9 @@ export type {
   RoutesMap,
   ContractRouteBody,
   ContractRouteQuery,
+  ContractRouteParams,
   ContractRouteResult,
+  RoutePathParamNames,
   IBridgeReadOptions,
   IBridgeWriteOptions,
 } from "./realtime/NodefonySocket";
@@ -216,6 +219,8 @@ export {
   isSubclassOf,
   NodefonySocket,
   createIdempotencyKey,
+  fillRoutePath,
+  routePathParams,
   NodefonySse,
   SseParser,
   SseLimitError,
