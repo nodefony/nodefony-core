@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import type { ISubscriberIdentity } from "nodefony";
 import { RealtimeController } from "../../src/server/RealtimeController";
+import { RealtimeChannel } from "../../decorators/realtimeDecorators";
 import { getRealtimeHub } from "../../src/server/RealtimeHub";
 import { createRealtimeHarness } from "../../testing/index";
 import type { IRealtimeHarness } from "../../testing/index";
@@ -169,6 +170,42 @@ describe("#700 — cas d'usage du temps réel, exécutés", () => {
       { step: "rédaction" },
     ]);
     expect(closedOf(h)).to.deep.equal([{ channel: task, reason: "ended" }]);
+  });
+});
+
+describe("#700 — un motif décoré pose la POLITIQUE, jamais la fabrique", () => {
+  // Le skill livré montrait `@RealtimeChannel("room:*", { allow })` seul : la
+  // politique couvre toute la famille, mais une fabrique décorée n'est trouvée
+  // que par son nom EXACT — `room:42` n'en a pas. Sans `createRealtimeChannel`,
+  // l'abonnement est refusé, et un test qui ne s'abonne jamais reste vert.
+  class PolicyOnly extends RealtimeController {
+    constructor(ctx: ConstructorParameters<typeof RealtimeController>[1]) {
+      super("PolicyOnly", ctx);
+    }
+    @RealtimeChannel("room:*", { allow: () => true })
+    room(): () => void {
+      return () => {};
+    }
+  }
+  class WithFactory extends PolicyOnly {
+    override createRealtimeChannel(channel: string): (() => void) | null {
+      return channel.startsWith("room:") ? () => {} : null;
+    }
+  }
+
+  it("sans fabrique, `room:42` est refusé `unknown`", async () => {
+    const h = await connect((ctx) => new PolicyOnly(ctx), "alice");
+    await h.subscribe("room:42");
+    await flush();
+    expect(h.subscriptions()).to.deep.equal([]);
+    expect(h.denials().map((d) => d.reason)).to.deep.equal(["unknown"]);
+  });
+
+  it("avec `createRealtimeChannel`, `room:42` est servi et `allow` tranche", async () => {
+    const h = await connect((ctx) => new WithFactory(ctx), "alice");
+    await h.subscribe("room:42");
+    await flush();
+    expect(h.subscriptions()).to.deep.equal(["room:42"]);
   });
 });
 

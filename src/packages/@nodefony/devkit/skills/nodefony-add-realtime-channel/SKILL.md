@@ -102,6 +102,13 @@ déclare par un **motif**, et la question à se poser est « qui a le droit d'en
 room(): () => void {
   return () => {};
 }
+
+// 🔴 Le motif pose la POLITIQUE de toute la famille, pas la FABRIQUE : une fabrique
+// décorée n'est trouvée que par son nom exact. `room:42` est servi par celle-ci —
+// sans elle, l'abonnement est refusé (`realtime:denied { reason: "unknown" }`).
+override createRealtimeChannel(channel: string): (() => void) | null {
+  return channel.startsWith("room:") ? () => {} : null;
+}
 ```
 
 **Exclure quelqu'un** = retirer son appartenance (`allow` dira non), PUIS
