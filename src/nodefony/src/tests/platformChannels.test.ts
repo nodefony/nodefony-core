@@ -44,6 +44,7 @@ describe("Espace de nommage des surfaces de plateforme", () => {
       scaffoldPreview: "nodefony:scaffold:preview",
       scaffoldRun: "nodefony:scaffold:run",
       scaffoldCancel: "nodefony:scaffold:cancel",
+      throughput: "nodefony:realtime:throughput",
     });
   });
 

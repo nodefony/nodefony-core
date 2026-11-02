@@ -112,6 +112,31 @@ export {
   BYTES_MARKER_HEADER,
   textCodecForMarker,
 } from "../realtime/jsonFrameCodec";
+// Séries numériques sur le fil : octets petit-boutistes (#618 D5/D10), et
+// charge de la sonde de débit (#618 D6) — isomorphes.
+export {
+  toLittleEndianBytes,
+  fromLittleEndianBytes,
+  PLATFORM_LITTLE_ENDIAN,
+} from "../realtime/typedArrayBytes";
+export type {
+  NumericArray,
+  INumericArrayConstructor,
+} from "../realtime/typedArrayBytes";
+export {
+  THROUGHPUT_PAYLOAD_SIZES,
+  isThroughputPayloadSize,
+  createThroughputPayload,
+} from "../realtime/throughputProbe";
+export type { ThroughputPayloadSize } from "../realtime/throughputProbe";
+export {
+  SUPERVISION_HISTORY_COLUMNS,
+  SUPERVISION_LOOP_BANDS,
+} from "../realtime/supervisionHistory";
+export type {
+  ISupervisionHistory,
+  SupervisionHistoryPoint,
+} from "../realtime/supervisionHistory";
 export type { IFrameCodec } from "../realtime/IFrameCodec";
 export type {
   IRealtimeTransport,

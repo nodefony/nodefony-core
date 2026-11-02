@@ -118,6 +118,11 @@ export const PLATFORM_METHODS = {
   scaffoldRun: "nodefony:scaffold:run",
   /** Demande l'arrêt d'un job de génération en cours. */
   scaffoldCancel: "nodefony:scaffold:cancel",
+  /**
+   * Renvoie une charge d'octets de taille fixe (`THROUGHPUT_PAYLOAD_SIZES`),
+   * serveur → client : mesure du coût d'un codec sur le fil.
+   */
+  throughput: "nodefony:realtime:throughput",
 } as const;
 
 /**

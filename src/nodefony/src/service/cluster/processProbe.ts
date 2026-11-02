@@ -47,9 +47,30 @@ export function readEventLoopDelay(
   if (histogram.count === 0 || !Number.isFinite(histogram.mean)) {
     return { meanMs: 0, maxMs: 0 };
   }
-  const lag = (ns: number): number =>
-    Math.max(0, Math.round((ns / 1e6 - resolutionMs) * 100) / 100);
-  return { meanMs: lag(histogram.mean), maxMs: lag(histogram.max) };
+  return {
+    meanMs: eventLoopLagMs(histogram.mean, resolutionMs),
+    maxMs: eventLoopLagMs(histogram.max, resolutionMs),
+  };
+}
+
+/**
+ * Convertit une valeur lue sur un histogramme `monitorEventLoopDelay`
+ * (moyenne, max, percentile — en nanosecondes) en retard RÉEL de la boucle,
+ * en ms arrondies au centième.
+ *
+ * Seul endroit où la période d'échantillonnage est retranchée (cf
+ * {@link readEventLoopDelay}) : un percentile lu sans elle annoncerait
+ * 20 ms de retard sur une boucle libre.
+ *
+ * @param ns - valeur de l'histogramme, en nanosecondes.
+ * @param resolutionMs - résolution de l'histogramme, en ms.
+ * @returns le retard, en ms, jamais négatif.
+ */
+export function eventLoopLagMs(
+  ns: number,
+  resolutionMs: number = EVENT_LOOP_RESOLUTION_MS,
+): number {
+  return Math.max(0, Math.round((ns / 1e6 - resolutionMs) * 100) / 100);
 }
 
 /**

@@ -280,6 +280,31 @@ export {
   realtimePayloadError,
   binaryPayloadLabel,
 } from "./realtime/payload";
+// Séries numériques sur le fil : octets petit-boutistes (#618 D5/D10), et
+// charge de la sonde de débit (#618 D6) — isomorphes.
+export {
+  toLittleEndianBytes,
+  fromLittleEndianBytes,
+  PLATFORM_LITTLE_ENDIAN,
+} from "./realtime/typedArrayBytes";
+export type {
+  NumericArray,
+  INumericArrayConstructor,
+} from "./realtime/typedArrayBytes";
+export {
+  THROUGHPUT_PAYLOAD_SIZES,
+  isThroughputPayloadSize,
+  createThroughputPayload,
+} from "./realtime/throughputProbe";
+export type { ThroughputPayloadSize } from "./realtime/throughputProbe";
+export {
+  SUPERVISION_HISTORY_COLUMNS,
+  SUPERVISION_LOOP_BANDS,
+} from "./realtime/supervisionHistory";
+export type {
+  ISupervisionHistory,
+  SupervisionHistoryPoint,
+} from "./realtime/supervisionHistory";
 export { JSON_PROTOCOL } from "./realtime/IFrameCodec";
 export type { IFrameCodec } from "./realtime/IFrameCodec";
 export {
@@ -391,6 +416,7 @@ export {
   ProcessProbe,
   readEventLoopDelay,
   EVENT_LOOP_RESOLUTION_MS,
+  eventLoopLagMs,
 } from "./service/cluster/processProbe";
 export type {
   IProcessHealth,
