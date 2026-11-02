@@ -192,4 +192,11 @@ runs:
         # laisserait vivants, tenant les ports pour le décor suivant), attente de
         # la mort EFFECTIVE, purge du fichier d'état. Idempotent : rien à arrêter
         # n'est pas une erreur.
+        # Appelé en `always()` : si une étape a échoué AVANT l'installation (vécu :
+        # Docker Hub en 502 au tirage du décor), il n'y a ni CLI ni serveur — un
+        # MODULE_NOT_FOUND ici ajouterait un second rouge qui masque la vraie cause.
+        if [ ! -f node_modules/nodefony/bin/nodefony ]; then
+          echo "Rien à arrêter : la CLI n'est pas installée (échec antérieur à l'installation)."
+          exit 0
+        fi
         node node_modules/nodefony/bin/nodefony stop
