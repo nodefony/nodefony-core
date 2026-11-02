@@ -51,6 +51,7 @@ import {
   markRaw,
   onScopeDispose,
   shallowRef,
+  isRef,
   toValue,
   watch,
   type App,
@@ -93,7 +94,12 @@ import {
   type ObserveNoticeLogOptions,
   type ObserveSyslogOptions,
   type SocketSnapshot,
+  type ChannelSocket,
+  type ChannelPayload,
+  type ChannelHandler,
+  requireChannelHandler,
 } from "../realtime/observe";
+import type { EventNames, EventsMap } from "../../realtime/RealtimeEventMap";
 import {
   initialSseSnapshot,
   observeSse,
@@ -233,6 +239,15 @@ export const nodefonyVue: Plugin<[NodefonyVueOptions]> = {
  *   en production — mieux vaut une erreur au premier rendu.
  */
 export function useNodefony(): NodefonySocket {
+  return injectedSocket();
+}
+
+/**
+ * La socket posée par le plugin. Lue aussi par les deux formes des composables
+ * de canal, dont l'une ne la demande pas : `inject` ne dépend d'aucun ordre
+ * d'appel en Vue, et ce nom sans `use` le dit à l'analyse statique.
+ */
+function injectedSocket(): NodefonySocket {
   const client = inject(nodefonyClientKey, null);
   if (!client) {
     throw new Error(
@@ -392,12 +407,83 @@ export function useNodefonyKernelIdentity(): Readonly<
  *
  * Le canal accepte une `ref` ou une fonction : l'abonnement suit alors la
  * valeur, en libérant l'ancien avant de prendre le nouveau.
+ *
+ * **Deux formes.** La socket typée par le contrat en tête
+ * (`NodefonySocket.fromContract<C>()`) : le nom est contraint aux canaux que le
+ * contrat déclare côté écoute, et la charge en est déduite — rien à écrire à la
+ * main. Le nom seul lit la socket posée par le plugin, comme toujours ; la
+ * charge y reste celle qu'on annonce. Une socket fournie appartient à
+ * l'application : la liaison ne l'ouvre ni ne la ferme.
+ *
+ * @example
+ * ```ts
+ * useNodefonyChannel(chat, "chat:room", (m) => add(m)); // m : ChatMessage
+ * ```
  */
+export function useNodefonyChannel<
+  L extends EventsMap,
+  K extends EventNames<L>,
+>(
+  socket: ChannelSocket<L>,
+  channel: MaybeRefOrGetter<K>,
+  onMessage: (payload: ChannelPayload<L, K>) => void,
+): void;
 export function useNodefonyChannel(
   channel: MaybeRefOrGetter<string>,
   onMessage: (payload: unknown) => void,
+): void;
+export function useNodefonyChannel(
+  first: NodefonySocket | MaybeRefOrGetter<string>,
+  second: unknown,
+  third?: unknown,
 ): void {
-  const client = useNodefony();
+  if (isSocketArg(first)) {
+    bindChannel(
+      first,
+      channelArg(second),
+      requireChannelHandler(third, "useNodefonyChannel()"),
+    );
+  } else {
+    bindChannel(
+      injectedSocket(),
+      first,
+      requireChannelHandler(second, "useNodefonyChannel()"),
+    );
+  }
+}
+
+/**
+ * Le premier argument est-il la socket (forme typée par le contrat) plutôt
+ * qu'un nom de canal ? Un nom est une chaîne, une `ref` ou une fonction ; la
+ * socket est le seul objet qui n'est pas une `ref`.
+ */
+function isSocketArg(
+  value: NodefonySocket | MaybeRefOrGetter<string>,
+): value is NodefonySocket {
+  return typeof value === "object" && !isRef(value);
+}
+
+/** Un nom de canal (constante, `ref` ou fonction) à sa place d'argument. */
+function channelArg(value: unknown): MaybeRefOrGetter<string> {
+  if (!isChannelSource(value)) {
+    throw new TypeError("useNodefonyChannel*() : nom de canal attendu.");
+  }
+  return value;
+}
+
+/** Ce que `toValue` sait lire : la valeur, une `ref`, ou une fonction. */
+function isChannelSource(value: unknown): value is MaybeRefOrGetter<string> {
+  return (
+    typeof value === "string" || typeof value === "function" || isRef(value)
+  );
+}
+
+/** Le cœur des deux formes : la socket est résolue AVANT la portée. */
+function bindChannel(
+  client: NodefonySocket,
+  channel: MaybeRefOrGetter<string>,
+  onMessage: ChannelHandler,
+): void {
   observeReactive("useNodefonyChannel()", channel, (name) =>
     observeChannel(client, name, onMessage),
   );
@@ -407,14 +493,42 @@ export function useNodefonyChannel(
  * `useNodefonyChannelData()` — la **dernière valeur** reçue sur un canal (le
  * cas le plus courant : la dernière mesure d'un flux d'état). `null` tant que
  * rien n'est arrivé.
+ *
+ * **Deux formes.** La socket typée par le contrat en tête
+ * (`NodefonySocket.fromContract<C>()`) : le nom est contraint aux canaux que le
+ * contrat déclare côté écoute, et la charge en est déduite — rien à écrire à la
+ * main. Le nom seul lit la socket posée par le plugin, comme toujours ; la
+ * charge y reste celle qu'on annonce. Une socket fournie appartient à
+ * l'application : la liaison ne l'ouvre ni ne la ferme.
+ *
+ * @example
+ * ```ts
+ * const presence = useNodefonyChannelData(chat, "chat:presence");
+ * ```
  */
+export function useNodefonyChannelData<
+  L extends EventsMap,
+  K extends EventNames<L>,
+>(
+  socket: ChannelSocket<L>,
+  channel: MaybeRefOrGetter<K>,
+  initial?: ChannelPayload<L, K> | null,
+): Readonly<Ref<ChannelPayload<L, K> | null>>;
 export function useNodefonyChannelData<T = unknown>(
   channel: MaybeRefOrGetter<string>,
-  initial: T | null = null,
-): Readonly<Ref<T | null>> {
-  const data = shallowRef<T | null>(initial);
-  useNodefonyChannel(channel, (payload) => {
-    data.value = payload as T;
+  initial?: T | null,
+): Readonly<Ref<T | null>>;
+export function useNodefonyChannelData(
+  first: NodefonySocket | MaybeRefOrGetter<string>,
+  second?: unknown,
+  third?: unknown,
+): Readonly<Ref<unknown>> {
+  const typed = isSocketArg(first);
+  const client = typed ? first : injectedSocket();
+  const channel = typed ? channelArg(second) : first;
+  const data = shallowRef<unknown>((typed ? third : second) ?? null);
+  bindChannel(client, channel, (payload) => {
+    data.value = payload;
   });
   return data;
 }

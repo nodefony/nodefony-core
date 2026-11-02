@@ -44,6 +44,11 @@ import type {
 } from "./AdaptiveRate";
 import { socketSnapshot, type SocketSnapshot } from "./snapshot";
 import { PLATFORM_CHANNELS } from "../../realtime/platformChannels";
+import type {
+  ActionsMap,
+  EventNames,
+  EventsMap,
+} from "../../realtime/RealtimeEventMap";
 import { isPlainObject } from "../../runtime/isPlainObject";
 import type {
   NodefonyKernelIdentity,
@@ -64,6 +69,61 @@ export type Dispose = () => void;
  * typées de l'application.
  */
 export type ObservableClient = NodefonySocket;
+
+/**
+ * Socket qui ÉCOUTE la carte `L` — n'importe quel paramétrage de
+ * {@link NodefonySocket}, dont celui que rend `NodefonySocket.fromContract<C>()`.
+ *
+ * C'est la forme qu'acceptent les liaisons (React, Vue, Svelte, Angular) quand
+ * la socket est passée en premier argument : la carte d'écoute se lit dans le
+ * TYPE de la socket, et le nom du canal comme la charge s'en déduisent — aucun
+ * générique écrit à la main, aucune carte recopiée.
+ */
+export type ChannelSocket<L extends EventsMap> = NodefonySocket<
+  EventsMap,
+  L,
+  ActionsMap
+>;
+
+/**
+ * Charge reçue sur le canal `K` d'une socket qui écoute `L` — telle que la
+ * socket la livre à `on(K, …)` (lue par `Jsonify` sous un contrat). Un nom
+ * absent de la carte, possible seulement sur une socket non paramétrée, reste
+ * `unknown`.
+ */
+export type ChannelPayload<
+  L extends EventsMap,
+  K extends string,
+> = K extends keyof L ? L[K] : unknown;
+
+/** Gestionnaire d'un message de canal, tel que le reçoit une liaison. */
+export type ChannelHandler = (payload: unknown) => void;
+
+/**
+ * Le gestionnaire d'un hook de canal, à sa place d'argument. Les liaisons
+ * décodent deux formes (socket en tête, ou nom seul) : une valeur qui n'est pas
+ * une fonction à cette place est un appel mal formé, nommé ici plutôt qu'à la
+ * première trame reçue.
+ *
+ * @param value - l'argument reçu à la place du gestionnaire.
+ * @param caller - le hook appelant, cité dans l'erreur.
+ * @returns le gestionnaire.
+ * @throws TypeError si `value` n'est pas une fonction.
+ */
+export function requireChannelHandler(
+  value: unknown,
+  caller: string,
+): ChannelHandler {
+  if (!isChannelHandler(value)) {
+    throw new TypeError(`${caller} : gestionnaire de message attendu.`);
+  }
+  return value;
+}
+
+/** Toute fonction peut recevoir une charge `unknown` : le test suffit. */
+function isChannelHandler(value: unknown): value is ChannelHandler {
+  return typeof value === "function";
+}
 
 /* ────────────────────────── connexion partagée ────────────────────────── */
 
@@ -280,6 +340,16 @@ export function observeKernelIdentity(
  * ref-compté (N observateurs du même canal = un seul abonnement réseau) et
  * rejoué à chaque reconnexion.
  */
+export function observeChannel<L extends EventsMap, K extends EventNames<L>>(
+  client: ChannelSocket<L>,
+  channel: K,
+  emit: Emit<ChannelPayload<L, K>>,
+): Dispose;
+export function observeChannel(
+  client: ObservableClient,
+  channel: string,
+  emit: Emit<unknown>,
+): Dispose;
 export function observeChannel(
   client: ObservableClient,
   channel: string,
@@ -297,14 +367,29 @@ export function observeChannel(
  * (dernière mesure d'un flux d'état). `emit` reçoit `initial` immédiatement,
  * puis chaque nouvelle valeur : dernier arrivé gagne.
  */
+export function observeChannelData<
+  L extends EventsMap,
+  K extends EventNames<L>,
+>(
+  client: ChannelSocket<L>,
+  channel: K,
+  emit: Emit<ChannelPayload<L, K> | null>,
+  initial?: ChannelPayload<L, K> | null,
+): Dispose;
 export function observeChannelData<T = unknown>(
   client: ObservableClient,
   channel: string,
   emit: Emit<T | null>,
-  initial: T | null = null,
+  initial?: T | null,
+): Dispose;
+export function observeChannelData(
+  client: ObservableClient,
+  channel: string,
+  emit: Emit<unknown>,
+  initial: unknown = null,
 ): Dispose {
   emit(initial);
-  return observeChannel(client, channel, (payload) => emit(payload as T));
+  return observeChannel(client, channel, emit);
 }
 
 /**

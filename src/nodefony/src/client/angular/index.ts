@@ -114,7 +114,11 @@ import {
   type ObserveNoticeLogOptions,
   type ObserveSyslogOptions,
   type SocketSnapshot,
+  type ChannelSocket,
+  type ChannelPayload,
+  requireChannelHandler,
 } from "../realtime/observe";
+import type { EventNames, EventsMap } from "../../realtime/RealtimeEventMap";
 import {
   initialSseSnapshot,
   observeSse,
@@ -428,28 +432,113 @@ export function injectNodefonyKernelIdentity(): Signal<NodefonyKernelIdentity | 
  *
  * Le canal accepte un signal (ou toute fonction qui le lit) : l'abonnement suit
  * alors la valeur, en libérant l'ancien avant de prendre le nouveau.
+ *
+ * **Deux formes.** La socket typée par le contrat en tête
+ * (`NodefonySocket.fromContract<C>()`) : le nom est contraint aux canaux que le
+ * contrat déclare côté écoute, et la charge en est déduite — rien à écrire à la
+ * main. Le nom seul lit la socket de `provideNodefony()`, comme toujours ; la
+ * charge y reste celle qu'on annonce. Une socket fournie appartient à
+ * l'application : la liaison ne l'ouvre ni ne la ferme.
+ *
+ * @example
+ * ```ts
+ * injectNodefonyChannel(chat, "chat:room", (m) => add(m)); // m : ChatMessage
+ * ```
  */
+export function injectNodefonyChannel<
+  L extends EventsMap,
+  K extends EventNames<L>,
+>(
+  socket: ChannelSocket<L>,
+  channel: Source<K>,
+  onMessage: (payload: ChannelPayload<L, K>) => void,
+): void;
 export function injectNodefonyChannel(
   channel: Source<string>,
   onMessage: (payload: unknown) => void,
+): void;
+export function injectNodefonyChannel(
+  first: NodefonySocket | Source<string>,
+  second: unknown,
+  third?: unknown,
 ): void {
   assertInInjectionContext(injectNodefonyChannel);
-  const client = injectNodefony();
+  const typed = isSocketArg(first);
+  const client = typed ? first : injectNodefony();
+  const channel = typed ? channelArg(second) : first;
+  const onMessage = requireChannelHandler(
+    typed ? third : second,
+    "injectNodefonyChannel()",
+  );
   observeReactive(channel, (name) => observeChannel(client, name, onMessage));
+}
+
+/**
+ * Le premier argument est-il la socket (forme typée par le contrat) plutôt
+ * qu'un nom de canal ? Un nom est une chaîne ou une fonction ; la socket est le
+ * seul objet.
+ */
+function isSocketArg(
+  value: NodefonySocket | Source<string>,
+): value is NodefonySocket {
+  return typeof value === "object";
+}
+
+/** Un nom de canal (constante ou fonction) à sa place d'argument. */
+function channelArg(value: unknown): Source<string> {
+  if (!isChannelSource(value)) {
+    throw new TypeError("injectNodefonyChannel*() : nom de canal attendu.");
+  }
+  return value;
+}
+
+/** Ce que `read` sait lire : la valeur, ou une fonction qui la rend. */
+function isChannelSource(value: unknown): value is Source<string> {
+  return typeof value === "string" || typeof value === "function";
 }
 
 /**
  * `injectNodefonyChannelData()` — la **dernière valeur** reçue sur un canal (le
  * cas le plus courant : la dernière mesure d'un flux d'état). `null` tant que
  * rien n'est arrivé.
+ *
+ * **Deux formes.** La socket typée par le contrat en tête
+ * (`NodefonySocket.fromContract<C>()`) : le nom est contraint aux canaux que le
+ * contrat déclare côté écoute, et la charge en est déduite — rien à écrire à la
+ * main. Le nom seul lit la socket de `provideNodefony()`, comme toujours ; la
+ * charge y reste celle qu'on annonce. Une socket fournie appartient à
+ * l'application : la liaison ne l'ouvre ni ne la ferme.
+ *
+ * @example
+ * ```ts
+ * const presence = injectNodefonyChannelData(chat, "chat:presence");
+ * ```
  */
+export function injectNodefonyChannelData<
+  L extends EventsMap,
+  K extends EventNames<L>,
+>(
+  socket: ChannelSocket<L>,
+  channel: Source<K>,
+  initial?: ChannelPayload<L, K> | null,
+): Signal<ChannelPayload<L, K> | null>;
 export function injectNodefonyChannelData<T = unknown>(
   channel: Source<string>,
-  initial: T | null = null,
-): Signal<T | null> {
+  initial?: T | null,
+): Signal<T | null>;
+export function injectNodefonyChannelData(
+  first: NodefonySocket | Source<string>,
+  second?: unknown,
+  third?: unknown,
+): Signal<unknown> {
   assertInInjectionContext(injectNodefonyChannelData);
-  const data = signal<T | null>(initial);
-  injectNodefonyChannel(channel, (payload) => data.set(payload as T));
+  const typed = isSocketArg(first);
+  const client = typed ? first : injectNodefony();
+  const channel = typed ? channelArg(second) : first;
+  const data = signal<unknown>((typed ? third : second) ?? null);
+  observeReactive(channel, (name) =>
+    observeChannel(client, name, (payload) => data.set(payload)),
+  );
   return data.asReadonly();
 }
 

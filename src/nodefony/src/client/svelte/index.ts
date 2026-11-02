@@ -101,7 +101,11 @@ import {
   type ObserveNoticeLogOptions,
   type ObserveSyslogOptions,
   type SocketSnapshot,
+  type ChannelSocket,
+  type ChannelPayload,
+  requireChannelHandler,
 } from "../realtime/observe";
+import type { EventNames, EventsMap } from "../../realtime/RealtimeEventMap";
 import {
   initialSseSnapshot,
   observeSse,
@@ -373,12 +377,65 @@ export function nodefonyKernelIdentity(): Reactive<NodefonyKernelIdentity | null
  * ```svelte
  * $effect(() => nodefonyChannel("live:salon", (m) => messages.push(m)));
  * ```
+ *
+ * **Deux formes.** La socket typée par le contrat en tête
+ * (`NodefonySocket.fromContract<C>()`) : le nom est contraint aux canaux que le
+ * contrat déclare côté écoute, et la charge en est déduite — rien à écrire à la
+ * main. Le nom seul lit la socket de `configureNodefony()`, comme toujours ; la
+ * charge y reste celle qu'on annonce. Une socket fournie appartient à
+ * l'application : la liaison ne l'ouvre ni ne la ferme.
+ *
+ * @example
+ * ```ts
+ * $effect(() => nodefonyChannel(chat, "chat:room", (m) => add(m)));
+ * ```
  */
+export function nodefonyChannel<L extends EventsMap, K extends EventNames<L>>(
+  socket: ChannelSocket<L>,
+  channel: Source<K>,
+  onMessage: (payload: ChannelPayload<L, K>) => void,
+): Dispose;
 export function nodefonyChannel(
   channel: Source<string>,
   onMessage: (payload: unknown) => void,
+): Dispose;
+export function nodefonyChannel(
+  first: NodefonySocket | Source<string>,
+  second: unknown,
+  third?: unknown,
 ): Dispose {
-  return observeChannel(nodefony(), read(channel), onMessage);
+  const typed = isSocketArg(first);
+  const client = typed ? first : nodefony();
+  const channel = typed ? channelArg(second) : first;
+  const onMessage = requireChannelHandler(
+    typed ? third : second,
+    "nodefonyChannel()",
+  );
+  return observeChannel(client, read(channel), onMessage);
+}
+
+/**
+ * Le premier argument est-il la socket (forme typée par le contrat) plutôt
+ * qu'un nom de canal ? Un nom est une chaîne ou une fonction ; la socket est le
+ * seul objet.
+ */
+function isSocketArg(
+  value: NodefonySocket | Source<string>,
+): value is NodefonySocket {
+  return typeof value === "object";
+}
+
+/** Un nom de canal (constante ou fonction) à sa place d'argument. */
+function channelArg(value: unknown): Source<string> {
+  if (!isChannelSource(value)) {
+    throw new TypeError("nodefonyChannel*() : nom de canal attendu.");
+  }
+  return value;
+}
+
+/** Ce que `read` sait lire : la valeur, ou une fonction qui la rend. */
+function isChannelSource(value: unknown): value is Source<string> {
+  return typeof value === "string" || typeof value === "function";
 }
 
 /**
@@ -388,14 +445,41 @@ export function nodefonyChannel(
  *
  * Le canal accepte une fonction : donnée dans un `$derived`, elle fait suivre
  * l'abonnement — et le nouveau canal est pris AVANT que l'ancien soit rendu.
+ *
+ * **Deux formes.** La socket typée par le contrat en tête
+ * (`NodefonySocket.fromContract<C>()`) : le nom est contraint aux canaux que le
+ * contrat déclare côté écoute, et la charge en est déduite — rien à écrire à la
+ * main. Le nom seul lit la socket de `configureNodefony()`, comme toujours ; la
+ * charge y reste celle qu'on annonce. Une socket fournie appartient à
+ * l'application : la liaison ne l'ouvre ni ne la ferme.
+ *
+ * @example
+ * ```ts
+ * const presence = nodefonyChannelData(chat, "chat:presence");
+ * ```
  */
+export function nodefonyChannelData<
+  L extends EventsMap,
+  K extends EventNames<L>,
+>(
+  socket: ChannelSocket<L>,
+  channel: Source<K>,
+  initial?: ChannelPayload<L, K> | null,
+): Reactive<ChannelPayload<L, K> | null>;
 export function nodefonyChannelData<T = unknown>(
   channel: Source<string>,
-  initial: T | null = null,
-): Reactive<T | null> {
-  const client = nodefony();
-  return observedValue<T | null>(initial, (emit) =>
-    observeChannel(client, read(channel), (payload) => emit(payload as T)),
+  initial?: T | null,
+): Reactive<T | null>;
+export function nodefonyChannelData(
+  first: NodefonySocket | Source<string>,
+  second?: unknown,
+  third?: unknown,
+): Reactive<unknown> {
+  const typed = isSocketArg(first);
+  const client = typed ? first : nodefony();
+  const channel = typed ? channelArg(second) : first;
+  return observedValue<unknown>((typed ? third : second) ?? null, (emit) =>
+    observeChannel(client, read(channel), emit),
   );
 }
 

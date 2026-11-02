@@ -60,7 +60,12 @@ import {
   type ObserveSyslogOptions,
   type ObserveNoticeLogOptions,
   type SocketSnapshot,
+  type ChannelSocket,
+  type ChannelPayload,
+  type ChannelHandler,
+  requireChannelHandler,
 } from "../realtime/observe";
+import type { EventNames, EventsMap } from "../../realtime/RealtimeEventMap";
 import {
   NodefonyLogin,
   type NodefonyLoginOptions,
@@ -253,7 +258,11 @@ export function useNodefonyKernelIdentity(): NodefonyKernelIdentity | null {
  * @throws si appelé hors d'un `<NodefonyProvider>`.
  */
 export function useNodefony(): NodefonySocket {
-  const client = React.useContext(NodefonyContext);
+  return requireProvided(React.useContext(NodefonyContext));
+}
+
+/** La socket du Provider, ou l'erreur qui dit où le monter. */
+function requireProvided(client: NodefonySocket | null): NodefonySocket {
   if (!client) {
     throw new Error(
       "useNodefony() doit être utilisé dans un <NodefonyProvider>.",
@@ -304,13 +313,78 @@ export function useNodefonyIdentity(): RealtimeIdentity | null {
  * et le re-subscribe au reconnect. Le handler peut changer à chaque render sans
  * re-déclencher l'abonnement (capturé via ref) ; passer `deps` si le canal
  * effectif dépend d'autres valeurs.
+ *
+ * **Deux formes.** La socket typée par le contrat en tête
+ * (`NodefonySocket.fromContract<C>()`) : le nom est contraint aux canaux que le
+ * contrat déclare côté écoute, et la charge en est déduite — rien à écrire à la
+ * main. Le nom seul lit la socket du `<NodefonyProvider>`, comme toujours ; la
+ * charge y reste celle qu'on annonce. Une socket fournie appartient à
+ * l'application : la liaison ne l'ouvre ni ne la ferme.
+ *
+ * @example
+ * ```ts
+ * useNodefonyChannel(chat, "chat:room", (m) => add(m)); // m : ChatMessage
+ * ```
  */
+export function useNodefonyChannel<
+  L extends EventsMap,
+  K extends EventNames<L>,
+>(
+  socket: ChannelSocket<L>,
+  channel: K,
+  onMessage: (payload: ChannelPayload<L, K>) => void,
+  deps?: React.DependencyList,
+): void;
 export function useNodefonyChannel(
   channel: string,
   onMessage: (payload: unknown) => void,
+  deps?: React.DependencyList,
+): void;
+export function useNodefonyChannel(
+  first: NodefonySocket | string,
+  second: string | ChannelHandler,
+  third?: ChannelHandler | React.DependencyList,
+  fourth?: React.DependencyList,
+): void {
+  if (typeof first === "string") {
+    useChannelSubscription(
+      null,
+      first,
+      requireChannelHandler(second, "useNodefonyChannel()"),
+      typeof third === "function" ? undefined : third,
+    );
+  } else {
+    useChannelSubscription(
+      first,
+      channelArg(second),
+      requireChannelHandler(third, "useNodefonyChannel()"),
+      fourth,
+    );
+  }
+}
+
+/** Le nom de canal à sa place d'argument — sinon l'appel est mal formé. */
+function channelArg(value: unknown): string {
+  if (typeof value !== "string") {
+    throw new TypeError("useNodefonyChannel*() : nom de canal attendu.");
+  }
+  return value;
+}
+
+/**
+ * Le cœur des deux formes de {@link useNodefonyChannel} : la socket passée en
+ * argument l'emporte, sinon celle du Provider. Le contexte est lu à CHAQUE
+ * rendu, quelle que soit la forme — l'ordre des hooks ne dépend pas de
+ * l'appelant.
+ */
+function useChannelSubscription(
+  socket: NodefonySocket | null,
+  channel: string,
+  onMessage: ChannelHandler,
   deps: React.DependencyList = [],
 ): void {
-  const client = useNodefony();
+  const fromProvider = React.useContext(NodefonyContext);
+  const client = socket ?? requireProvided(fromProvider);
   const handlerRef = React.useRef(onMessage);
   handlerRef.current = onMessage;
 
@@ -328,13 +402,43 @@ export function useNodefonyChannel(
  * `useNodefonyChannelData()` — la **dernière valeur** reçue sur un canal (cas le
  * plus courant : dernière mesure d'un flux de stats). `null` tant que rien n'est
  * arrivé.
+ *
+ * **Deux formes.** La socket typée par le contrat en tête
+ * (`NodefonySocket.fromContract<C>()`) : le nom est contraint aux canaux que le
+ * contrat déclare côté écoute, et la charge en est déduite — rien à écrire à la
+ * main. Le nom seul lit la socket du `<NodefonyProvider>`, comme toujours ; la
+ * charge y reste celle qu'on annonce. Une socket fournie appartient à
+ * l'application : la liaison ne l'ouvre ni ne la ferme.
+ *
+ * @example
+ * ```ts
+ * const presence = useNodefonyChannelData(chat, "chat:presence", { present: [] });
+ * ```
  */
+export function useNodefonyChannelData<
+  L extends EventsMap,
+  K extends EventNames<L>,
+>(
+  socket: ChannelSocket<L>,
+  channel: K,
+  initial?: ChannelPayload<L, K> | null,
+): ChannelPayload<L, K> | null;
 export function useNodefonyChannelData<T = unknown>(
   channel: string,
-  initial: T | null = null,
-): T | null {
-  const [data, setData] = React.useState<T | null>(initial);
-  useNodefonyChannel(channel, (payload) => setData(payload as T), []);
+  initial?: T | null,
+): T | null;
+export function useNodefonyChannelData(
+  first: NodefonySocket | string,
+  second?: unknown,
+  third?: unknown,
+): unknown {
+  const named = typeof first === "string";
+  const socket = named ? null : first;
+  const channel = named ? first : channelArg(second);
+  const [data, setData] = React.useState<unknown>(
+    (named ? second : third) ?? null,
+  );
+  useChannelSubscription(socket, channel, setData, []);
   return data;
 }
 

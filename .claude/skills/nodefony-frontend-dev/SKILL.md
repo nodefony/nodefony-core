@@ -1,7 +1,7 @@
 ---
 name: nodefony-frontend-dev
 metadata:
-  version: 1.1.0
+  version: 1.2.0
 description: >
   Kit de dev FRONT de Nodefony — full-stack côté client : isomorphisme (`nodefony` partagé
   front/back), socket client (`NodefonySocket`, hooks React), builder Vite + HMR

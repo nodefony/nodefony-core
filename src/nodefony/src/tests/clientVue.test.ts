@@ -41,6 +41,7 @@ import {
 import { loginFetchBench } from "./fixtures/loginFetch";
 import { sseFetchBench, settle } from "./fixtures/sseFetch";
 import { NodefonyKernel } from "../client/NodefonyKernel";
+import { connectedContractSocket } from "./fixtures/contractSocket";
 
 class MockTransport implements IRealtimeTransport {
   readyState: number = TransportState.CONNECTING;
@@ -253,6 +254,29 @@ describe("composables — la traduction vers la réactivité", () => {
     t.push("live:events", { n: 2 });
     expect(valeur.value).toEqual({ n: 2 });
     arreter();
+  });
+
+  it("🔴 la socket du contrat passée en tête est écoutée SANS plugin, et rendue au démontage", async () => {
+    const { socket, transport } = await connectedContractSocket();
+    const app = createApp({});
+    const { valeur, arreter } = monter(app, () =>
+      useNodefonyChannelData(socket, "chat:presence", { present: [] }),
+    );
+    expect(valeur.value).toEqual({ present: [] });
+    expect(socket.subscribedChannels).toEqual(["chat:presence"]);
+    transport.push("chat:presence", { present: ["alice"] });
+    expect(valeur.value).toEqual({ present: ["alice"] });
+
+    const recus: string[] = [];
+    const salon = monter(app, () =>
+      useNodefonyChannel(socket, ref("chat:room"), (m) => recus.push(m.text)),
+    );
+    transport.push("chat:room", { from: "a", text: "salut" });
+    expect(recus).toEqual(["salut"]);
+
+    arreter();
+    salon.arreter();
+    expect(socket.subscribedChannels).toEqual([]);
   });
 
   it("l'état de connexion suit la socket", async () => {

@@ -585,9 +585,32 @@ un client sans codec les relit aussi en `Uint8Array` (ADR-0022 §2).
 | le serveur, entrée d'un canal                            | `clientToServer` | `Jsonify<T>` |
 | qui **implémente** une méthode                           | son `in`         | `Jsonify<T>` |
 | qui **appelle** une méthode (`request`, `requestClient`) | son `out`        | `Jsonify<T>` |
+| un composant, hook de canal (socket en tête)             | `serverToClient` | `Jsonify<T>` |
 
 `serverToClient: { meeting: { start: Date } }` : sans cette règle, `m.start.getTime()` compilait
 et plantait au navigateur ; avec elle, `m.start` est une `string` et l'éditeur le souligne.
+
+### Lire dans une vue — le hook prend la socket du contrat
+
+Dans React, Vue, Svelte ou Angular, la lecture passe par la **même** socket typée, donnée en
+premier argument du hook de canal. Le nom est contraint aux canaux de `serverToClient`, la charge
+est déduite — aucun générique écrit à la main, aucune carte recopiée.
+
+```ts
+export const chat = NodefonySocket.fromContract<ChatContract>({
+  url: "/chat/realtime",
+});
+
+const presence = useNodefonyChannelData(chat, "chat:presence", { present: [] }); // React, Vue
+useNodefonyChannel(chat, "chat:room", (m) => add(m)); // m : Jsonify<ChatMessage>
+nodefonyChannelData(chat, "chat:presence"); // Svelte
+injectNodefonyChannelData(chat, "chat:presence"); // Angular
+```
+
+Les hooks lisent les cartes de `NodefonySocket.on` (`client/realtime/observe.ts#ChannelPayload`) :
+une seule règle, quatre liaisons. La socket reste celle de l'application — le hook ne l'ouvre ni
+ne la ferme. La forme historique `useNodefonyChannelData<T>("canal")` reste valide, mais son `<T>`
+n'est vérifié par rien : une charge qui change côté serveur n'y casse aucune compilation.
 
 ### Ce que le compilateur refuse
 
@@ -601,6 +624,7 @@ et plantait au navigateur ; avec elle, `m.start` est une `string` et l'éditeur 
 | une charge fausse sur un canal ou une méthode connus                 | client et serveur                                                    |
 | une diffusion de service hors contrat (nom ou charge)                | `getRealtimeHub<C>().publish`, `ContractRealtimePublish<C>`          |
 | une charge **scalaire** (`3`, `"ok"`) — refusée aussi à l'exécution  | `getRealtimeHub<C>().publish`, `ContractRealtimePublish<C>`          |
+| un canal lu **hors** `serverToClient` dans une vue                   | hooks de canal React, Vue, Svelte, Angular (socket en tête)          |
 
 > [!IMPORTANT]
 > **La table sert SEULE les méthodes d'un contrat — c'est une règle de performance.** N'ajoute pas

@@ -338,6 +338,9 @@ export type {
   ObserveNoticeLogOptions,
   SocketSnapshot,
   SocketDetailRow,
+  ChannelSocket,
+  ChannelPayload,
+  ChannelHandler,
 } from "./realtime/observe";
 // Table des événements LOCAUX du client — les portes publiques (`onState`,
 // `onIdentity`, `onStats`, `onNotice`, `onDenied`, `onReconnect`) restent à préférer ; la table

@@ -48,6 +48,7 @@ import {
 import { loginFetchBench } from "./fixtures/loginFetch";
 import { sseFetchBench, settle } from "./fixtures/sseFetch";
 import { NodefonyKernel } from "../client/NodefonyKernel";
+import { connectedContractSocket } from "./fixtures/contractSocket";
 import LitValeur from "./fixtures/LitValeur.svelte";
 import NeLitRien from "./fixtures/NeLitRien.svelte";
 import CanalMobile from "./fixtures/CanalMobile.svelte";
@@ -265,6 +266,32 @@ describe("valeurs réactives — l'abonnement suit la LECTURE", () => {
     flushSync();
     expect(el.textContent).toContain('"n":2');
     void unmount(app);
+  });
+
+  it("🔴 la socket du contrat passée en tête est écoutée, et rendue au démontage", async () => {
+    const { socket, transport } = await connectedContractSocket();
+    const el = cible();
+    const app = mount(LitValeur, {
+      target: el,
+      props: { source: nodefonyChannelData(socket, "chat:presence") },
+    });
+    flushSync();
+    expect(socket.subscribedChannels).toEqual(["chat:presence"]);
+    transport.push("chat:presence", { present: ["alice"] });
+    flushSync();
+    expect(el.textContent).toContain('"present":["alice"]');
+
+    const recus: string[] = [];
+    const stop = nodefonyChannel(socket, "chat:room", (m) =>
+      recus.push(m.text),
+    );
+    transport.push("chat:room", { from: "a", text: "salut" });
+    expect(recus).toEqual(["salut"]);
+
+    stop();
+    void unmount(app);
+    flushSync();
+    expect(socket.subscribedChannels).toEqual([]);
   });
 
   it("l'état de connexion suit la socket", async () => {

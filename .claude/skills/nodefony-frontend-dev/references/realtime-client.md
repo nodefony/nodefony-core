@@ -94,6 +94,20 @@ const socket = NodefonySocket.fromContract<ChatContract>({
 socket.on("chat:room", (m) => m.text);
 ```
 
+**Les hooks de canal prennent cette socket en PREMIER argument** — React, Vue, Svelte, Angular, et le
+socle `observeChannel`/`observeChannelData` : nom contraint aux canaux d'écoute du contrat, charge
+déduite (`observe.ts#ChannelPayload`, mêmes cartes que `on`). Jamais deux génériques à la main
+(`useNodefonyChannelData<C, "chat:presence">`), jamais `<T>` quand un contrat existe : c'est la
+socket qui porte le contrat. La socket passée l'emporte sur celle du Provider/plugin et n'en exige
+aucun ; son cycle (`connect()`) reste à l'application.
+
+```ts
+const presence = useNodefonyChannelData(socket, "chat:presence", {
+  present: [],
+}); // typé
+useNodefonyChannel(socket, "chat:room", (m) => add(m)); // m : Jsonify<ChatMessage>
+```
+
 ## 3. État de connexion & reconnexion
 
 ```ts
@@ -380,6 +394,13 @@ function useNodefonyIdentity(): RealtimeIdentity | null; // { authenticated, rol
 
 // S'abonner à un canal : onMessage à chaque message (handler capturé par ref → peut changer
 // sans re-bind ; passer `deps` si le canal effectif dépend d'autres valeurs) — :120
+// Forme typée : socket du contrat en tête (cf §2), nom contraint, charge déduite.
+function useNodefonyChannel<L, K extends EventNames<L>>(
+  socket: ChannelSocket<L>,
+  channel: K,
+  onMessage: (payload: ChannelPayload<L, K>) => void,
+  deps?: DependencyList,
+): void;
 function useNodefonyChannel(
   channel: string,
   onMessage: (payload: unknown) => void,
@@ -387,6 +408,11 @@ function useNodefonyChannel(
 ): void;
 
 // Dernière valeur reçue sur un canal (cas le plus courant : dernière mesure) — :148
+function useNodefonyChannelData<L, K extends EventNames<L>>(
+  socket: ChannelSocket<L>,
+  channel: K,
+  initial?: ChannelPayload<L, K> | null,
+): ChannelPayload<L, K> | null;
 function useNodefonyChannelData<T = unknown>(
   channel: string,
   initial?: T | null,

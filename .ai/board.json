@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T08:50:07.058Z",
+  "generatedAt": "2026-11-02T10:46:23.921Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 221,
+      "closed": 222,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 26,
+      "open": 25,
       "title": "10.0.0-beta"
     },
     {
@@ -5627,8 +5627,8 @@
       "number": 708,
       "title": "feat(realtime): typer les actions du pont par leur schéma",
       "url": "https://github.com/nodefony/nodefony-core/issues/708",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,

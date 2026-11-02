@@ -59,6 +59,7 @@ import {
 import { loginFetchBench } from "./fixtures/loginFetch";
 import { sseFetchBench, settle } from "./fixtures/sseFetch";
 import { NodefonyKernel } from "../client/NodefonyKernel";
+import { connectedContractSocket } from "./fixtures/contractSocket";
 
 /** L'adresse du banc — jamais atteinte : le transport est un mock. */
 const URL_BANC = "ws://loopback/realtime";
@@ -321,6 +322,29 @@ describe("fonctions d'injection — la traduction vers les signals", () => {
     t.push("live:events", { n: 2 });
     expect(valeur()).toEqual({ n: 2 });
     arreter();
+    app.destroy();
+  });
+
+  it("🔴 la socket du contrat passée en tête est écoutée SANS fournisseur, et rendue au démontage", async () => {
+    const { socket, transport } = await connectedContractSocket();
+    const app = await appAvec([]);
+    const { valeur, arreter } = monter(app, () =>
+      injectNodefonyChannelData(socket, "chat:presence"),
+    );
+    expect(socket.subscribedChannels).toEqual(["chat:presence"]);
+    transport.push("chat:presence", { present: ["alice"] });
+    expect(valeur()).toEqual({ present: ["alice"] });
+
+    const recus: string[] = [];
+    const salon = monter(app, () =>
+      injectNodefonyChannel(socket, "chat:room", (m) => recus.push(m.text)),
+    );
+    transport.push("chat:room", { from: "a", text: "salut" });
+    expect(recus).toEqual(["salut"]);
+
+    arreter();
+    salon.arreter();
+    expect(socket.subscribedChannels).toEqual([]);
     app.destroy();
   });
 

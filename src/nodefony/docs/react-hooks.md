@@ -425,7 +425,7 @@ useNodefonyChannel("orders:new", (payload) => {
 Deux propriétés à connaître :
 
 - **Le handler n'a pas besoin d'être mémoïsé** : il est capturé par référence à chaque rendu
-  (`client/react/index.ts#NodefonyProviderProps.kernel`). Le passer en fonction fléchée inline est le bon usage.
+  (`client/react/index.ts#useNodefonyChannel`). Le passer en fonction fléchée inline est le bon usage.
 - **`deps` est réservé au nom du canal.** Le troisième argument est concaténé aux dépendances de
   l'effet (`client/react/index.ts#useNodefonyChannel`) : n'y mets que ce qui doit provoquer un **ré-abonnement**.
 
@@ -442,6 +442,40 @@ if (!stats) return <p>en attente…</p>;
 
 Le composant se re-rend à **chaque** trame. Sur un canal rapide, préfère la variante adaptative
 ci-dessous, ou remonte le hook dans un composant parent minuscule.
+
+### La socket du contrat en tête — nom et charge déduits
+
+Quand l'application déclare son contrat temps réel, `useNodefonyChannel` et
+`useNodefonyChannelData` prennent la socket typée en **premier argument**. Le nom du canal est
+limité à ceux que le contrat déclare côté écoute, et la charge en est déduite telle que le fil la
+livre (une `Date` arrive en chaîne) — sans générique écrit à la main.
+
+```tsx
+// shared/chat.ts : le contrat, des types seulement
+export const chat = NodefonySocket.fromContract<ChatContract>({
+  url: "/api/live/realtime",
+});
+
+// dans un composant
+const presence = useNodefonyChannelData(chat, "chat:presence", { present: [] }); // { present: string[] } | null
+useNodefonyChannel(chat, "chat:room", (m) => add(m)); // m : le message du contrat
+useNodefonyChannelData(chat, "chat:prezence"); // ne compile pas
+```
+
+- **Pas de Provider requis** pour cette forme : la socket passée l'emporte sur celle du Provider
+  (`client/react/index.ts#useNodefonyChannel`).
+- **La socket appartient à l'application** : le hook ne l'ouvre ni ne la ferme. Ouvre-la une fois
+  (`chat.connect()`).
+- ⚠️ **Une socket typée ne se donne pas encore au Provider** : sa prop `client` n'accepte qu'une
+  socket non paramétrée (`client/react/index.ts#NodefonyProviderProps.client`). Si la page monte
+  aussi un Provider sur la même adresse, ce sont deux connexions : donner au contrat sa propre
+  adresse, ou garder la forme à nom seul sur la socket de la page.
+- **Coût nul à l'exécution** : seuls les types changent ; aucune charge n'est validée dans le
+  navigateur.
+- La forme `useNodefonyChannelData<T>("canal")` reste valide, mais son `<T>` est une promesse de
+  l'appelant que rien ne vérifie : une forme qui change côté serveur n'y casse aucune compilation.
+- Vue, Svelte et Angular suivent la même règle : `useNodefonyChannelData(chat, …)`,
+  `nodefonyChannelData(chat, …)`, `injectNodefonyChannelData(chat, …)`.
 
 ### `useNodefonyAdaptiveChannel()` — la cadence qui s'ajuste toute seule
 
@@ -802,11 +836,11 @@ Ce qui **est** couvert — les invariants dont les hooks dépendent entièrement
 
 Ce qui **manque**, et qu'il faut savoir avant de s'appuyer sur cette page :
 
-- **Les hooks de canal ne sont pas exercés en rendu.** Seuls `NodefonyProvider` et `useNodefony`
-  sont montés réellement (`NodefonyProvider.test.ts`, jsdom : une socket par URL, cycle d'une socket
-  fournie respecté). Aucune suite ne monte un composant qui utilise `useNodefonyChannel*` : le cycle
-  montage/démontage, le comportement en StrictMode et l'absence de re-rendu superflu restent
-  raisonnés sur le code.
+- **Les hooks de canal sont peu exercés en rendu.** `NodefonyProvider` et `useNodefony` sont
+  montés réellement (`NodefonyProvider.test.ts`, jsdom : une socket par URL, cycle d'une socket
+  fournie respecté), et `useNodefonyChannel` / `useNodefonyChannelData` aussi, sous leurs deux
+  formes (`clientReactChannel.test.ts` : socket lue, abonnement rendu au démontage). Le
+  comportement en StrictMode et l'absence de re-rendu superflu restent raisonnés sur le code.
 - **Cinq hooks n'ont aucun consommateur** dans le dépôt : `useNodefonyIdentity`,
   `useNodefonyChannelStats`, `useNodefonySyslog`, `useNodefonyNotifications` et
   `useNodefonyNoticeLog`. C'est précisément là que se logent les deux défauts signalés plus haut — un
