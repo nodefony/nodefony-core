@@ -28,10 +28,11 @@ import type { IRealtimeToken } from "../../interfaces/IRealtimeToken.js";
 import { NodefonySocket } from "../../../../../../nodefony/src/client/realtime/NodefonySocket.js";
 import { RpcError } from "../../../../../../nodefony/src/realtime/JsonRpcPeer.js";
 import {
-  TransportState,
-  type IRealtimeTransport,
-} from "../../../../../../nodefony/src/realtime/IRealtimeTransport.js";
-import { LoopbackClientTransport, LoopbackWire } from "../helpers/loopback.js";
+  LoopbackClientTransport,
+  LoopbackWire,
+  loopbackServerContext,
+  type ILoopbackHandshake,
+} from "../helpers/loopback.js";
 
 /**
  * INTÉGRATION BÉTON « la socket Nodefony » — VRAI `NodefonySocket` (navigateur,
@@ -51,19 +52,7 @@ import { LoopbackClientTransport, LoopbackWire } from "../helpers/loopback.js";
  * `controller.handleRealtime(raw)`. Le protocole isomorphe, lui, est 100 % réel.
  */
 
-const OPEN = 1;
 const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
-
-/**
- * Câble loopback : aiguille les frames STRING entre les deux pairs, toujours en
- * `queueMicrotask` (découple send→receive, évite la réentrance synchrone).
- */
-
-/**
- * Transport client loopback ({@link IRealtimeTransport}) injecté dans le VRAI
- * `NodefonySocket`. `connect()` ouvre + déclenche le handshake serveur (le vrai
- * pipeline framework appelle `handleRealtime(null)` à l'upgrade).
- */
 
 /** Sous-classe serveur de test : déclare actions/canaux/inbound + ponts de test. */
 class LoopbackRt extends RealtimeController {
@@ -132,10 +121,7 @@ class LoopbackRt extends RealtimeController {
 }
 
 /** Paramètres du handshake serveur (matchers d'authenticator, origin CSRF). */
-interface ServerHandshake {
-  url?: string;
-  origin?: string;
-}
+type ServerHandshake = ILoopbackHandshake;
 
 /** Monte un serveur réel relié au câble ; renvoie le controller + ponts de test. */
 function makeServer(
@@ -147,44 +133,13 @@ function makeServer(
   conn: { bufferedAmount: number };
   closeServer: (code?: number, reason?: string) => void;
 } {
-  let onFinish: (() => void) | null = null;
-  const conn = {
-    get readyState() {
-      return wire.serverConnOpen ? OPEN : TransportState.CLOSED;
-    },
-    // File d'envoi non drainée, pilotable : c'est la seule entrée de la
-    // back-pressure. À 0 (défaut) rien ne change pour les autres scénarios.
-    bufferedAmount: 0,
-    send: (raw: string, cb?: (err?: Error) => void) => {
-      wire.deliverToClient(raw);
-      cb?.();
-    },
-    close: (code?: number, reason?: string) => {
-      wire.serverConnOpen = false;
-      queueMicrotask(() => wire.closeClient?.(code ?? 1000, reason ?? ""));
-    },
-  };
-  const ctx = {
-    type: "websocket",
-    outboundTracer: () => null,
-    connection: conn,
-    once: (event: string, fn: () => void) => {
-      if (event === "onFinish") onFinish = fn;
-    },
-    request: { headers: {}, url: hs.url ?? "/realtime" },
-    cookies: {},
-    url: hs.url ?? "/realtime",
-    remoteAddress: "127.0.0.1",
-    origin: hs.origin ?? "",
-  };
-  const rt = new LoopbackRt(ctx as unknown as ContextType);
+  const { ctx, conn, fireFinish, closeServer } = loopbackServerContext(
+    wire,
+    hs,
+  );
+  const rt = new LoopbackRt(ctx);
   wire.feedServer = (raw) => rt.feed(raw);
-  return {
-    rt,
-    conn,
-    fireFinish: () => onFinish?.(),
-    closeServer: (code, reason) => conn.close(code, reason),
-  };
+  return { rt, conn, fireFinish, closeServer };
 }
 
 /** Connecte un VRAI client à un VRAI serveur via le loopback + attend le welcome. */

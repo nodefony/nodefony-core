@@ -3,6 +3,7 @@ import {
   type IRealtimeTransport,
   type RealtimeFrameData,
 } from "../../../../../../nodefony/src/realtime/IRealtimeTransport.js";
+import type { ContextType } from "@nodefony/http";
 
 /**
  * Câble loopback in-process entre un VRAI `NodefonySocket` (client du cœur) et
@@ -32,6 +33,64 @@ export class LoopbackWire {
   deliverToServer(raw: RealtimeFrameData): void {
     queueMicrotask(() => this.feedServer?.(raw));
   }
+}
+
+/** Ce que le handshake serveur lit de la requête d'upgrade. */
+export interface ILoopbackHandshake {
+  url?: string;
+  origin?: string;
+}
+
+/**
+ * Contexte WebSocket serveur factice relié au câble — ce que la route WS passe
+ * au `RealtimeController`. `bufferedAmount` est pilotable (seule entrée de la
+ * contre-pression), `fireFinish` joue la fin de connexion.
+ */
+export function loopbackServerContext(
+  wire: LoopbackWire,
+  hs: ILoopbackHandshake = {},
+): {
+  ctx: ContextType;
+  conn: { bufferedAmount: number };
+  fireFinish: () => void;
+  closeServer: (code?: number, reason?: string) => void;
+} {
+  let onFinish: (() => void) | null = null;
+  const conn = {
+    get readyState() {
+      return wire.serverConnOpen ? TransportState.OPEN : TransportState.CLOSED;
+    },
+    bufferedAmount: 0,
+    send: (raw: string, cb?: (err?: Error) => void) => {
+      wire.deliverToClient(raw);
+      cb?.();
+    },
+    close: (code?: number, reason?: string) => {
+      wire.serverConnOpen = false;
+      queueMicrotask(() => wire.closeClient?.(code ?? 1000, reason ?? ""));
+    },
+  };
+  const ctx = {
+    type: "websocket",
+    outboundTracer: () => null,
+    connection: conn,
+    once: (event: string, fn: () => void) => {
+      if (event === "onFinish") onFinish = fn;
+    },
+    request: { headers: {}, url: hs.url ?? "/realtime" },
+    cookies: {},
+    url: hs.url ?? "/realtime",
+    remoteAddress: "127.0.0.1",
+    origin: hs.origin ?? "",
+  };
+  return {
+    // Le controller ne lit que ces champs-là : le reste du contexte HTTP n'a
+    // pas d'équivalent sur un câble en mémoire.
+    ctx: ctx as unknown as ContextType,
+    conn,
+    fireFinish: () => onFinish?.(),
+    closeServer: (code, reason) => conn.close(code, reason),
+  };
 }
 
 /** Transport client branché sur un {@link LoopbackWire}. */
