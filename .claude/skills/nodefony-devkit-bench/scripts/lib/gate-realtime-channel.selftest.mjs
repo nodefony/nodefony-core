@@ -230,6 +230,12 @@ function creerServeur({
   );
 
   srv.on("upgrade", (req, socket) => {
+    // 🔴 Après l'upgrade, le serveur HTTP ne veille PLUS sur ce socket : sans
+    // écouteur, un client qui coupe par RST (le juge referme ses connexions
+    // brutalement) émet `ECONNRESET` en événement `error` non géré — et le
+    // CONTRÔLE entier tombe, sur une trace Node, au lieu de juger. Vu en lot
+    // `selftests.mjs --prove`, jamais en run isolé : la fenêtre dépend de la charge.
+    socket.on("error", () => {});
     const url = (req.url ?? "").split("?")[0];
     const cfg = chemins[url];
     const qui = quiEst(req.headers.cookie);
