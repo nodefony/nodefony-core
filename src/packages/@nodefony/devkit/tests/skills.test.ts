@@ -183,6 +183,36 @@ describe("skills publiés", () => {
     }
   });
 
+  it("chaque page INSTALLÉE qu'un skill cite existe dans le paquet qui la publie", () => {
+    // Un skill renvoie à la doc de la version installée (`node_modules/…/docs/x.md`)
+    // plutôt que d'en garder une copie. Le prix : une page renommée laisse un renvoi
+    // vers le vide, que rien d'autre ne signale. Le paquet `nodefony` vit sous
+    // `src/nodefony`, les autres sous `src/packages/@nodefony/<nom>`.
+    const repo = path.join(import.meta.dirname, "..", "..", "..", "..", "..");
+    const cite =
+      /node_modules\/(@nodefony\/[\w-]+|nodefony)\/((?:docs|skills)\/[\w./-]+\.md)/g;
+    let vus = 0;
+    for (const nom of skills) {
+      for (const fichier of fichiersDe(nom)) {
+        for (const [, paquet, page] of readFileSync(fichier, "utf8").matchAll(
+          cite,
+        )) {
+          if (paquet === undefined || page === undefined) continue;
+          const racine =
+            paquet === "nodefony"
+              ? path.join(repo, "src", "nodefony")
+              : path.join(repo, "src", "packages", ...paquet.split("/"));
+          vus++;
+          expect(
+            existsSync(path.join(racine, ...page.split("/"))),
+            `${path.relative(SKILLS, fichier)} cite ${paquet}/${page}, absente du paquet`,
+          ).toBe(true);
+        }
+      }
+    }
+    expect(vus).toBeGreaterThan(0);
+  });
+
   it("n'emploie que des commandes qui passent aussi sous Windows", () => {
     for (const nom of skills) {
       for (const fichier of fichiersDe(nom).filter((f) => f.endsWith(".md"))) {
