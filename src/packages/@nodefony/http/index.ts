@@ -188,6 +188,10 @@ export {
   defineHttpConfig,
   httpConfigJsonSchema,
 } from "./nodefony/config/defineModuleConfig";
+// Le request-target dans la forme normalisée que le routeur reçoit en HTTP —
+// pour une porte qui reçoit un chemin hors requête HTTP (pont `api.request`).
+export { parseRequestTarget } from "./nodefony/src/context/http/urlFastPath";
+export type { ISplitTarget } from "./nodefony/src/context/http/urlFastPath";
 export { httpConfigSchema } from "./nodefony/config/config";
 export type {
   IHttpConfig,

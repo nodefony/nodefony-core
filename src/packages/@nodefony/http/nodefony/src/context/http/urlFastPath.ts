@@ -77,6 +77,45 @@ const COLON = 0x3a;
  * @returns les composants découpés, ou `null` (bail-out → vrai `new URL`).
  */
 export function splitTarget(target: unknown): ISplitTarget | null {
+  return splitTargetFast(target);
+}
+
+/**
+ * Origine fixe d'un request-target analysé SANS requête HTTP (pont
+ * `api.request`) : le chemin y est CONCATÉNÉ, jamais résolu comme relatif — un
+ * `//autre/x` reste un pathname `//autre/x`, comme le verrait la porte HTTP,
+ * au lieu de devenir une autorité.
+ */
+const DETACHED_ORIGIN = "http://request-target.invalid";
+
+/**
+ * Analyse un request-target origin-form (`/chemin[?query]`) dans la forme
+ * NORMALISÉE que la porte HTTP donne au routeur (`HttpRequest`) : découpe exacte
+ * quand le parse WHATWG serait l'identité ({@link splitTarget}), vrai parse
+ * WHATWG sinon — dot-segments résolus, `\` replié, percent-encoding posé.
+ *
+ * Pour qui reçoit un chemin hors d'une requête HTTP — le pont WebSocket
+ * `api.request` — et doit router exactement comme HTTP : la même chaîne, deux
+ * transports, une seule forme.
+ *
+ * @param target - le chemin reçu ; il doit commencer par `/`.
+ * @returns pathname et search normalisés, ou `null` si `target` n'est pas un
+ *   chemin origin-form analysable.
+ */
+export function parseRequestTarget(target: string): ISplitTarget | null {
+  if (target.charCodeAt(0) !== SLASH) return null;
+  const fast = splitTargetFast(target);
+  if (fast !== null) return fast;
+  let url: URL;
+  try {
+    url = new URL(`${DETACHED_ORIGIN}${target}`);
+  } catch {
+    return null;
+  }
+  return { pathname: url.pathname, search: url.search };
+}
+
+function splitTargetFast(target: unknown): ISplitTarget | null {
   if (typeof target !== "string" || target.length === 0) {
     return null;
   }

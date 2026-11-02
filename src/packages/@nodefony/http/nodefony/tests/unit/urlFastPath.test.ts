@@ -4,7 +4,41 @@ import { describe, it } from "vitest";
 import {
   splitTarget,
   isCanonicalAuthority,
+  parseRequestTarget,
 } from "../../src/context/http/urlFastPath.js";
+
+describe("urlFastPath — parseRequestTarget (chemin reçu hors requête HTTP)", () => {
+  it("rend la forme WHATWG que la porte HTTP donnerait, découpe ou parse", () => {
+    for (const target of [
+      "/a/b?x=1",
+      "/a/./b/../c",
+      "/a/%2e%2e/c",
+      "/a\\b",
+      "//autre/x?y",
+      "/é",
+      "/a b",
+      "/x?",
+    ]) {
+      const ref = new URL(`http://h${target}`);
+      expect(parseRequestTarget(target), target).toEqual({
+        pathname: ref.pathname,
+        search: ref.search,
+      });
+    }
+  });
+
+  it("un `//` en tête reste un CHEMIN, jamais une autorité", () => {
+    expect(parseRequestTarget("//evil.example/x")?.pathname).toBe(
+      "//evil.example/x",
+    );
+  });
+
+  it("refuse ce qui n'est pas origin-form", () => {
+    for (const bad of ["", "x/y", "http://h/x", "*"]) {
+      expect(parseRequestTarget(bad), bad).toBe(null);
+    }
+  });
+});
 
 /**
  * PREUVE du fast-path F-B : la découpe n'est admise que si elle est

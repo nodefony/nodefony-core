@@ -31,10 +31,12 @@ import {
   ORIGIN_REFUSED_CLOSE_CODE,
   TRY_AGAIN_LATER_CLOSE_CODE,
   TransportState,
+  stripTrailingSlashes,
 } from "nodefony";
 import type { ContextType, WebsocketContext } from "@nodefony/http";
 import {
   isWebsocketContext,
+  parseRequestTarget,
   readBackpressureOptions,
   toValidationFields,
 } from "@nodefony/http";
@@ -1494,9 +1496,18 @@ export abstract class RealtimeController<
         },
       );
     }
-    // Query du path INVOQUÉ séparée avant le match (le Router matche un pathname).
-    const qIdx = path.indexOf("?");
-    const pathname = qIdx === -1 ? path : path.slice(0, qIdx);
+    // Le chemin INVOQUÉ, mis dans la forme que la porte HTTP donne au routeur :
+    // parse WHATWG (dot-segments, `\` replié, percent-encoding) puis barres
+    // finales retirées (`Route.cleanPathname`). Sans cela, la même chaîne
+    // routait différemment selon le transport — `/x/` : 200 en HTTP, 404 ici.
+    const target = parseRequestTarget(path);
+    if (target === null) {
+      throw new RpcError(
+        "api.request: params.path invalide",
+        JsonRpcError.INVALID_PARAMS,
+      );
+    }
+    const pathname = stripTrailingSlashes(target.pathname);
     // RADIOGRAPHIE de la porte socket — profil de CETTE invocation. Le contexte
     // WS vit pour la CONNEXION : ses phases et son requestId ne peuvent pas
     // décrire une frame parmi N (timeline cumulative). Le profil naît ici, voyage
@@ -1591,8 +1602,8 @@ export abstract class RealtimeController<
         // Route / controller / action du profil — lus par le Profiler au retour.
         if (frame) frame.resolver = resolver;
         frameStore.resolver = resolver;
-        if (qIdx !== -1 && qIdx < path.length - 1) {
-          const sp = new URLSearchParams(path.slice(qIdx + 1));
+        if (target.search.length > 1) {
+          const sp = new URLSearchParams(target.search.slice(1));
           const query: Record<string, string | string[]> = {};
           for (const [k, v] of sp) {
             const prev = query[k];

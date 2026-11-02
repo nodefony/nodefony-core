@@ -12,6 +12,7 @@ import {
   injectable,
   Inject,
   type Scope,
+  stripTrailingSlashes,
 } from "nodefony";
 import type { ContextType } from "@nodefony/http";
 import { FRAMEWORK_ROUTER } from "@nodefony/framework";
@@ -439,6 +440,35 @@ describe("RealtimeController E2E — pont api.request (toute la grille)", () => 
       { path: "/nodefony/kernel/api/x?a=1&a=2&b=3" },
     );
     expect(res.ok).to.equal(true);
+    client.disconnect();
+  });
+
+  it("le chemin est routé dans la forme que lui donne HTTP (WHATWG + barres finales retirées)", async () => {
+    const { client } = await connect();
+    const routed: Record<string, string> = {};
+    for (const [sent, expected] of [
+      ["/nodefony/kernel/api/x/", "/nodefony/kernel/api/x"],
+      ["/a/./b/../c", "/a/c"],
+      ["/a/%2e%2e/c", "/c"],
+      ["/a\\b", "/a/b"],
+      ["//autre/x", "//autre/x"],
+      ["/a/?q=1", "/a"],
+      // La racine : `Route.cleanPathname` rend `""` en HTTP aussi.
+      ["/", ""],
+    ] as const) {
+      const res = await client.request<"api.request", { path: string }>(
+        "api.request",
+        { path: sent },
+      );
+      routed[sent] = res.path;
+      expect(res.path, `« ${sent} »`).to.equal(expected);
+    }
+    // Contrôle : HTTP donne la MÊME forme — parse WHATWG, puis la fonction
+    // même de `Route.cleanPathname`.
+    for (const sent of Object.keys(routed)) {
+      const http = stripTrailingSlashes(new URL(`http://h${sent}`).pathname);
+      expect(routed[sent], `HTTP « ${sent} »`).to.equal(http);
+    }
     client.disconnect();
   });
 
