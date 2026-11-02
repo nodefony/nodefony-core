@@ -35,6 +35,7 @@ l'erreur qui compile, passe les tests, et ne se voit qu'en production.
 | placer un joueur dans une partie sans qu'il s'abonne               | [Jeu — recherche de partie](#jeu--recherche-de-partie) | l'abonnement imposé, lu par `allow`     |
 | un salon sur invitation, dont on peut exclure quelqu'un            | [Salon privé](#salon-privé-sur-invitation)             | `allow` exclut, l'éjection coupe        |
 | des capteurs qui écrivent, des écrans qui lisent                   | [Sonde et supervision](#sonde-et-supervision)          | la portée du jeton, le canal en lecture |
+| une mesure périodique affichée sur N écrans                        | [Tableau de bord partagé](#tableau-de-bord-partagé)    | un producteur par canal, pas par écran  |
 | prévenir une personne, sur tous ses onglets                        | [Notification privée](#notification-privée-userid)     | le canal `user:<id>`, fourni            |
 | montrer la progression d'une tâche longue à celui qui l'a demandée | [Tâche d'agent](#tâche-dagent)                         | le serveur nomme le canal et le termine |
 | un appel, une conversation à la voix                               | [Appel et voix](#appel-et-voix)                        | en conception                           |
@@ -46,8 +47,11 @@ route et son câblage naissent d'une commande, et ne sont pas répétés ici :
 npx nodefony create controller Arena --kind realtime
 ```
 
-Les exemples de cette page sont exécutés tels quels par la suite de tests du module : ce que vous
-copiez a tourné.
+Chaque cas montre trois fichiers : le **serveur**, le **navigateur**, et le **test** qui éprouve
+le serveur avec l'identité d'essai de `@nodefony/security/testing`. Le serveur et le test sont
+exécutés tels quels par la suite du module, le navigateur y est vérifié par le compilateur : ce
+que vous copiez a tourné. Seuls les imports changent — la page montre ceux d'une application qui
+pose le test à côté de son contrôleur.
 
 ## 📖 Lexique
 
@@ -127,16 +131,92 @@ function isPoint(value: unknown): value is Point {
 
 Côté navigateur, la socket **jette** un coup quand le réseau cale, au lieu de l'empiler :
 
+<!-- example: gameMoves.client.ts -->
+
 ```ts
 import { NodefonySocket } from "nodefony/client";
 
 const socket = NodefonySocket.shared({
   url: "/api/live/realtime",
-  maxBufferedAmount: 64 * 1024, // au-delà, le coup est jeté et compté, pas mis en file
+  maxBufferedAmount: 64 * 1024, // au-delà, le coup est JETÉ et compté, pas mis en file
 });
-socket.subscribe("game:state");
-socket.on("game:state", (players) => console.log(players));
-socket.emit("game:move", { x: 10, y: 4 });
+
+/** Chaque état reçu REMPLACE le précédent : rien n'est empilé. */
+export function watchArena(draw: (players: unknown) => void): () => void {
+  const off = socket.on("game:state", draw); // charge réseau : la vérifier avant de dessiner
+  socket.subscribe("game:state");
+  return () => {
+    off();
+    socket.unsubscribe("game:state");
+  };
+}
+
+/** Soixante fois par seconde : une notification, aucune réponse attendue. */
+export function move(x: number, y: number): void {
+  socket.emit("game:move", { x, y });
+}
+```
+
+Le test joue soixante coups, puis un tick ; il branche le **vrai** verrou du pare-feu, sans lequel
+le rôle exigé ne serait jugé par personne :
+
+<!-- example: gameMoves.test.ts -->
+
+```ts
+import { afterEach, describe, expect, it } from "vitest";
+import { getRealtimeHub } from "@nodefony/realtime";
+import { createRealtimeHarness } from "@nodefony/realtime/testing";
+import type { IRealtimeHarness } from "@nodefony/realtime/testing";
+import {
+  createTestFrameAuthorizer,
+  createTestIdentity,
+} from "@nodefony/security/testing";
+import { ArenaRealtime, positions, tick } from "./gameMoves";
+
+const open: IRealtimeHarness<ArenaRealtime>[] = [];
+const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
+
+async function connect(
+  user: string,
+  roles: string[],
+): Promise<IRealtimeHarness<ArenaRealtime>> {
+  const h = createRealtimeHarness((ctx) => new ArenaRealtime(ctx), {
+    identity: createTestIdentity({ identifier: user, roles }),
+    // Le VRAI verrou du pare-feu : sans lui, `roles` n'est jugé par personne.
+    frameAuthorizer: createTestFrameAuthorizer(getRealtimeHub()),
+    resetHub: open.length === 0,
+  });
+  await h.connect();
+  open.push(h);
+  return h;
+}
+
+describe("jeu — seule la dernière position compte, diffusée au rythme du serveur", () => {
+  afterEach(() => {
+    for (const h of open.splice(0)) h.close();
+    positions.clear();
+    getRealtimeHub().clear();
+  });
+
+  it("soixante coups, un seul état diffusé : le dernier", async () => {
+    const alice = await connect("alice", ["ROLE_PLAYER"]);
+    await alice.subscribe("game:state");
+    for (let x = 0; x < 60; x++) await alice.notify("game:move", { x, y: 1 });
+    await alice.notify("game:move", { x: "pas un nombre", y: 1 });
+    expect(alice.messages("game:state")).toHaveLength(0); // rien avant le tick
+    tick(); // en production : `setInterval(tick, 50)`
+    expect(alice.messages("game:state")).toEqual([{ alice: { x: 59, y: 1 } }]);
+  });
+
+  it("sans ROLE_PLAYER, ni l'état ni les coups", async () => {
+    const watcher = await connect("watcher", ["ROLE_USER"]);
+    await watcher.subscribe("game:state");
+    await watcher.notify("game:move", { x: 9, y: 9 });
+    await flush();
+    expect(watcher.denials().map((d) => d.channel)).toContain("game:state");
+    expect(positions.has("watcher")).toBe(false);
+  });
+});
 ```
 
 Et côté serveur, une borne du nombre de trames qu'un client peut envoyer :
@@ -215,6 +295,87 @@ export class MatchRealtime extends RealtimeController {
 }
 ```
 
+Côté navigateur, rien à demander : l'abonnement arrive avec `imposed: true`.
+
+<!-- example: matchmaking.client.ts -->
+
+```ts
+import { NodefonySocket } from "nodefony/client";
+
+const socket = NodefonySocket.shared({ url: "/api/live/realtime" });
+
+/** Rien à écrire pour suivre la partie : le serveur IMPOSE l'abonnement. */
+export function findMatch(onState: (state: unknown) => void): void {
+  socket.onSubscribed(({ channel, imposed }) => {
+    if (imposed === true && channel.startsWith("match:"))
+      socket.on(channel, onState);
+  });
+  socket.emit("match:find");
+}
+
+socket.onClosed(({ channel, reason }) => {
+  if (reason === "ended") console.log(`partie ${channel} terminée`);
+});
+```
+
+Le test coupe la connexion, puis la rouvre — ce qu'un tunnel fait au téléphone :
+
+<!-- example: matchmaking.test.ts -->
+
+```ts
+import { afterEach, describe, expect, it } from "vitest";
+import { getRealtimeHub } from "@nodefony/realtime";
+import { createRealtimeHarness } from "@nodefony/realtime/testing";
+import type { IRealtimeHarness } from "@nodefony/realtime/testing";
+import { createTestIdentity } from "@nodefony/security/testing";
+import { MatchRealtime, players } from "./matchmaking";
+
+const open: IRealtimeHarness<MatchRealtime>[] = [];
+const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
+
+async function connect(user: string): Promise<IRealtimeHarness<MatchRealtime>> {
+  const h = createRealtimeHarness((ctx) => new MatchRealtime(ctx), {
+    identity: createTestIdentity({ identifier: user }),
+    resetHub: open.length === 0,
+  });
+  await h.connect();
+  open.push(h);
+  return h;
+}
+
+describe("recherche de partie — abonné d'office, et l'appartenance survit à la reconnexion", () => {
+  afterEach(() => {
+    for (const h of open.splice(0)) h.close();
+    players.clear();
+    getRealtimeHub().clear();
+  });
+
+  it("placé sans s'abonner, le joueur retrouve sa partie après une coupure", async () => {
+    const alice = await connect("alice");
+    await alice.notify("match:find");
+    await flush();
+    expect(alice.subscriptions()).toEqual(["match:42"]);
+    alice.close(); // un tunnel
+    const again = await connect("alice"); // le navigateur rejoue `subscribe`
+    await again.subscribe("match:42");
+    await flush();
+    expect(again.denials()).toHaveLength(0);
+  });
+
+  it("un joueur d'une autre partie n'entre pas", async () => {
+    const alice = await connect("alice");
+    await alice.notify("match:find");
+    await flush();
+    const mallory = await connect("mallory");
+    await mallory.subscribe("match:42");
+    await flush();
+    expect(mallory.denials()).toMatchObject([
+      { channel: "match:42", reason: "forbidden" },
+    ]);
+  });
+});
+```
+
 **Pourquoi ce choix.** Le navigateur rejoue ses abonnements à chaque reconnexion, et ce rejeu passe
 par `allow`. L'appartenance est donc écrite **là où `allow` la lit**, avant d'abonner : le joueur
 retrouve sa partie après une coupure, sans code côté navigateur.
@@ -235,8 +396,10 @@ import type { ContextType } from "@nodefony/http";
 import {
   RealtimeChannel,
   RealtimeController,
+  RealtimeInbound,
   getRealtimeHub,
 } from "@nodefony/realtime";
+import type { IRealtimeConnection } from "@nodefony/realtime";
 
 /** Les invités de chaque salon — en vrai, une table : `allow` peut l'interroger. */
 export const guests = new Map<string, Set<string>>();
@@ -259,8 +422,25 @@ export class RoomRealtime extends RealtimeController {
     return () => {};
   }
 
+  // Un canal décoré n'est servi que sous son nom exact : `room:7` est servi ici.
   override createRealtimeChannel(channel: string): (() => void) | null {
     return guests.has(channel) ? () => {} : null;
+  }
+
+  // Une entrée n'hérite PAS de la politique du canal : elle vérifie l'appartenance
+  // elle-même, par le MÊME registre qu'`allow`, et l'auteur vient de la connexion.
+  @RealtimeInbound("room:send", { authenticated: true })
+  async send(
+    params: unknown,
+    _reply: unknown,
+    connection: IRealtimeConnection,
+  ): Promise<void> {
+    if (connection.userId === null || !isMessage(params)) return;
+    if (!(await isGuest(params.room, connection.userId))) return;
+    getRealtimeHub().publish(params.room, {
+      author: connection.userId,
+      text: params.text.slice(0, 500),
+    });
   }
 }
 
@@ -269,10 +449,140 @@ export function exclude(room: string, user: string): void {
   guests.get(room)?.delete(user);
   getRealtimeHub().evictUser(room, user); // ses onglets reçoivent `realtime:closed { reason: "evicted" }`
 }
+
+function isMessage(value: unknown): value is { room: string; text: string } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "room" in value &&
+    "text" in value &&
+    typeof value.room === "string" &&
+    typeof value.text === "string"
+  );
+}
+```
+
+Côté navigateur, entrer est une demande ; un refus ou une exclusion s'affiche, sans réessai :
+
+<!-- example: privateRoom.client.ts -->
+
+```ts
+import { NodefonySocket } from "nodefony/client";
+
+const socket = NodefonySocket.shared({ url: "/api/live/realtime" });
+
+/** Entrer dans un salon : une DEMANDE, que `allow` tranche côté serveur. */
+export function joinRoom(
+  room: string,
+  onMessage: (message: unknown) => void,
+): () => void {
+  const off = socket.on(room, onMessage);
+  socket.subscribe(room);
+  return () => {
+    off();
+    socket.unsubscribe(room);
+  };
+}
+
+export function say(room: string, text: string): void {
+  socket.emit("room:send", { room, text });
+}
+
+// Refusé (pas invité) ou exclu : l'écran le dit, et ne réessaie pas.
+socket.onDenied(({ channel, reason }) =>
+  console.warn(`${channel} : ${reason}`),
+);
+socket.onClosed(({ channel, reason }) => {
+  if (reason === "evicted") console.warn(`exclu de ${channel}`);
+});
+```
+
+Le test admet, refuse, puis exclut — et recharge la page de l'exclu :
+
+<!-- example: privateRoom.test.ts -->
+
+```ts
+import { afterEach, describe, expect, it } from "vitest";
+import { getRealtimeHub } from "@nodefony/realtime";
+import { createRealtimeHarness } from "@nodefony/realtime/testing";
+import type { IRealtimeHarness } from "@nodefony/realtime/testing";
+import { createTestIdentity } from "@nodefony/security/testing";
+import { RoomRealtime, exclude, guests } from "./privateRoom";
+
+const open: IRealtimeHarness<RoomRealtime>[] = [];
+const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
+
+/** Une connexion par compte ; le hub est partagé entre elles. */
+async function connect(user: string): Promise<IRealtimeHarness<RoomRealtime>> {
+  const h = createRealtimeHarness((ctx) => new RoomRealtime(ctx), {
+    identity: createTestIdentity({ identifier: user }),
+    resetHub: open.length === 0,
+  });
+  await h.connect();
+  open.push(h);
+  return h;
+}
+
+const closedOf = (h: IRealtimeHarness<RoomRealtime>): unknown[] =>
+  h.received.filter((f) => f.method === "realtime:closed").map((f) => f.params);
+
+describe("salon privé — `allow` admet, l'exclusion coupe ET empêche de revenir", () => {
+  afterEach(() => {
+    for (const h of open.splice(0)) h.close();
+    guests.clear();
+    getRealtimeHub().clear();
+  });
+
+  it("l'invité entre, l'intrus est refusé par le MÊME motif", async () => {
+    guests.set("room:7", new Set(["alice", "bob"]));
+    const bob = await connect("bob");
+    const mallory = await connect("mallory");
+    await bob.subscribe("room:7");
+    await mallory.subscribe("room:7");
+    await flush();
+    expect(bob.subscriptions()).toEqual(["room:7"]);
+    expect(mallory.denials()).toMatchObject([
+      { channel: "room:7", reason: "forbidden" },
+    ]);
+  });
+
+  it("seul un invité écrit ; l'auteur vient de la connexion, pas du message", async () => {
+    guests.set("room:7", new Set(["alice", "bob"]));
+    const alice = await connect("alice");
+    const bob = await connect("bob");
+    const mallory = await connect("mallory");
+    await alice.subscribe("room:7");
+    await bob.notify("room:send", {
+      room: "room:7",
+      text: "salut",
+      author: "alice",
+    });
+    await mallory.notify("room:send", { room: "room:7", text: "intrus" });
+    await flush();
+    expect(alice.messages("room:7")).toEqual([
+      { author: "bob", text: "salut" },
+    ]);
+  });
+
+  it("exclu : `evicted` tout de suite, puis refusé à la page rechargée", async () => {
+    guests.set("room:7", new Set(["alice", "bob"]));
+    const bob = await connect("bob");
+    await bob.subscribe("room:7");
+    await flush();
+    exclude("room:7", "bob");
+    expect(closedOf(bob)).toEqual([{ channel: "room:7", reason: "evicted" }]);
+    const reloaded = await connect("bob"); // une page rechargée refait `subscribe`
+    await reloaded.subscribe("room:7");
+    await flush();
+    expect(reloaded.denials()).toHaveLength(1);
+  });
+});
 ```
 
 **Pourquoi ce choix.** `allow` est appelé une seule fois par abonnement, jamais par message : une
-requête en base y est normale. Exclure, c'est retirer l'invitation **puis** éjecter.
+requête en base y est normale. Exclure, c'est retirer l'invitation **puis** éjecter. L'entrée
+`room:send` n'hérite pas de la politique du canal : elle relit l'invitation elle-même, et prend
+l'auteur sur la connexion, jamais dans le message.
 
 **Le piège.** Éjecter sans retirer l'invitation, ou tenir une liste noire à côté : l'exclu
 recharge sa page, son navigateur refait `subscribe`, et `allow` le laisse rentrer.
@@ -325,6 +635,109 @@ function isReading(value: unknown): value is { probe: string; value: number } {
 }
 ```
 
+Côté navigateur, l'écran lit ; côté atelier, une passerelle écrit avec son propre jeton :
+
+<!-- example: sensors.client.ts -->
+
+```ts
+import { NodefonySocket } from "nodefony/client";
+
+/** L'écran de supervision LIT (ROLE_SUPERVISOR) ; il ne peut rien pousser. */
+export function watchDashboard(show: (reading: unknown) => void): () => void {
+  const screen = NodefonySocket.shared({ url: "/api/live/realtime" });
+  const off = screen.on("sensor:dashboard", show);
+  screen.subscribe("sensor:dashboard");
+  return off;
+}
+
+/** Une passerelle d'atelier (script Node) : jeton de portée `telemetry:write`, rien d'autre. */
+export function openGateway(token: string): NodefonySocket {
+  const gateway = new NodefonySocket({
+    url: "https://supervision.example/api/live/realtime",
+    token,
+    maxBufferedAmount: 64 * 1024, // une mesure périmée se jette, elle ne s'empile pas
+  });
+  gateway.connect().catch(() => {}); // la reconnexion automatique prend le relais
+  return gateway;
+}
+
+export function report(
+  gateway: NodefonySocket,
+  probe: string,
+  value: number,
+): void {
+  gateway.emit("sensor:reading", { probe, value });
+}
+```
+
+Le test donne un rôle à l'écran, une portée à la sonde, et vérifie que chacun reste à sa place :
+
+<!-- example: sensors.test.ts -->
+
+```ts
+import { afterEach, describe, expect, it } from "vitest";
+import { getRealtimeHub } from "@nodefony/realtime";
+import { createRealtimeHarness } from "@nodefony/realtime/testing";
+import type { IRealtimeHarness } from "@nodefony/realtime/testing";
+import {
+  createTestFrameAuthorizer,
+  createTestIdentity,
+} from "@nodefony/security/testing";
+import { SensorRealtime } from "./sensors";
+
+const open: IRealtimeHarness<SensorRealtime>[] = [];
+const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
+
+async function connect(
+  user: string,
+  rights: { roles?: string[]; scopes?: string[] },
+): Promise<IRealtimeHarness<SensorRealtime>> {
+  const h = createRealtimeHarness((ctx) => new SensorRealtime(ctx), {
+    identity: createTestIdentity({ identifier: user, ...rights }),
+    frameAuthorizer: createTestFrameAuthorizer(getRealtimeHub()),
+    resetHub: open.length === 0,
+  });
+  await h.connect();
+  open.push(h);
+  return h;
+}
+
+describe("sondes — la portée du jeton écrit, le rôle lit", () => {
+  afterEach(() => {
+    for (const h of open.splice(0)) h.close();
+    getRealtimeHub().clear();
+  });
+
+  it("une mesure de sonde atteint l'écran ; une mesure malformée, nulle part", async () => {
+    const screen = await connect("screen", { roles: ["ROLE_SUPERVISOR"] });
+    const probe = await connect("probe-1", {
+      roles: [],
+      scopes: ["telemetry:write"],
+    });
+    await screen.subscribe("sensor:dashboard");
+    await probe.notify("sensor:reading", { probe: "four-3", value: 812 });
+    await probe.notify("sensor:reading", { probe: "four-3", value: "chaud" });
+    await flush();
+    expect(screen.messages("sensor:dashboard")).toEqual([
+      { probe: "four-3", value: 812 },
+    ]);
+  });
+
+  it("un écran ne pousse rien, un compte sans le rôle ne lit rien", async () => {
+    const screen = await connect("screen", { roles: ["ROLE_SUPERVISOR"] });
+    const visitor = await connect("visitor", { roles: ["ROLE_USER"] });
+    await screen.subscribe("sensor:dashboard");
+    await screen.notify("sensor:reading", { probe: "forged", value: 0 });
+    await visitor.subscribe("sensor:dashboard");
+    await flush();
+    expect(screen.messages("sensor:dashboard")).toHaveLength(0);
+    expect(visitor.denials().map((d) => d.channel)).toContain(
+      "sensor:dashboard",
+    );
+  });
+});
+```
+
 **Pourquoi ce choix.** Écrire et lire sont deux droits distincts : la sonde s'identifie par la
 portée de son jeton (`telemetry:write`), l'écran par un rôle. Le canal du tableau n'a aucun
 gestionnaire entrant : un écran ne peut rien y pousser.
@@ -333,6 +746,143 @@ gestionnaire entrant : un écran ne peut rien y pousser.
 au-delà de sa file d'envoi, le serveur jette ce qui lui est destiné, puis le déconnecte. Ne
 compensez pas par une file maison : ce serait garder en mémoire ce que l'écran ne lira jamais.
 Réglages et mesures : [Cadence et contre-pression](cadence-et-contre-pression.md).
+
+### Tableau de bord partagé
+
+Une mesure par seconde, affichée sur autant d'écrans qu'on veut, pour le prix d'un seul calcul.
+
+<!-- example: boardTicker.ts -->
+
+```ts
+import type { ContextType } from "@nodefony/http";
+import {
+  RealtimeChannel,
+  RealtimeController,
+  getRealtimeHub,
+} from "@nodefony/realtime";
+
+/** Cadence du tableau : une publication par seconde, quel que soit le nombre d'écrans. */
+export const TICK_MS = 1000;
+
+/** Ce que publie chaque tick — ici la mémoire du processus, en vrai un service. */
+export function publishLoad(): void {
+  const { rss, heapUsed } = process.memoryUsage();
+  getRealtimeHub().publish("board:load", { rss, heap: heapUsed });
+}
+
+export class BoardRealtime extends RealtimeController {
+  constructor(context: ContextType) {
+    super("BoardRealtime", context);
+  }
+
+  // UN minuteur par serveur : créé au PREMIER écran, arrêté au DERNIER. Rien de
+  // `this.context` ici : le producteur survit à la connexion qui l'a créé.
+  @RealtimeChannel("board:load", { roles: ["ROLE_SUPERVISOR"] })
+  load(): () => void {
+    const timer = setInterval(publishLoad, TICK_MS);
+    timer.unref(); // un serveur qui s'arrête n'attend pas le prochain tick
+    return () => clearInterval(timer);
+  }
+}
+```
+
+Côté navigateur, chaque écran s'abonne, sans rien savoir des autres :
+
+<!-- example: boardTicker.client.ts -->
+
+```ts
+import { NodefonySocket } from "nodefony/client";
+
+const socket = NodefonySocket.shared({ url: "/api/live/realtime" });
+
+/** Chaque écran s'abonne ; le serveur ne paie qu'un producteur pour tous. */
+export function watchLoad(render: (load: unknown) => void): () => void {
+  const off = socket.on("board:load", render); // charge réseau : la vérifier avant d'afficher
+  socket.subscribe("board:load");
+  return () => {
+    off();
+    socket.unsubscribe("board:load");
+  };
+}
+```
+
+Le test simule le seul minuteur du producteur, et compte ce que reçoit chaque écran :
+
+<!-- example: boardTicker.test.ts -->
+
+```ts
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getRealtimeHub } from "@nodefony/realtime";
+import { createRealtimeHarness } from "@nodefony/realtime/testing";
+import type { IRealtimeHarness } from "@nodefony/realtime/testing";
+import {
+  createTestFrameAuthorizer,
+  createTestIdentity,
+} from "@nodefony/security/testing";
+import { BoardRealtime, TICK_MS } from "./boardTicker";
+
+const open: IRealtimeHarness<BoardRealtime>[] = [];
+
+async function connect(
+  user: string,
+  roles: string[],
+): Promise<IRealtimeHarness<BoardRealtime>> {
+  const h = createRealtimeHarness((ctx) => new BoardRealtime(ctx), {
+    identity: createTestIdentity({ identifier: user, roles }),
+    frameAuthorizer: createTestFrameAuthorizer(getRealtimeHub()),
+    resetHub: open.length === 0,
+  });
+  await h.connect();
+  open.push(h);
+  return h;
+}
+
+describe("tableau de bord — un producteur pour N écrans", () => {
+  // Seul le minuteur du producteur est simulé : le reste du hub garde le vrai temps.
+  beforeEach(() =>
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] }),
+  );
+  afterEach(() => {
+    for (const h of open.splice(0)) h.close();
+    getRealtimeHub().clear();
+    vi.useRealTimers();
+  });
+
+  it("deux écrans, un tick : UNE publication chacun — jamais un minuteur par écran", async () => {
+    const a = await connect("ops-a", ["ROLE_SUPERVISOR"]);
+    const b = await connect("ops-b", ["ROLE_SUPERVISOR"]);
+    await a.subscribe("board:load");
+    await b.subscribe("board:load");
+    vi.advanceTimersByTime(TICK_MS);
+    expect(a.messages("board:load")).toHaveLength(1);
+    expect(b.messages("board:load")).toHaveLength(1);
+  });
+
+  it("le dernier écran parti, le minuteur s'arrête", async () => {
+    const a = await connect("ops-a", ["ROLE_SUPERVISOR"]);
+    await a.subscribe("board:load");
+    expect(vi.getTimerCount()).toBe(1);
+    a.close();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("un compte sans le rôle est refusé", async () => {
+    const visitor = await connect("visitor", ["ROLE_USER"]);
+    await visitor.subscribe("board:load");
+    expect(visitor.denials()).toMatchObject([
+      { channel: "board:load", reason: "forbidden" },
+    ]);
+  });
+});
+```
+
+**Pourquoi ce choix.** La fabrique du canal tourne au **premier** abonné et s'arrête au
+**dernier** : le minuteur appartient au canal, pas à la connexion. Dix écrans coûtent une mesure par
+seconde, pas dix.
+
+**Le piège.** Lancer le minuteur dans le gestionnaire d'une connexion, ou y lire `this.context` :
+chaque écran ajoute son minuteur, et le serveur publie N fois la même mesure à N écrans — N² messages
+par seconde, sans une erreur.
 
 ### Notification privée `user:<id>`
 
@@ -351,10 +901,13 @@ export function notifyInvoicePaid(userId: string, invoice: string): void {
 
 Côté navigateur, un seul geste ; la forme du message se déclare dans le contrat :
 
+<!-- example: userNotifications.client.ts -->
+
 ```ts
 import { NodefonySocket } from "nodefony/client";
 import type { IRealtimeContract } from "nodefony/client";
 
+// La forme du message se déclare dans le contrat : `note` est typé à l'arrivée.
 interface BillingContract extends IRealtimeContract {
   serverToClient: {
     [channel: `user:${string}`]: { kind: "invoice:paid"; invoice: string };
@@ -364,7 +917,65 @@ interface BillingContract extends IRealtimeContract {
 const socket = NodefonySocket.fromContract<BillingContract>({
   url: "/api/live/realtime",
 });
-socket.onUser((note) => console.log(`facture ${note.invoice} payée`));
+
+/** Rien à connaître ni à construire : l'identifiant vient de l'accueil de la socket. */
+export const stopListening = socket.onUser((note) =>
+  console.log(`facture ${note.invoice} payée`),
+);
+```
+
+Le test vérifie la destinataire, et qu'un autre compte n'entre pas sur son canal :
+
+<!-- example: userNotifications.test.ts -->
+
+```ts
+import { afterEach, describe, expect, it } from "vitest";
+import { getRealtimeHub } from "@nodefony/realtime";
+import { createRealtimeHarness } from "@nodefony/realtime/testing";
+import type { IRealtimeHarness } from "@nodefony/realtime/testing";
+import { createTestIdentity } from "@nodefony/security/testing";
+import { SensorRealtime } from "./sensors";
+import { notifyInvoicePaid } from "./userNotifications";
+
+const open: IRealtimeHarness<SensorRealtime>[] = [];
+const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
+
+/** N'importe quel contrôleur temps réel : le canal personnel est fourni par le framework. */
+async function connect(
+  user: string,
+): Promise<IRealtimeHarness<SensorRealtime>> {
+  const h = createRealtimeHarness((ctx) => new SensorRealtime(ctx), {
+    identity: createTestIdentity({ identifier: user }),
+    resetHub: open.length === 0,
+  });
+  await h.connect();
+  open.push(h);
+  return h;
+}
+
+describe("notification privée — n'atteint que la personne visée", () => {
+  afterEach(() => {
+    for (const h of open.splice(0)) h.close();
+    getRealtimeHub().clear();
+  });
+
+  it("alice reçoit, bob non, et personne n'entre sur le canal d'un autre", async () => {
+    const alice = await connect("alice");
+    const bob = await connect("bob");
+    await alice.subscribe("user:alice"); // ce que fait `socket.onUser()`
+    await bob.subscribe("user:bob");
+    await bob.subscribe("user:alice");
+    await flush();
+    notifyInvoicePaid("alice", "F-2026-001");
+    expect(alice.messages("user:alice")).toEqual([
+      { kind: "invoice:paid", invoice: "F-2026-001" },
+    ]);
+    expect(bob.messages("user:alice")).toHaveLength(0);
+    expect(bob.denials()).toMatchObject([
+      { channel: "user:alice", reason: "forbidden" },
+    ]);
+  });
+});
 ```
 
 **Pourquoi ce choix.** Le canal personnel est une brique du framework : connexion authentifiée,
@@ -439,20 +1050,92 @@ export async function run(task: string): Promise<void> {
 }
 ```
 
+Côté navigateur, la réponse donne le nom du canal, que la socket suit déjà :
+
+<!-- example: agentTask.client.ts -->
+
 ```ts
 import { NodefonySocket } from "nodefony/client";
 
 const socket = NodefonySocket.shared({ url: "/api/live/realtime" });
-socket.on("task:start", (reply) => {
-  // Une charge reçue du réseau se vérifie avant usage.
-  if (typeof reply !== "object" || reply === null || !("task" in reply)) return;
-  if (typeof reply.task === "string")
-    socket.on(reply.task, (p) => console.log(p));
+
+/** Démarre une tâche : le serveur nomme le canal, y abonne, puis le termine. */
+export function startTask(
+  onStep: (step: unknown) => void,
+  onDone: () => void,
+): void {
+  socket.on("task:start", (reply) => {
+    // Une charge reçue du réseau se vérifie avant usage.
+    if (typeof reply !== "object" || reply === null || !("task" in reply))
+      return;
+    if (typeof reply.task === "string") socket.on(reply.task, onStep);
+  });
+  socket.onClosed(({ channel, reason }) => {
+    if (channel.startsWith("task:") && reason === "ended") onDone();
+  });
+  socket.emit("task:start");
+}
+```
+
+Le test suit la progression jusqu'à la fin, puis tente de deviner le canal d'un autre :
+
+<!-- example: agentTask.test.ts -->
+
+```ts
+import { afterEach, describe, expect, it } from "vitest";
+import { getRealtimeHub } from "@nodefony/realtime";
+import { createRealtimeHarness } from "@nodefony/realtime/testing";
+import type { IRealtimeHarness } from "@nodefony/realtime/testing";
+import { createTestIdentity } from "@nodefony/security/testing";
+import { TaskRealtime, owners } from "./agentTask";
+
+const open: IRealtimeHarness<TaskRealtime>[] = [];
+const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
+
+async function connect(user: string): Promise<IRealtimeHarness<TaskRealtime>> {
+  const h = createRealtimeHarness((ctx) => new TaskRealtime(ctx), {
+    identity: createTestIdentity({ identifier: user }),
+    resetHub: open.length === 0,
+  });
+  await h.connect();
+  open.push(h);
+  return h;
+}
+
+const closedOf = (h: IRealtimeHarness<TaskRealtime>): unknown[] =>
+  h.received.filter((f) => f.method === "realtime:closed").map((f) => f.params);
+
+describe("tâche d'agent — le demandeur suit SA progression, puis reçoit `ended`", () => {
+  afterEach(() => {
+    for (const h of open.splice(0)) h.close();
+    owners.clear();
+    getRealtimeHub().clear();
+  });
+
+  it("progression puis fin, sur un canal que le serveur a nommé", async () => {
+    const alice = await connect("alice");
+    await alice.notify("task:start");
+    for (let i = 0; i < 10; i++) await flush();
+    const [task] = alice.subscriptions();
+    expect(task).toMatch(/^task:/);
+    expect(alice.messages("task:start")).toEqual([{ task }]);
+    expect(alice.messages(task ?? "")).toEqual([
+      { step: "lecture" },
+      { step: "analyse" },
+      { step: "rédaction" },
+    ]);
+    expect(closedOf(alice)).toEqual([{ channel: task, reason: "ended" }]);
+  });
+
+  it("un autre compte ne suit pas la tâche d'alice, même en devinant son nom", async () => {
+    const alice = await connect("alice");
+    await alice.notify("task:start");
+    const [task] = alice.subscriptions(); // la tâche tourne encore
+    const mallory = await connect("mallory");
+    await mallory.subscribe(task ?? "task:devine");
+    expect(mallory.denials()).toMatchObject([{ reason: "forbidden" }]);
+  });
 });
-socket.onClosed(({ reason }) =>
-  console.log(reason === "ended" ? "terminé" : reason),
-);
-socket.emit("task:start");
 ```
 
 **Pourquoi ce choix.** Le serveur choisit le nom du canal et y abonne le demandeur : personne ne
@@ -493,12 +1176,15 @@ là, n'en anticipez pas l'interface.
 
 ## 🧪 Tests & couverture
 
-- **Exemples exécutés** (`useCases.test.ts`) : chaque bloc serveur de cette page est un fichier de
-  `nodefony/tests/fixtures/use-cases/`, éprouvé par un test — dernière position seule et diffusion
-  au tick, appartenance qui survit à la reconnexion, exclu qui ne revient pas, mesure malformée
-  écartée, notification qui n'atteint que sa destinataire, progression puis `ended`.
-- **Page et fichiers identiques** : le même test compare chaque bloc marqué de cette page au
-  fichier exécuté ; un exemple corrigé d'un seul côté fait échouer la suite.
+- **Exemples exécutés** : chaque bloc serveur et navigateur de cette page est un fichier de
+  `nodefony/tests/fixtures/use-cases/` (le navigateur, typé), chaque bloc de test un fichier de
+  `nodefony/tests/unit/use-cases/`, exécuté — dernière position seule et diffusion au tick,
+  appartenance qui survit à la reconnexion, exclu qui ne revient pas, auteur pris sur la connexion,
+  mesure malformée écartée, un minuteur pour N écrans, notification qui n'atteint que sa
+  destinataire, progression puis `ended`.
+- **Page et fichiers identiques** (`useCases.test.ts`) : chaque bloc marqué de cette page est
+  comparé au fichier du dépôt, et chaque cas doit montrer ses trois fichiers ; un exemple corrigé
+  d'un seul côté fait échouer la suite.
 
 ## 🔗 Pour aller plus loin
 

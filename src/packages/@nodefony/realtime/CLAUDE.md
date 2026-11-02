@@ -158,7 +158,11 @@ Ce qu'il faut savoir en entrant dans le module, et qui ne périme pas :
   dynamique (`call:<uuid>`) porte donc une politique. « CETTE connexion a-t-elle droit à CE
   canal » s'écrit par `allow` (ADR-0022 §6 décision 1), appelé une fois au `subscribe`, verdict
   retenu sur la connexion ; abonner d'office, éjecter, terminer : `docs/canaux-a-membres.md`.
-- **Un exemple par besoin** (jeu, salon privé, sonde, `user:<id>`, tâche d'agent) vit dans
-  `docs/cas-d-usage.md`, et chaque bloc serveur y est un fichier de
-  `nodefony/tests/fixtures/use-cases/` exécuté par `useCases.test.ts`, qui compare aussi la page
-  aux fichiers. Corriger un exemple = corriger le FICHIER, puis recopier le bloc (le test le dit).
+- **Un exemple par besoin** (jeu, salon privé, sonde, tableau partagé, `user:<id>`, tâche
+  d'agent) vit dans `docs/cas-d-usage.md`, en TROIS fichiers par cas : serveur
+  `nodefony/tests/fixtures/use-cases/<cas>.ts` (exécuté), navigateur `<cas>.client.ts` (typé
+  seulement — `tsconfig.tests.json`), test `nodefony/tests/unit/use-cases/<cas>.test.ts`
+  (exécuté, identité de `@nodefony/security/testing`). `useCases.test.ts` compare chaque bloc
+  marqué `<!-- example: X -->` au fichier X, imports réécrits (`asShown`) et listes d'import
+  aplaties (`flatImports`), et exige les trois fichiers par cas. Corriger un exemple = corriger le
+  FICHIER, puis recopier le bloc (le test le dit).
