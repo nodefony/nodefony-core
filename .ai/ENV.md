@@ -14,7 +14,7 @@
 | --- | ---: |
 | Infrastructure | 13 |
 | Interrupteur de coût | 7 |
-| Décor de banc | 38 |
+| Décor de banc | 40 |
 | Runtime produit | 86 |
 
 ## Décor de banc
@@ -41,6 +41,13 @@ rien : elle change ce qui est EXÉCUTÉ.
 | Variable | Rôle | Valeurs | Absente ⇒ |
 | --- | --- | --- | --- |
 | `NF_ADOPT_FIXTURE` | Fait exporter au module `test` la table applicative que le banc d'adoption doit trouver. | `sqlite|postgres|mysql`, éventuellement suffixé `+slug`, `+paire`, `+orphelin` ou `+usurpe` | Le fichier d'entité s'importe et n'exporte AUCUNE table : l'adoption n'a rien à adopter, et une génération voit disparaître la table — ce qu'un outil de diff prend pour une suppression. |
+
+### banc de compatibilité entre versions
+
+| Variable | Rôle | Valeurs | Absente ⇒ |
+| --- | --- | --- | --- |
+| `NF_COMPAT_DIR` | Dossier où `npm run release:compat` a installé la version PUBLIÉE de `nodefony` et `@nodefony/realtime` (avec son `entry.mjs`), lu par le banc de compatibilité entre versions. | chemin absolu — posé par `scripts/release/compat.mjs`, jamais à la main | Le banc `crossVersion.compat.test.ts` s'ARRÊTE en nommant `npm run release:compat` — jamais un vert sans la version de référence. `npm test` ne le lance pas. |
+| `NF_COMPAT_VERSION` | Version publiée installée dans `NF_COMPAT_DIR`, affichée dans les titres du banc de compatibilité. | version semver — posée par `scripts/release/compat.mjs` | Les titres affichent `?` ; rien d'autre ne change. |
 
 ### banc de la ligne de commande
 

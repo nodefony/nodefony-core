@@ -217,6 +217,20 @@ export const BENCH_DECOR: Record<string, IEnvDeclaration> = {
     absent: "Le banc borne chaque cas à 2 min.",
     group: "banc de la ligne de commande",
   },
+  NF_COMPAT_DIR: {
+    what: "Dossier où `npm run release:compat` a installé la version PUBLIÉE de `nodefony` et `@nodefony/realtime` (avec son `entry.mjs`), lu par le banc de compatibilité entre versions.",
+    values:
+      "chemin absolu — posé par `scripts/release/compat.mjs`, jamais à la main",
+    absent:
+      "Le banc `crossVersion.compat.test.ts` s'ARRÊTE en nommant `npm run release:compat` — jamais un vert sans la version de référence. `npm test` ne le lance pas.",
+    group: "banc de compatibilité entre versions",
+  },
+  NF_COMPAT_VERSION: {
+    what: "Version publiée installée dans `NF_COMPAT_DIR`, affichée dans les titres du banc de compatibilité.",
+    values: "version semver — posée par `scripts/release/compat.mjs`",
+    absent: "Les titres affichent `?` ; rien d'autre ne change.",
+    group: "banc de compatibilité entre versions",
+  },
   NF_DB_OUTAGE_MONGO_CONTAINER: {
     what: "Nom du conteneur MongoDB que le banc a le droit d'ARRÊTER pour éprouver une coupure réelle.",
     values: "nom docker",

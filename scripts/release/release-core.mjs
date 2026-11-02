@@ -1513,6 +1513,79 @@ export function trierPourRecalage(etats, estPreversion) {
 }
 
 /**
+ * Déplie la sortie JSON de `npm view` : l'enveloppe éventuelle (cf
+ * {@link lireVueNpm}) aplatie en une liste.
+ *
+ * @param brut - la sortie standard de npm, telle quelle
+ * @returns les éléments, ou `null` si la sortie n'est pas du JSON
+ */
+function deplierVueNpm(brut) {
+  try {
+    return [JSON.parse(brut ?? "")].flat();
+  } catch {
+    return null;
+  }
+}
+
+/** Majeure d'une version semver, ou `null` si invalide. */
+function majeureDe(version) {
+  const m = typeof version === "string" ? SEMVER.exec(version) : null;
+  return m ? Number(m[1]) : null;
+}
+
+/**
+ * Version PUBLIÉE contre laquelle éprouver la compatibilité de la version
+ * locale, d'après `npm view <nom> dist-tags time --json`.
+ *
+ * 1. Le canal de la version locale ({@link canalDeVersion}), s'il sert une
+ *    version de la MÊME majeure — le cas courant : une `beta.6` face à la `beta.5`.
+ * 2. Sinon, la version de cette majeure publiée le plus RÉCEMMENT parmi celles
+ *    qu'un canal sert — la première stable d'une majeure face à sa dernière
+ *    pré-version. Départagée par la date de publication, jamais par la
+ *    précédence des pré-versions (cf {@link comparerVersions}).
+ * 3. Sinon `null` : aucune version de la majeure en ligne, rien à éprouver —
+ *    la compatibilité ne se promet pas entre majeures.
+ *
+ * Le canal se LIT, il ne se suppose pas : sur `nodefony`, `latest` sert
+ * l'ancien framework JS (7.x) tant que la 10 n'est pas stable.
+ *
+ * @param brut - la sortie standard de npm, telle quelle (enveloppée ou non)
+ * @param versionLocale - la version du manifeste local
+ * @returns `{ canal, version }`, ou `null`
+ */
+export function referenceDeCompat(brut, versionLocale) {
+  const majeure = majeureDe(versionLocale);
+  const doc = deplierVueNpm(brut)?.find((v) => v && typeof v === "object");
+  const tags = doc?.["dist-tags"];
+  if (majeure === null || !tags || typeof tags !== "object") return null;
+  const memeMajeure = (v) =>
+    typeof v === "string" && validerVersion(v).ok && majeureDe(v) === majeure;
+  const canal = canalDeVersion(versionLocale);
+  if (memeMajeure(tags[canal])) return { canal, version: tags[canal] };
+  const dates = doc.time && typeof doc.time === "object" ? doc.time : {};
+  const quand = (v) => Date.parse(dates[v] ?? "") || 0;
+  const candidats = Object.entries(tags)
+    .filter(([, v]) => memeMajeure(v))
+    .sort(([, a], [, b]) => quand(b) - quand(a));
+  if (candidats.length === 0) return null;
+  const [canalRetenu, version] = candidats[0];
+  return { canal: canalRetenu, version };
+}
+
+/**
+ * Canal npm qui sert les installations d'une version : son identifiant de
+ * pré-version (`10.0.0-beta.6` → `beta`), sinon `latest`.
+ *
+ * @param version - une version semver
+ * @returns le canal, ou `null` si la version est invalide
+ */
+export function canalDeVersion(version) {
+  const { ok, prerelease } = validerVersion(version);
+  if (!ok) return null;
+  return prerelease === null ? "latest" : prerelease.split(".")[0];
+}
+
+/**
  * Lit la sortie de `npm view <nom> dist-tags versions --json`.
  *
  * 🔴 Le piège, vécu : npm ENVELOPPE sa réponse dans un tableau dès que le
@@ -1529,13 +1602,8 @@ export function trierPourRecalage(etats, estPreversion) {
  * @returns `{ latest, versions }`, ou `null` si la sortie est illisible
  */
 export function lireVueNpm(brut) {
-  let doc;
-  try {
-    doc = JSON.parse(brut ?? "");
-  } catch {
-    return null;
-  }
-  const plat = [doc].flat();
+  const plat = deplierVueNpm(brut);
+  if (plat === null) return null;
   // 🔴 `npm view <nom> versions --json` rend un TABLEAU DE CHAÎNES, pas un
   // objet : filtrer sur `typeof === "object"` le vidait entièrement, la
   // fonction rendait `null`, et l'attente de propagation concluait « aucun

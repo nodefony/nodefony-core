@@ -27,6 +27,8 @@ import {
   depreciationsAFaire,
   latestsRestesEnArriere,
   lireVueNpm,
+  referenceDeCompat,
+  canalDeVersion,
   paquetsNonServis,
   planDeReprise,
   verdictPaquetsNeufs,
@@ -2157,6 +2159,85 @@ describe("lireVueNpm", () => {
     expect(lireVueNpm("")).toBeNull();
     expect(lireVueNpm("pas du json")).toBeNull();
     expect(lireVueNpm("[]")).toBeNull();
+  });
+});
+
+describe("referenceDeCompat", () => {
+  // Forme RÉELLE d'un `npm view nodefony dist-tags time --json` : enveloppée,
+  // et `latest` sur l'ancien framework JS — le canal se lit, il ne se suppose pas.
+  const reel = JSON.stringify([
+    {
+      "dist-tags": {
+        "beta.0": "4.0.0-beta.0",
+        latest: "7.0.2",
+        alpha: "10.0.0-alpha.9",
+        beta: "10.0.0-beta.5",
+      },
+      time: {
+        "4.0.0-beta.0": "2019-01-01T00:00:00.000Z",
+        "7.0.2": "2025-01-03T14:38:54.407Z",
+        "10.0.0-alpha.9": "2026-09-25T01:14:01.047Z",
+        "10.0.0-beta.5": "2026-10-25T12:48:30.954Z",
+      },
+    },
+  ]);
+
+  it("une pré-version se compare à ce que sert SON canal", () => {
+    expect(referenceDeCompat(reel, "10.0.0-beta.6")).toEqual({
+      canal: "beta",
+      version: "10.0.0-beta.5",
+    });
+    expect(referenceDeCompat(reel, "10.0.0-alpha.10")).toEqual({
+      canal: "alpha",
+      version: "10.0.0-alpha.9",
+    });
+  });
+
+  it("🔴 la première stable d'une majeure ne se compare PAS à `latest` d'une autre majeure", () => {
+    // `latest` = 7.0.2 : sans la garde de majeure, la 10.0.0 chercherait
+    // `@nodefony/realtime@7.0.2`, qui n'existe pas — et bloquerait la release.
+    expect(referenceDeCompat(reel, "10.0.0")).toEqual({
+      canal: "beta",
+      version: "10.0.0-beta.5",
+    });
+  });
+
+  it("départage par la date de publication, jamais par la précédence des pré-versions", () => {
+    const rcPlusAncienne = JSON.stringify({
+      "dist-tags": {
+        latest: "7.0.2",
+        rc: "10.0.0-rc.1",
+        beta: "10.0.0-beta.9",
+      },
+      time: {
+        "10.0.0-rc.1": "2026-11-01T00:00:00.000Z",
+        "10.0.0-beta.9": "2026-11-05T00:00:00.000Z",
+      },
+    });
+    expect(referenceDeCompat(rcPlusAncienne, "10.0.0")).toEqual({
+      canal: "beta",
+      version: "10.0.0-beta.9",
+    });
+  });
+
+  it("aucune version de la majeure en ligne, ou sortie illisible : null — jamais une version inventée", () => {
+    expect(referenceDeCompat(reel, "11.0.0-alpha.0")).toBeNull();
+    expect(referenceDeCompat("", "10.0.0-beta.6")).toBeNull();
+    expect(referenceDeCompat("[]", "10.0.0-beta.6")).toBeNull();
+    expect(referenceDeCompat(reel, "10.0")).toBeNull();
+  });
+});
+
+describe("canalDeVersion", () => {
+  it("une pré-version sert son identifiant, une stable sert latest", () => {
+    expect(canalDeVersion("10.0.0-beta.5")).toBe("beta");
+    expect(canalDeVersion("10.0.0-alpha.9")).toBe("alpha");
+    expect(canalDeVersion("10.0.0-rc")).toBe("rc");
+    expect(canalDeVersion("10.0.0")).toBe("latest");
+  });
+
+  it("une version invalide rend null", () => {
+    expect(canalDeVersion("10.0")).toBeNull();
   });
 });
 
