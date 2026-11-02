@@ -816,10 +816,10 @@ refonte. Ici, seulement **où** ils sont ; le **quoi** et le **comment** sont da
 
 | Point de greffe              | Étage     | Moment         | Ancrage                                                |
 | ---------------------------- | --------- | -------------- | ------------------------------------------------------ |
-| Contrôle d'origine           | hub       | à l'upgrade    | `RealtimeHub.ts#RealtimeHub.publishLocal`              |
-| Authentificateur réseau      | hub       | au handshake   | `RealtimeHub.ts#RealtimeHub.unsubscribe`               |
-| Verrou de frame              | protocole | à chaque frame | `RealtimeHub.ts#RealtimeHub.markBroadcastChannel`      |
-| Politique déclarée par canal | hub       | au handshake   | `RealtimeHub.ts#RealtimeHub.setBackplane`              |
+| Contrôle d'origine           | hub       | à l'upgrade    | `RealtimeHub.ts#RealtimeHub.checkOrigin`               |
+| Authentificateur réseau      | hub       | au handshake   | `RealtimeHub.ts#RealtimeHub.useAuthenticator`          |
+| Verrou de frame              | protocole | à chaque frame | `RealtimeHub.ts#RealtimeHub.setFrameAuthorizer`        |
+| Politique déclarée par canal | hub       | au handshake   | `RealtimeHub.ts#RealtimeHub.registerChannelPolicy`     |
 | Audit de frame               | protocole | sur refus      | `RealtimeController.ts#RealtimeController.onHandshake` |
 
 Deux propriétés architecturales méritent d'être notées ici, parce qu'elles expliquent des
