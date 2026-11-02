@@ -1,10 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
-import type { ISubscriberIdentity } from "nodefony";
+import { createTestIdentity } from "@nodefony/security/testing";
 import { RealtimeController } from "../../src/server/RealtimeController";
 import { getRealtimeHub } from "../../src/server/RealtimeHub";
 import { createRealtimeHarness } from "../../testing/index";
 import type { IRealtimeHarness } from "../../testing/index";
-import type { IRealtimeToken } from "../../interfaces/IRealtimeToken";
 import type { IRealtimeConnection } from "../../interfaces/IRealtimeConnection";
 import type { RealtimeInboundHandler } from "../../interfaces/IRealtimeController";
 
@@ -13,32 +12,6 @@ import type { RealtimeInboundHandler } from "../../interfaces/IRealtimeControlle
  * connexion de chaque abonné client — il la liste, l'éjecte, l'abonne d'office,
  * et termine le canal pour tous. Exercé au harnais, sur le vrai contrôleur.
  */
-
-function identity(id: string): ISubscriberIdentity {
-  return Object.freeze({
-    type: "session",
-    authenticated: true,
-    id,
-    userIdentifier: id,
-    roles: Object.freeze(["ROLE_USER"]),
-    scopes: Object.freeze([]),
-    issuer: null,
-    account: true,
-  });
-}
-
-function tokenOf(id: string): IRealtimeToken {
-  const who = identity(id);
-  return {
-    type: "session",
-    getUserIdentifier: () => id,
-    isAuthenticated: () => true,
-    getRoles: () => ["ROLE_USER"],
-    getScopes: () => [],
-    getAttribute: () => undefined,
-    getIdentity: () => who,
-  };
-}
 
 /** Verdicts des abonnements imposés depuis le gestionnaire entrant. */
 let joins: Promise<boolean>[] = [];
@@ -74,7 +47,7 @@ type Harness = IRealtimeHarness<MembersRt>;
 
 async function connect(user: string, first = false): Promise<Harness> {
   const h = createRealtimeHarness((ctx) => new MembersRt(ctx), {
-    identity: tokenOf(user),
+    identity: createTestIdentity({ identifier: user }),
     resetHub: first,
   });
   await h.connect();

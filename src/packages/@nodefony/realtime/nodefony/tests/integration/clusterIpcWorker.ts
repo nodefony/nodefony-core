@@ -30,7 +30,7 @@ import {
   createRealtimeHarness,
   type IRealtimeHarness,
 } from "../../testing/index.js";
-import type { IRealtimeToken } from "../../interfaces/IRealtimeToken.js";
+import { createTestIdentity } from "@nodefony/security/testing";
 import {
   ClusterBackplane,
   processIpcTransport,
@@ -80,28 +80,6 @@ class RoomRt extends RealtimeController {
   override createRealtimeChannel(channel: string): (() => void) | null {
     return channel.startsWith("room:") ? () => {} : null;
   }
-}
-
-function tokenOf(id: string): IRealtimeToken {
-  return {
-    type: "session",
-    getUserIdentifier: () => id,
-    isAuthenticated: () => true,
-    getRoles: () => ["ROLE_USER"],
-    getScopes: () => [],
-    getAttribute: () => undefined,
-    getIdentity: () =>
-      Object.freeze({
-        type: "session",
-        authenticated: true,
-        id,
-        userIdentifier: id,
-        roles: Object.freeze(["ROLE_USER"]),
-        scopes: Object.freeze([]),
-        issuer: null,
-        account: true,
-      }),
-  };
 }
 
 /** Connexions réelles ouvertes par `member`, avec leur compte. */
@@ -189,7 +167,7 @@ process.on("message", (raw: unknown) => {
       const user = text("user") || "anonymous";
       const channel = text("channel");
       const tab = createRealtimeHarness((ctx) => new RoomRt(ctx), {
-        identity: tokenOf(user),
+        identity: createTestIdentity({ identifier: user }),
         resetHub: false,
       });
       members.push({ user, tab });

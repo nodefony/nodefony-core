@@ -1,10 +1,10 @@
 import { describe, it, expect, afterEach } from "vitest";
 import "reflect-metadata";
-import type { ISubscriberIdentity } from "nodefony";
 import type { ContextType } from "@nodefony/http";
+import { createTestIdentity } from "@nodefony/security/testing";
+import { ANONYMOUS_REALTIME_TOKEN } from "../../src/server/AnonymousRealtimeToken.js";
 import { RealtimeController } from "../../src/server/RealtimeController.js";
 import { RealtimeHub, getRealtimeHub } from "../../src/server/RealtimeHub.js";
-import type { IRealtimeToken } from "../../interfaces/IRealtimeToken.js";
 import type {
   BackplaneHandler,
   IBackplane,
@@ -44,38 +44,21 @@ const securityLock = () =>
     systemRules: DEFAULT_SYSTEM_RULES,
   });
 
-/** Jeton d'une connexion : compte `id`, ou anonyme si `id === null`. */
-const tokenOf = (id: string | null): IRealtimeToken => {
-  const authenticated = id !== null;
-  const who: ISubscriberIdentity = Object.freeze({
-    type: authenticated ? "session" : "anonymous",
-    authenticated,
-    id,
-    userIdentifier: authenticated ? `login-${id}` : "anonymous",
-    roles: authenticated ? ["ROLE_USER"] : ["ROLE_ANONYMOUS"],
-    scopes: [],
-    issuer: null,
-    account: authenticated,
-  });
-  return {
-    type: who.type,
-    getUserIdentifier: () => who.userIdentifier,
-    isAuthenticated: () => authenticated,
-    getRoles: () => [...who.roles],
-    getScopes: () => [],
-    getAttribute: () => undefined,
-    getIdentity: () => who,
-  };
-};
-
 let open: IRealtimeHarness<EmptyRt>[] = [];
-/** Une connexion (un onglet) ; seule la première remet le hub à zéro. */
+/**
+ * Une connexion (un onglet) du compte `id`, ou anonyme si `id === null` ;
+ * seule la première remet le hub à zéro. Le login diffère de l'`id` à dessein :
+ * le canal `user:<id>` se lit sur l'identifiant immuable, jamais sur le login.
+ */
 const tab = async (
   id: string | null,
   withSecurity = true,
 ): Promise<IRealtimeHarness<EmptyRt>> => {
   const h = createRealtimeHarness((ctx) => new EmptyRt(ctx), {
-    identity: tokenOf(id),
+    identity:
+      id === null
+        ? ANONYMOUS_REALTIME_TOKEN
+        : createTestIdentity({ identifier: `login-${id}`, id }),
     ...(withSecurity ? { frameAuthorizer: securityLock() } : {}),
     resetHub: open.length === 0,
   });

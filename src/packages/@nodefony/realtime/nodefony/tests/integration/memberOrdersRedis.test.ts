@@ -9,8 +9,8 @@ import { RealtimeController } from "../../src/server/RealtimeController.js";
 import { RealtimeHub, getRealtimeHub } from "../../src/server/RealtimeHub.js";
 import { createRealtimeHarness } from "../../testing/index.js";
 import type { IRealtimeHarness } from "../../testing/index.js";
-import type { IRealtimeToken } from "../../interfaces/IRealtimeToken.js";
 import { PLATFORM_BUS_CHANNELS } from "nodefony";
+import { createTestIdentity } from "@nodefony/security/testing";
 import {
   REDIS_GATE,
   gateValue,
@@ -76,28 +76,6 @@ async function until(cond: () => boolean, what: string): Promise<void> {
   }
 }
 
-function tokenOf(id: string): IRealtimeToken {
-  return {
-    type: "session",
-    getUserIdentifier: () => id,
-    isAuthenticated: () => true,
-    getRoles: () => ["ROLE_USER"],
-    getScopes: () => [],
-    getAttribute: () => undefined,
-    getIdentity: () =>
-      Object.freeze({
-        type: "session",
-        authenticated: true,
-        id,
-        userIdentifier: id,
-        roles: Object.freeze(["ROLE_USER"]),
-        scopes: Object.freeze([]),
-        issuer: null,
-        account: true,
-      }),
-  };
-}
-
 class RoomRt extends RealtimeController {
   constructor(ctx: ConstructorParameters<typeof RealtimeController>[1]) {
     super("RoomRt", ctx);
@@ -141,7 +119,7 @@ describe.skipIf(!REDIS_UP)("#623 — ordres de contrôle sur Redis", () => {
 
   async function tab(user: string, first = false): Promise<Harness> {
     const h = createRealtimeHarness((ctx) => new RoomRt(ctx), {
-      identity: tokenOf(user),
+      identity: createTestIdentity({ identifier: user }),
       resetHub: first,
     });
     await h.connect();

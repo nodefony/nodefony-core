@@ -5,7 +5,7 @@ import { RealtimeController } from "../../src/server/RealtimeController";
 import { RealtimeHub, getRealtimeHub } from "../../src/server/RealtimeHub";
 import { createRealtimeHarness } from "../../testing/index";
 import type { IRealtimeHarness } from "../../testing/index";
-import type { IRealtimeToken } from "../../interfaces/IRealtimeToken";
+import { createTestIdentity } from "@nodefony/security/testing";
 import type { BackplaneHandler, IBackplane } from "../../interfaces/IBackplane";
 import {
   MAX_CONTROL_FIELD_LENGTH,
@@ -18,28 +18,6 @@ import {
  * connexions ; pod B = un second hub, relié à A par un bus en mémoire. L'ordre
  * donné sur B doit atteindre les membres servis par A.
  */
-
-function tokenOf(id: string): IRealtimeToken {
-  return {
-    type: "session",
-    getUserIdentifier: () => id,
-    isAuthenticated: () => true,
-    getRoles: () => ["ROLE_USER"],
-    getScopes: () => [],
-    getAttribute: () => undefined,
-    getIdentity: () =>
-      Object.freeze({
-        type: "session",
-        authenticated: true,
-        id,
-        userIdentifier: id,
-        roles: Object.freeze(["ROLE_USER"]),
-        scopes: Object.freeze([]),
-        issuer: null,
-        account: true,
-      }),
-  };
-}
 
 let disposed: string[] = [];
 
@@ -88,7 +66,7 @@ let open: Harness[] = [];
 
 async function tab(user: string, first = false): Promise<Harness> {
   const h = createRealtimeHarness((ctx) => new RoomRt(ctx), {
-    identity: tokenOf(user),
+    identity: createTestIdentity({ identifier: user }),
     resetHub: first,
   });
   await h.connect();
