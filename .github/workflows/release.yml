@@ -143,6 +143,33 @@ jobs:
   # `image` n'avait plus d'accès. Quarante secondes de vérification placées
   # après le seul pas irrattrapable du lot.
   #
+  # Compatibilité ENTRE VERSIONS de la socket (#629) : le client publié face au
+  # serveur de ce tag, et l'inverse. Un onglet ouvert garde son code pendant des
+  # heures, un déploiement progressif fait coexister deux serveurs : une trame
+  # que l'autre version ne sait plus lire est une panne en production, que ni
+  # le smoke (une seule version) ni les suites (le dépôt contre lui-même) ne
+  # voient. Hors matrice : une version publiée, un seul banc.
+  compat:
+    name: Compatibilité — version publiée ↔ ce tag (socket)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "26.x"
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      # Le serveur courant importe le `dist` du cœur.
+      - name: Build des workspaces
+        run: npm run build
+
+      - name: Client publié ↔ serveur courant, et l'inverse
+        run: npm run release:compat
+
   # On lui passe ce qui est ARMÉ : un accès manquant n'est fatal que si le job
   # qui en dépend va réellement tourner. Une garde qui crie faux apprend à
   # passer outre.
@@ -189,7 +216,7 @@ jobs:
 
   publier:
     name: Publication npm (lockstep, ${{ github.ref_name }})
-    needs: [epreuve, acces, garde-main]
+    needs: [epreuve, compat, acces, garde-main]
     # Le canal est calculé ICI et nulle part ailleurs : l'image le consomme au
     # lieu de le recalculer. Deux dérivations du même fait divergeraient en
     # silence — chacune passant ses propres contrôles.
@@ -992,6 +1019,7 @@ jobs:
     needs:
       [
         epreuve,
+        compat,
         acces,
         garde-main,
         publier,
@@ -1022,6 +1050,7 @@ jobs:
               echo
             fi
             etat "${{ needs.epreuve.result }}" "Épreuve (installation vierge)" ""
+            etat "${{ needs.compat.result }}"  "Compatibilité entre versions (socket)" ""
             etat "${{ needs.acces.result }}"   "Accès (jetons vitrine et docker, OIDC, outils)" ""
             etat "${{ needs.publier.result }}" "Publication npm" ""
             etat "${{ needs.vitrine.result }}" "Vitrine nodefony/nodefony" "poser la variable NF_RELEASE_VITRINE=true et le secret NF_VITRINE_TOKEN"
