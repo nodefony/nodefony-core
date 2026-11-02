@@ -1,5 +1,5 @@
-# Octets de référence d'un codec de la socket (#629). Ne pas éditer à la main :
-# npx vitest run frameGolden -u — dans le commit qui porte l'entrée de rupture.
+# Octets de référence (#629). Ne pas éditer à la main :
+# npx vitest run frameGolden -u (src/nodefony) — dans le commit qui porte l'entrée de rupture.
 welcome	t	{"jsonrpc":"2.0","method":"realtime:welcome","params":{"ts":1770000000000,"protocol":"jsonrpc-2.0","channels":["chat:room-42"],"methods":["chat:history"],"subscriptionAcks":true,"identity":{"type":"anonymous","authenticated":false,"userIdentifier":"anonymous","roles":["ROLE_ANONYMOUS"],"scopes":[]},"codec":"nodefony.jsonrpc.cbor.v1"}}
 request	t	{"jsonrpc":"2.0","id":0,"method":"chat:history","params":{"room":"room-42","limit":50}}
 requestStringId	t	{"jsonrpc":"2.0","id":"c7.12","method":"chat:history","params":[1,-2.5,null,true]}

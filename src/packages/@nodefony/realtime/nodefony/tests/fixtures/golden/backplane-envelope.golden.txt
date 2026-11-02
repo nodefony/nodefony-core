@@ -1,0 +1,7 @@
+# Octets de référence (#629). Ne pas éditer à la main :
+# npx vitest run backplaneEnvelopeGolden -u (src/packages/@nodefony/realtime) — dans le commit qui porte l'entrée de rupture.
+textBare	t	{"channel":"chat:room-42","payload":{"text":"salut é ✓","n":0,"list":[1,-2.5,null]},"originId":"pod-a.7f3a"}
+textSealed	t	{"channel":"chat:room-42","payload":{"text":"salut é ✓","n":0,"list":[1,-2.5,null]},"originId":"pod-a.7f3a","sig":"gD3OMJW1gCE07XyLoJ0Ewa1N1tTFgmzWXkYzyEBzmUk"}
+textSealedNoPayload	t	{"channel":"build:done","payload":null,"originId":"pod-b.0001","sig":"Ou71yckU5kxX03ddsIloG0PHsWEHGCCVaNjHzBOKJK0"}
+bytesBare	b	a3676368616e6e656c6b636170746575723a726177677061796c6f6164a26373657107637261774500017f80ff686f726967696e49646a706f642d632e66666666
+bytesSealed	b	a4676368616e6e656c6b636170746575723a726177677061796c6f6164a26373657107637261774500017f80ff686f726967696e49646a706f642d632e6666666663736967782b694b3673686b763071557a72374a4e566f4e344e515f454f764138532d5069374841556179482d335f4b51
