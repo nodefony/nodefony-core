@@ -35,4 +35,11 @@ export const realtimeConfig = () =>
     // voir, dans la console d'administration, une erreur de page et la requête
     // qui l'a précédée sur la même ligne de temps. Fermé par défaut ailleurs.
     clientLogs: { enabled: true },
+    // #618 D1 — frames CBOR pour tout client qui l'offre (Studio l'offre
+    // toujours) ; les autres restent en JSON-RPC texte, avec la convention
+    // d'octets `$bytes`, que le REST du plan d'administration emprunte aussi.
+    // Activé ICI pour que l'application de développement exerce le binaire de
+    // bout en bout. `NF_REALTIME_CODEC=json` remet le fil en texte, pour le
+    // lire dans l'inspecteur réseau.
+    codec: "cbor",
   }) satisfies IRealtimeConfigInput;
