@@ -741,8 +741,12 @@ plus de 512 à la fois, et la tempête s'éteint en moins d'une minute
 
 **Le prix assumé — une réponse retenue.** Une admission ne se périme pas seule : un membre retiré
 d'une salle reste abonné tant que sa connexion vit, la règle n'est pas rejouée. Pour couper tout de
-suite, on ferme sa connexion (la révocation, [verrou 4](#-verrou-4--la-révocation--une-socket-survit-à-sa-session)).
-L'éjection ciblée d'un abonné n'existe pas encore, et elle sera locale à l'exemplaire.
+suite, on retire son appartenance (là où la règle la lit), PUIS on l'éjecte :
+`getRealtimeHub().evictUser(canal, compte)` coupe tous ses onglets, sur tous les serveurs
+(`realtime:closed { reason: "evicted" }`). L'éjection seule ne suffit pas — son navigateur rejoue
+`subscribe` au rechargement, et c'est la règle qui tranche alors. Détail :
+[canaux à membres](./canaux-a-membres.md). Fermer la connexion entière, c'est la révocation
+([verrou 4](#-verrou-4--la-révocation--une-socket-survit-à-sa-session)).
 
 **`room:*` et `pattern: "room:"` — deux grammaires, une même famille.** Le décorateur écrit un motif
 (`"room:*"`) ; la configuration de `@nodefony/security` écrit un préfixe

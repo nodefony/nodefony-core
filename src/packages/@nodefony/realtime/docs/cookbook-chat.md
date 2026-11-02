@@ -857,13 +857,13 @@ connaître la hiérarchie des rôles et l'identité réelle.
 
 C'est ici qu'il faut être précis, car **tous les chemins ne se valent pas**.
 
-Un handler `@RealtimeInbound` reçoit `(params, reply)` — et **rien d'autre**. Il ne reçoit ni la
-connexion, ni le jeton d'identité résolu à la poignée de main. Autrement dit : depuis un canal
-inbound brut, le serveur **ne peut pas savoir qui parle**. Le canal peut être _gardé_ par une
-politique (personne d'anonyme ne s'y abonne), mais le nom de l'auteur reste, lui, déclaré par le
-client.
+Un handler `@RealtimeInbound` reçoit `(params, reply, connection)`. Le troisième argument porte
+l'identité résolue à la poignée de main : `connection.userId` est l'auteur, et c'est lui qu'on
+écrit dans le message — jamais un champ de la charge, où le client peut mentir. Ce qu'un canal
+inbound n'offre pas, en revanche : la validation du corps, la garde `@IsGranted`, le rejeu sans
+doublon (`@Idempotent`), et la même porte en HTTP.
 
-La voie qui donne l'identité est celle de l'[étape 2](#-étape-2--le-même-contrôleur-sert-http-et-websocket) :
+Ces garanties-là viennent par la voie de l'[étape 2](#-étape-2--le-même-contrôleur-sert-http-et-websocket) :
 une **action de contrôleur**, atteinte par la socket. Sur ce chemin, le framework établit le contexte
 de requête avec le jeton de la connexion — exactement comme en HTTP — et les décorateurs habituels
 fonctionnent :
@@ -1451,6 +1451,7 @@ import {
 import type { RouteInput } from "@nodefony/framework";
 import {
   ContractRealtimeController,
+  RealtimeBroadcast,
   RealtimeChannel,
   RealtimeInbound,
   getRealtimeHub,
@@ -1469,6 +1470,8 @@ import type {
 /** Le nom du canal du salon. Cité côté serveur ET côté client → une constante. */
 export const ROOM_CHANNEL = "chat:room";
 
+// Le salon traverse les serveurs (étape 7) : sans cette ligne, il reste sur le sien.
+@RealtimeBroadcast("chat:")
 @controller("/chat")
 class ChatController extends ContractRealtimeController<ChatContract> {
   /**
