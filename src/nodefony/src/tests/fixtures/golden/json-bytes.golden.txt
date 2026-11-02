@@ -1,0 +1,13 @@
+# Octets de référence d'un codec de la socket (#629). Ne pas éditer à la main :
+# npx vitest run frameGolden -u — dans le commit qui porte l'entrée de rupture.
+welcome	t	{"jsonrpc":"2.0","method":"realtime:welcome","params":{"ts":1770000000000,"protocol":"jsonrpc-2.0","channels":["chat:room-42"],"methods":["chat:history"],"subscriptionAcks":true,"identity":{"type":"anonymous","authenticated":false,"userIdentifier":"anonymous","roles":["ROLE_ANONYMOUS"],"scopes":[]},"codec":"nodefony.jsonrpc.cbor.v1"}}
+request	t	{"jsonrpc":"2.0","id":0,"method":"chat:history","params":{"room":"room-42","limit":50}}
+requestStringId	t	{"jsonrpc":"2.0","id":"c7.12","method":"chat:history","params":[1,-2.5,null,true]}
+result	t	{"jsonrpc":"2.0","id":1,"result":{"messages":["salut","é ✓ 漢"]},"meta":{"requestId":"c7.12"}}
+error	t	{"jsonrpc":"2.0","id":2,"error":{"code":-32000,"message":"refusé","data":{"status":409}}}
+notification	t	{"jsonrpc":"2.0","method":"chat:room-42","params":{"text":"salut","n":0,"neg":-1,"big":9007199254740991}}
+bare	t	{"jsonrpc":"2.0","method":"build:done"}
+bytesPayload	t	{"jsonrpc":"2.0","method":"capteur:raw","params":{"$bytes":"AAF_gP8"}}
+nestedBytes	t	{"jsonrpc":"2.0","method":"doc:42","params":{"seq":7,"update":{"$bytes":"CQgH"},"list":[{"$bytes":""}]}}
+bytesInResult	t	{"jsonrpc":"2.0","id":3,"result":{"echoed":{"data":{"$bytes":"BAI"}}}}
+bytesInErrorData	t	{"jsonrpc":"2.0","id":4,"error":{"code":-32000,"message":"refusé","data":{"raw":{"$bytes":"AQ"}}}}
