@@ -89,6 +89,28 @@ describe("NodefonySocket.onUser — canal personnel", () => {
     client.disconnect();
   });
 
+  it("accueil d'un serveur ANTÉRIEUR à l'identité d'admission (sans `id`) : identité lue, `id: null`, aucun canal personnel", () => {
+    // Le nouveau client face à un pod pas encore remplacé (déploiement
+    // progressif) : vu au banc `release:compat` contre la 10.0.0-beta.5.
+    const { client, internal } = newClient();
+    client.onUser(() => {});
+    const { id: _absent, ...legacy } = account("acc-1");
+    internal.handleMessage(welcome(legacy));
+    expect(client.identity?.authenticated).to.equal(true);
+    expect(client.identity?.id).to.equal(null);
+    expect(
+      client.subscribedChannels.filter((c) => c.startsWith("user:")),
+    ).to.deep.equal([]);
+    client.disconnect();
+  });
+
+  it("un `id` PRÉSENT mais mal typé refuse l'identité entière", () => {
+    const { client, internal } = newClient();
+    internal.handleMessage(welcome({ ...account("acc-1"), id: 42 }));
+    expect(client.identity).to.equal(null);
+    client.disconnect();
+  });
+
   it("un anonyme ne tient aucun canal personnel", () => {
     const { client, internal } = newClient();
     client.onUser(() => {});

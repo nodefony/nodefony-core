@@ -655,11 +655,10 @@ describe("RED-TEAM NodefonySocket — serveur WebSocket hostile", () => {
     expect(c.serverMethods).to.deep.equal(["m"]);
   });
 
-  // `id` est la clé des canaux personnels (`user:${id}`) : un serveur hostile ou
-  // ancien qui l'omet, ou qui y glisse autre chose qu'une chaîne, ferait
-  // s'abonner le client à `user:undefined` ou `user:[object Object]`.
+  // `id` est la clé des canaux personnels (`user:${id}`) : un serveur hostile
+  // qui y glisse autre chose qu'une chaîne ferait s'abonner le client à
+  // `user:[object Object]`. L'identité entière est refusée.
   for (const [label, id] of [
-    ["absent", undefined],
     ["nombre", 42],
     ["objet", { toString: "x" }],
     ["booléen", true],
@@ -672,7 +671,7 @@ describe("RED-TEAM NodefonySocket — serveur WebSocket hostile", () => {
         roles: ["ROLE_USER"],
         scopes: [],
       };
-      if (id !== undefined) identity.id = id;
+      identity.id = id;
       const decor = await serve((ws) => {
         ws.send(
           JSON.stringify({
@@ -712,6 +711,33 @@ describe("RED-TEAM NodefonySocket — serveur WebSocket hostile", () => {
     await c.connect();
     await wait(100);
     expect(c.identity).to.deep.equal(identity);
+  });
+
+  it("V5 · welcome SANS `id` (serveur antérieur) : lu comme `id: null` — omettre ne donne rien de plus qu'envoyer null", async () => {
+    const identity = {
+      type: "session",
+      authenticated: true,
+      userIdentifier: "user-42",
+      roles: ["ROLE_USER"],
+      scopes: [],
+    };
+    const decor = await serve((ws) => {
+      ws.send(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          method: "realtime:welcome",
+          params: { identity, channels: [] },
+        }),
+      );
+    });
+    const c = make({ url: decor.url, autoReconnect: false });
+    c.onUser(() => {});
+    await c.connect();
+    await wait(100);
+    expect(c.identity).to.deep.equal({ ...identity, id: null });
+    expect(
+      c.subscribedChannels.filter((ch) => ch.startsWith("user:")),
+    ).to.deep.equal([]);
   });
 
   // ─── V5 · refus `unavailable` : le délai d'attente vient du réseau ───────────

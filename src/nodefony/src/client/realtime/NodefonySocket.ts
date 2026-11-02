@@ -624,15 +624,20 @@ function stringsOf(value: unknown): string[] | null {
 function identityOf(value: unknown): RealtimeIdentity | null {
   const type = ownField(value, "type");
   const authenticated = ownField(value, "authenticated");
-  const id = ownField(value, "id");
+  const rawId = ownField(value, "id");
+  // ABSENT = un serveur antérieur à l'identité d'admission (≤ 10.0.0-beta.5),
+  // rencontré pendant un déploiement progressif : même sens que `null`, que le
+  // serveur courant envoie pour un jeton sans identité d'admission — aucun
+  // canal personnel. PRÉSENT mais mal typé : refusé ci-dessous.
+  const id = rawId === undefined ? null : rawId;
   const userIdentifier = ownField(value, "userIdentifier");
   const roles = ownField(value, "roles");
   const scopes = ownField(value, "scopes");
   if (
     typeof type !== "string" ||
     typeof authenticated !== "boolean" ||
-    // `id` est REQUIS (`null` compris) : absent, l'identité n'est pas celle du
-    // contrat, et un canal personnel `user:${id}` deviendrait `user:undefined`.
+    // `id` vaut une chaîne ou `null`, jamais `undefined` : un canal personnel
+    // `user:${id}` ne peut pas devenir `user:undefined`.
     (id !== null && typeof id !== "string") ||
     typeof userIdentifier !== "string" ||
     !Array.isArray(roles) ||
