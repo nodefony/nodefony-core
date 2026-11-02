@@ -469,7 +469,9 @@ function score(phrase, skill) {
   let s = 0;
   for (const t of skill.triggers) {
     const tn = norm(t);
-    if (tn && (p.includes(tn) || tn.includes(p))) s += 12;
+    // Inclusion par MOTS entiers : « sse » ne doit pas se lire dans « classe ».
+    if (tn && (` ${p} `.includes(` ${tn} `) || ` ${tn} `.includes(` ${p} `)))
+      s += 12;
     const tw = words(t);
     if (tw.length) {
       const hit = tw.filter((w) => pw.has(w)).length;
