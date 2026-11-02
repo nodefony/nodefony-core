@@ -895,11 +895,13 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
     `src/packages/@nodefony/realtime/nodefony/interfaces/IBackplane.ts#IBackplane` aucune méthode :
     tout driver, y compris écrit par un tiers (Kafka, NATS), le transporte sans le savoir. Ce canal
     ne passe PAS par `#RealtimeHub.markBroadcastChannel`, qui refuse à raison l'espace réservé
-    (injection dans tous les pods) : il aura (#623) sa branche dédiée à l'entrée — aujourd'hui
-    `#RealtimeHub.#admitFromBackplane` ne fait que refuser un canal non diffusable —, qui
-    n'acceptera qu'une **liste fermée** d'ordres de forme vérifiée ; tout autre contenu sera
-    rejeté et compté (`ingressRejectedTotal`). Aucun client ne
-    peut s'y abonner.
+    (injection dans tous les pods) : il a sa branche dédiée à l'entrée, AVANT le contrôle par
+    préfixe (`#RealtimeHub.#admitFromBackplane`), qui n'accepte qu'une **liste fermée** d'ordres
+    de forme vérifiée (`src/packages/@nodefony/realtime/nodefony/src/backplane/controlOrder.ts#readControlOrder`,
+    même garde à l'émission) ; tout autre contenu, et tout ordre visant un canal de la
+    plateforme, est rejeté et compté (`ingressRejectedTotal`). Son nom vient de la table du cœur
+    (`PLATFORM_BUS_CHANNELS.control`) ; il n'est jamais diffusé aux abonnés locaux. **Livré
+    (#623).**
   - **Pourquoi c'est sûr** : un ordre ne fait qu'**enlever** — seul `allow` fait entrer. Il est
     **scellé comme toute publication** : sur un bus partagé, le secret du bus
     (`NF_REALTIME_BACKPLANE_SECRET`) pose un HMAC sur origine, canal et charge

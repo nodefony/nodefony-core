@@ -27,14 +27,18 @@ coverageModule: realtime
 
 Un canal ordinaire se remplit par la demande des clients : chaque navigateur envoie `subscribe`, la
 politique du canal (rôles, scopes, `allow`) tranche, et le serveur diffuse. Un canal **à membres**
-ajoute quatre gestes au serveur, et une règle qui les tient ensemble :
+ajoute cinq gestes au serveur, et une règle qui les tient ensemble :
 
-| Geste                                   | Méthode du hub                          | Portée           |
-| --------------------------------------- | --------------------------------------- | ---------------- |
-| Lister les membres                      | `channelMembers(canal)`                 | **ce processus** |
-| Abonner une connexion d'office          | `subscribeConnection(canal, connexion)` | **ce processus** |
-| Éjecter une connexion                   | `evictConnection(canal, connexion)`     | **ce processus** |
-| Terminer le canal pour tous ses membres | `closeChannel(canal)`                   | **ce processus** |
+| Geste                                   | Méthode du hub                          | Portée                   |
+| --------------------------------------- | --------------------------------------- | ------------------------ |
+| Lister les membres                      | `channelMembers(canal)`                 | **ce processus**         |
+| Abonner une connexion d'office          | `subscribeConnection(canal, connexion)` | **ce processus**         |
+| Éjecter une connexion                   | `evictConnection(canal, connexion)`     | **ce processus**         |
+| Éjecter un compte (tous ses onglets)    | `evictUser(canal, compte)`              | **tous les exemplaires** |
+| Terminer le canal pour tous ses membres | `closeChannel(canal)`                   | **tous les exemplaires** |
+
+Ce qui désigne une **connexion** reste local : elle n'existe que dans le processus qui tient sa
+socket. Ce qui désigne un **nom** — un canal, un compte — traverse les exemplaires par le bus.
 
 **La règle : `allow` est seul juge de qui ENTRE.** Abonner d'office passe par la même politique
 qu'un `subscribe` du client, `allow` compris ; éjecter **coupe**, n'exclut pas. Le navigateur
@@ -122,7 +126,7 @@ class GameRealtimeController extends RealtimeController {
 
 export default GameRealtimeController;
 
-// Fin de partie, depuis n'importe quel service de ce processus :
+// Fin de partie, depuis n'importe quel service — la fin atteint tous les exemplaires :
 export function endGame(game: string): void {
   running.delete(game);
   players.delete(game);
@@ -164,8 +168,13 @@ autres membres restent servis. Le client ne rejoue pas le canal ; une page recha
 `allow` qui tranche alors. Sur un canal **sans** `allow`, la politique fixe le laisse rentrer :
 **exclure d'un canal sans `allow`, c'est lui en donner un**.
 
-**`closeChannel(canal)`** envoie `realtime:closed { reason: "ended" }` à chaque membre, puis libère le
-producteur. Les écouteurs du serveur (`listen`) restent inscrits, sur un canal redevenu passif. Le
+**`evictUser(canal, compte)`** éjecte de la même façon **toutes** les connexions de ce compte membres
+du canal — ses onglets, quel que soit l'exemplaire qui les sert. Il rend le nombre de connexions
+éjectées **ici** ; les autres exemplaires l'appliquent sans compte rendu. Un compte vide n'éjecte
+rien. La même règle vaut : retirer l'appartenance là où `allow` la lit, **puis** éjecter.
+
+**`closeChannel(canal)`** envoie `realtime:closed { reason: "ended" }` à chaque membre, sur tous les
+exemplaires, puis libère le producteur. Les écouteurs du serveur (`listen`) restent inscrits, sur un canal redevenu passif. Le
 hub ne garde **aucune marque « fermé »** : le `subscribe` suivant rejoue la fabrique, qui rend `null`
 pour une instance terminée — le client reçoit `realtime:denied { reason: "unknown" }`. D'où la règle
 d'écriture : **le nom d'un canal à durée de vie porte l'identifiant de son instance**
@@ -183,9 +192,11 @@ vient pas de ce processus. Jamais un geste muet.
 - Le registre des membres vit dans l'état du canal, rempli à l'abonnement par
   `RealtimeHub.ts#RealtimeHub.subscribeClient` et vidé par `RealtimeHub.ts#RealtimeHub.unsubscribe` ;
   le fan-out (`RealtimeHub.ts#RealtimeHub.publish`) ne le lit jamais.
-- Les quatre gestes : `RealtimeHub.ts#RealtimeHub.channelMembers`,
+- Les cinq gestes : `RealtimeHub.ts#RealtimeHub.channelMembers`,
   `RealtimeHub.ts#RealtimeHub.subscribeConnection`, `RealtimeHub.ts#RealtimeHub.evictConnection`,
-  `RealtimeHub.ts#RealtimeHub.closeChannel`.
+  `RealtimeHub.ts#RealtimeHub.evictUser`, `RealtimeHub.ts#RealtimeHub.closeChannel`.
+- Les ordres entre exemplaires, en liste fermée : `controlOrder.ts#readControlOrder` (la même garde
+  à l'émission et à la réception).
 - La poignée : `RealtimeConnection.ts#RealtimeConnection`, créée au premier besoin par le contrôleur.
 - Le chemin unique d'une sortie, demandée ou décidée :
   `RealtimeController.ts#RealtimeController.leaveChannel` ; la notification de fin :
@@ -200,14 +211,25 @@ vient pas de ce processus. Jamais un geste muet.
   éjecter ensuite.
 - **Un nom de canal sans identifiant d'instance** (`game:42`) : la partie suivante portera le même
   nom, et un client resté sur l'ancienne y entrera.
-- **Appeler un geste depuis une requête HTTP** en cluster : la connexion est peut-être tenue par un
-  autre exemplaire. Passer par la socket, ou par `allow` (section suivante).
+- **Appeler un geste PAR CONNEXION depuis une requête HTTP** en cluster : la connexion est peut-être
+  tenue par un autre exemplaire. Passer par la socket, par `allow` (section suivante), ou par un
+  geste par NOM (`evictUser`, `closeChannel`), qui atteint tous les exemplaires.
+- **Un bus partagé** (Redis mutualisé) : un tiers qui peut y écrire, même sans le secret, peut
+  rejouer un ordre d'éjection capté. Sur un canal durable (`chat:general`), il recouperait le compte
+  à chaque retour. L'effet reste une coupure, jamais une entrée ; changer le secret du bus rend
+  caducs les ordres déjà captés. **Le bus doit être privé.**
 
 ## 🌐 Plusieurs exemplaires (pods, `nodefony cluster`)
 
-Une connexion n'existe que dans la mémoire du processus qui a accepté sa socket, et le backplane ne
-transporte que des **publications** : ni membres, ni politiques, ni acquittements. Les quatre gestes
-de cette page agissent donc sur les connexions **de ce processus**. Deux voies marchent en cluster :
+Une connexion n'existe que dans la mémoire du processus qui a accepté sa socket. Le backplane
+transporte les **publications** et deux **ordres** — terminer un canal, éjecter un compte — que
+chaque exemplaire applique à SES connexions ; ni membres, ni politiques, ni acquittements. Ces deux
+ordres ne font qu'enlever : seul `allow` fait entrer. Livrés « au plus une fois », comme toute
+publication : un exemplaire qui en manque un, ou qui démarre après, est rattrapé par `allow` (pour
+une éjection) ou par la fabrique qui rend `null` à une instance terminée (pour une fin).
+
+Les gestes **par connexion** agissent sur les connexions de ce processus. Deux voies marchent en
+cluster pour eux :
 
 1. **Le geste part par la socket** — un gestionnaire `@RealtimeInbound` reçoit la connexion et
    s'exécute, par construction, sur le processus qui la tient.
@@ -225,6 +247,12 @@ marcherait en développement et une fois sur N en production serait le pire des 
   éjection (l'éjecté n'est plus servi, les autres si ; il rentre sans `allow`) ; imposition depuis un
   gestionnaire entrant, refus de `allow` rendu au seul appelant, connexion fermée ou désabonnée
   pendant l'attente ; fin du canal, producteur libéré, écouteur conservé, fabrique rejouée.
+- **Entre exemplaires** (`memberOrdersAcrossPods.test.ts`) : fin et éjection d'un compte données sur
+  un hub atteignent les membres de l'autre ; canal de contrôle jamais diffusé ; ordres mal formés,
+  inventés ou visant un canal de la plateforme rejetés et comptés (`ingressRejectedTotal`). Sur un
+  **Redis réel** (`memberOrdersRedis.test.ts`, gate Redis) : ordre scellé appliqué, ordre non scellé
+  ignoré, et le rejeu d'une éjection captée — le risque accepté — décrit par un test. Sur le **bus du
+  cluster** (`clusterIpc.e2e.test.ts`, `npm run test:cluster`) : deux vrais processus.
 - **Client** (`NodefonySocketClosed.test.ts`) : canal imposé inscrit et rejoué, canal terminé retiré
   pour tous ses consommateurs et jamais rejoué, attente d'acquittement rejetée, trame mal formée
   ignorée.

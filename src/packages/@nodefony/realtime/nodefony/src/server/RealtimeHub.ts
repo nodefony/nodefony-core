@@ -4,6 +4,7 @@ import {
   TOKEN_EXPIRED_CLOSE_CODE,
   JsonRpcPeer,
   NODEFONY_CHANNEL_NAMESPACE,
+  PLATFORM_BUS_CHANNELS,
   RevocationWatch,
   isPlatformChannel,
   isRealtimePayload,
@@ -49,6 +50,7 @@ import type {
   IBackplaneMessage,
 } from "../../interfaces/IBackplane";
 import LoopbackBackplane from "../backplane/LoopbackBackplane";
+import { readControlOrder, type ControlOrder } from "../backplane/controlOrder";
 import type { IRealtimeAuthenticator } from "../../interfaces/IRealtimeAuthenticator";
 import type {
   ICompiledRealtimeMatcher,
@@ -913,7 +915,14 @@ export class RealtimeHub {
   }
 
   /**
-   * Termine un canal pour tous ses membres de ce pod : chacun reçoit `realtime:closed { reason: "ended" }`, et le producteur est libéré.
+   * Termine un canal pour tous ses membres, **sur tous les serveurs** : chacun reçoit `realtime:closed { reason: "ended" }`, et le producteur est libéré.
+   *
+   * **Traverse les pods** : avec un backplane branché, l'ordre part sur le bus
+   * (`PLATFORM_BUS_CHANNELS.control`, scellé comme toute publication) et chaque
+   * serveur l'applique à SES membres. Livraison « au plus une fois » du bus :
+   * un pod qui manque l'ordre, ou qui démarre après, est rattrapé par la
+   * fabrique, qui rend `null` pour une instance terminée. Un canal de la
+   * plateforme (`nodefony:`) reste local — il décrit un pod, pas une partie.
    *
    * Les écouteurs du serveur (`listen`) restent inscrits, sur un canal redevenu
    * PASSIF : le prochain `subscribe` d'un client rejoue la fabrique, et c'est
@@ -924,9 +933,76 @@ export class RealtimeHub {
    * (`room:42:<partie>`), et la fabrique rend `null` pour une instance terminée.
    *
    * @param channel - nom exact du canal.
-   * @returns le nombre de membres de ce pod à qui la fin a été notifiée.
+   * @returns le nombre de membres de CE pod à qui la fin a été notifiée — les
+   *   autres serveurs l'appliquent sans compte rendu.
    */
   closeChannel(channel: string): number {
+    this.#sendControl({ op: "close", channel });
+    return this.#closeLocal(channel);
+  }
+
+  /**
+   * Éjecte un compte d'un canal, **sur tous les serveurs** : chacune de ses connexions membres reçoit `realtime:closed { reason: "evicted" }`.
+   *
+   * Tous les onglets du compte sont visés, où qu'ils soient servis ; l'ordre
+   * traverse les pods comme {@link closeChannel}. ⚠️ **Éjecter coupe, seul
+   * `allow` exclut** (ADR-0022 §6 décision 3) : pour que le compte ne revienne
+   * pas, l'application retire l'appartenance là où `allow` la lit.
+   *
+   * ⚠️ Sur un bus PARTAGÉ, un tiers qui y écrit peut rejouer un ordre capté :
+   * sur un canal durable, il recouperait le compte à chaque réadmission (risque
+   * accepté et borné, ADR-0022 §6 d4) — bus privé exigé ; changer le secret du
+   * bus rend caducs les ordres déjà captés.
+   *
+   * @param channel - nom exact du canal.
+   * @param user - identifiant du compte (`IRealtimeConnection.userId`).
+   * @returns le nombre de connexions de CE pod éjectées. Un nom vide ou de plus
+   *   de 1 024 caractères n'éjecte rien et ne part pas sur le bus.
+   */
+  evictUser(channel: string, user: string): number {
+    if (!this.#sendControl({ op: "evictUser", channel, user })) return 0;
+    return this.#evictUserLocal(channel, user);
+  }
+
+  /**
+   * Publie un ordre de contrôle aux autres serveurs — s'il y a un bus et que l'ordre a une forme que ses pairs acceptent.
+   *
+   * @returns `false` si l'ordre est mal formé (rien n'est appliqué nulle part).
+   */
+  #sendControl(order: ControlOrder): boolean {
+    // La garde des pairs : on n'émet jamais ce qu'ils compteraient en rejet.
+    if (readControlOrder(order) === null) return false;
+    if (this.#backplane !== null && !isReservedSystemChannel(order.channel))
+      this.#backplane.publish(PLATFORM_BUS_CHANNELS.control, order);
+    return true;
+  }
+
+  /** Applique un ordre reçu du bus : forme vérifiée, canal de la plateforme refusé, sinon compté en rejet. */
+  #applyControl(payload: unknown): void {
+    const order = readControlOrder(payload);
+    if (order === null || isReservedSystemChannel(order.channel)) {
+      this.#ingressRejectedTotal += 1;
+      return;
+    }
+    // `generation` (réservée, 10.x) est ignorée : toutes les générations sont éjectées.
+    if (order.op === "close") this.#closeLocal(order.channel);
+    else this.#evictUserLocal(order.channel, order.user);
+  }
+
+  /** Éjecte de `channel` les connexions de CE pod dont le compte est `user`. */
+  #evictUserLocal(channel: string, user: string): number {
+    const members = this.#channels?.get(channel)?.members;
+    if (members == null) return 0;
+    let evicted = 0;
+    // `end` désabonne (retire l'entrée courante) : défini pendant l'itération d'une `Map`.
+    for (const member of members.values())
+      if (member.userId === user && member.end(channel, "evicted"))
+        evicted += 1;
+    return evicted;
+  }
+
+  /** Termine `channel` pour les membres de CE pod et libère son producteur. */
+  #closeLocal(channel: string): number {
     const st = this.#channels?.get(channel);
     if (st === undefined) return 0;
     let ended = 0;
@@ -1192,8 +1268,16 @@ export class RealtimeHub {
    * nominale : un pair légitime n'émet que des canaux broadcast (`publish` filtre à
    * la source), et un canal ne peut avoir d'abonné local que si l'endpoint qui le
    * sert a été handshaké — donc ses préfixes déjà déclarés.
+   *
+   * Seule exception, AVANT ce contrôle : le canal de contrôle
+   * (`PLATFORM_BUS_CHANNELS.control`), jamais diffusé aux abonnés — ses ordres,
+   * en liste fermée, sont appliqués aux connexions de ce pod ou comptés en rejet.
    */
   #admitFromBackplane(msg: IBackplaneMessage): void {
+    if (msg.channel === PLATFORM_BUS_CHANNELS.control) {
+      this.#applyControl(msg.payload);
+      return;
+    }
     if (!this.#isBroadcast(msg.channel)) {
       this.#ingressRejectedTotal += 1;
       return;

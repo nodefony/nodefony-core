@@ -12,8 +12,9 @@
 export interface IRealtimeConnection {
   /**
    * Identifiant du compte connecté (`RealtimeIdentity.id`) — la clé des canaux
-   * personnels ; `null` pour l'anonyme, et pour un authentificateur qui ne
-   * produit pas d'identité d'admission.
+   * personnels et de `RealtimeHub.evictUser`, qui l'atteint sur tous les
+   * exemplaires ; `null` pour l'anonyme (qu'aucun ordre par compte n'atteint),
+   * et pour un authentificateur qui ne produit pas d'identité d'admission.
    */
   readonly userId: string | null;
   /** `false` une fois la socket fermée : la poignée ne désigne plus rien. */

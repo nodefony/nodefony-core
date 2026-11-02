@@ -45,6 +45,8 @@ interface AnyMsg {
   pid?: number;
   subs?: Record<string, number>;
   kind?: unknown;
+  /** `compte → raisons` des `realtime:closed` reçus (commande `closed`, #623). */
+  closed?: unknown;
 }
 
 interface ForkedWorker {
@@ -314,6 +316,47 @@ describe.skipIf(!NF_RUN_CLUSTER_E2E)(
       // B a reçu "ping" de A + publié "pong" (fan-out local) = 2 livraisons
       expect(sb.subs).toEqual({ "chat:duplex": 2 });
       expect(relay.relayedTotal).toBe(2);
+    });
+
+    it("#623 — éjecter un compte puis terminer un canal, donnés sur A, atteignent les connexions servies par B", async () => {
+      const [a, b] = await spawnN(2);
+      const memberOn = async (w: ForkedWorker, user: string): Promise<void> => {
+        // `awaitEvent` relit les événements déjà reçus : sans purge, l'ack du
+        // membre précédent répondrait pour celui-ci, encore en vol.
+        w.events.length = 0;
+        w.child.send({ cmd: "member", channel: "room:ipc", user });
+        await w.awaitEvent(
+          (e) => e.cmd === "ack" && e.op === "member" && e.pid === w.pid,
+        );
+      };
+      await memberOn(b!, "alice");
+      await memberOn(b!, "alice");
+      await memberOn(b!, "bob");
+      /** Les fins reçues par les connexions de B, relues jusqu'à `expected`. */
+      const closedOnB = async (
+        expected: Record<string, string[]>,
+      ): Promise<unknown> => {
+        const end = Date.now() + 3000;
+        for (;;) {
+          b!.events.length = 0;
+          b!.child.send({ cmd: "closed" });
+          const got = await b!.awaitEvent((e) => e.cmd === "closed");
+          if (
+            JSON.stringify(got.closed) === JSON.stringify(expected) ||
+            Date.now() > end
+          )
+            return got.closed;
+          await new Promise((r) => setTimeout(r, 20));
+        }
+      };
+
+      a!.child.send({ cmd: "evict-user", channel: "room:ipc", user: "alice" });
+      const evicted = { alice: ["evicted", "evicted"] };
+      expect(await closedOnB(evicted)).toEqual(evicted);
+
+      a!.child.send({ cmd: "close-channel", channel: "room:ipc" });
+      const ended = { alice: ["evicted", "evicted"], bob: ["ended"] };
+      expect(await closedOnB(ended)).toEqual(ended);
     });
 
     it("canal NON déclaré broadcast : reste instance-local (B ne reçoit pas)", async () => {

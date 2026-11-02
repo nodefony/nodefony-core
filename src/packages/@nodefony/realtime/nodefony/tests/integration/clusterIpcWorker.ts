@@ -21,9 +21,16 @@
 import {
   CLUSTER_RT_KIND,
   isRealtimePayload,
+  ownField,
   realtimePayloadError,
 } from "nodefony";
 import { getRealtimeHub } from "../../src/server/RealtimeHub.js";
+import { RealtimeController } from "../../src/server/RealtimeController.js";
+import {
+  createRealtimeHarness,
+  type IRealtimeHarness,
+} from "../../testing/index.js";
+import type { IRealtimeToken } from "../../interfaces/IRealtimeToken.js";
 import {
   ClusterBackplane,
   processIpcTransport,
@@ -61,28 +68,71 @@ interface SubState {
 }
 const subs = new Map<string, SubState>();
 
-interface ControlMsg {
-  cmd?: string;
-  channel?: string;
-  payload?: unknown;
-  prefix?: string;
+/**
+ * Contrôleur des connexions RÉELLES du worker (#623) : sert les canaux `room:`.
+ * Les abonnements de service (`subscribe`) ne sont pas des membres ; seules ces
+ * connexions-là peuvent être éjectées ou recevoir la fin d'un canal.
+ */
+class RoomRt extends RealtimeController {
+  constructor(ctx: ConstructorParameters<typeof RealtimeController>[1]) {
+    super("RoomRt", ctx);
+  }
+  override createRealtimeChannel(channel: string): (() => void) | null {
+    return channel.startsWith("room:") ? () => {} : null;
+  }
+}
+
+function tokenOf(id: string): IRealtimeToken {
+  return {
+    type: "session",
+    getUserIdentifier: () => id,
+    isAuthenticated: () => true,
+    getRoles: () => ["ROLE_USER"],
+    getScopes: () => [],
+    getAttribute: () => undefined,
+    getIdentity: () =>
+      Object.freeze({
+        type: "session",
+        authenticated: true,
+        id,
+        userIdentifier: id,
+        roles: Object.freeze(["ROLE_USER"]),
+        scopes: Object.freeze([]),
+        issuer: null,
+        account: true,
+      }),
+  };
+}
+
+/** Connexions réelles ouvertes par `member`, avec leur compte. */
+const members: { user: string; tab: IRealtimeHarness<RoomRt> }[] = [];
+
+/** Les `realtime:closed` reçus par chaque connexion, `compte → [raisons]`. */
+function closedReasons(): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const { user, tab } of members)
+    for (const f of tab.received)
+      if (f.method === "realtime:closed") {
+        const reason = ownField(f.params, "reason");
+        (out[user] ??= []).push(typeof reason === "string" ? reason : "?");
+      }
+  return out;
 }
 
 process.on("message", (raw: unknown) => {
   // Tri : on ignore les enveloppes realtime (déjà traitées par le backplane).
-  if (
-    typeof raw === "object" &&
-    raw !== null &&
-    (raw as { kind?: unknown }).kind === CLUSTER_RT_KIND
-  ) {
-    return;
-  }
-  const msg = raw as ControlMsg;
-  if (!msg || typeof msg !== "object" || typeof msg.cmd !== "string") return;
+  if (ownField(raw, "kind") === CLUSTER_RT_KIND) return;
+  const cmd = ownField(raw, "cmd");
+  if (typeof cmd !== "string") return;
+  /** Un champ texte du message de contrôle ; `""` s'il manque. */
+  const text = (key: string): string => {
+    const value = ownField(raw, key);
+    return typeof value === "string" ? value : "";
+  };
 
-  switch (msg.cmd) {
+  switch (cmd) {
     case "subscribe": {
-      const channel = msg.channel as string;
+      const channel = text("channel");
       // Canal broadcast : marqué à la subscribe pour que `hub.publish` propage.
       hub.markBroadcastChannel(channel);
       const state: SubState = {
@@ -109,25 +159,67 @@ process.on("message", (raw: unknown) => {
       break;
     }
     case "mark-broadcast": {
-      hub.markBroadcastChannel(msg.prefix as string);
+      hub.markBroadcastChannel(text("prefix"));
       sendToMaster({
         cmd: "ack",
         op: "mark-broadcast",
-        prefix: msg.prefix,
+        prefix: text("prefix"),
         pid: process.pid,
       });
       break;
     }
     case "publish": {
-      const channel = msg.channel as string;
+      const channel = text("channel");
+      const payload = ownField(raw, "payload");
       // L'IPC rend `unknown` : même garde que le hub, pour typer la charge.
-      if (!isRealtimePayload(msg.payload))
-        throw realtimePayloadError(channel, msg.payload);
-      hub.publish(channel, msg.payload);
+      if (!isRealtimePayload(payload))
+        throw realtimePayloadError(channel, payload);
+      hub.publish(channel, payload);
       sendToMaster({
         cmd: "ack",
         op: "publish",
-        channel: msg.channel,
+        channel,
+        pid: process.pid,
+      });
+      break;
+    }
+    case "member": {
+      // Une VRAIE connexion (harnais, hub partagé — jamais remis à zéro : il
+      // porte le backplane) abonnée à `channel` par le client.
+      const user = text("user") || "anonymous";
+      const channel = text("channel");
+      const tab = createRealtimeHarness((ctx) => new RoomRt(ctx), {
+        identity: tokenOf(user),
+        resetHub: false,
+      });
+      members.push({ user, tab });
+      void tab
+        .connect()
+        .then(() => tab.subscribe(channel))
+        .then(() =>
+          sendToMaster({ cmd: "ack", op: "member", channel, pid: process.pid }),
+        );
+      break;
+    }
+    case "evict-user": {
+      const count = hub.evictUser(text("channel"), text("user"));
+      sendToMaster({ cmd: "ack", op: "evict-user", count, pid: process.pid });
+      break;
+    }
+    case "close-channel": {
+      const count = hub.closeChannel(text("channel"));
+      sendToMaster({
+        cmd: "ack",
+        op: "close-channel",
+        count,
+        pid: process.pid,
+      });
+      break;
+    }
+    case "closed": {
+      sendToMaster({
+        cmd: "closed",
+        closed: closedReasons(),
         pid: process.pid,
       });
       break;

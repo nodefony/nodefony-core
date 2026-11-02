@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import type { IFrameCodec } from "nodefony";
+import { ownField, type IFrameCodec } from "nodefony";
 import type { IBackplaneMessage } from "../../interfaces/IBackplane.js";
 
 /**
@@ -29,11 +29,14 @@ import type { IBackplaneMessage } from "../../interfaces/IBackplane.js";
  * Hors portée (assumé, cf sémantique at-most-once du port) : le **rejeu**. Un
  * tiers qui lit le bus peut re-publier un message scellé intact. Pour une
  * publication, l'effet se limite à re-diffuser une charge déjà diffusée sur un
- * canal déjà broadcast. Pour un **ordre** (fermer, éjecter), le rejeu recouperait :
- * la parade n'est pas ici mais dans l'ordre lui-même, qui désigne une INSTANCE
- * (l'admission révoquée, la partie close) et jamais un nom seul — rejoué, il ne
- * désigne plus rien de vivant (ADR-0021 S6, ADR-0022 §6). Un anti-rejeu par
- * horodatage exigerait des horloges alignées entre pods.
+ * canal déjà broadcast. Pour un **ordre** (fermer, éjecter), le rejeu RECOUPE —
+ * l'effet reste soustractif, jamais une admission (ADR-0022 §6 d4). Une fin vise
+ * un canal qui porte son instance (`room:42:<partie>`) : rejouée, elle ne désigne
+ * plus rien de vivant. Une éjection vise `(canal, compte)` : rejouée sur un canal
+ * DURABLE, elle recoupe le compte à chaque réadmission — risque accepté en 10.0,
+ * borné (écrire sur le bus est requis ; changer le secret rend caducs les ordres
+ * captés), parade réservée par le champ optionnel `generation` de l'ordre. Un
+ * anti-rejeu par horodatage exigerait des horloges alignées entre pods.
  *
  * La forme signée est la re-sérialisation de la charge par le récepteur ; elle
  * n'est PAS promise comme contrat à un producteur écrit dans un autre langage.
@@ -99,9 +102,10 @@ export function sealBackplaneEnvelope(
 
 /** Type-guard d'enveloppe — narrowing sûr d'un message brut venu du bus. */
 function isEnvelope(m: unknown): m is SealedEnvelope {
-  if (typeof m !== "object" || m === null) return false;
-  const e = m as Partial<SealedEnvelope>;
-  return typeof e.channel === "string" && typeof e.originId === "string";
+  return (
+    typeof ownField(m, "channel") === "string" &&
+    typeof ownField(m, "originId") === "string"
+  );
 }
 
 /**

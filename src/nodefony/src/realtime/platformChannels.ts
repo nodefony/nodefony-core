@@ -91,6 +91,24 @@ export const PLATFORM_INBOUND = {
   syslogUplink: "nodefony:syslog:uplink",
 } as const;
 
+/**
+ * Canaux de la plateforme qui ne circulent QU'ENTRE SERVEURS, sur le bus (backplane) — jamais servis à un client.
+ *
+ * Ils sont l'inverse des deux tables précédentes : aucun écran ne les regarde,
+ * aucun navigateur n'y écrit. Le hub les lit à l'entrée du bus par une branche
+ * dédiée, avant toute diffusion ; ils ne sont jamais réinjectés aux abonnés
+ * locaux. Ils portent la marque `nodefony:` pour que le bus refuse qu'une
+ * application les déclare diffusables, et pour qu'aucun client ne puisse s'y
+ * abonner sans le plancher de la plateforme.
+ */
+export const PLATFORM_BUS_CHANNELS = {
+  /**
+   * Ordres qui ENLÈVENT, appliqués par chaque serveur à ses propres connexions :
+   * terminer un canal, éjecter un compte d'un canal (ADR-0022 §6 décision 4).
+   */
+  control: "nodefony:bus:control",
+} as const;
+
 /** Nom d'un canal montant de plateforme (valeur de {@link PLATFORM_INBOUND}). */
 export type PlatformInboundChannel =
   (typeof PLATFORM_INBOUND)[keyof typeof PLATFORM_INBOUND];
