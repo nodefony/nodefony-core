@@ -65,7 +65,7 @@
     "@types/node": "26.6.6",
     "mongodb-memory-server": "11.3.0",
     "nodefony": "^10.0.0-beta.5",
-    "vitest": "5.0.5"
+    "vitest": "5.1.0"
   },
   "peerDependencies": {
     "@nodefony/framework": "^10.0.0-beta.5",

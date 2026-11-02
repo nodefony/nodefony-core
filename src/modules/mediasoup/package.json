@@ -44,9 +44,9 @@
     "@nodefony/orm-core": "*",
     "@types/node": "26.6.6",
     "@vitejs/plugin-vue": "^6.0.10",
-    "@vitest/coverage-v8": "5.0.5",
+    "@vitest/coverage-v8": "5.1.0",
     "nodefony": "*",
-    "vitest": "5.0.5"
+    "vitest": "5.1.0"
   },
   "license": "Apache-2.0"
 }
