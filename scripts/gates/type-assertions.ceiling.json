@@ -1,6 +1,6 @@
 {
   "_note": "cliquet — plafonds abaissés par --update, jamais montés (#572)",
-  "total": 1571,
+  "total": 1568,
   "ceilings": {
     "modules/mediasoup": 2,
     "modules/test": 50,
@@ -21,7 +21,7 @@
     "packages/@nodefony/realtime": 3,
     "packages/@nodefony/redis": 13,
     "packages/@nodefony/security": 132,
-    "packages/@nodefony/studio": 132,
+    "packages/@nodefony/studio": 129,
     "packages/@nodefony/user": 34
   }
 }

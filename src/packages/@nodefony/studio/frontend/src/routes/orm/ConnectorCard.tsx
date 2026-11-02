@@ -78,7 +78,7 @@ import {
 } from "../../utils/ormFormat";
 import {
   normalize,
-  type HealthPayload,
+  type RealtimeHealthReport,
   type NormalizedHealth,
 } from "../../utils/realtimeHealth";
 import {
@@ -92,6 +92,7 @@ import {
   type OrmRate,
 } from "../../types/orm";
 import { PLATFORM_CHANNELS } from "nodefony";
+import { useStore } from "../../stores";
 
 /** Type de stockage déduit (icône + libellé + couleur). */
 function storageOf(driver: string, target?: string) {
@@ -934,19 +935,21 @@ export function RealtimeHealthLive({
 }: {
   intervalMs: number;
   adaptive: boolean;
-  onData: (h: HealthPayload) => void;
+  onData: (h: RealtimeHealthReport) => void;
   /** Remonte la cadence RÉELLE (ms) appliquée par l'AIMD → badge feedback. */
   onRate?: (ms: number) => void;
 }) {
-  const { data, intervalMs: effectiveMs } =
-    useNodefonyAdaptiveChannelData<HealthPayload>(
-      PLATFORM_CHANNELS.socket,
-      intervalMs,
-      {
-        defaultMs: 5000,
-        enabled: adaptive,
-      },
-    );
+  // Socket en tête : la charge se lit par `StudioContract`, sans générique.
+  const { realtime } = useStore();
+  const { data, intervalMs: effectiveMs } = useNodefonyAdaptiveChannelData(
+    realtime,
+    PLATFORM_CHANNELS.socket,
+    intervalMs,
+    {
+      defaultMs: 5000,
+      enabled: adaptive,
+    },
+  );
   useReportOnChange(data, (d) => {
     if (d) onData(d);
   });
@@ -1184,4 +1187,4 @@ export function OrmRealtimeControls({
 
 /** Réexport util (un seul point d'import pour les pages ORM). */
 export { normalize };
-export type { NormalizedHealth, HealthPayload };
+export type { NormalizedHealth, RealtimeHealthReport };

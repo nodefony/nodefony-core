@@ -27,7 +27,7 @@ import { useStore, useUi } from "../stores";
 import { useResource } from "../hooks";
 import { PageLayout, DataState, DocHint, MiniChart } from "../components/ui";
 import { buildHealth, type HealthResult } from "../utils/health";
-import { normalize, type HealthPayload } from "../utils/realtimeHealth";
+import { normalize, type RealtimeHealthReport } from "../utils/realtimeHealth";
 import {
   ORM_DOC,
   fmtNum,
@@ -137,12 +137,14 @@ export const OrmWorker = observer(() => {
   const realtime = useResource(
     useCallback(
       () =>
-        store.api.getAbsolute<HealthPayload>("/nodefony/realtime/api/health"),
+        store.api.getAbsolute<RealtimeHealthReport>(
+          "/nodefony/realtime/api/health",
+        ),
       [store],
     ),
   );
-  const [liveRt, setLiveRt] = useState<HealthPayload | null>(null);
-  const rt: HealthPayload | null = live
+  const [liveRt, setLiveRt] = useState<RealtimeHealthReport | null>(null);
+  const rt: RealtimeHealthReport | null = live
     ? (liveRt ?? realtime.data)
     : realtime.data;
   const normRt = useMemo(() => normalize(rt), [rt]);

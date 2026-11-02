@@ -39,10 +39,10 @@ import {
 } from "@tabler/icons-react";
 import {
   isCluster,
-  type ChannelStat,
-  type ClusterHealth,
-  type HealthPayload,
-  type InstanceHealth,
+  type IRealtimeChannelStat,
+  type IRealtimeClusterHealth,
+  type RealtimeHealthReport,
+  type IRealtimeHealth,
 } from "../utils/realtimeHealth";
 import {
   useNodefony,
@@ -80,8 +80,8 @@ const NOTICE_COLOR: Record<NoticeLevel, string> = {
 
 const MAX = 300;
 
-/** Ligne du tableau « Canaux du Hub » (`ChannelStat`, `channel` unique). */
-const channelColumns: DataGridColumn<ChannelStat>[] = [
+/** Ligne du tableau « Canaux du Hub » (`IRealtimeChannelStat`, `channel` unique). */
+const channelColumns: DataGridColumn<IRealtimeChannelStat>[] = [
   {
     key: "channel",
     header: "Canal",
@@ -218,22 +218,35 @@ const HEALTH_HISTORY = 40;
  * le contrat serveur bouge : elle diverge en silence. La frontière isomorphe reste
  * respectée — le miroir est du TYPE pur, aucun import runtime serveur.
  */
-type RtChannelStat = ChannelStat;
+type RtChannelStat = IRealtimeChannelStat;
 
 /**
  * Vue REPLIÉE consommée par le panneau : en cluster, `totals` + canaux fusionnés
  * des workers sont ramenés à la forme d'un snapshot unique. C'est un agrégat de
- * pod, donc sans identité d'instance — d'où l'`Omit`.
+ * pod : il ne porte que ce que les totaux du pod savent sommer — ni identité
+ * d'instance, ni les compteurs de refus que le serveur n'agrège pas.
  */
-type RealtimeHealth = Omit<InstanceHealth, "instanceId">;
+type RealtimeHealth = Pick<
+  IRealtimeHealth,
+  | "ts"
+  | "channels"
+  | "channelCount"
+  | "publishTotal"
+  | "fanoutTotal"
+  | "inboundTotal"
+  | "connectionCount"
+  | "bytesSentTotal"
+  | "messagesSentTotal"
+  | "backpressure"
+>;
 
 /** Forme brute servie par la sonde : per-instance OU vue pod agrégée. */
-type RawHealth = HealthPayload;
+type RawHealth = RealtimeHealthReport;
 
 /** Métadonnées de la vue pod (drill-down par worker) ; `null` en per-instance. */
 interface ClusterMeta {
   instanceCount: number;
-  instances: InstanceHealth[];
+  instances: IRealtimeHealth[];
 }
 
 /** Style cellule numérique (chasse stable) — hissé (pas de réf recréée au render). */
@@ -244,7 +257,7 @@ const TNUM = { fontVariantNumeric: "tabular-nums" } as const;
  * Délègue au discriminant PARTAGÉ — deux implémentations d'une même règle
  * finissent toujours par diverger.
  */
-function isClusterHealth(r: RawHealth): r is ClusterHealth {
+function isClusterHealth(r: RawHealth): r is IRealtimeClusterHealth {
   return isCluster(r);
 }
 
@@ -253,7 +266,7 @@ function isClusterHealth(r: RawHealth): r is ClusterHealth {
  * sur N workers → 1 ligne, abonnés et publications SOMMÉS (cumuls monotones). Donne la
  * vue « canaux du pod » que `totals` (scalaires seuls) ne porte pas.
  */
-function mergeClusterChannels(instances: InstanceHealth[]): RtChannelStat[] {
+function mergeClusterChannels(instances: IRealtimeHealth[]): RtChannelStat[] {
   const map = new Map<string, RtChannelStat>();
   for (const inst of instances) {
     for (const c of inst.channels) {
@@ -438,7 +451,7 @@ const SUBSCRIPTION_COLUMNS: DataGridColumn<SubscriptionStats>[] = [
  * consommateurs lents : ce tableau sert à trouver LE worker qui souffre, et un
  * `slowConsumers > 0` est le signe le plus net qu'il faut regarder celui-là.
  */
-const WORKER_COLUMNS: DataGridColumn<InstanceHealth>[] = [
+const WORKER_COLUMNS: DataGridColumn<IRealtimeHealth>[] = [
   {
     key: "instanceId",
     header: "Worker (pid)",

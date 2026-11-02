@@ -383,7 +383,6 @@ export interface ICreateSpecOff {
 
 export type CreateSpec = ICreateSpecOk | ICreateSpecOff;
 
-/** Réponses du formulaire (clé de question → valeur). */
 /**
  * Réponses du formulaire. `string[]` sert les questions `list` — chaque valeur
  * reste ENTIÈRE : deux valeurs concaténées seraient indiscernables d'une seule

@@ -104,7 +104,7 @@ import {
   type ConnectorTab,
   type FindingLevel,
 } from "../utils/ormConnectorInsights";
-import { normalize, type HealthPayload } from "../utils/realtimeHealth";
+import { normalize, type RealtimeHealthReport } from "../utils/realtimeHealth";
 import {
   isMigrationFailure,
   REL_LABEL,
@@ -533,7 +533,9 @@ export const OrmConnector = observer(() => {
   const topology = useResource(
     useCallback(
       () =>
-        store.api.getAbsolute<HealthPayload>("/nodefony/realtime/api/health"),
+        store.api.getAbsolute<RealtimeHealthReport>(
+          "/nodefony/realtime/api/health",
+        ),
       [store],
     ),
   );

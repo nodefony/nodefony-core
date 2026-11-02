@@ -20,8 +20,8 @@ import type { WidgetRenderProps } from "../types";
 import { ClusterView } from "../ClusterView";
 import {
   normalize,
-  type HealthPayload,
-  type InstanceHealth,
+  type RealtimeHealthReport,
+  type IRealtimeHealth,
   type NormalizedHealth,
 } from "../../utils/realtimeHealth";
 import {
@@ -57,7 +57,7 @@ function cpuRep(norm: NormalizedHealth | null): number | null {
     .filter((v): v is number => v != null);
   return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
 }
-function CpuBody({ source }: WidgetRenderProps<HealthPayload>) {
+function CpuBody({ source }: WidgetRenderProps<RealtimeHealthReport>) {
   const norm = normalize(source.data);
   const rep = cpuRep(norm);
   const series = useLiveSeries(rep);
@@ -104,7 +104,7 @@ function heapRep(norm: NormalizedHealth | null): number | null {
     norm.instances.reduce((s, i) => s + (i.process?.heapUsed ?? 0), 0),
   );
 }
-function HeapBody({ source }: WidgetRenderProps<HealthPayload>) {
+function HeapBody({ source }: WidgetRenderProps<RealtimeHealthReport>) {
   const norm = normalize(source.data);
   const rep = heapRep(norm);
   const series = useLiveSeries(rep);
@@ -161,7 +161,7 @@ function loopRep(norm: NormalizedHealth | null): number | null {
     .filter((v): v is number => v != null);
   return vals.length ? Math.max(...vals) : null;
 }
-function LoopBody({ source }: WidgetRenderProps<HealthPayload>) {
+function LoopBody({ source }: WidgetRenderProps<RealtimeHealthReport>) {
   const norm = normalize(source.data);
   const rep = loopRep(norm);
   const series = useLiveSeries(rep);
@@ -212,7 +212,7 @@ function LoopBody({ source }: WidgetRenderProps<HealthPayload>) {
  * le dernier point par worker (Map pid → {ts,total}).
  */
 function usePerWorkerErrRate(
-  instances: InstanceHealth[],
+  instances: IRealtimeHealth[],
   ts: number | null | undefined,
 ): Record<string, number> {
   const prev = useRef<Map<string, { ts: number; total: number }>>(new Map());
@@ -250,7 +250,7 @@ function usePerWorkerErrRate(
  * < 2 ticks → sonde exclue, pas de faux « critique »). GC overhead + Temps réel = absents
  * de la sonde lean (≠ page mono qui lit `nodefony:supervision`) → non comptés ici.
  */
-function instHealth(inst: InstanceHealth, errRate?: number): HealthResult {
+function instHealth(inst: IRealtimeHealth, errRate?: number): HealthResult {
   const p = inst.process;
   if (!p) return buildHealth([]);
   const w = loadHealthWeights();
@@ -313,7 +313,7 @@ function instHealth(inst: InstanceHealth, errRate?: number): HealthResult {
   ]);
 }
 function worstOf(
-  insts: InstanceHealth[],
+  insts: IRealtimeHealth[],
   rates: Record<string, number>,
 ): HealthResult {
   let worst: HealthResult | null = null;
@@ -419,7 +419,7 @@ function HealthFootnote() {
   );
 }
 
-function HealthBody({ source }: WidgetRenderProps<HealthPayload>) {
+function HealthBody({ source }: WidgetRenderProps<RealtimeHealthReport>) {
   const norm = normalize(source.data);
   const rates = usePerWorkerErrRate(norm?.instances ?? [], norm?.ts);
   return (
@@ -486,7 +486,7 @@ function InfoBody({ source }: WidgetRenderProps<KernelInfo>) {
   );
 }
 
-registerWidget<HealthPayload>({
+registerWidget<RealtimeHealthReport>({
   id: "system.cpu",
   tags: ["systeme", "cpu", "kpi"],
   title: "CPU",
@@ -500,7 +500,7 @@ registerWidget<HealthPayload>({
   render: CpuBody,
 });
 
-registerWidget<HealthPayload>({
+registerWidget<RealtimeHealthReport>({
   id: "system.heap",
   tags: ["systeme", "memoire", "kpi"],
   title: "Mémoire (heap)",
@@ -514,7 +514,7 @@ registerWidget<HealthPayload>({
   render: HeapBody,
 });
 
-registerWidget<HealthPayload>({
+registerWidget<RealtimeHealthReport>({
   id: "system.eventloop",
   tags: ["systeme", "event-loop", "kpi"],
   title: "Event-loop",
@@ -529,7 +529,7 @@ registerWidget<HealthPayload>({
   render: LoopBody,
 });
 
-registerWidget<HealthPayload>({
+registerWidget<RealtimeHealthReport>({
   id: "system.health",
   tags: ["systeme", "sante", "indice"],
   title: "Santé du framework (cluster)",

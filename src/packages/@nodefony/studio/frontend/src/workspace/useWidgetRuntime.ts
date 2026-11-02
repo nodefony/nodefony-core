@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { useAuth, useStore, useUi } from "../stores";
 import { useResource } from "../hooks";
-import { normalize, type HealthPayload } from "../utils/realtimeHealth";
+import { normalize, type RealtimeHealthReport } from "../utils/realtimeHealth";
 import { useIsAdmin } from "../auth/roles";
 import type { WidgetRuntimeContext } from "./types";
 
@@ -26,7 +26,7 @@ export function useWidgetRuntime(): {
     useCallback(
       () =>
         isAdmin
-          ? store.api.getAbsolute<HealthPayload>(
+          ? store.api.getAbsolute<RealtimeHealthReport>(
               "/nodefony/realtime/api/health",
             )
           : Promise.resolve(null),

@@ -55,9 +55,9 @@ import { attributeBricks } from "../utils/ormConnectorInsights";
 import { buildHealth, type HealthResult } from "../utils/health";
 import {
   normalize,
-  type HealthPayload,
-  type InstanceHealth,
-  type OrmLeanHealth,
+  type RealtimeHealthReport,
+  type IRealtimeHealth,
+  type IOrmLeanHealth,
 } from "../utils/realtimeHealth";
 import {
   ORM_DOC,
@@ -251,10 +251,10 @@ function ClusterOrmGrid({
   live,
   onSelect,
 }: {
-  workers: InstanceHealth[];
+  workers: IRealtimeHealth[];
   ratesByPid: Map<string, OrmRate>;
   qSeriesByPid: Map<string, number[]>;
-  podOrm: OrmLeanHealth | null;
+  podOrm: IOrmLeanHealth | null;
   verdict: { result: HealthResult | null; worstPid: string | null };
   live: boolean;
   onSelect: (pid: string) => void;
@@ -625,12 +625,14 @@ export const OrmOverview = observer(
     const realtime = useResource(
       useCallback(
         () =>
-          store.api.getAbsolute<HealthPayload>("/nodefony/realtime/api/health"),
+          store.api.getAbsolute<RealtimeHealthReport>(
+            "/nodefony/realtime/api/health",
+          ),
         [store],
       ),
     );
-    const [liveRt, setLiveRt] = useState<HealthPayload | null>(null);
-    const rt: HealthPayload | null = live
+    const [liveRt, setLiveRt] = useState<RealtimeHealthReport | null>(null);
+    const rt: RealtimeHealthReport | null = live
       ? (liveRt ?? realtime.data)
       : realtime.data;
     const normRt = useMemo(() => normalize(rt), [rt]);

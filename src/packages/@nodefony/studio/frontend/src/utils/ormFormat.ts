@@ -4,7 +4,7 @@
  * Aucun JSX ici (cf `routes/orm/ConnectorCard.tsx` pour les helpers qui rendent du JSX).
  */
 import type { HealthInput } from "./health";
-import type { OrmLeanHealth } from "./realtimeHealth";
+import type { IOrmLeanHealth } from "./realtimeHealth";
 import type { EntityNode, OrmRate } from "../types/orm";
 
 /** Version de la doc des fiches d'aide (`DocHint`) du dashboard ORM. */
@@ -199,7 +199,7 @@ export function analyzeModel(
  * - La part de requêtes lentes est un **ratio de vie** (slow/total), borné → pas de delta.
  */
 export function ormHealthInputs(
-  orm: OrmLeanHealth,
+  orm: IOrmLeanHealth,
   rate: OrmRate,
 ): HealthInput[] {
   const inputs: HealthInput[] = [];

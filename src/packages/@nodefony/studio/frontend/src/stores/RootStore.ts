@@ -11,6 +11,7 @@ import {
 } from "nodefony";
 import type { NodefonyKernelIdentity, NoticeLevel } from "nodefony";
 import { CBOR_FRAME_CODEC } from "nodefony/cbor";
+import type { StudioContract, StudioSocket } from "../realtime/studioContract";
 import { AuthStore } from "./AuthStore";
 import { ConnectionStore } from "./ConnectionStore";
 import { UiStore } from "./UiStore";
@@ -57,7 +58,8 @@ export class RootStore {
    * application en hérite au lieu de le recopier.
    */
   readonly kernel: NodefonyKernel;
-  readonly realtime: NodefonySocket;
+  /** La socket de Studio, typée par `StudioContract`. */
+  readonly realtime: StudioSocket;
   /** Journal des incidents de CETTE page, remonté au pod (#35). */
   readonly browserLog: Syslog;
 
@@ -67,9 +69,9 @@ export class RootStore {
 
     // Connexion realtime PARTAGÉE par URL : la même socket sert Studio ET la
     // barre de debug (qui appelle aussi NodefonySocket.shared sur la même URL)
-    // → une seule connexion WebSocket, pas deux. C'est le noyau qui la compose
-    // désormais : `NodefonySocket.shared` reste dessous, mais l'application ne
-    // le nomme plus — elle déclare ce qu'elle veut, le noyau le fournit.
+    // → une seule connexion WebSocket, pas deux. C'est le noyau qui la compose :
+    // il s'annonce AVANT de la fabriquer, et c'est son badge qui sort dans la
+    // console — passer une socket déjà construite ferait parler la socket d'abord.
     //
     // `connectOnBoot: false` : la socket de Studio est AUTHENTIFIÉE. Elle
     // s'ouvre au login (`setIdentity`), jamais au démarrage — ouvrir avant de
@@ -92,16 +94,22 @@ export class RootStore {
         codec: CBOR_FRAME_CODEC,
       },
     });
-    const realtime = this.kernel.get("realtime");
-    if (!realtime) {
-      // Le registre est typé : ceci ne peut arriver que si la composition
-      // ci-dessus a changé. Une garde plutôt qu'une conversion de type forcée —
-      // c'est précisément le défaut que le contrat portait avant d'être exercé.
+    // La MÊME socket partagée, vue à travers `StudioContract` (partagé avec
+    // `StudioRealtimeController`) : la santé de `nodefony:socket` et chaque
+    // réponse RPC se lisent typées, sans conversion. Les options ne servent qu'à
+    // la création, déjà faite par le noyau : seule l'URL compte ici.
+    this.realtime = NodefonySocket.fromContract<StudioContract>({
+      url: realtimeUrl(),
+      shared: true,
+    });
+    if (this.kernel.get("realtime") !== this.realtime) {
+      // Deux sockets sur la même URL = deux connexions, et une identité posée
+      // sur l'une que l'autre ignore. Ne peut arriver que si la composition
+      // du noyau a changé.
       throw new Error(
-        "RootStore : le noyau client n'a pas composé de socket temps réel.",
+        "RootStore : le noyau et Studio ne partagent pas la même socket temps réel.",
       );
     }
-    this.realtime = realtime;
 
     // #35 — Studio est une application front comme une autre : ses propres
     // erreurs remontent au pod par le canal montant, au lieu de mourir dans une

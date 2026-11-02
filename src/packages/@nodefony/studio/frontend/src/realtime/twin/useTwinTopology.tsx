@@ -3,7 +3,7 @@ import { useStore } from "../../stores";
 import { useResource } from "../../hooks";
 import {
   normalize,
-  type HealthPayload,
+  type RealtimeHealthReport,
   type NormalizedHealth,
 } from "../../utils/realtimeHealth";
 
@@ -83,7 +83,7 @@ export function useTwinTopology() {
     const [info, modules, health, connectors] = await Promise.all([
       store.api.getAbsolute<KernelInfo>(INFO_URL),
       store.api.getAbsolute<ModuleRow[]>(MODULES_URL),
-      store.api.getAbsolute<HealthPayload>(HEALTH_URL).catch(() => null),
+      store.api.getAbsolute<RealtimeHealthReport>(HEALTH_URL).catch(() => null),
       store.api.getAbsolute<ConnectorRow[]>(CONNECTORS_URL).catch(() => []),
     ]);
     return { info, modules, normalized: normalize(health), connectors };

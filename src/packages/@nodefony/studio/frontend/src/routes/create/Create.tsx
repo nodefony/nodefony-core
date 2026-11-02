@@ -45,7 +45,6 @@ import {
   IconWand,
   type Icon,
 } from "@tabler/icons-react";
-import { useNodefony } from "nodefony/react";
 import { useNotifications, useStore } from "../../stores";
 import { useResource } from "../../hooks";
 import { ApiError } from "../../services/ApiClient";
@@ -79,7 +78,6 @@ import {
   engineFor,
   referenceableEntities,
   type IScaffoldCaps,
-  type IScaffoldCancelResult,
   type IScaffoldJobMeta,
   type IScaffoldJobState,
   type IScaffoldEvent,
@@ -153,7 +151,6 @@ function TypeCard({
 
 export function Create() {
   const store = useStore();
-  const conn = useNodefony();
   const notifications = useNotifications();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -333,10 +330,7 @@ export function Create() {
       const payload: TAnswers = isApp
         ? { ...answers, root: rootId ?? "", subPath }
         : answers;
-      const state = await conn.request<
-        typeof PLATFORM_METHODS.scaffoldRun,
-        IScaffoldJobState
-      >(PLATFORM_METHODS.scaffoldRun, {
+      const state = await store.realtime.request(PLATFORM_METHODS.scaffoldRun, {
         type: typeSpec.type,
         answers: payload,
         steps,
@@ -365,10 +359,9 @@ export function Create() {
     if (!job) return;
     setCancelling(true);
     try {
-      await conn.request<
-        typeof PLATFORM_METHODS.scaffoldCancel,
-        IScaffoldCancelResult
-      >(PLATFORM_METHODS.scaffoldCancel, { id: job.id });
+      await store.realtime.request(PLATFORM_METHODS.scaffoldCancel, {
+        id: job.id,
+      });
     } catch (e) {
       notifications.notify("error", describeScaffoldError(e), {
         title: "Arrêt impossible",

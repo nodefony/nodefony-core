@@ -1,166 +1,54 @@
 /**
- * Types MIROIR de la sonde santé `nodefony:socket` (frontière isomorphe : on ne
- * JAMAIS importer le runtime serveur `@nodefony/framework` dans le bundle client).
+ * Lecture commune de la santé `nodefony:socket` — la même charge que sert
+ * `/nodefony/realtime/api/health`.
  *
- * Source de vérité = les contrats core `IRealtimeProbe.ts` (process + socket +
- * ORM lean + erreurs) servis par le data plane `/nodefony/realtime/api/health` ET
- * poussés sur le canal `nodefony:socket`. **Un seul** mirror partagé ici → évite la
- * dérive silencieuse vue ailleurs (Cluster, RealtimeConsole, ProcessGraphGrid en
- * portaient chacun une copie). Toute page cluster-aware importe d'ICI.
+ * Les FORMES ne vivent plus ici : elles sont publiées par le cœur isomorphe
+ * (`RealtimeHealthReport`, `IRealtimeHealth`, `IRealtimeClusterHealth`…), que le
+ * serveur produit et que `StudioContract` donne au canal. Ce fichier ne garde que
+ * ce qui appartient à Studio : ramener la vue pod et la vue d'un seul worker au
+ * même modèle, pour que chaque écran cluster-aware n'ait qu'un cas à lire.
  */
+import type {
+  IRealtimeClusterHealth,
+  IRealtimeHealth,
+  RealtimeHealthReport,
+} from "nodefony";
 
-/** Santé PROCESS d'un worker (miroir de `IProcessHealth`, core). */
-export interface ProcessHealth {
-  pid: number;
-  uptime: number;
-  cpuPercent: number;
-  eventLoopMs: number;
-  eluUtilization: number;
-  rss: number;
-  heapUsed: number;
-  heapTotal: number;
-  external: number;
-  ts: number;
-}
+// Ré-exportées telles quelles (aucune copie) : les écrans santé importent d'ici.
+export type {
+  IOrmLeanHealth,
+  IRealtimeChannelStat,
+  IRealtimeClusterHealth,
+  IRealtimeHealth,
+  RealtimeHealthReport,
+} from "nodefony";
 
-/** Backpressure agrégée d'une connexion/instance (risque mémoire #1). */
-export interface Backpressure {
-  maxBufferedAmount: number;
-  totalBufferedAmount: number;
-  slowConsumers: number;
-}
-
-/** Stat per-canal (fan-out). */
-export interface ChannelStat {
-  channel: string;
-  subscribers: number;
-  messages: number;
-}
-
-/** Santé ORM lean d'un worker (miroir de `IOrmLeanHealth`, core). Cumuls monotones. */
-export interface OrmLeanHealth {
-  connectors: number;
-  connected: number;
-  queryTotal: number;
-  slowTotal: number;
-  errorTotal: number;
-  reconnectTotal: number;
-  maxEwmaMs: number | null;
-}
-
-/** Erreurs Syslog d'un worker (miroir de `IInstanceErrorHealth`, core). Cumuls monotones. */
-export interface InstanceErrorHealth {
-  errorTotal: number;
-  criticTotal: number;
-}
-
-/** Santé per-instance d'UN worker (miroir de `IRealtimeHealth`). */
-export interface InstanceHealth {
-  instanceId: string;
-  ts: number;
-  channels: ChannelStat[];
-  channelCount: number;
-  publishTotal: number;
-  fanoutTotal: number;
-  inboundTotal: number;
-  connectionCount: number;
-  bytesSentTotal: number;
-  messagesSentTotal: number;
-  backpressure: Backpressure;
-  /** Optionnel : absent si la sonde process est coupée. */
-  process?: ProcessHealth | undefined;
-  /** Optionnel : absent si aucun driver ORM n'a branché sa sonde. */
-  orm?: OrmLeanHealth | undefined;
-  /** Optionnel : absent si la sonde n'a pu lire le syslog du kernel. */
-  errors?: InstanceErrorHealth | undefined;
-  /** Ingress backplane refusés (canal non diffusable) — signal de sécurité. */
-  ingressRejectedTotal?: number | undefined;
-  /** Fond de panier realtime de l'instance (bus inter-process). */
-  /**
-   * Drivers de backplane enregistrés dans ce process (registre ouvert) — ce qu'on
-   * POURRAIT brancher, là où `backplane.driver` ne dit que l'actif.
-   */
-  backplaneDrivers?: string[] | undefined;
-  backplane?:
-    | {
-        driver?: string | undefined;
-        kind?: string | undefined;
-        crossPod?: boolean | undefined;
-        /** Canal de transport effectif (canal Redis, topic…). */
-        channel?: string | undefined;
-        /** Identité de CE pair sur le bus (pod/process) — qui publie. */
-        originId?: string | undefined;
-        /** Messages scellés (authenticité vérifiée) — pertinent sur bus partagé. */
-        sealed?: boolean | undefined;
-        /**
-         * File d'envoi vers le bus — présente sur les transports réseau, dont les
-         * publications sont acquittées de façon asynchrone. `droppedTotal > 0` = du
-         * fan-out a été sacrifié pour tenir la mémoire du processus.
-         */
-        queue?:
-          | {
-              /** Octets publiés en attente d'acquittement (instantané). */
-              bytes?: number | undefined;
-              /** Seuil de jet ; `0` = illimité. */
-              maxBytes?: number | undefined;
-              /** Publications jetées faute de place (cumul). */
-              droppedTotal?: number | undefined;
-              /** Publications refusées par le bus (cumul). */
-              failedTotal?: number | undefined;
-            }
-          | undefined;
-      }
-    | undefined;
-}
-
-/** Totaux pod (miroir de `IRealtimeClusterHealth.totals`). */
-export interface PodTotals {
-  channelCount: number;
-  publishTotal: number;
-  fanoutTotal: number;
-  inboundTotal: number;
-  /** Ingress backplane refusés, tous workers (signal de sécurité pod-wide). */
-  ingressRejectedTotal?: number | undefined;
-  connectionCount: number;
-  bytesSentTotal: number;
-  messagesSentTotal: number;
-  backpressure: Backpressure;
-  /** Agrégat ORM pod (sommes ; `maxEwmaMs` = pire worker). Absent si aucun worker ne le remonte. */
-  orm?: OrmLeanHealth | undefined;
-  /** Agrégat erreurs pod (sommes). Absent si aucun worker ne le remonte. */
-  errors?: InstanceErrorHealth | undefined;
-}
-
-/** Vue POD agrégée (miroir de `IRealtimeClusterHealth`). */
-export interface ClusterHealth {
-  cluster: true;
-  ts: number;
-  instanceCount: number;
-  instances: InstanceHealth[];
-  totals: PodTotals;
-}
-
-/** Réponse de l'endpoint santé : vue pod OU snapshot per-instance. */
-export type HealthPayload = ClusterHealth | InstanceHealth;
+/** Totaux d'un pod — sommes des workers, ou les scalaires du seul worker. */
+export type PodTotals = IRealtimeClusterHealth["totals"];
 
 /** Vue normalisée commune (mono-process et cluster ramenés au même modèle). */
 export interface NormalizedHealth {
   cluster: boolean;
   ts: number;
-  instances: InstanceHealth[];
+  instances: IRealtimeHealth[];
   totals: PodTotals;
 }
 
 /** Discriminant cluster (vs per-instance). */
-export function isCluster(h: HealthPayload): h is ClusterHealth {
+export function isCluster(
+  h: RealtimeHealthReport,
+): h is IRealtimeClusterHealth {
+  if (!("cluster" in h)) return false;
   // Valeur venue du réseau : `=== true` refuse un `"true"` ou un `1` qu'un
   // serveur mal aligné renverrait, là où le type promet un booléen.
-  const flag: unknown = (h as ClusterHealth).cluster;
+  const flag: unknown = h.cluster;
   return flag === true;
 }
 
 /** Ramène n'importe quelle réponse santé au modèle normalisé. */
-export function normalize(h: HealthPayload | null): NormalizedHealth | null {
+export function normalize(
+  h: RealtimeHealthReport | null,
+): NormalizedHealth | null {
   if (!h) return null;
   if (isCluster(h)) {
     return {
@@ -171,22 +59,20 @@ export function normalize(h: HealthPayload | null): NormalizedHealth | null {
     };
   }
   // Per-instance : 1 worker, totaux = ses propres scalaires.
-  return {
-    cluster: false,
-    ts: h.ts,
-    instances: [h],
-    totals: {
-      channelCount: h.channelCount,
-      publishTotal: h.publishTotal,
-      fanoutTotal: h.fanoutTotal,
-      inboundTotal: h.inboundTotal,
-      ingressRejectedTotal: h.ingressRejectedTotal,
-      connectionCount: h.connectionCount,
-      bytesSentTotal: h.bytesSentTotal,
-      messagesSentTotal: h.messagesSentTotal,
-      backpressure: h.backpressure,
-      orm: h.orm,
-      errors: h.errors,
-    },
+  const totals: PodTotals = {
+    channelCount: h.channelCount,
+    publishTotal: h.publishTotal,
+    fanoutTotal: h.fanoutTotal,
+    inboundTotal: h.inboundTotal,
+    ingressRejectedTotal: h.ingressRejectedTotal,
+    localOnlyTotal: h.localOnlyTotal,
+    connectionCount: h.connectionCount,
+    bytesSentTotal: h.bytesSentTotal,
+    messagesSentTotal: h.messagesSentTotal,
+    backpressure: h.backpressure,
   };
+  // Clés facultatives : absentes plutôt que `undefined` (`exactOptionalPropertyTypes`).
+  if (h.orm) totals.orm = h.orm;
+  if (h.errors) totals.errors = h.errors;
+  return { cluster: false, ts: h.ts, instances: [h], totals };
 }

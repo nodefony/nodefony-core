@@ -36,6 +36,12 @@ import {
 } from "../utils/health";
 import { HealthWeightsPopover } from "./HealthWeightsPopover";
 import { PLATFORM_CHANNELS } from "nodefony";
+import type { IProcessHealth } from "nodefony";
+import {
+  isCluster,
+  type IRealtimeHealth,
+  type RealtimeHealthReport,
+} from "../utils/realtimeHealth";
 
 const HISTORY = 60;
 const MB = 1024 ** 2;
@@ -48,33 +54,11 @@ const POD_WEIGHT_LABELS = [
   "Mémoire (heap)",
 ];
 
-/** Sous-ensemble process du snapshot santé (miroir isomorphe, base lean). */
-interface ProcHealth {
-  pid: number;
-  cpuPercent: number;
-  heapUsed: number;
-  heapTotal: number;
-  heapLimit: number;
-  eventLoopMs: number;
-  eluUtilization: number;
-  rss: number;
-  uptime: number;
-}
-interface Inst {
-  instanceId: string;
-  process?: ProcHealth;
-}
-interface ClusterH {
-  cluster: true;
-  instances: Inst[];
-}
-type Health = ClusterH | (Inst & { cluster?: undefined });
-
 /** Ramène la réponse santé (pod OU per-instance) à une liste d'instances. */
-function instancesOf(h: Health | null): Inst[] {
+function instancesOf(h: RealtimeHealthReport | null): IRealtimeHealth[] {
   if (!h) return [];
-  // Réponse réseau : `instances` peut manquer d'une version antérieure.
-  if (h.cluster) return Array.isArray(h.instances) ? h.instances : [];
+  // Réponse réseau : `instances` peut manquer d’une version antérieure.
+  if (isCluster(h)) return Array.isArray(h.instances) ? h.instances : [];
   return [h];
 }
 
@@ -133,7 +117,7 @@ function memColor(pct: number): string {
 
 /** Santé d'UN worker via le moteur partagé, avec les poids persistés. */
 function workerHealth(
-  p: ProcHealth,
+  p: IProcessHealth,
   weights: Partial<Record<string, number>>,
 ): HealthResult {
   // heapUsed/heapLimit (plafond V8) = % avant OOM, actionnable. PAS heapUsed/heapTotal
@@ -200,20 +184,26 @@ export function ProcessGraphGrid({
 
   // 1ᵉʳ paint HTTP (cartes peuplées avant la 1ʳᵉ frame WS).
   const fetcher = useCallback(
-    () => store.api.getAbsolute<Health>("/nodefony/realtime/api/health"),
+    () =>
+      store.api.getAbsolute<RealtimeHealthReport>(
+        "/nodefony/realtime/api/health",
+      ),
     [store],
   );
   const { data: snap, loading, error, reload } = useResource(fetcher);
 
   // Live « visu direct » : abonné au snapshot pod tant que la grille est montée.
-  const live = useNodefonyChannelData<Health>(PLATFORM_CHANNELS.socket);
+  // Socket en tête : la charge se lit par `StudioContract`, sans générique.
+  const live = useNodefonyChannelData(store.realtime, PLATFORM_CHANNELS.socket);
   const health = live ?? snap;
   const insts = instancesOf(health);
 
   // Santé du framework AGRÉGÉE pod = pire worker (poids réglés, ou persistés).
   const weights = weightsProp ?? loadHealthWeights();
   const scored = insts
-    .filter((i): i is Inst & { process: ProcHealth } => !!i.process)
+    .filter(
+      (i): i is IRealtimeHealth & { process: IProcessHealth } => !!i.process,
+    )
     .map((i) => ({ pid: i.instanceId, h: workerHealth(i.process, weights) }));
   const worst =
     scored.length > 0
@@ -226,7 +216,9 @@ export function ProcessGraphGrid({
   // Agrégats process pod (sondes lean). CPU/loop/ELU = par-worker → moyenne + pic
   // (jamais une somme : ça n'a pas de sens pour un %) ; heap/rss = somme (mémoire
   // réellement occupée par le pod) ; uptime min = worker le plus jeune (respawn ?).
-  const procs = insts.map((i) => i.process).filter((p): p is ProcHealth => !!p);
+  const procs = insts
+    .map((i) => i.process)
+    .filter((p): p is IProcessHealth => !!p);
   const agg =
     procs.length > 0
       ? {

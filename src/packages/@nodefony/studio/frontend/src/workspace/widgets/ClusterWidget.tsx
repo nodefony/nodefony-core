@@ -2,7 +2,10 @@ import { Badge, Group, SimpleGrid, Text } from "@mantine/core";
 import { IconCpu } from "@tabler/icons-react";
 import { registerWidget } from "../registry";
 import type { WidgetRenderProps } from "../types";
-import { normalize, type HealthPayload } from "../../utils/realtimeHealth";
+import {
+  normalize,
+  type RealtimeHealthReport,
+} from "../../utils/realtimeHealth";
 import { Metric, WorkerTile, fmtMB } from "./_kit";
 import { PLATFORM_CHANNELS } from "nodefony";
 
@@ -10,7 +13,7 @@ import { PLATFORM_CHANNELS } from "nodefony";
  * Widget « Workers » — la salle des machines en cluster : une tuile par worker
  * (CPU / heap), forable. En mono, invite à lancer le cluster. Source agrégée master.
  */
-function WorkersBody({ source }: WidgetRenderProps<HealthPayload>) {
+function WorkersBody({ source }: WidgetRenderProps<RealtimeHealthReport>) {
   const n = normalize(source.data);
   if (!n) return null;
   if (!n.cluster || n.instances.length <= 1) {
@@ -62,7 +65,7 @@ function WorkersBody({ source }: WidgetRenderProps<HealthPayload>) {
   );
 }
 
-registerWidget<HealthPayload>({
+registerWidget<RealtimeHealthReport>({
   id: "cluster.workers",
   tags: ["cluster", "panneau"],
   title: "Workers (cluster)",

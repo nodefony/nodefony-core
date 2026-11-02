@@ -1,10 +1,13 @@
 /// <reference types="node" />
 import { route, controller } from "@nodefony/framework";
 import type { IAdminBroker } from "@nodefony/framework";
-import { RealtimeController } from "@nodefony/realtime";
-import type { RealtimePublish } from "@nodefony/realtime";
+import { ContractRealtimeController } from "@nodefony/realtime";
+import type {
+  ContractRealtimeMethodHandlers,
+  RealtimePublish,
+} from "@nodefony/realtime";
 import { Context } from "@nodefony/http";
-import type { RpcActionHandler, RateBounds } from "nodefony";
+import type { ContractServerEmit, EventNames, RateBounds } from "nodefony";
 import {
   parseRate,
   RpcError,
@@ -12,9 +15,10 @@ import {
   THROUGHPUT_PAYLOAD_SIZES,
   isThroughputPayloadSize,
   createThroughputPayload,
-  type ThroughputPayloadSize,
 } from "nodefony";
+import type { KernelPingResult } from "nodefony/client";
 import { fetchAdminEndpoint } from "../src/adminFetch";
+import { readAnswers, rpcParam } from "../src/rpcParams";
 import {
   createSyslogBridge,
   createStatsTicker,
@@ -31,8 +35,14 @@ import {
   type ScaffoldStep,
   type IScaffoldJobState,
 } from "../service/ScaffoldService";
-import type { IScaffoldChange, TScaffoldAnswers } from "nodefony";
+import type { IScaffoldChange } from "nodefony";
 import { PLATFORM_CHANNELS, PLATFORM_METHODS } from "nodefony";
+// Types seuls (effacés au build) : le contrat est partagé avec le navigateur.
+import type {
+  IKernelGcResult,
+  IThroughputResult,
+  StudioContract,
+} from "../../frontend/src/realtime/studioContract";
 
 /**
  * Canal de drill-down d'un worker du cluster : `nodefony:supervision@<pid>` avec granularité
@@ -50,6 +60,11 @@ const SUPERVISION_DRILL_RE = new RegExp(
  * round-robin en cluster). Un seul canal = un seul enrich = pas de ref-count.
  */
 const ORM_RICH_DRILL_RE = /^nodefony:orm:rich@(\d+)(?::\d+)?$/;
+
+/** Étape post-écriture admise : seules celles de l'allowlist `SCAFFOLD_STEPS`. */
+function isScaffoldStep(value: unknown): value is ScaffoldStep {
+  return SCAFFOLD_STEPS.some((step) => step === value);
+}
 
 /**
  * Flux d'un job de génération de code : `nodefony:scaffold:job@<uuid>`.
@@ -85,11 +100,12 @@ const RATE_BOUNDS = {
  *
  * Route : `WS /nodefony/studio/api/realtime`. Protocole : **JSON-RPC 2.0**.
  *
- * Dérive de {@link RealtimeController} (framework) : TOUT le protocole (handshake,
- * discrimination request/notification/response via `JsonRpcPeer`, actions, pub/sub
- * par canal, cleanup, perf) est porté par la base. Ce contrôleur ne déclare QUE son
- * métier : ses **canaux** ({@link createRealtimeChannel}) et ses **actions**
- * ({@link realtimeActions}).
+ * Implémente `StudioContract` ({@link ContractRealtimeController}) : TOUT le
+ * protocole (handshake, discrimination request/notification/response via
+ * `JsonRpcPeer`, actions, pub/sub par canal, cleanup, perf) est porté par la base,
+ * et le contrat — partagé avec le navigateur — fixe les canaux annoncés et la
+ * table des actions. Ce contrôleur ne déclare QUE son métier : ses **canaux**
+ * ({@link createRealtimeChannel}) et ses **actions** ({@link realtimeActions}).
  *
  * ── Canaux (pub/sub on-demand) ──
  *  - `nodefony:syslog` (Pdu kernel), `nodefony:dashboard`/`nodefony:supervision`,
@@ -100,7 +116,7 @@ const RATE_BOUNDS = {
  * Forward-compat P13.4 : la base + ces providers migrent dans `RealtimeService`.
  */
 @controller("/nodefony/studio/api")
-class StudioRealtimeController extends RealtimeController {
+class StudioRealtimeController extends ContractRealtimeController<StudioContract> {
   constructor(context: Context) {
     super("StudioRealtimeController", context);
   }
@@ -113,13 +129,23 @@ class StudioRealtimeController extends RealtimeController {
     this.handleRealtime(message);
   }
 
-  /** Canaux annoncés au handshake. */
-  protected override realtimeChannels(): string[] {
+  /**
+   * Canaux annoncés au handshake — contraints aux noms que `StudioContract`
+   * déclare : un canal ajouté à `CHANNELS` sans entrer au contrat ne compile pas.
+   */
+  protected override realtimeChannels(): EventNames<
+    ContractServerEmit<StudioContract>
+  >[] {
     return Object.values(CHANNELS);
   }
 
-  /** Actions RPC (requête→réponse, direction contrôle). */
-  protected override realtimeActions(): Record<string, RpcActionHandler> {
+  /**
+   * Actions RPC (requête→réponse, direction contrôle) — la table EXIGÉE par
+   * `StudioContract` : une méthode du contrat oubliée ici ne compile pas. Chaque
+   * handler reçoit ses paramètres `unknown` et les vérifie : ils viennent du
+   * réseau, le type `in` du contrat ne décrit qu'un client conforme.
+   */
+  protected override realtimeActions(): ContractRealtimeMethodHandlers<StudioContract> {
     return {
       [PLATFORM_METHODS.ping]: () => this.actionPing(),
       [PLATFORM_METHODS.gc]: () => this.actionGc(),
@@ -149,25 +175,14 @@ class StudioRealtimeController extends RealtimeController {
     const svc = this.get<ScaffoldService>("scaffold");
     if (!svc?.enabled) throw new Error("scaffold is development-only");
 
-    const p = (params ?? {}) as {
-      type?: unknown;
-      answers?: unknown;
-      steps?: unknown;
-    };
-    if (typeof p.type !== "string") throw new Error("type manquant");
-
-    const answers = (
-      p.answers && typeof p.answers === "object" ? p.answers : {}
-    ) as TScaffoldAnswers;
+    const type = rpcParam(params, "type");
+    if (typeof type !== "string") throw new Error("type manquant");
 
     // Allowlist : tout ce qui n'est pas une étape connue est jeté, pas exécuté.
-    const steps = (Array.isArray(p.steps) ? p.steps : []).filter(
-      (s): s is ScaffoldStep =>
-        typeof s === "string" &&
-        (SCAFFOLD_STEPS as readonly string[]).includes(s),
-    );
+    const raw = rpcParam(params, "steps");
+    const steps = (Array.isArray(raw) ? raw : []).filter(isScaffoldStep);
 
-    return svc.start(p.type, answers, steps);
+    return svc.start(type, readAnswers(rpcParam(params, "answers")), steps);
   }
 
   /**
@@ -186,20 +201,16 @@ class StudioRealtimeController extends RealtimeController {
   } {
     const svc = this.get<ScaffoldService>("scaffold");
     if (!svc?.enabled) throw new Error("scaffold is development-only");
-    const p = (params ?? {}) as { type?: unknown; answers?: unknown };
-    if (typeof p.type !== "string") throw new Error("type manquant");
-    const answers = (
-      p.answers && typeof p.answers === "object" ? p.answers : {}
-    ) as TScaffoldAnswers;
-    return svc.preview(p.type, answers);
+    const type = rpcParam(params, "type");
+    if (typeof type !== "string") throw new Error("type manquant");
+    return svc.preview(type, readAnswers(rpcParam(params, "answers")));
   }
 
   /** Interrompt le process en cours d'un job (bouton « arrêter »). */
   private actionScaffoldCancel(params: unknown): { cancelled: boolean } {
     const svc = this.get<ScaffoldService>("scaffold");
     if (!svc?.enabled) throw new Error("scaffold is development-only");
-    // Charge RPC venue du client : peut manquer.
-    const id = (params as { id?: unknown } | null | undefined)?.id;
+    const id = rpcParam(params, "id");
     if (typeof id !== "string") throw new Error("id manquant");
     return { cancelled: svc.cancel(id) };
   }
@@ -381,33 +392,26 @@ class StudioRealtimeController extends RealtimeController {
    * Action `nodefony:kernel:ping` — liveness + round-trip (le client mesure le RTT). Lecture
    * pure, aucun effet de bord.
    */
-  private actionPing(): {
-    pong: true;
-    ts: number;
-    uptime: number;
-    pid: number;
-    version?: string | undefined;
-  } {
-    return {
+  private actionPing(): KernelPingResult {
+    const result: KernelPingResult = {
       pong: true,
       ts: Date.now(),
       uptime: process.uptime(),
       pid: process.pid,
-      version: this.kernel?.version,
     };
+    // Version absente = clé absente : le contrat la déclare facultative, pas `undefined`.
+    const version = this.kernel?.version;
+    if (version !== undefined) result.version = version;
+    return result;
   }
 
   /**
    * Action `nodefony:kernel:gc` — force un cycle GC V8 si lancé avec `--expose-gc`. Renvoie le
    * delta heap (futur bouton « Force GC »). `available:false` sinon (dégradation gracieuse).
    */
-  private actionGc(): {
-    available: boolean;
-    before?: number;
-    after?: number;
-    freed?: number;
-  } {
-    const gc = (globalThis as { gc?: () => void }).gc;
+  private actionGc(): IKernelGcResult {
+    // `gc` n'existe qu'avec `--expose-gc` ; `@types/node` le déclare facultatif.
+    const gc = globalThis.gc;
     if (typeof gc !== "function") return { available: false };
     const before = process.memoryUsage().heapUsed;
     gc();
@@ -433,10 +437,7 @@ class StudioRealtimeController extends RealtimeController {
    *
    * @throws RpcError `-32602` si `size` n'est pas une taille admise.
    */
-  private actionThroughput(params: unknown): {
-    size: ThroughputPayloadSize;
-    bytes: Uint8Array<ArrayBuffer>;
-  } {
+  private actionThroughput(params: unknown): IThroughputResult {
     const size =
       typeof params === "object" && params !== null && "size" in params
         ? params.size

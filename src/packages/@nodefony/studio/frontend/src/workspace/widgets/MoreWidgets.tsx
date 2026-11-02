@@ -12,7 +12,7 @@ import { registerWidget } from "../registry";
 import type { WidgetRenderProps } from "../types";
 import {
   normalize,
-  type HealthPayload,
+  type RealtimeHealthReport,
   type NormalizedHealth,
 } from "../../utils/realtimeHealth";
 import { BigMetric, Metric, fmtUptime } from "./_kit";
@@ -201,7 +201,7 @@ function aggChannels(
     .map(([channel, v]) => ({ channel, sub: v.sub, msg: v.msg }))
     .sort((a, b) => b.msg - a.msg);
 }
-function ChannelsBody({ source }: WidgetRenderProps<HealthPayload>) {
+function ChannelsBody({ source }: WidgetRenderProps<RealtimeHealthReport>) {
   const n = normalize(source.data);
   if (!n) return null;
   const chans = aggChannels(n);
@@ -289,7 +289,7 @@ function deriveAlerts(n: NormalizedHealth): HealthAlert[] {
     });
   return out;
 }
-function AlertsBody({ source }: WidgetRenderProps<HealthPayload>) {
+function AlertsBody({ source }: WidgetRenderProps<RealtimeHealthReport>) {
   const n = normalize(source.data);
   if (!n) return null;
   const alerts = deriveAlerts(n);
@@ -375,7 +375,7 @@ registerWidget<KernelInfo>({
   render: UptimeBody,
 });
 
-registerWidget<HealthPayload>({
+registerWidget<RealtimeHealthReport>({
   id: "realtime.channels",
   tags: ["realtime", "liste"],
   title: "Canaux temps réel",
@@ -389,7 +389,7 @@ registerWidget<HealthPayload>({
   render: ChannelsBody,
 });
 
-registerWidget<HealthPayload>({
+registerWidget<RealtimeHealthReport>({
   id: "supervision.alerts",
   tags: ["systeme", "sante", "erreurs", "liste"],
   title: "Alertes",

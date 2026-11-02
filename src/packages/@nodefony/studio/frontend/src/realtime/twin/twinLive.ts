@@ -1,9 +1,6 @@
 import { useNodefonyChannelData, useNodefonyState } from "nodefony/react";
-import {
-  normalize,
-  type HealthPayload,
-  type NormalizedHealth,
-} from "../../utils/realtimeHealth";
+import { useStore } from "../../stores";
+import { normalize, type NormalizedHealth } from "../../utils/realtimeHealth";
 import { PLATFORM_CHANNELS } from "nodefony";
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -27,7 +24,9 @@ export interface TwinLiveSnapshot {
 
 /** Abonnement live (ref-compté). Démonter le composant coupe la sonde. */
 export function useTwinLive(): TwinLiveSnapshot {
-  const rt = useNodefonyChannelData<HealthPayload>(PLATFORM_CHANNELS.socket);
+  const { realtime } = useStore();
+  // Socket en tête : la charge se lit par `StudioContract`, sans générique.
+  const rt = useNodefonyChannelData(realtime, PLATFORM_CHANNELS.socket);
   const clientState = useNodefonyState();
   return { normalized: normalize(rt), clientState };
 }

@@ -3,7 +3,10 @@ import { IconDatabase } from "@tabler/icons-react";
 import { registerWidget } from "../registry";
 import type { WidgetRenderProps } from "../types";
 import { ClusterView } from "../ClusterView";
-import { normalize, type HealthPayload } from "../../utils/realtimeHealth";
+import {
+  normalize,
+  type RealtimeHealthReport,
+} from "../../utils/realtimeHealth";
 import { BigMetric, Metric, WorkerTile, useLiveSeries, useRate } from "./_kit";
 import { PLATFORM_CHANNELS } from "nodefony";
 
@@ -12,7 +15,7 @@ import { PLATFORM_CHANNELS } from "nodefony";
  * connecteurs et latence EWMA. Agrégé master (cohérent en cluster). Cumuls monotones
  * (count ≠ rate → pas de couleur d'alarme).
  */
-function OrmBody({ source }: WidgetRenderProps<HealthPayload>) {
+function OrmBody({ source }: WidgetRenderProps<RealtimeHealthReport>) {
   const norm = normalize(source.data);
   const o = norm?.totals.orm ?? null;
   const rate = useRate(o?.queryTotal, norm?.ts);
@@ -77,7 +80,7 @@ function OrmBody({ source }: WidgetRenderProps<HealthPayload>) {
   );
 }
 
-registerWidget<HealthPayload>({
+registerWidget<RealtimeHealthReport>({
   id: "orm.health",
   tags: ["orm", "orm-debit", "kpi"],
   title: "ORM",

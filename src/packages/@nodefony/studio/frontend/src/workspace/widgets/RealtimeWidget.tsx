@@ -2,7 +2,10 @@ import { Badge, SimpleGrid, Stack, Text } from "@mantine/core";
 import { IconBroadcast } from "@tabler/icons-react";
 import { registerWidget } from "../registry";
 import type { WidgetRenderProps } from "../types";
-import { normalize, type HealthPayload } from "../../utils/realtimeHealth";
+import {
+  normalize,
+  type RealtimeHealthReport,
+} from "../../utils/realtimeHealth";
 import { BigMetric, Metric, fmtMB, useLiveSeries, useRate } from "./_kit";
 import { PLATFORM_CHANNELS } from "nodefony";
 
@@ -10,7 +13,7 @@ import { PLATFORM_CHANNELS } from "nodefony";
  * Widget « Socket Nodefony » — débit fan-out/s DÉRIVÉ du cumul + courbe, canaux,
  * connexions et backpressure (risque mémoire #1). Totaux pod (valides mono ET cluster).
  */
-function HubBody({ source }: WidgetRenderProps<HealthPayload>) {
+function HubBody({ source }: WidgetRenderProps<RealtimeHealthReport>) {
   const norm = normalize(source.data);
   const t = norm?.totals ?? null;
   const rate = useRate(t?.fanoutTotal, norm?.ts);
@@ -51,7 +54,7 @@ function HubBody({ source }: WidgetRenderProps<HealthPayload>) {
   );
 }
 
-registerWidget<HealthPayload>({
+registerWidget<RealtimeHealthReport>({
   id: "realtime.hub",
   tags: ["realtime", "panneau"],
   title: "Socket Nodefony",

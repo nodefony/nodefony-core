@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { Box, Button, Collapse, SimpleGrid } from "@mantine/core";
 import { IconChevronDown, IconChevronRight } from "@tabler/icons-react";
 import type {
-  InstanceHealth,
+  IRealtimeHealth,
   NormalizedHealth,
   PodTotals,
 } from "../utils/realtimeHealth";
@@ -12,14 +12,14 @@ export interface ClusterViewProps {
   /** Santé normalisée (`normalize()` ramène mono ET cluster au même modèle). */
   normalized: NormalizedHealth | null;
   /** Résumé agrégé du POD — affiché par défaut (rollup adapté à la métrique). */
-  renderSummary: (totals: PodTotals, instances: InstanceHealth[]) => ReactNode;
+  renderSummary: (totals: PodTotals, instances: IRealtimeHealth[]) => ReactNode;
   /**
    * Détail d'UN worker. `opts.grid` = `false` en mono (rendu seul, peut être riche),
    * `true` dans la grille cluster dépliée (rendu compact, pas de sparkline pod).
    */
-  renderInstance: (inst: InstanceHealth, opts: { grid: boolean }) => ReactNode;
+  renderInstance: (inst: IRealtimeHealth, opts: { grid: boolean }) => ReactNode;
   /** Lien de forage optionnel par worker (URL). */
-  drillTo?: (inst: InstanceHealth) => string;
+  drillTo?: (inst: IRealtimeHealth) => string;
 }
 
 /**

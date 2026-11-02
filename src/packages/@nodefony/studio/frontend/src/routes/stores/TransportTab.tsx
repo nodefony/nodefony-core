@@ -37,8 +37,11 @@ import {
 import { useStore } from "../../stores";
 import { useResource } from "../../hooks";
 import { DocHint, TipHint } from "../../components/ui";
-import { normalize, type HealthPayload } from "../../utils/realtimeHealth";
-import type { InstanceHealth } from "../../utils/realtimeHealth";
+import {
+  normalize,
+  type RealtimeHealthReport,
+} from "../../utils/realtimeHealth";
+import type { IRealtimeHealth } from "../../utils/realtimeHealth";
 import {
   KERNEL_INFO_ENDPOINT,
   REALTIME_HEALTH_ENDPOINT,
@@ -49,7 +52,7 @@ import {
 
 interface TransportData {
   log: LogBackplane | null;
-  rt: InstanceHealth | null;
+  rt: IRealtimeHealth | null;
   cluster: boolean;
   instances: number;
   publishTotal: number;
@@ -302,7 +305,7 @@ export const TransportTab = observer(
           .getAbsolute<KernelInfoPartial>(KERNEL_INFO_ENDPOINT)
           .catch(() => null),
         store.api
-          .getAbsolute<HealthPayload>(REALTIME_HEALTH_ENDPOINT)
+          .getAbsolute<RealtimeHealthReport>(REALTIME_HEALTH_ENDPOINT)
           .catch(() => null),
       ]);
       const norm = normalize(health);

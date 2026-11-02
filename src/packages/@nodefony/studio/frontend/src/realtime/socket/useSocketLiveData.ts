@@ -1,10 +1,10 @@
 import { useMemo } from "react";
 import { useNodefonyChannelData, useNodefonyState } from "nodefony/react";
+import { useStore } from "../../stores";
 import type { LiveNodeData } from "../../components/ui";
 import {
   normalize,
-  type HealthPayload,
-  type InstanceHealth,
+  type IRealtimeHealth,
   type NormalizedHealth,
 } from "../../utils/realtimeHealth";
 import { PLATFORM_CHANNELS } from "nodefony";
@@ -44,7 +44,7 @@ export interface SocketLiveSnapshot {
    * lue sur la première instance qui la remonte. `null` si la sonde ne l'a
    * pas encore livrée.
    */
-  backplane: InstanceHealth["backplane"] | null;
+  backplane: IRealtimeHealth["backplane"] | null;
   /** État de la socket côté client (NodefonySocket). */
   clientState: ReturnType<typeof useNodefonyState>;
 }
@@ -56,7 +56,7 @@ export interface SocketLiveSnapshot {
  */
 function readBackplane(
   health: NormalizedHealth | null,
-): InstanceHealth["backplane"] | null {
+): IRealtimeHealth["backplane"] | null {
   if (!health) return null;
   const list = health.instances;
   for (let i = 0; i < list.length; i += 1) {
@@ -68,7 +68,9 @@ function readBackplane(
 
 /** Snapshot brut + état client. À mapper ensuite via `mapXxxLive(snap)`. */
 export function useSocketLiveData(): SocketLiveSnapshot {
-  const raw = useNodefonyChannelData<HealthPayload>(PLATFORM_CHANNELS.socket);
+  const { realtime } = useStore();
+  // Socket en tête : la charge se lit par `StudioContract`, sans générique.
+  const raw = useNodefonyChannelData(realtime, PLATFORM_CHANNELS.socket);
   const clientState = useNodefonyState();
   // Une seule normalisation par frame reçue, partagée par les 6 mappings —
   // et un snapshot d'identité STABLE, sans quoi le `useMemo([snap])` de
@@ -93,9 +95,9 @@ function fmt(n: number | null | undefined): string {
 }
 
 /** Le driver `loopback` reste dans le process : aucun bus inter-process branché. */
-function backplaneWired(bp: InstanceHealth["backplane"] | null): boolean {
+function backplaneWired(bp: IRealtimeHealth["backplane"] | null): boolean {
   if (!bp) return false;
-  return bp.crossPod === true || (!!bp.driver && bp.driver !== "loopback");
+  return bp.crossPod || bp.driver !== "loopback";
 }
 
 /**
@@ -103,7 +105,7 @@ function backplaneWired(bp: InstanceHealth["backplane"] | null): boolean {
  * Sert à allumer les nœuds « abonné » par rang : le nœud n° k s'allume quand un
  * canal porte au moins k abonnés simultanés. Boucle simple, aucune allocation.
  */
-function maxSubscribers(inst: InstanceHealth | undefined): number {
+function maxSubscribers(inst: IRealtimeHealth | undefined): number {
   if (!inst) return 0;
   let max = 0;
   for (const { subscribers: s } of inst.channels) {
@@ -132,10 +134,10 @@ function subscriberNode(
  * métrique : le schéma illustre N workers, la sonde n'en connaît qu'un.
  */
 function workerNode(
-  instances: InstanceHealth[] | undefined,
+  instances: IRealtimeHealth[] | undefined,
   index: number,
   extraLabel: string,
-  extraValue: (inst: InstanceHealth) => string,
+  extraValue: (inst: IRealtimeHealth) => string,
 ): LiveNodeData {
   const inst = instances?.[index];
   if (!inst) return { status: "idle" };
@@ -155,13 +157,13 @@ function workerNode(
  * celui du loopback) → l'absence de bandeau signale l'absence de frame, pas
  * l'absence de backplane.
  */
-function backplaneNode(bp: InstanceHealth["backplane"] | null): LiveNodeData {
+function backplaneNode(bp: IRealtimeHealth["backplane"] | null): LiveNodeData {
   if (!bp) return { status: "idle" };
   return {
     status: backplaneWired(bp) ? "ok" : "idle",
     metrics: [
-      { label: "driver", value: bp.driver ?? "—" },
-      { label: "transport", value: bp.kind ?? "—" },
+      { label: "driver", value: bp.driver },
+      { label: "transport", value: bp.kind },
       { label: "cross-pod", value: bp.crossPod ? "oui" : "non" },
     ],
   };

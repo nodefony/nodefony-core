@@ -20,12 +20,27 @@ Architecture : WS JSON-RPC 2.0 `WS /nodefony/studio/api/realtime` (`StudioRealti
 `NodefonySocket` (Core, `nodefony`). Pub/sub PAR CANAL on-demand ; providers serveur
 **transport-agnostiques** (`nodefony/realtime/providers.ts`).
 
+**UN contrat pour les deux bouts** : `frontend/src/realtime/studioContract.ts#StudioContract`
+(types seuls, `extends IPlatformRealtimeContract`). Le serveur l'implémente
+(`StudioRealtimeController extends ContractRealtimeController<StudioContract>`) ; le front l'ouvre
+(`RootStore.realtime` = `NodefonySocket.fromContract<StudioContract>({ url, shared: true })`, type
+`StudioSocket`, la MÊME socket que celle du noyau). Il vit côté front : le bundle ne doit importer
+aucun module serveur, alors que l'`import type` du contrôleur s'efface au build.
+
 **Ajouter un canal realtime** :
 
-1. Serveur : un provider qui `publish(channel, payload)` (cf `createSyslogBridge`/`createStatsTicker`) ;
+1. Contrat : le nom dans `StudioContract.serverToClient` (charge `unknown` tant qu'aucune forme
+   n'est publiée au cœur) — `realtimeChannels()` refuse sinon de le compiler.
+2. Serveur : un provider qui `publish(channel, payload)` (cf `createSyslogBridge`/`createStatsTicker`) ;
    le `StudioRealtimeController` le démarre au `subscribe`, `dispose()` au `unsubscribe` + `onFinish`.
-2. Client : **s'abonner = ref-compté** via `useNodefonyChannel("<canal>", handler)` (page) ou
-   `useNodefonyChannelData/Stats` ; le client ré-abonne seul au reconnect.
+3. Client : **s'abonner = ref-compté**. Canal à forme publiée → socket en tête, charge déduite :
+   `useNodefonyChannelData(store.realtime, PLATFORM_CHANNELS.socket)` (jamais `<T>` écrit à la main) ;
+   sinon `useNodefonyChannel("<canal>", handler)` / `useNodefonyChannelData<T>("<canal>")`. Le
+   client ré-abonne seul au reconnect.
+
+**Santé** : `RealtimeHealthReport` / `IRealtimeHealth` / `IRealtimeClusterHealth` viennent du cœur
+(`nodefony`), ré-exportés par `utils/realtimeHealth.ts`, qui ne garde que `normalize`/`isCluster`.
+Aucun type miroir de santé dans Studio.
 
 **Canaux SANTÉ génériques (broker ticker)** : `nodefony:orm:health`/`nodefony:orm:flow`/**`nodefony:socket`** sont poussés par
 `createBrokerTicker(() => fetchAdminEndpoint(broker, ns, path), …)` → Studio reste générique (0 dép au module
@@ -42,9 +57,13 @@ paint = `GET /nodefony/realtime/api/health`. Panneau « Hub » = KpiCard canaux/
 ## 2. Actions (requête→réponse, ≠ pub/sub) — direction CONTRÔLE
 
 - Une frame **avec `id`** attend une réponse `result`/`error` (boutons « reconnecter / vacuum / purger / Force GC »).
-  Front : `const r = await conn.request<"nodefony:kernel:ping", T>("nodefony:kernel:ping", params)` (Promise id-matchée, timeout 30 s) ; helper
+  Front : `const r = await store.realtime.request(PLATFORM_METHODS.scaffoldRun, params)` — paramètres
+  et résultat déduits de `StudioContract`, aucun générique écrit (Promise id-matchée, timeout 30 s) ; helper
   réutilisable `conn.ping()` (RTT). Le `realtime:welcome` annonce `params.methods` → **actions découvrables**.
-- Côté serveur : le controller étend **`RealtimeController`** (framework) et déclare `realtimeActions()`
+- Côté serveur : `realtimeActions()` rend `ContractRealtimeMethodHandlers<StudioContract>` — une méthode
+  du contrat oubliée ne compile pas. Les handlers reçoivent `params: unknown` et le lisent par
+  `nodefony/src/rpcParams.ts` (`rpcParam`, `readAnswers`) : le type `in` du contrat ne décrit qu'un
+  client conforme, jamais ce qui arrive du réseau
   (`nodefony:kernel:ping`/`nodefony:kernel:gc`, et `nodefony:realtime:throughput` → `StudioRealtimeController.ts#StudioRealtimeController.actionThroughput` :
   rend `{ size, bytes }`, tailles FERMÉES 1 Ko / 64 Ko / 1 Mo — sonde du coût d'un codec sur le fil). Inconnu → `-32601` ; throw → `-32603` générique. **Pour ajouter une action serveur
   → skill `nodefony-framework-dev`.** Le générique (protocole, RTT) vit dans la lib/le framework, PAS dupliqué front.

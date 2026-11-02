@@ -45,8 +45,8 @@ import {
 } from "../components/ui";
 import {
   normalize,
-  type HealthPayload,
-  type InstanceHealth,
+  type RealtimeHealthReport,
+  type IRealtimeHealth,
 } from "../utils/realtimeHealth";
 import { PLATFORM_CHANNELS } from "nodefony";
 
@@ -128,18 +128,20 @@ function ClusterHealthLive({
 }: {
   intervalMs: number;
   adaptive: boolean;
-  onData: (h: HealthPayload) => void;
+  onData: (h: RealtimeHealthReport) => void;
   onRate?: (ms: number) => void;
 }) {
-  const { data, intervalMs: effectiveMs } =
-    useNodefonyAdaptiveChannelData<HealthPayload>(
-      PLATFORM_CHANNELS.socket,
-      intervalMs,
-      {
-        defaultMs: 5000,
-        enabled: adaptive,
-      },
-    );
+  // Socket en tête : la charge se lit par `StudioContract`, sans générique.
+  const { realtime } = useStore();
+  const { data, intervalMs: effectiveMs } = useNodefonyAdaptiveChannelData(
+    realtime,
+    PLATFORM_CHANNELS.socket,
+    intervalMs,
+    {
+      defaultMs: 5000,
+      enabled: adaptive,
+    },
+  );
   useReportOnChange(data, (d) => {
     if (d) onData(d);
   });
@@ -228,7 +230,7 @@ function WorkerCard({
   series,
   onSelect,
 }: {
-  inst: InstanceHealth;
+  inst: IRealtimeHealth;
   live: boolean;
   index: number;
   series?: WorkerSeries | undefined;
@@ -540,7 +542,10 @@ export const Cluster = observer(() => {
 
   // 1ᵉʳ paint : snapshot HTTP one-shot (pas de flux WS si « Temps réel » OFF).
   const fetcher = useCallback(
-    () => store.api.getAbsolute<HealthPayload>("/nodefony/realtime/api/health"),
+    () =>
+      store.api.getAbsolute<RealtimeHealthReport>(
+        "/nodefony/realtime/api/health",
+      ),
     [store],
   );
   const { data, loading, error, reload } = useResource(fetcher);
@@ -552,7 +557,9 @@ export const Cluster = observer(() => {
   const auto = ui.adaptiveCadence;
   const [effectiveMs, setEffectiveMs] = useState(liveMs);
   // Dernier snapshot live (écrase le snapshot HTTP tant que ON).
-  const [liveHealth, setLiveHealth] = useState<HealthPayload | null>(null);
+  const [liveHealth, setLiveHealth] = useState<RealtimeHealthReport | null>(
+    null,
+  );
   // Séries temporelles PAR worker (pid → cpu/heap/loop), dérivées des snapshots
   // pod successifs. 0 backend : l'historique se reconstitue côté front.
   const [series, setSeries] = useState<Map<string, WorkerSeries>>(new Map());
