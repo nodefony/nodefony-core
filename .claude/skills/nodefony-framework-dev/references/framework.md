@@ -325,7 +325,10 @@ pour N endpoints. `runAdmin()` (`nodefony/controller/AdminApiController.ts#Admin
 `request.body`) → **RBAC** `isAdminGranted(roles, role)` (`src/adminRbac.ts`, fail-closed, 403 si rôle
 absent ; `role===""`=public) → **idempotencyGate** → `handler` → `normalize`. Rendu : **HTTP** =
 `renderJson(body,status,{…,"x-nodefony-instance":pid})` ; **WS** = body NU, status≥400 → `RpcError(-32000,
-{status,body})`.
+{status,body})`. Codec binaire activé (`realtimeService.textFrameCodec` porte un `bytesMarker`) → HTTP =
+`codec.encode(body)` + `renderResponse` + en-tête `x-nodefony-bytes: $bytes` : des `Uint8Array` y prennent
+la forme de la socket texte (REST ≡ socket, `tests/unit/adminBytesRest.test.ts`). Un objet applicatif
+de la forme exacte `{"$bytes":"…"}` y LÈVE (même refus que la socket) → 500.
 
 `normalize()` : l'enveloppe `{status,headers,body}` n'est reconnue que si `status` OU `headers`
 présent — sinon donnée brute (⚠️ un `{body}` seul = double-wrap `{body:{body}}`).

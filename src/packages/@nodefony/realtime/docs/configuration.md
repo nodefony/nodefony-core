@@ -353,7 +353,7 @@ Aucun client ne casse : celui qui ne connaît pas CBOR reste en texte et reçoit
 Un canal suivi par les deux sortes de connexions paie **un encodage par codec**, jamais un par
 abonné (`RealtimeHub.ts#ChannelFrame`).
 
-Trois conséquences à connaître avant d'activer :
+Quatre conséquences à connaître avant d'activer :
 
 - **Le flux binaire brut ne sert plus les connexions CBOR.** Sur une telle connexion, toute trame
   binaire est une frame du codec : `onRealtimeBinary()` n'y est jamais appelée et
@@ -361,6 +361,12 @@ Trois conséquences à connaître avant d'activer :
 - **Un objet applicatif de la forme exacte `{"$bytes": "<chaîne>"}` est refusé** à l'envoi vers une
   connexion texte : le client le relirait en octets. La règle est détaillée dans
   [Protocole](./protocole.md#des-octets-dans-la-charge--une-frame-comme-les-autres).
+- **Le REST du plan d'administration prend la même convention.** Une réponse `GET
+/nodefony/<module>/api/*` passe par le codec des connexions texte et porte l'en-tête
+  `x-nodefony-bytes: $bytes` (`AdminApiController.ts#AdminApiController.dispatch`). Un client la
+  relit par `textCodecForMarker(response.headers.get(BYTES_MARKER_HEADER))`, exporté par
+  `nodefony` : des octets y reviennent à l'identique, que la valeur arrive par `fetch` ou par la
+  socket. Sans l'en-tête, le corps est du JSON natif.
 - **`NF_REALTIME_CODEC=json` remet le fil en texte** pour le lire dans l'inspecteur réseau du
   navigateur. C'est une exception de débogage : en texte, la taille des trames et la contre-pression
   changent, donc une mesure prise ainsi ne vaut pas pour la production.

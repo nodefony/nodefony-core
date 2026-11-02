@@ -1,4 +1,4 @@
-import { Service, Module, type JsonRpcPeer } from "nodefony";
+import { Service, Module, type IFrameCodec, type JsonRpcPeer } from "nodefony";
 
 import {
   getRealtimeHub,
@@ -169,6 +169,15 @@ class RealtimeService extends Service {
   /** Hub singleton (broker fan-out canaux PARTAGÉS du process courant). */
   getHub(): RealtimeHub {
     return (this.#hub ??= getRealtimeHub());
+  }
+
+  /**
+   * Le codec texte des connexions socket, lu PAR NOM par le REST du plan
+   * d'administration (`AdminApiController`, framework ne dépend pas de realtime) :
+   * les octets d'une réponse `GET` y prennent la même forme que sur la socket.
+   */
+  get textFrameCodec(): IFrameCodec {
+    return this.getHub().textFrameCodec;
   }
 
   /** Backplane actuellement branché sur le hub (ou null = Loopback implicite). */

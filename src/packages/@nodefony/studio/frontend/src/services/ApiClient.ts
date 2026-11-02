@@ -24,7 +24,11 @@
 
 // Le code « méthode inconnue » vient de la source PARTAGÉE avec le serveur qui
 // l'émet (`nodefony` → bundle client). Une copie locale divergerait en silence.
-import { JsonRpcError } from "nodefony";
+import {
+  BYTES_MARKER_HEADER,
+  JsonRpcError,
+  textCodecForMarker,
+} from "nodefony";
 
 /**
  * Vue MINIMALE de la Socket Nodefony consommée par le pont (typage structurel —
@@ -351,7 +355,13 @@ export class ApiClient {
 
     const contentType = res.headers.get("Content-Type") ?? "";
     const isJson = contentType.includes("application/json");
-    const payload: unknown = isJson ? await res.json() : await res.text();
+    // Le corps JSON se relit selon la convention d'octets que le serveur annonce
+    // (#618 D9) : des octets y reviennent en `Uint8Array`, comme par la socket.
+    const payload: unknown = isJson
+      ? textCodecForMarker(res.headers.get(BYTES_MARKER_HEADER)).decode(
+          await res.text(),
+        )
+      : await res.text();
 
     if (!res.ok) {
       const message = extractMessage(payload, `HTTP ${res.status}`);

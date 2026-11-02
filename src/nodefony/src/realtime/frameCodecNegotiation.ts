@@ -10,11 +10,7 @@
  * connexion, jamais par trame.
  */
 import { JSON_PROTOCOL, type IFrameCodec } from "./IFrameCodec";
-import {
-  BYTES_MARKER,
-  JSON_BYTES_FRAME_CODEC,
-  JSON_FRAME_CODEC,
-} from "./jsonFrameCodec";
+import { JSON_FRAME_CODEC, textCodecForMarker } from "./jsonFrameCodec";
 
 /**
  * Les codecs d'un pair, fixés une fois pour sa durée de vie.
@@ -113,8 +109,8 @@ export function adoptFrameCodec(
   bytesMarker?: unknown,
 ): IFrameCodec | null {
   if (announced === undefined || announced === JSON_PROTOCOL) {
-    return bytesMarker === BYTES_MARKER && set.text === JSON_FRAME_CODEC
-      ? JSON_BYTES_FRAME_CODEC
+    return set.text === JSON_FRAME_CODEC
+      ? textCodecForMarker(bytesMarker)
       : set.text;
   }
   // `announced` n'est plus `undefined` : sans codec binaire, la comparaison échoue.

@@ -286,7 +286,9 @@ export {
   JSON_FRAME_CODEC,
   JSON_BYTES_FRAME_CODEC,
   BYTES_MARKER,
+  BYTES_MARKER_HEADER,
   containsBytes,
+  textCodecForMarker,
 } from "./realtime/jsonFrameCodec";
 export {
   frameCodecSet,

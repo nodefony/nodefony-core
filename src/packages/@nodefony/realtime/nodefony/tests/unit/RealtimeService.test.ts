@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { Container, Event, JsonRpcPeer } from "nodefony";
+import {
+  Container,
+  Event,
+  JSON_BYTES_FRAME_CODEC,
+  JSON_FRAME_CODEC,
+  JsonRpcPeer,
+} from "nodefony";
 import type { Module } from "nodefony";
 
 import { RealtimeService } from "../../src/service/RealtimeService.js";
@@ -171,6 +177,20 @@ describe("RealtimeService — façade DI du hub realtime", () => {
       await svc.init(module);
       expect(svc.getHub()).to.be.instanceOf(RealtimeHub);
       expect(svc.getHub()).to.equal(getRealtimeHub());
+    });
+
+    it("textFrameCodec (#618 D9) : JSON natif par défaut, JSON à convention d'octets sous codec cbor", async () => {
+      const plain = buildModuleMock();
+      const svc = new RealtimeService(plain.module);
+      await svc.init(plain.module);
+      expect(svc.textFrameCodec).to.equal(JSON_FRAME_CODEC);
+
+      const cbor = buildModuleMock(defineRealtimeConfig({ codec: "cbor" }));
+      const svcCbor = new RealtimeService(cbor.module);
+      await svcCbor.init(cbor.module);
+      expect(svcCbor.textFrameCodec).to.equal(JSON_BYTES_FRAME_CODEC);
+      // Le hub est un singleton : le remettre en texte pour les specs suivantes.
+      getRealtimeHub().setFrameCodec();
     });
 
     it("publish + subscribe + unsubscribe délégués au hub", async () => {

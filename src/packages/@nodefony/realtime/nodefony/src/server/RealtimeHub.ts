@@ -1341,6 +1341,16 @@ export class RealtimeHub {
   }
 
   /**
+   * Le codec des connexions texte — celui qu'emprunte aussi le REST du plan
+   * d'administration, pour qu'une valeur lue par `GET` soit celle que la socket
+   * livre (#618 D9). Avec un codec binaire activé, c'est le JSON à convention
+   * d'octets ; sinon le JSON natif.
+   */
+  get textFrameCodec(): IFrameCodec {
+    return this.#frameCodecs.text;
+  }
+
+  /**
    * Pose les bornes des admissions (`authenticateTimeoutMs`, `allowTimeoutMs`, `maxPendingAllowsPerConnection`, `maxPendingAllowsTotal`) — 1× au boot par `RealtimeService.init()`.
    */
   setAdmissionLimits(limits: IAdmissionLimits): void {

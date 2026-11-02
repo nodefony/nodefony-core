@@ -1,4 +1,5 @@
 import {
+  BYTES_MARKER_HEADER,
   JsonRpcServerError,
   RequestContext,
   RpcError,
@@ -8,6 +9,7 @@ import type {
   IAdminExecution,
   IAdminGateVerdict,
   IAdminRequest,
+  IFrameCodec,
 } from "nodefony";
 import type { IAdminBroker, IAdminRoute } from "../interfaces/IAdminBroker";
 import type { IIdempotencyStore } from "../interfaces/IIdempotencyStore";
@@ -20,6 +22,14 @@ import Controller from "../src/Controller";
  */
 interface ICredentialTransportGuard {
   assert(context: { readonly scheme?: string }, door: string): void;
+}
+
+/**
+ * Vue MINIMALE du service temps réel (`realtimeService`) : le codec de ses
+ * connexions texte. Couplage par nom — framework ne dépend jamais de realtime.
+ */
+interface ITextCodecSource {
+  readonly textFrameCodec?: IFrameCodec;
 }
 import {
   evaluateIdempotency,
@@ -102,8 +112,10 @@ class AdminApiController extends Controller {
    * (une action, deux transports) : même exécution sur les deux transports, seul
    * l'emballage diffère.
    *
-   *  - **HTTP** : rendu historique inchangé (`renderJson` + status + header
-   *    `x-nodefony-instance`).
+   *  - **HTTP** : `renderJson` + status + header `x-nodefony-instance`. Quand
+   *    l'application active un codec binaire, le corps passe par le codec texte
+   *    de la socket (convention `$bytes`, annoncée par `x-nodefony-bytes`) : des
+   *    octets se relisent alors à l'identique sur les deux transports.
    *  - **Pont WS-RPC `api.request`** : valeur **nue** (le pont l'enveloppe
    *    `{id, result}` — snapshot ≡ GET par construction) ; statut ≥ 400 →
    *    {@link RpcError} (`data.status` + `data.body`), symétrie d'un `fetch`
@@ -130,9 +142,23 @@ class AdminApiController extends Controller {
     // multi-pod, le LB route la requête vers UN seul process. On estampille
     // donc chaque réponse de l'identité d'instance (même convention que
     // `nodefony:dashboard`) → Studio sait quel pod a répondu. Vue cluster = P13.
-    return this.renderJson(body, status, {
+    const stamped = {
       ...headers,
       "x-nodefony-instance": AdminApiController.instanceId,
+    };
+    // #618 D9 — le REST emprunte le codec des connexions texte : des octets y
+    // prennent la forme qu'ils ont sur la socket (`$bytes`), annoncée par un
+    // en-tête que le client relit. Sans codec binaire activé, rien n'est armé.
+    const codec = this.get<ITextCodecSource>("realtimeService")?.textFrameCodec;
+    const marker = codec?.bytesMarker;
+    if (codec === undefined || marker === undefined)
+      return this.renderJson(body, status, stamped);
+    const text = codec.encode(body);
+    if (typeof text !== "string") return this.renderJson(body, status, stamped);
+    this.setContextJson();
+    return this.renderResponse(text, "utf8", status, {
+      ...stamped,
+      [BYTES_MARKER_HEADER]: marker,
     });
   }
 

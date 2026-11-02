@@ -106,6 +106,12 @@ export type {
 // codecs binaires vivent dans leur sous-chemin (`nodefony/cbor`), pour que la
 // page qui ne les active pas ne les télécharge pas.
 export { JSON_PROTOCOL } from "../realtime/IFrameCodec";
+// Relire un corps REST selon la convention d'octets qu'il annonce (#618 D9) — la
+// même règle que l'accueil de la socket.
+export {
+  BYTES_MARKER_HEADER,
+  textCodecForMarker,
+} from "../realtime/jsonFrameCodec";
 export type { IFrameCodec } from "../realtime/IFrameCodec";
 export type {
   IRealtimeTransport,

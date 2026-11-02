@@ -4,8 +4,10 @@ import { Buffer } from "node:buffer";
 import {
   BYTES_MARKER,
   JSON_BYTES_FRAME_CODEC,
+  BYTES_MARKER_HEADER,
   JSON_FRAME_CODEC,
   containsBytes,
+  textCodecForMarker,
 } from "../realtime/jsonFrameCodec";
 import { JSON_PROTOCOL } from "../realtime/IFrameCodec";
 import { fromBase64Url, toBase64Url } from "../realtime/base64url";
@@ -334,5 +336,31 @@ describe("JSON_BYTES_FRAME_CODEC — un marqueur FORGÉ est refusé à l'émissi
     expect(JSON_FRAME_CODEC.encode(forged("AAEC"))).toBe(
       JSON.stringify(forged("AAEC")),
     );
+  });
+});
+
+describe("textCodecForMarker — relire un texte selon le marqueur ANNONCÉ (#618 D9)", () => {
+  const text = JSON_BYTES_FRAME_CODEC.encode({ b: new Uint8Array([1, 2, 3]) });
+
+  it("marqueur annoncé : les octets reviennent en Uint8Array", () => {
+    const value = textCodecForMarker(BYTES_MARKER).decode(text) as {
+      b: unknown;
+    };
+    expect(value.b).toBeInstanceOf(Uint8Array);
+    expect(Array.from(value.b as Uint8Array)).toEqual([1, 2, 3]);
+  });
+
+  it.each([null, undefined, "", "$other"])(
+    'marqueur %j : JSON natif, l\'objet `{"$bytes": …}` reste un objet',
+    (marker) => {
+      expect(textCodecForMarker(marker)).toBe(JSON_FRAME_CODEC);
+      expect(textCodecForMarker(marker).decode(text)).toEqual({
+        b: { [BYTES_MARKER]: "AQID" },
+      });
+    },
+  );
+
+  it("l'en-tête REST est en minuscules (forme d'un en-tête HTTP/2, RFC 9113 §8.2.1)", () => {
+    expect(BYTES_MARKER_HEADER).toBe(BYTES_MARKER_HEADER.toLowerCase());
   });
 });

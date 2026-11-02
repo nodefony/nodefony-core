@@ -13,6 +13,13 @@ import { JSON_PROTOCOL, type IFrameCodec } from "./IFrameCodec";
 /** Clé réservée du marqueur d'octets dans le codec JSON. */
 export const BYTES_MARKER = "$bytes";
 
+/**
+ * En-tête HTTP par lequel une réponse REST annonce la convention d'octets — le
+ * pendant du champ `bytes` de `realtime:welcome` sur la socket. Absent, le corps
+ * est du JSON natif : un objet `{"$bytes": …}` y reste un objet (ADR-0022 §2).
+ */
+export const BYTES_MARKER_HEADER = "x-nodefony-bytes";
+
 /** Profondeur au-delà de laquelle le parcours renonce — `JSON.stringify` lèvera de lui-même sur un cycle. */
 const MAX_WALK_DEPTH = 64;
 
@@ -185,3 +192,17 @@ export const JSON_BYTES_FRAME_CODEC = {
       : JSON.parse(data);
   },
 } satisfies IFrameCodec;
+
+/**
+ * Le codec JSON qui relit un texte selon le marqueur que son émetteur a annoncé —
+ * champ `bytes` de l'accueil sur la socket, en-tête {@link BYTES_MARKER_HEADER} sur
+ * le REST. Une seule règle pour les deux transports : la convention n'est relue que
+ * si elle est annoncée, sinon un objet applicatif `{"$bytes": …}` changerait de
+ * nature.
+ *
+ * @param marker - la valeur annoncée, telle que reçue (`null` si l'en-tête manque).
+ * @returns {@link JSON_BYTES_FRAME_CODEC} pour le marqueur connu, sinon {@link JSON_FRAME_CODEC}.
+ */
+export function textCodecForMarker(marker: unknown): IFrameCodec {
+  return marker === BYTES_MARKER ? JSON_BYTES_FRAME_CODEC : JSON_FRAME_CODEC;
+}
