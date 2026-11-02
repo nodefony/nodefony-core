@@ -531,7 +531,7 @@ requirements: {
 Cette méthode est alors joignable de **deux** façons, et c'est **le même code** qui s'exécute :
 
 - `GET /chat/history` en HTTP ;
-- `socket.request("/chat/history")` par la socket déjà ouverte.
+- `socket.get("/chat/history")` par la socket déjà ouverte — la méthode porte le **verbe** de la route.
 
 Le passage par la socket emprunte un pont interne qui rejoue le routage sur le chemin demandé, puis
 exécute l'action. Ce pont ne peut atteindre **que** les routes ayant explicitement déclaré le
@@ -594,14 +594,15 @@ import { useEffect } from "react";
 // aucune poignée de main TLS de plus.
 useEffect(() => {
   void socket
-    .request<ChatMessage[]>("/chat/history?limit=50")
+    .get<ChatMessage[]>("/chat/history", { query: { limit: 50 } })
     .then((past) => setMessages(past));
 }, [socket]);
 ```
 
-Le chemin commence par `/` : le client le reconnaît comme un appel d'API et emprunte le pont. Une
-méthode RPC ordinaire, elle, ne commence jamais par `/` — il n'y a pas de collision possible entre
-les deux formes.
+`get` emprunte le pont : la même action que `GET /chat/history`, par la socket. La query se passe
+en objet et voyage dans le chemin (`?limit=50`), comme en HTTP. Le `<ChatMessage[]>` est une
+promesse faite au compilateur, pas une vérification : l'[étape 5](#quatre--un-contrat-pour-les-deux-côtés--lenvoi-et-les-messages-privés-typés)
+la remplace par un contrat qui DÉDUIT le type de la route.
 
 ### Ce qu'on observe
 
@@ -614,7 +615,7 @@ curl -k "https://127.0.0.1:5152/chat/history?limit=5"
 
 ```ts ignore
 // Transport 2 — la socket déjà ouverte, depuis la console du navigateur
-await chatSocket.request("/chat/history?limit=5");
+await chatSocket.get("/chat/history", { query: { limit: 5 } });
 ```
 
 Les deux renvoient le même tableau JSON. Si tu ajoutes une garde d'autorisation sur la méthode, elle
@@ -870,51 +871,56 @@ fonctionnent :
 ```ts ignore
 // modules/chat/nodefony/controllers/ChatController.ts
 // → remplace `@RealtimeInbound("chat:send")` par une ACTION
-import { Body, CurrentUser, IsGranted } from "@nodefony/framework";
-import type { IUser } from "@nodefony/user";
+import { z } from "zod";
+import { Idempotent, IsGranted } from "@nodefony/framework";
+import type { RouteInput } from "@nodefony/framework";
+
+/** Ce que l'envoi accepte — VALIDÉ par le framework avant l'action, par les deux portes. */
+const SendBody = z.object({ text: z.string().trim().min(1).max(2000) });
 
 /**
  * L'envoi devient une action, joignable en POST HTTP comme par la socket.
  * On y gagne ce qu'un canal inbound ne peut pas offrir : l'identité vérifiée
- * (`@CurrentUser`), la garde d'autorisation, et le pipeline complet.
+ * (`this.user`), la garde d'autorisation, la validation du corps et le
+ * pipeline complet.
  */
 @route("chat-send", {
   path: "/send",
   requirements: { methods: ["POST", "WEBSOCKET"] },
+  schema: { body: SendBody },
 })
 @IsGranted(["ROLE_USER"])
-async send(
-  @Body() payload: { text?: string },
-  @CurrentUser() user: IUser,
-) {
-  const text = typeof payload?.text === "string" ? payload.text.trim() : "";
-  if (text.length === 0 || text.length > 2000) {
-    throw new HttpError("message vide ou trop long", 400);
-  }
-
-  // L'auteur vient du SERVEUR. Le client ne peut plus mentir dessus.
+@Idempotent()
+send(input: RouteInput<{ body: typeof SendBody }>) {
+  // Corps vide, trop long, champ manquant : refusé AVANT d'arriver ici, par un
+  // 422 qui nomme le champ — en HTTP comme par la socket. Ici, `input.body.text`
+  // est une chaîne valide, rognée.
+  // L'auteur vient du SERVEUR (la zone l'a posé). Le client ne peut plus mentir dessus.
   const message: ChatMessage = {
-    author: user.identifier,
-    text,
+    author: this.user?.identifier ?? "anon.",
+    text: input.body.text,
     sentAt: Date.now(),
   };
 
   getRealtimeHub().publish(ROOM_CHANNEL, message);
-  return { ok: true, sentAt: message.sentAt };
+  return { sentAt: message.sentAt };
 }
 ```
 
-Côté navigateur, l'envoi passe alors par `mutate`, qui porte la méthode HTTP logique et une clé
-d'idempotence — une socket qui se reconnecte peut rejouer une frame, la clé évite le doublon :
+Côté navigateur, l'envoi passe par `post` — le **verbe de la route** : une route `POST` s'appelle
+`socket.post(…)`, une route `GET` `socket.get(…)`, rien d'autre à apprendre. La socket pose seule une
+**clé d'idempotence** sur chaque écriture : une socket qui se reconnecte peut rejouer une trame, et
+`@Idempotent()` reconnaît la clé et rend la réponse déjà calculée au lieu de publier deux fois.
 
 ```tsx ignore
 // frontend/src/ChatRoom.tsx (étape 5)
-await socket.mutate("/chat/send", {
-  method: "POST",
-  body: { text },
-  idempotencyKey: crypto.randomUUID(),
-});
+await socket.post("/chat/send", { text });
 ```
+
+> [!NOTE]
+> Une clé par **appel**, posée par la socket. Pour dédoublonner une **intention** — un double clic
+> sur « Envoyer » qui part deux fois —, l'écran fournit la sienne : `socket.post("/chat/send", { text
+}, { idempotencyKey: brouillon.id })`. Deux appels, une seule clé, un seul message.
 
 > [!TIP]
 > **La règle à retenir.** Canal inbound = flux volatil, à haute fréquence, dont l'expéditeur importe
@@ -935,6 +941,194 @@ const identity = useNodefonyIdentity();
 //   identity.userIdentifier            → le pseudo, garanti par le serveur
 //   identity.roles                     → pour masquer ce qui n'est pas permis
 ```
+
+### Quatre : un contrat pour les deux côtés — l'envoi et les messages privés typés
+
+À ce stade, tout marche, mais rien ne relie les deux côtés. `socket.post("/chat/send", { texte:
+"salut" })` — avec une faute de frappe — compile, part sur le réseau, et revient en 422. Le résultat
+de `post` est `unknown`. Le message privé n'existe pas encore. Les trois se règlent par **un seul
+fichier** que le serveur et le navigateur partagent : le **contrat**.
+
+**Le principe : une seule source.** Le corps de `/chat/send`, c'est le schéma `SendBody` que la route
+valide. Le contrat ne le **recopie** pas (`body: { text: string }`) : il le **référence**
+(`typeof SendBody`). Recopier, c'est écrire deux formes qui divergeront un jour sans que rien ne le
+dise — le schéma accepte `to`, la copie l'ignore, et le navigateur ne peut plus l'envoyer.
+
+#### Le schéma partagé — fichier **créé**
+
+```ts ignore
+// shared/chatSchemas.ts — la SEULE définition du corps de l'envoi
+import { z } from "zod";
+
+export const SendBody = z.object({
+  text: z.string().trim().min(1).max(2000),
+  /** Destinataire d'un message privé : l'`id` STABLE de son compte. Absent = le salon. */
+  to: z.string().optional(),
+});
+
+/** La query de l'historique — une query arrive en texte, `coerce` la convertit. */
+export const HistoryQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  /** Rattrapage après une coupure : les messages postérieurs à cet instant. */
+  since: z.coerce.number().optional(),
+});
+```
+
+#### Le contrat — fichier **créé**
+
+```ts ignore
+// shared/chatContract.ts — des TYPES seulement
+import type { IRealtimeContract } from "nodefony/client";
+import type { HistoryQuery, SendBody } from "./chatSchemas";
+
+export interface ChatMessage {
+  author: string;
+  text: string;
+  sentAt: number;
+  /** Présent sur un message privé. */
+  to?: string;
+}
+
+/** Ce qu'on annonce au salon quand un fichier a fini d'arriver (étape 6). */
+export interface ChatAttachment {
+  author: string;
+  filename: string;
+  size: number;
+  mimeType: string | null | undefined;
+  sentAt: number;
+}
+
+export interface ChatContract extends IRealtimeContract {
+  /** Ce que le serveur pousse : le salon, et le canal personnel de chacun. */
+  serverToClient: {
+    "chat:room": ChatMessage | ChatAttachment;
+    [channel: `user:${string}`]: ChatMessage;
+  };
+  /** Les routes que la socket appelle : "<VERBE> <chemin>" → corps, query, résultat. */
+  serverRoutes: {
+    "POST /chat/send": { body: typeof SendBody; result: { sentAt: number } };
+    "GET /chat/history": { query: typeof HistoryQuery; result: ChatMessage[] };
+  };
+}
+```
+
+`import type` est le point qui compte : le navigateur lit `typeof SendBody` **à la compilation**, et
+n'embarque **aucun octet** de zod. Le fichier du contrat, fait de types seuls, disparaît à la
+construction.
+
+#### Le serveur — fichier **modifié**
+
+```ts ignore
+// modules/chat/nodefony/controllers/ChatController.ts
+import { ContractRealtimeController, getRealtimeHub } from "@nodefony/realtime";
+import type { ContractRouteSchemas } from "nodefony";
+import type { RouteInput } from "@nodefony/framework";
+import { HistoryQuery, SendBody } from "../../../../shared/chatSchemas";
+import type {
+  ChatContract,
+  ChatMessage,
+} from "../../../../shared/chatContract";
+
+@controller("/chat")
+class ChatController extends ContractRealtimeController<ChatContract> {
+  /**
+   * Les VALEURS des routes du contrat — le schéma même que chaque route valide.
+   * Vérifiées au démarrage (voir plus bas) ; jamais envoyées au navigateur.
+   */
+  static readonly serverRoutes = {
+    "POST /chat/send": { body: SendBody },
+    "GET /chat/history": { query: HistoryQuery },
+  } satisfies ContractRouteSchemas<ChatContract>;
+
+  // La route de l'historique valide désormais `schema: { query: HistoryQuery }`
+  // (version complète plus bas) ; l'envoi, son corps :
+  @route("chat-send", {
+    path: "/send",
+    requirements: { methods: ["POST", "WEBSOCKET"] },
+    schema: { body: SendBody },
+  })
+  @IsGranted(["ROLE_USER"])
+  @Idempotent()
+  send(input: RouteInput<{ body: typeof SendBody }>) {
+    const me = this.user;
+    if (me === null) throw new HttpError("connexion requise", 401);
+    const { text, to } = input.body;
+    const message: ChatMessage = {
+      author: me.identifier,
+      text,
+      sentAt: Date.now(),
+    };
+    const hub = getRealtimeHub<ChatContract>();
+    if (to === undefined) {
+      hub.publish("chat:room", message);
+    } else {
+      // Message privé : le destinataire, sur TOUS ses onglets et TOUS les
+      // serveurs — et une copie à l'expéditeur, pour ses autres onglets.
+      hub.publishToUser(to, { ...message, to });
+      hub.publishToUser(me.id, { ...message, to });
+    }
+    return { sentAt: message.sentAt };
+  }
+}
+```
+
+`satisfies ContractRouteSchemas<ChatContract>` fait vérifier la table par le compilateur : une route
+du contrat **oubliée**, une route **en trop**, un **autre** schéma que `typeof SendBody` — et le
+fichier ne compile pas. `getRealtimeHub<ChatContract>()` type la diffusion : `hub.publish("chat:room",
+{ txt: "…" })` ne compile pas davantage.
+
+Le message privé ne demande **rien d'autre**. Le canal personnel `user:<id>` est une brique du
+framework : seule l'identité `<id>` peut s'y abonner, il traverse le bus entre serveurs, et
+personne ne paie rien tant qu'aucun écran ne l'écoute (détail : [securite.md](./securite.md)).
+
+#### Le navigateur — fichier **modifié**
+
+```ts ignore
+// frontend/src/realtime.ts — la socket, typée par le contrat
+import { NodefonySocket } from "nodefony/client";
+import type { ChatContract } from "../../shared/chatContract";
+
+export const chatSocket = NodefonySocket.fromContract<ChatContract>({
+  url: `${scheme}://${window.location.host}/chat/realtime`,
+});
+```
+
+```tsx ignore
+// frontend/src/ChatRoom.tsx (étape 5, typée)
+// Les messages privés de CET utilisateur : `m` est un ChatMessage, sans annotation.
+useEffect(() => chatSocket.onUser((m) => addPrivate(m)), []);
+
+// L'historique : ChatMessage[] — déduit de la route, query vérifiée.
+const past = await chatSocket.get("/chat/history", { query: { limit: 50 } });
+
+// L'envoi : le corps est l'ENTRÉE du schéma, le résultat est { sentAt: number }.
+const { sentAt } = await chatSocket.post("/chat/send", { text });
+await chatSocket.post("/chat/send", { text, to: bob.id }); // message privé
+
+// Et ce qui ne compile plus :
+await chatSocket.post("/chat/send", { texte: "x" }); // ✗ `texte` n'existe pas dans SendBody
+await chatSocket.post("/chat/send"); // ✗ le schéma exige un corps
+```
+
+Un chemin **hors contrat** reste libre — `chatSocket.get("/stats")` rend `unknown`,
+`chatSocket.get<Stats>("/stats")` le type choisi — : le contrat type ce qu'il déclare, il n'interdit
+rien d'autre. Une route à paramètre (`/messages/{id}`) n'est pas typée par le contrat : la clé est un
+chemin littéral.
+
+#### Ce que le démarrage refuse
+
+Le contrat est un **type** : il fait compiler `chatSocket.post("/chat/send", …)` même si la route
+n'existe pas. C'est la table `serverRoutes` qui porte les **valeurs**, et le démarrage les confronte
+aux routes montées — une fois, coût nul par requête. Trois fautes, trois refus qui nomment l'entrée :
+
+| Faute                                                         | Le démarrage s'arrête sur                                                                |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| La route n'existe pas (chemin mal recopié, module non chargé) | `ChatController.serverRoutes « POST /chat/send » : aucune route montée au chemin …`      |
+| La route sert HTTP seulement (`methods: ["POST"]`)            | `… ne sert pas POST par la socket — ses méthodes doivent inclure "POST" et "WEBSOCKET".` |
+| La route valide un autre schéma (copie, ou schéma redéclaré)  | `… le schéma « body » n'est pas celui que la route valide (même objet attendu).`         |
+
+Sans ce contrôle, chacune de ces fautes compilerait, démarrerait, et n'apparaîtrait qu'au premier
+message envoyé — chez l'utilisateur.
 
 ### Ce que voit précisément un intrus
 
@@ -1223,19 +1417,22 @@ La seule chose qui n'y figure pas est la persistance : `ChatController.history` 
 mémoire, que l'[étape 4](#-étape-4--persister-lhistorique) remplace par un appel à ton service.
 C'est délibéré — ce fichier doit compiler sans supposer ta base.
 
+Il importe les deux fichiers partagés de l'[étape 5](#quatre--un-contrat-pour-les-deux-côtés--lenvoi-et-les-messages-privés-typés) :
+`shared/chatSchemas.ts` (les schémas que les routes valident) et `shared/chatContract.ts` (le
+contrat, types seuls).
+
 ```ts ignore
 // modules/chat/nodefony/controllers/ChatController.ts — version finale
 import {
   controller,
   route,
-  Body,
-  Query,
-  CurrentUser,
+  Idempotent,
   IsGranted,
   UploadedFile,
 } from "@nodefony/framework";
+import type { RouteInput } from "@nodefony/framework";
 import {
-  RealtimeController,
+  ContractRealtimeController,
   RealtimeChannel,
   RealtimeInbound,
   getRealtimeHub,
@@ -1243,29 +1440,28 @@ import {
 import type { RealtimePublish } from "@nodefony/realtime";
 import { HttpError } from "@nodefony/http";
 import type { ContextType, IUploadedFile } from "@nodefony/http";
-import type { IUser } from "@nodefony/user";
-
-/** Un message tel qu'il circule sur le canal du salon. */
-export interface ChatMessage {
-  author: string;
-  text: string;
-  sentAt: number;
-}
-
-/** Ce qu'on annonce au salon quand un fichier a fini d'arriver. */
-export interface ChatAttachment {
-  author: string;
-  filename: string;
-  size: number;
-  mimeType: string | null | undefined;
-  sentAt: number;
-}
+import type { ContractRouteSchemas } from "nodefony";
+import { HistoryQuery, SendBody } from "../../../../shared/chatSchemas";
+import type {
+  ChatAttachment,
+  ChatContract,
+  ChatMessage,
+} from "../../../../shared/chatContract";
 
 /** Le nom du canal du salon. Cité côté serveur ET côté client → une constante. */
 export const ROOM_CHANNEL = "chat:room";
 
 @controller("/chat")
-class ChatController extends RealtimeController {
+class ChatController extends ContractRealtimeController<ChatContract> {
+  /**
+   * Les VALEURS des routes du contrat — le schéma même que chaque route valide.
+   * Vérifiées au démarrage ; jamais envoyées au navigateur.
+   */
+  static readonly serverRoutes = {
+    "POST /chat/send": { body: SendBody },
+    "GET /chat/history": { query: HistoryQuery },
+  } satisfies ContractRouteSchemas<ChatContract>;
+
   /** Stock en mémoire — remplacé par un repository à l'étape 4. */
   static history: ChatMessage[] = [];
 
@@ -1281,9 +1477,6 @@ class ChatController extends RealtimeController {
     return true;
   }
 
-  /** Ce qui doit franchir les frontières de processus (étape 7). */
-  // (préfixe diffusable déclaré par `@RealtimeBroadcast` sur la classe)
-
   // ── La porte WebSocket ────────────────────────────────────────────────────
 
   @route("chat-realtime", {
@@ -1296,38 +1489,50 @@ class ChatController extends RealtimeController {
 
   // ── Les actions : HTTP et WebSocket, même code ────────────────────────────
 
-  /** Historique — `GET /chat/history` ou `socket.request("/chat/history")`. */
+  /** Historique — `GET /chat/history` ou `socket.get("/chat/history")`. */
   @route("chat-history", {
     path: "/history",
     requirements: { methods: ["GET", "WEBSOCKET"] },
+    schema: { query: HistoryQuery },
   })
-  historyAction(@Query("limit") limit?: string): ChatMessage[] {
-    const max = Math.min(Number(limit) || 50, 200);
-    return ChatController.history.slice(-max);
+  historyAction(
+    input: RouteInput<{ query: typeof HistoryQuery }>,
+  ): ChatMessage[] {
+    const { limit, since } = input.query;
+    return ChatController.history
+      .filter((m) => since === undefined || m.sentAt > since)
+      .slice(-limit);
   }
 
-  /** Envoi — l'auteur vient du serveur, jamais du client. */
+  /** Envoi — au salon, ou en privé à une personne ; l'auteur vient du serveur. */
   @route("chat-send", {
     path: "/send",
     requirements: { methods: ["POST", "WEBSOCKET"] },
+    schema: { body: SendBody },
   })
   @IsGranted(["ROLE_USER"])
-  async send(
-    @Body() payload: { text?: string },
-    @CurrentUser() user: IUser,
-  ): Promise<{ ok: true; sentAt: number }> {
-    const text = typeof payload?.text === "string" ? payload.text.trim() : "";
-    if (text.length === 0 || text.length > 2000) {
-      throw new HttpError("message vide ou trop long", 400);
-    }
+  @Idempotent()
+  send(input: RouteInput<{ body: typeof SendBody }>): { sentAt: number } {
+    const me = this.user;
+    if (me === null) throw new HttpError("connexion requise", 401);
+    const { text, to } = input.body;
     const message: ChatMessage = {
-      author: user.identifier,
+      author: me.identifier,
       text,
       sentAt: Date.now(),
     };
-    ChatController.history.push(message);
-    getRealtimeHub().publish(ROOM_CHANNEL, message);
-    return { ok: true, sentAt: message.sentAt };
+    const hub = getRealtimeHub<ChatContract>();
+    if (to === undefined) {
+      ChatController.history.push(message);
+      hub.publish(ROOM_CHANNEL, message);
+    } else {
+      // Le destinataire sur tous ses onglets et tous les serveurs, et une copie
+      // à l'expéditeur pour ses autres onglets. Rien à déclarer : `user:<id>`
+      // est un canal du framework.
+      hub.publishToUser(to, { ...message, to });
+      hub.publishToUser(me.id, { ...message, to });
+    }
+    return { sentAt: message.sentAt };
   }
 
   /** Pièce jointe — entre en POST multipart, ressort par le canal. */
@@ -1338,13 +1543,12 @@ class ChatController extends RealtimeController {
   @IsGranted(["ROLE_USER"])
   async upload(
     @UploadedFile() file?: IUploadedFile,
-    @CurrentUser() user: IUser,
-  ): Promise<{ ok: true; filename: string; size: number }> {
+  ): Promise<{ filename: string; size: number }> {
     if (!file) {
       throw new HttpError("aucun fichier reçu", 400);
     }
     const announcement: ChatAttachment = {
-      author: user.identifier,
+      author: this.user?.identifier ?? "anon.",
       filename: file.filename,
       size: file.size,
       mimeType: file.mimeType,
@@ -1353,7 +1557,7 @@ class ChatController extends RealtimeController {
     // La requête HTTP répondra à SON auteur ; cette publication atteint tout le
     // salon. Un transport entre, un autre sort — dans la même méthode.
     getRealtimeHub().publish(ROOM_CHANNEL, announcement);
-    return { ok: true, filename: file.filename, size: file.size };
+    return { filename: file.filename, size: file.size };
   }
 
   // ── Les canaux ────────────────────────────────────────────────────────────
@@ -1386,7 +1590,11 @@ class ChatController extends RealtimeController {
   /** Le seul canal entrant restant : haute fréquence, sans enjeu d'identité. */
   @RealtimeInbound("chat:typing")
   onTyping(params: unknown): void {
-    const author = (params as { author?: unknown } | null)?.author;
+    // Une entrée réseau n'est pas fiable : on la RÉDUIT, on ne la convertit pas.
+    const author =
+      typeof params === "object" && params !== null && "author" in params
+        ? params.author
+        : undefined;
     if (typeof author !== "string" || author.length === 0) return;
     getRealtimeHub().publish("chat:typing", { author: author.slice(0, 40) });
   }
@@ -1421,7 +1629,7 @@ useEffect(() => {
   if (state !== "connected") return;
   const lastSeen = messages.at(-1)?.sentAt ?? 0;
   void socket
-    .request<ChatMessage[]>(`/chat/history?since=${lastSeen}`)
+    .get<ChatMessage[]>("/chat/history", { query: { since: lastSeen } })
     .then((missed) => setMessages((previous) => [...previous, ...missed]));
 }, [state]);
 ```

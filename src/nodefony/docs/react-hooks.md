@@ -657,7 +657,7 @@ démonté.
 ### Ce qui survit à une coupure
 
 Après une perte de connexion, le client se reconnecte avec un délai croissant et **rejoue tous les
-abonnements encore comptés** (`client/realtime/NodefonySocket.ts#NodefonySocket.mutate`). Un composant monté avant la
+abonnements encore comptés** (`client/realtime/NodefonySocket.ts#NodefonySocket.replaySubscriptions`). Un composant monté avant la
 coupure retrouve son flux sans une ligne de code — et sans même savoir qu'il y a eu coupure.
 
 Corollaire utile : s'abonner **avant** que la socket ne soit ouverte est sûr. Le compteur est posé,

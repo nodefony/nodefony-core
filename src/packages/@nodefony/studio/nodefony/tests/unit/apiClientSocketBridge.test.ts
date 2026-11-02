@@ -2,14 +2,14 @@
 /**
  * Unit — pont socket (`api.request`) de l'ApiClient Studio (Ph.3 front).
  *
- * L'ApiClient route les GET via la Socket Nodefony (`socket.request("/path")`)
- * ET les mutations (`socket.mutate`, P6.8) quand elle est connectée, fallback
+ * L'ApiClient route les GET via la Socket Nodefony (`socket.get("/path")`)
+ * ET les écritures (`socket.post`/`put`/`patch`/`delete`) quand elle est connectée, fallback
  * fetch sinon — même URL, même shape, mêmes erreurs (`ApiError`). Logique pure
  * (pas de React, pas de serveur) → socket + fetch mockés.
  *
  * Invariants verrouillés :
  *  - GET + socket connectée → socket, AUCUN fetch ; unwrap `{result}` identique ;
- *  - mutation (POST) + socket connectée → `socket.mutate` AVEC idempotency-key ;
+ *  - mutation (POST) + socket connectée → `socket.post` AVEC idempotency-key ;
  *  - mutation : échec socket → fallback fetch portant la MÊME idempotency-key
  *    (dédup cross-transport, anti double-effet) ;
  *  - GET = jamais d'idempotency-key ; mutation HTTP directe = clé posée ;
@@ -52,7 +52,7 @@ function rpcError(
   return e;
 }
 
-interface MutateCall {
+interface WriteCall {
   path: string;
   method: string;
   body?: unknown;
@@ -63,36 +63,40 @@ function fakeSocket(opts: {
   state?: string;
   result?: unknown;
   reject?: Error;
-}): ApiSocketLike & { calls: string[]; mutateCalls: MutateCall[] } {
+}): ApiSocketLike & { calls: string[]; writeCalls: WriteCall[] } {
   const calls: string[] = [];
-  const mutateCalls: MutateCall[] = [];
+  const writeCalls: WriteCall[] = [];
+  const answer = (): Promise<unknown> =>
+    opts.reject !== undefined
+      ? Promise.reject(opts.reject)
+      : Promise.resolve(opts.result);
+  const write =
+    (method: string) =>
+    (
+      path: `/${string}`,
+      body: unknown,
+      options: { idempotencyKey: string },
+    ): Promise<unknown> => {
+      writeCalls.push({
+        path,
+        method,
+        body,
+        idempotencyKey: options.idempotencyKey,
+      });
+      return answer();
+    };
   return {
     state: opts.state ?? "connected",
     calls,
-    mutateCalls,
-    request<T>(path: `/${string}`): Promise<T> {
+    writeCalls,
+    get(path: `/${string}`): Promise<unknown> {
       calls.push(path);
-      if (opts.reject !== undefined) return Promise.reject(opts.reject);
-      return Promise.resolve(opts.result as T);
+      return answer();
     },
-    mutate<T>(
-      path: `/${string}`,
-      init: {
-        method: "POST" | "PUT" | "PATCH" | "DELETE";
-        body?: unknown;
-        idempotencyKey: string;
-        timeoutMs?: number;
-      },
-    ): Promise<T> {
-      mutateCalls.push({
-        path,
-        method: init.method,
-        body: init.body,
-        idempotencyKey: init.idempotencyKey,
-      });
-      if (opts.reject !== undefined) return Promise.reject(opts.reject);
-      return Promise.resolve(opts.result as T);
-    },
+    post: write("POST"),
+    put: write("PUT"),
+    patch: write("PATCH"),
+    delete: write("DELETE"),
   };
 }
 
@@ -132,15 +136,15 @@ describe("ApiClient — pont socket (api.request)", () => {
     expect(out).to.deep.equal({ ok: true });
   });
 
-  it("mutation (POST) + socket connectée → socket.mutate avec idempotency-key, zéro fetch", async () => {
+  it("mutation (POST) + socket connectée → socket.post avec idempotency-key, zéro fetch", async () => {
     const socket = fakeSocket({ result: { saved: true } });
     const api = new ApiClient({ socket });
     const out = await api.postAbsolute("/nodefony/x/api/save", { a: 1 });
     expect(out).to.deep.equal({ saved: true });
-    expect(socket.mutateCalls.length).to.equal(1);
-    expect(socket.mutateCalls[0]!.method).to.equal("POST");
-    expect(socket.mutateCalls[0]!.body).to.deep.equal({ a: 1 });
-    expect(socket.mutateCalls[0]!.idempotencyKey).to.be.a("string").and.not
+    expect(socket.writeCalls.length).to.equal(1);
+    expect(socket.writeCalls[0]!.method).to.equal("POST");
+    expect(socket.writeCalls[0]!.body).to.deep.equal({ a: 1 });
+    expect(socket.writeCalls[0]!.idempotencyKey).to.be.a("string").and.not
       .empty;
     expect(fetchMock.mock.calls.length).to.equal(0);
   });
@@ -153,12 +157,12 @@ describe("ApiClient — pont socket (api.request)", () => {
     const api = new ApiClient({ socket });
     const out = await api.postAbsolute("/nodefony/x/api/save", { a: 1 });
     expect(out).to.deep.equal({ saved: true });
-    expect(socket.mutateCalls.length).to.equal(1);
+    expect(socket.writeCalls.length).to.equal(1);
     expect(fetchMock.mock.calls.length).to.equal(1);
     // Le repli HTTP porte EXACTEMENT la clé de la tentative socket → le serveur
     // dédoublonne si la mutation avait abouti côté serveur avant la coupure.
     expect(idemHeaderOf(fetchMock.mock.calls[0])).to.equal(
-      socket.mutateCalls[0]!.idempotencyKey,
+      socket.writeCalls[0]!.idempotencyKey,
     );
   });
 
@@ -187,10 +191,10 @@ describe("ApiClient — pont socket (api.request)", () => {
     const api = new ApiClient({ socket });
     // POST → 405 → fallback fetch ; le couple POST+route devient HTTP-only.
     await api.postAbsolute("/nodefony/x/api/thing", { a: 1 });
-    expect(socket.mutateCalls.length).to.equal(1);
+    expect(socket.writeCalls.length).to.equal(1);
     // 2ᵉ POST même route → plus AUCUNE tentative socket.
     await api.postAbsolute("/nodefony/x/api/thing", { a: 2 });
-    expect(socket.mutateCalls.length).to.equal(1);
+    expect(socket.writeCalls.length).to.equal(1);
     // MAIS un GET sur la MÊME route reste éligible au pont (scope par méthode).
     await api.getAbsolute("/nodefony/x/api/thing").catch(() => {});
     expect(socket.calls.length).to.equal(1);

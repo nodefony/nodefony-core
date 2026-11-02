@@ -741,7 +741,7 @@ rien ne change pour elle, ni comportement ni coût.
 > ferme la socket en `4001` si la session est morte (`RealtimeHub.ts#RealtimeHub.probe`). Après une
 > déconnexion, une action peut donc encore voir l'ancien utilisateur pendant cette fenêtre. Pour
 > une écriture sensible — paiement, droits, suppression — passe par une route
-> `POST + WEBSOCKET` appelée par `socket.mutate()` : ce pont revalide l'identité à **chaque**
+> `POST + WEBSOCKET` appelée par `socket.post()` : ce pont revalide l'identité à **chaque**
 > appel et porte la clé d'idempotence.
 
 ### La règle DEV-only
@@ -811,18 +811,19 @@ fois ? »**.
 | `api.request` en lecture       | oui — c'est un `GET`           | oui                                  |
 | `nodefony:scaffold:cancel`     | oui — annuler deux fois annule | oui                                  |
 | `nodefony:scaffold:run`        | **non** — crée un travail      | **non** : deux appels, deux jobs     |
-| une mutation (`socket.mutate`) | **non** par nature             | oui, **avec une clé d'idempotence**  |
+| une écriture (`socket.post`)   | **non** par nature             | oui, **avec une clé d'idempotence**  |
 
-Pour les mutations passant par le pont API, la clé n'est pas une convention : elle est **exigée
-par la signature** de `mutate()` (`NodefonySocket.ts#NodefonySocket.mutate`), et c'est la garde `@Idempotent`
+Pour les écritures passant par le pont API, la clé n'est pas une convention : la socket la **pose
+seule** sur chaque `post`/`put`/`patch`/`delete` (`NodefonySocket.ts#NodefonySocket.post`), la
+trame rejouée après une reconnexion porte la même, et c'est la garde `@Idempotent`
 (`routerDecorators.ts#Idempotent`) qui, côté serveur, reconnaît le rejeu et rend la réponse déjà calculée
 au lieu de refaire l'effet.
 
 ```ts ignore
-await socket.mutate("/nodefony/security/api/apikeys/42/revoke", {
-  method: "POST",
-  idempotencyKey: crypto.randomUUID(), // rejouer cette frame ne révoque qu'une fois
-});
+// rejouer cette trame ne révoque qu'une fois — la clé est posée par la socket
+await socket.post("/nodefony/security/api/apikeys/42/revoke");
+// dédoublonner une INTENTION (double clic) : l'écran fournit sa clé
+await socket.post("/orders", panier, { idempotencyKey: panier.id });
 ```
 
 > [!IMPORTANT]
@@ -884,13 +885,49 @@ socket, avec la même garde et le même résultat qu'en REST — `invokeApiReque
 `realtimeApiRequest()` (`RealtimeController.ts#RealtimeController.realtimeApiRequest`).
 
 ```ts ignore
-const modules = await socket.request("/nodefony/kernel/api/modules");
+const modules = await socket.get("/nodefony/kernel/api/modules");
+const { sentAt } = await socket.post("/chat/send", { text: "salut" });
 ```
 
-La forme se discrimine toute seule : un chemin commence par `/`, jamais un nom d'action —
-`NodefonySocket.request()` (`NodefonySocket.ts#NodefonySocket.request`). Écris une action RPC pour ce qui n'a de sens **que** sur la socket ;
-passe par le pont pour tout ce qui est déjà une route. Le détail du pont vit dans le
-[vocabulaire](./vocabulaire.md) et l'[architecture](./architecture.md).
+Chaque méthode porte le **verbe HTTP** que la route déclare — `get`, `post`, `put`, `patch`,
+`delete` (`NodefonySocket.ts#NodefonySocket.get`) : une route `methods: ["POST", "WEBSOCKET"]` s'appelle
+`socket.post(…)`, rien d'autre à apprendre. `request()` reste l'appel d'une **action RPC** par son nom.
+Écris une action RPC pour ce qui n'a de sens **que** sur la socket ; passe par le pont pour tout ce
+qui est déjà une route. Le détail du pont vit dans le [vocabulaire](./vocabulaire.md) et
+l'[architecture](./architecture.md).
+
+### Le contrat type les routes
+
+Sans contrat, `get` et `post` rendent `unknown` et acceptent n'importe quel corps. Le contrat de
+l'application (`IRealtimeContract`, `RealtimeEventMap.ts#IRealtimeContract`) les type par la clé
+`serverRoutes` : `"<VERBE> <chemin>"` → le schéma que la route **valide**, référencé par `typeof`
+(une seule source — jamais une copie), et ce qu'elle rend.
+
+```ts ignore
+// shared/chatContract.ts — types seuls, aucun octet dans le navigateur
+import type { SendBody } from "./chatSchemas";
+export interface ChatContract extends IRealtimeContract {
+  serverRoutes: {
+    "POST /chat/send": { body: typeof SendBody; result: { sentAt: number } };
+  };
+}
+
+// navigateur
+const chat = NodefonySocket.fromContract<ChatContract>({
+  url: "/chat/realtime",
+});
+await chat.post("/chat/send", { text: "salut" }); // { sentAt: number }
+await chat.post("/chat/send", { texte: "x" }); // ✗ ne compile pas
+```
+
+Le contrat est un **type** : il ferait compiler un appel vers une route absente. Le contrôleur qui
+l'implémente déclare donc la **valeur** — la table statique `serverRoutes`, `satisfies
+ContractRouteSchemas<C>` — et le démarrage la confronte aux routes montées
+(`contractRoutes.ts#assertContractRoutes`) : route absente, route sans transport `WEBSOCKET` pour ce
+verbe, ou autre schéma que celui que la route valide → démarrage refusé, l'entrée nommée. Un
+chemin hors contrat reste libre ; une route à paramètre (`/messages/{id}`) n'est pas typée, la clé
+étant un chemin littéral. Le chat complet, messages privés compris :
+[cookbook](./cookbook-chat.md#quatre--un-contrat-pour-les-deux-côtés--lenvoi-et-les-messages-privés-typés).
 
 ## ⚠️ Pièges
 

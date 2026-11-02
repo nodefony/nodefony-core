@@ -431,7 +431,7 @@ update(input: RouteInput<{ params: typeof postParams; body: typeof postBody }>) 
 **Ce que fait le framework, dans l'ordre :**
 
 - chaque partie déclarée est un [Standard Schema](https://standardschema.dev) — Zod, Valibot,
-  ArkType… ; l'interface est recopiée au cœur (`runtime/standardSchema.ts#IStandardSchemaV1`), aucune
+  ArkType… ; l'interface est recopiée au cœur (`runtime/standardSchemaTypes.ts#IStandardSchemaV1`), aucune
   dépendance n'est imposée ;
 - la validation a lieu **après** les gardes (`@IsGranted` : un 403 ne révèle pas le contrat) et
   **avant** l'instanciation du contrôleur : une entrée invalide ne construit rien

@@ -244,7 +244,7 @@ socket, elle, n'est pas un signal : c'est un objet, pas un état.
 | Fonction                                  | Rend                                     | À quoi ça sert                                               |
 | ----------------------------------------- | ---------------------------------------- | ------------------------------------------------------------ |
 | `provideNodefony(opts)`                   | `EnvironmentProviders`                   | le fournisseur : enregistre la socket, connecte hors zone    |
-| `injectNodefony()`                        | `NodefonySocket`                         | l'échappatoire : `emit`, `request`, `mutate`, `ping`         |
+| `injectNodefony()`                        | `NodefonySocket`                         | l'échappatoire : `emit`, `request`, `get`, `post`, `ping`    |
 | `injectNodefonyState()`                   | `Signal<RealtimeState>`                  | afficher l'état, griser un bouton pendant une reconnexion    |
 | `injectNodefonyIdentity()`                | `Signal<RealtimeIdentity \| null>`       | savoir qui est connecté — sans appeler `/auth/me`            |
 | `injectNodefonyKernel()`                  | `INodefonyKernel \| null`                | le noyau fourni — la porte vers `setIdentity()`              |

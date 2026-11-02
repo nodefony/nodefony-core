@@ -648,13 +648,14 @@ class Router extends Service implements IRequestRouter {
  * installées du framework feraient échouer `instanceof` en silence. Une
  * lecture de propriété.
  *
- * @param router - le routeur lu sur le contexte (`context.router`).
+ * @param router - le routeur lu sur le contexte (`context.router`) ou le
+ *   service `router` du conteneur.
  * @returns `true` si c'est le Router du framework.
  */
-export function isFrameworkRouter(
-  router: IRequestRouter | null | undefined,
-): router is Router {
-  return router != null && FRAMEWORK_ROUTER in router;
+export function isFrameworkRouter(router: unknown): router is Router {
+  return (
+    typeof router === "object" && router !== null && FRAMEWORK_ROUTER in router
+  );
 }
 
 export default Router;

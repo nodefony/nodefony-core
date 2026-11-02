@@ -32,6 +32,11 @@
  */
 export type EventsMap = Record<string, unknown>;
 
+import type {
+  IStandardSchemaV1,
+  InferSchemaInput,
+} from "../runtime/standardSchemaTypes";
+
 /**
  * Map des RPC — nom de méthode → `{ in: paramètres, out: résultat }`.
  *
@@ -173,6 +178,73 @@ export type ContractResult<M extends ActionsMap, K, T> =
   K extends ContractActionNames<M> ? ActionResult<M, K & keyof M> : T;
 
 /**
+ * Verbe HTTP d'une action servie par le pont `api.request` — le pont n'en sert
+ * pas d'autre.
+ */
+export type BridgeVerb = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+
+/**
+ * Une route servie par le pont, vue par le contrat : le schéma de son corps et
+ * de sa query — la VALEUR que la route valide, référencée par `typeof`, jamais
+ * recopiée —, et ce qu'elle rend.
+ *
+ * @example
+ * ```ts
+ * "POST /chat/send": { body: typeof SendBody; result: { sentAt: number } };
+ * ```
+ */
+export interface IContractRoute {
+  /** Schéma du corps (`schema: { body }` de la route). */
+  body?: IStandardSchemaV1;
+  /** Schéma de la query (`schema: { query }` de la route). */
+  query?: IStandardSchemaV1;
+  /** Ce que l'action rend. */
+  result: unknown;
+}
+
+/**
+ * Carte des routes du pont : `"<VERBE> <chemin>"` → {@link IContractRoute}. Le
+ * chemin est celui de la route montée, préfixe du contrôleur compris.
+ */
+export type RoutesMap = Record<`${BridgeVerb} /${string}`, IContractRoute>;
+
+/** Membre `M` d'une route déclarée, lu par sa PRÉSENCE (`undefined` sinon). */
+type RoutePart<
+  R,
+  K extends keyof R,
+  M extends "body" | "query",
+> = M extends keyof R[K]
+  ? R[K] extends Partial<Record<M, infer S>>
+    ? S extends IStandardSchemaV1
+      ? InferSchemaInput<S>
+      : undefined
+    : undefined
+  : undefined;
+
+/**
+ * Le corps qu'accepte une route du pont : l'entrée de son schéma quand la clé
+ * `K` (`"<VERBE> <chemin>"`) appartient au contrat, `undefined` si la route
+ * déclarée n'a pas de corps, libre (`unknown`) hors contrat.
+ */
+export type ContractRouteBody<R extends RoutesMap, K extends string> =
+  K extends LiteralKeys<R> ? RoutePart<R, K, "body"> : unknown;
+
+/** La query qu'accepte une route du pont — pendant de {@link ContractRouteBody}. */
+export type ContractRouteQuery<R extends RoutesMap, K extends string> =
+  K extends LiteralKeys<R> ? RoutePart<R, K, "query"> : unknown;
+
+/**
+ * Ce que rend une route du pont, lu par {@link Jsonify} (il a traversé le fil)
+ * quand `K` appartient au contrat ; sinon le `T` que l'appelant demande.
+ */
+export type ContractRouteResult<R extends RoutesMap, K extends string, T> =
+  K extends LiteralKeys<R>
+    ? R[K & keyof R] extends { result: infer X }
+      ? Jsonify<X>
+      : unknown
+    : T;
+
+/**
  * Handler typé pour une RPC entrante (côté qui expose via `register`).
  * Sync ou async — JSON-RPC 2.0 §5.1 : throw → réponse `-32603 internal_error`.
  */
@@ -292,7 +364,49 @@ export interface IRealtimeContract {
   serverMethods?: ActionsMap;
   /** Méthodes du client : le serveur appelle, le client répond. */
   clientMethods?: ActionsMap;
+  /**
+   * Routes servies par le pont `api.request` : `"<VERBE> <chemin>"` → schéma du
+   * corps et de la query (`typeof` du schéma que la route VALIDE — une seule
+   * source) et résultat. Le client en déduit `get`/`post`/`put`/`patch`/`delete` ;
+   * le serveur vérifie au démarrage que chaque entrée a sa route
+   * (`ContractRealtimeController`, table statique `serverRoutes`).
+   */
+  serverRoutes?: RoutesMap;
 }
+
+/**
+ * Les routes du pont qu'un client appelle — `serverRoutes` du contrat, ou la
+ * carte permissive si le contrat n'en déclare pas.
+ */
+export type ContractClientRoutes<C extends IRealtimeContract> = ContractSide<
+  C,
+  "serverRoutes",
+  RoutesMap
+>;
+
+/**
+ * Table de VALEURS qu'un contrôleur de contrat déclare pour que le démarrage
+ * vérifie ses `serverRoutes` : une entrée par route du contrat, portant le
+ * schéma même que la route valide (`body`, `query`). Écrite côté serveur
+ * seulement — le navigateur ne la voit jamais, donc n'embarque aucun schéma.
+ *
+ * @example
+ * ```ts
+ * class ChatRt extends ContractRealtimeController<ChatContract> {
+ *   static readonly serverRoutes = {
+ *     "POST /chat/send": { body: SendBody },
+ *     "GET /chat/history": {},
+ *   } satisfies ContractRouteSchemas<ChatContract>;
+ * }
+ * ```
+ */
+export type ContractRouteSchemas<C extends IRealtimeContract> = {
+  [K in LiteralKeys<ContractClientRoutes<C>>]: {
+    [
+      P in keyof ContractClientRoutes<C>[K] & ("body" | "query")
+    ]: ContractClientRoutes<C>[K][P];
+  };
+};
 
 /** Carte d'une direction du contrat ; direction absente → `M` déclaré par le moule (permissif). */
 type ContractSide<C, K extends keyof IRealtimeContract, M> = K extends keyof C

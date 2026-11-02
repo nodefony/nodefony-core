@@ -118,7 +118,7 @@ describe("resolveParamArg — résolution par source", () => {
   });
   it("body — pont api.request : le corps ALS PRIME sur request.body (mutation WS)", () => {
     // Le pont pose le corps de la frame dans l'ALS (aucun corps HTTP parsé en
-    // WS) ; @Body doit le lire là, sinon une mutation socket.mutate reçoit
+    // WS) ; @Body doit le lire là, sinon une écriture socket.post reçoit
     // undefined alors que la MÊME action marche en HTTP (dégradation silencieuse).
     const fromAls = RequestContext.run(
       { requestId: "t-ws", body: { name: "ws-body", extra: 1 } },

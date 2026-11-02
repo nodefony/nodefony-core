@@ -440,18 +440,110 @@ describe("NodefonySocket — canaux (ref-count, handle, adaptatif)", () => {
 });
 
 describe("NodefonySocket — RPC (path, ping, register)", () => {
-  it("request forme PATH → routé en api.request {path} (2e arg = timeout)", async () => {
+  /** Dernière trame `api.request` émise, relue telle que le serveur la lit. */
+  const lastBridgeFrame = (): {
+    id: number;
+    params: Record<string, unknown>;
+  } => {
+    const raw = current().sent.findLast((s) => s.includes('"api.request"'));
+    expect(raw, "aucune trame api.request émise").to.be.a("string");
+    const frame: unknown = JSON.parse(raw ?? "null");
+    if (
+      typeof frame !== "object" ||
+      frame === null ||
+      !("id" in frame) ||
+      typeof frame.id !== "number" ||
+      !("params" in frame) ||
+      typeof frame.params !== "object" ||
+      frame.params === null
+    ) {
+      throw new Error("trame api.request mal formée");
+    }
+    return { id: frame.id, params: { ...frame.params } };
+  };
+
+  it("get → api.request {path} seul : la trame d'une lecture n'a ni verbe ni clé", async () => {
     const client = await connected();
-    const p = client.request("/nodefony/kernel/api/x", 5000);
-    // le serveur répond (id 1)
+    const p = client.get("/nodefony/kernel/api/x");
+    const { id, params } = lastBridgeFrame();
+    expect(params).to.deep.equal({ path: "/nodefony/kernel/api/x" });
     current().fireMsg(
-      JSON.stringify({ jsonrpc: "2.0", id: 1, result: { ok: true } }),
+      JSON.stringify({ jsonrpc: "2.0", id, result: { ok: true } }),
     );
     expect(await p).to.deep.equal({ ok: true });
-    // la frame sortante est bien api.request
-    expect(current().sent.some((s) => s.includes('"api.request"'))).to.equal(
-      true,
+    client.disconnect();
+  });
+
+  it("get + query → sérialisée dans le chemin (tableau = clé répétée, null/undefined omis)", async () => {
+    const client = await connected();
+    void client
+      .get("/a/b?x=1", {
+        query: {
+          limit: 20,
+          tag: ["r", "s"],
+          on: true,
+          skip: undefined,
+          none: null,
+        },
+        timeoutMs: 50,
+      })
+      .catch(() => undefined);
+    expect(lastBridgeFrame().params.path).to.equal(
+      "/a/b?x=1&limit=20&tag=r&tag=s&on=true",
     );
+    client.disconnect();
+  });
+
+  it("query non scalaire → TypeError AVANT d'émettre (un objet ne voyage pas dans un chemin)", async () => {
+    const client = await connected();
+    const before = current().sent.length;
+    expect(() => client.get("/a", { query: { deep: { x: 1 } } })).to.throw(
+      TypeError,
+      /deep/,
+    );
+    expect(current().sent.length).to.equal(before);
+    client.disconnect();
+  });
+
+  it("post → verbe + corps + clé d'idempotence GÉNÉRÉE, une par appel", async () => {
+    const client = await connected();
+    void client
+      .post("/chat/send", { text: "a" }, { timeoutMs: 50 })
+      .catch(() => undefined);
+    const first = lastBridgeFrame().params;
+    void client
+      .post("/chat/send", { text: "a" }, { timeoutMs: 50 })
+      .catch(() => undefined);
+    const second = lastBridgeFrame().params;
+    expect(first.method).to.equal("POST");
+    expect(first.body).to.deep.equal({ text: "a" });
+    expect(first.idempotencyKey).to.be.a("string").with.length.greaterThan(8);
+    expect(second.idempotencyKey).to.not.equal(first.idempotencyKey);
+    client.disconnect();
+  });
+
+  it("post + idempotencyKey fournie → reprise telle quelle (une INTENTION, deux appels)", async () => {
+    const client = await connected();
+    void client
+      .post("/chat/send", undefined, { idempotencyKey: "k-1", timeoutMs: 50 })
+      .catch(() => undefined);
+    expect(lastBridgeFrame().params.idempotencyKey).to.equal("k-1");
+    client.disconnect();
+  });
+
+  it("put / patch / delete → le verbe de la méthode voyage", async () => {
+    const client = await connected();
+    const verbs: string[] = [];
+    for (const call of [
+      () => client.put("/r/1", { a: 1 }, { timeoutMs: 50 }),
+      () => client.patch("/r/1", { a: 2 }, { timeoutMs: 50 }),
+      () => client.delete("/r/1", undefined, { timeoutMs: 50 }),
+    ]) {
+      void call().catch(() => undefined);
+      const { method } = lastBridgeFrame().params;
+      verbs.push(typeof method === "string" ? method : "?");
+    }
+    expect(verbs).to.deep.equal(["PUT", "PATCH", "DELETE"]);
     client.disconnect();
   });
 

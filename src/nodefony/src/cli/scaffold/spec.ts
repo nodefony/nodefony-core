@@ -566,7 +566,7 @@ const CONTROLLER_SPEC: IScaffoldTypeSpec = {
         {
           value: "duplex",
           label: "Duplex REST + socket (api.request)",
-          hint: "les MÊMES actions CRUD en HTTP ET par socket.request/mutate (@nodefony/realtime)",
+          hint: "les MÊMES actions CRUD en HTTP ET par socket.get/post/delete (@nodefony/realtime)",
         },
         {
           value: "realtime",
@@ -826,7 +826,7 @@ const MODULE_SPEC: IScaffoldTypeSpec = {
         {
           value: "duplex",
           label: "Duplex REST + socket",
-          hint: "les MÊMES actions CRUD en HTTP ET par socket.request/mutate",
+          hint: "les MÊMES actions CRUD en HTTP ET par socket.get/post/delete",
         },
         {
           value: "realtime",

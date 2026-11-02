@@ -204,7 +204,7 @@ déballe). La socket, elle, n'est pas réactive : c'est un objet, pas un état.
 | Composable                             | Rend                                  | À quoi ça sert                                               |
 | -------------------------------------- | ------------------------------------- | ------------------------------------------------------------ |
 | `nodefonyVue`                          | —                                     | le plugin : fournit la socket et lance la connexion          |
-| `useNodefony()`                        | `NodefonySocket`                      | l'échappatoire : `emit`, `request`, `mutate`, `ping`         |
+| `useNodefony()`                        | `NodefonySocket`                      | l'échappatoire : `emit`, `request`, `get`, `post`, `ping`    |
 | `useNodefonyState()`                   | `Readonly<Ref<RealtimeState>>`        | afficher l'état, griser un bouton pendant une reconnexion    |
 | `useNodefonyIdentity()`                | `Ref<RealtimeIdentity \| null>`       | savoir qui est connecté — sans appeler `/auth/me`            |
 | `useNodefonyKernel()`                  | `INodefonyKernel \| null`             | le noyau fourni au plugin — la porte vers `setIdentity()`    |

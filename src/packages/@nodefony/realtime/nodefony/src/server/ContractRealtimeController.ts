@@ -161,6 +161,13 @@ type ContractRealtimeControllerConstructor = Omit<
  * Le fichier du contrat, fait de types seuls, est partagé avec le navigateur, qui
  * entre par `NodefonySocket.fromContract<C>()`.
  *
+ * Un contrat qui déclare des `serverRoutes` (routes du pont, typées côté client
+ * par le schéma que la route valide) se double d'une table statique de VALEURS,
+ * `static readonly serverRoutes = { … } satisfies ContractRouteSchemas<C>` : le
+ * compilateur y exige chaque route du contrat avec son schéma, et le démarrage
+ * vérifie que chacune est montée, servie par la socket et valide LE MÊME schéma
+ * (`BootConfigurationError` sinon). Sans cette table, aucun contrôle.
+ *
  * @typeParam C - le contrat de l'application.
  *
  * @example
@@ -173,6 +180,12 @@ type ContractRealtimeControllerConstructor = Omit<
  * }
  *
  * class DashRt extends ContractRealtimeController<DashContract> {} // sans serverMethods
+ *
+ * class ChatRoutesRt extends ContractRealtimeController<ChatContract> {
+ *   static readonly serverRoutes = {
+ *     "POST /chat/send": { body: SendBody }, // le schéma de la route, pas une copie
+ *   } satisfies ContractRouteSchemas<ChatContract>;
+ * }
  * ```
  */
 export const ContractRealtimeController: ContractRealtimeControllerConstructor =

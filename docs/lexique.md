@@ -122,16 +122,16 @@ Tout nouveau module naît avec un `docs/lexique.md` (scaffold `create-module`).
 
 ### Réseau / temps réel
 
-| Terme         | Origine               | En clair                                                                                                                        |
-| ------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| **payload**   | « charge utile »      | Le contenu réel d'un message (hors enveloppe/en-têtes). Le `params` d'un appel, le corps d'une requête.                         |
-| **frame**     | « trame »             | Une unité de message sur la socket WS (une frame JSON-RPC = un appel, une notif ou une réponse).                                |
-| **pub/sub**   | publish / subscribe   | Modèle « je publie sur un canal, ceux qui se sont abonnés reçoivent ». Découple émetteur et récepteurs.                         |
-| **RPC**       | Remote Procedure Call | « Appeler une fonction à distance comme si elle était locale » (`socket.request("/path")` → résultat). Nodefony = JSON-RPC 2.0. |
-| **backplane** | « fond de panier »    | La couche qui relie plusieurs process/pods entre eux (Redis, IPC) pour que le pub/sub marche en cluster.                        |
-| **vhost**     | virtual host          | Plusieurs domaines sur un même serveur ; une zone peut cibler un `host` précis (`admin.exemple.com`).                           |
-| **upgrade**   | « montée en version » | La requête HTTP spéciale qui transforme une connexion HTTP en connexion WebSocket (le handshake WS).                            |
-| **polling**   | « scrutation »        | Demander en boucle « du nouveau ? » (l'inverse du push temps réel). Évité au profit du WS.                                      |
+| Terme         | Origine               | En clair                                                                                                                            |
+| ------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **payload**   | « charge utile »      | Le contenu réel d'un message (hors enveloppe/en-têtes). Le `params` d'un appel, le corps d'une requête.                             |
+| **frame**     | « trame »             | Une unité de message sur la socket WS (une frame JSON-RPC = un appel, une notif ou une réponse).                                    |
+| **pub/sub**   | publish / subscribe   | Modèle « je publie sur un canal, ceux qui se sont abonnés reçoivent ». Découple émetteur et récepteurs.                             |
+| **RPC**       | Remote Procedure Call | « Appeler une fonction à distance comme si elle était locale » (`socket.request("chat:ping")` → résultat). Nodefony = JSON-RPC 2.0. |
+| **backplane** | « fond de panier »    | La couche qui relie plusieurs process/pods entre eux (Redis, IPC) pour que le pub/sub marche en cluster.                            |
+| **vhost**     | virtual host          | Plusieurs domaines sur un même serveur ; une zone peut cibler un `host` précis (`admin.exemple.com`).                               |
+| **upgrade**   | « montée en version » | La requête HTTP spéciale qui transforme une connexion HTTP en connexion WebSocket (le handshake WS).                                |
+| **polling**   | « scrutation »        | Demander en boucle « du nouveau ? » (l'inverse du push temps réel). Évité au profit du WS.                                          |
 
 ### TypeScript / build / modules
 

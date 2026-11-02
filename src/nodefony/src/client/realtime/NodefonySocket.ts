@@ -18,11 +18,11 @@ import {
   unofferedCodecNotice,
   rawBinaryUnderCodecNotice,
 } from "./notice";
+import { createIdempotencyKey } from "../../realtime/idempotencyKey";
 import {
   JsonRpcPeer,
   type IRealtimePeer,
   type JsonRpcFrameKind,
-  type RpcTracedResult,
 } from "../../realtime/JsonRpcPeer";
 // Les six événements LOCAUX ont une table — personne ne les écrit en clair,
 // ici pas plus qu'ailleurs (cf `./localEvents.ts`).
@@ -68,6 +68,12 @@ import type {
   ContractClientEmit,
   ContractClientListen,
   ContractClientActions,
+  ContractClientRoutes,
+  BridgeVerb,
+  RoutesMap,
+  ContractRouteBody,
+  ContractRouteQuery,
+  ContractRouteResult,
 } from "../../realtime/RealtimeEventMap";
 import { unrefTimer } from "../../runtime/unrefTimer";
 import { CircularBuffer } from "../../runtime/CircularBuffer";
@@ -107,6 +113,13 @@ export type {
   ContractClientEmit,
   ContractClientListen,
   ContractClientActions,
+  ContractClientRoutes,
+  BridgeVerb,
+  IContractRoute,
+  RoutesMap,
+  ContractRouteBody,
+  ContractRouteQuery,
+  ContractRouteResult,
 } from "../../realtime/RealtimeEventMap";
 import { PLATFORM_METHODS } from "../../realtime/platformChannels";
 import {
@@ -642,6 +655,100 @@ export interface RealtimeReconnectInfo {
   nextRetryAt: number;
 }
 
+/** Options d'une lecture par le pont (`get`). */
+export interface IBridgeReadOptions<Q = unknown> {
+  /**
+   * Query, sérialisée dans le chemin (`?a=1&b=2`, une clé répétée par élément
+   * d'un tableau). Valeurs scalaires seulement ; `undefined`/`null` omis.
+   */
+  query?: Q;
+  /** Délai avant rejet, en ms (défaut 30 s). */
+  timeoutMs?: number;
+}
+
+/** Options d'une écriture par le pont (`post`, `put`, `patch`, `delete`). */
+export interface IBridgeWriteOptions<
+  Q = unknown,
+> extends IBridgeReadOptions<Q> {
+  /**
+   * Clé d'idempotence — générée par défaut, une par appel. À fournir pour
+   * dédoublonner une INTENTION (double clic : même clé pour deux appels), ou
+   * pour réutiliser la clé d'un repli HTTP.
+   */
+  idempotencyKey?: string;
+}
+
+/** Ce que porte `call` : méthode logique (défaut `GET`), corps, clé, délai. */
+interface ICallInit {
+  method?: BridgeVerb;
+  body?: unknown;
+  idempotencyKey?: string;
+  timeoutMs?: number;
+}
+
+/** Paramètres de la trame `api.request` — la forme que le serveur lit. */
+interface IBridgeRequestParams {
+  path: string;
+  method?: BridgeVerb | undefined;
+  body?: unknown;
+  idempotencyKey?: string | undefined;
+}
+
+/** Le pont vu comme une action JSON-RPC : la seule que la socket appelle hors contrat. */
+type BridgeActions = {
+  "api.request": { in: IBridgeRequestParams; out: unknown };
+};
+
+/**
+ * Arguments d'une lecture : `options` devient OBLIGATOIRE quand la query
+ * déclarée exige un champ.
+ */
+type BridgeReadArgs<Q> = undefined extends Q
+  ? [options?: IBridgeReadOptions<Q>]
+  : {} extends Q
+    ? [options?: IBridgeReadOptions<Q>]
+    : [options: IBridgeReadOptions<Q> & { query: Q }];
+
+/**
+ * Arguments d'une écriture : le corps est OBLIGATOIRE quand le schéma de la
+ * route l'exige, absent quand la route déclarée n'en a pas, libre hors contrat.
+ */
+type BridgeWriteArgs<R extends RoutesMap, K extends string> =
+  undefined extends ContractRouteBody<R, K>
+    ? [
+        body?: ContractRouteBody<R, K>,
+        options?: IBridgeWriteOptions<ContractRouteQuery<R, K>>,
+      ]
+    : [
+        body: ContractRouteBody<R, K>,
+        options?: IBridgeWriteOptions<ContractRouteQuery<R, K>>,
+      ];
+
+/** Ajoute une query au chemin — scalaires seulement, `undefined`/`null` omis. */
+function withQuery(path: string, query: unknown): string {
+  if (query === null || typeof query !== "object") return path;
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    const items: unknown[] = Array.isArray(value) ? value : [value];
+    for (const item of items) {
+      if (item === undefined || item === null) continue;
+      if (
+        typeof item !== "string" &&
+        typeof item !== "number" &&
+        typeof item !== "boolean"
+      ) {
+        throw new TypeError(
+          `query « ${key} » : seules les valeurs scalaires voyagent dans un chemin`,
+        );
+      }
+      search.append(key, String(item));
+    }
+  }
+  const qs = search.toString();
+  if (qs === "") return path;
+  return `${path}${path.includes("?") ? "&" : "?"}${qs}`;
+}
+
 /**
  * Socket cliente de Nodefony : une connexion WebSocket JSON-RPC 2.0 vers le
  * serveur temps réel de l'application, qui rétablit la liaison après une coupure.
@@ -659,11 +766,13 @@ export interface RealtimeReconnectInfo {
  * @typeParam Emit - événements que la page émet vers le serveur.
  * @typeParam Listen - événements que la page reçoit du serveur.
  * @typeParam Actions - actions RPC appelables par `request`.
+ * @typeParam Routes - routes du pont appelables par `get`/`post`/`put`/`patch`/`delete`.
  */
 export class NodefonySocket<
   Emit extends EventsMap = DefaultEventsMap,
   Listen extends EventsMap = DefaultEventsMap,
   Actions extends ActionsMap = DefaultActionsMap,
+  Routes extends RoutesMap = RoutesMap,
 >
   implements IRealtimeSocket<Emit, Listen>, IRealtimePeer<Emit, Actions>
 {
@@ -870,12 +979,14 @@ export class NodefonySocket<
   ): NodefonySocket<
     ContractClientEmit<C>,
     ContractClientListen<C>,
-    ContractClientActions<C>
+    ContractClientActions<C>,
+    ContractClientRoutes<C>
   > {
     return new NodefonySocket<
       ContractClientEmit<C>,
       ContractClientListen<C>,
-      ContractClientActions<C>
+      ContractClientActions<C>,
+      ContractClientRoutes<C>
     >(opts, transportFactory);
   }
 
@@ -1624,22 +1735,6 @@ export class NodefonySocket<
   }
 
   /**
-   * Requête API par **path** — la MÊME action controller que le GET REST, via
-   * la socket (une action, N transports). Sucre au-dessus
-   * de la méthode RPC `api.request` (protocole caché — convention dans la lib,
-   * comme `nodefony:kernel:ping`/`ping()`) :
-   * ```ts
-   * const modules = await socket.request("/nodefony/kernel/api/modules");
-   * ```
-   * Échec → rejet {@link RpcError} (`data.status` = statut HTTP équivalent :
-   * 404 path inconnu, 403 refus…). Un path commence toujours par `/`, une
-   * méthode JSON-RPC jamais → zéro collision avec la forme `request(method)`.
-   */
-  async request<T = unknown>(
-    path: `/${string}`,
-    timeoutMs?: number,
-  ): Promise<T>;
-  /**
    * Request/response JSON-RPC 2.0 — `Promise` résolue avec le `result`.
    *
    * Le 1ᵉʳ générique est le **nom de la méthode**, le 2ᵉ le type du résultat :
@@ -1671,67 +1766,150 @@ export class NodefonySocket<
     params?: ActionParams<Actions, K>,
     timeoutMs?: number,
   ): Promise<ActionResult<Actions, K>>;
-  async request<T = unknown>(
+  request(
     method: string,
     params?: unknown,
     timeoutMs = 30000,
-  ): Promise<T> {
-    // Forme path (`request("/x", timeout?)`) : le 2ᵉ argument EST le timeout.
-    // Détection runtime (charCode `/`) — couvre aussi un path non-littéral
-    // (variable `string`, typée par l'overload générique mais routée ici).
-    if (method.charCodeAt(0) === 47) {
-      if (typeof params === "number") timeoutMs = params;
-      params = { path: method };
-      method = "api.request";
-    }
+  ): Promise<unknown> {
     // Plan de contrôle (id, corrélation, timeout, RpcError) délégué au moteur
-    // isomorphe. `method`/`params` sont routés par l'overload générique permissif
-    // → cast vers la signature stricte du peer (équivalent pré-types).
-    return this.peer.request(
-      method as never,
-      params as never,
-      timeoutMs,
-    ) as Promise<T>;
+    // isomorphe. Les surcharges ont déjà borné `method`/`params` par le
+    // contrat ; ici le pair est lu sous la carte permissive — le résultat est
+    // une donnée réseau, que les surcharges décrivent sans la valider.
+    return this.peer.requestAs<ActionsMap, string>(method, params, timeoutMs);
   }
 
   /**
-   * **Mutation** API par le pont `api.request` (POST/PUT/PATCH/DELETE) — pendant
-   * d'écriture de {@link request} (qui ne fait que des lectures GET). Transporte
-   * la méthode HTTP **logique**, le corps, et une **clé d'idempotence**
-   * (OBLIGATOIRE côté serveur : une socket reconnecte et peut rejouer une frame
-   * en vol → la clé dédoublonne le rejeu, anti double-effet) :
+   * Lit une route par le pont `api.request` — la MÊME action contrôleur que le
+   * `GET` HTTP, par la socket. Le verbe de la méthode est celui que la route
+   * déclare (`methods: ["GET", "WEBSOCKET"]`).
+   *
+   * Sous un contrat (`NodefonySocket.fromContract<C>()`), une route déclarée
+   * dans `serverRoutes` rend son résultat typé et sa query vérifiée ; un chemin
+   * hors contrat reste accepté, résultat `T` (défaut `unknown`).
+   *
    * ```ts
-   * await socket.mutate("/nodefony/security/api/apikeys/42/revoke", {
-   *   method: "POST", idempotencyKey: crypto.randomUUID(),
-   * });
+   * const history = await chat.get("/chat/history");   // ChatMessage[]
+   * const page = await chat.get("/chat/history", { query: { limit: 20 } });
    * ```
-   * Échec → rejet {@link RpcError} (`data.status` = statut HTTP équivalent :
-   * 400 clé absente, 409 rejeu concurrent, 403 refus, 404 path inconnu…).
+   *
+   * @param path - chemin de la route (transport WEBSOCKET requis côté serveur).
+   * @param options - `query` (sérialisée dans le chemin), `timeoutMs` (30 s).
+   * @returns la valeur que rend l'action.
+   * @throws {@link RpcError} — `data.status` = statut HTTP équivalent (404
+   *   chemin inconnu, 403 refus, 405 route sans transport WEBSOCKET…).
    */
-  async mutate<T = unknown>(
+  get<T = unknown, P extends `/${string}` = `/${string}`>(
+    path: P,
+    ...options: BridgeReadArgs<ContractRouteQuery<Routes, `GET ${P}`>>
+  ): Promise<ContractRouteResult<Routes, `GET ${P}`, T>>;
+  get(path: `/${string}`, options?: IBridgeReadOptions): Promise<unknown> {
+    return this.bridge("GET", path, undefined, options);
+  }
+
+  /**
+   * Écrit par le pont `api.request` : la route `POST` de même chemin, par la
+   * socket. Une **clé d'idempotence** est posée seule (une par appel) : la trame
+   * rejouée après une reconnexion porte la même, et le serveur dédoublonne
+   * (`@Idempotent`). `options.idempotencyKey` la remplace quand l'application
+   * dédoublonne une INTENTION (double clic : même clé pour deux appels).
+   *
+   * Sous un contrat, le corps est l'entrée du schéma de la route (`typeof
+   * SendBody`) — absent ou mal formé, il ne compile pas — et le résultat est typé.
+   *
+   * ```ts
+   * const { sentAt } = await chat.post("/chat/send", { text: "salut" });
+   * ```
+   *
+   * @param path - chemin de la route.
+   * @param body - corps (validé par le schéma de la route côté serveur).
+   * @param options - `idempotencyKey`, `query`, `timeoutMs`.
+   * @returns la valeur que rend l'action.
+   * @throws {@link RpcError} — 400 corps refusé par le schéma, 409 rejeu
+   *   concurrent, 403 refus, 404 chemin inconnu…
+   */
+  post<T = unknown, P extends `/${string}` = `/${string}`>(
+    path: P,
+    ...args: BridgeWriteArgs<Routes, `POST ${P}`>
+  ): Promise<ContractRouteResult<Routes, `POST ${P}`, T>>;
+  post(
     path: `/${string}`,
-    init: {
-      method: "POST" | "PUT" | "PATCH" | "DELETE";
-      body?: unknown;
-      idempotencyKey: string;
-      timeoutMs?: number;
-    },
-  ): Promise<T> {
-    return this.peer.request(
-      "api.request" as never,
-      {
-        path,
-        method: init.method,
-        body: init.body,
-        idempotencyKey: init.idempotencyKey,
-      } as never,
-      init.timeoutMs ?? 30000,
-    ) as Promise<T>;
+    body?: unknown,
+    options?: IBridgeWriteOptions,
+  ): Promise<unknown> {
+    return this.bridge("POST", path, body, options);
+  }
+
+  /** Remplace par le pont (`PUT`) — mêmes règles que {@link post}. */
+  put<T = unknown, P extends `/${string}` = `/${string}`>(
+    path: P,
+    ...args: BridgeWriteArgs<Routes, `PUT ${P}`>
+  ): Promise<ContractRouteResult<Routes, `PUT ${P}`, T>>;
+  put(
+    path: `/${string}`,
+    body?: unknown,
+    options?: IBridgeWriteOptions,
+  ): Promise<unknown> {
+    return this.bridge("PUT", path, body, options);
+  }
+
+  /** Modifie par le pont (`PATCH`) — mêmes règles que {@link post}. */
+  patch<T = unknown, P extends `/${string}` = `/${string}`>(
+    path: P,
+    ...args: BridgeWriteArgs<Routes, `PATCH ${P}`>
+  ): Promise<ContractRouteResult<Routes, `PATCH ${P}`, T>>;
+  patch(
+    path: `/${string}`,
+    body?: unknown,
+    options?: IBridgeWriteOptions,
+  ): Promise<unknown> {
+    return this.bridge("PATCH", path, body, options);
+  }
+
+  /** Supprime par le pont (`DELETE`) — mêmes règles que {@link post}. */
+  delete<T = unknown, P extends `/${string}` = `/${string}`>(
+    path: P,
+    ...args: BridgeWriteArgs<Routes, `DELETE ${P}`>
+  ): Promise<ContractRouteResult<Routes, `DELETE ${P}`, T>>;
+  delete(
+    path: `/${string}`,
+    body?: unknown,
+    options?: IBridgeWriteOptions,
+  ): Promise<unknown> {
+    return this.bridge("DELETE", path, body, options);
+  }
+
+  /**
+   * Une invocation du pont — seule forme de la trame `api.request`. Une lecture
+   * ne porte que `{ path }` (la méthode vaut `GET` côté serveur) ; une écriture
+   * ajoute verbe, corps et clé d'idempotence.
+   */
+  private bridge(
+    method: BridgeVerb,
+    path: `/${string}`,
+    body: unknown,
+    options: IBridgeWriteOptions | undefined,
+  ): Promise<unknown> {
+    const target =
+      options?.query === undefined ? path : withQuery(path, options.query);
+    const params: IBridgeRequestParams =
+      method === "GET"
+        ? { path: target }
+        : {
+            path: target,
+            method,
+            body,
+            idempotencyKey: options?.idempotencyKey ?? createIdempotencyKey(),
+          };
+    return this.peer.requestAs<BridgeActions, "api.request">(
+      "api.request",
+      params,
+      options?.timeoutMs ?? 30000,
+    );
   }
 
   /**
    * Appel API par la socket rendant l'**enveloppe complète** — le résultat ET
-   * la méta serveur — là où {@link request}/{@link mutate} ne rendent que la
+   * la méta serveur — là où {@link get}/{@link post} ne rendent que la
    * valeur (forme courante, contrat « snapshot ≡ GET REST »).
    *
    * Utile à l'outillage plus qu'aux applications : en développement, le serveur
@@ -1750,26 +1928,24 @@ export class NodefonySocket<
    * @param path - chemin de la route (transport WEBSOCKET requis côté serveur).
    * @param init - méthode logique (défaut `GET`), corps, clé d'idempotence.
    */
-  async call<T = unknown>(
+  call<T = unknown>(
     path: `/${string}`,
-    init?: {
-      method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-      body?: unknown;
-      idempotencyKey?: string;
-      timeoutMs?: number;
-    },
-  ): Promise<IApiCallResult<T>> {
-    const traced = await this.peer.requestTraced(
-      "api.request" as never,
+    init?: ICallInit,
+  ): Promise<IApiCallResult<T>>;
+  async call(path: `/${string}`, init?: ICallInit): Promise<IApiCallResult> {
+    const { result, meta } = await this.peer.requestTracedAs<
+      BridgeActions,
+      "api.request"
+    >(
+      "api.request",
       {
         path,
         method: init?.method ?? "GET",
         body: init?.body,
         idempotencyKey: init?.idempotencyKey,
-      } as never,
+      },
       init?.timeoutMs ?? 30000,
     );
-    const { result, meta } = traced as RpcTracedResult<T>;
     return {
       result,
       requestId: typeof meta?.requestId === "string" ? meta.requestId : null,

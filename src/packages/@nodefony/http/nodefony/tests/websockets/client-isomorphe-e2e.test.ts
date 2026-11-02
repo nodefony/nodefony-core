@@ -29,7 +29,7 @@
  *  4. ref-comptage : deux observateurs, un libéré → l'autre reçoit encore ;
  *  5. dernier libéré → le serveur cesse de pousser (désabonnement parti) ;
  *  6. reconnexion réelle → abonnements REJOUÉS sans une ligne applicative ;
- *  7. le pont `request(path)` rend la MÊME valeur que le GET REST ;
+ *  7. le pont `get(path)` rend la MÊME valeur que le GET REST ;
  *  8. route inconnue par le pont → REJET nommé (404), jamais une attente muette ;
  *  9. handshake ANONYME → refus constaté par la sonde : `connect()` rejette,
  *     état `error`, aucune retentative, jamais d'identité (#596) ;
@@ -509,14 +509,14 @@ describe("E2E isomorphe — ce qui casse : reconnexion, refus, pont", () => {
   }, 30_000);
 
   it(
-    "le pont `request(path)` rend la MÊME valeur que le GET REST",
+    "le pont `get(path)` rend la MÊME valeur que le GET REST",
     async () => {
       installWebSocket(cookie);
       const live = connectShared({ url: HUB });
       live.start();
       await until("connecté", () => live.socket.state === "connected");
 
-      const parSocket = await live.socket.request(MODULES);
+      const parSocket = await live.socket.get(MODULES);
       const parRest = await request(MODULES, "GET", { cookie });
       expect(parRest.status).toBe(200);
       // « 1 action controller = N transports » : la valeur ne dépend pas du fil.
@@ -537,7 +537,7 @@ describe("E2E isomorphe — ce qui casse : reconnexion, refus, pont", () => {
       // client doit REJETER, avec le statut équivalent HTTP dans `data`.
       let rejet: unknown = null;
       try {
-        await live.socket.request("/nodefony/kernel/api/route-qui-nexiste-pas");
+        await live.socket.get("/nodefony/kernel/api/route-qui-nexiste-pas");
       } catch (err) {
         rejet = err;
       }

@@ -214,6 +214,9 @@ export {
   jsonRpcSuccess,
   jsonRpcFailure,
 } from "./jsonrpc/index";
+// Clé d'idempotence d'une écriture — isomorphe (aussi dans `nodefony/client`) :
+// le pont socket et le repli HTTP d'un même client partagent la même.
+export { createIdempotencyKey } from "./realtime/idempotencyKey";
 export type {
   JsonRpcId,
   JsonRpcFrameKind,
@@ -364,6 +367,14 @@ export type {
   ContractClientEmit,
   ContractClientListen,
   ContractClientActions,
+  ContractClientRoutes,
+  ContractRouteSchemas,
+  BridgeVerb,
+  IContractRoute,
+  RoutesMap,
+  ContractRouteBody,
+  ContractRouteQuery,
+  ContractRouteResult,
   RealtimeIdentity,
   IRealtimeWelcome,
   IRealtimeDenied,

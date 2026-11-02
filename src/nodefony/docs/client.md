@@ -224,9 +224,11 @@ await socket.connect();
 
 ### 2. Appeler l'API par la socket, pas par `fetch`
 
-La même action de contrôleur répond en HTTP **et** en WebSocket. Un chemin qui commence par `/` est
-routé vers le pont d'API ; les mutations exigent une clé d'idempotence, parce qu'une socket qui
-reconnecte peut rejouer une trame en vol.
+La même action de contrôleur répond en HTTP **et** en WebSocket. La socket l'appelle par le **verbe**
+que la route déclare — `get`, `post`, `put`, `patch`, `delete` — et pose seule une clé
+d'idempotence sur chaque écriture, parce qu'une socket qui reconnecte peut rejouer une trame en vol.
+Sous un contrat (`NodefonySocket.fromContract<C>()`), la clé `serverRoutes` type le corps, la query
+et le résultat de chaque route déclarée ([actions](../../packages/@nodefony/realtime/docs/actions.md#le-contrat-type-les-routes)).
 
 ```typescript
 // frontend/src/orders.ts
@@ -238,15 +240,12 @@ const socket = NodefonySocket.shared({ url: "/api/live/realtime" });
 
 // Lecture — équivalent strict du GET REST sur la même route.
 export async function loadModules(): Promise<{ name: string }[]> {
-  return socket.request<{ name: string }[]>("/nodefony/kernel/api/modules");
+  return socket.get<{ name: string }[]>("/nodefony/kernel/api/modules");
 }
 
-// Écriture — la clé d'idempotence dédoublonne un éventuel rejeu.
+// Écriture — la socket pose la clé d'idempotence : un rejeu ne double pas l'effet.
 export async function ship(orderId: string): Promise<void> {
-  await socket.mutate(`/shop/api/orders/${orderId}/ship`, {
-    method: "POST",
-    idempotencyKey: crypto.randomUUID(),
-  });
+  await socket.post(`/shop/api/orders/${orderId}/ship`);
 }
 
 // Mesure du temps d'aller-retour — la convention `nodefony:kernel:ping` vit dans la lib.
@@ -392,7 +391,7 @@ est nul.
 
 Second effet, tout aussi important : la liste des abonnements est **rejouée à chaque reconnexion**.
 Le serveur repart d'un état vide après une coupure ; c'est le client qui se souvient de ce qu'il
-écoutait, dans la routine d'ouverture de socket (`client/realtime/NodefonySocket.ts#NodefonySocket.mutate`).
+écoutait, dans la routine d'ouverture de socket (`client/realtime/NodefonySocket.ts#NodefonySocket.replaySubscriptions`).
 
 **`connected` ne veut pas dire « abonné ».** L'état passe à `connected` dès l'ouverture du
 transport ; les abonnements ne sont rejoués qu'au `realtime:welcome`, et ne deviennent effectifs
@@ -425,11 +424,12 @@ fixe (`client/realtime/AdaptiveRate.ts#bindAdaptiveChannel`).
 
 ### Les quatre façons de parler au serveur
 
-| Appel                                 | Ancre                                                      | Ce que ça fait                                                   |
-| ------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------- |
-| `NodefonySocket.emit()` / `publish()` | `client/realtime/NodefonySocket.ts#NodefonySocket.publish` | Notification sans réponse — la forme du pub/sub                  |
-| `NodefonySocket.request()`            | `client/realtime/NodefonySocket.ts#NodefonySocket.request` | Requête/réponse ; un argument commençant par `/` cible une route |
-| `NodefonySocket.mutate()`             | `client/realtime/NodefonySocket.ts#NodefonySocket.mutate`  | Écriture par le pont d'API — **clé d'idempotence obligatoire**   |
+| Appel                                                      | Ancre                                                      | Ce que ça fait                                             |
+| ---------------------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------- |
+| `NodefonySocket.emit()` / `publish()`                      | `client/realtime/NodefonySocket.ts#NodefonySocket.publish` | Notification sans réponse — la forme du pub/sub            |
+| `NodefonySocket.request()`                                 | `client/realtime/NodefonySocket.ts#NodefonySocket.request` | Requête/réponse d'une action RPC, par son nom              |
+| `NodefonySocket.get()`                                     | `client/realtime/NodefonySocket.ts#NodefonySocket.get`     | Lecture d'une route par le pont d'API                      |
+| `NodefonySocket.post()` / `put()` / `patch()` / `delete()` | `client/realtime/NodefonySocket.ts#NodefonySocket.post`    | Écriture par le pont d'API — clé d'idempotence posée seule |
 
 Deux compléments moins courants. `NodefonySocket.call()`
 (`client/realtime/NodefonySocket.ts#NodefonySocket.call`) rend l'**enveloppe complète** — la valeur **et**
@@ -1092,8 +1092,8 @@ Le détail du builder, du rechargement à chaud et du rendu de la page côté se
 | `hasAnyRole(roles, [])` rend `false` et surprend                 | Aucune exigence ne peut être satisfaite (`client/roles/roles.ts#hasAnyRole`)                                                                                                                             | Convention assumée ; `hasAllRoles` avec une liste vide rend `true`                                                |
 | `RoleRegistry` lève au 32ᵉ rôle                                  | Limite des entiers 32 bits signés (`client/roles/registry.ts#RoleRegistry`)                                                                                                                              | Rester sur les chaînes / `RoleSet` au-delà de 31 rôles                                                            |
 | Un bouton masqué au front reste appelable                        | Le RBAC client est de l'ergonomie, pas un contrôle                                                                                                                                                       | Protéger la route côté serveur — c'est lui l'autorité                                                             |
-| `request("/x", { id: 3 })` ignore ses paramètres                 | En forme chemin, le 2ᵉ argument est le **délai d'attente** (`client/realtime/NodefonySocket.ts#NodefonySocket.request`)                                                                                  | Paramètres dans le chemin ou la requête ; un corps passe par `mutate()`                                           |
-| Une donnée mal formée traverse l'écran sans erreur               | `request<T>()` **convertit** le type, il ne valide rien                                                                                                                                                  | Valider au bord (Zod, déjà dépendance du framework) toute donnée sensible ou non maîtrisée                        |
+| `request("/x")` rejette `-32601 method not found`                | `request()` appelle une action RPC **par son nom** ; une route se lit par `get()` (`client/realtime/NodefonySocket.ts#NodefonySocket.get`)                                                               | `socket.get("/x", { query })` ; un corps passe par `post()`/`put()`/`patch()`/`delete()`                          |
+| Une donnée mal formée traverse l'écran sans erreur               | `get<T>()` hors contrat **affirme** le type, il ne valide rien                                                                                                                                           | Valider au bord (Zod, déjà dépendance du framework) toute donnée sensible ou non maîtrisée                        |
 | Les erreurs de la page n'arrivent pas au journal du pod          | `clientLogs.enabled` fermé, visiteur anonyme, ou sévérité au-delà de `maxSeverity`                                                                                                                       | Voir [Les journaux de l'onglet](#-les-journaux-de-longlet-remontés-au-pod)                                        |
 | Le canal reste ouvert alors que l'écran a « coupé » le direct    | Le composant abonné est resté monté ; aucune liaison n'a d'interrupteur                                                                                                                                  | Démonter le composant abonné                                                                                      |
 | La socket se ferme en 4006 au bout d'une heure                   | Le jeton porteur qui l'a ouverte a atteint son `exp` ; un client 10.0 ne sait pas en obtenir un neuf, il s'arrête                                                                                        | Recréer la socket avec un jeton frais AVANT `exp` (voir la recette de la page Sécurité du temps réel)             |

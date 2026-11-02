@@ -15,7 +15,7 @@
  * réponse d'erreur de référence vient du HTTP — cf `learnFromSocketError`).
  *
  * **Mutations par la socket (P6.8)** : les POST/PUT/PATCH/DELETE passent aussi
- * par le pont (`socket.mutate`), chacune avec une **clé d'idempotence** générée
+ * par le pont (`socket.post`/`put`/`patch`/`delete`), chacune avec une **clé d'idempotence** générée
  * ici. La MÊME clé est rejouée sur le fallback fetch (en-tête `Idempotency-Key`)
  * → un repli après échec socket ne double JAMAIS l'effet (le serveur dédoublonne).
  *
@@ -27,28 +27,45 @@
 import {
   BYTES_MARKER_HEADER,
   JsonRpcError,
+  createIdempotencyKey,
   textCodecForMarker,
 } from "nodefony";
+
+/** Options d'une écriture par le pont : la clé partagée avec le repli HTTP. */
+interface ApiSocketWriteOptions {
+  idempotencyKey: string;
+}
 
 /**
  * Vue MINIMALE de la Socket Nodefony consommée par le pont (typage structurel —
  * `NodefonySocket` s'y conforme ; pas d'import runtime → 0 couplage, mockable).
+ * Une méthode par verbe HTTP, comme la socket : `get` lit, les autres écrivent
+ * avec la clé d'idempotence que l'ApiClient réutilise sur son repli `fetch`.
  */
 export interface ApiSocketLike {
   /** "connected" quand la socket est opérationnelle. */
   readonly state: string;
-  /** Forme path de `NodefonySocket.request` — lecture GET via `api.request`. */
-  request<T = unknown>(path: `/${string}`, timeoutMs?: number): Promise<T>;
-  /** Forme mutation de `NodefonySocket.mutate` — POST/PUT/PATCH/DELETE + clé d'idempotence. */
-  mutate<T = unknown>(
+  get(path: `/${string}`): Promise<unknown>;
+  post(
     path: `/${string}`,
-    init: {
-      method: "POST" | "PUT" | "PATCH" | "DELETE";
-      body?: unknown;
-      idempotencyKey: string;
-      timeoutMs?: number;
-    },
-  ): Promise<T>;
+    body: unknown,
+    options: ApiSocketWriteOptions,
+  ): Promise<unknown>;
+  put(
+    path: `/${string}`,
+    body: unknown,
+    options: ApiSocketWriteOptions,
+  ): Promise<unknown>;
+  patch(
+    path: `/${string}`,
+    body: unknown,
+    options: ApiSocketWriteOptions,
+  ): Promise<unknown>;
+  delete(
+    path: `/${string}`,
+    body: unknown,
+    options: ApiSocketWriteOptions,
+  ): Promise<unknown>;
 }
 
 export class ApiError extends Error {
@@ -126,11 +143,31 @@ function httpOnlyKey(method: string, url: string): string {
   return `${method} ${routeKey(url)}`;
 }
 
-/** Clé d'idempotence unique par mutation (UUID v4 ; fallback hors secure-context dev). */
-function makeIdempotencyKey(): string {
-  const c = (globalThis as { crypto?: Crypto }).crypto;
-  if (c && typeof c.randomUUID === "function") return c.randomUUID();
-  return `idem-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+/** Une écriture que le pont sait porter, par le verbe de sa méthode. */
+function socketWrite(
+  socket: ApiSocketLike,
+  method: string,
+  path: `/${string}`,
+  body: unknown,
+  options: ApiSocketWriteOptions,
+): Promise<unknown> | null {
+  switch (method) {
+    case "POST":
+      return socket.post(path, body, options);
+    case "PUT":
+      return socket.put(path, body, options);
+    case "PATCH":
+      return socket.patch(path, body, options);
+    case "DELETE":
+      return socket.delete(path, body, options);
+    default:
+      return null;
+  }
+}
+
+/** Un chemin absolu, reconnu comme tel par le type que le pont attend. */
+function isAbsolutePath(url: string): url is `/${string}` {
+  return url.startsWith("/");
 }
 
 export class ApiClient {
@@ -297,28 +334,25 @@ export class ApiClient {
     // tentative socket avait abouti côté serveur → la MÊME clé fait dédoublonner
     // (le serveur rejoue la réponse mémorisée au lieu de ré-exécuter).
     const isMutation = method !== "GET" && method !== "HEAD";
-    const idemKey = isMutation ? makeIdempotencyKey() : undefined;
+    const idemKey = isMutation ? createIdempotencyKey() : undefined;
 
     // ── Pont socket (`api.request`) : même action controller, transport socket.
-    // GET = lecture ; mutation = `mutate` + clé. Succès → servi tel quel ; TOUT
-    // échec → on apprend (-32601/405) puis on retombe sur le fetch ci-dessous
-    // (réponse de référence ; la clé garantit l'absence de double-effet).
-    // `canUseSocket` garantit la socket ; parmi ses méthodes, seul GET n'a pas
-    // de clé d'idempotence — la clé absente désigne donc la lecture.
+    // GET = lecture ; écriture = le verbe de la socket + clé. Succès → servi tel
+    // quel ; TOUT échec → on apprend (-32601/405) puis on retombe sur le fetch
+    // ci-dessous (réponse de référence ; la clé garantit l'absence de
+    // double-effet). `canUseSocket` garantit la socket et le chemin absolu.
     const socket = this.canUseSocket(method, url, init)
       ? this.socket
       : undefined;
-    if (socket) {
+    if (socket && isAbsolutePath(url)) {
       try {
-        const payload =
+        const pending =
           idemKey === undefined
-            ? await socket.request(url as `/${string}`)
-            : await socket.mutate(url as `/${string}`, {
-                method: method as "POST" | "PUT" | "PATCH" | "DELETE",
-                body,
+            ? socket.get(url)
+            : socketWrite(socket, method, url, body, {
                 idempotencyKey: idemKey,
               });
-        return unwrapResult(payload) as T;
+        if (pending !== null) return unwrapResult(await pending) as T;
       } catch (e) {
         this.learnFromSocketError(method, url, e);
       }

@@ -804,7 +804,7 @@ installSyslogUplink({ syslog, publisher: socket })`;
       `${Math.round(performance.now() - t0)} ms\n${JSON.stringify(json.result ?? json, null, 2)}`,
     );
     const t1 = performance.now();
-    const parLaSocket = await this.nodefony.request("/angular/api/data");
+    const parLaSocket = await this.nodefony.get("/angular/api/data");
     this.parSocket.set(
       `${Math.round(performance.now() - t1)} ms\n${JSON.stringify(parLaSocket, null, 2)}`,
     );

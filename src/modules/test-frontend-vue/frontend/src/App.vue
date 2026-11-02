@@ -290,7 +290,7 @@ const comparer = async (): Promise<void> => {
   const json = (await r.json()) as { result?: unknown };
   parHttp.value = `${Math.round(performance.now() - t0)} ms\n${JSON.stringify(json.result ?? json, null, 2)}`;
   const t1 = performance.now();
-  const parLaSocket = await live.request("/vue/api/data");
+  const parLaSocket = await live.get("/vue/api/data");
   parSocket.value = `${Math.round(performance.now() - t1)} ms\n${JSON.stringify(parLaSocket, null, 2)}`;
 };
 

@@ -374,7 +374,7 @@ export abstract class RealtimeController<
    * Opt-in du **pont API** (une action, deux transports) : `true` → la
    * connexion expose la méthode RPC `api.request {path}` qui re-route le path
    * porté par le message vers l'action controller correspondante — la MÊME
-   * action que le GET REST (`socket.request("/nodefony/kernel/api/modules")`
+   * action que le GET REST (`socket.get("/nodefony/kernel/api/modules")`
    * côté client). Le pont n'atteint QUE les routes déclarant le transport
    * `WEBSOCKET` dans leurs `methods` (zéro bypass : une action dit à quels
    * transports elle répond). À surcharger ; défaut : `false` — aucune surface
@@ -1643,7 +1643,7 @@ export abstract class RealtimeController<
           // `executeActionGuarded` (PAS `executeAction` nu) : il porte la porte
           // d'idempotence `@Idempotent` (mutations — la méthode logique voyage
           // dans `resolver.methodOverride`) SANS rendre sur le transport ;
-          // l'appel nu la court-circuitait → un rejeu `socket.mutate` créait un
+          // l'appel nu la court-circuitait → un rejeu `socket.post` créait un
           // DOUBLON, et `callController` enverrait la réponse une 2ᵉ fois.
           const { result: actionResult } = await resolver.executeActionGuarded(
             undefined,

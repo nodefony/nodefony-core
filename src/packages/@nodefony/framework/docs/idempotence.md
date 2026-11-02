@@ -263,7 +263,7 @@ Deux mécanismes rendent ça possible côté socket :
   `resolveIdempotencyKey()` (`idempotency.ts#resolveIdempotencyKey`) donne la **priorité à l'ALS** sur l'en-tête HTTP.
 - **La méthode logique voyage par `methodOverride`** — sur une socket, `context.method` vaut
   `WEBSOCKET`, qui n'est **pas** une mutation. Sans override, la porte serait sautée et un rejeu de
-  frame `socket.mutate` créerait un doublon. Le Resolver teste donc
+  frame `socket.post` créerait un doublon. Le Resolver teste donc
   `isMutationMethod(this.methodOverride ?? context.method)` (`Resolver.ts#Resolver.action`).
 
 Le pont utilise `executeActionGuarded()` (`Resolver.ts#Resolver.executeActionGuarded`) : porte d'idempotence **sans** rendu HTTP

@@ -125,6 +125,7 @@ import {
   routeExpectsBodyStream,
   buildContextParamArgs,
   getParamArgsMeta,
+  getRouteSchema,
 } from "./nodefony/decorators/routerDecorators";
 export type { IHttpMethodDecorator } from "./nodefony/decorators/routerDecorators";
 // Routes typées et validées par un schéma (ADR-0018) : la validation est
@@ -589,6 +590,7 @@ export {
   routeExpectsBodyStream,
   buildContextParamArgs,
   getParamArgsMeta,
+  getRouteSchema,
   registerIdempotencyStore,
   getIdempotencyStoreFactory,
   listIdempotencyStores,

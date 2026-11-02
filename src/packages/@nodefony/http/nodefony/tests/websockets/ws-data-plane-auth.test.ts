@@ -138,7 +138,7 @@ type Welcome = {
 function hubConnect(cookie: string | null): Promise<{
   welcome: Welcome;
   request: (path: string) => Promise<JsonRpcReply>;
-  mutate: (
+  write: (
     path: string,
     init: { method: string; body?: unknown; idempotencyKey?: string },
   ) => Promise<JsonRpcReply>;
@@ -203,7 +203,7 @@ function hubConnect(cookie: string | null): Promise<{
         resolve({
           welcome: frame.params as Welcome,
           request: (path: string) => invoke({ path }),
-          mutate: (path, init) =>
+          write: (path, init) =>
             invoke({
               path,
               method: init.method,
@@ -405,7 +405,7 @@ describe("P6.8 — mutations socket idempotentes (requires server)", () => {
   it("mutation WS (POST + clé) → exécute + identité résolue + corps transporté", async () => {
     const cookie = await loginCookie("admin", "secret-de-dev-42");
     const hub = await hubConnect(cookie);
-    const reply = await hub.mutate(PROBE, {
+    const reply = await hub.write(PROBE, {
       method: "POST",
       body: { a: 1 },
       idempotencyKey: randomUUID(),
@@ -430,11 +430,11 @@ describe("P6.8 — mutations socket idempotentes (requires server)", () => {
     const cookie = await loginCookie("admin", "secret-de-dev-42");
     const hub = await hubConnect(cookie);
     const key = randomUUID();
-    const first = await hub.mutate(PROBE, {
+    const first = await hub.write(PROBE, {
       method: "POST",
       idempotencyKey: key,
     });
-    const replay = await hub.mutate(PROBE, {
+    const replay = await hub.write(PROBE, {
       method: "POST",
       idempotencyKey: key,
     });
@@ -449,11 +449,11 @@ describe("P6.8 — mutations socket idempotentes (requires server)", () => {
   it("clé DIFFÉRENTE → ré-exécute (nouvelle intention → le compteur avance)", async () => {
     const cookie = await loginCookie("admin", "secret-de-dev-42");
     const hub = await hubConnect(cookie);
-    const a = await hub.mutate(PROBE, {
+    const a = await hub.write(PROBE, {
       method: "POST",
       idempotencyKey: randomUUID(),
     });
-    const b = await hub.mutate(PROBE, {
+    const b = await hub.write(PROBE, {
       method: "POST",
       idempotencyKey: randomUUID(),
     });
@@ -465,13 +465,13 @@ describe("P6.8 — mutations socket idempotentes (requires server)", () => {
     const cookie = await loginCookie("admin", "secret-de-dev-42");
     const hub = await hubConnect(cookie);
     const key = randomUUID();
-    const first = await hub.mutate(PROBE, {
+    const first = await hub.write(PROBE, {
       method: "POST",
       body: { a: 1 },
       idempotencyKey: key,
     });
     // MÊME clé, corps DIFFÉRENT → le fingerprint diffère → réutilisation refusée.
-    const reuse = await hub.mutate(PROBE, {
+    const reuse = await hub.write(PROBE, {
       method: "POST",
       body: { a: 2 },
       idempotencyKey: key,
@@ -485,7 +485,7 @@ describe("P6.8 — mutations socket idempotentes (requires server)", () => {
   it("clé ABSENTE sur une mutation WS → 400 (la socket rejoue : garde-fou requis)", async () => {
     const cookie = await loginCookie("admin", "secret-de-dev-42");
     const hub = await hubConnect(cookie);
-    const reply = await hub.mutate(PROBE, { method: "POST" }); // pas de clé
+    const reply = await hub.write(PROBE, { method: "POST" }); // pas de clé
     hub.close();
     expect(reply.result).to.equal(undefined);
     expect(statusOf(reply)).to.equal(400);
@@ -494,7 +494,7 @@ describe("P6.8 — mutations socket idempotentes (requires server)", () => {
   it("clé ABUSIVE (>255 car) → 400 (anti-DoS : ne gonfle pas le cache borné)", async () => {
     const cookie = await loginCookie("admin", "secret-de-dev-42");
     const hub = await hubConnect(cookie);
-    const reply = await hub.mutate(PROBE, {
+    const reply = await hub.write(PROBE, {
       method: "POST",
       idempotencyKey: "x".repeat(300),
     });
@@ -510,12 +510,12 @@ describe("P6.8 — mutations socket idempotentes (requires server)", () => {
     // `delayMs` ouvre la fenêtre : la 2ᵉ frame arrive pendant que la 1ʳᵉ est
     // in-flight → le store renvoie 409 (anti double-exécution concurrente).
     const [r1, r2] = await Promise.all([
-      hub.mutate(PROBE, {
+      hub.write(PROBE, {
         method: "POST",
         body: { delayMs: 500 },
         idempotencyKey: key,
       }),
-      hub.mutate(PROBE, {
+      hub.write(PROBE, {
         method: "POST",
         body: { delayMs: 500 },
         idempotencyKey: key,
@@ -530,13 +530,13 @@ describe("P6.8 — mutations socket idempotentes (requires server)", () => {
     const userCookie = await loginCookie("user", "secret-de-dev-42");
     const key = randomUUID();
     const adminHub = await hubConnect(adminCookie);
-    const adminReply = await adminHub.mutate(PROBE, {
+    const adminReply = await adminHub.write(PROBE, {
       method: "POST",
       idempotencyKey: key,
     });
     adminHub.close();
     const userHub = await hubConnect(userCookie);
-    const userReply = await userHub.mutate(PROBE, {
+    const userReply = await userHub.write(PROBE, {
       method: "POST",
       idempotencyKey: key,
     });
@@ -557,7 +557,7 @@ describe("P6.8 — mutations socket idempotentes (requires server)", () => {
   it("désambiguïsation de méthode : DELETE sur une route POST-only → 405", async () => {
     const cookie = await loginCookie("admin", "secret-de-dev-42");
     const hub = await hubConnect(cookie);
-    const reply = await hub.mutate(PROBE, {
+    const reply = await hub.write(PROBE, {
       method: "DELETE",
       idempotencyKey: randomUUID(),
     });

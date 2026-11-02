@@ -516,7 +516,7 @@ function LiveSection() {
       `${Math.round(performance.now() - t0)} ms\n${JSON.stringify(json.result ?? json, null, 2)}`,
     );
     const t1 = performance.now();
-    const parLaSocket = await live.request(`/${FRONT.toLowerCase()}/api/data`);
+    const parLaSocket = await live.get(`/${FRONT.toLowerCase()}/api/data`);
     setParSocket(
       `${Math.round(performance.now() - t1)} ms\n${JSON.stringify(parLaSocket, null, 2)}`,
     );

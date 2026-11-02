@@ -112,7 +112,7 @@ interface RpcErrorLike {
 /**
  * Exécution socket — pont `api.request` du client Nodefony.
  *
- * `call()` (et non `request`/`mutate`) : c'est la forme qui rend l'enveloppe
+ * `call()` (et non `get`/`post`) : c'est la forme qui rend l'enveloppe
  * complète, donc l'identifiant du profil de LA frame — la porte socket se
  * radiographie désormais comme la porte HTTP. Un `RpcError` porte le statut
  * HTTP équivalent (`data.status`) ET cet identifiant : on rend le refus comme

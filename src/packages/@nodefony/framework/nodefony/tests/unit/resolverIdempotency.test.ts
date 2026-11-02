@@ -281,7 +281,7 @@ describe("Resolver — seam @Idempotent userland (callController)", () => {
 
   it("pont WS (methodOverride POST) → porte ACTIVE : rejeu mémorisé, corps ALS", async () => {
     // Bug vécu au banc duplex : en WS `context.method` = transport → la porte
-    // était sautée et chaque rejeu `socket.mutate` créait un DOUBLON. La méthode
+    // était sautée et chaque rejeu `socket.post` créait un DOUBLON. La méthode
     // LOGIQUE de la mutation du pont voyage dans `resolver.methodOverride`.
     const store = makeStore();
     const call = () =>
@@ -309,7 +309,7 @@ describe("Resolver — seam @Idempotent userland (callController)", () => {
     expect(replay).to.deep.equal({ created: true, n: 1 });
   });
 
-  it("pont WS (methodOverride POST) SANS clé → 400 strict (socket.mutate l'exige)", async () => {
+  it("pont WS (methodOverride POST) SANS clé → 400 strict (la socket la pose toujours)", async () => {
     const r = makeResolver({
       action: "create",
       method: "WEBSOCKET",

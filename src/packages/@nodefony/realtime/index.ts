@@ -48,6 +48,12 @@ import {
   createAdmissionResolver,
   registerControllerPolicies,
 } from "./nodefony/src/server/channelPolicyRegistry";
+import { getRouteSchema, isFrameworkRouter } from "@nodefony/framework";
+import {
+  assertContractRoutes,
+  readContractRoutes,
+} from "./nodefony/src/server/contractRoutes";
+import type { IMountedBridgeRoute } from "./nodefony/src/server/contractRoutes";
 import ServerRealtimeSocket, {
   serverSocket,
 } from "./nodefony/src/server/ServerRealtimeSocket";
@@ -312,13 +318,52 @@ class Realtime extends Module<IRealtimeConfig> {
       (message) => this.log(message, "INFO"),
     );
     const controllers = Module.controllers;
+    // Routes montées, lues UNE fois et seulement si un contrôleur déclare une
+    // table `serverRoutes` : un démarrage sans contrat de routes ne paie rien.
+    let mounted: IMountedBridgeRoute[] | null = null;
     for (const key in controllers) {
       const ctor = controllers[key];
       if (ctor !== undefined && ctor.prototype instanceof RealtimeController) {
         registerControllerPolicies(hub, ctor, resolveAdmission);
+        const table = readContractRoutes(ctor);
+        if (table !== null) {
+          mounted ??= this.mountedRoutes();
+          assertContractRoutes(ctor.name, table, mounted);
+        }
       }
     }
     return this;
+  }
+
+  /**
+   * Les routes montées par le routeur du framework, vues par le contrôle des
+   * routes de contrat : chemin, méthodes, schémas d'entrée.
+   *
+   * @returns la liste, vide si le routeur du framework est absent.
+   */
+  private mountedRoutes(): IMountedBridgeRoute[] {
+    const router: unknown = this.kernel?.container?.get("router");
+    if (!isFrameworkRouter(router)) return [];
+    const all = router.getRoutes("");
+    const routes = Array.isArray(all) ? all : [];
+    return routes.flatMap((route) =>
+      route.path === undefined
+        ? []
+        : [
+            {
+              path: route.path,
+              methods: route.methodsSet,
+              schema:
+                route.controller !== undefined &&
+                route.classMethod !== undefined
+                  ? getRouteSchema(
+                      route.controller.prototype,
+                      route.classMethod,
+                    )
+                  : null,
+            },
+          ],
+    );
   }
 
   /**

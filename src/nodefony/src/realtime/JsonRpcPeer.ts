@@ -493,6 +493,29 @@ export class JsonRpcPeer<
   }
 
   /**
+   * Requête SORTANTE **tracée** typée par un contrat que l'APPELANT déclare —
+   * {@link requestAs} qui garde la méta serveur, comme {@link requestTraced}.
+   *
+   * @typeParam A - le contrat RPC de l'interlocuteur.
+   * @param method - action exposée par l'interlocuteur.
+   * @param params - ses paramètres, typés par le contrat.
+   * @param timeoutMs - délai avant rejet (défaut 30 s).
+   * @returns `{ result, meta }` ; rejette sur `error`, timeout ou pair disposé.
+   */
+  requestTracedAs<A extends ActionsMap, K extends ActionNames<A>>(
+    method: K,
+    params?: ActionParams<A, K>,
+    timeoutMs = 30000,
+  ): Promise<RpcTracedResult<ActionResult<A, K>>> {
+    return this.startCall<RpcTracedResult<ActionResult<A, K>>>(
+      method,
+      params,
+      timeoutMs,
+      true,
+    );
+  }
+
+  /**
    * Requête SORTANTE **tracée** — rend `{ result, meta }` au lieu du `result` nu.
    *
    * Même appel que {@link request} : la seule différence est que l'appelant

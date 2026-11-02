@@ -17,6 +17,7 @@ import {
   isSubclassOf,
 } from "../Tools";
 import { NodefonySocket } from "./realtime/NodefonySocket";
+import { createIdempotencyKey } from "../realtime/idempotencyKey";
 import { NodefonySse } from "./sse/NodefonySse";
 import { SseParser, SseLimitError, SSE_MAX_EVENT_SIZE } from "./sse/SseParser";
 import { closeCodeToNotice } from "./realtime/notice";
@@ -55,6 +56,16 @@ export type {
   ContractClientEmit,
   ContractClientListen,
   ContractClientActions,
+  // Les routes du pont que le contrat type (`get`/`post`/…).
+  ContractClientRoutes,
+  BridgeVerb,
+  IContractRoute,
+  RoutesMap,
+  ContractRouteBody,
+  ContractRouteQuery,
+  ContractRouteResult,
+  IBridgeReadOptions,
+  IBridgeWriteOptions,
 } from "./realtime/NodefonySocket";
 export type { NodefonyNotice, NoticeLevel } from "./realtime/notice";
 // Flux d'événements serveur (SSE) — client et analyseur UNIQUE du format.
@@ -204,6 +215,7 @@ export {
   isPromise,
   isSubclassOf,
   NodefonySocket,
+  createIdempotencyKey,
   NodefonySse,
   SseParser,
   SseLimitError,

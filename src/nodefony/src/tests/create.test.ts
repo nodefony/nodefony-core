@@ -5676,6 +5676,9 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         assert.include(src, marker, `manque ${marker}`);
       }
       assert.notMatch(src, /@(Body|Query|Param|CurrentUser)\(/u);
+      // Les anciens noms du pont ne survivent pas dans le code généré.
+      assert.notInclude(src, "socket.mutate(");
+      assert.notInclude(src, "socket.request(");
       // REST pur : aucun transport WS, aucun décorateur de la vitrine.
       assert.notInclude(src, "WEBSOCKET");
       assert.notInclude(src, "@UseSession");
@@ -5726,9 +5729,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "input: RouteInput<",
         "this.user?.identifier",
         // Le TSDoc client montre les DEUX portes.
-        "socket.request(",
-        "socket.mutate(",
-        "idempotencyKey",
+        "socket.get(",
+        "socket.post(",
+        "socket.delete(path)",
+        "clé d'idempotence",
         // Variante sécurisée (complete) : la MÊME garde par rôle pour les
         // DEUX portes — HTTP direct et pont api.request (ALS au handshake).
         '@IsGranted("ROLE_ADMIN")',

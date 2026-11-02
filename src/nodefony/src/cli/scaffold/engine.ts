@@ -3814,7 +3814,7 @@ function runControllerScaffold(
     rest: [`REST ${route} (GET/POST) · ${route}/{id} (GET/PUT/PATCH/DELETE)`],
     duplex: [
       `REST ${route} (GET/POST) · ${route}/{id} (GET/DELETE)`,
-      `WS   ${route}/realtime (socket Nodefony — mêmes actions via socket.request/mutate)`,
+      `WS   ${route}/realtime (socket Nodefony — mêmes actions via socket.get/post/delete)`,
     ],
     realtime: [
       `WS   ${route}/realtime (socket Nodefony — canal ${kebab}:events, action ${kebab}:ping)`,

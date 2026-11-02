@@ -14,8 +14,8 @@ import { z } from "zod";
 
 /**
  * Le CONTRAT d'entrée de chaque route, VALIDÉ par le framework avant l'action —
- * par les DEUX portes : le corps et la query d'un `socket.mutate` /
- * `socket.request` passent le même schéma qu'un appel HTTP, et un échec est le
+ * par les DEUX portes : le corps et la query d'un `socket.post` /
+ * `socket.get` passent le même schéma qu'un appel HTTP, et un échec est le
  * même 422 (`data.status` et `data.fields` côté socket).
  */
 const idParams = z.object({ id: z.string().min(1) });
@@ -58,14 +58,11 @@ interface IItem {
  * const socket = NodefonySocket.shared({ url: "<%= it.route %>/realtime" });
  * await socket.connect();
  * // LECTURE — la même action que `GET <%= it.route %>` :
- * const items = await socket.request("<%= it.route %>?limit=10");
- * // MUTATION — méthode HTTP logique + clé d'idempotence OBLIGATOIRE (une
- * // socket qui reconnecte peut rejouer une frame → la clé dédoublonne) :
- * const created = await socket.mutate("<%= it.route %>", {
- *   method: "POST",
- *   body: { name: "premier" },
- *   idempotencyKey: crypto.randomUUID(),
- * });
+ * const items = await socket.get("<%= it.route %>", { query: { limit: 10 } });
+ * // ÉCRITURE — la méthode porte le VERBE de la route ; la clé d'idempotence
+ * // est posée seule (une socket qui reconnecte peut rejouer une trame → la
+ * // clé dédoublonne) :
+ * const created = await socket.post("<%= it.route %>", { name: "premier" });
  * ```
  * Et les MÊMES actions au curl :
  * ```bash
@@ -114,7 +111,7 @@ interface IItem {
     this.handleRealtime(message);
   }
 
-  /** Liste — `GET <%= it.route %>` OU `socket.request("<%= it.route %>")`. */
+  /** Liste — `GET <%= it.route %>` OU `socket.get("<%= it.route %>")`. */
   @route("<%= it.kebab %>-list", {
     path: "",
     requirements: { methods: ["GET", "WEBSOCKET"] },
@@ -142,7 +139,7 @@ interface IItem {
   /**
    * Création idempotente par les DEUX portes : en HTTP la clé vient de
    * l'en-tête `Idempotency-Key`, par la socket elle voyage dans la frame
-   * (`socket.mutate` l'exige) — même dédup, même cache de rejeu. ⚠ Une action
+   * (`socket.post` la pose seule) — même dédup, même cache de rejeu. ⚠ Une action
    * `@Idempotent` RETOURNE son payload BRUT (c'est LUI qui est mémorisé).
    */
   @route("<%= it.kebab %>-create", {
@@ -165,7 +162,8 @@ interface IItem {
   }
 
 <% if (it.hasSecurity) { %>  /**
-   * Suppression PROTÉGÉE par rôle — la MÊME garde pour les DEUX portes : en
+   * Suppression PROTÉGÉE par rôle — `DELETE` HTTP ou `socket.delete(path)`,
+   * la MÊME garde pour les DEUX portes : en
    * HTTP `@IsGranted` refuse (403) AVANT l'action ; par la socket, le pont
    * `api.request` re-traverse le MÊME pipeline (le token du handshake voyage
    * dans l'ALS) → même refus. En dev, `admin/<%= it.devAdminPassword %>` a le rôle.
@@ -183,7 +181,7 @@ interface IItem {
     }
     return { deleted: id, by: this.user?.identifier ?? null };
   }
-<% } else { %>  /** Suppression — `DELETE` HTTP ou `socket.mutate(path, { method: "DELETE", … })`. */
+<% } else { %>  /** Suppression — `DELETE` HTTP ou `socket.delete(path)`. */
   @route("<%= it.kebab %>-delete", {
     path: "/{id}",
     requirements: { methods: ["DELETE", "WEBSOCKET"] },

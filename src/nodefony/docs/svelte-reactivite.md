@@ -229,7 +229,7 @@ un **teardown**, à donner à `$effect`.
 | Liaison                             | Rend                                       | À quoi ça sert                                               |
 | ----------------------------------- | ------------------------------------------ | ------------------------------------------------------------ |
 | `configureNodefony(opts)`           | —                                          | la politique : socket de la page, connexion lancée           |
-| `nodefony()`                        | `NodefonySocket`                           | l'échappatoire : `emit`, `request`, `mutate`, `ping`         |
+| `nodefony()`                        | `NodefonySocket`                           | l'échappatoire : `emit`, `request`, `get`, `post`, `ping`    |
 | `nodefonyState()`                   | `Reactive<RealtimeState>`                  | afficher l'état, griser un bouton pendant une reconnexion    |
 | `nodefonyIdentity()`                | `Reactive<RealtimeIdentity \| null>`       | savoir qui est connecté — sans appeler `/auth/me`            |
 | `nodefonyKernel()`                  | `INodefonyKernel \| null`                  | le noyau fourni — la porte vers `setIdentity()`              |

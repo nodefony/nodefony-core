@@ -10,7 +10,9 @@ import {
   type ContractClientEmit,
   type ContractClientListen,
   type ContractServerEmit,
+  type ContractRouteSchemas,
 } from "nodefony";
+import { z } from "zod";
 import { ContractRealtimeController } from "../../src/server/ContractRealtimeController.js";
 import {
   RealtimeChannel,
@@ -393,7 +395,82 @@ function _broadcastOnly(): void {
   void FactoryRt;
 }
 
+/**
+ * Le chat typé du cookbook (`docs/cookbook-chat.md`, étape 5 « Quatre ») — tel
+ * qu'écrit : salon, canal personnel, routes du pont, table serveur (#708).
+ */
+const CookbookSendBody = z.object({
+  text: z.string().trim().min(1).max(2000),
+  to: z.string().optional(),
+});
+const CookbookHistoryQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  since: z.coerce.number().optional(),
+});
+interface CookbookMessage {
+  author: string;
+  text: string;
+  sentAt: number;
+  to?: string;
+}
+interface CookbookChatContract extends IRealtimeContract {
+  serverToClient: {
+    "chat:room": CookbookMessage;
+    [channel: `user:${string}`]: CookbookMessage;
+  };
+  serverRoutes: {
+    "POST /chat/send": {
+      body: typeof CookbookSendBody;
+      result: { sentAt: number };
+    };
+    "GET /chat/history": {
+      query: typeof CookbookHistoryQuery;
+      result: CookbookMessage[];
+    };
+  };
+}
+
+function _cookbookChat(): void {
+  class CookbookChat extends ContractRealtimeController<CookbookChatContract> {
+    static readonly serverRoutes = {
+      "POST /chat/send": { body: CookbookSendBody },
+      "GET /chat/history": { query: CookbookHistoryQuery },
+    } satisfies ContractRouteSchemas<CookbookChatContract>;
+  }
+  void CookbookChat;
+  const message: CookbookMessage = {
+    author: "alice",
+    text: "salut",
+    sentAt: 1,
+  };
+  const hub = getRealtimeHub<CookbookChatContract>();
+  hub.publish("chat:room", message);
+  hub.publishToUser("bob-id", { ...message, to: "bob-id" });
+  // @ts-expect-error — `txt` n'est pas un champ du message
+  hub.publish("chat:room", { txt: "x" });
+
+  const chat = NodefonySocket.fromContract<CookbookChatContract>({
+    url: "/chat",
+  });
+  chat.onUser((m) => expectType<string>(m.text));
+  expectType<Promise<CookbookMessage[]>>(
+    chat.get("/chat/history", { query: { limit: 50 } }),
+  );
+  expectType<Promise<CookbookMessage[]>>(chat.get("/chat/history"));
+  expectType<Promise<{ sentAt: number }>>(
+    chat.post("/chat/send", { text: "a" }),
+  );
+  void chat.post("/chat/send", { text: "a", to: "bob-id" });
+  // @ts-expect-error — `texte` n'existe pas dans le schéma
+  void chat.post("/chat/send", { texte: "x" });
+  // @ts-expect-error — le schéma exige un corps
+  void chat.post("/chat/send");
+}
+
 describe("Realtime — contrat de canaux typé partagé (L3, compile-only)", () => {
+  it("compile : le chat typé du cookbook, routes du pont comprises (#708)", () => {
+    void _cookbookChat;
+  });
   it("compile : un contrat unique, lu par chaque côté dans sa direction", () => {
     void _contractOnly;
   });

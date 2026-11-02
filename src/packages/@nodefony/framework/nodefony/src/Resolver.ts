@@ -742,7 +742,7 @@ class Resolver implements IResolver {
    * (`returnController`) — le chemin du **pont `api.request`** (WS) : la valeur
    * nue est enveloppée `{id, result}` par le peer, jamais rendue sur le
    * transport. La méthode HTTP logique d'une mutation du pont voyage dans
-   * {@link methodOverride} ; sans porte ici, un rejeu `socket.mutate` (socket
+   * {@link methodOverride} ; sans porte ici, un rejeu `socket.post` (socket
    * qui reconnecte) ré-exécuterait la mutation (doublon — vécu au banc duplex).
    *
    * @returns `{ result }` — la valeur retournée par l'action (ou la réponse
@@ -794,7 +794,7 @@ class Resolver implements IResolver {
     // En WS, la méthode LOGIQUE d'une mutation du pont `api.request` voyage dans
     // `methodOverride` (posé par `router.resolve(ctx, path, method)`) — sans elle
     // `context.method` = transport WEBSOCKET → la porte serait SAUTÉE et le rejeu
-    // d'une frame `socket.mutate` créerait un DOUBLON (vécu au banc duplex).
+    // d'une frame `socket.post` créerait un DOUBLON (vécu au banc duplex).
     // `meta` est repassé à `executeAction` (pas de re-résolution).
     if (!isMutationMethod(this.methodOverride ?? context.method)) {
       return this.executeAction(data, reload, meta);
