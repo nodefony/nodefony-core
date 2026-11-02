@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T08:08:18.755Z",
+  "generatedAt": "2026-11-02T08:50:07.058Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 220,
+      "closed": 221,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 27,
+      "open": 26,
       "title": "10.0.0-beta"
     },
     {
@@ -5611,8 +5611,8 @@
       "number": 713,
       "title": "ci(adr): vérifier que les promesses des ADR ont un ticket qui les porte",
       "url": "https://github.com/nodefony/nodefony-core/issues/713",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -9494,7 +9494,7 @@
       "title": "feat(realtime): livrer les ajouts différés des ADR temps réel",
       "url": "https://github.com/nodefony/nodefony-core/issues/714",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.2.0",
       "priorite": "P3 — fin de cycle",
       "jours": null,
@@ -9508,7 +9508,7 @@
       "title": "feat(realtime): reprendre un abonnement depuis un curseur",
       "url": "https://github.com/nodefony/nodefony-core/issues/715",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.2.0",
       "priorite": "P3 — fin de cycle",
       "jours": 2,
@@ -9522,7 +9522,7 @@
       "title": "feat(realtime): signaler la fin d'un canal par realtime:closed",
       "url": "https://github.com/nodefony/nodefony-core/issues/716",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.2.0",
       "priorite": "P3 — fin de cycle",
       "jours": 1,
