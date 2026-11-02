@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-11-01",
+  "generatedAt": "2026-11-02",
   "count": 41,
   "repoScripts": [
     {
@@ -6049,7 +6049,7 @@
       "name": "nodefony-framework-dev",
       "summary": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM).",
       "family": "Développer le framework",
-      "version": "2.1.0",
+      "version": "2.2.0",
       "keywords": [
         "nodefony",
         "@nodefony/http",
@@ -11320,7 +11320,7 @@
       "name": "nodefony-studio-dev",
       "summary": "Kit de dev du frontend Studio de Nodefony (@nodefony/studio, React 19) — l'app admin interne du framework.",
       "family": "Développer le framework",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "keywords": [],
       "triggers": [
         "dev studio",

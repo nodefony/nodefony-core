@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-26
+updated: 2026-11-02
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-studio-dev/SKILL.md"
 ---
@@ -18,7 +18,7 @@ source: ".claude/skills/nodefony-studio-dev/SKILL.md"
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v2.0.0`.
+> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v2.1.0`.
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -26,7 +26,7 @@ source: ".claude/skills/nodefony-studio-dev/SKILL.md"
 
 | | |
 | --- | --- |
-| Version | `2.0.0` |
+| Version | `2.1.0` |
 | Famille | Développer le framework |
 | Corps | 145 lignes |
 | Coût d'activation | ~3 218 tokens (le corps est chargé à l'invocation) |
@@ -68,12 +68,12 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
-| `references/backend-studio.md` | Référence — Back-end Studio (controller · data plane · auth · realtime serveur) | 105 |
+| `references/backend-studio.md` | Référence — Back-end Studio (controller · data plane · auth · realtime serveur) | 112 |
 | `references/debugbar.md` | Référence — Debug bar Nodefony (nodefony/debugbar) | 43 |
 | `references/gotchas-studio.md` | Gotchas Studio — règles durables (par thème) | 492 |
-| `references/realtime-studio.md` | Référence — Realtime Studio (canaux · hub UI · log protocole · patron sondes) | 123 |
+| `references/realtime-studio.md` | Référence — Realtime Studio (canaux · hub UI · log protocole · patron sondes) | 124 |
 | `references/twin.md` | Référence — Jumeau Vivant (Twin) | 77 |
-| `references/ui-kit.md` | Référence — UI kit Studio & construction d'écran | 373 |
+| `references/ui-kit.md` | Référence — UI kit Studio & construction d'écran | 376 |
 
 
 ## Conformité au standard Agent Skills

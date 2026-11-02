@@ -18,7 +18,7 @@ source: ".claude/skills/nodefony-framework-dev/SKILL.md"
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v2.1.0`.
+> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v2.2.0`.
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -26,7 +26,7 @@ source: ".claude/skills/nodefony-framework-dev/SKILL.md"
 
 | | |
 | --- | --- |
-| Version | `2.1.0` |
+| Version | `2.2.0` |
 | Famille | Développer le framework |
 | Corps | 410 lignes |
 | Coût d'activation | ~9 752 tokens (le corps est chargé à l'invocation) |
@@ -76,7 +76,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/orm.md` | ORM (orm-core/drizzle/mongoose) — référence complète (recettes + API + internals + gotchas) | 697 |
 | `references/pagination.md` | Pagination, tri, filtres, facettes — le contrat de page | 468 |
 | `references/portabilite.md` | Portabilité — écrire du code qui tourne sur les 3 plateformes | 147 |
-| `references/realtime.md` | Realtime (WS/hub/RealtimeService) — référence complète (recettes + API + internals + gotchas) | 629 |
+| `references/realtime.md` | Realtime (WS/hub/RealtimeService) — référence complète (recettes + API + internals + gotchas) | 636 |
 | `references/security.md` | Référence SÉCURITÉ (coder AVEC la sécurité) — intemporel | 69 |
 | `references/typage-strict.md` | Durcir le typage par cliquet — options du compilateur et codemods | 68 |
 

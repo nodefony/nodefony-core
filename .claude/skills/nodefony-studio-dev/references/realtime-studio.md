@@ -45,7 +45,8 @@ paint = `GET /nodefony/realtime/api/health`. Panneau « Hub » = KpiCard canaux/
   Front : `const r = await conn.request<"nodefony:kernel:ping", T>("nodefony:kernel:ping", params)` (Promise id-matchée, timeout 30 s) ; helper
   réutilisable `conn.ping()` (RTT). Le `realtime:welcome` annonce `params.methods` → **actions découvrables**.
 - Côté serveur : le controller étend **`RealtimeController`** (framework) et déclare `realtimeActions()`
-  (`nodefony:kernel:ping`/`nodefony:kernel:gc`). Inconnu → `-32601` ; throw → `-32603` générique. **Pour ajouter une action serveur
+  (`nodefony:kernel:ping`/`nodefony:kernel:gc`, et `nodefony:realtime:throughput` → `StudioRealtimeController.ts#StudioRealtimeController.actionThroughput` :
+  rend `{ size, bytes }`, tailles FERMÉES 1 Ko / 64 Ko / 1 Mo — sonde du coût d'un codec sur le fil). Inconnu → `-32601` ; throw → `-32603` générique. **Pour ajouter une action serveur
   → skill `nodefony-framework-dev`.** Le générique (protocole, RTT) vit dans la lib/le framework, PAS dupliqué front.
 
 **Architecture « la socket Nodefony »** (north-star) : `RealtimeHub` (broker serveur) = lien fusionnel isomorphe ;

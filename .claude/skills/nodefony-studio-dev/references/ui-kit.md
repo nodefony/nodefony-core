@@ -43,7 +43,10 @@ useResource<T>(fetcher: () => Promise<T>): { data: T|null; loading: boolean; err
 <KeyValue k v mono? />                                     // ligne label→valeur ; mono=monospace
 <DefinitionList gap?>{…KeyValue}</DefinitionList>
 <JsonViewer value maxHeight? />                            // dump JSON read-only + copier (texte sûr, 0 injection)
-<MiniChart series={[{data:number[],color:string,label:string}]} height? max? threshold? format? />  // courbe SVG ; JAMAIS recharts
+<MiniChart series={[{data:number[],color:string,label:string}]} height? max? threshold? format? times? windowMs? />  // courbe SVG ; JAMAIS recharts
+// times + windowMs = abscisse en TEMPS : chaque point à son heure d'arrivée (Date.now() navigateur, aligné sur la FIN des séries),
+// défilement à vitesse constante par un div HTML (compositeur) ; un retard = trou visible, jamais un rattrapage.
+// Sans eux : un cran par point. Échelle Y à hystérésis → utils/chartScale.ts (niceCeil, stableTop) — pas de max recalculé à chaque tick.
 <ChartCard title caption badge?>{<MiniChart/>}</ChartCard>
 <Legend color label />
 

@@ -553,6 +553,13 @@ Lecteurs internes : `getRealtimeActions`/`getRealtimeChannels`/`getRealtimeInbou
 
 Contrats `rt/nodefony/interfaces/IRealtimeProbe.ts` : `IRealtimeProbe` ( — `channels`, `publishTotal`, `fanoutTotal=publish×abonnés`, `inboundTotal`, `connectionCount`, `bytesSentTotal`, `messagesSentTotal`, **`backpressure {maxBufferedAmount, totalBufferedAmount, slowConsumers, drops}`**, `backplane?`) · `IRealtimeConnProbe` ( — `readyState`, `bufferedAmount`, `bytesSent`, `messagesSent`, `dropped`) · `IRealtimeChannelStat` · `IRealtimeHealth` · `IRealtimeClusterHealth`. **Cumuls monotones** → débit/s dérivé côté lecteur (delta `total`/`ts`).
 
+**Octets sur le fil — briques isomorphes du cœur** (`core/src/realtime/`) : `typedArrayBytes.ts#toLittleEndianBytes` /
+`#fromLittleEndianBytes` (série numérique ↔ `Uint8Array` petit-boutiste, indépendant de l'endianness de la machine) ·
+`supervisionHistory.ts#ISupervisionHistory` (contrat de l'historique de supervision, servi par Studio) ·
+`throughputProbe.ts#createThroughputPayload` + `THROUGHPUT_PAYLOAD_SIZES` (charge de la sonde de débit, refabricable
+côté navigateur pour vérifier l'intégrité) · `platformChannels.ts#PLATFORM_METHODS` `.throughput` =
+`nodefony:realtime:throughput`. Tailles FERMÉES : une taille libre ferait de l'action un amplificateur.
+
 <a id="210-config"></a>
 
 ### 2.10 Config — `defineRealtimeConfig`

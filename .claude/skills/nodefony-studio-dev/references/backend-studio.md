@@ -40,6 +40,13 @@ listThings(@Query("limit") limit?: string) {
 
 Le front consomme via `store.api.getAbsolute<T>("/nodefony/<module>/api/things")`.
 
+**Réponse qui porte des OCTETS (`Uint8Array`) → producteur du BROKER, pas route de controller.** Seul le broker
+applique la règle `$bytes` du REST (codec binaire actif) et sert aussi le pont `api.request` de la socket en octets
+natifs ; une route `@Get` recopierait la règle ou rendrait `{"0":…}`. Modèle : `studio/nodefony/src/studioAdminApi.ts#createStudioAdminApi`
+(`GET /nodefony/studio/api/supervision/history`, `ROLE_SUPERVISOR`) → `SupervisionRecorder`
+(`studio/nodefony/realtime/supervisionHistory.ts#SupervisionRecorder`, créé et démarré à la PREMIÈRE visite — lazy),
+contrat `ISupervisionHistory` au cœur (séries `Float64`/`Float32` petit-boutistes, relire par `fromLittleEndianBytes`).
+
 ## 3. Lire la requête — décorateurs, PAS `this.context.body`
 
 - `@Body() body: T` (corps parsé), `@Param("x")`, `@Query("x")`, `@Header("x")`.

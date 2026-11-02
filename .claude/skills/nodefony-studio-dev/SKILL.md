@@ -1,7 +1,7 @@
 ---
 name: nodefony-studio-dev
 metadata:
-  version: 2.0.0
+  version: 2.1.0
 description: >
   Kit de dev du frontend Studio de Nodefony (@nodefony/studio, React 19) — l'app admin interne du
   framework. Construire un écran (page / dashboard / panneau / onglet) vite et bien en réutilisant le
