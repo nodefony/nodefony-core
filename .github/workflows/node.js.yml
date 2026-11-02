@@ -101,6 +101,11 @@ jobs:
   checks:
     name: Statique + gates du dépôt (${{ matrix.os }} / Node ${{ matrix.node-version }})
     runs-on: ${{ matrix.os }}
+    # `issues: read` : le gate des promesses d'ADR lit le corps des tickets
+    # qu'un ADR charge d'un geste. Rien d'autre n'écrit ni ne lit au-delà du code.
+    permissions:
+      contents: read
+      issues: read
     strategy:
       fail-fast: false
       matrix:
@@ -213,6 +218,20 @@ jobs:
       # ferait croire à une capacité supprimée depuis.
       - name: Gate — chaque script npm dit ce qu'il fait
         run: npm run check:scripts
+
+      # Un ADR clôt chaque décision par « Rupture si différé : OUI/NON ». Un NON
+      # promet un travail « plus tard, sans casser » — et sans ticket, la
+      # promesse ne vit que dans une prose que ni le tableau ni la reprise de
+      # session ne lisent (vécu : la reprise par curseur, conçue deux fois, sans
+      # ticket). Le gate exige un `#N` ou « aucun travail prévu » dans le
+      # paragraphe qui promet, et que le ticket chargé d'un geste cite l'ADR.
+      # Une plateforme suffit : il lit du texte et une API, rien de natif.
+      # GitHub injoignable = sortie 2, jamais un vert.
+      - name: Gate — chaque promesse d'ADR a un ticket qui la porte
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: npm run check:adr
 
       # `.env.example` est GÉNÉRÉ depuis `env.ts` (et les réglages du framework),
       # puis commité : rien ne le régénère tout seul. Une variable ajoutée sans

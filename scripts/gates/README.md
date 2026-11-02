@@ -14,6 +14,23 @@ _Rien de noté : ce qui se découvre en travaillant ici s'écrit dans ce bloc._
 
 Index de tout l'outillage : [`scripts/`](../README.md).
 
+## [`check-adr-deferrals.mjs`](check-adr-deferrals.mjs)
+
+check-adr-deferrals — une promesse d'ADR a un ticket qui la porte.
+
+- **Usage** : `node scripts/gates/check-adr-deferrals.mjs`
+- **Usage** : `node scripts/gates/check-adr-deferrals.mjs --offline`
+- **Option** `--offline` — ne joint pas GitHub : seul le contrôle 1 tourne, sortie 2 s'il passe
+- **Appelé par** : `npm run check:adr`
+- **Testé par** : `gates/check-adr-deferrals.test.mjs`
+
+## [`check-adr-deferrals.test.mjs`](check-adr-deferrals.test.mjs)
+
+Suite du gate des promesses d'ADR — écrite pour le faire ÉCHOUER.
+
+- **Lancé par** : `npm run test:pilotage` · `npm run test:tooling`
+- **Utilise** : `gates/check-adr-deferrals.mjs`
+
 ## [`check-externals.mjs`](check-externals.mjs)
 
 Audit de la dérive `external` ⇄ manifeste, sur TOUT le dépôt — core, packages ET modules.

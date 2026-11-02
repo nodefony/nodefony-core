@@ -203,6 +203,43 @@
       "testedBy": []
     },
     {
+      "path": "scripts/gates/check-adr-deferrals.mjs",
+      "test": false,
+      "purpose": "check-adr-deferrals — une promesse d'ADR a un ticket qui la porte.",
+      "usage": [
+        "node scripts/gates/check-adr-deferrals.mjs",
+        "node scripts/gates/check-adr-deferrals.mjs --offline"
+      ],
+      "options": [
+        {
+          "flag": "--offline",
+          "help": "ne joint pas GitHub : seul le contrôle 1 tourne, sortie 2 s'il passe"
+        }
+      ],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run check:adr"
+      ],
+      "testedBy": [
+        "scripts/gates/check-adr-deferrals.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/gates/check-adr-deferrals.test.mjs",
+      "test": true,
+      "purpose": "Suite du gate des promesses d'ADR — écrite pour le faire ÉCHOUER.",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:pilotage",
+        "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
+    {
       "path": "scripts/gates/check-externals.mjs",
       "test": false,
       "purpose": "Audit de la dérive `external` ⇄ manifeste, sur TOUT le dépôt — core, packages ET modules.",

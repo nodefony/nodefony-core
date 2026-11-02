@@ -126,7 +126,7 @@ distinctes, réglées séparément.
 ### W3. Une application pourra émettre ses propres événements
 
 **Décision (acceptée le 2026-10-29, par délégation de l’auteur) :** une API d'émission (`emit(type, data)`, nom à fixer par le ticket) ouvre les
-webhooks aux événements de l'application, en 10.1. Elle passe par le **même** dispatcher : même
+webhooks aux événements de l'application, en 10.1 (#714). Elle passe par le **même** dispatcher : même
 signature, mêmes réessais, mêmes bornes, même garde contre les adresses internes. Les événements
 `webhook.*` restent exclus, comme aujourd'hui, pour éviter qu'une livraison en échec n'en déclenche
 une autre.
@@ -155,7 +155,7 @@ déduplique par `webhook-id`, et ordonne par l'identifiant de la charge s'il en 
 ### W5. Un second mode d'authentification, fourni par l'abonné
 
 **Décision (acceptée le 2026-10-29, par délégation de l’auteur) :** en plus de la signature HMAC, un abonnement pourra porter un identifiant
-**fourni par l'abonné** et envoyé tel quel (`Authorization: <schéma> <identifiant>`). Il est stocké
+**fourni par l'abonné** (#714) et envoyé tel quel (`Authorization: <schéma> <identifiant>`). Il est stocké
 chiffré, comme le secret. La signature reste le mode par défaut.
 
 - Usages : une API interne derrière une passerelle qui exige un jeton porteur, un service tiers qui

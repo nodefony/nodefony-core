@@ -425,7 +425,7 @@ data }` (ADR-0023 W1, S-rt-22).
   l'oblige à le devenir.
 - **Le type n'est pas une validation.** La garde de canal (politique, `allow`) s'applique aux
   trois livraisons ; un type ne protège rien à l'exécution.
-- Le code suit en 10.x par génériques à défaut
+- Le code suit en 10.x (#714) par génériques à défaut
   (`src/packages/@nodefony/framework/nodefony/src/Controller.ts#Controller.renderSse`,
   `src/packages/@nodefony/http/nodefony/src/context/http/SseStream.ts`) : ajouter un générique AVEC
   défaut ne casse rien. Seule la forme se fige ici.
@@ -637,7 +637,7 @@ au moment de fermer. Donc :
   inchangé ; `NodefonySocket` tient son solde dans son propre état et ferme par un code privé neuf
   rangé dans `src/nodefony/src/realtime/closeCodes.ts`, puis sa reconnexion prend le relais ;
 - le `as unknown as` disparaît avec la sortie des compteurs ;
-- désactivée côté client en 10.x ; la règle reste UNE, puisqu'elle est écrite une fois.
+- désactivée côté client pendant toute la série 10 ; la règle reste UNE, puisqu'elle est écrite une fois.
 
 ```ts
 // navigateur, 30 emit("move") par seconde, le réseau cale dans un tunnel :
@@ -662,7 +662,8 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
 - Texte et binaire, même règle.
 - **Désactivée pendant toute la série 10** (opt-in, config `@nodefony/http`). Une activation par
   défaut est un changement de comportement, donc une majeure : elle ne peut venir qu'en 11.0,
-  avec un seuil documenté qui laisse passer un flux audio de 50 trames/s avec marge.
+  avec un seuil documenté qui laisse passer un flux audio de 50 trames/s avec marge. Aucun travail
+  prévu d'ici là.
 
 - Usages : un tableau de bord diffusé à N lecteurs dont un lent, un jeu sur réseau mobile qui
   pousse ses coups (C1), un capteur qui émet trop vite (C2).
@@ -672,7 +673,7 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
   attaque) ; un compte en octets pour C2 (`maxPayload` les borne déjà).
 - **Rupture si différé après 10.0 : NON**, parce que les bornes neuves naissent désactivées et
   que la décision partagée est interne. Activer un défaut est en revanche une rupture (un flux
-  audio de 50 trames/s couperait) : réservé à 11.0.
+  audio de 50 trames/s couperait) : réservé à 11.0, aucun travail prévu d'ici là.
 
 ### 6. Les canaux privés
 
@@ -821,7 +822,7 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
   - Sans `allow`, rien ne change : la politique fixe décide seule, à l'imposition comme au rejeu.
   - Connexion fermée pendant l'`await allow` : réponse jetée, aucune marque (même règle que le
     `subscribe`, #622).
-  - **Locale au pod en 10.x** : on n'impose qu'à une connexion servie par ce pod ; l'ordre ne
+  - **Locale au pod en 10.x** (#623) : on n'impose qu'à une connexion servie par ce pod ; l'ordre ne
     traverse pas le backplane (S6). Un client ancien qui ignore `imposed` reçoit les messages
     mais ne rejoue pas : dégradé, pas cassé — d'où l'ajout sans rupture.
   - Usages hétérogènes : la recherche de partie d'un jeu, l'appelé d'un appel (#619), le flux
@@ -983,7 +984,7 @@ tick de révocation ; un geste qui change un état passe par une route. Porté p
 
 **Décision (acceptée le 2026-10-29, par délégation de l’auteur) :** aujourd'hui, la reconnexion **rejoue** chaque abonnement au `welcome`
 (`src/nodefony/src/client/realtime/NodefonySocket.ts#NodefonySocket.replaySubscriptions`), sans
-curseur ; la fabrique est rejouée au premier abonné. Demain (10.2, S3) : `subscribe
+curseur ; la fabrique est rejouée au premier abonné. Demain (10.2, S3, #715) : `subscribe
 { channel, since? }`. Le curseur est **par abonné** alors que la fabrique est partagée et
 appelée une fois : il l'atteint par un retour élargi — à côté du `dispose` d'aujourd'hui, un objet
 `{ dispose, resume?(since, reply) }`, où `reply` ne pousse qu'à **cette** connexion. La fabrique

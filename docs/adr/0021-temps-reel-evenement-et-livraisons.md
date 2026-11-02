@@ -123,13 +123,13 @@ en base. C'est déjà ce que font l'audit et le flux de journaux en SSE.
 
 - Écarté : un compteur par canal posé par le hub. Il ne serait ordonné que dans un exemplaire, et
   donnerait une fausse garantie entre exemplaires.
-- **Rupture si différé : NON.** Un type utilitaire facultatif reste possible plus tard.
+- **Rupture si différé : NON.** Un type utilitaire facultatif reste possible plus tard ; aucun travail prévu.
 
 ### S3. Aucune politique de reprise imposée
 
 **Décision (validée par l’auteur le 2026-10-28) :** après une coupure, le socle n'impose ni
 relecture, ni instantané, et **ne conserve aucun événement** : pas de tampon, pas de journal. Il
-rend la reprise **possible** : un abonnement pourra porter un **curseur optionnel**, remis à un
+rend la reprise **possible** : un abonnement pourra porter un **curseur optionnel** (#715), remis à un
 **rattrapage propre à l'abonné**, qui relit la **source du canal** (la base d'une discussion, le
 tampon qu'un service tient déjà) et décide quoi renvoyer à cet abonné seul (la suite depuis le
 curseur, l'état courant, ou rien), avant de le brancher sur le flux partagé. Un canal sans source
@@ -157,7 +157,7 @@ tampon que syslog tient déjà (`src/modules/test/nodefony/controller/LiveSyslog
 
 **Décision (validée par l’auteur le 2026-10-28) :** quand un canal se termine côté serveur,
 l'abonné le **sait**, par un signal dont le motif appartient à une liste fermée. Sur la socket,
-c'est une notification `realtime:closed { channel, reason }`, ajoutée en 10.x, avec deux motifs :
+c'est une notification `realtime:closed { channel, reason }`, ajoutée en 10.x (#716), avec deux motifs :
 `ended` (le canal est terminé pour tous) et `evicted` (cette connexion en est retirée). Un client
 qui la reçoit retire l'abonnement et ne le rejoue pas. En SSE, la fin est la fermeture du flux, et
 le code 204 dit de ne pas se reconnecter.
@@ -192,7 +192,7 @@ livraisons vit en mémoire (`src/packages/@nodefony/security/nodefony/src/webhoo
 une livraison est abandonnée quand la file est pleine, après le dernier réessai, ou au
 redémarrage du process ; une ligne de journal (la première perte, puis une sur cent) et
 `droppedCount()` la rendent visible, et l'exposition en console vient avec le vocabulaire S9
-(10.x). Promettre « au moins une fois »
+(10.x, #714). Promettre « au moins une fois »
 exigerait une file durable, donc de stocker des événements — ce que S3 écarte du socle. Un
 réessai garde le même `webhook-id` que la tentative échouée, ce qui rend le doublon
 dédupliquable. Passer plus tard à une livraison garantie est un ajout ; l'inverse serait une
@@ -205,7 +205,7 @@ au cœur : `src/nodefony/src/realtime/backpressure.ts#decideBackpressure` (solde
 `src/nodefony/src/realtime/backpressure.ts#nextDropBalance`). Chaque côté l'applique avec son
 propre état et son propre geste : le serveur
 (`src/packages/@nodefony/http/nodefony/src/context/websocket/wsBackpressure.ts#decideSend`) ferme en
-`1013` ; le navigateur (`NodefonySocket`, option `maxBufferedAmount`, désactivée par défaut en 10.x)
+`1013` ; le navigateur (`NodefonySocket`, option `maxBufferedAmount`, désactivée par défaut pendant toute la série 10)
 ferme en `4007`, car `WebSocket.close` refuse `1013`. La borne de débit entrante (ADR-0022 §5 C2)
 réutilise la même règle sur le nombre de trames reçues par seconde, avant tout décodage
 (`src/packages/@nodefony/http/nodefony/src/context/websocket/wsFrameRate.ts#admitFrame`).
@@ -307,7 +307,7 @@ manière, jamais un `JSON.stringify` qui rendrait un objet (`[1, 2, 255]` devien
 | Socket    | trame binaire, octets intacts                                                                                                                                                                                                                                             |
 | Backplane | octets intacts sous codec binaire : second sujet Redis en CBOR scellé, IPC en clonage structuré (S6) ; sans codec binaire ou driver incapable, **refusés** plutôt que déformés (`src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts#RealtimeHub.publish`) |
 | Flux SSE  | **refusés** : `TypeError` qui dit d'encoder soi-même en base64 avec le type MIME (`src/packages/@nodefony/http/nodefony/src/context/http/SseStream.ts#serialize`) — un flux SSE n'est que du texte UTF-8 (WHATWG HTML §9.2)                                               |
-| Webhook   | **sans objet en 10.0** : seuls les événements de sécurité partent, sans octets ; la règle se décide avec l'émission applicative (ADR-0023 W3, 10.1), sous la contrainte « jamais des octets déformés » (S-rt-3) — table du gel, 2026-10-30                                |
+| Webhook   | **sans objet en 10.0** : seuls les événements de sécurité partent, sans octets ; la règle se décide avec l'émission applicative (ADR-0023 W3, 10.1, #714), sous la contrainte « jamais des octets déformés » (S-rt-3) — table du gel, 2026-10-30                          |
 
 Un `Uint8Array` IMBRIQUÉ dans une charge JSON suit la convention du codec
 ([ADR-0022](0022-socket-temps-reel.md) §3, #618 : chaîne d'octets en CBOR, base64 déclaré en
@@ -352,7 +352,7 @@ Sans unité écrite, la console comparerait sous un même nom des grandeurs diff
 
 **Les noms existants ne sont pas renommés.** La sonde de la socket est publique
 (`src/packages/@nodefony/realtime/nodefony/interfaces/IRealtimeProbe.ts#IRealtimeProbe` :
-`messagesSent`, `dropped`, `bufferedAmount`) : le vocabulaire commun s'ajoute À CÔTÉ en 10.x, et
+`messagesSent`, `dropped`, `bufferedAmount`) : le vocabulaire commun s'ajoute À CÔTÉ en 10.x (#714), et
 l'ancien nom se déprécie selon la politique de compatibilité, avec retrait à la majeure suivante.
 `failedTotal` n'a que deux usages connus (backplane, webhooks), le SSE serait le troisième (un
 envoi vers un client parti) ; facultatif, il ne coûte rien à qui ne s'en sert pas.
@@ -571,7 +571,7 @@ allow?:
      à gigue COMPLÈTE, trois tentatives au plus ; valeurs écrites dans la page publique.
    - Compteurs `allowTimedOutTotal` et `allowSaturatedTotal` (S9) ; un `warn` limité en fréquence
      (canal, `NF_POD_NAME`, durée).
-   - **Reporté en 10.x, sans rupture** : un `AbortSignal` en argument facultatif (un paramètre de
+   - **Reporté en 10.x, sans rupture** (#714) : un `AbortSignal` en argument facultatif (un paramètre de
      plus dans un rappel ne casse pas une fonction qui en prend moins), un délai par canal.
 
    Le sort d'une panne à l'émission d'un webhook est réglé avec les abonnements par API (W6) :
@@ -598,7 +598,7 @@ allow?:
   admet les 256, sans aucun `limit` ; 300 passerelles et
   10 000 clients contre une base bloquée ne déclenchent qu'un nombre BORNÉ d'appels d'`allow`.
 
-**Reporté aux abonnements par API (W6, 10.1), sans rupture** : quand un webhook évalue `allow`
+**Reporté aux abonnements par API (W6, 10.1, #714), sans rupture** : quand un webhook évalue `allow`
 (à chaque tentative, verdict retenu ou non — W-a, à la création seulement, est écarté : un
 abonnement à motif n'a aucun canal à passer, et un droit vu une fois survit à la personne) ; un
 verdict retenu par `(abonnement, canal)` ne borne pas le coût de S-rt-59 quand chaque ressource a
@@ -645,7 +645,7 @@ seuil passé — jose ne le contrôle que sous `maxTokenAge`.
 - **Écarté par la table** : revérifier la signature au tick (D) — jeton brut gardé par connexion
   (40 à 75 Mo à 50 000 sockets), des secondes de calcul par passe, et une panne de l'émetteur de
   plus de 10 min qui fermerait tout le parc (jose ne garde aucun jeu de clés périmé).
-- **Opt-in de 10.x, sans rupture tant que le défaut ne change pas** : une durée de vie maximale du
+- **Opt-in de 10.x, sans rupture tant que le défaut ne change pas** (#714) : une durée de vie maximale du
   jeton, une durée de vie maximale de la connexion (avec étalement des échéances), la révocation
   par clé ou par émetteur, et une option client `token: () => Promise<string>`.
 
