@@ -269,9 +269,11 @@ ce garde-fou, `JSON.stringify` les rendait en objet ordinaire (`{"0":1,"1":2}`),
   pas le même, leurs messages se refusent — comptés par `sealRejectedTotal`, écrit dans la page
   d'exploitation. Accepter un second secret en lecture est un ajout de 10.x.
 - **Le rejeu reste hors du sceau ; un ordre se pare par sa cible.** Un message rejoué ne fait que
-  rediffuser une charge, sauf s'il porte un ordre (ADR-0022 §6) : un ordre désigne alors une
-  **instance** — l'admission qu'il révoque, la partie qu'il ferme —, jamais un nom seul, de sorte
-  qu'un ordre rejoué ne désigne plus rien de vivant. Écarté : un numéro d'ordre par émetteur dans
+  rediffuser une charge, sauf s'il porte un ordre (ADR-0022 §6) : une fin vise une **instance**
+  (la partie qu'elle ferme), de sorte qu'une fin rejouée ne désigne plus rien de vivant. Une
+  éjection vise `(canal, compte)` en 10.0 : rejouée sur un canal durable, elle recoupe — risque
+  accepté et borné, parade réservée par un champ `generation` optionnel (ADR-0022 §6 d4, amendé
+  le 2026-11-02). Écarté : un numéro d'ordre par émetteur dans
   l'enveloppe, demandé par le siège attaquant. Il ne protège pas un exemplaire démarré après
   l'émetteur, et un second sceau qui le couvre pourra s'ajouter en 10.x sans rupture : lu s'il est
   présent, exigé par une option une fois tout le parc à jour.

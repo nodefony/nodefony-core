@@ -624,6 +624,10 @@ Sur la socket, la trame `subscribe` tourne dans la bulle de contexte de la conne
   ordres déjà vus.
 - **Décisions jugées** : S6, ADR-0022 §6 d4
 - **A fait changer** : S6 et ADR-0022 §6 (2026-10-29 — un ordre désigne une instance)
+- **Verdict 10.0 (2026-11-02, #623)** : NE TIENT PAS sur un canal durable — **risque accepté**,
+  borné (coupure seule, écriture sur le bus requise, rotation du secret), parade réservée par
+  le champ optionnel `generation` de l'ordre, alimentée en 10.x. Tient pour une fin (instance
+  dans le nom).
 
 ### S-rt-49 — Un agent muni de l'émission écrit `login.success` pour `admin`
 

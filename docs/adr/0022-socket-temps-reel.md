@@ -911,13 +911,26 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
     diffusée (`envelope.ts#SEAL_FIELD`). Un ordre rejoué, lui, **recoupe** : un « fermer
     `room:42` » capté puis republié plus tard couperait une partie rouverte. L'effet reste
     soustractif (jamais d'admission) ; un anti-rejeu par horloge reste écarté (horloges des pods
-    non alignées, comme au sceau). La parade est celle de S4, étendue à tout ordre (ADR-0021 S6,
-    amendé le 2026-10-29) : **un ordre désigne une instance, jamais un nom seul**. Une fin vise
-    un canal qui porte son identifiant d'instance (`room:42:<partie>`) ; une éjection vise
-    l'**admission** qu'elle révoque — son identifiant voyage dans la charge scellée —, de sorte
-    qu'un « éjecter user:42 » capté puis rejoué après sa réadmission ne désigne plus rien. Sans
-    cela, rejouer l'ordre à chaque reconnexion couperait l'utilisateur sans fin, sans le secret
-    (siège attaquant, S-rt-48). Sans horloge et sans mémoire des ordres déjà vus.
+    non alignées, comme au sceau). La parade dépend de l'ordre (amendé le 2026-11-02, #623,
+    contradicteur entendu) :
+    - Une **fin** vise un canal qui porte son identifiant d'instance (`room:42:<partie>`, S4) :
+      rejouée, elle ne désigne plus rien de vivant.
+    - Une **éjection** vise **`(canal, compte)`**. Rejouée sur un canal DURABLE (`chat:general`),
+      elle recoupe le compte à chaque réadmission : déni ciblé, sans le secret, qu'aucun compteur
+      ne voit (S-rt-48). **Risque accepté en 10.0**, borné par trois faits : l'effet reste une
+      coupure, jamais une admission ; il exige d'écrire sur le bus ; changer le secret rend
+      caduques les ordres déjà captés. La page d'exploitation l'écrit : bus privé exigé.
+    - **La parade est réservée sans rupture.** La forme vérifiée de l'ordre d'éjection accepte
+      dès 10.0 un champ optionnel `generation` (entier ; absent = toutes les générations). Un
+      exemplaire qui ne sait pas s'en servir l'ignore et éjecte toutes les générations — plus
+      large, jamais moins. En 10.x, une génération d'appartenance lue par `allow` et augmentée à
+      chaque réadmission l'alimentera : rejoué, l'ordre viserait une génération morte. Sans
+      horloge et sans mémoire des ordres déjà vus.
+    - Écartés : un identifiant d'admission frappé par le pod — les admissions sont locales, le
+      modérateur ne nommerait que l'onglet qu'il voit et les autres onglets du compte (S-rt-4)
+      resteraient servis ; la génération dès 10.0 — elle élargit le contrat d'`allow`, publié
+      avec 10.0 (ADR-0021 S10 bis), et ferait porter à chaque application un compteur que le cas
+      courant n'emploie pas.
   - **Ce que le contrat suffit à porter** : « au plus une fois, ordre par émetteur, aucun entre
     pairs » (ADR-0021 S5, et l'en-tête de `IBackplane.ts`). Un ordre qui enlève le supporte : reçu
     deux fois = appliqué une fois ; perdu ou en retard = une coupure tardive ; venu d'un autre
