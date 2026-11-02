@@ -9,6 +9,8 @@
  * de date, l'indexation oublie que `date` n'arrive ni sous `number` ni sous
  * `name`, ou la projection oublie de recopier les clefs.
  */
+import fs from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -16,6 +18,9 @@ import {
   indexFieldValues,
   projectItems,
   renderFrise,
+  renderJson,
+  renderMarkdown,
+  unchangedOnDisk,
 } from "./board-snapshot.mjs";
 
 /** Un nœud d'item tel que GraphQL le rend, dates comprises. */
@@ -152,5 +157,39 @@ describe("renderFrise", () => {
       "? → 2026-09-19",
     );
     expect(renderFrise({ debut: null, cible: null })).toBe("—");
+  });
+});
+
+describe("unchangedOnDisk", () => {
+  // Le tableau réel du dépôt sert de décor : un rendu sur un objet minimal ne
+  // prouverait rien du gabarit Markdown, qui est la moitié de la comparaison.
+  const previous = JSON.parse(
+    fs.readFileSync(
+      new URL("../../../../.ai/board.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  const { generatedAt, source, project, ...live } = previous;
+  const onDisk = (json, md) => (file) =>
+    file.endsWith("board.json") ? json : file.endsWith("BOARD.md") ? md : null;
+  const json = renderJson(live, generatedAt);
+  const md = renderMarkdown(live, generatedAt);
+
+  it("ne réécrit pas quand seule l'heure changerait", () => {
+    expect(unchangedOnDisk(live, previous, onDisk(json, md))).toBe(true);
+  });
+
+  it("réécrit quand un ticket a changé", () => {
+    const moved = { ...live, items: live.items.slice(1) };
+    expect(unchangedOnDisk(moved, previous, onDisk(json, md))).toBe(false);
+  });
+
+  it("réécrit quand le Markdown diffère (gabarit changé) ou manque", () => {
+    expect(unchangedOnDisk(live, previous, onDisk(json, md + "x"))).toBe(false);
+    expect(unchangedOnDisk(live, previous, onDisk(json, null))).toBe(false);
+  });
+
+  it("réécrit quand il n'y a pas d'instantané précédent", () => {
+    expect(unchangedOnDisk(live, null, onDisk(json, md))).toBe(false);
   });
 });

@@ -241,7 +241,7 @@ function snapshot(live, generatedAt) {
   };
 }
 
-function renderJson(live, generatedAt) {
+export function renderJson(live, generatedAt) {
   return `${JSON.stringify(snapshot(live, generatedAt), null, 2)}\n`;
 }
 
@@ -264,7 +264,7 @@ export function renderFrise(it) {
   return `${it.debut ?? "?"} → ${fin}`;
 }
 
-function renderMarkdown(live, generatedAt) {
+export function renderMarkdown(live, generatedAt) {
   const ouverts = live.items.filter((i) => i.status !== "Done");
   const parJalon = new Map();
   for (const it of ouverts) {
@@ -675,6 +675,35 @@ function lireAncien() {
   }
 }
 
+/**
+ * Dit si les fichiers sur disque sont DÉJÀ ce qu'on écrirait, à l'heure près.
+ *
+ * Rendu avec l'horodatage de l'instantané précédent puis comparé à l'octet :
+ * couvre un changement de tickets ET un changement de gabarit, et un fichier
+ * absent compte comme différent. Sans cette garde, chaque reprise de session
+ * réécrivait l'horodatage seul — un arbre sale et un commit qui ne porte rien.
+ *
+ * @param live - le tableau tel que GitHub vient de le rendre
+ * @param previous - l'instantané JSON précédent, ou null
+ * @param readFile - lecteur injecté (chemin → contenu, ou null si absent)
+ * @returns vrai si rien d'autre que l'heure ne changerait
+ */
+export function unchangedOnDisk(live, previous, readFile = readOrNull) {
+  if (!previous?.generatedAt) return false;
+  return (
+    readFile(JSON_OUT) === renderJson(live, previous.generatedAt) &&
+    readFile(MD_OUT) === renderMarkdown(live, previous.generatedAt)
+  );
+}
+
+function readOrNull(file) {
+  try {
+    return fs.readFileSync(file, "utf8");
+  } catch {
+    return null;
+  }
+}
+
 /** Compare deux instantanés sur ce qui compte — le contenu, pas l'heure. */
 function memeContenu(a, b) {
   if (!a || !b) return false;
@@ -735,14 +764,19 @@ function main() {
     process.exit(1);
   }
 
-  fs.mkdirSync(path.dirname(JSON_OUT), { recursive: true });
-  fs.writeFileSync(JSON_OUT, renderJson(live, generatedAt));
-  fs.writeFileSync(MD_OUT, renderMarkdown(live, generatedAt));
-
   const ouverts = live.items.filter((i) => i.status !== "Done").length;
-  console.log(
-    `✅ Empreinte écrite — ${live.items.length} items (${ouverts} ouverts) → .ai/board.json + .ai/BOARD.md`,
-  );
+  if (unchangedOnDisk(live, ancien)) {
+    console.log(
+      `✅ Empreinte inchangée — ${live.items.length} items (${ouverts} ouverts) : rien réécrit, seule l'heure aurait bougé.`,
+    );
+  } else {
+    fs.mkdirSync(path.dirname(JSON_OUT), { recursive: true });
+    fs.writeFileSync(JSON_OUT, renderJson(live, generatedAt));
+    fs.writeFileSync(MD_OUT, renderMarkdown(live, generatedAt));
+    console.log(
+      `✅ Empreinte écrite — ${live.items.length} items (${ouverts} ouverts) → .ai/board.json + .ai/BOARD.md`,
+    );
+  }
 
   // Le README du projet n'est republié QUE sur demande : il part chez GitHub,
   // hors du dépôt, et une écriture distante ne doit jamais être un effet de
