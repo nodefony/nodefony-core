@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import {
   ActionIcon,
   Card,
@@ -12,6 +12,7 @@ import {
 } from "@mantine/core";
 import { IconArrowsMaximize } from "@tabler/icons-react";
 import type { ReactNode } from "react";
+import { stableTop } from "../../utils/chartScale";
 
 /** Une série de points pour {@link MiniChart}. */
 export interface MiniChartSeries {
@@ -29,6 +30,27 @@ export interface MiniChartProps {
   threshold?: number | undefined;
   /** Formate une valeur (axe + tooltip). Défaut = entier. */
   format?: ((v: number) => string) | undefined;
+  /**
+   * Heure d'ARRIVÉE de chaque point (`Date.now()` du navigateur), alignée sur
+   * la FIN des séries. Donnée avec `windowMs` : abscisse en TEMPS — chaque
+   * point est placé à son heure et la courbe défile à vitesse CONSTANTE
+   * (largeur ÷ fenêtre). Un retard devient un trou visible, jamais une
+   * accélération : avec un cran par point, deux points arrivés collés après
+   * un trou faisaient rattraper la courbe d'un coup.
+   */
+  times?: readonly number[] | undefined;
+  /** Durée visible, en ms (avec `times`). Défilement coupé sous `prefers-reduced-motion`. */
+  windowMs?: number | undefined;
+}
+
+/** `prefers-reduced-motion`, lu une fois (pas de défilement animé si demandé). */
+let reducedMotion: boolean | null = null;
+function prefersReducedMotion(): boolean {
+  reducedMotion ??=
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  return reducedMotion;
 }
 
 /** Format par défaut d'une valeur : entier arrondi. Hissé pour garder une référence stable. */
@@ -48,6 +70,8 @@ export function MiniChart({
   max,
   threshold,
   format = roundFormat,
+  times,
+  windowMs,
 }: MiniChartProps) {
   const W = 600;
   const H = 200;
@@ -57,17 +81,79 @@ export function MiniChart({
     xPx: number;
     w: number;
   } | null>(null);
+  const topRef = useRef<number | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const n = Math.max(0, ...series.map((s) => s.data.length));
-  if (n < 2) return null;
-  const top = max ?? Math.max(1, ...series.flatMap((s) => s.data)) * 1.15;
-  const xOf = (i: number) => (i / (n - 1)) * (W - pad * 2) + pad;
+  const top =
+    max ??
+    (topRef.current = stableTop(
+      topRef.current,
+      Math.max(0, ...series.flatMap((s) => s.data)),
+    ));
+  const plotW = W - pad * 2;
+  const timed =
+    times !== undefined &&
+    windowMs !== undefined &&
+    windowMs > 0 &&
+    times.length >= 2;
+  // Index GLOBAL g : en temps, l'index dans `times` (séries alignées sur la
+  // fin) ; sinon l'index du point, séries alignées sur le début.
+  const slots = timed ? times.length : n;
+  const lastTime = timed ? times[slots - 1] : undefined;
+  // Ancre des positions : l'heure à laquelle le DERNIER point a été dessiné.
+  // Elle ne change qu'à l'arrivée d'un point — un re-rendu sans point neuf
+  // (survol) garde les mêmes positions pendant que l'animation continue.
+  const anchorRef = useRef<{ last: number | undefined; at: number }>({
+    last: undefined,
+    at: 0,
+  });
+  if (timed && anchorRef.current.last !== lastTime) {
+    anchorRef.current = { last: lastTime, at: Date.now() };
+  }
+  const anchor = anchorRef.current.at;
+  const speed = timed ? plotW / windowMs : 0; // unités du viewBox par ms
+  const animate = timed && !prefersReducedMotion();
+  const xOfG = (g: number): number =>
+    timed
+      ? pad + plotW - (anchor - (times[g] ?? anchor)) * speed
+      : pad + (g * plotW) / Math.max(1, n - 1);
+  const gOf = (len: number, i: number): number => (timed ? slots - len + i : i);
+  const valueAt = (s: MiniChartSeries, g: number): number | undefined =>
+    s.data[timed ? g - (slots - s.data.length) : g];
   const yOf = (v: number) => H - pad - (Math.min(v, top) / top) * (H - pad * 2);
+  // Une animation LINÉAIRE par point reçu, à vitesse constante : la courbe
+  // parcourt toute la largeur utile en `windowMs`. Elle porte sur un <div>
+  // HTML, pas sur un groupe SVG : la transform d'un élément HTML est jouée par
+  // le compositeur — la courbe glisse même quand le fil principal est occupé,
+  // et rien n'est repeint entre deux points. Avant la peinture (layout effect)
+  // et recalée sur le temps déjà écoulé depuis l'ancre : sinon le délai entre
+  // le rendu et l'effet se lit comme un saut.
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!animate || el === null || typeof el.animate !== "function") return;
+    const anim = el.animate(
+      [
+        { transform: "translateX(0%)" },
+        { transform: `translateX(${(-plotW / W) * 100}%)` },
+      ],
+      { duration: windowMs, easing: "linear", fill: "forwards" },
+    );
+    anim.currentTime = Math.min(windowMs, Math.max(0, Date.now() - anchor));
+    return () => anim.cancel();
+  }, [lastTime, animate, plotW, windowMs, anchor]);
+  if (n < 2) return null;
 
   const onMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
     const frac = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+    // Abscisse DANS les données : la courbe a glissé depuis l'ancre.
+    const xData = frac * W + (animate ? speed * (Date.now() - anchor) : 0);
+    let best = 0;
+    for (let g = 1; g < slots; g += 1) {
+      if (Math.abs(xOfG(g) - xData) < Math.abs(xOfG(best) - xData)) best = g;
+    }
     setHover({
-      idx: Math.round(frac * (n - 1)),
+      idx: best,
       xPx: frac * r.width,
       w: r.width,
     });
@@ -118,63 +204,95 @@ export function MiniChart({
           vectorEffect="non-scaling-stroke"
           opacity={0.6}
         />
-        {series.map((s) => {
-          const line = s.data
-            .map((v, i) => `${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`)
-            .join(" ");
-          const area = `${pad},${H - pad} ${line} ${W - pad},${H - pad}`;
-          const last = s.data[s.data.length - 1];
-          return (
-            <g key={s.label}>
-              <polygon points={area} fill={s.color} opacity={0.1} />
-              <polyline
-                points={line}
-                fill="none"
-                stroke={s.color}
-                strokeWidth={2}
-                strokeLinejoin="round"
-                vectorEffect="non-scaling-stroke"
-              />
-              {last !== undefined && (
-                <circle
-                  cx={xOf(n - 1)}
-                  cy={yOf(last)}
-                  r={3}
-                  fill={s.color}
-                  vectorEffect="non-scaling-stroke"
-                />
-              )}
-            </g>
-          );
-        })}
-        {hover && (
-          <>
-            <line
-              x1={xOf(hover.idx)}
-              y1={pad}
-              x2={xOf(hover.idx)}
-              y2={H - pad}
-              stroke="var(--mantine-color-dimmed)"
-              strokeWidth={1}
-              strokeDasharray="4 4"
-              vectorEffect="non-scaling-stroke"
-              opacity={0.6}
-            />
-            {series.map((s) => (
-              <circle
-                key={s.label}
-                cx={xOf(hover.idx)}
-                cy={yOf(s.data[hover.idx] ?? 0)}
-                r={3.5}
-                fill={s.color}
-                stroke="var(--mantine-color-body)"
-                strokeWidth={1.5}
-                vectorEffect="non-scaling-stroke"
-              />
-            ))}
-          </>
-        )}
       </svg>
+      {/* Courbes : rognées à la zone utile (couche fixe), portées par un div
+          qui défile (couche compositeur). */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          clipPath: `inset(0 ${(pad / W) * 100}% 0 ${(pad / W) * 100}%)`,
+          pointerEvents: "none",
+        }}
+      >
+        <div
+          ref={scrollRef}
+          style={{
+            position: "absolute",
+            inset: 0,
+            willChange: animate ? "transform" : undefined,
+          }}
+        >
+          <svg
+            width="100%"
+            height="100%"
+            viewBox={`0 0 ${W} ${H}`}
+            preserveAspectRatio="none"
+            style={{ display: "block", overflow: "visible" }}
+          >
+            {series.map((s) => {
+              const len = s.data.length;
+              const line = s.data
+                .map(
+                  (v, i) =>
+                    `${xOfG(gOf(len, i)).toFixed(1)},${yOf(v).toFixed(1)}`,
+                )
+                .join(" ");
+              const area = `${xOfG(gOf(len, 0)).toFixed(1)},${H - pad} ${line} ${xOfG(gOf(len, len - 1)).toFixed(1)},${H - pad}`;
+              const last = s.data[s.data.length - 1];
+              return (
+                <g key={s.label}>
+                  <polygon points={area} fill={s.color} opacity={0.1} />
+                  <polyline
+                    points={line}
+                    fill="none"
+                    stroke={s.color}
+                    strokeWidth={2}
+                    strokeLinejoin="round"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                  {last !== undefined && (
+                    <circle
+                      cx={xOfG(gOf(len, len - 1))}
+                      cy={yOf(last)}
+                      r={3}
+                      fill={s.color}
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  )}
+                </g>
+              );
+            })}
+            {hover && (
+              <>
+                <line
+                  x1={xOfG(hover.idx)}
+                  y1={pad}
+                  x2={xOfG(hover.idx)}
+                  y2={H - pad}
+                  stroke="var(--mantine-color-dimmed)"
+                  strokeWidth={1}
+                  strokeDasharray="4 4"
+                  vectorEffect="non-scaling-stroke"
+                  opacity={0.6}
+                />
+                {series.map((s) => (
+                  <circle
+                    key={s.label}
+                    cx={xOfG(hover.idx)}
+                    cy={yOf(valueAt(s, hover.idx) ?? 0)}
+                    r={3.5}
+                    fill={s.color}
+                    stroke="var(--mantine-color-body)"
+                    strokeWidth={1.5}
+                    vectorEffect="non-scaling-stroke"
+                  />
+                ))}
+              </>
+            )}
+          </svg>
+        </div>
+      </div>
       <Text
         c="dimmed"
         style={{ position: "absolute", top: 0, left: 2, fontSize: 10 }}
@@ -212,7 +330,7 @@ export function MiniChart({
                   }}
                 />
                 <Text size="xs">
-                  {s.label} : <b>{format(s.data[hover.idx] ?? 0)}</b>
+                  {s.label} : <b>{format(valueAt(s, hover.idx) ?? 0)}</b>
                 </Text>
               </Group>
             ))}

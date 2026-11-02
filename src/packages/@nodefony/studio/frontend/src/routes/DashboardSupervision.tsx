@@ -499,7 +499,12 @@ export const DashboardSupervision = observer(() => {
   } | null>(null);
   // Historique du débit PAR CONNECTEUR (1 point = un instantané {connecteur→req/s})
   // → courbe multi-séries (1 ligne/connecteur) + légendes au débit temps réel.
-  const [flowHist, setFlowHist] = useState<{ rates: NumberByKey }[]>([]);
+  // `at` = heure d'ARRIVÉE (horloge du navigateur) : abscisse des courbes ORM.
+  const [flowHist, setFlowHist] = useState<
+    { rates: NumberByKey; at: number }[]
+  >([]);
+  // Heures d'arrivée des sondes process, alignées sur leurs séries.
+  const [statsTimes, setStatsTimes] = useState<number[]>([]);
   // Cadence RÉELLE du temps réel (client-observée). Sous saturation event-loop
   // côté serveur, les ticks arrivent en retard → le « temps réel » ne tient plus
   // sa cadence (symptôme #1 vu sous charge : refresh « par paliers de N s »). On
@@ -602,6 +607,7 @@ export const DashboardSupervision = observer(() => {
     HISTORY,
     Math.round(STATS_WINDOW_MS / Math.max(effectiveMs, 1)),
   );
+  const flowTimes = flowHist.map((p) => p.at);
   const cap = (arr: number[], v: number): number[] => {
     const n = [...arr, v];
     const max = statsPointsRef.current;
@@ -689,6 +695,7 @@ export const DashboardSupervision = observer(() => {
     fetchFlow();
     setOrmHealth(null);
     setCpuHist([]);
+    setStatsTimes([]);
     setLoopHist([]);
     setMemHist([]);
     setErrHist([]);
@@ -710,6 +717,7 @@ export const DashboardSupervision = observer(() => {
     lastTickRef.current = now;
     setOverdueMs(0);
     setStats(s);
+    setStatsTimes((prev) => cap(prev, Date.now()));
     setCpuHist((prev) => cap(prev, s.cpuPercent));
     setLoopHist((prev) => cap(prev, s.eventLoopMs));
     const gc = s.gc;
@@ -766,9 +774,11 @@ export const DashboardSupervision = observer(() => {
         }
       }
       setFlowRates(rates);
+      // Fenêtre en DURÉE (comme les sondes), quelle que soit la cadence du flux.
+      const at = Date.now();
       setFlowHist((h) => {
-        const n = [...h, { rates }];
-        return n.length > HISTORY ? n.slice(-HISTORY) : n;
+        const cutoff = at - STATS_WINDOW_MS - 5000;
+        return [...h, { rates, at }].filter((p) => p.at >= cutoff);
       });
     }
     const totals: NumberByKey = {};
@@ -1909,6 +1919,8 @@ export const DashboardSupervision = observer(() => {
             sysHist.length > 1 ? (
               <>
                 <MiniChart
+                  times={statsTimes}
+                  windowMs={STATS_WINDOW_MS}
                   height={fullscreen ? 600 : 210}
                   max={100}
                   threshold={80}
@@ -2013,6 +2025,8 @@ export const DashboardSupervision = observer(() => {
           {({ fullscreen }) => (
             <>
               <MiniChart
+                times={flowTimes}
+                windowMs={STATS_WINDOW_MS}
                 height={fullscreen ? 600 : 190}
                 format={(v) => `${Math.round(v)}/s`}
                 series={flowSeriesConns.map((conn, i) => ({
@@ -2158,6 +2172,8 @@ export const DashboardSupervision = observer(() => {
                 >
                   {cpuHist.length > 1 ? (
                     <MiniChart
+                      times={statsTimes}
+                      windowMs={STATS_WINDOW_MS}
                       height={180}
                       max={100}
                       threshold={80}
@@ -2189,6 +2205,8 @@ export const DashboardSupervision = observer(() => {
                 >
                   {loopHist.length > 1 ? (
                     <MiniChart
+                      times={statsTimes}
+                      windowMs={STATS_WINDOW_MS}
                       height={180}
                       threshold={50}
                       format={ms}
@@ -2226,6 +2244,8 @@ export const DashboardSupervision = observer(() => {
                     gcHist.length > 1 ? (
                       <>
                         <MiniChart
+                          times={statsTimes}
+                          windowMs={STATS_WINDOW_MS}
                           height={fullscreen ? 560 : 150}
                           threshold={50}
                           format={(v) => `${v.toFixed(1)} ms`}
@@ -2346,6 +2366,8 @@ export const DashboardSupervision = observer(() => {
                 {memHist.length > 1 ? (
                   <>
                     <MiniChart
+                      times={statsTimes}
+                      windowMs={STATS_WINDOW_MS}
                       height={190}
                       format={(v) => `${v.toFixed(0)} MB`}
                       series={[
@@ -2754,6 +2776,8 @@ export const DashboardSupervision = observer(() => {
                               couleur que la courbe principale. */}
                           {live && flowHist.length > 1 && (
                             <MiniChart
+                              times={flowTimes}
+                              windowMs={STATS_WINDOW_MS}
                               height={42}
                               format={(v) => `${Math.round(v)}/s`}
                               series={[
@@ -2915,6 +2939,8 @@ export const DashboardSupervision = observer(() => {
             >
               {errHist.length > 1 ? (
                 <MiniChart
+                  times={statsTimes}
+                  windowMs={STATS_WINDOW_MS}
                   height={180}
                   threshold={1}
                   format={(v) => String(Math.round(v))}
