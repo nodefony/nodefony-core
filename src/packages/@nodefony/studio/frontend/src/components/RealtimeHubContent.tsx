@@ -1,4 +1,9 @@
 import { observer } from "mobx-react-lite";
+import {
+  expectedIntervalMs,
+  freshnessLabel,
+  freshnessWindowMs,
+} from "../utils/channelFreshness";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   Stack,
@@ -74,19 +79,6 @@ function fmtUptime(ms: number): string {
   const mm = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
   const ss = String(s % 60).padStart(2, "0");
   return `${hh}:${mm}:${ss}`;
-}
-
-/**
- * Libellé d'ancienneté STABLE (anti-clignotement) : « à l'instant » sous 1,5 s, puis
- * secondes/minutes/heures ENTIÈRES. Jamais de ms ni de décimale → pas de bascule d'unité
- * ms↔s ni de digit qui saute à chaque tick (la cause du clignotement). Un canal rapide
- * reste sur « à l'instant » au lieu de faire défiler 200ms/800ms/1.2s.
- */
-function sinceLabel(ms: number): string {
-  if (ms < 1500) return "à l'instant";
-  if (ms < 60000) return `il y a ${Math.round(ms / 1000)}s`;
-  if (ms < 3600000) return `il y a ${Math.floor(ms / 60000)}min`;
-  return `il y a ${Math.floor(ms / 3600000)}h`;
 }
 
 const ELLIPSIS = {
@@ -244,6 +236,19 @@ export const RealtimeHubContent = observer(
     const meta = STATE_META[conn.state] ?? DISCONNECTED_META;
     const uptime = conn.connectedAt ? fmtUptime(now - conn.connectedAt) : "—";
     const aggRate = subs.reduce((acc, s) => acc + s.rate, 0);
+    // Fenêtre de fraîcheur PAR CANAL (sa cadence, pas un seuil fixe) — la
+    // connexion entière est fraîche à la fenêtre de son canal le plus rapide.
+    const windows = new Map<string, number>();
+    let fastestWindow = Number.POSITIVE_INFINITY;
+    for (const s of subs) {
+      const w = freshnessWindowMs(
+        expectedIntervalMs(channelCadenceMs(s.channel), s.series),
+      );
+      windows.set(s.channel, w);
+      if (w < fastestWindow) fastestWindow = w;
+    }
+    if (!Number.isFinite(fastestWindow))
+      fastestWindow = freshnessWindowMs(null);
     const busy = conn.state === "connecting" || conn.state === "reconnecting";
 
     return (
@@ -395,7 +400,7 @@ export const RealtimeHubContent = observer(
             >
               {conn.framesReceived.toLocaleString()} frames reçues
               {conn.lastFrameAt
-                ? ` · dernière ${sinceLabel(now - conn.lastFrameAt)}`
+                ? ` · dernière ${freshnessLabel(now - conn.lastFrameAt, fastestWindow)}`
                 : " · aucune"}
               {conn.lastFrameMethod ? ` · ${conn.lastFrameMethod}` : ""}
             </Text>
@@ -452,7 +457,7 @@ export const RealtimeHubContent = observer(
                         }}
                       >
                         {n.code != null ? `${n.code} · ` : ""}
-                        {sinceLabel(Math.max(0, now - n.ts))}
+                        {freshnessLabel(Math.max(0, now - n.ts), 1500)}
                       </Text>
                     </Group>
                   </Paper>
@@ -502,7 +507,9 @@ export const RealtimeHubContent = observer(
                   const ageMs = s.lastMessage
                     ? Math.max(0, now - s.lastMessage)
                     : null;
-                  const active = ageMs != null && ageMs < 1500;
+                  const windowMs =
+                    windows.get(s.channel) ?? freshnessWindowMs(null);
+                  const active = ageMs != null && ageMs < windowMs;
                   return (
                     <Paper
                       key={s.channel}
@@ -569,7 +576,9 @@ export const RealtimeHubContent = observer(
                               }}
                             >
                               {s.msgCount.toLocaleString()} msg ·{" "}
-                              {ageMs != null ? sinceLabel(ageMs) : "—"}
+                              {ageMs != null
+                                ? freshnessLabel(ageMs, windowMs)
+                                : "—"}
                             </Text>
                           </div>
                         </Group>
