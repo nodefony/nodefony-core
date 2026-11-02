@@ -92,9 +92,38 @@ describe("hooks de canal React — la socket du contrat en tête", () => {
   });
 });
 
+describe("hooks de canal React — une connexion par adresse", () => {
+  it("🔴 la socket du contrat donnée au Provider sert les DEUX formes, sous un seul abonnement", async () => {
+    const { socket, transport } = await connectedContractSocket();
+    const typees: Array<{ present: string[] } | null> = [];
+    const nommees: unknown[] = [];
+    function Page() {
+      typees.push(useNodefonyChannelData(socket, "chat:presence"));
+      nommees.push(useNodefonyChannelData("chat:presence"));
+      return null;
+    }
+    rendre(
+      React.createElement(
+        NodefonyProvider,
+        { client: socket },
+        React.createElement(Page),
+      ),
+    );
+    const abonnements = transport.sent.filter((raw) =>
+      raw.includes('"method":"subscribe"'),
+    );
+    expect(abonnements).toHaveLength(1);
+    expect(socket.subscribedChannels).toEqual(["chat:presence"]);
+
+    act(() => transport.push("chat:presence", { present: ["alice"] }));
+    expect(typees.at(-1)).toEqual({ present: ["alice"] });
+    expect(nommees.at(-1)).toEqual({ present: ["alice"] });
+  });
+});
+
 describe("hooks de canal React — la forme historique", () => {
   it("le nom seul lit la socket du Provider", async () => {
-    const { socket, transport } = await connectedPlainSocket();
+    const { socket, transport } = await connectedContractSocket();
     const vus: Array<{ present: string[] } | null> = [];
     function Presence() {
       vus.push(useNodefonyChannelData<{ present: string[] }>("chat:presence"));

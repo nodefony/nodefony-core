@@ -824,16 +824,19 @@ export class NodefonySocket<
   // dans le peer (ADR-0022 §4) : il encode ses émissions, le client admet puis
   // écrit. `admitFrame`/`writeFrame` sont déréférencés à chaque frame (pas
   // `.bind`) → un test qui les remplace reste intercepté.
-  private readonly peer: JsonRpcPeer<Emit, Listen, Actions> = new JsonRpcPeer<
-    Emit,
-    Listen,
-    Actions
-  >({
-    admit: () => this.admitFrame(),
-    write: (data, frame) => this.writeFrame(data, frame),
-    onNotification: (method, params) =>
-      this.dispatchNotification(method, params),
-  });
+  // Le peer est tenu SANS les génériques de la socket : ce champ privé est
+  // comparé quand on range une socket dans une autre, et ses gestionnaires
+  // (`onNotification`, `beforeDispatch`) rendraient la socket INVARIANTE —
+  // une socket typée par contrat serait refusée partout où l'on attend une
+  // socket nue (Provider, plugin, `connectShared`). Le contrat est porté par
+  // les signatures publiques de la classe, qui seules le promettent.
+  private readonly peer: JsonRpcPeer<EventsMap, EventsMap, ActionsMap> =
+    new JsonRpcPeer<EventsMap, EventsMap, ActionsMap>({
+      admit: () => this.admitFrame(),
+      write: (data, frame) => this.writeFrame(data, frame),
+      onNotification: (method, params) =>
+        this.dispatchNotification(method, params),
+    });
   private readonly handlers = new Map<string, Set<RealtimeHandler>>();
   // Abonnements pub/sub ref-comptés (canal → nb de consommateurs). Le subscribe/
   // unsubscribe RÉSEAU n'est émis qu'aux transitions 0↔1 → N consommateurs (hooks
@@ -1405,9 +1408,9 @@ export class NodefonySocket<
    * @returns `false` si le transport n'a pas émis la frame.
    */
   private _emitRaw(method: string, params?: unknown): boolean {
-    // `method`/`params` système (subscribe/unsubscribe/ping) hors map `Emit` →
-    // cast vers la signature stricte du peer (équivalent à l'API pré-types).
-    return this.peer.notify(method as never, params as never);
+    // Le peer est tenu sans la carte `Emit` de la socket : un nom système
+    // (subscribe/unsubscribe/ping) s'y émet tel quel, sans conversion.
+    return this.peer.notify(method, params);
   }
 
   /**
@@ -2043,7 +2046,7 @@ export class NodefonySocket<
     method: K,
     handler: TypedRpcActionHandler<Actions, K>,
   ): void {
-    this.peer.register(method, handler);
+    this.peer.registerHandler(method, handler);
   }
 
   /** Retire une action exposée. */

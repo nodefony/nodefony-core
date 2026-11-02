@@ -466,10 +466,11 @@ useNodefonyChannelData(chat, "chat:prezence"); // ne compile pas
   (`client/react/index.ts#useNodefonyChannel`).
 - **La socket appartient à l'application** : le hook ne l'ouvre ni ne la ferme. Ouvre-la une fois
   (`chat.connect()`).
-- ⚠️ **Une socket typée ne se donne pas encore au Provider** : sa prop `client` n'accepte qu'une
-  socket non paramétrée (`client/react/index.ts#NodefonyProviderProps.client`). Si la page monte
-  aussi un Provider sur la même adresse, ce sont deux connexions : donner au contrat sa propre
-  adresse, ou garder la forme à nom seul sur la socket de la page.
+- **Une connexion par adresse** : la socket typée se donne aussi au Provider
+  (`<NodefonyProvider client={chat}>`) — une socket typée est un sous-type de la socket nue
+  (`client/realtime/NodefonySocket.ts#NodefonySocket.peer`). Les hooks à nom seul et
+  `useNodefony()` la lisent alors, non typée ; un même canal lu sous les deux formes ne prend
+  qu'un abonnement réseau.
 - **Coût nul à l'exécution** : seuls les types changent ; aucune charge n'est validée dans le
   navigateur.
 - La forme `useNodefonyChannelData<T>("canal")` reste valide, mais son `<T>` est une promesse de

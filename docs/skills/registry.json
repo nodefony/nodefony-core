@@ -6224,7 +6224,7 @@
       "name": "nodefony-frontend-dev",
       "summary": "Kit de dev FRONT de Nodefony — full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`NodefonySocket`, hooks React), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), connexion sans interface (`NodefonyLogin`), RBAC isomorphe, ergonomie/a11y/perf (bundlés offline), et vérification d'une modif front — sans navigateur (transform Vite en `curl`, purge du prébundle) ou à l'écran → `nodefony-browser`.",
       "family": "Développer le framework",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "keywords": [
         "nodefony",
         "NodefonySocket",

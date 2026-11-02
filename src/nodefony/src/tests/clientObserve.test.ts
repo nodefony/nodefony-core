@@ -378,9 +378,7 @@ describe("observeChannel — l'appariement abonnement/désabonnement", () => {
     const client = newClient();
     const t = await connected(client);
     const vus: unknown[] = [];
-    observeChannelData<{ n: number }>(client, "live:ticker", (v) =>
-      vus.push(v),
-    );
+    observeChannelData(client, "live:ticker", (v) => vus.push(v));
     expect(vus).toEqual([null]);
     t.push("live:ticker", { n: 1 });
     t.push("live:ticker", { n: 2 });

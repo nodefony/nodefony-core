@@ -99,7 +99,11 @@ socle `observeChannel`/`observeChannelData` : nom contraint aux canaux d'écoute
 déduite (`observe.ts#ChannelPayload`, mêmes cartes que `on`). Jamais deux génériques à la main
 (`useNodefonyChannelData<C, "chat:presence">`), jamais `<T>` quand un contrat existe : c'est la
 socket qui porte le contrat. La socket passée l'emporte sur celle du Provider/plugin et n'en exige
-aucun ; son cycle (`connect()`) reste à l'application.
+aucun ; son cycle (`connect()`) reste à l'application. Une socket typée est un SOUS-TYPE de la
+socket nue (`peer` tenu sans génériques) : elle se donne aussi au Provider, au plugin Vue, à
+`configureNodefony`, à `provideNodefony` et à `connectShared` — UNE connexion par adresse, les
+hooks à nom seul la lisent non typée. Le socle `observeChannel`/`observeChannelData` n'a plus de
+forme `<T>` : socket typée → charge déduite, socket nue → `unknown`.
 
 ```ts
 const presence = useNodefonyChannelData(socket, "chat:presence", {

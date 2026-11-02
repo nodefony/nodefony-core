@@ -349,11 +349,6 @@ export function observeChannel(
   client: ObservableClient,
   channel: string,
   emit: Emit<unknown>,
-): Dispose;
-export function observeChannel(
-  client: ObservableClient,
-  channel: string,
-  emit: Emit<unknown>,
 ): Dispose {
   const handle = client.channel(channel);
   handle.on((payload: unknown) => emit(payload));
@@ -375,12 +370,6 @@ export function observeChannelData<
   channel: K,
   emit: Emit<ChannelPayload<L, K> | null>,
   initial?: ChannelPayload<L, K> | null,
-): Dispose;
-export function observeChannelData<T = unknown>(
-  client: ObservableClient,
-  channel: string,
-  emit: Emit<T | null>,
-  initial?: T | null,
 ): Dispose;
 export function observeChannelData(
   client: ObservableClient,

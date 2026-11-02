@@ -76,7 +76,7 @@ export async function connectedContractSocket(): Promise<{
 }
 
 /**
- * Socket NON paramétrée, CONNECTÉE — celle qu'accepte le Provider d'une page.
+ * Socket NON paramétrée, CONNECTÉE — celle d'une page qui n'a pas de contrat.
  *
  * @returns la socket et le transport qui pousse les messages du serveur.
  */

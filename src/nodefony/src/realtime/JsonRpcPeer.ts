@@ -151,8 +151,18 @@ export interface RpcTracedResult<T = unknown> {
   meta?: RpcMeta;
 }
 
-/** Handler d'une action (requête→réponse). Sync ou async ; throw → `-32603`. */
-export type RpcActionHandler = (params: unknown) => unknown;
+/**
+ * Handler d'une action (requête→réponse). Sync ou async ; throw → `-32603`.
+ *
+ * Le paramètre est déclaré en position de MÉTHODE, donc comparé de façon
+ * bivariante : un handler typé par le contrat (`TypedRpcActionHandler`) s'y
+ * range sans conversion. C'est la frontière où les paramètres reçus du réseau
+ * rencontrent le contrat — le contrat les décrit sans les valider, comme
+ * `RealtimeHandler` pour les canaux.
+ */
+export type RpcActionHandler = {
+  handle(params: unknown): unknown;
+}["handle"];
 
 /**
  * Handler des notifications entrantes (pas de réponse). Paramétrable par `Listen`
@@ -440,10 +450,19 @@ export class JsonRpcPeer<
     method: K,
     handler: TypedRpcActionHandler<Actions, K>,
   ): void {
-    (this.actions ??= new Map<string, RpcActionHandler>()).set(
-      method,
-      handler as RpcActionHandler,
-    );
+    this.registerHandler(method, handler);
+  }
+
+  /**
+   * Expose une action sous un nom quelconque — la forme non typée de
+   * {@link JsonRpcPeer.register}, pour qui tient le peer sans son contrat (la
+   * socket client, qui le type par ses propres signatures). Idempotent.
+   *
+   * @param method - nom de l'action.
+   * @param handler - ce qui répond à la requête entrante.
+   */
+  registerHandler(method: string, handler: RpcActionHandler): void {
+    (this.actions ??= new Map<string, RpcActionHandler>()).set(method, handler);
   }
 
   /** Retire une action. */

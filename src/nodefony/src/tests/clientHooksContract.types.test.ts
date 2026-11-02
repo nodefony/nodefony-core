@@ -142,11 +142,27 @@ function _typeOnlySocle(): void {
   // @ts-expect-error — "chat:prezence" n'est pas un canal du contrat
   observeChannel(chat, "chat:prezence", () => {});
 
-  // Socket non paramétrée : la forme historique, générique honoré.
+  // Socket non paramétrée : tout nom est accepté, la charge reste `unknown`.
   const raw = new NodefonySocket({ url: "/live" });
-  observeChannelData<{ n: number }>(raw, "live:events", (v) => {
-    expectType<{ n: number } | null>(v);
+  observeChannelData(raw, "live:events", (v) => {
+    expectType<unknown>(v);
   });
+}
+
+/**
+ * Une socket typée est un SOUS-TYPE de la socket nue : elle entre par toutes les
+ * portes qui attendent une socket — Provider, plugin, configuration, fournisseur
+ * — et la page n'ouvre qu'une connexion par adresse.
+ */
+function _typeOnlySubtype(): void {
+  const bare: NodefonySocket = chat;
+  void bare;
+  const props: react.NodefonyProviderProps = { client: chat };
+  void props;
+  const vueOptions: vue.NodefonyVueOptions = { client: chat };
+  void vueOptions;
+  svelte.configureNodefony({ client: chat });
+  angular.provideNodefony({ client: chat });
 }
 
 describe("liaisons de vue — lecture typée par le contrat (compile-only)", () => {
@@ -156,5 +172,6 @@ describe("liaisons de vue — lecture typée par le contrat (compile-only)", () 
     void _typeOnlySvelte;
     void _typeOnlyAngular;
     void _typeOnlySocle;
+    void _typeOnlySubtype;
   });
 });
