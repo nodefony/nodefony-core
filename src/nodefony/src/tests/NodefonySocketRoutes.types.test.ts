@@ -118,6 +118,11 @@ function _typeOnly(): void {
   // ── Socket non paramétrée : permissive ────────────────────────────────────
   const raw = new NodefonySocket({ url: "/x" });
   expectType<Promise<unknown>>(raw.post("/chat/send", { texte: "x" }));
+  // Sans contrat, la carte des routes n'a que son MOTIF (`GET /${string}`) :
+  // aucune route n'y est déclarée, le résultat est celui que l'appelant annonce.
+  expectType<Promise<{ name: string }[]>>(
+    raw.get<{ name: string }[]>("/nodefony/kernel/api/modules"),
+  );
 
   // ── Table serveur : le MÊME schéma, chaque route du contrat, rien d'autre ─
   const routes = {

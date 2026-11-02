@@ -213,6 +213,23 @@ export interface IContractRoute {
  */
 export type RoutesMap = Record<`${BridgeVerb} /${string}`, IContractRoute>;
 
+/**
+ * Routes DÉCLARÉES d'une carte : ses clés dont le chemin est écrit, sans le
+ * motif `"<VERBE> /${string}"` que porte {@link RoutesMap} lui-même.
+ *
+ * `LiteralKeys` ne suffit pas ici : il garde les motifs, à dessein — un canal
+ * `user:${string}` est une déclaration. Mais le motif de la carte des routes
+ * n'en est pas une : laissé, il faisait passer toute route d'une socket SANS
+ * contrat pour déclarée, et `get<T>()` y rendait `unknown` au lieu de `T`.
+ */
+type DeclaredRouteKeys<R> = {
+  [K in keyof R & string]: K extends `${BridgeVerb} ${infer P}`
+    ? `/${string}` extends P
+      ? never
+      : K
+    : never;
+}[keyof R & string];
+
 /** Membre `M` d'une route déclarée, lu par sa PRÉSENCE (`undefined` sinon). */
 type RoutePart<
   R,
@@ -232,7 +249,7 @@ type RoutePart<
  * déclarée n'a pas de corps, libre (`unknown`) hors contrat.
  */
 export type ContractRouteBody<R extends RoutesMap, K extends string> =
-  K extends LiteralKeys<R> ? RoutePart<R, K, "body"> : unknown;
+  K extends DeclaredRouteKeys<R> ? RoutePart<R, K, "body"> : unknown;
 
 /**
  * Noms des variables d'un gabarit de chemin — `"/a/{id}/b/{slug}"` → `"id" | "slug"` ;
@@ -258,7 +275,7 @@ export type ContractRouteParams<
   K extends string,
   P extends string,
 > =
-  K extends LiteralKeys<R>
+  K extends DeclaredRouteKeys<R>
     ? "params" extends keyof R[K & keyof R]
       ? RoutePart<R, K & keyof R, "params">
       : TemplateParams<P>
@@ -266,14 +283,14 @@ export type ContractRouteParams<
 
 /** La query qu'accepte une route du pont — pendant de {@link ContractRouteBody}. */
 export type ContractRouteQuery<R extends RoutesMap, K extends string> =
-  K extends LiteralKeys<R> ? RoutePart<R, K, "query"> : unknown;
+  K extends DeclaredRouteKeys<R> ? RoutePart<R, K, "query"> : unknown;
 
 /**
  * Ce que rend une route du pont, lu par {@link Jsonify} (il a traversé le fil)
  * quand `K` appartient au contrat ; sinon le `T` que l'appelant demande.
  */
 export type ContractRouteResult<R extends RoutesMap, K extends string, T> =
-  K extends LiteralKeys<R>
+  K extends DeclaredRouteKeys<R>
     ? R[K & keyof R] extends { result: infer X }
       ? Jsonify<X>
       : unknown
