@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T19:31:21.730Z",
+  "generatedAt": "2026-11-02T20:50:27.759Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 226,
+      "closed": 227,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 23,
+      "open": 22,
       "title": "10.0.0-beta"
     },
     {
@@ -5785,8 +5785,8 @@
       "number": 701,
       "title": "test(realtime): exporter une suite de conformité des drivers du bus",
       "url": "https://github.com/nodefony/nodefony-core/issues/701",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -9612,7 +9612,7 @@
       "title": "feat(framework): servir une API GraphQL dérivée des services CRUD",
       "url": "https://github.com/nodefony/nodefony-core/issues/637",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "11.0.0",
       "priorite": "P3 — fin de cycle",
       "jours": 5,
