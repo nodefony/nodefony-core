@@ -5320,6 +5320,18 @@ export const TASKS = [
         observe: true,
       },
       {
+        // OBSERVÉ (#726) : un test qui exclut PUIS constate — l'éjection
+        // (`evicted`) ou le refus au retour (`denials()`). Vécu au #700 : les
+        // tests des agents ne s'abonnaient pas, et un salon que personne ne
+        // servait passait vert. L'énoncé ne l'exige pas mot pour mot : signal
+        // de qualité, à durcir quand un run aura montré ce que font les agents.
+        kind: "code",
+        name: "l'exclusion est PROUVÉE par un test (evicted, ou refus au retour)",
+        pattern: /["'`]evicted["'`]|\bdenials\(\)/u,
+        where: "addedTests",
+        observe: true,
+      },
+      {
         kind: "code",
         // Une STRUCTURE (déclarée ou manipulée), jamais un mot : « Member kicked
         // successfully » dans un message de retour n'est pas une liste noire

@@ -1062,6 +1062,7 @@
         "src/packages/@nodefony/mongoose/vitest.config.ts",
         "src/packages/@nodefony/orm-core/vitest.config.ts",
         "src/packages/@nodefony/realtime/vitest.cluster.config.ts",
+        "src/packages/@nodefony/realtime/vitest.compat.config.ts",
         "src/packages/@nodefony/realtime/vitest.config.ts",
         "src/packages/@nodefony/redis/vitest.config.ts",
         "src/packages/@nodefony/security/vitest.config.ts",

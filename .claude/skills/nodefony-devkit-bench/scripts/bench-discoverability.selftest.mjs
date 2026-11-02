@@ -3438,6 +3438,14 @@ const SAMPLES = {
     pass: { addedTs: `    getRealtimeHub().evictUser(room, user);` },
     fail: { addedTs: `    guests.get(room)?.delete(user);` },
   },
+  "45 :: l'exclusion est PROUVÉE par un test (evicted, ou refus au retour)": {
+    pass: {
+      addedTests: `    exclude("room:7", "bob");\n    expect(closedOf(bob)).toEqual([{ channel: "room:7", reason: "evicted" }]);`,
+    },
+    fail: {
+      addedTests: `    exclude("room:7", "bob");\n    expect(guests.get("room:7")?.has("bob")).toBe(false);`,
+    },
+  },
   "45 :: pas de liste noire inventée (exclus tenus à côté de l'appartenance)": {
     pass: {
       addedTs: `    guests.get(room)?.delete(user);\n    getRealtimeHub().evictUser(room, user);\n    return { success: true, message: "Member kicked successfully" };`,
