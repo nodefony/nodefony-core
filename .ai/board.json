@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T12:00:42.738Z",
+  "generatedAt": "2026-11-02T14:41:53.583Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 223,
+      "closed": 224,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 25,
+      "open": 24,
       "title": "10.0.0-beta"
     },
     {
@@ -5691,8 +5691,8 @@
       "number": 711,
       "title": "refactor(studio): typer les canaux de Studio par un contrat",
       "url": "https://github.com/nodefony/nodefony-core/issues/711",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
