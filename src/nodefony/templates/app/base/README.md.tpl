@@ -409,7 +409,7 @@ premier exemplaire.
 service CRUD, controller et tests — avec la même grammaire de champs qu'en SQL :
 
 ```bash
-npx nodefony create entity Post title:string(120) body:text? author:ref:User
+npx nodefony create entity Post "title:string(120)" "body:text?" author:ref:User
 ```
 
 Une relation (`ref:`) est un `ObjectId` chargé par `?include=` ; MongoDB ne

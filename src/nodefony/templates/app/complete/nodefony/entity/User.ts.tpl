@@ -53,7 +53,7 @@ import { portableUserTable, FRAMEWORK_CONNECTOR } from "@nodefony/drizzle";
  * réécrit l'entité avec les colonnes du contrat EN CLAIR, plus les tiennes.
  *
  * ```bash
- * nodefony create entity User firstName:string(100)? department:string?
+ * nodefony create entity User "firstName:string(100)?" "department:string?"
  * ```
  *
  * Un champ obligatoire doit avoir une valeur par défaut (`role:string=membre`) ou

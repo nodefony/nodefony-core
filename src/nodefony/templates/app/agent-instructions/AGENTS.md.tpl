@@ -80,7 +80,7 @@ en JSON), `--answers-json <fichier|->` (réponses en JSON), `--dry-run` (plan et
 diffs, zéro écriture). Un refus n'écrit jamais rien (transaction).
 
 Les champs d'une entité se déclarent en positionnels :
-`npx nodefony create entity Post title:string views:int=0 status:enum(draft,published) slug:string:unique author:ref:User`.
+`npx nodefony create entity Post title:string views:int=0 "status:enum(draft,published)" slug:string:unique author:ref:User`.
 Un champ est NON NUL par défaut ; le `?` l'autorise (le `!` est REFUSÉ, jamais
 ignoré), `:index` pose l'index, `:unique` l'unicité, `=<valeur>` fixe
 la valeur par défaut, `enum(a,b)` borne les valeurs admises, et
@@ -102,7 +102,7 @@ schéma Mongoose, service CRUD, controller REST + socket et tests — sans table
 migration. Une ligne, toutes les options qui ont un sens ici :
 
 ```bash
-npx nodefony create entity Post title:string(120) body:text? views:int=0 status:enum(draft,published)=draft slug:string:unique tags:json? author:ref:User --soft-delete --route /api/posts --module <nom> --dry-run
+npx nodefony create entity Post "title:string(120)" "body:text?" views:int=0 "status:enum(draft,published)=draft" slug:string:unique "tags:json?" author:ref:User --soft-delete --route /api/posts --module <nom> --dry-run
 ```
 
 `ref:<Entité>` → `ObjectId` indexé, chargé par `?include=` ; `json` → `Mixed` ;

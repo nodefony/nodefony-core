@@ -5444,7 +5444,7 @@ function runEntityScaffold(
   if (fields.length === 0) {
     throw new Error(
       `create entity ${pascal} : aucun champ déclaré — passe-les en arguments ` +
-        `(ex : nodefony create entity ${pascal} title:string body:text? views:int=0)`,
+        `(ex : nodefony create entity ${pascal} title:string "body:text?" views:int=0)`,
     );
   }
   // Le contrat porte ses propres horodatages, en camelCase — ceux du générateur

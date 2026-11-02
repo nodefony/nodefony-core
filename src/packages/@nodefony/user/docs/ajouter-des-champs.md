@@ -100,7 +100,7 @@ une entité dédiée, un blob chiffré, et une lecture qui n'a lieu qu'au moment
 réécrit l'entité avec les colonnes du contrat en clair, plus les tiennes.
 
 ```bash
-npx nodefony create entity User department:string(100)? locale:string=fr
+npx nodefony create entity User "department:string(100)?" locale:string=fr
 npx nodefony orm:generate --name champs_utilisateur
 npx nodefony orm:migrate
 ```

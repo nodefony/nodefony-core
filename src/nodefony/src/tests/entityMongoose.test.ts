@@ -15,6 +15,7 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
+  existsSync,
   statSync,
   writeFileSync,
 } from "node:fs";
@@ -455,8 +456,16 @@ describe("create entity — les EXEMPLES écrits se parsent", () => {
     ...walk(devkitSkills),
     ...walk(path.join(core, "docs")),
     ...walk(path.join(repo, "docs/guides")),
+    // La doc des modules part sur npm (`files: ["docs"]`) : un agent la lit dans
+    // `node_modules` et en recopie les commandes.
+    ...readdirSync(path.join(repo, "src/packages/@nodefony"))
+      .map((m) => path.join(repo, "src/packages/@nodefony", m, "docs"))
+      .filter((dir) => existsSync(dir))
+      .flatMap((dir) => walk(dir)),
   ];
   const examples: Array<{ file: string; fields: string }> = [];
+  /** Mots NON cités qu'un shell réinterprète : `?` et `(` y sont de la syntaxe. */
+  const unquoted: string[] = [];
   for (const file of sources) {
     for (const match of readFileSync(file, "utf8").matchAll(
       /create entity ([A-Z][A-Za-z0-9]*)([^\n`|&#]*)/gu,
@@ -482,6 +491,11 @@ describe("create entity — les EXEMPLES écrits se parsent", () => {
           fields.push(token);
         }
       }
+      for (const m of (match[2] ?? "").matchAll(/"[^"]*"|'[^']*'|(\S+)/gu)) {
+        const bare = (m[1] ?? "").replace(/["']+,?$/u, "");
+        if (/[?()]/u.test(bare))
+          unquoted.push(`${path.relative(repo, file)} : ${bare}`);
+      }
       if (fields.length > 0) {
         examples.push({
           file: path.relative(repo, file),
@@ -501,10 +515,20 @@ describe("create entity — les EXEMPLES écrits se parsent", () => {
         parseEntityFields(fields);
         return [];
       } catch (e) {
-        return [`${file} : « ${fields} » — ${(e as Error).message}`];
+        const why = e instanceof Error ? e.message : String(e);
+        return [`${file} : « ${fields} » — ${why}`];
       }
     });
     assert.deepStrictEqual(refused, []);
+  });
+
+  it("chaque champ qui porte `?` ou `(` est entre guillemets — zsh le refuse sinon", () => {
+    // zsh, shell par défaut de macOS, lit `body:text?` comme un motif de fichier
+    // (« no matches found ») et `string(120)` comme de la syntaxe : la commande
+    // n'est jamais lancée. Vécu au banc de découvrabilité, l'agent recopiant
+    // l'exemple de l'AGENTS.md. Entre guillemets doubles, le champ passe sous
+    // zsh, bash, PowerShell et cmd.
+    assert.deepStrictEqual(unquoted, []);
   });
 });
 

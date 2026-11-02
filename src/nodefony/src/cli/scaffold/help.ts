@@ -283,7 +283,7 @@ const TYPE_DOC: Record<TScaffoldType, ITypeDoc> = {
         text: "une ressource REST complète, avec ses tests",
       },
       {
-        term: "nodefony create entity Commande client:ref:User total:decimal(10,2)",
+        term: 'nodefony create entity Commande client:ref:User "total:decimal(10,2)"',
         text: "une clé étrangère et un décimal exact",
       },
       {

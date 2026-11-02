@@ -32,7 +32,7 @@ description: >
 ## Le geste
 
 ```bash
-npx nodefony create entity Article title:string body:text? published:bool
+npx nodefony create entity Article title:string "body:text?" published:bool
 ```
 
 Une seule commande produit la chaîne entière : la table, son interface de ligne, les schémas de
@@ -109,7 +109,7 @@ tests — sans table ni migration (la collection naît à la première écriture
 les options qui ont un sens ici :
 
 ```bash
-npx nodefony create entity Post title:string(120) body:text? views:int=0 status:enum(draft,published)=draft slug:string:unique tags:json? author:ref:User --soft-delete --route /api/posts --dry-run
+npx nodefony create entity Post "title:string(120)" "body:text?" views:int=0 "status:enum(draft,published)=draft" slug:string:unique "tags:json?" author:ref:User --soft-delete --route /api/posts --dry-run
 ```
 
 - La clé est l'`_id` natif, servie en `id` ; `ref:<Entité>` est un `ObjectId` indexé, chargé
@@ -130,7 +130,7 @@ l'entité, sinon son module — et une application de centaines de tables tient 
 module :
 
 ```bash
-npx nodefony create entity Invoice number:string(30):unique total:decimal(24,8) customer:ref:Customer --domain facturation --dry-run
+npx nodefony create entity Invoice "number:string(30):unique" "total:decimal(24,8)" customer:ref:Customer --domain facturation --dry-run
 ```
 
 ## Épouser une table qui existe déjà
@@ -233,7 +233,7 @@ geste :
 - **nom réservé par un module du framework** (`session`, `access_token`, `audit_event`…) — un
   homonyme dépossède le module, et l'application ne démarre plus sur un message parlant d'une
   colonne inconnue. **`User` fait exception** : l'identité appartient à l'application, et
-  `create entity User firstName:string(100)?` écrit l'entité avec les colonnes du contrat plus
+  `create entity User "firstName:string(100)?"` écrit l'entité avec les colonnes du contrat plus
   les tiennes. Trois refus s'y appliquent alors — renommer la table ou changer la casse des
   colonnes (des requêtes les écrivent en dur), la poser ailleurs que dans l'application racine
   (l'ordre de chargement n'y est pas garanti), et déclarer un champ obligatoire **sans valeur par

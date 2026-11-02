@@ -363,7 +363,7 @@ Dans une application MongoDB (`create app --database mongodb`), tout ce qui pré
 avec la même grammaire de champs qu'en SQL :
 
 ```bash
-npx nodefony create entity Post title:string(120) body:text? views:int=0 author:ref:User
+npx nodefony create entity Post "title:string(120)" "body:text?" views:int=0 author:ref:User
 ```
 
 La commande écrit le schéma Mongoose (`nodefony/entity/Post.ts`), les schémas de validation, un
