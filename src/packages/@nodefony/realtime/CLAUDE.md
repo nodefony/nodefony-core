@@ -73,7 +73,7 @@ src/packages/@nodefony/realtime/
 ├── tsconfig.json                       ← NE PAS MODIFIER sans accord
 ├── vitest.config.ts
 ├── CLAUDE.md / MEMORY.md / README.md
-├── docs/                               ← surfacé dans Studio — 12 pages
+├── docs/                               ← surfacé dans Studio — 13 pages
 │   ├── index.md                        ← hub (catalogue en cards)
 │   ├── vocabulaire.md
 │   ├── architecture.md
@@ -84,6 +84,7 @@ src/packages/@nodefony/realtime/
 │   ├── observabilite.md                ← sonde, canaux de santé, écrans
 │   ├── cadence-et-contre-pression.md   ← AIMD client + contre-pression transport ; courbes gardées par cadencePressureFigures.test.ts
 │   ├── canaux-a-membres.md             ← abonner d'office, éjecter, terminer un canal
+│   ├── cas-d-usage.md                  ← un exemple par besoin, blocs serveur exécutés (useCases.test.ts)
 │   ├── cookbook-chat.md
 │   └── couverture-bancs.md
 └── nodefony/
@@ -154,8 +155,10 @@ Ce qu'il faut savoir en entrant dans le module, et qui ne périme pas :
   qui seule tranche. Écouter n'a donc jamais fait exister un canal pour les autres.
 - Le registre des **politiques** de canal lit le nom EXACT, puis les **motifs** déclarés, du plus
   spécifique au plus général (`RealtimeHub.ts#RealtimeHub.resolveChannelPolicy`) : un canal
-  dynamique (`call:<uuid>`) porte donc une politique. La dette qui **reste vraiment** :
-  `IChannelPolicy` ne sait exprimer qu'une classe d'identité (rôles/scopes), jamais « CETTE
-  connexion a-t-elle droit à CE canal » — c'est l'admission par prédicat de l'ADR-0022 §6. Ce que ça bloque, et les cinq autres briques manquantes d'un canal privé (sink anonyme,
-  pas de fermeture administrative, admission qui ne traverse pas le backplane) : mémoire IA
-  `project_realtime_private_channels_kit`. Elle n'a jamais porté le nom `#channelAllowed` qu'on lui prête.
+  dynamique (`call:<uuid>`) porte donc une politique. « CETTE connexion a-t-elle droit à CE
+  canal » s'écrit par `allow` (ADR-0022 §6 décision 1), appelé une fois au `subscribe`, verdict
+  retenu sur la connexion ; abonner d'office, éjecter, terminer : `docs/canaux-a-membres.md`.
+- **Un exemple par besoin** (jeu, salon privé, sonde, `user:<id>`, tâche d'agent) vit dans
+  `docs/cas-d-usage.md`, et chaque bloc serveur y est un fichier de
+  `nodefony/tests/fixtures/use-cases/` exécuté par `useCases.test.ts`, qui compare aussi la page
+  aux fichiers. Corriger un exemple = corriger le FICHIER, puis recopier le bloc (le test le dit).

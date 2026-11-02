@@ -46,7 +46,9 @@ Quatre parcours selon ce que tu viens faire. L'ordre compte : chaque étape supp
 2. [Ce que le module apporte](#-ce-que-le-module-apporte) — pourquoi une couche de plus au-dessus de
    la WebSocket, et ce qu'elle t'évite d'écrire.
 3. [Architecture](./architecture.md) — le trajet complet d'une frame, du câble jusqu'à ta méthode.
-4. [Cookbook — un chat](./cookbook-chat.md) — l'exemple intégrateur, de bout en bout.
+4. [Cas d'usage](./cas-d-usage.md) — jeu, salon privé, sonde, notification, tâche : l'exemple
+   court qui correspond à ton besoin, et le piège qui l'accompagne.
+5. [Cookbook — un chat](./cookbook-chat.md) — l'exemple intégrateur, de bout en bout.
 
 **Je passe d'un processus à plusieurs** — le moment où le temps réel casse sans prévenir. En
 mono-processus tout marchait ; à deux répliques, un message publié sur l'une n'atteint jamais un
@@ -94,6 +96,7 @@ Le tableau pour choisir en cinq secondes ; les cards en dessous pour savoir ce q
 | [Observabilité](./observabilite.md)                           | la sonde, les canaux de santé, les écrans          | tu te demandes si ta socket va bien           |
 | [Cadence et contre-pression](./cadence-et-contre-pression.md) | un client trop lent : ralentir, refuser, couper    | un écran prend du retard, ou la mémoire monte |
 | [Canal à membres](./canaux-a-membres.md)                      | abonner d'office, éjecter, terminer un canal       | le serveur décide qui est dans le canal       |
+| [Cas d'usage](./cas-d-usage.md)                               | un exemple court par besoin, et son piège          | tu sais ce que tu veux construire             |
 | [Cookbook — un chat](./cookbook-chat.md)                      | l'exemple complet, client et serveur               | tu veux du code qui marche tout de suite      |
 
 ```nodefony-cards
@@ -125,6 +128,9 @@ Le tableau pour choisir en cinq secondes ; les cards en dessous pour savoir ce q
   { "icon": "👥", "title": "canaux-a-membres", "href": "./canaux-a-membres.md",
     "desc": "Une partie à quatre, un salon fermé, un appel : le serveur abonne une connexion d'office, en éjecte une, termine le canal pour tous — et allow reste seul juge de qui entre.",
     "meta": "le serveur décide qui est dans le canal" },
+  { "icon": "🎯", "title": "cas-d-usage", "href": "./cas-d-usage.md",
+    "desc": "Un jeu, un salon sur invitation, des capteurs, une notification personnelle, la progression d'une tâche : l'exemple de chaque besoin, exécuté par la suite de tests, avec le choix qui le justifie et l'erreur qui ne se voit qu'en production.",
+    "meta": "tu sais ce que tu veux construire" },
   { "icon": "🍳", "title": "cookbook-chat", "href": "./cookbook-chat.md",
     "desc": "Un salon de discussion complet : configuration, service métier, contrôleur, client navigateur, puis le passage en cluster.",
     "meta": "du code qui tourne, à déformer vers ton besoin" }

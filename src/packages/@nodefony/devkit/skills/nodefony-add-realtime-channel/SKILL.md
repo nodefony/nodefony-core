@@ -13,7 +13,7 @@ description: >
   "réserver un canal à un rôle", "mon canal est public", "diffuser à plusieurs onglets",
   "SSE", "EventSource", "barre de progression", "réponse en streaming",
   "typer les canaux", "contrat temps réel", "action introuvable -32601", "octets", "CBOR",
-  "binaire", "Uint8Array", "$bytes".
+  "binaire", "Uint8Array", "$bytes", "salon privé".
 ---
 
 # add-realtime-channel — le temps réel par sa couche
@@ -105,9 +105,24 @@ use("@nodefony/security", {
 });
 ```
 
-Elle exprime une classe d'identité (connecté, rôles), jamais une liste de membres : « seuls les
-participants de la salle 42 » ne s'écrit pas encore dans le framework. Ne le simule pas avec un
-nom de canal difficile à deviner.
+Elle exprime une classe d'identité (connecté, rôles). « Seuls les participants de la salle 42 »
+s'écrit par `allow` sur le motif (`@RealtimeChannel("room:*", { allow })`) — exemple ci-dessous.
+Ne le simule jamais avec un nom de canal difficile à deviner.
+
+## Je veux… → l'exemple
+
+Chaque cas a son exemple court, exécuté par la suite de tests du module, avec le choix qui le
+justifie et l'erreur qui ne se voit qu'en production. **Lis l'exemple AVANT d'écrire** :
+`node_modules/@nodefony/realtime/docs/cas-d-usage.md` (celui de la version installée).
+
+| Je veux…                                                | Ce qui décide                                              |
+| ------------------------------------------------------- | ---------------------------------------------------------- |
+| des déplacements de jeu, 60 par seconde                 | la dernière position seule, diffusée au tick du serveur    |
+| placer un joueur dans une partie sans qu'il s'abonne    | l'appartenance écrite là où `allow` la lit, puis imposer   |
+| un salon sur invitation, dont on peut exclure quelqu'un | `allow` exclut ; `evictUser` coupe — jamais de liste noire |
+| des capteurs qui écrivent, des écrans qui lisent        | la portée du jeton pour écrire, un rôle pour lire          |
+| prévenir une personne sur tous ses onglets              | `publishToUser` / `onUser` — rien à déclarer               |
+| montrer la progression d'une tâche à son demandeur      | le serveur nomme le canal, l'impose, le termine            |
 
 ## Savoir QUI appelle une action
 
