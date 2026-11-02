@@ -1,6 +1,7 @@
 import type { IFrameCodec, JsonRpcPeer } from "nodefony";
 import type { WsConnectionTransport } from "../src/transport/WsConnectionTransport";
 import type { ChannelSink } from "../src/server/RealtimeHub";
+import type { RealtimeConnection } from "../src/server/RealtimeConnection";
 import type { ConnectionAdmission } from "../src/server/connectionAdmission";
 import type { RealtimeInboundHandler } from "./IRealtimeController";
 
@@ -59,6 +60,12 @@ export interface IRealtimeConnectionState {
    * politique arrive après coup. `null` s'il n'y en a aucun.
    */
   retained: string[] | null;
+  /**
+   * Poignée publique de la connexion (membre d'un canal, argument des
+   * gestionnaires `@RealtimeInbound`) — `null` jusqu'au premier abonnement ou à
+   * la première trame entrante qui la demande.
+   */
+  connection: RealtimeConnection | null;
 }
 
 declare module "@nodefony/http" {

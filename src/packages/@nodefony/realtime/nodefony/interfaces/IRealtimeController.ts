@@ -5,6 +5,7 @@ import type {
   EventsMap,
   IRealtimeContract,
 } from "nodefony";
+import type { IRealtimeConnection } from "./IRealtimeConnection";
 
 /**
  * Publie une charge sur un canal (notification serveur→client) — forme LIBRE :
@@ -50,12 +51,16 @@ export type ContractRealtimePublish<C extends IRealtimeContract> = <
  *   valider (origine non authentifiée au niveau transport).
  * - `reply` = pousse une charge serveur→client sur le MÊME canal, vers CETTE connexion
  *   uniquement (ex. réponse SIP). Per-connexion (≠ fan-out).
+ * - `connection` = la connexion émettrice, locale à ce processus : de quoi l'abonner
+ *   d'office à un canal (`RealtimeHub.subscribeConnection`) ou l'en éjecter. Un
+ *   gestionnaire qui n'en a pas l'usage l'omet.
  *
  * Par défaut aucun canal n'accepte d'entrée (sûr) : un contrôleur opte explicitement.
  */
 export type RealtimeInboundHandler = (
   params: unknown,
   reply: (payload: unknown) => void,
+  connection: IRealtimeConnection,
 ) => void;
 
 /**
@@ -68,7 +73,11 @@ export type RealtimeInboundHandler = (
  * permissive de la base, que le contrôleur lit en `unknown` à l'exécution.
  */
 export type TypedRealtimeInboundHandler<P, R> = {
-  handle(params: P, reply: (payload: R) => void): void;
+  handle(
+    params: P,
+    reply: (payload: R) => void,
+    connection: IRealtimeConnection,
+  ): void;
 }["handle"];
 
 /**

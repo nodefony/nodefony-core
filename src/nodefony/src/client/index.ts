@@ -49,6 +49,9 @@ export type {
   // pouvoir le NOMMER (le compilateur rappelle alors chaque motif ajouté).
   RealtimeDeniedReason,
   IRealtimeSubscribed,
+  // Fin d'un abonnement décidée par le serveur (`onClosed`), et son motif fermé.
+  IRealtimeClosed,
+  RealtimeClosedReason,
   // Charge utile de `onReconnect` / `observeReconnect` : l'écran qui rend un
   // compte à rebours doit pouvoir NOMMER ce qu'il reçoit.
   RealtimeReconnectInfo,

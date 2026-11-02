@@ -62,6 +62,7 @@ import type {
   EventsMap,
   RealtimeIdentity,
   IRealtimeSubscribed,
+  IRealtimeClosed,
   TypedRpcActionHandler,
   ContractParams,
   ContractResult,
@@ -111,6 +112,8 @@ export type {
   IRealtimeWelcome,
   RealtimeDeniedReason,
   IRealtimeSubscribed,
+  IRealtimeClosed,
+  RealtimeClosedReason,
   IRealtimeContract,
   Jsonify,
   ContractClientEmit,
@@ -593,6 +596,17 @@ const unsubscribedBeforeAck = (channel: string): string =>
   `[nodefony] abonnement à « ${channel} » rendu (unsubscribe) avant son acquittement`;
 const deniedBeforeAck = (channel: string): string =>
   `[nodefony] abonnement à « ${channel} » refusé par le serveur`;
+const closedBeforeAck = (channel: string): string =>
+  `[nodefony] abonnement à « ${channel} » terminé par le serveur`;
+
+/** La charge d'une fin `realtime:closed` a-t-elle sa forme ? */
+function isClosedNotice(value: unknown): value is IRealtimeClosed {
+  const reason = ownField(value, "reason");
+  return (
+    typeof ownField(value, "channel") === "string" &&
+    (reason === "ended" || reason === "evicted")
+  );
+}
 
 /** Les chaînes d'une liste reçue (le reste est écarté) ; `null` si ce n'est pas une liste. */
 function stringsOf(value: unknown): string[] | null {
@@ -1315,6 +1329,31 @@ export class NodefonySocket<
     set.add(wrapped);
     return () => {
       this.handlers.get(LOCAL_EVENTS.subscribed)?.delete(wrapped);
+    };
+  }
+
+  /**
+   * S'abonne aux **fins d'abonnement** décidées par le serveur (`realtime:closed`) :
+   * le canal est terminé pour tous (`ended`), ou cette connexion en a été retirée
+   * (`evicted`). Le client a déjà retiré l'abonnement — il ne le rejouera pas à la
+   * reconnexion — et rejeté les `whenSubscribed` en cours ; le handler n'a plus
+   * qu'à le dire à l'écran. Event LOCAL `__closed__`.
+   *
+   * @param handler - reçoit `{ channel, reason }`.
+   * @returns dispose (désabonnement).
+   */
+  onClosed(handler: (closed: IRealtimeClosed) => void): () => void {
+    const wrapped: RealtimeHandler = (closed) => {
+      if (isClosedNotice(closed)) handler(closed);
+    };
+    let set = this.handlers.get(LOCAL_EVENTS.closed);
+    if (!set) {
+      set = new Set();
+      this.handlers.set(LOCAL_EVENTS.closed, set);
+    }
+    set.add(wrapped);
+    return () => {
+      this.handlers.get(LOCAL_EVENTS.closed)?.delete(wrapped);
     };
   }
 
@@ -2272,21 +2311,51 @@ export class NodefonySocket<
   /**
    * Ingère un `realtime:subscribed` : marque le canal acquitté sur la connexion
    * courante, résout ses attentes et émet `__subscribed__`. Un acquittement pour
-   * un canal rendu entre-temps est ignoré. Cold path (1×/canal et par connexion).
+   * un canal rendu entre-temps est ignoré — sauf s'il est IMPOSÉ par le serveur
+   * (`imposed: true`) : le canal entre alors dans les abonnements avec un
+   * consommateur, et se rejoue à la reconnexion comme s'il avait été demandé.
+   * Cold path (1×/canal et par connexion).
    */
   private ingestSubscribed(params: unknown): void {
     const channel = ownField(params, "channel");
-    if (typeof channel !== "string" || !this._subscriptions.has(channel))
-      return;
+    if (typeof channel !== "string") return;
+    const imposed = ownField(params, "imposed") === true;
+    if (!this._subscriptions.has(channel)) {
+      if (!imposed) return;
+      this._subscriptions.set(channel, 1);
+    }
     (this._acked ??= new Set()).add(channel);
     if (this._admissionRetries !== null) this.dropAdmissionRetry(channel);
     if (this._ackWaiters !== null) this.resolveAckWaiters(channel);
     // La charge n'est construite que si quelqu'un écoute : sans écouteur, un
     // acquittement ne coûte qu'une entrée de Set.
     if (this.handlers.get(LOCAL_EVENTS.subscribed)?.size) {
-      const ack: IRealtimeSubscribed = { channel };
+      const ack: IRealtimeSubscribed = imposed
+        ? { channel, imposed: true }
+        : { channel };
       this.fireLocal(LOCAL_EVENTS.subscribed, ack);
     }
+  }
+
+  /**
+   * Ingère un `realtime:closed` : retire l'abonnement QUEL QUE SOIT le nombre de
+   * consommateurs locaux (un hook et un magasin partagent un seul abonnement
+   * serveur, qui vient de prendre fin pour les deux), rejette les attentes
+   * d'acquittement et émet `__closed__`. L'inverse de {@link ingestDenied}, qui
+   * GARDE le canal pour le rejouer : un canal terminé ne se rejoue pas
+   * (ADR-0022 §6 décision 3). Une charge mal formée, ou qui vise un canal que
+   * le client ne suit pas (rendu entre-temps), est ignorée. Cold path.
+   */
+  private ingestClosed(params: unknown): void {
+    if (!isClosedNotice(params)) return;
+    const { channel, reason } = params;
+    if (!this._subscriptions.delete(channel)) return;
+    this._acked?.delete(channel);
+    if (this._admissionRetries !== null) this.dropAdmissionRetry(channel);
+    // Charge relue champ par champ : rien d'autre que le contrat n'atteint l'écran.
+    const closed: IRealtimeClosed = { channel, reason };
+    this.rejectAckWaiters(channel, closedBeforeAck, closed);
+    this.fireLocal(LOCAL_EVENTS.closed, closed);
   }
 
   /**
@@ -2408,6 +2477,7 @@ export class NodefonySocket<
       this.replaySubscriptions();
     } else if (method === "realtime:subscribed") this.ingestSubscribed(params);
     else if (method === "realtime:denied") this.ingestDenied(params);
+    else if (method === "realtime:closed") this.ingestClosed(params);
     this.trackFrame(method); // stats génériques avant dispatch
     // `for…of` plutôt que `forEach((h) => …)` : aucune closure allouée par trame.
     const listeners = this.handlers.get(method);

@@ -219,7 +219,10 @@ describe("@RealtimeInbound — registre des canaux full-duplex entrants", () => 
       }
     }
     const inbound = getRealtimeInbound(new Ctrl())!;
-    inbound["chat:send"]!({ text: "hi" }, (p) => replied.push(p));
+    inbound["chat:send"]!({ text: "hi" }, (p) => replied.push(p), {
+      userId: null,
+      open: true,
+    });
     expect(replied).to.deep.equal([{ echoed: "hi" }]);
   });
 

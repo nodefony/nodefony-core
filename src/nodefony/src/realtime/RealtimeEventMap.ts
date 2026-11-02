@@ -665,6 +665,40 @@ export interface IRealtimeWelcome {
 export interface IRealtimeSubscribed {
   /** Canal dont l'abonnement est désormais effectif sur cette connexion. */
   channel: string;
+  /**
+   * `true` quand c'est le SERVEUR qui a abonné la connexion (abonnement imposé,
+   * ADR-0022 §6 décision 2) — absent pour la réponse à un `subscribe` du client.
+   * Le client inscrit alors le canal dans ses abonnements, comme s'il l'avait
+   * demandé : il le rejoue à la reconnexion, et peut s'en désabonner.
+   */
+  imposed?: true;
+}
+
+/**
+ * Motif d'un `realtime:closed`. Fermé exprès, comme {@link RealtimeDeniedReason} :
+ * le client doit pouvoir traiter tous les cas.
+ *
+ * - `"ended"` — le canal est terminé pour TOUS ses abonnés (fin d'appel, partie
+ *   finie, import achevé).
+ * - `"evicted"` — CETTE connexion en est retirée ; les autres restent servies.
+ */
+export type RealtimeClosedReason = "ended" | "evicted";
+
+/**
+ * Payload de la notification système `realtime:closed` — poussée par le serveur
+ * quand il met fin, de lui-même, à un abonnement en cours (ADR-0021 S4,
+ * ADR-0022 §6 décision 3).
+ *
+ * Le client retire l'abonnement et ne le rejoue PAS à la reconnexion. Ce n'est
+ * qu'une politesse : une page rechargée refait `subscribe`, et c'est alors la
+ * règle d'entrée du canal (`allow`) ou sa fabrique qui tranche. Un refus n'est
+ * pas une fin : il a `realtime:denied`. Cold path.
+ */
+export interface IRealtimeClosed {
+  /** Canal dont l'abonnement vient de prendre fin. */
+  channel: string;
+  /** Pourquoi (cf {@link RealtimeClosedReason}) — jamais le détail de la décision. */
+  reason: RealtimeClosedReason;
 }
 
 /**

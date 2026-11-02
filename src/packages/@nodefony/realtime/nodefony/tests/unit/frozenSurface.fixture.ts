@@ -28,6 +28,12 @@ export const FROZEN_DENIED_REASONS = [
   { name: "unavailable" },
 ] as const;
 
+/** Motifs fermés de `realtime:closed` (`RealtimeClosedReason`, ADR-0021 S4, ADR-0022 §6 décision 3). */
+export const FROZEN_CLOSED_REASONS = [
+  { name: "ended" },
+  { name: "evicted" },
+] as const;
+
 /** Compteurs de REFUS, un par cause, ensemble fermé (S9) — sonde du hub. */
 export const FROZEN_REFUSAL_COUNTERS = [
   { name: "ingressRejectedTotal" },

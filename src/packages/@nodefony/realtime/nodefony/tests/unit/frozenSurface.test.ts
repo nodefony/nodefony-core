@@ -12,9 +12,13 @@ import type {
 } from "../../../index.js";
 // Par la SOURCE du cœur : via `"nodefony"`, on jugerait un `dist` qui peut dater.
 import * as closeCodes from "../../../../../../nodefony/src/realtime/closeCodes.js";
-import type { RealtimeDeniedReason } from "../../../../../../nodefony/src/realtime/RealtimeEventMap.js";
+import type {
+  RealtimeClosedReason,
+  RealtimeDeniedReason,
+} from "../../../../../../nodefony/src/realtime/RealtimeEventMap.js";
 import {
   FROZEN_CLOSE_CODES,
+  FROZEN_CLOSED_REASONS,
   FROZEN_CONTRACT_TYPES,
   FROZEN_CONTRACT_VALUES,
   FROZEN_DENIED_REASONS,
@@ -57,6 +61,17 @@ export type ReasonsClosed = Assert<
 >;
 export type ReasonsPendingAbsent = Assert<
   None<Extract<NamesOf<Pending<Reasons>>, RealtimeDeniedReason>>
+>;
+// Idem pour les motifs de fin d'abonnement (`realtime:closed`).
+type ClosedReasons = (typeof FROZEN_CLOSED_REASONS)[number];
+export type ClosedReasonsPublished = Assert<
+  Subset<NamesOf<Published<ClosedReasons>>, RealtimeClosedReason>
+>;
+export type ClosedReasonsClosed = Assert<
+  Subset<RealtimeClosedReason, NamesOf<ClosedReasons>>
+>;
+export type ClosedReasonsPendingAbsent = Assert<
+  None<Extract<NamesOf<Pending<ClosedReasons>>, RealtimeClosedReason>>
 >;
 // Idem pour les compteurs de refus de la sonde du hub.
 export type CountersPublished = Assert<

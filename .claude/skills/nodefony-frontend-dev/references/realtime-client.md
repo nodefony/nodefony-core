@@ -295,12 +295,14 @@ ADR-0022 §2. L'enveloppe reste JSON-RPC 2.0 ; le codec n'est que la forme sur l
 ```ts
 onNotice(handler: (n: NodefonyNotice) => void): () => void;    // criticités temps réel normalisées (:359)
 onDenied(handler: (d: IRealtimeDenied) => void): () => void;   // refus d'un canal précis (:379)
+onClosed(handler: (c: IRealtimeClosed) => void): () => void;   // fin décidée par le serveur
 onSubscribed(handler: (a: IRealtimeSubscribed) => void): () => void; // abonnement acquitté (flux actif)
 whenSubscribed(channel: string): Promise<void>;   // résolue à l'acquittement, rejetée sur refus
 ```
 
 - `onNotice` : flux de **notices normalisées** (`NodefonyNotice` `notice.ts#NodefonyNotice` = `{ level, title?, message, source, code?, ts }`). Le client interprète les close codes RFC 6455 (`closeCodeToNotice`, `notice.ts#closeCodeToNotice` — `null` pour 1000/1001, pas de bruit), les erreurs serveur poussées, et émet une notice `success` au rétablissement de connexion. Brancher un centre de notifications (snackbar) — monter **une seule fois** (shell) pour ne pas dupliquer les toasts.
 - **Trames écartées, jamais en silence** : une trame binaire sans lecteur, ou un texte non JSON, est écartée, comptée (`binaryFramesDiscarded` / `malformedFramesDiscarded`) et signalée par **une** notice `-32700` par nature (`notice.ts#discardedFrameNotice`). Le transport relaie TOUT (`binaryType = "arraybuffer"`) : c'est l'endpoint qui écarte. Point d'extension binaire hors JSON-RPC : `onBinary(handler)` (trame remise telle quelle en `Uint8Array` — le type du serveur aussi —, vue sans copie sur l'`ArrayBuffer` reçu, aucune notice) et `sendBinary(octets: Uint8Array<ArrayBuffer>)` — la corrélation (canal, requête) appartient alors à l'application.
+- `onClosed` : fin d'abonnement décidée par le SERVEUR (`realtime:closed`, `IRealtimeClosed` = `{ channel, reason: "ended" | "evicted" }`). Le client a déjà retiré le canal (tous consommateurs confondus) et ne le rejouera pas ; les `whenSubscribed` en cours sont rejetés. L'inverse d'`onDenied`, qui GARDE le canal pour le rejouer. Un `realtime:subscribed { imposed: true }` (abonnement imposé par le serveur) inscrit au contraire le canal, comme un `subscribe()`.
 - `onDenied` : refus d'abonnement/push poussé par le serveur (`realtime:denied`, `IRealtimeDenied` `RealtimeEventMap.ts#IRealtimeDenied` = `{ channel, reason }`). Réaction CIBLÉE par canal (griser un contrôle). Le motif est **générique** (`"forbidden"`) — le serveur ne révèle jamais le rôle/scope manquant (pas d'oracle). Émet AUSSI une notice via `onNotice`.
 - `whenSubscribed` / `onSubscribed` : `connected` = transport ouvert, PAS abonné. L'abonnement est effectif à `realtime:subscribed` (`IRealtimeSubscribed` = `{ channel }`). Patron « je recharge l'état puis je suis le flux » : `subscribe(ch)` → `await whenSubscribed(ch)` → charger l'état. Rejetée sur refus du même canal (refus en `cause`), `unsubscribe` du dernier consommateur, `disconnect()`. Serveur sans `subscriptionAcks` au welcome ⇒ résolue au rejeu. Un premier message peut précéder l'acquittement.
 
@@ -382,7 +384,7 @@ const off = observeChannelData<LiveEvent>(live.socket, "live:events", (e) =>
 live.start(); // au démontage : off() — surtout PAS live.socket.disconnect()
 ```
 
-**Événements locaux** : `LOCAL_EVENTS` (`client/realtime/localEvents.ts`) est la source unique des sept noms `__…__` ; les portes publiques sont `onState`/`onIdentity`/`onStats`/`onNotice`/`onDenied`/`onSubscribed`/`onReconnect`. Écrire `on("__state__", …)` en clair est refusé par un gate (`tests/clientObserve.test.ts`), gabarits compris — ils avaient déjà divergé.
+**Événements locaux** : `LOCAL_EVENTS` (`client/realtime/localEvents.ts`) est la source unique des noms `__…__` ; les portes publiques sont `onState`/`onIdentity`/`onStats`/`onNotice`/`onDenied`/`onSubscribed`/`onClosed`/`onReconnect`. Écrire `on("__state__", …)` en clair est refusé par un gate (`tests/clientObserve.test.ts`), gabarits compris — ils avaient déjà divergé.
 
 ### 11.2 Les hooks React `nodefony/react`
 

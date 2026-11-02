@@ -93,6 +93,7 @@ Le tableau pour choisir en cinq secondes ; les cards en dessous pour savoir ce q
 | [Actions RPC](./actions.md)                                   | appeler le serveur et attendre une réponse         | tu veux savoir si l'appel a marché            |
 | [Observabilité](./observabilite.md)                           | la sonde, les canaux de santé, les écrans          | tu te demandes si ta socket va bien           |
 | [Cadence et contre-pression](./cadence-et-contre-pression.md) | un client trop lent : ralentir, refuser, couper    | un écran prend du retard, ou la mémoire monte |
+| [Canal à membres](./canaux-a-membres.md)                      | abonner d'office, éjecter, terminer un canal       | le serveur décide qui est dans le canal       |
 | [Cookbook — un chat](./cookbook-chat.md)                      | l'exemple complet, client et serveur               | tu veux du code qui marche tout de suite      |
 
 ```nodefony-cards
@@ -121,6 +122,9 @@ Le tableau pour choisir en cinq secondes ; les cards en dessous pour savoir ce q
   { "icon": "🚦", "title": "cadence-et-contre-pression", "href": "./cadence-et-contre-pression.md",
     "desc": "Deux étages qui ne se parlent pas et se rencontrent quand même : le client ralentit la cadence de ses canaux d'état (AIMD), le serveur refuse d'empiler au-delà de 4 Mio puis ferme en 1013. Avec les courbes calculées par le vrai code, et les sondes qui le montrent en production.",
     "meta": "un écran prend du retard, ou la mémoire du serveur monte" },
+  { "icon": "👥", "title": "canaux-a-membres", "href": "./canaux-a-membres.md",
+    "desc": "Une partie à quatre, un salon fermé, un appel : le serveur abonne une connexion d'office, en éjecte une, termine le canal pour tous — et allow reste seul juge de qui entre.",
+    "meta": "le serveur décide qui est dans le canal" },
   { "icon": "🍳", "title": "cookbook-chat", "href": "./cookbook-chat.md",
     "desc": "Un salon de discussion complet : configuration, service métier, contrôleur, client navigateur, puis le passage en cluster.",
     "meta": "du code qui tourne, à déformer vers ton besoin" }

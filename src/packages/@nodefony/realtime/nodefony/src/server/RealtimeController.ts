@@ -15,6 +15,8 @@ import {
   type IFrameCodec,
   negotiateFrameCodec,
   type IRealtimeDenied,
+  type IRealtimeClosed,
+  type RealtimeClosedReason,
   type RealtimeDeniedReason,
   type EventsMap,
   type ActionsMap,
@@ -82,13 +84,19 @@ import { welcomeEnv } from "./welcomeEnv";
 import { registerControllerPolicies } from "./channelPolicyRegistry";
 import { welcomeIdentityOf } from "./welcomeIdentity";
 import { isRecord } from "../guards";
-import { subscribedAckFrame } from "./subscribedAck";
+import { imposedSubscribedAckFrame, subscribedAckFrame } from "./subscribedAck";
+import { RealtimeConnection } from "./RealtimeConnection";
 import { deniedDetail, explainsDenials } from "./deniedDetail";
 import {
   ConnectionAdmission,
   type IChannelAdmissionRule,
 } from "./connectionAdmission";
-import { admitByRule, gateFrame, releaseRuleAdmission } from "./frameAdmission";
+import {
+  admitByRule,
+  gateFrame,
+  releaseRuleAdmission,
+  revokeAdmission,
+} from "./frameAdmission";
 
 /**
  * Une action RPC n'a ni variables de route ni URL : `@Param` et `@Query` y
@@ -995,6 +1003,7 @@ export abstract class RealtimeController<
       admission: null,
       admitted: null,
       retained: null,
+      connection: null,
     };
     ctx.__nfRealtime = state;
 
@@ -1009,6 +1018,9 @@ export abstract class RealtimeController<
         liveHub.unsubscribe(channel, sink);
       }
       state.channels.clear();
+      // La poignée ne désigne plus rien : les gestes du hub rendent `false`, et
+      // les abonnements imposés en attente se soldent par un refus.
+      state.connection?.close();
       // Admissions en attente : minuteur coupé, places du budget rendues,
       // verdicts à venir jetés.
       if (state.admission !== null) {
@@ -1108,8 +1120,14 @@ export abstract class RealtimeController<
     const handler = state?.inbound?.[method];
     if (handler) {
       getRealtimeHub().recordInbound(); // sonde : frame full-duplex entrante
-      // reply = push serveur→client sur le MÊME canal, vers CETTE connexion.
-      handler(params, (payload) => state.peer.notify(method, payload));
+      // reply = push serveur→client sur le MÊME canal, vers CETTE connexion ;
+      // la poignée de la connexion en dernier (ajoutée sans casser les
+      // gestionnaires à deux paramètres). Créée une fois, puis lue.
+      handler(
+        params,
+        (payload) => state.peer.notify(method, payload),
+        state.connection ?? this.connectionOf(ctx, state),
+      );
     }
     // `ping` = heartbeat no-op ; notification inconnue = ignorée.
   }
@@ -1125,9 +1143,130 @@ export abstract class RealtimeController<
     state: IRealtimeConnectionState,
     channel: string,
   ): void {
+    // Imposé par le serveur : l'acquittement le dit (le client inscrit alors
+    // le canal), et l'appelant de `subscribeConnection` apprend le succès.
+    const connection = state.connection;
+    if (connection?.isImposing(channel) === true) {
+      state.transport.send(imposedSubscribedAckFrame(channel));
+      connection.settleImposed(channel, true);
+      return;
+    }
     // Écrite d'un bloc, sans enveloppe ni sérialisation générique : même voie
     // que la frame pré-sérialisée du sink (cf `subscribedAck.ts`).
     state.transport.send(subscribedAckFrame(channel));
+  }
+
+  /**
+   * Poignée publique de la connexion, créée au premier besoin (abonnement, trame entrante) puis gardée sur son état.
+   *
+   * Cold path : une fois par connexion. Les deux fermetures la relient à CE
+   * contrôleur, dont les fabriques servent ses canaux.
+   */
+  private connectionOf(
+    ctx: WebsocketContext,
+    state: IRealtimeConnectionState,
+  ): RealtimeConnection {
+    let connection = state.connection;
+    if (connection === null) {
+      const peer = state.peer;
+      connection = new RealtimeConnection(
+        {
+          impose: (channel) => this.imposeChannel(ctx, channel),
+          end: (channel, reason) => this.endChannel(ctx, channel, reason),
+        },
+        () => getRealtimeHub().getTokenForPeer(peer).getIdentity?.().id ?? null,
+      );
+      state.connection = connection;
+    }
+    return connection;
+  }
+
+  /**
+   * Abonnement imposé par le serveur (`RealtimeHub.subscribeConnection`) — la politique fixe par le verrou des trames, puis le chemin d'un `subscribe` du client, `allow` compris (ADR-0022 §6 décision 2).
+   *
+   * Le verdict est rendu à l'appelant par `RealtimeConnection.settleImposed` :
+   * à l'acquittement ({@link acknowledgeSubscription}) ou au refus
+   * ({@link refuseChannel}) — qui n'envoie alors rien au client, qui n'a rien
+   * demandé.
+   */
+  private imposeChannel(ctx: WebsocketContext, channel: string): void {
+    const state = ctx.__nfRealtime;
+    const connection = state?.connection;
+    if (!state || !connection) return;
+    // Déjà membre : rien à rouvrir, ni à acquitter de nouveau.
+    if (state.channels.has(channel)) {
+      connection.settleImposed(channel, true);
+      return;
+    }
+    // Politique fixe (rôles, scopes) : le MÊME verrou que la trame `subscribe`
+    // d'un client, sur la même forme de trame — jamais une seconde règle. Pas la
+    // sonde de l'accueil (`probeChannel`) : elle échoue OUVERT, ce qui convient à
+    // une annonce, jamais à une admission ; le verrou, lui, refuse s'il lève.
+    // Le plancher de plateforme et le motif `*` sont tranchés plus loin, par
+    // `subscribeClient`, comme pour le client.
+    const frame = { method: "subscribe", params: { channel } };
+    if (!getRealtimeHub().runAuthorizer(frame, state.peer)) {
+      connection.settleImposed(channel, false);
+      return;
+    }
+    this.startChannel(ctx, channel);
+  }
+
+  /**
+   * Met fin à l'abonnement de la connexion à un canal, sur décision du serveur, et le lui notifie (`realtime:closed`).
+   *
+   * Même chemin que l'`unsubscribe` du client (hub ET état de la connexion),
+   * jamais un second : retirer le seul sink du hub laisserait l'entrée de la
+   * connexion, et le `subscribe` suivant serait acquitté sans rien rouvrir.
+   * Retire aussi la marque « admise » et le verdict retenu de ce canal.
+   *
+   * @returns `false` si la connexion n'est pas abonnée à ce canal.
+   */
+  private endChannel(
+    ctx: WebsocketContext,
+    channel: string,
+    reason: RealtimeClosedReason,
+  ): boolean {
+    const state = ctx.__nfRealtime;
+    if (!state || !this.leaveChannel(state, channel)) return false;
+    revokeAdmission(state, channel);
+    const closed: IRealtimeClosed = { channel, reason };
+    state.peer.notify("realtime:closed", closed);
+    this.log(`WS ${reason} → ${channel}`, "DEBUG");
+    return true;
+  }
+
+  /**
+   * Retire la connexion d'un canal : hub, état de la connexion, admission de sa règle — le chemin UNIQUE d'une sortie, demandée par le client ou décidée par le serveur.
+   *
+   * @returns `false` si la connexion n'était pas abonnée.
+   */
+  private leaveChannel(
+    state: IRealtimeConnectionState,
+    channel: string,
+  ): boolean {
+    const sink = state.channels.get(channel);
+    if (sink === undefined) return false;
+    getRealtimeHub().unsubscribe(channel, sink);
+    state.channels.delete(channel);
+    releaseRuleAdmission(state, channel);
+    return true;
+  }
+
+  /**
+   * Refus d'un abonnement : rendu à l'appelant serveur s'il s'agit d'une imposition, au client sinon — et aux deux quand le client avait aussi demandé ce canal.
+   */
+  private refuseChannel(
+    state: IRealtimeConnectionState,
+    channel: string,
+    reason: RealtimeDeniedReason,
+    detail: string | undefined,
+    retryAfterMs?: number,
+  ): void {
+    const connection = state.connection;
+    if (connection !== null && !connection.settleImposed(channel, false))
+      return;
+    this.denyChannel(state, channel, reason, detail, retryAfterMs);
   }
 
   /**
@@ -1150,8 +1289,13 @@ export abstract class RealtimeController<
     }
     const admission = state.admission;
     // Déjà en attente de son verdict (rejeu, double envoi) : c'est lui qui
-    // répondra — un second appel d'`allow` ne dirait rien de plus.
-    if (admission?.revive(channel) === true) return;
+    // répondra — un second appel d'`allow` ne dirait rien de plus. Si c'est
+    // une imposition qui attend, le client a demandé le même canal : un refus
+    // lui sera dû, comme à tout `subscribe`.
+    if (admission?.revive(channel) === true) {
+      state.connection?.markClientAsked(channel);
+      return;
+    }
     const hub = getRealtimeHub();
     // F6a (revue 0.6) — cap anti-OOM : plafond de canaux par connexion. Chaque
     // canal ouvert = 1 ticker hub + provider + entrée Map → un socket qui subscribe
@@ -1170,7 +1314,7 @@ export abstract class RealtimeController<
       // abonné). Motif `limit` (une borne de ressource n'est pas un secret, ≠ oracle
       // d'autorisation). Log DEBUG et NON WARNING : un log par subscribe refusé sous
       // flood serait un amplificateur.
-      this.denyChannel(
+      this.refuseChannel(
         state,
         channel,
         "limit",
@@ -1186,10 +1330,10 @@ export abstract class RealtimeController<
     }
     const rule = hub.resolveChannelAdmission(channel);
     if (rule === null) {
-      this.openChannel(state, channel);
+      this.openChannel(ctx, state, channel);
       return;
     }
-    this.admitChannel(state, channel, rule, hub);
+    this.admitChannel(ctx, state, channel, rule, hub);
   }
 
   /**
@@ -1200,6 +1344,7 @@ export abstract class RealtimeController<
    * La file de la connexion n'est créée qu'à son premier canal à `allow`.
    */
   private admitChannel(
+    ctx: WebsocketContext,
     state: IRealtimeConnectionState,
     channel: string,
     rule: IChannelAdmissionRule,
@@ -1213,7 +1358,7 @@ export abstract class RealtimeController<
       if (who === undefined) {
         // Jamais un `id` déduit du login : sans identité d'admission, aucun
         // canal à `allow` (ADR-0021 §S10 point 5).
-        this.denyChannel(
+        this.refuseChannel(
           state,
           channel,
           "forbidden",
@@ -1230,13 +1375,13 @@ export abstract class RealtimeController<
       admission = new ConnectionAdmission(
         {
           open: (ch) => {
-            this.openChannel(state, ch);
+            this.openChannel(ctx, state, ch);
             // Admis par sa règle ET servi : ses trames entrantes passent sans
             // le verrou, le temps de l'abonnement.
             if (state.channels.has(ch)) admitByRule(state, ch);
           },
           deny: (ch, reason, detail, retryAfterMs) => {
-            this.denyChannel(state, ch, reason, detail, retryAfterMs);
+            this.refuseChannel(state, ch, reason, detail, retryAfterMs);
             this.log(`WS subscribe refusé (${reason}) → ${ch}`, "DEBUG");
           },
           warn: (message) => this.log(message, "WARNING"),
@@ -1275,7 +1420,11 @@ export abstract class RealtimeController<
   }
 
   /** Ouvre l'abonnement au hub et l'acquitte — canal sans `allow`, ou admis par sa règle. */
-  private openChannel(state: IRealtimeConnectionState, channel: string): void {
+  private openChannel(
+    ctx: WebsocketContext,
+    state: IRealtimeConnectionState,
+    channel: string,
+  ): void {
     // Sink de CETTE connexion : pousse la charge fan-outée par le hub sur son peer.
     // Quand le canal a plusieurs abonnés, le hub a construit la frame une fois
     // pour tous : on demande son encodage pour le codec de CETTE connexion —
@@ -1326,6 +1475,8 @@ export abstract class RealtimeController<
       // frame du canal. Appelé au plus une fois par publication, jamais par abonné ;
       // l'encodage se fait ensuite une fois par codec (`ChannelFrame`).
       (payload) => JsonRpcPeer.buildNotification(channel, payload),
+      // La connexion entre au registre du canal : membre identifiable.
+      this.connectionOf(ctx, state),
     );
     if (ok) {
       state.channels.set(channel, sink);
@@ -1347,7 +1498,7 @@ export abstract class RealtimeController<
     // hub n'a trouvé personne pour PRODUIRE ce canal : nom mal orthographié ou
     // module absent. Le dire n'ouvre aucun oracle — un canal gardé est tranché en
     // amont par le verrou de frame, donc rendu `forbidden` qu'il existe ou non.
-    this.denyChannel(
+    this.refuseChannel(
       state,
       channel,
       floor ? "forbidden" : "unknown",
@@ -1733,16 +1884,14 @@ export abstract class RealtimeController<
     if (!channel) return;
     const state = ctx.__nfRealtime;
     if (!state) return;
-    const sink = state.channels.get(channel);
-    if (sink) {
-      getRealtimeHub().unsubscribe(channel, sink);
-      state.channels.delete(channel);
-      releaseRuleAdmission(state, channel);
+    if (this.leaveChannel(state, channel)) {
       this.log(`WS unsubscribe → ${channel}`, "DEBUG");
       return;
     }
-    // Pas encore ouvert : s'il attend son admission, son verdict sera jeté.
+    // Pas encore ouvert : s'il attend son admission, son verdict sera jeté —
+    // et une imposition en attente sur ce canal échoue (le client l'a quitté).
     state.admission?.cancel(channel);
+    state.connection?.settleImposed(channel, false);
   }
 }
 

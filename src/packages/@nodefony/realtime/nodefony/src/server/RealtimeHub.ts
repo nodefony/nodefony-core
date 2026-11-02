@@ -21,6 +21,8 @@ import {
   type IFrameCodecSet,
   type RealtimeFrameData,
 } from "nodefony";
+import { RealtimeConnection } from "./RealtimeConnection";
+import type { IRealtimeConnection } from "../../interfaces/IRealtimeConnection";
 import type { IChannelAdmission, UserChannelPayload } from "nodefony";
 import { AdmissionBudget, type IAdmissionLimits } from "./admissionBudget";
 import type { IChannelAdmissionRule } from "./connectionAdmission";
@@ -306,6 +308,14 @@ interface ChannelState {
   owned: boolean;
   /** abonnés locaux (1 sink = 1 connexion). */
   sinks: Set<ChannelSink>;
+  /**
+   * Connexion de chaque sink abonné par un CLIENT (`subscribeClient` avec sa
+   * poignée) — ce qui rend un membre identifiable : le lister, l'éjecter, fermer
+   * le canal pour lui. Les écouteurs et services du serveur n'y figurent pas.
+   * `null` tant qu'aucun client n'est inscrit ; alloué au `subscribe` (chemin
+   * froid), jamais lu par le fan-out.
+   */
+  members: Map<ChannelSink, RealtimeConnection> | null;
   /**
    * Fabrique de frame du canal, posée par le 1ᵉʳ abonné qui en fournit une.
    * `null` = canal sans mutualisation possible (sink historique) → chemin d'avant.
@@ -628,6 +638,8 @@ export class RealtimeHub {
    * sécurité en pose un, c'est lui qui décide (avec les rôles, ce que le hub ne
    * sait pas faire) et le plancher s'efface.
    *
+   * @param member - la connexion qui s'abonne : inscrite au registre du canal,
+   *   elle devient un membre identifiable ({@link channelMembers}).
    * @returns `true` si abonné, `false` si canal inconnu ou fermé par le plancher.
    */
   subscribeClient(
@@ -635,6 +647,7 @@ export class RealtimeHub {
     sink: ChannelSink,
     factory: ChannelFactory,
     buildFrame?: ChannelFrameBuilder,
+    member?: RealtimeConnection,
   ): boolean {
     // 🔴 Un `*` désigne un MOTIF de politique, jamais un canal. Sans ce refus,
     // un client pourrait s'abonner littéralement à `chat:room:*` : le nom ne
@@ -665,7 +678,18 @@ export class RealtimeHub {
       );
       return false;
     }
-    return this.subscribe(channel, sink, factory, buildFrame);
+    if (!this.subscribe(channel, sink, factory, buildFrame)) return false;
+    if (member !== undefined) {
+      // Inscrit APRÈS l'abonnement réussi : un refus ne laisse aucune entrée.
+      // `st` existe : `subscribe` vient de rendre `true` pour ce canal.
+      const st = this.#channels?.get(channel);
+      if (st !== undefined)
+        (st.members ??= new Map<ChannelSink, RealtimeConnection>()).set(
+          sink,
+          member,
+        );
+    }
+    return true;
   }
 
   /**
@@ -719,6 +743,7 @@ export class RealtimeHub {
       dispose: null,
       owned: false,
       sinks: new Set([sink]),
+      members: null,
       buildFrame: buildFrame ?? null,
       messages: 0,
       forward: this.#isBroadcast(channel),
@@ -759,6 +784,7 @@ export class RealtimeHub {
       dispose: null,
       owned: false,
       sinks: new Set([sink]),
+      members: null,
       buildFrame: null,
       messages: 0,
       forward: this.#isBroadcast(channel),
@@ -806,6 +832,7 @@ export class RealtimeHub {
     const st = channels?.get(channel);
     if (!channels || !st) return;
     st.sinks.delete(sink);
+    st.members?.delete(sink);
     if (st.sinks.size === 0) {
       try {
         st.dispose?.();
@@ -814,6 +841,114 @@ export class RealtimeHub {
       }
       channels.delete(channel);
     }
+  }
+
+  /**
+   * Les connexions abonnées à un canal par un client — **local à ce pod** : les membres servis par un autre exemplaire n'y figurent pas.
+   *
+   * Les écouteurs et services du serveur (`listen`, `subscribe`) ne sont pas
+   * des membres. Chemin froid : une copie à chaque appel.
+   *
+   * @param channel - nom exact du canal.
+   * @returns les membres de ce pod, vide si le canal n'en a aucun ici.
+   */
+  channelMembers(channel: string): IRealtimeConnection[] {
+    const members = this.#channels?.get(channel)?.members;
+    return members == null ? [] : Array.from(members.values());
+  }
+
+  /**
+   * Abonne d'office une connexion à un canal — **local à ce pod** : seule une connexion acceptée par ce processus peut l'être.
+   *
+   * Même porte qu'un `subscribe` du client (ADR-0022 §6 décision 2) : la
+   * politique fixe du canal (rôles, scopes, plancher de plateforme), puis sa
+   * règle `allow` s'il en déclare une. Un refus n'abonne pas, et seul
+   * l'appelant l'apprend ; jamais un abonnement qui contourne `allow` — le
+   * client rejoue ses abonnements à chaque reconnexion, et ce rejeu passe par
+   * `allow` : l'application écrit donc l'appartenance là où `allow` la lit.
+   *
+   * Le client est notifié par `realtime:subscribed { channel, imposed: true }`
+   * et inscrit le canal dans ses abonnements ; il peut le quitter.
+   *
+   * Plusieurs exemplaires : la requête qui décide doit atteindre le processus
+   * qui tient la socket — la passer par la socket elle-même (`@RealtimeInbound`,
+   * qui reçoit la connexion), ou faire autoriser l'entrée par `allow` (registre
+   * partagé) et laisser le navigateur s'abonner.
+   *
+   * @param channel - nom exact du canal.
+   * @param connection - la connexion à abonner (reçue par un gestionnaire `@RealtimeInbound`, ou lue dans {@link channelMembers}).
+   * @returns `true` une fois l'abonnement acquitté ; `false` si refusé, si la
+   *   connexion est fermée ou inconnue de ce processus, ou si le client s'en
+   *   désabonne avant le verdict.
+   */
+  subscribeConnection(
+    channel: string,
+    connection: IRealtimeConnection,
+  ): Promise<boolean> {
+    if (!(connection instanceof RealtimeConnection))
+      return Promise.resolve(false);
+    return connection.impose(channel);
+  }
+
+  /**
+   * Retire une connexion d'un canal — **local à ce pod** ; elle reçoit `realtime:closed { reason: "evicted" }`.
+   *
+   * ⚠️ **Éjecter coupe la connexion du canal, seul `allow` exclut**
+   * (ADR-0022 §6 décision 3). Le client ne rejoue pas un canal dont il a été
+   * éjecté, mais c'est une politesse : une page rechargée refait `subscribe`.
+   * Sur un canal à `allow`, l'éjecté revient si l'application n'a pas retiré
+   * l'appartenance là où `allow` la lit ; sur un canal sans `allow`, sa
+   * politique fixe le laisse rentrer.
+   *
+   * @param channel - nom exact du canal.
+   * @param connection - la connexion à retirer.
+   * @returns `false` si la connexion n'est pas membre du canal, est fermée, ou
+   *   inconnue de ce processus — jamais un geste muet.
+   */
+  evictConnection(channel: string, connection: IRealtimeConnection): boolean {
+    return (
+      connection instanceof RealtimeConnection &&
+      connection.end(channel, "evicted")
+    );
+  }
+
+  /**
+   * Termine un canal pour tous ses membres de ce pod : chacun reçoit `realtime:closed { reason: "ended" }`, et le producteur est libéré.
+   *
+   * Les écouteurs du serveur (`listen`) restent inscrits, sur un canal redevenu
+   * PASSIF : le prochain `subscribe` d'un client rejoue la fabrique, et c'est
+   * elle qui tranche. **Seule la fabrique clôt un canal** (ADR-0021 S4) — le
+   * hub ne garde aucune marque « fermé » : une fabrique qui rend encore un
+   * producteur pour ce nom le rouvre. D'où la règle d'écriture d'un canal à
+   * durée de vie : son nom porte l'identifiant de l'instance
+   * (`room:42:<partie>`), et la fabrique rend `null` pour une instance terminée.
+   *
+   * @param channel - nom exact du canal.
+   * @returns le nombre de membres de ce pod à qui la fin a été notifiée.
+   */
+  closeChannel(channel: string): number {
+    const st = this.#channels?.get(channel);
+    if (st === undefined) return 0;
+    let ended = 0;
+    const members = st.members;
+    // `end` désabonne (donc retire l'entrée courante) : supprimer l'entrée en
+    // cours d'itération d'une `Map` est défini, le parcours continue.
+    if (members !== null)
+      for (const member of members.values())
+        if (member.end(channel, "ended")) ended += 1;
+    // Restent des écouteurs ou services du serveur : le producteur est libéré
+    // quand même, et le canal redevient passif (cf `listen`).
+    const rest = this.#channels?.get(channel);
+    if (rest?.owned === true) {
+      try {
+        rest.dispose?.();
+      } catch {
+        /* noop — un provider fautif ne bloque pas la fermeture */
+      }
+      rest.dispose = null;
+      rest.owned = false;
+    }
+    return ended;
   }
 
   /**

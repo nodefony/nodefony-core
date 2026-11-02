@@ -491,7 +491,7 @@ Lazy : aucune structure allouée tant que le service n'`on`/`subscribe`/`publish
 | `ping` | `(timeoutMs?): Promise<KernelPingResult & { rtt }>` | RTT via `nodefony:kernel:ping` (helper réutilisable). |
 | `adaptiveChannel` | `(base, handler, options): AdaptiveChannelBinding` | Canal d'ÉTAT en cadence AIMD (latest-wins). |
 
-Getters : `state` · `identity` (résolue au `realtime:welcome`, `null` avant) · `serverChannels`/`serverMethods` (découverte) · `subscribedChannels` · `framesReceived` · `frameLog` (ring lazy, redacté) · `reconnectAttempts`/`nextRetryAt`. Events locaux (jamais réseau) : `onNotice`/`onDenied`/`onSubscribed`/`onIdentity`. `whenSubscribed(ch)` : l'abonnement effectif (acquitté par `realtime:subscribed`, que `startChannel` émet après inscription du sink et aussi sur un canal déjà tenu ; jamais sur refus). Transport injectable (2ᵉ arg ctor) → testable sans vrai socket.
+Getters : `state` · `identity` (résolue au `realtime:welcome`, `null` avant) · `serverChannels`/`serverMethods` (découverte) · `subscribedChannels` · `framesReceived` · `frameLog` (ring lazy, redacté) · `reconnectAttempts`/`nextRetryAt`. Events locaux (jamais réseau) : `onNotice`/`onDenied`/`onSubscribed`/`onClosed`/`onIdentity`. `realtime:closed { channel, reason: "ended" | "evicted" }` retire l'abonnement pour TOUS ses consommateurs et ne se rejoue pas ; `realtime:subscribed { imposed: true }` inscrit un canal imposé par le serveur (rejoué ensuite). `whenSubscribed(ch)` : l'abonnement effectif (acquitté par `realtime:subscribed`, que `startChannel` émet après inscription du sink et aussi sur un canal déjà tenu ; jamais sur refus). Transport injectable (2ᵉ arg ctor) → testable sans vrai socket.
 
 <a id="26-jsonrpcpeer"></a>
 

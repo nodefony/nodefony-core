@@ -87,6 +87,31 @@ export function admitByRule(
 }
 
 /**
+ * Retire TOUTE admission d'un canal à la connexion — marque de sa règle ET verdict retenu du verrou — quand le serveur l'en éjecte ou le termine (ADR-0022 §6 décision 3).
+ *
+ * Plus fort que {@link releaseRuleAdmission}, qui garde le verdict du verrou :
+ * après une éjection, une trame entrante sur ce canal repasse par le verrou.
+ *
+ * @param state - état de la connexion.
+ * @param channel - canal dont la connexion est retirée.
+ */
+export function revokeAdmission(
+  state: IRealtimeConnectionState,
+  channel: string,
+): void {
+  const retained = state.retained;
+  if (retained !== null) {
+    const at = retained.indexOf(channel);
+    if (at !== -1) {
+      retained.splice(at, 1);
+      if (retained.length === 0) state.retained = null;
+    }
+  }
+  const admitted = state.admitted;
+  if (admitted?.[channel] === true) admitted[channel] = false;
+}
+
+/**
  * Retire l'admission d'un canal à la fin de son abonnement — celle de sa règle
  * `allow`, que rien ne justifie plus. Un verdict du verrou, lui, ne tient qu'à
  * l'identité et survit au désabonnement.

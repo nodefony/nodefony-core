@@ -28,3 +28,15 @@ const SUBSCRIBED_FRAME_PREFIX =
 export function subscribedAckFrame(channel: string): string {
   return SUBSCRIBED_FRAME_PREFIX + JSON.stringify(channel) + "}}";
 }
+
+/**
+ * Sérialise `realtime:subscribed { channel, imposed: true }` — l'acquittement d'un abonnement imposé par le serveur.
+ *
+ * @param channel - le canal imposé (échappé par `JSON.stringify`).
+ * @returns la trame JSON-RPC 2.0 prête à écrire sur le transport.
+ */
+export function imposedSubscribedAckFrame(channel: string): string {
+  return (
+    SUBSCRIBED_FRAME_PREFIX + JSON.stringify(channel) + ',"imposed":true}}'
+  );
+}

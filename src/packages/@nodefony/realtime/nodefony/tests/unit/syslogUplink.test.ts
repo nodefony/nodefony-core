@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { Syslog, Pdu } from "nodefony";
+import type { IRealtimeConnection } from "../../interfaces/IRealtimeConnection.js";
 import {
   createSyslogUplinkHandler,
   BROWSER_ORIGIN,
@@ -8,6 +9,8 @@ import {
 
 const PAGE = "01234567-89ab-cdef-0123-456789abcdef";
 const noReply = (): void => {};
+// Le canal montant n'a pas l'usage de la poignée : une connexion fermée suffit.
+const noConnection: IRealtimeConnection = { userId: null, open: false };
 
 /** Un journal neuf + le tableau de ce qu'il a accepté. */
 function bench() {
@@ -37,6 +40,7 @@ describe("syslogUplink — borne 1 : l'origine est FORCÉE", () => {
     handler(
       { pageId: PAGE, entries: [entry({ moduleName: "kernel" })] },
       noReply,
+      noConnection,
     );
     expect(seen).toHaveLength(1);
     expect(seen[0]!.moduleName).toBe(BROWSER_ORIGIN);
@@ -54,6 +58,7 @@ describe("syslogUplink — borne 2 : taille et débit bornés", () => {
     handler(
       { pageId: PAGE, entries: [entry(), entry(), entry(), entry()] },
       noReply,
+      noConnection,
     );
     expect(seen).toHaveLength(2);
   });
@@ -70,12 +75,13 @@ describe("syslogUplink — borne 2 : taille et débit bornés", () => {
     handler(
       { pageId: PAGE, entries: [entry(), entry(), entry(), entry(), entry()] },
       noReply,
+      noConnection,
     );
     expect(seen).toHaveLength(3);
-    handler({ pageId: PAGE, entries: [entry()] }, noReply);
+    handler({ pageId: PAGE, entries: [entry()] }, noReply, noConnection);
     expect(seen).toHaveLength(3); // toujours dans la fenêtre
     vi.advanceTimersByTime(1500);
-    handler({ pageId: PAGE, entries: [entry()] }, noReply);
+    handler({ pageId: PAGE, entries: [entry()] }, noReply, noConnection);
     expect(seen).toHaveLength(4); // fenêtre suivante
     vi.useRealTimers();
   });
@@ -84,8 +90,8 @@ describe("syslogUplink — borne 2 : taille et débit bornés", () => {
     const { syslog, seen } = bench();
     const a = createSyslogUplinkHandler({ syslog, maxEntriesPerWindow: 1 });
     const b = createSyslogUplinkHandler({ syslog, maxEntriesPerWindow: 1 });
-    a({ pageId: PAGE, entries: [entry(), entry()] }, noReply);
-    b({ pageId: PAGE, entries: [entry()] }, noReply);
+    a({ pageId: PAGE, entries: [entry(), entry()] }, noReply, noConnection);
+    b({ pageId: PAGE, entries: [entry()] }, noReply, noConnection);
     expect(seen).toHaveLength(2); // 1 pour chacun, pas 1 en tout
   });
 
@@ -95,6 +101,7 @@ describe("syslogUplink — borne 2 : taille et débit bornés", () => {
     handler(
       { pageId: PAGE, entries: [entry({ msg: "x".repeat(500) })] },
       noReply,
+      noConnection,
     );
     expect(seen[0]!.msg).toHaveLength(10);
   });
@@ -104,7 +111,11 @@ describe("syslogUplink — borne 3 : la sévérité est plafonnée", () => {
   it("ramène EMERGENCY à ERROR — un onglet ne déclenche pas d'alerte", () => {
     const { syslog, seen } = bench();
     const handler = createSyslogUplinkHandler({ syslog });
-    handler({ pageId: PAGE, entries: [entry({ severity: 0 })] }, noReply);
+    handler(
+      { pageId: PAGE, entries: [entry({ severity: 0 })] },
+      noReply,
+      noConnection,
+    );
     expect(seen[0]!.severity).toBe(MAX_CLIENT_SEVERITY);
     expect(seen[0]!.severityName).toBe("ERROR");
   });
@@ -112,14 +123,22 @@ describe("syslogUplink — borne 3 : la sévérité est plafonnée", () => {
   it("laisse passer les niveaux moins graves", () => {
     const { syslog, seen } = bench();
     const handler = createSyslogUplinkHandler({ syslog });
-    handler({ pageId: PAGE, entries: [entry({ severity: 6 })] }, noReply);
+    handler(
+      { pageId: PAGE, entries: [entry({ severity: 6 })] },
+      noReply,
+      noConnection,
+    );
     expect(seen[0]!.severityName).toBe("INFO");
   });
 
   it("refuse une sévérité qui n'est pas un entier exploitable", () => {
     const { syslog, seen } = bench();
     const handler = createSyslogUplinkHandler({ syslog });
-    handler({ pageId: PAGE, entries: [entry({ severity: "grave" })] }, noReply);
+    handler(
+      { pageId: PAGE, entries: [entry({ severity: "grave" })] },
+      noReply,
+      noConnection,
+    );
     expect(seen[0]!.severity).toBe(MAX_CLIENT_SEVERITY);
   });
 });
@@ -131,6 +150,7 @@ describe("syslogUplink — ce qui entre est NON FIABLE", () => {
     handler(
       { pageId: PAGE, entries: [entry({ requestId: "req-abc-123" })] },
       noReply,
+      noConnection,
     );
     expect(seen[0]!.requestId).toBe("req-abc-123");
   });
@@ -144,6 +164,7 @@ describe("syslogUplink — ce qui entre est NON FIABLE", () => {
         entries: [entry({ requestId: "avec espace\net saut" })],
       },
       noReply,
+      noConnection,
     );
     expect(seen[0]!.requestId).toBe(PAGE);
   });
@@ -151,9 +172,9 @@ describe("syslogUplink — ce qui entre est NON FIABLE", () => {
   it("jette un lot sans pageId exploitable", () => {
     const { syslog, seen } = bench();
     const handler = createSyslogUplinkHandler({ syslog });
-    handler({ entries: [entry()] }, noReply);
-    handler({ pageId: 42, entries: [entry()] }, noReply);
-    handler({ pageId: "", entries: [entry()] }, noReply);
+    handler({ entries: [entry()] }, noReply, noConnection);
+    handler({ pageId: 42, entries: [entry()] }, noReply, noConnection);
+    handler({ pageId: "", entries: [entry()] }, noReply, noConnection);
     expect(seen).toHaveLength(0);
   });
 
@@ -161,11 +182,11 @@ describe("syslogUplink — ce qui entre est NON FIABLE", () => {
     const { syslog, seen } = bench();
     const handler = createSyslogUplinkHandler({ syslog });
     expect(() => {
-      handler(null, noReply);
-      handler("texte", noReply);
-      handler({ pageId: PAGE }, noReply);
-      handler({ pageId: PAGE, entries: [] }, noReply);
-      handler({ pageId: PAGE, entries: [null, 7, "x"] }, noReply);
+      handler(null, noReply, noConnection);
+      handler("texte", noReply, noConnection);
+      handler({ pageId: PAGE }, noReply, noConnection);
+      handler({ pageId: PAGE, entries: [] }, noReply, noConnection);
+      handler({ pageId: PAGE, entries: [null, 7, "x"] }, noReply, noConnection);
     }).not.toThrow();
     expect(seen).toHaveLength(0);
   });

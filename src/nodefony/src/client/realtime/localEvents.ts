@@ -1,10 +1,10 @@
 /**
  * localEvents — **noms des événements LOCAUX du client temps réel**.
  *
- * Ces huit noms ne voyagent jamais sur le fil : ils ne servent qu'à propager, dans
+ * Ces neuf noms ne voyagent jamais sur le fil : ils ne servent qu'à propager, dans
  * la page, ce que le client vient d'apprendre (changement d'état de connexion,
  * identité résolue au welcome, échantillon de statistiques, notice normalisée,
- * refus ou acquittement de canal, trame du journal protocole). Ils partagent la table de `on()`/`off()` avec les canaux
+ * refus, acquittement ou fin de canal, trame du journal protocole). Ils partagent la table de `on()`/`off()` avec les canaux
  * réseau ; le double soulignement est ce qui les en distingue.
  *
  * **La table est la source unique**, exactement pour la même raison que
@@ -15,7 +15,7 @@
  * sans qu'aucune constante ne l'exporte.
  *
  * Un consommateur n'a d'ailleurs pas à les connaître : `onState`, `onIdentity`,
- * `onStats`, `onNotice`, `onDenied`, `onSubscribed` et `onReconnect` sont les portes publiques. La table existe
+ * `onStats`, `onNotice`, `onDenied`, `onSubscribed`, `onClosed` et `onReconnect` sont les portes publiques. La table existe
  * pour les implémentations (le client lui-même, ses observateurs agnostiques) et
  * pour un test qui veut se brancher au plus bas niveau.
  *
@@ -42,6 +42,8 @@ export const LOCAL_EVENTS = {
   denied: "__denied__",
   /** Abonnement acquitté par le serveur (`realtime:subscribed`) : le flux est actif. */
   subscribed: "__subscribed__",
+  /** Abonnement terminé par le serveur (`realtime:closed`) : le flux est coupé. */
+  closed: "__closed__",
   /** Tentative de reconnexion programmée (numéro d'essai, délai, échéance). */
   reconnect: "__reconnect__",
   /**
@@ -68,6 +70,7 @@ export function isLocalEvent(event: string): event is LocalEvent {
     event === LOCAL_EVENTS.notice ||
     event === LOCAL_EVENTS.denied ||
     event === LOCAL_EVENTS.subscribed ||
+    event === LOCAL_EVENTS.closed ||
     event === LOCAL_EVENTS.reconnect ||
     event === LOCAL_EVENTS.frame
   );

@@ -395,6 +395,8 @@ export type {
   IRealtimeDenied,
   RealtimeDeniedReason,
   IRealtimeSubscribed,
+  IRealtimeClosed,
+  RealtimeClosedReason,
 } from "./realtime/RealtimeEventMap";
 export type {
   ISubscriberIdentity,

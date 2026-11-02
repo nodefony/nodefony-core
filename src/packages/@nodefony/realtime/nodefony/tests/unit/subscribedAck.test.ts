@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { JsonRpcPeer, type IRealtimeSubscribed } from "nodefony";
-import { subscribedAckFrame } from "../../src/server/subscribedAck.js";
+import {
+  imposedSubscribedAckFrame,
+  subscribedAckFrame,
+} from "../../src/server/subscribedAck.js";
 
 /**
  * La trame d'acquittement est écrite d'un bloc (`subscribedAck.ts`) au lieu de
@@ -30,6 +33,18 @@ describe("subscribedAckFrame — même trame que JsonRpcPeer.buildNotification",
     (_label, channel) => {
       const payload: IRealtimeSubscribed = { channel };
       expect(subscribedAckFrame(channel)).toBe(
+        JSON.stringify(
+          JsonRpcPeer.buildNotification("realtime:subscribed", payload),
+        ),
+      );
+    },
+  );
+
+  it.each(HOSTILE.map((c) => [JSON.stringify(c).slice(0, 40), c]))(
+    "acquittement IMPOSÉ, canal %s → octet pour octet identique",
+    (_label, channel) => {
+      const payload: IRealtimeSubscribed = { channel, imposed: true };
+      expect(imposedSubscribedAckFrame(channel)).toBe(
         JSON.stringify(
           JsonRpcPeer.buildNotification("realtime:subscribed", payload),
         ),
