@@ -81,6 +81,15 @@ Attend le verdict de la CI du commit qu'on s'apprête à publier — et REFUSE s
 - **Appelé par** : `release.yml` · `release/release.mjs`
 - **Utilise** : `release/release-core.mjs`
 
+## [`compat.mjs`](compat.mjs)
+
+Compatibilité ENTRE VERSIONS de la socket temps réel (#629, ADR-0022 §10) : la version PUBLIÉE face au code courant, dans les deux sens.
+
+- **Usage** : `npm run release:compat`
+- **Usage** : `npm run release:compat -- --version <version publiée>`
+- **Appelé par** : `npm run release:compat` · `generate/env-catalog.ts`
+- **Utilise** : `release/release-core.mjs`
+
 ## [`doc-pages.mjs`](doc-pages.mjs)
 
 Pages de documentation qu'une APPLICATION ne sert pas — donc qui ne partent pas sur npm.
@@ -222,7 +231,7 @@ release-core.mjs — le RAISONNEMENT d'une release, sans aucune entrée/sortie.
 
 - **Usage** : `import { validerVersion, comparerVersions, SEMVER } from "./release-core.mjs"`
 - **Variable** `LONGUEUR_MIN_DESCRIPTION`
-- **Appelé par** : `release/attendre-ci.mjs` · `release/pack-all.mjs` · `release/release.mjs`
+- **Appelé par** : `release/attendre-ci.mjs` · `release/compat.mjs` · `release/pack-all.mjs` · `release/release.mjs`
 - **Testé par** : `release/release-core.test.mjs`
 
 ## [`release-core.test.mjs`](release-core.test.mjs)

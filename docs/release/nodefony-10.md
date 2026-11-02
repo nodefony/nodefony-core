@@ -308,6 +308,16 @@ ce qui déclenche la suite (§7.3, §10.7).
 `@arethetypeswrong/cli` et la compilation d'une application témoin — ces deux-là vivent dans
 `npm run release:smoke`, qui est le seul à travailler sur l'artefact REÇU.
 
+**La compatibilité entre versions de la socket** (ADR-0022 §10, contrôle 5) vit aussi hors du
+script : `npm run release:compat` installe la version PUBLIÉE de `nodefony` et
+`@nodefony/realtime` — celle que sert le canal de la version préparée, ou, pour la première
+stable d'une majeure, sa dernière pré-version — et joue le client publié face au serveur courant,
+puis l'inverse. Un onglet ouvert garde son code pendant des heures, un déploiement progressif fait
+coexister deux serveurs : une trame que l'autre version ne sait plus lire ne se voit ni au smoke
+(une seule version) ni dans les suites (le dépôt contre lui-même). La forge le lance dans le job
+`compat` de `release.yml`, dont `publier` dépend ; un rouge est une rupture de fil, qui se corrige
+ou se DÉCLARE (majeure, nouvelle version de sous-protocole) — jamais un banc qu'on contourne.
+
 ### 7.2bis Mesure de performance de la version — geste MANUEL, avant le tag
 
 La page publiée « peut-on partir en production ? » n'est pas produite par l'intégration

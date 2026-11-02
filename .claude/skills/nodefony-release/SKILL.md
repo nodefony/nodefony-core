@@ -47,6 +47,7 @@ derrière les commandes npm qui font autorité :
 | `npm run release:pack` | `scripts/release/pack-all.mjs` | Un tarball par publiable, manifeste tel quel |
 | `npm run release:smoke [-- --scenario X]` | `scripts/release/smoke-docker.sh` | Installation VIERGE en conteneur |
 | `npm run release:image-gate -- <image>` | `scripts/release/image-gate.mjs` | REFUSE une image porteuse d'un secret, couche par couche |
+| `npm run release:compat` | `scripts/release/compat.mjs` | Client publié ↔ serveur courant, et l'inverse (socket). Job `compat`, dont `publier` dépend. Sortie 2 = n'a pas pu installer la référence |
 | `npm run release -- --version <v> --promouvoir` | `scripts/release/release.mjs` | Les gestes mécaniques entre l'estampille et le tag (un seul push). Ne tague jamais |
 | `npm run release -- --deprecate [--publish]` | `scripts/release/release.mjs` | Les paquets historiques, APRÈS la publication |
 | `npm run release -- --dist-tags [--publish]` | `scripts/release/release.mjs` | Le `latest` resté sur la préversion précédente |
@@ -101,8 +102,8 @@ Le fait qui rouvrirait la question : une approbation GROUPÉE côté npm.
 c'est le tag `v10.*` poussé à la main qui déclenche la publication. Inverser les deux enlève à
 l'auteur le seul point où il relit ce qui sortira sous son nom.
 
-**Ce que le tag déclenche, dans l'ordre** (`release.yml`) : `epreuve` (les trois scénarios de smoke
-en matrice) **et** `garde-main` en parallèle → `publier` (les 15 paquets par OIDC) → `vitrine` · `image` → `annonce`, qui crée la
+**Ce que le tag déclenche, dans l'ordre** (`release.yml`) : `epreuve` (les scénarios de smoke
+en matrice), `compat` (socket publiée ↔ courante) **et** `garde-main` en parallèle → `publier` (les 15 paquets par OIDC) → `vitrine` · `image` → `annonce`, qui crée la
 Release GitHub — `--prerelease` déduit de semver —, y **joint le site de la version**
 (`site-<v>.tar.gz`, rendu UNE fois depuis le tag : c'est lui que `/<v>/` servira pour toujours) **et
 republie le site public** en appelant `pages.yml` sur `main`. Puis `bilan`, qui dit ce qui a été SAUTÉ. Compter une bonne dizaine de

@@ -956,6 +956,7 @@
         "src/modules/test/nodefony/tests/testbed.test.ts",
         "src/nodefony/src/tests/ciGateVars.test.ts",
         "src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts",
+        "src/packages/@nodefony/realtime/nodefony/tests/integration/memberOrdersRedis.test.ts",
         "src/packages/@nodefony/realtime/nodefony/tests/integration/redisCluster.e2e.test.ts"
       ]
     },
@@ -979,6 +980,7 @@
         "src/packages/@nodefony/mongoose/vitest.config.ts",
         "src/packages/@nodefony/orm-core/vitest.config.ts",
         "src/packages/@nodefony/realtime/vitest.cluster.config.ts",
+        "src/packages/@nodefony/realtime/vitest.compat.config.ts",
         "src/packages/@nodefony/realtime/vitest.config.ts"
       ],
       "testedBy": []
@@ -1015,6 +1017,7 @@
         "src/packages/@nodefony/mongoose/vitest.config.ts",
         "src/packages/@nodefony/orm-core/vitest.config.ts",
         "src/packages/@nodefony/realtime/vitest.cluster.config.ts",
+        "src/packages/@nodefony/realtime/vitest.compat.config.ts",
         "src/packages/@nodefony/realtime/vitest.config.ts",
         "src/packages/@nodefony/redis/vitest.config.ts",
         "src/packages/@nodefony/security/vitest.config.ts",
@@ -2241,6 +2244,23 @@
       "testedBy": []
     },
     {
+      "path": "scripts/release/compat.mjs",
+      "test": false,
+      "purpose": "Compatibilité ENTRE VERSIONS de la socket temps réel (#629, ADR-0022 §10) : la version PUBLIÉE face au code courant, dans les deux sens.",
+      "usage": [
+        "npm run release:compat",
+        "npm run release:compat -- --version <version publiée>"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run release:compat",
+        "scripts/generate/env-catalog.ts"
+      ],
+      "testedBy": []
+    },
+    {
       "path": "scripts/release/doc-pages.mjs",
       "test": false,
       "purpose": "Pages de documentation qu'une APPLICATION ne sert pas — donc qui ne partent pas sur npm.",
@@ -2566,6 +2586,7 @@
       "output": "",
       "calledBy": [
         "scripts/release/attendre-ci.mjs",
+        "scripts/release/compat.mjs",
         "scripts/release/pack-all.mjs",
         "scripts/release/release.mjs"
       ],
@@ -10068,8 +10089,8 @@
       ],
       "description": "Conduire une publication npm de Nodefony (N paquets verrouillés sur la même version) : quelle commande lancer, dans quel ordre, ce que chaque garde refuse, comment lire un échec. La chaîne appartient au PRODUIT (`npm run release`, `release:pack`, `release:smoke`) ; ce skill porte le raisonnement — une version publiée est BRÛLÉE, npm ne connaît pas la transaction, et ce qu'un dépôt voit de lui-même n'est pas ce qu'un installeur reçoit. À charger AVANT de publier ou de toucher à la surface publiée (`exports`, `files`, `peerDependencies`, gabarits d'application). Plan : `docs/release/nodefony-10.md`. Déclencheurs : \"publier sur npm\", \"faire une release\", \"préparer la publication\", \"puis-je publier ?\", \"estampiller la version\", \"changelog de la release\", \"ordre de publication\", \"packager les paquets\", \"smoke test release\", \"tester l'installation depuis les tarballs\", \"est-ce que le paquet publié marche ?\", \"surface npm\", \"types publiés\", \"tarball\", \"trusted publishing\", \"ENEEDAUTH\", \"avant de publier\".",
       "cost": {
-        "bodyLines": 423,
-        "approxTokens": 8711
+        "bodyLines": 424,
+        "approxTokens": 8769
       },
       "requires": [],
       "resources": {
@@ -10171,7 +10192,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "423",
+            "detail": "424",
             "advisory": true
           }
         ]

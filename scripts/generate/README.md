@@ -29,6 +29,7 @@ Ce que les variables de DÉCOR DE BANC font — la seule part qu'aucun automate 
 
 - **Usage** : `import { BENCH_DECOR, type IEnvDeclaration } from "./env-catalog"`
 - **Appelé par** : `generate/env-snapshot.ts`
+- **Utilise** : `release/compat.mjs`
 
 ## [`env-reference.test.ts`](env-reference.test.ts)
 
