@@ -10,6 +10,7 @@ import {
   installSyslogUplink,
 } from "nodefony";
 import type { NodefonyKernelIdentity, NoticeLevel } from "nodefony";
+import { CBOR_FRAME_CODEC } from "nodefony/cbor";
 import { AuthStore } from "./AuthStore";
 import { ConnectionStore } from "./ConnectionStore";
 import { UiStore } from "./UiStore";
@@ -83,6 +84,12 @@ export class RootStore {
         // (sinon l'overlay « reste » pendant le long backoff par défaut de 30s).
         reconnectDelay: 800,
         reconnectDelayMax: 4000,
+        // #618 D1 — Studio offre TOUJOURS CBOR : le serveur l'accorde s'il a
+        // activé le codec (`codec: "cbor"`), sinon le fil reste en JSON texte.
+        // La barre de debug crée parfois la socket partagée avant Studio : elle
+        // adopte ce codec tant qu'aucune connexion n'est ouverte (D2), et la
+        // socket ne s'ouvre qu'au login.
+        codec: CBOR_FRAME_CODEC,
       },
     });
     const realtime = this.kernel.get("realtime");
