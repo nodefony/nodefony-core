@@ -15,16 +15,19 @@
  * `@env` NF_BROWSER_UNTIL expression JS évaluée DANS la page ; l'observation s'arrête dès qu'elle est vraie (point d'arrêt applicatif)
  * `@env` NF_BROWSER_CUT coupure réseau `<début>:<durée>` en ms (`4000:3000`), comptée depuis l'ouverture de la page — éprouve la REPRISE d'un flux ; chaque socket dit alors quand il s'est fermé et rouvert
  * `@env` NF_BROWSER_MAXFRAMES nombre de frames WebSocket conservées par sens (défaut 12)
+ * `@env` NF_BROWSER_ACTIONS séquence d'interactions jouée UNE FOIS la page ouverte, PENDANT l'observation — même grammaire que `inspect.mjs` (`clic`, `saisir:Nom=x`, `attendre`…). C'est ce qui fait voir la trame qu'un GESTE envoie : un bouton qui écrit par la socket, un formulaire soumis
  * `@requires` conteneur du profil `browser` démarré · serveur Nodefony joignable
  * `@output` JSON : sockets et leurs frames (horodatées), requêtes non-2xx, erreurs console, verdict de la condition
  */
 import { open, goTo } from "./lib/browser.mjs";
-import { parseCut, sendableCloseCode } from "./lib/probes.mjs";
+import { parseActions, parseCut, sendableCloseCode } from "./lib/probes.mjs";
+import { playActions } from "./lib/actions.mjs";
 
 const PAGE = process.argv[2] ?? process.env.NF_BROWSER_PAGE ?? "/";
 const DURATION = Number(process.argv[3] ?? 8000);
 const UNTIL = process.env.NF_BROWSER_UNTIL ?? "";
 const MAX = Number(process.env.NF_BROWSER_MAXFRAMES ?? 12);
+const ACTIONS = parseActions(process.env.NF_BROWSER_ACTIONS);
 const { cut: CUT, invalid: invalidCut } = parseCut(process.env.NF_BROWSER_CUT);
 if (invalidCut) {
   console.error(
@@ -166,6 +169,17 @@ if (CUT) {
       ctx.setOffline(false).catch((e) => (cut.error = String(e)));
     }, CUT.at + CUT.duration),
   );
+}
+
+// ── Les gestes : joués PENDANT l'observation ───────────────────────────────
+// Les écouteurs sont déjà posés : la trame qu'un clic envoie est enregistrée
+// comme les autres. Une cible introuvable arrête la sonde (code 65), comme
+// `inspect.mjs` — observer un geste qui n'a pas eu lieu ne prouve rien.
+const failed = await playActions(page, ACTIONS);
+if (failed !== null) {
+  console.error(failed.message);
+  await browser.close();
+  process.exit(failed.code);
 }
 
 // ── Le « point d'arrêt » : une CONDITION, pas une ligne de code ──────────────

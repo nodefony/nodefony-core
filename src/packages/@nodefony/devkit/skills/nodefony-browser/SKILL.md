@@ -381,6 +381,17 @@ en bout : le message part-il, revient-il, et l'écran le reçoit-il ?
 > lui, vaut pour toute attente que tu écriras : tant qu'elle n'a pas échoué une fois, elle ne
 > discrimine rien.
 
+### Voir la trame qu'un GESTE envoie — `NF_BROWSER_ACTIONS`
+
+```bash
+docker exec -e "NF_BROWSER_ACTIONS=Supprimer|Confirmer" mon-app-browser node /app/see-screen/watch.mjs /articles 4000
+```
+
+La même grammaire que pour `inspect.mjs`, jouée une fois la page ouverte, **pendant** l'observation :
+la trame qu'un bouton envoie par la socket est enregistrée comme les autres. C'est la seule façon de
+prouver qu'une écriture passe par la socket. Sans la trame, un client qui se replie sur HTTP en cas
+d'échec affiche le même écran. Une cible introuvable arrête la sonde (code 65).
+
 ### Éprouver la REPRISE après une coupure réseau — `NF_BROWSER_CUT`
 
 ```bash
