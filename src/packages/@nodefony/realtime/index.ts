@@ -657,6 +657,12 @@ export type {
   BackplaneFactory,
   IBackplaneFactoryContext,
 } from "./nodefony/src/backplane/backplaneRegistry";
+// Le sceau du bus, pour un driver tiers : celui que posent et vérifient les drivers
+// livrés (ADR-0022 §6, décision 4) — jamais recopié dans un driver.
+export {
+  sealBackplaneEnvelope,
+  openBackplaneEnvelope,
+} from "./nodefony/src/backplane/envelope";
 export type { IClusterProbeTransport } from "./nodefony/src/cluster/ClusterProbeClient";
 export type { RawWsConnection } from "./nodefony/src/transport/WsConnectionTransport";
 export type {

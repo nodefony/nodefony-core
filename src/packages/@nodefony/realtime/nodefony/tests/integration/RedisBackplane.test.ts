@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, afterAll } from "vitest";
 import { createClient, type RedisClientType } from "redis";
 import { CBOR_FRAME_CODEC } from "nodefony/cbor";
 import {
@@ -8,6 +8,7 @@ import {
 import { sealBackplaneEnvelope } from "../../src/backplane/envelope.js";
 import { RealtimeHub } from "../../src/server/RealtimeHub.js";
 import type { IBackplaneMessage } from "../../interfaces/IBackplane.js";
+import { runBackplaneConformance } from "../../testing/index.js";
 import {
   REDIS_GATE,
   gateValue,
@@ -100,95 +101,45 @@ function published(bp: RedisBackplane): Promise<void> {
   );
 }
 
+// Le contrat du driver — diffusion, ordre, rejeu, sceau, ordres de contrôle,
+// espace réservé, handler, arrêt — se prouve par la suite de conformité, la même
+// que celle offerte aux drivers tiers. Un éditeur partagé (les PUBLISH d'un même
+// client sont servis dans l'ordre : les sentinelles de la suite font foi), un
+// abonné par pair.
 describe.skipIf(!REDIS_UP)("RedisBackplane — intégration (Redis réel)", () => {
   const clients: RedisClientType[] = [];
-  const backplanes: RedisBackplane[] = [];
-  const subscribers = new Map<RedisBackplane, RedisClientType>();
-  // canal Redis unique par run (évite la diaphonie entre exécutions parallèles)
-  const channel = `nodefony:rt:test:${Date.now()}`;
+  const channel = `nodefony:rt:conformance:${Date.now()}`;
+  let publisher: RedisClientType | null = null;
+  let next = 0;
 
-  /** Crée un "pod" : publisher + subscriber dédiés branchés sur un RedisBackplane. */
-  async function mkPod(originId: string): Promise<RedisBackplane> {
-    const pub = mkClient();
-    const sub = mkClient();
-    await pub.connect();
-    await sub.connect();
-    clients.push(pub, sub);
-    const bp = new RedisBackplane(
-      createRedisServiceTransport(pub, sub),
-      originId,
-      channel,
-    );
-    backplanes.push(bp);
-    subscribers.set(bp, sub);
-    return bp;
-  }
-
-  afterEach(async () => {
-    await Promise.allSettled(backplanes.map((b) => b.stop()));
-    backplanes.length = 0;
-    subscribers.clear();
+  afterAll(async () => {
     await Promise.allSettled(
       clients.map(async (c) => {
         if (c.isOpen) await c.quit();
       }),
     );
-    clients.length = 0;
   });
 
-  it("fan-out cross-pod RÉEL : A.publish → B reçoit, A filtre son echo", async () => {
-    const a = await mkPod("pod-A");
-    const b = await mkPod("pod-B");
-    const gotA: IBackplaneMessage[] = [];
-    const gotB: IBackplaneMessage[] = [];
-    a.onMessage((m) => gotA.push(m));
-    b.onMessage((m) => gotB.push(m));
-    // start() rend la main sur l'accusé du SUBSCRIBE : abonnement effectif.
-    await a.start();
-    await b.start();
-
-    a.publish("nodefony:syslog", { line: "hello" });
-    await until(() => gotB.length > 0, "B reçoit la publication de A");
-
-    // Sentinelle : Redis sert chaque abonné dans l'ordre des PUBLISH. Quand A
-    // reçoit le message de B, publié APRÈS le sien, son propre écho est passé.
-    b.publish("nodefony:syslog", { line: "sentinelle" });
-    await until(() => gotA.length > 0, "A reçoit la sentinelle de B");
-    expect(
-      gotA,
-      "anti-echo : l'émetteur ignore son propre message",
-    ).to.deep.equal([
-      {
-        channel: "nodefony:syslog",
-        payload: { line: "sentinelle" },
-        originId: "pod-B",
-      },
-    ]);
-    expect(gotB).to.deep.equal([
-      {
-        channel: "nodefony:syslog",
-        payload: { line: "hello" },
-        originId: "pod-A",
-      },
-    ]);
-  });
-
-  it("stop() coupe la réception (B ne reçoit plus après stop)", async () => {
-    const a = await mkPod("pod-A");
-    const b = await mkPod("pod-B");
-    let fired = 0;
-    b.onMessage(() => (fired += 1));
-    await a.start();
-    await b.start();
-    await b.stop();
-
-    a.publish("c", 1);
-    await published(a);
-    // Le PING répond APRÈS tout ce que Redis a écrit avant sur la connexion de
-    // B : si le PUBLISH l'y avait routé, le message serait déjà lu.
-    await subscribers.get(b)?.ping();
-    expect(fired).to.equal(0);
-  });
+  runBackplaneConformance(
+    "redis",
+    async (secret) => {
+      if (publisher === null) {
+        publisher = mkClient();
+        await publisher.connect();
+        clients.push(publisher);
+      }
+      const sub = mkClient();
+      await sub.connect();
+      clients.push(sub);
+      return new RedisBackplane(
+        createRedisServiceTransport(publisher, sub),
+        `pod-${(next += 1)}`,
+        channel,
+        secret,
+      );
+    },
+    { describe, it },
+  );
 });
 
 /**
@@ -345,21 +296,6 @@ describe.skipIf(!REDIS_UP)("F83 — injection tierce sur le bus Redis", () => {
     expect(got).to.deep.equal([]);
     expect(hub.probe().ingressRejectedTotal).to.equal(1);
   });
-
-  it("NOMINAL : deux pods au même secret gardent leur fan-out cross-pod", async () => {
-    const a = await mkHubPod("pod-A", SECRET);
-    const b = await mkHubPod("pod-B", SECRET);
-    a.hub.markBroadcastChannel("chat:");
-    b.hub.markBroadcastChannel("chat:");
-    const got: unknown[] = [];
-    b.hub.subscribe("chat:room1", (p) => got.push(p), factory);
-
-    a.hub.publish("chat:room1", { msg: "vrai message" });
-    await until(() => got.length > 0, "B reçoit le message de A");
-
-    expect(got).to.deep.equal([{ msg: "vrai message" }]);
-    expect(b.hub.probe().ingressRejectedTotal).to.equal(0);
-  });
 });
 
 /**
@@ -480,50 +416,6 @@ describe.skipIf(!REDIS_UP)(
       ).to.deep.equal([
         { channel: "chat:room", payload: "sentinelle", originId: "pod-témoin" },
       ]);
-    });
-
-    it("abonnement tardif : un pod qui s'abonne APRÈS une publication ne reçoit pas le message passé, mais reçoit bien les suivants", async () => {
-      const a = await mkPod("pod-A");
-      await a.start();
-
-      a.publish("chat:room", "avant abonnement"); // personne n'écoute encore sur ce canal
-      await published(a);
-
-      const b = await mkPod("pod-B"); // s'abonne APRÈS la publication passée
-      const got: IBackplaneMessage[] = [];
-      b.onMessage((m) => got.push(m));
-      await b.start();
-
-      a.publish("chat:room", "après abonnement");
-      await until(() => got.length > 0, "B reçoit la publication postérieure");
-
-      expect(
-        got,
-        "pub/sub Redis ne rejoue jamais le passé : seul le message postérieur à l'abonnement arrive",
-      ).to.deep.equal([
-        {
-          channel: "chat:room",
-          payload: "après abonnement",
-          originId: "pod-A",
-        },
-      ]);
-    });
-
-    it("ordre FIFO : les messages d'un même émetteur arrivent dans l'ordre d'émission", async () => {
-      const a = await mkPod("pod-A");
-      const b = await mkPod("pod-B");
-      const got: IBackplaneMessage[] = [];
-      b.onMessage((m) => got.push(m));
-      await a.start();
-      await b.start();
-
-      const N = 30;
-      for (let i = 0; i < N; i += 1) a.publish("chat:room", i);
-      await until(() => got.length >= N, `B reçoit les ${N} messages`);
-
-      expect(got.map((m) => m.payload)).to.deep.equal(
-        Array.from({ length: N }, (_, i) => i),
-      );
     });
   },
 );

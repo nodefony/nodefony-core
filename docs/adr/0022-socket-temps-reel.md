@@ -951,8 +951,13 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
     ordre par émetteur, pas de rejeu au démarrage, sceau vérifié (message non scellé ou mal
     scellé refusé quand un secret est posé), ordres de contrôle transportés, espace réservé
     injecté refusé. Les drivers
-    livrés (cluster, Redis, boucle locale) la passent ; un driver tiers s'y prouve. Une
-    définition du contrat, pas une par driver.
+    livrés qui ont des pairs (cluster, Redis) la passent — `loopback`, sans pair, n'a rien
+    à y prouver ; un driver tiers s'y prouve. Une définition du contrat, pas une par driver.
+    **Livré (#701)** : `src/packages/@nodefony/realtime/nodefony/testing/backplaneConformance.ts#runBackplaneConformance`,
+    lanceur de tests passé par l'appelant ; le sceau exporté pour les drivers tiers
+    (`sealBackplaneEnvelope`, `openBackplaneEnvelope` dans `@nodefony/realtime`). Vue rouge
+    sur trois faux drivers (diffusion à un seul pair, rejeu au démarrage, secret ignoré) ;
+    elle a trouvé un défaut du driver `cluster` : arrêté, il livrait encore à un handler reposé.
   - **Preuve** : fermeture et éjection par utilisateur à DEUX pods, bus de cluster ET Redis — le
     banc Redis saute sans `NF_REDIS_TEST_URL`, et la CI doit l'exercer (un saut compte vert).
 - **Cas `transcript:<id>` (#626) en multi-pod** : l'audio arrive sur un pod, l'abonné au texte

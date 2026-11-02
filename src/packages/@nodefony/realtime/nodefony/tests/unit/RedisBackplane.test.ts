@@ -4,55 +4,9 @@ import {
   createRedisServiceTransport,
   resolveRedisChannel,
   REDIS_RT_CHANNEL,
-  type IRedisBackplaneTransport,
 } from "../../src/backplane/RedisBackplane.js";
 import type { IBackplaneMessage } from "../../interfaces/IBackplane.js";
-
-/**
- * Bus pub/sub Redis **en mémoire** — simule N pods abonnés au même canal SANS
- * Redis. Chaque `transport()` représente un pod : `publish` diffuse à TOUS les
- * abonnés du canal (y compris l'émetteur, comme Redis), prouvant le fan-out
- * cross-pod ET l'anti-echo (l'émetteur se filtre par originId).
- */
-class FakeRedisBus {
-  readonly #subs = new Map<string, Set<(m: string) => void>>();
-  /** Enveloppes JSON publiées (introspection des tests). */
-  readonly published: { channel: string; message: string | Uint8Array }[] = [];
-
-  transport(): IRedisBackplaneTransport {
-    const bus = this;
-    let mine: ((m: string) => void) | null = null;
-    return {
-      publish(channel, message): void {
-        bus.published.push({ channel, message });
-        // Bus texte seul : le sujet binaire a sa doublure (`RedisBackplaneBytes.test.ts`).
-        if (typeof message === "string")
-          bus.#subs.get(channel)?.forEach((l) => l(message));
-      },
-      subscribe(channel, onMessage): void {
-        mine = onMessage;
-        let set = bus.#subs.get(channel);
-        if (!set) {
-          set = new Set();
-          bus.#subs.set(channel, set);
-        }
-        set.add(onMessage);
-      },
-      unsubscribe(channel): void {
-        if (mine) bus.#subs.get(channel)?.delete(mine);
-        mine = null;
-      },
-    };
-  }
-
-  /** Nb d'abonnés sur le canal (vérifie l'idempotence du start / le stop). */
-  subscriberCount(channel: string = REDIS_RT_CHANNEL): number {
-    return bus_size(this.#subs.get(channel));
-  }
-}
-function bus_size(s: Set<unknown> | undefined): number {
-  return s ? s.size : 0;
-}
+import { FakeRedisBus } from "../helpers/fakeRedisBus.js";
 
 describe("resolveRedisChannel — namespace anti cross-talk (dette #1)", () => {
   it("sans namespace → canal base (compat mono-app)", () => {
@@ -120,25 +74,6 @@ describe("RedisBackplane (pub/sub cross-pod)", () => {
     });
   });
 
-  it("fan-out cross-pod : A.publish → B reçoit (anti-echo : A ne se reçoit pas)", async () => {
-    const bus = new FakeRedisBus();
-    const a = new RedisBackplane(bus.transport(), "pod-A");
-    const b = new RedisBackplane(bus.transport(), "pod-B");
-    const gotA: IBackplaneMessage[] = [];
-    const gotB: IBackplaneMessage[] = [];
-    a.onMessage((m) => gotA.push(m));
-    b.onMessage((m) => gotB.push(m));
-    await a.start();
-    await b.start();
-
-    a.publish("nodefony:syslog", "hello");
-
-    expect(gotA).to.have.lengthOf(0); // anti-echo
-    expect(gotB).to.deep.equal([
-      { channel: "nodefony:syslog", payload: "hello", originId: "pod-A" },
-    ]);
-  });
-
   it("anti-echo : ignore une enveloppe portant son propre originId", async () => {
     const bus = new FakeRedisBus();
     const bp = new RedisBackplane(bus.transport(), "pod-A");
@@ -169,20 +104,6 @@ describe("RedisBackplane (pub/sub cross-pod)", () => {
     await bp.start();
     await bp.start();
     expect(bus.subscriberCount()).to.equal(1);
-  });
-
-  it("onMessage remplace le handler précédent", async () => {
-    const bus = new FakeRedisBus();
-    const a = new RedisBackplane(bus.transport(), "pod-A");
-    const b = new RedisBackplane(bus.transport(), "pod-B");
-    const first: number[] = [];
-    const second: number[] = [];
-    b.onMessage(() => first.push(1));
-    b.onMessage(() => second.push(1));
-    await b.start();
-    a.publish("c", 1);
-    expect(first).to.have.lengthOf(0);
-    expect(second).to.have.lengthOf(1);
   });
 
   it("stop() désabonne (plus d'ingress) et est idempotent", async () => {

@@ -65,23 +65,9 @@ class PeerBackplane implements IBackplane {
   }
 }
 
+// Canal réservé refusé et diffusion déclarée admise, à travers un VRAI driver : cas
+// « espace réservé » de la suite de conformité. Restent ici les règles propres au hub.
 describe("0.6 F83 (a) — hub : admission par canal à l'ingress backplane", () => {
-  it("ATTAQUE : un pair pousse sur un canal SYSTÈME non broadcast → aucun fan-out local", () => {
-    const hub = new RealtimeHub();
-    const bp = new PeerBackplane();
-    hub.setBackplane(bp);
-    const got: unknown[] = [];
-    hub.subscribe("nodefony:audit", (p) => got.push(p), factory);
-
-    bp.deliver({
-      channel: "nodefony:audit",
-      payload: { forged: "faux évènement d'audit" },
-      originId: "peer-attacker",
-    });
-
-    expect(got).to.deep.equal([]); // fail-closed : rien n'atteint les abonnés locaux
-  });
-
   it("ATTAQUE : canal d'observabilité per-instance (`nodefony:socket`) → rejeté aussi", () => {
     const hub = new RealtimeHub();
     const bp = new PeerBackplane();
@@ -108,25 +94,6 @@ describe("0.6 F83 (a) — hub : admission par canal à l'ingress backplane", () 
     bp.deliver({ channel: "lobby:x", payload: 2, originId: "x" });
 
     expect(hub.probe().ingressRejectedTotal).to.equal(2);
-  });
-
-  it("NOMINAL : un canal déclaré broadcast traverse toujours l'ingress", () => {
-    const hub = new RealtimeHub();
-    const bp = new PeerBackplane();
-    hub.setBackplane(bp);
-    hub.markBroadcastChannel("chat:");
-    const got: unknown[] = [];
-    hub.subscribe("chat:room1:500", (p) => got.push(p), factory);
-
-    bp.deliver({
-      channel: "chat:room1:500",
-      payload: { msg: "hi" },
-      originId: "peer-b",
-    });
-
-    expect(got).to.deep.equal([{ msg: "hi" }]); // fan-out local
-    expect(bp.published).to.deep.equal([]); // jamais re-propagé (anti-boucle)
-    expect(hub.probe().ingressRejectedTotal).to.equal(0);
   });
 
   it("clear() remet le compteur de rejets à zéro (cycle de vie du hub)", () => {
@@ -172,30 +139,10 @@ class SharedBus {
 
 const SECRET = "s3cr3t-backplane-nodefony-0123456789abcdef";
 
+// Non scellé, autre secret, même secret : cas « sceau » de la suite de conformité
+// (`backplaneConformance.test.ts`), jouée contre chaque driver. Restent ici les
+// altérations d'une enveloppe déjà scellée, que seule une injection brute atteint.
 describe("0.6 F83 (b) — Redis : enveloppe scellée (transport partagé)", () => {
-  it("ATTAQUE : message forgé NON SIGNÉ ignoré quand un secret est posé (0 downgrade)", async () => {
-    const bus = new SharedBus();
-    const bp = new RedisBackplane(
-      bus.transport(),
-      "pod-1",
-      REDIS_RT_CHANNEL,
-      SECRET,
-    );
-    const received: IBackplaneMessage[] = [];
-    bp.onMessage((m) => received.push(m));
-    await bp.start();
-
-    bus.inject(
-      JSON.stringify({
-        channel: "chat:room1",
-        payload: { msg: "je suis l'admin" },
-        originId: "pod-99",
-      }),
-    );
-
-    expect(received).to.deep.equal([]);
-  });
-
   it("ATTAQUE : charge ALTÉRÉE après signature → sceau invalide → ignorée", async () => {
     const bus = new SharedBus();
     const bp = new RedisBackplane(
@@ -242,56 +189,6 @@ describe("0.6 F83 (b) — Redis : enveloppe scellée (transport partagé)", () =
     bus.inject(JSON.stringify(sealed));
 
     expect(received).to.deep.equal([]);
-  });
-
-  it("ATTAQUE : secret DIFFÉRENT (pod mal configuré / attaquant) → rien ne passe", async () => {
-    const bus = new SharedBus();
-    const emitter = new RedisBackplane(
-      bus.transport(),
-      "pod-1",
-      REDIS_RT_CHANNEL,
-      "un-autre-secret-totalement-different",
-    );
-    const receiver = new RedisBackplane(
-      bus.transport(),
-      "pod-2",
-      REDIS_RT_CHANNEL,
-      SECRET,
-    );
-    const received: IBackplaneMessage[] = [];
-    receiver.onMessage((m) => received.push(m));
-    await emitter.start();
-    await receiver.start();
-
-    emitter.publish("chat:room1", { msg: "hi" });
-
-    expect(received).to.deep.equal([]); // fail-closed, jamais accepté « au cas où »
-  });
-
-  it("NOMINAL : deux pods au MÊME secret échangent normalement (sceau valide)", async () => {
-    const bus = new SharedBus();
-    const emitter = new RedisBackplane(
-      bus.transport(),
-      "pod-1",
-      REDIS_RT_CHANNEL,
-      SECRET,
-    );
-    const receiver = new RedisBackplane(
-      bus.transport(),
-      "pod-2",
-      REDIS_RT_CHANNEL,
-      SECRET,
-    );
-    const received: IBackplaneMessage[] = [];
-    receiver.onMessage((m) => received.push(m));
-    await emitter.start();
-    await receiver.start();
-
-    emitter.publish("chat:room1", { msg: "hi" });
-
-    expect(received).to.deep.equal([
-      { channel: "chat:room1", payload: { msg: "hi" }, originId: "pod-1" },
-    ]);
   });
 
   it("l'anti-echo reste actif avec sceau (l'émetteur ignore son propre message)", async () => {

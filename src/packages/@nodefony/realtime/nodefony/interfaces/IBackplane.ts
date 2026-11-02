@@ -56,6 +56,24 @@ export type BackplaneHandler = (msg: IBackplaneMessage) => void;
  * Contrat d'un backplane realtime. Implémentation **stateless du point de vue métier**
  * (l'état des canaux vit dans le hub) ; le backplane ne porte que le transport vers les
  * pairs + son identité.
+ *
+ * Exigences d'un driver (ADR-0022 §6, décision 4) — aucune ne se voit à la
+ * compilation, toutes se perdent en silence :
+ *
+ *  - **chaque pair reçoit TOUT** : sur un journal partitionné, un groupe de lecteurs
+ *    PAR pair — un groupe partagé répartirait les messages entre serveurs ;
+ *  - **l'ordre par émetteur** est tenu : clé de partition = `originId`, jamais le
+ *    canal (ADR-0021 S5) ;
+ *  - **aucun rejeu au démarrage** : lire à partir du dernier message, jamais depuis le
+ *    début — un ordre de fin rejoué couperait une partie rouverte ;
+ *  - **aucune attente de regroupement** à l'émission : `publish` part tout de suite ;
+ *  - **le sceau appliqué** dès que le bus quitte la machine (`crossPod`) :
+ *    `sealBackplaneEnvelope` à l'émission, `openBackplaneEnvelope` à la réception ;
+ *  - `start` après `stop` remet la réception en route sans doubler les messages ;
+ *  - la dépendance npm du transport vit dans le driver, jamais au cœur.
+ *
+ * Un driver s'y prouve par la suite de conformité, la même que jouent les drivers
+ * livrés : `runBackplaneConformance` de `@nodefony/realtime/testing`.
  */
 export interface IBackplane {
   /** Identité stable de CE pair (process/pod). Discrimine l'echo. Ex. `String(process.pid)`. */

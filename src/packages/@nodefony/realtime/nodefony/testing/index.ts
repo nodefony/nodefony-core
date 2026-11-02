@@ -526,3 +526,11 @@ export function createRealtimeHarness<C extends RealtimeController>(
     },
   };
 }
+
+export {
+  runBackplaneConformance,
+  BACKPLANE_CONFORMANCE_CASES,
+  type BackplanePeerFactory,
+  type IBackplaneConformanceOptions,
+  type IConformanceRunner,
+} from "./backplaneConformance";

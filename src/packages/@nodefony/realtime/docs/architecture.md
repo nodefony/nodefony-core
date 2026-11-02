@@ -726,6 +726,48 @@ Le module se déclare non critique (`src/packages/@nodefony/realtime/index.ts`) 
 tout repli est annoncé. Enfin, `enabled: false` rend le module totalement inerte : ni API
 d'administration, ni backplane, ni sonde.
 
+### Écrire un driver, et le prouver
+
+Un driver mal réglé compile, démarre et perd des messages sans un mot. Les exigences qui
+l'en gardent sont écrites sur le contrat (`IBackplane.ts#IBackplane`) ; trois d'entre elles
+piègent tout journal partitionné :
+
+- **chaque serveur lit TOUT** — un groupe de lecteurs par serveur ; un groupe partagé
+  répartirait les messages, et un serveur sur deux ne verrait qu'une partie du trafic ;
+- **l'ordre par émetteur** — la clé de partition est l'`originId`, jamais le canal ;
+- **aucun rejeu au démarrage** — on lit à partir du dernier message : relue depuis le
+  début, une fin de partie fermerait la partie rouverte depuis.
+
+Dès que le bus quitte la machine, le driver **scelle** ses messages avec le sceau des
+drivers livrés, exporté pour lui : `sealBackplaneEnvelope` à l'émission,
+`openBackplaneEnvelope` à la réception (`envelope.ts#sealBackplaneEnvelope`).
+
+La preuve est la même pour tous : `runBackplaneConformance`, exportée par
+`@nodefony/realtime/testing` (`backplaneConformance.ts#runBackplaneConformance`). Elle
+relie plusieurs pairs du driver sur un même bus et vérifie la diffusion à tous, l'ordre,
+l'absence de rejeu, le sceau, le transport des ordres de contrôle, le refus de l'espace
+réservé à l'entrée du hub, le remplacement du handler et l'arrêt. Les drivers `cluster` et
+`redis` la passent dans le dépôt ; `loopback`, qui n'a aucun pair, n'a rien à y prouver.
+
+```typescript
+import { describe, it } from "vitest";
+import { runBackplaneConformance } from "@nodefony/realtime/testing";
+
+// Chaque appel rend un pair NEUF, relié au même bus, non démarré.
+runBackplaneConformance(
+  "mon-bus",
+  (secret) => new MonBackplane({ url, secret }),
+  {
+    describe,
+    it,
+  },
+);
+```
+
+Le lanceur de tests est passé, pas importé : la suite tourne sous n'importe quel lanceur
+qui fournit `describe` et `it`. Un bus lent relève `quietMs`, le silence attendu avant de
+conclure qu'un message refusé n'arrivera pas.
+
 ## 🧩 Extension — brancher son propre fond de panier
 
 Trois voies, de la plus déclarative à la plus directe.
