@@ -13,6 +13,7 @@
  */
 import path from "node:path";
 import { Kernel, Module, services } from "nodefony";
+import type { IAdminRegistry } from "nodefony";
 import { controllers } from "@nodefony/framework";
 import { resolveUiDelivery, PrebuiltUi } from "@nodefony/http";
 import type { FrontendService } from "@nodefony/frontend";
@@ -29,6 +30,7 @@ import StudioController from "./nodefony/controller/StudioController";
 import StudioRealtimeController from "./nodefony/controller/StudioRealtimeController";
 import StudioCreateController from "./nodefony/controller/StudioCreateController";
 import ScaffoldService from "./nodefony/service/ScaffoldService";
+import { createStudioAdminApi } from "./nodefony/src/studioAdminApi";
 
 // Le data plane de documentation est désormais porté par le module dédié
 // @nodefony/documentation (`/nodefony/documentation/api/*`). L'ancien
@@ -97,6 +99,13 @@ class Studio extends Module<IStudioConfig> {
    * ses entries ; le mount statique doit précéder les premières requêtes).
    */
   override async onKernelBoot(): Promise<this> {
+    // Plan d'administration de Studio (historique de la supervision, #618 D10)
+    // — enregistré AVANT le `mountAll` du framework (`onReady`), et quel que
+    // soit le mode de livraison de l'UI : la donnée vit sans l'interface.
+    const registry = this.kernel?.container?.get<IAdminRegistry>("adminBroker");
+    if (registry && !registry.has("studio")) {
+      registry.register(createStudioAdminApi());
+    }
     const resolution = resolveUiDelivery({
       requested: this.config.ui,
       environment: this.kernel?.environment,

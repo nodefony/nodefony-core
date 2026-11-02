@@ -5,7 +5,15 @@ import { RealtimeController } from "@nodefony/realtime";
 import type { RealtimePublish } from "@nodefony/realtime";
 import { Context } from "@nodefony/http";
 import type { RpcActionHandler, RateBounds } from "nodefony";
-import { parseRate } from "nodefony";
+import {
+  parseRate,
+  RpcError,
+  JsonRpcError,
+  THROUGHPUT_PAYLOAD_SIZES,
+  isThroughputPayloadSize,
+  createThroughputPayload,
+  type ThroughputPayloadSize,
+} from "nodefony";
 import { fetchAdminEndpoint } from "../src/adminFetch";
 import {
   createSyslogBridge,
@@ -121,6 +129,7 @@ class StudioRealtimeController extends RealtimeController {
         this.actionScaffoldRun(params),
       [PLATFORM_METHODS.scaffoldCancel]: (params) =>
         this.actionScaffoldCancel(params),
+      [PLATFORM_METHODS.throughput]: (params) => this.actionThroughput(params),
     };
   }
 
@@ -404,6 +413,41 @@ class StudioRealtimeController extends RealtimeController {
     gc();
     const after = process.memoryUsage().heapUsed;
     return { available: true, before, after, freed: before - after };
+  }
+
+  /**
+   * Action `nodefony:realtime:throughput` (#618 D6) — renvoie une charge
+   * d'octets de taille fixe, pour mesurer ce qu'un codec coûte sur le fil : la
+   * console l'appelle sur une seconde socket éphémère, ouverte avec l'autre
+   * codec, et compare.
+   *
+   * Sens serveur → client seulement : la taille est choisie dans une liste
+   * fermée (`THROUGHPUT_PAYLOAD_SIZES`), jamais par le client, et rien n'est
+   * reçu. Accès : un `ROLE_USER` ouvre cette socket, la zone ne suffit donc
+   * pas — c'est le verrou de trame de `@nodefony/security` qui garde l'action :
+   * toute méthode du namespace `nodefony:` y suit la politique système
+   * (`ROLE_NODEFONY_ADMIN`), d'où la marque obligatoire de `PLATFORM_METHODS`.
+   *
+   * La charge est fabriquée à chaque appel, jamais gardée : un tampon d'1 Mo
+   * retenu pour la vie du process paierait un banc que personne ne lance.
+   *
+   * @throws RpcError `-32602` si `size` n'est pas une taille admise.
+   */
+  private actionThroughput(params: unknown): {
+    size: ThroughputPayloadSize;
+    bytes: Uint8Array<ArrayBuffer>;
+  } {
+    const size =
+      typeof params === "object" && params !== null && "size" in params
+        ? params.size
+        : undefined;
+    if (!isThroughputPayloadSize(size)) {
+      throw new RpcError(
+        `taille attendue : ${THROUGHPUT_PAYLOAD_SIZES.join(", ")} octets`,
+        JsonRpcError.INVALID_PARAMS,
+      );
+    }
+    return { size, bytes: createThroughputPayload(size) };
   }
 
   /** Métadonnées app statiques (env, branche git, version) pour `nodefony:supervision`. */

@@ -210,6 +210,30 @@ export function createSyslogBridge(
 }
 
 /**
+ * CPU consommé entre deux lectures de `process.cpuUsage()`, en % d'UN cœur
+ * (comme `top`) : un process Node mono-thread sature vers 100. Pas de division
+ * par le nombre de cœurs — un process saturant un cœur n'afficherait sinon que
+ * 100/cœurs. Seule implémentation de cette règle (ticker de la supervision et
+ * enregistreur d'historique).
+ *
+ * @param prev - lecture précédente.
+ * @param cur - lecture courante.
+ * @param elapsedMs - temps écoulé entre les deux lectures (borné à 1 ms minimum).
+ * @returns un entier entre 0 et 100.
+ */
+export function cpuPercentOfOneCore(
+  prev: NodeJS.CpuUsage,
+  cur: NodeJS.CpuUsage,
+  elapsedMs: number,
+): number {
+  const usedUs = cur.user - prev.user + (cur.system - prev.system);
+  return Math.min(
+    100,
+    Math.round((usedUs / 1000 / Math.max(elapsedMs, 1)) * 100),
+  );
+}
+
+/**
  * Ticker de stats runtime → canal `nodefony:supervision` (ou `nodefony:supervision:<ms>`
  * pour la granularité) toutes les `intervalMs`. CPU% calculé en delta entre deux
  * ticks (1 seul `process.cpuUsage()` par tick).
@@ -284,17 +308,9 @@ export function createStatsTicker(
   const tick = (): void => {
     const now = Date.now();
     const cur = process.cpuUsage();
-    const userDelta = cur.user - prevCpu.user;
-    const sysDelta = cur.system - prevCpu.system;
-    const elapsedMs = Math.max(now - prevTs, 1);
+    const cpuPercent = cpuPercentOfOneCore(prevCpu, cur, now - prevTs);
     prevCpu = cur;
     prevTs = now;
-    // % d'UN cœur (comme `top`) : un process Node mono-thread sature ~100%.
-    // (Pas de /cores : sinon un process saturant 1 cœur n'afficherait que 100/cores.)
-    const cpuPercent = Math.min(
-      100,
-      Math.round(((userDelta + sysDelta) / 1000 / elapsedMs) * 100),
-    );
     const loop = readEventLoopDelay(eld);
     const eventLoopMs = loop.meanMs;
     eld.reset();
