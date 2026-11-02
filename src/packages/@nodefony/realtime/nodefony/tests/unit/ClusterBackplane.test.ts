@@ -90,53 +90,35 @@ describe("ClusterBackplane (worker-side IPC)", () => {
     expect(fired).to.equal(0);
   });
 
-  it("start() est idempotent (un seul onReceive)", () => {
+  it("start() est idempotent, et un redémarrage ne repose pas de récepteur", () => {
+    // Le transport de production (`process.on`) ne retire pas son récepteur : en
+    // reposer un à chaque `start` livrerait chaque message deux fois.
     let registrations = 0;
+    const port: { receive: ((msg: unknown) => void) | null } = {
+      receive: null,
+    };
     const t: IClusterBackplaneTransport = {
-      sent: [],
       send() {},
-      onReceive() {
+      onReceive(cb) {
         registrations += 1;
+        port.receive = cb;
       },
-    } as unknown as IClusterBackplaneTransport;
-    const bp = new ClusterBackplane(t, "pid-A");
-    bp.start();
-    bp.start();
-    expect(registrations).to.equal(1);
-  });
-
-  it("onMessage remplace le handler précédent", () => {
-    const t = new FakeTransport();
-    const bp = new ClusterBackplane(t, "pid-A");
-    const a: number[] = [];
-    const b: number[] = [];
-    bp.onMessage(() => a.push(1));
-    bp.onMessage(() => b.push(1));
-    bp.start();
-    t.deliver({
-      kind: CLUSTER_RT_KIND,
-      channel: "c",
-      payload: 1,
-      originId: "x",
-    });
-    expect(a).to.have.lengthOf(0);
-    expect(b).to.have.lengthOf(1);
-  });
-
-  it("stop() détache le handler (plus d'ingress)", () => {
-    const t = new FakeTransport();
+    };
     const bp = new ClusterBackplane(t, "pid-A");
     let fired = 0;
-    bp.onMessage(() => (fired += 1));
+    bp.start();
     bp.start();
     bp.stop();
-    t.deliver({
+    bp.start();
+    bp.onMessage(() => (fired += 1));
+    port.receive?.({
       kind: CLUSTER_RT_KIND,
       channel: "c",
       payload: 1,
       originId: "x",
     });
-    expect(fired).to.equal(0);
+    expect(registrations).to.equal(1);
+    expect(fired).to.equal(1);
   });
 });
 

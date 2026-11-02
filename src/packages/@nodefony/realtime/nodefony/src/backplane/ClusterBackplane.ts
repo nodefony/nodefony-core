@@ -114,6 +114,12 @@ export class ClusterBackplane implements IBackplane {
   readonly #transport: IClusterBackplaneTransport;
   #handler: BackplaneHandler | null = null;
   #started = false;
+  /**
+   * Récepteur posé sur le transport — une fois pour la vie de l'instance : le
+   * transport de production (`process.on("message")`) ne sait pas le retirer, et
+   * le reposer à chaque redémarrage doublerait chaque message reçu.
+   */
+  #listening = false;
   /** Vrai une fois {@link enableBytes} constaté que le canal porte les octets. */
   #bytes = false;
 
@@ -125,10 +131,12 @@ export class ClusterBackplane implements IBackplane {
     this.originId = originId;
   }
 
-  /** Branche la réception IPC. Idempotent. */
+  /** Branche la réception IPC. Idempotent, et redémarrable après {@link stop}. */
   start(): void {
     if (this.#started) return;
     this.#started = true;
+    if (this.#listening) return;
+    this.#listening = true;
     this.#transport.onReceive((msg) => this.#ingress(msg));
   }
 
@@ -163,6 +171,7 @@ export class ClusterBackplane implements IBackplane {
 
   /** Tri + anti-echo + délégation au handler. Robuste : ignore tout message non-realtime. */
   #ingress(msg: unknown): void {
+    if (!this.#started) return; // arrêté : le récepteur du transport survit, pas la réception
     if (!isEnvelope(msg)) return; // pas une publication realtime
     if (msg.originId === this.originId) return; // anti-echo (bretelle)
     this.#handler?.({
@@ -172,7 +181,10 @@ export class ClusterBackplane implements IBackplane {
     });
   }
 
-  /** Détache le handler. Le listener du transport prod (`process`) survit au process. */
+  /**
+   * Coupe la réception et détache le handler. Le récepteur du transport survit
+   * (`process` ne le retire pas) mais ne livre plus rien jusqu'au prochain {@link start}.
+   */
   stop(): void {
     this.#handler = null;
     this.#started = false;
