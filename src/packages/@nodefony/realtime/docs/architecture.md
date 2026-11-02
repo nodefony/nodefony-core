@@ -809,7 +809,7 @@ un débit.
 | Back-pressure  | `maxBufferedAmount`, `totalBufferedAmount`, `slowConsumers`, `drops` | le risque mémoire numéro un      |
 | Fond de panier | `backplane` (la carte d'identité de `describe()`)                    | ce qui est réellement branché    |
 
-Le contrat complet est `IRealtimeProbe` (`IRealtimeProbe.ts#IRealtimeProbe`). La version enrichie
+Le contrat complet est `IRealtimeProbe` (`nodefony/src/realtime/platformHealth.ts#IRealtimeProbe`). La version enrichie
 `buildOwnHealth()` (`RealtimeAdminApi.ts#buildOwnHealth`) y ajoute l'identifiant d'instance et la sonde
 process, plus — si elles sont disponibles — les sondes ORM et les compteurs d'erreurs. Deux
 chemins de lecture, un seul producteur :

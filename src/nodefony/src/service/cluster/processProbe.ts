@@ -7,6 +7,10 @@ import {
   type EventLoopUtilization,
 } from "node:perf_hooks";
 import v8 from "node:v8";
+import type { IProcessHealth } from "../../realtime/platformHealth";
+
+// Forme publiée : au cœur isomorphe, pour que le navigateur la lise sans recopie.
+export type { IProcessHealth };
 
 // Plafond heap V8 (constant pour un process) — capturé 1× au chargement, comme le PID.
 // `heapUsed/heapTotal` est trompeur (V8 colle heapTotal à heapUsed → ~95 % au repos) ;
@@ -71,43 +75,6 @@ export function eventLoopLagMs(
   resolutionMs: number = EVENT_LOOP_RESOLUTION_MS,
 ): number {
   return Math.max(0, Math.round((ns / 1e6 - resolutionMs) * 100) / 100);
-}
-
-/**
- * Santé PROCESS d'un worker — lue par {@link ProcessProbe}, agrégée par worker dans le
- * snapshot pod (cf `ClusterProbeAggregator`). Volontairement **lean** (sérialisée par
- * worker à chaque tick de report ≥ 1 s) : juste de quoi peupler une grille « salle des
- * machines » (1 carte/worker). Les sondes lourdes (GC, heap-spaces, ctx-switches) restent
- * au canal `nodefony:supervision` per-process pour le drill-down.
- */
-export interface IProcessHealth {
-  /** PID du worker (= instanceId de la vue pod). */
-  pid: number;
-  /** Uptime du process (secondes). */
-  uptime: number;
-  /** % d'UN cœur sur l'intervalle (comme `top` : un Node mono-thread sature ~100). */
-  cpuPercent: number;
-  /**
-   * Retard moyen de la boucle sur l'intervalle (ms), période d'échantillonnage
-   * retranchée : 0 sur une boucle libre.
-   */
-  eventLoopMs: number;
-  /** Pire retard de la boucle sur l'intervalle (ms) : le plus long blocage. */
-  eventLoopMaxMs: number;
-  /** Saturation de la boucle (ELU) sur l'intervalle, 0–1 (~1 = thread saturé). */
-  eluUtilization: number;
-  /** Resident Set Size (octets). */
-  rss: number;
-  /** Heap V8 utilisé (octets). */
-  heapUsed: number;
-  /** Heap V8 total (octets). */
-  heapTotal: number;
-  /** Plafond heap V8 (octets, constant) — pour `heapUsed/heapLimit` (% avant OOM). */
-  heapLimit: number;
-  /** Mémoire hors-heap (buffers, etc.) (octets). */
-  external: number;
-  /** Horodatage de la mesure. */
-  ts: number;
 }
 
 /**

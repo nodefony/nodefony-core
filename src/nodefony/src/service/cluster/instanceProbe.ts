@@ -11,51 +11,12 @@
  * branchée par le **driver** via {@link setOrmHealthProvider} (seam, comme `setClusterProbeClient`).
  */
 
-/**
- * Santé ORM **agrégée per-instance** (lean) — somme process-wide de tous les connecteurs
- * enregistrés, dérivée des singletons `queryFlowMonitor` + `connectionMonitor` (0 ping, 0
- * `toSQL`, O(N connecteurs)). Rejoint le report de sonde du worker à chaque tick (≥ 1 s).
- * Tous les cumuls sont **monotones** → débit/s dérivé côté lecteur (delta/ts, comme le CPU%).
- */
-export interface IOrmLeanHealth {
-  /** Connecteurs ORM enregistrés (registre). */
-  connectors: number;
-  /** Connecteurs actuellement connectés (`isConnected()`). */
-  connected: number;
-  /**
-   * Parmi les connectés, ceux dont l'état est **SUPPOSÉ** et non constaté :
-   * leur adapter n'a aucun signal de cycle de vie à traduire (base embarquée,
-   * driver muet), donc « connecté » y veut seulement dire « la connexion a
-   * été ouverte et n'a pas été fermée ».
-   *
-   * Sans ce compte, une readiness ne peut pas distinguer un connecteur qu'on
-   * SAIT vivant d'un connecteur dont on ne sait rien — et c'est le second qui
-   * fait prendre les mauvaises décisions.
-   */
-  assumed: number;
-  /** Requêtes ORM cumulées, tous connecteurs (monotone ; 0 si flux OFF en prod). */
-  queryTotal: number;
-  /** Requêtes lentes cumulées (au-dessus du seuil `slowMs`) (monotone). */
-  slowTotal: number;
-  /** Erreurs de connexion ORM cumulées (monotone). */
-  errorTotal: number;
-  /** Reconnexions ORM cumulées (monotone). */
-  reconnectTotal: number;
-  /** Pire latence EWMA (ms) parmi les connecteurs (instantané), ou `null` si non observé. */
-  maxEwmaMs: number | null;
-}
-
-/**
- * Santé **erreurs per-instance** — compteurs Syslog monotones (cf `Syslog.errorTotal` /
- * `Syslog.criticTotal`). Permet une carte « erreurs par worker » + un taux d'erreur pod
- * (delta côté lecteur). Lecture pure d'entiers, 0 scan du ring buffer.
- */
-export interface IInstanceErrorHealth {
-  /** Logs ERROR/CRITIC/ALERT/EMERGENCY cumulés (sévérité 0–3) (monotone). */
-  errorTotal: number;
-  /** Sous-ensemble CRITIQUE : CRITIC/ALERT/EMERGENCY (sévérité 0–2) (monotone). */
-  criticTotal: number;
-}
+// Formes publiées : au cœur isomorphe, pour que le navigateur les lise sans recopie.
+import type {
+  IOrmLeanHealth,
+  IInstanceErrorHealth,
+} from "../../realtime/platformHealth";
+export type { IOrmLeanHealth, IInstanceErrorHealth };
 
 /**
  * Seam ORM : fournisseur de la santé ORM lean du process. Branché par le **module driver**

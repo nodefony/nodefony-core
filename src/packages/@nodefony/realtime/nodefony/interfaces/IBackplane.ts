@@ -27,22 +27,9 @@
  */
 import type { IFrameCodec } from "nodefony";
 
-/**
- * Compteurs de la **file d'envoi** d'un backplane à transport réseau : ce qui est
- * publié mais pas encore acquitté par le bus. Sans borne, cette file (interne au
- * client réseau) grossit sans limite sous rafale — d'où le seuil et ses compteurs,
- * exposés jusqu'à la sonde et Studio. Cf `BackplanePublishQueue`.
- */
-export interface IBackplaneQueueInfo {
-  /** Octets publiés en attente d'acquittement par le transport (instantané). */
-  bytes: number;
-  /** Seuil au-dessus duquel une publication est jetée ; `0` = illimité. */
-  maxBytes: number;
-  /** Publications JETÉES faute de place (monotone). `0` en régime sain. */
-  droppedTotal: number;
-  /** Publications REFUSÉES par le transport (bus coupé…) (monotone). */
-  failedTotal: number;
-}
+// Formes publiées par la sonde : au cœur isomorphe (`nodefony`), ré-exportées ici.
+import type { IBackplaneInfo, IBackplaneQueueInfo } from "nodefony";
+export type { IBackplaneInfo, IBackplaneQueueInfo };
 
 /**
  * Message transporté entre pairs par le backplane. Sérialisé une fois à l'émission
@@ -64,55 +51,6 @@ export interface IBackplaneMessage {
  * condition (mais en fan-out **local only**).
  */
 export type BackplaneHandler = (msg: IBackplaneMessage) => void;
-
-/**
- * **Carte d'identité** d'un backplane — descripteur de DONNÉE (pas un log) décrivant
- * l'état du fond de panier. Source unique alimentant trois sorties cohérentes : la
- * ligne stdout au boot, le champ `backplane` de la sonde (`/api/health`) et la vue
- * Studio. Réutilisable par les tests / un agent IA sans dupliquer la connaissance
- * « c'est quoi ce backplane ».
- */
-export interface IBackplaneInfo {
-  /** Nom du driver (clé du registre). Ex. `redis`, `cluster`, `loopback`. */
-  driver: string;
-  /** Nature du transport. Ex. `redis-pubsub`, `ipc`, `local`. */
-  kind: string;
-  /** Identité de CE pair (process/pod). Ex. `String(process.pid)`. */
-  originId: string;
-  /** `true` si le fan-out franchit les frontières de pod (multi-host). */
-  crossPod: boolean;
-  /** Canal/topic de transport, si applicable (canal Redis, topic Kafka). */
-  channel?: string;
-  /**
-   * Les messages sont-ils **scellés** (authenticité de l'émetteur vérifiée) ?
-   * Renseigné par les drivers à transport PARTAGÉ, où un tiers peut écrire :
-   * `false` y signale un bus ouvert. Absent quand la question n'a pas de sens
-   * (mono-process, IPC master↔workers — authentifié par construction).
-   */
-  sealed?: boolean;
-  /**
-   * Messages reçus du bus dont le sceau est refusé — unité : un message reçu d'un
-   * exemplaire, jeté parce que son sceau ne se vérifie pas (ADR-0021 S6, S9). Monotone.
-   * Pendant une rotation du secret, les exemplaires qui n'ont pas le même se refusent
-   * leurs messages : ce compteur le montre. Présent seulement quand le bus est scellé
-   * (`sealed: true`) ; relayé au premier niveau de la sonde du hub.
-   */
-  sealRejectedTotal?: number;
-  /**
-   * État de la **file d'envoi** vers le bus (octets en vol, seuil, jetés). Renseigné
-   * par les drivers à transport RÉSEAU, dont les publications sont acquittées de
-   * façon asynchrone : c'est là qu'un bus lent fait grossir la mémoire du pod.
-   * `droppedTotal > 0` = du fan-out cross-pod a été sacrifié pour tenir la mémoire.
-   * Absent quand le transport n'a pas de file (mono-process, IPC synchrone).
-   */
-  queue?: IBackplaneQueueInfo;
-  /**
-   * Les octets d'une charge traversent-ils le bus intacts ({@link IBackplane.enableBytes}) ?
-   * `true` seulement quand le serveur a un codec binaire ET que le transport sait les
-   * porter. Absent : les octets restent sur ce serveur (ADR-0021 S6).
-   */
-  bytes?: boolean;
-}
 
 /**
  * Contrat d'un backplane realtime. Implémentation **stateless du point de vue métier**

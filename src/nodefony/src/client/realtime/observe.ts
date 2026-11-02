@@ -438,6 +438,16 @@ export type AdaptiveObserveOptions = Omit<BindAdaptiveOptions, "intervalMs">;
  *   cadence effective dans un badge.
  * @returns la poignée du binding (cadence courante, canal effectif, `dispose`).
  */
+export function observeAdaptiveChannel<
+  L extends EventsMap,
+  K extends EventNames<L>,
+>(
+  client: ChannelSocket<L>,
+  base: K,
+  emit: Emit<ChannelPayload<L, K>>,
+  desiredMs: number,
+  options?: AdaptiveObserveOptions,
+): AdaptiveChannelBinding;
 export function observeAdaptiveChannel(
   client: ObservableClient,
   base: string,

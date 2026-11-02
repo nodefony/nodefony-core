@@ -247,17 +247,17 @@ socket.subscribe("shop:health");
 
 ## 🧰 Ce que la sonde expose, champ par champ
 
-Le contrat est `IRealtimeProbe` (`IRealtimeProbe.ts#IRealtimeProbe`). Quatre familles, un discriminant.
+Le contrat est `IRealtimeProbe` (`nodefony/src/realtime/platformHealth.ts#IRealtimeProbe`). Quatre familles, un discriminant.
 
 ### Canaux — qui vit, qui écoute
 
-| Champ                    | Ce qu'il dit                                                                                                               |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| `channels[]`             | Une entrée par canal **actif** (au moins un abonné), cf `IRealtimeChannelStat` (`IRealtimeProbe.ts#IRealtimeChannelStat`). |
-| `channels[].channel`     | Le nom exact souscrit, **suffixe de cadence compris** (`nodefony:orm:health:2000`).                                        |
-| `channels[].subscribers` | Abonnés locaux vivants. Instantané, pas un cumul.                                                                          |
-| `channels[].messages`    | Publications cumulées sur ce canal.                                                                                        |
-| `channelCount`           | Nombre de canaux actifs sur ce processus.                                                                                  |
+| Champ                    | Ce qu'il dit                                                                                                                                     |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `channels[]`             | Une entrée par canal **actif** (au moins un abonné), cf `IRealtimeChannelStat` (`nodefony/src/realtime/platformHealth.ts#IRealtimeChannelStat`). |
+| `channels[].channel`     | Le nom exact souscrit, **suffixe de cadence compris** (`nodefony:orm:health:2000`).                                                              |
+| `channels[].subscribers` | Abonnés locaux vivants. Instantané, pas un cumul.                                                                                                |
+| `channels[].messages`    | Publications cumulées sur ce canal.                                                                                                              |
+| `channelCount`           | Nombre de canaux actifs sur ce processus.                                                                                                        |
 
 ### Fan-out — l'amplification réelle du broker
 
@@ -326,7 +326,7 @@ reste local.
 Quatre compteurs monotones disent POURQUOI un abonné n'est pas entré, quand la cause n'est pas son
 droit. Un refus de droit (`forbidden`) n'est pas compté ici : c'est le comportement normal d'un canal
 gardé. Ce que comptent ceux-ci, c'est une infrastructure qui ne suit plus, ou une configuration
-incomplète (`IRealtimeProbe.ts#IRealtimeProbe`).
+incomplète (`nodefony/src/realtime/platformHealth.ts#IRealtimeProbe`).
 
 <!-- prettier-ignore -->
 | Champ | Unité | Ce qu'il compte | Quand il monte |
@@ -414,7 +414,7 @@ Trois champs n'apparaissent que lorsqu'ils ont un sens :
 ### La couche d'identité, au-dessus
 
 `buildOwnHealth()` (`RealtimeAdminApi.ts#buildOwnHealth`) enrichit ce snapshot pur pour produire
-`IRealtimeHealth` (`IRealtimeProbe.ts#IRealtimeHealth`) : `instanceId`, la santé **process** du worker
+`IRealtimeHealth` (`nodefony/src/realtime/platformHealth.ts#IRealtimeHealth`) : `instanceId`, la santé **process** du worker
 (CPU, mémoire, boucle d'événements), et — si elles ont été branchées — la santé ORM et les compteurs
 d'erreurs du journal. Ces trois derniers champs sont **additifs et optionnels** : un consommateur qui
 ne les connaît pas les ignore.
@@ -535,7 +535,7 @@ mérite d'être connue :
 | `backpressure.maxBufferedAmount`                                 | **maximum** | La santé d'une flotte se juge sur son **pire** membre, pas sur sa moyenne. |
 | `slowConsumers`, `drops`                                         | somme       | Ce sont des dénombrements.                                                 |
 
-Le discriminant est le champ `cluster: true` de `IRealtimeClusterHealth` (`IRealtimeProbe.ts#IRealtimeClusterHealth`) :
+Le discriminant est le champ `cluster: true` de `IRealtimeClusterHealth` (`nodefony/src/realtime/platformHealth.ts#IRealtimeClusterHealth`) :
 un consommateur sait immédiatement s'il lit une vue pod ou une vue per-instance, et `instances[]`
 garde le détail par worker pour le forage.
 

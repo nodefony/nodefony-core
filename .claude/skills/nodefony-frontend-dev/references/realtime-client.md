@@ -103,7 +103,20 @@ aucun ; son cycle (`connect()`) reste à l'application. Une socket typée est un
 socket nue (`peer` tenu sans génériques) : elle se donne aussi au Provider, au plugin Vue, à
 `configureNodefony`, à `provideNodefony` et à `connectShared` — UNE connexion par adresse, les
 hooks à nom seul la lisent non typée. Le socle `observeChannel`/`observeChannelData` n'a plus de
-forme `<T>` : socket typée → charge déduite, socket nue → `unknown`.
+forme `<T>` : socket typée → charge déduite, socket nue → `unknown`. Les hooks **adaptatifs**
+(`useNodefonyAdaptiveChannel*`, `nodefonyAdaptiveChannel*`, `injectNodefonyAdaptiveChannel*`,
+`observeAdaptiveChannel`) suivent la même règle : socket en tête, canal de BASE contraint.
+
+**La socket PARTAGÉE de la page, typée** : `fromContract<C>({ url, shared: true })` rend
+l'instance de `NodefonySocket.shared({ url })` (celle de la barre de debug) vue par le contrat —
+jamais une seconde connexion. Refuse une fabrique de transport (`TypeError`).
+
+**Canaux de plateforme typés** : étendre `IPlatformRealtimeContract` (`nodefony/client`,
+`realtime/platformContract.ts`) — `serverToClient: PlatformServerToClient & { …les siens }`.
+`nodefony:socket` y livre `RealtimeHealthReport` (`IRealtimeClusterHealth | IRealtimeHealth`,
+discriminant `cluster: true`) ; les formes des sondes (`IProcessHealth`, `IOrmLeanHealth`,
+`IRealtimeProbe`, `IBackplaneInfo`…) vivent au cœur (`realtime/platformHealth.ts`), jamais en
+miroir côté écran. Un canal de plateforme sans forme publiée n'est pas déclaré : nom seul + `<T>`.
 
 ```ts
 const presence = useNodefonyChannelData(socket, "chat:presence", {
@@ -422,7 +435,8 @@ function useNodefonyChannelData<T = unknown>(
   initial?: T | null,
 ): T | null;
 
-// Variante cadence adaptative (AIMD) — renvoie la cadence effective (ms) pour un badge — :182
+// Variante cadence adaptative (AIMD) — renvoie la cadence effective (ms) pour un badge.
+// Deux formes, comme useNodefonyChannel : (socket, base: K, onMessage: (p: ChannelPayload<L,K>) => void, desiredMs, opts?, deps?)
 function useNodefonyAdaptiveChannel(
   base: string,
   onMessage: (p: unknown) => void,
@@ -430,7 +444,7 @@ function useNodefonyAdaptiveChannel(
   opts?: AdaptiveChannelHookOptions,
   deps?: DependencyList,
 ): number;
-// + dernière valeur — :221
+// + dernière valeur — forme typée : (socket, base: K, desiredMs, opts?, deps?) → { data: ChannelPayload<L,K> | null; intervalMs }
 function useNodefonyAdaptiveChannelData<T = unknown>(
   base: string,
   desiredMs: number,

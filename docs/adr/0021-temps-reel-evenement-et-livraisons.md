@@ -341,7 +341,7 @@ chemin de chaque frame : on les lit à la demande, on ne les calcule pas à chaq
 photo de l'instant (`pendingBytes`, sans suffixe, l'unité dans le nom) ; c'est aussi la convention
 des exports de métriques, qui les reprendront tels quels. `droppedTotal` et `failedTotal` sont déjà
 les noms du backplane
-(`src/packages/@nodefony/realtime/nodefony/interfaces/IBackplane.ts#IBackplaneQueueInfo`) : un
+(`src/nodefony/src/realtime/platformHealth.ts#IBackplaneQueueInfo`) : un
 renommage de moins. « Jeté » et « échoué » restent deux compteurs parce que le remède diffère.
 
 **L'unité est figée avec le nom (validée par l'auteur le 2026-10-29) : une livraison à UNE
@@ -351,7 +351,7 @@ désigne la destination trop lente : perdre un message pour un seul abonné sur 
 Sans unité écrite, la console comparerait sous un même nom des grandeurs différentes (S-rt-35).
 
 **Les noms existants ne sont pas renommés.** La sonde de la socket est publique
-(`src/packages/@nodefony/realtime/nodefony/interfaces/IRealtimeProbe.ts#IRealtimeProbe` :
+(`src/nodefony/src/realtime/platformHealth.ts#IRealtimeProbe` :
 `messagesSent`, `dropped`, `bufferedAmount`) : le vocabulaire commun s'ajoute À CÔTÉ en 10.x (#714), et
 l'ancien nom se déprécie selon la politique de compatibilité, avec retrait à la majeure suivante.
 `failedTotal` n'a que deux usages connus (backplane, webhooks), le SSE serait le troisième (un

@@ -103,6 +103,7 @@ import {
   type SocketSnapshot,
   type ChannelSocket,
   type ChannelPayload,
+  type ChannelHandler,
   requireChannelHandler,
 } from "../realtime/observe";
 import type { EventNames, EventsMap } from "../../realtime/RealtimeEventMap";
@@ -261,7 +262,12 @@ export type Source<T> = T | (() => T);
 
 /** Lit une source, qu'elle soit constante ou fonction. */
 function read<T>(source: Source<T>): T {
-  return typeof source === "function" ? (source as () => T)() : source;
+  return isGetter(source) ? source() : source;
+}
+
+/** La source est-elle une fonction à appeler ? (`typeof` seul ne réduit pas un `T` générique). */
+function isGetter<T>(source: Source<T>): source is () => T {
+  return typeof source === "function";
 }
 
 /**
@@ -505,6 +511,10 @@ export interface AdaptiveChannelData<T> {
  * Réservé aux canaux d'ÉTAT (latest-wins) : décimer un canal d'événements perd
  * des messages.
  *
+ * **Deux formes**, comme {@link nodefonyChannel} : la socket typée par le contrat
+ * en tête — le canal de BASE est contraint aux canaux déclarés et la charge en est
+ * déduite —, ou le nom seul, qui lit la socket du contexte.
+ *
  * Comme {@link nodefonyChannel}, rend son teardown — forme non paresseuse, à
  * donner à `$effect`. La cadence effective est poussée par `onRate` ; pour
  * l'AFFICHER, prendre {@link nodefonyAdaptiveChannelData}, qui la rend réactive.
@@ -512,14 +522,39 @@ export interface AdaptiveChannelData<T> {
  * Le ré-abonnement suit {@link adaptiveRebindKey} — la MÊME clé que les trois
  * autres liaisons, pour que les quatre rebranchent aux mêmes instants.
  */
+export function nodefonyAdaptiveChannel<
+  L extends EventsMap,
+  K extends EventNames<L>,
+>(
+  socket: ChannelSocket<L>,
+  base: Source<K>,
+  onMessage: (payload: ChannelPayload<L, K>) => void,
+  desiredMs: Source<number>,
+  options?: AdaptiveChannelRateOptions,
+): Dispose;
 export function nodefonyAdaptiveChannel(
   base: Source<string>,
   onMessage: (payload: unknown) => void,
   desiredMs: Source<number>,
-  options: AdaptiveChannelOptions & { onRate?: (ms: number) => void } = {},
+  options?: AdaptiveChannelRateOptions,
+): Dispose;
+export function nodefonyAdaptiveChannel(
+  first: NodefonySocket | Source<string>,
+  second: Source<string> | ChannelHandler,
+  third: ChannelHandler | Source<number>,
+  fourth?: Source<number> | AdaptiveChannelRateOptions,
+  fifth?: AdaptiveChannelRateOptions,
 ): Dispose {
-  const { onRate, ...rest } = options;
-  const binding = nodefony().adaptiveChannel(
+  const typed = isSocketArg(first);
+  const client = typed ? first : nodefony();
+  const base = typed ? channelArg(second) : first;
+  const onMessage = requireChannelHandler(
+    typed ? third : second,
+    "nodefonyAdaptiveChannel()",
+  );
+  const desiredMs = cadenceArg(typed ? fourth : third);
+  const { onRate, ...rest } = adaptiveOptionsArg(typed ? fifth : fourth);
+  const binding = client.adaptiveChannel(
     read(base),
     (...args: unknown[]) => onMessage(args[0]),
     {
@@ -532,30 +567,83 @@ export function nodefonyAdaptiveChannel(
   return () => binding.dispose();
 }
 
+/** Réglages de {@link nodefonyAdaptiveChannel} : les réglages adaptatifs, plus `onRate`. */
+export type AdaptiveChannelRateOptions = AdaptiveChannelOptions & {
+  onRate?: (ms: number) => void;
+};
+
+/** La cadence désirée (constante ou fonction) à sa place d'argument. */
+function cadenceArg(value: unknown): Source<number> {
+  if (!isCadenceSource(value)) {
+    throw new TypeError(
+      "nodefonyAdaptiveChannel*() : cadence désirée (ms) attendue.",
+    );
+  }
+  return value;
+}
+
+/** Ce que {@link read} sait lire pour une cadence : le nombre, ou une fonction. */
+function isCadenceSource(value: unknown): value is Source<number> {
+  return typeof value === "number" || typeof value === "function";
+}
+
+/** Les réglages adaptatifs à leur place d'argument (absents → défauts). */
+function adaptiveOptionsArg(value: unknown): AdaptiveChannelRateOptions {
+  if (value === undefined) return {};
+  if (typeof value !== "object" || value === null) {
+    throw new TypeError(
+      "nodefonyAdaptiveChannel*() : réglages adaptatifs attendus (objet).",
+    );
+  }
+  return value;
+}
+
 /**
  * `nodefonyAdaptiveChannelData()` — comme {@link nodefonyChannelData}, mais en
  * cadence adaptative. Rend la dernière valeur **et** la cadence effective, les
  * deux réactives. Réservé aux canaux d'ÉTAT.
  *
+ * **Deux formes** : la socket typée par le contrat en tête (charge déduite du
+ * canal de base), ou le nom seul sur la socket du contexte.
+ *
  * La clé de ré-abonnement est {@link adaptiveRebindKey} : lue à chaque
  * branchement, elle fait suivre l'abonnement quand la base, la cadence désirée
  * ou l'activation changent — et pas quand autre chose bouge.
  */
+export function nodefonyAdaptiveChannelData<
+  L extends EventsMap,
+  K extends EventNames<L>,
+>(
+  socket: ChannelSocket<L>,
+  base: Source<K>,
+  desiredMs: Source<number>,
+  options?: AdaptiveChannelOptions,
+): AdaptiveChannelData<ChannelPayload<L, K>>;
 export function nodefonyAdaptiveChannelData<T = unknown>(
   base: Source<string>,
   desiredMs: Source<number>,
-  options: AdaptiveChannelOptions = {},
-): AdaptiveChannelData<T> {
-  const client = nodefony();
+  options?: AdaptiveChannelOptions,
+): AdaptiveChannelData<T>;
+export function nodefonyAdaptiveChannelData(
+  first: NodefonySocket | Source<string>,
+  second: Source<string> | Source<number>,
+  third?: Source<number> | AdaptiveChannelOptions,
+  fourth?: AdaptiveChannelOptions,
+): AdaptiveChannelData<unknown> {
+  const typed = isSocketArg(first);
+  const client = typed ? first : nodefony();
+  const base = typed ? channelArg(second) : first;
+  const desiredMs = cadenceArg(typed ? third : second);
+  const options = adaptiveOptionsArg(typed ? fourth : third);
   const enabled = options.enabled !== false;
   let setCadence: ((ms: number) => void) | null = null;
-  const data = observedValue<T | null>(null, (emit) => {
+  const data = observedValue<unknown>(null, (emit) => {
     // La clé est LUE ici pour que le branchement en dépende : ré-abonnement aux
     // mêmes instants que dans les trois autres fronts.
     void adaptiveRebindKey(read(base), read(desiredMs), enabled);
     const binding = client.adaptiveChannel(
       read(base),
-      (...args: unknown[]) => emit(args[0] as T),
+      (...args: unknown[]) => emit(args[0]),
       {
         ...options,
         intervalMs: read(desiredMs),

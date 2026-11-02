@@ -471,12 +471,22 @@ useNodefonyChannelData(chat, "chat:prezence"); // ne compile pas
   (`client/realtime/NodefonySocket.ts#NodefonySocket.peer`). Les hooks à nom seul et
   `useNodefony()` la lisent alors, non typée ; un même canal lu sous les deux formes ne prend
   qu'un abonnement réseau.
+- **La socket de la page, vue par le contrat** : `fromContract<C>({ url, shared: true })` rend
+  l'instance partagée de cette adresse — celle que la barre de debug ou tout autre consommateur
+  obtient par `NodefonySocket.shared({ url })` — au lieu d'en ouvrir une seconde
+  (`client/realtime/NodefonySocket.ts#NodefonySocket.fromContract`).
+- **Les canaux de la plateforme ont leur contrat** : étendre `IPlatformRealtimeContract` type
+  `nodefony:socket` par sa forme publiée (`RealtimeHealthReport`) sur la même socket que les
+  canaux de l'application (`realtime/platformContract.ts#IPlatformRealtimeContract`).
 - **Coût nul à l'exécution** : seuls les types changent ; aucune charge n'est validée dans le
   navigateur.
 - La forme `useNodefonyChannelData<T>("canal")` reste valide, mais son `<T>` est une promesse de
   l'appelant que rien ne vérifie : une forme qui change côté serveur n'y casse aucune compilation.
+- Les hooks **adaptatifs** suivent la même règle : `useNodefonyAdaptiveChannelData(chat,
+"chat:presence", 1000)` (détail plus bas).
 - Vue, Svelte et Angular suivent la même règle : `useNodefonyChannelData(chat, …)`,
-  `nodefonyChannelData(chat, …)`, `injectNodefonyChannelData(chat, …)`.
+  `nodefonyChannelData(chat, …)`, `injectNodefonyChannelData(chat, …)`, et leurs formes
+  adaptatives.
 
 ### `useNodefonyAdaptiveChannel()` — la cadence qui s'ajuste toute seule
 
@@ -489,14 +499,25 @@ Le hook **rend la cadence effective en millisecondes** — exactement ce qu'il f
 badge (« mise à jour toutes les 2 s »).
 
 ```tsx
+// la socket de la page, typée par le contrat des canaux de plateforme
+const monitor = NodefonySocket.fromContract<IPlatformRealtimeContract>({
+  url: "/api/live/realtime",
+  shared: true,
+});
+
 const intervalMs = useNodefonyAdaptiveChannel(
-  "nodefony:orm:health",
-  (payload) => setHealth(payload as Health),
+  monitor, // socket typée par le contrat : canal contrôlé, charge déduite
+  PLATFORM_CHANNELS.socket,
+  (health) => setHealth(health),
   1000, // cadence désirée, la plus fine
 );
 ```
 
-Réglages disponibles (quatrième argument, dérivés de `AdaptiveRateOptions`,
+Comme pour `useNodefonyChannel()`, la socket en tête est facultative : le nom seul
+(`useNodefonyAdaptiveChannel("nodefony:orm:health", …)`) lit la socket du Provider, et la charge
+y reste `unknown`.
+
+Réglages disponibles (argument qui suit la cadence, dérivés de `AdaptiveRateOptions`,
 `client/realtime/AdaptiveRate.ts#AdaptiveRateOptions`) :
 
 | Réglage            | Défaut  | Effet                                                                  |
@@ -511,18 +532,19 @@ Réglages disponibles (quatrième argument, dérivés de `AdaptiveRateOptions`,
 > [!CAUTION]
 > Réservé aux canaux d'**état** (latest-wins : supervision, métriques). Sur un canal d'**événements**
 > — journal, messages de chat, trames de protocole — ralentir la cadence **perd** des éléments. Ces
-> canaux se regroupent côté serveur, ils ne se décimen't pas.
+> canaux se regroupent côté serveur, ils ne se déciment pas.
 
-### `useNodefonyAdaptiveChannelData<T>()` — dernière valeur **et** cadence
+### `useNodefonyAdaptiveChannelData()` — dernière valeur **et** cadence
 
 La composition des deux précédents : `{ data, intervalMs }`. C'est le primitif des tuiles de
 supervision — une valeur à afficher, une cadence à annoncer.
 
 ```tsx
-const { data, intervalMs } = useNodefonyAdaptiveChannelData<Health>(
-  "nodefony:orm:health",
+const { data, intervalMs } = useNodefonyAdaptiveChannelData(
+  monitor,
+  PLATFORM_CHANNELS.socket,
   2000,
-);
+); // data : RealtimeHealthReport | null
 ```
 
 ### `useNodefonyChannelStats()` — débit et série d'un canal

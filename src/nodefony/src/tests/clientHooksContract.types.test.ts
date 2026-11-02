@@ -20,7 +20,17 @@ import * as react from "../client/react/index";
 import * as vue from "../client/vue/index";
 import * as svelte from "../client/svelte/index";
 import * as angular from "../client/angular/index";
-import { observeChannel, observeChannelData } from "../client/realtime/observe";
+import {
+  observeAdaptiveChannel,
+  observeChannel,
+  observeChannelData,
+} from "../client/realtime/observe";
+import { PLATFORM_CHANNELS } from "../realtime/platformChannels";
+import type {
+  IPlatformRealtimeContract,
+  PlatformServerToClient,
+} from "../realtime/platformContract";
+import type { RealtimeHealthReport } from "../realtime/platformHealth";
 
 interface ChatMessage {
   from: string;
@@ -64,6 +74,41 @@ function _typeOnlyReact(): void {
   // @ts-expect-error — la valeur initiale doit avoir la forme du contrat
   react.useNodefonyChannelData(chat, "chat:presence", { present: 3 });
 
+  // ── cadence adaptative : mêmes règles ────────────────────────────────────
+  const adaptive = react.useNodefonyAdaptiveChannelData(
+    chat,
+    "chat:presence",
+    1000,
+  );
+  expectType<{ present: string[] } | null>(adaptive.data);
+  expectType<number>(adaptive.intervalMs);
+  expectType<number>(
+    react.useNodefonyAdaptiveChannel(
+      chat,
+      "chat:room",
+      (m) => {
+        expectType<ReceivedMessage>(m);
+      },
+      1000,
+      { enabled: true },
+      [presence],
+    ),
+  );
+  // @ts-expect-error — "chat:prezence" n'est pas un canal du contrat
+  react.useNodefonyAdaptiveChannelData(chat, "chat:prezence", 1000);
+  // @ts-expect-error — "chat:prezence" n'est pas un canal du contrat
+  react.useNodefonyAdaptiveChannel(chat, "chat:prezence", () => {}, 1000);
+  expectType<{ n: number } | null>(
+    react.useNodefonyAdaptiveChannelData<{ n: number }>("live:state", 500).data,
+  );
+  react.useNodefonyAdaptiveChannel(
+    "live:state",
+    (payload) => {
+      expectType<unknown>(payload);
+    },
+    500,
+  );
+
   // ── la forme historique (socket du Provider) reste acceptée ──────────────
   expectType<{ n: number } | null>(
     react.useNodefonyChannelData<{ n: number }>("live:events"),
@@ -90,6 +135,27 @@ function _typeOnlyVue(): void {
   // @ts-expect-error — "chat:prezence" n'est pas un canal du contrat
   vue.useNodefonyChannel(chat, "chat:prezence", () => {});
 
+  const adaptive = vue.useNodefonyAdaptiveChannelData(
+    chat,
+    () => "chat:presence",
+    1000,
+  );
+  expectType<{ present: string[] } | null>(adaptive.data.value);
+  vue.useNodefonyAdaptiveChannel(
+    chat,
+    "chat:room",
+    (m) => {
+      expectType<ReceivedMessage>(m);
+    },
+    1000,
+  );
+  // @ts-expect-error — "chat:prezence" n'est pas un canal du contrat
+  vue.useNodefonyAdaptiveChannelData(chat, "chat:prezence", 1000);
+  expectType<{ n: number } | null>(
+    vue.useNodefonyAdaptiveChannelData<{ n: number }>("live:state", 500).data
+      .value,
+  );
+
   expectType<{ n: number } | null>(
     vue.useNodefonyChannelData<{ n: number }>("live:events").value,
   );
@@ -113,6 +179,31 @@ function _typeOnlySvelte(): void {
   svelte.nodefonyChannel("live:events", (payload) => {
     expectType<unknown>(payload);
   });
+
+  const adaptive = svelte.nodefonyAdaptiveChannelData(
+    chat,
+    "chat:presence",
+    1000,
+  );
+  expectType<{ present: string[] } | null>(adaptive.data.current);
+  svelte.nodefonyAdaptiveChannel(
+    chat,
+    "chat:room",
+    (m) => {
+      expectType<ReceivedMessage>(m);
+    },
+    1000,
+    { onRate: (ms) => expectType<number>(ms) },
+  );
+  // @ts-expect-error — "chat:prezence" n'est pas un canal du contrat
+  svelte.nodefonyAdaptiveChannelData(chat, "chat:prezence", 1000);
+  svelte.nodefonyAdaptiveChannel(
+    "live:state",
+    (payload) => {
+      expectType<unknown>(payload);
+    },
+    500,
+  );
 }
 
 function _typeOnlyAngular(): void {
@@ -130,6 +221,28 @@ function _typeOnlyAngular(): void {
   angular.injectNodefonyChannel("live:events", (payload) => {
     expectType<unknown>(payload);
   });
+
+  const adaptive = angular.injectNodefonyAdaptiveChannelData(
+    chat,
+    "chat:presence",
+    1000,
+  );
+  expectType<{ present: string[] } | null>(adaptive.data());
+  angular.injectNodefonyAdaptiveChannel(
+    chat,
+    "chat:room",
+    (m) => {
+      expectType<ReceivedMessage>(m);
+    },
+    1000,
+  );
+  // @ts-expect-error — "chat:prezence" n'est pas un canal du contrat
+  angular.injectNodefonyAdaptiveChannelData(chat, "chat:prezence", 1000);
+  expectType<{ n: number } | null>(
+    angular
+      .injectNodefonyAdaptiveChannelData<{ n: number }>("live:state", 500)
+      .data(),
+  );
 }
 
 function _typeOnlySocle(): void {
@@ -141,6 +254,16 @@ function _typeOnlySocle(): void {
   });
   // @ts-expect-error — "chat:prezence" n'est pas un canal du contrat
   observeChannel(chat, "chat:prezence", () => {});
+  observeAdaptiveChannel(
+    chat,
+    "chat:presence",
+    (v) => {
+      expectType<{ present: string[] }>(v);
+    },
+    1000,
+  );
+  // @ts-expect-error — "chat:prezence" n'est pas un canal du contrat
+  observeAdaptiveChannel(chat, "chat:prezence", () => {}, 1000);
 
   // Socket non paramétrée : tout nom est accepté, la charge reste `unknown`.
   const raw = new NodefonySocket({ url: "/live" });
@@ -165,6 +288,57 @@ function _typeOnlySubtype(): void {
   angular.provideNodefony({ client: chat });
 }
 
+/**
+ * La socket PARTAGÉE de la page, vue par un contrat (`shared: true`) : même type
+ * qu'une socket neuve, donc mêmes portes et mêmes déductions.
+ */
+function _typeOnlyShared(): void {
+  const page = NodefonySocket.fromContract<ChatContract>({
+    url: "/chat",
+    shared: true,
+  });
+  expectType<typeof chat>(page);
+  react.useNodefonyChannel(page, "chat:room", (m) => {
+    expectType<ReceivedMessage>(m);
+  });
+}
+
+/**
+ * Le contrat de plateforme : une application qui l'étend lit `nodefony:socket`
+ * sous sa forme publiée, sans miroir — et garde ses propres canaux.
+ */
+interface MonitorContract extends IPlatformRealtimeContract {
+  serverToClient: PlatformServerToClient & { "monitor:jobs": { id: string } };
+}
+
+function _typeOnlyPlatform(): void {
+  const monitor = NodefonySocket.fromContract<MonitorContract>({
+    url: "/monitor",
+    shared: true,
+  });
+  const health = react.useNodefonyChannelData(
+    monitor,
+    PLATFORM_CHANNELS.socket,
+  );
+  if (health && "cluster" in health) {
+    expectType<number>(health.instanceCount);
+  } else if (health) {
+    expectType<string>(health.instanceId);
+    expectType<number | undefined>(health.process?.heapLimit);
+  }
+  const live = react.useNodefonyAdaptiveChannelData(
+    monitor,
+    PLATFORM_CHANNELS.socket,
+    1000,
+  );
+  expectType<RealtimeHealthReport | null>(live.data);
+  react.useNodefonyChannel(monitor, "monitor:jobs", (j) => {
+    expectType<{ id: string }>(j);
+  });
+  // @ts-expect-error — un canal de plateforme sans forme publiée n'est pas déclaré
+  react.useNodefonyChannelData(monitor, PLATFORM_CHANNELS.syslog);
+}
+
 describe("liaisons de vue — lecture typée par le contrat (compile-only)", () => {
   it("compile quand les hooks lisent la socket du contrat", () => {
     void _typeOnlyReact;
@@ -173,5 +347,7 @@ describe("liaisons de vue — lecture typée par le contrat (compile-only)", () 
     void _typeOnlyAngular;
     void _typeOnlySocle;
     void _typeOnlySubtype;
+    void _typeOnlyShared;
+    void _typeOnlyPlatform;
   });
 });

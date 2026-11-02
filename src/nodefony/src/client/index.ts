@@ -31,6 +31,7 @@ import { AdaptiveRate, bindAdaptiveChannel } from "./realtime/AdaptiveRate";
 export type {
   RealtimeState,
   NodefonySocketOptions,
+  FromContractOptions,
   MessageStats,
   RealtimeFrame,
   IWireStats,
@@ -296,6 +297,24 @@ export type {
   PlatformInboundChannel,
   PlatformMethod,
 } from "../realtime/platformChannels";
+// Charges de santé de la plateforme et leur contrat : types seuls, 0 octet.
+export type {
+  IProcessHealth,
+  IProcessRich,
+  IOrmLeanHealth,
+  IInstanceErrorHealth,
+  IBackplaneInfo,
+  IBackplaneQueueInfo,
+  IRealtimeChannelStat,
+  IRealtimeProbe,
+  IRealtimeHealth,
+  IRealtimeClusterHealth,
+  RealtimeHealthReport,
+} from "../realtime/platformHealth";
+export type {
+  IPlatformRealtimeContract,
+  PlatformServerToClient,
+} from "../realtime/platformContract";
 export type {
   RateChangeReason,
   RateDecision,

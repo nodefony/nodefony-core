@@ -584,7 +584,7 @@ L'identifiant **unique dans le cluster** du process émetteur, joint à chaque m
 du nom du pod ou de l'hôte, jamais du seul identifiant de processus : deux conteneurs peuvent tous
 deux être le processus n° 1.
 
-`resolveBackplaneOriginId()` (`originId.ts#resolveBackplaneOriginId`), champ `IBackplane.originId` (`IBackplane.ts#IBackplaneInfo.kind`).
+`resolveBackplaneOriginId()` (`originId.ts#resolveBackplaneOriginId`), champ `IBackplane.originId` (`nodefony/src/realtime/platformHealth.ts#IBackplaneInfo.kind`).
 
 ### `anti-écho` — ne pas rejouer sa propre voix
 
@@ -609,7 +609,7 @@ L'information que chaque driver déclare sur lui-même : sait-il franchir la mac
 dans la carte d'identité du backplane, journalisée au démarrage et lisible dans la sonde — c'est ce
 qui permet de vérifier en une ligne qu'un déploiement diffuse bien au-delà d'un pod.
 
-`IBackplaneInfo` (`IBackplane.ts#IBackplaneInfo`).
+`IBackplaneInfo` (`nodefony/src/realtime/platformHealth.ts#IBackplaneInfo`).
 
 ## 🔐 La sécurité — qui parle, qui a le droit
 
@@ -752,7 +752,7 @@ L'oscilloscope du module : « voici mon état, maintenant ». Canaux et abonnés
 livraisons, connexions, octets, back-pressure, carte d'identité du backplane. Lecture **pure**, sans
 allocation sur le chemin chaud.
 
-`RealtimeHub.probe()` (`RealtimeHub.ts#RealtimeHub.probe`) rend un `IRealtimeProbe` (`IRealtimeProbe.ts#IRealtimeProbe`).
+`RealtimeHub.probe()` (`RealtimeHub.ts#RealtimeHub.probe`) rend un `IRealtimeProbe` (`nodefony/src/realtime/platformHealth.ts#IRealtimeProbe`).
 
 > [!WARNING]
 > `IRealtimeProbe` est la **forme des données**, pas une interface à implémenter avec une méthode
@@ -775,7 +775,7 @@ Une connexion dont le back-pressure dépasse le seuil de comptage. C'est une **m
 sanction : le seuil de comptage se règle indépendamment des seuils d'action.
 
 `slowConsumer.bytes` (`config.ts#slowConsumerSchema`), champ `backpressure.slowConsumers`
-(`IRealtimeProbe.ts#IRealtimeProbe.backpressure`).
+(`nodefony/src/realtime/platformHealth.ts#IRealtimeProbe.backpressure`).
 
 ### `compteurs de canal` — mesurés à l'arrivée
 
@@ -783,7 +783,7 @@ Nombre de messages, date du dernier, débit instantané, historique glissant —
 point d'arrivée des frames, donc réutilisables par n'importe quelle application.
 
 `IChannelStats` (`IRealtimeSocket.ts#IChannelStats.method`), côté serveur `IRealtimeChannelStat`
-(`IRealtimeProbe.ts#IRealtimeChannelStat`).
+(`nodefony/src/realtime/platformHealth.ts#IRealtimeChannelStat`).
 
 ### `santé agrégée` — la vue du pod entier
 
@@ -791,7 +791,7 @@ En multi-worker, chaque process a **sa** sonde. La vue du pod est leur fusion : 
 maxima repris au plus haut, instances listées une à une.
 
 `mergeClusterHealth()` (`ClusterProbeClient.ts#mergeClusterHealth`), forme `IRealtimeClusterHealth`
-(`IRealtimeProbe.ts#IRealtimeClusterHealth`).
+(`nodefony/src/realtime/platformHealth.ts#IRealtimeClusterHealth`).
 
 ### `plan de données admin` — la sonde servie à Studio
 

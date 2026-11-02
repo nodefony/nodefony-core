@@ -556,16 +556,85 @@ export interface AdaptiveChannelData<T> {
  * Réservé aux canaux d'ÉTAT (latest-wins) : décimer un canal d'événements perd
  * des messages.
  *
+ * **Deux formes**, comme {@link useNodefonyChannel} : la socket typée par le
+ * contrat en tête — le canal de BASE est contraint aux canaux déclarés et la
+ * charge en est déduite —, ou le nom seul, qui lit la socket du plugin.
+ *
  * Le ré-abonnement suit {@link adaptiveRebindKey} — la MÊME clé que les trois
  * autres liaisons, pour que les quatre rebranchent aux mêmes instants.
  */
+export function useNodefonyAdaptiveChannel<
+  L extends EventsMap,
+  K extends EventNames<L>,
+>(
+  socket: ChannelSocket<L>,
+  base: MaybeRefOrGetter<K>,
+  onMessage: (payload: ChannelPayload<L, K>) => void,
+  desiredMs: MaybeRefOrGetter<number>,
+  options?: AdaptiveChannelOptions,
+): Readonly<Ref<number>>;
 export function useNodefonyAdaptiveChannel(
   base: MaybeRefOrGetter<string>,
   onMessage: (payload: unknown) => void,
   desiredMs: MaybeRefOrGetter<number>,
-  options: AdaptiveChannelOptions = {},
+  options?: AdaptiveChannelOptions,
+): Readonly<Ref<number>>;
+export function useNodefonyAdaptiveChannel(
+  first: NodefonySocket | MaybeRefOrGetter<string>,
+  second: MaybeRefOrGetter<string> | ChannelHandler,
+  third: ChannelHandler | MaybeRefOrGetter<number>,
+  fourth?: MaybeRefOrGetter<number> | AdaptiveChannelOptions,
+  fifth?: AdaptiveChannelOptions,
 ): Readonly<Ref<number>> {
-  const client = useNodefony();
+  const typed = isSocketArg(first);
+  return bindAdaptiveChannel(
+    typed ? first : injectedSocket(),
+    typed ? channelArg(second) : first,
+    requireChannelHandler(
+      typed ? third : second,
+      "useNodefonyAdaptiveChannel()",
+    ),
+    cadenceArg(typed ? fourth : third),
+    adaptiveOptionsArg(typed ? fifth : fourth),
+  );
+}
+
+/** La cadence désirée (valeur, `ref` ou fonction) à sa place d'argument. */
+function cadenceArg(value: unknown): MaybeRefOrGetter<number> {
+  if (!isCadenceSource(value)) {
+    throw new TypeError(
+      "useNodefonyAdaptiveChannel*() : cadence désirée (ms) attendue.",
+    );
+  }
+  return value;
+}
+
+/** Ce que `toValue` sait lire pour une cadence : le nombre, une `ref`, ou une fonction. */
+function isCadenceSource(value: unknown): value is MaybeRefOrGetter<number> {
+  return (
+    typeof value === "number" || typeof value === "function" || isRef(value)
+  );
+}
+
+/** Les réglages adaptatifs à leur place d'argument (absents → défauts). */
+function adaptiveOptionsArg(value: unknown): AdaptiveChannelOptions {
+  if (value === undefined) return {};
+  if (typeof value !== "object" || value === null || isRef(value)) {
+    throw new TypeError(
+      "useNodefonyAdaptiveChannel*() : réglages adaptatifs attendus (objet).",
+    );
+  }
+  return value;
+}
+
+/** Le cœur des deux formes : la socket est résolue AVANT la portée. */
+function bindAdaptiveChannel(
+  client: NodefonySocket,
+  base: MaybeRefOrGetter<string>,
+  onMessage: ChannelHandler,
+  desiredMs: MaybeRefOrGetter<number>,
+  options: AdaptiveChannelOptions,
+): Readonly<Ref<number>> {
   const cadence = shallowRef<number>(toValue(desiredMs));
   const enabled = options.enabled !== false;
   observeReactive(
@@ -595,20 +664,40 @@ export function useNodefonyAdaptiveChannel(
  * mais en cadence adaptative. Mince surcouche de
  * {@link useNodefonyAdaptiveChannel} : garde la dernière valeur et rend la
  * cadence effective. Réservé aux canaux d'ÉTAT.
+ *
+ * **Deux formes** : la socket typée par le contrat en tête (charge déduite du
+ * canal de base), ou le nom seul sur la socket du plugin.
  */
+export function useNodefonyAdaptiveChannelData<
+  L extends EventsMap,
+  K extends EventNames<L>,
+>(
+  socket: ChannelSocket<L>,
+  base: MaybeRefOrGetter<K>,
+  desiredMs: MaybeRefOrGetter<number>,
+  options?: AdaptiveChannelOptions,
+): AdaptiveChannelData<ChannelPayload<L, K>>;
 export function useNodefonyAdaptiveChannelData<T = unknown>(
   base: MaybeRefOrGetter<string>,
   desiredMs: MaybeRefOrGetter<number>,
-  options: AdaptiveChannelOptions = {},
-): AdaptiveChannelData<T> {
-  const data = shallowRef<T | null>(null);
-  const intervalMs = useNodefonyAdaptiveChannel(
-    base,
+  options?: AdaptiveChannelOptions,
+): AdaptiveChannelData<T>;
+export function useNodefonyAdaptiveChannelData(
+  first: NodefonySocket | MaybeRefOrGetter<string>,
+  second: MaybeRefOrGetter<string> | MaybeRefOrGetter<number>,
+  third?: MaybeRefOrGetter<number> | AdaptiveChannelOptions,
+  fourth?: AdaptiveChannelOptions,
+): AdaptiveChannelData<unknown> {
+  const typed = isSocketArg(first);
+  const data = shallowRef<unknown>(null);
+  const intervalMs = bindAdaptiveChannel(
+    typed ? first : injectedSocket(),
+    typed ? channelArg(second) : first,
     (payload) => {
-      data.value = payload as T;
+      data.value = payload;
     },
-    desiredMs,
-    options,
+    cadenceArg(typed ? third : second),
+    adaptiveOptionsArg(typed ? fourth : third),
   );
   return { data: data, intervalMs };
 }

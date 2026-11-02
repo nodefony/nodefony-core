@@ -239,6 +239,20 @@ export interface NodefonySocketOptions {
   codec?: IFrameCodec | undefined;
 }
 
+/**
+ * Options de {@link NodefonySocket.fromContract} : celles du constructeur, plus le
+ * choix de la socket PARTAGÉE de la page.
+ */
+export interface FromContractOptions extends NodefonySocketOptions {
+  /**
+   * Rendre la socket partagée de la page pour cette adresse ({@link NodefonySocket.shared}),
+   * vue à travers le contrat, au lieu d'en fabriquer une neuve. Une seule connexion par
+   * adresse : la barre de debug, ou tout autre consommateur de la même URL, parle sur la
+   * même socket. Défaut : `false` (socket neuve, privée à l'appelant).
+   */
+  shared?: boolean | undefined;
+}
+
 /** Solde de frames jetées qui ferme la socket, faute de `backpressureCloseAfterDrops`. */
 const BACKPRESSURE_CLOSE_AFTER_DEFAULT = 1000;
 
@@ -1000,18 +1014,22 @@ export class NodefonySocket<
    * n'ajoute aucun octet au paquet du navigateur.
    *
    * @typeParam C - le contrat de l'application.
-   * @param opts - options de connexion, comme pour le constructeur.
+   * @param opts - options de connexion, comme pour le constructeur ; `shared: true`
+   *   rend la socket partagée de la page pour cette adresse.
    * @param transportFactory - fabrique de transport (tests), comme pour le constructeur.
-   * @returns une socket neuve, typée par le contrat.
+   * @returns une socket typée par le contrat — neuve, ou la socket partagée.
+   * @throws TypeError si `shared` est demandé avec une fabrique de transport.
    *
    * @example
    * ```ts
    * const socket = NodefonySocket.fromContract<ChatContract>({ url: "/chat" });
    * socket.on("chat:room", (m) => m.text);
+   * // la socket de la page, celle que partagent tous les consommateurs de l'adresse :
+   * const page = NodefonySocket.fromContract<ChatContract>({ url: "/chat", shared: true });
    * ```
    */
   static fromContract<C extends IRealtimeContract>(
-    opts: NodefonySocketOptions = {},
+    opts: FromContractOptions = {},
     transportFactory?: RealtimeTransportFactory,
   ): NodefonySocket<
     ContractClientEmit<C>,
@@ -1019,12 +1037,30 @@ export class NodefonySocket<
     ContractClientActions<C>,
     ContractClientRoutes<C>
   > {
+    const { shared, ...socketOpts } = opts;
+    if (shared === true) {
+      if (transportFactory) {
+        throw new TypeError(
+          "NodefonySocket.fromContract() : `shared` rend la socket de la page, qui a déjà son transport — ne pas passer de fabrique.",
+        );
+      }
+      // La SEULE conversion de la porte : le registre de la page est une `Map` qui ne
+      // peut pas porter le contrat de chacune de ses entrées. C'est le même objet,
+      // et les génériques sont effacés à la compilation — le contrat ne fait que
+      // décrire ce que l'application a déclaré, comme pour une socket neuve.
+      return NodefonySocket.shared(socketOpts) as NodefonySocket<
+        ContractClientEmit<C>,
+        ContractClientListen<C>,
+        ContractClientActions<C>,
+        ContractClientRoutes<C>
+      >;
+    }
     return new NodefonySocket<
       ContractClientEmit<C>,
       ContractClientListen<C>,
       ContractClientActions<C>,
       ContractClientRoutes<C>
-    >(opts, transportFactory);
+    >(socketOpts, transportFactory);
   }
 
   /**

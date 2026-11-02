@@ -343,6 +343,19 @@ export type {
   PlatformInboundChannel,
   PlatformMethod,
 } from "./realtime/platformChannels";
+export type {
+  IBackplaneInfo,
+  IBackplaneQueueInfo,
+  IRealtimeChannelStat,
+  IRealtimeProbe,
+  IRealtimeHealth,
+  IRealtimeClusterHealth,
+  RealtimeHealthReport,
+} from "./realtime/platformHealth";
+export type {
+  IPlatformRealtimeContract,
+  PlatformServerToClient,
+} from "./realtime/platformContract";
 export { expectType } from "./realtime/RealtimeEventMap";
 export type {
   EventsMap,

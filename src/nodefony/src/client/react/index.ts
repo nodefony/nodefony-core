@@ -464,18 +464,106 @@ export interface AdaptiveChannelData<T> {
  * Primitif commun à tous les dashboards d'état (Supervision, ORM…) → **logique live identique**.
  * Réservé aux canaux d'ÉTAT (latest-wins). Réglage `enabled` (off = abonnement fixe).
  *
- * Le ré-abonnement n'est relancé que si `base`, `desiredMs`, `enabled` ou `deps` changent —
- * la clé vient de {@link adaptiveRebindKey}, la MÊME que celle des autres liaisons (le
- * handler + les `opts` sont capturés par ref → identité instable sans re-bind).
+ * **Deux formes**, comme {@link useNodefonyChannel} : la socket typée par le contrat en
+ * tête — le canal de BASE est contraint aux canaux déclarés et la charge en est déduite —,
+ * ou le nom seul, qui lit la socket du `<NodefonyProvider>`.
+ *
+ * Le ré-abonnement n'est relancé que si la socket, `base`, `desiredMs`, `enabled` ou `deps`
+ * changent — la clé vient de {@link adaptiveRebindKey}, la MÊME que celle des autres liaisons
+ * (le handler + les `opts` sont capturés par ref → identité instable sans re-bind).
+ *
+ * @example
+ * ```ts
+ * const ms = useNodefonyAdaptiveChannel(monitor, PLATFORM_CHANNELS.socket, (h) => draw(h), 1000);
+ * ```
  */
+export function useNodefonyAdaptiveChannel<
+  L extends EventsMap,
+  K extends EventNames<L>,
+>(
+  socket: ChannelSocket<L>,
+  base: K,
+  onMessage: (payload: ChannelPayload<L, K>) => void,
+  desiredMs: number,
+  opts?: AdaptiveChannelHookOptions,
+  deps?: React.DependencyList,
+): number;
 export function useNodefonyAdaptiveChannel(
   base: string,
   onMessage: (payload: unknown) => void,
   desiredMs: number,
-  opts: AdaptiveChannelHookOptions = {},
-  deps: React.DependencyList = [],
+  opts?: AdaptiveChannelHookOptions,
+  deps?: React.DependencyList,
+): number;
+export function useNodefonyAdaptiveChannel(
+  first: NodefonySocket | string,
+  second: string | ChannelHandler,
+  third: ChannelHandler | number,
+  fourth?: number | AdaptiveChannelHookOptions,
+  fifth?: AdaptiveChannelHookOptions | React.DependencyList,
+  sixth?: React.DependencyList,
 ): number {
-  const client = useNodefony();
+  const named = typeof first === "string";
+  return useAdaptiveSubscription(
+    named ? null : first,
+    named ? first : channelArg(second),
+    requireChannelHandler(
+      named ? second : third,
+      "useNodefonyAdaptiveChannel()",
+    ),
+    cadenceArg(named ? third : fourth),
+    adaptiveOptionsArg(named ? fourth : fifth),
+    depsArg(named ? fifth : sixth),
+  );
+}
+
+/** La cadence désirée à sa place d'argument — sinon l'appel est mal formé. */
+function cadenceArg(value: unknown): number {
+  if (typeof value !== "number") {
+    throw new TypeError(
+      "useNodefonyAdaptiveChannel*() : cadence désirée (ms) attendue.",
+    );
+  }
+  return value;
+}
+
+/** Les réglages adaptatifs à leur place d'argument (absents → défauts). */
+function adaptiveOptionsArg(value: unknown): AdaptiveChannelHookOptions {
+  if (value === undefined) return {};
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new TypeError(
+      "useNodefonyAdaptiveChannel*() : réglages adaptatifs attendus (objet).",
+    );
+  }
+  return value;
+}
+
+/** La liste de dépendances de l'appelant à sa place d'argument (absente → vide). */
+function depsArg(value: unknown): React.DependencyList {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) {
+    throw new TypeError(
+      "useNodefonyAdaptiveChannel*() : liste de dépendances attendue.",
+    );
+  }
+  return value;
+}
+
+/**
+ * Le cœur des deux formes de {@link useNodefonyAdaptiveChannel} : la socket passée en
+ * argument l'emporte, sinon celle du Provider. Le contexte est lu à CHAQUE rendu —
+ * l'ordre des hooks ne dépend pas de la forme choisie par l'appelant.
+ */
+function useAdaptiveSubscription(
+  socket: NodefonySocket | null,
+  base: string,
+  onMessage: ChannelHandler,
+  desiredMs: number,
+  opts: AdaptiveChannelHookOptions,
+  deps: React.DependencyList,
+): number {
+  const fromProvider = React.useContext(NodefonyContext);
+  const client = socket ?? requireProvided(fromProvider);
   const handlerRef = React.useRef(onMessage);
   handlerRef.current = onMessage;
   const optsRef = React.useRef(opts);
@@ -508,20 +596,47 @@ export function useNodefonyAdaptiveChannel(
  * `useNodefonyAdaptiveChannelData()` — comme {@link useNodefonyChannelData} mais en cadence
  * adaptative. Mince surcouche de {@link useNodefonyAdaptiveChannel} : garde la **dernière
  * valeur** reçue + renvoie la cadence effective (badge UI). Réservé aux canaux d'ÉTAT.
+ *
+ * **Deux formes** : la socket typée par le contrat en tête (charge déduite du canal de
+ * base), ou le nom seul sur la socket du `<NodefonyProvider>`.
+ *
+ * @example
+ * ```ts
+ * const { data, intervalMs } = useNodefonyAdaptiveChannelData(monitor, PLATFORM_CHANNELS.socket, 1000);
+ * ```
  */
+export function useNodefonyAdaptiveChannelData<
+  L extends EventsMap,
+  K extends EventNames<L>,
+>(
+  socket: ChannelSocket<L>,
+  base: K,
+  desiredMs: number,
+  opts?: AdaptiveChannelHookOptions,
+  deps?: React.DependencyList,
+): AdaptiveChannelData<ChannelPayload<L, K>>;
 export function useNodefonyAdaptiveChannelData<T = unknown>(
   base: string,
   desiredMs: number,
-  opts: AdaptiveChannelHookOptions = {},
-  deps: React.DependencyList = [],
-): AdaptiveChannelData<T> {
-  const [data, setData] = React.useState<T | null>(null);
-  const intervalMs = useNodefonyAdaptiveChannel(
-    base,
-    (payload) => setData(payload as T),
-    desiredMs,
-    opts,
-    deps,
+  opts?: AdaptiveChannelHookOptions,
+  deps?: React.DependencyList,
+): AdaptiveChannelData<T>;
+export function useNodefonyAdaptiveChannelData(
+  first: NodefonySocket | string,
+  second: string | number,
+  third?: number | AdaptiveChannelHookOptions,
+  fourth?: AdaptiveChannelHookOptions | React.DependencyList,
+  fifth?: React.DependencyList,
+): AdaptiveChannelData<unknown> {
+  const named = typeof first === "string";
+  const [data, setData] = React.useState<unknown>(null);
+  const intervalMs = useAdaptiveSubscription(
+    named ? null : first,
+    named ? first : channelArg(second),
+    setData,
+    cadenceArg(named ? second : third),
+    adaptiveOptionsArg(named ? third : fourth),
+    depsArg(named ? fourth : fifth),
   );
   return { data, intervalMs };
 }

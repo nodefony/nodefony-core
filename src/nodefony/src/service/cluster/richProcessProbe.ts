@@ -7,32 +7,9 @@ import {
   type EventLoopUtilization,
 } from "node:perf_hooks";
 
-/**
- * Sonde process **riche** d'un worker — le complément du lean {@link IProcessHealth}
- * pour le drill-down (Phase 2). Ne contient QUE ce qui manque au lean : pression GC,
- * répartition du heap V8, ressources actives, ELU active/idle (ms) et changements de
- * contexte OS. Fusionné côté front avec le lean déjà présent dans le snapshot pod.
- */
-export interface IProcessRich {
-  /** Pression GC sur l'intervalle (cycles, pause totale ms, majeurs/mineurs). */
-  gc: { count: number; pauseMs: number; major: number; minor: number };
-  /** Répartition mémoire V8 par espace (new/old/code/large_object…), octets. */
-  heapSpaces: { name: string; used: number; size: number }[];
-  /** Ressources actives qui tiennent la boucle, total + par type. */
-  handles: { total: number; byType: Record<string, number> };
-  /** Saturation de la boucle sur l'intervalle (ms actifs / idle ; utilization est dans le lean). */
-  elu: { active: number; idle: number };
-  /** Changements de contexte OS sur l'intervalle (volontaires = cède, involontaires = préempté). */
-  ctx: { voluntary: number; involuntary: number };
-  /** Load average système (1/5/15 min). */
-  loadavg: [number, number, number];
-  /** Limite de heap V8 du process (octets) — constante. */
-  heapLimit: number;
-  /** Nombre de cœurs vus par le process — constante. */
-  cpuCount: number;
-  /** Horodatage de la mesure. */
-  ts: number;
-}
+// Forme publiée : au cœur isomorphe, pour que le navigateur la lise sans recopie.
+import type { IProcessRich } from "../../realtime/platformHealth";
+export type { IProcessRich };
 
 /**
  * Sonde process **riche stateful** d'un worker — calcule les métriques par INTERVALLE
