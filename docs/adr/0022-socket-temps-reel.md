@@ -926,7 +926,7 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
       dès 10.0 un champ optionnel `generation` (entier ; absent = toutes les générations). Un
       exemplaire qui ne sait pas s'en servir l'ignore et éjecte toutes les générations — plus
       large, jamais moins. En 10.x, une génération d'appartenance lue par `allow` et augmentée à
-      chaque réadmission l'alimentera : rejoué, l'ordre viserait une génération morte. Sans
+      chaque réadmission l'alimentera (#725) : rejoué, l'ordre viserait une génération morte. Sans
       horloge et sans mémoire des ordres déjà vus.
     - Écartés : un identifiant d'admission frappé par le pod — les admissions sont locales, le
       modérateur ne nommerait que l'onglet qu'il voit et les autres onglets du compte (S-rt-4)

@@ -235,8 +235,8 @@ describe.skipIf(!REDIS_UP)("#623 — ordres de contrôle sur Redis", () => {
   });
 
   it("⚠️ RISQUE ACCEPTÉ (S-rt-48) : une éjection scellée captée puis rejouée recoupe le compte réadmis sur un canal durable", async () => {
-    // Ce test DÉCRIT le risque écrit dans l'ADR-0022 §6 d4. Il doit basculer
-    // le jour où la génération d'appartenance (champ `generation`) est livrée.
+    // Ce test DÉCRIT le risque écrit dans l'ADR-0022 §6 d4. #725 le retournera en
+    // livrant la génération d'appartenance (champ `generation` de l'ordre).
     const alice = await tab("alice", true);
     await alice.subscribe("chat:general");
     const { b } = await pods();
