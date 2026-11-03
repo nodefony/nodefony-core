@@ -62,7 +62,9 @@ const socket = NodefonySocket.shared({
 
 D'où la règle : **dès que des octets circulent, le serveur passe en `codec: "cbor"`**. Côté
 navigateur, offrir CBOR est un gain (≈ 30× plus rapide à recevoir 4 Ko d'octets, ~25 % d'octets en
-moins), pas une obligation. Pour des messages ordinaires, n'offre rien : JSON est natif.
+moins), pas une obligation. Ce gain ne vaut QUE pour des octets : sur des objets ordinaires, CBOR
+encode plus lentement que JSON, natif au moteur, et ne décode pas plus vite. N'offre le codec que si
+des octets circulent.
 
 ## 3. Publier et recevoir
 
@@ -106,6 +108,9 @@ toi** : lis l'identité par `RequestContext.getAuthenticatedUser()` et refuse ex
 codec. `onRealtimeBinary()` n'y est jamais appelée, `sendBinaryToClient()` et `sendBinary()` rendent
 `false`. Ne mélange pas les deux voies sur une même application sans le savoir.
 
+Dans le doute, **préfère un canal + `Uint8Array`** (§3) : même politique, mêmes gardes, même bus
+entre serveurs — le flux brut ne se justifie que pour un protocole binaire qui n'a pas de canal.
+
 ## 5. Lire des octets sans se tromper
 
 - **`DataView` : passe la tranche entière.** `new DataView(data.buffer, data.byteOffset,
@@ -118,8 +123,9 @@ DataView(data.buffer)` lit des octets qui ne sont pas les tiens.
 
 ### 🔴 Le piège du `$bytes` forgé
 
-Sous la convention texte, un objet de la forme **exacte** `{ $bytes: "<chaîne>" }` (seule clé,
-valeur chaîne) est réservé aux octets. L'encodeur **refuse** d'en envoyer un qui ne vient pas
+Quand le serveur a `codec: "cbor"` et qu'une connexion est restée en texte (la convention d'octets
+y est armée), un objet de la forme **exacte** `{ $bytes: "<chaîne>" }` (seule clé, valeur chaîne)
+est réservé aux octets. L'encodeur **refuse** d'en envoyer un qui ne vient pas
 d'octets : un client texte le relirait en octets, un client CBOR en objet.
 
 ```ts
@@ -164,7 +170,7 @@ Les textes entre guillemets sont recopiés du code ; `<…>` marque une partie v
 - **Serveur resté en `codec: "json"`** : un `Uint8Array` part en `{"0":1,"1":2,…}` — aucune erreur.
   C'est le piège n°1 : vérifier la clé `codec` avant tout autre diagnostic.
 - **`codec` passé à un `shared()` qui n'est pas le premier** : l'instance existante revient,
-  réglages compris ; la connexion reste en texte (un avertissement en développement seulement).
+  réglages compris ; la connexion reste en texte (un avertissement hors production seulement).
 - **`sendBinary()` sur un transport fermé** : rend `false`, compté dans `framesUnsent`, sans notice.
 - **Codec non annoncé par l'accueil** : le client reste en texte, sans notice — c'est le cas
   normal d'un serveur en `codec: "json"`.

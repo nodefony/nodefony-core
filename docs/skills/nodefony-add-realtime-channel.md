@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-11-02
+updated: 2026-11-03
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "src/packages/@nodefony/devkit/skills/nodefony-add-realtime-channel/SKILL.md"
 ---
@@ -72,7 +72,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
-| `references/binaire.md` | Des octets dans le temps réel — mode d'emploi complet | 186 |
+| `references/binaire.md` | Des octets dans le temps réel — mode d'emploi complet | 192 |
 | `references/production.md` | Ce qui ne se voit qu'en production — plusieurs serveurs, réseau, révocation, charge | 122 |
 
 
