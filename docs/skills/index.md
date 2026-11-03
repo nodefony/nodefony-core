@@ -168,7 +168,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme" },
   { "icon": "🔧", "title": "add-realtime-channel", "href": "nodefony-add-realtime-channel.md",
     "desc": "Choisit et branche la brique temps réel que Nodefony fournit déjà — canal, entrée client, action, canal personnel, canal à membres, flux SSE, contrat typé, octets — au lieu d'un WebSocket, d'une liste noire ou d'un contrôle d'accès écrits à la main.",
-    "meta": "🟢 conforme v2.1.0 · 📎 2 réf" },
+    "meta": "🟢 conforme v2.1.1 · 📎 2 réf" },
   { "icon": "🔧", "title": "add-service", "href": "nodefony-add-service.md",
     "desc": "Crée un service injectable dans une application Nodefony par `nodefony create service`, et le fait entrer dans le conteneur — la moitié qu'on oublie. Porte la distinction entre le nom de la CLASSE et le nom de l'INSTANCE, les deux façons d'obtenir un service depuis un autre (`@Inject` au…",
     "meta": "🟢 conforme" },
@@ -224,7 +224,7 @@ source: "docs/skills/index.md"
 | [`nodefony-test-campaign`](nodefony-test-campaign.md) | 1.1.0 | 227 | 1 | 0 | ✅ |
 | [`nodefony-ticket`](nodefony-ticket.md) | 1.10.0 | 497 | 7 | 21 | ✅ |
 | [`nodefony-add-crud`](nodefony-add-crud.md) | — | 257 | 0 | 0 | ✅ |
-| [`nodefony-add-realtime-channel`](nodefony-add-realtime-channel.md) | 2.1.0 | 403 | 2 | 0 | ✅ |
+| [`nodefony-add-realtime-channel`](nodefony-add-realtime-channel.md) | 2.1.1 | 409 | 2 | 0 | ✅ |
 | [`nodefony-add-service`](nodefony-add-service.md) | — | 115 | 0 | 0 | ✅ |
 | [`nodefony-authentication`](nodefony-authentication.md) | 1.0.0 | 220 | 0 | 0 | ✅ |
 | [`nodefony-dev`](nodefony-dev.md) | 1.3.0 | 486 | 0 | 1 | ✅ |

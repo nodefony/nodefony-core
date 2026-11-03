@@ -1,7 +1,7 @@
 ---
 name: nodefony-add-realtime-channel
 metadata:
-  version: 2.1.0
+  version: 2.1.1
 description: >
   Choisit et branche la brique temps réel que Nodefony fournit déjà — canal, entrée client,
   action, canal personnel, canal à membres, flux SSE, contrat typé, octets — au lieu d'un
@@ -79,6 +79,11 @@ entrée client, et **son test** (`createRealtimeHarness`). Nomme le contrôleur 
 est refusé (nom déjà référencé). Une application générée sert déjà `/api/live/realtime`
 (`LiveController`, canal `live:events`) : c'est le canal public témoin, il doit continuer de
 répondre après ta modification.
+
+**Le client ouvre la socket du contrôleur qui DÉCLARE ses canaux** — `/api/room/realtime` pour
+`create controller Room`. Une socket ne sert que les canaux de SON contrôleur : ouvert sur
+`/api/live/realtime`, `room:42` est refusé (`unknown`). Pour une seule socket par page, regroupe
+les canaux dans un même contrôleur ; seul `user:<id>` est fourni par toutes.
 
 **N'écris ni `new WebSocket(...)` côté serveur, ni `ws.on(...)`, ni un `WebSocketServer`** : le
 bas niveau existe, le framework l'emploie ; le reprendre te prive du routage par canal, de
@@ -218,7 +223,8 @@ override createRealtimeChannel(channel: string): (() => void) | null {
 ```ts
 import { NodefonySocket } from "nodefony/client";
 
-const socket = NodefonySocket.shared({ url: "/api/live/realtime" }); // UNE socket par page
+// La socket du contrôleur qui DÉCLARE ces canaux (`create controller Ops` → `/api/ops/realtime`).
+const socket = NodefonySocket.shared({ url: "/api/ops/realtime" }); // UNE socket par URL
 socket.subscribe("ops:alerts"); // DEMANDE le flux (rejoué à chaque reconnexion)
 socket.on("ops:alerts", (alert) => render(alert)); // REÇOIT ; deux gestes distincts
 socket.emit("ops:ack", { id: "a1" }); // entrée client, sans réponse
@@ -284,7 +290,7 @@ export interface OpsContract extends IRealtimeContract {
 ```ts
 // navigateur
 const ops = NodefonySocket.fromContract<OpsContract>({
-  url: "/api/live/realtime",
+  url: "/api/ops/realtime", // la socket d'OpsRealtime, qui sert ces canaux
 });
 ops.on("ops:alerts", (a) => a.at); // `string` : ce que JSON fait d'une Date
 ```

@@ -12364,7 +12364,7 @@
       "name": "nodefony-add-realtime-channel",
       "summary": "Choisit et branche la brique temps réel que Nodefony fournit déjà — canal, entrée client, action, canal personnel, canal à membres, flux SSE, contrat typé, octets — au lieu d'un WebSocket, d'une liste noire ou d'un contrôle d'accès écrits à la main.",
       "family": "Autres",
-      "version": "2.1.0",
+      "version": "2.1.1",
       "keywords": [],
       "triggers": [
         "temps réel",
@@ -12391,8 +12391,8 @@
       ],
       "description": "Choisit et branche la brique temps réel que Nodefony fournit déjà — canal, entrée client, action, canal personnel, canal à membres, flux SSE, contrat typé, octets — au lieu d'un WebSocket, d'une liste noire ou d'un contrôle d'accès écrits à la main. Part du besoin (salon privé avec exclusion, jeu, sondes, tableau de bord, notification à une personne, tâche longue) et mène à la ligne à écrire, à l'exemple installé et à son test. Porte ce qui ne se voit qu'en production : plusieurs serveurs, reconnexion, révocation, contre-pression. À charger AVANT d'écrire un canal, un abonnement client ou un flux. Déclencheurs : \"temps réel\", \"websocket\", \"canal\", \"push\", \"notifications en direct\", \"abonnement\", \"salon privé\", \"exclure un membre\", \"réserver un canal à un rôle\", \"mon canal est public\", \"prévenir un utilisateur\", \"progression d'une tâche\", \"SSE\", \"EventSource\", \"réponse en streaming\", \"contrat temps réel\", \"-32601\", \"CBOR\", \"Uint8Array\", \"ça marche en local, plus en cluster\", \"l'exclu revient\".",
       "cost": {
-        "bodyLines": 403,
-        "approxTokens": 6295
+        "bodyLines": 409,
+        "approxTokens": 6421
       },
       "requires": [],
       "resources": {
@@ -12466,7 +12466,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "403",
+            "detail": "409",
             "advisory": true
           }
         ]
