@@ -191,6 +191,9 @@ class Firewall extends Service implements IFirewall {
   // Fragments CSP déclarés par module (origines Vite dev…) — null tant qu'aucun
   // module n'en enregistre. Mergés dans le CSP de base au (dé)enregistrement.
   #cspFragments: Map<string, CspFragment> | null = null;
+  // Politique déjà composée (base + fragments enregistrés) — null tant qu'aucun
+  // fragment n'est fusionné. Un ajout ne fusionne que le NOUVEAU fragment dessus.
+  #cspMerged: string | null = null;
   // Config validée + gelée (consommée par les fabriques d'authenticators).
   #config: ISecurityConfig | null = null;
   // Fail-closed : posée si la config sécurité est invalide au boot → le
@@ -278,6 +281,7 @@ class Firewall extends Service implements IFirewall {
     // statics + erreurs) → security n'émet QUE le complément (1 source par en-tête).
     if (this.#config.headers.enabled) {
       this.#securityHeaders = new SecurityHeaders(this.#config.headers);
+      this.#cspMerged = null;
     }
 
     const areas = this.#config.areas;
@@ -1175,17 +1179,19 @@ class Firewall extends Service implements IFirewall {
     const response = (context as { response?: IHeaderCapableResponse | null })
       .response;
     if (typeof response?.setHeader !== "function") return;
-    // En-têtes constants (Referrer/COOP/… + CSP statique si pas de nonce) — figés.
-    const headers = sh.headers;
-    for (const name in headers) {
-      const value = headers[name];
-      if (value !== undefined) response.setHeader(name, value);
-    }
     // CSP per-route (`@Csp`, P6) : directives additionnelles posées par le Resolver
     // sur le contexte au match (`null` = cas courant → 0 composition). Lu APRÈS le
     // resolve (cf déplacement dans handleHttp). Le merge n'est payé QUE sur ces routes.
     const extra = (context as { cspDirectives?: CspFragment | null })
       .cspDirectives;
+    // En-têtes constants (Referrer/COOP/… + CSP statique si pas de nonce) — figés.
+    // Une route `@Csp` sans nonce pose SA politique plus bas : la table sans CSP
+    // évite d'écrire l'en-tête deux fois (~0,7 µs par écriture).
+    const headers = extra && !sh.hasNonce ? sh.headersWithoutCsp : sh.headers;
+    for (const name in headers) {
+      const value = headers[name];
+      if (value !== undefined) response.setHeader(name, value);
+    }
     // CSP nonce/req (étape B) : LIRE `context.cspNonce` génère le nonce PARESSEUSEMENT
     // et le mémoïse → le `<script nonce="X">` rendu ensuite par le controller lit la
     // MÊME valeur. Posé seulement si le CSP porte `{{nonce}}` (sinon `hasNonce`=false
@@ -1197,8 +1203,8 @@ class Firewall extends Service implements IFirewall {
         extra ? sh.cspForExtra(nonce, extra) : sh.cspFor(nonce),
       );
     } else if (extra) {
-      // CSP statique + extra de route → recompose (écrase l'en-tête statique posé
-      // dans la boucle `headers`). Pas de nonce ici (param ignoré par cspForExtra).
+      // CSP statique + extra de route → recompose (la boucle a pris la table sans
+      // CSP : écriture unique). Pas de nonce ici (param ignoré par cspForExtra).
       response.setHeader("Content-Security-Policy", sh.cspForExtra("", extra));
     }
   }
@@ -1210,8 +1216,37 @@ class Firewall extends Service implements IFirewall {
    */
   registerCspOrigins(moduleName: string, fragment: CspFragment): void {
     if (!this.#securityHeaders || !this.#config) return;
-    (this.#cspFragments ??= new Map()).set(moduleName, fragment);
-    this.#rebuildSecurityHeaders();
+    const fragments = (this.#cspFragments ??= new Map<string, CspFragment>());
+    const previous = fragments.get(moduleName);
+    if (
+      previous !== undefined ||
+      (this.#cspMerged === null && fragments.size > 0)
+    ) {
+      // Remplacement (les anciennes sources du module doivent disparaître), ou
+      // politique composée perdue (config reposée) → recomposition depuis la
+      // base. Un fragment refusé laisse l'état intact.
+      fragments.set(moduleName, fragment);
+      try {
+        this.#rebuildSecurityHeaders();
+      } catch (error) {
+        if (previous === undefined) fragments.delete(moduleName);
+        else fragments.set(moduleName, previous);
+        throw error;
+      }
+      return;
+    }
+    // Ajout : seul le NOUVEAU fragment est fusionné (donc validé), une seule
+    // fois, sur la politique déjà composée. Rangé APRÈS la fusion : un fragment
+    // refusé n'empoisonne pas les recompositions suivantes.
+    const csp = mergeCspFragments(this.#cspMerged ?? this.#config.headers.csp, [
+      fragment,
+    ]);
+    fragments.set(moduleName, fragment);
+    this.#cspMerged = csp;
+    this.#securityHeaders = new SecurityHeaders({
+      ...this.#config.headers,
+      csp,
+    });
   }
 
   /** Retire les directives CSP de `moduleName` et recompose si nécessaire. */
@@ -1233,6 +1268,7 @@ class Firewall extends Service implements IFirewall {
       this.#cspFragments && this.#cspFragments.size > 0
         ? mergeCspFragments(headers.csp, this.#cspFragments.values())
         : headers.csp;
+    this.#cspMerged = csp === headers.csp ? null : csp;
     this.#securityHeaders = new SecurityHeaders({ ...headers, csp });
   }
 

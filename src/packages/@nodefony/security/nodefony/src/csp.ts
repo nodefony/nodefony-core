@@ -12,8 +12,49 @@
  * tel quel par parse/serialize.
  */
 
+import { BootConfigurationError } from "nodefony";
+
 /** Fragment additif d'un module : directive CSP → sources à ajouter. */
 export type CspFragment = Record<string, readonly string[]>;
+
+// Grammaire W3C CSP Level 3 §2.2 (`serialized-directive`) :
+//   directive-name  = 1*( ALPHA / DIGIT / "-" )
+//   directive-value = *( required-ascii-whitespace / ( %x21-%x2B / %x2D-%x3A / %x3C-%x7E ) )
+// Une SOURCE est un jeton de `directive-value` : ni espace, ni `,` (%x2C, sépare
+// deux POLITIQUES dans un même en-tête), ni `;` (%x3B, sépare deux directives),
+// ni caractère de contrôle (CR/LF). Classe de caractères fixe : pas de ReDoS.
+const DIRECTIVE_NAME = /^[A-Za-z0-9-]+$/;
+const SOURCE_TOKEN = /^[\x21-\x2B\x2D-\x3A\x3C-\x7E]+$/;
+
+/**
+ * Refuse un fragment CSP qui sortirait de la grammaire CSP3 — seule garde contre
+ * l'injection de directives par une valeur de configuration.
+ *
+ * Sans elle, une source comme `https://a.example; frame-src *` ajoute une
+ * directive que personne n'a demandée, et `https://a.example, frame-src *` coupe
+ * l'en-tête en deux politiques. Appelée là où un fragment ENTRE (enregistrement
+ * d'un module, fusion d'une route `@Csp`), jamais par requête.
+ *
+ * @param fragment - directives additionnelles (`directive → sources`).
+ * @param origin - qui déclare le fragment, pour nommer la faute.
+ * @throws BootConfigurationError si un nom ou une source sort de la grammaire.
+ */
+export function assertCspFragment(fragment: CspFragment, origin: string): void {
+  for (const name in fragment) {
+    if (!DIRECTIVE_NAME.test(name)) {
+      throw new BootConfigurationError(
+        `[@nodefony/security] CSP refusée (${origin}) — nom de directive invalide ${JSON.stringify(name)} : lettres, chiffres et « - » seulement (W3C CSP3 §2.2).`,
+      );
+    }
+    for (const source of fragment[name] ?? []) {
+      if (!SOURCE_TOKEN.test(source)) {
+        throw new BootConfigurationError(
+          `[@nodefony/security] CSP refusée (${origin}) — source invalide ${JSON.stringify(source)} dans « ${name} » : ni espace, ni « ; », ni « , », ni caractère de contrôle (W3C CSP3 §2.2). Une source = une origine ou un mot-clé ; déclarer plusieurs sources = plusieurs entrées du tableau.`,
+        );
+      }
+    }
+  }
+}
 
 /**
  * Parse une chaîne CSP en directives ordonnées `[nom, sources[]]`. L'ordre des
@@ -48,9 +89,13 @@ export function serializeCsp(directives: Array<[string, string[]]>): string {
  * origines (jamais par requête). Le résultat repart dans `SecurityHeaders`, qui
  * re-split autour de `{{nonce}}` au boot → 1 `join` par requête (hot-path inchangé).
  *
+ * Chaque fragment passe {@link assertCspFragment} : une source hors grammaire
+ * lève au lieu d'injecter une directive.
+ *
  * @param base - CSP de configuration (peut contenir `'nonce-{{nonce}}'`).
  * @param fragments - fragments additifs (un par module enregistré).
  * @returns la chaîne CSP fusionnée.
+ * @throws BootConfigurationError si un fragment sort de la grammaire CSP3.
  */
 export function mergeCspFragments(
   base: string,
@@ -62,6 +107,7 @@ export function mergeCspFragments(
   for (const [name, src] of directives) index.set(name, src);
 
   for (const fragment of fragments) {
+    assertCspFragment(fragment, "fusion");
     for (const name in fragment) {
       const additions = fragment[name];
       if (additions === undefined || additions.length === 0) continue;

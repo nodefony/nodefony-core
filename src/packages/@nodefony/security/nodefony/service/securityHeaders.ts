@@ -52,6 +52,14 @@ export class SecurityHeaders {
   // CSP de base BRUT (avec `{{nonce}}` éventuel, non purgé) — conservé pour
   // `cspForExtra` (merge des directives `@Csp` d'une route). Vide si aucun CSP.
   readonly #cspRaw: string;
+  // Même table SANS la CSP statique — lue seulement par une route `@Csp` sans
+  // nonce, qui pose SA politique : la CSP n'est ainsi écrite qu'UNE fois par
+  // réponse (un `setHeader` de CSP coûte ~0,7 µs, la valeur étant validée
+  // caractère par caractère). Même référence que `#headers` s'il n'y a rien à ôter.
+  readonly #headersWithoutCsp: Readonly<Record<string, string>>;
+  // Politique `@Csp` déjà composée, par jeu de directives de route — null tant
+  // qu'aucune route décorée n'a servi (cas courant : 0 allocation).
+  #extraComposed: WeakMap<CspFragment, IComposedCsp> | null = null;
 
   constructor(o: ISecurityHeadersOptions) {
     const h: Record<string, string> = {};
@@ -80,6 +88,12 @@ export class SecurityHeaders {
     if (o.originAgentCluster) h["Origin-Agent-Cluster"] = "?1";
     if (o.permissionsPolicy) h["Permissions-Policy"] = o.permissionsPolicy;
     this.#headers = Object.freeze(h);
+    if (h["Content-Security-Policy"] === undefined) {
+      this.#headersWithoutCsp = this.#headers;
+    } else {
+      const { "Content-Security-Policy": _csp, ...rest } = h;
+      this.#headersWithoutCsp = Object.freeze(rest);
+    }
     this.#cspParts = cspParts ? Object.freeze(cspParts) : null;
     if (cspParts?.length === 2) {
       this.#cspPrefix = cspParts[0] ?? "";
@@ -94,6 +108,14 @@ export class SecurityHeaders {
   /** Table d'en-têtes applicatifs CONSTANTS (figée), posée telle quelle par le firewall. */
   get headers(): Readonly<Record<string, string>> {
     return this.#headers;
+  }
+
+  /**
+   * Table constante SANS la CSP statique — pour une réponse qui pose sa propre
+   * politique (route `@Csp`), afin que la CSP ne soit écrite qu'une fois.
+   */
+  get headersWithoutCsp(): Readonly<Record<string, string>> {
+    return this.#headersWithoutCsp;
   }
 
   /** `true` si le CSP est recomposé par requête avec un nonce (→ `cspFor`). */
@@ -129,13 +151,48 @@ export class SecurityHeaders {
    * @returns la valeur `Content-Security-Policy` à poser sur la réponse.
    */
   cspForExtra(nonce: string, extra: CspFragment): string {
-    const merged = mergeCspFragments(this.#cspRaw, [extra]);
-    // Nonce actif (`#cspParts` non null) → substitue `{{nonce}}` ; sinon purge un
-    // résiduel `'nonce-{{nonce}}'` (placeholder non substitué = CSP cassé).
-    return this.#cspParts !== null
-      ? merged.split(NONCE_PLACEHOLDER).join(nonce)
-      : merged.replace(/\s*'nonce-\{\{nonce\}\}'/g, "");
+    // Fusion (et validation) UNE fois par jeu de directives : la clé est l'objet
+    // figé que le routeur calcule une fois par action. Par requête ne reste que
+    // la recomposition du nonce, au même coût que `cspFor`.
+    let composed = this.#extraComposed?.get(extra);
+    if (composed === undefined) {
+      const merged = mergeCspFragments(this.#cspRaw, [extra]);
+      // Nonce actif (`#cspParts` non null) → découpe autour de `{{nonce}}` ; sinon
+      // purge un résiduel `'nonce-{{nonce}}'` (placeholder non substitué = CSP cassé).
+      composed =
+        this.#cspParts !== null
+          ? composeAroundNonce(merged.split(NONCE_PLACEHOLDER))
+          : {
+              head: merged.replace(/\s*'nonce-\{\{nonce\}\}'/g, ""),
+              tail: null,
+              parts: null,
+            };
+      (this.#extraComposed ??= new WeakMap()).set(extra, composed);
+    }
+    if (composed.tail !== null) return composed.head + nonce + composed.tail;
+    return composed.parts !== null ? composed.parts.join(nonce) : composed.head;
   }
+}
+
+/**
+ * Politique pré-découpée autour du nonce : `head + nonce + tail` quand elle porte
+ * UN `{{nonce}}` (cas courant), `parts.join(nonce)` sinon, `head` seul sans nonce.
+ */
+interface IComposedCsp {
+  readonly head: string;
+  readonly tail: string | null;
+  readonly parts: readonly string[] | null;
+}
+
+/** Range les segments d'une politique découpée autour de `{{nonce}}`. */
+function composeAroundNonce(parts: string[]): IComposedCsp {
+  if (parts.length === 2) {
+    const [head = "", tail = ""] = parts;
+    return { head, tail, parts: null };
+  }
+  if (parts.length === 1)
+    return { head: parts[0] ?? "", tail: null, parts: null };
+  return { head: "", tail: null, parts: Object.freeze(parts) };
 }
 
 export default SecurityHeaders;
