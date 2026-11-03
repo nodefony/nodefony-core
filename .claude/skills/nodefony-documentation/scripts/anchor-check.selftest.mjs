@@ -239,8 +239,36 @@ try {
       `${ok ? "✓" : "✗"} ${pourquoi}${aTourne ? "" : `\n    l'outil n'a pas tourné : ${r.stderr.split("\n")[0]}`}${ok || !aTourne ? "" : `\n    attendu ${JSON.stringify(attendu)} (exit ${statutAttendu})\n    obtenu  ${JSON.stringify(obtenu)} (exit ${r.status})`}`,
     );
   }
+  // Copie AMONT épinglée (un `AMONT.json` dans son dossier) : le texte d'autrui,
+  // dont les liens visent SON dépôt (vécu : la page MCP Apps cite
+  // `../src/server/index.examples.ts#…`). Sautée — et la MÊME page hors d'un
+  // corpus épinglé reste refusée, sinon le saut masquerait tout.
+  const lien = "voir `../src/server/index.examples.ts#registerApp`";
+  for (const [dossier, amont, attenduStatut, pourquoi] of [
+    ["epingle", true, 0, "une copie amont épinglée n'est pas contrôlée"],
+    ["libre", false, 1, "la même page HORS corpus épinglé reste refusée"],
+  ]) {
+    const dir = path.join(racine, "skill", dossier, "references", "corpus");
+    fs.mkdirSync(dir, { recursive: true });
+    if (amont) fs.writeFileSync(path.join(dir, "AMONT.json"), "{}");
+    const page = path.join(dir, "page.md");
+    fs.writeFileSync(page, `# Page\n\n${lien}\n`);
+    const r = spawnSync(process.execPath, [OUTIL, page], {
+      cwd: racine,
+      encoding: "utf8",
+    });
+    const ok =
+      r.status === attenduStatut &&
+      (amont
+        ? r.stdout.includes("copie amont épinglée")
+        : r.stdout.includes("FILE_NOT_FOUND"));
+    if (!ok) echecs++;
+    console.log(
+      `${ok ? "✓" : "✗"} ${pourquoi}${ok ? "" : `\n    exit ${r.status} (attendu ${attenduStatut})\n    ${r.stdout.split("\n").slice(0, 3).join("\n    ")}`}`,
+    );
+  }
   console.log(
-    echecs ? `\n${echecs} cas en échec` : `\n${cas.length} cas conformes`,
+    echecs ? `\n${echecs} cas en échec` : `\n${cas.length + 2} cas conformes`,
   );
   process.exitCode = echecs ? 1 : 0;
 } finally {

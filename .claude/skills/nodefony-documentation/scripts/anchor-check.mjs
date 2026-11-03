@@ -433,8 +433,39 @@ const estRemplacee = (contenu) => {
   return entete ? /^status:\s*superseded\s*$/m.test(entete[1]) : false;
 };
 
+/**
+ * Dossier de la copie AMONT épinglée qui contient `md` (un `AMONT.json` le
+ * déclare, `check-amont.mjs` en garde l'empreinte), ou `null`. Une telle page
+ * est le texte d'AUTRUI recopié à l'identique : ses liens visent le dépôt
+ * amont (`../src/server/…`), jamais notre code — et la retoucher casserait
+ * son épinglage. Elle n'a donc pas d'ancre à contrôler ici.
+ */
+const amontCache = new Map();
+const repoReel = fs.realpathSync(REPO);
+function copieAmont(md) {
+  // Chemins RÉELS des deux côtés : `git rev-parse` rend `/private/var/…` là où
+  // un dossier temporaire macOS arrive en `/var/…`. Et `path.relative`, pas
+  // une comparaison de chaînes : sous Windows, `git` écrit des `/`, Node des `\\`.
+  let dir = fs.realpathSync(path.dirname(path.resolve(REPO, md)));
+  for (;;) {
+    const rel = path.relative(repoReel, dir);
+    if (rel === "" || rel.startsWith("..") || path.isAbsolute(rel)) return null;
+    if (!amontCache.has(dir)) {
+      amontCache.set(dir, fs.existsSync(path.join(dir, "AMONT.json")));
+    }
+    if (amontCache.get(dir)) return rel.split(path.sep).join("/");
+    if (path.basename(dir) === "references") return null;
+    dir = path.dirname(dir);
+  }
+}
+
 for (const md of args) {
   const moduleRoot = moduleRootOf(md.replace(/^tmp\/doc-corpus\//, ""));
+  const amont = copieAmont(md);
+  if (amont !== null) {
+    say(`\x1b[2m⏭  ${md} — copie amont épinglée (${amont}/AMONT.json)\x1b[0m`);
+    continue;
+  }
   const brut = fs.readFileSync(md, "utf8");
   if (estRemplacee(brut)) {
     say(`\x1b[2m⏭  ${md} — page remplacée (status: superseded)\x1b[0m`);
