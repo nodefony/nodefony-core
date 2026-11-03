@@ -1,20 +1,20 @@
 ---
 name: nodefony-rfc
 metadata:
-  version: 1.10.0
+  version: 1.11.0
 description: >
   Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md —
-  depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE MCP 2026-07-28, A2A 1.0.1, gRPC, AGENTS.md,
-  Keycloak 26.8 et un relevé des terminaux, avec un
-  script de dérive amont. Dit quelles RFC tranchent un proxy inverse.
+  depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE MCP 2026-07-28, A2A 1.0.1,
+  gRPC, CSP Level 3, AGENTS.md, Keycloak 26.8 et un relevé des terminaux, avec un script de dérive
+  amont. Dit quelles RFC tranchent un proxy inverse.
   Déclencheurs : "RFC", "conformité HTTP", "norme WebSocket", "CORS spec", "RFC 9110/9113/6455/6265",
   "SameSite cookies", "norme SSE", "EventSource", "spec MCP", "Model Context Protocol", "autorisation MCP",
-  "resource server OAuth", "RFC 9728", "AGENTS.md", "spec AGENTS.md", "AAIF",
-  "quelle taille pour AGENTS.md", "dossier .agents",
-  "Agent Skills", "quel fichier lit tel agent", "Keycloak", "realm", "importer un realm",
-  "audience Keycloak", "hostname Keycloak", "thème Keycloak", "courriel Keycloak", "proxy inverse", "reverse proxy", "en-têtes hop-by-hop",
+  "resource server OAuth", "RFC 9728", "AGENTS.md", "AAIF", "quelle taille pour AGENTS.md",
+  "dossier .agents", "Agent Skills", "quel fichier lit tel agent", "Keycloak", "realm",
+  "thème Keycloak", "proxy inverse", "reverse proxy", "en-têtes hop-by-hop",
   "request smuggling", "que fait nginx", "norme périmée", "souris dans le terminal", "OSC 52",
-  "gRPC", "protobuf", "A2A", "Agent2Agent".
+  "gRPC", "protobuf", "A2A", "Agent2Agent", "CSP", "Content-Security-Policy", "strict-dynamic",
+  "Trusted Types", "frame-ancestors", "MCP Apps".
 ---
 
 # nodefony-rfc
@@ -343,6 +343,16 @@ webhook porte le même objet que le flux, son authentification est fournie par l
 est un instantané puis la suite, une liaison WebSocket est personnalisée et versionnée par URI.
 Consommateurs : le socle temps réel (modèle d'événement et livraisons), les webhooks de
 `@nodefony/security`, gRPC (#694), la couche IA.
+
+### 15. Content Security Policy — **HORS LIGNE**
+
+CSP Level 3, Trusted Types, Reporting API et `upgrade-insecure-requests` (sources Bikeshed brutes
+du W3C), la fiche OWASP, « strict CSP » de web.dev, les pages MDN des directives, la compatibilité
+navigateurs (`browser-compat-data`) et l'extension MCP Apps (CSP déclarée par ressource UI) :
+`references/csp/` (`AMONT.json` par page). **L'index vit dans `references/csp/README.md`.** Le
+cœur MCP et A2A ne parlent pas de CSP. Consommateur : la politique par défaut de
+`@nodefony/security` (`config.ts#headersSchema`) et la fusion des contributions de modules
+(`csp.ts#mergeCspFragments`).
 
 ## Pattern d'usage
 

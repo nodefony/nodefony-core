@@ -10207,7 +10207,7 @@
       "name": "nodefony-rfc",
       "summary": "Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis des sources brutes, jamais des pages HTML.",
       "family": "Références et livrables",
-      "version": "1.10.0",
+      "version": "1.11.0",
       "keywords": [],
       "triggers": [
         "RFC",
@@ -10224,7 +10224,6 @@
         "resource server OAuth",
         "RFC 9728",
         "AGENTS.md",
-        "spec AGENTS.md",
         "AAIF",
         "quelle taille pour AGENTS.md",
         "dossier .agents",
@@ -10232,11 +10231,7 @@
         "quel fichier lit tel agent",
         "Keycloak",
         "realm",
-        "importer un realm",
-        "audience Keycloak",
-        "hostname Keycloak",
         "thème Keycloak",
-        "courriel Keycloak",
         "proxy inverse",
         "reverse proxy",
         "en-têtes hop-by-hop",
@@ -10248,19 +10243,25 @@
         "gRPC",
         "protobuf",
         "A2A",
-        "Agent2Agent"
+        "Agent2Agent",
+        "CSP",
+        "Content-Security-Policy",
+        "strict-dynamic",
+        "Trusted Types",
+        "frame-ancestors",
+        "MCP Apps"
       ],
-      "description": "Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE MCP 2026-07-28, A2A 1.0.1, gRPC, AGENTS.md, Keycloak 26.8 et un relevé des terminaux, avec un script de dérive amont. Dit quelles RFC tranchent un proxy inverse. Déclencheurs : \"RFC\", \"conformité HTTP\", \"norme WebSocket\", \"CORS spec\", \"RFC 9110/9113/6455/6265\", \"SameSite cookies\", \"norme SSE\", \"EventSource\", \"spec MCP\", \"Model Context Protocol\", \"autorisation MCP\", \"resource server OAuth\", \"RFC 9728\", \"AGENTS.md\", \"spec AGENTS.md\", \"AAIF\", \"quelle taille pour AGENTS.md\", \"dossier .agents\", \"Agent Skills\", \"quel fichier lit tel agent\", \"Keycloak\", \"realm\", \"importer un realm\", \"audience Keycloak\", \"hostname Keycloak\", \"thème Keycloak\", \"courriel Keycloak\", \"proxy inverse\", \"reverse proxy\", \"en-têtes hop-by-hop\", \"request smuggling\", \"que fait nginx\", \"norme périmée\", \"souris dans le terminal\", \"OSC 52\", \"gRPC\", \"protobuf\", \"A2A\", \"Agent2Agent\".",
+      "description": "Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE MCP 2026-07-28, A2A 1.0.1, gRPC, CSP Level 3, AGENTS.md, Keycloak 26.8 et un relevé des terminaux, avec un script de dérive amont. Dit quelles RFC tranchent un proxy inverse. Déclencheurs : \"RFC\", \"conformité HTTP\", \"norme WebSocket\", \"CORS spec\", \"RFC 9110/9113/6455/6265\", \"SameSite cookies\", \"norme SSE\", \"EventSource\", \"spec MCP\", \"Model Context Protocol\", \"autorisation MCP\", \"resource server OAuth\", \"RFC 9728\", \"AGENTS.md\", \"AAIF\", \"quelle taille pour AGENTS.md\", \"dossier .agents\", \"Agent Skills\", \"quel fichier lit tel agent\", \"Keycloak\", \"realm\", \"thème Keycloak\", \"proxy inverse\", \"reverse proxy\", \"en-têtes hop-by-hop\", \"request smuggling\", \"que fait nginx\", \"norme périmée\", \"souris dans le terminal\", \"OSC 52\", \"gRPC\", \"protobuf\", \"A2A\", \"Agent2Agent\", \"CSP\", \"Content-Security-Policy\", \"strict-dynamic\", \"Trusted Types\", \"frame-ancestors\", \"MCP Apps\".",
       "cost": {
-        "bodyLines": 341,
-        "approxTokens": 6373
+        "bodyLines": 351,
+        "approxTokens": 6535
       },
       "requires": [
         "docker"
       ],
       "resources": {
         "references": [],
-        "referenceFilesTotal": 259,
+        "referenceFilesTotal": 288,
         "scripts": [
           {
             "path": "scripts/amont-lib.mjs",
@@ -10347,7 +10348,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "1013",
+            "detail": "1024",
             "advisory": false
           },
           {
@@ -10389,7 +10390,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "341",
+            "detail": "351",
             "advisory": true
           }
         ]

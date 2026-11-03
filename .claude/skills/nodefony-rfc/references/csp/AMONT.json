@@ -1,0 +1,260 @@
+{
+  "note": "#699 — CSP par défaut de @nodefony/security : CSP Level 3, Trusted Types, Reporting API, upgrade-insecure-requests (W3C, sources Bikeshed brutes), fiche OWASP, strict CSP (web.dev, dépôt archivé), MDN (guide + pages des directives) compatibilité navigateurs (browser-compat-data) et extension MCP Apps (CSP déclarée par ressource UI). Les specs MCP 2026-07-28 et A2A 1.0.1 ne disent rien de la CSP.",
+  "sources": [
+    {
+      "repo": "w3c/webappsec-csp",
+      "ref": "main",
+      "site": "https://w3c.github.io/webappsec-csp/",
+      "copies": {
+        "w3c-csp3.bs": {
+          "path": "index.bs",
+          "commit": "251d288dad4d6166e73541877ca2073864edeb8f",
+          "date": "2026-10-27T08:57:37Z",
+          "blob": "3c194c3a882ff9532302650aed6c83c57afc2a90",
+          "sha256": "f303de92d5846741444a6ff2ff9334df93940b266203b302a83a176d77f91b7d"
+        }
+      }
+    },
+    {
+      "repo": "w3c/trusted-types",
+      "ref": "main",
+      "site": "https://w3c.github.io/trusted-types/dist/spec/",
+      "copies": {
+        "w3c-trusted-types.bs": {
+          "path": "spec/index.bs",
+          "commit": "3cd79cb094d7d4e5bdaf6f516a8af40eca3d3faf",
+          "date": "2026-10-07T13:03:40Z",
+          "blob": "2df3cc54006eb3d590b25d244a799c3baa72420f",
+          "sha256": "8ce7eae2cf94bb5097fa08c8325cfeadd326497e1d7808494214e0b4e6669ee8"
+        }
+      }
+    },
+    {
+      "repo": "w3c/reporting",
+      "ref": "main",
+      "site": "https://w3c.github.io/reporting/",
+      "copies": {
+        "w3c-reporting.bs": {
+          "path": "index.bs",
+          "commit": "fddb77695bef9b360cca1395e1a21ae028a44bf9",
+          "date": "2026-09-22T02:04:38Z",
+          "blob": "ab1e823bf1e1a6668edccf5cbd7a236b712aeac5",
+          "sha256": "116c741b6e1cbcc1a63cc7b432e4860e612b35e79582d9dedbbd12db6353ad9e"
+        }
+      }
+    },
+    {
+      "repo": "w3c/webappsec-upgrade-insecure-requests",
+      "ref": "main",
+      "site": "https://w3c.github.io/webappsec-upgrade-insecure-requests/",
+      "copies": {
+        "w3c-upgrade-insecure-requests.bs": {
+          "path": "index.bs",
+          "commit": "c9fa8703033beee2f6d4d4cf3270967e419f5013",
+          "date": "2022-10-13T11:56:29Z",
+          "blob": "f7264bd3d26ca0f7678f6cd8745788cf7a72b7c9",
+          "sha256": "9d415ed61f171da948549587a6221446c08bc7f32ddc6d7540192f3b85b1790e"
+        }
+      }
+    },
+    {
+      "repo": "OWASP/CheatSheetSeries",
+      "ref": "master",
+      "site": "https://cheatsheetseries.owasp.org/",
+      "copies": {
+        "owasp-csp-cheat-sheet.md": {
+          "path": "cheatsheets/Content_Security_Policy_Cheat_Sheet.md",
+          "commit": "eaa71fb4a421dc057bf03a3856d0d34967299ff1",
+          "date": "2026-10-04T21:09:17Z",
+          "blob": "8bfc59e61d6e55a3b6e210cd6a94be60d6ea59e4",
+          "sha256": "4d5e2f4d1c42ae58672fabb8088b2254ce5e6990432b58e110604942f14b34d0"
+        }
+      }
+    },
+    {
+      "repo": "GoogleChrome/web.dev",
+      "ref": "main",
+      "site": "https://web.dev/articles/strict-csp",
+      "copies": {
+        "webdev-strict-csp.md": {
+          "path": "src/site/content/en/blog/strict-csp/index.md",
+          "commit": "ca4a8b08668797b2029126956d0278f380bbe104",
+          "date": "2023-06-23T13:05:04Z",
+          "blob": "b06fc698b3d82b24907a8796ffd32d8f87501adf",
+          "sha256": "aca49419e732e43d21d71e0888165685644874b91e24e5ff4479d867f5c480bd"
+        }
+      }
+    },
+    {
+      "repo": "mdn/browser-compat-data",
+      "ref": "main",
+      "site": "https://github.com/mdn/browser-compat-data",
+      "copies": {
+        "bcd-content-security-policy.json": {
+          "path": "http/headers/Content-Security-Policy.json",
+          "commit": "a6012a7d588f2189d48ac6c53b52f8cdeadf06f5",
+          "date": "2026-05-12T09:56:42Z",
+          "blob": "77ae36acc2fba389f870f61505fedb855f39b9f8",
+          "sha256": "eed0721368b71afe8c8a4df6817e1fc172c5efc04ea36dd2903c075e76aff9db"
+        }
+      }
+    },
+    {
+      "repo": "mdn/content",
+      "ref": "main",
+      "site": "https://developer.mozilla.org/",
+      "copies": {
+        "mdn-guide-csp.md": {
+          "path": "files/en-us/web/http/guides/csp/index.md",
+          "commit": "6720d579bd658f02c56363805e97e69f93dc79f1",
+          "date": "2026-03-22T23:36:38Z",
+          "blob": "ca66a085f5c2493da3aea6be020a945212ddda99",
+          "sha256": "7634104d53e84ec0ab79791464f49b35dbc61def6b7df64228ab49047cbf964d"
+        },
+        "mdn-header.md": {
+          "path": "files/en-us/web/http/reference/headers/content-security-policy/index.md",
+          "commit": "6720d579bd658f02c56363805e97e69f93dc79f1",
+          "date": "2026-03-22T23:36:38Z",
+          "blob": "b0fa01bd825c5f79392cdd8e5ce0c665837656ef",
+          "sha256": "cf7e7e0d669c47beb63054c814b3ef963e853973f183e96bd58f782e00c74061"
+        },
+        "mdn-script-src.md": {
+          "path": "files/en-us/web/http/reference/headers/content-security-policy/script-src/index.md",
+          "commit": "ad01ed9218be15d7aeaa0666ec0bc2a2d17f3574",
+          "date": "2026-08-12T02:51:05Z",
+          "blob": "acecc00f8b9c5456a02282e81acf9f5e599dbe3b",
+          "sha256": "4d1883b524db90a3915352238cba74ea1263c1e58bda396d881ddb714967425f"
+        },
+        "mdn-style-src.md": {
+          "path": "files/en-us/web/http/reference/headers/content-security-policy/style-src/index.md",
+          "commit": "dc788bf0ea36cb1ebe809c82aaae2c77cb3e18c0",
+          "date": "2025-12-15T07:46:57Z",
+          "blob": "ab0c5b84aa9fba6e334ee4afd5884e41d6e5427e",
+          "sha256": "3b321833369f23236bd6395e392bb35cc9dab18ffe286e1246db508311542138"
+        },
+        "mdn-style-src-attr.md": {
+          "path": "files/en-us/web/http/reference/headers/content-security-policy/style-src-attr/index.md",
+          "commit": "119e866ff18a4cd9446e3bfa52154f67cfe117b4",
+          "date": "2026-04-22T10:46:55Z",
+          "blob": "a0d531c8791bef5fb95f20bf67fdc275eef0f6d4",
+          "sha256": "666851c3a22c60a46430f54500e1c05b6229607f30b619720f3f4ce8fb8cac18"
+        },
+        "mdn-style-src-elem.md": {
+          "path": "files/en-us/web/http/reference/headers/content-security-policy/style-src-elem/index.md",
+          "commit": "9944f7b12ef1a6aecd54d4b2f0c188a82fdeaaf0",
+          "date": "2025-08-05T13:32:56Z",
+          "blob": "c02fd183a67468cc7da1ac3de40b818f1b752b7c",
+          "sha256": "296006e8cbf51e54053615d7242a892e5c5636523109270dad886e91409ca1b0"
+        },
+        "mdn-connect-src.md": {
+          "path": "files/en-us/web/http/reference/headers/content-security-policy/connect-src/index.md",
+          "commit": "8d9cda4e9080e9c324a521f40c7e0704ef94ce07",
+          "date": "2026-07-03T08:23:38Z",
+          "blob": "bb593a5a3adf3d87eb4b81d111e35d0d5e7c7bc0",
+          "sha256": "45d7651abe3431324487532689a73de192541a1383681fa375417789ccb64322"
+        },
+        "mdn-img-src.md": {
+          "path": "files/en-us/web/http/reference/headers/content-security-policy/img-src/index.md",
+          "commit": "ad5b5e31f81795d692e66dadb7818ba8b220ad15",
+          "date": "2025-07-04T01:10:07Z",
+          "blob": "53b6440c60161beb26bf45533a907dcd74cebfbe",
+          "sha256": "5144785360ff12c6f87037c3f2d7835d431aee296e4adf21d39736a9193cc2fc"
+        },
+        "mdn-frame-ancestors.md": {
+          "path": "files/en-us/web/http/reference/headers/content-security-policy/frame-ancestors/index.md",
+          "commit": "77ea71add6054857698eb7ac1bfec8c7afe9ad4f",
+          "date": "2026-08-27T08:10:48Z",
+          "blob": "16fc61dcd631387e53d3700b034f7b06da27a496",
+          "sha256": "8ef5d5e0a08acaf62c8522d77c3ffa162e73f91566356f65903d7d0d1cad5cc3"
+        },
+        "mdn-form-action.md": {
+          "path": "files/en-us/web/http/reference/headers/content-security-policy/form-action/index.md",
+          "commit": "ad5b5e31f81795d692e66dadb7818ba8b220ad15",
+          "date": "2025-07-04T01:10:07Z",
+          "blob": "6ce8a26c05cb23333cf46f58c34ce3d6e4ba934b",
+          "sha256": "dfbe79664aeea4a75ecc75346a11f350d8e88a1ea2ac9f7d06b89fc0b293b186"
+        },
+        "mdn-base-uri.md": {
+          "path": "files/en-us/web/http/reference/headers/content-security-policy/base-uri/index.md",
+          "commit": "ad5b5e31f81795d692e66dadb7818ba8b220ad15",
+          "date": "2025-07-04T01:10:07Z",
+          "blob": "1e7607c54f0ba9cf3df54cbb50210633a3c0a35c",
+          "sha256": "a0c3e47f252c5ef9af103865a4b740247faf08871bece076063b364231f3b5d6"
+        },
+        "mdn-upgrade-insecure-requests.md": {
+          "path": "files/en-us/web/http/reference/headers/content-security-policy/upgrade-insecure-requests/index.md",
+          "commit": "ca26363fcc6fc861103d40ac0205e5c5b79eb2fa",
+          "date": "2025-11-30T02:30:55Z",
+          "blob": "2268b5c9b6769b56bfa5eeab52019a95f5ec3105",
+          "sha256": "fcbb9db39bade0cb4b950bd01011e8c316d19b1066f1365c631628f3dac3bb7a"
+        },
+        "mdn-report-to.md": {
+          "path": "files/en-us/web/http/reference/headers/content-security-policy/report-to/index.md",
+          "commit": "6720d579bd658f02c56363805e97e69f93dc79f1",
+          "date": "2026-03-22T23:36:38Z",
+          "blob": "0a3db7e8f629495d8a12f4f824575f682c4c9eff",
+          "sha256": "b8fc811b93e1b458b9ab57054cfc065503c1d569b114a9266c197862693e0775"
+        },
+        "mdn-report-uri.md": {
+          "path": "files/en-us/web/http/reference/headers/content-security-policy/report-uri/index.md",
+          "commit": "8f567ac62deb241e61b525d36088d626fc6a8a84",
+          "date": "2026-09-07T23:25:35Z",
+          "blob": "ec0cf5f23352bdb5003d3ff8112097ce5c94cea4",
+          "sha256": "6e21b03526c2f90d77b9526d26d70ff5ec357eac105f9d652419ba87295217ca"
+        },
+        "mdn-require-trusted-types-for.md": {
+          "path": "files/en-us/web/http/reference/headers/content-security-policy/require-trusted-types-for/index.md",
+          "commit": "ecd02ce48a6a6076e244396747a1d31eb4d9747a",
+          "date": "2025-12-22T00:50:34Z",
+          "blob": "d2e3525e35523a2d0a94bb7e0f026823c4e4d450",
+          "sha256": "614270a9420c24dcb3cdd9d5f336c8f49a5f7d2fe1c3b1b776528009b9b78124"
+        },
+        "mdn-trusted-types.md": {
+          "path": "files/en-us/web/http/reference/headers/content-security-policy/trusted-types/index.md",
+          "commit": "ecd02ce48a6a6076e244396747a1d31eb4d9747a",
+          "date": "2025-12-22T00:50:34Z",
+          "blob": "d1687cbfcf1dbfe566d9c55e557f68f3ea41cc78",
+          "sha256": "ca607b37cc5cd0288e47d77cfd871d433c6b691d032e2d546dc12bf3ec24c59b"
+        },
+        "mdn-worker-src.md": {
+          "path": "files/en-us/web/http/reference/headers/content-security-policy/worker-src/index.md",
+          "commit": "ad5b5e31f81795d692e66dadb7818ba8b220ad15",
+          "date": "2025-07-04T01:10:07Z",
+          "blob": "8e924ba2438609155ddcc0a7a36c6ae66758859b",
+          "sha256": "413bc43d21b89f486ab600af883b394095a02016c41c7e3620ce5afadc747af7"
+        },
+        "mdn-object-src.md": {
+          "path": "files/en-us/web/http/reference/headers/content-security-policy/object-src/index.md",
+          "commit": "ad5b5e31f81795d692e66dadb7818ba8b220ad15",
+          "date": "2025-07-04T01:10:07Z",
+          "blob": "52bb8476ac4f12f48d43b2e89709e1d555c48631",
+          "sha256": "32274c3960a80dc479e323cf31587916e020ca44bbb5a4a8faa24eea16dd8e11"
+        }
+      }
+    },
+    {
+      "repo": "modelcontextprotocol/ext-apps",
+      "ref": "main",
+      "site": "https://github.com/modelcontextprotocol/ext-apps",
+      "copies": {
+        "mcp-apps-2026-01-26.mdx": {
+          "path": "specification/2026-01-26/apps.mdx",
+          "commit": "298e884ec3f02daba085acdb02042d73bd00b355",
+          "date": "2026-01-26T17:31:33Z",
+          "blob": "43fef209d449c5456808ec82da8fb012c3b9b678",
+          "sha256": "ee452a7d1b9b7fb900acfeb4d6932d3963375b0f3f37d196a4b93eb80312af0e"
+        },
+        "mcp-apps-csp-cors.md": {
+          "path": "docs/csp-cors.md",
+          "commit": "76f2de7b19ba14918e15085fdc3ae150d7c6c87d",
+          "date": "2026-03-06T13:45:15Z",
+          "blob": "8978ab615c412db4850122aeade9e87c0f034582",
+          "sha256": "a2a74d2166f55077968397cfc1b8345808f9ca0f08be927db25c90b5cb6d1798"
+        }
+      }
+    }
+  ],
+  "untracked": {
+    "README.md": "index local de ce dossier, écrit ici — sans amont"
+  }
+}
