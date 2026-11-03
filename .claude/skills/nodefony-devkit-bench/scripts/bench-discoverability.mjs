@@ -1610,8 +1610,13 @@ export const SONDES_QUALITE = [
     // framework posée.
     kind: "transcript",
     name: "a chargé UN skill du framework",
+    // Un GESTE par grammaire, jamais une citation : outil de skills (Claude,
+    // `Loading skill:` chez vibe), lecture de fichier (`file_path`/`path`, le
+    // `summary` d'affichage de vibe), commande shell (`command` de Codex, qui n'a
+    // pas d'outil de skills et lit par `cat`). Le pointeur posé par `ai:sync`
+    // CITE le chemin dans son contenu : ce texte n'est jamais dans l'un de ces champs.
     pattern:
-      /"skill"\s*:\s*"nodefony-[a-z-]+"|"(?:file_path|path)"\s*:\s*"[^"]*skills\/nodefony-[a-z-]+\/SKILL\.md"/u,
+      /"skill"\s*:\s*"nodefony-[a-z-]+"|Loading skill: nodefony-[a-z-]+|"(?:file_path|path)"\s*:\s*"[^"]*skills\/nodefony-[a-z-]+\/SKILL\.md"|"summary"\s*:\s*"Reading [^"]*skills\/nodefony-[a-z-]+\/SKILL\.md"|"command"\s*:\s*"[^"]*skills\/nodefony-[a-z-]+\/SKILL\.md/u,
     observe: true,
   },
   {
@@ -1630,8 +1635,9 @@ export const SONDES_QUALITE = [
     // produites que par un appel d'outil réel.
     kind: "transcript",
     name: "a chargé le skill nodefony-dev",
+    // Les mêmes grammaires que la sonde précédente, bornées à CE skill.
     pattern:
-      /"skill"\s*:\s*"nodefony-dev"|"(?:file_path|path)"\s*:\s*"[^"]*skills\/nodefony-dev\/SKILL\.md"/u,
+      /"skill"\s*:\s*"nodefony-dev"|Loading skill: nodefony-dev(?![a-z-])|"(?:file_path|path)"\s*:\s*"[^"]*skills\/nodefony-dev\/SKILL\.md"|"summary"\s*:\s*"Reading [^"]*skills\/nodefony-dev\/SKILL\.md"|"command"\s*:\s*"[^"]*skills\/nodefony-dev\/SKILL\.md/u,
     observe: true,
   },
   {

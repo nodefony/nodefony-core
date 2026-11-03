@@ -3331,6 +3331,39 @@ const SAMPLES = {
         },
         expect: false,
       },
+      // Les gestes des AUTRES agents (tâche 45) : la sonde ne lisait que la
+      // grammaire de Claude, et rendait « absent » chez vibe et Codex qui
+      // avaient chargé le skill.
+      {
+        label: "vibe — l'outil skill",
+        matter: {
+          transcript: `{"detail":{"toolName":"skill","display":{"summary":"Loading skill: nodefony-add-realtime-channel","content":null}}}`,
+        },
+        expect: true,
+      },
+      {
+        label: "vibe — lecture du SKILL.md",
+        matter: {
+          transcript: `{"display":{"summary":"Reading node_modules/@nodefony/devkit/skills/nodefony-add-crud/SKILL.md","content":null}}`,
+        },
+        expect: true,
+      },
+      {
+        label: "Codex — le SKILL.md lu par une commande",
+        matter: {
+          transcript: `{"type":"item.completed","item":{"type":"command_execution","command":"/bin/zsh -lc 'cat .agents/skills/nodefony-dev/SKILL.md'"}}`,
+        },
+        expect: true,
+      },
+      {
+        // Le pointeur posé par `ai:sync` CITE le chemin : le lire n'est pas
+        // charger le skill qu'il désigne.
+        label: "le chemin cité dans un contenu",
+        matter: {
+          transcript: `{"type":"item.completed","item":{"type":"command_execution","command":"ls","aggregated_output":"Lis maintenant node_modules/@nodefony/devkit/skills/nodefony-dev/SKILL.md"}}`,
+        },
+        expect: false,
+      },
     ],
   },
   "qualité :: a chargé le skill nodefony-dev": {
@@ -3371,6 +3404,27 @@ const SAMPLES = {
           transcript: `{"type":"tool_use","name":"Skill","input":{"skill":"nodefony-add-crud"}}`,
         },
         expect: false,
+      },
+      {
+        label: "vibe — l'outil skill sur nodefony-dev",
+        matter: {
+          transcript: `{"detail":{"toolName":"skill","display":{"summary":"Loading skill: nodefony-dev","content":null}}}`,
+        },
+        expect: true,
+      },
+      {
+        label: "vibe — un AUTRE skill par l'outil",
+        matter: {
+          transcript: `{"detail":{"toolName":"skill","display":{"summary":"Loading skill: nodefony-dev-tools","content":null}}}`,
+        },
+        expect: false,
+      },
+      {
+        label: "Codex — nodefony-dev lu par une commande",
+        matter: {
+          transcript: `{"type":"item.completed","item":{"type":"command_execution","command":"/bin/zsh -lc 'cat node_modules/@nodefony/devkit/skills/nodefony-dev/SKILL.md'"}}`,
+        },
+        expect: true,
       },
     ],
   },
