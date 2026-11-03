@@ -563,11 +563,34 @@ let failed = false;
  */
 function sqlOnly(label, why, run) {
   if (!MONGO) return step(label, why, run);
-  if (failed) return;
-  process.stdout.write(
-    `\n━━ ${label}\n   ⏭ sans objet sur MongoDB — étape propre au SQL (dialecte, clé étrangère, migrations, contrat de table)\n`,
+  skipStep(
+    label,
+    "sans objet sur MongoDB — étape propre au SQL (dialecte, clé étrangère, migrations, contrat de table)",
+    "MongoDB",
   );
-  steps.push({ label, ok: true, ms: 0, skipped: "MongoDB", commands: [] });
+}
+
+/**
+ * Une étape qui ouvre une base SQLite EN MÉMOIRE — la seule que les tests
+ * générés ouvrent eux-mêmes (le gabarit de test n'éprouve la couche données
+ * qu'en `dialect === "sqlite"`). Sur un moteur serveur, le pilote SQLite n'est
+ * pas installé : l'étape est DITE sautée. La propriété qu'elle prouve ne
+ * dépend pas du moteur — le décor SQLite la porte pour les trois.
+ */
+function sqliteOnly(label, why, run) {
+  if (DATABASE === "sqlite") return step(label, why, run);
+  skipStep(
+    label,
+    `sans objet sur ${DATABASE} — la sonde ouvre une base SQLite en mémoire, dont le pilote n'est installé qu'au décor sqlite (qui la porte)`,
+    DATABASE,
+  );
+}
+
+/** Annonce une étape sautée, avec sa raison, et la porte au rapport (`skipped`). */
+function skipStep(label, reason, skipped) {
+  if (failed) return;
+  process.stdout.write(`\n━━ ${label}\n   ⏭ ${reason}\n`);
+  steps.push({ label, ok: true, ms: 0, skipped, commands: [] });
 }
 
 /**
@@ -609,8 +632,7 @@ function containersOnly(label, why, run) {
       );
     });
   }
-  process.stdout.write(`\n━━ ${label}\n   ⏭ NON ÉPROUVÉ : ${missing}\n`);
-  steps.push({ label, ok: true, ms: 0, skipped: missing, commands: [] });
+  skipStep(label, `NON ÉPROUVÉ : ${missing}`, missing);
 }
 
 function step(label, why, run) {
@@ -1575,7 +1597,7 @@ sqlOnly(
   },
 );
 
-sqlOnly(
+sqliteOnly(
   "le service généré suit la base enregistrée (une base par cas de test)",
   "Un test qui ouvre une base par cas parle sinon à une base FERMÉE, et l'erreur ne nomme pas le cache.",
   () => {
