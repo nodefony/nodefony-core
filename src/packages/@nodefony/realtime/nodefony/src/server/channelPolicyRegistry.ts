@@ -68,12 +68,15 @@ export function registerControllerPolicies(
 /**
  * Fabrique la résolution des classes d'admission du démarrage : portée singleton exigée, instance du conteneur réutilisée, sinon construite UNE fois par l'injecteur.
  *
- * @param get - lecture du conteneur du noyau par clé.
+ * @param get - l'instance déjà construite d'une classe : le démarrage la lit
+ *   dans le conteneur du noyau par sa clé (`null` tant que la classe n'y a
+ *   jamais été rangée), le harnais de test parmi les instances que le test lui
+ *   donne. `undefined` → construite par l'injecteur.
  * @param log - journal du module (une ligne par canal résolu).
  * @returns le résolveur, qui mémorise l'instance de chaque classe.
  */
 export function createAdmissionResolver(
-  get: (key: string) => unknown,
+  get: (key: string | null, admissionClass: ChannelAdmissionClass) => unknown,
   log: (message: string) => void,
 ): AdmissionResolver {
   // Une classe sert souvent plusieurs canaux : une instance pour tous.
@@ -94,7 +97,7 @@ export function createAdmissionResolver(
 function resolveAdmissionInstance(
   admissionClass: ChannelAdmissionClass,
   channel: string,
-  get: (key: string) => unknown,
+  get: (key: string | null, admissionClass: ChannelAdmissionClass) => unknown,
 ): IChannelAdmission {
   const where = `canal temps réel « ${channel} » : la classe d'admission ${admissionClass.name}`;
   // Garde redoublée : `isAdmissionClass` l'a déjà dit, mais c'est ce prédicat
@@ -111,7 +114,7 @@ function resolveAdmissionInstance(
     );
   }
   const key = Injector.containerKeyOf(admissionClass);
-  let instance: unknown = key === null ? null : get(key);
+  let instance: unknown = get(key, admissionClass);
   if (!(instance instanceof admissionClass)) {
     try {
       instance = Injector.instantiate(admissionClass);

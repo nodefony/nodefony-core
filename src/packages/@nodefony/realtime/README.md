@@ -242,6 +242,19 @@ seul avec un canal ouvert à tous.
 | `closes` / `notices`                        | Fermetures serveur (4003…) · avertissements de plateforme       |
 | `close()` / `dispose()`                     | Ferme la socket · ferme puis remet le hub à zéro                |
 
+Un canal gardé par une **classe d'admission** (`@RealtimeChannel("room:*", { allow: RoomAdmission })`)
+se résout au démarrage, dans le conteneur du noyau — que le harnais n'a pas. Le test la construit
+avec le MÊME service que le controller, et la passe par `admissions` ; sans elle, `connect()` jette
+(code 1011), comme un démarrage qui ne la trouverait pas :
+
+```ts
+const members = new RoomService(createTestModule());
+const alice = createRealtimeHarness((ctx) => new RoomRealtime(ctx, members), {
+  identity: createTestIdentity({ identifier: "alice" }),
+  admissions: [new RoomAdmission(members)],
+});
+```
+
 `nodefony create controller --kind realtime` pose ce test à côté du controller qu'il génère.
 
 ## Doc complète

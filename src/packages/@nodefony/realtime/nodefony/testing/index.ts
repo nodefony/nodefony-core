@@ -29,13 +29,21 @@
  *
  * @packageDocumentation
  */
-import { RequestContext, type IRealtimeDenied } from "nodefony";
+import {
+  RequestContext,
+  type IChannelAdmission,
+  type IRealtimeDenied,
+} from "nodefony";
 
 /** Motif d'un refus, lu sur le contrat du protocole lui-même. */
 type DeniedReason = IRealtimeDenied["reason"];
 import type { ContextType } from "@nodefony/http";
 import type { RealtimeController } from "../src/server/RealtimeController";
 import { isRecord } from "../src/guards";
+import {
+  createAdmissionResolver,
+  registerControllerPolicies,
+} from "../src/server/channelPolicyRegistry";
 import {
   getRealtimeHub,
   type RealtimeHub,
@@ -112,6 +120,16 @@ export interface IRealtimeHarnessOptions {
    * ainsi qu'on éprouve un fan-out.
    */
   readonly resetHub?: boolean;
+  /**
+   * Les classes d'admission du controller (`@RealtimeChannel(nom, { allow:
+   * MaClasse })`), déjà construites avec leurs services. En production, le
+   * démarrage les résout dans le conteneur ; le harnais n'a pas de noyau, et
+   * sans elles une politique qui désigne une classe est REFUSÉE à la poignée de
+   * main. Les passer ici les inscrit par le même chemin que le démarrage, gardes
+   * comprises (`@injectable`, singleton, méthode `allow`). Le test construit
+   * ainsi l'admission avec le MÊME service que le controller.
+   */
+  readonly admissions?: readonly IChannelAdmission[];
 }
 
 /**
@@ -365,6 +383,20 @@ export function createRealtimeHarness<C extends RealtimeController>(
 
   // Conversion ASSUMÉE (#573) — harnais de test : faux contexte réduit à ce que la base touche.
   const controller = create(context as unknown as ContextType);
+  // Inscrites AVANT la poignée de main, qui ne repassera pas sur une classe
+  // déjà inscrite : une admission absente lève ici, en la nommant.
+  const admissions = options.admissions;
+  if (admissions !== undefined) {
+    registerControllerPolicies(
+      hub,
+      controller.constructor,
+      createAdmissionResolver(
+        (_key, admissionClass) =>
+          admissions.find((admission) => admission instanceof admissionClass),
+        () => {},
+      ),
+    );
+  }
   // `handleRealtime` est `protected` : la route générée l'appelle depuis la
   // sous-classe. Un test n'a pas cette position — le pont est absorbé ici, une
   // fois, plutôt que recopié dans chaque application.

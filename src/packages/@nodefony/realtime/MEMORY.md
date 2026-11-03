@@ -222,7 +222,10 @@ du `package.json` est écrite à la main.
 `createRealtimeHarness((ctx) => new MonController(ctx), options?)` → `{ controller, hub,
 received, closes, notices, connect, subscribe, unsubscribe, call, notify, send, messages,
 denials, close, dispose }`. Options : `url` · `origin` · `headers` · `cookies` ·
-`identity` (seam #2) · `frameAuthorizer` (seam #1) · `resetHub` (défaut `true`).
+`identity` (seam #2) · `frameAuthorizer` (seam #1) · `resetHub` (défaut `true`) ·
+`admissions` (instances des classes d'admission, inscrites AVANT la poignée de main par
+`registerControllerPolicies` + `createAdmissionResolver` — le chemin du démarrage, gardes comprises ;
+le résolveur reçoit `(clé, classe)` : le démarrage lit le conteneur, le harnais la liste).
 
 - **Pilote le SERVEUR par frames**, jamais via `NodefonySocket` : le client est un artefact
   navigateur du cœur, et `nodefony` est externalisé en EXACT-MATCH par le bundler

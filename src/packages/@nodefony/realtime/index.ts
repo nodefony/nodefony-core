@@ -314,7 +314,7 @@ class Realtime extends Module<IRealtimeConfig> {
     const hub = getRealtimeHub();
     const container = this.kernel?.container;
     const resolveAdmission = createAdmissionResolver(
-      (key) => container?.get(key),
+      (key) => (key === null ? undefined : container?.get(key)),
       (message) => this.log(message, "INFO"),
     );
     const controllers = Module.controllers;
