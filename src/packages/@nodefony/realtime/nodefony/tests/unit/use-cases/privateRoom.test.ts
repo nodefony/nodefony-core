@@ -9,7 +9,12 @@ import { UserEntity } from "../../fixtures/entity/User";
 import { RoomEntity } from "../../fixtures/entity/Room";
 import { RoomMemberEntity } from "../../fixtures/entity/RoomMember";
 import { getRoomMemberService } from "../../fixtures/service/RoomMemberService";
-import { RoomRealtime, exclude } from "../../fixtures/use-cases/privateRoom";
+import { createTestModule } from "nodefony/testing";
+import {
+  RoomAdmission,
+  RoomRealtime,
+  RoomService,
+} from "../../fixtures/use-cases/privateRoom";
 
 // Le connecteur de l'APPLICATION : `getRoomMemberService()` le lit sous ce nom.
 // Un autre nom (`test-room-member`, celui du test d'entité généré) laisserait
@@ -18,6 +23,7 @@ const CONNECTOR = "default";
 const ENTITIES = [UserEntity, RoomEntity, RoomMemberEntity];
 
 let orm: DrizzleOrm;
+const rooms = new RoomService(createTestModule());
 let channel = "";
 const accounts = new Map<string, string>();
 
@@ -68,8 +74,10 @@ const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
 
 /** Une connexion par compte, identifiée par son identifiant EN BASE. */
 async function connect(name: string): Promise<IRealtimeHarness<RoomRealtime>> {
-  const h = createRealtimeHarness((ctx) => new RoomRealtime(ctx), {
+  // Le service et l'admission passés à la main, comme l'injecteur en production.
+  const h = createRealtimeHarness((ctx) => new RoomRealtime(ctx, rooms), {
     identity: createTestIdentity({ identifier: name, id: idOf(name) }),
+    admissions: [new RoomAdmission(rooms)],
     resetHub: open.length === 0,
   });
   await h.connect();
@@ -117,7 +125,7 @@ describe("salon privé — `allow` lit la base, l'exclusion coupe ET empêche de
     const carol = await connect("carol");
     await carol.subscribe(channel);
     await flush();
-    await exclude(channel, idOf("carol"));
+    await rooms.exclude(channel, idOf("carol"));
     expect(closedOf(carol)).toEqual([{ channel, reason: "evicted" }]);
     const reloaded = await connect("carol"); // une page rechargée refait `subscribe`
     await reloaded.subscribe(channel);

@@ -6,7 +6,7 @@ import {
   createTestFrameAuthorizer,
   createTestIdentity,
 } from "@nodefony/security/testing";
-import { BoardRealtime, TICK_MS } from "../../fixtures/use-cases/boardTicker";
+import { BoardRealtime } from "../../fixtures/use-cases/boardTicker";
 
 const open: IRealtimeHarness<BoardRealtime>[] = [];
 
@@ -40,7 +40,7 @@ describe("tableau de bord — un producteur pour N écrans", () => {
     const b = await connect("ops-b", ["ROLE_SUPERVISOR"]);
     await a.subscribe("board:load");
     await b.subscribe("board:load");
-    vi.advanceTimersByTime(TICK_MS);
+    vi.advanceTimersByTime(BoardRealtime.TICK_MS);
     expect(a.messages("board:load")).toHaveLength(1);
     expect(b.messages("board:load")).toHaveLength(1);
   });

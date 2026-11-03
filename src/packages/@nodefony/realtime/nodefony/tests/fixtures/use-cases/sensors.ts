@@ -26,7 +26,7 @@ export class SensorRealtime extends RealtimeController {
   // Écrire : réservé aux sondes, par la portée de leur jeton.
   @RealtimeInbound("sensor:reading", { scopes: ["telemetry:write"] })
   reading(params: unknown): void {
-    if (!isReading(params)) return;
+    if (!SensorRealtime.isReading(params)) return;
     getRealtimeHub().publish("sensor:dashboard", params);
   }
 
@@ -35,15 +35,18 @@ export class SensorRealtime extends RealtimeController {
   dashboard(): () => void {
     return () => {};
   }
-}
 
-function isReading(value: unknown): value is { probe: string; value: number } {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "probe" in value &&
-    "value" in value &&
-    typeof value.probe === "string" &&
-    typeof value.value === "number"
-  );
+  /** Ce qui arrive du réseau n'est pas fiable : une sonde et une valeur, ou rien. */
+  private static isReading(
+    value: unknown,
+  ): value is { probe: string; value: number } {
+    return (
+      typeof value === "object" &&
+      value !== null &&
+      "probe" in value &&
+      "value" in value &&
+      typeof value.probe === "string" &&
+      typeof value.value === "number"
+    );
+  }
 }

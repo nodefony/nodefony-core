@@ -4,7 +4,8 @@ import { createRealtimeHarness } from "../../../testing/index";
 import type { IRealtimeHarness } from "../../../testing/index";
 import { createTestIdentity } from "@nodefony/security/testing";
 import { SensorRealtime } from "../../fixtures/use-cases/sensors";
-import { notifyInvoicePaid } from "../../fixtures/use-cases/userNotifications";
+import { createTestModule } from "nodefony/testing";
+import { BillingService } from "../../fixtures/use-cases/userNotifications";
 
 const open: IRealtimeHarness<SensorRealtime>[] = [];
 const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
@@ -35,7 +36,7 @@ describe("notification privée — n'atteint que la personne visée", () => {
     await bob.subscribe("user:bob");
     await bob.subscribe("user:alice");
     await flush();
-    notifyInvoicePaid("alice", "F-2026-001");
+    new BillingService(createTestModule()).invoicePaid("alice", "F-2026-001");
     expect(alice.messages("user:alice")).toEqual([
       { kind: "invoice:paid", invoice: "F-2026-001" },
     ]);
