@@ -150,6 +150,30 @@ describe("#623 — éjecter une connexion (local au pod)", () => {
     expect(hub.subscriberCount("room:1")).toBe(1);
   });
 
+  it("🔴 avec `allow`, l'exclu qui redemande sur la MÊME connexion est refusé : le verdict d'avant l'éjection n'est pas retenu", async () => {
+    // L'exclusion = appartenance retirée PUIS éjection. Une socket encore ouverte
+    // qui redemande aussitôt ne doit pas rentrer sur le oui d'avant.
+    const [a] = await two();
+    const members = new Set(["alice"]);
+    getRealtimeHub().registerChannelPolicy("room:*", {
+      allow: (_channel, who) => members.has(who.id),
+    });
+    await a.subscribe("room:1");
+    expect(a.subscriptions()).to.deep.equal(["room:1"]);
+    members.delete("alice");
+    const hub = getRealtimeHub();
+    expect(hub.evictConnection("room:1", memberOf("room:1", "alice"))).toBe(
+      true,
+    );
+    await a.subscribe("room:1");
+    hub.publish("room:1", { n: 3 });
+    expect(a.denials()).toMatchObject([
+      { channel: "room:1", reason: "forbidden" },
+    ]);
+    expect(a.messages("room:1")).to.deep.equal([]);
+    expect(hub.subscriberCount("room:1")).toBe(0);
+  });
+
   it("sens négatif : non-membre, poignée fermée ou étrangère → `false`, jamais un geste muet", async () => {
     const [a] = await two();
     await a.subscribe("room:1");
