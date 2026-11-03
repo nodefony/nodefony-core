@@ -13,7 +13,9 @@
  * `@angular/core` elle-même, où que npm l'ait rangé dans ce dépôt.
  *
  * Les blocs marqués ```ts ignore (ou ```ts no-check) sont sautés : réservé aux fragments
- * volontairement partiels. Tout le reste DOIT compiler.
+ * volontairement partiels. Un bloc précédé de `<!-- example: X.ts -->` EST le fichier X
+ * du module, prouvé en contexte par le test qui compare la page à ses fichiers : il est
+ * sauté si X existe dans le module, refusé sinon. Tout le reste DOIT compiler.
  *
  * Usage : node code-check.mjs <page.md ...>
  */
@@ -64,8 +66,37 @@ const quickstartOf = (src) => {
   return next ? rest.slice(0, next.index) : rest;
 };
 // ```ts et ```typescript — les deux fences sont employées dans le corpus.
+// Un marqueur `<!-- example: X.ts -->` juste au-dessus (le formateur pose une ligne
+// vide entre les deux) dit que le bloc EST le fichier X du module : il est prouvé là,
+// en contexte, par le test qui compare la page à ses fichiers (`useCases.test.ts`).
 const TS_BLOCK =
-  /^```(?:ts|typescript)(?<flags>[^\n]*)\n(?<code>[\s\S]*?)^```/gm;
+  /(?:^<!-- example: (?<example>[\w.-]+\.ts) -->\n\n?)?^```(?:ts|typescript)(?<flags>[^\n]*)\n(?<code>[\s\S]*?)^```/gm;
+
+/**
+ * Les noms de fichiers `.ts` d'un module, hors `node_modules` et `dist`.
+ *
+ * Un bloc marqué `<!-- example: X.ts -->` ne compile pas seul : il importe ses voisins
+ * (`./privateRoom`) et les entités de l'application (`../entity/User`), que le harnais
+ * n'a pas. Il n'est sauté que si X existe dans le module de la page — un marqueur sans
+ * fichier derrière ne prouve rien, et le gate le refuse.
+ *
+ * @param root - racine du module (le parent du dossier `docs/` de la page)
+ * @returns l'ensemble des noms de base trouvés
+ */
+const moduleTsNames = (root) => {
+  const names = new Set();
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        if (entry.name !== "node_modules" && entry.name !== "dist") {
+          walk(path.join(dir, entry.name));
+        }
+      } else if (entry.name.endsWith(".ts")) names.add(entry.name);
+    }
+  };
+  walk(root);
+  return names;
+};
 
 mkdirSync(QS, { recursive: true });
 // Repartir propre : un ancien extrait laissé là ferait échouer (ou passer) à tort.
@@ -161,6 +192,7 @@ const withPreamble = (code) => {
 
 let extracted = 0;
 const perPage = [];
+const orphanExamples = [];
 for (const f of files) {
   if (!existsSync(f)) {
     perPage.push([f, 0, "FICHIER ABSENT"]);
@@ -174,8 +206,18 @@ for (const f of files) {
     continue;
   }
   let n = 0;
+  let proven = 0;
+  let moduleNames = null;
   for (const m of qs.matchAll(TS_BLOCK)) {
     if (/\b(ignore|no-check)\b/.test(m.groups.flags)) continue;
+    if (m.groups.example !== undefined) {
+      moduleNames ??= moduleTsNames(
+        path.dirname(path.dirname(path.resolve(f))),
+      );
+      if (moduleNames.has(m.groups.example)) proven += 1;
+      else orphanExamples.push(`${path.basename(f)} → ${m.groups.example}`);
+      continue;
+    }
     n += 1;
     extracted += 1;
     writeFileSync(
@@ -183,17 +225,39 @@ for (const f of files) {
       withPreamble(m.groups.code),
     );
   }
-  perPage.push([f, n, n ? null : "0 bloc ```ts dans le Démarrage rapide"]);
+  perPage.push([
+    f,
+    n,
+    n || proven ? null : "0 bloc ```ts dans le Démarrage rapide",
+    proven,
+  ]);
 }
 
 console.log("\n=== code-check — compilabilité du Démarrage rapide ===\n");
-for (const [f, n, warn] of perPage) {
+for (const [f, n, warn, proven = 0] of perPage) {
   const name = path.basename(f);
+  const byFile = proven
+    ? `, ${proven} prouvé(s) par leur fichier d'exemple`
+    : "";
   console.log(
-    warn ? `⚠️  ${name} — ${warn}` : `   ${name} — ${n} bloc(s) extrait(s)`,
+    warn
+      ? `⚠️  ${name} — ${warn}`
+      : `   ${name} — ${n} bloc(s) extrait(s)${byFile}`,
   );
 }
+if (orphanExamples.length) {
+  console.log(
+    `\n❌ marqueur <!-- example: X.ts --> sans fichier X dans le module :\n\n   ${orphanExamples.join("\n   ")}\n`,
+  );
+  process.exit(1);
+}
 if (!extracted) {
+  if (perPage.some(([, , , proven]) => proven)) {
+    console.log(
+      "\n✅ Aucun bloc isolé ; les exemples sont prouvés par leurs fichiers.\n",
+    );
+    process.exit(0);
+  }
   console.log("\nAucun bloc à compiler.\n");
   process.exit(1);
 }
