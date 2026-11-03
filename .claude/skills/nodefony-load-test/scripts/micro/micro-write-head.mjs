@@ -104,6 +104,22 @@ const variants = {
     res.writeHead(200, a);
     return res._header.length;
   },
+  // Réserve qui VALIDE nom et valeur à l'écriture (comme `setHeader` natif :
+  // une valeur invalide lève tout de suite et n'entre jamais) — Node revalide
+  // ensuite au `writeHead`, le coût de la double validation est ici.
+  "plat validé": (i) => {
+    const res = new http.ServerResponse(req);
+    const a = [];
+    const set = (n, v) => {
+      http.validateHeaderName(n);
+      http.validateHeaderValue(n, v);
+      a.push(n.toLowerCase(), v);
+    };
+    for (let k = 0; k < ALL.length; k++) set(ALL[k][0], ALL[k][1]);
+    dynamic(set, i);
+    res.writeHead(200, a);
+    return res._header.length;
+  },
   mixte: (i) => {
     const res = new http.ServerResponse(req);
     for (let k = 0; k < TRANSPORT.length; k++)

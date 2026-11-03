@@ -7908,6 +7908,51 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/header-snapshot.mjs",
+            "purpose": "Relevé des BLOCS D'EN-TÊTES qu'un serveur rend sur des réponses types — page, JSON, 404, 401, fichier statique, sonde de santé, HEAD, CORS — en HTTP/1.1 ET en HTTP/2. Les valeurs qui changent à chaque requête (date, identifiant de requête, nonce, cookie) sont masquées : deux relevés du même code sont identiques, deux relevés de deux codes se comparent ligne à ligne.",
+            "usage": [
+              "node .claude/skills/nodefony-load-test/scripts/header-snapshot.mjs avant"
+            ],
+            "options": [
+              {
+                "flag": "--diff",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "HOST",
+                "help": ""
+              },
+              {
+                "name": "NF_PORT_HTTP",
+                "help": ""
+              },
+              {
+                "name": "NF_PORT_HTTPS",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/header-writes-probe.mjs",
+            "purpose": "Sonde de DIAGNOSTIC — compte, par réponse servie, les `setHeader` NATIFS posés AVANT le `writeHead`, et la forme sous laquelle `writeHead` reçoit ses en-têtes (rien, objet, liste plate). Un seul `setHeader` natif avant le `writeHead` fait retomber Node sur son chemin lent pour TOUTE la réponse (`micro/micro-write-head.mjs`, ligne « mixte ») : c'est ce que cette sonde rend visible, couche appelante comprise. Né de #727.",
+            "usage": [
+              "bash .claude/skills/nodefony-start-server/start.sh"
+            ],
+            "options": [
+              {
+                "flag": "--summary",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/heap-at-exit.mjs",
             "purpose": "Crochet de banc (`console-boot-bench.mjs`) — chargé par `NODE_OPTIONS=--import=<ce fichier>` dans un processus `nodefony` en boot CONSOLE. À la sortie du processus, force deux collectes (exige `--expose-gc`) puis consigne le tas RETENU et la durée de vie du processus (UNE horloge : `process.uptime()`), une ligne JSON par processus, dans le fichier `NF_BENCH_HEAP_FILE`.",
             "usage": [],
