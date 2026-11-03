@@ -156,7 +156,7 @@ describe("#623 — éjecter une connexion (local au pod)", () => {
     const [a] = await two();
     const members = new Set(["alice"]);
     getRealtimeHub().registerChannelPolicy("room:*", {
-      allow: (_channel, who) => members.has(who.id),
+      allow: (_channel, who) => who.id !== null && members.has(who.id),
     });
     await a.subscribe("room:1");
     expect(a.subscriptions()).to.deep.equal(["room:1"]);
