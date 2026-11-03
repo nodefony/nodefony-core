@@ -478,6 +478,47 @@ const PORTABLE_ENTITIES = [
   "Note",
   "Category",
 ];
+/**
+ * Le service généré suit la base ENREGISTRÉE — il ne garde pas celle d'avant.
+ *
+ * `get<Entité>Service()` gardait à vie le service bâti sur la première base vue.
+ * Un test qui ouvre une base par cas (`beforeEach`) parlait dès le deuxième à
+ * une base fermée — « The database connection is not open », sans un mot sur la
+ * cause. Banc de découvrabilité, tâche 45 : un agent a jeté son test d'exclusion
+ * plutôt que de comprendre. Les tests générés ne le voyaient pas : ils ouvrent
+ * leur propre connecteur, jamais `default`.
+ */
+const SERVICE_REBIND_PROBE = `import { describe, it, expect } from "vitest";
+import { DrizzleOrm } from "@nodefony/drizzle";
+import { entityRegistry, ormRegistry } from "@nodefony/orm-core";
+import { AuthorEntity } from "../nodefony/entity/Author";
+import { getAuthorService } from "../nodefony/service/AuthorService";
+
+async function open(): Promise<DrizzleOrm> {
+  entityRegistry.register({ ...AuthorEntity, connector: "default" });
+  const orm = new DrizzleOrm("default", { filename: ":memory:" });
+  await orm.connect();
+  return orm;
+}
+
+async function close(orm: DrizzleOrm): Promise<void> {
+  await orm.disconnect();
+  entityRegistry.unregister("Author", "default");
+  ormRegistry.unregister("default");
+}
+
+describe("service généré — une base par cas", () => {
+  it("le service suit la base enregistrée, pas celle du cas précédent", async () => {
+    const first = await open();
+    expect(await getAuthorService().count()).toBe(0);
+    await close(first);
+    const second = await open();
+    expect(await getAuthorService().count()).toBe(0);
+    await close(second);
+  });
+});
+`;
+
 const PORTABILITY_PROBE = `import { readFileSync } from "node:fs";
 import { describe, it, expect } from "vitest";
 import { getTableConfig as mysqlConfig } from "drizzle-orm/mysql-core";
@@ -1531,6 +1572,19 @@ sqlOnly(
       "utf8",
     );
     run("npx", ["vitest", "run", "tests/portability.probe.test.ts"]);
+  },
+);
+
+sqlOnly(
+  "le service généré suit la base enregistrée (une base par cas de test)",
+  "Un test qui ouvre une base par cas parle sinon à une base FERMÉE, et l'erreur ne nomme pas le cache.",
+  () => {
+    writeFileSync(
+      path.join(APP, "tests", "service-rebind.probe.test.ts"),
+      SERVICE_REBIND_PROBE,
+      "utf8",
+    );
+    run("npx", ["vitest", "run", "tests/service-rebind.probe.test.ts"]);
   },
 );
 

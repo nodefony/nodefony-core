@@ -129,21 +129,29 @@ export class <%= it.serviceClass %> extends AbstractCrudService<<%= it.pascal %>
  */
 let instance: <%= it.serviceClass %> | null = null;
 
-/** Récupère le service (le construit au premier appel). */
+/**
+ * La base sur laquelle `instance` a été bâtie. Un test qui ouvre une base par cas
+ * en ENREGISTRE une nouvelle : l'instance d'avant parlerait à une base fermée
+ * (« The database connection is not open »), sans rien dire du cache.
+ */
+let boundTo: object | null = null;
+
+/** Récupère le service, rebâti si la base enregistrée a changé depuis. */
 export function get<%= it.serviceClass %>(): <%= it.serviceClass %> {
-  if (instance === null) {
-    // `ormRegistry.get()` LÈVE quand le nom est inconnu — un `if (!orm)` posé
-    // après lui ne s'exécute jamais. On demande donc d'abord, pour que le
-    // message qui suit (celui qui dit QUOI FAIRE) soit bien celui qu'on lit.
-    if (!ormRegistry.has("<%= it.connector %>")) {
-      throw new Error(
-        `<%= it.serviceClass %> : aucun connecteur « <%= it.connector %> » — vérifie que <%= it.ormModule %> est dans le manifeste modules de nodefony.config.ts`,
-      );
-    }
-    const orm = ormRegistry.get("<%= it.connector %>");
+  // `ormRegistry.get()` LÈVE quand le nom est inconnu — un `if (!orm)` posé
+  // après lui ne s'exécute jamais. On demande donc d'abord, pour que le
+  // message qui suit (celui qui dit QUOI FAIRE) soit bien celui qu'on lit.
+  if (!ormRegistry.has("<%= it.connector %>")) {
+    throw new Error(
+      `<%= it.serviceClass %> : aucun connecteur « <%= it.connector %> » — vérifie que <%= it.ormModule %> est dans le manifeste modules de nodefony.config.ts`,
+    );
+  }
+  const orm = ormRegistry.get("<%= it.connector %>");
+  if (instance === null || boundTo !== orm) {
     instance = new <%= it.serviceClass %>(
       orm.getRepository<<%= it.pascal %>Row>("<%= it.pascal %>"),
     );
+    boundTo = orm;
   }
   return instance;
 }
