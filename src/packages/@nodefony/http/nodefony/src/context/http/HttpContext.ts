@@ -823,7 +823,7 @@ class HttpContext extends Context implements IHttpContextInterface {
   }
 
   setContentType(type?: string, encoding?: BufferEncoding) {
-    return this.response.setContentType(type, encoding);
+    this.response.setContentType(type, encoding);
   }
 
   // F-C : `isHtml` se résout contre l'en-tête Accept au PREMIER accès (getter

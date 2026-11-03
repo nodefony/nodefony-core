@@ -274,7 +274,7 @@ describe("SecurityAdminApi — endpoints firewall / roleHierarchy", () => {
  *
  * `security.headers.hsts` / `frameguard` / `noSniff` sont conservées pour la
  * compatibilité mais INERTES (marquées `reserved` dans le schéma) : ces trois
- * en-têtes sont posés par `@nodefony/http` à l'entrée brute, afin de couvrir aussi
+ * en-têtes sont posés par `@nodefony/http` sur toute réponse, afin de couvrir aussi
  * les statiques et les pages d'erreur. Les recopier faisait afficher `deny` à
  * l'écran Firewall de Studio pendant que le transport émettait `SAMEORIGIN` — une
  * console d'admin qui rassure à tort est pire qu'une console absente.

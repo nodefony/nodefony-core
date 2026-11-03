@@ -24,8 +24,9 @@ const emptyHeaders: IHeaderSource = {
 };
 
 /**
- * Compose les en-têtes d'une réponse HTTP/2 : ceux posés sur la réponse, puis
- * ceux passés à `writeHead`, qui gagnent.
+ * Compose les en-têtes d'une réponse HTTP/2 : ceux qu'un tiers a écrits sur la
+ * réponse Node, puis ceux de la réserve de la réponse, puis ceux passés à
+ * `writeHead` — chacun l'emporte sur le précédent.
  *
  * Les clés sont ramenées en MINUSCULES : `getHeaders()` rend `content-type`,
  * un contrôleur passe `Content-Type` — fusionnées telles quelles, les deux
@@ -41,18 +42,25 @@ const emptyHeaders: IHeaderSource = {
  * @param statusMessage - message de statut, recopié en `x-status-message`
  * @param current - la réponse Node qui porte les en-têtes déjà posés
  * @param extra - en-têtes passés à `writeHead` (objet, ou liste plate clé/valeur)
+ * @param stored - la réserve de la réponse, liste plate aux noms en minuscules
  * @returns les en-têtes à transmettre à `respond()`
  */
 export function mergeResponseHeaders(
   statusMessage: string,
   current: IHeaderSource,
   extra?: http.OutgoingHttpHeaders | http.OutgoingHttpHeader[],
+  stored?: readonly http.OutgoingHttpHeader[],
 ): http.OutgoingHttpHeaders {
   const merged: http.OutgoingHttpHeaders = {
     "x-status-message": statusMessage,
   };
   for (const name of current.getHeaderNames()) {
     merged[name] = current.getHeader(name);
+  }
+  if (stored) {
+    for (let i = 0; i + 1 < stored.length; i += 2) {
+      merged[String(stored[i])] = stored[i + 1];
+    }
   }
   if (Array.isArray(extra)) {
     // Forme plate de Node : [clé, valeur, clé, valeur…].
@@ -118,6 +126,7 @@ class Http2Response extends HttpResponse {
           this.statusMessage,
           this.response ?? emptyHeaders,
           headers,
+          this.headerList(),
         );
         this.headers[HTTP2_HEADER_STATUS] = this.statusCode;
         // Request tracing — le chemin stream HTTP/2 bypasse super.writeHead

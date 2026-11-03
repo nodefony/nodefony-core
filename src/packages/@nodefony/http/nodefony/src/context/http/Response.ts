@@ -1,4 +1,9 @@
-import http, { OutgoingHttpHeaders, OutgoingHttpHeader } from "node:http";
+import http, {
+  OutgoingHttpHeaders,
+  OutgoingHttpHeader,
+  validateHeaderName,
+  validateHeaderValue,
+} from "node:http";
 import http2 from "node:http2";
 import HttpContext from "../http/HttpContext";
 import {
@@ -89,6 +94,39 @@ function resolveContentType(type: string): IResolvedContentType | null {
   return resolved;
 }
 
+/**
+ * En-têtes d'une réponse en tableau plat `[nom, valeur, nom, valeur…]`, noms
+ * en minuscules : la forme que `ServerResponse.writeHead` compose le plus vite.
+ */
+type HeaderList = OutgoingHttpHeader[];
+
+/** Valeur d'en-tête sous la forme que Node accepte (une liste figée est copiée). */
+function toHeaderValue(
+  value: number | string | readonly string[],
+): OutgoingHttpHeader {
+  return typeof value === "string" || typeof value === "number"
+    ? value
+    : [...value];
+}
+
+/**
+ * Contrôle d'un en-tête comme le fait `setHeader` natif — nom, puis chaque
+ * valeur (un nombre est toujours valide).
+ *
+ * @throws TypeError `ERR_INVALID_HTTP_TOKEN` / `ERR_INVALID_CHAR`.
+ */
+function assertHeader(
+  name: string,
+  value: number | string | readonly string[],
+): void {
+  validateHeaderName(name);
+  if (typeof value === "string") {
+    validateHeaderValue(name, value);
+  } else if (typeof value !== "number") {
+    for (const item of value) validateHeaderValue(name, item);
+  }
+}
+
 class HttpResponse {
   context: HttpContext;
   response: http.ServerResponse | http2.Http2ServerResponse | null;
@@ -107,6 +145,20 @@ class HttpResponse {
   headers: http.OutgoingHttpHeaders = {};
   timeout?: number | undefined; // miiliseconde
   cookies: Record<string, Cookie> = {};
+  /**
+   * En-têtes posés, remis TELS QUELS en un seul `writeHead(statut, liste)` :
+   * un `setHeader` natif par en-tête coûtait validation, rangement dans la
+   * table de Node puis relecture au `writeHead` — 41 % de plus pour le même
+   * bloc (`micro-write-head.mjs`). Et un seul `setHeader` natif avant le
+   * `writeHead` suffit à faire retomber Node sur son chemin lent.
+   * `null` tant que rien n'est posé ; amorcée avec les en-têtes du transport.
+   */
+  #headers: HeaderList | null = null;
+  /**
+   * Vrai une fois la réserve recopiée sur la réponse Node ({@link commitHeaders}) :
+   * le transport y est déjà, il ne s'amorce plus.
+   */
+  #committed = false;
   constructor(
     response: http.ServerResponse | http2.Http2ServerResponse,
     context: HttpContext,
@@ -138,10 +190,10 @@ class HttpResponse {
   protected ensureContentTypeHeader(): void {
     if (
       this.response &&
-      !this.response.hasHeader("content-type") &&
+      !this.hasHeader("content-type") &&
       !this.#isBodyless()
     ) {
-      this.response.setHeader("content-type", this.contentType);
+      this.setHeader("content-type", this.contentType);
     }
   }
 
@@ -193,6 +245,7 @@ class HttpResponse {
     this.response = null;
     this.body = null;
     this.cookies = {};
+    this.#headers = null;
     // this.streamFile = null;
     // delete this.streamFile;
   }
@@ -245,7 +298,8 @@ class HttpResponse {
     if (first === undefined) return;
     // 1 cookie (cas dominant) → chemin direct, comportement inchangé.
     if (cookies.length === 1) {
-      return this.setCookie(first);
+      this.setCookie(first);
+      return;
     }
     // ≥2 cookies (ex. session BFF + `csrf-token`) → UN SEUL setHeader avec un
     // TABLEAU : Node émet N lignes `Set-Cookie`. Une boucle de `setHeader` les
@@ -256,13 +310,13 @@ class HttpResponse {
       this.logCookie(cookie, s);
       serialized.push(s);
     }
-    return this.setHeader("Set-Cookie", serialized);
+    this.setHeader("Set-Cookie", serialized);
   }
 
   setCookie(cookie: Cookie) {
     const serialize = cookie.serialize();
     this.logCookie(cookie, serialize);
-    return this.setHeader("Set-Cookie", serialize);
+    this.setHeader("Set-Cookie", serialize);
   }
 
   /**
@@ -291,16 +345,28 @@ class HttpResponse {
     );
   }
 
-  // ADD INPLICIT HEADER
+  /**
+   * Pose un en-tête de la réponse ; en flux chunké déjà ouvert, le range en
+   * trailer. Le nom et la valeur sont VALIDÉS ici, comme le ferait Node : une
+   * valeur invalide (saut de ligne…) lève tout de suite et n'entre jamais dans
+   * la réserve — sinon elle lèverait au `writeHead`, et la page d'erreur
+   * rejouerait le même en-tête.
+   *
+   * @param name - nom de l'en-tête (casse indifférente).
+   * @param value - valeur ; une liste émet une ligne par élément (`Set-Cookie`).
+   * @throws TypeError `ERR_INVALID_HTTP_TOKEN` / `ERR_INVALID_CHAR` sur un nom
+   *   ou une valeur qu'un en-tête HTTP ne peut pas porter.
+   */
   setHeader(name: string, value: number | string | readonly string[]) {
     if (this.response) {
       if (this.flushing) {
         const obj: OutgoingHttpHeaders = {};
-        obj[name] = value as OutgoingHttpHeader;
+        obj[name] = toHeaderValue(value);
         this.addTrailers(obj);
         return;
       }
       if (!this.response.headersSent) {
+        assertHeader(name, value);
         // P8 : toLowerCase (header ASCII) — pas de détour locale ICU.
         const lower = name.toLowerCase();
         // `Vary` est une LISTE de noms d'en-têtes (RFC 9110 §12.5.5), pas une
@@ -311,11 +377,139 @@ class HttpResponse {
         // portant `Access-Control-Allow-Origin: A`. On FUSIONNE donc, quel que
         // soit l'ordre d'écriture : le trou se ferme par construction, pas par
         // discipline d'appel.
-        if (lower === "vary") {
-          return this.response.setHeader(lower, this.#mergeVary(value));
-        }
-        return this.response.setHeader(lower, value);
+        this.#put(
+          lower,
+          lower === "vary" ? this.#mergeVary(value) : toHeaderValue(value),
+        );
       }
+    }
+  }
+
+  /**
+   * Pose un en-tête dont la valeur a DÉJÀ été validée par l'appelant — une
+   * table figée et contrôlée au démarrage (en-têtes de sécurité). Node la
+   * validera une fois, au `writeHead` ; la revalider ici effaçait le gain de
+   * l'écriture groupée (`micro-write-head.mjs`, ligne « plat validé »).
+   *
+   * ⚠️ Jamais pour une valeur venue d'une requête : elle passe par {@link setHeader}.
+   *
+   * @param name - nom de l'en-tête (casse indifférente).
+   * @param value - valeur contrôlée au démarrage.
+   */
+  setValidatedHeader(name: string, value: string): void {
+    if (this.response === null || this.response.headersSent) return;
+    if (this.flushing) {
+      this.setHeader(name, value);
+      return;
+    }
+    this.#put(name.toLowerCase(), value);
+  }
+
+  /**
+   * La réserve, amorcée au premier usage avec les en-têtes du transport
+   * (`Server`, `X-Content-Type-Options`, `X-Frame-Options`, HSTS) que le
+   * noyau a figés au démarrage — posés EN TÊTE, comme à l'entrée de la requête.
+   */
+  #store(): HeaderList {
+    if (this.#headers === null) {
+      const transport = this.#committed
+        ? null
+        : this.context.httpKernel?.transportHeaders(this.context.serverType);
+      this.#headers = transport ? [...transport] : [];
+    }
+    return this.#headers;
+  }
+
+  /** Position du nom (minuscules) dans la réserve, ou -1. */
+  #indexOf(lower: string): number {
+    const list = this.#headers;
+    if (list === null) return -1;
+    for (let i = 0; i < list.length; i += 2) {
+      if (list[i] === lower) return i;
+    }
+    return -1;
+  }
+
+  /** Range un en-tête, en remplaçant sa valeur s'il est déjà posé. */
+  #put(lower: string, value: OutgoingHttpHeader): void {
+    const list = this.#store();
+    const at = this.#indexOf(lower);
+    if (at === -1) {
+      list.push(lower, value);
+    } else {
+      list[at + 1] = value;
+    }
+  }
+
+  /**
+   * Recopie la réserve sur la réponse Node, pour un émetteur qui écrit sans
+   * passer par {@link writeHead} — fichier statique, relais vers un amont. La
+   * réserve se vide ; ce qui se pose ensuite y retourne, et Node fusionne les
+   * deux au `writeHead`.
+   */
+  commitHeaders(): void {
+    const res = this.response;
+    if (res === null || res.headersSent) return;
+    const list = this.#store();
+    for (let i = 0; i + 1 < list.length; i += 2) {
+      const name = list[i];
+      const value = list[i + 1];
+      if (typeof name === "string" && value !== undefined) {
+        res.setHeader(name, value);
+      }
+    }
+    this.#headers = null;
+    this.#committed = true;
+  }
+
+  /**
+   * Recopie la réserve sur la réponse Node au PREMIER `setHeader` qu'un tiers
+   * y fera — fichier statique servi, redirection de dossier — et seulement
+   * alors : un raté du repli statique (la 404 d'une route inconnue) ne recopie
+   * rien, sa réponse part ensuite en un seul `writeHead`. À désarmer par
+   * {@link disarmNativeWrite} quand le tiers rend la main sans avoir écrit.
+   *
+   * L'interception est une propriété PROPRE de la réponse, ajoutée puis
+   * retirée : V8 annule alors la dernière transition de forme de l'objet.
+   */
+  commitBeforeNativeWrite(): void {
+    const res = this.response;
+    if (res === null || res.headersSent || Object.hasOwn(res, "setHeader")) {
+      return;
+    }
+    const native = res.setHeader;
+    Object.defineProperty(res, "setHeader", {
+      configurable: true,
+      writable: true,
+      value: (
+        name: string,
+        value: number | string | readonly string[],
+      ): unknown => {
+        this.disarmNativeWrite();
+        this.commitHeaders();
+        return Reflect.apply(native, res, [name, value]);
+      },
+    });
+  }
+
+  /** Retire l'interception posée par {@link commitBeforeNativeWrite}. */
+  disarmNativeWrite(): void {
+    const res = this.response;
+    if (res !== null && Object.hasOwn(res, "setHeader")) {
+      Reflect.deleteProperty(res, "setHeader");
+    }
+  }
+
+  /**
+   * Retire un en-tête, de la réserve comme de la réponse Node.
+   *
+   * @param name - nom de l'en-tête (casse indifférente).
+   */
+  removeHeader(name: string): void {
+    const at = this.#indexOf(name.toLowerCase());
+    if (at !== -1) this.#headers?.splice(at, 2);
+    if (this.response && !this.response.headersSent) {
+      this.response.removeHeader(name);
     }
   }
 
@@ -333,7 +527,7 @@ class HttpResponse {
       .split(",")
       .map((t) => t.trim())
       .filter(Boolean);
-    const current = this.response?.getHeader("vary");
+    const current = this.getHeader("vary");
     const existing = (
       Array.isArray(current) ? current.join(",") : String(current ?? "")
     )
@@ -365,11 +559,10 @@ class HttpResponse {
           }
         }
       }
-      return (this.headers =
-        this.response?.getHeaders() as OutgoingHttpHeaders);
+      return (this.headers = this.getHeaders());
     }
     this.log("headers already sended ", "WARNING");
-    return (this.headers = this.response.getHeaders());
+    return (this.headers = this.getHeaders());
   }
 
   setContentType(type?: string, encoding?: BufferEncoding) {
@@ -386,9 +579,11 @@ class HttpResponse {
         // définit AUCUN paramètre `charset` (le JSON est UTF-8 par spec). Émettre
         // `; charset=` serait un paramètre non conforme (ignoré). → type nu.
         if (mytype === "application/json" || mytype.endsWith("+json")) {
-          return this.setHeader("Content-Type", mytype);
+          this.setHeader("Content-Type", mytype);
+          return;
         }
-        return this.setHeader("Content-Type", `${mytype}; charset=${encoding}`);
+        this.setHeader("Content-Type", `${mytype}; charset=${encoding}`);
+        return;
       }
     }
     if (type && !encoding) {
@@ -400,10 +595,11 @@ class HttpResponse {
         if (charset) {
           this.encoding = charset as BufferEncoding;
         }
-        return this.setHeader("Content-Type", mytype);
+        this.setHeader("Content-Type", mytype);
+        return;
       }
     }
-    return this.setHeader(
+    this.setHeader(
       "Content-Type",
       `${this.contentType}; charset=${this.encoding}`,
     );
@@ -416,7 +612,7 @@ class HttpResponse {
       myType = "application/octet-stream";
     }
     this.contentType = myType;
-    return this.setContentType(myType, encoding || this.encoding);
+    this.setContentType(myType, encoding || this.encoding);
   }
 
   setContentTypeByExtension(extention: string) {
@@ -427,7 +623,8 @@ class HttpResponse {
       if (charset) {
         this.encoding = charset as BufferEncoding;
       }
-      return this.setHeader("Content-Type", ismime);
+      this.setHeader("Content-Type", ismime);
+      return;
     }
     this.log(`setContentTypeByExtension: ${extention}  not found`, "WARNING");
   }
@@ -553,7 +750,7 @@ class HttpResponse {
     //   GET. OPTIONS et TRACE portent un corps (§9.3.7, §9.3.8) : leur annoncer
     //   0 laissait le corps écrit déborder sur la réponse suivante.
     if (this.getHeader("Transfer-Encoding") === "chunked") {
-      this.response?.removeHeader("Content-Length");
+      this.removeHeader("Content-Length");
       return 0;
     }
     if (NO_CONTENT_LENGTH_STATUS.has(this.statusCode)) {
@@ -565,7 +762,8 @@ class HttpResponse {
         typeof actualBody === "string" && actualBody === this.#text
           ? Buffer.byteLength(actualBody, this.#textEncoding)
           : Buffer.byteLength(actualBody);
-      this.setHeader("Content-Length", String(length));
+      // Nombre calculé ici : rien à valider.
+      this.#put("content-length", String(length));
       return length;
     }
     // Corps absent (streaming différé) : un Content-Length posé par le
@@ -590,25 +788,29 @@ class HttpResponse {
         }
       }
       this.statusMessage = this.getStatusMessage();
+      if (headers) {
+        this.#apply(headers);
+      }
+      // Validés par Node au `writeHead`, comme lorsqu'ils étaient posés ici
+      // par `setHeader` natif.
       if (this.context.requestId) {
-        this.response.setHeader("x-request-id", this.context.requestId);
+        this.#put("x-request-id", this.context.requestId);
       }
       // P2.7 — echo W3C traceparent so downstream services and clients can
       // continue the trace. Header name is lower-case per the spec.
       if (this.context.traceparent) {
-        this.response.setHeader("traceparent", this.context.traceparent);
+        this.#put("traceparent", this.context.traceparent);
       }
       this.setLength();
       this.ensureContentTypeHeader();
+      // UNE remise : la réserve entière, en tableau plat.
+      const list = this.#store();
       const std = http.STATUS_CODES[this.statusCode];
       if (this.statusMessage === std) {
         // Message standard (cas nominal) : ne PAS le passer à node — un
         // statusMessage custom force le slow path de composition de la ligne
         // de statut, et le message standard n'a rien à assainir.
-        (this.response as http.ServerResponse).writeHead(
-          this.statusCode,
-          headers as http.OutgoingHttpHeaders,
-        );
+        (this.response as http.ServerResponse).writeHead(this.statusCode, list);
       } else {
         // RFC 9112 §4 — status-message must be printable US-ASCII
         const safeMsg =
@@ -617,13 +819,36 @@ class HttpResponse {
         (this.response as http.ServerResponse).writeHead(
           this.statusCode,
           safeMsg,
-          headers as http.OutgoingHttpHeaders,
+          list,
         );
       }
     } else {
       this.log("Headers already sent !!", "WARNING");
       throw new Error(`Headers already sent !!`);
     }
+  }
+
+  /**
+   * Range dans la réserve les en-têtes passés à `writeHead` — ils l'emportent
+   * sur ceux déjà posés, comme chez Node.
+   */
+  #apply(headers: http.OutgoingHttpHeaders | http.OutgoingHttpHeader[]): void {
+    if (Array.isArray(headers)) {
+      for (let i = 0; i + 1 < headers.length; i += 2) {
+        const value = headers[i + 1];
+        if (value !== undefined) this.setHeader(String(headers[i]), value);
+      }
+      return;
+    }
+    for (const name in headers) {
+      const value = headers[name];
+      if (value !== undefined) this.setHeader(name, value);
+    }
+  }
+
+  /** La réserve amorcée — pour une remise sous une autre forme (HTTP/2). */
+  protected headerList(): readonly OutgoingHttpHeader[] {
+    return this.#store();
   }
 
   // flushHeaders(): void {
@@ -762,21 +987,39 @@ class HttpResponse {
     );
   }
 
+  /**
+   * Valeur d'un en-tête posé — dans la réserve, sinon sur la réponse Node (ce
+   * qu'un tiers y a écrit directement : `send`, quota).
+   *
+   * @param name - nom de l'en-tête (casse indifférente).
+   */
   getHeader(name: string): string | number | string[] | undefined {
+    const at = this.#indexOf(name.toLowerCase());
+    if (at !== -1) return this.#headers?.[at + 1];
     return this.response?.getHeader(name);
   }
 
   hasHeader(name: string): boolean {
     if (this.response) {
-      // `hasHeader` natif : lookup O(1), sans la copie complète que
-      // `getHeaders()` matérialise à chaque appel.
-      return this.response.hasHeader(name);
+      return (
+        this.#indexOf(name.toLowerCase()) !== -1 ||
+        this.response.hasHeader(name)
+      );
     }
     throw new Error(`Respose not foud`);
   }
 
+  /** Tous les en-têtes posés, noms en minuscules — une copie, à chaque appel. */
   getHeaders(): http.OutgoingHttpHeaders {
-    return this.response?.getHeaders() as http.OutgoingHttpHeaders;
+    const out: http.OutgoingHttpHeaders = { ...this.response?.getHeaders() };
+    const list = this.#headers;
+    if (list !== null) {
+      for (let i = 0; i + 1 < list.length; i += 2) {
+        const name = list[i];
+        if (typeof name === "string") out[name] = list[i + 1];
+      }
+    }
+    return out;
   }
 
   redirect(

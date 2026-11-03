@@ -5,7 +5,7 @@ import http from "node:http";
 /**
  * En-têtes de sécurité (P6 J5) — banc d'INTÉGRATION RÉEL (port 5151). Prouve la
  * SÉPARATION transport/applicatif sur une vraie réponse :
- *  - socle TRANSPORT (@nodefony/http, posé à l'entrée brute) : nosniff, frame-options ;
+ *  - socle TRANSPORT (@nodefony/http, posé sur toute réponse) : nosniff, frame-options ;
  *  - APPLICATIF (@nodefony/security, pipeline) : CSP, Referrer-Policy, COOP/CORP,
  *    Permissions-Policy (avancés activés côté module test).
  * Le socle transport couvre AUSSI les erreurs (404) ; l'applicatif est sur le pipeline.

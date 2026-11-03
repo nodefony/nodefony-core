@@ -43,37 +43,37 @@ const LEN = String(Buffer.byteLength(BODY));
 
 describe("HttpResponse.setLength — Content-Length exact (RFC 9110 §8.6, RFC 9112 §6.2)", () => {
   it("GET : longueur réelle en octets", () => {
-    const { s, h } = stub("GET");
+    const { s } = stub("GET");
     s.setLength(BODY);
-    expect(h["content-length"]).to.equal(LEN);
+    expect(s.getHeader("content-length")).to.equal(LEN);
   });
 
   it("HEAD : la longueur qu'aurait eue le GET, jamais 0", () => {
-    const { s, h } = stub("HEAD");
+    const { s } = stub("HEAD");
     s.setLength(BODY);
-    expect(h["content-length"]).to.equal(LEN);
+    expect(s.getHeader("content-length")).to.equal(LEN);
   });
 
   for (const method of ["OPTIONS", "TRACE"]) {
     it(`${method} : longueur réelle du corps (il en porte un)`, () => {
-      const { s, h } = stub(method, 405);
+      const { s } = stub(method, 405);
       s.setLength(BODY);
-      expect(h["content-length"]).to.equal(LEN);
+      expect(s.getHeader("content-length")).to.equal(LEN);
     });
   }
 
   it("chunked : AUCUN Content-Length, même un posé avant", () => {
-    const { s, h } = stub("GET", 200, {
+    const { s } = stub("GET", 200, {
       "Transfer-Encoding": "chunked",
       "Content-Length": "12",
     });
     s.setLength(BODY);
-    expect(h["content-length"]).to.equal(undefined);
+    expect(s.getHeader("content-length")).to.equal(undefined);
   });
 
   it("204 : aucun Content-Length", () => {
-    const { s, h } = stub("GET", 204);
+    const { s } = stub("GET", 204);
     s.setLength(BODY);
-    expect(h["content-length"]).to.equal(undefined);
+    expect(s.getHeader("content-length")).to.equal(undefined);
   });
 });

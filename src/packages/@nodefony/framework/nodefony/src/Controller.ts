@@ -910,12 +910,7 @@ class Controller extends Service implements IController {
     try {
       const fileDetails = await this.getFileAsync(file);
 
-      (this.response as HttpResponse | Http2Response).response?.removeHeader(
-        "Content-Type",
-      );
-      (this.response as HttpResponse | Http2Response).response?.removeHeader(
-        "content-type",
-      );
+      contextResponse.removeHeader("content-type");
       const contentTypeHeader =
         headers && (headers["Content-Type"] || headers["content-type"]);
       if (!contentTypeHeader) {
@@ -927,12 +922,7 @@ class Controller extends Service implements IController {
         headers && (headers["Content-Length"] || headers["content-length"]);
       if (!contentLength) {
         headers ??= {};
-        (this.response as HttpResponse | Http2Response).response?.removeHeader(
-          "Content-Length",
-        );
-        (this.response as HttpResponse | Http2Response).response?.removeHeader(
-          "content-length",
-        );
+        contextResponse.removeHeader("content-length");
         headers["Content-Length"] = fileDetails.stats.size;
       }
       streamFile = createReadStream(
@@ -1026,7 +1016,6 @@ class Controller extends Service implements IController {
     let head: OutgoingHttpHeaders;
     let value: ReadStreamOptions;
     const contextResponse = this.response as HttpResponse | Http2Response;
-    const response = contextResponse.response;
     // RFC 9110 §14 — un Range client ne crashe JAMAIS le serveur : plage hors
     // représentation → 416 + `Content-Range: bytes */<len>` (§15.5.17) ; syntaxe
     // invalide / unité inconnue / multi-range → header ignoré, 200 complet (§14.2).
@@ -1052,7 +1041,7 @@ class Controller extends Service implements IController {
         "Content-Type": File.mimeType || "application/octet-stream",
         ...headers,
       };
-      response?.removeHeader("content-type");
+      contextResponse.removeHeader("content-type");
       this.response?.setStatusCode(206);
     } else {
       value = {
@@ -1065,7 +1054,7 @@ class Controller extends Service implements IController {
         "Accept-Ranges": "bytes",
         ...headers,
       };
-      response?.removeHeader("content-type");
+      contextResponse.removeHeader("content-type");
     }
     return this.streamFile(File, head, value);
   }

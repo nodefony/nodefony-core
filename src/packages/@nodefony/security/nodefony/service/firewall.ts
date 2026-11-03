@@ -95,6 +95,8 @@ const EMPTY_PROTECTED_RESOURCES: readonly IProtectedResourceInput[] =
 // une réponse WS ne l'a pas : capability check, jamais de cast aveugle).
 interface IHeaderCapableResponse {
   setHeader?: (name: string, value: string | readonly string[]) => unknown;
+  /** Pose une valeur déjà validée au démarrage, sans la revalider (`HttpResponse`). */
+  setValidatedHeader?: (name: string, value: string) => unknown;
 }
 
 /**
@@ -277,7 +279,7 @@ class Firewall extends Service implements IFirewall {
       this.#cors = new Cors(this.#config.cors);
     }
     // En-têtes de sécurité APPLICATIFS (CSP/Referrer/COOP…). Le socle transport
-    // (nosniff/frame/HSTS) est posé par @nodefony/http à l'entrée brute (couvre
+    // (nosniff/frame/HSTS) est posé par @nodefony/http sur toute réponse (couvre
     // statics + erreurs) → security n'émet QUE le complément (1 source par en-tête).
     if (this.#config.headers.enabled) {
       this.#securityHeaders = new SecurityHeaders(this.#config.headers);
@@ -685,7 +687,7 @@ class Firewall extends Service implements IFirewall {
         enabled: config.headers.enabled,
         // ⚠️ hsts / frameguard / noSniff sont INERTES dans la config `security`
         // (marqués `reserved` dans son schéma) : ces trois en-têtes sont posés par
-        // `@nodefony/http` à l'entrée brute, pour couvrir AUSSI les statiques et
+        // `@nodefony/http` sur toute réponse, pour couvrir AUSSI les statiques et
         // les pages d'erreur. Recopier la valeur security ici faisait mentir
         // l'écran Firewall de Studio — il affichait `deny` pendant que le
         // transport émettait `SAMEORIGIN`. On lit donc l'état RÉELLEMENT émis,
@@ -1167,7 +1169,7 @@ class Firewall extends Service implements IFirewall {
    * En-têtes de sécurité APPLICATIFS (P6 J5) — CSP, Referrer-Policy, isolation
    * cross-origin (COOP/COEP/CORP), Origin-Agent-Cluster, Permissions-Policy.
    * Posés sur toute réponse du pipeline (branché dans `handleHttp`). Complète le
-   * socle transport de `@nodefony/http` (nosniff/frame/HSTS, posé à l'entrée brute)
+   * socle transport de `@nodefony/http` (nosniff/frame/HSTS, posé sur toute réponse)
    * SANS le ré-émettre. No-op si désactivé ou réponse non-HTTP (WS).
    *
    * En-têtes constants = table figée pré-calculée au boot (0 alloc/concat). Le CSP
@@ -1188,24 +1190,33 @@ class Firewall extends Service implements IFirewall {
     // Une route `@Csp` sans nonce pose SA politique plus bas : la table sans CSP
     // évite d'écrire l'en-tête deux fois (~0,7 µs par écriture).
     const headers = extra && !sh.hasNonce ? sh.headersWithoutCsp : sh.headers;
+    // Table validée au démarrage (`SecurityHeaders`), nonce tiré du CSPRNG en
+    // base64, sources `@Csp` contrôlées par `assertCspFragment` : rien à
+    // revalider par réponse — Node le fait une fois, au `writeHead`.
+    const validated = typeof response.setValidatedHeader === "function";
     for (const name in headers) {
       const value = headers[name];
-      if (value !== undefined) response.setHeader(name, value);
+      if (value === undefined) continue;
+      if (validated) response.setValidatedHeader?.(name, value);
+      else response.setHeader(name, value);
     }
     // CSP nonce/req (étape B) : LIRE `context.cspNonce` génère le nonce PARESSEUSEMENT
     // et le mémoïse → le `<script nonce="X">` rendu ensuite par le controller lit la
     // MÊME valeur. Posé seulement si le CSP porte `{{nonce}}` (sinon `hasNonce`=false
     // → 0 génération crypto). Antérieur au `writeHead`.
+    let csp: string | null = null;
     if (sh.hasNonce) {
       const nonce = (context as { cspNonce: string }).cspNonce;
-      response.setHeader(
-        "Content-Security-Policy",
-        extra ? sh.cspForExtra(nonce, extra) : sh.cspFor(nonce),
-      );
+      csp = extra ? sh.cspForExtra(nonce, extra) : sh.cspFor(nonce);
     } else if (extra) {
       // CSP statique + extra de route → recompose (la boucle a pris la table sans
       // CSP : écriture unique). Pas de nonce ici (param ignoré par cspForExtra).
-      response.setHeader("Content-Security-Policy", sh.cspForExtra("", extra));
+      csp = sh.cspForExtra("", extra);
+    }
+    if (csp !== null) {
+      if (validated)
+        response.setValidatedHeader?.("Content-Security-Policy", csp);
+      else response.setHeader("Content-Security-Policy", csp);
     }
   }
 

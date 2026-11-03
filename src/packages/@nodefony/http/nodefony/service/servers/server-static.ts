@@ -1,5 +1,4 @@
 import serveStatic from "serve-static";
-import mime from "mime-types";
 import { normalizePrefix } from "../../src/proxy/rules";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -303,10 +302,11 @@ class Statics extends Service {
         break;
       }
     }
+    // Un fichier servi laisse la promesse pendante ; arriver ici veut dire
+    // qu'aucun ne l'a été — rien à poser : la réponse qui suit (route, 404)
+    // choisit son propre type.
     for (const ele of Object.values(this.servers)) {
       await this.getStatic(ele, request, response);
-      const type = mime.lookup(pathname);
-      response.setHeader("Content-Type", type as string);
     }
     return Promise.resolve(response);
   }

@@ -55,11 +55,12 @@ function makeController(opts: HarnessOptions = {}) {
 
   // Réponse node brute (Writable) pour exercer le pipe de streamFile.
   const raw = new PassThrough();
-  (raw as unknown as { removeHeader: () => void }).removeHeader = () => {};
   raw.on("data", () => {}); // drain pour laisser le flux atteindre "end"
 
   const response = {
     response: raw,
+    // Retrait d’en-tête : sur la réponse du contexte, jamais sur la brute.
+    removeHeader() {},
     statusCode: 200,
     encoding: "utf8" as const,
     setHeaders(h: unknown) {

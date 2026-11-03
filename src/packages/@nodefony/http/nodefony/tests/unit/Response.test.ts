@@ -320,7 +320,7 @@ describe("HttpResponse — unit tests", () => {
       const r = makeResponse();
       r.addCookie(new Cookie("sid", "abc", { path: "/" }));
       r.setCookies();
-      const sc = (r as any).response.getHeader("set-cookie");
+      const sc = r.getHeader("set-cookie");
       expect(sc).to.be.a("string");
       expect(sc).to.contain("sid=abc");
     });
@@ -332,7 +332,7 @@ describe("HttpResponse — unit tests", () => {
         new Cookie("csrf-token", "T2", { path: "/", sameSite: "Strict" }),
       );
       r.setCookies();
-      const sc = (r as any).response.getHeader("set-cookie") as string[];
+      const sc = r.getHeader("set-cookie") as string[];
       expect(sc).to.be.an("array").with.lengthOf(2);
       const joined = sc.join("\n");
       expect(joined).to.contain("nodefony-session=S1");
@@ -342,7 +342,7 @@ describe("HttpResponse — unit tests", () => {
     it("0 cookie → aucun Set-Cookie posé", () => {
       const r = makeResponse();
       r.setCookies();
-      expect((r as any).response.getHeader("set-cookie")).to.equal(undefined);
+      expect(r.getHeader("set-cookie")).to.equal(undefined);
     });
   });
 
@@ -378,7 +378,7 @@ describe("HttpResponse — unit tests", () => {
         "ADD COOKIE ==> nodefony=<masqué>; Path=/; SameSite=Lax; HttpOnly; Secure",
       );
       // L'en-tête, lui, porte bien la valeur.
-      expect((r as any).response.getHeader("set-cookie")).to.contain(SECRET);
+      expect(r.getHeader("set-cookie")).to.contain(SECRET);
     });
 
     it("2 cookies : aucune ligne ne porte de valeur", () => {
@@ -433,12 +433,7 @@ describe("HttpResponse — unit tests", () => {
  * la discipline de chaque appelant.
  */
 describe("HttpResponse — Vary ne s'écrase pas (F12)", () => {
-  const varyOf = (r: HttpResponse): string =>
-    String(
-      (
-        r as unknown as { response: { getHeader(n: string): unknown } }
-      ).response.getHeader("vary"),
-    );
+  const varyOf = (r: HttpResponse): string => String(r.getHeader("vary"));
 
   it("un second Vary s'AJOUTE au premier au lieu de le remplacer", () => {
     const r = makeResponse();
@@ -486,9 +481,7 @@ describe("HttpResponse — Vary ne s'écrase pas (F12)", () => {
     const r = makeResponse();
     r.setHeader("X-Test", "un");
     r.setHeader("X-Test", "deux");
-    const got = (
-      r as unknown as { response: { getHeader(n: string): unknown } }
-    ).response.getHeader("x-test");
+    const got = r.getHeader("x-test");
     expect(got).to.equal("deux");
   });
 });
@@ -498,7 +491,7 @@ describe("writeHead() — filet Content-Type + ligne de statut standard", () => 
   // le fast path (message standard NON transmis) et le filet Content-Type.
   function makeCapturingResponse(method = "GET"): {
     r: HttpResponse;
-    headers: Record<string, number | string | string[]>;
+    sent: () => Record<string, unknown>;
     writeHeadCalls: unknown[][];
   } {
     const headers: Record<string, number | string | string[]> = {};
@@ -525,58 +518,70 @@ describe("writeHead() — filet Content-Type + ligne de statut standard", () => 
       method,
       log: () => undefined,
     } as unknown as HttpContext;
+    // Ce qui part : la liste plate remise au `writeHead` natif, en
+    // dictionnaire (noms en minuscules).
+    const sent = (): Record<string, unknown> => {
+      const out: Record<string, unknown> = { ...headers };
+      const list = writeHeadCalls.at(-1)?.at(-1);
+      if (Array.isArray(list)) {
+        for (let i = 0; i + 1 < list.length; i += 2) {
+          out[String(list[i]).toLowerCase()] = list[i + 1];
+        }
+      }
+      return out;
+    };
     return {
       r: new HttpResponse(mockServerResponse, ctx),
-      headers,
+      sent,
       writeHeadCalls,
     };
   }
 
   it("émet application/octet-stream quand AUCUN Content-Type n'a été choisi", () => {
-    const { r, headers } = makeCapturingResponse();
+    const { r, sent } = makeCapturingResponse();
     r.writeHead(200);
-    expect(headers["content-type"]).to.equal("application/octet-stream");
+    expect(sent()["content-type"]).to.equal("application/octet-stream");
   });
 
   it("corps posé VIDE : aucun Content-Type (RFC 9110 §8.3)", () => {
     const texte = makeCapturingResponse();
     texte.r.setBody("");
     texte.r.writeHead(202);
-    expect(texte.headers).to.not.have.property("content-type");
+    expect(texte.sent()).to.not.have.property("content-type");
     const octets = makeCapturingResponse();
     octets.r.setBody(Buffer.alloc(0));
     octets.r.writeHead(405);
-    expect(octets.headers).to.not.have.property("content-type");
+    expect(octets.sent()).to.not.have.property("content-type");
   });
 
   it("204 et 304 : aucun Content-Type, même avec un corps posé", () => {
     for (const status of [204, 304]) {
-      const { r, headers } = makeCapturingResponse();
+      const { r, sent } = makeCapturingResponse();
       r.setBody("ignoré");
       r.writeHead(status);
-      expect(headers).to.not.have.property("content-type");
+      expect(sent()).to.not.have.property("content-type");
     }
   });
 
   it("HEAD à corps vide : le défaut reste, comme sous GET", () => {
-    const { r, headers } = makeCapturingResponse("HEAD");
+    const { r, sent } = makeCapturingResponse("HEAD");
     r.setBody("");
     r.writeHead(200);
-    expect(headers["content-type"]).to.equal("application/octet-stream");
+    expect(sent()["content-type"]).to.equal("application/octet-stream");
   });
 
   it("corps NON vide sans type : le défaut reste", () => {
-    const { r, headers } = makeCapturingResponse();
+    const { r, sent } = makeCapturingResponse();
     r.setBody(Buffer.from([1, 2, 3]));
     r.writeHead(200);
-    expect(headers["content-type"]).to.equal("application/octet-stream");
+    expect(sent()["content-type"]).to.equal("application/octet-stream");
   });
 
   it("ne touche PAS à un Content-Type déjà choisi", () => {
-    const { r, headers } = makeCapturingResponse();
+    const { r, sent } = makeCapturingResponse();
     r.setContentType("application/json", "utf-8");
     r.writeHead(200);
-    expect(headers["content-type"]).to.equal("application/json");
+    expect(sent()["content-type"]).to.equal("application/json");
   });
 
   it("message STANDARD : la ligne de statut n'est pas recomposée (2 args)", () => {

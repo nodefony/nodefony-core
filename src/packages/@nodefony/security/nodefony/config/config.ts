@@ -267,7 +267,7 @@ const headersSchema = z
       .meta({
         reserved: true,
         description:
-          "INERTE ICI — l'en-tête est posé par @nodefony/http à l'entrée brute " +
+          "INERTE ICI — l'en-tête est posé par @nodefony/http sur toute réponse " +
           "(couvre statics, erreurs et serveur nu ; une seule source par en-tête). " +
           "Pour le régler : `http.securityHeaders.strictTransportSecurity` " +
           "(`null` pour ne pas émettre l'en-tête).",

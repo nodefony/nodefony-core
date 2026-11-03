@@ -470,9 +470,10 @@ describe("Contrôleur singleton — streamFile", () => {
     // Réponse qui ne lit rien : la contre-pression met le flux en pause avant
     // sa fin, et c'est la fermeture de la réponse qui doit le terminer.
     const raw = new PassThrough({ highWaterMark: 1 });
-    (raw as unknown as { removeHeader: () => void }).removeHeader = () => {};
     const response = {
       response: raw,
+      // Retrait d’en-tête : sur la réponse du contexte, jamais sur la brute.
+      removeHeader() {},
       statusCode: 200,
       setFileMimeType() {},
     };

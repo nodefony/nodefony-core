@@ -18,6 +18,7 @@ import {
   finallyMaybe,
   RevocationWatch,
   IDENTITY_CHANGED_EVENT,
+  BootConfigurationError,
 } from "nodefony";
 import type {
   IIdentityChangedEvent,
@@ -132,10 +133,12 @@ interface HealthConfig {
 
 // Réponses des probes de santé pré-allouées — le kubelet/LB sonde toutes les
 // 2-10 s : 0 alloc / 0 stringify par sonde (règle perf).
-const HEALTH_HEADERS = {
-  "content-type": "application/json",
-  "cache-control": "no-store",
-};
+const HEALTH_HEADERS = [
+  "content-type",
+  "application/json",
+  "cache-control",
+  "no-store",
+] as const;
 const HEALTH_BODY_OK = '{"status":"ok"}';
 const HEALTH_BODY_UNREADY = '{"status":"unready"}';
 
@@ -346,6 +349,20 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   private secContentTypeOptions: string | null = null;
   private secFrameOptions: string | null = null;
   private secHsts: string | null = null;
+  /**
+   * En-têtes du transport, tableau plat `[nom, valeur, …]` aux noms en
+   * minuscules, par famille de serveur (HSTS sur TLS seulement). Figés et
+   * VALIDÉS au calcul : chaque réponse les recopie sans les revalider.
+   */
+  #transportHeaders: { http: string[]; https: string[] } = {
+    http: [],
+    https: [],
+  };
+  /** Réponse d'une sonde de santé : le transport, puis type et cache. */
+  #healthHeaders: { http: string[]; https: string[] } = {
+    http: [],
+    https: [],
+  };
   sessionService?: SessionsService | null | undefined;
   router?: IRequestRouter | null | undefined;
   firewall?: IFirewallGate | null | undefined;
@@ -435,13 +452,61 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     } else {
       this.secHsts = null;
     }
+    // `headerServer: null` = NE PAS exposer l'identité du framework
+    // (anti-fingerprint OWASP, recommandé en prod) → l'en-tête n'est pas émis.
+    // Une chaîne vide est traitée pareil.
+    const headerServer = this.options.headerServer;
+    const http1: string[] = [];
+    if (headerServer != null && headerServer !== "") {
+      http1.push("server", headerServer);
+    }
+    if (this.secContentTypeOptions !== null) {
+      http1.push("x-content-type-options", this.secContentTypeOptions);
+    }
+    if (this.secFrameOptions !== null) {
+      http1.push("x-frame-options", this.secFrameOptions);
+    }
+    // HSTS gated TLS-only : poser sur HTTP plain n'a aucun effet (RFC 6797).
+    const tls =
+      this.secHsts === null
+        ? http1
+        : [...http1, "strict-transport-security", this.secHsts];
+    for (let i = 0; i + 1 < tls.length; i += 2) {
+      const name = tls[i] ?? "";
+      try {
+        http.validateHeaderValue(name, tls[i + 1] ?? "");
+      } catch (error) {
+        throw new BootConfigurationError(
+          `[@nodefony/http] en-tête « ${name} » refusé : ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+    this.#transportHeaders = { http: http1, https: tls };
+    this.#healthHeaders = {
+      http: [...http1, ...HEALTH_HEADERS],
+      https: [...tls, ...HEALTH_HEADERS],
+    };
+  }
+
+  /**
+   * En-têtes du transport d'une réponse, figés au démarrage — ce que
+   * `HttpResponse` place en tête de sa réserve.
+   *
+   * @param type - famille du serveur qui a reçu la requête.
+   * @returns la liste plate `[nom, valeur, …]`, noms en minuscules.
+   */
+  transportHeaders(type: ServerType): readonly string[] {
+    return type === "https"
+      ? this.#transportHeaders.https
+      : this.#transportHeaders.http;
   }
 
   /**
    * Ce que ce kernel ÉMET réellement comme en-têtes de sécurité transport.
    *
    * Ces trois en-têtes (HSTS, X-Frame-Options, X-Content-Type-Options) sont posés
-   * ici, à l'entrée brute, pour couvrir aussi les statiques et les pages d'erreur
+   * par `@nodefony/http` sur TOUTE réponse (en tête de la réserve de `HttpResponse`),
+   * statiques et pages d'erreur comprises
    * — pas par `@nodefony/security`, dont les clés homonymes sont inertes. Toute
    * console d'administration doit donc lire CE point, sinon elle affiche une
    * intention de configuration au lieu de l'état appliqué.
@@ -609,11 +674,14 @@ class HttpKernel extends Service implements IHttpKernelInterface {
    * @param response - réponse serveur brute (HTTP/1 ou H2 compat)
    * @param ok - `true` → 200, `false` → 503 (readiness pendant boot/shutdown)
    */
-  #respondHealth(response: httpResponse, ok: boolean): void {
+  #respondHealth(response: httpResponse, ok: boolean, type: ServerType): void {
     // Même cast que le rate-limit : l'union ServerResponse|Http2ServerResponse
     // rend writeHead/end non appelables (TS2349), l'API compat H2 est identique.
     const res = response as http.ServerResponse;
-    res.writeHead(ok ? 200 : 503, HEALTH_HEADERS);
+    res.writeHead(
+      ok ? 200 : 503,
+      type === "https" ? this.#healthHeaders.https : this.#healthHeaders.http,
+    );
     res.end(ok ? HEALTH_BODY_OK : HEALTH_BODY_UNREADY);
   }
 
@@ -1117,7 +1185,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         // HTTP/2 réinitialise le flux.
         if (context.isRedirect) {
           context.isRedirect = false;
-          context.response.response?.removeHeader("Location");
+          context.response.removeHeader("Location");
         }
         try {
           await context.render(result.body);
@@ -1212,26 +1280,14 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     response: httpResponse,
     type: ServerType,
   ): MaybePromise<unknown> {
-    // `headerServer: null` = NE PAS exposer l'identité du framework (anti-fingerprint
-    // OWASP, recommandé en prod) → on N'ÉMET PAS l'en-tête (sinon `setHeader` enverrait
-    // le littéral "null", qui n'efface rien). Une string vide est traitée pareil.
-    const headerServer = this.options.headerServer;
-    if (headerServer != null && headerServer !== "") {
-      response.setHeader("Server", headerServer);
-    }
-    // Security headers OWASP — defaults secure-by-default (cf config.securityHeaders).
-    // HSTS gated TLS-only : poser sur HTTP plain n'a aucun effet RFC 6797 et pollue.
-    // `type` est ici l'identité du serveur : HSTS part du serveur TLS local, h2 ou
+    // En-têtes du transport (`Server`, nosniff, frame, HSTS sur TLS) : RIEN
+    // n'est posé ici. Ils sont figés au démarrage (`transportHeaders`) et
+    // partent avec la réponse — en tête de la réserve de `HttpResponse`, ou
+    // dans le `writeHead` des réponses servies sans contexte (sonde, quota).
+    // Un `setHeader` natif à l'entrée faisait retomber Node sur son chemin
+    // lent pour TOUTE la réponse (`micro-write-head.mjs`, ligne « mixte »).
+    // `type` est l'identité du serveur : HSTS part du serveur TLS local, h2 ou
     // HTTP/1.1 — derrière un proxy TLS, c'est au terminateur TLS de le poser.
-    if (this.secContentTypeOptions !== null) {
-      response.setHeader("X-Content-Type-Options", this.secContentTypeOptions);
-    }
-    if (this.secFrameOptions !== null) {
-      response.setHeader("X-Frame-Options", this.secFrameOptions);
-    }
-    if (this.secHsts !== null && type === "https") {
-      response.setHeader("Strict-Transport-Security", this.secHsts);
-    }
     // Probes de santé /livez + /readyz (0.7) — AVANT le rate-limit : un kubelet
     // throttlé (429) croirait le pod mort → cascade de restarts. Match STRICT
     // sur l'URL brute (les probes k8s/Docker tapent le path exact, sans query).
@@ -1241,7 +1297,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     if (this.#healthPaths !== null) {
       const url = request.url;
       if (url === this.#healthPaths.liveness) {
-        this.#respondHealth(response, true);
+        this.#respondHealth(response, true, type);
         return;
       }
       if (url === this.#healthPaths.readiness) {
@@ -1256,6 +1312,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         this.#respondHealth(
           response,
           !this.#terminating && this.kernel?.servable === true,
+          type,
         );
         return;
       }
@@ -1287,7 +1344,12 @@ class HttpKernel extends Service implements IHttpKernelInterface {
           // non appelables (TS2349 : surcharges incompatibles entre membres). Le
           // mode compat HTTP/2 expose la même API que HTTP/1 → cast sûr.
           const res = response as http.ServerResponse;
-          res.writeHead(429);
+          res.writeHead(
+            429,
+            type === "https"
+              ? this.#transportHeaders.https
+              : this.#transportHeaders.http,
+          );
           res.end();
           return;
         }
@@ -1298,6 +1360,15 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     // d'entrée se limite au hook `onServerRequest` (guardé 0-listener) puis délègue
     // au pipeline. Une requête qui matche une route ne touche plus le disque.
     if (this.listenerCount("onServerRequest")) {
+      // Un écouteur peut répondre lui-même sur la réponse Node : il trouve le
+      // transport déjà posé, comme avant que la réserve n'existe.
+      const transport =
+        type === "https"
+          ? this.#transportHeaders.https
+          : this.#transportHeaders.http;
+      for (let i = 0; i + 1 < transport.length; i += 2) {
+        response.setHeader(transport[i] ?? "", transport[i + 1] ?? "");
+      }
       return this.fireAsync("onServerRequest", request, response, type).then(
         () => this.handle(request, response, type),
       );
@@ -1860,6 +1931,11 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       this.reverseProxy.mounts !== null &&
       (httpContext.validDomain || !this.domainCheck)
     ) {
+      // Le relais écrit sur la réponse Node : ce qui est déjà posé (transport,
+      // CORS) y passe d'abord. Seulement si un montage couvre l'URL.
+      if (this.reverseProxy.match(request.url) !== undefined) {
+        httpContext.response.commitHeaders();
+      }
       const relayed = this.reverseProxy.forward(
         request,
         response,
@@ -1892,7 +1968,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     // CSP. Toujours AVANT le fallback static + le `writeHead` → présents sur
     // toute réponse (succès, 404/405, fichier statique). Le preflight CORS a
     // court-circuité plus haut (204). Complète le socle transport (nosniff/
-    // frame/HSTS) posé à `onHttpRequest`. No-op si security absent/désactivé.
+    // frame/HSTS) que porte la réserve de `HttpResponse` (`transportHeaders`). No-op si security absent/désactivé.
     this.firewall?.applySecurityHeaders(httpContext);
     // ROUTER-FIRST (façon Express) : aucune route matchée → FALLBACK static.
     // `serverStatic.handle` reste PENDING si un fichier est servi (court-circuit
@@ -1913,11 +1989,19 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       // existe → on le retire pour qu'il pose le vrai type du fichier
       // (image/x-icon, video/webm…). En static-first aucun CT n'était
       // pré-posé : on restaure ce comportement.
-      response.removeHeader("Content-Type");
+      // `serve-static` écrit lui-même sur la réponse Node : la réserve y est
+      // recopiée à SA première écriture (transport, en-têtes de sécurité). Un
+      // raté n'écrit rien — l'interception est retirée, et la 404 qui suit
+      // part en un seul `writeHead`.
+      httpContext.response.removeHeader("Content-Type");
+      httpContext.response.commitBeforeNativeWrite();
       return this.serverStatic
         .handle(request, response)
         .catch(() => undefined)
-        .then(() => this.serveHttpRequest(httpContext));
+        .then(() => {
+          httpContext.response.disarmNativeWrite();
+          return this.serveHttpRequest(httpContext);
+        });
     }
     return this.serveHttpRequest(httpContext);
   }
@@ -2048,8 +2132,8 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         // Sonde d'un handshake (#596) : le refus ne porte pas les en-têtes du
         // 426 que le routeur a posés (`Upgrade`, `Connection`).
         if (context.resolver?.exception) {
-          context.response.response?.removeHeader("Upgrade");
-          context.response.response?.removeHeader("Connection");
+          context.response.removeHeader("Upgrade");
+          context.response.removeHeader("Connection");
         }
         // SECURITY HOOK — onAuthFailure (P1.7)
         await this.fireAsync("onAuthFailure", context, authError).catch(

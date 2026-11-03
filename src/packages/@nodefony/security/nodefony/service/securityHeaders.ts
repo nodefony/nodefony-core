@@ -1,11 +1,13 @@
+import { validateHeaderValue } from "node:http";
+import { BootConfigurationError } from "nodefony";
 import { mergeCspFragments, type CspFragment } from "../src/csp";
 
 /**
  * Sous-ensemble APPLICATIF de la config `headers` (cf defineSecurityConfig).
  *
  * `hsts` / `frameguard` / `noSniff` n'y figurent PAS volontairement : ces trois
- * en-têtes « transport » sont posés par `@nodefony/http` à l'entrée brute
- * (`onHttpRequest`, AVANT le pipeline) pour couvrir AUSSI les fichiers statiques,
+ * en-têtes « transport » sont posés par `@nodefony/http` sur toute réponse
+ * (`HttpKernel.transportHeaders`, figés au démarrage) pour couvrir AUSSI les fichiers statiques,
  * les erreurs précoces et un serveur sans module security (secure-by-default).
  * `@nodefony/security` ne les ré-émet pas → une seule source par en-tête.
  */
@@ -87,6 +89,13 @@ export class SecurityHeaders {
     // Structured field boolean (RFC 9651) : présence = activé.
     if (o.originAgentCluster) h["Origin-Agent-Cluster"] = "?1";
     if (o.permissionsPolicy) h["Permissions-Policy"] = o.permissionsPolicy;
+    // Validés UNE fois ici : la réponse les pose ensuite sans les revalider
+    // (`HttpResponse.setValidatedHeader`). Une valeur qu'un en-tête ne peut pas
+    // porter arrête le démarrage au lieu de faire échouer chaque réponse.
+    for (const name in h) assertHeaderValue(name, h[name] ?? "");
+    if (cspParts) {
+      assertHeaderValue("Content-Security-Policy", cspParts.join(NONCE_SAMPLE));
+    }
     this.#headers = Object.freeze(h);
     if (h["Content-Security-Policy"] === undefined) {
       this.#headersWithoutCsp = this.#headers;
@@ -178,6 +187,24 @@ export class SecurityHeaders {
  * Politique pré-découpée autour du nonce : `head + nonce + tail` quand elle porte
  * UN `{{nonce}}` (cas courant), `parts.join(nonce)` sinon, `head` seul sans nonce.
  */
+/** Nonce témoin pour valider le gabarit : même alphabet que `nextCspNonce` (base64). */
+const NONCE_SAMPLE = "AAAAAAAAAAAAAAAAAAAAAA==";
+
+/**
+ * Refuse au démarrage une valeur qu'un en-tête HTTP ne peut pas porter.
+ *
+ * @throws BootConfigurationError en nommant l'en-tête et la raison de Node.
+ */
+function assertHeaderValue(name: string, value: string): void {
+  try {
+    validateHeaderValue(name, value);
+  } catch (error) {
+    throw new BootConfigurationError(
+      `[@nodefony/security] en-tête « ${name} » refusé : ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
 interface IComposedCsp {
   readonly head: string;
   readonly tail: string | null;

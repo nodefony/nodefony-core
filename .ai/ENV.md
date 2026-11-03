@@ -173,7 +173,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_ACCUEIL_PAQUET` | `scripts/release/accueil-gate.mjs:91` |
 | `NF_ACCUEIL_REGISTRY` | `scripts/release/accueil-gate.mjs:87` |
 | `NF_ACCUEIL_ROOT` | `scripts/release/accueil-gate.mjs:84` |
-| `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:875` |
+| `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:943` |
 | `NF_BENCH_ROUTE` | `src/modules/test/index.ts:117` |
 | `NF_BIND_ALL` | `scripts/test/test-all.ts:805` |
 | `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:3018` |
@@ -238,7 +238,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_NODE_DIST_URL` | `src/nodefony/src/kernel/checks/nodeSecurity.ts:132` |
 | `NF_ORM_FLOW` | `src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts:102` |
 | `NF_ORM_HEARTBEAT_MS` | `src/packages/@nodefony/orm-core/nodefony/src/Orm.ts:23` |
-| `NF_PERF_PROBE` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:176` |
+| `NF_PERF_PROBE` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:179` |
 | `NF_POD_NAME` | `src/packages/@nodefony/realtime/nodefony/src/backplane/originId.ts:25` |
 | `NF_PORT` | `src/nodefony/src/tests/devProcess.test.ts:441` |
 | `NF_PORT_HTTPS` | `src/nodefony/src/tests/devProcess.test.ts:442` |
@@ -246,8 +246,8 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_REALTIME_BACKPLANE_NAMESPACE` | `src/packages/@nodefony/realtime/nodefony/tests/unit/defineRealtimeConfig.test.ts:164` |
 | `NF_REALTIME_BACKPLANE_SECRET` | `src/packages/@nodefony/realtime/nodefony/tests/unit/defineRealtimeConfig.test.ts:165` |
 | `NF_REALTIME_DRIVER` | `src/packages/@nodefony/realtime/nodefony/tests/unit/defineRealtimeConfig.test.ts:163` |
-| `NF_REDIS_HOST` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:25` |
-| `NF_REDIS_PASSWORD` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:24` |
+| `NF_REDIS_HOST` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:26` |
+| `NF_REDIS_PASSWORD` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:25` |
 | `NF_REDIS_PORT` | `src/nodefony/src/tests/envShortcuts.test.ts:251` |
 | `NF_RELEASE_REPO` | `scripts/release/pack-all.mjs:102` |
 | `NF_START` | `src/nodefony/src/kernel/Kernel.ts:565` |

@@ -58,18 +58,20 @@ describe("HttpResponse — corps texte écrit tel quel", () => {
   });
 
   it("Content-Length compte les OCTETS du texte, pas ses caractères", () => {
-    const { r, h } = make();
+    const { r } = make();
     r.setBody("é€");
     r.setLength();
-    expect(h["content-length"]).to.equal(String(Buffer.byteLength("é€")));
+    expect(r.getHeader("content-length")).to.equal(
+      String(Buffer.byteLength("é€")),
+    );
   });
 
   it("encodage posé avec le texte : longueur et écriture le respectent", async () => {
-    const { r, ended, h } = make();
+    const { r, ended } = make();
     r.setBody("é", "latin1");
     r.setLength();
     await r.send();
-    expect(h["content-length"]).to.equal("1");
+    expect(r.getHeader("content-length")).to.equal("1");
     expect(ended[0]).to.deep.equal(["é", "latin1"]);
   });
 
