@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-03T15:12:41.027Z",
+  "generatedAt": "2026-11-03T22:45:46.187Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -53,7 +53,7 @@
       "title": "10.0.0"
     },
     {
-      "closed": 5,
+      "closed": 6,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
       "open": 41,
@@ -9987,6 +9987,20 @@
       "labels": [
         "backlog"
       ]
+    },
+    {
+      "number": 727,
+      "title": "perf(http): écrire les en-têtes d'une réponse en un seul appel au lieu d'un par en-tête",
+      "url": "https://github.com/nodefony/nodefony-core/issues/727",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.1.0",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 905,
+      "debut": null,
+      "cible": null,
+      "labels": []
     },
     {
       "number": 499,

@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-11-03 15:12** (UTC).
+> Empreinte prise le **2026-11-03 22:45** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -22,7 +22,7 @@
 | --- | --- | ---: | ---: | --- |
 | **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 92% | 229 | 20 | 2026-11-12 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 98% | 135 | 3 | 2026-11-15 |
-| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 11% | 5 | 41 | 2026-12-15 |
+| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 13% | 6 | 41 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 33 | — |
 | **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 7 | — |
 | **12.0.0** | ![12.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/5?style=flat-square&label=) `██░░░░░░░░` 15% | 2 | 11 | — |
