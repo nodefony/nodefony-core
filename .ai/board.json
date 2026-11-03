@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T23:37:19.723Z",
+  "generatedAt": "2026-11-03T15:07:38.522Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 228,
+      "closed": 229,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 22,
+      "open": 20,
       "title": "10.0.0-beta"
     },
     {
@@ -5817,8 +5817,8 @@
       "number": 726,
       "title": "docs(devkit): refondre le skill temps réel avec des exemples prouvés",
       "url": "https://github.com/nodefony/nodefony-core/issues/726",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 2,
@@ -5835,14 +5835,14 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/555",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0-beta",
+      "milestone": null,
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 6.037,
       "debut": "2026-11-16",
       "cible": "2026-11-16",
       "labels": [
-        "beta-6",
+        "backlog",
         "reportable"
       ]
     },
@@ -5981,6 +5981,22 @@
       ]
     },
     {
+      "number": 724,
+      "title": "feat(framework): renvoyer en flux une source quelconque",
+      "url": "https://github.com/nodefony/nodefony-core/issues/724",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 6.06,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
       "number": 479,
       "title": "ci: empêcher un process détaché de figer les jobs Windows après leur succès",
       "url": "https://github.com/nodefony/nodefony-core/issues/479",
@@ -6051,22 +6067,6 @@
       "debut": null,
       "cible": null,
       "labels": []
-    },
-    {
-      "number": 541,
-      "title": "test(cli): valider le plein écran du serveur de dev sous Windows",
-      "url": "https://github.com/nodefony/nodefony-core/issues/541",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 0.5,
-      "ordre": 6.1,
-      "debut": "2026-11-17",
-      "cible": "2026-11-17",
-      "labels": [
-        "beta-6"
-      ]
     },
     {
       "number": 513,
@@ -6172,22 +6172,6 @@
       "debut": null,
       "cible": null,
       "labels": []
-    },
-    {
-      "number": 659,
-      "title": "docs(performance): remesurer les pages de performance avant la release",
-      "url": "https://github.com/nodefony/nodefony-core/issues/659",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 6.2,
-      "debut": "2026-11-20",
-      "cible": "2026-11-20",
-      "labels": [
-        "beta-6"
-      ]
     },
     {
       "number": 182,
@@ -6522,17 +6506,33 @@
       ]
     },
     {
-      "number": 724,
-      "title": "feat(framework): renvoyer en flux une source quelconque",
-      "url": "https://github.com/nodefony/nodefony-core/issues/724",
+      "number": 541,
+      "title": "test(cli): valider le plein écran du serveur de dev sous Windows",
+      "url": "https://github.com/nodefony/nodefony-core/issues/541",
       "state": "OPEN",
       "status": "In Progress",
       "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 2,
-      "ordre": 7.05,
-      "debut": null,
-      "cible": null,
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 7.06,
+      "debut": "2026-11-17",
+      "cible": "2026-11-17",
+      "labels": [
+        "beta-7"
+      ]
+    },
+    {
+      "number": 659,
+      "title": "docs(performance): remesurer les pages de performance avant la release",
+      "url": "https://github.com/nodefony/nodefony-core/issues/659",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 7.07,
+      "debut": "2026-11-20",
+      "cible": "2026-11-20",
       "labels": [
         "beta-7"
       ]
