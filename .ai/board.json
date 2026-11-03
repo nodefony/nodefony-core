@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-03T15:07:38.522Z",
+  "generatedAt": "2026-11-03T15:12:41.027Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -5834,7 +5834,7 @@
       "title": "feat(studio): montrer en direct la contre-pression du temps réel",
       "url": "https://github.com/nodefony/nodefony-core/issues/555",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": null,
       "priorite": "P2 — décision",
       "jours": 1,
@@ -5842,8 +5842,7 @@
       "debut": "2026-11-16",
       "cible": "2026-11-16",
       "labels": [
-        "backlog",
-        "reportable"
+        "backlog"
       ]
     },
     {
