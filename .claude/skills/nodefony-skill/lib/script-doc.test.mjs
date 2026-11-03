@@ -9,7 +9,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { analyzeScript, createLaunchFinder } from "./script-doc.mjs";
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nf-script-doc-"));
@@ -66,9 +66,18 @@ describe("analyzeScript — les options d'un script", () => {
 describe("createLaunchFinder — un runner lancé sur un DOSSIER", () => {
   const finder = (scripts) =>
     createLaunchFinder(new Map(), JSON.stringify({ scripts }));
+  // Construire un finder BALAYE le dépôt (tests de `src/` lus un à un, `git grep`) :
+  // ~3 s en local, le double sur le runner macOS de la forge. Une construction par
+  // `it` dépassait le délai de 5 s d'un test ; deux constructions, une fois, ici.
+  let folderTarget;
+  let substringOnly;
+  beforeAll(() => {
+    folderTarget = finder({ tooling: "vitest run scripts/deps" });
+    substringOnly = finder({ one: "node scripts/deps/check.mjs" });
+  }, 60_000);
 
   it("un test rangé PLUSIEURS niveaux sous le dossier ciblé est lancé", () => {
-    const { appelants } = finder({ tooling: "vitest run scripts/deps" });
+    const { appelants } = folderTarget;
     expect(appelants("scripts/deps/shims/x/index.test.mjs")).toContainEqual({
       label: "un script npm (cible-dossier)",
       name: "npm run tooling",
@@ -76,12 +85,12 @@ describe("createLaunchFinder — un runner lancé sur un DOSSIER", () => {
   });
 
   it("un dossier cité comme SOUS-CHAÎNE d'un chemin ne lance rien", () => {
-    const { appelants } = finder({ one: "node scripts/deps/check.mjs" });
+    const { appelants } = substringOnly;
     expect(appelants("scripts/deps/shims/x/index.test.mjs")).toEqual([]);
   });
 
   it("un outil (non-test) du sous-dossier n'est pas blanchi par la cible-dossier", () => {
-    const { appelants } = finder({ tooling: "vitest run scripts/deps" });
+    const { appelants } = folderTarget;
     expect(appelants("scripts/deps/shims/x/index.mjs")).toEqual([]);
   });
 });
