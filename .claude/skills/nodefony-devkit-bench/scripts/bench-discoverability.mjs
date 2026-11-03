@@ -5321,13 +5321,22 @@ export const TASKS = [
       },
       {
         // OBSERVÉ (#726) : un test qui exclut PUIS constate — l'éjection
-        // (`evicted`) ou le refus au retour (`denials()`). Vécu au #700 : les
-        // tests des agents ne s'abonnaient pas, et un salon que personne ne
-        // servait passait vert. L'énoncé ne l'exige pas mot pour mot : signal
-        // de qualité, à durcir quand un run aura montré ce que font les agents.
+        // (`evicted`) ou le refus au retour (`denials()`, `forbidden`). Vécu au
+        // #700 : les tests des agents ne s'abonnaient pas, et un salon que
+        // personne ne servait passait vert. L'énoncé ne l'exige pas mot pour
+        // mot : signal de qualité, pas verdict.
+        //
+        // Le geste d'exclusion doit PRÉCÉDER la constatation dans le MÊME
+        // test (`it(`/`test(` jamais franchi). Vécu au run ×3 du #726 : la
+        // répétition 3 n'avait qu'un refus pour une personne jamais inscrite —
+        // un `denials()` seul, et l'ancienne sonde le comptait vert. Le geste :
+        // un appel (`evictUser(`, `exclude(`, `kickMember(`, `ban(`…), un nom
+        // d'entrée ou de route sans espace (`"room:kick"` — un titre de test
+        // porte des espaces et n'en est pas un), ou un DELETE sur un membre.
         kind: "code",
         name: "l'exclusion est PROUVÉE par un test (evicted, ou refus au retour)",
-        pattern: /["'`]evicted["'`]|\bdenials\(\)/u,
+        pattern:
+          /(?:\b\w*(?:[Ee]vict|[Kk]ick|[Ee]xclu|[Rr]emoveMember|[Rr]evoke|[Bb]an(?=[A-Z(]))\w*\s*\(|["'`][\w./:-]*(?:kick|exclu|evict(?!ed)|ban(?![a-z]))[\w./:-]*["'`]|\bdelete\s*\(\s*["'`][^"'`\n]*members?\b)(?:(?!\b(?:it|test)\s*\()[\s\S]){0,3000}?(?:["'`](?:evicted|forbidden)["'`]|\bdenials\(\))/u,
         where: "addedTests",
         observe: true,
       },

@@ -3445,6 +3445,47 @@ const SAMPLES = {
     fail: {
       addedTests: `    exclude("room:7", "bob");\n    expect(guests.get("room:7")?.has("bob")).toBe(false);`,
     },
+    extra: [
+      {
+        // Matière de la répétition 3 du run #726 (lignes 2, 4, 5 et 11 reprises
+        // telles quelles) : un refus pour une personne JAMAIS inscrite, sur une
+        // base vide. Aucune exclusion n'a lieu ; l'ancienne sonde l'acceptait
+        // parce qu'elle prenait n'importe quel `denials()`.
+        label: "refuse un refus sans exclusion préalable (rép. 3 du #726)",
+        matter: {
+          addedTests: `  it("canal room:* refuse les abonnements d'une personne non inscrite au salon", async () => {\n    const alice = await harness.connect({\n      identity: createTestIdentity({ identifier: "alice", id: "alice-id" }),\n      frameAuthorizer: createTestFrameAuthorizer(getRealtimeHub()),\n    });\n    await alice.subscribe("room:7");\n    expect(alice.denials()).toEqual([\n      { channel: "room:7", reason: "forbidden" },\n    ]);\n  });`,
+        },
+        expect: false,
+      },
+      {
+        // L'exclusion et le refus vivent dans deux tests DIFFÉRENTS : aucun
+        // des deux ne prouve que l'exclu est refusé.
+        label:
+          "refuse une exclusion et un refus tenus dans deux tests distincts",
+        matter: {
+          addedTests: `  it("le modérateur exclut", async () => {\n    await moderator.send("room:kick", { room: "room:7", user: "bob" });\n  });\n  it("un inconnu est refusé", async () => {\n    await carol.subscribe("room:7");\n    expect(carol.denials()).toEqual([{ channel: "room:7", reason: "forbidden" }]);\n  });`,
+        },
+        expect: false,
+      },
+      {
+        // L'autre preuve valable : exclu, il revient (page rechargée) et il est
+        // refusé.
+        // Forme de la répétition 1 du #726 : l'exclusion passe par une ENTRÉE
+        // du contrôleur (`room:evict-member`), pas par le hub.
+        label: "accepte une exclusion par une entrée nommée (rép. 1 du #726)",
+        matter: {
+          addedTests: `  it("l'exclu ne peut plus s'abonner après sa réadhésion", async () => {\n    await alice.call<{ evicted: boolean }>("room:evict-member", { room: roomId, userId: "bob-id" });\n    const back = createRealtimeHarness((ctx) => new RoomChatController(ctx), { identity: bob });\n    await back.subscribe(\`room:\${roomId}\`);\n    expect(back.denials()).toHaveLength(1);\n  });`,
+        },
+        expect: true,
+      },
+      {
+        label: "accepte une exclusion puis un refus au retour",
+        matter: {
+          addedTests: `  it("l'exclu est refusé au retour", async () => {\n    getRealtimeHub().evictUser("room:7", "bob-id");\n    const again = await harness.connect({ identity: bob });\n    await again.subscribe("room:7");\n    expect(again.denials()).toEqual([{ channel: "room:7", reason: "forbidden" }]);\n  });`,
+        },
+        expect: true,
+      },
+    ],
   },
   "45 :: pas de liste noire inventée (exclus tenus à côté de l'appartenance)": {
     pass: {
