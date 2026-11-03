@@ -7,6 +7,7 @@
 //   actuel     : 13 × (toLowerCase + res.setHeader) + writeHead(200)
 //   accumulé   : 13 clés dans un objet Object.create(null) + writeHead(200, obj)
 //   base+dyn   : table constante précalculée copiée (for-in) + 4 dynamiques
+//   tableau plat : `[nom, valeur, …]` remis en UN `writeHead(status, tableau)`
 //   mixte      : 3 setHeader BRUTS (socle transport sur la réponse brute) +
 //                10 accumulés — Node retombe alors sur setHeader PAR CLÉ
 //                (`writeHead` : « Slow-case: when progressive API … »)
@@ -93,6 +94,16 @@ const variants = {
     res.writeHead(200, h);
     return res._header.length;
   },
+  "tableau plat": (i) => {
+    const res = new http.ServerResponse(req);
+    const a = [];
+    for (let k = 0; k < ALL.length; k++) a.push(ALL[k][0], ALL[k][1]);
+    dynamic((n, v) => {
+      a.push(n, v);
+    }, i);
+    res.writeHead(200, a);
+    return res._header.length;
+  },
   mixte: (i) => {
     const res = new http.ServerResponse(req);
     for (let k = 0; k < TRANSPORT.length; k++)
@@ -118,6 +129,11 @@ const variants = {
       for (const [k, v] of ALL) res.setHeader(k.toLowerCase(), v);
       dynamic((n, v) => res.setHeader(n.toLowerCase(), v), 0);
       res.writeHead(200);
+    } else if (name === "tableau plat") {
+      const a = [];
+      for (const [k, v] of ALL) a.push(k.toLowerCase(), v);
+      dynamic((n, v) => a.push(n.toLowerCase(), v), 0);
+      res.writeHead(200, a);
     } else {
       for (const [k, v] of ALL) h[k.toLowerCase()] = v;
       dynamic((n, v) => {
@@ -127,7 +143,10 @@ const variants = {
     }
     return res._header.split("\r\n").filter(Boolean).sort().join("\n");
   };
-  if (grab("actuel") !== grab("accumulé")) {
+  if (
+    grab("actuel") !== grab("accumulé") ||
+    grab("actuel") !== grab("tableau plat")
+  ) {
     console.error(
       "⛔ blocs d'en-têtes différents :\n",
       grab("actuel"),
