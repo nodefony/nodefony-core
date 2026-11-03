@@ -1,7 +1,8 @@
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
+import { Router } from "@nodefony/framework";
 import { RealtimeController } from "../../src/server/RealtimeController";
 import { RealtimeChannel } from "../../decorators/realtimeDecorators";
 import { getRealtimeHub } from "../../src/server/RealtimeHub";
@@ -148,6 +149,67 @@ describe("#726 — la page montre exactement les exemples exécutés", () => {
       expect(files.has(`${base}.test.ts`), `${base}.test.ts`).toBe(true);
     }
   });
+
+  // Une socket ne sert QUE les canaux du contrôleur qui porte sa route
+  // WebSocket (`RealtimeController.onHandshake` lit les décorateurs de `this`).
+  // Le harnais instancie la classe sans passer par le routeur : il ne voit pas
+  // un client qui ouvre la socket d'un AUTRE contrôleur — vécu, la page visait
+  // `/api/live/realtime` pour les sept cas, où `room:*` n'existe pas.
+  it.each(servers)(
+    "%s : la socket que vise le client est servie par le contrôleur du cas",
+    async (name) => {
+      const servedBy = async (file: string): Promise<RegExp[]> => {
+        const mod: Record<string, unknown> = await import(
+          pathToFileURL(file).href
+        );
+        // Gardées `unknown` : une classe ABSTRAITE (`RealtimeController`) n'est
+        // pas un constructeur au sens de `getRoutesForController`.
+        const owners = new Set<unknown>(
+          Object.values(mod).filter(
+            (value) =>
+              typeof value === "function" &&
+              value.prototype instanceof RealtimeController,
+          ),
+        );
+        return Router.routes
+          .filter(
+            (r) =>
+              owners.has(r.controller) &&
+              r.methodsSet?.has("WEBSOCKET") === true,
+          )
+          .flatMap((r) => (r.pattern ? [r.pattern] : []));
+      };
+      const base = name.slice(0, -".ts".length);
+      const own = await servedBy(files.get(name) ?? "");
+      // Sans contrôleur (`user:<id>`, fourni par toute socket) : n'importe
+      // laquelle des sockets des cas fait l'affaire.
+      const sockets =
+        own.length > 0
+          ? own
+          : (
+              await Promise.all(
+                servers.map((s) => servedBy(files.get(s) ?? "")),
+              )
+            ).flat();
+      expect(
+        sockets.length,
+        `${name} : aucune route WEBSOCKET`,
+      ).toBeGreaterThan(0);
+      const client = lf(
+        readFileSync(files.get(`${base}.client.ts`) ?? "", "utf8"),
+      );
+      const urls = [...client.matchAll(/url: "([^"]+)"/g)].map(
+        (m) => new URL(m[1] ?? "", "https://app.example").pathname,
+      );
+      expect(urls.length, `${base}.client.ts : aucune url`).toBeGreaterThan(0);
+      for (const url of urls) {
+        expect(
+          sockets.some((p) => p.test(url)),
+          `${base}.client.ts vise ${url}, qu'aucune route WEBSOCKET du cas ne sert`,
+        ).toBe(true);
+      }
+    },
+  );
 
   it.each([...files.keys()])(
     "%s : le bloc de la page est le fichier du dépôt",

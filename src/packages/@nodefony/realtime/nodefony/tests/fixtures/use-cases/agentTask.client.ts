@@ -1,6 +1,6 @@
 import { NodefonySocket } from "nodefony/client";
 
-const socket = NodefonySocket.shared({ url: "/api/live/realtime" });
+const socket = NodefonySocket.shared({ url: "/api/task/realtime" });
 
 /** Démarre une tâche : le serveur nomme le canal, y abonne, puis le termine. */
 export function startTask(

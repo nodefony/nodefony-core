@@ -1,3 +1,4 @@
+import { controller, route } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
 import {
   RealtimeChannel,
@@ -14,9 +15,20 @@ export function publishLoad(): void {
   getRealtimeHub().publish("board:load", { rss, heap: heapUsed });
 }
 
+// Sa socket : `/api/board/realtime` (préfixe + route). Elle ne sert que les canaux déclarés ici.
+@controller("/api/board")
 export class BoardRealtime extends RealtimeController {
   constructor(context: ContextType) {
     super("BoardRealtime", context);
+  }
+
+  // Le point d'entrée : `handleRealtime` fait tout le protocole et route vers les décorateurs.
+  @route("board-realtime", {
+    path: "/realtime",
+    requirements: { methods: ["WEBSOCKET"] },
+  })
+  async realtime(message: string | Uint8Array | null): Promise<void> {
+    this.handleRealtime(message);
   }
 
   // UN minuteur par serveur : créé au PREMIER écran, arrêté au DERNIER. Rien de

@@ -40,12 +40,19 @@ l'erreur qui compile, passe les tests, et ne se voit qu'en production.
 | montrer la progression d'une tâche longue à celui qui l'a demandée | [Tâche d'agent](#tâche-dagent)                         | le serveur nomme le canal et le termine |
 | un appel, une conversation à la voix                               | [Appel et voix](#appel-et-voix)                        | en conception                           |
 
-Chaque exemple serveur est le **corps d'un contrôleur temps réel**. Le contrôleur lui-même, sa
-route et son câblage naissent d'une commande, et ne sont pas répétés ici :
+Chaque exemple serveur est un **contrôleur temps réel complet, point d'entrée compris**.
+`@controller("/api/arena")` donne le préfixe ; la route `WEBSOCKET` (`path: "/realtime"`) est la
+porte de la socket, et `handleRealtime` y fait tout le protocole — accueil, identité, abonnements,
+entrées. C'est la forme que produit la commande :
 
 ```bash
-npx nodefony create controller Arena --kind realtime
+npx nodefony create controller Arena --kind realtime   # sert /api/arena/realtime
 ```
+
+> ⚠️ **Une socket ne sert que les canaux du contrôleur qui porte sa route.** Pour `room:*`, le
+> navigateur ouvre `/api/room/realtime` : ouverte sur un autre contrôleur, la socket refuse
+> `room:42` (`unknown`). Pour qu'une page n'ouvre qu'une socket, regroupez ses canaux dans un même
+> contrôleur. Seul `user:<id>` est fourni par toutes.
 
 Chaque cas montre trois fichiers : le **serveur**, le **navigateur**, et le **test** qui éprouve
 le serveur avec l'identité d'essai de `@nodefony/security/testing`. Le serveur et le test sont
@@ -75,6 +82,7 @@ Soixante coups par seconde et par joueur, un écran qui se redessine vingt fois 
 <!-- example: gameMoves.ts -->
 
 ```ts
+import { controller, route } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
 import {
   RealtimeChannel,
@@ -89,9 +97,20 @@ type Point = { x: number; y: number };
 /** Dernière position connue de chaque joueur : un coup REMPLACE le précédent. */
 export const positions = new Map<string, Point>();
 
+// Sa socket : `/api/arena/realtime` (préfixe + route). Elle ne sert que les canaux déclarés ici.
+@controller("/api/arena")
 export class ArenaRealtime extends RealtimeController {
   constructor(context: ContextType) {
     super("ArenaRealtime", context);
+  }
+
+  // Le point d'entrée : `handleRealtime` fait tout le protocole et route vers les décorateurs.
+  @route("arena-realtime", {
+    path: "/realtime",
+    requirements: { methods: ["WEBSOCKET"] },
+  })
+  async realtime(message: string | Uint8Array | null): Promise<void> {
+    this.handleRealtime(message);
   }
 
   // Le rôle est contrôlé au premier coup, puis le verdict est retenu sur la connexion.
@@ -137,7 +156,7 @@ Côté navigateur, la socket **jette** un coup quand le réseau cale, au lieu de
 import { NodefonySocket } from "nodefony/client";
 
 const socket = NodefonySocket.shared({
-  url: "/api/live/realtime",
+  url: "/api/arena/realtime",
   maxBufferedAmount: 64 * 1024, // au-delà, le coup est JETÉ et compté, pas mis en file
 });
 
@@ -249,6 +268,7 @@ Le joueur demande une partie ; le serveur la trouve et l'y place, sans qu'il ait
 <!-- example: matchmaking.ts -->
 
 ```ts
+import { controller, route } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
 import {
   RealtimeChannel,
@@ -261,9 +281,20 @@ import type { IRealtimeConnection } from "@nodefony/realtime";
 /** Qui joue à quelle partie — en vrai, une table ou un Redis partagé. */
 export const players = new Map<string, Set<string>>();
 
+// Sa socket : `/api/match/realtime` (préfixe + route). Elle ne sert que les canaux déclarés ici.
+@controller("/api/match")
 export class MatchRealtime extends RealtimeController {
   constructor(context: ContextType) {
     super("MatchRealtime", context);
+  }
+
+  // Le point d'entrée : `handleRealtime` fait tout le protocole et route vers les décorateurs.
+  @route("match-realtime", {
+    path: "/realtime",
+    requirements: { methods: ["WEBSOCKET"] },
+  })
+  async realtime(message: string | Uint8Array | null): Promise<void> {
+    this.handleRealtime(message);
   }
 
   // `allow` lit l'appartenance : au premier abonnement ET à chaque reconnexion.
@@ -302,7 +333,7 @@ Côté navigateur, rien à demander : l'abonnement arrive avec `imposed: true`.
 ```ts
 import { NodefonySocket } from "nodefony/client";
 
-const socket = NodefonySocket.shared({ url: "/api/live/realtime" });
+const socket = NodefonySocket.shared({ url: "/api/match/realtime" });
 
 /** Rien à écrire pour suivre la partie : le serveur IMPOSE l'abonnement. */
 export function findMatch(onState: (state: unknown) => void): void {
@@ -400,6 +431,7 @@ npx nodefony create entity RoomMember "room:ref:Room" "user:ref:User" "role:enum
 <!-- example: privateRoom.ts -->
 
 ```ts
+import { controller, route } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
 import {
   RealtimeChannel,
@@ -422,11 +454,29 @@ async function isMember(channel: string, user: string): Promise<boolean> {
   return (await getRoomMemberService().findOne({ room, user })) !== null;
 }
 
+// La socket de CE contrôleur s'ouvre sur `/api/room/realtime` : le préfixe de la
+// classe, puis le chemin de sa route WebSocket. Seuls les canaux déclarés ICI y
+// sont servis — une socket ouverte ailleurs ne connaît pas `room:*`.
+@controller("/api/room")
 export class RoomRealtime extends RealtimeController {
+  // Instancié PAR CONNEXION : rien de partagé entre membres ne vit dans `this`.
   constructor(context: ContextType) {
     super("RoomRealtime", context);
   }
 
+  // Le point d'entrée : chaque trame de la socket arrive ici. `handleRealtime`
+  // fait tout le protocole — accueil, identité de la connexion, abonnements,
+  // entrées — et route vers les décorateurs ci-dessous. Rien d'autre à écrire.
+  @route("room-realtime", {
+    path: "/realtime",
+    requirements: { methods: ["WEBSOCKET"] },
+  })
+  async realtime(message: string | Uint8Array | null): Promise<void> {
+    this.handleRealtime(message);
+  }
+
+  // `allow` tranche « CETTE personne a-t-elle droit à CE salon ? ». `who.id` est
+  // l'identité posée par le serveur à l'ouverture, jamais un champ du client.
   // Appelé UNE fois, au `subscribe` (et à chaque page rechargée) : une requête
   // en base y est normale.
   @RealtimeChannel("room:*", {
@@ -486,7 +536,7 @@ Côté navigateur, entrer est une demande ; un refus ou une exclusion s'affiche,
 ```ts
 import { NodefonySocket } from "nodefony/client";
 
-const socket = NodefonySocket.shared({ url: "/api/live/realtime" });
+const socket = NodefonySocket.shared({ url: "/api/room/realtime" });
 
 /** Entrer dans un salon : une DEMANDE, que `allow` tranche côté serveur. */
 export function joinRoom(
@@ -677,6 +727,7 @@ Des capteurs envoient des mesures ; les écrans de supervision les reçoivent.
 <!-- example: sensors.ts -->
 
 ```ts
+import { controller, route } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
 import {
   RealtimeChannel,
@@ -685,9 +736,20 @@ import {
   getRealtimeHub,
 } from "@nodefony/realtime";
 
+// Sa socket : `/api/sensor/realtime` (préfixe + route). Elle ne sert que les canaux déclarés ici.
+@controller("/api/sensor")
 export class SensorRealtime extends RealtimeController {
   constructor(context: ContextType) {
     super("SensorRealtime", context);
+  }
+
+  // Le point d'entrée : `handleRealtime` fait tout le protocole et route vers les décorateurs.
+  @route("sensor-realtime", {
+    path: "/realtime",
+    requirements: { methods: ["WEBSOCKET"] },
+  })
+  async realtime(message: string | Uint8Array | null): Promise<void> {
+    this.handleRealtime(message);
   }
 
   // Écrire : réservé aux sondes, par la portée de leur jeton.
@@ -725,7 +787,7 @@ import { NodefonySocket } from "nodefony/client";
 
 /** L'écran de supervision LIT (ROLE_SUPERVISOR) ; il ne peut rien pousser. */
 export function watchDashboard(show: (reading: unknown) => void): () => void {
-  const screen = NodefonySocket.shared({ url: "/api/live/realtime" });
+  const screen = NodefonySocket.shared({ url: "/api/sensor/realtime" });
   const off = screen.on("sensor:dashboard", show);
   screen.subscribe("sensor:dashboard");
   return off;
@@ -734,7 +796,7 @@ export function watchDashboard(show: (reading: unknown) => void): () => void {
 /** Une passerelle d'atelier (script Node) : jeton de portée `telemetry:write`, rien d'autre. */
 export function openGateway(token: string): NodefonySocket {
   const gateway = new NodefonySocket({
-    url: "https://supervision.example/api/live/realtime",
+    url: "https://supervision.example/api/sensor/realtime",
     token,
     maxBufferedAmount: 64 * 1024, // une mesure périmée se jette, elle ne s'empile pas
   });
@@ -835,6 +897,7 @@ Une mesure par seconde, affichée sur autant d'écrans qu'on veut, pour le prix 
 <!-- example: boardTicker.ts -->
 
 ```ts
+import { controller, route } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
 import {
   RealtimeChannel,
@@ -851,9 +914,20 @@ export function publishLoad(): void {
   getRealtimeHub().publish("board:load", { rss, heap: heapUsed });
 }
 
+// Sa socket : `/api/board/realtime` (préfixe + route). Elle ne sert que les canaux déclarés ici.
+@controller("/api/board")
 export class BoardRealtime extends RealtimeController {
   constructor(context: ContextType) {
     super("BoardRealtime", context);
+  }
+
+  // Le point d'entrée : `handleRealtime` fait tout le protocole et route vers les décorateurs.
+  @route("board-realtime", {
+    path: "/realtime",
+    requirements: { methods: ["WEBSOCKET"] },
+  })
+  async realtime(message: string | Uint8Array | null): Promise<void> {
+    this.handleRealtime(message);
   }
 
   // UN minuteur par serveur : créé au PREMIER écran, arrêté au DERNIER. Rien de
@@ -874,7 +948,7 @@ Côté navigateur, chaque écran s'abonne, sans rien savoir des autres :
 ```ts
 import { NodefonySocket } from "nodefony/client";
 
-const socket = NodefonySocket.shared({ url: "/api/live/realtime" });
+const socket = NodefonySocket.shared({ url: "/api/board/realtime" });
 
 /** Chaque écran s'abonne ; le serveur ne paie qu'un producteur pour tous. */
 export function watchLoad(render: (load: unknown) => void): () => void {
@@ -995,8 +1069,10 @@ interface BillingContract extends IRealtimeContract {
   };
 }
 
+// N'importe quelle socket temps réel de l'application : `user:<id>` est fourni
+// par chacune, sans rien déclarer. Ici celle des sondes (`SensorRealtime`).
 const socket = NodefonySocket.fromContract<BillingContract>({
-  url: "/api/live/realtime",
+  url: "/api/sensor/realtime",
 });
 
 /** Rien à connaître ni à construire : l'identifiant vient de l'accueil de la socket. */
@@ -1075,6 +1151,7 @@ Une tâche longue — une analyse, une génération — dont le demandeur suit l
 
 ```ts
 import { randomUUID } from "node:crypto";
+import { controller, route } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
 import {
   RealtimeChannel,
@@ -1087,9 +1164,20 @@ import type { IRealtimeConnection } from "@nodefony/realtime";
 /** Tâche en cours → son demandeur. Seul le demandeur suit le flux de SA tâche. */
 export const owners = new Map<string, string>();
 
+// Sa socket : `/api/task/realtime` (préfixe + route). Elle ne sert que les canaux déclarés ici.
+@controller("/api/task")
 export class TaskRealtime extends RealtimeController {
   constructor(context: ContextType) {
     super("TaskRealtime", context);
+  }
+
+  // Le point d'entrée : `handleRealtime` fait tout le protocole et route vers les décorateurs.
+  @route("task-realtime", {
+    path: "/realtime",
+    requirements: { methods: ["WEBSOCKET"] },
+  })
+  async realtime(message: string | Uint8Array | null): Promise<void> {
+    this.handleRealtime(message);
   }
 
   @RealtimeChannel("task:*", {
@@ -1138,7 +1226,7 @@ Côté navigateur, la réponse donne le nom du canal, que la socket suit déjà 
 ```ts
 import { NodefonySocket } from "nodefony/client";
 
-const socket = NodefonySocket.shared({ url: "/api/live/realtime" });
+const socket = NodefonySocket.shared({ url: "/api/task/realtime" });
 
 /** Démarre une tâche : le serveur nomme le canal, y abonne, puis le termine. */
 export function startTask(

@@ -1,3 +1,4 @@
+import { controller, route } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
 import {
   RealtimeChannel,
@@ -20,11 +21,29 @@ async function isMember(channel: string, user: string): Promise<boolean> {
   return (await getRoomMemberService().findOne({ room, user })) !== null;
 }
 
+// La socket de CE contrôleur s'ouvre sur `/api/room/realtime` : le préfixe de la
+// classe, puis le chemin de sa route WebSocket. Seuls les canaux déclarés ICI y
+// sont servis — une socket ouverte ailleurs ne connaît pas `room:*`.
+@controller("/api/room")
 export class RoomRealtime extends RealtimeController {
+  // Instancié PAR CONNEXION : rien de partagé entre membres ne vit dans `this`.
   constructor(context: ContextType) {
     super("RoomRealtime", context);
   }
 
+  // Le point d'entrée : chaque trame de la socket arrive ici. `handleRealtime`
+  // fait tout le protocole — accueil, identité de la connexion, abonnements,
+  // entrées — et route vers les décorateurs ci-dessous. Rien d'autre à écrire.
+  @route("room-realtime", {
+    path: "/realtime",
+    requirements: { methods: ["WEBSOCKET"] },
+  })
+  async realtime(message: string | Uint8Array | null): Promise<void> {
+    this.handleRealtime(message);
+  }
+
+  // `allow` tranche « CETTE personne a-t-elle droit à CE salon ? ». `who.id` est
+  // l'identité posée par le serveur à l'ouverture, jamais un champ du client.
   // Appelé UNE fois, au `subscribe` (et à chaque page rechargée) : une requête
   // en base y est normale.
   @RealtimeChannel("room:*", {

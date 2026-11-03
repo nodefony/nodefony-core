@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { controller, route } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
 import {
   RealtimeChannel,
@@ -11,9 +12,20 @@ import type { IRealtimeConnection } from "../../../../index";
 /** Tâche en cours → son demandeur. Seul le demandeur suit le flux de SA tâche. */
 export const owners = new Map<string, string>();
 
+// Sa socket : `/api/task/realtime` (préfixe + route). Elle ne sert que les canaux déclarés ici.
+@controller("/api/task")
 export class TaskRealtime extends RealtimeController {
   constructor(context: ContextType) {
     super("TaskRealtime", context);
+  }
+
+  // Le point d'entrée : `handleRealtime` fait tout le protocole et route vers les décorateurs.
+  @route("task-realtime", {
+    path: "/realtime",
+    requirements: { methods: ["WEBSOCKET"] },
+  })
+  async realtime(message: string | Uint8Array | null): Promise<void> {
+    this.handleRealtime(message);
   }
 
   @RealtimeChannel("task:*", {

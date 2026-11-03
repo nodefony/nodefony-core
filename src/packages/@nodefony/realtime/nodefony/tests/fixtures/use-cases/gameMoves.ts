@@ -1,3 +1,4 @@
+import { controller, route } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
 import {
   RealtimeChannel,
@@ -12,9 +13,20 @@ type Point = { x: number; y: number };
 /** Dernière position connue de chaque joueur : un coup REMPLACE le précédent. */
 export const positions = new Map<string, Point>();
 
+// Sa socket : `/api/arena/realtime` (préfixe + route). Elle ne sert que les canaux déclarés ici.
+@controller("/api/arena")
 export class ArenaRealtime extends RealtimeController {
   constructor(context: ContextType) {
     super("ArenaRealtime", context);
+  }
+
+  // Le point d'entrée : `handleRealtime` fait tout le protocole et route vers les décorateurs.
+  @route("arena-realtime", {
+    path: "/realtime",
+    requirements: { methods: ["WEBSOCKET"] },
+  })
+  async realtime(message: string | Uint8Array | null): Promise<void> {
+    this.handleRealtime(message);
   }
 
   // Le rôle est contrôlé au premier coup, puis le verdict est retenu sur la connexion.

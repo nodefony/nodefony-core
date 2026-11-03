@@ -1,3 +1,4 @@
+import { controller, route } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
 import {
   RealtimeChannel,
@@ -10,9 +11,20 @@ import type { IRealtimeConnection } from "../../../../index";
 /** Qui joue à quelle partie — en vrai, une table ou un Redis partagé. */
 export const players = new Map<string, Set<string>>();
 
+// Sa socket : `/api/match/realtime` (préfixe + route). Elle ne sert que les canaux déclarés ici.
+@controller("/api/match")
 export class MatchRealtime extends RealtimeController {
   constructor(context: ContextType) {
     super("MatchRealtime", context);
+  }
+
+  // Le point d'entrée : `handleRealtime` fait tout le protocole et route vers les décorateurs.
+  @route("match-realtime", {
+    path: "/realtime",
+    requirements: { methods: ["WEBSOCKET"] },
+  })
+  async realtime(message: string | Uint8Array | null): Promise<void> {
+    this.handleRealtime(message);
   }
 
   // `allow` lit l'appartenance : au premier abonnement ET à chaque reconnexion.

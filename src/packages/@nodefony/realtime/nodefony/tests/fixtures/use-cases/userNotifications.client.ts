@@ -8,8 +8,10 @@ interface BillingContract extends IRealtimeContract {
   };
 }
 
+// N'importe quelle socket temps réel de l'application : `user:<id>` est fourni
+// par chacune, sans rien déclarer. Ici celle des sondes (`SensorRealtime`).
 const socket = NodefonySocket.fromContract<BillingContract>({
-  url: "/api/live/realtime",
+  url: "/api/sensor/realtime",
 });
 
 /** Rien à connaître ni à construire : l'identifiant vient de l'accueil de la socket. */

@@ -1,6 +1,6 @@
 import { NodefonySocket } from "nodefony/client";
 
-const socket = NodefonySocket.shared({ url: "/api/live/realtime" });
+const socket = NodefonySocket.shared({ url: "/api/room/realtime" });
 
 /** Entrer dans un salon : une DEMANDE, que `allow` tranche côté serveur. */
 export function joinRoom(

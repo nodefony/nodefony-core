@@ -1,7 +1,7 @@
 import { NodefonySocket } from "nodefony/client";
 
 const socket = NodefonySocket.shared({
-  url: "/api/live/realtime",
+  url: "/api/arena/realtime",
   maxBufferedAmount: 64 * 1024, // au-delà, le coup est JETÉ et compté, pas mis en file
 });
 

@@ -1,6 +1,6 @@
 import { NodefonySocket } from "nodefony/client";
 
-const socket = NodefonySocket.shared({ url: "/api/live/realtime" });
+const socket = NodefonySocket.shared({ url: "/api/match/realtime" });
 
 /** Rien à écrire pour suivre la partie : le serveur IMPOSE l'abonnement. */
 export function findMatch(onState: (state: unknown) => void): void {
