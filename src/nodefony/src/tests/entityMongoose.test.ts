@@ -37,6 +37,7 @@ import {
   importsName,
   invalidBodyOf,
   lastImportEnd,
+  promotionKeyOf,
   MONGOOSE_CONNECTOR,
   resolveEntityOrm,
   scaffoldCaps,
@@ -631,6 +632,23 @@ describe("create entity — correctifs de l'audit, aux limites", () => {
     // Le JSON accepte tout : on passe au champ suivant, et sans suivant, rien.
     assert.strictEqual(body("j:json? s:text?"), '{"s":12345}');
     assert.strictEqual(body("j:json?"), null);
+  });
+
+  it("clé d'anti-promotion : jamais un champ DÉCLARÉ de l'entité — sinon le test généré naît rouge", () => {
+    // `RoomMember role:enum(member,moderator)` : la sonde `role: "admin"` tombait
+    // sur le VRAI champ, valeur hors énumération → `parse` levait au lieu de retirer.
+    const key = (fields: string): string =>
+      promotionKeyOf(parseEntityFields(fields));
+    assert.strictEqual(key("name:string"), "role");
+    assert.strictEqual(key("role:enum(member,moderator)"), "roles");
+    assert.strictEqual(
+      key("role:string roles:json? isAdmin:bool=false"),
+      "admin",
+    );
+    const taken =
+      "role:string roles:string isAdmin:bool=false admin:bool=false isSuperAdmin:bool=false";
+    const declared = taken.split(" ").map((f) => f.split(":")[0]);
+    assert.ok(!declared.includes(key(taken)), key(taken));
   });
 
   it("les imports se lisent en DÉCLARATIONS entières — multi-ligne, type, dynamique", () => {

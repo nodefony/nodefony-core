@@ -103,8 +103,8 @@ describe("<%= it.pascal %> — entité", () => {
   it("le contrat d'entrée retire les champs inconnus (anti-promotion)", () => {
     const parsed = create<%= it.pascal %>Schema.parse({
       ...sample(3),
-      role: "admin",
+      <%= it.promotionKey %>: "admin",
     });
-    expect(parsed).not.toHaveProperty("role");
+    expect(parsed).not.toHaveProperty("<%= it.promotionKey %>");
   });
 });

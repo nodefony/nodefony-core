@@ -313,7 +313,16 @@ const withE2e = !process.argv.includes("--no-e2e");
  * tombait en `TS2339`. Viser une entité de l'APPLICATION ne pouvait pas le voir.
  */
 const ENTITIES = [
-  ["Author", "email:string:unique", "name:string"],
+  // `role` : un champ qui porte le nom d'une clé de PROMOTION. Le test généré
+  // « anti-promotion » envoyait `role: "admin"` comme champ inconnu ; sur une
+  // entité qui déclare `role`, la valeur tombait hors énumération et le test
+  // naissait rouge (banc de découvrabilité, tâche 45 : trois agents sur trois).
+  [
+    "Author",
+    "email:string:unique",
+    "name:string",
+    "role:enum(reader,editor)=reader",
+  ],
   [
     "Post",
     "title:string:unique",
@@ -376,7 +385,16 @@ const ENTITIES = [
  * Mongoose, dont la clé est un ObjectId comme celle de toute entité document.
  */
 const MONGO_ENTITIES = [
-  ["Author", "email:string:unique", "name:string"],
+  // `role` : un champ qui porte le nom d'une clé de PROMOTION. Le test généré
+  // « anti-promotion » envoyait `role: "admin"` comme champ inconnu ; sur une
+  // entité qui déclare `role`, la valeur tombait hors énumération et le test
+  // naissait rouge (banc de découvrabilité, tâche 45 : trois agents sur trois).
+  [
+    "Author",
+    "email:string:unique",
+    "name:string",
+    "role:enum(reader,editor)=reader",
+  ],
   [
     "Post",
     "title:string:unique",

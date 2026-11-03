@@ -4687,6 +4687,27 @@ export function invalidBodyOf(fields: readonly IEntityField[]): string | null {
   return null;
 }
 
+/** Clés qu'un client tenterait pour s'auto-promouvoir, par ordre de vraisemblance. */
+const PROMOTION_KEYS = ["role", "roles", "admin", "isAdmin", "isSuperAdmin"];
+
+/**
+ * La clé que le test généré « anti-promotion » envoie comme champ INCONNU, en
+ * attendant que le contrat d'entrée la retire.
+ *
+ * Jamais un champ déclaré de l'entité : `role:enum(member,moderator)` recevait
+ * `role: "admin"`, valeur hors énumération — `parse` levait au lieu de retirer,
+ * et le test naissait rouge.
+ *
+ * @param fields - champs de l'entité.
+ * @returns la première clé de promotion libre, ou une clé synthétique si toutes sont prises.
+ */
+export function promotionKeyOf(fields: readonly IEntityField[]): string {
+  const names = new Set(fields.map((f) => f.name));
+  return (
+    PROMOTION_KEYS.find((k) => !names.has(k)) ?? "__nodefonyUnknownPromotion"
+  );
+}
+
 export function sampleValue(
   field: IEntityField,
   id: TEntityIdKind,
@@ -5825,6 +5846,8 @@ function runEntityScaffold(
     // obligatoire sans défaut : sinon il est VALIDE, et les deux tests
     // générés naissaient rouges (`enabled:bool=true note:text?`).
     invalidBody: invalidBodyOf(fields),
+    // Le champ INCONNU du test anti-promotion — jamais un champ de l'entité.
+    promotionKey: promotionKeyOf(fields),
     // Un module a son propre `rootDir` : ses tests ne peuvent pas importer le
     // décor e2e de l'application, et passent par `nodefony/testing`.
     inModule: target.kind !== "app",
