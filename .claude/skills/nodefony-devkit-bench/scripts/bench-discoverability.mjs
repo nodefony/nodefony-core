@@ -544,6 +544,20 @@ const NOM_APP_TEMOIN = "bench-app";
 const FOYERS_JETABLES = { VIBE_HOME: ".vibe-home", CODEX_HOME: ".codex-home" };
 
 /**
+ * Ce que le juge ne lit JAMAIS : les foyers jetables posés par le banc.
+ *
+ * Ils vivent dans l'application (l'agent ne joint que son dossier de travail) et
+ * sont suivis par git — c'est ce qui les remet à zéro entre deux répétitions.
+ * Mais ce que l'agent y laisse (sessions, cache de plugins) n'est pas son code :
+ * vécu, le catalogue de plugins de Codex citait « eslint-disable » dans une
+ * description, et la sonde « aucun contrôle mis en sourdine » a recalé un run
+ * dont le code n'en portait aucun.
+ */
+const HORS_JUGE = Object.values(FOYERS_JETABLES).map(
+  (dossier) => `:(exclude)${dossier}/**`,
+);
+
+/**
  * Env de tout ce qui s'exécute DANS l'app témoin — agent comme gates.
  *
  * 🔴 **Le jeton MCP y est POSÉ au montage du décor** (`NF_MCP_TOKEN`). Sans lui,
@@ -5678,7 +5692,7 @@ export const lignesDuDiff = (sortie, marqueur) =>
     .join("\n");
 
 export const lignesAjoutees = (app, from, to) => {
-  const fichiers = git(app, "diff", "--numstat", from, to)
+  const fichiers = git(app, "diff", "--numstat", from, to, "--", ...HORS_JUGE)
     .split("\n")
     .filter(Boolean)
     .map((l) => {
@@ -7652,7 +7666,15 @@ function judgeTask(app, runDir, task, occurrence = null) {
       .slice(idx + 1)
       .find((l) => /tâche \d+$|état initial$/u.test(l))
       ?.split(" ")[0];
-  const files = git(app, "diff", "--name-only", base ?? `${hash}~1`, hash)
+  const files = git(
+    app,
+    "diff",
+    "--name-only",
+    base ?? `${hash}~1`,
+    hash,
+    "--",
+    ...HORS_JUGE,
+  )
     .split("\n")
     .filter(Boolean);
   // Un run vide retire le droit de conclure — il ne condamne pas. On emprunte le
@@ -7730,6 +7752,7 @@ function judgeTask(app, runDir, task, occurrence = null) {
       "*.js",
       "*.mjs",
       "*.json",
+      ...HORS_JUGE,
     ),
     "+",
   );
@@ -7748,6 +7771,7 @@ function judgeTask(app, runDir, task, occurrence = null) {
       // vert) était recalé parce que son test d'accompagnement citait l'URL
       // qu'il venait de poser. La sonde visait la config ; elle mordait sur la
       // preuve.
+      ...HORS_JUGE,
       ":(exclude)tests/**",
       ":(exclude)**/*.test.ts",
       ":(exclude)**/*.spec.ts",
@@ -7774,6 +7798,7 @@ function judgeTask(app, runDir, task, occurrence = null) {
       "tests/**",
       "**/*.test.ts",
       "**/*.spec.ts",
+      ...HORS_JUGE,
     ),
     "+",
   );
@@ -7791,6 +7816,8 @@ function judgeTask(app, runDir, task, occurrence = null) {
     "--name-only",
     base ?? `${hash}~1`,
     hash,
+    "--",
+    ...HORS_JUGE,
   )
     .split("\n")
     .filter(Boolean);
