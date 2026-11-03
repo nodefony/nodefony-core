@@ -1,7 +1,7 @@
 ---
 name: nodefony-add-realtime-channel
 metadata:
-  version: 2.0.0
+  version: 2.1.0
 description: >
   Choisit et branche la brique temps réel que Nodefony fournit déjà — canal, entrée client,
   action, canal personnel, canal à membres, flux SSE, contrat typé, octets — au lieu d'un
@@ -373,6 +373,37 @@ bob.dispose();
   premier seulement — c'est ainsi qu'on éprouve qu'une publication atteint l'un et pas l'autre.
 - **Vois le test rouge une fois** : retire `allow` (ou `roles`), l'intrus doit entrer ; remets-le.
 - L'exclusion se prouve : exclu → `realtime:closed evicted`, puis un nouveau `subscribe` refusé.
+  Un refus opposé à quelqu'un qui n'a jamais été membre ne prouve PAS l'exclusion.
+- **`allow` lit la base ? Le test l'amorce** — c'est la recette du test que `create entity` a
+  écrit à côté de chaque entité (`tests/<entité>.test.ts`), avec deux écarts :
+
+  ```ts
+  import { DrizzleOrm, seedEntityRow } from "@nodefony/drizzle";
+  import { entityRegistry, ormRegistry } from "@nodefony/orm-core";
+
+  const CONNECTOR = "default"; // celui de l'APPLICATION : `getRoomMemberService()` le lit
+  for (const e of [UserEntity, RoomEntity, RoomMemberEntity]) {
+    entityRegistry.register({ ...e, connector: CONNECTOR });
+  }
+  const orm = new DrizzleOrm(CONNECTOR, { filename: ":memory:" });
+  await orm.connect();
+  // Les PARENTS d'abord : une clé étrangère inventée est refusée par la base.
+  const bobId = String(
+    await seedEntityRow(orm, { ...UserEntity, connector: CONNECTOR }),
+  );
+  const room = String(
+    await seedEntityRow(orm, { ...RoomEntity, connector: CONNECTOR }),
+  );
+  await getRoomMemberService().create({ room, user: bobId, role: "member" });
+  // `who.id` = l'identifiant EN BASE :
+  createTestIdentity({ identifier: "bob", id: bobId });
+  // afterAll : orm.disconnect(), entityRegistry.unregister(nom, CONNECTOR), ormRegistry.unregister(CONNECTOR)
+  ```
+
+  Écart 1 : le connecteur s'appelle `default`, pas `test-<entité>` — sinon l'accesseur du
+  service ne trouve aucune base. Écart 2 : `FOREIGN KEY constraint failed` = un parent non semé,
+  jamais une raison de retirer le test. Exemple exécuté complet : `cas-d-usage.md` (salon privé).
+
 - **Et le canal public témoin répond toujours** (`live:events` d'une application générée) : s'il
   s'est fermé, une politique ou une zone a débordé.
 - La santé en marche : `GET /nodefony/realtime/api/health` (rôle d'administration) —

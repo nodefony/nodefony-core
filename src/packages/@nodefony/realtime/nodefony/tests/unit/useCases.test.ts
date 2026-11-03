@@ -89,7 +89,11 @@ function asShown(source: string): string {
   return source
     .replaceAll('"../../../../index"', '"@nodefony/realtime"')
     .replaceAll('"../../../testing/index"', '"@nodefony/realtime/testing"')
-    .replaceAll(/"\.\.\/\.\.\/fixtures\/use-cases\/([\w-]+)"/g, '"./$1"');
+    .replaceAll(/"\.\.\/\.\.\/fixtures\/use-cases\/([\w-]+)"/g, '"./$1"')
+    .replaceAll(
+      /"\.\.\/\.\.\/fixtures\/(entity|service)\/([\w-]+)"/g,
+      '"../$1/$2"',
+    );
 }
 
 /**

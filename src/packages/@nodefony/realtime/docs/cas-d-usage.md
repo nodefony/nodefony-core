@@ -387,7 +387,15 @@ Le détail des gestes (lister, éjecter, terminer) : [Canal à membres](canaux-a
 
 ### Salon privé sur invitation
 
-Seuls les invités entrent ; un modérateur peut exclure quelqu'un.
+Seuls les membres entrent ; un modérateur peut exclure quelqu'un. L'appartenance vit en base,
+dans les entités que le générateur écrit :
+
+```bash
+npx nodefony create entity Room "name:string"
+npx nodefony create entity RoomMember "room:ref:Room" "user:ref:User" "role:enum(member,moderator)" --no-controller
+```
+
+`--no-controller` : un CRUD ouvert sur `RoomMember` laisserait chacun s'inviter lui-même.
 
 <!-- example: privateRoom.ts -->
 
@@ -400,12 +408,18 @@ import {
   getRealtimeHub,
 } from "@nodefony/realtime";
 import type { IRealtimeConnection } from "@nodefony/realtime";
+import { getRoomMemberService } from "../service/RoomMemberService";
 
-/** Les invités de chaque salon — en vrai, une table : `allow` peut l'interroger. */
-export const guests = new Map<string, Set<string>>();
+/** L'identifiant du salon d'un canal `room:<id>`, `null` hors de la famille. */
+function roomOf(channel: string): string | null {
+  return channel.startsWith("room:") ? channel.slice("room:".length) : null;
+}
 
-async function isGuest(room: string, user: string): Promise<boolean> {
-  return guests.get(room)?.has(user) ?? false; // en vrai : `await repository.exists(…)`
+/** L'appartenance vit en base : une ligne `RoomMember` (salon, compte). */
+async function isMember(channel: string, user: string): Promise<boolean> {
+  const room = roomOf(channel);
+  if (room === null) return false;
+  return (await getRoomMemberService().findOne({ room, user })) !== null;
 }
 
 export class RoomRealtime extends RealtimeController {
@@ -413,22 +427,23 @@ export class RoomRealtime extends RealtimeController {
     super("RoomRealtime", context);
   }
 
-  // Appelé UNE fois, au `subscribe` : une requête en base y est normale.
+  // Appelé UNE fois, au `subscribe` (et à chaque page rechargée) : une requête
+  // en base y est normale.
   @RealtimeChannel("room:*", {
     allow: async (channel, who) =>
-      who.id !== null && (await isGuest(channel, who.id)),
+      who.id !== null && (await isMember(channel, who.id)),
   })
   room(): () => void {
     return () => {};
   }
 
-  // Un canal décoré n'est servi que sous son nom exact : `room:7` est servi ici.
+  // Un canal décoré n'est servi que sous son nom exact : la famille l'est ici.
   override createRealtimeChannel(channel: string): (() => void) | null {
-    return guests.has(channel) ? () => {} : null;
+    return roomOf(channel) === null ? null : () => {};
   }
 
   // Une entrée n'hérite PAS de la politique du canal : elle vérifie l'appartenance
-  // elle-même, par le MÊME registre qu'`allow`, et l'auteur vient de la connexion.
+  // elle-même, par la MÊME fonction qu'`allow`, et l'auteur vient de la connexion.
   @RealtimeInbound("room:send", { authenticated: true })
   async send(
     params: unknown,
@@ -436,7 +451,7 @@ export class RoomRealtime extends RealtimeController {
     connection: IRealtimeConnection,
   ): Promise<void> {
     if (connection.userId === null || !isMessage(params)) return;
-    if (!(await isGuest(params.room, connection.userId))) return;
+    if (!(await isMember(params.room, connection.userId))) return;
     getRealtimeHub().publish(params.room, {
       author: connection.userId,
       text: params.text.slice(0, 500),
@@ -444,10 +459,12 @@ export class RoomRealtime extends RealtimeController {
   }
 }
 
-/** Exclure : retirer l'invitation (`allow` dira non), PUIS couper ce qu'il reçoit déjà. */
-export function exclude(room: string, user: string): void {
-  guests.get(room)?.delete(user);
-  getRealtimeHub().evictUser(room, user); // ses onglets reçoivent `realtime:closed { reason: "evicted" }`
+/** Exclure : retirer l'appartenance (`allow` dira non), PUIS couper ce qu'il reçoit déjà. */
+export async function exclude(channel: string, user: string): Promise<void> {
+  const room = roomOf(channel);
+  if (room === null) return;
+  await getRoomMemberService().delete({ room, user });
+  getRealtimeHub().evictUser(channel, user); // ses onglets reçoivent `realtime:closed { reason: "evicted" }`
 }
 
 function isMessage(value: unknown): value is { room: string; text: string } {
@@ -488,7 +505,7 @@ export function say(room: string, text: string): void {
   socket.emit("room:send", { room, text });
 }
 
-// Refusé (pas invité) ou exclu : l'écran le dit, et ne réessaie pas.
+// Refusé (pas membre) ou exclu : l'écran le dit, et ne réessaie pas.
 socket.onDenied(({ channel, reason }) =>
   console.warn(`${channel} : ${reason}`),
 );
@@ -497,25 +514,93 @@ socket.onClosed(({ channel, reason }) => {
 });
 ```
 
-Le test admet, refuse, puis exclut — et recharge la page de l'exclu :
+Le test admet, refuse, puis exclut — et recharge la page de l'exclu. Comme `allow` lit la
+base, le test en ouvre une en mémoire et l'**amorce**, avec la recette du test que `create entity`
+génère pour chaque entité :
+
+- les entités sont enregistrées sous le connecteur de l'APPLICATION (`default`) : c'est là que
+  `getRoomMemberService()` les cherche ;
+- les lignes PARENTES d'abord : `RoomMember` porte deux clés étrangères, et la base refuse un
+  compte ou un salon inventé (« FOREIGN KEY constraint failed »). `seedEntityRow` pose une ligne
+  valide quelle que soit la table, et rend son identifiant ;
+- l'identité de test porte cet identifiant (`createTestIdentity({ identifier, id })`) : c'est
+  lui que `who.id` donne à `allow`.
 
 <!-- example: privateRoom.test.ts -->
 
 ```ts
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { DrizzleOrm, seedEntityRow } from "@nodefony/drizzle";
+import { entityRegistry, ormRegistry } from "@nodefony/orm-core";
 import { getRealtimeHub } from "@nodefony/realtime";
 import { createRealtimeHarness } from "@nodefony/realtime/testing";
 import type { IRealtimeHarness } from "@nodefony/realtime/testing";
 import { createTestIdentity } from "@nodefony/security/testing";
-import { RoomRealtime, exclude, guests } from "./privateRoom";
+import { UserEntity } from "../entity/User";
+import { RoomEntity } from "../entity/Room";
+import { RoomMemberEntity } from "../entity/RoomMember";
+import { getRoomMemberService } from "../service/RoomMemberService";
+import { RoomRealtime, exclude } from "./privateRoom";
+
+// Le connecteur de l'APPLICATION : `getRoomMemberService()` le lit sous ce nom.
+// Un autre nom (`test-room-member`, celui du test d'entité généré) laisserait
+// le service sans base.
+const CONNECTOR = "default";
+const ENTITIES = [UserEntity, RoomEntity, RoomMemberEntity];
+
+let orm: DrizzleOrm;
+let channel = "";
+const accounts = new Map<string, string>();
+
+/** L'identifiant en base d'un compte semé. */
+function idOf(name: string): string {
+  const id = accounts.get(name);
+  if (id === undefined) throw new Error(`compte non semé : ${name}`);
+  return id;
+}
+
+beforeAll(async () => {
+  for (const entity of ENTITIES) {
+    entityRegistry.register({ ...entity, connector: CONNECTOR });
+  }
+  orm = new DrizzleOrm(CONNECTOR, { filename: ":memory:" }); // en mémoire, rien à installer
+  await orm.connect();
+  // Les lignes PARENTES d'abord : `RoomMember` porte deux clés étrangères, et la
+  // base refuse un compte ou un salon inventé (« FOREIGN KEY constraint failed »).
+  for (const name of ["alice", "bob", "carol", "mallory"]) {
+    const id = await seedEntityRow(orm, {
+      ...UserEntity,
+      connector: CONNECTOR,
+    });
+    accounts.set(name, String(id));
+  }
+  const room = String(
+    await seedEntityRow(orm, { ...RoomEntity, connector: CONNECTOR }),
+  );
+  channel = `room:${room}`;
+  for (const name of ["alice", "bob", "carol"]) {
+    await getRoomMemberService().create({
+      room,
+      user: idOf(name),
+      role: "member",
+    });
+  }
+});
+
+afterAll(async () => {
+  await orm.disconnect();
+  for (const entity of ENTITIES)
+    entityRegistry.unregister(entity.name, CONNECTOR);
+  ormRegistry.unregister(CONNECTOR);
+});
 
 const open: IRealtimeHarness<RoomRealtime>[] = [];
 const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
 
-/** Une connexion par compte ; le hub est partagé entre elles. */
-async function connect(user: string): Promise<IRealtimeHarness<RoomRealtime>> {
+/** Une connexion par compte, identifiée par son identifiant EN BASE. */
+async function connect(name: string): Promise<IRealtimeHarness<RoomRealtime>> {
   const h = createRealtimeHarness((ctx) => new RoomRealtime(ctx), {
-    identity: createTestIdentity({ identifier: user }),
+    identity: createTestIdentity({ identifier: name, id: idOf(name) }),
     resetHub: open.length === 0,
   });
   await h.connect();
@@ -526,53 +611,47 @@ async function connect(user: string): Promise<IRealtimeHarness<RoomRealtime>> {
 const closedOf = (h: IRealtimeHarness<RoomRealtime>): unknown[] =>
   h.received.filter((f) => f.method === "realtime:closed").map((f) => f.params);
 
-describe("salon privé — `allow` admet, l'exclusion coupe ET empêche de revenir", () => {
+describe("salon privé — `allow` lit la base, l'exclusion coupe ET empêche de revenir", () => {
   afterEach(() => {
     for (const h of open.splice(0)) h.close();
-    guests.clear();
     getRealtimeHub().clear();
   });
 
-  it("l'invité entre, l'intrus est refusé par le MÊME motif", async () => {
-    guests.set("room:7", new Set(["alice", "bob"]));
+  it("le membre entre, l'intrus est refusé par le MÊME motif", async () => {
     const bob = await connect("bob");
     const mallory = await connect("mallory");
-    await bob.subscribe("room:7");
-    await mallory.subscribe("room:7");
+    await bob.subscribe(channel);
+    await mallory.subscribe(channel);
     await flush();
-    expect(bob.subscriptions()).toEqual(["room:7"]);
-    expect(mallory.denials()).toMatchObject([
-      { channel: "room:7", reason: "forbidden" },
-    ]);
+    expect(bob.subscriptions()).toEqual([channel]);
+    expect(mallory.denials()).toMatchObject([{ channel, reason: "forbidden" }]);
   });
 
-  it("seul un invité écrit ; l'auteur vient de la connexion, pas du message", async () => {
-    guests.set("room:7", new Set(["alice", "bob"]));
+  it("seul un membre écrit ; l'auteur vient de la connexion, pas du message", async () => {
     const alice = await connect("alice");
     const bob = await connect("bob");
     const mallory = await connect("mallory");
-    await alice.subscribe("room:7");
+    await alice.subscribe(channel);
     await bob.notify("room:send", {
-      room: "room:7",
+      room: channel,
       text: "salut",
-      author: "alice",
+      author: "x",
     });
-    await mallory.notify("room:send", { room: "room:7", text: "intrus" });
+    await mallory.notify("room:send", { room: channel, text: "intrus" });
     await flush();
-    expect(alice.messages("room:7")).toEqual([
-      { author: "bob", text: "salut" },
+    expect(alice.messages(channel)).toEqual([
+      { author: idOf("bob"), text: "salut" },
     ]);
   });
 
   it("exclu : `evicted` tout de suite, puis refusé à la page rechargée", async () => {
-    guests.set("room:7", new Set(["alice", "bob"]));
-    const bob = await connect("bob");
-    await bob.subscribe("room:7");
+    const carol = await connect("carol");
+    await carol.subscribe(channel);
     await flush();
-    exclude("room:7", "bob");
-    expect(closedOf(bob)).toEqual([{ channel: "room:7", reason: "evicted" }]);
-    const reloaded = await connect("bob"); // une page rechargée refait `subscribe`
-    await reloaded.subscribe("room:7");
+    await exclude(channel, idOf("carol"));
+    expect(closedOf(carol)).toEqual([{ channel, reason: "evicted" }]);
+    const reloaded = await connect("carol"); // une page rechargée refait `subscribe`
+    await reloaded.subscribe(channel);
     await flush();
     expect(reloaded.denials()).toHaveLength(1);
   });
@@ -580,12 +659,14 @@ describe("salon privé — `allow` admet, l'exclusion coupe ET empêche de reven
 ```
 
 **Pourquoi ce choix.** `allow` est appelé une seule fois par abonnement, jamais par message : une
-requête en base y est normale. Exclure, c'est retirer l'invitation **puis** éjecter. L'entrée
-`room:send` n'hérite pas de la politique du canal : elle relit l'invitation elle-même, et prend
+requête en base y est normale. Exclure, c'est retirer l'appartenance **puis** éjecter. L'entrée
+`room:send` n'hérite pas de la politique du canal : elle relit l'appartenance elle-même, et prend
 l'auteur sur la connexion, jamais dans le message.
 
-**Le piège.** Éjecter sans retirer l'invitation, ou tenir une liste noire à côté : l'exclu
-recharge sa page, son navigateur refait `subscribe`, et `allow` le laisse rentrer.
+**Le piège.** Éjecter sans retirer l'appartenance, ou tenir une liste noire à côté : l'exclu
+recharge sa page, son navigateur refait `subscribe`, et `allow` le laisse rentrer. Côté test :
+écrire une appartenance pour un compte qui n'existe pas en base — refusée par la clé étrangère, ou,
+si on renonce, un test qui ne prouve plus l'exclusion.
 
 Le salon complet — historique, messages privés, présence : [Recette — un chat](cookbook-chat.md).
 

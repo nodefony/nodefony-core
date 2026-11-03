@@ -6,12 +6,18 @@ import {
   getRealtimeHub,
 } from "../../../../index";
 import type { IRealtimeConnection } from "../../../../index";
+import { getRoomMemberService } from "../service/RoomMemberService";
 
-/** Les invités de chaque salon — en vrai, une table : `allow` peut l'interroger. */
-export const guests = new Map<string, Set<string>>();
+/** L'identifiant du salon d'un canal `room:<id>`, `null` hors de la famille. */
+function roomOf(channel: string): string | null {
+  return channel.startsWith("room:") ? channel.slice("room:".length) : null;
+}
 
-async function isGuest(room: string, user: string): Promise<boolean> {
-  return guests.get(room)?.has(user) ?? false; // en vrai : `await repository.exists(…)`
+/** L'appartenance vit en base : une ligne `RoomMember` (salon, compte). */
+async function isMember(channel: string, user: string): Promise<boolean> {
+  const room = roomOf(channel);
+  if (room === null) return false;
+  return (await getRoomMemberService().findOne({ room, user })) !== null;
 }
 
 export class RoomRealtime extends RealtimeController {
@@ -19,22 +25,23 @@ export class RoomRealtime extends RealtimeController {
     super("RoomRealtime", context);
   }
 
-  // Appelé UNE fois, au `subscribe` : une requête en base y est normale.
+  // Appelé UNE fois, au `subscribe` (et à chaque page rechargée) : une requête
+  // en base y est normale.
   @RealtimeChannel("room:*", {
     allow: async (channel, who) =>
-      who.id !== null && (await isGuest(channel, who.id)),
+      who.id !== null && (await isMember(channel, who.id)),
   })
   room(): () => void {
     return () => {};
   }
 
-  // Un canal décoré n'est servi que sous son nom exact : `room:7` est servi ici.
+  // Un canal décoré n'est servi que sous son nom exact : la famille l'est ici.
   override createRealtimeChannel(channel: string): (() => void) | null {
-    return guests.has(channel) ? () => {} : null;
+    return roomOf(channel) === null ? null : () => {};
   }
 
   // Une entrée n'hérite PAS de la politique du canal : elle vérifie l'appartenance
-  // elle-même, par le MÊME registre qu'`allow`, et l'auteur vient de la connexion.
+  // elle-même, par la MÊME fonction qu'`allow`, et l'auteur vient de la connexion.
   @RealtimeInbound("room:send", { authenticated: true })
   async send(
     params: unknown,
@@ -42,7 +49,7 @@ export class RoomRealtime extends RealtimeController {
     connection: IRealtimeConnection,
   ): Promise<void> {
     if (connection.userId === null || !isMessage(params)) return;
-    if (!(await isGuest(params.room, connection.userId))) return;
+    if (!(await isMember(params.room, connection.userId))) return;
     getRealtimeHub().publish(params.room, {
       author: connection.userId,
       text: params.text.slice(0, 500),
@@ -50,10 +57,12 @@ export class RoomRealtime extends RealtimeController {
   }
 }
 
-/** Exclure : retirer l'invitation (`allow` dira non), PUIS couper ce qu'il reçoit déjà. */
-export function exclude(room: string, user: string): void {
-  guests.get(room)?.delete(user);
-  getRealtimeHub().evictUser(room, user); // ses onglets reçoivent `realtime:closed { reason: "evicted" }`
+/** Exclure : retirer l'appartenance (`allow` dira non), PUIS couper ce qu'il reçoit déjà. */
+export async function exclude(channel: string, user: string): Promise<void> {
+  const room = roomOf(channel);
+  if (room === null) return;
+  await getRoomMemberService().delete({ room, user });
+  getRealtimeHub().evictUser(channel, user); // ses onglets reçoivent `realtime:closed { reason: "evicted" }`
 }
 
 function isMessage(value: unknown): value is { room: string; text: string } {

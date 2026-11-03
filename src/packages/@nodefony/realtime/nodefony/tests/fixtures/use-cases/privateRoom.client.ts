@@ -19,7 +19,7 @@ export function say(room: string, text: string): void {
   socket.emit("room:send", { room, text });
 }
 
-// Refusé (pas invité) ou exclu : l'écran le dit, et ne réessaie pas.
+// Refusé (pas membre) ou exclu : l'écran le dit, et ne réessaie pas.
 socket.onDenied(({ channel, reason }) =>
   console.warn(`${channel} : ${reason}`),
 );
