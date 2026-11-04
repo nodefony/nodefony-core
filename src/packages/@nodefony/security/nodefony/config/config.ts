@@ -298,6 +298,20 @@ const headersSchema = z
       .describe(
         "Content-Security-Policy « secure-but-usable ». `script-src` : `{{nonce}}` (substitué par requête si `cspNonces`) et `'strict-dynamic'` — un navigateur CSP3 ignore alors `'self'`, gardé en repli CSP2. `style-src` : le nonce ferme l'exfiltration par `<style>` injecté ; `'unsafe-inline'` n'y joue que là où le nonce est retiré (CSP2+ l'ignore en présence d'un nonce), et `style-src-attr 'unsafe-inline'` tolère les attributs `style=` (ADR-0024 §C2) ; un document servi tel quel (fichier statique) reçoit la politique sans nonce ni `'strict-dynamic'` (ADR-0024 §C1) = défense XSS ; le reste couvre les besoins réels (img/font inline, blobs, fetch/WS same-origin, workers) + durcissements (object 'none', base-uri/form-action 'self'). `upgrade-insecure-requests` n’est posé que sur une page servie en https (proxy de confiance compris) ; le retirer de cette chaîne le coupe partout.",
       ),
+    cspSources: z
+      .record(z.string(), z.record(z.string(), z.array(z.string())))
+      .default({})
+      .describe(
+        "Sources AJOUTÉES à la politique `csp` sans la réécrire, par contribution " +
+          'nommée : `{ cdn: { "img-src": ["https://cdn.example.com"] } }`. Indexé ' +
+          "par NOM et non par directive : la fusion de configuration remplace un " +
+          "tableau case par case, deux contributions nommées coexistent (une " +
+          "application et un module, par exemple) ; un même nom écrit deux fois est " +
+          "un remplacement. Fusionné par la même règle que les contributions des " +
+          "modules ; une contribution malformée est ignorée et journalisée, une " +
+          "source ouverte à tout hôte est gardée (choix de l'application) et dite. " +
+          'Sans effet quand `csp` vaut `""`.',
+      ),
     cspNonces: z
       .boolean()
       .default(true)

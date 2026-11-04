@@ -5,6 +5,7 @@ import {
   controller,
   BypassFirewall,
   IsGranted,
+  Csp,
 } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
 import type { FrontendService } from "@nodefony/frontend";
@@ -53,6 +54,15 @@ function inFrameworkRepository(root: string | undefined): boolean {
  * `/studio/api/logs/stream` a été retiré (mort + cassé en HTTP/2 : `flushHeaders`
  * inexistant sur Http2ServerResponse → `code=000`). Cf `feedback_sse_http2_request_close`.
  */
+/**
+ * Sources que la page Studio ajoute à la politique de contenu : l'écran des
+ * comptes affiche l'avatar Gravatar d'un courriel
+ * (`frontend/src/utils/avatar.ts#gravatarUrl`). Posées sur les SEULES actions
+ * qui rendent la page (#699, ADR-0024 §C4) — jamais sur les autres pages de
+ * l'application, ni sur les réponses JSON de ce contrôleur.
+ */
+const STUDIO_PAGE_CSP = { "img-src": ["https://www.gravatar.com"] };
+
 @controller("/nodefony")
 class StudioController extends Controller {
   constructor(context: Context) {
@@ -60,6 +70,7 @@ class StudioController extends Controller {
   }
 
   /** Page HTML — entrypoint Studio. */
+  @Csp(STUDIO_PAGE_CSP)
   @Get("/")
   renderStudio(): unknown {
     this.setContextHtml();
@@ -94,6 +105,7 @@ class StudioController extends Controller {
    * la porte MCP de devkit, dont le client se reconnectait chaque seconde).
    * Vaut pour chaque repli de ce controller.
    */
+  @Csp(STUDIO_PAGE_CSP)
   @Get("/{page}", { fallback: true })
   renderSpaFallback(): unknown {
     return this.renderStudio();
@@ -110,6 +122,7 @@ class StudioController extends Controller {
    * (régression). On ne capture donc QUE le préfixe SPA connu. Toute nouvelle
    * page SPA à ≥2 segments → ajouter son fallback littéral ici.
    */
+  @Csp(STUDIO_PAGE_CSP)
   @Get("/modules/{name}", { fallback: true })
   renderSpaFallbackDeep(): unknown {
     return this.renderStudio();
@@ -121,6 +134,7 @@ class StudioController extends Controller {
    * segment littéral `cluster` (PAS de générique `/{section}/{page}` qui masquerait les
    * routes des autres modules sous `/nodefony/<x>/<y>`).
    */
+  @Csp(STUDIO_PAGE_CSP)
   @Get("/cluster/{pid}", { fallback: true })
   renderSpaFallbackCluster(): unknown {
     return this.renderStudio();
@@ -132,6 +146,7 @@ class StudioController extends Controller {
    * littéral `orm` (PAS de générique `/{section}/{page}` qui masquerait les routes
    * des autres modules sous `/nodefony/<x>/<y>`).
    */
+  @Csp(STUDIO_PAGE_CSP)
   @Get("/orm/{pid}", { fallback: true })
   renderSpaFallbackOrm(): unknown {
     return this.renderStudio();
@@ -142,6 +157,7 @@ class StudioController extends Controller {
    * `logs/trace/:requestId` (ex `/nodefony/logs/trace/<uuid>`). Préfixe littéral
    * `logs/trace` (PAS de générique) — même règle que `modules/:name`.
    */
+  @Csp(STUDIO_PAGE_CSP)
   @Get("/logs/trace/{requestId}", { fallback: true })
   renderSpaFallbackTrace(): unknown {
     return this.renderStudio();
@@ -152,6 +168,7 @@ class StudioController extends Controller {
    * utilisateur : `users/:id` (ex `/nodefony/users/<uuid>`). Préfixe littéral
    * `users` (PAS de générique) — même règle que `modules/:name`.
    */
+  @Csp(STUDIO_PAGE_CSP)
   @Get("/users/{id}", { fallback: true })
   renderSpaFallbackUser(): unknown {
     return this.renderStudio();
@@ -162,6 +179,7 @@ class StudioController extends Controller {
    * d'un controller : `playground/:controller` (ex `/nodefony/playground/AppController`).
    * Préfixe littéral `playground` (PAS de générique) — même règle que `modules/:name`.
    */
+  @Csp(STUDIO_PAGE_CSP)
   @Get("/playground/{controller}", { fallback: true })
   renderSpaFallbackPlayground(): unknown {
     return this.renderStudio();

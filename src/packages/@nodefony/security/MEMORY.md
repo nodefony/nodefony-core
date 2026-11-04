@@ -458,7 +458,9 @@ apiKeys.enabled` (keystore JWT seulement si jwt) ; `isEnabled()`=capacité JWT (
   `#build` (onBoot) = validée + RANGÉE, fusionnée à la composition (l'ordre des écouteurs ne décide de rien).
   Défaut `img-src 'self' data: blob:` — **0 hôte tiers** (ADR-0024 §C4) : avatars déclarés par le fournisseur
   OAuth CONFIGURÉ (`registerOAuthProvider(…, { imageSources })` → `OAuth2Service.#build`, contributeur `oauth2`),
-  Gravatar par Studio (`studio`), socket d'une autre origine par realtime (`realtime.publicOrigin`).
+  Gravatar par Studio via `@Csp` sur SES pages seulement, socket d'une autre origine par realtime
+  (`realtime.publicOrigin`). App : `headers.cspSources` = contributions NOMMÉES (pas par directive : `extend`
+  fusionne les tableaux case par case), validées une fois (`#validatedAppCspSources`), fusionnées dans `#composeCspBase`.
 - **DX config (J5)** — security **augmente `NodefonyModuleConfig`** (`declare module "nodefony"`, recette frère
   drizzle/mongoose) → `use("@nodefony/security", {…})` complète CLÉS + VALEURS enum + valide les types (sinon
   `Record<string,unknown>`). Enums complétés : coop/coep/corp/frameguard/referrerPolicy/sameSite/jwt.alg.

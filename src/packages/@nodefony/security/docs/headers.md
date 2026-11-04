@@ -276,9 +276,10 @@ gratuits :
 **Aucun hôte tiers dans le défaut.** `img-src` vaut `'self' data: blob:` : les photos de profil
 d'un fournisseur de connexion ne sont autorisées que s'il est **configuré** — chaque fournisseur
 porte l'hôte de ses avatars dans son enregistrement (`oauthProviderRegistry.ts#registerOAuthProvider`,
-option `imageSources`), et la connexion sociale le déclare au démarrage. Studio déclare
-`https://www.gravatar.com`, dont il est le seul consommateur. Une application qui affiche d'autres
-images tierces les ajoute à sa politique ou par un fragment (voir l'extension plus bas).
+option `imageSources`), et la connexion sociale le déclare au démarrage. Studio autorise
+`https://www.gravatar.com` sur **ses seules pages** (`@Csp` de `StudioController.ts#StudioController`).
+Une application qui affiche d'autres images tierces les ajoute par `headers.cspSources` (ci-dessous),
+sans réécrire la politique.
 
 **`'strict-dynamic'` : seul le nonce autorise une balise.** Un navigateur CSP3 ignore alors
 `'self'` et les hôtes (`'self'` ne reste que pour les navigateurs CSP2). Sans lui, tout fichier
@@ -670,15 +671,31 @@ Ce que l'application écrit n'est **jamais réduit** :
   pare-feu ;
 - `headers.csp: ""` coupe toute politique, courte comprise.
 
-### Étendre le CSP — trois portées, une seule mécanique
+### Étendre le CSP — quatre portées, une seule mécanique
 
 | Portée             | Outil                           | Pour quoi                                       | Recalculé           |
 | ------------------ | ------------------------------- | ----------------------------------------------- | ------------------- |
 | Application        | `headers.csp` en config         | ta politique de base                            | au boot             |
+| Application        | `headers.cspSources` en config  | **ajouter** des sources sans réécrire la base   | au boot             |
 | Module             | `Firewall.registerCspOrigins()` | besoin **permanent** d'un module (ex. Vite)     | à l'enregistrement  |
 | Route / contrôleur | `@Csp({ … })`                   | besoin **ponctuel** d'une réponse (iframe, CDN) | par requête décorée |
 
-Les trois convergent vers `mergeCspFragments()` (`csp.ts#mergeCspFragments`), et c'est un **merge structuré**, pas
+**`headers.cspSources` — ajouter sans réécrire.** Recopier toute la politique pour y ajouter un
+hôte la figerait : elle ne suivrait plus le défaut. On déclare plutôt des sources **par contribution
+nommée** :
+
+```ts
+use("@nodefony/security", {
+  headers: { cspSources: { cdn: { "img-src": ["https://cdn.example.com"] } } },
+});
+```
+
+Indexée par NOM, et non par directive, parce que la fusion de configuration remplace un tableau case
+par case : un module qui complète la section par `module-security` sous un autre nom s'ajoute,
+il n'écrase pas. Une contribution malformée est ignorée et journalisée, l'application démarre ; une
+source ouverte à tout hôte est gardée (c'est ton choix) et signalée. Sans effet quand `csp` vaut `""`.
+
+Les quatre convergent vers `mergeCspFragments()` (`csp.ts#mergeCspFragments`), et c'est un **merge structuré**, pas
 une concaténation. Pourquoi c'est vital : en CSP, une directive **répétée est ignorée** après sa
 première occurrence (W3C CSP Level 3 §3, rationnel documenté `csp.ts#CspFragment`). Concaténer
 `"script-src 'self'"` et `"script-src https://cdn"` produirait un en-tête où la seconde est purement

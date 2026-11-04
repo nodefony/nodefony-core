@@ -218,6 +218,9 @@ class Firewall extends Service implements IFirewall {
   // dérivé de `http.securityHeaders.frameOptions` (ADR-0024 §C5). Recomposée au
   // démarrage et quand le noyau HTTP signale une édition de ses en-têtes.
   #cspBase = "";
+  // Sources AJOUTÉES par la configuration (`headers.cspSources`), validées une
+  // fois au démarrage ; `null` = aucune.
+  #appCspSources: CspFragment[] | null = null;
   // Config validée + gelée (consommée par les fabriques d'authenticators).
   #config: ISecurityConfig | null = null;
   // Fail-closed : posée si la config sécurité est invalide au boot → le
@@ -304,6 +307,9 @@ class Firewall extends Service implements IFirewall {
     // (nosniff/frame/HSTS) est posé par @nodefony/http sur toute réponse (couvre
     // statics + erreurs) → security n'émet QUE le complément (1 source par en-tête).
     if (this.#config.headers.enabled) {
+      this.#appCspSources = this.#validatedAppCspSources(
+        this.#config.headers.cspSources,
+      );
       this.#cspBase = this.#composeCspBase(this.#config.headers.csp);
       this.#securityHeaders = this.#newSecurityHeaders({
         ...this.#config.headers,
@@ -1400,7 +1406,51 @@ class Firewall extends Service implements IFirewall {
    */
   #composeCspBase(csp: string): string {
     const emitted = this.#emittedTransportHeaders();
-    return emitted ? withFrameAncestors(csp, emitted.frameOptions) : csp;
+    const framed = emitted
+      ? withFrameAncestors(csp, emitted.frameOptions)
+      : csp;
+    // `csp: ""` (politique posée au proxy) : rien à compléter.
+    const sources = this.#appCspSources;
+    return sources === null || csp.trim() === ""
+      ? framed
+      : mergeCspFragments(framed, sources);
+  }
+
+  /**
+   * Valide les contributions nommées de `headers.cspSources`, une fois. Une
+   * contribution malformée est IGNORÉE et dite (l'application démarre, plus
+   * stricte) ; une source ouverte à tout hôte est GARDÉE — choix écrit par
+   * l'application, comme sa politique — et dite.
+   *
+   * @param declared - contributions par nom
+   * @returns les fragments retenus, ou `null` s'il n'y en a aucun
+   */
+  #validatedAppCspSources(
+    declared: Readonly<Record<string, CspFragment>>,
+  ): CspFragment[] | null {
+    let kept: CspFragment[] | null = null;
+    for (const [name, fragment] of Object.entries(declared)) {
+      try {
+        assertCspFragment(fragment, name);
+      } catch (error) {
+        this.log(
+          `CSP : headers.cspSources.${name} IGNORÉE — ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+          "ERROR",
+        );
+        continue;
+      }
+      for (const [directive, source] of withoutOverbroadSources(fragment)
+        .dropped) {
+        this.log(
+          `CSP : « ${source} » dans headers.cspSources.${name} (${directive}) autorise n’importe quel hôte — conservée (choix de la configuration) ; préférer une origine exacte.`,
+          "WARNING",
+        );
+      }
+      (kept ??= []).push(fragment);
+    }
+    return kept;
   }
 
   /**
