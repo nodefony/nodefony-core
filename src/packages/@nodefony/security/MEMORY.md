@@ -454,6 +454,11 @@ apiKeys.enabled` (keystore JWT seulement si jwt) ; `isEnabled()`=capacité JWT (
     = sa politique quel que soit le type. ⚠️ un lecteur de la CSP AVANT l'envoi ne la voit plus (dev-warning
     `Controller.#warnUnsignedTags` lit après l'envoi). `headers.{hsts,frameguard,noSniff}` = délégués transport (describe). `hidePoweredBy` =
     no-op (Nodefony n'émet pas X-Powered-By). `referrerPolicy` = **enum W3C** (complétion+validation).
+- **Contributions CSP des modules** (`Firewall.registerCspOrigins`, contrat `IFirewallGate` de http) : reçue AVANT
+  `#build` (onBoot) = validée + RANGÉE, fusionnée à la composition (l'ordre des écouteurs ne décide de rien).
+  Défaut `img-src 'self' data: blob:` — **0 hôte tiers** (ADR-0024 §C4) : avatars déclarés par le fournisseur
+  OAuth CONFIGURÉ (`registerOAuthProvider(…, { imageSources })` → `OAuth2Service.#build`, contributeur `oauth2`),
+  Gravatar par Studio (`studio`), socket d'une autre origine par realtime (`realtime.publicOrigin`).
 - **DX config (J5)** — security **augmente `NodefonyModuleConfig`** (`declare module "nodefony"`, recette frère
   drizzle/mongoose) → `use("@nodefony/security", {…})` complète CLÉS + VALEURS enum + valide les types (sinon
   `Record<string,unknown>`). Enums complétés : coop/coep/corp/frameguard/referrerPolicy/sameSite/jwt.alg.

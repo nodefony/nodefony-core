@@ -22,8 +22,10 @@ import { recordAudit } from "../src/audit/recordAudit";
 import {
   getOAuthProviderFactory,
   listOAuthProviders,
+  oauthProviderImageSources,
   oauthProviderRequiresIssuer,
 } from "../src/oauth/oauthProviderRegistry";
+import type { IFirewall } from "../contracts/IFirewall";
 import {
   generateCodeVerifier,
   generateState,
@@ -41,6 +43,9 @@ import {
 } from "../src/oauth/providerRoles";
 
 const serviceName = "oauth2";
+
+/** Nom sous lequel la connexion sociale contribue à la politique de contenu. */
+const OAUTH2_CSP_CONTRIBUTOR = "oauth2";
 
 /**
  * Clé de session de l'indice de déconnexion. Lue et écrite par CE service
@@ -396,6 +401,18 @@ class OAuth2Service extends Service {
     }
     this.#config = config;
     this.#ready = true;
+    // #699 (ADR-0024 §C4) — les avatars d'un fournisseur ne sont autorisés
+    // dans `img-src` que s'il est configuré : une application sans connexion
+    // Google n'ouvre pas ses images à googleusercontent.com.
+    const imageSources = oauthProviderImageSources(active);
+    if (imageSources.length > 0) {
+      this.get<IFirewall>("firewall")?.registerCspOrigins(
+        OAUTH2_CSP_CONTRIBUTOR,
+        {
+          "img-src": imageSources,
+        },
+      );
+    }
     this.log(
       `oauth2 ready — providers: [${active.join(", ") || "aucun"}]`,
       "DEBUG",

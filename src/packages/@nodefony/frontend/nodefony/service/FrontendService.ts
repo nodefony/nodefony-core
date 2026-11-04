@@ -1,4 +1,3 @@
-import type { IFirewallGate } from "@nodefony/http";
 import {
   Service,
   Module,
@@ -52,6 +51,20 @@ interface IStaticMountService {
  * raison). En développement, chaque famille Vite y monte `/_vite/<famille>/`
  * (#528).
  */
+/**
+ * Ce que ce module demande au pare-feu, résolu par nom : déclarer et retirer
+ * sa contribution à la politique de contenu. Forme locale — ce module
+ * n'importe pas `@nodefony/http`, qui en porte la version complète
+ * (`IFirewallGate`).
+ */
+interface ICspContributionGate {
+  registerCspOrigins?(
+    moduleName: string,
+    fragment: Readonly<Record<string, readonly string[]>>,
+  ): void;
+  unregisterCspOrigins?(moduleName: string): void;
+}
+
 interface IReverseProxyService {
   mount?(
     prefix: string,
@@ -610,7 +623,9 @@ class FrontendService extends Service implements IFrontendService {
     this.templateHelpers.clear();
     this.entryFamily.clear();
     // CSP : retirer les origines Vite du firewall (le CSP repasse au strict de base).
-    this.get<IFirewallGate>("firewall")?.unregisterCspOrigins?.("frontend");
+    this.get<ICspContributionGate>("firewall")?.unregisterCspOrigins?.(
+      "frontend",
+    );
     this.fire("frontend:stopped");
   }
 
@@ -784,7 +799,7 @@ class FrontendService extends Service implements IFrontendService {
    * No-op si security absent (app sans firewall).
    */
   #registerCsp(): void {
-    this.get<IFirewallGate>("firewall")?.registerCspOrigins?.(
+    this.get<ICspContributionGate>("firewall")?.registerCspOrigins?.(
       "frontend",
       this.#viteCspFragment(),
     );
@@ -808,16 +823,9 @@ class FrontendService extends Service implements IFrontendService {
       "script-src": ["'self'", "'unsafe-eval'"],
       "style-src": ["'self'", "'unsafe-inline'"],
       "worker-src": ["'self'", "blob:"],
-      // + avatars externes (Gravatar / Google / GitHub) — aligné sur le défaut
-      // CSP de @nodefony/security.
-      "img-src": [
-        "'self'",
-        "data:",
-        "blob:",
-        "https://www.gravatar.com",
-        "https://*.googleusercontent.com",
-        "https://avatars.githubusercontent.com",
-      ],
+      // Les hôtes d'avatars tiers ne sont PAS ici : chaque fournisseur OAuth
+      // configuré, et Studio pour Gravatar, les déclarent eux-mêmes (ADR-0024 §C4).
+      "img-src": ["'self'", "data:", "blob:"],
       "font-src": ["'self'", "data:"],
       "connect-src": ["'self'", "blob:", "data:"],
     };

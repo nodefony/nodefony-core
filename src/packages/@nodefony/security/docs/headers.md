@@ -273,6 +273,13 @@ d'une app moderne (images `data:`/`blob:`, workers, fetch/WS same-origin) et ajo
 gratuits :
 `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `upgrade-insecure-requests`.
 
+**Aucun hôte tiers dans le défaut.** `img-src` vaut `'self' data: blob:` : les photos de profil
+d'un fournisseur de connexion ne sont autorisées que s'il est **configuré** — chaque fournisseur
+porte l'hôte de ses avatars dans son enregistrement (`oauthProviderRegistry.ts#registerOAuthProvider`,
+option `imageSources`), et la connexion sociale le déclare au démarrage. Studio déclare
+`https://www.gravatar.com`, dont il est le seul consommateur. Une application qui affiche d'autres
+images tierces les ajoute à sa politique ou par un fragment (voir l'extension plus bas).
+
 **`'strict-dynamic'` : seul le nonce autorise une balise.** Un navigateur CSP3 ignore alors
 `'self'` et les hôtes (`'self'` ne reste que pour les navigateurs CSP2). Sans lui, tout fichier
 JavaScript posé sur ton origine — un téléversement, une réponse mal typée — s'exécutait dès qu'une

@@ -15,7 +15,11 @@ import path from "node:path";
 import { Kernel, Module, services } from "nodefony";
 import type { IAdminRegistry } from "nodefony";
 import { controllers } from "@nodefony/framework";
-import { resolveUiDelivery, PrebuiltUi } from "@nodefony/http";
+import {
+  resolveUiDelivery,
+  PrebuiltUi,
+  type IFirewallGate,
+} from "@nodefony/http";
 import type { FrontendService } from "@nodefony/frontend";
 import defaultConfig from "./nodefony/config/config";
 import {
@@ -49,6 +53,11 @@ declare module "nodefony" {
     "@nodefony/studio": IStudioConfigInput;
   }
 }
+
+/** Nom sous lequel Studio contribue à la politique de contenu. */
+const STUDIO_CSP_CONTRIBUTOR = "studio";
+/** Hôte des avatars Gravatar affichés par l'écran des comptes. */
+const GRAVATAR_ORIGIN = "https://www.gravatar.com";
 
 @services([ScaffoldService])
 @controllers([
@@ -126,6 +135,14 @@ class Studio extends Module<IStudioConfig> {
         label: "Studio",
         path: "/nodefony",
       });
+      // #699 (ADR-0024 §C4) — l'écran des comptes affiche l'avatar Gravatar
+      // d'un courriel (`frontend/src/utils/avatar.ts#gravatarUrl`) : Studio, seul
+      // à l'afficher, en déclare l'hôte dans `img-src`.
+      this.kernel?.container
+        ?.get<IFirewallGate>("firewall")
+        ?.registerCspOrigins?.(STUDIO_CSP_CONTRIBUTOR, {
+          "img-src": [GRAVATAR_ORIGIN],
+        });
     }
 
     if (resolution.mode === "static") {

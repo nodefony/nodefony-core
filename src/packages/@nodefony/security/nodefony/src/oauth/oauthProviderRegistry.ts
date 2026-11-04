@@ -83,11 +83,19 @@ export interface IOAuthProviderRegistration {
    * émetteur. Absent : l'émetteur est facultatif (connu d'avance, ou inutile).
    */
   readonly requiresIssuer?: boolean;
+  /**
+   * Sources d'où le fournisseur sert les images du profil (avatars) —
+   * déclarées dans `img-src` de la politique de contenu quand, et seulement
+   * quand, le fournisseur est configuré. Origines exactes ; un joker de
+   * sous-domaine (`https://*.googleusercontent.com`) au plus.
+   */
+  readonly imageSources?: readonly string[];
 }
 
 interface IRegisteredProvider {
   readonly factory: OAuthProviderFactory;
   readonly requiresIssuer: boolean;
+  readonly imageSources: readonly string[];
 }
 
 const factories = new Map<string, IRegisteredProvider>();
@@ -108,7 +116,25 @@ export function registerOAuthProvider(
   factories.set(name, {
     factory,
     requiresIssuer: registration.requiresIssuer === true,
+    imageSources: registration.imageSources ?? [],
   });
+}
+
+/**
+ * Sources d'images (avatars) des fournisseurs nommés, sans doublon — ce que
+ * `img-src` doit autoriser pour afficher leurs photos de profil.
+ *
+ * @param names - fournisseurs configurés ; un nom inconnu ne rend rien
+ * @returns les sources déclarées par leurs enregistrements
+ */
+export function oauthProviderImageSources(names: Iterable<string>): string[] {
+  const sources = new Set<string>();
+  for (const name of names) {
+    for (const source of factories.get(name)?.imageSources ?? []) {
+      sources.add(source);
+    }
+  }
+  return [...sources];
 }
 
 /** Fabrique d'un fournisseur par nom, ou `undefined` si inconnu. */
@@ -161,8 +187,12 @@ export function withKeycloakThemeHint(
 // dit tout) et OAuth simple (profil lu à l'API du fournisseur).
 const GOOGLE_ISSUER = "https://accounts.google.com";
 
-registerOAuthProvider("google", (ctx) =>
-  createDiscoveredOidcProvider("google", ctx, { issuer: GOOGLE_ISSUER }),
+registerOAuthProvider(
+  "google",
+  (ctx) =>
+    createDiscoveredOidcProvider("google", ctx, { issuer: GOOGLE_ISSUER }),
+  // Les photos de profil Google sont servies par lh3…lh6.googleusercontent.com.
+  { imageSources: ["https://*.googleusercontent.com"] },
 );
 // Keycloak est self-hosted : son émetteur (= URL du realm) vient de la config et
 // sert À LA FOIS à découvrir les endpoints et à valider l'`iss` (anti-mix-up).
@@ -179,4 +209,6 @@ registerOAuthProvider(
   { requiresIssuer: true },
 );
 // OAuth simple (non-OIDC) : profil lu via l'API du fournisseur.
-registerOAuthProvider("github", createGithubProvider);
+registerOAuthProvider("github", createGithubProvider, {
+  imageSources: ["https://avatars.githubusercontent.com"],
+});

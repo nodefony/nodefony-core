@@ -103,16 +103,10 @@ describe("CSP du rechargement à chaud — contenu (une seule origine)", () => {
     const svc = new FrontendService(fakeModule(fw));
     await runStartDev(svc, [entry("app", "react19"), entry("ng", "angular")]);
     const fragment = fw.calls[0]?.fragment ?? {};
-    // Seules origines nommées : les avatars externes, alignés sur le défaut
-    // de @nodefony/security — aucune n'est un serveur Vite.
-    const avatars = new Set([
-      "https://www.gravatar.com",
-      "https://*.googleusercontent.com",
-      "https://avatars.githubusercontent.com",
-    ]);
+    // AUCUNE origine nommée : ni serveur Vite, ni hôte d'avatars — ceux-ci se
+    // déclarent par qui les affiche (ADR-0024 §C4), jamais par une copie ici.
     for (const [directive, sources] of Object.entries(fragment)) {
       for (const src of sources) {
-        if (avatars.has(src)) continue;
         expect(src, `${directive} : ${src}`).to.not.match(
           /^(https?|wss?):\/\//,
         );
