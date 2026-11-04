@@ -1,4 +1,7 @@
-import { isLoopbackHostname } from "nodefony";
+import { isLoopbackHostname, parseBareOrigin } from "nodefony";
+
+/** Schémas d’amont d’un relais : un proxy inverse ne parle que HTTP. */
+const PROXY_ORIGIN_PROTOCOLS: readonly string[] = ["http:", "https:"];
 
 /**
  * Règles d'un montage du proxy inverse — UNIQUE source, lue par le schéma de
@@ -54,19 +57,7 @@ export function normalizePrefix(prefix: string): string {
  * @returns l'URL analysée, ou `null` si ce n'est pas une origine http(s) nue
  */
 export function parseProxyOrigin(origin: string): URL | null {
-  let url: URL;
-  try {
-    url = new URL(origin);
-  } catch {
-    return null;
-  }
-  if (url.protocol !== "http:" && url.protocol !== "https:") return null;
-  // `new URL("http://h/")` et `new URL("http://h")` rendent tous deux `/` :
-  // seul le texte dit si un chemin a été écrit.
-  if (!/^https?:\/\/[^/?#]+\/?$/i.test(origin.trim())) return null;
-  if (url.search !== "" || url.hash !== "") return null;
-  if (url.username !== "" || url.password !== "") return null;
-  return url;
+  return parseBareOrigin(origin, PROXY_ORIGIN_PROTOCOLS);
 }
 
 /** Ce qu'une règle de montage examine — la forme commune config / code. */

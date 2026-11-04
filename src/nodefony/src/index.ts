@@ -558,6 +558,7 @@ export type {
   ILoginPageHero,
 } from "./runtime/authRoutes";
 export { safeRedirectPath } from "./runtime/safeRedirect";
+export { parseBareOrigin } from "./runtime/bareOrigin";
 export { CSP_NONCE_META_PROPERTY, cspNonceMetaTag } from "./runtime/cspNonce";
 export {
   readDocScope,
