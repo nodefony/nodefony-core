@@ -20,6 +20,13 @@ normes figé hors ligne (`.claude/skills/nodefony-rfc/references/csp/`, index `R
 Level 3, Trusted Types, Reporting, Upgrade Insecure Requests, aide-mémoire OWASP. Ce que ces
 textes ne tranchent pas est marqué **à constater au navigateur**.
 
+**Décision (validée par l'auteur le 2026-11-04) :** C1 et C2 restent le défaut de 10.0, après un
+réexamen contre deux options — une politique simple par défaut avec la stricte en option, et la
+simple appliquée doublée de la stricte en `Report-Only` (voir « Alternatives écartées »). Faits
+sur lesquels il a tranché : 0 violation sous la politique stricte sur Chromium, Firefox et
+WebKit, en production comme en développement (commentaire de #699) ; et resserrer le défaut
+après 10.0 serait une rupture, renvoyée à 11.0.
+
 ## Contexte
 
 La politique posée par défaut par `@nodefony/security` (source unique :
@@ -259,6 +266,13 @@ Précisions tranchées à la mise en œuvre (`securityHeaders.ts#responseKindOf`
 - **Trusted Types appliqués par défaut** : les vues Vue et Svelte insèrent par `innerHTML`.
 - **Refuser au démarrage une source trop large** : contredit C0 ; une faute de module que
   l'auteur de l'application ne peut pas corriger ne doit pas l'empêcher de démarrer.
+- **Politique simple par défaut, la stricte en option** (`script-src 'self' 'nonce-…'` sans
+  `'strict-dynamic'`, `style-src 'unsafe-inline'`) : une injection HTML nue suffit alors à
+  exécuter un fichier de même origine, ou une source `data:` qu'un module aurait déclarée ; un
+  chargeur tiers exige de deviner ses hôtes ; et durcir ensuite casse en 11.0 les applications
+  écrites sans nonce.
+- **Simple appliquée + stricte en `Report-Only`** : aucune tuyauterie n'existe pour une seconde
+  politique, et ses rapports noieraient les vraies violations sous celles de la politique stricte.
 - **`'unsafe-eval'` au défaut** pour une bibliothèque qui le réclame : ouvre l'injection de
   script à toutes les applications. Vite en développement reste une contribution de
   `@nodefony/frontend`, jamais le défaut.
@@ -268,7 +282,8 @@ Précisions tranchées à la mise en œuvre (`securityHeaders.ts#responseKindOf`
 - **Rupture assumée (version majeure)** : un `<script src>` ou un `<style>` sans nonce dans un
   gabarit d'application cesse de s'appliquer ; une bibliothèque CSS-in-JS doit recevoir le
   nonce ; un avatar tiers hors de nos fournisseurs se déclare. La documentation donne le geste
-  (`nonce="{{ nonce }}"`) ; les rapports de C7 rendent chaque rupture visible.
+  (une vue `renderView` est signée seule ; ailleurs, `nonce="${this.context?.cspNonce}"` ;
+  CSS-in-JS : `security/docs/headers.md`) ; les rapports de C7 rendent chaque rupture visible.
 - **Coût** : les variantes de politique (type de contenu × TLS) sont composées au démarrage ; par
   réponse, un test sur le type et un sur le transport, une écriture d'en-tête. Mesuré au
   micro-banc `micro-write-head.mjs` et au gate mémoire de `@nodefony/http`.

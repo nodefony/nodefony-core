@@ -284,9 +284,12 @@ sans réécrire la politique.
 **`'strict-dynamic'` : seul le nonce autorise une balise.** Un navigateur CSP3 ignore alors
 `'self'` et les hôtes (`'self'` ne reste que pour les navigateurs CSP2). Sans lui, tout fichier
 JavaScript posé sur ton origine — un téléversement, une réponse mal typée — s'exécutait dès qu'une
-injection écrivait `<script src="/uploads/x.js">`. En retour, un `<script>` sans nonce dans ton
-gabarit ne s'exécute plus : écris `<script nonce="{{ nonce }}" src="…">`. Ce que ce script charge
-ensuite (un `import()`, un script qu'il crée) hérite de sa confiance.
+injection écrivait `<script src="/uploads/x.js">`. En retour, un `<script>` sans nonce — en ligne
+ou `src`, même servi par ton origine — ne s'exécute plus. Dans une vue rendue par `renderView`, le
+framework le signe pour toi (ci-dessous) ; dans du HTML écrit à la main, écris
+`<script nonce="${this.context?.cspNonce}" src="…">`. Ce que ce script charge ensuite (un
+`import()`, un script qu'il crée) hérite de sa confiance : un chargeur tiers signé (paiement,
+carte) charge ses propres scripts sans que tu déclares leurs hôtes.
 
 Deux cas où il n'y a pas de nonce, et où `'strict-dynamic'` part avec lui pour ne pas bloquer
 toute la page :
@@ -317,6 +320,34 @@ attribut `style="…"` reste permis : il ne porte pas de sélecteur. Ce qui est 
 - dans une vue Eta rendue par `renderView` : **rien à faire** — le framework signe chaque
   `<script>` et `<style>` écrit dans le gabarit (`viewNonce.ts#signTemplateTags`), jamais ce
   que les données y insèrent ; le nonce reste lisible ailleurs par `<%= it.cspNonce %>`.
+
+**Une bibliothèque CSS-in-JS**, dans cet ordre de préférence :
+
+1. **« zéro runtime »** (vanilla-extract, Linaria, Panda CSS…) : elle écrit des feuilles au build,
+   servies en `<link>` par `'self'` — rien à signer, rien à régler ;
+2. **qui accepte un nonce** : donne-lui `readCspNonce()` (`nodefony/client`) — Emotion :
+   `createCache({ key: "css", nonce: readCspNonce() })`, Mantine : `getStyleNonce` ;
+3. **sans option de nonce** : elle crée un `<style>` conteneur que la politique refuse, et ses
+   styles ne s'appliquent pas, même si elle y écrit ensuite par le CSSOM. Dernier recours, et
+   global : retire le nonce des seuls styles en réécrivant la politique — la défense des scripts
+   reste entière, seule celle contre l'exfiltration par CSS injecté tombe.
+
+```ts
+use("@nodefony/security", {
+  headers: {
+    // Le défaut, sauf `style-src` : plus de nonce pour les styles, scripts inchangés.
+    csp:
+      "default-src 'self'; script-src 'nonce-{{nonce}}' 'strict-dynamic' 'self'; " +
+      "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; " +
+      "connect-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; " +
+      "form-action 'self'; upgrade-insecure-requests",
+  },
+});
+```
+
+Un `@Csp` de route ne peut pas le faire à sa place : il AJOUTE des sources, et un navigateur
+ignore `'unsafe-inline'` tant qu'un nonce figure dans la directive (CSP3 § « Does a source list
+allow all inline behavior »).
 
 Là où le nonce est retiré (page servie telle quelle, `cspNonces: false`), `'unsafe-inline'`
 reprend la main : la page garde ses styles.
