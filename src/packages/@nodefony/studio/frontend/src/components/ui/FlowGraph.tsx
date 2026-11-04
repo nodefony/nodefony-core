@@ -350,8 +350,11 @@ export function FlowGraph({
   const [full, setFull] = useState(false);
 
   const flow = (h: number | string) => (
+    // `figure`, pas `img` : un `img` rend ses enfants présentationnels, or le
+    // canevas porte des contrôles focusables (zoom, ajustement, nœuds cliquables)
+    // — WCAG 4.1.2, règle axe `nested-interactive`.
     <Box
-      role="img"
+      role="figure"
       aria-label={ariaLabel}
       style={{
         height: h,
