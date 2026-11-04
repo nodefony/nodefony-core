@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-11-04 00:33** (UTC).
+> Empreinte prise le **2026-11-04 23:32** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,7 +20,7 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 92% | 229 | 20 | 2026-11-12 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 92% | 230 | 19 | 2026-11-12 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 98% | 135 | 3 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 13% | 6 | 41 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 33 | — |
@@ -35,7 +35,7 @@
 
 Ordre 6.03 · P2 — décision · 11.25 j · jalon 10.0.0-beta · frise 2026-11-04 → 11-16
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 20 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 19 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -111,12 +111,11 @@ Ordre 6.03 · P2 — décision · 11.25 j · jalon 10.0.0-beta · frise 2026-11-
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-beta — 20 ouverts
+## Jalon 10.0.0-beta — 19 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
 | 6.03 | P2 — décision | 11.25 | 2026-11-04 → 11-16 | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
-| 6.0345 | P1 — figé à la création | 1 | 2026-11-04 → 11-09 | #699 | feat(security)!: durcir la CSP par défaut sans bloquer le temps réel |
 | 6.03456 | P1 — figé à la création | 1 | — | #723 | feat(cli): vérifier les types des composants front générés |
 | 6.0346 | P2 — décision | 0.5 | 2026-11-10 → 11-10 | #631 | test(media): lancer les tests audio dans un vrai navigateur |
 | 6.04 | P2 — décision | 3.25 | 2026-11-10 → 11-16 | #445 | test(ecosysteme): éprouver le framework par un module tiers temps réel |
@@ -136,7 +135,7 @@ Ordre 6.03 · P2 — décision · 11.25 j · jalon 10.0.0-beta · frise 2026-11-
 | 7.06 | P1 — figé à la création | 0.5 | 2026-11-17 → 11-17 | #541 | test(cli): valider le plein écran du serveur de dev sous Windows |
 | 7.07 | P1 — figé à la création | 1 | 2026-11-20 → 11-20 | #659 | docs(performance): remesurer les pages de performance avant la release |
 
-## Backlog — aucune date promise · 36 ouverts
+## Backlog — aucune date promise · 39 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -176,6 +175,9 @@ Ordre 6.03 · P2 — décision · 11.25 j · jalon 10.0.0-beta · frise 2026-11-
 | 925 | P3 — fin de cycle | 1 | — | #718 | feat(http): écouter sur un fichier de socket Unix derrière un relais local |
 | 925.1 | P2 — décision | 1 | — | #722 | perf(studio): ne plus redessiner toute la page Supervision à chaque mesure |
 | 925.2 | P3 — fin de cycle | 2 | — | #721 | feat(studio): montrer dans la console ce que le binaire fait gagner |
+| 925.3 | P3 — fin de cycle | 2 | — | #729 | feat(security): signaler les puits DOM, interdire les scripts créés |
+| 925.4 | P3 — fin de cycle | 2 | — | #730 | feat(security): partager et afficher les rapports de violation CSP |
+| 925.5 | P3 — fin de cycle | 1 | — | #728 | feat(client): signer les styles créés à l'exécution sous CSP stricte |
 
 ## Jalon 10.2.0 — 33 ouverts
 

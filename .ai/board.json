@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-04T00:33:26.307Z",
+  "generatedAt": "2026-11-04T23:32:54.866Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 229,
+      "closed": 230,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 20,
+      "open": 19,
       "title": "10.0.0-beta"
     },
     {
@@ -5689,8 +5689,8 @@
       "number": 699,
       "title": "feat(security)!: durcir la CSP par défaut sans bloquer le temps réel",
       "url": "https://github.com/nodefony/nodefony-core/issues/699",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -10509,6 +10509,54 @@
       "priorite": "P3 — fin de cycle",
       "jours": 2,
       "ordre": 925.2,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 729,
+      "title": "feat(security): signaler les puits DOM, interdire les scripts créés",
+      "url": "https://github.com/nodefony/nodefony-core/issues/729",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P3 — fin de cycle",
+      "jours": 2,
+      "ordre": 925.3,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 730,
+      "title": "feat(security): partager et afficher les rapports de violation CSP",
+      "url": "https://github.com/nodefony/nodefony-core/issues/730",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P3 — fin de cycle",
+      "jours": 2,
+      "ordre": 925.4,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 728,
+      "title": "feat(client): signer les styles créés à l'exécution sous CSP stricte",
+      "url": "https://github.com/nodefony/nodefony-core/issues/728",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": null,
+      "priorite": "P3 — fin de cycle",
+      "jours": 1,
+      "ordre": 925.5,
       "debut": null,
       "cible": null,
       "labels": [
