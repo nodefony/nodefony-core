@@ -118,8 +118,8 @@ redéfinissent pour les deux thèmes (voir « Pièges », plus bas) :
 
 ### Ce qu'on observe
 
-- `GET /login` rend la page, avec `Cache-Control: no-store` et une CSP
-  `frame-ancestors 'none'` (`LoginPageController.ts#LoginPageController.constructor`) ;
+- `GET /login` rend la page, avec `Cache-Control: no-store` et, par défaut, une CSP
+  `frame-ancestors 'none'` (réglée pour toute l’application par `http.securityHeaders.frameOptions`) ;
 - le titre de la carte vaut « Espace client », le panneau affiche votre accroche à la place de la
   vitrine Nodefony ;
 - votre feuille arrive en second `<link rel="stylesheet">`, après `login.css` : vos variables
@@ -303,7 +303,8 @@ nommant, au lieu d'être ignorée.
 
 ## 🔒 Sécurité
 
-- **Pas de cache partagé** (`no-store`) ni d'affichage dans un cadre (`frame-ancestors 'none'`) ;
+- **Pas de cache partagé** (`no-store`) ; l’affichage dans un cadre suit `http.securityHeaders.frameOptions`,
+  refusé par défaut (`X-Frame-Options: DENY`, `frame-ancestors 'none'`) ;
   le script porte le nonce CSP de la requête.
 - **Mot de passe en clair refusé en production** : sur une requête qui n'arrive pas en HTTPS, la
   connexion répond 403 avant toute vérification, et la page affiche « doit passer par HTTPS » au

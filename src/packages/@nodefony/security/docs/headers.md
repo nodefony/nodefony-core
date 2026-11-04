@@ -266,8 +266,19 @@ pressé. Un CSP strict là où ça compte (`script-src`) et permissif là où ç
 images) survit en production — c'est celui-là qui protège vraiment.
 
 Le CSP couvre aussi le clickjacking, via `frame-ancestors`, plus finement que `X-Frame-Options`
-(liste d'origines plutôt que tout-ou-rien). Les deux cohabitent : les navigateurs modernes
-privilégient `frame-ancestors`, `X-Frame-Options` reste le filet pour les anciens.
+(liste d'origines plutôt que tout-ou-rien). Les deux cohabitent : un navigateur CSP ignore
+`X-Frame-Options` dès que `frame-ancestors` est présent, l'ancien en-tête reste le filet des
+autres. **Un seul réglage pilote les deux** — `frameOptions` du module http (section suivante) :
+security en dérive `frame-ancestors` (`csp.ts#withFrameAncestors`), sauf si ta politique déclare
+déjà la directive. C'est ainsi qu'on autorise un portail tiers à t'encadrer :
+
+```ts
+use("@nodefony/security", {
+  headers: {
+    csp: "default-src 'self'; script-src 'nonce-{{nonce}}' 'self'; frame-ancestors https://portail.example",
+  },
+});
+```
 
 ### `X-Frame-Options` — non, tu ne m'encadres pas
 
@@ -279,6 +290,17 @@ Posé par le **transport** depuis un cache calculé au boot — `secFrameOptions
 (`http/nodefony/config/config.ts#securityHeadersSchema`), qui vaut `DENY` par défaut. `SAMEORIGIN` si ton propre site
 s'auto-encadre. C'est un des trois en-têtes que security **ne ré-émet pas** : il doit valoir aussi
 pour un HTML statique servi directement depuis `public/`.
+
+Le même réglage fixe `frame-ancestors` dans la politique de contenu :
+
+| `frameOptions`  | `X-Frame-Options` | `frame-ancestors` |
+| --------------- | ----------------- | ----------------- |
+| `DENY` (défaut) | `DENY`            | `'none'`          |
+| `SAMEORIGIN`    | `SAMEORIGIN`      | `'self'`          |
+| `null`          | absent            | absent            |
+
+Une édition à chaud de `frameOptions` prévient le pare-feu
+(`firewall.ts#Firewall.onTransportHeadersChanged`) : les deux en-têtes ne divergent jamais.
 
 ### `X-Content-Type-Options` — arrête de deviner
 
@@ -400,21 +422,21 @@ Dérivé de `securityHeadersSchema` (`http/nodefony/config/config.ts#securityHea
 **éditables à chaud** (`runtimeMutable`) : `HttpKernel.onConfigChanged()` (`http-kernel.ts#HttpKernel.onConfigChanged`)
 recalcule les caches, donc la valeur suivante s'applique sans redémarrage.
 
-| Option                                      | Type              | Défaut     | Effet                                                              |
-| ------------------------------------------- | ----------------- | ---------- | ------------------------------------------------------------------ |
-| `contentTypeOptions`                        | chaîne ou `null`  | `nosniff`  | `X-Content-Type-Options` ; `null` = ne pas émettre.                |
-| `frameOptions`                              | chaîne ou `null`  | `DENY`     | `X-Frame-Options` ; `SAMEORIGIN` si auto-encadrement.              |
-| `strictTransportSecurity`                   | objet ou `null`   | activé     | `null` = pas de HSTS du tout.                                      |
-| `strictTransportSecurity.maxAge`            | entier (secondes) | `31536000` | Durée mémorisée par le navigateur (un an, recommandé OWASP).       |
-| `strictTransportSecurity.includeSubDomains` | booléen           | `true`     | Étend la contrainte à tous les sous-domaines.                      |
-| `strictTransportSecurity.preload`           | booléen           | `false`    | Inscription à la liste pré-chargée — **irréversible en pratique**. |
+| Option                                      | Type              | Défaut     | Effet                                                                      |
+| ------------------------------------------- | ----------------- | ---------- | -------------------------------------------------------------------------- |
+| `contentTypeOptions`                        | chaîne ou `null`  | `nosniff`  | `X-Content-Type-Options` ; `null` = ne pas émettre.                        |
+| `frameOptions`                              | chaîne ou `null`  | `DENY`     | `X-Frame-Options` ET `frame-ancestors` ; `SAMEORIGIN` si auto-encadrement. |
+| `strictTransportSecurity`                   | objet ou `null`   | activé     | `null` = pas de HSTS du tout.                                              |
+| `strictTransportSecurity.maxAge`            | entier (secondes) | `31536000` | Durée mémorisée par le navigateur (un an, recommandé OWASP).               |
+| `strictTransportSecurity.includeSubDomains` | booléen           | `true`     | Étend la contrainte à tous les sous-domaines.                              |
+| `strictTransportSecurity.preload`           | booléen           | `false`    | Inscription à la liste pré-chargée — **irréversible en pratique**.         |
 
 > [!WARNING]
 > Les clés `hsts`, `hstsMaxAgeS`, `frameguard` et `noSniff` **existent** dans la config security
 > (`config.ts#headersSchema`) mais **ne pilotent rien** : la couche
-> applicative ne les lit pas (`securityHeaders.ts#ISecurityHeadersOptions`), elles ne servent qu'à l'introspection
-> affichée dans Studio. Pour changer réellement `X-Frame-Options`, c'est `securityHeaders.frameOptions`
-> **du module http**. Même remarque pour `hidePoweredBy` (`config.ts#headersSchema`) : Nodefony n'émet aucun
+> applicative ne les lit pas (`securityHeaders.ts#ISecurityHeadersOptions`). `frameguard` est
+> **dépréciée** (retrait à la prochaine version majeure). Pour changer réellement `X-Frame-Options`
+> et `frame-ancestors`, c'est `securityHeaders.frameOptions` **du module http**. Même remarque pour `hidePoweredBy` (`config.ts#headersSchema`) : Nodefony n'émet aucun
 > `X-Powered-By`, l'option est un no-op documenté.
 
 ## 🏗️ Le CSP en détail — deux régimes, trois façons de l'étendre
@@ -557,9 +579,9 @@ L'onglet **Configuration** de Studio rend les mêmes options depuis le schéma Z
 porte sa description, ce qui en fait la référence toujours à jour des défauts.
 
 > [!NOTE]
-> La ligne « frameguard » de cet écran reflète la **config security**, pas la valeur réellement émise
-> par le transport. La source de vérité pour `X-Frame-Options`, c'est la réponse HTTP elle-même :
-> `curl -I` tranche en une seconde.
+> La ligne « frameguard » de cet écran reflète la valeur réellement ÉMISE par le transport, lue
+> chez le noyau HTTP (`firewall.ts#Firewall.describe`), pas la clé inerte de la config security.
+> La réponse HTTP elle-même reste la preuve : `curl -I` tranche en une seconde.
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
