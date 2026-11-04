@@ -16,7 +16,7 @@
  * `@env` NF_BROWSER_PAGE chemin de la page à ouvrir (défaut /)
  * `@env` NF_BROWSER_EXPECT texte DISCRIMINANT attendu avant de mesurer (défaut : aucun, on mesure après domcontentloaded)
  * `@env` NF_BROWSER_FAMILIES familles de sondes à activer, séparées par des virgules (a11y, axe, rendu, reseau, perf, stockage, responsive — ou « toutes ») ; défaut : aucune, le socle seul
- * `@env` NF_BROWSER_ENGINE navigateur imposé (chromium, chrome, msedge) ; sans lui, le premier qui répond
+ * `@env` NF_BROWSER_ENGINE navigateur imposé (chromium, chrome, msedge, firefox, webkit) ; sans lui, le premier qui répond
  * `@env` NF_BROWSER_COLOR_SCHEME schéma de couleurs émulé (light, dark, no-preference) — un défaut peut n'exister que dans UN thème
  * `@env` NF_BROWSER_STORAGE entrées de stockage local posées AVANT chargement (`clé=valeur`) — pour une application qui MÉMORISE son thème
  * `@env` NF_BROWSER_LOGIN chemin du formulaire de connexion de TON application — requis dès qu'un identifiant est donné, aucun défaut n'est deviné
@@ -933,6 +933,14 @@ const shot = path.join(OUTPUT, `${slug}-${stamp}.png`);
 // `NF_BROWSER_FULLPAGE=1` : la page ENTIÈRE, pas la fenêtre. Un formulaire long
 // (ou une page qu'on vient de déplier) a l'essentiel SOUS la ligne de flottaison
 // — la capture par défaut laisse alors conclure « ce n'est pas là ».
+//
+// La console se FIGE avant la capture : sous WebKit, le pilote injecte un
+// `<style>` pour capturer, et une politique de sécurité du contenu stricte le
+// refuse. Ce refus appartient à l'instrument, pas à la page — compté, il ferait
+// accuser l'application d'une violation qu'elle ne commet pas. (Le rapport, lui,
+// part quand même vers le serveur : une collecte de rapports sous WebKit doit
+// écarter les `style-src-elem` `inline` émis à l'instant de la capture.)
+const consoleFrozen = consoleErrors.slice();
 await page.screenshot({
   path: shot,
   fullPage: process.env.NF_BROWSER_FULLPAGE === "1",
@@ -1000,7 +1008,7 @@ console.log(
       // L'écran mesuré : une proportion sans son écran ne conclut rien.
       viewport: `${decor.VIEWPORT.name}${decor.VIEWPORT.mobile ? " (téléphone)" : ""}`,
       ...measured,
-      consoleErrors,
+      consoleErrors: consoleFrozen,
       uncaughtErrors,
       // Le chemin RENDU est celui où l'appelant trouvera l'image. Dans un
       // conteneur, `/output` est un volume monté et ne veut rien dire au

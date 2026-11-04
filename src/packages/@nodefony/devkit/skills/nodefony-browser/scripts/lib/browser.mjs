@@ -13,7 +13,7 @@
  * `@env` NF_BROWSER_USER identifiant ; sans lui, aucune authentification n'est tentée
  * `@env` NF_BROWSER_PASSWORD mot de passe associé
  * `@env` NF_BROWSER_WHOAMI chemin qui répond 2xx à une session authentifiée, et 401/403 ou un 2xx portant `{ user: null }` sinon — prouve une session reprise (défaut `/nodefony/security/api/auth/me` ; vide = aucune reprise)
- * `@env` NF_BROWSER_ENGINE navigateur imposé (chromium, chrome, msedge) ; sans lui, le premier qui répond
+ * `@env` NF_BROWSER_ENGINE navigateur imposé (chromium, chrome, msedge, firefox, webkit) ; sans lui, le premier qui répond
  * `@env` NF_BROWSER_COLOR_SCHEME schéma de couleurs émulé (light, dark, no-preference) ; sans lui, celui du navigateur
  * `@env` NF_BROWSER_STORAGE entrées de stockage local posées AVANT chargement (`clé=valeur`, séparées par des virgules)
  */
@@ -22,6 +22,7 @@ import path from "node:path";
 import {
   environmentDefaults,
   authStateName,
+  browserEngine,
   browserOrder,
   sessionVerdict,
   parseColorScheme,
@@ -38,9 +39,10 @@ import {
  * en pair optionnel — et un `MODULE_NOT_FOUND` nu, qui ne dit ni quoi
  * installer ni pourquoi, n'est pas une réponse acceptable.
  */
-let chromium;
+let launchers;
 try {
-  ({ chromium } = await import("playwright"));
+  const { chromium, firefox, webkit } = await import("playwright");
+  launchers = { chromium, firefox, webkit };
 } catch {
   console.error(
     "Playwright est absent — c'est lui qui pilote le navigateur.\n\n" +
@@ -222,10 +224,14 @@ export async function open() {
   const failures = [];
   for (const channel of BROWSERS) {
     try {
-      browser = await chromium.launch({
-        channel: channel,
-        args: ["--no-sandbox"],
-      });
+      // `--no-sandbox` est un drapeau de Chromium : Firefox et WebKit n'en
+      // ont pas l'usage, et le pilote ne leur passe aucun canal.
+      const { engine, channel: variant } = browserEngine(channel);
+      browser = await launchers[engine].launch(
+        engine === "chromium"
+          ? { channel: variant, args: ["--no-sandbox"] }
+          : {},
+      );
       browserUsed = channel;
       break;
     } catch (e) {
@@ -238,7 +244,8 @@ export async function open() {
         `${failures.join("\n")}\n\n` +
         "Installer celui du pilote (une fois par machine, partagé par tous tes projets) :\n\n" +
         "  npx playwright install chromium\n\n" +
-        "Ou viser un navigateur déjà présent : NF_BROWSER_ENGINE=chrome (ou msedge).",
+        "Ou viser un navigateur déjà présent : NF_BROWSER_ENGINE=chrome (ou msedge).\n" +
+        "Autre moteur : NF_BROWSER_ENGINE=firefox (ou webkit), après npx playwright install firefox.",
     );
     process.exit(69); // EX_UNAVAILABLE
   }

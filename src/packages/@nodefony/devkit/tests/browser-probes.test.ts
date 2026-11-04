@@ -52,6 +52,9 @@ const browserOrder = fonctionDe<(explicit: string | undefined) => string[]>(
   probes,
   "browserOrder",
 );
+const browserEngine = fonctionDe<
+  (name: string) => { engine: string; channel: string | undefined }
+>(probes, "browserEngine");
 const authStateName = fonctionDe<
   (login: string | undefined, origin?: string) => string
 >(probes, "authStateName");
@@ -579,6 +582,40 @@ describe("browserOrder — ne rien télécharger sans nécessité", () => {
     // Se rabattre ici rendrait une mesure attribuée au mauvais navigateur.
     expect(browserOrder("chrome")).toEqual(["chrome"]);
     expect(browserOrder("  msedge  ")).toEqual(["msedge"]);
+  });
+});
+
+/**
+ * Ce que ces tests prouvent : `firefox` et `webkit` changent de MOTEUR, tout
+ * autre nom reste un canal de Chromium. Une norme (sécurité du contenu,
+ * cookies) diverge d'un moteur à l'autre : la constater sous un seul ne dit
+ * rien des autres.
+ */
+describe("browserEngine — un nom de navigateur vers un moteur du pilote", () => {
+  it("firefox et webkit sont des moteurs, sans canal", () => {
+    expect(browserEngine("firefox")).toEqual({
+      engine: "firefox",
+      channel: undefined,
+    });
+    expect(browserEngine(" WebKit ")).toEqual({
+      engine: "webkit",
+      channel: undefined,
+    });
+  });
+
+  it("sens négatif : chrome, msedge et un canal inconnu restent Chromium", () => {
+    expect(browserEngine("chrome")).toEqual({
+      engine: "chromium",
+      channel: "chrome",
+    });
+    expect(browserEngine("msedge")).toEqual({
+      engine: "chromium",
+      channel: "msedge",
+    });
+    expect(browserEngine("chrome-beta")).toEqual({
+      engine: "chromium",
+      channel: "chrome-beta",
+    });
   });
 });
 

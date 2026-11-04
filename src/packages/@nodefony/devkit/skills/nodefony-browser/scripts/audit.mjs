@@ -41,6 +41,7 @@ import {
   USER,
 } from "./lib/browser.mjs";
 import {
+  browserEngine,
   browserOrder,
   captureSlug,
   colorSchemeLaunchArgs,
@@ -104,6 +105,17 @@ const profile = mkdtempSync(path.join(tmpdir(), "nf-audit-"));
 // seul Chrome est installé — là même où `inspect.mjs` passait.
 let ctx = null;
 const failures = [];
+// Lighthouse parle au navigateur par le protocole de débogage de Chromium :
+// Firefox et WebKit ne l'exposent pas. Refuser en le disant, plutôt que de se
+// rabattre sur Chromium et d'attribuer l'audit au moteur qu'on n'a pas lancé.
+const wanted = (process.env.NF_BROWSER_ENGINE ?? "").trim();
+if (wanted && browserEngine(wanted).engine !== "chromium") {
+  console.error(
+    `L'audit exige un navigateur de la famille Chromium (protocole de débogage) — « ${wanted} » n'en est pas un.\n` +
+      "Pour regarder la page sous ce moteur : inspect.mjs avec le même NF_BROWSER_ENGINE.",
+  );
+  process.exit(64); // EX_USAGE
+}
 for (const channel of browserOrder(process.env.NF_BROWSER_ENGINE)) {
   try {
     ctx = await chromium.launchPersistentContext(profile, {

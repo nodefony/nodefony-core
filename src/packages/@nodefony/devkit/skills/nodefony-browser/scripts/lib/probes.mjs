@@ -709,3 +709,24 @@ export function browserOrder(explicit) {
   if (v) return [v];
   return ["chromium", "chrome", "msedge"];
 }
+
+/**
+ * Traduit un nom de navigateur en MOTEUR du pilote et, pour Chromium, en canal.
+ *
+ * Un comportement que dicte une norme — la politique de sécurité du contenu, le
+ * rapport de violation, un cookie `SameSite` — diverge d'un moteur à l'autre :
+ * le constater sous Chromium seul ne dit rien de Firefox ni de Safari. `firefox`
+ * et `webkit` désignent donc les moteurs que le pilote installe lui-même
+ * (`npx playwright install firefox`) ; tout autre nom reste un canal de
+ * Chromium (`chrome`, `msedge`, `chrome-beta`…), comme avant.
+ *
+ * @param {string} name - un nom rendu par `browserOrder`.
+ * @returns {{ engine: "chromium"|"firefox"|"webkit", channel: string|undefined }}
+ *   le moteur à lancer, et le canal Chromium (absent pour les deux autres).
+ */
+export function browserEngine(name) {
+  const v = name.trim().toLowerCase();
+  if (v === "firefox" || v === "webkit")
+    return { engine: v, channel: undefined };
+  return { engine: "chromium", channel: name.trim() };
+}

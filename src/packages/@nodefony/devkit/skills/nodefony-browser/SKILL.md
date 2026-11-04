@@ -70,7 +70,10 @@ npx playwright install chromium
 
 `NF_BROWSER_ENGINE=chrome` (ou `msedge`, `chromium`) impose un navigateur précis. Un choix explicite
 n'est **jamais** complété par un repli : se rabattre en silence attribuerait la mesure au mauvais
-moteur. ⚠️ À ne pas confondre avec `NF_BROWSER_CHANNEL`, qui désigne le canal d'un socket
+moteur. `NF_BROWSER_ENGINE=firefox` (ou `webkit`) change de MOTEUR — après
+`npx playwright install firefox` : ce que dicte une norme (sécurité du contenu, rapports de
+violation, cookies) diverge d'un moteur à l'autre, et Chromium seul n'en dit rien. L'audit
+Lighthouse, lui, reste réservé à Chromium. ⚠️ À ne pas confondre avec `NF_BROWSER_CHANNEL`, qui désigne le canal d'un socket
 applicatif — le mot « canal » sert aux deux dans des mondes différents.
 
 ## L'autre voie — en conteneur, et QUAND s'en servir
