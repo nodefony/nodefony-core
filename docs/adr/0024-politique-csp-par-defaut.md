@@ -92,6 +92,28 @@ ne porte pas de sélecteur : risque résiduel faible, toléré. React et Vue éc
 le CSSOM, que la politique ne gouverne pas. Tout `<style>` créé à l'exécution reçoit le nonce,
 transmis au front par la convention `<meta property="csp-nonce">`.
 
+Précisions tranchées à la mise en œuvre :
+
+- **Défaut écrit `style-src 'self' 'unsafe-inline' 'nonce-{{nonce}}'`**. Un navigateur CSP2+
+  ignore `'unsafe-inline'` en présence d'un nonce : sur un document rendu, la protection est celle
+  de la ligne ci-dessus. Là où le nonce est retiré (document servi tel quel, `cspNonces: false` —
+  `securityHeaders.ts#purgeNonceForDocument`), `'unsafe-inline'` reprend la main : un `<style>` en
+  ligne d'un fichier statique s'applique. Même argument qu'en C1 : un fichier n'a pas de point
+  d'injection côté serveur, et une page bloquée sans geste possible contredit C0. Écarté : le
+  défaut sans `'unsafe-inline'`, qui bloquait les styles en ligne de tout `.html` de `public/`.
+- **Le nonce voyage par la balise meta** posée par chaque document du framework
+  (`cspNonce.ts#cspNonceMetaTag` : `TemplateHelper.renderTags`, `PrebuiltUi.renderIndex`, page de
+  connexion), dans l'attribut `nonce` que le navigateur masque — jamais dans `content`, qu'un
+  sélecteur CSS injecté pourrait lire. Lecture : `cspStyles.ts#readCspNonce` (`nodefony/client`),
+  avec repli sur un `<script>` signé de la page.
+- **Les styles du framework créés à l'exécution passent par une feuille construite**
+  (`cspStyles.ts#adoptStyles` : `CSSStyleSheet` + `adoptedStyleSheets`), que la politique ne
+  gouverne pas : barre de débogage, console d'administration. Repli sur un `<style>` signé.
+- **Une application générée ne doit rien avoir à faire** : l'entrée Angular fournit `CSP_NONCE`
+  depuis `readCspNonce()` (Angular pose ses styles de composants en `<style>`) ; React, Vue et
+  Svelte passent par Vite, qui lit la balise meta en développement et extrait les feuilles en
+  production.
+
 ### C3. Temps réel : l'origine se déclare, exacte
 
 Même origine (cas courant, URL relative) : couvert par `connect-src 'self'`, qui inclut `wss:`

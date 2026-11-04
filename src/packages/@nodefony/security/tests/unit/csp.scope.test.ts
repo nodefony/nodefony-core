@@ -358,3 +358,55 @@ describe("C1 — 'strict-dynamic' jamais orphelin sur un document (ADR-0024 §C1
     assert.deepEqual(served, routed);
   });
 });
+
+/**
+ * ADR-0024 §C2 — `style-src 'self' 'unsafe-inline' 'nonce-…'` et
+ * `style-src-attr 'unsafe-inline'`. En présence d'un nonce, un navigateur CSP2+
+ * IGNORE `'unsafe-inline'` : un `<style>` injecté sans nonce est bloqué. Là où
+ * le framework retire le nonce (fichier servi tel quel, `cspNonces: false`),
+ * `'unsafe-inline'` reprend la main : la page garde ses styles, sans geste
+ * possible pour elle (C0) et sans point d'injection côté serveur.
+ */
+describe("C2 — styles : nonce, repli 'unsafe-inline' là où le nonce est retiré (ADR-0024 §C2)", () => {
+  const sourcesOf = (csp: string, name: string): string[] =>
+    parseCsp(csp).find(([n]) => n === name)?.[1] ?? [];
+
+  it("défaut : nonce de styles, 'unsafe-inline' en repli, attributs `style=` tolérés", () => {
+    assert.deepEqual(sourcesOf(DEFAULT_CSP, "style-src"), [
+      "'self'",
+      "'unsafe-inline'",
+      "'nonce-{{nonce}}'",
+    ]);
+    assert.deepEqual(sourcesOf(DEFAULT_CSP, "style-src-attr"), [
+      "'unsafe-inline'",
+    ]);
+  });
+
+  it("document rendu : le MÊME nonce signe scripts et styles", () => {
+    const csp = make(DEFAULT_CSP).cspFor("N0nce", true);
+    assert.deepEqual(sourcesOf(csp, "style-src"), [
+      "'self'",
+      "'unsafe-inline'",
+      "'nonce-N0nce'",
+    ]);
+    assert.ok(sourcesOf(csp, "script-src").includes("'nonce-N0nce'"));
+    assert.doesNotMatch(csp, /\{\{nonce\}\}/);
+  });
+
+  it("document servi tel quel : nonce retiré, 'unsafe-inline' décide", () => {
+    const csp = make(DEFAULT_CSP).headersForServedFile(true)[CSP] ?? "";
+    assert.deepEqual(sourcesOf(csp, "style-src"), [
+      "'self'",
+      "'unsafe-inline'",
+    ]);
+    assert.doesNotMatch(csp, /nonce/);
+  });
+
+  it("cspNonces: false — styles en 'unsafe-inline', comme avant C2", () => {
+    const csp = make(DEFAULT_CSP, false).headersFor(true)[CSP] ?? "";
+    assert.deepEqual(sourcesOf(csp, "style-src"), [
+      "'self'",
+      "'unsafe-inline'",
+    ]);
+  });
+});

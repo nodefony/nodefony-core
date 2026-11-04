@@ -158,7 +158,8 @@ export default defineConfig(() => ({
         // `{{nonce}}` est substitué par un jeton FRAIS à chaque requête (cf plus bas).
         csp:
           "default-src 'self'; script-src 'nonce-{{nonce}}' 'strict-dynamic' 'self'; " +
-          "style-src 'self' 'unsafe-inline'; img-src 'self' data:; " +
+          "style-src 'self' 'unsafe-inline' 'nonce-{{nonce}}'; style-src-attr 'unsafe-inline'; " +
+          "img-src 'self' data:; " +
           "object-src 'none'; base-uri 'self'; form-action 'self'",
         cspNonces: true,
         // Ne fuiter que l'origine, et rien vers un site en clair.
@@ -265,10 +266,11 @@ Choisir en cinq secondes — puis le détail dans les cartes.
 **La menace** : n'importe quelle entrée non échappée (commentaire, nom d'utilisateur, paramètre
 réfléchi) devient un vecteur d'exécution de code. Le CSP est le filet quand l'échappement a raté.
 
-**Le défaut Nodefony** est délibérément « secure-but-usable » (`config.ts#headersSchema`) : seul `script-src`
-est **strict** — `'nonce-{{nonce}}' 'strict-dynamic' 'self'`, ce qui est la vraie défense XSS. Le reste
-couvre les besoins réels d'une app moderne (CSS-in-JS via `style-src 'unsafe-inline'`, images
-`data:`/`blob:`, workers, fetch/WS same-origin) et ajoute les durcissements gratuits :
+**Le défaut Nodefony** est délibérément « secure-but-usable » (`config.ts#headersSchema`) : `script-src`
+est **strict** — `'nonce-{{nonce}}' 'strict-dynamic' 'self'`, ce qui est la vraie défense XSS ;
+`style-src` exige le même nonce des `<style>` (voir plus bas). Le reste couvre les besoins réels
+d'une app moderne (images `data:`/`blob:`, workers, fetch/WS same-origin) et ajoute les durcissements
+gratuits :
 `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `upgrade-insecure-requests`.
 
 **`'strict-dynamic'` : seul le nonce autorise une balise.** Un navigateur CSP3 ignore alors
@@ -289,6 +291,25 @@ toute la page :
   la directive garde un hash (`'sha256-…'`), qui continue d'autoriser ses scripts.
 
 Une politique que tu écris toi-même sans `{{nonce}}` n'est jamais retouchée.
+
+**Styles : le même nonce, et rien à faire dans une application générée.** Le défaut écrit
+`style-src 'self' 'unsafe-inline' 'nonce-{{nonce}}'; style-src-attr 'unsafe-inline'`. En présence
+d'un nonce, le navigateur ignore `'unsafe-inline'` : un `<style>` injecté dans ta page — qui peut
+exfiltrer un jeton par des sélecteurs d'attribut, sans une ligne de JavaScript — est bloqué. Un
+attribut `style="…"` reste permis : il ne porte pas de sélecteur. Ce qui est déjà en place :
+
+- les feuilles en `<link rel="stylesheet">` de ton origine passent par `'self'` ; les styles que
+  React ou Vue écrivent par le CSSOM (`element.style`) ne sont pas gouvernés par la politique ;
+- chaque document rendu par le framework annonce son nonce par
+  `<meta property="csp-nonce" nonce="…">` (`cspNonce.ts#cspNonceMetaTag`). Le client de Vite
+  y signe les styles du rechargement à chaud ; l'entrée Angular générée le donne à `CSP_NONCE` ;
+- un `<style>` que **ton** code crée à l'exécution : `adoptStyles(css)` (`nodefony/client`) le pose
+  en feuille construite, que la politique ne gouverne pas ; une bibliothèque qui veut un nonce le
+  lit par `readCspNonce()` (Mantine : `getStyleNonce`, Emotion : `createCache({ nonce })`) ;
+- dans un gabarit : `<style nonce="<%= it.nonce %>">`.
+
+Là où le nonce est retiré (page servie telle quelle, `cspNonces: false`), `'unsafe-inline'`
+reprend la main : la page garde ses styles.
 
 **`upgrade-insecure-requests` ne part que sur une page servie en `https`.** Le navigateur réécrit
 alors en `https` chaque sous-ressource écrite en `http://` (image, script, socket) au lieu de la
@@ -555,13 +576,13 @@ script d'un worker. Sur un JSON ou une image, elle ne gouverne rien — sauf l'e
 pare-feu choisit donc la politique au moment où la réponse écrit ses en-têtes, d'après son
 `Content-Type` (`securityHeaders.ts#responseKindOf`, ADR-0024 §C11) :
 
-| La réponse est…                                                      | Content-Security-Policy                                        | Autres en-têtes applicatifs   |
-| -------------------------------------------------------------------- | -------------------------------------------------------------- | ----------------------------- |
-| un document : HTML, ou tout type XML (`text/xml`, `*+xml`, dont SVG) | complète, avec nonce                                           | tous                          |
-| un document servi tel quel (fichier de `public/`, relais)            | complète, sans nonce ni `'strict-dynamic'`                     | tous                          |
-| du JavaScript (`text/javascript`…)                                   | complète, **sans** nonce (celle qu'un worker prend)            | `Referrer-Policy`, COEP, CORP |
-| autre chose : JSON, CSS, image, police, média, 204                   | `default-src 'none'`, plus le `frame-ancestors` de la complète | `Referrer-Policy`, CORP       |
-| un `304 Not Modified` du pipeline (contrôleur)                       | **aucune**                                                     | aucun                         |
+| La réponse est…                                                      | Content-Security-Policy                                                 | Autres en-têtes applicatifs   |
+| -------------------------------------------------------------------- | ----------------------------------------------------------------------- | ----------------------------- |
+| un document : HTML, ou tout type XML (`text/xml`, `*+xml`, dont SVG) | complète, avec nonce                                                    | tous                          |
+| un document servi tel quel (fichier de `public/`, relais)            | complète, sans nonce ni `'strict-dynamic'` (styles : `'unsafe-inline'`) | tous                          |
+| du JavaScript (`text/javascript`…)                                   | complète, **sans** nonce (celle qu'un worker prend)                     | `Referrer-Policy`, COEP, CORP |
+| autre chose : JSON, CSS, image, police, média, 204                   | `default-src 'none'`, plus le `frame-ancestors` de la complète          | `Referrer-Policy`, CORP       |
+| un `304 Not Modified` du pipeline (contrôleur)                       | **aucune**                                                              | aucun                         |
 
 Pourquoi chaque ligne :
 
