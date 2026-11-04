@@ -157,7 +157,7 @@ export default defineConfig(() => ({
       headers: {
         // `{{nonce}}` est substitué par un jeton FRAIS à chaque requête (cf plus bas).
         csp:
-          "default-src 'self'; script-src 'self' 'nonce-{{nonce}}'; " +
+          "default-src 'self'; script-src 'nonce-{{nonce}}' 'strict-dynamic' 'self'; " +
           "style-src 'self' 'unsafe-inline'; img-src 'self' data:; " +
           "object-src 'none'; base-uri 'self'; form-action 'self'",
         cspNonces: true,
@@ -187,7 +187,7 @@ curl -sI http://localhost:5151/nodefony/test/html
 # X-Content-Type-Options: nosniff              ← transport (@nodefony/http)
 # X-Frame-Options: DENY                        ← transport (@nodefony/http)
 # Content-Type: text/html; charset=utf-8
-# Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-vZ9…'; …
+# Content-Security-Policy: default-src 'self'; script-src 'nonce-vZ9…' 'strict-dynamic' 'self'; …
 # Referrer-Policy: strict-origin-when-cross-origin
 # Cross-Origin-Opener-Policy: same-origin
 # Cross-Origin-Resource-Policy: same-origin
@@ -266,10 +266,29 @@ Choisir en cinq secondes — puis le détail dans les cartes.
 réfléchi) devient un vecteur d'exécution de code. Le CSP est le filet quand l'échappement a raté.
 
 **Le défaut Nodefony** est délibérément « secure-but-usable » (`config.ts#headersSchema`) : seul `script-src`
-est **strict** — `'self'` plus le nonce de la requête, ce qui est la vraie défense XSS. Le reste
+est **strict** — `'nonce-{{nonce}}' 'strict-dynamic' 'self'`, ce qui est la vraie défense XSS. Le reste
 couvre les besoins réels d'une app moderne (CSS-in-JS via `style-src 'unsafe-inline'`, images
 `data:`/`blob:`, workers, fetch/WS same-origin) et ajoute les durcissements gratuits :
 `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `upgrade-insecure-requests`.
+
+**`'strict-dynamic'` : seul le nonce autorise une balise.** Un navigateur CSP3 ignore alors
+`'self'` et les hôtes (`'self'` ne reste que pour les navigateurs CSP2). Sans lui, tout fichier
+JavaScript posé sur ton origine — un téléversement, une réponse mal typée — s'exécutait dès qu'une
+injection écrivait `<script src="/uploads/x.js">`. En retour, un `<script>` sans nonce dans ton
+gabarit ne s'exécute plus : écris `<script nonce="{{ nonce }}" src="…">`. Ce que ce script charge
+ensuite (un `import()`, un script qu'il crée) hérite de sa confiance.
+
+Deux cas où il n'y a pas de nonce, et où `'strict-dynamic'` part avec lui pour ne pas bloquer
+toute la page :
+
+- **une page servie telle quelle** — un `.html` de `public/`, une réponse relayée par le proxy
+  inverse : aucun gabarit ne l'a écrite. Elle reçoit la politique sans nonce ni `'strict-dynamic'`,
+  et `'self'` décide, comme avant. C'est sans perte : un fichier sert les mêmes octets à tous, il
+  n'a pas de point d'injection côté serveur ;
+- **`cspNonces: false`** : le nonce est retiré de la politique, `'strict-dynamic'` aussi — sauf si
+  la directive garde un hash (`'sha256-…'`), qui continue d'autoriser ses scripts.
+
+Une politique que tu écris toi-même sans `{{nonce}}` n'est jamais retouchée.
 
 **`upgrade-insecure-requests` ne part que sur une page servie en `https`.** Le navigateur réécrit
 alors en `https` chaque sous-ressource écrite en `http://` (image, script, socket) au lieu de la
@@ -500,7 +519,8 @@ quelle dans la table gelée du boot (`securityHeaders.ts#SecurityHeaders.constru
 Détail de robustesse : si tu désactives `cspNonces` en laissant le placeholder dans la chaîne, le
 token résiduel `'nonce-{{nonce}}'` est **purgé** (`securityHeaders.ts#SecurityHeaders.constructor`). Sans ça, tu servirais un
 CSP contenant un nonce littéral jamais émis — donc un `script-src` qui bloque **tout**, y compris tes
-propres scripts. Le code refuse de produire un CSP cassé.
+propres scripts. `'strict-dynamic'` part avec lui quand la directive n'a plus ni nonce ni hash : seul,
+il ferait ignorer `'self'` et bloquerait aussi tout. Le code refuse de produire un CSP cassé.
 
 ### Régime 2 — nonce par requête (la vraie défense anti-XSS)
 
@@ -538,6 +558,7 @@ pare-feu choisit donc la politique au moment où la réponse écrit ses en-tête
 | La réponse est…                                                      | Content-Security-Policy                                        | Autres en-têtes applicatifs   |
 | -------------------------------------------------------------------- | -------------------------------------------------------------- | ----------------------------- |
 | un document : HTML, ou tout type XML (`text/xml`, `*+xml`, dont SVG) | complète, avec nonce                                           | tous                          |
+| un document servi tel quel (fichier de `public/`, relais)            | complète, sans nonce ni `'strict-dynamic'`                     | tous                          |
 | du JavaScript (`text/javascript`…)                                   | complète, **sans** nonce (celle qu'un worker prend)            | `Referrer-Policy`, COEP, CORP |
 | autre chose : JSON, CSS, image, police, média, 204                   | `default-src 'none'`, plus le `frame-ancestors` de la complète | `Referrer-Policy`, CORP       |
 | un `304 Not Modified` du pipeline (contrôleur)                       | **aucune**                                                     | aucun                         |
@@ -554,12 +575,14 @@ Pourquoi chaque ligne :
 - **Un `304` du pipeline ne porte rien** : ses en-têtes REMPLACENT ceux de la page gardée en cache
   (RFC 9111 §4.3.4). Une politique courte y réduirait la page, un nonce neuf la désaccorderait de
   ses balises. Un fichier statique en `304` porte en revanche la politique de son `200` : le serveur
-  statique écrit ses en-têtes avant de savoir la copie fraîche. C'est sans effet : c'est la même
-  politique, et un fichier n'a pas de nonce dans ses balises.
+  statique écrit ses en-têtes avant de savoir la copie fraîche. C'est sans effet : c'est
+  exactement la politique de son `200`, qui ne porte pas de nonce.
 - **Une réponse sans contenu** (204, corps vide) prend la courte, même si un `Content-Type` y a été
   posé : rien n'y sera rendu.
 - **Un fichier statique** est rangé d'après son extension. Sans extension connue — l'`index.html`
-  d'un dossier, ou toute adresse qui finit par `/` —, il reçoit la politique complète.
+  d'un dossier, ou toute adresse qui finit par `/` —, il est traité en document : jamais une
+  politique plus faible par défaut. Un document servi ainsi reçoit la politique sans nonce (voir
+  `'strict-dynamic'` plus haut).
 
 Ce que l'application écrit n'est **jamais réduit** :
 

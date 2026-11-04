@@ -1203,10 +1203,15 @@ class Firewall extends Service implements IFirewall {
    * @param context - contexte de la réponse.
    * @param contentType - `Content-Type` de la réponse ; `null` = sans contenu ;
    *   omis = type inconnu, servi comme un document (politique complète).
+   * @param servedAsFile - le corps est servi tel quel (fichier statique,
+   *   relais) : aucun gabarit ne l'a écrit, il ne peut pas porter de nonce. Un
+   *   document reçoit alors la politique sans nonce ni `'strict-dynamic'`
+   *   (ADR-0024 §C1) ; les autres types n'en changent pas.
    */
   applySecurityHeaders(
     context: ContextType,
     contentType?: string | null,
+    servedAsFile = false,
   ): void {
     const sh = this.#securityHeaders;
     if (!sh) return;
@@ -1232,9 +1237,12 @@ class Firewall extends Service implements IFirewall {
     // l'application écrit n'est jamais réduit (un `frame-ancestors` sur un PDF).
     if (extra == null) {
       const kind = responseKindOf(contentType);
-      if (kind !== "document") {
+      if (kind !== "document" || servedAsFile) {
         // Table figée, sans nonce : le CSPRNG n'est pas sollicité.
-        const table = sh.headersForResource(kind, tls);
+        const table =
+          kind === "document"
+            ? sh.headersForServedFile(tls)
+            : sh.headersForResource(kind, tls);
         for (const name in table) {
           const value = table[name];
           if (value === undefined) continue;

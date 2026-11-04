@@ -41,8 +41,15 @@ export interface IFirewall extends IFirewallGate {
    *
    * @param contentType - `Content-Type` de la réponse ; `null` = sans contenu ;
    *   omis = type inconnu (politique complète).
+   * @param servedAsFile - corps servi tel quel (fichier statique, relais), qui
+   *   ne peut pas porter de nonce : un document y reçoit la politique sans
+   *   nonce ni `'strict-dynamic'` (ADR-0024 §C1).
    */
-  applySecurityHeaders(context: ContextType, contentType?: string | null): void;
+  applySecurityHeaders(
+    context: ContextType,
+    contentType?: string | null,
+    servedAsFile?: boolean,
+  ): void;
 
   /**
    * Déclare des directives CSP additionnelles pour un module (ex. `@nodefony/frontend`

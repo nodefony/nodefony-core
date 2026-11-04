@@ -91,8 +91,21 @@ describe("Portée — la politique suit le type de la réponse (ADR-0024 §C11)"
     const h = await head("/nodefony/test/html");
     expect(h["content-type"]).to.match(/^text\/html/);
     expect(h["content-security-policy"]).to.match(
-      /script-src [^;]*'nonce-[^']+'/,
+      /script-src 'nonce-[^']+' 'strict-dynamic' 'self'/,
     );
+  });
+
+  it("HTML statique : sans nonce ni 'strict-dynamic', 'self' décide (ADR-0024 §C1)", async () => {
+    // Le fichier n'est passé par aucun gabarit : sous 'strict-dynamic', ses
+    // `<script src>` same-origin seraient bloqués faute de nonce.
+    const h = await head("/test/static-page.html");
+    expect(h["content-type"]).to.match(/^text\/html/);
+    const csp = String(h["content-security-policy"]);
+    expect(csp).to.match(/script-src 'self'/);
+    expect(csp).to.not.contain("nonce");
+    expect(csp).to.not.contain("strict-dynamic");
+    // C'est un document : ses en-têtes de document restent.
+    expect(h["permissions-policy"]).to.not.equal(undefined);
   });
 
   it("JavaScript : politique complète SANS nonce", async () => {
@@ -128,7 +141,7 @@ describe("CSP per-route (@Csp) — directives additionnelles fusionnées", () =>
     expect(csp.match(/(?:^|;)\s*img-src\b/g)).to.have.lengthOf(1);
     // Base préservée + nonce/req toujours substitué (régime étape B inchangé).
     expect(csp).to.contain("default-src 'self'");
-    expect(csp).to.match(/script-src 'self' 'nonce-[^']+'/);
+    expect(csp).to.match(/script-src 'nonce-[^']+' 'strict-dynamic' 'self'/);
   });
 
   it("ISOLATION : une route SANS @Csp ne porte PAS les directives de la route décorée", async () => {

@@ -189,8 +189,9 @@ export class PrebuiltUi {
    * Document HTML d'entrée de l'UI (index pré-buildé par Vite).
    *
    * @param nonce nonce CSP de la requête (`Context.cspNonce`) — injecté sur
-   *              chaque `<script>` ; les assets `src` same-origin passent déjà
-   *              par `'self'`, le nonce couvre un éventuel inline Vite.
+   *              chaque `<script>`, `src` compris : sous `'strict-dynamic'`
+   *              (ADR-0024 §C1), `'self'` est ignoré et seul le nonce autorise
+   *              une balise ; ce qu'elle importe ensuite hérite de la confiance.
    * @returns le HTML, ou un commentaire HTML fail-loud si l'index est absent
    */
   renderIndex(nonce?: string): string {

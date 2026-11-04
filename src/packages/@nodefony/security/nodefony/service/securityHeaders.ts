@@ -3,6 +3,7 @@ import { BootConfigurationError } from "nodefony";
 import {
   mergeCspFragments,
   parseCsp,
+  serializeCsp,
   UPGRADE_INSECURE_REQUESTS,
   withoutDirective,
   type CspFragment,
@@ -153,6 +154,10 @@ export class SecurityHeaders {
   readonly #scriptTls: Readonly<Record<string, string>>;
   readonly #scriptPlain: Readonly<Record<string, string>>;
   readonly #other: Readonly<Record<string, string>>;
+  // Document servi tel quel (fichier statique, relais) : aucun nonce possible
+  // dans un corps qu'aucun gabarit n'a écrit (ADR-0024 §C1).
+  readonly #fileTls: Readonly<Record<string, string>>;
+  readonly #filePlain: Readonly<Record<string, string>>;
   // Politique `@Csp` déjà composée, par jeu de directives de route — null tant
   // qu'aucune route décorée n'a servi (cas courant : 0 allocation).
   #extraComposed: WeakMap<CspFragment, IComposedExtra> | null = null;
@@ -219,6 +224,29 @@ export class SecurityHeaders {
     // complète (donc `http.securityHeaders.frameOptions`, ADR-0024 §C5) : un PDF
     // ou une image encadrés par l'application le restent.
     this.#other = freezeTable(narrowCspOf(o.csp), other);
+    // Document servi tel quel : la politique complète sans nonce, donc sans
+    // `'strict-dynamic'` orphelin — `'self'` décide, comme avant C1. Un fichier
+    // sert les mêmes octets à tous : aucun point d'injection côté serveur.
+    const fileCsp = purgeNonceForDocument(o.csp);
+    this.#fileTls = freezeTable(fileCsp, common);
+    const filePlainCsp = withoutDirective(fileCsp, UPGRADE_INSECURE_REQUESTS);
+    this.#filePlain =
+      filePlainCsp === fileCsp
+        ? this.#fileTls
+        : freezeTable(filePlainCsp, common);
+  }
+
+  /**
+   * Table d'en-têtes figée d'un DOCUMENT servi tel quel — fichier statique,
+   * réponse relayée — dont le corps ne passe par aucun gabarit et ne peut donc
+   * pas porter de nonce (ADR-0024 §C1) : politique complète sans nonce ni
+   * `'strict-dynamic'` orphelin, et tous les en-têtes d'un document.
+   *
+   * @param tls - la page est servie en `https` (garde `upgrade-insecure-requests`).
+   * @returns la table à poser telle quelle.
+   */
+  headersForServedFile(tls: boolean): Readonly<Record<string, string>> {
+    return tls ? this.#fileTls : this.#filePlain;
   }
 
   /**
@@ -346,7 +374,7 @@ export class SecurityHeaders {
   #composeAround(csp: string): IComposedCsp {
     return this.#hasNonce
       ? composeAroundNonce(csp.split(NONCE_PLACEHOLDER))
-      : { head: purgeNoncePlaceholder(csp), tail: null, parts: null };
+      : { head: purgeNonceForDocument(csp), tail: null, parts: null };
   }
 }
 
@@ -372,7 +400,7 @@ function buildVariant(
     } else {
       // Statique : nonce désactivé OU aucun placeholder. Si désactivé, on purge
       // un token `'nonce-{{nonce}}'` résiduel → CSP propre sans nonce.
-      staticCsp = cspNonces ? csp : purgeNoncePlaceholder(csp);
+      staticCsp = cspNonces ? csp : purgeNonceForDocument(csp);
       if (staticCsp) {
         assertHeaderValue("Content-Security-Policy", staticCsp);
       }
@@ -422,6 +450,37 @@ function narrowCspOf(csp: string): string {
     }
   }
   return NARROW_CSP;
+}
+
+const STRICT_DYNAMIC = "'strict-dynamic'";
+
+/** Source qui désigne un script par nonce ou par empreinte (W3C CSP3 § source-list). */
+const NONCE_OR_HASH = /^'(?:nonce|sha256|sha384|sha512)-/i;
+
+/**
+ * Retire le nonce d'une politique de DOCUMENT : `'nonce-{{nonce}}'` part, et
+ * `'strict-dynamic'` avec lui dans toute directive restée sans nonce ni hash.
+ * Sous `'strict-dynamic'`, un navigateur CSP3 ignore `'self'` et les hôtes
+ * (`w3c-csp3.bs` § « Authoring Considerations ») : la page ne pourrait plus
+ * exécuter un seul `<script>` (ADR-0024 §C1). Une politique sans marqueur —
+ * écrite ainsi par l'application — est rendue telle quelle.
+ *
+ * La politique d'un script (worker) n'y passe pas : ce qu'un worker charge
+ * n'est pas « inséré par l'analyseur », et `'strict-dynamic'` l'autorise.
+ */
+function purgeNonceForDocument(csp: string): string {
+  const purged = purgeNoncePlaceholder(csp);
+  if (purged === csp || !purged.includes(STRICT_DYNAMIC)) return purged;
+  const directives = parseCsp(purged);
+  let changed = false;
+  for (const entry of directives) {
+    const sources = entry[1];
+    if (!sources.includes(STRICT_DYNAMIC)) continue;
+    if (sources.some((s) => NONCE_OR_HASH.test(s))) continue;
+    entry[1] = sources.filter((s) => s !== STRICT_DYNAMIC);
+    changed = true;
+  }
+  return changed ? serializeCsp(directives) : purged;
 }
 
 /** Jeton CSP qui porte le marqueur, retiré tel quel d'une CSP sans nonce. */

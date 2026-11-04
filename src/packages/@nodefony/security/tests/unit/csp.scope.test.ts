@@ -198,6 +198,7 @@ const apply = (
   fw: Firewall,
   type: string | null | undefined,
   cspDirectives: Record<string, readonly string[]> | null = null,
+  servedAsFile = false,
 ) => {
   const headers: Record<string, string> = {};
   let nonceReads = 0;
@@ -214,7 +215,7 @@ const apply = (
       },
     },
   };
-  fw.applySecurityHeaders(ctx as unknown as ContextType, type);
+  fw.applySecurityHeaders(ctx as unknown as ContextType, type, servedAsFile);
   return { headers, nonceReads };
 };
 
@@ -271,5 +272,89 @@ describe("pare-feu — la politique suit le type de la réponse (ADR-0024 §C11)
       sh.headersForResource("other", true)[CSP],
       "default-src 'none'",
     );
+  });
+});
+
+/**
+ * ADR-0024 §C1 — `script-src 'nonce-…' 'strict-dynamic' 'self'`. Sous
+ * `'strict-dynamic'`, un navigateur CSP3 ignore `'self'` : sans nonce ni hash
+ * dans la directive, plus AUCUN `<script>` d'une page ne s'exécute. Partout où
+ * le framework retire le nonce d'une politique de DOCUMENT, `'strict-dynamic'`
+ * part avec lui ; un document servi tel quel (fichier statique, relais) ne
+ * peut pas porter de nonce et reçoit cette politique-là.
+ */
+describe("C1 — 'strict-dynamic' jamais orphelin sur un document (ADR-0024 §C1)", () => {
+  const SD =
+    "default-src 'self'; script-src 'nonce-{{nonce}}' 'strict-dynamic' 'self'";
+  const sourcesOf = (csp: string, name: string): string[] =>
+    parseCsp(csp).find(([n]) => n === name)?.[1] ?? [];
+
+  it("défaut : nonce et 'strict-dynamic', 'self' en repli CSP2", () => {
+    assert.deepEqual(sourcesOf(DEFAULT_CSP, "script-src"), [
+      "'nonce-{{nonce}}'",
+      "'strict-dynamic'",
+      "'self'",
+    ]);
+  });
+
+  it("document servi tel quel : ni nonce ni 'strict-dynamic', 'self' décide", () => {
+    const table = make(SD).headersForServedFile(true);
+    assert.equal(table[CSP], "default-src 'self'; script-src 'self'");
+    // C'est un document : tous ses en-têtes restent.
+    assert.equal(table["Permissions-Policy"], "camera=()");
+  });
+
+  it("document servi tel quel : upgrade-insecure-requests en TLS seulement", () => {
+    const sh = make(`${SD}; ${UIR}`);
+    assert.ok(has(sh.headersForServedFile(true)[CSP] ?? "", UIR));
+    assert.ok(!has(sh.headersForServedFile(false)[CSP] ?? "", UIR));
+  });
+
+  it("cspNonces: false — 'strict-dynamic' part avec le nonce", () => {
+    assert.equal(
+      make(SD, false).headersFor(true)[CSP],
+      "default-src 'self'; script-src 'self'",
+    );
+  });
+
+  it("route @Csp sans nonce actif : 'strict-dynamic' part aussi", () => {
+    const extra = Object.freeze({ "img-src": ["https://cdn.example"] });
+    const csp = make(SD, false).cspForExtra("", extra, true);
+    assert.deepEqual(sourcesOf(csp, "script-src"), ["'self'"]);
+  });
+
+  it("un hash reste dans la directive : 'strict-dynamic' gardé", () => {
+    assert.equal(
+      make(
+        "script-src 'nonce-{{nonce}}' 'strict-dynamic' 'sha256-abc='",
+        false,
+      ).headersFor(true)[CSP],
+      "script-src 'strict-dynamic' 'sha256-abc='",
+    );
+  });
+
+  it("politique écrite SANS marqueur de nonce : jamais retouchée", () => {
+    const own = "script-src 'strict-dynamic' 'self'";
+    assert.equal(make(own).headersFor(true)[CSP], own);
+    assert.equal(make(own).headersForServedFile(true)[CSP], own);
+  });
+
+  it("pare-feu : HTML servi tel quel → table sans nonce, aucun nonce tiré", () => {
+    const { headers, nonceReads } = apply(firewall(), "text/html", null, true);
+    assert.doesNotMatch(headers[CSP] ?? "", /nonce|strict-dynamic/);
+    assert.match(headers[CSP] ?? "", /script-src 'self'/);
+    assert.equal(nonceReads, 0);
+  });
+
+  it("pare-feu : type inconnu servi tel quel (index d'un dossier) → même table", () => {
+    const { headers, nonceReads } = apply(firewall(), undefined, null, true);
+    assert.doesNotMatch(headers[CSP] ?? "", /nonce|strict-dynamic/);
+    assert.equal(nonceReads, 0);
+  });
+
+  it("pare-feu : JSON servi tel quel → politique courte, le drapeau ne vise que les documents", () => {
+    const served = apply(firewall(), "application/json", null, true).headers;
+    const routed = apply(firewall(), "application/json").headers;
+    assert.deepEqual(served, routed);
   });
 });

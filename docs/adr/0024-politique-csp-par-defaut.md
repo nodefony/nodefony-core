@@ -70,6 +70,20 @@ déjà le nonce (`TemplateHelper.ts#TemplateHelper.renderTags`, `prebuiltUi.ts#P
 **À constater au navigateur** : un `<link rel="modulepreload">` sans nonce est-il bloqué ? Si
 oui, le nonce s'y pose.
 
+Précisions tranchées à la mise en œuvre (`securityHeaders.ts#purgeNonceForDocument`) :
+
+- **Document servi tel quel** (fichier statique, relais du proxy inverse) : politique complète
+  sans nonce ni `'strict-dynamic'`, donc `'self'` décide. Aucun gabarit n'a écrit ce corps, il ne
+  peut pas porter de nonce ; sous `'strict-dynamic'` ses `<script src>` seraient tous bloqués,
+  sans geste possible dans la page (C0). Sans perte : un fichier sert les mêmes octets à tous, il
+  n'a pas de point d'injection côté serveur. Écartés : réécrire le HTML pour y poser un nonce
+  (coût par réponse, ETag et `304` cassés) ; garder la politique stricte (page bloquée en silence).
+- **`'strict-dynamic'` jamais orphelin sur un document** : là où le framework retire le nonce
+  (`cspNonces: false`, document servi tel quel, `@Csp` sans nonce actif), `'strict-dynamic'` part
+  avec lui si la directive n'a plus ni nonce ni hash. Une politique écrite sans marqueur par
+  l'application n'est jamais retouchée. La politique d'un script (worker, C11) garde
+  `'strict-dynamic'` : ce qu'un worker charge n'est pas « inséré par l'analyseur ».
+
 ### C2. Styles : nonce, attributs tolérés
 
 `style-src 'self' 'nonce-{{nonce}}'; style-src-attr 'unsafe-inline'`. Ferme l'exfiltration par

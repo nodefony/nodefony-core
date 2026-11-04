@@ -48,8 +48,14 @@ export interface IFirewallGate {
    *
    * @param contentType - `Content-Type` de la réponse, qui choisit la politique ;
    *   `null` = réponse sans contenu ; omis = type inconnu (politique complète).
+   * @param servedAsFile - corps servi tel quel (fichier statique, relais) : aucun
+   *   gabarit ne l'a écrit, il ne peut pas porter de nonce.
    */
-  applySecurityHeaders(context: ContextType, contentType?: string | null): void;
+  applySecurityHeaders(
+    context: ContextType,
+    contentType?: string | null,
+    servedAsFile?: boolean,
+  ): void;
   /**
    * Le revalidateur de l'identité authentifiée de la requête courante, pour une
    * connexion longue qui la gardera (flux SSE) : la même règle que les sockets

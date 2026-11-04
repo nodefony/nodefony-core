@@ -442,13 +442,18 @@ class HttpResponse {
    *
    * @param contentType - type de la réponse ; `null` = sans contenu ; `undefined`
    *   = inconnu (politique complète).
+   * @param servedAsFile - corps écrit par un tiers (fichier statique, relais),
+   *   qui ne peut pas porter de nonce.
    */
-  protected applyHeaderPolicy(contentType: string | null | undefined): void {
+  protected applyHeaderPolicy(
+    contentType: string | null | undefined,
+    servedAsFile = false,
+  ): void {
     const policy = this.headerPolicy;
     if (policy === null) return;
     this.headerPolicy = null;
     if (this.statusCode === 304) return;
-    policy.applySecurityHeaders(this.context, contentType);
+    policy.applySecurityHeaders(this.context, contentType, servedAsFile);
   }
 
   /**
@@ -515,7 +520,8 @@ class HttpResponse {
       // `mime.lookup("/dir.js/")` rendrait `text/javascript` à tort.
       const pathname = this.context.request.pathname;
       const type = pathname.endsWith("/") ? false : mime.lookup(pathname);
-      this.applyHeaderPolicy(type === false ? undefined : type);
+      // Corps écrit par le tiers : aucun nonce n'y figure (ADR-0024 §C1).
+      this.applyHeaderPolicy(type === false ? undefined : type, true);
     }
     const list = this.#store();
     for (let i = 0; i + 1 < list.length; i += 2) {

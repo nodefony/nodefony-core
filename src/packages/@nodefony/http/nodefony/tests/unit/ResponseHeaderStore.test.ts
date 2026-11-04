@@ -257,12 +257,16 @@ describe("HttpResponse — réserve d'en-têtes (#727)", () => {
 });
 
 describe("HttpResponse — politique d'en-têtes armée, choisie au writeHead (ADR-0024 §C11)", () => {
+  let servedAsFile: boolean[] = [];
   /** Pare-feu doublure : note chaque appel et pose une CSP par défaut. */
   function arm(r: HttpResponse) {
     const calls: Array<string | null | undefined> = [];
+    // Par appel : la réponse annonce-t-elle un corps servi tel quel ?
+    servedAsFile = [];
     const gate: Pick<IFirewallGate, "applySecurityHeaders"> = {
-      applySecurityHeaders: (_ctx, contentType) => {
+      applySecurityHeaders: (_ctx, contentType, asFile) => {
         calls.push(contentType);
+        servedAsFile.push(asFile === true);
         r.setDefaultHeader("Content-Security-Policy", "fw");
       },
     };
@@ -285,6 +289,8 @@ describe("HttpResponse — politique d'en-têtes armée, choisie au writeHead (A
     expect(calls).to.deep.equal([]);
     r.writeHead(200);
     expect(calls).to.deep.equal(["application/json; charset=utf-8"]);
+    // Corps écrit par le pipeline : il peut porter le nonce.
+    expect(servedAsFile).to.deep.equal([false]);
     expect(r.headerPolicy).to.equal(null);
     expect(wire(res)).to.include("content-security-policy: fw");
   });
@@ -339,6 +345,8 @@ describe("HttpResponse — politique d'en-têtes armée, choisie au writeHead (A
     res.setHeader("Content-Type", "text/javascript");
     res.end("x");
     expect(calls).to.deep.equal(["text/javascript"]);
+    // Corps écrit par le serveur statique : aucun nonce n'y figure (ADR-0024 §C1).
+    expect(servedAsFile).to.deep.equal([true]);
     expect(wire(res)).to.include("content-security-policy: fw");
   });
 
