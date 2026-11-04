@@ -1317,8 +1317,8 @@ class Firewall extends Service implements IFirewall {
     // composition de la politique la reprendra. L'ordre des écouteurs de
     // `onBoot` ne décide donc de rien. Après, sans en-têtes applicatifs, il n'y
     // a pas de politique à étendre.
-    const built = this.#config !== null;
-    if (built && this.#securityHeaders === null) return;
+    const config = this.#config;
+    if (config !== null && this.#securityHeaders === null) return;
     // Contribution MALFORMÉE (une source qui fabriquerait une directive ou une
     // seconde politique) : IGNORÉE en entier — la politique reste celle d’avant,
     // plus stricte. L’application démarre : la faute est celle du module, que
@@ -1346,7 +1346,7 @@ class Firewall extends Service implements IFirewall {
       );
     }
     const fragments = (this.#cspFragments ??= new Map<string, CspFragment>());
-    if (!built) {
+    if (config === null) {
       fragments.set(moduleName, fragment);
       return;
     }
@@ -1375,7 +1375,7 @@ class Firewall extends Service implements IFirewall {
     fragments.set(moduleName, fragment);
     this.#cspMerged = csp;
     this.#securityHeaders = this.#newSecurityHeaders({
-      ...this.#config.headers,
+      ...config.headers,
       csp,
     });
   }
