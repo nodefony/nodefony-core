@@ -321,11 +321,14 @@ describe("vue Page — ce que la page est en train de faire", () => {
     ligneReq("/api/items").dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
     );
-    await image();
+    // La CONDITION, pas une durée : la relecture au serveur est asynchrone, et
+    // 60 ms ne suffisaient pas toujours sur un exécuteur lent (macOS en CI).
+    await vi.waitFor(() =>
+      expect(textes(".row.log.child")).toEqual(["lecture des articles"]),
+    );
     const lue = recherches.find((p) => p.get("requestId") === "rid-1");
     expect(lue?.get("scope")).toBe("trace");
     expect(ligneReq("/api/items").getAttribute("aria-expanded")).toBe("true");
-    expect(textes(".row.log.child")).toEqual(["lecture des articles"]);
   });
 
   it("le chevron déplie et replie, sans choisir la ligne", async () => {
@@ -337,12 +340,10 @@ describe("vue Page — ce que la page est en train de faire", () => {
       return c;
     };
     chevron().click();
-    await image();
-    expect(visibles(".row.log.child")).toHaveLength(1);
+    await vi.waitFor(() => expect(visibles(".row.log.child")).toHaveLength(1));
     expect(q("[data-el='logSide']").hidden).toBe(true);
     chevron().click();
-    await image();
-    expect(visibles(".row.log.child")).toHaveLength(0);
+    await vi.waitFor(() => expect(visibles(".row.log.child")).toHaveLength(0));
   });
 
   it("UN panneau : la requête, puis une de ses lignes", async () => {
@@ -379,9 +380,12 @@ describe("vue Page — ce que la page est en train de faire", () => {
   it("🔴 le document retrouve son requestId par SA ligne d'accès dans les journaux", async () => {
     await image();
     ligneReq(location.pathname).click();
-    await image();
+    // Deux relectures enchaînées (ligne d'accès, puis profil) : attendre la
+    // seconde, jamais une durée.
+    await vi.waitFor(() =>
+      expect(profils.some((u) => u.endsWith("/rid-doc"))).toBe(true),
+    );
     expect(recherches.some((p) => p.has("to"))).toBe(true);
-    expect(profils.some((u) => u.endsWith("/rid-doc"))).toBe(true);
   });
 
   it("avec le requestId transmis au rendu, le document n'a rien à chercher", async () => {
@@ -394,8 +398,9 @@ describe("vue Page — ce que la page est en train de faire", () => {
     ligneReq(location.pathname).dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
     );
-    await image();
-    expect(textes(".row.log.child")).toEqual(["ligne de rid-page"]);
+    await vi.waitFor(() =>
+      expect(textes(".row.log.child")).toEqual(["ligne de rid-page"]),
+    );
   });
 
   it("🔴 l'outillage de la page est masqué par défaut — compteurs compris — et la puce le montre", async () => {
@@ -464,7 +469,11 @@ describe("vue Page — les WebSocket et les flux SSE de la page", () => {
     ws.dispatchEvent(new Event("open"));
     await image();
     ligneReq("/chat").click();
-    await image();
+    await vi.waitFor(() =>
+      expect(
+        q("[data-el='logSide'] [data-frame='rid-ws.1']").textContent,
+      ).toContain("articles.list"),
+    );
     // Ses appels, filtrés par le serveur ; jamais le profil de la connexion.
     expect(profils.some((u) => u.includes("/recent?connection=rid-ws"))).toBe(
       true,
@@ -500,11 +509,17 @@ describe("vue Page — les WebSocket et les flux SSE de la page", () => {
     ws.dispatchEvent(new Event("open"));
     await image();
     ligneReq("/chat").click();
-    await image();
-    q("[data-el='logSide'] [data-frame='rid-ws.1']").click();
-    await image();
-    expect(profils.some((u) => u.endsWith("/rid-ws.1"))).toBe(true);
+    const appel = await vi.waitFor(() =>
+      q("[data-el='logSide'] [data-frame='rid-ws.1']"),
+    );
+    appel.click();
     const side = q("[data-el='logSide']");
+    await vi.waitFor(() =>
+      expect(side.querySelector(".q-row:not(.frame) .q-sql")?.textContent).toBe(
+        "select 1",
+      ),
+    );
+    expect(profils.some((u) => u.endsWith("/rid-ws.1"))).toBe(true);
     expect(side.querySelector(".wf-row")?.textContent).toContain("action");
     expect(side.querySelector(".q-row:not(.frame) .q-sql")?.textContent).toBe(
       "select 1",
@@ -566,9 +581,10 @@ describe("la pause — elle fige ce qui ARRIVE, jamais ce que l'on fait", () => 
     ligneReq("/api/items").dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
     );
-    await image();
+    await vi.waitFor(() =>
+      expect(textes(".row.log.child")).toEqual(["lecture des articles"]),
+    );
     expect(ligneReq("/api/items").getAttribute("aria-expanded")).toBe("true");
-    expect(textes(".row.log.child")).toEqual(["lecture des articles"]);
   });
 
   it("🔴 en pause, vider vide tout de suite — la reprise montre ce qui est arrivé APRÈS", async () => {
@@ -603,7 +619,9 @@ describe("vue Journaux — la recherche groupée de la console", () => {
   it("🔴 une ligne par requête du serveur, et ses filtres partent au back", async () => {
     await window.fetch("/api/items");
     q("[data-flow='server']").click();
-    await image();
+    await vi.waitFor(() =>
+      expect(textes(".row.log")).toEqual(["tâche de fond terminée"]),
+    );
     const groupee = recherches.find(
       (p) => p.get("groupByRequest") === "true" && !p.has("to"),
     );
