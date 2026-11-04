@@ -51,18 +51,16 @@ contrôleur, absent sur un fichier statique ou une page d'erreur 404, c'est-à-d
 un attaquant dépose son contenu.
 
 D'où le découpage : ce qui doit couvrir **tout ce qui sort du process** est posé au plus tôt ; ce
-qui dépend de la **réponse applicative** (le CSP, qui doit connaître le nonce et la route) est posé
-après le routage.
+qui dépend de la **réponse applicative** (le CSP, qui doit connaître le nonce, la route et le
+**type** de la réponse) est posé au moment où la réponse écrit ses en-têtes : le pare-feu, armé au
+routage, choisit alors sa politique sur le `Content-Type`.
 
 ```mermaid
 flowchart TD
-  RAW["Requête entrante"] --> T["onHttpRequest — socle TRANSPORT (@nodefony/http)<br/>X-Content-Type-Options · X-Frame-Options · HSTS (TLS seulement)"]
-  T --> COV["couvre AUSSI : fichiers statiques, 404/500,<br/>et un serveur SANS module security"]
-  T --> PIPE["pipeline : routing / resolve"]
-  PIPE --> A["applySecurityHeaders — couche APPLICATIVE (@nodefony/security)<br/>CSP · Referrer-Policy · COOP/COEP/CORP · Origin-Agent-Cluster · Permissions-Policy"]
-  A --> CSPQ{"le CSP porte-t-il<br/>un nonce ?"}
-  CSPQ -->|non| STAT["CSP figé au boot — 0 allocation par requête"]
-  CSPQ -->|oui| NONCE["cspFor(nonce) — 1 join par requête<br/>nonce généré paresseusement sur le Context"]
+  T["transport<br/>(toute réponse)"] --> W{"writeHead :<br/>quel type ?"}
+  W -->|document| DOC["CSP complète + nonce<br/>tous les en-têtes"]
+  W -->|JavaScript| JS["CSP sans nonce<br/>Referrer · COEP · CORP"]
+  W -->|autre, 204| OTH["default-src 'none'<br/>Referrer · CORP"]
 ```
 
 **Une seule source par en-tête** : `@nodefony/security` ne ré-émet **jamais** les trois en-têtes
@@ -72,20 +70,23 @@ contradictoires sur la même réponse.
 
 ## 📖 Lexique
 
-| Terme              | Développé — et ce que ça veut dire                                                                                                 |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| CSP                | _Content-Security-Policy_ : liste blanche des sources autorisées (scripts, styles, images…). Première barrière anti-XSS.           |
-| XSS                | _Cross-Site Scripting_ : un attaquant fait exécuter **son** JavaScript dans la page de ta victime, avec ses cookies.               |
-| Nonce              | _number used once_ : jeton aléatoire régénéré à **chaque requête**, qui autorise un `<script>` inline **précis** et lui seul.      |
-| Clickjacking       | Ton site est chargé en `<iframe>` transparente au-dessus d'un piège : la victime croit cliquer ailleurs, elle clique chez toi.     |
-| MIME sniffing      | Le navigateur ignore le `Content-Type` et **devine** le type d'un fichier — un `.txt` uploadé peut finir exécuté comme script.     |
-| HSTS               | _HTTP Strict-Transport-Security_ (RFC 6797) : le navigateur mémorise « ce domaine, c'est HTTPS uniquement ».                       |
-| Referrer           | En-tête que le navigateur envoie au site suivant pour dire d'où l'on vient — donc une **fuite d'URL** potentielle.                 |
-| COOP / COEP / CORP | _Cross-Origin **Opener** / **Embedder** / **Resource** Policy_ : trois verrous d'isolation entre origines (Spectre, vol d'assets). |
-| OAC                | _Origin-Agent-Cluster_ : demande au navigateur d'isoler l'origine dans son propre processus/heap.                                  |
-| Permissions-Policy | Coupe l'accès aux API sensibles du navigateur (caméra, micro, géolocalisation) pour la page **et ses iframes**.                    |
-| Fragment CSP       | Directives additionnelles déclarées par un module (`directive → sources`), fusionnées dans le CSP de base.                         |
-| Downgrade          | Un attaquant réseau force la connexion en HTTP clair pour la lire ou la modifier.                                                  |
+| Terme                  | Développé — et ce que ça veut dire                                                                                                                                                     |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CSP                    | _Content-Security-Policy_ : liste blanche des sources autorisées (scripts, styles, images…). Première barrière anti-XSS.                                                               |
+| XSS                    | _Cross-Site Scripting_ : un attaquant fait exécuter **son** JavaScript dans la page de ta victime, avec ses cookies.                                                                   |
+| Nonce                  | _number used once_ : jeton aléatoire régénéré à **chaque requête**, qui autorise un `<script>` inline **précis** et lui seul.                                                          |
+| Clickjacking           | Ton site est chargé en `<iframe>` transparente au-dessus d'un piège : la victime croit cliquer ailleurs, elle clique chez toi.                                                         |
+| MIME sniffing          | Le navigateur ignore le `Content-Type` et **devine** le type d'un fichier — un `.txt` uploadé peut finir exécuté comme script.                                                         |
+| HSTS                   | _HTTP Strict-Transport-Security_ (RFC 6797) : le navigateur mémorise « ce domaine, c'est HTTPS uniquement ».                                                                           |
+| Referrer               | En-tête que le navigateur envoie au site suivant pour dire d'où l'on vient — donc une **fuite d'URL** potentielle.                                                                     |
+| COOP                   | _Cross-Origin-Opener-Policy_ : coupe le lien entre ta **page** et les fenêtres d'une autre origine qu'elle ouvre ou qui l'ont ouverte (`window.opener`). Lu sur un document seulement. |
+| COEP                   | _Cross-Origin-Embedder-Policy_ : ta **page** (ou ton worker) refuse toute ressource tierce qui n'a pas dit « tu peux m'inclure ». Lu sur un document ou un script de worker.           |
+| CORP                   | _Cross-Origin-Resource-Policy_ : posé sur une **ressource** (image, script, JSON), dit quelles origines ont le droit de l'inclure. C'est la réponse que COEP attend.                   |
+| Isolation cross-origin | COOP `same-origin` + COEP `require-corp` : la page est seule dans son processus (`crossOriginIsolated`), condition de `SharedArrayBuffer` et des horloges fines.                       |
+| OAC                    | _Origin-Agent-Cluster_ : demande au navigateur d'isoler l'origine dans son propre processus/heap.                                                                                      |
+| Permissions-Policy     | Coupe l'accès aux API sensibles du navigateur (caméra, micro, géolocalisation) pour la page **et ses iframes**.                                                                        |
+| Fragment CSP           | Directives additionnelles déclarées par un module (`directive → sources`), fusionnées dans le CSP de base.                                                                             |
+| Downgrade              | Un attaquant réseau force la connexion en HTTP clair pour la lire ou la modifier.                                                                                                      |
 
 ## Qu'est-ce que c'est ? — un panneau d'instructions collé sur chaque réponse
 
@@ -179,23 +180,32 @@ d'enum (`referrerPolicy`, `coop`, `corp`…). Une valeur hors enum casse le boot
 ### 2. Ce qu'on observe
 
 ```bash
-# Route applicative : socle transport + couche applicative, sur la MÊME réponse.
-curl -sI http://localhost:5151/nodefony/test/index
+# Une PAGE : socle transport + couche applicative complète, sur la MÊME réponse.
+curl -sI http://localhost:5151/nodefony/test/html
 
 # HTTP/1.1 200 OK
 # X-Content-Type-Options: nosniff              ← transport (@nodefony/http)
 # X-Frame-Options: DENY                        ← transport (@nodefony/http)
+# Content-Type: text/html; charset=utf-8
 # Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-vZ9…'; …
 # Referrer-Policy: strict-origin-when-cross-origin
 # Cross-Origin-Opener-Policy: same-origin
 # Cross-Origin-Resource-Policy: same-origin
 # Permissions-Policy: camera=(), microphone=(), geolocation=()
+
+# Une réponse d'API : la politique courte, et seulement ce qu'un JSON fait lire.
+curl -sI http://localhost:5151/nodefony/test/index
+
+# Content-Type: application/json
+# Content-Security-Policy: default-src 'none'; frame-ancestors 'none'
+# Referrer-Policy: strict-origin-when-cross-origin
+# Cross-Origin-Resource-Policy: same-origin
 ```
 
 ```bash
 # Le nonce change à CHAQUE requête — deux appels, deux jetons.
-curl -sI http://localhost:5151/nodefony/test/index | grep -o "nonce-[^']*"
-curl -sI http://localhost:5151/nodefony/test/index | grep -o "nonce-[^']*"
+curl -sI http://localhost:5151/nodefony/test/html | grep -o "nonce-[^']*"
+curl -sI http://localhost:5151/nodefony/test/html | grep -o "nonce-[^']*"
 # nonce-2Qk1r0h8…      (≠)
 # nonce-Xa7pLd3f…
 
@@ -369,6 +379,15 @@ _tabnabbing_ et pour les canaux auxiliaires type Spectre.
 conditions de l'**isolation cross-origin**, indispensable si tu veux `SharedArrayBuffer` ou des
 timers haute résolution.
 
+**Lu sur** : un document (page HTML) ouvert dans une fenêtre. Sur un JSON, une image, un script,
+le navigateur l'ignore — aucune fenêtre n'y est ouverte.
+
+**Exemple** : ta page de connexion ouvre la fenêtre d'un fournisseur OAuth. Sans COOP, ce site
+garde `window.opener` et peut, s'il est compromis, rediriger ton onglet vers une copie de ta page
+(_tabnabbing_). Avec `same-origin`, la référence vaut `null`. ⚠️ Un flux de connexion par fenêtre
+surgissante qui renvoie son résultat par `window.opener.postMessage` cesse alors de fonctionner :
+`same-origin-allow-popups` garde le lien vers les fenêtres que TA page ouvre.
+
 ### `Cross-Origin-Embedder-Policy` — je n'embarque que du consenti
 
 **La menace** : ta page embarque des ressources tierces qui n'ont jamais donné leur accord, et les
@@ -376,6 +395,14 @@ place dans ton processus.
 
 `require-corp` (`securityHeaders.ts#SecurityHeaders.constructor`) exige que **chaque** ressource tierce s'annonce comme
 partageable (CORP ou CORS). C'est le complément de COOP pour l'isolation complète.
+
+**Lu sur** : un document, et le script d'un worker (un worker charge lui aussi des ressources).
+Sur une image ou un JSON, il ne contrôle rien.
+
+**Exemple** : ta page affiche `<img src="https://cdn.tiers.example/logo.png">`. Avec
+`require-corp`, l'image ne s'affiche que si le CDN répond `Cross-Origin-Resource-Policy:
+cross-origin` (ou sert l'image en CORS). `credentialless` est le compromis : la ressource tierce
+est chargée SANS cookies, et n'a plus besoin de consentir.
 
 > [!WARNING]
 > `coep: "require-corp"` **casse toutes les ressources tierces non conformes** — polices Google,
@@ -390,6 +417,14 @@ mesurer, les mettre en cache, ou monter une attaque par inclusion.
 
 `same-origin` (`securityHeaders.ts#SecurityHeaders.constructor`) interdit toute inclusion externe ; `same-site` autorise tes
 propres sous-domaines ; `cross-origin` ouvre — c'est ce qu'il faut sur une CDN publique assumée.
+
+**Lu sur** : toute ressource incluse sans CORS — image, script, média, JSON appelé par une balise.
+C'est l'en-tête des **ressources**, là où COOP et COEP sont ceux des **pages**.
+
+**Exemple** : `https://evil.example` écrit `<img src="https://ton-app/api/me">`. Le navigateur
+y joint les cookies de sa victime, et la réponse — son profil — atterrit dans le processus de la
+page hostile, où une attaque de type Spectre peut la lire. Avec `same-origin`, le navigateur
+bloque la réponse AVANT qu'elle n'entre dans ce processus.
 
 ### `Origin-Agent-Cluster` — un bac à sable par origine
 
@@ -492,6 +527,40 @@ une corrélation entrante.
 le repli statique et le `writeHead` (`http-kernel.ts#HttpKernel.runHttpPipeline`). Cet ordre n'est pas cosmétique : il
 faut que le routeur ait posé les directives `@Csp` de la route pour pouvoir les fusionner, et il faut
 être avant l'écriture des en-têtes pour pouvoir en poser.
+
+### Quelle politique sur quelle réponse — le type décide
+
+Une politique de contenu ne protège que ce que le navigateur **rend** : une page, un SVG, le
+script d'un worker. Sur un JSON ou une image, elle ne gouverne rien — sauf l'encadrement. Le
+pare-feu choisit donc la politique au moment où la réponse écrit ses en-têtes, d'après son
+`Content-Type` (`securityHeaders.ts#responseKindOf`, ADR-0024 §C11) :
+
+| La réponse est…                                                     | Content-Security-Policy                                        | Autres en-têtes applicatifs   |
+| ------------------------------------------------------------------- | -------------------------------------------------------------- | ----------------------------- |
+| un document (`text/html`, `application/xhtml+xml`, `image/svg+xml`) | complète, avec nonce                                           | tous                          |
+| du JavaScript (`text/javascript`…)                                  | complète, **sans** nonce (celle qu'un worker prend)            | `Referrer-Policy`, COEP, CORP |
+| autre chose : JSON, CSS, image, police, média, 204                  | `default-src 'none'`, plus le `frame-ancestors` de la complète | `Referrer-Policy`, CORP       |
+| un `304 Not Modified`                                               | **aucune**                                                     | aucun                         |
+
+Pourquoi chaque ligne :
+
+- **Le nonce n'est tiré que pour un document.** Une réponse d'API ne paie plus le générateur
+  aléatoire, et sa politique passe de ~360 octets à ~40.
+- **L'encadrement suit la politique complète** : avec `http.securityHeaders.frameOptions:
+"SAMEORIGIN"`, un PDF ou une image que ta page encadre le reste.
+- **Un `304` ne porte rien** : ses en-têtes REMPLACENT ceux de la page gardée en cache (RFC 9111
+  §4.3.4). Une politique courte y réduirait la page, un nonce neuf la désaccorderait de ses balises.
+- **Une réponse sans contenu** (204, corps vide) prend la courte, même si un `Content-Type` y a été
+  posé : rien n'y sera rendu.
+- **Un fichier statique** est rangé d'après son extension. Sans extension connue — l'`index.html`
+  d'un dossier —, il reçoit la politique complète.
+
+Ce que l'application écrit n'est **jamais réduit** :
+
+- une route `@Csp` sert SA politique quel que soit son type (un `frame-ancestors` posé sur un PDF) ;
+- un en-tête posé à la main par le contrôleur (`this.response.setHeader(…)`) gagne sur celui du
+  pare-feu ;
+- `headers.csp: ""` coupe toute politique, courte comprise.
 
 ### Étendre le CSP — trois portées, une seule mécanique
 

@@ -162,6 +162,28 @@ Choisie au `writeHead` unique, sur le type de la réponse :
 
 Prérequis tenu : `X-Content-Type-Options: nosniff` est posé partout.
 
+Précisions tranchées à la mise en œuvre (`securityHeaders.ts#responseKindOf`,
+`Response.ts#HttpResponse.applyHeaderPolicy`) :
+
+- **Le moment** : le pare-feu est ARMÉ sur la réponse au routage ; la réponse l'appelle à son
+  `writeHead`, une fois le type fixé. Les réponses précoces (421, 429, refus CSRF) restent hors
+  couche applicative, comme avant.
+- **Les autres en-têtes suivent la même règle** : chacun part là où le navigateur le lit.
+  `Referrer-Policy` et CORP partout ; COEP sur document et JavaScript ; COOP,
+  `Origin-Agent-Cluster` et `Permissions-Policy` sur document seulement.
+- **`frame-ancestors` de la politique courte** : celui de la politique complète, donc
+  `http.frameOptions` (C5). Le défaut `DENY` donne exactement la chaîne figée ci-dessus ;
+  `SAMEORIGIN` laisse un PDF ou une image encadrés par l'application.
+- **`304`** : aucun en-tête applicatif. Ses en-têtes remplacent ceux de la représentation en
+  cache (RFC 9111 §4.3.4) : une politique courte y réduirait la page, un nonce neuf la
+  désaccorderait de ses balises.
+- **Sans contenu** (204, corps vide) : politique courte, même si un `Content-Type` y est posé.
+- **Fichier statique** : écrit en natif par le serveur statique, son type se lit à l'extension.
+  Extension inconnue (index d'un dossier) : politique complète, jamais une plus faible par défaut.
+- **Ce que l'application écrit n'est jamais réduit** : une route `@Csp` garde SA politique quel
+  que soit le type ; un en-tête posé à la main par un contrôleur gagne sur celui du pare-feu
+  (`HttpResponse.setDefaultHeader`).
+
 ### C12. Contributions de modules : trop large = retirée, malformée = ignorée
 
 - Source **trop large** dans une contribution de module (`*`, schéma réseau nu `http:` `https:`
