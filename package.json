@@ -109,7 +109,7 @@
     "lighthouse": "13.6.0",
     "lint-staged": "17.6.0",
     "markdown-it": "15.0.3",
-    "oxlint": "1.90.0",
+    "oxlint": "1.91.0",
     "oxlint-tsgolint": "7.0.2005",
     "picomatch": "4.0.7",
     "playwright": "1.64.1",
