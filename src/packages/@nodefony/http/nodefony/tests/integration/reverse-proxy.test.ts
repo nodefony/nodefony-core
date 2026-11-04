@@ -199,6 +199,101 @@ describe.skipIf(!HAS_DECOR)(
   },
 );
 
+/** Document rendu à travers un proxy : statut, en-têtes BRUTS (pour compter les doublons) et corps. */
+function pageThrough(
+  base: string,
+  pathname: string,
+): Promise<{ status: number; raw: string[]; body: string }> {
+  const url = new URL(pathname, base);
+  const secure = url.protocol === "https:";
+  return new Promise((resolve, reject) => {
+    const req = (secure ? https : http).request(
+      {
+        hostname: url.hostname,
+        port: url.port,
+        path: url.pathname,
+        method: "GET",
+        ...(secure ? { ca: benchCa(), servername: url.hostname } : {}),
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (c: Buffer) => chunks.push(c));
+        res.on("end", () =>
+          resolve({
+            status: res.statusCode ?? 0,
+            raw: res.rawHeaders,
+            body: Buffer.concat(chunks).toString(),
+          }),
+        );
+      },
+    );
+    req.on("error", reject);
+    req.setTimeout(TIMEOUT, () => req.destroy(new Error("timeout proxy")));
+    req.end();
+  });
+}
+
+/** Valeurs d'un en-tête dans la liste brute `[nom, valeur, nom, valeur…]`. */
+function rawValues(raw: string[], name: string): string[] {
+  const out: string[] = [];
+  for (let i = 0; i + 1 < raw.length; i += 2)
+    if (raw[i]?.toLowerCase() === name) out.push(raw[i + 1] ?? "");
+  return out;
+}
+
+/**
+ * ADR-0024 — la politique et son nonce TRAVERSENT un proxy réel intacts. Le
+ * nonce n'existe que dans l'application : un proxy qui ajoute sa propre CSP en
+ * ferait une SECONDE politique (le navigateur applique les deux), un proxy qui
+ * met la page en cache servirait le même nonce à tous. On vérifie : une seule
+ * CSP, le nonce de l'en-tête égal à celui de `<meta property="csp-nonce">`
+ * (§C2), un nonce neuf par réponse, et `upgrade-insecure-requests` seulement
+ * quand le CLIENT arrive en TLS (§C6, schéma lu à travers le proxy).
+ */
+describe.skipIf(!HAS_DECOR)(
+  "La CSP traverse un proxy réel (requires proxy decor)",
+  () => {
+    const DOORS = [
+      { name: "nginx (client en clair)", base: () => NGINX, tls: false },
+      { name: "haproxy (client en clair)", base: () => HAPROXY, tls: false },
+      {
+        name: "haproxy TLS (client en https)",
+        base: () => HAPROXY_TLS,
+        tls: true,
+      },
+    ];
+    for (const door of DOORS) {
+      it(`${door.name} : une seule CSP, le nonce de l'en-tête est celui de la page`, async () => {
+        const first = await pageThrough(door.base(), "/login");
+        expect(first.status).to.equal(200);
+        const csp = rawValues(first.raw, "content-security-policy");
+        expect(csp, "une SEULE politique").to.have.length(1);
+        const policy = csp[0] ?? "";
+        const nonces = [...new Set(policy.match(/'nonce-([^']+)'/g) ?? [])];
+        expect(nonces, "le MÊME nonce signe scripts et styles").to.have.length(
+          1,
+        );
+        const meta = /<meta property="csp-nonce" nonce="([^"]+)"/.exec(
+          first.body,
+        )?.[1];
+        expect(
+          nonces[0],
+          "nonce de l'en-tête = nonce annoncé à la page",
+        ).to.equal(`'nonce-${meta}'`);
+        expect(policy).to.match(/style-src-attr 'unsafe-inline'/);
+        expect(
+          policy.includes("upgrade-insecure-requests"),
+          "upgrade-insecure-requests suit le schéma du CLIENT",
+        ).to.equal(door.tls);
+        // Rien n'est mis en cache entre deux réponses : nonce neuf.
+        const second = await pageThrough(door.base(), "/login");
+        const again = rawValues(second.raw, "content-security-policy")[0] ?? "";
+        expect(again).not.to.include(nonces[0] ?? "∅");
+      });
+    }
+  },
+);
+
 /**
  * La configuration HAProxy GÉNÉRÉE, jouée par un vrai HAProxy contre le serveur.
  *

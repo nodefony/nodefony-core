@@ -311,6 +311,26 @@ attribut `style="…"` reste permis : il ne porte pas de sélecteur. Ce qui est 
 Là où le nonce est retiré (page servie telle quelle, `cspNonces: false`), `'unsafe-inline'`
 reprend la main : la page garde ses styles.
 
+**Derrière un proxy inverse (nginx, haproxy, CDN) : la politique à nonce vient de
+l'application, jamais du proxy.** Le nonce change à chaque réponse et n'existe que dans
+l'application, qui l'écrit à la fois dans l'en-tête et dans la page. Un proxy relaie l'en-tête
+tel quel — éprouvé derrière de vrais nginx et haproxy (`reverse-proxy.test.ts`) : une seule
+politique, le même nonce que la page, `upgrade-insecure-requests` posé seulement quand le client
+arrive en `https`. Trois configurations de proxy cassent ce contrat :
+
+- **le proxy AJOUTE sa propre CSP** (`add_header Content-Security-Policy …`,
+  `http-response add-header …`) : le navigateur applique alors les DEUX politiques, et une
+  ressource doit passer chacune (CSP3 § « The effect of multiple policies »). Celle du proxy n'a
+  pas le nonce : tes scripts et tes styles signés sont bloqués. N'y mets rien qui touche aux
+  scripts ou aux styles — ou rien du tout ;
+- **le proxy REMPLACE la CSP** (`proxy_hide_header` puis `add_header`) : le nonce disparaît de la
+  politique, il ne protège plus rien. Si l'exploitation tient à écrire la politique au proxy,
+  coupe celle de l'application (`csp: ""`) : c'est alors une politique sans nonce, en
+  connaissance de cause ;
+- **le proxy ou le CDN MET EN CACHE une page signée** : il sert le même nonce à tous les
+  visiteurs, et un nonce connu d'avance n'autorise plus rien de façon sûre. Ne mets jamais une
+  page à nonce dans un cache partagé (`proxy_cache`, règle « tout mettre en cache » d'un CDN).
+
 **`upgrade-insecure-requests` ne part que sur une page servie en `https`.** Le navigateur réécrit
 alors en `https` chaque sous-ressource écrite en `http://` (image, script, socket) au lieu de la
 charger en clair. Sur une page servie en `http` — le développement sur `http://localhost` — la
