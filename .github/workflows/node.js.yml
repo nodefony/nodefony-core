@@ -1333,6 +1333,7 @@ jobs:
         working-directory: src/packages/@nodefony/http
         env:
           NF_PROXY_NGINX_URL: http://localhost:8080
+          NF_PROXY_NGINX_EDGE_CSP_URL: http://localhost:8082
           NF_PROXY_HAPROXY_URL: http://localhost:8081
           NF_PROXY_HAPROXY_TLS_URL: https://nodefony.com:8443
         run: npx vitest run -c vitest.proxy.config.ts
