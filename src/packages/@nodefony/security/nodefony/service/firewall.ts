@@ -101,6 +101,13 @@ const EMPTY_PROTECTED_RESOURCES: readonly IProtectedResourceInput[] =
 
 // Surface minimale d'une réponse capable de porter un en-tête (HTTP/HTTP2 —
 // une réponse WS ne l'a pas : capability check, jamais de cast aveugle).
+/**
+ * `Cache-Control` par défaut d'une réponse dont la CSP porte un nonce : jamais
+ * gardée par un cache partagé (le nonce y serait servi à plusieurs visiteurs),
+ * toujours redemandée avant réutilisation (ADR-0024 §C2).
+ */
+export const NONCED_DOCUMENT_CACHE_CONTROL = "private, no-cache";
+
 interface IHeaderCapableResponse {
   setHeader?: (name: string, value: string | readonly string[]) => unknown;
   /**
@@ -1279,6 +1286,19 @@ class Firewall extends Service implements IFirewall {
       if (validated)
         response.setDefaultHeader?.("Content-Security-Policy", csp);
       else response.setHeader("Content-Security-Policy", csp);
+    }
+    // Un document signé ne se partage pas : resservi par un cache partagé, son
+    // nonce le serait à tous les visiteurs, et la CSP ne protégerait plus rien.
+    // `private` l'interdit aux caches partagés ; `no-cache` fait redemander la
+    // page par le navigateur sans la sortir du cache de navigation (retour
+    // arrière). Défaut seulement : un `Cache-Control` écrit par l'application gagne.
+    if (sh.hasNonce) {
+      if (validated)
+        response.setDefaultHeader?.(
+          "Cache-Control",
+          NONCED_DOCUMENT_CACHE_CONTROL,
+        );
+      else response.setHeader("Cache-Control", NONCED_DOCUMENT_CACHE_CONTROL);
     }
   }
 

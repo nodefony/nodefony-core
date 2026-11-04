@@ -3,7 +3,10 @@ import { EventEmitter } from "node:events";
 import { Container, Event } from "nodefony";
 import type { Module } from "nodefony";
 import type { ContextType } from "@nodefony/http";
-import { Firewall } from "../../nodefony/service/firewall";
+import {
+  Firewall,
+  NONCED_DOCUMENT_CACHE_CONTROL,
+} from "../../nodefony/service/firewall";
 import {
   responseKindOf,
   SecurityHeaders,
@@ -408,5 +411,85 @@ describe("C2 — styles : nonce, repli 'unsafe-inline' là où le nonce est reti
       "'self'",
       "'unsafe-inline'",
     ]);
+  });
+});
+
+/**
+ * ADR-0024 §C2 — un document signé ne se partage pas. Resservi par un cache
+ * partagé (proxy, CDN), son nonce le serait à tous les visiteurs : il deviendrait
+ * prévisible et la CSP ne protégerait plus rien. Défaut `private, no-cache` :
+ * interdit aux caches partagés, redemandé par le navigateur, sans sortir la page
+ * du cache de navigation (ce que `no-store` ferait). L'application garde la main.
+ */
+describe("C2 — un document signé n'entre dans aucun cache partagé (ADR-0024 §C2)", () => {
+  const CACHE = "Cache-Control";
+  /** Réponse réelle en miniature : `setDefaultHeader` respecte une valeur déjà posée. */
+  const serve = (
+    options: Record<string, unknown>,
+    type: string | null,
+    preset: Record<string, string> = {},
+    servedAsFile = false,
+  ): Record<string, string> => {
+    const container = new Container();
+    const kernel = new EventEmitter();
+    container.set("kernel", kernel);
+    const fw = new Firewall({
+      container,
+      notificationsCenter: new Event(),
+      options,
+    } as unknown as Module);
+    kernel.emit("onBoot");
+    const headers: Record<string, string> = { ...preset };
+    const response = {
+      setHeader: (name: string, value: string) => {
+        headers[name] = value;
+      },
+      setDefaultHeader: (name: string, value: string) => {
+        if (!(name in headers)) headers[name] = value;
+      },
+    };
+    fw.applySecurityHeaders(
+      {
+        scheme: "https",
+        cspNonce: "N0nce==",
+        cspDirectives: null,
+        response,
+      } as unknown as ContextType,
+      type,
+      servedAsFile,
+    );
+    return headers;
+  };
+
+  it("document rendu : `private, no-cache`", () => {
+    assert.equal(
+      serve({}, "text/html; charset=utf-8")[CACHE],
+      NONCED_DOCUMENT_CACHE_CONTROL,
+    );
+    assert.equal(NONCED_DOCUMENT_CACHE_CONTROL, "private, no-cache");
+  });
+
+  it("type inconnu servi comme un document : même défaut", () => {
+    const headers = serve({}, "application/xhtml+xml");
+    assert.match(headers[CSP] ?? "", /'nonce-N0nce=='/);
+    assert.equal(headers[CACHE], NONCED_DOCUMENT_CACHE_CONTROL);
+  });
+
+  it("un `Cache-Control` écrit par l'application gagne", () => {
+    const headers = serve({}, "text/html", { [CACHE]: "public, max-age=60" });
+    assert.equal(headers[CACHE], "public, max-age=60");
+  });
+
+  it("JSON, sans contenu, document servi tel quel : rien n'est posé (aucun nonce)", () => {
+    assert.equal(serve({}, "application/json")[CACHE], undefined);
+    assert.equal(serve({}, null)[CACHE], undefined);
+    assert.equal(serve({}, "text/html", {}, true)[CACHE], undefined);
+  });
+
+  it("cspNonces: false — page sans nonce, cache laissé à l'application", () => {
+    assert.equal(
+      serve({ headers: { cspNonces: false } }, "text/html")[CACHE],
+      undefined,
+    );
   });
 });

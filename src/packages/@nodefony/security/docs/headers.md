@@ -328,8 +328,11 @@ arrive en `https`. Trois configurations de proxy cassent ce contrat :
   coupe celle de l'application (`csp: ""`) : c'est alors une politique sans nonce, en
   connaissance de cause ;
 - **le proxy ou le CDN MET EN CACHE une page signée** : il sert le même nonce à tous les
-  visiteurs, et un nonce connu d'avance n'autorise plus rien de façon sûre. Ne mets jamais une
-  page à nonce dans un cache partagé (`proxy_cache`, règle « tout mettre en cache » d'un CDN).
+  visiteurs, et un nonce connu d'avance n'autorise plus rien de façon sûre. Nodefony envoie
+  `Cache-Control: private, no-cache` sur toute page à nonce (sauf si ton contrôleur en écrit un
+  autre) : un cache qui respecte la norme ne la garde pas. Une règle qui l'ignore
+  (`proxy_ignore_headers Cache-Control`, « tout mettre en cache » d'un CDN) la remet en cache :
+  n'en pose jamais sur une page à nonce. Les fichiers JS, CSS et images gardent leur cache long.
 
 **`upgrade-insecure-requests` ne part que sur une page servie en `https`.** Le navigateur réécrit
 alors en `https` chaque sous-ressource écrite en `http://` (image, script, socket) au lieu de la

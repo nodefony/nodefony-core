@@ -113,6 +113,14 @@ Précisions tranchées à la mise en œuvre :
   depuis `readCspNonce()` (Angular pose ses styles de composants en `<style>`) ; React, Vue et
   Svelte passent par Vite, qui lit la balise meta en développement et extrait les feuilles en
   production.
+- **Un document signé ne se partage pas : `Cache-Control: private, no-cache` par défaut**
+  (`firewall.ts#NONCED_DOCUMENT_CACHE_CONTROL`), posé avec la politique dès qu'elle porte un
+  nonce. Resservie par un cache partagé, la page donnerait le même nonce à tous ses visiteurs.
+  `private` l'interdit aux caches partagés (RFC 9111 §5.2.2.7) ; `no-cache` fait redemander
+  la page avant toute réutilisation (§5.2.2.4). Écarté : `no-store`, qui ferme aussi la faille
+  mais sort la page du cache de navigation (retour arrière rechargé). Un `Cache-Control` écrit
+  par l'application gagne (`/login` garde `no-store`). Aucun validateur (`ETag`) n'est posé
+  sur un document rendu : un `304` y associerait l'ancien corps au nouveau nonce.
 
 ### C3. Temps réel : l'origine se déclare, exacte
 
