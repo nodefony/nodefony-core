@@ -102,7 +102,7 @@ MEM="$HOME/.claude/projects/-Users-cci-repository-nodefony-core/memory"
 git -C "$MEM" add -- "$MEM"                # la mémoire, fichiers neufs compris
 git -C "$MEM" add -u                         # le reste suivi de ~/.claude (CLAUDE.md, réglages)
 git -C "$MEM" -c user.name="Christophe CAMENSULI" -c user.email="ccamensuli@gmail.com" \
-  commit -q -m "session <date>: <focus court>" && git -C "$MEM" push -q
+  commit -q -m "docs(memoire): session <date>, <focus court>" && git -C "$MEM" push -q
 ```
 
 La mémoire vit HORS du dépôt, dans le dépôt git privé de `~/.claude` tout entier (`add -u`
