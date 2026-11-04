@@ -179,6 +179,33 @@ describe("CspReportCollector — réception d'une porte publique", () => {
     assert.equal(snap.items[0]?.disposition, "report");
   });
 
+  it("WebKit : un rapport Reporting API SEUL, posté en application/csp-report, est lu", () => {
+    // Corps relevé tel quel sous WebKit (Safari) pour `report-to` : ni tableau,
+    // ni clé `csp-report`, et le type de contenu de CSP2. Les deux formes se
+    // reconnaissent donc à leur FORME, pas au seul type de contenu.
+    const { c } = collector();
+    const body = JSON.stringify({
+      type: "csp-violation",
+      url: "https://app.example/login",
+      body: {
+        documentURL: "https://app.example/login",
+        disposition: "enforce",
+        referrer: "",
+        effectiveDirective: "style-src-elem",
+        blockedURL: "inline",
+        statusCode: 200,
+        sample: "",
+      },
+    });
+    assert.equal(c.receive(CSP_TYPE, body, "1.1.1.1"), "stored");
+    assert.equal(c.receive(REPORTS_TYPE, body, "1.1.1.1"), "duplicate");
+    const snap = c.snapshot();
+    assert.equal(snap.items.length, 1);
+    assert.equal(snap.items[0]?.effectiveDirective, "style-src-elem");
+    assert.equal(snap.items[0]?.blockedURL, "inline");
+    assert.equal(snap.rejected, 0);
+  });
+
   it("type de contenu, JSON ou forme refusés : écartés et comptés", () => {
     const { c } = collector();
     assert.equal(

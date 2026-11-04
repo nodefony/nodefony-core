@@ -154,10 +154,7 @@ export class CspReportCollector {
       return "malformed";
     }
     const agent = cleanText(userAgent, MAX_USER_AGENT_LENGTH);
-    const violations =
-      type === "application/csp-report"
-        ? fromCspReport(payload)
-        : fromReportsJson(payload);
+    const violations = violationsOf(payload);
     if (violations.length === 0) {
       this.#rejected++;
       return "malformed";
@@ -284,9 +281,27 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** Corps `application/csp-report` : `{ "csp-report": { … } }` (CSP2, `report-uri`). */
-function fromCspReport(payload: unknown): ViolationFields[] {
-  const report = recordOf(recordOf(payload)?.["csp-report"]);
+/**
+ * Lit un corps de rapport selon sa FORME, quel que soit celui des deux types de
+ * contenu admis qui l'annonce.
+ *
+ * Le type ne suffit pas à décider : WebKit (Safari) poste son `report-to` en
+ * `application/csp-report` avec UN rapport de la Reporting API, ni enveloppé
+ * dans `csp-report` ni mis en tableau (corps relevé au navigateur). Lu sur le
+ * seul type, ce rapport était écarté comme malformé — et toutes les violations
+ * de Safari avec lui.
+ */
+function violationsOf(payload: unknown): ViolationFields[] {
+  if (Array.isArray(payload)) return fromReportsJson(payload);
+  const record = recordOf(payload);
+  if (record === null) return [];
+  if ("csp-report" in record) return fromCspReport(record);
+  return fromReportsJson([record]);
+}
+
+/** Corps `{ "csp-report": { … } }` (CSP2, `report-uri`). */
+function fromCspReport(payload: Record<string, unknown>): ViolationFields[] {
+  const report = recordOf(payload["csp-report"]);
   if (report === null) return [];
   const one = normalize({
     documentURL: report["document-uri"],
@@ -303,11 +318,10 @@ function fromCspReport(payload: unknown): ViolationFields[] {
 }
 
 /**
- * Corps `application/reports+json` : un tableau de rapports de la Reporting
- * API, dont seuls ceux de type `csp-violation` sont lus.
+ * Rapports de la Reporting API (`report-to`), dont seuls ceux de type
+ * `csp-violation` sont lus.
  */
-function fromReportsJson(payload: unknown): ViolationFields[] {
-  if (!Array.isArray(payload)) return [];
+function fromReportsJson(payload: readonly unknown[]): ViolationFields[] {
   const out: ViolationFields[] = [];
   for (const item of payload) {
     const report = recordOf(item);
