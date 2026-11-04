@@ -706,10 +706,11 @@ this.get<IFirewallGate>("firewall")?.registerCspOrigins?.("mon-module", {
 
 Quatre propriétés à retenir :
 
-- **Après `onBoot`** : le firewall compose sa politique à `onBoot` et ignore une contribution
-  reçue avant. Un module qui déclare au démarrage le fait à `onReady` — c'est ce que fait
-  `@nodefony/realtime` pour une socket servie sur une autre origine (`realtime.publicOrigin`,
-  `RealtimeService.ts#RealtimeService.init`).
+- **À tout moment** : une contribution reçue avant que le firewall ait composé sa politique
+  (`onBoot`) est gardée, puis fusionnée à la composition (`firewall.ts#Firewall.registerCspOrigins`) — l'ordre
+  des modules ne décide de rien. Seul le service `firewall` doit déjà exister : un module qui
+  déclare au démarrage le fait donc à `onReady`, comme `@nodefony/realtime` pour une socket servie
+  sur une autre origine (`realtime.publicOrigin`, `RealtimeService.ts#RealtimeService.init`).
 - **Aucun couplage** : la résolution par nom de service évite un cycle de dépendances, et
   `registerCspOrigins` est optionnel — un module fonctionne dans une app **sans** security.
 - **Réversible** : `Firewall.unregisterCspOrigins()` (`firewall.ts#Firewall.unregisterCspOrigins`) retire le fragment et

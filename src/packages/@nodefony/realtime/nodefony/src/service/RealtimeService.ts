@@ -171,9 +171,10 @@ class RealtimeService extends Service {
   /**
    * Déclare au pare-feu l'origine publique de la socket dans `connect-src`.
    *
-   * Différé à `onReady` : le pare-feu compose sa politique à `onBoot` et ignore
-   * une contribution reçue avant. Sans pare-feu (application sans
-   * `@nodefony/security`), aucune politique n'est posée : rien à déclarer.
+   * Différé à `onReady` : au moment de `init`, le module de sécurité peut ne pas
+   * avoir encore enregistré son pare-feu (ordre des modules). Sans pare-feu
+   * (application sans `@nodefony/security`), aucune politique n'est posée :
+   * rien à déclarer.
    *
    * @param publicOrigin - origine nue validée par le schéma
    */

@@ -84,8 +84,8 @@ Règle pure au CŒUR (`decideBackpressure`) ; le client `NodefonySocket` l'appli
 
 **`publicOrigin` (CSP, ADR-0024 §C3)** : socket sur une AUTRE origine que la page → le module
 déclare `connect-src` lui-même (`RealtimeService.ts#RealtimeService.init` → `registerCspOrigins("realtime", …)`
-du contrat `IFirewallGate` de http, à `onReady` : le firewall compose à `onBoot` et ignore ce qui
-arrive avant). Origine nue validée par `parseBareOrigin` (cœur, même règle que `parseProxyOrigin`) ;
+du contrat `IFirewallGate` de http, à `onReady` : à `init` le service `firewall` peut ne pas
+exister encore, selon l'ordre des modules). Origine nue validée par `parseBareOrigin` (cœur, même règle que `parseProxyOrigin`) ;
 `https:`→`wss:`, `http:`→`ws:` (`publicOrigin.ts#realtimeConnectSource`) car une source `https://h`
 ne couvre PAS `wss://h` (CSP3 scheme-part match), l'inverse si. Même origine = rien à régler
 (`'self'` couvre `wss:`). ≠ `csrf.checkOrigin.allowList` (qui peut OUVRIR la socket).

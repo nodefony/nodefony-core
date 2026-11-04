@@ -310,6 +310,11 @@ class Firewall extends Service implements IFirewall {
         csp: this.#cspBase,
       });
       this.#cspMerged = null;
+      // Contributions reçues avant la composition (`registerCspOrigins` appelé
+      // plus tôt dans `onBoot`) : fusionnées maintenant, une fois.
+      if (this.#cspFragments !== null && this.#cspFragments.size > 0) {
+        this.#rebuildSecurityHeaders();
+      }
       // Politique ÉCRITE par l’application : conservée (choix explicite), mais
       // une source ouverte à tout l’internet se dit au démarrage.
       for (const [directive, source] of findOverbroadSources(
@@ -1308,7 +1313,12 @@ class Firewall extends Service implements IFirewall {
    * Recompose `#securityHeaders` (merge + re-split nonce) — hors hot-path.
    */
   registerCspOrigins(moduleName: string, declared: CspFragment): void {
-    if (!this.#securityHeaders || !this.#config) return;
+    // Avant `#build` (`onBoot`), la contribution est validée puis RANGÉE : la
+    // composition de la politique la reprendra. L'ordre des écouteurs de
+    // `onBoot` ne décide donc de rien. Après, sans en-têtes applicatifs, il n'y
+    // a pas de politique à étendre.
+    const built = this.#config !== null;
+    if (built && this.#securityHeaders === null) return;
     // Contribution MALFORMÉE (une source qui fabriquerait une directive ou une
     // seconde politique) : IGNORÉE en entier — la politique reste celle d’avant,
     // plus stricte. L’application démarre : la faute est celle du module, que
@@ -1336,6 +1346,10 @@ class Firewall extends Service implements IFirewall {
       );
     }
     const fragments = (this.#cspFragments ??= new Map<string, CspFragment>());
+    if (!built) {
+      fragments.set(moduleName, fragment);
+      return;
+    }
     const previous = fragments.get(moduleName);
     if (
       previous !== undefined ||

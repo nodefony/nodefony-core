@@ -205,6 +205,41 @@ describe("CSP red-team — B2 au pare-feu : le travail est fait UNE fois", () =>
     assert.deepEqual(connect, ["'self'", "wss://b.example"]);
   });
 
+  it("une contribution reçue AVANT onBoot est reprise par la composition, l'ordre des écouteurs ne décide de rien", () => {
+    const container = new Container();
+    const kernel = new EventEmitter();
+    container.set("kernel", kernel);
+    const fw = new Firewall({
+      container,
+      notificationsCenter: new Event(),
+      options: {},
+    } as unknown as Module);
+    // Un module qui déclare dans son propre écouteur d'`onBoot`, passé AVANT
+    // celui du pare-feu.
+    fw.registerCspOrigins("tot", { "img-src": ["https://img.example"] });
+    kernel.emit("onBoot");
+    const img = directivesOf(cspOf(fw)).get("img-src") ?? [];
+    assert.ok(img.includes("https://img.example"), img.join(" "));
+    // Et une contribution malformée reçue avant est ignorée, sans bloquer.
+    const fw2 = new Firewall({
+      container: (() => {
+        const c = new Container();
+        const k = new EventEmitter();
+        c.set("kernel", k);
+        return c;
+      })(),
+      notificationsCenter: new Event(),
+      options: {},
+    } as unknown as Module);
+    fw2.registerCspOrigins("bad", {
+      "img-src": ["https://a.example; script-src *"],
+    });
+    assert.doesNotThrow(() =>
+      (fw2.kernel as unknown as EventEmitter).emit("onBoot"),
+    );
+    assert.ok(!cspOf(fw2).includes("a.example"));
+  });
+
   it("@Csp : la fusion d'une route est faite une fois, puis servie du cache", () => {
     const sh = new SecurityHeaders({
       enabled: true,
