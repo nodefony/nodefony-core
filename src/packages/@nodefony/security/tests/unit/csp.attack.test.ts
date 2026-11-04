@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
-import { BootConfigurationError, Container, Event } from "nodefony";
+import { Container, Event } from "nodefony";
 import type { Module } from "nodefony";
 import type { ContextType } from "@nodefony/http";
 import { Firewall } from "../../nodefony/service/firewall";
@@ -102,21 +102,23 @@ describe("CSP red-team — B2 injection dans la fusion des contributions", () =>
     assert.ok(!/[\r\n]/.test(out), "CR/LF dans la politique fusionnée");
   });
 
-  it("@Csp par route : même invariant sur cspForExtra", () => {
-    const sh = new SecurityHeaders({
-      enabled: true,
-      csp: BASE,
-      cspNonces: true,
-      referrerPolicy: "no-referrer",
-    });
-    let out: string | undefined;
-    try {
-      out = sh.cspForExtra("N0nce==", {
-        "img-src": ["https://cdn.example; frame-src *"],
-      });
-    } catch {
-      return;
-    }
+  it("@Csp par route : même invariant sur cspForExtra, sans 500 ni bruit par requête", () => {
+    const rejected: unknown[] = [];
+    const sh = new SecurityHeaders(
+      {
+        enabled: true,
+        csp: BASE,
+        cspNonces: true,
+        referrerPolicy: "no-referrer",
+      },
+      (error) => rejected.push(error),
+    );
+    const extra = { "img-src": ["https://cdn.example; frame-src *"] };
+    const out = sh.cspForExtra("N0nce==", extra);
+    sh.cspForExtra("N1nce==", extra);
+    // Politique de BASE servie, faute dite UNE fois (composition en cache).
+    assert.equal(rejected.length, 1);
+    assert.ok(!out.includes("cdn.example"), out);
     assert.ok(!out.includes(","), out);
     const got = directivesOf(out);
     assert.deepEqual(got.get("script-src"), ["'self'", "'nonce-N0nce=='"]);
@@ -163,15 +165,20 @@ const cspOf = (fw: Firewall): string => {
 };
 
 describe("CSP red-team — B2 au pare-feu : le travail est fait UNE fois", () => {
-  it("un fragment refusé lève et n'empoisonne pas les enregistrements suivants", () => {
+  it("un fragment malformé est IGNORÉ et dit, sans bloquer ni empoisonner la suite", () => {
     const fw = firewall();
-    assert.throws(
-      () =>
-        fw.registerCspOrigins("bad", {
-          "connect-src": ["https://a.example; frame-src *"],
-        }),
-      BootConfigurationError,
-    );
+    const errors: string[] = [];
+    const log = fw.log.bind(fw);
+    fw.log = ((msg: unknown, severity?: unknown, ...rest: unknown[]) => {
+      if (severity === "ERROR") errors.push(String(msg));
+      return log(msg as never, severity as never, ...(rest as never[]));
+    }) as typeof fw.log;
+    fw.registerCspOrigins("bad", {
+      "connect-src": ["https://a.example; frame-src *"],
+    });
+    assert.equal(errors.length, 1, errors.join("\n"));
+    assert.match(errors[0] ?? "", /contribution de bad IGNORÉE/);
+    assert.ok(!cspOf(fw).includes("a.example"), cspOf(fw));
     fw.registerCspOrigins("realtime", { "connect-src": ["wss://old.example"] });
     // Remplacement = recomposition complète depuis TOUS les fragments rangés :
     // un fragment refusé mais rangé quand même ferait lever ici.

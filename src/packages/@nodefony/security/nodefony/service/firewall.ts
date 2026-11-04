@@ -26,6 +26,7 @@ import { RoleHierarchyWalker } from "../src/RoleHierarchyWalker";
 import { rolesWithin } from "../src/rolesWithin";
 import { randomBytes } from "node:crypto";
 import {
+  assertCspFragment,
   findOverbroadSources,
   mergeCspFragments,
   parseCsp,
@@ -288,7 +289,7 @@ class Firewall extends Service implements IFirewall {
     // (nosniff/frame/HSTS) est posé par @nodefony/http sur toute réponse (couvre
     // statics + erreurs) → security n'émet QUE le complément (1 source par en-tête).
     if (this.#config.headers.enabled) {
-      this.#securityHeaders = new SecurityHeaders(this.#config.headers);
+      this.#securityHeaders = this.#newSecurityHeaders(this.#config.headers);
       this.#cspMerged = null;
       // Politique ÉCRITE par l’application : conservée (choix explicite), mais
       // une source ouverte à tout l’internet se dit au démarrage.
@@ -1243,6 +1244,21 @@ class Firewall extends Service implements IFirewall {
    */
   registerCspOrigins(moduleName: string, declared: CspFragment): void {
     if (!this.#securityHeaders || !this.#config) return;
+    // Contribution MALFORMÉE (une source qui fabriquerait une directive ou une
+    // seconde politique) : IGNORÉE en entier — la politique reste celle d’avant,
+    // plus stricte. L’application démarre : la faute est celle du module, que
+    // son auteur ne peut pas corriger.
+    try {
+      assertCspFragment(declared, moduleName);
+    } catch (error) {
+      this.log(
+        `CSP : contribution de ${moduleName} IGNORÉE — ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        "ERROR",
+      );
+      return;
+    }
     // Source trop large : RETIRÉE avant d’être rangée (moindre privilège),
     // l’application démarre — l’avertissement nomme le module, seul à savoir
     // pourquoi il l’a déclarée. L’application garde la main : sa propre config
@@ -1281,7 +1297,7 @@ class Firewall extends Service implements IFirewall {
     ]);
     fragments.set(moduleName, fragment);
     this.#cspMerged = csp;
-    this.#securityHeaders = new SecurityHeaders({
+    this.#securityHeaders = this.#newSecurityHeaders({
       ...this.#config.headers,
       csp,
     });
@@ -1307,7 +1323,24 @@ class Firewall extends Service implements IFirewall {
         ? mergeCspFragments(headers.csp, this.#cspFragments.values())
         : headers.csp;
     this.#cspMerged = csp === headers.csp ? null : csp;
-    this.#securityHeaders = new SecurityHeaders({ ...headers, csp });
+    this.#securityHeaders = this.#newSecurityHeaders({ ...headers, csp });
+  }
+
+  /**
+   * Construit la table des en-têtes applicatifs, branchée sur le journal : un
+   * `@Csp` de route hors grammaire est IGNORÉ (politique de base servie) et dit.
+   */
+  #newSecurityHeaders(
+    headers: ConstructorParameters<typeof SecurityHeaders>[0],
+  ): SecurityHeaders {
+    return new SecurityHeaders(headers, (error) => {
+      this.log(
+        `CSP : directives @Csp d’une route IGNORÉES, la politique de base est servie — ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        "ERROR",
+      );
+    });
   }
 
   /**

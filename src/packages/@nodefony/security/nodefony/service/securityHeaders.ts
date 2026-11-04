@@ -62,8 +62,19 @@ export class SecurityHeaders {
   // Politique `@Csp` déjà composée, par jeu de directives de route — null tant
   // qu'aucune route décorée n'a servi (cas courant : 0 allocation).
   #extraComposed: WeakMap<CspFragment, IComposedCsp> | null = null;
+  /** Prévenu (une fois par jeu de directives) quand un `@Csp` de route est ignoré. */
+  readonly #onRejectedExtra: ((error: unknown) => void) | null;
 
-  constructor(o: ISecurityHeadersOptions) {
+  /**
+   * @param o - options des en-têtes (config `security.headers`, CSP déjà fusionnée).
+   * @param onRejectedExtra - appelé quand les directives `@Csp` d'une route sortent
+   *   de la grammaire CSP3 : la route sert alors la politique de base.
+   */
+  constructor(
+    o: ISecurityHeadersOptions,
+    onRejectedExtra?: (error: unknown) => void,
+  ) {
+    this.#onRejectedExtra = onRejectedExtra ?? null;
     const h: Record<string, string> = {};
     let cspParts: readonly string[] | null = null;
     if (o.csp) {
@@ -165,7 +176,16 @@ export class SecurityHeaders {
     // la recomposition du nonce, au même coût que `cspFor`.
     let composed = this.#extraComposed?.get(extra);
     if (composed === undefined) {
-      const merged = mergeCspFragments(this.#cspRaw, [extra]);
+      let merged: string;
+      try {
+        merged = mergeCspFragments(this.#cspRaw, [extra]);
+      } catch (error) {
+        // Directives hors grammaire : la route sert la politique de BASE, plus
+        // stricte — jamais une 500. Mis en cache comme une composition réussie,
+        // donc la faute se dit UNE fois, pas à chaque requête.
+        merged = this.#cspRaw;
+        this.#onRejectedExtra?.(error);
+      }
       // Nonce actif (`#cspParts` non null) → découpe autour de `{{nonce}}` ; sinon
       // purge un résiduel `'nonce-{{nonce}}'` (placeholder non substitué = CSP cassé).
       composed =

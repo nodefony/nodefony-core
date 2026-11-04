@@ -44,6 +44,12 @@ export interface IFirewall extends IFirewallGate {
    * Déclare des directives CSP additionnelles pour un module (ex. `@nodefony/frontend`
    * en dev : origines Vite + `'unsafe-eval'`). Fusionnées dans le CSP de base et
    * recomposées (re-split nonce) au (dé)enregistrement — jamais par requête.
+   *
+   * Ne lève jamais : une contribution MALFORMÉE est ignorée en entier (journal
+   * ERROR), une source TROP LARGE (`*`, `https:`, `https://*`) est retirée
+   * (journal WARNING). La politique ne devient jamais plus permissive que demandé,
+   * et l'application démarre. Ce que l'application écrit elle-même (sa config,
+   * ses `@Csp`) ne passe pas par ce filtre.
    */
   registerCspOrigins(moduleName: string, fragment: CspFragment): void;
 
