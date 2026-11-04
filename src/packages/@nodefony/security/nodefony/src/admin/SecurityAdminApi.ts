@@ -1,5 +1,5 @@
 import { parsePageQuery, parseFilters } from "nodefony";
-import type { Container, IPage } from "nodefony";
+import type { Container, ICspReportsSnapshot, IPage } from "nodefony";
 import type {
   IAdminApi,
   IAdminDescriptor,
@@ -23,6 +23,7 @@ import type {
 import type { IAuditEvent } from "../../contracts/IAuditEvent";
 import type { IAuditListQuery } from "../../contracts/IAuditStore";
 import type { IFirewall } from "../../contracts/IFirewall";
+import type { CspReportCollector } from "../cspReports";
 import type {
   IFirewallDescription,
   IRoleHierarchyDescription,
@@ -328,6 +329,9 @@ function toCredentialView(c: IWebAuthnCredential): IAdminCredentialView {
  *  - `GET /nodefony/security/api/firewall` — introspection du firewall (zones,
  *    authenticators montés, défenses) — état RUNTIME, secrets exclus.
  *  - `GET /nodefony/security/api/roleHierarchy` — hiérarchie de rôles + résolution.
+ *  - `GET /nodefony/security/api/csp-reports` — violations CSP reçues (ADR-0024
+ *    §C7), dédoublonnées, la plus récente d’abord ; champs écrits par le
+ *    navigateur, donc à afficher comme du texte.
  *  - `GET /nodefony/security/api/apikeys` — toutes les clés API (gouvernance),
  *    `GET …/apikeys/status` — backend du token store (« où on écrit »),
  *    `POST …/apikeys/{id}/revoke` — révocation par id (réponse à incident).
@@ -405,6 +409,30 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
         const provider =
           typeof raw === "string" && raw !== "" ? raw : undefined;
         return { enabled: true, providers: await oauth.diagnose(provider) };
+      },
+    },
+    {
+      path: "csp-reports",
+      method: "GET",
+      role: "ROLE_NODEFONY_ADMIN",
+      summary:
+        "Violations de la politique CSP rapportées par les navigateurs " +
+        "(dédoublonnées, URL expurgées, extrait jamais gardé). Champs écrits " +
+        "par le navigateur — à afficher comme du texte.",
+      handler: (): ICspReportsSnapshot => {
+        // Lecture DÉFENSIVE : collecteur absent (rapports désactivés, collecteur
+        // tiers, en-têtes coupés) = réponse honnête, jamais une erreur.
+        const collector = container.get<CspReportCollector>("cspReports");
+        return (
+          collector?.snapshot() ?? {
+            enabled: false,
+            endpoint: null,
+            capacity: 0,
+            received: 0,
+            rejected: 0,
+            items: [],
+          }
+        );
       },
     },
     {

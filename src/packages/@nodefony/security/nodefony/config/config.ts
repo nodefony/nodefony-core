@@ -316,6 +316,19 @@ const headersSchema = z
       .boolean()
       .default(true)
       .describe("Nonce CSP par requête (bloque l'inline non signé)."),
+    cspReport: z
+      .union([z.boolean(), z.string()])
+      .default(true)
+      .describe(
+        "Rapports de violation CSP (ADR-0024 §C7). `true` : la politique les " +
+          "demande (`report-uri` + `report-to`, en-tête `Reporting-Endpoints`) et " +
+          "l'application les reçoit sur `/nodefony/security/api/csp-report` — " +
+          "corps borné, quota par adresse, URL expurgées, mémoire seule —, lus par " +
+          "`GET /nodefony/security/api/csp-reports` (administrateur). Une chaîne : " +
+          "l'URL de votre propre collecteur (chemin absolu ou https). `false` : " +
+          'aucun rapport. Sans effet quand `csp` vaut `""` ou déclare déjà ' +
+          "`report-uri`/`report-to`. Une URL malformée est retirée et journalisée.",
+      ),
     /**
      * @deprecated Inerte : régler `http.securityHeaders.frameOptions`, qui pilote
      * `X-Frame-Options` ET `frame-ancestors` (ADR-0024 §C5). Retrait à la

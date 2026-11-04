@@ -461,6 +461,17 @@ apiKeys.enabled` (keystore JWT seulement si jwt) ; `isEnabled()`=capacité JWT (
   Gravatar par Studio via `@Csp` sur SES pages seulement, socket d'une autre origine par realtime
   (`realtime.publicOrigin`). App : `headers.cspSources` = contributions NOMMÉES (pas par directive : `extend`
   fusionne les tableaux case par case), validées une fois (`#validatedAppCspSources`), fusionnées dans `#composeCspBase`.
+- **Rapports de violation (ADR-0024 §C7)** : `headers.cspReport` (`true` défaut · URL app · `false`), lu par
+  `Firewall.#validatedCspReportUrl` (URL invalide = RETIRÉE + ERROR, `csp.ts#reportUrlProblem`). `#composeCspBase`
+  ajoute EN DERNIER `report-uri <url>; report-to nodefony-csp` (`csp.ts#withViolationReports`) sauf si la politique
+  en déclare déjà → `#reportingEndpoints` posé seulement si ajouté → `Reporting-Endpoints` dans les tables document
+  - script + fichier (jamais la politique étroite). Collecteur `cspReports` (`src/cspReports.ts#CspReportCollector`)
+    posé au conteneur SEULEMENT si l'URL = `CSP_REPORT_PATH` (cœur) ; route publique montée par framework
+    (`CspReportController.ts`, `bypassFirewall` + `@CsrfExempt` + `@Body({stream})` borné 8 Ko → 413). Collecteur :
+    quota/IP `MemoryRateLimitStore` (http) 120/min, types `application/csp-report` + `application/reports+json`,
+    URL sans identifiants/requête/fragment (non-HTTP(S) → schéma), extrait JAMAIS gardé, `Map` bornée 200 (moins
+    récemment vue évincée), journal 1 ligne par violation neuve, 20/min + résumé. Lecture admin `csp-reports`
+    (`SecurityAdminApi`), `{enabled:false…}` sans collecteur. Contrat `ICspViolation`/`ICspReportsSnapshot` au cœur.
 - **DX config (J5)** — security **augmente `NodefonyModuleConfig`** (`declare module "nodefony"`, recette frère
   drizzle/mongoose) → `use("@nodefony/security", {…})` complète CLÉS + VALEURS enum + valide les types (sinon
   `Record<string,unknown>`). Enums complétés : coop/coep/corp/frameguard/referrerPolicy/sameSite/jwt.alg.

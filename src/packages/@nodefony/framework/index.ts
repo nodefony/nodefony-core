@@ -69,6 +69,9 @@ import WebAuthnController, {
 import OAuth2Controller, {
   mountOAuth2Routes,
 } from "./nodefony/controller/OAuth2Controller";
+import CspReportController, {
+  mountCspReportRoute,
+} from "./nodefony/controller/CspReportController";
 import BenchController, {
   mountBenchRoutes,
 } from "./nodefony/controller/BenchController";
@@ -486,6 +489,11 @@ class Framework extends Module<IFrameworkConfig> {
     if (this.kernel?.container?.get("oauth2")) {
       mountOAuth2Routes(this);
     }
+    // Rapports de violation CSP (ADR-0024 §C7) : la route publique n’existe que
+    // si la politique les demande vers le framework (service `cspReports`).
+    if (this.kernel?.container?.get("cspReports")) {
+      mountCspReportRoute(this);
+    }
     // Cible de banc — route de CONTROLLER servant un corps figé, montée seulement
     // sous `NF_BENCH_ROUTE=1` (drapeau d'outillage). Mesure le pipeline applicatif
     // sans l'étage data plane admin, seul chemin comparable à un handler nu d'un
@@ -539,6 +547,8 @@ export {
   mountWebAuthnRoutes,
   OAuth2Controller,
   mountOAuth2Routes,
+  CspReportController,
+  mountCspReportRoute,
   BenchController,
   mountBenchRoutes,
   ApiKeyController,

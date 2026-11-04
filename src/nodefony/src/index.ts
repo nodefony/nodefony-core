@@ -561,6 +561,12 @@ export { safeRedirectPath } from "./runtime/safeRedirect";
 export { parseBareOrigin } from "./runtime/bareOrigin";
 export { CSP_NONCE_META_PROPERTY, cspNonceMetaTag } from "./runtime/cspNonce";
 export {
+  CSP_REPORT_PATH,
+  CSP_REPORT_GROUP,
+  CSP_REPORT_MAX_BYTES,
+} from "./runtime/cspReport";
+export type { ICspViolation, ICspReportsSnapshot } from "./runtime/cspReport";
+export {
   readDocScope,
   isDocVisible,
   isFrameworkRepository,

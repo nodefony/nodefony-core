@@ -273,3 +273,69 @@ export function withFrameAncestors(
   }
   return `${csp.slice(0, end)}; frame-ancestors ${source}`;
 }
+
+/**
+ * Demande à une politique ses rapports de violation : `report-uri` (lu par
+ * tous les navigateurs, en http comme en https) ET `report-to` (Reporting API,
+ * que le navigateur n'honore que vers une origine sûre — https ou localhost).
+ * ADR-0024 §C7.
+ *
+ * L'application garde la main : une politique qui déclare DÉJÀ `report-uri` ou
+ * `report-to` est rendue telle quelle — elle a son collecteur. Une politique
+ * vide le reste.
+ *
+ * @param csp - politique de base.
+ * @param url - où poster les rapports (chemin absolu ou URL https).
+ * @param group - nom du groupe `report-to`, déclaré par `Reporting-Endpoints`.
+ * @returns la politique, et `added` vrai si les directives ont été posées ici —
+ *   c'est alors à l'appelant d'émettre `Reporting-Endpoints`.
+ */
+export function withViolationReports(
+  csp: string,
+  url: string,
+  group: string,
+): { csp: string; added: boolean } {
+  if (csp.trim() === "") return { csp, added: false };
+  for (const [name] of parseCsp(csp)) {
+    const lower = name.toLowerCase();
+    if (lower === "report-uri" || lower === "report-to") {
+      return { csp, added: false };
+    }
+  }
+  let end = csp.length;
+  while (end > 0 && (csp[end - 1] === ";" || /\s/.test(csp[end - 1] ?? ""))) {
+    end--;
+  }
+  return {
+    csp: `${csp.slice(0, end)}; report-uri ${url}; report-to ${group}`,
+    added: true,
+  };
+}
+
+/**
+ * Valide l'URL d'un collecteur de rapports écrite par l'application : un
+ * chemin absolu (`/csp`) ou une URL `https:` / `http:`, sans rien qu'un en-tête
+ * ou une directive CSP ne puisse porter (espace, `;`, `,`, guillemet).
+ *
+ * @param url - valeur de `headers.cspReport`.
+ * @returns la cause du refus, ou `null` si l'URL est utilisable.
+ */
+export function reportUrlProblem(url: string): string | null {
+  if (url === "") return "URL vide";
+  // Hors ASCII visible (espaces et contrôles compris), ou séparateur.
+  if (/[^\x21-\x7e]|[;,"\\]/u.test(url)) {
+    return "caractère qu’un en-tête ne peut pas porter";
+  }
+  if (url.startsWith("/")) {
+    return url.startsWith("//") ? "URL relative au schéma (//)" : null;
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return "ni chemin absolu ni URL";
+  }
+  return parsed.protocol === "https:" || parsed.protocol === "http:"
+    ? null
+    : `schéma ${parsed.protocol} refusé`;
+}

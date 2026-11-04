@@ -96,6 +96,12 @@ export interface ISecurityHeadersOptions {
   corp?: string | undefined;
   originAgentCluster?: boolean | undefined;
   permissionsPolicy?: string | undefined;
+  /**
+   * Valeur de `Reporting-Endpoints` (`groupe="url"`), quand la politique
+   * désigne un groupe `report-to` composé par le framework (ADR-0024 §C7).
+   * Posé là où la politique complète part : document, script, fichier servi.
+   */
+  reportingEndpoints?: string | null | undefined;
 }
 
 /** Marqueur substitué par le nonce CSP de la requête (cf `Context.cspNonce`). */
@@ -183,6 +189,9 @@ export class SecurityHeaders {
     // Structured field boolean (RFC 9651) : présence = activé.
     if (o.originAgentCluster) common["Origin-Agent-Cluster"] = "?1";
     if (o.permissionsPolicy) common["Permissions-Policy"] = o.permissionsPolicy;
+    if (o.reportingEndpoints) {
+      common["Reporting-Endpoints"] = o.reportingEndpoints;
+    }
     // Validés UNE fois ici : la réponse les pose ensuite sans les revalider
     // (`HttpResponse.setValidatedHeader`). Une valeur qu'un en-tête ne peut pas
     // porter arrête le démarrage au lieu de faire échouer chaque réponse.
@@ -202,12 +211,18 @@ export class SecurityHeaders {
     //    leurs requêtes sous la politique de LEUR réponse ;
     //  - CORP : partout — c'est l'en-tête des ressources incluses ;
     //  - COEP : document et script (un worker charge lui aussi des ressources) ;
-    //  - COOP, Origin-Agent-Cluster, Permissions-Policy : document seulement.
+    //  - COOP, Origin-Agent-Cluster, Permissions-Policy : document seulement ;
+    //  - Reporting-Endpoints : là où part la politique complète, qui nomme le
+    //    groupe `report-to` (document, script) — la politique étroite du reste
+    //    n'en désigne aucun.
     const other: Record<string, string> = {};
     if (o.referrerPolicy) other["Referrer-Policy"] = o.referrerPolicy;
     if (o.corp) other["Cross-Origin-Resource-Policy"] = o.corp;
     const script: Record<string, string> = { ...other };
     if (o.coep) script["Cross-Origin-Embedder-Policy"] = o.coep;
+    if (o.reportingEndpoints) {
+      script["Reporting-Endpoints"] = o.reportingEndpoints;
+    }
     // JavaScript : la politique complète, sans nonce — un worker prend celle de
     // son script, et un nonce n'y désigne aucune balise.
     const scriptCsp = purgeNoncePlaceholder(o.csp);

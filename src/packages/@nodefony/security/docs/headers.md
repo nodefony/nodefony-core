@@ -711,6 +711,46 @@ les tests fiables.
 `@Csp` est payé **uniquement sur les routes décorées** (`SecurityHeaders.cspForExtra()`,
 `securityHeaders.ts#SecurityHeaders.cspForExtra`) ; le cas courant reste le simple `join`.
 
+### Rapports de violation — voir ce que la politique bloque
+
+Une politique stricte casse sans bruit : le navigateur bloque une image ou un script, et le serveur
+n'en sait rien. Par défaut, la politique **demande donc ses rapports** — `report-uri` (lu par tous
+les navigateurs) et `report-to nodefony-csp` (Reporting API, honorée seulement vers une origine
+sûre : https ou localhost), avec l'en-tête `Reporting-Endpoints` qui nomme le groupe :
+
+```http
+Content-Security-Policy: …; report-uri /nodefony/security/api/csp-report; report-to nodefony-csp
+Reporting-Endpoints: nodefony-csp="/nodefony/security/api/csp-report"
+```
+
+Le navigateur poste ses rapports sur `POST /nodefony/security/api/csp-report`
+(`CspReportController.ts#CspReportController`). Cette porte est publique — le navigateur n'envoie
+aucun identifiant — donc tout ce qu'elle reçoit est traité comme écrit par un attaquant
+(`cspReports.ts#CspReportCollector`) :
+
+- corps lu en flux et **borné à 8 Ko** (`CSP_REPORT_MAX_BYTES`), 413 au-delà ;
+- deux types de contenu seulement, `application/csp-report` et `application/reports+json` ;
+- **quota par adresse** (120 rapports par minute) ;
+- URL **expurgées** de leur requête, de leur fragment et de leurs identifiants — une requête peut
+  porter un jeton ; une URL qui n'est pas HTTP(S) se réduit à son schéma ;
+- l'**extrait de code n'est jamais gardé** : c'est une chaîne de l'attaquant ;
+- stockage **en mémoire seule**, dédoublonné (une répétition incrémente un compteur), 200 violations
+  distinctes au plus ; le journal dit chaque violation neuve une fois, 20 lignes par minute au plus.
+
+La réponse est toujours 204 : l'émetteur n'apprend rien de ce qui a été gardé. L'administrateur lit
+les violations sur `GET /nodefony/security/api/csp-reports` (rôle `ROLE_NODEFONY_ADMIN`), la plus
+récente d'abord — champs à afficher comme du **texte**.
+
+| `headers.cspReport`   | Effet                                                                           |
+| --------------------- | ------------------------------------------------------------------------------- |
+| `true` (défaut)       | rapports vers la route du framework, collectés et lisibles par l'administrateur |
+| `"https://…"`, `"/…"` | rapports vers **ton** collecteur ; aucune route de réception côté application   |
+| `false`               | aucun rapport demandé                                                           |
+
+Une politique que tu écris avec son propre `report-uri` ou `report-to` est servie telle quelle. Une
+URL qu'un en-tête ne peut pas porter est retirée et journalisée en `ERROR` — l'application démarre
+sans rapports plutôt que de ne pas démarrer.
+
 ## 🧩 Extension — déclarer un fragment CSP depuis son module
 
 Un module qui a besoin d'origines supplémentaires ne doit **jamais** poser l'en-tête lui-même : il en
@@ -807,6 +847,7 @@ porte sa description, ce qui en fait la référence toujours à jour des défaut
 | Assets tiers cassés après activation de l'isolation      | `coep: "require-corp"` exige CORP/CORS sur **chaque** ressource                                     | Retirer `coep` ou faire annoncer les ressources                                                              |
 | HSTS absent en développement                             | Posé sur TLS uniquement (`http-kernel.ts#HttpKernel.getErrorRenderer`)                              | Comportement conforme RFC 6797 — vérifier sur le port HTTPS                                                  |
 | Le CSP est plus large en dev qu'en prod                  | `@nodefony/frontend` déclare les origines Vite (`FrontendService.ts#FrontendService.#buildEntries`) | Attendu : le fragment n'existe pas en production                                                             |
+| Aucun rapport reçu en `report-to` en développement       | La Reporting API n'envoie que vers une origine sûre (https, localhost)                              | Attendu : `report-uri` porte les rapports en http ; tester sur le port HTTPS                                 |
 | Aucun en-tête applicatif                                 | Module security absent ou `headers.enabled: false`                                                  | Le socle transport reste actif ; réactiver security pour CSP/Referrer/isolation                              |
 | Domaine injoignable après activation de `preload`        | Inscription à la liste pré-chargée, sortie très lente                                               | Ne jamais activer sans plan HTTPS sur **tous** les sous-domaines                                             |
 

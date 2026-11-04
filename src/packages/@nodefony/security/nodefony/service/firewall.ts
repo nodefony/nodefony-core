@@ -9,6 +9,8 @@ import {
   Pdu,
   logColor,
   ROLES_WITHIN,
+  CSP_REPORT_GROUP,
+  CSP_REPORT_PATH,
 } from "nodefony";
 import type { IProtectedResourceInput } from "nodefony";
 import type { ContextType, ISecurityTrace } from "@nodefony/http";
@@ -30,10 +32,13 @@ import {
   findOverbroadSources,
   mergeCspFragments,
   parseCsp,
+  reportUrlProblem,
   withFrameAncestors,
   withoutOverbroadSources,
+  withViolationReports,
   type CspFragment,
 } from "../src/csp";
+import { CspReportCollector } from "../src/cspReports";
 import { CsrfTokenManager } from "../src/csrfToken";
 import { Csrf } from "./csrf";
 import { Cors } from "./cors";
@@ -221,6 +226,12 @@ class Firewall extends Service implements IFirewall {
   // Sources AJOUTÉES par la configuration (`headers.cspSources`), validées une
   // fois au démarrage ; `null` = aucune.
   #appCspSources: CspFragment[] | null = null;
+  // Rapports de violation (ADR-0024 §C7) : l’URL que la politique désigne, ou
+  // `null` (désactivés, URL refusée). `#reportingEndpoints` n’est posé que si
+  // les directives ont été AJOUTÉES ici — une politique qui déclare déjà
+  // `report-uri`/`report-to` a son propre collecteur.
+  #cspReportUrl: string | null = null;
+  #reportingEndpoints: string | null = null;
   // Config validée + gelée (consommée par les fabriques d'authenticators).
   #config: ISecurityConfig | null = null;
   // Fail-closed : posée si la config sécurité est invalide au boot → le
@@ -310,11 +321,28 @@ class Firewall extends Service implements IFirewall {
       this.#appCspSources = this.#validatedAppCspSources(
         this.#config.headers.cspSources,
       );
+      this.#cspReportUrl = this.#validatedCspReportUrl(
+        this.#config.headers.cspReport,
+      );
       this.#cspBase = this.#composeCspBase(this.#config.headers.csp);
       this.#securityHeaders = this.#newSecurityHeaders({
         ...this.#config.headers,
         csp: this.#cspBase,
       });
+      // Collecteur local : seulement si la politique désigne NOTRE route. Un
+      // collecteur tiers (URL écrite par l’application) reçoit sans nous.
+      if (
+        this.#reportingEndpoints !== null &&
+        this.#cspReportUrl === CSP_REPORT_PATH
+      ) {
+        this.container?.set(
+          "cspReports",
+          new CspReportCollector({
+            endpoint: CSP_REPORT_PATH,
+            log: (message, severity) => this.log(message, severity),
+          }),
+        );
+      }
       this.#cspMerged = null;
       // Contributions reçues avant la composition (`registerCspOrigins` appelé
       // plus tôt dans `onBoot`) : fusionnées maintenant, une fois.
@@ -1411,9 +1439,43 @@ class Firewall extends Service implements IFirewall {
       : csp;
     // `csp: ""` (politique posée au proxy) : rien à compléter.
     const sources = this.#appCspSources;
-    return sources === null || csp.trim() === ""
-      ? framed
-      : mergeCspFragments(framed, sources);
+    const merged =
+      sources === null || csp.trim() === ""
+        ? framed
+        : mergeCspFragments(framed, sources);
+    // Les rapports en dernier : une source ajoutée ne les déplace pas, et une
+    // politique de l’application qui en déclare déjà garde les siens.
+    if (this.#cspReportUrl === null) {
+      this.#reportingEndpoints = null;
+      return merged;
+    }
+    const reported = withViolationReports(
+      merged,
+      this.#cspReportUrl,
+      CSP_REPORT_GROUP,
+    );
+    this.#reportingEndpoints = reported.added
+      ? `${CSP_REPORT_GROUP}="${this.#cspReportUrl}"`
+      : null;
+    return reported.csp;
+  }
+
+  /**
+   * Lit `headers.cspReport` : `true` = la route du framework, une chaîne = le
+   * collecteur de l’application, `false` = aucun rapport. Une URL qu’un en-tête
+   * ne peut pas porter est RETIRÉE et dite (ADR-0024 C0 : une faute de
+   * configuration de sécurité n’empêche pas le démarrage).
+   */
+  #validatedCspReportUrl(value: boolean | string): string | null {
+    if (value === false) return null;
+    if (value === true) return CSP_REPORT_PATH;
+    const problem = reportUrlProblem(value);
+    if (problem === null) return value;
+    this.log(
+      `CSP : headers.cspReport « ${value.slice(0, 120)} » IGNORÉE — ${problem} ; aucun rapport de violation demandé.`,
+      "ERROR",
+    );
+    return null;
   }
 
   /**
@@ -1498,14 +1560,17 @@ class Firewall extends Service implements IFirewall {
   #newSecurityHeaders(
     headers: ConstructorParameters<typeof SecurityHeaders>[0],
   ): SecurityHeaders {
-    return new SecurityHeaders(headers, (error) => {
-      this.log(
-        `CSP : directives @Csp d’une route IGNORÉES, la politique de base est servie — ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-        "ERROR",
-      );
-    });
+    return new SecurityHeaders(
+      { ...headers, reportingEndpoints: this.#reportingEndpoints },
+      (error) => {
+        this.log(
+          `CSP : directives @Csp d’une route IGNORÉES, la politique de base est servie — ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+          "ERROR",
+        );
+      },
+    );
   }
 
   /**
