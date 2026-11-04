@@ -456,6 +456,13 @@ Ne concerne qu'une application qui a un frontend. Sauf mention, **vaut pour les 
   sur les scripts, et le navigateur refuse un `<script>` en ligne qui n'en porte pas (« Refused to
   execute inline script »). Un `curl` ne le voit JAMAIS, il ne lit que le corps. Signe le script
   (valeur `this.context?.cspNonce`) ou sors-le dans un fichier servi ; ne desserre PAS la politique.
+- **Une image, une police ou une API tierce est bloquée** (« violates the following Content
+  Security Policy directive ») : AJOUTE l'origine exacte par `headers.cspSources` de
+  `@nodefony/security` (`{ cdn: { "img-src": ["https://cdn.example.com"] } }`), ou sur la seule
+  route qui en a besoin par `@Csp` — ne réécris pas `headers.csp`. Une socket servie depuis une
+  AUTRE origine se déclare par `realtime.publicOrigin`. Ce que les navigateurs ont bloqué se lit,
+  en administrateur, sur `GET /nodefony/security/api/csp-reports` (`headers.cspReport`) — Brave
+  n'envoie aucun rapport, éprouve sous Chrome ou Firefox.
 - **En production, la modification front n'apparaît jamais** : hors développement il n'y a PAS de
   rechargement à chaud, et le manifeste est lu AU BOOT. `npm run build`, puis **redémarre le
   serveur**, puis rechargement forcé.

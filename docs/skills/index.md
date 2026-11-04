@@ -6,7 +6,7 @@ audience: [developer]
 topic: skills
 tests: none
 status: stable
-updated: 2026-11-03
+updated: 2026-11-04
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "docs/skills/index.md"
 ---
@@ -215,7 +215,7 @@ source: "docs/skills/index.md"
 | [`nodefony-release`](nodefony-release.md) | 2.4.0 | 424 | 0 | 2 | ✅ |
 | [`nodefony-rfc`](nodefony-rfc.md) | 1.11.0 | 351 | 0 | 5 | ✅ |
 | [`nodefony-roadmap`](nodefony-roadmap.md) | 2.1.0 | 122 | 0 | 0 | ✅ |
-| [`nodefony-security-review`](nodefony-security-review.md) | — | 399 | 0 | 0 | ✅ |
+| [`nodefony-security-review`](nodefony-security-review.md) | — | 401 | 0 | 0 | ✅ |
 | [`nodefony-session`](nodefony-session.md) | 1.1.0 | 200 | 1 | 13 | ✅ |
 | [`nodefony-skill`](nodefony-skill.md) | 1.2.0 | 298 | 0 | 5 | ✅ |
 | [`nodefony-start-server`](nodefony-start-server.md) | — | 270 | 0 | 2 | ✅ |
@@ -227,7 +227,7 @@ source: "docs/skills/index.md"
 | [`nodefony-add-realtime-channel`](nodefony-add-realtime-channel.md) | 2.1.1 | 409 | 2 | 0 | ✅ |
 | [`nodefony-add-service`](nodefony-add-service.md) | — | 115 | 0 | 0 | ✅ |
 | [`nodefony-authentication`](nodefony-authentication.md) | 1.0.0 | 220 | 0 | 0 | ✅ |
-| [`nodefony-dev`](nodefony-dev.md) | 1.3.0 | 486 | 0 | 1 | ✅ |
+| [`nodefony-dev`](nodefony-dev.md) | 1.3.0 | 493 | 0 | 1 | ✅ |
 | [`nodefony-protect-route`](nodefony-protect-route.md) | — | 362 | 0 | 0 | ✅ |
 | [`nodefony-troubleshoot`](nodefony-troubleshoot.md) | 1.1.0 | 208 | 0 | 1 | ✅ |
 | [`nodefony-upgrade`](nodefony-upgrade.md) | 1.0.0 | 116 | 0 | 0 | ✅ |
