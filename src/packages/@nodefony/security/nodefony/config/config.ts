@@ -260,7 +260,13 @@ const headersSchema = z
     enabled: z
       .boolean()
       .default(true)
-      .describe("En-têtes de sécurité HTTP (natif, sans la lib helmet)."),
+      .describe(
+        "Couche APPLICATIVE des en-têtes de sécurité : CSP, Referrer-Policy, " +
+          "COOP/COEP/CORP, Origin-Agent-Cluster, Permissions-Policy. `false` les " +
+          "coupe tous. Le transport (X-Content-Type-Options, X-Frame-Options, " +
+          "HSTS) n'en dépend pas : il se règle dans `http.securityHeaders`. " +
+          'Couper la seule CSP : `csp: ""`.',
+      ),
     hsts: z
       .boolean()
       .default(true)
