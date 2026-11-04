@@ -29,6 +29,7 @@ import { rolesWithin } from "../src/rolesWithin";
 import { randomBytes } from "node:crypto";
 import {
   assertCspFragment,
+  findInertScriptSources,
   findOverbroadSources,
   mergeCspFragments,
   parseCsp,
@@ -348,6 +349,9 @@ class Firewall extends Service implements IFirewall {
       // plus tôt dans `onBoot`) : fusionnées maintenant, une fois.
       if (this.#cspFragments !== null && this.#cspFragments.size > 0) {
         this.#rebuildSecurityHeaders();
+        for (const [name, fragment] of this.#cspFragments) {
+          this.#warnInertScriptSources(name, fragment);
+        }
       }
       // Politique ÉCRITE par l’application : conservée (choix explicite), mais
       // une source ouverte à tout l’internet se dit au démarrage.
@@ -355,7 +359,7 @@ class Firewall extends Service implements IFirewall {
         parseCsp(this.#config.headers.csp),
       )) {
         this.log(
-          `CSP de l’application : « ${source} » dans ${directive} autorise n’importe quel hôte — conservée (choix de la configuration) ; préférer une origine exacte.`,
+          `CSP de l’application : « ${source} » dans ${directive} ouvre la directive à n’importe quel contenu — conservée (choix de la configuration) ; préférer une origine exacte.`,
           "WARNING",
         );
       }
@@ -1375,7 +1379,7 @@ class Firewall extends Service implements IFirewall {
     const { fragment, dropped } = withoutOverbroadSources(declared);
     for (const [directive, source] of dropped) {
       this.log(
-        `CSP : « ${source} » déclarée par ${moduleName} dans ${directive} autorise n’importe quel hôte — RETIRÉE de la politique ; déclarer l’origine exacte.`,
+        `CSP : « ${source} » déclarée par ${moduleName} dans ${directive} ouvre la directive à n’importe quel contenu — RETIRÉE de la politique ; déclarer l’origine exacte.`,
         "WARNING",
       );
     }
@@ -1384,6 +1388,7 @@ class Firewall extends Service implements IFirewall {
       fragments.set(moduleName, fragment);
       return;
     }
+    this.#warnInertScriptSources(moduleName, fragment);
     const previous = fragments.get(moduleName);
     if (
       previous !== undefined ||
@@ -1479,6 +1484,27 @@ class Firewall extends Service implements IFirewall {
   }
 
   /**
+   * Dit, une fois, les sources de scripts d'un module que `'strict-dynamic'`
+   * rend inertes (cf `findInertScriptSources`) : gardées pour un navigateur
+   * CSP2, elles n'ouvrent rien aux autres — le module doit charger son script
+   * depuis un script signé.
+   *
+   * @param moduleName - module qui a déclaré le fragment
+   * @param fragment - fragment retenu (sources trop larges déjà retirées)
+   */
+  #warnInertScriptSources(moduleName: string, fragment: CspFragment): void {
+    for (const [directive, source] of findInertScriptSources(
+      fragment,
+      this.#cspBase,
+    )) {
+      this.log(
+        `CSP : « ${source} » déclarée par ${moduleName} dans ${directive} est INERTE sous 'strict-dynamic' (navigateurs CSP3) — conservée pour CSP2 ; charger ce script depuis un script signé.`,
+        "WARNING",
+      );
+    }
+  }
+
+  /**
    * Valide les contributions nommées de `headers.cspSources`, une fois. Une
    * contribution malformée est IGNORÉE et dite (l'application démarre, plus
    * stricte) ; une source ouverte à tout hôte est GARDÉE — choix écrit par
@@ -1506,7 +1532,7 @@ class Firewall extends Service implements IFirewall {
       for (const [directive, source] of withoutOverbroadSources(fragment)
         .dropped) {
         this.log(
-          `CSP : « ${source} » dans headers.cspSources.${name} (${directive}) autorise n’importe quel hôte — conservée (choix de la configuration) ; préférer une origine exacte.`,
+          `CSP : « ${source} » dans headers.cspSources.${name} (${directive}) ouvre la directive à n’importe quel contenu — conservée (choix de la configuration) ; préférer une origine exacte.`,
           "WARNING",
         );
       }

@@ -5,6 +5,7 @@ import type { Module } from "nodefony";
 import type { ContextType } from "@nodefony/http";
 import { Firewall } from "../../nodefony/service/firewall";
 import {
+  findInertScriptSources,
   parseCsp,
   mergeCspFragments,
   type CspFragment,
@@ -362,6 +363,57 @@ describe("CSP red-team — B3 origine trop large déclarée par un module", () =
     fw.registerCspOrigins("tiers", { "worker-src": kept });
     const got = directivesOf(cspOf(fw)).get("worker-src") ?? [];
     for (const source of kept) assert.ok(got.includes(source), got.join(" "));
+  });
+
+  for (const source of ["data:", "blob:"]) {
+    it(`« ${source} » déclarée par un module dans script-src est retirée (code sans origine)`, () => {
+      const fw = firewall();
+      const warnings = capture(fw);
+      fw.registerCspOrigins("tiers", {
+        "script-src": [source],
+        "img-src": [source],
+      });
+      const got = directivesOf(cspOf(fw));
+      assert.equal(got.get("script-src")?.includes(source), false);
+      // Hors scripts, le schéma local reste accepté.
+      assert.ok(got.get("img-src")?.includes(source));
+      assert.ok(
+        warnings.some(
+          (w) => w.includes(`« ${source} »`) && w.includes("RETIRÉE"),
+        ),
+        warnings.join("\n"),
+      );
+    });
+  }
+
+  it("un hôte de script déclaré sous 'strict-dynamic' est GARDÉ (CSP2) et dit INERTE", () => {
+    const fw = firewall();
+    const warnings = capture(fw);
+    fw.registerCspOrigins("tiers", { "script-src": ["https://cdn.example"] });
+    assert.ok(
+      directivesOf(cspOf(fw))
+        .get("script-src")
+        ?.includes("https://cdn.example"),
+    );
+    assert.equal(warnings.length, 1, warnings.join("\n"));
+    assert.match(warnings[0] ?? "", /cdn\.example.*tiers.*INERTE/);
+  });
+
+  it("findInertScriptSources : rien sans 'strict-dynamic', ni hors scripts", () => {
+    assert.deepEqual(
+      findInertScriptSources(
+        { "script-src": ["https://cdn.example"] },
+        "default-src 'self'; script-src 'self'",
+      ),
+      [],
+    );
+    assert.deepEqual(
+      findInertScriptSources(
+        { "connect-src": ["https://api.example"] },
+        "script-src 'nonce-x' 'strict-dynamic'",
+      ),
+      [],
+    );
   });
 
   it("le pare-feu nomme le module et la source retirée", () => {

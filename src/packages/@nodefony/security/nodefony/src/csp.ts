@@ -39,20 +39,37 @@ const LOCAL_SCHEMES: ReadonlySet<string> = new Set([
   "mediastream:",
 ]);
 
+// Directives qui décident de l'EXÉCUTION d'un script.
+const SCRIPT_DIRECTIVES: ReadonlySet<string> = new Set([
+  "script-src",
+  "script-src-elem",
+  "script-src-attr",
+]);
+
 /**
- * Dit si une source CSP ouvre la directive à tout l'internet.
+ * Dit si une source CSP ouvre la directive à n'importe quel contenu.
  *
  * Trop large : `*`, un schéma réseau nu (`https:`, `wss:`…), un hôte joker seul
  * (`https://*`, `*:443`). Restent acceptés : une origine exacte, un joker de
  * sous-domaine borné (`https://*.example.com`), un mot-clé (`'self'`) et les
- * schémas locaux (`blob:`, `data:`).
+ * schémas locaux (`blob:`, `data:`) — SAUF dans une directive de scripts :
+ * `data:` y exécute le code porté par l'URL, `blob:` celui qu'un script a
+ * fabriqué, et sans nonce c'est une injection de script.
  *
  * @param source - un jeton de source CSP.
- * @returns `true` si la source autorise n'importe quel hôte.
+ * @param directive - la directive qui porte la source ; sans elle, les schémas
+ *   locaux sont acceptés.
+ * @returns `true` si la source autorise n'importe quel hôte ou contenu.
  */
-export function isOverbroadSource(source: string): boolean {
+export function isOverbroadSource(source: string, directive?: string): boolean {
   if (source.startsWith("'")) return false;
   if (SCHEME_SOURCE.test(source)) {
+    if (
+      directive !== undefined &&
+      SCRIPT_DIRECTIVES.has(directive.toLowerCase())
+    ) {
+      return true;
+    }
     return !LOCAL_SCHEMES.has(source.toLowerCase());
   }
   return HOST_OF_SOURCE.exec(source)?.[1] === "*";
@@ -78,7 +95,9 @@ export function withoutOverbroadSources(fragment: CspFragment): {
   if (dropped.length === 0) return { fragment, dropped };
   const kept: Record<string, readonly string[]> = {};
   for (const name in fragment) {
-    const sources = (fragment[name] ?? []).filter((s) => !isOverbroadSource(s));
+    const sources = (fragment[name] ?? []).filter(
+      (s) => !isOverbroadSource(s, name),
+    );
     if (sources.length > 0) kept[name] = sources;
   }
   return { fragment: kept, dropped };
@@ -96,7 +115,40 @@ export function findOverbroadSources(
   const out: Array<[string, string]> = [];
   for (const [name, sources] of directives) {
     for (const source of sources) {
-      if (isOverbroadSource(source)) out.push([name, source]);
+      if (isOverbroadSource(source, name)) out.push([name, source]);
+    }
+  }
+  return out;
+}
+
+/**
+ * Relève les sources de scripts d'un fragment que `'strict-dynamic'` rend inertes.
+ *
+ * Sous `'strict-dynamic'` dans `script-src`, un navigateur CSP3 ignore les hôtes
+ * et les schémas : un script n'est admis que signé, ou chargé par un script
+ * signé (W3C CSP3 § « strict-dynamic »). La source reste utile à un navigateur
+ * CSP2 ; on la garde, mais son auteur doit savoir qu'elle n'ouvre rien.
+ *
+ * @param fragment - directives déclarées par un module.
+ * @param policy - politique à laquelle le fragment s'ajoute.
+ * @returns les paires `[directive, source]` inertes ; vide sans `'strict-dynamic'`.
+ */
+export function findInertScriptSources(
+  fragment: CspFragment,
+  policy: string,
+): Array<[string, string]> {
+  const out: Array<[string, string]> = [];
+  let strictDynamic: boolean | null = null;
+  for (const name in fragment) {
+    if (!SCRIPT_DIRECTIVES.has(name.toLowerCase())) continue;
+    strictDynamic ??= parseCsp(policy).some(
+      ([n, sources]) =>
+        n.toLowerCase() === "script-src" &&
+        sources.includes("'strict-dynamic'"),
+    );
+    if (!strictDynamic) return out;
+    for (const source of fragment[name] ?? []) {
+      if (!source.startsWith("'")) out.push([name, source]);
     }
   }
   return out;
