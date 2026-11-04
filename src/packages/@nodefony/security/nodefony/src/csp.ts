@@ -202,3 +202,53 @@ export function mergeCspFragments(
   }
   return serializeCsp(directives);
 }
+
+/**
+ * Traduit la valeur de `X-Frame-Options` en source de `frame-ancestors`.
+ *
+ * Un seul réglage, `http.securityHeaders.frameOptions`, pilote les DEUX en-têtes :
+ * un navigateur CSP ignore `X-Frame-Options` dès que `frame-ancestors` est
+ * présent (W3C CSP3 § « `frame-ancestors` »), et l'inverse vaut pour un ancien
+ * navigateur. Deux réglages distincts finiraient par dire deux choses.
+ *
+ * @param frameOptions - valeur émise de `X-Frame-Options` (`null` = non émis).
+ * @returns `'none'` pour `DENY`, `'self'` pour `SAMEORIGIN`, `null` sinon
+ *   (en-tête coupé, ou valeur que `frame-ancestors` ne sait pas traduire).
+ */
+export function frameAncestorsFor(frameOptions: string | null): string | null {
+  const value = frameOptions?.trim().toUpperCase();
+  if (value === "DENY") return "'none'";
+  if (value === "SAMEORIGIN") return "'self'";
+  return null;
+}
+
+/**
+ * Ajoute à une politique la directive `frame-ancestors` dérivée de
+ * `X-Frame-Options` (cf {@link frameAncestorsFor}).
+ *
+ * L'application garde la main : une politique qui déclare DÉJÀ
+ * `frame-ancestors` est rendue telle quelle — c'est le geste qui autorise
+ * l'encadrement par une origine tierce. Une politique vide le reste (pas de CSP
+ * voulue). Appelée à la composition de la politique de base, jamais par requête.
+ *
+ * @param csp - politique de base (config `security.headers.csp`).
+ * @param frameOptions - valeur émise de `X-Frame-Options` (`null` = non émis).
+ * @returns la politique, complétée de `frame-ancestors` si besoin.
+ */
+export function withFrameAncestors(
+  csp: string,
+  frameOptions: string | null,
+): string {
+  const source = frameAncestorsFor(frameOptions);
+  if (source === null || csp.trim() === "") return csp;
+  for (const [name] of parseCsp(csp)) {
+    if (name.toLowerCase() === "frame-ancestors") return csp;
+  }
+  // Séparateurs de fin retirés à la main : un `/[\s;]+$/` serait quadratique
+  // sur une longue suite de `;` suivie d'autre chose.
+  let end = csp.length;
+  while (end > 0 && (csp[end - 1] === ";" || /\s/.test(csp[end - 1] ?? ""))) {
+    end--;
+  }
+  return `${csp.slice(0, end)}; frame-ancestors ${source}`;
+}

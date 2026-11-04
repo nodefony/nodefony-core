@@ -538,6 +538,8 @@ class HttpKernel extends Service implements IHttpKernelInterface {
    */
   onConfigChanged(): void {
     this.computeSecurityHeaderCaches();
+    // `frameOptions` pilote AUSSI `frame-ancestors`, que pose le pare-feu.
+    this.firewall?.onTransportHeadersChanged?.();
     // Caches paresseux → invalidés, recompilés à la prochaine requête.
     this._trustProxyChecker = null;
     this._wsOriginPolicy = Object.create(null) as Record<

@@ -296,15 +296,23 @@ const headersSchema = z
       .boolean()
       .default(true)
       .describe("Nonce CSP par requête (bloque l'inline non signé)."),
+    /**
+     * @deprecated Inerte : régler `http.securityHeaders.frameOptions`, qui pilote
+     * `X-Frame-Options` ET `frame-ancestors` (ADR-0024 §C5). Retrait à la
+     * prochaine version majeure.
+     */
+    // oxlint-disable-next-line typescript/no-deprecated -- la clé reste au schéma jusqu'à la majeure suivante : retirée, Zod la supprimerait sans un mot chez qui l'écrit (docs/guides/compatibilite.md)
     frameguard: z
       .enum(["deny", "sameorigin"])
       .default("deny")
       .meta({
         reserved: true,
+        deprecated: true,
         description:
-          "INERTE ICI — l'en-tête anti-clickjacking est posé par @nodefony/http " +
-          "(il couvre aussi les statics et les erreurs). Pour le régler : " +
-          "`http.securityHeaders.frameOptions` (`DENY` | `SAMEORIGIN` | `null`).",
+          "DÉPRÉCIÉ, INERTE — remplacé par `http.securityHeaders.frameOptions` " +
+          "(`DENY` | `SAMEORIGIN` | `null`), qui pilote `X-Frame-Options` ET " +
+          "`frame-ancestors` et couvre aussi les statiques et les erreurs. " +
+          "Retrait à la prochaine version majeure.",
       }),
     noSniff: z
       .boolean()

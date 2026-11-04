@@ -11,7 +11,6 @@ import {
   type Module,
 } from "nodefony";
 import type { ContextType } from "@nodefony/http";
-import { Csp } from "../decorators/routerDecorators";
 import Router from "../service/router";
 import Controller from "../src/Controller";
 import { isDevelopment } from "../src/singletonGuard";
@@ -105,8 +104,9 @@ const version = keepSuccess(async () => {
  * feuille `nodefony/login.css`, script `nodefony/login.js`. Aucun front, aucun
  * build côté application.
  *
- * Joignable sans session ; jamais mise en cache (`no-store`) ni affichable
- * dans un cadre (`frame-ancestors 'none'`).
+ * Joignable sans session ; jamais mise en cache (`no-store`). L’encadrement
+ * suit `http.securityHeaders.frameOptions`, qui pose `X-Frame-Options` ET
+ * `frame-ancestors` sur toute la politique (ADR-0024 §C5).
  */
 class LoginPageController extends Controller {
   constructor(context: ContextType) {
@@ -118,7 +118,6 @@ class LoginPageController extends Controller {
    *
    * @returns la page HTML, ou 404 quand security ne la décrit plus
    */
-  @Csp({ "frame-ancestors": ["'none'"] })
   async page() {
     const page =
       this.get<ILoginPageSource>("authFlow")?.describeLoginPage?.() ?? null;

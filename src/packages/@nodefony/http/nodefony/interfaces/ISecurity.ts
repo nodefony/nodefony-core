@@ -50,4 +50,10 @@ export interface IFirewallGate {
    * WebSocket. `null` pour un anonyme — rien à révoquer.
    */
   currentRevalidator?(): ((nowMs?: number) => Promise<boolean>) | null;
+  /**
+   * Prévenu quand le noyau HTTP a recalculé ses en-têtes de transport (édition à
+   * chaud de `securityHeaders`) : la politique de contenu suit `frameOptions`,
+   * qui pilote aussi `frame-ancestors`.
+   */
+  onTransportHeadersChanged?(): void;
 }

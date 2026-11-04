@@ -142,9 +142,11 @@ const securityHeadersSchema = z
       .meta({
         runtimeMutable: true,
         description:
-          "X-Frame-Options — anti-clickjacking. `DENY` (recommandé) | " +
-          "`SAMEORIGIN`. Superposé par CSP `frame-ancestors`. `null` = désactivé. " +
-          "Éditable à chaud (recompute HttpKernel).",
+          "Anti-clickjacking — pilote `X-Frame-Options` ET la directive CSP " +
+          "`frame-ancestors` (posée par @nodefony/security) : `DENY` (défaut, " +
+          "'none') | `SAMEORIGIN` ('self') | `null` (aucun des deux). " +
+          "Encadrement par une origine tierce : `frame-ancestors <origine>` dans " +
+          "`security.headers.csp`, qui l’emporte. Éditable à chaud.",
       }),
     strictTransportSecurity: strictTransportSecuritySchema
       .nullable()

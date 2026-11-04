@@ -30,6 +30,7 @@ import {
   findOverbroadSources,
   mergeCspFragments,
   parseCsp,
+  withFrameAncestors,
   withoutOverbroadSources,
   type CspFragment,
 } from "../src/csp";
@@ -203,6 +204,10 @@ class Firewall extends Service implements IFirewall {
   // Politique déjà composée (base + fragments enregistrés) — null tant qu'aucun
   // fragment n'est fusionné. Un ajout ne fusionne que le NOUVEAU fragment dessus.
   #cspMerged: string | null = null;
+  // Politique de BASE : celle de la config, complétée de `frame-ancestors`
+  // dérivé de `http.securityHeaders.frameOptions` (ADR-0024 §C5). Recomposée au
+  // démarrage et quand le noyau HTTP signale une édition de ses en-têtes.
+  #cspBase = "";
   // Config validée + gelée (consommée par les fabriques d'authenticators).
   #config: ISecurityConfig | null = null;
   // Fail-closed : posée si la config sécurité est invalide au boot → le
@@ -289,7 +294,11 @@ class Firewall extends Service implements IFirewall {
     // (nosniff/frame/HSTS) est posé par @nodefony/http sur toute réponse (couvre
     // statics + erreurs) → security n'émet QUE le complément (1 source par en-tête).
     if (this.#config.headers.enabled) {
-      this.#securityHeaders = this.#newSecurityHeaders(this.#config.headers);
+      this.#cspBase = this.#composeCspBase(this.#config.headers.csp);
+      this.#securityHeaders = this.#newSecurityHeaders({
+        ...this.#config.headers,
+        csp: this.#cspBase,
+      });
       this.#cspMerged = null;
       // Politique ÉCRITE par l’application : conservée (choix explicite), mais
       // une source ouverte à tout l’internet se dit au démarrage.
@@ -595,17 +604,12 @@ class Firewall extends Service implements IFirewall {
     frameguard: "deny" | "sameorigin";
     noSniff: boolean;
   } {
-    // Lecture par le contrat d'introspection publié par `@nodefony/http`, jamais
-    // par ses champs internes : `security` ne doit pas dépendre de la mécanique
-    // de cache du kernel HTTP, seulement de ce qu'il DÉCLARE émettre.
-    const httpKernel = this.container?.get("HttpKernel") as
-      | { describeTransportSecurityHeaders?: () => ITransportSecurityHeaders }
-      | undefined;
-    const emitted = httpKernel?.describeTransportSecurityHeaders?.();
+    const emitted = this.#emittedTransportHeaders();
     if (!emitted) {
       return {
         hsts: config.headers.hsts,
         hstsMaxAgeS: config.headers.hstsMaxAgeS,
+        // oxlint-disable-next-line typescript/no-deprecated -- repli d'introspection sans noyau HTTP (pare-feu seul) : la clé dépréciée est la seule valeur connue
         frameguard: config.headers.frameguard,
         noSniff: config.headers.noSniff,
       };
@@ -1292,15 +1296,50 @@ class Firewall extends Service implements IFirewall {
     // Ajout : seul le NOUVEAU fragment est fusionné (donc validé), une seule
     // fois, sur la politique déjà composée. Rangé APRÈS la fusion : un fragment
     // refusé n'empoisonne pas les recompositions suivantes.
-    const csp = mergeCspFragments(this.#cspMerged ?? this.#config.headers.csp, [
-      fragment,
-    ]);
+    const csp = mergeCspFragments(this.#cspMerged ?? this.#cspBase, [fragment]);
     fragments.set(moduleName, fragment);
     this.#cspMerged = csp;
     this.#securityHeaders = this.#newSecurityHeaders({
       ...this.#config.headers,
       csp,
     });
+  }
+
+  /**
+   * Le noyau HTTP a recalculé ses en-têtes de transport (édition à chaud de sa
+   * config) : la politique suit `frameOptions`, qui pilote aussi
+   * `frame-ancestors` (ADR-0024 §C5). Hors chemin chaud.
+   */
+  onTransportHeadersChanged(): void {
+    if (!this.#securityHeaders || !this.#config) return;
+    const base = this.#composeCspBase(this.#config.headers.csp);
+    if (base === this.#cspBase) return;
+    this.#cspBase = base;
+    this.#rebuildSecurityHeaders();
+  }
+
+  /**
+   * Politique de base : la config, complétée de `frame-ancestors` dérivé de ce
+   * que le noyau HTTP émet en `X-Frame-Options`. Lu chez l’émetteur, par son
+   * contrat d’introspection ; sans noyau HTTP, rien n’est dérivé.
+   */
+  #composeCspBase(csp: string): string {
+    const emitted = this.#emittedTransportHeaders();
+    return emitted ? withFrameAncestors(csp, emitted.frameOptions) : csp;
+  }
+
+  /**
+   * En-têtes de transport que le noyau HTTP ÉMET, lus par son contrat
+   * d’introspection, jamais par ses champs internes : `security` ne dépend pas
+   * de la mécanique de cache du kernel HTTP, seulement de ce qu’il déclare.
+   *
+   * @returns les valeurs émises, `undefined` sans noyau HTTP au conteneur.
+   */
+  #emittedTransportHeaders(): ITransportSecurityHeaders | undefined {
+    const httpKernel = this.container?.get("HttpKernel") as
+      | { describeTransportSecurityHeaders?: () => ITransportSecurityHeaders }
+      | undefined;
+    return httpKernel?.describeTransportSecurityHeaders?.();
   }
 
   /** Retire les directives CSP de `moduleName` et recompose si nécessaire. */
@@ -1318,11 +1357,12 @@ class Firewall extends Service implements IFirewall {
   #rebuildSecurityHeaders(): void {
     const headers = this.#config?.headers;
     if (!headers) return;
+    const base = this.#cspBase;
     const csp =
       this.#cspFragments && this.#cspFragments.size > 0
-        ? mergeCspFragments(headers.csp, this.#cspFragments.values())
-        : headers.csp;
-    this.#cspMerged = csp === headers.csp ? null : csp;
+        ? mergeCspFragments(base, this.#cspFragments.values())
+        : base;
+    this.#cspMerged = csp === base ? null : csp;
     this.#securityHeaders = this.#newSecurityHeaders({ ...headers, csp });
   }
 
