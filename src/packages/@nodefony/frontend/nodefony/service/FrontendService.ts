@@ -1,3 +1,4 @@
+import type { IFirewallGate } from "@nodefony/http";
 import {
   Service,
   Module,
@@ -609,10 +610,7 @@ class FrontendService extends Service implements IFrontendService {
     this.templateHelpers.clear();
     this.entryFamily.clear();
     // CSP : retirer les origines Vite du firewall (le CSP repasse au strict de base).
-    (
-      this.container?.get("firewall") as
-        { unregisterCspOrigins?: (m: string) => void } | undefined
-    )?.unregisterCspOrigins?.("frontend");
+    this.get<IFirewallGate>("firewall")?.unregisterCspOrigins?.("frontend");
     this.fire("frontend:stopped");
   }
 
@@ -786,12 +784,10 @@ class FrontendService extends Service implements IFrontendService {
    * No-op si security absent (app sans firewall).
    */
   #registerCsp(): void {
-    const firewall = this.container?.get("firewall") as
-      | {
-          registerCspOrigins?: (m: string, f: Record<string, string[]>) => void;
-        }
-      | undefined;
-    firewall?.registerCspOrigins?.("frontend", this.#viteCspFragment());
+    this.get<IFirewallGate>("firewall")?.registerCspOrigins?.(
+      "frontend",
+      this.#viteCspFragment(),
+    );
   }
 
   /**
