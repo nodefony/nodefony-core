@@ -59,6 +59,32 @@ export function isOverbroadSource(source: string): boolean {
 }
 
 /**
+ * Retire d'un fragment de MODULE ses sources trop larges (cf {@link isOverbroadSource}).
+ *
+ * Moindre privilège : une contribution GLOBALE (`Firewall.registerCspOrigins`)
+ * ne déclare que SON origine, et n'ouvre pas la politique de toute l'application.
+ * Retirer plutôt que lever : la sécurité ne bloque pas le démarrage. Ne
+ * s'applique PAS à ce que l'application écrit elle-même (sa config, un `@Csp` de
+ * route) : un choix délibéré de son auteur n'est jamais contourné en silence.
+ *
+ * @param fragment - directives déclarées par un module.
+ * @returns le fragment sans les sources trop larges, et les paires retirées.
+ */
+export function withoutOverbroadSources(fragment: CspFragment): {
+  fragment: CspFragment;
+  dropped: Array<[string, string]>;
+} {
+  const dropped = findOverbroadSources(Object.entries(fragment));
+  if (dropped.length === 0) return { fragment, dropped };
+  const kept: Record<string, readonly string[]> = {};
+  for (const name in fragment) {
+    const sources = (fragment[name] ?? []).filter((s) => !isOverbroadSource(s));
+    if (sources.length > 0) kept[name] = sources;
+  }
+  return { fragment: kept, dropped };
+}
+
+/**
  * Relève les sources trop larges d'un jeu de directives (cf {@link isOverbroadSource}).
  *
  * @param directives - paires `[directive, sources]` (`parseCsp(csp)` ou `Object.entries(fragment)`).
@@ -140,13 +166,9 @@ export function serializeCsp(directives: Array<[string, string[]]>): string {
  * re-split autour de `{{nonce}}` au boot → 1 `join` par requête (hot-path inchangé).
  *
  * Chaque fragment passe {@link assertCspFragment} : une source hors grammaire
- * lève au lieu d'injecter une directive. Une source TROP LARGE
- * ({@link isOverbroadSource}) n'est pas fusionnée : un module ne déclare que SON
- * origine, et la politique de l'application ne s'ouvre pas à tout l'internet par
- * une contribution. Retirer plutôt que lever : la sécurité ne bloque pas le
- * démarrage. L'avertissement appartient à l'appelant, qui sait QUI contribue
- * (`Firewall.registerCspOrigins`). La base (config de l'application) n'est jamais
- * filtrée : c'est un choix explicite de son auteur.
+ * lève au lieu d'injecter une directive. Aucune source n'est retirée ici : le
+ * filtre des sources trop larges ne vise que les contributions globales des
+ * modules ({@link withoutOverbroadSources}, appliqué à l'enregistrement).
  *
  * @param base - CSP de configuration (peut contenir `'nonce-{{nonce}}'`).
  * @param fragments - fragments additifs (un par module enregistré).
@@ -168,16 +190,12 @@ export function mergeCspFragments(
       const additions = fragment[name];
       if (additions === undefined || additions.length === 0) continue;
       let sources = index.get(name);
+      if (!sources) {
+        sources = [];
+        index.set(name, sources);
+        directives.push([name, sources]);
+      }
       for (const src of additions) {
-        if (isOverbroadSource(src)) continue;
-        // Directive créée au premier ajout RETENU : une directive sans source
-        // vaut `'none'` (W3C CSP3 §2.3.1) — un fragment entièrement retiré ne
-        // doit pas fermer la directive.
-        if (sources === undefined) {
-          sources = [];
-          index.set(name, sources);
-          directives.push([name, sources]);
-        }
         if (!sources.includes(src)) sources.push(src);
       }
     }

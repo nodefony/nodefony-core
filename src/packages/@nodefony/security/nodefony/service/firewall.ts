@@ -29,6 +29,7 @@ import {
   findOverbroadSources,
   mergeCspFragments,
   parseCsp,
+  withoutOverbroadSources,
   type CspFragment,
 } from "../src/csp";
 import { CsrfTokenManager } from "../src/csrfToken";
@@ -1240,13 +1241,14 @@ class Firewall extends Service implements IFirewall {
    * No-op si les en-têtes applicatifs sont désactivés (pas de CSP à étendre).
    * Recompose `#securityHeaders` (merge + re-split nonce) — hors hot-path.
    */
-  registerCspOrigins(moduleName: string, fragment: CspFragment): void {
+  registerCspOrigins(moduleName: string, declared: CspFragment): void {
     if (!this.#securityHeaders || !this.#config) return;
-    // Source trop large : RETIRÉE par la fusion (moindre privilège), l’application
-    // démarre — l’avertissement nomme le module, seul à savoir pourquoi il l’a déclarée.
-    for (const [directive, source] of findOverbroadSources(
-      Object.entries(fragment),
-    )) {
+    // Source trop large : RETIRÉE avant d’être rangée (moindre privilège),
+    // l’application démarre — l’avertissement nomme le module, seul à savoir
+    // pourquoi il l’a déclarée. L’application garde la main : sa propre config
+    // et ses `@Csp` ne passent pas par ce filtre.
+    const { fragment, dropped } = withoutOverbroadSources(declared);
+    for (const [directive, source] of dropped) {
       this.log(
         `CSP : « ${source} » déclarée par ${moduleName} dans ${directive} autorise n’importe quel hôte — RETIRÉE de la politique ; déclarer l’origine exacte.`,
         "WARNING",

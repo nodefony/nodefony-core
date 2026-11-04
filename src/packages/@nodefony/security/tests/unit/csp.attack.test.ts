@@ -269,10 +269,19 @@ describe("CSP — une seule écriture de l'en-tête par réponse", () => {
 });
 
 describe("CSP red-team — B3 origine trop large déclarée par un module", () => {
-  // Moindre privilège : un module déclare SON origine. Une source de schéma ou `*`
-  // ouvre connect-src à tout l'internet (canal d'exfiltration après une XSS).
-  // Décision B3 de #699 : la source large est RETIRÉE (la sécurité ne bloque pas
-  // le démarrage) et le pare-feu le dit en nommant le module.
+  // Décision B3 de #699 : une contribution GLOBALE de module perd sa source large
+  // (la sécurité ne bloque pas le démarrage) et le pare-feu le dit en nommant le
+  // module. Ce que l'application écrit elle-même (config, `@Csp`) reste à elle.
+  const capture = (fw: Firewall): string[] => {
+    const warnings: string[] = [];
+    const log = fw.log.bind(fw);
+    fw.log = ((msg: unknown, severity?: unknown, ...rest: unknown[]) => {
+      if (severity === "WARNING") warnings.push(String(msg));
+      return log(msg as never, severity as never, ...(rest as never[]));
+    }) as typeof fw.log;
+    return warnings;
+  };
+
   for (const source of [
     "*",
     "wss:",
@@ -282,11 +291,12 @@ describe("CSP red-team — B3 origine trop large déclarée par un module", () =
     "https://*",
     "*:443",
   ]) {
-    it(`« ${source} » dans connect-src est retiré de la politique`, () => {
-      const out = mergeCspFragments(BASE, [
-        { "connect-src": [source, "wss://rt.example"] },
-      ]);
-      assert.deepEqual(directivesOf(out).get("connect-src"), [
+    it(`« ${source} » déclarée par un module est retirée de la politique`, () => {
+      const fw = firewall();
+      fw.registerCspOrigins("tiers", {
+        "connect-src": [source, "wss://rt.example"],
+      });
+      assert.deepEqual(directivesOf(cspOf(fw)).get("connect-src"), [
         "'self'",
         "wss://rt.example",
       ]);
@@ -294,8 +304,9 @@ describe("CSP red-team — B3 origine trop large déclarée par un module", () =
   }
 
   it("un fragment entièrement retiré ne crée pas de directive vide (= 'none')", () => {
-    const out = mergeCspFragments(BASE, [{ "frame-src": ["*"] }]);
-    assert.equal(directivesOf(out).has("frame-src"), false, out);
+    const fw = firewall();
+    fw.registerCspOrigins("tiers", { "frame-src": ["*"] });
+    assert.equal(directivesOf(cspOf(fw)).has("frame-src"), false);
   });
 
   it("contrôle positif : schémas locaux, joker de sous-domaine et origine exacte passent", () => {
@@ -305,31 +316,40 @@ describe("CSP red-team — B3 origine trop large déclarée par un module", () =
       "https://*.googleusercontent.com",
       "https://a.example:8443",
     ];
-    const out = mergeCspFragments(BASE, [{ "img-src": kept }]);
-    assert.deepEqual(directivesOf(out).get("img-src"), kept);
-  });
-
-  it("la politique de l'APPLICATION n'est pas filtrée", () => {
-    const out = mergeCspFragments("default-src 'self'; connect-src https:", []);
-    assert.deepEqual(directivesOf(out).get("connect-src"), ["https:"]);
+    const fw = firewall();
+    fw.registerCspOrigins("tiers", { "worker-src": kept });
+    const got = directivesOf(cspOf(fw)).get("worker-src") ?? [];
+    for (const source of kept) assert.ok(got.includes(source), got.join(" "));
   });
 
   it("le pare-feu nomme le module et la source retirée", () => {
     const fw = firewall();
-    const warnings: string[] = [];
-    const log = fw.log.bind(fw);
-    fw.log = ((msg: unknown, severity?: unknown, ...rest: unknown[]) => {
-      if (severity === "WARNING") warnings.push(String(msg));
-      return log(msg as never, severity as never, ...(rest as never[]));
-    }) as typeof fw.log;
+    const warnings = capture(fw);
     fw.registerCspOrigins("tiers", {
       "connect-src": ["wss:", "wss://rt.example"],
     });
-    const csp = cspOf(fw);
-    assert.ok(csp.includes("wss://rt.example"), csp);
-    assert.ok(!/\swss:(\s|;|$)/.test(csp), csp);
     assert.equal(warnings.length, 1, warnings.join("\n"));
     assert.match(warnings[0] ?? "", /« wss: ».*tiers.*connect-src.*RETIRÉE/);
+  });
+
+  it("l'application garde la main : sa politique écrite n'est pas filtrée", () => {
+    const out = mergeCspFragments("default-src 'self'; connect-src https:", []);
+    assert.deepEqual(directivesOf(out).get("connect-src"), ["https:"]);
+  });
+
+  it("l'application garde la main : un `@Csp` de route délibérément large est appliqué", () => {
+    const headers: Record<string, string> = {};
+    firewall().applySecurityHeaders({
+      cspNonce: "N0nce==",
+      cspDirectives: { "connect-src": ["https:"] },
+      response: {
+        setHeader: (name: string, value: string) => {
+          headers[name] = value;
+        },
+      },
+    } as unknown as ContextType);
+    const csp = headers["Content-Security-Policy"] ?? "";
+    assert.ok(directivesOf(csp).get("connect-src")?.includes("https:"), csp);
   });
 });
 
