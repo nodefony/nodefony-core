@@ -42,8 +42,14 @@ export interface IFirewallGate {
   enforceCsrf(context: ContextType): void;
   /** Répond au preflight CORS ; `204` quand la réponse est déjà envoyée. */
   handleCors(context: ContextType): number | undefined;
-  /** Pose les en-têtes de sécurité (CSP, HSTS…) de la réponse. */
-  applySecurityHeaders(context: ContextType): void;
+  /**
+   * Pose les en-têtes de sécurité applicatifs (CSP, Permissions-Policy…) de la
+   * réponse, appelé par la réponse juste avant son `writeHead`.
+   *
+   * @param contentType - `Content-Type` de la réponse, qui choisit la politique ;
+   *   `null` = réponse sans contenu ; omis = type inconnu (politique complète).
+   */
+  applySecurityHeaders(context: ContextType, contentType?: string | null): void;
   /**
    * Le revalidateur de l'identité authentifiée de la requête courante, pour une
    * connexion longue qui la gardera (flux SSE) : la même règle que les sockets

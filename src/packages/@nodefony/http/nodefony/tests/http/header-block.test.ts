@@ -87,10 +87,12 @@ const TRANSPORT = ["server", "x-content-type-options", "x-frame-options"];
 const SECURITY = [
   "content-security-policy",
   "referrer-policy",
-  "permissions-policy",
-  "cross-origin-opener-policy",
   "cross-origin-resource-policy",
 ];
+/** Lus sur un DOCUMENT seulement : posés là, absents ailleurs (ADR-0024 §C11). */
+const DOCUMENT_ONLY = ["permissions-policy", "cross-origin-opener-policy"];
+const DOCUMENT_TYPE =
+  /^(text\/html|application\/xhtml\+xml|image\/svg\+xml)\b/i;
 const TRACE = ["x-request-id", "traceparent"];
 
 /** Noms attendus selon le chemin d'émission. */
@@ -188,6 +190,15 @@ for (const [proto, send, tls] of [
         expect(r.status, c.path).to.equal(c.status);
         for (const name of expected(c.kind, tls)) {
           expect(r.names, `${name} absent de ${c.path}`).to.include(name);
+        }
+        if (c.kind !== "health") {
+          const document = DOCUMENT_TYPE.test(String(r.value("content-type")));
+          for (const name of DOCUMENT_ONLY) {
+            expect(
+              r.names.includes(name),
+              `${name} sur ${c.path} (${String(r.value("content-type"))})`,
+            ).to.equal(document);
+          }
         }
         const repeated = r.names.filter(
           (n, i) => n !== "set-cookie" && r.names.indexOf(n) !== i,

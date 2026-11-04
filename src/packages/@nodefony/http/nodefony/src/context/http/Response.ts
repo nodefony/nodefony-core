@@ -18,6 +18,7 @@ import {
 import type { MaybePromise } from "nodefony";
 import mime from "mime-types";
 import Cookie from "../../cookies/cookie";
+import type { IFirewallGate } from "../../../interfaces/ISecurity";
 
 // P8 — RegExp ANSI compilée UNE fois (avant : factory recompilant à chaque
 // setStatusCode). Le flag `g` partagé est sûr : `String.replace` réinitialise
@@ -154,6 +155,13 @@ class HttpResponse {
    * `null` tant que rien n'est posé ; amorcée avec les en-têtes du transport.
    */
   #headers: HeaderList | null = null;
+  /**
+   * Pare-feu qui posera les en-têtes de sécurité applicatifs juste avant
+   * l'émission des en-têtes, une fois le type de la réponse fixé : la politique
+   * suit ce type (ADR-0024 §C11). Armé par le noyau HTTP au routage, consommé
+   * une fois ; `null` sans module de sécurité.
+   */
+  headerPolicy: IFirewallGate | null = null;
   /**
    * Vrai une fois la réserve recopiée sur la réponse Node ({@link commitHeaders}) :
    * le transport y est déjà, il ne s'amorce plus.
@@ -406,6 +414,55 @@ class HttpResponse {
   }
 
   /**
+   * Pose un en-tête validé au démarrage SAUF si la réponse en porte déjà un :
+   * la valeur du framework est un défaut, celle que l'application a écrite
+   * gagne. Même coût que {@link setValidatedHeader} — le rangement cherche
+   * l'en-tête de toute façon.
+   *
+   * @param name - nom de l'en-tête (casse indifférente).
+   * @param value - valeur contrôlée au démarrage.
+   */
+  setDefaultHeader(name: string, value: string): void {
+    if (this.response === null || this.response.headersSent) return;
+    const lower = name.toLowerCase();
+    if (this.flushing) {
+      if (!this.hasHeader(lower)) this.setHeader(name, value);
+      return;
+    }
+    if (this.#indexOf(lower) === -1) this.#store().push(lower, value);
+  }
+
+  /**
+   * Pose les en-têtes de la politique armée ({@link headerPolicy}) pour une
+   * réponse de type `contentType` — une fois, juste avant l'émission.
+   *
+   * Un `304` n'en reçoit aucun : ses en-têtes REMPLACENT ceux de la
+   * représentation en cache (RFC 9111 §4.3.4). Une politique courte y
+   * réduirait la page gardée, un nonce neuf la désaccorderait de ses balises.
+   *
+   * @param contentType - type de la réponse ; `null` = sans contenu ; `undefined`
+   *   = inconnu (politique complète).
+   */
+  protected applyHeaderPolicy(contentType: string | null | undefined): void {
+    const policy = this.headerPolicy;
+    if (policy === null) return;
+    this.headerPolicy = null;
+    if (this.statusCode === 304) return;
+    policy.applySecurityHeaders(this.context, contentType);
+  }
+
+  /**
+   * Type qui choisit la politique : `null` pour une réponse sans contenu (204,
+   * corps vide) — même si un `Content-Type` y a été posé, rien n'y sera rendu ;
+   * sinon le `Content-Type` posé.
+   */
+  protected contentTypeForPolicy(): string | null {
+    if (this.#isBodyless()) return null;
+    const value = this.getHeader("content-type");
+    return typeof value === "string" ? value : null;
+  }
+
+  /**
    * La réserve, amorcée au premier usage avec les en-têtes du transport
    * (`Server`, `X-Content-Type-Options`, `X-Frame-Options`, HSTS) que le
    * noyau a figés au démarrage — posés EN TÊTE, comme à l'entrée de la requête.
@@ -450,6 +507,13 @@ class HttpResponse {
   commitHeaders(): void {
     const res = this.response;
     if (res === null || res.headersSent) return;
+    if (this.headerPolicy !== null) {
+      // Le tiers posera le type APRÈS cette recopie : celui d'un fichier se lit
+      // à son extension, comme le serveur statique le fera. Sans extension
+      // connue (index d'un dossier), type inconnu → politique complète.
+      const type = mime.lookup(this.context.request.pathname);
+      this.applyHeaderPolicy(type === false ? undefined : type);
+    }
     const list = this.#store();
     for (let i = 0; i + 1 < list.length; i += 2) {
       const name = list[i];
@@ -803,6 +867,7 @@ class HttpResponse {
       }
       this.setLength();
       this.ensureContentTypeHeader();
+      this.applyHeaderPolicy(this.contentTypeForPolicy());
       // UNE remise : la réserve entière, en tableau plat.
       const list = this.#store();
       const std = http.STATUS_CODES[this.statusCode];

@@ -36,9 +36,13 @@ export interface IFirewall extends IFirewallGate {
 
   /**
    * Pose les en-têtes de sécurité applicatifs (CSP, Referrer-Policy, COOP/COEP/
-   * CORP, Permissions-Policy) sur la réponse. No-op si désactivés / hors HTTP.
+   * CORP, Permissions-Policy) sur la réponse, selon son type (ADR-0024 §C11).
+   * No-op si désactivés / hors HTTP.
+   *
+   * @param contentType - `Content-Type` de la réponse ; `null` = sans contenu ;
+   *   omis = type inconnu (politique complète).
    */
-  applySecurityHeaders(context: ContextType): void;
+  applySecurityHeaders(context: ContextType, contentType?: string | null): void;
 
   /**
    * Déclare des directives CSP additionnelles pour un module (ex. `@nodefony/frontend`

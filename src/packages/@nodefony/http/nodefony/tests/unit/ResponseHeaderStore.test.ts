@@ -255,6 +255,107 @@ describe("HttpResponse — réserve d'en-têtes (#727)", () => {
   });
 });
 
+describe("HttpResponse — politique d'en-têtes armée, choisie au writeHead (ADR-0024 §C11)", () => {
+  /** Pare-feu doublure : note chaque appel et pose une CSP par défaut. */
+  function arm(r: HttpResponse) {
+    const calls: Array<string | null | undefined> = [];
+    r.headerPolicy = {
+      applySecurityHeaders: (_ctx, contentType) => {
+        calls.push(contentType);
+        r.setDefaultHeader("Content-Security-Policy", "fw");
+      },
+    } as unknown as HttpResponse["headerPolicy"];
+    return calls;
+  }
+  /** Réponse dont la requête vise `pathname` (repli statique). */
+  function makeAt(pathname: string) {
+    const made = make();
+    Reflect.set(made.r.context, "request", { pathname });
+    return made;
+  }
+
+  it("appelée UNE fois au writeHead, avec le type fixé ; ce qu'elle pose part sur le fil", () => {
+    const { r, res } = make();
+    const calls = arm(r);
+    r.setHeader("Content-Type", "application/json; charset=utf-8");
+    r.setBody("{}");
+    expect(calls).to.deep.equal([]);
+    r.writeHead(200);
+    expect(calls).to.deep.equal(["application/json; charset=utf-8"]);
+    expect(r.headerPolicy).to.equal(null);
+    expect(wire(res)).to.include("content-security-policy: fw");
+  });
+
+  it("type par défaut (filet du writeHead) : la politique le voit", () => {
+    const { r } = make();
+    const calls = arm(r);
+    r.setBody("x");
+    r.writeHead(200);
+    expect(calls).to.deep.equal(["application/octet-stream"]);
+  });
+
+  it("réponse sans contenu (204) : type null", () => {
+    const { r } = make();
+    const calls = arm(r);
+    r.writeHead(204);
+    expect(calls).to.deep.equal([null]);
+  });
+
+  it("204 typé HTML (render) : sans contenu malgré le type — politique courte", () => {
+    const { r } = make();
+    const calls = arm(r);
+    r.setHeader("Content-Type", "text/html; charset=utf-8");
+    r.setBody("");
+    r.writeHead(204);
+    expect(calls).to.deep.equal([null]);
+  });
+
+  it("304 : aucune politique — ses en-têtes remplaceraient ceux de la page en cache", () => {
+    const { r, res } = make();
+    const calls = arm(r);
+    r.writeHead(304);
+    expect(calls).to.deep.equal([]);
+    expect(wire(res).join("\n")).not.to.match(/content-security-policy/i);
+  });
+
+  it("setDefaultHeader : la valeur écrite par l'application gagne", () => {
+    const { r, res } = make();
+    arm(r);
+    r.setHeader("Content-Security-Policy", "app");
+    r.setBody("<p>");
+    r.writeHead(200);
+    const lines = wire(res);
+    expect(lines).to.include("content-security-policy: app");
+    expect(lines).not.to.include("content-security-policy: fw");
+  });
+
+  it("statique servi : le type se lit à l'extension, avant la recopie", () => {
+    const { r, res } = makeAt("/assets/app.js");
+    const calls = arm(r);
+    r.commitBeforeNativeWrite();
+    res.setHeader("Content-Type", "text/javascript");
+    res.end("x");
+    expect(calls).to.deep.equal(["text/javascript"]);
+    expect(wire(res)).to.include("content-security-policy: fw");
+  });
+
+  it("statique sans extension connue (index d'un dossier) : type inconnu", () => {
+    const { r, res } = makeAt("/docs/");
+    const calls = arm(r);
+    r.commitBeforeNativeWrite();
+    res.setHeader("Content-Type", "text/html");
+    res.end("x");
+    expect(calls).to.deep.equal([undefined]);
+  });
+
+  it("non armée (sans module de sécurité) : rien de plus sur le fil", () => {
+    const { r, res } = make();
+    r.setBody("{}");
+    r.writeHead(200);
+    expect(wire(res).join("\n")).not.to.match(/content-security-policy/i);
+  });
+});
+
 describe("mergeResponseHeaders — la réserve entre la réponse Node et writeHead", () => {
   it("réponse Node < réserve < writeHead", () => {
     const native = {

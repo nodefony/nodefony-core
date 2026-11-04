@@ -37,7 +37,7 @@ import {
 import { CsrfTokenManager } from "../src/csrfToken";
 import { Csrf } from "./csrf";
 import { Cors } from "./cors";
-import { SecurityHeaders } from "./securityHeaders";
+import { responseKindOf, SecurityHeaders } from "./securityHeaders";
 import { AuthenticationError } from "../errors/AuthenticationError";
 import { ThrottledError } from "../errors/ThrottledError";
 import { UnverifiableTokenError } from "../errors/UnverifiableTokenError";
@@ -103,8 +103,11 @@ const EMPTY_PROTECTED_RESOURCES: readonly IProtectedResourceInput[] =
 // une réponse WS ne l'a pas : capability check, jamais de cast aveugle).
 interface IHeaderCapableResponse {
   setHeader?: (name: string, value: string | readonly string[]) => unknown;
-  /** Pose une valeur déjà validée au démarrage, sans la revalider (`HttpResponse`). */
-  setValidatedHeader?: (name: string, value: string) => unknown;
+  /**
+   * Pose une valeur validée au démarrage, sans la revalider, et seulement si la
+   * réponse n'en porte pas déjà une — l'application garde la main (`HttpResponse`).
+   */
+  setDefaultHeader?: (name: string, value: string) => unknown;
 }
 
 /**
@@ -1189,40 +1192,66 @@ class Firewall extends Service implements IFirewall {
   /**
    * En-têtes de sécurité APPLICATIFS (P6 J5) — CSP, Referrer-Policy, isolation
    * cross-origin (COOP/COEP/CORP), Origin-Agent-Cluster, Permissions-Policy.
-   * Posés sur toute réponse du pipeline (branché dans `handleHttp`). Complète le
-   * socle transport de `@nodefony/http` (nosniff/frame/HSTS, posé sur toute réponse)
-   * SANS le ré-émettre. No-op si désactivé ou réponse non-HTTP (WS).
+   * Appelé par la réponse juste avant son `writeHead`, une fois son type fixé :
+   * la politique suit ce type (ADR-0024 §C11). Complète le socle transport de
+   * `@nodefony/http` (nosniff/frame/HSTS) SANS le ré-émettre. No-op si désactivé
+   * ou réponse non-HTTP (WS).
    *
    * En-têtes constants = table figée pré-calculée au boot (0 alloc/concat). Le CSP
-   * nonce/req (étape B) ajoute 1 `join` + 1 `setHeader` UNIQUEMENT si activé.
+   * nonce/req ajoute 1 `join` + 1 `setHeader`, sur un document seulement.
+   *
+   * @param context - contexte de la réponse.
+   * @param contentType - `Content-Type` de la réponse ; `null` = sans contenu ;
+   *   omis = type inconnu, servi comme un document (politique complète).
    */
-  applySecurityHeaders(context: ContextType): void {
+  applySecurityHeaders(
+    context: ContextType,
+    contentType?: string | null,
+  ): void {
     const sh = this.#securityHeaders;
     if (!sh) return;
     const response = (context as { response?: IHeaderCapableResponse | null })
       .response;
     if (typeof response?.setHeader !== "function") return;
     // CSP per-route (`@Csp`, P6) : directives additionnelles posées par le Resolver
-    // sur le contexte au match (`null` = cas courant → 0 composition). Lu APRÈS le
-    // resolve (cf déplacement dans handleHttp). Le merge n'est payé QUE sur ces routes.
+    // sur le contexte au match (`null` = cas courant → 0 composition). Le merge
+    // n'est payé QUE sur ces routes.
     const extra = (context as { cspDirectives?: CspFragment | null })
       .cspDirectives;
-    // En-têtes constants (Referrer/COOP/… + CSP statique si pas de nonce) — figés.
-    // Une route `@Csp` sans nonce pose SA politique plus bas : la table sans CSP
-    // évite d'écrire l'en-tête deux fois (~0,7 µs par écriture).
     // Page servie en `https` (proxy de confiance compris) : la politique garde
     // `upgrade-insecure-requests` ; en clair, elle la perd (ADR-0024 §C6). Un
     // champ lu, la variante est composée au démarrage.
     const tls = context.scheme === "https";
-    const headers = sh.headersFor(tls, extra != null && !sh.hasNonce);
-    // Table validée au démarrage (`SecurityHeaders`), nonce tiré du CSPRNG en
+    // Validées au démarrage (`SecurityHeaders`), nonce tiré du CSPRNG en
     // base64, sources `@Csp` contrôlées par `assertCspFragment` : rien à
     // revalider par réponse — Node le fait une fois, au `writeHead`.
-    const validated = typeof response.setValidatedHeader === "function";
+    // Défauts : une valeur que l'application a posée elle-même gagne.
+    const validated = typeof response.setDefaultHeader === "function";
+    // Portée (ADR-0024 §C11) : la politique suit le type de la réponse. Une
+    // route `@Csp` garde SA politique quel que soit le type — ce que
+    // l'application écrit n'est jamais réduit (un `frame-ancestors` sur un PDF).
+    if (extra == null) {
+      const kind = responseKindOf(contentType);
+      if (kind !== "document") {
+        // Table figée, sans nonce : le CSPRNG n'est pas sollicité.
+        const table = sh.headersForResource(kind, tls);
+        for (const name in table) {
+          const value = table[name];
+          if (value === undefined) continue;
+          if (validated) response.setDefaultHeader?.(name, value);
+          else response.setHeader(name, value);
+        }
+        return;
+      }
+    }
+    // En-têtes constants (Referrer/COOP/… + CSP statique si pas de nonce) — figés.
+    // Une route `@Csp` sans nonce pose SA politique plus bas : la table sans CSP
+    // évite d'écrire l'en-tête deux fois (~0,7 µs par écriture).
+    const headers = sh.headersFor(tls, extra != null && !sh.hasNonce);
     for (const name in headers) {
       const value = headers[name];
       if (value === undefined) continue;
-      if (validated) response.setValidatedHeader?.(name, value);
+      if (validated) response.setDefaultHeader?.(name, value);
       else response.setHeader(name, value);
     }
     // CSP nonce/req (étape B) : LIRE `context.cspNonce` génère le nonce PARESSEUSEMENT
@@ -1240,7 +1269,7 @@ class Firewall extends Service implements IFirewall {
     }
     if (csp !== null) {
       if (validated)
-        response.setValidatedHeader?.("Content-Security-Policy", csp);
+        response.setDefaultHeader?.("Content-Security-Policy", csp);
       else response.setHeader("Content-Security-Policy", csp);
     }
   }

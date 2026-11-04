@@ -69,7 +69,7 @@ server-http.ts (IncomingMessage) → http-kernel.ts.handle()
   → Firewall.handleCors()              ← AVANT le routing ; preflight → 204, court-circuit (:1169)
   → kernel "onRequestScope"            ← 1ᵉʳ point DANS la bulle ALS, avant parse : calque de config (ADR-0012) ; compté (0 écouteur = 0 coût)
   → Router.resolve()                   ← match hissé AVANT le parse du body (:1183)
-  → Firewall.applySecurityHeaders()    ← CSP/Referrer/COOP, avant tout writeHead (:1194)
+  → response.headerPolicy = firewall   ← ARMÉ ici ; appliqué au writeHead selon le Content-Type (ADR-0024 §C11)
   → fallback statique                  ← ROUTER-FIRST : seulement si aucune route (:1201)
   → request.initialize()               ← parse du body (sauté si @Body({stream:true})) (:1225)
   → onRequestEnd() (:1251)
@@ -79,7 +79,7 @@ server-http.ts (IncomingMessage) → http-kernel.ts.handle()
       → startSession()                 ← AVANT le firewall : SessionAuthenticator lit L1 (:1295)
       → Firewall.handleSecurity()      ← si context.secure (:1301)
   → Context.handle() → callController → @IsGranted → newController + initialize() → action (:1235)
-  → Response.writeHead() ← injecte X-Request-Id ici
+  → Response.writeHead() ← injecte X-Request-Id ; appelle firewall.applySecurityHeaders(ctx, type)
   → Response.send()
 ```
 

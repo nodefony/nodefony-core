@@ -48,20 +48,71 @@ describe("Security headers — socle transport (http) + applicatif (security)", 
     expect(h["referrer-policy"]).to.equal("no-referrer");
   });
 
-  it("APPLICATIF : COOP / CORP (avancés opt-in activés côté test)", async () => {
-    const h = await head("/nodefony/test/index");
+  it("APPLICATIF : COOP / CORP sur une page (avancés opt-in activés côté test)", async () => {
+    const h = await head("/nodefony/test/html");
     expect(h["cross-origin-opener-policy"]).to.equal("same-origin");
     expect(h["cross-origin-resource-policy"]).to.equal("same-origin");
   });
 
-  it("APPLICATIF : Permissions-Policy posé", async () => {
-    const h = await head("/nodefony/test/index");
+  it("APPLICATIF : Permissions-Policy posé sur un DOCUMENT (page HTML)", async () => {
+    const h = await head("/nodefony/test/html");
     expect(h["permissions-policy"]).to.contain("camera=()");
   });
 
   it("PAS de COEP (require-corp non activé → assets tiers non cassés)", async () => {
     const h = await head("/nodefony/test/index");
     expect(h["cross-origin-embedder-policy"]).to.equal(undefined);
+  });
+});
+
+describe("Portée — la politique suit le type de la réponse (ADR-0024 §C11)", () => {
+  /** Politique courte attendue : l'encadrement suit `X-Frame-Options` (§C5). */
+  const narrow = (h: Record<string, string | string[] | undefined>): string => {
+    const xfo = String(h["x-frame-options"] ?? "").toUpperCase();
+    const ancestors =
+      xfo === "DENY" ? "'none'" : xfo === "SAMEORIGIN" ? "'self'" : null;
+    return ancestors === null
+      ? "default-src 'none'"
+      : `default-src 'none'; frame-ancestors ${ancestors}`;
+  };
+
+  it("JSON : politique courte, sans nonce ni Permissions-Policy", async () => {
+    const h = await head("/nodefony/test/index");
+    expect(h["content-type"]).to.match(/^application\/json/);
+    expect(h["content-security-policy"]).to.equal(narrow(h));
+    expect(h["permissions-policy"]).to.equal(undefined);
+    // COOP n'est lu que sur un document ; CORP est l'en-tête des ressources.
+    expect(h["cross-origin-opener-policy"]).to.equal(undefined);
+    expect(h["cross-origin-resource-policy"]).to.equal("same-origin");
+    expect(h["referrer-policy"]).to.equal("no-referrer");
+  });
+
+  it("HTML : politique complète avec nonce", async () => {
+    const h = await head("/nodefony/test/html");
+    expect(h["content-type"]).to.match(/^text\/html/);
+    expect(h["content-security-policy"]).to.match(
+      /script-src [^;]*'nonce-[^']+'/,
+    );
+  });
+
+  it("JavaScript : politique complète SANS nonce", async () => {
+    const h = await head("/nodefony/test/debugbar.js");
+    expect(h["content-type"]).to.match(/^text\/javascript/);
+    const csp = String(h["content-security-policy"]);
+    expect(csp).to.match(/script-src /);
+    expect(csp).to.not.contain("nonce");
+    expect(h["permissions-policy"]).to.equal(undefined);
+  });
+
+  it("204 sans contenu : politique courte", async () => {
+    const h = await head("/nodefony/test/nocontent");
+    expect(h["content-security-policy"]).to.equal(narrow(h));
+  });
+
+  it("fichier statique (média) : politique courte", async () => {
+    const h = await head("/test/oceans-clip.webm");
+    expect(h["content-type"]).to.match(/^video\/webm/);
+    expect(h["content-security-policy"]).to.equal(narrow(h));
   });
 });
 

@@ -1,0 +1,269 @@
+import assert from "node:assert/strict";
+import { EventEmitter } from "node:events";
+import { Container, Event } from "nodefony";
+import type { Module } from "nodefony";
+import type { ContextType } from "@nodefony/http";
+import { Firewall } from "../../nodefony/service/firewall";
+import {
+  responseKindOf,
+  SecurityHeaders,
+} from "../../nodefony/service/securityHeaders";
+import { securityConfigSchema } from "../../nodefony/config/config";
+import {
+  parseCsp,
+  withFrameAncestors,
+  withoutDirective,
+} from "../../nodefony/src/csp";
+
+/**
+ * ADR-0024 §C11 — la politique suit le type de la réponse : document (HTML,
+ * XHTML, SVG) → politique complète avec nonce et `Permissions-Policy` ;
+ * JavaScript → complète SANS nonce ; reste → `default-src 'none'` figée, plus
+ * l'encadrement de la politique complète.
+ */
+
+const UIR = "upgrade-insecure-requests";
+const DEFAULT_CSP = securityConfigSchema.parse({}).headers.csp;
+const has = (csp: string, name: string): boolean =>
+  parseCsp(csp).some(([n]) => n === name);
+const CSP = "Content-Security-Policy";
+
+const make = (csp: string, cspNonces = true): SecurityHeaders =>
+  new SecurityHeaders({
+    enabled: true,
+    csp,
+    cspNonces,
+    referrerPolicy: "no-referrer",
+    permissionsPolicy: "camera=()",
+  });
+
+describe("responseKindOf — famille d'une réponse d'après son type", () => {
+  const cases: Array<[string | null | undefined, string]> = [
+    ["text/html", "document"],
+    ["text/html; charset=utf-8", "document"],
+    ["Application/XHTML+XML", "document"],
+    ["image/svg+xml", "document"],
+    ["text/javascript", "script"],
+    ["application/javascript; charset=utf-8", "script"],
+    ["text/x-javascript", "script"],
+    ["application/json", "other"],
+    ["text/css", "other"],
+    ["image/png", "other"],
+    ["text/event-stream", "other"],
+    ["application/octet-stream", "other"],
+    [null, "other"],
+    // Type inconnu de l'appelant : la politique la plus complète, jamais moins.
+    [undefined, "document"],
+  ];
+  for (const [type, kind] of cases) {
+    it(`${String(type)} → ${kind}`, () => {
+      assert.equal(responseKindOf(type), kind);
+    });
+  }
+});
+
+describe("SecurityHeaders — tables des ressources (non-documents)", () => {
+  it("reste : politique courte figée, l'encadrement de la politique complète", () => {
+    // Composition du pare-feu avec le défaut `frameOptions: DENY`.
+    const sh = make(withFrameAncestors(DEFAULT_CSP, "DENY"));
+    assert.equal(
+      sh.headersForResource("other", false)[CSP],
+      "default-src 'none'; frame-ancestors 'none'",
+    );
+  });
+
+  it("reste : l'encadrement suit la politique (SAMEORIGIN, origine de l'app)", () => {
+    assert.equal(
+      make(withFrameAncestors(DEFAULT_CSP, "SAMEORIGIN")).headersForResource(
+        "other",
+        true,
+      )[CSP],
+      "default-src 'none'; frame-ancestors 'self'",
+    );
+    assert.equal(
+      make(
+        "default-src 'self'; frame-ancestors https://partner.example",
+      ).headersForResource("other", true)[CSP],
+      "default-src 'none'; frame-ancestors https://partner.example",
+    );
+  });
+
+  it("reste : sans frame-ancestors dans la politique, rien n'est inventé", () => {
+    assert.equal(
+      make("default-src 'self'").headersForResource("other", true)[CSP],
+      "default-src 'none'",
+    );
+  });
+
+  it("reste : même table en TLS et en clair, sans Permissions-Policy", () => {
+    const sh = make(DEFAULT_CSP);
+    const t = sh.headersForResource("other", true);
+    assert.equal(t, sh.headersForResource("other", false));
+    assert.equal(t["Permissions-Policy"], undefined);
+    assert.equal(t["Referrer-Policy"], "no-referrer");
+    assert.ok(Object.isFrozen(t));
+  });
+
+  it("script : la politique complète SANS nonce, 'strict-dynamic' gardé", () => {
+    const sh = make(
+      "default-src 'self'; script-src 'nonce-{{nonce}}' 'strict-dynamic' 'self'",
+    );
+    assert.equal(
+      sh.headersForResource("script", true)[CSP],
+      "default-src 'self'; script-src 'strict-dynamic' 'self'",
+    );
+    assert.equal(
+      sh.headersForResource("script", true)["Permissions-Policy"],
+      undefined,
+    );
+  });
+
+  it("script : upgrade-insecure-requests en TLS seulement (ADR-0024 §C6)", () => {
+    const sh = make(DEFAULT_CSP);
+    assert.ok(has(sh.headersForResource("script", true)[CSP] ?? "", UIR));
+    assert.ok(!has(sh.headersForResource("script", false)[CSP] ?? "", UIR));
+  });
+
+  it("politique coupée par l'application (csp vide) : aucune CSP nulle part", () => {
+    const sh = make("");
+    assert.equal(sh.headersForResource("other", true)[CSP], undefined);
+    assert.equal(sh.headersForResource("script", true)[CSP], undefined);
+  });
+
+  it("chaque en-tête part là où le navigateur le lit", () => {
+    const sh = new SecurityHeaders({
+      enabled: true,
+      csp: DEFAULT_CSP,
+      cspNonces: true,
+      referrerPolicy: "no-referrer",
+      coop: "same-origin",
+      coep: "require-corp",
+      corp: "same-origin",
+      originAgentCluster: true,
+      permissionsPolicy: "camera=()",
+    });
+    const names = (t: Readonly<Record<string, string>>): string[] =>
+      Object.keys(t)
+        .filter((n) => n !== CSP)
+        .sort();
+    assert.deepEqual(names(sh.headersForResource("other", true)), [
+      "Cross-Origin-Resource-Policy",
+      "Referrer-Policy",
+    ]);
+    assert.deepEqual(names(sh.headersForResource("script", true)), [
+      "Cross-Origin-Embedder-Policy",
+      "Cross-Origin-Resource-Policy",
+      "Referrer-Policy",
+    ]);
+    assert.deepEqual(names(sh.headersFor(true)), [
+      "Cross-Origin-Embedder-Policy",
+      "Cross-Origin-Opener-Policy",
+      "Cross-Origin-Resource-Policy",
+      "Origin-Agent-Cluster",
+      "Permissions-Policy",
+      "Referrer-Policy",
+    ]);
+  });
+
+  it("document : Permissions-Policy gardée", () => {
+    assert.equal(
+      make(DEFAULT_CSP).headersFor(true)["Permissions-Policy"],
+      "camera=()",
+    );
+  });
+});
+
+/** Pare-feu réel sur la config par défaut. */
+const firewall = (): Firewall => {
+  const container = new Container();
+  const kernel = new EventEmitter();
+  container.set("kernel", kernel);
+  const fw = new Firewall({
+    container,
+    notificationsCenter: new Event(),
+    options: {},
+  } as unknown as Module);
+  kernel.emit("onBoot");
+  return fw;
+};
+
+/** Pose les en-têtes d'une réponse de type `type` ; compte les lectures du nonce. */
+const apply = (
+  fw: Firewall,
+  type: string | null | undefined,
+  cspDirectives: Record<string, readonly string[]> | null = null,
+) => {
+  const headers: Record<string, string> = {};
+  let nonceReads = 0;
+  const ctx = {
+    scheme: "https",
+    get cspNonce() {
+      nonceReads++;
+      return "N0nce==";
+    },
+    cspDirectives,
+    response: {
+      setHeader: (name: string, value: string) => {
+        headers[name] = value;
+      },
+    },
+  };
+  fw.applySecurityHeaders(ctx as unknown as ContextType, type);
+  return { headers, nonceReads };
+};
+
+describe("pare-feu — la politique suit le type de la réponse (ADR-0024 §C11)", () => {
+  it("HTML : politique complète, nonce tiré", () => {
+    const { headers, nonceReads } = apply(
+      firewall(),
+      "text/html; charset=utf-8",
+    );
+    assert.match(headers[CSP] ?? "", /'nonce-N0nce=='/);
+    assert.equal(nonceReads, 1);
+  });
+
+  it("JSON : politique courte, AUCUN nonce tiré", () => {
+    const { headers, nonceReads } = apply(firewall(), "application/json");
+    assert.match(headers[CSP] ?? "", /^default-src 'none'/);
+    assert.equal(nonceReads, 0);
+  });
+
+  it("JavaScript : politique complète sans nonce, aucun nonce tiré", () => {
+    const { headers, nonceReads } = apply(firewall(), "text/javascript");
+    assert.doesNotMatch(headers[CSP] ?? "", /nonce/);
+    assert.match(headers[CSP] ?? "", /script-src/);
+    assert.equal(nonceReads, 0);
+  });
+
+  it("sans contenu (null) : politique courte", () => {
+    assert.match(
+      apply(firewall(), null).headers[CSP] ?? "",
+      /^default-src 'none'/,
+    );
+  });
+
+  it("type omis : politique complète (comportement d'avant)", () => {
+    assert.match(
+      apply(firewall(), undefined).headers[CSP] ?? "",
+      /'nonce-N0nce=='/,
+    );
+  });
+
+  it("route @Csp servant du JSON : SA politique, jamais réduite", () => {
+    const extra = Object.freeze({
+      "frame-ancestors": ["https://partner.example"],
+    });
+    const csp = apply(firewall(), "application/pdf", extra).headers[CSP] ?? "";
+    assert.match(csp, /frame-ancestors[^;]*https:\/\/partner\.example/);
+    assert.match(csp, /script-src/);
+  });
+
+  it("la politique courte reste celle de l'app quand elle retire upgrade-insecure-requests", () => {
+    // Garde-fou de composition : la courte ne dépend pas de la directive.
+    const sh = make(withoutDirective(DEFAULT_CSP, UIR));
+    assert.equal(
+      sh.headersForResource("other", true)[CSP],
+      "default-src 'none'",
+    );
+  });
+});

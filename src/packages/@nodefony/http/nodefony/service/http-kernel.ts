@@ -1964,14 +1964,16 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       ? this.router.resolve(httpContext)
       : null;
     httpContext.phaseEnd("resolve");
-    // En-têtes de sécurité APPLICATIFS (P6 J5 — CSP/Referrer/COOP…), posés
-    // APRÈS le resolve (P6 @Csp) → le Resolver a posé `ctx.cspDirectives`
-    // depuis `@Csp` de la route, que `applySecurityHeaders` fusionne dans le
-    // CSP. Toujours AVANT le fallback static + le `writeHead` → présents sur
-    // toute réponse (succès, 404/405, fichier statique). Le preflight CORS a
+    // En-têtes de sécurité APPLICATIFS (CSP/Referrer/COOP…) : le pare-feu est
+    // ARMÉ sur la réponse, qui l'appelle à son `writeHead` (ou à la recopie
+    // d'un fichier statique) une fois son type fixé — la politique suit ce type
+    // (ADR-0024 §C11), et les directives `@Csp` que le Resolver vient de poser
+    // sont lues à ce moment. Armé AVANT le fallback static → présents sur toute
+    // réponse routée (succès, 404/405, fichier statique). Le preflight CORS a
     // court-circuité plus haut (204). Complète le socle transport (nosniff/
-    // frame/HSTS) que porte la réserve de `HttpResponse` (`transportHeaders`). No-op si security absent/désactivé.
-    this.firewall?.applySecurityHeaders(httpContext);
+    // frame/HSTS) que porte la réserve de `HttpResponse` (`transportHeaders`).
+    // Sans module security : rien d'armé.
+    if (this.firewall) httpContext.response.headerPolicy = this.firewall;
     // ROUTER-FIRST (façon Express) : aucune route matchée → FALLBACK static.
     // `serverStatic.handle` reste PENDING si un fichier est servi (court-circuit
     // total — response.end → `onFinish` → teardown déjà wired par

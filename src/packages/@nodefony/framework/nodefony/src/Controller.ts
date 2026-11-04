@@ -456,9 +456,10 @@ class Controller extends Service implements IController {
    * Le navigateur refuse un `<script>` en ligne sous une politique de contenu à
    * nonce, et il le dit dans SA console — que personne ne lit quand la page est
    * produite par un test, un `curl` ou un agent. Le serveur, lui, a les deux
-   * moitiés sous la main : l'en-tête qu'il vient de poser et le corps qu'il
-   * s'apprête à écrire. Il le dit donc au moment exact où le geste manque, avec
-   * le geste — c'est ce qui distingue un refus utilisable d'un refus juste.
+   * moitiés sous la main : l'en-tête qu'il vient d'émettre et le corps qu'il
+   * vient d'écrire — lus APRÈS l'envoi, la politique n'étant posée qu'au
+   * `writeHead`. Il le dit donc à la requête même où le geste manque, avec le
+   * geste — c'est ce qui distingue un refus utilisable d'un refus juste.
    *
    * ⚠️ Coût nul hors développement : la garde d'environnement est le PREMIER
    * test, avant toute lecture d'en-tête et toute expression régulière. Une page
@@ -518,16 +519,29 @@ class Controller extends Service implements IController {
     status?: string | number,
     headers?: Record<string, string | number>,
   ): MaybePromise<Http2Response | HttpResponse> {
-    this.#warnScriptWithoutNonce(data);
     // Garde conservée : hors requête le contexte est absent ; élargir le cast
     // changerait le type de RETOUR publié (compat).
     // oxlint-disable-next-line typescript/no-unnecessary-condition
-    return (this.context as HttpContext)?.render(
+    const sent = (this.context as HttpContext)?.render(
       data,
       encoding,
       status,
       headers,
     );
+    // La politique de contenu n'est posée qu'au `writeHead` (elle suit le type
+    // de la réponse) : l'avertissement la lit APRÈS l'envoi. Hors
+    // développement, aucune promesse de plus.
+    if (
+      sent instanceof Promise &&
+      isDevelopment(this.context?.kernel?.environment)
+    ) {
+      return sent.then((response) => {
+        this.#warnScriptWithoutNonce(data);
+        return response;
+      });
+    }
+    this.#warnScriptWithoutNonce(data);
+    return sent;
   }
 
   /**
@@ -583,8 +597,10 @@ class Controller extends Service implements IController {
         this.context?.phaseEnd("render");
       }
       this.setContextHtml();
+      const response = await this.renderResponse(data, "utf8", status, headers);
+      // Après l'envoi : la politique de contenu n'est posée qu'au `writeHead`.
       this.#warnScriptWithoutNonce(data);
-      return await this.renderResponse(data, "utf8", status, headers);
+      return response;
     } catch (e) {
       this.log(e, "ERROR");
       throw e;

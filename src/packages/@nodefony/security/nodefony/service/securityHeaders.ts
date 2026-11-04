@@ -2,10 +2,71 @@ import { validateHeaderValue } from "node:http";
 import { BootConfigurationError } from "nodefony";
 import {
   mergeCspFragments,
+  parseCsp,
   UPGRADE_INSECURE_REQUESTS,
   withoutDirective,
   type CspFragment,
 } from "../src/csp";
+
+/**
+ * Famille d'une réponse au regard de la politique de contenu (ADR-0024 §C11) :
+ * `document` (HTML, XHTML, SVG — politique complète avec nonce et
+ * `Permissions-Policy`), `script` (JavaScript — politique complète SANS nonce,
+ * celle que prend un worker), `other` (tout le reste — politique courte figée).
+ */
+export type ResponseKind = "document" | "script" | "other";
+
+/** Types qu'un navigateur rend comme un document, donc qui exécutent la politique. */
+const DOCUMENT_TYPES: ReadonlySet<string> = new Set([
+  "text/html",
+  "application/xhtml+xml",
+  "image/svg+xml",
+]);
+
+/** Essences d'un type MIME JavaScript (WHATWG MIME Sniffing § 4.6). */
+const SCRIPT_TYPES: ReadonlySet<string> = new Set([
+  "application/ecmascript",
+  "application/javascript",
+  "application/x-ecmascript",
+  "application/x-javascript",
+  "text/ecmascript",
+  "text/javascript",
+  "text/javascript1.0",
+  "text/javascript1.1",
+  "text/javascript1.2",
+  "text/javascript1.3",
+  "text/javascript1.4",
+  "text/javascript1.5",
+  "text/jscript",
+  "text/livescript",
+  "text/x-ecmascript",
+  "text/x-javascript",
+]);
+
+/**
+ * Range une réponse dans sa famille d'après son `Content-Type`.
+ *
+ * @param contentType - valeur de `Content-Type` (paramètres admis) ; `null` =
+ *   réponse sans contenu ; `undefined` = type INCONNU de l'appelant, traité en
+ *   document — la politique la plus complète, jamais une plus faible par défaut.
+ * @returns la famille dont la réponse reçoit la politique.
+ */
+export function responseKindOf(
+  contentType: string | null | undefined,
+): ResponseKind {
+  if (contentType === undefined) return "document";
+  if (contentType === null) return "other";
+  const semi = contentType.indexOf(";");
+  const essence = (semi === -1 ? contentType : contentType.slice(0, semi))
+    .trim()
+    .toLowerCase();
+  if (DOCUMENT_TYPES.has(essence)) return "document";
+  if (SCRIPT_TYPES.has(essence)) return "script";
+  return "other";
+}
+
+/** Politique des réponses qui ne sont ni document ni script (ADR-0024 §C11). */
+const NARROW_CSP = "default-src 'none'";
 
 /**
  * Sous-ensemble APPLICATIF de la config `headers` (cf defineSecurityConfig).
@@ -79,6 +140,11 @@ export class SecurityHeaders {
   readonly #tls: ICspVariant;
   readonly #plain: ICspVariant;
   readonly #hasNonce: boolean;
+  // Tables figées des familles `script` et `other` (ADR-0024 §C11) : aucune ne
+  // porte de nonce, aucune n'est recomposée par réponse.
+  readonly #scriptTls: Readonly<Record<string, string>>;
+  readonly #scriptPlain: Readonly<Record<string, string>>;
+  readonly #other: Readonly<Record<string, string>>;
   // Politique `@Csp` déjà composée, par jeu de directives de route — null tant
   // qu'aucune route décorée n'a servi (cas courant : 0 allocation).
   #extraComposed: WeakMap<CspFragment, IComposedExtra> | null = null;
@@ -117,6 +183,53 @@ export class SecurityHeaders {
       plainCsp === o.csp
         ? this.#tls
         : buildVariant(plainCsp, o.cspNonces, nonced, common);
+    // Chaque en-tête part là où le navigateur le LIT, nulle part ailleurs : une
+    // ligne ignorée coûte quand même ses octets à chaque réponse.
+    //  - Referrer-Policy : partout — une feuille de style, un worker émettent
+    //    leurs requêtes sous la politique de LEUR réponse ;
+    //  - CORP : partout — c'est l'en-tête des ressources incluses ;
+    //  - COEP : document et script (un worker charge lui aussi des ressources) ;
+    //  - COOP, Origin-Agent-Cluster, Permissions-Policy : document seulement.
+    const other: Record<string, string> = {};
+    if (o.referrerPolicy) other["Referrer-Policy"] = o.referrerPolicy;
+    if (o.corp) other["Cross-Origin-Resource-Policy"] = o.corp;
+    const script: Record<string, string> = { ...other };
+    if (o.coep) script["Cross-Origin-Embedder-Policy"] = o.coep;
+    // JavaScript : la politique complète, sans nonce — un worker prend celle de
+    // son script, et un nonce n'y désigne aucune balise.
+    const scriptCsp = purgeNoncePlaceholder(o.csp);
+    this.#scriptTls = freezeTable(scriptCsp, script);
+    const scriptPlainCsp = withoutDirective(
+      scriptCsp,
+      UPGRADE_INSECURE_REQUESTS,
+    );
+    this.#scriptPlain =
+      scriptPlainCsp === scriptCsp
+        ? this.#scriptTls
+        : freezeTable(scriptPlainCsp, script);
+    // Reste : rien à charger, rien à exécuter. L'encadrement suit la politique
+    // complète (donc `http.securityHeaders.frameOptions`, ADR-0024 §C5) : un PDF
+    // ou une image encadrés par l'application le restent.
+    this.#other = freezeTable(narrowCspOf(o.csp), other);
+  }
+
+  /**
+   * Table d'en-têtes figée d'une réponse qui n'est pas un document (ADR-0024
+   * §C11) : JavaScript (politique complète sans nonce, Referrer-Policy, COEP,
+   * CORP) ou reste (politique courte `default-src 'none'`, Referrer-Policy,
+   * CORP). Ni l'une ni l'autre ne porte de nonce ; COOP, Origin-Agent-Cluster
+   * et Permissions-Policy, lus sur un document seulement, n'y figurent pas.
+   *
+   * @param kind - famille de la réponse (cf {@link responseKindOf}).
+   * @param tls - la page est servie en `https` (garde `upgrade-insecure-requests`).
+   * @returns la table à poser telle quelle.
+   */
+  headersForResource(
+    kind: Exclude<ResponseKind, "document">,
+    tls: boolean,
+  ): Readonly<Record<string, string>> {
+    if (kind === "other") return this.#other;
+    return tls ? this.#scriptTls : this.#scriptPlain;
   }
 
   /** Table d'en-têtes applicatifs CONSTANTS (figée) d'une réponse en clair. */
@@ -270,6 +383,37 @@ function buildVariant(
     suffix: two ? (parts?.[1] ?? "") : "",
     raw: csp,
   };
+}
+
+/**
+ * Table figée : la politique (validée) en tête, puis les en-têtes communs.
+ *
+ * @throws BootConfigurationError si la politique ne peut pas être portée par un en-tête.
+ */
+function freezeTable(
+  csp: string,
+  common: Readonly<Record<string, string>>,
+): Readonly<Record<string, string>> {
+  if (!csp) return Object.freeze({ ...common });
+  assertHeaderValue("Content-Security-Policy", csp);
+  return Object.freeze({ "Content-Security-Policy": csp, ...common });
+}
+
+/**
+ * Politique courte d'une réponse qui n'est ni document ni script :
+ * `default-src 'none'`, plus le `frame-ancestors` de la politique complète. Une
+ * politique complète vide (CSP coupée par l'application) n'en donne aucune.
+ */
+function narrowCspOf(csp: string): string {
+  if (!csp.trim()) return "";
+  for (const [name, sources] of parseCsp(csp)) {
+    if (name.toLowerCase() === "frame-ancestors") {
+      // Liste vide = aucune origine (W3C CSP3 § source-list) : `'none'` explicite.
+      const list = sources.length > 0 ? sources.join(" ") : "'none'";
+      return `${NARROW_CSP}; frame-ancestors ${list}`;
+    }
+  }
+  return NARROW_CSP;
 }
 
 /** Jeton CSP qui porte le marqueur, retiré tel quel d'une CSP sans nonce. */

@@ -122,6 +122,7 @@ class Http2Response extends HttpResponse {
         this.statusMessage = this.getStatusMessage();
         this.setLength();
         this.ensureContentTypeHeader();
+        this.applyHeaderPolicy(this.contentTypeForPolicy());
         this.headers = mergeResponseHeaders(
           this.statusMessage,
           this.response ?? emptyHeaders,

@@ -92,7 +92,8 @@ pas de route → 405 sinon). Gates : security 293, banc live `http/cors.test.ts`
 
 ✅ **En-têtes (J5, étape A)** : **séparation transport/applicatif** (raison vérifiée : http pose nosniff/frame/HSTS
 à `onHttpRequest` → couvre statics+erreurs ; security ne ré-émet PAS). `SecurityHeaders` émet CSP statique +
-Referrer-Policy + COOP/COEP/CORP/OAC/Permissions ; `Firewall.applySecurityHeaders()` câblé `handleHttp`. **DX** :
+Referrer-Policy + COOP/COEP/CORP/OAC/Permissions ; `Firewall.applySecurityHeaders(ctx, type)` armé au routage,
+appelé au `writeHead` : la politique suit le `Content-Type` (ADR-0024 §C11, `responseKindOf`). **DX** :
 `referrerPolicy` → enum W3C, et `declare module NodefonyModuleConfig` → `use()` complète clés+valeurs. Gates :
 security 303, banc live `http/security-headers.test.ts` 7/7, mémoire 9/9.
 
