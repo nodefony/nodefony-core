@@ -203,6 +203,27 @@ export function mergeCspFragments(
   return serializeCsp(directives);
 }
 
+/** Directive réservée aux réponses servies en TLS (ADR-0024 §C6). */
+export const UPGRADE_INSECURE_REQUESTS = "upgrade-insecure-requests";
+
+/**
+ * Retire une directive d'une politique, sans toucher au reste.
+ *
+ * Sert à composer, au démarrage, la variante EN CLAIR d'une politique qui porte
+ * `upgrade-insecure-requests` : sur une page servie en `http`, la directive
+ * réécrirait chaque sous-ressource en `https`, que le serveur ne sert pas.
+ *
+ * @param csp - politique (peut contenir `'nonce-{{nonce}}'`).
+ * @param name - nom de la directive, insensible à la casse.
+ * @returns la politique sans la directive ; la MÊME chaîne si elle n'y est pas.
+ */
+export function withoutDirective(csp: string, name: string): string {
+  const wanted = name.toLowerCase();
+  const directives = parseCsp(csp);
+  const kept = directives.filter(([n]) => n.toLowerCase() !== wanted);
+  return kept.length === directives.length ? csp : serializeCsp(kept);
+}
+
 /**
  * Traduit la valeur de `X-Frame-Options` en source de `frame-ancestors`.
  *

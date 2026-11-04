@@ -1,6 +1,11 @@
 import { validateHeaderValue } from "node:http";
 import { BootConfigurationError } from "nodefony";
-import { mergeCspFragments, type CspFragment } from "../src/csp";
+import {
+  mergeCspFragments,
+  UPGRADE_INSECURE_REQUESTS,
+  withoutDirective,
+  type CspFragment,
+} from "../src/csp";
 
 /**
  * Sous-ensemble APPLICATIF de la config `headers` (cf defineSecurityConfig).
@@ -27,41 +32,56 @@ export interface ISecurityHeadersOptions {
 const NONCE_PLACEHOLDER = "{{nonce}}";
 
 /**
+ * Une politique prête à poser : table d'en-têtes figée et CSP pré-découpée
+ * autour du nonce. Deux existent au plus — servie en TLS, servie en clair.
+ */
+interface ICspVariant {
+  /** Table constante (CSP statique comprise si elle n'a pas de nonce). */
+  readonly headers: Readonly<Record<string, string>>;
+  /** Même table sans la CSP statique (route `@Csp` qui pose SA politique). */
+  readonly headersWithoutCsp: Readonly<Record<string, string>>;
+  /** Segments autour de `{{nonce}}` ; `null` = CSP statique (dans `headers`). */
+  readonly parts: readonly string[] | null;
+  /** Cas courant, UN seul `{{nonce}}` : `prefix + nonce + suffix`. */
+  readonly prefix: string | null;
+  readonly suffix: string;
+  /** Politique BRUTE (avec `{{nonce}}`), base des fusions `@Csp`. */
+  readonly raw: string;
+}
+
+/** Politique `@Csp` composée pour une route, dans ses deux variantes. */
+interface IComposedExtra {
+  readonly tls: IComposedCsp;
+  readonly plain: IComposedCsp;
+}
+
+/**
  * En-têtes de sécurité **applicatifs** de Nodefony (couche `@nodefony/security`,
  * complémentaire du socle transport de `@nodefony/http`). Pré-calcule une fois au
  * boot la table d'en-têtes CONSTANTS (CSP statique, Referrer-Policy, isolation
  * cross-origin COOP/COEP/CORP, Origin-Agent-Cluster, Permissions-Policy) → zéro
  * alloc, zéro concat par requête (le firewall la pose telle quelle).
  *
- * **Étape A+B** : en-têtes constants pré-calculés au boot (Referrer/COOP/…). Pour le
- * CSP, deux régimes mutuellement exclusifs : **statique** (posé tel quel via `headers`,
- * 0 alloc/req) OU **nonce par requête** (`cspNonces` + placeholder `{{nonce}}` dans le
- * CSP) → segments pré-split au boot, recomposés par requête via `cspFor(nonce)` (1
- * `join`, aucun parse/regex dans le hot-path). Le nonce lui-même vit sur `Context`.
+ * Pour le CSP, deux régimes mutuellement exclusifs : **statique** (posé tel quel via
+ * `headers`, 0 alloc/req) OU **nonce par requête** (`cspNonces` + placeholder
+ * `{{nonce}}`) → segments pré-split au boot, recomposés par requête via
+ * `cspFor(nonce)` (1 concaténation, aucun parse/regex dans le hot-path).
+ *
+ * **Deux variantes, composées au boot** (ADR-0024 §C6) : la politique telle
+ * qu'écrite, servie en TLS, et la même SANS `upgrade-insecure-requests`, servie
+ * en clair — sur une page `http`, la directive réécrirait les sous-ressources en
+ * `https`, que le serveur ne sert pas. Sans la directive, les deux variantes sont
+ * le MÊME objet : par requête, un booléen choisit, rien de plus.
  *
  * @see Fetch Metadata · W3C CSP Level 3 · WHATWG (COOP/COEP/CORP).
  */
 export class SecurityHeaders {
-  readonly #headers: Readonly<Record<string, string>>;
-  // CSP dynamique (nonce/req) : segments pré-split autour de `{{nonce}}`, joints par
-  // requête avec le nonce réel. `null` = CSP statique (dans `#headers`) → 0 alloc/req.
-  readonly #cspParts: readonly string[] | null;
-  // Cas courant (#508) : UN seul `{{nonce}}` (CSP par défaut) → deux
-  // segments, recomposés par `prefix + nonce + suffix` au lieu d'un `join`
-  // (~85 ns de moins par requête). `null` quand le CSP porte 0 ou ≥ 2 placeholders.
-  readonly #cspPrefix: string | null;
-  readonly #cspSuffix: string;
-  // CSP de base BRUT (avec `{{nonce}}` éventuel, non purgé) — conservé pour
-  // `cspForExtra` (merge des directives `@Csp` d'une route). Vide si aucun CSP.
-  readonly #cspRaw: string;
-  // Même table SANS la CSP statique — lue seulement par une route `@Csp` sans
-  // nonce, qui pose SA politique : la CSP n'est ainsi écrite qu'UNE fois par
-  // réponse (un `setHeader` de CSP coûte ~0,7 µs, la valeur étant validée
-  // caractère par caractère). Même référence que `#headers` s'il n'y a rien à ôter.
-  readonly #headersWithoutCsp: Readonly<Record<string, string>>;
+  readonly #tls: ICspVariant;
+  readonly #plain: ICspVariant;
+  readonly #hasNonce: boolean;
   // Politique `@Csp` déjà composée, par jeu de directives de route — null tant
   // qu'aucune route décorée n'a servi (cas courant : 0 allocation).
-  #extraComposed: WeakMap<CspFragment, IComposedCsp> | null = null;
+  #extraComposed: WeakMap<CspFragment, IComposedExtra> | null = null;
   /** Prévenu (une fois par jeu de directives) quand un `@Csp` de route est ignoré. */
   readonly #onRejectedExtra: ((error: unknown) => void) | null;
 
@@ -75,72 +95,62 @@ export class SecurityHeaders {
     onRejectedExtra?: (error: unknown) => void,
   ) {
     this.#onRejectedExtra = onRejectedExtra ?? null;
-    const h: Record<string, string> = {};
-    let cspParts: readonly string[] | null = null;
-    if (o.csp) {
-      if (o.cspNonces && o.csp.includes(NONCE_PLACEHOLDER)) {
-        // CSP nonce-aware : recomposé par requête (NON figé dans `#headers`).
-        // Pré-split au boot → 1 seul `join` par requête (pas de parse hot-path).
-        cspParts = o.csp.split(NONCE_PLACEHOLDER);
-      } else {
-        // Statique : nonce désactivé OU aucun placeholder. Si désactivé, on purge
-        // un token `'nonce-{{nonce}}'` résiduel (placeholder non substitué = CSP
-        // cassé) → CSP propre sans nonce.
-        const csp = o.cspNonces
-          ? o.csp
-          : o.csp.replace(/\s*'nonce-\{\{nonce\}\}'/g, "");
-        if (csp) h["Content-Security-Policy"] = csp;
-      }
-    }
-    if (o.referrerPolicy) h["Referrer-Policy"] = o.referrerPolicy;
+    const common: Record<string, string> = {};
+    if (o.referrerPolicy) common["Referrer-Policy"] = o.referrerPolicy;
     // Isolation cross-origin (avancés, opt-in) — absents par défaut.
-    if (o.coop) h["Cross-Origin-Opener-Policy"] = o.coop;
-    if (o.coep) h["Cross-Origin-Embedder-Policy"] = o.coep;
-    if (o.corp) h["Cross-Origin-Resource-Policy"] = o.corp;
+    if (o.coop) common["Cross-Origin-Opener-Policy"] = o.coop;
+    if (o.coep) common["Cross-Origin-Embedder-Policy"] = o.coep;
+    if (o.corp) common["Cross-Origin-Resource-Policy"] = o.corp;
     // Structured field boolean (RFC 9651) : présence = activé.
-    if (o.originAgentCluster) h["Origin-Agent-Cluster"] = "?1";
-    if (o.permissionsPolicy) h["Permissions-Policy"] = o.permissionsPolicy;
+    if (o.originAgentCluster) common["Origin-Agent-Cluster"] = "?1";
+    if (o.permissionsPolicy) common["Permissions-Policy"] = o.permissionsPolicy;
     // Validés UNE fois ici : la réponse les pose ensuite sans les revalider
     // (`HttpResponse.setValidatedHeader`). Une valeur qu'un en-tête ne peut pas
     // porter arrête le démarrage au lieu de faire échouer chaque réponse.
-    for (const name in h) assertHeaderValue(name, h[name] ?? "");
-    if (cspParts) {
-      assertHeaderValue("Content-Security-Policy", cspParts.join(NONCE_SAMPLE));
-    }
-    this.#headers = Object.freeze(h);
-    if (h["Content-Security-Policy"] === undefined) {
-      this.#headersWithoutCsp = this.#headers;
-    } else {
-      const { "Content-Security-Policy": _csp, ...rest } = h;
-      this.#headersWithoutCsp = Object.freeze(rest);
-    }
-    this.#cspParts = cspParts ? Object.freeze(cspParts) : null;
-    if (cspParts?.length === 2) {
-      this.#cspPrefix = cspParts[0] ?? "";
-      this.#cspSuffix = cspParts[1] ?? "";
-    } else {
-      this.#cspPrefix = null;
-      this.#cspSuffix = "";
-    }
-    this.#cspRaw = o.csp;
+    for (const name in common) assertHeaderValue(name, common[name] ?? "");
+    const nonced =
+      Boolean(o.csp) && o.cspNonces && o.csp.includes(NONCE_PLACEHOLDER);
+    this.#hasNonce = nonced;
+    this.#tls = buildVariant(o.csp, o.cspNonces, nonced, common);
+    const plainCsp = withoutDirective(o.csp, UPGRADE_INSECURE_REQUESTS);
+    this.#plain =
+      plainCsp === o.csp
+        ? this.#tls
+        : buildVariant(plainCsp, o.cspNonces, nonced, common);
   }
 
-  /** Table d'en-têtes applicatifs CONSTANTS (figée), posée telle quelle par le firewall. */
+  /** Table d'en-têtes applicatifs CONSTANTS (figée) d'une réponse en clair. */
   get headers(): Readonly<Record<string, string>> {
-    return this.#headers;
+    return this.#plain.headers;
   }
 
   /**
-   * Table constante SANS la CSP statique — pour une réponse qui pose sa propre
-   * politique (route `@Csp`), afin que la CSP ne soit écrite qu'une fois.
+   * Table constante SANS la CSP statique d'une réponse en clair — pour une
+   * réponse qui pose sa propre politique (route `@Csp`), afin que la CSP ne
+   * soit écrite qu'une fois.
    */
   get headersWithoutCsp(): Readonly<Record<string, string>> {
-    return this.#headersWithoutCsp;
+    return this.#plain.headersWithoutCsp;
+  }
+
+  /**
+   * Table d'en-têtes constants selon le transport de la réponse.
+   *
+   * @param tls - la page est servie en `https` (proxy de confiance compris).
+   * @param withoutCsp - omettre la CSP statique (route `@Csp` qui pose la sienne).
+   * @returns la table figée à poser telle quelle.
+   */
+  headersFor(
+    tls: boolean,
+    withoutCsp = false,
+  ): Readonly<Record<string, string>> {
+    const variant = tls ? this.#tls : this.#plain;
+    return withoutCsp ? variant.headersWithoutCsp : variant.headers;
   }
 
   /** `true` si le CSP est recomposé par requête avec un nonce (→ `cspFor`). */
   get hasNonce(): boolean {
-    return this.#cspParts !== null;
+    return this.#hasNonce;
   }
 
   /**
@@ -150,13 +160,16 @@ export class SecurityHeaders {
    * `'`/`;`/espace) → aucune évasion possible du token CSP.
    *
    * @param nonce - nonce base64 de la requête (`Context.cspNonce`).
+   * @param tls - la page est servie en `https` : la politique garde
+   *   `upgrade-insecure-requests`. Défaut : en clair.
    * @returns la valeur `Content-Security-Policy` à poser sur la réponse.
    */
-  cspFor(nonce: string): string {
-    if (this.#cspPrefix !== null) {
-      return this.#cspPrefix + nonce + this.#cspSuffix;
+  cspFor(nonce: string, tls = false): string {
+    const variant = tls ? this.#tls : this.#plain;
+    if (variant.prefix !== null) {
+      return variant.prefix + nonce + variant.suffix;
     }
-    return (this.#cspParts as readonly string[]).join(nonce);
+    return (variant.parts as readonly string[]).join(nonce);
   }
 
   /**
@@ -168,45 +181,102 @@ export class SecurityHeaders {
    *
    * @param nonce - nonce base64 de la requête (ignoré si le CSP n'a pas de nonce).
    * @param extra - directives additionnelles de la route (`directive → sources`).
+   * @param tls - la page est servie en `https`. Défaut : en clair.
    * @returns la valeur `Content-Security-Policy` à poser sur la réponse.
    */
-  cspForExtra(nonce: string, extra: CspFragment): string {
+  cspForExtra(nonce: string, extra: CspFragment, tls = false): string {
     // Fusion (et validation) UNE fois par jeu de directives : la clé est l'objet
     // figé que le routeur calcule une fois par action. Par requête ne reste que
     // la recomposition du nonce, au même coût que `cspFor`.
-    let composed = this.#extraComposed?.get(extra);
-    if (composed === undefined) {
-      let merged: string;
-      try {
-        merged = mergeCspFragments(this.#cspRaw, [extra]);
-      } catch (error) {
-        // Directives hors grammaire : la route sert la politique de BASE, plus
-        // stricte — jamais une 500. Mis en cache comme une composition réussie,
-        // donc la faute se dit UNE fois, pas à chaque requête.
-        merged = this.#cspRaw;
-        this.#onRejectedExtra?.(error);
-      }
-      // Nonce actif (`#cspParts` non null) → découpe autour de `{{nonce}}` ; sinon
-      // purge un résiduel `'nonce-{{nonce}}'` (placeholder non substitué = CSP cassé).
-      composed =
-        this.#cspParts !== null
-          ? composeAroundNonce(merged.split(NONCE_PLACEHOLDER))
-          : {
-              head: merged.replace(/\s*'nonce-\{\{nonce\}\}'/g, ""),
-              tail: null,
-              parts: null,
-            };
-      (this.#extraComposed ??= new WeakMap()).set(extra, composed);
+    let pair = this.#extraComposed?.get(extra);
+    if (pair === undefined) {
+      pair = this.#composeExtra(extra);
+      (this.#extraComposed ??= new WeakMap()).set(extra, pair);
     }
+    const composed = tls ? pair.tls : pair.plain;
     if (composed.tail !== null) return composed.head + nonce + composed.tail;
     return composed.parts !== null ? composed.parts.join(nonce) : composed.head;
+  }
+
+  /** Compose les deux variantes d'une politique `@Csp` (une fois par route). */
+  #composeExtra(extra: CspFragment): IComposedExtra {
+    let merged: string;
+    try {
+      merged = mergeCspFragments(this.#tls.raw, [extra]);
+    } catch (error) {
+      // Directives hors grammaire : la route sert la politique de BASE, plus
+      // stricte — jamais une 500. Mis en cache comme une composition réussie,
+      // donc la faute se dit UNE fois, pas à chaque requête.
+      merged = this.#tls.raw;
+      this.#onRejectedExtra?.(error);
+    }
+    const tls = this.#composeAround(merged);
+    const plainCsp = withoutDirective(merged, UPGRADE_INSECURE_REQUESTS);
+    return {
+      tls,
+      plain: plainCsp === merged ? tls : this.#composeAround(plainCsp),
+    };
+  }
+
+  /**
+   * Nonce actif → découpe autour de `{{nonce}}` ; sinon purge un résiduel
+   * `'nonce-{{nonce}}'` (placeholder non substitué = CSP cassé).
+   */
+  #composeAround(csp: string): IComposedCsp {
+    return this.#hasNonce
+      ? composeAroundNonce(csp.split(NONCE_PLACEHOLDER))
+      : { head: purgeNoncePlaceholder(csp), tail: null, parts: null };
   }
 }
 
 /**
- * Politique pré-découpée autour du nonce : `head + nonce + tail` quand elle porte
- * UN `{{nonce}}` (cas courant), `parts.join(nonce)` sinon, `head` seul sans nonce.
+ * Compose une variante : table d'en-têtes figée (CSP statique comprise si elle
+ * n'a pas de nonce) et segments de la CSP autour du nonce.
+ *
+ * @throws BootConfigurationError si la CSP ne peut pas être portée par un en-tête.
  */
+function buildVariant(
+  csp: string,
+  cspNonces: boolean,
+  nonced: boolean,
+  common: Readonly<Record<string, string>>,
+): ICspVariant {
+  let parts: string[] | null = null;
+  let staticCsp = "";
+  if (csp) {
+    if (nonced) {
+      // CSP nonce-aware : recomposé par requête (NON figé dans `headers`).
+      parts = csp.split(NONCE_PLACEHOLDER);
+      assertHeaderValue("Content-Security-Policy", parts.join(NONCE_SAMPLE));
+    } else {
+      // Statique : nonce désactivé OU aucun placeholder. Si désactivé, on purge
+      // un token `'nonce-{{nonce}}'` résiduel → CSP propre sans nonce.
+      staticCsp = cspNonces ? csp : purgeNoncePlaceholder(csp);
+      if (staticCsp) {
+        assertHeaderValue("Content-Security-Policy", staticCsp);
+      }
+    }
+  }
+  const headersWithoutCsp = Object.freeze({ ...common });
+  const headers = staticCsp
+    ? Object.freeze({ "Content-Security-Policy": staticCsp, ...common })
+    : headersWithoutCsp;
+  const two = parts?.length === 2;
+  return {
+    headers,
+    headersWithoutCsp,
+    parts: parts ? Object.freeze(parts) : null,
+    prefix: two ? (parts?.[0] ?? "") : null,
+    suffix: two ? (parts?.[1] ?? "") : "",
+    raw: csp,
+  };
+}
+
+/** Retire un token `'nonce-{{nonce}}'` laissé dans une CSP sans nonce. */
+function purgeNoncePlaceholder(csp: string): string {
+  return csp.replace(/\s*'nonce-\{\{nonce\}\}'/g, "");
+}
+
 /** Nonce témoin pour valider le gabarit : même alphabet que `nextCspNonce` (base64). */
 const NONCE_SAMPLE = "AAAAAAAAAAAAAAAAAAAAAA==";
 
@@ -225,6 +295,10 @@ function assertHeaderValue(name: string, value: string): void {
   }
 }
 
+/**
+ * Politique pré-découpée autour du nonce : `head + nonce + tail` quand elle porte
+ * UN `{{nonce}}` (cas courant), `parts.join(nonce)` sinon, `head` seul sans nonce.
+ */
 interface IComposedCsp {
   readonly head: string;
   readonly tail: string | null;

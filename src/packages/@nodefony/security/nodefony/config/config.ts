@@ -287,10 +287,10 @@ const headersSchema = z
       .default(
         // Source UNIQUE du défaut CSP (l'ancienne copie « réf humaine » de
         // config.ts est supprimée — plus de divergence runtime ≠ Zod possible).
-        "default-src 'self'; script-src 'self' 'nonce-{{nonce}}'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://www.gravatar.com https://*.googleusercontent.com https://avatars.githubusercontent.com; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'",
+        "default-src 'self'; script-src 'self' 'nonce-{{nonce}}'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://www.gravatar.com https://*.googleusercontent.com https://avatars.githubusercontent.com; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests",
       )
       .describe(
-        "Content-Security-Policy « secure-but-usable ». Seul `script-src` est strict (self + `{{nonce}}` substitué par requête si `cspNonces`) = défense XSS ; le reste couvre les besoins réels (CSS-in-JS, img/font inline, blobs, fetch/WS same-origin, workers) + durcissements (object 'none', base-uri/form-action 'self').",
+        "Content-Security-Policy « secure-but-usable ». Seul `script-src` est strict (self + `{{nonce}}` substitué par requête si `cspNonces`) = défense XSS ; le reste couvre les besoins réels (CSS-in-JS, img/font inline, blobs, fetch/WS same-origin, workers) + durcissements (object 'none', base-uri/form-action 'self'). `upgrade-insecure-requests` n’est posé que sur une page servie en https (proxy de confiance compris) ; le retirer de cette chaîne le coupe partout.",
       ),
     cspNonces: z
       .boolean()

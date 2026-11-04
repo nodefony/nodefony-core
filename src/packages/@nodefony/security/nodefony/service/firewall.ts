@@ -1210,7 +1210,11 @@ class Firewall extends Service implements IFirewall {
     // En-têtes constants (Referrer/COOP/… + CSP statique si pas de nonce) — figés.
     // Une route `@Csp` sans nonce pose SA politique plus bas : la table sans CSP
     // évite d'écrire l'en-tête deux fois (~0,7 µs par écriture).
-    const headers = extra && !sh.hasNonce ? sh.headersWithoutCsp : sh.headers;
+    // Page servie en `https` (proxy de confiance compris) : la politique garde
+    // `upgrade-insecure-requests` ; en clair, elle la perd (ADR-0024 §C6). Un
+    // champ lu, la variante est composée au démarrage.
+    const tls = context.scheme === "https";
+    const headers = sh.headersFor(tls, extra != null && !sh.hasNonce);
     // Table validée au démarrage (`SecurityHeaders`), nonce tiré du CSPRNG en
     // base64, sources `@Csp` contrôlées par `assertCspFragment` : rien à
     // revalider par réponse — Node le fait une fois, au `writeHead`.
@@ -1228,11 +1232,11 @@ class Firewall extends Service implements IFirewall {
     let csp: string | null = null;
     if (sh.hasNonce) {
       const nonce = (context as { cspNonce: string }).cspNonce;
-      csp = extra ? sh.cspForExtra(nonce, extra) : sh.cspFor(nonce);
+      csp = extra ? sh.cspForExtra(nonce, extra, tls) : sh.cspFor(nonce, tls);
     } else if (extra) {
       // CSP statique + extra de route → recompose (la boucle a pris la table sans
       // CSP : écriture unique). Pas de nonce ici (param ignoré par cspForExtra).
-      csp = sh.cspForExtra("", extra);
+      csp = sh.cspForExtra("", extra, tls);
     }
     if (csp !== null) {
       if (validated)
