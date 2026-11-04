@@ -272,9 +272,21 @@ function buildVariant(
   };
 }
 
-/** Retire un token `'nonce-{{nonce}}'` laissé dans une CSP sans nonce. */
+/** Jeton CSP qui porte le marqueur, retiré tel quel d'une CSP sans nonce. */
+const NONCE_TOKEN = `'nonce-${NONCE_PLACEHOLDER}'`;
+
+/**
+ * Retire chaque token `'nonce-{{nonce}}'` d'une CSP sans nonce, avec les blancs
+ * qui le précèdent. Découpe + `trimEnd` plutôt qu'une regex `\s*…` : celle-ci
+ * coûte O(n²) sur une longue suite de blancs (CodeQL `js/polynomial-redos`).
+ */
 function purgeNoncePlaceholder(csp: string): string {
-  return csp.replace(/\s*'nonce-\{\{nonce\}\}'/g, "");
+  const parts = csp.split(NONCE_TOKEN);
+  if (parts.length === 1) return csp;
+  const last = parts.length - 1;
+  let out = "";
+  for (let i = 0; i < last; i++) out += (parts[i] ?? "").trimEnd();
+  return out + (parts[last] ?? "");
 }
 
 /** Nonce témoin pour valider le gabarit : même alphabet que `nextCspNonce` (base64). */

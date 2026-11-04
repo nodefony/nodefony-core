@@ -130,6 +130,29 @@ describe("SecurityHeaders — nonce CSP par requête (étape B)", () => {
       "default-src 'self'; script-src 'self'",
     );
   });
+  it("purge du placeholder en temps LINÉAIRE — une suite d'espaces ne la fait pas exploser", () => {
+    // CodeQL js/polynomial-redos : `\s*` devant un littéral coûtait O(n²) sur
+    // une longue suite d'espaces (≈ 500 ms pour 20 000). Linéaire : < 1 ms.
+    const spaces = " ".repeat(20_000);
+    const t0 = performance.now();
+    const sh = make({
+      csp: `script-src 'self'${spaces}x; style-src${spaces}'nonce-{{nonce}}'`,
+      cspNonces: false,
+    });
+    const elapsed = performance.now() - t0;
+    assert.equal(
+      sh.headers["Content-Security-Policy"],
+      `script-src 'self'${spaces}x; style-src`,
+    );
+    assert.ok(elapsed < 100, `purge en ${elapsed.toFixed(1)} ms`);
+  });
+  it("purge : espaces, tabulations et placeholders consécutifs retirés avec le jeton", () => {
+    const sh = make({
+      csp: "a  'nonce-{{nonce}}'\t'nonce-{{nonce}}' b; c\n'nonce-{{nonce}}';d",
+      cspNonces: false,
+    });
+    assert.equal(sh.headers["Content-Security-Policy"], "a b; c;d");
+  });
   it("nonce activé MAIS pas de placeholder → CSP statique (pas de nonce mensonger)", () => {
     const sh = make({ csp: "default-src 'self'", cspNonces: true });
     assert.equal(sh.hasNonce, false);
