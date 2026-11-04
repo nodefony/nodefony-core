@@ -334,6 +334,32 @@ arrive en `https`. Trois configurations de proxy cassent ce contrat :
   (`proxy_ignore_headers Cache-Control`, « tout mettre en cache » d'un CDN) la remet en cache :
   n'en pose jamais sur une page à nonce. Les fichiers JS, CSS et images gardent leur cache long.
 
+#### Poser la CSP au proxy (nginx, ingress)
+
+Tu préfères écrire la politique dans nginx ou l'ingress ? C'est permis, en un réglage :
+l'application se retire au lieu de doubler la politique.
+
+```ts
+// nodefony/config/security.ts
+export default (ctx) =>
+  ({
+    headers: { csp: "" }, // l'application n'envoie plus de CSP : le proxy décide seul
+  }) satisfies ISecurityConfigInput;
+```
+
+- **Au proxy, une politique sans nonce** : il ne connaît pas celui que l'application écrit dans la
+  page. Point de départ sûr : la politique par défaut (`npx nodefony inspect config`,
+  clé `headers.csp` de `@nodefony/security`) privée de ses `'nonce-{{nonce}}'` et de
+  `'strict-dynamic'` — celle que Nodefony pose déjà sur une page servie telle quelle.
+- **Ce que tu perds** : la politique ne juge plus que l'origine. Un script injecté qui pointe vers
+  un fichier de ton propre domaine (fichier téléversé, JSONP) passe, là où le nonce le bloquait.
+- **Ce qui ne change pas** : `Referrer-Policy`, COOP et les autres en-têtes restent posés par
+  l'application. Aucun `Cache-Control` n'est imposé : sans nonce, la page redevient cachable.
+- **Rejoue tes pages derrière le proxy avant de conclure** : un script écrit en ligne dans la page,
+  sans nonce, y est bloqué.
+- **Jamais les deux à la fois** : CSP de l'application ET CSP du proxy, le navigateur applique les
+  deux (première puce ci-dessus).
+
 **`upgrade-insecure-requests` ne part que sur une page servie en `https`.** Le navigateur réécrit
 alors en `https` chaque sous-ressource écrite en `http://` (image, script, socket) au lieu de la
 charger en clair. Sur une page servie en `http` — le développement sur `http://localhost` — la

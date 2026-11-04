@@ -223,7 +223,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme v1.3.0 · ⚙️ 1 script" },
   { "icon": "🔧", "title": "devops", "href": "skills/nodefony-devops.md",
     "desc": "Exploite CETTE application Nodefony en conteneur : image, compose, frontal (nginx, HAProxy, h2c, Ingress), secrets, variables, Kubernetes, Podman, nombre de pods.",
-    "meta": "🟢 conforme v1.1.0 · 📎 8 réf" },
+    "meta": "🟢 conforme v1.2.0 · 📎 8 réf" },
   { "icon": "🔧", "title": "protect-route", "href": "skills/nodefony-protect-route.md",
     "desc": "Réserve une route ou une page d'une application Nodefony aux personnes habilitées, par les briques du framework plutôt que par un contrôle écrit dans l'action. Porte les deux étages (zone du pare-feu et garde par route), la hiérarchie de rôles, le renvoi de l'anonyme vers la page de connexion,…",
     "meta": "🟢 conforme" },

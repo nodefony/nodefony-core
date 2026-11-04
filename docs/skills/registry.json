@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-11-03",
+  "generatedAt": "2026-11-04",
   "count": 41,
   "repoScripts": [
     {
@@ -13203,7 +13203,7 @@
       "name": "nodefony-devops",
       "summary": "Exploite CETTE application Nodefony en conteneur : image, compose, frontal (nginx, HAProxy, h2c, Ingress), secrets, variables, Kubernetes, Podman, nombre de pods.",
       "family": "Autres",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "keywords": [],
       "triggers": [
         "déployer mon application en production",
@@ -13229,8 +13229,8 @@
       ],
       "description": "Exploite CETTE application Nodefony en conteneur : image, compose, frontal (nginx, HAProxy, h2c, Ingress), secrets, variables, Kubernetes, Podman, nombre de pods. N'enseigne pas Docker — il énonce le CONTRAT d'exploitation, chiffré : sondes, durée du drain, code de sortie, identifiant, dossiers écrits, ce qui casse quand une variable manque. À charger AVANT d'écrire un manifeste, un compose, une configuration de frontal, de dimensionner les pods, ou de diagnostiquer un conteneur qui redémarre. Déclencheurs : \"déployer mon application en production\", \"mettre mon app en production\", \"docker compose\", \"derrière nginx\", \"derrière HAProxy\", \"Ingress\", \"h2c\", \"ma WebSocket se coupe derrière le proxy\", \"SSE derrière un proxy\", \"combien de pods ?\", \"dimensionner un pod\", \"plusieurs pods en temps réel\", \"Kubernetes\", \"mon pod redémarre\", \"mon pod perd des requêtes\", \"arrêt gracieux\", \"politique Restricted\", \"secrets\", \"variables d'environnement\", \"Podman\".",
       "cost": {
-        "bodyLines": 206,
-        "approxTokens": 6330
+        "bodyLines": 213,
+        "approxTokens": 6652
       },
       "requires": [],
       "resources": {
@@ -13311,7 +13311,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "206",
+            "detail": "213",
             "advisory": true
           }
         ]

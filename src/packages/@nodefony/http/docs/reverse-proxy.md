@@ -140,8 +140,11 @@ Ce qui s'applique malgré tout, parce que posé à l'entrée, avant l'aiguillage
 - les **quotas** : le rate-limit par IP compte les requêtes relayées, et un upgrade WebSocket relayé
   obéit aux mêmes bornes qu'un upgrade servi (voir [WebSocket relayé](#-websocket-relayé)).
 
-La CSP à nonce de l'application, elle, n'est jamais imposée : elle casserait les pages d'un autre
-serveur, dont les scripts ne portent pas ce nonce.
+La CSP à nonce de l'application n'est jamais imposée à un préfixe relayé : elle casserait les
+pages d'un autre serveur, dont les scripts ne portent pas ce nonce. Dans l'autre sens,
+`proxy:generate` ne pose **aucune** CSP dans la configuration nginx ou haproxy qu'il rend. Écrire
+la politique au frontal plutôt que dans l'application →
+[Poser la CSP au proxy](../../security/docs/headers.md#poser-la-csp-au-proxy-nginx-ingress).
 
 ## 🚀 Démarrage rapide
 
