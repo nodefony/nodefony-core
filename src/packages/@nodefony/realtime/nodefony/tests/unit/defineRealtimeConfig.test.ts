@@ -127,8 +127,10 @@ describe("defineRealtimeConfig — builder + Zod", () => {
         NF_REALTIME_DRIVER: "backplane.driver",
         NF_REALTIME_BACKPLANE_NAMESPACE: "backplane.namespace",
         NF_REALTIME_BACKPLANE_SECRET: "backplane.secret",
+        NF_REALTIME_PUBLIC_ORIGIN: "publicOrigin",
       });
       const secret = Object.fromEntries(found.map((s) => [s.env, s.secret]));
+      expect(secret.NF_REALTIME_PUBLIC_ORIGIN).toBe(false);
       expect(secret.NF_REALTIME_BACKPLANE_SECRET).toBe(true);
       expect(secret.NF_REALTIME_DRIVER).toBe(false);
       expect(secret.NF_REALTIME_CODEC).toBe(false);

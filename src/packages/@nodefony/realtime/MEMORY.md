@@ -82,6 +82,14 @@ Règle pure au CŒUR (`decideBackpressure`) ; le client `NodefonySocket` l'appli
 (`maxBufferedAmount`, off par défaut, close `4007`). Sonde : `frameRateRejectedTotal` = relais de
 `@nodefony/http` `frameRateRejectedTotal()` (borne de débit entrante, comptée avant routage).
 
+**`publicOrigin` (CSP, ADR-0024 §C3)** : socket sur une AUTRE origine que la page → le module
+déclare `connect-src` lui-même (`RealtimeService.ts#RealtimeService.init` → `registerCspOrigins("realtime", …)`
+du contrat `IFirewallGate` de http, à `onReady` : le firewall compose à `onBoot` et ignore ce qui
+arrive avant). Origine nue validée par `parseBareOrigin` (cœur, même règle que `parseProxyOrigin`) ;
+`https:`→`wss:`, `http:`→`ws:` (`publicOrigin.ts#realtimeConnectSource`) car une source `https://h`
+ne couvre PAS `wss://h` (CSP3 scheme-part match), l'inverse si. Même origine = rien à régler
+(`'self'` couvre `wss:`). ≠ `csrf.checkOrigin.allowList` (qui peut OUVRIR la socket).
+
 **Piège Zod 4** : `.default({})` plat NE déclenche PAS les sous-défauts internes
 → pattern obligatoire `.default(() => subSchema.parse({}))` partout dans `config.ts`.
 Cf [[feedback_config_validation_zod]].

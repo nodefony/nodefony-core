@@ -694,19 +694,22 @@ Un module qui a besoin d'origines supplémentaires ne doit **jamais** poser l'en
 inefficace, au pire il casse la page. Il **déclare** son besoin, security fusionne.
 
 ```typescript
-// Dans le service d'un module — le firewall est résolu PAR NOM (aucun import de security).
-const firewall = this.container?.get?.("firewall") as
-  | { registerCspOrigins?(m: string, f: Record<string, string[]>): void }
-  | undefined;
+// Dans le service d'un module — le firewall est résolu PAR NOM et typé par le
+// contrat de @nodefony/http (aucun import de security).
+import type { IFirewallGate } from "@nodefony/http";
 
-firewall?.registerCspOrigins?.("mon-module", {
+this.get<IFirewallGate>("firewall")?.registerCspOrigins?.("mon-module", {
   "connect-src": ["https://api.partenaire.tld"],
   "img-src": ["https://cdn.partenaire.tld"],
 });
 ```
 
-Trois propriétés à retenir :
+Quatre propriétés à retenir :
 
+- **Après `onBoot`** : le firewall compose sa politique à `onBoot` et ignore une contribution
+  reçue avant. Un module qui déclare au démarrage le fait à `onReady` — c'est ce que fait
+  `@nodefony/realtime` pour une socket servie sur une autre origine (`realtime.publicOrigin`,
+  `RealtimeService.ts#RealtimeService.init`).
 - **Aucun couplage** : la résolution par nom de service évite un cycle de dépendances, et
   `registerCspOrigins` est optionnel — un module fonctionne dans une app **sans** security.
 - **Réversible** : `Firewall.unregisterCspOrigins()` (`firewall.ts#Firewall.unregisterCspOrigins`) retire le fragment et

@@ -9,6 +9,8 @@ import {
   type OriginGuard,
   type FrameAuthorizer,
 } from "../server/RealtimeHub";
+import type { IFirewallGate } from "@nodefony/http";
+import { realtimeConnectSource } from "./publicOrigin";
 import { applyDeclaredBroadcastPrefixes } from "../../decorators/realtimeDecorators";
 import type { IBackplane } from "../../interfaces/IBackplane";
 import type { IRealtimeProbe } from "../../interfaces/IRealtimeProbe";
@@ -20,6 +22,9 @@ import type { IRealtimeAuthenticator } from "../../interfaces/IRealtimeAuthentic
 import type { IRealtimeAuthenticatorMatcher } from "../../interfaces/IRealtimeAuthenticatorMatcher";
 import type { IRealtimeToken } from "../../interfaces/IRealtimeToken";
 import type { IChannelPolicy } from "../../interfaces/IChannelPolicy";
+
+/** Nom sous lequel ce module contribue à la politique de contenu. */
+const CSP_CONTRIBUTOR = "realtime";
 
 const serviceName = "realtimeService";
 
@@ -155,7 +160,32 @@ class RealtimeService extends Service {
     // propagerait rien tant qu'aucun client ne s'est connecté à lui — et deux
     // pods identiques diffuseraient différemment selon leur historique.
     applyDeclaredBroadcastPrefixes(hub);
+    // #699 (ADR-0024 §C3) — une socket servie sur une autre origine que la page
+    // se déclare elle-même dans `connect-src`, sinon le navigateur la bloque.
+    if (this.#config.publicOrigin !== undefined) {
+      this.#declareCspOrigin(this.#config.publicOrigin);
+    }
     return this;
+  }
+
+  /**
+   * Déclare au pare-feu l'origine publique de la socket dans `connect-src`.
+   *
+   * Différé à `onReady` : le pare-feu compose sa politique à `onBoot` et ignore
+   * une contribution reçue avant. Sans pare-feu (application sans
+   * `@nodefony/security`), aucune politique n'est posée : rien à déclarer.
+   *
+   * @param publicOrigin - origine nue validée par le schéma
+   */
+  #declareCspOrigin(publicOrigin: string): void {
+    const source = realtimeConnectSource(publicOrigin);
+    if (source === null) return;
+    this.kernel?.once("onReady", () => {
+      this.get<IFirewallGate>("firewall")?.registerCspOrigins?.(
+        CSP_CONTRIBUTOR,
+        { "connect-src": [source] },
+      );
+    });
   }
 
   /** Configuration realtime gelée (lue par Studio / introspection). */

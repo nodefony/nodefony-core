@@ -303,6 +303,7 @@ expliquent quand et pourquoi en changer.
 | `csrf.checkOrigin.enabled` | `boolean` | `false` | active le contrôle d'`Origin` à l'ouverture de la socket |
 | `csrf.checkOrigin.allowList` | `string[]` | `[]` | origines acceptées, **comparaison exacte**. Vide + activé = tout est refusé |
 | `csrf.checkOrigin.allowMissingOrigin` | `boolean` | `false` | accepter une ouverture sans en-tête `Origin` (clients non-navigateur) |
+| `publicOrigin` | `string` (origine nue) | aucun | où la socket est servie quand ce n'est pas l'origine de la page ; déclarée seule dans `connect-src` |
 | `clientLogs.enabled` | `boolean` | `false` | accepte les journaux du navigateur sur le canal montant `nodefony:syslog:uplink`. Surface d'écriture, fermée par défaut ; une connexion anonyme ne pousse rien |
 | `clientLogs.maxEntriesPerBatch` | `number` | `50` | entrées acceptées par lot |
 | `clientLogs.maxEntriesPerWindow` | `number` | `300` | entrées acceptées par fenêtre de débit |
@@ -605,6 +606,31 @@ non-navigateur pouvant toujours forger l'en-tête — appartient à [Sécurité]
 > vérifier. Et `allowMissingOrigin: true` sans authentificateur fort rouvre exactement la brèche que
 > le contrôle ferme.
 
+### `publicOrigin` — une socket servie sur une autre origine
+
+La politique de contenu que pose `@nodefony/security` autorise les connexions vers l'origine de la
+page seulement (`connect-src 'self'`). Une socket servie au même endroit que la page — le cas
+courant, une adresse relative — passe sans rien régler.
+
+Une socket servie **ailleurs** (un autre domaine, un autre port) serait bloquée par le navigateur.
+Tu ne l'écris pas dans la politique : tu dis au module où elle est servie, et il s'y déclare
+lui-même au démarrage (`RealtimeService.ts#RealtimeService.init`).
+
+```ts
+use("@nodefony/realtime", {
+  publicOrigin: "wss://rt.example.com",
+});
+```
+
+La valeur est une **origine nue** : schéma, hôte, port facultatif — ni chemin, ni joker. Une valeur
+qui n'en est pas une arrête le démarrage en nommant la clé. `https://rt.example.com` est accepté et
+déclaré `wss://rt.example.com` : c'est cette forme qui couvre la socket ET le même hôte en
+`https:` (`publicOrigin.ts#realtimeConnectSource`).
+
+Deux clés, deux questions : `publicOrigin` dit où la socket **est** ; `csrf.checkOrigin.allowList`
+dit quelles pages ont le droit de l'**ouvrir**. Une socket sur un autre domaine a souvent besoin
+des deux.
+
 ## 🔌 Choisir le driver de backplane — trois situations
 
 Le choix ne se déduit pas d'un tableau de performances : il se déduit de **ta topologie de
@@ -774,7 +800,7 @@ Le détail du contrat, de l'anti-écho et du cycle de vie d'un driver est dans
 
 ## ⚙️ Variables d'environnement et précédence
 
-Huit variables influent sur le module. Cinq lui sont propres, les autres viennent du cœur ou du
+Neuf variables influent sur le module. Six lui sont propres, les autres viennent du cœur ou du
 mode cluster. Les trois premières décrivent un **déploiement** — le fond de panier auquel ce
 processus se raccorde — et c'est pour cela qu'elles ne vivent pas dans un fichier versionné.
 
@@ -784,6 +810,7 @@ processus se raccorde — et c'est pour cela qu'elles ne vivent pas dans un fich
 | `NF_REALTIME_BACKPLANE_NAMESPACE` | ce module              | remplace `backplane.namespace` — sépare deux déploiements de la même app   |
 | `NF_REALTIME_BACKPLANE_SECRET`    | ce module              | remplace `backplane.secret` — scelle le transport partagé (≥ 32 car.)      |
 | `NF_REALTIME_CODEC`               | ce module              | remplace `codec` — `json` remet le fil en texte, pour déboguer seulement   |
+| `NF_REALTIME_PUBLIC_ORIGIN`       | ce module              | remplace `publicOrigin` — où la socket est servie, propre au déploiement   |
 | `NF__REALTIME__<CHEMIN>`          | mécanisme du cœur      | remplace n'importe quelle clé, par son chemin. Ex. `NF__REALTIME__ENABLED` |
 | `NF_CLUSTER`                      | posée par le lancement | à `1`, le driver `cluster` s'active en worker. Ne la pose pas à la main    |
 | `NF_CLUSTER_PROBE`                | ce module              | à `0`, coupe la sonde de pod même si `cluster.probe.enabled` est vrai      |
@@ -794,7 +821,7 @@ L'ordre de recouvrement, du plus faible au plus fort :
 1. **Les valeurs d'usine du schéma** — ce que tu obtiens sans rien écrire.
 2. **La configuration de l'application** — ton `use("@nodefony/realtime", { … })`.
 3. **`NF_REALTIME_DRIVER`**, **`NF_REALTIME_BACKPLANE_NAMESPACE`**,
-   **`NF_REALTIME_BACKPLANE_SECRET`** et **`NF_REALTIME_CODEC`** — posées par le Kernel après la fusion et **avant** la
+   **`NF_REALTIME_BACKPLANE_SECRET`**, **`NF_REALTIME_CODEC`** et **`NF_REALTIME_PUBLIC_ORIGIN`** — posées par le Kernel après la fusion et **avant** la
    validation Zod (`applyEnvShortcuts`, `Kernel.ts#Kernel.applyEnvConfigOverrides`) : une valeur fausse **arrête le démarrage** en nommant la
    variable (un secret de moins de 32 caractères, un espace de noms qui contient `:`). Chacune
    accepte aussi sa forme `<NOM>_FILE` (secret monté par Docker ou Kubernetes).

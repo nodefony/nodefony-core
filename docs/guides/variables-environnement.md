@@ -163,7 +163,7 @@ Utiles sur le poste du développeur ou pour une mesure ponctuelle.
 | `NF_WITH_DEV_MODULES` | Dérogation : charge les modules de développement hors développement (`1`), pour une mesure. | non chargés | le poste seulement |
 | `NF_WITH_DEV_MODULES_TTL_MIN` | Durée de vie, en minutes, d'un runtime en dérogation NF_WITH_DEV_MODULES. | 30 (plafond 240) | le poste seulement |
 
-## Réglages des modules (11)
+## Réglages des modules (12)
 
 Chaque module peut donner un nom court à un réglage de sa configuration.
 La variable n'est lue que si l'application charge le module. Sa valeur est
@@ -196,6 +196,7 @@ valeur lui-même ou s'en passe : la colonne « Rôle » dit lequel.
 | `NF_REALTIME_DRIVER` | `backplane.driver` | Nom du driver IBackplane, résolu dans le registre de drivers (`listBackplaneDrivers()`) — PAS d'enum en dur ici : la liste réelle est la source de vérité du registre, ouverte aux drivers custom utilisateur (`registerBackplaneDriver(name, factory)`). Natifs : `loopback` (mono, hub local sans IPC), `cluster` (IPC workers `nodefony cluster`, actif si NF_CLUSTER=1), `redis` (multi-host pub/sub). Driver inconnu au boot → warn fail-soft, le hub reste local. | loopback | variables de la plateforme |
 | `NF_REALTIME_BACKPLANE_NAMESPACE` | `backplane.namespace` | Cloison logique du transport partagé (drivers cross-pod : redis, futur kafka) — suffixe le canal pub/sub (`nodefony:realtime:<ns>`). Le `database` Redis ne cloisonnant PAS le pub/sub, deux apps sur un Redis mutualisé SANS namespace se parleraient (cross-talk). Défaut : dérivé du nom d'app (`kernel.projectName`). À poser EXPLICITEMENT quand deux déploiements de la même app (staging/prod) partagent un Redis. Caractères : alphanumériques, `_`, `.`, `-`. Env : `NF_REALTIME_BACKPLANE_NAMESPACE` (prioritaire — le namespace distingue des DÉPLOIEMENTS, il n'a pas à être figé dans le code). | aucun | variables de la plateforme |
 | `NF_REALTIME_BACKPLANE_SECRET` | `backplane.secret` | Secret de SCELLEMENT des messages du backplane, partagé par tous les pods de l'app (drivers à transport PARTAGÉ : redis, futurs drivers cross-host). Un bus pub/sub n'authentifie PAS l'émetteur : sans ce secret, quiconque écrit dans le Redis (autre app d'un Redis mutualisé, credential fuité, SSRF) publie sur les canaux de TOUS les pods. Posé, chaque message porte un HMAC-SHA256 et l'ingress devient fail-closed strict (non scellé ou mal scellé = ignoré, aucun downgrade). Sans lui, le boot ALERTE et le bus reste ouvert. Inutile pour `cluster` (IPC master↔workers : aucun tiers ne peut y écrire). Env : `NF_REALTIME_BACKPLANE_SECRET`. Minimum 32 caractères. | aucun | 🔒 gestionnaire de secrets |
+| `NF_REALTIME_PUBLIC_ORIGIN` | `publicOrigin` | Origine où la socket est servie quand ce n'est PAS celle de la page (autre domaine, autre port), par ex. `wss://rt.example.com`. Le module la déclare lui-même dans `connect-src` de la politique de contenu ; sans elle, le navigateur bloque la connexion. Inutile quand la socket est sur l'origine de la page (cas courant) : `connect-src 'self'` la couvre déjà. `https://` est accepté et déclaré en `wss://`. Ne dit pas qui peut OUVRIR la socket : c'est `csrf.checkOrigin.allowList`. Env : `NF_REALTIME_PUBLIC_ORIGIN` (l'origine distingue des déploiements). | aucun | variables de la plateforme |
 
 ### `@nodefony/redis`
 

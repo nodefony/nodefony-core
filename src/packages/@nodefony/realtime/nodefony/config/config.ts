@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { realtimeConnectSource } from "../src/service/publicOrigin";
 
 /**
  * @nodefony/realtime — CONFIGURATION DU MODULE (schéma Zod = source unique).
@@ -346,6 +347,26 @@ export const realtimeConfigSchema = z
           "à ce niveau la base est déjà l'étranglement ; empiler davantage " +
           "d'appels n'admettrait personne plus vite et retarderait la reprise.",
       ),
+    publicOrigin: z
+      .string()
+      .refine((value) => realtimeConnectSource(value) !== null, {
+        message:
+          "publicOrigin : une origine nue est attendue — schéma ws, wss, http ou " +
+          "https, hôte, port facultatif ; ni chemin, ni joker (ex. " +
+          "`wss://rt.example.com`).",
+      })
+      .optional()
+      .describe(
+        "Origine où la socket est servie quand ce n'est PAS celle de la page " +
+          "(autre domaine, autre port), par ex. `wss://rt.example.com`. Le module " +
+          "la déclare lui-même dans `connect-src` de la politique de contenu ; sans " +
+          "elle, le navigateur bloque la connexion. Inutile quand la socket est " +
+          "sur l'origine de la page (cas courant) : `connect-src 'self'` la couvre " +
+          "déjà. `https://` est accepté et déclaré en `wss://`. Ne dit pas qui peut " +
+          "OUVRIR la socket : c'est `csrf.checkOrigin.allowList`. Env : " +
+          "`NF_REALTIME_PUBLIC_ORIGIN` (l'origine distingue des déploiements).",
+      )
+      .meta({ env: "NF_REALTIME_PUBLIC_ORIGIN" }),
     csrf: csrfSchema.default(() => csrfSchema.parse({})),
     clientLogs: clientLogsSchema.default(() => clientLogsSchema.parse({})),
   })

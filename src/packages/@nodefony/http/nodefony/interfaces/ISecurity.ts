@@ -68,4 +68,18 @@ export interface IFirewallGate {
    * qui pilote aussi `frame-ancestors`.
    */
   onTransportHeadersChanged?(): void;
+  /**
+   * Déclare les sources qu'un module ajoute à la politique de contenu
+   * (`{ "connect-src": ["wss://rt.example.com"] }`). Un second appel du même
+   * module REMPLACE sa contribution. Absent quand aucun pare-feu ne pose de CSP.
+   *
+   * @param moduleName - module qui contribue, clé de sa contribution
+   * @param fragment - sources par directive, origines exactes (sans joker)
+   */
+  registerCspOrigins?(
+    moduleName: string,
+    fragment: Readonly<Record<string, readonly string[]>>,
+  ): void;
+  /** Retire la contribution CSP de `moduleName`. */
+  unregisterCspOrigins?(moduleName: string): void;
 }
