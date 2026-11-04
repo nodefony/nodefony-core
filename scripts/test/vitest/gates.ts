@@ -521,6 +521,7 @@ export const PROXY_GATE: EnvGate = {
   serverEnv: ["NF_BIND_ALL"],
   values: () => ({
     NF_PROXY_NGINX_URL: `http://localhost:${fromCompose("NGINX_PORT", "8080")}`,
+    NF_PROXY_NGINX_EDGE_CSP_URL: `http://localhost:${fromCompose("NGINX_EDGE_CSP_PORT", "8082")}`,
     NF_PROXY_HAPROXY_URL: `http://localhost:${fromCompose("HAPROXY_PORT", "8081")}`,
     NF_PROXY_HAPROXY_TLS_URL: `https://nodefony.com:${fromCompose("HAPROXY_TLS_PORT", "8443")}`,
   }),

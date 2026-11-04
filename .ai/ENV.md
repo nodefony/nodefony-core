@@ -12,7 +12,7 @@
 
 | Famille | Variables |
 | --- | ---: |
-| Infrastructure | 13 |
+| Infrastructure | 14 |
 | Interrupteur de coût | 7 |
 | Décor de banc | 40 |
 | Runtime produit | 86 |
@@ -145,6 +145,7 @@ déclarée n'a pas été exercée.
 | `NF_PG_URL` | PostgreSQL |
 | `NF_PROXY_HAPROXY_TLS_URL` | Reverse-proxy réels (nginx + haproxy) |
 | `NF_PROXY_HAPROXY_URL` | Reverse-proxy réels (nginx + haproxy) |
+| `NF_PROXY_NGINX_EDGE_CSP_URL` | Reverse-proxy réels (nginx + haproxy) |
 | `NF_PROXY_NGINX_URL` | Reverse-proxy réels (nginx + haproxy) |
 | `NF_REDIS_TEST_URL` | Redis (serveur réel) |
 | `NF_REDIS_URL` | Redis (serveur réel) |
@@ -222,8 +223,8 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_DOCKERHUB_TOKEN` | `scripts/release/hub-description.mjs:211` |
 | `NF_DOCKERHUB_USER` | `scripts/release/hub-description.mjs:210` |
 | `NF_ENV` | `src/nodefony/src/bin/nodefony.ts:104` |
-| `NF_GATES_ALLOW` | `scripts/test/vitest/gates.ts:888` |
-| `NF_GATES_EXPECT` | `scripts/test/vitest/gates.ts:907` |
+| `NF_GATES_ALLOW` | `scripts/test/vitest/gates.ts:889` |
+| `NF_GATES_EXPECT` | `scripts/test/vitest/gates.ts:908` |
 | `NF_HUB_API` | `scripts/release/hub-description.mjs:56` |
 | `NF_HUB_DEPOT` | `scripts/release/hub-description.mjs:62` |
 | `NF_HUB_ROOT` | `scripts/release/hub-description.mjs:52` |

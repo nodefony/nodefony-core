@@ -44,6 +44,8 @@ const NGINX = process.env.NF_PROXY_NGINX_URL ?? "";
 const HAPROXY = process.env.NF_PROXY_HAPROXY_URL ?? "";
 const HAPROXY_TLS = process.env.NF_PROXY_HAPROXY_TLS_URL ?? "";
 const HAS_DECOR = Boolean(NGINX && HAPROXY && HAPROXY_TLS);
+/** nginx qui pose SA politique (recette « Poser la CSP au proxy », security/docs/headers.md). */
+const NGINX_EDGE_CSP = process.env.NF_PROXY_NGINX_EDGE_CSP_URL ?? "";
 
 /** Route de diagnostic du module de banc : rend ce que le serveur a COMPRIS. */
 const CONTEXT = "/nodefony/test/context";
@@ -304,6 +306,42 @@ describe.skipIf(!HAS_DECOR)(
  * quand le port se ferme ? Un contrôle TCP garde l'exemplaire tant que le port
  * accepte — c'est-à-dire pendant tout le délai avant drain.
  */
+/**
+ * Recette « Poser la CSP au proxy » (security/docs/headers.md) : le frontal
+ * retire la politique de l'application et pose la sienne, SANS nonce — pour le
+ * navigateur, c'est `headers.csp: ""` côté application. Une seule politique
+ * arrive, celle du frontal ; le cache des documents reste celui que
+ * l'application décide (le frontal n'y touche pas). Les pages elles-mêmes sont
+ * éprouvées au navigateur : en production, le builder front n'émet que des
+ * scripts externes, et la page de connexion relit son thème au montage.
+ */
+describe.skipIf(!HAS_DECOR || !NGINX_EDGE_CSP)(
+  "CSP posée au frontal (requires proxy decor)",
+  () => {
+    for (const pathname of ["/login", "/app"]) {
+      it(`${pathname} : une SEULE politique, celle du frontal, sans nonce`, async () => {
+        const page = await pageThrough(NGINX_EDGE_CSP, pathname);
+        expect(page.status).to.equal(200);
+        const csp = rawValues(page.raw, "content-security-policy");
+        expect(csp, "une SEULE politique").to.have.length(1);
+        const policy = csp[0] ?? "";
+        expect(policy).not.to.match(/'nonce-/);
+        expect(policy).not.to.match(/'strict-dynamic'/);
+        expect(policy).to.match(/script-src 'self'/);
+      });
+    }
+
+    it("le cache d'un document reste celui de l'application", async () => {
+      const app = await pageThrough(NGINX_EDGE_CSP, "/app");
+      const login = await pageThrough(NGINX_EDGE_CSP, "/login");
+      expect(rawValues(app.raw, "cache-control")).to.deep.equal([
+        "private, no-cache",
+      ]);
+      expect(rawValues(login.raw, "cache-control")).to.deep.equal(["no-store"]);
+    });
+  },
+);
+
 describe.skipIf(!HAS_DECOR)(
   "Integration — HAProxy RÉEL sur la configuration GÉNÉRÉE (sonde /readyz)",
   () => {
