@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-11-03 22:45** (UTC).
+> Empreinte prise le **2026-11-04 00:33** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -33,7 +33,7 @@
 
 **#621 — feat(realtime): compléter le temps réel : binaire, canaux privés, voix**
 
-Ordre 6.03 · P2 — décision · 16.75 j · jalon 10.0.0-beta · frise 2026-10-29 → 11-16
+Ordre 6.03 · P2 — décision · 11.25 j · jalon 10.0.0-beta · frise 2026-11-04 → 11-16
 
 > Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 20 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
@@ -115,8 +115,8 @@ Ordre 6.03 · P2 — décision · 16.75 j · jalon 10.0.0-beta · frise 2026-10-
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 6.03 | P2 — décision | 16.75 | 2026-10-29 → 11-16 | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
-| 6.0345 | P1 — figé à la création | 1 | 2026-11-09 → 11-09 | #699 | feat(security)!: durcir la CSP par défaut sans bloquer le temps réel |
+| 6.03 | P2 — décision | 11.25 | 2026-11-04 → 11-16 | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
+| 6.0345 | P1 — figé à la création | 1 | 2026-11-04 → 11-09 | #699 | feat(security)!: durcir la CSP par défaut sans bloquer le temps réel |
 | 6.03456 | P1 — figé à la création | 1 | — | #723 | feat(cli): vérifier les types des composants front générés |
 | 6.0346 | P2 — décision | 0.5 | 2026-11-10 → 11-10 | #631 | test(media): lancer les tests audio dans un vrai navigateur |
 | 6.04 | P2 — décision | 3.25 | 2026-11-10 → 11-16 | #445 | test(ecosysteme): éprouver le framework par un module tiers temps réel |
