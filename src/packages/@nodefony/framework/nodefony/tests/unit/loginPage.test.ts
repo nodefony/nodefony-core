@@ -751,6 +751,45 @@ describe("page de connexion — passkey, avec le vrai script", () => {
 });
 
 describe("page de connexion — bascule de thème, avec le vrai script", () => {
+  it("🔴 script en ligne bloqué (CSP du frontal, sans nonce) : le thème mémorisé se relit au montage", () => {
+    // `render` n'exécute jamais le script en ligne : c'est exactement la page
+    // qu'une CSP de frontal sans nonce laisse au navigateur.
+    localStorage.setItem("nf-login-theme", "light");
+    const rendered = render();
+    document.documentElement.replaceWith(
+      document.importNode(rendered.documentElement, true),
+    );
+    expect(document.documentElement.hasAttribute("data-theme")).toBe(false);
+    const unmount = mountLoginPage(document, {
+      login: new NodefonyLogin({ passkey: null }),
+      navigate: vi.fn(),
+    });
+    try {
+      expect(document.documentElement.dataset.theme).toBe("light");
+    } finally {
+      unmount();
+      localStorage.clear();
+    }
+  });
+
+  it("un thème imposé (`?theme=`) l'emporte sur le thème mémorisé", () => {
+    localStorage.setItem("nf-login-theme", "light");
+    const rendered = render(PAGE, { ...REQUEST, theme: "dark" });
+    document.documentElement.replaceWith(
+      document.importNode(rendered.documentElement, true),
+    );
+    const unmount = mountLoginPage(document, {
+      login: new NodefonyLogin({ passkey: null }),
+      navigate: vi.fn(),
+    });
+    try {
+      expect(document.documentElement.dataset.theme).toBe("dark");
+    } finally {
+      unmount();
+      localStorage.clear();
+    }
+  });
+
   it("🔴 un clic inverse le thème affiché et le retient ; un second clic revient", () => {
     const rendered = render(PAGE, { ...REQUEST, theme: "light" });
     document.documentElement.replaceWith(

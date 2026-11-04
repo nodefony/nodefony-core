@@ -268,6 +268,20 @@ export function mountLoginPage(
     }
   };
 
+  // Thème mémorisé : le script en ligne de la page le pose avant le premier
+  // rendu. Une CSP écrite au frontal, sans nonce, bloque ce script — le choix
+  // se relit alors ici, au montage : un flash, jamais un oubli. Un thème déjà
+  // posé (`?theme=`, ou le script en ligne) n'est pas touché.
+  if (doc.documentElement.dataset.theme === undefined) {
+    try {
+      const stored = view?.localStorage.getItem(LOGIN_PAGE_THEME_KEY);
+      if (stored === "light" || stored === "dark")
+        doc.documentElement.dataset.theme = stored;
+    } catch {
+      // Stockage refusé (navigation privée) : le thème du système s'applique.
+    }
+  }
+
   // Le thème affiché : celui posé sur la racine, sinon celui du système.
   const toggleTheme = (): void => {
     const root = doc.documentElement;
