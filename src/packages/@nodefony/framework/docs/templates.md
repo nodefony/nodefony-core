@@ -249,6 +249,21 @@ inerte `&lt;script&gt;alert(1)&lt;/script&gt;`.
 > par un utilisateur (pseudo, commentaire, champ de formulaire, paramètre d'URL). Réserve-le à des
 > fragments HTML que ton propre code a construits.
 
+**La politique de sécurité du contenu (CSP) est signée pour toi.** La politique par défaut n'exécute
+un `<script>` et n'applique un `<style>` que s'ils portent le nonce de la requête. `renderView` le
+pose seul sur chaque balise ÉCRITE dans le gabarit (`viewNonce.ts#signTemplateTags`) — rien à
+ajouter. Il ne signe jamais :
+
+- une balise que les données apportent (`<%~ %>`) : c'est ce qui laisse au nonce sa valeur contre
+  l'injection ;
+- un `<script>` dont un attribut vient des données (`src="<%= it.url %>"`) : le signer exécuterait
+  l'URL qu'elles apportent. Si tu la tiens pour sûre, écris le nonce toi-même :
+  `<script nonce="<%= it.cspNonce %>" src="<%= it.url %>">` ;
+- un gestionnaire en attribut (`onclick="…"`, `onload="…"`) : aucun nonce ne s'y pose, la politique
+  le refuse. Attache l'écouteur depuis un `<script>` du gabarit (`addEventListener`).
+
+Le détail de la politique et ses réglages : [En-têtes de sécurité](../../security/docs/headers.md).
+
 ## 🧰 API publique
 
 Deux niveaux : ce que le **service Eta** expose, et ce que le **contrôleur** t'offre au-dessus.
