@@ -161,6 +161,11 @@ const VectorStoresPreview = lazyRoute(() =>
     default: m.VectorStoresPreview,
   })),
 );
+const GatewayPreview = lazyRoute(() =>
+  import("./routes/ai/GatewayPreview").then((m) => ({
+    default: m.GatewayPreview,
+  })),
+);
 
 import {
   Services,
@@ -251,6 +256,7 @@ const router = createBrowserRouter([
               { path: "vector", element: <VectorStoresPreview /> },
               { path: "memory", element: <MemoryPreview /> },
               { path: "mcp", element: <McpPreview /> },
+              { path: "gateway", element: <GatewayPreview /> },
               { path: "orm", element: <OrmOverview /> },
               { path: "orm/:pid", element: <OrmWorker /> },
               { path: "databases", element: <Database /> },

@@ -40,6 +40,24 @@ export interface Pt {
   y: number;
 }
 
+/** Un élément d'un encadré intérieur : allumé (existe) ou en pointillé (à venir). */
+export interface SchemaInnerItem {
+  label: string;
+  active: boolean;
+}
+
+/**
+ * Un encadré DANS une brique : ce qu'un acteur tient à l'intérieur de la case —
+ * son logo, son nom, et ses éléments en pastilles.
+ */
+export interface SchemaInner {
+  title: string;
+  icon: ReactNode;
+  /** Couleur Mantine de l'encadré (bordure, teinte). */
+  color: string;
+  items: SchemaInnerItem[];
+}
+
 export interface SchemaBrick {
   id: string;
   title: string;
@@ -47,12 +65,27 @@ export interface SchemaBrick {
   icon: ReactNode;
   pos: Pt;
   emphasis?: boolean | undefined;
+  /** Largeur en px (défaut : 188 accentuée, 162 sinon) — pour un titre plus long. */
+  width?: number | undefined;
+  /** Taille de la pastille d'icône en px (défaut : 34 accentuée, 28 sinon) — une brique centrale plus massive. */
+  iconSize?: number | undefined;
+  /**
+   * Forme de la brique. `card` (défaut) : la carte titrée. `chip` : une PUCE
+   * centrale — carré à halo, logo en grand, broches de part et d'autre, nom
+   * dessous —, pour le point de passage d'un schéma (une passerelle, un hub).
+   * `width` en donne alors le côté.
+   */
+  variant?: "card" | "chip" | undefined;
+  /** Encadrés intérieurs, empilés sous le titre de la carte (`variant: "card"` seulement). */
+  inner?: SchemaInner[] | undefined;
   /** Nœud EXTERNE (hors frontière, décoratif, pas de ⓘ). */
   external?: boolean | undefined;
   /** Id du sous-schéma ouvert au CLIC (forage). Absent → clic ouvre le dialog. */
   enter?: string | undefined;
   /** La brique a une fiche ⓘ (dialog liens/docs). */
   info?: boolean | undefined;
+  /** Explication courte, montrée au survol ET au focus clavier (infobulle). */
+  hint?: string | undefined;
 }
 
 export interface SchemaLink {
@@ -60,6 +93,10 @@ export interface SchemaLink {
   to: string;
   /** Traverse une frontière de process (tracé pointillé). */
   cross?: boolean;
+  /** Ce qui circule sur le lien (protocole), écrit SUR le lien. */
+  label?: string;
+  /** Position du libellé le long du lien, de 0 (départ) à 1 (arrivée). Défaut 0,5. */
+  labelAt?: number;
 }
 
 export interface SchemaBoundary {

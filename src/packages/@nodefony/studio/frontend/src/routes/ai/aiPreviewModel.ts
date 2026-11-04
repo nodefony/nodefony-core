@@ -939,6 +939,479 @@ export const MCP_SAMPLE_FRAME = jsonRpcRequest(17, "tools/call", {
   _meta: { "io.modelcontextprotocol/protocolVersion": "2026-07-28" },
 });
 
+// ─── Passerelle d'agents — où Nodefony se place face à une passerelle ─────────
+
+/**
+ * Ce qui est déjà vrai dans Nodefony, en partie seulement, ou encore une cible.
+ * C'est la seule donnée de cet écran qui engage le framework : elle se corrige
+ * dès qu'une brique change d'état, jamais en arrondissant vers le haut.
+ */
+export type NodefonyReadiness = "real" | "partial" | "target";
+
+/** Colonne du schéma : qui émet, qui aiguille, qui répond. */
+export type GatewayColumn = "source" | "gateway" | "destination";
+
+export interface IGatewayNode {
+  id: string;
+  column: GatewayColumn;
+  label: string;
+  sub: string;
+  /** Ce que le nœud apporte, affiché quand on le sélectionne. */
+  detail: string;
+  /** Exemples du marché, pour comprendre la case — des DONNÉES affichées. */
+  examples?: string[];
+  /** Ce qui circule entre ce nœud et la passerelle, écrit sur le lien. */
+  protocol?: string;
+}
+
+/**
+ * La passerelle de référence du schéma. Son nom est une DONNÉE affichée, jamais
+ * un identifiant : le schéma vaut pour toute passerelle d'agents.
+ */
+export const GATEWAY_REFERENCE = {
+  name: "agentgateway",
+  url: "https://agentgateway.dev/",
+  tagline:
+    "Une passerelle unique pour le trafic des services, des modèles et des outils d'agents.",
+} as const;
+
+/**
+ * Les quatre fonctions que la passerelle porte en son centre, chacune avec son
+ * explication « pour les nuls » (montrée au survol du schéma).
+ */
+export const GATEWAY_FUNCTIONS: { label: string; hint: string }[] = [
+  {
+    label: "Gestion du trafic",
+    hint: "L'aiguilleur du trafic classique (HTTP, gRPC, TCP) : répartir la charge, réessayer, couper un service malade avant qu'il n'entraîne les autres.",
+  },
+  {
+    label: "Passerelle LLM",
+    hint: "Une seule porte vers tous les modèles : une clé gérée au même endroit plutôt qu'une clé par agent, et une bascule automatique si un fournisseur tombe.",
+  },
+  {
+    label: "Routage d'inférence",
+    hint: "Choisir QUEL modèle répond : le moins cher, le plus rapide, ou le modèle local quand la donnée ne doit pas sortir.",
+  },
+  {
+    label: "Passerelle MCP / A2A",
+    hint: "Les outils (MCP) et les autres agents (A2A) : la passerelle décide quel agent a le droit d'appeler quel outil, et le note.",
+  },
+];
+
+export const GATEWAY_NODES: IGatewayNode[] = [
+  {
+    id: "cli",
+    column: "source",
+    protocol: "MCP · LLM",
+    examples: ["Claude Code", "Cursor", "VS Code + Copilot", "OpenCode"],
+    label: "CLI / IDE",
+    sub: "Assistants de code et éditeurs",
+    detail:
+      "Les outils de développement qui appellent des modèles et des serveurs MCP pour le compte d'un développeur.",
+  },
+  {
+    id: "agents",
+    column: "source",
+    protocol: "A2A · MCP · LLM",
+    examples: [
+      "LangChain",
+      "LangGraph",
+      "CrewAI",
+      "Google ADK",
+      "OpenAI Agents SDK",
+      "Mastra",
+    ],
+    label: "Agents IA",
+    sub: "Bâtis sur les frameworks d'agents du marché",
+    detail:
+      "Des agents autonomes : ils appellent des modèles, des outils et d'autres agents. La passerelle voit et règle chacun de ces appels.",
+  },
+  {
+    id: "apps",
+    column: "source",
+    protocol: "HTTP · gRPC · WS",
+    examples: ["application web", "application mobile", "service interne"],
+    label: "Apps & clients",
+    sub: "Web, mobile, services, utilisateurs",
+    detail:
+      "Le trafic applicatif classique, qui passe par la même porte que le trafic des agents.",
+  },
+  {
+    id: "gateway",
+    column: "gateway",
+    label: "Passerelle d'agents",
+    sub: `${GATEWAY_REFERENCE.name} — plan de contrôle`,
+    detail:
+      "Le point de passage unique : elle aiguille, authentifie, observe et plafonne le trafic au bord du système.",
+  },
+  {
+    id: "llm",
+    column: "destination",
+    protocol: "HTTPS + SSE",
+    examples: [
+      "OpenAI",
+      "Anthropic",
+      "Google Gemini",
+      "Mistral",
+      "Ollama ou vLLM (local)",
+    ],
+    label: "Modèles (LLM)",
+    sub: "Fournisseurs cloud et inférence locale",
+    detail:
+      "Les modèles appelés derrière la passerelle : API distantes ou inférence hébergée en interne.",
+  },
+  {
+    id: "mcp",
+    column: "destination",
+    protocol: "MCP · A2A",
+    examples: [
+      "serveurs MCP GitHub, GitLab, Atlassian",
+      "agents A2A d'autres équipes",
+    ],
+    label: "MCP / A2A",
+    sub: "Serveurs d'outils et agents distants",
+    detail:
+      "Les outils exposés en MCP et les agents joignables en A2A, que la passerelle ouvre aux seuls appelants autorisés.",
+  },
+  {
+    id: "apis",
+    column: "destination",
+    protocol: "HTTP · gRPC · TCP",
+    examples: ["API REST", "services gRPC", "bases et files de messages"],
+    label: "APIs & services",
+    sub: "Trafic HTTP, gRPC et TCP",
+    detail:
+      "Les services existants de l'entreprise, que la passerelle expose aux agents comme aux applications.",
+  },
+];
+
+/**
+ * Les RÔLES qu'une application Nodefony peut tenir dans le schéma — chacun
+ * accroché à la case qu'il occupe. Une même application peut en tenir
+ * plusieurs à la fois : agent qui appelle, agent ou outils qu'on appelle, API
+ * d'entreprise.
+ */
+export interface INodefonyRole {
+  id: string;
+  /** La case du schéma où ce rôle se joue (id d'un nœud de `GATEWAY_NODES`). */
+  attachTo: string;
+  /**
+   * L'encadré où le rôle s'affiche dans sa case : les rôles d'une même boîte
+   * se rangent ensemble (un agent = une boîte).
+   */
+  box: string;
+  /** Libellé court, écrit sur la pastille du schéma. */
+  pin: string;
+  label: string;
+  readiness: NodefonyReadiness;
+  detail: string;
+}
+
+export const NODEFONY_ROLES: INodefonyRole[] = [
+  {
+    id: "r-agent-legal",
+    attachTo: "agents",
+    box: "Agent juriste",
+    pin: "contrats",
+    label: "L'agent juriste",
+    readiness: "target",
+    detail:
+      "Il lit les contrats et cite l'article applicable ; pour le faire, il appelle un modèle et ses outils à travers la passerelle. Ses documents ne quittent pas sa zone.",
+  },
+  {
+    id: "r-agent-billing",
+    attachTo: "agents",
+    box: "Agent facturation",
+    pin: "factures",
+    label: "L'agent facturation",
+    readiness: "target",
+    detail:
+      "Il lit une facture ou un échéancier et répond ; il appelle lui aussi modèles, outils et autres agents à travers la passerelle, sous les droits de l'utilisateur d'origine.",
+  },
+  // MCP / A2A : deux boîtes qui NOMMENT les choses — les outils qu'on appelle,
+  // et les agents qu'on appelle (les MÊMES que dans « Agents IA », vus de l'autre côté).
+  {
+    id: "r-mcp",
+    attachTo: "mcp",
+    box: "Outils MCP",
+    pin: `${MCP_SERVER_TOOLS.length} outils`,
+    label: "Des outils qu'on appelle (MCP)",
+    readiness: "real",
+    detail:
+      "Le serveur MCP de Nodefony sert déjà ses outils (routes, configuration, diagnostic, documentation…) sur /nodefony/mcp ; OAuth en production (ressource protégée, RFC 9728) et rôle vérifié outil par outil.",
+  },
+  {
+    id: "r-a2a-legal",
+    attachTo: "mcp",
+    box: "Agents A2A",
+    pin: "juriste",
+    label: "L'agent juriste, qu'on appelle en A2A",
+    readiness: "target",
+    detail:
+      "Le même agent juriste que dans « Agents IA », vu de l'autre côté : il publie sa carte (/.well-known/agent-card.json) et répond à SendMessage. Un autre agent, Nodefony ou non, lui confie une question de droit.",
+  },
+  {
+    id: "r-a2a-billing",
+    attachTo: "mcp",
+    box: "Agents A2A",
+    pin: "facturation",
+    label: "L'agent facturation, qu'on appelle en A2A",
+    readiness: "target",
+    detail:
+      "Le même agent facturation, vu de l'autre côté : on lui confie une tâche en A2A, et il l'exécute sous les droits de l'utilisateur d'origine.",
+  },
+  // Apps & clients : le front de l'application, bâti et servi par Nodefony.
+  {
+    id: "r-front",
+    attachTo: "apps",
+    box: "Front Nodefony",
+    pin: "React · Vue · Angular",
+    label: "Le front de l'application",
+    readiness: "real",
+    detail:
+      "Nodefony bâtit et sert le front avec Vite (React, Vue ou Angular), rechargement à chaud compris. Ses appels au serveur passent par la passerelle comme le reste du trafic.",
+  },
+  {
+    id: "r-socket",
+    attachTo: "apps",
+    box: "Front Nodefony",
+    pin: "socket temps réel",
+    label: "Le client temps réel, dans le navigateur",
+    readiness: "real",
+    detail:
+      "Le client isomorphe `nodefony` tourne dans le navigateur : socket temps réel (JSON-RPC sur WebSocket), connexion, appels au serveur — le même code que côté serveur.",
+  },
+  {
+    id: "r-rest",
+    attachTo: "apis",
+    box: "API d'entreprise",
+    pin: "REST · WS",
+    label: "Une API d'entreprise (HTTP + WebSocket)",
+    readiness: "real",
+    detail:
+      "Le même contrôleur sert HTTP et WebSocket, sous la même garde : pare-feu, rôles, traçabilité.",
+  },
+  {
+    id: "r-grpc",
+    attachTo: "apis",
+    box: "API d'entreprise",
+    pin: "gRPC",
+    label: "Des services gRPC",
+    readiness: "target",
+    detail:
+      "Une action exposée en gRPC, en plus du HTTP et du temps réel, sans être réécrite.",
+  },
+];
+
+/**
+ * Les cinq verbes de la passerelle, et ce que Nodefony fait du même verbe à
+ * l'intérieur de l'application. La passerelle règle le TRAFIC ; Nodefony règle
+ * ce que l'application fait de la DONNÉE, de l'utilisateur et de l'action.
+ */
+export const GATEWAY_PILLARS: {
+  verb: string;
+  atGateway: string;
+  inNodefony: string;
+  readiness: NodefonyReadiness;
+}[] = [
+  {
+    verb: "Router",
+    atGateway: "Aiguiller chaque appel vers le bon modèle, outil ou service.",
+    inNodefony:
+      "Un routeur unique HTTP + WebSocket ; la porte MCP existe, A2A et gRPC sont à venir.",
+    readiness: "partial",
+  },
+  {
+    verb: "Sécuriser",
+    atGateway: "Authentifier au bord : jetons, mTLS, clés, limites de débit.",
+    inNodefony:
+      "Pare-feu applicatif, OAuth, rôles : un outil d'agent obéit aux mêmes règles qu'une route HTTP.",
+    readiness: "real",
+  },
+  {
+    verb: "Observer",
+    atGateway: "Tracer et mesurer le trafic qui traverse la passerelle.",
+    inNodefony:
+      "Un requestId de bout en bout (requête, base de données, journaux), visible dans cette console.",
+    readiness: "real",
+  },
+  {
+    verb: "Gouverner",
+    atGateway: "Politiques d'accès aux outils, garde-fous sur les prompts.",
+    inNodefony:
+      "Zones de confiance, validation humaine, disjoncteur et audit signé, au plus près de la donnée.",
+    readiness: "target",
+  },
+  {
+    verb: "Coûts",
+    atGateway: "Budgets, clés virtuelles, dépenses par modèle.",
+    inNodefony:
+      "Coût par agent, par utilisateur et par requête, corrélé au requestId.",
+    readiness: "target",
+  },
+];
+
+/**
+ * La passerelle expliquée « pour les nuls », en quatre temps : l'image, le
+ * problème, ce qu'elle fait, et ce qu'elle ne voit pas — là où Nodefony entre.
+ */
+export const GATEWAY_FOR_DUMMIES: {
+  title: string;
+  body: string;
+  /** Le temps où Nodefony intervient porte son logo. */
+  nodefony?: boolean;
+}[] = [
+  {
+    title: "L'image",
+    body: "Un poste de péage. Tout ce qui circule entre les agents, les modèles et les outils passe par une seule barrière, au lieu de mille petites routes sans contrôle.",
+  },
+  {
+    title: "Le problème",
+    body: "Chaque agent appelle des modèles, des outils et d'autres agents, chacun avec ses clés, ses règles et ses coûts. Contrôler cela agent par agent devient vite impossible.",
+  },
+  {
+    title: "Ce qu'elle fait",
+    body: "À la barrière : elle vérifie qui appelle, envoie au bon endroit, note tout, applique les règles d'accès et compte la dépense. Elle RELAIE le protocole sans en imposer : du MCP repart en MCP, de l'A2A en A2A, du gRPC en gRPC.",
+  },
+  {
+    title: "Ce qu'elle ne voit pas",
+    body: "L'intérieur de l'application : quel utilisateur est derrière l'appel, quelle donnée est sensible, quelle action exige un humain. C'est le rôle de Nodefony, derrière la barrière — réel aujourd'hui pour la sécurité et la traçabilité, en cible pour le reste.",
+    nodefony: true,
+  },
+];
+
+/**
+ * Qui parle quoi — chaque échange du schéma, avec son protocole, ce qui le
+ * transporte, et la façon dont une réponse longue arrive en flux. Source : les
+ * normes embarquées (MCP 2026-07-28, A2A 1.0, gRPC).
+ */
+export const PROTOCOLS: {
+  exchange: string;
+  protocol: string;
+  transport: string;
+  stream: string;
+  /** Ce que Nodefony en fait aujourd'hui. */
+  readiness: NodefonyReadiness;
+}[] = [
+  {
+    exchange: "Agent → modèle (LLM)",
+    protocol: "API du fournisseur",
+    transport: "HTTPS",
+    stream: "SSE : les jetons arrivent un à un",
+    readiness: "target",
+  },
+  {
+    exchange: "Agent → outils",
+    protocol: "MCP (JSON-RPC 2.0)",
+    transport: "Streamable HTTP, ou stdio en local",
+    stream: "SSE dans la réponse HTTP",
+    readiness: "real",
+  },
+  {
+    exchange: "Agent → agent",
+    protocol: "A2A 1.0",
+    transport: "JSON-RPC 2.0, gRPC ou HTTP+JSON",
+    stream: "SSE, ou flux serveur gRPC",
+    readiness: "target",
+  },
+  {
+    exchange: "Service → service",
+    protocol: "gRPC (contrat .proto)",
+    transport: "HTTP/2",
+    stream: "flux gRPC, dans les deux sens",
+    readiness: "target",
+  },
+  {
+    exchange: "Navigateur ↔ application",
+    protocol: "HTTP + WebSocket (JSON-RPC 2.0)",
+    transport: "HTTP/1.1 ou HTTP/2, WS",
+    stream: "WebSocket : temps réel dans les deux sens",
+    readiness: "real",
+  },
+];
+
+/** Un agent Nodefony du dialogue A2A (même forme qu'une brique du schéma). */
+export interface IDialogueAgent {
+  id: string;
+  label: string;
+  sub: string;
+  detail: string;
+  nodefony: NodefonyReadiness;
+  /** Pods de son application, dans le déploiement « séparé ». */
+  pods: number;
+}
+
+/** Trois agents d'applications Nodefony : l'un demande, deux répondent. */
+export const DIALOGUE_AGENTS: IDialogueAgent[] = [
+  {
+    id: "a-support",
+    label: "Support",
+    sub: "Application « support » — elle ne charge que l'agent support",
+    nodefony: "target",
+    pods: 3,
+    detail:
+      "Un client demande s'il peut résilier. L'agent support ne connaît pas le droit : il pose la question à l'agent juriste, en A2A, à travers la passerelle.",
+  },
+  {
+    id: "a-legal",
+    label: "Juriste",
+    sub: "Application « juriste » — elle ne charge que l'agent juriste",
+    nodefony: "target",
+    pods: 10,
+    detail:
+      "Très demandé : son application tourne sur 10 pods, sans en imposer 10 aux autres. Ses contrats ne quittent pas sa zone : il rend une réponse sourcée, jamais le document entier.",
+  },
+  {
+    id: "a-billing",
+    label: "Facturation",
+    sub: "Application « facturation » — elle ne charge que l'agent facturation",
+    nodefony: "target",
+    pods: 2,
+    detail:
+      "Peu demandé : 2 pods suffisent. Il applique les droits de l'utilisateur d'ORIGINE, pas ceux de l'agent qui l'appelle.",
+  },
+];
+
+/** Le dialogue, étape par étape — ce qui se passe sur le fil, et qui le fait. */
+export const DIALOGUE_STEPS: {
+  title: string;
+  body: string;
+  /** Qui porte l'étape : la passerelle, ou Nodefony dans l'application. */
+  by: "gateway" | "nodefony";
+  readiness: NodefonyReadiness;
+}[] = [
+  {
+    title: "Se présenter",
+    body: "Chaque agent publie sa carte, à /.well-known/agent-card.json : ce qu'il sait faire, comment le joindre, quelle authentification il exige.",
+    by: "nodefony",
+    readiness: "target",
+  },
+  {
+    title: "Demander",
+    body: "L'agent support envoie SendMessage à l'agent juriste (SendStreamingMessage si la réponse est longue), à travers la passerelle.",
+    by: "nodefony",
+    readiness: "target",
+  },
+  {
+    title: "Contrôler",
+    body: "La passerelle vérifie que l'agent support a le droit de parler à l'agent juriste, trace l'échange et compte son coût.",
+    by: "gateway",
+    readiness: "real",
+  },
+  {
+    title: "Garder l'utilisateur",
+    body: "Nodefony transmet l'identité de l'utilisateur d'origine : l'agent juriste applique SES droits, avec le même pare-feu qu'une route HTTP.",
+    by: "nodefony",
+    readiness: "partial",
+  },
+  {
+    title: "Répondre",
+    body: "L'agent juriste rend une tâche terminée, ou un flux d'étapes ; l'agent support répond au client.",
+    by: "nodefony",
+    readiness: "target",
+  },
+];
+
 // ─── Chat — la réponse d'un agent, étape par étape ───────────────────────────
 
 /** Une étape visible du raisonnement d'un agent dans le chat. */
@@ -976,8 +1449,17 @@ export interface IChatPlan {
  */
 export function planChatReply(
   question: string,
-  agent: IPreviewAgent = AGENTS[0] as IPreviewAgent,
+  agent: IPreviewAgent | undefined = AGENTS[0],
 ): IChatPlan {
+  // Catalogue d'agents vide : rien à planifier, et on le dit.
+  if (!agent) {
+    return {
+      steps: [],
+      citations: [],
+      answer: "Aucun agent n'est configuré.",
+      usage: { inputTokens: 0, outputTokens: 0, costEur: 0, model: "—" },
+    };
+  }
   const model = agent.model;
   // Disjoncteur ouvert : l'agent est coupé, il ne répond plus à personne.
   if (agent.breaker === "open") {

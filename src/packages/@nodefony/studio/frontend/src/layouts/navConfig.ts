@@ -38,6 +38,7 @@ import {
   IconVector,
   IconArchive,
   IconPlug,
+  IconRouter,
   IconChecklist,
   IconFileCertificate,
   IconCoin,
@@ -376,6 +377,14 @@ export const NAV_GROUPS: NavGroup[] = [
         to: "/nodefony/mcp",
         label: "MCP",
         icon: IconPlug,
+        wip: true,
+        preview: true,
+      },
+      {
+        // Où se place Nodefony face à une passerelle d'agents (MCP, A2A, gRPC).
+        to: "/nodefony/gateway",
+        label: "Passerelle d'agents",
+        icon: IconRouter,
         wip: true,
         preview: true,
       },

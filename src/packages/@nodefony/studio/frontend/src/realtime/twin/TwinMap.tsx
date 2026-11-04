@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
+  type ReactElement,
   type RefObject,
 } from "react";
 import {
@@ -16,7 +17,7 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { IconChevronRight, IconInfoCircle } from "@tabler/icons-react";
-import type { LiveNodeData } from "../../components/ui";
+import { Hint, type LiveNodeData } from "../../components/ui";
 import type { NormalizedHealth } from "../../utils/realtimeHealth";
 import { useTwinLive } from "./twinLive";
 import { useRecentLogActivity } from "./twinArchitecture";
@@ -73,6 +74,32 @@ function ensureTwinMapStyles() {
 const mc = (color: string, shade: number) =>
   `var(--mantine-color-${color}-${shade})`;
 
+/**
+ * Explication d'une brique (`hint`) : la FICHE de la charte Studio (`Hint`),
+ * jamais une infobulle brute — au survol ET au focus clavier.
+ *
+ * @param interactive - la brique est déjà un bouton : elle sert de cible
+ *   telle quelle (pas de bouton dans un bouton).
+ */
+function withHint(
+  brick: SchemaBrick,
+  node: ReactElement,
+  interactive: boolean,
+) {
+  if (!brick.hint) return node;
+  return (
+    <Hint
+      kind="tip"
+      title={brick.title}
+      summary={brick.hint}
+      width={320}
+      interactive={interactive}
+    >
+      {node}
+    </Hint>
+  );
+}
+
 /** Une brique INTERNE : clic = entrer/dialog, ⓘ = dialog. */
 function InternalBrick({
   brick,
@@ -112,7 +139,7 @@ function InternalBrick({
       oy: pos.y,
       moved: false,
     };
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    e.currentTarget.setPointerCapture(e.pointerId);
   };
   const onPointerMove = (e: ReactPointerEvent) => {
     const d = drag.current;
@@ -132,13 +159,14 @@ function InternalBrick({
     const d = drag.current;
     drag.current = null;
     try {
-      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      e.currentTarget.releasePointerCapture(e.pointerId);
     } catch {
       /* capture déjà relâchée */
     }
     if (d && !d.moved) handleMain();
   };
-  return (
+  return withHint(
+    brick,
     <Box
       role="button"
       tabIndex={0}
@@ -152,7 +180,13 @@ function InternalBrick({
           handleMain();
         }
       }}
-      aria-label={`${brick.title}${brick.enter ? " — entrer dans le détail" : " — ouvrir la fiche"}`}
+      // Avec un encadré intérieur, le nom accessible vient du CONTENU : il contient
+      // alors tout le texte visible (WCAG 2.5.3) — un aria-label le tronquerait.
+      aria-label={
+        brick.inner
+          ? undefined
+          : `${brick.title}${brick.enter ? " — entrer dans le détail" : " — ouvrir la fiche"}`
+      }
       style={{
         position: "absolute",
         left: `${pos.x}%`,
@@ -168,7 +202,7 @@ function InternalBrick({
         p="xs"
         withBorder
         style={{
-          width: brick.emphasis ? 188 : 162,
+          width: brick.width ?? (brick.emphasis ? 188 : 162),
           borderColor: mc(brick.color, 5),
           borderWidth: brick.emphasis ? 2 : 1,
           background: `color-mix(in srgb, ${mc(brick.color, 6)} 14%, var(--mantine-color-body))`,
@@ -181,7 +215,7 @@ function InternalBrick({
           <ThemeIcon
             variant="light"
             color={brick.color}
-            size={brick.emphasis ? 34 : 28}
+            size={brick.iconSize ?? (brick.emphasis ? 34 : 28)}
             radius="md"
             style={{ flexShrink: 0 }}
           >
@@ -245,8 +279,167 @@ function InternalBrick({
             </Group>
           </Box>
         </Group>
+        {brick.inner?.map((box) => (
+          <Box
+            key={box.title}
+            mt={8}
+            p={6}
+            style={{
+              borderRadius: 8,
+              border: `1px solid ${mc(box.color, 5)}`,
+              background: `color-mix(in srgb, ${mc(box.color, 6)} 12%, var(--mantine-color-body))`,
+            }}
+          >
+            <Group gap={6} mb={4} wrap="nowrap">
+              {box.icon}
+              <Text
+                size="xs"
+                fw={700}
+                tt="uppercase"
+                style={{ letterSpacing: 0.6 }}
+              >
+                {box.title}
+              </Text>
+            </Group>
+            <Group gap={4}>
+              {box.items.map((it) => (
+                <Group
+                  key={it.label}
+                  gap={4}
+                  wrap="nowrap"
+                  px={6}
+                  py={1}
+                  style={{
+                    borderRadius: 999,
+                    border: `1px ${it.active ? "solid" : "dashed"} ${it.active ? mc(box.color, 5) : "var(--mantine-color-default-border)"}`,
+                  }}
+                >
+                  <span
+                    className={`nf-tm-dot is-${it.active ? "ok" : "idle"}`}
+                    aria-hidden
+                  />
+                  <Text size="xs" fw={600}>
+                    {it.label}
+                  </Text>
+                </Group>
+              ))}
+            </Group>
+          </Box>
+        ))}
       </Paper>
-    </Box>
+    </Box>,
+    true,
+  );
+}
+
+/** Côté de la puce par défaut (px). */
+const CHIP_SIDE = 160;
+/** Hauteur des broches, en part du côté : trois de chaque côté. */
+const CHIP_PINS = [0.28, 0.5, 0.72] as const;
+
+/**
+ * Une PUCE (`variant: "chip"`) : le point de passage d'un schéma, dessiné
+ * comme un circuit — carré à halo, liseré pointillé, logo en grand, trois
+ * broches de chaque côté où arrivent les liens, nom sous la puce. Clic ou
+ * Entrée = la fiche (`onInfo`) ; elle ne se déplace pas.
+ */
+function ChipBrick({
+  brick,
+  onInfo,
+}: {
+  brick: SchemaBrick;
+  onInfo: (id: string) => void;
+}) {
+  const side = brick.width ?? CHIP_SIDE;
+  const accent = (shade: number) => mc(brick.color, shade);
+  return withHint(
+    brick,
+    <Box
+      role="button"
+      tabIndex={0}
+      className="nf-tm-brick"
+      aria-label={`${brick.title} — ouvrir la fiche`}
+      onClick={() => onInfo(brick.id)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onInfo(brick.id);
+        }
+      }}
+      style={{
+        position: "absolute",
+        left: `${brick.pos.x}%`,
+        top: `${brick.pos.y}%`,
+        transform: "translate(-50%,-50%)",
+        zIndex: 2,
+        width: side,
+        height: side,
+      }}
+    >
+      <Box
+        style={{
+          position: "absolute",
+          inset: 0,
+          borderRadius: side * 0.17,
+          border: `1.5px solid ${accent(5)}`,
+          background: `color-mix(in srgb, ${accent(6)} 16%, var(--mantine-color-body))`,
+          // Le halo : statique (aucune animation), il dit « point central ».
+          boxShadow: `0 0 ${side * 0.4}px ${side * 0.12}px color-mix(in srgb, ${accent(6)} 30%, transparent)`,
+        }}
+      />
+      <Box
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: side * 0.08,
+          borderRadius: side * 0.13,
+          border: `1px dashed color-mix(in srgb, ${accent(4)} 45%, transparent)`,
+        }}
+      />
+      {CHIP_PINS.flatMap((at) =>
+        (["left", "right"] as const).map((edge) => (
+          <Box
+            key={`${edge}-${at}`}
+            aria-hidden
+            style={{
+              position: "absolute",
+              [edge]: -6,
+              top: `calc(${at * 100}% - 3px)`,
+              width: 8,
+              height: 6,
+              borderRadius: 1,
+              background: accent(4),
+            }}
+          />
+        )),
+      )}
+      <Box
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {brick.icon}
+      </Box>
+      <Text
+        fw={700}
+        size="sm"
+        ta="center"
+        style={{
+          position: "absolute",
+          top: "100%",
+          left: "50%",
+          transform: "translate(-50%, 10px)",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {brick.title}
+      </Text>
+    </Box>,
+    true,
   );
 }
 
@@ -259,6 +452,8 @@ function ExternalBrick({
   live: LiveNodeData | undefined;
 }) {
   const active = live?.status === "ok";
+  // Le positionnement reste sur la boîte EXTÉRIEURE : la fiche s'accroche à la
+  // pastille, et le bouton que `Hint` pose autour la rend atteignable au clavier.
   return (
     <Box
       style={{
@@ -267,44 +462,51 @@ function ExternalBrick({
         top: `${brick.pos.y}%`,
         transform: "translate(-50%,-50%)",
         zIndex: 2,
+        // Largeur NATURELLE : près du bord droit, une boîte absolue se rétrécit
+        // à la place qui reste, et son libellé se replie mot à mot.
+        width: "max-content",
       }}
     >
-      <Group
-        gap={6}
-        wrap="nowrap"
-        px="xs"
-        py={4}
-        style={{
-          border: `1px ${active ? "solid" : "dashed"} ${active ? mc(brick.color === "gray" ? "teal" : brick.color, 5) : "var(--mantine-color-dimmed)"}`,
-          borderRadius: 999,
-          opacity: active ? 1 : 0.6,
-          background: active
-            ? `color-mix(in srgb, var(--mantine-color-teal-6) 10%, var(--mantine-color-body))`
-            : undefined,
-        }}
-      >
-        <ThemeIcon
-          variant="transparent"
-          color={active ? "teal" : "gray"}
-          size={18}
+      {withHint(
+        brick,
+        <Group
+          gap={6}
+          wrap="nowrap"
+          px="xs"
+          py={4}
+          style={{
+            border: `1px ${active ? "solid" : "dashed"} ${active ? mc(brick.color === "gray" ? "teal" : brick.color, 5) : "var(--mantine-color-dimmed)"}`,
+            borderRadius: 999,
+            opacity: active ? 1 : 0.6,
+            background: active
+              ? `color-mix(in srgb, var(--mantine-color-teal-6) 10%, var(--mantine-color-body))`
+              : undefined,
+          }}
         >
-          {brick.icon}
-        </ThemeIcon>
-        <Box>
-          <Text
-            size="xs"
-            c={active ? undefined : "dimmed"}
-            fw={active ? 600 : 400}
+          <ThemeIcon
+            variant="transparent"
+            color={active ? "teal" : "gray"}
+            size={18}
           >
-            {brick.title}
-          </Text>
-          {live?.metrics?.[0] ? (
-            <Text size="9px" c="dimmed" lh={1}>
-              {live.metrics[0].label}
+            {brick.icon}
+          </ThemeIcon>
+          <Box>
+            <Text
+              size="xs"
+              c={active ? undefined : "dimmed"}
+              fw={active ? 600 : 400}
+            >
+              {brick.title}
             </Text>
-          ) : null}
-        </Box>
-      </Group>
+            {live?.metrics?.[0] ? (
+              <Text size="9px" c="dimmed" lh={1}>
+                {live.metrics[0].label}
+              </Text>
+            ) : null}
+          </Box>
+        </Group>,
+        false,
+      )}
     </Box>
   );
 }
@@ -376,7 +578,9 @@ export function TwinMap({
   return (
     <Box
       ref={containerRef}
-      role="img"
+      // `figure`, pas `img` : un `img` rend ses enfants présentationnels, or les
+      // briques sont des boutons — WCAG 4.1.2, règle axe `nested-interactive`.
+      role="figure"
       aria-label={`Carte d'architecture : ${schema.title}`}
       style={{
         position: "relative",
@@ -415,13 +619,46 @@ export function TwinMap({
         })}
       </svg>
 
+      {/* Ce qui circule sur un lien (protocole), posé SUR le lien. */}
+      {schema.links.map((l, i) => {
+        if (!l.label) return null;
+        const a = posOf(l.from);
+        const b = posOf(l.to);
+        const t = l.labelAt ?? 0.5;
+        return (
+          <Text
+            // oxlint-disable-next-line react/no-array-index-key -- schéma statique de la carte, jamais réordonné
+            key={`label-${i}`}
+            size="10px"
+            fw={600}
+            style={{
+              position: "absolute",
+              left: `${a.x + (b.x - a.x) * t}%`,
+              top: `${a.y + (b.y - a.y) * t}%`,
+              transform: "translate(-50%,-50%)",
+              zIndex: 1,
+              pointerEvents: "none",
+              whiteSpace: "nowrap",
+              padding: "1px 6px",
+              borderRadius: 999,
+              background: "var(--mantine-color-body)",
+              border: "1px solid var(--mantine-color-default-border)",
+            }}
+          >
+            {l.label}
+          </Text>
+        );
+      })}
+
       {schema.boundaries.map((bd, i) => (
         // oxlint-disable-next-line react/no-array-index-key -- schéma statique de la carte, jamais réordonné
         <Boundary key={i} y={bd.y} label={bd.label} />
       ))}
 
       {schema.bricks.map((brick) =>
-        brick.external ? (
+        brick.variant === "chip" ? (
+          <ChipBrick key={brick.id} brick={brick} onInfo={onInfo} />
+        ) : brick.external ? (
           <ExternalBrick
             key={brick.id}
             brick={brick}

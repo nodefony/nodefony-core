@@ -108,6 +108,13 @@ export interface HintProps {
    * plutôt que chez chaque appelant.
    */
   block?: boolean;
+  /**
+   * Le déclencheur `children` EST déjà un contrôle (rôle bouton, focusable,
+   * `ref` acceptée) — une brique cliquable de carte, par exemple. Il devient
+   * alors la cible telle quelle : l'envelopper dans un second bouton
+   * imbriquerait deux contrôles (WCAG 4.1.2, axe `nested-interactive`).
+   */
+  interactive?: boolean;
 }
 
 // Défauts HISSÉS : un `[]` en valeur par défaut serait un tableau neuf à chaque rendu.
@@ -135,6 +142,7 @@ export function Hint({
   width = 360,
   children,
   block = false,
+  interactive = false,
 }: HintProps) {
   const cfg = HINT_KINDS[kind];
   const Trigger = cfg.trigger;
@@ -169,7 +177,9 @@ export function Hint({
           Corollaire pour l'appelant : ne plus poser de `tabIndex` sur l'enfant,
           il ferait un second arrêt de tabulation sur la même chose.
         */}
-        {children ? (
+        {children && interactive ? (
+          children
+        ) : children ? (
           // Pas d'`aria-label` ici : il REMPLACERAIT le texte visible de
           // l'enfant (« validé Zod ») par celui de la fiche — WCAG 2.5.3, axe
           // `label-content-name-mismatch`. Le nom = le visible, puis la fiche
