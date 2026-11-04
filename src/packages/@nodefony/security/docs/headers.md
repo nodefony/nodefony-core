@@ -259,7 +259,22 @@ réfléchi) devient un vecteur d'exécution de code. Le CSP est le filet quand l
 est **strict** — `'self'` plus le nonce de la requête, ce qui est la vraie défense XSS. Le reste
 couvre les besoins réels d'une app moderne (CSS-in-JS via `style-src 'unsafe-inline'`, images
 `data:`/`blob:`, workers, fetch/WS same-origin) et ajoute les durcissements gratuits :
-`object-src 'none'`, `base-uri 'self'`, `form-action 'self'`.
+`object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `upgrade-insecure-requests`.
+
+**`upgrade-insecure-requests` ne part que sur une page servie en `https`.** Le navigateur réécrit
+alors en `https` chaque sous-ressource écrite en `http://` (image, script, socket) au lieu de la
+charger en clair. Sur une page servie en `http` — le développement sur `http://localhost` — la
+même réécriture viserait un `https` que le serveur ne sert pas, et la page perdrait ses
+ressources : la directive y est donc retirée. Les deux variantes de la politique sont composées au
+démarrage (`securityHeaders.ts#SecurityHeaders`) ; par réponse, Nodefony lit seulement le schéma
+de la requête, qui tient compte du proxy de confiance. Derrière un proxy qui termine le TLS,
+régler `trustProxy` du module http, sinon la page est vue en clair et la directive ne part pas.
+Pour la couper partout, la retirer de `csp` ; pour l'avoir dans une politique écrite à la main,
+l'y ajouter.
+
+`base-uri` reste à `'self'` plutôt qu'à `'none'` : `'self'` empêche déjà une balise `<base>`
+injectée de détourner les scripts vers un hôte tiers, et `'none'` casserait les applications qui
+posent `<base href="/">` ou vivent sous un sous-chemin.
 
 **Pourquoi ce compromis** : un CSP qui casse l'application est désactivé par le premier développeur
 pressé. Un CSP strict là où ça compte (`script-src`) et permissif là où ça ne coûte rien (styles,
