@@ -3648,8 +3648,10 @@ export const TASKS = [
         // dans un fichier), et le juge tranche l'effet. Exiger l'une des deux
         // mesurerait la conformité à un chemin.
         kind: "code",
-        name: "voie prévue employée (nonce de la requête ou script servi)",
-        pattern: /cspNonce|<script\s+[^>]*src\s*=/u,
+        // Un `<script src>` SANS nonce n'est pas une voie : sous
+        // `'strict-dynamic'` un navigateur CSP3 ignore `'self'` (ADR-0024 §C1).
+        name: "voie prévue employée (nonce de la requête ou vue signée)",
+        pattern: /cspNonce|renderView\s*\(/u,
         where: "content",
         observe: true,
       },

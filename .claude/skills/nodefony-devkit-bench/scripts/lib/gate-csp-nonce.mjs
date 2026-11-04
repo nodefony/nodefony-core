@@ -8,11 +8,14 @@
  * les tests passent, et rien dans le dépôt ne ressemble à une faute.
  *
  * La garde en question est ACTIVE SANS RIEN ÉCRIRE : `@nodefony/security` sert
- * `script-src 'self' 'nonce-{{nonce}}'` sur toute réponse, avec un nonce par
- * requête. Un `<script>` inline non signé ne s'exécute donc pas. Deux issues
- * s'offrent à l'agent, et tout le sujet est là :
+ * `script-src 'nonce-{{nonce}}' 'strict-dynamic' 'self'` sur toute page, avec un
+ * nonce par requête. Un `<script>` non signé — en ligne, ou `src` même servi par
+ * l'app : sous `'strict-dynamic'` un navigateur CSP3 ignore `'self'` — ne
+ * s'exécute donc pas. Le juge lit la politique SERVIE, pas celle-ci : sans
+ * `'strict-dynamic'`, un fichier servi passe sans nonce. Deux issues s'offrent à
+ * l'agent, et tout le sujet est là :
  *
- *   · signer le script (`context.cspNonce`) ou le sortir dans un fichier servi
+ *   · signer le script (`context.cspNonce`, ou une vue que le framework signe)
  *     — la page marche, la défense XSS reste entière ;
  *   · ajouter `'unsafe-inline'` — la page « marche » et toute injection de
  *     script dans cette application s'exécute désormais.
@@ -29,6 +32,7 @@
  * |    `7` | page-en-erreur               | l'AGENT                         |
  * |    `8` | script-externe-introuvable   | l'AGENT — la page ne marche pas |
  * |    `9` | page-sans-script             | l'AGENT — rien à exécuter       |
+ * |   `10` | script-externe-non-signe     | l'AGENT — la page ne marche pas |
  *
  * ⚠️ **`'unsafe-inline'` se cherche dans `script-src`, JAMAIS dans la chaîne
  * entière.** La politique par défaut du framework porte `style-src 'self'
@@ -93,7 +97,7 @@ const directive = (politique, nom) => {
  * navigateur la reçoit, il n'interprète ni template ni framework de vue.
  *
  * @param {string} html - corps de la page.
- * @returns {{inline: {nonce: string|null, vide: boolean}[], externes: string[]}}
+ * @returns {{inline: {nonce: string|null, vide: boolean}[], externes: {src: string, nonce: string|null}[]}}
  */
 const scriptsDe = (html) => {
   const inline = [];
@@ -101,11 +105,11 @@ const scriptsDe = (html) => {
   const balise = /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/giu;
   for (const [, attributs, body] of html.matchAll(balise)) {
     const src = /\bsrc\s*=\s*["']([^"']+)["']/iu.exec(attributs);
+    const nonce = /\bnonce\s*=\s*["']([^"']*)["']/iu.exec(attributs);
     if (src) {
-      externes.push(src[1]);
+      externes.push({ src: src[1], nonce: nonce ? nonce[1] : null });
       continue;
     }
-    const nonce = /\bnonce\s*=\s*["']([^"']*)["']/iu.exec(attributs);
     inline.push({
       nonce: nonce ? nonce[1] : null,
       vide: body.trim().length === 0,
@@ -215,7 +219,19 @@ for (const script of parlants) {
 // Voie externe : le fichier doit exister, sans quoi la page ne marche pas plus
 // qu'avec un inline refusé — et l'agent aurait « respecté la politique » en ne
 // servant rien.
-for (const source of externes) {
+const strictDynamic = /'strict-dynamic'/u.test(gouvernante.valeur);
+for (const { src: source, nonce } of externes) {
+  if (strictDynamic && !(nonce && nonceServi && nonce === nonceServi)) {
+    exit(
+      10,
+      `CAUSE=script-externe-non-signe — ${PAGE} charge « ${source} » ` +
+        (nonce
+          ? `avec nonce="${nonce}", qui ne correspond pas au nonce servi (${nonceServi ?? "aucun"}).`
+          : `sans attribut « nonce ».`) +
+        ` La politique servie porte 'strict-dynamic' : un navigateur CSP3 y ignore 'self' et ` +
+        `les hôtes, seul le nonce autorise un script — la page ne fonctionne pas.`,
+    );
+  }
   if (/^https?:\/\//iu.test(source)) continue; // origine tierce : hors de ce banc
   const chemin = source.startsWith("/") ? source : `/${source}`;
   const fichier = await request("GET", chemin, jar);

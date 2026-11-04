@@ -239,6 +239,7 @@ export const IMPUTATIONS = Object.freeze({
   "page-en-erreur": AGENT,
   "page-sans-script": AGENT,
   "script-externe-introuvable": AGENT,
+  "script-externe-non-signe": AGENT,
   "lecture-non-servie": AGENT,
   "creation-refusee": AGENT,
   "liste-vide": AGENT,

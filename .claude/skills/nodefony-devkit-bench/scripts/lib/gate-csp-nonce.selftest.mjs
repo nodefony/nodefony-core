@@ -45,8 +45,13 @@ const PORT = String(await portLibre());
 
 /** La politique que `@nodefony/security` sert sans qu'on écrive quoi que ce soit. */
 const CSP_DEFAUT =
-  "default-src 'self'; script-src 'self' 'nonce-{{n}}'; style-src 'self' 'unsafe-inline'; " +
-  "img-src 'self' data:; object-src 'none'; base-uri 'self'";
+  "default-src 'self'; script-src 'nonce-{{n}}' 'strict-dynamic' 'self'; " +
+  "style-src 'self' 'unsafe-inline' 'nonce-{{n}}'; style-src-attr 'unsafe-inline'; " +
+  "img-src 'self' data: blob:; object-src 'none'; base-uri 'self'";
+
+/** Une politique SANS `'strict-dynamic'` : là, `'self'` autorise un fichier servi. */
+const CSP_SANS_STRICT_DYNAMIC =
+  "default-src 'self'; script-src 'self' 'nonce-{{n}}'; style-src 'self' 'unsafe-inline'";
 
 const run = (args) =>
   new Promise((resolve) => {
@@ -75,7 +80,8 @@ const app =
       // rend un nonce recopié dans un gabarit détectable.
       const nonce = `n${Math.floor(Math.random() * 1e9).toString(36)}`;
       const headers = { "content-type": "text/html" };
-      if (csp) headers["content-security-policy"] = csp.replace("{{n}}", nonce);
+      if (csp)
+        headers["content-security-policy"] = csp.replaceAll("{{n}}", nonce);
       res.writeHead(status, headers);
       return res.end(body(nonce));
     }
@@ -96,10 +102,21 @@ const pageSignee = (nonce) =>
 const CAS = {
   // ── conformité, sous ses deux formes légitimes ───────────────────────────
   conforme: [0, app({ body: pageSignee })],
-  // Le script sorti dans un fichier servi : aucune signature nécessaire.
-  conformeExterne: [
+  // Le script sorti dans un fichier servi ET signé.
+  conformeExterneSigne: [
     0,
     app({
+      body: (n) =>
+        `<!doctype html><html><body><p id="c">0</p><script nonce="${n}" src="/js/widget.js"></script></body></html>`,
+      fichiers: { "/js/widget.js": "let n=0;" },
+    }),
+  ],
+  // Sans 'strict-dynamic', 'self' autorise un fichier servi sans nonce : le juge
+  // lit la politique SERVIE, il ne suppose pas la nôtre.
+  externeSansStrictDynamic: [
+    0,
+    app({
+      csp: CSP_SANS_STRICT_DYNAMIC,
       body: () =>
         `<!doctype html><html><body><p id="c">0</p><script src="/js/widget.js"></script></body></html>`,
       fichiers: { "/js/widget.js": "let n=0;" },
@@ -185,8 +202,18 @@ const CAS = {
   scriptExterneIntrouvable: [
     8,
     app({
+      body: (n) =>
+        `<!doctype html><html><body><script nonce="${n}" src="/js/absent.js"></script></body></html>`,
+    }),
+  ],
+  // 🔴 Sous 'strict-dynamic', un navigateur CSP3 ignore 'self' : un fichier
+  // servi SANS nonce est bloqué. Le juge le rendait vert — page blanche.
+  externeNonSigne: [
+    10,
+    app({
       body: () =>
-        `<!doctype html><html><body><script src="/js/absent.js"></script></body></html>`,
+        `<!doctype html><html><body><p id="c">0</p><script src="/js/widget.js"></script></body></html>`,
+      fichiers: { "/js/widget.js": "let n=0;" },
     }),
   ],
   pageSansScript: [

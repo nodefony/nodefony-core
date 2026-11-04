@@ -2866,11 +2866,14 @@ const SAMPLES = {
       },
     ],
   },
-  "22 :: voie prévue employée (nonce de la requête ou script servi)": {
+  "22 :: voie prévue employée (nonce de la requête ou vue signée)": {
     pass: {
       content: `return this.render(\`<script nonce="\${this.context.cspNonce}">let n=0;</script>\`);`,
     },
-    fail: { content: `return this.render("<script>let n=0;</script>");` },
+    // Un script servi SANS nonce : bloqué sous 'strict-dynamic', pas une voie.
+    fail: {
+      content: `return this.render('<script src="/widget.js"></script>');`,
+    },
   },
 
   // ── T23 — provenance des mutations ────────────────────────────────────────

@@ -19,11 +19,11 @@
 > paraissent absentes. Une commande les lit, avec la ligne exacte :
 > `node node_modules/@nodefony/devkit/skills/nodefony-dev/scripts/docs.mjs <termes>`.
 >
-> **Tu RENDS une réponse ?** `return this.renderJson(obj)` pour du JSON ;
-> `this.setContextHtml()` puis `return this.render(html)` pour une PAGE — le nonce
-> CSP de la requête s'écrit **`this.context?.cspNonce`** (le `?.` n'est pas
-> optionnel : `context` est `ContextType | undefined`, sans lui le code ne
-> compile pas), à recopier dans tout `<script>` en ligne. Ne touche JAMAIS
+> **Tu RENDS une réponse ?** `return this.renderJson(obj)` pour du JSON ; une PAGE :
+> `this.renderView(fichierEta, locals)`, qui signe seule ses balises. HTML à la main
+> (`setContextHtml()` + `render(html)`) : tout `<script>` (même `src`) et `<style>`
+> porte `nonce="${this.context?.cspNonce}"` (`?.` requis), sinon refusé — CSP :
+> `headers.md`. Ne touche JAMAIS
 > `this.response` à la main : poser `Content-Type` toi-même court-circuite la
 > négociation, et un `this.response as any` est le signal que tu as raté la façade.
 > Un flux d'événements aussi : `this.renderSse()` (skill `nodefony-add-realtime-channel`),
@@ -340,7 +340,7 @@ tu n'as pas pu lire.
 - **Client isomorphe (navigateur)** — `node_modules/nodefony/docs/client.md`
 - **Serveurs, sessions, cookies, upload** — `node_modules/@nodefony/http/docs/`
 - **Routing, controllers, décorateurs** — `node_modules/@nodefony/framework/docs/`
-<% if (it.hasSecurity) { %>- **Firewall, CSRF, CORS, rôles, clés d'API** — `node_modules/@nodefony/security/docs/`
+<% if (it.hasSecurity) { %>- **Firewall, CSRF, CORS, CSP, rôles, clés d'API** — `node_modules/@nodefony/security/docs/`
 <% } %><% if (it.hasOrm) { %>- **Entités, repositories, migrations** — `node_modules/@nodefony/orm-core/docs/`
 <% } %><% if (it.hasRealtime) { %>- **Canaux temps réel, actions, protocole WS** — `node_modules/@nodefony/realtime/docs/`
 <% } %><% if (it.front) { %>- **Builder Vite, entries, HMR** — `node_modules/@nodefony/frontend/docs/`
