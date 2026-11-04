@@ -326,11 +326,56 @@ attribut `style="…"` reste permis : il ne porte pas de sélecteur. Ce qui est 
 1. **« zéro runtime »** (vanilla-extract, Linaria, Panda CSS…) : elle écrit des feuilles au build,
    servies en `<link>` par `'self'` — rien à signer, rien à régler ;
 2. **qui accepte un nonce** : donne-lui `readCspNonce()` (`nodefony/client`) — Emotion :
-   `createCache({ key: "css", nonce: readCspNonce() })`, Mantine : `getStyleNonce` ;
+   `createCache({ key: "css", nonce: readCspNonce() })`, Mantine : `getStyleNonce`, goober :
+   `window.__nonce__ = readCspNonce()` avant son premier appel. Cherche ce crochet avant de
+   conclure qu'il n'existe pas : il porte souvent un nom de variable globale ;
 3. **sans option de nonce** : elle crée un `<style>` conteneur que la politique refuse, et ses
-   styles ne s'appliquent pas, même si elle y écrit ensuite par le CSSOM. Dernier recours, et
-   global : retire le nonce des seuls styles en réécrivant la politique — la défense des scripts
-   reste entière, seule celle contre l'exfiltration par CSS injecté tombe.
+   styles ne s'appliquent pas, même si elle y écrit ensuite par le CSSOM. Signe toi-même les
+   `<style>` que les scripts créent, AVANT d'importer la bibliothèque (premier import de ton
+   entrée) :
+
+```ts
+import { readCspNonce } from "nodefony/client";
+
+const nonce = readCspNonce();
+if (nonce) {
+  // Une bibliothèque qui réécrit `nonce` avec une valeur vide (`undefined`) écraserait la
+  // signature sans un mot : l'affectation d'une valeur vide rend le nonce de la page.
+  const base = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "nonce");
+  if (base?.get && base.set) {
+    const { get, set } = base;
+    Object.defineProperty(HTMLStyleElement.prototype, "nonce", {
+      configurable: true,
+      get() {
+        return get.call(this);
+      },
+      set(value: unknown) {
+        const usable =
+          typeof value === "string" && value !== "" && value !== "undefined";
+        set.call(this, usable ? value : nonce);
+      },
+    });
+  }
+  Document.prototype.createElement = new Proxy(
+    Document.prototype.createElement,
+    {
+      apply(target, thisArg, args) {
+        const element: unknown = Reflect.apply(target, thisArg, args);
+        if (element instanceof HTMLStyleElement) element.nonce = nonce;
+        return element;
+      },
+    },
+  );
+}
+```
+
+Le geste ne signe que ce qu'un script CRÉE : un `<style>` glissé dans la page par une injection
+HTML (`innerHTML`, gabarit) reste refusé. Il modifie deux méthodes natives pour toute la page —
+c'est ce qui le réserve à ce cas. Éprouvé sous Chrome, Firefox et WebKit, écriture par nœud
+texte comme par `insertRule`.
+
+Dernier recours, et global : retirer le nonce des seuls styles en réécrivant la politique — la
+défense des scripts reste entière, seule celle contre l'exfiltration par CSS injecté tombe.
 
 ```ts
 use("@nodefony/security", {
