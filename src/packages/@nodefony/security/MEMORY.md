@@ -447,7 +447,10 @@ apiKeys.enabled` (keystore JWT seulement si jwt) ; `isEnabled()`=capacité JWT (
     nonce NI `'strict-dynamic'`, tous en-têtes doc). `purgeNonceForDocument` = SEUL retrait du nonce d'un document
     (`cspNonces:false`, servi tel quel, `@Csp` sans nonce) : `'strict-dynamic'` part si la directive n'a plus ni
     nonce ni hash ; politique sans marqueur jamais retouchée ; table `script` (worker) GARDE `'strict-dynamic'`
-    (`purgeNoncePlaceholder` seul). Pose par `setDefaultHeader` → valeur écrite par l'app GAGNE. Route `@Csp`
+    (`purgeNoncePlaceholder` seul). Pose par `setDefaultHeader` → valeur écrite par l'app GAGNE. `hasNonce`
+    (politique non vide + `cspNonces` + marqueur) ⇒ AUSSI `Cache-Control: private, no-cache`
+    (`NONCED_DOCUMENT_CACHE_CONTROL`, §C2 : cache partagé = nonce partagé ; `no-store` écarté = bfcache) ; app gagne
+    (`/login` = `no-store`). `csp: ""` ⇒ ni CSP ni ce défaut (recette « CSP au proxy »). Route `@Csp`
     = sa politique quel que soit le type. ⚠️ un lecteur de la CSP AVANT l'envoi ne la voit plus (dev-warning
     `Controller.#warnScriptWithoutNonce` lit après l'envoi). `headers.{hsts,frameguard,noSniff}` = délégués transport (describe). `hidePoweredBy` =
     no-op (Nodefony n'émet pas X-Powered-By). `referrerPolicy` = **enum W3C** (complétion+validation).

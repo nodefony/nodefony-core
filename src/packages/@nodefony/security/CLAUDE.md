@@ -99,8 +99,10 @@ security 303, banc live `http/security-headers.test.ts` 7/7, mémoire 9/9.
 
 ✅ **CSP nonce par requête** : `SecurityHeaders.cspFor(nonce)` (`securityHeaders.ts#SecurityHeaders.cspFor`) recompose
 le CSP à partir de segments pré-split au boot ; le nonce est **paresseux** côté contexte
-(`Context.cspNonce`, `http/…/Context.ts#Context.#cspNonce` — `randomBytes(16)` alloués seulement si une vue le lit).
-Une route peut ajouter ses directives via `@Csp` (merge par `cspForExtra`).
+(`Context.cspNonce`, `http/…/Context.ts#Context.#cspNonce` — tiré du réservoir CSPRNG amorti `Context.ts#nextCspNonce`
+au premier accès seulement). Une route peut ajouter ses directives via `@Csp` (merge par `cspForExtra`).
+Document à nonce ⇒ `Cache-Control: private, no-cache` par défaut (`firewall.ts#NONCED_DOCUMENT_CACHE_CONTROL`, l'app gagne).
+CSP posée au proxy (nginx, ingress) ⇒ `headers.csp: ""` côté app, sinon DEUX politiques et les scripts signés bloqués.
 
 ## Interdits
 
