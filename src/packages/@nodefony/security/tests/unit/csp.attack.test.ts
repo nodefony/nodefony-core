@@ -271,18 +271,66 @@ describe("CSP — une seule écriture de l'en-tête par réponse", () => {
 describe("CSP red-team — B3 origine trop large déclarée par un module", () => {
   // Moindre privilège : un module déclare SON origine. Une source de schéma ou `*`
   // ouvre connect-src à tout l'internet (canal d'exfiltration après une XSS).
-  // EN ATTENTE de la décision 3 de #699 (refuser, ou signaler au démarrage) :
-  // `it.fails` documente le trou sans casser la suite, et VIRE AU ROUGE le jour
-  // où la garde arrive — ce qui oblige à retirer le marqueur.
-  for (const source of ["*", "wss:", "https:", "ws:", "http:"]) {
-    it.fails(`« ${source} » dans connect-src est refusé`, () => {
-      assert.throws(
-        () => mergeCspFragments(BASE, [{ "connect-src": [source] }]),
-        BootConfigurationError,
-        `« ${source} » accepté sans un mot`,
-      );
+  // Décision B3 de #699 : la source large est RETIRÉE (la sécurité ne bloque pas
+  // le démarrage) et le pare-feu le dit en nommant le module.
+  for (const source of [
+    "*",
+    "wss:",
+    "https:",
+    "ws:",
+    "http:",
+    "https://*",
+    "*:443",
+  ]) {
+    it(`« ${source} » dans connect-src est retiré de la politique`, () => {
+      const out = mergeCspFragments(BASE, [
+        { "connect-src": [source, "wss://rt.example"] },
+      ]);
+      assert.deepEqual(directivesOf(out).get("connect-src"), [
+        "'self'",
+        "wss://rt.example",
+      ]);
     });
   }
+
+  it("un fragment entièrement retiré ne crée pas de directive vide (= 'none')", () => {
+    const out = mergeCspFragments(BASE, [{ "frame-src": ["*"] }]);
+    assert.equal(directivesOf(out).has("frame-src"), false, out);
+  });
+
+  it("contrôle positif : schémas locaux, joker de sous-domaine et origine exacte passent", () => {
+    const kept = [
+      "blob:",
+      "data:",
+      "https://*.googleusercontent.com",
+      "https://a.example:8443",
+    ];
+    const out = mergeCspFragments(BASE, [{ "img-src": kept }]);
+    assert.deepEqual(directivesOf(out).get("img-src"), kept);
+  });
+
+  it("la politique de l'APPLICATION n'est pas filtrée", () => {
+    const out = mergeCspFragments("default-src 'self'; connect-src https:", []);
+    assert.deepEqual(directivesOf(out).get("connect-src"), ["https:"]);
+  });
+
+  it("le pare-feu nomme le module et la source retirée", () => {
+    const fw = firewall();
+    const warnings: string[] = [];
+    const log = fw.log.bind(fw);
+    fw.log = ((msg: unknown, severity?: unknown, ...rest: unknown[]) => {
+      if (severity === "WARNING") warnings.push(String(msg));
+      return log(msg as never, severity as never, ...(rest as never[]));
+    }) as typeof fw.log;
+    fw.registerCspOrigins("tiers", {
+      "connect-src": ["wss:", "wss://rt.example"],
+    });
+    const csp = cspOf(fw);
+    assert.ok(csp.includes("wss://rt.example"), csp);
+    assert.ok(!/\swss:(\s|;|$)/.test(csp), csp);
+    assert.equal(warnings.length, 1, warnings.join("\n"));
+    assert.match(warnings[0] ?? "", /« wss: ».*tiers.*connect-src.*RETIRÉE/);
+  });
 });
 
 describe("CSP red-team — B4 politique par défaut, script-src", () => {

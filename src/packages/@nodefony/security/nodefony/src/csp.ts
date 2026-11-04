@@ -26,6 +26,56 @@ export type CspFragment = Record<string, readonly string[]>;
 const DIRECTIVE_NAME = /^[A-Za-z0-9-]+$/;
 const SOURCE_TOKEN = /^[\x21-\x2B\x2D-\x3A\x3C-\x7E]+$/;
 
+// W3C CSP3 §2.3.1 : `scheme-source = scheme ":"`, `host-source = [ scheme "://" ]
+// host [ port ] [ path ]`. Classes de caractères fixes, sans imbrication : pas de ReDoS.
+const SCHEME_SOURCE = /^[A-Za-z][A-Za-z0-9+.-]*:$/;
+const HOST_OF_SOURCE = /^(?:[A-Za-z][A-Za-z0-9+.-]*:\/\/)?([^/:]+)/;
+// Schémas LOCAUX : la ressource naît dans le navigateur, aucune requête ne sort —
+// les autoriser n'ouvre aucun canal d'exfiltration.
+const LOCAL_SCHEMES: ReadonlySet<string> = new Set([
+  "data:",
+  "blob:",
+  "filesystem:",
+  "mediastream:",
+]);
+
+/**
+ * Dit si une source CSP ouvre la directive à tout l'internet.
+ *
+ * Trop large : `*`, un schéma réseau nu (`https:`, `wss:`…), un hôte joker seul
+ * (`https://*`, `*:443`). Restent acceptés : une origine exacte, un joker de
+ * sous-domaine borné (`https://*.example.com`), un mot-clé (`'self'`) et les
+ * schémas locaux (`blob:`, `data:`).
+ *
+ * @param source - un jeton de source CSP.
+ * @returns `true` si la source autorise n'importe quel hôte.
+ */
+export function isOverbroadSource(source: string): boolean {
+  if (source.startsWith("'")) return false;
+  if (SCHEME_SOURCE.test(source)) {
+    return !LOCAL_SCHEMES.has(source.toLowerCase());
+  }
+  return HOST_OF_SOURCE.exec(source)?.[1] === "*";
+}
+
+/**
+ * Relève les sources trop larges d'un jeu de directives (cf {@link isOverbroadSource}).
+ *
+ * @param directives - paires `[directive, sources]` (`parseCsp(csp)` ou `Object.entries(fragment)`).
+ * @returns les paires `[directive, source]` trop larges, dans l'ordre de lecture.
+ */
+export function findOverbroadSources(
+  directives: Iterable<readonly [string, readonly string[]]>,
+): Array<[string, string]> {
+  const out: Array<[string, string]> = [];
+  for (const [name, sources] of directives) {
+    for (const source of sources) {
+      if (isOverbroadSource(source)) out.push([name, source]);
+    }
+  }
+  return out;
+}
+
 /**
  * Refuse un fragment CSP qui sortirait de la grammaire CSP3 — seule garde contre
  * l'injection de directives par une valeur de configuration.
@@ -90,7 +140,13 @@ export function serializeCsp(directives: Array<[string, string[]]>): string {
  * re-split autour de `{{nonce}}` au boot → 1 `join` par requête (hot-path inchangé).
  *
  * Chaque fragment passe {@link assertCspFragment} : une source hors grammaire
- * lève au lieu d'injecter une directive.
+ * lève au lieu d'injecter une directive. Une source TROP LARGE
+ * ({@link isOverbroadSource}) n'est pas fusionnée : un module ne déclare que SON
+ * origine, et la politique de l'application ne s'ouvre pas à tout l'internet par
+ * une contribution. Retirer plutôt que lever : la sécurité ne bloque pas le
+ * démarrage. L'avertissement appartient à l'appelant, qui sait QUI contribue
+ * (`Firewall.registerCspOrigins`). La base (config de l'application) n'est jamais
+ * filtrée : c'est un choix explicite de son auteur.
  *
  * @param base - CSP de configuration (peut contenir `'nonce-{{nonce}}'`).
  * @param fragments - fragments additifs (un par module enregistré).
@@ -112,12 +168,16 @@ export function mergeCspFragments(
       const additions = fragment[name];
       if (additions === undefined || additions.length === 0) continue;
       let sources = index.get(name);
-      if (!sources) {
-        sources = [];
-        index.set(name, sources);
-        directives.push([name, sources]);
-      }
       for (const src of additions) {
+        if (isOverbroadSource(src)) continue;
+        // Directive créée au premier ajout RETENU : une directive sans source
+        // vaut `'none'` (W3C CSP3 §2.3.1) — un fragment entièrement retiré ne
+        // doit pas fermer la directive.
+        if (sources === undefined) {
+          sources = [];
+          index.set(name, sources);
+          directives.push([name, sources]);
+        }
         if (!sources.includes(src)) sources.push(src);
       }
     }

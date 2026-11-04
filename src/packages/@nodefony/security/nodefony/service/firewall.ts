@@ -25,7 +25,12 @@ import {
 import { RoleHierarchyWalker } from "../src/RoleHierarchyWalker";
 import { rolesWithin } from "../src/rolesWithin";
 import { randomBytes } from "node:crypto";
-import { mergeCspFragments, type CspFragment } from "../src/csp";
+import {
+  findOverbroadSources,
+  mergeCspFragments,
+  parseCsp,
+  type CspFragment,
+} from "../src/csp";
 import { CsrfTokenManager } from "../src/csrfToken";
 import { Csrf } from "./csrf";
 import { Cors } from "./cors";
@@ -284,6 +289,16 @@ class Firewall extends Service implements IFirewall {
     if (this.#config.headers.enabled) {
       this.#securityHeaders = new SecurityHeaders(this.#config.headers);
       this.#cspMerged = null;
+      // Politique ÉCRITE par l’application : conservée (choix explicite), mais
+      // une source ouverte à tout l’internet se dit au démarrage.
+      for (const [directive, source] of findOverbroadSources(
+        parseCsp(this.#config.headers.csp),
+      )) {
+        this.log(
+          `CSP de l’application : « ${source} » dans ${directive} autorise n’importe quel hôte — conservée (choix de la configuration) ; préférer une origine exacte.`,
+          "WARNING",
+        );
+      }
     }
 
     const areas = this.#config.areas;
@@ -1227,6 +1242,16 @@ class Firewall extends Service implements IFirewall {
    */
   registerCspOrigins(moduleName: string, fragment: CspFragment): void {
     if (!this.#securityHeaders || !this.#config) return;
+    // Source trop large : RETIRÉE par la fusion (moindre privilège), l’application
+    // démarre — l’avertissement nomme le module, seul à savoir pourquoi il l’a déclarée.
+    for (const [directive, source] of findOverbroadSources(
+      Object.entries(fragment),
+    )) {
+      this.log(
+        `CSP : « ${source} » déclarée par ${moduleName} dans ${directive} autorise n’importe quel hôte — RETIRÉE de la politique ; déclarer l’origine exacte.`,
+        "WARNING",
+      );
+    }
     const fragments = (this.#cspFragments ??= new Map<string, CspFragment>());
     const previous = fragments.get(moduleName);
     if (
