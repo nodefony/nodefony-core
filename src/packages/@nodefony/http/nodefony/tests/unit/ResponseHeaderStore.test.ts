@@ -12,6 +12,7 @@ import HttpResponse from "../../src/context/http/Response.js";
 import Cookie from "../../src/cookies/cookie.js";
 import { mergeResponseHeaders } from "../../src/context/http2/Response.js";
 import type HttpContext from "../../src/context/http/HttpContext.js";
+import type { IFirewallGate } from "../../interfaces/ISecurity.js";
 
 const TRANSPORT = [
   "server",
@@ -259,12 +260,14 @@ describe("HttpResponse — politique d'en-têtes armée, choisie au writeHead (A
   /** Pare-feu doublure : note chaque appel et pose une CSP par défaut. */
   function arm(r: HttpResponse) {
     const calls: Array<string | null | undefined> = [];
-    r.headerPolicy = {
+    const gate: Pick<IFirewallGate, "applySecurityHeaders"> = {
       applySecurityHeaders: (_ctx, contentType) => {
         calls.push(contentType);
         r.setDefaultHeader("Content-Security-Policy", "fw");
       },
-    } as unknown as HttpResponse["headerPolicy"];
+    };
+    // Doublure : seul `applySecurityHeaders` est appelé par la réponse.
+    r.headerPolicy = gate as IFirewallGate;
     return calls;
   }
   /** Réponse dont la requête vise `pathname` (repli statique). */
