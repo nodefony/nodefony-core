@@ -10,6 +10,7 @@ import {
 } from "@tabler/icons-react";
 import { useConnection } from "../stores";
 import { NodefonyLogo } from "./NodefonyLogo";
+import { adoptStylesOnce } from "../utils/adoptStylesOnce";
 
 // @keyframes injectés une fois (Mantine v9 n'exporte pas `keyframes`). Toutes
 // compositor-only (transform + opacity) → 0 layout/paint quand elles tournent.
@@ -29,12 +30,7 @@ const KF = `
 }
 `;
 function ensureKeyframes(): void {
-  if (typeof document === "undefined") return;
-  if (document.getElementById("nf-conn-overlay-kf")) return;
-  const el = document.createElement("style");
-  el.id = "nf-conn-overlay-kf";
-  el.textContent = KF;
-  document.head.appendChild(el);
+  adoptStylesOnce("nf-conn-overlay-kf", KF);
 }
 
 /**

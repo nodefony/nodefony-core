@@ -101,3 +101,21 @@ describe("TemplateHelper — la barre de débogage connaît la requête qui rend
     expect(tags).to.not.include('"page"');
   });
 });
+
+describe("TemplateHelper — le nonce CSP s'annonce aux styles créés à l'exécution (ADR-0024 §C2)", () => {
+  // Le client de Vite lit `<meta property="csp-nonce">` pour signer les
+  // `<style>` du rechargement à chaud ; sans elle, `style-src 'nonce-…'` les
+  // bloque et la page s'affiche sans ses styles.
+  it("🔴 la balise meta précède le client Vite et porte le nonce de la requête", () => {
+    const helper = new TemplateHelper(supervisorWith({}), "development");
+    const tags = helper.renderTags("studio", "n0nce");
+    const meta = tags.indexOf('<meta property="csp-nonce" nonce="n0nce">');
+    expect(meta).to.equal(0);
+    expect(meta).to.be.lessThan(tags.indexOf("/@vite/client"));
+  });
+
+  it("sans nonce (sécurité coupée) : aucune balise", () => {
+    const helper = new TemplateHelper(supervisorWith({}), "development");
+    expect(helper.renderTags("studio")).not.to.include("csp-nonce");
+  });
+});

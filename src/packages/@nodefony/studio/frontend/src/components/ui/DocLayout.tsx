@@ -23,6 +23,7 @@ import {
   MODAL_FULLSCREEN_CONTENT,
   SIDEBAR_MAX_HEIGHT,
 } from "./layout";
+import { adoptStylesOnce } from "../../utils/adoptStylesOnce";
 
 /** Largeur fixe de la colonne navigation (docs-site, façon MDN/Docusaurus). */
 const NAV_WIDTH = 264;
@@ -39,11 +40,9 @@ const TOC_WIDTH = 240;
  * de page). Sous 992px : empilement vertical, hauteurs auto, sommaire masqué.
  */
 function ensureDocLayoutStyles(): void {
-  if (typeof document === "undefined") return;
-  if (document.getElementById("nf-doclayout-styles")) return;
-  const el = document.createElement("style");
-  el.id = "nf-doclayout-styles";
-  el.textContent = `
+  adoptStylesOnce(
+    "nf-doclayout-styles",
+    `
 .nf-doc-region{display:flex;gap:var(--mantine-spacing-xl,32px);align-items:stretch}
 .nf-doc-region.is-page{align-items:flex-start}
 .nf-doc-nav{flex:0 0 ${NAV_WIDTH}px;width:${NAV_WIDTH}px}
@@ -55,8 +54,8 @@ function ensureDocLayoutStyles(): void {
   .nf-doc-nav,.nf-doc-toc{flex-basis:auto;width:100%}
   .nf-doc-toc{display:none}
   .nf-doc-region.is-container>.nf-doc-region-col{height:auto}
-}`;
-  document.head.appendChild(el);
+}`,
+  );
 }
 
 /* ════════════════════════════════════════════════════════════════════════

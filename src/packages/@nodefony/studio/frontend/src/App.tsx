@@ -182,6 +182,7 @@ import {
 import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
 import "@mantine/dates/styles.css";
+import { readCspNonce } from "nodefony/client";
 
 // Singleton — partagé par tout le sous-arbre via le StoreProvider context.
 const rootStore = new RootStore();
@@ -325,12 +326,19 @@ const SessionBootstrap = observer(
  * étant au-dessus du `StoreProvider`, il lit le `rootStore` singleton
  * directement.
  */
+/** Nonce que la page annonce — lu une fois, un document n'en sert qu'un. */
+const STYLE_NONCE = readCspNonce() ?? "";
+const styleNonce = (): string => STYLE_NONCE;
+
 export const App = () => {
   return (
     <MantineProvider
       theme={studioTheme}
       defaultColorScheme="dark"
       cssVariablesResolver={studioCssVariablesResolver}
+      // Mantine pose ses variables CSS dans un `<style>` rendu par React : sous
+      // `style-src 'nonce-…'` (ADR-0024 §C2), il porte le nonce de la page.
+      getStyleNonce={styleNonce}
     >
       {/* limit borne la pile visible (le reste passe en file d'attente) → pas de
           flood ; autoClose défaut = filet de sécurité si un appel oublie le sien. */}

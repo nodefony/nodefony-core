@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { cspNonceMetaTag } from "nodefony";
 
 /**
  * Molette de livraison de l'UI embarquée d'un module (`ui` dans sa config).
@@ -140,8 +141,8 @@ export interface IPrebuiltUiOptions {
  *     requête. Le SPA fallback reste au controller du module (routes littérales,
  *     cf. StudioController).
  *
- * Perf : l'index est lu UNE fois (lazy, caché) ; seule l'injection du nonce
- * coûte un `replaceAll` par rendu — route d'entrée UI, jamais un hot path.
+ * Perf : l'index est lu UNE fois (lazy, caché) et découpé UNE fois autour des
+ * emplacements du nonce ; un rendu ne coûte qu'un `join`.
  */
 export class PrebuiltUi {
   readonly publicPath: string;
@@ -149,6 +150,8 @@ export class PrebuiltUi {
   private readonly indexPath: string;
   /** Template HTML caché — `null` tant que non lu (lazy). */
   private template: string | null = null;
+  /** Index découpé autour des emplacements du nonce — `null` tant que non calculé. */
+  private nonceParts: readonly string[] | null = null;
 
   constructor(opts: IPrebuiltUiOptions) {
     let p = opts.publicPath.trim();
@@ -192,6 +195,8 @@ export class PrebuiltUi {
    *              chaque `<script>`, `src` compris : sous `'strict-dynamic'`
    *              (ADR-0024 §C1), `'self'` est ignoré et seul le nonce autorise
    *              une balise ; ce qu'elle importe ensuite hérite de la confiance.
+   *              Annoncé aussi par `<meta property="csp-nonce">` en tête de
+   *              `<head>` (ADR-0024 §C2) : les `<style>` créés à l'exécution.
    * @returns le HTML, ou un commentaire HTML fail-loud si l'index est absent
    */
   renderIndex(nonce?: string): string {
@@ -204,6 +209,22 @@ export class PrebuiltUi {
       }
     }
     if (!nonce) return this.template;
-    return this.template.replaceAll("<script", `<script nonce="${nonce}"`);
+    this.nonceParts ??= splitAroundNonce(this.template);
+    return this.nonceParts.join(nonce);
   }
+}
+
+/** Repère des emplacements du nonce : un octet nul ne figure dans aucun HTML. */
+const NONCE_SLOT = "\u0000";
+
+/**
+ * Découpe un index HTML autour des emplacements du nonce : l'attribut de chaque
+ * `<script>` et la balise meta posée juste après l'ouverture de `<head>` (rien
+ * si le document n'en a pas — les `<script>` restent signés).
+ */
+function splitAroundNonce(template: string): readonly string[] {
+  const marked = template
+    .replaceAll("<script", `<script nonce="${NONCE_SLOT}"`)
+    .replace(/<head\b[^>]*>/i, (open) => open + cspNonceMetaTag(NONCE_SLOT));
+  return Object.freeze(marked.split(NONCE_SLOT));
 }

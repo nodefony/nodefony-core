@@ -5,6 +5,7 @@ import {
   Nodefony,
   PLATFORM_EVENTS,
   RequestContext,
+  cspNonceMetaTag,
   escapeRegExp,
   isPlainObject,
 } from "nodefony";
@@ -144,12 +145,16 @@ export class TemplateHelper {
    * @param entryName nom logique de l'entrée (matche `entryName` dans IResolvedFrontendEntry)
    * @param nonce nonce CSP de la requête (`Context.cspNonce`) — posé sur les `<script>`
    *   pour satisfaire `script-src 'nonce-…'` (preamble inline dev + entrée prod).
+   *   Les balises sont précédées de `<meta property="csp-nonce">` (ADR-0024 §C2) : le client de
+   *   Vite y lit le nonce des `<style>` du rechargement à chaud, `readCspNonce`
+   *   (`nodefony/client`) celui des styles créés à l'exécution.
    */
   renderTags(entryName: string, nonce?: string): string {
-    if (this.mode === "development") {
-      return this.renderDevTags(entryName, nonce);
-    }
-    return this.renderProdTags(entryName, nonce);
+    const tags =
+      this.mode === "development"
+        ? this.renderDevTags(entryName, nonce)
+        : this.renderProdTags(entryName, nonce);
+    return nonce ? `${cspNonceMetaTag(nonce)}\n${tags}` : tags;
   }
 
   /**

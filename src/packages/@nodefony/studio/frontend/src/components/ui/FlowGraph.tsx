@@ -26,6 +26,7 @@ import "@xyflow/react/dist/style.css";
 import dagre from "dagre";
 import { IconMaximize } from "@tabler/icons-react";
 import { MODAL_FULLSCREEN_CONTENT } from "./layout";
+import { adoptStylesOnce } from "../../utils/adoptStylesOnce";
 
 /* ════════════════════════════════════════════════════════════════════════
  * FlowGraph — brique de schéma RÉUTILISABLE (React Flow + dagre).
@@ -107,11 +108,9 @@ const mc = (color: string, shade: number) =>
  * keyframes impossibles en inline → CSS injecté. Idempotent (early return).
  */
 function ensureFlowGraphLiveStyles() {
-  if (typeof document === "undefined") return;
-  if (document.getElementById("nf-flowgraph-live-styles")) return;
-  const s = document.createElement("style");
-  s.id = "nf-flowgraph-live-styles";
-  s.textContent = `
+  adoptStylesOnce(
+    "nf-flowgraph-live-styles",
+    `
     .nf-fg-dot {
       width: 9px; height: 9px; border-radius: 50%;
       display: inline-block;
@@ -131,8 +130,8 @@ function ensureFlowGraphLiveStyles() {
       .nf-fg-dot { transition: none; }
       .nf-fg-dot.is-pulse { animation: none; opacity: 1; }
     }
-  `;
-  document.head.appendChild(s);
+  `,
+  );
 }
 
 /** Nœud custom : carte accentuée (icône + titre + sous-titre + bandeau live optionnel). */

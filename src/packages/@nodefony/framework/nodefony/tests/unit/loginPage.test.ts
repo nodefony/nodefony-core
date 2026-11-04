@@ -147,6 +147,14 @@ describe("page de connexion — gabarit rendu", () => {
     expect(doc.title).toBe("Se connecter — mon-app");
   });
 
+  it('🔴 le nonce s\'annonce par `<meta property="csp-nonce">` (ADR-0024 §C2), jamais sans nonce', () => {
+    const meta = render().head.querySelector('meta[property="csp-nonce"]');
+    expect(meta?.getAttribute("nonce")).toBe("n0nce");
+    expect(meta?.hasAttribute("content")).toBe(false);
+    const bare = render(PAGE, { ...REQUEST, nonce: "" });
+    expect(bare.querySelector('meta[property="csp-nonce"]')).toBeNull();
+  });
+
   it("🔴 un titre ou un libellé hostile sort en TEXTE", () => {
     const hostile = '"><img src=x onerror=alert(1)>';
     const doc = render(

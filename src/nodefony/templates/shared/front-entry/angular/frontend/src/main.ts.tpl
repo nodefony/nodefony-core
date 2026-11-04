@@ -1,5 +1,9 @@
 import { bootstrapApplication } from "@angular/platform-browser";
-import { provideZonelessChangeDetection } from "@angular/core";
+import { CSP_NONCE, provideZonelessChangeDetection } from "@angular/core";
+// Angular pose les styles de ses composants en `<style>` à l'exécution : sous la
+// politique de styles par défaut (`style-src 'nonce-…'`), chacun doit porter le
+// nonce que la page annonce (`<meta property="csp-nonce">`), sinon il est bloqué.
+import { readCspNonce } from "nodefony/client";
 <% if (it.complete) { %>// La politique temps réel du framework s'installe comme tout le reste en
 // Angular : un FOURNISSEUR d'injection. C'est ici, et ici seulement, que
 // l'adresse du serveur est écrite — les composants n'en connaissent aucune, et
@@ -12,6 +16,7 @@ import { provideNodefony } from "nodefony/angular";
 bootstrapApplication(AppComponent, {
   providers: [
     provideZonelessChangeDetection(),
+    { provide: CSP_NONCE, useValue: readCspNonce() ?? null },
 <% if (it.complete) { %>    provideNodefony({ url: "/api/live/realtime" }),
 <% } %>  ],
 }).catch((err: unknown) => console.error(err));

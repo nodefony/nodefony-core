@@ -31,6 +31,7 @@ import {
 /** Borne une coordonnée % pour garder la brique dans le cadre. */
 const clamp = (v: number, lo = 4, hi = 96) => Math.max(lo, Math.min(hi, v));
 import type { ConnectorRow, KernelInfo } from "./useTwinTopology";
+import { adoptStylesOnce } from "../../utils/adoptStylesOnce";
 
 /* ════════════════════════════════════════════════════════════════════════
  * TwinMap — la carte d'architecture DATA-DRIVEN (rend n'importe quel schéma).
@@ -45,11 +46,9 @@ import type { ConnectorRow, KernelInfo } from "./useTwinTopology";
  * ════════════════════════════════════════════════════════════════════════ */
 
 function ensureTwinMapStyles() {
-  if (typeof document === "undefined") return;
-  if (document.getElementById("nf-twinmap-styles")) return;
-  const s = document.createElement("style");
-  s.id = "nf-twinmap-styles";
-  s.textContent = `
+  adoptStylesOnce(
+    "nf-twinmap-styles",
+    `
     .nf-tm-link { stroke-width: 1.5; vector-effect: non-scaling-stroke; fill: none; opacity: .42; }
     .nf-tm-link.is-cross { stroke-dasharray: 2 3; opacity: .28; }
     .nf-tm-link.is-live { stroke-dasharray: 3 5; animation: nf-tm-flow 1.1s linear infinite; opacity: .7; }
@@ -67,8 +66,8 @@ function ensureTwinMapStyles() {
       .nf-tm-link.is-live { animation: none; }
       .nf-tm-dot.is-pulse { animation: none; opacity: 1; }
     }
-  `;
-  document.head.appendChild(s);
+  `,
+  );
 }
 
 const mc = (color: string, shade: number) =>

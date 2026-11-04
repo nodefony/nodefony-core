@@ -6,6 +6,7 @@
 import type { HealthInput } from "./health";
 import type { IOrmLeanHealth } from "./realtimeHealth";
 import type { EntityNode, OrmRate } from "../types/orm";
+import { adoptStylesOnce } from "./adoptStylesOnce";
 
 /** Version de la doc des fiches d'aide (`DocHint`) du dashboard ORM. */
 export const ORM_DOC = "v1.2";
@@ -260,18 +261,15 @@ export function ormHealthInputs(
 }
 
 // Styles « temps réel » — injectés UNE fois (point pulsant + halo de carte).
-let livePulseInjected = false;
 /** Injecte (une seule fois) les keyframes du flash/halo/point « temps réel ». */
 export function ensureLivePulseStyle(): void {
-  if (livePulseInjected || typeof document === "undefined") return;
-  livePulseInjected = true;
-  const el = document.createElement("style");
-  el.setAttribute("data-nf-orm-live", "");
   // ⚡ Temps réel CALME (cf skill nodefony-studio-dev) : 0 animation de `box-shadow`/`filter`
   // (= paint GPU répété en boucle = ventilation). On RÉPLIQUE la version calme de
   // `FlashValue.ensureLiveStyles` : point « live » = respiration d'OPACITÉ (compositor, 0 paint),
   // carte « live » = anneau STATIQUE (plus de glow qui bat), + coupe sous prefers-reduced-motion.
-  el.textContent = `
+  adoptStylesOnce(
+    "data-nf-orm-live",
+    `
 @keyframes nf-live-breathe{0%,100%{opacity:.5}50%{opacity:1}}
 .nf-live-dot{width:8px;height:8px;border-radius:50%;background:var(--mantine-color-teal-6);animation:nf-live-breathe 2.4s ease-in-out infinite;flex:0 0 auto}
 .nf-live-card{box-shadow:inset 0 0 0 1px rgba(18,184,134,.22)}
@@ -281,8 +279,8 @@ export function ensureLivePulseStyle(): void {
 .nf-live-dot{animation:none;opacity:.85}
 .nf-flash{animation:none;background:transparent}
 }
-`;
-  document.head.appendChild(el);
+`,
+  );
 }
 
 /** Lecture localStorage tolérante (navigation privée / quota). */

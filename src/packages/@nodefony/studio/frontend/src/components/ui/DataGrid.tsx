@@ -78,6 +78,7 @@ import { InfoHint } from "./StatCard";
 import { valueText } from "./json/jsonFormat";
 import { parsePersistedState, type PersistedState } from "./dataGridPersist";
 import { browserStorage, readStoredJson } from "../../utils/storedJson";
+import { adoptStylesOnce } from "../../utils/adoptStylesOnce";
 
 /**
  * Noms accessibles des quatre contrôles de BORD de la pagination.
@@ -475,13 +476,10 @@ const operatorFilter: FilterFn<GridFeatures, RowData> = (
 // Styles de la poignée de redimensionnement — injectés UNE fois (hover via CSS,
 // pas de re-render par survol). Au repos : invisible (zéro barre permanente).
 // Survol : grip gris discret. Drag : barre accent pleine hauteur.
-let resizerStyleInjected = false;
 function ensureResizerStyle() {
-  if (resizerStyleInjected || typeof document === "undefined") return;
-  resizerStyleInjected = true;
-  const el = document.createElement("style");
-  el.setAttribute("data-nf-datagrid-resizer", "");
-  el.textContent = `
+  adoptStylesOnce(
+    "data-nf-datagrid-resizer",
+    `
 .nf-dg-resizer{position:absolute;top:0;right:0;height:100%;width:11px;
   display:flex;align-items:center;justify-content:flex-end;
   cursor:col-resize;user-select:none;touch-action:none;z-index:2;
@@ -494,8 +492,8 @@ function ensureResizerStyle() {
 .nf-dg-resizer:focus-visible::before{opacity:1;height:100%;background:var(--mantine-primary-color-filled);}
 .nf-dg-resizer[data-resizing="true"]::before{opacity:1;height:100%;
   background:var(--mantine-primary-color-filled);}
-`;
-  document.head.appendChild(el);
+`,
+  );
 }
 
 /** Filtre INLINE d'une colonne (sous l'en-tête) — opérateur + valeur, sans popover. */

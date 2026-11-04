@@ -1,4 +1,5 @@
 import {
+  CSP_NONCE_META_PROPERTY,
   LOGIN_PAGE_ASSETS_BASE,
   LOGIN_PAGE_LAYOUTS,
   LOGIN_PAGE_SKINS,
@@ -312,6 +313,7 @@ export const LOGIN_PAGE_TEMPLATE = `<!doctype html>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="dark light" />
     <meta name="robots" content="noindex" />
+    <% if (it.nonce) { %><meta property="${CSP_NONCE_META_PROPERTY}" nonce="<%= it.nonce %>"><% } %>
     <title><%= it.title %> — <%= it.brand %></title>
     <link rel="icon" href="<%= it.logoHref %>" type="image/svg+xml" />
 <% if (!it.theme) { %>

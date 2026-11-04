@@ -32,6 +32,7 @@ import { useReducedMotion } from "@mantine/hooks";
 import { IconBug } from "@tabler/icons-react";
 import { useStore } from "../stores";
 import { useResource } from "../hooks";
+import { adoptStylesOnce } from "../utils/adoptStylesOnce";
 
 /** État du debug runtime (miroir local de `GET /kernel/api/log/level`). */
 interface DebugLevelState {
@@ -74,12 +75,7 @@ const KF = `
   50% { opacity: 0.62; }
 }`;
 function ensureKeyframes(): void {
-  if (typeof document === "undefined") return;
-  if (document.getElementById("nf-debug-chip-kf")) return;
-  const el = document.createElement("style");
-  el.id = "nf-debug-chip-kf";
-  el.textContent = KF;
-  document.head.appendChild(el);
+  adoptStylesOnce("nf-debug-chip-kf", KF);
 }
 
 export function DebugRuntimeChip() {

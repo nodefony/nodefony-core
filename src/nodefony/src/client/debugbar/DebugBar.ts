@@ -30,6 +30,7 @@
 import { NodefonySocket } from "../realtime/NodefonySocket";
 import { describeCodec } from "../realtime/snapshot";
 import { AUTH_ME_PATH } from "../../runtime/authRoutes";
+import { adoptStyles } from "../cspStyles";
 import {
   DebugBarModel,
   type DebugBarView,
@@ -1572,8 +1573,10 @@ export class DebugBar {
     host.setAttribute("role", "complementary");
     host.setAttribute("aria-label", "Barre de débogage Nodefony");
     const shadow = host.attachShadow({ mode: "open" });
-    const style = document.createElement("style");
-    style.textContent = STYLES;
+    // Feuille CONSTRUITE (ADR-0024 §C2) : un `<style>` sans nonce, même dans le
+    // Shadow DOM, serait bloqué par `style-src` — la barre s'injecte dans des
+    // pages qu'elle n'a pas rendues.
+    adoptStyles(STYLES, shadow);
     const bar = document.createElement("div");
     bar.className = `bar ${this.position}${this.startOpen ? " open" : ""}`;
     bar.innerHTML = this.template();
@@ -1585,7 +1588,7 @@ export class DebugBar {
     minbar.className = `minbar ${this.position} dock-${this.side}`;
     minbar.setAttribute("aria-label", "Afficher la barre de débogage Nodefony");
     minbar.innerHTML = `<span class="dot" data-el="mdot"></span><span class="mlogo">${NODEFONY_LOGO}</span><span class="mname">nodefony</span><span class="mrate" data-el="mrate">0/s</span><span class="mbadge" data-el="mEnv"></span><span class="mopen">Ouvrir<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 10l4-4 4 4"/></svg></span>`;
-    shadow.append(style, bar, minbar);
+    shadow.append(bar, minbar);
     document.body.appendChild(host);
     this.host = host;
     this.bar = bar;

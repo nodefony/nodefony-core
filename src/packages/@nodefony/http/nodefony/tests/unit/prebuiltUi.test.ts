@@ -164,6 +164,20 @@ describe("PrebuiltUi", () => {
     expect(nonced).to.include(`<script nonce="abc123" type="module"`);
     // Le template caché n'est PAS pollué par l'injection précédente.
     expect(ui.renderIndex()).to.equal(plain);
+    // Le découpage est calculé une fois : un autre nonce n'hérite pas du premier.
+    const other = ui.renderIndex("zz9");
+    expect(other).to.include(`<script nonce="zz9" type="module"`);
+    expect(other).not.to.include("abc123");
+  });
+
+  it("renderIndex() annonce le nonce en tête de <head> (ADR-0024 §C2), jamais sans nonce", () => {
+    const f = makeFixture({ prebuilt: true });
+    cleanups.push(f.root);
+    const ui = new PrebuiltUi({ publicPath: "/x/", distDir: f.distDir });
+    expect(ui.renderIndex("abc123")).to.include(
+      `<head><meta property="csp-nonce" nonce="abc123"><script nonce="abc123"`,
+    );
+    expect(ui.renderIndex()).not.to.include("csp-nonce");
   });
 
   it("renderIndex() index absent → commentaire HTML fail-loud, sans cacher l'erreur", () => {

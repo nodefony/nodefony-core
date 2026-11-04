@@ -45,6 +45,7 @@ import {
   resolveLiveGraph,
 } from "../../realtime/socket/liveGraphs";
 import { valueText } from "./json/jsonFormat";
+import { adoptStylesOnce } from "../../utils/adoptStylesOnce";
 
 /** Texte plat d'un nœud React (pour calculer l'ancre `id` d'un titre). */
 function nodeText(node: ReactNode): string {
@@ -76,11 +77,9 @@ const HEADING_STYLE = { scrollMarginTop: HEADING_SCROLL_MARGIN } as const;
 
 /** Injecte UNE seule fois les styles statiques (hover anchor) — `:hover` ≠ inline. */
 function ensureDocStyles() {
-  if (typeof document === "undefined") return;
-  if (document.getElementById("nf-doc-styles")) return;
-  const s = document.createElement("style");
-  s.id = "nf-doc-styles";
-  s.textContent = `
+  adoptStylesOnce(
+    "nf-doc-styles",
+    `
     /* Un schéma se lit D'ABORD EN ENTIER. Mermaid pose \`max-width\` EN LIGNE sur
        son SVG et le comprime à la largeur de la colonne : un \`flowchart\` s'étire
        alors en hauteur (mesuré 351 × 1549 px), et il faut défiler pour en voir des
@@ -258,8 +257,8 @@ function ensureDocStyles() {
       .nf-card-link:hover { transform: none; }
       .nf-card-link:hover .nf-card-go { transform: none; }
     }
-  `;
-  document.head.appendChild(s);
+  `,
+  );
 }
 
 /* ─── Admonitions (GitHub flavor) ────────────────────────────────────────── */

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { adoptStylesOnce } from "../../utils/adoptStylesOnce";
 
 /**
  * Styles « temps réel » PARTAGÉS du PATRON sondes+hub. Injectés UNE seule fois dans
@@ -15,13 +16,10 @@ import type { ReactNode } from "react";
  *  - `.nf-flash` : flash **one-shot** bref sur changement SIGNIFIANT (re-clé), petite surface.
  *  - `@media (prefers-reduced-motion: reduce)` : on coupe toute animation (a11y vestibulaire).
  */
-let injected = false;
 export function ensureLiveStyles(): void {
-  if (injected || typeof document === "undefined") return;
-  injected = true;
-  const el = document.createElement("style");
-  el.setAttribute("data-nf-live", "");
-  el.textContent = `
+  adoptStylesOnce(
+    "data-nf-live",
+    `
 @keyframes nf-live-breathe{0%,100%{opacity:.5}50%{opacity:1}}
 .nf-live-dot{width:8px;height:8px;border-radius:50%;background:var(--mantine-color-teal-6);animation:nf-live-breathe 2.4s ease-in-out infinite;flex:0 0 auto}
 .nf-live-card{box-shadow:inset 0 0 0 1px rgba(18,184,134,.22)}
@@ -31,8 +29,8 @@ export function ensureLiveStyles(): void {
 .nf-live-dot{animation:none;opacity:.85}
 .nf-flash{animation:none;background:transparent}
 }
-`;
-  document.head.appendChild(el);
+`,
+  );
 }
 
 export interface FlashValueProps {
