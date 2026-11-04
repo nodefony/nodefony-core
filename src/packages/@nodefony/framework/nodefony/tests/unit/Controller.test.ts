@@ -1,6 +1,8 @@
 import { expect } from "vitest";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { PassThrough } from "node:stream";
 import { Container, Event } from "nodefony";
 import Controller from "../../src/Controller.js";
@@ -216,7 +218,7 @@ describe("Controller — avertissement CSP (script en ligne sans nonce)", () => 
     return vus;
   }
 
-  it("avertit, et nomme le nonce ET la voie du fichier servi", async () => {
+  it("avertit, et nomme la vue signée ET le nonce", async () => {
     const { c } = makeController({
       environment: "development",
       csp: CSP_NONCE,
@@ -227,8 +229,11 @@ describe("Controller — avertissement CSP (script en ligne sans nonce)", () => 
     // Le message doit porter le GESTE, pas seulement le constat : c'est toute
     // la différence entre un refus utilisable et un refus juste.
     expect(vus[0]).to.include("cspNonce");
-    expect(vus[0]).to.include("script src");
+    expect(vus[0]).to.include("renderView");
     expect(vus[0]).to.include("headers.md");
+    // Le conseil d'avant le lot 1 (« un script servi passe 'self' ») est faux
+    // sous 'strict-dynamic' : il ne doit plus jamais être donné.
+    expect(vus[0]).not.to.include("satisfait");
   });
 
   it("se tait quand le script porte déjà son nonce", async () => {
@@ -241,14 +246,24 @@ describe("Controller — avertissement CSP (script en ligne sans nonce)", () => 
     expect(vus).to.have.lengthOf(0);
   });
 
-  it("se tait quand le script est SERVI depuis un fichier", async () => {
+  it("🔴 avertit aussi pour un script SERVI sans nonce — 'strict-dynamic' ignore 'self'", async () => {
     const { c } = makeController({
       environment: "development",
       csp: CSP_NONCE,
     });
     const vus = espionner(c);
-    await c.render('<script src="/js/widget.js"></script>');
-    expect(vus).to.have.lengthOf(0);
+    await c.render('<script type="module" src="/app/debugbar.js"></script>');
+    expect(vus).to.have.lengthOf(1);
+  });
+
+  it("avertit pour un <style> sans nonce (politique de styles, ADR-0024 §C2)", async () => {
+    const { c } = makeController({
+      environment: "development",
+      csp: CSP_NONCE,
+    });
+    const vus = espionner(c);
+    await c.render("<style>body{}</style>");
+    expect(vus).to.have.lengthOf(1);
   });
 
   it("se tait quand la politique n'exige aucun nonce", async () => {
@@ -346,6 +361,52 @@ describe("Controller — renderView()", () => {
     await c.renderView(HERE, { user: "bob" });
     expect(calls.html).to.equal(1);
     expect(calls.send).to.deep.equal(['VIEW:{"user":"bob"}']);
+  });
+
+  it("🔴 signe le gabarit et donne le nonce de la REQUÊTE à la vue (ADR-0024 §C0)", async () => {
+    let seenSource = "";
+    let seenLocals: Record<string, unknown> = {};
+    const { c } = makeController({
+      template: {
+        render: async (tpl: string, locals: Record<string, unknown>) => {
+          seenSource = tpl;
+          seenLocals = locals;
+          return "ok";
+        },
+      },
+    });
+    (c.context as unknown as { cspNonce: string }).cspNonce = "N0nce==";
+    const view = path.join(
+      mkdtempSync(path.join(tmpdir(), "nf-view-nonce-")),
+      "index.eta",
+    );
+    writeFileSync(view, '<style>p{}</style><script src="/app/x.js"></script>');
+    try {
+      await c.renderView(view, { user: "bob" });
+    } finally {
+      rmSync(path.dirname(view), { recursive: true, force: true });
+    }
+    expect(seenSource).toBe(
+      '<style nonce="<%= it.cspNonce %>">p{}</style><script nonce="<%= it.cspNonce %>" src="/app/x.js"></script>',
+    );
+    expect(seenLocals.cspNonce).toBe("N0nce==");
+    expect(seenLocals.user).toBe("bob");
+    // Accesseur non énumérable : rien de plus dans un JSON de locals.
+    expect(Object.keys(seenLocals)).not.toContain("cspNonce");
+  });
+
+  it("un `cspNonce` fourni par l'action est gardé", async () => {
+    let seenLocals: Record<string, unknown> = {};
+    const { c } = makeController({
+      template: {
+        render: async (_tpl: string, locals: Record<string, unknown>) => {
+          seenLocals = locals;
+          return "ok";
+        },
+      },
+    });
+    await c.renderView(HERE, { cspNonce: "mine" });
+    expect(seenLocals.cspNonce).toBe("mine");
   });
 
   it("injects frontend helpers into the template locals", async () => {

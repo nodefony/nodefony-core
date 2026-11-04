@@ -306,7 +306,9 @@ attribut `style="…"` reste permis : il ne porte pas de sélecteur. Ce qui est 
 - un `<style>` que **ton** code crée à l'exécution : `adoptStyles(css)` (`nodefony/client`) le pose
   en feuille construite, que la politique ne gouverne pas ; une bibliothèque qui veut un nonce le
   lit par `readCspNonce()` (Mantine : `getStyleNonce`, Emotion : `createCache({ nonce })`) ;
-- dans un gabarit : `<style nonce="<%= it.nonce %>">`.
+- dans une vue Eta rendue par `renderView` : **rien à faire** — le framework signe chaque
+  `<script>` et `<style>` écrit dans le gabarit (`viewNonce.ts#signTemplateTags`), jamais ce
+  que les données y insèrent ; le nonce reste lisible ailleurs par `<%= it.cspNonce %>`.
 
 Là où le nonce est retiré (page servie telle quelle, `cspNonces: false`), `'unsafe-inline'`
 reprend la main : la page garde ses styles.

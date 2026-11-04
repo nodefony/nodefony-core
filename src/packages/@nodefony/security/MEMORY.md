@@ -452,7 +452,7 @@ apiKeys.enabled` (keystore JWT seulement si jwt) ; `isEnabled()`=capacité JWT (
     (`NONCED_DOCUMENT_CACHE_CONTROL`, §C2 : cache partagé = nonce partagé ; `no-store` écarté = bfcache) ; app gagne
     (`/login` = `no-store`). `csp: ""` ⇒ ni CSP ni ce défaut (recette « CSP au proxy »). Route `@Csp`
     = sa politique quel que soit le type. ⚠️ un lecteur de la CSP AVANT l'envoi ne la voit plus (dev-warning
-    `Controller.#warnScriptWithoutNonce` lit après l'envoi). `headers.{hsts,frameguard,noSniff}` = délégués transport (describe). `hidePoweredBy` =
+    `Controller.#warnUnsignedTags` lit après l'envoi). `headers.{hsts,frameguard,noSniff}` = délégués transport (describe). `hidePoweredBy` =
     no-op (Nodefony n'émet pas X-Powered-By). `referrerPolicy` = **enum W3C** (complétion+validation).
 - **DX config (J5)** — security **augmente `NodefonyModuleConfig`** (`declare module "nodefony"`, recette frère
   drizzle/mongoose) → `use("@nodefony/security", {…})` complète CLÉS + VALEURS enum + valide les types (sinon

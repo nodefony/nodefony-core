@@ -53,6 +53,7 @@ import fs, { createReadStream, ReadStream } from "node:fs";
 import { promisify } from "node:util";
 import Eta from "../service/Eta";
 import { isDevelopment, singletonWriteMessage } from "./singletonGuard";
+import { signTemplateTags, VIEW_NONCE_LOCAL } from "./viewNonce";
 const fsClose = promisify(fs.close);
 
 interface ReadStreamWithFD extends ReadStream {
@@ -73,14 +74,13 @@ type ReadStreamOptions = {
 };
 
 /**
- * Un `<script>` EN LIGNE qui ne porte pas d'attribut `nonce`.
+ * Un `<script>` ou un `<style>` qui ne porte pas d'attribut `nonce`.
  *
- * `(?![^>]*\bnonce=)` refuse la balise déjà signée ; `(?![^>]*\bsrc=)` refuse
- * le script SERVI depuis un fichier, qui n'a pas besoin de nonce et satisfait
- * `script-src 'self'`. Reste exactement le cas que le navigateur bloquera.
+ * Sous `'strict-dynamic'` (ADR-0024 §C1), un script SERVI depuis un fichier
+ * de même origine est refusé lui aussi sans nonce : `'self'` n'y compte plus.
+ * Un `<style>` sans nonce l'est sous la politique de styles (§C2).
  */
-const INLINE_SCRIPT_SANS_NONCE =
-  /<script(?![^>]*\bnonce=)(?![^>]*\bsrc=)[^>]*>\s*\S/iu;
+const UNSIGNED_SCRIPT_OR_STYLE = /<(?:script|style)\b(?![^>]*\bnonce\s*=)/iu;
 
 /**
  * Le CSP posé sur cette réponse exige-t-il un nonce sur les scripts ?
@@ -101,7 +101,9 @@ const INLINE_SCRIPT_SANS_NONCE =
  * @param csp - valeur de l'en-tête `Content-Security-Policy`, si posée.
  * @returns `true` quand un script en ligne devra porter un nonce.
  */
-function cspExigeUnNonce(csp: string | number | string[] | undefined): boolean {
+function cspRequiresNonce(
+  csp: string | number | string[] | undefined,
+): boolean {
   return typeof csp === "string" && csp.includes("'nonce-");
 }
 
@@ -451,10 +453,12 @@ class Controller extends Service implements IController {
   }
 
   /**
-   * Dit, EN DÉVELOPPEMENT SEULEMENT, qu'un script en ligne ne s'exécutera pas.
+   * Dit, EN DÉVELOPPEMENT SEULEMENT, qu'un script ou un style ne s'appliquera pas.
    *
-   * Le navigateur refuse un `<script>` en ligne sous une politique de contenu à
-   * nonce, et il le dit dans SA console — que personne ne lit quand la page est
+   * Une vue rendue par {@link Controller.renderView} est signée par le
+   * framework (`viewNonce.ts#signTemplateTags`) : ce qui reste ici, c'est du
+   * HTML produit autrement — une chaîne bâtie dans l'action, une valeur insérée
+   * brute. Le navigateur refuse alors la balise, et il le dit dans SA console — que personne ne lit quand la page est
    * produite par un test, un `curl` ou un agent. Le serveur, lui, a les deux
    * moitiés sous la main : l'en-tête qu'il vient d'émettre et le corps qu'il
    * vient d'écrire — lus APRÈS l'envoi, la politique n'étant posée qu'au
@@ -468,7 +472,7 @@ class Controller extends Service implements IController {
    * @param data - le corps HTML sur le point d'être envoyé.
    * @returns rien — cette sonde n'échoue jamais et ne change aucune réponse.
    */
-  #warnScriptWithoutNonce(data: unknown): void {
+  #warnUnsignedTags(data: unknown): void {
     if (!isDevelopment(this.context?.kernel?.environment)) {
       return;
     }
@@ -482,19 +486,17 @@ class Controller extends Service implements IController {
     }
     const csp = response.getHeader("Content-Security-Policy") as
       string | number | string[] | undefined;
-    if (!cspExigeUnNonce(csp) || !INLINE_SCRIPT_SANS_NONCE.test(data)) {
+    if (!cspRequiresNonce(csp) || !UNSIGNED_SCRIPT_OR_STYLE.test(data)) {
       return;
     }
     this.log(
-      "Cette réponse porte un <script> EN LIGNE sans attribut `nonce`, et la " +
-        "politique de contenu de cette application exige un nonce sur les " +
-        "scripts : le navigateur REFUSERA de l'exécuter (« Refused to execute " +
-        "inline script »). Deux gestes, au choix :\n" +
-        '  • signer le script — `<script nonce="${this.context?.cspNonce}">` ' +
-        '(dans une vue Eta : `<script nonce="<%= it.nonce %>">`, le nonce ' +
-        "étant passé en donnée depuis `this.context?.cspNonce`) ;\n" +
-        "  • sortir le script dans un FICHIER servi par l'application — un " +
-        "`<script src=…>` de même origine satisfait `script-src 'self'` sans nonce.\n" +
+      "Cette réponse porte un <script> ou un <style> sans attribut `nonce`, et " +
+        "la politique de contenu de cette application exige un nonce : le " +
+        "navigateur REFUSERA la balise (« violates the following Content " +
+        "Security Policy directive »). Deux gestes, au choix :\n" +
+        "  • rendre la page par une VUE (`this.renderView(…)`) : le framework " +
+        "signe chaque <script> et <style> écrit dans le gabarit ;\n" +
+        '  • signer la balise à la main — `<script nonce="${this.context?.cspNonce}">`.\n' +
         "  Ne desserre PAS la politique (`'unsafe-inline'`) : le détail vit dans " +
         "`@nodefony/security/docs/headers.md`.",
       "WARNING",
@@ -536,11 +538,11 @@ class Controller extends Service implements IController {
       isDevelopment(this.context?.kernel?.environment)
     ) {
       return sent.then((response) => {
-        this.#warnScriptWithoutNonce(data);
+        this.#warnUnsignedTags(data);
         return response;
       });
     }
-    this.#warnScriptWithoutNonce(data);
+    this.#warnUnsignedTags(data);
     return sent;
   }
 
@@ -590,8 +592,8 @@ class Controller extends Service implements IController {
       this.context?.phaseStart("render");
       try {
         data = await this.template?.render(
-          (await file.readAsync()).toString(),
-          this.withFrontendLocals(param),
+          signTemplateTags((await file.readAsync()).toString()),
+          this.withNonceLocal(this.withFrontendLocals(param)),
         );
       } finally {
         this.context?.phaseEnd("render");
@@ -599,12 +601,29 @@ class Controller extends Service implements IController {
       this.setContextHtml();
       const response = await this.renderResponse(data, "utf8", status, headers);
       // Après l'envoi : la politique de contenu n'est posée qu'au `writeHead`.
-      this.#warnScriptWithoutNonce(data);
+      this.#warnUnsignedTags(data);
       return response;
     } catch (e) {
       this.log(e, "ERROR");
       throw e;
     }
+  }
+
+  /**
+   * Expose le nonce CSP de la requête à la vue (`cspNonce`), lu seulement si
+   * le gabarit s'en sert : un accesseur, pas une valeur — une vue sans
+   * `<script>` ni `<style>` ne tire aucun nonce. Une valeur `cspNonce`
+   * fournie par l'action est gardée.
+   */
+  private withNonceLocal(
+    param: Record<string, unknown>,
+  ): Record<string, unknown> {
+    if (VIEW_NONCE_LOCAL in param) return param;
+    const context = this.context;
+    return Object.defineProperty({ ...param }, VIEW_NONCE_LOCAL, {
+      get: (): string => context?.cspNonce ?? "",
+      enumerable: false,
+    });
   }
 
   /**
