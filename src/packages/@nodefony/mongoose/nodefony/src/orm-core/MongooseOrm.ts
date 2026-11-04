@@ -412,9 +412,12 @@ export class MongooseOrm extends Orm {
    * plus longtemps que nécessaire.
    *
    * `socketTimeoutMS` n'est délibérément PAS touché (le driver le laisse
-   * infini) : le borner ici tuerait les agrégations longues légitimes. Ce
-   * rôle revient à `timeoutMS` (CSOT), que seule l'application peut fixer en
-   * connaissance de ses opérations.
+   * infini) : le borner ici tuerait les agrégations longues légitimes. Borner
+   * une opération longue revient à `maxTimeMS`, posé PAR opération, que seule
+   * l'application peut fixer en connaissance de ses requêtes. Jamais
+   * `timeoutMS` (CSOT) : déprécié et sans effet depuis le driver 7.8, et
+   * vecteur, avant lui, d'une désynchronisation du pool qui exposait les
+   * données d'un autre utilisateur (CVE-2026-119179).
    *
    * 🔴 **Un choix EXPLICITE gagne toujours** — qu'il vienne des options ou de
    * la chaîne de connexion. Poser un défaut n'autorise pas à écraser une
