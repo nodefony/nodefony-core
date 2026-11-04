@@ -298,6 +298,7 @@ describe("Firewall.describe() — les en-têtes de transport disent le RÉEL (F1
     const { firewall, container } = bootFirewall({
       ...CONFIG,
       // L'app croit configurer ici : ces clés ne pilotent RIEN.
+      // oxlint-disable-next-line typescript/no-deprecated -- le test exerce la clé dépréciée, inerte face au transport
       headers: { frameguard: "deny", noSniff: true, hsts: true },
     });
     withHttpKernel(container, {
@@ -328,6 +329,7 @@ describe("Firewall.describe() — les en-têtes de transport disent le RÉEL (F1
   it("sans HttpKernel au container, on ne devine pas : repli sur la config", () => {
     const { firewall } = bootFirewall({
       ...CONFIG,
+      // oxlint-disable-next-line typescript/no-deprecated -- le test exerce le repli sur la clé dépréciée sans noyau HTTP
       headers: { frameguard: "sameorigin" },
     });
     assert.equal(
