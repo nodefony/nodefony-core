@@ -535,12 +535,12 @@ script d'un worker. Sur un JSON ou une image, elle ne gouverne rien — sauf l'e
 pare-feu choisit donc la politique au moment où la réponse écrit ses en-têtes, d'après son
 `Content-Type` (`securityHeaders.ts#responseKindOf`, ADR-0024 §C11) :
 
-| La réponse est…                                                     | Content-Security-Policy                                        | Autres en-têtes applicatifs   |
-| ------------------------------------------------------------------- | -------------------------------------------------------------- | ----------------------------- |
-| un document (`text/html`, `application/xhtml+xml`, `image/svg+xml`) | complète, avec nonce                                           | tous                          |
-| du JavaScript (`text/javascript`…)                                  | complète, **sans** nonce (celle qu'un worker prend)            | `Referrer-Policy`, COEP, CORP |
-| autre chose : JSON, CSS, image, police, média, 204                  | `default-src 'none'`, plus le `frame-ancestors` de la complète | `Referrer-Policy`, CORP       |
-| un `304 Not Modified`                                               | **aucune**                                                     | aucun                         |
+| La réponse est…                                                      | Content-Security-Policy                                        | Autres en-têtes applicatifs   |
+| -------------------------------------------------------------------- | -------------------------------------------------------------- | ----------------------------- |
+| un document : HTML, ou tout type XML (`text/xml`, `*+xml`, dont SVG) | complète, avec nonce                                           | tous                          |
+| du JavaScript (`text/javascript`…)                                   | complète, **sans** nonce (celle qu'un worker prend)            | `Referrer-Policy`, COEP, CORP |
+| autre chose : JSON, CSS, image, police, média, 204                   | `default-src 'none'`, plus le `frame-ancestors` de la complète | `Referrer-Policy`, CORP       |
+| un `304 Not Modified` du pipeline (contrôleur)                       | **aucune**                                                     | aucun                         |
 
 Pourquoi chaque ligne :
 
@@ -548,12 +548,18 @@ Pourquoi chaque ligne :
   aléatoire, et sa politique passe de ~360 octets à ~40.
 - **L'encadrement suit la politique complète** : avec `http.securityHeaders.frameOptions:
 "SAMEORIGIN"`, un PDF ou une image que ta page encadre le reste.
-- **Un `304` ne porte rien** : ses en-têtes REMPLACENT ceux de la page gardée en cache (RFC 9111
-  §4.3.4). Une politique courte y réduirait la page, un nonce neuf la désaccorderait de ses balises.
+- **Une page XML est un document** : le navigateur la rend. Sous la politique courte, un formulaire
+  injecté n'y relèverait d'aucun `form-action` — `default-src` ne couvre ni `form-action` ni
+  `base-uri`.
+- **Un `304` du pipeline ne porte rien** : ses en-têtes REMPLACENT ceux de la page gardée en cache
+  (RFC 9111 §4.3.4). Une politique courte y réduirait la page, un nonce neuf la désaccorderait de
+  ses balises. Un fichier statique en `304` porte en revanche la politique de son `200` : le serveur
+  statique écrit ses en-têtes avant de savoir la copie fraîche. C'est sans effet : c'est la même
+  politique, et un fichier n'a pas de nonce dans ses balises.
 - **Une réponse sans contenu** (204, corps vide) prend la courte, même si un `Content-Type` y a été
   posé : rien n'y sera rendu.
 - **Un fichier statique** est rangé d'après son extension. Sans extension connue — l'`index.html`
-  d'un dossier —, il reçoit la politique complète.
+  d'un dossier, ou toute adresse qui finit par `/` —, il reçoit la politique complète.
 
 Ce que l'application écrit n'est **jamais réduit** :
 

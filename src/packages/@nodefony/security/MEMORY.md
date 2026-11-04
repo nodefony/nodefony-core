@@ -438,9 +438,10 @@ apiKeys.enabled` (keystore JWT seulement si jwt) ; `isEnabled()`=capacité JWT (
     étape B), Referrer-Policy, COOP/COEP/CORP, Origin-Agent-Cluster (`?1` RFC 9651), Permissions-Policy — table figée
     pré-calculée au boot. **`Firewall.applySecurityHeaders(ctx, contentType?)`** : ARMÉ sur la réponse au routage
     (`response.headerPolicy`), APPELÉ par `HttpResponse.writeHead` (h1/h2) ou `commitHeaders` (statique : type =
-    extension) → **portée ADR-0024 §C11** : `responseKindOf` → document (CSP complète + nonce, tous en-têtes) ·
+    extension, `/` final = inconnu) → **portée ADR-0024 §C11** : `responseKindOf` → document = HTML + tout XML
+    (`text/xml`, `application/xml`, `*+xml` — sinon `form-action`/`base-uri` perdus) (CSP complète + nonce, tous en-têtes) ·
     script (CSP sans nonce, Referrer/COEP/CORP) · other (`default-src 'none'` + `frame-ancestors` de la complète,
-    Referrer/CORP) ; `contentType` omis = document ; `null` = sans contenu → other ; 304 → rien (côté http). Tables
+    Referrer/CORP) ; `contentType` omis = document ; `null` = sans contenu → other ; 304 du pipeline → rien (côté http) ; 304 statique = politique du 200 (posée avant que send sache la copie fraîche, sans effet). Tables
     figées au boot (`headersForResource`). Pose par `setDefaultHeader` → valeur écrite par l'app GAGNE. Route `@Csp`
     = sa politique quel que soit le type. ⚠️ un lecteur de la CSP AVANT l'envoi ne la voit plus (dev-warning
     `Controller.#warnScriptWithoutNonce` lit après l'envoi). `headers.{hsts,frameguard,noSniff}` = délégués transport (describe). `hidePoweredBy` =

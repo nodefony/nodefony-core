@@ -154,11 +154,11 @@ paquets du framework ; liste d'exceptions déclarée, vide. Pas de garde sur les
 
 Choisie au `writeHead` unique, sur le type de la réponse :
 
-| Type                                                  | En-têtes                                                 |
-| ----------------------------------------------------- | -------------------------------------------------------- |
-| `text/html`, `application/xhtml+xml`, `image/svg+xml` | politique complète avec nonce, `Permissions-Policy`      |
-| JavaScript                                            | politique complète SANS nonce (un worker prend celle-ci) |
-| reste (JSON, images, CSS, polices, binaire)           | `default-src 'none'; frame-ancestors 'none'`, figée      |
+| Type                                         | En-têtes                                                 |
+| -------------------------------------------- | -------------------------------------------------------- |
+| `text/html`, tout type XML (dont XHTML, SVG) | politique complète avec nonce, `Permissions-Policy`      |
+| JavaScript                                   | politique complète SANS nonce (un worker prend celle-ci) |
+| reste (JSON, images, CSS, polices, binaire)  | `default-src 'none'; frame-ancestors 'none'`, figée      |
 
 Prérequis tenu : `X-Content-Type-Options: nosniff` est posé partout.
 
@@ -174,12 +174,19 @@ Précisions tranchées à la mise en œuvre (`securityHeaders.ts#responseKindOf`
 - **`frame-ancestors` de la politique courte** : celui de la politique complète, donc
   `http.frameOptions` (C5). Le défaut `DENY` donne exactement la chaîne figée ci-dessus ;
   `SAMEORIGIN` laisse un PDF ou une image encadrés par l'application.
-- **`304`** : aucun en-tête applicatif. Ses en-têtes remplacent ceux de la représentation en
-  cache (RFC 9111 §4.3.4) : une politique courte y réduirait la page, un nonce neuf la
-  désaccorderait de ses balises.
+- **Document = HTML ou tout type XML** (`text/xml`, `application/xml`, sous-type `+xml` —
+  WHATWG MIME Sniffing §4.6), pas seulement XHTML et SVG : une page XML est rendue, et sous la
+  politique courte un formulaire injecté n'y relèverait d'aucun `form-action` (que `default-src`
+  ne couvre pas).
+- **`304` du pipeline** : aucun en-tête applicatif. Ses en-têtes remplacent ceux de la
+  représentation en cache (RFC 9111 §4.3.4) : une politique courte y réduirait la page, un nonce
+  neuf la désaccorderait de ses balises. Un statique en `304` garde la politique de son `200`
+  (posée avant que le serveur statique sache la copie fraîche) : sans effet, même politique et
+  aucun nonce dans un fichier.
 - **Sans contenu** (204, corps vide) : politique courte, même si un `Content-Type` y est posé.
 - **Fichier statique** : écrit en natif par le serveur statique, son type se lit à l'extension.
-  Extension inconnue (index d'un dossier) : politique complète, jamais une plus faible par défaut.
+  Extension inconnue (index d'un dossier) ou adresse finissant par `/` : politique complète,
+  jamais une plus faible par défaut.
 - **Ce que l'application écrit n'est jamais réduit** : une route `@Csp` garde SA politique quel
   que soit le type ; un en-tête posé à la main par un contrôleur gagne sur celui du pare-feu
   (`HttpResponse.setDefaultHeader`).

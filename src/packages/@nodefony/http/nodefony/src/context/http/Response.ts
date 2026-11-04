@@ -510,8 +510,11 @@ class HttpResponse {
     if (this.headerPolicy !== null) {
       // Le tiers posera le type APRÈS cette recopie : celui d'un fichier se lit
       // à son extension, comme le serveur statique le fera. Sans extension
-      // connue (index d'un dossier), type inconnu → politique complète.
-      const type = mime.lookup(this.context.request.pathname);
+      // connue (index d'un dossier), type inconnu → politique complète. Un `/`
+      // final vise un dossier, dont l'index est servi quel que soit son nom :
+      // `mime.lookup("/dir.js/")` rendrait `text/javascript` à tort.
+      const pathname = this.context.request.pathname;
+      const type = pathname.endsWith("/") ? false : mime.lookup(pathname);
       this.applyHeaderPolicy(type === false ? undefined : type);
     }
     const list = this.#store();

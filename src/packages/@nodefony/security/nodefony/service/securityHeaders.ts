@@ -16,11 +16,16 @@ import {
  */
 export type ResponseKind = "document" | "script" | "other";
 
-/** Types qu'un navigateur rend comme un document, donc qui exécutent la politique. */
+/**
+ * Types qu'un navigateur rend comme un document, donc qui exécutent la
+ * politique : HTML, et tout type XML (WHATWG MIME Sniffing §4.6, « XML MIME
+ * type » — `text/xml`, `application/xml`, sous-type en `+xml`, dont XHTML et
+ * SVG ; ces derniers sont lus par {@link responseKindOf}).
+ */
 const DOCUMENT_TYPES: ReadonlySet<string> = new Set([
   "text/html",
-  "application/xhtml+xml",
-  "image/svg+xml",
+  "text/xml",
+  "application/xml",
 ]);
 
 /** Essences d'un type MIME JavaScript (WHATWG MIME Sniffing § 4.6). */
@@ -62,6 +67,9 @@ export function responseKindOf(
     .toLowerCase();
   if (DOCUMENT_TYPES.has(essence)) return "document";
   if (SCRIPT_TYPES.has(essence)) return "script";
+  // Une page XML est rendue : sous la politique courte, un formulaire injecté
+  // n'y relèverait d'aucun `form-action` (que `default-src` ne couvre pas).
+  if (essence.endsWith("+xml")) return "document";
   return "other";
 }
 

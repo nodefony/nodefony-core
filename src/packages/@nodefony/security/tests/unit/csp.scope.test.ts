@@ -43,6 +43,12 @@ describe("responseKindOf — famille d'une réponse d'après son type", () => {
     ["text/html; charset=utf-8", "document"],
     ["Application/XHTML+XML", "document"],
     ["image/svg+xml", "document"],
+    // Tout type XML est rendu comme un document (WHATWG MIME Sniffing §4.6,
+    // « XML MIME type ») : un formulaire injecté n'y relèverait d'aucun
+    // `form-action` sous la politique courte.
+    ["text/xml", "document"],
+    ["application/xml; charset=utf-8", "document"],
+    ["application/atom+xml", "document"],
     ["text/javascript", "script"],
     ["application/javascript; charset=utf-8", "script"],
     ["text/x-javascript", "script"],

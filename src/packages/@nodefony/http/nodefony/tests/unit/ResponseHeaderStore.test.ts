@@ -342,6 +342,33 @@ describe("HttpResponse — politique d'en-têtes armée, choisie au writeHead (A
     expect(wire(res)).to.include("content-security-policy: fw");
   });
 
+  it("statique en 304 : la politique de son 200, posée avant que le statique sache la copie fraîche", () => {
+    // Le serveur statique écrit ses validateurs (ETag…) AVANT de décider le
+    // 304 : la recopie a déjà eu lieu, statut encore 200. Sans effet sur la
+    // page gardée — même politique que son 200, et un fichier n'a pas de nonce.
+    const { r, res } = makeAt("/assets/app.js");
+    const calls = arm(r);
+    r.commitBeforeNativeWrite();
+    res.setHeader("ETag", '"v1"');
+    res.statusCode = 304;
+    res.end();
+    expect(calls).to.deep.equal(["text/javascript"]);
+    expect(String(Reflect.get(res, "_header"))).to.match(/^HTTP\/1\.1 304 /);
+    expect(wire(res)).to.include("content-security-policy: fw");
+  });
+
+  it("statique visant un dossier (`/` final) : type inconnu, même si son nom a une extension", () => {
+    // `mime.lookup("/dir.js/")` rend `text/javascript`, mais le statique sert
+    // `dir.js/index.html` : la politique « JavaScript » n'y aurait ni COOP ni
+    // Permissions-Policy.
+    const { r, res } = makeAt("/dir.js/");
+    const calls = arm(r);
+    r.commitBeforeNativeWrite();
+    res.setHeader("Content-Type", "text/html");
+    res.end("x");
+    expect(calls).to.deep.equal([undefined]);
+  });
+
   it("statique sans extension connue (index d'un dossier) : type inconnu", () => {
     const { r, res } = makeAt("/docs/");
     const calls = arm(r);
