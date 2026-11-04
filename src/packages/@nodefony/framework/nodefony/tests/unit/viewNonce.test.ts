@@ -43,6 +43,20 @@ describe("signTemplateTags — le gabarit signé par le framework", () => {
     );
   });
 
+  it("🔴 un `<script>` dont un attribut vient des DONNÉES n'est pas signé", () => {
+    const src = `<script src="<%= it.url %>"></script><script>go()</script>`;
+    expect(signTemplateTags(src)).toBe(
+      `<script src="<%= it.url %>"></script><script ${ATTR}>go()</script>`,
+    );
+  });
+
+  it("une donnée APRÈS l'ouverture (contenu, autre balise) ne retire pas la signature", () => {
+    const src = `<script src="/a.js"></script><p><%= it.x %></p><style media="<%= it.m %>">p{}</style>`;
+    expect(signTemplateTags(src)).toBe(
+      `<script ${ATTR} src="/a.js"></script><p><%= it.x %></p><style ${ATTR} media="<%= it.m %>">p{}</style>`,
+    );
+  });
+
   it("ni `<scripts>` ni `<styled>` : seules les vraies balises", () => {
     const src = "<scripts></scripts><styled></styled>";
     expect(signTemplateTags(src)).toBe(src);
@@ -72,5 +86,21 @@ describe("signTemplateTags — rendu RÉEL par Eta (options du framework)", () =
     });
     // Le script du gabarit est signé, l'injecté reste nu : le navigateur le refuse.
     expect(html).toBe(`<div>${evil}</div><script nonce="N0nce">ok()</script>`);
+  });
+
+  it("🔴 une URL de script apportée par les DONNÉES reste non signée", () => {
+    const html = render(`<script src="<%= url %>"></script>`, {
+      url: "https://evil.example/x.js",
+      [VIEW_NONCE_LOCAL]: "N0nce",
+    });
+    expect(html).toBe(`<script src="https://evil.example/x.js"></script>`);
+  });
+
+  it("l'auteur qui tient l'URL pour sûre la signe lui-même", () => {
+    const html = render(
+      `<script nonce="<%= cspNonce %>" src="<%= url %>"></script>`,
+      { url: "/app/x.js", [VIEW_NONCE_LOCAL]: "N0nce" },
+    );
+    expect(html).toBe(`<script nonce="N0nce" src="/app/x.js"></script>`);
   });
 });

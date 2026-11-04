@@ -319,7 +319,10 @@ attribut `style="…"` reste permis : il ne porte pas de sélecteur. Ce qui est 
   lit par `readCspNonce()` (Mantine : `getStyleNonce`, Emotion : `createCache({ nonce })`) ;
 - dans une vue Eta rendue par `renderView` : **rien à faire** — le framework signe chaque
   `<script>` et `<style>` écrit dans le gabarit (`viewNonce.ts#signTemplateTags`), jamais ce
-  que les données y insèrent ; le nonce reste lisible ailleurs par `<%= it.cspNonce %>`.
+  que les données y insèrent ; le nonce reste lisible ailleurs par `<%= it.cspNonce %>`. Un
+  `<script>` dont un attribut vient des données (`src="<%= it.url %>"`) n'est pas signé : le
+  signer exécuterait l'URL qu'elles apportent. Si tu la tiens pour sûre, signe-le toi-même
+  (`<script nonce="<%= it.cspNonce %>" src="<%= it.url %>">`).
 
 **Une bibliothèque CSS-in-JS**, dans cet ordre de préférence :
 

@@ -32,7 +32,11 @@ const NONCE_ATTRIBUTE = ` nonce="<%= it.${VIEW_NONCE_LOCAL} %>"`;
  *
  * Une balise déjà signée par l'auteur est laissée telle quelle ; un `<script`
  * écrit À L'INTÉRIEUR d'une balise Eta (une chaîne de code) n'est jamais
- * touché. Le rendu doit fournir la variable {@link VIEW_NONCE_LOCAL}.
+ * touché. Un `<script>` dont un attribut vient des données
+ * (`src="<%= it.url %>"`) n'est pas signé non plus : le signer exécuterait
+ * l'URL qu'elles apportent. L'auteur qui la tient pour sûre signe lui-même
+ * (`nonce="<%= it.cspNonce %>"`). Le rendu doit fournir la variable
+ * {@link VIEW_NONCE_LOCAL}.
  *
  * @param source - texte du gabarit Eta, tel que lu sur le disque.
  * @returns le gabarit signé — la MÊME chaîne quand il n'y a rien à signer.
@@ -48,11 +52,22 @@ export function signTemplateTags(source: string): string {
   }
   return source.replace(
     UNSIGNED_TAG_OPEN,
-    (tag: string, _name: string, offset: number) => {
+    (tag: string, name: string, offset: number) => {
       if (etaRanges !== null) {
         for (let i = 0; i < etaRanges.length; i += 2) {
           const start = etaRanges[i] ?? 0;
-          if (start > offset) break;
+          if (start > offset) {
+            // Première balise Eta APRÈS l'ouverture : si elle tombe avant le
+            // `>` qui la ferme, un attribut du `<script>` vient des DONNÉES
+            // (`src="<%= it.url %>"`) — signer exécuterait ce qu'elles apportent.
+            if (
+              name.toLowerCase() === "script" &&
+              start < source.indexOf(">", offset)
+            ) {
+              return tag;
+            }
+            break;
+          }
           if (offset < (etaRanges[i + 1] ?? 0)) return tag;
         }
       }
