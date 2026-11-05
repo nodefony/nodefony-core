@@ -168,10 +168,12 @@ function detailPanelH(): number {
 }
 
 /** Onglets disponibles (ordre d'affichage). */
-type TabId = "realtime" | "socket" | "requests" | "perf" | "kernel" | "runtime";
+type TabId =
+  "realtime" | "socket" | "sse" | "requests" | "perf" | "kernel" | "runtime";
 const TAB_IDS: readonly string[] = [
   "realtime",
   "socket",
+  "sse",
   "requests",
   "perf",
   "kernel",
@@ -316,6 +318,17 @@ function kvHtml(
 ): string {
   const title = full ? ` title="${escapeHtml(full)}"` : "";
   return `<div class="kv">${helpLabel(label, help)}<span class="v ${cls}"${title}>${escapeHtml(value)}</span></div>`;
+}
+
+/** Un onglet de connexion : pastille d'état et chemin ; l'adresse en bulle. */
+function connTab(
+  key: string,
+  label: string,
+  state: "ok" | "warn" | "",
+  selected: string,
+  title: string,
+): string {
+  return `<button type="button" data-conn="${escapeHtml(key)}" aria-pressed="${key === selected}" data-tip="${escapeHtml(title)}"><span class="dot ${state}" aria-hidden="true"></span>${escapeHtml(label)}</button>`;
 }
 
 /** Le chemin d'une adresse de socket — l'hôte est le même pour toutes. */
@@ -662,17 +675,25 @@ const STYLES =
 .card.kevents { grid-column: 1 / -1; }
 .sgrid { display:grid; gap:14px; align-items:stretch;
   grid-template-columns: minmax(340px,1.2fr) minmax(0,1fr) minmax(0,1fr);
-  grid-template-rows: minmax(0,1fr) auto auto;
-  grid-template-areas: "id log log" "id st inc" "sse sse sse"; }
+  grid-template-rows: minmax(0,1fr) auto;
+  grid-template-areas: "id log log" "id st inc"; }
+.sgrid[hidden] { display:none; }
+.sgrid.ssev { grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); grid-template-rows:none; grid-template-areas:none; }
+.ctabs { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 12px; }
+.ctabs button { display:flex; align-items:center; gap:7px; padding:6px 12px; border:1px solid var(--line); border-radius:8px;
+  background:var(--card); color:#cfd3d8; font:600 12px/1.2 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; cursor:pointer; }
+.ctabs button:hover { border-color:#5b6270; color:#fff; }
+.ctabs button[aria-pressed="true"] { border-color:var(--blue2); background:rgba(58,160,255,.14); color:#fff; }
+.ctabs button:focus-visible { outline:2px solid var(--ok); outline-offset:2px; }
+.ctabs .dot { width:7px; height:7px; border-radius:50%; background:#5b6270; flex:none; }
+.ctabs .dot.ok { background:var(--ok); } .ctabs .dot.warn { background:var(--warn); }
 .sk-log { display:flex; flex-direction:column; }
 .sockp .sk-log .rtlog { flex:1 1 0; min-height:180px; max-height:none; }
-.sockp .vseg { flex-wrap:wrap; margin-bottom:8px; }
+
 .sk-id { grid-area:id; } .sk-log { grid-area:log; min-width:0; } .sk-st { grid-area:st; } .sk-inc { grid-area:inc; }
-.sk-sse { grid-area:sse; }
 .sk-st, .sk-inc { max-height:200px; overflow:auto; }
-.sockp .sk-sse .kv { grid-template-columns:minmax(0,1fr) minmax(0,1.6fr); }
-.sockp .sk-sse .kv .k { white-space:normal; overflow-wrap:anywhere; }
-@media (max-width:960px) { .sgrid { grid-template-columns:1fr; grid-template-areas:"id" "log" "st" "inc" "sse"; } }
+
+@media (max-width:960px) { .sgrid { grid-template-columns:1fr; grid-template-areas:"id" "log" "st" "inc"; } }
 .sockp .kv { display:grid; grid-template-columns:13em minmax(0,1fr); gap:10px; align-items:baseline; padding:3px 0; }
 .sockp .kv .k { white-space:nowrap; } .sockp .kv .v { text-align:left; white-space:normal; overflow-wrap:anywhere; }
 .sk-st .kv { grid-template-columns:minmax(0,1fr) auto; } .sk-inc .kv { grid-template-columns:auto minmax(0,1fr); }
@@ -1066,8 +1087,10 @@ export class DebugBar {
   private rtRtt = "—";
   /** L'aller-retour a été demandé pour cette ouverture de l'onglet. */
   private rttAsked = false;
-  /** Socket affichée par l'onglet Sockets (son adresse) ; `null` = celle de la barre. */
-  private sockUrl: string | null = null;
+  /** Socket affichée (son adresse) ; `null` = la première. */
+  private connKey: string | null = null;
+  /** Flux SSE affiché (son id réseau) ; `null` = le premier. */
+  private sseKey: number | null = null;
   /** Incidents par socket, les plus récents d'abord — alloués au premier. */
   private sockIncidents: Map<NodefonySocket, NodefonyNotice[]> | null = null;
   /** Sockets de la page dont on écoute déjà les incidents (hors celle de la barre). */
@@ -2005,7 +2028,8 @@ export class DebugBar {
         <div class="resize" data-el="resize" title="Redimensionner"></div>
         <div class="tabs">
           <button class="tab" data-tab="realtime">Realtime</button>
-          <button class="tab" data-tab="socket">Sockets · SSE <span class="tcount" data-el="sockTab">0</span></button>
+          <button class="tab" data-tab="socket" data-tip="Les sockets temps réel de la page (NodefonySocket)">Nodefony Socket <span class="tcount" data-el="sockTab">0</span></button>
+          <button class="tab" data-tab="sse" data-tip="Les flux Server-Sent Events de la page, tels que le réseau les voit (NodefonySse, EventSource, fetch)">Nodefony SSE <span class="tcount" data-el="sseTab">0</span></button>
           <button class="tab" data-tab="requests">Requêtes <span class="tcount" data-el="reqTab">0</span></button>
           <button class="tab" data-tab="perf">Perf</button>
           <button class="tab" data-tab="kernel">Nodefony client <span class="tdot" data-el="kTabDot" hidden></span></button>
@@ -2014,6 +2038,7 @@ export class DebugBar {
         <div class="panes" data-el="panes">
           ${this.realtimePane()}
           ${this.socketPane()}
+          ${this.ssePane()}
           ${this.requestsPane()}
           ${this.perfPane()}
           <div class="pane" data-pane="kernel"><div data-el="kBody"></div></div>
@@ -2048,16 +2073,16 @@ export class DebugBar {
    * le lire n'émet aucune trame, sauf la mesure d'aller-retour, demandée.
    */
   private socketPane(): string {
-    return `<div class="pane sockp" data-pane="socket"><div class="sgrid">
+    return `<div class="pane sockp" data-pane="socket">
+      <div class="ctabs" data-el="connTabs" role="group" aria-label="Socket affichée"></div>
+      <div class="sgrid" data-el="wsView">
       <div class="card hero sk-id">
         <div class="ttl">Socket</div>
-        <div class="vseg" data-el="sockSeg" role="group" aria-label="Socket affichée"></div>
         <div class="kv">${helpLabel("aller-retour", "Mesuré par nodefony:kernel:ping à l'ouverture de l'onglet et au bouton, jamais en boucle : chaque mesure écrit deux trames dans le journal qu'on lit pour diagnostiquer.")}<span class="v"><span data-el="rtRtt">—</span> <button type="button" class="toolbtn" data-el="btnRtt" aria-label="Mesurer l'aller-retour">mesurer</button></span></div>
         <div data-el="rtRows"></div>
       </div>
       <div class="card sk-st"><div class="ttl">Notifications par méthode</div><div data-el="rtStats"></div></div>
       <div class="card sk-inc"><div class="ttl">Incidents</div><div data-el="rtInc"></div></div>
-      <div class="card sk-sse"><div class="ttl">Flux SSE</div><div data-el="sseList"></div></div>
       <div class="card sk-log">
         <div class="ttl">Trames <span data-el="rtLogN"></span><span class="spacer"></span>
           <input class="search" data-el="rtLogQ" type="search" placeholder="filtrer…" aria-label="Filtrer les trames sur la méthode ou le canal" />
@@ -2066,6 +2091,21 @@ export class DebugBar {
         <div class="rtlog" data-el="rtLog"></div>
       </div>
     </div></div>`;
+  }
+
+  /**
+   * L'onglet Nodefony SSE — chaque flux Server-Sent Events de la page, tel que
+   * l'intercepteur réseau le voit : ce qu'il est, et son cycle de vie.
+   */
+  private ssePane(): string {
+    return `<div class="pane sockp" data-pane="sse">
+      <div class="ctabs" data-el="sseTabs" role="group" aria-label="Flux affiché"></div>
+      <div class="sgrid ssev" data-el="sseView">
+        <div class="card hero"><div class="ttl">Flux</div><div data-el="sseFlow"></div></div>
+        <div class="card"><div class="ttl">Cycle de vie</div><div data-el="sseLife"></div></div>
+      </div>
+      <p class="kintro" data-el="sseEmpty" hidden></p>
+    </div>`;
   }
 
   private perfPane(): string {
@@ -2283,17 +2323,18 @@ export class DebugBar {
       // L'onglet Sockets ouvert se rafraîchit aussi hors direct : ses chiffres
       // sont LOCAUX (aucune trame), seul le graphe reste gaté.
       if (this.live) this.sampleThroughput();
-      if (this.live || this.sockPaneOpen()) this.scheduleRender();
+      if (this.live || this.tabOpen("socket") || this.tabOpen("sse"))
+        this.scheduleRender();
     });
     this.wireBtn("btnRtt", () => void this.measureRtt());
-    const seg = this.el.sockSeg;
+    const seg = this.el.connTabs;
     if (seg) {
       const onSeg = (ev: Event): void => {
-        const url = closestFrom(ev.target, "[data-sock]")?.getAttribute(
-          "data-sock",
+        const key = closestFrom(ev.target, "[data-conn]")?.getAttribute(
+          "data-conn",
         );
-        if (url === undefined || url === null || url === this.sockUrl) return;
-        this.sockUrl = url;
+        if (key === undefined || key === null || key === this.connKey) return;
+        this.connKey = key;
         // Une autre socket : son aller-retour se remesure, ses dépliés repartent de zéro.
         this.rtRtt = "—";
         this.rttAsked = false;
@@ -2302,6 +2343,19 @@ export class DebugBar {
       };
       seg.addEventListener("click", onSeg);
       this.disposers.push(() => seg.removeEventListener("click", onSeg));
+    }
+    const sseTabs = this.el.sseTabs;
+    if (sseTabs) {
+      const onSse = (ev: Event): void => {
+        const key = closestFrom(ev.target, "[data-conn]")?.getAttribute(
+          "data-conn",
+        );
+        if (key === undefined || key === null) return;
+        this.sseKey = Number(key);
+        this.scheduleRender();
+      };
+      sseTabs.addEventListener("click", onSse);
+      this.disposers.push(() => sseTabs.removeEventListener("click", onSse));
     }
     this.wireBtn("btnRtPause", () => {
       this.rtLogPaused = !this.rtLogPaused;
@@ -3249,14 +3303,19 @@ export class DebugBar {
     const v = this.model.view;
     this.renderStrip(v);
     // L'aller-retour se remesure à CHAQUE ouverture de l'onglet (D1).
-    if (!this.sockPaneOpen()) this.rttAsked = false;
+    if (!this.tabOpen("socket")) this.rttAsked = false;
     if (!this.bar.classList.contains("open")) return; // panneau fermé → stop
+    this.text("sockTab", String(this.pageSockets().length));
+    this.text("sseTab", String(this.sseStreams().length));
     switch (this.activeTab) {
       case "realtime":
         this.renderRealtimePane(v);
         break;
       case "socket":
         this.renderSocketPane();
+        break;
+      case "sse":
+        this.renderSsePane();
         break;
       case "requests":
         this.renderRequestsPane(v);
@@ -3354,11 +3413,10 @@ export class DebugBar {
     );
   }
 
-  /** L'onglet Sockets est-il à l'écran ? Rien du détail ne se lit sinon. */
-  private sockPaneOpen(): boolean {
+  /** Cet onglet est-il à l'écran ? Rien du détail ne se lit sinon. */
+  private tabOpen(id: TabId): boolean {
     return (
-      this.activeTab === "socket" &&
-      this.bar?.classList.contains("open") === true
+      this.activeTab === id && this.bar?.classList.contains("open") === true
     );
   }
 
@@ -3368,7 +3426,8 @@ export class DebugBar {
    * journal qu'on lit pour diagnostiquer.
    */
   private async measureRtt(): Promise<void> {
-    const c = this.shownSocket(this.pageSockets());
+    const c = this.shownSocket();
+    if (c === null) return;
     const methods = c.serverMethods;
     if (c.state !== "connected") this.rtRtt = "socket non connectée";
     else if (methods !== null && !methods.includes(PLATFORM_METHODS.ping))
@@ -3414,17 +3473,61 @@ export class DebugBar {
   }
 
   /**
-   * Les sockets de la page : celle de la barre d'abord, puis le registre de
-   * `NodefonySocket.shared()` — une page peut en tenir plusieurs.
+   * Les sockets de la page — le registre de `NodefonySocket.shared()` — celles
+   * de l'application d'abord, celle de la barre en dernier.
    */
   private pageSockets(): NodefonySocket[] {
-    const all = sharedSockets();
-    return all.includes(this.client) ? all : [this.client, ...all];
+    return [...sharedSockets().filter((x) => x !== this.client), this.client];
   }
 
-  /** La socket affichée : celle choisie, sinon celle de la barre. */
-  private shownSocket(list: NodefonySocket[]): NodefonySocket {
-    return list.find((x) => x.url === this.sockUrl) ?? this.client;
+  /** La socket affichée : celle choisie, sinon la première de la page. */
+  private shownSocket(): NodefonySocket | null {
+    const list = this.pageSockets();
+    return list.find((x) => x.url === this.connKey) ?? list[0] ?? null;
+  }
+
+  /**
+   * Les flux SSE de la page, tels que l'intercepteur réseau les voit — quelle
+   * que soit la bibliothèque qui les ouvre (EventSource, fetch, NodefonySse).
+   */
+  private sseStreams(): NetEntry[] {
+    const out: NetEntry[] = [];
+    if (this.networkEnabled)
+      for (const e of this.net.entries())
+        if (e.stream?.kind === "sse") out.push(e);
+    return out;
+  }
+
+  private renderSsePane(): void {
+    const streams = this.sseStreams();
+    const shown = streams.find((e) => e.id === this.sseKey) ?? streams[0];
+    this.setHtml(
+      "sseTabs",
+      streams
+        .map((e) =>
+          connTab(
+            String(e.id),
+            `${e.method} ${e.path}`,
+            e.stream?.state === "open"
+              ? "ok"
+              : e.stream?.state === "connecting"
+                ? "warn"
+                : "",
+            String(shown?.id ?? ""),
+            e.url,
+          ),
+        )
+        .join(""),
+    );
+    this.el.sseView?.toggleAttribute("hidden", shown === undefined);
+    const empty = this.el.sseEmpty;
+    if (empty) {
+      empty.toggleAttribute("hidden", shown !== undefined);
+      empty.textContent = this.networkEnabled
+        ? "Aucun flux SSE sur cette page."
+        : "Observation réseau coupée (option network: false) : les flux SSE ne sont pas vus.";
+    }
+    if (shown !== undefined) this.renderSseView(shown);
   }
 
   /** Retient un incident d'une socket (les 20 derniers). */
@@ -3441,36 +3544,26 @@ export class DebugBar {
 
   private renderSocketPane(): void {
     const list = this.pageSockets();
-    const c = this.shownSocket(list);
-    // Les flux SSE de la page, tels que l'intercepteur réseau les voit — quelle
-    // que soit la bibliothèque qui les ouvre (EventSource, fetch, NodefonySse).
-    const sse: string[] = [];
-    if (this.networkEnabled)
-      for (const e of this.net.entries()) {
-        const st = e.stream;
-        if (st?.kind !== "sse") continue;
-        sse.push(
-          kvHtml(
-            `${e.method} ${e.path}`,
-            `${streamMeta(e, st)}${e.requestId ? ` · requête ${shortId(e.requestId)}` : ""}`,
-            undefined,
-            st.state === "open"
+    const c = this.shownSocket();
+    this.setHtml(
+      "connTabs",
+      list
+        .map((x) =>
+          connTab(
+            x.url ?? "",
+            `${socketPath(x.url)}${x === this.client ? " · barre de debug" : ""}`,
+            x.state === "connected"
               ? "ok"
-              : st.state === "connecting"
+              : x.state === "connecting" || x.state === "reconnecting"
                 ? "warn"
                 : "",
+            c?.url ?? "",
+            x.url ?? "",
           ),
-        );
-      }
-    this.text("sockTab", String(list.length + sse.length));
-    this.setHtml(
-      "sseList",
-      !this.networkEnabled
-        ? `<div class="kv"><span class="k">observation réseau coupée (option network: false)</span></div>`
-        : sse.length === 0
-          ? `<div class="kv"><span class="k">aucun flux SSE sur cette page</span></div>`
-          : sse.join(""),
+        )
+        .join(""),
     );
+    if (c === null) return;
     // Une autre socket de la page : on écoute ses incidents dès qu'on la montre.
     if (c !== this.client && this.sockWatched?.has(c) !== true) {
       (this.sockWatched ??= new Set<NodefonySocket>()).add(c);
@@ -3480,20 +3573,10 @@ export class DebugBar {
       });
       this.disposers.push(off);
     }
-    this.setHtml(
-      "sockSeg",
-      list.length < 2
-        ? ""
-        : list
-            .map(
-              (x) =>
-                `<button type="button" data-sock="${escapeHtml(x.url ?? "")}" aria-pressed="${x === c}" data-tip="${escapeHtml(x.url ?? "")}">${escapeHtml(`${socketPath(x.url)}${x === this.client ? " (barre)" : ""}`)}</button>`,
-            )
-            .join(""),
-    );
-    // Mesuré une fois la socket OUVERTE : demandé avant, il restait figé sur
-    // « non connectée » alors que l'état disait « connecté ».
-    if (!this.rttAsked && c.state === "connected") {
+    // Mesuré une fois l'ACCUEIL reçu : ouverte ne suffit pas — le ping partait
+    // avant que le serveur ait dit ses méthodes, et un serveur qui ne l'offre
+    // pas répondait une erreur… inscrite au journal de l'APPLICATION.
+    if (!this.rttAsked && c.state === "connected" && c.serverMethods !== null) {
       this.rttAsked = true;
       void this.measureRtt();
     }
@@ -3532,6 +3615,75 @@ export class DebugBar {
             .join(""),
     );
     if (!this.rtLogPaused) this.renderFrameLog(c);
+  }
+
+  /**
+   * Un flux SSE de la page, tel que l'intercepteur réseau l'a vu : ce qu'il est,
+   * et son cycle de vie. Ses ÉVÉNEMENTS ne passent pas par l'intercepteur — ils
+   * se lisent là où la page les consomme.
+   */
+  private renderSseView(e: NetEntry): void {
+    const st = e.stream;
+    if (st === undefined) return;
+    const life =
+      st.state === "open"
+        ? `ouvert depuis ${fmtLife(performance.now() - e.startedAt)}`
+        : st.state === "closed" && st.closedAt !== null
+          ? fmtLife(st.closedAt - e.startedAt)
+          : "—";
+    this.setHtml(
+      "sseFlow",
+      [
+        kvHtml(
+          "type",
+          "Server-Sent Events — text/event-stream",
+          "Une requête HTTP dont la réponse ne se termine pas : le serveur y écrit ses événements. EventSource n'émet que des GET ; un client fetch (NodefonySse) peut envoyer un POST avec un corps.",
+        ),
+        kvHtml("méthode", e.method),
+        kvHtml("adresse", e.url),
+        kvHtml("statut", e.status === null ? "—" : String(e.status)),
+        kvHtml(
+          "requête",
+          e.requestId ?? "—",
+          "X-Request-Id de la réponse : la clé de son profil et de ses lignes de journal (onglet Requêtes).",
+        ),
+        ...(e.traceparent ? [kvHtml("traceparent", e.traceparent)] : []),
+      ].join(""),
+    );
+    this.setHtml(
+      "sseLife",
+      [
+        kvHtml(
+          "état",
+          st.state === "open"
+            ? "ouvert"
+            : st.state === "connecting"
+              ? st.reconnects > 0
+                ? "reconnexion…"
+                : "connexion…"
+              : `fermé${st.code === null ? "" : ` ${st.code}`}${st.reason ? ` « ${st.reason} »` : ""}`,
+          undefined,
+          st.state === "open" ? "ok" : st.state === "connecting" ? "warn" : "",
+        ),
+        kvHtml(
+          "ouverture",
+          e.durationMs === null ? "—" : `${e.durationMs} ms`,
+          "Du départ de la requête à l'arrivée de ses en-têtes.",
+        ),
+        kvHtml("durée de vie", life),
+        kvHtml(
+          "reconnexions",
+          String(st.reconnects),
+          "Relancées seules par EventSource, au délai retry: annoncé par le serveur.",
+        ),
+        kvHtml("erreur", e.error ?? "aucune", undefined, e.error ? "crit" : ""),
+        kvHtml(
+          "événements",
+          "non observés",
+          "L'intercepteur voit le cycle du flux, pas son contenu : les événements se lisent là où la page les consomme (observeSse, useNodefonySse).",
+        ),
+      ].join(""),
+    );
   }
 
   /**

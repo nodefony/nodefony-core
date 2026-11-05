@@ -523,19 +523,21 @@ describe("vue Page — les WebSocket et les flux SSE de la page", () => {
     expect(row().querySelector(".dur")?.textContent).toMatch(/ms$|s$/);
   });
 
-  it("🔴 l'onglet Sockets · SSE liste le flux SSE de la page, avec son état", async () => {
+  it("🔴 l'onglet Nodefony SSE donne au flux SSE SON onglet, avec son cycle de vie", async () => {
     const ctl = new AbortController();
     await window.fetch("/flux", { signal: ctl.signal });
-    q(".tab[data-tab='socket']").click();
+    q(".tab[data-tab='sse']").click();
     await image();
-    const liste = (): string => q("[data-el='sseList']").textContent ?? "";
-    expect(liste()).toContain("/flux");
-    expect(liste()).toContain("ouvert");
-    // La socket de la barre ET le flux : l'onglet les compte tous les deux.
-    expect(q("[data-el='sockTab']").textContent).toBe("2");
+    // Un flux SSE ici, une socket (celle de la barre) dans « Nodefony Socket ».
+    expect(q("[data-el='sseTab']").textContent).toBe("1");
+    expect(q("[data-el='sockTab']").textContent).toBe("1");
+    expect(q("[data-el='sseTabs'] [data-conn]").textContent).toContain("/flux");
+    expect(q("[data-el='sseFlow']").textContent).toContain("/flux");
+    const cycle = (): string => q("[data-el='sseLife']").textContent ?? "";
+    expect(cycle()).toContain("ouvert");
     ctl.abort();
     await image();
-    expect(liste()).toContain("fermé");
+    expect(cycle()).toContain("fermé");
   });
 
   it("🔴 un flux SSE choisi ouvert ne réclame pas de profil — il le demande à sa fermeture (vécu : « profil introuvable, évincé du tampon »)", async () => {

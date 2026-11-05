@@ -490,3 +490,29 @@ describe("onglet Sockets — le détail de la socket, à part du Realtime", () =
     ).toBe(null);
   });
 });
+
+describe("onglet Sockets — l'aller-retour attend l'accueil", () => {
+  it("🔴 socket ouverte mais accueil pas encore reçu : AUCUN ping ne part", async () => {
+    let pings = 0;
+    bar?.unmount?.();
+    document.getElementById("nodefony-debugbar")?.remove();
+    bar = new DebugBar({
+      client: fakeSocket({
+        url: "wss://h/app",
+        state: "connected",
+        serverMethods: null,
+        ping: () => {
+          pings++;
+          return Promise.resolve({ rtt: 1 });
+        },
+      }),
+      network: false,
+      open: true,
+    });
+    bar.mount();
+    q(".tab[data-tab='socket']").click();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(pings).toBe(0);
+    expect(q("[data-el='rtRtt']").textContent).toBe("—");
+  });
+});
