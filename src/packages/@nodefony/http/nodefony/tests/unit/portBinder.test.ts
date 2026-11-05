@@ -32,13 +32,17 @@ const HOST = "127.0.0.1";
 /** Serveurs ouverts par un test — fermés inconditionnellement après. */
 let opened: net.Server[] = [];
 
-/** Occupe un port réel et le renvoie (port 0 = le noyau en choisit un libre). */
-function occupy(port = 0): Promise<number> {
+/**
+ * Occupe un port réel sur `host` et le renvoie. Jamais le port 0 dans un cas
+ * qui relit le numéro : il tombe dans la plage éphémère (cf `PORT_FLOOR`) —
+ * passer par `occupyWithRoom`.
+ */
+function occupy(port: number, host: string = HOST): Promise<number> {
   return new Promise((resolve, reject) => {
     const srv = net.createServer();
     opened.push(srv);
     srv.once("error", reject);
-    srv.listen(port, HOST, () => {
+    srv.listen(port, host, () => {
       resolve((srv.address() as AddressInfo).port);
     });
   });
@@ -63,12 +67,15 @@ const PORT_CEIL = 19000;
  * (un cas qui explore `port + k` échouait en `RangeError` au plafond, 65535).
  * Tirage au hasard : deux workers du banc ne partent pas du même port.
  */
-async function occupyWithRoom(room: number): Promise<number> {
+async function occupyWithRoom(
+  room: number,
+  host: string = HOST,
+): Promise<number> {
   for (let essai = 0; essai < 50; essai += 1) {
     const port =
       PORT_FLOOR + Math.floor(Math.random() * (PORT_CEIL - PORT_FLOOR - room));
     try {
-      return await occupy(port);
+      return await occupy(port, host);
     } catch {
       // Pris, ou réservé (plages exclues de Windows) : on en tire un autre.
     }
@@ -231,7 +238,7 @@ describe("bindWithFallback — sur de VRAIS ports occupés", () => {
     opened = [];
 
     const srv = fresh();
-    const res = await bindWithFallback(srv as unknown as Listenable, HOST, {
+    const res = await bindWithFallback(srv, HOST, {
       desired: port,
       reserved: [],
       attempts: 5,
@@ -244,7 +251,7 @@ describe("bindWithFallback — sur de VRAIS ports occupés", () => {
     const taken = await occupyWithRoom(16);
 
     const srv = fresh();
-    const res = await bindWithFallback(srv as unknown as Listenable, HOST, {
+    const res = await bindWithFallback(srv, HOST, {
       desired: taken,
       reserved: [],
       attempts: 10,
@@ -260,7 +267,7 @@ describe("bindWithFallback — sur de VRAIS ports occupés", () => {
     const reserved = taken + 1; // libre, mais promis à l'autre serveur
 
     const srv = fresh();
-    const res = await bindWithFallback(srv as unknown as Listenable, HOST, {
+    const res = await bindWithFallback(srv, HOST, {
       desired: taken,
       reserved: [reserved],
       attempts: 10,
@@ -276,7 +283,7 @@ describe("bindWithFallback — sur de VRAIS ports occupés", () => {
     await occupy(p1 + 2).catch(() => undefined);
 
     const srv = fresh();
-    const res = await bindWithFallback(srv as unknown as Listenable, HOST, {
+    const res = await bindWithFallback(srv, HOST, {
       desired: p1,
       reserved: [],
       attempts: 10,
@@ -368,7 +375,7 @@ describe("bindWithFallback — sur de VRAIS ports occupés", () => {
     const srv = fresh();
     let code: string | undefined;
     try {
-      await bindWithFallback(srv as unknown as Listenable, HOST, {
+      await bindWithFallback(srv, HOST, {
         desired: taken,
         reserved: [],
         attempts: 0,
@@ -387,7 +394,7 @@ describe("bindWithFallback — sur de VRAIS ports occupés", () => {
     const srv = fresh();
     let error: NodeJS.ErrnoException | undefined;
     try {
-      await bindWithFallback(srv as unknown as Listenable, HOST, {
+      await bindWithFallback(srv, HOST, {
         desired: 65535,
         reserved: [],
         attempts: 5,
@@ -412,7 +419,7 @@ describe("bindWithFallback — sur de VRAIS ports occupés", () => {
     const srv = fresh();
     let code: string | undefined;
     try {
-      await bindWithFallback(srv as unknown as Listenable, HOST, {
+      await bindWithFallback(srv, HOST, {
         desired: base,
         reserved: [],
         attempts: 2, // base, +1, +2 → tous indisponibles
@@ -436,7 +443,7 @@ describe("bindWithFallback — sur de VRAIS ports occupés", () => {
 
   it("port 0 : le noyau alloue — aucun repli n'a de sens, et aucun n'est tenté", async () => {
     const srv = fresh();
-    const res = await bindWithFallback(srv as unknown as Listenable, HOST, {
+    const res = await bindWithFallback(srv, HOST, {
       desired: 0,
       reserved: [],
       attempts: 0,
@@ -451,7 +458,7 @@ describe("bindWithFallback — sur de VRAIS ports occupés", () => {
     const srv = fresh();
     let code: string | undefined;
     try {
-      await bindWithFallback(srv as unknown as Listenable, HOST, {
+      await bindWithFallback(srv, HOST, {
         desired: 1, // < 1024 → EACCES (non-root)
         reserved: [],
         attempts: 10,
@@ -480,7 +487,7 @@ describe("bindWithFallback — sur de VRAIS ports occupés", () => {
     await occupy(p1 + 2).catch(() => undefined);
 
     const srv = fresh();
-    const res = await bindWithFallback(srv as unknown as Listenable, HOST, {
+    const res = await bindWithFallback(srv, HOST, {
       desired: p1,
       reserved: [],
       attempts: 10,
@@ -500,7 +507,7 @@ describe("bindWithFallback — sur de VRAIS ports occupés", () => {
 
     const taken = await occupyWithRoom(16);
     const srv = fresh();
-    await bindWithFallback(srv as unknown as Listenable, HOST, {
+    await bindWithFallback(srv, HOST, {
       desired: taken,
       reserved: [],
       attempts: 0,
@@ -518,13 +525,13 @@ describe("bindWithFallback — sur de VRAIS ports occupés", () => {
     const b = await occupyWithRoom(16);
 
     const s1 = fresh();
-    const r1 = await bindWithFallback(s1 as unknown as Listenable, HOST, {
+    const r1 = await bindWithFallback(s1, HOST, {
       desired: a,
       reserved: [b],
       attempts: 20,
     });
     const s2 = fresh();
-    const r2 = await bindWithFallback(s2 as unknown as Listenable, HOST, {
+    const r2 = await bindWithFallback(s2, HOST, {
       desired: b,
       reserved: [a],
       attempts: 20,
@@ -549,30 +556,14 @@ describe("bindWithFallback — sur de VRAIS ports occupés", () => {
  * cause, un mock prouverait seulement que le mock fait ce que je crois.
  */
 describe("bindWithFallback — le conflit que le noyau ne signale PAS", () => {
-  /** Occupe `port` sur une adresse PRÉCISE (le helper global vise 127.0.0.1). */
-  function occupyOn(host: string, port = 0): Promise<number> {
-    return new Promise((resolve, reject) => {
-      const srv = net.createServer();
-      opened.push(srv);
-      srv.once("error", reject);
-      srv.listen(port, host, () => {
-        resolve((srv.address() as AddressInfo).port);
-      });
-    });
-  }
-
   it("un port servi en loopback fait GLISSER l'écoute demandée sur toutes les interfaces", async () => {
     const taken = await occupyWithRoom(16); // 127.0.0.1:taken
     const srv = fresh();
-    const res = await bindWithFallback(
-      srv as unknown as Listenable,
-      "0.0.0.0",
-      {
-        desired: taken,
-        reserved: [],
-        attempts: 5,
-      },
-    );
+    const res = await bindWithFallback(srv, "0.0.0.0", {
+      desired: taken,
+      reserved: [],
+      attempts: 5,
+    });
     expect(res.shiftedFrom).to.equal(taken);
     expect(res.address.port).to.not.equal(taken);
   });
@@ -583,7 +574,7 @@ describe("bindWithFallback — le conflit que le noyau ne signale PAS", () => {
     const taken = await occupyWithRoom(16);
     const srv = fresh();
     let code: string | undefined;
-    await bindWithFallback(srv as unknown as Listenable, "0.0.0.0", {
+    await bindWithFallback(srv, "0.0.0.0", {
       desired: taken,
       reserved: [],
       attempts: 0,
@@ -600,35 +591,23 @@ describe("bindWithFallback — le conflit que le noyau ne signale PAS", () => {
   // intrus. Sans l'exception, un seul worker survivait, les autres bouclaient
   // en relance sur « port déjà servi ».
   it("dans un worker de cluster, un voisin sur le port est un FRÈRE : écoute en STRICT", async () => {
-    const free = await new Promise<number>((resolve) => {
-      const probeSrv = net.createServer();
-      probeSrv.listen(0, "127.0.0.1", () => {
-        const port = (probeSrv.address() as AddressInfo).port;
-        probeSrv.close(() => resolve(port));
-      });
-    });
+    // Port tiré HORS plage éphémère puis libéré : un `listen(0)` rendait un
+    // port qu'une connexion sortante du runner reprenait avant le bind (vécu
+    // en CI macOS : `EADDRINUSE 0.0.0.0:49195` sur l'écoute en cluster).
+    const free = await occupyWithRoom(0);
+    await new Promise<void>((r) => opened.pop()?.close(() => r()));
     const busy = (): Promise<boolean> => Promise.resolve(true);
     const plan = { desired: free, reserved: [], attempts: 0 };
     // Le décor mord : la même sonde, hors cluster, refuse.
     let code: string | undefined;
-    await bindWithFallback(
-      fresh() as unknown as Listenable,
-      "0.0.0.0",
-      plan,
-      busy,
-      false,
-    ).catch((error: unknown) => {
-      const c: unknown = (error as { code?: unknown }).code;
-      code = typeof c === "string" ? c : undefined;
-    });
-    expect(code).to.equal("EADDRINUSE");
-    const res = await bindWithFallback(
-      fresh() as unknown as Listenable,
-      "0.0.0.0",
-      plan,
-      busy,
-      true,
+    await bindWithFallback(fresh(), "0.0.0.0", plan, busy, false).catch(
+      (error: unknown) => {
+        const c: unknown = (error as { code?: unknown }).code;
+        code = typeof c === "string" ? c : undefined;
+      },
     );
+    expect(code).to.equal("EADDRINUSE");
+    const res = await bindWithFallback(fresh(), "0.0.0.0", plan, busy, true);
     expect(res.address.port).to.equal(free);
     expect(res.shiftedFrom).to.equal(null);
   });
@@ -636,20 +615,16 @@ describe("bindWithFallback — le conflit que le noyau ne signale PAS", () => {
   it("le conflit se voit aussi entre FAMILLES d'adresses (`::1` tenu, v4 demandée)", async () => {
     let taken: number;
     try {
-      taken = await occupyOn("::1", 0);
+      taken = await occupyWithRoom(16, "::1");
     } catch {
       return; // pas d'IPv6 sur cette machine : la capacité se CONSTATE
     }
     const srv = fresh();
-    const res = await bindWithFallback(
-      srv as unknown as Listenable,
-      "0.0.0.0",
-      {
-        desired: taken,
-        reserved: [],
-        attempts: 5,
-      },
-    );
+    const res = await bindWithFallback(srv, "0.0.0.0", {
+      desired: taken,
+      reserved: [],
+      attempts: 5,
+    });
     expect(res.shiftedFrom).to.equal(taken);
   });
 
@@ -657,15 +632,11 @@ describe("bindWithFallback — le conflit que le noyau ne signale PAS", () => {
     const free = await occupyWithRoom(16); // puis libéré juste après
     await new Promise<void>((r) => opened.pop()?.close(() => r()));
     const srv = fresh();
-    const res = await bindWithFallback(
-      srv as unknown as Listenable,
-      "0.0.0.0",
-      {
-        desired: free,
-        reserved: [],
-        attempts: 5,
-      },
-    );
+    const res = await bindWithFallback(srv, "0.0.0.0", {
+      desired: free,
+      reserved: [],
+      attempts: 5,
+    });
     expect(res.shiftedFrom).to.equal(null);
     expect(res.address.port).to.equal(free);
   });
@@ -726,7 +697,7 @@ describe("detectPortConflict — la première adresse qui répond", () => {
     let calls = 0;
     const srv = fresh();
     const res = await bindWithFallback(
-      srv as unknown as Listenable,
+      srv,
       HOST,
       {
         desired: 0,
