@@ -99,6 +99,8 @@ import {
   type ProfileSummary,
 } from "./profile";
 import { frameIndexOf } from "../../runtime/frameRequestId";
+import { ownField } from "../../runtime/ownField";
+import { runtimeMode } from "../../runtime/runtimeMode";
 import {
   PLATFORM_CHANNELS,
   PLATFORM_EVENTS,
@@ -141,6 +143,16 @@ function numberField(body: unknown, key: string): number | null {
 }
 /** La recherche des Journaux de la console — le back que la vue Journaux réutilise. */
 const SYSLOG_SEARCH = "/nodefony/syslog/api/logs/search";
+/**
+ * Ce que l'onglet Runtime lit à son ouverture — les sources mêmes de la page
+ * Runtime de la console : noyau, santé, Vite, process.
+ */
+const RUNTIME_READS = [
+  "/nodefony/kernel/api/info",
+  "/nodefony/realtime/api/health",
+  "/nodefony/frontend/api/vite",
+  "/nodefony/kernel/api/processes",
+] as const;
 const HOST_ID = "nodefony-debugbar";
 
 /** Dimensions des sparklines (unités viewBox SVG). */
@@ -318,6 +330,160 @@ function kvHtml(
 ): string {
   const title = full ? ` title="${escapeHtml(full)}"` : "";
   return `<div class="kv">${helpLabel(label, help)}<span class="v ${cls}"${title}>${escapeHtml(value)}</span></div>`;
+}
+
+/** Une lecture de l'onglet Runtime : les quatre réponses, telles que reçues. */
+interface IServerRead {
+  state: "loading" | "ok" | "denied" | "error";
+  info: unknown;
+  health: unknown;
+  vite: unknown;
+  procs: unknown;
+  /** Heure de la lecture (ms depuis l'époque). */
+  at: number;
+}
+
+/** La charge d'une réponse lue — le noyau HTTP l'enveloppe parfois en `{ result }`. */
+function settled(r: PromiseSettledResult<unknown> | undefined): unknown {
+  if (r?.status !== "fulfilled") return null;
+  return ownField(r.value, "result") ?? r.value;
+}
+
+/** Un champ texte d'une réponse (un nombre s'écrit), `""` s'il manque. */
+function str(v: unknown, key: string): string {
+  const x = ownField(v, key);
+  return typeof x === "string" ? x : typeof x === "number" ? String(x) : "";
+}
+
+/** Un champ numérique d'une réponse, 0 s'il manque. */
+function num(v: unknown, key: string): number {
+  const x = ownField(v, key);
+  return typeof x === "number" ? x : 0;
+}
+
+/** Un champ liste d'une réponse, vide s'il manque. */
+function fieldList(v: unknown, key: string): unknown[] {
+  const x = ownField(v, key);
+  return Array.isArray(x) ? x : [];
+}
+
+/** Une phrase d'état à la place d'un contenu absent. */
+function noteHtml(text: string): string {
+  return `<p class="rnote">${escapeHtml(text)}</p>`;
+}
+
+/** Les rôles des process de développement, en français. */
+const ROLE_LABEL: Record<string, string> = {
+  supervisor: "superviseur",
+  server: "serveur",
+  vite: "vite",
+  master: "master",
+  worker: "worker",
+};
+
+/** Ce que dit chaque préférence de la barre — la clé seule ne parle à personne. */
+const LS_LABEL: Record<string, string> = {
+  version: "format",
+  visible: "barre affichée",
+  min: "barre réduite",
+  side: "côté de la pastille",
+  open: "panneau ouvert",
+  tab: "onglet ouvert",
+  h: "hauteur du panneau",
+  live: "temps réel",
+};
+
+/** Les préférences gardées, une ligne chacune, valeur relue à l'instant. */
+function prefRows(): string {
+  return Object.entries(LS)
+    .map(([k, key]) => kvHtml(LS_LABEL[k] ?? k, lsGet(key, "—"), key))
+    .join("");
+}
+
+/** La carte « Ce serveur » : le mode, puis l'identité lue du noyau. */
+function serverHtml(info: unknown, health: unknown, since: number): string {
+  const env = str(info, "environment");
+  const mode = runtimeMode(
+    env,
+    ownField(health, "cluster") === true ? num(health, "instanceCount") : null,
+  );
+  const git = ownField(info, "git");
+  return [
+    `<div class="rmode"><span class="dot ok" aria-hidden="true"></span>${escapeHtml(mode.label)}${mode.vite ? " · Vite / HMR" : ""}</div>`,
+    `<div class="rsub">${escapeHtml(mode.role)}</div>`,
+    kvHtml(
+      "environnement",
+      ownField(info, "debug") === true ? `${env} · debug` : env,
+    ),
+    kvHtml("version", str(info, "version")),
+    kvHtml("node", `${str(info, "node")} · ${str(info, "platform")}`),
+    kvHtml(
+      "pid",
+      `${str(info, "pid")} · depuis ${formatUptime(num(info, "uptime") + since)}`,
+    ),
+    kvHtml("domaine", str(info, "domain")),
+    kvHtml(
+      "git",
+      `${str(git, "branch") || "?"} @ ${str(git, "commit") || "?"}`,
+    ),
+    kvHtml("modules", str(info, "modules"), "Modules chargés par le noyau."),
+  ].join("");
+}
+
+/** La carte « Process » : la topologie de développement, comme `nodefony status`. */
+function procsHtml(report: unknown, procs: unknown[]): string {
+  if (report === null) return noteHtml("Lecture des process indisponible.");
+  if (ownField(report, "supported") === false)
+    return noteHtml("Ce système ne permet pas de lister les process.");
+  if (ownField(report, "devMode") === false)
+    return noteHtml(
+      "Production : un process unique, ni superviseur ni Vite. La topologie multi-process se lit dans la page Cluster de la console.",
+    );
+  if (procs.length === 0)
+    return noteHtml("Aucun process de développement détecté.");
+  const rows = procs
+    .map(
+      (p) =>
+        `<tr><td>${escapeHtml(ROLE_LABEL[str(p, "role")] ?? str(p, "role"))}</td><td>${str(p, "pid")}</td><td>${formatBytes(num(p, "rssKb") * 1024)}</td><td>${num(p, "cpu")} %</td><td>${formatUptime(num(p, "uptimeSec"))}</td><td class="d">${escapeHtml(str(p, "detail"))}</td></tr>`,
+    )
+    .join("");
+  const ports = fieldList(report, "ports")
+    .map(
+      (x) =>
+        `<span><span class="dot ${ownField(x, "listening") === true ? "ok" : ""}" aria-hidden="true"></span>${str(x, "port")}</span>`,
+    )
+    .join("");
+  const warnings = fieldList(report, "warnings")
+    .map(
+      (w) =>
+        `<div class="tag">⚠ ${escapeHtml(typeof w === "string" ? w : str(w, "message"))}</div>`,
+    )
+    .join("");
+  return `<table class="rtab"><thead><tr><th>rôle</th><th>pid</th><th>mémoire</th><th>cpu</th><th>depuis</th><th>détail</th></tr></thead><tbody>${rows}</tbody></table><div class="rports"><span class="k">ports</span>${ports}</div>${warnings}`;
+}
+
+/** La carte « Vite » : un serveur par famille de plugins, et ce qu'il sert. */
+function viteHtml(report: unknown, bundles: unknown[]): string {
+  if (bundles.length === 0)
+    return noteHtml(
+      "Pas de Vite : l'interface vient du bundle compilé (manifest.json).",
+    );
+  const rows = bundles
+    .map((b) => {
+      const entries = fieldList(b, "entries");
+      const kinds = new Map<string, number>();
+      for (const e of entries) {
+        const t = str(e, "type");
+        kinds.set(t, (kinds.get(t) ?? 0) + 1);
+      }
+      const served = [...kinds]
+        .map(([t, n]) => (n > 1 ? `${t} ×${n}` : t))
+        .join(" · ");
+      const restarts = num(b, "restartCount");
+      return `<div class="vrow" tabindex="0" data-tip="${escapeHtml(entries.map((e) => str(e, "entryName")).join(", "))}"><span class="dot ${str(b, "state") === "ready" ? "ok" : "warn"}" aria-hidden="true"></span><b>${escapeHtml(str(b, "family"))}</b><span>${escapeHtml(str(b, "origin"))}</span><span>${escapeHtml(served)}${restarts > 0 ? ` · ${restarts} redémarrage(s)` : ""}</span></div>`;
+    })
+    .join("");
+  return `${rows}<div class="tag">Vite ${escapeHtml(str(report, "vite"))} — un serveur par famille de plugins ; le navigateur y prend les assets et le HMR.</div>`;
 }
 
 /** Un onglet de connexion : pastille d'état et chemin ; l'adresse en bulle. */
@@ -685,8 +851,30 @@ const STYLES =
 .ctabs button:hover { border-color:#5b6270; color:#fff; }
 .ctabs button[aria-pressed="true"] { border-color:var(--blue2); background:rgba(58,160,255,.14); color:#fff; }
 .ctabs button:focus-visible { outline:2px solid var(--ok); outline-offset:2px; }
-.ctabs .dot { width:7px; height:7px; border-radius:50%; background:#5b6270; flex:none; }
-.ctabs .dot.ok { background:var(--ok); } .ctabs .dot.warn { background:var(--warn); }
+.ctabs .dot, .rtp .dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:#5b6270; flex:none; }
+.ctabs .dot.ok, .rtp .dot.ok { background:var(--ok); } .ctabs .dot.warn, .rtp .dot.warn { background:var(--warn); }
+.rgrid { display:grid; gap:14px; align-items:stretch; grid-template-columns:minmax(300px,1fr) minmax(0,2fr);
+  grid-template-areas:"srv proc" "load vite"; }
+.rgrid[hidden] { display:none; }
+.r-srv { grid-area:srv; } .r-proc { grid-area:proc; } .r-load { grid-area:load; } .r-vite { grid-area:vite; }
+.rtp .kv { display:grid; grid-template-columns:8em minmax(0,1fr); gap:10px; align-items:baseline; padding:3px 0; }
+.rtp .kv .k { white-space:nowrap; } .rtp .kv .v { text-align:left; white-space:normal; overflow-wrap:anywhere; }
+.rtp .ttl .toolbtn { text-transform:none; letter-spacing:0; }
+.rtp .r-pref { margin-top:14px; }
+.rtp a.toolbtn { text-decoration:none; }
+.rmode { display:flex; align-items:center; gap:8px; color:#fff; font-size:15px; font-weight:700; }
+.rsub, .rnote { margin:2px 0 8px; color:var(--muted); }
+.rtab { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+.rtab th { text-align:left; color:var(--muted); font-weight:600; padding:0 10px 4px 0; }
+.rtab td { padding:3px 10px 3px 0; border-top:1px solid var(--line); white-space:nowrap; }
+.rtab td.d { white-space:normal; overflow-wrap:anywhere; color:var(--muted); }
+.rports { display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-top:8px; }
+.rports span { display:inline-flex; align-items:center; gap:5px; }
+.vrow { display:grid; grid-template-columns:auto 6em minmax(0,13em) minmax(0,1fr); gap:10px; align-items:center; padding:4px 0; border-top:1px solid var(--line); }
+.vrow:first-child { border-top:0; }
+.rpref { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.rtp details summary { margin-top:8px; color:var(--muted); cursor:pointer; }
+@media (max-width:960px) { .rgrid { grid-template-columns:1fr; grid-template-areas:"srv" "proc" "load" "vite"; } }
 .sk-log { display:flex; flex-direction:column; }
 .sockp .sk-log .rtlog { flex:1 1 0; min-height:180px; max-height:none; }
 
@@ -1141,6 +1329,10 @@ export class DebugBar {
   private flowView: FlowView = "page";
   /** Lignes relues des requêtes dépliées, par `requestId` (cache borné). */
   private readonly lines = new Map<string, LinesState>();
+  /** Ce que l'onglet Runtime a lu du serveur ; `null` : rien encore. */
+  private srv: IServerRead | null = null;
+  /** La lecture de l'ouverture est-elle faite ? Remis à faux onglet fermé. */
+  private srvAsked = false;
   /** Dernière réponse de la recherche des Journaux (`null` : jamais lue). */
   private serverRows: ILogRecord[] | null = null;
   private serverState: "idle" | "loading" | "error" | "denied" = "idle";
@@ -1911,6 +2103,7 @@ export class DebugBar {
       this.disposers.push(() => side.removeEventListener("click", onSide));
     }
 
+    this.wireBtn("btnRtRead", () => this.readRuntime());
     this.wireBtn("btnPurge", () => {
       lsPurge();
       this.flashBtn("btnPurge", "état effacé ✓");
@@ -2165,7 +2358,7 @@ export class DebugBar {
   }
 
   /**
-   * Ce que la barre garde sur CE navigateur — écrit noir sur blanc.
+   * Ce que la barre garde sur CE navigateur — écrit noir sur blanc, replié.
    *
    * Une console de développement qui écrit dans le stockage local sans le dire
    * est exactement ce qu'on reproche aux autres. La liste est dérivée des clés
@@ -2173,46 +2366,34 @@ export class DebugBar {
    * précisément celles-là — jamais le stockage de l'application hôte.
    */
   private storageCard(): string {
-    const rows = lsKeys()
-      .map(
-        (k) =>
-          `<div class="drow"><span class="dk">${escapeHtml(k.replace("nf.debugbar.", ""))}</span><span class="dv">${escapeHtml(lsGet(k, "—"))}</span></div>`,
-      )
-      .join("");
-    return `<div class="card">
-      <div class="ttl">Stockage local</div>
-      <div class="tag">Ces valeurs vivent dans ce navigateur, sur cet appareil. Elles ne quittent jamais la page et ne concernent que l'apparence de la barre.</div>
-      ${rows}
-      <div class="tag" style="margin-top:8px">Pastille réduite — le coin où elle se pose quand la barre est réduite.</div>
-      <div class="side-choice">
+    return `<div class="card r-pref">
+      <div class="ttl">Barre de debug · ce navigateur</div>
+      <div class="rpref">
+        <span class="k">pastille réduite</span>
         <button type="button" class="toolbtn" data-el="btnSideLeft" aria-pressed="false">◧ À gauche</button>
         <button type="button" class="toolbtn" data-el="btnSideRight" aria-pressed="false">◨ À droite</button>
+        <span class="spacer"></span>
+        <button type="button" class="toolbtn" data-el="btnPurge" data-tip="Effacer les préférences de la barre sur ce navigateur — l'application n'est pas touchée">Purger les préférences</button>
       </div>
-      <div style="margin-top:8px"><button type="button" class="toolbtn" data-el="btnPurge" data-tip="Effacer les préférences de la barre sur ce navigateur — l'application n'est pas touchée">Purger l'état de la barre</button></div>
+      <details><summary>Ce que la barre garde dans ce navigateur — ${lsKeys().length} préférences, qui ne quittent jamais la page</summary><div data-el="rPref"></div></details>
     </div>`;
   }
 
+  /**
+   * L'onglet Runtime — le résumé de la page « Runtime & Lancement » de la
+   * console : ce serveur, ses process, sa charge, ses serveurs Vite.
+   */
   private runtimePane(): string {
-    return `<div class="pane" data-pane="runtime"><div class="cards">
-      ${this.storageCard()}
-      <div class="card">
-        <div class="ttl">Runtime</div>
-        ${this.kv("app", "appName")}
-        ${this.kv("version", "appVersion")}
-        ${this.kv("environnement", "envRow")}
-        ${this.kv("branche", "branchRow")}
-        ${this.kv("pid", "pid")}
-        ${this.kv("uptime", "uptime")}
-        ${this.kv("instance", "instance")}
-        ${this.kv("cpu cores", "cores")}
-        ${this.kv("loadavg", "load")}
-        ${this.kv("rss", "rss")}
-        ${this.kv("heap used", "heapUsed")}
-        ${this.kv("heap total", "heapTotal")}
-        ${this.kv("heap limit", "heapLimit")}
-        ${this.kv("external", "external")}
+    return `<div class="pane rtp" data-pane="runtime">
+      <p class="kintro" data-el="rDenied" hidden>Réservé à une session administrateur : ces lectures sont celles de la page Runtime de la console. <a href="/nodefony/login">Se connecter</a></p>
+      <div class="rgrid" data-el="rGrid">
+        <div class="card hero r-srv"><div class="ttl">Ce serveur<span class="spacer"></span><a class="toolbtn" href="/nodefony/runtime" target="_blank" rel="noopener noreferrer" data-tip="La page complète dans la console : topologie, Vite, et comment Nodefony fait tourner les fronts">↗ Studio</a><button type="button" class="toolbtn" data-el="btnRtRead" aria-label="Relire le serveur" data-tip="Relire — une lecture à la demande, jamais en boucle : la liste des process interroge le système">⟳</button></div><div data-el="rSrv"></div></div>
+        <div class="card r-proc"><div class="ttl">Process <span data-el="rProcN"></span></div><div data-el="rProc"></div></div>
+        <div class="card r-load"><div class="ttl">Charge</div><div data-el="rLoad"></div></div>
+        <div class="card r-vite"><div class="ttl">Vite <span data-el="rViteN"></span></div><div data-el="rVite"></div></div>
       </div>
-    </div></div>`;
+      ${this.storageCard()}
+    </div>`;
   }
 
   /**
@@ -3304,6 +3485,7 @@ export class DebugBar {
     this.renderStrip(v);
     // L'aller-retour se remesure à CHAQUE ouverture de l'onglet (D1).
     if (!this.tabOpen("socket")) this.rttAsked = false;
+    if (!this.tabOpen("runtime")) this.srvAsked = false;
     if (!this.bar.classList.contains("open")) return; // panneau fermé → stop
     this.text("sockTab", String(this.pageSockets().length));
     this.text("sseTab", String(this.sseStreams().length));
@@ -3750,21 +3932,121 @@ export class DebugBar {
     this.setPoints("loopLine", "loopArea", v.loopSeries, loopT, CHART_H);
   }
 
+  /**
+   * Lit, une fois, ce que lit la page Runtime de la console. À l'ouverture de
+   * l'onglet et au bouton — jamais en boucle : la liste des process interroge
+   * le système.
+   */
+  private readRuntime(): void {
+    this.srvAsked = true;
+    if (typeof fetch === "undefined" || this.srv?.state === "loading") return;
+    const prev = this.srv;
+    this.srv = {
+      state: "loading",
+      info: prev?.info ?? null,
+      health: prev?.health ?? null,
+      vite: prev?.vite ?? null,
+      procs: prev?.procs ?? null,
+      at: prev?.at ?? Date.now(),
+    };
+    void Promise.allSettled(
+      RUNTIME_READS.map((url) =>
+        this.ownFetch(url).then((res): Promise<unknown> => {
+          if (!res.ok) throw new Error(String(res.status));
+          return res.json();
+        }),
+      ),
+    ).then(([info, health, vite, procs]) => {
+      const why =
+        info?.status === "rejected" && info.reason instanceof Error
+          ? info.reason.message
+          : "";
+      this.srv = {
+        state:
+          why === "401" || why === "403"
+            ? "denied"
+            : info?.status === "fulfilled"
+              ? "ok"
+              : "error",
+        info: settled(info),
+        health: settled(health),
+        vite: settled(vite),
+        procs: settled(procs),
+        at: Date.now(),
+      };
+      this.scheduleRender();
+    });
+  }
+
   private renderRuntime(v: DebugBarView): void {
-    this.text("appName", v.appName || "—");
-    this.text("appVersion", v.appVersion || "—");
-    this.text("envRow", v.debug ? `${v.env} · debug` : v.env || "—");
-    this.text("branchRow", v.branch || "—");
-    this.text("pid", String(v.pid));
-    this.text("uptime", formatUptime(v.uptime));
-    this.text("instance", v.instanceId);
-    this.text("cores", String(v.cpuCount));
-    this.text("load", v.loadavg.map((n) => n.toFixed(2)).join(" ") || "—");
-    this.text("rss", formatBytes(v.rss));
-    this.text("heapUsed", formatBytes(v.heapUsed));
-    this.text("heapTotal", formatBytes(v.heapTotal));
-    this.text("heapLimit", formatBytes(v.heapLimit));
-    this.text("external", formatBytes(v.external));
+    if (!this.srvAsked) this.readRuntime();
+    const s = this.srv;
+    const denied = s?.state === "denied";
+    this.el.rGrid?.toggleAttribute("hidden", denied);
+    this.el.rDenied?.toggleAttribute("hidden", !denied);
+    this.setHtml("rPref", prefRows());
+    if (s === null || denied) return;
+    const { info, health } = s;
+    this.setHtml(
+      "rSrv",
+      info === null
+        ? noteHtml(
+            s.state === "loading" ? "Lecture…" : "Le noyau n'a pas répondu.",
+          )
+        : serverHtml(info, health, (Date.now() - s.at) / 1000),
+    );
+    const procs = fieldList(s.procs, "processes");
+    this.text("rProcN", procs.length > 0 ? String(procs.length) : "");
+    this.setHtml("rProc", procsHtml(s.procs, procs));
+    const bundles =
+      ownField(s.vite, "available") === true
+        ? fieldList(s.vite, "bundles")
+        : [];
+    this.text("rViteN", bundles.length > 0 ? String(bundles.length) : "");
+    this.setHtml("rVite", viteHtml(s.vite, bundles));
+    // Temps réel allumé : la charge suit le flux. Éteint : le relevé de
+    // l'ouverture, daté — jamais un « 0 » qui passerait pour une mesure.
+    const p = ownField(health, "process");
+    const live = this.live && v.pid > 0;
+    this.setHtml(
+      "rLoad",
+      !live && p === undefined
+        ? noteHtml("La santé du serveur n'a pas répondu.")
+        : [
+            kvHtml(
+              "cpu",
+              `${live ? v.cpuPercent : num(p, "cpuPercent")} %`,
+              "Temps CPU du process serveur, en % d'un cœur.",
+            ),
+            kvHtml(
+              "boucle",
+              live
+                ? `${v.eventLoopMs} ms`
+                : `${num(p, "eventLoopMs")} ms · pic ${num(p, "eventLoopMaxMs")} ms`,
+              "Retard de la boucle d'évènements : ce qu'attend un rappel prêt avant de s'exécuter.",
+            ),
+            kvHtml(
+              "mémoire",
+              formatBytes(live ? v.rss : num(p, "rss")),
+              "Mémoire résidente du process (rss).",
+            ),
+            kvHtml(
+              "heap",
+              `${formatBytes(live ? v.heapUsed : num(p, "heapUsed"))} / ${formatBytes(live ? v.heapTotal : num(p, "heapTotal"))}`,
+              `Tas JavaScript utilisé / réservé — limite ${formatBytes(live ? v.heapLimit : num(p, "heapLimit"))}.`,
+            ),
+            kvHtml(
+              "external",
+              formatBytes(live ? v.external : num(p, "external")),
+              "Mémoire hors tas tenue par des objets JavaScript (tampons).",
+            ),
+            `<div class="tag">${
+              live
+                ? "Suivie en continu (Temps réel)."
+                : `Relevée à ${new Date(s.at).toLocaleTimeString("fr-FR")} — « Temps réel » la suit en continu.`
+            }</div>`,
+          ].join(""),
+    );
   }
 
   private renderRequestsPane(v: DebugBarView): void {

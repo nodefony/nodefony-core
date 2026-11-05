@@ -321,6 +321,9 @@ export type {
   IRealtimeClusterHealth,
   RealtimeHealthReport,
 } from "../realtime/platformHealth";
+// Le mode d’exécution du serveur — une règle, lue par la console et la barre.
+export { runtimeMode } from "../runtime/runtimeMode";
+export type { IRuntimeMode, RuntimeModeId } from "../runtime/runtimeMode";
 export type {
   IPlatformRealtimeContract,
   PlatformServerToClient,

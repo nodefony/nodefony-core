@@ -353,6 +353,8 @@ export type {
   IRealtimeClusterHealth,
   RealtimeHealthReport,
 } from "./realtime/platformHealth";
+export { runtimeMode } from "./runtime/runtimeMode";
+export type { IRuntimeMode, RuntimeModeId } from "./runtime/runtimeMode";
 export type {
   IPlatformRealtimeContract,
   PlatformServerToClient,

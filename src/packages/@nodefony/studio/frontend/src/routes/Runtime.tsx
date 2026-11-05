@@ -1,4 +1,5 @@
 import { observer } from "mobx-react-lite";
+import { runtimeMode, type IRuntimeMode, type RuntimeModeId } from "nodefony";
 import { useCallback } from "react";
 import { Link } from "react-router";
 import {
@@ -143,18 +144,17 @@ interface DevStatusReport {
   pidfile: { path: string; pid: number | null; alive: boolean };
 }
 
-/** Mode de lancement DÉDUIT de l'état runtime (env + topologie). */
-interface RuntimeMode {
-  id: "development" | "production" | "cluster";
-  label: string;
-  /** Vite + HMR actif (uniquement en développement). */
-  vite: boolean;
-  /** Nombre de process Node qui servent le trafic. */
-  processes: number;
-  /** Description courte du rôle process. */
-  role: string;
+/** Mode de lancement DÉDUIT de l'état runtime — la règle du cœur, plus sa couleur. */
+interface RuntimeMode extends IRuntimeMode {
   color: string;
 }
+
+/** La couleur de chaque mode — seule part propre à la console. */
+const MODE_COLOR: Record<RuntimeModeId, string> = {
+  development: "teal",
+  production: "blue",
+  cluster: "grape",
+};
 
 // ───────────────────────────────────────────────────────────────────────────
 // Helpers de format (paliers lisibles, pas de churn).
@@ -262,40 +262,16 @@ const PROCESS_COLUMNS: DataGridColumn<DevProcessInfo>[] = [
 ];
 
 /**
- * Déduit le mode courant des données runtime déjà exposées : un snapshot
- * `cluster:true` ⇒ cluster (N workers) ; sinon l'environnement tranche
- * développement (Vite) vs production (mono-process figé). Honnête : on n'invente
- * rien, on lit `environment` + le discriminant cluster de la sonde socket.
+ * Le mode courant : la règle du cœur (`runtimeMode`, partagée avec la barre de
+ * debug), nourrie de `environment` et du discriminant cluster de la sonde
+ * socket. La console n'y ajoute que la couleur.
  */
 function deriveMode(info: KernelInfo, health: HealthLite | null): RuntimeMode {
-  if (health && isCluster(health)) {
-    return {
-      id: "cluster",
-      label: "Cluster",
-      vite: false,
-      processes: health.instanceCount,
-      role: `1 master + ${health.instanceCount} worker(s)`,
-      color: "grape",
-    };
-  }
-  if (info.environment === "development") {
-    return {
-      id: "development",
-      label: "Développement",
-      vite: true,
-      processes: 1,
-      role: "process unique (Vite intégré)",
-      color: "teal",
-    };
-  }
-  return {
-    id: "production",
-    label: "Production",
-    vite: false,
-    processes: 1,
-    role: "process unique (cloud-native, 1 pod)",
-    color: "blue",
-  };
+  const mode = runtimeMode(
+    info.environment,
+    health && isCluster(health) ? health.instanceCount : null,
+  );
+  return { ...mode, color: MODE_COLOR[mode.id] };
 }
 
 /** Les 3 modes de lancement de la CLI — fiche statique pédagogique. */
