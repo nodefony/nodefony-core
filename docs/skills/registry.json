@@ -2769,8 +2769,8 @@
       ],
       "description": "Ouvre une page réelle dans un navigateur piloté pour la VOIR et la MESURER : contrastes calculés, WCAG par axe-core, Web Vitals, réseau, console, débordements, proportions sur l'écran choisi (téléphone émulé, bureau, grand écran) ; pilote aussi un socket depuis la page. Impose le thème clair ou sombre. Porte les pièges qui font conclure FAUX : mesurer avant que l'écran soit peuplé, viser le mauvais hôte, observer un autre bundle que celui qu'on a bâti. À charger AVANT de constater quoi que ce soit à l'écran. Déclencheurs : \"regarde l'écran\", \"vérifie l'affichage\", \"est-ce que ça s'affiche ?\", \"lis la console\", \"erreurs JS ?\", \"mesure le contraste\", \"cette couleur est-elle lisible ?\", \"capture d'écran\", \"audit WCAG\", \"en mode clair\", \"en mode sombre\", \"quelles requêtes fait la page ?\", \"teste le websocket\", \"latence du socket ?\", \"rendu mobile\", \"faut-il défiler sur téléphone ?\", \"le bouton est-il visible sans défiler ?\", \"la carte est-elle bien proportionnée ?\", \"sur un grand écran\".",
       "cost": {
-        "bodyLines": 454,
-        "approxTokens": 7400
+        "bodyLines": 455,
+        "approxTokens": 7443
       },
       "requires": [],
       "resources": {
@@ -2847,7 +2847,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "454",
+            "detail": "455",
             "advisory": true
           }
         ]
@@ -12759,8 +12759,8 @@
       ],
       "description": "Ouvre un écran de ton application Nodefony dans un navigateur piloté pour le VOIR et surtout le MESURER — contrastes et tailles réellement calculés par le moteur de rendu, audit d'accessibilité par axe-core, erreurs de console, requêtes HTTP, frames WebSocket, sur ta machine ou dans un conteneur jetable. Porte les sondes prêtes à l'emploi, le thème clair ou sombre — un défaut d'affichage n'existe souvent que dans l'un des deux —, et les pièges qui font conclure FAUX : mesurer avant que l'écran soit peuplé, ou observer un bundle qui n'est plus celui du code. Sait aussi piloter un socket temps réel de bout en bout. À charger AVANT de conclure quoi que ce soit sur un écran. Déclencheurs : \"regarde l'écran\", \"vérifie l'affichage\", \"est-ce que ça s'affiche ?\", \"lis la console\", \"y a-t-il des erreurs JS ?\", \"mesure le contraste\", \"capture d'écran\", \"vérifie l'accessibilité\", \"audit WCAG\", \"en mode sombre\", \"la page est-elle rapide ?\", \"quelles requêtes fait la page ?\", \"teste le socket\".",
       "cost": {
-        "bodyLines": 488,
-        "approxTokens": 7531
+        "bodyLines": 490,
+        "approxTokens": 7573
       },
       "requires": [
         "serveur UP",
@@ -13037,7 +13037,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "488",
+            "detail": "490",
             "advisory": true
           }
         ]

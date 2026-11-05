@@ -20,7 +20,12 @@
  * `@output` JSON : sockets et leurs frames (horodatées), requêtes non-2xx, erreurs console, verdict de la condition
  */
 import { open, goTo } from "./lib/browser.mjs";
-import { parseActions, parseCut, sendableCloseCode } from "./lib/probes.mjs";
+import {
+  parseActions,
+  parseCut,
+  sendableCloseCode,
+  signsInMidway,
+} from "./lib/probes.mjs";
 import { playActions } from "./lib/actions.mjs";
 
 const PAGE = process.argv[2] ?? process.env.NF_BROWSER_PAGE ?? "/";
@@ -38,7 +43,8 @@ if (invalidCut) {
 // Sockets que la coupure FERME (cf « La coupure réseau » plus bas).
 const isRouted = (url) => !new URL(url).pathname.startsWith("/_vite/");
 
-const { browser, ctx, page, reuse } = await open();
+const ANONYMOUS = signsInMidway(ACTIONS);
+const { browser, ctx, page, reuse } = await open({ anonymous: ANONYMOUS });
 
 const t0 = Date.now();
 const at = () => Date.now() - t0;
@@ -147,7 +153,7 @@ if (CUT) {
   });
 }
 
-await goTo(page, ctx, PAGE, reuse);
+await goTo(page, ctx, PAGE, reuse, { anonymous: ANONYMOUS });
 
 if (CUT) {
   cutTimers.push(

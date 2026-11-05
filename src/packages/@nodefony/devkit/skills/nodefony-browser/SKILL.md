@@ -199,7 +199,9 @@ Grammaire : `verbe:cible[=valeur]`, séquence séparée par `|`, verbe facultati
 cible cherchée d'abord comme **texte visible** puis comme sélecteur CSS. Verbes : `clic` · `double`
 · `droit` (clic droit) · `survol` · `saisir:Nom=valeur` · `choisir:Liste=valeur` (une option d'un
 `<select>`, par sa valeur ou son libellé ; la cible peut être le libellé qui l'enveloppe) ·
-`touche:Enter` · `voir` · `defiler:600` · `attendre`.
+`touche:Enter` · `voir` · `defiler:600` · `attendre` · `connecter:` (se connecte dans un
+AUTRE onglet, sans recharger la page mesurée — qui s'ouvre alors anonyme : une page déjà
+ouverte voit-elle la session apparaître ?).
 
 - 🔴 **`voir` plutôt qu'un clic pour amener dans la vue** : sur un formulaire, le texte d'une
   question est un `label` — cliquer dessus coche la case qu'il décrit, et tu observes alors un écran

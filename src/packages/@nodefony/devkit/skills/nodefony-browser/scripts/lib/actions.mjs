@@ -1,3 +1,5 @@
+import { USER, signInElsewhere } from "./browser.mjs";
+
 /**
  * Joue une séquence d'interactions (`NF_BROWSER_ACTIONS`, analysée par
  * `parseActions`) sur une page — la seule implémentation, partagée par
@@ -15,6 +17,17 @@
  */
 export async function playActions(page, actions) {
   for (const { verb, target, value } of actions) {
+    if (verb === "connecter") {
+      if (!USER) {
+        return {
+          code: 64, // EX_USAGE
+          message:
+            "connecter: exige NF_BROWSER_USER, NF_BROWSER_PASSWORD et NF_BROWSER_LOGIN",
+        };
+      }
+      await signInElsewhere(page.context());
+      continue;
+    }
     if (verb === "defiler") {
       const pixels = Number.parseInt(target, 10);
       if (!Number.isFinite(pixels)) {

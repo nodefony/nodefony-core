@@ -49,6 +49,7 @@ import {
   captureSlug,
   parseActions,
   parseFamilies,
+  signsInMidway,
   parseProbes,
   parseWidths,
   summarizeAxe,
@@ -82,6 +83,7 @@ const EXPECT = process.argv[3] ?? process.env.NF_BROWSER_EXPECT ?? "";
  * | `voir`     | amène dans la vue SANS cliquer                            |
  * | `defiler`  | fait défiler de N pixels (`defiler:600`), page ou conteneur |
  * | `attendre` | attend qu'un texte APPARAISSE (après une action lente)    |
+ * | `connecter` | se connecte dans un AUTRE onglet (`connecter:`), sans recharger |
  *
  * 🔴 `voir` existe parce qu'un clic n'est pas neutre : sur un formulaire, le
  * texte d'une question est un `label` — cliquer dessus COCHE la case qu'il
@@ -149,7 +151,9 @@ async function axeSource() {
 
 const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
 
-const { browser, ctx, page, reuse } = await open();
+// `connecter:` dans la séquence ⇒ la page s'ouvre ANONYME (cf signsInMidway).
+const ANONYMOUS = signsInMidway(ACTIONS);
+const { browser, ctx, page, reuse } = await open({ anonymous: ANONYMOUS });
 
 // ── Collecteurs — posés AVANT toute navigation ──────────────────────────────
 const consoleErrors = [];
@@ -231,7 +235,7 @@ if (active.has("reseau")) {
   });
 }
 
-await goTo(page, ctx, PAGE, reuse);
+await goTo(page, ctx, PAGE, reuse, { anonymous: ANONYMOUS });
 
 // Attendre un texte DISCRIMINANT, jamais `networkidle` : une application qui se
 // monte puis demande ses données passe par un état « réseau calme » où l'écran

@@ -819,6 +819,24 @@ describe("parseActions — le « = » des sélecteurs CSS n'est pas un séparate
     expect(parseActions(undefined)).toEqual([]);
     expect(parseActions("clic:#a||clic:#b")).toHaveLength(2);
   });
+
+  it("`connecter:` se connecte EN ROUTE — et la page s'ouvre alors anonyme", () => {
+    // Le passage « sans session » → « avec session », sans recharger : se
+    // connecter AVANT d'ouvrir la page rendrait l'action sans objet.
+    const signsInMidway = fonctionDe<(a: IAction[]) => boolean>(
+      probes,
+      "signsInMidway",
+    );
+    const seq = parseActions("clic:Ouvrir|connecter:|attendre:Journaux");
+    expect(seq[1]).toEqual({ verb: "connecter", target: "", value: "" });
+    expect(signsInMidway(seq)).toBe(true);
+    // Sens négatif : sans le verbe, la sonde garde sa connexion préalable.
+    expect(signsInMidway(parseActions("clic:Ouvrir|attendre:Journaux"))).toBe(
+      false,
+    );
+    // Écrit sans « : », c'est un CLIC sur le texte « connecter », pas le verbe.
+    expect(parseActions("connecter")[0]?.verb).toBe("clic");
+  });
 });
 
 type TViewport =

@@ -207,10 +207,12 @@ if (storageRejected.length > 0) {
 /**
  * Ouvre un navigateur et un contexte prêts à mesurer.
  *
+ * @param options.anonymous - ne reprendre AUCUN état d'authentification : la
+ *   séquence se connecte elle-même en route (`connecter:`).
  * @returns `{ browser, ctx, page, reuse }` — `reuse` dit si un état
  *   d'authentification a été repris, ce qui décide s'il faut se connecter.
  */
-export async function open() {
+export async function open({ anonymous = false } = {}) {
   // On CONSTATE quel navigateur répond, au lieu de supposer lequel est là.
   //
   // `channel` demande un navigateur COMPLET plutôt que le
@@ -260,7 +262,7 @@ export async function open() {
       : {}),
     ...(COLOR_SCHEME ? { colorScheme: COLOR_SCHEME } : {}),
   };
-  let reuse = Boolean(USER) && existsSync(STATE);
+  let reuse = !anonymous && Boolean(USER) && existsSync(STATE);
   let ctx = null;
   if (reuse) {
     try {
@@ -419,6 +421,24 @@ export async function signIn(page, ctx) {
 }
 
 /**
+ * Se connecte dans un AUTRE onglet du même contexte, puis le referme — la page
+ * mesurée n'est ni rechargée ni quittée. C'est le geste d'un utilisateur qui
+ * ouvre sa session ailleurs (console, autre onglet) pendant qu'une page déjà
+ * ouverte doit le constater d'elle-même : les cookies sont partagés, rien
+ * d'autre.
+ *
+ * @param ctx - le contexte de la page mesurée.
+ */
+export async function signInElsewhere(ctx) {
+  const tab = await ctx.newPage();
+  try {
+    await signIn(tab, ctx);
+  } finally {
+    await tab.close();
+  }
+}
+
+/**
  * Ouvre la page demandée, en garantissant que c'est bien ELLE qu'on mesure.
  *
  * Un état d'authentification réutilisé peut être PÉRIMÉ (session expirée,
@@ -431,8 +451,20 @@ export async function signIn(page, ctx) {
  * @param ctx - son contexte.
  * @param pathname - le chemin à ouvrir, relatif à l'origine.
  * @param reuse - un état d'authentification a-t-il été repris au lancement.
+ * @param options.anonymous - ouvrir la page SANS se connecter d'abord : la
+ *   séquence s'en charge en route (`connecter:`).
  */
-export async function goTo(page, ctx, pathname, reuse) {
+export async function goTo(
+  page,
+  ctx,
+  pathname,
+  reuse,
+  { anonymous = false } = {},
+) {
+  if (anonymous) {
+    await page.goto(`${BASE}${pathname}`, { waitUntil: "domcontentloaded" });
+    return;
+  }
   if (USER && !reuse) await signIn(page, ctx);
   await page.goto(`${BASE}${pathname}`, { waitUntil: "domcontentloaded" });
   if (USER && reuse) {

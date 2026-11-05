@@ -159,7 +159,23 @@ export const ACTION_VERBS = [
   "voir",
   "defiler",
   "attendre",
+  "connecter",
 ];
+
+/**
+ * La séquence se connecte-t-elle EN COURS de route (`connecter:`) ?
+ *
+ * Alors la page doit s'ouvrir ANONYME — ni état d'authentification repris, ni
+ * connexion préalable : c'est précisément le passage « sans session » →
+ * « avec session », sans recharger, qu'on veut observer. Se connecter avant
+ * aurait rendu l'action sans objet, et la mesure verte pour la mauvaise raison.
+ *
+ * @param actions - la séquence analysée par `parseActions`.
+ * @returns `true` si une action `connecter` y figure.
+ */
+export function signsInMidway(actions) {
+  return actions.some((a) => a.verb === "connecter");
+}
 
 /**
  * Analyse une séquence d'actions (`NF_BROWSER_ACTIONS`).
