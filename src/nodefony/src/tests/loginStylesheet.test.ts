@@ -176,7 +176,8 @@ describe("les copies confrontées à login.css", () => {
     assert.equal(v("line"), dark["line"]);
     assert.equal(v("card"), dark["surface"]);
     assert.equal(v("muted"), dark["muted"]);
-    const background = /background: (#[0-9a-f]{6});\s*--blue:/i.exec(bar);
+    // Le fond est celui du bloc `.bar` (les variables vivent sur `:host`).
+    const background = /\n\.bar \{[^}]*?background: (#[0-9a-f]{6});/i.exec(bar);
     assert.equal(background?.[1]?.toLowerCase(), dark["bg"]);
   });
 
