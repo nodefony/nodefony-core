@@ -159,7 +159,7 @@ const HOST_ID = "nodefony-debugbar";
 const MINI_W = 58;
 const MINI_H = 20;
 const CHART_W = 260;
-const CHART_H = 46;
+const CHART_H = 90;
 const RT_POINTS = 60;
 
 /** Borne basse de hauteur du panneau (px). */
@@ -365,6 +365,62 @@ function num(v: unknown, key: string): number {
 function fieldList(v: unknown, key: string): unknown[] {
   const x = ownField(v, key);
   return Array.isArray(x) ? x : [];
+}
+
+/** La moyenne d'une série, arrondie à `digits` décimales ; 0 si vide. */
+function mean(series: number[], digits: number): number {
+  if (series.length === 0) return 0;
+  let sum = 0;
+  for (const x of series) sum += x;
+  const k = 10 ** digits;
+  return Math.round((sum / series.length) * k) / k;
+}
+
+/**
+ * Ce que le navigateur sait du chargement de cette page (Navigation Timing) —
+ * lu, jamais mesuré : la barre n'ajoute aucun observateur.
+ */
+function pageTimingHtml(): string {
+  // Les classes manquent hors navigateur (jsdom) : un `instanceof` sur un nom
+  // absent LÈVE, d'où la garde `typeof` AVANT de les nommer.
+  const none = noteHtml("Ce navigateur ne rend pas le minutage de la page.");
+  if (
+    typeof performance === "undefined" ||
+    typeof PerformanceNavigationTiming === "undefined" ||
+    typeof PerformanceResourceTiming === "undefined"
+  )
+    return none;
+  const nav = performance.getEntriesByType("navigation")[0];
+  if (!(nav instanceof PerformanceNavigationTiming)) return none;
+  const ms = (x: number): string => `${Math.round(x)} ms`;
+  let bytes = 0;
+  const res = performance.getEntriesByType("resource");
+  for (const r of res)
+    if (r instanceof PerformanceResourceTiming) bytes += r.transferSize;
+  return [
+    kvHtml(
+      "réponse",
+      ms(nav.responseStart - nav.startTime),
+      "Du départ de la navigation au premier octet de la réponse.",
+    ),
+    kvHtml(
+      "DOM prêt",
+      nav.domContentLoadedEventEnd > 0
+        ? ms(nav.domContentLoadedEventEnd - nav.startTime)
+        : "en cours",
+      "DOMContentLoaded : le document est analysé, ses scripts différés ont tourné.",
+    ),
+    kvHtml(
+      "chargée",
+      nav.loadEventEnd > 0 ? ms(nav.loadEventEnd - nav.startTime) : "en cours",
+      "Évènement load : feuilles, images et scripts de la page reçus.",
+    ),
+    kvHtml(
+      "ressources",
+      `${res.length} · ${formatBytes(bytes)}`,
+      "Fichiers chargés depuis l'ouverture de la page, et leur poids transféré — 0 octet pour un fichier pris dans le cache.",
+    ),
+  ].join("");
 }
 
 /** Une phrase d'état à la place d'un contenu absent. */
@@ -682,7 +738,6 @@ const STYLES =
 
 .chart { margin-bottom:10px; } .chart:last-child { margin-bottom:0; }
 .chart .hd { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:2px; }
-.chart .lbl { color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.5px; }
 .chart .val { font-weight:700; font-size:13px; }
 .chart .peak { color:var(--muted); font-size:9px; }
 .chart svg { width:100%; height:${CHART_H}px; display:block; }
@@ -857,8 +912,18 @@ const STYLES =
   grid-template-areas:"srv proc" "load vite"; }
 .rgrid[hidden] { display:none; }
 .r-srv { grid-area:srv; } .r-proc { grid-area:proc; } .r-load { grid-area:load; } .r-vite { grid-area:vite; }
-.rtp .kv { display:grid; grid-template-columns:8em minmax(0,1fr); gap:10px; align-items:baseline; padding:3px 0; }
-.rtp .kv .k { white-space:nowrap; } .rtp .kv .v { text-align:left; white-space:normal; overflow-wrap:anywhere; }
+.rtp .kv, .pfp .kv { display:grid; grid-template-columns:10em minmax(0,1fr); gap:10px; align-items:baseline; padding:3px 0; }
+.rtp .kv .k, .pfp .kv .k { white-space:nowrap; }
+.rtp .kv .v, .pfp .kv .v { text-align:left; white-space:normal; overflow-wrap:anywhere; }
+.pgrid { display:grid; gap:14px; grid-template-columns:repeat(3,minmax(0,1fr)); }
+.pgrid.stale .chart { opacity:.45; }
+.pfstate { display:flex; align-items:center; gap:10px; margin:0 0 12px; color:#c4c9d1; }
+.pfstate[hidden] { display:none; }
+.pfp .dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--ok); }
+.pfp .chart .val { font-size:20px; }
+.pf-page { margin-top:14px; }
+.pfrow { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); column-gap:24px; }
+@media (max-width:960px) { .pgrid { grid-template-columns:1fr; } }
 .rtp .ttl .toolbtn { text-transform:none; letter-spacing:0; }
 .rtp .r-pref { margin-top:14px; }
 .rtp a.toolbtn { text-decoration:none; }
@@ -1333,6 +1398,10 @@ export class DebugBar {
   private srv: IServerRead | null = null;
   /** La lecture de l'ouverture est-elle faite ? Remis à faux onglet fermé. */
   private srvAsked = false;
+  /** La carte « Cette page » de l'onglet Perf est-elle lue ? Idem. */
+  private pageAsked = false;
+  /** L'évènement `load` de la page est-il déjà écouté (une fois au plus) ? */
+  private pageLoadHooked = false;
   /** Dernière réponse de la recherche des Journaux (`null` : jamais lue). */
   private serverRows: ILogRecord[] | null = null;
   private serverState: "idle" | "loading" | "error" | "denied" = "idle";
@@ -2104,6 +2173,7 @@ export class DebugBar {
     }
 
     this.wireBtn("btnRtRead", () => this.readRuntime());
+    this.wireBtn("btnPfLive", () => this.setLive(true));
     this.wireBtn("btnPurge", () => {
       lsPurge();
       this.flashBtn("btnPurge", "état effacé ✓");
@@ -2301,15 +2371,22 @@ export class DebugBar {
     </div>`;
   }
 
+  /**
+   * L'onglet Perf — une carte par mesure du process serveur (60 dernières
+   * secondes, « Temps réel » allumé), et ce que le navigateur sait du
+   * chargement de cette page.
+   */
   private perfPane(): string {
-    return `<div class="pane" data-pane="perf"><div class="cards">
-      <div class="card">
-        <div class="ttl">Performance</div>
-        ${this.chart("CPU", "cpuVal", "cpuPeak", "cpuLine", "cpuArea")}
-        ${this.chart("Heap", "heapVal", "heapPeak", "heapLine", "heapArea")}
-        ${this.chart("Event loop", "loopVal", "loopPeak", "loopLine", "loopArea")}
+    return `<div class="pane pfp" data-pane="perf">
+      <div class="pfstate" data-el="pfOff">Les courbes avancent avec « Temps réel », éteint : les dernières valeurs restent affichées. <button type="button" class="toolbtn" data-el="btnPfLive">Allumer</button></div>
+      <p class="pfstate" data-el="pfOn" hidden><span class="dot ok" aria-hidden="true"></span>Temps réel en direct · 60 dernières secondes</p>
+      <div class="pgrid" data-el="pGrid">
+        <div class="card">${this.chart(helpLabel("CPU", "Temps CPU du process serveur, en % d'un cœur."), "cpuVal", "cpuPeak", "cpuLine", "cpuArea")}<div data-el="cpuRows"></div></div>
+        <div class="card">${this.chart(helpLabel("Mémoire (heap)", "Tas JavaScript utilisé, en % de sa limite."), "heapVal", "heapPeak", "heapLine", "heapArea")}<div data-el="heapRows"></div></div>
+        <div class="card">${this.chart(helpLabel("Boucle d'évènements", "Retard de la boucle : ce qu'attend un rappel prêt avant de s'exécuter. Au-delà de quelques millisecondes, chaque requête l'attend aussi."), "loopVal", "loopPeak", "loopLine", "loopArea")}<div data-el="loopRows"></div></div>
       </div>
-    </div></div>`;
+      <div class="card pf-page"><div class="ttl">Cette page · navigateur</div><div class="pfrow" data-el="pfPage"></div></div>
+    </div>`;
   }
 
   /**
@@ -2423,18 +2500,18 @@ export class DebugBar {
   }
 
   private chart(
-    label: string,
+    title: string,
     valKey: string,
     peakKey: string,
     lineKey: string,
     areaKey: string,
   ): string {
-    return `<div class="chart">
+    return `<div class="ttl">${title}</div><div class="chart">
       <div class="hd">
-        <span class="lbl">${label}</span>
-        <span><span class="val" data-el="${valKey}">—</span> <span class="peak" data-el="${peakKey}"></span></span>
+        <span class="val" data-el="${valKey}">—</span>
+        <span class="peak" data-el="${peakKey}"></span>
       </div>
-      <svg viewBox="0 0 ${CHART_W} ${CHART_H}" preserveAspectRatio="none">
+      <svg viewBox="0 0 ${CHART_W} ${CHART_H}" preserveAspectRatio="none" aria-hidden="true">
         <polygon class="area ok" data-el="${areaKey}" points=""/>
         <polyline class="spark ok" data-el="${lineKey}" points=""/>
       </svg>
@@ -3486,6 +3563,7 @@ export class DebugBar {
     // L'aller-retour se remesure à CHAQUE ouverture de l'onglet (D1).
     if (!this.tabOpen("socket")) this.rttAsked = false;
     if (!this.tabOpen("runtime")) this.srvAsked = false;
+    if (!this.tabOpen("perf")) this.pageAsked = false;
     if (!this.bar.classList.contains("open")) return; // panneau fermé → stop
     this.text("sockTab", String(this.pageSockets().length));
     this.text("sseTab", String(this.sseStreams().length));
@@ -3914,22 +3992,75 @@ export class DebugBar {
     );
   }
 
+  /**
+   * La carte « Cette page », lue à l'ouverture de l'onglet. Ouverte pendant
+   * que la page charge encore, elle se relit à son évènement `load` — une
+   * fois, l'écouteur rendu au démontage.
+   */
+  private readPageTiming(): void {
+    this.pageAsked = true;
+    this.setHtml("pfPage", pageTimingHtml());
+    if (this.pageLoadHooked || document.readyState === "complete") return;
+    this.pageLoadHooked = true;
+    const onLoad = (): void => {
+      this.pageAsked = false;
+      this.scheduleRender();
+    };
+    window.addEventListener("load", onLoad, { once: true });
+    this.disposers.push(() => window.removeEventListener("load", onLoad));
+  }
+
   private renderPerf(v: DebugBarView): void {
+    this.el.pfOff?.toggleAttribute("hidden", this.live);
+    this.el.pfOn?.toggleAttribute("hidden", !this.live);
+    this.el.pGrid?.classList.toggle("stale", !this.live);
+    if (!this.pageAsked) this.readPageTiming();
+    // Aucune mesure reçue : « — », jamais un zéro qui passerait pour une mesure.
+    const has = v.cpuSeries.length > 0;
+    const val = (x: string): string => (has ? x : "—");
     const cpuT = gauge(v.cpuPercent);
     const memT = gauge(v.heapPercent);
     const loopT = gauge(v.eventLoopMs, 50, 200);
-    this.text("cpuVal", `${v.cpuPercent}%`);
-    this.text("cpuPeak", v.cpuPeak ? `peak ${v.cpuPeak}%` : "");
+    this.text("cpuVal", val(`${v.cpuPercent} %`));
+    this.text("cpuPeak", v.cpuPeak ? `pic ${v.cpuPeak} %` : "");
     this.cls("cpuVal", `val ${cpuT}`);
     this.setPoints("cpuLine", "cpuArea", v.cpuSeries, cpuT, CHART_H, 100);
-    this.text("heapVal", `${v.heapPercent}%`);
-    this.text("heapPeak", v.heapPeak ? `peak ${v.heapPeak}%` : "");
+    this.setHtml(
+      "cpuRows",
+      kvHtml("moyenne", val(`${mean(v.cpuSeries, 0)} %`)) +
+        kvHtml("seuils", "70 · 90 %", "Orange à partir de 70 %, rouge à 90 %."),
+    );
+    this.text("heapVal", val(`${v.heapPercent} %`));
+    this.text("heapPeak", v.heapPeak ? `pic ${v.heapPeak} %` : "");
     this.cls("heapVal", `val ${memT}`);
     this.setPoints("heapLine", "heapArea", v.heapSeries, memT, CHART_H, 100);
-    this.text("loopVal", `${v.eventLoopMs}ms`);
-    this.text("loopPeak", v.eventLoopPeak ? `peak ${v.eventLoopPeak}ms` : "");
+    this.setHtml(
+      "heapRows",
+      kvHtml(
+        "utilisé",
+        val(`${formatBytes(v.heapUsed)} / ${formatBytes(v.heapTotal)}`),
+        "Tas utilisé / réservé par le moteur.",
+      ) +
+        kvHtml(
+          "limite",
+          val(formatBytes(v.heapLimit)),
+          "Le pourcentage se rapporte à cette limite.",
+        ) +
+        kvHtml("seuils", "70 · 90 %", "Orange à partir de 70 %, rouge à 90 %."),
+    );
+    this.text("loopVal", val(`${v.eventLoopMs} ms`));
+    this.text("loopPeak", v.eventLoopPeak ? `pic ${v.eventLoopPeak} ms` : "");
     this.cls("loopVal", `val ${loopT}`);
     this.setPoints("loopLine", "loopArea", v.loopSeries, loopT, CHART_H);
+    this.setHtml(
+      "loopRows",
+      kvHtml("moyenne", val(`${mean(v.loopSeries, 2)} ms`)) +
+        kvHtml(
+          "seuils",
+          "50 · 200 ms",
+          "Orange à partir de 50 ms, rouge à 200 ms.",
+        ),
+    );
   }
 
   /**
