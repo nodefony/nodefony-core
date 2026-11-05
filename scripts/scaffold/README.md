@@ -25,9 +25,9 @@ Le code que `nodefony create` PRODUIT est-il accepté par le formateur que ce m�
 
 ## [`check-scaffold-frontends.mjs`](check-scaffold-frontends.mjs)
 
-Le front que `nodefony create app --frontend <fw>` PRODUIT passe-t-il les contrôles statiques que l'application générée exige d'elle-même ?
+Le front que `nodefony create app --frontend <fw>` PRODUIT passe-t-il les contrôles statiques que l'application générée exige d'elle-même ? Les DEUX presets par défaut (`complete`, `minimal`) : la page rend une autre branche sans realtime ni security.
 
-- **Usage** : `node scripts/scaffold/check-scaffold-frontends.mjs [react vue angular svelte] [--keep]`
+- **Usage** : `node scripts/scaffold/check-scaffold-frontends.mjs [react vue angular svelte] [--preset=complete|minimal] [--keep]`
 - **Appelé par** : `scaffold.yml`
 - **Utilise** : `lib/repo-root.mjs`
 
