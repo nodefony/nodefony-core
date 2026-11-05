@@ -23,6 +23,7 @@ import { open, goTo } from "./lib/browser.mjs";
 import {
   parseActions,
   parseCut,
+  pageExpression,
   sendableCloseCode,
   signsInMidway,
 } from "./lib/probes.mjs";
@@ -196,14 +197,9 @@ if (failed !== null) {
 // observe simplement pendant la durée demandée.
 let verdict = "durée écoulée";
 if (UNTIL) {
-  // ⚠️ Une chaîne passée à `waitForFunction` est évaluée comme une EXPRESSION.
-  // Donner « () => x » y définit une fonction sans jamais l'appeler : l'objet
-  // fonction est truthy, donc l'attente réussit TOUJOURS — y compris sur une
-  // condition impossible. Faux vert vécu, découvert seulement en éprouvant le
-  // sens négatif. On invoque donc explicitement les formes fonction.
-  const expr = /^\s*(\(|function\b|async\b)/.test(UNTIL)
-    ? `(${UNTIL})()`
-    : UNTIL;
+  // Une forme fonction est APPELÉE (cf `pageExpression`) : passée telle quelle,
+  // l'attente réussirait TOUJOURS, condition impossible comprise.
+  const expr = pageExpression(UNTIL);
   try {
     await page.waitForFunction(expr, null, { timeout: DURATION });
     verdict = `condition VRAIE après ${at()} ms`;

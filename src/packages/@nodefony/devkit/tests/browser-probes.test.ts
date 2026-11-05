@@ -85,6 +85,10 @@ const sendableCloseCode = fonctionDe<(code: number) => number>(
   probes,
   "sendableCloseCode",
 );
+const pageExpression = fonctionDe<(raw: string | undefined) => string>(
+  probes,
+  "pageExpression",
+);
 const parseStorage = fonctionDe<
   (raw: string | undefined) => {
     entries: { key: string; value: string }[];
@@ -255,6 +259,30 @@ describe("parseColorScheme — demander un thème, ou refuser", () => {
  * Ce que ces tests prouvent : une coupure malformée est REFUSÉE. Avalée, elle
  * ferait observer une page jamais coupée en croyant avoir éprouvé sa reprise.
  */
+/**
+ * Ce que ces tests prouvent : une forme fonction est APPELÉE. Passée telle
+ * quelle à `page.evaluate`, elle ne serait que DÉFINIE — une attente réussirait
+ * toujours, une lecture rendrait `undefined`.
+ */
+describe("pageExpression — une expression évaluable dans la page", () => {
+  it("rien de demandé, rien à évaluer", () => {
+    expect(pageExpression(undefined)).toBe("");
+    expect(pageExpression("  ")).toBe("");
+  });
+
+  it("une expression nue passe telle quelle", () => {
+    expect(pageExpression("document.title")).toBe("document.title");
+  });
+
+  it("sens négatif : les formes fonction sont APPELÉES, jamais seulement définies", () => {
+    expect(pageExpression("() => 1")).toBe("(() => 1)()");
+    expect(pageExpression(" async () => 1")).toBe("(async () => 1)()");
+    expect(pageExpression("function () { return 1 }")).toBe(
+      "(function () { return 1 })()",
+    );
+  });
+});
+
 describe("parseCut — une coupure réseau demandée, ou refusée", () => {
   it("rien de demandé ne coupe rien", () => {
     expect(parseCut(undefined)).toEqual({ cut: null, invalid: null });

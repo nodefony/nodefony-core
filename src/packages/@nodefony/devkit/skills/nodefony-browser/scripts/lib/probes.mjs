@@ -257,6 +257,25 @@ export function parseColorScheme(raw) {
 }
 
 /**
+ * Rend une expression JS fournie par l'utilisateur ÉVALUABLE dans la page —
+ * une forme fonction (`() => x`, `function`, `async`) y est APPELÉE.
+ *
+ * Le piège est réel : `page.evaluate` et `waitForFunction` évaluent une chaîne
+ * comme une EXPRESSION. Donner « () => x » y définit une fonction sans jamais
+ * l'appeler : l'objet fonction est truthy (une attente réussit TOUJOURS) et ne
+ * se sérialise pas (une lecture rend `undefined`). Faux vert vécu, découvert
+ * seulement en éprouvant le sens négatif.
+ *
+ * @param {string|undefined} raw - expression brute (`NF_BROWSER_UNTIL`, `NF_BROWSER_EVAL`).
+ * @returns {string} l'expression à évaluer, vide si rien n'est demandé.
+ */
+export function pageExpression(raw) {
+  const v = (raw ?? "").trim();
+  if (!v) return "";
+  return /^(\(|function\b|async\b)/.test(v) ? `(${v})()` : v;
+}
+
+/**
  * Analyse une coupure réseau demandée (`NF_BROWSER_CUT`), au format
  * `<début>:<durée>` en millisecondes — `4000:3000` coupe le réseau 4 s après
  * l'ouverture de la page et le rétablit 3 s plus tard.

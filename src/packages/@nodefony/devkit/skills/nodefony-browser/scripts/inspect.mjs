@@ -34,6 +34,8 @@
  * `@env` NF_BROWSER_PRIMARY sélecteur de l'action principale pour la famille pli (défaut : le plus grand bouton de validation visible)
  * `@env` NF_BROWSER_SEUIL_LOURD bytes au-delà desquels une ressource est « lourde » (défaut 512000)
  * `@env` NF_BROWSER_SEUIL_LENT millisecondes au-delà desquelles une réponse est « lente » (défaut 1000)
+ * `@env` NF_BROWSER_EVAL expression JS évaluée DANS la page après les actions et les mesures (une forme fonction est appelée) ;
+ *                        son résultat sérialisé sort dans `evaluated` — l'état propre à l'application (store, socket)
  * `@requires` conteneur du profil `browser` démarré · serveur joignable depuis le conteneur
  * `@output` un objet JSON sur stdout + une capture PNG horodatée dans /output
  * `@exit` 0 mesure rendue (le verdict est une DONNÉE, pas un code de retour) · 64 usage (famille inconnue, identifiant sans chemin de connexion) · 65 texte attendu jamais apparu
@@ -52,12 +54,14 @@ import {
   signsInMidway,
   parseProbes,
   parseWidths,
+  pageExpression,
   summarizeAxe,
   verdictGlobal,
 } from "./lib/probes.mjs";
 
 const PAGE = process.argv[2] ?? process.env.NF_BROWSER_PAGE ?? "/";
 const EXPECT = process.argv[3] ?? process.env.NF_BROWSER_EXPECT ?? "";
+const EVAL = pageExpression(process.env.NF_BROWSER_EVAL);
 /**
  * Ce qu'il faut FAIRE avant de mesurer — une séquence, pas un geste.
  *
@@ -929,6 +933,20 @@ if (active.has("pli")) {
           : {}),
     };
   }, primarySelector);
+}
+
+// ── Lire un ÉTAT de l'application — `NF_BROWSER_EVAL` ───────────────────────
+// Ce qu'aucune famille ne mesure parce que c'est propre à l'application : l'état
+// d'un store, l'instantané d'une socket, une valeur calculée par la page. Évalué
+// APRÈS les actions et les mesures, sur l'écran qu'on décrit. Une expression qui
+// lève rend son erreur, jamais un champ absent : un « rien » se lirait comme
+// « la page n'a pas cet état ».
+if (EVAL) {
+  try {
+    measured.evaluated = await page.evaluate(EVAL);
+  } catch (e) {
+    measured.evaluated = { error: String(e).slice(0, 300) };
+  }
 }
 
 // ── Capture — AVANT la famille responsive, qui déforme le viewport ──────────

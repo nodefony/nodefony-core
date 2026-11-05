@@ -185,6 +185,15 @@ Réglages par variables d'environnement : `NF_BROWSER_BASE`, `NF_BROWSER_PAGE`, 
 (`libellé=sélecteur`, séparés par des virgules), `NF_BROWSER_FAMILIES`, `NF_BROWSER_WIDTHS`,
 `NF_BROWSER_SEUIL_LOURD`, `NF_BROWSER_SEUIL_LENT`, `NF_BROWSER_ACTIONS`, `NF_BROWSER_FULLPAGE`. Le détail vit dans l'en-tête de chaque script.
 
+**Lire un état que seule ton application connaît** (un store, l'instantané d'une socket) :
+`NF_BROWSER_EVAL` prend une expression évaluée DANS la page après les actions et les mesures, et
+rend son résultat dans le champ `evaluated` — ou `{ error }` si elle lève. Une forme fonction
+(`async () => …`) est appelée, jamais seulement définie.
+
+```bash
+NF_BROWSER_EVAL='() => document.title' node scripts/inspect.mjs /tableau-de-bord
+```
+
 ### Un écran qui n'existe qu'après un GESTE — `NF_BROWSER_ACTIONS`
 
 Certaines pages ne sont pas un état mais un **parcours** : un formulaire qui ne déplie ses questions
