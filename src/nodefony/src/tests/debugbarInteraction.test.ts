@@ -18,31 +18,10 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { DebugBar } from "../client/debugbar/DebugBar";
 import type { NodefonySocket } from "../client/realtime/NodefonySocket";
+import { fakeSocket } from "./debugbarFakeSocket";
 
 /** Socket double — la barre s'y abonne, elle ne reçoit rien. */
-const fakeClient = (): NodefonySocket =>
-  ({
-    state: "disconnected",
-    on: () => () => {},
-    off: () => {},
-    onState: () => () => {},
-    onIdentity: () => () => {},
-    onNotice: () => () => {},
-    onStats: () => () => {},
-    onReconnect: () => () => {},
-    subscribe: () => {},
-    unsubscribe: () => {},
-    connect: () => Promise.resolve(),
-    disconnect: () => {},
-    request: () => Promise.resolve({}),
-    getStats: () => [],
-    channel: () => ({
-      on: () => () => {},
-      send: () => {},
-      open: () => {},
-      close: () => {},
-    }),
-  }) as unknown as NodefonySocket;
+const fakeClient = (): NodefonySocket => fakeSocket();
 
 let bar: DebugBar | null = null;
 
@@ -394,5 +373,120 @@ describe("rafraîchissement — le panneau se retrouve tel qu'on l'a laissé", (
     bar = new DebugBar({ client: fakeClient(), network: false, open: true });
     bar.mount();
     expect(isOpen()).toBe(true);
+  });
+});
+
+/**
+ * Ce que ces cas prouvent : l'onglet Sockets montre ce que la socket sait
+ * d'elle-même — la description du CŒUR, l'aller-retour, le journal, les
+ * incidents — et l'onglet Realtime reste tel qu'il était.
+ */
+describe("onglet Sockets — le détail de la socket, à part du Realtime", () => {
+  const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 50));
+  const frames = [
+    {
+      ts: 1,
+      dir: "out",
+      kind: "nodefony:kernel:ping",
+      id: 1,
+      payload: {},
+      size: 56,
+      binary: false,
+    },
+    {
+      ts: 2,
+      dir: "in",
+      kind: "response",
+      id: 1,
+      payload: { pong: true },
+      size: 121,
+      binary: false,
+    },
+  ];
+
+  function monterSocket(over: Record<string, unknown>) {
+    const notices: Array<(n: unknown) => void> = [];
+    bar?.unmount?.();
+    document.getElementById("nodefony-debugbar")?.remove();
+    const client = fakeSocket({
+      url: "wss://h/rt",
+      state: "connected",
+      identity: {
+        type: "session",
+        authenticated: true,
+        id: "u",
+        userIdentifier: "admin",
+        roles: ["ROLE_ADMIN"],
+        scopes: [],
+      },
+      serverMethods: ["api.request"],
+      frameLog: frames,
+      onNotice: (h: (n: unknown) => void) => {
+        notices.push(h);
+        return () => {};
+      },
+      ...over,
+    });
+    bar = new DebugBar({ client, network: false, open: true });
+    bar.mount();
+    return { notifier: (n: unknown) => notices.forEach((h) => h(n)) };
+  }
+
+  it("la description du cœur, le journal (le plus récent en tête) et D5", async () => {
+    monterSocket({});
+    q(".tab[data-tab='socket']").click();
+    await tick();
+    const rows = q("[data-el='rtRows']").textContent ?? "";
+    expect(rows).toContain("notifications reçues");
+    expect(rows).toContain("admin · session · ROLE_ADMIN");
+    const log = shadow().querySelectorAll("[data-el='rtLog'] details");
+    expect(log).toHaveLength(2);
+    expect(log[0]!.textContent).toContain("response");
+    // Journal éteint avant la lecture : le panneau dit qu'il l'a allumé.
+    expect(q("[data-el='rtLog']").textContent).toContain(
+      "allumé par ce panneau",
+    );
+  });
+
+  it("aller-retour : « non offert » si le serveur n'annonce pas le ping, sinon mesuré", async () => {
+    monterSocket({});
+    q(".tab[data-tab='socket']").click();
+    await tick();
+    expect(q("[data-el='rtRtt']").textContent).toBe(
+      "non offert par ce serveur",
+    );
+    monterSocket({
+      serverMethods: ["nodefony:kernel:ping"],
+      ping: () => Promise.resolve({ rtt: 7 }),
+    });
+    q(".tab[data-tab='socket']").click();
+    await tick();
+    expect(q("[data-el='rtRtt']").textContent).toMatch(/^7 ms à /);
+  });
+
+  it("un incident de la socket s'y lit", async () => {
+    const { notifier } = monterSocket({});
+    q(".tab[data-tab='socket']").click();
+    notifier({
+      level: "error",
+      message: "connexion fermée",
+      source: "realtime",
+      code: 1006,
+      ts: 1,
+    });
+    await tick();
+    expect(q("[data-el='rtInc']").textContent).toContain(
+      "connexion fermée (1006)",
+    );
+  });
+
+  it("l'onglet Realtime reste tel qu'il était", async () => {
+    monterSocket({});
+    q(".tab[data-tab='realtime']").click();
+    await tick();
+    expect(q("[data-el='rtTransport']").textContent).toBe("WebSocket");
+    expect(
+      shadow().querySelector("[data-pane='realtime'] [data-el='rtLog']"),
+    ).toBe(null);
   });
 });

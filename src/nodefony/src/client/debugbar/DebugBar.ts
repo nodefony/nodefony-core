@@ -28,7 +28,14 @@
  * W3C (RFC-propre) est aussi remonté.
  */
 import { NodefonySocket } from "../realtime/NodefonySocket";
-import { describeCodec } from "../realtime/snapshot";
+import {
+  describeCodec,
+  describeSocket,
+  socketSnapshot,
+} from "../realtime/snapshot";
+import { sharedSockets } from "../announce";
+import type { NodefonyNotice } from "../realtime/notice";
+import type { RealtimeFrame } from "../realtime/NodefonySocket";
 import { AUTH_ME_PATH } from "../../runtime/authRoutes";
 import { adoptStyles } from "../cspStyles";
 import {
@@ -95,6 +102,7 @@ import { frameIndexOf } from "../../runtime/frameRequestId";
 import {
   PLATFORM_CHANNELS,
   PLATFORM_EVENTS,
+  PLATFORM_METHODS,
 } from "../../realtime/platformChannels";
 
 /** Canaux realtime consommés (figés, alignés sur les providers Studio). */
@@ -160,9 +168,10 @@ function detailPanelH(): number {
 }
 
 /** Onglets disponibles (ordre d'affichage). */
-type TabId = "realtime" | "requests" | "perf" | "kernel" | "runtime";
+type TabId = "realtime" | "socket" | "requests" | "perf" | "kernel" | "runtime";
 const TAB_IDS: readonly string[] = [
   "realtime",
+  "socket",
   "requests",
   "perf",
   "kernel",
@@ -286,6 +295,38 @@ const KERNEL_HELP: ReadonlyMap<string, string> = new Map([
     "Option realtime : socket créée par le noyau, fournie par l'application, ou aucune.",
   ],
 ]);
+
+/**
+ * Le libellé d'une ligne clé/valeur, avec son explication en bulle quand il en
+ * a une — atteignable au clavier (`tabindex`), pas seulement au survol.
+ */
+function helpLabel(label: string, help?: string): string {
+  return help
+    ? `<span class="k help" tabindex="0" data-tip="${escapeHtml(help)}">${escapeHtml(label)}</span>`
+    : `<span class="k">${escapeHtml(label)}</span>`;
+}
+
+/** Une ligne clé/valeur échappée — la même mise en forme dans chaque onglet. */
+function kvHtml(
+  label: string,
+  value: string,
+  help?: string,
+  cls = "",
+  full = "",
+): string {
+  const title = full ? ` title="${escapeHtml(full)}"` : "";
+  return `<div class="kv">${helpLabel(label, help)}<span class="v ${cls}"${title}>${escapeHtml(value)}</span></div>`;
+}
+
+/** Clé STABLE d'une trame du journal — survit à la reconstruction de la liste. */
+function frameKey(f: RealtimeFrame): string {
+  return `${f.ts}:${f.dir}:${f.id ?? ""}:${f.kind}`;
+}
+
+/** La charge d'une trame, mise en forme — au dépliage seulement. */
+function payloadText(f: RealtimeFrame): string {
+  return f.payload === undefined ? "—" : JSON.stringify(f.payload, null, 2);
+}
 
 function kernelHelp(label: string): string | undefined {
   return KERNEL_HELP.get(label);
@@ -609,6 +650,21 @@ const STYLES =
 .kempty p { margin:6px 0; }
 .kempty code, .card code { color:#9ecbff; }
 .card.kevents { grid-column: 1 / -1; }
+.sgrid { display:grid; gap:14px; align-items:stretch;
+  grid-template-columns: minmax(340px,1.2fr) minmax(0,1fr) minmax(0,1fr);
+  grid-template-areas: "id log log" "id st inc"; }
+.sk-id { grid-area:id; } .sk-log { grid-area:log; min-width:0; } .sk-st { grid-area:st; } .sk-inc { grid-area:inc; }
+.sk-st, .sk-inc { max-height:200px; overflow:auto; }
+@media (max-width:960px) { .sgrid { grid-template-columns:1fr; grid-template-areas:"id" "log" "st" "inc"; } }
+.sockp .kv { display:grid; grid-template-columns:13em minmax(0,1fr); gap:10px; align-items:baseline; padding:3px 0; }
+.sockp .kv .k { white-space:nowrap; } .sockp .kv .v { text-align:left; white-space:normal; overflow-wrap:anywhere; }
+.sk-st .kv { grid-template-columns:minmax(0,1fr) auto; } .sk-inc .kv { grid-template-columns:auto minmax(0,1fr); }
+.sk-st .kv .v { text-align:right; }
+.rtlog { max-height:300px; overflow:auto; font:11px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace; }
+.rtlog summary { cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.rtlog summary:focus-visible { outline:2px solid var(--ok); outline-offset:-2px; }
+.rtlog pre { margin:2px 0 6px 16px; white-space:pre-wrap; word-break:break-all; color:#c4c9d0; }
+.rtlog .in { color:var(--ok); } .rtlog .out { color:var(--blue2); }
 .kev { display:grid; grid-template-columns: 96px 150px minmax(0,1fr); gap:10px; padding:3px 0; border-bottom:1px solid rgba(255,255,255,.04); }
 .kev .ts { color:var(--muted); font-variant-numeric:tabular-nums; }
 .kev .kn { color:#9ecbff; }
@@ -988,6 +1044,27 @@ export class DebugBar {
   private rtRate = 0;
   private rtPeak = 0;
   private readonly rtSeries: number[] = [];
+  // ── Détail de la socket (onglet Realtime) — rien n'est lu panneau fermé ──
+  /** Aller-retour mis en mots ; mesuré à l'ouverture de l'onglet et au bouton, JAMAIS en boucle (D1). */
+  private rtRtt = "—";
+  /** L'aller-retour a été demandé pour cette ouverture de l'onglet. */
+  private rttAsked = false;
+  /** Socket affichée par l'onglet Sockets (son adresse) ; `null` = celle de la barre. */
+  private sockUrl: string | null = null;
+  /** Incidents par socket, les plus récents d'abord — alloués au premier. */
+  private sockIncidents: Map<NodefonySocket, NodefonyNotice[]> | null = null;
+  /** Sockets de la page dont on écoute déjà les incidents (hors celle de la barre). */
+  private sockWatched: Set<NodefonySocket> | null = null;
+  /** Sockets dont CE panneau a allumé le journal, et quand : ce qui précède n'y est pas (D5). */
+  private rtLogMine: Map<NodefonySocket, number> | null = null;
+  private rtLogPaused = false;
+  private rtLogQuery = "";
+  /** Trames affichées, pour bâtir une charge à son dépliage seulement. */
+  private rtShown: RealtimeFrame[] = [];
+  /** Clés des trames dépliées — survivent à la reconstruction de la liste. */
+  private rtOpen: Set<string> | null = null;
+  /** Dernier HTML posé par zone : on ne réécrit que ce qui a changé (focus, sélection). */
+  private readonly rtHtml = new Map<string, string>();
   // Pouls HMR Vite — observé via `observeViteHmr` (window CustomEvent, 0 socket).
   private viteConnected = false;
   private hmrCount = 0;
@@ -1419,14 +1496,8 @@ export class DebugBar {
       </div>`;
       return;
     }
-    const kv = (k: string, v: string, cls = "", full = ""): string => {
-      const help = kernelHelp(k);
-      const label = help
-        ? `<span class="k help" tabindex="0" data-tip="${escapeHtml(help)}">${escapeHtml(k)}</span>`
-        : `<span class="k">${escapeHtml(k)}</span>`;
-      const title = full ? ` title="${escapeHtml(full)}"` : "";
-      return `<div class="kv">${label}<span class="v ${cls}"${title}>${escapeHtml(v)}</span></div>`;
-    };
+    const kv = (k: string, v: string, cls = "", full = ""): string =>
+      kvHtml(k, v, kernelHelp(k), cls, full);
     const at = (t: number | undefined): string => (t ? fmtClock(t) : "—");
     const k = probe.kernel;
     const tl = probe.timeline();
@@ -1720,20 +1791,12 @@ export class DebugBar {
             seq: this.model.view.feed.at(-1)?.seq ?? 0,
           }
         : null;
-      const b = this.el.btnPause;
-      if (b) {
-        b.setAttribute("aria-pressed", this.feedPaused ? "true" : "false");
-        b.classList.toggle("on", this.feedPaused);
-        b.textContent = this.feedPaused ? "▶" : "⏸";
-        const tip = this.feedPaused
-          ? "Reprendre l'affichage — la liste se recompose avec ce qui est arrivé pendant la pause"
-          : "Suspendre l'affichage — les requêtes et les lignes continuent d'arriver et se rattrapent à la reprise";
-        b.setAttribute("data-tip", tip);
-        b.setAttribute(
-          "aria-label",
-          this.feedPaused ? "Reprendre l'affichage" : "Suspendre l'affichage",
-        );
-      }
+      this.pauseBtn(
+        "btnPause",
+        this.feedPaused,
+        "Reprendre l'affichage — la liste se recompose avec ce qui est arrivé pendant la pause",
+        "Suspendre l'affichage — les requêtes et les lignes continuent d'arriver et se rattrapent à la reprise",
+      );
       // À la reprise, on refait la liste : le tampon a bougé pendant la pause,
       // et les Journaux qu'elle n'a pas relus le sont maintenant.
       if (!this.feedPaused) {
@@ -1874,6 +1937,25 @@ export class DebugBar {
     this.disposers.push(() => clearTimeout(t));
   }
 
+  /** Reflète l'état d'un bouton pause : glyphe, état pressé, nom et bulle. */
+  private pauseBtn(
+    key: string,
+    paused: boolean,
+    resumeTip: string,
+    pauseTip: string,
+  ): void {
+    const b = this.el[key];
+    if (!b) return;
+    b.setAttribute("aria-pressed", String(paused));
+    b.classList.toggle("on", paused);
+    b.textContent = paused ? "▶" : "⏸";
+    b.setAttribute("data-tip", paused ? resumeTip : pauseTip);
+    b.setAttribute(
+      "aria-label",
+      paused ? "Reprendre l'affichage" : "Suspendre l'affichage",
+    );
+  }
+
   private wireBtn(key: string, handler: (e: Event) => void): void {
     const node = this.el[key];
     if (!node) return;
@@ -1906,6 +1988,7 @@ export class DebugBar {
         <div class="resize" data-el="resize" title="Redimensionner"></div>
         <div class="tabs">
           <button class="tab" data-tab="realtime">Realtime</button>
+          <button class="tab" data-tab="socket">Sockets <span class="tcount" data-el="sockTab">0</span></button>
           <button class="tab" data-tab="requests">Requêtes <span class="tcount" data-el="reqTab">0</span></button>
           <button class="tab" data-tab="perf">Perf</button>
           <button class="tab" data-tab="kernel">Nodefony client <span class="tdot" data-el="kTabDot" hidden></span></button>
@@ -1913,6 +1996,7 @@ export class DebugBar {
         </div>
         <div class="panes" data-el="panes">
           ${this.realtimePane()}
+          ${this.socketPane()}
           ${this.requestsPane()}
           ${this.perfPane()}
           <div class="pane" data-pane="kernel"><div data-el="kBody"></div></div>
@@ -1933,11 +2017,36 @@ export class DebugBar {
         ${this.kv("transport", "rtTransport")}
         ${this.kv("protocole", "rtProto")}
         ${this.kv("état", "rtState")}
-        ${this.kv("frames reçues", "rtFrames")}
+        ${this.kv("notifications reçues", "rtFrames")}
         ${this.kv("pic", "rtPeak")}
         <div class="tag"><b>HTTP &amp; WebSocket, même contexte.</b> Push natif, <b>0 polling</b> — chaque chiffre arrive en temps réel par le Core isomorphe.</div>
       </div>
       ${this.frontendCard()}
+    </div></div>`;
+  }
+
+  /**
+   * L'onglet Sockets — ce que chaque socket de la page sait d'elle-même :
+   * identité, canaux, pertes, journal des trames, incidents. Tout est LOCAL :
+   * le lire n'émet aucune trame, sauf la mesure d'aller-retour, demandée.
+   */
+  private socketPane(): string {
+    return `<div class="pane sockp" data-pane="socket"><div class="sgrid">
+      <div class="card hero sk-id">
+        <div class="ttl">Socket</div>
+        <div class="vseg" data-el="sockSeg" role="group" aria-label="Socket affichée"></div>
+        <div class="kv">${helpLabel("aller-retour", "Mesuré par nodefony:kernel:ping à l'ouverture de l'onglet et au bouton, jamais en boucle : chaque mesure écrit deux trames dans le journal qu'on lit pour diagnostiquer.")}<span class="v"><span data-el="rtRtt">—</span> <button type="button" class="toolbtn" data-el="btnRtt" aria-label="Mesurer l'aller-retour">mesurer</button></span></div>
+        <div data-el="rtRows"></div>
+      </div>
+      <div class="card sk-st"><div class="ttl">Notifications par méthode</div><div data-el="rtStats"></div></div>
+      <div class="card sk-inc"><div class="ttl">Incidents</div><div data-el="rtInc"></div></div>
+      <div class="card sk-log">
+        <div class="ttl">Trames <span data-el="rtLogN"></span><span class="spacer"></span>
+          <input class="search" data-el="rtLogQ" type="search" placeholder="filtrer…" aria-label="Filtrer les trames sur la méthode ou le canal" />
+          <button type="button" class="toolbtn" data-el="btnRtPause" aria-pressed="false" aria-label="Suspendre l'affichage" data-tip="Suspendre l'affichage — les trames continuent d'être retenues">⏸</button>
+        </div>
+        <div class="rtlog" data-el="rtLog"></div>
+      </div>
     </div></div>`;
   }
 
@@ -2138,12 +2247,14 @@ export class DebugBar {
     // Le refus arrive en statut HTTP depuis que le handshake se juge AVANT le
     // 101 (sonde : 401/403) ; 1008 reste celui d'une fermeture après coup.
     const offNotice = this.client.onNotice((notice) => {
+      // Tout incident de la socket se garde pour l'onglet (les 20 derniers) —
+      // alloué au premier : une page saine n'en produit aucun.
+      this.noteIncident(this.client, notice);
       if (
-        notice.source !== "realtime" ||
-        (notice.code !== 401 && notice.code !== 403 && notice.code !== 1008)
+        notice.source === "realtime" &&
+        (notice.code === 401 || notice.code === 403 || notice.code === 1008)
       )
-        return;
-      this.refused = true;
+        this.refused = true;
       this.scheduleRender();
     });
     this.disposers.push(offNotice);
@@ -2151,10 +2262,70 @@ export class DebugBar {
       // OFF → on N'ÉCHANTILLONNE PAS : le compteur de frames est GLOBAL au client
       // partagé (frames des autres consommateurs, ex. Studio) → sinon le graphe
       // « frames/s » continuerait de bouger alors que la barre est désactivée.
-      if (!this.live) return;
-      this.sampleThroughput();
+      // L'onglet Sockets ouvert se rafraîchit aussi hors direct : ses chiffres
+      // sont LOCAUX (aucune trame), seul le graphe reste gaté.
+      if (this.live) this.sampleThroughput();
+      if (this.live || this.sockPaneOpen()) this.scheduleRender();
+    });
+    this.wireBtn("btnRtt", () => void this.measureRtt());
+    const seg = this.el.sockSeg;
+    if (seg) {
+      const onSeg = (ev: Event): void => {
+        const url = closestFrom(ev.target, "[data-sock]")?.getAttribute(
+          "data-sock",
+        );
+        if (url === undefined || url === null || url === this.sockUrl) return;
+        this.sockUrl = url;
+        // Une autre socket : son aller-retour se remesure, ses dépliés repartent de zéro.
+        this.rtRtt = "—";
+        this.rttAsked = false;
+        this.rtOpen = null;
+        this.scheduleRender();
+      };
+      seg.addEventListener("click", onSeg);
+      this.disposers.push(() => seg.removeEventListener("click", onSeg));
+    }
+    this.wireBtn("btnRtPause", () => {
+      this.rtLogPaused = !this.rtLogPaused;
+      this.pauseBtn(
+        "btnRtPause",
+        this.rtLogPaused,
+        "Reprendre l'affichage — le journal se recompose avec ce qui est arrivé pendant la pause",
+        "Suspendre l'affichage — les trames continuent d'être retenues",
+      );
       this.scheduleRender();
     });
+    const q = this.el.rtLogQ;
+    if (q instanceof HTMLInputElement) {
+      const onQ = (): void => {
+        this.rtLogQuery = q.value.trim().toLowerCase();
+        this.scheduleRender();
+      };
+      q.addEventListener("input", onQ);
+      this.disposers.push(() => q.removeEventListener("input", onQ));
+    }
+    // `toggle` ne remonte pas : écouté en CAPTURE sur la liste. La charge d'une
+    // trame ne se met en forme qu'au dépliage — cent `JSON.stringify` par
+    // seconde pour des blocs repliés serait du travail jeté.
+    const log = this.el.rtLog;
+    if (log) {
+      const onToggle = (ev: Event): void => {
+        const d = ev.target;
+        if (!(d instanceof HTMLDetailsElement)) return;
+        const k = d.dataset.k ?? "";
+        const open = (this.rtOpen ??= new Set<string>());
+        if (d.open) {
+          open.add(k);
+          const pre = d.querySelector("pre");
+          const fr = this.rtShown.find((x) => frameKey(x) === k);
+          if (pre && fr) pre.textContent = payloadText(fr);
+        } else open.delete(k);
+      };
+      log.addEventListener("toggle", onToggle, true);
+      this.disposers.push(() =>
+        log.removeEventListener("toggle", onToggle, true),
+      );
+    }
     const offStats = this.client.on(CHANNELS.stats, (...a) => {
       const p = a[0];
       if (p && typeof p === "object") this.model.ingestStats(p as StatsPayload);
@@ -3059,10 +3230,15 @@ export class DebugBar {
     if (!this.bar) return;
     const v = this.model.view;
     this.renderStrip(v);
+    // L'aller-retour se remesure à CHAQUE ouverture de l'onglet (D1).
+    if (!this.sockPaneOpen()) this.rttAsked = false;
     if (!this.bar.classList.contains("open")) return; // panneau fermé → stop
     switch (this.activeTab) {
       case "realtime":
         this.renderRealtimePane(v);
+        break;
+      case "socket":
+        this.renderSocketPane();
         break;
       case "requests":
         this.renderRequestsPane(v);
@@ -3160,6 +3336,46 @@ export class DebugBar {
     );
   }
 
+  /** L'onglet Sockets est-il à l'écran ? Rien du détail ne se lit sinon. */
+  private sockPaneOpen(): boolean {
+    return (
+      this.activeTab === "socket" &&
+      this.bar?.classList.contains("open") === true
+    );
+  }
+
+  /**
+   * Mesure l'aller-retour (`nodefony:kernel:ping`) — à l'ouverture de l'onglet et
+   * au bouton, jamais en boucle (D1) : chaque mesure écrit deux trames dans le
+   * journal qu'on lit pour diagnostiquer.
+   */
+  private async measureRtt(): Promise<void> {
+    const c = this.shownSocket(this.pageSockets());
+    const methods = c.serverMethods;
+    if (c.state !== "connected") this.rtRtt = "socket non connectée";
+    else if (methods !== null && !methods.includes(PLATFORM_METHODS.ping))
+      this.rtRtt = "non offert par ce serveur";
+    else {
+      this.rtRtt = "mesure…";
+      this.scheduleRender();
+      try {
+        const r = await c.ping(3000);
+        this.rtRtt = `${r.rtt} ms à ${fmtClock(Date.now())}`;
+      } catch (e) {
+        this.rtRtt = `échec — ${e instanceof Error ? e.message : String(e)}`;
+      }
+    }
+    this.scheduleRender();
+  }
+
+  /** Pose `html` dans la zone `key` seulement s'il a changé — un focus clavier survit. */
+  private setHtml(key: string, html: string): void {
+    const node = this.el[key];
+    if (!node || this.rtHtml.get(key) === html) return;
+    this.rtHtml.set(key, html);
+    node.innerHTML = html;
+  }
+
   private renderRealtimePane(v: DebugBarView): void {
     const live = v.state === "connected";
     this.text("rtBig", String(this.rtRate));
@@ -3177,6 +3393,145 @@ export class DebugBar {
       this.cls("feVite", `v ${this.viteConnected ? "ok" : "warn"}`);
       this.text("hmrLast", this.hmrLast);
     }
+  }
+
+  /**
+   * Les sockets de la page : celle de la barre d'abord, puis le registre de
+   * `NodefonySocket.shared()` — une page peut en tenir plusieurs.
+   */
+  private pageSockets(): NodefonySocket[] {
+    const all = sharedSockets();
+    return all.includes(this.client) ? all : [this.client, ...all];
+  }
+
+  /** La socket affichée : celle choisie, sinon celle de la barre. */
+  private shownSocket(list: NodefonySocket[]): NodefonySocket {
+    return list.find((x) => x.url === this.sockUrl) ?? this.client;
+  }
+
+  /** Retient un incident d'une socket (les 20 derniers). */
+  private noteIncident(sock: NodefonySocket, notice: NodefonyNotice): void {
+    const map = (this.sockIncidents ??= new Map<
+      NodefonySocket,
+      NodefonyNotice[]
+    >());
+    let inc = map.get(sock);
+    if (inc === undefined) map.set(sock, (inc = []));
+    inc.unshift(notice);
+    if (inc.length > 20) inc.pop();
+  }
+
+  private renderSocketPane(): void {
+    const list = this.pageSockets();
+    const c = this.shownSocket(list);
+    this.text("sockTab", String(list.length));
+    // Une autre socket de la page : on écoute ses incidents dès qu'on la montre.
+    if (c !== this.client && this.sockWatched?.has(c) !== true) {
+      (this.sockWatched ??= new Set<NodefonySocket>()).add(c);
+      const off = c.onNotice((n) => {
+        this.noteIncident(c, n);
+        this.scheduleRender();
+      });
+      this.disposers.push(off);
+    }
+    this.setHtml(
+      "sockSeg",
+      list.length < 2
+        ? ""
+        : list
+            .map(
+              (x) =>
+                `<button type="button" data-sock="${escapeHtml(x.url ?? "")}" aria-pressed="${x === c}">${escapeHtml(x === this.client ? `${x.url ?? "?"} (barre)` : (x.url ?? "?"))}</button>`,
+            )
+            .join(""),
+    );
+    // Mesuré une fois la socket OUVERTE : demandé avant, il restait figé sur
+    // « non connectée » alors que l'état disait « connecté ».
+    if (!this.rttAsked && c.state === "connected") {
+      this.rttAsked = true;
+      void this.measureRtt();
+    }
+    this.text("rtRtt", this.rtRtt);
+    // La même description que la console et les vitrines : le CŒUR la met en
+    // mots, la barre ne fait que l'afficher.
+    this.setHtml(
+      "rtRows",
+      describeSocket(socketSnapshot(c))
+        .map((r) => kvHtml(r.label, r.value, r.hint))
+        .join(""),
+    );
+    const stats = c.getStats();
+    this.setHtml(
+      "rtStats",
+      stats.length === 0
+        ? `<div class="kv"><span class="k">aucune</span></div>`
+        : stats
+            .map((st) => kvHtml(st.method, `${st.msgCount} · ${st.rate}/s`))
+            .join(""),
+    );
+    const inc = this.sockIncidents?.get(c) ?? null;
+    this.setHtml(
+      "rtInc",
+      inc === null
+        ? `<div class="kv"><span class="k">aucun</span></div>`
+        : inc
+            .map((n) =>
+              kvHtml(
+                `${fmtClock(n.ts)} ${n.level}`,
+                `${n.title ? `${n.title} — ` : ""}${n.message}${n.code === undefined ? "" : ` (${n.code})`}`,
+                undefined,
+                n.level === "error" ? "crit" : "warn",
+              ),
+            )
+            .join(""),
+    );
+    if (!this.rtLogPaused) this.renderFrameLog(c);
+  }
+
+  /**
+   * Le journal des trames : les 100 dernières (D2), filtrées, les plus récentes
+   * en tête ; la charge d'une trame ne se met en forme qu'à son dépliage.
+   */
+  private renderFrameLog(c: NodefonySocket): void {
+    // Lire le journal l'ALLUME s'il était éteint : seul l'onglet ouvert le lit,
+    // et il dit alors que ce qui précède n'y est pas (D5).
+    if (c.frameLogSince === null)
+      (this.rtLogMine ??= new Map<NodefonySocket, number>()).set(c, Date.now());
+    const all = c.frameLog;
+    const query = this.rtLogQuery;
+    const shown = (
+      query
+        ? all.filter((fr) =>
+            `${fr.kind} ${fr.channel ?? ""}`.toLowerCase().includes(query),
+          )
+        : all
+    )
+      .slice(-100)
+      .reverse();
+    this.rtShown = shown;
+    this.text(
+      "rtLogN",
+      `${shown.length}${query ? ` / ${all.length}` : ""} — les 100 dernières`,
+    );
+    const open = this.rtOpen;
+    const mine = this.rtLogMine?.get(c);
+    const note =
+      mine === undefined
+        ? ""
+        : `<p class="kwarn">Journal allumé par ce panneau à ${fmtClock(mine)} : les trames antérieures n'ont pas été retenues.</p>`;
+    this.setHtml(
+      "rtLog",
+      note +
+        (shown.length === 0
+          ? `<div class="kv"><span class="k">aucune trame${query ? " pour ce filtre" : ""}</span></div>`
+          : shown
+              .map((fr) => {
+                const k = frameKey(fr);
+                const isOpen = open?.has(k) === true;
+                return `<details data-k="${escapeHtml(k)}"${isOpen ? " open" : ""}><summary><span class="${fr.dir}">${fr.dir === "in" ? "↓" : "↑"}</span> ${fmtClock(fr.ts)} <b>${escapeHtml(fr.kind)}</b>${fr.id === undefined ? "" : ` #${fr.id}`}${fr.channel ? ` · ${escapeHtml(fr.channel)}` : ""} · ${fr.size === 0 ? "taille inconnue" : `${fr.size} ${fr.binary ? "octets" : "car."}`} · ${fr.binary ? "binaire" : "texte"}</summary><pre>${isOpen ? escapeHtml(payloadText(fr)) : ""}</pre></details>`;
+              })
+              .join("")),
+    );
   }
 
   private renderPerf(v: DebugBarView): void {

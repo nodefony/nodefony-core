@@ -12,6 +12,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { DebugBar } from "../client/debugbar/DebugBar";
 import type { NodefonySocket } from "../client/realtime/NodefonySocket";
+import { fakeSocket } from "./debugbarFakeSocket";
 import { PLATFORM_CHANNELS } from "../realtime/platformChannels";
 
 type Handler = (...args: unknown[]) => void;
@@ -25,31 +26,12 @@ let profils: string[];
 
 /** Socket double qui GARDE ses écouteurs : le test publie à leur place. */
 const fakeClient = (): NodefonySocket =>
-  ({
-    state: "disconnected",
+  fakeSocket({
     on: (channel: string, cb: Handler) => {
       handlers.set(channel, cb);
       return () => handlers.delete(channel);
     },
-    off: () => {},
-    onState: () => () => {},
-    onIdentity: () => () => {},
-    onNotice: () => () => {},
-    onStats: () => () => {},
-    onReconnect: () => () => {},
-    subscribe: () => {},
-    unsubscribe: () => {},
-    connect: () => Promise.resolve(),
-    disconnect: () => {},
-    request: () => Promise.resolve({}),
-    getStats: () => [],
-    channel: () => ({
-      on: () => () => {},
-      send: () => {},
-      open: () => {},
-      close: () => {},
-    }),
-  }) as unknown as NodefonySocket;
+  });
 
 /** Une ligne du journal telle que la recherche la rend. */
 const rec = (

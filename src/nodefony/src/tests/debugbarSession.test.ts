@@ -16,37 +16,19 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { DebugBar } from "../client/debugbar/DebugBar";
 import type { NodefonySocket } from "../client/realtime/NodefonySocket";
+import { fakeSocket } from "./debugbarFakeSocket";
 import { AUTH_ME_PATH } from "../runtime/authRoutes";
 
 const SYSLOG = "/nodefony/syslog/api/logs/search";
 
 let connexions = 0;
 const fakeClient = (): NodefonySocket =>
-  ({
-    state: "disconnected",
-    on: () => () => {},
-    off: () => {},
-    onState: () => () => {},
-    onIdentity: () => () => {},
-    onNotice: () => () => {},
-    onStats: () => () => {},
-    onReconnect: () => () => {},
-    subscribe: () => {},
-    unsubscribe: () => {},
+  fakeSocket({
     connect: () => {
       connexions++;
       return Promise.resolve();
     },
-    disconnect: () => {},
-    request: () => Promise.resolve({}),
-    getStats: () => [],
-    channel: () => ({
-      on: () => () => {},
-      send: () => {},
-      open: () => {},
-      close: () => {},
-    }),
-  }) as unknown as NodefonySocket;
+  });
 
 let bar: DebugBar | null = null;
 let connecte = false;
