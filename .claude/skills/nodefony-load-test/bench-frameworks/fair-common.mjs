@@ -5,7 +5,7 @@
  *
  * Relevé sur un serveur `production` au décor du banc, prouvé cas par cas par
  * `fair-parity.mjs` : portée ALS + `X-Request-Id` (UUID), `traceparent` ÉMIS
- * (propagé ou neuf), CSP à nonce par requête, en-têtes de sécurité statiques,
+ * (propagé ou neuf), CSP courte d'une réponse JSON, en-têtes de sécurité statiques,
  * `Server`, CORS par liste blanche, CSRF (Fetch Metadata, repli Origin), zones
  * du pare-feu fail-closed, pas d'ETag.
  */
@@ -73,19 +73,22 @@ function csrfOk(method, headers) {
   return !origin || origin === `http://${headers.host}`;
 }
 
-const CSP_HEAD = "default-src 'self'; script-src 'self' 'nonce-";
-const CSP_TAIL =
-  "'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://www.gravatar.com https://*.googleusercontent.com https://avatars.githubusercontent.com; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'";
+/*
+ * Politique d'une réponse JSON chez Nodefony : la COURTE, sans nonce (ADR-0024
+ * §C11, `securityHeaders.ts#responseKindOf`) — ni COOP ni Permissions-Policy,
+ * réservés aux documents. Les camps équitables ne servent que du JSON.
+ */
+const NARROW_CSP = "default-src 'none'; frame-ancestors 'none'";
 
 /**
  * Réglages `helmet` qui émettent EXACTEMENT les en-têtes statiques de Nodefony —
  * ses défauts ajoutent HSTS, X-XSS-Protection, Origin-Agent-Cluster… et posent
- * `SAMEORIGIN` là où Nodefony pose `DENY`. La CSP est posée par requête.
+ * `SAMEORIGIN` là où Nodefony pose `DENY`. La CSP est posée par `perRequest`.
  */
 export const HELMET_OPTIONS = {
   contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false,
-  crossOriginOpenerPolicy: { policy: "same-origin" },
+  crossOriginOpenerPolicy: false,
   crossOriginResourcePolicy: { policy: "same-origin" },
   frameguard: { action: "deny" },
   referrerPolicy: { policy: "no-referrer" },
@@ -115,8 +118,7 @@ export function perRequest(method, path, headers) {
   };
   const out = {
     server: "nodefony",
-    "permissions-policy": "camera=(), microphone=(), geolocation=()",
-    "content-security-policy": CSP_HEAD + take(16, "base64") + CSP_TAIL,
+    "content-security-policy": NARROW_CSP,
     "x-request-id": store.requestId,
     traceparent: store.traceparent,
   };
