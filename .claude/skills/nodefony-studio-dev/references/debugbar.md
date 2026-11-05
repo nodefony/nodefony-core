@@ -38,5 +38,12 @@ isomorphe, **vanilla TS + Shadow DOM** — **AUCUN React/Mantine/JSX, AUCUN UI k
   route `nodefony:debugbar[:ms]` ET `nodefony:supervision[:ms]` vers le **même** `createStatsTicker` (canaux distincts).
 - **Bouton live ○/●** (temps réel opt-in, **OFF par défaut**, `nf.debugbar.live`) : `startLive`/`stopLive`
   (subscribe/unsubscribe ref-compté). Les listeners `.on` sont TOUJOURS branchés (gratuit) ; seul l'**abonnement** est gaté.
+- **Onglet « Sockets · SSE »** (≠ Realtime, resté tel quel) : les sockets de la page (`sharedSockets()` d'`announce.ts`,
+  celle de la barre en tête, étiquetée « (barre) ») + les flux SSE vus par l'intercepteur réseau (`net.entries()`,
+  `stream.kind === "sse"`). Lignes = `describeSocket` du CŒUR (jamais de mise en mots propre à la barre). Rien n'est lu
+  onglet fermé (`sockPaneOpen`) — lire `frameLog` ALLUME le journal ; aller-retour à l'ouverture + bouton, jamais en
+  boucle (chaque ping écrit 2 trames). Deux sockets sur une page front = NORMAL : celle de l'app + celle de la barre
+  (`/nodefony/studio/api/realtime`, seule à offrir les canaux admin).
+- Tests de la barre : double de socket UNIQUE `src/nodefony/src/tests/debugbarFakeSocket.ts` — ne pas recréer de copie partielle.
 - ⚠️ **Graphe « frames/s » figé en OFF** : il s'alimente de `__stats__` = compteur **GLOBAL** du client partagé (frames
   des autres consommateurs) → gater `sampleThroughput` sur `live` + recaler `prevFrames` au ré-ON (sinon pic).

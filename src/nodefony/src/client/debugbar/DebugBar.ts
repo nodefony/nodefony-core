@@ -318,6 +318,16 @@ function kvHtml(
   return `<div class="kv">${helpLabel(label, help)}<span class="v ${cls}"${title}>${escapeHtml(value)}</span></div>`;
 }
 
+/** Le chemin d'une adresse de socket — l'hôte est le même pour toutes. */
+function socketPath(url: string | null): string {
+  if (url === null) return "?";
+  try {
+    return new URL(url).pathname;
+  } catch {
+    return url;
+  }
+}
+
 /** Clé STABLE d'une trame du journal — survit à la reconstruction de la liste. */
 function frameKey(f: RealtimeFrame): string {
   return `${f.ts}:${f.dir}:${f.id ?? ""}:${f.kind}`;
@@ -652,10 +662,17 @@ const STYLES =
 .card.kevents { grid-column: 1 / -1; }
 .sgrid { display:grid; gap:14px; align-items:stretch;
   grid-template-columns: minmax(340px,1.2fr) minmax(0,1fr) minmax(0,1fr);
-  grid-template-areas: "id log log" "id st inc"; }
+  grid-template-rows: minmax(0,1fr) auto auto;
+  grid-template-areas: "id log log" "id st inc" "sse sse sse"; }
+.sk-log { display:flex; flex-direction:column; }
+.sockp .sk-log .rtlog { flex:1 1 0; min-height:180px; max-height:none; }
+.sockp .vseg { flex-wrap:wrap; margin-bottom:8px; }
 .sk-id { grid-area:id; } .sk-log { grid-area:log; min-width:0; } .sk-st { grid-area:st; } .sk-inc { grid-area:inc; }
+.sk-sse { grid-area:sse; }
 .sk-st, .sk-inc { max-height:200px; overflow:auto; }
-@media (max-width:960px) { .sgrid { grid-template-columns:1fr; grid-template-areas:"id" "log" "st" "inc"; } }
+.sockp .sk-sse .kv { grid-template-columns:minmax(0,1fr) minmax(0,1.6fr); }
+.sockp .sk-sse .kv .k { white-space:normal; overflow-wrap:anywhere; }
+@media (max-width:960px) { .sgrid { grid-template-columns:1fr; grid-template-areas:"id" "log" "st" "inc" "sse"; } }
 .sockp .kv { display:grid; grid-template-columns:13em minmax(0,1fr); gap:10px; align-items:baseline; padding:3px 0; }
 .sockp .kv .k { white-space:nowrap; } .sockp .kv .v { text-align:left; white-space:normal; overflow-wrap:anywhere; }
 .sk-st .kv { grid-template-columns:minmax(0,1fr) auto; } .sk-inc .kv { grid-template-columns:auto minmax(0,1fr); }
@@ -1988,7 +2005,7 @@ export class DebugBar {
         <div class="resize" data-el="resize" title="Redimensionner"></div>
         <div class="tabs">
           <button class="tab" data-tab="realtime">Realtime</button>
-          <button class="tab" data-tab="socket">Sockets <span class="tcount" data-el="sockTab">0</span></button>
+          <button class="tab" data-tab="socket">Sockets · SSE <span class="tcount" data-el="sockTab">0</span></button>
           <button class="tab" data-tab="requests">Requêtes <span class="tcount" data-el="reqTab">0</span></button>
           <button class="tab" data-tab="perf">Perf</button>
           <button class="tab" data-tab="kernel">Nodefony client <span class="tdot" data-el="kTabDot" hidden></span></button>
@@ -2040,6 +2057,7 @@ export class DebugBar {
       </div>
       <div class="card sk-st"><div class="ttl">Notifications par méthode</div><div data-el="rtStats"></div></div>
       <div class="card sk-inc"><div class="ttl">Incidents</div><div data-el="rtInc"></div></div>
+      <div class="card sk-sse"><div class="ttl">Flux SSE</div><div data-el="sseList"></div></div>
       <div class="card sk-log">
         <div class="ttl">Trames <span data-el="rtLogN"></span><span class="spacer"></span>
           <input class="search" data-el="rtLogQ" type="search" placeholder="filtrer…" aria-label="Filtrer les trames sur la méthode ou le canal" />
@@ -3424,7 +3442,35 @@ export class DebugBar {
   private renderSocketPane(): void {
     const list = this.pageSockets();
     const c = this.shownSocket(list);
-    this.text("sockTab", String(list.length));
+    // Les flux SSE de la page, tels que l'intercepteur réseau les voit — quelle
+    // que soit la bibliothèque qui les ouvre (EventSource, fetch, NodefonySse).
+    const sse: string[] = [];
+    if (this.networkEnabled)
+      for (const e of this.net.entries()) {
+        const st = e.stream;
+        if (st?.kind !== "sse") continue;
+        sse.push(
+          kvHtml(
+            `${e.method} ${e.path}`,
+            `${streamMeta(e, st)}${e.requestId ? ` · requête ${shortId(e.requestId)}` : ""}`,
+            undefined,
+            st.state === "open"
+              ? "ok"
+              : st.state === "connecting"
+                ? "warn"
+                : "",
+          ),
+        );
+      }
+    this.text("sockTab", String(list.length + sse.length));
+    this.setHtml(
+      "sseList",
+      !this.networkEnabled
+        ? `<div class="kv"><span class="k">observation réseau coupée (option network: false)</span></div>`
+        : sse.length === 0
+          ? `<div class="kv"><span class="k">aucun flux SSE sur cette page</span></div>`
+          : sse.join(""),
+    );
     // Une autre socket de la page : on écoute ses incidents dès qu'on la montre.
     if (c !== this.client && this.sockWatched?.has(c) !== true) {
       (this.sockWatched ??= new Set<NodefonySocket>()).add(c);
@@ -3441,7 +3487,7 @@ export class DebugBar {
         : list
             .map(
               (x) =>
-                `<button type="button" data-sock="${escapeHtml(x.url ?? "")}" aria-pressed="${x === c}">${escapeHtml(x === this.client ? `${x.url ?? "?"} (barre)` : (x.url ?? "?"))}</button>`,
+                `<button type="button" data-sock="${escapeHtml(x.url ?? "")}" aria-pressed="${x === c}" data-tip="${escapeHtml(x.url ?? "")}">${escapeHtml(`${socketPath(x.url)}${x === this.client ? " (barre)" : ""}`)}</button>`,
             )
             .join(""),
     );
