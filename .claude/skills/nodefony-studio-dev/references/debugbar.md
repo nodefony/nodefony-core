@@ -38,12 +38,23 @@ isomorphe, **vanilla TS + Shadow DOM** — **AUCUN React/Mantine/JSX, AUCUN UI k
   route `nodefony:debugbar[:ms]` ET `nodefony:supervision[:ms]` vers le **même** `createStatsTicker` (canaux distincts).
 - **Bouton live ○/●** (temps réel opt-in, **OFF par défaut**, `nf.debugbar.live`) : `startLive`/`stopLive`
   (subscribe/unsubscribe ref-compté). Les listeners `.on` sont TOUJOURS branchés (gratuit) ; seul l'**abonnement** est gaté.
-- **Onglet « Sockets · SSE »** (≠ Realtime, resté tel quel) : les sockets de la page (`sharedSockets()` d'`announce.ts`,
-  celle de la barre en tête, étiquetée « (barre) ») + les flux SSE vus par l'intercepteur réseau (`net.entries()`,
-  `stream.kind === "sse"`). Lignes = `describeSocket` du CŒUR (jamais de mise en mots propre à la barre). Rien n'est lu
-  onglet fermé (`sockPaneOpen`) — lire `frameLog` ALLUME le journal ; aller-retour à l'ouverture + bouton, jamais en
-  boucle (chaque ping écrit 2 trames). Deux sockets sur une page front = NORMAL : celle de l'app + celle de la barre
+- **Onglets « Nodefony Socket » et « Nodefony SSE »** (≠ Realtime, resté tel quel) : UNE connexion par onglet,
+  choisie par une rangée de boutons (`connTab`). Sockets = `pageSockets()` (← `sharedSockets()` d'`announce.ts`,
+  celle de la barre étiquetée « barre de debug ») ; flux = `sseStreams()` (intercepteur réseau, `stream.kind === "sse"`).
+  Lignes = `describeSocket` du CŒUR (jamais de mise en mots propre à la barre). Rien n'est lu onglet fermé
+  (`tabOpen(id)`) — lire `frameLog` ALLUME le journal ; aller-retour à l'ouverture + bouton, jamais en boucle (chaque
+  ping écrit 2 trames). Deux sockets sur une page front = NORMAL : celle de l'app + celle de la barre
   (`/nodefony/studio/api/realtime`, seule à offrir les canaux admin).
+- **Onglets en CARTES** (Runtime, Perf, Nodefony client, Socket) : `.card` + `kvHtml(label, valeur, aide)` — libellé
+  souligné = bulle d'aide (`data-tip` + `tabindex`). Grille libellé/valeur partagée, largeur du libellé en `--kw`.
+  **Runtime** = résumé de la page Studio « Runtime & Lancement » : mêmes sources (`RUNTIME_READS`, lues par
+  `readRuntime` via `ownFetch`, à l'ouverture + bouton ⟳, JAMAIS en boucle — `/kernel/api/processes` lance `ps`),
+  même règle de mode (`runtimeMode` du CŒUR, isomorphe). Sans session admin : une phrase, zéro requête.
+  **Perf** = une carte par mesure (paliers `PCT_*`/`LOOP_*` = couleur ET ligne « seuils ») + « Cette page »
+  (`readPageTiming`, relu à `load`) ; « — » tant qu'aucune mesure, jamais un 0. **Nodefony client** = six cartes,
+  utiles SANS noyau (compte reconnu par le serveur via la socket, briques de la page, raccourcis `nodefony.*`).
+- **Budget** : `nodefony/debugbar` gzip dans `.size-budgets.json` (ADR-0007 D10, `npm run size:check`) — un onglet
+  de plus = mesurer AVANT de commiter ; la barre embarque sa propre copie de la socket.
 - Tests de la barre : double de socket UNIQUE `src/nodefony/src/tests/debugbarFakeSocket.ts` — ne pas recréer de copie partielle.
 - ⚠️ **Graphe « frames/s » figé en OFF** : il s'alimente de `__stats__` = compteur **GLOBAL** du client partagé (frames
   des autres consommateurs) → gater `sampleThroughput` sur `live` + recaler `prevFrames` au ré-ON (sinon pic).

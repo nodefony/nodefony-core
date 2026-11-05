@@ -79,13 +79,13 @@ clavier**, et chaque indicateur est un raccourci : cliquer « cpu » ouvre l'ong
 qui le détaille. Le bandeau lui-même ne se replie pas au clic : seuls le logo et
 le bouton « Ouvrir / Fermer » basculent le panneau.
 
-| Contrôle                     | Ce qu'il fait                                                                                 |
-| ---------------------------- | --------------------------------------------------------------------------------------------- |
-| logo `◆ nodefony`            | Ouvre ou ferme le panneau.                                                                    |
-| `Temps réel · <état>`        | Démarre ou arrête les mesures et journaux en direct. **Arrêté par défaut** (voir ci-dessous). |
-| `Réduire`                    | Réduit la barre en pastille, dans un coin de l'écran ; la pastille la rouvre.                 |
-| `Ouvrir` / `Fermer`          | Ouvre ou ferme le panneau.                                                                    |
-| réglages : `À gauche/droite` | Coin où se pose la pastille réduite (onglet Runtime, carte « Stockage local »).               |
+| Contrôle                     | Ce qu'il fait                                                                                   |
+| ---------------------------- | ----------------------------------------------------------------------------------------------- |
+| logo `◆ nodefony`            | Ouvre ou ferme le panneau.                                                                      |
+| `Temps réel · <état>`        | Démarre ou arrête les mesures et journaux en direct. **Arrêté par défaut** (voir ci-dessous).   |
+| `Réduire`                    | Réduit la barre en pastille, dans un coin de l'écran ; la pastille la rouvre.                   |
+| `Ouvrir` / `Fermer`          | Ouvre ou ferme le panneau.                                                                      |
+| réglages : `À gauche/droite` | Coin où se pose la pastille réduite (onglet Runtime, carte « Barre de debug · ce navigateur »). |
 
 Le contrôle « Temps réel » dit son état en toutes lettres : `arrêté`, `connexion…`,
 `en direct`, `en pause` (la socket est ouverte par l'application, mais la barre ne
@@ -99,44 +99,71 @@ refus se lit, il ne se confond pas avec une panne.
 > l'application un travail que personne ne regarde. C'est un choix d'adhésion,
 > pas une option cachée.
 
-## Les cinq onglets
+## Les sept onglets
+
+Hors Realtime et Requêtes, chaque onglet est fait de **cartes**, comme la
+console d'administration : une carte répond à une question. Chaque libellé
+souligné porte une explication courte, au survol comme au clavier.
 
 **Realtime** — débit, transport, protocole, état de la socket, frames reçues,
 pic. C'est la vue de la socket elle-même.
+
+**Nodefony Socket** et **Nodefony SSE** — une connexion à la fois, choisie par
+une rangée de boutons en haut de l'onglet : chaque socket de la page (celle de
+la barre comprise, étiquetée « barre de debug »), chaque flux SSE vu par
+l'intercepteur réseau. Pour la connexion choisie : ce qu'elle sait
+d'elle-même (adresse, état, format, identité, canaux, actions), ses dernières
+trames, ses notifications par méthode, ses incidents. Rien n'est lu tant que
+l'onglet est fermé ; l'aller-retour se mesure à l'ouverture et au bouton,
+jamais en boucle.
 
 **Requêtes** — les requêtes de la page (`fetch` et `XHR`), chacune avec les
 lignes que le serveur a écrites pour elle, et les autres journaux du serveur en
 direct. Voir la section suivante.
 
-**Perf** — processeur, mémoire, boucle d'événements du serveur.
+**Perf** — une carte par mesure du serveur : processeur, mémoire (tas), boucle
+d'événements. Chacune donne sa valeur, son pic, sa moyenne sur les 60 dernières
+secondes et ses seuils — les mêmes paliers que la couleur de la jauge. Tant
+qu'aucune mesure n'est arrivée, la carte affiche « — », jamais un zéro qui
+passerait pour une mesure. Temps réel arrêté, un bandeau le dit et l'allume
+d'un clic. Une dernière carte, **Cette page**, dit ce que le navigateur sait du
+chargement : premier octet, DOM prêt, page chargée, ressources et leur poids.
 
-**Nodefony client** — ce que Nodefony fait dans le navigateur, quand la page
-compose un noyau client (`NodefonyKernel`). Quatre cartes, chacune répond à une
-question :
+**Nodefony client** — tout Nodefony dans ce navigateur, que la page compose un
+noyau client (`NodefonyKernel`) ou non. Six cartes :
 
-- **État de l'application** — tourne-t-elle, depuis quand ? Nom, état (`créé`,
-  `démarrage`, `prêt`, `terminé`), heure de démarrage, délai jusqu'à « prêt »,
-  annonce console, services composés. Les heures sont datées par le noyau
-  lui-même : justes même si la barre est montée après.
-- **Compte déclaré** — pour quel compte partent mes requêtes ? La clé déclarée
-  par `setIdentity` (la charge appartient à l'application et n'est pas
-  affichée), depuis quand, combien de changements.
-- **Connexion au serveur** — ma socket est-elle ouverte, vers où, et sinon
-  pourquoi ? L'état se dit en clair, anomalies comprises : « fermée —
+- **Ce navigateur** — le bundle (développement ou production), l'environnement
+  annoncé par le serveur, la console (détaillée ou non), le réseau, la page.
+- **Compte connecté** — le compte que le **serveur** reconnaît sur la socket,
+  ses rôles, ce qu'il peut faire (canaux et actions offerts), et la socket qui
+  le voit. Avec un noyau, la clé déclarée par `setIdentity` (la charge
+  appartient à l'application et n'est pas affichée).
+- **Noyau** — avec un noyau : son nom, son état (`créé`, `démarrage`, `prêt`,
+  `terminé`), son heure de démarrage, son délai jusqu'à « prêt », ses services,
+  et sa socket, dont l'état se dit en clair, anomalies comprises : « fermée —
   volontairement : s'ouvrira à la déclaration du compte » n'est pas une panne,
-  « fermée alors qu'un compte est déclaré » en est une.
-- **Événements** — le journal horodaté, le plus récent en haut, amorcé avec ce
-  que le noyau a daté avant l'arrivée de la barre. Les noms se lisent en clair
-  (`démarrage`, `prêt`, `compte`, `à l'écran`, `réseau`), le nom d'API en infobulle.
+  « fermée alors qu'un compte est déclaré » en est une. Les heures sont datées
+  par le noyau lui-même : justes même si la barre est montée après. Sans noyau,
+  la carte dit comment en composer un.
+- **Briques sur la page** — sockets, flux SSE et noyaux, chacun avec un lien
+  vers son onglet.
+- **Depuis la console du navigateur** — les raccourcis `nodefony.*` que la page
+  expose en développement, chacun copiable.
+- **Événements du noyau** — le journal horodaté, le plus récent en haut, amorcé
+  avec ce que le noyau a daté avant l'arrivée de la barre. Les noms se lisent
+  en clair (`démarrage`, `prêt`, `compte`, `à l'écran`, `réseau`), le nom d'API
+  en infobulle.
 
-Chaque libellé porte une explication courte, au survol comme au clavier. Une
-puce « client · prêt » apparaît dans la bande dès qu'un noyau est détecté —
-qu'il soit né avant ou après la barre. Sans noyau, l'onglet dit comment en créer
-un. Le noyau publie cette sonde **en développement seulement** : en production,
-rien n'est posé sur la page.
+Une puce « client · prêt » apparaît dans la bande dès qu'un noyau est détecté —
+qu'il soit né avant ou après la barre. Le noyau publie cette sonde **en
+développement seulement** : en production, rien n'est posé sur la page.
 
-**Runtime** — l'identité du processus servi (version, environnement, `pid`,
-disponibilité, cœurs, mémoire), et **ce que la barre garde sur ce navigateur**.
+**Runtime** — le résumé de la page « Runtime & Lancement » de la console, lu
+aux mêmes sources : le mode d'exécution (développement, production, cluster —
+la même règle que la console, `runtimeMode`), le serveur, ses process, sa
+charge, Vite et ses fronts. Lu à l'ouverture de l'onglet et au bouton ⟳,
+jamais en boucle. Sans session administrateur, une phrase le dit et aucune
+requête ne part. En bas, **ce que la barre garde sur ce navigateur**.
 
 ## L'onglet Requêtes
 
@@ -230,7 +257,7 @@ globales du navigateur.
 
 ## Ce que la barre garde sur votre navigateur
 
-Sept valeurs, uniquement d'apparence, dans le stockage local — visibles dans
+Huit valeurs, uniquement d'apparence, dans le stockage local — visibles dans
 l'onglet Runtime, avec un bouton pour les effacer :
 
 | Clé                   | Ce qu'elle retient           |
@@ -239,6 +266,7 @@ l'onglet Runtime, avec un bouton pour les effacer :
 | `nf.debugbar.visible` | barre affichée ou masquée    |
 | `nf.debugbar.min`     | réduite en pastille          |
 | `nf.debugbar.side`    | côté du dock                 |
+| `nf.debugbar.open`    | panneau déplié               |
 | `nf.debugbar.tab`     | dernier onglet ouvert        |
 | `nf.debugbar.h`       | hauteur du panneau           |
 | `nf.debugbar.live`    | flux en direct activé        |
@@ -316,6 +344,10 @@ Les chiffres exacts vivent dans la carte de l'aperçu, régénérée en comptant
 | Unitaires | `nodefony` `DebugBar.test.ts` | le montage, les options, ce que la poignée rend, le rendu des onglets |
 | Unitaires (interaction) | `nodefony` `debugbarInteraction.test.ts` | l'ouverture et la fermeture, le filtrage des journaux, ce qui est gardé d'une visite à l'autre |
 | Unitaires (onglet Requêtes) | `nodefony` `debugbarRequestsTab.test.ts`, `debugbarRequests.test.ts`, `debugbarFeedView.test.ts` | les trois vues sur le back des Journaux, le dépliage relu à la demande, le volet unique, les requêtes de la page jamais masquées, une liste fenêtrée qui ne bouge pas sous l'œil |
+| Unitaires (onglet Runtime) | `nodefony` `debugbarRuntimeTab.test.ts` | les quatre sources lues une fois, relues à la réouverture et au bouton, jamais en boucle ; une phrase et zéro requête sans session ; la règle `runtimeMode` partagée avec la console |
+| Unitaires (onglet Perf) | `nodefony` `debugbarPerfTab.test.ts` | « — » sans mesure, le bandeau qui allume le temps réel, valeur, pic et moyenne en français, la carte « Cette page » hors navigateur |
+| Unitaires (onglet Nodefony client) | `nodefony` `debugbarKernel.test.ts` | la détection du noyau avant ou après la barre, six cartes à une question chacune, chaque valeur expliquée, le compte reconnu par le serveur sans noyau, les raccourcis de la console, aucun écouteur laissé |
+| Unitaires (session) | `nodefony` `debugbarSession.test.ts` | un refus de session se relit, seul l'accord se mémorise |
 
 ## 🔗 Pour aller plus loin
 

@@ -481,6 +481,31 @@ tarball existe et la tentation de « voir plus tard » gagne.
 > Le gate n'est lancé que par la chaîne de release (`release.mjs`), pas en intégration continue —
 > c'est pourquoi le dépassement est passé inaperçu pendant quatre jours.
 >
+> **Révisé le 2026-11-06 — `nodefony/debugbar` relevé à 58 KB, `nodefony/client` inchangé à
+> 35 KB** (décision de l'auteur). La barre devient l'outil de diagnostic du navigateur : une
+> connexion par onglet (#720), et trois onglets refaits en cartes sur le modèle de la console.
+> Coût de chaque lot, mesuré sur les sources par le même bundler (minifié, gzip 9) :
+>
+> | Lot                                                                         | `debugbar` | `client`  |
+> | --------------------------------------------------------------------------- | ---------- | --------- |
+> | Départ (dernier état poussé)                                                | 48,06      | 33,57     |
+> | La socket dit ce qu'elle perd, son journal garde l'accueil (#720)           | +0,43      | +0,44     |
+> | Onglet Sockets : ce que chaque socket sait d'elle-même (#720)               | +2,20      | —         |
+> | Les flux SSE rejoignent l'onglet (#720)                                     | +0,25      | —         |
+> | Deux onglets « Nodefony Socket » et « Nodefony SSE » (#720)                 | +0,89      | —         |
+> | Runtime : le résumé de la page « Runtime & Lancement », règle `runtimeMode` | +2,44      | +0,16     |
+> | Perf : une carte par mesure, minutage de la page                            | +1,25      | —         |
+> | Nodefony client : six cartes, utiles avec ou sans noyau                     | +1,20      | —         |
+> | Factorisation (variables sur l'hôte, `[hidden]` unique, grilles partagées)  | −0,23      | —         |
+> | **Arrivée** (`dist` publié : 56,5 et 34,4)                                  | **56,49**  | **34,17** |
+>
+> La factorisation ne rend presque rien, et c'est attendu : gzip compressait déjà les
+> répétitions du CSS. Le poids est le CONTENU (aides en français, cartes, lectures du serveur),
+> pas de la duplication. La règle du mode d'exécution (`runtimeMode`) passe au cœur, appelée par
+> la console et par la barre, d'où les 0,16 KB du client. La barre reste **dev-only** : aucun
+> utilisateur ne la télécharge en production, et le budget qui le protège, celui du client, n'a
+> pas bougé. Marge laissée : 1,5 KB — le prochain onglet repassera par une décision.
+>
 > Un dépassement de budget = blocker de release, pas un warning.
 > L'implémentation Phase 3.2 commence par un **prototype + mesure** avant tout engagement de code
 > définitif (garde-fou déjà acté dans la vision).

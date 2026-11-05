@@ -18,7 +18,7 @@
     {
       "subpath": "nodefony/debugbar",
       "file": "src/nodefony/dist/client/client/debugbar/index.js",
-      "budgetKB": 50,
+      "budgetKB": 58,
       "referenceKB": 42.3
     },
     {
