@@ -132,7 +132,7 @@ const FRONTS = [
   { name: "Svelte", href: "/svelte/app" },
 ];
 
-/** La dernière trame, dite pour un humain — « — » tant qu'il n'y en a aucune. */
+/** La dernière notification, dite pour un humain — « — » tant qu'il n'y en a aucune. */
 const lastFrom = (v: SocketSnapshot | null): string =>
   v?.lastFrame.at
     ? `${v.lastFrame.method ?? "?"} à ${new Date(v.lastFrame.at).toLocaleTimeString()}`
@@ -545,7 +545,7 @@ function LiveSection() {
         </p>
         <p className="live-meta">
           {vue?.lastFrame.at
-            ? `dernière trame : ${lastFrom(vue)}`
+            ? `dernière notification : ${lastFrom(vue)}`
             : "aucune trame — le serveur se tait tant qu'il n'a rien à dire"}
         </p>
         <button

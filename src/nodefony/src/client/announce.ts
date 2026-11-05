@@ -127,7 +127,7 @@ export function isDevBuild(): boolean {
 }
 
 /** Les sockets partagées, lues dans le registre de `NodefonySocket.shared()`. */
-function sharedSockets(): NodefonySocket[] {
+export function sharedSockets(): NodefonySocket[] {
   const g = globalThis as { __nfRealtime__?: Map<string, NodefonySocket> };
   return g.__nfRealtime__ ? [...g.__nfRealtime__.values()] : [];
 }

@@ -45,6 +45,7 @@ import {
   type SharedConnection,
 } from "../client/realtime/observe";
 import type { NodefonyNotice } from "../client/realtime/notice";
+import type { SocketSnapshot } from "../client/realtime/snapshot";
 
 class MockTransport implements IRealtimeTransport {
   readyState: number = TransportState.CONNECTING;
@@ -438,8 +439,10 @@ describe("socketSnapshot — ce que le client sait de sa PROPRE socket", () => {
       "canaux tenus",
       "canaux offerts",
       "actions",
-      "trames reçues",
-      "dernière trame",
+      "notifications reçues",
+      "trames perdues",
+      "dernière notification",
+      "journal",
     ]);
     const par = Object.fromEntries(lignes.map((l) => [l.label, l.value]));
     expect(par.adresse).toBe("ws://loopback/realtime");
@@ -451,6 +454,76 @@ describe("socketSnapshot — ce que le client sait de sa PROPRE socket", () => {
     // et la ligne le dit plutôt que d'affirmer « anonyme ».
     expect(par["identité"]).toBe("— (avant l'accueil)");
     for (const l of lignes) expect(l.hint.length, l.label).toBeGreaterThan(20);
+  });
+
+  /** Un instantané construit à la main : `describeSocket` est PURE. */
+  const vue = (part: Partial<SocketSnapshot> = {}): SocketSnapshot => ({
+    url: "ws://x/rt",
+    state: "connected",
+    codec: "nodefony.jsonrpc.v1",
+    channels: [],
+    frames: 0,
+    unsent: 0,
+    dropped: 0,
+    binaryDiscarded: 0,
+    malformedDiscarded: 0,
+    frameLogSince: null,
+    lastFrame: { method: null, at: null },
+    reconnectAttempts: 0,
+    nextRetryAt: null,
+    identity: null,
+    serverChannels: null,
+    serverMethods: null,
+    ...part,
+  });
+  const ligne = (v: SocketSnapshot, label: string, now?: number): string =>
+    describeSocket(v, now).find((l) => l.label === label)?.value ?? "(absente)";
+
+  it("describeSocket : l'identité dit le compte, le type de jeton et les rôles", () => {
+    const identity = {
+      type: "session",
+      authenticated: true,
+      id: "u1",
+      userIdentifier: "admin",
+      roles: ["ROLE_ADMIN", "ROLE_DEV"],
+      scopes: [],
+    };
+    expect(ligne(vue({ identity }), "identité")).toBe(
+      "admin · session · ROLE_ADMIN, ROLE_DEV",
+    );
+  });
+
+  it("describeSocket : une reconnexion dit sa tentative et son compte à rebours", () => {
+    const v = vue({
+      state: "reconnecting",
+      reconnectAttempts: 3,
+      nextRetryAt: 10_000,
+    });
+    expect(ligne(v, "état", 7_200)).toBe(
+      "reconnexion automatique… (tentative 3, dans 3 s)",
+    );
+    // Échéance dépassée : jamais un compte à rebours négatif.
+    expect(ligne(v, "état", 12_000)).toContain("dans 0 s");
+  });
+
+  it("describeSocket : les trames perdues se comptent par sorte, illisibles sommées", () => {
+    const v = vue({
+      unsent: 2,
+      dropped: 5,
+      binaryDiscarded: 1,
+      malformedDiscarded: 3,
+    });
+    expect(ligne(v, "trames perdues")).toBe(
+      "2 non envoyées · 5 jetées · 4 illisibles",
+    );
+  });
+
+  it("describeSocket : le journal dit s'il est éteint, ou depuis quand il retient", () => {
+    expect(ligne(vue(), "journal")).toBe("éteint");
+    const at = Date.UTC(2026, 10, 5, 21, 59, 27);
+    expect(ligne(vue({ frameLogSince: at }), "journal")).toBe(
+      `tenu depuis ${new Date(at).toLocaleTimeString()}`,
+    );
   });
 
   it("observeSnapshot réémet quand l'ACCUEIL apporte l'identité", async () => {

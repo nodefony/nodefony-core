@@ -29,6 +29,9 @@ export type SnapshotSource = Pick<
   | "framesReceived"
   | "framesUnsent"
   | "framesDropped"
+  | "binaryFramesDiscarded"
+  | "malformedFramesDiscarded"
+  | "frameLogSince"
   | "lastFrameMethod"
   | "lastFrameAt"
   | "reconnectAttempts"
@@ -60,13 +63,19 @@ export interface SocketSnapshot {
   codec: string;
   /** Canaux effectivement tenus par cette connexion. */
   channels: readonly string[];
-  /** Trames reçues depuis l'ouverture. */
+  /** Notifications reçues depuis l'ouverture (accueil compris) — les réponses aux appels n'y entrent pas. */
   frames: number;
   /** Trames perdues faute de transport ouvert — un silence qui se compte. */
   unsent: number;
   /** Trames jetées par la contre-pression du client (`maxBufferedAmount`) — `0` sans borne. */
   dropped: number;
-  /** Méthode et horodatage de la dernière trame reçue (`null` si aucune). */
+  /** Trames binaires reçues puis écartées, faute de lecteur. */
+  binaryDiscarded: number;
+  /** Trames texte reçues puis écartées parce qu'elles ne sont pas du JSON. */
+  malformedDiscarded: number;
+  /** Depuis quand le journal des trames retient (ms epoch), `null` s'il est éteint. */
+  frameLogSince: number | null;
+  /** Méthode et horodatage de la dernière notification reçue (`null` si aucune). */
   lastFrame: { method: string | null; at: number | null };
   /** Tentatives de reconnexion depuis la dernière connexion réussie. */
   reconnectAttempts: number;
@@ -93,6 +102,9 @@ export function socketSnapshot(client: SnapshotSource): SocketSnapshot {
     frames: client.framesReceived,
     unsent: client.framesUnsent,
     dropped: client.framesDropped,
+    binaryDiscarded: client.binaryFramesDiscarded,
+    malformedDiscarded: client.malformedFramesDiscarded,
+    frameLogSince: client.frameLogSince,
     lastFrame: { method: client.lastFrameMethod, at: client.lastFrameAt },
     reconnectAttempts: client.reconnectAttempts,
     nextRetryAt: client.nextRetryAt,
@@ -143,12 +155,19 @@ const STATE_WORDS: Record<RealtimeState, string> = {
  * l'affiche reste chez chaque framework de vue.
  *
  * @param snapshot - l'instantané, tel que {@link socketSnapshot} le rend.
+ * @param now - l'instant de lecture (ms epoch), pour le compte à rebours d'une reconnexion.
  * @returns les lignes, dans l'ordre où un humain les lit.
  */
-export function describeSocket(snapshot: SocketSnapshot): SocketDetailRow[] {
+export function describeSocket(
+  snapshot: SocketSnapshot,
+  now: number = Date.now(),
+): SocketDetailRow[] {
   const id = snapshot.identity;
   const list = (v: readonly string[] | null, none: string): string =>
     v === null ? "— (avant l'accueil)" : v.join(", ") || none;
+  const clock = (at: number): string => new Date(at).toLocaleTimeString();
+  const retry = snapshot.nextRetryAt;
+  const unreadable = snapshot.binaryDiscarded + snapshot.malformedDiscarded;
   return [
     {
       label: "adresse",
@@ -157,7 +176,10 @@ export function describeSocket(snapshot: SocketSnapshot): SocketDetailRow[] {
     },
     {
       label: "état",
-      value: STATE_WORDS[snapshot.state],
+      value:
+        retry === null
+          ? STATE_WORDS[snapshot.state]
+          : `${STATE_WORDS[snapshot.state]} (tentative ${snapshot.reconnectAttempts}, dans ${Math.max(0, Math.ceil((retry - now) / 1000))} s)`,
       hint: "Coupée, la socket se reconnecte seule et rejoue ses abonnements : la page n'a rien à écrire pour ça.",
     },
     {
@@ -168,7 +190,9 @@ export function describeSocket(snapshot: SocketSnapshot): SocketDetailRow[] {
     {
       label: "identité",
       value: id?.authenticated
-        ? id.userIdentifier || "authentifié"
+        ? [id.userIdentifier || "authentifié", id.type, id.roles.join(", ")]
+            .filter(Boolean)
+            .join(" · ")
         : id === null
           ? "— (avant l'accueil)"
           : "anonyme",
@@ -190,17 +214,30 @@ export function describeSocket(snapshot: SocketSnapshot): SocketDetailRow[] {
       hint: "Les actions de contrôleur joignables par la socket (api.request) — une route ne l'est que si elle le déclare.",
     },
     {
-      label: "trames reçues",
+      label: "notifications reçues",
       value: String(snapshot.frames),
-      hint: "Comptées par le client lui-même : lire ce tableau ne coûte aucune trame.",
+      hint: "Poussées par le serveur, accueil compris, et comptées par le client lui-même. Les réponses aux appels n'y entrent pas : elles se lisent au journal.",
     },
     {
-      label: "dernière trame",
+      label: "trames perdues",
+      value: `${snapshot.unsent} non envoyées · ${snapshot.dropped} jetées · ${unreadable} illisibles`,
+      hint: "Non envoyées : transport fermé à l'émission. Jetées : contre-pression du client (maxBufferedAmount). Illisibles : binaire sans lecteur ou texte non JSON — la première de chaque sorte lève un incident.",
+    },
+    {
+      label: "dernière notification",
       value:
         snapshot.lastFrame.at === null
           ? "—"
-          : `${snapshot.lastFrame.method ?? "?"} à ${new Date(snapshot.lastFrame.at).toLocaleTimeString()}`,
+          : `${snapshot.lastFrame.method ?? "?"} à ${clock(snapshot.lastFrame.at)}`,
       hint: "Une socket qui se tait n'est pas morte : le serveur ne parle que s'il a quelque chose à dire.",
+    },
+    {
+      label: "journal",
+      value:
+        snapshot.frameLogSince === null
+          ? "éteint"
+          : `tenu depuis ${clock(snapshot.frameLogSince)}`,
+      hint: "Hors développement, le journal ne retient rien — coût nul par trame — jusqu'à sa première lecture : les trames antérieures n'y sont pas.",
     },
   ];
 }

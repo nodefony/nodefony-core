@@ -448,14 +448,23 @@ passage à « connecté ».
 
 `describeSocket()` (`client/realtime/snapshot.ts#describeSocket`) met cet instantané en mots : une ligne par
 fait, avec sa valeur ET une phrase qui dit ce qu'elle garantit. C'est la source UNIQUE du tableau
-que la console du navigateur affiche en développement, et de la vignette « Le client vu de
-l'intérieur » des quatre vitrines — écrit dans chaque page, le texte des explications divergerait
-de celui de la console à la première retouche.
+que la console du navigateur affiche en développement, de la vignette « Le client vu de
+l'intérieur » des quatre vitrines, et de l'onglet Realtime de la barre de debug — écrit dans chaque
+page, le texte des explications divergerait de celui de la console à la première retouche.
 
 La ligne **« format »** dit le codec en vigueur — « JSON-RPC 2.0 · texte » ou « JSON-RPC 2.0 · binaire »,
 suivi du sous-protocole —, mise en mots par `describeCodec()` (`client/realtime/snapshot.ts#describeCodec`). La
-même phrase figure dans le diagnostic du noyau client et dans le champ « protocole » de la barre de
-debug : une seule source pour les trois.
+même phrase figure dans le diagnostic du noyau client : une seule source.
+
+Trois lignes disent ce qu'un écran « qui ne reçoit rien » doit savoir :
+
+- **« notifications reçues »** compte ce que le serveur POUSSE, accueil compris — les réponses aux
+  appels (`request`, `api.request`) n'y entrent pas, elles se lisent au journal ;
+- **« trames perdues »** — non envoyées (transport fermé à l'émission), jetées (contre-pression du
+  client), illisibles (binaire sans lecteur, texte non JSON) ;
+- **« journal »** dit depuis quand le journal des trames retient (`frameLogSince`,
+  `client/realtime/NodefonySocket.ts#NodefonySocket.frameLogSince`). Hors développement il est
+  éteint, sans coût par trame, jusqu'à sa première lecture : ce qui précède n'y est pas.
 
 ### Identité et refus — l'interface sait sans demander
 

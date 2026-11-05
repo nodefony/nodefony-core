@@ -237,7 +237,7 @@
     parSocket = `${Math.round(performance.now() - t1)} ms\n${JSON.stringify(parLaSocket, null, 2)}`;
   };
 
-  /** La dernière trame, dite pour un humain — « — » tant qu'il n'y en a aucune. */
+  /** La dernière notification, dite pour un humain — « — » tant qu'il n'y en a aucune. */
   const lastFrom = (v: SocketSnapshot | null): string =>
     v?.lastFrame.at
       ? `${v.lastFrame.method ?? "?"} à ${new Date(v.lastFrame.at).toLocaleTimeString()}`
@@ -455,7 +455,7 @@
         </p>
         <p class="live-meta">
           {#if vue?.lastFrame.at}
-            dernière trame : {lastFrom(vue)}
+            dernière notification : {lastFrom(vue)}
           {:else}
             aucune trame — le serveur se tait tant qu'il n'a rien à dire
           {/if}

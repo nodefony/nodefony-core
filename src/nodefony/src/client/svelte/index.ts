@@ -686,7 +686,7 @@ export function nodefonyChannelStats(
 
 /**
  * `nodefonySnapshot()` — ce que la socket sait d'ELLE-MÊME : état, canaux tenus,
- * trames reçues, trames perdues, dernière trame. Rafraîchi par
+ * notifications reçues, trames perdues, dernière notification. Rafraîchi par
  * l'échantillonneur déjà en place — aucune horloge de plus.
  *
  * La donnée est au socle, la **boîte qui l'affiche** reste à chaque front :

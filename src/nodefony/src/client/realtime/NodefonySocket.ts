@@ -134,7 +134,7 @@ import {
   userChannel,
   type UserChannelPayload,
 } from "../../realtime/userChannel";
-import { isJsonRpcId } from "../../jsonrpc/index";
+import { isJsonRpcId, jsonRpcNotification } from "../../jsonrpc/index";
 import {
   binaryPayloadLabel,
   isRealtimePayload,
@@ -945,6 +945,9 @@ export class NodefonySocket<
   // En production, éteint — coût NUL par trame — jusqu'à ce qu'une console le
   // demande (lecture de `frameLog`, écouteur `LOCAL_EVENTS.frame`).
   private _frameLogOn = isDevBuild();
+  // Depuis QUAND il retient (ms epoch) — `null` tant qu'il est éteint. Ce qui
+  // précède n'y est pas : un écran qui l'affiche doit pouvoir le dire.
+  private _frameLogSince: number | null = this._frameLogOn ? Date.now() : null;
   // Somme des coûts du ring (`frameLogCost`) — tenue à jour au push/shift,
   // jamais recalculée.
   private _rawFramesChars = 0;
@@ -1258,7 +1261,7 @@ export class NodefonySocket<
       : RealtimeHandler,
   ): () => void {
     // Une console qui écoute le journal l'allume (éteint en production).
-    if (event === LOCAL_EVENTS.frame) this._frameLogOn = true;
+    if (event === LOCAL_EVENTS.frame) this.startFrameLog();
     let set = this.handlers.get(event);
     if (!set) {
       set = new Set();
@@ -2385,8 +2388,17 @@ export class NodefonySocket<
     // peut pas voir.
     const env = ownField(params, "env");
     noteServerEnv(typeof env === "string" ? env : undefined);
-    // Serveur hors production : le journal s'allume comme en développement.
-    if (isVerbose()) this._frameLogOn = true;
+    // Serveur hors production : le journal s'allume comme en développement. La
+    // trame qui l'allume y entre AUSSI, et ici — avant le rejeu des abonnements,
+    // pour garder l'ordre du fil : `receive` l'a vue passer journal éteint. Sa
+    // taille sur le fil n'est plus connue à ce point (`0` = inconnue).
+    if (isVerbose() && this.startFrameLog())
+      this.recordFrame(
+        "in",
+        jsonRpcNotification("realtime:welcome", params),
+        0,
+        false,
+      );
     // Détail dans la console — SEULEMENT s'il n'y a pas de noyau : quand il y en
     // a un, c'est lui qui parle, il a plus à dire (état, identité, services).
     // C'est le moment juste : avant l'accueil, il n'y aurait rien à montrer.
@@ -2848,6 +2860,26 @@ export class NodefonySocket<
   }
 
   /**
+   * Depuis quand le journal retient (ms epoch), `null` s'il est éteint — les
+   * trames antérieures n'y sont pas. Lire {@link frameLog} l'allume.
+   */
+  get frameLogSince(): number | null {
+    return this._frameLogSince;
+  }
+
+  /**
+   * Allume le journal s'il est éteint, et date l'allumage.
+   *
+   * @returns `true` si l'appel vient de l'allumer.
+   */
+  private startFrameLog(): boolean {
+    if (this._frameLogOn) return false;
+    this._frameLogOn = true;
+    this._frameLogSince = Date.now();
+    return true;
+  }
+
+  /**
    * Log protocole : les `FRAME_LOG_MAX` dernières frames JSON-RPC (redactées).
    *
    * En développement, enregistrées dès l'ouverture : la console « retrace
@@ -2856,7 +2888,7 @@ export class NodefonySocket<
    * redaction faites ici, à la lecture.
    */
   get frameLog(): readonly RealtimeFrame[] {
-    this._frameLogOn = true;
+    this.startFrameLog();
     // Chemin froid (lecture de la console) : la copie de l'anneau ne coûte qu'ici.
     return (this._rawFrames?.toArray() ?? []).map((f) =>
       NodefonySocket.buildFrame(f.dir, f.msg, f.ts, f.size, f.binary),

@@ -550,7 +550,7 @@ const { data, intervalMs } = useNodefonyAdaptiveChannelData(
 ### `useNodefonyChannelStats()` — débit et série d'un canal
 
 Rend `{ msgCount, lastMessage, rate, series }` pour un canal, calculé par le client à partir des
-trames reçues (`getChannelStats()`, `client/realtime/NodefonySocket.ts#NodefonySocket.getChannelStats`). La série glisse sur 32
+notifications reçues (`getChannelStats()`, `client/realtime/NodefonySocket.ts#NodefonySocket.getChannelStats`). La série glisse sur 32
 points — `STATS_SERIES_POINTS` (`client/realtime/NodefonySocket.ts#STATS_SERIES_POINTS`) —, échantillonnés une fois par seconde par
 `startStatsSampler()` (`client/realtime/NodefonySocket.ts#NodefonySocket.startStatsSampler`).
 

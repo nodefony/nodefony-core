@@ -285,7 +285,7 @@ const FRONTS = [
             </p>
             <p class="live-meta">
               @if (vue()?.lastFrame?.at) {
-                dernière trame : {{ lastFrom() }}
+                dernière notification : {{ lastFrom() }}
               } @else {
                 aucune trame — le serveur se tait tant qu'il n'a rien à dire
               }
@@ -778,7 +778,7 @@ installSyslogUplink({ syslog, publisher: socket })`;
     return this.vue()?.channels.join(", ") || "aucun";
   }
 
-  /** La dernière trame, dite pour un humain — « — » tant qu'il n'y en a aucune. */
+  /** La dernière notification, dite pour un humain — « — » tant qu'il n'y en a aucune. */
   lastFrom(): string {
     const v = this.vue();
     return v?.lastFrame.at

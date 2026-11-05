@@ -670,7 +670,7 @@ export function useNodefonyChannelStats(
 
 /**
  * `useNodefonySnapshot()` — ce que la socket sait d'ELLE-MÊME : état, canaux
- * tenus, trames reçues, trames perdues, dernière trame. Rafraîchi par
+ * tenus, notifications reçues, trames perdues, dernière notification. Rafraîchi par
  * l'échantillonneur déjà en place — aucune horloge de plus, aucune trame émise
  * pour mesurer.
  *
