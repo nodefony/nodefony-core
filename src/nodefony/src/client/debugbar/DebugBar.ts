@@ -415,6 +415,25 @@ function mean(series: number[], digits: number): number {
   return Math.round((sum / series.length) * k) / k;
 }
 
+/** Paliers orange / rouge des jauges de l'onglet Perf : CPU et tas en %. */
+const PCT_WARN = 70;
+const PCT_CRIT = 90;
+/** Paliers de la boucle d'évènements, en ms. */
+const LOOP_WARN = 50;
+const LOOP_CRIT = 200;
+
+/**
+ * La ligne « seuils » d'une carte, tirée des MÊMES paliers que la couleur de
+ * sa jauge : le texte ne peut plus dire autre chose que ce que l'écran colore.
+ */
+function thresholdsHtml(warn: number, crit: number, unit: string): string {
+  return kvHtml(
+    "seuils",
+    `${warn} · ${crit} ${unit}`,
+    `Orange à partir de ${warn} ${unit}, rouge à ${crit} ${unit}.`,
+  );
+}
+
 /**
  * Ce que le navigateur sait du chargement de cette page (Navigation Timing) —
  * lu, jamais mesuré : la barre n'ajoute aucun observateur.
@@ -669,8 +688,15 @@ const FRAMEWORKS: Record<string, { label: string; color: string }> = {
 
 const STYLES =
   `
-:host { all: initial; }
+:host { all: initial; --ui: system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --blue:#0067ba; --blue2:#3aa0ff; --orange:#ff8a3d; --ok:#36b37e; --warn:#ffab00;
+  --crit:#ff5630; --info:#4c9aff; --muted:#8a9099; --line:#2a2e36; --card:#1c1f26; }
 * { box-sizing: border-box; }
+` +
+  // Un élément [hidden] se cache, quelle que soit la règle d'affichage de sa
+  // classe : une seule règle au lieu d'une par composant.
+  `
+[hidden] { display: none !important; }
 .bar {
   position: fixed; left: 0; right: 0; z-index: 2147483000;
   font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -681,8 +707,6 @@ const STYLES =
   // .strip (fin, non scrollé).
   `
   background: #14161a;
-  --blue:#0067ba; --blue2:#3aa0ff; --orange:#ff8a3d; --ok:#36b37e; --warn:#ffab00;
-  --crit:#ff5630; --info:#4c9aff; --muted:#8a9099; --line:#2a2e36; --card:#1c1f26;
   box-shadow: 0 -8px 40px rgba(0,0,0,.5);
 }
 .bar.bottom { bottom: 0; }
@@ -788,7 +812,6 @@ const STYLES =
 .kv { display:flex; justify-content:space-between; gap:8px; padding:2px 0; }
 .kv .k { color:var(--muted); } .kv .v { font-weight:600; text-align:right; overflow:hidden; text-overflow:ellipsis; }
 
-.counts { display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
 ` +
   // ── Barre d'outils de l'onglet Requêtes ──────────────────────────────────
   // AUCUN style à elle : une puce y est le badge du bandeau (« développement »,
@@ -803,9 +826,8 @@ const STYLES =
 .counts { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px; }
 .counts .spacer { flex:1 1 auto; }
 .counts .chip { display:flex; align-items:center; gap:6px; min-height:24px; padding:.25em .7em; border-radius:11px;
-  font:700 10.5px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; letter-spacing:.5px; text-transform:uppercase;
+  font:700 10.5px/1 var(--ui); letter-spacing:.5px; text-transform:uppercase;
   color:#c4c9d1; background:#22262e; border:1px solid var(--line); margin:0; }
-.counts .chip[hidden] { display:none; }
 .counts .chip .k { color:#a3aab4; font-size:inherit; text-transform:inherit; font-weight:600; }
 .chip.sevf { cursor:pointer; color:#a3aab4; transition: border-color .12s, background .12s, color .12s; }
 .chip.sevf::before { content:""; width:6px; height:6px; border-radius:50%; background:#5b6270; flex:none; }
@@ -815,14 +837,14 @@ const STYLES =
 .chip.sevf.on::before { background:var(--ok); }
 .chip.sevf.on:hover { color:#a6e6c8; border-color:#5fbf93; }
 .chip.sevf:focus-visible { outline:2px solid var(--ok); outline-offset:2px; }
-.filterhint { color:#a3aab4; font:500 11px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
-.search { font:500 12px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:#e8eaed; background:#1a1d23;
+.filterhint { color:#a3aab4; font:500 11px/1 var(--ui); }
+.search { font:500 12px/1 var(--ui); color:#e8eaed; background:#1a1d23;
   border:1px solid var(--line); border-radius:8px; padding:0 10px; height:28px; min-width:140px; max-width:240px;
   transition: border-color .12s, background .12s; }
 .search:hover { border-color:#7a8291; background:#20242b; }
 .search:focus-visible { outline:2px solid var(--ok); outline-offset:1px; }
 .search::placeholder { color:#a3aab4; }
-.toolbtn { font:600 13px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:#b8bec8; background:#1a1d23;
+.toolbtn { font:600 13px/1 var(--ui); color:#b8bec8; background:#1a1d23;
   border:1px solid var(--line); border-radius:8px; min-width:28px; height:28px; padding:0 8px; cursor:pointer;
   display:inline-flex; align-items:center; justify-content:center;
   transition: border-color .12s, background .12s, color .12s; }
@@ -832,7 +854,7 @@ const STYLES =
 @media (prefers-reduced-motion: reduce) { .chip.sevf, .toolbtn, .search { transition:none; } }
 .pane .counts .toolbtn[data-tip]::after { left:auto; right:0; }
 .vseg { display:flex; align-items:stretch; flex:none; border:1px solid var(--line); border-radius:8px; background:#1a1d23; overflow:hidden; }
-.vseg button { font:600 12px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:#b8bec8; background:transparent; border:0; margin:0;
+.vseg button { font:600 12px/1 var(--ui); color:#b8bec8; background:transparent; border:0; margin:0;
   height:28px; padding:0 12px; cursor:pointer; transition: background .12s, color .12s; }
 .vseg button + button { border-left:1px solid var(--line); }
 .vseg button:hover { background:#323844; color:#fff; }
@@ -859,7 +881,6 @@ const STYLES =
 .row { position:absolute; top:0; left:0; right:0; height:24px; display:grid;
   gap:10px; align-items:center; padding:0 10px; border-left:2px solid transparent; cursor:pointer;
   font-size:11.5px; line-height:24px; }
-.row[hidden] { display:none; }
 .row.odd { background:rgba(255,255,255,.022); }
 .row:hover { background:rgba(255,255,255,.07); }
 .row.sel { background:rgba(58,160,255,.18); }
@@ -891,18 +912,17 @@ const STYLES =
 .log.t-crit { border-left-color:var(--crit); }
 .log.t-warn { border-left-color:var(--warn); }
 .log .ts { color:#a3aab4; font-variant-numeric:tabular-nums; }
-.log .sev { font:700 9.5px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; letter-spacing:.4px; text-transform:uppercase; }
+.log .sev { font:700 9.5px/1 var(--ui); letter-spacing:.4px; text-transform:uppercase; }
 .log .sev.muted { color:#a3aab4; }
 .log .sev.crit { color:#ff7452; }
 .log .mod { color:#a3aab4; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .log .txt { color:#e8eaed; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .log .rid { color:#a3aab4; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:right; }
 .feedjump { position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:2; height:28px; padding:0 12px; border-radius:999px;
-  font:600 12px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:#fff; cursor:pointer;
+  font:600 12px/1 var(--ui); color:#fff; cursor:pointer;
   background:#0067ba; border:1px solid #3aa0ff; box-shadow:0 4px 16px rgba(0,0,0,.45); }
 .feedjump:hover { background:#0a78d1; }
 .feedjump:focus-visible { outline:2px solid var(--ok); outline-offset:2px; }
-.feedjump[hidden], .feedempty[hidden], .logside[hidden] { display:none; }
 .feedempty { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:0 16px; text-align:center;
   color:#a3aab4; pointer-events:none; }
 .logside { width:380px; flex:none; overflow:auto; padding:10px 12px; border:1px solid var(--line);
@@ -911,7 +931,7 @@ const STYLES =
 .logside.wide { width:min(56%, 760px); }
 .logside .empty { color:#a3aab4; padding:6px 0; }
 .sidehead { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;
-  font:600 11px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; text-transform:uppercase; letter-spacing:.5px; color:#a3aab4; }
+  font:600 11px/1 var(--ui); text-transform:uppercase; letter-spacing:.5px; color:#a3aab4; }
 @media (max-width: 900px) { .logside { width:260px; } .log { grid-template-columns: 78px 54px 90px minmax(0,1fr) 0; } .req { grid-template-columns: 24px 48px minmax(0,1fr) 40px 56px 0; } }
 @media (prefers-reduced-motion: reduce) { .req .chev { transition:none; } }
 ` +
@@ -920,16 +940,15 @@ const STYLES =
 .kv .k.help { cursor:help; text-decoration: underline dotted rgba(138,144,153,.6); text-underline-offset:3px; }
 .kv .k.help:focus-visible { outline:2px solid var(--ok); outline-offset:2px; border-radius:3px; }
 .tab .tdot { display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--ok); margin-left:4px; vertical-align:middle; }
-.tab .tdot[hidden] { display:none; }
 .strip .kchip { gap:6px; padding:.25em .7em; border:1px solid var(--line); color:#c4c9d1; }
 .kchip::before { content:""; width:6px; height:6px; border-radius:50%; background:var(--muted); flex:none; }
 .kchip.st-ready::before { background:var(--ok); } .kchip.st-ready .kstate { color:#7fd3ac; }
 .kchip.st-booting::before { background:var(--warn); } .kchip.st-booting .kstate { color:#ffcf66; }
 .kchip.st-terminated::before { background:var(--crit); } .kchip.st-terminated .kstate { color:#ff8f75; }
 .kchip .word + .word::before { content:"·"; margin-right:5px; color:#4a5160; }
-.chip .word { font:600 12px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; letter-spacing:0; }
-.strip .env-badge { font:600 11.5px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; text-transform:none; letter-spacing:0; }
-.kintro { margin:0 0 12px; color:#c4c9d1; font:400 12.5px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+.chip .word { font:600 12px/1 var(--ui); letter-spacing:0; }
+.strip .env-badge { font:600 11.5px/1 var(--ui); text-transform:none; letter-spacing:0; }
+.kintro { margin:0 0 12px; color:#c4c9d1; font:400 12.5px/1.5 var(--ui); }
 .kv .v[title] { cursor:default; }
 .card code { color:#9ecbff; }
 .kgrid { display:grid; gap:14px; grid-template-columns:repeat(3,minmax(0,1fr)); }
@@ -940,28 +959,29 @@ const STYLES =
   grid-template-columns: minmax(340px,1.2fr) minmax(0,1fr) minmax(0,1fr);
   grid-template-rows: minmax(0,1fr) auto;
   grid-template-areas: "id log log" "id st inc"; }
-.sgrid[hidden] { display:none; }
 .sgrid.ssev { grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); grid-template-rows:none; grid-template-areas:none; }
 .ctabs { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 12px; }
 .ctabs button { display:flex; align-items:center; gap:7px; padding:6px 12px; border:1px solid var(--line); border-radius:8px;
-  background:var(--card); color:#cfd3d8; font:600 12px/1.2 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; cursor:pointer; }
+  background:var(--card); color:#cfd3d8; font:600 12px/1.2 var(--ui); cursor:pointer; }
 .ctabs button:hover { border-color:#5b6270; color:#fff; }
 .ctabs button[aria-pressed="true"] { border-color:var(--blue2); background:rgba(58,160,255,.14); color:#fff; }
 .ctabs button:focus-visible { outline:2px solid var(--ok); outline-offset:2px; }
-.ctabs .dot, .rtp .dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:#5b6270; flex:none; }
-.ctabs .dot.ok, .rtp .dot.ok { background:var(--ok); } .ctabs .dot.warn, .rtp .dot.warn { background:var(--warn); }
+.pane .dot { display:inline-block; width:7px; height:7px; background:#5b6270; }
+.dot.ok { background:var(--ok); } .dot.warn { background:var(--warn); }
 .rgrid { display:grid; gap:14px; align-items:stretch; grid-template-columns:minmax(300px,1fr) minmax(0,2fr);
   grid-template-areas:"srv proc" "load vite"; }
-.rgrid[hidden] { display:none; }
 .r-srv { grid-area:srv; } .r-proc { grid-area:proc; } .r-load { grid-area:load; } .r-vite { grid-area:vite; }
-.rtp .kv, .pfp .kv { display:grid; grid-template-columns:10em minmax(0,1fr); gap:10px; align-items:baseline; padding:3px 0; }
-.rtp .kv .k, .pfp .kv .k { white-space:nowrap; }
-.rtp .kv .v, .pfp .kv .v { text-align:left; white-space:normal; overflow-wrap:anywhere; }
+` +
+  // Les panneaux en cartes alignent libellé et valeur en deux colonnes ; seule
+  // la largeur du libellé change d'un onglet à l'autre (--kw).
+  `
+.rtp .kv, .pfp .kv, .sockp .kv { display:grid; grid-template-columns:var(--kw,10em) minmax(0,1fr); gap:10px; align-items:baseline; padding:3px 0; }
+.rtp .kv .k, .pfp .kv .k, .sockp .kv .k { white-space:nowrap; }
+.rtp .kv .v, .pfp .kv .v, .sockp .kv .v { text-align:left; white-space:normal; overflow-wrap:anywhere; }
+.sockp { --kw:13em; }
 .pgrid { display:grid; gap:14px; grid-template-columns:repeat(3,minmax(0,1fr)); }
 .pgrid.stale .chart { opacity:.45; }
 .pfstate { display:flex; align-items:center; gap:10px; margin:0 0 12px; color:#c4c9d1; }
-.pfstate[hidden] { display:none; }
-.pfp .dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--ok); }
 .pfp .chart .val { font-size:20px; }
 .pf-page { margin-top:14px; }
 .pfrow { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); column-gap:24px; }
@@ -989,8 +1009,6 @@ const STYLES =
 .sk-st, .sk-inc { max-height:200px; overflow:auto; }
 
 @media (max-width:960px) { .sgrid { grid-template-columns:1fr; grid-template-areas:"id" "log" "st" "inc"; } }
-.sockp .kv { display:grid; grid-template-columns:13em minmax(0,1fr); gap:10px; align-items:baseline; padding:3px 0; }
-.sockp .kv .k { white-space:nowrap; } .sockp .kv .v { text-align:left; white-space:normal; overflow-wrap:anywhere; }
 .sk-st .kv { grid-template-columns:minmax(0,1fr) auto; } .sk-inc .kv { grid-template-columns:auto minmax(0,1fr); }
 .sk-st .kv .v { text-align:right; }
 .rtlog { max-height:300px; overflow:auto; font:11px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace; }
@@ -1027,20 +1045,18 @@ const STYLES =
 .env-badge { display:flex; align-items:center; gap:6px; padding:.25em .7em; border-radius:11px; flex:none;
   font-size:.76em; font-weight:700; letter-spacing:.5px; text-transform:uppercase;
   color:#c4c9d1; background:#22262e; border:1px solid var(--line); }
-.env-badge[hidden] { display:none; }
 .env-badge::before { content:""; width:6px; height:6px; border-radius:50%; background:var(--muted); flex:none; }
 .env-badge.dev::before { background:var(--ok); } .env-badge.dev { color:#7fd3ac; }
 .env-badge.prod::before { background:var(--crit); } .env-badge.prod { color:#ff8f75; border-color:rgba(255,86,48,.45); }
 .env-badge.test::before { background:var(--warn); } .env-badge.test { color:#ffcf66; }
 .env-badge.staging::before { background:#a06bff; } .env-badge.staging { color:#c7a6ff; }
-.branch[hidden] { display:none; }
 ` +
   // La branche : une puce sombre comme celle de l'environnement — l'icône dit
   // « git », le nom se lit en police d'interface ; le mot « branche » est dans
   // l'infobulle. Une étiquette en majuscules + un nom en chasse fixe juraient.
   `.branch { display:flex; align-items:center; gap:6px; padding:.25em .7em; border-radius:11px; flex:none;
   max-width:220px; background:#22262e; border:1px solid var(--line); color:#c4c9d1;
-  font:600 11.5px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  font:600 11.5px/1 var(--ui); }
 .branch .ico { width:14px; height:14px; color:var(--blue2); }
 .branch span:last-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 ` +
@@ -1100,7 +1116,7 @@ const STYLES =
   // discret ; seul « Ouvrir » porte l'accent, en couleur de texte, pas en aplat.
   // Cible : 28 px de haut, au-delà des 24 px de WCAG 2.5.8.
   `
-.strip button.ui, .strip .ui button { font: 600 12px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; letter-spacing: 0; }
+.strip button.ui, .strip .ui button { font: 600 12px/1 var(--ui); letter-spacing: 0; }
 .ico { width: 16px; height: 16px; flex: none; display: block; }
 .ico path { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .seg { display: flex; align-items: stretch; flex: none; border: 1px solid var(--line);
@@ -1153,26 +1169,19 @@ const STYLES =
   font:13px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color:#e8eaed;
   background:rgba(18,20,25,.92); backdrop-filter:blur(12px);
   border:1px solid rgba(58,160,255,.45); box-shadow:0 4px 20px rgba(0,0,0,.5); }
-.minbar:hover { border-color:#3aa0ff; box-shadow:0 4px 26px rgba(58,160,255,.4); }
+.minbar:hover { border-color:var(--blue2); box-shadow:0 4px 26px rgba(58,160,255,.4); }
 .minbar.bottom { bottom:14px; } .minbar.top { top:14px; }
 .minbar.dock-left { left:14px; } .minbar.dock-right { right:14px; }
-.minbar .dot { width:8px; height:8px; border-radius:50%; background:#36b37e; }
-.minbar .dot.connected { background:#36b37e; color:#36b37e; } .minbar .dot.error { background:#ff5630; }
-.minbar .dot.disconnected { background:#8a9099; }
-.minbar .dot.connecting,.minbar .dot.reconnecting { background:#ffab00; }
-.minbar .mlogo { color:#ff8a3d; } .minbar .mrate { font-weight:800; }
-.minbar .mbadge { font:600 11.5px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:#c4c9d1; }
+.minbar .dot.connected { animation:none; }
+.minbar .mlogo { color:var(--orange); } .minbar .mrate { font-weight:800; }
+.minbar .mbadge { font:600 11.5px/1 var(--ui); color:#c4c9d1; }
 .minbar .mbadge.dev { color:#7fd3ac; } .minbar .mbadge.prod { color:#ff8f75; }
 .minbar .mbadge.test { color:#ffcf66; } .minbar .mbadge.staging { color:#c7a6ff; }
 .minbar .mname { font-weight:800; }
-.minbar .mopen { display:flex; align-items:center; gap:4px; font:600 12px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  color:#3aa0ff; padding:4px 6px 4px 10px; border-left:1px solid #2a2e36; }
-.minbar .mopen .ico { width:16px; height:16px; }
-.minbar .mopen .ico path { fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+.minbar .mopen { display:flex; align-items:center; gap:4px; font:600 12px/1 var(--ui);
+  color:var(--blue2); padding:4px 6px 4px 10px; border-left:1px solid var(--line); }
 .minbar:hover .mopen { color:#fff; }
-.minbar:focus-visible { outline:2px solid #36b37e; outline-offset:2px; }
-.side-choice { display:flex; gap:6px; margin-top:6px; }
-.side-choice .toolbtn[aria-pressed="true"] { color:#fff; border-color:#3aa0ff; background:rgba(58,160,255,.15); }
+.minbar:focus-visible { outline:2px solid var(--ok); outline-offset:2px; }
 
 ` +
   // ── Profil serveur d'une requête (panneau latéral) ─────────────────────
@@ -3767,8 +3776,8 @@ export class DebugBar {
 
   /** Bandeau toujours visible (chips + pouls) — léger. */
   private renderStrip(v: DebugBarView): void {
-    const cpuT = gauge(v.cpuPercent);
-    const memT = gauge(v.heapPercent);
+    const cpuT = gauge(v.cpuPercent, PCT_WARN, PCT_CRIT);
+    const memT = gauge(v.heapPercent, PCT_WARN, PCT_CRIT);
     // env + branche
     // Ce qu'on ne sait pas ne s'affiche pas : un badge « env » ou une branche
     // « — » se lisent comme des valeurs, et ne disent rien.
@@ -4191,17 +4200,17 @@ export class DebugBar {
     // Aucune mesure reçue : « — », jamais un zéro qui passerait pour une mesure.
     const has = v.cpuSeries.length > 0;
     const val = (x: string): string => (has ? x : "—");
-    const cpuT = gauge(v.cpuPercent);
-    const memT = gauge(v.heapPercent);
-    const loopT = gauge(v.eventLoopMs, 50, 200);
+    const cpuT = gauge(v.cpuPercent, PCT_WARN, PCT_CRIT);
+    const memT = gauge(v.heapPercent, PCT_WARN, PCT_CRIT);
+    const loopT = gauge(v.eventLoopMs, LOOP_WARN, LOOP_CRIT);
+    const pct = thresholdsHtml(PCT_WARN, PCT_CRIT, "%");
     this.text("cpuVal", val(`${v.cpuPercent} %`));
     this.text("cpuPeak", v.cpuPeak ? `pic ${v.cpuPeak} %` : "");
     this.cls("cpuVal", `val ${cpuT}`);
     this.setPoints("cpuLine", "cpuArea", v.cpuSeries, cpuT, CHART_H, 100);
     this.setHtml(
       "cpuRows",
-      kvHtml("moyenne", val(`${mean(v.cpuSeries, 0)} %`)) +
-        kvHtml("seuils", "70 · 90 %", "Orange à partir de 70 %, rouge à 90 %."),
+      kvHtml("moyenne", val(`${mean(v.cpuSeries, 0)} %`)) + pct,
     );
     this.text("heapVal", val(`${v.heapPercent} %`));
     this.text("heapPeak", v.heapPeak ? `pic ${v.heapPeak} %` : "");
@@ -4219,7 +4228,7 @@ export class DebugBar {
           val(formatBytes(v.heapLimit)),
           "Le pourcentage se rapporte à cette limite.",
         ) +
-        kvHtml("seuils", "70 · 90 %", "Orange à partir de 70 %, rouge à 90 %."),
+        pct,
     );
     this.text("loopVal", val(`${v.eventLoopMs} ms`));
     this.text("loopPeak", v.eventLoopPeak ? `pic ${v.eventLoopPeak} ms` : "");
@@ -4228,11 +4237,7 @@ export class DebugBar {
     this.setHtml(
       "loopRows",
       kvHtml("moyenne", val(`${mean(v.loopSeries, 2)} ms`)) +
-        kvHtml(
-          "seuils",
-          "50 · 200 ms",
-          "Orange à partir de 50 ms, rouge à 200 ms.",
-        ),
+        thresholdsHtml(LOOP_WARN, LOOP_CRIT, "ms"),
     );
   }
 
