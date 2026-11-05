@@ -42,7 +42,12 @@ export type ProfileState =
       /** Dernier vidage du tampon (ms epoch, horloge du serveur), `null` si aucun. */
       clearedAt: number | null;
     }
-  | { status: "error"; message: string };
+  | {
+      status: "error";
+      message: string;
+      /** Refus d'accès (401/403) : redemandé au prochain besoin — une session a pu s'ouvrir depuis. */
+      denied?: true;
+    };
 
 /** Pourquoi un profil manque : processus redémarré, tampon vidé, ou on ne sait pas. */
 export type MissingProfileCause = "restarted" | "cleared" | "unknown";

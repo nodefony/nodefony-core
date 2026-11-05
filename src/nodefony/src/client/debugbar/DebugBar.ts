@@ -2265,15 +2265,37 @@ export class DebugBar {
   }
 
   /**
-   * Une session est apparue après un NON : le refus que la barre s'était dit à
-   * elle-même tombe, et la socket s'ouvre si le panneau ou le direct la veut —
-   * sans attendre qu'on replie puis rouvre le panneau.
+   * Une session est apparue après un NON : les requestId cherchés dans les
+   * Journaux se recherchent, le profil affiché, s'il avait été refusé, se relit ; le refus que la barre s'était dit à elle-même tombe, et
+   * la socket s'ouvre si le panneau ou le direct la veut — sans attendre qu'on
+   * replie puis rouvre le panneau.
    */
   private onSessionGranted(): void {
-    if (!this.refused) return;
-    this.refused = false;
-    if (this.live || this.bar?.classList.contains("open") === true)
-      this.ensureConnected();
+    // Les requestId cherchés dans les Journaux SANS session (document, flux)
+    // n'ont rien pu trouver : la recherche se refait, une fois de plus.
+    this.documentTried = false;
+    this.streamLookups = null;
+    this.flowChanged = true; // la vue Page relance la recherche du document
+    const sel = this.selected;
+    if (
+      this.selectedRid === null &&
+      sel !== null &&
+      "kind" in sel &&
+      sel.kind === "request" &&
+      sel.net
+    )
+      this.resolveStream(sel.net);
+    // Le profil affiché avait été refusé : il se relit sans qu'on le rechoisisse.
+    for (const rid of [this.selectedRid, this.selectedFrame]) {
+      if (rid === null) continue;
+      const st = this.net.profileState(rid);
+      if (st?.status === "error" && st.denied === true) this.fetchProfile(rid);
+    }
+    if (this.refused) {
+      this.refused = false;
+      if (this.live || this.bar?.classList.contains("open") === true)
+        this.ensureConnected();
+    }
     this.scheduleRender();
   }
 
@@ -2538,7 +2560,17 @@ export class DebugBar {
     const s = e?.stream;
     if (s?.kind === "ws") this.fetchFrames(rid);
     else if (s?.kind === "sse" && s.state !== "closed") return;
-    else if (!this.net.profileState(rid)) this.fetchProfile(rid);
+    else if (this.profileWanted(rid)) this.fetchProfile(rid);
+  }
+
+  /**
+   * Faut-il (re)demander ce profil ? Jamais demandé, ou REFUSÉ : comme la
+   * lecture d'identité (`hasSession`), un refus ne se mémorise pas — une
+   * session a pu s'ouvrir depuis.
+   */
+  private profileWanted(rid: string): boolean {
+    const st = this.net.profileState(rid);
+    return st === undefined || (st.status === "error" && st.denied === true);
   }
 
   /**
@@ -2583,7 +2615,7 @@ export class DebugBar {
   /** Choisit (ou relâche) un appel de la socket : son profil s'affiche sous la liste. */
   private selectFrame(id: string): void {
     this.selectedFrame = id === this.selectedFrame ? null : id;
-    if (this.selectedFrame !== null && !this.net.profileState(id))
+    if (this.selectedFrame !== null && this.profileWanted(id))
       this.fetchProfile(id);
     this.detailVersion++;
     this.scheduleRender();
@@ -2936,6 +2968,14 @@ export class DebugBar {
             status: "missing",
             startedAt: numberField(body, "startedAt"),
             clearedAt: numberField(body, "clearedAt"),
+          });
+          return;
+        }
+        if (res.status === 401 || res.status === 403) {
+          this.net.setProfileState(requestId, {
+            status: "error",
+            message: `HTTP ${res.status} — réservé à une session administrateur`,
+            denied: true,
           });
           return;
         }

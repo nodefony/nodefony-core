@@ -77,13 +77,63 @@ beforeEach(() => {
           ? input.href
           : input.url;
     appels.push(url);
+    if (url.startsWith("/nodefony/profiler/api/")) {
+      return Promise.resolve(
+        Response.json({
+          requestId: "rid-x",
+          ts: 1,
+          method: "GET",
+          url: "/api/x",
+          status: 200,
+          durationMs: 1,
+          route: "profil-lu",
+          error: null,
+          phases: [],
+          queries: [],
+        }),
+      );
+    }
+    if (url === "/api/x") {
+      return Promise.resolve(
+        new Response("{}", {
+          status: 200,
+          headers: {
+            "content-type": "application/json",
+            "x-request-id": "rid-x",
+          },
+        }),
+      );
+    }
+    // Recherche de la ligne d'accès du DOCUMENT (fenêtre `from`/`to`).
+    if (url.startsWith(SYSLOG) && url.includes("to=")) {
+      return Promise.resolve(
+        Response.json({
+          result: {
+            rows: [
+              {
+                uid: 1,
+                severity: 6,
+                severityName: "INFO",
+                moduleName: "app",
+                msgid: "req",
+                msg: "",
+                timeStamp: 1_700_000_000_000,
+                pid: 1,
+                payload: `GET 200 https://h${location.pathname} 3ms`,
+                requestId: "rid-doc",
+              },
+            ],
+          },
+        }),
+      );
+    }
     if (url.startsWith(AUTH_ME_PATH)) {
       const user = connecte ? { id: "1", roles: ["ROLE_ADMIN"] } : null;
       return Promise.resolve(Response.json({ user }));
     }
     return Promise.resolve(Response.json({ items: [], total: 0 }));
   };
-  bar = new DebugBar({ client: fakeClient(), network: false, open: true });
+  bar = new DebugBar({ client: fakeClient(), network: true, open: true });
   bar.mount();
   // Les Journaux vivent dans l'onglet Requêtes.
   q(".tab[data-tab='requests']").click();
@@ -131,5 +181,56 @@ describe("session — un NON se relit, seul le OUI se mémorise (#719)", () => {
     await tour();
     expect(appels.filter((u) => u.startsWith(AUTH_ME_PATH))).toHaveLength(1);
     expect(serveurLu()).toBeGreaterThan(1);
+  });
+
+  it("🔴 le détail d'une requête refusé AVANT la connexion se relit APRÈS, sans la rechoisir", async () => {
+    // Un appel de l'application, choisi sans session : son profil est refusé.
+    await window.fetch("/api/x");
+    await tour();
+    const ligne = [
+      ...(document
+        .getElementById("nodefony-debugbar")
+        ?.shadowRoot?.querySelectorAll<HTMLElement>(".row.req") ?? []),
+    ].find((r) => r.querySelector(".path")?.textContent === "/api/x");
+    if (!ligne) throw new Error("requête /api/x absente");
+    ligne.click();
+    await tour();
+    const volet = (): string => q("[data-el='logSide']").textContent ?? "";
+    expect(volet()).toContain("réservé à une session administrateur");
+    const profilsAvant = appels.filter((u) =>
+      u.startsWith("/nodefony/profiler/api/"),
+    ).length;
+    expect(profilsAvant).toBe(0); // le 401 était fabriqué : rien n'est parti
+
+    // Connexion ailleurs ; le panneau se replie puis se rouvre, la requête
+    // reste choisie — son profil se relit sans qu'on le redemande.
+    connecte = true;
+    q("[data-el='btnToggle']").click();
+    q("[data-el='btnToggle']").click();
+    await tour();
+    expect(volet()).not.toContain("réservé à une session administrateur");
+    expect(volet()).toContain("profil-lu");
+  });
+
+  it("🔴 le DOCUMENT, dont le requestId se cherche dans les Journaux, le retrouve après la connexion", async () => {
+    // Sans session, la recherche de sa ligne d'accès n'a rien pu lire.
+    const ligne = [
+      ...(document
+        .getElementById("nodefony-debugbar")
+        ?.shadowRoot?.querySelectorAll<HTMLElement>(".row.req") ?? []),
+    ].find((r) => r.querySelector(".path")?.textContent === location.pathname);
+    if (!ligne) throw new Error("document absent de la vue Page");
+    ligne.click();
+    await tour();
+    const volet = (): string => q("[data-el='logSide']").textContent ?? "";
+    expect(volet()).toContain("requestId inconnu");
+
+    connecte = true;
+    q("[data-el='btnToggle']").click();
+    q("[data-el='btnToggle']").click();
+    await tour();
+    await tour();
+    expect(volet()).not.toContain("requestId inconnu");
+    expect(volet()).toContain("profil-lu");
   });
 });
