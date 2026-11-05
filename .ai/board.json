@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-04T23:32:54.866Z",
+  "generatedAt": "2026-11-05T10:59:28.770Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10520,7 +10520,7 @@
       "title": "feat(security): signaler les puits DOM, interdire les scripts créés",
       "url": "https://github.com/nodefony/nodefony-core/issues/729",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": null,
       "priorite": "P3 — fin de cycle",
       "jours": 2,
@@ -10536,7 +10536,7 @@
       "title": "feat(security): partager et afficher les rapports de violation CSP",
       "url": "https://github.com/nodefony/nodefony-core/issues/730",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": null,
       "priorite": "P3 — fin de cycle",
       "jours": 2,
