@@ -99,6 +99,12 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   "@vitejs/plugin-vue": "^6.0.10",
   svelte: "^5.57.3",
   "@sveltejs/vite-plugin-svelte": "^7.3.1",
+  // Contrôle de l'INTÉRIEUR des composants, enchaîné par le script `typecheck`
+  // (`FRONTEND_PARAMS.componentTypecheck`) : `tsgo` ne lit ni un `.vue` ni un
+  // `.svelte`. Tous deux chargent le paquet `typescript`, que l'application
+  // déclare déjà — pairs `typescript >=5` et `^5 || ^6`.
+  "vue-tsc": "^3.3.14",
+  "svelte-check": "^4.7.8",
   // 🔴 Angular BORNÉ à la mineure (tilde, pas caret) : le plugin Vite
   // d'analogjs dépend d'API PRIVÉES de `@angular/build`. La 22.2 a cessé de
   // faire hériter `SourceFileCache` de `Map` : avec analogjs ≤ 2.7.2, le

@@ -348,6 +348,17 @@ export const FRONTEND_PARAMS: Record<
     tsInclude: string;
     /** L'option `jsx` exigée par le moteur, ou `null`. */
     tsJsx: string | null;
+    /**
+     * Commande qui contrôle l'INTÉRIEUR des composants, enchaînée après `tsgo`
+     * dans le script `typecheck` de la cible (`create app` ET `create front`).
+     * `tsgo` ne lit que les `.ts` : sans elle, une faute de type dans un `.vue`,
+     * un `.svelte` ou un gabarit Angular ne sortait qu'à l'écran. `null` quand
+     * `tsgo` voit déjà tout (React : le composant EST un `.tsx`).
+     *
+     * Chemins relatifs à la cible : un script npm s'exécute dans le dossier de
+     * son `package.json`, application comme module local.
+     */
+    componentTypecheck: string | null;
     mountNode: string;
     deps: Record<string, string>;
     devDeps: Record<string, string>;
@@ -359,6 +370,7 @@ export const FRONTEND_PARAMS: Record<
     entry: "./frontend/src/main.tsx",
     tsInclude: "frontend/src/**/*",
     tsJsx: "react-jsx",
+    componentTypecheck: null,
     mountNode: '<div id="root"></div>',
     deps: {},
     devDeps: pick(
@@ -380,9 +392,10 @@ export const FRONTEND_PARAMS: Record<
     entry: "./frontend/src/main.ts",
     tsInclude: "frontend/src/**/*.ts",
     tsJsx: null,
+    componentTypecheck: "vue-tsc --noEmit -p tsconfig.json",
     mountNode: '<div id="app"></div>',
     deps: {},
-    devDeps: pick("vue", "vite", "@vitejs/plugin-vue"),
+    devDeps: pick("vue", "vite", "@vitejs/plugin-vue", "vue-tsc"),
     client: {
       subpath: "nodefony/vue",
       doc: "vue-composables.md",
@@ -394,6 +407,10 @@ export const FRONTEND_PARAMS: Record<
     entry: "./frontend/src/main.ts",
     tsInclude: "frontend/src/**/*.ts",
     tsJsx: null,
+    // Le greffon Vite ne contrôle pas les gabarits par défaut : `ngc` les lit
+    // sous le `strictTemplates` de `frontend/tsconfig.app.json`, sans rien
+    // écrire. Il vient de `@angular/compiler-cli`, déjà déclaré ci-dessous.
+    componentTypecheck: "ngc -p frontend/tsconfig.app.json --noEmit",
     mountNode: "<app-root></app-root>",
     deps: {},
     devDeps: pick(
@@ -416,9 +433,15 @@ export const FRONTEND_PARAMS: Record<
     entry: "./frontend/src/main.ts",
     tsInclude: "frontend/src/**/*.ts",
     tsJsx: null,
+    componentTypecheck: "svelte-check --tsconfig ./tsconfig.json",
     mountNode: '<div id="app"></div>',
     deps: {},
-    devDeps: pick("svelte", "vite", "@sveltejs/vite-plugin-svelte"),
+    devDeps: pick(
+      "svelte",
+      "vite",
+      "@sveltejs/vite-plugin-svelte",
+      "svelte-check",
+    ),
     client: {
       subpath: "nodefony/svelte",
       doc: "svelte-reactivite.md",
@@ -6543,6 +6566,29 @@ function wireFrontTsconfig(
   };
 }
 
+/**
+ * Ajoute `step` à la FIN du script `name` d'un manifeste, s'il n'y est pas déjà.
+ *
+ * Ce que l'utilisateur a écrit avant reste en place ; un script absent n'est pas
+ * inventé (la cible a pu le retirer exprès), l'appelant le signale.
+ *
+ * @param scripts - le champ `scripts` du manifeste, tel que lu.
+ * @param name - le script à compléter.
+ * @param step - la commande à enchaîner par `&&`.
+ * @returns vrai si le script a été modifié.
+ */
+function appendScriptStep(
+  scripts: unknown,
+  name: string,
+  step: string,
+): boolean {
+  if (!isPlainObject(scripts)) return false;
+  const current = scripts[name];
+  if (typeof current !== "string" || current.includes(step)) return false;
+  scripts[name] = `${current} && ${step}`;
+  return true;
+}
+
 function runFrontScaffold(
   request: IScaffoldRequest,
   answers: TScaffoldAnswers,
@@ -6795,17 +6841,17 @@ function runFrontScaffold(
   // rattraper. Le script n'est touché que s'il lui manque l'étape, et la
   // commande y est ajoutée à la FIN : ce que l'utilisateur a écrit avant reste.
   const scripts = manifest.data["scripts"];
-  const buildScript = isPlainObject(scripts) ? scripts["build"] : undefined;
-  let buildWired = false;
-  if (
-    isPlainObject(scripts) &&
-    typeof buildScript === "string" &&
-    !buildScript.includes("frontend:build")
-  ) {
-    scripts["build"] = `${buildScript} && nodefony frontend:build`;
-    buildWired = true;
-  }
-  if (added.length > 0 || buildWired) {
+  const buildWired = appendScriptStep(
+    scripts,
+    "build",
+    "nodefony frontend:build",
+  );
+  // Même geste pour le contrôle des composants : une cible née sans front n'a
+  // qu'un `tsgo` dans son `typecheck`, aveugle aux `.vue`/`.svelte`/gabarits.
+  const typecheckWired =
+    front.componentTypecheck !== null &&
+    appendScriptStep(scripts, "typecheck", front.componentTypecheck);
+  if (added.length > 0 || buildWired || typecheckWired) {
     writePackageManifest(manifest, writer);
     written.push("package.json");
   }
@@ -6863,6 +6909,12 @@ function runFrontScaffold(
       : []),
     ...(wireNote ? [wireNote] : []),
     ...(tsWire.note ? [tsWire.note] : []),
+    ...(front.componentTypecheck !== null &&
+    !(isPlainObject(scripts) && typeof scripts["typecheck"] === "string")
+      ? [
+          `script « typecheck » absent — à poser pour contrôler les composants : tsgo --noEmit && ${front.componentTypecheck}`,
+        ]
+      : []),
   ];
   // Les dépendances ajoutées REMONTENT (`depsAdded`), comme pour `create
   // entity` : c'est ce fait qui fait installer la commande. Laissées dans une

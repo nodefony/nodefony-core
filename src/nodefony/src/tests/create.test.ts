@@ -1849,6 +1849,42 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       }
     });
 
+    it("typecheck : le script enchaîne le contrôle des COMPOSANTS du moteur, et l'outil est déclaré (#723)", () => {
+      // `tsgo` ne lit que les `.ts` : sans l'outil du moteur, une faute de type
+      // dans un `.vue`, un `.svelte` ou un gabarit Angular passait le
+      // typecheck et ne sortait qu'à l'écran. Que l'outil MORDE se prouve sur
+      // l'application générée (`scripts/scaffold/check-scaffold-frontends.mjs`).
+      const expected: Record<string, { script: string; tool: string }> = {
+        react: { script: "tsgo --noEmit", tool: "@types/react" },
+        vue: {
+          script: "tsgo --noEmit && vue-tsc --noEmit -p tsconfig.json",
+          tool: "vue-tsc",
+        },
+        angular: {
+          script: "tsgo --noEmit && ngc -p frontend/tsconfig.app.json --noEmit",
+          tool: "@angular/compiler-cli",
+        },
+        svelte: {
+          script: "tsgo --noEmit && svelte-check --tsconfig ./tsconfig.json",
+          tool: "svelte-check",
+        },
+        none: { script: "tsgo --noEmit", tool: "typescript" },
+      };
+      for (const [fw, want] of Object.entries(expected)) {
+        const dest = path.join(tmp, `tc-${fw}`);
+        scaffold(dest, { name: `tc-${fw}`, preset: "complete", frontend: fw });
+        const raw = readFileSync(path.join(dest, "package.json"), "utf8");
+        const pkg = readJson(path.join(dest, "package.json"));
+        assert.equal(pkg["scripts"]?.["typecheck"], want.script, fw);
+        assert.property(pkg["devDependencies"], want.tool, fw);
+        // L'outil charge `typescript`, que l'application déclare déjà : le
+        // moteur ne le redéclare pas. Une clé en double reste du JSON valide —
+        // `JSON.parse` garde la dernière sans un mot —, d'où le compte sur le
+        // TEXTE.
+        assert.lengthOf(raw.match(/"typescript":/gu) ?? [], 1, fw);
+      }
+    });
+
     it("dev : host.docker.internal est un hôte de confiance — jamais en production", () => {
       // La boucle locale vue d'un conteneur (navigateur piloté). Sans ce nom
       // dans `trustedHosts`, la page annonce ses assets en `127.0.0.1` — le
@@ -7004,6 +7040,41 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.notInclude(ctrl, "this.context?.domain");
       assert.include(ctrl, 'path: "/dashboard"');
       assertNoEtaResidue(dest);
+    });
+
+    it("app SANS front + create front vue : le typecheck VOIT les composants (#723)", () => {
+      const dest = path.join(tmp, "fvue-tc");
+      scaffold(dest, { name: "fvue-tc", preset: "complete", frontend: "none" });
+      const r = front(dest, { name: "board", frontend: "vue" });
+      const pkg = readJson(path.join(dest, "package.json"));
+      assert.equal(
+        pkg["scripts"]?.["typecheck"],
+        "tsgo --noEmit && vue-tsc --noEmit -p tsconfig.json",
+      );
+      assert.property(pkg["devDependencies"], "vue-tsc");
+      assert.include(r.depsAdded ?? [], "vue-tsc");
+    });
+
+    it("create front sur une cible SANS script typecheck : rien d'inventé, la commande est NOMMÉE (#723)", () => {
+      const dest = path.join(tmp, "fsvelte-notc");
+      scaffold(dest, {
+        name: "fsvelte-notc",
+        preset: "complete",
+        frontend: "none",
+      });
+      const pkgPath = path.join(dest, "package.json");
+      const before = readJson(pkgPath);
+      delete before["scripts"]?.["typecheck"];
+      writeFileSync(pkgPath, JSON.stringify(before, null, 2));
+      const r = front(dest, { name: "board", frontend: "svelte" });
+      assert.notProperty(readJson(pkgPath)["scripts"], "typecheck");
+      const notes = r.notes ?? [];
+      assert.isTrue(
+        notes.some((n) =>
+          n.includes("svelte-check --tsconfig ./tsconfig.json"),
+        ),
+        notes.join("\n"),
+      );
     });
 
     describe("nom déjà câblé — conflit en 73, et un nom LIBRE proposé", () => {

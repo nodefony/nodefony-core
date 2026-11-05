@@ -23,7 +23,7 @@
     "test": "vitest run",
     "coverage": "vitest run --coverage",
     "test:e2e": "<%= it.pmRun %> build && vitest run -c vitest.e2e.config.ts",
-    "typecheck": "tsgo --noEmit",
+    "typecheck": "tsgo --noEmit<% if (it.front && it.front.componentTypecheck) { %> && <%= it.front.componentTypecheck %><% } %>",
     "verify": "<%= it.pmRun %> typecheck && <%= it.pmRun %> lint && <%= it.pmRun %> format:check && <%= it.pmRun %> env:check && <%= it.pmRun %> test && <%= it.pmRun %> build && <%= it.pmRun %> doctor",
     "doctor": "nodefony doctor",
     "env:check": "nodefony env --example --check",

@@ -73,7 +73,16 @@
     },
     "typecheck": {
       "dependsOn": ["^build"],
-      "inputs": ["index.ts", "src/**", "nodefony/**", "tsconfig*.json"]
+      "inputs": [
+        "index.ts",
+        "src/**",
+        "nodefony/**",
+        // Le front entre dans le typecheck (vue-tsc, svelte-check, ngc, le .tsx
+        // de Studio) : sans lui, modifier un composant rejouait le contrôle
+        // depuis le cache, sans le relancer (#723).
+        "frontend/**",
+        "tsconfig*.json"
+      ]
     },
 
     // Le CŒUR ne lit AUCUNE source de module : il ne nomme aucun type de

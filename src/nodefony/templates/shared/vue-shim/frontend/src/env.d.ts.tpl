@@ -2,7 +2,8 @@
 
 /**
  * Shim d'environnement Vue (standard Vite) : permet à tsgo/tsc de résoudre
- * les imports de SFC. Le typecheck de l'INTÉRIEUR des .vue relève de vue-tsc.
+ * les imports de SFC. L'INTÉRIEUR des .vue, `vue-tsc` le contrôle : le script
+ * `typecheck` l'enchaîne après tsgo.
  */
 declare module "*.vue" {
   import type { DefineComponent } from "vue";

@@ -44,11 +44,11 @@
 <% } %><% if (it.frontend === "vue" || it.frontend === "angular" || it.frontend === "svelte") { %>    "frontend/src/**/*.ts",
 <% } %>    "tests/**/*.ts"
   ],
-<% if (it.frontend === "angular") { %>  // tsgo checke le TS du front ; les TEMPLATES Angular sont vérifiés par ngtsc
-  // au build Vite (plugin AnalogJS, cf frontend/tsconfig.app.json strictTemplates).
+<% if (it.frontend === "angular") { %>  // tsgo checke le TS du front ; les TEMPLATES Angular, `ngc` les contrôle
+  // dans `npm run typecheck` (frontend/tsconfig.app.json, strictTemplates).
 <% } %><% if (it.frontend === "vue") { %>  // tsgo checke le TS du front (main.ts + shim env.d.ts) ; l'INTÉRIEUR des SFC
-  // .vue relève de vue-tsc (hors scope tsgo backend).
+  // .vue, `vue-tsc` le contrôle dans `npm run typecheck`.
 <% } %><% if (it.frontend === "svelte") { %>  // tsgo checke le TS du front (main.ts + shim env.d.ts) ; l'INTÉRIEUR des
-  // .svelte relève de svelte-check (hors scope tsgo backend).
+  // .svelte, `svelte-check` le contrôle dans `npm run typecheck`.
 <% } %>  "exclude": ["node_modules", "dist"]
 }
