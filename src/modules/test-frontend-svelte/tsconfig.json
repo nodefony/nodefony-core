@@ -26,8 +26,14 @@
     "stripInternal": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "types": ["node"]
+    "types": ["node", "vite/client"]
   },
-  "include": ["index.ts", "rolldown.config.ts", "nodefony/**/*.ts"],
-  "exclude": ["node_modules", "dist", "frontend"]
+  "include": [
+    "index.ts",
+    "rolldown.config.ts",
+    "nodefony/**/*.ts",
+    "frontend/env.d.ts",
+    "frontend/src/**/*.ts"
+  ],
+  "exclude": ["node_modules", "dist"]
 }

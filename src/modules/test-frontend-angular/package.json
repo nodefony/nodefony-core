@@ -6,6 +6,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "rolldown -c rolldown.config.ts",
+    "typecheck": "tsgo --noEmit && ngc -p frontend/tsconfig.app.json --noEmit",
     "dev": "rolldown -c rolldown.config.ts --watch",
     "clean": "node --eval \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "frontend:vite-only": "vite --config frontend/vite.config.generated.mjs"
@@ -34,6 +35,7 @@
   },
   "devDependencies": {
     "@analogjs/vite-plugin-angular": "2.9.5",
+    "@angular/compiler-cli": "22.2.4",
     "@nodefony/framework": "*",
     "@nodefony/frontend": "*",
     "@nodefony/http": "*",

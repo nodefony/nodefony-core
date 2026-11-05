@@ -347,9 +347,9 @@ onUnmounted(() => {
           v-for="f in FRONTS"
           :key="f.href"
           :href="f.href"
-          :aria-current="f.nom === 'Vue' ? 'page' : undefined"
+          :aria-current="f.name === 'Vue' ? 'page' : undefined"
         >
-          {{ f.nom }}
+          {{ f.name }}
         </a>
       </nav>
       <div class="outils">

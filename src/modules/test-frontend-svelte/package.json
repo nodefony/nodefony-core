@@ -6,6 +6,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "rolldown -c rolldown.config.ts",
+    "typecheck": "tsgo --noEmit && svelte-check --tsconfig ./tsconfig.json",
     "dev": "rolldown -c rolldown.config.ts --watch",
     "clean": "node --eval \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "frontend:vite-only": "vite --config frontend/vite.config.generated.mjs"
@@ -35,7 +36,8 @@
     "@nodefony/http": "*",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@types/node": "26.6.6",
-    "nodefony": "*"
+    "nodefony": "*",
+    "svelte-check": "4.7.8"
   },
   "license": "Apache-2.0"
 }

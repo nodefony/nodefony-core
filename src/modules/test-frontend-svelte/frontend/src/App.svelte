@@ -341,12 +341,13 @@
     </a>
     <nav class="fronts" aria-label="Les quatre vitrines">
       {#each FRONTS as f (f.href)}
-        <a href={f.href} aria-current={f.nom === "Svelte" ? "page" : undefined}>
-          {f.nom}
+        <a href={f.href} aria-current={f.name === "Svelte" ? "page" : undefined}>
+          {f.name}
         </a>
       {/each}
     </nav>
     <div class="outils">
+      <!-- svelte-ignore a11y_no_noninteractive_tabindex — hôte d'une fiche CSS (:focus-within) : sans arrêt de tabulation, le détail ne s'ouvrirait qu'au survol -->
       <span class="sonde-hote" tabindex="0">
         <span class="sonde">
           <span
