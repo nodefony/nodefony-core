@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-05T10:59:28.770Z",
+  "generatedAt": "2026-11-05T21:51:01.569Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 230,
+      "closed": 232,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 19,
+      "open": 17,
       "title": "10.0.0-beta"
     },
     {
@@ -5721,8 +5721,8 @@
       "number": 723,
       "title": "feat(cli): vérifier les types des composants front générés",
       "url": "https://github.com/nodefony/nodefony-core/issues/723",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -5951,8 +5951,8 @@
       "number": 719,
       "title": "fix(debugbar): relire la session après connexion, sans recharger la page",
       "url": "https://github.com/nodefony/nodefony-core/issues/719",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
