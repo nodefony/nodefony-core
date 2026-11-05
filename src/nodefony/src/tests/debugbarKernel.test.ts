@@ -7,6 +7,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { DebugBar } from "../client/debugbar/DebugBar";
+import { fakeSocket } from "./debugbarFakeSocket";
 import { NodefonyKernel } from "../client/NodefonyKernel";
 import { exposedKernels } from "../client/announce";
 import { NodefonySocket } from "../client/realtime/NodefonySocket";
@@ -142,20 +143,23 @@ describe("onglet Noyau — ce qu'il montre", () => {
     expect(texte).not.toContain("ne-pas-afficher");
   });
 
-  it("quatre questions, quatre cartes — sans doublon ni état en anglais", async () => {
+  it("six cartes, une question chacune — sans doublon ni état en anglais", async () => {
     const k = noyau();
     await k.boot();
     k.setIdentity({ key: "carol" });
     monter();
     const body = await ongletNoyau();
     const titres = [...body.querySelectorAll(".card > .ttl")].map((t) =>
-      (t.textContent ?? "").split("—")[0]?.trim(),
+      // Le compte qui suit un titre (« Événements du noyau 2 ») n'en fait pas partie.
+      (t.textContent ?? "").replace(/\s\d+$/, "").trim(),
     );
     expect(titres).toEqual([
-      "État de l'application",
-      "Compte déclaré",
-      "Connexion au serveur",
-      "Événements",
+      "Ce navigateur",
+      "Compte connecté",
+      "Noyau · NodefonyKernel",
+      "Briques sur la page",
+      "Depuis la console du navigateur",
+      "Événements du noyau",
     ]);
     const texte = body.textContent ?? "";
     expect(texte).not.toContain("ready"); // l'état se dit « prêt »
@@ -243,5 +247,65 @@ describe("onglet Noyau — sans fuite", () => {
     bar?.unmount();
     bar = null;
     expect(off.mock.calls).toEqual(on.mock.calls);
+  });
+});
+
+describe("onglet Nodefony client — utile aussi SANS noyau", () => {
+  /** Une socket accueillie : le serveur a reconnu un compte et lui offre trois canaux. */
+  const accueillie = (): ReturnType<typeof fakeSocket> =>
+    fakeSocket({
+      url: "wss://h/api/live/realtime",
+      state: "connected",
+      identity: {
+        authenticated: true,
+        userIdentifier: "admin",
+        type: "user",
+        roles: ["ROLE_ADMIN"],
+      },
+      serverChannels: ["a", "b", "c"],
+      serverMethods: ["m1", "m2"],
+    });
+  const monterSur = (client: ReturnType<typeof fakeSocket>): void => {
+    bar = new DebugBar({ client, network: false, open: true });
+    bar.mount();
+  };
+
+  it("🔴 le compte est celui que le SERVEUR a reconnu, avec ce qu'il peut faire", async () => {
+    monterSur(accueillie());
+    await ongletNoyau();
+    const compte = q("[data-el='kAcc']").textContent ?? "";
+    expect(compte).toContain("admin · user");
+    expect(compte).toContain("ROLE_ADMIN");
+    expect(compte).toContain("3 canaux · 2 actions");
+    // Sans noyau, pas de clé de session à montrer.
+    expect(compte).not.toContain("clé de session");
+    expect(q("[data-el='kNav']").textContent).toContain("bundle");
+  });
+
+  it("🔴 une brique mène à son onglet", async () => {
+    monterSur(accueillie());
+    await ongletNoyau();
+    q("[data-el='kBricks'] [data-goto='socket']").click();
+    await image();
+    expect(q(".tab[data-tab='socket']").classList.contains("active")).toBe(
+      true,
+    );
+  });
+
+  it("🔴 les raccourcis de la console ne s'affichent que s'ils existent", async () => {
+    Reflect.deleteProperty(globalThis, "nodefony");
+    monterSur(accueillie());
+    await ongletNoyau();
+    expect(q("[data-el='kCon']").textContent).toContain("Pas de raccourcis");
+    Reflect.set(globalThis, "nodefony", {});
+    try {
+      q(".tab[data-tab='perf']").click();
+      await ongletNoyau();
+      const con = q("[data-el='kCon']").textContent ?? "";
+      expect(con).toContain("nodefony.sockets()");
+      expect(con).not.toContain("nodefony.kernel"); // pas de noyau ici
+    } finally {
+      Reflect.deleteProperty(globalThis, "nodefony");
+    }
   });
 });

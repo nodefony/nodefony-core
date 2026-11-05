@@ -106,6 +106,16 @@ export function noteServerEnv(env: string | undefined): void {
 }
 
 /**
+ * Le mode que le serveur a annoncé à l'accueil d'une socket, `null` s'il
+ * n'a rien annoncé — ce qui vaut production (cf. {@link noteServerEnv}).
+ *
+ * @returns le mode annoncé, ou `null`.
+ */
+export function serverEnvironment(): string | null {
+  return serverEnv;
+}
+
+/**
  * Peut-on se permettre le détail ? Bundle de développement, OU serveur qui
  * annonce un mode hors production.
  */
