@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-11-04",
+  "generatedAt": "2026-11-05",
   "count": 41,
   "repoScripts": [
     {
@@ -522,7 +522,7 @@
       "test": false,
       "purpose": "Le front que `nodefony create app --frontend <fw>` PRODUIT passe-t-il les contrôles statiques que l'application générée exige d'elle-même ?",
       "usage": [
-        "node scripts/scaffold/check-scaffold-frontends.mjs [react vue angular svelte] [--keep]"
+        "node scripts/scaffold/check-scaffold-frontends.mjs [react vue angular svelte] [--preset=complete|minimal] [--keep]"
       ],
       "options": [],
       "env": [],

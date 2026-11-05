@@ -183,8 +183,10 @@ Les étapes, dans l'ordre, et ce que chacune protège :
 > `create command --service` **exigeait la méthode `greet()` du gabarit**, que ce
 > même gabarit dit de remplacer — suivre le conseil cassait la commande, sur un
 > message qui réclamait une méthode d'exemple. D'où l'étape 2, qui fait le geste
-> réclamé avant de générer. **Reste `front`, non couvert** (il tirerait un
-> écosystème Vite complet dans le décor).
+> réclamé avant de générer. **`front` n'y est éprouvé que par son BUILD** (étape
+> « le FRONT généré se bâtit ») : son typecheck — composants compris —, son
+> lint et sa forme, sur les quatre moteurs et les deux presets, relèvent de
+> `scripts/scaffold/check-scaffold-frontends.mjs`.
 >
 > **Et l'étape 12 juge la SORTIE, pas le code de retour** : le gabarit journalise
 > « service non enregistré » puis rend la main NORMALEMENT. Vérifié en
