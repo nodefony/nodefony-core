@@ -1063,10 +1063,13 @@ export class DebugBar {
    */
   private refused = false;
   /**
-   * La lecture d'identité de la page, mémorisée — `null` tant qu'elle n'a pas
-   * été demandée (jamais au montage : seulement quand la barre veut des données).
+   * La lecture d'identité de la page : celle EN VOL, ou un OUI mémorisé —
+   * `null` sinon (jamais lue au montage : seulement quand la barre veut des
+   * données). Un NON n'y reste pas, cf. `hasSession`.
    */
   private sessionCheck: Promise<boolean> | null = null;
+  /** La dernière lecture d'identité a dit NON — le OUI suivant rouvre la socket. */
+  private sessionDenied = false;
   /** Environnement transmis au montage — en attendant celui des mesures. */
   private readonly initialEnv: string;
   /** `requestId` de la requête qui a rendu la page (option `page`). */
@@ -2220,12 +2223,16 @@ export class DebugBar {
    * seule réponse certaine `{ user: null }` ; toute autre (application sans
    * module de sécurité : 404) laisse tenter, comme avant.
    *
-   * Mémorisée, relue à chaque ouverture tant qu'elle disait non (une
-   * connexion faite entre-temps dans la console se voit).
+   * Seul le OUI se mémorise ; un NON se relit au prochain besoin : une
+   * connexion faite entre-temps (console, autre onglet, serveur redémarré) se
+   * voit sans recharger la page. Une seule lecture en vol à la fois. Le coût
+   * reste borné — sans session, la socket ne s'ouvre pas, et les Journaux ne
+   * se relisent qu'à l'écran, une fois par rafale (`scheduleServer`).
    */
   private hasSession(): Promise<boolean> {
     if (typeof fetch === "undefined") return Promise.resolve(true);
-    return (this.sessionCheck ??= fetch(AUTH_ME_PATH, {
+    if (this.sessionCheck !== null) return this.sessionCheck;
+    const check = fetch(AUTH_ME_PATH, {
       credentials: "same-origin",
       headers: {
         accept: "application/json",
@@ -2242,7 +2249,32 @@ export class DebugBar {
           body.user === null
         );
       })
-      .catch(() => true));
+      .catch(() => true)
+      .then((ok) => {
+        if (!ok) {
+          if (this.sessionCheck === check) this.sessionCheck = null;
+          this.sessionDenied = true;
+        } else if (this.sessionDenied) {
+          this.sessionDenied = false;
+          this.onSessionGranted();
+        }
+        return ok;
+      });
+    this.sessionCheck = check;
+    return check;
+  }
+
+  /**
+   * Une session est apparue après un NON : le refus que la barre s'était dit à
+   * elle-même tombe, et la socket s'ouvre si le panneau ou le direct la veut —
+   * sans attendre qu'on replie puis rouvre le panneau.
+   */
+  private onSessionGranted(): void {
+    if (!this.refused) return;
+    this.refused = false;
+    if (this.live || this.bar?.classList.contains("open") === true)
+      this.ensureConnected();
+    this.scheduleRender();
   }
 
   /** Arrête les abonnements realtime (relâche la réf de la barre). Idempotent. */
