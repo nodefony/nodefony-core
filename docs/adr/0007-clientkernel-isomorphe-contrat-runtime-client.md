@@ -468,6 +468,19 @@ tarball existe et la tentation de « voir plus tard » gagne.
 > ne touche pas le client. Le codec CBOR lui-même reste HORS de `nodefony/client` (sous-chemin
 > `nodefony/cbor`, budget 6 KB inchangé) : une page qui ne l'active pas ne le télécharge pas.
 >
+> **Révisé le 2026-11-05 — `nodefony/client` relevé à 35 KB, `nodefony/debugbar` à 50 KB**
+> (décision de l'auteur). La marge rendue le 2026-11-01 supposait que le lot suivant ne toucherait
+> pas le client : c'était faux. Entrés depuis, côté navigateur : la suite du binaire temps réel
+> (#618 — convention d'octets sur annonce du serveur, codec adopté tardivement par la socket
+> partagée, comptage du fil, séries numériques), les membres d'un canal et l'éjection (#623), le
+> typage de la socket et des hooks par contrat (#709, #711), le nonce CSP annoncé aux styles créés
+> à l'exécution (#699). Mesuré sur le `dist` publié : `client` **33,8 KB**, `debugbar`
+> **47,8 KB** — dépassements constatés avant toute modification de la barre, qui n'y ajoute que
+> 0,1 KB (#719). La répartition par lot n'a PAS été mesurée : seul le total l'est. La barre embarque
+> sa propre copie de la socket : sa marge (2,2 KB) est celle du client (1,2 KB) plus la sienne.
+> Le gate n'est lancé que par la chaîne de release (`release.mjs`), pas en intégration continue —
+> c'est pourquoi le dépassement est passé inaperçu pendant quatre jours.
+>
 > Un dépassement de budget = blocker de release, pas un warning.
 > L'implémentation Phase 3.2 commence par un **prototype + mesure** avant tout engagement de code
 > définitif (garde-fou déjà acté dans la vision).
