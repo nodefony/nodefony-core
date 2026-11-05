@@ -7055,6 +7055,128 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(r.depsAdded ?? [], "vue-tsc");
     });
 
+    it("🔴 front dans un MODULE : `frontend:build` va au build de l'APP, jamais à celui du module", () => {
+      // Commande de l'application (elle bâtit toutes les entrées, modules
+      // compris) : posée dans le script du module, elle sortait en « unknown
+      // command » et cassait le `npm run build` de l'application entière.
+      const dest = path.join(tmp, "fmodbuild");
+      scaffold(dest, {
+        name: "fmodbuild",
+        preset: "complete",
+        frontend: "none",
+      });
+      runScaffold(
+        {
+          type: "module",
+          answers: { name: "shop", controller: "none" },
+          dir: dest,
+          force: false,
+        },
+        version,
+      );
+      const r = front(dest, {
+        name: "board",
+        frontend: "svelte",
+        module: "shop",
+      });
+      const mod = readJson(path.join(dest, "modules", "shop", "package.json"));
+      assert.notInclude(mod["scripts"]?.["build"] ?? "", "frontend:build");
+      // Le contrôle des composants, lui, est bien celui du MODULE.
+      assert.include(
+        mod["scripts"]?.["typecheck"] ?? "",
+        "&& svelte-check --tsconfig ./tsconfig.json",
+      );
+      assert.include(
+        readJson(path.join(dest, "package.json"))["scripts"]?.["build"] ?? "",
+        "&& nodefony frontend:build",
+      );
+      assert.include(r.files, path.join("..", "..", "package.json"));
+      // Le front du module importe des feuilles de style et une image : sans
+      // `vite/client`, son `tsgo` les refusait (React, Angular — Vue et Svelte
+      // ne passaient que par leur shim).
+      assert.include(
+        readFileSync(
+          path.join(dest, "modules", "shop", "tsconfig.json"),
+          "utf8",
+        ),
+        '"vite/client"',
+      );
+    });
+
+    describe("🔴 app MINIMAL née sans front : create front POSE @nodefony/frontend au lieu de refuser", () => {
+      // Refusé jusqu'ici (sortie 70) : l'utilisateur était renvoyé éditer
+      // `package.json` et `nodefony.config.ts` à la main, à la racine comme
+      // pour un module.
+      const assertAppWired = (dest: string) => {
+        const app = readJson(path.join(dest, "package.json"));
+        assert.property(app["dependencies"], "@nodefony/frontend");
+        assert.include(
+          app["scripts"]?.["build"] ?? "",
+          "&& nodefony frontend:build",
+        );
+        const config = readFileSync(
+          path.join(dest, "nodefony.config.ts"),
+          "utf8",
+        );
+        assert.include(config, 'use("@nodefony/frontend", {})');
+        // Le type de config entre dans le programme (registre augmenté).
+        assert.include(
+          config,
+          'export type { IFrontendConfigInput } from "@nodefony/frontend";',
+        );
+        // Commentaire d'un module du framework, pas celui d'un module local.
+        assert.include(config, "posé par `nodefony create front`");
+      };
+
+      it("à la RACINE", () => {
+        const dest = path.join(tmp, "fmin-root");
+        scaffold(dest, {
+          name: "fmin-root",
+          preset: "minimal",
+          frontend: "none",
+        });
+        const r = front(dest, { name: "board", frontend: "react" });
+        assertAppWired(dest);
+        assert.include(r.depsAdded ?? [], "@nodefony/frontend");
+        // Rejouer sur un autre module ne recâble pas une seconde fois.
+        const config = readFileSync(
+          path.join(dest, "nodefony.config.ts"),
+          "utf8",
+        );
+        assert.lengthOf(config.match(/use\("@nodefony\/frontend"/gu) ?? [], 1);
+      });
+
+      it("dans un MODULE : pair au module, dépendance + manifeste à l'application", () => {
+        const dest = path.join(tmp, "fmin-mod");
+        scaffold(dest, {
+          name: "fmin-mod",
+          preset: "minimal",
+          frontend: "none",
+        });
+        runScaffold(
+          {
+            type: "module",
+            answers: { name: "shop", controller: "none" },
+            dir: dest,
+            force: false,
+          },
+          version,
+        );
+        const r = front(dest, {
+          name: "board",
+          frontend: "vue",
+          module: "shop",
+        });
+        assertAppWired(dest);
+        const mod = readJson(
+          path.join(dest, "modules", "shop", "package.json"),
+        );
+        assert.property(mod["peerDependencies"], "@nodefony/frontend");
+        assert.notProperty(mod["dependencies"] ?? {}, "@nodefony/frontend");
+        assert.include(r.files, path.join("..", "..", "nodefony.config.ts"));
+      });
+    });
+
     it("create front sur une cible SANS script typecheck : rien d'inventé, la commande est NOMMÉE (#723)", () => {
       const dest = path.join(tmp, "fsvelte-notc");
       scaffold(dest, {
@@ -7413,25 +7535,6 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       }
     });
 
-    it("app SANS la brique : la garde mord toujours (rien à poser depuis rien)", () => {
-      const dest = path.join(tmp, "fmini");
-      scaffold(dest, { name: "fmini", preset: "minimal", frontend: "none" });
-      runScaffold(
-        {
-          type: "module",
-          answers: { name: "blog", controller: "none" },
-          dir: dest,
-          force: false,
-        },
-        version,
-      );
-      assert.throws(
-        () =>
-          front(dest, { name: "page", frontend: "vue", module: "@fmini/blog" }),
-        /@nodefony\/frontend manque/u,
-      );
-    });
-
     it("app-avec-front et front-ajouté partagent la MÊME source", () => {
       // Le gate de la mutualisation : `create app --frontend react` et
       // `create front --frontend react` rendaient chacun leur copie de l'entry
@@ -7471,15 +7574,6 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.throws(
         () => front(dest, { name: "extra", frontend: "react" }),
         /porte déjà un front/u,
-      );
-    });
-
-    it("cible sans @nodefony/frontend (minimal none) → throw actionnable", () => {
-      const dest = path.join(tmp, "fmin");
-      scaffold(dest, { name: "fmin", preset: "minimal" });
-      assert.throws(
-        () => front(dest, { name: "page", frontend: "vue" }),
-        /@nodefony\/frontend manque/u,
       );
     });
 

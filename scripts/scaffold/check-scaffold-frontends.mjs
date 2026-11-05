@@ -25,8 +25,13 @@
  *   node scripts/scaffold/check-scaffold-frontends.mjs              # les quatre fronts
  *   node scripts/scaffold/check-scaffold-frontends.mjs react vue    # une sélection
  *   node scripts/scaffold/check-scaffold-frontends.mjs --keep       # garde les décors
+ *   node scripts/scaffold/check-scaffold-frontends.mjs --preset=minimal  # un seul preset
  *
- * @usage node scripts/scaffold/check-scaffold-frontends.mjs [react vue angular svelte] [--keep]
+ * 🔴 Les DEUX presets, par défaut. La page du front n'est pas la même : sans
+ * `@nodefony/realtime` ni `@nodefony/security` (preset minimal), le gabarit
+ * rend une autre branche, que le seul preset complet ne compilait jamais.
+ *
+ * @usage node scripts/scaffold/check-scaffold-frontends.mjs [react vue angular svelte] [--preset=complete|minimal] [--keep]
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
@@ -58,6 +63,21 @@ if (unknown.length > 0) {
   process.exit(2);
 }
 const selected = asked.length > 0 ? asked : FRONTENDS;
+const PRESETS = ["complete", "minimal"];
+const askedPresets = args
+  .filter((a) => a.startsWith("--preset="))
+  .map((a) => a.slice("--preset=".length));
+const unknownPresets = askedPresets.filter((p) => !PRESETS.includes(p));
+if (unknownPresets.length > 0) {
+  console.error(
+    `preset inconnu : ${unknownPresets.join(", ")} — attendus : ${PRESETS.join(", ")}`,
+  );
+  process.exit(2);
+}
+const runs = (askedPresets.length > 0 ? askedPresets : PRESETS).flatMap(
+  (preset) =>
+    selected.map((fw) => ({ preset, fw, label: `${fw} (${preset})` })),
+);
 
 // Les pairs du framework, lues dans ses manifestes — jamais énumérées.
 const PACKAGES = path.join(ROOT, "src", "packages", "@nodefony");
@@ -70,8 +90,8 @@ const FRAMEWORK_MANIFESTS = [
 const PEER_VERSIONS = peerOverrides(ROOT, FRAMEWORK_MANIFESTS);
 
 let failed = 0;
-for (const fw of selected) {
-  const dir = mkdtempSync(path.join(tmpdir(), `nf-scaffold-${fw}-`));
+for (const { preset, fw, label } of runs) {
+  const dir = mkdtempSync(path.join(tmpdir(), `nf-scaffold-${fw}-${preset}-`));
   const dest = path.join(dir, "app");
   const gen = spawnSync(
     process.execPath,
@@ -85,14 +105,14 @@ for (const fw of selected) {
       "--yes",
       "--link",
       "--preset",
-      "complete",
+      preset,
       "--frontend",
       fw,
     ],
     { cwd: ROOT, encoding: "utf8" },
   );
   if (gen.status !== 0) {
-    console.error(`✗ ${fw} — la génération a échoué (code ${gen.status})`);
+    console.error(`✗ ${label} — la génération a échoué (code ${gen.status})`);
     console.error(
       (gen.stderr || gen.stdout || "").split("\n").slice(-12).join("\n"),
     );
@@ -124,7 +144,7 @@ for (const fw of selected) {
     // Un DÉCOR défaillant ne rend aucun verdict sur le gabarit : le dire tel
     // quel, plutôt que de laisser la compilation l'imputer au code généré.
     console.error(
-      `✗ ${fw} — décor lié défaillant : ` +
+      `✗ ${label} — décor lié défaillant : ` +
         (peers === null
           ? `installation après épinglage en échec (code ${reinstall.status})`
           : `pair(s) en deux exemplaires : ${peers.doublons.map((d) => `${d.nom} (app ${d.app}, dépôt ${d.repo})`).join(", ")}`),
@@ -154,11 +174,11 @@ for (const fw of selected) {
     });
     if (r.status !== 0) {
       red.push(check);
-      console.error(`✗ ${fw} — npm run ${check} (code ${r.status})`);
+      console.error(`✗ ${label} — npm run ${check} (code ${r.status})`);
       console.error(`${r.stdout}${r.stderr}`.split("\n").slice(-25).join("\n"));
     }
   }
-  if (red.length === 0) console.log(`✓ ${fw} — ${CHECKS.join(", ")}`);
+  if (red.length === 0) console.log(`✓ ${label} — ${CHECKS.join(", ")}`);
   else failed++;
 
   if (keep) console.log(`  décor conservé : ${dest}`);

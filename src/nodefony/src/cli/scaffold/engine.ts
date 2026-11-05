@@ -2526,6 +2526,8 @@ export function declareWorkspaceDependency(
  *
  * @param moduleDir - dossier où le module a été créé, relatif à la racine (en
  *   `/`) — seulement pour NOMMER le bon endroit dans le commentaire inséré.
+ * @param comment - commentaire posé au-dessus de l'entrée ; absent, celui d'un
+ *   module local (un module du framework ajouté après coup a le sien).
  * @returns note à afficher si un geste manuel reste nécessaire, sinon `null`.
  */
 export function wireModuleManifest(
@@ -2534,6 +2536,7 @@ export function wireModuleManifest(
   writer: ScaffoldWriter,
   moduleDir = "modules",
   configInputType?: string,
+  comment?: string,
 ): string | null {
   const manual = `ajoute à la main dans le manifeste modules de nodefony.config.ts :\n  use("${pkgName}", {}),`;
   if (!writer.exists(configPath)) {
@@ -2576,11 +2579,13 @@ export function wireModuleManifest(
   // Le dossier est DIT, jamais supposé : `modules/` pour une app, un dossier de
   // paquets scopés pour un monorepo — un commentaire qui nomme le mauvais
   // endroit envoie chercher le code là où il n'est pas.
-  const comment = `// Module local du projet (${moduleDir}/) — créé par \`nodefony create module\`.`;
+  const entryComment =
+    comment ??
+    `// Module local du projet (${moduleDir}/) — créé par \`nodefony create module\`.`;
   // `trimEnd` sur la partie gauche puis indentation REPOSÉE : le crochet fermant
   // est précédé de la sienne, qui laisserait sinon une ligne blanche pleine
   // d'espaces et un `]` en colonne 0. Un manifeste reste un fichier qu'on RELIT.
-  const wired = `${source.slice(0, close).trimEnd()}\n\n    ${comment}\n    ${entry}\n  ${source.slice(close)}`;
+  const wired = `${source.slice(0, close).trimEnd()}\n\n    ${entryComment}\n    ${entry}\n  ${source.slice(close)}`;
   writer.write(
     configPath,
     wireModuleConfigType(wired, pkgName, configInputType),
@@ -6487,7 +6492,10 @@ export function wireEntitiesDecorator(
 /**
  * Fait couvrir un front AJOUTÉ par le `tsconfig.json` de sa cible, comme si
  * elle était née avec : entrée `include`, option `jsx` du moteur, et les types
- * `vite/client` pour une application.
+ * `vite/client` — application comme MODULE : le front importe des feuilles de
+ * style et une image, que `tsgo` refuse sans eux (TS2882, TS2307). Réservés à
+ * l'application, ils faisaient échouer le `typecheck` de tout module à front
+ * React ou Angular ; Vue et Svelte ne passaient que grâce à leur shim.
  *
  * Sans elle, `create front` sur une application née sans front livrait des
  * `.tsx` que `npm run typecheck` ne lisait pas, et que le lint typé lisait sans
@@ -6504,14 +6512,14 @@ export function wireEntitiesDecorator(
  */
 function wireFrontTsconfig(
   tsconfigPath: string,
-  needs: { include: string; jsx: string | null; viteTypes: boolean },
+  needs: { include: string; jsx: string | null },
   writer: ScaffoldWriter,
 ): { changed: boolean; note: string | null } {
   const missing: string[] = [];
   const wanted = [
     `"${needs.include}" dans include`,
     ...(needs.jsx === null ? [] : [`"jsx": "${needs.jsx}"`]),
-    ...(needs.viteTypes ? [`"vite/client" dans types`] : []),
+    `"vite/client" dans types`,
   ];
   if (!writer.exists(tsconfigPath)) {
     return {
@@ -6550,7 +6558,7 @@ function wireFrontTsconfig(
       missing.push(`"jsx": "${needs.jsx}"`);
     }
   }
-  if (needs.viteTypes && !src.includes(`"vite/client"`)) {
+  if (!src.includes(`"vite/client"`)) {
     if (!addToArray("types", "vite/client", false)) {
       missing.push(`"vite/client" dans types`);
     }
@@ -6620,24 +6628,17 @@ function runFrontScaffold(
     writer,
   );
   const targetDeps = dependencyNames(manifest);
-  // `@nodefony/frontend` absent de la CIBLE n'est un refus que si l'APP ne l'a
-  // pas non plus : un module local est un workspace, il résout depuis l'arbre de
-  // l'application et rien ne s'y installe séparément. Refuser dans ce cas
-  // envoyait éditer le `package.json` à la main — exactement ce qu'un
-  // générateur existe pour éviter, et c'est ce qui a été observé au banc.
-  // La dep est alors posée plus bas, avec les autres (une seule écriture).
-  let addFrontendPeer = false;
-  if (!targetDeps.has("@nodefony/frontend")) {
-    const appDeps = readAppDependencyNames(projectRoot, writer);
-    if (target.kind === "module" && appDeps.has("@nodefony/frontend")) {
-      addFrontendPeer = true;
-    } else {
-      throw new Error(
-        `@nodefony/frontend manque dans ${target.name} — ajoute la dep + ` +
-          `"@nodefony/frontend" au manifeste modules de nodefony.config.ts`,
-      );
-    }
-  }
+  // `@nodefony/frontend` absent : le générateur le POSE, il ne renvoie pas
+  // éditer à la main ce qu'il sait écrire. Un module local le déclare en pair
+  // (il résout depuis l'arbre de l'application) ; l'APPLICATION le porte en
+  // dépendance et dans son manifeste `modules` — c'est ce qui le charge. Une
+  // application `--preset minimal` née sans front était refusée ici, module
+  // ou racine, alors que rien ne s'opposait à l'ajout.
+  const addFrontendPeer =
+    target.kind === "module" && !targetDeps.has("@nodefony/frontend");
+  const wireAppFrontend = !readAppDependencyNames(projectRoot, writer).has(
+    "@nodefony/frontend",
+  );
   const frontend = answers.frontend as Exclude<TFrontendChoice, "none">;
   const front = FRONTEND_PARAMS[frontend];
   const base = String(answers.name);
@@ -6840,30 +6841,69 @@ function runFrontScaffold(
   // qu'en production, là où il n'y a plus de serveur de développement pour
   // rattraper. Le script n'est touché que s'il lui manque l'étape, et la
   // commande y est ajoutée à la FIN : ce que l'utilisateur a écrit avant reste.
-  const scripts = manifest.data["scripts"];
+  //
+  // 🔴 Dans le manifeste de l'APPLICATION, jamais dans celui d'un module :
+  // `frontend:build` est une commande de l'application, qui bâtit TOUTES les
+  // entrées déclarées — celles des modules comprises. Posée dans le script
+  // d'un module, elle sortait en « unknown command » (64) et cassait le
+  // `npm run build` de l'application entière dès qu'un module portait un front.
+  const appManifest =
+    target.kind === "app"
+      ? manifest
+      : readPackageManifest(path.join(projectRoot, "package.json"), writer);
+  let appManifestChanged = false;
+  let frontendWireNote: string | null = null;
+  if (wireAppFrontend) {
+    ensureObjectField(appManifest, "dependencies")["@nodefony/frontend"] =
+      `^${nodefonyVersion}`;
+    if (!added.includes("@nodefony/frontend")) {
+      added.push("@nodefony/frontend");
+    }
+    appManifestChanged = true;
+    const configPath = path.join(projectRoot, "nodefony.config.ts");
+    frontendWireNote = wireModuleManifest(
+      configPath,
+      "@nodefony/frontend",
+      writer,
+      "modules",
+      "IFrontendConfigInput",
+      "// Builder Vite + statics : sert les fronts de l'application (HMR en dev,\n    // build pré-compilé en prod) — posé par `nodefony create front`.",
+    );
+    if (frontendWireNote === null) {
+      written.push(path.relative(target.dir, configPath));
+    }
+  }
   const buildWired = appendScriptStep(
-    scripts,
+    appManifest.data["scripts"],
     "build",
     "nodefony frontend:build",
   );
+  const scripts = manifest.data["scripts"];
   // Même geste pour le contrôle des composants : une cible née sans front n'a
   // qu'un `tsgo` dans son `typecheck`, aveugle aux `.vue`/`.svelte`/gabarits.
   const typecheckWired =
     front.componentTypecheck !== null &&
     appendScriptStep(scripts, "typecheck", front.componentTypecheck);
-  if (added.length > 0 || buildWired || typecheckWired) {
+  const sameManifest = appManifest === manifest;
+  const appDirty = buildWired || appManifestChanged;
+  if (added.length > 0 || (sameManifest && appDirty) || typecheckWired) {
     writePackageManifest(manifest, writer);
     written.push("package.json");
   }
+  if (appDirty && !sameManifest) {
+    writePackageManifest(appManifest, writer);
+    written.push(
+      path.relative(target.dir, path.join(projectRoot, "package.json")),
+    );
+  }
   // Le typecheck et le lint typé doivent VOIR le front ajouté, comme si la
-  // cible était née avec (#515). `vite/client` : le gabarit d'application le
-  // pose, celui de module non — on reproduit chacun, sans rien inventer.
+  // cible était née avec (#515) — `vite/client` compris, module ou application
+  // (cf `wireFrontTsconfig`).
   const tsWire = wireFrontTsconfig(
     path.join(target.dir, "tsconfig.json"),
     {
       include: front.tsInclude,
       jsx: front.tsJsx,
-      viteTypes: target.kind === "app",
     },
     writer,
   );
@@ -6908,6 +6948,7 @@ function runFrontScaffold(
       ? [`dépendances ajoutées au package.json : ${added.join(", ")}`]
       : []),
     ...(wireNote ? [wireNote] : []),
+    ...(frontendWireNote ? [frontendWireNote] : []),
     ...(tsWire.note ? [tsWire.note] : []),
     ...(front.componentTypecheck !== null &&
     !(isPlainObject(scripts) && typeof scripts["typecheck"] === "string")
