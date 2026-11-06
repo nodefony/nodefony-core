@@ -4,59 +4,17 @@ import type { I<%= it.pascal %>Config } from "../config/config";
 import { define<%= it.pascal %>Config } from "../config/defineModuleConfig";
 
 /**
- * Service principal du module — la logique vit ici, pas dans les controllers
- * (un controller traduit du HTTP/WS ; un service, lui, est réutilisable par la
- * CLI, un job, un autre module).
+ * Service principal du module — la logique vit ici, pas dans les controllers :
+ * la même méthode sert HTTP, la socket, la CLI ou un autre module. Guide
+ * complet (deux noms, injection, cycle de vie, tâche périodique) :
+ * `node_modules/nodefony/docs/service.md`.
  *
- * ⚡ **Tu veux un service ? Ne recopie pas ce fichier — génère-le :**
- *
- * ```bash
- * npx nodefony create service <Nom>                  # la classe + sa déclaration
- * npx nodefony create service <Nom> --inject <Autre> # + la dépendance écrite
- * ```
- *
- * Le générateur écrit la version COURANTE du framework et déclare le service sur
- * le module ; recopié à la main, il naît déjà décalé et personne ne le signale.
- * Ce fichier reste là pour se LIRE — comprendre ce qu'est un service — pas pour
- * se dupliquer.
- *
- * Cycle : `constructor` (fusion défauts + config de l'app) → `init`
- * (branchements kernel) → méthodes métier.
- *
- * Un service porte DEUX noms, et c'est normal :
- *   `@injectable()`             → nomme la CLASSE (`<%= it.pascal %>Service`),
- *                                 c'est ce qu'on écrit dans `@Inject("…")`
- *   `super("<%= it.name %>", …)` → nomme l'INSTANCE, sa clé dans le conteneur,
- *                                 c'est ce qu'on écrit dans `kernel.get("…")`
- * Les deux mènent à la MÊME instance : le conteneur les réconcilie via la classe.
- * (Le décorateur ne peut pas deviner la clé — il s'exécute au chargement de la
- * classe, le `super()` seulement à la construction.)
- *
- * ⚠️ Ne JAMAIS redéclarer `options` comme propriété : la classe `Service` parente
- * l'assigne déjà via le 4ᵉ argument du `super()`. On garde une référence typée
- * `cfg` pour lire la config sans se battre avec TypeScript.
- *
- * POUR L'UTILISER AILLEURS, deux voies, toutes deux légales :
- *
- * ```ts
- * // 1. INJECTION par le constructeur — la dépendance est DÉCLARÉE, donc le
- * //    conteneur l'ordonnance et elle se voit dans la signature (nom de CLASSE).
- * import { Inject, injectable, Service, Module } from "nodefony";
- *
- * @injectable()
- * class ReportService extends Service {
- *   constructor(
- *     module: Module,
- *     @Inject("<%= it.pascal %>Service") private <%= it.name %>: <%= it.pascal %>Service,
- *   ) {
- *     super("report", module.container, module.notificationsCenter);
- *   }
- * }
- *
- * // 2. RÉSOLUTION par le conteneur, pour une dépendance tardive ou optionnelle
- * //    (nom d'INSTANCE).
- * const <%= it.name %> = this.container.get("<%= it.name %>");
- * ```
+ * - `@injectable()` nomme la CLASSE (`@Inject("<%= it.pascal %>Service")`) ;
+ *   `super("<%= it.name %>", …)` nomme l'INSTANCE (`container.get("<%= it.name %>")`).
+ * - Ne pas redéclarer `options` : `Service` l'assigne par le 4ᵉ argument du
+ *   `super()` ; `cfg` en garde la référence typée.
+ * - Ne recopie pas ce fichier pour un autre service :
+ *   `npx nodefony create service <Nom> [--inject <Autre>]` l'écrit à jour.
  */
 @injectable()
 class <%= it.pascal %>Service extends Service implements I<%= it.pascal %>Service {
@@ -79,15 +37,8 @@ class <%= it.pascal %>Service extends Service implements I<%= it.pascal %>Servic
   }
 
   /**
-   * Hook de démarrage d'un service : appelé UNE fois par le kernel, après la
-   * construction. C'est ici qu'on s'abonne aux événements du kernel — jamais
-   * dans le constructeur, où le kernel n'est pas encore prêt.
-   *
-   * ⚠️ Il s'appelle `init`, pas `initialize`. Le kernel ne cherche que `init`
-   * (`guardServiceInitialize`) : une méthode nommée `initialize` sur un service
-   * n'est JAMAIS appelée, et rien ne le signale — le code y dort en silence.
-   * (`initialize` existe bien, mais sur un CONTROLLER, où il tourne à CHAQUE
-   * requête : deux cycles de vie distincts, d'où deux noms.)
+   * Démarrage, appelé UNE fois après la construction. ⚠️ `init`, pas
+   * `initialize` : un `initialize` sur un service n'est jamais appelé.
    */
   async init(): Promise<this> {
     this.log("service <%= it.name %> initialisé", "DEBUG");
