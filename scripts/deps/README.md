@@ -50,7 +50,7 @@ Suite de bout en bout de la garde des dépendances — écrite pour la faire ÉC
 
 ## [`overrides.test.mjs`](overrides.test.mjs)
 
-`forcedByOverride` — une dépendance qu'un tiers déclare est-elle forcée par les `overrides` de la racine ? Sans cette lecture, `deps:check` annonçait un dédoublement que le dépôt avait déjà rendu impossible (vite sous Angular). /
+`forcedByOverride` — une dépendance qu'un tiers déclare est-elle forcée par les `overrides` de la racine ? Sans cette lecture, `deps:check` annonçait un dédoublement que le dépôt avait déjà rendu impossible (vite sous Angular). `overrideBreaches` — un override pousse-t-il un tiers hors de sa plage ? Vécu : rolldown 1.3 forcé sous vite (`~1.2.16`) rendait le bundle de Studio invalide ; `deps:gate` refuse désormais ce forçage sans motif inscrit. /
 
 - **Lancé par** : `npm run test:tooling`
 - **Utilise** : `deps/lib/overrides.mjs`

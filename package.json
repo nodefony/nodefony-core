@@ -239,16 +239,12 @@
     "@angular/build": {
       "vite": "$vite",
       "vitest": "$vitest",
-      "semver": "7.8.6",
-      "rolldown": "$rolldown"
+      "semver": "7.8.6"
     },
     "lodash-es": "^4.18.1",
     "@sentry/bundler-plugins": {
       "glob": "^14.0.2"
     },
-    "deepmerge": "$deepmerge",
-    "vite": {
-      "rolldown": "$rolldown"
-    }
+    "deepmerge": "$deepmerge"
   }
 }

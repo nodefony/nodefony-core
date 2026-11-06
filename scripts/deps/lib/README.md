@@ -26,7 +26,7 @@ Dépendances DÉCLARÉES dont la version au verrou est dépréciée en amont.
 
 Lecture des `overrides` npm de la racine : une dépendance qu'un tiers déclare est-elle FORCÉE par nous ?
 
-- **Usage** : `import { forcedByOverride } from "./lib/overrides.mjs"`
+- **Usage** : `import { forcedByOverride, overrideBreaches } from "./lib/overrides.mjs"`
 - **Appelé par** : `deps/check-deps-latest.mjs`
 - **Testé par** : `deps/overrides.test.mjs`
 

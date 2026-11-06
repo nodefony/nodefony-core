@@ -63,7 +63,7 @@ import {
   plusHauteSatisfaisante,
 } from "./lib/reconcile-versions.mjs";
 import { REPO_ROOT } from "../lib/repo-root.mjs";
-import { forcedByOverride } from "./lib/overrides.mjs";
+import { forcedByOverride, overrideBreaches } from "./lib/overrides.mjs";
 import {
   deprecatedInstalled,
   deprecatedVersionsOf,
@@ -710,6 +710,59 @@ if (deprecated.length && !AS_JSON) {
     "     Faire : retirer ou remplacer — le message de l'amont dit par quoi.\n",
   );
 }
+
+// ── Les overrides IMBRIQUÉS face à la plage de leur tiers ───────────────────
+// Un override qui pousse un tiers hors de ce qu'il déclare l'exécute dans une
+// configuration que personne n'a testée. Vécu : rolldown 1.3 forcé sous vite
+// (`~1.2.16`) rendait le bundle de production de Studio invalide, et seule la
+// sonde navigateur de la forge l'a vu. Règle et exceptions :
+// `lib/overrides.mjs#overrideBreaches`.
+const readPkg = (name) => {
+  try {
+    return JSON.parse(
+      fs.readFileSync(
+        path.join(ROOT, "node_modules", name, "package.json"),
+        "utf8",
+      ),
+    );
+  } catch {
+    return null;
+  }
+};
+const breaches = overrideBreaches(overridesRacine, {
+  rootVersion: (name) => readPkg(name)?.version ?? null,
+  declared: (parent) => {
+    const p = readPkg(parent);
+    if (p === null) return null;
+    return {
+      version: p.version,
+      deps: {
+        ...p.peerDependencies,
+        ...p.optionalDependencies,
+        ...p.dependencies,
+      },
+    };
+  },
+});
+const breachFatals = breaches.filter(
+  (b) => b.verdict === "HORS-PLAGE" || b.verdict === "EXCEPTION-SANS-OBJET",
+);
+if (breaches.length && !AS_JSON) {
+  process.stdout.write("\n🧷 overrides hors de la plage de leur tiers :\n");
+  for (const b of breaches) {
+    const what =
+      b.verdict === "EXCEPTION-SANS-OBJET"
+        ? `exception sans objet — la retirer de ACCEPTED_OVERRIDE_BREACHES (${b.reason})`
+        : b.verdict === "MORT"
+          ? `${b.parentVersion} ne déclare plus ${b.dep} — l'override ne force plus rien, le retirer`
+          : `${b.parentVersion} déclare ${b.declared}, forcé ${b.forced}${b.reason ? ` — ${b.reason}` : ""}`;
+    process.stdout.write(`     [${b.verdict}] ${b.key} : ${what}\n`);
+  }
+  if (breaches.some((b) => b.verdict === "HORS-PLAGE"))
+    process.stdout.write(
+      "     Faire : retirer l'override et laisser le tiers sur SA version (une seconde copie vaut mieux qu'un build faux), ou inscrire le motif dans ACCEPTED_OVERRIDE_BREACHES après l'avoir PROUVÉ sur l'artefact.\n",
+    );
+}
 for (const [name, qui] of AS_JSON ? [] : forcees) {
   process.stdout.write(
     `\n🔩 ${name} ${visees.get(name)} FORCÉ par les overrides de la racine — pas de seconde copie :\n`,
@@ -874,6 +927,7 @@ if (AS_JSON) {
         rows,
         divergent,
         deprecated,
+        overrideBreaches: breaches,
         illisibles,
         failed,
         scanned: names.length,
@@ -946,6 +1000,14 @@ if (ARGS.has("--gate")) {
               `   ${x.name} : base ${x.base}, l'amont publie ${x.above.join(", ")} — retirer le shim, ou relever sa base`,
           )
           .join("\n") +
+        "\n",
+    );
+    process.exit(1);
+  }
+  if (breachFatals.length) {
+    process.stderr.write(
+      `\n❌ garde des dépendances : ${breachFatals.length} override(s) hors de la plage de leur tiers\n` +
+        breachFatals.map((b) => `   ${b.key} [${b.verdict}]`).join("\n") +
         "\n",
     );
     process.exit(1);
