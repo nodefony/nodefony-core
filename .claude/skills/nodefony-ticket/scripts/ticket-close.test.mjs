@@ -8,7 +8,7 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
@@ -74,21 +74,34 @@ describe("les commits d'un ticket, contre un dépôt git réel", () => {
   const git = (...args) =>
     execFileSync("git", ["-C", repo, ...args], { encoding: "utf8" });
 
+  // Le banc ne lit que les MESSAGES : des commits vides suffisent. Quatre
+  // lancements de git au lieu de onze — sous Windows, chacun coûte cher, et le
+  // décor dépassait le délai de 10 s des crochets (vu rouge sur windows-latest).
+  // L'identité et la signature passent par `-c` : la config du poste n'entre pas.
   beforeAll(() => {
     repo = mkdtempSync(path.join(tmpdir(), "nf-close-"));
     git("init", "-q", "-b", "main");
-    git("config", "user.email", "banc@nodefony.local");
-    git("config", "user.name", "banc");
     for (const sujet of [
       "feat(a): premier — closes #9",
       "feat(b): second — closes #95",
       "feat(c): troisième, cite #950",
     ]) {
-      writeFileSync(path.join(repo, `${sujet.length}.txt`), sujet);
-      git("add", "-A");
-      git("commit", "-q", "--no-verify", "-m", sujet);
+      git(
+        "-c",
+        "user.email=banc@nodefony.local",
+        "-c",
+        "user.name=banc",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-q",
+        "--no-verify",
+        "--allow-empty",
+        "-m",
+        sujet,
+      );
     }
-  });
+  }, 30_000);
   afterAll(() => rmSync(repo, { recursive: true, force: true }));
 
   const sujets = (numero) =>
