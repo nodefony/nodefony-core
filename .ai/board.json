@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-06T16:32:11.175Z",
+  "generatedAt": "2026-11-06T17:37:08.384Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 235,
+      "closed": 236,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 18,
+      "open": 17,
       "title": "10.0.0-beta"
     },
     {
@@ -6344,8 +6344,8 @@
       "number": 734,
       "title": "fix(http): corriger les écarts du serveur aux normes HTTP/1.1, HTTP/2 et WebSocket",
       "url": "https://github.com/nodefony/nodefony-core/issues/734",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
