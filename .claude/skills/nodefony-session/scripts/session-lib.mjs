@@ -44,10 +44,11 @@ export function uncitedWork(commits, stateText) {
  * Un run en cours a `conclusion: ""` — pas `null` : un `conclusion ?? status`
  * le lit donc comme terminé. Le statut fait foi, jamais la conclusion seule.
  *
- * Un run ANNULÉ n'est pas un vert : les runs lus sont ceux du commit le plus
- * récent qui en a, donc aucun run plus récent du même workflow n'a pu le
- * remplacer — il a atteint son plafond (job figé) ou a été annulé à la main.
- * Le compter vert a affiché ✅ sur un commit dont la CI principale était figée.
+ * Un run ANNULÉ n'est pas un vert : il a atteint son plafond (job figé), a été
+ * annulé à la main, ou a été supplanté par un run d'une AUTRE référence du même
+ * groupe de concurrence (vécu : le site sur `dev`, annulé par une publication
+ * manuelle depuis `main`). Le compter vert a affiché ✅ sur un commit dont la
+ * CI principale était figée ; son dernier verdict réel se lit par `ciHistory`.
  *
  * @param {{status: string, conclusion: string, workflowName: string}[]} runs
  * @returns {{state: "none"|"running"|"failure"|"cancelled"|"success", running: string[], failed: string[], cancelled: string[]}}
@@ -76,6 +77,67 @@ export function ciVerdict(runs) {
         ? "cancelled"
         : "success";
   return { state, running, failed, cancelled };
+}
+
+/**
+ * Verdict PAR WORKFLOW sur une fenêtre de commits poussés : ce que le verdict du
+ * seul dernier commit ne dit pas.
+ *
+ * Trois angles morts de `ciVerdict` appliqué au dernier commit : un workflow qui
+ * n'a PAS tourné sur ce commit (filtre de chemins) garde son rouge d'avant sans
+ * qu'on le voie ; un rouge corrigé depuis disparaît, alors qu'il dit ce qui a
+ * cassé ; une annulation cache le dernier verdict réel du workflow.
+ *
+ * Le verdict d'un workflow est son run TERMINÉ et NON annulé le plus récent.
+ *
+ * @param {string[]} shas - commits poussés, du plus récent au plus ancien
+ * @param {{headSha: string, status: string, conclusion: string, workflowName: string}[]} runs
+ * @returns {{
+ *   stillRed: {workflow: string, sha: string}[],
+ *   fixed: {workflow: string, redSha: string, fixSha: string}[],
+ *   cancelled: {workflow: string, sha: string, last: {state: "success"|"failure", sha: string}|null}[],
+ * }}
+ */
+export function ciHistory(shas, runs) {
+  /** @type {Map<string, {sha: string, status: string, conclusion: string}[]>} */
+  const byWorkflow = new Map();
+  for (const sha of shas)
+    for (const r of runs)
+      if (r.headSha === sha) {
+        let list = byWorkflow.get(r.workflowName);
+        if (list === undefined) byWorkflow.set(r.workflowName, (list = []));
+        list.push({ sha, status: r.status, conclusion: r.conclusion });
+      }
+  const isRed = (r) =>
+    !["success", "skipped", "neutral", "cancelled"].includes(r.conclusion);
+  const stillRed = [];
+  const fixed = [];
+  const cancelled = [];
+  for (const [workflow, list] of byWorkflow) {
+    const done = list.filter(
+      (r) => r.status === "completed" && r.conclusion !== "cancelled",
+    );
+    const last = done[0];
+    if (list[0].status === "completed" && list[0].conclusion === "cancelled")
+      cancelled.push({
+        workflow,
+        sha: list[0].sha,
+        last: last
+          ? { state: isRed(last) ? "failure" : "success", sha: last.sha }
+          : null,
+      });
+    if (last === undefined) continue;
+    if (isRed(last)) {
+      stillRed.push({ workflow, sha: last.sha });
+      continue;
+    }
+    const red = done.find(isRed);
+    if (red === undefined) continue;
+    // Le correctif = le vert le plus ancien postérieur au rouge.
+    const fix = done.slice(0, done.indexOf(red)).at(-1);
+    fixed.push({ workflow, redSha: red.sha, fixSha: fix.sha });
+  }
+  return { stillRed, fixed, cancelled };
 }
 
 /**

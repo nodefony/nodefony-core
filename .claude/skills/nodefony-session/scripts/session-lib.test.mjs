@@ -5,6 +5,7 @@
 import { describe, it, expect } from "vitest";
 import {
   ciVerdict,
+  ciHistory,
   cliGate,
   citedHashes,
   datesIn,
@@ -87,6 +88,63 @@ describe("ciVerdict — le statut fait foi, jamais la conclusion seule", () => {
   });
   it("aucun run → none, pas un vert", () => {
     expect(ciVerdict([]).state).toBe("none");
+  });
+});
+
+describe("ciHistory — ce que le verdict du seul dernier commit tait", () => {
+  const run = (headSha, workflowName, conclusion, status = "completed") => ({
+    headSha,
+    workflowName,
+    conclusion,
+    status,
+  });
+  // Plus récent d'abord : c3 ← c2 ← c1.
+  const shas = ["c3", "c2", "c1"];
+
+  it("un rouge corrigé depuis est nommé, avec le commit qui l'a corrigé (vécu 5f90e08b → d228b381)", () => {
+    const h = ciHistory(shas, [
+      run("c3", "core", "success"),
+      run("c2", "core", "success"),
+      run("c1", "core", "failure"),
+    ]);
+    expect(h.fixed).toEqual([{ workflow: "core", redSha: "c1", fixSha: "c2" }]);
+    expect(h.stillRed).toEqual([]);
+  });
+  it("un workflow muet sur le dernier commit garde son rouge d'avant", () => {
+    const h = ciHistory(shas, [
+      run("c3", "secrets", "success"),
+      run("c2", "core", "failure"),
+    ]);
+    expect(h.stillRed).toEqual([{ workflow: "core", sha: "c2" }]);
+  });
+  it("une annulation rend le dernier verdict réel du workflow", () => {
+    const h = ciHistory(shas, [
+      run("c3", "site", "cancelled"),
+      run("c2", "site", "success"),
+    ]);
+    expect(h.cancelled).toEqual([
+      { workflow: "site", sha: "c3", last: { state: "success", sha: "c2" } },
+    ]);
+    expect(h.stillRed).toEqual([]);
+  });
+  it("une annulation sans verdict antérieur le DIT (null), jamais un vert", () => {
+    const h = ciHistory(shas, [run("c3", "site", "cancelled")]);
+    expect(h.cancelled[0].last).toBeNull();
+  });
+  it("un run en cours n'est pas un verdict : le rouge d'avant reste rouge", () => {
+    const h = ciHistory(shas, [
+      run("c3", "core", "", "in_progress"),
+      run("c2", "core", "failure"),
+    ]);
+    expect(h.stillRed).toEqual([{ workflow: "core", sha: "c2" }]);
+    expect(h.fixed).toEqual([]);
+  });
+  it("hors fenêtre → ignoré", () => {
+    expect(ciHistory(shas, [run("c0", "core", "failure")])).toEqual({
+      stillRed: [],
+      fixed: [],
+      cancelled: [],
+    });
   });
 });
 

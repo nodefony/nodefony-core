@@ -6,7 +6,7 @@ audience: [developer]
 topic: skills
 tests: none
 status: stable
-updated: 2026-11-05
+updated: 2026-11-06
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "docs/skills/index.md"
 ---
@@ -216,7 +216,7 @@ source: "docs/skills/index.md"
 | [`nodefony-rfc`](nodefony-rfc.md) | 1.11.0 | 351 | 0 | 5 | ✅ |
 | [`nodefony-roadmap`](nodefony-roadmap.md) | 2.1.0 | 122 | 0 | 0 | ✅ |
 | [`nodefony-security-review`](nodefony-security-review.md) | — | 401 | 0 | 0 | ✅ |
-| [`nodefony-session`](nodefony-session.md) | 1.1.0 | 200 | 1 | 13 | ✅ |
+| [`nodefony-session`](nodefony-session.md) | 1.1.0 | 202 | 1 | 13 | ✅ |
 | [`nodefony-skill`](nodefony-skill.md) | 1.2.0 | 298 | 0 | 5 | ✅ |
 | [`nodefony-start-server`](nodefony-start-server.md) | — | 270 | 0 | 2 | ✅ |
 | [`nodefony-studio-dev`](nodefony-studio-dev.md) | 2.1.0 | 145 | 6 | 0 | ✅ |

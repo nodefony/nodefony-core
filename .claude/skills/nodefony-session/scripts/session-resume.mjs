@@ -23,6 +23,7 @@ import path from "node:path";
 import { chooseNextTicket, openItemsOf } from "./board-next.mjs";
 import {
   ciVerdict,
+  ciHistory,
   clip,
   firstPriority,
   linksInSection,
@@ -129,6 +130,16 @@ const pending = online
           ]),
         ),
       ),
+      // Une PR ouverte (Dependabot vise `main`) ne se voit ni dans les runs de
+      // `dev` ni au tableau : sans cette ligne, elle reste dans l'angle mort.
+      prs: shAsync("gh", [
+        "pr",
+        "list",
+        "--state",
+        "open",
+        "--json",
+        "number,title,baseRefName,author,statusCheckRollup",
+      ]),
       snapshot: shAsync(
         process.execPath,
         [script("nodefony-session/scripts/board-snapshot.mjs")],
@@ -233,15 +244,45 @@ if (online) {
       cancelled: "⚠️",
       none: "·",
     }[v.state];
+    const h = ciHistory(pushedShas, all);
+    const short = (s) => s.slice(0, 8);
+    const verdictOf = (c) =>
+      c.last === null
+        ? "aucun verdict sur la fenêtre"
+        : `dernier verdict ${c.last.state === "success" ? "✅" : "❌"} ${short(c.last.sha)}`;
     const detail = v.failed.length
       ? ` — rouge : ${v.failed.join(", ")}`
       : v.running.length
         ? ` — en cours : ${v.running.join(", ")}`
         : v.cancelled.length
-          ? ` — ANNULÉ (job figé ?) : ${v.cancelled.join(", ")}`
+          ? ` — annulé (supplanté ou figé) : ${h.cancelled
+              .filter((c) => c.sha === sha)
+              .map((c) => `${c.workflow} (${verdictOf(c)})`)
+              .join(", ")}`
           : "";
-    say(`CI ${sha.slice(0, 8)} ${icon} ${v.state}${clip(detail, 80)}`);
+    say(`CI ${short(sha)} ${icon} ${v.state}${clip(detail, 120)}`);
+    // Un workflow muet sur le dernier commit garde son rouge d'avant.
+    for (const r of h.stillRed.filter((r) => r.sha !== sha))
+      say(
+        `   ❌ toujours rouge : ${r.workflow} (${short(r.sha)}, pas relancé depuis)`,
+      );
+    for (const f of h.fixed)
+      say(
+        `   🩹 rouge corrigé : ${f.workflow} rouge sur ${short(f.redSha)}, vert depuis ${short(f.fixSha)}`,
+      );
   }
+  const prs = await pending.prs;
+  if (!prs.ok) say("⚠️ PR NON lues — appel gh en échec");
+  else
+    for (const p of JSON.parse(prs.out || "[]")) {
+      const checks = p.statusCheckRollup ?? [];
+      const red = checks.filter((c) =>
+        ["FAILURE", "TIMED_OUT", "STARTUP_FAILURE"].includes(c.conclusion),
+      ).length;
+      say(
+        `PR #${p.number} → ${p.baseRefName} (${p.author.login}) ${red ? `❌ ${red}/${checks.length}` : "✅"} ${clip(p.title, 70)}`,
+      );
+    }
 }
 
 // ── 5. Empreinte du tableau : LA voie de lecture, rafraîchie si on peut.
