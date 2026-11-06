@@ -276,7 +276,7 @@ ${optimizeLines}
     outDir: ${JSON.stringify(outDir)},
     manifest: true,
     emptyOutDir: true,
-    rollupOptions: {
+    rolldownOptions: {
       input: {
 ${inputLines}
       },

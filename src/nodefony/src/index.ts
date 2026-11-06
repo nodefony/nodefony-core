@@ -8,6 +8,10 @@ export { default as Kernel } from "./kernel/Kernel";
 export { default as Module } from "./kernel/Module";
 export { BootConfigurationError } from "./kernel/BootConfigurationError";
 export { parseStoreManifest } from "./kernel/storeManifest";
+// Rapport de build de rolldown : règle unique du socle `nodefony/bundler` et du
+// builder Vite de @nodefony/frontend — sans import de rolldown.
+export { buildReportDevtools } from "./bundler/buildReport";
+export type { IBuildReportDevtools } from "./bundler/buildReport";
 export type { IStoreManifest } from "./kernel/storeManifest";
 // Où vivent les migrations SQL d'une application, et quand elles font foi : lu
 // par le module Drizzle au démarrage ET par `create entity` — une seule règle.

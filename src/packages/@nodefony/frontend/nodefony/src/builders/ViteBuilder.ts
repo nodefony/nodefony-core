@@ -1,4 +1,5 @@
 import path from "node:path";
+import { buildReportDevtools } from "nodefony";
 import type {
   IFrontBuilder,
   IResolvedFrontendEntry,
@@ -146,7 +147,10 @@ export class ViteBuilder implements IFrontBuilder {
       build: {
         outDir,
         manifest: true,
-        rollupOptions: { input },
+        // `rolldownOptions` : le nom de Vite 8 (`rollupOptions` n'en est plus
+        // qu'un alias). Le rapport de build n'est écrit que par `vite.build` —
+        // le serveur de développement l'ignore (cf buildReportDevtools).
+        rolldownOptions: { input, devtools: buildReportDevtools() },
         emptyOutDir: true,
       },
       server: {

@@ -26,6 +26,10 @@ import { readFileSync, globSync } from "node:fs";
 import path from "node:path";
 import { defineConfig } from "rolldown";
 import type { RolldownOptions, RolldownPluginOption } from "rolldown";
+import { buildReportDevtools } from "./buildReport";
+
+export { buildReportDevtools } from "./buildReport";
+export type { IBuildReportDevtools } from "./buildReport";
 
 export interface INodefonyRolldownOptions {
   /** Liste `external` du package (deps runtime non bundlées). Le nom propre du paquet est ajouté d'office. */
@@ -62,6 +66,11 @@ export interface INodefonyRolldownOptions {
    * application dont un front sortirait dans `dist/`) serait vidé avec.
    */
   cleanDir?: boolean;
+  /**
+   * Rapport de build de rolldown sous `node_modules/.rolldown/report/<outDir>/`
+   * (défaut `true`) — cf {@link buildReportDevtools}. `false` le coupe.
+   */
+  buildReport?: boolean;
 }
 
 const IGNORED = [/\.d\.ts$/u, /\.test\.ts$/u, /\.spec\.ts$/u, /(^|\/)tests\//u];
@@ -165,6 +174,7 @@ export function defineNodefonyRolldownConfig(
     ]),
   ];
   const matcher = nodefonyExternalMatcher(external);
+  const devtools = buildReportDevtools(opts.buildReport);
 
   return defineConfig({
     input: opts.input ?? nodefonyInput(opts.globPatterns),
@@ -178,6 +188,9 @@ export function defineNodefonyRolldownConfig(
       ? (id: string): boolean => id.startsWith(FRAMEWORK_SCOPE) || matcher(id)
       : matcher,
     treeshake: nodefonyTreeshake,
+    // Clé ABSENTE quand le rapport est coupé : `exactOptionalPropertyTypes`
+    // refuse un `devtools: undefined`.
+    ...(devtools === undefined ? {} : { devtools }),
     output: {
       dir: opts.outDir ?? "dist",
       cleanDir: opts.cleanDir ?? false,

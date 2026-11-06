@@ -87,6 +87,30 @@ describe("@nodefony/frontend — prod build + renderProdTags (P14.5)", () => {
     expect(chunk!.file).to.match(/\.js$/);
   });
 
+  it("vite build écrit le rapport de build de rolldown, relatif au cwd (agents, budgets)", () => {
+    // Écrit par le build du test précédent : rolldown range le rapport sous
+    // `node_modules/.rolldown/report/<outDir relatif au cwd>/`, chaque `..`
+    // devenant `__`.
+    const rel = path
+      .relative(process.cwd(), OUT_DIR)
+      .split(path.sep)
+      .map((p) => (p === ".." ? "__" : p));
+    const reportDir = path.join(
+      process.cwd(),
+      "node_modules",
+      ".rolldown",
+      "report",
+      ...rel,
+    );
+    expect(fs.existsSync(path.join(reportDir, "entry.md")), reportDir).to.equal(
+      true,
+    );
+    const metrics = JSON.parse(
+      fs.readFileSync(path.join(reportDir, "metrics.json"), "utf8"),
+    ) as { metrics?: Record<string, number> };
+    expect(metrics.metrics?.["output.total_bytes"] ?? 0).to.be.greaterThan(0);
+  });
+
   it("le bundle RENDU est en mode production, même si NODE_ENV dit développement (#137)", async () => {
     // Le défaut ne se voyait NULLE PART dans la configuration : `mode:
     // "production"` était passé depuis le début. Vite dérive pourtant son

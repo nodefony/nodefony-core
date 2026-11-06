@@ -153,3 +153,16 @@ describe("ViteBuilder — resolve absent", () => {
     expect(cfg.resolve).to.be.undefined;
   });
 });
+
+describe("ViteBuilder — rapport de build de rolldown", () => {
+  const builder = new ViteBuilder();
+
+  it("le build pose le rapport par `rolldownOptions` (nom Vite 8), plus aucun `rollupOptions`", async () => {
+    const cfg = await builder.buildViteConfig([entry], "production", "");
+    const build = cfg.build as Record<string, unknown>;
+    expect(build.rollupOptions).to.equal(undefined);
+    const rolldownOptions = build.rolldownOptions as Record<string, unknown>;
+    expect(rolldownOptions.devtools).to.deep.equal({ mode: "report" });
+    expect(rolldownOptions.input).to.have.property("test-mod");
+  });
+});

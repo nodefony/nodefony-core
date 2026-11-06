@@ -1,5 +1,12 @@
 import { assert } from "vitest";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { rolldown } from "rolldown";
@@ -219,6 +226,66 @@ describe("nodefony/bundler — socle rolldown partagé (subpath publiable)", () 
       });
       const external = config.external as (id: string) => boolean;
       assert.isFalse(external("commander"));
+    });
+
+    it("rapport de build : allumé par défaut, coupé par buildReport: false", () => {
+      const on = defineNodefonyRolldownConfig({
+        input: { index: "./index.ts" },
+      });
+      assert.deepEqual(on.devtools, { mode: "report" });
+      const off = defineNodefonyRolldownConfig({
+        input: { index: "./index.ts" },
+        buildReport: false,
+      });
+      assert.isUndefined(off.devtools);
+    });
+
+    it("build réel : le rapport s'écrit sous node_modules/.rolldown/report/<outDir>/, rien quand il est coupé", async () => {
+      const root = mkdtempSync(path.join(tmpdir(), "nf-bundler-report-"));
+      try {
+        const entry = path.join(root, "index.js");
+        writeFileSync(entry, "export const answer = 42;\n");
+        const reportDir = path.join(
+          root,
+          "node_modules",
+          ".rolldown",
+          "report",
+          "dist",
+        );
+        const write = async (buildReport: boolean): Promise<void> => {
+          const {
+            input: _i,
+            output,
+            ...config
+          } = defineNodefonyRolldownConfig({
+            input: { index: entry },
+            buildReport,
+          });
+          const bundle = await rolldown({
+            ...config,
+            input: { index: entry },
+            cwd: root,
+          });
+          await bundle.write({
+            ...(output as OutputOptions),
+            dir: path.join(root, "dist"),
+            preserveModulesRoot: root,
+          });
+          await bundle.close(); // c'est la fermeture qui écrit le rapport
+        };
+
+        await write(false);
+        assert.isFalse(existsSync(reportDir), "coupé : aucun rapport");
+
+        await write(true);
+        assert.isTrue(existsSync(path.join(reportDir, "entry.md")), "entry.md");
+        const metrics = JSON.parse(
+          readFileSync(path.join(reportDir, "metrics.json"), "utf8"),
+        ) as { metrics?: Record<string, number> };
+        assert.isAbove(metrics.metrics?.["output.total_bytes"] ?? 0, 0);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
     });
   });
 });
