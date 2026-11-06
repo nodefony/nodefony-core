@@ -345,6 +345,7 @@ class WebsocketResponse {
 
   addCookie(cookie: Cookie) {
     if (cookie instanceof Cookie) {
+      cookie.assertGrammar();
       this.cookies[cookie.name] = cookie;
     } else {
       throw new Error("Response addCookies not valid cookies");

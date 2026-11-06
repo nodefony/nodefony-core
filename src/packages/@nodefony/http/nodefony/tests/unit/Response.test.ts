@@ -316,6 +316,16 @@ describe("HttpResponse — unit tests", () => {
   // boucle de setHeader perdait tous les cookies sauf le dernier (ex. session +
   // csrf-token). `setCookies()` doit émettre un TABLEAU = N lignes Set-Cookie.
   describe("setCookies() — cookies multiples (régression clobber)", () => {
+    it("un cookie hors grammaire lève à la POSE, pas au writeHead (#736)", () => {
+      const r = makeResponse();
+      expect(() =>
+        r.addCookie(
+          new Cookie("sid", "abc", { path: "/; Domain=evil.example" }),
+        ),
+      ).to.throw(TypeError, /path/);
+      expect(r.cookies).to.not.have.property("sid");
+    });
+
     it("1 cookie → une string Set-Cookie", () => {
       const r = makeResponse();
       r.addCookie(new Cookie("sid", "abc", { path: "/" }));

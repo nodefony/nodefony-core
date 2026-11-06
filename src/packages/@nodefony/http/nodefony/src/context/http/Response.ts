@@ -324,6 +324,7 @@ class HttpResponse {
 
   addCookie(cookie: Cookie) {
     if (cookie instanceof Cookie) {
+      cookie.assertGrammar();
       return (this.cookies[cookie.name] = cookie);
     }
     throw new Error("Response addCookies not valid cookies");

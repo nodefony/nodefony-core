@@ -1,6 +1,7 @@
 /// <reference types="node" />
 import { expect } from "vitest";
 import https from "node:https";
+import http2 from "node:http2";
 
 // ── helpers ──────────────────────────────────────────────────────
 
@@ -151,6 +152,42 @@ describe("Security — cookie (requires server)", () => {
       Cookie: "not-valid-cookie-format!@#$%^",
     });
     expect(status).to.be.within(200, 599);
+  });
+
+  // #736 : la valeur était décodée DEUX fois, et le second `decodeURIComponent`
+  // levait dans le constructeur du contexte — HTTP/1.1 coupait sans un octet,
+  // HTTP/2 laissait le flux pendu.
+  it("un % isolé dans une valeur de cookie est servi en HTTP/1.1 comme sans cookie", async () => {
+    const plain = await get("/nodefony/test/rest/session");
+    const { status } = await get("/nodefony/test/rest/session", {
+      Cookie: "a=50%25",
+    });
+    expect(status).to.equal(plain.status);
+  });
+
+  it("…et en HTTP/2, sans flux pendu", async () => {
+    const session = http2.connect("https://localhost:5152", {
+      rejectUnauthorized: false,
+    });
+    try {
+      const status = await new Promise<number>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error("flux pendu")), 3000);
+        const req = session.request({
+          ":path": "/nodefony/test/rest/session",
+          cookie: "a=50%25",
+        });
+        req.on("response", (headers) => {
+          clearTimeout(timer);
+          resolve(Number(headers[":status"]));
+        });
+        req.on("error", reject);
+        req.resume();
+        req.end();
+      });
+      expect(status).to.equal(200);
+    } finally {
+      session.close();
+    }
   });
 
   it("multiple Set-Cookie values are distinct (no header confusion)", async () => {

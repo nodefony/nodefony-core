@@ -1,5 +1,6 @@
 import { expect } from "vitest";
-import Cookie from "../../src/cookies/cookie.js";
+import Cookie, { cookiesParser } from "../../src/cookies/cookie.js";
+import type { ContextType } from "../../service/http-kernel.js";
 
 describe("Cookie — unit tests", () => {
   describe("constructor(name, value)", () => {
@@ -343,6 +344,96 @@ describe("Cookie — unit tests", () => {
       const obj = c.serializeWebSocket();
       expect(obj).to.have.property("path", "/");
       expect(obj).to.have.property("httponly", true);
+    });
+  });
+});
+
+/** Contexte WebSocket minimal : ce que `cookiesParser` lit et écrit. */
+function wsContext(cookieHeader: string) {
+  const cookies: Record<string, Cookie> = {};
+  const context = {
+    type: "websocket",
+    request: { headers: { cookie: cookieHeader } },
+    addRequestCookie: (c: Cookie) => (cookies[c.name] = c),
+  };
+  return { context: context as unknown as ContextType, cookies };
+}
+
+describe("Cookie — conformité RFC 6265 (#736)", () => {
+  describe("Max-Age entier (§4.1.1 : non-zero-digit *DIGIT)", () => {
+    it("une échéance à 1 h moins 126 ms sort Max-Age=3599, jamais décimal", () => {
+      const c = new Cookie("sid", "x", {
+        expires: new Date(Date.now() + 3_600_000 - 126),
+      });
+      expect(c.serialize()).to.match(/; Max-Age=3599;/);
+      expect(c.serializeWebSocket().maxage).to.equal(3599);
+    });
+
+    it("un maxAge fractionnaire est arrondi vers le bas", () => {
+      const c = new Cookie("sid", "x", { maxAge: "1500ms" });
+      expect(c.serialize()).to.include("Max-Age=1;");
+    });
+
+    it("moins d'une seconde : pas de Max-Age (Max-Age=0 n'est pas dans la grammaire)", () => {
+      const c = new Cookie("sid", "x", {
+        expires: new Date(Date.now() + 400),
+      });
+      expect(c.serialize()).to.not.include("Max-Age");
+      expect(c.serialize()).to.include("Expires=");
+    });
+  });
+
+  describe("Lecture de l'en-tête Cookie : un seul décodage, jamais d'exception", () => {
+    it("un % isolé ne lève pas : la valeur reste brute", () => {
+      const { context, cookies } = wsContext("a=50%25; b=ok");
+      expect(() => cookiesParser(context)).to.not.throw();
+      expect(cookies.a?.value).to.equal("50%");
+      expect(cookies.b?.value).to.equal("ok");
+    });
+
+    it("une valeur est décodée UNE fois : a%2541 → a%41, jamais aA", () => {
+      const { context, cookies } = wsContext("a=a%2541");
+      cookiesParser(context);
+      expect(cookies.a?.value).to.equal("a%41");
+    });
+
+    it("un nom en double : la PREMIÈRE occurrence gagne", () => {
+      const { context, cookies } = wsContext(
+        "csrf-token=first; csrf-token=second",
+      );
+      cookiesParser(context);
+      expect(cookies["csrf-token"]?.value).to.equal("first");
+    });
+
+    it("setValue garde un % invalide au lieu de lever", () => {
+      expect(new Cookie("a", "100%").value).to.equal("100%");
+    });
+  });
+
+  describe("Grammaire du nom, du Path et du Domain à la pose", () => {
+    it("un cookie conforme passe", () => {
+      const c = new Cookie("sid", "x", {
+        path: "/admin",
+        domain: "example.com",
+      });
+      expect(() => c.assertGrammar()).to.not.throw();
+    });
+
+    it("un nom porteur de ; lève en nommant le nom", () => {
+      expect(() => new Cookie("bad;name", "x").assertGrammar()).to.throw(
+        TypeError,
+        /name/,
+      );
+    });
+
+    it("un Path qui injecte un attribut lève", () => {
+      const c = new Cookie("sid", "x", { path: "/; Domain=evil.example" });
+      expect(() => c.assertGrammar()).to.throw(TypeError, /path/);
+    });
+
+    it("un Domain hors grammaire lève", () => {
+      const c = new Cookie("sid", "x", { domain: "evil.example; Secure" });
+      expect(() => c.assertGrammar()).to.throw(TypeError, /domain/);
     });
   });
 });

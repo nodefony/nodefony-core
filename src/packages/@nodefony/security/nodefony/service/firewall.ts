@@ -150,23 +150,14 @@ function headerValue(
 }
 
 /**
- * Extrait la valeur d'un cookie de l'en-tête `Cookie` brut (lecture directe, sans
- * dépendre du parse du Context — robuste quel que soit l'ordre du pipeline).
- * Retient la 1ʳᵉ occurrence du nom. Utilisé par la défense synchronizer CSRF.
+ * Valeur d'un cookie de la requête, lue sur le contexte : l'en-tête `Cookie`
+ * n'a qu'UN lecteur, `cookiesParser` (`@nodefony/http`), qui tourne à la
+ * construction du contexte — donc avant toute étape du pare-feu. Une seconde
+ * lecture ici divergeait (décodage, doublons) et levait sur un `%` isolé.
  */
-function cookieValue(
-  cookieHeader: string | undefined,
-  name: string,
-): string | undefined {
-  if (!cookieHeader) return undefined;
-  for (const part of cookieHeader.split(";")) {
-    const eq = part.indexOf("=");
-    if (eq === -1) continue;
-    if (part.slice(0, eq).trim() === name) {
-      return decodeURIComponent(part.slice(eq + 1).trim());
-    }
-  }
-  return undefined;
+function requestCookie(context: ContextType, name: string): string | undefined {
+  const value: unknown = context.cookies[name]?.value;
+  return typeof value === "string" ? value : undefined;
 }
 
 /**
@@ -1171,7 +1162,7 @@ class Firewall extends Service implements IFirewall {
     if (ctx.csrfProtect && this.#csrfTokens) {
       const ok = this.#csrfTokens.verify(
         headerValue(headers, "x-csrf-token"),
-        cookieValue(headerValue(headers, "cookie"), "csrf-token"),
+        requestCookie(context, "csrf-token"),
       );
       if (!ok) throw new CsrfError("Missing or invalid CSRF token");
     }

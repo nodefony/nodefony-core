@@ -1,8 +1,30 @@
-import { parseCookie } from "cookie";
+import { parseCookie, stringifySetCookie } from "cookie";
+import type { ParseOptions, SetCookie } from "cookie";
 import MS, { StringValue } from "ms";
 import { extend } from "nodefony";
 const encode = encodeURIComponent;
-const decode = decodeURIComponent;
+
+/**
+ * Décode une valeur de cookie sans jamais lever : une séquence `%` invalide
+ * rend la valeur brute (règle du paquet `cookie`). Un `decodeURIComponent`
+ * nu levait dans le constructeur du contexte, et la requête restait sans
+ * réponse (`Cookie: a=50%25`).
+ */
+function decode(value: string): string {
+  if (!value.includes("%")) return value;
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+/**
+ * Lecture de l'en-tête `Cookie` SANS décodage : la valeur est décodée une
+ * seule fois, par {@link Cookie.setValue}. Décoder aux deux endroits
+ * transformait `a%2541` en `aA` au lieu de `a%41`.
+ */
+const RAW_VALUES: ParseOptions = { decode: (value) => value };
 import crypto from "node:crypto";
 import HttpContext from "../context/http/HttpContext";
 import WebsocketContext from "../context/websocket/WebsocketContext.js";
@@ -47,17 +69,6 @@ const cookieDefaultSettings: CookieOptionsType = {
   secret: "!nodefony.secret!",
 };
 
-function parser(strToParse: string) {
-  return parseCookie(strToParse);
-}
-// function parserWs(tab: websocket.ICookie[]): Record<string, string> {
-//   const ele = {};
-//   for (const ele of tab) {
-//     ele;
-//   }
-//   return ele;
-// }
-
 function cookiesParser(context: ContextType) {
   let cookies = null;
   let co;
@@ -67,7 +78,7 @@ function cookiesParser(context: ContextType) {
         cookies = (context as HttpContext).request.request.headers.cookie;
       }
       if (cookies) {
-        const obj = parser(cookies);
+        const obj = parseCookie(cookies, RAW_VALUES);
         for (const cookie in obj) {
           co = new Cookie(cookie, obj[cookie]);
           (context as HttpContext).addRequestCookie(co);
@@ -82,7 +93,7 @@ function cookiesParser(context: ContextType) {
       const wsReq = (context as WebsocketContext).request;
       const cookieHeader = wsReq?.headers.cookie;
       if (cookieHeader) {
-        const parsed = parser(cookieHeader);
+        const parsed = parseCookie(cookieHeader, RAW_VALUES);
         for (const name in parsed) {
           co = new Cookie(name, parsed[name]);
           (context as WebsocketContext).addRequestCookie(co);
@@ -273,20 +284,39 @@ class Cookie implements ICookieInterface {
     return val;
   }
 
+  /**
+   * Durée de vie restante en SECONDES ENTIÈRES, `undefined` sous une seconde.
+   *
+   * RFC 6265 §4.1.1 : `max-age-av = "Max-Age=" non-zero-digit *DIGIT`. Un
+   * `Max-Age=3599.874` est ignoré par le navigateur, et le cookie devient un
+   * cookie de session. Arrondi INFÉRIEUR : le cookie ne survit jamais à son
+   * `Expires`.
+   */
   getMaxAge(): number | undefined {
-    if (this.expires && this.expires instanceof Date) {
-      const ms = this.expires.getTime() - new Date().getTime();
-      const s = ms / 1000;
-      if (s > 0) {
-        this.maxAge = s; // en seconde
-      } else {
-        this.maxAge = undefined;
-        // throw new Error(`Espires / Max-Age : ${s} Error Espires`);
-      }
-    } else {
-      this.maxAge = this.originalMaxAge;
-    }
+    const seconds =
+      this.expires instanceof Date
+        ? (this.expires.getTime() - Date.now()) / 1000
+        : this.originalMaxAge;
+    const whole = seconds === undefined ? 0 : Math.floor(seconds);
+    this.maxAge = whole >= 1 ? whole : undefined;
     return this.maxAge;
+  }
+
+  /**
+   * Vérifie la grammaire RFC 6265 §4.1.1 du nom, du `Path` et du `Domain`,
+   * au moment où le cookie est POSÉ sur la réponse.
+   *
+   * Sans elle, `path: "/; Domain=evil.example"` injectait un attribut, et un
+   * nom porteur de `;` partait tel quel. La grammaire est celle du paquet
+   * `cookie` : une seule implémentation.
+   *
+   * @throws {TypeError} nommant l'attribut hors grammaire.
+   */
+  assertGrammar(): void {
+    const attributes: SetCookie = { name: this.name, value: "" };
+    if (this.path !== undefined) attributes.path = this.path;
+    if (this.domain !== undefined) attributes.domain = this.domain;
+    stringifySetCookie(attributes);
   }
 
   toString() {
@@ -426,4 +456,4 @@ class Cookie implements ICookieInterface {
 }
 
 export default Cookie;
-export { cookiesParser, parser /*parserWs */ /*getRequestcookies*/ };
+export { cookiesParser };
