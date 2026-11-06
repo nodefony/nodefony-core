@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-11-06 17:37** (UTC).
+> Empreinte prise le **2026-11-06 18:36** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,7 +20,7 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 93% | 236 | 17 | 2026-11-12 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 94% | 237 | 16 | 2026-11-12 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 97% | 135 | 4 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 13% | 6 | 42 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 33 | — |
@@ -35,7 +35,7 @@
 
 Ordre 6.0346 · P2 — décision · 0.5 j · jalon 10.0.0-beta · frise 2026-11-10 → 11-10
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 17 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 16 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -112,7 +112,7 @@ Ordre 6.0346 · P2 — décision · 0.5 j · jalon 10.0.0-beta · frise 2026-11-
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-beta — 17 ouverts
+## Jalon 10.0.0-beta — 16 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -120,7 +120,6 @@ Ordre 6.0346 · P2 — décision · 0.5 j · jalon 10.0.0-beta · frise 2026-11-
 | 6.12 | P2 — décision | 0.5 | 2026-11-19 → 11-19 | #89 | docs(notification): faire la veille des canaux de communication attendus |
 | 6.8 | P1 — figé à la création | — | — | #732 | fix(http): aligner le cœur HTTP, HTTP/2 et WebSocket sur la lecture complète de leurs normes |
 | 6.83 | P2 — décision | 0.5 | — | #735 | fix(http): faire respecter Max-Forwards et Forwarded par le proxy inverse |
-| 6.84 | P1 — figé à la création | 0.5 | — | #736 | fix(http): émettre des cookies conformes, sans Max-Age décimal |
 | 7.01 | P2 — décision | 4.5 | — | #694 | feat(http): servir des services gRPC dans le pipeline HTTP/2 |
 | 7.02 | P2 — décision | 3 | — | #695 | feat(http): déclarer et servir un service gRPC depuis un module |
 | 7.03 | P2 — décision | 0.5 | — | #696 | fix(cli): router gRPC vers h2c dans la config nginx générée |
