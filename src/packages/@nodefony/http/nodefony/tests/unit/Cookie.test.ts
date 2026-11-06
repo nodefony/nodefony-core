@@ -370,7 +370,7 @@ describe("Cookie — conformité RFC 6265 (#736)", () => {
     });
 
     it("un maxAge fractionnaire est arrondi vers le bas", () => {
-      const c = new Cookie("sid", "x", { maxAge: "1500ms" });
+      const c = new Cookie("sid", "x", { maxAge: 1.5 });
       expect(c.serialize()).to.include("Max-Age=1;");
     });
 
