@@ -81,23 +81,56 @@ async function journalFrom(): Promise<() => Promise<IJournalEntry[]>> {
 }
 
 /**
+ * `msgid` d'une ligne d'accès, selon le format que le serveur a choisi
+ * (`HttpKernel.applyRequestLoggerFromConfig`) : `req` pour le format
+ * `pretty` (développement), `audit` pour le JSON (production).
+ */
+const ACCESS_MSGIDS = new Set(["req", "audit"]);
+
+/**
  * Les erreurs ÉCRITES au journal, hors lignes d'accès : une réponse 5xx
  * journalise aussi sa ligne d'accès en ERROR, mais c'est un autre fait.
  */
 function errorsOf(entries: IJournalEntry[]): IJournalEntry[] {
-  return entries.filter((e) => e.severity === "ERROR" && e.msgid !== "req");
+  return entries.filter(
+    (e) => e.severity === "ERROR" && !ACCESS_MSGIDS.has(e.msgid),
+  );
 }
 
-/** La ligne d'accès (`req`) d'une URL, lue après le repère. */
+/** Ce que porte une entrée d'audit JSON, pour la ramener à `MÉTHODE STATUT URL`. */
+interface IAuditAccess {
+  method?: string;
+  status?: number | null;
+  url?: string;
+}
+
+/**
+ * La ligne d'accès d'une URL, lue après le repère, ramenée à la forme
+ * `MÉTHODE STATUT URL` quel que soit le format du journal : la ligne
+ * `pretty` l'a déjà, l'entrée `audit` est du JSON.
+ */
 async function accessLine(
   read: () => Promise<IJournalEntry[]>,
   path: string,
 ): Promise<string> {
-  const lines = (await read()).filter(
-    (e) => e.msgid === "req" && e.text.includes(path),
+  const entries = await read();
+  const lines = entries.filter(
+    (e) => ACCESS_MSGIDS.has(e.msgid) && e.text.includes(path),
   );
-  expect(lines, `ligne d'accès de ${path}`).to.have.length(1);
-  return lines[0]?.text ?? "";
+  expect(
+    lines,
+    `ligne d'accès de ${path} — msgid relevés : ${[...new Set(entries.map((e) => e.msgid))].join(", ")}`,
+  ).to.have.length(1);
+  const line = lines[0];
+  if (line === undefined) return "";
+  if (line.msgid !== "audit") return line.text;
+  const audit = JSON.parse(line.text) as IAuditAccess;
+  return `${audit.method ?? ""} ${audit.status ?? ""} ${audit.url ?? ""}`;
+}
+
+/** Le message d'une assertion sur les erreurs : les `msgid` en cause. */
+function describeErrors(errors: IJournalEntry[]): string {
+  return `entrées ERROR : ${errors.map((e) => e.msgid).join(", ") || "aucune"}`;
 }
 
 /** Ce que le journal ne doit JAMAIS porter après un flux. */
@@ -178,7 +211,10 @@ describe("Flux d'octets — renderStream (requires server)", () => {
     await pause(100);
     const entries = await read();
     // Une ERROR au plus : celle du moteur d'erreurs, écrite en mode debug.
-    expect(errorsOf(entries), "entrées ERROR").to.have.length.at.most(1);
+    expect(
+      errorsOf(entries),
+      describeErrors(errorsOf(entries)),
+    ).to.have.length.at.most(1);
     expectQuietJournal(entries);
   });
 
@@ -202,7 +238,7 @@ describe("Flux d'octets — renderStream (requires server)", () => {
     await pause(100);
     const entries = await read();
     const errors = errorsOf(entries);
-    expect(errors, "entrées ERROR").to.have.length(1);
+    expect(errors, describeErrors(errors)).to.have.length(1);
     expect(errors[0]?.msgid).to.equal("STREAM");
     expectQuietJournal(entries);
     // Coupé par le serveur : 500 au journal d'accès, jamais 499.
@@ -218,7 +254,9 @@ describe("Flux d'octets — renderStream (requires server)", () => {
     flow.dispose();
     await pause(100);
     const entries = await read();
-    expect(errorsOf(entries), "entrées ERROR").to.have.length(0);
+    expect(errorsOf(entries), describeErrors(errorsOf(entries))).to.have.length(
+      0,
+    );
     expectQuietJournal(entries);
   });
 
@@ -392,7 +430,9 @@ describe("Fichier en flux — streamFile sur la brique (requires server)", () =>
     await pause(100);
     expect(await accessLine(read, `${HTML}/download`)).to.match(/^GET\s+200\s/);
     const entries = await read();
-    expect(errorsOf(entries), "entrées ERROR").to.have.length(0);
+    expect(errorsOf(entries), describeErrors(errorsOf(entries))).to.have.length(
+      0,
+    );
     expectQuietJournal(entries);
   });
 
@@ -403,7 +443,9 @@ describe("Fichier en flux — streamFile sur la brique (requires server)", () =>
     await res.arrayBuffer();
     await pause(100);
     const entries = await read();
-    expect(errorsOf(entries), "entrées ERROR").to.have.length(0);
+    expect(errorsOf(entries), describeErrors(errorsOf(entries))).to.have.length(
+      0,
+    );
     expectQuietJournal(entries);
   });
 
