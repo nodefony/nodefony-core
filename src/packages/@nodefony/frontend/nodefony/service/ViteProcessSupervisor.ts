@@ -423,7 +423,7 @@ export class ViteProcessSupervisor implements IViteSupervisor {
         lastErr = e instanceof Error ? e : new Error(String(e));
         if (this.isPortInUseError(lastErr) && i < maxAttempts) {
           this.opts.logger.info(
-            `port ${port} unavailable — retrying on ${port + 1}`,
+            `port ${port} déjà occupé — Vite relancé sur ${port + 1}`,
           );
           this.portRetries += 1;
           continue;
@@ -547,6 +547,7 @@ export class ViteProcessSupervisor implements IViteSupervisor {
         if (resolved) return;
         resolved = true;
         this.state = "errored";
+        flushStderr();
         // Le child est peut-être VIVANT (boot interminable, pas mort) : sans ce
         // kill il devenait un ORPHELIN hors machine à états — aucun handler
         // runtime attaché, aucun restart, un Vite fantôme qui squatte le port
@@ -566,6 +567,16 @@ export class ViteProcessSupervisor implements IViteSupervisor {
       const ansiRe = /\x1b\[[0-9;]*m/g;
       const viteOwnPrefixRe = /^\d{1,2}:\d{2}:\d{2}\s+\[vite\]\s*|^\[vite\]\s*/;
       let buffer = "";
+      // La sortie d'ERREUR du démarrage est RETENUE jusqu'au verdict. Relayée au
+      // fil de l'eau, un conflit de port que `spawnWithPortRetry` rattrape sur le
+      // port suivant laissait 7 lignes ERROR (la trace de Vite) dans un démarrage
+      // RÉUSSI — et le résumé de boot annonçait « 7 ERROR ». Vécu sur une 2ᵉ
+      // application lancée à côté d'une première qui tenait 5173.
+      let heldStderr = "";
+      const flushStderr = (): void => {
+        if (heldStderr !== "") pipeClean(heldStderr, "error");
+        heldStderr = "";
+      };
 
       const pipeClean = (raw: string, level: "info" | "error") => {
         if (!this.opts.pipeLogs) return;
@@ -592,6 +603,9 @@ export class ViteProcessSupervisor implements IViteSupervisor {
           this.healthFailures = 0;
           resolved = true;
           buffer = "";
+          // Démarré : ce que Vite a écrit en erreur avant n'était pas fatal,
+          // mais il l'a écrit — relayé, jamais tu.
+          flushStderr();
           clearTimeout(timeout);
           resolve();
         }
@@ -599,8 +613,11 @@ export class ViteProcessSupervisor implements IViteSupervisor {
 
       const onStderr = (chunk: Buffer | string) => {
         const txt = chunk.toString();
-        pipeClean(txt, "error");
-        if (resolved) return;
+        if (resolved) {
+          pipeClean(txt, "error");
+          return;
+        }
+        heldStderr += txt;
         // 🐛 Le conflit de port arrive par ICI, pas par stdout. `onExit` décide de
         // retenter en cherchant « Port X is in use » dans `buffer` — que seul
         // `onStdout` alimentait. Résultat : `buffer` vide, aucun retry, et la
@@ -616,6 +633,7 @@ export class ViteProcessSupervisor implements IViteSupervisor {
           this.healthFailures = 0;
           resolved = true;
           buffer = "";
+          flushStderr();
           clearTimeout(timeout);
           resolve();
         }
@@ -629,6 +647,7 @@ export class ViteProcessSupervisor implements IViteSupervisor {
           // pas une panne — l'état et le message le disent, sinon le shutdown
           // normal se journalise en « family failed to start » (bruit trompeur).
           if (this.willingShutdown) {
+            heldStderr = "";
             this.state = "stopped";
             this.lastError = null;
             reject(
@@ -646,8 +665,13 @@ export class ViteProcessSupervisor implements IViteSupervisor {
           this.state = "errored";
           this.lastError = msg;
           if (isPortInUseMessage(buffer)) {
+            // Rattrapable : `spawnWithPortRetry` relance sur le port suivant et
+            // l'annonce. La trace de Vite n'est PAS relayée — si les replis
+            // s'épuisent, l'erreur finale en porte la fin (`exitBeforeReadyMessage`).
+            heldStderr = "";
             reject(new FrontendSupervisorStartError("EADDRINUSE: " + msg));
           } else {
+            flushStderr();
             reject(new FrontendSupervisorStartError(msg));
           }
         }
@@ -656,6 +680,7 @@ export class ViteProcessSupervisor implements IViteSupervisor {
       const onError = (err: Error) => {
         if (resolved) return;
         resolved = true;
+        flushStderr();
         clearTimeout(timeout);
         this.state = "errored";
         this.lastError = err.message;

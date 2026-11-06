@@ -150,7 +150,7 @@ dérive ici — l'audit `nodefony-check-externals` doit lire ce paragraphe avant
 ## Gotchas
 
 - **`vite.config.generated.mjs` overwrite** : régénéré à CHAQUE `startDev()`. Ne JAMAIS éditer manuellement.
-- **Port Vite réel ≠ port configuré** : si 5173 occupé, Vite incrémente. Le superviseur parse `Local:` pour récupérer le port réel.
+- **Port Vite réel ≠ port configuré** : le config généré porte `strictPort: true`, donc Vite ne se décale PAS seul — si 5173 est occupé il meurt, et `spawnWithPortRetry` le relance sur le port suivant (`portRetryAttempts`). Le superviseur parse `Local:` pour récupérer le port réel. La sortie d'erreur du démarrage est RETENUE jusqu'au verdict : un conflit rattrapé ne laisse qu'une ligne d'information, jamais la trace de Vite en ERROR (qui gonflait le compte ERROR du résumé de boot).
 - **`@vitejs/plugin-react` paresseux** : chargé via `await import()` dans le preset → pas d'erreur si pas installé tant qu'aucun module ne déclare `type: "react19"`.
 - **PathRoot vs entryFile** : `entryFile` est relatif au root du module (ex: `./frontend/src/main.tsx`), `root` est la racine front (ex: `./frontend`). Le TemplateHelper retire le root pour produire l'URL Vite (`/src/main.tsx`).
 - **`experimentalDecorators` requis** : Service injectable via `@injectable()` — sans lui les décorateurs ne compilent pas. `emitDecoratorMetadata` reste à `false` : une dépendance se nomme par `@Inject("nom")` (ADR-0018).

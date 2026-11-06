@@ -207,13 +207,20 @@ describe("ViteProcessSupervisor — intégration (real spawn)", () => {
       healthCheckIntervalMs: 0,
       autoRestart: false,
     });
+    // La 2ᵉ relaie ses journaux : un repli RÉUSSI ne doit laisser aucune ligne
+    // ERROR (vécu : 7 lignes de trace Vite, et « 7 ERROR » au résumé de boot).
+    const secondErrors: string[] = [];
     const second = new ViteProcessSupervisor({
       devHost: "127.0.0.1",
       devPort: port, // MÊME port de base : le conflit est le sujet du test
       startupTimeoutMs: 20_000,
-      pipeLogs: false,
+      pipeLogs: true,
       cwd: PEER_ROOT,
-      logger: silentLogger,
+      logger: {
+        info: () => {},
+        error: (msg: string) => void secondErrors.push(msg),
+        debug: () => {},
+      },
       healthCheckIntervalMs: 0,
       autoRestart: false,
     });
@@ -350,6 +357,11 @@ describe("ViteProcessSupervisor — intégration (real spawn)", () => {
           "rien de ce qu'il annonce",
       ).to.be.greaterThan(0);
       expect(await httpPing("127.0.0.1", status.port!)).to.be.greaterThan(0);
+      expect(
+        secondErrors,
+        "un conflit de port RATTRAPÉ s'annonce en une ligne d'information, " +
+          "jamais par la trace de Vite en ERROR",
+      ).to.deep.equal([]);
       // Les deux répondent : la 1ʳᵉ app n'a pas été délogée au passage.
       expect(await httpPing("127.0.0.1", port)).to.be.greaterThan(0);
     } finally {
