@@ -84,6 +84,15 @@ type ReadStreamOptions = {
   start?: number;
   end?: number;
   highWaterMark?: number;
+  /**
+   * `false` coupe les requêtes conditionnelles : ni `ETag`, ni
+   * `Last-Modified`, ni 304/412, ni `Cache-Control` par défaut, et
+   * `If-Range` n'autorise aucune reprise. Pour des fichiers dont la date
+   * n'est pas fiable (archive décompressée, build reproductible : même taille
+   * et même date pour deux contenus) — passer plutôt sa propre `ETag`
+   * (hachage du contenu) garde le 304. Défaut `true`.
+   */
+  validators?: boolean;
 };
 
 /**
@@ -190,6 +199,13 @@ const EXPIRED_HTTP_DATE = "Thu, 01 Jan 1970 00:00:00 GMT";
  * réutilisation (§5.2.2.4) — ce qui coûte un 304, grâce aux validateurs.
  */
 const FILE_CACHE_CONTROL = "private, no-cache";
+
+/** Aucun validateur : `If-Range` ne tient jamais, aucune précondition n'est évaluée. */
+const NO_VALIDATORS: IValidators = Object.freeze({
+  etag: null,
+  lastModified: null,
+  lastModifiedStrong: false,
+});
 
 /**
  * En-têtes qu'un 304 doit porter, ceux qu'aurait portés le 200 (RFC 9110
@@ -1080,6 +1096,9 @@ class Controller extends Service implements IController {
    * fixe aucun — en passer un dans `headers` le remplace. Un EXTRAIT
    * (`start`/`end`) n'est pas la représentation entière : il ne reçoit ni
    * validateur ni évaluation.
+   * `{ validators: false }` dans `options` coupe le tout — validateurs,
+   * évaluation et `Cache-Control` par défaut — pour des fichiers dont la date
+   * n'est pas fiable ; une `ETag` tirée du contenu garde, elle, le 304.
    *
    * @param file - chemin ou `FileClass` du fichier à servir.
    * @param headers - en-têtes ajoutés à la réponse (le type MIME est déduit si absent).
@@ -1096,10 +1115,14 @@ class Controller extends Service implements IController {
     options?: ReadStreamOptions,
   ): Promise<ReadStream | null> {
     const fileDetails = await this.getFileAsync(file);
-    if (options?.start !== undefined || options?.end !== undefined) {
+    if (
+      options?.start !== undefined ||
+      options?.end !== undefined ||
+      options?.validators === false
+    ) {
       return this.#sendFile(fileDetails, headers, options);
     }
-    const condition = this.#fileCondition(fileDetails, headers);
+    const condition = this.#fileCondition(fileDetails, headers, true);
     if (condition.outcome !== 200) {
       return this.#answerPrecondition(condition);
     }
@@ -1113,22 +1136,34 @@ class Controller extends Service implements IController {
    *
    * @param file - fichier servi
    * @param headers - en-têtes fixés par l'action
+   * @param enabled - `false` (option `validators`) : ni validateur, ni
+   *   évaluation, ni `Cache-Control` par défaut — les en-têtes de l'action
+   *   seuls
    */
   #fileCondition(
     file: FileClass,
     headers: OutgoingHttpHeaders | undefined,
+    enabled: boolean,
   ): IFileCondition {
     const context = this.context;
-    const computed = fileValidators(file.stats, Date.now());
     if (!(context instanceof HttpContext)) {
       return {
         head: headers ?? {},
-        validators: computed,
+        validators: NO_VALIDATORS,
         outcome: 200,
         request: {},
       };
     }
     const request = context.request.headers;
+    if (!enabled) {
+      return {
+        head: headers ?? {},
+        validators: NO_VALIDATORS,
+        outcome: 200,
+        request,
+      };
+    }
+    const computed = fileValidators(file.stats, Date.now());
     const response = context.response;
     const given = (name: string): OutgoingHttpHeaders[string] =>
       headerIn(headers, name) ?? response.getHeader(name);
@@ -1245,7 +1280,11 @@ class Controller extends Service implements IController {
     options: ReadStreamOptions | undefined = {},
   ) {
     const File = await this.getFileAsync(file);
-    const condition = this.#fileCondition(File, headers);
+    const condition = this.#fileCondition(
+      File,
+      headers,
+      options.validators !== false,
+    );
     if (condition.outcome !== 200) {
       return this.#answerPrecondition(condition);
     }

@@ -540,6 +540,29 @@ Une `ETag` ou un `Last-Modified` passés dans les en-têtes (un hachage du conte
 remplacent ceux du fichier ET servent à la comparaison. Un extrait `streamFile(f, h, { start, end })`
 n'est pas la représentation entière : il ne reçoit ni validateur ni évaluation.
 
+**Ce que l'application peut changer** :
+
+| Besoin                                                | Geste                                                                      |
+| ----------------------------------------------------- | -------------------------------------------------------------------------- |
+| Un autre `Cache-Control` (fichier public, `no-store`) | le passer dans les en-têtes, ou `@Header("Cache-Control", …)` sur l'action |
+| Sa propre `ETag` (hachage du contenu, version)        | la passer dans les en-têtes, ou `@Header("ETag", …)` — elle sert au 304    |
+| Aucun validateur, aucun 304, aucun `Cache-Control`    | `{ validators: false }` dans les options                                   |
+
+Un en-tête posé AVANT l'appel (`@Header`, `this.response.setHeader`) est respecté comme s'il était
+passé en argument.
+
+⚠️ **La date d'un fichier n'est pas toujours fiable.** Une archive décompressée ou un build
+reproductible donne la même date à tous les fichiers : deux contenus de même taille portent alors
+la même `ETag`, et le client garde l'ancien sur un 304 sans que rien ne le signale. Pour ces
+fichiers, passer une `ETag` tirée du contenu — le 304 reste juste — ou couper les validateurs :
+
+```ts
+// le 304 garde son sens : l'étiquette suit le contenu
+return this.renderMediaStream(file, { ETag: `"${hash}"` });
+// ou : aucune requête conditionnelle, le fichier part toujours entier
+return this.renderMediaStream(file, {}, { validators: false });
+```
+
 ### Une source qui n'est pas un fichier — `renderStream()`
 
 La sortie d'un processus (ffmpeg, `tar`), le corps d'un `fetch()` relayé, une archive construite à

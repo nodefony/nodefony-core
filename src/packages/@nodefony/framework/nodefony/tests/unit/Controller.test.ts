@@ -31,6 +31,8 @@ interface HarnessOptions {
   environment?: string;
   /** Valeur de `Content-Security-Policy` déjà posée sur la réponse. */
   csp?: string;
+  /** En-têtes déjà posés sur la réponse (`@Header`, `setHeader`), noms en minuscules. */
+  responseHeaders?: Record<string, string>;
 }
 
 /**
@@ -80,7 +82,8 @@ function makeController(opts: HarnessOptions = {}) {
     // La sonde CSP lit l'en-tête RÉELLEMENT posé — c'est le firewall qui le
     // compose, jamais une configuration relue.
     getHeader(name: string) {
-      return name === "Content-Security-Policy" ? opts.csp : undefined;
+      if (name === "Content-Security-Policy") return opts.csp;
+      return opts.responseHeaders?.[name.toLowerCase()];
     },
   };
 
@@ -957,6 +960,50 @@ describe("Controller — requêtes conditionnelles sur un fichier (RFC 9110 §13
     withRequestHeaders(ctx, { "if-range": lastModified });
     await c.renderMediaStream(HERE);
     expect(opened[0]?.options?.status).toBe(206);
+  });
+
+  it("Cache-Control et ETag posés sur la réponse AVANT l'action (`@Header`, `setHeader`) : respectés, et l'ETag sert au 304", async () => {
+    const posed = { "cache-control": "no-store", etag: '"h1"' };
+    const first = makeHttpController({ responseHeaders: posed });
+    await first.c.renderMediaStream(HERE);
+    const head = first.opened[0]?.options?.headers ?? {};
+    expect(head["Cache-Control"]).toBeUndefined();
+    expect(head.ETag).toBeUndefined();
+    const again = makeHttpController({ responseHeaders: posed });
+    withRequestHeaders(again.ctx, { "if-none-match": '"h1"' });
+    await again.c.renderMediaStream(HERE);
+    expect(again.calls.status).toContain(304);
+    expect(again.opened).toHaveLength(0);
+  });
+
+  it("`validators: false` : ni ETag, ni Last-Modified, ni Cache-Control par défaut, et If-None-Match ne donne pas 304", async () => {
+    const { etag } = await served();
+    const { c, ctx, opened } = makeHttpController();
+    withRequestHeaders(ctx, { "if-none-match": etag });
+    const stream = await c.streamFile(HERE, {}, { validators: false });
+    expect(stream).not.toBeNull();
+    expect(opened).toHaveLength(1);
+    const head = opened[0]?.options?.headers ?? {};
+    expect(head.ETag).toBeUndefined();
+    expect(head["Last-Modified"]).toBeUndefined();
+    expect(head["Cache-Control"]).toBeUndefined();
+  });
+
+  it("`validators: false` sur un média : If-Range ne tient plus, Range ignoré → 200 entier", async () => {
+    const { etag } = await served();
+    const { c, ctx, opened } = makeHttpController({ range: "bytes=0-99" });
+    withRequestHeaders(ctx, { "if-range": etag, "if-none-match": etag });
+    await c.renderMediaStream(HERE, {}, { validators: false });
+    expect(opened[0]?.options?.status).toBe(200);
+    expect(opened[0]?.options?.headers?.ETag).toBeUndefined();
+  });
+
+  it("`validators: false` sur un téléchargement : Expires gardé, aucun validateur", async () => {
+    const { c, opened } = makeHttpController();
+    await c.renderFileDownload(HERE, { validators: false });
+    const head = opened[0]?.options?.headers ?? {};
+    expect(head.ETag).toBeUndefined();
+    expect(head.Expires).toBe("Thu, 01 Jan 1970 00:00:00 GMT");
   });
 
   it("média : If-None-Match égale l'emporte sur Range → 304, rien d'ouvert", async () => {
