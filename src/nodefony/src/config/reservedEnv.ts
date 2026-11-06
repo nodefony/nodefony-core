@@ -135,6 +135,10 @@ export const RESERVED_ENV = Object.freeze({
       placement: "platform",
     },
   },
+  NF_WORKER_SLOT: {
+    name: "NF_WORKER_SLOT",
+    role: "place stable du worker dans la grappe (0…N-1), posée par le maître et gardée à la relance",
+  },
   NF_CLUSTER_PROBE: {
     name: "NF_CLUSTER_PROBE",
     role: "coupe la sonde du maître de grappe quand elle vaut `0`",

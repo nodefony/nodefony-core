@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-06T22:50:46.345Z",
+  "generatedAt": "2026-11-06T23:02:54.787Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -6438,7 +6438,7 @@
       "title": "docs(notification): faire la veille des canaux de communication attendus",
       "url": "https://github.com/nodefony/nodefony-core/issues/89",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,

@@ -34,7 +34,13 @@ export interface IClusterWorker {
 /** Runtime cluster — abstrait `node:cluster` pour piloter fork/exit dans les tests sans forker de process. */
 export interface IClusterRuntime {
   readonly isPrimary: boolean;
-  fork(): IClusterWorker;
+  /**
+   * Lance un worker.
+   *
+   * @param env - variables AJOUTÉES à l'environnement du worker (sa place
+   *   `NF_WORKER_SLOT`, cf {@link workerSlotEnv}).
+   */
+  fork(env?: Record<string, string>): IClusterWorker;
   onExit(
     cb: (
       worker: IClusterWorker,
@@ -55,13 +61,41 @@ const nodeScheduler: ClusterScheduler = {
   clear: (h) => clearTimeout(h as ReturnType<typeof setTimeout>),
 };
 
+/**
+ * L'environnement à AJOUTER au worker d'une place — le maître pose
+ * `NF_WORKER_SLOT`, le worker la lit ({@link readWorkerSlot}).
+ *
+ * @param slot - place 0…N-1.
+ * @returns `{ NF_WORKER_SLOT: "<slot>" }`.
+ */
+export function workerSlotEnv(slot: number): Record<string, string> {
+  return { NF_WORKER_SLOT: String(slot) };
+}
+
+/**
+ * La place de CE processus dans la grappe.
+ *
+ * @param env - environnement lu (`process.env` par défaut).
+ * @returns la place, ou `null` hors grappe (aucune place posée, ou illisible).
+ */
+export function readWorkerSlot(
+  env?: Readonly<Record<string, string | undefined>>,
+): number | null {
+  // `process.env.NF_WORKER_SLOT` en clair : c'est ce que l'empreinte des
+  // variables (`.ai/ENV.md`) reconnaît comme site de lecture.
+  const raw =
+    env === undefined ? process.env.NF_WORKER_SLOT : env.NF_WORKER_SLOT;
+  if (raw === undefined || !/^\d+$/u.test(raw)) return null;
+  return Number(raw);
+}
+
 /** Adapter de production : `node:cluster`. */
 const nodeClusterRuntime: IClusterRuntime = {
   get isPrimary() {
     return cluster.isPrimary;
   },
-  fork() {
-    const w = cluster.fork();
+  fork(env) {
+    const w = cluster.fork(env);
     return {
       id: w.id,
       kill: (s) => w.kill(s),
@@ -122,7 +156,7 @@ export class ClusterManager {
 
   readonly #live = new Map<
     number,
-    { worker: IClusterWorker; forkedAt: number }
+    { worker: IClusterWorker; forkedAt: number; slot: number }
   >();
   #consecutiveCrashes = 0;
   #shuttingDown = false;
@@ -173,15 +207,29 @@ export class ClusterManager {
     this.#started = true;
     this.#runtime.onExit((w, code, signal) => this.#onExit(w, code, signal));
     for (let i = 0; i < this.#workers; i += 1) {
-      this.#fork();
+      this.#fork(i);
     }
     this.#log(`cluster master up — ${this.#workers} worker(s)`, "INFO");
     return this;
   }
 
-  #fork(): void {
-    const worker = this.#runtime.fork();
-    this.#live.set(worker.id, { worker, forkedAt: Date.now() });
+  /**
+   * Lance le worker d'une PLACE (0…N-1). L'identifiant de `node:cluster`
+   * augmente à chaque relance ; la place, elle, est gardée — c'est ce qui permet
+   * à « la place 0 » de porter une tâche unique sans la perdre quand son worker
+   * meurt (cf `isLeadWorker`).
+   */
+  #fork(slot: number): void {
+    const worker = this.#runtime.fork(workerSlotEnv(slot));
+    this.#live.set(worker.id, { worker, forkedAt: Date.now(), slot });
+  }
+
+  /** @returns la plus petite place qu'aucun worker vivant n'occupe. */
+  #freeSlot(): number {
+    const taken = new Set([...this.#live.values()].map((r) => r.slot));
+    let slot = 0;
+    while (taken.has(slot)) slot += 1;
+    return slot;
   }
 
   #onExit(
@@ -236,9 +284,12 @@ export class ClusterManager {
       `worker ${worker.id} died (${cause}) — respawn in ${delay}ms (crash #${this.#consecutiveCrashes})`,
       "WARNING",
     );
+    // La relance reprend la place du mort ; un worker inconnu (jamais vu forker)
+    // prend la première place libre.
+    const slot = rec?.slot ?? this.#freeSlot();
     this.#scheduler.set(() => {
       if (!this.#shuttingDown) {
-        this.#fork();
+        this.#fork(slot);
       }
     }, delay);
   }

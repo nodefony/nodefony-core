@@ -479,6 +479,7 @@ export type {
 export {
   ClusterManager,
   computeBackoff,
+  readWorkerSlot,
 } from "./service/cluster/ClusterManager";
 export type {
   ClusterManagerOptions,
@@ -939,6 +940,15 @@ export {
   runWorksOnSchema,
   storeConnectivity,
 } from "./kernel/runProfile";
+// Tâche périodique d'un service : seulement quand l'app sert du trafic, et dans
+// UN worker de la grappe — le `setInterval` d'un `init()` tournait aussi dans
+// `orm:migrate` et dans chaque worker.
+export { schedulePeriodic, isLeadWorker } from "./kernel/periodicTask";
+export type {
+  IPeriodicTaskOptions,
+  IPeriodicHost,
+  IPeriodicKernel,
+} from "./kernel/periodicTask";
 
 export type {
   IBootReport,

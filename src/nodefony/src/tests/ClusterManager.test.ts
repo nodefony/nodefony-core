@@ -40,9 +40,12 @@ describe("cluster / ClusterManager (supervisor state machine)", () => {
         ) => void)
       | null = null;
 
-    fork(): IClusterWorker {
+    /** Environnement transmis à chaque fork, dans l'ordre. */
+    readonly envs: (Record<string, string> | undefined)[] = [];
+    fork(env?: Record<string, string>): IClusterWorker {
       const w = new FakeWorker(this.#nextId++);
       this.forked.push(w);
+      this.envs.push(env);
       return w;
     }
     onExit(
@@ -158,6 +161,21 @@ describe("cluster / ClusterManager (supervisor state machine)", () => {
       scheduler.fire(0);
       expect(mgr.size).to.equal(2);
       expect(runtime.forked).to.have.lengthOf(3);
+    });
+
+    it("chaque worker reçoit une PLACE stable, que sa relance reprend", () => {
+      // La place 0 porte les tâches uniques (`isLeadWorker`) : si la relance
+      // prenait une autre place, la tâche disparaîtrait avec son worker.
+      const { runtime, scheduler, mgr } = build({ workers: 3 });
+      mgr.start();
+      expect(runtime.envs.map((e) => e?.NF_WORKER_SLOT)).to.deep.equal([
+        "0",
+        "1",
+        "2",
+      ]);
+      runtime.crash(runtime.forked[0]!);
+      scheduler.fire(0);
+      expect(runtime.envs[3]?.NF_WORKER_SLOT).to.equal("0");
     });
 
     it("crashs consécutifs → backoff exponentiel (stableMs jamais atteint)", () => {

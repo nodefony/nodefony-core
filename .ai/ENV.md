@@ -15,7 +15,7 @@
 | Infrastructure | 14 |
 | Interrupteur de coût | 8 |
 | Décor de banc | 40 |
-| Runtime produit | 87 |
+| Runtime produit | 88 |
 
 ## Décor de banc
 
@@ -163,7 +163,7 @@ déclarée n'a pas été exercée.
 | `NF_RUN_PERF` | micro-bancs de performance (seuils non déterministes) |
 | `NF_RUN_WS_RUPTURE` | sondes de rupture WebSocket (épuisent les ports) |
 
-## Runtime produit (87)
+## Runtime produit (88)
 
 Lues par le produit : leur vérité est le TSDoc de leur site de lecture, et
 c'est là qu'elle doit rester — la recopier ici en ferait une seconde vérité.
@@ -256,6 +256,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_START` | `src/nodefony/src/kernel/Kernel.ts:565` |
 | `NF_TEST_ENV` | `src/packages/@nodefony/devkit/tests/integration/mcp-http.test.ts:67` |
 | `NF_TLS_CA_FILE` | `src/packages/@nodefony/http/nodefony/tests/unit/httpRegisterTrust.test.ts:62` |
+| `NF_WORKER_SLOT` | `src/nodefony/src/service/cluster/ClusterManager.ts:84` |
 | `NF_WORKERS` | `src/nodefony/src/service/cluster/topology.ts:89` |
 | `NF_X` | `src/nodefony/src/tests/reservedEnv.test.ts:174` |
 
