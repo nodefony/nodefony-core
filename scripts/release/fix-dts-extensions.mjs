@@ -82,7 +82,15 @@ export function fixDtsExtensions(dir, { quiet = true } = {}) {
     const consider = (lit) => {
       if (!lit || !ts.isStringLiteral(lit)) return;
       const spec = lit.text;
-      if (!spec.startsWith("./") && !spec.startsWith("../")) return;
+      // `"."` et `".."` NUS sont relatifs aussi : tsgo émet `import("..").X`
+      // quand un type déroulé vient du barrel parent — un import de DOSSIER,
+      // que node16 ne résout pas (vécu : `nodefony/angular` en beta.6).
+      const relative =
+        spec === "." ||
+        spec === ".." ||
+        spec.startsWith("./") ||
+        spec.startsWith("../");
+      if (!relative) return;
       if (KNOWN_EXT.test(spec)) return;
       const fixed = resolveRelative(fileDir, spec);
       if (fixed === null) {
