@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/devkit",
-  "version": "10.0.0-beta.5",
+  "version": "10.0.0-beta.6",
   "type": "module",
   "description": "Outillage de développement d'une application Nodefony : carte de visite du projet et portes de découverte pour un agent de développement",
   "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",
@@ -27,20 +27,20 @@
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "peerDependencies": {
-    "@nodefony/ai": "^10.0.0-beta.5",
-    "@nodefony/framework": "^10.0.0-beta.5",
-    "@nodefony/http": "^10.0.0-beta.5",
+    "@nodefony/ai": "^10.0.0-beta.6",
+    "@nodefony/framework": "^10.0.0-beta.6",
+    "@nodefony/http": "^10.0.0-beta.6",
     "lighthouse": "^13.6.0",
-    "nodefony": "^10.0.0-beta.5",
+    "nodefony": "^10.0.0-beta.6",
     "playwright": "^1.50.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",
-    "@nodefony/ai": "^10.0.0-beta.5",
-    "@nodefony/framework": "^10.0.0-beta.5",
-    "@nodefony/http": "^10.0.0-beta.5",
-    "nodefony": "^10.0.0-beta.5"
+    "@nodefony/ai": "^10.0.0-beta.6",
+    "@nodefony/framework": "^10.0.0-beta.6",
+    "@nodefony/http": "^10.0.0-beta.6",
+    "nodefony": "^10.0.0-beta.6"
   },
   "dependencies": {
     "axe-core": "4.14.0",

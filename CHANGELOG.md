@@ -8,6 +8,113 @@ Les sections naissent d'un BROUILLON rendu par `npm run release` depuis les mess
 de commit, puis sont RÉÉCRITES à la main : un journal git est écrit pour l'auteur,
 un changelog pour celui qui met à jour.
 
+## 10.0.0-beta.6 - 2026-11-06
+
+_Une bêta tournée vers le temps réel : trames binaires (CBOR), admission par canal, contrats typés aux deux bouts. La politique de sécurité de contenu devient stricte par défaut, et le serveur HTTP s'aligne sur les exigences des normes. Quinze ruptures, chacune avec son geste de migration._
+
+### Changed
+
+- **security (breaking):** Ne plus exécuter un `<script>` sans nonce : la politique de scripts par défaut devient `'nonce-…' 'strict-dynamic' 'self'` — une vue Eta signe seule ses balises littérales, ailleurs poser l'attribut `nonce` ; un fichier servi tel quel garde `'self'` (#699) (636148a2f, 29d167e9f)
+- **security (breaking):** Ne plus appliquer un `<style>` sans nonce, l'attribut `style=` restant toléré — une vue Eta signe seule ses balises, une bibliothèque CSS-in-JS lit `readCspNonce()`, une application générée n'a rien à faire (#699) (be0a5ff90, 29d167e9f)
+- **security (breaking):** Retirer Gravatar, Google et GitHub d'`img-src` par défaut — un fournisseur OAuth configuré déclare seul l'hôte de ses avatars, tout autre hôte s'ajoute par `headers.cspSources` (#699) (dbe8a14c8, 89f6b5ede)
+- **security (breaking):** Poser `Cache-Control: private, no-cache` sur toute réponse dont la CSP porte un nonce, pour qu'aucun cache partagé ne serve le même nonce à tous — un `Cache-Control` écrit par l'application gagne (#699) (c1a6d49ca)
+- **client (breaking):** Remplacer `NodefonySocket.mutate()` et la forme chemin de `request("/x")` par `socket.get|post|put|patch|delete(path, …)` — `request()` n'appelle plus qu'une action par son nom, et la clé d'idempotence est posée seule (`{ idempotencyKey }` la remplace) (#708) (513ec4762)
+- **client (breaking):** Retirer le paramètre de type de `observeChannel` et `observeChannelData` : la charge se déduit d'une socket typée par contrat, et vaut `unknown` sur une socket nue (#709) (72331fdd8)
+- **realtime (breaking):** Refuser la publication d'une charge scalaire (nombre, chaîne, booléen, `null`) par une `TypeError` qui nomme le canal, JSON-RPC 2.0 exigeant un objet ou un tableau — l'envelopper : `{ value }` (#704) (67c929c6a)
+- **realtime (breaking):** Fermer en 4006 au lieu de 4001 la socket dont le jeton porteur expire, pour que le client sache qu'un jeton neuf suffit — `IRevocationPolicy.revoke` reçoit la cause en second argument (#706) (2650b22b0)
+- **realtime (breaking):** N'admettre une trame que sur un verdict `=== true` du verrou — un verrou qui lève refuse la trame au lieu de remonter au transport, et `ping` comme `unsubscribe` ne passent plus par les politiques (#622) (11fa1b130)
+- **realtime (breaking):** Refuser au démarrage une politique de canal mal formée — clé inconnue, type faux, `anonymous` sans `allow`, classe d'admission sans `@injectable` — en nommant le canal et le défaut : corriger ce qui est nommé (#622) (7f0e3cdd0)
+- **realtime (breaking):** Fermer en 1013 une poignée de main dont l'authentification dépasse `realtime.authenticateTimeoutMs` (10 s par défaut), le client reculant puis revenant — relever la valeur pour un fournisseur d'identité lent (#622) (26bad37e9)
+- **realtime (breaking):** Exiger `id: string | null` sur `RealtimeIdentity`, dont `roles` et `scopes` passent en lecture seule — un `IRealtimeToken.getIdentity()` maison le fournit ; `resolveChannelAdmission` rend désormais `{ allow, anonymous }` (#622) (4265a5a7e, eff691276)
+- **realtime (breaking):** Ajouter des champs requis aux objets que le framework fabrique — `IRealtimeProbe` (huit compteurs), `IRealtimeConnectionState`, `WebsocketContext`, `SocketSnapshot`, `RealtimeFrame`, `NetEntry` (`nodefony/debugbar`), `DrizzleResolvedRelation` : seul un code qui en construit un lui-même (doublure de test, sonde maison) doit les fournir (mesuré par `release:api-diff`)
+- **http:** Armer le délai d'inactivité des sockets par un seul écouteur du serveur au lieu d'un par connexion, ce qui soulage le ramasse-miettes sous charge (8689d7311)
+- **http:** Envoyer les en-têtes d'une réponse en un seul `writeHead` (ce59b0fb3)
+- **cli:** Rebâtir un paquet standard sans turbo au rechargement de développement (#691) (451e95bd2)
+
+### Added
+
+- **realtime:** Négocier entre le navigateur et le serveur un codec de trame binaire, CBOR publié sous `nodefony/cbor` — les octets traversent intacts la socket, le pont REST et le bus entre serveurs, console d'administration comprise (#618) (c2b0cacc9, 6ce34e51c, 6dc49b9b0, bc0cb9e31, 7a724d2bb, 420841372, 23f47cf5d, 0bfc2555e, 307eebf8d)
+- **realtime:** Admettre l'abonnement à un canal par une règle `allow` (fonction ou classe injectable), bornée en temps et en nombre et réessayée par le client sur `unavailable` ; une trame d'un canal admis passe ensuite en une seule lecture (#622) (4265a5a7e, 7f0e3cdd0, eff691276, 11fa1b130)
+- **realtime:** Déclarer un contrat temps réel une fois et le vérifier aux deux bouts — `ContractRealtimeController<C>` et `@RealtimePolicy` côté serveur, `NodefonySocket.fromContract<C>()` côté client (#628) (4033ef4f2, 2846197db)
+- **realtime:** Typer par le contrat la diffusion serveur, le flux SSE et les routes du pont (`serverRoutes`, confrontées aux routes montées au démarrage) (#628, #707, #708) (12ad7f35f, 9a918beb3, 513ec4762, 7eb50d554)
+- **client:** Typer par la socket du contrat les hooks de canal de React, Vue, Svelte et Angular, et la donner au Provider comme une socket ordinaire — une seule connexion par adresse (#709, #711) (bfc3ebda4, 72331fdd8, ebdb08c89)
+- **realtime:** Livrer un message privé à une personne par `publishToUser` / `onUser` (#710) (4b6d65b18)
+- **realtime:** Lister les membres d'un canal, abonner d'office, éjecter un compte et terminer un canal, sur tous les exemplaires d'un cluster (#623) (adbf0e1f6, 8ea9b2f34)
+- **realtime:** Borner la socket — envois jetés au-delà de `maxBufferedAmount` côté client (fermeture 4007), débit entrant borné par `maxFramesPerSecond` côté serveur (fermeture 1008), les deux désactivés par défaut (#703) (56caad5ac)
+- **realtime:** Compter dans la sonde les trames écartées et les sceaux refusés, en cumuls qui survivent à la fermeture des sockets (#618, #704) (c57c04ffa, 67c929c6a)
+- **realtime:** Exporter une suite de conformité pour éprouver un driver du bus (#701) (f0949e80e)
+- **http,realtime:** Tracer les réponses sortantes d'une connexion temps réel, trames binaires décodées comprises (#618) (c8b400f5a, 4e99a892f)
+- **security:** Fournir par `createTestIdentity()` l'identité d'admission des canaux, que le harnais de test résout (#726) (04df9dd5a, 6fe57dde3)
+- **security:** Ajouter des sources à la CSP par `headers.cspSources`, contribution nommée, sans réécrire la politique (#699) (89f6b5ede)
+- **security:** Demander les rapports de violation CSP, les recevoir bornés — ceux de Safari compris — et les lire dans la console d'administration (#699) (a54597331, adec0677c)
+- **security:** Adapter la politique de contenu au type de la réponse, une page XML et l'index d'un dossier recevant celle d'un document (#699) (42284af2b, f3d422d36)
+- **security:** Annoncer le nonce CSP aux styles créés à l'exécution (#699) (6593f5409)
+- **security:** Poser `upgrade-insecure-requests` sur les seules pages servies en HTTPS, et piloter `frame-ancestors` par `http.frameOptions` (aef4f533f, 5e4ae736c)
+- **realtime:** Déclarer seule dans `connect-src` une socket servie sur une autre origine (#699) (63e1aa94f)
+- **framework:** Servir les fichiers en flux avec une ETag forte et `Last-Modified`, répondre 304 ou 412 et honorer `If-Range` — couper les validateurs par appel (`{ validators: false }`) ou pour toute l'application (`fileServing`) (#724, #737) (50d10d52e, 39fd032e2, cc3c87d90, 1dc346657)
+- **http:** Renvoyer en flux une source d'octets quelconque par `openStream` / `renderStream` (#724) (4d6b42476)
+- **drizzle:** Décrire une entité par un kit de colonnes portable, neutre vis-à-vis de l'ORM, que Drizzle sert et migre — défauts littéraux, noms stockés, table `User` référençable (#681, #682) (f17676155, 5d7141e91, 34536c427, 4b9dc36bc, 93c9875f4, aa211dd4f, 443f5dbe9)
+- **drizzle:** Renommer une colonne sans terminal interactif par `orm:generate --rename` (#686) (6c4d94b96)
+- **create:** Écrire les entités générées sous forme portable, avec un catalogue des types qui dit ce que la base reçoit (#682) (d9ad6692f, ab11d871a)
+- **cli:** Ranger les entités par domaine fonctionnel, et tirer des clés étrangères les liens du graphe d'entités (#684) (2d7de8522, 0a0c368e0)
+- **cli:** Faire contrôler par le typecheck généré l'intérieur des composants front (#723) (368ebfefc)
+- **core:** Lire un champ propre d'une charge inconnue par `ownField` (ff02ac059)
+- **bundler:** Écrire le rapport de rolldown à chaque build, socle et builder Vite (2a12f9cde)
+- **debugbar:** Ajouter les onglets « Nodefony Socket » et « Nodefony SSE », une connexion par onglet, et passer Perf et Runtime en cartes (#720) (177cfda59, 80754cf42, fe9a8c7d0, 92ba56f0f, ded56833c, 752a5412d)
+- **studio:** Superviser en temps réel jusqu'à 250 ms, avec historique, axe de temps continu et sonde de débit côté serveur (#618) (67664b5a0, 1093f3db1, 9032176cc, d3badd3a6)
+- **studio:** Rendre lisible le schéma d'une base de plusieurs centaines de tables (#689) (cc040ceb2)
+- **studio:** Ajouter un aperçu « Passerelle d'agents » dans l'atelier IA (8d0b62b0c)
+- **devkit:** Faire regarder la sonde navigateur sous Firefox et WebKit, y jouer des gestes et lire un état propre à l'application (`NF_BROWSER_ACTIONS`, `NF_BROWSER_EVAL`, verbe `connecter:`) (#699) (b6d200f3d, b08226ffb, 6216a5be6, 266c3d9bc)
+
+### Fixed
+
+- **security (breaking):** Refuser (401) un jeton porteur sans `exp` ni `iat`, ou dont l'`iat` est dans le futur au-delà de 5 s (RFC 9068 §2.2) — un émetteur conforme n'est pas touché, un émetteur qui les omet doit les poser (c7f5642b6)
+- **http (breaking):** Lever une `TypeError` quand `sse.send()` reçoit des octets, au lieu de les déformer en objet JSON — les encoder soi-même en base64 (#621) (5df8d1482)
+- **http:** Aligner le serveur sur les exigences de HTTP/1.1, HTTP/2 et WebSocket — 414, 501, GOAWAY en deux temps, corps des réponses 4xx (#734) (66879662c, 0a0f71626)
+- **http:** Émettre des cookies conformes à la RFC 6265, et ne les lire qu'une fois (#736) (18dca144c)
+- **http:** Faire respecter `Max-Forwards` par le proxy inverse, et poser un `Forwarded` conforme dans le gabarit haproxy généré, qui exige HAProxy 2.8 ou plus (#735) (54b63b496, 4f4bcd00d)
+- **http:** Répondre 500 quand le contexte d'une requête ne se construit pas (1428c5ec0)
+- **http:** Détruire la source d'un flux refusé, et dire au journal qui a coupé (#724) (02ec67c3e)
+- **http:** Livrer les `@types` des modules que les types publiés exposent, et typer la lecture d'un flux web sans la lib DOM (11af5a7c2, c68b0d6bd)
+- **core,security:** Lire un gabarit de route et purger le nonce en temps linéaire (ReDoS) (49af27a28, d76f51ffb)
+- **core:** Rendre au `.d.ts` publié le constructeur de `Container` et `freezeConfigTree` (dda6e26c2)
+- **core:** Faire atteindre par une surcharge `NF__` la clé d'une entrée de dictionnaire (7edea3cbc)
+- **core:** Couper l'échantillonneur de statistiques du client à la déconnexion, et ne jamais lancer deux passes de revalidation à la fois (f3bad8d5a, c9bdcda93)
+- **security:** Composer la CSP une seule fois — une contribution de module ne peut plus injecter de directive ni ouvrir `script-src` à `data:` ou `blob:`, trop large elle est retirée, malformée elle est ignorée sans bloquer le démarrage, reçue avant `onBoot` elle n'est plus perdue (#699) (34a277767, 82a25b58d, aa81597a1, ae8ef561d, 10e5d44b3, 8209089a2, a7f89700b)
+- **framework:** Ne plus signer un script dont l'URL vient des données d'une vue (#699) (62c2347f3)
+- **security:** Relire son thème sur la page de connexion sous la CSP d'un proxy (#699) (e9dccc943)
+- **security:** Garder le même `webhook-id` sur les réessais d'un webhook, les soumettre à l'abonnement du moment, et aligner les abonnements sur les motifs des canaux (#705) (39eb1f1ab, 9f0336fbe, 4d76be8bd)
+- **security:** Refuser une clé d'API ou un webhook rattaché à un locataire tant que le multi-tenant n'existe pas (3702ac83c, 09f73f013)
+- **security:** Garder l'émetteur dans l'identité éphémère sous `subjectMapping: "subject"` (b2f5a4623)
+- **realtime:** Ne plus livrer depuis un bus de cluster arrêté, ni doubler les livraisons après redémarrage, ni déformer des octets sur le bus entre serveurs (#701) (74a232f74, 0161dff1e)
+- **realtime:** Lire comme un `id` nul l'accueil d'un serveur qui n'en envoie pas (#629) (d95567f44)
+- **realtime:** Router le chemin du pont dans la forme que lui donne HTTP (34f51c72b)
+- **drizzle:** Ne plus perdre une colonne en silence lors d'une recréation de table SQLite (#686) (f1497daf6)
+- **drizzle:** Rendre exacts `increment`, `$max` et `$min` d'un décimal sur les quatre moteurs, et ranger puis comparer sans perte les décimaux que SQLite garde en texte (#680, #684) (70fb01973, f059299f2, 4697539e4)
+- **drizzle:** Migrer sur MySQL une table au nom long, en bornant à 63 caractères les noms de contraintes que le kit génère et nomme lui-même (#680, #684) (fa609782e, 38abceae8, 9c8979878)
+- **drizzle:** Nommer chaque table refusée à la création du schéma et les migrations en attente, au lieu d'accuser l'historique — et marquer en échec aussi la migration qu'on vient de lancer (#684) (122e8c14f, b70bdd86d, 6391d4982)
+- **drizzle:** Émettre `AUTO_INCREMENT` en développement pour une clé `serial`, et décrire une entité sans connexion (#689) (ca7547ef8, e9917e81a)
+- **orm:** Ne jamais faire sortir un champ privé par une relation (#683) (047f96dd6)
+- **orm:** Refuser avant la base une clé entière mal formée, et dire au démarrage qu'une entité n'est pas portée plutôt que la base ne répond pas (#683) (7bb910b38, 90eec8b46)
+- **user:** Désigner l'entité d'identité d'une seule façon, et garder privés les secrets du framework (#680) (b4c201b41)
+- **create:** Faire compiler et démarrer les entités générées à clé `serial` ou native, une référence suivant la clé de sa cible, et refuser dans le schéma généré ce qu'un moteur ne range pas (#683) (69f93ffc9, 9de896d8a, dd3a146b5, ede91eceb)
+- **create:** Poser `@CsrfProtect` sur les écritures de l'entité et du contrôleur REST générés (62cdf072a, 345e9f8ae)
+- **create:** Sortir en 78 sur une entité d'un autre dialecte, en 73 sur un nom déjà câblé en proposant un nom libre, et rendre la ligne `npm create` quand le nom manque (#679) (84bb91446, 41d433b32, 42402a5c3)
+- **doctor:** Ne plus accuser d'orpheline une entité d'un autre dialecte (#679) (2c8c38c2d)
+- **cli:** Ne plus perdre une sauvegarde ni doubler le serveur au rechargement de développement (#691) (2c0a7bae1)
+- **cli:** Faire tenir `create front` sur toute cible — module, application minimale, racine (#723) (696ef340d)
+- **cli:** Faire suivre au service généré la base enregistrée au lieu de la première (280953b10)
+- **cli:** Copier d'un clic l'adresse affichée dans la barre d'état (#693) (b89231990)
+- **cli:** Faire dire vrai à l'`AGENTS.md` généré sur la CSP stricte, et le ramener sous son budget de 26 Ko (#699, #684) (9b1cf8fc4, 79011a1e6)
+- **debugbar:** Relire la session et le détail d'une requête après connexion sans recharger la page, et dire pourquoi un profil manque (#719) (26d32ce84, 5d69391ce, 76e637293)
+- **frontend:** Joindre au message la fin de la sortie de Vite quand il s'arrête avant d'être prêt (27bc4a26a)
+- **devkit:** Mener le skill temps réel vers un salon privé réellement servi, et rendre un rapport quand le profilage s'arrête en cours d'ouverture (#700, #726) (997b1dc3b, 4bfb277eb, 5abb9c359, 26fd62c43)
+- **studio:** Ne plus faire clignoter « à l'instant » dans la popup temps réel, ni couper le type dans « Types de champ » (#682) (4ce70f99d, f3ca28dd8)
+- **scaffold:** Allumer `no-unsafe-enum-assignment` dans le gabarit d'application, et citer les champs `?` et `(` des exemples `create entity` (4290f0498, f694ffaa0)
+- **deps:** Monter glob 14 sous `@sentry/bundler-plugins` et tslib 2.9.1 (npm audit) (b781dea09)
+
+<!-- Surface publique mesurée depuis 10.0.0-beta.5 (npm) : 18 rupture(s) mesurée(s), toutes écrites ci-dessus, 98 déclaration(s) de types modifiées sur 2523, parcourues par famille — charge `object`, hooks et observateurs typés par contrat, `revoke`/`commitHeaders` à argument facultatif, types rendus par le framework. Correctifs de fonctions apparues dans cette même bêta (codec binaire, kit portable, routes typées) non listés : jamais publiés. Détail : npm run release:api-diff -- --from 10.0.0-beta.5 --details -->
+
 ## 10.0.0-beta.5 - 2026-10-25
 
 _Une bêta tournée vers l'observation : une requête n'a plus qu'une durée, mesurée en production comprise, et les journaux suivent chaque requête et chaque socket jusqu'au Studio et à la barre de débogage. Cinq ruptures, chacune avec son geste de migration._

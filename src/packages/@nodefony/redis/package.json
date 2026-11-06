@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/redis",
-  "version": "10.0.0-beta.5",
+  "version": "10.0.0-beta.6",
   "description": "Connecteur Redis de Nodefony : dépôts clé-valeur, cache, sessions partagées et transport de diffusion entre instances",
   "nodefony": {
     "storeKind": "cache",
@@ -52,19 +52,19 @@
     "tslib": "2.9.1"
   },
   "devDependencies": {
-    "@nodefony/framework": "^10.0.0-beta.5",
-    "@nodefony/http": "^10.0.0-beta.5",
-    "@nodefony/security": "^10.0.0-beta.5",
+    "@nodefony/framework": "^10.0.0-beta.6",
+    "@nodefony/http": "^10.0.0-beta.6",
+    "@nodefony/security": "^10.0.0-beta.6",
     "@types/node": "26.6.6",
     "@vitest/coverage-v8": "5.1.0",
-    "nodefony": "^10.0.0-beta.5",
+    "nodefony": "^10.0.0-beta.6",
     "vitest": "5.1.0"
   },
   "peerDependencies": {
-    "@nodefony/framework": "^10.0.0-beta.5",
-    "@nodefony/http": "^10.0.0-beta.5",
-    "@nodefony/security": "^10.0.0-beta.5",
-    "nodefony": "^10.0.0-beta.5",
+    "@nodefony/framework": "^10.0.0-beta.6",
+    "@nodefony/http": "^10.0.0-beta.6",
+    "@nodefony/security": "^10.0.0-beta.6",
+    "nodefony": "^10.0.0-beta.6",
     "zod": "^4.6.7"
   },
   "repository": {

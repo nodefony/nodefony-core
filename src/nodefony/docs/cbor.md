@@ -111,7 +111,7 @@ try {
 ### Le même import, côté navigateur
 
 `nodefony/cbor` est un sous-chemin à part : `nodefony/client` ne l'inclut pas, et seule
-l'application qui l'importe le télécharge (environ 4,6 Ko compressé). Le code est identique côté
+l'application qui l'importe le télécharge (environ 5,5 Ko compressés, mesurés par le budget du build). Le code est identique côté
 serveur et côté navigateur.
 
 ## Ce que fait l'encodeur — l'algorithme de `JSON.stringify`

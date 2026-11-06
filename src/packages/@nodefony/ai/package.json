@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/ai",
-  "version": "10.0.0-beta.5",
+  "version": "10.0.0-beta.6",
   "description": "La boîte à outils IA de Nodefony : serveur MCP, puis les services de la couche agentique",
   "contributors": [],
   "type": "module",
@@ -42,9 +42,9 @@
     "stability": "experimental"
   },
   "peerDependencies": {
-    "@nodefony/framework": "^10.0.0-beta.5",
-    "@nodefony/http": "^10.0.0-beta.5",
-    "nodefony": "^10.0.0-beta.5",
+    "@nodefony/framework": "^10.0.0-beta.6",
+    "@nodefony/http": "^10.0.0-beta.6",
+    "nodefony": "^10.0.0-beta.6",
     "zod": "^4.6.7"
   },
   "dependencies": {
@@ -52,10 +52,10 @@
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",
-    "@nodefony/framework": "^10.0.0-beta.5",
-    "@nodefony/http": "^10.0.0-beta.5",
+    "@nodefony/framework": "^10.0.0-beta.6",
+    "@nodefony/http": "^10.0.0-beta.6",
     "@types/node": "26.6.6",
-    "nodefony": "^10.0.0-beta.5",
+    "nodefony": "^10.0.0-beta.6",
     "vitest": "5.1.0"
   },
   "repository": {

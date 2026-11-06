@@ -98,6 +98,61 @@ lent, et qu'on ne sait pas encore où._
 Le différenciateur Nodefony tient dans `nodefony/controllers/HelloController.ts` :
 **une route GET et une route WEBSOCKET dans la même classe** — même pipeline,
 pas deux mondes séparés.
+<% if (it.complete) { %>
+### Le temps réel est déjà là
+
+Ton application porte un framework temps réel complet, déjà branché. `LiveController` en est la
+première brique : une socket à **canaux**, où le serveur diffuse, le client appelle et attend la
+réponse, ou pousse sans attendre — sous le même pare-feu que tes routes HTTP. Ce que tu peux en
+faire, sans rien ajouter :
+
+- **Échanger dans les deux sens** — la socket Nodefony, JSON-RPC 2.0 sur WebSocket.
+- **Pousser dans un seul sens** — un flux SSE : une action répond par `this.renderSse()`.
+- **Des salons et leurs membres** — lister, abonner d'office, éjecter ; un message privé par `publishToUser`.
+- **Décider qui entre** — une règle `allow` par canal ; un jeton expiré ferme la socket.
+- **Des octets** — CBOR, un JSON binaire, négocié connexion par connexion (ci-dessous).
+- **Plusieurs instances** — la ligne `backplane` de `nodefony.config.ts` : `cluster` entre workers, `redis` entre machines.
+- **Des types de bout en bout** — un contrat écrit une fois, du contrôleur aux hooks de ton frontend.
+- **gRPC** — _à venir en 10.0.0-beta.7_, sur le même serveur HTTP/2.
+
+Quand des **octets** circulent (image, son, mesures, état d'une partie), passe le fil en **CBOR** :
+ils voyagent tels quels, sans base64, et un message ordinaire pèse 30 à 45 % de moins. Le serveur
+l'accepte, le navigateur l'offre ; un client qui ne l'offre pas reste en texte et reçoit les mêmes
+données.
+
+```ts
+// nodefony.config.ts — la ligne existe déjà, ajoute le codec
+use("@nodefony/realtime", { backplane: { driver: "cluster" }, codec: "cbor" });
+
+// navigateur
+import { CBOR_FRAME_CODEC } from "nodefony/cbor";
+NodefonySocket.shared({ url, codec: CBOR_FRAME_CODEC });
+```
+
+→ [La socket Nodefony](https://nodefony.github.io/nodefony-core/docs/modules/realtime/) ·
+[Un exemple par besoin](https://nodefony.github.io/nodefony-core/docs/modules/realtime/cas-d-usage/) ·
+[Les flux SSE](https://nodefony.github.io/nodefony-core/docs/modules/http/sse/) ·
+[Le codec CBOR](https://nodefony.github.io/nodefony-core/docs/modules/core/cbor/)
+<% } %>
+### Ouverte aux agents d'IA
+
+Ton application peut offrir ses outils à n'importe quel agent — Claude, ChatGPT, Copilot, l'agent
+d'un client — par le **Model Context Protocol** (MCP). `@nodefony/ai` est déjà chargé, et ne monte
+aucune route tant que tu n'ouvres pas de porte :
+
+```bash
+npx nodefony create controller mcp --kind mcp                  # porte locale : la machine seulement
+npx nodefony create controller mcp --kind mcp --expose oauth   # production : jeton exigé, un scope par outil
+```
+
+- **Une fonction devient un outil** — tu l'ajoutes à `nodefony/mcp/mcp-tools.ts`, la porte la publie.
+- **Les outils longs** — la réponse passe en flux SSE : avancement, puis résultat ; l'agent peut annuler.
+- **Sans serveur** — `npx nodefony ai:stdio`, pour un agent qui lance lui-même son serveur.
+- **Au nom de l'appelant** — `actsForUser` : l'outil agit avec son compte, sous les règles d'une route protégée.
+- **En développement**, ton agent de code interroge déjà l'application qui tourne par la porte
+  `/nodefony/mcp` (`@nodefony/devkit`) : carte, santé, routes, trafic, profil d'une route.
+
+→ [La boîte à outils MCP](https://nodefony.github.io/nodefony-core/docs/modules/ai/mcp/)
 
 ## 2. Structure du projet
 

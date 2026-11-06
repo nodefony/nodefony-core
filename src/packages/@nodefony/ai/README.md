@@ -48,15 +48,12 @@ se lit dans le
 
 ### Livré
 
-| Capacité         | Ce qu'elle apporte                                                                       |
-| ---------------- | ---------------------------------------------------------------------------------------- |
-| **Module socle** | chargé partout comme `@nodefony/http`, configuration validée au démarrage (faute nommée) |
-
-### En cours — `10.0.0`
-
-| Capacité        | Ce qu'elle apporte                                                                                                           | Suivi                                                        |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| **Serveur MCP** | protocole, porte HTTP en flux, garde d'origine et d'adresse, autorisation OAuth par outil, outils déclarés par chaque module | [#565](https://github.com/nodefony/nodefony-core/issues/565) |
+| Capacité                      | Ce qu'elle apporte                                                                                                                   | Suivi                                                        |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| **Module socle**              | chargé partout comme `@nodefony/http`, configuration validée au démarrage (faute nommée)                                             |                                                              |
+| **Serveur MCP**               | protocole, porte HTTP en flux (SSE), garde d'origine et d'adresse, autorisation OAuth par outil, outils déclarés par chaque module   | [#565](https://github.com/nodefony/nodefony-core/issues/565) |
+| **Porte générée**             | `npx nodefony create controller mcp --kind mcp`, locale, `--expose oauth` ou `--expose mixte`, avec ses outils d'exemple et son test | [#602](https://github.com/nodefony/nodefony-core/issues/602) |
+| **MCP par l'entrée standard** | les agents qui lancent eux-mêmes leur serveur : `npx nodefony ai:stdio`                                                              | [#462](https://github.com/nodefony/nodefony-core/issues/462) |
 
 Chaque outil y annonce s'il ne fait que lire ou s'il modifie (indices `ToolAnnotations` de la
 spec, [#540](https://github.com/nodefony/nodefony-core/issues/540)), pour que l'agent sache quand
@@ -74,17 +71,16 @@ reçoit un défi `insufficient_scope` qui lui dit quel jeton demander
 
 ### Prévu
 
-| Capacité                      | Ce qu'elle apporte                                                                 | Version visée | Suivi                                                        |
-| ----------------------------- | ---------------------------------------------------------------------------------- | ------------- | ------------------------------------------------------------ |
-| **MCP par l'entrée standard** | les agents qui lancent eux-mêmes leur serveur (stdio)                              | `10.1`        | [#462](https://github.com/nodefony/nodefony-core/issues/462) |
-| **Route annotée → outil**     | exposer une route existante à un agent, par le même pare-feu que la requête HTTP   | `12.0`        | [#503](https://github.com/nodefony/nodefony-core/issues/503) |
-| **Registre MCP officiel**     | une porte de production publiable et trouvable dans l'annuaire des serveurs MCP    | `12.0`        | [#550](https://github.com/nodefony/nodefony-core/issues/550) |
-| **Client MCP**                | consommer les serveurs MCP existants au lieu d'écrire chaque intégration           | `12.0`        | couche agentique                                             |
-| **Accès modèle**              | une interface, plusieurs fournisseurs (Anthropic, OpenAI, Mistral, Ollama)         | `12.0`        | [#246](https://github.com/nodefony/nodefony-core/issues/246) |
-| **Recherche augmentée**       | index vectoriel adossé à l'ORM, recherche appelée par l'agent comme un outil       | `12.0`        | [#248](https://github.com/nodefony/nodefony-core/issues/248) |
-| **Mémoire**                   | court terme, long terme, épisodique                                                | `12.0`        | [#249](https://github.com/nodefony/nodefony-core/issues/249) |
-| **Orchestration d'agents**    | boucle, outils, annulation, reprise ; un agent peut tourner seul dans un conteneur | `12.0`        | [#250](https://github.com/nodefony/nodefony-core/issues/250) |
-| **Gouvernance**               | bornes d'exécution, validation humaine, audit                                      | `12.0`        | [#252](https://github.com/nodefony/nodefony-core/issues/252) |
+| Capacité                   | Ce qu'elle apporte                                                                 | Version visée | Suivi                                                        |
+| -------------------------- | ---------------------------------------------------------------------------------- | ------------- | ------------------------------------------------------------ |
+| **Route annotée → outil**  | exposer une route existante à un agent, par le même pare-feu que la requête HTTP   | `12.0`        | [#503](https://github.com/nodefony/nodefony-core/issues/503) |
+| **Registre MCP officiel**  | une porte de production publiable et trouvable dans l'annuaire des serveurs MCP    | `12.0`        | [#550](https://github.com/nodefony/nodefony-core/issues/550) |
+| **Client MCP**             | consommer les serveurs MCP existants au lieu d'écrire chaque intégration           | `12.0`        | couche agentique                                             |
+| **Accès modèle**           | une interface, plusieurs fournisseurs (Anthropic, OpenAI, Mistral, Ollama)         | `12.0`        | [#246](https://github.com/nodefony/nodefony-core/issues/246) |
+| **Recherche augmentée**    | index vectoriel adossé à l'ORM, recherche appelée par l'agent comme un outil       | `12.0`        | [#248](https://github.com/nodefony/nodefony-core/issues/248) |
+| **Mémoire**                | court terme, long terme, épisodique                                                | `12.0`        | [#249](https://github.com/nodefony/nodefony-core/issues/249) |
+| **Orchestration d'agents** | boucle, outils, annulation, reprise ; un agent peut tourner seul dans un conteneur | `12.0`        | [#250](https://github.com/nodefony/nodefony-core/issues/250) |
+| **Gouvernance**            | bornes d'exécution, validation humaine, audit                                      | `12.0`        | [#252](https://github.com/nodefony/nodefony-core/issues/252) |
 
 La couche agentique (`12.0`) s'ouvre par un état de l'art
 ([#245](https://github.com/nodefony/nodefony-core/issues/245)) : son périmètre exact sera arrêté

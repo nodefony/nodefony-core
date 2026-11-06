@@ -9,9 +9,9 @@
 _Une action de contrôleur. Deux transports. La même session, la même sécurité, le même code._
 
 [![Licence Apache 2.0](https://img.shields.io/badge/licence-Apache--2.0-blue.svg?style=flat-square)](https://github.com/nodefony/nodefony-core/blob/main/LICENSE.txt)
-[![Node ≥ 24.14](https://img.shields.io/badge/Node.js-%E2%89%A5%2024.14-green?style=flat-square)](https://nodejs.org/)
-[![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-blue?style=flat-square)](https://www.typescriptlang.org/)
-[![ESM](https://img.shields.io/badge/ESM-only-orange?style=flat-square)](https://nodejs.org/api/esm.html)
+[![Node ≥ 24.14](https://img.shields.io/badge/Node.js-%E2%89%A5%2024.14-green?style=flat-square)](https://github.com/nodefony/nodefony-core/blob/main/package.json)
+[![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-blue?style=flat-square)](https://github.com/nodefony/nodefony-core/blob/main/tsconfig.json)
+[![ESM](https://img.shields.io/badge/ESM-only-orange?style=flat-square)](https://github.com/nodefony/nodefony-core/blob/main/package.json)
 
 </div>
 
@@ -25,9 +25,9 @@ _Une action de contrôleur. Deux transports. La même session, la même sécurit
 > ([#378](https://github.com/nodefony/nodefony-core/issues/378)).
 
 > **Ce paquet est le CŒUR du framework** — noyau, injection de dépendances, modules, journalisation,
-> interface en ligne de commande. Il s'installe rarement seul : une application le reçoit par
-> `npm create nodefony@beta`, et les autres paquets (`@nodefony/http`, `@nodefony/framework`,
-> `@nodefony/security`…) le déclarent en dépendance de pair.
+> interface en ligne de commande, client temps réel et codec CBOR. Il s'installe rarement seul : une
+> application le reçoit par `npm create nodefony@beta`, et les autres paquets (`@nodefony/http`,
+> `@nodefony/framework`, `@nodefony/security`…) le déclarent en dépendance de pair.
 
 ```bash
 npm install nodefony@beta
@@ -36,28 +36,110 @@ npm install nodefony@beta
 > Le dist-tag est OBLIGATOIRE tant que la série 10 est en préversion : `latest` sert encore la
 > `7.0.2`, écrite en JavaScript, dont l'API n'a aucun rapport avec ce qui suit.
 
-## Ce que c'est
+---
+
+## Nodefony en bref
 
 Nodefony est un framework serveur fullstack pour Node.js, écrit en TypeScript strict et bâti
 directement sur les modules natifs de la plateforme — `node:http`, `node:http2`, WebSocket. Il
-apporte un noyau à injection de dépendances, un système de modules, un pare-feu applicatif, une
+apporte un noyau à injection de dépendances qui donne à chaque requête son propre conteneur, un
+système de modules, un pare-feu applicatif, une
 persistance portable, une console d'administration et la construction des frontends.
 
 Sa particularité tient en une propriété : **le WebSocket n'y est pas un ajout.** C'est un transport
 de première classe, servi par le même pipeline, la même table de routes et la même sécurité que le
 HTTP. Une application temps réel s'y écrit comme une application web ordinaire.
 
-Le socle est **isomorphe** : le même paquet s'importe côté serveur et côté navigateur. Le client
-temps réel, les règles d'autorisation et les types d'une ressource sont écrits une fois et
+<div align="center">
+
+```bash
+npm create nodefony@beta mon-app
+```
+
+</div>
+
+### Chaque requête a son propre conteneur
+
+Un processus Node sert des centaines de requêtes **entrelacées** : pendant que l'une attend sa base
+de données, une autre s'exécute. Nodefony donne donc à chaque requête **son propre conteneur de
+services**, posé comme un **calque** sur celui de l'application.
+
+- **Le mécanisme.** Le conteneur du kernel est la carte ; à l'entrée d'une requête, le pipeline pose
+  un calque (`enterScope`) — un objet dont le prototype est la carte. À la fin, `leaveScope` le jette.
+- **Ce qu'on y fait.** On lit toute la carte à travers le calque (les services de l'application
+  s'héritent) ; on n'écrit que sur son calque. Deux requêtes concurrentes ont deux calques et ne se
+  voient jamais ; rien de ce qui est posé sur un calque ne survit à la requête.
+- **Le fil qui relie tout : `AsyncLocalStorage`.** Chaque requête s'exécute dans une bulle ALS de
+  Node (`RequestContext`) : son identifiant, l'utilisateur, la trace W3C et le calque suivent chaque
+  `await`, jusque dans un service ou un adaptateur ORM, sans qu'on les passe d'appel en appel.
+- **Comment on l'atteint.** Depuis n'importe quel code de la requête, sans passer le contexte :
+  `RequestContext.getScope()` rend le calque courant (ou `undefined`), `requireScope()` lève en
+  nommant la cause. La bulle ALS de la requête dit **lequel** est le tien. Un hook
+  `onAfterResponse` le voit encore ouvert ; une promesse non attendue qui continue après la réponse,
+  non.
+- **HTTP et WebSocket.** Une requête HTTP = un calque. Une connexion WebSocket = un calque, partagé
+  par tous ses messages, concurrents compris.
+- **Des services par requête.** `@injectable({ scope: "request" })` donne un exemplaire par requête,
+  créé seulement si la requête le demande, et nettoyé (`clean()`, dans l'ordre inverse des
+  créations) à sa fermeture. Un singleton qui en dépendrait est refusé dès le démarrage,
+  plutôt que de devenir lui-même, sans qu'on l'ait écrit, un service par requête.
+- **Le coût, avec son décor.** Poser puis jeter un calque ≈ 1,43 µs (sonde dans le serveur, un
+  processus en production, paires alternées) ; une requête qui ne résout aucun service par requête
+  ne paie rien de plus.
+
+```ts
+import { Service, injectable, RequestContext } from "nodefony";
+import type { Scope } from "nodefony";
+
+@injectable({ name: "requestStamp", scope: "request" })
+export class RequestStamp extends Service {
+  readonly requestId: string;
+  constructor(scope: Scope) {
+    super("requestStamp", scope, false); // un exemplaire pour CETTE requête
+    this.requestId = RequestContext.getRequestId() ?? "?";
+  }
+}
+```
+
+Le détail — les trois durées de vie, l'accès par `RequestContext`, les pièges :
+[Injection & portées](https://nodefony.github.io/nodefony-core/docs/architecture/injection-portees/).
+
+Les frontends ne sont pas laissés dehors. Nodefony pilote **Vite** : en développement il démarre
+les serveurs de développement — React, Vue, Angular, Svelte —, les surveille, relaie leur rechargement à
+chaud et sert leurs pages ; en production il construit les bundles et les distribue. Une
+application peut en porter plusieurs, chacun monté sur sa route.
+
+Le socle, lui, est **isomorphe** : le même paquet s'importe côté serveur et côté navigateur. Le
+client temps réel, les règles d'autorisation, les types d'une ressource sont écrits une fois et
 s'exécutent là où ils servent — une règle corrigée l'est des deux côtés.
 
-Nodefony est publié depuis **2017** en JavaScript et a mûri jusqu'à sa version 7. La série 10 est
-une **réécriture complète en TypeScript** : même projet, mêmes concepts, repensés pour ce que
-Node.js et TypeScript sont devenus.
+## D'où ça vient
+
+Nodefony est publié depuis **2017**, en JavaScript, et a mûri jusqu'à sa version 7 : des
+applications réelles tournent encore dessus. Fin 2023, plutôt que de le migrer par petits pas, le
+choix a été fait d'une **réécriture complète en TypeScript**, fichier par fichier, en gardant les
+concepts et en jetant tout le reste.
+
+Pourquoi une réécriture et pas une migration progressive ? Parce qu'un framework ne se contente pas
+d'exécuter du code : il **contraint** celui qu'on écrit contre lui. Une couche de types posée après
+coup sur du JavaScript décrit ce que le code fait ; elle ne garantit rien. Les partis pris de cette
+réécriture sont donc structurels, et chacun ferme une porte :
+
+| Décision                                 | Ce qu'elle rend impossible                                    |
+| ---------------------------------------- | ------------------------------------------------------------- |
+| TypeScript **strict**, zéro `@ts-ignore` | qu'un contrat se dégrade en silence entre deux modules        |
+| **ESM** exclusivement                    | la double résolution CommonJS/ESM et ses pièges de chargement |
+| Décorateurs plutôt que convention        | qu'une route existe sans être déclarée là où on la lit        |
+| Configuration **validée** au boot        | qu'une clé mal orthographiée soit ignorée sans un mot         |
+| Un processus = une instance, par défaut  | une supervision imposée ; l'échelle revient à l'orchestrateur |
+
+La version 10 est l'aboutissement de cette réécriture. Ce n'est pas un portage : c'est le même
+projet, repensé pour ce que Node.js et TypeScript sont devenus.
 
 ## Une action, deux transports
 
-Même classe, même session, mêmes règles d'accès — seul le transport déclaré change :
+Ce contrôleur est celui que `nodefony create controller` produit. La première action répond en REST ;
+la seconde est un point d'entrée WebSocket. Même classe, même session, mêmes règles d'accès :
 
 ```typescript
 import {
@@ -67,7 +149,6 @@ import {
   CurrentUser,
 } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
-import type { IUser } from "@nodefony/user";
 
 @controller("/api/blog")
 class BlogController extends Controller {
@@ -76,13 +157,14 @@ class BlogController extends Controller {
   }
 
   @route("blog-index", { path: "", method: "GET" })
-  async index(@CurrentUser() user?: IUser) {
+  async index(@CurrentUser() user?: { identifier?: string }) {
     return this.renderJson({
       hello: "blog",
       who: user?.identifier ?? "anonyme",
     });
   }
 
+  // Même classe, même décorateur : seul le transport déclaré change.
   @route("blog-echo", {
     path: "/echo",
     requirements: { methods: ["WEBSOCKET"] },
@@ -94,42 +176,342 @@ class BlogController extends Controller {
 }
 ```
 
-La pseudo-méthode `WEBSOCKET` est traitée comme un verbe HTTP ordinaire : **une seule table de
-routes** pour les deux transports, et la même bulle `AsyncLocalStorage` du handshake à la fermeture.
-Une règle d'autorisation protège donc l'action quel que soit le transport, et la session ouverte en
-HTTP est celle que voit la socket.
+<details>
+<summary><b>Ce que ça implique sous le capot</b> — pourquoi ce n'est pas du sucre syntaxique</summary>
 
-## Démarrer
+- La pseudo-méthode `WEBSOCKET` est traitée comme un verbe HTTP ordinaire : **une seule table de
+  routes** pour les deux transports, un seul résolveur de contrôleur.
+- Le WebSocket ouvre **la même bulle `AsyncLocalStorage`** que le HTTP et la propage à chaque
+  message : l'identifiant de requête et l'utilisateur restent stables du handshake à la fermeture.
+- Conséquence directe : une règle d'autorisation protège une action **quel que soit le transport**,
+  et une session ouverte en HTTP est celle que voit la socket. Pas de passerelle, pas de seconde
+  pile d'authentification, pas de logique dupliquée.
+- C'est aussi ce qui fait du **streaming** — d'un fichier, d'un événement, d'un modèle de langage —
+  un cas d'usage naturel plutôt qu'un montage : un générateur asynchrone branché sur un canal, dans
+  le même contexte de sécurité que le reste de l'application.
+
+</details>
+
+## Un seul langage, du serveur au navigateur
+
+Le client n'est pas une bibliothèque à part, publiée séparément et rattrapée à chaque version : il
+est **dans le même paquet que le serveur**, et il partage ses types. Le contrat d'un canal, la forme
+d'un message, la hiérarchie des rôles — on les écrit une fois, et les deux côtés en dépendent :
+
+```typescript
+import { NodefonySocket } from "nodefony/client";
+
+const socket = NodefonySocket.shared({ url: "wss://localhost:5152" });
+
+await socket.subscribe("chat:room"); // canaux
+socket.on("chat:room", (message) => render(message));
+
+const modules = await socket.get("/nodefony/kernel/api/modules"); // appel de service
+```
+
+Les mêmes sous-chemins servent le reste : `nodefony/react` pour les hooks, `nodefony/roles` pour
+évaluer une autorisation dans l'interface **avec la règle exacte du serveur** — un bouton caché parce
+que le rôle manque est caché par la même logique que celle qui refusera l'appel.
+
+> **Pourquoi TypeScript, et pas un portage vers un langage plus rapide ?** Parce que l'isomorphisme
+> se paierait exactement là. Réécrire le cœur ailleurs ferait gagner des microsecondes et perdre la
+> seule chose qu'un framework fullstack peut vraiment offrir : un contrat unique, vérifié par le
+> compilateur, du contrôleur jusqu'au composant. Ce qui coûte cher dans une application temps réel,
+> ce n'est pas le langage — c'est la frontière entre deux mondes qui doivent se redire la même chose
+> et finissent par diverger. Nodefony supprime la frontière plutôt que d'optimiser le passage.
+
+## Le temps réel, de bout en bout
+
+**Nodefony est un framework temps réel.** Une application vivante pose toujours les mêmes questions :
+pousser au navigateur, dans un sens ou dans les deux ; ouvrir des salons et savoir qui s'y trouve ;
+décider qui entre ; faire passer des octets ; tenir à plusieurs instances ; voir ce qui se passe
+quand ça coince. Chacune a sa réponse dans le framework, écrite contre la norme qui la définit, et
+éprouvée par des tests.
+
+| Ce qu'il vous faut                    | Ce que Nodefony fournit                                                                                                                                                                                                   |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Échanger dans les deux sens**       | La **socket Nodefony** : des canaux à volonté sur une seule connexion — le serveur diffuse, le client appelle et attend la réponse, ou pousse sans attendre. JSON-RPC 2.0 sur WebSocket (RFC 6455), dans le pipeline HTTP |
+| **Pousser dans un seul sens**         | Les **flux SSE** (`text/event-stream`) : une action répond par `this.renderSse()`, en HTTP/1.1 comme en HTTP/2. Le client isomorphe se reconnecte avec `Last-Event-ID`, et sait envoyer un `POST` et des en-têtes         |
+| **Des salons et leurs membres**       | **Canaux à membres** : lister qui est là, abonner d'office, éjecter un compte, fermer le salon, sur toutes les instances. Un message privé atteint une personne par `publishToUser`                                       |
+| **Décider qui entre**                 | Une **règle d'admission** par canal (`allow`, fonction ou service injecté), sous le même pare-feu que le HTTP. Origine vérifiée à la poignée de main ; un jeton expiré ferme la socket avec un code dédié                 |
+| **Faire passer des octets**           | **CBOR** (RFC 8949), négocié connexion par connexion — détaillé ci-dessous                                                                                                                                                |
+| **Tenir à plusieurs instances**       | Un bus de diffusion entre workers ou par Redis, messages scellés (HMAC-SHA256). Un seul producteur par canal et par processus, quel que soit le nombre d'abonnés                                                          |
+| **Tenir la charge**                   | Contre-pression en sortie, débit borné en entrée, cadence de diffusion qui s'adapte à chaque client                                                                                                                       |
+| **Des types de bout en bout**         | Un **contrat** écrit une fois type le contrôleur, la socket et les hooks React, Vue, Svelte et Angular. Les routes qu'il annonce sont vérifiées au démarrage                                                              |
+| **Voir et tester**                    | Une sonde, la console d'administration, les onglets Socket et SSE de la barre de débogage, un traceur de trames ; une identité d'essai pour tester un canal protégé                                                       |
+| **gRPC** — _à venir en 10.0.0-beta.7_ | Des services gRPC servis par le même pipeline HTTP/2, déclarés depuis un module, avec la réflexion et la santé standard                                                                                                   |
+
+Chaque besoin a son exemple complet et testé : jeu (déplacements, recherche de partie), salon privé
+sur invitation, sonde industrielle, tableau de bord partagé, notification privée, tâche d'agent.
+
+### Le binaire, sans conversion
+
+JSON reste le format par défaut. Dès que des octets circulent — image, son, mesures de capteur,
+état d'une partie —, le serveur accepte **CBOR**, un JSON binaire. Nodefony embarque son propre
+codec : isomorphe, sans dépendance, environ 5,5 Ko compressés, et téléchargé seulement par la page
+qui l'importe. Il rend exactement ce que JSON rendrait, à une exception près : un `Uint8Array`
+voyage en octets et revient en `Uint8Array`. Un message ordinaire pèse 30 à 45 % de moins, et 64 Ko
+d'octets en occupent 65,6 au lieu des 87,4 du base64.
+
+Le codec se **négocie connexion par connexion**. Le client qui l'offre parle CBOR ; celui qui ne
+l'offre pas reste en texte et reçoit les mêmes données. Aucun client ne casse, et un canal suivi par
+les deux sortes de connexions paie un encodage par codec, jamais un par abonné.
+
+```ts
+// nodefony.config.ts — le serveur accepte CBOR
+use("@nodefony/realtime", { codec: "cbor" });
+```
+
+```ts
+// navigateur — le client l'offre à l'ouverture
+import { NodefonySocket } from "nodefony/client";
+import { CBOR_FRAME_CODEC } from "nodefony/cbor";
+
+const socket = NodefonySocket.shared({
+  url: "/chat/realtime",
+  codec: CBOR_FRAME_CODEC,
+});
+```
+
+→ [La socket Nodefony](https://nodefony.github.io/nodefony-core/docs/modules/realtime/) ·
+[Les cas d'usage](https://nodefony.github.io/nodefony-core/docs/modules/realtime/cas-d-usage/) ·
+[Les flux SSE](https://nodefony.github.io/nodefony-core/docs/modules/http/sse/) ·
+[Le codec CBOR](https://nodefony.github.io/nodefony-core/docs/modules/core/cbor/)
+
+## Prêt pour les agents — ce que ça veut dire ici
+
+Une application est aujourd'hui écrite à deux mains : la personne et l'agent qu'elle pilote. Or un
+agent lâché dans un projet bâti sur un framework qu'il connaît mal **invente**. Il produit du code
+plausible : un CRUD écrit à la main là où un générateur existait, un import direct du driver de base
+de données qui contourne la façade, une socket bas niveau là où le framework offre un canal. Ce code
+compile, il passe même les tests — et il aura vieilli avant d'être relu.
+
+La réponse de Nodefony n'est pas un assistant intégré. C'est de rendre **l'application capable de se
+décrire**, pour que l'agent lise au lieu de deviner :
+
+| Ce qui est posé                        | Ce que ça évite                                                                              |
+| -------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Un **`AGENTS.md` généré** à la racine  | la convention périmée : le fichier est dérivé du projet réel, il ne peut pas mentir          |
+| La **doc voyage dans les paquets npm** | l'agent qui cherche sur le web une version qui n'est pas la vôtre                            |
+| Un **catalogue des briques** publié    | le choix de module fait au jugé, sans savoir ce qu'un adaptateur ne couvre pas               |
+| `inspect` · `check` · `env`            | la déduction depuis le code de ce que l'application fait vraiment : routes, services, config |
+| Des générateurs **pilotables en JSON** | l'imitation d'un fichier d'exemple, au lieu d'appeler l'outil qui produit le vrai code       |
+| Un **graphe symbolique** du code       | la fouille par `grep` : qui étend quoi, qui implémente quoi, en une lecture                  |
+
+Le standard retenu — [`AGENTS.md`](https://agents.md) — est celui que lisent la plupart des outils
+de codage, avec la règle « le plus proche gagne ». Rien n'est propriétaire : le fichier est un
+index, court par construction, qui **pointe** vers la documentation installée plutôt que de la
+recopier.
+
+<details>
+<summary><b>Et surtout : c'est mesuré</b> — un banc de découvrabilité, pas une intention</summary>
+
+Une application témoin est générée, puis un agent y reçoit des tâches réelles : « ajoute un CRUD
+produit », « protège une route », « écris une commande CLI », « configure l'application par
+l'environnement », « choisis la brique adaptée à ce besoin ». Le harnais lit ensuite le transcript
+et le code produit, et répond à une seule question : **l'agent a-t-il lu, ou deviné ?**
+
+La métrique n'est pas « le code marche » — il marche souvent, c'est bien le piège. C'est : a-t-il
+lancé le générateur ? ouvert le catalogue ? interrogé la configuration effective plutôt que de la
+supposer ? Le banc n'est pas entièrement vert aujourd'hui, et chaque échec désigne un endroit précis
+où l'application ne se rend pas assez évidente. C'est exactement à ça qu'il sert.
+
+</details>
+
+Ce que Nodefony revendique n'est pas d'écrire un `AGENTS.md` — n'importe quel projet peut le
+faire — mais de traiter la découvrabilité comme une propriété **mesurée** : le banc ci-dessus est
+rejouable, et ses échecs sont publics. C'est cette place-là que le framework occupe délibérément.
+
+## L'IA : votre application, ouverte aux agents
+
+**Un agent d'IA atteint une application par une porte standard : le Model Context Protocol
+(MCP).** Il demande quels outils elle offre, reçoit pour chacun un nom, une description et un
+schéma d'entrée, puis les appelle. `@nodefony/ai` donne cette porte à votre application et tient
+le protocole à votre place — versions, erreurs, autorisation, progression, annulation. Vous écrivez
+une fonction ; elle devient un outil, que Claude, ChatGPT, Copilot ou l'agent d'un client savent
+appeler.
+
+| Ce qu'il vous faut                   | Ce que Nodefony fournit                                                                                                                                                                                   |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Ouvrir une porte MCP**             | `npx nodefony create controller mcp --kind mcp` génère la porte, deux outils d'exemple et leur test. MCP révision `2026-07-28`, clients plus anciens acceptés                                             |
+| **Suivre un outil long**             | Sur la même requête HTTP, la réponse passe en **flux SSE** : l'agent reçoit l'avancement (`notifications/progress`), puis le résultat — et peut annuler en route, l'outil s'arrête proprement             |
+| **Servir un agent sans serveur**     | Le transport **stdio** : `npx nodefony ai:stdio`, pour une intégration continue ou un agent qui lance lui-même son serveur. Les mêmes outils, la même fonction                                            |
+| **Ouvrir en production**             | `--expose oauth` : jeton exigé, serveur d'autorisation annoncé (RFC 9728), un scope par outil — un appelant ne voit que ce qu'il peut appeler. `--expose mixte` : des outils publics, les autres réservés |
+| **Agir au nom de quelqu'un**         | `actsForUser` : l'outil s'exécute avec le compte de l'appelant, sous les mêmes règles qu'une route protégée                                                                                               |
+| **Dire ce que fait l'outil**         | Chaque outil annonce s'il lit ou s'il modifie, pour que l'agent sache quand demander confirmation ; le test généré refuse un outil qui ne le dit pas                                                      |
+| **Des outils dans chaque module**    | Un module déclare les siens par `getMcpTools()` ; une porte les ramasse tous, sans registre à tenir                                                                                                       |
+| **Développer avec un agent de code** | `@nodefony/devkit` ouvre en développement la porte `/nodefony/mcp` : l'agent interroge l'application qui tourne — carte, santé, routes, trafic, profil d'une route — au lieu de deviner                   |
+
+`@nodefony/ai` ne monte aucune route tant que vous n'ouvrez pas de porte ; paquet **expérimental**, il suit la spécification MCP et peut évoluer en version mineure, toujours annoncé au journal des versions.
+
+→ [Le module IA](https://nodefony.github.io/nodefony-core/docs/modules/ai/) ·
+[La boîte à outils MCP](https://nodefony.github.io/nodefony-core/docs/modules/ai/mcp/)
+
+## Démarrage
+
+Une préversion `10.0.0-beta.5` est en ligne sous le canal `beta`. Une bêta n'est pas une version
+stable : une rupture reste possible d'une bêta à la suivante — chacune est alors annoncée en tête
+du [CHANGELOG](https://github.com/nodefony/nodefony-core/blob/main/CHANGELOG.md) — et elle n'est pas destinée à la production. Elle s'installe en
+nommant ce canal :
 
 ```bash
 npm create nodefony@beta mon-app
+cd mon-app
+npm run dev
 ```
 
-Puis, dans le dossier créé : `npm run dev`.
+Le canal se nomme tant que la 10 n'est pas stable : c'est lui qui garantit de recevoir la
+préversion, et non la `7.0.2` que `npm install nodefony` sert encore — la version JavaScript
+d'avant, sans rapport avec ce que cette page décrit.
 
-Le générateur produit une application complète — configuration validée, base de données au choix,
-frontend optionnel (React, Vue, Angular, Svelte), `Dockerfile`, et un `AGENTS.md` dérivé du projet.
+L'application répond sur `http://127.0.0.1:5151` — ou le premier port libre, annoncé au
+démarrage — et la console d'administration sur `/nodefony`.
 
-## Les paquets de la série 10
+**À quoi ressemble ce que la commande produit :**
+[`github.com/nodefony/nodefony`](https://github.com/nodefony/nodefony). Ce dépôt n'est pas une
+démonstration écrite à la main pour la vitrine — c'est la sortie littérale de
+`nodefony create app --preset complete --frontend react`, poussée telle quelle et **régénérée à
+chaque publication**. Base de données et migration initiale, sécurité et comptes, temps réel,
+console d'administration, front React, infra docker de développement, chaîne d'intégration
+continue : tout ce que vous y lisez a été engendré, rien n'y a été retouché. C'est le moyen le plus
+court de juger le code qu'on aura à maintenir, avant d'installer quoi que ce soit.
 
-| Paquet                                                             | Rôle                                                        |
-| ------------------------------------------------------------------ | ----------------------------------------------------------- |
-| **`nodefony`**                                                     | ce paquet — noyau, DI, modules, journalisation, CLI         |
-| `@nodefony/http`                                                   | serveurs HTTP/1.1, HTTP/2 et WebSocket, contextes, sessions |
-| `@nodefony/framework`                                              | routeur, contrôleurs, décorateurs de route                  |
-| `@nodefony/security`                                               | pare-feu applicatif, authentification, autorisation         |
-| `@nodefony/orm-core` · `@nodefony/drizzle` · `@nodefony/mongoose`  | persistance portable                                        |
-| `@nodefony/user`                                                   | entité et service utilisateur                               |
-| `@nodefony/realtime`                                               | canaux temps réel, diffusion multi-instances                |
-| `@nodefony/frontend`                                               | pilotage de Vite, rechargement à chaud, construction        |
-| `@nodefony/studio`                                                 | console d'administration                                    |
-| `@nodefony/documentation` · `@nodefony/devkit` · `@nodefony/redis` | documentation, outillage agent, cache et bus                |
+Pour travailler sur le framework lui-même, c'est le dépôt
+[`nodefony/nodefony-core`](https://github.com/nodefony/nodefony-core) qu'on clone.
 
-## Aller plus loin
+Générer du code — une application, un module, un contrôleur, une entité et toute sa chaîne :
 
-- **Documentation** — <https://nodefony.github.io/nodefony-core/>
-- **Dépôt et suivi** — <https://github.com/nodefony/nodefony-core>
-- **Journal des versions** — <https://github.com/nodefony/nodefony-core/blob/main/CHANGELOG.md>
+```bash
+npx nodefony create module blog --frontend react
+npx nodefony create entity Article title:string body:text views:int
+npx nodefony create controller admin --kind rest --role ROLE_ADMIN
+```
+
+Chaque générateur montre **le plan et le diff avant d'écrire quoi que ce soit**. Un refus ne laisse
+rien derrière lui. Il publie aussi son catalogue en JSON et accepte ses réponses par fichier : la
+même porte sert la personne au terminal, la console d'administration et un agent.
+
+## Le framework se regarde tourner
+
+`@nodefony/studio` est une console d'administration livrée avec le framework : topologie du runtime,
+journaux en direct avec rejeu, suivi d'une requête de bout en bout par son identifiant, schéma de la
+base, graphe des classes par module, gouvernance de la sécurité (audit, pare-feu, rôles, sessions,
+clés d'API), et les générateurs de code pilotables à la souris, la sortie diffusée comme un terminal.
+
+<img src="https://raw.githubusercontent.com/nodefony/nodefony-core/main/docs/assets/studio-supervision.png" alt="Supervision du runtime dans la console d'administration" width="100%">
+
+Sa force est en dessous : **elle ne consomme aucune API privée.** Toutes ses données viennent d'un
+plan de données JSON protégé par les mêmes règles d'accès que le reste, **auto-décrit** — un appel en
+renvoie le catalogue — et **duplex** : le même point d'accès répond en HTTP et par la socket. Ce
+qu'affiche la console, un script ou un agent peut le lire tel quel.
+
+Le suivi d'une requête en est l'illustration la plus directe : chaque requête porte un identifiant
+propagé dans tout le pipeline, et la console rejoue son trajet complet — phases, requêtes de base de
+données, décisions du pare-feu.
+
+<img src="https://raw.githubusercontent.com/nodefony/nodefony-core/main/docs/assets/studio-request.png" alt="Suivi d'une requête de bout en bout par son identifiant" width="100%">
+
+## La sécurité, fermée par défaut
+
+Le pare-feu découpe l'application en **zones**, chacune avec sa chaîne d'authentification. Il refuse
+plutôt que d'ouvrir : une configuration invalide capture le trafic et répond 401.
+
+|                   |                                                                                                      |
+| ----------------- | ---------------------------------------------------------------------------------------------------- |
+| **Identités**     | session serveur pour le web · jetons et clés d'API pour les machines · OAuth2/OIDC · WebAuthn · TOTP |
+| **Cryptographie** | Argon2id pour les mots de passe · signatures Ed25519 · secrets chiffrés au repos                     |
+| **Défenses**      | CSRF par métadonnées de requête · en-têtes de sécurité · limitation de débit · journal d'audit       |
+| **Autorisation**  | hiérarchie de rôles vérifiée au démarrage, refus par défaut                                          |
+
+### Équipe rouge, équipe bleue
+
+Ces briques ne sont pas éprouvées par des cas nominaux — « le login fonctionne » ne prouve rien. Les
+campagnes se mènent en **deux passes, et l'ordre est le cœur du dispositif** :
+
+1. **Passe rouge — la menace d'abord.** La matrice d'attaque est construite depuis les standards et
+   les faiblesses connues **avant d'avoir lu le code**. C'est un garde-fou contre son propre biais :
+   qui lit l'implémentation en premier ne teste que ce qu'elle prévoit, et rate précisément ce
+   qu'elle a oublié.
+2. **Passe bleue — le code ensuite.** On lit l'implémentation, on couvre les branches restantes,
+   on regarde les chemins que la passe rouge n'imaginait pas.
+3. **Le cycle.** Faille trouvée → corrigée → **re-prouvée par un test qui échouait avant elle**. Un
+   correctif sans son test de non-retour ne compte pas comme corrigé.
+
+Ce qui distingue ces attaques d'un scan générique : beaucoup visent des surfaces **propres à cette
+architecture** — les portées de l'injection de dépendances, les messages du pipeline WebSocket
+partagé, le jeton porté par le contexte asynchrone, les zones du pare-feu et leurs contournements.
+Aucun outil sur étagère ne connaît ces surfaces : il faut concevoir les attaques.
+
+> ⚠️ **À savoir avant de concevoir votre application.** Le refus par défaut opère **par zone du
+> pare-feu**, pas route par route : une route située hors de toute zone déclarée est publique.
+> Déclarez vos zones.
+
+## Ce qu'il y a dans la boîte
+
+<!-- prettier-ignore -->
+| Brique | Rôle |
+| --- | --- |
+| [`nodefony`](https://nodefony.github.io/nodefony-core/docs/modules/core/) | **Ce paquet** — noyau : modules, injection de dépendances, configuration validée au démarrage, journalisation structurée corrélée, CLI — et le client temps réel partagé avec le navigateur |
+| [`@nodefony/http`](https://nodefony.github.io/nodefony-core/docs/modules/http/) | Serveurs HTTP, HTTPS, HTTP/2 et WebSocket natifs, flux SSE, sessions, contextes de requête, certificats TLS |
+| [`@nodefony/framework`](https://nodefony.github.io/nodefony-core/docs/modules/framework/) | Routeur, contrôleurs, décorateurs, vues — le modèle de programmation |
+| [`@nodefony/security`](https://nodefony.github.io/nodefony-core/docs/modules/security/) · [`@nodefony/user`](https://nodefony.github.io/nodefony-core/docs/modules/user/) | Pare-feu par zones, authentification, autorisation par rôles, CSRF, audit |
+| [`@nodefony/realtime`](https://nodefony.github.io/nodefony-core/docs/modules/realtime/) | Socket à canaux, salons et leurs membres, admission par canal, binaire CBOR, contre-pression, diffusion entre plusieurs instances |
+| [`@nodefony/ai`](https://nodefony.github.io/nodefony-core/docs/modules/ai/) | Porte MCP : les outils de l'application offerts aux agents d'IA, en HTTP avec flux SSE ou en stdio |
+| [`@nodefony/orm-core`](https://nodefony.github.io/nodefony-core/docs/modules/orm-core/) | Un contrat de dépôt de données, plusieurs moteurs : [Drizzle](https://nodefony.github.io/nodefony-core/docs/modules/drizzle/) (SQLite, PostgreSQL, MySQL), [Mongoose](https://nodefony.github.io/nodefony-core/docs/modules/mongoose/), [Redis](https://nodefony.github.io/nodefony-core/docs/modules/redis/) |
+| [`@nodefony/frontend`](https://nodefony.github.io/nodefony-core/docs/modules/frontend/) | Construction et rechargement à chaud des frontends de chaque module |
+| [`@nodefony/studio`](https://nodefony.github.io/nodefony-core/docs/modules/studio/) | Console d'administration |
+
+Par défaut, un processus Node égale une instance : le passage à l'échelle revient à l'orchestrateur,
+et les journaux partent sur la sortie standard. Sans orchestrateur, `nodefony cluster -w N` démarre N
+workers isolés, relancés s'ils tombent.
+
+## Où aller ensuite
+
+- [Par où commencer](https://nodefony.github.io/nodefony-core/docs/demarrer/) — cinq parcours selon ce que vous venez faire
+- [Documentation](https://nodefony.github.io/nodefony-core/docs/) · [Guides](https://nodefony.github.io/nodefony-core/docs/guides/) · [Première application](https://nodefony.github.io/nodefony-core/docs/tutoriels/premiere-application/)
+- [L'architecture en vue d'ensemble](https://nodefony.github.io/nodefony-core/docs/architecture/vue-ensemble/) — ce que le framework est, et ce que ses partis pris coûtent
+- [Performance](https://nodefony.github.io/nodefony-core/performance/) — ce qui a été mesuré, avec quel
+  protocole, et ce que ces chiffres ne permettent pas de conclure ; une page par version publiée,
+  dont [la version courante](https://nodefony.github.io/nodefony-core/performance/latest/)
+- [Décisions d'architecture](https://github.com/nodefony/nodefony-core/tree/main/docs/adr/) — les choix structurants et leur pourquoi
+- [Signaler une faille](https://github.com/nodefony/nodefony-core/blob/main/SECURITY.md) — canal privé, jamais en ticket public
+- Contribuer : ouvrez une issue avant toute contribution substantielle. Le dépôt impose les
+  _Conventional Commits_ et un `npm run typecheck` complet avant chaque envoi.
+
+## État du projet
+
+Le cœur — serveurs, routage, sécurité, temps réel, persistance, console d'administration,
+construction des frontends — est couvert par des suites de tests exécutables sur infrastructure
+réelle, et le dépôt versionne des seuils de fuite mémoire et de charge
+opposables à chaque exécution.
+
+**Ce que ça donne en charge.** À travail égal — mêmes journaux, même contexte de requête, mêmes
+en-têtes de sécurité, même protection CSRF —, Nodefony se tient **dans la même zone que les frameworks
+Node.js établis, munis des mêmes intergiciels** : entre 93,6 et 112,7 % de leur débit sur une route qui ne
+fait rien (21 686 requêtes/s, p99 4,4 ms sur la machine de référence), entre 95,9 et 96,7 % sur une
+route qui lit et écrit une base — pour une résolution de banc de 3 %. Quatre-vingt-huit minutes de
+charge continue et 97,5 millions de requêtes laissent **le tas, l'empreinte mémoire et le `rss`
+plats** : 0,021 Mo par million de requêtes. La page de mesures de la version courante —
+**[peut-on partir en production ?](https://nodefony.github.io/nodefony-core/performance/latest/)** — porte le comparatif, la
+tenue dans la durée, le dimensionnement d'un pod et un calculateur ; elle nomme aussi ce que ces
+chiffres **ne** prouvent pas. Le dossier [`docs/performance/`](https://nodefony.github.io/nodefony-core/performance/) donne le
+protocole, les scripts qui rejouent chaque chiffre et les instruments qui ont menti avant qu'on
+s'en aperçoive — aucun absolu pris derrière un chemin virtualisé n'est transposable.
+
+Ce qu'il faut savoir avant de bâtir dessus : les versions JavaScript historiques (≤ 7.x) ne
+reçoivent plus de correctifs. Projet libre, développé bénévolement par une seule personne.
+
+Licence [Apache 2.0](https://github.com/nodefony/nodefony-core/blob/main/LICENSE.txt) — permissive, avec concession de brevet explicite.
+**Christophe Camensuli** · [ccamensuli@gmail.com](mailto:ccamensuli@gmail.com)
+
+---
+
+<div align="center">
+
+_La suite est une couche d'agents IA construite sur ce socle : le même pipeline, la même sécurité, le
+même temps réel — et une application qui sait déjà se décrire à une machine._
+
+</div>
 
 ---
 
