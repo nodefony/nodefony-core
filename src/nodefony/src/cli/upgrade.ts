@@ -5,6 +5,7 @@ import { SysExit } from "./sysexits";
 import { findProjectRoot } from "./projectRoot";
 import { stripGlobalCliFlags } from "./globalFlags";
 import { syncSkillPointers } from "./aiSync";
+import { syncEnvExample, type IEnvExampleSync } from "./env";
 import type { IAiSyncPlan } from "./aiSyncReport";
 import {
   runAppContributions,
@@ -34,12 +35,13 @@ export const UPGRADE_USAGE: IUsagePage = {
     {
       title: "CE QU'ELLE REJOUE",
       paragraph:
-        "Trois gestes que `npm install` ne fait pas : le bloc framework " +
+        "Quatre gestes que `npm install` ne fait pas : le bloc framework " +
         "d'`AGENTS.md` (entre ses marqueurs — le texte autour n'est pas " +
         "touché), les pointeurs des skills d'agent (`ai:sync`, nouveaux " +
-        "skills compris), et les copies livrées par les paquets restées " +
+        "skills compris), les copies livrées par les paquets restées " +
         "intactes (`scaffold:sync --update` ; une copie retouchée est gardée " +
-        "et nommée). Elle ne démarre pas l'application et n'installe rien.",
+        "et nommée), et `.env.example` (`env --example`). Elle ne démarre " +
+        "pas l'application et n'installe rien.",
     },
   ],
   options: [
@@ -82,6 +84,8 @@ export interface IUpgradeReport {
   agents: IAgentsGuideRefresh;
   skills: IAiSyncPlan;
   contributions: IAppContributionReport[];
+  /** `.env.example`, dérivé du catalogue ET des modules installés. */
+  envExample: IEnvExampleSync;
 }
 
 /**
@@ -92,11 +96,13 @@ export interface IUpgradeReport {
  * rougirait pour eux ne passerait plus jamais.
  *
  * @param report - le rapport d'une passe `nodefony upgrade`.
- * @returns `true` si un des trois gestes a (ou aurait) écrit quelque chose.
+ * @returns `true` si un des quatre gestes a (ou aurait) écrit quelque chose.
  */
 export function isUpgradePending(report: IUpgradeReport): boolean {
   return (
     report.agents.status === "updated" ||
+    report.envExample.status === "pending" ||
+    report.envExample.status === "wrote" ||
     report.skills.skills.some((s) => s.action !== "inchange") ||
     report.contributions.some(
       (c) =>
@@ -106,17 +112,17 @@ export function isUpgradePending(report: IUpgradeReport): boolean {
 }
 
 /**
- * Rejoue, après une montée de version, les trois gestes qui alignent une
+ * Rejoue, après une montée de version, les quatre gestes qui alignent une
  * application sur les paquets installés : bloc framework d'`AGENTS.md`,
- * pointeurs de skills, copies livrées intactes.
+ * pointeurs de skills, copies livrées intactes, `.env.example`.
  *
  * Une seule implémentation par geste, appelée telle quelle : c'est celle de
  * `create module` pour le bloc, d'`ai:sync` pour les pointeurs, de
- * `scaffold:sync --update` pour les copies.
+ * `scaffold:sync --update` pour les copies, d'`env --example` pour le modèle.
  *
  * @param projectRoot - racine de l'application.
  * @param dryRun - `true` : juger sans rien écrire.
- * @returns le rapport des trois gestes.
+ * @returns le rapport des quatre gestes.
  */
 export async function runUpgrade(
   projectRoot: string,
@@ -128,6 +134,7 @@ export async function runUpgrade(
     agents: refreshAgentsGuide(projectRoot, version, dryRun),
     skills: syncSkillPointers(projectRoot, dryRun),
     contributions: await runAppContributions(projectRoot, dryRun, true),
+    envExample: await syncEnvExample(projectRoot, dryRun),
   };
 }
 
@@ -149,6 +156,17 @@ export function renderUpgrade(report: IUpgradeReport): string {
   };
   lines.push(
     `  ${report.agents.file.padEnd(16)} ${agentsLabel[report.agents.status]}`,
+  );
+  const envLabel: Record<IEnvExampleSync["status"], string> = {
+    synced: "à jour",
+    wrote: "régénéré",
+    pending: "à régénérer",
+    // Catalogue illisible : le dire, plutôt qu'un « à jour » faux.
+    unavailable:
+      "non vérifié — catalogue illisible (`nodefony env --example` dit pourquoi)",
+  };
+  lines.push(
+    `  ${".env.example".padEnd(16)} ${envLabel[report.envExample.status]}`,
   );
 
   const posed = report.skills.skills.filter((s) => s.action === "pose");

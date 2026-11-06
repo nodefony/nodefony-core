@@ -25,6 +25,7 @@ import { refreshAgentsGuide, runScaffold } from "../cli/scaffold/engine";
 import {
   isUpgradePending,
   parseUpgradeArgv,
+  renderUpgrade,
   type IUpgradeReport,
 } from "../cli/upgrade";
 import { checkAgentsGuide } from "../kernel/checks/freshness";
@@ -219,6 +220,7 @@ describe("isUpgradePending — ce que `--check` compte", () => {
       preserves: [],
     },
     contributions: [],
+    envExample: { status: "synced", variables: 3 },
   };
   const contribution = {
     packageName: "@nodefony/security",
@@ -250,6 +252,27 @@ describe("isUpgradePending — ce que `--check` compte", () => {
       }),
       true,
     );
+  });
+  /*
+   *   Vécu sur une application réelle : après `upgrade`, `npm run verify`
+   *   tombait sur `env:check` — le modèle dérive AUSSI des modules installés,
+   *   et `upgrade` ne le rejouait pas.
+   */
+  it(".env.example à régénérer : en retard, et l'écran le dit", () => {
+    const report: IUpgradeReport = {
+      ...base,
+      envExample: { status: "pending", variables: 3 },
+    };
+    assert.strictEqual(isUpgradePending(report), true);
+    assert.match(renderUpgrade(report), /\.env\.example\s+à régénérer/u);
+  });
+  it(".env.example illisible : pas en retard, mais NON VÉRIFIÉ — jamais « à jour »", () => {
+    const report: IUpgradeReport = {
+      ...base,
+      envExample: { status: "unavailable", variables: 0 },
+    };
+    assert.strictEqual(isUpgradePending(report), false);
+    assert.match(renderUpgrade(report), /\.env\.example\s+non vérifié/u);
   });
   it("copie RETOUCHÉE, AGENTS.md absent : pas en retard — rien ne se tranche sans humain", () => {
     assert.strictEqual(

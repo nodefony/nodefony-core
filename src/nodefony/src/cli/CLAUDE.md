@@ -561,10 +561,12 @@ GABARITS du preset `complete` (compose, `.env`), contenu de l'application géné
 ## `nodefony upgrade` — remettre l'app au niveau de ses paquets (standalone 0-boot)
 
 `nodefony upgrade [--check] [--dry-run] [--json] [--cwd <path>]` — rejoue, après une montée de
-version, les trois gestes que `npm install` ne fait pas, chacun par SON implémentation :
+version, les quatre gestes que `npm install` ne fait pas, chacun par SON implémentation :
 `refreshAgentsGuide` (bloc framework d'`AGENTS.md`, `scaffold/engine.ts` — même garde monorepo
 que `create module`, et un `AGENTS.md` ABSENT n'est pas recréé), `syncSkillPointers` (`ai:sync`),
-`runAppContributions(root, dry, true)` (`scaffold:sync --update`). `--check` = simulation, sort
+`runAppContributions(root, dry, true)` (`scaffold:sync --update`), `syncEnvExample` (`env
+--example` — le modèle dérive AUSSI des raccourcis des modules installés : une montée le
+désynchronise, et `verify` tombait sur `env:check`). `--check` = simulation, sort
 en 1 si `isUpgradePending` (copie retouchée, absence, orphelin n'y comptent pas : rien ne se
 tranche sans humain). `doctor` réutilise le même jugement (`checkAgentsGuide`, famille
 « Fraîcheur du build ») — une règle, une implémentation. Le bloc se juge sur son RENDU, jamais sur

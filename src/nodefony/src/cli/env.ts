@@ -626,6 +626,54 @@ export function applyEnvExample(
   return { synced: true, wrote: true };
 }
 
+/** Ce que la synchronisation de `.env.example` a constaté — ou fait. */
+export interface IEnvExampleSync {
+  /**
+   * `synced` : déjà conforme · `wrote` : réécrit · `pending` : diverge, rien
+   * écrit (vérification) · `unavailable` : catalogue illisible, rien jugé.
+   */
+  status: "synced" | "wrote" | "pending" | "unavailable";
+  /** Variables du catalogue (0 quand il est illisible). */
+  variables: number;
+}
+
+/**
+ * Dérive `.env.example` du catalogue de l'application et l'applique (ou le
+ * compare) — le geste ENTIER de `nodefony env --example`, appelé aussi par
+ * `nodefony upgrade`.
+ *
+ * Le modèle ne dépend pas que d'`env.ts` : les raccourcis des modules
+ * installés y entrent aussi. Une montée de version le désynchronise donc à
+ * coup sûr, et le contrôle `env:check` de `verify` échouait juste après
+ * `upgrade` si celui-ci ne le rejouait pas.
+ *
+ * @param projectRoot - racine de l'application.
+ * @param check - `true` : comparer sans écrire.
+ * @returns le constat ; `unavailable` quand le catalogue est illisible (ni
+ *   `env.ts` ni le build n'exportent `env`, cf {@link readCatalog}).
+ */
+export async function syncEnvExample(
+  projectRoot: string,
+  check: boolean,
+): Promise<IEnvExampleSync> {
+  const catalog = await readCatalog(projectRoot);
+  if (catalog === null) return { status: "unavailable", variables: 0 };
+  const { synced, wrote } = applyEnvExample(
+    projectRoot,
+    composeEnvExample(
+      catalog,
+      readExampleHeader(projectRoot),
+      readManifestModules(projectRoot),
+      (await readModuleShortcuts(projectRoot)).shortcuts,
+    ),
+    check,
+  );
+  return {
+    status: !synced ? "pending" : wrote ? "wrote" : "synced",
+    variables: catalog.length,
+  };
+}
+
 export async function runEnvCommand(argv: string[]): Promise<number> {
   const parsed = parseEnvArgv(argv);
   if ("error" in parsed) {
@@ -645,8 +693,8 @@ export async function runEnvCommand(argv: string[]): Promise<number> {
       );
       return SysExit.NOINPUT;
     }
-    const catalog = await readCatalog(projectRoot);
-    if (catalog === null) {
+    const sync = await syncEnvExample(projectRoot, parsed.check);
+    if (sync.status === "unavailable") {
       // Le catalogue se lit dans le build de l'app (cf `readCatalog`) : sans
       // lui, rien à dériver — et le DIRE vaut mieux qu'un fichier vide.
       process.stderr.write(
@@ -655,25 +703,15 @@ export async function runEnvCommand(argv: string[]): Promise<number> {
       );
       return SysExit.UNAVAILABLE;
     }
-    const { synced, wrote } = applyEnvExample(
-      projectRoot,
-      composeEnvExample(
-        catalog,
-        readExampleHeader(projectRoot),
-        readManifestModules(projectRoot),
-        (await readModuleShortcuts(projectRoot)).shortcuts,
-      ),
-      parsed.check,
-    );
-    if (!synced) {
+    if (sync.status === "pending") {
       process.stderr.write(
         `❌ .env.example désynchronisé de env.ts — lancer : npx nodefony env --example\n`,
       );
       return SysExit.CONFIG;
     }
     process.stdout.write(
-      `✅ .env.example ${wrote ? "régénéré depuis" : "synchronisé avec"} env.ts ` +
-        `(${catalog.length} variable(s))\n`,
+      `✅ .env.example ${sync.status === "wrote" ? "régénéré depuis" : "synchronisé avec"} env.ts ` +
+        `(${sync.variables} variable(s))\n`,
     );
     return SysExit.OK;
   }
