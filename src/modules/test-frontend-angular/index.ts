@@ -1,7 +1,7 @@
 /**
  * @nodefony/test-frontend-angular — module POC consumer du @nodefony/frontend.
  *
- * Valide le preset `angular` (Angular 21 standalone via `@analogjs/vite-plugin-angular`)
+ * Valide le preset `angular` (Angular 22 standalone via `@analogjs/vite-plugin-angular`)
  * sous le MÊME superviseur Vite que les bundles React 19 + Vue 3.
  */
 import { Kernel, Module } from "nodefony";

@@ -1,7 +1,7 @@
 {
   "name": "@nodefony/test-frontend-angular",
   "version": "10.0.0-poc.1",
-  "description": "POC consumer module for @nodefony/frontend — Vite/Angular 21 page validating multi-framework",
+  "description": "POC consumer module for @nodefony/frontend — Vite/Angular 22 page validating multi-framework",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {

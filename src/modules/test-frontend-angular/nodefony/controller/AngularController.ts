@@ -38,7 +38,7 @@ class AngularController extends Controller {
     <!-- Le fond du thème AVANT tout CSS : en dev, Vite charge les styles par
          script ; sans ce méta, le navigateur peint du blanc d'ici là (flash). -->
     <meta name="color-scheme" content="light dark" />
-    <title>Angular 21 — vitrine temps réel Nodefony</title>
+    <title>Angular 22 — vitrine temps réel Nodefony</title>
     ${viteTags}
   </head>
   <body>

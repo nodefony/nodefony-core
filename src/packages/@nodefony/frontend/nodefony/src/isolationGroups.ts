@@ -13,20 +13,21 @@
  * (ex. stores MobX à décorateurs). Mélangé aux autres, il throw sur des fichiers
  * hors de son tsconfig → erreurs de compilation + boucle de rechargement.
  *
- * Vue : le compilateur de composants monofichiers sert le bloc script sous un
- * identifiant qui se TERMINE par `.ts`
- * (`App.vue?vue&type=script&setup=true&lang.ts`). Le filtre de
- * `@vitejs/plugin-react` y mord — il est élargi aux identifiants portant une
- * query — et injecte son `$RefreshSig$()`, que rien ne définit sur une page sans
- * préambule React : la vitrine Vue ne se montait plus du tout
- * (`ReferenceError: $RefreshSig$ is not defined`).
+ * Vue : `@vitejs/plugin-react` pose une option oxc GLOBALE
+ * (`oxc.jsx.refresh: true`) que le compilateur de Vite neutralise lui-même sur
+ * tout fichier qui n'est pas du JSX. `@vitejs/plugin-vue` contourne cette
+ * garde : il compile le TypeScript d'un composant en appelant directement
+ * `transformWithOxc(…, { ...devServer.config.oxc, lang: "ts" })` (sa fonction
+ * `transformMain`), option brute comprise. oxc injecte alors `$RefreshSig$()`
+ * dans les fonctions de forme hook du `setup` — que rien ne définit sur une
+ * page sans préambule React : la vitrine Vue ne se monte plus
+ * (`ReferenceError: $RefreshSig$ is not defined`). Défaut de plugin-vue, suivi
+ * en amont : https://github.com/vitejs/vite-plugin-vue/issues/798 (constaté
+ * sur plugin-vue 6.0.10, plugin-react 6.2.1, Vite 8.3.6).
  *
- * ⚠️ Il a longtemps été écrit ici que « React / Vue / vanilla ciblent des
- * extensions disjointes ». C'était faux, et c'est ce qui a fait chercher
- * ailleurs. Passer `exclude: [/\.vue/]` à `@vitejs/plugin-react` **ne suffit
- * pas** : mesuré sur Vite 8.2.2, l'injection persiste jusqu'à `exclude: [/./]`
- * inclus — l'option ne borne pas ce chemin. Seule l'isolation en process
- * distinct l'arrête.
+ * ⚠️ Aucun filtre du greffon React n'y peut rien (`exclude: [/./]` compris) :
+ * l'option est globale, et couper `refresh` casserait le HMR de React. Seule
+ * l'isolation en process distinct l'arrête. À lever quand l'amont corrige.
  *
  * Svelte, lui, cohabite sans dommage (constaté) : son bloc script n'est pas
  * servi sous un identifiant qui finit par `.ts`.
