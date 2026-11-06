@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-06T15:46:28.580Z",
+  "generatedAt": "2026-11-06T16:16:37.140Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -6313,7 +6313,7 @@
       "title": "fix(http): aligner le cœur HTTP, HTTP/2 et WebSocket sur la lecture complète de leurs normes",
       "url": "https://github.com/nodefony/nodefony-core/issues/732",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": null,
@@ -6666,6 +6666,22 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 7.55,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 738,
+      "title": "docs(rfc): relire contre le code les nouvelles révisions d'OAuth 2.1",
+      "url": "https://github.com/nodefony/nodefony-core/issues/738",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 7.56,
       "debut": null,
       "cible": null,
       "labels": [

@@ -6213,7 +6213,7 @@
           "security.md",
           "typage-strict.md"
         ],
-        "referenceFilesTotal": 92,
+        "referenceFilesTotal": 94,
         "scripts": []
       },
       "related": [
@@ -10339,13 +10339,15 @@
     },
     {
       "name": "nodefony-rfc",
-      "summary": "Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis des sources brutes, jamais des pages HTML.",
+      "summary": "Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis leurs sources brutes, et les lit EN ENTIER : un extracteur rend toutes leurs phrases normatives.",
       "family": "Références et livrables",
-      "version": "1.11.0",
+      "version": "1.12.0",
       "keywords": [],
       "triggers": [
         "RFC",
         "conformité HTTP",
+        "audit de conformité",
+        "Cache-Control",
         "norme WebSocket",
         "CORS spec",
         "RFC 9110/9113/6455/6265",
@@ -10353,10 +10355,8 @@
         "norme SSE",
         "EventSource",
         "spec MCP",
-        "Model Context Protocol",
         "autorisation MCP",
         "resource server OAuth",
-        "RFC 9728",
         "AGENTS.md",
         "AAIF",
         "quelle taille pour AGENTS.md",
@@ -10385,10 +10385,10 @@
         "frame-ancestors",
         "MCP Apps"
       ],
-      "description": "Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE MCP 2026-07-28, A2A 1.0.1, gRPC, CSP Level 3, AGENTS.md, Keycloak 26.8 et un relevé des terminaux, avec un script de dérive amont. Dit quelles RFC tranchent un proxy inverse. Déclencheurs : \"RFC\", \"conformité HTTP\", \"norme WebSocket\", \"CORS spec\", \"RFC 9110/9113/6455/6265\", \"SameSite cookies\", \"norme SSE\", \"EventSource\", \"spec MCP\", \"Model Context Protocol\", \"autorisation MCP\", \"resource server OAuth\", \"RFC 9728\", \"AGENTS.md\", \"AAIF\", \"quelle taille pour AGENTS.md\", \"dossier .agents\", \"Agent Skills\", \"quel fichier lit tel agent\", \"Keycloak\", \"realm\", \"thème Keycloak\", \"proxy inverse\", \"reverse proxy\", \"en-têtes hop-by-hop\", \"request smuggling\", \"que fait nginx\", \"norme périmée\", \"souris dans le terminal\", \"OSC 52\", \"gRPC\", \"protobuf\", \"A2A\", \"Agent2Agent\", \"CSP\", \"Content-Security-Policy\", \"strict-dynamic\", \"Trusted Types\", \"frame-ancestors\", \"MCP Apps\".",
+      "description": "Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis leurs sources brutes, et les lit EN ENTIER : un extracteur rend toutes leurs phrases normatives. Porte HORS LIGNE MCP 2026-07-28, A2A 1.0.1, gRPC, CSP Level 3, AGENTS.md, Keycloak 26.8, un relevé des terminaux et la dérive amont. Déclencheurs : \"RFC\", \"conformité HTTP\", \"audit de conformité\", \"Cache-Control\", \"norme WebSocket\", \"CORS spec\", \"RFC 9110/9113/6455/6265\", \"SameSite cookies\", \"norme SSE\", \"EventSource\", \"spec MCP\", \"autorisation MCP\", \"resource server OAuth\", \"AGENTS.md\", \"AAIF\", \"quelle taille pour AGENTS.md\", \"dossier .agents\", \"Agent Skills\", \"quel fichier lit tel agent\", \"Keycloak\", \"realm\", \"thème Keycloak\", \"proxy inverse\", \"reverse proxy\", \"en-têtes hop-by-hop\", \"request smuggling\", \"que fait nginx\", \"norme périmée\", \"souris dans le terminal\", \"OSC 52\", \"gRPC\", \"protobuf\", \"A2A\", \"Agent2Agent\", \"CSP\", \"Content-Security-Policy\", \"strict-dynamic\", \"Trusted Types\", \"frame-ancestors\", \"MCP Apps\".",
       "cost": {
-        "bodyLines": 351,
-        "approxTokens": 6535
+        "bodyLines": 379,
+        "approxTokens": 7010
       },
       "requires": [
         "docker"
@@ -10457,6 +10457,48 @@
             "env": [],
             "output": "",
             "selfDocumented": false
+          },
+          {
+            "path": "scripts/normative.mjs",
+            "purpose": "Rend TOUTES les phrases normatives d'une norme, section par section.",
+            "usage": [
+              "node .claude/skills/nodefony-rfc/scripts/normative.mjs <norme> [--section 15.4] [--section 9.3.7]",
+              "node .claude/skills/nodefony-rfc/scripts/normative.mjs references/csp/w3c-csp3.bs --section \"directive-object-src\""
+            ],
+            "options": [
+              {
+                "flag": "--section",
+                "help": "restreint à une section et ses sous-sections : numéro (`15.4`, `A.2`), id ou fragment de titre ; répétable"
+              },
+              {
+                "flag": "--format",
+                "help": "force la grammaire (`ietf` ou `markdown`) ; défaut : déduite du texte"
+              },
+              {
+                "flag": "--case",
+                "help": "`upper` (BCP 14 strict) ou `any` (minuscules comprises) ; défaut : `upper` en ietf, `any` en markdown"
+              },
+              {
+                "flag": "--all",
+                "help": "garde aussi les sections non normatives, notes et exemples"
+              },
+              {
+                "flag": "--json",
+                "help": "rend un tableau JSON `{ n, section, title, text }` au lieu des lignes"
+              }
+            ],
+            "env": [],
+            "output": "une ligne `[n] §section — paragraphe` par paragraphe normatif ; le bilan sur stderr. Code 1 si une `--section` ne désigne rien, 2 sur un usage faux.",
+            "selfDocumented": true
+          },
+          {
+            "path": "scripts/normative.test.mjs",
+            "purpose": "Éprouve l'extracteur de phrases normatives : grammaires IETF et markdown/Bikeshed, casse BCP 14, sélection de sections, et l'exhaustivité sur le corpus réel.",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
           }
         ]
       },
@@ -10482,7 +10524,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "1024",
+            "detail": "1021",
             "advisory": false
           },
           {
@@ -10524,7 +10566,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "351",
+            "detail": "379",
             "advisory": true
           }
         ]

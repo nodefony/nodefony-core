@@ -17,7 +17,7 @@ export interface IdempotentResponse {
 
 /**
  * Verdict de {@link IIdempotencyStore.begin} pour une clé d'idempotence donnée.
- * Aligné sur `draft-ietf-httpapi-idempotency-key-header-06` §2.6/§2.7.
+ * Aligné sur `draft-ietf-httpapi-idempotency-key-header-08` §2.6/§2.7.
  *
  *  - `fresh` : clé jamais vue (ou bail expiré) → réservée *in-flight*, l'appelant
  *    DOIT exécuter la mutation puis appeler `complete()` (succès) ou `abort()`

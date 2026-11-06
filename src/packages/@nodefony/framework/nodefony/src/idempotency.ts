@@ -4,7 +4,7 @@ import type { IIdempotencyStore, IdempotentResponse } from "nodefony";
 
 /**
  * Logique **pure et partagée** de la porte d'idempotence des mutations, conforme à
- * `draft-ietf-httpapi-idempotency-key-header-06`. Source unique de la sémantique
+ * `draft-ietf-httpapi-idempotency-key-header-08`. Source unique de la sémantique
  * (statuts normatifs, scope de clé, fingerprint, bornage) consommée par les DEUX
  * call-sites qui mutent :
  *  - le **data plane admin** (`AdminApiController` — réponse `{status,headers,body}`) ;

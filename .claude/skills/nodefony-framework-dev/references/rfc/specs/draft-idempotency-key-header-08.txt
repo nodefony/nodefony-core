@@ -5,11 +5,13 @@
 Network Working Group                                            J. Jena
 Internet-Draft                                                          
 Intended status: Standards Track                                S. Dalal
-Expires: 18 April 2026                                   15 October 2025
+Expires: 25 April 2027                                                  
+                                                              D. Tishkin
+                                                         22 October 2026
 
 
                  The Idempotency-Key HTTP Header Field
-              draft-ietf-httpapi-idempotency-key-header-07
+              draft-ietf-httpapi-idempotency-key-header-08
 
 Abstract
 
@@ -48,19 +50,19 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on 18 April 2026.
 
 
 
-
-Jena & Dalal              Expires 18 April 2026                 [Page 1]
+Jena, et al.              Expires 25 April 2027                 [Page 1]
 
-Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
+Internet-Draft    The Idempotency-Key HTTP Header Field     October 2026
 
+
+   This Internet-Draft will expire on 25 April 2027.
 
 Copyright Notice
 
-   Copyright (c) 2025 IETF Trust and the persons identified as the
+   Copyright (c) 2026 IETF Trust and the persons identified as the
    document authors.  All rights reserved.
 
    This document is subject to BCP 78 and the IETF Trust's Legal
@@ -74,11 +76,11 @@ Copyright Notice
 
 Table of Contents
 
-   1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   2
+   1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   3
      1.1.  Notational Conventions  . . . . . . . . . . . . . . . . .   3
    2.  The Idempotency-Key HTTP Request Header Field . . . . . . . .   3
      2.1.  Syntax  . . . . . . . . . . . . . . . . . . . . . . . . .   3
-     2.2.  Uniqueness of Idempotency Key . . . . . . . . . . . . . .   3
+     2.2.  Uniqueness of Idempotency Key . . . . . . . . . . . . . .   4
      2.3.  Idempotency Key Validity and Expiry . . . . . . . . . . .   4
      2.4.  Idempotency Fingerprint . . . . . . . . . . . . . . . . .   4
      2.5.  Responsibilities  . . . . . . . . . . . . . . . . . . . .   4
@@ -95,9 +97,22 @@ Table of Contents
    7.  References  . . . . . . . . . . . . . . . . . . . . . . . . .  12
      7.1.  Normative References  . . . . . . . . . . . . . . . . . .  12
      7.2.  Informative References  . . . . . . . . . . . . . . . . .  13
-   Appendix A.  Changes from Draft-06  . . . . . . . . . . . . . . .  13
+   Appendix A.  Changes from Draft-07  . . . . . . . . . . . . . . .  13
    Acknowledgments . . . . . . . . . . . . . . . . . . . . . . . . .  13
    Authors' Addresses  . . . . . . . . . . . . . . . . . . . . . . .  13
+
+
+
+
+
+
+
+
+
+Jena, et al.              Expires 25 April 2027                 [Page 2]
+
+Internet-Draft    The Idempotency-Key HTTP Header Field     October 2026
+
 
 1.  Introduction
 
@@ -105,14 +120,6 @@ Table of Contents
    that can be applied multiple times without changing the result beyond
    the initial application.  It does not matter if the operation is
    called only once or tens of times over.
-
-
-
-
-Jena & Dalal              Expires 18 April 2026                 [Page 2]
-
-Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
-
 
    Idempotency is important in building fault-tolerant HTTP APIs.  An
    HTTP request method is considered idempotent if the intended effect
@@ -138,12 +145,8 @@ Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
    BCP 14 [RFC2119] [RFC8174] when, and only when, they appear in all
    capitals, as shown here.
 
-   This specification uses the Augmented Backus-Naur Form (ABNF)
-   notation of [RFC5234] and includes, by reference, the IMF-fixdate
-   rule as defined in Section 7.1.1.1 of [RFC7231].
-
-   The term "resource" is to be interpreted as defined in Section 2 of
-   [RFC7231], that is identified by an URI.
+   The term "resource" is to be interpreted as defined in Section 3.1 of
+   [RFC9110], that is, identified by a URI.
 
 2.  The Idempotency-Key HTTP Request Header Field
 
@@ -154,29 +157,31 @@ Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
 
 2.1.  Syntax
 
-   Idempotency-Key is an Item Structured Header [RFC8941].  Its value
-   MUST be a String (Section 3.3.3 of [RFC8941]).
+   Idempotency-Key is an Item Structured Header Field [RFC9651].  Its
+   value MUST be a String (Section 3.3.3 of [RFC9651]).
+
+
+
+
+
+
+Jena, et al.              Expires 25 April 2027                 [Page 3]
+
+Internet-Draft    The Idempotency-Key HTTP Header Field     October 2026
+
 
 2.2.  Uniqueness of Idempotency Key
 
    The idempotency key MUST be unique and MUST NOT be reused with
    another request with a different request payload.
 
-
-
-
-Jena & Dalal              Expires 18 April 2026                 [Page 3]
-
-Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
-
-
    Uniqueness of the key MUST be defined by the resource owner and MUST
    be implemented by the clients of the resource.  It is RECOMMENDED
-   that a UUID [RFC4122] or a similar random identifier be used as an
+   that a UUID [RFC9562] or a similar random identifier be used as an
    idempotency key.
 
    The following example shows an idempotency key whose value is a UUID
-   [RFC4122]:
+   [RFC9562]:
 
    Idempotency-Key: "8e03978e-40d5-43e8-bc93-6894a57f9324"
 
@@ -210,7 +215,16 @@ Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
 
    Clients of HTTP API requiring idempotency SHOULD understand the
    idempotency related requirements as published by the server and use
-   appropriate algorithm to generate idempotency keys.
+   an appropriate algorithm to generate idempotency keys.
+
+
+
+
+
+Jena, et al.              Expires 25 April 2027                 [Page 4]
+
+Internet-Draft    The Idempotency-Key HTTP Header Field     October 2026
+
 
    Clients MAY choose to send an Idempotency-Key field with any valid
    value to indicate the user's intent is to only perform this action
@@ -219,19 +233,12 @@ Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
 
    For each request, a client SHOULD:
 
-
-
-Jena & Dalal              Expires 18 April 2026                 [Page 4]
-
-Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
-
-
    *  Send a unique idempotency key in the HTTP Idempotency-Key request
       header field.
 
 2.5.2.  Resource
 
-   Resources MUST publish a idempotency related specification.  This
+   Resources MUST publish an idempotency-related specification.  This
    specification MUST include expiration related policy if applicable.
    A resource is responsible for managing the lifecycle of the
    idempotency key.
@@ -258,9 +265,8 @@ Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
       Retry
 
       The request was retried after the original request completed.  The
-      resource SHOULD respond with the result of the previously
-      completed operation, success or an error.  See Error Scenarios for
-      details on errors.
+      resource SHOULD respond with a response consistent with the
+      request being completed according to the user's intent.
 
       Concurrent Request
 
@@ -271,15 +277,9 @@ Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
 
 
 
-
-
-
-
-
-
-Jena & Dalal              Expires 18 April 2026                 [Page 5]
+Jena, et al.              Expires 25 April 2027                 [Page 5]
 
-Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
+Internet-Draft    The Idempotency-Key HTTP Header Field     October 2026
 
 
 2.7.  Error Handling
@@ -287,8 +287,8 @@ Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
    If the Idempotency-Key request header is missing for a documented
    idempotent operation requiring this header, the resource SHOULD reply
    with an HTTP 400 status code with body containing a link pointing to
-   relevant documentation.  Following examples shows an error response
-   describing the problem using [RFC7807].
+   relevant documentation.  The following example shows an error
+   response describing the problem using [RFC9457].
 
        HTTP/1.1 400 Bad Request
        Content-Type: application/problem+json
@@ -297,7 +297,7 @@ Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
          "type": "https://developer.example.com/idempotency",
          "title": "Idempotency-Key is missing",
          "detail": "This operation is idempotent and it requires correct
-          usage of Idempotency Key.",
+          usage of Idempotency Key."
        }
 
    Alternately, using the HTTP header Link, the client can be informed
@@ -308,7 +308,7 @@ Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
          rel="describedby"; type="text/html"
 
    If there is an attempt to reuse an idempotency key with a different
-   request payload, the resource SHOULD reply with a HTTP 422 status
+   request payload, the resource SHOULD reply with an HTTP 422 status
    code with body containing a link pointing to relevant documentation.
    The status code 422 is defined in Section 15.5.21 of [RFC9110].
 
@@ -319,8 +319,8 @@ Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
          "type": "https://developer.example.com/idempotency",
          "title": "Idempotency-Key is already used",
          "detail": "This operation is idempotent and it requires
-         correct usage of Idempotency Key. Idempotency Key MUST not be
-         reused across different payloads of this operation.",
+         correct usage of Idempotency Key. Idempotency Key must not be
+         reused across different payloads of this operation."
        }
 
    The server can also inform the client by using the HTTP header Link
@@ -333,9 +333,9 @@ Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
 
 
 
-Jena & Dalal              Expires 18 April 2026                 [Page 6]
+Jena, et al.              Expires 25 April 2027                 [Page 6]
 
-Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
+Internet-Draft    The Idempotency-Key HTTP Header Field     October 2026
 
 
    If the request is retried, while the original request is still being
@@ -349,7 +349,7 @@ Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
          "type": "https://developer.example.com/idempotency",
          "title": "A request is outstanding for this Idempotency-Key",
          "detail": "A request with the same Idempotency-Key for the
-         same operation is being processed or is outstanding.",
+         same operation is being processed or is outstanding."
        }
 
    Or, alternately using the HTTP header Link pointing to the relevant
@@ -360,10 +360,10 @@ Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
        rel="describedby"; type="text/html"
 
    Error scenarios above describe the status of failed idempotent
-   requests after the resource prcocesses them.  Clients MUST correct
-   the requests (with the exception of 409 where no correction is
-   required) before performing a retry operation, or the resource MUST
-   fail the request and return one of the above errors.
+   requests after the resource processes them.  Clients MUST correct the
+   requests (with the exception of 409 where no correction is required)
+   before performing a retry operation, or the resource MUST fail the
+   request and return one of the above errors.
 
    For other 4xx/5xx errors, such as 401, 403, 500, 502, 503, 504, 429,
    or any other HTTP error code that is not listed here, the client
@@ -389,9 +389,9 @@ Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
 
 
 
-Jena & Dalal              Expires 18 April 2026                 [Page 7]
+Jena, et al.              Expires 25 April 2027                 [Page 7]
 
-Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
+Internet-Draft    The Idempotency-Key HTTP Header Field     October 2026
 
 
    This section records the status of known implementations of the
@@ -445,9 +445,9 @@ Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
 
 
 
-Jena & Dalal              Expires 18 April 2026                 [Page 8]
+Jena, et al.              Expires 25 April 2027                 [Page 8]
 
-Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
+Internet-Draft    The Idempotency-Key HTTP Header Field     October 2026
 
 
    *  Description: WorldPay uses custom HTTP header named Idempotency-
@@ -501,9 +501,9 @@ Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
 
 
 
-Jena & Dalal              Expires 18 April 2026                 [Page 9]
+Jena, et al.              Expires 25 April 2027                 [Page 9]
 
-Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
+Internet-Draft    The Idempotency-Key HTTP Header Field     October 2026
 
 
    *  Description: Chargebee uses custom HTTP header named chargebee-
@@ -557,13 +557,13 @@ Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
 
 
 
-Jena & Dalal              Expires 18 April 2026                [Page 10]
+Jena, et al.              Expires 25 April 2027                [Page 10]
 
-Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
+Internet-Draft    The Idempotency-Key HTTP Header Field     October 2026
 
 
    *  Description: Google Standard Payments API uses a property named
-      requestId in request body in order to provider idempotency in
+      requestId in request body in order to provide idempotency in
       various use cases.
 
    *  Reference: https://developers.google.com/standard-payments/
@@ -597,12 +597,12 @@ Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
    could be victim to various forms of security attacks from malicious
    clients:
 
-   *  Injection attacks - When the resources does not validate the
-      idempotency key in the client request and performs a idempotent
+   *  Injection attacks - When the resource does not validate the
+      idempotency key in the client request and performs an idempotent
       cache lookup, there can be security attacks (primarily in the form
       of injection), compromising the server.
 
-   *  Data leaks-When an idempotency implementation allows low entropy
+   *  Data leaks - When an idempotency implementation allows low entropy
       keys, attackers MAY determine other keys and use them to fetch
       existing idempotent cache entries, belonging to other clients.
 
@@ -613,9 +613,9 @@ Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
 
 
 
-Jena & Dalal              Expires 18 April 2026                [Page 11]
+Jena, et al.              Expires 25 April 2027                [Page 11]
 
-Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
+Internet-Draft    The Idempotency-Key HTTP Header Field     October 2026
 
 
    *  Establish a fixed format for the idempotency key and publish the
@@ -636,8 +636,8 @@ Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
 
    Idempotency-Key: "8e03978e-40d5-43e8-bc93-6894a57f9324"
 
-   Second example shows an idempotency-key header field with key value
-   using a random string generator:
+   The second example shows an idempotency-key header field with key
+   value using a random string generator:
 
    Idempotency-Key: "clkyoesmbgybucifusbbtdsbohtyuuwz"
 
@@ -650,46 +650,33 @@ Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
               DOI 10.17487/RFC2119, March 1997,
               <https://www.rfc-editor.org/rfc/rfc2119>.
 
-   [RFC4122]  Leach, P., Mealling, M., and R. Salz, "A Universally
-              Unique IDentifier (UUID) URN Namespace", RFC 4122,
-              DOI 10.17487/RFC4122, July 2005,
-              <https://www.rfc-editor.org/rfc/rfc4122>.
-
-   [RFC5234]  Crocker, D., Ed. and P. Overell, "Augmented BNF for Syntax
-              Specifications: ABNF", STD 68, RFC 5234,
-              DOI 10.17487/RFC5234, January 2008,
-              <https://www.rfc-editor.org/rfc/rfc5234>.
-
-   [RFC7231]  Fielding, R., Ed. and J. Reschke, Ed., "Hypertext Transfer
-              Protocol (HTTP/1.1): Semantics and Content", RFC 7231,
-              DOI 10.17487/RFC7231, June 2014,
-              <https://www.rfc-editor.org/rfc/rfc7231>.
-
-
-
-
-
-Jena & Dalal              Expires 18 April 2026                [Page 12]
-
-Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
-
-
-   [RFC7807]  Nottingham, M. and E. Wilde, "Problem Details for HTTP
-              APIs", RFC 7807, DOI 10.17487/RFC7807, March 2016,
-              <https://www.rfc-editor.org/rfc/rfc7807>.
-
    [RFC8174]  Leiba, B., "Ambiguity of Uppercase vs Lowercase in RFC
               2119 Key Words", BCP 14, RFC 8174, DOI 10.17487/RFC8174,
               May 2017, <https://www.rfc-editor.org/rfc/rfc8174>.
-
-   [RFC8941]  Nottingham, M. and P. Kamp, "Structured Field Values for
-              HTTP", RFC 8941, DOI 10.17487/RFC8941, February 2021,
-              <https://www.rfc-editor.org/rfc/rfc8941>.
 
    [RFC9110]  Fielding, R., Ed., Nottingham, M., Ed., and J. Reschke,
               Ed., "HTTP Semantics", STD 97, RFC 9110,
               DOI 10.17487/RFC9110, June 2022,
               <https://www.rfc-editor.org/rfc/rfc9110>.
+
+   [RFC9457]  Nottingham, M., Wilde, E., and S. Dalal, "Problem Details
+              for HTTP APIs", RFC 9457, DOI 10.17487/RFC9457, July 2023,
+              <https://www.rfc-editor.org/rfc/rfc9457>.
+
+   [RFC9562]  Davis, K., Peabody, B., and P. Leach, "Universally Unique
+              IDentifiers (UUIDs)", RFC 9562, DOI 10.17487/RFC9562, May
+              2024, <https://www.rfc-editor.org/rfc/rfc9562>.
+
+
+
+Jena, et al.              Expires 25 April 2027                [Page 12]
+
+Internet-Draft    The Idempotency-Key HTTP Header Field     October 2026
+
+
+   [RFC9651]  Nottingham, M. and P. Kamp, "Structured Field Values for
+              HTTP", RFC 9651, DOI 10.17487/RFC9651, September 2024,
+              <https://www.rfc-editor.org/rfc/rfc9651>.
 
 7.2.  Informative References
 
@@ -698,7 +685,22 @@ Internet-Draft    The Idempotency-Key HTTP Header Field     October 2025
               RFC 7942, DOI 10.17487/RFC7942, July 2016,
               <https://www.rfc-editor.org/rfc/rfc7942>.
 
-Appendix A.  Changes from Draft-06
+Appendix A.  Changes from Draft-07
+
+   This revision has made the following changes:
+
+   *  Updated references to obsoleted RFCs: RFC 7231 to RFC 9110, RFC
+      7807 to RFC 9457, RFC 4122 to RFC 9562 and RFC 8941 to RFC 9651
+
+   *  Removed the unused ABNF and IMF-fixdate reference from Notational
+      Conventions
+
+   *  Adopted the proposed text for the Retry case (#48); still open for
+      discussion
+
+   *  Editorial fixes
+
+   *  Added Dmitrii Tishkin as an author
 
 Acknowledgments
 
@@ -720,9 +722,63 @@ Authors' Addresses
 
 
    Sanjay Dalal
+
+
+
+Jena, et al.              Expires 25 April 2027                [Page 13]
+
+Internet-Draft    The Idempotency-Key HTTP Header Field     October 2026
+
+
    Email: sanjay.dalal@cal.berkeley.edu
    URI:   https://github.com/sdatspun2
 
 
+   Dmitrii Tishkin
+   Email: hello@dmi03.com
 
-Jena & Dalal              Expires 18 April 2026                [Page 13]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Jena, et al.              Expires 25 April 2027                [Page 14]

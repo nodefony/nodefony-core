@@ -339,6 +339,10 @@ const NEGATIVE_CASES = [
  */
 const ACCEPTED_OVERLAPS = new Map([
   [
+    "Agent Skills|nodefony-skill",
+    "« Agent Skills » seul = écrire ou valider un skill → nodefony-skill ; le texte du standard reste au corpus de nodefony-rfc",
+  ],
+  [
     "stack trace|nodefony-tail-error-logs",
     "lire une stack, c'est tailler les logs",
   ],

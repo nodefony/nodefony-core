@@ -10,7 +10,7 @@
  * `expiresAt` d'une entrée dans le passé (`expire()`), sans fake timers : on
  * teste exactement la comparaison `now <= expiresAt` du store.
  *
- * Sémantique alignée sur `draft-ietf-httpapi-idempotency-key-header-06` §2.6/§2.7
+ * Sémantique alignée sur `draft-ietf-httpapi-idempotency-key-header-08` §2.6/§2.7
  * (fresh / replay / in-flight=409 / mismatch=422).
  */
 import { expect } from "vitest";

@@ -13,14 +13,14 @@
 
 ## 0. Fichiers PRÉSENTS offline (~5,6 Mo — `grep`/`awk` sans réseau)
 
-- **`ietf/rfc<N>.txt`** — 41 RFC full-text : 1918 4226 4648 5280 5424 5737 5789 5842 6238 6265 6455 6585 6749 6750 6797 6890 7009 7118 7239 7301 7519 7617 7636 7638 7692 8259 8414 8707 8725 9106 9110 9112 9113 9207 9449 9457 9525 9651 9700 9728 9931.
+- **`ietf/rfc<N>.txt`** — 42 RFC full-text : 1918 4226 4648 5280 5424 5737 5789 5842 6238 6265 6455 6585 6749 6750 6797 6890 7009 7118 7239 7301 7519 7617 7636 7638 7692 8259 8414 8707 8725 9106 9110 9111 9112 9113 9207 9449 9457 9525 9651 9700 9728 9931.
   - 🔴 **Obsolètes RETIRÉES du corpus** (le dépôt cite la REMPLAÇANTE, jamais l'ancienne) : 2818 → **9110 §4.2.2** · 6125 → **9525** · 7230 → **9110/9112** · 7235 → **9110 §11** · 7807 → **9457** · 8941 → **9651**. RFC **9931** (2026) met à jour 9112 : sécurité des transitions de protocole optimistes (`Upgrade`, donc WebSocket et proxy inverse).
   - **Fraîcheur** : `npm run refs:check` (volet `nodefony-rfc/scripts/check-rfc-status.mjs`) — obsolescence et mises à jour d'après l'éditeur des RFC, révision courante d'un brouillon d'après le datatracker (0 à jour · 3 dépassé · 78 réseau).
 - **`specs/` (non-RFC)** :
   - Cloud-native : `cloud-12factor.md`, `cloud-k8s-pod-lifecycle.md`, `cloud-k8s-probes.md`.
   - OWASP cheat sheets : `owasp-{authentication,authorization,csp,csrf,jwt,mfa,password-storage,rest-security,security-headers,session-management,ssrf-prevention,tls,xss-prevention}.md`.
-  - `standard-webhooks.md` (Standard Webhooks v1), `draft-idempotency-key-header-07.txt` (IETF draft, **expiré** le 2026-04-18 ; la 07 ne change rien à la 06, gardée tant que du code la cite).
-  - Brouillons OAuth cités par la spec MCP 2026-07-28 (qui cite des révisions plus anciennes) : `draft-ietf-oauth-v2-1-16.txt` (OAuth 2.1 — la 16 retire PKCE `plain` et rend `iss` obligatoire côté serveur d'autorisation ; Nodefony envoie déjà S256 seul et vérifie `iss`, RFC 9207) · `draft-ietf-oauth-client-id-metadata-document-02.txt` (CIMD, `client_id` = URL ; non implémenté par Nodefony, qui n'est que serveur de ressources MCP).
+  - `standard-webhooks.md` (Standard Webhooks v1), `draft-idempotency-key-header-08.txt` (IETF draft, révision courante ; rédactionnelle sur la 06 hormis le rejeu après complétion, assoupli en « réponse conforme à l’intention de l’utilisateur » — rejouer la réponse mémorisée reste conforme)..
+  - Brouillons OAuth cités par la spec MCP 2026-07-28 (qui cite des révisions plus anciennes) : `draft-ietf-oauth-v2-1-16.txt` (OAuth 2.1 — la 16 retire PKCE `plain` et rend `iss` obligatoire côté serveur d'autorisation ; Nodefony envoie déjà S256 seul et vérifie `iss`, RFC 9207) · `draft-ietf-oauth-client-id-metadata-document-02.txt` (CIMD, `client_id` = URL ; non implémenté par Nodefony, qui n'est que serveur de ressources MCP). Révisions courantes posées à côté (`draft-ietf-oauth-v2-1-17.txt`, `draft-ietf-oauth-client-id-metadata-document-03.txt`) ; leur relecture contre le code, puis le retrait des anciennes : #738.
   - `whatwg-sse.md` — WHATWG HTML §9.2 Server-sent events (format `text/event-stream`, `EventSource`, `Last-Event-ID`) ; SSE n'a PAS de RFC, la norme est cette section.
 - **`specs/nodejs/*.md`** — 17 docs API Node.js **v26.11.1** (`doc/api/` du tag, passés à prettier — comparer à format égal) : `async_context` (ALS), `http`, `http2`, `https`, `net`, `dgram`, `tls`, `stream`, `worker_threads`, `cluster`, `crypto`, `events`, `process`, `perf_hooks`, `buffer`, `fs`, `globals` (`fetch`, `WebSocket`, `EventSource`).
 
@@ -39,6 +39,7 @@
 ## 1. HTTP core & sémantique
 
 - **RFC 9110 (HTTP Semantics)** — §15.4 redirections (whitelist `{301,302,303,307,308}`, défaut 302) · §15.5.21 (422) · §6.4.1 (204/304 sans corps) · §15.5.6 (405 + en-tête `Allow`) · §9.3.2 (HEAD sans corps) · §9.2.1 (méthodes sûres GET/HEAD/OPTIONS/TRACE → jamais 403 CSRF) · §8.3 Content-Type · §8.6 Content-Length exact. → `http-kernel.ts`, `Response.ts`, `ErrorRenderer.ts`.
+- **RFC 9111 (HTTP Caching)** — §5.2.2 directives de réponse (`no-store`, `no-cache`, `private`, `max-age`, `must-revalidate`) · §4.2 fraîcheur · §5.3 `Expires` (ignoré quand `max-age` est là) · §4.4 invalidation après une méthode non sûre. Le framework POSE `Cache-Control` sans être un cache : ce qui l’oblige est ce qu’un cache en aval fera de ses réponses. → `Response.ts`, `ByteStream.ts`, `SseStream.ts`, `Controller.ts`, `firewall.ts`, `reverse-proxy.ts`.
 - **RFC 9112 (HTTP/1.1)** — §7.1 chunked Transfer-Encoding (backpressure `highWaterMark`, resolve sur drain, pas de Content-Length avec chunked). → `src/context/http/Response.ts`.
 - **RFC 9113 (HTTP/2)** — frames + pseudo-headers, serveur natif `node:http2`.
 - **RFC 7301 (ALPN)** — négociation `h2` dans la poignée de main TLS (port 5152) ; le h2c (5153) s’en passe par connaissance préalable (RFC 9113 §3.3). Pour gRPC : un client TLS exige `h2` en ALPN, faute de quoi il refuse la connexion.
@@ -120,7 +121,7 @@
 
 ## 16. Idempotence
 
-- **draft-ietf-httpapi-idempotency-key-header-06** — §2.6 clé absente→**400** · §2.7 rejeu concurrent→**409** / rejeu post-complétion→réponse mémorisée / **payload différent→422** (fingerprint SHA-256, RFC 9110 §15.5.21). → `nodefony/src/types/IIdempotencyStore.ts`, `framework/src/idempotency.ts:evaluateIdempotency()`.
+- **draft-ietf-httpapi-idempotency-key-header-08** — §2.6 clé absente→**400** · §2.7 rejeu concurrent→**409** / rejeu post-complétion→réponse mémorisée / **payload différent→422** (fingerprint SHA-256, RFC 9110 §15.5.21). → `nodefony/src/types/IIdempotencyStore.ts`, `framework/src/idempotency.ts:evaluateIdempotency()`.
 
 ## 17. Webhooks
 

@@ -51,8 +51,8 @@ const rfcs = readdirSync(path.join(CORPUS, "ietf"))
   .map(Number)
   .sort((a, b) => a - b);
 // Le NOM du brouillon se lit dans son texte : le fichier peut porter un nom
-// abrégé (`draft-idempotency-key-header-06.txt` pour
-// `draft-ietf-httpapi-idempotency-key-header-06`).
+// abrégé (`draft-idempotency-key-header-08.txt` pour
+// `draft-ietf-httpapi-idempotency-key-header-08`).
 const drafts = readdirSync(path.join(CORPUS, "specs"))
   .filter((f) => /^draft-.+-\d{2}\.txt$/.test(f))
   .map((f) =>

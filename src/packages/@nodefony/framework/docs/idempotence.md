@@ -656,7 +656,7 @@ pour l'affichage Studio, `idempotencyStoreRegistry.ts#listIdempotencyBackends`).
 <!-- prettier-ignore -->
 | Sujet | Norme | Ancrage |
 | --- | --- | --- |
-| En-tête `Idempotency-Key`, statuts, rejeu | `draft-ietf-httpapi-idempotency-key-header-06` | `evaluateIdempotency()` (`idempotency.ts#evaluateIdempotency`) |
+| En-tête `Idempotency-Key`, statuts, rejeu | `draft-ietf-httpapi-idempotency-key-header-08` | `evaluateIdempotency()` (`idempotency.ts#evaluateIdempotency`) |
 | Clé réutilisée avec un autre payload → 422 | draft §2.2 / §2.7 | `idempotency.ts#evaluateIdempotency` |
 | Exécution concurrente identique → 409 | draft §2.6 | `idempotency.ts#evaluateIdempotency` |
 | Clé requise absente → 400 | draft §2.7 | `idempotency.ts#evaluateIdempotency` |

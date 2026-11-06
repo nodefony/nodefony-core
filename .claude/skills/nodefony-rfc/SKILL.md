@@ -1,17 +1,17 @@
 ---
 name: nodefony-rfc
 metadata:
-  version: 1.11.0
+  version: 1.12.0
 description: >
-  Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md —
-  depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE MCP 2026-07-28, A2A 1.0.1,
-  gRPC, CSP Level 3, AGENTS.md, Keycloak 26.8 et un relevé des terminaux, avec un script de dérive
-  amont. Dit quelles RFC tranchent un proxy inverse.
-  Déclencheurs : "RFC", "conformité HTTP", "norme WebSocket", "CORS spec", "RFC 9110/9113/6455/6265",
-  "SameSite cookies", "norme SSE", "EventSource", "spec MCP", "Model Context Protocol", "autorisation MCP",
-  "resource server OAuth", "RFC 9728", "AGENTS.md", "AAIF", "quelle taille pour AGENTS.md",
-  "dossier .agents", "Agent Skills", "quel fichier lit tel agent", "Keycloak", "realm",
-  "thème Keycloak", "proxy inverse", "reverse proxy", "en-têtes hop-by-hop",
+  Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis
+  leurs sources brutes, et les lit EN ENTIER : un extracteur rend toutes leurs phrases normatives.
+  Porte HORS LIGNE MCP 2026-07-28, A2A 1.0.1, gRPC, CSP Level 3, AGENTS.md, Keycloak 26.8, un relevé
+  des terminaux et la dérive amont.
+  Déclencheurs : "RFC", "conformité HTTP", "audit de conformité", "Cache-Control", "norme
+  WebSocket", "CORS spec", "RFC 9110/9113/6455/6265", "SameSite cookies", "norme SSE",
+  "EventSource", "spec MCP", "autorisation MCP", "resource server OAuth", "AGENTS.md", "AAIF",
+  "quelle taille pour AGENTS.md", "dossier .agents", "Agent Skills", "quel fichier lit tel agent",
+  "Keycloak", "realm", "thème Keycloak", "proxy inverse", "reverse proxy", "en-têtes hop-by-hop",
   "request smuggling", "que fait nginx", "norme périmée", "souris dans le terminal", "OSC 52",
   "gRPC", "protobuf", "A2A", "Agent2Agent", "CSP", "Content-Security-Policy", "strict-dynamic",
   "Trusted Types", "frame-ancestors", "MCP Apps".
@@ -41,7 +41,12 @@ Source absolue pour status codes, headers, méthodes :
 https://www.ietf.org/rfc/rfc9110.txt
 ```
 
-> Utilise `grep` ou cherche le mot-clé exact (ex: `"401 Unauthorized"`) — ne lis jamais les 200 pages.
+> Ne lis jamais les 200 pages : extrais les phrases normatives de la section visée
+> (`scripts/normative.mjs`, § « Pattern d'usage »). Le `grep` ne sert qu'à retrouver la syntaxe
+> d'un élément déjà identifié (ABNF d'un en-tête).
+>
+> **Cache — RFC 9111** (remplace 7234), au corpus unique (§7) : le framework pose `Cache-Control`
+> sans être un cache ; ce qui l'oblige, c'est ce qu'un cache en aval fera de ses réponses.
 
 ### 2. HTTP/2 — RFC 9113 (remplace 7540)
 
@@ -129,7 +134,7 @@ mkdir -p "$R" && cp -R "/tmp/mcp-x/docs/specification/$V/." "$R/spec/" \
 🔴 **Les full-text RFC ne vivent PAS dans ce skill.** Une seule copie existe, dans
 `.claude/skills/nodefony-framework-dev/references/rfc/ietf/rfc<N>.txt` — deux corpus avaient déjà
 produit deux exemplaires byte-identiques de `6750` et `8707`, que rien ne resynchronisait. Ce skill
-dit **ce que chaque RFC tranche** ; le texte se lit là-bas, au `grep`.
+dit **ce que chaque RFC tranche** ; le texte se lit là-bas, par `scripts/normative.mjs`.
 
 Ce que la spec MCP délègue aux RFC, pour un serveur qui valide un jeton sans jamais en émettre :
 
@@ -354,15 +359,38 @@ cœur MCP et A2A ne parlent pas de CSP. Consommateur : la politique par défaut 
 `@nodefony/security` (`config.ts#headersSchema`) et la fusion des contributions de modules
 (`csp.ts#mergeCspFragments`).
 
-## Pattern d'usage
+## Pattern d'usage — lire une norme EN ENTIER
 
-1. Identifier la zone fonctionnelle : status code → 9110, frame WS → 6455, etc.
-2. `curl -s <URL> | grep -A 20 "<mot-clé>"` pour extraire uniquement la section utile.
-3. Adapter à la syntaxe TypeScript Nodefony (jamais de copier-coller verbatim).
-4. Citer la RFC dans le commit message si la modif touche un comportement normatif.
+Lire une norme, c'est lire **toutes** ses phrases normatives, pas celles qu'on soupçonne. Un
+`grep` ciblé ne trouve que ce qu'on cherche déjà : c'est par lui que `If-Range` (RFC 9110
+§13.1.5) et `Content-Disposition` (RFC 6266) sont passés inaperçus. Vaut pour les RFC, le W3C,
+le WHATWG et la Linux Foundation / AAIF.
+
+1. Identifier la norme et ses sections : status code → 9110, cache → 9111, frame WS → 6455, etc.
+2. **Extraire tout** — un paragraphe par obligation, avec sa section :
+
+   ```bash
+   node .claude/skills/nodefony-rfc/scripts/normative.mjs <norme> --section 15.4 --section 9.3.7
+   ```
+
+   La grammaire se déduit du texte : `.txt` IETF (BCP 14 en **majuscules** seulement, RFC 8174)
+   ou markdown/Bikeshed (WHATWG, W3C — leurs « must » sont en **minuscules**, comptés aussi). En
+   markdown, les sections « non-normative », notes et exemples sont écartés et **comptés** au
+   bilan (`--all` pour les voir). `--section` prend un numéro, un `id` ou un fragment de titre ;
+   une section introuvable sort en code 1, jamais en liste vide. Une spec hors corpus : la
+   télécharger brute dans `tmp/scratch/`, puis l'extraire.
+
+3. **Trancher CHAQUE paragraphe**, sans en sauter : _non applicable_ (le rôle visé n'est pas le
+   nôtre — client, cache, proxy) ou _applicable_ → **conforme** (ancre `fichier.ts#Symbole`) ou
+   **écart** (corrigé maintenant, ou versé dans un ticket). Un paragraphe sans verdict est un trou.
+4. Adapter à la syntaxe TypeScript Nodefony (jamais de copier-coller verbatim).
+5. Citer la RFC dans le commit message si la modif touche un comportement normatif.
 
 ## Anti-patterns à éviter
 
+- **Auditer une conformité au `grep` ciblé** — il ne rend que ce qu'on soupçonne ; l'extraction
+  complète de la section est la seule lecture qui ne laisse pas de trou.
+- **Ne chercher que les majuscules dans une spec WHATWG ou W3C** — elles écrivent « must ».
+- Charger la RFC entière en contexte — l'extracteur rend les seuls paragraphes normatifs.
 - Reformuler la RFC dans la conversation — coûteux en tokens, source faisant foi.
-- Charger plus de 50 lignes d'une RFC en contexte — toujours `grep -A` ciblé.
 - Inventer un comportement "raisonnable" sans vérifier la RFC — vérifier d'abord.

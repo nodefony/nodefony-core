@@ -5,20 +5,20 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-11-03
+updated: 2026-11-06
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-rfc/SKILL.md"
 ---
 
 # `nodefony-rfc`
 
-> Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis des sources brutes, jamais des pages HTML.
+> Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis leurs sources brutes, et les lit EN ENTIER : un extracteur rend toutes leurs phrases normatives.
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-rfc**
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.11.0`.
+> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.12.0`.
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -26,19 +26,19 @@ source: ".claude/skills/nodefony-rfc/SKILL.md"
 
 | | |
 | --- | --- |
-| Version | `1.11.0` |
+| Version | `1.12.0` |
 | Famille | Références et livrables |
-| Corps | 351 lignes |
-| Coût d'activation | ~6 535 tokens (le corps est chargé à l'invocation) |
-| Description | 1024 / 1024 caractères |
+| Corps | 379 lignes |
+| Coût d'activation | ~7 010 tokens (le corps est chargé à l'invocation) |
+| Description | 1021 / 1024 caractères |
 | Déclencheurs | 40 |
 | Ressources `references/` | 0 page(s), 288 fichiers au total |
-| Scripts | 5 |
+| Scripts | 7 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
-Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE MCP 2026-07-28, A2A 1.0.1, gRPC, CSP Level 3, AGENTS.md, Keycloak 26.8 et un relevé des terminaux, avec un script de dérive amont. Dit quelles RFC tranchent un proxy inverse.
+Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis leurs sources brutes, et les lit EN ENTIER : un extracteur rend toutes leurs phrases normatives. Porte HORS LIGNE MCP 2026-07-28, A2A 1.0.1, gRPC, CSP Level 3, AGENTS.md, Keycloak 26.8, un relevé des terminaux et la dérive amont.
 
 ## Prérequis
 
@@ -54,13 +54,13 @@ Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pa
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
 
-`RFC` · `conformité HTTP` · `norme WebSocket` · `CORS spec` · `RFC 9110/9113/6455/6265` · `SameSite cookies` · `norme SSE` · `EventSource` · `spec MCP` · `Model Context Protocol` · `autorisation MCP` · `resource server OAuth` · `RFC 9728` · `AGENTS.md` · `AAIF` · `quelle taille pour AGENTS.md` · `dossier .agents` · `Agent Skills` · `quel fichier lit tel agent` · `Keycloak` · `realm` · `thème Keycloak` · `proxy inverse` · `reverse proxy` · `en-têtes hop-by-hop` · `request smuggling` · `que fait nginx` · `norme périmée` · `souris dans le terminal` · `OSC 52` · `gRPC` · `protobuf` · `A2A` · `Agent2Agent` · `CSP` · `Content-Security-Policy` · `strict-dynamic` · `Trusted Types` · `frame-ancestors` · `MCP Apps`
+`RFC` · `conformité HTTP` · `audit de conformité` · `Cache-Control` · `norme WebSocket` · `CORS spec` · `RFC 9110/9113/6455/6265` · `SameSite cookies` · `norme SSE` · `EventSource` · `spec MCP` · `autorisation MCP` · `resource server OAuth` · `AGENTS.md` · `AAIF` · `quelle taille pour AGENTS.md` · `dossier .agents` · `Agent Skills` · `quel fichier lit tel agent` · `Keycloak` · `realm` · `thème Keycloak` · `proxy inverse` · `reverse proxy` · `en-têtes hop-by-hop` · `request smuggling` · `que fait nginx` · `norme périmée` · `souris dans le terminal` · `OSC 52` · `gRPC` · `protobuf` · `A2A` · `Agent2Agent` · `CSP` · `Content-Security-Policy` · `strict-dynamic` · `Trusted Types` · `frame-ancestors` · `MCP Apps`
 
 ## Ce que contient le corps
 
 - Règle d'or
 - Sources canoniques
-- Pattern d'usage
+- Pattern d'usage — lire une norme EN ENTIER
 - Anti-patterns à éviter
 
 ## Scripts embarqués
@@ -75,14 +75,36 @@ script, donc toujours à jour après régénération.
 | `scripts/check-amont.mjs` | Dit si une référence figée sous le `references/` d'un skill a dérivé de son amont. | `--pin` `--until` | `GITHUB_TOKEN` |
 | `scripts/check-refs.mjs` | Joue les deux contrôles de fraîcheur du corpus des normes et rend UN verdict. | — | — |
 | `scripts/check-rfc-status.mjs` | Dit si une RFC (ou un brouillon IETF) du corpus hors ligne est DÉPASSÉE. | — | — |
+| `scripts/normative.mjs` | Rend TOUTES les phrases normatives d'une norme, section par section. | `--section` `--format` `--case` `--all` `--json` | — |
+| `scripts/normative.test.mjs` | Éprouve l'extracteur de phrases normatives : grammaires IETF et markdown/Bikeshed, casse BCP 14, sélection de sections, et l'exhaustivité sur le corpus réel. | — | — |
 
 **Invocation telle que documentée dans chaque script :**
 
 ```bash
 node check-amont.mjs                      # le contrôle
+node .claude/skills/nodefony-rfc/scripts/normative.mjs <norme> [--section 15.4] [--section 9.3.7]
 ```
 
 **Toutes les variables lues par ce skill** : `GITHUB_TOKEN`
+
+### Détail des scripts auto-documentés
+
+#### `scripts/normative.mjs`
+
+Produit : une ligne `[n] §section — paragraphe` par paragraphe normatif ; le bilan sur stderr. Code 1 si une `--section` ne désigne rien, 2 sur un usage faux.
+
+```bash
+node .claude/skills/nodefony-rfc/scripts/normative.mjs <norme> [--section 15.4] [--section 9.3.7]
+node .claude/skills/nodefony-rfc/scripts/normative.mjs references/csp/w3c-csp3.bs --section "directive-object-src"
+```
+
+| Option | Rôle |
+| --- | --- |
+| `--section` | restreint à une section et ses sous-sections : numéro (`15.4`, `A.2`), id ou fragment de titre ; répétable |
+| `--format` | force la grammaire (`ietf` ou `markdown`) ; défaut : déduite du texte |
+| `--case` | `upper` (BCP 14 strict) ou `any` (minuscules comprises) ; défaut : `upper` en ietf, `any` en markdown |
+| `--all` | garde aussi les sections non normatives, notes et exemples |
+| `--json` | rend un tableau JSON `{ n, section, title, text }` au lieu des lignes |
 
 ## Conformité au standard Agent Skills
 
@@ -96,14 +118,14 @@ node check-amont.mjs                      # le contrôle
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
 | en-tête analysable par un vrai parseur YAML | ℹ️ normatif | ✅ |  | spec § frontmatter : « YAML frontmatter » — un en-tête que YAML refuse n'est pas rendu par GitHub, alors que le parseur de l'agent, tolérant, l'accepte sans un mot |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 1024 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 1021 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 351 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 379 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 
