@@ -1778,7 +1778,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       if (!isPromise(served)) return served;
       return served.catch((e: unknown) => this.failHttp(e, created, scope));
     } catch (e) {
-      return this.failHttp(e, context, scope);
+      return this.failHttp(e, context, scope, response);
     }
   }
 
@@ -1859,11 +1859,16 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   /**
    * Chemin d'erreur de {@link handleHttp} : libère le scope d'un contexte qui
    * n'a pas pu se construire, puis rend l'erreur au client (`onError`).
+   *
+   * Sans contexte, `onError` n'a rien sur quoi écrire : la réponse BRUTE
+   * reçoit alors un 500 nu. Sinon HTTP/1.1 coupait la connexion sans un octet
+   * et HTTP/2 laissait le flux pendu.
    */
   private failHttp(
     e: unknown,
     context: HttpContext | null,
     scope: Scope,
+    response?: httpResponse,
   ): Promise<HttpContext> {
     if (context === null) {
       // Le contexte n'a pas pu se construire : le `once("close")` qui mène à
@@ -1871,6 +1876,11 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       // resterait épinglé dans le bucket `request` (miroir de
       // `releaseOrphanWsScope`).
       this.container?.leaveScope(scope);
+      if (response && !response.headersSent) {
+        // Sans corps : `end()` pose `Content-Length: 0`.
+        response.statusCode = 500;
+        response.end();
+      }
     }
     return this.onError(
       e as Error,

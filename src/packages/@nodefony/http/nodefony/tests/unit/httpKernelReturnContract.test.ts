@@ -365,14 +365,17 @@ describe("HttpKernel.handleHttp — le contexte servi, sans promesse quand rien 
     expect(kernel.onError).toHaveBeenCalledWith(error, kernel._context);
   });
 
-  it("contexte impossible à construire → scope libéré, puis `onError`", async () => {
+  it("contexte impossible à construire → scope libéré, 500 nu, puis `onError`", async () => {
     const kernel = makeServing(() => "servi");
     kernel.createHttpContext = () => {
       throw new Error("ctor");
     };
-    await call(kernel, "handleHttp", "scope", {}, {}, "http");
+    const response = { headersSent: false, statusCode: 200, end: vi.fn() };
+    await call(kernel, "handleHttp", "scope", {}, response, "http");
     expect(
       (kernel.container as { leaveScope: unknown }).leaveScope,
     ).toHaveBeenCalledWith("scope");
+    expect(response.statusCode).to.equal(500);
+    expect(response.end).toHaveBeenCalledTimes(1);
   });
 });
