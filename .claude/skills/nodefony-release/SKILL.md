@@ -276,6 +276,23 @@ Payé à la `10.0.0-beta.1`, chaque ligne une fois :
 - **`docs/performance/data/<version>.json` n'est jamais remesuré par la forge** : vérifier que sa
   `provenance.headCommit` décrit encore le code publié, sinon campagne de nuit
   (`nodefony-load-test`, `perf-campaign.sh`).
+- **Un titre `##` ajouté ou renommé dans le README racine casse le workflow Site** : la page
+  d'accueil exige que chaque section soit classée `README_DOUBLONS` ou `README_GARDES`
+  (`scripts/site/readme-html.mjs`), et la répétition ne le voit pas. Toucher au README dans la
+  fenêtre d'une release → `node scripts/site/build-site.mjs --out tmp/sites/<nom> --channel
+published` AVANT `--promouvoir`. Sinon le commit d'estampille rougit, et le tag vise un commit
+  de correctif : un cycle de forge de plus.
+- **Le README du paquet `nodefony` se DÉRIVE du README racine** (seule référence) : en-tête
+  remplacé par l'encart « ce paquet est le cœur » + `npm install nodefony@beta`, pas de
+  `git clone`, liens relatifs passés en absolu (npmjs.com n'en résout aucun), partie « API du
+  cœur » gardée. Aucun concurrent nommé dans la copie du paquet — le racine seul les nomme.
+
+**Réécrire le brouillon de changelog** — la matière tient en deux commandes, pas en une lecture
+de `git log` : `git log -1 --format=%b <sha>` sur chaque commit `!` (le geste de migration y est
+écrit, souvent sous `RUPTURE :` ou `BREAKING CHANGE:`), et `npm run release:api-diff -- --from
+<précédente> --details` pour rattacher chaque « membre requis ajouté » à son commit. Écarter les
+correctifs d'une capacité NÉE dans la même fenêtre : jamais publiée, rien à corriger pour
+l'utilisateur. Contrôle final : tout sha cité appartient à `v<précédente>..HEAD`.
 
 ## 4. ÉPROUVER — l'installation vierge
 
