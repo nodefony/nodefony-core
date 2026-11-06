@@ -243,8 +243,9 @@ Credential = l'**identifiant** posé dans le blob de session (jamais un secret).
   régénère l'ID (anti-fixation).
 - **L'identité est re-résolue à CHAQUE requête** (`SessionAuthenticator.ts#SessionAuthenticator.authenticate`) → rôles frais,
   révocation et verrouillage effectifs immédiatement.
-- **Pas de `challenge()`** : session absente = 401 nu → le front redirige vers son écran de login
-  (pas de popup Basic).
+- **Pas de `challenge()`** : session absente = 401 portant le défi de repli du pare-feu,
+  `Session realm="nodefony"` (RFC 9110 §15.5.2) — schéma inconnu des navigateurs, donc pas de
+  popup ; le front redirige vers son écran de login.
 
 ### `userpassword` — HTTP Basic, avec throttle NIST
 

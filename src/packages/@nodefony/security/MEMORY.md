@@ -32,7 +32,7 @@ Consomme `@nodefony/user`. Coupling http→security = **type-only** (`Firewall`/
   à CHAQUE requête (`resolveSessionIdentity` — rôles frais, révocation immédiate). `ISafeUser`
   projection {id, identifier, roles} — JAMAIS l'entité (hash).
 - `SessionAuthenticator` ("session", J3) : supports = `context.session?.user` non vide (session
-  reprise par le pipeline AVANT firewall) ; pas de `challenge()` (401 nu, pas de popup).
+  reprise par le pipeline AVANT firewall) ; pas de `challenge()` → le pare-feu pose `SESSION_AUTH_CHALLENGE` (`Session realm="nodefony"`, pas de popup).
 - Endpoints HTTP : `SessionAuthController` (@nodefony/framework) `/nodefony/security/api/auth/
 {login,logout,me}` — montés à onKernelReady SI "authFlow" présent ; duck-typing code 401/429.
 - **JWT (J4)** — `JwtAuthenticator` ("jwt") : Bearer (RFC 6750), jose **lazy import**, `jwtVerify`

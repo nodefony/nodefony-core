@@ -270,8 +270,9 @@ Credential = l'**identifiant** posé dans le blob de session, jamais un secret.
   partagés avec `AuthFlow.me()` : `isLocked()`/`isActive()` → rejet (`sessionIdentity.ts#resolveSessionIdentity`).
 - `onSuccess()` pose l'identifiant sur le contexte — la persistance de session lie le blob au
   principal courant (`SessionAuthenticator.ts#SessionAuthenticator.onSuccess`).
-- **Pas de `challenge()`** : session absente = 401 nu → le front redirige vers son écran de login,
-  jamais une popup Basic (`SessionAuthenticator.ts#SessionAuthenticator`).
+- **Pas de `challenge()`** : session absente = 401 portant le défi de repli du pare-feu,
+  `Session realm="nodefony"` (RFC 9110 §15.5.2) — schéma inconnu des navigateurs, jamais une popup ;
+  le front redirige vers son écran de login (`SessionAuthenticator.ts#SessionAuthenticator`).
 
 ### `jwt` — Bearer signé pour les API (RFC 6750 + BCP RFC 8725)
 

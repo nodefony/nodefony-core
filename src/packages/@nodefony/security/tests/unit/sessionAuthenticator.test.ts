@@ -134,7 +134,7 @@ describe("SessionAuthenticator (P6 J3)", () => {
     assert.equal((context as { user?: unknown }).user, "admin");
   });
 
-  it("pas de challenge déclaré : une session absente donne un 401 nu (pas de popup Basic)", () => {
+  it("pas de challenge déclaré : le pare-feu pose son défi de repli (pas de popup Basic)", () => {
     // Vu à travers le contrat (comme le firewall le voit) : `challenge?()` y est
     // un hook OPTIONNEL — on prouve que cet authenticator ne l'implémente pas.
     const auth: IAuthenticator = new SessionAuthenticator(() => providerOf({}));
