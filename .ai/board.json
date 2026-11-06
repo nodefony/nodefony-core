@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-06T19:51:31.704Z",
+  "generatedAt": "2026-11-06T19:55:28.164Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 238,
+      "closed": 239,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 14,
+      "open": 13,
       "title": "10.0.0-beta"
     },
     {
@@ -6296,8 +6296,8 @@
       "number": 732,
       "title": "fix(http): aligner le cœur HTTP, HTTP/2 et WebSocket sur la lecture complète de leurs normes",
       "url": "https://github.com/nodefony/nodefony-core/issues/732",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": null,
