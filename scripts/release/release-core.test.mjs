@@ -1267,11 +1267,13 @@ describe("GATE dépôt — aucun pair interne non borné chez les publiables", (
   // chose, sinon le lot partirait amputé ou grossi sans un mot.
   // Délai explicite : `releasableWorkspaces` lance un VRAI `npm query` — 0,9 s
   // sous Linux, 13,6 s mesurées sous Windows (`npm.cmd` + arbre de 1 500
-  // paquets), au-delà des 5 s par défaut de vitest. Le délai borne une panne,
-  // il ne règle rien : un `npm query` bloqué échoue toujours, en le nommant.
+  // paquets), au-delà des 5 s par défaut de vitest — et 71 s sur la forge
+  // Windows, en parallèle de dts-deps sur un runner chargé : 60 s ont rougi un
+  // commit sain. Le délai borne une panne, il ne règle rien : un `npm query`
+  // bloqué échoue toujours, en le nommant.
   it(
     "la porte de release emporte ces mêmes paquets",
-    { timeout: 60_000 },
+    { timeout: 180_000 },
     () => {
       expect(
         releasableWorkspaces(RACINE)

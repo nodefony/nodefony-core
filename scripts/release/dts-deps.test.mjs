@@ -125,5 +125,7 @@ describe("dts-deps — ce que les types publiés exigent de l'installeur", () =>
         (p) => `${p.package} : ${p.module} — ${p.reason} [${p.file}]`,
       ),
     ).toEqual([]);
-  }, 60_000);
+    // 70 s sur la forge Windows (runner chargé, en parallèle de release-core) :
+    // 60 s y ont rougi un commit sain. La borne n'arrête qu'une panne.
+  }, 180_000);
 });
