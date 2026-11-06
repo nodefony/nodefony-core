@@ -883,6 +883,17 @@ class Controller extends Service implements IController {
    * });
    * ```
    *
+   * HEAD sans lancer le producteur — toute route GET sert HEAD, la source n'y
+   * est jamais lue. `Readable.from([])` seul est en mode OBJET, donc refusé
+   * (500) : le mode octets se demande.
+   * ```ts
+   * if (this.method === "HEAD") {
+   *   return this.renderStream(Readable.from([], { objectMode: false }), {
+   *     headers: { "content-type": "video/mp4" },
+   *   });
+   * }
+   * ```
+   *
    * @param source - flux Node, ou flux web ; jamais en mode objet.
    * @param options - statut, en-têtes, `idleTimeout`, `stallTimeout`,
    *   `maxDuration`, `onClose(reason)`.

@@ -277,6 +277,17 @@ deux types de flux.
    Aucun minuteur ni appel d'horloge par morceau : la coupure tombe entre `idleTimeout` et
    1,25 × `idleTimeout`.
 4. **HEAD** : les en-têtes du GET, aucun corps, la source n'est jamais lue (toute route GET sert HEAD).
+   Pour ne pas lancer un producteur coûteux (ffmpeg) pour rien, passer une source VIDE en mode
+   octets : `Readable.from([])` seul est en mode objet, donc refusé (500).
+
+   ```ts
+   if (this.method === "HEAD") {
+     return this.renderStream(Readable.from([], { objectMode: false }), {
+       headers: { "content-type": "video/mp4" },
+     });
+   }
+   ```
+
 5. **Au premier morceau** : les en-têtes, puis le morceau. Sous contre-pression, la source est mise en
    pause et le minuteur `stallTimeout` armé ; il est désarmé au `drain`.
 6. **La fin passe par un seul nettoyage** (`ByteStream.ts#openByteStream`, puis
