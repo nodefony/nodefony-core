@@ -2238,7 +2238,9 @@ function dispatchScaffold(
         pascal: EXAMPLE_SERVICE,
         camel:
           EXAMPLE_SERVICE.charAt(0).toLowerCase() + EXAMPLE_SERVICE.slice(1),
-        inject: null,
+        injects: [],
+        testArgs: [],
+        testImports: [],
         description: `Service ${EXAMPLE_SERVICE} de ${String(answers.name)}`,
       },
       written,
@@ -3947,7 +3949,16 @@ function runServiceScaffold(
   // garde de `--inject`, qui dirait autre chose — « ce service n'expose aucune
   // méthode appelable » — et enverrait chercher au mauvais endroit.
   const entityName = String(answers.entity ?? "").trim();
-  if (entityName !== "" && String(answers.inject ?? "").trim() !== "") {
+  // Question `list` : chaque entrée peut encore porter des virgules (dialogue
+  // interactif, `--answers-json` écrit à la main) — découpée ici, une fois.
+  const injectNames = (
+    Array.isArray(answers.inject)
+      ? answers.inject
+      : [String(answers.inject ?? "")]
+  )
+    .flatMap((n) => n.split(/[\s,]+/u))
+    .filter((n) => n.length > 0);
+  if (entityName !== "" && injectNames.length > 0) {
     throw new Error(
       "--entity et --inject ne se combinent pas : un service d'accès aux données " +
         "reçoit son repository par le constructeur.\n" +
@@ -3959,15 +3970,17 @@ function runServiceScaffold(
   // ce que `--inject` peut viser, et la note qui apprend le geste à qui ne l'a
   // pas demandé.
   const existing = listTargetServices(target.dir, writer);
-  const injectName = String(answers.inject ?? "").trim();
-  let inject: {
+  const injects: {
     pascal: string;
     key: string;
     camel: string;
     method: string;
-  } | null = null;
-  if (injectName !== "") {
+  }[] = [];
+  for (const injectName of injectNames) {
     const wanted = `${toPascalCase(injectName.replace(/[-_]?[Ss]ervice$/u, ""))}Service`;
+    // Le même service nommé deux fois (`--inject Billing --inject BillingService`)
+    // donnerait deux paramètres homonymes : le fichier ne compilerait pas.
+    if (injects.some((i) => i.pascal === wanted)) continue;
     const found = existing.find((s) => s.pascal === wanted);
     if (!found) {
       // Refus AVANT écriture : produire un import vers une classe absente
@@ -3996,12 +4009,26 @@ function runServiceScaffold(
           "sans argument obligatoire — le service injecté serait déclaré sans être appelé",
       );
     }
-    inject = {
+    injects.push({
       pascal: found.pascal,
       key: found.key,
       camel: found.key.charAt(0).toLowerCase() + found.key.slice(1),
       method,
-    };
+    });
+  }
+  // Le test unitaire généré construit chaque dépendance À LA MAIN : il lui faut
+  // aussi les SIENNES. Une dépendance hors de la cible (autre module) ne se
+  // devine pas — le `build()` est alors à compléter, et la note le dit.
+  const testArgs: string[] = [];
+  const testImports: string[] = [];
+  const unbuildable: string[] = [];
+  for (const inject of injects) {
+    const built = serviceConstruction(inject.pascal, existing);
+    if (built === null) unbuildable.push(inject.pascal);
+    testArgs.push(built?.expr ?? `new ${inject.pascal}(module)`);
+    for (const c of built?.classes ?? [inject.pascal]) {
+      if (!testImports.includes(c)) testImports.push(c);
+    }
   }
 
   const eta = new Eta(ETA_OPTIONS);
@@ -4022,7 +4049,9 @@ function runServiceScaffold(
     {
       pascal,
       camel,
-      inject,
+      injects,
+      testArgs,
+      testImports,
       description:
         String(answers.description) || `Service ${pascal} de ${target.name}`,
     },
@@ -4042,10 +4071,17 @@ function runServiceScaffold(
     `DI   container.get("${camel}")  — clé du conteneur (super("${camel}", …))`,
     `DI   @Inject("${nameClass}")    — nom de classe (@injectable)`,
   ];
-  if (inject) {
-    notes.push(
-      `DI   ${inject.pascal} est injecté par le CONSTRUCTEUR — dépendance déclarée, ordonnée par le conteneur`,
-    );
+  if (injects.length > 0) {
+    for (const inject of injects) {
+      notes.push(
+        `DI   ${inject.pascal} est injecté par le CONSTRUCTEUR — dépendance déclarée, ordonnée par le conteneur`,
+      );
+    }
+    for (const dep of unbuildable) {
+      notes.push(
+        `TEST ${dep} dépend d'un service hors de ${target.name} : complète build() dans tests/${nameClass}.test.ts`,
+      );
+    }
   } else if (existing[0] !== undefined) {
     // La note APPREND le geste, au seul moment où il est applicable : la cible
     // porte déjà un service, donc l'injection a un sens ici et maintenant.
@@ -4290,6 +4326,47 @@ function findCallableMethod(source: string): string | null {
     }
   }
   return null;
+}
+
+/**
+ * L'expression qui construit un service de la cible À LA MAIN, dépendances
+ * comprises — ce qu'écrit le test unitaire généré, où aucun conteneur ne résout
+ * les `@Inject`.
+ *
+ * Récursive : un service injecté qui en injecte lui-même un autre se construit
+ * `new B(module, new A(module))`. Écrire `new B(module)` — ce que faisait le
+ * gabarit — rendait un test qui ne compile pas (TS2554) dès que la dépendance
+ * avait la sienne.
+ *
+ * @param pascal - classe à construire.
+ * @param services - services de la cible ({@link listTargetServices}).
+ * @param seen - chaîne en cours, garde contre un cycle.
+ * @returns l'expression et les classes à importer, ou `null` quand une
+ *   dépendance n'appartient pas à la cible (ou forme un cycle).
+ */
+function serviceConstruction(
+  pascal: string,
+  services: ReadonlyArray<{ pascal: string; source: string }>,
+  seen: ReadonlySet<string> = new Set(),
+): { expr: string; classes: string[] } | null {
+  const service = services.find((s) => s.pascal === pascal);
+  if (service === undefined || seen.has(pascal)) return null;
+  const chain = new Set(seen).add(pascal);
+  const args = ["module"];
+  const classes = [pascal];
+  // Commentaires retirés : le gabarit de service MONTRE `@Inject("…")` dans son
+  // TSDoc — lu tel quel, un service se croirait dépendant de lui-même.
+  const code = service.source
+    .replace(/\/\*[\s\S]*?\*\//gu, "")
+    .replace(/\/\/.*$/gmu, "");
+  for (const m of code.matchAll(/@Inject\(\s*["']([\w$]+)["']\s*\)/gu)) {
+    const dep = m[1] ?? "";
+    const built = serviceConstruction(dep, services, chain);
+    if (built === null) return null;
+    args.push(built.expr);
+    for (const c of built.classes) if (!classes.includes(c)) classes.push(c);
+  }
+  return { expr: `new ${pascal}(${args.join(", ")})`, classes };
 }
 
 /**

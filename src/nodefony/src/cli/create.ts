@@ -262,7 +262,14 @@ export function parseCreateArgv(
       // Injection par le CONSTRUCTEUR — le service visé doit exister dans la
       // cible, sinon le scaffold refuse avant d'écrire.
     } else if (word === "--inject") {
-      answers.inject = rest[++i];
+      // RÉPÉTABLE : chaque occurrence S'AJOUTE (`--inject A --inject B`), et une
+      // occurrence peut en porter plusieurs (`--inject A,B`). Une affectation
+      // simple gardait la dernière sans un mot.
+      const previous = Array.isArray(answers.inject) ? answers.inject : [];
+      answers.inject = [
+        ...previous,
+        ...(rest[++i] ?? "").split(/[\s,]+/u).filter((n) => n.length > 0),
+      ];
       // Brancher le service sur une entité existante. Le geste que le banc a
       // mesuré ROUGE : pour LIRE des données, l'agent a fouillé les sources du
       // framework en vingt commandes, faute de voir le patron quelque part.

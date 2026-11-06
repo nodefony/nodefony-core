@@ -685,14 +685,17 @@ const SERVICE_SPEC: IScaffoldTypeSpec = {
       // donc ni ordonnée par le conteneur ni visible dans la signature. Le
       // scaffold refuse un nom qu'il ne trouve pas dans la cible : mieux vaut
       // pas d'injection qu'un import vers une classe absente.
+      //
+      // `list` et non `string` : un service en reçoit souvent PLUSIEURS, et une
+      // chaîne gardait la DERNIÈRE occurrence de `--inject` sans un mot — la
+      // première dépendance disparaissait du plan comme du fichier écrit. Chaque
+      // nom est jugé par le moteur (`runServiceScaffold`) : il doit désigner un
+      // service de la cible, sinon refus avant écriture.
       key: "inject",
       label:
-        "Injecter un service existant de la cible (nom de classe, ex : BillingService)",
-      type: "string",
+        "Injecter des services existants de la cible (noms de classe séparés par des virgules, ex : BillingService)",
+      type: "list",
       default: "",
-      pattern: "^$|^[A-Za-z][A-Za-z0-9-]*$",
-      patternHint:
-        "nom d'un service de la cible (nodefony/service/<Nom>Service.ts) ou vide",
     },
     {
       // Le geste que le banc a mesuré ROUGE une seconde fois : LIRE des données

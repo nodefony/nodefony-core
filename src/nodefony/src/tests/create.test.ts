@@ -5974,7 +5974,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
 
   describe("moteur — create service (in-project)", () => {
     /** Scaffold service depuis `from` (détection racine = comme le CLI). */
-    const service = (from: string, answers: Record<string, string | boolean>) =>
+    const service = (from: string, answers: TScaffoldAnswers) =>
       runScaffold(
         { type: "service", answers, dir: from, force: false },
         version,
@@ -6148,6 +6148,90 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "BillingService est injecté par le CONSTRUCTEUR",
       );
       assertNoEtaResidue(dest);
+    });
+
+    it("--inject RÉPÉTÉ : chaque occurrence s'ajoute, aucune n'écrase la précédente", () => {
+      // Vécu sur une application réelle : `--inject A --inject B` ne gardait que
+      // B, en dry-run comme à l'écriture, sans un mot.
+      const req = parseCreateArgv(
+        argv("create", "service", "x", "--inject", "A", "--inject", "B,C"),
+      );
+      assert.notProperty(req, "error");
+      if ("error" in req) return;
+      assert.deepEqual(req.answers.inject, ["A", "B", "C"]);
+    });
+
+    it("--inject × 2 : les DEUX dépendances sont déclarées, appelées et passées au test", () => {
+      const dest = path.join(tmp, "svcinject2");
+      scaffold(dest, { name: "svcinject2", preset: "minimal" });
+      service(dest, { name: "billing" });
+      service(dest, { name: "mailer" });
+      const r = service(dest, {
+        name: "invoice",
+        // Doublon volontaire : deux paramètres homonymes ne compileraient pas.
+        inject: ["BillingService", "Mailer", "billing"],
+      });
+      const src = readFileSync(
+        path.join(dest, "nodefony", "service", "InvoiceService.ts"),
+        "utf8",
+      );
+      for (const [cls, prop] of [
+        ["BillingService", "billing"],
+        ["MailerService", "mailer"],
+      ] as const) {
+        assert.include(src, `import type ${cls} from "./${cls}";`);
+        assert.include(
+          src,
+          `@Inject("${cls}") private readonly ${prop}: ${cls},`,
+        );
+        assert.include(src, `return this.${prop}.greet();`);
+      }
+      assert.lengthOf(src.match(/@Inject\("BillingService"\)/gu) ?? [], 1);
+      const itf = readFileSync(
+        path.join(dest, "nodefony", "interfaces", "IInvoiceService.ts"),
+        "utf8",
+      );
+      assert.include(itf, "fromBillingService(): Promise<unknown>;");
+      assert.include(itf, "fromMailerService(): Promise<unknown>;");
+      const test = readFileSync(
+        path.join(dest, "tests", "InvoiceService.test.ts"),
+        "utf8",
+      );
+      assert.include(
+        test,
+        "new InvoiceService(module, new BillingService(module), new MailerService(module))",
+      );
+      const notes = (r.notes ?? []).join("\n");
+      assert.include(notes, "BillingService est injecté par le CONSTRUCTEUR");
+      assert.include(notes, "MailerService est injecté par le CONSTRUCTEUR");
+      assert.notMatch(src, /^ \*.*\S \*$/mu, "ligne de TSDoc recollée");
+      assertNoEtaResidue(dest);
+    });
+
+    it("--inject d'un service qui injecte lui-même : le test généré construit la CHAÎNE", () => {
+      // Vécu : `new AppBannerService(module)` dans le test généré, alors que ce
+      // service réclame `AppInfoService` → TS2554, l'app ne passe plus `verify`.
+      const dest = path.join(tmp, "svcinjectchain");
+      scaffold(dest, { name: "svcinjectchain", preset: "minimal" });
+      service(dest, { name: "billing" });
+      service(dest, { name: "report", inject: "BillingService" });
+      service(dest, { name: "invoice", inject: "ReportService" });
+      const test = readFileSync(
+        path.join(dest, "tests", "InvoiceService.test.ts"),
+        "utf8",
+      );
+      assert.include(
+        test,
+        "new InvoiceService(module, new ReportService(module, new BillingService(module)))",
+      );
+      assert.include(
+        test,
+        'import ReportService from "../nodefony/service/ReportService";',
+      );
+      assert.include(
+        test,
+        'import BillingService from "../nodefony/service/BillingService";',
+      );
     });
 
     it("--inject : la note APPREND le geste quand la cible a déjà un service", () => {

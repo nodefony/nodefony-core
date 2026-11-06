@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createTestModule } from "nodefony/testing";
 import <%= it.pascal %>Service from "../nodefony/service/<%= it.pascal %>Service";
-<% if (it.inject) { %>import <%= it.inject.pascal %> from "../nodefony/service/<%= it.inject.pascal %>";
+<% for (const cls of it.testImports) { %>import <%= cls %> from "../nodefony/service/<%= cls %>";
 <% } %>
 /**
  * <%= it.pascal %>Service, éprouvé SEUL — sans serveur, sans base, sans port.
@@ -20,7 +20,7 @@ import <%= it.pascal %>Service from "../nodefony/service/<%= it.pascal %>Service
 
 /**
  * Construit le service sur un module neuf.
-<% if (it.inject) { %> *
+<% if (it.injects.length > 0) { %> *
  * La dépendance est passée À LA MAIN : la résolution par le conteneur
  * (`@Inject`) réclame un kernel vivant, absent d'un test unitaire. C'est tout
  * l'intérêt de l'injection par constructeur — et c'est ce qui te permettra d'y
@@ -28,7 +28,7 @@ import <%= it.pascal %>Service from "../nodefony/service/<%= it.pascal %>Service
 <% } %> */
 const build = (): <%= it.pascal %>Service => {
   const module = createTestModule();
-  return new <%= it.pascal %>Service(module<% if (it.inject) { %>, new <%= it.inject.pascal %>(module)<% } %>);
+  return new <%= it.pascal %>Service(module<% for (const arg of it.testArgs) { %>, <%= arg %><% } %>);
 };
 
 describe("<%= it.pascal %>Service", () => {
