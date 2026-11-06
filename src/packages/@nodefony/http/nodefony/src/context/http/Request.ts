@@ -24,7 +24,11 @@ import {
   Parser,
   acceptParser,
 } from "./parser";
-import { splitTarget, isCanonicalAuthority } from "./urlFastPath";
+import {
+  splitTarget,
+  isCanonicalAuthority,
+  splitAbsoluteForm,
+} from "./urlFastPath";
 import type { RequestBody } from "../../../interfaces/IRequest";
 import { UploadedFile } from "../../../service/upload/upload-service";
 import type {
@@ -910,8 +914,14 @@ class HttpRequest {
     return host === this.#rawHostSource ? this.#rawHostname : hostnameOf(host);
   }
 
+  /**
+   * L'autorité de la requête : celle de la cible en forme absolue, sinon
+   * l'en-tête `Host` (RFC 9112 §3.2.2 — le serveur DOIT alors ignorer `Host`).
+   * HTTP/2 lit `:authority` (override).
+   */
   getHost(): string | undefined {
-    return this.request.headers.host;
+    const absolute = splitAbsoluteForm(this.request.url);
+    return absolute === null ? this.request.headers.host : absolute.authority;
   }
 
   getRemoteAddress(): string | null {
@@ -928,10 +938,13 @@ class HttpRequest {
   /**
    * Request-target brut (origin-form) tel que reçu du transport — SOURCE
    * UNIQUE partagée par la concaténation de {@link getFullUrl} et la découpe
-   * fast-path du ctor. HTTP/2 lit le pseudo-header `:path` (override).
+   * fast-path du ctor. Une cible en forme absolue est ramenée à sa forme
+   * origine, son autorité passant par {@link getHost}. HTTP/2 lit le
+   * pseudo-header `:path` (override).
    */
   getRawTarget(): string | undefined {
-    return (this.request as http.IncomingMessage).url;
+    const target = this.request.url;
+    return splitAbsoluteForm(target)?.target ?? target;
   }
 
   /**

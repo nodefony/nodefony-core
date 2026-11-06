@@ -47,6 +47,48 @@ const REDIRECT_STATUS_CODES = new Set<number>([301, 302, 303, 307, 308]);
 // portent JAMAIS de Content-Length (RFC 9110 §8.6).
 const NO_CONTENT_LENGTH_STATUS = new Set([204, 304]);
 
+// Statuts qui ne portent jamais de CONTENU : 204 (§15.3.5), 205 (§15.3.6),
+// 304 (§15.4.5). Le 205 se distingue des deux autres : il délimite son message
+// par `Content-Length: 0` (§15.3.6), quand 204 et 304 n'en portent aucun.
+const NO_CONTENT_STATUS = new Set([204, 205, 304]);
+
+/**
+ * Vrai pour un statut dont la réponse n'a, par définition, aucun contenu —
+ * 204, 205 et 304 (RFC 9110 §15.3.5, §15.3.6, §15.4.5).
+ *
+ * Seule source de cette liste : la réponse s'en sert pour ne jamais écrire de
+ * corps, le résolveur pour terminer une action qui ne rend rien.
+ *
+ * @param status - le code de statut de la réponse.
+ * @returns `true` quand aucun corps ne doit partir.
+ */
+export function isContentlessStatus(status: number): boolean {
+  return NO_CONTENT_STATUS.has(status);
+}
+
+/** Espace ou tabulation : l'OWS de RFC 9110 §5.6.3. */
+const isOws = (code: number): boolean => code === 0x20 || code === 0x09;
+
+/**
+ * Valeur d'en-tête sans espace de bord (RFC 9110 §5.5 ; RFC 9113 §8.2.1 en fait
+ * un MUST NOT en HTTP/2). Ne copie la chaîne que dans le cas rare où il y a
+ * quelque chose à rogner.
+ */
+function trimFieldValue(value: string): string {
+  const last = value.length - 1;
+  if (
+    last < 0 ||
+    (!isOws(value.charCodeAt(0)) && !isOws(value.charCodeAt(last)))
+  ) {
+    return value;
+  }
+  let start = 0;
+  let end = last;
+  while (start <= end && isOws(value.charCodeAt(start))) start++;
+  while (end >= start && isOws(value.charCodeAt(end))) end--;
+  return value.slice(start, end + 1);
+}
+
 /** Résolution MIME d'un type demandé à `setContentType`, mémorisée par {@link resolveContentType}. */
 interface IResolvedContentType {
   /** Valeur de `mime.contentType(type)` (charset par défaut compris). */
@@ -101,13 +143,16 @@ function resolveContentType(type: string): IResolvedContentType | null {
  */
 type HeaderList = OutgoingHttpHeader[];
 
-/** Valeur d'en-tête sous la forme que Node accepte (une liste figée est copiée). */
+/**
+ * Valeur d'en-tête sous la forme que Node accepte (une liste figée est copiée),
+ * rognée de ses espaces de bord.
+ */
 function toHeaderValue(
   value: number | string | readonly string[],
 ): OutgoingHttpHeader {
-  return typeof value === "string" || typeof value === "number"
-    ? value
-    : [...value];
+  if (typeof value === "number") return value;
+  if (typeof value === "string") return trimFieldValue(value);
+  return value.map(trimFieldValue);
 }
 
 /**
@@ -206,13 +251,13 @@ class HttpResponse {
   }
 
   /**
-   * Vrai quand la réponse n'a pas de corps : 204 et 304 n'en ont jamais
-   * (RFC 9110 §15.3.5, §15.4.5) ; ailleurs, un corps posé et VIDE. Un corps
-   * jamais posé ne dit rien — un flux peut suivre l'en-tête — et `HEAD` rend
-   * les en-têtes du `GET` (§9.3.2) : tous deux gardent le défaut.
+   * Vrai quand la réponse n'a pas de corps : 204, 205 et 304 n'en ont jamais
+   * (RFC 9110 §15.3.5, §15.3.6, §15.4.5) ; ailleurs, un corps posé et VIDE. Un
+   * corps jamais posé ne dit rien — un flux peut suivre l'en-tête — et `HEAD`
+   * rend les en-têtes du `GET` (§9.3.2) : tous deux gardent le défaut.
    */
   #isBodyless(): boolean {
-    if (NO_CONTENT_LENGTH_STATUS.has(this.statusCode)) return true;
+    if (NO_CONTENT_STATUS.has(this.statusCode)) return true;
     if (this.context.method === "HEAD") return false;
     if (this.#text !== null) return this.#text === "" && !this.flushing;
     return this.#buffer?.length === 0 && !this.flushing;
@@ -238,9 +283,12 @@ class HttpResponse {
   /**
    * Corps tel qu'il part sur le fil : le texte s'il n'a jamais été encodé, sinon
    * les octets — vide légal si rien n'a été posé (`write(null)` jetterait
-   * ERR_STREAM_NULL_VALUES).
+   * ERR_STREAM_NULL_VALUES). Vide aussi sous un statut sans contenu : un corps
+   * posé par l'application sous un 205 ne part pas (RFC 9110 §15.3.6) — Node
+   * ne l'écarte de lui-même que pour 204 et 304.
    */
   protected get payload(): string | Buffer {
+    if (NO_CONTENT_STATUS.has(this.statusCode)) return "";
     return this.#text ?? this.#buffer ?? "";
   }
 
@@ -829,6 +877,12 @@ class HttpResponse {
     if (NO_CONTENT_LENGTH_STATUS.has(this.statusCode)) {
       return 0;
     }
+    // 205 : le message se délimite par une longueur NULLE (RFC 9110 §15.3.6),
+    // quel que soit le corps posé — `payload` ne l'écrira pas.
+    if (this.statusCode === 205) {
+      this.#put("content-length", "0");
+      return 0;
+    }
     const actualBody = body || this.#text || this.#buffer;
     if (actualBody) {
       const length =
@@ -937,9 +991,27 @@ class HttpResponse {
     return this.response?.addTrailers(headers);
   }
 
+  /**
+   * Écrit un morceau d'une réponse en flux, sans la terminer — c'est `end()`
+   * qui la clôt après le dernier.
+   *
+   * Au premier morceau, les en-têtes partent SANS longueur ni corps posé (le
+   * patron de `SseStream`), et le cadrage revient à Node : `chunked` pour un
+   * client HTTP/1.1, fermeture de connexion pour un HTTP/1.0 (RFC 9112 §6.1 —
+   * pas de `Transfer-Encoding` à qui ne le connaît pas), trames DATA en HTTP/2
+   * où l'en-tête est interdit (RFC 9113 §8.2.2). Ne JAMAIS le poser à la main :
+   * une fois `flushing` levé, `setHeader` range en trailer, et un
+   * `Transfer-Encoding` en trailer est un message malformé (RFC 9110 §6.5.1).
+   *
+   * @param chunk - le morceau à écrire.
+   * @param encoding - l'encodage d'un morceau texte.
+   * @returns la promesse réglée quand le flux accepte l'écriture suivante.
+   */
   flush(chunk: unknown, encoding: BufferEncoding) {
-    this.flushing = true;
-    this.setHeader("Transfer-Encoding", "chunked");
+    if (!this.flushing) {
+      if (!this.isHeaderSent()) this.writeHead();
+      this.flushing = true;
+    }
     return this.send(chunk, encoding, true);
   }
 

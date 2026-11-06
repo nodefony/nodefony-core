@@ -11,6 +11,7 @@ import {
   ROLES_WITHIN,
   CSP_REPORT_GROUP,
   CSP_REPORT_PATH,
+  SESSION_AUTH_CHALLENGE,
 } from "nodefony";
 import type { IProtectedResourceInput } from "nodefony";
 import type { ContextType, ISecurityTrace } from "@nodefony/http";
@@ -169,12 +170,6 @@ function cookieValue(
 }
 
 /**
- * Défi posé sur un 401 quand aucun authenticator de la zone n'en déclare
- * (RFC 9110 §15.5.2). Schéma inconnu des navigateurs : aucune fenêtre de login.
- */
-const FALLBACK_CHALLENGE = 'Session realm="nodefony"';
-
-/**
  * Orchestrateur de sécurité Nodefony — refonte 2026 (P6).
  *
  * `isSecure()` (hot-path, court-circuit si aucune zone) ne fait QUE matcher la
@@ -193,7 +188,7 @@ const FALLBACK_CHALLENGE = 'Session realm="nodefony"';
  *
  * Conformité : tout 401 porte un challenge `WWW-Authenticate` (RFC 9110
  * §15.5.2) — celui du premier authenticator de la zone qui en déclare un, sinon
- * le défi de repli {@link FALLBACK_CHALLENGE}.
+ * le défi de repli {@link SESSION_AUTH_CHALLENGE}.
  *
  * CORS, CSRF et autorisation par décorateurs viennent se brancher en S4/S5.
  * Toutes les structures sont **lazy** (perf : une app sans zone = zéro alloc).
@@ -1741,7 +1736,7 @@ class Firewall extends Service implements IFirewall {
     // authenticator applicatif) : un 401 DOIT en porter un quand même (RFC 9110
     // §15.5.2). Un schéma que le navigateur ne connaît pas n'ouvre aucune
     // fenêtre de connexion — seuls Basic, Digest et Negotiate en ouvrent.
-    response.setHeader("WWW-Authenticate", FALLBACK_CHALLENGE);
+    response.setHeader("WWW-Authenticate", SESSION_AUTH_CHALLENGE);
   }
 
   override log(

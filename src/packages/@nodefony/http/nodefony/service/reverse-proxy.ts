@@ -11,6 +11,7 @@ import type {
 import {
   forwardRequest,
   forwardUpgrade,
+  refuseMalformedHandshake,
   refuseUpgrade,
   type IForwardedFrom,
   type IRelaySettings,
@@ -407,12 +408,13 @@ class ReverseProxy extends Service {
       refuseUpgrade(socket, 421, "Misdirected Request");
       return true;
     }
-    if (
-      hostname === null ||
-      isAmbiguousPath(req.url ?? "/") ||
-      websocketHandshakeProblem(req.method, req.headers) !== null
-    ) {
+    if (hostname === null || isAmbiguousPath(req.url ?? "/")) {
       refuseUpgrade(socket, 400, "Bad Request");
+      return true;
+    }
+    const problem = websocketHandshakeProblem(req.method, req.headers);
+    if (problem !== null) {
+      refuseMalformedHandshake(socket, problem);
       return true;
     }
     const secure = req.socket instanceof TLSSocket;

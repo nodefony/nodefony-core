@@ -88,6 +88,58 @@ export function splitTarget(target: unknown): ISplitTarget | null {
  */
 const DETACHED_ORIGIN = "http://request-target.invalid";
 
+/** Un request-target en forme absolue, découpé en autorité et forme origine. */
+export interface IAbsoluteTarget {
+  /** `hôte[:port]` de la cible — l'hôte de la requête (RFC 9112 §3.2.2). */
+  authority: string;
+  /** La forme origine (`/chemin[?query]`), `/` quand la cible n'a pas de chemin. */
+  target: string;
+}
+
+const HASH = 0x23;
+const AT = 0x40;
+
+/**
+ * Découpe un request-target en forme absolue (`http://hôte:port/chemin?q`) :
+ * la forme qu'un client envoie à un proxy, et qu'un serveur d'origine DOIT
+ * accepter (RFC 9112 §3.2.2). Il DOIT alors ignorer l'en-tête `Host` et prendre
+ * l'hôte de la cible — le recoller à `Host` fabriquait un hôte qui n'existe pas.
+ *
+ * Seuls `http` et `https` sont reconnus (RFC 6455 §4.2.1 vaut aussi pour un
+ * handshake WebSocket) ; le schéma de la cible ne remplace jamais celui de la
+ * connexion. Une autorité porteuse d'identifiants (`user@hôte`, interdite par
+ * RFC 9110 §4.2.4) n'est pas reconnue : `Host` garde la main.
+ *
+ * Chemin de chaque requête : un seul test de caractère pour la forme origine,
+ * aucune allocation.
+ *
+ * @param target - le request-target brut, tel que reçu.
+ * @returns l'autorité et la forme origine, ou `null` pour toute autre forme.
+ */
+export function splitAbsoluteForm(
+  target: string | undefined,
+): IAbsoluteTarget | null {
+  if (target === undefined || target.charCodeAt(0) === SLASH) return null;
+  const sep = target.indexOf("://");
+  if (sep !== 4 && sep !== 5) return null;
+  const scheme = target.slice(0, sep).toLowerCase();
+  if (scheme !== "http" && scheme !== "https") return null;
+  const start = sep + 3;
+  let end = start;
+  while (end < target.length) {
+    const code = target.charCodeAt(end);
+    if (code === SLASH || code === QMARK || code === HASH) break;
+    if (code === AT) return null;
+    end++;
+  }
+  if (end === start) return null;
+  const rest = target.slice(end);
+  return {
+    authority: target.slice(start, end),
+    target: rest.charCodeAt(0) === SLASH ? rest : `/${rest}`,
+  };
+}
+
 /**
  * Analyse un request-target origin-form (`/chemin[?query]`) dans la forme
  * NORMALISÉE que la porte HTTP donne au routeur (`HttpRequest`) : découpe exacte

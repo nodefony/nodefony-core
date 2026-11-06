@@ -74,12 +74,11 @@ let mounted = false;
  * (Auth.js, better-auth). Le `401` y écrivait une erreur réseau dans la console
  * de chaque visiteur anonyme, sans rien protéger : la réponse ne révèle rien.
  *
- * @remarks Dérogation RFC 9110 §15.5.2 DÉLIBÉRÉE : les 401 de `login` ne
- * portent PAS de `WWW-Authenticate` — aucun scheme HTTP ne décrit un cookie de
- * session, et un challenge `Basic` mensonger déclencherait le popup natif du
- * navigateur (l'anti-pattern que le BFF élimine). Les zones du firewall, elles,
- * restent strictement conformes (challenge du premier authenticator qui en
- * déclare un).
+ * @remarks Les 401 de `login` portent le défi `Session realm="nodefony"`
+ * (RFC 9110 §15.5.2, posé par `SecurityApiController`), celui du pare-feu :
+ * aucun schéma HTTP ne décrit un cookie de session, et un `Basic` ouvrirait la
+ * fenêtre de connexion native du navigateur — l'anti-pattern que le BFF
+ * élimine. Un schéma inconnu des navigateurs n'en ouvre aucune.
  */
 class SessionAuthController extends SecurityApiController {
   constructor(context: ContextType) {
@@ -240,7 +239,7 @@ export function mountSessionAuthRoutes(frameworkModule: Module): void {
       // Ces routes SONT le mécanisme d'auth : l'aire data plane
       // (/nodefony/security/api/* la matche) ne peut pas les garder, sinon le
       // login exigerait d'être déjà loggé (deadlock). Le controller applique sa
-      // propre sémantique (401 sans challenge — dérogation RFC 9110 §15.5.2, supra).
+      // propre sémantique (401 + défi de session, supra).
       bypassFirewall: true,
     });
   }

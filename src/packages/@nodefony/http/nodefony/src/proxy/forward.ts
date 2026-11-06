@@ -4,6 +4,7 @@ import type http2 from "node:http2";
 import type { Socket } from "node:net";
 import type { Duplex } from "node:stream";
 import type { IProxyMount } from "../../interfaces/IReverseProxy";
+import { WS_UNSUPPORTED_VERSION } from "./rules";
 
 /** Requête entrante relayable : HTTP/1.1 ou HTTP/2 (API de compatibilité). */
 export type ProxiedRequest = http.IncomingMessage | http2.Http2ServerRequest;
@@ -603,6 +604,34 @@ export function refuseUpgrade(
   socket.end(
     `HTTP/1.1 ${status} ${reason}\r\n${extra}Connection: close\r\nContent-Length: 0\r\n\r\n`,
   );
+}
+
+/** En-têtes du refus d'une version WebSocket inconnue — figés, partagés. */
+const WS_VERSION_REFUSAL_HEADERS: Readonly<Record<string, string>> =
+  Object.freeze({ Upgrade: "websocket", "Sec-WebSocket-Version": "13" });
+
+/**
+ * Refuse un handshake WebSocket non conforme — la réponse qui convient à la
+ * raison rendue par `websocketHandshakeProblem`, seule implémentation pour le
+ * serveur WebSocket ET le proxy inverse.
+ *
+ * Une version inconnue reçoit `426` avec `Sec-WebSocket-Version: 13` : le
+ * client apprend vers quelle version se rabattre (RFC 6455 §4.2.2 point 6,
+ * §4.4), et le 426 porte l'`Upgrade` qu'exige RFC 9110 §15.5.22. Tout autre
+ * défaut de forme reçoit `400`.
+ *
+ * @param socket - socket du client, encore en attente de sa réponse
+ * @param problem - la raison rendue par `websocketHandshakeProblem`
+ */
+export function refuseMalformedHandshake(
+  socket: Duplex,
+  problem: string,
+): void {
+  if (problem === WS_UNSUPPORTED_VERSION) {
+    refuseUpgrade(socket, 426, "Upgrade Required", WS_VERSION_REFUSAL_HEADERS);
+    return;
+  }
+  refuseUpgrade(socket, 400, "Bad Request");
 }
 
 /** En-têtes d'une réponse d'amont REFUSANT l'upgrade, à ne pas recopier tels quels. */

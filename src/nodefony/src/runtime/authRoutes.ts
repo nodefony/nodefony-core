@@ -121,6 +121,18 @@ export const MFA_METHOD_TOTP = "totp";
 export const INSECURE_TRANSPORT_MESSAGE = "Credentials must be sent over HTTPS";
 
 /**
+ * Défi `WWW-Authenticate` d'un 401 quand aucun schéma HTTP standard ne décrit
+ * la connexion attendue — une session par cookie, notamment. RFC 9110 §15.5.2
+ * exige un défi sur TOUT 401.
+ *
+ * Schéma inconnu des navigateurs, donc aucune fenêtre de connexion native :
+ * seuls `Basic`, `Digest` et `Negotiate` en ouvrent une. Seule valeur du
+ * framework, pour le pare-feu, les routes de connexion et le plan
+ * d'administration.
+ */
+export const SESSION_AUTH_CHALLENGE = 'Session realm="nodefony"';
+
+/**
  * Chemin par défaut de la page de connexion servie par le framework.
  *
  * Défaut de `security.loginPage.path`, et donc de la redirection d'échec d'un

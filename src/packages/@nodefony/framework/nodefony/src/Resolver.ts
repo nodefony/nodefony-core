@@ -24,6 +24,7 @@ import {
   HttpResponse,
   WebsocketResponse,
   WebsocketContext,
+  isContentlessStatus,
 } from "@nodefony/http";
 import Route, { ControllerConstructor } from "./Route.js";
 import Controller from "./Controller";
@@ -1241,7 +1242,7 @@ class Resolver implements IResolver {
             // dire ». Sans ce cas, un `@Delete @HttpCode(204) { …; return null; }`
             // laissait la requête pendue jusqu'au timeout, alors que la suppression
             // avait bien eu lieu (vécu sur une ressource générée).
-            if (NO_BODY_STATUS.has(this.getResponseStatus())) {
+            if (isContentlessStatus(this.getResponseStatus())) {
               return (this.context as HttpContext).send();
             }
             this.context.waitAsync = true;
@@ -1299,8 +1300,5 @@ class Resolver implements IResolver {
     );
   }
 }
-
-/** Statuts dont la réponse n'a, par définition, pas de corps (RFC 9110). */
-const NO_BODY_STATUS = new Set([204, 205, 304]);
 
 export default Resolver;

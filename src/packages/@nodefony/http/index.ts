@@ -191,6 +191,9 @@ export {
 // Le request-target dans la forme normalisée que le routeur reçoit en HTTP —
 // pour une porte qui reçoit un chemin hors requête HTTP (pont `api.request`).
 export { parseRequestTarget } from "./nodefony/src/context/http/urlFastPath";
+// Statuts sans contenu (204, 205, 304) — la liste unique que la réponse et le
+// résolveur du framework partagent.
+export { isContentlessStatus } from "./nodefony/src/context/http/Response";
 export type { ISplitTarget } from "./nodefony/src/context/http/urlFastPath";
 export { httpConfigSchema } from "./nodefony/config/config";
 export type {

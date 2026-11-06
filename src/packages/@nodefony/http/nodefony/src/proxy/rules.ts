@@ -237,6 +237,13 @@ const UPGRADE_WEBSOCKET = /^\s*websocket\s*$/i;
 const CONNECTION_UPGRADE = /(?:^|,)\s*upgrade\s*(?:,|$)/i;
 
 /**
+ * Raison rendue par {@link websocketHandshakeProblem} quand le client parle une
+ * autre version du protocole : la seule qui appelle une réponse distincte —
+ * le client doit apprendre vers quelle version se rabattre (RFC 6455 §4.4).
+ */
+export const WS_UNSUPPORTED_VERSION = "Sec-WebSocket-Version ≠ 13";
+
+/**
  * Un upgrade est-il un handshake WebSocket conforme (RFC 6455 §4.2.1) ? Seul
  * un tel handshake est relayé : un `Upgrade` quelconque (`h2c`…) raccordé
  * octet pour octet ouvrirait un tunnel que rien n'inspecte.
@@ -264,8 +271,7 @@ export function websocketHandshakeProblem(
       : Array.isArray(connection) &&
         connection.some((token) => CONNECTION_UPGRADE.test(token));
   if (!hasUpgrade) return "Connection sans upgrade";
-  if (headers["sec-websocket-version"] !== "13")
-    return "Sec-WebSocket-Version ≠ 13";
+  if (headers["sec-websocket-version"] !== "13") return WS_UNSUPPORTED_VERSION;
   const key = headers["sec-websocket-key"];
   if (typeof key !== "string" || !WS_KEY.test(key)) {
     return "Sec-WebSocket-Key invalide";

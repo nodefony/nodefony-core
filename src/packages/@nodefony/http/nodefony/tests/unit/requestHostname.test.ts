@@ -4,7 +4,11 @@ import type http from "node:http";
 import { describe, it } from "vitest";
 import HttpRequest from "../../src/context/http/Request.js";
 import type HttpContext from "../../src/context/http/HttpContext.js";
-import { isCanonicalAuthority } from "../../src/context/http/urlFastPath.js";
+import {
+  isCanonicalAuthority,
+  splitAbsoluteForm,
+} from "../../src/context/http/urlFastPath.js";
+import { parseWebsocketUrl } from "../../src/context/websocket/websocketUrl.js";
 
 /**
  * #508 — le nom d'hôte brut est découpé UNE fois au ctor et relu par
@@ -112,5 +116,49 @@ describe("HttpRequest — nom d'hôte découpé une fois (#508)", () => {
     const req = makeRequest("127.0.0.1:5151");
     req.hostname = "tampered";
     expect(req.getHostName()).to.equal("127.0.0.1");
+  });
+});
+
+describe("HttpRequest — cible en forme absolue (RFC 9112 §3.2.2)", () => {
+  it("l'hôte vient de la CIBLE, l'en-tête Host est ignoré", () => {
+    const req = makeRequest("autre.test", "http://localhost:5151/x?q=1");
+    expect(req.host).to.equal("localhost:5151");
+    expect(req.hostname).to.equal("localhost");
+    expect(req.domain).to.equal("localhost");
+    expect(req.pathname).to.equal("/x");
+    expect(req.search).to.equal("?q=1");
+    expect(req.query).to.deep.equal({ q: "1" });
+  });
+
+  it("schéma en majuscules, cible sans chemin : `/` implicite", () => {
+    const req = makeRequest("autre.test", "HTTP://Example.COM?a=b");
+    expect(req.domain).to.equal("example.com");
+    expect(req.pathname).to.equal("/");
+    expect(req.search).to.equal("?a=b");
+  });
+
+  it("handshake WebSocket : même règle (parseWebsocketUrl)", () => {
+    const url = parseWebsocketUrl(
+      "ws",
+      "autre.test",
+      "http://localhost:5151/ws?x=1",
+    );
+    expect(url.host).to.equal("localhost:5151");
+    expect(url.pathname).to.equal("/ws");
+    expect(url.search).to.equal("?x=1");
+    expect(parseWebsocketUrl("ws", "h.test", "/ws").host).to.equal("h.test");
+  });
+
+  it("autorité porteuse d'identifiants : non reconnue, Host garde la main", () => {
+    expect(splitAbsoluteForm("http://user@evil.test/x")).to.equal(null);
+    expect(splitAbsoluteForm("ftp://h/x")).to.equal(null);
+    expect(splitAbsoluteForm("*")).to.equal(null);
+    expect(splitAbsoluteForm("h:443")).to.equal(null);
+  });
+
+  it("forme origine : rien ne change, Host fait foi", () => {
+    const req = makeRequest("localhost:5151", "/x");
+    expect(req.host).to.equal("localhost:5151");
+    expect(req.pathname).to.equal("/x");
   });
 });

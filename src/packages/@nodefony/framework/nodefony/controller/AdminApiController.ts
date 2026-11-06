@@ -15,6 +15,7 @@ import type { IAdminBroker, IAdminRoute } from "../interfaces/IAdminBroker";
 import type { IIdempotencyStore } from "../interfaces/IIdempotencyStore";
 import type { ContextType } from "@nodefony/http";
 import Controller from "../src/Controller";
+import { withAuthChallenge } from "../src/SecurityApiController";
 
 /**
  * Vue MINIMALE de la politique `credentialTransport` (posée par security au
@@ -142,8 +143,11 @@ class AdminApiController extends Controller {
     // multi-pod, le LB route la requête vers UN seul process. On estampille
     // donc chaque réponse de l'identité d'instance (même convention que
     // `nodefony:dashboard`) → Studio sait quel pod a répondu. Vue cluster = P13.
+    // Tout 401 porte un défi (RFC 9110 §15.5.2) : posé ICI, une fois, pour
+    // les producteurs de TOUS les modules — un handler rend `{ status: 401 }`
+    // sans avoir à connaître l'en-tête.
     const stamped = {
-      ...headers,
+      ...(status === 401 ? withAuthChallenge(headers) : headers),
       "x-nodefony-instance": AdminApiController.instanceId,
     };
     // #618 D9 — le REST emprunte le codec des connexions texte : des octets y

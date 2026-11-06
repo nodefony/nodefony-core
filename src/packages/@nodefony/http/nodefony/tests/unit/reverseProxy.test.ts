@@ -1185,10 +1185,6 @@ describe("ReverseProxy — upgrade : contrôles avant relais", () => {
       `GET /hmr/ HTTP/1.1\r\nHost: x\r\nConnection: Upgrade\r\nUpgrade: h2c\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: ${key}\r\n\r\n`,
     ],
     [
-      "version 8",
-      `GET /hmr/ HTTP/1.1\r\nHost: x\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nSec-WebSocket-Version: 8\r\nSec-WebSocket-Key: ${key}\r\n\r\n`,
-    ],
-    [
       "clé absente",
       "GET /hmr/ HTTP/1.1\r\nHost: x\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nSec-WebSocket-Version: 13\r\n\r\n",
     ],
@@ -1207,6 +1203,21 @@ describe("ReverseProxy — upgrade : contrôles avant relais", () => {
       expect(up.count()).toBe(0);
     },
   );
+
+  it("version 8 : 426 et la version comprise, comme le serveur WebSocket (RFC 6455 §4.4)", async () => {
+    const up = await wsEcho();
+    const port = await front(
+      proxyWith({ "/hmr/": { target: up.origin, websocket: true } }),
+    );
+    const reply = await raw(
+      port,
+      `GET /hmr/ HTTP/1.1\r\nHost: x\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nSec-WebSocket-Version: 8\r\nSec-WebSocket-Key: ${key}\r\n\r\n`,
+      500,
+    );
+    expect(reply).toMatch(/^HTTP\/1\.1 426/);
+    expect(reply).toMatch(/\r\nSec-WebSocket-Version: 13\r\n/);
+    expect(up.count()).toBe(0);
+  });
 
   it("`Origin` refusée par la règle du serveur WebSocket : 403 (anti-CSWSH, RFC 6455 §10.2)", async () => {
     const up = await wsEcho();

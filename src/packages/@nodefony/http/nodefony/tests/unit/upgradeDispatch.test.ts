@@ -197,6 +197,29 @@ describe("attachUpgradeDispatch — admission asynchrone (#596)", () => {
     expect(admitted).toBe(0);
   });
 
+  it("une version inconnue reçoit 426 et la version comprise (RFC 6455 §4.2.2 point 6, §4.4)", async () => {
+    let admitted = 0;
+    const srv = await serveAdmit(() => admitted++);
+    const socket = net.connect(srv.port, "127.0.0.1", () => {
+      socket.write(
+        `GET /x HTTP/1.1\r\nHost: 127.0.0.1:${srv.port}\r\nUpgrade: websocket\r\n` +
+          `Connection: Upgrade\r\nSec-WebSocket-Version: 8\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n\r\n`,
+      );
+    });
+    socket.on("error", () => {});
+    closers.push(async () => {
+      socket.destroy();
+    });
+    const reply = await new Promise<string>((resolve) =>
+      socket.once("data", (d: Buffer) => resolve(String(d))),
+    );
+    expect(reply).toMatch(/^HTTP\/1\.1 426 /);
+    expect(reply).toMatch(/\r\nSec-WebSocket-Version: 13\r\n/);
+    // RFC 9110 §15.5.22 : un 426 dit vers quoi monter.
+    expect(reply).toMatch(/\r\nUpgrade: websocket\r\n/);
+    expect(admitted).toBe(0);
+  });
+
   // RFC 9113 §3.1 a RETIRÉ la bascule `Upgrade: h2c`. L'accepter ouvrirait la
   // contrebande h2c : un proxy frontal qui relaie l'`Upgrade` sans le
   // comprendre perd la vue sur tout ce qui suit, contrôles d'accès compris.

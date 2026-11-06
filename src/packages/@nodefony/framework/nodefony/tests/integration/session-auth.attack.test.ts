@@ -10,6 +10,7 @@
  * « non connecté » à quelqu'un qui vient de se connecter.
  */
 import { expect } from "vitest";
+import { SESSION_AUTH_CHALLENGE } from "nodefony";
 import https from "node:https";
 
 const BASE = { hostname: "localhost", port: 5152, rejectUnauthorized: false };
@@ -101,6 +102,9 @@ describe("routes de session — aucune réponse en cache partagé", () => {
     );
     expect(ko.status).toBe(401);
     expect(ko.headers["cache-control"]).toBe("no-store");
+    // RFC 9110 §15.5.2 : tout 401 porte un défi — un schéma inconnu des
+    // navigateurs, qui n'ouvre aucune fenêtre de connexion native.
+    expect(ko.headers["www-authenticate"]).toBe(SESSION_AUTH_CHALLENGE);
   });
 
   it("🔴 jeton, clés API, TOTP, fournisseurs : `no-store` partout (RFC 6749 §5.1)", async () => {

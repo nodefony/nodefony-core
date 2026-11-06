@@ -554,6 +554,7 @@ export {
   loginPageSkinFile,
   MFA_METHOD_TOTP,
   INSECURE_TRANSPORT_MESSAGE,
+  SESSION_AUTH_CHALLENGE,
 } from "./runtime/authRoutes";
 export type {
   LoginPageLayout,

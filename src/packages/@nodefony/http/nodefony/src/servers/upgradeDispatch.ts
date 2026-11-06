@@ -1,7 +1,7 @@
 import { STATUS_CODES, type IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
 import { WebSocketServer, type ServerOptions, type WebSocket } from "ws";
-import { refuseUpgrade } from "../proxy/forward";
+import { refuseMalformedHandshake, refuseUpgrade } from "../proxy/forward";
 import { websocketHandshakeProblem } from "../proxy/rules";
 
 /** Serveur qui émet `upgrade` : HTTP/1.1, HTTPS ou HTTP/2 sécurisé (`allowHTTP1`). */
@@ -279,8 +279,9 @@ export function attachUpgradeDispatch(
       refuseUpgrade(socket, status, STATUS_CODES[status] ?? "Refused");
       return;
     }
-    if (websocketHandshakeProblem(req.method, req.headers) !== null) {
-      refuseUpgrade(socket, 400, STATUS_CODES[400] ?? "Bad Request");
+    const problem = websocketHandshakeProblem(req.method, req.headers);
+    if (problem !== null) {
+      refuseMalformedHandshake(socket, problem);
       return;
     }
     admit(req, new UpgradeAdmission(wss, req, socket, head));
