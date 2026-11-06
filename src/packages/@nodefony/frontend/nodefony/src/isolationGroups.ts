@@ -5,13 +5,17 @@
  * les familles distinctes tournent dans des **process Vite séparés** (multi-
  * supervisor).
  *
- * **Le motif est toujours le même : un plugin qui transforme ce qui ne lui
- * appartient pas.** Deux familles le paient aujourd'hui.
+ * Deux familles sont isolées, pour deux raisons différentes.
  *
- * Angular : son plugin (`@analogjs/vite-plugin-angular`) transforme **tout**
- * fichier `.ts` du serveur de développement — y compris ceux des autres bundles
- * (ex. stores MobX à décorateurs). Mélangé aux autres, il throw sur des fichiers
- * hors de son tsconfig → erreurs de compilation + boucle de rechargement.
+ * Angular : historiquement, son plugin (`@analogjs/vite-plugin-angular`)
+ * transformait **tout** `.ts` du serveur et levait sur ceux des autres bundles
+ * (stores MobX de Studio) — erreurs + boucle de rechargement. Ce n'est plus le
+ * cas (analogjs 2.9.6, Vite 8.3.6 : dans l'instance partagée, HMR à chaud sur
+ * React, Svelte, Angular, une page ET un store de Studio, sans erreur ni
+ * boucle). Il reste isolé pour le COÛT : son compilateur rend l'instance prête
+ * en ~2,6 s au lieu de 0,5-0,7 s, et le superviseur relance les Vite à chaque
+ * modification du backend — Studio et React attendraient ~2 s de plus à chaque
+ * fois, pour un process et ~100 Mo économisés. Isolé, il démarre en parallèle.
  *
  * Vue : `@vitejs/plugin-react` pose une option oxc GLOBALE
  * (`oxc.jsx.refresh: true`) que le compilateur de Vite neutralise lui-même sur
@@ -27,7 +31,8 @@
  *
  * ⚠️ Aucun filtre du greffon React n'y peut rien (`exclude: [/./]` compris) :
  * l'option est globale, et couper `refresh` casserait le HMR de React. Seule
- * l'isolation en process distinct l'arrête. À lever quand l'amont corrige.
+ * l'isolation en process distinct l'arrête. À lever quand l'amont corrige :
+ * la sentinelle `tests/integration/vueRefreshSentinel.test.ts` rougit ce jour-là.
  *
  * Svelte, lui, cohabite sans dommage (constaté) : son bloc script n'est pas
  * servi sous un identifiant qui finit par `.ts`.
