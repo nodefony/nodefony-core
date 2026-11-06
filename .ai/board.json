@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-06T19:55:28.164Z",
+  "generatedAt": "2026-11-06T22:50:46.345Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -5966,23 +5966,6 @@
       ]
     },
     {
-      "number": 89,
-      "title": "docs(notification): faire la veille des canaux de communication attendus",
-      "url": "https://github.com/nodefony/nodefony-core/issues/89",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 0.5,
-      "ordre": 6.12,
-      "debut": "2026-11-19",
-      "cible": "2026-11-19",
-      "labels": [
-        "arbitrage",
-        "beta-6"
-      ]
-    },
-    {
       "number": 181,
       "title": "fix(kernel): que le bilan de démarrage dise QUI a échoué",
       "url": "https://github.com/nodefony/nodefony-core/issues/181",
@@ -6447,6 +6430,23 @@
       "debut": null,
       "cible": null,
       "labels": [
+        "beta-7"
+      ]
+    },
+    {
+      "number": 89,
+      "title": "docs(notification): faire la veille des canaux de communication attendus",
+      "url": "https://github.com/nodefony/nodefony-core/issues/89",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 7.05,
+      "debut": "2026-11-19",
+      "cible": "2026-11-19",
+      "labels": [
+        "arbitrage",
         "beta-7"
       ]
     },
