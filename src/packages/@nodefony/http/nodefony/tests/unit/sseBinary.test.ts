@@ -3,6 +3,7 @@ import http from "node:http";
 import net from "node:net";
 import { expect } from "vitest";
 import { SseStream } from "../../src/context/http/SseStream";
+import { StreamLifecycle } from "../../src/context/http/StreamLifecycle";
 import type HttpContext from "../../src/context/http/HttpContext";
 
 /**
@@ -16,13 +17,20 @@ describe("SseStream.send — des octets sont refusés, pas déformés", () => {
     const response = new http.ServerResponse(
       new http.IncomingMessage(new net.Socket()),
     );
-    const sse = new SseStream({} as HttpContext, response, response, {
+    const lifecycle = new StreamLifecycle(
+      {} as HttpContext,
+      response,
+      response,
+      {
+        stallTimeout: false,
+        maxDuration: false,
+        revalidate: null,
+        identifier: null,
+      },
+    );
+    const sse = new SseStream(lifecycle, {
       heartbeat: false,
-      stallTimeout: false,
       maxEventBytes: 64 * 1024,
-      maxDuration: false,
-      revalidate: null,
-      identifier: null,
     });
     return { sse, response };
   };

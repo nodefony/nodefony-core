@@ -23,7 +23,7 @@ status: stable
 updated: 2026-10-08
 source: "src/packages/@nodefony/http/docs/sse.md"
 coverageModule: http
-coverageFiles: context/http/SseStream.ts
+coverageFiles: context/http/SseStream.ts,context/http/StreamLifecycle.ts
 ---
 
 📍 [Documentation](../../../../../docs/index.md) › [@nodefony/http](index.md) › **Flux SSE**
@@ -214,18 +214,25 @@ le même qui relit le flux dans les tests du serveur.
 
 ## 🏗️ Architecture interne — ce que fait l'ouverture
 
-1. **La réponse est prise** (`context.sended`) : plus rien ne peut répondre à la place du flux.
-2. **La session est sauvée** s'il y en a une — ses cookies partent avec les en-têtes.
-3. **Le transport se constate** : flux HTTP/2, ou réponse HTTP/1.1 ; ni l'un ni l'autre → 500,
-   avant d'avoir rien écrit (`startSseStream()`, `SseStream.ts#startSseStream`).
-4. **Les en-têtes partent** — `respond()` en HTTP/2, `flushHeaders()` en HTTP/1.1 — et le délai
-   d'inactivité de la requête est **désarmé** : sans cela, le flux vivant prendrait un 408 au bout
-   de 30 s.
-5. **Le battement démarre** sur un minuteur `unref()`.
+L'ouverture repose sur le **cycle de vie commun aux réponses en flux**
+(`StreamLifecycle.ts#openStreamLifecycle`, non exporté) — la même brique servira le flux d'octets :
 
-La fin, quel que soit le bout qui ferme, passe par **un seul** nettoyage (`SseStream.ts#SseStream.send`) :
-minuteur arrêté, écouteurs `close` et `drain` retirés, attente de `drain` libérée, puis les
-écouteurs `onClose`.
+1. **La réponse est prise** (`context.sended`) : plus rien ne peut répondre à la place du flux.
+2. **Le transport se constate** : flux HTTP/2, ou réponse HTTP/1.1 ; ni l'un ni l'autre → 500,
+   avant d'avoir rien écrit.
+3. **La fermeture de la réponse est écoutée AVANT toute attente** : un client parti pendant la
+   sauvegarde de la session est vu, et le flux naît fermé (`closed`) sans rien écrire. Un client
+   déjà parti ne prend pas de place dans le plafond par IP.
+4. **La session est sauvée** s'il y en a une — ses cookies partent avec les en-têtes.
+5. **Les en-têtes partent** — `respond()` en HTTP/2, `flushHeaders()` en HTTP/1.1 — et le délai
+   d'inactivité de la requête est **désarmé** : sans cela, le flux vivant prendrait un 408 au bout
+   de 30 s (`SseStream.ts#startSseStream`).
+6. **Le battement démarre** sur un minuteur `unref()`.
+
+La fin, quel que soit le bout qui ferme, passe par **un seul** nettoyage
+(`StreamLifecycle.ts#StreamLifecycle.finish`) : écouteur `close` retiré, minuteurs de durée de vie et
+de blocage arrêtés, sortie du registre de révocation, puis le nettoyage propre au SSE (battement,
+écouteur `drain`, attente libérée), puis les écouteurs `onClose`.
 
 ## 🔐 Sécurité
 

@@ -1,10 +1,6 @@
-import { AsyncResource } from "node:async_hooks";
 import http from "node:http";
-import type http2 from "node:http2";
 import type HttpContext from "./HttpContext";
-import Http2Response from "../http2/Response";
-import HttpError from "../../errors/httpError";
-import { RequestContext } from "nodefony";
+import { openStreamLifecycle, type StreamLifecycle } from "./StreamLifecycle";
 import type { DefaultEventsMap, EventNames, EventsMap } from "nodefony";
 
 /**
@@ -95,9 +91,6 @@ const HEARTBEAT = ":\n\n";
 /** Fin de ligne : CRLF, CR ou LF (§9.2.5). */
 const LINE_BREAK = /\r\n|\r|\n/;
 
-/** Ce sur quoi on écrit : la réponse HTTP/1.1, ou le flux HTTP/2. */
-type SseTarget = http.ServerResponse | http2.ServerHttp2Stream;
-
 /**
  * Refuse un champ d'une seule ligne qui contiendrait une fin de ligne.
  *
@@ -158,13 +151,7 @@ function checkTimer(name: string, value: number | false | undefined): void {
 /** Ce que le flux reçoit de son ouverture, options résolues. */
 interface ISseSettings {
   heartbeat: number | false;
-  stallTimeout: number | false;
   maxEventBytes: number;
-  maxDuration: number | false;
-  /** Revalidateur de l'identité du flux — `null` pour un anonyme. */
-  revalidate: (() => Promise<boolean>) | null;
-  /** Identifiant de connexion de l'identité qui ouvre le flux — `null` anonyme. */
-  identifier: string | null;
 }
 
 /** Préfixe chaque ligne d'un texte par `prefix` — `data: ` ou `: `. */
@@ -203,13 +190,31 @@ export type SseEventData<Events extends EventsMap, K extends string> = [
  * @typeParam Events - carte des événements du flux.
  */
 export class SseStream<Events extends EventsMap = DefaultEventsMap> {
-  readonly #context: HttpContext;
-  readonly #target: SseTarget;
-  /** La réponse dont on écoute la fermeture — en HTTP/2, l'objet de compatibilité. */
-  readonly #response: http.ServerResponse | http2.Http2ServerResponse;
-  readonly #stallTimeout: number | false;
+  /** Cycle de vie partagé avec le flux d'octets : fin, gardes, registre. */
+  readonly #lifecycle: StreamLifecycle;
   readonly #maxEventBytes: number;
-  readonly #revalidate: (() => Promise<boolean>) | null;
+  #heartbeat: ReturnType<typeof setInterval> | null = null;
+  /** Attente de `drain` en cours, partagée par tous les `send()` sous pression. */
+  #drain: Promise<void> | null = null;
+  #releaseDrain: (() => void) | null = null;
+  readonly #onDrain = (): void => this.#settleDrain();
+
+  /** @internal — passer par {@link openSseStream}. */
+  constructor(lifecycle: StreamLifecycle, settings: ISseSettings) {
+    this.#lifecycle = lifecycle;
+    this.#maxEventBytes = settings.maxEventBytes;
+    lifecycle.onRelease(() => this.#release());
+    const heartbeat = settings.heartbeat;
+    if (!lifecycle.closed && heartbeat !== false && heartbeat > 0) {
+      const target = lifecycle.target;
+      this.#heartbeat = setInterval(() => {
+        // Sous pression, un battement n'apprend rien au client : on le saute.
+        if (this.#drain === null) target.write(HEARTBEAT);
+      }, heartbeat);
+      this.#heartbeat.unref();
+    }
+  }
+
   /**
    * Identifiant de connexion de l'identité qui a ouvert le flux (`null` pour
    * un anonyme) — le registre de révocation ferme par lui les flux d'une
@@ -217,64 +222,13 @@ export class SseStream<Events extends EventsMap = DefaultEventsMap> {
    *
    * @internal
    */
-  readonly identifier: string | null;
-  #closed = false;
-  #heartbeat: ReturnType<typeof setInterval> | null = null;
-  /** Coupure d'un client qui ne lit plus — armée seulement sous pression. */
-  #stall: ReturnType<typeof setTimeout> | null = null;
-  /** Fin de vie du flux — armée seulement si `maxDuration` est posé. */
-  #lifetime: ReturnType<typeof setTimeout> | null = null;
-  /** Écouteurs de fermeture — `null` tant que personne n'en pose (lazy). */
-  #onClose: Array<() => void> | null = null;
-  /** Attente de `drain` en cours, partagée par tous les `send()` sous pression. */
-  #drain: Promise<void> | null = null;
-  #releaseDrain: (() => void) | null = null;
-  readonly #onResponseClose = (): void => this.#finish();
-  readonly #onDrain = (): void => this.#settleDrain();
-  /**
-   * Le client ne lit plus depuis `stallTimeout` : on coupe la connexion, comme
-   * s'il était parti — la fermeture de la réponse termine le flux.
-   */
-  readonly #onStall = (): void => {
-    this.#stall = null;
-    this.#target.destroy();
-  };
-
-  /** @internal — passer par {@link openSseStream}. */
-  constructor(
-    context: HttpContext,
-    target: SseTarget,
-    response: http.ServerResponse | http2.Http2ServerResponse,
-    settings: ISseSettings,
-  ) {
-    this.#context = context;
-    this.#target = target;
-    this.#response = response;
-    this.#stallTimeout = settings.stallTimeout;
-    this.#maxEventBytes = settings.maxEventBytes;
-    this.#revalidate = settings.revalidate;
-    this.identifier = settings.identifier;
-    response.on("close", this.#onResponseClose);
-    const heartbeat = settings.heartbeat;
-    if (settings.maxDuration !== false) {
-      this.#lifetime = setTimeout(
-        () => void this.close(),
-        settings.maxDuration,
-      );
-      this.#lifetime.unref();
-    }
-    if (heartbeat !== false && heartbeat > 0) {
-      this.#heartbeat = setInterval(() => {
-        // Sous pression, un battement n'apprend rien au client : on le saute.
-        if (this.#drain === null) this.#target.write(HEARTBEAT);
-      }, heartbeat);
-      this.#heartbeat.unref();
-    }
+  get identifier(): string | null {
+    return this.#lifecycle.identifier;
   }
 
   /** Le flux est-il fermé — par le serveur (`close()`) ou par le client parti ? */
   get closed(): boolean {
-    return this.#closed;
+    return this.#lifecycle.closed;
   }
 
   /**
@@ -284,9 +238,7 @@ export class SseStream<Events extends EventsMap = DefaultEventsMap> {
    * @internal
    */
   revalidate(): Promise<boolean> {
-    return this.#revalidate === null
-      ? Promise.resolve(true)
-      : this.#revalidate();
+    return this.#lifecycle.revalidate();
   }
 
   /**
@@ -353,13 +305,7 @@ export class SseStream<Events extends EventsMap = DefaultEventsMap> {
    * Un flux déjà fermé appelle l'écouteur au tour suivant.
    */
   onClose(listener: () => void): void {
-    const bound = AsyncResource.bind(listener);
-    if (this.#closed) {
-      queueMicrotask(bound);
-      return;
-    }
-    this.#onClose ??= [];
-    this.#onClose.push(bound);
+    this.#lifecycle.onClose(listener);
   }
 
   /**
@@ -368,66 +314,47 @@ export class SseStream<Events extends EventsMap = DefaultEventsMap> {
    * @returns la fin de la requête (hooks `onClose` du contexte compris).
    */
   close(): Promise<void> | undefined {
-    if (this.#closed) return undefined;
-    this.#finish();
-    const done = this.#context.close();
-    return done instanceof Promise ? done.then(() => undefined) : undefined;
+    return this.#lifecycle.close();
   }
 
   /** Écrit une trame ; une promesse seulement sous contre-pression. */
   #write(frame: string): Promise<void> | undefined {
-    if (this.#closed) return undefined;
+    const lifecycle = this.#lifecycle;
+    if (lifecycle.closed) return undefined;
     // Un caractère vaut au plus 3 octets UTF-8 (UTF-16 → UTF-8) : le compte
     // exact n'est payé que pour une trame qui POURRAIT dépasser.
     const max = this.#maxEventBytes;
     if (frame.length * 3 > max && Buffer.byteLength(frame) > max) {
       throw new RangeError(`SSE : événement de plus de ${max} octets refusé`);
     }
-    if (this.#target.write(frame)) return undefined;
+    const target = lifecycle.target;
+    if (target.write(frame)) return undefined;
     if (this.#drain === null) {
       this.#drain = new Promise<void>((resolve) => {
         this.#releaseDrain = resolve;
       });
-      this.#target.once("drain", this.#onDrain);
-      if (this.#stallTimeout !== false) {
-        this.#stall = setTimeout(this.#onStall, this.#stallTimeout);
-        this.#stall.unref();
-      }
+      target.once("drain", this.#onDrain);
+      lifecycle.armStall();
     }
     return this.#drain;
   }
 
   #settleDrain(): void {
-    if (this.#stall !== null) {
-      clearTimeout(this.#stall);
-      this.#stall = null;
-    }
+    this.#lifecycle.clearStall();
     const release = this.#releaseDrain;
     this.#drain = null;
     this.#releaseDrain = null;
     release?.();
   }
 
-  /** Fin du flux : minuteur, écouteurs et attentes libérés, une seule fois. */
-  #finish(): void {
-    if (this.#closed) return;
-    this.#closed = true;
-    this.#response.removeListener("close", this.#onResponseClose);
-    this.#target.removeListener("drain", this.#onDrain);
+  /** Fin du flux, appelée UNE fois par le cycle de vie : battement et attentes libérés. */
+  #release(): void {
+    this.#lifecycle.target.removeListener("drain", this.#onDrain);
     if (this.#heartbeat !== null) {
       clearInterval(this.#heartbeat);
       this.#heartbeat = null;
     }
-    if (this.#lifetime !== null) {
-      clearTimeout(this.#lifetime);
-      this.#lifetime = null;
-    }
-    if (this.#revalidate !== null)
-      this.#context.httpKernel?.unwatchStream(this);
     this.#settleDrain();
-    const listeners = this.#onClose;
-    this.#onClose = null;
-    if (listeners !== null) for (const listener of listeners) listener();
   }
 }
 
@@ -485,90 +412,47 @@ export function openSseStream<Events extends EventsMap = DefaultEventsMap>(
   if (!Number.isInteger(maxEventBytes) || maxEventBytes < 1) {
     throw new RangeError("SSE : maxEventBytes entier positif attendu");
   }
-  if (context.sended || context.finished || context.response.isHeaderSent()) {
-    throw new HttpError("SSE : la réponse est déjà partie", 500, context);
-  }
-  // Une connexion longue de plus pour cette IP : le budget est celui des
-  // sockets WebSocket. La place est rendue à la fermeture de la réponse.
-  const kernel = context.httpKernel;
-  const nodeResponse = context.response.response;
-  if (
-    kernel !== null &&
-    nodeResponse !== null &&
-    !kernel.acquireConnectionSlot(context.request.request, nodeResponse)
-  ) {
-    throw new HttpError(
-      "SSE : trop de connexions ouvertes depuis cette adresse",
-      429,
-      context,
-    );
-  }
-  // Lu dans la bulle de la requête, là où le pare-feu a posé l'identité.
-  const revalidate = kernel?.firewall?.currentRevalidator?.() ?? null;
-  const identifier =
-    revalidate === null
-      ? null
-      : (RequestContext.getAuthenticatedUser()?.identifier ?? null);
   const settings: ISseSettings = {
     heartbeat: options.heartbeat ?? SSE_HEARTBEAT_MS,
-    stallTimeout: options.stallTimeout ?? SSE_STALL_TIMEOUT_MS,
     maxEventBytes,
-    maxDuration: options.maxDuration ?? false,
-    revalidate,
-    identifier,
   };
-  // Pris AVANT toute attente : l'action ne doit plus pouvoir répondre autrement.
-  context.sended = true;
-  if (context.session != null) {
-    return context
-      .saveSession()
-      .catch((e: unknown) => {
-        context.log(e, "ERROR", "SESSION-STORE");
-        return null;
-      })
-      .then(() => startSseStream<Events>(context, options, settings));
-  }
-  return startSseStream<Events>(context, options, settings);
+  const opened = openStreamLifecycle(context, {
+    label: "SSE",
+    stallTimeout: options.stallTimeout ?? SSE_STALL_TIMEOUT_MS,
+    maxDuration: options.maxDuration ?? false,
+  });
+  return opened instanceof Promise
+    ? opened.then((lifecycle) =>
+        startSseStream<Events>(lifecycle, options, settings),
+      )
+    : startSseStream<Events>(opened, options, settings);
 }
 
-/** En-têtes, désarmement du délai, puis le flux. */
+/**
+ * En-têtes, désarmement du délai, puis le flux. Un client parti pendant
+ * l'ouverture rend un flux déjà fermé, sans rien écrire.
+ */
 function startSseStream<Events extends EventsMap>(
-  context: HttpContext,
+  lifecycle: StreamLifecycle,
   options: ISseStreamOptions,
   settings: ISseSettings,
 ): SseStream<Events> {
-  const response = context.response;
-  const nodeResponse = response.response;
-  if (nodeResponse === null) {
-    throw new HttpError("SSE : réponse introuvable", 500, context);
+  if (!lifecycle.closed) {
+    const context = lifecycle.context;
+    context.response.setHeaders({
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      "X-Accel-Buffering": "no",
+    });
+    context.writeHead(200);
+    // HTTP/2 : `respond()` a déjà envoyé les en-têtes. HTTP/1.1 : `writeHead`
+    // ne fait que préparer — sans ceci, le client n'apprend l'ouverture qu'au
+    // premier événement.
+    const target = lifecycle.target;
+    if (target instanceof http.ServerResponse) target.flushHeaders();
+    lifecycle.disarmIdleTimeout();
   }
-  // Le transport se CONSTATE, AVANT d'écrire quoi que ce soit : en HTTP/2 on
-  // écrit sur le flux, en HTTP/1.1 sur la réponse.
-  const stream = response instanceof Http2Response ? response.stream : null;
-  const h1 = nodeResponse instanceof http.ServerResponse ? nodeResponse : null;
-  let target: SseTarget;
-  if (stream !== null) target = stream;
-  else if (h1 !== null) target = h1;
-  else throw new HttpError("SSE : transport de réponse inconnu", 500, context);
-  response.setHeaders({
-    "Content-Type": "text/event-stream; charset=utf-8",
-    "Cache-Control": "no-cache, no-transform",
-    "X-Accel-Buffering": "no",
-  });
-  context.writeHead(200);
-  if (stream !== null) {
-    // HTTP/2 : `respond()` a déjà envoyé les en-têtes ; délai par flux.
-    stream.setTimeout(0);
-  } else if (h1 !== null) {
-    // `writeHead` ne fait que préparer : sans ceci, le client n'apprend
-    // l'ouverture qu'au premier événement.
-    h1.flushHeaders();
-    h1.socket?.setTimeout(0);
-  }
-  const sse = new SseStream<Events>(context, target, nodeResponse, settings);
-  // Seule une identité révocable entre au registre : un anonyme n'a rien à
-  // perdre, et ne coûte rien.
-  if (settings.revalidate !== null) context.httpKernel?.watchStream(sse);
+  const sse = new SseStream<Events>(lifecycle, settings);
   if (options.retry !== undefined) void sse.retry(options.retry);
   return sse;
 }

@@ -57,7 +57,7 @@ import {
   runTraced,
 } from "../src/context/requestTrace";
 import type { IncomingHttpHeaders, IncomingMessage } from "node:http";
-import type { SseStream } from "../src/context/http/SseStream";
+import type { IWatchedStream } from "../src/context/http/StreamLifecycle";
 import Ws from "ws";
 import httpServer from "../service/servers/server-http";
 import httpsServer from "../service/servers/server-https";
@@ -396,7 +396,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   #wsConnCounter: WsConnectionCounter | null = null;
   // Flux SSE à identité révocable — même registre que les sockets du hub
   // (`RevocationWatch`, cœur). Lazy : naît au premier flux authentifié.
-  #streams: RevocationWatch<SseStream> | null = null;
+  #streams: RevocationWatch<IWatchedStream> | null = null;
   // Probes de santé cloud-native (0.7) — null = désactivé (0 coût hot path :
   // 1 null-check + 2 comparaisons de string par requête quand actif).
   #healthPaths: { liveness: string; readiness: string } | null = null;
@@ -2631,15 +2631,15 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   }
 
   /**
-   * Inscrit un flux SSE à identité révocable : il sera fermé dans la fenêtre de
+   * Inscrit un flux (événements ou octets) à identité révocable : il sera fermé dans la fenêtre de
    * re-validation qui suit la mort de son identité (déconnexion, session
    * révoquée, jeton expiré ou annulé) — le même registre et la même règle que
    * les sockets WebSocket.
    *
-   * @internal — appelé par le flux lui-même.
+   * @internal — appelé par le cycle de vie du flux (`StreamLifecycle`).
    */
-  watchStream(stream: SseStream): void {
-    (this.#streams ??= new RevocationWatch<SseStream>({
+  watchStream(stream: IWatchedStream): void {
+    (this.#streams ??= new RevocationWatch<IWatchedStream>({
       isValid: (entry) => entry.revalidate(),
       revoke: (entry) => void entry.close(),
       // Droits changés : la même fermeture — `EventSource` se reconnecte seul,
@@ -2649,12 +2649,12 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   }
 
   /** Retire un flux du registre de révocation (à sa fermeture). @internal */
-  unwatchStream(stream: SseStream): void {
+  unwatchStream(stream: IWatchedStream): void {
     this.#streams?.unregister(stream);
   }
 
   /**
-   * Re-valide tous les flux SSE et ferme ceux dont l'identité est morte.
+   * Re-valide tous les flux en cours et ferme ceux dont l'identité est morte.
    * Publique pour qu'un banc la déclenche sans attendre le tick.
    */
   revalidateStreams(): Promise<void> {
