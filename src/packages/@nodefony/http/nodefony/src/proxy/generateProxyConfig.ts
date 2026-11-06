@@ -467,6 +467,12 @@ defaults
   # \`timeout server\` ne s'applique plus au tunnel. Sans cette ligne, la valeur
   # implicite coupe des sockets que le heartbeat gardait pourtant vivantes.
   timeout tunnel  ${idleSeconds}s
+  # Forwarded (RFC 7239) posé par haproxy lui-même (>= 2.8) : il met entre
+  # guillemets ce qui n'est pas un jeton — une IPv6 (\`for="[2001:db8::1]"\`),
+  # un \`host\` qui porte un port. Un \`set-header\` écrit à la main laissait
+  # \`for=2001:db8::1\`, valeur invalide (§6). \`proto\` suit \`ssl_fc\` : le
+  # scheme vu par le CLIENT. Vaut pour tous les backends.
+  option forwarded proto host for
 
 frontend fe_nodefony
   bind *:${intro.listen}
@@ -488,8 +494,6 @@ frontend fe_nodefony
   http-request set-header X-Forwarded-Proto http  unless { ssl_fc }
   http-request set-header X-Forwarded-Host  %[req.hdr(host)]
   http-request set-header X-Real-IP         %[src]
-  http-request set-header Forwarded "for=%[src];proto=https;host=%[req.hdr(host)]" if { ssl_fc }
-  http-request set-header Forwarded "for=%[src];proto=http;host=%[req.hdr(host)]" unless { ssl_fc }
 
 ${
   h2cPort === null

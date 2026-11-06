@@ -258,8 +258,22 @@ describe("generateProxyConfig — haproxy", () => {
     expect(c).to.include("frontend fe_nodefony");
     expect(c).to.include("backend be_nodefony");
     expect(c).to.include("http-request del-header Forwarded");
-    expect(c).to.include("proto=http");
     expect(c).to.include("server nodefony 127.0.0.1:5151 check");
+  });
+
+  it("Forwarded posé par `option forwarded` : une IPv6 et un `host` à port sortent entre guillemets (RFC 7239 §6)", () => {
+    // Un `set-header Forwarded "for=%[src];…"` écrit à la main rend
+    // `for=2001:db8::1` et `host=app:8080` — `:` n'est pas un jeton, la
+    // valeur est invalide. Le formateur de haproxy (>= 2.8) cote ce qu'il faut :
+    // `for="[2001:db8::1]"`, `host="app:8080"` — constaté sur haproxy 3.0.
+    for (const over of [{}, { h2cPort: 5153 }, { reencrypt: true }]) {
+      const c = generateHaproxyConfig(
+        intro({ domains: ["nodefony.com"], ...over }),
+      );
+      const defaults = c.slice(c.indexOf("defaults"), c.indexOf("frontend "));
+      expect(defaults).to.include("option forwarded proto host for");
+      expect(c).not.to.match(/set-header\s+Forwarded/);
+    }
   });
 
   it("reencrypt → ssl verify required + verifyhost + sni sur le 1er domaine", () => {
@@ -283,8 +297,9 @@ describe("generateProxyConfig — haproxy", () => {
     expect(c).to.include(
       "http-request set-header X-Forwarded-Proto http  unless { ssl_fc }",
     );
-    expect(c).to.include('proto=https;host=%[req.hdr(host)]" if { ssl_fc }');
-    expect(c).to.include('proto=http;host=%[req.hdr(host)]" unless { ssl_fc }');
+    // `Forwarded` : le `proto` d'`option forwarded` suit la connexion CLIENTE
+    // (constaté sur haproxy 3.0 : `proto=http` en clair, `proto=https` en TLS).
+    expect(c).to.include("option forwarded proto host for");
   });
 
   it("le re-chiffrement vers le backend ne décide PAS du `proto` du client", () => {
