@@ -271,8 +271,9 @@ sûres → coût nul sur le GET dominant (`csrf.ts#Csrf.enforce`). Pour une muta
 Lectures durcies côté firewall :
 
 - en-têtes lus en **première occurrence** — jamais un tableau d'en-têtes répétés (garde d'injection,
-  `headerValue()`, `firewall.ts#headerValue`) ; cookie extrait de l'en-tête **brut**, sans dépendre du
-  parse du contexte (`cookieValue()`, `firewall.ts#cookieValue`) ;
+  `headerValue()`, `firewall.ts#headerValue`) ; cookie `csrf-token` lu sur le contexte, dont
+  l'en-tête `Cookie` n'a qu'un lecteur (`requestCookie()`, `firewall.ts#requestCookie`) — parsé à la
+  construction du contexte, donc avant toute étape du pare-feu ;
 - hôte cible **brut avec port** — `:authority` en HTTP/2, `context.domain` en dernier recours
   (`firewall.ts#Firewall`) ;
 - le refus est un `CsrfError` **403 au message générique** : la politique (en-têtes inspectés,

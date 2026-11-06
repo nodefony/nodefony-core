@@ -242,7 +242,13 @@ constructeur de `Cookie` (`cookie.ts#Cookie.options`).
 ### Sérialiser : `serialize()` et `serializeWebSocket()`
 
 - `serialize()` (`cookie.ts#Cookie.serialize`) produit la **ligne `Set-Cookie`** complète (attributs dans l'ordre,
-  préfixes forcés, `Max-Age` seulement s'il est positif).
+  préfixes forcés). `Max-Age` est en **secondes entières**, arrondi vers le bas, et absent sous une
+  seconde (`cookie.ts#Cookie.getMaxAge`) : la grammaire de la RFC 6265 (§4.1.1) n'admet ni décimale
+  ni zéro, et un navigateur ignore un `Max-Age=3599.874` — le cookie deviendrait un cookie de session.
+- Le **nom**, le `Path` et le `Domain` sont vérifiés à la **pose** (`addCookie()`), par la grammaire
+  de la bibliothèque `cookie` (`cookie.ts#Cookie.assertGrammar`) : un nom porteur de `;` ou un
+  `Path` comme `/; Domain=evil.example`, qui injecterait un attribut, lève une `TypeError` à l'appel
+  plutôt qu'un en-tête faux au `writeHead`.
 - `serializeWebSocket()` (`cookie.ts#Cookie.serializeWebSocket`) produit un **objet** `IWsCookie` (mêmes invariants de sécurité)
   — utilisé quand un cookie doit être décrit hors en-tête HTTP.
 - `toString()` (`cookie.ts#Cookie.toString`) ne rend que `nom=valeurEncodée` (sans attributs).
@@ -270,10 +276,14 @@ boucle de `setHeader` (qui écraserait tout sauf le dernier). Pour expirer un co
 
 ### Parsing des cookies entrants
 
-`cookiesParser(context)` (`cookie.ts#cookiesParser`) lit l'en-tête `Cookie:` (via la bibliothèque `cookie`,
-`parser()` `cookie.ts#parser`), crée un `Cookie` par entrée et l'ajoute au contexte avec `addRequestCookie()`
+`cookiesParser(context)` (`cookie.ts#cookiesParser`) lit l'en-tête `Cookie:` (via la bibliothèque `cookie`),
+crée un `Cookie` par entrée et l'ajoute au contexte avec `addRequestCookie()`
 (`Context.ts#Context.addRequestCookie`). Il est déclenché automatiquement par le pipeline : `parseCookies()` est appelé à
 l'initialisation du contexte HTTP (`HttpContext.ts#HttpContext.constructor`) **et** WebSocket (`WebsocketContext.ts#WebsocketContext.constructor`).
+
+C'est le **seul lecteur** de l'en-tête `Cookie` : le pare-feu lui-même lit le jeton CSRF sur le contexte.
+Chaque valeur est décodée **une fois**, et une séquence `%` invalide est gardée telle quelle au lieu de
+lever (`a=50%25` donne `50%`). Un nom présent deux fois : la **première** occurrence gagne.
 
 ### Côté WebSocket — lecture oui, écriture non
 
