@@ -28,11 +28,11 @@ source: "src/packages/@nodefony/devkit/skills/nodefony-dev/SKILL.md"
 | --- | --- |
 | Version | `1.3.0` |
 | Famille | Autres |
-| Corps | 498 lignes |
-| Coût d'activation | ~8 732 tokens (le corps est chargé à l'invocation) |
+| Corps | 497 lignes |
+| Coût d'activation | ~8 706 tokens (le corps est chargé à l'invocation) |
 | Description | 1018 / 1024 caractères |
 | Déclencheurs | 14 |
-| Ressources `references/` | 0 page(s) |
+| Ressources `references/` | 1 page(s) |
 | Scripts | 1 |
 | Conformité | ✅ conforme au standard |
 
@@ -66,6 +66,15 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 - 9. Les pièges du front
 - 10. Avant de dire « fait »
 
+## Références (chargées à la demande)
+
+Détail déporté hors du corps — chargé seulement quand la tâche l'exige (divulgation progressive).
+
+| Fichier | Ce qu'il couvre | Lignes |
+| --- | --- | --: |
+| `references/rapport-de-build.md` | Le rapport de build — ce que pèse ce que tu bâtis | 20 |
+
+
 ## Scripts embarqués
 
 Rôle, invocation, options et variables d'environnement — **extraits du source** de chaque
@@ -96,7 +105,7 @@ script, donc toujours à jour après régénération.
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 498 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 497 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

@@ -6195,8 +6195,8 @@
       ],
       "description": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM). À charger DÈS qu'une tâche va ÉDITER du code backend, avant la première modification : porte les règles absolues (perf-mémoire, TS strict, lazy alloc, cleanup listeners, ALS), les conventions de structure/config, les recettes vérifiées au source, les gotchas et les RFC hors ligne. Déclencheurs : toute édition de code back — \"modifier du code backend\", \"coder dans le kernel\", \"toucher au cœur ou au pipeline\", \"créer un service injectable/module/controller\", \"commande CLI\", \"entité/repository/adapter ORM\", \"store et pagination\", \"listPage/contrat IPage\", \"endpoint HTTP/WS ou data plane admin\", \"décorateur route\", \"@IsGranted/@Idempotent\", \"realtime/WebSocket\", \"firewall\", \"certificats TLS\", \"structure d'un module\", \"defineConfig\", \"où brancher ce comportement ?\".",
       "cost": {
-        "bodyLines": 410,
-        "approxTokens": 9752
+        "bodyLines": 411,
+        "approxTokens": 9787
       },
       "requires": [],
       "resources": {
@@ -6292,7 +6292,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "410",
+            "detail": "411",
             "advisory": true
           }
         ]
@@ -13135,13 +13135,15 @@
       ],
       "description": "Conduit une tâche de développement de bout en bout dans une application Nodefony — comprendre le code en place, choisir la bonne façade, générer plutôt qu'écrire à la main, retrouver la référence installée qu'une recherche ordinaire ne voit pas, puis prouver que c'est fait — et se charge AVANT la première modification, quelle que soit la tâche. Les gestes spécialisés ont leur propre skill (ressource REST, service, canal temps réel, garde de route, migration de schéma, écran vu au navigateur) ; celui-ci porte la conduite commune, les pièges du serveur et du front, et dit lequel prendre. Déclencheurs : \"je veux ajouter une fonctionnalité\", \"comment on code dans ce framework\", \"par où je commence\", \"où est la doc de ça\", \"comment ça marche ici\", \"avant de coder\", \"est-ce que j'écris ça à la main\", \"comment vérifier que c'est bon\", \"mon changement est-il fini\", \"je ne trouve rien sur ce sujet\", \"ce n'est pas documenté\", \"je touche au frontend\", \"mon composant charge des données\", \"mon écran n'affiche rien\".",
       "cost": {
-        "bodyLines": 498,
-        "approxTokens": 8732
+        "bodyLines": 497,
+        "approxTokens": 8706
       },
       "requires": [],
       "resources": {
-        "references": [],
-        "referenceFilesTotal": 0,
+        "references": [
+          "rapport-de-build.md"
+        ],
+        "referenceFilesTotal": 1,
         "scripts": [
           {
             "path": "scripts/docs.mjs",
@@ -13253,7 +13255,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "498",
+            "detail": "497",
             "advisory": true
           }
         ]

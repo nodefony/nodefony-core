@@ -310,6 +310,14 @@ port de Vite (SPA-fallback HTML) : l'ouvrir par Nodefony.
 - **Erreurs collectées** : un bundle KO ne stoppe pas les autres → `failures[]` ; la commande CLI met
   `process.exitCode = 1` (pipeline CI).
 
+**Rapport de build** : `buildViteConfig` pose `build.rolldownOptions.devtools = buildReportDevtools()`
+(barrel `nodefony`, règle unique partagée avec le socle `nodefony/bundler` ; `rolldownOptions` = nom
+Vite 8, `rollupOptions` n'est plus qu'un alias). Chaque `vite.build` écrit sous
+`<cwd>/node_modules/.rolldown/report/<outDir relatif au cwd>/` (`..` → `__`) — `entry.md`,
+`delta.md`, `metrics.json`. Le serveur de dev n'en écrit pas. Octets AVANT minification : pas un
+budget gzip (`size:check` reste l'outil). Mode d'emploi agent : skill `nodefony-dev` du devkit
+(§10). Preuve : `frontend-build.test.ts`.
+
 **Rendu prod** : `TemplateHelper.renderProdTags` (`TemplateHelper.ts#TemplateHelper.renderProdTags`) lit
 `outDir/.vite/manifest.json` (Vite ≥5), fallback `outDir/manifest.json` (layout legacy), caché par
 `outDir` (`loadManifest:329`). Clé du manifest = `entryFile` POSIX, sinon fallback chunk `isEntry`
@@ -331,11 +339,23 @@ deux consumers ayant chacun `frontend/src/main.tsx` produiraient la même URL re
 du premier**. Fix : URL en **`/@fs/<chemin absolu>`** (`TemplateHelper.ts#TemplateHelper.injectIntoHtml`) + `server.fs.allow`
 listant chaque `root` (`ViteConfigGenerator.ts#ViteConfigGenerator.toMjs`).
 
-**Familles d'isolation** (`src/isolationGroups.ts`) : `isolationGroup(type)` renvoie une clé de
-famille. React/Vue/vanilla/Svelte → **`default`** (extensions disjointes, cohabitent dans **une**
-instance Vite). **Angular → `angular`** (process Vite **séparé**) car son plugin transforme **tout**
-`.ts` (y compris les stores des autres bundles) → il doit être scopé par son `tsconfig.app.json`
-(résolu en absolu, `ViteConfigGenerator.ts#ViteConfigGenerator.toMjs`).
+**Familles d'isolation** (`src/isolationGroups.ts#isolationGroup`, qui porte le détail mesuré) :
+React/vanilla/Svelte → **`default`** (une instance) ; **Vue → `vue`** et **Angular → `angular`**
+(un process Vite chacun) — trois instances dans ce dépôt, UNE dans une application générée (un seul
+moteur de front ; Studio y est servi pré-bâti).
+
+- **Vue isolé = défaut AMONT de `@vitejs/plugin-vue`** (vitejs/vite-plugin-vue#798, correctif
+  proposé #814) : il recopie l'option GLOBALE `oxc.jsx.refresh` posée par plugin-react dans son
+  `transformWithOxc`, sans la garde de Vite → `$RefreshSig$()` injecté, vitrine Vue morte. Aucun
+  filtre du greffon React n'y peut rien ; couper `refresh` casse le HMR React. La sentinelle
+  `tests/integration/vueRefreshSentinel.test.ts` ROUGIT le jour où l'amont corrige → lever.
+- **Angular isolé pour le COÛT**, plus pour des erreurs : dans `default`, HMR à chaud partout (Studio
+  compris), mais l'instance est prête en ~2,6 s au lieu de 0,5-0,7 s, à CHAQUE redémarrage backend
+  (le superviseur relance les Vite). Son plugin reste scopé par `tsconfig.app.json` (absolu,
+  `ViteConfigGenerator.ts#ViteConfigGenerator.toMjs`).
+- Fusionner une famille = essai jetable PUIS HMR éprouvé sur une vraie modification de chaque front
+  (sonde `watch.mjs` : trame `update` / `js-update`, jamais `full-reload`) — un montage de page
+  ne prouve rien sur le HMR.
 
 `startDev` regroupe par famille (`groupEntriesByFamily:388`), alloue un **bloc de ports disjoint** par
 famille via `familyPortPlan(devPort, families, portRetryAttempts)` (`isolationGroups.ts#familyPortPlan` ; bloc =

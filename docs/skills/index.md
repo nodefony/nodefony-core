@@ -177,7 +177,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v1.0.0" },
   { "icon": "🔧", "title": "dev", "href": "nodefony-dev.md",
     "desc": "Conduit une tâche de développement de bout en bout dans une application Nodefony — comprendre le code en place, choisir la bonne façade, générer plutôt qu'écrire à la main, retrouver la référence installée qu'une recherche ordinaire ne voit pas, puis prouver que c'est fait — et se charge AVANT…",
-    "meta": "🟢 conforme v1.3.0 · ⚙️ 1 script" },
+    "meta": "🟢 conforme v1.3.0 · ⚙️ 1 script · 📎 1 réf" },
   { "icon": "🔧", "title": "protect-route", "href": "nodefony-protect-route.md",
     "desc": "Réserve une route ou une page d'une application Nodefony aux personnes habilitées, par les briques du framework plutôt que par un contrôle écrit dans l'action. Porte les deux étages (zone du pare-feu et garde par route), la hiérarchie de rôles, le renvoi de l'anonyme vers la page de connexion,…",
     "meta": "🟢 conforme" },
@@ -204,7 +204,7 @@ source: "docs/skills/index.md"
 | [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.5.0 | 534 | 9 | 21 | ✅ |
 | [`nodefony-devops`](nodefony-devops.md) | 1.1.0 | 136 | 0 | 0 | ✅ |
 | [`nodefony-documentation`](nodefony-documentation.md) | 3.2.0 | 486 | 2 | 20 | ✅ |
-| [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.3.0 | 410 | 11 | 0 | ✅ |
+| [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.3.0 | 411 | 11 | 0 | ✅ |
 | [`nodefony-frontend-dev`](nodefony-frontend-dev.md) | 1.3.0 | 116 | 6 | 0 | ✅ |
 | [`nodefony-html-report`](nodefony-html-report.md) | — | 368 | 3 | 9 | ✅ |
 | [`nodefony-identifiers`](nodefony-identifiers.md) | 1.0.0 | 219 | 0 | 7 | ✅ |
@@ -227,7 +227,7 @@ source: "docs/skills/index.md"
 | [`nodefony-add-realtime-channel`](nodefony-add-realtime-channel.md) | 2.1.1 | 409 | 2 | 0 | ✅ |
 | [`nodefony-add-service`](nodefony-add-service.md) | — | 115 | 0 | 0 | ✅ |
 | [`nodefony-authentication`](nodefony-authentication.md) | 1.0.0 | 220 | 0 | 0 | ✅ |
-| [`nodefony-dev`](nodefony-dev.md) | 1.3.0 | 498 | 0 | 1 | ✅ |
+| [`nodefony-dev`](nodefony-dev.md) | 1.3.0 | 497 | 1 | 1 | ✅ |
 | [`nodefony-protect-route`](nodefony-protect-route.md) | — | 362 | 0 | 0 | ✅ |
 | [`nodefony-troubleshoot`](nodefony-troubleshoot.md) | 1.1.0 | 208 | 0 | 1 | ✅ |
 | [`nodefony-upgrade`](nodefony-upgrade.md) | 1.0.0 | 116 | 0 | 0 | ✅ |

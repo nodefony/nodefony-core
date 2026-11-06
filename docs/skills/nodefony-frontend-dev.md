@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-11-02
+updated: 2026-11-06
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-frontend-dev/SKILL.md"
 ---
@@ -67,7 +67,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
-| `references/build-hmr.md` | Référence — Builder & HMR Vite (@nodefony/frontend) | 719 |
+| `references/build-hmr.md` | Référence — Builder & HMR Vite (@nodefony/frontend) | 739 |
 | `references/data-bff.md` | Consommer le data-plane BFF (front Nodefony) | 245 |
 | `references/front-quality.md` | Qualité front (Nodefony) — temps réel calme · perf CSS · a11y · sécu | 154 |
 | `references/isomorphic.md` | Cœur isomorphe nodefony côté navigateur | 271 |

@@ -372,6 +372,7 @@ entre les deux voies → skill **`nodefony-inspect`**.
 ```bash
 # 1. BUILD (rolldown, par module modifié ; clean+build si pull/merge/refactor croisé)
 cd src/packages/@nodefony/<mod> && npm run build          # ou : npm run build (turbo, racine)
+#    taille/composition du bundle → <mod>/node_modules/.rolldown/report/dist/entry.md (devkit nodefony-dev, references/rapport-de-build.md)
 
 # 2. TYPECHECK — gate DISTINCT du build (tsgo rejette ce que le build ne voit pas : ex TS18036)
 npm run typecheck                                          # racine (turbo) — core a `tsc --noEmit`

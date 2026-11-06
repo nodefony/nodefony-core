@@ -392,6 +392,7 @@ leur liste explicite auditée par `nodefony-check-externals`). Entrée rolldown 
 (`dist/node/bundler/index.js`), JAMAIS réexportée par `src/index.ts` (elle importe `rolldown`,
 peerDep OPTIONNELLE). Invariants gravés : nom propre toujours externe (anti self-import),
 side-effect `reflect-metadata` préservé, `nodefony` exact-match only. Tests `tests/bundler.test.ts`.
+Rapport de build : option `buildReport` (défaut vrai) → `devtools: { mode: "report" }` par `buildReportDevtools` (`src/bundler/buildReport.ts`, SANS import rolldown → seul morceau du socle réexporté par `src/index.ts`, pour le builder Vite du front). Clé OMISE si coupé (`exactOptionalPropertyTypes` refuse `devtools: undefined` — le build des `.d.ts` client en tombait). Écrit à la fermeture du bundle sous `<cwd>/node_modules/.rolldown/report/<outDir>/` ; octets AVANT minification ≠ budget gzip (`size:check`).
 
 ## `nodefony/testing` (`src/testing/`) — outillage de test publié
 

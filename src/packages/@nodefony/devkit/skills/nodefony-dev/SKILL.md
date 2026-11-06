@@ -481,10 +481,9 @@ npm run verify        # types, style, mise en forme, .env.example, tests, build,
 npm run test:e2e      # boot réel + HTTP/WS — le gate LENT, hors `verify`
 ```
 
-Ton diff change ce que le build produit (une dépendance, un import, un écran) ? Ne recalcule
-pas les tailles : lis le **rapport de build**, écrit à chaque build sous
-`node_modules/.rolldown/report/<dossier de sortie>/` — `entry.md`, puis `delta.md` après avoir
-épinglé la base (`cp .state.json baseline.json`) AVANT ta modification.
+Ton diff change ce que le build produit (taille, dépendance, build plus lent) ? Chaque build
+écrit un rapport : lis [`references/rapport-de-build.md`](references/rapport-de-build.md) avant de
+recalculer quoi que ce soit à la main.
 
 Ton diff ajoute une route, une requête ou touche la sécurité ? Relis-le AVANT de commiter :
 skill `nodefony-security-review` — un script y nomme, ligne par ligne, ce qu'un œil laisse passer.

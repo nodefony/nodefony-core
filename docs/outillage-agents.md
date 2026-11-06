@@ -220,7 +220,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme · ⚙️ 4 scripts · 📎 2 réf" },
   { "icon": "🔧", "title": "dev", "href": "skills/nodefony-dev.md",
     "desc": "Conduit une tâche de développement de bout en bout dans une application Nodefony — comprendre le code en place, choisir la bonne façade, générer plutôt qu'écrire à la main, retrouver la référence installée qu'une recherche ordinaire ne voit pas, puis prouver que c'est fait — et se charge AVANT…",
-    "meta": "🟢 conforme v1.3.0 · ⚙️ 1 script" },
+    "meta": "🟢 conforme v1.3.0 · ⚙️ 1 script · 📎 1 réf" },
   { "icon": "🔧", "title": "devops", "href": "skills/nodefony-devops.md",
     "desc": "Exploite CETTE application Nodefony en conteneur : image, compose, frontal (nginx, HAProxy, h2c, Ingress), secrets, variables, Kubernetes, Podman, nombre de pods.",
     "meta": "🟢 conforme v1.2.0 · 📎 8 réf" },
