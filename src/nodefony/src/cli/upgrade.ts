@@ -43,6 +43,16 @@ export const UPGRADE_USAGE: IUsagePage = {
         "et nommée), et `.env.example` (`env --example`). Elle ne démarre " +
         "pas l'application et n'installe rien.",
     },
+    {
+      title: "FICHIERS POSÉS",
+      paragraph:
+        "Un paquet ne pose ses fichiers que si l'application en déclare " +
+        "l'usage : `@nodefony/security` pose le décor Keycloak " +
+        "(`docker/keycloak/`) parce que le `compose.yaml` le monte — y compris " +
+        "sous un profil jamais démarré. Retirer le service du compose suffit " +
+        "à ne plus le recevoir ; le rapport range chaque fichier sous son " +
+        "paquet, `+` créé, `~` rafraîchi.",
+    },
   ],
   options: [
     {
@@ -181,29 +191,50 @@ export function renderUpgrade(report: IUpgradeReport): string {
   for (const s of posed) lines.push(`    + ${s.name}`);
   for (const s of replaced) lines.push(`    ~ ${s.name}`);
 
-  const refreshed = report.contributions.flatMap((c) => [
-    ...c.written.map((f) => `    + ${f}`),
-    ...c.updated.map((f) => `    ~ ${f}`),
-    // Avec `--update`, une copie intacte en retard est rendue sous `updated`,
-    // simulation comprise ; `outdated` ne la porte que sans `--update` — lus
-    // tous deux, comme le fait `doctor --live`, sans la compter deux fois.
-    ...c.outdated
-      .filter((f) => !c.updated.includes(f))
-      .map((f) => `    ~ ${f}`),
-  ]);
+  // Un fichier CRÉÉ n'est pas un fichier RAFRAÎCHI : les confondre annonçait
+  // « 41 rafraîchi(s) » pour un décor que l'application n'avait jamais eu. Et
+  // chaque paquet se nomme — c'est lui qui décide de poser, sur ce que
+  // l'application déclare (ex. `@nodefony/security` : un compose qui monte
+  // `./docker/keycloak/`).
+  const delivered = report.contributions
+    .map((c) => ({
+      name: c.packageName,
+      created: c.written,
+      // Avec `--update`, une copie intacte en retard est rendue sous `updated`,
+      // simulation comprise ; `outdated` ne la porte que sans `--update` — lus
+      // tous deux, comme le fait `doctor --live`, sans la compter deux fois.
+      refreshed: [
+        ...c.updated,
+        ...c.outdated.filter((f) => !c.updated.includes(f)),
+      ],
+    }))
+    .filter((c) => c.created.length + c.refreshed.length > 0);
   lines.push(
     `  ${"fichiers livrés".padEnd(16)} ` +
-      (refreshed.length === 0
-        ? "à jour"
-        : `${refreshed.length} ${report.dryRun ? "à rafraîchir" : "rafraîchi(s)"}`),
+      (delivered.length === 0 ? "à jour" : `${delivered.length} paquet(s)`),
   );
-  // Une app née avant qu'un paquet livre ses fichiers les reçoit d'un bloc
-  // (41 pour le décor Keycloak) : l'écran en montre le début, `--json` le tout.
-  lines.push(...refreshed.slice(0, SHOWN_FILES));
-  if (refreshed.length > SHOWN_FILES) {
-    lines.push(
-      `    … et ${refreshed.length - SHOWN_FILES} autre(s) — \`--json\` pour la liste`,
-    );
+  for (const c of delivered) {
+    const counts = [
+      c.created.length > 0
+        ? `${c.created.length} ${report.dryRun ? "à poser" : "posé(s)"}`
+        : null,
+      c.refreshed.length > 0
+        ? `${c.refreshed.length} ${report.dryRun ? "à rafraîchir" : "rafraîchi(s)"}`
+        : null,
+    ].filter((s) => s !== null);
+    lines.push(`    ${c.name} — ${counts.join(", ")}`);
+    const files = [
+      ...c.created.map((f) => `      + ${f}`),
+      ...c.refreshed.map((f) => `      ~ ${f}`),
+    ];
+    // Une app née avant qu'un paquet livre ses fichiers les reçoit d'un bloc
+    // (41 pour le décor Keycloak) : l'écran en montre le début, `--json` le tout.
+    lines.push(...files.slice(0, SHOWN_FILES));
+    if (files.length > SHOWN_FILES) {
+      lines.push(
+        `      … et ${files.length - SHOWN_FILES} autre(s) — \`--json\` pour la liste`,
+      );
+    }
   }
 
   // Ce que la commande ne tranche pas : nommé, jamais tu.

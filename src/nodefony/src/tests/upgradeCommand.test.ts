@@ -274,6 +274,27 @@ describe("isUpgradePending — ce que `--check` compte", () => {
     assert.strictEqual(isUpgradePending(report), false);
     assert.match(renderUpgrade(report), /\.env\.example\s+non vérifié/u);
   });
+  /*
+   *   Vécu : « 41 rafraîchi(s) » annoncés pour un décor Keycloak que
+   *   l'application n'avait jamais eu — des fichiers CRÉÉS, et sans dire quel
+   *   paquet les posait ni pourquoi.
+   */
+  it("fichiers livrés : CRÉÉS et RAFRAÎCHIS séparés, sous le paquet qui les pose", () => {
+    const text = renderUpgrade({
+      ...base,
+      dryRun: false,
+      contributions: [
+        {
+          ...contribution,
+          written: ["docker/keycloak/import/realm.json"],
+          updated: ["docker/keycloak/themes/a.css"],
+        },
+      ],
+    });
+    assert.match(text, /@nodefony\/security — 1 posé\(s\), 1 rafraîchi\(s\)/u);
+    assert.match(text, /\+ docker\/keycloak\/import\/realm\.json/u);
+    assert.match(text, /~ docker\/keycloak\/themes\/a\.css/u);
+  });
   it("copie RETOUCHÉE, AGENTS.md absent : pas en retard — rien ne se tranche sans humain", () => {
     assert.strictEqual(
       isUpgradePending({
