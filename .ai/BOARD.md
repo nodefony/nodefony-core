@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-11-06 18:36** (UTC).
+> Empreinte prise le **2026-11-06 18:49** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,22 +20,22 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 94% | 237 | 16 | 2026-11-12 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 94% | 237 | 15 | 2026-11-12 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 97% | 135 | 4 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 13% | 6 | 42 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 33 | — |
-| **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 7 | — |
+| **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 8 | — |
 | **12.0.0** | ![12.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/5?style=flat-square&label=) `██░░░░░░░░` 15% | 2 | 11 | — |
 | **13.0.0** | ![13.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/9?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 1 | — |
 | **outillage-agents** | ![outillage-agents](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/8?style=flat-square&label=) `███████░░░` 71% | 5 | 2 | — |
 
 ## ➡️ Le prochain dans l'ordre
 
-**#631 — test(media): lancer les tests audio dans un vrai navigateur**
+**#89 — docs(notification): faire la veille des canaux de communication attendus**
 
-Ordre 6.0346 · P2 — décision · 0.5 j · jalon 10.0.0-beta · frise 2026-11-10 → 11-10
+Ordre 6.12 · P2 — décision · 0.5 j · jalon 10.0.0-beta · frise 2026-11-19 → 11-19
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 16 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 15 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -93,7 +93,7 @@ Ordre 6.0346 · P2 — décision · 0.5 j · jalon 10.0.0-beta · frise 2026-11-
 | --- | --- | ---: | --- | --- | --- |
 | 1 | P2 — décision | 3 | — | #583 | feat(security): authentifier par certificat client sur carte à puce |
 
-## Jalon 11.0.0 — 7 ouverts
+## Jalon 11.0.0 — 8 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -104,6 +104,7 @@ Ordre 6.0346 · P2 — décision · 0.5 j · jalon 10.0.0-beta · frise 2026-11-
 | 164 | P2 — décision | 1 | — | #244 | feat(security): trancher le serveur d'autorisation et le mTLS |
 | 164.5 | P3 — fin de cycle | 5 | — | #637 | feat(framework): servir une API GraphQL dérivée des services CRUD |
 | 165 | P2 — décision | 3 | — | #459 | feat(media): modèle média partagé et moteur audio du navigateur |
+| 165.1 | P2 — décision | 0.5 | — | #631 | test(media): lancer les tests audio dans un vrai navigateur |
 
 ## Jalon outillage-agents — 2 ouverts
 
@@ -111,27 +112,6 @@ Ordre 6.0346 · P2 — décision · 0.5 j · jalon 10.0.0-beta · frise 2026-11-
 | --- | --- | ---: | --- | --- | --- |
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
-
-## Jalon 10.0.0-beta — 16 ouverts
-
-| Ordre | Prio | Jours | Frise | Ticket | Titre |
-| --- | --- | ---: | --- | --- | --- |
-| 6.0346 | P2 — décision | 0.5 | 2026-11-10 → 11-10 | #631 | test(media): lancer les tests audio dans un vrai navigateur |
-| 6.12 | P2 — décision | 0.5 | 2026-11-19 → 11-19 | #89 | docs(notification): faire la veille des canaux de communication attendus |
-| 6.8 | P1 — figé à la création | — | — | #732 | fix(http): aligner le cœur HTTP, HTTP/2 et WebSocket sur la lecture complète de leurs normes |
-| 6.83 | P2 — décision | 0.5 | — | #735 | fix(http): faire respecter Max-Forwards et Forwarded par le proxy inverse |
-| 7.01 | P2 — décision | 4.5 | — | #694 | feat(http): servir des services gRPC dans le pipeline HTTP/2 |
-| 7.02 | P2 — décision | 3 | — | #695 | feat(http): déclarer et servir un service gRPC depuis un module |
-| 7.03 | P2 — décision | 0.5 | — | #696 | fix(cli): router gRPC vers h2c dans la config nginx générée |
-| 7.04 | P3 — fin de cycle | 1 | — | #697 | feat(http): exposer la réflexion et la santé gRPC standard |
-| 7.08 | P2 — décision | 11.25 | 2026-11-04 → 11-16 | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
-| 7.09 | P2 — décision | 3.25 | 2026-11-10 → 11-16 | #445 | test(ecosysteme): éprouver le framework par un module tiers temps réel |
-| 7.091 | P2 — décision | 0.25 | 2026-11-10 → 11-10 | #446 | test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation |
-| 7.092 | P2 — décision | 0.5 | 2026-11-11 → 11-11 | #447 | test(ecosysteme): journaliser pas à pas ce que fait l'agent |
-| 7.093 | P1 — figé à la création | 1 | 2026-11-12 → 11-12 | #448 | test(ecosysteme): jouer l'épreuve sans jamais guider l'agent |
-| 7.094 | P1 — figé à la création | 0.5 | 2026-11-13 → 11-13 | #449 | test(ecosysteme): trier ce qui remonte au cœur du framework |
-| 7.095 | P1 — figé à la création | 1 | 2026-11-16 → 11-16 | #450 | feat(ecosysteme): livrer le tableau blanc comme module installable |
-| 7.1 | P1 — figé à la création | 1 | 2026-11-20 → 11-20 | #659 | docs(performance): remesurer les pages de performance avant la release |
 
 ## Backlog — aucune date promise · 40 ouverts
 
@@ -177,6 +157,26 @@ Ordre 6.0346 · P2 — décision · 0.5 j · jalon 10.0.0-beta · frise 2026-11-
 | 925.3 | P3 — fin de cycle | 2 | — | #729 | feat(security): signaler les puits DOM, interdire les scripts créés |
 | 925.4 | P3 — fin de cycle | 2 | — | #730 | feat(security): partager et afficher les rapports de violation CSP |
 | 925.5 | P3 — fin de cycle | 1 | — | #728 | feat(client): signer les styles créés à l'exécution sous CSP stricte |
+
+## Jalon 10.0.0-beta — 15 ouverts
+
+| Ordre | Prio | Jours | Frise | Ticket | Titre |
+| --- | --- | ---: | --- | --- | --- |
+| 6.12 | P2 — décision | 0.5 | 2026-11-19 → 11-19 | #89 | docs(notification): faire la veille des canaux de communication attendus |
+| 6.8 | P1 — figé à la création | — | — | #732 | fix(http): aligner le cœur HTTP, HTTP/2 et WebSocket sur la lecture complète de leurs normes |
+| 6.83 | P2 — décision | 0.5 | — | #735 | fix(http): faire respecter Max-Forwards et Forwarded par le proxy inverse |
+| 7.01 | P2 — décision | 4.5 | — | #694 | feat(http): servir des services gRPC dans le pipeline HTTP/2 |
+| 7.02 | P2 — décision | 3 | — | #695 | feat(http): déclarer et servir un service gRPC depuis un module |
+| 7.03 | P2 — décision | 0.5 | — | #696 | fix(cli): router gRPC vers h2c dans la config nginx générée |
+| 7.04 | P3 — fin de cycle | 1 | — | #697 | feat(http): exposer la réflexion et la santé gRPC standard |
+| 7.08 | P2 — décision | 11.25 | 2026-11-04 → 11-16 | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
+| 7.09 | P2 — décision | 3.25 | 2026-11-10 → 11-16 | #445 | test(ecosysteme): éprouver le framework par un module tiers temps réel |
+| 7.091 | P2 — décision | 0.25 | 2026-11-10 → 11-10 | #446 | test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation |
+| 7.092 | P2 — décision | 0.5 | 2026-11-11 → 11-11 | #447 | test(ecosysteme): journaliser pas à pas ce que fait l'agent |
+| 7.093 | P1 — figé à la création | 1 | 2026-11-12 → 11-12 | #448 | test(ecosysteme): jouer l'épreuve sans jamais guider l'agent |
+| 7.094 | P1 — figé à la création | 0.5 | 2026-11-13 → 11-13 | #449 | test(ecosysteme): trier ce qui remonte au cœur du framework |
+| 7.095 | P1 — figé à la création | 1 | 2026-11-16 → 11-16 | #450 | feat(ecosysteme): livrer le tableau blanc comme module installable |
+| 7.1 | P1 — figé à la création | 1 | 2026-11-20 → 11-20 | #659 | docs(performance): remesurer les pages de performance avant la release |
 
 ## Jalon 10.0.0 — 4 ouverts
 

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-06T18:36:40.272Z",
+  "generatedAt": "2026-11-06T18:49:43.942Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -14,7 +14,7 @@
       "closed": 0,
       "dueOn": null,
       "number": 4,
-      "open": 7,
+      "open": 8,
       "title": "11.0.0"
     },
     {
@@ -42,7 +42,7 @@
       "closed": 237,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 16,
+      "open": 15,
       "title": "10.0.0-beta"
     },
     {
@@ -5718,22 +5718,6 @@
       ]
     },
     {
-      "number": 631,
-      "title": "test(media): lancer les tests audio dans un vrai navigateur",
-      "url": "https://github.com/nodefony/nodefony-core/issues/631",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 0.5,
-      "ordre": 6.0346,
-      "debut": "2026-11-10",
-      "cible": "2026-11-10",
-      "labels": [
-        "beta-6"
-      ]
-    },
-    {
       "number": 629,
       "title": "test(realtime): garder l'isomorphisme par des contrôles qui mordent",
       "url": "https://github.com/nodefony/nodefony-core/issues/629",
@@ -8897,7 +8881,7 @@
       "title": "feat(studio): réserver la console d'administration à un déploiement dédié",
       "url": "https://github.com/nodefony/nodefony-core/issues/662",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -9775,6 +9759,20 @@
       "labels": [
         "Librairie Cliente"
       ]
+    },
+    {
+      "number": 631,
+      "title": "test(media): lancer les tests audio dans un vrai navigateur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/631",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "11.0.0",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 165.1,
+      "debut": null,
+      "cible": null,
+      "labels": []
     },
     {
       "number": 246,
