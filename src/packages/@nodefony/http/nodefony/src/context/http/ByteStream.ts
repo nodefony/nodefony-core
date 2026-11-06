@@ -443,7 +443,10 @@ function fromWebStream(stream: ReadableStream<Uint8Array>): Readable {
   const reader = stream.getReader();
   // Les deux suites de lecture sont créées UNE fois par flux, pas à chaque
   // morceau lu : `read()` est appelé pour chaque morceau.
-  const onRead = (result: ReadableStreamReadResult<Uint8Array>): void => {
+  // Type dérivé du lecteur, jamais nommé : `ReadableStreamReadResult` n'existe
+  // que dans la lib DOM, absente des paquets qui compilent ces sources.
+  type ReadResult = Awaited<ReturnType<typeof reader.read>>;
+  const onRead = (result: ReadResult): void => {
     if (result.done) readable.push(null);
     else readable.push(result.value);
   };
