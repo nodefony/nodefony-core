@@ -39,7 +39,7 @@ import Router, {
   isFrameworkRouter,
 } from "./nodefony/service/router";
 import Route from "./nodefony/src/Route";
-import Controller from "./nodefony/src/Controller";
+import Controller, { configureFileServing } from "./nodefony/src/Controller";
 import ResourceController from "./nodefony/src/ResourceController";
 import Resolver from "./nodefony/src/Resolver";
 import AdminBroker from "./nodefony/service/AdminBroker";
@@ -226,9 +226,11 @@ class Framework extends Module<IFrameworkConfig> {
    * `this.options` (matérialise les défauts, préserve `router`/`adminBroker`).
    */
   override async onKernelRegister(): Promise<this> {
-    this.options = defineFrameworkConfig(
+    const validated = defineFrameworkConfig(
       (this.options as IFrameworkConfigInput | undefined) ?? {},
     );
+    this.options = validated;
+    configureFileServing(validated.fileServing);
     return this;
   }
 

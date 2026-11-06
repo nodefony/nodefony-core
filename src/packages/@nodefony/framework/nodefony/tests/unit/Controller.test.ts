@@ -5,7 +5,8 @@ import { mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { Readable } from "node:stream";
 import { Container, Event } from "nodefony";
-import Controller from "../../src/Controller.js";
+import Controller, { configureFileServing } from "../../src/Controller.js";
+import { fileServingSchema } from "../../config/config.js";
 import { Scope } from "../../decorators/routerDecorators.js";
 import type Route from "../../src/Route.js";
 import { HttpContext } from "@nodefony/http";
@@ -1015,5 +1016,66 @@ describe("Controller — requêtes conditionnelles sur un fichier (RFC 9110 §13
     await c.renderMediaStream(HERE);
     expect(opened).toHaveLength(0);
     expect(calls.status).toContain(304);
+  });
+});
+
+describe("Controller — config `fileServing` (défaut de toute l'application)", () => {
+  afterEach(() => configureFileServing(fileServingSchema.parse({})));
+
+  it("`validators: false` en config : aucun validateur ni Cache-Control ; un appel `{ validators: true }` les rétablit", async () => {
+    configureFileServing(fileServingSchema.parse({ validators: false }));
+    const off = makeHttpController();
+    await off.c.streamFile(HERE);
+    const head = off.opened[0]?.options?.headers ?? {};
+    expect(head.ETag).toBeUndefined();
+    expect(head["Cache-Control"]).toBeUndefined();
+    const on = makeHttpController();
+    await on.c.streamFile(HERE, {}, { validators: true });
+    expect(on.opened[0]?.options?.headers?.ETag).toBeDefined();
+  });
+
+  it("`validators: false` en config sur un média : If-Range ne tient plus", async () => {
+    configureFileServing(fileServingSchema.parse({ validators: false }));
+    const { c, ctx, opened } = makeHttpController({ range: "bytes=0-99" });
+    Object.assign(
+      (ctx as { request: { headers: Record<string, string> } }).request.headers,
+      { "if-range": "Thu, 01 Jan 1970 00:00:00 GMT" },
+    );
+    await c.renderMediaStream(HERE);
+    expect(opened[0]?.options?.status).toBe(200);
+    expect(opened[0]?.options?.headers?.ETag).toBeUndefined();
+  });
+
+  it("`cacheControl` en config : remplace le défaut ; `null` n'en pose aucun ; celui de l'action gagne toujours", async () => {
+    configureFileServing(
+      fileServingSchema.parse({ cacheControl: "public, max-age=600" }),
+    );
+    const custom = makeHttpController();
+    await custom.c.streamFile(HERE);
+    expect(custom.opened[0]?.options?.headers?.["Cache-Control"]).toBe(
+      "public, max-age=600",
+    );
+    const own = makeHttpController();
+    await own.c.streamFile(HERE, { "Cache-Control": "no-store" });
+    expect(own.opened[0]?.options?.headers?.["Cache-Control"]).toBe("no-store");
+    configureFileServing(fileServingSchema.parse({ cacheControl: null }));
+    const none = makeHttpController();
+    await none.c.streamFile(HERE);
+    const head = none.opened[0]?.options?.headers ?? {};
+    expect(head["Cache-Control"]).toBeUndefined();
+    expect(head.ETag, "les validateurs restent").toBeDefined();
+  });
+});
+
+describe("Framework.onKernelRegister — la config `fileServing` atteint le Controller", () => {
+  afterEach(() => configureFileServing(fileServingSchema.parse({})));
+
+  it("la section validée au boot devient le défaut des fichiers servis", async () => {
+    const { default: Framework } = await import("../../../index.js");
+    const module = { options: { fileServing: { cacheControl: "no-store" } } };
+    await Framework.prototype.onKernelRegister.call(module as never);
+    const { c, opened } = makeHttpController();
+    await c.streamFile(HERE);
+    expect(opened[0]?.options?.headers?.["Cache-Control"]).toBe("no-store");
   });
 });

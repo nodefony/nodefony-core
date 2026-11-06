@@ -547,9 +547,26 @@ n'est pas la représentation entière : il ne reçoit ni validateur ni évaluati
 | Un autre `Cache-Control` (fichier public, `no-store`) | le passer dans les en-têtes, ou `@Header("Cache-Control", …)` sur l'action |
 | Sa propre `ETag` (hachage du contenu, version)        | la passer dans les en-têtes, ou `@Header("ETag", …)` — elle sert au 304    |
 | Aucun validateur, aucun 304, aucun `Cache-Control`    | `{ validators: false }` dans les options                                   |
+| Le défaut de toute l'application                      | la section `fileServing` de la config du module (ci-dessous)               |
 
 Un en-tête posé AVANT l'appel (`@Header`, `this.response.setHeader`) est respecté comme s'il était
 passé en argument.
+
+**Pour toute l'application**, la section `fileServing` de la config du module fixe le défaut
+(`config.ts#fileServingSchema`) ; un appel le remplace toujours :
+
+```ts
+use("@nodefony/framework", {
+  fileServing: {
+    validators: true, // false : aucun validateur, aucun 304, aucun Cache-Control par défaut
+    cacheControl: "private, no-cache", // null : n'en poser aucun
+  },
+});
+```
+
+`cacheControl` est validé au démarrage : une valeur porteuse d'un retour à la ligne (qui forgerait
+un en-tête de plus) l'interrompt en nommant la clé. `{ validators: true }` dans les options d'un
+appel rétablit les validateurs quand la config les a coupés.
 
 ⚠️ **La date d'un fichier n'est pas toujours fiable.** Une archive décompressée ou un build
 reproductible donne la même date à tous les fichiers : deux contenus de même taille portent alors

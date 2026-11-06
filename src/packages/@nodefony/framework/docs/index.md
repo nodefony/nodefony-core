@@ -108,8 +108,10 @@ dans `.ai/symbols.json` et les types générés — jamais recopiées ici, où e
 ## ⚙️ Configuration
 
 Bloc Zod (`nodefony/config/config.ts`), déclaré depuis l'application via
-`use("@nodefony/framework", { … })` : `router`, `adminBroker`, et `idempotency` (choix du store et
-réglages du GC — détaillé dans la page [Idempotence](idempotence.md)).
+`use("@nodefony/framework", { … })` : `router`, `adminBroker`, `idempotency` (choix du store et
+réglages du GC — détaillé dans la page [Idempotence](idempotence.md)), et `fileServing` (validateurs
+et `Cache-Control` des fichiers servis par une action — détaillé dans la page
+[Contrôleur](controller.md#requêtes-conditionnelles--304-412-reprise)).
 
 ## 📜 Normes appliquées
 

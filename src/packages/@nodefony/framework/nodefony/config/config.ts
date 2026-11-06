@@ -25,6 +25,9 @@ import { z } from "zod";
  *     tels quels aux Services `Router` / `AdminBroker` (4ᵉ arg du `super(...)`).
  *     Aucune forme métier figée → `looseObject` + `optional` (ne RIEN stripper,
  *     absent par défaut = `undefined`, comme avant validation).
+ *   - `idempotency` — store du cache d'idempotence.
+ *   - `fileServing` — défaut des fichiers servis par une action (validateurs,
+ *     `Cache-Control`), posé au boot dans `Controller.ts#configureFileServing`.
  *
  * ## Pureté
  *
@@ -76,6 +79,50 @@ const idempotencySchema = z.strictObject({
     ),
 });
 
+/**
+ * Valeur d'en-tête sûre : caractères visibles, espace et tabulation (RFC 9110
+ * §5.5) — un CR ou un LF forgerait un en-tête de plus.
+ */
+const HEADER_VALUE = /^[\t\x20-\x7e\x80-\xff]+$/;
+
+/**
+ * Requêtes conditionnelles des fichiers servis par une action (`streamFile`,
+ * `renderFileDownload`, `renderMediaStream`). Le défaut de TOUTE
+ * l'application ; un appel le remplace par ses options (`validators`) ou ses
+ * en-têtes (`Cache-Control`, `ETag`).
+ */
+export const fileServingSchema = z.strictObject({
+  validators: z
+    .boolean()
+    .default(true)
+    .describe(
+      "ETag forte + Last-Modified tirés de la taille et de la date du fichier, " +
+        "et réponses 304/412 (RFC 9110 §13). `false` les coupe pour toute " +
+        "l'application — dates non fiables (archive décompressée, build " +
+        "reproductible : même taille et même date pour deux contenus). Un " +
+        "appel peut rétablir ou couper par `{ validators }`.",
+    ),
+  cacheControl: z
+    .string()
+    .trim()
+    .regex(
+      HEADER_VALUE,
+      "valeur d'en-tête invalide (CR, LF ou caractère de contrôle)",
+    )
+    .nullable()
+    .default("private, no-cache")
+    .describe(
+      "`Cache-Control` posé quand l'action n'en fixe aucun. Défaut " +
+        "`private, no-cache` : `Last-Modified` rendrait sinon la réponse " +
+        "réutilisable par un cache PARTAGÉ sans revalidation (RFC 9111 " +
+        "§4.2.2), or un fichier servi par une action est souvent protégé. " +
+        "`null` = n'en poser aucun. Sans effet quand `validators` est coupé.",
+    ),
+});
+
+/** Réglages des fichiers servis, défauts appliqués. */
+export type IFileServingConfig = z.infer<typeof fileServingSchema>;
+
 export const frameworkConfigSchema = z
   .strictObject({
     router: serviceOptionsSchema
@@ -95,6 +142,12 @@ export const frameworkConfigSchema = z
       .describe(
         "Idempotence des mutations (anti double-effet). Cf " +
           "draft-ietf-httpapi-idempotency-key-header.",
+      ),
+    fileServing: fileServingSchema
+      .default(() => fileServingSchema.parse({}))
+      .describe(
+        "Fichiers servis par une action : validateurs (ETag, Last-Modified, " +
+          "304/412) et Cache-Control par défaut.",
       ),
   })
   .describe("Configuration de @nodefony/framework.");

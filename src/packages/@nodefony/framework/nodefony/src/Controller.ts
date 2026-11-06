@@ -59,6 +59,8 @@ import fs, { createReadStream, ReadStream } from "node:fs";
 import { Readable } from "node:stream";
 import Eta from "../service/Eta";
 import { isDevelopment, singletonWriteMessage } from "./singletonGuard";
+import { fileServingSchema } from "../config/config";
+import type { IFileServingConfig } from "../config/config";
 import {
   evaluatePreconditions,
   fileValidators,
@@ -90,7 +92,9 @@ type ReadStreamOptions = {
    * `If-Range` n'autorise aucune reprise. Pour des fichiers dont la date
    * n'est pas fiable (archive décompressée, build reproductible : même taille
    * et même date pour deux contenus) — passer plutôt sa propre `ETag`
-   * (hachage du contenu) garde le 304. Défaut `true`.
+   * (hachage du contenu) garde le 304. Défaut : `fileServing.validators` de
+   * la config du module (`true` d'usine) ; `true` ici le rétablit pour un
+   * appel quand la config l'a coupé.
    */
   validators?: boolean;
 };
@@ -190,15 +194,22 @@ export type ControllerScope = "request" | "singleton";
 const EXPIRED_HTTP_DATE = "Thu, 01 Jan 1970 00:00:00 GMT";
 
 /**
- * `Cache-Control` d'un fichier servi par une action, quand l'action n'en fixe
- * aucun. Sans lui, `Last-Modified` rendrait la réponse « heuristiquement
- * cacheable » (RFC 9111 §4.2.2) : un cache PARTAGÉ pourrait la garder et la
- * resservir sans redemander — or un fichier passe par une action, plutôt que
- * par les statiques, le plus souvent parce qu'il est protégé. `private` ferme
- * les caches partagés (§5.2.2.7), `no-cache` fait revalider avant toute
- * réutilisation (§5.2.2.4) — ce qui coûte un 304, grâce aux validateurs.
+ * Défaut des fichiers servis par une action, pour TOUTE l'application — la
+ * section `fileServing` de la config du module, posée au boot par
+ * {@link configureFileServing}. Initialisé depuis le schéma (seule source des
+ * défauts) : un contrôleur testé sans noyau reçoit les mêmes valeurs.
  */
-const FILE_CACHE_CONTROL = "private, no-cache";
+let fileServing: IFileServingConfig = fileServingSchema.parse({});
+
+/**
+ * Fixe le défaut des fichiers servis (validateurs, `Cache-Control`) pour
+ * toute l'application. Appelé par le module au boot avec sa config validée.
+ *
+ * @param config - section `fileServing` validée
+ */
+export function configureFileServing(config: IFileServingConfig): void {
+  fileServing = config;
+}
 
 /** Aucun validateur : `If-Range` ne tient jamais, aucune précondition n'est évaluée. */
 const NO_VALIDATORS: IValidators = Object.freeze({
@@ -1118,7 +1129,7 @@ class Controller extends Service implements IController {
     if (
       options?.start !== undefined ||
       options?.end !== undefined ||
-      options?.validators === false
+      !(options?.validators ?? fileServing.validators)
     ) {
       return this.#sendFile(fileDetails, headers, options);
     }
@@ -1174,8 +1185,9 @@ class Controller extends Service implements IController {
     if (lastModified === undefined && computed.lastModified !== null) {
       head["Last-Modified"] = new Date(computed.lastModified).toUTCString();
     }
-    if (given("cache-control") === undefined) {
-      head["Cache-Control"] = FILE_CACHE_CONTROL;
+    const cacheControl = fileServing.cacheControl;
+    if (cacheControl !== null && given("cache-control") === undefined) {
+      head["Cache-Control"] = cacheControl;
     }
     // Des validateurs fixés par l'action servent AUSSI à comparer : sinon le
     // client recevrait une étiquette que le serveur ne reconnaîtrait jamais.
@@ -1283,7 +1295,7 @@ class Controller extends Service implements IController {
     const condition = this.#fileCondition(
       File,
       headers,
-      options.validators !== false,
+      options.validators ?? fileServing.validators,
     );
     if (condition.outcome !== 200) {
       return this.#answerPrecondition(condition);

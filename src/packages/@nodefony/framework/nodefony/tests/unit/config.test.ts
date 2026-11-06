@@ -35,6 +35,33 @@ describe("frameworkConfigSchema (config Zod)", () => {
         frameworkConfigSchema.parse({ idempotency: { store: 42 } }),
       ).to.throw();
     });
+    it("fileServing : défauts d'usine — validateurs, `private, no-cache`", () => {
+      expect(frameworkConfigSchema.parse({}).fileServing).to.deep.equal({
+        validators: true,
+        cacheControl: "private, no-cache",
+      });
+    });
+
+    it("fileServing.cacheControl : `null` accepté (aucun en-tête) ; CR/LF refusé (en-tête forgé)", () => {
+      expect(
+        frameworkConfigSchema.parse({ fileServing: { cacheControl: null } })
+          .fileServing.cacheControl,
+      ).to.equal(null);
+      expect(() =>
+        frameworkConfigSchema.parse({
+          fileServing: { cacheControl: "no-store\r\nSet-Cookie: a=b" },
+        }),
+      ).to.throw(/en-tête invalide/);
+      expect(() =>
+        frameworkConfigSchema.parse({ fileServing: { cacheControl: "  " } }),
+      ).to.throw();
+    });
+
+    it("fileServing : clé inconnue refusée (schéma strict)", () => {
+      expect(() =>
+        frameworkConfigSchema.parse({ fileServing: { validator: false } }),
+      ).to.throw(/validator/);
+    });
   });
 
   describe("router / adminBroker (bags d'options Service, loose)", () => {
