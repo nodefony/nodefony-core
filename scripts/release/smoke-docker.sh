@@ -440,30 +440,12 @@ step "pack — 14 tarballs depuis les workspaces"
 node "$ROOT/scripts/release/pack-all.mjs" || fail "pack-all.mjs"
 ok "tarballs écrits dans release/tarballs/"
 
-# (profil esm-only : node10 et require() CJS ignorés — framework ESM-only).
-# Les exports d'ASSET n'ont pas de types par nature : bundles autonomes pour
-# <script src> (`nodefony/debugbar.js`, `nodefony/login.js`), logo, feuille de
-# style… attw les déclare « Resolution failed ». Ils sont DÉDUITS des `exports`
-# du tarball : une cible en chaîne nue (sans condition `types`) désigne un
-# fichier servi tel quel. Une liste écrite ici oublierait le prochain, et le
-# banc rougirait sur un défaut qui n'en est pas un (vécu : le logo exporté a
-# rendu ce banc rouge sans que rien n'ait cassé).
-step "attw — types publiés des 13 paquets"
-for tgz in "$ROOT"/release/tarballs/*.tgz; do
-  ENTRIES="$(tar -xOzf "$tgz" package/package.json | node -e '
-    let s = "";
-    process.stdin.on("data", (d) => (s += d)).on("end", () => {
-      const exp = JSON.parse(s).exports ?? {};
-      const assets = Object.keys(exp).filter((k) => typeof exp[k] === "string" && !/\.json$/iu.test(k));
-      process.stdout.write(assets.join(" "));
-    });')"
-  EXCLUDE=""
-  [[ -n "${ENTRIES// /}" ]] && EXCLUDE="--exclude-entrypoints $ENTRIES"
-  # shellcheck disable=SC2086 — $EXCLUDE volontairement non quoté (une liste de mots)
-  npx --yes @arethetypeswrong/cli "$tgz" --profile esm-only $EXCLUDE > /dev/null 2>&1 \
-    || { npx --yes @arethetypeswrong/cli "$tgz" --profile esm-only $EXCLUDE | tail -25; fail "attw KO sur $(basename "$tgz") — types publiés cassés"; }
-done
-ok "attw 13/13 (node16-ESM + bundler verts)"
+# Types publiés — la règle vit dans scripts/release/attw.mjs (UNE implémentation,
+# appelée aussi par la CI de branche pour que l'écart se voie AVANT le tag).
+# Profil esm-only, assets déduits des `exports` du tarball, rapport ENTIER.
+step "attw — types publiés de chaque tarball"
+node "$ROOT/scripts/release/attw.mjs" || fail "attw KO — types publiés cassés (rapport ci-dessus)"
+ok "attw — types publiés résolus"
 
 # C'est ce qui fait la différence entre « nos gabarits marchent » et « les
 # gabarits que nous PUBLIONS marchent » : `templates/` doit être dans `files`,

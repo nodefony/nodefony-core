@@ -238,6 +238,17 @@ jobs:
           node .claude/skills/nodefony-devkit-bench/scripts/verify-generated.mjs --keep 2>&1 \
             | tee verify-generated.log
 
+      # Les TYPES publiés, sur les tarballs que le banc vient de fabriquer
+      # (`release/tarballs/`, par `pack-all.mjs`) : le dépôt lit ses paquets en
+      # source et ne voit jamais un `.d.ts` dont un import ne se résout pas.
+      # Vécu : `nodefony/angular` cassé en 10.0.0-beta.6, vu par le smoke de
+      # release seulement — APRÈS le tag. Ici, `garde-main` l'exige vert AVANT.
+      # Un seul système : les types ne dépendent pas de la plateforme.
+      - name: Gate — les types publiés se résolvent-ils ? (attw)
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '24.x'
+        shell: bash
+        run: node scripts/release/attw.mjs
+
       # Le second banc, sur le décor que le premier vient de laisser (`--keep`).
       #
       # Pourquoi deux bancs et pas un : ils répondent à deux questions qu'on
