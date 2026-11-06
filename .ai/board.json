@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-06T18:49:43.942Z",
+  "generatedAt": "2026-11-06T19:17:34.272Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 237,
+      "closed": 238,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 15,
+      "open": 14,
       "title": "10.0.0-beta"
     },
     {
@@ -6344,8 +6344,8 @@
       "number": 735,
       "title": "fix(http): faire respecter Max-Forwards et Forwarded par le proxy inverse",
       "url": "https://github.com/nodefony/nodefony-core/issues/735",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -9765,7 +9765,7 @@
       "title": "test(media): lancer les tests audio dans un vrai navigateur",
       "url": "https://github.com/nodefony/nodefony-core/issues/631",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "11.0.0",
       "priorite": "P2 — décision",
       "jours": 0.5,
