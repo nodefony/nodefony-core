@@ -306,6 +306,10 @@ const README_DOUBLONS = new Set([
 ]);
 const README_GARDES = new Set([
   "Nodefony en bref",
+  // Aucune section calculée ne les dit : `pari` ne montre que le transport,
+  // `direction` ne parle que de la suite.
+  "Le temps réel, de bout en bout",
+  "L'IA : votre application, ouverte aux agents",
   "Démarrage",
   "Ce qu'il y a dans la boîte",
   "État du projet",
