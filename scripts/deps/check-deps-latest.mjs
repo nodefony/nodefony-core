@@ -64,6 +64,10 @@ import {
 } from "./lib/reconcile-versions.mjs";
 import { REPO_ROOT } from "../lib/repo-root.mjs";
 import { forcedByOverride } from "./lib/overrides.mjs";
+import {
+  deprecatedInstalled,
+  deprecatedVersionsOf,
+} from "./lib/deprecations.mjs";
 import { guardCli } from "../../.claude/skills/nodefony-session/scripts/cli-guard.mjs";
 
 // Avant tout : `--help` lançait l'inventaire complet (registre interrogé pour
@@ -321,6 +325,8 @@ const latest = new Map();
 /** pkg → toutes les versions publiées (pour résoudre une plage sans deviner). */
 const published = new Map();
 const failed = [];
+/** paquet → { version → message } : versions que l'amont a DÉPRÉCIÉES. */
+const deprecatedVersions = new Map();
 const CONCURRENCY = 16;
 
 /**
@@ -360,6 +366,8 @@ async function fetchOne(name) {
     const tag = body?.["dist-tags"]?.latest;
     if (tag) latest.set(name, tag);
     if (body?.versions) published.set(name, Object.keys(body.versions));
+    const dep = deprecatedVersionsOf(body);
+    if (dep !== null) deprecatedVersions.set(name, dep);
   } catch (e) {
     failed.push(`${name}: ${e.message}`);
   }
@@ -684,6 +692,24 @@ for (const x of AS_JSON ? [] : shims) {
       : `\n🩹 shim ${x.name} (base ${x.base}) : aucune version amont au-dessus — le shim reste.\n`,
   );
 }
+// Une dépendance DÉCLARÉE dont la version installée est dépréciée : pas un
+// retard (elle peut être « en avance » sur `latest`), une décision à prendre —
+// le message de l'amont dit presque toujours par quoi la remplacer.
+const deprecated = deprecatedInstalled(
+  names,
+  (name) => installed.get(name)?.all ?? [],
+  deprecatedVersions,
+);
+if (deprecated.length && !AS_JSON) {
+  process.stdout.write(
+    `\n⚰️  ${deprecated.length} dépendance(s) déclarée(s) DÉPRÉCIÉE(S) en amont :\n`,
+  );
+  for (const d of deprecated)
+    process.stdout.write(`     ${d.name}@${d.version} — ${d.message}\n`);
+  process.stdout.write(
+    "     Faire : retirer ou remplacer — le message de l'amont dit par quoi.\n",
+  );
+}
 for (const [name, qui] of AS_JSON ? [] : forcees) {
   process.stdout.write(
     `\n🔩 ${name} ${visees.get(name)} FORCÉ par les overrides de la racine — pas de seconde copie :\n`,
@@ -844,7 +870,14 @@ if (failed.length) {
 if (AS_JSON) {
   process.stdout.write(
     `${JSON.stringify(
-      { rows, divergent, illisibles, failed, scanned: names.length },
+      {
+        rows,
+        divergent,
+        deprecated,
+        illisibles,
+        failed,
+        scanned: names.length,
+      },
       null,
       2,
     )}\n`,
