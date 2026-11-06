@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-06T08:16:12.737Z",
+  "generatedAt": "2026-11-06T10:00:27.793Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -5430,22 +5430,6 @@
       ]
     },
     {
-      "number": 621,
-      "title": "feat(realtime): compléter le temps réel : binaire, canaux privés, voix",
-      "url": "https://github.com/nodefony/nodefony-core/issues/621",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 11.25,
-      "ordre": 6.03,
-      "debut": "2026-11-04",
-      "cible": "2026-11-16",
-      "labels": [
-        "beta-6"
-      ]
-    },
-    {
       "number": 690,
       "title": "feat(http): éprouver un service gRPC sur le serveur HTTP/2",
       "url": "https://github.com/nodefony/nodefony-core/issues/690",
@@ -5843,108 +5827,6 @@
       "cible": "2026-11-16",
       "labels": [
         "backlog"
-      ]
-    },
-    {
-      "number": 445,
-      "title": "test(ecosysteme): éprouver le framework par un module tiers temps réel",
-      "url": "https://github.com/nodefony/nodefony-core/issues/445",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 3.25,
-      "ordre": 6.04,
-      "debut": "2026-11-10",
-      "cible": "2026-11-16",
-      "labels": [
-        "beta-6",
-        "reportable"
-      ]
-    },
-    {
-      "number": 446,
-      "title": "test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation",
-      "url": "https://github.com/nodefony/nodefony-core/issues/446",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 0.25,
-      "ordre": 6.041,
-      "debut": "2026-11-10",
-      "cible": "2026-11-10",
-      "labels": [
-        "beta-6",
-        "reportable"
-      ]
-    },
-    {
-      "number": 447,
-      "title": "test(ecosysteme): journaliser pas à pas ce que fait l'agent",
-      "url": "https://github.com/nodefony/nodefony-core/issues/447",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 0.5,
-      "ordre": 6.042,
-      "debut": "2026-11-11",
-      "cible": "2026-11-11",
-      "labels": [
-        "beta-6",
-        "reportable"
-      ]
-    },
-    {
-      "number": 448,
-      "title": "test(ecosysteme): jouer l'épreuve sans jamais guider l'agent",
-      "url": "https://github.com/nodefony/nodefony-core/issues/448",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 6.043,
-      "debut": "2026-11-12",
-      "cible": "2026-11-12",
-      "labels": [
-        "beta-6",
-        "reportable"
-      ]
-    },
-    {
-      "number": 449,
-      "title": "test(ecosysteme): trier ce qui remonte au cœur du framework",
-      "url": "https://github.com/nodefony/nodefony-core/issues/449",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 0.5,
-      "ordre": 6.044,
-      "debut": "2026-11-13",
-      "cible": "2026-11-13",
-      "labels": [
-        "beta-6",
-        "reportable"
-      ]
-    },
-    {
-      "number": 450,
-      "title": "feat(ecosysteme): livrer le tableau blanc comme module installable",
-      "url": "https://github.com/nodefony/nodefony-core/issues/450",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 6.045,
-      "debut": "2026-11-16",
-      "cible": "2026-11-16",
-      "labels": [
-        "beta-6",
-        "reportable"
       ]
     },
     {
@@ -6521,18 +6403,120 @@
       ]
     },
     {
-      "number": 659,
-      "title": "docs(performance): remesurer les pages de performance avant la release",
-      "url": "https://github.com/nodefony/nodefony-core/issues/659",
+      "number": 621,
+      "title": "feat(realtime): compléter le temps réel : binaire, canaux privés, voix",
+      "url": "https://github.com/nodefony/nodefony-core/issues/621",
       "state": "OPEN",
       "status": "In Progress",
       "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 11.25,
+      "ordre": 7.08,
+      "debut": "2026-11-04",
+      "cible": "2026-11-16",
+      "labels": [
+        "beta-7"
+      ]
+    },
+    {
+      "number": 445,
+      "title": "test(ecosysteme): éprouver le framework par un module tiers temps réel",
+      "url": "https://github.com/nodefony/nodefony-core/issues/445",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 3.25,
+      "ordre": 7.09,
+      "debut": "2026-11-10",
+      "cible": "2026-11-16",
+      "labels": [
+        "reportable",
+        "beta-7"
+      ]
+    },
+    {
+      "number": 446,
+      "title": "test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation",
+      "url": "https://github.com/nodefony/nodefony-core/issues/446",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.25,
+      "ordre": 7.091,
+      "debut": "2026-11-10",
+      "cible": "2026-11-10",
+      "labels": [
+        "reportable",
+        "beta-7"
+      ]
+    },
+    {
+      "number": 447,
+      "title": "test(ecosysteme): journaliser pas à pas ce que fait l'agent",
+      "url": "https://github.com/nodefony/nodefony-core/issues/447",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 7.092,
+      "debut": "2026-11-11",
+      "cible": "2026-11-11",
+      "labels": [
+        "reportable",
+        "beta-7"
+      ]
+    },
+    {
+      "number": 448,
+      "title": "test(ecosysteme): jouer l'épreuve sans jamais guider l'agent",
+      "url": "https://github.com/nodefony/nodefony-core/issues/448",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
-      "ordre": 7.07,
-      "debut": "2026-11-20",
-      "cible": "2026-11-20",
+      "ordre": 7.093,
+      "debut": "2026-11-12",
+      "cible": "2026-11-12",
       "labels": [
+        "reportable",
+        "beta-7"
+      ]
+    },
+    {
+      "number": 449,
+      "title": "test(ecosysteme): trier ce qui remonte au cœur du framework",
+      "url": "https://github.com/nodefony/nodefony-core/issues/449",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 7.094,
+      "debut": "2026-11-13",
+      "cible": "2026-11-13",
+      "labels": [
+        "reportable",
+        "beta-7"
+      ]
+    },
+    {
+      "number": 450,
+      "title": "feat(ecosysteme): livrer le tableau blanc comme module installable",
+      "url": "https://github.com/nodefony/nodefony-core/issues/450",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 7.095,
+      "debut": "2026-11-16",
+      "cible": "2026-11-16",
+      "labels": [
+        "reportable",
         "beta-7"
       ]
     },
@@ -6549,6 +6533,22 @@
       "debut": null,
       "cible": null,
       "labels": []
+    },
+    {
+      "number": 659,
+      "title": "docs(performance): remesurer les pages de performance avant la release",
+      "url": "https://github.com/nodefony/nodefony-core/issues/659",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 7.1,
+      "debut": "2026-11-20",
+      "cible": "2026-11-20",
+      "labels": [
+        "beta-7"
+      ]
     },
     {
       "number": 285,

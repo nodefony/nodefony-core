@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-11-06 08:16** (UTC).
+> Empreinte prise le **2026-11-06 10:00** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -31,9 +31,9 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#621 — feat(realtime): compléter le temps réel : binaire, canaux privés, voix**
+**#631 — test(media): lancer les tests audio dans un vrai navigateur**
 
-Ordre 6.03 · P2 — décision · 11.25 j · jalon 10.0.0-beta · frise 2026-11-04 → 11-16
+Ordre 6.0346 · P2 — décision · 0.5 j · jalon 10.0.0-beta · frise 2026-11-10 → 11-10
 
 > Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 16 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
@@ -115,14 +115,7 @@ Ordre 6.03 · P2 — décision · 11.25 j · jalon 10.0.0-beta · frise 2026-11-
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 6.03 | P2 — décision | 11.25 | 2026-11-04 → 11-16 | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
 | 6.0346 | P2 — décision | 0.5 | 2026-11-10 → 11-10 | #631 | test(media): lancer les tests audio dans un vrai navigateur |
-| 6.04 | P2 — décision | 3.25 | 2026-11-10 → 11-16 | #445 | test(ecosysteme): éprouver le framework par un module tiers temps réel |
-| 6.041 | P2 — décision | 0.25 | 2026-11-10 → 11-10 | #446 | test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation |
-| 6.042 | P2 — décision | 0.5 | 2026-11-11 → 11-11 | #447 | test(ecosysteme): journaliser pas à pas ce que fait l'agent |
-| 6.043 | P1 — figé à la création | 1 | 2026-11-12 → 11-12 | #448 | test(ecosysteme): jouer l'épreuve sans jamais guider l'agent |
-| 6.044 | P1 — figé à la création | 0.5 | 2026-11-13 → 11-13 | #449 | test(ecosysteme): trier ce qui remonte au cœur du framework |
-| 6.045 | P1 — figé à la création | 1 | 2026-11-16 → 11-16 | #450 | feat(ecosysteme): livrer le tableau blanc comme module installable |
 | 6.06 | P2 — décision | 2 | — | #724 | feat(framework): renvoyer en flux une source quelconque |
 | 6.12 | P2 — décision | 0.5 | 2026-11-19 → 11-19 | #89 | docs(notification): faire la veille des canaux de communication attendus |
 | 7.01 | P2 — décision | 4.5 | — | #694 | feat(http): servir des services gRPC dans le pipeline HTTP/2 |
@@ -130,7 +123,14 @@ Ordre 6.03 · P2 — décision · 11.25 j · jalon 10.0.0-beta · frise 2026-11-
 | 7.03 | P2 — décision | 0.5 | — | #696 | fix(cli): router gRPC vers h2c dans la config nginx générée |
 | 7.04 | P3 — fin de cycle | 1 | — | #697 | feat(http): exposer la réflexion et la santé gRPC standard |
 | 7.06 | P1 — figé à la création | 0.5 | 2026-11-17 → 11-17 | #541 | test(cli): valider le plein écran du serveur de dev sous Windows |
-| 7.07 | P1 — figé à la création | 1 | 2026-11-20 → 11-20 | #659 | docs(performance): remesurer les pages de performance avant la release |
+| 7.08 | P2 — décision | 11.25 | 2026-11-04 → 11-16 | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
+| 7.09 | P2 — décision | 3.25 | 2026-11-10 → 11-16 | #445 | test(ecosysteme): éprouver le framework par un module tiers temps réel |
+| 7.091 | P2 — décision | 0.25 | 2026-11-10 → 11-10 | #446 | test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation |
+| 7.092 | P2 — décision | 0.5 | 2026-11-11 → 11-11 | #447 | test(ecosysteme): journaliser pas à pas ce que fait l'agent |
+| 7.093 | P1 — figé à la création | 1 | 2026-11-12 → 11-12 | #448 | test(ecosysteme): jouer l'épreuve sans jamais guider l'agent |
+| 7.094 | P1 — figé à la création | 0.5 | 2026-11-13 → 11-13 | #449 | test(ecosysteme): trier ce qui remonte au cœur du framework |
+| 7.095 | P1 — figé à la création | 1 | 2026-11-16 → 11-16 | #450 | feat(ecosysteme): livrer le tableau blanc comme module installable |
+| 7.1 | P1 — figé à la création | 1 | 2026-11-20 → 11-20 | #659 | docs(performance): remesurer les pages de performance avant la release |
 
 ## Backlog — aucune date promise · 39 ouverts
 
