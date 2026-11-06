@@ -63,6 +63,7 @@ import {
   plusHauteSatisfaisante,
 } from "./lib/reconcile-versions.mjs";
 import { REPO_ROOT } from "../lib/repo-root.mjs";
+import { forcedByOverride } from "./lib/overrides.mjs";
 import { guardCli } from "../../.claude/skills/nodefony-session/scripts/cli-guard.mjs";
 
 // Avant tout : `--help` lançait l'inventaire complet (registre interrogé pour
@@ -573,6 +574,17 @@ const blocages = new Map();
 // 7.8.0 proposé alors que `mongoose` exige `~7.7` — rien ne l'a dit, ni ce
 // rapport ni la garde. Constat pour TOUT écart (une mineure suffit).
 const dedoublements = new Map();
+// Ce que les `overrides` de la racine FORCENT : pas un dédoublement, une
+// contrainte tenue par nous — à dire, pour qu'on sache ce qu'on assume.
+const forcees = new Map();
+let overridesRacine;
+try {
+  overridesRacine = JSON.parse(
+    fs.readFileSync(path.join(ROOT, "package.json"), "utf8"),
+  ).overrides;
+} catch {
+  overridesRacine = undefined;
+}
 const visees = new Map(
   behindRows.filter((r) => r.target).map((r) => [r.name, r.target]),
 );
@@ -608,6 +620,14 @@ if (visees.size) {
           const plage = deps[cible];
           if (!plage || !semver.validRange(plage)) continue;
           if (semver.satisfies(visee, plage)) continue;
+          const force = forcedByOverride(overridesRacine, pkg.name, cible);
+          if (force !== null) {
+            if (!forcees.has(cible)) forcees.set(cible, []);
+            forcees
+              .get(cible)
+              .push({ par: `${pkg.name}@${pkg.version}`, plage, force });
+            continue;
+          }
           if (!dedoublements.has(cible)) dedoublements.set(cible, []);
           dedoublements.get(cible).push({
             par: `${pkg.name}@${pkg.version}`,
@@ -662,6 +682,18 @@ for (const x of AS_JSON ? [] : shims) {
     outgrown
       ? `\n🧹 shim ${x.name} (base ${x.base}) : l'amont publie ${outgrown.above.join(", ")} — vérifier que l'avis est corrigé, puis RETIRER le shim (devDependencies + overrides + scripts/deps/shims/${x.name}). Sinon, relever la base du shim pour en prendre acte.\n`
       : `\n🩹 shim ${x.name} (base ${x.base}) : aucune version amont au-dessus — le shim reste.\n`,
+  );
+}
+for (const [name, qui] of AS_JSON ? [] : forcees) {
+  process.stdout.write(
+    `\n🔩 ${name} ${visees.get(name)} FORCÉ par les overrides de la racine — pas de seconde copie :\n`,
+  );
+  for (const q of qui.slice(0, 8))
+    process.stdout.write(
+      `     ${q.par} exige ${name} ${q.plage} → forcé « ${q.force} »\n`,
+    );
+  process.stdout.write(
+    "     Contrainte ASSUMÉE : le paquet tourne hors de ce qu'il déclare — l'éprouver par ses tests.\n",
   );
 }
 for (const [name, qui] of AS_JSON ? [] : dedoublements) {
