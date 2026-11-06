@@ -400,6 +400,7 @@ Ce que le relais fait aux en-têtes, dans les deux sens :
 | `X-Forwarded-Prefix` : à la suite de celui d'un pair `trustProxy`     |                                                                          |
 | `Forwarded` d'un pair `trustProxy` : prolongé de ce saut, jamais créé |                                                                          |
 | prolonge `Via` ; recalcule le cadrage du corps                        |                                                                          |
+| décrémente `Max-Forwards` sur `OPTIONS` et `TRACE`                    |                                                                          |
 
 Les échecs, dans l'ordre où ils peuvent survenir (`forwardRequest()`, `forward.ts#forwardRequest`) :
 
@@ -414,6 +415,13 @@ Les échecs, dans l'ordre où ils peuvent survenir (`forwardRequest()`, `forward
 - **502** — amont injoignable, ou réponse que la sortie refuse (en-tête interdit en HTTP/2) ;
 - **coupure** — si l'amont tombe APRÈS avoir commencé à répondre, la réponse au client est
   interrompue : un statut ne se rattrape pas une fois envoyé.
+
+Une requête `OPTIONS` ou `TRACE` dont `Max-Forwards` vaut `0` n'atteint pas l'amont : le
+proxy y répond lui-même, en destinataire final (RFC 9110 §7.6.2). `OPTIONS` reçoit `200` avec
+`Allow` si le montage restreint ses `methods` ; `TRACE` reçoit la requête en `message/http`, sans
+les en-têtes qui portent un secret (`Cookie`, `Authorization`, jetons, clés). Au-dessus de `0`, la
+valeur part décrémentée, plafonnée à `MAX_VIA_HOPS` ; une valeur qui n'est pas un entier part
+retirée. Les autres méthodes la relaient telle quelle.
 
 Chaque montage a son **pool keep-alive dédié**, jamais l'agent global de Node : sous
 `NODE_USE_ENV_PROXY` (poste d'entreprise), l'agent global enverrait un amont local au proxy de
@@ -447,8 +455,9 @@ une connexion à usage unique, sans recréer de pool que personne ne fermerait.
 | RFC 9110 §7.6.1         | Un intermédiaire retire les en-têtes de connexion        | Liste fixe + jetons de `Connection`, dans les deux sens (`requestHeadersFor()`, `forward.ts#requestHeadersFor`) |
 | RFC 9110 §7.6.3         | Un intermédiaire ajoute son entrée à `Via`               | Pseudonyme par processus, prolongé à l'aller et au retour (`forward.ts#requestHeadersFor`)                      |
 | RFC 9112 §6.3           | Un seul cadrage de corps ; `Transfer-Encoding` l'emporte | `Content-Length` retiré quand le corps est découpé (`bodyFramingOf()`, `forward.ts#bodyFramingOf`)              |
-| RFC 9112 §6.1           | Codage de transfert non compris → 501                    | Tout autre que `chunked` seul est refusé, jamais réétiqueté (`forward.ts#viaEntry`)                             |
+| RFC 9112 §6.1           | Codage de transfert non compris → 501                    | Tout autre que `chunked` seul est refusé, jamais réétiqueté (`forward.ts#bodyFramingOf`)                        |
 | RFC 9113 §8.2.2         | Pas d'en-tête de connexion en HTTP/2                     | Réponse refusée par la sortie h2 → 502, jamais une exception non rattrapée                                      |
+| RFC 9110 §7.6.2         | `Max-Forwards` décrémenté ; à 0, répondre soi-même       | Sur `OPTIONS`/`TRACE` seulement (`receivedMaxForwards()`, `forward.ts#receivedMaxForwards`)                     |
 | RFC 7239 §8.1           | Ne croire `Forwarded` que d'un relais de confiance       | `trustProxy` décide (`ReverseProxy.forward()`, `reverse-proxy.ts#ReverseProxy.forward`)                         |
 | RFC 7239 §4 · §6        | Chaque relais ajoute son élément ; IPv6 entre crochets   | Élément `for=…;proto=…;host=…` ajouté, valeurs non-jeton entre guillemets                                       |
 | RFC 6585 §4             | `429 Too Many Requests`                                  | Quota par IP dépassé sur un upgrade relayé, avant le `101`                                                      |

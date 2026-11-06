@@ -142,6 +142,91 @@ export function viaLoops(
   return false;
 }
 
+/** `1*DIGIT` (RFC 9110 §7.6.2) — compilé une fois. */
+const DIGITS = /^[0-9]+$/;
+
+/**
+ * `Max-Forwards` reçu, tel qu'un intermédiaire doit le lire (RFC 9110 §7.6.2) :
+ * sur `OPTIONS` et `TRACE` seulement — la même section permet de l'ignorer
+ * pour toute autre méthode, et il part alors tel quel.
+ *
+ * @param method - méthode de la requête
+ * @param value - en-tête `Max-Forwards` reçu
+ * @returns `null` s'il n'y a rien à faire (autre méthode, en-tête absent) ;
+ *   `-1` si la valeur n'est pas `1*DIGIT` — elle ne se décrémente pas, l'en-tête
+ *   n'est donc pas transmis ; sinon la valeur reçue (`0` : le proxy répond
+ *   lui-même, sans joindre l'amont).
+ */
+export function receivedMaxForwards(
+  method: string,
+  value: string | string[] | undefined,
+): number | null {
+  if (value === undefined || (method !== "OPTIONS" && method !== "TRACE")) {
+    return null;
+  }
+  const raw = (Array.isArray(value) ? value[0] : value)?.trim() ?? "";
+  return DIGITS.test(raw) ? Number(raw) : -1;
+}
+
+/**
+ * En-têtes qu'une réponse à `TRACE` ne renvoie pas : ils portent des secrets
+ * (RFC 9110 §9.3.8 : le destinataire final DEVRAIT exclure les champs
+ * susceptibles de contenir des données sensibles).
+ */
+const TRACE_SENSITIVE =
+  /^(?:authorization|proxy-authorization|cookie)$|token|secret|session|api-?key|csrf/i;
+
+/**
+ * Corps `message/http` d'une réponse à `TRACE` : la requête reçue, en-têtes
+ * sensibles et pseudo-en-têtes HTTP/2 retirés (RFC 9110 §9.3.8).
+ */
+function traceEcho(req: ProxiedRequest): string {
+  let echo = `TRACE ${req.url ?? "/"} HTTP/${req.httpVersion}\r\n`;
+  const authority = req.headers[":authority"];
+  if (req.headers.host === undefined && typeof authority === "string") {
+    echo += `host: ${authority}\r\n`;
+  }
+  for (const name of Object.keys(req.headers)) {
+    if (name.charCodeAt(0) === 58 /* ":" */ || TRACE_SENSITIVE.test(name)) {
+      continue;
+    }
+    echo += `${name}: ${flat(req.headers[name])}\r\n`;
+  }
+  return `${echo}\r\n`;
+}
+
+/**
+ * Réponse du proxy en DESTINATAIRE FINAL, quand `Max-Forwards` est épuisé
+ * (RFC 9110 §7.6.2) : `TRACE` renvoie la requête reçue (§9.3.8), `OPTIONS`
+ * rend 200 avec `Allow` si le montage restreint ses méthodes, et
+ * `Content-Length: 0` (§9.3.7). L'amont n'est jamais joint.
+ */
+function answerAsFinalRecipient(
+  req: ProxiedRequest,
+  out: http.ServerResponse,
+  mount: IProxyMount,
+): void {
+  // Un corps éventuel n'est pas lu : le vider, pour que la connexion reste utilisable.
+  req.resume();
+  if (req.method === "TRACE") {
+    const body = traceEcho(req);
+    out.writeHead(200, {
+      "content-type": "message/http",
+      "content-length": Buffer.byteLength(body),
+      "cache-control": "no-store",
+    });
+    out.end(body);
+    return;
+  }
+  const headers: http.OutgoingHttpHeaders = {
+    "content-length": 0,
+    "cache-control": "no-store",
+  };
+  if (mount.methods !== undefined) headers.allow = mount.methods.join(", ");
+  out.writeHead(200, headers);
+  out.end();
+}
+
 /** Entrée `Via` de ce saut : `<version> <pseudonyme>` (RFC 9110 §7.6.3). */
 function viaEntry(httpVersion: string, pseudonym: string): string {
   const version = httpVersion.startsWith("2") ? "2" : httpVersion || "1.1";
@@ -401,8 +486,9 @@ function armConnectTimeout(
  * Relaie une requête HTTP vers l'amont et renvoie sa réponse au client.
  *
  * Le corps est transmis avec un cadrage cohérent ({@link bodyFramingOf}). Un
- * message qui porte déjà notre `Via` rend 508 sans contacter l'amont. Un
- * client parti coupe l'échange amont ; un amont injoignable rend 502 ; une
+ * message qui porte déjà notre `Via` rend 508 sans contacter l'amont. Sur
+ * `OPTIONS` et `TRACE`, `Max-Forwards` est décrémenté ; à `0`, le proxy répond
+ * lui-même en destinataire final (RFC 9110 §7.6.2). Un client parti coupe l'échange amont ; un amont injoignable rend 502 ; une
  * connexion non établie à temps ou un amont muet rendent 504 — à condition
  * que rien n'ait encore été envoyé, sinon la réponse est interrompue (un
  * statut ne se rattrape pas). Un amont coupé en plein corps interrompt la
@@ -456,10 +542,16 @@ export function forwardRequest(
       fail(501, NOT_IMPLEMENTED);
       return;
     }
+    const method = req.method ?? "GET";
+    const hops = receivedMaxForwards(method, req.headers["max-forwards"]);
+    if (hops === 0) {
+      answerAsFinalRecipient(req, out, mount);
+      return;
+    }
     const options = requestOptions(target, mount, relay);
-    options.method = req.method ?? "GET";
+    options.method = method;
     options.path = upstreamPath(req.url ?? "/", mount);
-    options.headers = requestHeadersFor(
+    const headers = requestHeadersFor(
       req.headers,
       mount,
       target,
@@ -467,6 +559,16 @@ export function forwardRequest(
       relay.pseudonym,
       framing,
     );
+    if (hops !== null) {
+      // Le moindre de « reçu − 1 » et de notre maximum (§7.6.2) : une chaîne
+      // plus longue que MAX_VIA_HOPS serait de toute façon tenue pour une boucle.
+      if (hops > 0) {
+        headers["max-forwards"] = String(Math.min(hops - 1, MAX_VIA_HOPS));
+      } else {
+        delete headers["max-forwards"];
+      }
+    }
+    options.headers = headers;
     if (mount.timeoutMs !== undefined) options.timeout = mount.timeoutMs;
     const request = requestFn(target)(options);
     upstream = request;

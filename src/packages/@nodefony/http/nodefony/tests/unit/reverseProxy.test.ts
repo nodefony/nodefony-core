@@ -31,7 +31,7 @@ import { Container, Event } from "nodefony";
 import type { Module } from "nodefony";
 import ReverseProxy from "../../service/reverse-proxy";
 import HttpKernel from "../../service/http-kernel";
-import { MAX_VIA_HOPS } from "../../src/proxy/forward";
+import { MAX_VIA_HOPS, receivedMaxForwards } from "../../src/proxy/forward";
 import { createSelfSignedCertificate } from "../../service/x509";
 import type { IProxyMountOptions } from "../../interfaces/IReverseProxy";
 
@@ -1412,5 +1412,155 @@ describe("HttpKernel.websocketQuotaRefusal — règle unique des quotas WebSocke
     const hit = (): string | null =>
       kernel.websocketQuotaRefusal(req("10.0.0.1"), new EventEmitter());
     expect([hit(), hit(), hit()]).toEqual([null, null, "rate limit"]);
+  });
+});
+
+describe("ReverseProxy — Max-Forwards (RFC 9110 §7.6.2)", () => {
+  it("OPTIONS avec `Max-Forwards: 0` : le proxy répond en destinataire final, l'amont n'est pas joint", async () => {
+    const up = await upstream();
+    const port = await front(
+      proxyWith({
+        "/svc/": { target: up.origin, methods: ["GET", "OPTIONS"] },
+      }),
+    );
+    const r = await get(port, "/svc/x", {
+      method: "OPTIONS",
+      headers: { "max-forwards": "0" },
+    });
+    expect(r.status).toBe(200);
+    // §9.3.7 : sans contenu, `Content-Length: 0` est OBLIGATOIRE.
+    expect(r.headers["content-length"]).toBe("0");
+    expect(r.headers.allow).toBe("GET, OPTIONS");
+    expect(r.body).toBe("");
+    expect(up.seen).toHaveLength(0);
+  });
+
+  it("OPTIONS avec `Max-Forwards: 3` : l'amont reçoit 2", async () => {
+    const up = await upstream();
+    const port = await front(proxyWith({ "/svc/": { target: up.origin } }));
+    const r = await get(port, "/svc/x", {
+      method: "OPTIONS",
+      headers: { "max-forwards": "3" },
+    });
+    expect(r.status).toBe(200);
+    expect(r.body).toBe("amont");
+    expect(up.seen[0]?.headers["max-forwards"]).toBe("2");
+  });
+
+  it("TRACE avec `Max-Forwards: 0` : la requête est renvoyée en `message/http`, secrets retirés", async () => {
+    const up = await upstream();
+    const port = await front(proxyWith({ "/svc/": { target: up.origin } }));
+    const r = await get(port, "/svc/x?q=1", {
+      method: "TRACE",
+      headers: {
+        "max-forwards": "0",
+        "x-probe": "visible",
+        cookie: "sid=secret",
+        authorization: "Bearer secret",
+        "x-api-key": "secret",
+      },
+    });
+    expect(r.status).toBe(200);
+    expect(r.headers["content-type"]).toBe("message/http");
+    expect(r.body.startsWith("TRACE /svc/x?q=1 HTTP/1.1\r\n")).toBe(true);
+    expect(r.body).toContain("x-probe: visible\r\n");
+    expect(r.body).toContain("max-forwards: 0\r\n");
+    expect(r.body).not.toContain("secret");
+    expect(up.seen).toHaveLength(0);
+  });
+
+  it("TRACE avec une valeur démesurée : l'amont reçoit notre maximum, jamais plus", async () => {
+    const up = await upstream();
+    const port = await front(proxyWith({ "/svc/": { target: up.origin } }));
+    await get(port, "/svc/x", {
+      method: "TRACE",
+      headers: { "max-forwards": "99999999999999999999999" },
+    });
+    expect(up.seen[0]?.headers["max-forwards"]).toBe(String(MAX_VIA_HOPS));
+  });
+
+  it("valeur invalide : la requête est relayée SANS `Max-Forwards` (rien à décrémenter)", async () => {
+    const up = await upstream();
+    const port = await front(proxyWith({ "/svc/": { target: up.origin } }));
+    const r = await get(port, "/svc/x", {
+      method: "OPTIONS",
+      headers: { "max-forwards": "-1" },
+    });
+    expect(r.status).toBe(200);
+    expect(up.seen[0]?.headers["max-forwards"]).toBeUndefined();
+  });
+
+  it("autre méthode : `Max-Forwards` est ignoré et part tel quel (§7.6.2, MAY)", async () => {
+    const up = await upstream();
+    const port = await front(proxyWith({ "/svc/": { target: up.origin } }));
+    const r = await get(port, "/svc/x", { headers: { "max-forwards": "0" } });
+    expect(r.status).toBe(200);
+    expect(up.seen[0]?.headers["max-forwards"]).toBe("0");
+  });
+
+  it("receivedMaxForwards : seules OPTIONS et TRACE lisent la valeur, `1*DIGIT` seulement", () => {
+    expect(receivedMaxForwards("GET", "0")).toBeNull();
+    expect(receivedMaxForwards("OPTIONS", undefined)).toBeNull();
+    expect(receivedMaxForwards("OPTIONS", " 4 ")).toBe(4);
+    expect(receivedMaxForwards("TRACE", "0")).toBe(0);
+    expect(receivedMaxForwards("TRACE", "1.5")).toBe(-1);
+    expect(receivedMaxForwards("TRACE", "")).toBe(-1);
+  });
+
+  it("front HTTP/2 : TRACE épuisé renvoyé avec `host` tiré de `:authority`", async () => {
+    const { privateKey, publicKey } = generateKeyPairSync("ec", {
+      namedCurve: "P-256",
+    });
+    const cert = await createSelfSignedCertificate({
+      privateKey,
+      publicKey,
+      serialHex: randomBytes(8)
+        .toString("hex")
+        .replace(/^[89a-f]/, "1"),
+      notBefore: new Date(Date.now() - 60_000),
+      notAfter: new Date(Date.now() + 3_600_000),
+      attributes: [{ name: "commonName", value: "localhost" }],
+      dns: ["localhost"],
+      ip: ["127.0.0.1"],
+      hash: "sha256",
+    });
+    const key = privateKey.export({ type: "pkcs8", format: "pem" }) as string;
+    const up = await upstream();
+    const proxy = proxyWith({ "/svc/": { target: up.origin } });
+    const server = http2.createSecureServer({ key, cert });
+    server.on("request", (req, res) => {
+      if (proxy.forward(req, res, "https") === undefined) {
+        res.writeHead(404);
+        res.end();
+      }
+    });
+    const port = await listen(server);
+    const session = http2.connect(`https://127.0.0.1:${port}`, {
+      rejectUnauthorized: false,
+    });
+    closers.push(
+      () => new Promise((resolve) => session.close(() => resolve())),
+    );
+    const answer = await new Promise<{ status: number; body: string }>(
+      (resolve, reject) => {
+        const stream = session.request({
+          ":path": "/svc/x",
+          ":method": "TRACE",
+          "max-forwards": "0",
+        });
+        let body = "";
+        let status = 0;
+        stream.on("response", (h) => (status = Number(h[":status"])));
+        stream.on("data", (c: Buffer) => (body += c.toString()));
+        stream.on("end", () => resolve({ status, body }));
+        stream.on("error", reject);
+        stream.end();
+      },
+    );
+    expect(answer.status).toBe(200);
+    expect(answer.body.startsWith("TRACE /svc/x HTTP/2.0\r\n")).toBe(true);
+    expect(answer.body).toContain(`host: 127.0.0.1:${port}\r\n`);
+    expect(answer.body).not.toContain(":path");
+    expect(up.seen).toHaveLength(0);
   });
 });
