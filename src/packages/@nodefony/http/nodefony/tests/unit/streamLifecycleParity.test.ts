@@ -2,7 +2,9 @@
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { expect } from "vitest";
+import { Readable } from "node:stream";
 import { openSseStream } from "../../src/context/http/SseStream";
+import { openByteStream } from "../../src/context/http/ByteStream";
 import type HttpContext from "../../src/context/http/HttpContext";
 
 /**
@@ -30,6 +32,20 @@ const OPENERS: IOpener[] = [
     open: async (context) => {
       const sse = await openSseStream(context, { heartbeat: false });
       return () => sse.closed;
+    },
+  },
+  {
+    name: "flux d'octets",
+    open: async (context) => {
+      let closed = false;
+      const source = Readable.from(["jamais lu"], { objectMode: false });
+      await openByteStream(context, source, {
+        onClose: () => {
+          closed = true;
+        },
+      });
+      // La source doit être détruite, jamais laissée en pause.
+      return () => closed && source.destroyed;
     },
   },
 ];
@@ -75,6 +91,7 @@ async function serve(): Promise<{
       writeHead: (status: number) => res.writeHead(status),
       log: () => undefined,
       close: () => undefined,
+      _abortIfPending: () => undefined,
     };
     deliver({
       context: fake as unknown as HttpContext,

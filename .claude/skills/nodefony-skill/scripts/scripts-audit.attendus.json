@@ -36,6 +36,7 @@
     ".claude/skills/nodefony-load-test/scripts/bisect-perf.sh",
     ".claude/skills/nodefony-load-test/scripts/boot-bench.mjs",
     ".claude/skills/nodefony-load-test/scripts/boot-profile.mjs",
+    ".claude/skills/nodefony-load-test/scripts/byte-stream-overhead.mjs",
     ".claude/skills/nodefony-load-test/scripts/cluster-orm-rich-e2e.mjs",
     ".claude/skills/nodefony-load-test/scripts/console-boot-bench.mjs",
     ".claude/skills/nodefony-load-test/scripts/debug-runtime-e2e.mjs",

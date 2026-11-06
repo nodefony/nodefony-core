@@ -31,6 +31,7 @@ import TraceChannelController from "./nodefony/controller/TraceChannelController
 import SseController, {
   SecureSseController,
 } from "./nodefony/controller/SseController";
+import StreamController from "./nodefony/controller/StreamController";
 // S5-R — télécommande du registre de disponibilité (/readyz vu basculer 200⇄503).
 import ReadinessController from "./nodefony/controller/ReadinessController";
 import DomainController from "./nodefony/controller/DomainController";
@@ -154,6 +155,7 @@ function overlayProbe(context: unknown): void {
   // Flux d'événements serveur — /nodefony/test/sse/*, HTTP/1.1 et HTTP/2
   SseController,
   SecureSseController,
+  StreamController,
   ReadinessController,
   DomainController,
   DomainClassController,

@@ -43,6 +43,30 @@ Le serveur le pose dans le contexte asynchrone de la requête : `RequestContext.
 depuis n'importe quel code, et les services `@injectable({ scope: "request" })` y vivent. Détail :
 [Injection & portées](https://github.com/nodefony/nodefony-core/blob/main/docs/architecture/injection-portees.md).
 
+## Réponses en flux
+
+Deux formats de réponse qui ne finissent pas d'un coup, en HTTP/1.1 comme en HTTP/2, sur le même
+cycle de vie (réponse prise, session sauvée avant les en-têtes, départ du client vu sur la réponse,
+plafond par IP, révocation, coupure d'un client qui ne lit plus) :
+
+| Besoin                                                     | Contrôleur               | Contexte                  | Page                                   |
+| ---------------------------------------------------------- | ------------------------ | ------------------------- | -------------------------------------- |
+| Pousser des **événements texte** lus par `EventSource`     | `this.renderSse()`       | `context.openSse()`       | [Flux SSE](./docs/sse.md)              |
+| Servir des **octets** : processus, relais `fetch`, archive | `this.renderStream(src)` | `context.openStream(src)` | [Flux d'octets](./docs/byte-stream.md) |
+
+```ts
+const tar = spawn("tar", ["-cz", "-C", "var", "logs"], {
+  stdio: ["ignore", "pipe", "ignore"],
+});
+try {
+  const { reason, bytes } = await this.renderStream(tar.stdout, {
+    headers: { "content-type": "application/gzip" },
+  });
+} finally {
+  tar.kill("SIGKILL");
+}
+```
+
 ## Rate-limit général par IP
 
 Plafond de trafic **par IP cliente** sur toutes les routes HTTP — protège la capacité du serveur

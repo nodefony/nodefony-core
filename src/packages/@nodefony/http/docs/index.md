@@ -68,6 +68,8 @@ Le tableau pour choisir vite ; les cards en dessous pour savoir ce qu'on y trouv
 | [Rate-limit](rate-limit.md) | plafonner le débit par client (429) | protéger une API d'un flood ou d'un abus |
 | [Observabilité](observabilite.md) | tracer et journaliser chaque requête | débugger en prod, corréler des logs |
 | [Canal de diagnostic](diagnostics-channel.md) | publier le cycle de chaque requête à un outil de traçage, sans monkey-patch | brancher OpenTelemetry, Datadog ou Sentry |
+| [Flux SSE](sse.md) | pousser des événements texte au navigateur sur une réponse qui ne finit pas | progression d'une tâche, réponse d'un modèle mot à mot, journal en direct |
+| [Flux d'octets](byte-stream.md) | servir la sortie d'un processus, un relais `fetch` ou une archive à la volée | ffmpeg vers un `<video>`, caméra relayée, export `tar` |
 | [Proxy inverse](reverse-proxy.md) | relayer un préfixe d'URL vers un autre serveur, sur la même origine | servir Vite en dev, adosser un service interne sans CORS |
 | [Pipeline de requête](../../../../../docs/architecture/pipeline-requete.md) | l'ordre exact des étapes, HTTP comme WS | tu débugges « pourquoi ça passe / ça bloque ici » |
 
@@ -94,6 +96,12 @@ Le tableau pour choisir vite ; les cards en dessous pour savoir ce qu'on y trouv
   { "icon": "📡", "title": "diagnostics-channel", "href": "diagnostics-channel.md",
     "desc": "Le TracingChannel nodefony.http.request : chaque requête HTTP et chaque handshake WebSocket publiés avec route, gabarit, module, requestId, statut réel et durée. Zéro coût sans abonné ; correspondance avec les attributs OpenTelemetry.",
     "meta": "brancher un APM sans patcher le framework" },
+  { "icon": "📻", "title": "sse", "href": "sse.md",
+    "desc": "Le flux text/event-stream : this.renderSse(), send/comment/retry/close, négociation JSON ou flux sur la même route, client NodefonySse, et les gardes d'une connexion longue (plafond par IP, révocation, lecteur bloqué).",
+    "meta": "le serveur parle, le navigateur écoute" },
+  { "icon": "🚰", "title": "byte-stream", "href": "byte-stream.md",
+    "desc": "Répondre par une source d'octets qui n'est pas un fichier : this.renderStream() sur un Readable ou un fetch().body, en-têtes au premier octet (une erreur précoce reste une vraie page 5xx), source détruite à la fin, chien de garde d'une source muette, mêmes gardes que le SSE.",
+    "meta": "un robinet, pas une bouteille" },
   { "icon": "↪️", "title": "reverse-proxy", "href": "reverse-proxy.md",
     "desc": "Relayer un préfixe d'URL vers un autre serveur sans quitter l'origine de la page : HTTP et WebSocket, en-têtes de connexion jamais transmis, X-Forwarded-* et Via posés, barrière d'hôte appliquée avant le relais. C'est par lui que Vite est servi en développement.",
     "meta": "une origine, un certificat — pas de CORS ni de contenu mixte" },

@@ -28,6 +28,43 @@ import { RequestContext } from "nodefony";
  * porte.
  */
 
+/**
+ * Plus long délai qu'un minuteur sait tenir (2^31-1 ms). Au-delà, Node le
+ * ramène à 1 ms : un délai qui le dépasse ferait battre ou couper le flux
+ * mille fois par seconde.
+ */
+export const MAX_TIMER_MS = 2_147_483_647;
+
+/**
+ * Refuse une option de délai hors de ce qu'un minuteur sait tenir.
+ *
+ * @param label - préfixe du message (`SSE`, `Flux`).
+ * @param name - nom de l'option.
+ * @param value - valeur reçue ; `undefined` et `false` passent.
+ * @throws RangeError quand la valeur n'est ni `false` ni un entier entre 1 et 2^31-1.
+ *
+ * @internal
+ */
+export function checkStreamTimer(
+  label: string,
+  name: string,
+  value: number | false | undefined,
+): void {
+  if (value === undefined || value === false) return;
+  if (!Number.isInteger(value) || value < 1 || value > MAX_TIMER_MS) {
+    throw new RangeError(
+      `${label} : ${name} entier entre 1 et ${MAX_TIMER_MS} ms, ou false, attendu`,
+    );
+  }
+}
+
+/**
+ * Qui a fermé le flux, quand ce n'est pas le client : le serveur (`close()` —
+ * fin demandée, durée de vie, révocation), ou la coupure d'un client qui ne lit
+ * plus. `null` : le client est parti, ou le flux est encore ouvert.
+ */
+export type StreamLifecycleCause = "server" | "stall" | null;
+
 /** Ce sur quoi on écrit : la réponse HTTP/1.1, ou le flux HTTP/2. */
 export type StreamTarget = http.ServerResponse | http2.ServerHttp2Stream;
 
@@ -74,8 +111,15 @@ export class StreamLifecycle implements IWatchedStream {
   readonly #revalidate: (() => Promise<boolean>) | null;
   readonly identifier: string | null;
   #closed = false;
-  /** Coupure d'un client qui ne lit plus — armée seulement sous pression. */
+  #cause: StreamLifecycleCause = null;
+  /**
+   * Minuteur de la coupure d'un client qui ne lit plus — créé à la PREMIÈRE
+   * contre-pression, puis réarmé au reste du délai : jamais un minuteur par
+   * épisode (un flux d'octets en connaît un par morceau sur une socket rapide).
+   */
   #stall: ReturnType<typeof setTimeout> | null = null;
+  /** Début de l'attente de `drain` en cours (`Date.now()`) ; `0` : aucune. */
+  #stallSince = 0;
   /** Fin de vie du flux — armée seulement si `maxDuration` est posé. */
   #lifetime: ReturnType<typeof setTimeout> | null = null;
   /** Nettoyage du flux qui porte la brique — posé une fois, appelé en premier. */
@@ -84,11 +128,22 @@ export class StreamLifecycle implements IWatchedStream {
   #onClose: Array<() => void> | null = null;
   readonly #onResponseClose = (): void => this.finish();
   /**
-   * Le client ne lit plus depuis `stallTimeout` : on coupe la connexion, comme
-   * s'il était parti — la fermeture de la réponse termine le flux.
+   * Tour du minuteur de blocage. Le client ne lit plus depuis `stallTimeout` :
+   * on coupe la connexion, comme s'il était parti — la fermeture de la réponse
+   * termine le flux. Une attente plus récente (le client a lu entre-temps) est
+   * réarmée au reste de son délai ; plus d'attente du tout : le minuteur s'éteint.
    */
   readonly #onStall = (): void => {
     this.#stall = null;
+    const limit = this.#stallTimeout;
+    if (this.#stallSince === 0 || this.#closed || limit === false) return;
+    const waited = Date.now() - this.#stallSince;
+    if (waited < limit) {
+      this.#stall = setTimeout(this.#onStall, limit - waited);
+      this.#stall.unref();
+      return;
+    }
+    this.#cause = "stall";
     this.target.destroy();
   };
 
@@ -122,6 +177,15 @@ export class StreamLifecycle implements IWatchedStream {
   /** Le flux est-il fermé — par le serveur, ou par le client parti ? */
   get closed(): boolean {
     return this.#closed;
+  }
+
+  /**
+   * Qui a fermé le flux : le serveur, la coupure d'un client qui ne lit plus,
+   * ou `null` — client parti, ou flux encore ouvert. Lu par le flux qui porte
+   * la brique, dans son nettoyage, pour nommer la raison de la fin.
+   */
+  get cause(): StreamLifecycleCause {
+    return this.#cause;
   }
 
   /** L'identité qui a ouvert le flux est-elle toujours valable ? */
@@ -167,17 +231,21 @@ export class StreamLifecycle implements IWatchedStream {
    * attend `drain`. Sans effet si elle est déjà armée ou désactivée.
    */
   armStall(): void {
-    if (this.#stallTimeout === false || this.#stall !== null || this.#closed)
+    if (this.#stallTimeout === false || this.#stallSince !== 0 || this.#closed)
       return;
+    this.#stallSince = Date.now();
+    if (this.#stall !== null) return;
     this.#stall = setTimeout(this.#onStall, this.#stallTimeout);
     this.#stall.unref();
   }
 
-  /** Désarme la coupure : le client a repris sa lecture. */
+  /**
+   * Désarme la coupure : le client a repris sa lecture. Le minuteur n'est pas
+   * détruit — il s'éteindra seul à son tour s'il n'y a plus d'attente, ou
+   * resservira à la suivante sans nouvelle allocation.
+   */
   clearStall(): void {
-    if (this.#stall === null) return;
-    clearTimeout(this.#stall);
-    this.#stall = null;
+    this.#stallSince = 0;
   }
 
   /**
@@ -193,6 +261,7 @@ export class StreamLifecycle implements IWatchedStream {
   /** Ferme le flux et termine la requête. Idempotent. */
   close(): Promise<void> | undefined {
     if (this.#closed) return undefined;
+    this.#cause = "server";
     this.finish();
     const done = this.context.close();
     return done instanceof Promise ? done.then(() => undefined) : undefined;
@@ -207,7 +276,13 @@ export class StreamLifecycle implements IWatchedStream {
       clearTimeout(this.#lifetime);
       this.#lifetime = null;
     }
-    this.clearStall();
+    this.#stallSince = 0;
+    if (this.#stall !== null) {
+      // Détruit, pas laissé s'éteindre : il retiendrait le flux, donc le
+      // contexte, jusqu'à son tour.
+      clearTimeout(this.#stall);
+      this.#stall = null;
+    }
     if (this.#revalidate !== null) this.context.httpKernel?.unwatchStream(this);
     const release = this.#release;
     this.#release = null;

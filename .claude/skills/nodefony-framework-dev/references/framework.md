@@ -211,6 +211,8 @@ n'admet qu'une portée la fait respecter ; `RealtimeController` refuse le single
 | `renderFileDownload` | `(file, options?, headers={}) → Promise<ReadStream>` (`Controller.ts#Controller.renderFileDownload`) | `attachment` |
 | `renderMediaStream` | `(file, headers={}, options={})` (`Controller.ts#Controller.renderMediaStream`) | Range RFC 9110 (`parseByteRange` → 206/416) |
 | `streamFile` | `(file, headers?, options={}) → Promise<ReadStream>` (`Controller.ts#Controller.streamFile`) | pipe + cleanup fd (client parti) |
+| `renderSse` | `(options?) → SseStream \| Promise<SseStream>` (`Controller.ts#Controller.renderSse`) | événements texte (`text/event-stream`) ; doc `http/docs/sse.md` |
+| `renderStream` | `(source: Readable \| ReadableStream<Uint8Array>, options?) → Promise<{ reason, bytes }>` (`Controller.ts#Controller.renderStream`) | flux d'OCTETS (processus, relais `fetch`, archive) : réponse prise à l'appel, en-têtes au 1ᵉʳ morceau (erreur avant = vraie page 5xx), source DÉTRUITE à la fin, ne rejette jamais ; `Readable.from` → `{ objectMode: false }` ; doc `http/docs/byte-stream.md` |
 | `redirect` | `(url, status?, headers?)` (`Controller.ts#Controller.redirect`) | délègue `context.redirect` |
 | `forward` | `("module:ctrl:action", param?)` (`Controller.ts#Controller.forward`) | re-route interne (`reload:true`) |
 | `getSession`/`getFlashBag`/`setFlashBag`/`addFlash` | (`Controller.ts#Controller.addFlash`,`386`) | session/flash |

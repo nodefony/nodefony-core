@@ -120,6 +120,12 @@ export const THRESHOLDS = {
   sseServerClose: 1024,
   /** flux SSE tenu (battement de cœur), abandonné par le client — (0,17 Ko) */
   sseClientLeave: 1024,
+  // Flux d'octets (#724) — même brique de cycle de vie que le SSE. 2 passages
+  // sur serveur neuf, pas 10 : le seuil commun s'y applique, il ne s'y resserre pas.
+  /** flux d'octets, source finie, fin propre — (0,16 Ko) */
+  streamServerEnd: 1024,
+  /** flux d'octets tenu, abandonné par le client — (−0,03 Ko) */
+  streamClientLeave: 1024,
   // HTTP/2, en clair (h2c, 5153) et sur TLS (5152). Fuite témoin : le défaut de
   // Node contourné par `setHttp2SessionTimeout`, rétabli sur 5152, fait tomber
   // la session TLS neuve entre 2,48 et 2,55 Ko.

@@ -40,7 +40,13 @@ import {
   HttpError,
   acceptsEventStream,
 } from "@nodefony/http";
-import type { ISseStreamOptions, SseStream } from "@nodefony/http";
+import type {
+  ByteStreamSource,
+  IByteStreamOptions,
+  IByteStreamResult,
+  ISseStreamOptions,
+  SseStream,
+} from "@nodefony/http";
 
 //import { runInThisContext } from "node:vm";
 import {
@@ -730,6 +736,60 @@ class Controller extends Service implements IController {
       );
     }
     return this.context.openSse<Events>(options);
+  }
+
+  /**
+   * Répond par un FLUX D'OCTETS : un `<video src>`, un `fetch()`, un
+   * téléchargement ou un outil tiers (curl) le consomment comme n'importe quelle
+   * réponse HTTP, une réponse par consommateur. Pour des ÉVÉNEMENTS texte lus
+   * par `EventSource`, voir {@link Controller.renderSse}. Pour UNE source
+   * d'octets diffusée à N lecteurs par la socket, publier un `Uint8Array` sur
+   * un canal temps réel (`@nodefony/realtime`), pas une réponse HTTP.
+   *
+   * La réponse est prise à l'appel ; les en-têtes partent au premier morceau.
+   * Une erreur de la source AVANT lui rend la page d'erreur ordinaire (500, ou
+   * le code d'une `HttpError`) ; APRÈS, le client voit une coupure. La source
+   * est détruite à la fin, quelle qu'en soit la raison. La promesse ne rejette
+   * jamais : elle rend la raison de la fin et les octets envoyés.
+   *
+   * @example
+   * ```ts
+   * const ff = spawn("ffmpeg", args, { stdio: ["ignore", "pipe", "ignore"], windowsHide: true });
+   * try {
+   *   await this.renderStream(ff.stdout, { headers: { "content-type": "video/mp4" } });
+   * } finally {
+   *   ff.kill("SIGKILL"); // le flux est fini, quelle qu'en soit la raison
+   * }
+   * ```
+   *
+   * Relais d'un autre service — le signal coupe l'amont au départ du client ;
+   * ne recopier que `content-type` (`fetch` a déjà décompressé le corps) :
+   * ```ts
+   * const r = await fetch(url, { signal: this.context.signal });
+   * if (!r.ok || r.body === null) throw new HttpError(502);
+   * return this.renderStream(r.body, {
+   *   headers: { "content-type": r.headers.get("content-type") ?? "application/octet-stream" },
+   * });
+   * ```
+   *
+   * @param source - flux Node, ou flux web ; jamais en mode objet.
+   * @param options - statut, en-têtes, `idleTimeout`, `stallTimeout`,
+   *   `maxDuration`, `onClose(reason)`.
+   * @returns la raison de la fin et le nombre d'octets envoyés.
+   * @throws HttpError 500 hors HTTP (WebSocket) ou quand la réponse est partie.
+   */
+  renderStream(
+    source: ByteStreamSource,
+    options?: IByteStreamOptions,
+  ): Promise<IByteStreamResult> {
+    if (!(this.context instanceof HttpContext)) {
+      throw new HttpError(
+        "Flux : une réponse en flux exige une requête HTTP",
+        500,
+        this.context,
+      );
+    }
+    return this.context.openStream(source, options);
   }
 
   /**

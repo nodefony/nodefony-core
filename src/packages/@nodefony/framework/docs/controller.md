@@ -493,6 +493,32 @@ téléchargement laisserait sinon un descripteur de fichier ouvert et une promes
 résout la promesse (`Controller.ts#Controller.streamFile`), puis se retire lui-même (`Controller.ts#Controller.streamFile`). Un
 téléchargement interrompu ne coûte donc **rien** en ressource retenue.
 
+### Une source qui n'est pas un fichier — `renderStream()`
+
+La sortie d'un processus (ffmpeg, `tar`), le corps d'un `fetch()` relayé, une archive construite à
+la volée : `renderStream(source, options?)` (`Controller.ts#Controller.renderStream`) répond par
+ce flux d'octets, en HTTP/1.1 comme en HTTP/2. La réponse est prise à l'appel, ses en-têtes partent
+au premier morceau, et la source est **détruite** à la fin quelle qu'en soit la raison. La promesse
+ne rejette jamais : elle rend `{ reason, bytes }`.
+
+```typescript
+const ff = spawn("ffmpeg", args, {
+  stdio: ["ignore", "pipe", "ignore"],
+  windowsHide: true,
+});
+try {
+  await this.renderStream(ff.stdout, {
+    headers: { "content-type": "video/mp4" },
+  });
+} finally {
+  ff.kill("SIGKILL"); // le flux est fini, quelle qu'en soit la raison
+}
+```
+
+Page complète — options, raisons de fin, erreurs avant et après le premier octet, relais `fetch`,
+pièges : [Flux d'octets](../../http/docs/byte-stream.md). Pour des **événements texte** lus par
+`EventSource`, voir [Flux SSE](../../http/docs/sse.md).
+
 ## ⚠️ Erreurs — lever, rendre, observer
 
 La règle est simple : **on lève, on ne rend pas d'erreur à la main.**

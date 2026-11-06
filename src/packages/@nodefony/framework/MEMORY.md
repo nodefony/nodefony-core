@@ -239,6 +239,12 @@ Protège une **mutation** (POST/PUT/PATCH/DELETE ; no-op GET/HEAD/WEBSOCKET) con
 
 **Metadata keys exportées** : `HTTP_CODE_METADATA`, `HEADERS_METADATA`, `REDIRECT_METADATA`, `PARAM_ARGS_METADATA`, `RedirectMeta`, `ParamMeta`, `ParamSource` + `RouteActionMeta`, `computeActionMeta`, `resolveActionMeta`.
 
+## Réponses en flux — `renderSse` / `renderStream`
+
+- Habillages MINCES de `HttpContext.openSse` / `HttpContext.openStream` (http) : 500 hors HTTP, rien d'autre. Le cycle de vie (prise de la réponse, session, gardes, parité) vit dans http (`StreamLifecycle`, cf `http/MEMORY.md`).
+- `renderStream(source, options?)` → `Promise<{reason,bytes}>` qui ne rejette JAMAIS. `return this.renderStream(…)` est sûr : le Resolver reçoit un objet, `sended` est vrai → rien n'est renvoyé par-dessus (`Resolver.returnController`).
+- Processus fils : `try { await this.renderStream(child.stdout) } finally { child.kill("SIGKILL") }` — la source est détruite par le flux (EPIPE libère un producteur bloqué), le `kill` arrête ce qu'on a lancé.
+
 ## Resolver Pipeline (détail)
 
 ```

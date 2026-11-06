@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-11-03
+updated: 2026-11-06
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-load-test/SKILL.md"
 ---
@@ -33,7 +33,7 @@ source: ".claude/skills/nodefony-load-test/SKILL.md"
 | Description | 1023 / 1024 caractères |
 | Déclencheurs | 16 |
 | Ressources `references/` | 5 page(s) |
-| Scripts | 79 |
+| Scripts | 80 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -80,7 +80,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
 | `references/ab-perf-mono-prod.md` | Niveau 3 — A/B perf mono prod : détails | 148 |
-| `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 413 |
+| `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 414 |
 | `references/profil-compare.md` | Profil comparé — le coût d'une requête face à un témoin équitable | 88 |
 | `references/protocoles-bancs-charge.md` | Protocoles détaillés des bancs de charge les plus utilisés | 237 |
 | `references/reperes-empiriques.md` | Repères empiriques — pour situer un résultat | 30 |
@@ -104,6 +104,7 @@ script, donc toujours à jour après régénération.
 | `scripts/bisect-perf.sh` | Bissection d'une RÉGRESSION de coût par requête — quel commit a fait monter le ratio Nodefony / témoin du profil comparé ? | `--date` `--detach` `--format` `--no-audit` `--no-fund` `--short` `--step` | `BAD` `NF_BISECT_WT` `THRESHOLD` `WITNESS` |
 | `scripts/boot-bench.mjs` | boot-bench.mjs — mesure le temps de boot d'un mode Nodefony (du spawn jusqu'à ce que les serveurs écoutent) et compte le nombre de `new Kernel()` via NF_KERNEL_TRACE_FILE. | `--workers` | — |
 | `scripts/boot-profile.mjs` | boot-profile.mjs — AUDIT fin du boot Nodefony. Capture la sortie horodatée d'un boot (jusqu'à "Server Listen on http") et révèle où part le temps : - jalons de phase (onPreStart→onPostReady + Server Listen) avec leur t (ms depuis le 1er log) - top des plus gros écarts entre 2 logs consécutifs (= opérations lentes du boot) | `--workers` | — |
+| `scripts/byte-stream-overhead.mjs` | Surcoût d'un flux d'octets du framework face au plancher `source.pipe(res)`. | `--mb` `--quick` `--runs` | `RUNS` |
 | `scripts/capacity-html.mjs` | capacity-html.mjs — rendu du rapport de capacité. | — | `PAYLOAD` `REPEAT` |
 | `scripts/capacity.mjs` | capacity.mjs — BANC DE CAPACITÉ + rapport de dimensionnement. | `--capacity` `--json` `--out` `--rupture` `--seconds` `--short` `--skip-ws` `--sockets` `--target` | `HOST` `JSON_OUT` `MAX_SPREAD` `MIN_ELU_SAMPLES` `MIN_R2` `NF_ADMIN_PASSWORD` `NF_ADMIN_USER` `NF_HOST` `NF_PORT` `NF_PORT_HTTPS` `OUT` `PAYLOAD` `PCLR` `PTLS` `REPEAT` `ROUTE` |
 | `scripts/cluster-health-endpoint-e2e.mjs` | Preuve BOUT-EN-BOUT de la forme JSON de l'ENDPOINT santé en mode cluster — ce que le panneau Studio « Realtime Hub » (vue pod) consomme réellement. | — | `E2E_ROLE` `SETTLE` |
@@ -183,6 +184,7 @@ import { benchOut } from "./bench-out.mjs"
 JSON_OUT=tmp/sink.json node .claude/skills/nodefony-load-test/scripts/log-sink-contention.mjs
 Usage : node scripts/boot-bench.mjs <runs> -- <args nodefony...>
 Usage : node scripts/boot-profile.mjs -- production --workers 1
+Usage : node byte-stream-overhead.mjs [--runs 21] [--mb 256] [--quick]
 node .claude/skills/nodefony-load-test/scripts/capacity.mjs
 node .claude/skills/nodefony-load-test/scripts/cluster-health-endpoint-e2e.mjs
 node .claude/skills/nodefony-load-test/scripts/cluster-ipc.mjs

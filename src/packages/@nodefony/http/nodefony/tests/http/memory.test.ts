@@ -505,6 +505,10 @@ const ACTIONS = {
   // doivent tous être libérés.
   sseServerClose: () => sseStream("/nodefony/test/sse/three", false),
   sseClientLeave: () => sseStream("/nodefony/test/sse/hold", true),
+  // Flux d'OCTETS (#724) : même cycle de vie que le SSE, source Node dans le
+  // processus — finie (fin propre), ou tenue jusqu'au départ du client.
+  streamServerEnd: () => sseStream("/nodefony/test/stream/end", false),
+  streamClientLeave: () => sseStream("/nodefony/test/stream/hold", true),
   // Handshake REFUSÉ avant le 101 (#596) : un anonyme sur la zone protégée
   // reçoit 401 sans qu'aucune socket s'ouvre. C'est le chemin qu'un flot
   // d'anonymes martèle : contexte, scope, session et pare-feu y naissent puis
@@ -570,6 +574,8 @@ const WARMUP = {
   proxyWs: 300,
   sseServerClose: 400,
   sseClientLeave: 300,
+  streamServerEnd: 400,
+  streamClientLeave: 300,
   // Sessions HTTP/2 neuves : échauffées DANS leur test (`SESSION_WARMUP`), pas
   // ici. Une rétention bornée au délai de session (30 s, cf `http2Limits.ts`)
   // ne se voit que si tout le scénario tient dans ce délai : échauffées en tête
@@ -753,6 +759,22 @@ describe("Memory leaks — HTTP (requires server)", function () {
       "SSE streams left by the client",
       plan("sseClientLeave", 100),
       THRESHOLDS.sseClientLeave,
+    );
+  });
+
+  it("byte streams ended by their source — retains nothing per stream", async () => {
+    await httpLoop(
+      "byte streams ended by their source",
+      plan("streamServerEnd", 150),
+      THRESHOLDS.streamServerEnd,
+    );
+  });
+
+  it("byte streams left by the client — retains nothing per stream", async () => {
+    await httpLoop(
+      "byte streams left by the client",
+      plan("streamClientLeave", 100),
+      THRESHOLDS.streamClientLeave,
     );
   });
 

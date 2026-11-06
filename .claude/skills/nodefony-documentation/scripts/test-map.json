@@ -911,5 +911,14 @@
       "src/nodefony/src/tests/cborJson.test.ts",
       "src/nodefony/src/tests/cborLazy.test.ts"
     ]
+  },
+  "byte-stream": {
+    "unit": [
+      "src/packages/@nodefony/http/nodefony/tests/unit/streamLifecycleParity.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/http/nodefony/tests/http/byteStream.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/http/streamLifecycle.test.ts"
+    ]
   }
 }

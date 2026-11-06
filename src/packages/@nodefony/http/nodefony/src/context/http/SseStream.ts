@@ -1,6 +1,11 @@
 import http from "node:http";
 import type HttpContext from "./HttpContext";
-import { openStreamLifecycle, type StreamLifecycle } from "./StreamLifecycle";
+import {
+  checkStreamTimer,
+  MAX_TIMER_MS,
+  openStreamLifecycle,
+  type StreamLifecycle,
+} from "./StreamLifecycle";
 import type { DefaultEventsMap, EventNames, EventsMap } from "nodefony";
 
 /**
@@ -80,12 +85,6 @@ export const SSE_HEARTBEAT_MS = 15_000;
 export const SSE_STALL_TIMEOUT_MS = 30_000;
 /** Taille maximale d'un événement par défaut, en octets (1 Mio). */
 export const SSE_MAX_EVENT_BYTES = 1_048_576;
-/**
- * Plus long délai qu'un minuteur sait tenir (2^31-1 ms). Au-delà, Node le
- * ramène à 1 ms : un `retry` qui le dépasse ferait reconnecter le client en
- * rafale, un battement qui le dépasse battrait mille fois par seconde.
- */
-const MAX_TIMER_MS = 2_147_483_647;
 /** Commentaire de battement de cœur — ignoré par tout client conforme. */
 const HEARTBEAT = ":\n\n";
 /** Fin de ligne : CRLF, CR ou LF (§9.2.5). */
@@ -132,20 +131,6 @@ function serialize(data: unknown): string {
   }
   const json: unknown = JSON.stringify(data);
   return typeof json === "string" ? json : "";
-}
-
-/**
- * Refuse une option de délai hors de ce qu'un minuteur sait tenir.
- *
- * @throws RangeError quand la valeur n'est ni `false` ni un entier entre 1 et 2^31-1.
- */
-function checkTimer(name: string, value: number | false | undefined): void {
-  if (value === undefined || value === false) return;
-  if (!Number.isInteger(value) || value < 1 || value > MAX_TIMER_MS) {
-    throw new RangeError(
-      `SSE : ${name} entier entre 1 et ${MAX_TIMER_MS} ms, ou false, attendu`,
-    );
-  }
 }
 
 /** Ce que le flux reçoit de son ouverture, options résolues. */
@@ -405,9 +390,9 @@ export function openSseStream<Events extends EventsMap = DefaultEventsMap>(
   context: HttpContext,
   options: ISseStreamOptions = {},
 ): SseStream<Events> | Promise<SseStream<Events>> {
-  checkTimer("heartbeat", options.heartbeat);
-  checkTimer("stallTimeout", options.stallTimeout);
-  checkTimer("maxDuration", options.maxDuration);
+  checkStreamTimer("SSE", "heartbeat", options.heartbeat);
+  checkStreamTimer("SSE", "stallTimeout", options.stallTimeout);
+  checkStreamTimer("SSE", "maxDuration", options.maxDuration);
   const maxEventBytes = options.maxEventBytes ?? SSE_MAX_EVENT_BYTES;
   if (!Number.isInteger(maxEventBytes) || maxEventBytes < 1) {
     throw new RangeError("SSE : maxEventBytes entier positif attendu");

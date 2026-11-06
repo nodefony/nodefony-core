@@ -215,7 +215,7 @@ le même qui relit le flux dans les tests du serveur.
 ## 🏗️ Architecture interne — ce que fait l'ouverture
 
 L'ouverture repose sur le **cycle de vie commun aux réponses en flux**
-(`StreamLifecycle.ts#openStreamLifecycle`, non exporté) — la même brique servira le flux d'octets :
+(`StreamLifecycle.ts#openStreamLifecycle`, non exporté) — la même brique sert le [flux d'octets](byte-stream.md) :
 
 1. **La réponse est prise** (`context.sended`) : plus rien ne peut répondre à la place du flux.
 2. **Le transport se constate** : flux HTTP/2, ou réponse HTTP/1.1 ; ni l'un ni l'autre → 500,

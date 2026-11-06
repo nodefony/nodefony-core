@@ -7447,6 +7447,35 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/byte-stream-overhead.mjs",
+            "purpose": "Surcoût d'un flux d'octets du framework face au plancher `source.pipe(res)`.",
+            "usage": [
+              "Usage : node byte-stream-overhead.mjs [--runs 21] [--mb 256] [--quick]"
+            ],
+            "options": [
+              {
+                "flag": "--mb",
+                "help": ""
+              },
+              {
+                "flag": "--quick",
+                "help": ""
+              },
+              {
+                "flag": "--runs",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "RUNS",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/capacity-html.mjs",
             "purpose": "capacity-html.mjs — rendu du rapport de capacité.",
             "usage": [],

@@ -1,9 +1,14 @@
 /// <reference types="node" />
 import { expect } from "vitest";
-import http from "node:http";
-import http2 from "node:http2";
 import net from "node:net";
 import { IS_PROD_TARGET } from "../helpers/targetEnv";
+import {
+  H1,
+  TRANSPORTS,
+  openFlow as open,
+  pause,
+  until,
+} from "../helpers/streamClient";
 
 /**
  * Table de PARITÉ du cycle de vie d'une réponse en flux (#724).
@@ -25,115 +30,15 @@ import { IS_PROD_TARGET } from "../helpers/targetEnv";
  * d'inactivité désarmé (30 s par défaut).
  */
 
-const H1 = "http://localhost:5151";
-const H2 = "https://localhost:5152";
-const H2C = "http://localhost:5153";
-
 interface IKind {
   name: string;
   base: string;
 }
 
-const KINDS: IKind[] = [{ name: "SSE", base: "/nodefony/test/sse" }];
-
-type Transport = "HTTP/1.1" | "HTTP/2" | "h2c";
-const TRANSPORTS: Transport[] = ["HTTP/1.1", "HTTP/2", "h2c"];
-
-/** Comment le client a vu la réponse finir : fin propre, ou coupure. */
-type Ending = "end" | "abort";
-
-interface IFlow {
-  status: number;
-  headers: Record<string, string | string[] | undefined>;
-  raw: string;
-  /** Réglée au premier morceau du corps. */
-  first: Promise<void>;
-  /** Réglée à la fin vue par le client. */
-  done: Promise<Ending>;
-  /** Le client s'en va : HTTP/1.1 détruit la socket, HTTP/2 annule le flux seul. */
-  leave(): void;
-  /** Libère la session HTTP/2 du client (sans effet en HTTP/1.1). */
-  dispose(): void;
-}
-
-/** Ouvre une réponse en HTTP/1.1 et rend la main à l'arrivée des en-têtes. */
-function openH1(path: string): Promise<IFlow> {
-  return new Promise((resolve, reject) => {
-    let settleFirst!: () => void;
-    let settleDone!: (e: Ending) => void;
-    const first = new Promise<void>((r) => (settleFirst = r));
-    const done = new Promise<Ending>((r) => (settleDone = r));
-    const req = http.request(`${H1}${path}`, (res) => {
-      const flow: IFlow = {
-        status: res.statusCode ?? 0,
-        headers: res.headers,
-        raw: "",
-        first,
-        done,
-        leave: () => req.destroy(),
-        dispose: () => undefined,
-      };
-      res.setEncoding("utf8");
-      res.on("data", (chunk: string) => {
-        flow.raw += chunk;
-        settleFirst();
-      });
-      res.on("end", () => settleDone("end"));
-      res.on("close", () => settleDone(res.complete ? "end" : "abort"));
-      resolve(flow);
-    });
-    req.on("error", (e) => {
-      settleDone("abort");
-      reject(e);
-    });
-    req.end();
-  });
-}
-
-/** Même ouverture en HTTP/2, chiffré ou en clair (h2c). */
-function openH2(path: string, origin: string): Promise<IFlow> {
-  return new Promise((resolve, reject) => {
-    let settleFirst!: () => void;
-    let settleDone!: (e: Ending) => void;
-    const first = new Promise<void>((r) => (settleFirst = r));
-    const done = new Promise<Ending>((r) => (settleDone = r));
-    const session = http2.connect(origin, { rejectUnauthorized: false });
-    session.on("error", reject);
-    const req = session.request({ ":path": path, ":method": "GET" });
-    const flow: IFlow = {
-      status: 0,
-      headers: {},
-      raw: "",
-      first,
-      done,
-      leave: () => req.close(http2.constants.NGHTTP2_CANCEL),
-      dispose: () => session.close(),
-    };
-    req.on("response", (headers) => {
-      flow.status = Number(headers[":status"]);
-      flow.headers = headers;
-      resolve(flow);
-    });
-    req.setEncoding("utf8");
-    req.on("data", (chunk: string) => {
-      flow.raw += chunk;
-      settleFirst();
-    });
-    req.on("end", () => settleDone("end"));
-    req.on("close", () =>
-      settleDone(
-        req.rstCode === http2.constants.NGHTTP2_NO_ERROR ? "end" : "abort",
-      ),
-    );
-    req.on("error", () => settleDone("abort"));
-    req.end();
-  });
-}
-
-function open(transport: Transport, path: string): Promise<IFlow> {
-  if (transport === "HTTP/1.1") return openH1(path);
-  return openH2(path, transport === "HTTP/2" ? H2 : H2C);
-}
+const KINDS: IKind[] = [
+  { name: "SSE", base: "/nodefony/test/sse" },
+  { name: "flux d'octets", base: "/nodefony/test/stream" },
+];
 
 interface IState {
   opened: number;
@@ -151,16 +56,6 @@ async function getState(
   const res = await fetch(`${H1}${kind.base}/${route}`);
   return (await res.json()) as IState;
 }
-
-async function until(check: () => Promise<boolean>, ms = 3000): Promise<void> {
-  const end = Date.now() + ms;
-  while (!(await check())) {
-    if (Date.now() > end) throw new Error("délai dépassé");
-    await new Promise((r) => setTimeout(r, 25));
-  }
-}
-
-const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 for (const kind of KINDS) {
   describe(`Parité du cycle de vie — ${kind.name} (requires server)`, () => {

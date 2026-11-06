@@ -292,6 +292,15 @@ export type {
   ISseStreamOptions,
   ISseSendOptions,
 } from "./nodefony/src/context/http/SseStream";
+// Flux d'OCTETS — sortie d'un processus, relais d'un service, archive à la
+// volée. Le raccourci de contrôleur est `this.renderStream()`.
+export { openByteStream } from "./nodefony/src/context/http/ByteStream";
+export type {
+  ByteStreamEndReason,
+  ByteStreamSource,
+  IByteStreamOptions,
+  IByteStreamResult,
+} from "./nodefony/src/context/http/ByteStream";
 
 // Détecteur UNIQUE du « schéma en retard sur le code ». Publié parce qu'il a
 // plusieurs lecteurs hors de ce paquet — le rechargement d'un instantané au

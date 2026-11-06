@@ -154,6 +154,12 @@ import {
   type ISseStreamOptions,
   type SseStream,
 } from "./SseStream";
+import {
+  openByteStream,
+  type ByteStreamSource,
+  type IByteStreamOptions,
+  type IByteStreamResult,
+} from "./ByteStream";
 
 class HttpContext extends Context implements IHttpContextInterface {
   //url: string;
@@ -716,6 +722,30 @@ class HttpContext extends Context implements IHttpContextInterface {
     options?: ISseStreamOptions,
   ): SseStream<Events> | Promise<SseStream<Events>> {
     return openSseStream<Events>(this, options);
+  }
+
+  /**
+   * Répond par un FLUX D'OCTETS : un `<video src>`, un `fetch()`, un
+   * téléchargement ou un outil tiers (curl) le consomment comme n'importe quelle
+   * réponse HTTP, une réponse par consommateur.
+   *
+   * La réponse est prise à l'appel, ses en-têtes partent au premier morceau de
+   * la source. La source est DÉTRUITE à la fin, quelle qu'en soit la raison
+   * (jamais `unpipe`, qui laisse un producteur bloqué en écriture). Pour des
+   * événements texte lus par `EventSource`, voir {@link HttpContext.openSse}.
+   * Dans un middleware, la requête est répondue : ne pas appeler la suite.
+   *
+   * @param source - flux Node, ou flux web (`fetch().body`) ; jamais en mode objet.
+   * @param options - statut, en-têtes, délais, écouteur de fin.
+   * @returns la raison de la fin et le nombre d'octets ; ne rejette jamais.
+   * @throws HttpError 500 quand la réponse est déjà partie, 429 au-delà du
+   *   plafond de connexions par IP ; TypeError pour une source en mode objet.
+   */
+  openStream(
+    source: ByteStreamSource,
+    options?: IByteStreamOptions,
+  ): Promise<IByteStreamResult> {
+    return openByteStream(this, source, options);
   }
 
   flush(chunk: unknown, encoding: BufferEncoding) {
