@@ -25,7 +25,7 @@
 //
 import { expect } from "vitest";
 import { fileURLToPath } from "node:url";
-import { PassThrough, type Readable } from "node:stream";
+import type { Readable } from "node:stream";
 import {
   BootConfigurationError,
   Container,
@@ -37,6 +37,7 @@ import {
   injectable,
 } from "nodefony";
 import type { Injector, Scope as DIScope } from "nodefony";
+import { HttpContext } from "@nodefony/http";
 import type { ContextType, HttpResponse } from "@nodefony/http";
 import Controller from "../../src/Controller.js";
 import Resolver from "../../src/Resolver.js";
@@ -461,56 +462,47 @@ describe("Contrôleur singleton — pont api.request", () => {
   });
 });
 
-// ── (6) streamFile — écouteurs hors bulle ALS ────────────────────────────────
+// ── (6) streamFile — contexte lu dans la bulle ALS ─────────────────────────
 describe("Contrôleur singleton — streamFile", () => {
   class Streamer extends Controller {}
 
-  it("une réponse fermée en plein flux, HORS de la bulle ALS, termine quand même le contexte de la requête", async () => {
-    const calls = { end: 0 };
-    // Réponse qui ne lit rien : la contre-pression met le flux en pause avant
-    // sa fin, et c'est la fermeture de la réponse qui doit le terminer.
-    const raw = new PassThrough({ highWaterMark: 1 });
+  it("le flux est confié au contexte de la REQUÊTE, même quand sa fin tombe hors de la bulle ALS", async () => {
+    const { ctx } = makeCtx("stream", "production");
     const response = {
-      response: raw,
-      // Retrait d’en-tête : sur la réponse du contexte, jamais sur la brute.
       removeHeader() {},
       statusCode: 200,
       setFileMimeType() {},
     };
-    const { ctx } = makeCtx("stream", "production");
-    const live = ctx as unknown as Record<string, unknown>;
-    live.response = response as unknown as HttpResponse;
-    live.finished = false;
-    live.writeHead = () => {};
-    live.end = () => {
-      calls.end++;
-    };
+    // Contexte HTTP : la fin du flux appartient à la brique (`openStream`) —
+    // ce qui compte ici, c'est QUEL contexte la reçoit.
+    let markOpened!: (on: unknown) => void;
+    const openedOn = new Promise<unknown>((r) => (markOpened = r));
+    let finish!: () => void;
+    Object.setPrototypeOf(ctx, HttpContext.prototype);
+    Object.defineProperty(ctx, "response", {
+      value: response as unknown as HttpResponse,
+    });
+    Object.defineProperty(ctx, "openStream", {
+      value(this: unknown, source: Readable) {
+        markOpened(this);
+        return new Promise((resolve) => {
+          finish = () => {
+            source.destroy();
+            resolve({ reason: "client", bytes: 0 });
+          };
+        });
+      },
+    });
 
     const c = new Streamer("streamer", ctx);
-    let source: Readable | null = null;
-    raw.once("pipe", (src: Readable) => (source = src));
     const done = RequestContext.run({ requestId: "stream", context: ctx }, () =>
-      c.streamFile(HERE, {}, { highWaterMark: 16 }),
+      c.streamFile(HERE),
     );
-    // Attendre que la lecture anticipée ait REMPLI son tampon : aucune lecture
-    // n'est plus alors en vol. Sans cette attente, `fs.ReadStream` retarde sa
-    // fermeture jusqu'au retour de la lecture en cours — lancée DANS la bulle
-    // — et le chemin fautif n'est jamais exercé (vu : test vert sur le code
-    // fautif). Borne en TEMPS, pas en tours : mille `setImmediate` durent
-    // quelques millisecondes, moins qu'une lecture disque sur un exécuteur de
-    // CI chargé (vu : tampon vide à l'assertion, sur ubuntu).
-    const deadline = Date.now() + 5000;
-    while (Date.now() < deadline) {
-      const s = source as Readable | null;
-      if (s !== null && s.readableLength >= s.readableHighWaterMark) break;
-      await new Promise((r) => setTimeout(r, 1));
-    }
-    const filled = source as Readable | null;
-    expect(filled?.readableLength).to.be.at.least(16);
+    expect(await openedOn, "ouvert sur le contexte de la bulle").to.equal(ctx);
     // Ici, plus aucune bulle ALS : le client raccroche.
     expect(RequestContext.get()).to.equal(undefined);
-    raw.emit("close");
-    await done;
-    expect(calls.end).to.equal(1);
+    finish();
+    const stream = await done;
+    expect(stream.destroyed).to.equal(true);
   });
 });

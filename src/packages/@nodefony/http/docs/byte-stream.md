@@ -125,8 +125,9 @@ transfer-encoding: chunked
 ```
 
 - Aucun `Content-Length` n'est connu : HTTP/1.1 envoie par morceaux, HTTP/2 n'annonce rien.
-- `Cache-Control: no-cache, no-transform` et `X-Accel-Buffering: no` sont posés **s'ils manquent** :
-  un proxy inverse ne met pas le flux en tampon, et ne le recompresse pas.
+- `Cache-Control: no-cache, no-transform` et `X-Accel-Buffering: no` sont posés **s'ils manquent** —
+  ni dans `headers`, ni déjà sur la réponse : un proxy inverse ne met pas le flux en tampon, et ne le
+  recompresse pas. Pour une source FINIE et rejouable (fichier, archive), `live: false` les retire.
 - Couper `curl` en route : la promesse rend `reason: "client"`, la source est détruite, `tar` reçoit
   `EPIPE` et s'arrête.
 
@@ -153,11 +154,18 @@ connexion amont, un producteur enfant ne reste pas bloqué en écriture.
 | Option         | Rôle                                                                                                      | Défaut                                   |
 | -------------- | --------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
 | `status`       | statut de la réponse, 200 à 599                                                                           | 200                                      |
-| `headers`      | en-têtes, écrits au premier morceau ; `Content-Length` repris s'il est fourni                             | `Content-Type: application/octet-stream` |
+| `headers`      | en-têtes, écrits au premier morceau ; `Content-Length` repris s'il est fourni, et TENU (ci-dessous)       | `Content-Type: application/octet-stream` |
+| `live`         | flux vivant : `no-cache` et `X-Accel-Buffering: no` par défaut ; `false` pour un fichier, une archive     | `true`                                   |
 | `idleTimeout`  | délai maximal sans un octet de la source, ms ; `0` le désarme ; coupure entre 1 et 1,25 × ce délai        | délai de réponse du serveur (30 s)       |
 | `stallTimeout` | délai maximal d'une écriture bloquée (le client ne lit plus), ms ; `false` l'éteint                       | 30 000                                   |
 | `maxDuration`  | durée de vie du flux, ms ; il est fermé ensuite                                                           | `false` — pas de borne                   |
 | `onClose`      | `(reason) => void`, appelé une fois, AVANT la fin de la requête et la résolution ; lié à la requête (ALS) | aucun                                    |
+
+**`Content-Length` est tenu.** Annoncé — dans `headers` ou déjà posé sur la réponse —, le corps
+fait exactement cette longueur (RFC 9112 §6.3 ; en HTTP/2, RFC 9113 §8.1.1 : sinon la réponse est
+malformée). Contredit dès le premier morceau : rien n'est parti, page d'erreur 500. Après : coupure,
+jamais une fin propre — un client HTTP/1.1 attendrait sinon l'octet manquant, ou lirait l'excédent
+comme le début de la réponse suivante. `HEAD` excepté : la longueur annoncée y est celle du GET.
 
 Les raisons de fin (`ByteStreamEndReason`, `ByteStream.ts#ByteStreamEndReason`) :
 
@@ -303,6 +311,9 @@ deux campagnes) : `renderStream` face au plancher `source.pipe(res)` écrit à l
 | -------- | --------------- | --------------- |
 | 64 Kio   | −1,7 % / −2,0 % | +1,6 % / +1,1 % |
 | 4 Kio    | −2,4 % / −0,2 % | +2,5 % / +0,1 % |
+
+Un fichier servi par `streamFile()` (`live: false`, longueur tenue) face à
+`createReadStream().pipe(res)`, même banc : débit +1,4 %, CPU +2,3 % — dans le bruit, lui aussi.
 
 Les écarts restent dans le bruit du banc. Deux choix les tiennent là : un écouteur `drain`
 **permanent** (un `once` par épisode de contre-pression coûtait un enrobage par morceau, presque

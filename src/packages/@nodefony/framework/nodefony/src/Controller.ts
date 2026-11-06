@@ -56,16 +56,11 @@ import {
 } from "node:http";
 //import { ServerHttp2Stream } from "node:http2";
 import fs, { createReadStream, ReadStream } from "node:fs";
-import { promisify } from "node:util";
 import { Readable } from "node:stream";
 import Eta from "../service/Eta";
 import { isDevelopment, singletonWriteMessage } from "./singletonGuard";
 import { signTemplateTags, VIEW_NONCE_LOCAL } from "./viewNonce";
-const fsClose = promisify(fs.close);
 
-interface ReadStreamWithFD extends ReadStream {
-  fd: number;
-}
 // Définir les options pour le flux de lecture
 
 type ReadStreamOptions = {
@@ -171,6 +166,42 @@ export function parseByteRange(
  */
 export type ControllerScope = "request" | "singleton";
 
+/** Une HTTP-date déjà passée (RFC 9110 §5.6.7) : le début de l'ère Unix. */
+const EXPIRED_HTTP_DATE = "Thu, 01 Jan 1970 00:00:00 GMT";
+
+/**
+ * Encode une valeur en `ext-value` UTF-8 (RFC 8187 §3.2) : tout ce qui n'est
+ * pas un `attr-char` part en pourcentage — `encodeURIComponent` laisse passer
+ * `'`, `(`, `)` et `*`, qui n'en sont pas.
+ */
+function encodeExtValue(value: string): string {
+  return encodeURIComponent(value).replace(
+    /['()*]/g,
+    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+}
+
+/**
+ * Valeur d'un en-tête `Content-Disposition` (RFC 6266) pour un nom de fichier
+ * QUELCONQUE. `filename` seul quand le nom s'y écrit fidèlement ; sinon un
+ * repli ASCII, suivi de `filename*` en UTF-8 (RFC 6266 §4.3 : le destinataire
+ * prend `filename*`). Le repli remplace par `_` ce que l'annexe D écarte :
+ * hors ASCII imprimable, `"`, `\` et `%` — un nom accentué ne lève donc
+ * jamais `ERR_INVALID_CHAR`, et un guillemet ne casse pas la valeur.
+ *
+ * @param type - `attachment` (téléchargement) ou `inline` (affiché).
+ * @param name - le nom du fichier, tel quel.
+ * @returns la valeur de l'en-tête.
+ */
+function contentDisposition(
+  type: "attachment" | "inline",
+  name: string,
+): string {
+  const fallback = name.replace(/[^\x20-\x7e]|["\\%]/g, "_");
+  if (fallback === name) return `${type}; filename="${name}"`;
+  return `${type}; filename="${fallback}"; filename*=UTF-8''${encodeExtValue(name)}`;
+}
+
 /**
  * Ce qu'un contrôleur singleton lit du résolveur d'un appel du pont
  * `api.request` — clé `resolver` de `RequestContext` : la route et la query du
@@ -179,17 +210,6 @@ export type ControllerScope = "request" | "singleton";
 interface IInvocationResolver {
   readonly route?: unknown;
   readonly queryOverride?: Record<string, unknown> | null;
-}
-
-/**
- * Garantit une `Error` comme motif de rejet : une valeur levée par un tiers
- * (`fs`, flux) peut être n'importe quoi.
- *
- * @param e - valeur interceptée.
- * @returns `e` si c'est déjà une `Error`, sinon une `Error` qui en porte le texte.
- */
-function asError(e: unknown): Error {
-  return e instanceof Error ? e : new Error(String(e));
 }
 
 class Controller extends Service implements IController {
@@ -957,14 +977,15 @@ class Controller extends Service implements IController {
     const File = await this.getFileAsync(file);
     const length = File.stats.size;
     const head = {
-      "Content-Disposition": `attachment; filename="${File.name}"`,
+      "Content-Disposition": contentDisposition("attachment", File.name),
       "Content-Length": length,
-      Expires: "0",
+      // Déjà périmé pour un cache — en HTTP-date valide (RFC 9111 §5.3) : « 0 »
+      // n'en est pas une, seul un cache est tenu de la lire comme passée.
+      Expires: EXPIRED_HTTP_DATE,
       "Content-Description": "File Transfer",
       "Content-Type": File.mimeType || "application/octet-stream",
       ...headers,
     };
-    // `streamFile` journalise déjà ses propres échecs.
     return this.streamFile(File, head, options);
   }
 
@@ -979,128 +1000,70 @@ class Controller extends Service implements IController {
    * `Content-Range`). Annoncer `Accept-Ranges: bytes` depuis ici est un piège :
    * le client croit pouvoir se déplacer et reçoit tout le fichier.
    *
-   * Ce que cette méthode garantit et qui justifie son existence : le NETTOYAGE.
-   * Le flux est ouvert en `autoClose: false` ; un client qui raccroche en plein
-   * téléchargement laisserait sinon un descripteur ouvert et une promesse pendue.
+   * Le cycle de vie est celui de toute réponse en flux
+   * ({@link Controller.renderStream}) : la réponse est prise à l'appel, les
+   * en-têtes partent au premier morceau, le flux est DÉTRUIT (descripteur
+   * fermé) quand le client raccroche. Un fichier illisible à l'ouverture
+   * (`EACCES`) rend la page d'erreur ordinaire, 500 ; une lecture qui échoue
+   * en cours de route coupe la connexion. Sans `Cache-Control` par défaut (un
+   * fichier se met en cache) et sans délai d'inactivité (un disque n'est pas une
+   * source muette).
    *
    * @param file - chemin ou `FileClass` du fichier à servir.
    * @param headers - en-têtes ajoutés à la réponse (le type MIME est déduit si absent).
    * @param options - options de `createReadStream` (`start`/`end` pour un extrait).
-   * @returns le flux de lecture, une fois la réponse écoulée.
-   * @throws Si la réponse n'est pas disponible, ou si le fichier est illisible.
+   * @returns le flux de lecture, une fois la réponse écoulée — détruit, quelle
+   *   que soit la fin.
+   * @throws HttpError 404 si le fichier n'existe pas ; 500 hors HTTP
+   *   (WebSocket) ou quand la réponse est déjà partie.
    */
   async streamFile(
     file: FileClass | string,
     headers?: OutgoingHttpHeaders,
-    options: ReadStreamOptions | undefined = {},
+    options?: ReadStreamOptions,
   ): Promise<ReadStream> {
-    // Le contexte est lu UNE fois, ici, dans la bulle de la requête : les
-    // écouteurs du flux ci-dessous peuvent s'exécuter hors d'elle — un client
-    // qui raccroche pendant que le flux attend émet `close` depuis le contexte
-    // de la SOCKET — et un singleton n'y retrouverait plus sa requête dans
-    // l'ALS. Le contexte ne serait alors jamais terminé.
-    const context = this.context as HttpContext | undefined;
-    if (!this.response) {
-      throw new Error(`response not found`);
+    // Le contexte est lu UNE fois, ici, dans la bulle de la requête : la fin
+    // du flux peut tomber hors d'elle (un client qui raccroche émet `close`
+    // depuis le contexte de la SOCKET), et c'est ce contexte-là qu'elle termine.
+    const context = this.context;
+    if (!(context instanceof HttpContext)) {
+      throw new HttpError(
+        "Flux : un fichier en flux exige une requête HTTP",
+        500,
+        context,
+      );
     }
-    const contextResponse = this.response as HttpResponse | Http2Response;
-    const response = contextResponse.response;
-    if (!response) {
-      throw new Error(`response not found`);
+    const fileDetails = await this.getFileAsync(file);
+    const response = context.response;
+    response.removeHeader("content-type");
+    let head = headers;
+    if (!(head && (head["Content-Type"] || head["content-type"]))) {
+      response.setFileMimeType(fileDetails.name);
     }
-    options.autoClose = false;
-    let streamFile: ReadStreamWithFD;
-    try {
-      const fileDetails = await this.getFileAsync(file);
-
-      contextResponse.removeHeader("content-type");
-      const contentTypeHeader =
-        headers && (headers["Content-Type"] || headers["content-type"]);
-      if (!contentTypeHeader) {
-        (this.response as HttpResponse | Http2Response).setFileMimeType(
-          fileDetails.name,
-        );
-      }
-      const contentLength =
-        headers && (headers["Content-Length"] || headers["content-length"]);
-      if (!contentLength) {
-        headers ??= {};
-        contextResponse.removeHeader("content-length");
-        headers["Content-Length"] = fileDetails.stats.size;
-      }
-      streamFile = createReadStream(
-        fileDetails.path as fs.PathLike,
-        options,
-      ) as ReadStreamWithFD;
-    } catch (e) {
-      this.log(e, "ERROR");
-      throw e;
+    // La lecture est BORNÉE à la taille relevée : un fichier qui grossit
+    // pendant l'envoi (un journal) enverrait sinon plus que `Content-Length`.
+    // Et la longueur annoncée est celle de l'EXTRAIT lu (`start`/`end`).
+    const size = fileDetails.stats.size;
+    const start = options?.start ?? 0;
+    const end = Math.min(options?.end ?? size - 1, size - 1);
+    const length = Math.max(0, end - start + 1);
+    if (!(head && (head["Content-Length"] || head["content-length"]))) {
+      response.removeHeader("content-length");
+      head = { ...head, "Content-Length": length };
     }
-    // Hors du `try` : le flux journalise lui-même ses échecs (handlers
-    // ci-dessous) — l'`await` qu'exigerait un `return` dans le `try` les
-    // aurait journalisés deux fois.
-    return new Promise((resolve, reject) => {
-      let handled = false;
-      // R5 — client parti pendant le stream : la destination morte unpipe le
-      // ReadStream qui reste alors PAUSÉ, fd ouvert (`autoClose:false`), sans
-      // émettre `end`/`close` → fd fuit + promesse pendue. `destroy()` émet
-      // `close` → `handleStreamEnd` ferme le fd et résout.
-      const onResponseClose = () => {
-        if (!handled) {
-          streamFile.destroy();
-        }
-      };
-      response.once("close", onResponseClose);
-      streamFile.on("open", () => {
-        try {
-          context?.writeHead(contextResponse.statusCode, headers);
-          streamFile.pipe(response, { end: false });
-        } catch (e) {
-          this.log(e, "ERROR");
-          reject(asError(e));
-        }
-      });
-      // Fin de réponse : `end()` est asynchrone, et son rejet n'avait
-      // jusqu'ici personne pour l'entendre (rejet non géré → process).
-      // `Promise.resolve` : un contexte dont `end()` est synchrone (doublure,
-      // transport tiers) reste accepté ; une promesse native passe telle quelle.
-      const endContext = (): void => {
-        if (context && !context.finished) {
-          Promise.resolve(context.end()).catch((e: unknown) => {
-            this.log(e, "ERROR");
-          });
-        }
-      };
-      const handleStreamEnd = async () => {
-        try {
-          if (handled) return; // Prevent handling multiple times
-          handled = true;
-          response.removeListener("close", onResponseClose);
-          streamFile.unpipe(response);
-          if (streamFile.fd) {
-            await fsClose(streamFile.fd).catch((e: unknown) => {
-              reject(asError(e));
-            });
-          }
-          endContext();
-          resolve(streamFile);
-        } catch (e) {
-          this.log(e, "ERROR");
-          reject(asError(e));
-        }
-      };
-      // `handleStreamEnd` intercepte tout : sa promesse ne rejette jamais.
-      const onStreamEnd = (): void => {
-        void handleStreamEnd();
-      };
-      streamFile.on("end", onStreamEnd);
-      streamFile.on("close", onStreamEnd);
-      streamFile.on("error", (error) => {
-        this.log(error, "ERROR");
-        endContext();
-        reject(error);
-      });
+    // Extrait vide : Node refuse `end < start` ; la lecture reste alors libre,
+    // et la brique coupe tout octet au-delà de la longueur annoncée (0).
+    const stream = createReadStream(
+      fileDetails.path as fs.PathLike,
+      length === 0 ? options : { ...options, end },
+    );
+    await context.openStream(stream, {
+      status: response.statusCode,
+      headers: head,
+      live: false,
+      idleTimeout: 0,
     });
+    return stream;
   }
 
   async renderMediaStream(
@@ -1113,8 +1076,19 @@ class Controller extends Service implements IController {
     // Le `?.` doit porter jusqu'au BOUT : `const { range } = X?.headers`
     // déstructure `undefined` dès que `X` l'est — donc lève exactement le
     // TypeError que l'optional chaining prétendait éviter.
-    const range = (this.request as HttpRequest | Http2Request | undefined)
-      ?.headers.range;
+    // RFC 9110 §14.2 : GET est la SEULE méthode où `Range` a un sens — un
+    // HEAD qui en porte un rend les en-têtes du GET complet, jamais un 206.
+    // §13.1.5 : aucun validateur n'est envoyé (ni `ETag` ni `Last-Modified`),
+    // donc une condition `If-Range` est toujours FAUSSE, et `Range` DOIT
+    // alors être ignoré — sinon un client reprendrait une plage d'un fichier
+    // qui a pu changer, et recollerait deux versions.
+    const requestHeaders = (
+      this.request as HttpRequest | Http2Request | undefined
+    )?.headers;
+    const range =
+      this.method === "GET" && requestHeaders?.["if-range"] === undefined
+        ? requestHeaders?.range
+        : undefined;
     const length = File.stats.size;
     let head: OutgoingHttpHeaders;
     let value: ReadStreamOptions;
@@ -1153,7 +1127,7 @@ class Controller extends Service implements IController {
       head = {
         "Content-Type": File.mimeType || "application/octet-stream",
         "Content-Length": length.toString(),
-        "Content-Disposition": ` inline; filename="${File.name}"`,
+        "Content-Disposition": contentDisposition("inline", File.name),
         "Accept-Ranges": "bytes",
         ...headers,
       };

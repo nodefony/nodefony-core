@@ -212,6 +212,57 @@ describe("Flux d'octets — renderStream (requires server)", () => {
     expectQuietJournal(entries);
   });
 
+  it("Content-Length tenu : le corps fait EXACTEMENT la longueur annoncée", async () => {
+    const res = await fetch(`${H1}${BASE}/length?declared=9`);
+    expect(res.status).to.equal(200);
+    expect(await res.text()).to.equal("prêt fin");
+    expect(await lastResult()).to.deep.equal({ reason: "end", bytes: 9 });
+  });
+
+  it("Content-Length contredit dès le PREMIER morceau : rien n'est parti, page d'erreur 500", async () => {
+    const res = await fetch(`${H1}${BASE}/length?declared=3`);
+    expect(res.status).to.equal(500);
+    await res.text();
+    expect((await lastResult()).reason).to.equal("error");
+  });
+
+  for (const [declared, label] of [
+    ["7", "PLUS LONGUE"],
+    ["12", "PLUS COURTE"],
+  ] as const) {
+    for (const transport of ["HTTP/1.1", ...H2_TRANSPORTS] as Transport[]) {
+      it(`${transport} : source ${label} que Content-Length (${declared}) → COUPURE, jamais une fin propre (RFC 9112 §6.3, RFC 9113 §8.1.1)`, async () => {
+        const read = await journalFrom();
+        const flow = await openFlow(
+          transport,
+          `${BASE}/length?declared=${declared}`,
+        );
+        expect(await flow.done).to.equal("abort");
+        flow.dispose();
+        expect((await lastResult()).reason).to.equal("error");
+        await pause(100);
+        if (transport === "HTTP/1.1") {
+          expect(
+            await accessLine(read, `/length?declared=${declared}`),
+          ).to.match(/^GET\s+500\s/);
+        }
+      });
+    }
+  }
+
+  it("HEAD : la longueur annoncée est celle du GET, aucun corps — jamais une coupure", async () => {
+    const flow = await openFlow(
+      "HTTP/1.1",
+      `${BASE}/length?declared=9`,
+      "HEAD",
+    );
+    expect(flow.status).to.equal(200);
+    expect(flow.headers["content-length"]).to.equal("9");
+    expect(await flow.done).to.equal("end");
+    flow.dispose();
+    expect(await lastResult()).to.deep.equal({ reason: "end", bytes: 0 });
+  });
+
   it("un en-tête refusé au premier morceau rend 500, sans abattre le serveur", async () => {
     const res = await fetch(`${H1}${BASE}/bad-header`);
     expect(res.status).to.equal(500);
@@ -311,6 +362,89 @@ describe("Flux d'octets — renderStream (requires server)", () => {
       upstream.closeAllConnections();
       await new Promise((r) => upstream.close(r));
     }
+  });
+});
+
+/**
+ * `streamFile` (et ses habillages `renderFileDownload`, `renderMediaStream`)
+ * repose sur la même brique : la réponse est prise à l'appel, la ligne d'accès
+ * dit la vérité, et un fichier n'hérite pas des en-têtes d'un flux vivant.
+ */
+describe("Fichier en flux — streamFile sur la brique (requires server)", () => {
+  const HTML = "/nodefony/test/html";
+
+  it("téléchargement servi en ENTIER : 200 au journal d'accès, jamais 499", async () => {
+    const read = await journalFrom();
+    const res = await fetch(`${H1}${HTML}/download`);
+    expect(res.status).to.equal(200);
+    const body = await res.arrayBuffer();
+    expect(body.byteLength).to.equal(Number(res.headers.get("content-length")));
+    await pause(100);
+    expect(await accessLine(read, `${HTML}/download`)).to.match(/^GET\s+200\s/);
+    const entries = await read();
+    expect(errorsOf(entries), "entrées ERROR").to.have.length(0);
+    expectQuietJournal(entries);
+  });
+
+  it("média servi : aucun avertissement « réponse non envoyée »", async () => {
+    const read = await journalFrom();
+    const res = await fetch(`${H1}${HTML}/media`);
+    expect(res.status).to.equal(200);
+    await res.arrayBuffer();
+    await pause(100);
+    const entries = await read();
+    expect(errorsOf(entries), "entrées ERROR").to.have.length(0);
+    expectQuietJournal(entries);
+  });
+
+  it("un fichier n'hérite pas des en-têtes d'un flux VIVANT ; son type et sa taille sont gardés", async () => {
+    const res = await fetch(`${H1}${HTML}/stream`);
+    expect(res.status).to.equal(200);
+    expect(res.headers.get("content-type")).to.match(/^application\/json/);
+    expect(res.headers.get("cache-control")).to.equal(null);
+    expect(res.headers.get("x-accel-buffering")).to.equal(null);
+    const body = await res.arrayBuffer();
+    expect(body.byteLength).to.be.greaterThan(0);
+    expect(body.byteLength).to.equal(Number(res.headers.get("content-length")));
+  });
+
+  for (const transport of ["HTTP/1.1", ...H2_TRANSPORTS] as Transport[]) {
+    it(`${transport} : HEAD d'un téléchargement — en-têtes du GET, aucun corps`, async () => {
+      const flow = await openFlow(transport, `${HTML}/download`, "HEAD");
+      expect(flow.status).to.equal(200);
+      expect(Number(flow.headers["content-length"])).to.be.greaterThan(0);
+      expect(String(flow.headers["content-disposition"])).to.match(
+        /^attachment/,
+      );
+      expect(await flow.done).to.equal("end");
+      flow.dispose();
+      expect(flow.raw).to.equal("");
+    });
+  }
+
+  it("fichier ILLISIBLE à l'ouverture (EACCES) : 500, la page d'erreur ordinaire", async (ctx) => {
+    const read = await journalFrom();
+    const res = await fetch(`${H1}${HTML}/unreadable`);
+    if (res.status === 501) {
+      await res.text();
+      ctx.skip(); // mode 000 sans effet (Windows, root) : capacité constatée absente
+    }
+    expect(res.status).to.equal(500);
+    await res.text();
+    await pause(100);
+    expect(await accessLine(read, `${HTML}/unreadable`)).to.match(
+      /^GET\s+500\s/,
+    );
+    expectQuietJournal(await read());
+  });
+
+  it("un en-tête posé par l'action AVANT renderStream n'est pas écrasé par un défaut", async () => {
+    await state("reset");
+    const res = await fetch(`${H1}${BASE}/app-header`);
+    expect(res.status).to.equal(200);
+    expect(res.headers.get("cache-control")).to.equal("max-age=60");
+    expect(res.headers.get("x-accel-buffering")).to.equal("no");
+    expect(await res.text()).to.equal("prêt");
   });
 });
 

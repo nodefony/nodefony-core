@@ -1,6 +1,9 @@
 import { Controller, route, controller, UseSession } from "@nodefony/framework";
 import { Context, HttpError } from "@nodefony/http";
-import { resolve } from "node:path";
+import { constants } from "node:fs";
+import { access, chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 //import { Inject, Error } from "nodefony";
 
 @controller("/nodefony/test/html")
@@ -78,6 +81,33 @@ class HtmlController extends Controller {
     return this.renderMediaStream(
       resolve(this.module?.path as string, "public", "aucun-media-ici.webm"),
     );
+  }
+
+  /**
+   * Fichier présent mais ILLISIBLE (`EACCES` à l'ouverture) : la page d'erreur
+   * ordinaire, 500 — l'erreur tombe avant le premier octet. La route fabrique
+   * son fichier en mode 000 et le supprime ensuite. La capacité se CONSTATE :
+   * sous Windows ou en root, le mode ne retire pas la lecture — 501, et le banc
+   * se saute.
+   */
+  @route("index-file-unreadable", { path: "/unreadable" })
+  async stream5() {
+    const dir = await mkdtemp(join(tmpdir(), "nf-stream-eacces-"));
+    const file = join(dir, "illisible.bin");
+    try {
+      await writeFile(file, "secret");
+      await chmod(file, 0o000);
+      const readable = await access(file, constants.R_OK).then(
+        () => true,
+        () => false,
+      );
+      if (readable) {
+        return await this.renderJson({ supported: false }, 501);
+      }
+      return await this.streamFile(file);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   }
 
   @route("index-upload1", {

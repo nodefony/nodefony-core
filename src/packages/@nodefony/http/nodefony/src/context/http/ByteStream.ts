@@ -62,10 +62,19 @@ export interface IByteStreamOptions {
   /**
    * En-têtes de la réponse, écrits au premier morceau. `Content-Length` est
    * repris s'il est fourni ; sinon HTTP/1.1 envoie par morceaux. Défauts posés
-   * seulement s'ils manquent : `Content-Type: application/octet-stream`,
-   * `Cache-Control: no-cache, no-transform`, `X-Accel-Buffering: no`.
+   * seulement s'ils manquent — ni ici, ni déjà sur la réponse :
+   * `Content-Type: application/octet-stream`, et pour un flux `live`
+   * `Cache-Control: no-cache, no-transform` et `X-Accel-Buffering: no`.
    */
   headers?: http.OutgoingHttpHeaders | undefined;
+  /**
+   * Flux VIVANT (défaut `true`) : la sortie d'un processus, un relais — un
+   * proxy inverse ne doit pas le mettre en tampon, ni un cache le garder, d'où
+   * `Cache-Control: no-cache, no-transform` et `X-Accel-Buffering: no` par
+   * défaut. `false` pour une source FINIE et rejouable (un fichier, une
+   * archive) : aucun de ces deux en-têtes n'est posé.
+   */
+  live?: boolean | undefined;
   /**
    * Délai maximal sans un octet de la source, en ms ; `0` le désarme. Au-delà :
    * 504 si rien n'est encore parti, coupure sinon. Le silence est constaté
@@ -94,50 +103,14 @@ export interface IByteStreamOptions {
 /** Une source d'octets : flux Node, ou flux web (`fetch().body`). */
 export type ByteStreamSource = Readable | ReadableStream<Uint8Array>;
 
-/** Les en-têtes posés par défaut, et ceux que l'appelant a déjà nommés. */
-interface IHeaderPlan {
-  headers: http.OutgoingHttpHeaders | null;
-  contentType: boolean;
-  cacheControl: boolean;
-  accelBuffering: boolean;
-}
-
-/** Lit, sans casse, quels en-têtes par défaut l'appelant a déjà posés. */
-function planHeaders(
-  headers: http.OutgoingHttpHeaders | undefined,
-): IHeaderPlan {
-  const plan: IHeaderPlan = {
-    headers: headers ?? null,
-    contentType: false,
-    cacheControl: false,
-    accelBuffering: false,
-  };
-  if (headers === undefined) return plan;
-  for (const name of Object.keys(headers)) {
-    switch (name.toLowerCase()) {
-      case "content-type":
-        plan.contentType = true;
-        break;
-      case "cache-control":
-        plan.cacheControl = true;
-        break;
-      case "x-accel-buffering":
-        plan.accelBuffering = true;
-        break;
-      default:
-        break;
-    }
-  }
-  return plan;
-}
-
 /** Erreur d'une source après la fin de son flux : plus personne à prévenir. */
 const IGNORE_LATE_ERROR = (): void => undefined;
 
 /** Réglages d'un flux d'octets, options résolues. */
 interface IByteStreamSettings {
   status: number;
-  plan: IHeaderPlan;
+  headers: http.OutgoingHttpHeaders | null;
+  live: boolean;
   idleTimeout: number;
   onClose: ((reason: ByteStreamEndReason) => void) | null;
 }
@@ -165,6 +138,10 @@ class ByteStream {
   /** Heure de ce tour (`Date.now()`) — une lecture par tour, jamais par morceau. */
   #seenAt = 0;
   #watchdog: ReturnType<typeof setInterval> | null = null;
+  /** `Content-Length` annoncé, lu une fois aux en-têtes ; `-1` : aucun. */
+  #declared = -1;
+  /** Requête HEAD : aucun corps, la longueur annoncée est celle du GET. */
+  #head = false;
 
   readonly #onData = (chunk: Buffer | string): void => this.#write(chunk);
   readonly #onEnd = (): void => this.#finishClean();
@@ -210,6 +187,7 @@ class ByteStream {
     source.on("error", this.#onSourceError);
     if (lifecycle.context.getMethod() === "HEAD") {
       // Les en-têtes du GET, aucun corps : la source n'est jamais lue.
+      this.#head = true;
       this.#finishClean();
       return;
     }
@@ -240,17 +218,43 @@ class ByteStream {
     source.on("data", this.#onData);
   }
 
-  /** En-têtes au premier morceau (ou à la fin d'une source vide). */
-  #writeHead(): void {
+  /**
+   * En-têtes au premier morceau (ou à la fin d'une source vide).
+   *
+   * @param first - octets du premier morceau (0 : source vide).
+   * @throws Error quand ce morceau contredit déjà `Content-Length` — levé
+   *   AVANT `writeHead` : rien n'est parti, la page d'erreur le peut.
+   */
+  #writeHead(first: number): void {
     const context = this.#lifecycle.context;
-    const { plan, status } = this.#settings;
+    const { headers, live, status } = this.#settings;
     const response = context.response;
-    if (plan.headers !== null) response.setHeaders(plan.headers);
-    if (!plan.contentType)
-      response.setHeader("Content-Type", "application/octet-stream");
-    if (!plan.cacheControl)
-      response.setHeader("Cache-Control", "no-cache, no-transform");
-    if (!plan.accelBuffering) response.setHeader("X-Accel-Buffering", "no");
+    if (headers !== null) response.setHeaders(headers);
+    // Défauts posés SAUF si la réponse en porte déjà un — options comprises,
+    // mais aussi ce que l'action a posé avant l'appel (`setFileMimeType`, un
+    // `Cache-Control` choisi) : jamais écrasé.
+    response.setDefaultHeader("Content-Type", "application/octet-stream");
+    if (live) {
+      response.setDefaultHeader("Cache-Control", "no-cache, no-transform");
+      response.setDefaultHeader("X-Accel-Buffering", "no");
+    }
+    // Le corps doit faire EXACTEMENT la longueur annoncée (RFC 9112 §6.3 ;
+    // RFC 9113 §8.1.1 : sinon la réponse HTTP/2 est malformée). Lue une fois.
+    const length = response.getHeader("content-length");
+    if (length !== undefined) {
+      const declared = Number(length);
+      if (Number.isSafeInteger(declared) && declared >= 0)
+        this.#declared = declared;
+    }
+    // Déjà contredite par le premier morceau — ou par une source vide quand
+    // la longueur n'est pas nulle (HEAD excepté : aucun corps, par définition).
+    if (
+      this.#declared !== -1 &&
+      !this.#head &&
+      (first === 0 ? this.#declared !== 0 : first > this.#declared)
+    ) {
+      throw this.#lengthMismatch(first > this.#declared ? "plus" : "moins");
+    }
     context.writeHead(status);
   }
 
@@ -262,9 +266,9 @@ class ByteStream {
    *
    * @returns `false` quand les en-têtes n'ont pas pu partir.
    */
-  #tryWriteHead(): boolean {
+  #tryWriteHead(first: number): boolean {
     try {
-      this.#writeHead();
+      this.#writeHead(first);
       this.#headed = true;
       return true;
     } catch (e) {
@@ -275,9 +279,16 @@ class ByteStream {
 
   #write(chunk: Buffer | string): void {
     if (this.#reason !== null || this.#lifecycle.closed) return;
-    if (!this.#headed && !this.#tryWriteHead()) return;
-    this.#bytes +=
+    const size =
       typeof chunk === "string" ? Buffer.byteLength(chunk) : chunk.byteLength;
+    if (!this.#headed && !this.#tryWriteHead(size)) return;
+    if (this.#declared !== -1 && this.#bytes + size > this.#declared) {
+      // Plus long qu'annoncé : l'excédent corromprait la connexion (HTTP/1.1
+      // garde la socket pour la requête suivante). Coupure, jamais d'envoi.
+      this.#fail(this.#lengthMismatch("plus"), "error");
+      return;
+    }
+    this.#bytes += size;
     const target = this.#lifecycle.target;
     if (target.write(chunk)) return;
     // Contre-pression : la source attend que le client lise.
@@ -290,7 +301,18 @@ class ByteStream {
   #finishClean(): void {
     const lifecycle = this.#lifecycle;
     if (this.#reason !== null || lifecycle.closed) return;
-    if (!this.#headed && !this.#tryWriteHead()) return;
+    if (!this.#headed && !this.#tryWriteHead(0)) return;
+    if (
+      !this.#head &&
+      this.#declared !== -1 &&
+      this.#bytes !== this.#declared
+    ) {
+      // Plus court qu'annoncé (fichier tronqué pendant l'envoi, longueur
+      // fausse) : une fin propre laisserait le client attendre l'octet
+      // manquant. Coupure — le client sait le corps incomplet.
+      this.#fail(this.#lengthMismatch("moins"), "error");
+      return;
+    }
     this.#reason = "end";
     this.#settleLater = true;
     const closed = lifecycle.close();
@@ -299,6 +321,13 @@ class ByteStream {
   }
 
   readonly #settleBound = (): void => this.#settle();
+
+  /** L'erreur d'un corps qui ne fait pas la longueur annoncée. */
+  #lengthMismatch(direction: "plus" | "moins"): Error {
+    return new Error(
+      `Flux : la source rend ${direction} d'octets que Content-Length n'en annonce (${this.#declared})`,
+    );
+  }
 
   /**
    * Échec de la source, ou source muette. Avant le premier octet, la réponse
@@ -566,7 +595,8 @@ function settingsOf(
   const timeout = context.response.timeout;
   return {
     status: options.status ?? 200,
-    plan: planHeaders(options.headers),
+    headers: options.headers ?? null,
+    live: options.live ?? true,
     idleTimeout:
       options.idleTimeout ?? (typeof timeout === "number" ? timeout : 30_000),
     onClose:

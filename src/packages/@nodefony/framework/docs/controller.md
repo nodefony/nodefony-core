@@ -463,8 +463,10 @@ Deux besoins distincts, deux helpers.
 ### Téléchargement — `renderFileDownload()`
 
 `renderFileDownload(file, options?, headers?)` (`Controller.ts#Controller.renderFileDownload`) pose
-`Content-Disposition: attachment`, `Content-Length`, le type MIME du fichier, puis délègue au moteur
-de flux. Le fichier est résolu **sans bloquer l'event loop** (`getFileAsync()`, `Controller.ts#Controller.getFileAsync`) ;
+`Content-Disposition: attachment`, `Content-Length`, le type MIME du fichier et un `Expires` déjà
+passé, puis délègue au moteur de flux. Un nom de fichier accentué ou porteur de `"` part en
+`filename*` UTF-8, précédé d'un repli ASCII (RFC 6266 §4.3, RFC 8187) — un nom quelconque ne fait
+jamais lever la réponse. Le fichier est résolu **sans bloquer l'event loop** (`getFileAsync()`, `Controller.ts#Controller.getFileAsync`) ;
 la variante synchrone `getFile()` existe encore mais est marquée obsolète — elle appelle `lstatSync`
 et gèle le process le temps du stat.
 
@@ -480,18 +482,31 @@ plage** (RFC 9110 §14), ce qui permet à un lecteur vidéo de sauter dans le fl
 | `Range: bytes=-500` (suffixe)                 | 206 sur les 500 derniers octets                                 |
 | Plage hors fichier                            | **416** + `Content-Range: bytes */<taille>` (RFC 9110 §15.5.17) |
 | Syntaxe invalide, multi-plage, unité inconnue | En-tête **ignoré** → 200 complet (jamais un 500)                |
+| `HEAD` avec `Range`                           | `Range` **ignoré** : en-têtes du GET complet (RFC 9110 §14.2)   |
+| `If-Range` présent                            | `Range` **ignoré** → 200 complet (RFC 9110 §13.1.5)             |
+
+Aucun validateur (`ETag`, `Last-Modified`) n'est envoyé : une condition `If-Range` ne peut donc
+jamais être vraie, et la norme impose alors de servir le fichier entier — plutôt qu'une plage d'un
+fichier qui a pu changer, que le client recollerait à l'ancienne.
 
 La logique est isolée dans une fonction pure exportée, `parseByteRange()` (`Controller.ts#parseByteRange`) —
 donc testable sans serveur.
 
 ### Ce que `streamFile()` garantit
 
-`streamFile()` (`Controller.ts#Controller.streamFile`) est le moteur commun. Sa subtilité n'est pas le pipe, c'est le
-**nettoyage** : le flux est ouvert avec `autoClose: false`, et un client qui raccroche en plein
-téléchargement laisserait sinon un descripteur de fichier ouvert et une promesse pendue à jamais. Un
-écouteur `close` sur la réponse détruit le flux, ce qui déclenche la fermeture du descripteur et
-résout la promesse (`Controller.ts#Controller.streamFile`), puis se retire lui-même (`Controller.ts#Controller.streamFile`). Un
-téléchargement interrompu ne coûte donc **rien** en ressource retenue.
+`streamFile()` (`Controller.ts#Controller.streamFile`) est le moteur commun, et il repose sur le
+même cycle de vie que `renderStream()` ci-dessous (`HttpContext.openStream`) :
+
+- **la réponse est prise à l'appel**, les en-têtes partent au premier morceau ;
+- **un client qui raccroche détruit le flux**, donc ferme le descripteur : un téléchargement
+  interrompu ne retient rien ;
+- **un fichier illisible à l'ouverture** (`EACCES`) rend la page d'erreur ordinaire, 500 ; une
+  lecture qui échoue en route coupe la connexion, jamais une fin propre ;
+- **la longueur annoncée est tenue** : la lecture est bornée à la taille relevée (un fichier qui
+  grossit pendant l'envoi n'envoie pas plus que `Content-Length`), et un extrait `start`/`end`
+  annonce sa propre longueur ;
+- **un fichier n'est pas un flux vivant** : ni `Cache-Control: no-cache`, ni `X-Accel-Buffering: no`,
+  ni délai d'inactivité.
 
 ### Une source qui n'est pas un fichier — `renderStream()`
 
@@ -620,15 +635,18 @@ code du framework applique — et attend de toi — les règles suivantes :
 
 ## 📜 Normes appliquées
 
-| Domaine                          | Norme                    | Comment le code s'y conforme                                                         |
-| -------------------------------- | ------------------------ | ------------------------------------------------------------------------------------ |
-| Statuts sans corps (204/205/304) | RFC 9110 §15.3.5/§15.4.5 | `NO_BODY_STATUS` (`Resolver.ts#NO_BODY_STATUS`)                                      |
-| Requêtes par plage               | RFC 9110 §14.1.2, §14.2  | `parseByteRange()` (`Controller.ts#parseByteRange`)                                  |
-| Plage insatisfiable → 416        | RFC 9110 §15.5.17        | `renderResponse()` avec 416 (`Controller.ts#Controller.renderResponse`)              |
-| Redirections                     | RFC 9110 §15.4           | Liste blanche + repli 302 (`Response.ts#HttpResponse.send`)                          |
-| Média JSON sans `charset`        | RFC 8259 §11             | Auto-JSON (`Resolver.ts#Resolver.returnController`), vérifié par le banc `auto-json` |
-| Scalaire JSON de premier niveau  | RFC 8259 §2              | `number`/`boolean` rendus (`Resolver.ts#Resolver._callWithIdempotency`)              |
-| Codes de fermeture WebSocket     | RFC 6455 §7.4            | `renderWebsocket()` (`error-renderer.ts#DefaultErrorRenderer.renderWebsocket`)       |
+| Domaine                           | Norme                          | Comment le code s'y conforme                                                         |
+| --------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------ |
+| Statuts sans corps (204/205/304)  | RFC 9110 §15.3.5/§15.4.5       | `NO_BODY_STATUS` (`Resolver.ts#NO_BODY_STATUS`)                                      |
+| Requêtes par plage                | RFC 9110 §14.1.2, §14.2        | `parseByteRange()` (`Controller.ts#parseByteRange`)                                  |
+| Plage insatisfiable → 416         | RFC 9110 §15.5.17              | `renderResponse()` avec 416 (`Controller.ts#Controller.renderResponse`)              |
+| `Range` hors GET, sous `If-Range` | RFC 9110 §14.2, §13.1.5        | `renderMediaStream()` (`Controller.ts#Controller.renderMediaStream`)                 |
+| Nom de fichier téléchargé         | RFC 6266 §4.3, RFC 8187        | `contentDisposition()` (`Controller.ts#contentDisposition`)                          |
+| Longueur du corps tenue           | RFC 9112 §6.3, RFC 9113 §8.1.1 | `streamFile()` (`Controller.ts#Controller.streamFile`) + `ByteStream.ts#ByteStream`  |
+| Redirections                      | RFC 9110 §15.4                 | Liste blanche + repli 302 (`Response.ts#HttpResponse.send`)                          |
+| Média JSON sans `charset`         | RFC 8259 §11                   | Auto-JSON (`Resolver.ts#Resolver.returnController`), vérifié par le banc `auto-json` |
+| Scalaire JSON de premier niveau   | RFC 8259 §2                    | `number`/`boolean` rendus (`Resolver.ts#Resolver._callWithIdempotency`)              |
+| Codes de fermeture WebSocket      | RFC 6455 §7.4                  | `renderWebsocket()` (`error-renderer.ts#DefaultErrorRenderer.renderWebsocket`)       |
 
 ## 📡 Observabilité — Studio
 

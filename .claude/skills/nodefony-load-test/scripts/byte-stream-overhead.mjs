@@ -5,13 +5,19 @@
 // la MÊME source : `pipe` (une action écrite à la main), `stream`
 // (`openByteStream`, chien de garde armé), `stream0` (`idleTimeout: 0`).
 // Morceaux de 64 Kio (taille réelle d'un tube ou d'un fetch) et de 4 Kio (coût
-// PAR MORCEAU grossi). Lit le `dist` de @nodefony/http : le rebâtir avant.
+// PAR MORCEAU grossi). Deux camps FICHIER (morceaux de 64 Kio, ceux de
+// `fs.createReadStream`) : `fpipe` (`createReadStream().pipe(res)`, le
+// plancher) et `file` (`openByteStream` réglé comme `streamFile` : `live:
+// false`, `idleTimeout: 0`, `Content-Length`). Lit le `dist` de
+// @nodefony/http : le rebâtir avant.
 //
 // Usage : node byte-stream-overhead.mjs [--runs 21] [--mb 256] [--quick]
 // Lecture : 5 passes ne tranchent pas un écart de 5 % (bruit mesuré ~30 % d'un
 // passage à l'autre) — 21 passes alternées, deux campagnes.
 import http from "node:http";
 import { Readable } from "node:stream";
+import { createReadStream, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { execFile } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
@@ -74,6 +80,10 @@ function fakeContext(req, res) {
       timeout: 30_000,
       isHeaderSent: () => res.headersSent,
       setHeader: (n, v) => res.setHeader(n, v),
+      setDefaultHeader: (n, v) => {
+        if (!res.hasHeader(n)) res.setHeader(n, v);
+      },
+      getHeader: (n) => res.getHeader(n),
       setHeaders: (h) => {
         for (const [n, v] of Object.entries(h)) res.setHeader(n, v);
       },
@@ -90,6 +100,11 @@ function fakeContext(req, res) {
   };
 }
 
+// Le fichier des camps FICHIER, de la même taille que la source en mémoire.
+const DIR = mkdtempSync(path.join(tmpdir(), "nf-byte-stream-"));
+const FILE = path.join(DIR, "source.bin");
+writeFileSync(FILE, Buffer.alloc(MB * 1024 * 1024, 0x61));
+
 let current = null;
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, "http://x");
@@ -100,6 +115,24 @@ const server = http.createServer((req, res) => {
     const d = process.cpuUsage(cpu0);
     current = (d.user + d.system) / 1000;
   };
+  if (url.pathname === "/fpipe") {
+    res.writeHead(200, {
+      "content-type": "application/octet-stream",
+      "content-length": total,
+    });
+    res.once("close", done);
+    createReadStream(FILE).pipe(res);
+    return;
+  }
+  if (url.pathname === "/file") {
+    res.once("close", done);
+    void openByteStream(fakeContext(req, res), createReadStream(FILE), {
+      live: false,
+      idleTimeout: 0,
+      headers: { "Content-Length": total },
+    });
+    return;
+  }
   const src = source(total, size);
   if (url.pathname === "/pipe") {
     // Plancher : ce qu'une action écrite à la main ferait.
@@ -133,18 +166,15 @@ async function once(mode, size) {
 const median = (a) => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)];
 const rows = [];
 for (const size of [65_536, 4_096]) {
-  const acc = {
-    pipe: { mbs: [], cpu: [] },
-    stream: { mbs: [], cpu: [] },
-    stream0: { mbs: [], cpu: [] },
-  };
-  await once("pipe", size);
-  await once("stream", size);
-  await once("stream0", size); // échauffement
+  // Les camps fichier ne dépendent pas de `size` : joués une fois, à 64 Kio.
+  const modes =
+    size === 65_536
+      ? ["pipe", "stream", "stream0", "fpipe", "file"]
+      : ["pipe", "stream", "stream0"];
+  const acc = Object.fromEntries(modes.map((m) => [m, { mbs: [], cpu: [] }]));
+  for (const mode of modes) await once(mode, size); // échauffement
   for (let i = 0; i < RUNS; i++) {
-    for (const mode of i % 2
-      ? ["stream0", "stream", "pipe"]
-      : ["pipe", "stream", "stream0"]) {
+    for (const mode of i % 2 ? [...modes].reverse() : modes) {
       const r = await once(mode, size);
       await new Promise((res) => setTimeout(res, 50)); // laisser `close` arriver
       if (r.bytes !== MB * 1024 * 1024)
@@ -153,7 +183,7 @@ for (const size of [65_536, 4_096]) {
       acc[mode].cpu.push((current ?? NaN) / (MB / 1024)); // ms CPU par Go
     }
   }
-  for (const mode of ["pipe", "stream", "stream0"]) {
+  for (const mode of modes) {
     rows.push({
       size,
       mode,
@@ -163,6 +193,7 @@ for (const size of [65_536, 4_096]) {
   }
 }
 server.close();
+rmSync(DIR, { recursive: true, force: true });
 console.log(
   `morceau  mode     débit MB/s   CPU serveur ms/Go   (médiane de ${RUNS}, ${MB} Mo)`,
 );
@@ -176,5 +207,12 @@ for (const size of [65_536, 4_096]) {
   const s = rows.find((r) => r.size === size && r.mode === "stream");
   console.log(
     `${size} o : débit ${(((s.mbs - p.mbs) / p.mbs) * 100).toFixed(1)} % · CPU ${(((s.cpuPerGB - p.cpuPerGB) / p.cpuPerGB) * 100).toFixed(1)} %`,
+  );
+}
+{
+  const p = rows.find((r) => r.mode === "fpipe");
+  const s = rows.find((r) => r.mode === "file");
+  console.log(
+    `fichier : débit ${(((s.mbs - p.mbs) / p.mbs) * 100).toFixed(1)} % · CPU ${(((s.cpuPerGB - p.cpuPerGB) / p.cpuPerGB) * 100).toFixed(1)} %`,
   );
 }

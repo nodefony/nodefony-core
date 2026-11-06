@@ -1,14 +1,20 @@
 import { expect } from "vitest";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { PassThrough, Readable } from "node:stream";
+import { Readable } from "node:stream";
 import { Container, Event } from "nodefony";
 import Controller from "../../src/Controller.js";
 import { Scope } from "../../decorators/routerDecorators.js";
 import type Route from "../../src/Route.js";
-import type { ContextType, HttpResponse } from "@nodefony/http";
+import { HttpContext } from "@nodefony/http";
+import type {
+  ContextType,
+  HttpResponse,
+  IByteStreamOptions,
+  IByteStreamResult,
+} from "@nodefony/http";
 
 const HERE = fileURLToPath(import.meta.url); // ce fichier = un vrai File
 const DIR = path.dirname(HERE); // un vrai dossier
@@ -55,12 +61,7 @@ function makeController(opts: HarnessOptions = {}) {
     fileMime: 0,
   };
 
-  // Réponse node brute (Writable) pour exercer le pipe de streamFile.
-  const raw = new PassThrough();
-  raw.on("data", () => {}); // drain pour laisser le flux atteindre "end"
-
   const response = {
-    response: raw,
     // Retrait d’en-tête : sur la réponse du contexte, jamais sur la brute.
     removeHeader() {},
     statusCode: 200,
@@ -638,31 +639,176 @@ describe("Controller — getFileAsync()", () => {
   });
 });
 
-// ─── streaming (renderFileDownload / streamFile / renderMediaStream) ────────────
+// ─── fichiers en flux (streamFile / renderFileDownload / renderMediaStream) ──
+// Le cycle de vie appartient à la brique de `@nodefony/http` (`openStream`),
+// éprouvée sur serveur réel (`http/tests/http/byteStream.test.ts`). Ici : ce que
+// le contrôleur lui CONFIE — la source, le statut, les en-têtes, les options.
 
-describe("Controller — renderFileDownload()", () => {
-  it("streams a real file (writeHead + pipe + end)", async () => {
-    const { c, calls } = makeController();
-    const stream = await c.renderFileDownload(HERE);
-    expect(stream).to.exist;
-    expect(calls.writeHead).to.have.lengthOf(1);
-    expect(calls.end).to.equal(1);
+interface IOpened {
+  source: Readable;
+  options: IByteStreamOptions | undefined;
+  self: unknown;
+  bytes: number;
+}
+
+/**
+ * Le harnais, avec un contexte HTTP : `openStream` relève ce qu'on lui confie,
+ * lit la source jusqu'au bout puis la détruit — ce que fait la brique.
+ */
+function makeHttpController(opts: HarnessOptions = {}) {
+  const harness = makeController(opts);
+  const opened: IOpened[] = [];
+  Object.setPrototypeOf(harness.ctx, HttpContext.prototype);
+  Object.defineProperty(harness.ctx, "response", { value: harness.response });
+  Object.defineProperty(harness.ctx, "openStream", {
+    async value(
+      this: unknown,
+      source: Readable,
+      options?: IByteStreamOptions,
+    ): Promise<IByteStreamResult> {
+      const entry: IOpened = { source, options, self: this, bytes: 0 };
+      opened.push(entry);
+      for await (const chunk of source) entry.bytes += (chunk as Buffer).length;
+      source.destroy();
+      return { reason: "end", bytes: entry.bytes };
+    },
   });
-});
+  return { ...harness, opened };
+}
 
-describe("Controller — renderMediaStream()", () => {
-  it("streams a full file when no Range header is present", async () => {
-    const { c, calls } = makeController();
+describe("Controller — fichiers en flux", () => {
+  const SIZE = statSync(HERE).size;
+
+  it("hors requête HTTP : refus 500", async () => {
+    const { c } = makeController();
+    await expect(c.streamFile(HERE)).rejects.toThrow(/requête HTTP/);
+  });
+
+  it("streamFile confie le fichier à la brique : source finie, sans délai d'inactivité, taille et type posés", async () => {
+    const { c, ctx, opened, calls } = makeHttpController();
+    const stream = await c.streamFile(HERE);
+    expect(opened).to.have.lengthOf(1);
+    const entry = opened[0] as IOpened;
+    expect(entry.self, "ouvert sur le contexte de la requête").to.equal(ctx);
+    expect(entry.source).to.equal(stream);
+    expect(entry.options?.live).to.equal(false);
+    expect(entry.options?.idleTimeout).to.equal(0);
+    expect(entry.options?.status).to.equal(200);
+    expect(entry.options?.headers?.["Content-Length"]).to.equal(SIZE);
+    expect(entry.bytes).to.equal(SIZE);
+    expect(calls.fileMime, "type déduit du nom").to.equal(1);
+    expect(stream.destroyed).to.equal(true);
+  });
+
+  it("un extrait (start/end) annonce SA longueur, et la lecture est bornée à la taille relevée", async () => {
+    const { c, opened } = makeHttpController();
+    await c.streamFile(HERE, {}, { start: 10 });
+    expect(opened[0]?.options?.headers?.["Content-Length"]).to.equal(SIZE - 10);
+    expect(opened[0]?.bytes).to.equal(SIZE - 10);
+    const read = opened[0]?.source as unknown as { end: number } | undefined;
+    expect(read?.end).to.equal(SIZE - 1);
+    await c.streamFile(HERE, {}, { start: 10, end: 19 });
+    expect(opened[1]?.options?.headers?.["Content-Length"]).to.equal(10);
+    expect(opened[1]?.bytes).to.equal(10);
+  });
+
+  it("le type fourni par l'appelant gagne, et ses en-têtes ne sont pas modifiés", async () => {
+    const { c, opened, calls } = makeHttpController();
+    const headers = { "content-type": "application/json" };
+    await c.streamFile(HERE, headers);
+    expect(headers).to.deep.equal({ "content-type": "application/json" });
+    expect(calls.fileMime).to.equal(0);
+    expect(opened[0]?.options?.headers?.["Content-Length"]).to.equal(SIZE);
+  });
+
+  it("renderFileDownload : pièce jointe, fichier entier", async () => {
+    const { c, opened } = makeHttpController();
+    await c.renderFileDownload(HERE);
+    const headers = opened[0]?.options?.headers ?? {};
+    expect(String(headers["Content-Disposition"])).to.match(/^attachment;/);
+    expect(headers["Content-Length"]).to.equal(SIZE);
+    expect(opened[0]?.bytes).to.equal(SIZE);
+  });
+
+  it("renderMediaStream sans Range : 200, fichier entier, plages annoncées", async () => {
+    const { c, opened } = makeHttpController();
     await c.renderMediaStream(HERE);
-    expect(calls.writeHead).to.have.lengthOf(1);
-    expect(calls.end).to.equal(1);
+    expect(opened[0]?.options?.status).to.equal(200);
+    expect(opened[0]?.options?.headers?.["Accept-Ranges"]).to.equal("bytes");
+    expect(opened[0]?.bytes).to.equal(SIZE);
   });
 
-  it("serves a 206 partial response when a Range header is present", async () => {
-    const { c, calls } = makeController({ range: "bytes=0-99" });
+  it("Content-Disposition : un nom ASCII part tel quel", async () => {
+    const { c, opened } = makeHttpController();
+    await c.renderFileDownload(HERE);
+    expect(opened[0]?.options?.headers?.["Content-Disposition"]).to.equal(
+      `attachment; filename="${path.basename(HERE)}"`,
+    );
+  });
+
+  it("Content-Disposition : un nom accentué part en filename* UTF-8, avec un repli ASCII (RFC 6266 §4.3, RFC 8187)", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "nf-disposition-"));
+    try {
+      const file = path.join(dir, "café 100%€.txt");
+      writeFileSync(file, "x");
+      const { c, opened } = makeHttpController();
+      await c.renderFileDownload(file);
+      expect(opened[0]?.options?.headers?.["Content-Disposition"]).to.equal(
+        "attachment; filename=\"caf_ 100__.txt\"; filename*=UTF-8''caf%C3%A9%20100%25%E2%82%AC.txt",
+      );
+      await c.renderMediaStream(file);
+      expect(
+        String(opened[1]?.options?.headers?.["Content-Disposition"]),
+      ).to.match(/^inline; filename="caf_ 100__\.txt"; filename\*=UTF-8''/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("téléchargement déjà périmé pour un cache, en HTTP-date VALIDE (RFC 9111 §5.3)", async () => {
+    const { c, opened } = makeHttpController();
+    await c.renderFileDownload(HERE);
+    const expires = String(opened[0]?.options?.headers?.Expires);
+    expect(new Date(expires).getTime()).to.equal(0);
+    expect(expires).to.match(
+      /^[A-Z][a-z]{2}, \d{2} [A-Z][a-z]{2} \d{4} \d{2}:\d{2}:\d{2} GMT$/,
+    );
+  });
+
+  it("HEAD avec Range : la plage est IGNORÉE, en-têtes du GET complet (RFC 9110 §14.2)", async () => {
+    const { c, opened, calls } = makeHttpController({ range: "bytes=0-99" });
+    c.method = "HEAD";
+    await c.renderMediaStream(HERE);
+    expect(calls.status).to.not.include(206);
+    expect(opened[0]?.options?.status).to.equal(200);
+    expect(opened[0]?.options?.headers?.["Content-Range"]).to.equal(undefined);
+    expect(opened[0]?.options?.headers?.["Content-Length"]).to.equal(
+      String(SIZE),
+    );
+  });
+
+  it("If-Range sans validateur servi : Range IGNORÉ, fichier entier en 200 (RFC 9110 §13.1.5)", async () => {
+    const { c, ctx, opened, calls } = makeHttpController({
+      range: "bytes=0-99",
+    });
+    (
+      ctx as unknown as { request: { headers: Record<string, string> } }
+    ).request.headers["if-range"] = '"v1"';
+    await c.renderMediaStream(HERE);
+    expect(calls.status).to.not.include(206);
+    expect(opened[0]?.options?.status).to.equal(200);
+    expect(opened[0]?.bytes).to.equal(SIZE);
+  });
+
+  it("renderMediaStream avec Range : 206, la plage seule", async () => {
+    const { c, opened, calls } = makeHttpController({ range: "bytes=0-99" });
     await c.renderMediaStream(HERE);
     expect(calls.status).to.include(206);
-    expect(calls.writeHead).to.have.lengthOf(1);
+    expect(opened[0]?.options?.status).to.equal(206);
+    expect(opened[0]?.options?.headers?.["Content-Range"]).to.equal(
+      `bytes 0-99/${SIZE}`,
+    );
+    expect(opened[0]?.bytes).to.equal(100);
   });
 });
 

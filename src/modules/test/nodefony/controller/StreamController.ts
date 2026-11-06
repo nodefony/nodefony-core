@@ -154,6 +154,47 @@ class StreamController extends Controller {
     return this.#open(finiteSource(["prêt"]));
   }
 
+  /**
+   * Un en-tête posé par l'action AVANT l'appel : aucun défaut du flux ne
+   * l'écrase.
+   */
+  @route("stream-app-header", { path: "/app-header" })
+  appHeader() {
+    this.response?.setHeader("Cache-Control", "max-age=60");
+    return this.#open(finiteSource(["prêt"]));
+  }
+
+  /**
+   * `Content-Length` annoncé à `declared` pour une source de 9 octets en
+   * deux morceaux (« prêt », « fin ») : contredit dès le premier morceau, la
+   * page d'erreur ; après, la COUPURE.
+   */
+  @route("stream-length", { path: "/length" })
+  length() {
+    // Le second morceau 50 ms après le premier : celui-ci a eu le temps de
+    // partir sur le fil, la coupure tombe donc APRÈS le premier octet.
+    const source = new Readable({
+      read() {
+        // Poussé ci-dessous.
+      },
+    });
+    source.once("close", () => {
+      streamState.sourceDestroyed = true;
+    });
+    source.push("prêt");
+    const later = setTimeout(() => {
+      source.push(" fin");
+      source.push(null);
+    }, 50);
+    source.once("close", () => clearTimeout(later));
+    return this.#open(source, {
+      headers: {
+        "Content-Length":
+          typeof this.query.declared === "string" ? this.query.declared : "9",
+      },
+    });
+  }
+
   /** Seconde ouverture sur une réponse déjà prise : refusée (500). */
   @route("stream-taken", { path: "/taken" })
   taken() {
