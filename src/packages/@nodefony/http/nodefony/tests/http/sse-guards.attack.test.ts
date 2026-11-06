@@ -23,6 +23,37 @@ const H1 = "http://localhost:5151";
 const TLS = { hostname: "127.0.0.1", port: 5152, rejectUnauthorized: false };
 const SSE = "/nodefony/test/sse";
 const SECURE = "/nodefony/test/secure/sse/hold";
+const STREAM = "/nodefony/test/stream";
+
+/**
+ * Les deux réponses en flux reposent sur la MÊME brique de cycle de vie
+ * (`StreamLifecycle`, #724) : le plafond par IP, le pare-feu et la révocation
+ * se rejouent donc sur chacune. `bytes` : le flux est accepté à son premier
+ * morceau d'octets, pas à un événement `ready`.
+ */
+interface IKind {
+  name: string;
+  base: string;
+  secure: string;
+  bytes: boolean;
+}
+
+const SSE_KIND: IKind = {
+  name: "SSE",
+  base: SSE,
+  secure: SECURE,
+  bytes: false,
+};
+
+const KINDS: IKind[] = [
+  SSE_KIND,
+  {
+    name: "flux d'octets",
+    base: STREAM,
+    secure: "/nodefony/test/secure/stream/hold",
+    bytes: true,
+  },
+];
 const LOGIN = "/nodefony/security/api/auth/login";
 const LOGOUT = "/nodefony/security/api/auth/logout";
 const CONFIG = "/nodefony/kernel/api/config/http";
@@ -100,6 +131,8 @@ function open(
     headers?: Record<string, string>;
     method?: string;
     tls?: boolean;
+    /** Accepté au premier morceau d'octets, pas à l'événement `ready`. */
+    bytes?: boolean;
   } = {},
 ): Promise<IStream> {
   return new Promise((resolve, reject) => {
@@ -121,7 +154,10 @@ function open(
         },
       });
       res.setEncoding("utf8");
-      res.on("data", (c: string) => parser.push(c));
+      res.on("data", (c: string) => {
+        if (options.bytes === true) resolve(stream);
+        else parser.push(c);
+      });
       res.on("end", endedResolve);
       res.on("close", endedResolve);
       if (status !== 200) {
@@ -159,11 +195,15 @@ async function endsWithin(stream: IStream, ms: number): Promise<boolean> {
   return result;
 }
 
-const state = async (): Promise<{ opened: number; closed: number }> =>
-  (await call("GET", `${SSE}/state`)).body as {
-    opened: number;
-    closed: number;
-  };
+interface IFlowState {
+  opened: number;
+  closed: number;
+  /** Flux d'octets seulement : sources de banc encore vivantes. */
+  liveSources?: number;
+}
+
+const state = async (base = SSE): Promise<IFlowState> =>
+  (await call("GET", `${base}/state`)).body as IFlowState;
 
 describe("RED-TEAM #568 — gardes d'un flux SSE, parité WebSocket (requires server)", () => {
   let admin = "";
@@ -185,12 +225,14 @@ describe("RED-TEAM #568 — gardes d'un flux SSE, parité WebSocket (requires se
     // les compteurs à zéro : une fermeture vue après le `reset` incrémente le
     // compteur du cas SUIVANT (vécu : contrôle positif de V35 rouge sur macOS en
     // production, le flux du cas précédent se fermant après la remise à zéro).
-    for (let i = 0; i < 100; i++) {
-      const { opened, closed } = await state();
-      if (closed >= opened) break;
-      await new Promise((r) => setTimeout(r, 20));
+    for (const kind of KINDS) {
+      for (let i = 0; i < 100; i++) {
+        const { opened, closed } = await state(kind.base);
+        if (closed >= opened) break;
+        await new Promise((r) => setTimeout(r, 20));
+      }
+      await call("GET", `${kind.base}/reset`);
     }
-    await call("GET", `${SSE}/reset`);
   });
 
   // En production, la config est IMMUABLE (12-factor) : le plafond ne se pose
@@ -222,23 +264,29 @@ describe("RED-TEAM #568 — gardes d'un flux SSE, parité WebSocket (requires se
       const H1V4 = "http://127.0.0.1:5151";
 
       /** Ouvre des flux jusqu'au premier refus ; rend le refus. */
-      async function fill(): Promise<IStream> {
+      async function fill(kind: IKind = SSE_KIND): Promise<IStream> {
         for (let i = 0; i <= CAP; i++) {
-          const s = track(await open(`${H1V4}${SSE}/hold`));
+          const s = track(
+            await open(`${H1V4}${kind.base}/hold`, { bytes: kind.bytes }),
+          );
           if (s.status !== 200) return s;
         }
         throw new Error(`aucun refus après ${CAP + 1} flux`);
       }
 
       /** Ferme un flux accepté et attend que le serveur ait vu la fermeture. */
-      async function release(): Promise<void> {
-        const before = (await state()).closed;
+      async function release(kind: IKind = SSE_KIND): Promise<void> {
+        const before = (await state(kind.base)).closed;
         const accepted = streams.find((s) => s.status === 200);
         if (accepted === undefined)
           throw new Error("aucun flux accepté à fermer");
         streams.splice(streams.indexOf(accepted), 1);
         accepted.close();
-        for (let i = 0; i < 100 && (await state()).closed <= before; i++) {
+        for (
+          let i = 0;
+          i < 100 && (await state(kind.base)).closed <= before;
+          i++
+        ) {
           await new Promise((r) => setTimeout(r, 20));
         }
       }
@@ -250,17 +298,30 @@ describe("RED-TEAM #568 — gardes d'un flux SSE, parité WebSocket (requires se
         ).to.equal(200);
       });
 
-      it("V30 · au-delà du plafond, un flux SSE est refusé en 429 — sans un octet de flux", async () => {
-        const refused = await fill();
-        expect(refused.status).to.equal(429);
-        expect(refused.events).to.have.length(0);
-      });
+      for (const kind of KINDS) {
+        it(`V30 · ${kind.name} : au-delà du plafond, le flux est refusé en 429 — sans un octet de flux`, async () => {
+          const refused = await fill(kind);
+          expect(refused.status).to.equal(429);
+          expect(refused.events).to.have.length(0);
+          if (kind.bytes) {
+            // La source confiée au flux refusé est DÉTRUITE : seules restent
+            // vivantes celles des flux acceptés et encore ouverts.
+            const s = await state(kind.base);
+            expect(s.liveSources, "sources vivantes").to.equal(
+              s.opened - s.closed,
+            );
+          }
+        });
 
-      it("V30 · la place est RENDUE quand le client part", async () => {
-        await fill();
-        await release();
-        expect(track(await open(`${H1V4}${SSE}/hold`)).status).to.equal(200);
-      });
+        it(`V30 · ${kind.name} : la place est RENDUE quand le client part`, async () => {
+          await fill(kind);
+          await release(kind);
+          expect(
+            track(await open(`${H1V4}${kind.base}/hold`, { bytes: kind.bytes }))
+              .status,
+          ).to.equal(200);
+        });
+      }
 
       it("V31 · une socket WebSocket et un flux SSE partagent le MÊME budget", async () => {
         await fill();
@@ -279,11 +340,15 @@ describe("RED-TEAM #568 — gardes d'un flux SSE, parité WebSocket (requires se
   );
 
   describe("zone protégée : pare-feu, CSRF, révocation", () => {
-    it("V32 · un anonyme n'ouvre pas de flux dans une zone protégée (401)", async () => {
-      const s = track(await open(SECURE, { tls: true }));
-      expect(s.status).to.equal(401);
-      expect(s.events).to.have.length(0);
-    });
+    for (const kind of KINDS) {
+      it(`V32 · ${kind.name} : un anonyme n'ouvre pas de flux dans une zone protégée (401)`, async () => {
+        const s = track(
+          await open(kind.secure, { tls: true, bytes: kind.bytes }),
+        );
+        expect(s.status).to.equal(401);
+        expect(s.events).to.have.length(0);
+      });
+    }
 
     it("V33 · un POST de flux venu d'un autre site est refusé par le CSRF (403)", async () => {
       const cookie = await login("user");
@@ -313,26 +378,41 @@ describe("RED-TEAM #568 — gardes d'un flux SSE, parité WebSocket (requires se
       expect(s.status).to.equal(200);
     });
 
-    it("V34 · déconnexion → le flux est fermé à la re-validation suivante", async () => {
-      const cookie = await login("user");
-      const s = track(await open(SECURE, { tls: true, headers: { cookie } }));
-      expect(s.status).to.equal(200);
-      expect((await call("POST", LOGOUT, { cookie })).status).to.be.oneOf([
-        200, 204,
-      ]);
-      await call("GET", `${SSE}/revalidate`);
-      expect(
-        await endsWithin(s, 2_000),
-        "flux fermé après révocation",
-      ).to.equal(true);
-    });
+    for (const kind of KINDS) {
+      it(`V34 · ${kind.name} : déconnexion → le flux est fermé à la re-validation suivante`, async () => {
+        const cookie = await login("user");
+        const s = track(
+          await open(kind.secure, {
+            tls: true,
+            headers: { cookie },
+            bytes: kind.bytes,
+          }),
+        );
+        expect(s.status).to.equal(200);
+        expect((await call("POST", LOGOUT, { cookie })).status).to.be.oneOf([
+          200, 204,
+        ]);
+        await call("GET", `${SSE}/revalidate`);
+        expect(
+          await endsWithin(s, 2_000),
+          "flux fermé après révocation",
+        ).to.equal(true);
+      });
 
-    it("V34 · contrôle positif : une session VIVANTE garde son flux à la re-validation", async () => {
-      const cookie = await login("user");
-      const s = track(await open(SECURE, { tls: true, headers: { cookie } }));
-      await call("GET", `${SSE}/revalidate`);
-      expect(await endsWithin(s, 500), "flux intact").to.equal(false);
-    });
+      it(`V34 · ${kind.name} : contrôle positif — une session VIVANTE garde son flux à la re-validation`, async () => {
+        const cookie = await login("user");
+        const s = track(
+          await open(kind.secure, {
+            tls: true,
+            headers: { cookie },
+            bytes: kind.bytes,
+          }),
+        );
+        expect(s.status).to.equal(200);
+        await call("GET", `${SSE}/revalidate`);
+        expect(await endsWithin(s, 500), "flux intact").to.equal(false);
+      });
+    }
   });
 
   describe("bornes d'un flux", () => {

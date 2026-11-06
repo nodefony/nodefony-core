@@ -740,6 +740,7 @@ class HttpContext extends Context implements IHttpContextInterface {
    * @returns la raison de la fin et le nombre d'octets ; ne rejette jamais.
    * @throws HttpError 500 quand la réponse est déjà partie, 429 au-delà du
    *   plafond de connexions par IP ; TypeError pour une source en mode objet.
+   *   Quand l'appel lève, la source est DÉTRUITE (un flux web est annulé).
    */
   openStream(
     source: ByteStreamSource,

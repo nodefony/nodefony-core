@@ -325,6 +325,18 @@ class ByteStream {
       return;
     }
     if (reason === "error") context.log(failure, "ERROR", "STREAM");
+    // Statut INTERNE, jamais écrit sur le fil (les en-têtes sont partis) : le
+    // journal d'accès doit dire que le SERVEUR a coupé — 500, le code d'une
+    // `HttpError`, 504 pour une source muette — et non 499 (« client parti »),
+    // que le noyau pose à la fermeture faute d'un statut d'erreur
+    // (`HttpKernel.createHttpContext`).
+    context.response.statusCode =
+      "code" in failure &&
+      typeof failure.code === "number" &&
+      failure.code >= 400 &&
+      failure.code <= 599
+        ? failure.code
+        : 500;
     const target = lifecycle.target;
     // HTTP/2 : `destroy(err)` émet RST_STREAM(INTERNAL_ERROR) (RFC 9113
     // §5.4.2). PAS `close(INTERNAL_ERROR)` : il ferme d'abord le côté écriture
@@ -369,12 +381,11 @@ class ByteStream {
     }
     const idle = this.#settings.idleTimeout;
     if (now - this.#seenAt < idle) return;
+    // Sans contexte : `HttpError` réécrirait le statut de la réponse, et une
+    // coupure APRÈS les en-têtes inscrirait au journal d'accès un 504 que le
+    // client n'a jamais reçu. Avant les en-têtes, `onError` pose le statut.
     this.#fail(
-      new HttpError(
-        `Flux : source muette depuis ${idle} ms`,
-        504,
-        this.#lifecycle.context,
-      ),
+      new HttpError(`Flux : source muette depuis ${idle} ms`, 504),
       "timeout",
     );
   }
@@ -505,22 +516,55 @@ function checkOptions(options: IByteStreamOptions): void {
  * @throws RangeError quand une option est hors bornes.
  * @throws HttpError 500 quand la réponse est déjà partie ; 429 quand l'IP a
  *   déjà tous ses flux et sockets (`wsMaxConnectionsPerIp`).
+ *
+ * La source appartient au flux dès l'appel : quand l'appel lève, elle est
+ * DÉTRUITE (un flux web est annulé) avant que l'erreur ne remonte.
  */
 export function openByteStream(
   context: HttpContext,
   source: ByteStreamSource,
   options: IByteStreamOptions = {},
 ): Promise<IByteStreamResult> {
-  checkOptions(options);
   const readable = source instanceof Readable ? source : fromWebStream(source);
-  if (readable.readableObjectMode) {
-    throw new TypeError(
-      "Flux : une source en mode objet ne porte pas d'octets — " +
-        "pour Readable.from(), passer { objectMode: false }.",
-    );
+  let opened: StreamLifecycle | Promise<StreamLifecycle>;
+  let settings: IByteStreamSettings;
+  try {
+    checkOptions(options);
+    if (readable.readableObjectMode) {
+      throw new TypeError(
+        "Flux : une source en mode objet ne porte pas d'octets — " +
+          "pour Readable.from(), passer { objectMode: false }.",
+      );
+    }
+    settings = settingsOf(context, options);
+    opened = openStreamLifecycle(context, {
+      label: "Flux",
+      stallTimeout: options.stallTimeout ?? SSE_STALL_TIMEOUT_MS,
+      maxDuration: options.maxDuration ?? false,
+    });
+  } catch (error) {
+    // La source appartient au flux dès l'appel : refusée, personne d'autre ne
+    // l'arrêterait — un relais `fetch` garderait son amont ouvert, un
+    // producteur enfant resterait bloqué en écriture.
+    readable.on("error", IGNORE_LATE_ERROR);
+    readable.destroy();
+    throw error;
   }
+  const start = (lifecycle: StreamLifecycle): Promise<IByteStreamResult> => {
+    const stream = new ByteStream(lifecycle, readable, settings);
+    stream.start();
+    return stream.done;
+  };
+  return opened instanceof Promise ? opened.then(start) : start(opened);
+}
+
+/** Les réglages du flux, défauts résolus sur le contexte. */
+function settingsOf(
+  context: HttpContext,
+  options: IByteStreamOptions,
+): IByteStreamSettings {
   const timeout = context.response.timeout;
-  const settings: IByteStreamSettings = {
+  return {
     status: options.status ?? 200,
     plan: planHeaders(options.headers),
     idleTimeout:
@@ -530,15 +574,4 @@ export function openByteStream(
         ? null
         : AsyncResource.bind(options.onClose),
   };
-  const opened = openStreamLifecycle(context, {
-    label: "Flux",
-    stallTimeout: options.stallTimeout ?? SSE_STALL_TIMEOUT_MS,
-    maxDuration: options.maxDuration ?? false,
-  });
-  const start = (lifecycle: StreamLifecycle): Promise<IByteStreamResult> => {
-    const stream = new ByteStream(lifecycle, readable, settings);
-    stream.start();
-    return stream.done;
-  };
-  return opened instanceof Promise ? opened.then(start) : start(opened);
 }

@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { PassThrough } from "node:stream";
+import { PassThrough, Readable } from "node:stream";
 import { Container, Event } from "nodefony";
 import Controller from "../../src/Controller.js";
 import { Scope } from "../../decorators/routerDecorators.js";
@@ -327,6 +327,32 @@ describe("Controller — avertissement CSP (script en ligne sans nonce)", () => 
     } finally {
       await new Promise<void>((r) => serveur.close(() => r()));
     }
+  });
+});
+
+describe("Controller — renderStream() hors requête HTTP", () => {
+  it("refuse en 500 et DÉTRUIT la source confiée (sinon producteur orphelin)", () => {
+    const { c } = makeController();
+    const source = new Readable({
+      read() {
+        // Jamais lue : l'appel est refusé.
+      },
+    });
+    expect(() => c.renderStream(source)).to.throw(/requête HTTP/);
+    expect(source.destroyed, "source détruite").to.equal(true);
+  });
+
+  it("…et ANNULE un flux web (l'amont d'un fetch se ferme)", async () => {
+    const { c } = makeController();
+    let cancelled = false;
+    const web = new ReadableStream<Uint8Array>({
+      cancel() {
+        cancelled = true;
+      },
+    });
+    expect(() => c.renderStream(web)).to.throw(/requête HTTP/);
+    await new Promise((r) => setImmediate(r));
+    expect(cancelled, "flux web annulé").to.equal(true);
   });
 });
 

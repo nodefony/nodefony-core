@@ -145,6 +145,11 @@ directement — la requête est alors répondue : ne pas appeler la suite.
 | `options` | `IByteStreamOptions`                       | statut, en-têtes, délais, écouteur de fin (tableau suivant)      |
 | rend      | `Promise<IByteStreamResult>`               | `{ reason, bytes }` à la fin — la promesse ne rejette **jamais** |
 
+**La source appartient au flux dès l'appel.** Un appel qui LÈVE — réponse déjà prise (500), plafond
+par IP atteint (429), option hors bornes (`RangeError`), source en mode objet (`TypeError`) —
+détruit la source avant de lever (un flux web est annulé) : un relais `fetch` refusé ne garde pas sa
+connexion amont, un producteur enfant ne reste pas bloqué en écriture.
+
 | Option         | Rôle                                                                                                      | Défaut                                   |
 | -------------- | --------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
 | `status`       | statut de la réponse, 200 à 599                                                                           | 200                                      |
@@ -279,6 +284,12 @@ deux types de flux.
 | avant le premier octet (rien n'est parti) | la réponse est ROUVERTE et l'erreur confiée à `HttpKernel.onError` — même statut, même page qu'une action     |
 | après le premier octet                    | **coupure** : `destroy()` en HTTP/1.1, `RST_STREAM(INTERNAL_ERROR)` en HTTP/2 ; une entrée `ERROR` au journal |
 
+**Le journal d'accès dit qui a coupé.** Après le premier octet, le statut parti sur le fil est 200 ;
+le statut de la ligne d'accès, lui, est un fait INTERNE : **500** (ou le code d'une `HttpError`) quand
+la source échoue, **504** quand elle se tait, **499** quand le client part. Sans lui, le noyau
+journaliserait 499 (« client parti ») pour une coupure décidée par le serveur
+(`HttpKernel.createHttpContext`).
+
 En HTTP/2, la coupure passe par `stream.destroy(err)` et non `stream.close(INTERNAL_ERROR)` : ce
 dernier ferme d'abord le côté écriture, et un client qui a déjà fermé le sien lit une **fin propre**
 (mesuré : `rstCode` 0 au lieu de 2).
@@ -325,20 +336,23 @@ désoptimisation de V8 (`--trace-deopt`) ne cite pas `ByteStream`.
 
 ## 🧪 Tests & couverture
 
-| Type                   | Où                                                                                                                                                                                                                                           |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Parité du cycle de vie | `http/streamLifecycle.test.ts` — la MÊME table jouée sur le SSE et le flux d'octets : réponse prise, départ du client en HTTP/1.1, HTTP/2 et h2c, fin propre, session, double ouverture, client lent, durée de vie                           |
-| Parité — unitaire      | `unit/streamLifecycleParity.test.ts` — client parti PENDANT la sauvegarde de session : flux né fermé, source détruite                                                                                                                        |
-| Intégration            | `http/byteStream.test.ts` — HEAD (3 transports), coupure après le premier octet (3 transports), 500 / 502 avant, source muette 504 et coupure, `idleTimeout: 0`, source déjà finie, en-tête refusé, producteur bloqué libéré, relais `fetch` |
-| Mémoire                | `http/memory.test.ts` — flux finis par leur source et flux abandonnés par le client : pente du tas, scopes et contextes résiduels                                                                                                            |
+| Type                   | Où                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Parité du cycle de vie | `http/streamLifecycle.test.ts` — la MÊME table jouée sur le SSE et le flux d'octets : réponse prise, départ du client en HTTP/1.1, HTTP/2 et h2c, fin propre, session, double ouverture, client lent, durée de vie                                                                                                                                                                                     |
+| Parité — unitaire      | `unit/streamLifecycleParity.test.ts` — client parti PENDANT la sauvegarde de session : flux né fermé, source détruite                                                                                                                                                                                                                                                                                  |
+| Intégration            | `http/byteStream.test.ts` — HEAD (3 transports), coupure après le premier octet (3 transports), 500 / 502 avant, source muette 504 et coupure, `idleTimeout: 0`, source déjà finie, en-tête refusé, producteur bloqué libéré, relais `fetch` ; anneau du journal relu (une seule `ERROR`, aucun « onError on closed context », statut de la ligne d'accès) ; session sauvée deux fois, écrite une fois |
+| Délais réels           | même fichier, derrière `NF_RUN_LONG_STREAM=1` (~80 s) — défaut d'`idleTimeout` (coupure entre 30 et 37,5 s, 504 au journal) et `idleTimeout: 0` tenu 40 s, au-delà du délai de socket du serveur                                                                                                                                                                                                       |
+| Gardes                 | `http/sse-guards.attack.test.ts` — plafond par IP (429, place rendue, source refusée détruite), anonyme refusé (401) et révocation, joués sur le SSE ET le flux d'octets                                                                                                                                                                                                                               |
+| Refus — unitaire       | `unit/byteStreamRefusal.test.ts` — un appel qui lève (500, 429, `RangeError`, `TypeError`) détruit la source, annule un flux web                                                                                                                                                                                                                                                                       |
+| Mémoire                | `http/memory.test.ts` — flux finis par leur source et flux abandonnés par le client : pente du tas, scopes et contextes résiduels                                                                                                                                                                                                                                                                      |
 
 Le cas du **producteur bloqué** lance un enfant `node -e` qui écrit sans fin par `fs.writeSync(1, …)`
 — une écriture bloquante, comme ffmpeg — et vérifie qu'il sort en moins de 5 s après le départ du
 client, **sans aucun `kill`** : seule la destruction de sa sortie le libère.
 
-Ce qui **manque** : les cas « source muette 35 s avec le délai par défaut » et « `idleTimeout: 0`
-pendant 40 s » sont éprouvés avec des délais courts, pas avec le défaut ; l'anneau du journal n'est
-pas encore relu par les tests (une seule entrée `ERROR`, aucun avertissement « réponse non envoyée »).
+L'avertissement « réponse non envoyée » ne peut pas tomber après un `renderStream` : l'action rend
+la promesse du résultat, un objet. Le banc qui relit le journal le garde comme filet, sans pouvoir le
+faire rougir sur ce chemin.
 
 ## 🔗 Pour aller plus loin
 

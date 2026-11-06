@@ -57,6 +57,7 @@ import {
 //import { ServerHttp2Stream } from "node:http2";
 import fs, { createReadStream, ReadStream } from "node:fs";
 import { promisify } from "node:util";
+import { Readable } from "node:stream";
 import Eta from "../service/Eta";
 import { isDevelopment, singletonWriteMessage } from "./singletonGuard";
 import { signTemplateTags, VIEW_NONCE_LOCAL } from "./viewNonce";
@@ -749,8 +750,10 @@ class Controller extends Service implements IController {
    * La réponse est prise à l'appel ; les en-têtes partent au premier morceau.
    * Une erreur de la source AVANT lui rend la page d'erreur ordinaire (500, ou
    * le code d'une `HttpError`) ; APRÈS, le client voit une coupure. La source
-   * est détruite à la fin, quelle qu'en soit la raison. La promesse ne rejette
-   * jamais : elle rend la raison de la fin et les octets envoyés.
+   * appartient au flux dès l'appel : détruite à la fin, quelle qu'en soit la
+   * raison, et détruite aussi quand l'appel lève (un flux web est annulé). La
+   * promesse ne rejette jamais : elle rend la raison de la fin et les octets
+   * envoyés.
    *
    * @example
    * ```ts
@@ -776,13 +779,18 @@ class Controller extends Service implements IController {
    * @param options - statut, en-têtes, `idleTimeout`, `stallTimeout`,
    *   `maxDuration`, `onClose(reason)`.
    * @returns la raison de la fin et le nombre d'octets envoyés.
-   * @throws HttpError 500 hors HTTP (WebSocket) ou quand la réponse est partie.
+   * @throws HttpError 500 hors HTTP (WebSocket) ou quand la réponse est partie ;
+   *   429 au-delà du plafond de connexions par IP. La source est alors détruite.
    */
   renderStream(
     source: ByteStreamSource,
     options?: IByteStreamOptions,
   ): Promise<IByteStreamResult> {
     if (!(this.context instanceof HttpContext)) {
+      // La source appartient au flux dès l'appel : refusée, personne d'autre
+      // ne l'arrêterait (producteur bloqué en écriture, amont d'un fetch).
+      if (source instanceof Readable) source.destroy();
+      else source.cancel().catch(() => undefined);
       throw new HttpError(
         "Flux : une réponse en flux exige une requête HTTP",
         500,

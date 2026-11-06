@@ -13,7 +13,7 @@
 | Famille | Variables |
 | --- | ---: |
 | Infrastructure | 14 |
-| Interrupteur de coût | 7 |
+| Interrupteur de coût | 8 |
 | Décor de banc | 40 |
 | Runtime produit | 87 |
 
@@ -159,6 +159,7 @@ déclarée n'a pas été exercée.
 | `NF_RUN_CLI_BOOT` | boots CLI réels (lents : un kernel par cas) |
 | `NF_RUN_CLUSTER_E2E` | scénarios cluster multi-process |
 | `NF_RUN_DB_OUTAGE` | coupures RÉELLES de base (arrête et relance un conteneur ; exige aussi NF_DB_OUTAGE_{PG,MYSQL,MONGO}_CONTAINER) |
+| `NF_RUN_LONG_STREAM` | flux d'octets tenus à leurs délais RÉELS — défaut d'idleTimeout (30 s) et idleTimeout: 0 pendant 40 s, ~80 s en tout |
 | `NF_RUN_PERF` | micro-bancs de performance (seuils non déterministes) |
 | `NF_RUN_WS_RUPTURE` | sondes de rupture WebSocket (épuisent les ports) |
 
@@ -175,7 +176,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_ACCUEIL_REGISTRY` | `scripts/release/accueil-gate.mjs:87` |
 | `NF_ACCUEIL_ROOT` | `scripts/release/accueil-gate.mjs:84` |
 | `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:945` |
-| `NF_BENCH_ROUTE` | `src/modules/test/index.ts:117` |
+| `NF_BENCH_ROUTE` | `src/modules/test/index.ts:118` |
 | `NF_BIND_ALL` | `scripts/test/test-all.ts:805` |
 | `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:3018` |
 | `NF_BOOT_WARN_MS` | `src/nodefony/src/kernel/Kernel.ts:3030` |
@@ -217,15 +218,15 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_CLUSTER` | `src/nodefony/src/service/cluster/clusterMaster.ts:56` |
 | `NF_CLUSTER_PROBE` | `src/nodefony/src/service/cluster/clusterMaster.ts:66` |
 | `NF_DATABASE_URL` | `src/nodefony/src/tests/CliIntegration.test.ts:2619` |
-| `NF_DEPS_REGISTRY` | `scripts/deps/check-deps-latest.mjs:80` |
-| `NF_DEPS_ROOT` | `scripts/deps/check-deps-latest.mjs:78` |
+| `NF_DEPS_REGISTRY` | `scripts/deps/check-deps-latest.mjs:85` |
+| `NF_DEPS_ROOT` | `scripts/deps/check-deps-latest.mjs:83` |
 | `NF_DEV_CHILD` | `src/nodefony/src/kernel/supervisorLink.ts:130` |
 | `NF_DEV_PORTS` | `src/nodefony/src/tests/devProcess.test.ts:377` |
 | `NF_DOCKERHUB_TOKEN` | `scripts/release/hub-description.mjs:211` |
 | `NF_DOCKERHUB_USER` | `scripts/release/hub-description.mjs:210` |
 | `NF_ENV` | `src/nodefony/src/bin/nodefony.ts:104` |
-| `NF_GATES_ALLOW` | `scripts/test/vitest/gates.ts:889` |
-| `NF_GATES_EXPECT` | `scripts/test/vitest/gates.ts:908` |
+| `NF_GATES_ALLOW` | `scripts/test/vitest/gates.ts:895` |
+| `NF_GATES_EXPECT` | `scripts/test/vitest/gates.ts:914` |
 | `NF_HUB_API` | `scripts/release/hub-description.mjs:56` |
 | `NF_HUB_DEPOT` | `scripts/release/hub-description.mjs:62` |
 | `NF_HUB_ROOT` | `scripts/release/hub-description.mjs:52` |

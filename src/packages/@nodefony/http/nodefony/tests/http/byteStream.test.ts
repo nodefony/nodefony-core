@@ -33,6 +33,7 @@ interface IStreamState {
   lastResult: IResult | null;
   sourceDestroyed: boolean | null;
   childExited: boolean | null;
+  sessionWrites: number | null;
 }
 
 async function state(
@@ -51,6 +52,55 @@ async function lastResult(ms = 3000): Promise<IResult> {
   }, ms);
   if (result === null) throw new Error("aucun résultat");
   return result;
+}
+
+interface IJournalEntry {
+  severity: string;
+  msgid: string;
+  text: string;
+}
+
+/** Repère du journal du serveur : rend la lecture de ce qui suit. */
+async function journalFrom(): Promise<() => Promise<IJournalEntry[]>> {
+  const mark = await fetch(`${H1}${BASE}/journal/mark`);
+  const { uid } = (await mark.json()) as { uid: number };
+  return async () => {
+    const res = await fetch(`${H1}${BASE}/journal?since=${uid}`);
+    return (await res.json()) as IJournalEntry[];
+  };
+}
+
+/**
+ * Les erreurs ÉCRITES au journal, hors lignes d'accès : une réponse 5xx
+ * journalise aussi sa ligne d'accès en ERROR, mais c'est un autre fait.
+ */
+function errorsOf(entries: IJournalEntry[]): IJournalEntry[] {
+  return entries.filter((e) => e.severity === "ERROR" && e.msgid !== "req");
+}
+
+/** La ligne d'accès (`req`) d'une URL, lue après le repère. */
+async function accessLine(
+  read: () => Promise<IJournalEntry[]>,
+  path: string,
+): Promise<string> {
+  const lines = (await read()).filter(
+    (e) => e.msgid === "req" && e.text.includes(path),
+  );
+  expect(lines, `ligne d'accès de ${path}`).to.have.length(1);
+  return lines[0]?.text ?? "";
+}
+
+/** Ce que le journal ne doit JAMAIS porter après un flux. */
+function expectQuietJournal(entries: IJournalEntry[]): void {
+  const joined = entries.map((e) => `${e.msgid} ${e.text}`);
+  expect(
+    joined.filter((t) => t.includes("onError on closed context")),
+    "« onError on closed context »",
+  ).to.have.length(0);
+  expect(
+    joined.filter((t) => /n'a rien envoyé|délai d'expiration/.test(t)),
+    "« réponse non envoyée »",
+  ).to.have.length(0);
 }
 
 const H2_TRANSPORTS: Transport[] = IS_PROD_TARGET
@@ -109,6 +159,59 @@ describe("Flux d'octets — renderStream (requires server)", () => {
     expect((await lastResult()).reason).to.equal("error");
   });
 
+  it("journal d'une erreur AVANT le premier octet : jamais deux ERROR, ni « closed context », ni « non envoyée »", async () => {
+    const read = await journalFrom();
+    const res = await fetch(`${H1}${BASE}/fail?when=before`);
+    expect(res.status).to.equal(500);
+    await res.text();
+    await lastResult();
+    await pause(100);
+    const entries = await read();
+    // Une ERROR au plus : celle du moteur d'erreurs, écrite en mode debug.
+    expect(errorsOf(entries), "entrées ERROR").to.have.length.at.most(1);
+    expectQuietJournal(entries);
+  });
+
+  it("erreur AVANT le premier octet sur une session mutée : sauvée deux fois, ÉCRITE une fois", async () => {
+    const res = await fetch(`${H1}${BASE}/fail-session`);
+    expect(res.status).to.equal(500);
+    expect(res.headers.get("set-cookie"), "cookie de session").to.not.equal(
+      null,
+    );
+    await res.text();
+    await lastResult();
+    expect((await state()).sessionWrites, "écritures de session").to.equal(1);
+  });
+
+  it("journal d'une erreur APRÈS le premier octet : UNE seule ERROR, celle du flux", async () => {
+    const read = await journalFrom();
+    const flow = await openFlow("HTTP/1.1", `${BASE}/fail?when=after`);
+    expect(await flow.done).to.equal("abort");
+    flow.dispose();
+    await lastResult();
+    await pause(100);
+    const entries = await read();
+    const errors = errorsOf(entries);
+    expect(errors, "entrées ERROR").to.have.length(1);
+    expect(errors[0]?.msgid).to.equal("STREAM");
+    expectQuietJournal(entries);
+    // Coupé par le serveur : 500 au journal d'accès, jamais 499.
+    expect(await accessLine(read, "/fail?when=after")).to.match(/^GET\s+500\s/);
+  });
+
+  it("journal d'un flux quitté par le client : aucun avertissement « réponse non envoyée »", async () => {
+    const read = await journalFrom();
+    const flow = await openFlow("HTTP/1.1", `${BASE}/hold`);
+    await flow.first;
+    flow.leave();
+    expect((await lastResult()).reason).to.equal("client");
+    flow.dispose();
+    await pause(100);
+    const entries = await read();
+    expect(errorsOf(entries), "entrées ERROR").to.have.length(0);
+    expectQuietJournal(entries);
+  });
+
   it("un en-tête refusé au premier morceau rend 500, sans abattre le serveur", async () => {
     const res = await fetch(`${H1}${BASE}/bad-header`);
     expect(res.status).to.equal(500);
@@ -130,9 +233,15 @@ describe("Flux d'octets — renderStream (requires server)", () => {
   });
 
   it("une source qui se TAIT après son premier octet est coupée au bout d'idleTimeout", async () => {
+    const read = await journalFrom();
     const flow = await openFlow("HTTP/1.1", `${BASE}/limits?idle=300`);
+    expect(flow.status).to.equal(200);
     expect(await flow.done).to.equal("abort");
     expect((await lastResult()).reason).to.equal("timeout");
+    // La ligne d'accès dit que le SERVEUR a coupé (504), pas que le client
+    // est parti (499).
+    await pause(100);
+    expect(await accessLine(read, "/limits?idle=300")).to.match(/^GET\s+504\s/);
   });
 
   it("idleTimeout: 0 désarme le chien de garde : une source muette reste ouverte", async () => {
@@ -204,3 +313,55 @@ describe("Flux d'octets — renderStream (requires server)", () => {
     }
   });
 });
+
+/**
+ * Les délais RÉELS, que les cas ci-dessus éprouvent en millisecondes : le
+ * défaut d'`idleTimeout` (le `responseTimeout` du serveur, 30 s) et sa
+ * désactivation tenue plus longtemps que le délai de socket du serveur.
+ * ~80 s : derrière `NF_RUN_LONG_STREAM=1` (`scripts/test/vitest/gates.ts`).
+ */
+describe.runIf(process.env.NF_RUN_LONG_STREAM === "1")(
+  "Flux d'octets — délais réels (requires server)",
+  () => {
+    beforeEach(async () => {
+      await state("reset");
+    });
+
+    it("défaut : une source qui se tait est coupée entre 30 et 37,5 s (timeout), socket fermée, 504 au journal", async () => {
+      const read = await journalFrom();
+      const started = Date.now();
+      const flow = await openFlow("HTTP/1.1", `${BASE}/limits`);
+      expect(flow.status).to.equal(200);
+      const ending = await Promise.race([
+        flow.done,
+        pause(40_000).then(() => "pending" as const),
+      ]);
+      const elapsed = Date.now() - started;
+      flow.dispose();
+      expect(ending, "coupée avant 40 s").to.equal("abort");
+      // Chien de garde par quarts (7,5 s) : le premier quart ne voit le premier
+      // morceau qu'à 7,5 s, d'où une coupure entre 1 et 1,25 × idleTimeout.
+      expect(elapsed).to.be.within(29_500, 38_500);
+      expect((await lastResult()).reason).to.equal("timeout");
+      await pause(100);
+      expect(await accessLine(read, "/limits")).to.match(/^GET\s+504\s/);
+    }, 50_000);
+
+    it("idleTimeout: 0 — une source muette 40 s reste ouverte, sans 408 ni 504", async () => {
+      const read = await journalFrom();
+      const flow = await openFlow("HTTP/1.1", `${BASE}/limits?idle=0`);
+      await flow.first;
+      const ending = await Promise.race([
+        flow.done,
+        pause(40_000).then(() => "pending" as const),
+      ]);
+      expect(ending, "toujours ouverte après 40 s").to.equal("pending");
+      expect((await state()).lastResult).to.equal(null);
+      flow.leave();
+      expect((await lastResult()).reason).to.equal("client");
+      flow.dispose();
+      await pause(100);
+      expect(await accessLine(read, "/limits?idle=0")).to.match(/^GET\s+499\s/);
+    }, 55_000);
+  },
+);

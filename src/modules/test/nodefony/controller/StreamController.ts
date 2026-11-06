@@ -9,7 +9,7 @@ import {
   type IByteStreamOptions,
   type IByteStreamResult,
 } from "@nodefony/http";
-import { RequestContext } from "nodefony";
+import { RequestContext, type Pdu } from "nodefony";
 
 /**
  * Ce que le banc relit après coup. Les six premiers champs sont ceux de la
@@ -31,6 +31,14 @@ export const streamState = {
   sourceDestroyed: null as boolean | null,
   /** Le producteur enfant (`/child`) est-il sorti ? */
   childExited: null as boolean | null,
+  /**
+   * Sources tenues (`heldSource`) encore VIVANTES. Jamais remis à zéro : c'est
+   * un fait, pas un compteur de cas — une source refusée et jamais détruite y
+   * reste, et c'est ce que le banc du plafond par IP relit.
+   */
+  liveSources: 0,
+  /** Écritures de la session du dernier `/fail-session` (`session.save`). */
+  sessionWrites: null as number | null,
 };
 
 /** La réponse est-elle prise ? `null` hors contexte HTTP. */
@@ -58,9 +66,11 @@ function heldSource(first: string | null, every: number): Readable {
     destroy(error, callback) {
       if (timer !== null) clearInterval(timer);
       streamState.sourceDestroyed = true;
+      streamState.liveSources--;
       callback(error);
     },
   });
+  streamState.liveSources++;
   if (first !== null) source.push(first);
   if (every > 0) timer = setInterval(() => source.push("."), every);
   return source;
@@ -198,6 +208,32 @@ class StreamController extends Controller {
    */
   @route("stream-fail", { path: "/fail" })
   fail() {
+    return this.#failingSource();
+  }
+
+  /**
+   * La source échoue AVANT son premier morceau sur une requête qui porte une
+   * session mutée. Elle est sauvée deux fois — à l'ouverture du flux, puis par
+   * l'envoi de la page d'erreur — et ne doit être ÉCRITE qu'une fois.
+   */
+  @route("stream-fail-session", { path: "/fail-session" })
+  @UseSession()
+  failSession() {
+    const session = this.session;
+    if (session) {
+      session.set("stream-fail", Date.now());
+      const save = session.save.bind(session);
+      streamState.sessionWrites = 0;
+      session.save = (...args: Parameters<typeof save>) => {
+        streamState.sessionWrites = (streamState.sessionWrites ?? 0) + 1;
+        return save(...args);
+      };
+    }
+    return this.#failingSource();
+  }
+
+  /** La source de `/fail` et `/fail-session`, réglée par la requête. */
+  #failingSource() {
     const query = this.query;
     const error =
       query.status === "502"
@@ -284,6 +320,38 @@ class StreamController extends Controller {
     });
   }
 
+  /**
+   * Repère du journal : l'identifiant de la dernière entrée de l'anneau. Le
+   * banc le relève AVANT un cas, puis relit ce qui a été écrit depuis.
+   */
+  @route("stream-journal-mark", { path: "/journal/mark" })
+  journalMark() {
+    const ring = this.kernel?.syslog?.ringStack ?? [];
+    return { uid: ring.length === 0 ? 0 : (ring[ring.length - 1]?.uid ?? 0) };
+  }
+
+  /** Entrées de l'anneau du journal postérieures à `since`, toutes sévérités. */
+  @route("stream-journal", { path: "/journal" })
+  journal() {
+    const since = Number(this.query.since ?? 0);
+    const ring: Pdu[] = this.kernel?.syslog?.ringStack ?? [];
+    return ring
+      .filter((pdu) => pdu.uid > since)
+      .map((pdu) => {
+        const payload: unknown = pdu.payload;
+        return {
+          severity: pdu.severityName,
+          msgid: pdu.msgid,
+          text:
+            typeof payload === "string"
+              ? payload
+              : payload instanceof Error
+                ? `${payload.name}: ${payload.message}`
+                : `[${pdu.typePayload ?? typeof payload}]`,
+        };
+      });
+  }
+
   /** État relu par le banc. */
   @route("stream-state", { path: "/state" })
   state() {
@@ -303,8 +371,38 @@ class StreamController extends Controller {
     streamState.lastResult = null;
     streamState.sourceDestroyed = null;
     streamState.childExited = null;
+    streamState.sessionWrites = null;
     return { ...streamState };
   }
 }
 
+/**
+ * Le même flux DERRIÈRE le pare-feu : `/nodefony/test/secure/*` tombe dans la
+ * zone `test-secure`. Éprouve sur le flux d'octets ce que la zone impose à
+ * une connexion LONGUE — anonyme refusé, fermeture à la révocation — comme
+ * `SecureSseController` pour le SSE.
+ */
+@controller("/nodefony/test/secure/stream")
+class SecureStreamController extends Controller {
+  constructor(context: Context) {
+    super("SecureStreamController", context);
+  }
+
+  /** Tenu ouvert ; `GET` et `POST` (la mutation passe par le CSRF). */
+  @route("secure-stream-hold", {
+    path: "/hold",
+    requirements: { methods: ["GET", "POST"] },
+  })
+  hold() {
+    const done = this.renderStream(heldSource("prêt", 50), {
+      onClose: () => {
+        streamState.closed++;
+      },
+    });
+    streamState.opened++;
+    return done;
+  }
+}
+
+export { SecureStreamController };
 export default StreamController;

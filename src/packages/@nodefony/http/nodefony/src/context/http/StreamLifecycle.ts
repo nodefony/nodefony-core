@@ -325,7 +325,9 @@ export function openStreamLifecycle(
 ): StreamLifecycle | Promise<StreamLifecycle> {
   const { label } = options;
   if (context.sended || context.finished || context.response.isHeaderSent()) {
-    throw new HttpError(`${label} : la réponse est déjà partie`, 500, context);
+    // Sans contexte : `HttpError` réécrirait le statut de la réponse DÉJÀ prise
+    // — celle d'un flux en cours, que le journal d'accès dirait en 500.
+    throw new HttpError(`${label} : la réponse est déjà partie`, 500);
   }
   const response = context.response;
   const nodeResponse = response.response;

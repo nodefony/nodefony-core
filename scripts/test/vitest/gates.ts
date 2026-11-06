@@ -173,6 +173,12 @@ export const OPT_IN_SWITCHES: ReadonlyArray<{ env: string; what: string }> = [
     what: "sondes de rupture WebSocket (épuisent les ports)",
   },
   {
+    env: "NF_RUN_LONG_STREAM",
+    what:
+      "flux d'octets tenus à leurs délais RÉELS — défaut d'idleTimeout (30 s) " +
+      "et idleTimeout: 0 pendant 40 s, ~80 s en tout",
+  },
+  {
     env: "NF_RUN_DB_OUTAGE",
     what:
       "coupures RÉELLES de base (arrête et relance un conteneur ; exige aussi " +
