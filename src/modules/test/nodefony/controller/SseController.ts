@@ -1,17 +1,37 @@
-import { Controller, route, controller } from "@nodefony/framework";
-import { Context } from "@nodefony/http";
+import { Controller, route, controller, UseSession } from "@nodefony/framework";
+import { Context, HttpContext } from "@nodefony/http";
 import { RequestContext } from "nodefony";
 
 /**
  * Ce que le banc relit après coup : combien de flux se sont fermés côté
  * serveur, et si l'écouteur de fermeture voyait encore la requête dans l'ALS
  * (la fermeture par le client part de la socket, hors de la bulle).
+ *
+ * Les trois derniers champs servent la table de parité du cycle de vie
+ * (`http/tests/http/streamLifecycle.test.ts`) : la réponse est-elle PRISE dès
+ * le retour de l'ouverture, combien de fois le contexte s'est-il terminé, et
+ * quel statut a refusé une seconde ouverture.
  */
 export const sseState = {
   opened: 0,
   closed: 0,
   closeSawRequestId: [] as Array<string | null>,
+  sendedAtOpen: null as boolean | null,
+  contextClosed: 0,
+  refusedStatus: null as number | null,
 };
+
+/** La réponse est-elle prise ? `null` hors contexte HTTP. */
+function sendedOf(context: Context | undefined): boolean | null {
+  return context instanceof HttpContext ? context.sended : null;
+}
+
+/** Statut porté par une erreur levée à l'ouverture — `null` s'il n'y en a pas. */
+function statusOf(error: unknown): number | null {
+  if (typeof error !== "object" || error === null || !("code" in error))
+    return null;
+  return typeof error.code === "number" ? error.code : null;
+}
 
 /**
  * Banc des flux d'événements serveur (SSE) — `/nodefony/test/sse/*`.
@@ -49,6 +69,7 @@ class SseController extends Controller {
   })
   async hold() {
     const sse = await this.renderSse({ heartbeat: 50 });
+    sseState.sendedAtOpen = sendedOf(this.context);
     sseState.opened++;
     sse.onClose(() => {
       sseState.closed++;
@@ -59,6 +80,57 @@ class SseController extends Controller {
         sseState.closeSawRequestId.shift();
     });
     await sse.send("prêt", { event: "ready" });
+  }
+
+  /**
+   * Fin par le SERVEUR, demandée deux fois : le flux ne se termine qu'une
+   * fois, et le contexte aussi (`contextClosed`).
+   */
+  @route("sse-end", { path: "/end" })
+  async end() {
+    this.context?.on("onClose", () => {
+      sseState.contextClosed++;
+    });
+    const sse = await this.renderSse({ heartbeat: false });
+    sseState.opened++;
+    sse.onClose(() => {
+      sseState.closed++;
+    });
+    await sse.send("prêt", { event: "ready" });
+    await sse.close();
+    await sse.close();
+  }
+
+  /**
+   * Session active : la valeur `v` posée AVANT l'ouverture doit être sauvée,
+   * et son cookie partir avec les en-têtes du flux — après, plus rien ne
+   * pourrait les toucher.
+   */
+  @route("sse-session", { path: "/session" })
+  @UseSession()
+  async withSession() {
+    const value = this.query.v;
+    this.session?.set("parity", typeof value === "string" ? value : null);
+    const sse = await this.renderSse({ heartbeat: false });
+    await sse.send("prêt", { event: "ready" });
+    return sse.close();
+  }
+
+  /**
+   * Seconde ouverture sur une réponse déjà prise : refusée (500), sans
+   * toucher au premier flux, qui se termine normalement.
+   */
+  @route("sse-taken", { path: "/taken" })
+  async taken() {
+    const sse = await this.renderSse({ heartbeat: false });
+    try {
+      await this.renderSse({ heartbeat: false });
+      sseState.refusedStatus = 0;
+    } catch (error) {
+      sseState.refusedStatus = statusOf(error);
+    }
+    await sse.send("prêt", { event: "ready" });
+    return sse.close();
   }
 
   /** Même route, deux réponses : JSON, ou flux quand le client le demande. */
@@ -194,6 +266,9 @@ class SseController extends Controller {
     sseState.opened = 0;
     sseState.closed = 0;
     sseState.closeSawRequestId = [];
+    sseState.sendedAtOpen = null;
+    sseState.contextClosed = 0;
+    sseState.refusedStatus = null;
     return { ...sseState };
   }
 }
