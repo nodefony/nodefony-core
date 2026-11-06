@@ -470,6 +470,9 @@ describe("Contrôleur singleton — streamFile", () => {
     const { ctx } = makeCtx("stream", "production");
     const response = {
       removeHeader() {},
+      getHeader() {
+        return undefined;
+      },
       statusCode: 200,
       setFileMimeType() {},
     };
@@ -503,6 +506,6 @@ describe("Contrôleur singleton — streamFile", () => {
     expect(RequestContext.get()).to.equal(undefined);
     finish();
     const stream = await done;
-    expect(stream.destroyed).to.equal(true);
+    expect(stream?.destroyed).to.equal(true);
   });
 });

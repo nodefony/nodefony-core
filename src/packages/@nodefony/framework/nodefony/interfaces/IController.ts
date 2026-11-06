@@ -71,10 +71,10 @@ export interface IController {
     file: unknown,
     options?: unknown,
     headers?: OutgoingHttpHeaders,
-  ): Promise<ReadStream>;
+  ): Promise<ReadStream | null>;
   streamFile(
     file: FileClass | string,
     headers?: OutgoingHttpHeaders,
     options?: Record<string, unknown>,
-  ): Promise<ReadStream>;
+  ): Promise<ReadStream | null>;
 }

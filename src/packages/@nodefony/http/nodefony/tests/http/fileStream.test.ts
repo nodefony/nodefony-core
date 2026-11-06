@@ -319,3 +319,123 @@ describe("HTTP/2 STREAM", () => {
     expect(h["content-length"]).to.equal("1024");
   });
 });
+
+// #737 — requêtes conditionnelles (RFC 9110 §13) sur la VRAIE réponse : le
+// harnais unitaire simule `Response`, ce bloc prouve ce que le client reçoit —
+// un 304 sans corps, ses en-têtes, en HTTP/1.1 comme en HTTP/2.
+describe("HTTP STREAM — requêtes conditionnelles (RFC 9110 §13)", () => {
+  interface IAnswer {
+    status: number;
+    headers: Record<string, string | string[] | undefined>;
+    bytes: number;
+  }
+
+  /** Requête HTTPS ; le corps d'un 200/206 n'est lu que si `read`. */
+  function ask(
+    path: string,
+    headers: Record<string, string> = {},
+    method = "GET",
+    read = false,
+  ): Promise<IAnswer> {
+    return new Promise((resolve, reject) => {
+      const req = https.request(
+        {
+          hostname: "localhost",
+          port: 5152,
+          path: `/nodefony/test/html${path}`,
+          method,
+          rejectUnauthorized: false,
+          headers,
+          agent: false,
+        },
+        (res) => {
+          const answer: IAnswer = {
+            status: res.statusCode ?? 0,
+            headers: res.headers,
+            bytes: 0,
+          };
+          if (!read && (answer.status === 200 || answer.status === 206)) {
+            res.destroy();
+            resolve(answer);
+            return;
+          }
+          res.on("data", (c: Buffer) => (answer.bytes += c.length));
+          res.on("end", () => resolve(answer));
+        },
+      );
+      req.on("error", reject);
+      req.end();
+    });
+  }
+
+  it("un média part avec ETag forte, Last-Modified et `Cache-Control: private, no-cache`", async () => {
+    const { status, headers } = await ask("/media");
+    expect(status).to.equal(200);
+    expect(headers.etag).to.match(/^"[0-9a-f]+-[0-9a-f]+"$/);
+    expect(Number.isNaN(Date.parse(String(headers["last-modified"])))).to.equal(
+      false,
+    );
+    expect(headers["cache-control"]).to.equal("private, no-cache");
+  });
+
+  it("If-None-Match égale → 304 sans corps, validateurs portés ; HEAD aussi", async () => {
+    const { headers: first } = await ask("/media");
+    const etag = String(first.etag);
+    const got = await ask("/media", { "If-None-Match": etag });
+    expect(got.status).to.equal(304);
+    expect(got.bytes).to.equal(0);
+    expect(got.headers.etag).to.equal(etag);
+    expect(got.headers["cache-control"]).to.equal("private, no-cache");
+    const head = await ask("/media", { "If-None-Match": etag }, "HEAD");
+    expect(head.status).to.equal(304);
+  });
+
+  it("If-Modified-Since à la date servie → 304", async () => {
+    const { headers: first } = await ask("/media");
+    const got = await ask("/media", {
+      "If-Modified-Since": String(first["last-modified"]),
+    });
+    expect(got.status).to.equal(304);
+  });
+
+  it("If-Range égale à l'ETag → 206 ; différente → 200 entier", async () => {
+    const { headers: first } = await ask("/media");
+    const etag = String(first.etag);
+    const resumed = await ask("/media", {
+      Range: "bytes=0-99",
+      "If-Range": etag,
+    });
+    expect(resumed.status).to.equal(206);
+    expect(resumed.headers["content-length"]).to.equal("100");
+    const changed = await ask("/media", {
+      Range: "bytes=0-99",
+      "If-Range": '"une-autre-version"',
+    });
+    expect(changed.status).to.equal(200);
+  });
+
+  it("If-Match qui ne correspond pas → 412, texte court", async () => {
+    const got = await ask("/stream", { "If-Match": '"autre"' }, "GET", true);
+    expect(got.status).to.equal(412);
+    expect(got.headers["content-type"]).to.match(/^text\/plain/);
+  });
+
+  it("téléchargement : le 304 garde `Expires`", async () => {
+    const { headers: first } = await ask("/download", {}, "GET", true);
+    const got = await ask("/download", {
+      "If-None-Match": String(first.etag),
+    });
+    expect(got.status).to.equal(304);
+    expect(got.headers.expires).to.equal("Thu, 01 Jan 1970 00:00:00 GMT");
+  });
+
+  it("HTTP/2 : If-None-Match égale → 304", async () => {
+    const first = await getHttp2({ ":path": "/nodefony/test/html/media" });
+    const h = await getHttp2({
+      ":path": "/nodefony/test/html/media",
+      "if-none-match": String(first.etag),
+    });
+    expect(h[":status"]).to.equal(304);
+    expect(h.etag).to.equal(first.etag);
+  });
+});

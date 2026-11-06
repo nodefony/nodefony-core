@@ -475,19 +475,20 @@ et gèle le process le temps du stat.
 `renderMediaStream(file, headers?, options?)` (`Controller.ts#Controller.renderMediaStream`) implémente les **requêtes par
 plage** (RFC 9110 §14), ce qui permet à un lecteur vidéo de sauter dans le flux :
 
-| Le client envoie…                             | Réponse                                                         |
-| --------------------------------------------- | --------------------------------------------------------------- |
-| Pas de `Range`                                | 200 + fichier complet, `Accept-Ranges: bytes`                   |
-| `Range: bytes=0-499`                          | **206** + `Content-Range`, bornes clampées à la taille réelle   |
-| `Range: bytes=-500` (suffixe)                 | 206 sur les 500 derniers octets                                 |
-| Plage hors fichier                            | **416** + `Content-Range: bytes */<taille>` (RFC 9110 §15.5.17) |
-| Syntaxe invalide, multi-plage, unité inconnue | En-tête **ignoré** → 200 complet (jamais un 500)                |
-| `HEAD` avec `Range`                           | `Range` **ignoré** : en-têtes du GET complet (RFC 9110 §14.2)   |
-| `If-Range` présent                            | `Range` **ignoré** → 200 complet (RFC 9110 §13.1.5)             |
+| Le client envoie…                                | Réponse                                                         |
+| ------------------------------------------------ | --------------------------------------------------------------- |
+| Pas de `Range`                                   | 200 + fichier complet, `Accept-Ranges: bytes`                   |
+| `Range: bytes=0-499`                             | **206** + `Content-Range`, bornes clampées à la taille réelle   |
+| `Range: bytes=-500` (suffixe)                    | 206 sur les 500 derniers octets                                 |
+| Plage hors fichier                               | **416** + `Content-Range: bytes */<taille>` (RFC 9110 §15.5.17) |
+| Syntaxe invalide, multi-plage, unité inconnue    | En-tête **ignoré** → 200 complet (jamais un 500)                |
+| `HEAD` avec `Range`                              | `Range` **ignoré** : en-têtes du GET complet (RFC 9110 §14.2)   |
+| `If-Range` égal à l'`ETag` ou au `Last-Modified` | 206 : la reprise est sûre, le fichier n'a pas changé            |
+| `If-Range` différent, ou étiquette faible        | `Range` **ignoré** → 200 complet (RFC 9110 §13.1.5)             |
 
-Aucun validateur (`ETag`, `Last-Modified`) n'est envoyé : une condition `If-Range` ne peut donc
-jamais être vraie, et la norme impose alors de servir le fichier entier — plutôt qu'une plage d'un
-fichier qui a pu changer, que le client recollerait à l'ancienne.
+Une condition `If-Range` fausse sert le fichier entier — plutôt qu'une plage d'un fichier qui a
+changé, que le client recollerait à l'ancienne. Seuls un `ETag` FORTEMENT égal, ou une date égale
+à un `Last-Modified` vieux d'au moins une seconde, autorisent la reprise.
 
 La logique est isolée dans une fonction pure exportée, `parseByteRange()` (`Controller.ts#parseByteRange`) —
 donc testable sans serveur.
@@ -505,8 +506,39 @@ même cycle de vie que `renderStream()` ci-dessous (`HttpContext.openStream`) :
 - **la longueur annoncée est tenue** : la lecture est bornée à la taille relevée (un fichier qui
   grossit pendant l'envoi n'envoie pas plus que `Content-Length`), et un extrait `start`/`end`
   annonce sa propre longueur ;
-- **un fichier n'est pas un flux vivant** : ni `Cache-Control: no-cache`, ni `X-Accel-Buffering: no`,
-  ni délai d'inactivité.
+- **un fichier n'est pas un flux vivant** : ni `X-Accel-Buffering: no`, ni délai d'inactivité.
+
+### Requêtes conditionnelles — 304, 412, reprise
+
+Les trois helpers posent sur le fichier ENTIER une `ETag` forte et un `Last-Modified`, tirés de sa
+taille et de sa date de modification, sans le lire. Les préconditions sont évaluées dans l'ordre de
+RFC 9110 §13.2.2, AVANT d'ouvrir le fichier (`conditionalRequest.ts#evaluatePreconditions`) :
+
+| Le client envoie…                                            | Réponse                                     |
+| ------------------------------------------------------------ | ------------------------------------------- |
+| `If-None-Match` égal (comparaison faible), ou `*`            | **304** en GET/HEAD, sans corps ; 412 sinon |
+| `If-Modified-Since` ≥ date du fichier (sans `If-None-Match`) | **304** en GET/HEAD                         |
+| `If-Match` différent (comparaison forte)                     | **412** `Precondition Failed`               |
+| `If-Unmodified-Since` < date du fichier (sans `If-Match`)    | **412**                                     |
+
+Le 304 porte ce qu'aurait porté le 200 : `ETag`, `Last-Modified`, `Cache-Control`, `Expires`,
+`Vary` (RFC 9110 §15.4.5). Le helper rend alors `null` : aucun fichier n'a été ouvert.
+
+**`Cache-Control: private, no-cache` par défaut.** Sans lui, `Last-Modified` rendrait la réponse
+« heuristiquement cacheable » (RFC 9111 §4.2.2) : un cache partagé pourrait garder le fichier et le
+resservir sans redemander — or un fichier servi par une action est le plus souvent protégé.
+`private` ferme les caches partagés, `no-cache` fait revalider avant chaque réutilisation, ce qui
+ne coûte qu'un 304. Un fichier public fixe le sien :
+
+```ts
+return this.renderMediaStream(file, {
+  "Cache-Control": "public, max-age=3600",
+});
+```
+
+Une `ETag` ou un `Last-Modified` passés dans les en-têtes (un hachage du contenu, une version)
+remplacent ceux du fichier ET servent à la comparaison. Un extrait `streamFile(f, h, { start, end })`
+n'est pas la représentation entière : il ne reçoit ni validateur ni évaluation.
 
 ### Une source qui n'est pas un fichier — `renderStream()`
 
@@ -635,18 +667,21 @@ code du framework applique — et attend de toi — les règles suivantes :
 
 ## 📜 Normes appliquées
 
-| Domaine                           | Norme                            | Comment le code s'y conforme                                                         |
-| --------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------ |
-| Statuts sans corps (204/205/304)  | RFC 9110 §15.3.5/§15.3.6/§15.4.5 | `isContentlessStatus` (`Response.ts#isContentlessStatus`) — aucun corps ne part      |
-| Requêtes par plage                | RFC 9110 §14.1.2, §14.2          | `parseByteRange()` (`Controller.ts#parseByteRange`)                                  |
-| Plage insatisfiable → 416         | RFC 9110 §15.5.17                | `renderResponse()` avec 416 (`Controller.ts#Controller.renderResponse`)              |
-| `Range` hors GET, sous `If-Range` | RFC 9110 §14.2, §13.1.5          | `renderMediaStream()` (`Controller.ts#Controller.renderMediaStream`)                 |
-| Nom de fichier téléchargé         | RFC 6266 §4.3, RFC 8187          | `contentDisposition()` (`Controller.ts#contentDisposition`)                          |
-| Longueur du corps tenue           | RFC 9112 §6.3, RFC 9113 §8.1.1   | `streamFile()` (`Controller.ts#Controller.streamFile`) + `ByteStream.ts#ByteStream`  |
-| Redirections                      | RFC 9110 §15.4                   | Liste blanche + repli 302 (`Response.ts#HttpResponse.send`)                          |
-| Média JSON sans `charset`         | RFC 8259 §11                     | Auto-JSON (`Resolver.ts#Resolver.returnController`), vérifié par le banc `auto-json` |
-| Scalaire JSON de premier niveau   | RFC 8259 §2                      | `number`/`boolean` rendus (`Resolver.ts#Resolver._callWithIdempotency`)              |
-| Codes de fermeture WebSocket      | RFC 6455 §7.4                    | `renderWebsocket()` (`error-renderer.ts#DefaultErrorRenderer.renderWebsocket`)       |
+| Domaine                           | Norme                            | Comment le code s'y conforme                                                          |
+| --------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------- |
+| Statuts sans corps (204/205/304)  | RFC 9110 §15.3.5/§15.3.6/§15.4.5 | `isContentlessStatus` (`Response.ts#isContentlessStatus`) — aucun corps ne part       |
+| Requêtes par plage                | RFC 9110 §14.1.2, §14.2          | `parseByteRange()` (`Controller.ts#parseByteRange`)                                   |
+| Plage insatisfiable → 416         | RFC 9110 §15.5.17                | `renderResponse()` avec 416 (`Controller.ts#Controller.renderResponse`)               |
+| `Range` hors GET, sous `If-Range` | RFC 9110 §14.2, §13.1.5          | `renderMediaStream()` (`Controller.ts#Controller.renderMediaStream`)                  |
+| Validateurs d'un fichier          | RFC 9110 §8.8.2, §8.8.3          | `fileValidators()` (`conditionalRequest.ts#fileValidators`)                           |
+| Ordre des préconditions → 304/412 | RFC 9110 §13.1, §13.2.2          | `evaluatePreconditions()` (`conditionalRequest.ts#evaluatePreconditions`)             |
+| Cache d'un fichier protégé        | RFC 9111 §4.2.2, §5.2.2          | `Cache-Control: private, no-cache` par défaut (`Controller.ts#Controller.streamFile`) |
+| Nom de fichier téléchargé         | RFC 6266 §4.3, RFC 8187          | `contentDisposition()` (`Controller.ts#contentDisposition`)                           |
+| Longueur du corps tenue           | RFC 9112 §6.3, RFC 9113 §8.1.1   | `streamFile()` (`Controller.ts#Controller.streamFile`) + `ByteStream.ts#ByteStream`   |
+| Redirections                      | RFC 9110 §15.4                   | Liste blanche + repli 302 (`Response.ts#HttpResponse.send`)                           |
+| Média JSON sans `charset`         | RFC 8259 §11                     | Auto-JSON (`Resolver.ts#Resolver.returnController`), vérifié par le banc `auto-json`  |
+| Scalaire JSON de premier niveau   | RFC 8259 §2                      | `number`/`boolean` rendus (`Resolver.ts#Resolver._callWithIdempotency`)               |
+| Codes de fermeture WebSocket      | RFC 6455 §7.4                    | `renderWebsocket()` (`error-renderer.ts#DefaultErrorRenderer.renderWebsocket`)        |
 
 ## 📡 Observabilité — Studio
 

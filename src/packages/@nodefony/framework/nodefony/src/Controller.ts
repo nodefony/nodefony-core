@@ -59,6 +59,17 @@ import fs, { createReadStream, ReadStream } from "node:fs";
 import { Readable } from "node:stream";
 import Eta from "../service/Eta";
 import { isDevelopment, singletonWriteMessage } from "./singletonGuard";
+import {
+  evaluatePreconditions,
+  fileValidators,
+  ifRangeHolds,
+  parseHttpDate,
+} from "./conditionalRequest";
+import type {
+  IConditionalHeaders,
+  IValidators,
+  PreconditionOutcome,
+} from "./conditionalRequest";
 import { signTemplateTags, VIEW_NONCE_LOCAL } from "./viewNonce";
 
 // Définir les options pour le flux de lecture
@@ -168,6 +179,56 @@ export type ControllerScope = "request" | "singleton";
 
 /** Une HTTP-date déjà passée (RFC 9110 §5.6.7) : le début de l'ère Unix. */
 const EXPIRED_HTTP_DATE = "Thu, 01 Jan 1970 00:00:00 GMT";
+
+/**
+ * `Cache-Control` d'un fichier servi par une action, quand l'action n'en fixe
+ * aucun. Sans lui, `Last-Modified` rendrait la réponse « heuristiquement
+ * cacheable » (RFC 9111 §4.2.2) : un cache PARTAGÉ pourrait la garder et la
+ * resservir sans redemander — or un fichier passe par une action, plutôt que
+ * par les statiques, le plus souvent parce qu'il est protégé. `private` ferme
+ * les caches partagés (§5.2.2.7), `no-cache` fait revalider avant toute
+ * réutilisation (§5.2.2.4) — ce qui coûte un 304, grâce aux validateurs.
+ */
+const FILE_CACHE_CONTROL = "private, no-cache";
+
+/**
+ * En-têtes qu'un 304 doit porter, ceux qu'aurait portés le 200 (RFC 9110
+ * §15.4.5) — en minuscules.
+ */
+const NOT_MODIFIED_FIELDS: ReadonlySet<string> = new Set([
+  "cache-control",
+  "content-location",
+  "etag",
+  "expires",
+  "last-modified",
+  "vary",
+]);
+
+/** Valeur d'un en-tête d'un objet d'en-têtes, quelle que soit la casse de sa clé. */
+function headerIn(
+  headers: OutgoingHttpHeaders | undefined,
+  name: string,
+): OutgoingHttpHeaders[string] {
+  if (headers === undefined) return undefined;
+  for (const key of Object.keys(headers)) {
+    if (key.toLowerCase() === name) return headers[key];
+  }
+  return undefined;
+}
+
+/** Résultat des préconditions d'un fichier servi. */
+interface IFileCondition {
+  /** En-têtes de la réponse : ceux de l'action, plus validateurs et `Cache-Control` s'ils manquent. */
+  readonly head: OutgoingHttpHeaders;
+  /** Validateurs retenus — ceux de l'action s'il en a fixé, sinon ceux du fichier. */
+  readonly validators: IValidators;
+  /** 200 pour servir, 304 ou 412 sinon. */
+  readonly outcome: PreconditionOutcome;
+  /** En-têtes de la requête, lus une fois. */
+  readonly request: IConditionalHeaders & {
+    readonly range?: string | undefined;
+  };
+}
 
 /**
  * Encode une valeur en `ext-value` UTF-8 (RFC 8187 §3.2) : tout ce qui n'est
@@ -967,13 +1028,14 @@ class Controller extends Service implements IController {
    * @param file - chemin ou `FileClass` du fichier à servir.
    * @param options - options de `createReadStream`.
    * @param headers - en-têtes ajoutés (écrasent ceux posés par défaut).
-   * @returns le flux de lecture, une fois la réponse écoulée.
+   * @returns le flux de lecture, une fois la réponse écoulée — `null` quand
+   *   les préconditions ont répondu 304 ou 412 (cf {@link Controller.streamFile}).
    */
   async renderFileDownload(
     file: FileClass | string,
     options?: ReadStreamOptions,
     headers: OutgoingHttpHeaders = {},
-  ): Promise<ReadStream> {
+  ): Promise<ReadStream | null> {
     const File = await this.getFileAsync(file);
     const length = File.stats.size;
     const head = {
@@ -1005,15 +1067,26 @@ class Controller extends Service implements IController {
    * en-têtes partent au premier morceau, le flux est DÉTRUIT (descripteur
    * fermé) quand le client raccroche. Un fichier illisible à l'ouverture
    * (`EACCES`) rend la page d'erreur ordinaire, 500 ; une lecture qui échoue
-   * en cours de route coupe la connexion. Sans `Cache-Control` par défaut (un
-   * fichier se met en cache) et sans délai d'inactivité (un disque n'est pas une
-   * source muette).
+   * en cours de route coupe la connexion. Sans délai d'inactivité (un disque
+   * n'est pas une source muette).
+   *
+   * **Requêtes conditionnelles** (RFC 9110 §13) : le fichier ENTIER porte une
+   * `ETag` forte et un `Last-Modified`, tirés de sa taille et de sa date de
+   * modification ; `If-Match`, `If-Unmodified-Since`, `If-None-Match` et
+   * `If-Modified-Since` y sont évalués dans l'ordre de §13.2.2 → 304 ou 412,
+   * sans ouvrir le fichier. Une `ETag` ou un `Last-Modified` passés dans
+   * `headers` (ou déjà posés sur la réponse) l'emportent, et servent à la
+   * comparaison. `Cache-Control: private, no-cache` est posé si l'action n'en
+   * fixe aucun — en passer un dans `headers` le remplace. Un EXTRAIT
+   * (`start`/`end`) n'est pas la représentation entière : il ne reçoit ni
+   * validateur ni évaluation.
    *
    * @param file - chemin ou `FileClass` du fichier à servir.
    * @param headers - en-têtes ajoutés à la réponse (le type MIME est déduit si absent).
    * @param options - options de `createReadStream` (`start`/`end` pour un extrait).
    * @returns le flux de lecture, une fois la réponse écoulée — détruit, quelle
-   *   que soit la fin.
+   *   que soit la fin ; `null` quand les préconditions ont répondu 304 ou 412 :
+   *   aucun fichier n'a alors été ouvert.
    * @throws HttpError 404 si le fichier n'existe pas ; 500 hors HTTP
    *   (WebSocket) ou quand la réponse est déjà partie.
    */
@@ -1021,6 +1094,107 @@ class Controller extends Service implements IController {
     file: FileClass | string,
     headers?: OutgoingHttpHeaders,
     options?: ReadStreamOptions,
+  ): Promise<ReadStream | null> {
+    const fileDetails = await this.getFileAsync(file);
+    if (options?.start !== undefined || options?.end !== undefined) {
+      return this.#sendFile(fileDetails, headers, options);
+    }
+    const condition = this.#fileCondition(fileDetails, headers);
+    if (condition.outcome !== 200) {
+      return this.#answerPrecondition(condition);
+    }
+    return this.#sendFile(fileDetails, condition.head, options);
+  }
+
+  /**
+   * Validateurs d'un fichier servi, et verdict des préconditions de la
+   * requête (RFC 9110 §13.2.2). Hors HTTP, rien n'est évalué : l'envoi
+   * refusera de lui-même.
+   *
+   * @param file - fichier servi
+   * @param headers - en-têtes fixés par l'action
+   */
+  #fileCondition(
+    file: FileClass,
+    headers: OutgoingHttpHeaders | undefined,
+  ): IFileCondition {
+    const context = this.context;
+    const computed = fileValidators(file.stats, Date.now());
+    if (!(context instanceof HttpContext)) {
+      return {
+        head: headers ?? {},
+        validators: computed,
+        outcome: 200,
+        request: {},
+      };
+    }
+    const request = context.request.headers;
+    const response = context.response;
+    const given = (name: string): OutgoingHttpHeaders[string] =>
+      headerIn(headers, name) ?? response.getHeader(name);
+    const head: OutgoingHttpHeaders = {};
+    const etag = given("etag");
+    const lastModified = given("last-modified");
+    if (etag === undefined && computed.etag !== null) head.ETag = computed.etag;
+    if (lastModified === undefined && computed.lastModified !== null) {
+      head["Last-Modified"] = new Date(computed.lastModified).toUTCString();
+    }
+    if (given("cache-control") === undefined) {
+      head["Cache-Control"] = FILE_CACHE_CONTROL;
+    }
+    // Des validateurs fixés par l'action servent AUSSI à comparer : sinon le
+    // client recevrait une étiquette que le serveur ne reconnaîtrait jamais.
+    const validators: IValidators =
+      etag === undefined && lastModified === undefined
+        ? computed
+        : {
+            etag: etag === undefined ? computed.etag : String(etag),
+            lastModified:
+              lastModified === undefined
+                ? computed.lastModified
+                : parseHttpDate(String(lastModified)),
+            lastModifiedStrong:
+              lastModified === undefined ? computed.lastModifiedStrong : false,
+          };
+    Object.assign(head, headers);
+    return {
+      head,
+      validators,
+      outcome: evaluatePreconditions(this.method ?? "GET", request, validators),
+      request,
+    };
+  }
+
+  /**
+   * Répond 304 (rien n'a changé) ou 412 (une condition est fausse) sans
+   * ouvrir le fichier. Le 304 porte les en-têtes qu'aurait portés le 200 :
+   * validateurs, `Cache-Control`, `Expires`, `Vary` (RFC 9110 §15.4.5).
+   */
+  async #answerPrecondition(condition: IFileCondition): Promise<null> {
+    if (condition.outcome === 304) {
+      const kept: OutgoingHttpHeaders = {};
+      for (const key of Object.keys(condition.head)) {
+        if (NOT_MODIFIED_FIELDS.has(key.toLowerCase())) {
+          kept[key] = condition.head[key];
+        }
+      }
+      await this.renderResponse("", "utf8", 304, kept);
+      return null;
+    }
+    await this.renderResponse("Precondition Failed", "utf8", 412, {
+      "Content-Type": "text/plain; charset=utf-8",
+    });
+    return null;
+  }
+
+  /**
+   * Envoie le fichier déjà résolu sur la brique de flux — le cœur de
+   * {@link Controller.streamFile}, sans préconditions.
+   */
+  async #sendFile(
+    fileDetails: FileClass,
+    headers: OutgoingHttpHeaders | undefined,
+    options: ReadStreamOptions | undefined,
   ): Promise<ReadStream> {
     // Le contexte est lu UNE fois, ici, dans la bulle de la requête : la fin
     // du flux peut tomber hors d'elle (un client qui raccroche émet `close`
@@ -1033,7 +1207,6 @@ class Controller extends Service implements IController {
         context,
       );
     }
-    const fileDetails = await this.getFileAsync(file);
     const response = context.response;
     response.removeHeader("content-type");
     let head = headers;
@@ -1072,22 +1245,24 @@ class Controller extends Service implements IController {
     options: ReadStreamOptions | undefined = {},
   ) {
     const File = await this.getFileAsync(file);
+    const condition = this.#fileCondition(File, headers);
+    if (condition.outcome !== 200) {
+      return this.#answerPrecondition(condition);
+    }
     this.response?.setEncoding("binary");
     // Le `?.` doit porter jusqu'au BOUT : `const { range } = X?.headers`
     // déstructure `undefined` dès que `X` l'est — donc lève exactement le
     // TypeError que l'optional chaining prétendait éviter.
     // RFC 9110 §14.2 : GET est la SEULE méthode où `Range` a un sens — un
     // HEAD qui en porte un rend les en-têtes du GET complet, jamais un 206.
-    // §13.1.5 : aucun validateur n'est envoyé (ni `ETag` ni `Last-Modified`),
-    // donc une condition `If-Range` est toujours FAUSSE, et `Range` DOIT
-    // alors être ignoré — sinon un client reprendrait une plage d'un fichier
-    // qui a pu changer, et recollerait deux versions.
-    const requestHeaders = (
-      this.request as HttpRequest | Http2Request | undefined
-    )?.headers;
+    // §13.1.5 : une condition `If-Range` fausse (le fichier a changé depuis
+    // la plage qu'on reprend) fait IGNORER `Range` — la représentation part
+    // entière, un client ne recolle jamais deux versions.
+    const ifRange = condition.request["if-range"];
     const range =
-      this.method === "GET" && requestHeaders?.["if-range"] === undefined
-        ? requestHeaders?.range
+      this.method === "GET" &&
+      (ifRange === undefined || ifRangeHolds(ifRange, condition.validators))
+        ? condition.request.range
         : undefined;
     const length = File.stats.size;
     let head: OutgoingHttpHeaders;
@@ -1124,7 +1299,7 @@ class Controller extends Service implements IController {
         "Accept-Ranges": "bytes",
         "Content-Length": chunksize.toString(),
         "Content-Type": File.mimeType || "application/octet-stream",
-        ...headers,
+        ...condition.head,
       };
       contextResponse.removeHeader("content-type");
       this.response?.setStatusCode(206);
@@ -1137,11 +1312,11 @@ class Controller extends Service implements IController {
         "Content-Length": length.toString(),
         "Content-Disposition": contentDisposition("inline", File.name),
         "Accept-Ranges": "bytes",
-        ...headers,
+        ...condition.head,
       };
       contextResponse.removeHeader("content-type");
     }
-    return this.streamFile(File, head, value);
+    return this.#sendFile(File, head, value);
   }
 }
 

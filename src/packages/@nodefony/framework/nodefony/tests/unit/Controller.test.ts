@@ -697,7 +697,7 @@ describe("Controller — fichiers en flux", () => {
     expect(entry.options?.headers?.["Content-Length"]).to.equal(SIZE);
     expect(entry.bytes).to.equal(SIZE);
     expect(calls.fileMime, "type déduit du nom").to.equal(1);
-    expect(stream.destroyed).to.equal(true);
+    expect(stream?.destroyed).to.equal(true);
   });
 
   it("un extrait (start/end) annonce SA longueur, et la lecture est bornée à la taille relevée", async () => {
@@ -787,7 +787,7 @@ describe("Controller — fichiers en flux", () => {
     );
   });
 
-  it("If-Range sans validateur servi : Range IGNORÉ, fichier entier en 200 (RFC 9110 §13.1.5)", async () => {
+  it("If-Range dont l'étiquette ne correspond pas : Range IGNORÉ, fichier entier en 200 (RFC 9110 §13.1.5)", async () => {
     const { c, ctx, opened, calls } = makeHttpController({
       range: "bytes=0-99",
     });
@@ -827,5 +827,146 @@ describe("Controller.log — module signataire", () => {
     expect(c.log("ok", "INFO", "APP", undefined, "audit").moduleName).toBe(
       "audit",
     );
+  });
+});
+
+describe("Controller — requêtes conditionnelles sur un fichier (RFC 9110 §13)", () => {
+  /** Pose des en-têtes de requête sur le contexte du harnais. */
+  function withRequestHeaders(
+    ctx: unknown,
+    headers: Record<string, string>,
+  ): void {
+    Object.assign(
+      (ctx as { request: { headers: Record<string, string> } }).request.headers,
+      headers,
+    );
+  }
+
+  /** Les validateurs servis par un premier GET sans condition. */
+  async function served(): Promise<{ etag: string; lastModified: string }> {
+    const { c, opened } = makeHttpController();
+    await c.streamFile(HERE);
+    const head = opened[0]?.options?.headers ?? {};
+    return {
+      etag: String(head.ETag),
+      lastModified: String(head["Last-Modified"]),
+    };
+  }
+
+  it("un fichier part avec ETag forte, Last-Modified et `Cache-Control: private, no-cache`", async () => {
+    const { c, opened } = makeHttpController();
+    await c.streamFile(HERE);
+    const head = opened[0]?.options?.headers ?? {};
+    expect(String(head.ETag)).toMatch(/^"[0-9a-f]+-[0-9a-f]+"$/);
+    expect(Date.parse(String(head["Last-Modified"]))).toBe(
+      Math.floor(statSync(HERE).mtimeMs / 1000) * 1000,
+    );
+    expect(head["Cache-Control"]).toBe("private, no-cache");
+  });
+
+  it("If-None-Match égale : 304 SANS ouvrir le fichier, validateurs et Cache-Control portés, `null` rendu", async () => {
+    const { etag } = await served();
+    const { c, ctx, opened, calls } = makeHttpController();
+    withRequestHeaders(ctx, { "if-none-match": etag });
+    const result = await c.streamFile(HERE);
+    expect(result).toBeNull();
+    expect(opened).toHaveLength(0);
+    expect(calls.status).toContain(304);
+    const sent = calls.headers.at(-1) as Record<string, unknown>;
+    expect(sent.ETag).toBe(etag);
+    expect(sent["Cache-Control"]).toBe("private, no-cache");
+    expect(sent["Last-Modified"]).toBeDefined();
+  });
+
+  it("If-Modified-Since à la date servie : 304 ; plus ancienne : 200", async () => {
+    const { lastModified } = await served();
+    const fresh = makeHttpController();
+    withRequestHeaders(fresh.ctx, { "if-modified-since": lastModified });
+    expect(await fresh.c.streamFile(HERE)).toBeNull();
+    expect(fresh.calls.status).toContain(304);
+    const old = makeHttpController();
+    withRequestHeaders(old.ctx, {
+      "if-modified-since": "Thu, 01 Jan 1970 00:00:00 GMT",
+    });
+    await old.c.streamFile(HERE);
+    expect(old.opened).toHaveLength(1);
+  });
+
+  it("If-Match qui ne correspond pas : 412, fichier non ouvert", async () => {
+    const { c, ctx, opened, calls } = makeHttpController();
+    withRequestHeaders(ctx, { "if-match": '"autre"' });
+    expect(await c.streamFile(HERE)).toBeNull();
+    expect(opened).toHaveLength(0);
+    expect(calls.status).toContain(412);
+  });
+
+  it("téléchargement : le 304 garde `Expires` (RFC 9110 §15.4.5)", async () => {
+    const { etag } = await served();
+    const { c, ctx, calls } = makeHttpController();
+    withRequestHeaders(ctx, { "if-none-match": etag });
+    expect(await c.renderFileDownload(HERE)).toBeNull();
+    const sent = calls.headers.at(-1) as Record<string, unknown>;
+    expect(sent.Expires).toBe("Thu, 01 Jan 1970 00:00:00 GMT");
+    expect(sent["Content-Disposition"]).toBeUndefined();
+  });
+
+  it("Cache-Control et ETag de l'action gagnent — et l'ETag de l'action sert à comparer", async () => {
+    const own = makeHttpController();
+    await own.c.streamFile(HERE, {
+      "cache-control": "public, max-age=60",
+      etag: '"v7"',
+    });
+    const head = own.opened[0]?.options?.headers ?? {};
+    expect(head["cache-control"]).toBe("public, max-age=60");
+    expect(head["Cache-Control"]).toBeUndefined();
+    expect(head.etag).toBe('"v7"');
+    expect(head.ETag).toBeUndefined();
+    const again = makeHttpController();
+    withRequestHeaders(again.ctx, { "if-none-match": '"v7"' });
+    expect(await again.c.streamFile(HERE, { etag: '"v7"' })).toBeNull();
+    expect(again.calls.status).toContain(304);
+  });
+
+  it("un extrait (start/end) n'est pas la représentation : ni validateur ni évaluation", async () => {
+    const { etag } = await served();
+    const { c, ctx, opened } = makeHttpController();
+    withRequestHeaders(ctx, { "if-none-match": etag });
+    await c.streamFile(HERE, {}, { start: 0, end: 9 });
+    expect(opened).toHaveLength(1);
+    expect(opened[0]?.options?.headers?.ETag).toBeUndefined();
+  });
+
+  it("média : If-Range égale à l'ETag → 206 ; à l'ETag faible → 200 entier", async () => {
+    const { etag } = await served();
+    const strong = makeHttpController({ range: "bytes=0-99" });
+    withRequestHeaders(strong.ctx, { "if-range": etag });
+    await strong.c.renderMediaStream(HERE);
+    expect(strong.opened[0]?.options?.status).toBe(206);
+    expect(strong.opened[0]?.bytes).toBe(100);
+    expect(strong.opened[0]?.options?.headers?.ETag).toBe(etag);
+    const weak = makeHttpController({ range: "bytes=0-99" });
+    withRequestHeaders(weak.ctx, { "if-range": `W/${etag}` });
+    await weak.c.renderMediaStream(HERE);
+    expect(weak.opened[0]?.options?.status).toBe(200);
+    expect(weak.opened[0]?.bytes).toBe(statSync(HERE).size);
+  });
+
+  it("média : If-Range égale à Last-Modified → 206", async () => {
+    const { lastModified } = await served();
+    const { c, ctx, opened } = makeHttpController({ range: "bytes=0-99" });
+    withRequestHeaders(ctx, { "if-range": lastModified });
+    await c.renderMediaStream(HERE);
+    expect(opened[0]?.options?.status).toBe(206);
+  });
+
+  it("média : If-None-Match égale l'emporte sur Range → 304, rien d'ouvert", async () => {
+    const { etag } = await served();
+    const { c, ctx, opened, calls } = makeHttpController({
+      range: "bytes=0-99",
+    });
+    withRequestHeaders(ctx, { "if-none-match": etag });
+    await c.renderMediaStream(HERE);
+    expect(opened).toHaveLength(0);
+    expect(calls.status).toContain(304);
   });
 });

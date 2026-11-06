@@ -453,7 +453,9 @@ describe("Fichier en flux — streamFile sur la brique (requires server)", () =>
     const res = await fetch(`${H1}${HTML}/stream`);
     expect(res.status).to.equal(200);
     expect(res.headers.get("content-type")).to.match(/^application\/json/);
-    expect(res.headers.get("cache-control")).to.equal(null);
+    // Le Cache-Control d'un FICHIER (#737), pas celui d'un flux vivant
+    // (`no-cache, no-transform`) : revalidé à chaque usage, jamais partagé.
+    expect(res.headers.get("cache-control")).to.equal("private, no-cache");
     expect(res.headers.get("x-accel-buffering")).to.equal(null);
     const body = await res.arrayBuffer();
     expect(body.byteLength).to.be.greaterThan(0);
