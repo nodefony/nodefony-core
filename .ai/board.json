@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-06T12:42:16.170Z",
+  "generatedAt": "2026-11-06T15:46:28.580Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 233,
+      "closed": 234,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 15,
+      "open": 19,
       "title": "10.0.0-beta"
     },
     {
@@ -5865,8 +5865,8 @@
       "number": 724,
       "title": "feat(framework): renvoyer en flux une source quelconque",
       "url": "https://github.com/nodefony/nodefony-core/issues/724",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 2,
@@ -6309,6 +6309,86 @@
       "labels": []
     },
     {
+      "number": 732,
+      "title": "fix(http): aligner le cœur HTTP, HTTP/2 et WebSocket sur la lecture complète de leurs normes",
+      "url": "https://github.com/nodefony/nodefony-core/issues/732",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": null,
+      "ordre": 6.8,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 733,
+      "title": "docs(rfc): lire une norme en entier, et finir l'audit de la sémantique HTTP",
+      "url": "https://github.com/nodefony/nodefony-core/issues/733",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 6.81,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 734,
+      "title": "fix(http): corriger les écarts du serveur aux normes HTTP/1.1, HTTP/2 et WebSocket",
+      "url": "https://github.com/nodefony/nodefony-core/issues/734",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 6.82,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 735,
+      "title": "fix(http): faire respecter Max-Forwards et Forwarded par le proxy inverse",
+      "url": "https://github.com/nodefony/nodefony-core/issues/735",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 6.83,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 736,
+      "title": "fix(http): émettre des cookies conformes, sans Max-Age décimal",
+      "url": "https://github.com/nodefony/nodefony-core/issues/736",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 6.84,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
       "number": 289,
       "title": "refactor(config): trancher où vit la config d'une application",
       "url": "https://github.com/nodefony/nodefony-core/issues/289",
@@ -6575,6 +6655,22 @@
       "debut": null,
       "cible": null,
       "labels": []
+    },
+    {
+      "number": 737,
+      "title": "feat(framework): servir ETag et Last-Modified sur les fichiers",
+      "url": "https://github.com/nodefony/nodefony-core/issues/737",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P3 — fin de cycle",
+      "jours": 1,
+      "ordre": 7.55,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
     },
     {
       "number": 218,
