@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-11-06 19:17** (UTC).
+> Empreinte prise le **2026-11-06 19:51** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -113,13 +113,12 @@ Ordre 6.12 · P2 — décision · 0.5 j · jalon 10.0.0-beta · frise 2026-11-19
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Backlog — aucune date promise · 40 ouverts
+## Backlog — aucune date promise · 39 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
 | 6.037 | P2 — décision | 1 | 2026-11-16 → 11-16 | #555 | feat(studio): montrer en direct la contre-pression du temps réel |
 | 6.11 | P1 — figé à la création | 1 | — | #513 | feat(scaffold): mettre les apps générées en quarantaine de 3 jours |
-| 7.55 | P3 — fin de cycle | 1 | — | #737 | feat(framework): servir ETag et Last-Modified sur les fichiers |
 | 7.56 | P2 — décision | 1 | — | #738 | docs(rfc): relire contre le code les nouvelles révisions d'OAuth 2.1 |
 | 901 | P2 — décision | 0.5 | — | #387 | fix(test): sonder les deux ports avant de lancer le banc de démarrage |
 | 902 | P2 — décision | 1 | — | #422 | feat(ci): regarder l'écran d'une application générée à chaque publication |

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-06T19:17:34.272Z",
+  "generatedAt": "2026-11-06T19:51:31.704Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -6644,8 +6644,8 @@
       "number": 737,
       "title": "feat(framework): servir ETag et Last-Modified sur les fichiers",
       "url": "https://github.com/nodefony/nodefony-core/issues/737",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": null,
       "priorite": "P3 — fin de cycle",
       "jours": 1,
