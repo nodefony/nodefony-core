@@ -16,6 +16,8 @@
 // Usage : node scripts/release/attw.mjs   (après `npm run release:pack`)
 // Sortie : 0 tout vert · 1 au moins un tarball refusé (rapport COMPLET imprimé)
 //          · 2 rien à juger (aucun tarball).
+//
+// @usage node scripts/release/attw.mjs
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";

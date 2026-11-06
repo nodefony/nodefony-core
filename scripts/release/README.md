@@ -81,6 +81,13 @@ Attend le verdict de la CI du commit qu'on s'apprête à publier — et REFUSE s
 - **Appelé par** : `release.yml` · `release/release.mjs`
 - **Utilise** : `release/release-core.mjs`
 
+## [`attw.mjs`](attw.mjs)
+
+Types publiés — « Are The Types Wrong? » sur CHAQUE tarball de release/tarballs/.
+
+- **Usage** : `node scripts/release/attw.mjs`
+- **Appelé par** : `scaffold.yml` · `release/smoke-docker.sh`
+
 ## [`compat.mjs`](compat.mjs)
 
 Compatibilité ENTRE VERSIONS de la socket temps réel (#629, ADR-0022 §10) : la version PUBLIÉE face au code courant, dans les deux sens.
@@ -133,7 +140,15 @@ Post-processing des `.d.ts` générés : ajoute les extensions AUX SPECIFIERS RE
 
 - **Usage** : `node scripts/release/fix-dts-extensions.mjs <dir> [--quiet]`
 - **Appelé par** : `release/pack-all.mjs`
+- **Testé par** : `release/fix-dts-extensions.test.mjs`
 - **Utilise** : `deps/shims/deepmerge/index.d.ts` · `deps/shims/deepmerge/index.js`
+
+## [`fix-dts-extensions.test.mjs`](fix-dts-extensions.test.mjs)
+
+Réécriture des specifiers relatifs des `.d.ts` publiés : un import que node16 ne résout pas, et TOUT consommateur perd les types de l'entrée qui le porte.
+
+- **Lancé par** : `npm run test:release`
+- **Utilise** : `deps/shims/deepmerge/index.d.ts` · `deps/shims/deepmerge/index.js` · `release/fix-dts-extensions.mjs`
 
 ## [`hub-description.mjs`](hub-description.mjs)
 
@@ -272,7 +287,7 @@ Smoke test release (modèle B) + preuve Dockerfile/graceful shutdown/frontend.
 - **Variable** `SSE_REL`
 - **Variable** `SSE_SPREAD`
 - **Appelé par** : `npm run release:smoke` · `release-preflight.yml`
-- **Utilise** : `release/image-gate.mjs` · `release/pack-all.mjs`
+- **Utilise** : `release/attw.mjs` · `release/image-gate.mjs` · `release/pack-all.mjs`
 
 ## [`tarball-types.test.mjs`](tarball-types.test.mjs)
 

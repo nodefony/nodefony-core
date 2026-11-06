@@ -728,6 +728,7 @@
       ],
       "testedBy": [
         "scripts/release/dts-deps.test.mjs",
+        "scripts/release/fix-dts-extensions.test.mjs",
         "scripts/release/release-core.test.mjs",
         "scripts/release/tarball-types.test.mjs",
         "scripts/site/api-reference.test.mjs",
@@ -766,6 +767,7 @@
         "scripts/deps/shims/deepmerge/index.test.mjs",
         "scripts/gates/check-externals.test.mjs",
         "scripts/release/dts-deps.test.mjs",
+        "scripts/release/fix-dts-extensions.test.mjs",
         "scripts/release/image-gate.test.mjs",
         "scripts/release/readme-gate.test.mjs",
         "scripts/release/release-core.test.mjs",
@@ -2305,6 +2307,22 @@
       "testedBy": []
     },
     {
+      "path": "scripts/release/attw.mjs",
+      "test": false,
+      "purpose": "Types publiés — « Are The Types Wrong? » sur CHAQUE tarball de release/tarballs/.",
+      "usage": [
+        "node scripts/release/attw.mjs"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scaffold.yml",
+        "scripts/release/smoke-docker.sh"
+      ],
+      "testedBy": []
+    },
+    {
       "path": "scripts/release/compat.mjs",
       "test": false,
       "purpose": "Compatibilité ENTRE VERSIONS de la socket temps réel (#629, ADR-0022 §10) : la version PUBLIÉE face au code courant, dans les deux sens.",
@@ -2404,6 +2422,21 @@
       "output": "",
       "calledBy": [
         "scripts/release/pack-all.mjs"
+      ],
+      "testedBy": [
+        "scripts/release/fix-dts-extensions.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/release/fix-dts-extensions.test.mjs",
+      "test": true,
+      "purpose": "Réécriture des specifiers relatifs des `.d.ts` publiés : un import que node16 ne résout pas, et TOUT consommateur perd les types de l'entrée qui le porte.",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:release"
       ],
       "testedBy": []
     },
