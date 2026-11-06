@@ -87,6 +87,14 @@ contrôles que personne ne faisait. Ses règles vivent dans
    3bis. **🧸 Le ticket pour les nuls** — le ticket proposé, expliqué selon le rituel du skill
    `nodefony-ticket` (§ « Entamer un ticket »), en prose normale. Toujours, même quand le
    ticket paraît simple ; il ne compte pas dans les 30 lignes.
+   🔴 **Lire le ticket ENTIER AVANT de l'expliquer — corps ET commentaires**, jamais le seul
+   `_state` ni le seul corps :
+   `gh issue view <N> --json body,comments -q '.body, "----", (.comments[] | .body)' > tmp/scratch/issue-<N>.md`
+   puis `Read` du fichier. Les commentaires portent ce que le corps ne dit plus : l'avancement
+   (« étapes 1 et 2 sur 4 faites »), une hypothèse CORRIGÉE, un constat de banc réel, ce qui n'a
+   pas été lancé. Vécu (#724) : la cause d'un processus orphelin, d'abord mal attribuée dans un
+   commentaire puis corrigée dans le suivant — expliquer depuis le `_state` seul aurait repris
+   l'hypothèse fausse.
 4. **Avancement du jalon COURANT** (ligne `Jalon courant`), les 2 suivants ; les jalons ultérieurs
    en une ligne au plus. Hors ligne : « avancement non vérifié » + la date de l'empreinte.
 5. **Git** : non poussés, non commités, `dist` périmé — lignes du script

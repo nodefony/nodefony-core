@@ -10744,8 +10744,8 @@
       ],
       "description": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer : fermeture des tickets soldés, mémoire de reprise, commit. RESUME et START sont dans le corps ; END dans `references/`. Déclencheurs : \"reprends\", \"on en était où\", \"dernière session\", \"où en est la publication\", \"quels tickets restent\", \"prépare le contexte\", \"session sur <module>\", \"fin de session\", \"clôture la session\".",
       "cost": {
-        "bodyLines": 202,
-        "approxTokens": 3175
+        "bodyLines": 210,
+        "approxTokens": 3336
       },
       "requires": [
         "redis"
@@ -11075,7 +11075,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "202",
+            "detail": "210",
             "advisory": true
           }
         ]
@@ -11839,8 +11839,8 @@
       ],
       "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `<fichier>.ts#<Symbole>` et un critère de fin observable, parents et sous-tickets, champs du tableau dont les DATES qui recalent les estimations, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps : chemins exacts, commandes prêtes, pièges connus. À charger AVANT d'ouvrir une issue. Déclencheurs : \"crée un ticket\", \"ouvre une issue\", \"corrige les tickets\", \"ce titre est incompréhensible\", \"renomme cette issue\", \"ticket parent\", \"découper cette issue\", \"estimer un ticket\", \"priorité d'un ticket\", \"ce ticket est-il encore vrai ?\", \"ferme ce ticket\", \"quel ticket prendre maintenant ?\", \"ce ticket est trop vague\", \"quels tickets parlent de ce que j'ai changé ?\", \"dater les tickets\", \"la roadmap du projet est vide\", \"recaler les estimations\", \"explique le ticket\", \"pour les nuls\".",
       "cost": {
-        "bodyLines": 497,
-        "approxTokens": 9876
+        "bodyLines": 498,
+        "approxTokens": 9899
       },
       "requires": [
         "redis"
@@ -12348,7 +12348,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "497",
+            "detail": "498",
             "advisory": true
           }
         ]

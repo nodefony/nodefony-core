@@ -385,7 +385,8 @@ d'ordonner ou d'estimer.
 **Rituel, sans exception** : au moment de prendre un ticket — en début de session (le mode
 RESUME de `nodefony-session` y renvoie) comme en cours de session —, la première chose rendue
 à l'auteur est le ticket expliqué pour les nuls. Pas une ligne de code, pas une lecture de
-source avant. En prose normale (le style télégraphique est suspendu ici), ~10-15 lignes :
+source avant — mais le ticket lu EN ENTIER, **commentaires compris** (avancement, hypothèses
+corrigées). En prose normale (le style télégraphique est suspendu ici), ~10-15 lignes :
 
 1. **Le décor** — ce qu'est la chose dont parle le ticket, si elle n'est pas évidente
    (Keycloak, un thème, un registre), en une ou deux phrases.
