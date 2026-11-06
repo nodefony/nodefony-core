@@ -6,6 +6,8 @@
  * accusait `@angular/build` d'exiger `vite 8.3.5` alors que la racine le force
  * déjà (`"@angular/build": { "vite": "$vite" }`) : l'outil déconseillait une
  * montée que le dépôt avait rendue sûre, et l'on finissait par ne plus le lire.
+ *
+ * @usage import { forcedByOverride } from "./lib/overrides.mjs"
  */
 
 /**

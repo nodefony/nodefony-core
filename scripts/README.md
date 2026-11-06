@@ -13,8 +13,8 @@ de forge, autre script). Tout est extrait du source — l'en-tête du script (`@
 | [`lib/`](lib/README.md) | Helpers transverses, importés par les scripts des autres dossiers. | 9 |
 | [`gates/`](gates/README.md) | Gardes de commit et de forge : chacune refuse un état précis du dépôt. | 18 |
 | [`scaffold/`](scaffold/README.md) | Contrôles et mise en forme des gabarits d'application. | 3 |
-| [`deps/`](deps/README.md) | Inventaire et garde des dépendances, gabarits compris. | 3 |
-| [`deps/lib/`](deps/lib/README.md) | Helpers propres à l'inventaire des dépendances. | 1 |
+| [`deps/`](deps/README.md) | Inventaire et garde des dépendances, gabarits compris. | 5 |
+| [`deps/lib/`](deps/lib/README.md) | Helpers propres à l'inventaire des dépendances. | 3 |
 | [`deps/shims/deepmerge/`](deps/shims/deepmerge/README.md) | Remplaçant interne de `deepmerge` (aucune version amont saine, GHSA-gcqx-w48m-w2h4), branché par les `overrides` de la racine. À retirer quand `npm run deps:gate` signale une version amont au-dessus de sa base. | 3 |
 | [`test/`](test/README.md) | Orchestration des suites de test et de la couverture. | 4 |
 | [`test/lib/`](test/lib/README.md) | Helpers de l'orchestrateur de tests : verdicts sur les conteneurs d'infra, remise à zéro de MongoDB. | 3 |

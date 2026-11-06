@@ -43,7 +43,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // seul le décor e2e l'importe, pour vider sa base avant la suite — Mongoose
   // n'a pas de `orm:reset`. Même version que celle de `@nodefony/mongoose`,
   // sinon npm en installe deux et la suite parle à un autre client que l'app.
-  mongodb: "7.7.0",
+  mongodb: "7.8.0",
   // L'outil qui ÉCRIT les migrations, piloté par `nodefony orm:generate`. Aucun
   // code ne l'importe : c'est une dépendance de DÉVELOPPEMENT, et elle n'a rien
   // à faire dans une image de production, qui APPLIQUE des migrations déjà
@@ -78,9 +78,9 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   oxlint: "^1.91.0",
   // Les règles TYPÉES d'oxlint (`typeAware` du gabarit `.oxlintrc.json`) :
   // sans ce paquet, `npm run lint` sort en erreur « Failed to find tsgolint ».
-  "oxlint-tsgolint": "^7.0.2005",
+  "oxlint-tsgolint": "^7.0.2006",
   prettier: "^3.9.10",
-  rolldown: "^1.2.16",
+  rolldown: "^1.3.0",
   typescript: "^6.0.3",
   vitest: "^5.1.0",
   // Mesure de couverture. DÉCLARÉE, et non installée à la demande par un script
@@ -89,13 +89,13 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // entrée de plus dans un `package.json` que personne ne lit jusqu'au bout.
   "@vitest/coverage-v8": "^5.1.0",
   // ── Frontend (consommées par FRONTEND_PARAMS) ──
-  vite: "^8.3.5",
+  vite: "^8.3.6",
   react: "^19.3.1",
   "react-dom": "^19.3.1",
   "@vitejs/plugin-react": "^6.2.1",
   "@types/react": "^19.3.0",
   "@types/react-dom": "^19.3.0",
-  vue: "^3.5.44",
+  vue: "^3.5.45",
   "@vitejs/plugin-vue": "^6.0.10",
   svelte: "^5.57.3",
   "@sveltejs/vite-plugin-svelte": "^7.3.1",
@@ -116,8 +116,8 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   "@angular/core": "~22.2.4",
   "@angular/common": "~22.2.4",
   "@angular/platform-browser": "~22.2.4",
-  "@analogjs/vite-plugin-angular": "^2.9.5",
-  "@angular/build": "~22.2.5",
+  "@analogjs/vite-plugin-angular": "^2.9.6",
+  "@angular/build": "~22.2.6",
   "@angular/compiler-cli": "~22.2.4",
 };
 

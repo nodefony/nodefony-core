@@ -32,7 +32,14 @@ Inventaire EXHAUSTIF des dépendances en retard — remplaçant de `npm outdated
 - **Variable** `REGISTRY`
 - **Appelé par** : `npm run deps:check` · `npm run deps:gate` · `node.js.yml`
 - **Testé par** : `deps/deps-gate.test.mjs`
-- **Utilise** : `lib/repo-root.mjs` · `deps/lib/reconcile-versions.mjs`
+- **Utilise** : `lib/repo-root.mjs` · `deps/lib/deprecations.mjs` · `deps/lib/overrides.mjs` · `deps/lib/reconcile-versions.mjs`
+
+## [`deprecations.test.mjs`](deprecations.test.mjs)
+
+Constat des dépendances déclarées que l'amont a dépréciées — vécu : `@types/figlet@1.12.0`, paquet vide que rien ne signalait. /
+
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `deps/lib/deprecations.mjs`
 
 ## [`deps-gate.test.mjs`](deps-gate.test.mjs)
 
@@ -40,6 +47,13 @@ Suite de bout en bout de la garde des dépendances — écrite pour la faire ÉC
 
 - **Lancé par** : `npm run test:deps-gate` · `npm run test:tooling`
 - **Utilise** : `deps/check-deps-latest.mjs`
+
+## [`overrides.test.mjs`](overrides.test.mjs)
+
+`forcedByOverride` — une dépendance qu'un tiers déclare est-elle forcée par les `overrides` de la racine ? Sans cette lecture, `deps:check` annonçait un dédoublement que le dépôt avait déjà rendu impossible (vite sous Angular). /
+
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `deps/lib/overrides.mjs`
 
 ## [`reconcile-versions.test.mjs`](reconcile-versions.test.mjs)
 

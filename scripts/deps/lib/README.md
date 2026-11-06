@@ -14,6 +14,22 @@ _Rien de noté : ce qui se découvre en travaillant ici s'écrit dans ce bloc._
 
 Index de tout l'outillage : [`scripts/`](../../README.md).
 
+## [`deprecations.mjs`](deprecations.mjs)
+
+Dépendances DÉCLARÉES dont la version au verrou est dépréciée en amont.
+
+- **Usage** : `import { deprecatedInstalled, deprecatedVersionsOf } from "./lib/deprecations.mjs"`
+- **Appelé par** : `deps/check-deps-latest.mjs`
+- **Testé par** : `deps/deprecations.test.mjs`
+
+## [`overrides.mjs`](overrides.mjs)
+
+Lecture des `overrides` npm de la racine : une dépendance qu'un tiers déclare est-elle FORCÉE par nous ?
+
+- **Usage** : `import { forcedByOverride } from "./lib/overrides.mjs"`
+- **Appelé par** : `deps/check-deps-latest.mjs`
+- **Testé par** : `deps/overrides.test.mjs`
+
 ## [`reconcile-versions.mjs`](reconcile-versions.mjs)
 
 La question qui décide d'une divergence de version : **existe-t-il UNE version qui satisfait toutes les spécifications relevées ?**

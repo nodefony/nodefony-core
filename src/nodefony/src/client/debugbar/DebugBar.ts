@@ -686,7 +686,15 @@ const FRAMEWORKS: Record<string, { label: string; color: string }> = {
   vanilla: { label: "Vanilla", color: "#f7df1e" },
 };
 
-const STYLES =
+/**
+ * Feuille de la barre, adoptée dans son Shadow DOM par `adoptStyles`.
+ *
+ * Exportée pour les tests seulement : le sous-chemin `nodefony/debugbar` ne la
+ * réexporte pas. Un navigateur à feuilles construites (jsdom compris) ne garde
+ * de ce texte que les règles VALIDES — seul le texte source dit si un `//`
+ * glissé dans la chaîne a fait sauter la règle suivante.
+ */
+export const STYLES =
   `
 :host { all: initial; --ui: system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --blue:#0067ba; --blue2:#3aa0ff; --orange:#ff8a3d; --ok:#36b37e; --warn:#ffab00;

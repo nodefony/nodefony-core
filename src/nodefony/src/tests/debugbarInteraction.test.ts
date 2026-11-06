@@ -16,7 +16,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { DebugBar } from "../client/debugbar/DebugBar";
+import { DebugBar, STYLES } from "../client/debugbar/DebugBar";
 import type { NodefonySocket } from "../client/realtime/NodefonySocket";
 import { fakeSocket } from "./debugbarFakeSocket";
 
@@ -333,11 +333,20 @@ describe("marque — le logo Nodefony, pas un glyphe", () => {
 });
 
 describe("feuille de style — ce qui part dans la page", () => {
+  it("la feuille est ADOPTÉE par le Shadow DOM, sans `<style>` à signer", () => {
+    // jsdom ≥ 31 connaît les feuilles construites : c'est la voie d'un
+    // navigateur moderne, et elle échappe à `style-src` (ADR-0024 §C2).
+    expect(shadow().querySelector("style")).toBeNull();
+    const sheet = shadow().adoptedStyleSheets.at(-1);
+    expect(sheet?.cssRules.length).toBeGreaterThan(50);
+  });
+
   it("aucun commentaire de CODE dans la feuille injectée", () => {
     // Les commentaires vivent dans le source TS, entre les morceaux de la
     // chaîne `STYLES`. Un `//` glissé DANS la chaîne devient du CSS invalide,
-    // qui fait sauter la règle suivante sans un mot.
-    const css = shadow().querySelector("style")?.textContent ?? "";
+    // qui fait sauter la règle suivante sans un mot — et le CSSOM n'en garde
+    // aucune trace : seul le TEXTE source le dit.
+    const css = STYLES;
     expect(css.length).toBeGreaterThan(1000);
     const fautives = css.split("\n").filter((l) => /^\s*\/\//.test(l));
     expect(fautives).toEqual([]);

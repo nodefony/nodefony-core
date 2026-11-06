@@ -52,35 +52,44 @@ describe("readCspNonce", () => {
   });
 });
 
-describe("adoptStyles", () => {
-  it("navigateur à feuilles construites : aucun `<style>` créé, feuille adoptée", () => {
-    const replaced: string[] = [];
-    class FakeSheet {
-      replaceSync(css: string): void {
-        replaced.push(css);
-      }
-    }
-    vi.stubGlobal("CSSStyleSheet", FakeSheet);
-    const previous = { fake: true };
-    Object.defineProperty(document, "adoptedStyleSheets", {
-      value: [previous],
-      writable: true,
-      configurable: true,
-    });
-    try {
-      const sheet = adoptStyles(".a{color:red}");
-      expect(sheet).toBeInstanceOf(FakeSheet);
-      expect(replaced).toEqual([".a{color:red}"]);
-      // Les feuilles déjà adoptées restent, la nouvelle s'ajoute à la fin.
-      const adopted: unknown[] = Reflect.get(document, "adoptedStyleSheets");
-      expect(adopted).toEqual([previous, sheet]);
-      expect(document.querySelector("style")).toBeNull();
-    } finally {
-      Reflect.deleteProperty(document, "adoptedStyleSheets");
-    }
+describe("adoptStyles — navigateur à feuilles construites (jsdom ≥ 31)", () => {
+  afterEach(() => {
+    document.adoptedStyleSheets = [];
   });
 
+  it("aucun `<style>` créé : la feuille est adoptée ET appliquée", () => {
+    const previous = new CSSStyleSheet();
+    document.adoptedStyleSheets = [previous];
+    const el = document.createElement("p");
+    el.className = "a";
+    document.body.appendChild(el);
+    const sheet = adoptStyles(".a{color:rgb(255, 0, 0)}");
+    expect(sheet).toBeInstanceOf(CSSStyleSheet);
+    // Les feuilles déjà adoptées restent, la nouvelle s'ajoute à la fin.
+    expect(document.adoptedStyleSheets).toEqual([previous, sheet]);
+    expect(document.querySelector("style")).toBeNull();
+    expect(getComputedStyle(el).color).toBe("rgb(255, 0, 0)");
+  });
+
+  it("dans un Shadow DOM : la feuille va à la racine, pas au document", () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const shadow = host.attachShadow({ mode: "open" });
+    const sheet = adoptStyles(".c{}", shadow);
+    expect(shadow.adoptedStyleSheets).toEqual([sheet]);
+    expect(document.adoptedStyleSheets).toEqual([]);
+  });
+});
+
+describe("adoptStyles — repli, navigateur SANS feuilles construites", () => {
+  // jsdom connaît les feuilles construites depuis sa 31 : le repli ne
+  // s'atteint plus qu'en retirant le constructeur, comme un vieux navigateur.
+  const withoutConstructableSheets = (): void => {
+    vi.stubGlobal("CSSStyleSheet", undefined);
+  };
+
   it("repli : `<style>` signé du nonce de la page, dans `<head>`", () => {
+    withoutConstructableSheets();
     document.head.innerHTML = cspNonceMetaTag("n-1");
     const el = adoptStyles(".b{}");
     expect(el).toBeInstanceOf(HTMLStyleElement);
@@ -90,6 +99,7 @@ describe("adoptStyles", () => {
   });
 
   it("repli dans un Shadow DOM : le `<style>` va dans la racine", () => {
+    withoutConstructableSheets();
     document.head.innerHTML = cspNonceMetaTag("n-2");
     const host = document.createElement("div");
     document.body.appendChild(host);
@@ -100,6 +110,7 @@ describe("adoptStyles", () => {
   });
 
   it("repli sans nonce annoncé : `<style>` sans attribut nonce", () => {
+    withoutConstructableSheets();
     adoptStyles(".d{}");
     expect(document.head.querySelector("style")?.hasAttribute("nonce")).toBe(
       false,

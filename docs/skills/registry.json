@@ -608,6 +608,19 @@
       ]
     },
     {
+      "path": "scripts/deps/deprecations.test.mjs",
+      "test": true,
+      "purpose": "Constat des dépendances déclarées que l'amont a dépréciées — vécu : `@types/figlet@1.12.0`, paquet vide que rien ne signalait. /",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
+    {
       "path": "scripts/deps/deps-gate.test.mjs",
       "test": true,
       "purpose": "Suite de bout en bout de la garde des dépendances — écrite pour la faire ÉCHOUER, jamais pour l'accompagner.",
@@ -620,6 +633,40 @@
         "npm run test:tooling"
       ],
       "testedBy": []
+    },
+    {
+      "path": "scripts/deps/lib/deprecations.mjs",
+      "test": false,
+      "purpose": "Dépendances DÉCLARÉES dont la version au verrou est dépréciée en amont.",
+      "usage": [
+        "import { deprecatedInstalled, deprecatedVersionsOf } from \"./lib/deprecations.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/deps/check-deps-latest.mjs"
+      ],
+      "testedBy": [
+        "scripts/deps/deprecations.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/deps/lib/overrides.mjs",
+      "test": false,
+      "purpose": "Lecture des `overrides` npm de la racine : une dépendance qu'un tiers déclare est-elle FORCÉE par nous ?",
+      "usage": [
+        "import { forcedByOverride } from \"./lib/overrides.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/deps/check-deps-latest.mjs"
+      ],
+      "testedBy": [
+        "scripts/deps/overrides.test.mjs"
+      ]
     },
     {
       "path": "scripts/deps/lib/reconcile-versions.mjs",
@@ -637,6 +684,19 @@
       "testedBy": [
         "scripts/deps/reconcile-versions.test.mjs"
       ]
+    },
+    {
+      "path": "scripts/deps/overrides.test.mjs",
+      "test": true,
+      "purpose": "`forcedByOverride` — une dépendance qu'un tiers déclare est-elle forcée par les `overrides` de la racine ? Sans cette lecture, `deps:check` annonçait un dédoublement que le dépôt avait déjà rendu impossible (vite sous Angular). /",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
+      ],
+      "testedBy": []
     },
     {
       "path": "scripts/deps/reconcile-versions.test.mjs",

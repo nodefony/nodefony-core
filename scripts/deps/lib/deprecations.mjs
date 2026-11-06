@@ -7,6 +7,8 @@
  * paquet VIDE (« figlet provides its own type definitions ») déclaré par le
  * cœur — `npm outdated` l'affichait « en avance sur latest », rien ne disait
  * qu'il ne servait plus à rien.
+ *
+ * @usage import { deprecatedInstalled, deprecatedVersionsOf } from "./lib/deprecations.mjs"
  */
 
 /**
