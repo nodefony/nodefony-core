@@ -4,7 +4,7 @@ import type http2 from "node:http2";
 import type { Socket } from "node:net";
 import type { Duplex } from "node:stream";
 import type { IProxyMount } from "../../interfaces/IReverseProxy";
-import { WS_UNSUPPORTED_VERSION } from "./rules";
+import { WS_UNSUPPORTED_VERSION, isUnsupportedTransferCoding } from "./rules";
 
 /** Requête entrante relayable : HTTP/1.1 ou HTTP/2 (API de compatibilité). */
 export type ProxiedRequest = http.IncomingMessage | http2.Http2ServerRequest;
@@ -167,14 +167,9 @@ export type BodyFraming = "none" | "length" | "chunked" | "unsupported";
 export function bodyFramingOf(req: ProxiedRequest): BodyFraming {
   const coding = req.headers["transfer-encoding"];
   if (coding !== undefined) {
-    // `gzip, chunked` : Node retire le cadrage chunked mais laisse le corps
-    // compressé ; le réétiqueter `chunked` livrerait à l'amont des octets
-    // compressés qu'il croirait en clair. RFC 9112 §6.1 : 501.
-    // Cas courant comparé tel quel : la forme normalisée n'alloue que sinon.
-    if (coding === "chunked") return "chunked";
-    return coding.trim().toLowerCase() === "chunked"
-      ? "chunked"
-      : "unsupported";
+    // `gzip, chunked` : le réétiqueter `chunked` livrerait à l'amont des
+    // octets compressés qu'il croirait en clair — 501, la règle du serveur.
+    return isUnsupportedTransferCoding(coding) ? "unsupported" : "chunked";
   }
   if (req.headers["content-length"] !== undefined) return "length";
   const stream = (req as http2.Http2ServerRequest).stream as

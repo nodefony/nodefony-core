@@ -234,9 +234,12 @@ describe("HTTP STREAM Range — conformité RFC 9110 (416 / ignore / clamp)", ()
   });
 
   it("Range hors représentation → 416 + Content-Range: bytes */<len>", async () => {
-    const { status, headers } = await getMedia("bytes=999999999999-");
+    const { status, headers, bytes } = await getMedia("bytes=999999999999-");
     expect(status).to.equal(416);
     expect(headers["content-range"]).to.equal(`bytes */${SIZE}`);
+    // Un 4xx dit pourquoi (RFC 9110 §15.5), en texte — pas sous le type du média.
+    expect(bytes).to.be.greaterThan(0);
+    expect(headers["content-type"]).to.match(/^text\/plain/);
   });
 
   it("Range malformé (bytes=abc-def) → ignoré : 200 complet (avant : 500)", async () => {

@@ -50,6 +50,12 @@ describe("handleClientError — fermeture du socket malformé", () => {
     expect(ended[0]).to.include("431 Request Header Fields Too Large");
   });
 
+  it("refus délimité : Content-Length: 0 (RFC 9112 §6.3)", () => {
+    const { socket, ended } = makeSocket();
+    handleClientError(new Error("bad") as NodeJS.ErrnoException, socket);
+    expect(ended[0]).to.include("Content-Length: 0\r\n");
+  });
+
   it("ECONNRESET → ne tente RIEN (socket déjà mort)", () => {
     const { socket, ended } = makeSocket();
     handleClientError({ code: "ECONNRESET" } as NodeJS.ErrnoException, socket);
@@ -64,6 +70,57 @@ describe("handleClientError — fermeture du socket malformé", () => {
     );
     expect(ended).to.have.length(0);
   });
+});
+
+/**
+ * RFC 9112 §3 : une cible plus longue que ce que le serveur veut lire → 414.
+ * Node lève le même `HPE_HEADER_OVERFLOW` pour une URL et pour des en-têtes
+ * trop longs ; le test passe par un vrai serveur et de vrais paquets, en un
+ * envoi et en plusieurs, parce que la distinction se lit sur le paquet reçu.
+ */
+describe("handleClientError — 414 pour la cible, 431 pour les en-têtes", () => {
+  async function statusFor(request: string, chunks: number): Promise<string> {
+    const { createServer } = await import("node:http");
+    const server = createServer((_q, s) => s.end("ok"));
+    server.on("clientError", handleClientError);
+    await new Promise<void>((ok) => server.listen(0, "127.0.0.1", ok));
+    const { port } = server.address() as AddressInfo;
+    try {
+      return await new Promise<string>((resolve, reject) => {
+        let reply = "";
+        const size = Math.ceil(request.length / chunks);
+        // Un paquet toutes les 10 ms : le serveur les lit un à un.
+        const sendFrom = (at: number): void => {
+          if (at >= request.length || client.destroyed) return;
+          client.write(request.slice(at, at + size));
+          setTimeout(() => sendFrom(at + size), 10);
+        };
+        const client = net.connect(port, "127.0.0.1", () => sendFrom(0));
+        client.setEncoding("latin1");
+        client.on("data", (d: string) => (reply += d));
+        client.on("close", () => resolve(reply));
+        client.on("error", reject);
+      });
+    } finally {
+      await new Promise<void>((ok) => server.close(() => ok()));
+    }
+  }
+
+  const longTarget = `GET /${"a".repeat(20_000)} HTTP/1.1\r\nHost: x\r\n\r\n`;
+  const longHeader = `GET / HTTP/1.1\r\nHost: x\r\nX-Big: ${"b".repeat(20_000)}\r\n\r\n`;
+
+  for (const chunks of [1, 5]) {
+    it(`cible trop longue (${chunks} paquet(s)) → 414`, async () => {
+      const reply = await statusFor(longTarget, chunks);
+      expect(reply).to.match(/^HTTP\/1\.1 414 URI Too Long\r\n/);
+      expect(reply).to.include("Content-Length: 0\r\n");
+    });
+
+    it(`en-tête trop long (${chunks} paquet(s)) → 431`, async () => {
+      const reply = await statusFor(longHeader, chunks);
+      expect(reply).to.match(/^HTTP\/1\.1 431 /);
+    });
+  }
 });
 
 // handleSessionError : une sonde de port (status, doctor, superviseur, sonde

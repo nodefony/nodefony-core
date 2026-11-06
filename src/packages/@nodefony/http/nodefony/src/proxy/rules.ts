@@ -237,6 +237,26 @@ const UPGRADE_WEBSOCKET = /^\s*websocket\s*$/i;
 const CONNECTION_UPGRADE = /(?:^|,)\s*upgrade\s*(?:,|$)/i;
 
 /**
+ * Le corps reçu porte-t-il un codage de transfert que le serveur ne sait pas
+ * défaire ? Seul `chunked` est compris : Node le retire, mais laisse en place
+ * tout codage qui le précède (`gzip, chunked`) — le corps livré serait encore
+ * compressé. RFC 9112 §6.1 : un tel message reçoit 501. Un `chunked` qui n'est
+ * pas le DERNIER codage est déjà refusé par Node en 400 (§6.3).
+ *
+ * Seule règle, pour le serveur d'origine et pour le proxy inverse. Chemin de
+ * chaque requête : une lecture d'en-tête, rien d'autre sans `Transfer-Encoding`.
+ *
+ * @param coding - valeur de l'en-tête `Transfer-Encoding`, absente le plus souvent
+ * @returns `true` quand le corps ne peut pas être lu tel qu'annoncé
+ */
+export function isUnsupportedTransferCoding(
+  coding: string | undefined,
+): boolean {
+  if (coding === undefined || coding === "chunked") return false;
+  return coding.trim().toLowerCase() !== "chunked";
+}
+
+/**
  * Raison rendue par {@link websocketHandshakeProblem} quand le client parle une
  * autre version du protocole : la seule qui appelle une réponse distincte —
  * le client doit apprendre vers quelle version se rabattre (RFC 6455 §4.4).

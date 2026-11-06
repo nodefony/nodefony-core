@@ -1098,10 +1098,18 @@ class Controller extends Service implements IController {
     // invalide / unité inconnue / multi-range → header ignoré, 200 complet (§14.2).
     const parsed = range ? parseByteRange(range, length) : null;
     if (parsed === "unsatisfiable") {
-      return this.renderResponse("", "utf8", 416, {
-        "Content-Range": `bytes */${length}`,
-        "Accept-Ranges": "bytes",
-      });
+      // Un 4xx dit pourquoi (RFC 9110 §15.5) : une ligne de texte, pas le
+      // type du média — le corps n'est pas la représentation demandée.
+      return this.renderResponse(
+        `Range Not Satisfiable (representation length ${length})`,
+        "utf8",
+        416,
+        {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Content-Range": `bytes */${length}`,
+          "Accept-Ranges": "bytes",
+        },
+      );
     }
     if (parsed) {
       const { start, end } = parsed;

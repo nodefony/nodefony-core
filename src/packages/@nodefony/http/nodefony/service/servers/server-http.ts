@@ -171,7 +171,7 @@ class ServerHttp extends Service {
           this.fire("onClientError", e, socket);
           // Node désactive la fermeture auto dès qu'un listener existe → on
           // répond + ferme nous-mêmes (sinon fuite de socket/FD = DoS).
-          handleClientError(e as NodeJS.ErrnoException, socket);
+          handleClientError(e, socket);
         });
       } catch (e) {
         this.log(e, "CRITIC");

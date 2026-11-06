@@ -25,6 +25,7 @@ import {
 } from "../../src/servers/http2Limits";
 //import net from "node:net";
 import { AddressInfo } from "node:net";
+import type { Duplex } from "node:stream";
 import { handleClientError, handleSessionError } from "./clientError";
 import { routeSocketTimeout } from "../../src/context/http/HttpContext";
 import { bindWithFallback, buildBindPlan } from "../../src/servers/portBinder";
@@ -171,7 +172,7 @@ class ServerHttps extends Service {
           this.fire("onClientError", e, socket);
           // Node désactive la fermeture auto dès qu'un listener existe → on
           // répond + ferme nous-mêmes (sinon fuite de socket/FD = DoS).
-          handleClientError(e as NodeJS.ErrnoException, socket);
+          handleClientError(e, socket);
         });
       } catch (e) {
         this.log(e, "CRITIC");
@@ -258,6 +259,15 @@ class ServerHttps extends Service {
           handleSessionError(error, (e) =>
             this.log(e, "ERROR", "HTTP2 Server sessionError"),
           );
+        });
+        // Les connexions HTTP/1.1 (`allowHTTP1`) se parsent comme sur le
+        // serveur HTTPS : leurs erreurs de parse reçoivent la même réponse
+        // (414/431/400, délimitée) — sans écouteur, Node répondait seul.
+        // Les types de Node ne déclarent pas cet événement sur un serveur HTTP/2 :
+        // ses paramètres sont nommés ici, ceux du serveur HTTP/1.1 sous-jacent.
+        this.server.on("clientError", (e: Error, socket: Duplex) => {
+          this.fire("onClientError", e, socket);
+          handleClientError(e, socket);
         });
         this.server.on("streamError", (error) => {
           this.log(error, "ERROR", "HTTP2 Server streamError");

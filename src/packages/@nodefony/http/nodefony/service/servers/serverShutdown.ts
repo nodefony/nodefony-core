@@ -1,6 +1,7 @@
 import http from "node:http";
 import https from "node:https";
 import tls from "node:tls";
+import { constants as http2constants } from "node:http2";
 import type { EventEmitter } from "node:events";
 import type { Server as HttpServer, ServerResponse } from "node:http";
 import type { Server as HttpsServer } from "node:https";
@@ -37,9 +38,11 @@ type Http1Socket = Socket & { _httpMessage?: ServerResponse | null };
  * Fabrique l'arrêt gracieux d'un serveur HTTP/1.1, HTTPS, HTTP/2 sur TLS ou h2c.
  *
  * Au `terminate()` (SIGTERM, `docker stop`), le serveur cesse d'accepter, puis :
- * - **HTTP/2** : chaque session reçoit un GOAWAY (`session.close()`) — les flux
- *   en vol se terminent, les nouveaux sont refusés, et le client sait qu'il doit
- *   rouvrir ailleurs au lieu de constater une coupure ;
+ * - **HTTP/2** : chaque session reçoit un GOAWAY en deux temps — d'abord à
+ *   `2^31-1` ({@link announceShutdown}), puis, un aller-retour plus tard, le
+ *   définitif (`session.close()`). Les flux en vol se terminent, les nouveaux
+ *   sont refusés, et le client sait qu'il doit rouvrir ailleurs au lieu de
+ *   constater une coupure ;
  * - **HTTP/1.1** : la réponse en vol part avec `Connection: close`, la socket
  *   inactive est fermée tout de suite, une requête qui arrive encore sur une
  *   socket gardée ouverte reçoit aussi `Connection: close`.
@@ -114,28 +117,38 @@ export function createDrainTerminator(
         if (sessions !== null) for (const s of sessions) s.destroy();
         for (const socket of sockets) socket.destroy();
       }, timeout);
-      // Le rappel ne vient qu'une fois TOUTES les connexions fermées ; en
-      // erreur (serveur jamais à l'écoute), il n'y a rien à drainer.
-      server.close(() => {
-        clearTimeout(deadline);
-        resolve();
-      });
-      // Constaté sur Node 24.21 et 26 : `server.close()` envoie déjà le GOAWAY
-      // et ferme les sockets HTTP/1.1 inactives. Les gestes explicites restent :
-      // la doc de `node:http2` nomme `session.close()` comme LA voie gracieuse,
-      // et rien ne garantit ce comportement au plancher `engines`. Le défaut
-      // corrigé ici était l'ORDRE : détruire les sockets h2 avant `close()`.
-      if (sessions !== null) for (const s of sessions) s.close();
-      if (http1Sockets !== null) {
-        emitter.on("request", closeAfterResponse);
-        for (const socket of http1Sockets) {
-          const response = (socket as Http1Socket)._httpMessage;
-          if (!response) socket.destroy();
-          else if (!response.headersSent)
-            response.setHeader("connection", "close");
-        }
-      }
+      announceShutdown(sessions, Math.min(timeout, ANNOUNCE_CAP_MS), () =>
+        closeAll(resolve, deadline),
+      );
     });
+
+  // Après l'annonce : le GOAWAY définitif, et l'arrêt d'accepter.
+  const closeAll = (
+    resolve: () => void,
+    deadline: ReturnType<typeof setTimeout>,
+  ): void => {
+    // Le rappel ne vient qu'une fois TOUTES les connexions fermées ; en
+    // erreur (serveur jamais à l'écoute), il n'y a rien à drainer.
+    server.close(() => {
+      clearTimeout(deadline);
+      resolve();
+    });
+    // Constaté sur Node 24.21 et 26 : `server.close()` envoie déjà le GOAWAY
+    // et ferme les sockets HTTP/1.1 inactives. Les gestes explicites restent :
+    // la doc de `node:http2` nomme `session.close()` comme LA voie gracieuse,
+    // et rien ne garantit ce comportement au plancher `engines`. Le défaut
+    // corrigé ici était l'ORDRE : détruire les sockets h2 avant `close()`.
+    if (sessions !== null) for (const s of sessions) s.close();
+    if (http1Sockets !== null) {
+      emitter.on("request", closeAfterResponse);
+      for (const socket of http1Sockets) {
+        const response = (socket as Http1Socket)._httpMessage;
+        if (!response) socket.destroy();
+        else if (!response.headersSent)
+          response.setHeader("connection", "close");
+      }
+    }
+  };
 
   return {
     terminate(): Promise<void> {
@@ -143,6 +156,73 @@ export function createDrainTerminator(
       return terminating;
     },
   };
+}
+
+/** Plus long délai d'annonce (ms) : un pair qui ne répond pas au PING ne retient pas l'arrêt. */
+const ANNOUNCE_CAP_MS = 1000;
+
+/** Plus grand identifiant de flux (RFC 9113 §6.8) : « aucun flux n'est encore écarté ». */
+const LAST_POSSIBLE_STREAM = 2 ** 31 - 1;
+
+/**
+ * Annonce l'arrêt à chaque session HTTP/2 SANS écarter un flux déjà en route :
+ * un PING mesure l'aller-retour, puis GOAWAY à `2^31-1`, puis l'attente de cet
+ * aller-retour — après elle, tout flux ouvert par le client avant l'annonce est
+ * arrivé. Le GOAWAY définitif (`session.close()`, dernier flux traité) suit
+ * dans `done`. Un pair qui ne répond pas au PING est réglé au délai `cap`.
+ * RFC 9113 §6.8 : « SHOULD send an initial GOAWAY frame with the last stream
+ * identifier set to 2^31-1 […] After allowing time for any in-flight stream
+ * creation (at least one round-trip time) ». Sans annonce, un flux croisé avec
+ * le GOAWAY est refusé alors qu'il aurait pu être servi.
+ *
+ * @param sessions - sessions HTTP/2 ouvertes, `null` pour un serveur HTTP/1.1
+ * @param cap - délai maximal d'attente des échos (ms)
+ * @param done - appelé UNE fois, quand tous les échos sont revenus ou au délai
+ */
+function announceShutdown(
+  sessions: Set<ServerHttp2Session> | null,
+  cap: number,
+  done: () => void,
+): void {
+  let pending = 0;
+  let finished = false;
+  const finish = (): void => {
+    if (finished) return;
+    finished = true;
+    clearTimeout(timer);
+    done();
+  };
+  const timer = setTimeout(finish, cap);
+  if (sessions !== null) {
+    for (const session of sessions) {
+      if (session.closed || session.destroyed) continue;
+      // L'aller-retour se MESURE avant l'annonce : après un GOAWAY, un client
+      // Node ne répond plus aux PING (constaté sur Node 26.13), l'écho ne peut
+      // donc pas suivre l'annonce. Écho reçu → GOAWAY initial, puis l'attente
+      // de cet aller-retour. Sans écho (pair muet, session fermée) : réglée.
+      let settled = false;
+      let wait: ReturnType<typeof setTimeout> | null = null;
+      const settle = (): void => {
+        if (settled) return;
+        settled = true;
+        if (wait !== null) clearTimeout(wait);
+        session.removeListener("close", settle);
+        if (--pending === 0) finish();
+      };
+      pending++;
+      session.once("close", settle);
+      const sent = session.ping((error, rttMs) => {
+        if (error !== null || settled || session.closed) return settle();
+        session.goaway(http2constants.NGHTTP2_NO_ERROR, LAST_POSSIBLE_STREAM);
+        wait = setTimeout(settle, Math.max(1, Math.ceil(rttMs)));
+      });
+      if (!sent) {
+        session.goaway(http2constants.NGHTTP2_NO_ERROR, LAST_POSSIBLE_STREAM);
+        settle();
+      }
+    }
+  }
+  if (pending === 0) finish();
 }
 
 function track(set: Set<Socket>, socket: Socket): void {

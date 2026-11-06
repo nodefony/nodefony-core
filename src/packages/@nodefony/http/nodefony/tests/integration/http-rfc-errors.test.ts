@@ -374,6 +374,73 @@ describe("RFC 9112 §6.3 — Content-Length exact sur OPTIONS et TRACE (pas de d
 
 // ─── RFC 9457 Problem Details — informational (current Nodefony format) ─────
 
+/** Une requête brute sur TLS ; rend la réponse entière. */
+async function rawTls(text: string): Promise<string> {
+  const tls = await import("node:tls");
+  return new Promise<string>((resolve, reject) => {
+    const sock = tls.connect(
+      { host: "127.0.0.1", port: 5152, rejectUnauthorized: false },
+      () => sock.write(text),
+    );
+    let buf = "";
+    sock.setEncoding("latin1");
+    sock.on("data", (d: string) => (buf += d));
+    sock.on("end", () => resolve(buf));
+    sock.on("error", reject);
+  });
+}
+
+// #734 — ce que Node laisse passer ou confond, et que la norme distingue.
+describe("RFC 9112 §3 et §6.1 — cible trop longue, codage de transfert inconnu", () => {
+  it("cible plus longue que la limite → 414, pas 431", async () => {
+    const raw = await rawTls(
+      `GET /${"a".repeat(20_000)} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n`,
+    );
+    expect(raw).to.match(/^HTTP\/1\.1 414 /);
+  });
+
+  it("`Transfer-Encoding: gzip, chunked` → 501, le corps codé n'atteint pas l'action", async () => {
+    const raw = await rawTls(
+      "POST /nodefony/test/decorators/body HTTP/1.1\r\nHost: 127.0.0.1\r\n" +
+        "Transfer-Encoding: gzip, chunked\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n" +
+        "3\r\nabc\r\n0\r\n\r\n",
+    );
+    expect(raw).to.match(/^HTTP\/1\.1 501 /);
+  });
+
+  it("HTTP/2 : `Host` qui contredit `:authority` → 400 (RFC 9113 §8.3.1)", async () => {
+    const http2 = await import("node:http2");
+    const client = http2.connect("https://127.0.0.1:5152", {
+      rejectUnauthorized: false,
+    });
+    try {
+      const status = await new Promise<number>((resolve, reject) => {
+        const stream = client.request({
+          ":path": "/nodefony/test/als-test/state",
+          ":authority": "127.0.0.1:5152",
+          host: "autre.test",
+        });
+        stream.on("response", (h) => resolve(Number(h[":status"])));
+        stream.on("error", reject);
+        stream.resume();
+        stream.end();
+      });
+      expect(status).toBe(400);
+    } finally {
+      client.close();
+    }
+  });
+
+  it("`Transfer-Encoding: chunked` seul : rien ne change", async () => {
+    const raw = await rawTls(
+      "POST /nodefony/test/decorators/body HTTP/1.1\r\nHost: 127.0.0.1\r\n" +
+        "Transfer-Encoding: chunked\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n" +
+        "3\r\nabc\r\n0\r\n\r\n",
+    );
+    expect(raw).not.to.match(/^HTTP\/1\.1 501 /);
+  });
+});
+
 describe("RFC 9457 — Problem Details (informational: current format diverges)", () => {
   it("[INFO] Nodefony does NOT use application/problem+json (uses application/json)", async () => {
     const r = await req("GET", "/nodefony/test/crash/sync");

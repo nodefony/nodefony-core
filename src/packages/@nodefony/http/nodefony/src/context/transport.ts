@@ -70,3 +70,26 @@ export function requestAuthority(headers: {
 }): string | undefined {
   return headers[":authority"] ?? headers.host;
 }
+
+/**
+ * Une requête HTTP/2 nomme-t-elle deux hôtes — `:authority` ET un `Host`
+ * différent ? RFC 9113 §8.3.1 : « SHOULD treat a request as malformed ». Le
+ * serveur lit `:authority` ({@link requestAuthority}), mais un code qui lit
+ * `headers.host` verrait un autre hôte que celui que le routage et le
+ * pare-feu ont jugé.
+ *
+ * Chemin de chaque requête : une lecture d'en-tête ; la comparaison n'a lieu
+ * que si les deux sont présents (un navigateur n'envoie pas `Host` en HTTP/2).
+ *
+ * @param headers - en-têtes de la requête Node.
+ * @returns `true` quand les deux autorités diffèrent (casse ignorée).
+ */
+export function hasConflictingAuthority(headers: {
+  host?: string | undefined;
+  ":authority"?: string | undefined;
+}): boolean {
+  const authority = headers[":authority"];
+  if (authority === undefined) return false;
+  const host = headers.host;
+  return host !== undefined && host.toLowerCase() !== authority.toLowerCase();
+}

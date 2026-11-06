@@ -204,6 +204,20 @@ describe.each(["h2c", "h2"] as const)("drain HTTP/2 — %s", (kind) => {
     await until(() => client.goaway());
   });
 
+  it("GOAWAY en deux temps : d'abord 2^31-1, puis le dernier flux traité (RFC 9113 §6.8)", async () => {
+    const srv = await serve(kind, (_req, res) => res.end("ok"), 3000);
+    const client = connect(kind, srv.origin);
+    const seen: number[] = [];
+    client.session.on("goaway", (_code: number, last: number) => {
+      seen.push(last);
+    });
+    expect((await get(client.session)).status).toBe(200);
+    await srv.terminator.terminate();
+    await until(() => seen.length > 0);
+    // Le premier n'écarte aucun flux déjà en route depuis le client.
+    expect(seen[0]).toBe(2 ** 31 - 1);
+  });
+
   it("un flux qui ne répond jamais est détruit à l'échéance, pas avant", async () => {
     const g = gate();
     const srv = await serve(kind, () => g.enter(), 300);

@@ -27,6 +27,8 @@ import type {
 } from "nodefony";
 import type { IRouteResolver, IRequestRouter } from "../interfaces/IRouting";
 import HttpError from "../src/errors/httpError";
+import { isUnsupportedTransferCoding } from "../src/proxy/rules";
+import { hasConflictingAuthority } from "../src/context/transport";
 import {
   buildTrustProxy,
   type TrustProxyChecker,
@@ -141,6 +143,9 @@ const HEALTH_HEADERS = [
 ] as const;
 const HEALTH_BODY_OK = '{"status":"ok"}';
 const HEALTH_BODY_UNREADY = '{"status":"unready"}';
+/** Corps du 429 du limiteur de débit — figé, rien à sérialiser par refus. */
+const TOO_MANY_REQUESTS_BODY = '{"code":429,"message":"Too Many Requests"}';
+const TOO_MANY_REQUESTS_LENGTH = Buffer.byteLength(TOO_MANY_REQUESTS_BODY);
 
 // Sonde perf IN SITU (opt-in `NF_PERF_PROBE=1`, flag lu 1× au chargement) —
 // cumule en ns le coût RÉEL par requête des postes que le profil échantillonné
@@ -1346,13 +1351,18 @@ class HttpKernel extends Service implements IHttpKernelInterface {
           // non appelables (TS2349 : surcharges incompatibles entre membres). Le
           // mode compat HTTP/2 expose la même API que HTTP/1 → cast sûr.
           const res = response as http.ServerResponse;
+          // Un 4xx dit pourquoi (RFC 9110 §15.5) : corps JSON FIGÉ, aux champs
+          // du contrat d'erreur (`code`, `message`) — aucune sérialisation sur
+          // le chemin d'une rafale, longueur calculée une fois.
+          response.setHeader("Content-Type", "application/json; charset=utf-8");
+          response.setHeader("Content-Length", TOO_MANY_REQUESTS_LENGTH);
           res.writeHead(
             429,
             type === "https"
               ? this.#transportHeaders.https
               : this.#transportHeaders.http,
           );
-          res.end();
+          res.end(TOO_MANY_REQUESTS_BODY);
           return;
         }
       }
@@ -2017,6 +2027,22 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   private serveHttpRequest(
     httpContext: HttpContext,
   ): MaybePromise<HttpContext> {
+    // Codage de transfert inconnu (`gzip, chunked`) : le corps livré serait
+    // encore codé, flux brut comme parse — 501 (RFC 9112 §6.1), par le même
+    // chemin de rejet qu'un corps refusé au parse.
+    const headers = httpContext.request.headers;
+    if (isUnsupportedTransferCoding(headers["transfer-encoding"])) {
+      return Promise.reject(
+        new HttpError("Transfer-Encoding not implemented", 501, httpContext),
+      );
+    }
+    // HTTP/2 : `Host` qui contredit `:authority` → requête malformée (RFC 9113
+    // §8.3.1) — l'action verrait un autre hôte que celui jugé par le routage.
+    if (hasConflictingAuthority(headers)) {
+      return Promise.reject(
+        new HttpError("Host differs from :authority", 400, httpContext),
+      );
+    }
     const streamBody =
       httpContext.resolver?.resolve === true &&
       httpContext.resolver.route?.bodyStream === true;
