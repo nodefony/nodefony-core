@@ -233,10 +233,7 @@ describe("normative — grammaire markdown / Bikeshed", () => {
   });
 });
 
-// Chaque cas lance un processus Node : sous la charge d'une suite parallèle, le
-// démarrage seul dépasse le délai par défaut de 5 s. Les processus partent
-// ensemble, et le délai est posé à la mesure de ce qu'ils font.
-const CLI_TIMEOUT = 20_000;
+// Les processus partent ensemble : un seul démarrage à attendre, pas quatre.
 const run = (args) =>
   new Promise((resolve) => {
     execFile(process.execPath, [SCRIPT, ...args], (error, stdout, stderr) =>
@@ -245,24 +242,20 @@ const run = (args) =>
   });
 
 describe("normative — ligne de commande", () => {
-  it(
-    "rend les paragraphes numérotés, et refuse une section introuvable ou un usage faux",
-    async () => {
-      const [ok, missing, bogus, badCase] = await Promise.all([
-        run([rfc(9110), "--section", "13.1.5"]),
-        run([rfc(9110), "--section", "99.9"]),
-        run(["--bogus"]),
-        run([rfc(9110), "--case", "lower"]),
-      ]);
-      expect(ok.status).toBe(0);
-      expect(ok.stdout.split("\n")[0]).toMatch(
-        /^\[1\] §13\.1\.5 — A client MUST NOT/,
-      );
-      expect(missing.status).toBe(1);
-      expect(missing.stderr).toContain("99.9");
-      expect(bogus.status).toBe(2);
-      expect(badCase.status).toBe(2);
-    },
-    CLI_TIMEOUT,
-  );
+  it("rend les paragraphes numérotés, et refuse une section introuvable ou un usage faux", async () => {
+    const [ok, missing, bogus, badCase] = await Promise.all([
+      run([rfc(9110), "--section", "13.1.5"]),
+      run([rfc(9110), "--section", "99.9"]),
+      run(["--bogus"]),
+      run([rfc(9110), "--case", "lower"]),
+    ]);
+    expect(ok.status).toBe(0);
+    expect(ok.stdout.split("\n")[0]).toMatch(
+      /^\[1\] §13\.1\.5 — A client MUST NOT/,
+    );
+    expect(missing.status).toBe(1);
+    expect(missing.stderr).toContain("99.9");
+    expect(bogus.status).toBe(2);
+    expect(badCase.status).toBe(2);
+  });
 });
