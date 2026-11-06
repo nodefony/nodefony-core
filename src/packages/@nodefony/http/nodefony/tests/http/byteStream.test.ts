@@ -2,6 +2,7 @@
 import { expect } from "vitest";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
+import { stripVTControlCharacters } from "node:util";
 import { IS_PROD_TARGET } from "../helpers/targetEnv";
 import {
   H1,
@@ -60,13 +61,22 @@ interface IJournalEntry {
   text: string;
 }
 
-/** Repère du journal du serveur : rend la lecture de ce qui suit. */
+/**
+ * Repère du journal du serveur : rend la lecture de ce qui suit.
+ *
+ * Le texte est rendu SANS codes de couleur : le journal d'accès se colore à
+ * l'émission quand le serveur tourne sous `FORCE_COLOR` (la CI le pose), et
+ * une ligne `\x1b[36mGET` ne répond plus à `/^GET\s+500\s/` — ni une phrase
+ * colorée à l'`includes` d'`expectQuietJournal`, qui passerait alors à vide.
+ */
 async function journalFrom(): Promise<() => Promise<IJournalEntry[]>> {
   const mark = await fetch(`${H1}${BASE}/journal/mark`);
   const { uid } = (await mark.json()) as { uid: number };
   return async () => {
     const res = await fetch(`${H1}${BASE}/journal?since=${uid}`);
-    return (await res.json()) as IJournalEntry[];
+    const entries = (await res.json()) as IJournalEntry[];
+    for (const e of entries) e.text = stripVTControlCharacters(e.text);
+    return entries;
   };
 }
 
