@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-06T16:16:37.140Z",
+  "generatedAt": "2026-11-06T16:32:11.175Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 234,
+      "closed": 235,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 19,
+      "open": 18,
       "title": "10.0.0-beta"
     },
     {
@@ -6328,8 +6328,8 @@
       "number": 733,
       "title": "docs(rfc): lire une norme en entier, et finir l'audit de la sémantique HTTP",
       "url": "https://github.com/nodefony/nodefony-core/issues/733",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -6345,7 +6345,7 @@
       "title": "fix(http): corriger les écarts du serveur aux normes HTTP/1.1, HTTP/2 et WebSocket",
       "url": "https://github.com/nodefony/nodefony-core/issues/734",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -6677,7 +6677,7 @@
       "title": "docs(rfc): relire contre le code les nouvelles révisions d'OAuth 2.1",
       "url": "https://github.com/nodefony/nodefony-core/issues/738",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": null,
       "priorite": "P2 — décision",
       "jours": 1,
