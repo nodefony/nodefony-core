@@ -191,7 +191,7 @@ Champs : `controller`, `actionName`, `action`, `route`, `variables: unknown[]` (
 
 ## API — `Controller`
 
-`Controller extends Service implements IController` (`nodefony/src/Controller.ts#asError`). Statiques :
+`Controller extends Service implements IController` (`nodefony/src/Controller.ts#Controller`). Statiques :
 `prefix = "/"` ; **`scope: ControllerScope = "singleton"`** (`"request"|"singleton"`, posé par `@Scope`,
 lu via `new.target`) ; `assertScope()` (statique, appelé par `Router.setController` — une base qui
 n'admet qu'une portée la fait respecter ; `RealtimeController` refuse le singleton).
