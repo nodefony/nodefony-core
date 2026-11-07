@@ -149,11 +149,16 @@ promettre une date par lot.
 
 > **La date n'est plus une décision, c'est une conséquence.** Le label dit CE QUI doit être dedans ;
 > le travail dit QUAND ça sort. Une publication `10.0.0-beta.N` part le jour où le label `beta-N`
-> n'a plus aucun ticket ouvert — et ça se constate, ça ne s'estime pas :
+> n'a plus aucun ticket ouvert — Epic exceptés — et ça se constate, ça ne s'estime pas :
 
 ```bash
-gh issue list --label beta-1 --state open   # vide → la beta.1 part
+gh issue list --label beta-1 --state open --search "-type:Epic"   # vide → la beta.1 part
 ```
+
+**Un Epic qui enjambe des jalons** (règle de l'auteur ; #621, #694) : il garde le label du lot où il
+COMMENCE ; chacun de ses enfants porte SON jalon et part avec lui ; l'Epic reste ouvert et se ferme
+au jalon de son DERNIER enfant. Ses enfants restent rattachés : les détacher pour « libérer » le
+lot fait perdre le fil — vécu sur #694, où le pont gRPC ↔ hub a disparu de l'Epic.
 
 C'est ce qui débloque le cas courant, « je ne sais pas quand faire la beta 1 » : on n'a pas à le
 savoir. Un jalon par lot obligerait à inventer cinq échéances, dont aucune ne serait tenue, et le

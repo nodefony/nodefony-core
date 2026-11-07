@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-07T15:15:27.615Z",
+  "generatedAt": "2026-11-07T15:27:12.054Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -6393,7 +6393,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
-      "jours": 3.5,
+      "jours": 6.5,
       "ordre": 7.01,
       "debut": null,
       "cible": null,
@@ -6662,7 +6662,7 @@
     },
     {
       "number": 747,
-      "title": "feat(scaffold): livrer une démo légère, copiée dans l'application sur demande",
+      "title": "feat(scaffold): livrer une démo complète, copiée dans l'application",
       "url": "https://github.com/nodefony/nodefony-core/issues/747",
       "state": "OPEN",
       "status": "Todo",

@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-11-07 15:15** (UTC).
+> Empreinte prise le **2026-11-07 15:27** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -33,7 +33,7 @@
 
 **#694 — feat(http): servir des services gRPC dans le pipeline HTTP/2**
 
-Ordre 7.01 · P2 — décision · 3.5 j · jalon 10.0.0-beta · frise —
+Ordre 7.01 · P2 — décision · 6.5 j · jalon 10.0.0-beta · frise —
 
 > Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 17 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
@@ -164,7 +164,7 @@ Ordre 7.01 · P2 — décision · 3.5 j · jalon 10.0.0-beta · frise —
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 7.01 | P2 — décision | 3.5 | — | #694 | feat(http): servir des services gRPC dans le pipeline HTTP/2 |
+| 7.01 | P2 — décision | 6.5 | — | #694 | feat(http): servir des services gRPC dans le pipeline HTTP/2 |
 | 7.02 | P2 — décision | 3 | — | #695 | feat(http): déclarer et servir un service gRPC depuis un module |
 | 7.03 | P1 — figé à la création | 0.5 | — | #696 | fix(cli): router gRPC vers h2c dans la config nginx générée |
 | 7.05 | P2 — décision | 0.5 | 2026-11-19 → 11-19 | #89 | docs(notification): faire la veille des canaux de communication attendus |
@@ -179,7 +179,7 @@ Ordre 7.01 · P2 — décision · 3.5 j · jalon 10.0.0-beta · frise —
 | 7.11 | P1 — figé à la création | 0.25 | 2026-11-23 → 11-23 | #741 | fix(realtime): encoder l'accusé d'abonnement par le codec négocié |
 | 7.12 | P1 — figé à la création | 0.5 | 2026-11-23 → 11-23 | #687 | fix(orm): ne plus générer en production les tables d'un module de dev |
 | 7.13 | P1 — figé à la création | 2 | — | #746 | refactor(scaffold): retirer les exemples de l'application générée |
-| 7.14 | P2 — décision | 3 | — | #747 | feat(scaffold): livrer une démo légère, copiée dans l'application sur demande |
+| 7.14 | P2 — décision | 3 | — | #747 | feat(scaffold): livrer une démo complète, copiée dans l'application |
 | 7.15 | P1 — figé à la création | 1 | — | #748 | fix(security): vérifier l'audience d'un jeton contre la ressource de la zone |
 
 ## Jalon 10.0.0 — 5 ouverts

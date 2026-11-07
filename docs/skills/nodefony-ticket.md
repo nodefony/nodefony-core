@@ -28,8 +28,8 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 | --- | --- |
 | Version | `1.11.0` |
 | Famille | Autres |
-| Corps | 508 lignes |
-| Coût d'activation | ~10 108 tokens (le corps est chargé à l'invocation) |
+| Corps | 509 lignes |
+| Coût d'activation | ~10 127 tokens (le corps est chargé à l'invocation) |
 | Description | 978 / 1024 caractères |
 | Déclencheurs | 20 |
 | Ressources `references/` | 8 page(s) |
@@ -84,7 +84,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/github-issues.md` | Issues GitHub — sous-tickets, jalons, projets | 80 |
 | `references/gravite.md` | La gravité d'un défaut — une norme, jamais une impression | 107 |
 | `references/lexique.md` | Lexique des tickets — source unique | 143 |
-| `references/tableau-de-bord.md` | Le tableau de bord — labels, champs, ordre, et quand prendre un ticket | 284 |
+| `references/tableau-de-bord.md` | Le tableau de bord — labels, champs, ordre, et quand prendre un ticket | 289 |
 
 
 ## Scripts embarqués
@@ -275,7 +275,7 @@ node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs --dependents <num�
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ❌ | 508 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ❌ | 509 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 
