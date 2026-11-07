@@ -309,9 +309,12 @@ const README_GARDES = new Set([
   // Aucune section calculée ne les dit : `pari` ne montre que le transport,
   // `direction` ne parle que de la suite.
   "Le temps réel, de bout en bout",
-  "L'IA : votre application, ouverte aux agents",
+  "L'IA : ton application, ouverte aux agents",
   "Démarrage",
+  // Ni le déploiement ni le travail sur le framework ne sont calculés ici.
+  "L'application générée, de la machine à la production",
   "Ce qu'il y a dans la boîte",
+  "Développer le framework lui-même",
   "État du projet",
 ]);
 
