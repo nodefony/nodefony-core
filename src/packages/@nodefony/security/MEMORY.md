@@ -124,7 +124,10 @@ Consomme `@nodefony/user`. Coupling http→security = **type-only** (`Firewall`/
     pas de store », il ne mordait pas quand un store existait mais n'avait aucune prise : interrogé
     avec `jti = null`/`iat = null`, il ne peut répondre que « toujours valable ».
 - ⭐ **`resource` (RFC 8707) sur le grant** : le client NOMME sa cible, l'audience cesse d'être un défaut
-  de config. `jwt.audiences` = **liste BLANCHE de ressources demandables** (la 1ʳᵉ = défaut) ; hors liste,
+  de config. `jwt.audiences` = **liste BLANCHE de ressources demandables** (la 1ʳᵉ = défaut), complétée
+  EN FIN par la `resource` de chaque zone (`jwtRuntime.ts#resolveJwtRuntime`, partagé émetteur + vérificateurs :
+  un module apporte sa zone à jeton par `module-security` sans toucher `jwt.audiences`, que la fusion
+  profonde écraserait par index) ; hors liste,
   multiple, non-URI ou fragment ⇒ **`InvalidTargetError` (400, `invalid_target`)**, jamais servi avec
   l'audience par défaut. Une seule ressource par jeton (§3 : plusieurs destinataires ⇒ chacun peut agir
   chez les autres). L'audience ACCORDÉE est stockée au record refresh et **rejouée à la rotation** —

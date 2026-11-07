@@ -121,7 +121,10 @@ registerAuthenticatorFactory("jwt", ({ container, config }) => {
   // de jetons sont posés au container par le TokenService au boot ; résolution
   // lazy dans l'instance (cold path). Les paramètres iss/aud/ttl sont dérivés de
   // la config (mêmes valeurs que l'émetteur via `resolveJwtRuntime`).
-  return new JwtAuthenticator(container, resolveJwtRuntime(config.jwt));
+  return new JwtAuthenticator(
+    container,
+    resolveJwtRuntime(config.jwt, config.areas),
+  );
 });
 
 registerAuthenticatorFactory("external-jwt", ({ container, config }) => {

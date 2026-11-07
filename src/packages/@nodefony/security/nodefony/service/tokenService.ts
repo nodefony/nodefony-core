@@ -247,7 +247,7 @@ class TokenService extends Service {
     // si activée. Sans elle, le store existe quand même (clés API seules).
     if (jwtEnabled) {
       this.#requireSharedSigningKey(config.jwt.keystore);
-      this.#runtime = resolveJwtRuntime(config.jwt);
+      this.#runtime = resolveJwtRuntime(config.jwt, config.areas);
       this.#keystore = new JwtKeystore(config.jwt.keystore, (m, s) =>
         this.log(m, s as Severity),
       );

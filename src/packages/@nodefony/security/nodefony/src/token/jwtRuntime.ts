@@ -26,10 +26,36 @@ export interface IJwtRuntime {
  * Dérive les paramètres effectifs depuis la config sécurité. `issuer` omis →
  * `"nodefony"` (DEVRAIT être surchargé en prod) ; `audiences` vide → l'app est sa
  * propre audience (`[issuer]`).
+ *
+ * La ressource d'une ZONE (`areas.<zone>.resource`) entre aussi dans la liste,
+ * APRÈS les audiences déclarées : c'est une ressource que ce serveur protège, et
+ * la redéclarer dans `jwt.audiences` était une seconde écriture de la même
+ * valeur — celle qu'on oublie, et dont le seul symptôme est un `invalid_target`
+ * à l'émission. Ajoutée en fin de liste, elle ne change jamais l'audience par
+ * défaut ({@link defaultAudience}).
+ *
+ * Elle n'ouvre rien de plus à la VÉRIFICATION que ce que `jwt.audiences` ouvre
+ * déjà : le vérificateur accepte toute audience de cette liste, et une zone
+ * `external-jwt` contrôle la sienne contre `resource`, inchangé.
+ *
+ * @param jwt - section `jwt` de la config validée
+ * @param areas - zones du pare-feu ; omises, seules les audiences déclarées comptent
+ * @returns les paramètres partagés par l'émetteur et les vérificateurs
  */
-export function resolveJwtRuntime(jwt: ISecurityConfig["jwt"]): IJwtRuntime {
+export function resolveJwtRuntime(
+  jwt: ISecurityConfig["jwt"],
+  areas?: ISecurityConfig["areas"],
+): IJwtRuntime {
   const issuer = jwt.issuer && jwt.issuer.length > 0 ? jwt.issuer : "nodefony";
   const audiences = jwt.audiences.length > 0 ? [...jwt.audiences] : [issuer];
+  if (areas !== undefined) {
+    for (const name in areas) {
+      const resource = areas[name]?.resource;
+      if (resource !== undefined && !audiences.includes(resource)) {
+        audiences.push(resource);
+      }
+    }
+  }
   return {
     issuer,
     audiences,

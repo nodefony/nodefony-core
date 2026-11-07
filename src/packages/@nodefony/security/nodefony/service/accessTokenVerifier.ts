@@ -103,7 +103,9 @@ class AccessTokenVerifierService extends Service {
     // Les jetons de CETTE application — vérifiés par l'authentificateur `jwt`
     // lui-même, ses dépendances (clés, révocation, annuaire) résolues au premier
     // jeton : l'ordre des services au démarrage n'a pas à être garanti.
-    const runtime = config.jwt.enabled ? resolveJwtRuntime(config.jwt) : null;
+    const runtime = config.jwt.enabled
+      ? resolveJwtRuntime(config.jwt, config.areas)
+      : null;
     const local =
       runtime === null
         ? null
