@@ -1,6 +1,5 @@
 <% if (it.hasSecurity) { %>import {
   ADMIN_PASSWORD,
-  adminLogin,
   appBaseUrl,
   isExternalTarget,
   isTlsTarget,
@@ -59,19 +58,15 @@ describe("e2e — l'app boote et répond", () => {
     expect(res.status).toBe(200);
   });
 <% if (it.hasSecurity) { %>
-  // `/api` est FERMÉ par défaut (zone `main` sans `anonymous`) : une route
-  // ajoutée demain sous ce préfixe naît protégée. Le chemin ci-dessous n'a
-  // AUCUNE route — c'est le point : le refus vient du pare-feu, avant tout
-  // controller, et vaut pour ce qui n'existe pas encore.
-  it("/api fermé : sans session → 401, avec session → franchit le pare-feu", async () => {
-    const anonymous = await fetch(`${BASE}/api/route-pas-encore-ecrite`);
-    expect(anonymous.status).toBe(401);
-    const cookie = await adminLogin();
-    const authenticated = await fetch(`${BASE}/api/route-pas-encore-ecrite`, {
-      headers: { cookie },
-    });
-    // 404 : le pare-feu a laissé passer, et le routeur dit « aucune route ».
-    expect(authenticated.status).toBe(404);
+  // `/api` est FERMÉ par défaut (zone `main` sans `anonymous`) : toute route
+  // que tu y écris naît protégée — l'e2e de la première entité générée le
+  // prouve (`GET` anonyme → 401). Ici, aucune route n'existe encore sous
+  // `/api`, et le routeur passe AVANT le pare-feu : un chemin inconnu répond
+  // 404, session ou pas. Ce n'est pas un trou — rien n'est servi — et un 401
+  // ici ne prouverait rien de plus.
+  it("/api sans route : 404 avant le pare-feu, même sans session", async () => {
+    const res = await fetch(`${BASE}/api/route-pas-encore-ecrite`);
+    expect(res.status).toBe(404);
   });
 <% } %><% if (it.hasSecurity) { %>
   // Un saut MUET se lit comme un vert : la raison s'affiche, comme le fait la

@@ -721,8 +721,12 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // L'e2e généré éprouve ce contrat, et plus aucune route retirée.
       const e2e = readFileSync(path.join(dest, "tests", "e2e.test.ts"), "utf8");
       assert.include(e2e, 'z.strictObject({ app: z.literal("livefull") })');
-      assert.include(e2e, "expect(anonymous.status).toBe(401)");
-      assert.include(e2e, "await adminLogin()");
+      // Sans route sous `/api`, le routeur répond 404 AVANT le pare-feu : la
+      // fermeture se prouve sur la première entité (voir le cas « GET sans
+      // session → 401 »), jamais sur un chemin inexistant.
+      assert.include(e2e, '"/api sans route : 404 avant le pare-feu');
+      assert.notInclude(e2e, "toBe(401)");
+      assert.notInclude(e2e, "adminLogin");
       assert.include(e2e, "/livez");
       for (const gone of [
         "/api/hello",
@@ -5281,6 +5285,9 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(ctrl, "mcpGate.serve(this, input.body)");
       // Schéma VIDE : entrée brute, la porte valide sa trame dans SON protocole.
       assert.include(ctrl, "schema: {},");
+      // La porte EST son authentification : sous `/api` fermé (#746), le
+      // pare-feu de session lui volerait le refus (401 sans défi RFC 9728).
+      assert.include(ctrl, "bypassFirewall: true,");
       assert.include(ctrl, 'methods: ["POST", "GET", "DELETE"]');
       const gate = readFileSync(at("nodefony", "mcp", "mcp-gate.ts"), "utf8");
       assert.include(gate, 'import { defineMcpGate } from "@nodefony/ai"');
@@ -7791,6 +7798,24 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         assert.include(
           e2e,
           "AUTH = await csrfHeaders(BASE, await adminLogin(BASE));",
+        );
+        // Le préfixe d'un module n'est pas `/api` : aucune zone ne le couvre
+        // par défaut, le 401 anonyme y serait une promesse fausse.
+        assert.notInclude(e2e, "GET sans session → 401");
+      });
+
+      it("🔴 dans l'APP, la lecture anonyme est refusée par la zone `/api` (#746)", () => {
+        // Une application neuve n'a aucune route sous `/api` et le routeur
+        // passe avant le pare-feu (404) : la fermeture ne se voit qu'à la
+        // première route, donc dans l'e2e de la première entité.
+        const dest = app("audit-api-closed");
+        entity(dest, { name: "Ticket", fields: "ref:string" });
+        const e2e = read(dest, "tests", "ticket.e2e.test.ts");
+        assert.include(e2e, 'const ROUTE = "/api/tickets";');
+        assert.include(e2e, "GET sans session → 401");
+        assert.include(
+          e2e,
+          "const anonymous = await fetch(`${BASE}${ROUTE}`);\n    expect(anonymous.status).toBe(401);",
         );
       });
 

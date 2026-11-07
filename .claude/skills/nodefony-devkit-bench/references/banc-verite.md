@@ -159,13 +159,11 @@ Les étapes, dans l'ordre, et ce que chacune protège :
     clés, l'e2e sort en 0 avec le second facteur et les webhooks désactivés ;
 15. **production** — l'app démarre dans le mode qu'aucune autre étape n'exerce,
     et sert DEUX routes : celle de l'application et celle d'un MODULE — un module
-    qui se charge sans monter ses routes rendait 404 sans un mot ;
-16. **la commande d'exemple appelle l'API partenaire** — l'app démarre en
-    DÉVELOPPEMENT (le gabarit n'inscrit l'audience `partner` qu'hors
-    production), `app:partner:call --json` doit rendre 200 pour `admin`, émis
-    par l'application elle-même ; puis `--issuer keycloak`, sans Keycloak
-    configuré, doit sortir NON NUL en nommant la variable manquante ;
-17. **connexion Keycloak** — sur le décor des tarballs : `http:certificates`
+    qui se charge sans monter ses routes rendait 404 sans un mot. Les trois
+    portes MCP y sont frappées : elles vivent sous `/api`, FERMÉ par défaut, et
+    doivent répondre par LEUR authentification (`bypassFirewall`) — le 401 du
+    pare-feu de session, sans défi RFC 9728, est un mur pour l'agent ;
+16. **connexion Keycloak** — sur le décor des tarballs : `http:certificates`
     pose le certificat, `security:keycloak:realm --write` réaligne le realm sur
     les ports du témoin, le Keycloak du compose généré démarre (projet
     `nf-devkit-verify-keycloak`, port 8464 pour ne pas heurter celui du dépôt),
@@ -173,7 +171,7 @@ Les étapes, dans l'ordre, et ce que chacune protège :
     certificats VÉRIFIÉS — jusqu'à une session vue par `/me`. Sans conteneurs
     Linux (macOS, Windows), l'étape est écrite « NON ÉPROUVÉ » avec sa raison
     constatée ; `NF_DEVKIT_REQUIRE_DOCKER=1` (job Ubuntu) refuse ce saut ;
-18. **inspection** — l'application se laisse lire sans ouvrir de port.
+17. **inspection** — l'application se laisse lire sans ouvrir de port.
 
 > **Le trou n'était pas dans le banc d'agent, il était ici.** Sur les sept types
 > de `create`, ce script n'en exerçait que trois — `app`, `module`, `entity` ;

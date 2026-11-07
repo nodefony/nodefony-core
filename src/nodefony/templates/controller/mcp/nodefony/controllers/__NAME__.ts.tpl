@@ -44,6 +44,12 @@ class <%= it.nameClass %> extends Controller {
     // Schéma VIDE : l'action reçoit l'entrée brute — la porte MCP valide
     // elle-même la trame JSON-RPC et répond dans SON protocole, pas en 422.
     schema: {},
+    // La porte EST son mécanisme d'authentification : elle refuse elle-même
+    // une adresse distante (porte locale) ou un appel sans jeton valide, avec
+    // le défi RFC 9728 qu'attend un client MCP. Sous `/api`, FERMÉ par défaut,
+    // le pare-feu de session répondrait avant elle un 401 sans ce défi — un
+    // mur pour l'agent. Retirer cette ligne ne protège rien de plus.
+    bypassFirewall: true,
   })
   mcp(input: RouteInput) {
     return <%= it.camel %>Gate.serve(this, input.body);

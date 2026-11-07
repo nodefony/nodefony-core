@@ -531,4 +531,14 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
       headers: AUTH,
     });
   });
+<% } %><% if (it.hasSecurity && !it.inModule && it.route.startsWith("/api/")) { %>
+  it("GET sans session → 401 : la route est NÉE protégée par la zone `/api`", async () => {
+    // La lecture ne porte AUCUNE garde dans le controller : seul le pare-feu
+    // peut la refuser. Ce test mord donc si `/api` s'ouvre — `"anonymous"`
+    // remis dans la zone `main` de `nodefony/config/security.ts`. Si tu ouvres
+    // cette ressource EXPRÈS, déclare-la dans une zone énumérée (voir le
+    // commentaire de `security.ts`) et retire ce cas.
+    const anonymous = await fetch(`${BASE}${ROUTE}`);
+    expect(anonymous.status).toBe(401);
+  });
 <% } %>});
