@@ -1,17 +1,67 @@
-# Nodefony — application de démonstration
+# Repères
 
-Cette image **n'est pas le framework** : c'est une application Nodefony complète,
+- **Maintenue par** — Christophe Camensuli, auteur de Nodefony
+  ([`nodefony/nodefony-core`](https://github.com/nodefony/nodefony-core))
+- **Où trouver de l'aide** — [la documentation](https://nodefony.github.io/nodefony-core/docs/),
+  en commençant par [Par où commencer](https://nodefony.github.io/nodefony-core/docs/demarrer/)
+
+# Étiquettes disponibles
+
+| Étiquette       | Ce qu'elle désigne                                             |
+| --------------- | -------------------------------------------------------------- |
+| `10.0.0-beta.6` | une publication précise — c'est celle à figer en CI            |
+| `beta`          | la dernière préversion du canal `beta` (mobile)                |
+| `alpha`         | l'ancien canal, figé sur `10.0.0-alpha.9` — ne plus l'employer |
+
+**`latest` n'existe pas, et c'est délibéré** : la ligne 10 est en préversion.
+Tirer une étiquette mobile sans le savoir est la façon la plus simple de voir une
+image changer sous ses pieds.
+
+# Repères (suite)
+
+- **Signaler un problème** — <https://github.com/nodefony/nodefony-core/issues>
+- **Architectures** — `linux/amd64`
+- **Mises à jour de l'image** — régénérée et republiée à **chaque publication** du
+  framework, par la chaîne de publication du dépôt
+- **Remonter d'une image à son commit** — chaque image porte les étiquettes OCI
+  normées (`org.opencontainers.image.*`), et un contrôle refuse la publication si
+  l'une d'elles est vide ou fausse :
+
+  ```bash
+  docker inspect nodefony/nodefony:beta \
+    --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
+  ```
+
+- **Source de cette page** —
+  [`docker/hub-overview.md`](https://github.com/nodefony/nodefony-core/blob/main/docker/hub-overview.md),
+  publiée par la chaîne de publication ; la page affichée ici en est le rendu
+
+# Qu'est-ce que Nodefony ?
+
+Nodefony est un framework Node.js fullstack, écrit en TypeScript strict et bâti
+directement sur les modules natifs de la plateforme — `node:http`, `node:http2`,
+WebSocket. Sa particularité : le WebSocket n'y est pas un ajout. Une même action de
+contrôleur sert HTTP et WebSocket, avec la même session, le même pare-feu et le même
+code.
+
+**Cette image n'est pas le framework** : c'est une application Nodefony complète,
 **générée** à chaque publication par `nodefony create app --preset complete`, puis
 construite avec le `Dockerfile` que ce générateur produit. Elle sert à voir tourner
 le framework sans rien installer — et à prouver que ce que le générateur écrit
 démarre réellement.
+
+Elle porte le préréglage `complete` du générateur, c'est-à-dire : le noyau
+HTTP/HTTP2 avec WebSocket dans le même contexte de contrôleur, l'injection de
+dépendances, le pare-feu applicatif et les sessions, l'ORM avec ses migrations, un
+frontend bâti par Vite, et la console d'administration.
 
 Le framework, lui, s'installe depuis npm ; le code vit sur GitHub.
 
 - **Framework** — <https://www.npmjs.com/package/nodefony>
 - **Code source** — <https://github.com/nodefony/nodefony-core>
 - **Documentation** — <https://nodefony.github.io/nodefony-core/>
-- **Licence** — Apache-2.0
+
+# Utiliser cette image
 
 ## Lancer — trois lignes, et pourquoi trois
 
@@ -71,18 +121,6 @@ Elle embarque SQLite, déjà migrée à la construction de l'image : aucun servi
 externe n'est requis pour ce premier essai. Une application réelle garde, elle, sa
 base hors de l'image, et applique ses migrations par un job AVANT de démarrer ses
 exemplaires.
-
-## Étiquettes disponibles
-
-| Étiquette       | Ce qu'elle désigne                                             |
-| --------------- | -------------------------------------------------------------- |
-| `10.0.0-beta.6` | une publication précise — c'est celle à figer en CI            |
-| `beta`          | la dernière préversion du canal `beta` (mobile)                |
-| `alpha`         | l'ancien canal, figé sur `10.0.0-alpha.9` — ne plus l'employer |
-
-**`latest` n'existe pas, et c'est délibéré** : la ligne 10 est en préversion.
-Tirer une étiquette mobile sans le savoir est la façon la plus simple de voir une
-image changer sous ses pieds.
 
 ## Ce que cette image ne promet pas
 
@@ -219,18 +257,14 @@ Le `Dockerfile` que le générateur produit contient aussi un étage frontal ngi
 l'image publiée — il se construit depuis son application. En orchestrateur, c'est
 l'ingress qui joue ce rôle.
 
-## Ce qu'elle contient
+# Variantes de l'image
 
-Le préréglage `complete` du générateur, c'est-à-dire : le noyau HTTP/HTTP2 avec
-WebSocket dans le même contexte de contrôleur, l'injection de dépendances, le
-pare-feu applicatif et les sessions, l'ORM avec ses migrations, un frontend bâti
-par Vite, et la console d'administration.
+## `nodefony/nodefony:<version>`
 
-## Sur quelle base elle est bâtie
-
-L'image part de **`node:24-alpine`**. Ce n'est pas une habitude reprise d'un
-gabarit trouvé ailleurs : les trois candidates ont été construites avec un
-contenu identique, scannées et **démarrées**, et c'est la mesure qui a tranché.
+Une seule variante, bâtie sur **`node:24-alpine`**. Ce n'est pas une habitude
+reprise d'un gabarit trouvé ailleurs : les trois candidates ont été construites
+avec un contenu identique, scannées et **démarrées**, et c'est la mesure qui a
+tranché.
 
 | Base                                  | Image finale | Critiques | Hautes | Node embarqué | libc  | Shell dedans |
 | ------------------------------------- | -----------: | --------: | -----: | ------------- | ----- | ------------ |
@@ -256,7 +290,7 @@ et s'exécutent ici après une installation **sans script d'installation**
 (`--ignore-scripts`) : base SQLite créée et relue, empreinte Argon2id produite.
 Mesuré, pas supposé.
 
-### En changer dans ton application
+## En changer dans ton application
 
 Cette image est construite avec le `Dockerfile` que `nodefony create app`
 produit — le même que tu reçois. Sa base tient en **deux lignes `FROM`**, qui se
@@ -294,16 +328,20 @@ FROM gcr.io/distroless/nodejs24-debian12
 > construit » ne prouve rien — les trois images se construisaient, et l'une des
 > trois ne démarrait pas.
 
-## Remonter d'une image à son commit
+# Licence
 
-Chaque image porte les étiquettes OCI normées, et un contrôle refuse la
-publication si l'une d'elles est vide ou fausse :
+Le framework Nodefony est publié sous licence
+[Apache 2.0](https://github.com/nodefony/nodefony-core/blob/main/LICENSE.txt).
+L'application de démonstration est générée avec `--license MIT`.
+
+Comme toute image, celle-ci contient aussi d'autres logiciels — Alpine Linux,
+Node.js, les dépendances npm de l'application — chacun sous sa propre licence.
+Chaque paquet porte son fichier de licence dans `node_modules`, et l'inventaire
+complet se produit depuis une application générée, sans rien installer :
 
 ```bash
-docker inspect nodefony/nodefony:beta \
-  --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
+npm sbom --sbom-format spdx --omit=dev > sbom.spdx.json
 ```
 
-## Signaler un problème
-
-<https://github.com/nodefony/nodefony-core/issues>
+Il revient à qui utilise l'image de vérifier que son usage respecte les licences
+de tout ce qu'elle contient.
