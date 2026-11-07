@@ -102,6 +102,26 @@ describe.skipIf(!URI)(
         assert.ok(r.createdAt instanceof Date);
       });
 
+      it("l'index fédéré du metaBag survit à l'écriture puis à l'énumération par user (#740)", async () => {
+        const federation = { provider: "keycloak", sid: "kc-sid-1" };
+        await storage.write("sid-fed", {
+          Attributes: {},
+          metaBag: { "oauth2:federation": federation },
+          flashBag: {},
+          user: "alice@nodefony.test",
+        });
+        const page = await storage.listPage({
+          user: "alice@nodefony.test",
+          limit: 50,
+          offset: 0,
+          withTotal: false,
+        });
+        const rec = page.items.find((r) => r.id === "sid-fed");
+        assert.ok(rec, "session fédérée énumérée");
+        assert.deepEqual(rec.data.metaBag["oauth2:federation"], federation);
+        await storage.destroy("sid-fed");
+      });
+
       it("write sur le même id met à jour sans doublon (upsert)", async () => {
         await storage.write("sid1", {
           Attributes: { a: 9 },
