@@ -1,19 +1,18 @@
 ---
 name: nodefony-ticket
 metadata:
-  version: 1.10.0
+  version: 1.11.0
 description: >
-  Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et
-  compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une
-  preuve `<fichier>.ts#<Symbole>` et un critère de fin observable, parents et sous-tickets, champs du tableau
-  dont les DATES qui recalent les estimations, le moment où un ticket se fait
-  dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps : chemins exacts, commandes prêtes,
-  pièges connus. À charger AVANT d'ouvrir une issue. Déclencheurs : "crée un ticket", "ouvre une
-  issue", "corrige les tickets", "ce titre est incompréhensible", "renomme cette issue", "ticket
-  parent", "découper cette issue", "estimer un ticket", "priorité d'un ticket", "ce ticket est-il
-  encore vrai ?", "ferme ce ticket", "quel ticket prendre maintenant ?", "ce ticket est trop vague",
-  "quels tickets parlent de ce que j'ai changé ?", "dater les tickets", "la roadmap du projet est
-  vide", "recaler les estimations", "explique le ticket", "pour les nuls".
+  Écrit et organise les tickets GitHub du dépôt Nodefony — titre Conventional Commits compréhensible
+  sans connaître le dépôt, lexique, corps en quatre blocs avec preuve `<fichier>.ts#<Symbole>` et
+  critère de fin observable, gravité normée d'un défaut (CVSS 3.1 calculé, échelle S1-S4), parents
+  et sous-tickets, champs et DATES du tableau, le moment où un ticket se fait dans la foulée, et ce
+  qui fait qu'un ticket ACHÈTE du temps. À charger AVANT d'ouvrir une issue. Déclencheurs : "crée
+  un ticket", "ouvre une issue", "corrige les tickets", "ce titre est incompréhensible", "renomme
+  cette issue", "ticket parent", "découper cette issue", "estimer un ticket", "priorité d'un ticket", "quelle gravité pour
+  ce bug ?", "CVSS", "ce ticket est-il encore vrai ?", "ferme ce ticket", "quel ticket prendre
+  maintenant ?", "ce ticket est trop vague", "quels tickets parlent de ce que j'ai changé ?", "dater
+  les tickets", "recaler les estimations", "explique le ticket", "pour les nuls".
 ---
 
 # nodefony-ticket — écrire un ticket qu'on comprend en dix secondes
@@ -248,6 +247,14 @@ vérifiable) tient en une heure de cycle, donc en 0,25 j — mesuré sur un tick
 Montent d'un cran : un écran neuf (maquette puis validation de l'auteur), une page publique (sa
 relecture), un banc en médiane de N passes, une plateforme qu'on n'a pas en local (boucle CI
 seule). Un parent porte la somme de ses enfants ouverts.
+
+### 🔴 Un défaut porte sa GRAVITÉ — selon une norme, jamais à l'impression
+
+Tout `Bug` porte, avant l'estimation, `**Gravité** : …` — ce qu'il CASSE, qui fixe un plancher à
+la priorité. Une **faille** (un tiers atteint confidentialité, intégrité ou disponibilité — un arrêt
+du processus par une requête compris) → **vecteur CVSS 3.1**, dont `ticket:open` CALCULE le score ;
+tout autre défaut → **S1 à S4** suivi de son motif. `ticket:open --gravite` refuse un défaut sans
+gravité, `ticket:lint` rattrape les autres → **[`references/gravite.md`](references/gravite.md)**.
 
 ## 3. Le ticket est un instrument d'ÉCONOMIE — il achète du temps, ou il en coûte
 
@@ -510,5 +517,6 @@ périmètre qu'il balaye.
 | [`references/lexique.md`](references/lexique.md)                           | Le glossaire — source unique des définitions posées en tête des tickets, avec le motif de détection de chaque terme                                                    |
 | [`references/github-issues.md`](references/github-issues.md)               | Sous-tickets (limites 100 / 8 niveaux, `--add-sub-issue`, équivalent GraphQL), jalons, Projects v2 et ses pièges de ligne de commande                                  |
 | [`references/tableau-de-bord.md`](references/tableau-de-bord.md)           | Labels, jalons et backlog, champs `Jours`/`Priorité`/`Ordre`, dates de la frise, les contrôles de `ticket:lint`, le geste de création, et quand prendre un ticket      |
+| [`references/gravite.md`](references/gravite.md)                           | La gravité d'un défaut : faille (CVSS 3.1, vecteur calculé, choix de `AC`) ou échelle S1-S4, plancher de priorité, faille dans une version publiée                     |
 | [`references/fermeture.md`](references/fermeture.md)                       | Fermer : les trois recalages (code, tickets voisins, documentation), le compte rendu en quatre blocs, et la console d'administration comme référence de non-régression |
 | [`references/dates.md`](references/dates.md)                               | Poser `Début` / `Cible` à la main, régler la vue Roadmap (non pilotable par l'API), et ce que la pose révèle                                                           |

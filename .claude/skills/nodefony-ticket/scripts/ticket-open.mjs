@@ -17,7 +17,13 @@
  *   node .claude/skills/nodefony-ticket/scripts/ticket-open.mjs --title "fix(x): …" --body-file corps.md \
  *     [--milestone 10.0.0] [--label irrattrapable] [--jours 0.5] \
  *     [--priorite P0|P1|P2|P3] [--parent 63] [--ordre 12.5] [--backlog] \
- *     [--type Task|Bug|Feature|POC|Epic]
+ *     [--type Task|Bug|Feature|POC|Epic] [--gravite "S1 — motif" | "CVSS:3.1/…"]
+ *
+ * LA GRAVITÉ — un défaut (`Bug`) n'ouvre pas sans elle : `--gravite`, ou une
+ * ligne « **Gravité** : … » déjà dans le corps. S1 à S4 pour un défaut, un
+ * vecteur CVSS 3.1 pour une faille — le score est CALCULÉ et écrit au corps
+ * (`severity.mjs`), jamais recopié. Une priorité sous le plancher qu'elle
+ * impose est signalée.
  *
  * LE TYPE — `--type` le pose à la création (Task, Bug, Feature, POC, Epic : les
  * types de l'organisation). Avec `--parent`, le PARENT est promu `Epic` s'il
@@ -52,9 +58,17 @@
  * @option --ordre      ordre au tableau (dérivé du parent si absent)
  * @option --backlog    sans jalon, label `backlog`
  * @option --type       Task|Bug|Feature|POC|Epic
+ * @option --gravite    S1…S4 « — motif », ou vecteur CVSS:3.1/… (obligatoire pour un Bug)
  */
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { lotAction, lotOf } from "./board-lint.mjs";
+import {
+  checkSeverity,
+  parseSeverity,
+  severityFloor,
+  withSeverityLine,
+} from "./severity.mjs";
 import { guardCli } from "../../nodefony-session/scripts/cli-guard.mjs";
 
 const OWNER = "nodefony";
@@ -278,6 +292,43 @@ if (process.argv[1]?.endsWith("ticket-open.mjs")) {
     process.exit(2);
   }
 
+  // LE TYPE EST OBLIGATOIRE : explicite, sinon déduit du titre — jamais absent.
+  // Un ticket sans type ne se trie ni ne se filtre (`type:Bug`), et
+  // `ticket:lint` le refuse (SANS-TYPE).
+  const type = args.type ?? deriveIssueType(args.title);
+  if (!args.type) console.log(`type déduit du titre : ${type}`);
+
+  // LA GRAVITÉ — refusée AVANT de créer quoi que ce soit : un défaut classé à
+  // l'impression se range parmi les évolutions (vécu : #739).
+  let body = readFileSync(args.bodyFile, "utf8");
+  if (type === "Bug") {
+    const declared = args.gravite ?? parseSeverity(body);
+    const checked = checkSeverity(declared);
+    if (!checked.ok) {
+      console.error(
+        `refusé : un défaut porte sa gravité — ${
+          declared
+            ? checked.reason
+            : "ni --gravite ni ligne « **Gravité** : » au corps"
+        }. S1 à S4 (« S2 — motif ») ou CVSS:3.1/… pour une faille : references/gravite.md`,
+      );
+      process.exit(2);
+    }
+    body = withSeverityLine(body, checked.line);
+    console.log(`gravité : ${checked.line.replace("**Gravité** : ", "")}`);
+    const plancher = severityFloor(declared);
+    const prio = String(args.priorite ?? "").slice(0, 2);
+    if (
+      plancher &&
+      /^P[0-3]$/u.test(prio) &&
+      Number(prio[1]) > Number(plancher[1])
+    ) {
+      console.error(
+        `⚠️ priorité ${prio} sous le plancher ${plancher} qu'impose cette gravité (PRIORITE-SOUS-GRAVITE)`,
+      );
+    }
+  }
+
   const create = [
     "issue",
     "create",
@@ -285,8 +336,8 @@ if (process.argv[1]?.endsWith("ticket-open.mjs")) {
     `${OWNER}/${REPO}`,
     "--title",
     args.title,
-    "--body-file",
-    args.bodyFile,
+    "--body",
+    body,
     "--assignee",
     "@me",
   ];
@@ -302,11 +353,6 @@ if (process.argv[1]?.endsWith("ticket-open.mjs")) {
   }
   for (const l of args.label) create.push("--label", l);
   if (args.parent) create.push("--parent", args.parent);
-  // LE TYPE EST OBLIGATOIRE : explicite, sinon déduit du titre — jamais absent.
-  // Un ticket sans type ne se trie ni ne se filtre (`type:Bug`), et
-  // `ticket:lint` le refuse (SANS-TYPE).
-  const type = args.type ?? deriveIssueType(args.title);
-  if (!args.type) console.log(`type déduit du titre : ${type}`);
   create.push("--type", type);
 
   const url = sh("gh", create).split("\n").pop();

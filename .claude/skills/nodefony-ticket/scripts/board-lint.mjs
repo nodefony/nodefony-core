@@ -33,6 +33,7 @@
  * @option --milestone   ne contrôle que ce jalon (ex. 10.0.0)
  */
 import { execFileSync } from "node:child_process";
+import { checkSeverity, parseSeverity, severityFloor } from "./severity.mjs";
 
 import { isPilotageCommit } from "./commit-kind.mjs";
 import { guardCli } from "../../nodefony-session/scripts/cli-guard.mjs";
@@ -684,6 +685,49 @@ export function lintBoard({
     );
   }
 
+  // A7 — un DÉFAUT porte sa gravité, selon une norme (CVSS 3.1 pour une faille,
+  // S1-S4 sinon — `severity.mjs`). Sans elle, la priorité se décide à
+  // l'impression : vécu sur #739, un arrêt du serveur à la portée d'une URL,
+  // classé sans que rien ne dise s'il relevait de la sécurité. UN constat
+  // agrégé : les défauts ouverts avant la règle n'en portent pas, et onze
+  // avertissements à chaque reprise apprendraient à passer outre.
+  // `severity === undefined` = corps non lu : on se tait.
+  const typeDe = new Map(items.map((it) => [it.n, it.type]));
+  const sansGravite = issues
+    .filter((i) => typeDe.get(i.n) === "Bug" && i.severity !== undefined)
+    .filter((i) => i.severity === null || !checkSeverity(i.severity).ok)
+    .map((i) => i.n)
+    .sort((a, b) => a - b);
+  if (sansGravite.length > 0) {
+    add(
+      "avertissement",
+      "BUG-SANS-GRAVITE",
+      sansGravite[0],
+      `${sansGravite.length} défaut(s) ouvert(s) sans gravité lisible — ${sansGravite
+        .slice(0, 8)
+        .map((n) => `#${n}`)
+        .join(", ")}${sansGravite.length > 8 ? ", …" : ""}`,
+      "ajouter au corps « **Gravité** : S1 — motif » (S1 à S4), ou « **Gravité** : CVSS:3.1/… » pour une faille — references/gravite.md",
+    );
+  }
+  // A8 — une priorité SOUS le plancher qu'impose la gravité : un S1 en P3 attend
+  // son tour derrière des évolutions. On peut monter au-dessus, jamais descendre.
+  const prioDe = new Map(items.map((it) => [it.n, it.prio]));
+  for (const issue of issues) {
+    if (typeof issue.severity !== "string") continue;
+    const plancher = severityFloor(issue.severity);
+    const prio = String(prioDe.get(issue.n) ?? "").slice(0, 2);
+    if (plancher === null || !/^P[0-3]$/u.test(prio)) continue;
+    if (Number(prio[1]) <= Number(plancher[1])) continue;
+    add(
+      "avertissement",
+      "PRIORITE-SOUS-GRAVITE",
+      issue.n,
+      `priorité ${prio} sous le plancher ${plancher} qu'impose sa gravité (« ${issue.severity} »)`,
+      `remonter la priorité à ${plancher} au moins, ou revoir la gravité si elle est fausse`,
+    );
+  }
+
   // A4 — un P0 rangé derrière un P2 : la priorité et l'ordre se contredisent.
   const rang = { P0: 0, P1: 1, P2: 2, P3: 3 };
   const niveau = (p) => rang[String(p ?? "").slice(0, 2)] ?? 9;
@@ -908,6 +952,7 @@ function readIssues() {
     dependsOn: parseDependsOn(i.body),
     before: parseBefore(i.body),
     lineAnchors: parseLineAnchors(i.body),
+    severity: parseSeverity(i.body),
   }));
 }
 

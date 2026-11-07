@@ -1,4 +1,11 @@
 import { describe, expect, it } from "vitest";
+import {
+  checkSeverity,
+  cvss31Score,
+  parseSeverity,
+  severityFloor,
+  withSeverityLine,
+} from "./severity.mjs";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -944,5 +951,128 @@ describe("panne GitHub — la page de statut est consultée, jamais crue à l'av
     expect(await readGithubIncidents(reponse)).toEqual([
       { name: "Projects dégradé", status: "identified", link: "l" },
     ]);
+  });
+});
+
+describe("gravité d'un défaut — CVSS 3.1 calculé, échelle S1-S4, plancher de priorité", () => {
+  it("calcule le score CVSS 3.1 de vecteurs connus (valeurs de la calculatrice FIRST)", () => {
+    expect(cvss31Score("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H")).toEqual(
+      { score: 7.5, rating: "High" },
+    );
+    expect(cvss31Score("CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H")).toEqual(
+      { score: 5.9, rating: "Medium" },
+    );
+    expect(cvss31Score("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H")).toEqual(
+      { score: 9.8, rating: "Critical" },
+    );
+    expect(cvss31Score("CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N")).toEqual(
+      { score: 6.1, rating: "Medium" },
+    );
+    expect(cvss31Score("CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:N")).toEqual(
+      { score: 0, rating: "None" },
+    );
+  });
+
+  it("refuse un vecteur incomplet, doublé, hors valeurs ou d'une autre version", () => {
+    expect(cvss31Score("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N")).toBeNull();
+    expect(
+      cvss31Score("CVSS:3.1/AV:N/AV:L/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"),
+    ).toBeNull();
+    expect(
+      cvss31Score("CVSS:3.1/AV:X/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"),
+    ).toBeNull();
+    expect(
+      cvss31Score(
+        "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:H/SC:N/SI:N/SA:N",
+      ),
+    ).toBeNull();
+  });
+
+  it("checkSeverity écrit la ligne avec le score CALCULÉ, et exige un motif sur l'échelle", () => {
+    expect(
+      checkSeverity("CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H").line,
+    ).toBe(
+      "**Gravité** : CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H — 5,9 (Medium)",
+    );
+    expect(checkSeverity("S2 — l'export échoue sans contournement").line).toBe(
+      "**Gravité** : S2 — l'export échoue sans contournement",
+    );
+    expect(checkSeverity("S2").ok).toBe(false);
+    expect(checkSeverity("grave").ok).toBe(false);
+  });
+
+  it("parseSeverity lit la ligne du corps, et rend null sans elle", () => {
+    expect(
+      parseSeverity(
+        "**Le problème**\n…\n**Gravité** : S1 — le serveur s'arrête\n",
+      ),
+    ).toBe("S1 — le serveur s'arrête");
+    expect(parseSeverity("**Le problème**\nrien")).toBeNull();
+  });
+
+  it("withSeverityLine : remplace la ligne, sinon l'insère avant l'estimation, sinon l'ajoute", () => {
+    const corps = "**Le problème**\nx\n\n---\n\n**Estimation : 1 j**\n";
+    expect(withSeverityLine(corps, "**Gravité** : S2 — y")).toBe(
+      "**Le problème**\nx\n\n---\n\n**Gravité** : S2 — y\n**Estimation : 1 j**\n",
+    );
+    expect(
+      withSeverityLine(
+        "a\n**Gravité** : S4 — vieux\nb",
+        "**Gravité** : S1 — neuf",
+      ),
+    ).toBe("a\n**Gravité** : S1 — neuf\nb");
+    expect(withSeverityLine("a\n", "**Gravité** : S3 — z")).toBe(
+      "a\n\n**Gravité** : S3 — z\n",
+    );
+  });
+
+  it("severityFloor : S1 ou CVSS ≥ 7 → P0 · S2 ou CVSS 4-6,9 → P1 · S3 → P2 · S4 → P3", () => {
+    expect(severityFloor("S1 — x")).toBe("P0");
+    expect(severityFloor("S4 — x")).toBe("P3");
+    expect(severityFloor("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H")).toBe(
+      "P0",
+    );
+    expect(severityFloor("CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H")).toBe(
+      "P1",
+    );
+  });
+
+  it("BUG-SANS-GRAVITE : UN constat agrégé pour les défauts sans gravité ; corps non lu = silence", () => {
+    const findings = lintBoard({
+      items: [
+        sain(60, { type: "Bug" }),
+        sain(61, { type: "Bug" }),
+        sain(62, { type: "Bug" }),
+        sain(63, { type: "Task" }),
+      ],
+      issues: [
+        issueSaine(60, { severity: null }),
+        issueSaine(61, { severity: "S2 — x" }),
+        issueSaine(62),
+        issueSaine(63, { severity: null }),
+      ],
+      now: MAINTENANT,
+    });
+    const constats = findings.filter((x) => x.code === "BUG-SANS-GRAVITE");
+    expect(constats).toHaveLength(1);
+    expect(constats[0].message).toContain("#60");
+    expect(constats[0].message).not.toContain("#61");
+    expect(constats[0].message).not.toContain("#63");
+  });
+
+  it("PRIORITE-SOUS-GRAVITE : un S1 en P2 est signalé, un S3 en P0 ne l'est pas", () => {
+    const findings = lintBoard({
+      items: [
+        sain(70, { type: "Bug", prio: "P2 — décision" }),
+        sain(71, { type: "Bug", prio: "P0 — bloque" }),
+      ],
+      issues: [
+        issueSaine(70, { severity: "S1 — arrêt" }),
+        issueSaine(71, { severity: "S3 — x" }),
+      ],
+      now: MAINTENANT,
+    });
+    const sous = findings.filter((x) => x.code === "PRIORITE-SOUS-GRAVITE");
+    expect(sous.map((f) => f.n)).toEqual([70]);
   });
 });
