@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-06T23:02:54.787Z",
+  "generatedAt": "2026-11-07T11:43:06.908Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,7 +39,7 @@
       "title": "13.0.0"
     },
     {
-      "closed": 239,
+      "closed": 240,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
       "open": 13,
@@ -49,14 +49,14 @@
       "closed": 135,
       "dueOn": "2026-11-15T00:00:00Z",
       "number": 1,
-      "open": 4,
+      "open": 7,
       "title": "10.0.0"
     },
     {
       "closed": 6,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 42,
+      "open": 44,
       "title": "10.1.0"
     }
   ],
@@ -6370,6 +6370,22 @@
       "labels": []
     },
     {
+      "number": 739,
+      "title": "fix(http): empêcher un flux en échec d'arrêter le serveur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/739",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-beta",
+      "priorite": "P0 — bloque le reste",
+      "jours": 0.25,
+      "ordre": 7.001,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-7"
+      ]
+    },
+    {
       "number": 694,
       "title": "feat(http): servir des services gRPC dans le pipeline HTTP/2",
       "url": "https://github.com/nodefony/nodefony-core/issues/694",
@@ -6406,9 +6422,9 @@
       "title": "fix(cli): router gRPC vers h2c dans la config nginx générée",
       "url": "https://github.com/nodefony/nodefony-core/issues/696",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
+      "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 7.03,
       "debut": null,
@@ -8561,6 +8577,48 @@
       ]
     },
     {
+      "number": 740,
+      "title": "fix(security): propager la déconnexion SSO sur MongoDB",
+      "url": "https://github.com/nodefony/nodefony-core/issues/740",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P0 — bloque le reste",
+      "jours": 0.5,
+      "ordre": 58.3,
+      "debut": "2026-11-23",
+      "cible": "2026-11-23",
+      "labels": []
+    },
+    {
+      "number": 741,
+      "title": "fix(realtime): encoder l'accusé d'abonnement par le codec négocié",
+      "url": "https://github.com/nodefony/nodefony-core/issues/741",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.25,
+      "ordre": 58.35,
+      "debut": "2026-11-23",
+      "cible": "2026-11-23",
+      "labels": []
+    },
+    {
+      "number": 687,
+      "title": "fix(orm): ne plus générer en production les tables d'un module de dev",
+      "url": "https://github.com/nodefony/nodefony-core/issues/687",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 58.4,
+      "debut": "2026-11-23",
+      "cible": "2026-11-23",
+      "labels": []
+    },
+    {
       "number": 658,
       "title": "test(devkit-bench): réenregistrer la référence du banc sur le modèle courant",
       "url": "https://github.com/nodefony/nodefony-core/issues/658",
@@ -9165,9 +9223,9 @@
       "title": "fix(orm): ne proposer un geste que si l'on a constaté qu'il s'applique",
       "url": "https://github.com/nodefony/nodefony-core/issues/196",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.1.0",
-      "priorite": "P2 — décision",
+      "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 140,
       "debut": "2026-11-16",
@@ -9537,9 +9595,9 @@
       "title": "fix(security): deriver le domaine des passkeys de l'hote valide",
       "url": "https://github.com/nodefony/nodefony-core/issues/241",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.2.0",
-      "priorite": "P2 — décision",
+      "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 161,
       "debut": null,
@@ -9915,6 +9973,20 @@
       "labels": []
     },
     {
+      "number": 742,
+      "title": "fix(security): dire pourquoi un canal en :health est refusé",
+      "url": "https://github.com/nodefony/nodefony-core/issues/742",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1.0",
+      "priorite": "P2 — décision",
+      "jours": 0.25,
+      "ordre": 173,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
       "number": 494,
       "title": "feat(core): superposer une configuration propre à chaque requête",
       "url": "https://github.com/nodefony/nodefony-core/issues/494",
@@ -9937,6 +10009,20 @@
       "milestone": "12.0.0",
       "priorite": "P3 — fin de cycle",
       "jours": 3,
+      "ordre": 174,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 743,
+      "title": "feat(http): compter les requêtes par route dans la supervision",
+      "url": "https://github.com/nodefony/nodefony-core/issues/743",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1.0",
+      "priorite": "P2 — décision",
+      "jours": 2,
       "ordre": 174,
       "debut": null,
       "cible": null,
@@ -10551,22 +10637,6 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 924.8,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "backlog"
-      ]
-    },
-    {
-      "number": 687,
-      "title": "fix(orm): ne plus générer en production les tables d'un module de dev",
-      "url": "https://github.com/nodefony/nodefony-core/issues/687",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": null,
-      "priorite": "P2 — décision",
-      "jours": 0.5,
-      "ordre": 924.9,
       "debut": null,
       "cible": null,
       "labels": [

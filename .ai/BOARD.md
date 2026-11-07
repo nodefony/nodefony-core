@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-11-06 23:02** (UTC).
+> Empreinte prise le **2026-11-07 11:43** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,9 +20,9 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `██████████` 95% | 239 | 13 | 2026-11-12 |
-| **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 97% | 135 | 4 | 2026-11-15 |
-| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 13% | 6 | 42 | 2026-12-15 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `██████████` 95% | 240 | 13 | 2026-11-12 |
+| **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 95% | 135 | 7 | 2026-11-15 |
+| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 12% | 6 | 44 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 33 | — |
 | **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 8 | — |
 | **12.0.0** | ![12.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/5?style=flat-square&label=) `██░░░░░░░░` 15% | 2 | 11 | — |
@@ -40,7 +40,7 @@ Ordre 7.01 · P2 — décision · 4.5 j · jalon 10.0.0-beta · frise —
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.1.0 — 42 ouverts
+## Jalon 10.1.0 — 44 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -70,7 +70,7 @@ Ordre 7.01 · P2 — décision · 4.5 j · jalon 10.0.0-beta · frise —
 | 134 | P2 — décision | 1 | 2026-11-16 → 12-15 | #171 | ci(workflows): refuser une étape multi-commandes sans shell |
 | 135 | P2 — décision | 1 | 2026-11-16 → 12-15 | #172 | fix(pilotage): ne pas mettre « en cours » sur un commit de pilotage |
 | 139 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #195 | fix(cli): ne plus compter deux fois les fichiers d'une cible imbriquée |
-| 140 | P2 — décision | 1 | 2026-11-16 → 12-15 | #196 | fix(orm): ne proposer un geste que si l'on a constaté qu'il s'applique |
+| 140 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #196 | fix(orm): ne proposer un geste que si l'on a constaté qu'il s'applique |
 | 141 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #216 | fix(bench): poser la base que trois bancs multi-pods exigent |
 | 142 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #217 | fix(bench): réparer trois bancs de charge hors service |
 | 143 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #224 | feat(core): lire les secrets ailleurs que dans l'environnement |
@@ -85,6 +85,8 @@ Ordre 7.01 · P2 — décision · 4.5 j · jalon 10.0.0-beta · frise —
 | 164 | P2 — décision | 1 | — | #557 | feat(studio): simuler les écrans de l'atelier IA d'après le livre blanc |
 | 171 | P2 — décision | 3 | — | #712 | perf(http): ne payer par requête que le travail que la route consomme |
 | 172 | P2 — décision | 2 | — | #717 | feat(realtime): rejouer les messages manqués à la reconnexion |
+| 173 | P2 — décision | 0.25 | — | #742 | fix(security): dire pourquoi un canal en :health est refusé |
+| 174 | P2 — décision | 2 | — | #743 | feat(http): compter les requêtes par route dans la supervision |
 | 913.6 | P2 — décision | 5 | — | #692 | perf(cli): faire porter Vite par le superviseur de développement |
 
 ## Jalon 13.0.0 — 1 ouverts
@@ -113,7 +115,7 @@ Ordre 7.01 · P2 — décision · 4.5 j · jalon 10.0.0-beta · frise —
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Backlog — aucune date promise · 39 ouverts
+## Backlog — aucune date promise · 38 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -149,7 +151,6 @@ Ordre 7.01 · P2 — décision · 4.5 j · jalon 10.0.0-beta · frise —
 | 924.6 | P3 — fin de cycle | 1 | — | #674 | refactor(drizzle): vérifier les lignes lues en base au lieu de forcer leur type |
 | 924.7 | P3 — fin de cycle | 1 | — | #675 | refactor(studio): vérifier les réponses du serveur au lieu de forcer leur type |
 | 924.8 | P3 — fin de cycle | 1 | — | #676 | refactor(types): vérifier les données reçues dans les petits paquets |
-| 924.9 | P2 — décision | 0.5 | — | #687 | fix(orm): ne plus générer en production les tables d'un module de dev |
 | 925 | P3 — fin de cycle | 1 | — | #718 | feat(http): écouter sur un fichier de socket Unix derrière un relais local |
 | 925.1 | P2 — décision | 1 | — | #722 | perf(studio): ne plus redessiner toute la page Supervision à chaque mesure |
 | 925.2 | P3 — fin de cycle | 2 | — | #721 | feat(studio): montrer dans la console ce que le binaire fait gagner |
@@ -163,7 +164,7 @@ Ordre 7.01 · P2 — décision · 4.5 j · jalon 10.0.0-beta · frise —
 | --- | --- | ---: | --- | --- | --- |
 | 7.01 | P2 — décision | 4.5 | — | #694 | feat(http): servir des services gRPC dans le pipeline HTTP/2 |
 | 7.02 | P2 — décision | 3 | — | #695 | feat(http): déclarer et servir un service gRPC depuis un module |
-| 7.03 | P2 — décision | 0.5 | — | #696 | fix(cli): router gRPC vers h2c dans la config nginx générée |
+| 7.03 | P1 — figé à la création | 0.5 | — | #696 | fix(cli): router gRPC vers h2c dans la config nginx générée |
 | 7.04 | P3 — fin de cycle | 1 | — | #697 | feat(http): exposer la réflexion et la santé gRPC standard |
 | 7.05 | P2 — décision | 0.5 | 2026-11-19 → 11-19 | #89 | docs(notification): faire la veille des canaux de communication attendus |
 | 7.08 | P2 — décision | 11.25 | 2026-11-04 → 11-16 | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
@@ -175,11 +176,14 @@ Ordre 7.01 · P2 — décision · 4.5 j · jalon 10.0.0-beta · frise —
 | 7.095 | P1 — figé à la création | 1 | 2026-11-16 → 11-16 | #450 | feat(ecosysteme): livrer le tableau blanc comme module installable |
 | 7.1 | P1 — figé à la création | 1 | 2026-11-20 → 11-20 | #659 | docs(performance): remesurer les pages de performance avant la release |
 
-## Jalon 10.0.0 — 4 ouverts
+## Jalon 10.0.0 — 7 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
 | 7.06 | P1 — figé à la création | 0.5 | 2026-11-17 → 11-17 | #541 | test(cli): valider le plein écran du serveur de dev sous Windows |
+| 58.3 | P0 — bloque le reste | 0.5 | 2026-11-23 → 11-23 | #740 | fix(security): propager la déconnexion SSO sur MongoDB |
+| 58.35 | P1 — figé à la création | 0.25 | 2026-11-23 → 11-23 | #741 | fix(realtime): encoder l'accusé d'abonnement par le codec négocié |
+| 58.4 | P1 — figé à la création | 0.5 | 2026-11-23 → 11-23 | #687 | fix(orm): ne plus générer en production les tables d'un module de dev |
 | 58.5 | P1 — figé à la création | 1 | 2026-11-23 → 11-23 | #658 | test(devkit-bench): réenregistrer la référence du banc sur le modèle courant |
 | 59 | P1 — figé à la création | 1 | 2026-11-24 → 11-24 | #47 | docs(release): faire suivre à l'accueil ce qui est réellement publié |
 | 60 | P3 — fin de cycle | 1 | 2026-11-25 → 11-25 | #27 | chore(release): publier les paquets de la version 10 sur npm |
@@ -212,7 +216,7 @@ Ordre 7.01 · P2 — décision · 4.5 j · jalon 10.0.0-beta · frise —
 | 156 | P2 — décision | 1 | — | #236 | feat(studio): livrer la vue Services et l'audit en direct |
 | 157 | P2 — décision | 1 | — | #237 | test(studio): eprouver la console d'administration de bout en bout |
 | 160 | P2 — décision | 1 | — | #240 | chore(frontend): trancher si frontend:create doit exister |
-| 161 | P2 — décision | 1 | — | #241 | fix(security): deriver le domaine des passkeys de l'hote valide |
+| 161 | P1 — figé à la création | 1 | — | #241 | fix(security): deriver le domaine des passkeys de l'hote valide |
 | 162 | P2 — décision | 2 | — | #502 | feat(orm): propager la transaction en cours sans la passer à chaque dépôt |
 | 162.6 | P2 — décision | 1.5 | — | #624 | docs(adr): figer le contrat du modèle média partagé et de la capture |
 | 163.05 | P2 — décision | 1 | — | #239 | feat(realtime): declarer un canal parametre par un motif |
