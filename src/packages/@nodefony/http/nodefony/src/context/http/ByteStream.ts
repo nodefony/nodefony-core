@@ -584,7 +584,16 @@ export function openByteStream(
     stream.start();
     return stream.done;
   };
-  return opened instanceof Promise ? opened.then(start) : start(opened);
+  if (opened instanceof Promise) {
+    // L'ouverture attend la sauvegarde de la session : une source qui échoue
+    // PENDANT cette attente (fichier illisible, amont coupé) émettrait `error`
+    // sans écouteur — et une erreur non écoutée arrête le processus. L'écouteur
+    // muet la laisse dans `readable.errored`, que `start()` lit ; il reste posé
+    // ensuite, comme celui que pose la fin du flux.
+    readable.on("error", IGNORE_LATE_ERROR);
+    return opened.then(start);
+  }
+  return start(opened);
 }
 
 /** Les réglages du flux, défauts résolus sur le contexte. */

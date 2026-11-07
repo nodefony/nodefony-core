@@ -16,13 +16,18 @@ import type HttpContext from "../../src/context/http/HttpContext";
  */
 
 /** Contexte réduit à ce que l'ouverture lit avant de refuser. */
-function contextOf(state: { sended?: boolean; slot?: boolean }): HttpContext {
+function contextOf(state: {
+  sended?: boolean;
+  slot?: boolean;
+  saveSession?: () => Promise<void>;
+}): HttpContext {
   const req = new http.IncomingMessage(new net.Socket());
   const res = new http.ServerResponse(req);
   const fake = {
     sended: state.sended ?? false,
     finished: false,
-    session: null,
+    session: state.saveSession ? {} : null,
+    saveSession: state.saveSession,
     request: { request: req },
     response: {
       response: res,
@@ -96,5 +101,26 @@ describe("Flux d'octets — une ouverture refusée détruit la source", () => {
     );
     await new Promise((r) => setImmediate(r));
     expect(cancelled, "flux web annulé").to.equal(true);
+  });
+});
+
+describe("Flux d'octets — une source qui échoue pendant la sauvegarde de session", () => {
+  it("ne fait pas tomber le processus : l'erreur reste lisible par start()", async () => {
+    // La sauvegarde ne rend jamais la main : la source échoue PENDANT l'attente,
+    // avant que le flux n'ait posé son propre écouteur — le cas du fichier
+    // illisible servi sur une route qui ouvre une session.
+    const pending = new Promise<void>(() => undefined);
+    const source = new Readable({
+      read() {
+        // Rien à lire : la source échoue avant.
+      },
+    });
+    void openByteStream(contextOf({ saveSession: () => pending }), source);
+    const failure = new Error("EACCES: permission denied");
+    source.destroy(failure);
+    // L'émission d'`error` a lieu au tour suivant : sans écouteur, c'est une
+    // erreur non écoutée, que vitest rapporte et qui arrête un serveur.
+    await new Promise((r) => setImmediate(r));
+    expect(source.errored, "erreur gardée pour start()").to.equal(failure);
   });
 });
