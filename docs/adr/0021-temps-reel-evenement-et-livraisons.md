@@ -46,7 +46,7 @@ Quatre manières de livrer un événement existent déjà :
 | Socket    | `@nodefony/realtime` (hub, canaux) sur WebSocket, client `nodefony/client`                    | ouverte, dans les deux sens        |
 | Flux SSE  | `src/packages/@nodefony/http/nodefony/src/context/http/SseStream.ts#SseStream`                | ouverte, du serveur vers le client |
 | Webhook   | `src/packages/@nodefony/security/nodefony/src/webhook/WebhookDispatcher.ts#WebhookDispatcher` | aucune : un `POST` par événement   |
-| gRPC      | POC #690, Epic #694 (10.1)                                                                    | un flux HTTP/2 par appel           |
+| gRPC      | POC #690, Epic #694 (service en 10.0, expérimental ; pont vers le hub #745 en 10.1)           | un flux HTTP/2 par appel           |
 
 Entre deux exemplaires de l'application, le **backplane** relaie la socket
 (`src/packages/@nodefony/realtime/nodefony/interfaces/IBackplane.ts#IBackplaneMessage`).
