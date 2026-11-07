@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-07T16:27:43.179Z",
+  "generatedAt": "2026-11-07T23:19:19.447Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 240,
+      "closed": 241,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 17,
+      "open": 16,
       "title": "10.0.0-beta"
     },
     {
@@ -6648,8 +6648,8 @@
       "number": 746,
       "title": "refactor(scaffold): retirer les exemples de l'application générée",
       "url": "https://github.com/nodefony/nodefony-core/issues/746",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 2,
