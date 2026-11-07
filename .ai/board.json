@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-07T11:43:06.908Z",
+  "generatedAt": "2026-11-07T13:48:16.181Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,14 +42,14 @@
       "closed": 240,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 13,
+      "open": 15,
       "title": "10.0.0-beta"
     },
     {
-      "closed": 135,
+      "closed": 136,
       "dueOn": "2026-11-15T00:00:00Z",
       "number": 1,
-      "open": 7,
+      "open": 5,
       "title": "10.0.0"
     },
     {
@@ -6629,6 +6629,38 @@
       ]
     },
     {
+      "number": 741,
+      "title": "fix(realtime): encoder l'accusé d'abonnement par le codec négocié",
+      "url": "https://github.com/nodefony/nodefony-core/issues/741",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.25,
+      "ordre": 7.11,
+      "debut": "2026-11-23",
+      "cible": "2026-11-23",
+      "labels": [
+        "beta-7"
+      ]
+    },
+    {
+      "number": 687,
+      "title": "fix(orm): ne plus générer en production les tables d'un module de dev",
+      "url": "https://github.com/nodefony/nodefony-core/issues/687",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 7.12,
+      "debut": "2026-11-23",
+      "cible": "2026-11-23",
+      "labels": [
+        "beta-7"
+      ]
+    },
+    {
       "number": 285,
       "title": "refactor(config): extraire la config par module dans nodefony/config",
       "url": "https://github.com/nodefony/nodefony-core/issues/285",
@@ -8580,8 +8612,8 @@
       "number": 740,
       "title": "fix(security): propager la déconnexion SSO sur MongoDB",
       "url": "https://github.com/nodefony/nodefony-core/issues/740",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P0 — bloque le reste",
       "jours": 0.5,
@@ -8591,31 +8623,17 @@
       "labels": []
     },
     {
-      "number": 741,
-      "title": "fix(realtime): encoder l'accusé d'abonnement par le codec négocié",
-      "url": "https://github.com/nodefony/nodefony-core/issues/741",
+      "number": 744,
+      "title": "build(scaffold): choisir l'image de base des applications générées",
+      "url": "https://github.com/nodefony/nodefony-core/issues/744",
       "state": "OPEN",
       "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
-      "jours": 0.25,
-      "ordre": 58.35,
-      "debut": "2026-11-23",
-      "cible": "2026-11-23",
-      "labels": []
-    },
-    {
-      "number": 687,
-      "title": "fix(orm): ne plus générer en production les tables d'un module de dev",
-      "url": "https://github.com/nodefony/nodefony-core/issues/687",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0",
-      "priorite": "P1 — figé à la création",
       "jours": 0.5,
-      "ordre": 58.4,
-      "debut": "2026-11-23",
-      "cible": "2026-11-23",
+      "ordre": 58.3,
+      "debut": null,
+      "cible": null,
       "labels": []
     },
     {

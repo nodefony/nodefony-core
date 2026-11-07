@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-11-07 11:43** (UTC).
+> Empreinte prise le **2026-11-07 13:48** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,8 +20,8 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `██████████` 95% | 240 | 13 | 2026-11-12 |
-| **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 95% | 135 | 7 | 2026-11-15 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 94% | 240 | 15 | 2026-11-12 |
+| **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 96% | 136 | 5 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 12% | 6 | 44 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 33 | — |
 | **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 8 | — |
@@ -35,7 +35,7 @@
 
 Ordre 7.01 · P2 — décision · 4.5 j · jalon 10.0.0-beta · frise —
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 13 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 15 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -158,7 +158,7 @@ Ordre 7.01 · P2 — décision · 4.5 j · jalon 10.0.0-beta · frise —
 | 925.4 | P3 — fin de cycle | 2 | — | #730 | feat(security): partager et afficher les rapports de violation CSP |
 | 925.5 | P3 — fin de cycle | 1 | — | #728 | feat(client): signer les styles créés à l'exécution sous CSP stricte |
 
-## Jalon 10.0.0-beta — 13 ouverts
+## Jalon 10.0.0-beta — 15 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -175,15 +175,15 @@ Ordre 7.01 · P2 — décision · 4.5 j · jalon 10.0.0-beta · frise —
 | 7.094 | P1 — figé à la création | 0.5 | 2026-11-13 → 11-13 | #449 | test(ecosysteme): trier ce qui remonte au cœur du framework |
 | 7.095 | P1 — figé à la création | 1 | 2026-11-16 → 11-16 | #450 | feat(ecosysteme): livrer le tableau blanc comme module installable |
 | 7.1 | P1 — figé à la création | 1 | 2026-11-20 → 11-20 | #659 | docs(performance): remesurer les pages de performance avant la release |
+| 7.11 | P1 — figé à la création | 0.25 | 2026-11-23 → 11-23 | #741 | fix(realtime): encoder l'accusé d'abonnement par le codec négocié |
+| 7.12 | P1 — figé à la création | 0.5 | 2026-11-23 → 11-23 | #687 | fix(orm): ne plus générer en production les tables d'un module de dev |
 
-## Jalon 10.0.0 — 7 ouverts
+## Jalon 10.0.0 — 5 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
 | 7.06 | P1 — figé à la création | 0.5 | 2026-11-17 → 11-17 | #541 | test(cli): valider le plein écran du serveur de dev sous Windows |
-| 58.3 | P0 — bloque le reste | 0.5 | 2026-11-23 → 11-23 | #740 | fix(security): propager la déconnexion SSO sur MongoDB |
-| 58.35 | P1 — figé à la création | 0.25 | 2026-11-23 → 11-23 | #741 | fix(realtime): encoder l'accusé d'abonnement par le codec négocié |
-| 58.4 | P1 — figé à la création | 0.5 | 2026-11-23 → 11-23 | #687 | fix(orm): ne plus générer en production les tables d'un module de dev |
+| 58.3 | P1 — figé à la création | 0.5 | — | #744 | build(scaffold): choisir l'image de base des applications générées |
 | 58.5 | P1 — figé à la création | 1 | 2026-11-23 → 11-23 | #658 | test(devkit-bench): réenregistrer la référence du banc sur le modèle courant |
 | 59 | P1 — figé à la création | 1 | 2026-11-24 → 11-24 | #47 | docs(release): faire suivre à l'accueil ce qui est réellement publié |
 | 60 | P3 — fin de cycle | 1 | 2026-11-25 → 11-25 | #27 | chore(release): publier les paquets de la version 10 sur npm |
