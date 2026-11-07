@@ -1,8 +1,9 @@
 /**
- * Tâches périodiques d'un service : quand elles tournent, et où.
+ * Tâches de fond d'un service — périodiques ou uniques au démarrage : quand
+ * elles tournent, et où.
  *
- * Trois pièges que le geste à la main (`setInterval` dans `init()`) ne voit pas,
- * tous constatés sur une application réelle :
+ * Trois pièges que le geste à la main (`setInterval` ou un appel nu dans
+ * `init()`) ne voit pas, tous constatés sur une application réelle :
  *
  * 1. `init()` tourne à CHAQUE démarrage du noyau — `orm:migrate`, `inspect`,
  *    toute commande CLI comprise. Un `setInterval` posé là purge la base
@@ -44,6 +45,34 @@ export function isLeadWorker(
 ): boolean {
   const slot = readWorkerSlot(env);
   return slot === null || slot === 0;
+}
+
+/**
+ * La règle commune aux deux planificateurs : le noyau du service, si ce run sert
+ * du trafic et si ce processus est celui qui exécute — `null` sinon.
+ */
+function eligibleKernel(
+  service: IPeriodicHost,
+  allWorkers: boolean,
+): IPeriodicKernel | null {
+  const kernel = service.kernel;
+  // Aucun noyau (service construit dans un test) ou un run qui ne sert pas de
+  // trafic : rien à planifier, et ce n'est pas une erreur.
+  if (kernel === null || !kernel.runProfile.servers) return null;
+  if (!allWorkers && !isLeadWorker()) return null;
+  return kernel;
+}
+
+/** Journalise l'échec d'une tâche sur son service — jamais propagé. */
+function reportFailure(
+  service: IPeriodicHost,
+  what: string,
+  error: unknown,
+): void {
+  service.log(
+    `${what} en échec : ${error instanceof Error ? error.message : String(error)}`,
+    "ERROR",
+  );
 }
 
 /** Réglages de {@link schedulePeriodic}. */
@@ -91,11 +120,8 @@ export function schedulePeriodic(
       `schedulePeriodic : période invalide (${String(intervalMs)}) — un entier de millisecondes ≥ 1`,
     );
   }
-  const kernel = service.kernel;
-  // Aucun noyau (service construit dans un test) ou un run qui ne sert pas de
-  // trafic : rien à planifier, et ce n'est pas une erreur.
-  if (kernel === null || !kernel.runProfile.servers) return () => undefined;
-  if (options.allWorkers !== true && !isLeadWorker()) return () => undefined;
+  const kernel = eligibleKernel(service, options.allWorkers === true);
+  if (kernel === null) return () => undefined;
 
   let timer: NodeJS.Timeout | null = null;
   let running = false;
@@ -104,10 +130,7 @@ export function schedulePeriodic(
   };
   const fail = (error: unknown): void => {
     running = false;
-    service.log(
-      `tâche périodique en échec : ${error instanceof Error ? error.message : String(error)}`,
-      "ERROR",
-    );
+    reportFailure(service, "tâche périodique", error);
   };
   const tick = (): void => {
     if (running) return;
@@ -138,4 +161,65 @@ export function schedulePeriodic(
   else kernel.once("onPostReady", start);
   kernel.once("onTerminate", stop);
   return stop;
+}
+
+/**
+ * Lance `task` UNE fois, à la fin du démarrage, dans le seul worker de tête — et
+ * jamais dans une commande CLI.
+ *
+ * Pour un geste unique qui n'est pas périodique : nettoyer des fichiers laissés
+ * par un arrêt brutal, annoncer le démarrage à un service tiers, semer une
+ * donnée. Écrit nu dans `init()`, il tournerait dans chaque worker de la grappe
+ * et pendant `orm:migrate` ou `inspect`.
+ *
+ * La tâche part sur `onPostReady` (tout de suite si le démarrage est déjà fini) :
+ * elle ne retarde pas le démarrage et n'est pas soumise au délai maximal
+ * d'`init()`. Une erreur est journalisée sur le service, jamais propagée. Ce qui
+ * doit être prêt AVANT le premier trafic, dans chaque worker, reste dans
+ * `init()`.
+ *
+ * @example
+ * ```ts
+ * async init(): Promise<this> {
+ *   runOnceAtStartup(this, () => this.removeStaleUploads());
+ *   return this;
+ * }
+ * ```
+ *
+ * @param service - le service qui porte la tâche (son noyau, son journal).
+ * @param task - le travail ; une promesse rendue est suivie pour journaliser son échec.
+ * @returns de quoi annuler la tâche si elle n'est pas encore partie.
+ */
+export function runOnceAtStartup(
+  service: IPeriodicHost,
+  task: () => unknown,
+): () => void {
+  const kernel = eligibleKernel(service, false);
+  if (kernel === null) return () => undefined;
+  const fail = (error: unknown): void => {
+    reportFailure(service, "tâche de démarrage", error);
+  };
+  const cancel = (): void => {
+    kernel.removeListener("onPostReady", run);
+    kernel.removeListener("onTerminate", cancel);
+  };
+  // `cancel` et `run` se nomment l'un l'autre : chacun n'est APPELÉ qu'une fois
+  // les deux déclarés.
+  const run = (): void => {
+    // Partie : l'écouteur d'arrêt n'a plus rien à annuler.
+    kernel.removeListener("onTerminate", cancel);
+    try {
+      const out = task();
+      if (out instanceof Promise) out.catch(fail);
+    } catch (error) {
+      fail(error);
+    }
+  };
+  if (kernel.postReady) {
+    run();
+    return () => undefined;
+  }
+  kernel.once("onPostReady", run);
+  kernel.once("onTerminate", cancel);
+  return cancel;
 }

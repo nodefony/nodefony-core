@@ -1,6 +1,7 @@
 /**
- * Unit — `schedulePeriodic` / `isLeadWorker` : une tâche périodique ne tourne
- * que quand l'application sert, dans UN worker de la grappe, sans se superposer.
+ * Unit — `schedulePeriodic` / `runOnceAtStartup` / `isLeadWorker` : une tâche de
+ * fond ne tourne que quand l'application sert, dans UN worker de la grappe, sans
+ * se superposer.
  *
  * Vécu sur une application réelle : un `setInterval` posé dans `init()` tournait
  * aussi pendant `orm:migrate` et chaque commande CLI, et dans chaque worker
@@ -10,6 +11,7 @@ import { EventEmitter } from "node:events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   isLeadWorker,
+  runOnceAtStartup,
   schedulePeriodic,
   type IPeriodicHost,
 } from "../kernel/periodicTask";
@@ -149,5 +151,86 @@ describe("schedulePeriodic", () => {
     expect(() => schedulePeriodic(host(null), 1.5, () => undefined)).toThrow(
       RangeError,
     );
+  });
+});
+
+describe("runOnceAtStartup", () => {
+  const saved = process.env.NF_WORKER_SLOT;
+  beforeEach(() => {
+    delete process.env.NF_WORKER_SLOT;
+  });
+  afterEach(() => {
+    if (saved === undefined) delete process.env.NF_WORKER_SLOT;
+    else process.env.NF_WORKER_SLOT = saved;
+  });
+
+  it("attend la fin du démarrage, tourne UNE fois, et ne laisse aucun écouteur", () => {
+    const kernel = new FakeKernel();
+    const task = vi.fn();
+    runOnceAtStartup(host(kernel), task);
+    expect(task).not.toHaveBeenCalled();
+    kernel.postReady = true;
+    kernel.emit("onPostReady");
+    kernel.emit("onPostReady");
+    expect(task).toHaveBeenCalledTimes(1);
+    expect(kernel.listenerCount("onPostReady")).toBe(0);
+    expect(kernel.listenerCount("onTerminate")).toBe(0);
+  });
+
+  it("démarrage déjà fini : tourne tout de suite", () => {
+    const kernel = new FakeKernel();
+    kernel.postReady = true;
+    const task = vi.fn();
+    runOnceAtStartup(host(kernel), task);
+    expect(task).toHaveBeenCalledTimes(1);
+    expect(kernel.listenerCount("onTerminate")).toBe(0);
+  });
+
+  it("commande CLI (aucun serveur) : ne tourne JAMAIS", () => {
+    const kernel = new FakeKernel();
+    kernel.runProfile = { servers: false };
+    kernel.postReady = true;
+    const task = vi.fn();
+    runOnceAtStartup(host(kernel), task);
+    kernel.emit("onPostReady");
+    expect(task).not.toHaveBeenCalled();
+    expect(kernel.listenerCount("onPostReady")).toBe(0);
+  });
+
+  it("worker 1 d'une grappe : ne tourne pas · place 0 : tourne", () => {
+    process.env.NF_WORKER_SLOT = "1";
+    const kernel = new FakeKernel();
+    kernel.postReady = true;
+    const task = vi.fn();
+    runOnceAtStartup(host(kernel), task);
+    expect(task).not.toHaveBeenCalled();
+    process.env.NF_WORKER_SLOT = "0";
+    runOnceAtStartup(host(kernel), task);
+    expect(task).toHaveBeenCalledTimes(1);
+  });
+
+  it("une erreur, synchrone ou asynchrone, est journalisée sur le service", async () => {
+    const kernel = new FakeKernel();
+    kernel.postReady = true;
+    const h = host(kernel);
+    runOnceAtStartup(h, () => {
+      throw new Error("disque plein");
+    });
+    runOnceAtStartup(h, () => Promise.reject(new Error("tiers injoignable")));
+    await Promise.resolve();
+    expect(h.errors).toHaveLength(2);
+    expect(h.errors[0]).toMatch(/disque plein/u);
+    expect(h.errors[1]).toMatch(/tiers injoignable/u);
+  });
+
+  it("un arrêt avant la fin du démarrage l'annule et retire ses écouteurs", () => {
+    const kernel = new FakeKernel();
+    const task = vi.fn();
+    runOnceAtStartup(host(kernel), task);
+    kernel.emit("onTerminate");
+    kernel.emit("onPostReady");
+    expect(task).not.toHaveBeenCalled();
+    expect(kernel.listenerCount("onPostReady")).toBe(0);
+    expect(kernel.listenerCount("onTerminate")).toBe(0);
   });
 });

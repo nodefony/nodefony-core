@@ -940,10 +940,14 @@ export {
   runWorksOnSchema,
   storeConnectivity,
 } from "./kernel/runProfile";
-// Tâche périodique d'un service : seulement quand l'app sert du trafic, et dans
-// UN worker de la grappe — le `setInterval` d'un `init()` tournait aussi dans
-// `orm:migrate` et dans chaque worker.
-export { schedulePeriodic, isLeadWorker } from "./kernel/periodicTask";
+// Tâche de fond d'un service (périodique, ou unique au démarrage) : seulement
+// quand l'app sert du trafic, et dans UN worker de la grappe — le `setInterval`
+// d'un `init()` tournait aussi dans `orm:migrate` et dans chaque worker.
+export {
+  schedulePeriodic,
+  runOnceAtStartup,
+  isLeadWorker,
+} from "./kernel/periodicTask";
 export type {
   IPeriodicTaskOptions,
   IPeriodicHost,
