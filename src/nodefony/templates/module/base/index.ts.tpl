@@ -1,7 +1,10 @@
 import { Kernel, Module<% if (it.service) { %>, services<% } %> } from "nodefony";
 import { controllers } from "@nodefony/framework";
 import config, { type I<%= it.pascal %>ConfigInput } from "./nodefony/config/config";
-import { define<%= it.pascal %>Config } from "./nodefony/config/defineModuleConfig";
+import {
+  define<%= it.pascal %>Config,
+  <%= it.camel %>ConfigJsonSchema,
+} from "./nodefony/config/defineModuleConfig";
 <% if (it.service) { %>import <%= it.pascal %>Service from "./nodefony/service/<%= it.pascal %>Service";
 <% } %>
 /**
@@ -44,6 +47,17 @@ declare module "nodefony" {
   override async onKernelRegister(): Promise<this> {
     this.options = define<%= it.pascal %>Config(this.options);
     return this;
+  }
+
+  /**
+   * Publie le schéma de la config au Kernel. C'est par lui que le Kernel
+   * applique un nom court déclaré sur un champ (`.meta({ env: "NF_…" })`) :
+   * sans cette méthode, la variable apparaît dans `nodefony env` et dans
+   * `.env.example`, mais le démarrage ne la lit jamais. Studio en dérive aussi
+   * son formulaire d'édition.
+   */
+  override configSchema(): unknown {
+    return <%= it.camel %>ConfigJsonSchema();
   }
 }
 

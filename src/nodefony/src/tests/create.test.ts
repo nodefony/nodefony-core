@@ -6938,6 +6938,13 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.notInclude(builder, ".default(");
       const index = readFileSync(path.join(r.dest, "index.ts"), "utf8");
       assert.include(index, 'declare module "nodefony"');
+      // Le schéma est PUBLIÉ au Kernel : c'est par `configSchema()` qu'il
+      // applique un nom court `.meta({ env })`. Sans elle, la variable se
+      // montrait dans `nodefony env` sans jamais être lue au démarrage.
+      assert.match(
+        index,
+        /override configSchema\(\): unknown \{\s+return blogConfigJsonSchema\(\);/u,
+      );
       // Le préfixe `I` fait partie de l'assertion : la convention du dépôt veut
       // les interfaces préfixées, et ce nom est une surface PUBLIÉE — il entre
       // dans les `.d.ts` du module et dans l'autocomplétion de qui l'installe.
