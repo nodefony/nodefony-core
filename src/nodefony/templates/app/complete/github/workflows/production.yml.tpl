@@ -228,9 +228,10 @@ jobs:
 <% if (it.toolchain.githubSetup) { %>      # <%= it.packageManager %> n'est pas sur l'exécuteur : il se pose AVANT `setup-node`,
       # dont le cache le suppose installé.
       - uses: <%= it.toolchain.githubSetup.uses %>
-        with:
+<% if (it.toolchain.githubSetup.version) { %>        with:
           <%= it.toolchain.githubSetup.versionInput %>: "<%= it.toolchain.githubSetup.version %>"
-
+<% } else { %>        # Version lue dans le champ `packageManager` du package.json.
+<% } %>
 <% } %>      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24

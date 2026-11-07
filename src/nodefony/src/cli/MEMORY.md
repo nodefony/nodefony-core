@@ -291,7 +291,11 @@ Ordre : garde `NF_CLI_DELEGATED` → `findProjectRoot(cwd)` → `<root>/node_mod
   d'outil, amorçage `npm i -g <outil>@<majeure>` glibc ET musl, cache image/projet, élagage) → gabarit
   `it.toolchain` (Dockerfile, ci.yml, production.yml, gitlab-ci, `.dockerignore`/`.gitignore`).
   `PACKAGE_MANAGER_TOOL_MAJOR` = pnpm 12, bun 1 ; yarn 1 + npm livrés par `node:*`. Copie de ces
-  majeures dans `release-smoke.yml` verrouillée par test. `pnpm prune --prod` laisse un shim
+  majeures dans `release-smoke.yml` verrouillée par test. **pnpm = version EXACTE**
+  (`PNPM_PINNED_VERSION`) : champ `packageManager` du `package.json` généré, amorçage de l'image et
+  GitLab ; GitHub ne passe PAS de `version` (l'action lit le champ, et échoue sur une version qui
+  en diffère). Une majeure seule laissait le poste et l'image en mineures différentes →
+  `ERR_PNPM_OUTDATED_LOCKFILE` au `--frozen-lockfile`. `pnpm prune --prod` laisse un shim
   `.bin/vite` orphelin (paquet bien retiré). Preuve réelle : `release:smoke -- --scenario pm[:pnpm|yarn|bun]`
   (banc épingle les tarballs par champ du gestionnaire : sinon le PAIR `nodefony` d'un module local
   se résout au registre, même version, et le noyau refuse la double copie).

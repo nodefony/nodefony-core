@@ -278,6 +278,20 @@ export const PACKAGE_MANAGER_TOOL_MAJOR: Readonly<
   Record<"pnpm" | "bun", string>
 > = { pnpm: "12", bun: "1" };
 
+/**
+ * Version EXACTE de pnpm qu'une application pnpm épingle dans son champ
+ * `packageManager` — et que son image et ses forges installent.
+ *
+ * Une majeure ne suffit pas : le verrou écrit par une version mineure peut être
+ * refusé par une autre (`ERR_PNPM_OUTDATED_LOCKFILE`). Vécu : le poste écrivait
+ * `pnpm-lock.yaml` en 12.3.4, l'image installait la dernière 12.x (12.18.0), et
+ * `pnpm install --frozen-lockfile` cassait la construction. Le champ
+ * `packageManager` est lu par pnpm lui-même (il bascule sur la version nommée),
+ * par `pnpm/action-setup` et par corepack : le verrou est écrit et relu par la
+ * MÊME version partout. Doit commencer par `PACKAGE_MANAGER_TOOL_MAJOR.pnpm`.
+ */
+export const PNPM_PINNED_VERSION = "12.18.0";
+
 /** Action GitHub qui pose l'outil sur l'exécuteur, avant `setup-node`. */
 export interface IPackageManagerGithubSetup {
   /**
@@ -286,9 +300,14 @@ export interface IPackageManagerGithubSetup {
    * le commentaire est ce que Dependabot relit pour proposer la montée.
    */
   uses: string;
-  /** Nom de l'entrée qui porte la version (`version`, `bun-version`). */
+  /** Nom de l'entrée qui porte la version de l'outil (`version`, `bun-version`). */
   versionInput: string;
-  version: string;
+  /**
+   * Version passée à l'action ; `null` = aucune, l'action lit le champ
+   * `packageManager` du projet. `pnpm/action-setup` échoue si les deux diffèrent
+   * — et une majeure (`12`) diffère toujours d'une version exacte (`12.18.0`).
+   */
+  version: string | null;
 }
 
 /**
@@ -298,6 +317,11 @@ export interface IPackageManagerGithubSetup {
 export interface IPackageManagerToolchain {
   /** Verrou que le gestionnaire écrit, et que la chaîne exige. */
   lockfile: string;
+  /**
+   * Valeur du champ `packageManager` du `package.json` généré (`pnpm@x.y.z`),
+   * `null` quand l'outil n'en a pas besoin — cf {@link PNPM_PINNED_VERSION}.
+   */
+  packageManagerField: string | null;
   /** Installation stricte : refuse un verrou désaccordé du `package.json`. */
   frozenInstall: string;
   /** Valeur `cache:` de `actions/setup-node`, `null` s'il ne connaît pas l'outil. */
@@ -340,6 +364,7 @@ export function packageManagerToolchain(
     case "npm":
       return {
         lockfile: "package-lock.json",
+        packageManagerField: null,
         frozenInstall: "npm ci",
         setupNodeCache: "npm",
         githubSetup: null,
@@ -357,12 +382,15 @@ export function packageManagerToolchain(
         lockfile: "pnpm-lock.yaml",
         frozenInstall: "pnpm install --frozen-lockfile",
         setupNodeCache: "pnpm",
+        packageManagerField: `pnpm@${PNPM_PINNED_VERSION}`,
         githubSetup: {
           uses: "pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0",
           versionInput: "version",
-          version: PACKAGE_MANAGER_TOOL_MAJOR.pnpm,
+          // L'action lit `packageManager` : lui passer aussi une version la
+          // ferait échouer dès qu'elle diffère du champ (« Multiple versions of pnpm specified »).
+          version: null,
         },
-        bootstrap: `npm install -g --no-audit --no-fund pnpm@${PACKAGE_MANAGER_TOOL_MAJOR.pnpm}`,
+        bootstrap: `npm install -g --no-audit --no-fund pnpm@${PNPM_PINNED_VERSION}`,
         imageCacheDir: "/root/.local/share/pnpm/store",
         projectCacheDir: ".pnpm-store",
         projectCachedInstall:
@@ -374,6 +402,7 @@ export function packageManagerToolchain(
     case "yarn":
       return {
         lockfile: "yarn.lock",
+        packageManagerField: null,
         frozenInstall: "yarn install --frozen-lockfile",
         setupNodeCache: "yarn",
         githubSetup: null,
@@ -393,6 +422,7 @@ export function packageManagerToolchain(
     case "bun":
       return {
         lockfile: "bun.lock",
+        packageManagerField: null,
         frozenInstall: "bun install --frozen-lockfile",
         setupNodeCache: null,
         githubSetup: {

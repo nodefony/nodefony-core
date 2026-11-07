@@ -9,6 +9,7 @@ import {
   LOCKFILES,
   PACKAGE_MANAGERS,
   PACKAGE_MANAGER_TOOL_MAJOR,
+  PNPM_PINNED_VERSION,
   hasWorkspaceRun,
   needsWorkspaceProtocol,
   packageManagerCommandLines,
@@ -365,12 +366,27 @@ describe("forge et image — rendues pour le gestionnaire choisi", () => {
       const setup = packageManagerToolchain(pm).githubSetup;
       assert.isNotNull(setup, pm);
       assert.include(workflow, `uses: ${setup!.uses}`, pm);
-      assert.include(
-        workflow,
-        `${setup!.versionInput}: "${setup!.version}"`,
-        pm,
-      );
-      assert.include(setup!.version, PACKAGE_MANAGER_TOOL_MAJOR[pm], pm);
+      // pnpm : l'application lit son champ `packageManager` (version null) ;
+      // l'hôte du banc pose la MAJEURE, pnpm bascule ensuite tout seul sur la
+      // version exacte qu'épingle l'application.
+      const hostVersion = setup!.version ?? PACKAGE_MANAGER_TOOL_MAJOR[pm];
+      assert.include(workflow, `${setup!.versionInput}: "${hostVersion}"`, pm);
+      assert.include(hostVersion, PACKAGE_MANAGER_TOOL_MAJOR[pm], pm);
+    }
+  });
+
+  // Le verrou écrit par une version mineure de pnpm peut être refusé par une
+  // autre : le poste, la forge et l'image doivent parler la MÊME version.
+  it("pnpm : une version EXACTE, la même au manifeste, dans l'image et en CI", () => {
+    assert.isTrue(
+      PNPM_PINNED_VERSION.startsWith(`${PACKAGE_MANAGER_TOOL_MAJOR.pnpm}.`),
+    );
+    assert.match(PNPM_PINNED_VERSION, /^\d+\.\d+\.\d+$/u);
+    const tc = packageManagerToolchain("pnpm");
+    assert.equal(tc.packageManagerField, `pnpm@${PNPM_PINNED_VERSION}`);
+    assert.include(tc.bootstrap!, `pnpm@${PNPM_PINNED_VERSION}`);
+    for (const pm of ["npm", "yarn", "bun"] as const) {
+      assert.isNull(packageManagerToolchain(pm).packageManagerField, pm);
     }
   });
 
@@ -437,12 +453,25 @@ describe("forge et image — rendues pour le gestionnaire choisi", () => {
             text.indexOf(`uses: ${tc.githubSetup.uses}`),
             text.indexOf("uses: actions/setup-node@"),
           );
-          assert.include(
-            text,
-            `${tc.githubSetup.versionInput}: "${tc.githubSetup.version}"`,
-          );
+          if (tc.githubSetup.version === null) {
+            // `pnpm/action-setup` échoue sur une version qui diffère du champ `packageManager`.
+            assert.notMatch(text, /^ {10}version: /mu);
+          } else {
+            assert.include(
+              text,
+              `${tc.githubSetup.versionInput}: "${tc.githubSetup.version}"`,
+            );
+          }
         }
       }
+      const manifest = JSON.parse(
+        fs.readFileSync(path.join(dest, "package.json"), "utf8"),
+      ) as { packageManager?: unknown };
+      assert.equal(
+        manifest.packageManager,
+        tc.packageManagerField ?? undefined,
+        "champ packageManager",
+      );
       assert.include(github.join("\n"), `run: ${pm} run verify`);
       assert.include(github.join("\n"), `run: ${exec} image:check ci-${pm}:ci`);
       assert.include(prod.join("\n"), `run: ${pm} run build`);
