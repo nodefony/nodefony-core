@@ -954,7 +954,7 @@ describe("panne GitHub — la page de statut est consultée, jamais crue à l'av
   });
 });
 
-describe("gravité d'un défaut — CVSS 3.1 calculé, échelle S1-S4, plancher de priorité", () => {
+describe("gravité d'un défaut — CVSS 3.1 calculé, échelle IEEE 1044, plancher de priorité", () => {
   it("calcule le score CVSS 3.1 de vecteurs connus (valeurs de la calculatrice FIRST)", () => {
     expect(cvss31Score("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H")).toEqual(
       { score: 7.5, rating: "High" },
@@ -994,41 +994,44 @@ describe("gravité d'un défaut — CVSS 3.1 calculé, échelle S1-S4, plancher 
     ).toBe(
       "**Gravité** : CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H — 5,9 (Medium)",
     );
-    expect(checkSeverity("S2 — l'export échoue sans contournement").line).toBe(
-      "**Gravité** : S2 — l'export échoue sans contournement",
-    );
-    expect(checkSeverity("S2").ok).toBe(false);
+    expect(
+      checkSeverity("Major — l'export échoue, un contournement existe").line,
+    ).toBe("**Gravité** : Major — l'export échoue, un contournement existe");
+    expect(checkSeverity("Major").ok).toBe(false);
     expect(checkSeverity("grave").ok).toBe(false);
   });
 
   it("parseSeverity lit la ligne du corps, et rend null sans elle", () => {
     expect(
       parseSeverity(
-        "**Le problème**\n…\n**Gravité** : S1 — le serveur s'arrête\n",
+        "**Le problème**\n…\n**Gravité** : Blocking — le serveur s'arrête\n",
       ),
-    ).toBe("S1 — le serveur s'arrête");
+    ).toBe("Blocking — le serveur s'arrête");
     expect(parseSeverity("**Le problème**\nrien")).toBeNull();
   });
 
   it("withSeverityLine : remplace la ligne, sinon l'insère avant l'estimation, sinon l'ajoute", () => {
     const corps = "**Le problème**\nx\n\n---\n\n**Estimation : 1 j**\n";
-    expect(withSeverityLine(corps, "**Gravité** : S2 — y")).toBe(
-      "**Le problème**\nx\n\n---\n\n**Gravité** : S2 — y\n**Estimation : 1 j**\n",
+    expect(withSeverityLine(corps, "**Gravité** : Major — y")).toBe(
+      "**Le problème**\nx\n\n---\n\n**Gravité** : Major — y\n**Estimation : 1 j**\n",
     );
     expect(
       withSeverityLine(
-        "a\n**Gravité** : S4 — vieux\nb",
-        "**Gravité** : S1 — neuf",
+        "a\n**Gravité** : Inconsequential — vieux\nb",
+        "**Gravité** : Blocking — neuf",
       ),
-    ).toBe("a\n**Gravité** : S1 — neuf\nb");
-    expect(withSeverityLine("a\n", "**Gravité** : S3 — z")).toBe(
-      "a\n\n**Gravité** : S3 — z\n",
+    ).toBe("a\n**Gravité** : Blocking — neuf\nb");
+    expect(withSeverityLine("a\n", "**Gravité** : Minor — z")).toBe(
+      "a\n\n**Gravité** : Minor — z\n",
     );
   });
 
-  it("severityFloor : S1 ou CVSS ≥ 7 → P0 · S2 ou CVSS 4-6,9 → P1 · S3 → P2 · S4 → P3", () => {
-    expect(severityFloor("S1 — x")).toBe("P0");
-    expect(severityFloor("S4 — x")).toBe("P3");
+  it("severityFloor : Blocking/Critical ou CVSS ≥ 7 → P0 · Major ou CVSS 4-6,9 → P1 · Minor → P2 · Inconsequential → P3", () => {
+    expect(severityFloor("Blocking — x")).toBe("P0");
+    expect(severityFloor("Critical — x")).toBe("P0");
+    expect(severityFloor("Major — x")).toBe("P1");
+    expect(severityFloor("Minor — x")).toBe("P2");
+    expect(severityFloor("Inconsequential — x")).toBe("P3");
     expect(severityFloor("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H")).toBe(
       "P0",
     );
@@ -1047,7 +1050,7 @@ describe("gravité d'un défaut — CVSS 3.1 calculé, échelle S1-S4, plancher 
       ],
       issues: [
         issueSaine(60, { severity: null }),
-        issueSaine(61, { severity: "S2 — x" }),
+        issueSaine(61, { severity: "Major — x" }),
         issueSaine(62),
         issueSaine(63, { severity: null }),
       ],
@@ -1060,15 +1063,15 @@ describe("gravité d'un défaut — CVSS 3.1 calculé, échelle S1-S4, plancher 
     expect(constats[0].message).not.toContain("#63");
   });
 
-  it("PRIORITE-SOUS-GRAVITE : un S1 en P2 est signalé, un S3 en P0 ne l'est pas", () => {
+  it("PRIORITE-SOUS-GRAVITE : un Blocking en P2 est signalé, un Minor en P0 ne l'est pas", () => {
     const findings = lintBoard({
       items: [
         sain(70, { type: "Bug", prio: "P2 — décision" }),
         sain(71, { type: "Bug", prio: "P0 — bloque" }),
       ],
       issues: [
-        issueSaine(70, { severity: "S1 — arrêt" }),
-        issueSaine(71, { severity: "S3 — x" }),
+        issueSaine(70, { severity: "Blocking — arrêt" }),
+        issueSaine(71, { severity: "Minor — x" }),
       ],
       now: MAINTENANT,
     });

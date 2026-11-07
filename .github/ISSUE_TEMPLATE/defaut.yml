@@ -11,9 +11,10 @@ body:
         pas le symptôme : le problème a tout un bloc pour lui, juste en dessous.
         Remplacez `portée` par le module concerné (`http`, `security`, `cli`, `orm`…).
 
-        Les trois champs qui suivent sont ceux du protocole de ce dépôt. Le
+        Les trois premiers champs sont ceux du protocole de ce dépôt. Le
         troisième est le plus important : **sans critère observable, personne ne
-        peut savoir quand le ticket est fini.**
+        peut savoir quand le ticket est fini.** La gravité dit ce que le défaut
+        CASSE — pas son urgence, que les mainteneurs fixent.
 
         > _Mainteneurs_ : la voie normale est `npm run ticket:open`, qui inscrit
         > aussi le ticket au tableau de bord. Une issue ouverte depuis cette page
@@ -54,6 +55,22 @@ body:
         résultat, un écran qui répond. Jamais « c'est corrigé ».
       placeholder: >-
         `curl -sk https://localhost:8443/api/whoami` rend `"scheme":"https"`.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: gravite
+    attributes:
+      label: Gravité
+      description: >-
+        Ce que le défaut casse, sur l'échelle de gravité de l'IEEE 1044. Une faille de sécurité ne
+        se déclare PAS ici : elle passe par le canal privé (voir plus bas).
+      options:
+        - Blocking — l'usage est arrêté tant qu'il n'y a ni correctif ni contournement — processus arrêté, démarrage impossible
+        - Critical — des opérations essentielles sont interrompues sans recours — données perdues ou corrompues
+        - Major — des opérations essentielles sont touchées mais peuvent continuer — un contournement existe
+        - Minor — des opérations non essentielles sont perturbées
+        - Inconsequential — aucun effet notable sur le fonctionnement — texte, message, documentation
     validations:
       required: true
 

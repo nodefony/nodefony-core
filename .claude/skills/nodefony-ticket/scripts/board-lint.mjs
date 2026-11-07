@@ -686,7 +686,7 @@ export function lintBoard({
   }
 
   // A7 — un DÉFAUT porte sa gravité, selon une norme (CVSS 3.1 pour une faille,
-  // S1-S4 sinon — `severity.mjs`). Sans elle, la priorité se décide à
+  // classes de l'IEEE 1044 sinon — `severity.mjs`). Sans elle, la priorité se décide à
   // l'impression : vécu sur #739, un arrêt du serveur à la portée d'une URL,
   // classé sans que rien ne dise s'il relevait de la sécurité. UN constat
   // agrégé : les défauts ouverts avant la règle n'en portent pas, et onze
@@ -707,10 +707,10 @@ export function lintBoard({
         .slice(0, 8)
         .map((n) => `#${n}`)
         .join(", ")}${sansGravite.length > 8 ? ", …" : ""}`,
-      "ajouter au corps « **Gravité** : S1 — motif » (S1 à S4), ou « **Gravité** : CVSS:3.1/… » pour une faille — references/gravite.md",
+      "ajouter au corps « **Gravité** : Major — motif » (Blocking, Critical, Major, Minor, Inconsequential), ou « **Gravité** : CVSS:3.1/… » pour une faille — references/gravite.md",
     );
   }
-  // A8 — une priorité SOUS le plancher qu'impose la gravité : un S1 en P3 attend
+  // A8 — une priorité SOUS le plancher qu'impose la gravité : un Blocking en P3 attend
   // son tour derrière des évolutions. On peut monter au-dessus, jamais descendre.
   const prioDe = new Map(items.map((it) => [it.n, it.prio]));
   for (const issue of issues) {

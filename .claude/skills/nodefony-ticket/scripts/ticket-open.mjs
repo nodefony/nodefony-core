@@ -17,10 +17,10 @@
  *   node .claude/skills/nodefony-ticket/scripts/ticket-open.mjs --title "fix(x): …" --body-file corps.md \
  *     [--milestone 10.0.0] [--label irrattrapable] [--jours 0.5] \
  *     [--priorite P0|P1|P2|P3] [--parent 63] [--ordre 12.5] [--backlog] \
- *     [--type Task|Bug|Feature|POC|Epic] [--gravite "S1 — motif" | "CVSS:3.1/…"]
+ *     [--type Task|Bug|Feature|POC|Epic] [--gravite "Major — motif" | "CVSS:3.1/…"]
  *
  * LA GRAVITÉ — un défaut (`Bug`) n'ouvre pas sans elle : `--gravite`, ou une
- * ligne « **Gravité** : … » déjà dans le corps. S1 à S4 pour un défaut, un
+ * ligne « **Gravité** : … » déjà dans le corps. Une classe de l'IEEE 1044 pour un défaut, un
  * vecteur CVSS 3.1 pour une faille — le score est CALCULÉ et écrit au corps
  * (`severity.mjs`), jamais recopié. Une priorité sous le plancher qu'elle
  * impose est signalée.
@@ -58,7 +58,7 @@
  * @option --ordre      ordre au tableau (dérivé du parent si absent)
  * @option --backlog    sans jalon, label `backlog`
  * @option --type       Task|Bug|Feature|POC|Epic
- * @option --gravite    S1…S4 « — motif », ou vecteur CVSS:3.1/… (obligatoire pour un Bug)
+ * @option --gravite    classe IEEE 1044 « — motif », ou vecteur CVSS:3.1/… (obligatoire pour un Bug)
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -310,7 +310,7 @@ if (process.argv[1]?.endsWith("ticket-open.mjs")) {
           declared
             ? checked.reason
             : "ni --gravite ni ligne « **Gravité** : » au corps"
-        }. S1 à S4 (« S2 — motif ») ou CVSS:3.1/… pour une faille : references/gravite.md`,
+        }. « Major — motif » (Blocking, Critical, Major, Minor, Inconsequential) ou CVSS:3.1/… pour une faille : references/gravite.md`,
       );
       process.exit(2);
     }

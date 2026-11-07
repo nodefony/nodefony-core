@@ -8,8 +8,9 @@
  *   disponibilité) se note en **CVSS 3.1** (FIRST) — le vecteur, dont le score
  *   se CALCULE ici : un score recopié à la main est l'erreur la plus facile à
  *   faire, et la plus crue ;
- * - tout autre défaut se range sur l'échelle **S1 à S4** (classes de gravité
- *   au sens de l'IEEE 1044 : ce que le défaut casse, pas quand on le traite).
+ * - tout autre défaut se range sur l'échelle de gravité de l'**IEEE 1044**
+ *   (Blocking, Critical, Major, Minor, Inconsequential) : ce que le défaut
+ *   casse, pas quand on le traite.
  *
  * La gravité n'est PAS la priorité : elle dit l'impact, le champ `Priorité` du
  * tableau dit le moment. Les deux se lisent ensemble (`severityFloor`).
@@ -21,11 +22,29 @@
 
 /** Classes de l'échelle hors sécurité, et ce que chacune recouvre. */
 export const SEVERITY_SCALE = {
-  S1: "bloquant — processus arrêté, données perdues ou corrompues, démarrage impossible",
-  S2: "majeur — une fonction cassée, sans contournement",
-  S3: "mineur — une fonction dégradée, avec un contournement",
-  S4: "cosmétique — texte, message, documentation",
+  Blocking:
+    "l'usage est arrêté tant qu'il n'y a ni correctif ni contournement — processus arrêté, démarrage impossible",
+  Critical:
+    "des opérations essentielles sont interrompues sans recours — données perdues ou corrompues",
+  Major:
+    "des opérations essentielles sont touchées mais peuvent continuer — un contournement existe",
+  Minor: "des opérations non essentielles sont perturbées",
+  Inconsequential:
+    "aucun effet notable sur le fonctionnement — texte, message, documentation",
 };
+
+/** Plancher de priorité de chaque classe — on peut monter, jamais descendre. */
+const SCALE_FLOOR = {
+  Blocking: "P0",
+  Critical: "P0",
+  Major: "P1",
+  Minor: "P2",
+  Inconsequential: "P3",
+};
+const SCALE_RE = new RegExp(
+  `^(${Object.keys(SEVERITY_SCALE).join("|")})\\b\\s*[—–-]?\\s*(.*)$`,
+  "u",
+);
 
 /** Poids des métriques de base CVSS 3.1 (spécification FIRST, §7.4). */
 const W = {
@@ -101,7 +120,8 @@ export function cvss31Score(vector) {
 /**
  * Valide une gravité telle qu'on la donne, et rend la ligne à écrire au ticket.
  *
- * @param text - `S1 — motif` … `S4 — motif`, ou un vecteur `CVSS:3.1/…`
+ * @param text - `Major — motif` (une classe de l'IEEE 1044 suivie de son motif), ou
+ *   un vecteur `CVSS:3.1/…`
  * @returns `{ ok: true, kind, line }` — la ligne porte le score CALCULÉ — ou
  *   `{ ok: false, reason }`
  */
@@ -123,7 +143,7 @@ export function checkSeverity(text) {
       line: `**Gravité** : ${vector} — ${String(result.score).replace(".", ",")} (${result.rating})`,
     };
   }
-  const scale = value.match(/^(S[1-4])\b\s*[—–-]?\s*(.*)$/u);
+  const scale = value.match(SCALE_RE);
   if (scale) {
     if (scale[2].trim() === "") {
       return {
@@ -139,22 +159,37 @@ export function checkSeverity(text) {
   }
   return {
     ok: false,
-    reason:
-      "gravité illisible — « S1 — motif » à « S4 — motif » pour un défaut, un vecteur « CVSS:3.1/… » pour une faille",
+    reason: `gravité illisible — « <classe> — motif » pour un défaut (${Object.keys(SEVERITY_SCALE).join(", ")}), un vecteur « CVSS:3.1/… » pour une faille`,
   };
 }
 
 /**
  * Lit la gravité déclarée dans le corps d'un ticket.
  *
+ * Deux écritures : la ligne `**Gravité** : …` que pose `ticket:open`, et la
+ * section `### Gravité` que GitHub rend pour le champ du formulaire de défaut
+ * (`.github/ISSUE_TEMPLATE/defaut.yml`).
+ *
  * @param body - corps brut de l'issue
- * @returns ce qui suit « Gravité : », ou `null` si la ligne est absente
+ * @returns la gravité déclarée, ou `null` si le corps n'en porte pas
  */
 export function parseSeverity(body) {
-  const match = String(body ?? "").match(
-    /^\s*\*{0,2}Gravit[ée]\*{0,2}\s*:\s*(.+)$/imu,
-  );
-  return match ? match[1].trim() : null;
+  const text = String(body ?? "");
+  const line = text.match(/^\s*\*{0,2}Gravit[ée]\*{0,2}\s*:\s*(.+)$/imu);
+  if (line) return line[1].trim();
+  const section = text.match(/^#{2,4}\s*Gravit[ée]\s*\n+\s*(\S.*)$/imu);
+  return section ? section[1].trim() : null;
+}
+
+/**
+ * Les options du champ « Gravité » du formulaire GitHub, dérivées de l'échelle :
+ * le formulaire est une COPIE imposée par la frontière (GitHub ne lit pas ce
+ * module), et `github-templates.test.mjs` compare les deux.
+ *
+ * @returns `Blocking — …` … `Inconsequential — …`
+ */
+export function severityFormOptions() {
+  return Object.entries(SEVERITY_SCALE).map(([k, v]) => `${k} — ${v}`);
 }
 
 /**
@@ -171,9 +206,7 @@ export function severityFloor(text) {
     if (checked.score >= 4) return "P1";
     return "P2";
   }
-  return { S1: "P0", S2: "P1", S3: "P2", S4: "P3" }[
-    String(text).trim().slice(0, 2)
-  ];
+  return SCALE_FLOOR[String(text).trim().match(SCALE_RE)?.[1] ?? ""] ?? null;
 }
 
 /**

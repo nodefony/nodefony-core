@@ -12,7 +12,7 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 
 # `nodefony-ticket`
 
-> Écrit et organise les tickets GitHub du dépôt Nodefony — titre Conventional Commits compréhensible sans connaître le dépôt, lexique, corps en quatre blocs avec preuve `<fichier>.ts#<Symbole>` et critère de fin observable, gravité normée d'un défaut (CVSS 3.1 calculé, échelle S1-S4), parents et sous-tickets, champs et DATES du tableau, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps.
+> Écrit et organise les tickets GitHub du dépôt Nodefony — titre Conventional Commits compréhensible sans connaître le dépôt, lexique, corps en quatre blocs avec preuve `<fichier>.ts#<Symbole>` et critère de fin observable, gravité normée d'un défaut (CVSS 3.1 calculé, échelle IEEE 1044), parents et sous-tickets, champs et DATES du tableau, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps.
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-ticket**
 
@@ -28,9 +28,9 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 | --- | --- |
 | Version | `1.11.0` |
 | Famille | Autres |
-| Corps | 507 lignes |
-| Coût d'activation | ~10 091 tokens (le corps est chargé à l'invocation) |
-| Description | 974 / 1024 caractères |
+| Corps | 508 lignes |
+| Coût d'activation | ~10 110 tokens (le corps est chargé à l'invocation) |
+| Description | 978 / 1024 caractères |
 | Déclencheurs | 20 |
 | Ressources `references/` | 8 page(s) |
 | Scripts | 22 |
@@ -38,7 +38,7 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 
 ## Ce qu'il fait
 
-Écrit et organise les tickets GitHub du dépôt Nodefony — titre Conventional Commits compréhensible sans connaître le dépôt, lexique, corps en quatre blocs avec preuve `<fichier>.ts#<Symbole>` et critère de fin observable, gravité normée d'un défaut (CVSS 3.1 calculé, échelle S1-S4), parents et sous-tickets, champs et DATES du tableau, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps. À charger AVANT d'ouvrir une issue.
+Écrit et organise les tickets GitHub du dépôt Nodefony — titre Conventional Commits compréhensible sans connaître le dépôt, lexique, corps en quatre blocs avec preuve `<fichier>.ts#<Symbole>` et critère de fin observable, gravité normée d'un défaut (CVSS 3.1 calculé, échelle IEEE 1044), parents et sous-tickets, champs et DATES du tableau, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps. À charger AVANT d'ouvrir une issue.
 
 ## Prérequis
 
@@ -82,7 +82,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/economie.md` | Le ticket comme instrument d'économie — le détail | 149 |
 | `references/fermeture.md` | Fermer un ticket — le geste est TRIPLE | 106 |
 | `references/github-issues.md` | Issues GitHub — sous-tickets, jalons, projets | 80 |
-| `references/gravite.md` | La gravité d'un défaut — une norme, jamais une impression | 90 |
+| `references/gravite.md` | La gravité d'un défaut — une norme, jamais une impression | 100 |
 | `references/lexique.md` | Lexique des tickets — source unique | 143 |
 | `references/tableau-de-bord.md` | Le tableau de bord — labels, champs, ordre, et quand prendre un ticket | 284 |
 
@@ -219,7 +219,7 @@ node .claude/skills/nodefony-ticket/scripts/ticket-open.mjs --title "fix(x): …
 | `--ordre` | ordre au tableau (dérivé du parent si absent) |
 | `--backlog` | sans jalon, label `backlog` |
 | `--type` | Task\|Bug\|Feature\|POC\|Epic |
-| `--gravite` | S1…S4 « — motif », ou vecteur CVSS:3.1/… (obligatoire pour un Bug) |
+| `--gravite` | classe IEEE 1044 « — motif », ou vecteur CVSS:3.1/… (obligatoire pour un Bug) |
 
 #### `scripts/ticket-progress.mjs`
 
@@ -254,14 +254,14 @@ node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs --dependents <num�
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
 | en-tête analysable par un vrai parseur YAML | ℹ️ normatif | ✅ |  | spec § frontmatter : « YAML frontmatter » — un en-tête que YAML refuse n'est pas rendu par GitHub, alors que le parseur de l'agent, tolérant, l'accepte sans un mot |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 974 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 978 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ❌ | 507 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ❌ | 508 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

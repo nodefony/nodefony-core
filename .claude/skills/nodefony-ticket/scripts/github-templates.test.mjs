@@ -18,6 +18,11 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  checkSeverity,
+  parseSeverity,
+  severityFormOptions,
+} from "./severity.mjs";
 
 const ICI = dirname(fileURLToPath(import.meta.url));
 const SKILL = join(ICI, "..", "SKILL.md");
@@ -100,6 +105,33 @@ describe("les gardes que les formulaires ne doivent pas perdre", () => {
     const bloc = config.slice(config.indexOf("contact_links"));
     const urlSecu = bloc.match(/url:\s*(\S+)/u)?.[1] ?? "";
     expect(urlSecu).toContain("/security/policy");
+  });
+});
+
+describe("le formulaire de défaut demande la GRAVITÉ, sur l'échelle du skill", () => {
+  const defaut = lire(FORMULAIRES[0]);
+  const bloc = defaut.slice(defaut.indexOf("id: gravite"));
+  const options = [
+    ...bloc
+      .slice(0, bloc.indexOf("validations:"))
+      .matchAll(/^\s*- ([A-Z][a-z]+ — .+)$/gmu),
+  ].map((m) => m[1].trim());
+
+  it("les options sont EXACTEMENT celles de severity.mjs, dans l'ordre", () => {
+    // La copie est imposée par la frontière : le test compare les deux sorties.
+    expect(options).toEqual(severityFormOptions());
+  });
+
+  it("le champ est obligatoire", () => {
+    expect(bloc.slice(0, bloc.indexOf("- type:"))).toMatch(/required: true/u);
+  });
+
+  it("le rendu GitHub du champ est LU par le lint (### Gravité → valeur valide)", () => {
+    // Ce que GitHub écrit dans le corps d'une issue ouverte par le formulaire.
+    const corps = `### Le problème\n\nx\n\n### Gravité\n\n${options[1]}\n\n### Versions\n\ny`;
+    const lue = parseSeverity(corps);
+    expect(lue).toBe(options[1]);
+    expect(checkSeverity(lue).ok).toBe(true);
   });
 });
 
