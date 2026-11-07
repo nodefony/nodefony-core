@@ -3,6 +3,7 @@ import { expect } from "vitest";
 import {
   exitBeforeReadyMessage,
   isPortInUseMessage,
+  isViteNonFatalWarning,
   startupTimeoutMessage,
 } from "../../service/ViteProcessSupervisor";
 
@@ -56,6 +57,24 @@ describe("Vite — reconnaître un port occupé", () => {
           "available. There may be another server running on a wildcard IP on port 5173.",
       ),
     ).to.equal(false);
+  });
+
+  it("« on a wildcard address » se relaie en AVERTISSEMENT, jamais en ERROR (vu sous Windows)", () => {
+    // Formulation relevée sur la forge Windows, après un repli de port RÉUSSI :
+    // relayée en ERROR, elle faisait échouer le cas d'intégration du décalage.
+    expect(
+      isViteNonFatalWarning(
+        "Port 62155 is in use on a wildcard address, but 127.0.0.1:62155 is " +
+          "available. There may be another server running on a wildcard IP on port 62155.",
+      ),
+    ).to.equal(true);
+    // Les VRAIES erreurs restent des erreurs : le conflit fatal, et le reste.
+    expect(isViteNonFatalWarning("Port 5173 is already in use")).to.equal(
+      false,
+    );
+    expect(isViteNonFatalWarning("Failed to resolve import './App'")).to.equal(
+      false,
+    );
   });
 
   it("le code système brut", () => {

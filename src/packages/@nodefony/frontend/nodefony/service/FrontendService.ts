@@ -461,6 +461,7 @@ class FrontendService extends Service implements IFrontendService {
       logger: {
         info: (m) => this.log(`[${family}] ${m}`, "INFO"),
         error: (m) => this.log(`[${family}] ${m}`, "ERROR"),
+        warn: (m) => this.log(`[${family}] ${m}`, "WARNING"),
         debug: (m) => this.log(`[${family}] ${m}`, "DEBUG"),
       },
     });

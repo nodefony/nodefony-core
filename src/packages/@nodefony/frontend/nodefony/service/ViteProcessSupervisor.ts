@@ -75,6 +75,11 @@ function resolveViteBin(): string | null {
 export interface IViteSupervisorLogger {
   info(msg: string): void;
   error(msg: string): void;
+  /**
+   * Avertissement NON fatal de Vite (cf {@link isViteNonFatalWarning}).
+   * Absent → la ligne part en `info`, jamais en `error`.
+   */
+  warn?(msg: string): void;
   debug?(msg: string): void;
 }
 
@@ -194,6 +199,23 @@ export function isPortInUseMessage(text: string): boolean {
     /address already in use/i.test(text) ||
     /port\s+\d+\s+is\s+already\s+in use/i.test(text)
   );
+}
+
+/**
+ * Une ligne que Vite écrit sur sa sortie d'ERREUR est-elle un avertissement sur
+ * un démarrage RÉUSSI ?
+ *
+ * Vite émet `Port X is in use on a wildcard address, but H:X is available…` par
+ * `logger.warn` (donc sur stderr) après un `listen` qui a RÉUSSI (cf
+ * {@link isPortInUseMessage}). Relayée en ERROR, elle laissait une ligne rouge
+ * dans un démarrage sain. Vu sous Windows, où la pile réseau signale ce cas
+ * quand un autre serveur écoute sur la même plage de ports.
+ *
+ * @param line - une ligne de sortie, sans codes ANSI ni préfixe `[vite]`.
+ * @returns `true` si la ligne doit partir en avertissement, pas en erreur.
+ */
+export function isViteNonFatalWarning(line: string): boolean {
+  return /port\s+\d+\s+is\s+in use on a wildcard address/i.test(line);
 }
 
 /**
@@ -586,8 +608,12 @@ export class ViteProcessSupervisor implements IViteSupervisor {
             .replace(viteOwnPrefixRe, "")
             .trim();
           if (!stripped) continue;
-          if (level === "error") this.opts.logger.error(`[vite] ${stripped}`);
-          else this.opts.logger.info(`[vite] ${stripped}`);
+          const logger = this.opts.logger;
+          if (level === "info") logger.info(`[vite] ${stripped}`);
+          else if (!isViteNonFatalWarning(stripped))
+            logger.error(`[vite] ${stripped}`);
+          else if (logger.warn) logger.warn(`[vite] ${stripped}`);
+          else logger.info(`[vite] ${stripped}`);
         }
       };
 
