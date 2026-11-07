@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-07T15:30:55.474Z",
+  "generatedAt": "2026-11-07T16:27:43.179Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -6649,7 +6649,7 @@
       "title": "refactor(scaffold): retirer les exemples de l'application générée",
       "url": "https://github.com/nodefony/nodefony-core/issues/746",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 2,
