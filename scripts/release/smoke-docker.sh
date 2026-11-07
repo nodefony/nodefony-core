@@ -532,8 +532,13 @@ if runs base; then
   # ⚠️ `create controller` est IN-PROJECT : il remonte au `nodefony.config.ts`
   # le plus proche. Lancé depuis la racine du dépôt, il écrirait DANS LE DÉPÔT
   # — d'où le sous-shell qui l'ancre dans l'app témoin.
-  step "[base] décor — route /api/slow (create controller + corps réécrit)"
-  (cd "$APP" && "$NODEFONY_BIN" create controller slow --kind hello --route /api) \
+  #
+  # Le décor vit sous `/smoke`, couvert par AUCUNE zone : l'application générée
+  # ferme `/api` (zone `main` sans `anonymous`), et une route de décor posée
+  # dessous répondrait le 401 du pare-feu au lieu de ce qu'on mesure. Le smoke ne
+  # dépend d'AUCUNE route d'exemple de l'application : il apporte les siennes.
+  step "[base] décor — routes /smoke/slow et /smoke/pid (create controller + corps réécrit)"
+  (cd "$APP" && "$NODEFONY_BIN" create controller slow --kind hello --route /smoke) \
     > "$WORK/.controller.out" 2>&1 \
     || { tail -20 "$WORK/.controller.out"; fail "nodefony create controller"; }
   SLOW_FILE="$APP/nodefony/controllers/SlowController.ts"
@@ -543,11 +548,19 @@ if runs base; then
 import { route, controller, Controller } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
 
-/** DÉCOR DU SMOKE — une requête lente, pour éprouver le drain au SIGTERM. */
-@controller("/api")
+/**
+ * DÉCOR DU SMOKE — une requête lente, pour éprouver le drain au SIGTERM, et le
+ * numéro du processus, pour constater la forme exec du CMD.
+ */
+@controller("/smoke")
 class SlowController extends Controller {
   constructor(context: ContextType) {
     super("slow", context);
+  }
+
+  @route("slow-pid", { path: "/pid", method: "GET" })
+  pid() {
+    return this.renderJson({ pid: process.pid });
   }
 
   @route("slow-index", { path: "/slow", method: "GET" })
@@ -559,7 +572,7 @@ class SlowController extends Controller {
 
 export default SlowController;
 TS
-  ok "route /api/slow posée et câblée"
+  ok "routes /smoke/slow et /smoke/pid posées et câblées"
 
   step "[base] deps + image"
   rewrite_deps "$APP"
@@ -576,19 +589,19 @@ TS
   [ "$LIVEZ" = "200" ] || fail "livez → $LIVEZ"
   ok "livez → 200"
 
-  HELLO=$(curl -s "http://127.0.0.1:$PORT/api/hello")
-  contient "$HELLO" '"hello"' || fail "hello KO : $HELLO"
-  ok "/api/hello → $HELLO"
+  PIDJSON=$(curl -s "http://127.0.0.1:$PORT/smoke/pid")
+  contient "$PIDJSON" '"pid"' || fail "/smoke/pid KO : $PIDJSON"
+  ok "/smoke/pid → $PIDJSON"
 
   # La forme exec du CMD se CONSTATE ici, elle ne se déduit pas du fichier : en
   # forme shell, /bin/sh serait PID 1 et node porterait un autre numéro — le
   # seul signe observable avant que le drain ne manque à l'appel.
-  contient "$HELLO" '"pid":1' || fail "node n'est PAS PID 1 (forme shell du CMD ?) : $HELLO"
+  contient "$PIDJSON" '"pid":1' || fail "node n'est PAS PID 1 (forme shell du CMD ?) : $PIDJSON"
   ok "node est PID 1 (forme exec constatée, pas supposée)"
 
   step "[base] graceful — docker stop pendant une requête en vol"
   SLOW_OUT="$WORK/.slow.out"
-  (curl -s -m 10 -w "\nHTTP=%{http_code}" "http://127.0.0.1:$PORT/api/slow" > "$SLOW_OUT" 2>&1; echo "EXIT=$?" >> "$SLOW_OUT") &
+  (curl -s -m 10 -w "\nHTTP=%{http_code}" "http://127.0.0.1:$PORT/smoke/slow" > "$SLOW_OUT" 2>&1; echo "EXIT=$?" >> "$SLOW_OUT") &
   SLOW_PID=$!
   sleep 0.5
   docker stop -t 12 "$CTN" >/dev/null &
@@ -717,9 +730,11 @@ if runs front; then
   contient "$(docker logs "$FCTN" 2>&1)" "vite indisponible" \
     || { docker logs "$FCTN" 2>&1 | tail -30; fail "ERREUR « vite indisponible » absente — la page blanche redevient muette"; }
   ok "ERREUR nommée : vite indisponible, geste indiqué"
-  APICODE=$(http_code "http://127.0.0.1:$FPORT/api/hello")
-  [ "$APICODE" = "200" ] || fail "API à $APICODE — un front absent ne doit PAS emporter le backend"
-  ok "/api/hello → 200 (le backend survit à un front non construit)"
+  # L'application générée ne porte plus de route d'exemple : la sonde de vie,
+  # interrogée APRÈS l'erreur, dit que le serveur sert toujours.
+  APICODE=$(http_code "http://127.0.0.1:$FPORT/livez")
+  [ "$APICODE" = "200" ] || fail "livez à $APICODE — un front absent ne doit PAS emporter le backend"
+  ok "livez → 200 (le backend survit à un front non construit)"
   docker rm -f "$FCTN" >/dev/null 2>&1 || true
 fi
 
@@ -865,8 +880,8 @@ if runs edge; then
   # Ce que l'application CROIT du client — la seule façon de constater que la
   # confiance au proxy s'applique. Même geste qu'au scénario `base` : la commande
   # pose le câblage, le corps est réécrit en entier (aucune ancre à maintenir).
-  step "[edge] décor — route /api/whoami (ce que l'app croit du client)"
-  (cd "$EAPP" && "$NODEFONY_BIN" create controller whoami --kind hello --route /api) \
+  step "[edge] décor — route /smoke/whoami (ce que l'app croit du client)"
+  (cd "$EAPP" && "$NODEFONY_BIN" create controller whoami --kind hello --route /smoke) \
     > "$WORK/.edge-controller.out" 2>&1 \
     || { tail -20 "$WORK/.edge-controller.out"; fail "nodefony create controller (edge)"; }
   WHO_FILE="$EAPP/nodefony/controllers/WhoamiController.ts"
@@ -883,7 +898,7 @@ import type { ContextType } from "@nodefony/http";
  * l'application est en CLAIR, donc `https` ne peut venir que d'un
  * `X-Forwarded-Proto` qui a été CRU.
  */
-@controller("/api")
+@controller("/smoke")
 class WhoamiController extends Controller {
   constructor(context: ContextType) {
     super("whoami", context);
@@ -915,7 +930,7 @@ class WhoamiController extends Controller {
 
 export default WhoamiController;
 TS
-  ok "routes /api/whoami et /api/ticks posées et câblées"
+  ok "routes /smoke/whoami et /smoke/ticks posées et câblées"
 
 
   step "[edge] deps + migration initiale (installe et bâtit côté hôte)"
@@ -1020,10 +1035,10 @@ YML
   ok "second facteur et webhooks chiffrés — toutes les clés de production posées"
 
   step "[edge] trustProxy: uniquelocal SEUL — le frontal est-il cru ?"
-  WHO=$(curl -sk "$EDGE_URL/api/whoami")
+  WHO=$(curl -sk "$EDGE_URL/smoke/whoami")
   contient "$WHO" '"scheme":"https"' \
     || { echo "$WHO"; fail "l'app voit du http À TRAVERS un frontal TLS — uniquelocal ne mord pas (il avait fallu loopback au banc de #320)"; }
-  ok "/api/whoami → $WHO (X-Forwarded-Proto CRU sur une adresse privée)"
+  ok "/smoke/whoami → $WHO (X-Forwarded-Proto CRU sur une adresse privée)"
 
   # Le cookie `__Host-` DÉRIVE du schéma constaté : le préfixe exige `Secure`, et
   # `Secure` ne se pose que si l'application se sait servie en TLS. C'est donc le
@@ -1062,7 +1077,7 @@ YML
       const spread = arrivals.length > 0 ? arrivals.at(-1) - arrivals[0] : 0;
       const rel = arrivals.map((t) => Math.round(t - arrivals[0])).join(",");
       console.log(`${arrivals.length} ${Math.round(spread)} ${rel}`);
-    ' "$EDGE_URL/api/ticks" 2>&1) || { echo "$SSE_OUT"; fail "flux SSE à travers le frontal illisible"; }
+    ' "$EDGE_URL/smoke/ticks" 2>&1) || { echo "$SSE_OUT"; fail "flux SSE à travers le frontal illisible"; }
   read -r SSE_COUNT SSE_SPREAD SSE_REL <<< "$SSE_OUT"
   [ "$SSE_COUNT" = "5" ] || { echo "$SSE_OUT"; fail "flux SSE : $SSE_COUNT événement(s) reçu(s) sur 5"; }
   [ "$SSE_SPREAD" -ge 1000 ] \
@@ -1117,9 +1132,9 @@ YML
 
   # Et le contrôle négatif : une route applicative, elle, DOIT tomber — sinon on
   # aurait prouvé que l'application était encore là, pas que nginx sert seul.
-  DEADCODE=$(curl -sk -o /dev/null -w "%{http_code}" "$EDGE_URL/api/whoami" || true)
+  DEADCODE=$(curl -sk -o /dev/null -w "%{http_code}" "$EDGE_URL/smoke/whoami" || true)
   [ "$DEADCODE" = "200" ] && fail "l'application répond alors qu'elle est arrêtée — la preuve précédente ne prouve rien"
-  ok "/api/whoami → $DEADCODE (l'application est bien éteinte : la preuve tient)"
+  ok "/smoke/whoami → $DEADCODE (l'application est bien éteinte : la preuve tient)"
 
   # ── LA GARDE, VUE MORDRE ──────────────────────────────────────────────────
   # Un contrôle qu'on n'a jamais vu échouer ne garde rien. On retire la seule

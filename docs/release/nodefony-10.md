@@ -678,7 +678,7 @@ pendant une requête lente → la requête aboutit, sortie en 0, drain visible d
 
 **R1.1 fait** — gabarits `templates/app/base/{Dockerfile,dockerignore}.tpl`, rendus pour **les deux
 presets** (la doctrine n'est pas une option de la vitrine). Preuve tenue de bout en bout sur une app
-générée : image construite, `readyz`/`livez` 200, `/api/hello` répondu **avec `pid: 1`** (la forme
+générée : image construite, `readyz`/`livez` 200, `/smoke/pid` (route de décor du banc) répondu **avec `pid: 1`** (la forme
 exec constatée, pas supposée), requête de 2 s drainée pendant `docker stop`, sortie 0, `SHUTDOWN`
 dans les journaux.
 
@@ -733,7 +733,7 @@ maintenant deux générateurs au lieu de zéro.
 
 Trois gardes attribuent la faute au bon maillon (R2.2) : fichiers attendus après `create app`,
 `CMD` en forme exec dans le Dockerfile généré, et au moins une dépendance réécrite vers les
-tarballs. La forme exec est en outre **constatée à l'exécution** (`/api/hello` doit rendre
+tarballs. La forme exec est en outre **constatée à l'exécution** (la route de décor `/smoke/pid` doit rendre
 `pid: 1`), pas seulement lue dans le fichier.
 
 Gate vu MORDRE : gabarit `Dockerfile.tpl` retiré → le smoke échoue à l'étape **« create app »**
