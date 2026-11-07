@@ -37,7 +37,76 @@ export function defineSecurityConfig(
     "@nodefony/security",
   );
   detectConflicts(validated.areas);
+  resolveAreaResources(validated.areas, validated.jwt.issuer);
   return Object.freeze(validated);
+}
+
+/**
+ * Rend absolue la `resource` d'une zone écrite comme un CHEMIN (`/api/partner`),
+ * contre l'émetteur des jetons de l'application (`jwt.issuer`) — son URL
+ * publique, celle que voient les clients.
+ *
+ * Pourquoi : un MODULE qui apporte sa zone à jeton (surcharge
+ * `module-security`) ne connaît pas l'adresse publique de l'application — elle
+ * vient de l'environnement, que seul `env.ts` lit. Le chemin est ce qu'il
+ * connaît ; l'origine est ce que l'application a déjà ÉCRIT une fois. La valeur
+ * reste donc écrite, jamais dérivée du `Host`.
+ *
+ * Concaténation, pas `new URL(chemin, base)` : un émetteur qui porte un chemin
+ * (`https://exemple.com/auth`) le garde, comme le fait déjà l'adresse publique
+ * des gabarits (`${publicBaseUrl}/api/…`).
+ *
+ * @param areas - zones validées (mutées sur place, avant le gel)
+ * @param issuer - `jwt.issuer` validé
+ * @throws BootConfigurationError si un chemin est relatif au protocole (`//…`),
+ *   ou si l'émetteur n'est pas une URL http(s) — retirer la zone ouvrirait ses
+ *   routes à la zone voisine, donc on refuse de démarrer en nommant le geste.
+ */
+function resolveAreaResources(
+  areas: ISecurityConfig["areas"],
+  issuer: string | undefined,
+): void {
+  for (const name in areas) {
+    const area = areas[name];
+    const resource = area?.resource;
+    if (area === undefined || resource === undefined) continue;
+    if (!resource.startsWith("/")) continue;
+    if (resource.startsWith("//")) {
+      throw new BootConfigurationError(
+        `[@nodefony/security] areas.${name}.resource « ${resource} » : un chemin ` +
+          `commence par UN seul « / » — « // » désigne un autre hôte.`,
+      );
+    }
+    const base = publicIssuerBase(issuer);
+    if (base === null) {
+      throw new BootConfigurationError(
+        `[@nodefony/security] areas.${name}.resource « ${resource} » est un chemin, ` +
+          `rendu absolu contre jwt.issuer — qui n'est pas une URL http(s) ` +
+          `(« ${issuer ?? "nodefony"} »). Pose jwt.issuer à l'adresse publique de ` +
+          `l'application (une application générée la lit dans NF_JWT_ISSUER), ou ` +
+          `écris la ressource en entier (https://…).`,
+      );
+    }
+    area.resource = `${base}${resource}`;
+  }
+}
+
+/**
+ * L'émetteur, sans `/` final, s'il est une URL http(s) — sinon `null`.
+ *
+ * @param issuer - `jwt.issuer` validé
+ * @returns la base contre laquelle résoudre un chemin, ou `null`
+ */
+function publicIssuerBase(issuer: string | undefined): string | null {
+  if (issuer === undefined) return null;
+  let url: URL;
+  try {
+    url = new URL(issuer);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+  return issuer.replace(/\/+$/u, "");
 }
 
 /**

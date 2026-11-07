@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { Container } from "nodefony";
+import { BootConfigurationError, Container } from "nodefony";
 import type { Module } from "nodefony";
 import type { IUser } from "@nodefony/user";
 import * as jose from "jose";
@@ -155,5 +155,62 @@ describe("ressource d'une zone — audience émettable (RFC 8707)", () => {
       new UserToken("jwt", issued.access_token),
     );
     assert.equal(token.getUser()?.identifier, "alice");
+  });
+});
+
+describe("ressource d'une zone écrite comme un CHEMIN — rendue absolue contre jwt.issuer", () => {
+  const withPath = (issuer: string | undefined, resource: string) =>
+    defineSecurityConfig({
+      ...input,
+      jwt: {
+        enabled: true,
+        audiences: ["nf-api"],
+        ...(issuer ? { issuer } : {}),
+      },
+      areas: { partner: { ...input.areas.partner, resource } },
+    });
+
+  it("un chemin suit l'émetteur — chemin de l'émetteur et / final compris", () => {
+    assert.equal(
+      withPath("https://test.nf", "/demo/api/partner").areas.partner?.resource,
+      RESOURCE,
+    );
+    assert.equal(
+      withPath("https://test.nf/auth/", "/demo/api/partner").areas.partner
+        ?.resource,
+      "https://test.nf/auth/demo/api/partner",
+    );
+  });
+
+  it("une ressource absolue n'est pas touchée", () => {
+    assert.equal(
+      withPath("https://test.nf", "https://autre.nf/x").areas.partner?.resource,
+      "https://autre.nf/x",
+    );
+  });
+
+  it("le chemin résolu est émettable : il entre dans les audiences du runtime", () => {
+    const config = withPath("https://test.nf", "/demo/api/partner");
+    assert.deepEqual(resolveJwtRuntime(config.jwt, config.areas).audiences, [
+      "nf-api",
+      RESOURCE,
+    ]);
+  });
+
+  it("🔴 émetteur absent (« nodefony ») → démarrage refusé, en nommant jwt.issuer — jamais une zone retirée", () => {
+    assert.throws(
+      () => withPath(undefined, "/demo/api/partner"),
+      (error: unknown) =>
+        error instanceof BootConfigurationError &&
+        error.message.includes("jwt.issuer") &&
+        error.message.includes("areas.partner.resource"),
+    );
+  });
+
+  it("🔴 « // » (autre hôte) → refusé", () => {
+    assert.throws(
+      () => withPath("https://test.nf", "//evil.example/x"),
+      BootConfigurationError,
+    );
   });
 });
