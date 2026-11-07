@@ -80,13 +80,14 @@ Un mélange de versions n'est pas garanti ; la politique complète est dans
 
 ### 3. Remettre l'application au niveau — `nodefony upgrade`
 
-La commande rejoue trois gestes, chacun par l'implémentation qui le fait déjà ailleurs :
+La commande rejoue quatre gestes, chacun par l'implémentation qui le fait déjà ailleurs :
 
 | Geste                                              | Implémentation                                                                                                                                   | Ce qu'il ne fait jamais                                                                             |
 | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
 | Réécrit le **bloc framework** d'`AGENTS.md`        | `refreshAgentsGuide()` (`engine.ts#refreshAgentsGuide`), le remplacement borné par `replaceFrameworkBlock()` (`engine.ts#replaceFrameworkBlock`) | toucher au texte hors des marqueurs `<!-- nodefony:start/end -->` ; recréer un `AGENTS.md` supprimé |
 | Pose les **pointeurs de skills**, nouveaux compris | `syncSkillPointers()` (`aiSync.ts#syncSkillPointers`), le geste d'`ai:sync`                                                                      | remplacer un `SKILL.md` écrit à la main ; supprimer un orphelin                                     |
 | Rafraîchit les **copies livrées** restées intactes | `runAppContributions()` (`contributions.ts#runAppContributions`), celui de `scaffold:sync --update`                                              | écraser une copie que l'application a retouchée                                                     |
+| Régénère **`.env.example`**                        | `syncEnvExample()` (`env.ts#syncEnvExample`), celui de `env --example` — le modèle dérive aussi des modules installés                            | conclure « à jour » sur un catalogue illisible : il est rapporté « non vérifié »                    |
 
 Le tout est orchestré par `runUpgrade()` (`upgrade.ts#runUpgrade`). Ce que la commande ne tranche pas —
 une copie retouchée, un skill écrit à la main, un pointeur orphelin — est **nommé** sous
@@ -105,7 +106,7 @@ changement de schéma, appliquez ensuite les migrations (`nodefony orm:migrate`)
 
 ## En intégration continue
 
-`nodefony upgrade --check` n'écrit rien et sort en **1** si un des trois gestes reste à faire —
+`nodefony upgrade --check` n'écrit rien et sort en **1** si un des quatre gestes reste à faire —
 `isUpgradePending()` (`upgrade.ts#isUpgradePending`) en décide. Placé dans la CI, il refuse une branche qui a
 monté ses paquets sans remettre l'application au niveau :
 

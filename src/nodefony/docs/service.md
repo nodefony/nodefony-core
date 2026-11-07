@@ -323,6 +323,134 @@ bus dédié, l'objet entier part au ramasse-miettes avec le service, il n'y a ri
 
 `clean()` est **idempotent** : le rappeler ne lève pas.
 
+### Une tâche périodique — `schedulePeriodic`
+
+Purger des sessions expirées, rafraîchir un cache, relancer des envois : le réflexe est un
+`setInterval` dans `init()`. Il a trois défauts que rien ne signale. `init()` tourne à **chaque**
+démarrage du noyau, `orm:migrate` et `inspect` compris : la purge part pendant une migration. En
+grappe (`nodefony cluster -w N`), **chaque** worker l'exécute. Et une tâche plus lente que sa
+période s'empile sur elle-même.
+
+```ts
+import { schedulePeriodic } from "nodefony";
+
+async init(): Promise<this> {
+  schedulePeriodic(this, 60_000, () => this.purgeExpired());
+  return this;
+}
+```
+
+`schedulePeriodic()` (`periodicTask.ts#schedulePeriodic`) ne lance rien avant la fin du démarrage
+(`onPostReady`), rien dans une commande CLI, et rien hors du **worker de tête** de la grappe
+(`isLeadWorker()`, `periodicTask.ts#isLeadWorker`) — sauf `{ allWorkers: true }`, pour un cache
+local à chaque worker. Un passage encore en cours fait sauter le suivant ; une erreur est
+journalisée sur le service et la tâche continue ; l'arrêt du noyau l'arrête. La fonction rendue
+l'arrête plus tôt.
+
+Le worker de tête est la **place 0** de la grappe : le maître donne à chaque worker une place
+stable (`NF_WORKER_SLOT`) et la lui rend quand il le relance, si bien qu'une tâche unique ne meurt
+pas avec son worker.
+
+### Une tâche unique au démarrage — `runOnceAtStartup`
+
+`init()` lui-même tourne dans **chaque** worker, et dans chaque commande CLI : seule la tâche
+confiée à `schedulePeriodic()` est réservée au worker de tête. Un geste unique qui n'est pas
+périodique — nettoyer des fichiers laissés par un arrêt brutal, annoncer le démarrage à un service
+tiers, semer une donnée — passe par `runOnceAtStartup()` (`periodicTask.ts#runOnceAtStartup`) :
+
+```ts
+import { runOnceAtStartup } from "nodefony";
+
+async init(): Promise<this> {
+  runOnceAtStartup(this, () => this.removeStaleUploads());
+  return this;
+}
+```
+
+Elle applique les mêmes règles que `schedulePeriodic()` — rien dans une commande CLI, rien hors du
+worker de tête — et lance la tâche **une** fois, sur `onPostReady`. Trois conséquences :
+
+| Ce qu'on attend                   | Ce que fait `runOnceAtStartup()`                                                                    |
+| --------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Ne pas retarder le démarrage      | la tâche part APRÈS : le démarrage ne l'attend pas, et le délai maximal d'`init()` ne la couvre pas |
+| Ne pas faire tomber l'application | une erreur, levée ou rendue par une promesse, est journalisée en `ERROR` sur le service             |
+| Ne pas courir après un arrêt      | un arrêt du noyau avant la fin du démarrage l'annule ; la fonction rendue l'annule aussi            |
+
+Ce qui doit être prêt **avant** le premier trafic, dans chaque worker — une connexion, un cache
+local — reste dans `init()` : c'est son rôle, et il est attendu.
+
+Pour garder un geste à la main, `isLeadWorker()` répond seul à « ce processus porte-t-il les
+tâches uniques ? » — sans rien dire du mode CLI, que lit `this.kernel?.runProfile.servers`.
+
+> ⚠️ L'unicité vaut pour UNE machine. Plusieurs exemplaires de l'application (pods, conteneurs)
+> exécutent chacun la tâche : au-delà d'une grappe, l'unicité demande un verrou partagé (une
+> ligne en base, une clé Redis).
+
+### Une tâche à heure fixe — « tous les jours à 3 h »
+
+Le framework n'embarque pas de planificateur calendaire, et c'est voulu : une application Nodefony
+tourne en **un processus par exemplaire**, et un planificateur logé dans le processus s'exécute
+une fois par exemplaire — trois pods, trois purges à 3 h. Deux voies, selon ce que la tâche exige.
+
+**En production, la voie recommandée : une commande, lancée par la plateforme.** La tâche devient
+une commande du module (`app:purge`, cf [`cli.md`](./cli.md), « Ajouter sa propre commande »),
+qui appelle la même méthode du service que le reste de l'application :
+
+```ts
+override async generate(): Promise<this> {
+  await this.kernel?.get<SessionService>("sessions")?.purgeExpired();
+  return this;
+}
+```
+
+Le planificateur de la plateforme la lance — une tâche planifiée Kubernetes, un minuteur systemd,
+le planificateur d'un hébergeur — et garantit une seule exécution quel que soit le nombre
+d'exemplaires :
+
+```yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: app-purge
+spec:
+  schedule: "0 3 * * *"
+  concurrencyPolicy: Forbid # jamais deux passages superposés
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: purge
+              image: mon-app:1.4.0
+              command: ["npx", "nodefony", "app:purge"]
+```
+
+La commande démarre le noyau en mode console : `schedulePeriodic()` et `runOnceAtStartup()` n'y
+lancent rien, et l'exécution se lit dans les journaux du travail planifié, son code de sortie
+compris.
+
+**Dans le processus, pour une seule machine : une bibliothèque d'expressions cron, démarrée par
+`runOnceAtStartup()`.** Elle hérite alors des deux gardes — rien dans une commande CLI, rien hors
+du worker de tête :
+
+```ts
+async init(): Promise<this> {
+  runOnceAtStartup(this, () => {
+    // `scheduleCron` : la fonction de la bibliothèque choisie.
+    const job = scheduleCron("0 3 * * *", () => this.purgeExpired());
+    this.kernel?.once("onTerminate", () => job.stop());
+  });
+  return this;
+}
+```
+
+Vérifier que la bibliothèque n'empêche pas le processus de s'arrêter, et arrêter son travail à
+`onTerminate` comme ci-dessus. Au-delà d'une machine, une tâche qui doit survivre à un
+redémarrage, être rejouée en cas d'échec ou tourner une seule fois entre plusieurs exemplaires
+demande une file de tâches adossée à une base ou à Redis — c'est son métier, pas celui du
+service.
+
 ## 🧰 API publique
 
 Les signatures exactes vivent dans le graphe TSDoc (`.ai/symbols.json`) ; ce qui suit est l'usage.
@@ -539,19 +667,21 @@ Les services d'un module sont introspectables sans lire le code :
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                                | Cause (dans le code)                                                                                   | Correction                                                                                  |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| Fuite d'écouteurs, une de plus par instance             | écouteur posé **directement** sur le bus partagé, hors de l'API du service                             | passer par `Service.on()`, qui appelle `trackListener` (`Service.ts#Service.trackListener`) |
-| `off()` ne retire rien                                  | `Service.listen()` (`Service.ts#Service.listen`) **bind** — la référence posée diffère                 | retirer via le déclencheur renvoyé, jamais l'original                                       |
-| Les écouteurs des voisins disparaissent                 | `removeAllListeners()` (`Service.ts#Service.removeAllListeners`) agit sur le bus **partagé** en entier | cibler l'événement, ou retirer écouteur par écouteur                                        |
-| `notificationsCenter not initialized`                   | bus à `false`, ou appel après `clean()` (`Service.ts#Service.clean`)                                   | ne pas émettre après destruction ; vérifier le 3ᵉ argument du constructeur                  |
-| `container not initialized` sur un `set()`              | écriture après `clean()` (`Service.ts#Service.clean`)                                                  | revoir l'ordre du cycle de vie ; `get()`, lui, rend `null`                                  |
-| Avertissement `MaxListeners` à 11 abonnés               | `events` fourni sans `nbListeners` : l'objet remplace tout le défaut (20)                              | redonner `nbListeners` dans `events`                                                        |
-| Le déclencheur de `listen()` passe un argument en trop  | `Event.listen()` (`Event.ts#Event.listen`) préfixe les arguments par le nom de l'événement             | lire le 1ᵉʳ argument comme le nom, ou émettre via `fire()`                                  |
-| Écouteurs asynchrones exécutés l'un après l'autre       | `emitAsync` est **séquentiel par design** (`Event.ts#Event.emitAsync`)                                 | comportement attendu ; paralléliser **dans** l'écouteur si besoin                           |
-| Le service est reconstruit, son cache vide              | clé container ≠ nom `@injectable`, pont non appris (`injector.ts#Injector.constructor`)                | passer par `Module.addService()` — jamais un `new` manuel                                   |
-| Un service déclaré n'est pas au container après le boot | sa construction a échoué, fail-soft **annoncé** (`Module.ts#Module.#warnOverwrittenAppConfig`)         | lire le BootReport / les ERROR de démarrage ; en prod le boot aurait échoué                 |
-| `options.events` introuvable après construction         | la clé est **écartée** volontairement (`Service.ts#Service.constructor`)                               | lire la valeur avant, ou la conserver sous une autre clé                                    |
+| Symptôme                                                          | Cause (dans le code)                                                                                   | Correction                                                                                  |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| Fuite d'écouteurs, une de plus par instance                       | écouteur posé **directement** sur le bus partagé, hors de l'API du service                             | passer par `Service.on()`, qui appelle `trackListener` (`Service.ts#Service.trackListener`) |
+| `off()` ne retire rien                                            | `Service.listen()` (`Service.ts#Service.listen`) **bind** — la référence posée diffère                 | retirer via le déclencheur renvoyé, jamais l'original                                       |
+| Les écouteurs des voisins disparaissent                           | `removeAllListeners()` (`Service.ts#Service.removeAllListeners`) agit sur le bus **partagé** en entier | cibler l'événement, ou retirer écouteur par écouteur                                        |
+| `notificationsCenter not initialized`                             | bus à `false`, ou appel après `clean()` (`Service.ts#Service.clean`)                                   | ne pas émettre après destruction ; vérifier le 3ᵉ argument du constructeur                  |
+| `container not initialized` sur un `set()`                        | écriture après `clean()` (`Service.ts#Service.clean`)                                                  | revoir l'ordre du cycle de vie ; `get()`, lui, rend `null`                                  |
+| Avertissement `MaxListeners` à 11 abonnés                         | `events` fourni sans `nbListeners` : l'objet remplace tout le défaut (20)                              | redonner `nbListeners` dans `events`                                                        |
+| Le déclencheur de `listen()` passe un argument en trop            | `Event.listen()` (`Event.ts#Event.listen`) préfixe les arguments par le nom de l'événement             | lire le 1ᵉʳ argument comme le nom, ou émettre via `fire()`                                  |
+| Écouteurs asynchrones exécutés l'un après l'autre                 | `emitAsync` est **séquentiel par design** (`Event.ts#Event.emitAsync`)                                 | comportement attendu ; paralléliser **dans** l'écouteur si besoin                           |
+| Le service est reconstruit, son cache vide                        | clé container ≠ nom `@injectable`, pont non appris (`injector.ts#Injector.constructor`)                | passer par `Module.addService()` — jamais un `new` manuel                                   |
+| Un service déclaré n'est pas au container après le boot           | sa construction a échoué, fail-soft **annoncé** (`Module.ts#Module.#warnOverwrittenAppConfig`)         | lire le BootReport / les ERROR de démarrage ; en prod le boot aurait échoué                 |
+| `options.events` introuvable après construction                   | la clé est **écartée** volontairement (`Service.ts#Service.constructor`)                               | lire la valeur avant, ou la conserver sous une autre clé                                    |
+| Une purge tourne pendant `orm:migrate`, ou N fois                 | `setInterval` posé dans `init()` : il suit chaque démarrage du noyau et chaque worker                  | `schedulePeriodic()` (`periodicTask.ts#schedulePeriodic`)                                   |
+| Un nettoyage de démarrage tourne N fois, ou pendant une migration | appel nu dans `init()`, qui tourne dans chaque worker et chaque commande CLI                           | `runOnceAtStartup()` (`periodicTask.ts#runOnceAtStartup`)                                   |
 
 ## 🧪 Tests & couverture
 
