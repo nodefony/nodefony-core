@@ -23,7 +23,9 @@ table d'experts du gel (7 sièges, deux tours, aucun vote contre) : les refus se
 saturation ont un motif `unavailable` (S10 bis), une socket dont le jeton porteur expire se ferme
 en `4006` et une authentification trop lente en `1013` (S11). Revu avant le gel (revue finale,
 24 constats, #702) : au-delà du plafond d'appels d'`allow` en vol, une demande attend son tour au
-lieu d'être refusée (S10 bis), et la règle du flux SSE d'un canal est écrite (S10 ter). Socle commun des décisions temps réel :
+lieu d'être refusée (S10 bis), et la règle du flux SSE d'un canal est écrite (S10 ter). Précisé
+le 2026-11-07 avec l'auteur, en cadrant #694 : la place de gRPC — son transport dans
+`@nodefony/http`, son pont vers le hub dans `@nodefony/realtime` (« Ce qui reste hors du socle »). Socle commun des décisions temps réel :
 [ADR-0022](0022-socket-temps-reel.md) (la socket, #627) et
 [ADR-0023](0023-webhooks-evenements-et-abonnements.md) (les webhooks) en dépendent ; l'ADR de
 gRPC naîtra avec l'Epic #694. Instruit par un relevé des quatre briques existantes et par le
@@ -760,8 +762,22 @@ révocation ; le changement d'identité entre exemplaires (S-rt-61).
 - **Plusieurs locataires** (`tenant` d'A2A, `tenantId` des webhooks, espace de noms du backplane) :
   un seul usage connu, la règle de généricité n'est pas remplie. Le nom du canal et le prédicat
   d'admission suffisent.
-- **gRPC** : un service de `@nodefony/http`, expérimental en 10.1. Un service qui diffuse appelle
-  le hub (`RealtimeService.publish`) ; le socle n'a rien à lui ajouter.
+- **gRPC** : le socle n'a rien à lui ajouter, et son code se range en deux places, selon ce
+  que fait chaque morceau.
+  - **Le transport** (adaptateur, corps en flux, délai par flux désarmé, statut dans les
+    trailers) est un service de `@nodefony/http`, au même rang que `SseStream` : la primitive.
+    Chargé au premier appel, il coûte 0 octet à une application qui ne s'en sert pas (mesuré
+    par le POC #690, qui n'a rien eu à changer au pipeline).
+  - **Le pont vers le hub** vit dans `@nodefony/realtime`, jamais dans `@nodefony/http` :
+    `realtime` dépend de `http`, l'inverse serait un cycle. Publier appelle le hub
+    (`RealtimeService.publish`). S'abonner à un canal en flux serveur est une **livraison de
+    plus**, à côté de la socket et du flux SSE : un abonné du hub (`ChannelSink`), admis par la
+    politique du canal et `allow` avec l'identité de la requête (S10), le refus rendu avant le
+    premier message, la fin à motif fermé (S4), les compteurs communs (S9).
+  - **La charge d'un abonnement réutilise les octets que `ChannelFrame` a déjà encodés** (codec
+    texte ou binaire), jamais un réencodage par abonné : `ChannelFrame` ne met en cache que deux
+    codecs, un troisième s'encode pour chaque abonné — mille abonnés gRPC, mille encodages par
+    publication.
 
 ## Alternatives écartées
 
@@ -784,7 +800,7 @@ Les protocoles bâtis au-dessus vérifient le socle ; ils ne le définissent pas
 | A2A, flux en SSE                           | un événement par `data:`, reprise                                         | **non**                                                                                                                        |
 | A2A, notifications poussées                | le même objet que le flux, au moins une fois, dédupliqué                  | **non par le socle** ; deux manques dans la brique webhook, traités par [ADR-0023](0023-webhooks-evenements-et-abonnements.md) |
 | MCP 2026-07-28                             | JSON-RPC 2.0, flux de réponse SSE, sans reprise                           | **non** ; il consomme `SseStream` et le JSON-RPC du cœur sans que rien y soit taillé pour lui                                  |
-| gRPC                                       | ordre par flux HTTP/2, trailers                                           | **non** ; hors du hub                                                                                                          |
+| gRPC                                       | ordre par flux HTTP/2, trailers                                           | **non** ; le transport hors du hub, l'abonnement est un `ChannelSink` comme la socket                                          |
 
 ## Conséquences
 
