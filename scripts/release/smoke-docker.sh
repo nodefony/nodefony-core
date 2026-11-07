@@ -1996,10 +1996,23 @@ if runs pm; then
     rm -rf "$PROV" && mkdir -p "$PROV"
     tar -xzf "$PAPP/tarballs/$NODEFONY_TGZ" -C "$PROV" \
       || fail "$PM : tarball nodefony illisible ($NODEFONY_TGZ)"
-    diff -rq -x node_modules "$PROV/package" "$PAPP/node_modules/nodefony/" \
+    #
+    # bun (≥ 1.4) dépose dans chaque paquet installé un marqueur `.bun-tag` qui
+    # n'appartient pas au tarball : il est exclu du `diff`, puis CONTRÔLÉ à part
+    # — il porte l'empreinte d'intégrité (`sha512-…`) du tarball que bun a
+    # réellement installé, ce qui est une preuve de provenance de plus.
+    diff -rq -x node_modules -x .bun-tag "$PROV/package" "$PAPP/node_modules/nodefony/" \
       > "$WORK/.pm-$PM-provenance.out" 2>&1 \
       || { head -10 "$WORK/.pm-$PM-provenance.out"; \
            fail "$PM : le nodefony installé n'est PAS le tarball du jour (cache ou registre)"; }
+    BUN_TAG="$PAPP/node_modules/nodefony/.bun-tag"
+    if [ -f "$BUN_TAG" ]; then
+      WANT=$(node --input-type=module -e 'import { createHash } from "node:crypto"; import { readFileSync } from "node:fs"; process.stdout.write("sha512-" + createHash("sha512").update(readFileSync(process.argv[1])).digest("base64"));' \
+        "$PAPP/tarballs/$NODEFONY_TGZ")
+      GOT=$(tr -d '\n' < "$BUN_TAG")
+      [ "$GOT" = "$WANT" ] \
+        || fail "$PM : .bun-tag ($GOT) ≠ empreinte du tarball du jour ($WANT) — bun a installé un autre paquet"
+    fi
     ok "nodefony installé = tarball du jour, fichier pour fichier"
     assert_contributions "$PAPP" "$PM"
 
