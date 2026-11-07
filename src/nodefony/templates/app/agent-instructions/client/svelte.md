@@ -5,7 +5,7 @@
   et se libèrent seules quand plus aucun effet ne les lit :
 
 ```ts
-// frontend/src/main.ts — ce que l'entrée générée fait déjà
+// frontend/src/main.ts — un controller `--kind realtime` (orders)
 import { mount } from "svelte";
 import { configureNodefony } from "nodefony/svelte";
 import App from "./App.svelte";
@@ -13,7 +13,7 @@ import App from "./App.svelte";
 const el = document.getElementById("app");
 if (!el) throw new Error("#app not found");
 
-configureNodefony({ url: "/api/live/realtime" });
+configureNodefony({ url: "/api/orders/realtime" });
 mount(App, { target: el });
 ```
 
@@ -21,7 +21,7 @@ mount(App, { target: el });
 <script lang="ts">
   import { nodefonyChannelData } from "nodefony/svelte";
 
-  const flux = nodefonyChannelData<{ message: string }>("live:events");
+  const flux = nodefonyChannelData<{ message: string }>("orders:events");
   const last = $derived(flux.current);
 </script>
 

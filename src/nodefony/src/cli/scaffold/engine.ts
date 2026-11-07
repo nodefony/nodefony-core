@@ -2134,8 +2134,6 @@ function dispatchScaffold(
     // test de ce paquet). Secret PUBLIC par nature : décor de développement.
     keycloak: {
       clientSecret: `${String(answers.name)}-dev-keycloak-secret`,
-      // L'appelant machine (`<app>-machine`) : même règle, `devMachineSecret`.
-      machineSecret: `${String(answers.name)}-machine-dev-secret`,
     },
   };
   // autoEscape false : on génère du CODE, pas du HTML — l'échappement des
@@ -2180,37 +2178,12 @@ function dispatchScaffold(
   if (!front) {
     renderLayer(eta, path.join(templates, "home"), dest, data, written, writer);
   }
-  // Controller d'accueil : rendu par le template de `create controller --kind
-  // hello`, PAS par une copie propre à l'app. Le premier exemple que
-  // l'utilisateur lit est ainsi celui que la commande lui régénérera — et
-  // corriger cet exemple le corrige aux deux endroits à la fois.
-  //
-  // Data DÉDIÉE (et non le `data` de l'app) : ce layer parle le vocabulaire
-  // d'un controller ; mélanger les deux jeux de clés ferait qu'un renommage
-  // dans l'un casserait l'autre en silence.
-  renderLayer(
-    eta,
-    path.join(packageRoot, "templates", "controller", "hello"),
-    dest,
-    {
-      nameClass: "HelloController",
-      kebab: "hello",
-      route: "/api",
-      // L'action d'index reste sur `/api/hello` (et non `/api`) : c'est l'URL
-      // que le README, le test e2e généré et les trois vitrines montrent.
-      indexPath: "/hello",
-      helloName: answers.name,
-      // Route protégée seulement si le manifeste généré déclare la zone
-      // `secure` — c'est le preset complete qui embarque @nodefony/security.
-      secureRoute: preset === "complete",
-      // `@CurrentUser()` se type `IUser` dès que l'app porte la sécurité (et
-      // donc `@nodefony/user`) ; sans elle, ce paquet n'est pas installé.
-      hasSecurity: preset === "complete",
-    },
-    written,
-    writer,
-    { __NAME__: "HelloController" },
-  );
+  // AUCUN contrôleur d'exemple (#746) : l'application générée est GÉNÉRIQUE.
+  // Ce qu'elle contient, son utilisateur le garde ; ce qui MONTRE le framework
+  // (vitrine `/api/hello`, temps réel `/api/live`, API entre programmes) vit
+  // dans la démo (`templates/demo/`, #747). Le premier contrôleur qu'on lit
+  // est donc celui qui tient `/` — `HomeController` ou `AppController` —, et
+  // `npx nodefony create controller` génère les suivants.
   if (preset !== "complete") {
     // « Minimal » ne retirait pas que des briques : il retirait les EXEMPLES.
     // Restait un controller, et rien d'autre — donc aucun patron à imiter pour
@@ -2220,9 +2193,8 @@ function dispatchScaffold(
     //
     // Rendu par le gabarit de `create service`, jamais par une copie propre à
     // l'app : l'exemple qu'on lit est celui que la commande régénérera, et le
-    // corriger le corrige aux deux endroits. La vitrine `complete`, elle, porte
-    // déjà ses propres services (AppInfoService, AppBannerService) — en ajouter
-    // un troisième ne montrerait rien de neuf.
+    // corriger le corrige aux deux endroits. `complete` n'en reçoit pas : son
+    // entité `User` et son annuaire montrent déjà le patron d'un service.
     //
     // Pas d'ENTITÉ ici, et c'est délibéré : `create entity` refuse AVANT
     // d'écrire quand l'ORM manque (`runEntityScaffold`, garde ORM), parce
@@ -2256,28 +2228,6 @@ function dispatchScaffold(
       data,
       written,
       writer,
-    );
-    // Controller temps réel de la vitrine : rendu par le template de `create
-    // controller --kind realtime` (même principe que HelloController — le
-    // premier exemple realtime lu est celui que la commande régénérera).
-    // C'est LUI que la carte « Temps réel » des vitrines consomme via la
-    // façade client (NodefonySocket / hooks nodefony/react) : canal sortant
-    // `live:events`, canal entrant `live:say`, actions `live:ping` /
-    // `live:snapshot`.
-    renderLayer(
-      eta,
-      path.join(packageRoot, "templates", "controller", "realtime"),
-      dest,
-      {
-        nameClass: "LiveController",
-        kebab: "live",
-        route: "/api/live",
-        channel: "live",
-        hasSecurity: true,
-      },
-      written,
-      writer,
-      { __NAME__: "LiveController", __KEBAB__: "live" },
     );
   }
   if (front) {

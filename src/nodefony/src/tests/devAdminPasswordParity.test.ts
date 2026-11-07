@@ -95,7 +95,10 @@ describe("mot de passe admin de développement — une seule source", () => {
       ["svelte", ["frontend", "src", "App.svelte"]],
       ["angular", ["frontend", "src", "app", "app.component.ts"]],
     ] as const) {
-      it(`vitrine ${frontend}`, () => {
+      // INVERSÉ (#746) : la page d'accueil part dans le bundle de PRODUCTION,
+      // servi à n'importe qui. Elle ne doit JAMAIS porter le mot de passe de
+      // développement — ni lien vers la console d'administration.
+      it(`page d'accueil ${frontend} : jamais le mot de passe ni /nodefony`, () => {
         const dest = path.join(tmp, `front-${frontend}`);
         runScaffold(
           {
@@ -106,7 +109,12 @@ describe("mot de passe admin de développement — une seule source", () => {
           },
           version,
         );
-        assert.ok(read(dest, ...rel).includes(DEV_ADMIN_PASSWORD));
+        const page = read(dest, ...rel);
+        assert.ok(
+          !page.includes(DEV_ADMIN_PASSWORD),
+          "mot de passe dans la page",
+        );
+        assert.ok(!page.includes('"/nodefony'), "lien vers la console");
       });
     }
 

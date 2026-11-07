@@ -5,19 +5,19 @@
   portée libère l'abonnement :
 
 ```ts
-// frontend/src/main.ts — ce que l'entrée générée fait déjà
+// frontend/src/main.ts — un controller `--kind realtime` (orders)
 import { createApp } from "vue";
 import { nodefonyVue } from "nodefony/vue";
 import App from "./App.vue";
 
-createApp(App).use(nodefonyVue, { url: "/api/live/realtime" }).mount("#app");
+createApp(App).use(nodefonyVue, { url: "/api/orders/realtime" }).mount("#app");
 ```
 
 ```ts
 // dans le <script setup> d'un composant
 import { useNodefonyChannelData } from "nodefony/vue";
 
-const last = useNodefonyChannelData<{ message: string }>("live:events");
+const last = useNodefonyChannelData<{ message: string }>("orders:events");
 ```
 
 Les autres composables (`useNodefony`, `useNodefonyState`,

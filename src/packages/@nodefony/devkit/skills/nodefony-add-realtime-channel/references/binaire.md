@@ -49,7 +49,7 @@ import { NodefonySocket } from "nodefony/client";
 import { CBOR_FRAME_CODEC } from "nodefony/cbor";
 
 const socket = NodefonySocket.shared({
-  url: "/api/live/realtime",
+  url: "/api/room/realtime",
   codec: CBOR_FRAME_CODEC,
 });
 ```

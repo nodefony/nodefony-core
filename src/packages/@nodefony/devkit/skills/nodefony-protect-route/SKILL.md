@@ -245,10 +245,10 @@ Un service partenaire, un script, un agent ne stockent aucun cookie. Le
 `nodefony/config/security.ts` généré (preset `complete`) pose **deux zones, une par sorte de
 preuve** — choisis selon ce que l'appelant détient, n'en ajoute pas une troisième :
 
-| L'appelant présente                            | Zone      | Préfixe        | Obtenir la preuve                       |
-| ---------------------------------------------- | --------- | -------------- | --------------------------------------- |
-| une **clé d'API** opaque (`nf_…`)              | `machine` | `/api/machine` | `POST /nodefony/security/api/keys`      |
-| un **jeton d'accès** (de l'app ou de Keycloak) | `partner` | `/api/partner` | `npx nodefony app:partner:call` le fait |
+| L'appelant présente                  | Zone      | Préfixe        | Obtenir la preuve                  |
+| ------------------------------------ | --------- | -------------- | ---------------------------------- |
+| une **clé d'API** opaque (`nf_…`)    | `machine` | `/api/machine` | `POST /nodefony/security/api/keys` |
+| un **jeton d'accès** signé par l'app | `service` | `/api/service` | émis par l'app (voir la démo)      |
 
 ### Clé d'API : la zone `machine`
 
@@ -275,27 +275,30 @@ qui ne stocke pas de cookie ne doit rien recevoir qu'il faille stocker.**
 
 Les clés s'émettent par `POST /nodefony/security/api/keys`.
 
-### Jeton d'accès : la zone `partner`, et la commande qui l'éprouve
+### Jeton d'accès : la zone `service`
 
-La zone accepte un jeton signé par l'application (`jwt`) **et** un jeton de Keycloak
-(`external-jwt`) ; les deux s'aiguillent sur l'émetteur, leur ordre ne décide de rien. Une route
-qui tombe sous `/api/partner` est protégée sans rien ajouter. L'exemple qui marche est déjà dans
-l'application — **lis-le avant d'écrire un appelant** :
-
-```bash
-npx nodefony app:partner:call                     # jeton signé par l'app pour `admin` (--as <compte>)
-npx nodefony app:partner:call --issuer keycloak   # client <app>-machine, flux client_credentials
+```ts
+service: {
+  pattern: "^/api/service",
+  authenticators: ["jwt"], // jeton signé par CETTE application
+  stateless: true,
+}
 ```
 
-Source : `nodefony/command/PartnerCallCommand.ts` (la commande) et
-`nodefony/controllers/PartnerController.ts` (`GET /api/partner/whoami`, qui rend l'identité ET
-l'émetteur). Un jeton Keycloak s'obtient par `requestClientCredentialsToken` de
-`@nodefony/security` — découverte du point de jeton comprise —, jamais par un `fetch` recopié.
+Une route qui tombe sous `/api/service` est protégée sans rien ajouter. L'application générée
+n'y met AUCUN controller : l'exemple complet — émission du jeton, appel, et la variante Keycloak
+(`client_credentials`) — vit dans la démo, qu'on copie dans l'application pour la lire.
+
+**Accepter aussi les jetons d'un fournisseur** (Keycloak) : ajouter `"external-jwt"` à la zone ;
+`jwt` et `external-jwt` s'aiguillent sur l'émetteur du jeton, leur ordre ne décide de rien. Un jeton
+Keycloak s'obtient par `requestClientCredentialsToken` de `@nodefony/security` — découverte du point
+de jeton comprise —, jamais par un `fetch` recopié.
 
 🔴 **L'audience vit en UN endroit.** Un jeton n'ouvre que la zone dont il porte la ressource
-(RFC 8707). `partnerResource(ctx.env)` est lue par la zone (`resource`), par `jwt.audiences` et par
-la commande. Une ressource recopiée à la main finit par différer, et le seul symptôme est un refus
-sans explication. Ouvrir une AUTRE ressource à des jetons, c'est trois gestes, pas un :
+(RFC 8707). Écris-la UNE fois (une fonction de `nodefony/config/security.ts`, sur le modèle de
+`publicBaseUrl`), lue par la zone (`resource`) et par `jwt.audiences`. Une ressource recopiée à la
+main finit par différer, et le seul symptôme est un refus sans explication. Ouvrir une ressource
+à des jetons, c'est trois gestes, pas un :
 
 | Oublié                                    | Symptôme                                                      |
 | ----------------------------------------- | ------------------------------------------------------------- |
@@ -303,19 +306,11 @@ sans explication. Ouvrir une AUTRE ressource à des jetons, c'est trois gestes, 
 | `security:keycloak:realm --write` relancé | **401** du jeton Keycloak : le realm n'inscrit pas l'audience |
 | la `resource` sur la zone                 | l'application **refuse de démarrer** en nommant la zone       |
 
-🔴 **`subjectPolicy: "ephemeral"` s'écrit SUR LA ZONE, jamais dans `resourceServer`.** Le client
+🔴 **`subjectPolicy: "ephemeral"` s'écrit SUR LA ZONE, jamais dans `resourceServer`.** Un client
 machine de Keycloak n'a pas de compte ici : `ephemeral` l'accepte le temps de la requête, avec les
-seuls `ephemeralRoles` de la zone (`ROLE_PARTNER`). Posé dans `resourceServer.subjectPolicy`
-(global), il ferait accepter un appelant sans compte par **toutes** les zones `external-jwt`. Et
-un rôle fort dans `ephemeralRoles` est accordé à **quiconque** détient un jeton valide du realm.
-
-`whoami` n'exige pas `ROLE_PARTNER` — un compte de l'app ne l'a pas. Pour réserver une action aux
-partenaires : `@IsGranted("ROLE_PARTNER")`.
-
-**Prouver** : `--issuer nodefony` rend 200 sans Keycloak ; `--issuer keycloak` rend 200 avec le
-profil `keycloak` du compose allumé ; et le MÊME jeton machine est refusé (401) sur une zone qui
-garde `subjectPolicy` par défaut (`require`). Chaque échec de la commande sort en code 1 avec le
-geste qui répare — lis-le avant de chercher ailleurs.
+seuls `ephemeralRoles` de la zone. Posé dans `resourceServer.subjectPolicy` (global), il ferait
+accepter un appelant sans compte par **toutes** les zones `external-jwt`. Et un rôle fort dans
+`ephemeralRoles` est accordé à **quiconque** détient un jeton valide du realm.
 
 ## Les gestes qui affaiblissent en silence
 

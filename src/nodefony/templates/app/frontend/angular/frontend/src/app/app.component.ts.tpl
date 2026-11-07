@@ -1,379 +1,60 @@
-import {
-  Component,
-  OnDestroy,
-  OnInit,
-  VERSION,
-  ViewEncapsulation,
-  signal,
-} from "@angular/core";
-<% if (it.complete) { %>// FAÇADE temps réel isomorphe du framework — reconnexion, re-subscribe, état :
-// gérés par le client. Aucun `new WebSocket` à la main. Subpath
-// `nodefony/angular` : la liaison IDIOMATIQUE du framework — des fonctions
-// d'injection qui rendent des signals, et libèrent l'abonnement à la
-// destruction du composant. Le fournisseur s'installe dans `main.ts` : c'est
-// là, et là seulement, que l'adresse du serveur est écrite.
-import {
-  injectNodefony,
-  injectNodefonyChannelData,
-  injectNodefonyLogin,
-  injectNodefonyState,
-} from "nodefony/angular";
+import { Component<% if (it.hasSecurity) { %>, type OnInit<% } %> } from "@angular/core";
+<% if (it.hasSecurity) { %>// La liaison Angular de la connexion : l'état de session en signal, la page de
+// connexion servie par le framework (jamais un formulaire recopié ici).
+import { injectNodefonyLogin } from "nodefony/angular";
 import { loginPagePath } from "nodefony/client";
 <% } %>import { NODEFONY_LOGO } from "../brand";
-// Lecture VÉRIFIÉE des réponses de l'API (voir `api.ts`) : jamais une conversion.
-import {
-  readApiData,
-<% if (it.complete) { %>  readSecureData,
-  type SecureData,
-<% } %>  type ApiData,
-} from "../api";
-// Mise en page et palette de la démonstration — feuille PARTAGÉE par les trois
-// vitrines ; `accent.css` n'y ajoute que la couleur du framework.
 import "../showcase.css";
 import "../accent.css";
-<% if (it.complete) { %>
-/** Un message du canal `live:events` (cf `nodefony/controllers/LiveController.ts`). */
-interface LiveEvent {
-  text: string;
-  ts: number;
-  pid: number;
-}
 
-<% } %>
 /**
- * Page d'accueil de l'app — vitrine AUTONOME (zéro dépendance UI) :
- *  - panneau de marque (même design que le login de Studio : dégradé, glow,
- *    logo, slogan, 3 piliers du framework) ;
- *  - preuves INTERACTIVES : fetch HTTP, echo WebSocket live sur le MÊME
- *    controller (le différenciateur Nodefony), compteur HMR.
- * Composant racine standalone (zoneless). `/api` est appelé sur l'origine de
- * la page, donc directement sur Nodefony — aucun proxy à déclarer.
+ * Page d'accueil de <%= it.appName %> — MINIMALE, et c'est voulu : c'est TA page.
+ *
+ * Elle dit quelle application répond<% if (it.hasSecurity) { %>, propose la connexion et nomme le
+ * compte connecté<% } %>. Rien de plus : ce qui part ici part en PRODUCTION, vers
+ * n'importe qui — ni mot de passe, ni version, ni lien vers la console
+ * d'administration.
+ *
+ * Pour VOIR ce que le framework sait faire, installe la démo : elle se copie
+ * dans l'application et se lit comme ton propre code.
  */
 @Component({
   selector: "app-root",
   standalone: true,
-  // Composant racine de la vitrine : styles volontairement GLOBAUX
-  // (variables :root + body{margin:0} inatteignables en encapsulation émulée).
-  encapsulation: ViewEncapsulation.None,
   template: `
-    <div class="nf-split">
-      <!-- ── Panneau de marque (même design que le login Studio) ─────────── -->
-      <aside class="nf-hero">
-        <div class="nf-glow" aria-hidden="true"></div>
-        <div style="display:flex; gap:14px; align-items:center; position:relative">
-          <img [src]="logo" alt="Nodefony" height="42" draggable="false" />
-          <span style="font-weight:700; font-size:26px"><%= it.appName %></span>
-        </div>
-
-        <div style="max-width:480px; position:relative">
-          <h2>Le temps réel, nativement.</h2>
-          <p class="nf-sub">
-            Observez, comprenez et contrôlez chaque sous-système de Nodefony —
-            en direct.
-          </p>
-          <div class="nf-feature">
-            <div class="nf-ficon">
-              <!-- éclair (bolt) -->
-              <svg viewBox="0 0 24 24"><path d="M13 2 4.5 12.5H11L9.5 22 18 11.5h-6.5L13 2z" /></svg>
-            </div>
-            <div>
-              <div style="font-weight:600">Temps réel natif</div>
-              <div class="nf-fdesc">HTTP et WebSocket, co-citoyens dans le même contexte.</div>
-            </div>
-          </div>
-          <div class="nf-feature">
-            <div class="nf-ficon">
-              <!-- pulse (activity) -->
-              <svg viewBox="0 0 24 24"><path d="M3 12h4l2.5-7 5 14 2.5-7h4" fill="none" stroke-width="2" /></svg>
-            </div>
-            <div>
-              <div style="font-weight:600">Observabilité totale</div>
-              <div class="nf-fdesc">Métriques, logs et traces — en direct.</div>
-            </div>
-          </div>
-          <div class="nf-feature">
-            <div class="nf-ficon">
-              <!-- bouclier -->
-              <svg viewBox="0 0 24 24"><path d="M12 2 5 5v6c0 5 3.5 8.5 7 11 3.5-2.5 7-6 7-11V5l-7-3z" /></svg>
-            </div>
-            <div>
-              <div style="font-weight:600">Zero Trust</div>
-              <div class="nf-fdesc">Sécurité par défaut, vos données protégées.</div>
-            </div>
-          </div>
-        </div>
-
-        <div style="display:flex; justify-content:space-between; position:relative">
-          <span style="font-size:12px; color:rgba(255,255,255,.65)">
-            Nodefony 10 · licence Apache 2.0
-          </span>
-          <a
-            href="https://github.com/nodefony/nodefony-core"
-            target="_blank"
-            rel="noreferrer noopener"
-            style="font-size:12px; color:rgba(255,255,255,.7)"
-          >
-            GitHub
-          </a>
-        </div>
-      </aside>
-
-      <!-- ── Preuves interactives — TON app tourne ────────────────────────── -->
-      <main class="nf-main">
-        <header class="nf-fwhead">
-          <!-- Logo officiel Angular — SVG inline (aucun asset externe). -->
-          <svg
-            class="nf-fwlogo"
-            viewBox="0 0 250 250"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-label="Angular"
-          >
-            <polygon points="125,30 31.9,63.2 46.1,186.3 125,230 203.9,186.3 218.1,63.2" fill="#dd0031" />
-            <polygon points="125,30 125,52.2 125,153.4 125,230 203.9,186.3 218.1,63.2" fill="#c3002f" />
-            <path d="M125,52.1 66.8,182.6 88.5,182.6 100.2,153.4 149.6,153.4 161.3,182.6 183,182.6 Z M142,135.4 108,135.4 125,94.5 Z" fill="#fff" fill-rule="evenodd" />
-          </svg>
-          <div>
-            <h1>Votre app est en ligne.</h1>
-            <span class="nf-fwbadge">Angular v{{ ngVersion }} · Vite + AnalogJS</span>
-          </div>
-<% if (it.complete) { %>          <!-- Réponse de la route PROTÉGÉE — visible uniquement session ouverte. -->
-          @if (secureData(); as s) {
-            <span class="nf-hello">👋 {{ s.message }}</span>
-          }
-<% } %>        </header>
-        <p class="nf-dim">
-          <%= it.complete ? "Quatre" : "Trois" %> preuves interactives — édite
-          <code>frontend/src/app/app.component.ts</code>, Vite recompile à la volée.
-        </p>
-
-        <div class="nf-card">
-<% if (it.complete) { %>          <h2>1. Backend HTTP — <code>GET {{ secureData() ? "/api/secure/hello" : "/api/hello" }}</code></h2>
-<% } else { %>          <h2>1. Backend HTTP — <code>GET /api/hello</code></h2>
-<% } %>          @if (error(); as e) {
-            <pre style="color:crimson">{{ e }}</pre>
-          } @else if (data(); as d) {
-            <pre>{{ stringify(<%= it.complete ? "secureData() ?? d" : "d" %>) }}</pre>
-          } @else {
-            <p>loading…</p>
-          }
-        </div>
-<% if (it.complete) { %>
-        <div class="nf-card">
-          <h2>2. Firewall — l'identité vit dans la zone <code>^/api</code></h2>
-          <p class="nf-dim">
-            Deux zones dans <code>nodefony.config.ts</code> : <code>main</code>
-            (<code>^/api</code>, session → anonymous, jamais bloquante) et
-            <code>secure</code> (<code>^/api/secure</code>, session SEULE —
-            pattern plus spécifique, il gagne le match ; sans session le
-            firewall répond 401). « Se connecter » mène à la page de connexion
-            du framework, qui te ramène ici (<code>?from=</code>) : le compte
-            <code>admin</code> a pour mot de passe <code><%= it.devAdminPassword %></code>
-            en développement, et celui de <code>NF_ADMIN_PASSWORD</code> en
-            production — où il est EXIGÉ, car une application ne naît jamais en
-            ligne avec un secret connu. Alors la carte 1 bascule sur
-            <code>GET /api/secure/hello</code> → « Bonjour admin ». La pastille
-            vient de <code>injectNodefonyLogin</code> (<code>nodefony/angular</code>).
-          </p>
-          @if (login.state().step === "authenticated" && login.state().user; as user) {
-            <span class="nf-session" data-open>connecté — <strong>{{ user.identifier }}</strong></span>
-            <button (click)="doLogout()">Se déconnecter</button>
-          } @else {
-            <span class="nf-session">anonyme</span>
-            <a class="nf-action" [href]="loginHref">Se connecter</a>
-          }
-          @if (notice(); as n) {
-            <p class="nf-dim" role="status">{{ n }}</p>
-          }
-        </div>
-<% } %>
-<% if (it.complete) { %>        <div class="nf-card">
-          <h2>3. Temps réel — la socket Nodefony</h2>
-          <p class="nf-dim">
-            <code>LiveController</code> (<code>--kind realtime</code>) publie le
-            canal <code>live:events</code> quand il se passe quelque chose —
-            jamais sur une horloge ; la page le consomme par la façade
-            <code>NodefonySocket</code> — zéro <code>WebSocket</code> à la main.
-            Ouvrez un second onglet pour voir arriver ce que celui-ci envoie.
-          </p>
+    <main class="nf-main">
+      <img class="nf-fwlogo" [src]="logo" alt="" width="48" height="48" />
+      <h1><%= it.appName %></h1>
+<% if (it.hasSecurity) { %>      <div class="nf-card" role="status">
+        @if (login.state().step === "authenticated" && login.state().user; as user) {
           <p>
-            état : <strong>{{ liveState() }}</strong>
-            @if (last(); as e) {
-              <span> · reçu <strong>{{ e.text }}</strong> (pid {{ e.pid }})</span>
-            }
+            Connecté en tant que
+            <span class="nf-session" data-open="">{{ user.identifier }}</span>
+            <button type="button" class="nf-action" (click)="logout()">
+              Se déconnecter
+            </button>
           </p>
-          <button (click)="doPing()">RPC live:ping</button>
-          <button (click)="doSay()">envoyer sur le canal</button>
-          @if (pingMs(); as ms) {
-            <span class="nf-dim"> pong en {{ ms }} ms</span>
-          }
-        </div>
-<% } else { %>        <div class="nf-card">
-          <h2>2. WebSocket — MÊME controller que le HTTP</h2>
-          <p class="nf-dim">
-            <code>HelloController</code> porte la route GET <em>et</em> la route
-            WEBSOCKET : un seul pipeline (firewall, audit, logs).
-          </p>
-          <input
-            #wsIn
-            value="ping"
-            (keydown.enter)="sendWs(wsIn.value)"
-            aria-label="message à envoyer"
-          />
-          <button (click)="sendWs(wsIn.value)">Envoyer en WS</button>
-          <pre>{{ wsLog().join("\\n") || "(envoie un message)" }}</pre>
-        </div>
-<% } %>
-
-        <div class="nf-card">
-          <h2><%= it.complete ? 4 : 3 %>. ♻️ HMR check</h2>
-          <button (click)="count.set(count() + 1)">count is {{ count() }}</button>
-          <p class="nf-dim">
-            Édite <code>frontend/src/app/app.component.ts</code> — Vite
-            recompile à la volée. (Angular re-render le composant : l'état
-            peut se réinitialiser.)
-          </p>
-        </div>
-
-<% if (it.complete) { %>        <p class="nf-dim">
-          Console d'administration : <a href="/nodefony">/nodefony</a> (Studio, en dev)
-        </p>
-<% } %>      </main>
-    </div>
+        } @else {
+          <a class="nf-action" [href]="loginHref">Se connecter</a>
+        }
+      </div>
+<% } else { %>      <p class="nf-dim">Ton application répond. Cette page est la tienne.</p>
+<% } %>    </main>
   `,
 })
-export class AppComponent implements OnInit, OnDestroy {
-  readonly ngVersion = VERSION.full;
+export class AppComponent<% if (it.hasSecurity) { %> implements OnInit<% } %> {
   readonly logo = NODEFONY_LOGO;
-  data = signal<ApiData | null>(null);
-  error = signal<string | null>(null);
-  count = signal(0);
-<% if (it.complete) { %>  notice = signal<string | null>(null);
-  // La session vit dans un cookie HttpOnly que la page ne lit pas : la LIAISON
-  // du framework la reprend (`me()`) et en tient l'état — c'est la pastille de
-  // la carte 2. Se connecter se fait sur la page du framework (`/login`), qui
-  // ramène ici.
-  readonly login = injectNodefonyLogin();
+<% if (it.hasSecurity) { %>  readonly login = injectNodefonyLogin();
   readonly loginHref = loginPagePath(location.pathname + location.search);
-  secureData = signal<SecureData | null>(null);
-  // Les deux lignes qui suivent s'abonnent ET rendent l'abonnement à la
-  // destruction du composant — sans une ligne de `ngOnDestroy`. L'abonnement
-  // serveur est ref-compté et rejoué à chaque reconnexion ; ces règles vivent
-  // dans le socle du framework, identiques en React, Vue, Angular et Svelte.
-  liveState = injectNodefonyState();
-  last = injectNodefonyChannelData<LiveEvent>("live:events");
-  pingMs = signal<number | null>(null);
-  /** La socket elle-même — pour ce qu'on lui DIT (`emit`, `request`). */
-  readonly #live = injectNodefony();
-<% } else { %>  wsLog = signal<string[]>([]);
-  #ws: WebSocket | null = null;
-<% } %>  stringify = (v: unknown) => JSON.stringify(v, null, 2);
 
-  // Rappelé après login/logout : la zone firewall `main` (^/api) résout
-  // l'identité par requête → `who` change sans recharger la page.
-  refreshHello() {
-    fetch("/api/hello")
-      .then((r) => r.json())
-      .then((j: unknown) => {
-        const d = readApiData(j); // Nodefony wrappe `{ result }`
-        if (d === null) throw new Error("réponse inattendue de /api/hello");
-        this.data.set(d);
-<% if (it.complete) { %>        // Connecté → la route PROTÉGÉE prend le relais (zone `secure`,
-        // ^/api/secure : sans session le firewall répond 401 avant le controller).
-        if (d.who && d.who !== "anonyme") {
-          fetch("/api/secure/hello", { credentials: "same-origin" })
-            .then((r) => (r.ok ? r.json() : null))
-            // Le corps d'un `then` REND une valeur : un bloc muet est signalé
-            // par le lint (`promise/always-return`) dans l'application générée.
-            .then((s: unknown) => this.secureData.set(readSecureData(s)))
-            .catch(() => this.secureData.set(null));
-        } else {
-          this.secureData.set(null);
-        }
-<% } %>        // Un `then` REND une valeur — sinon le lint de l'application
-        // GÉNÉRÉE la refuse (`promise/always-return`).
-        return d;
-      })
-      .catch((e: unknown) => {
-        this.error.set(e instanceof Error ? e.message : String(e));
-      });
-  }
-<% if (it.complete) { %>
-  async doLogout() {
-    // Une session ouverte chez un fournisseur (Keycloak…) se ferme AUSSI chez
-    // lui : le serveur rend son adresse de déconnexion, qu'il faut suivre.
-    const providerLogout = await this.login.flow.logout();
-    if (providerLogout !== null) {
-      location.assign(providerLogout);
-      return;
-    }
-    this.notice.set("session fermée");
-    this.refreshHello();
-  }
-<% } %>
-  ngOnInit() {
-    this.refreshHello();
-<% if (it.complete) { %>    // Reprend la session ouverte, ici ou au retour de la page de connexion.
+  /** Reprend la session existante (cookie de session, s'il y en a un). */
+  ngOnInit(): void {
     void this.login.flow.me();
-
-    // Rien à câbler ici : l'abonnement a été pris à la construction du
-    // composant, et la connexion est ouverte par `provideNodefony` (main.ts),
-    // HORS ZONE — sans quoi, avec `zone.js`, chaque trame reçue relancerait une
-    // détection de changements sur toute l'application.
-<% } else { %>
-    // WS même origine que la page (ws en http, wss en https).
-    // ⚠ Echo BRUT = démo du pipeline HTTP/WS partagé, pas un modèle : pour du
-    // WS métier, génère la bonne couche (`nodefony create controller <nom>
-    // --kind realtime`) et consomme-la par la FAÇADE client (`NodefonySocket`)
-    // au lieu d'un `new WebSocket` à la main.
-    const scheme = location.protocol === "https:" ? "wss" : "ws";
-    const socket = new WebSocket(`${scheme}://${location.host}/api/echo`);
-    socket.addEventListener("message", (ev: MessageEvent) => {
-      this.wsLog.update((log) => [...log.slice(-4), `← ${String(ev.data)}`]);
-    });
-    socket.addEventListener("error", () => {
-      this.wsLog.update((log) => [...log, "⚠ connexion WS impossible"]);
-    });
-    this.#ws = socket;
-<% } %>  }
-
-  ngOnDestroy() {
-<% if (it.complete) { %>    // HMR/full-reload détruit le composant : la liaison rend l'abonnement
-    // toute seule (`DestroyRef`). La socket PARTAGÉE, elle, reste ouverte — la
-    // couper trancherait les requêtes en vol des autres consommateurs.
-<% } else { %>    // HMR/full-reload détruit le composant : fermer une socket encore en
-    // CONNECTING lève un warning navigateur (« closed before the connection
-    // is established ») — on attend l'open pour fermer proprement.
-    const socket = this.#ws;
-    this.#ws = null;
-    if (!socket) return;
-    if (socket.readyState === WebSocket.CONNECTING) {
-      socket.addEventListener("open", () => socket.close());
-    } else {
-      socket.close();
-    }
-<% } %>  }
-<% if (it.complete) { %>
-  async doPing() {
-    const t0 = performance.now();
-    await this.#live.request("live:ping", {});
-    this.pingMs.set(Math.round(performance.now() - t0));
   }
 
-  /**
-   * Ce que CETTE page envoie, TOUTES les pages abonnées le reçoivent : ouvrir un
-   * second onglet et cliquer suffit à le voir. C'est ce partage qui fait
-   * l'intérêt d'une socket — pas un battement qui parlerait pour ne rien dire.
-   */
-  doSay() {
-    this.#live.emit("live:say", {
-      text: `bonjour de la page (${Date.now() % 1000})`,
-    });
-  }
-<% } else { %>
-  sendWs(msg: string) {
-    if (this.#ws?.readyState === WebSocket.OPEN) {
-      this.#ws.send(msg);
-      this.wsLog.update((log) => [...log.slice(-4), `→ ${msg}`]);
-    }
+  async logout(): Promise<void> {
+    // Session venue d'un fournisseur : suivre son adresse ferme AUSSI la sienne.
+    const providerLogout = await this.login.flow.logout();
+    if (providerLogout !== null) window.location.assign(providerLogout);
   }
 <% } %>}

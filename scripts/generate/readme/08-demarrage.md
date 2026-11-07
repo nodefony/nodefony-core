@@ -51,8 +51,7 @@ npm run infra:up     # docker : Redis + <%= it.db.label %> — AVANT l'app<% } %
 npm run dev
 ```
 
-- `http://127.0.0.1:5151/api/hello` — ta première route, celle que tu iras lire en premier.<% if (it.front) { %>
-- `http://127.0.0.1:5151/` — ton application <%= it.frontend %>, rechargée à chaud pendant que tu écris.<% } %><% if (it.complete) { %>
+<% if (it.front) { %>- `http://127.0.0.1:5151/` — ton application <%= it.frontend %>, rechargée à chaud pendant que tu écris.<% } else { %>- `http://127.0.0.1:5151/` — ta racine : `{ "app": "<%= it.appName %>" }`, le nom et rien d'autre.<% } %><% if (it.complete) { %>
 - `http://127.0.0.1:5151/nodefony` — **Studio**, la console d'administration.<% } %>
 
 <% if (it.complete) { %>> **Le compte d'administration existe déjà** : `admin` / `<%= it.devAdminPassword %>`. Il

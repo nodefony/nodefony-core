@@ -16,11 +16,16 @@ import {
   APP_PARTNER_DEV_RESOURCE,
   APP_KEYCLOAK_THEME_DIR,
   APP_KEYCLOAK_THEMES_DIR,
+  appDevRealmInput,
   devClientSecret,
   devMachineSecret,
   keycloakThemeSource,
   keycloakThemesSource,
 } from "../../nodefony/keycloak/scaffold";
+import {
+  buildKeycloakRealm,
+  renderKeycloakRealm,
+} from "../../nodefony/keycloak/keycloakRealm";
 import { contribute } from "../../nodefony/scaffold/contribute";
 
 /**
@@ -196,9 +201,11 @@ describe("contribution Keycloak de @nodefony/security", () => {
       lire(dossierKeycloak(), ".env"),
       `\nNF_KEYCLOAK_CLIENT_SECRET=${devClientSecret("kcapp")}\n`,
     );
-    assert.include(
+    // Le client « machine » n'existe qu'avec l'API entre programmes (démo, #747) :
+    // une application neuve ne porte pas son secret (#746).
+    assert.notInclude(
       lire(dossierKeycloak(), ".env"),
-      `\nNF_KEYCLOAK_MACHINE_SECRET=${devMachineSecret("kcapp")}\n`,
+      "NF_KEYCLOAK_MACHINE_SECRET",
     );
   });
 
@@ -299,7 +306,22 @@ describe("contribution Keycloak de @nodefony/security", () => {
     const genere = JSON.parse(
       lire(dossierKeycloak(), "docker", "keycloak", "import", "realm.json"),
     ) as { clients: Client[] };
-    assert.deepEqual(forme(genere.clients), forme(depot.clients));
+    // Une application neuve n'a pas de client machine (#746) : chacune de ses
+    // formes existe dans le dépôt, et le realm qu'elle obtient en déclarant
+    // l'audience de la démo a EXACTEMENT la forme de celui du dépôt.
+    for (const f of forme(genere.clients)) {
+      assert.include(forme(depot.clients), f);
+    }
+    const avecDemo = JSON.parse(
+      renderKeycloakRealm(
+        buildKeycloakRealm(
+          appDevRealmInput("kcapp", [], { user: "u", admin: "a" }, [
+            APP_PARTNER_DEV_RESOURCE,
+          ]),
+        ),
+      ),
+    ) as { clients: Client[] };
+    assert.deepEqual(forme(avecDemo.clients), forme(depot.clients));
     // Le front-channel exige une page que l'app n'a pas : back-channel seul.
     for (const c of [...depot.clients, ...genere.clients]) {
       assert.notStrictEqual(c.frontchannelLogout, true, c.clientId);
@@ -316,38 +338,47 @@ describe("contribution Keycloak de @nodefony/security", () => {
     }
   });
 
-  it("le realm né porte l'audience de la zone `partner` que le gabarit ouvre (#544)", () => {
+  it("une application neuve : realm SANS client machine ni audience (#746)", () => {
     const dest = dossierKeycloak();
-    // Le gabarit rendu calcule la ressource : `https://localhost:<port>` +
-    // `/api/partner`, port HTTPS par défaut 5152 — la valeur de la constante.
+    // Le gabarit n'ouvre plus aucune zone à jeton tiers : rien à inscrire.
     const security = lire(dest, "nodefony", "config", "security.ts");
-    assert.include(security, "`${publicBaseUrl(e)}/api/partner`");
-    assert.include(security, "`https://localhost:${e.NF_PORT_HTTPS ?? 5152}`");
-    assert.include(security, "resource: partnerResource(ctx.env)");
-    assert.strictEqual(
-      APP_PARTNER_DEV_RESOURCE,
-      "https://localhost:5152/api/partner",
-    );
+    assert.notInclude(security, "partnerResource(");
     const realm = JSON.parse(
       lire(dest, "docker", "keycloak", "import", "realm.json"),
     ) as {
       clients: {
         clientId: string;
-        protocolMappers?: {
-          protocolMapper: string;
-          config: Record<string, string>;
-        }[];
+        protocolMappers?: { protocolMapper: string }[];
       }[];
     };
-    // Les DEUX clients : le navigateur (jeton de la personne connectée) et
-    // la machine (`client_credentials`, `app:partner:call --issuer keycloak`).
-    for (const clientId of ["kcapp", "kcapp-machine"]) {
-      const client = realm.clients.find((c) => c.clientId === clientId);
-      const audiences = (client?.protocolMappers ?? [])
-        .filter((m) => m.protocolMapper === "oidc-audience-mapper")
-        .map((m) => m.config["included.custom.audience"]);
-      assert.deepEqual(audiences, [APP_PARTNER_DEV_RESOURCE], clientId);
-    }
+    assert.deepEqual(
+      realm.clients
+        .filter((c) => c.clientId.startsWith("kcapp"))
+        .map((c) => c.clientId),
+      ["kcapp"],
+    );
+    const browser = realm.clients.find((c) => c.clientId === "kcapp");
+    assert.deepEqual(
+      (browser?.protocolMappers ?? []).filter(
+        (m) => m.protocolMapper === "oidc-audience-mapper",
+      ),
+      [],
+    );
+  });
+
+  it("une audience déclarée (la démo) fait naître le client machine, secret partagé avec le .env", () => {
+    const input = appDevRealmInput("kcapp", [], { user: "u", admin: "a" }, [
+      APP_PARTNER_DEV_RESOURCE,
+    ]);
+    assert.strictEqual(input.machine?.clientId, "kcapp-machine");
+    assert.strictEqual(input.machine?.secret, devMachineSecret("kcapp"));
+    assert.strictEqual(
+      APP_PARTNER_DEV_RESOURCE,
+      "https://localhost:5152/api/partner",
+    );
+    assert.isNull(
+      appDevRealmInput("kcapp", [], { user: "u", admin: "a" }).machine,
+    );
   });
 
   it("les deux realms portent le rôle client `admin` et `bob` qui le détient (#519)", () => {

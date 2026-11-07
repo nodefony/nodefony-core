@@ -31,16 +31,6 @@ type IPublicUrlEnv = Pick<typeof env, "NF_JWT_ISSUER" | "NF_PORT_HTTPS">;
 export const publicBaseUrl = (e: IPublicUrlEnv): string =>
   e.NF_JWT_ISSUER ?? `https://localhost:${e.NF_PORT_HTTPS ?? 5152}`;
 
-/**
- * La ressource de l'API partenaire (RFC 8707) : l'audience que doit porter un
- * jeton présenté sur `/api/partner`, qu'il vienne de cette application ou de
- * Keycloak. UNE définition, lue par la zone `partner` ci-dessous ET par la
- * commande `app:partner:call` : une audience recopiée finit par différer, et
- * le seul symptôme est un 401.
- */
-export const partnerResource = (e: IPublicUrlEnv): string =>
-  `${publicBaseUrl(e)}/api/partner`;
-
 /** La configuration de `@nodefony/security` pour cette application. */
 export const securityConfig = (ctx: ConfigContext<typeof env>) =>
   ({
@@ -85,11 +75,6 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
             `https://localhost:${ctx.env.NF_PORT_HTTPS ?? 5152}`,
             `http://localhost:${ctx.env.NF_PORT ?? 5151}/nodefony/mcp`,
             `https://localhost:${ctx.env.NF_PORT_HTTPS ?? 5152}/nodefony/mcp`,
-            // L'API partenaire (zone `partner`) : sans elle, `app:partner:call
-            // --issuer nodefony` se voit refuser son jeton (`invalid_target`).
-            // En production, l'ajouter à la liste si l'application émet
-            // elle-même les jetons de ses partenaires.
-            partnerResource(ctx.env),
           ],
       keystore: {
         keySetJson: ctx.env.NF_JWT_KEYSET,
@@ -145,8 +130,9 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
               },
             },
           },
-          // Les jetons de Keycloak ouvrent aussi l'API : le realm devient un
-          // émetteur de CONFIANCE pour les zones `external-jwt` (ici `partner`).
+          // Les jetons de Keycloak PEUVENT ouvrir l'API : le realm devient un
+          // émetteur de CONFIANCE pour les zones `external-jwt` — aucune n'en
+          // déclare tant que tu n'en écris pas une (voir la zone `service`).
           // Se connecter par Keycloak et lui confier l'accès à l'API sont deux
           // décisions distinctes — la seconde s'écrit ici, jamais par défaut.
           resourceServer: {
@@ -161,39 +147,18 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
         }
       : {}),
     /**
-     * Zones firewall de TES routes. `main` essaie `session` (cookie BFF →
-     * `context.user` rempli) puis `anonymous` : rien n'est bloqué tel quel.
-     * Hors zone, l'identité n'est JAMAIS résolue.
+     * Zones firewall de TES routes. `main` est FERMÉE : une requête sous
+     * `/api` sans session reçoit 401 avant d'atteindre ton controller, et
+     * toute route que tu ajoutes sous `/api` naît PROTÉGÉE sans que tu aies à
+     * y penser. Hors zone, l'identité n'est JAMAIS résolue.
      *
-     * - EXIGER le login sur `/api` : retire `"anonymous"` de `main`.
-     *   ⚠️ **Ce geste ferme AUSSI la démonstration livrée avec l'application**,
-     *   et rien ne fera le lien à ta place — `nodefony doctor` comptera même
-     *   « rien d'ouvert sans authentification » comme un ✓. Ce qui tombe :
-     *     · `GET /api/hello` et le WebSocket `/api/echo` (`HelloController`) ;
-     *     · le canal temps réel `/api/live/realtime` (`LiveController`), d'où
-     *       les vitrines frontend tirent leur flux ;
-     *     · **les tests de bout en bout FOURNIS** — `tests/e2e.test.ts` appelle
-     *       ces trois surfaces SANS identité. `npm run test:e2e` passe alors au
-     *       rouge sur des cas que tu n'as pas écrits : `expected 401 to be 200`
-     *       sur `/api/hello`, et un DÉLAI DÉPASSÉ sur chaque WebSocket — un
-     *       refus d'ouverture ne lève pas d'erreur côté client, il ne répond
-     *       jamais. Une entité générée (`nodefony create entity`) livre ses
-     *       propres cas e2e sous `/api/<entité>` : eux aussi tombent, en 401
-     *       sur la lecture et 403 sur l'écriture.
-     *   Si tu fermes quand même, c'est assumé : supprime les cas de
-     *   démonstration de `tests/` au lieu de les laisser rouges — un banc rouge
-     *   qu'on apprend à ignorer emporte le prochain vrai rouge avec lui.
-     *
-     * - **GARDER la démonstration joignable ET fermer le reste** — le geste à
-     *   préférer, parce qu'il n'exige de renoncer à rien. Laisse `main` FERMÉE
-     *   (sans `"anonymous"`) et rends publiques les seules routes qui doivent
-     *   l'être, par une zone au pattern ÉNUMÉRÉ : le firewall trie par longueur
-     *   de pattern, donc `^/api/(hello|echo|live)` l'emporte sur `^/api`.
+     * - Une route PUBLIQUE se déclare, elle ne s'obtient pas par défaut : une
+     *   zone au pattern ÉNUMÉRÉ, qui l'emporte sur `^/api` parce que le
+     *   firewall trie par longueur de pattern.
      *
      *   ```ts
-     *   main: { pattern: "^/api", authenticators: ["session"] },
-     *   demo: {
-     *     pattern: "^/api/(hello|echo|live)(/|$)",
+     *   public: {
+     *     pattern: "^/api/(status|catalog)(/|$)",
      *     authenticators: ["session", "anonymous"],
      *   },
      *   ```
@@ -201,10 +166,18 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
      *   Énumérer est le point : `"anonymous"` sur une zone ouvre TOUTES ses
      *   routes, et une zone au pattern large redeviendrait le trou qu'on vient
      *   de fermer. Le `(/|$)` final n'est pas une coquetterie — un pattern est
-     *   un PRÉFIXE : sans lui, `^/api/(hello|echo|live)` ouvrirait aussi
-     *   `/api/hellofacture`, et la prochaine route dont le nom commence par
-     *   `hello` naîtrait publique sans que personne l'ait voulu.
-     *   Quand tu retires la démonstration, retire la zone avec elle.
+     *   un PRÉFIXE : sans lui, `^/api/(status|catalog)` ouvrirait aussi
+     *   `/api/statusinterne`, et la prochaine route dont le nom commence par
+     *   `status` naîtrait publique sans que personne l'ait voulu.
+     *
+     * - ⚠️ Un WebSocket refusé ne LÈVE rien côté client : l'ouverture reçoit
+     *   401 et le client attend, puis expire. Un canal temps réel sous `/api`
+     *   sans session se voit donc comme un DÉLAI DÉPASSÉ, jamais comme une
+     *   erreur d'authentification — chercher la zone avant le réseau.
+     *
+     * - Les tests de bout en bout d'une entité générée
+     *   (`nodefony create entity`) s'authentifient eux-mêmes (`AUTH` du décor
+     *   e2e) : ils passent zone fermée.
      *
      * - Protéger plus large : élargis le pattern (ex. `"^/(api|compte)"`).
      *
@@ -223,8 +196,7 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
      *   ```
      *
      * Le firewall trie par longueur de pattern : `/api/secure/*` tombe donc
-     * dans `secure`, sans `anonymous` → 401 avant ton controller. Essaie
-     * `GET /api/secure/hello`.
+     * dans `secure` (rôle exigé) plutôt que dans `main`.
      *
      * `main` et `secure` sont STATEFUL : l'identité tient dans une session
      * serveur, portée par un cookie opaque et révocable — le bon modèle pour
@@ -267,9 +239,11 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
      * routes, ce qui rend l'erreur silencieuse : ce qu'on teste marche.
      */
     areas: {
+      // FERMÉE : pas d'`"anonymous"`. Le remettre rendrait publique TOUTE
+      // route sous `/api`, celles d'aujourd'hui et celles de demain.
       main: {
         pattern: "^/api",
-        authenticators: ["session", "anonymous"],
+        authenticators: ["session"],
       },
       // AJOUTER une route ici ne demande RIEN de plus : le préfixe est déjà
       // couvert, la zone authentifie, et `context.user` est garanti dans le
@@ -307,27 +281,23 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
         authenticators: ["apikey"], // PAS "session" — ce client n'a pas de cookie
         stateless: true, // false ⇒ l'app ouvre une session qu'il ne renverra jamais
       },
-      // Programme qui présente un JETON d'accès — signé par cette application
-      // OU par Keycloak (flux `client_credentials`). Essai de bout en bout :
-      // `npx nodefony app:partner:call` (nodefony/command/PartnerCallCommand.ts).
+      // Programme qui présente un JETON d'accès signé par cette application
+      // (`Authorization: Bearer …`) — l'exemple complet, émission du jeton
+      // comprise, est dans la démo (API entre programmes).
+      // Même règle que `machine` : aucune session, rien à stocker côté client.
+      // Rien ne tombe ici tant qu'aucune route ne commence par `/api/service`.
       //
-      // Les deux authenticators s'aiguillent sur l'émetteur du jeton (`iss`) :
-      // leur ordre ne décide de rien. Chacun contrôle l'audience à sa façon —
-      // `jwt` contre `jwt.audiences`, `external-jwt` contre `resource` —, d'où
-      // la même valeur aux deux endroits, tirée de `partnerResource`.
-      partner: {
-        pattern: "^/api/partner",
-        authenticators: ["jwt", "external-jwt"],
+      // Accepter AUSSI les jetons d'un fournisseur (Keycloak,
+      // `client_credentials`) : ajouter `"external-jwt"` et la ressource
+      // attendue (RFC 8707) — l'ordre des deux ne décide de rien, ils
+      // s'aiguillent sur l'émetteur du jeton :
+      //   authenticators: ["jwt", "external-jwt"],
+      //   resource: `${publicBaseUrl(ctx.env)}/api/service`,
+      // puis inscrire cette même ressource dans `jwt.audiences`.
+      service: {
+        pattern: "^/api/service",
+        authenticators: ["jwt"],
         stateless: true,
-        resource: partnerResource(ctx.env),
-        // L'appelant Keycloak n'a PAS de compte ici : son `sub` est le compte
-        // de service du realm, tiré à l'import. `ephemeral` l'accepte le temps
-        // de la requête, avec les seuls rôles ci-dessous. La politique vaut
-        // pour CETTE zone : ailleurs, un jeton tiers exige toujours un compte
-        // local (`require`, le défaut). Un jeton signé par l'application, lui,
-        // désigne toujours un compte existant.
-        subjectPolicy: "ephemeral",
-        ephemeralRoles: ["ROLE_PARTNER"],
       },
     },
 

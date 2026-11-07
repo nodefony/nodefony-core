@@ -52,7 +52,7 @@ le **gestionnaire de secrets** (un `Secret` Kubernetes, un coffre), ou le
 **poste seulement** — un réglage de développement ou de diagnostic, qui n'a
 rien à faire dans un déploiement.
 
-## Ce que déclare une application générée (28)
+## Ce que déclare une application générée (27)
 
 Le nom de l'application (`mon-app`) paraît dans certains exemples : c'est le tien qui
 les remplace. La colonne « Exigée » dit quand l'absence arrête le démarrage.
@@ -115,7 +115,6 @@ les remplace. La colonne « Exigée » dit quand l'absence arrête le démarrage
 | `NF_KEYCLOAK_DISCOVERY_URL` | Seulement si l'application ne joint pas Keycloak par l'adresse du realm (NF_KEYCLOAK_ISSUER) — en Kubernetes, par son service interne. L'adresse COMPLÈTE du document de configuration du realm, en http ou https. Le navigateur part toujours vers NF_KEYCLOAK_ISSUER, et Keycloak doit toujours s'annoncer sous ce nom : seul le chemin du serveur vers Keycloak change. Côté Keycloak : --hostname-backchannel-dynamic=true. | non | aucun | variables de la plateforme |
 | `NF_KEYCLOAK_CLIENT_ID` | Le nom du client déclaré pour cette application dans le realm Keycloak. | non | aucun | variables de la plateforme |
 | `NF_KEYCLOAK_CLIENT_SECRET` | Le secret de ce client, copié depuis la console Keycloak (onglet « Credentials » du client). | non | aucun | 🔒 gestionnaire de secrets |
-| `NF_KEYCLOAK_MACHINE_SECRET` | Le secret du client mon-app-machine, qui obtient un jeton au nom d'un programme (script, service partenaire), sans utilisateur. Lu par la commande app:partner:call, jamais par le serveur. | non | aucun | 🔒 gestionnaire de secrets |
 | `NF_KEYCLOAK_ADMIN_USERNAME` | Identifiant de l'administrateur du Keycloak de DÉVELOPPEMENT, pour que sa page de connexion suive l'habillage choisi. Jamais lu en production. | non | admin | variables de la plateforme |
 | `NF_KEYCLOAK_ADMIN_PASSWORD` | Mot de passe de cet administrateur — celui du compose de développement par défaut. Jamais lu en production. | non | mon-app-dev | 🔒 gestionnaire de secrets |
 

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-07T15:27:12.054Z",
+  "generatedAt": "2026-11-07T15:30:55.474Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -6665,7 +6665,7 @@
       "title": "feat(scaffold): livrer une démo complète, copiée dans l'application",
       "url": "https://github.com/nodefony/nodefony-core/issues/747",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 3,

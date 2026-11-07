@@ -1,15 +1,18 @@
-## Visite guidée — ce que l'app démontre
+## Ce que l'application contient — et ce qu'elle ne contient pas
 
-- **Route HTTP** — `curl http://127.0.0.1:5151/api/hello`
-- **WebSocket, _même controller_** — `npx wscat -c ws://127.0.0.1:5151/api/echo` puis tape un message
-<% if (it.front) { %>- **Frontend <%= it.frontend %> (Vite + HMR)** — http://127.0.0.1:5151/ — l'app fetch le backend via `/api`
-<% } %><% if (it.complete) { %>- **Studio (console admin, dev)** — http://127.0.0.1:5151/nodefony — config, sessions, logs, routes
+Une application GÉNÉRIQUE : ce qui est ici, tu le gardes. Aucun exemple à
+supprimer avant d'écrire ton premier controller.
+
+<% if (it.front) { %>- **Frontend <%= it.frontend %> (Vite + HMR)** — http://127.0.0.1:5151/ — une page minimale, la tienne<% if (it.complete) { %> : le nom de l'application, la connexion, le compte connecté<% } %>
+<% } %><% if (it.complete) { %>- **Sécurité FERMÉE par défaut** — sans session, toute route sous `/api` répond 401 avant ton controller ; une route publique se DÉCLARE (`nodefony/config/security.ts`)
+- **Connexion** — `/login`, servie par le framework ; zones `secure` (rôle exigé), `machine` (clé d'API) et `service` (jeton) prêtes, sans controller
+- **Studio (console admin, dev)** — http://127.0.0.1:5151/nodefony — config, sessions, logs, routes
 - **ORM + persistance** — Drizzle : sans `NF_DATABASE_URL`, sqlite locale automatique
 - **Firewall + audit** — chaque requête traverse le pipeline sécurité (logs `audit`)
-- **Temps réel — socket Nodefony** — `nodefony/controllers/LiveController.ts` : canal `live:events` (alimenté par `live:say`, jamais par une horloge) + RPC `live:ping`<% if (it.front) { %> — la carte « Temps réel » de la page d'accueil le consomme par la façade client<% } %>
 - **Redis (opt-in)** — `NF_REDIS_URL` présente ⇔ module chargé, stores basculent dessus
 <% } %>- **Probes cloud-native** — `curl http://127.0.0.1:5151/livez` (liveness k8s)
 
-Le différenciateur Nodefony tient dans `nodefony/controllers/HelloController.ts` :
-**une route GET et une route WEBSOCKET dans la même classe** — même pipeline,
-pas deux mondes séparés.
+Ton premier controller : `npx nodefony create controller hello --kind hello`
+génère **une route GET et une route WEBSOCKET dans la même classe** — même
+pipeline, pas deux mondes séparés. `npx nodefony create --help` liste les
+autres générateurs (REST, temps réel, MCP, entité, service, commande).

@@ -476,7 +476,7 @@ image, **sans aucun port publié**, et un frontal nginx devant :
 ```bash
 npx nodefony http:certificates            # une fois — le certificat de développement
 docker compose --profile edge up -d --build
-curl -k https://localhost:8443/api/hello
+curl -k https://localhost:8443/livez
 ```
 
 La configuration du frontal n'est pas écrite : elle est **dérivée de ton

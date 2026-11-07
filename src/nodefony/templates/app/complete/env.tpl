@@ -89,9 +89,6 @@ NF_CSRF_SECRET=<%= it.secrets.NF_CSRF_SECRET %>
 NF_KEYCLOAK_ISSUER=https://localhost:8444/realms/<%= it.appName %>
 NF_KEYCLOAK_CLIENT_ID=<%= it.appName %>
 NF_KEYCLOAK_CLIENT_SECRET=<%= it.keycloak.clientSecret %>
-# Appelant MACHINE du même realm (client <%= it.appName %>-machine), pour
-# `npx nodefony app:partner:call --issuer keycloak` :
-NF_KEYCLOAK_MACHINE_SECRET=<%= it.keycloak.machineSecret %>
 #
 # Compte d'administration de ce Keycloak (console https://localhost:8444/admin,
 # commandes `security:keycloak:*`) — ce sont les valeurs du compose :

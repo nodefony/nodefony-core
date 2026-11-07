@@ -582,7 +582,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "compose.yaml",
         ".oxlintrc.json",
         "vitest.config.ts",
-        path.join("nodefony", "controllers", "HelloController.ts"),
+        path.join("nodefony", "controllers", "HomeController.ts"),
         path.join("tests", "config.test.ts"),
         path.join("tests", "e2e.test.ts"),
         path.join(
@@ -598,6 +598,31 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       ]) {
         assert.isTrue(existsSync(path.join(dest, f)), `manque ${f}`);
       }
+      // L'application est GÉNÉRIQUE (#746) : aucun exemple à supprimer avant
+      // d'écrire. Ces fichiers vivent dans la démo (`templates/demo/`).
+      for (const f of [
+        path.join("nodefony", "controllers", "HelloController.ts"),
+        path.join("nodefony", "controllers", "LiveController.ts"),
+        path.join("nodefony", "controllers", "PartnerController.ts"),
+        path.join("nodefony", "command", "PartnerCallCommand.ts"),
+        path.join("nodefony", "service", "AppInfoService.ts"),
+        path.join("nodefony", "service", "AppBannerService.ts"),
+      ]) {
+        assert.isFalse(existsSync(path.join(dest, f)), `exemple résiduel ${f}`);
+      }
+      const security = readFileSync(
+        path.join(dest, "nodefony", "config", "security.ts"),
+        "utf8",
+      );
+      assert.notInclude(security, "partner");
+      assert.notInclude(
+        readFileSync(path.join(dest, ".env"), "utf8"),
+        "MACHINE_SECRET",
+      );
+      assert.notInclude(
+        readFileSync(path.join(dest, "env.ts"), "utf8"),
+        "MACHINE_SECRET",
+      );
       const pkg = readJson(path.join(dest, "package.json"));
       assert.equal(pkg["dependencies"]!["nodefony"], `^${version}`);
       assert.property(pkg["dependencies"], "@nodefony/drizzle");
@@ -670,45 +695,43 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.isEmpty(r.linked);
     });
 
-    it("temps réel de l'app : LiveController délégué au gabarit realtime, câblé, prouvé par l'e2e", () => {
+    it("application générique : racine sans version, /api fermé, e2e sur / + /livez + login (#746)", () => {
       const dest = path.join(tmp, "livefull");
       scaffold(dest, { name: "livefull" });
-      const live = readFileSync(
-        path.join(dest, "nodefony", "controllers", "LiveController.ts"),
+      const index = readFileSync(path.join(dest, "index.ts"), "utf8");
+      assert.include(index, "@controllers([HomeController])");
+      assert.notInclude(index, "addCommand(");
+      // Racine : le NOM, rien d'autre — une version figée à la création serait
+      // fausse après mise à jour, et c'est une empreinte offerte.
+      const home = readFileSync(
+        path.join(dest, "nodefony", "controllers", "HomeController.ts"),
         "utf8",
       );
-      // Le MÊME gabarit que `create controller --kind realtime` (délégation,
-      // zéro copie propre à l'app — corriger le gabarit corrige les deux).
-      assert.include(live, "extends RealtimeController");
-      assert.include(live, '@RealtimeChannel("live:events")');
-      // Le canal parle sur ÉVÉNEMENT, jamais sur une horloge : un gabarit qui
-      // distribuerait un battement enseignerait le polling inversé à chaque
-      // application générée.
-      assert.notInclude(live, "setInterval");
-      assert.include(live, '@RealtimeInbound("live:say")');
-      // Policy INLINE visible : l'ouverture d'une action est un choix ÉCRIT,
-      // la protection par rôle est démontrée à côté.
-      assert.include(
-        live,
-        '@RealtimeAction("live:ping", { authenticated: false })',
+      assert.include(home, 'this.renderJson({ app: "livefull" })');
+      assert.notInclude(home, version);
+      // `/api` FERMÉ : `main` sans `anonymous`.
+      const security = readFileSync(
+        path.join(dest, "nodefony", "config", "security.ts"),
+        "utf8",
       );
-      assert.include(
-        live,
-        '@RealtimeAction("live:snapshot", { roles: ["ROLE_ADMIN"] })',
+      assert.match(
+        security,
+        /main: \{\s*pattern: "\^\/api",\s*authenticators: \["session"\],\s*\}/u,
       );
-      // Les décorateurs annoncent déjà canaux et actions au welcome : un
-      // override les ferait apparaître en DOUBLE (doublon vécu).
-      assert.notInclude(live, "realtimeChannels()");
-      assert.notInclude(live, "realtimeActions()");
-      const index = readFileSync(path.join(dest, "index.ts"), "utf8");
-      assert.include(index, "LiveController");
-      // La sonde FONCTIONNELLE vit dans l'e2e généré : la MÊME façade que les
-      // vitrines navigateur, côté Node (`nodefony/client`).
+      // L'e2e généré éprouve ce contrat, et plus aucune route retirée.
       const e2e = readFileSync(path.join(dest, "tests", "e2e.test.ts"), "utf8");
-      assert.include(e2e, 'from "nodefony/client"');
-      assert.include(e2e, 'live.request("live:ping"');
-      assert.include(e2e, 'live.subscribe("live:events")');
-      assert.include(e2e, 'live.emit("live:say"');
+      assert.include(e2e, 'z.strictObject({ app: z.literal("livefull") })');
+      assert.include(e2e, "expect(anonymous.status).toBe(401)");
+      assert.include(e2e, "await adminLogin()");
+      assert.include(e2e, "/livez");
+      for (const gone of [
+        "/api/hello",
+        "/api/echo",
+        "/api/live",
+        "NodefonySocket",
+      ]) {
+        assert.notInclude(e2e, gone);
+      }
     });
 
     it("secrets PAR-PROJET : .env porte 3 clés uniques, .gitignore l'exclut", () => {
@@ -2053,10 +2076,11 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         ["NF_KEYCLOAK_ISSUER", "https://localhost:8444/realms/kcapp"],
         ["NF_KEYCLOAK_CLIENT_ID", "kcapp"],
         ["NF_KEYCLOAK_CLIENT_SECRET", "kcapp-dev-keycloak-secret"],
-        ["NF_KEYCLOAK_MACHINE_SECRET", "kcapp-machine-dev-secret"],
       ] as const) {
         assert.match(local, new RegExp(`^${nom}=${valeur}$`, "mu"), nom);
       }
+      // Le client « machine » part avec l'API entre programmes, dans la démo.
+      assert.notInclude(local, "NF_KEYCLOAK_MACHINE_SECRET");
       assert.notMatch(lire(dest, ".env.example"), /^NF_KEYCLOAK_/mu);
       const envTs = lire(dest, "env.ts");
       for (const nom of [
@@ -3195,48 +3219,26 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
   });
 
   describe("controller d'accueil — un seul gabarit pour l'app et la commande", () => {
-    /** Le HelloController rendu par `create app`, tel quel. */
-    const helloOf = (dest: string) =>
-      readFileSync(
-        path.join(dest, "nodefony", "controllers", "HelloController.ts"),
-        "utf8",
-      );
-
-    it("l'app garde /api/hello et son payload (README, e2e et vitrines en dépendent)", () => {
-      const dest = path.join(tmp, "happ");
-      scaffold(dest, { name: "happ", preset: "complete", frontend: "none" });
-      const src = helloOf(dest);
-      assert.include(src, '@controller("/api")');
-      assert.include(src, 'path: "/hello"');
-      assert.include(src, 'hello: "happ"');
-      // Route protégée : seulement quand une zone `secure` existe (preset complete).
-      assert.include(src, 'path: "/secure/hello"');
-      // L'utilisateur se type par le contrat de `@nodefony/user`, présent avec
-      // la sécurité : un type structurel recopié divergerait du vrai `IUser`.
-      // Sous la zone `secure`, il est garanti (401 avant l'action) → non optionnel.
-      assert.include(src, 'import type { IUser } from "@nodefony/user";');
-      assert.include(src, "@CurrentUser() user?: IUser");
-      assert.include(src, "secureHello(@CurrentUser() user: IUser)");
-      assert.notInclude(src, "identifier?: string");
-      // Le test e2e généré interroge cette route et compare ce payload : les
-      // deux templates doivent rester d'accord.
-      const e2e = readFileSync(path.join(dest, "tests", "e2e.test.ts"), "utf8");
-      assert.include(e2e, "/api/hello");
-      assert.include(e2e, 'expect(body.hello).toBe("happ")');
-      assertNoEtaResidue(dest);
-    });
-
-    it("sans security, aucune route protégée n'est promise", () => {
-      const dest = path.join(tmp, "hmini");
-      scaffold(dest, { name: "hmini", preset: "minimal", frontend: "none" });
-      const src = helloOf(dest);
-      assert.include(src, 'path: "/hello"');
-      assert.notInclude(src, "/secure/hello");
-      assert.notInclude(src, 'zone: "secure"');
-      // Sans security, `@nodefony/user` n'est pas installé : l'importer
-      // casserait la compilation de l'app neuve.
-      assert.notInclude(src, "@nodefony/user");
-      assert.include(src, "@CurrentUser() user?: { identifier?: string }");
+    it("create app ne rend AUCUN HelloController — complete ni minimal (#746)", () => {
+      // L'application est générique : le premier contrôleur qu'on lit est celui
+      // qui tient `/`. La vitrine `/api/hello` vit dans la démo, et
+      // `create controller --kind hello` la régénère à la demande.
+      for (const preset of ["complete", "minimal"] as const) {
+        const dest = path.join(tmp, `happ-${preset}`);
+        scaffold(dest, { name: "happ", preset, frontend: "none" });
+        assert.isFalse(
+          existsSync(
+            path.join(dest, "nodefony", "controllers", "HelloController.ts"),
+          ),
+          preset,
+        );
+        const index = readFileSync(path.join(dest, "index.ts"), "utf8");
+        assert.notInclude(index, "HelloController", preset);
+        const readme = readFileSync(path.join(dest, "README.md"), "utf8");
+        assert.notInclude(readme, "/api/hello", preset);
+        assert.include(readme, "create controller hello --kind hello", preset);
+        assertNoEtaResidue(dest);
+      }
     });
 
     it("create controller --kind hello : index à la racine de SON préfixe, pas de route protégée", () => {
@@ -3634,18 +3636,16 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.notInclude(index, "registerEntry(this, {");
       const tsconfig = readFileSync(path.join(dest, "tsconfig.json"), "utf8");
       assert.include(tsconfig, "react-jsx");
-      // Minimal (pas de realtime) : l'echo BRUT reste — mais il porte sa
-      // redirection vers la bonne couche, et n'importe pas la façade.
+      // Page MINIMALE (#746, D4) : sans sécurité, le nom de l'application et
+      // rien d'autre — ni socket, ni appel d'API, ni connexion promise.
       const app = readFileSync(
         path.join(dest, "frontend", "src", "App.tsx"),
         "utf8",
       );
-      assert.include(app, "new WebSocket(");
-      assert.include(app, "--kind realtime");
-      // Le NOM de la façade reste cité par la redirection (commentaire) — on
-      // vérifie l'absence d'USAGE, pas du mot (même règle que la vitrine
-      // example dégradée).
-      assert.notInclude(app, "import { NodefonySocket }");
+      assert.include(app, "<h1>rapp</h1>");
+      assert.notInclude(app, "WebSocket");
+      assert.notInclude(app, "fetch(");
+      assert.notInclude(app, "NodefonyLogin");
       assert.notInclude(app, "NodefonyProvider");
       assertNoEtaResidue(dest);
     });
@@ -3666,6 +3666,17 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         preset: "complete",
         frontend: "react",
       });
+      // L'application n'a plus de canal d'exemple (#746) : l'adresse que la
+      // doc enseigne est celle que le GÉNÉRATEUR monte, rendu ici pour de vrai.
+      runScaffold(
+        {
+          type: "controller",
+          answers: { name: "live", kind: "realtime" },
+          dir: dest,
+          force: false,
+        },
+        version,
+      );
       const ctrl = readFileSync(
         path.join(dest, "nodefony", "controllers", "LiveController.ts"),
         "utf8",
@@ -3751,167 +3762,59 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       }
     });
 
-    it("vitrines complete : la carte temps réel passe par la FAÇADE, plus aucun ws à la main", () => {
-      // React — hooks `nodefony/react` (Provider + état + canal).
-      const rdest = path.join(tmp, "rlive");
-      scaffold(rdest, { name: "rlive", preset: "complete", frontend: "react" });
-      const rapp = readFileSync(
-        path.join(rdest, "frontend", "src", "App.tsx"),
-        "utf8",
-      );
-      // React tient en DEUX concepts : le Provider, qui reçoit l'adresse, et un
-      // hook par besoin. Fabriquer la socket à la main et l'appeler `connect()`
-      // n'apprenaient rien au débutant — le Provider les fait.
-      assert.include(rapp, '<NodefonyProvider url="/api/live/realtime">');
-      assert.include(rapp, "useNodefony()");
-      assert.include(rapp, "useNodefonyState()");
-      assert.include(rapp, 'useNodefonyChannelData<LiveEvent>("live:events")');
-      assert.include(rapp, 'live.request("live:ping"');
-      assert.notInclude(rapp, "new WebSocket(");
-      // Les deux concepts RETIRÉS ne doivent pas revenir par la bande : sans ces
-      // deux refus, on retomberait à quatre étapes sans qu'aucun test ne tombe.
-      assert.notInclude(rapp, "NodefonySocket.shared(");
-      assert.notInclude(rapp, ".connect()");
-      // Vue — composables `nodefony/vue`, et la MÊME forme qu'en React : la
-      // politique reçoit l'adresse (ici un plugin, le vocabulaire de Vue), un
-      // composable par besoin, et RIEN à libérer. Ce qui compte n'est pas que
-      // les deux se ressemblent à la ligne près, c'est qu'un débutant y compte
-      // le même nombre de concepts.
-      const vdest = path.join(tmp, "vlive");
-      scaffold(vdest, { name: "vlive", preset: "complete", frontend: "vue" });
-      const vapp = readFileSync(
-        path.join(vdest, "frontend", "src", "App.vue"),
-        "utf8",
-      );
-      const vmain = readFileSync(
-        path.join(vdest, "frontend", "src", "main.ts"),
-        "utf8",
-      );
-      // L'adresse est écrite UNE fois, à l'installation du plugin — pas dans la
-      // page, qui n'a aucune raison de la connaître.
-      assert.include(vmain, '.use(nodefonyVue, { url: "/api/live/realtime" })');
-      assert.include(vapp, "useNodefony()");
-      assert.include(vapp, "useNodefonyState()");
-      assert.include(vapp, 'useNodefonyChannelData<LiveEvent>("live:events")');
-      assert.include(vapp, 'live.request("live:ping"');
-      assert.notInclude(vapp, "new WebSocket(");
-      // Les mêmes deux refus qu'en React, pour la même raison : sans eux, on
-      // retomberait au câblage manuel sans qu'aucun test ne tombe.
-      assert.notInclude(vapp, "NodefonySocket.shared(");
-      assert.notInclude(vapp, "connectShared(");
-      // Et ce que les composables font DISPARAÎTRE : la liste de libérations,
-      // qui est exactement l'endroit où un abonnement fuit sans se voir.
-      assert.notInclude(vapp, "offLive");
-
-      // Angular — fonctions d'injection `nodefony/angular`, et la MÊME forme
-      // qu'en React et en Vue : la politique reçoit l'adresse (ici un
-      // FOURNISSEUR d'injection, le vocabulaire d'Angular), une fonction par
-      // besoin, et RIEN à libérer. Le compte de concepts est le même.
-      const adest = path.join(tmp, "alive");
-      scaffold(adest, {
-        name: "alive",
-        preset: "complete",
-        frontend: "angular",
-      });
-      const aapp = readFileSync(
-        path.join(adest, "frontend", "src", "app", "app.component.ts"),
-        "utf8",
-      );
-      const amain = readFileSync(
-        path.join(adest, "frontend", "src", "main.ts"),
-        "utf8",
-      );
-      // L'adresse est écrite UNE fois, dans les providers — pas dans le
-      // composant, qui n'a aucune raison de la connaître.
-      assert.include(amain, 'provideNodefony({ url: "/api/live/realtime" })');
-      assert.include(aapp, "injectNodefony()");
-      assert.include(aapp, "injectNodefonyState()");
-      assert.include(
-        aapp,
-        'injectNodefonyChannelData<LiveEvent>("live:events")',
-      );
-      assert.include(aapp, '#live.request("live:ping"');
-      assert.notInclude(aapp, "new WebSocket(");
-      // Les mêmes refus qu'en React et en Vue : sans eux, on retomberait au
-      // câblage manuel sans qu'aucun test ne tombe.
-      assert.notInclude(aapp, "NodefonySocket.shared(");
-      assert.notInclude(aapp, "connectShared(");
-      // Et ce que la liaison fait DISPARAÎTRE : la liste de libérations, qui
-      // est exactement l'endroit où un abonnement fuit sans se voir.
-      assert.notInclude(aapp, "offLive");
-
-      // Svelte — liaisons `nodefony/svelte`, et la MÊME forme que les trois
-      // autres : la politique reçoit l'adresse (ici une configuration de
-      // module, Svelte n'ayant pas de contexte applicatif), une liaison par
-      // besoin, et RIEN à libérer.
-      const sdest2 = path.join(tmp, "slive2");
-      scaffold(sdest2, {
-        name: "slive2",
-        preset: "complete",
-        frontend: "svelte",
-      });
-      const sapp2 = readFileSync(
-        path.join(sdest2, "frontend", "src", "App.svelte"),
-        "utf8",
-      );
-      const smain2 = readFileSync(
-        path.join(sdest2, "frontend", "src", "main.ts"),
-        "utf8",
-      );
-      assert.include(
-        smain2,
-        'configureNodefony({ url: "/api/live/realtime" })',
-      );
-      assert.include(sapp2, "nodefony()");
-      assert.include(sapp2, "nodefonyState()");
-      assert.include(sapp2, 'nodefonyChannelData<LiveEvent>("live:events")');
-      assert.include(sapp2, 'live.request("live:ping"');
-      assert.notInclude(sapp2, "new WebSocket(");
-      assert.notInclude(sapp2, "NodefonySocket.shared(");
-      assert.notInclude(sapp2, "connectShared(");
-      assert.notInclude(sapp2, "offLive");
-
-      // Ce que les QUATRE doivent tenir en commun, une fois toutes migrées.
-      const vitrines: [string, string][] = [
-        ["react", path.join(rdest, "frontend", "src", "App.tsx")],
-        ["vue", path.join(vdest, "frontend", "src", "App.vue")],
+    it("pages minimales complete (#746, D4) : nom + connexion + compte, rien d'autre — 4 fronts", () => {
+      const pages: [string, string, string][] = [
+        [
+          "react",
+          path.join("frontend", "src", "App.tsx"),
+          path.join("frontend", "src", "main.tsx"),
+        ],
+        [
+          "vue",
+          path.join("frontend", "src", "App.vue"),
+          path.join("frontend", "src", "main.ts"),
+        ],
+        [
+          "svelte",
+          path.join("frontend", "src", "App.svelte"),
+          path.join("frontend", "src", "main.ts"),
+        ],
         [
           "angular",
-          path.join(adest, "frontend", "src", "app", "app.component.ts"),
+          path.join("frontend", "src", "app", "app.component.ts"),
+          path.join("frontend", "src", "main.ts"),
         ],
-        ["svelte", path.join(sdest2, "frontend", "src", "App.svelte")],
       ];
-      for (const [front, fichier] of vitrines) {
-        const src = readFileSync(fichier, "utf8");
-        // Le canal est le MÊME dans les quatre : c'est ce qui rend les pages
-        // comparables. La FORME de l'abonnement, elle, appartient à chaque
-        // liaison — l'exiger identique reviendrait à exiger un cinquième
-        // dialecte, ce que la grappe #54 a précisément supprimé.
-        assert.include(src, '"live:events"', `${front} : le bon canal`);
-        // Ce qui ne doit PLUS jamais revenir : la socket fabriquée à la main, le
-        // nom d'un événement local recopié, l'appariement subscribe/unsubscribe
-        // refait à la main — les trois recopies que #36 a supprimées.
-        assert.notInclude(
-          src,
-          "NodefonySocket.shared(",
-          `${front} : la socket ne se fabrique plus à la main`,
-        );
-        assert.notInclude(
-          src,
-          "__state__",
-          `${front} : un nom d'événement local ne se recopie pas`,
-        );
-        assert.notInclude(
-          src,
-          'live.subscribe("live:events")',
-          `${front} : l'abonnement est apparié par le socle`,
-        );
-        assert.notInclude(
-          src,
-          'live.unsubscribe("live:events")',
-          `${front} : le désabonnement est apparié par le socle`,
-        );
-        assert.notInclude(src, "new WebSocket(", `${front} : plus de ws brut`);
+      for (const [frontend, appRel, mainRel] of pages) {
+        const dest = path.join(tmp, `min-${frontend}`);
+        scaffold(dest, {
+          name: `min-${frontend}`,
+          preset: "complete",
+          frontend,
+        });
+        const page = readFileSync(path.join(dest, appRel), "utf8");
+        const main = readFileSync(path.join(dest, mainRel), "utf8");
+        // Le nom, la connexion vers la page du FRAMEWORK (jamais un `/login`
+        // littéral : `loginPage.path` peut changer), et le compte connecté.
+        assert.include(page, `min-${frontend}`, frontend);
+        assert.include(page, "loginPagePath(", frontend);
+        assert.include(page, ".me()", frontend);
+        assert.include(page, "identifier", frontend);
+        assert.notInclude(page, '"/login"', frontend);
+        // Ce qui part en PRODUCTION vers n'importe qui : rien de la vitrine.
+        for (const gone of [
+          "WebSocket",
+          "NodefonySocket",
+          "/api/",
+          '"/nodefony',
+          "pid",
+          "Version",
+        ]) {
+          assert.notInclude(page, gone, `${frontend} : ${gone}`);
+        }
+        // Aucun canal temps réel à configurer : plus de fournisseur d'adresse.
+        assert.notInclude(main, "/realtime", frontend);
+        assertNoEtaResidue(dest);
       }
     });
 
@@ -4028,10 +3931,11 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         path.join(sdest, "frontend", "src", "App.svelte"),
         "utf8",
       );
-      assert.include(sapp, "nodefony()");
-      assert.include(sapp, 'nodefonyChannelData<LiveEvent>("live:events")');
-      assert.include(sapp, "$state");
-      assert.notInclude(sapp, "new WebSocket(");
+      // Page minimale : la liaison de connexion en rune (`.current`), rien
+      // d'autre — aucune socket.
+      assert.include(sapp, "nodefonyLogin()");
+      assert.include(sapp, "login.state.current");
+      assert.notInclude(sapp, "WebSocket");
       const sentry = readFileSync(
         path.join(sdest, "frontend", "src", "main.ts"),
         "utf8",
@@ -4068,17 +3972,16 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
       assertNoEtaResidue(sdest);
 
-      // Minimal — echo WS brut (pas de realtime), compteur HMR.
+      // Minimal — sans sécurité : le nom, ni connexion ni socket.
       const mdest = path.join(tmp, "sapp");
       scaffold(mdest, { name: "sapp", preset: "minimal", frontend: "svelte" });
       const mapp = readFileSync(
         path.join(mdest, "frontend", "src", "App.svelte"),
         "utf8",
       );
-      assert.include(mapp, "new WebSocket(");
-      // La façade n'est pas IMPORTÉE en minimal (le commentaire du gabarit la
-      // MENTIONNE — c'est voulu : il pointe vers `create controller --kind realtime`).
-      assert.notInclude(mapp, "import { NodefonySocket }");
+      assert.include(mapp, "<h1>sapp</h1>");
+      assert.notInclude(mapp, "WebSocket");
+      assert.notInclude(mapp, "nodefonyLogin");
       assertNoEtaResidue(mdest);
     });
 
@@ -7494,11 +7397,18 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           .filter((e) => e.isFile())
           .map((e) => readFileSync(path.join(e.parentPath, e.name), "utf8"))
           .join("\n");
-        assert.include(
-          rendu,
-          liaison,
-          `${frontend} : la page générée n'importe pas la liaison du framework`,
-        );
+        // Depuis #746, la page commune est MINIMALE (le nom, la connexion
+        // quand la sécurité est là) : la liaison temps réel montrée en CODE
+        // vit dans la démo. Ce qui reste exigé : la MÊME page que `create app`,
+        // et jamais une socket à la main.
+        assert.include(rendu, "<h1>", `${frontend} : page minimale absente`);
+        if (rendu.includes("Se connecter")) {
+          assert.include(
+            rendu,
+            liaison,
+            `${frontend} : connexion sans la liaison du framework`,
+          );
+        }
         // La parenthèse vise l'APPEL : les gabarits nomment aussi
         // « new WebSocket » en PROSE, pour dire de ne pas l'écrire — une
         // assertion sur le mot seul tombe sur le commentaire qui l'interdit.

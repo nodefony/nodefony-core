@@ -1094,7 +1094,7 @@ export class NodefonySocket<
         '  Donne-la explicitement : NodefonySocket.shared({ url: "/api/live/realtime" })\n' +
         '  ou, en React : <NodefonyProvider url="/api/live/realtime">\n' +
         "  Il n'y a pas de valeur par défaut : la route dépend de ton application " +
-        "(une application générée monte /api/live/realtime, la console d'administration " +
+        "(`create controller live --kind realtime` monte /api/live/realtime, la console d'administration " +
         "/nodefony/studio/api/realtime).",
     );
   }

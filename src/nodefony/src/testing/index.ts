@@ -326,7 +326,7 @@ async function openSession(
  * ```ts
  * import { runningAppPort } from "nodefony/testing";
  *
- * const res = await fetch(`http://127.0.0.1:${runningAppPort()}/api/hello`);
+ * const res = await fetch(`http://127.0.0.1:${runningAppPort()}/livez`);
  * ```
  *
  * @param root - racine de l'application ; le répertoire courant par défaut,

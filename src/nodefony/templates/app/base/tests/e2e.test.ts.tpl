@@ -1,25 +1,22 @@
 <% if (it.hasSecurity) { %>import {
   ADMIN_PASSWORD,
+  adminLogin,
   appBaseUrl,
   isExternalTarget,
   isTlsTarget,
-} from "./e2e.setup";<% } else { %>import { appBaseUrl, isExternalTarget } from "./e2e.setup";<% } %>
-import { <% if (it.hasSecurity) { %>AUTH_LOGIN_PATH, <% } %>readRuntimeState } from "nodefony";
-<% if (it.complete) { %>// La façade temps réel isomorphe — côté Node, subpath `nodefony/client`.
-import { NodefonySocket } from "nodefony/client";
+} from "./e2e.setup";<% } else { %>import { appBaseUrl } from "./e2e.setup";<% } %>
+<% if (it.hasSecurity) { %>import { AUTH_LOGIN_PATH } from "nodefony";
 <% } %>import { describe, it, expect, beforeAll } from "vitest";
-import { z } from "zod";
+<% if (!it.front) { %>import { z } from "zod";
 
-// Ce que l'application PROMET de répondre. `parse` vérifie la forme reçue : une
-// réponse qui dévie fait échouer le test en nommant le champ fautif, là où une
-// conversion de type aurait laissé passer n'importe quoi jusqu'à l'assertion.
-const HelloBody = z.object({ hello: z.string(), pid: z.number() });
-const EchoFrame = z.object({ echo: z.string().optional() });
-<% if (it.complete) { %>const PongBody = z.object({ pong: z.boolean() });
-const LiveMessage = z.object({ text: z.string(), pid: z.number() });
+// Ce que l'application PROMET de répondre à sa racine — et RIEN de plus.
+// `strictObject` refuse toute clé en trop : une version du framework remise
+// dans la réponse ferait échouer ce cas en nommant le champ (empreinte offerte
+// à un attaquant, et valeur figée à la création, donc fausse après mise à jour).
+const HomeBody = z.strictObject({ app: z.literal("<%= it.appName %>") });
 <% } %>
 /**
- * Test E2E — parle en HTTP + WebSocket à l'application RÉELLE (mode production).
+ * Test E2E — parle en HTTP à l'application RÉELLE (mode production).
  *
  * Seule porte d'entrée : `npm run test:e2e` (build d'abord : un serveur spawné
  * valide le DIST, pas le source). Ce fichier est EXCLU de `vitest.config.ts` et
@@ -28,16 +25,14 @@ const LiveMessage = z.object({ text: z.string(), pid: z.number() });
  *
  * Le démarrage et l'arrêt de l'application vivent dans `tests/e2e.setup.ts`
  * (une fois pour toute la suite), pas ici.
- * Client WebSocket = `WebSocket` NATIF Node (≥ 22) — zéro dépendance de test.
  *
  * Le port n'est PAS écrit en dur : le serveur publie ses ports effectifs
  * (`runningAppPort`) — un test qui suppose 5151 casse dès que l'app déclare son
  * port (`NF_PORT`, `PORT` en PaaS) ou qu'un port occupé l'a fait glisser en dev.
  */
 let BASE = "http://127.0.0.1:5151";
-let WS_BASE = "ws://127.0.0.1:5151";
 
-describe("e2e — l'app boote et répond (HTTP + WS)", () => {
+describe("e2e — l'app boote et répond", () => {
   beforeAll(() => {
     // Le serveur est PRÊT (le setup global n'est sorti qu'après la readiness) :
     // ses ports sont publiés. Le premier est celui du serveur en clair (une app
@@ -46,80 +41,38 @@ describe("e2e — l'app boote et répond (HTTP + WS)", () => {
     // recomposer ici ferait interroger le serveur local pendant qu'on croit
     // mesurer le déploiement visé.
     BASE = appBaseUrl();
-    // `ws`/`wss` se DÉRIVE du scheme : viser `ws://` sur un frontal en TLS
-    // échoue à la poignée de main, et l'erreur accuse la route.
-    WS_BASE = BASE.replace(/^http/u, "ws");
   });
 
-  it("GET /api/hello → 200 + payload JSON", async () => {
-    const res = await fetch(`${BASE}/api/hello`);
+<% if (it.front) { %>  it("GET / → 200, la page de l'application", async () => {
+    const res = await fetch(`${BASE}/`);
     expect(res.status).toBe(200);
-    const body = HelloBody.parse(await res.json());
-    expect(body.hello).toBe("<%= it.appName %>");
-    expect(body.pid).toBeGreaterThan(0);
+    expect(res.headers.get("content-type") ?? "").toMatch(/text\/html/u);
   });
-
-  it("WS /api/echo → echo du message (même controller que le HTTP)", async () => {
-    const ws = new WebSocket(`${WS_BASE}/api/echo`);
-    const echoed = await new Promise<unknown>((resolve, reject) => {
-      const timer = setTimeout(
-        () => reject(new Error("timeout WS 10s")),
-        10_000,
-      );
-      ws.addEventListener("open", () => ws.send("ping-e2e"));
-      ws.addEventListener("message", (event) => {
-        const frame = EchoFrame.safeParse(JSON.parse(String(event.data)));
-        // Le handshake du controller peut répondre d'abord — on attend l'echo.
-        if (frame.success && frame.data.echo !== undefined) {
-          clearTimeout(timer);
-          resolve(frame.data);
-        }
-      });
-      ws.addEventListener("error", () => reject(new Error("erreur WS")));
-    });
-    ws.close();
-    expect(echoed).toEqual({ echo: "ping-e2e" });
+<% } else { %>  it("GET / → exactement { app } : le nom, sans version", async () => {
+    const res = await fetch(`${BASE}/`);
+    expect(res.status).toBe(200);
+    HomeBody.parse(await res.json());
   });
-
+<% } %>
   it("probe cloud-native /livez → 200 (celle qu'interroge k8s)", async () => {
     const res = await fetch(`${BASE}/livez`);
     expect(res.status).toBe(200);
   });
-<% if (it.complete) { %>
-  it("realtime — RPC live:ping + aller-retour sur le canal live:events", async () => {
-    // La MÊME façade que les vitrines navigateur — zéro `ws` à la main.
-    const live = new NodefonySocket({ url: `${WS_BASE}/api/live/realtime` });
-    try {
-      // Listener posé AVANT subscribe : le fournisseur démarre au 1ᵉʳ abonné.
-      const receivedP = new Promise<unknown>((resolve, reject) => {
-        const timer = setTimeout(
-          () => reject(new Error("timeout canal 10s")),
-          10_000,
-        );
-        live.on("live:events", (msg) => {
-          clearTimeout(timer);
-          resolve(msg);
-        });
-      });
-      await live.connect();
-      // Action OUVERTE ({ authenticated: false }) — répond même anonyme.
-      const pong = PongBody.parse(await live.request("live:ping", {}));
-      expect(pong.pong).toBe(true);
-      // Canal libre. Il ne bat PAS tout seul : il parle quand il se passe
-      // quelque chose — ici, ce que cette connexion envoie et que toutes
-      // reçoivent. C'est ce partage qui fait l'intérêt d'une socket, pas un
-      // battement qui coûterait une trame par seconde et par client.
-      live.subscribe("live:events");
-      live.emit("live:say", { text: "bonjour e2e" });
-      const received = LiveMessage.parse(await receivedP);
-      expect(received.text).toBe("bonjour e2e");
-      expect(received.pid).toBeGreaterThan(0);
-    } finally {
-      // Le nettoyage vit dans le `finally` : une assertion qui tombe ne doit
-      // jamais laisser une socket ouverte derrière le run.
-      live.disconnect();
-    }
-  }, 15_000);
+<% if (it.hasSecurity) { %>
+  // `/api` est FERMÉ par défaut (zone `main` sans `anonymous`) : une route
+  // ajoutée demain sous ce préfixe naît protégée. Le chemin ci-dessous n'a
+  // AUCUNE route — c'est le point : le refus vient du pare-feu, avant tout
+  // controller, et vaut pour ce qui n'existe pas encore.
+  it("/api fermé : sans session → 401, avec session → franchit le pare-feu", async () => {
+    const anonymous = await fetch(`${BASE}/api/route-pas-encore-ecrite`);
+    expect(anonymous.status).toBe(401);
+    const cookie = await adminLogin();
+    const authenticated = await fetch(`${BASE}/api/route-pas-encore-ecrite`, {
+      headers: { cookie },
+    });
+    // 404 : le pare-feu a laissé passer, et le routeur dit « aucune route ».
+    expect(authenticated.status).toBe(404);
+  });
 <% } %><% if (it.hasSecurity) { %>
   // Un saut MUET se lit comme un vert : la raison s'affiche, comme le fait la
   // suite des migrations quand la cible devient externe.

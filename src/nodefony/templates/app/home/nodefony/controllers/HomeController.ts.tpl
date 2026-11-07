@@ -28,10 +28,11 @@ class HomeController extends Controller {
 
   @route("app-home", { path: "/", method: "GET" })
   async home() {
-    return this.renderJson({
-      app: "<%= it.appName %>",
-      nodefony: "<%= it.nodefonyVersion %>",
-    });
+    // Le NOM, rien d'autre. Pas de version du framework : un littéral figé à
+    // la création deviendrait faux à la première mise à jour, et une version
+    // exposée est une empreinte offerte à qui cherche une faille connue. La
+    // vraie version se demande au terminal : `npx nodefony card`.
+    return this.renderJson({ app: "<%= it.appName %>" });
   }
 }
 

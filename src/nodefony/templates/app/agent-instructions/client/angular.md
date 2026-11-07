@@ -5,13 +5,13 @@
   rendent des `Signal`, et libèrent l'abonnement avec le contexte :
 
 ```ts
-// frontend/src/main.ts — ce que l'entrée générée fait déjà
+// frontend/src/main.ts — un controller `--kind realtime` (orders)
 import { bootstrapApplication } from "@angular/platform-browser";
 import { provideNodefony } from "nodefony/angular";
 import { AppComponent } from "./app/app.component";
 
 bootstrapApplication(AppComponent, {
-  providers: [provideNodefony({ url: "/api/live/realtime" })],
+  providers: [provideNodefony({ url: "/api/orders/realtime" })],
 });
 ```
 
@@ -22,7 +22,7 @@ import { injectNodefonyChannelData } from "nodefony/angular";
 
 @Component({ selector: "app-live", template: `<p>{{ last()?.message }}</p>` })
 export class LiveComponent {
-  last = injectNodefonyChannelData<{ message: string }>("live:events");
+  last = injectNodefonyChannelData<{ message: string }>("orders:events");
 }
 ```
 

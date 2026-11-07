@@ -4,17 +4,17 @@
   toucher à la socket, et l'abonnement se libère au démontage :
 
 ```tsx
-// frontend/src/App.tsx — ce que l'écran d'accueil généré fait déjà
+// frontend/src/App.tsx — un controller `--kind realtime` (orders)
 import { NodefonyProvider, useNodefonyChannelData } from "nodefony/react";
 
 function Live() {
-  const last = useNodefonyChannelData<{ message: string }>("live:events");
+  const last = useNodefonyChannelData<{ message: string }>("orders:events");
   return <p>{last?.message ?? "en attente…"}</p>;
 }
 
 export function App() {
   return (
-    <NodefonyProvider url="/api/live/realtime">
+    <NodefonyProvider url="/api/orders/realtime">
       <Live />
     </NodefonyProvider>
   );

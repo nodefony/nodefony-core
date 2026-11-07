@@ -37,8 +37,8 @@ export const APP_KEYCLOAK_THEME_DIR = `${APP_KEYCLOAK_THEMES_DIR}/${KEYCLOAK_THE
 const APP_SECURITY_CONFIG_FILE = "nodefony/config/security.ts";
 
 /**
- * Ressource de l'API partenaire d'une application neuve en développement :
- * ce que rend `partnerResource()` du gabarit `complete` sans `NF_JWT_ISSUER`
+ * Ressource de l'API partenaire de la démo en développement :
+ * ce que rend `partnerResource()` de la démo sans `NF_JWT_ISSUER`
  * ni `NF_PORT_HTTPS` — le port HTTPS par défaut, comme les URL de retour du
  * realm. Deux paquets, une valeur : le test de contribution compare le
  * gabarit rendu à cette constante.
@@ -147,6 +147,12 @@ export function devMachineSecret(appName: string): string {
  * rôle client `admin` (`roleMapping: { admin: "ROLE_ADMIN" }`), et les
  * audiences des zones `external-jwt` que la configuration rendue déclare.
  *
+ * Le client « machine » (`<app>-machine`, `client_credentials`) n'existe que
+ * s'il a une audience à recevoir : une application neuve n'ouvre aucune zone à
+ * jeton tiers (#746), et un client que rien n'accepte serait un secret de plus
+ * à garder pour rien. La démo, qui apporte l'API entre programmes, le fait
+ * naître en déclarant sa ressource.
+ *
  * @param appName - nom de l'application (= realm = identifiant de client)
  * @param themes - types de thème à déclarer
  * @param ids - `sub` des comptes de démonstration, FIXÉS dans le fichier :
@@ -189,13 +195,16 @@ export function appDevRealmInput(
       },
     ],
     realmRoles: [],
-    machine: {
-      clientId: `${appName}-machine`,
-      secret: devMachineSecret(appName),
-      name: `${appName} — appelant machine (compte de service)`,
-      description:
-        "Appelant machine : obtient un jeton d'accès par client_credentials, sans utilisateur. Secret PUBLIC, jamais en production.",
-    },
+    machine:
+      audiences.length === 0
+        ? null
+        : {
+            clientId: `${appName}-machine`,
+            secret: devMachineSecret(appName),
+            name: `${appName} — appelant machine (compte de service)`,
+            description:
+              "Appelant machine : obtient un jeton d'accès par client_credentials, sans utilisateur. Secret PUBLIC, jamais en production.",
+          },
     themes: Object.fromEntries(
       themes.map((type) => [type, KEYCLOAK_THEME_NAME]),
     ),
@@ -236,11 +245,12 @@ function mountsKeycloak(context: IAppContributionContext): boolean {
 }
 
 /**
- * Les audiences que la configuration RENDUE de l'application déclare. Le
- * gabarit `complete` ouvre la zone `partner` (`jwt` + `external-jwt`) : sans
- * son audience dans le realm, le jeton du client machine y est refusé dès le
- * premier essai, et `security:keycloak:realm --check` trouve le realm né en
- * désaccord avec la configuration.
+ * Les audiences que la configuration RENDUE de l'application déclare. Une
+ * application neuve n'en déclare aucune ; la démo ouvre la zone `partner`
+ * (`jwt` + `external-jwt`) par `partnerResource` : sans son audience dans le
+ * realm, le jeton du client machine y serait refusé dès le premier essai, et
+ * `security:keycloak:realm --check` trouverait le realm né en désaccord avec
+ * la configuration.
  *
  * @param context - contexte de contribution
  * @returns les ressources à inscrire dans les jetons du realm

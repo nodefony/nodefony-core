@@ -117,9 +117,7 @@ describe("les routes de connexion des gabarits sont celles que le cœur nomme", 
         version,
       );
       const e2e = read(dest, "e2e.test.ts");
-      expect(e2e).toMatch(
-        /^import \{ AUTH_LOGIN_PATH, readRuntimeState \} from "nodefony";$/mu,
-      );
+      expect(e2e).toMatch(/^import \{ AUTH_LOGIN_PATH \} from "nodefony";$/mu);
       expect(e2e).toContain("${AUTH_LOGIN_PATH}");
       // Ni le test ni son décor ne gardent de copie de la route.
       expect(e2e).not.toMatch(HAS_LOGIN_ROUTE);
@@ -139,7 +137,8 @@ describe("les routes de connexion des gabarits sont celles que le cœur nomme", 
       );
       const e2e = read(dest, "e2e.test.ts");
       expect(e2e).not.toContain("AUTH_LOGIN_PATH");
-      expect(e2e).toMatch(/^import \{ readRuntimeState \} from "nodefony";$/mu);
+      // `readRuntimeState` était importé sans servir : plus aucun import du cœur.
+      expect(e2e).not.toMatch(/from "nodefony";$/mu);
     });
   });
 });

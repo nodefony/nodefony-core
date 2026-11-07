@@ -133,8 +133,7 @@ npm run infra:up     # docker : Redis + <%= it.db.label %> — AVANT l'app<% } %
 npm run dev
 ```
 
-- `http://127.0.0.1:5151/api/hello` — ta première route, celle que tu iras lire en premier.<% if (it.front) { %>
-- `http://127.0.0.1:5151/` — ton application <%= it.frontend %>, rechargée à chaud pendant que tu écris.<% } %><% if (it.complete) { %>
+<% if (it.front) { %>- `http://127.0.0.1:5151/` — ton application <%= it.frontend %>, rechargée à chaud pendant que tu écris.<% } else { %>- `http://127.0.0.1:5151/` — ta racine : `{ "app": "<%= it.appName %>" }`, le nom et rien d'autre.<% } %><% if (it.complete) { %>
 - `http://127.0.0.1:5151/nodefony` — **Studio**, la console d'administration.<% } %>
 
 <% if (it.complete) { %>> **Le compte d'administration existe déjà** : `admin` / `<%= it.devAdminPassword %>`. Il
@@ -151,21 +150,24 @@ npm run dev
 > `compose.yaml`<% } else { %>sans aucune base déclarée, l'ORM Drizzle crée une sqlite locale
 > (`var/databases/`)<% } %> — comptes, sessions et jetons survivent aux redémarrages.
 <% } %>
-## Visite guidée — ce que l'app démontre
+## Ce que l'application contient — et ce qu'elle ne contient pas
 
-- **Route HTTP** — `curl http://127.0.0.1:5151/api/hello`
-- **WebSocket, _même controller_** — `npx wscat -c ws://127.0.0.1:5151/api/echo` puis tape un message
-<% if (it.front) { %>- **Frontend <%= it.frontend %> (Vite + HMR)** — http://127.0.0.1:5151/ — l'app fetch le backend via `/api`
-<% } %><% if (it.complete) { %>- **Studio (console admin, dev)** — http://127.0.0.1:5151/nodefony — config, sessions, logs, routes
+Une application GÉNÉRIQUE : ce qui est ici, tu le gardes. Aucun exemple à
+supprimer avant d'écrire ton premier controller.
+
+<% if (it.front) { %>- **Frontend <%= it.frontend %> (Vite + HMR)** — http://127.0.0.1:5151/ — une page minimale, la tienne<% if (it.complete) { %> : le nom de l'application, la connexion, le compte connecté<% } %>
+<% } %><% if (it.complete) { %>- **Sécurité FERMÉE par défaut** — sans session, toute route sous `/api` répond 401 avant ton controller ; une route publique se DÉCLARE (`nodefony/config/security.ts`)
+- **Connexion** — `/login`, servie par le framework ; zones `secure` (rôle exigé), `machine` (clé d'API) et `service` (jeton) prêtes, sans controller
+- **Studio (console admin, dev)** — http://127.0.0.1:5151/nodefony — config, sessions, logs, routes
 - **ORM + persistance** — Drizzle : sans `NF_DATABASE_URL`, sqlite locale automatique
 - **Firewall + audit** — chaque requête traverse le pipeline sécurité (logs `audit`)
-- **Temps réel — socket Nodefony** — `nodefony/controllers/LiveController.ts` : canal `live:events` (alimenté par `live:say`, jamais par une horloge) + RPC `live:ping`<% if (it.front) { %> — la carte « Temps réel » de la page d'accueil le consomme par la façade client<% } %>
 - **Redis (opt-in)** — `NF_REDIS_URL` présente ⇔ module chargé, stores basculent dessus
 <% } %>- **Probes cloud-native** — `curl http://127.0.0.1:5151/livez` (liveness k8s)
 
-Le différenciateur Nodefony tient dans `nodefony/controllers/HelloController.ts` :
-**une route GET et une route WEBSOCKET dans la même classe** — même pipeline,
-pas deux mondes séparés.
+Ton premier controller : `npx nodefony create controller hello --kind hello`
+génère **une route GET et une route WEBSOCKET dans la même classe** — même
+pipeline, pas deux mondes séparés. `npx nodefony create --help` liste les
+autres générateurs (REST, temps réel, MCP, entité, service, commande).
 <% if (it.complete) { %>
 ## Le framework se regarde tourner
 
@@ -251,7 +253,7 @@ image, **sans aucun port publié**, et un frontal nginx devant :
 ```bash
 npx nodefony http:certificates            # une fois — le certificat de développement
 docker compose --profile edge up -d --build
-curl -k https://localhost:8443/api/hello
+curl -k https://localhost:8443/livez
 ```
 
 La configuration du frontal n'est pas écrite : elle est **dérivée de ton

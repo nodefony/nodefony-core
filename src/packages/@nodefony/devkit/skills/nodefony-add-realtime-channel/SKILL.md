@@ -76,13 +76,17 @@ npx nodefony create controller Room --kind realtime
 Produit une sous-classe de `RealtimeController`, avec un canal de démonstration, une action, une
 entrée client, et **son test** (`createRealtimeHarness`). Nomme le contrôleur par son USAGE
 (`RoomChat`, `Arena`), pas par une entité : `create entity Room` après `create controller Room`
-est refusé (nom déjà référencé). Une application générée sert déjà `/api/live/realtime`
-(`LiveController`, canal `live:events`) : c'est le canal public témoin, il doit continuer de
-répondre après ta modification.
+est refusé (nom déjà référencé).
+
+🔴 **`/api` est FERMÉ dans une application générée** (zone `main` sans `anonymous`) : sans
+session, l'ouverture de `/api/room/realtime` reçoit 401 — et un WebSocket refusé ne LÈVE rien
+côté client, il attend puis expire. Un canal qui « ne répond jamais » se cherche donc dans la
+zone avant le réseau. Canal public voulu : une zone au pattern ÉNUMÉRÉ terminé par `(/|$)`
+(skill `nodefony-protect-route`), jamais `anonymous` remis sur `main`.
 
 **Le client ouvre la socket du contrôleur qui DÉCLARE ses canaux** — `/api/room/realtime` pour
 `create controller Room`. Une socket ne sert que les canaux de SON contrôleur : ouvert sur
-`/api/live/realtime`, `room:42` est refusé (`unknown`). Pour une seule socket par page, regroupe
+`/api/arena/realtime`, `room:42` est refusé (`unknown`). Pour une seule socket par page, regroupe
 les canaux dans un même contrôleur ; seul `user:<id>` est fourni par toutes.
 
 **N'écris ni `new WebSocket(...)` côté serveur, ni `ws.on(...)`, ni un `WebSocketServer`** : le
