@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-07T14:19:24.649Z",
+  "generatedAt": "2026-11-07T14:27:15.360Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 240,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 14,
+      "open": 16,
       "title": "10.0.0-beta"
     },
     {
@@ -6640,6 +6640,38 @@
       "ordre": 7.12,
       "debut": "2026-11-23",
       "cible": "2026-11-23",
+      "labels": [
+        "beta-7"
+      ]
+    },
+    {
+      "number": 746,
+      "title": "refactor(scaffold): retirer les exemples de l'application générée",
+      "url": "https://github.com/nodefony/nodefony-core/issues/746",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 7.13,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-7"
+      ]
+    },
+    {
+      "number": 747,
+      "title": "feat(scaffold): livrer une démo légère, copiée dans l'application sur demande",
+      "url": "https://github.com/nodefony/nodefony-core/issues/747",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 7.14,
+      "debut": null,
+      "cible": null,
       "labels": [
         "beta-7"
       ]
