@@ -201,7 +201,7 @@ const TYPE_DOC: Record<TScaffoldType, ITypeDoc> = {
       },
       {
         term: "nodefony create controller mcp --kind mcp --expose oauth",
-        text: "une porte MCP de production sur /api/mcp, jeton exigé",
+        text: "une porte MCP de production sur /mcp, jeton exigé",
       },
     ],
   },

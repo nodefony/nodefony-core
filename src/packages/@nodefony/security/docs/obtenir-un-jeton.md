@@ -246,7 +246,7 @@ audiences: ctx.isProd
   ? []
   : [
       // … les audiences du gabarit
-      `${publicBaseUrl(ctx.env)}/api/mcp`,
+      `${publicBaseUrl(ctx.env)}/mcp`,
     ],
 ```
 

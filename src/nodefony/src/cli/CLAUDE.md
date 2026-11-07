@@ -753,7 +753,10 @@ défaut `/api/<kebab>` (couverte par la zone firewall du manifeste généré). N
 fichiers de templates : token `__NAME__` (`templates/controller/<kind>/.../__NAME__.ts.tpl`).
 
 **`--kind mcp [--expose local|oauth|mixte]`** — la porte MCP d'APPLICATION (#602) : controller mince
-(`gate.serve`), `nodefony/mcp/<kebab>-gate.ts` (`defineMcpGate`, liste EXPLICITE d'outils —
+(`gate.serve`), route défaut **`/mcp/<kebab>`** (`/mcp` pour une porte nommée `mcp`) — HORS de
+`/api`, que le pare-feu de session ferme et où il répondrait avant la porte un 401 sans défi
+RFC 9728 ; hors zone comme `/nodefony/mcp`, jamais par `bypassFirewall` (réservé au cœur, gate de
+conformité du banc), `nodefony/mcp/<kebab>-gate.ts` (`defineMcpGate`, liste EXPLICITE d'outils —
 jamais `"modules"`, qui publierait par héritage), `<kebab>-tools.ts` (deux exemples : lecture
 courte, opération longue avec progression/annulation), `tests/<kebab>-gate.test.ts`
 (`gate.respond`, sans serveur). `oauth` ajoute `allowRemote`, `authorization` (émetteur ET

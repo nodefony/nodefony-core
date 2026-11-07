@@ -5281,13 +5281,14 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
       // Le controller SERT la porte, il ne la définit pas : aucune ligne de
       // protocole, aucun contrôle d'accès dans la classe.
-      assert.include(ctrl, '@controller("/api/mcp")');
+      assert.include(ctrl, '@controller("/mcp")');
       assert.include(ctrl, "mcpGate.serve(this, input.body)");
       // Schéma VIDE : entrée brute, la porte valide sa trame dans SON protocole.
       assert.include(ctrl, "schema: {},");
-      // La porte EST son authentification : sous `/api` fermé (#746), le
-      // pare-feu de session lui volerait le refus (401 sans défi RFC 9728).
-      assert.include(ctrl, "bypassFirewall: true,");
+      // Hors de `/api` (fermé, #746) et SANS `bypassFirewall` : la porte vit
+      // hors de toute zone, comme `/nodefony/mcp`, et reste seule juge de
+      // l'accès. `bypassFirewall` est réservé au cœur (banc de conformité).
+      assert.notInclude(ctrl, "bypassFirewall");
       assert.include(ctrl, 'methods: ["POST", "GET", "DELETE"]');
       const gate = readFileSync(at("nodefony", "mcp", "mcp-gate.ts"), "utf8");
       assert.include(gate, 'import { defineMcpGate } from "@nodefony/ai"');
@@ -5333,7 +5334,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         name: "agent",
         kind: "mcp",
         expose: "oauth",
-        route: "/api/mcp",
+        route: "/mcp",
       });
       const at = (...p: string[]) => path.join(dest, ...p);
       const gate = codeOnly(
@@ -5347,7 +5348,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(gate, "authorizationServers: [publicBaseUrl(env)]");
       assert.include(gate, "resource: agentGateResource(env)");
       assert.include(gate, "allowRemote: true");
-      assert.include(gate, "`${publicBaseUrl(e)}/api/mcp`");
+      assert.include(gate, "`${publicBaseUrl(e)}/mcp`");
       const service = readFileSync(
         at("nodefony", "service", "AgentGateService.ts"),
         "utf8",
@@ -5358,7 +5359,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.match(index, /@services\(\[[^\]]*AgentGateService\]\)/u);
       const test = readFileSync(at("tests", "agent-gate.test.ts"), "utf8");
       assert.include(test, "status: 401");
-      assert.include(test, "\\/api\\/mcp$/u");
+      assert.include(test, "/\\/mcp$/u");
       // Porte protégée : l'exemple d'un outil qui agit au nom du compte.
       const agentTools = codeOnly(
         readFileSync(at("nodefony", "mcp", "agent-tools.ts"), "utf8"),
@@ -5370,7 +5371,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const notes = (r.notes ?? []).join("\n");
       // Écrite SUR PLACE : importer la fonction de la porte dans security.ts
       // ferait un cycle, et `publicBaseUrl` serait lu avant sa définition.
-      assert.include(notes, "`${publicBaseUrl(ctx.env)}/api/mcp`");
+      assert.include(notes, "`${publicBaseUrl(ctx.env)}/mcp`");
       assert.notInclude(notes, "agentGateResource(ctx.env)");
       assert.include(notes, "NF_JWT_ISSUER");
       assertNoEtaResidue(dest);

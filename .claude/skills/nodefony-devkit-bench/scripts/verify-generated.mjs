@@ -2258,11 +2258,11 @@ function frapperPortesMcp() {
         params: { name: outil, arguments: { text: "bonjour-banc" } } }),
     });
     const echec = (m) => { console.error(m); process.exit(1); };
-    const locale = await appel(${PORTS.NF_PORT}, "/api/${MCP_LOCAL}");
+    const locale = await appel(${PORTS.NF_PORT}, "/mcp/${MCP_LOCAL}");
     const texte = await locale.text();
     if (locale.status !== 200 || !texte.includes("bonjour-banc"))
       echec("porte locale → " + locale.status + " " + texte.slice(0, 300));
-    const protegee = await appel(${PORTS.NF_PORT}, "/api/${MCP_OAUTH}");
+    const protegee = await appel(${PORTS.NF_PORT}, "/mcp/${MCP_OAUTH}");
     const defi = protegee.headers.get("www-authenticate") ?? "";
     if (protegee.status !== 401)
       echec("porte protégée SANS jeton → " + protegee.status + " (401 attendu)");
@@ -2270,15 +2270,15 @@ function frapperPortesMcp() {
     if (!meta) echec("défi sans resource_metadata : " + defi);
     const doc = await fetch(meta);
     const corps = await doc.text();
-    if (doc.status !== 200 || !corps.includes("/api/${MCP_OAUTH}"))
+    if (doc.status !== 200 || !corps.includes("/mcp/${MCP_OAUTH}"))
       echec("document RFC 9728 (" + meta + ") → " + doc.status + " " + corps.slice(0, 300));
     // La porte MIXTE : sans jeton, l'outil public répond ; l'outil réservé
     // n'existe pas pour l'appelant — servi en 200, jamais en 401.
-    const publique = await appel(${PORTS.NF_PORT}, "/api/${MCP_MIXTE}", "${MCP_MIXTE}_echo");
+    const publique = await appel(${PORTS.NF_PORT}, "/mcp/${MCP_MIXTE}", "${MCP_MIXTE}_echo");
     const textePublic = await publique.text();
     if (publique.status !== 200 || !textePublic.includes("bonjour-banc"))
       echec("porte mixte, outil public SANS jeton → " + publique.status + " " + textePublic.slice(0, 300));
-    const reservee = await appel(${PORTS.NF_PORT}, "/api/${MCP_MIXTE}", "${MCP_MIXTE}_batch");
+    const reservee = await appel(${PORTS.NF_PORT}, "/mcp/${MCP_MIXTE}", "${MCP_MIXTE}_batch");
     const texteReserve = await reservee.text();
     if (!texteReserve.includes("outil inconnu"))
       echec("porte mixte, outil RÉSERVÉ servi SANS jeton → " + reservee.status + " " + texteReserve.slice(0, 300));
@@ -2706,16 +2706,16 @@ step(
       source.replace(
         ancre,
         (m) =>
-          `${m}\n            \`\${publicBaseUrl(ctx.env)}/api/${MCP_OAUTH}\`,` +
-          `\n            \`\${publicBaseUrl(ctx.env)}/api/${MCP_MIXTE}\`,`,
+          `${m}\n            \`\${publicBaseUrl(ctx.env)}/mcp/${MCP_OAUTH}\`,` +
+          `\n            \`\${publicBaseUrl(ctx.env)}/mcp/${MCP_MIXTE}\`,`,
       ),
     );
     run("npm", ["run", "build"]);
-    const ressource = `https://localhost:${PORTS.NF_PORT_HTTPS}/api/${MCP_OAUTH}`;
+    const ressource = `https://localhost:${PORTS.NF_PORT_HTTPS}/mcp/${MCP_OAUTH}`;
     try {
       run(process.execPath, [BIN, "development", "--detach", "--wait"]);
       const jeton = jetonPour(ressource);
-      const ouvert = appelMcp(`/api/${MCP_OAUTH}`, `${MCP_OAUTH}_echo`, jeton);
+      const ouvert = appelMcp(`/mcp/${MCP_OAUTH}`, `${MCP_OAUTH}_echo`, jeton);
       if (ouvert.status !== 200 || !ouvert.body.includes("jeton-banc"))
         throw new Error(
           `jeton de l'application REFUSÉ par sa propre porte → ${ouvert.status} ${ouvert.body.slice(0, 300)}`,
@@ -2725,7 +2725,7 @@ step(
       const autre = jetonPour(
         `https://localhost:${PORTS.NF_PORT_HTTPS}/nodefony/mcp`,
       );
-      const rejoue = appelMcp(`/api/${MCP_OAUTH}`, `${MCP_OAUTH}_echo`, autre);
+      const rejoue = appelMcp(`/mcp/${MCP_OAUTH}`, `${MCP_OAUTH}_echo`, autre);
       if (rejoue.status !== 401)
         throw new Error(
           `jeton d'une AUTRE audience servi → ${rejoue.status} (401 attendu)`,
@@ -2777,9 +2777,9 @@ step(
       // et ne l'ouvre pas ; le scope l'ouvre. Jetons émis APRÈS la rotation :
       // ils portent le mot de passe courant. `batches: 1` — l'outil refuse un
       // argument qu'il ne déclare pas (`text`).
-      const mixte = `https://localhost:${PORTS.NF_PORT_HTTPS}/api/${MCP_MIXTE}`;
+      const mixte = `https://localhost:${PORTS.NF_PORT_HTTPS}/mcp/${MCP_MIXTE}`;
       const sansScope = appelMcp(
-        `/api/${MCP_MIXTE}`,
+        `/mcp/${MCP_MIXTE}`,
         `${MCP_MIXTE}_batch`,
         jetonPour(mixte),
         { batches: 1 },
@@ -2789,7 +2789,7 @@ step(
           `porte mixte : outil réservé ouvert par un jeton SANS son scope → ${sansScope.status} ${sansScope.body.slice(0, 300)}`,
         );
       const avecScope = appelMcp(
-        `/api/${MCP_MIXTE}`,
+        `/mcp/${MCP_MIXTE}`,
         `${MCP_MIXTE}_batch`,
         jetonPour(mixte, `${MCP_MIXTE}:write`),
         { batches: 1 },
@@ -2803,7 +2803,7 @@ step(
       // la requête avant le handler. Le test généré l'éprouve sur des doubles ;
       // seul ce tir prouve le câblage de l'application installée.
       const moi = appelMcp(
-        `/api/${MCP_MIXTE}`,
+        `/mcp/${MCP_MIXTE}`,
         `${MCP_MIXTE}_me`,
         jetonPour(mixte, `${MCP_MIXTE}:read`),
         {},
@@ -2816,7 +2816,7 @@ step(
         throw new Error(
           `porte mixte : l'outil actsForUser n'a pas agi au nom du propriétaire du jeton → ${moi.status} ${moi.body.slice(0, 300)}`,
         );
-      const revoque = appelMcp(`/api/${MCP_OAUTH}`, `${MCP_OAUTH}_echo`, jeton);
+      const revoque = appelMcp(`/mcp/${MCP_OAUTH}`, `${MCP_OAUTH}_echo`, jeton);
       if (revoque.status !== 401)
         throw new Error(
           `jeton RÉVOQUÉ encore servi → ${revoque.status} (401 attendu)`,

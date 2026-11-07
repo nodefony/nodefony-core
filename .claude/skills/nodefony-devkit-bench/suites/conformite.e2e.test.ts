@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
+import { WebSocket as WsClient } from "ws";
 import { readRuntimeState } from "nodefony";
 import { csrfHeaders } from "nodefony/testing";
 import { inspect, routesParChemin, type RouteInspectee } from "./harness";
@@ -426,14 +427,23 @@ describe("e2e — HTTP et WebSocket, le même contexte", () => {
       (r) => r.methods.includes("WEBSOCKET") && !r.path.includes("{"),
     );
     if (ws === undefined) return;
-    const socket = new WebSocket(`${WS_BASE}${ws.path}`);
+    // Avec la session quand l'application en a une : `/api` naît FERMÉ (#746),
+    // et un handshake refusé ne lève rien côté client — la socket ne s'ouvre
+    // jamais, et ce cas jugerait le pare-feu au lieu du câblage. Même doctrine
+    // que le cycle CRUD : s'authentifier par défaut, ne pas pousser à ouvrir.
+    // Client `ws` et non le `WebSocket` global : seul lui pose un en-tête
+    // `cookie` au handshake. Il est là dans toute application générée — c'est
+    // une dépendance d'exécution de `@nodefony/http`.
+    const socket = new WsClient(`${WS_BASE}${ws.path}`, {
+      headers: cookieAdmin === null ? {} : { cookie: cookieAdmin },
+    });
     const ouvert = await new Promise<boolean>((resolve) => {
       const timer = setTimeout(() => resolve(false), 10_000);
-      socket.addEventListener("open", () => {
+      socket.once("open", () => {
         clearTimeout(timer);
         resolve(true);
       });
-      socket.addEventListener("error", () => {
+      socket.once("error", () => {
         clearTimeout(timer);
         resolve(false);
       });

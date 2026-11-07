@@ -366,7 +366,7 @@ export const FICHIER_RELECTURE = "RELECTURE.md";
  * Tâche « développer un MCP de A à Z » — l'adresse de la porte de
  * l'APPLICATION (pas la porte de développement `/nodefony/mcp` de devkit).
  */
-export const ROUTE_MCP_APP = "/api/mcp";
+export const ROUTE_MCP_APP = "/mcp";
 
 /** Même tâche — l'outil de lecture courte : le stock d'un `sku`. */
 export const OUTIL_STOCK = "stock_lookup";

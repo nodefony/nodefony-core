@@ -3635,7 +3635,15 @@ function runControllerScaffold(
   const base = String(answers.name).replace(/[-_]?[Cc]ontroller$/u, "");
   const nameClass = `${toPascalCase(base)}Controller`;
   const kebab = toKebabCase(base);
-  const route = String(answers.route) || `/api/${kebab}`;
+  // Une porte MCP naît HORS de `/api` : `/api` est fermé par le pare-feu de
+  // session (#746), qui répondrait avant elle un 401 sans le défi RFC 9728
+  // qu'attend un client MCP. La porte est son propre mécanisme d'accès
+  // (adresse locale, ou jeton) — elle se place donc, comme `/nodefony/mcp`,
+  // hors de toute zone, sans `bypassFirewall` (réservé au cœur). Une porte
+  // nommée `mcp` prend `/mcp` tout court, jamais `/mcp/mcp`.
+  const mcpRoute = kebab === "mcp" ? "/mcp" : `/mcp/${kebab}`;
+  const route =
+    String(answers.route) || (kind === "mcp" ? mcpRoute : `/api/${kebab}`);
   // Capacités de la CIBLE (deps de son package.json) : les templates dégradent
   // proprement — la vitrine example ne montre les gardes sécurité que si la brique
   // est là ; la saveur realtime, elle, n'a AUCUNE version dégradée → throw.

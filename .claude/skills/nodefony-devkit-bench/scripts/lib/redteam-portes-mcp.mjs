@@ -44,9 +44,9 @@ const BIN = path.join(
  * source : `verify-generated.mjs` en tire les noms qu'il passe au générateur.
  */
 export const PORTES = {
-  locale: { route: "/api/outils", prefixe: "outils" },
-  protegee: { route: "/api/agent", prefixe: "agent" },
-  mixte: { route: "/api/vitrine", prefixe: "vitrine" },
+  locale: { route: "/mcp/outils", prefixe: "outils" },
+  protegee: { route: "/mcp/agent", prefixe: "agent" },
+  mixte: { route: "/mcp/vitrine", prefixe: "vitrine" },
 };
 
 /** L'audience d'une porte : l'URI publique que ses jetons doivent porter. */
