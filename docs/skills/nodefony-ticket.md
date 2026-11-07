@@ -29,11 +29,11 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 | Version | `1.11.0` |
 | Famille | Autres |
 | Corps | 508 lignes |
-| Coût d'activation | ~10 110 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~10 108 tokens (le corps est chargé à l'invocation) |
 | Description | 978 / 1024 caractères |
 | Déclencheurs | 20 |
 | Ressources `references/` | 8 page(s) |
-| Scripts | 22 |
+| Scripts | 23 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -82,7 +82,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/economie.md` | Le ticket comme instrument d'économie — le détail | 149 |
 | `references/fermeture.md` | Fermer un ticket — le geste est TRIPLE | 106 |
 | `references/github-issues.md` | Issues GitHub — sous-tickets, jalons, projets | 80 |
-| `references/gravite.md` | La gravité d'un défaut — une norme, jamais une impression | 100 |
+| `references/gravite.md` | La gravité d'un défaut — une norme, jamais une impression | 107 |
 | `references/lexique.md` | Lexique des tickets — source unique | 143 |
 | `references/tableau-de-bord.md` | Le tableau de bord — labels, champs, ordre, et quand prendre un ticket | 284 |
 
@@ -110,11 +110,12 @@ script, donc toujours à jour après régénération.
 | `scripts/ticket-close.mjs` | Compose le COMPTE RENDU de fermeture d'un ticket — la moitié mécanique. | `--since` | — |
 | `scripts/ticket-close.test.mjs` | Suite du compte rendu de fermeture. | — | — |
 | `scripts/ticket-effort.mjs` | ticket-effort.mjs — confronte l'estimation d'un ticket à ce que le travail a RÉELLEMENT pris, mesuré sur ses commits. | `--format` `--grep` `--json` `--limit` `--paginate` `--since` `--slurp` `--state` | `OWNER` `REPO` |
-| `scripts/ticket-open.mjs` | Ouvre un ticket ET l'inscrit au tableau de bord, d'un seul geste. | `--title` `--body-file` `--milestone` `--label` `--jours` `--priorite` `--parent` `--ordre` `--backlog` `--type` `--gravite` | `OWNER` `REPO` |
+| `scripts/ticket-open.mjs` | Ouvre un ticket ET l'inscrit au tableau de bord, d'un seul geste. | `--title` `--body-file` `--milestone` `--label` `--jours` `--priorite` `--parent` `--ordre` `--backlog` `--type` `--gravite` `--cvss` | `OWNER` `REPO` |
 | `scripts/ticket-open.test.mjs` | Suite de la dérivation d'ordre d'un sous-ticket. | — | — |
 | `scripts/ticket-progress.mjs` | Passe en « In Progress » les tickets qu'un commit vient de citer sans les fermer. | `--field-id` `--format` `--id` `--owner` `--project-id` `--single-select-option-id` | `OWNER` |
 | `scripts/ticket-progress.test.mjs` | Suite du marquage automatique « In Progress ». | — | — |
 | `scripts/ticket-reorder.mjs` | Réordonne un lot de tickets au tableau de bord : pose le champ `Ordre` ET la position physique sur la grille (le champ seul ne trie pas la vue). | `--dry-run` `--help` | `PROJECT` |
+| `scripts/ticket-severity.mjs` | Pose la gravité d'un ticket existant : la colonne « Gravité » du tableau de bord (classe de l'IEEE 1044, SOURCE de la classe) et, au corps, la ligne du motif — plus la ligne CVSS 3.1, score CALCULÉ, quand le défaut est une faille. | `--cvss` | `OWNER` `REPO` |
 | `scripts/ticket-verify.mjs` | ticket-verify.mjs — confronte les tickets OUVERTS au code réel, par deux voies. | `--touched-by` `--dependents` | — |
 
 **Invocation telle que documentée dans chaque script :**
@@ -129,6 +130,7 @@ node .claude/skills/nodefony-ticket/scripts/ticket-effort.mjs [<numéro>…]
 node .claude/skills/nodefony-ticket/scripts/ticket-open.mjs --title "fix(x): …" --body-file corps.md [options]
 node .claude/skills/nodefony-ticket/scripts/ticket-progress.mjs [<sha>]   (défaut : HEAD)
 node .claude/skills/nodefony-ticket/scripts/ticket-reorder.mjs 630=4.01 472=4.02 …
+node .claude/skills/nodefony-ticket/scripts/ticket-severity.mjs <N> "<Classe> — motif" [--cvss CVSS:3.1/…]
 node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs [<numéro>…]
 ```
 
@@ -219,7 +221,8 @@ node .claude/skills/nodefony-ticket/scripts/ticket-open.mjs --title "fix(x): …
 | `--ordre` | ordre au tableau (dérivé du parent si absent) |
 | `--backlog` | sans jalon, label `backlog` |
 | `--type` | Task\|Bug\|Feature\|POC\|Epic |
-| `--gravite` | classe IEEE 1044 « — motif », ou vecteur CVSS:3.1/… (obligatoire pour un Bug) |
+| `--gravite` | classe IEEE 1044 « — motif » (obligatoire pour un Bug) |
+| `--cvss` | vecteur CVSS:3.1/… d'une faille (score calculé, écrit au corps) |
 
 #### `scripts/ticket-progress.mjs`
 
@@ -227,6 +230,17 @@ node .claude/skills/nodefony-ticket/scripts/ticket-open.mjs --title "fix(x): …
 ```bash
 node .claude/skills/nodefony-ticket/scripts/ticket-progress.mjs [<sha>]   (défaut : HEAD)
 ```
+
+#### `scripts/ticket-severity.mjs`
+
+
+```bash
+node .claude/skills/nodefony-ticket/scripts/ticket-severity.mjs <N> "<Classe> — motif" [--cvss CVSS:3.1/…]
+```
+
+| Option | Rôle |
+| --- | --- |
+| `--cvss` | vecteur CVSS 3.1 d'une faille (le score est calculé et écrit au corps) |
 
 #### `scripts/ticket-verify.mjs`
 

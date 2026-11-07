@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  checkCvss,
   checkSeverity,
   cvss31Score,
+  parseCvss,
   parseSeverity,
   severityFloor,
   withSeverityLine,
@@ -954,7 +956,7 @@ describe("panne GitHub — la page de statut est consultée, jamais crue à l'av
   });
 });
 
-describe("gravité d'un défaut — CVSS 3.1 calculé, échelle IEEE 1044, plancher de priorité", () => {
+describe("gravité d'un défaut — classe IEEE 1044 en colonne, CVSS 3.1 calculé, plancher", () => {
   it("calcule le score CVSS 3.1 de vecteurs connus (valeurs de la calculatrice FIRST)", () => {
     expect(cvss31Score("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H")).toEqual(
       { score: 7.5, rating: "High" },
@@ -988,94 +990,124 @@ describe("gravité d'un défaut — CVSS 3.1 calculé, échelle IEEE 1044, planc
     ).toBeNull();
   });
 
-  it("checkSeverity écrit la ligne avec le score CALCULÉ, et exige un motif sur l'échelle", () => {
-    expect(
-      checkSeverity("CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H").line,
-    ).toBe(
-      "**Gravité** : CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H — 5,9 (Medium)",
+  it("checkSeverity : une classe IEEE 1044 et son motif — la classe seule, ou un mot hors norme, est refusé", () => {
+    const ok = checkSeverity(
+      "Major — l'export échoue, un contournement existe",
     );
-    expect(
-      checkSeverity("Major — l'export échoue, un contournement existe").line,
-    ).toBe("**Gravité** : Major — l'export échoue, un contournement existe");
+    expect(ok).toMatchObject({
+      ok: true,
+      cls: "Major",
+      motif: "l'export échoue, un contournement existe",
+    });
+    expect(ok.line).toBe(
+      "**Gravité** : Major — l'export échoue, un contournement existe",
+    );
     expect(checkSeverity("Major").ok).toBe(false);
-    expect(checkSeverity("grave").ok).toBe(false);
+    expect(checkSeverity("grave — x").ok).toBe(false);
+    expect(checkSeverity("S2 — x").ok).toBe(false);
   });
 
-  it("parseSeverity lit la ligne du corps, et rend null sans elle", () => {
-    expect(
-      parseSeverity(
-        "**Le problème**\n…\n**Gravité** : Blocking — le serveur s'arrête\n",
-      ),
-    ).toBe("Blocking — le serveur s'arrête");
+  it("checkCvss écrit la ligne CVSS avec le score CALCULÉ", () => {
+    expect(checkCvss("CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H").line).toBe(
+      "**CVSS** : CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H — 5,9 (Medium)",
+    );
+    expect(checkCvss("CVSS:3.1/AV:N").ok).toBe(false);
+  });
+
+  it("parseSeverity / parseCvss lisent le corps, et rendent null sans ligne", () => {
+    const corps =
+      "**Le problème**\n…\n**Gravité** : Blocking — le serveur s'arrête\n**CVSS** : CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H — 5,9 (Medium)\n";
+    expect(parseSeverity(corps)).toBe("Blocking — le serveur s'arrête");
+    expect(parseCvss(corps)).toBe(
+      "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H",
+    );
     expect(parseSeverity("**Le problème**\nrien")).toBeNull();
+    expect(parseCvss("**Le problème**\nrien")).toBeNull();
   });
 
-  it("withSeverityLine : remplace la ligne, sinon l'insère avant l'estimation, sinon l'ajoute", () => {
+  it("withSeverityLine : remplace la ligne de SA clé, sinon l'insère avant l'estimation, sinon l'ajoute", () => {
     const corps = "**Le problème**\nx\n\n---\n\n**Estimation : 1 j**\n";
-    expect(withSeverityLine(corps, "**Gravité** : Major — y")).toBe(
+    const g = withSeverityLine(corps, "**Gravité** : Major — y");
+    expect(g).toBe(
       "**Le problème**\nx\n\n---\n\n**Gravité** : Major — y\n**Estimation : 1 j**\n",
+    );
+    const c = withSeverityLine(g, "**CVSS** : CVSS:3.1/x — 1 (Low)");
+    expect(c).toContain(
+      "**Gravité** : Major — y\n**CVSS** : CVSS:3.1/x — 1 (Low)\n**Estimation",
     );
     expect(
       withSeverityLine(
-        "a\n**Gravité** : Inconsequential — vieux\nb",
-        "**Gravité** : Blocking — neuf",
+        "a\n**Gravité** : Minor — vieux\nb",
+        "**Gravité** : Blocking — neuf $` $&",
       ),
-    ).toBe("a\n**Gravité** : Blocking — neuf\nb");
+    ).toBe("a\n**Gravité** : Blocking — neuf $` $&\nb");
     expect(withSeverityLine("a\n", "**Gravité** : Minor — z")).toBe(
       "a\n\n**Gravité** : Minor — z\n",
     );
   });
 
-  it("severityFloor : Blocking/Critical ou CVSS ≥ 7 → P0 · Major ou CVSS 4-6,9 → P1 · Minor → P2 · Inconsequential → P3", () => {
-    expect(severityFloor("Blocking — x")).toBe("P0");
-    expect(severityFloor("Critical — x")).toBe("P0");
-    expect(severityFloor("Major — x")).toBe("P1");
-    expect(severityFloor("Minor — x")).toBe("P2");
-    expect(severityFloor("Inconsequential — x")).toBe("P3");
-    expect(severityFloor("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H")).toBe(
-      "P0",
-    );
-    expect(severityFloor("CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H")).toBe(
-      "P1",
-    );
+  it("severityFloor : le plus exigeant de la classe et du score CVSS", () => {
+    expect(severityFloor("Blocking")).toBe("P0");
+    expect(severityFloor("Critical")).toBe("P0");
+    expect(severityFloor("Major")).toBe("P1");
+    expect(severityFloor("Minor")).toBe("P3");
+    expect(severityFloor("Inconsequential")).toBe("P3");
+    expect(
+      severityFloor("Minor", "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"),
+    ).toBe("P0");
+    expect(
+      severityFloor(null, "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"),
+    ).toBe("P1");
+    expect(severityFloor(null, null)).toBeNull();
   });
 
-  it("BUG-SANS-GRAVITE : UN constat agrégé pour les défauts sans gravité ; corps non lu = silence", () => {
+  it("BUG-SANS-GRAVITE : UN constat agrégé sur la COLONNE vide ; colonne non lue = silence ; classe lue au corps → geste tout fait", () => {
     const findings = lintBoard({
       items: [
-        sain(60, { type: "Bug" }),
-        sain(61, { type: "Bug" }),
+        sain(60, { type: "Bug", gravite: null }),
+        sain(61, { type: "Bug", gravite: "Major" }),
         sain(62, { type: "Bug" }),
-        sain(63, { type: "Task" }),
+        sain(63, { type: "Task", gravite: null }),
+        sain(64, { type: "Bug", gravite: null }),
       ],
       issues: [
-        issueSaine(60, { severity: null }),
-        issueSaine(61, { severity: "Major — x" }),
+        issueSaine(60),
+        issueSaine(61),
         issueSaine(62),
-        issueSaine(63, { severity: null }),
+        issueSaine(63),
+        issueSaine(64, { severity: "Minor — un message est mal accordé" }),
       ],
       now: MAINTENANT,
     });
     const constats = findings.filter((x) => x.code === "BUG-SANS-GRAVITE");
     expect(constats).toHaveLength(1);
     expect(constats[0].message).toContain("#60");
+    expect(constats[0].message).toContain("#64");
     expect(constats[0].message).not.toContain("#61");
+    expect(constats[0].message).not.toContain("#62");
     expect(constats[0].message).not.toContain("#63");
+    expect(constats[0].unlock).toContain(
+      'ticket-severity.mjs 64 "Minor — un message est mal accordé"',
+    );
   });
 
-  it("PRIORITE-SOUS-GRAVITE : un Blocking en P2 est signalé, un Minor en P0 ne l'est pas", () => {
+  it("PRIORITE-SOUS-GRAVITE : un Blocking en P2, ou une faille CVSS 7,5 en P1, est signalé ; un Minor en P0 ne l'est pas", () => {
     const findings = lintBoard({
       items: [
-        sain(70, { type: "Bug", prio: "P2 — décision" }),
-        sain(71, { type: "Bug", prio: "P0 — bloque" }),
+        sain(70, { type: "Bug", gravite: "Blocking", prio: "P2 — décision" }),
+        sain(71, { type: "Bug", gravite: "Minor", prio: "P0 — bloque" }),
+        sain(72, { type: "Bug", gravite: "Minor", prio: "P1 — figé" }),
       ],
       issues: [
-        issueSaine(70, { severity: "Blocking — arrêt" }),
-        issueSaine(71, { severity: "Minor — x" }),
+        issueSaine(70),
+        issueSaine(71),
+        issueSaine(72, {
+          cvss: "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+        }),
       ],
       now: MAINTENANT,
     });
     const sous = findings.filter((x) => x.code === "PRIORITE-SOUS-GRAVITE");
-    expect(sous.map((f) => f.n)).toEqual([70]);
+    expect(sous.map((f) => f.n)).toEqual([70, 72]);
   });
 });

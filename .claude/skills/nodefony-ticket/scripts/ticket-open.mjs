@@ -17,13 +17,13 @@
  *   node .claude/skills/nodefony-ticket/scripts/ticket-open.mjs --title "fix(x): …" --body-file corps.md \
  *     [--milestone 10.0.0] [--label irrattrapable] [--jours 0.5] \
  *     [--priorite P0|P1|P2|P3] [--parent 63] [--ordre 12.5] [--backlog] \
- *     [--type Task|Bug|Feature|POC|Epic] [--gravite "Major — motif" | "CVSS:3.1/…"]
+ *     [--type Task|Bug|Feature|POC|Epic] [--gravite "Major — motif"] [--cvss CVSS:3.1/…]
  *
- * LA GRAVITÉ — un défaut (`Bug`) n'ouvre pas sans elle : `--gravite`, ou une
- * ligne « **Gravité** : … » déjà dans le corps. Une classe de l'IEEE 1044 pour un défaut, un
- * vecteur CVSS 3.1 pour une faille — le score est CALCULÉ et écrit au corps
- * (`severity.mjs`), jamais recopié. Une priorité sous le plancher qu'elle
- * impose est signalée.
+ * LA GRAVITÉ — un défaut (`Bug`) n'ouvre pas sans elle : `--gravite` (ou une
+ * ligne « **Gravité** : … » déjà au corps), une classe de l'IEEE 1044 suivie de
+ * son motif. La classe va dans la colonne « Gravité » du tableau, le motif au
+ * corps. Une faille ajoute `--cvss` : le score est CALCULÉ et écrit au corps
+ * (`severity.mjs`), jamais recopié. Une priorité sous le plancher est signalée.
  *
  * LE TYPE — `--type` le pose à la création (Task, Bug, Feature, POC, Epic : les
  * types de l'organisation). Avec `--parent`, le PARENT est promu `Epic` s'il
@@ -58,12 +58,14 @@
  * @option --ordre      ordre au tableau (dérivé du parent si absent)
  * @option --backlog    sans jalon, label `backlog`
  * @option --type       Task|Bug|Feature|POC|Epic
- * @option --gravite    classe IEEE 1044 « — motif », ou vecteur CVSS:3.1/… (obligatoire pour un Bug)
+ * @option --gravite    classe IEEE 1044 « — motif » (obligatoire pour un Bug)
+ * @option --cvss       vecteur CVSS:3.1/… d'une faille (score calculé, écrit au corps)
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { lotAction, lotOf } from "./board-lint.mjs";
 import {
+  checkCvss,
   checkSeverity,
   parseSeverity,
   severityFloor,
@@ -301,6 +303,7 @@ if (process.argv[1]?.endsWith("ticket-open.mjs")) {
   // LA GRAVITÉ — refusée AVANT de créer quoi que ce soit : un défaut classé à
   // l'impression se range parmi les évolutions (vécu : #739).
   let body = readFileSync(args.bodyFile, "utf8");
+  let severityClass = null;
   if (type === "Bug") {
     const declared = args.gravite ?? parseSeverity(body);
     const checked = checkSeverity(declared);
@@ -310,13 +313,23 @@ if (process.argv[1]?.endsWith("ticket-open.mjs")) {
           declared
             ? checked.reason
             : "ni --gravite ni ligne « **Gravité** : » au corps"
-        }. « Major — motif » (Blocking, Critical, Major, Minor, Inconsequential) ou CVSS:3.1/… pour une faille : references/gravite.md`,
+        }. « Major — motif » (Blocking, Critical, Major, Minor, Inconsequential — IEEE 1044) : references/gravite.md`,
       );
       process.exit(2);
     }
+    const cvss = args.cvss === undefined ? null : checkCvss(args.cvss);
+    if (cvss && !cvss.ok) {
+      console.error(`refusé : ${cvss.reason}`);
+      process.exit(2);
+    }
+    severityClass = checked.cls;
     body = withSeverityLine(body, checked.line);
-    console.log(`gravité : ${checked.line.replace("**Gravité** : ", "")}`);
-    const plancher = severityFloor(declared);
+    if (cvss) body = withSeverityLine(body, cvss.line);
+    console.log(
+      `gravité : ${checked.cls}` +
+        (cvss ? ` · CVSS ${cvss.score} (${cvss.rating})` : ""),
+    );
+    const plancher = severityFloor(checked.cls, args.cvss ?? null);
     const prio = String(args.priorite ?? "").slice(0, 2);
     if (
       plancher &&
@@ -457,6 +470,8 @@ if (process.argv[1]?.endsWith("ticket-open.mjs")) {
 
   setSelect("Status", "Todo");
   if (args.priorite) setSelect("Priorité", args.priorite);
+  // La classe IEEE 1044 : la colonne en est la SOURCE, le corps porte le motif.
+  if (severityClass) setSelect("Gravité", severityClass);
   if (args.jours) setNumber("Jours", Number(args.jours));
 
   // L'ORDRE — explicite, sinon dérivé du parent, sinon ANNONCÉ manquant.

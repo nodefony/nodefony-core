@@ -33,7 +33,12 @@
  * @option --milestone   ne contrôle que ce jalon (ex. 10.0.0)
  */
 import { execFileSync } from "node:child_process";
-import { checkSeverity, parseSeverity, severityFloor } from "./severity.mjs";
+import {
+  checkSeverity,
+  parseCvss,
+  parseSeverity,
+  severityFloor,
+} from "./severity.mjs";
 
 import { isPilotageCommit } from "./commit-kind.mjs";
 import { guardCli } from "../../nodefony-session/scripts/cli-guard.mjs";
@@ -685,45 +690,52 @@ export function lintBoard({
     );
   }
 
-  // A7 — un DÉFAUT porte sa gravité, selon une norme (CVSS 3.1 pour une faille,
-  // classes de l'IEEE 1044 sinon — `severity.mjs`). Sans elle, la priorité se décide à
-  // l'impression : vécu sur #739, un arrêt du serveur à la portée d'une URL,
-  // classé sans que rien ne dise s'il relevait de la sécurité. UN constat
-  // agrégé : les défauts ouverts avant la règle n'en portent pas, et onze
+  // A7 — un DÉFAUT porte sa gravité : la classe de l'IEEE 1044 dans la colonne
+  // « Gravité » du tableau, qui en est la SOURCE (`severity.mjs`). Sans elle,
+  // la priorité se décide à l'impression : vécu sur #739, un arrêt du serveur à
+  // la portée d'une URL, classé sans que rien ne dise ce qu'il cassait. UN
+  // constat agrégé : les défauts d'avant la règle n'en portent pas, et onze
   // avertissements à chaque reprise apprendraient à passer outre.
-  // `severity === undefined` = corps non lu : on se tait.
-  const typeDe = new Map(items.map((it) => [it.n, it.type]));
-  const sansGravite = issues
-    .filter((i) => typeDe.get(i.n) === "Bug" && i.severity !== undefined)
-    .filter((i) => i.severity === null || !checkSeverity(i.severity).ok)
-    .map((i) => i.n)
-    .sort((a, b) => a - b);
+  // `gravite === undefined` = colonne non lue : on se tait.
+  const sansGravite = items
+    .filter((it) => it.type === "Bug" && it.gravite === null)
+    .map((it) => it.n)
+    .sort((x, y) => x - y);
   if (sansGravite.length > 0) {
+    const issueDe = new Map(issues.map((i) => [i.n, i]));
+    // Un défaut né du formulaire GitHub porte déjà sa classe au corps : le
+    // geste se donne alors tout fait.
+    const exemple = sansGravite
+      .map((n) => ({ n, lue: checkSeverity(issueDe.get(n)?.severity) }))
+      .find((x) => x.lue.ok);
     add(
       "avertissement",
       "BUG-SANS-GRAVITE",
       sansGravite[0],
-      `${sansGravite.length} défaut(s) ouvert(s) sans gravité lisible — ${sansGravite
+      `${sansGravite.length} défaut(s) ouvert(s) sans colonne « Gravité » — ${sansGravite
         .slice(0, 8)
         .map((n) => `#${n}`)
         .join(", ")}${sansGravite.length > 8 ? ", …" : ""}`,
-      "ajouter au corps « **Gravité** : Major — motif » (Blocking, Critical, Major, Minor, Inconsequential), ou « **Gravité** : CVSS:3.1/… » pour une faille — references/gravite.md",
+      exemple
+        ? `node .claude/skills/nodefony-ticket/scripts/ticket-severity.mjs ${exemple.n} "${exemple.lue.cls} — ${exemple.lue.motif}"  (classe lue au corps) — references/gravite.md`
+        : 'node .claude/skills/nodefony-ticket/scripts/ticket-severity.mjs <N> "<Blocking|Critical|Major|Minor|Inconsequential> — motif" [--cvss CVSS:3.1/…] — references/gravite.md',
     );
   }
-  // A8 — une priorité SOUS le plancher qu'impose la gravité : un Blocking en P3 attend
-  // son tour derrière des évolutions. On peut monter au-dessus, jamais descendre.
-  const prioDe = new Map(items.map((it) => [it.n, it.prio]));
-  for (const issue of issues) {
-    if (typeof issue.severity !== "string") continue;
-    const plancher = severityFloor(issue.severity);
-    const prio = String(prioDe.get(issue.n) ?? "").slice(0, 2);
+  // A8 — une priorité SOUS le plancher qu'imposent la classe et, pour une
+  // faille, le score CVSS : un Blocking en P3 attend son tour derrière des
+  // évolutions. On peut monter au-dessus, jamais descendre.
+  const cvssDe = new Map(issues.map((i) => [i.n, i.cvss ?? null]));
+  for (const it of items) {
+    if (typeof it.gravite !== "string" && !cvssDe.get(it.n)) continue;
+    const plancher = severityFloor(it.gravite ?? null, cvssDe.get(it.n));
+    const prio = String(it.prio ?? "").slice(0, 2);
     if (plancher === null || !/^P[0-3]$/u.test(prio)) continue;
     if (Number(prio[1]) <= Number(plancher[1])) continue;
     add(
       "avertissement",
       "PRIORITE-SOUS-GRAVITE",
-      issue.n,
-      `priorité ${prio} sous le plancher ${plancher} qu'impose sa gravité (« ${issue.severity} »)`,
+      it.n,
+      `priorité ${prio} sous le plancher ${plancher} qu'impose sa gravité (${it.gravite ?? "—"}${cvssDe.get(it.n) ? `, ${cvssDe.get(it.n)}` : ""})`,
       `remonter la priorité à ${plancher} au moins, ou revoir la gravité si elle est fausse`,
     );
   }
@@ -851,6 +863,7 @@ function readItems() {
         ordre: typeof f.Ordre === "number" ? f.Ordre : undefined,
         jours: typeof f.Jours === "number" ? f.Jours : undefined,
         prio: f["Priorité"] ?? null,
+        gravite: f["Gravité"] ?? null,
         status: f.Status ?? null,
         debut: f["Début"] ?? null,
         cible: f.Cible ?? null,
@@ -953,6 +966,7 @@ function readIssues() {
     before: parseBefore(i.body),
     lineAnchors: parseLineAnchors(i.body),
     severity: parseSeverity(i.body),
+    cvss: parseCvss(i.body),
   }));
 }
 

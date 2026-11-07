@@ -5,25 +5,48 @@
 >
 > **Maintenance** : vérité courante, jamais un journal. Éditer en place ; historique = `git log`.
 
-## Gravité ≠ priorité
+## Gravité ≠ priorité — deux colonnes du tableau
 
-|                     | Ce qu'elle dit                        | Où elle vit                         |
-| ------------------- | ------------------------------------- | ----------------------------------- |
-| **Gravité**         | ce que le défaut CASSE — l'impact     | ligne `**Gravité** : …` du corps    |
-| **Priorité** (P0-3) | QUAND on le traite — l'ordonnancement | champ `Priorité` du tableau de bord |
+| Colonne      | Ce qu'elle dit                        | Échelle                                                       |
+| ------------ | ------------------------------------- | ------------------------------------------------------------- |
+| **Gravité**  | ce que le défaut CASSE — l'impact     | IEEE 1044 : Blocking, Critical, Major, Minor, Inconsequential |
+| **Priorité** | QUAND on le traite — l'ordonnancement | la nôtre : P0 à P3                                            |
+
+La colonne **Gravité** est la SOURCE de la classe. Le corps du ticket en porte le **motif**
+(`**Gravité** : Major — <ce qui casse>`), et le vecteur **CVSS** quand c'est une faille. GitHub
+n'a pas de champ « gravité » pour une issue : la colonne vit sur le tableau de bord, que le lint
+lit déjà.
 
 La gravité fixe un **plancher** de priorité : on peut monter au-dessus (un Minor qui bloque une
 publication passe P0), jamais descendre. `ticket:lint` signale l'inverse (`PRIORITE-SOUS-GRAVITE`).
+Une feature n'a pas de gravité : sa valeur se décide, elle ne se mesure pas — la colonne reste vide.
 
-## Choisir l'échelle — une seule question
+## La classe — l'échelle de l'IEEE 1044, pour TOUT défaut
+
+L'IEEE 1044 (classification des anomalies logicielles) nomme cinq classes pour l'attribut
+_Severity_. On garde ses noms, en anglais, comme les libellés CVSS : un nom de norme ne se traduit
+pas, il se reconnaît.
+
+| Classe              | Ce qu'elle recouvre ici                                                                                    | Plancher |
+| ------------------- | ---------------------------------------------------------------------------------------------------------- | -------- |
+| **Blocking**        | l'usage est arrêté tant qu'il n'y a ni correctif ni contournement — processus arrêté, démarrage impossible | P0       |
+| **Critical**        | des opérations essentielles sont interrompues sans recours — données perdues ou corrompues                 | P0       |
+| **Major**           | des opérations essentielles sont touchées mais peuvent continuer — un contournement existe                 | P1       |
+| **Minor**           | des opérations non essentielles sont perturbées                                                            | P3       |
+| **Inconsequential** | aucun effet notable sur le fonctionnement — texte, message, documentation                                  | P3       |
+
+Les libellés viennent de la norme ; leurs définitions ci-dessus sont les NÔTRES, rédigées pour ce
+dépôt — le texte de la norme n'est pas en accès libre, il n'a pas été relu.
+
+La classe ne va **jamais seule** : `Major — l'export CSV échoue au-delà de 1 000 lignes`. Une
+classe sans motif ne s'instruit pas — les scripts la refusent.
+
+## Le score — CVSS 3.1, EN PLUS, pour une faille
 
 **Un tiers peut-il, par ce défaut, atteindre la confidentialité, l'intégrité ou la disponibilité
-de l'application ?** Oui → c'est une **faille** : CVSS 3.1. Non → l'échelle de gravité de l'**IEEE 1044**.
-
-Un arrêt du processus à la portée d'une requête est une faille (disponibilité), même sans fuite de
-donnée — c'est le cas qui a fondé la règle (#739).
-
-### Une faille — CVSS 3.1 (FIRST)
+de l'application ?** Oui → c'est une faille : elle garde sa classe IEEE 1044 ET reçoit un vecteur
+CVSS 3.1 (FIRST). Un arrêt du processus à la portée d'une requête en est une (disponibilité) —
+c'est le cas qui a fondé la règle (#739 : Blocking, CVSS 5,9).
 
 On écrit le **vecteur**, jamais le score : `severity.mjs` le CALCULE (formule de la
 spécification, arrondi de l'annexe A). Un score recopié est l'erreur la plus facile à faire, et
@@ -42,52 +65,36 @@ la plupart des outils, et sa formule se calcule sans tables.
 **`AC` décide presque toujours du verdict, et c'est là qu'on triche sans le vouloir.** Quand le
 déclencheur dépend de ce que l'APPLICATION expose (une route qui sert un fichier illisible), c'est
 `H` ; le dire, et donner l'autre lecture dans le corps (« 7,5 si une application laisse
-l'utilisateur désigner le fichier »). Vécu #739 : `AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H` = 5,9.
+l'utilisateur désigner le fichier »).
 
-Libellés (§5 de la spécification) : 0 None · 0,1-3,9 Low · 4-6,9 Medium · 7-8,9 High · 9-10 Critical.
-
-### Tout autre défaut — l'échelle de l'IEEE 1044
-
-L'IEEE 1044 (classification des anomalies logicielles) nomme cinq classes pour l'attribut
-_Severity_ — ce que le défaut casse. On garde ses noms, en anglais, comme les libellés CVSS : un
-nom de norme ne se traduit pas, il se reconnaît.
-
-| Classe              | Ce qu'elle recouvre ici                                                                                    | Plancher |
-| ------------------- | ---------------------------------------------------------------------------------------------------------- | -------- |
-| **Blocking**        | l'usage est arrêté tant qu'il n'y a ni correctif ni contournement — processus arrêté, démarrage impossible | P0       |
-| **Critical**        | des opérations essentielles sont interrompues sans recours — données perdues ou corrompues                 | P0       |
-| **Major**           | des opérations essentielles sont touchées mais peuvent continuer — un contournement existe                 | P1       |
-| **Minor**           | des opérations non essentielles sont perturbées                                                            | P2       |
-| **Inconsequential** | aucun effet notable sur le fonctionnement — texte, message, documentation                                  | P3       |
-
-⚠️ La norme range aussi « la sécurité compromise » sous _Critical_ : ici, une faille ne se note
-PAS sur cette échelle mais en CVSS (§ précédent) — une seule échelle par ticket. Les libellés
-viennent de la norme ; leurs définitions ci-dessus sont les NÔTRES, rédigées pour ce dépôt (le
-texte de la norme n'est pas en accès libre).
-
-La classe ne va **jamais seule** : `Major — l'export CSV échoue au-delà de 1 000 lignes`. Une
-classe sans motif ne s'instruit pas — `ticket:open` la refuse.
-
-Plancher CVSS : ≥ 7 → P0 · 4 à 6,9 → P1 · < 4 → P2.
+Libellés (§5) : 0 None · 0,1-3,9 Low · 4-6,9 Medium · 7-8,9 High · 9-10 Critical. Plancher : ≥ 7
+→ P0 · 4 à 6,9 → P1 · < 4 → P2 ; le plancher retenu est le plus exigeant de la classe et du score.
 
 ## Le geste
 
 ```bash
+# À la création — refuse un Bug sans gravité, AVANT de rien créer
 npm run ticket:open -- --title "fix(http): …" --body-file corps.md --gravite "Major — motif" …
-npm run ticket:open -- --title "fix(http): …" --body-file corps.md \
-  --gravite "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H" …
+npm run ticket:open -- … --gravite "Blocking — motif" --cvss "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+
+# Un ticket déjà ouvert (d'avant la règle, ou né du formulaire GitHub)
+node .claude/skills/nodefony-ticket/scripts/ticket-severity.mjs 196 "Major — motif" [--cvss …]
 ```
 
-`ticket:open` **refuse** un défaut sans gravité lisible, AVANT de rien créer ; il écrit la ligne
-au corps, juste avant l'estimation, avec le score calculé :
+Les deux posent la colonne et écrivent au corps, juste avant l'estimation :
 
 ```markdown
-**Gravité** : CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H — 5,9 (Medium)
+**Gravité** : Blocking — un flux en échec d'ouverture arrêtait le processus serveur
+**CVSS** : CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H — 5,9 (Medium)
 **Estimation : 0,25 j**
 ```
 
-**Depuis l'interface GitHub**, le formulaire de défaut (`.github/ISSUE_TEMPLATE/defaut.yml`) DEMANDE la gravité : un champ obligatoire à cinq options, les classes de l'IEEE 1044 — jamais CVSS, une faille passe par le canal privé. GitHub la rend en section `### Gravité`, que le lint lit aussi ; les options sont dérivées de `severityFormOptions()` et `github-templates.test.mjs` refuse qu'elles divergent. Un défaut ouvert avant la règle est rattrapé par `ticket:lint`
-(`BUG-SANS-GRAVITE`, un seul constat agrégé). Pour le corriger : éditer le corps, ajouter la ligne.
+**Depuis l'interface GitHub**, le formulaire de défaut (`.github/ISSUE_TEMPLATE/defaut.yml`)
+DEMANDE la classe : un champ obligatoire à cinq options — jamais CVSS, une faille passe par le
+canal privé. Un formulaire ne peut pas poser une colonne du tableau : GitHub rend le choix en
+section `### Gravité` au corps, et `ticket:lint` (`BUG-SANS-GRAVITE`) donne alors le geste
+`ticket-severity.mjs` tout fait, classe lue au corps. Les options dérivent de
+`severityFormOptions()` ; `github-templates.test.mjs` refuse qu'elles divergent.
 
 ## Une faille dans une version PUBLIÉE
 

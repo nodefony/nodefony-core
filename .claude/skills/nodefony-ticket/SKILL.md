@@ -250,12 +250,12 @@ seule). Un parent porte la somme de ses enfants ouverts.
 
 ### 🔴 Un défaut porte sa GRAVITÉ — selon une norme, jamais à l'impression
 
-Tout `Bug` porte, avant l'estimation, `**Gravité** : …` — ce qu'il CASSE, qui fixe un plancher à
-la priorité. Une **faille** (un tiers atteint confidentialité, intégrité ou disponibilité — un arrêt
-du processus par une requête compris) → **vecteur CVSS 3.1**, dont `ticket:open` CALCULE le score ;
-tout autre défaut → une classe de l'**IEEE 1044** (Blocking, Critical, Major, Minor, Inconsequential)
-suivie de son motif. `ticket:open --gravite` refuse un défaut sans
-gravité, `ticket:lint` rattrape les autres → **[`references/gravite.md`](references/gravite.md)**.
+Tout `Bug` a sa classe de l'**IEEE 1044** (Blocking, Critical, Major, Minor, Inconsequential) dans
+la colonne « Gravité » du tableau — sa source — et son motif au corps ; ce qu'il CASSE, qui fixe
+un plancher à la priorité. Une **faille** (un tiers atteint confidentialité, intégrité ou
+disponibilité) ajoute un **vecteur CVSS 3.1**, dont le score est CALCULÉ. `ticket:open --gravite`
+refuse un défaut sans classe, `ticket-severity.mjs` la pose sur un ticket existant, `ticket:lint`
+rattrape les oublis → **[`references/gravite.md`](references/gravite.md)**.
 
 ## 3. Le ticket est un instrument d'ÉCONOMIE — il achète du temps, ou il en coûte
 

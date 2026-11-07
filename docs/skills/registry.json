@@ -11945,7 +11945,7 @@
       "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre Conventional Commits compréhensible sans connaître le dépôt, lexique, corps en quatre blocs avec preuve `<fichier>.ts#<Symbole>` et critère de fin observable, gravité normée d'un défaut (CVSS 3.1 calculé, échelle IEEE 1044), parents et sous-tickets, champs et DATES du tableau, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps. À charger AVANT d'ouvrir une issue. Déclencheurs : \"crée un ticket\", \"ouvre une issue\", \"corrige les tickets\", \"ce titre est incompréhensible\", \"renomme cette issue\", \"ticket parent\", \"découper cette issue\", \"estimer un ticket\", \"priorité d'un ticket\", \"quelle gravité pour ce bug ?\", \"CVSS\", \"ce ticket est-il encore vrai ?\", \"ferme ce ticket\", \"quel ticket prendre maintenant ?\", \"ce ticket est trop vague\", \"quels tickets parlent de ce que j'ai changé ?\", \"dater les tickets\", \"recaler les estimations\", \"explique le ticket\", \"pour les nuls\".",
       "cost": {
         "bodyLines": 508,
-        "approxTokens": 10110
+        "approxTokens": 10108
       },
       "requires": [
         "redis"
@@ -12278,7 +12278,11 @@
               },
               {
                 "flag": "--gravite",
-                "help": "classe IEEE 1044 « — motif », ou vecteur CVSS:3.1/… (obligatoire pour un Bug)"
+                "help": "classe IEEE 1044 « — motif » (obligatoire pour un Bug)"
+              },
+              {
+                "flag": "--cvss",
+                "help": "vecteur CVSS:3.1/… d'une faille (score calculé, écrit au corps)"
               }
             ],
             "env": [
@@ -12377,6 +12381,31 @@
             ],
             "output": "",
             "selfDocumented": false
+          },
+          {
+            "path": "scripts/ticket-severity.mjs",
+            "purpose": "Pose la gravité d'un ticket existant : la colonne « Gravité » du tableau de bord (classe de l'IEEE 1044, SOURCE de la classe) et, au corps, la ligne du motif — plus la ligne CVSS 3.1, score CALCULÉ, quand le défaut est une faille.",
+            "usage": [
+              "node .claude/skills/nodefony-ticket/scripts/ticket-severity.mjs <N> \"<Classe> — motif\" [--cvss CVSS:3.1/…]"
+            ],
+            "options": [
+              {
+                "flag": "--cvss",
+                "help": "vecteur CVSS 3.1 d'une faille (le score est calculé et écrit au corps)"
+              }
+            ],
+            "env": [
+              {
+                "name": "OWNER",
+                "help": ""
+              },
+              {
+                "name": "REPO",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": true
           },
           {
             "path": "scripts/ticket-verify.mjs",

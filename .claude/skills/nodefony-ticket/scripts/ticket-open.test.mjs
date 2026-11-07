@@ -12,6 +12,7 @@
  * le socle après ce qui en dépend, et un ticket d'un autre jalon en tête.
  */
 import { describe, expect, it } from "vitest";
+import { parseSeverityArgs } from "./ticket-severity.mjs";
 import {
   deriveIssueType,
   deriveOrdre,
@@ -218,5 +219,31 @@ describe("deriveIssueType — le type est obligatoire, déduit du titre", () => 
   });
   it("un ticket parent est un Epic, quel que soit son titre", () => {
     expect(deriveIssueType("fix(security): x", true)).toBe("Epic");
+  });
+});
+
+describe("ticket-severity — lecture des arguments", () => {
+  it("sans --cvss, le numéro et la gravité restent — vécu : un filtre sur indexOf(-1) retirait le numéro", () => {
+    expect(parseSeverityArgs(["196", "Major — x"])).toEqual({
+      numero: "196",
+      gravite: "Major — x",
+      cvss: null,
+    });
+  });
+  it("--cvss lu à n'importe quelle place", () => {
+    expect(
+      parseSeverityArgs(["739", "--cvss", "CVSS:3.1/AV:N", "Blocking — y"]),
+    ).toEqual({
+      numero: "739",
+      gravite: "Blocking — y",
+      cvss: "CVSS:3.1/AV:N",
+    });
+    expect(
+      parseSeverityArgs(["739", "Blocking — y", "--cvss", "CVSS:3.1/AV:N"]),
+    ).toEqual({
+      numero: "739",
+      gravite: "Blocking — y",
+      cvss: "CVSS:3.1/AV:N",
+    });
   });
 });

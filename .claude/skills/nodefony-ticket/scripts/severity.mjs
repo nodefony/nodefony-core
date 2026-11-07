@@ -2,25 +2,25 @@
  * Gravité d'un défaut — lue, validée et calculée selon une NORME, jamais estimée
  * à l'impression.
  *
- * Deux échelles, et une seule par ticket :
+ * Deux normes, deux rôles, sans recouvrement :
  *
- * - une FAILLE (un tiers atteint la confidentialité, l'intégrité ou la
- *   disponibilité) se note en **CVSS 3.1** (FIRST) — le vecteur, dont le score
- *   se CALCULE ici : un score recopié à la main est l'erreur la plus facile à
- *   faire, et la plus crue ;
- * - tout autre défaut se range sur l'échelle de gravité de l'**IEEE 1044**
- *   (Blocking, Critical, Major, Minor, Inconsequential) : ce que le défaut
- *   casse, pas quand on le traite.
+ * - la CLASSE, pour TOUT défaut : l'échelle de gravité de l'**IEEE 1044**
+ *   (Blocking, Critical, Major, Minor, Inconsequential) — ce que le défaut
+ *   casse. Elle vit dans la colonne « Gravité » du tableau de bord, qui en est
+ *   la SOURCE ; le corps du ticket en porte le motif ;
+ * - le SCORE, pour une FAILLE en plus (un tiers atteint la confidentialité,
+ *   l'intégrité ou la disponibilité) : le vecteur **CVSS 3.1** (FIRST), dont le
+ *   score se CALCULE ici — un score recopié à la main est l'erreur la plus
+ *   facile à faire, et la plus crue. Il vit au corps, ligne `**CVSS** : …`.
  *
- * La gravité n'est PAS la priorité : elle dit l'impact, le champ `Priorité` du
- * tableau dit le moment. Les deux se lisent ensemble (`severityFloor`).
+ * La gravité n'est PAS la priorité : elle dit l'impact, la colonne `Priorité`
+ * dit le moment. La gravité fixe un plancher à la priorité (`severityFloor`).
  *
- * Partagé par `ticket-open.mjs` (refuse un défaut sans gravité) et
- * `board-lint.mjs` (signale les défauts ouverts qui n'en portent pas) : une
- * règle, une implémentation. Rien ne s'exécute à l'import.
+ * Partagé par `ticket-open.mjs`, `ticket-severity.mjs` et `board-lint.mjs` :
+ * une règle, une implémentation. Rien ne s'exécute à l'import.
  */
 
-/** Classes de l'échelle hors sécurité, et ce que chacune recouvre. */
+/** Classes de l'IEEE 1044, et ce que chacune recouvre dans ce dépôt. */
 export const SEVERITY_SCALE = {
   Blocking:
     "l'usage est arrêté tant qu'il n'y a ni correctif ni contournement — processus arrêté, démarrage impossible",
@@ -38,7 +38,7 @@ const SCALE_FLOOR = {
   Blocking: "P0",
   Critical: "P0",
   Major: "P1",
-  Minor: "P2",
+  Minor: "P3",
   Inconsequential: "P3",
 };
 const SCALE_RE = new RegExp(
@@ -118,55 +118,66 @@ export function cvss31Score(vector) {
 }
 
 /**
- * Valide une gravité telle qu'on la donne, et rend la ligne à écrire au ticket.
+ * Valide une gravité telle qu'on la donne : une classe de l'IEEE 1044 suivie de
+ * son motif.
  *
- * @param text - `Major — motif` (une classe de l'IEEE 1044 suivie de son motif), ou
- *   un vecteur `CVSS:3.1/…`
- * @returns `{ ok: true, kind, line }` — la ligne porte le score CALCULÉ — ou
+ * @param text - `Major — l'export échoue au-delà de 1 000 lignes`
+ * @returns `{ ok: true, cls, motif, line }` — `line` est la ligne du corps — ou
  *   `{ ok: false, reason }`
  */
 export function checkSeverity(text) {
   const value = String(text ?? "").trim();
-  if (value.startsWith("CVSS:")) {
-    const vector = value.split(/\s/u)[0];
-    const result = cvss31Score(vector);
-    if (result === null) {
-      return {
-        ok: false,
-        reason: `vecteur CVSS invalide « ${vector} » — attendu CVSS:3.1/AV:_/AC:_/PR:_/UI:_/S:_/C:_/I:_/A:_ (les 8 métriques de base)`,
-      };
-    }
+  const scale = value.match(SCALE_RE);
+  if (!scale) {
     return {
-      ok: true,
-      kind: "cvss",
-      score: result.score,
-      line: `**Gravité** : ${vector} — ${String(result.score).replace(".", ",")} (${result.rating})`,
+      ok: false,
+      reason: `gravité illisible — « <classe> — motif », classe parmi ${Object.keys(SEVERITY_SCALE).join(", ")} (IEEE 1044)`,
     };
   }
-  const scale = value.match(SCALE_RE);
-  if (scale) {
-    if (scale[2].trim() === "") {
-      return {
-        ok: false,
-        reason: `« ${scale[1]} » sans motif — dire CE QUI casse (« ${scale[1]} — … »), la classe seule ne s'instruit pas`,
-      };
-    }
+  const motif = scale[2].trim();
+  if (motif === "") {
     return {
-      ok: true,
-      kind: "scale",
-      line: `**Gravité** : ${scale[1]} — ${scale[2].trim()}`,
+      ok: false,
+      reason: `« ${scale[1]} » sans motif — dire CE QUI casse (« ${scale[1]} — … »), la classe seule ne s'instruit pas`,
     };
   }
   return {
-    ok: false,
-    reason: `gravité illisible — « <classe> — motif » pour un défaut (${Object.keys(SEVERITY_SCALE).join(", ")}), un vecteur « CVSS:3.1/… » pour une faille`,
+    ok: true,
+    cls: scale[1],
+    motif,
+    line: `**Gravité** : ${scale[1]} — ${motif}`,
+  };
+}
+
+/**
+ * Valide un vecteur CVSS 3.1 et rend la ligne du corps, score CALCULÉ.
+ *
+ * @param vector - `CVSS:3.1/…`
+ * @returns `{ ok: true, score, rating, line }` ou `{ ok: false, reason }`
+ */
+export function checkCvss(vector) {
+  const value = String(vector ?? "")
+    .trim()
+    .split(/\s/u)[0];
+  const result = cvss31Score(value);
+  if (result === null) {
+    return {
+      ok: false,
+      reason: `vecteur CVSS invalide « ${value} » — attendu CVSS:3.1/AV:_/AC:_/PR:_/UI:_/S:_/C:_/I:_/A:_ (les 8 métriques de base)`,
+    };
+  }
+  return {
+    ok: true,
+    score: result.score,
+    rating: result.rating,
+    line: `**CVSS** : ${value} — ${String(result.score).replace(".", ",")} (${result.rating})`,
   };
 }
 
 /**
  * Lit la gravité déclarée dans le corps d'un ticket.
  *
- * Deux écritures : la ligne `**Gravité** : …` que pose `ticket:open`, et la
+ * Deux écritures : la ligne `**Gravité** : …` que posent les scripts, et la
  * section `### Gravité` que GitHub rend pour le champ du formulaire de défaut
  * (`.github/ISSUE_TEMPLATE/defaut.yml`).
  *
@@ -182,6 +193,19 @@ export function parseSeverity(body) {
 }
 
 /**
+ * Lit le vecteur CVSS déclaré au corps (ligne `**CVSS** : …`).
+ *
+ * @param body - corps brut de l'issue
+ * @returns le vecteur, ou `null`
+ */
+export function parseCvss(body) {
+  const match = String(body ?? "").match(
+    /^\s*\*{0,2}CVSS\*{0,2}\s*:\s*(CVSS:\S+)/imu,
+  );
+  return match ? match[1] : null;
+}
+
+/**
  * Les options du champ « Gravité » du formulaire GitHub, dérivées de l'échelle :
  * le formulaire est une COPIE imposée par la frontière (GitHub ne lit pas ce
  * module), et `github-templates.test.mjs` compare les deux.
@@ -193,34 +217,36 @@ export function severityFormOptions() {
 }
 
 /**
- * Priorité PLANCHER qu'impose une gravité — on peut monter, jamais descendre.
+ * Priorité PLANCHER qu'imposent la classe et, pour une faille, le score CVSS —
+ * le plus exigeant des deux. On peut monter au-dessus, jamais descendre.
  *
- * @param text - une gravité valide (`checkSeverity`)
- * @returns `P0` à `P3`, ou `null` si la gravité est illisible
+ * @param cls - classe IEEE 1044 (colonne « Gravité »), ou `null`
+ * @param cvssVector - vecteur CVSS 3.1 du corps, ou `null`
+ * @returns `P0` à `P3`, ou `null` si rien n'est lisible
  */
-export function severityFloor(text) {
-  const checked = checkSeverity(text);
-  if (!checked.ok) return null;
-  if (checked.kind === "cvss") {
-    if (checked.score >= 7) return "P0";
-    if (checked.score >= 4) return "P1";
-    return "P2";
-  }
-  return SCALE_FLOOR[String(text).trim().match(SCALE_RE)?.[1] ?? ""] ?? null;
+export function severityFloor(cls, cvssVector = null) {
+  const floors = [];
+  if (cls && SCALE_FLOOR[cls]) floors.push(SCALE_FLOOR[cls]);
+  const cvss = cvssVector ? cvss31Score(cvssVector) : null;
+  if (cvss) floors.push(cvss.score >= 7 ? "P0" : cvss.score >= 4 ? "P1" : "P2");
+  if (floors.length === 0) return null;
+  return floors.sort()[0];
 }
 
 /**
- * Pose la ligne de gravité dans un corps de ticket : remplace celle qui y est,
- * sinon l'insère avant l'estimation, sinon l'ajoute à la fin.
+ * Pose une ligne `**<Clé>** : …` dans un corps de ticket : remplace celle qui y
+ * est, sinon l'insère avant l'estimation, sinon l'ajoute à la fin.
  *
  * @param body - corps du ticket
- * @param line - ligne rendue par `checkSeverity`
- * @returns le corps avec UNE ligne de gravité
+ * @param line - ligne rendue par `checkSeverity` ou `checkCvss`
+ * @returns le corps avec UNE ligne de cette clé
  */
 export function withSeverityLine(body, line) {
   const text = String(body ?? "");
-  const existing = /^\s*\*{0,2}Gravit[ée]\*{0,2}\s*:.*$/imu;
-  if (existing.test(text)) return text.replace(existing, line);
+  const key = line.match(/^\*\*(.+?)\*\*/u)?.[1] ?? "Gravité";
+  const pattern = key === "Gravité" ? "Gravit[ée]" : key;
+  const existing = new RegExp(`^\\s*\\*{0,2}${pattern}\\*{0,2}\\s*:.*$`, "imu");
+  if (existing.test(text)) return text.replace(existing, () => line);
   const estimate = /^\*{0,2}Estimation\b/mu;
   const at = text.search(estimate);
   if (at !== -1) return `${text.slice(0, at)}${line}\n${text.slice(at)}`;
