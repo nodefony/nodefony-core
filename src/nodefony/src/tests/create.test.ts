@@ -2883,6 +2883,68 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     }
   });
 
+  describe("--demo — la démo naît module PRIVÉ, par le moteur de create module (#747)", () => {
+    it("sans --demo, l'application ne porte AUCUN fichier de la démo", () => {
+      const dest = path.join(tmp, "sans-demo");
+      scaffold(dest, { name: "sans-demo", preset: "complete" });
+      assert.isFalse(existsSync(path.join(dest, "modules", "demo")));
+      assert.notInclude(manifesteComplet(dest), "@sans-demo/demo");
+    });
+
+    it("avec --demo, modules/demo/ est un workspace privé, câblé au manifeste et à AGENTS.md", () => {
+      const dest = path.join(tmp, "avec-demo");
+      // Le module est créé pendant que l'application n'existe encore que dans
+      // la TRANSACTION : sans le prédicat `exists` de celle-ci, `create module`
+      // ne trouvait pas le projet qu'on est en train d'écrire.
+      const result = scaffold(dest, {
+        name: "avec-demo",
+        preset: "complete",
+        demo: true,
+      });
+      const pkg = JSON.parse(
+        readFileSync(
+          path.join(dest, "modules", "demo", "package.json"),
+          "utf8",
+        ),
+      ) as { name?: unknown; private?: unknown };
+      assert.equal(pkg.name, "@avec-demo/demo");
+      assert.isTrue(pkg.private);
+      assert.include(manifesteComplet(dest), 'use("@avec-demo/demo"');
+      const app = JSON.parse(
+        readFileSync(path.join(dest, "package.json"), "utf8"),
+      ) as { workspaces?: unknown };
+      assert.deepInclude(app.workspaces, "modules/*");
+      assert.include(
+        readFileSync(path.join(dest, "AGENTS.md"), "utf8"),
+        "@avec-demo/demo",
+      );
+      assert.include(
+        result.files,
+        path.join("modules", "demo", "package.json"),
+      );
+    });
+
+    it("--demo sous minimal est REFUSÉ en le disant, et rien n'est écrit", () => {
+      const dest = path.join(tmp, "demo-minimal");
+      assert.throws(
+        () =>
+          scaffold(dest, {
+            name: "demo-minimal",
+            preset: "minimal",
+            demo: true,
+          }),
+        /--demo exige le préréglage complete/,
+      );
+      assert.isFalse(existsSync(dest));
+    });
+
+    it("le drapeau --demo arrive jusqu'aux réponses", () => {
+      const parsed = parseCreateArgv(argv("create", "app", "x", "--demo"));
+      assert.notProperty(parsed, "error");
+      assert.isTrue((parsed as ICreateRequest).answers.demo);
+    });
+  });
+
   describe("moteur — preset minimal", () => {
     it("base saine : http+framework seuls, PAS d'infra docker", () => {
       const dest = path.join(tmp, "mini");

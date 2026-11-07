@@ -643,7 +643,7 @@ qui sort du dépôt : les hooks ne s'exécutent alors jamais.
 ## Scaffold — `cli/scaffold/` + `cli/create.ts` (3 fronts, UN moteur)
 
 `nodefony create app [name] [--dir <path>] [--force] [--yes] [--preset <complete|minimal>]
-[--frontend <none|react|vue|angular>] [--link|--no-link] [--git-hooks]` — **standalone 0-boot**
+[--frontend <none|react|vue|angular>] [--link|--no-link] [--git-hooks] [--demo]` — **standalone 0-boot**
 (fast-path `CliKernel.start`, cas nominal HORS projet : `npx nodefony create app`).
 L'app naît **agent-ready** : `AGENTS.md` racine — la **PORTE**, budget **20 Ko**
 (devise + générateurs + vérités universelles + gates + renvoi aux skills), dans un
@@ -927,6 +927,13 @@ l'admin web) :
   garde sa forme — script et Studio la fournissent toujours entière. Studio a sa
   propre sérialisation, confrontée à `formatEntityField` (`entityFieldsParity.test.ts`).
 - `create.ts` — adaptateur argv (flags → réponses partielles) + orchestration.
+
+**`--demo` (#747)** — la démo naît module PRIVÉ `modules/demo/`, posé par le moteur de
+`create module` (sous-scaffold dans la MÊME transaction, après `renderProjectAgents` pour que le
+bloc d'`AGENTS.md` l'inventorie). Exige `complete` : la spec efface la réponse sous `minimal`
+(`askWhen`), donc un `--demo` EXPLICITE y est refusé par `dispatchScaffold`, avant tout fichier.
+Les scaffolds in-project lisent la racine par `findProjectRoot(dir, writer.exists)` : sans le
+prédicat de la transaction, l'application en cours de création est introuvable.
 
 **Templates = LAYERS eta** (`templates/app/`, moteur eta — dep core, conditionnels
 `preset × frontend` impossibles en overlays purs) : `base/` (commun : controller

@@ -189,6 +189,10 @@ export function parseCreateArgv(
       git = false;
     } else if (word === "--git-hooks") {
       answers.gitHooks = true;
+    } else if (word === "--demo") {
+      // Le refus sous `minimal` vit dans le moteur (`dispatchScaffold`) : la
+      // spec efface une réponse dont la condition `askWhen` tombe, sans un mot.
+      answers.demo = true;
     } else if (word === "--link") {
       answers.link = true;
     } else if (word === "--no-link") {

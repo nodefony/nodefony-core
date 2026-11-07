@@ -16,15 +16,24 @@ import { existsSync } from "node:fs";
  * `scaffold/engine.ts` : le bundle du binaire importerait alors `eta` et tout le
  * moteur de templates, payés à CHAQUE invocation du CLI.
  *
+ * Le prédicat `exists` permet à un scaffold de voir sa TRANSACTION : `create
+ * app --demo` crée le module de la démo pendant que l'application n'existe
+ * encore que dans les écritures en attente — lu sur le disque seul, le projet
+ * qu'on est en train d'écrire serait introuvable.
+ *
  * @param from - dossier de départ (typiquement `process.cwd()`).
+ * @param exists - « ce chemin existe-t-il ? » ; le disque par défaut.
  * @returns racine absolue, ou `null` hors projet.
  */
-export function findProjectRoot(from: string): string | null {
+export function findProjectRoot(
+  from: string,
+  exists: (file: string) => boolean = existsSync,
+): string | null {
   let dir = path.resolve(from);
   for (;;) {
     if (
-      existsSync(path.join(dir, "nodefony.config.ts")) &&
-      existsSync(path.join(dir, "package.json"))
+      exists(path.join(dir, "nodefony.config.ts")) &&
+      exists(path.join(dir, "package.json"))
     ) {
       return dir;
     }

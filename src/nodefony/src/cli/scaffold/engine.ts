@@ -46,6 +46,13 @@ const ETA_OPTIONS = {
 const EXAMPLE_SERVICE = "Greeting";
 
 /**
+ * Nom du module de la démo posé par `create app --demo` (#747) : son dossier
+ * (`modules/demo/`), son paquet (`@<app>/demo`) et le préfixe de ses routes
+ * (`/demo`) en dérivent.
+ */
+const DEMO_MODULE = "demo";
+
+/**
  * Mot de passe du compte `admin` qu'une application générée sème en développement.
  *
  * Seule source : chaque gabarit le rend par `<%= it.devAdminPassword %>` (injecté
@@ -2023,6 +2030,15 @@ function dispatchScaffold(
     );
   }
   const preset = answers.preset as TPresetChoice;
+  // La démo montre la sécurité et le temps réel : sous `minimal`, il n'y a ni
+  // l'une ni l'autre. La spec effacerait la réponse (`askWhen`) sans un mot ;
+  // un `--demo` EXPLICITE mérite un refus qui le dit, avant tout fichier.
+  if (request.answers.demo === true && preset !== "complete") {
+    throw new Error(
+      "--demo exige le préréglage complete (sécurité + temps réel) — " +
+        "retire --preset minimal, ou retire --demo",
+    );
+  }
   const frontend = answers.frontend as TFrontendChoice;
   const front = frontend !== "none" ? FRONTEND_PARAMS[frontend] : null;
   // `null` en sqlite — le compose ne rend alors AUCUN service SQL et le `.env`
@@ -2354,6 +2370,40 @@ function dispatchScaffold(
     written,
     writer,
   );
+  // La démo (#747) : un module PRIVÉ posé par le moteur de `create module`,
+  // jamais par une copie à lui — workspace, manifeste, bloc d'`AGENTS.md`
+  // suivent ainsi la même règle qu'un module écrit par l'utilisateur, et la
+  // retirer est le geste inverse (un dossier, une ligne du manifeste). Après
+  // `renderProjectAgents` : le module régénère le bloc qui l'inventorie.
+  if (answers.demo === true) {
+    const sub = runScaffold(
+      {
+        type: "module",
+        answers: {
+          name: DEMO_MODULE,
+          description: `Démo de ${String(answers.name)} — ce que Nodefony sait faire, dans du code qui tourne`,
+          controller: "none",
+          service: false,
+          command: false,
+          frontend: "none",
+        },
+        dir: dest,
+        force: request.force,
+      },
+      version,
+      { writer },
+    );
+    // Les chemins du module sont relatifs à SON dossier ; ceux de l'app, à la
+    // racine. Sans préfixe, `package.json` du module se confondrait avec celui
+    // de l'application dans la liste rendue.
+    const moduleDir = path.relative(dest, sub.dest);
+    for (const file of sub.files) {
+      const rel = path.join(moduleDir, file);
+      if (!written.includes(rel)) {
+        written.push(rel);
+      }
+    }
+  }
   let linked: string[] = [];
   if (answers.link === true) {
     if (!workspaces) {
@@ -3121,7 +3171,9 @@ function runModuleScaffold(
   version: string,
   writer: ScaffoldWriter,
 ): IScaffoldResult {
-  const projectRoot = findProjectRoot(request.dir);
+  const projectRoot = findProjectRoot(request.dir, (file) =>
+    writer.exists(file),
+  );
   if (!projectRoot) {
     throw new Error(
       "aucun projet Nodefony ici (nodefony.config.ts introuvable en remontant) — " +
@@ -3617,7 +3669,9 @@ function runControllerScaffold(
   nodefonyVersion: string,
   writer: ScaffoldWriter,
 ): IScaffoldResult {
-  const projectRoot = findProjectRoot(request.dir);
+  const projectRoot = findProjectRoot(request.dir, (file) =>
+    writer.exists(file),
+  );
   if (!projectRoot) {
     throw new Error(
       "aucun projet Nodefony ici (nodefony.config.ts introuvable en remontant) — " +
@@ -3881,7 +3935,9 @@ function runServiceScaffold(
   packageRoot: string,
   writer: ScaffoldWriter,
 ): IScaffoldResult {
-  const projectRoot = findProjectRoot(request.dir);
+  const projectRoot = findProjectRoot(request.dir, (file) =>
+    writer.exists(file),
+  );
   if (!projectRoot) {
     throw new Error(
       "aucun projet Nodefony ici (nodefony.config.ts introuvable en remontant) — " +
@@ -4518,7 +4574,9 @@ function runCommandScaffold(
   packageRoot: string,
   writer: ScaffoldWriter,
 ): IScaffoldResult {
-  const projectRoot = findProjectRoot(request.dir);
+  const projectRoot = findProjectRoot(request.dir, (file) =>
+    writer.exists(file),
+  );
   if (!projectRoot) {
     throw new Error(
       "aucun projet Nodefony ici (nodefony.config.ts introuvable en remontant) — " +
@@ -5199,7 +5257,9 @@ function runEntityScaffold(
   nodefonyVersion: string,
   writer: ScaffoldWriter,
 ): IScaffoldResult {
-  const projectRoot = findProjectRoot(request.dir);
+  const projectRoot = findProjectRoot(request.dir, (file) =>
+    writer.exists(file),
+  );
   if (!projectRoot) {
     throw new Error(
       "aucun projet Nodefony ici (nodefony.config.ts introuvable en remontant) — " +
@@ -6639,7 +6699,9 @@ function runFrontScaffold(
   nodefonyVersion: string,
   writer: ScaffoldWriter,
 ): IScaffoldResult {
-  const projectRoot = findProjectRoot(request.dir);
+  const projectRoot = findProjectRoot(request.dir, (file) =>
+    writer.exists(file),
+  );
   if (!projectRoot) {
     throw new Error(
       "aucun projet Nodefony ici (nodefony.config.ts introuvable en remontant) — " +
