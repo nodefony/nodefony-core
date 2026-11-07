@@ -193,7 +193,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme v1.5.0 · ⚙️ 21 scripts · 📎 9 réf" },
   { "icon": "🔧", "title": "devops", "href": "skills/nodefony-devops.md",
     "desc": "Porte le déploiement d'une application Nodefony côté FRAMEWORK : les gabarits qui rendent son image, son compose, sa topologie, ses manifestes Kubernetes et sa chaîne d'intégration.",
-    "meta": "🟢 conforme v1.1.0" },
+    "meta": "🟢 conforme v1.1.0 · ⚙️ 1 script" },
   { "icon": "🔧", "title": "identifiers", "href": "skills/nodefony-identifiers.md",
     "desc": "Les identifiants du code Nodefony, de bout en bout : le gate de langue qui dit LESQUELS sont français (dictionnaire, banc anti-faux-positif, exceptions déclarées), puis le renommage en masse par le LanguageService TypeScript — jamais par regex — avec la preuve qu'aucun symbole n'a dérivé ni…",
     "meta": "🟢 conforme v1.0.0 · ⚙️ 7 scripts" },

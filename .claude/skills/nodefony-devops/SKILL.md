@@ -128,6 +128,31 @@ kind delete cluster --name nodefony
 mais il ne rejoue ni l'admission de la politique, ni l'Ingress, ni un `rollout`. Ce qu'il ne
 prouve pas doit être dit, pas supposé prouvé.
 
+## 5bis. Choisir l'image de base — un banc, pas un avis
+
+`scripts/bench-bases.mjs` génère une application `complete` (installation réelle depuis npm),
+remplace les deux lignes `FROM` de son `Dockerfile` pour chaque candidate — `node:24-alpine`
+(retenue), `node:24-slim`, `gcr.io/distroless/nodejs24-debian12` et `-debian13` —, construit en
+tirant les bases fraîches, scanne (`docker scout quickview`), puis **démarre** : `/livez`,
+`GET /`, arrêt en code 0. Tableau en sortie, données dans `tmp/bench/bench-bases-<date>.json`.
+
+```bash
+docker login        # sans elle, scout ne scanne rien — le banc le nomme, la colonne reste « ? »
+node .claude/skills/nodefony-devops/scripts/bench-bases.mjs
+node .claude/skills/nodefony-devops/scripts/bench-bases.mjs --bases alpine,distroless13 --keep
+```
+
+- La variante distroless s'écarte du gabarit en trois points, et le banc VÉRIFIE chaque
+  substitution : dossiers `tmp/`/`var/` créés dans un étage intermédiaire puis copiés en
+  `--chown` (pas de shell pour le `RUN mkdir`), sonde sur `/nodejs/bin/node`, `CMD` inchangé
+  (l'`ENTRYPOINT` de l'image est déjà `/nodejs/bin/node`).
+- **Une distroless figée se voit à sa version de Node**, relevée à chaque run : `debian12` est
+  restée en 24.14.0 quand les autres passaient en 24.22 ; `debian13` suit la version courante.
+  C'est la recette distroless que portent le `Dockerfile` généré et la page Docker Hub.
+- Les chiffres publiés (commentaire de `Dockerfile.tpl`, `docker/hub-overview.md`, section
+  `scripts/generate/readme/18-production.md`) se recalent ENSEMBLE depuis un même run — jamais
+  une colonne d'aujourd'hui à côté d'une colonne d'hier.
+
 ## 6. Pièges constatés
 
 - **Un manifeste écrit dans la documentation n'est pas un manifeste livré.** Un utilisateur qui

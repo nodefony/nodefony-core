@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-21
+updated: 2026-11-07
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-devops/SKILL.md"
 ---
@@ -28,17 +28,21 @@ source: ".claude/skills/nodefony-devops/SKILL.md"
 | --- | --- |
 | Version | `1.1.0` |
 | Famille | Autres |
-| Corps | 136 lignes |
-| Coût d'activation | ~3 053 tokens (le corps est chargé à l'invocation) |
+| Corps | 161 lignes |
+| Coût d'activation | ~3 464 tokens (le corps est chargé à l'invocation) |
 | Description | 906 / 1024 caractères |
 | Déclencheurs | 13 |
 | Ressources `references/` | 0 page(s), 24 fichiers au total |
-| Scripts | 0 |
+| Scripts | 1 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
 Porte le déploiement d'une application Nodefony côté FRAMEWORK : les gabarits qui rendent son image, son compose, sa topologie, ses manifestes Kubernetes et sa chaîne d'intégration. Donne la carte de ce que le générateur rend déjà, et embarque HORS LIGNE le corpus de référence (Docker, Kubernetes, Podman, OCI, distroless) sur lequel toute décision se tranche. À charger AVANT de toucher à un gabarit de déploiement ou d'affirmer ce qu'un orchestrateur fait : les réponses se lisent dans le corpus, elles ne se déduisent pas. Le skill livré aux applications vit dans le paquet devkit.
+
+## Prérequis
+
+Ce que le décor doit fournir pour que ses scripts disent quelque chose : **docker** · **serveur UP**.
 
 ## Skills voisins
 
@@ -59,8 +63,33 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 - 3. Ce que le générateur rend — la carte
 - 4. Le corpus de référence — `references/corpus/`
 - 5. Le décor local — ce qui est installé, et ce qui ne l'est pas
+- 5bis. Choisir l'image de base — un banc, pas un avis
 - 6. Pièges constatés
 - 7. Gate
+
+## Scripts embarqués
+
+Rôle, invocation, options et variables d'environnement — **extraits du source** de chaque
+script, donc toujours à jour après régénération.
+
+| Script | Rôle | Options | Variables d'environnement |
+| --- | --- | --- | --- |
+| `scripts/bench-bases.mjs` | bench-bases.mjs — compare les images de base d'une application Nodefony : poids, failles, Node embarqué, démarrage. | `--app` `--bases` `--chown` `--entrypoint` `--env` `--env-file` `--from` `--frontend` `--json` `--keep` `--license` `--name` `--no-git` `--preset` `--pull` `--rm` `--tail` `--version` `--yes` | — |
+
+**Invocation telle que documentée dans chaque script :**
+
+```bash
+node .claude/skills/nodefony-devops/scripts/bench-bases.mjs [--app <dossier>] [--bases <liste>] [--keep] [--json <fichier>]
+```
+
+### Détail des scripts auto-documentés
+
+#### `scripts/bench-bases.mjs`
+
+
+```bash
+node .claude/skills/nodefony-devops/scripts/bench-bases.mjs [--app <dossier>] [--bases <liste>] [--keep] [--json <fichier>]
+```
 
 ## Conformité au standard Agent Skills
 
@@ -81,7 +110,7 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 136 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 161 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

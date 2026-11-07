@@ -321,12 +321,18 @@ et garder une image complète pour construire :
 
 ```dockerfile
 FROM node:24-slim AS build
-FROM gcr.io/distroless/nodejs24-debian12
+FROM gcr.io/distroless/nodejs24-debian13
 ```
 
+Préférer **`debian13`** à `debian12` : en novembre 2026, `nodejs24-debian12` était
+resté figé en Node 24.14.0 pendant que les autres bases passaient en 24.22 —
+exactement le retard décrit plus haut. `nodejs24-debian13` suit la version
+courante ; construite et démarrée avec une application `complete`, elle répond.
+
 > **Après tout changement de base : reconstruire, puis DÉMARRER.** « Ça
-> construit » ne prouve rien — les trois images se construisaient, et l'une des
-> trois ne démarrait pas.
+> construit » ne prouve rien — les trois images se construisaient, et distroless
+> mourait au démarrage — sur une API de `node:crypto` absente de son Node,
+> retirée depuis : les trois démarrent.
 
 # Licence
 

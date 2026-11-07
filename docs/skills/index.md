@@ -153,7 +153,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v1.5.0 · ⚙️ 21 scripts · 📎 9 réf" },
   { "icon": "🔧", "title": "devops", "href": "nodefony-devops.md",
     "desc": "Porte le déploiement d'une application Nodefony côté FRAMEWORK : les gabarits qui rendent son image, son compose, sa topologie, ses manifestes Kubernetes et sa chaîne d'intégration.",
-    "meta": "🟢 conforme v1.1.0" },
+    "meta": "🟢 conforme v1.1.0 · ⚙️ 1 script" },
   { "icon": "🔧", "title": "identifiers", "href": "nodefony-identifiers.md",
     "desc": "Les identifiants du code Nodefony, de bout en bout : le gate de langue qui dit LESQUELS sont français (dictionnaire, banc anti-faux-positif, exceptions déclarées), puis le renommage en masse par le LanguageService TypeScript — jamais par regex — avec la preuve qu'aucun symbole n'a dérivé ni…",
     "meta": "🟢 conforme v1.0.0 · ⚙️ 7 scripts" },
@@ -202,7 +202,7 @@ source: "docs/skills/index.md"
 | [`nodefony-debug`](nodefony-debug.md) | 1.1.0 | 256 | 0 | 0 | ✅ |
 | [`nodefony-decision-making`](nodefony-decision-making.md) | 3.5.0 | 130 | 7 | 0 | ✅ |
 | [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.5.0 | 534 | 9 | 21 | ✅ |
-| [`nodefony-devops`](nodefony-devops.md) | 1.1.0 | 136 | 0 | 0 | ✅ |
+| [`nodefony-devops`](nodefony-devops.md) | 1.1.0 | 161 | 0 | 1 | ✅ |
 | [`nodefony-documentation`](nodefony-documentation.md) | 3.2.0 | 486 | 2 | 20 | ✅ |
 | [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.3.0 | 411 | 11 | 0 | ✅ |
 | [`nodefony-frontend-dev`](nodefony-frontend-dev.md) | 1.3.0 | 116 | 6 | 0 | ✅ |

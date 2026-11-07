@@ -5657,14 +5657,106 @@
       ],
       "description": "Porte le déploiement d'une application Nodefony côté FRAMEWORK : les gabarits qui rendent son image, son compose, sa topologie, ses manifestes Kubernetes et sa chaîne d'intégration. Donne la carte de ce que le générateur rend déjà, et embarque HORS LIGNE le corpus de référence (Docker, Kubernetes, Podman, OCI, distroless) sur lequel toute décision se tranche. À charger AVANT de toucher à un gabarit de déploiement ou d'affirmer ce qu'un orchestrateur fait : les réponses se lisent dans le corpus, elles ne se déduisent pas. Le skill livré aux applications vit dans le paquet devkit. Déclencheurs : \"gabarit de déploiement\", \"Dockerfile généré\", \"manifeste Kubernetes du scaffold\", \"politique Restricted\", \"readOnlyRootFilesystem\", \"sondes liveness et readiness\", \"arrêt gracieux d'un pod\", \"Podman\", \"corpus docker\", \"corpus kubernetes\", \"la CI de l'application générée\", \"GitLab CI\", \"scanner l'image\".",
       "cost": {
-        "bodyLines": 136,
-        "approxTokens": 3053
+        "bodyLines": 161,
+        "approxTokens": 3464
       },
-      "requires": [],
+      "requires": [
+        "docker",
+        "serveur UP"
+      ],
       "resources": {
         "references": [],
         "referenceFilesTotal": 24,
-        "scripts": []
+        "scripts": [
+          {
+            "path": "scripts/bench-bases.mjs",
+            "purpose": "bench-bases.mjs — compare les images de base d'une application Nodefony : poids, failles, Node embarqué, démarrage.",
+            "usage": [
+              "node .claude/skills/nodefony-devops/scripts/bench-bases.mjs [--app <dossier>] [--bases <liste>] [--keep] [--json <fichier>]"
+            ],
+            "options": [
+              {
+                "flag": "--app",
+                "help": ""
+              },
+              {
+                "flag": "--bases",
+                "help": ""
+              },
+              {
+                "flag": "--chown",
+                "help": ""
+              },
+              {
+                "flag": "--entrypoint",
+                "help": ""
+              },
+              {
+                "flag": "--env",
+                "help": ""
+              },
+              {
+                "flag": "--env-file",
+                "help": ""
+              },
+              {
+                "flag": "--from",
+                "help": ""
+              },
+              {
+                "flag": "--frontend",
+                "help": ""
+              },
+              {
+                "flag": "--json",
+                "help": ""
+              },
+              {
+                "flag": "--keep",
+                "help": ""
+              },
+              {
+                "flag": "--license",
+                "help": ""
+              },
+              {
+                "flag": "--name",
+                "help": ""
+              },
+              {
+                "flag": "--no-git",
+                "help": ""
+              },
+              {
+                "flag": "--preset",
+                "help": ""
+              },
+              {
+                "flag": "--pull",
+                "help": ""
+              },
+              {
+                "flag": "--rm",
+                "help": ""
+              },
+              {
+                "flag": "--tail",
+                "help": ""
+              },
+              {
+                "flag": "--version",
+                "help": ""
+              },
+              {
+                "flag": "--yes",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": true
+          }
+        ]
       },
       "related": [
         "nodefony-debug",
@@ -5734,7 +5826,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "136",
+            "detail": "161",
             "advisory": true
           }
         ]

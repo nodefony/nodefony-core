@@ -49,15 +49,18 @@
 #   en `/nodejs/bin/node`, et l'étage de construction reste sur une image
 #   complète :
 #       FROM node:24-slim AS build
-#       FROM gcr.io/distroless/nodejs24-debian12
+#       FROM gcr.io/distroless/nodejs24-debian13
 #   Son compte de vulnérabilités est MOINS bon que celui d'Alpine, pour une
 #   raison structurelle : elle embarque un Node plus ancien (24.14 contre
 #   24.21) et le suivra toujours avec du retard — c'est ce qui l'a fait mourir
-#   au démarrage sur une API de `node:crypto` que le framework employait.
+#   au démarrage sur une API de `node:crypto` que le framework employait
+#   (retirée depuis : les trois bases démarrent). Constaté depuis : la variante
+#   `debian12` est restée figée en Node 24.14.0 quand Alpine passait en 24.22 ;
+#   `gcr.io/distroless/nodejs24-debian13` suit, elle, la version courante.
 #
 # Après tout changement de base : reconstruire, DÉMARRER, et vérifier que
 # l'application répond — « ça construit » ne prouve rien (mesuré : les trois
-# images se construisaient, une seule des trois démarrait).
+# images se construisaient, et distroless mourait au démarrage).
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── Étape de construction : la chaîne de compilation ne descend PAS en prod ───
