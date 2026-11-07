@@ -2,7 +2,7 @@
 
 <a href="https://github.com/nodefony/nodefony-core"><img src="https://raw.githubusercontent.com/nodefony/nodefony-core/main/docs/assets/nodefony-logo.png" alt="Nodefony" height="72"></a>
 
-# <%= it.appName %>
+# <%= it.appName %><% /* GÉNÉRÉ par scripts/generate/readmes.mjs (dépôt nodefony-core) — la source est scripts/generate/readme/ */ %>
 
 <% if (it.complete) { %>**HTTP et WebSocket dans le même contrôleur, une base qui persiste, un pare-feu
 applicatif et une console d'administration** — engendrée par
@@ -13,6 +13,8 @@ applicatif et une console d'administration** — engendrée par
 [![Nodefony](https://img.shields.io/badge/Nodefony-<%= it.nodefonyVersion.replace(/-/g, "--") %>-1f6feb?style=flat-square)](https://github.com/nodefony/nodefony-core)
 [![Node ≥ 24.14](https://img.shields.io/badge/Node.js-%E2%89%A5%2024.14-green?style=flat-square)](package.json)
 [![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-blue?style=flat-square)](tsconfig.json)
+
+**[📖 Documentation](https://nodefony.github.io/nodefony-core/docs/)** · [Par où commencer](https://nodefony.github.io/nodefony-core/docs/demarrer/) · [Le framework](https://github.com/nodefony/nodefony-core)
 
 </div>
 
@@ -28,18 +30,101 @@ qui évite beaucoup de temps perdu.
   [l'architecture en vue d'ensemble](https://nodefony.github.io/nodefony-core/docs/architecture/vue-ensemble/).
 - **Le code d'un paquet que cette app importe** → [`nodefony/nodefony-core`](https://github.com/nodefony/nodefony-core),
   dans `src/packages/@nodefony/<nom>`.
-- **Brancher VOTRE implémentation** — authentification, stockage, bus temps réel →
+- **Brancher TON implémentation** — authentification, stockage, bus temps réel →
   [Étendre le framework](https://nodefony.github.io/nodefony-core/docs/guides/etendre/), quatorze points d'accroche.
 - **Signaler un défaut, demander une évolution** → [les issues de `nodefony-core`](https://github.com/nodefony/nodefony-core/issues).
 - **Qui décide, et comment** → [la gouvernance](https://github.com/nodefony/nodefony-core/blob/main/GOVERNANCE.md).
 
-⚠️ **Ce que vous n'héritez PAS.** `nodefony-core` est un monorepo de développement : il porte les
+⚠️ **Ce dont tu n'hérites PAS.** `nodefony-core` est un monorepo de développement : il porte les
 paquets du framework, mais aussi ses bancs de mesure, ses gabarits, ses suites de test et son
 outillage d'agent. **Rien de tout cela n'entre dans cette application** — le lire donne
-l'implémentation du framework, jamais ce que votre application embarque. Ce qu'elle embarque
+l'implémentation du framework, jamais ce que ton application embarque. Ce qu'elle embarque
 vraiment se lit dans **son** `package.json`, ici même.
+<% if (it.complete) { %>
+## Le temps réel, de bout en bout
 
-## Démarrer
+**Nodefony est un framework temps réel.** Une application vivante pose toujours les mêmes questions :
+pousser au navigateur, dans un sens ou dans les deux ; ouvrir des salons et savoir qui s'y trouve ;
+décider qui entre ; faire passer des octets ; tenir à plusieurs instances ; voir ce qui se passe
+quand ça coince. Chacune a sa réponse dans le framework, écrite contre la norme qui la définit, et
+éprouvée par des tests.
+
+| Ce qu'il te faut                      | Ce que Nodefony fournit                                                                                                                                                                                                   |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Échanger dans les deux sens**       | La **socket Nodefony** : des canaux à volonté sur une seule connexion — le serveur diffuse, le client appelle et attend la réponse, ou pousse sans attendre. JSON-RPC 2.0 sur WebSocket (RFC 6455), dans le pipeline HTTP |
+| **Pousser dans un seul sens**         | Les **flux SSE** (`text/event-stream`) : une action répond par `this.renderSse()`, en HTTP/1.1 comme en HTTP/2. Le client isomorphe se reconnecte avec `Last-Event-ID`, et sait envoyer un `POST` et des en-têtes         |
+| **Des salons et leurs membres**       | **Canaux à membres** : lister qui est là, abonner d'office, éjecter un compte, fermer le salon, sur toutes les instances. Un message privé atteint une personne par `publishToUser`                                       |
+| **Décider qui entre**                 | Une **règle d'admission** par canal (`allow`, fonction ou service injecté), sous le même pare-feu que le HTTP. Origine vérifiée à la poignée de main ; un jeton expiré ferme la socket avec un code dédié                 |
+| **Faire passer des octets**           | **CBOR** (RFC 8949), négocié connexion par connexion — détaillé ci-dessous                                                                                                                                                |
+| **Tenir à plusieurs instances**       | Un bus de diffusion entre workers ou par Redis, messages scellés (HMAC-SHA256). Un seul producteur par canal et par processus, quel que soit le nombre d'abonnés                                                          |
+| **Tenir la charge**                   | Contre-pression en sortie, débit borné en entrée, cadence de diffusion qui s'adapte à chaque client                                                                                                                       |
+| **Des types de bout en bout**         | Un **contrat** écrit une fois type le contrôleur, la socket et les hooks React, Vue, Svelte et Angular. Les routes qu'il annonce sont vérifiées au démarrage                                                              |
+| **Voir et tester**                    | Une sonde, la console d'administration, les onglets Socket et SSE de la barre de débogage, un traceur de trames ; une identité d'essai pour tester un canal protégé                                                       |
+| **gRPC** — _à venir en 10.0.0-beta.7_ | Des services gRPC servis par le même pipeline HTTP/2, déclarés depuis un module, avec la réflexion et la santé standard                                                                                                   |
+
+Chaque besoin a son exemple complet et testé : jeu (déplacements, recherche de partie), salon privé
+sur invitation, sonde industrielle, tableau de bord partagé, notification privée, tâche d'agent.
+
+### Le binaire, sans conversion
+
+JSON reste le format par défaut. Dès que des octets circulent — image, son, mesures de capteur,
+état d'une partie —, le serveur accepte **CBOR**, un JSON binaire. Nodefony embarque son propre
+codec : isomorphe, sans dépendance, environ 5,5 Ko compressés, et téléchargé seulement par la page
+qui l'importe. Il rend exactement ce que JSON rendrait, à une exception près : un `Uint8Array`
+voyage en octets et revient en `Uint8Array`. Un message ordinaire pèse 30 à 45 % de moins, et 64 Ko
+d'octets en occupent 65,6 au lieu des 87,4 du base64.
+
+Le codec se **négocie connexion par connexion**. Le client qui l'offre parle CBOR ; celui qui ne
+l'offre pas reste en texte et reçoit les mêmes données. Aucun client ne casse, et un canal suivi par
+les deux sortes de connexions paie un encodage par codec, jamais un par abonné.
+
+```ts
+// nodefony.config.ts — le serveur accepte CBOR
+use("@nodefony/realtime", { codec: "cbor" });
+```
+
+```ts
+// navigateur — le client l'offre à l'ouverture
+import { NodefonySocket } from "nodefony/client";
+import { CBOR_FRAME_CODEC } from "nodefony/cbor";
+
+const socket = NodefonySocket.shared({
+  url: "/chat/realtime",
+  codec: CBOR_FRAME_CODEC,
+});
+```
+
+→ [La socket Nodefony](https://nodefony.github.io/nodefony-core/docs/modules/realtime/) ·
+[Les cas d'usage](https://nodefony.github.io/nodefony-core/docs/modules/realtime/cas-d-usage/) ·
+[Les flux SSE](https://nodefony.github.io/nodefony-core/docs/modules/http/sse/) ·
+[Le codec CBOR](https://nodefony.github.io/nodefony-core/docs/modules/core/cbor/)
+<% } %>
+## L'IA : ton application, ouverte aux agents
+
+**Un agent d'IA atteint une application par une porte standard : le Model Context Protocol
+(MCP).** Il demande quels outils elle offre, reçoit pour chacun un nom, une description et un
+schéma d'entrée, puis les appelle. `@nodefony/ai` donne cette porte à ton application et tient
+le protocole à ta place — versions, erreurs, autorisation, progression, annulation. Tu écris
+une fonction ; elle devient un outil, que Claude, ChatGPT, Copilot ou l'agent d'un client savent
+appeler.
+
+| Ce qu'il te faut                     | Ce que Nodefony fournit                                                                                                                                                                                   |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Ouvrir une porte MCP**             | `npx nodefony create controller mcp --kind mcp` génère la porte, deux outils d'exemple et leur test. MCP révision `2026-07-28`, clients plus anciens acceptés                                             |
+| **Suivre un outil long**             | Sur la même requête HTTP, la réponse passe en **flux SSE** : l'agent reçoit l'avancement (`notifications/progress`), puis le résultat — et peut annuler en route, l'outil s'arrête proprement             |
+| **Servir un agent sans serveur**     | Le transport **stdio** : `npx nodefony ai:stdio`, pour une intégration continue ou un agent qui lance lui-même son serveur. Les mêmes outils, la même fonction                                            |
+| **Ouvrir en production**             | `--expose oauth` : jeton exigé, serveur d'autorisation annoncé (RFC 9728), un scope par outil — un appelant ne voit que ce qu'il peut appeler. `--expose mixte` : des outils publics, les autres réservés |
+| **Agir au nom de quelqu'un**         | `actsForUser` : l'outil s'exécute avec le compte de l'appelant, sous les mêmes règles qu'une route protégée                                                                                               |
+| **Dire ce que fait l'outil**         | Chaque outil annonce s'il lit ou s'il modifie, pour que l'agent sache quand demander confirmation ; le test généré refuse un outil qui ne le dit pas                                                      |
+| **Des outils dans chaque module**    | Un module déclare les siens par `getMcpTools()` ; une porte les ramasse tous, sans registre à tenir                                                                                                       |
+| **Développer avec un agent de code** | `@nodefony/devkit` ouvre en développement la porte `/nodefony/mcp` : l'agent interroge l'application qui tourne — carte, santé, routes, trafic, profil d'une route — au lieu de deviner                   |
+
+`@nodefony/ai` ne monte aucune route tant que tu n'ouvres pas de porte ; paquet **expérimental**, il suit la spécification MCP et peut évoluer en version mineure, toujours annoncé au journal des versions.
+
+→ [Le module IA](https://nodefony.github.io/nodefony-core/docs/modules/ai/) ·
+[La boîte à outils MCP](https://nodefony.github.io/nodefony-core/docs/modules/ai/mcp/)
+
+## Démarrage
 
 ```bash
 npm install
@@ -65,25 +150,8 @@ npm run dev
 > L'app **persiste déjà** : <% if (it.db) { %>`.env` déclare `NF_DATABASE_URL` sur le <%= it.db.label %> du
 > `compose.yaml`<% } else { %>sans aucune base déclarée, l'ORM Drizzle crée une sqlite locale
 > (`var/databases/`)<% } %> — comptes, sessions et jetons survivent aux redémarrages.
-
-### Ce que la console montre
-
-Elle n'est pas un tableau de bord décoratif : elle lit le runtime en marche.
-
-<img src="https://raw.githubusercontent.com/nodefony/nodefony-core/main/docs/assets/studio-supervision.png" alt="Supervision du runtime dans la console d'administration" width="100%">
-
-_Les modules chargés, les services du conteneur d'injection, les routes montées, la mémoire et les
-connexions — l'état réel du processus, pas une configuration relue._
-
-<img src="https://raw.githubusercontent.com/nodefony/nodefony-core/main/docs/assets/studio-request.png" alt="Suivi d'une requête de bout en bout par son identifiant" width="100%">
-
-_Une requête suivie de bout en bout par son identifiant : les étapes traversées, leur durée, les
-requêtes SQL déclenchées et les journaux corrélés. C'est ce qu'on regarde quand quelque chose est
-lent, et qu'on ne sait pas encore où._
-
-<% } %>---
-
-## 1. Visite guidée — ce que l'app démontre
+<% } %>
+## Visite guidée — ce que l'app démontre
 
 - **Route HTTP** — `curl http://127.0.0.1:5151/api/hello`
 - **WebSocket, _même controller_** — `npx wscat -c ws://127.0.0.1:5151/api/echo` puis tape un message
@@ -99,62 +167,27 @@ Le différenciateur Nodefony tient dans `nodefony/controllers/HelloController.ts
 **une route GET et une route WEBSOCKET dans la même classe** — même pipeline,
 pas deux mondes séparés.
 <% if (it.complete) { %>
-### Le temps réel est déjà là
+## Le framework se regarde tourner
 
-Ton application porte un framework temps réel complet, déjà branché. `LiveController` en est la
-première brique : une socket à **canaux**, où le serveur diffuse, le client appelle et attend la
-réponse, ou pousse sans attendre — sous le même pare-feu que tes routes HTTP. Ce que tu peux en
-faire, sans rien ajouter :
+`@nodefony/studio` est une console d'administration livrée avec le framework : topologie du runtime,
+journaux en direct avec rejeu, suivi d'une requête de bout en bout par son identifiant, schéma de la
+base, graphe des classes par module, gouvernance de la sécurité (audit, pare-feu, rôles, sessions,
+clés d'API), et les générateurs de code pilotables à la souris, la sortie diffusée comme un terminal.
 
-- **Échanger dans les deux sens** — la socket Nodefony, JSON-RPC 2.0 sur WebSocket.
-- **Pousser dans un seul sens** — un flux SSE : une action répond par `this.renderSse()`.
-- **Des salons et leurs membres** — lister, abonner d'office, éjecter ; un message privé par `publishToUser`.
-- **Décider qui entre** — une règle `allow` par canal ; un jeton expiré ferme la socket.
-- **Des octets** — CBOR, un JSON binaire, négocié connexion par connexion (ci-dessous).
-- **Plusieurs instances** — la ligne `backplane` de `nodefony.config.ts` : `cluster` entre workers, `redis` entre machines.
-- **Des types de bout en bout** — un contrat écrit une fois, du contrôleur aux hooks de ton frontend.
-- **gRPC** — _à venir en 10.0.0-beta.7_, sur le même serveur HTTP/2.
+<img src="https://raw.githubusercontent.com/nodefony/nodefony-core/main/docs/assets/studio-supervision.png" alt="Supervision du runtime dans la console d'administration" width="100%">
 
-Quand des **octets** circulent (image, son, mesures, état d'une partie), passe le fil en **CBOR** :
-ils voyagent tels quels, sans base64, et un message ordinaire pèse 30 à 45 % de moins. Le serveur
-l'accepte, le navigateur l'offre ; un client qui ne l'offre pas reste en texte et reçoit les mêmes
-données.
+Sa force est en dessous : **elle ne consomme aucune API privée.** Toutes ses données viennent d'un
+plan de données JSON protégé par les mêmes règles d'accès que le reste, **auto-décrit** — un appel en
+renvoie le catalogue — et **duplex** : le même point d'accès répond en HTTP et par la socket. Ce
+qu'affiche la console, un script ou un agent peut le lire tel quel.
 
-```ts
-// nodefony.config.ts — la ligne existe déjà, ajoute le codec
-use("@nodefony/realtime", { backplane: { driver: "cluster" }, codec: "cbor" });
+Le suivi d'une requête en est l'illustration la plus directe : chaque requête porte un identifiant
+propagé dans tout le pipeline, et la console rejoue son trajet complet — phases, requêtes de base de
+données, décisions du pare-feu.
 
-// navigateur
-import { CBOR_FRAME_CODEC } from "nodefony/cbor";
-NodefonySocket.shared({ url, codec: CBOR_FRAME_CODEC });
-```
-
-→ [La socket Nodefony](https://nodefony.github.io/nodefony-core/docs/modules/realtime/) ·
-[Un exemple par besoin](https://nodefony.github.io/nodefony-core/docs/modules/realtime/cas-d-usage/) ·
-[Les flux SSE](https://nodefony.github.io/nodefony-core/docs/modules/http/sse/) ·
-[Le codec CBOR](https://nodefony.github.io/nodefony-core/docs/modules/core/cbor/)
+<img src="https://raw.githubusercontent.com/nodefony/nodefony-core/main/docs/assets/studio-request.png" alt="Suivi d'une requête de bout en bout par son identifiant" width="100%">
 <% } %>
-### Ouverte aux agents d'IA
-
-Ton application peut offrir ses outils à n'importe quel agent — Claude, ChatGPT, Copilot, l'agent
-d'un client — par le **Model Context Protocol** (MCP). `@nodefony/ai` est déjà chargé, et ne monte
-aucune route tant que tu n'ouvres pas de porte :
-
-```bash
-npx nodefony create controller mcp --kind mcp                  # porte locale : la machine seulement
-npx nodefony create controller mcp --kind mcp --expose oauth   # production : jeton exigé, un scope par outil
-```
-
-- **Une fonction devient un outil** — tu l'ajoutes à `nodefony/mcp/mcp-tools.ts`, la porte la publie.
-- **Les outils longs** — la réponse passe en flux SSE : avancement, puis résultat ; l'agent peut annuler.
-- **Sans serveur** — `npx nodefony ai:stdio`, pour un agent qui lance lui-même son serveur.
-- **Au nom de l'appelant** — `actsForUser` : l'outil agit avec son compte, sous les règles d'une route protégée.
-- **En développement**, ton agent de code interroge déjà l'application qui tourne par la porte
-  `/nodefony/mcp` (`@nodefony/devkit`) : carte, santé, routes, trafic, profil d'une route.
-
-→ [La boîte à outils MCP](https://nodefony.github.io/nodefony-core/docs/modules/ai/mcp/)
-
-## 2. Structure du projet
+## Structure du projet
 
 - `nodefony.config.ts` — LA config de l'app : uniquement les ÉCARTS aux défauts du framework.
   Pour savoir ce qu'on a le droit d'y écrire : `npx nodefony inspect schema <module>` —
@@ -176,7 +209,7 @@ npx nodefony create controller mcp --kind mcp --expose oauth   # production : je
 - `vitest.e2e.config.ts` — tests e2e, config séparée : `npm test` ne montre que ce qu'il exécute
 - `var/` — données locales (sqlite, logs fichiers), gitignoré
 <% if (it.complete) { %>
-## 3. Infra de développement (docker)
+## Infra de développement (docker)
 
 <% if (it.db) { %>Tu as retenu **<%= it.db.label %>** à la création : le `compose.yaml` ne porte que
 ce service (plus Redis), et `.env` déclare déjà `NF_DATABASE_URL` dessus. Lance
@@ -251,7 +284,7 @@ base ne change **rien d'autre** dans l'app. Le service docker correspondant n'es
 pas dans ce `compose.yaml` (une app y retient un seul dialecte) : ajoute-le, ou
 recrée une app avec `nodefony create app <nom> --database postgres`.
 <% } %><% } %>
-## 4. Tests — `npm test` est ton PREMIER diagnostic
+## Tests — `npm test` est ton PREMIER diagnostic
 
 ```bash
 npm test             # unitaires : l'app se CHARGE (imports, décorateurs, config) — < 1 s
@@ -278,7 +311,7 @@ rien prouvé. Le test e2e utilise le lancement détaché natif du framework :
 arbitraire), et `nodefony stop` arrête proprement. Le client WebSocket est le
 `WebSocket` **natif** de Node — zéro dépendance de test.
 
-## 5. Qualité du code
+## Qualité du code
 
 ```bash
 npm run typecheck    # tsgo — le bundler ne type-check PAS : gate séparé, obligatoire
@@ -302,7 +335,7 @@ familles ne pardonnent pas : le code mort (il finit par mentir) et le préfixe
 `node:` sur les modules du runtime (sans lui, un paquet npm homonyme peut prendre
 la place d'un module natif). Le reste avertit sans bloquer.
 
-## 6. Quand ça casse (troubleshooting)
+## Quand ça casse
 
 Dans l'ordre — chaque étape isole un étage, du moins cher au plus cher :
 
@@ -336,7 +369,7 @@ les versions.
 Si tu l'as retirée et que l'installation casse : remets-la, supprime
 `node_modules`, relance `npm install`. Rien à compiler, SQLite fonctionne.
 <% } %>
-## 7. Production (cloud-native)
+## Production (cloud-native)
 
 ```bash
 npm run build        # backend (rolldown)<% if (it.front) { %> + frontend (vite → public/dist, fingerprinté)<% } %>
@@ -519,7 +552,7 @@ l'orchestrateur (k8s, Swarm, Cloud Run…).<% if (it.complete) { %> Studio est c
 zone firewall puis passe la policy à `"mandatory"` (la recette est commentée
 dans `nodefony.config.ts`).<% } %>
 
-## 8. Développer le framework lui-même (`--link`)
+## Développer le framework lui-même
 
 Si cette app a été générée avec `--link`, les dépendances `nodefony`/`@nodefony/*`
 pointent en `file:` vers un checkout local de `nodefony-core` : tu modifies le
@@ -527,7 +560,7 @@ framework, tu rebuilds le checkout, ton app le voit. Ne publie pas ce
 `package.json` tel quel — après la release npm, régénère sans `--link`
 (versions `^<%= it.nodefonyVersion %>`).
 
-## 9. Aller plus loin
+## Où aller ensuite
 
 - **Ajouter une route** : une méthode décorée `@route` dans un controller — c'est tout.
 - **Un état propre à chaque requête** : chaque requête a son propre conteneur de services

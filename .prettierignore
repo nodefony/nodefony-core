@@ -19,6 +19,9 @@ docs/outillage-agents.md
 docs/guides/variables-environnement.md
 # Idem les README de chaque dossier de scripts/ (même générateur).
 scripts/**/README.md
+# Sources des README assemblés (scripts/generate/readmes.mjs) : leurs blocs « @if » ne
+# se lisent pas comme du markdown — ce sont les pages PRODUITES que prettier formate.
+scripts/generate/readme/
 
 # Copies CONFORMES d'une spec amont : elles se REMPLACENT par l'amont (un
 # `tar -xzf` du dépôt d'origine), elles ne s'éditent jamais. Les reformater les

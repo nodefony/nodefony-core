@@ -397,6 +397,17 @@ jobs:
             echo "::warning title=README NON vérifiés::Le contrôle n'a pas pu tout regarder (code ${code}). Sans conséquence sur ce run ; la publication, elle, refuse de passer sur ce code."
           fi
 
+      # Les trois présentations de Nodefony — README du dépôt, page npm du paquet
+      # `nodefony`, README des applications générées (donc de la vitrine) — sortent
+      # d'UNE matrice de sections (`scripts/generate/readmes.mjs`). Une page retouchée à la
+      # main, ou une section modifiée sans régénérer, diverge en silence : c'est
+      # exactement ce qui était arrivé à la page npm. Après le build : le README
+      # du dépôt embarque des chapitres rendus par le scaffold bâti.
+      - name: Gate — les README sortent-ils de leur matrice ?
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
+        shell: bash
+        run: npm run readme:build -- --check
+
       # Formatage — bloquant, au même titre que le lint et pour le même motif.
       #
       # Le hook `pre-commit` formate déjà les fichiers STAGÉS, ce qui suffit tant

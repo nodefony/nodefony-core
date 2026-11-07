@@ -104,6 +104,13 @@ const PAQUET = process.env.NF_ACCUEIL_PAQUET ?? "nodefony";
  */
 const SURFACES = [
   { chemin: "README.md", exigeVersion: true },
+  // Le README du dépôt et la page npm sont GÉNÉRÉS (`scripts/generate/readmes.mjs`) :
+  // basculer la page sans sa source ferait échouer `readme:build --check` au
+  // commit suivant. La même substitution passe donc dans les sections qui citent
+  // la version, et dans la page npm assemblée des mêmes sections.
+  { chemin: "src/nodefony/README.md", exigeVersion: false },
+  { chemin: "scripts/generate/readme/00-intro.md", exigeVersion: false },
+  { chemin: "scripts/generate/readme/08-demarrage.md", exigeVersion: false },
   { chemin: "AGENTS.md", exigeVersion: true },
   { chemin: "docker/hub-overview.md", exigeVersion: true, facultatif: true },
 ];

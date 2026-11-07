@@ -74,6 +74,7 @@
         "scripts/generate/env-snapshot.ts",
         "scripts/generate/generate-man.mjs",
         "scripts/generate/generate-symbols.ts",
+        "scripts/generate/readmes.mjs",
         "scripts/repo/long-run-lock.mjs",
         "scripts/repo/tmp-layout.mjs",
         "scripts/scaffold/check-scaffold-format.mjs",
@@ -1370,6 +1371,35 @@
       "output": "",
       "calledBy": [
         "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/generate/readmes.mjs",
+      "test": false,
+      "purpose": "readmes.mjs — assemble les trois README depuis UNE matrice de sections.",
+      "usage": [
+        "node scripts/generate/readmes.mjs [--check]"
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "GENERATED",
+          "help": ""
+        },
+        {
+          "name": "GITHUB",
+          "help": ""
+        },
+        {
+          "name": "RAW",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        "npm run readme:build",
+        "node.js.yml"
       ],
       "testedBy": []
     },

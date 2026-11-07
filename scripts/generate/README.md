@@ -116,3 +116,14 @@ Les tableaux de bord d'exemple livrés aux applications sont GÉNÉRÉS : un fic
 
 - **Lancé par** : `npm run test:tooling`
 - **Utilise** : `generate/observability-dashboards.mjs`
+
+## [`readmes.mjs`](readmes.mjs)
+
+readmes.mjs — assemble les trois README depuis UNE matrice de sections.
+
+- **Usage** : `node scripts/generate/readmes.mjs [--check]`
+- **Variable** `GENERATED`
+- **Variable** `GITHUB`
+- **Variable** `RAW`
+- **Appelé par** : `npm run readme:build` · `node.js.yml`
+- **Utilise** : `lib/repo-root.mjs`

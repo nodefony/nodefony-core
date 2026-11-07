@@ -1,3 +1,5 @@
+<!-- GÉNÉRÉ par scripts/generate/readmes.mjs (npm run readme:build) depuis scripts/generate/readme/ — ne pas éditer ici. -->
+
 <div align="center">
 
 <img src="docs/assets/nodefony-logo.png" alt="Nodefony" height="96">
@@ -12,6 +14,8 @@ _Une action de contrôleur. Deux transports. La même session, la même sécurit
 [![Node ≥ 24.14](https://img.shields.io/badge/Node.js-%E2%89%A5%2024.14-green?style=flat-square)](package.json)
 [![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-blue?style=flat-square)](tsconfig.json)
 [![ESM](https://img.shields.io/badge/ESM-only-orange?style=flat-square)](package.json)
+
+**[📖 Documentation](https://nodefony.github.io/nodefony-core/docs/)** · [Par où commencer](https://nodefony.github.io/nodefony-core/docs/demarrer/) · [Application de démonstration](https://github.com/nodefony/nodefony)
 
 </div>
 
@@ -28,7 +32,7 @@ _Une action de contrôleur. Deux transports. La même session, la même sécurit
 > volontiers. Ses priorités portent ailleurs : une même route sert HTTP et WebSocket, avec la même
 > session et le même pare-feu ; et l'application est pensée pour être lue par un agent de code —
 > générateurs pilotables, catalogue, `AGENTS.md` dérivé du projet. Deux frameworks, deux accents :
-> le bon choix dépend de ce que votre projet met en avant.
+> le bon choix dépend de ce que ton projet met en avant.
 
 **État** — version `10.0.0` · **préversion `10.0.0-beta.6` en ligne**, sous le canal `beta`
 uniquement : `npm install nodefony` sert toujours la `7.0.2` (JavaScript), et le fera jusqu'à la
@@ -231,7 +235,7 @@ décider qui entre ; faire passer des octets ; tenir à plusieurs instances ; vo
 quand ça coince. Chacune a sa réponse dans le framework, écrite contre la norme qui la définit, et
 éprouvée par des tests.
 
-| Ce qu'il vous faut                    | Ce que Nodefony fournit                                                                                                                                                                                                   |
+| Ce qu'il te faut                      | Ce que Nodefony fournit                                                                                                                                                                                                   |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Échanger dans les deux sens**       | La **socket Nodefony** : des canaux à volonté sur une seule connexion — le serveur diffuse, le client appelle et attend la réponse, ou pousse sans attendre. JSON-RPC 2.0 sur WebSocket (RFC 6455), dans le pipeline HTTP |
 | **Pousser dans un seul sens**         | Les **flux SSE** (`text/event-stream`) : une action répond par `this.renderSse()`, en HTTP/1.1 comme en HTTP/2. Le client isomorphe se reconnecte avec `Last-Event-ID`, et sait envoyer un `POST` et des en-têtes         |
@@ -295,7 +299,7 @@ décrire**, pour que l'agent lise au lieu de deviner :
 | Ce qui est posé                        | Ce que ça évite                                                                              |
 | -------------------------------------- | -------------------------------------------------------------------------------------------- |
 | Un **`AGENTS.md` généré** à la racine  | la convention périmée : le fichier est dérivé du projet réel, il ne peut pas mentir          |
-| La **doc voyage dans les paquets npm** | l'agent qui cherche sur le web une version qui n'est pas la vôtre                            |
+| La **doc voyage dans les paquets npm** | l'agent qui cherche sur le web une version qui n'est pas la tienne                           |
 | Un **catalogue des briques** publié    | le choix de module fait au jugé, sans savoir ce qu'un adaptateur ne couvre pas               |
 | `inspect` · `check` · `env`            | la déduction depuis le code de ce que l'application fait vraiment : routes, services, config |
 | Des générateurs **pilotables en JSON** | l'imitation d'un fichier d'exemple, au lieu d'appeler l'outil qui produit le vrai code       |
@@ -325,16 +329,16 @@ Ce que Nodefony revendique n'est pas d'écrire un `AGENTS.md` — n'importe quel
 faire — mais de traiter la découvrabilité comme une propriété **mesurée** : le banc ci-dessus est
 rejouable, et ses échecs sont publics. C'est cette place-là que le framework occupe délibérément.
 
-## L'IA : votre application, ouverte aux agents
+## L'IA : ton application, ouverte aux agents
 
 **Un agent d'IA atteint une application par une porte standard : le Model Context Protocol
 (MCP).** Il demande quels outils elle offre, reçoit pour chacun un nom, une description et un
-schéma d'entrée, puis les appelle. `@nodefony/ai` donne cette porte à votre application et tient
-le protocole à votre place — versions, erreurs, autorisation, progression, annulation. Vous écrivez
+schéma d'entrée, puis les appelle. `@nodefony/ai` donne cette porte à ton application et tient
+le protocole à ta place — versions, erreurs, autorisation, progression, annulation. Tu écris
 une fonction ; elle devient un outil, que Claude, ChatGPT, Copilot ou l'agent d'un client savent
 appeler.
 
-| Ce qu'il vous faut                   | Ce que Nodefony fournit                                                                                                                                                                                   |
+| Ce qu'il te faut                     | Ce que Nodefony fournit                                                                                                                                                                                   |
 | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Ouvrir une porte MCP**             | `npx nodefony create controller mcp --kind mcp` génère la porte, deux outils d'exemple et leur test. MCP révision `2026-07-28`, clients plus anciens acceptés                                             |
 | **Suivre un outil long**             | Sur la même requête HTTP, la réponse passe en **flux SSE** : l'agent reçoit l'avancement (`notifications/progress`), puis le résultat — et peut annuler en route, l'outil s'arrête proprement             |
@@ -345,7 +349,7 @@ appeler.
 | **Des outils dans chaque module**    | Un module déclare les siens par `getMcpTools()` ; une porte les ramasse tous, sans registre à tenir                                                                                                       |
 | **Développer avec un agent de code** | `@nodefony/devkit` ouvre en développement la porte `/nodefony/mcp` : l'agent interroge l'application qui tourne — carte, santé, routes, trafic, profil d'une route — au lieu de deviner                   |
 
-`@nodefony/ai` ne monte aucune route tant que vous n'ouvrez pas de porte ; paquet **expérimental**, il suit la spécification MCP et peut évoluer en version mineure, toujours annoncé au journal des versions.
+`@nodefony/ai` ne monte aucune route tant que tu n'ouvres pas de porte ; paquet **expérimental**, il suit la spécification MCP et peut évoluer en version mineure, toujours annoncé au journal des versions.
 
 → [Le module IA](https://nodefony.github.io/nodefony-core/docs/modules/ai/) ·
 [La boîte à outils MCP](https://nodefony.github.io/nodefony-core/docs/modules/ai/mcp/)
@@ -376,17 +380,8 @@ démonstration écrite à la main pour la vitrine — c'est la sortie littérale
 `nodefony create app --preset complete --frontend react`, poussée telle quelle et **régénérée à
 chaque publication**. Base de données et migration initiale, sécurité et comptes, temps réel,
 console d'administration, front React, infra docker de développement, chaîne d'intégration
-continue : tout ce que vous y lisez a été engendré, rien n'y a été retouché. C'est le moyen le plus
+continue : tout ce que tu y lis a été engendré, rien n'y a été retouché. C'est le moyen le plus
 court de juger le code qu'on aura à maintenir, avant d'installer quoi que ce soit.
-
-Pour travailler sur le framework lui-même, c'est le dépôt qu'on clone :
-
-```bash
-git clone https://github.com/nodefony/nodefony-core.git
-cd nodefony-core
-npm install && npm run build
-npm run dev
-```
 
 Générer du code — une application, un module, un contrôleur, une entité et toute sa chaîne :
 
@@ -451,9 +446,270 @@ architecture** — les portées de l'injection de dépendances, les messages du 
 partagé, le jeton porté par le contexte asynchrone, les zones du pare-feu et leurs contournements.
 Aucun outil sur étagère ne connaît ces surfaces : il faut concevoir les attaques.
 
-> ⚠️ **À savoir avant de concevoir votre application.** Le refus par défaut opère **par zone du
+> ⚠️ **À savoir avant de concevoir ton application.** Le refus par défaut opère **par zone du
 > pare-feu**, pas route par route : une route située hors de toute zone déclarée est publique.
-> Déclarez vos zones.
+> Déclare tes zones.
+
+## L'application générée, de la machine à la production
+
+Une application sortie de `npm create nodefony` naît avec son infra de développement, ses tests,
+ses contrôles de qualité, sa marche à suivre quand ça casse et sa mise en production. Les chapitres
+ci-dessous sont **extraits tels quels** de son README — celui de
+[l'application de démonstration](https://github.com/nodefony/nodefony), rendue avec
+`--preset complete --frontend react` : ce qui se lit ici est exactement ce qu'elle porte.
+
+### Infra de développement (docker)
+
+L'app démarre **sans docker** : la base est une **sqlite locale** (`var/databases/`),
+retenue à la création. Le `compose.yaml` fournit le cran au-dessus :
+
+```bash
+npm run infra:up                          # Redis (sessions partagées, realtime multi-process)
+docker compose --profile loki up -d       # + Loki + Grafana (logs centralisés)
+npm run infra:down                        # arrêt (les volumes survivent)
+```
+
+#### Éprouver la topologie de PRODUCTION — l'app derrière son frontal
+
+En production ton application vit derrière un proxy, et c'est lui qui décide de
+l'adresse cliente retenue, du protocole annoncé et du sort d'une WebSocket
+silencieuse. Le profil `edge` monte cette topologie en local — l'application en
+image, **sans aucun port publié**, et un frontal nginx devant :
+
+```bash
+npx nodefony http:certificates            # une fois — le certificat de développement
+docker compose --profile edge up -d --build
+curl -k https://localhost:8443/api/hello
+```
+
+La configuration du frontal n'est pas écrite : elle est **dérivée de ton
+application** à la construction de l'image (`nodefony proxy:generate nginx`),
+avec tes hôtes de confiance, tes fichiers statiques, ta taille de corps acceptée
+et le battement de tes WebSockets. Tu changes l'application, tu reconstruis : la
+configuration suit.
+
+Rejouer ta suite de bout en bout **à travers le proxy**, sans la modifier :
+
+```bash
+NF_E2E_BASE_URL=https://localhost:8443 \
+NODE_EXTRA_CA_CERTS=nodefony/config/certificates/ca/nodefony-root-ca.crt.pem \
+  npm run test:e2e
+```
+
+> Le certificat est **monté**, jamais gravé dans l'image : une clé privée dans
+> une image reste lisible par qui la télécharge, même effacée par une couche
+> suivante. En production, c'est ton hébergeur ou ton ingress qui le fournit.
+
+Câblage côté app — une variable, tout le reste se dérive (`store: "auto"`) :
+
+```bash
+NF_REDIS_URL="redis://:nodefony-dev@127.0.0.1:6379"   # dans .env
+```
+
+Pour passer sur une vraie base SQL : déclare `NF_DATABASE_URL`. Le dialecte est
+déduit du **scheme de l'URL** (`postgres://`, `mysql://`, `sqlite:`) — changer de
+base ne change **rien d'autre** dans l'app. Le service docker correspondant n'est
+pas dans ce `compose.yaml` (une app y retient un seul dialecte) : ajoute-le, ou
+recrée une app avec `nodefony create app <nom> --database postgres`.
+
+### Tests — `npm test` est ton PREMIER diagnostic
+
+```bash
+npm test             # unitaires : l'app se CHARGE (imports, décorateurs, config) — < 1 s
+npm run test:e2e     # build + boot RÉEL (production --detach --wait) + HTTP + WS + probes
+```
+
+**Réflexe** : quelque chose semble cassé → `npm test` AVANT de relire du code ou
+de redémarrer. En une seconde il prouve que l'app s'importe, que les décorateurs
+compilent et que la config valide — ou te donne le fichier exact qui casse.
+
+Le rapport est **franc** : les e2e ont leur propre config (`vitest.e2e.config.ts`),
+`npm test` n'affiche jamais de tests « skipped » qui semblent verts sans avoir
+rien prouvé. Le test e2e utilise le lancement détaché natif du framework :
+`--wait` ne rend la main que quand la readiness est sondée (aucun `sleep`
+arbitraire), et `nodefony stop` arrête proprement. Le client WebSocket est le
+`WebSocket` **natif** de Node — zéro dépendance de test.
+
+### Qualité du code
+
+```bash
+npm run typecheck    # tsgo — le bundler ne type-check PAS : gate séparé, obligatoire
+npm run doctor        # cohérence du projet : config, modules déclarés, wiring
+npm run lint         # oxlint — garde-fous en warn, non-intrusif
+npm run format       # prettier — le style, c'est lui qui décide
+```
+
+Le lint et le typecheck sont **deux gates distincts**, et c'est volontaire :
+`tsgo` juge les TYPES, `oxlint` juge tout ce qu'un type ne dit pas — code mort,
+promesse mal formée, import Node sans son préfixe. Aucun des deux ne remplace
+l'autre.
+
+`oxlint` s'appuie sur le même analyseur que le bundler (`rolldown`) : un seul
+lecteur de ta syntaxe, donc aucun risque que l'un accepte ce que l'autre refuse.
+Il n'a **pas** besoin du paquet `typescript` — celui-ci ne reste dans les
+dépendances que pour ton éditeur.
+
+Les règles sont dans `.oxlintrc.json`, commentées par leur intention. Deux
+familles ne pardonnent pas : le code mort (il finit par mentir) et le préfixe
+`node:` sur les modules du runtime (sans lui, un paquet npm homonyme peut prendre
+la place d'un module natif). Le reste avertit sans bloquer.
+
+### Quand ça casse
+
+Dans l'ordre — chaque étape isole un étage, du moins cher au plus cher :
+
+1. **`npm test`** — l'app se charge-t-elle ? Import cassé, décorateur, config
+   invalide : le fichier fautif est nommé.
+2. **`npm run typecheck`** — un vert vitest ne type-check RIEN (les types sont
+   effacés à la transpilation) ; `tsgo` attrape ce que le build laisse passer.
+3. **`npx nodefony status`** — un serveur tourne-t-il déjà ? (port occupé,
+   vieux process détaché). `npx nodefony stop` arrête proprement. Si le port est
+   tenu par une AUTRE application Nodefony, `status` la nomme :
+   `npx nodefony stop <nom>` l'arrête sans changer de dossier.
+4. **Rebuild** — comportement fantôme après un gros changement : `npm run build`
+   puis relance (le serveur charge `dist/`, pas tes sources).
+
+#### `npm install` s'arrête sur « gyp ERR! find Python »
+
+Ton manifeste porte ceci, et il faut l'y laisser :
+
+```json
+"allowScripts": { "better-sqlite3": false }
+```
+
+`better-sqlite3` (le pilote SQLite, tiré par `@nodefony/drizzle`) livre ses
+binaires **déjà compilés** et demande à npm de ne pas le recompiler. npm oublie
+cette demande dès qu'un `package-lock.json` existe — donc dès ton premier
+`npm install` — et lance alors `node-gyp rebuild`, qui exige Python et un
+compilateur C++ ([npm/cli#9837](https://github.com/npm/cli/issues/9837)). La
+ligne ci-dessus le lui interdit explicitement, ce qu'il respecte dans toutes
+les versions.
+
+Si tu l'as retirée et que l'installation casse : remets-la, supprime
+`node_modules`, relance `npm install`. Rien à compiler, SQLite fonctionne.
+
+### Production (cloud-native)
+
+```bash
+npm run build        # backend (rolldown) + frontend (vite → public/dist, fingerprinté)
+npm start            # nodefony production — bind 0.0.0.0, logs stdout, probes /livez /readyz
+```
+
+**Plusieurs processus.** Par défaut, un seul process Node par pod : la mise à
+l'échelle est le travail de l'orchestrateur. Sur une machine dédiée, trois voies
+règlent le nombre de workers, de la plus forte à la plus faible :
+`npx nodefony production --workers <n|auto>` (ou `npx nodefony cluster`) >
+`NF_WORKERS=<n|auto>` (déclarée dans `env.ts`) >
+`nodefony/config/cluster/cluster.config.ts`. Ce fichier n'est **pas généré** : sa
+valeur serait le défaut (`workers: 1`), et chaque application porterait un
+fichier qui ne dit rien. Crée-le si la topologie doit vivre en git :
+
+```ts
+// nodefony/config/cluster/cluster.config.ts — lu par le maître AVANT le boot,
+// donc sans le moindre import du kernel.
+import type { IClusterConfig } from "nodefony";
+export default { workers: "auto" } satisfies IClusterConfig;
+```
+
+`auto` = un worker par cœur **alloué** (quota cgroup du conteneur), jamais
+`os.cpus()`. `npm run dev` ignore ce réglage : le développement est toujours
+mono-process.
+
+> Le front de production est un build Vite figé (`public/dist/`), servi en
+> statics par Nodefony — `npm run build` le produit (il chaîne
+> `nodefony frontend:build`). Si tu lances `npm start` sans build, le boot le
+> construit une fois pour toi quand Vite est installé (poste de dev) et le DIT
+> dans les logs ; dans une image de production sans devDependencies, builde à
+> l'image — sinon la page est servie sans interface et le boot le signale en
+> ERROR.
+
+#### Image de container
+
+`Dockerfile` et `.dockerignore` sont générés avec l'app ; la doctrine y est
+commentée ligne à ligne (multi-stage, `USER 1000:1000`, sonde sur `/readyz`,
+forme exec du `CMD`).
+
+```bash
+docker build -t nodefony .
+docker run -p 5151:5151 -v nodefony-var:/app/var nodefony
+docker stop -t 20 <container>   # SIGTERM → drain → exit 0
+```
+
+> 🔴 **Le `-v` n'est pas optionnel si tu veux garder tes données.** L'app
+> persiste par défaut en sqlite, dans `var/databases/` : sans volume, comptes,
+> sessions, jetons et passkeys disparaissent au premier `docker rm`, **sans
+> aucun message**. Le volume nommé les met hors du conteneur.
+>
+> Et tant que la base est sqlite, **une seule réplique** : c'est un fichier, pas
+> un serveur. Deux conteneurs sur le même volume se corrompent mutuellement ;
+> deux conteneurs sur deux volumes travaillent sur deux bases divergentes, ce
+> que rien ne signale. Pour répliquer, passer à PostgreSQL ou MySQL — il suffit
+> de poser `NF_DATABASE_URL`, l'ORM déduit le dialecte du scheme et rien d'autre
+> ne change dans l'app.
+
+> ⚠️ **La période de grâce doit rester au-dessus de `shutdownDeadline`** (15 s
+> par défaut) : `docker stop` n'attend que 10 s sans `-t`, et k8s 30 s. En
+> dessous, le drain est coupé par un SIGKILL et les requêtes en vol meurent —
+> sans erreur ni trace, à chaque déploiement.
+
+Le code de l'image appartient à `root` et le processus tourne en `1000:1000` :
+l'application ne peut pas réécrire son propre `dist/`. Seuls `tmp/` et `var/`
+lui appartiennent, ce qui est exactement ce dont elle a besoin pour écrire.
+
+##### Sur quelle base l'image est construite
+
+`node:24-alpine`, et c'est un choix **mesuré** — les trois candidates ont été
+construites avec un contenu identique, scannées, puis **démarrées** :
+
+| Base                                  | Image finale | Critiques | Hautes | Node  | libc  | Shell dedans |
+| ------------------------------------- | -----------: | --------: | -----: | ----- | ----- | ------------ |
+| **`node:24-alpine`** — actuelle       |   **438 Mo** |     **0** |  **4** | 24.21 | musl  | oui (`sh`)   |
+| `node:24-slim`                        |       519 Mo |         2 |     14 | 24.18 | glibc | oui (`bash`) |
+| `gcr.io/distroless/nodejs24-debian12` |       400 Mo |         0 |      8 | 24.14 | glibc | **non**      |
+
+Distroless est la plus légère et perd quand même : elle embarque un Node plus
+ANCIEN et le suivra toujours avec du retard — ce qui l'expose aux CVE déjà
+corrigées en amont **et** aux API récentes que ton code appelle. Et l'objection
+historique contre Alpine est tombée : `better-sqlite3` et `@node-rs/argon2`
+publient leurs binaires musl et s'exécutent après une installation
+`--ignore-scripts`.
+
+**Pour en changer**, le `Dockerfile` porte deux lignes `FROM` — elles se changent
+**ensemble**, les deux étages devant partager la même libc :
+
+```dockerfile
+FROM node:24-slim AS build   # glibc : si un paquet natif n'a pas de binaire musl
+FROM node:24-slim            # le symptôme est au DÉMARRAGE, pas à l'installation
+```
+
+Le détail de chaque candidate, et ce que distroless impose en plus (réécrire
+`CMD` et `HEALTHCHECK` en `/nodejs/bin/node`), est commenté en tête du
+`Dockerfile`.
+
+##### Si tu PUBLIES cette image
+
+L'image emporte `node_modules` élagué : la **publier** — sur un registre public,
+ou en la livrant à un tiers — te rend distributeur du code de tes dépendances.
+MIT, BSD, ISC et Apache-2.0 demandent alors que leur texte et leur copyright
+accompagnent le code. C'est déjà le cas matériellement : chaque paquet porte son
+propre fichier de licence dans `node_modules`, et l'image les emporte avec lui.
+
+Ce qui manque, c'est l'inventaire — npm le produit sans rien installer :
+
+```bash
+npm sbom --sbom-format spdx --omit=dev > sbom.spdx.json
+```
+
+> Un **déploiement interne** (ton propre registre, ton cluster) n'est pas une
+> distribution : ces obligations ne s'y appliquent pas. Et un inventaire écrit à
+> la main serait faux dès le premier `npm install` — c'est pourquoi il se
+> régénère plutôt qu'il ne se commite.
+
+Un process Node = un pod/container ; le scaling horizontal vient de
+l'orchestrateur (k8s, Swarm, Cloud Run…). Studio est chargé en dev seulement
+(`policy: "dev"`) — pour l'exposer en production, protège `/nodefony` par une
+zone firewall puis passe la policy à `"mandatory"` (la recette est commentée
+dans `nodefony.config.ts`).
 
 ## Ce qu'il y a dans la boîte
 
@@ -474,9 +730,24 @@ Par défaut, un processus Node égale une instance : le passage à l'échelle re
 et les journaux partent sur la sortie standard. Sans orchestrateur, `nodefony cluster -w N` démarre N
 workers isolés, relancés s'ils tombent.
 
+## Développer le framework lui-même
+
+Pour travailler sur le framework, c'est ce dépôt qu'on clone :
+
+```bash
+git clone https://github.com/nodefony/nodefony-core.git
+cd nodefony-core
+npm install && npm run build
+npm run dev
+```
+
+Une application peut alors suivre ce checkout plutôt que npm : `nodefony create app <nom> --link`
+lie ses dépendances `nodefony`/`@nodefony/*` en `file:` — tu modifies le framework, tu le rebâtis,
+l'application le voit.
+
 ## Où aller ensuite
 
-- [Par où commencer](https://nodefony.github.io/nodefony-core/docs/demarrer/) — cinq parcours selon ce que vous venez faire
+- [Par où commencer](https://nodefony.github.io/nodefony-core/docs/demarrer/) — cinq parcours selon ce que tu viens faire
 - [Documentation](https://nodefony.github.io/nodefony-core/docs/) · [Guides](https://nodefony.github.io/nodefony-core/docs/guides/) · [Première application](https://nodefony.github.io/nodefony-core/docs/tutoriels/premiere-application/)
 - [L'architecture en vue d'ensemble](https://nodefony.github.io/nodefony-core/docs/architecture/vue-ensemble/) — ce que le framework est, et ce que ses partis pris coûtent
 - [Performance](https://nodefony.github.io/nodefony-core/performance/) — ce qui a été mesuré, avec quel
@@ -484,7 +755,7 @@ workers isolés, relancés s'ils tombent.
   dont [la version courante](https://nodefony.github.io/nodefony-core/performance/latest/)
 - [Décisions d'architecture](docs/adr/) — les choix structurants et leur pourquoi
 - [Signaler une faille](SECURITY.md) — canal privé, jamais en ticket public
-- Contribuer : ouvrez une issue avant toute contribution substantielle. Le dépôt impose les
+- Contribuer : ouvre une issue avant toute contribution substantielle. Le dépôt impose les
   _Conventional Commits_ et un `npm run typecheck` complet avant chaque envoi.
 
 ## État du projet
