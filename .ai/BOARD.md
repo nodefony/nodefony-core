@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-11-07 14:15** (UTC).
+> Empreinte prise le **2026-11-07 14:19** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,9 +20,9 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `██████████` 95% | 240 | 13 | 2026-11-12 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 94% | 240 | 14 | 2026-11-12 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 96% | 136 | 5 | 2026-11-15 |
-| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 11% | 6 | 47 | 2026-12-15 |
+| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 12% | 6 | 46 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 33 | — |
 | **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 8 | — |
 | **12.0.0** | ![12.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/5?style=flat-square&label=) `██░░░░░░░░` 15% | 2 | 11 | — |
@@ -31,16 +31,16 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#695 — feat(http): déclarer et servir un service gRPC depuis un module**
+**#694 — feat(http): servir des services gRPC dans le pipeline HTTP/2**
 
-Ordre 7.02 · P2 — décision · 3 j · jalon 10.0.0-beta · frise —
+Ordre 7.01 · P2 — décision · 3.5 j · jalon 10.0.0-beta · frise —
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 13 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 14 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.1.0 — 47 ouverts
+## Jalon 10.1.0 — 46 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -58,7 +58,6 @@ Ordre 7.02 · P2 — décision · 3 j · jalon 10.0.0-beta · frise —
 | 21 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #88 | docs(mail): documenter la configuration et le premier envoi |
 | 46 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #349 | feat(cli): ajouter une brique à une application déjà générée |
 | 100 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #28 | feat(config): surcharger la config d'application par l'environnement |
-| 105 | P2 — décision | 6.5 | — | #694 | feat(http): servir des services gRPC dans le pipeline HTTP/2 |
 | 105.1 | P2 — décision | 2 | — | #745 | feat(realtime): s'abonner et publier sur un canal depuis un client gRPC |
 | 105.2 | P3 — fin de cycle | 1 | — | #697 | feat(http): exposer la réflexion et la santé gRPC standard |
 | 110 | P2 — décision | 3 | 2026-11-16 → 12-15 | #63 | test(bancs): rendre chaque banc indépendant du décor partagé |
@@ -161,10 +160,11 @@ Ordre 7.02 · P2 — décision · 3 j · jalon 10.0.0-beta · frise —
 | 925.4 | P3 — fin de cycle | 2 | — | #730 | feat(security): partager et afficher les rapports de violation CSP |
 | 925.5 | P3 — fin de cycle | 1 | — | #728 | feat(client): signer les styles créés à l'exécution sous CSP stricte |
 
-## Jalon 10.0.0-beta — 13 ouverts
+## Jalon 10.0.0-beta — 14 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
+| 7.01 | P2 — décision | 3.5 | — | #694 | feat(http): servir des services gRPC dans le pipeline HTTP/2 |
 | 7.02 | P2 — décision | 3 | — | #695 | feat(http): déclarer et servir un service gRPC depuis un module |
 | 7.03 | P1 — figé à la création | 0.5 | — | #696 | fix(cli): router gRPC vers h2c dans la config nginx générée |
 | 7.05 | P2 — décision | 0.5 | 2026-11-19 → 11-19 | #89 | docs(notification): faire la veille des canaux de communication attendus |
