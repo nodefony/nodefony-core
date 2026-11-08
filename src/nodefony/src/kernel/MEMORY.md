@@ -326,7 +326,7 @@ onPreBoot=32  onBoot=64  onReady=128  onServersReady=256  onPostReady=512  onTer
 
 ### ⚠️ RÈGLE — un module se résout DEPUIS L'APP, jamais depuis le core
 
-`resolveModuleEntry(appRoot, name)` (`kernel/resolveModuleEntry.ts`) : `createRequire(<app>/package.json).resolve(name)` → URL `file://` absolue ; repli sur le **spécificateur nu** si échec (paquet exports `import`-only, absent).
+`resolveModuleEntry(appRoot, name)` (`kernel/resolveModuleEntry.ts`) : `createRequire(<app>/package.json).resolve(name)` → URL `file://` absolue ; repli sur le **spécificateur nu** si échec (paquet exports `import`-only, absent). Entrée CHEMIN (`isModulePath` : `./` `../` l'un ou l'autre séparateur, ou absolu) → `path.resolve(appRoot, name)` puis `main` du dossier ; `readStoreManifest` lit alors `<chemin>/package.json` (pas de remontée par nom).
 
 **Pourquoi** : un `import(name)` écrit dans le code du core est résolu par Node relativement au paquet `nodefony`. Dès que le core vit hors de l'arbre `node_modules` de l'app (`--link`, monorepo, pnpm, hoisting), un module LOCAL de l'app (workspace `modules/*`) est introuvable (« Cannot find package ») alors qu'il l'est parfaitement depuis l'app. Le repo self-hosted masque le défaut : tout y vit sous le même `node_modules`.
 

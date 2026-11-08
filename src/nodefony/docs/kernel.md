@@ -217,6 +217,21 @@ export default defineConfig(() => ({
 }));
 ```
 
+Une entrée se désigne normalement par son **nom de paquet** : c'est ce que pose
+`nodefony create module` (un workspace `modules/<nom>`), et c'est la seule forme dont la
+config colocalisée est typée par le registre. Pour un module local qui n'est **pas un paquet
+installé** — ni workspace, ni lien dans `node_modules` — l'entrée peut être son **chemin** :
+
+```typescript
+modules: [{ name: "./src/demo", policy: "dev" }],
+```
+
+Le chemin relatif part de la racine de l'application, jamais du répertoire courant ; un
+absolu est accepté. Le dossier se résout par le champ `main` de son `package.json`, que
+`create module` pose toujours — il faut donc que le module soit **construit** (`dist/`). C'est
+le même Kernel qui le charge, au même moment, sous la même `policy` : seule la façon de le
+nommer change (`resolveModuleEntry.ts#isModulePath`).
+
 ### Atteindre le kernel là où l'injection ne va pas
 
 ```typescript
@@ -680,7 +695,9 @@ depuis vitest, jamais figés ici :
   d'exécution, analyse d'`argv`, cycle écourté) et `CliKernelDispatch.test.ts` (le dispatch différé
   des commandes de module, qui n'existent qu'après le chargement des modules).
 - **La résolution** — `resolveModuleEntry.test.ts` : un module est résolu **depuis l'application**,
-  jamais depuis le paquet `nodefony` — sans quoi un module local devient introuvable en monorepo.
+  jamais depuis le paquet `nodefony` — sans quoi un module local devient introuvable en monorepo ;
+  une entrée par chemin (relatif ou absolu) se résout hors `node_modules`, et sa déclaration de
+  magasins se lit à ce chemin.
 
 Ce qui **manque** aujourd'hui, et qu'il faut savoir :
 

@@ -2,6 +2,7 @@ import { createRequire } from "node:module";
 import { readFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { isModulePath } from "./resolveModuleEntry";
 
 /**
  * Ce qu'un module DÉCLARE, dans son `package.json`, de son rapport aux magasins
@@ -45,26 +46,22 @@ export interface IStoreManifest {
  * @returns la déclaration, ou `null` si le module ne dit rien des magasins.
  */
 export function parseStoreManifest(raw: unknown): IStoreManifest | null {
-  if (!raw || typeof raw !== "object") return null;
-  const nf = (raw as { nodefony?: unknown }).nodefony;
-  if (!nf || typeof nf !== "object") return null;
-  const meta = nf as {
-    storeKind?: unknown;
-    stores?: unknown;
-    consumesStores?: unknown;
-  };
-  const provides = Array.isArray(meta.stores);
-  const consumesStores = meta.consumesStores === true;
+  if (!raw || typeof raw !== "object" || !("nodefony" in raw)) return null;
+  const meta = raw.nodefony;
+  if (!meta || typeof meta !== "object") return null;
+  const stores = "stores" in meta ? meta.stores : undefined;
+  const provides = Array.isArray(stores);
+  const consumesStores =
+    "consumesStores" in meta && meta.consumesStores === true;
   // Ni fournisseur ni consommateur : le module n'a rien à voir avec les
   // magasins, et le dire par `null` évite d'allouer pour les 15 autres.
   if (!provides && !consumesStores) return null;
   return {
     provides,
-    storeKind: meta.storeKind === "cache" ? "cache" : "durable",
+    storeKind:
+      "storeKind" in meta && meta.storeKind === "cache" ? "cache" : "durable",
     stores: provides
-      ? (meta.stores as unknown[]).filter(
-          (s): s is string => typeof s === "string",
-        )
+      ? stores.filter((s: unknown): s is string => typeof s === "string")
       : [],
     consumesStores,
   };
@@ -280,14 +277,32 @@ export function readInstalledStoreManifest(
  * porte le bon `name` — ce qui traverse aussi bien un hoisting npm qu'un magasin
  * pnpm ou un workspace lié.
  *
+ * Un module désigné par son CHEMIN ({@link isModulePath}) porte son
+ * `package.json` à ce chemin même : aucun nom à retrouver en remontant.
+ *
  * @param appRoot - racine de l'application (`kernel.path`).
- * @param moduleName - nom du paquet, tel qu'écrit dans le manifeste.
+ * @param moduleName - nom du paquet, ou chemin du module, tel qu'écrit dans le
+ *   manifeste.
  * @returns la déclaration, ou `null` si le paquet est introuvable ou muet.
  */
 export async function readStoreManifest(
   appRoot: string,
   moduleName: string,
 ): Promise<IStoreManifest | null> {
+  if (isModulePath(moduleName)) {
+    try {
+      const raw: unknown = JSON.parse(
+        await readFile(
+          path.join(path.resolve(appRoot, moduleName), "package.json"),
+          "utf8",
+        ),
+      );
+      return parseStoreManifest(raw);
+    } catch {
+      // Dossier absent ou illisible : le chargement le dira, avec son message.
+      return null;
+    }
+  }
   let entry: string;
   try {
     entry = createRequire(path.join(appRoot, "package.json")).resolve(
@@ -303,10 +318,17 @@ export async function readStoreManifest(
   // dur — une arborescence pnpm est plus profonde qu'on ne le croit.
   for (;;) {
     try {
-      const raw = JSON.parse(
+      const raw: unknown = JSON.parse(
         await readFile(path.join(dir, "package.json"), "utf8"),
-      ) as { name?: unknown };
-      if (raw.name === moduleName) return parseStoreManifest(raw);
+      );
+      if (
+        typeof raw === "object" &&
+        raw !== null &&
+        "name" in raw &&
+        raw.name === moduleName
+      ) {
+        return parseStoreManifest(raw);
+      }
     } catch {
       // Pas de `package.json` lisible ici : on continue de remonter.
     }

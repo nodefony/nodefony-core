@@ -3,6 +3,7 @@ import { expect } from "vitest";
 import {
   mkdirSync,
   mkdtempSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -11,9 +12,11 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
+  isModulePath,
   resolveModuleEntry,
   toImportSpecifier,
 } from "../kernel/resolveModuleEntry";
+import { readStoreManifest } from "../kernel/storeManifest";
 
 /**
  * SPEC — « c'est l'APP qui décide où sont ses modules ».
@@ -69,6 +72,23 @@ describe("resolveModuleEntry — résolution des modules depuis l'app", () => {
       }),
     );
     writeFileSync(path.join(esmOnly, "index.js"), "export default {};");
+
+    // Un module désigné par son CHEMIN : ni workspace, ni lien dans
+    // `node_modules` — seul le manifeste le nomme.
+    const localDir = path.join(appRoot, "local", "demo");
+    mkdirSync(path.join(localDir, "dist"), { recursive: true });
+    writeFileSync(
+      path.join(localDir, "package.json"),
+      JSON.stringify({
+        name: "@app/demo",
+        main: "./dist/index.js",
+        nodefony: { consumesStores: true },
+      }),
+    );
+    writeFileSync(
+      path.join(localDir, "dist", "index.js"),
+      "export default { local: true };",
+    );
   });
 
   afterAll(() => {
@@ -112,6 +132,31 @@ describe("resolveModuleEntry — résolution des modules depuis l'app", () => {
     expect(resolveModuleEntry(appRoot, "esm-only")).to.equal("esm-only");
   });
 
+  it("résout un module désigné par un chemin RELATIF à la racine de l'app, hors node_modules", async () => {
+    // Le répertoire courant (le dépôt) ne contient pas `local/demo` : seul un
+    // relatif lu depuis `appRoot` le trouve.
+    const entry = resolveModuleEntry(appRoot, "./local/demo");
+    expect(entry).to.match(/^file:\/\//u);
+    expect(fileURLToPath(entry)).to.equal(
+      realpathSync(path.join(appRoot, "local", "demo", "dist", "index.js")),
+    );
+    const mod = (await import(entry)) as { default: { local?: boolean } };
+    expect(mod.default.local).to.equal(true);
+  });
+
+  it("résout un module désigné par un chemin ABSOLU", () => {
+    const abs = path.join(appRoot, "local", "demo");
+    expect(fileURLToPath(resolveModuleEntry(appRoot, abs))).to.equal(
+      realpathSync(path.join(abs, "dist", "index.js")),
+    );
+  });
+
+  it("un chemin vers un dossier absent replie sur l'entrée telle qu'écrite", () => {
+    expect(resolveModuleEntry(appRoot, "./local/absent")).to.equal(
+      "./local/absent",
+    );
+  });
+
   it("ne casse pas la résolution d'un paquet installé normalement", () => {
     // Un paquet réel du monorepo, résolu depuis la racine du core lui-même.
     const coreRoot = path.resolve(
@@ -123,6 +168,38 @@ describe("resolveModuleEntry — résolution des modules depuis l'app", () => {
     expect(entry).to.match(/^file:\/\//u);
     expect(entry.startsWith(pathToFileURL(coreRoot).href.slice(0, 8))).to.be
       .true;
+  });
+
+  it("lit la déclaration de magasins d'un module désigné par son chemin", async () => {
+    // Le nom du paquet (`@app/demo`) n'est pas l'entrée du manifeste : la
+    // remontée par nom ne le trouverait jamais.
+    expect(await readStoreManifest(appRoot, "./local/demo")).to.deep.equal({
+      provides: false,
+      storeKind: "durable",
+      stores: [],
+      consumesStores: true,
+    });
+    expect(await readStoreManifest(appRoot, "./local/absent")).to.equal(null);
+  });
+});
+
+describe("isModulePath — chemin ou nom de paquet", () => {
+  it("un relatif ou un absolu est un chemin, sous l'un ou l'autre séparateur", () => {
+    for (const entry of [
+      "./modules/demo",
+      "../demo",
+      ".\\modules\\demo",
+      "..\\demo",
+      path.resolve(path.sep, "app", "demo"),
+    ]) {
+      expect(isModulePath(entry), entry).to.equal(true);
+    }
+  });
+
+  it("un nom de paquet n'en est pas un", () => {
+    for (const entry of ["@nodefony/http", "eta", ".hidden", "..x", "a/b"]) {
+      expect(isModulePath(entry), entry).to.equal(false);
+    }
   });
 });
 

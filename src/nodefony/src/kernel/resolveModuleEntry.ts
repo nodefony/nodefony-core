@@ -27,6 +27,21 @@ export function toImportSpecifier(spec: string): string {
 }
 
 /**
+ * Dit si une entrée du manifeste `modules` désigne un module par son CHEMIN
+ * plutôt que par son nom de paquet.
+ *
+ * Un chemin commence par `./` ou `../` (l'un ou l'autre séparateur : un
+ * manifeste écrit sous Windows reste valable), ou il est absolu. Tout le reste
+ * — `@scope/nom`, `nom` — est un nom de paquet, résolu par `node_modules`.
+ *
+ * @param entry - l'entrée telle qu'écrite dans le manifeste.
+ * @returns `true` pour un chemin, `false` pour un nom de paquet.
+ */
+export function isModulePath(entry: string): boolean {
+  return /^\.\.?[\\/]/u.test(entry) || path.isAbsolute(entry);
+}
+
+/**
  * Résout le point d'entrée d'un module Nodefony **depuis l'application**, et non
  * depuis le paquet `nodefony`.
  *
@@ -43,8 +58,15 @@ export function toImportSpecifier(spec: string): string {
  * partir de son `package.json`, et on rend une URL `file://` absolue, directement
  * importable.
  *
+ * Une entrée du manifeste peut aussi être un CHEMIN (`./modules/blog`, ou absolu,
+ * cf {@link isModulePath}) : un module chargé sans être un paquet installé — ni
+ * workspace, ni lien dans `node_modules`. Le relatif part de la racine de
+ * l'application, jamais du répertoire courant ; un dossier se résout par le champ
+ * `main` de son `package.json`, que `nodefony create module` pose toujours.
+ *
  * @param appRoot - racine de l'application (`kernel.path`).
- * @param moduleName - nom du paquet, tel qu'écrit dans le manifeste `modules`.
+ * @param moduleName - nom du paquet, ou chemin du module, tel qu'écrit dans le
+ *   manifeste `modules`.
  * @returns URL `file://` absolue du point d'entrée, ou le spécificateur NU si la
  *   résolution depuis l'app échoue (paquet absent, ou n'exposant que la condition
  *   `import` — un cas où `require.resolve` refuse). Le repli rend le comportement
@@ -56,7 +78,10 @@ export function resolveModuleEntry(
 ): string {
   try {
     const require = createRequire(path.join(appRoot, "package.json"));
-    return pathToFileURL(require.resolve(moduleName)).href;
+    const request = isModulePath(moduleName)
+      ? path.resolve(appRoot, moduleName)
+      : moduleName;
+    return pathToFileURL(require.resolve(request)).href;
   } catch {
     return moduleName;
   }
