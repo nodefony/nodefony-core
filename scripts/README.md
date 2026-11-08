@@ -22,6 +22,6 @@ de forge, autre script). Tout est extrait du source — l'en-tête du script (`@
 | [`generate/`](generate/README.md) | Génération d'artefacts : graphe symbolique, page de manuel, catalogue d'environnement, logo. | 12 |
 | [`site/`](site/README.md) | Rendu du site de documentation publié et de ses pages annexes. | 16 |
 | [`site/lib/`](site/lib/README.md) | Helpers propres au rendu du site de documentation. | 6 |
-| [`repo/`](repo/README.md) | Hygiène de l'arbre de travail : verrous, rangement de tmp/, commit sans verrou orphelin. | 7 |
+| [`repo/`](repo/README.md) | Hygiène de l'arbre de travail : verrous, rangement de tmp/, commit sans verrou orphelin. | 8 |
 | [`ci/`](ci/README.md) | Ce que la forge lance ou éprouve sur elle-même. | 7 |
 | [`release/`](release/README.md) | Chaîne de publication du produit. | 31 |

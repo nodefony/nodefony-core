@@ -94,3 +94,32 @@ describe("createLaunchFinder — un runner lancé sur un DOSSIER", () => {
     expect(appelants("scripts/deps/shims/x/index.mjs")).toEqual([]);
   });
 });
+
+describe("createLaunchFinder — un nom de fichier n'est appelé qu'ENTIER", () => {
+  // Vécu : `render-demo.mjs` ajouté au script `build` « lançait » le
+  // `demo.mjs` du skill html-report — son acquittement passait pour périmé
+  // et bloquait tout commit.
+  let finder;
+  beforeAll(() => {
+    finder = createLaunchFinder(
+      new Map(),
+      JSON.stringify({
+        scripts: {
+          build: "turbo run build && node scripts/repo/render-probe.mjs",
+          other: "node .claude/skills/x/scripts/other-probe.mjs",
+          bare: "cd .claude/skills/y/scripts && node runme.mjs",
+        },
+      }),
+    );
+  }, 60_000);
+
+  it("un nom qui en TERMINE un autre ne lance rien (probe.mjs ≠ render-probe.mjs)", () => {
+    expect(finder.appelants(".claude/skills/z/scripts/probe.mjs")).toEqual([]);
+  });
+
+  it("le nom entier, précédé d'un espace, reste un appel", () => {
+    expect(
+      finder.appelants(".claude/skills/y/scripts/runme.mjs"),
+    ).toContainEqual({ label: "un script npm", name: "npm run bare" });
+  });
+});

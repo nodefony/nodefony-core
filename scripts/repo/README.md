@@ -31,6 +31,13 @@ Verrou « un run long occupe l'arbre » — tenu, libéré, orphelin, et la CLI 
 - **Lancé par** : `npm run test:tooling`
 - **Utilise** : `repo/long-run-lock.mjs`
 
+## [`render-demo.mjs`](render-demo.mjs)
+
+Rend le module de la DÉMO de l'application de développement (#747), puis le bâtit et le vérifie au typecheck.
+
+- **Usage** : `node scripts/repo/render-demo.mjs`
+- **Appelé par** : `npm run build` · `npm run build:force`
+
 ## [`safe-commit.sh`](safe-commit.sh)
 
 safe-commit.sh — wrapper de `git commit` qui retire un .git/index.lock orphelin.

@@ -747,7 +747,6 @@
       "env": [],
       "output": "",
       "calledBy": [
-        "pages.yml",
         "scaffold.yml",
         "scripts/generate/generate-man.mjs",
         "scripts/release/dts-deps.mjs",
@@ -1930,6 +1929,22 @@
       "output": "",
       "calledBy": [
         "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/repo/render-demo.mjs",
+      "test": false,
+      "purpose": "Rend le module de la DÉMO de l'application de développement (#747), puis le bâtit et le vérifie au typecheck.",
+      "usage": [
+        "node scripts/repo/render-demo.mjs"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run build",
+        "npm run build:force"
       ],
       "testedBy": []
     },

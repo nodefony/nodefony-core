@@ -3,7 +3,7 @@
  * Rend le module de la DÉMO de l'application de développement (#747), puis le
  * bâtit et le vérifie au typecheck.
  *
- *   node scripts/repo/render-demo.mjs
+ * @usage node scripts/repo/render-demo.mjs
  *
  * POURQUOI : la démo n'a qu'une source, `src/nodefony/templates/demo/` — celle
  * que reçoit `create app --demo`, publiée avec le paquet `nodefony`. L'application

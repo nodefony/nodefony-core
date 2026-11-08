@@ -421,11 +421,17 @@ export function createLaunchFinder(sourcesByPath, pkgText) {
     const base = k.split("/").pop();
     const out = [];
     const nom = (chemin) => chemin.split("/").pop();
+    // Le nom nu ne compte qu'ENTIER — précédé d'un début, d'un blanc, d'un `/`
+    // ou d'un délimiteur de chaîne : `render-demo.mjs` ne lance pas `demo.mjs`.
+    const baseEntiere = new RegExp(
+      `(?:^|[\\s/"'\`])${base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`,
+      "mu",
+    );
     for (const [n, v] of scriptsNpm)
-      if (v.includes(k) || v.includes(base))
+      if (v.includes(k) || baseEntiere.test(v))
         out.push({ label: "un script npm", name: `npm run ${n}` });
     for (const [f, src] of forge)
-      if (src.includes(k) || src.includes(base))
+      if (src.includes(k) || baseEntiere.test(src))
         out.push({ label: "un étage de forge", name: nom(f) });
     for (const [f, src] of hooks)
       if (src.includes(k))
