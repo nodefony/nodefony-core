@@ -2628,7 +2628,18 @@ export class NodefonySocket<
         return;
       }
       let openedAt = 0;
+      // Un navigateur signale ouverture et fermeture APRÈS coup : un transport
+      // remplacé entre-temps (`disconnect()` puis `connect()` aussitôt — le
+      // double montage de React en développement) ne touche plus à la socket.
+      // Sans cette garde, sa fermeture tardive effaçait le transport COURANT :
+      // socket « connected », mais muette.
+      const replaced = () => this.transport !== transport;
       transport.onOpen(() => {
+        if (replaced()) {
+          transport.close(1000, "client disconnect");
+          resolve();
+          return;
+        }
         if (this.connectTimer) clearTimeout(this.connectTimer);
         this.connectTimer = null;
         openedAt = Date.now();
@@ -2656,13 +2667,13 @@ export class NodefonySocket<
         }
         resolve();
       });
-      transport.onMessage((raw) => this.handleMessage(raw));
+      transport.onMessage((raw) => {
+        if (!replaced()) this.handleMessage(raw);
+      });
       transport.onError(() => {
         // L'event `close` qui suit gère le reconnect.
       });
       transport.onClose((code, reason) => {
-        this.clearTimers();
-        this.transport = null;
         // Fermée avant de s'ouvrir (refus, délai, réseau) : la promesse de
         // `connect()` le dit, au lieu de rester pendante à jamais. La reconnexion,
         // elle, continue en fond.
@@ -2673,10 +2684,20 @@ export class NodefonySocket<
             ),
           );
         }
+        if (replaced()) return;
+        this.clearTimers();
+        this.transport = null;
         if (this.intentionalClose) {
           this.setState("disconnected");
           return;
         }
+        // Une requête en vol sur CETTE connexion n'aura pas de réponse : les
+        // identifiants JSON-RPC vivent par connexion, et rien ne se rejoue —
+        // seuls les abonnements le sont, à l'accueil suivant. La rejeter
+        // maintenant, avec le code, plutôt qu'au bout de son délai.
+        this.peer.dispose(
+          `[nodefony] connexion temps réel fermée (code ${code}${reason === "" ? "" : ` : ${reason}`}) : réponse impossible`,
+        );
         // Seule une connexion STABLE remet le back-off à zéro.
         if (openedAt !== 0 && Date.now() - openedAt >= STABLE_CONNECTION_MS)
           this.reconnectAttempt = 0;

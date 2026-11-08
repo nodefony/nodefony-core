@@ -440,7 +440,16 @@ describe("NodefonySocket — codec CBOR offert et retenu", () => {
       await p;
       expect(client.codec).to.equal(CBOR_PROTOCOL);
       transports[0]!.drop(1006);
-      await vi.advanceTimersByTimeAsync(60_000);
+      // Jusqu'à la tentative de reconnexion, pas au-delà : laissée sans
+      // réponse, son délai de connexion la refermerait, et un transport fermé
+      // ne touche plus à la socket.
+      for (
+        let waited = 0;
+        transports.length < 2 && waited < 60_000;
+        waited += 50
+      ) {
+        await vi.advanceTimersByTimeAsync(50);
+      }
       const t2 = transports[1]!;
       expect(t2.protocols).to.deep.equal([CBOR_PROTOCOL, JSON_PROTOCOL]);
       expect(client.codec).to.equal(JSON_PROTOCOL);
