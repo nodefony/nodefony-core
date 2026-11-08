@@ -1621,7 +1621,8 @@ a.ritem:hover .ritem-go {
      au clavier. L'historique chargé est borné (50), la page défile. */
   min-height: 240px;
 }
-.room-list li {
+/* Enfant DIRECT : les listes d'un message (Markdown, archive) gardent leur flux. */
+.room-list > li {
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -1635,6 +1636,50 @@ a.ritem:hover .ritem-go {
 }
 .room-text {
   overflow-wrap: anywhere;
+}
+/* Les liens du salon (message, téléchargement) : le bleu mêlé au texte, lisible
+   dans les deux thèmes — le bleu seul tombe à 3,3:1 sur le fond sombre. */
+.room-list a {
+  color: color-mix(in srgb, var(--blue) 50%, var(--fg));
+}
+/* Le Markdown du salon : des marges courtes, un message reste compact. */
+.md p,
+.md ul,
+.md ol,
+.md blockquote,
+.md pre {
+  margin: 0 0 4px;
+}
+.md > :last-child {
+  margin-bottom: 0;
+}
+.md ul,
+.md ol {
+  padding-left: 1.4em;
+}
+.md blockquote {
+  padding-left: 10px;
+  color: var(--muted);
+  border-left: 3px solid var(--border);
+}
+.md code {
+  padding: 1px 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.88em;
+  background: var(--bg-soft);
+  border-radius: 4px;
+}
+.md pre {
+  padding: 8px 10px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.md pre code {
+  padding: 0;
+  background: none;
 }
 .room-empty {
   color: var(--muted);
@@ -1700,6 +1745,24 @@ a.ritem:hover .ritem-go {
 .composer .tool:hover,
 .composer .tool[aria-expanded="true"] {
   border-color: var(--cyan);
+}
+.format-bar {
+  display: flex;
+  gap: 4px;
+}
+.composer .fmt {
+  width: 32px;
+  height: 32px;
+  font-size: 0.85rem;
+}
+.fmt-b {
+  font-weight: 700;
+}
+.fmt-i {
+  font-style: italic;
+}
+.fmt-e {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 .emoji-wrap {
   position: relative;
@@ -1899,6 +1962,59 @@ a.ritem:hover .ritem-go {
   gap: 12px;
   margin: 8px 0 0;
   font-size: 0.85rem;
+}
+/* Les aperçus : PDF, archive, document, tableur. */
+.att-pdf iframe {
+  display: block;
+  width: min(88vw, 1000px);
+  height: 78vh;
+  background: #fff;
+  border: 0;
+}
+.att-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.att-entries {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+}
+.att-entries li {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+.att-entry-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.att-more {
+  color: var(--muted);
+}
+.att-doc p {
+  margin: 0 0 6px;
+}
+.att-doc p:last-child {
+  margin-bottom: 0;
+}
+/* Pas de défilement horizontal (le clavier ne l'atteindrait pas) : les
+   cellules se replient dans la largeur de la boîte. */
+.att-sheet {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+.att-sheet td {
+  padding: 3px 6px;
+  overflow-wrap: anywhere;
+  vertical-align: top;
+  border: 1px solid var(--border);
 }
 .lesson-traps {
   display: flex;

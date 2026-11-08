@@ -9,6 +9,7 @@ import type {
   ChatMessage,
 } from "../../frontend/src/chat/chatContract";
 import { countLines, previewLines } from "../../frontend/src/chat/attachments";
+import { previewOf, sniffContainer } from "./chatPreview";
 
 /** Messages gardés en mémoire : au-delà, les plus anciens sortent. */
 export const CHAT_HISTORY_LIMIT = 200;
@@ -143,8 +144,9 @@ class ChatService extends Service {
   // #region chat-attachments
   /**
    * Garde les pièces d'un message : chaque fichier est DÉPLACÉ (jamais lu en
-   * entier, sauf un texte de 2 Mio au plus) sous un nom tiré par le serveur,
-   * puis classé d'après ses octets — image reconnue, texte UTF-8, ou fichier.
+   * entier, sauf une pièce de 2 Mio au plus à prévisualiser) sous un nom tiré
+   * par le serveur, puis classé d'après ses octets — image, PDF, archive,
+   * document, tableur, texte UTF-8, ou simple fichier.
    *
    * @returns ce que le salon annoncera de chaque pièce
    */
@@ -216,7 +218,10 @@ class ChatService extends Service {
   }
 }
 
-/** Classe une pièce d'après ses octets. */
+/**
+ * Classe une pièce d'après ses octets : image, puis conteneur reconnu (PDF,
+ * archive, bureautique — `chatPreview.ts`), puis texte, sinon fichier.
+ */
 async function classify(
   id: string,
   name: string,
@@ -224,7 +229,8 @@ async function classify(
   file: string,
 ): Promise<IStoredAttachment> {
   const handle = await open(file, "r");
-  const head = new Uint8Array(12);
+  // 512 octets : la signature tar est à l'octet 257.
+  const head = new Uint8Array(512);
   try {
     await handle.read(head, 0, head.length, 0);
   } finally {
@@ -233,6 +239,15 @@ async function classify(
   const image = sniffImage(head);
   if (image !== null) {
     return { meta: { id, name, size, kind: "image" }, file, mime: image };
+  }
+  if (sniffContainer(head) !== null && size <= ATTACHMENT_MAX_BYTES) {
+    const preview = await previewOf(await readFile(file));
+    if (preview !== null)
+      return {
+        meta: { id, name, size, ...preview.fields },
+        file,
+        mime: preview.mime,
+      };
   }
   const text =
     size <= ATTACHMENT_MAX_BYTES ? decodeText(await readFile(file)) : null;

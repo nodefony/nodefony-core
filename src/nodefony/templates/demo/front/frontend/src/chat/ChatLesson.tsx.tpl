@@ -5,6 +5,7 @@ import { LessonCode } from "../lesson/LessonCode";
 import { CHAT_LESSON } from "./chatTabs";
 import { ChatAttachments } from "./ChatAttachments";
 import { ChatComposer } from "./ChatComposer";
+import { ChatText } from "./ChatText";
 import { keyOf, useChat, type IChatRoom } from "./useChat";
 
 /** Heure d'un message, à la minute. */
@@ -96,8 +97,20 @@ export function ChatLesson({ about }: { about: IDemoAbout | null }) {
                 Le type d'un fichier déclaré par le navigateur ment.
               </strong>{" "}
               Une page HTML nommée <code>photo.png</code> s'exécuterait si on
-              l'affichait : ici, seules les images reconnues à leurs premiers
-              octets s'affichent, tout le reste se télécharge.
+              l'affichait : ici, seuls les images et les PDF reconnus à leurs
+              premiers octets s'affichent, tout le reste se télécharge.
+            </li>
+            <li>
+              <strong>
+                Du Markdown rendu en HTML injecté exécute du script.
+              </strong>{" "}
+              Ici le texte devient des éléments React, et un lien{" "}
+              <code>javascript:</code> reste du texte.
+            </li>
+            <li>
+              <strong>La taille annoncée par une archive ment.</strong> Quelques
+              Ko peuvent se déplier en gigaoctets : l'aperçu coupe la
+              décompression au premier mégaoctet.
             </li>
             <li>
               <strong>
@@ -166,9 +179,7 @@ function ChatRoom({
                 <strong>{message.author}</strong> ·{" "}
                 {TIME.format(message.sentAt)}
               </span>
-              {message.text !== "" && (
-                <span className="room-text">{message.text}</span>
-              )}
+              {message.text !== "" && <ChatText text={message.text} />}
               {message.attachments !== undefined &&
                 message.attachments.length > 0 && (
                   <ChatAttachments pieces={message.attachments} />

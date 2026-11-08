@@ -6,6 +6,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { rename } from "node:fs/promises";
+import { deflateRawSync, gzipSync } from "node:zlib";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -30,6 +31,18 @@ import ChatService, {
   isUploadedFile,
   sniffImage,
 } from "../nodefony/service/ChatService";
+import {
+  INFLATE_LIMIT,
+  PREVIEW_ENTRIES,
+  inflateHead,
+} from "../nodefony/service/chatPreview";
+import {
+  codeMark,
+  linkMark,
+  parseInline,
+  parseMarkdown,
+  toggleMark,
+} from "../frontend/src/chat/markdown";
 import {
   LARGE_PASTE_CHARS,
   LARGE_PASTE_LINES,
@@ -257,6 +270,251 @@ describe("demo — les pièces du salon, classées d'après leurs OCTETS", () =>
     expect(readdirSync(path.join(work, "refus"))).toEqual([]);
     expect(isUploadedFile({ filename: "x" })).toBe(false);
     expect(isUploadedFile(upload("y", PNG))).toBe(true);
+  });
+
+  /** Un zip minimal : en-têtes locaux, index central, fin d'index. */
+  const zip = (files: Record<string, string>, deflate = true): Buffer => {
+    const locals: Buffer[] = [];
+    const central: Buffer[] = [];
+    let offset = 0;
+    for (const [name, content] of Object.entries(files)) {
+      const raw = Buffer.from(content);
+      const data = deflate ? deflateRawSync(raw) : raw;
+      const label = Buffer.from(name);
+      const local = Buffer.alloc(30);
+      local.writeUInt32LE(0x04034b50, 0);
+      local.writeUInt16LE(deflate ? 8 : 0, 8);
+      local.writeUInt32LE(data.length, 18);
+      local.writeUInt32LE(raw.length, 22);
+      local.writeUInt16LE(label.length, 26);
+      const entry = Buffer.alloc(46);
+      entry.writeUInt32LE(0x02014b50, 0);
+      entry.writeUInt16LE(deflate ? 8 : 0, 10);
+      entry.writeUInt32LE(data.length, 20);
+      entry.writeUInt32LE(raw.length, 24);
+      entry.writeUInt16LE(label.length, 28);
+      entry.writeUInt32LE(offset, 42);
+      locals.push(local, label, data);
+      central.push(entry, label);
+      offset += 30 + label.length + data.length;
+    }
+    const index = Buffer.concat(central);
+    const end = Buffer.alloc(22);
+    end.writeUInt32LE(0x06054b50, 0);
+    end.writeUInt16LE(Object.keys(files).length, 8);
+    end.writeUInt16LE(Object.keys(files).length, 10);
+    end.writeUInt32LE(index.length, 12);
+    end.writeUInt32LE(offset, 16);
+    return Buffer.concat([...locals, index, end]);
+  };
+
+  /** Une archive tar (ustar) : un en-tête de 512 octets par entrée. */
+  const tar = (files: Record<string, string>): Buffer => {
+    const blocks: Buffer[] = [];
+    for (const [name, content] of Object.entries(files)) {
+      const header = Buffer.alloc(512);
+      header.write(name, 0);
+      header.write(content.length.toString(8).padStart(11, "0"), 124);
+      header.write(name.endsWith("/") ? "5" : "0", 156);
+      header.write("ustar\u000000", 257);
+      const body = Buffer.alloc(Math.ceil(content.length / 512) * 512);
+      body.write(content);
+      blocks.push(header, body);
+    }
+    blocks.push(Buffer.alloc(1024));
+    return Buffer.concat(blocks);
+  };
+
+  it("🔴 un zip annonce son INDEX : 20 entrées au plus, sur le total", async () => {
+    const files: Record<string, string> = {};
+    for (let i = 1; i <= 25; i += 1) files[`src/f${i}.txt`] = "x".repeat(i);
+    const [piece] = await store().saveAttachments([
+      upload("code.zip", zip(files)),
+    ]);
+    expect(piece).toMatchObject({ kind: "archive", format: "zip", total: 25 });
+    expect(piece?.entries).toHaveLength(PREVIEW_ENTRIES);
+    expect(piece?.entries?.[2]).toEqual({ name: "src/f3.txt", size: 3 });
+  });
+
+  it("un tar et un tar.gz se listent ; un dossier est une entrée de taille 0", async () => {
+    const archive = tar({
+      "app/": "",
+      "app/a.txt": "abc",
+      "app/b.txt": "x".repeat(700),
+    });
+    const [plain, packed] = await store().saveAttachments([
+      upload("a.tar", archive),
+      upload("a.tar.gz", gzipSync(archive)),
+    ]);
+    const entries = [
+      { name: "app/", size: 0 },
+      { name: "app/a.txt", size: 3 },
+      { name: "app/b.txt", size: 700 },
+    ];
+    expect(plain).toMatchObject({
+      kind: "archive",
+      format: "tar",
+      total: 3,
+      entries,
+    });
+    expect(packed).toMatchObject({
+      kind: "archive",
+      format: "tar.gz",
+      total: 3,
+      entries,
+    });
+  });
+
+  it("🔴 une bombe est COUPÉE : la décompression s'arrête au premier mégaoctet", async () => {
+    const bomb = deflateRawSync(Buffer.alloc(8 * INFLATE_LIMIT));
+    expect(bomb.length).toBeLessThan(16_384);
+    const out = await inflateHead(bomb, "raw", INFLATE_LIMIT);
+    expect(out).toMatchObject({ truncated: true });
+    expect(out.bytes.length).toBe(INFLATE_LIMIT);
+    const [piece] = await store().saveAttachments([
+      upload(
+        "bombe.tar.gz",
+        gzipSync(tar({ "zero.bin": "\u0000".repeat(3 * INFLATE_LIMIT) })),
+      ),
+    ]);
+    expect(piece).toMatchObject({ kind: "archive", truncated: true, total: 1 });
+  });
+
+  it("un Word et un ODT montrent leurs premiers paragraphes, entités décodées", async () => {
+    const docx = zip({
+      "[Content_Types].xml": "<Types/>",
+      "word/document.xml":
+        '<w:document><w:body><w:p><w:r><w:t>Bonjour </w:t></w:r><w:r><w:t xml:space="preserve">&amp; bienvenue</w:t></w:r></w:p><w:p></w:p><w:p><w:r><w:tab/><w:t>Deuxième</w:t></w:r></w:p></w:body></w:document>',
+    });
+    const odt = zip(
+      {
+        mimetype: "application/vnd.oasis.opendocument.text",
+        "content.xml":
+          '<office:document-content><office:body><office:text><text:h text:outline-level="1">Titre</text:h><text:p>Un<text:s/>texte &lt;ici&gt;</text:p></office:text></office:body></office:document-content>',
+      },
+      false,
+    );
+    const [word, odf] = await store().saveAttachments([
+      upload("lettre.docx", docx),
+      upload("note.odt", odt),
+    ]);
+    expect(word).toMatchObject({
+      kind: "document",
+      format: "docx",
+      paragraphs: ["Bonjour & bienvenue", "Deuxième"],
+    });
+    expect(odf).toMatchObject({
+      kind: "document",
+      format: "odt",
+      paragraphs: ["Titre", "Un texte <ici>"],
+    });
+  });
+
+  it("un Excel et un ODS montrent le coin de la première feuille", async () => {
+    const xlsx = zip({
+      "xl/workbook.xml": "<workbook/>",
+      "xl/sharedStrings.xml":
+        "<sst><si><t>Nom</t></si><si><t>Ville</t></si><si><r><t>Ly</t></r><r><t>on</t></r></si></sst>",
+      "xl/worksheets/sheet1.xml":
+        '<worksheet><sheetData><row r="1"><c r="A1" t="s"><v>0</v></c><c r="C1" t="s"><v>1</v></c></row><row r="2"><c r="A2" t="inlineStr"><is><t>Alice</t></is></c><c r="B2"><v>42</v></c><c r="C2" t="s"><v>2</v></c><c r="H2"><v>9</v></c></row></sheetData></worksheet>',
+    });
+    const ods = zip({
+      mimetype: "application/vnd.oasis.opendocument.spreadsheet",
+      "content.xml":
+        '<office:spreadsheet><table:table table:name="F1"><table:table-row><table:table-cell><text:p>a</text:p></table:table-cell><table:table-cell table:number-columns-repeated="2"/><table:table-cell><text:p>d</text:p></table:table-cell></table:table-row><table:table-row table:number-rows-repeated="1048575"><table:table-cell table:number-columns-repeated="16384"/></table:table-row></table:table><table:table table:name="F2"><table:table-row><table:table-cell><text:p>autre</text:p></table:table-cell></table:table-row></table:table></office:spreadsheet>',
+    });
+    const [excel, calc] = await store().saveAttachments([
+      upload("t.xlsx", xlsx),
+      upload("t.ods", ods),
+    ]);
+    expect(excel).toMatchObject({
+      kind: "sheet",
+      format: "xlsx",
+      rows: [
+        ["Nom", "", "Ville"],
+        ["Alice", "42", "Lyon"],
+      ],
+    });
+    expect(calc).toMatchObject({
+      kind: "sheet",
+      format: "ods",
+      rows: [["a", "", "", "d"]],
+    });
+  });
+
+  it("un PDF s'affiche, d'après %PDF- ; un zip illisible reste un fichier", async () => {
+    const chat = store();
+    const [pdf, broken] = await chat.saveAttachments([
+      upload("doc.bin", new TextEncoder().encode("%PDF-1.7\n%âãÏÓ\n")),
+      upload("casse.zip", new Uint8Array([0x50, 0x4b, 0x03, 0x04, 0, 0, 0])),
+    ]);
+    expect(pdf?.kind).toBe("pdf");
+    expect(chat.attachment(pdf?.id ?? "")?.mime).toBe("application/pdf");
+    expect(broken?.kind).toBe("file");
+  });
+});
+
+describe("demo — le Markdown du salon, le même pour tous", () => {
+  it("gras, italique, code, lien ; un marqueur orphelin et snake_case restent du texte", () => {
+    expect(
+      parseInline("**gras** et _it_ puis `a*b` [doc](https://x.dev/a)"),
+    ).toEqual([
+      { type: "strong", children: ["gras"] },
+      " et ",
+      { type: "em", children: ["it"] },
+      " puis ",
+      { type: "code", value: "a*b" },
+      " ",
+      { type: "link", href: "https://x.dev/a", children: ["doc"] },
+    ]);
+    expect(parseInline("ma_variable_longue * 2 **seul")).toEqual([
+      "ma_variable_longue * 2 **seul",
+    ]);
+    expect(parseInline("voir https://nodefony.net/doc.")).toEqual([
+      "voir ",
+      {
+        type: "link",
+        href: "https://nodefony.net/doc",
+        children: ["https://nodefony.net/doc"],
+      },
+      ".",
+    ]);
+  });
+
+  it("🔴 un lien javascript: reste du TEXTE", () => {
+    expect(parseInline("[clic](javascript:alert(1))")).toEqual([
+      "[clic](javascript:alert(1))",
+    ]);
+  });
+
+  it("blocs : code, liste, citation, paragraphe à plusieurs lignes", () => {
+    expect(
+      parseMarkdown(
+        "a\nb\n\n```\nx **y**\n```\n- un\n- deux\n1. premier\n> cité",
+      ),
+    ).toEqual([
+      { type: "p", children: ["a", { type: "br" }, "b"] },
+      { type: "pre", value: "x **y**" },
+      { type: "ul", items: [["un"], ["deux"]] },
+      { type: "ol", items: [["premier"]] },
+      { type: "quote", children: ["cité"] },
+    ]);
+  });
+
+  it("les boutons posent ou ôtent le marqueur, la sélection suit", () => {
+    const bold = toggleMark("un mot ici", 3, 6, "**");
+    expect(bold).toEqual({ value: "un **mot** ici", start: 5, end: 8 });
+    expect(toggleMark(bold.value, bold.start, bold.end, "**")).toEqual({
+      value: "un mot ici",
+      start: 3,
+      end: 6,
+    });
+    expect(codeMark("a\nb", 0, 3).value).toBe("```\na\nb\n```");
+    expect(linkMark("voir doc", 5, 8)).toEqual({
+      value: "voir [doc](https://)",
+      start: 11,
+      end: 19,
+    });
   });
 });
 

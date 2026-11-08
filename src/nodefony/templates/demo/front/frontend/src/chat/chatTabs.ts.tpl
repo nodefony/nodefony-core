@@ -11,6 +11,8 @@ const CONTROLLER: LessonFile = "nodefony/controllers/ChatController.ts";
 const HOOK: LessonFile = "frontend/src/chat/useChat.ts";
 const SERVICE: LessonFile = "nodefony/service/ChatService.ts";
 const RULES: LessonFile = "frontend/src/chat/attachments.ts";
+const PREVIEW: LessonFile = "nodefony/service/chatPreview.ts";
+const MARKDOWN: LessonFile = "frontend/src/chat/markdown.ts";
 
 export const CHAT_LESSON = {
   tabs: [
@@ -71,7 +73,7 @@ export const CHAT_LESSON = {
           excerpt: { file: CONTROLLER, region: "chat-attach", step: 6 },
         },
         {
-          text: "Servir une pièce : le type vient des OCTETS, jamais du nom ni du type déclaré par le navigateur. Seules les images reconnues s'affichent dans la page ; le reste se télécharge, `nosniff` interdit de deviner et `sandbox` désarme un document ouvert dans un onglet.",
+          text: "Servir une pièce : le type vient des OCTETS, jamais du nom ni du type déclaré par le navigateur. Seuls les images reconnues et les PDF s'affichent ; le reste se télécharge, `nosniff` interdit de deviner et `sandbox` désarme un document ouvert dans un onglet. Le PDF en est exempté (Chrome refuse de l'afficher sous `sandbox`), mais seule une page de l'application peut l'encadrer.",
           excerpt: { file: CONTROLLER, region: "chat-file", step: 6 },
         },
         {
@@ -94,6 +96,14 @@ export const CHAT_LESSON = {
         {
           text: "Les pièces : chaque fichier est DÉPLACÉ sous un nom tiré par le serveur, puis classé d'après ses premiers octets — image reconnue, texte UTF-8, ou simple fichier. Le stock est borné lui aussi : une pièce sortie laisse son message, marqué « retirée ».",
           excerpt: { file: SERVICE, region: "chat-attachments", step: 6 },
+        },
+        {
+          text: "Ce que le salon montre d'une archive ou d'un document, le serveur l'a LU d'après les octets : un PDF, l'index d'un zip ou d'un tar (rien n'est extrait), les premiers paragraphes d'un Word ou d'un ODT, le coin d'un tableur. Sans dépendance : zip, tar et XML se lisent en quelques lignes.",
+          excerpt: { file: PREVIEW, region: "chat-preview", step: 6 },
+        },
+        {
+          text: "Le piège des archives : une « bombe » de quelques Ko qui se déplie en gigaoctets. La taille annoncée n'est jamais crue ; le flux est COUPÉ au premier mégaoctet décompressé.",
+          excerpt: { file: PREVIEW, region: "chat-inflate-cap", step: 6 },
         },
       ],
     },
@@ -123,6 +133,14 @@ export const CHAT_LESSON = {
         {
           text: "L'envoi : le texte seul. Un refus rejette la promesse, et la page l'affiche.",
           excerpt: { file: HOOK, region: "chat-send-client", step: 5 },
+        },
+        {
+          text: "Le Markdown du salon : le message voyage en texte brut, et chaque page l'analyse avec les MÊMES fonctions pures — d'où un rendu identique pour tous. Le résultat devient des éléments React, jamais du HTML injecté, et un lien ne s'ouvre que vers `http:` ou `https:`.",
+          excerpt: { file: MARKDOWN, region: "chat-markdown", step: 6 },
+        },
+        {
+          text: "Les boutons G, I, </> et 🔗 (ou Ctrl/⌘ + B, I, E, K) n'écrivent que du texte : ils posent le marqueur autour de la sélection, ou l'ôtent s'il y est déjà.",
+          excerpt: { file: MARKDOWN, region: "chat-format", step: 6 },
         },
         {
           text: "Un grand collage ne remplit pas le champ : au-delà d'un seuil, il devient une pièce, une boîte « Texte collé » — comme un fichier.",

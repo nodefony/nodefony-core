@@ -1,6 +1,7 @@
 import {
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   type ClipboardEvent,
@@ -17,6 +18,37 @@ import {
   pastedFileName,
   previewLines,
 } from "./attachments";
+import { codeMark, linkMark, toggleMark } from "./markdown";
+
+/** Une mise en forme : rend le texte et la sélection à reposer. */
+type Format = (
+  value: string,
+  start: number,
+  end: number,
+) => { value: string; start: number; end: number };
+
+/** Les boutons de mise en forme, et leur raccourci (Ctrl ou ⌘). */
+const FORMATS: readonly {
+  label: string;
+  glyph: string;
+  key: string;
+  apply: Format;
+}[] = [
+  {
+    label: "Gras",
+    glyph: "G",
+    key: "b",
+    apply: (v, s, e) => toggleMark(v, s, e, "**"),
+  },
+  {
+    label: "Italique",
+    glyph: "I",
+    key: "i",
+    apply: (v, s, e) => toggleMark(v, s, e, "_"),
+  },
+  { label: "Code", glyph: "</>", key: "e", apply: codeMark },
+  { label: "Lien", glyph: "🔗", key: "k", apply: linkMark },
+];
 
 /** Une pièce en attente d'envoi — locale à l'écrivain, rien n'est parti. */
 interface IPending {
@@ -46,7 +78,8 @@ function pendingFile(file: File): IPending {
  * Guide pour un agent : tout ici reste LOCAL jusqu'à « Envoyer » ; ensuite le
  * message n'apparaît que lorsque le serveur l'annonce sur le salon. Les règles
  * (nombre, taille, grand collage) viennent de `attachments.ts`, que le serveur
- * rejoue. Entrée envoie, Maj+Entrée va à la ligne.
+ * rejoue. Entrée envoie, Maj+Entrée va à la ligne ; G, I, </> et 🔗 (ou
+ * Ctrl/⌘ + B, I, E, K) écrivent le Markdown du salon (`markdown.ts`).
  */
 export function ChatComposer({
   author,
@@ -68,6 +101,18 @@ export function ChatComposer({
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
   const pasteCount = useRef(0);
+  // La sélection à reposer après le rendu du nouveau texte : en
+  // `useLayoutEffect`, AVANT toute frappe suivante (un `requestAnimationFrame`
+  // arrivait après une frappe rapide, qui remplaçait alors la sélection).
+  const selection = useRef<{ start: number; end: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = field.current;
+    const next = selection.current;
+    if (el === null || next === null) return;
+    selection.current = null;
+    el.focus();
+    el.setSelectionRange(next.start, next.end);
+  }, [draft]);
 
   // Les vignettes locales sont rendues au démontage.
   const thumbs = useRef(pending);
@@ -120,12 +165,19 @@ export function ChatComposer({
     const start = el?.selectionStart ?? draft.length;
     const end = el?.selectionEnd ?? draft.length;
     const next = insertAt(draft, start, end, text);
+    selection.current = { start: next.caret, end: next.caret };
     setDraft(next.value);
-    // Le curseur se repose APRÈS le rendu du nouveau texte.
-    requestAnimationFrame(() => {
-      el?.focus();
-      el?.setSelectionRange(next.caret, next.caret);
-    });
+  };
+
+  const format = (apply: Format) => {
+    const el = field.current;
+    const next = apply(
+      draft,
+      el?.selectionStart ?? draft.length,
+      el?.selectionEnd ?? draft.length,
+    );
+    selection.current = { start: next.start, end: next.end };
+    setDraft(next.value);
   };
 
   const onPaste = (event: ClipboardEvent<HTMLTextAreaElement>) => {
@@ -213,6 +265,16 @@ export function ChatComposer({
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Escape" && emojiOpen) setEmojiOpen(false);
+    if ((event.ctrlKey || event.metaKey) && !event.altKey) {
+      const shortcut = FORMATS.find(
+        (item) => item.key === event.key.toLowerCase(),
+      );
+      if (shortcut !== undefined) {
+        event.preventDefault();
+        format(shortcut.apply);
+        return;
+      }
+    }
     if (
       event.key === "Enter" &&
       !event.shiftKey &&
@@ -276,6 +338,20 @@ export function ChatComposer({
           ))}
         </ul>
       )}
+      <div className="format-bar" role="group" aria-label="Mise en forme">
+        {FORMATS.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            className={`tool fmt fmt-${item.key}`}
+            aria-label={`${item.label} (Ctrl+${item.key.toUpperCase()})`}
+            title={`${item.label} (Ctrl+${item.key.toUpperCase()})`}
+            onClick={() => format(item.apply)}
+          >
+            {item.glyph}
+          </button>
+        ))}
+      </div>
       <div className="composer-row">
         <button
           type="button"

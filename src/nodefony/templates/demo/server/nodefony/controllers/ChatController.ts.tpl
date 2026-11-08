@@ -195,9 +195,12 @@ class ChatController extends ContractRealtimeController<ChatContract> {
   // #region chat-file
   /**
    * Une pièce — `GET /demo/chat/files/<id>`, lecture libre comme l'historique.
-   * Le type servi vient des OCTETS : seules les images reconnues s'affichent
-   * dans la page, tout le reste se télécharge ; `nosniff` interdit au
+   * Le type servi vient des OCTETS : seules les images reconnues et les PDF
+   * s'affichent, tout le reste se télécharge ; `nosniff` interdit au
    * navigateur de deviner, `sandbox` désarme un document ouvert dans un onglet.
+   * Un PDF fait exception à `sandbox` : Chrome refuse d'afficher un PDF sous
+   * `sandbox`. Sa visionneuse est isolée de la page, et il ne s'encadre que
+   * par une page de l'application (`frame-ancestors 'self'`).
    */
   @route("demo-chat-file", {
     path: "/files/{id}",
@@ -207,7 +210,8 @@ class ChatController extends ContractRealtimeController<ChatContract> {
     const stored = this.chat.attachment(id);
     if (stored === undefined)
       throw new HttpError("pièce introuvable, ou sortie du stockage", 404);
-    const inline = stored.meta.kind === "image";
+    const pdf = stored.meta.kind === "pdf";
+    const inline = pdf || stored.meta.kind === "image";
     await this.streamFile(stored.file, {
       "Content-Type": stored.mime,
       "Content-Disposition": contentDisposition(
@@ -215,7 +219,12 @@ class ChatController extends ContractRealtimeController<ChatContract> {
         stored.meta.name,
       ),
       "X-Content-Type-Options": "nosniff",
-      "Content-Security-Policy": "sandbox",
+      ...(pdf
+        ? {
+            "Content-Security-Policy": "frame-ancestors 'self'",
+            "X-Frame-Options": "SAMEORIGIN",
+          }
+        : { "Content-Security-Policy": "sandbox" }),
     });
   }
   // #endregion

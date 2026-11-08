@@ -40,7 +40,19 @@ export const ATTACHMENT_MAX_BYTES = 2_097_152;
  * Ce qu'une pièce montre dans le salon — décidé par le SERVEUR d'après son
  * contenu, jamais d'après son nom ni le type que le navigateur déclare.
  */
-export type ChatAttachmentKind = "image" | "text" | "file";
+export type ChatAttachmentKind =
+  "image" | "text" | "pdf" | "archive" | "document" | "sheet" | "file";
+
+/** Le format reconnu d'une archive ou d'un document bureautique. */
+export type ChatAttachmentFormat =
+  "zip" | "tar" | "tar.gz" | "docx" | "odt" | "xlsx" | "ods";
+
+/** Une entrée d'archive, lue dans son INDEX — rien n'est extrait. */
+export interface ChatArchiveEntry {
+  name: string;
+  /** Taille déclarée par l'archive, décompressée. */
+  size: number;
+}
 
 /** Une pièce jointe, telle que le salon l'annonce à tous. */
 export interface ChatAttachment {
@@ -52,6 +64,18 @@ export interface ChatAttachment {
   lines?: number;
   /** Texte : ses premières lignes. */
   preview?: string;
+  /** Archive ou document : le format reconnu. */
+  format?: ChatAttachmentFormat;
+  /** Archive : ses premières entrées… */
+  entries?: ChatArchiveEntry[];
+  /** …sur ce nombre total. */
+  total?: number;
+  /** Document Word ou ODT : ses premiers paragraphes. */
+  paragraphs?: string[];
+  /** Tableur : le coin haut-gauche de la première feuille. */
+  rows?: string[][];
+  /** L'aperçu s'arrête avant la fin (plafond atteint). */
+  truncated?: boolean;
   /** Sortie du stockage borné : le message reste, la pièce non. */
   expired?: boolean;
 }
