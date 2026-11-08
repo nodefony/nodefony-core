@@ -3,6 +3,8 @@ import path from "node:path";
 import https from "node:https";
 import fs from "node:fs";
 import {
+  UPLOAD_DIRS,
+  listUploadResidue,
   snapshotUploadDirs,
   purgeUploadResidue,
   type UploadSnapshot,
@@ -154,14 +156,51 @@ describe("File Upload Tests", () => {
     snapshot = await snapshotUploadDirs();
   });
   afterAll(async () => {
-    // Le COMPTE est ce qui rend le garde vérifiable : cette suite dépose des
-    // fichiers, donc un zéro signifie qu'on a nettoyé un dossier où le serveur
-    // n'écrit pas — exactement le défaut qui avait laissé 4 420 résidus.
+    // Le SERVEUR efface les temporaires que l'action n'a pas déplacés : la
+    // suite ne doit plus rien trouver. Que ce dossier soit bien celui où il
+    // écrit, le test « lu sans être déplacé » le prouve par le chemin rendu.
     const removed = await purgeUploadResidue(snapshot);
-    expect(
-      removed,
-      "aucun résidu supprimé — dossier de dépôt manqué",
-    ).to.be.greaterThan(0);
+    expect(removed, "le serveur a laissé des temporaires d'upload").to.equal(0);
+  });
+
+  /** Attend que le démontage de la requête ait fait son ménage. */
+  const settled = async (snap: UploadSnapshot): Promise<string[]> => {
+    for (let i = 0; i < 40; i += 1) {
+      const left = await listUploadResidue(snap);
+      if (left.length === 0) return left;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    return listUploadResidue(snap);
+  };
+
+  it("🔴 un fichier lu SANS être déplacé est effacé à la fin de la requête", async () => {
+    const filePath = path.resolve("nodefony", "config", "config.ts");
+    const { statusCode, body } = await postMultipart(
+      "/nodefony/test/html/upload",
+      filePath,
+      "file",
+    );
+    expect(statusCode).to.equal(200);
+    const temp = (body as Array<Record<string, unknown>>)[0]?.["path"];
+    expect(temp, "la route rend le chemin du temporaire").to.be.a("string");
+    // Le fichier a existé LÀ où l'on regarde : le zéro qui suit n'est pas vide.
+    expect(UPLOAD_DIRS).to.include(path.dirname(String(temp)));
+    for (let i = 0; i < 40 && fs.existsSync(String(temp)); i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    expect(fs.existsSync(String(temp)), String(temp)).to.equal(false);
+  });
+
+  it("🔴 un envoi REFUSÉ par l'action (400) ne laisse aucun fichier", async () => {
+    const snap = await snapshotUploadDirs();
+    const filePath = path.resolve("nodefony", "config", "config.ts");
+    const { statusCode } = await postMultipart(
+      "/nodefony/test/html/uploaderror",
+      filePath,
+      "file",
+    );
+    expect(statusCode).to.equal(400);
+    expect(await settled(snap)).to.deep.equal([]);
   });
 
   it("should upload a file successfully", async () => {

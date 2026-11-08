@@ -46,6 +46,15 @@ export interface IUploadOptions {
   encoding?: string | undefined;
 }
 
+/**
+ * Un fichier reçu dans un corps multipart, déjà écrit dans le dossier
+ * d'upload sous un nom temporaire.
+ *
+ * Le temporaire est EFFACÉ à la fin de la requête (réponse envoyée ou client
+ * parti) : pour garder le fichier, l'action le déplace avec `moveAsync()`
+ * avant de répondre. Un refus (pare-feu, garde, erreur de l'action) ne laisse
+ * donc rien sur le disque.
+ */
 export interface IUploadedFile {
   filename: string;
   size: number;

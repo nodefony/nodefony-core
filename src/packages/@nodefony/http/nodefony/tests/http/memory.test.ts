@@ -644,11 +644,11 @@ afterAll(async () => {
   h2cShared?.close();
   h2Shared?.close();
   await setSyslogRing(true);
+  // Le serveur efface lui-même les temporaires que l'action n'a pas déplacés
+  // (`Request.ts#HttpRequest.createFileUpload`) : les uploads du banc ne
+  // doivent plus rien laisser.
   const removed = await purgeUploadResidue(snapshot);
-  expect(
-    removed,
-    "aucun résidu supprimé — dossier de dépôt manqué",
-  ).to.be.greaterThan(0);
+  expect(removed, "le serveur a laissé des temporaires d'upload").to.equal(0);
 });
 
 describe("Memory leaks — HTTP (requires server)", function () {

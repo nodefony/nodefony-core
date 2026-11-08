@@ -48,10 +48,11 @@ export async function snapshotUploadDirs(
 /**
  * Supprime les fichiers apparus depuis la photo, et rend leur NOMBRE.
  *
- * Le compte est la seule chose qui rende ce garde vérifiable : une suite qui
- * dépose des fichiers et obtient `0` vise un dossier qui n'est pas celui où le
- * serveur écrit. C'est l'assertion, pas le `unlink`, qui empêche le résidu de
- * revenir en silence.
+ * Le serveur efface lui-même, en fin de requête, les temporaires que l'action
+ * n'a pas déplacés : une suite attend donc `0`. Qu'un zéro ne vienne pas d'un
+ * dossier mal visé, `upload.test.ts` le prouve par le chemin que la route
+ * rend du temporaire. C'est l'assertion, pas le `unlink`, qui empêche le
+ * résidu de revenir en silence.
  *
  * @param snapshot - photo rendue par {@link snapshotUploadDirs}
  * @returns nombre de fichiers effectivement supprimés

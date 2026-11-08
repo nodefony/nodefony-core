@@ -234,6 +234,9 @@ class HttpRequest {
    * temporaire — lus par `@UploadedFile()` / `@UploadedFiles()`. Les champs
    * texte du même corps sont dans {@link body}.
    *
+   * Ces temporaires sont EFFACÉS à la fin de la requête : pour garder un
+   * fichier, l'action le déplace (`moveAsync`) avant de répondre.
+   *
    * Lecture seule : une requête sans upload rend un vide partagé et gelé,
    * aucune allocation.
    */
@@ -840,9 +843,30 @@ class HttpRequest {
       name,
     );
     if (fileUpload) {
-      (this.#uploads ??= []).push(fileUpload);
+      if (this.#uploads === null) {
+        this.#uploads = [];
+        // Posé au PREMIER fichier seulement : une requête sans upload ne paie
+        // rien. Le corps est écrit AVANT que la requête ne soit jugée (pare-feu,
+        // gardes, action) : sans ce ménage, un refus (403, 405, 413) laissait
+        // ses fichiers sur le disque, et n'importe qui pouvait le remplir.
+        this.context.onAfterResponse(() => this.#purgeUploads());
+      }
+      this.#uploads.push(fileUpload);
     }
     return fileUpload;
+  }
+
+  /**
+   * Efface, une fois la requête terminée (réponse envoyée ou client parti),
+   * les temporaires que l'action n'a pas déplacés — la règle de PHP. Un
+   * fichier déplacé (`move`/`moveAsync`) n'est plus à son chemin temporaire :
+   * l'effacement n'y trouve rien, et l'erreur est ignorée.
+   */
+  #purgeUploads(): Promise<void> {
+    const uploads = this.#uploads ?? NO_FILES;
+    return Promise.all(
+      uploads.map((upload) => unlinkQuiet(upload.parsedFile.filepath)),
+    ).then(() => undefined);
   }
 
   getMethod(): HTTPMethod {

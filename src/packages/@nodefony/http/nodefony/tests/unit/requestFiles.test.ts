@@ -14,7 +14,11 @@ import type { IParsedUploadFile } from "../../interfaces/IUpload.js";
  * vide partagé — sinon la requête suivante hériterait du fichier d'une autre.
  */
 
+/** Les ménages de fin de requête posés sur le contexte, par requête. */
+const hooks = new WeakMap<HttpRequest, unknown[]>();
+
 function makeRequest(): HttpRequest {
+  const registered: unknown[] = [];
   const nodeReq = {
     headers: { host: "127.0.0.1" },
     url: "/upload",
@@ -25,11 +29,14 @@ function makeRequest(): HttpRequest {
     httpKernel: null,
     type: "http",
     log: () => undefined,
+    onAfterResponse: (fn: unknown) => registered.push(fn),
     uploadService: {
       createUploadFile: async (_file: unknown, name: string) => ({ name }),
     },
   };
-  return new HttpRequest(nodeReq, context as unknown as HttpContext);
+  const request = new HttpRequest(nodeReq, context as unknown as HttpContext);
+  hooks.set(request, registered);
+  return request;
 }
 
 const parsed = {} as IParsedUploadFile;
@@ -51,5 +58,13 @@ describe("HttpRequest.files — aucune allocation sans upload", () => {
     const other = makeRequest();
     expect(other.files).to.have.length(0);
     expect(other.files).to.not.equal(withUpload.files);
+  });
+
+  it("le ménage des temporaires est posé UNE fois, au premier fichier — jamais sans upload", async () => {
+    const withUpload = makeRequest();
+    await withUpload.createFileUpload("doc", parsed);
+    await withUpload.createFileUpload("photo", parsed);
+    expect(hooks.get(withUpload)).to.have.length(1);
+    expect(hooks.get(makeRequest())).to.have.length(0);
   });
 });
