@@ -7,6 +7,7 @@ import {
   rmSync,
   existsSync,
   readdirSync,
+  statSync,
   symlinkSync,
 } from "node:fs";
 import os from "node:os";
@@ -55,6 +56,7 @@ import {
   malformedProbe,
   FRONTEND_PARAMS,
   wireGrantableScope,
+  renderDemoModule,
 } from "../cli/scaffold/engine";
 import { ScaffoldWriter, diffLines } from "../cli/scaffold/writer";
 import { readBrandFavicon, readBrandLogo } from "../cli/scaffold/brandAssets";
@@ -2997,6 +2999,59 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         result.files,
         path.join("modules", "demo", "nodefony", "config", "security.ts"),
       );
+    });
+
+    it("renderDemoModule rend le MÊME module que create app --demo, sans câbler l'application qui l'accueille", () => {
+      // L'application témoin : celle que `create app --demo` câble.
+      const app = path.join(tmp, "demo-source");
+      scaffold(app, { name: "demo-source", preset: "complete", demo: true });
+      const appModule = path.join(app, "modules", "demo");
+      // Un dépôt hôte quelconque : manifeste et package.json NE doivent pas bouger.
+      const host = path.join(tmp, "demo-hote");
+      mkdirSync(host, { recursive: true });
+      const hostManifest = "export default {};\n";
+      const hostPkg = '{ "name": "hote" }\n';
+      writeFileSync(path.join(host, "nodefony.config.ts"), hostManifest);
+      writeFileSync(path.join(host, "package.json"), hostPkg);
+      const dest = path.join(host, "src", "demo");
+      const result = renderDemoModule(
+        {
+          appRoot: host,
+          dest,
+          appName: "demo-source",
+          pkgName: "@demo-source/demo",
+        },
+        version,
+      );
+      assert.equal(result.dest, dest);
+      // Mêmes fichiers, même contenu — seul le README nomme son dossier.
+      const appFiles = readdirSync(appModule, { recursive: true })
+        .map(String)
+        .filter((rel) => statSync(path.join(appModule, rel)).isFile())
+        .sort();
+      assert.deepEqual(result.files, appFiles);
+      for (const rel of appFiles) {
+        if (rel === "README.md") continue;
+        assert.equal(
+          readFileSync(path.join(dest, rel), "utf8"),
+          readFileSync(path.join(appModule, rel), "utf8"),
+          rel,
+        );
+      }
+      assert.include(
+        readFileSync(path.join(dest, "README.md"), "utf8"),
+        "`src/demo/`",
+      );
+      // Rien n'est câblé chez l'hôte.
+      assert.equal(
+        readFileSync(path.join(host, "nodefony.config.ts"), "utf8"),
+        hostManifest,
+      );
+      assert.equal(
+        readFileSync(path.join(host, "package.json"), "utf8"),
+        hostPkg,
+      );
+      assert.isFalse(existsSync(path.join(host, "AGENTS.md")));
     });
 
     it("sans --demo, le .env ne porte pas de secret machine", () => {

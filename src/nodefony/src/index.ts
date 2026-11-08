@@ -1081,6 +1081,9 @@ export {
   // Les choix RÉELS d'une question (`optionsFrom`) — une règle pour le terminal
   // et pour Studio, qui reçoit sa spec déjà hydratée.
   hydrateQuestion,
+  // Le module de la démo rendu dans un dossier, sans câbler d'application :
+  // `create app --demo` et l'application de développement du dépôt.
+  renderDemoModule,
 } from "./cli/scaffold/engine";
 export type {
   IScaffoldContext,
@@ -1118,6 +1121,7 @@ export type { IScaffoldRoot } from "./cli/scaffold/destination";
 export type {
   IScaffoldRequest,
   IScaffoldResult,
+  IRenderDemoModuleOptions,
   IScaffoldRunOptions,
   IScaffoldCaps,
   IScaffoldTarget,

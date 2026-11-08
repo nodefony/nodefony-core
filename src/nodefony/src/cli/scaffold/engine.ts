@@ -2387,7 +2387,7 @@ function dispatchScaffold(
         type: "module",
         answers: {
           name: DEMO_MODULE,
-          description: `Démo de ${String(answers.name)} — ce que Nodefony sait faire, dans du code qui tourne`,
+          description: demoDescription(String(answers.name)),
           controller: "none",
           service: false,
           command: false,
@@ -2399,40 +2399,16 @@ function dispatchScaffold(
       version,
       { writer },
     );
-    // Le CONTENU de la démo, rendu par-dessus le module : il remplace son
-    // `index.ts`, sa config et son test (la transaction garde la dernière
-    // écriture), et ajoute controller, services, commande et la zone qu'il
-    // apporte à security. Les briques qu'il importe (`@nodefony/security`,
-    // `@nodefony/user`) entrent en peers, par la règle de `doctor`.
-    const demoManifestFile = path.join(sub.dest, "package.json");
-    const demoFiles: string[] = [];
-    renderLayer(
+    // Le CONTENU de la démo, par la couche que partage le dépôt du framework
+    // ({@link renderDemoModule}) : une seule source pour les deux.
+    const demoFiles = renderDemoLayer(
       eta,
-      path.join(packageRoot, "templates", "demo", "server"),
+      packageRoot,
       sub.dest,
-      {
-        ...data,
-        pkgName:
-          manifestString(
-            readPackageManifest(demoManifestFile, writer),
-            "name",
-          ) ?? DEMO_MODULE,
-      },
-      demoFiles,
+      String(answers.name),
+      version,
       writer,
-      { __KEBAB__: DEMO_MODULE },
     );
-    if (
-      declareImportedPeers(
-        sub.dest,
-        readPackageManifest(demoManifestFile, writer),
-        demoFiles,
-        writer,
-        frameworkPeerRange(version),
-      )
-    ) {
-      demoFiles.push("package.json");
-    }
     // Les chemins du module sont relatifs à SON dossier ; ceux de l'app, à la
     // racine. Sans préfixe, `package.json` du module se confondrait avec celui
     // de l'application dans la liste rendue.
@@ -3204,6 +3180,263 @@ export function refreshAgentsGuide(
   return { status: "updated", file };
 }
 
+/** Ce qui décide du rendu d'un module — ce que les gabarits `module/` lisent. */
+interface IModuleTemplateInput {
+  /** Nom kebab du module (dossier, préfixe des routes). */
+  name: string;
+  /** Nom du paquet (`@<app>/<nom>`). */
+  pkgName: string;
+  appName: string;
+  /** Description ; vide → « Module <nom> de <app> ». */
+  description: string;
+  nodefonyVersion: string;
+  service: boolean;
+  command: boolean;
+  controller: TModuleControllerChoice;
+  frontend: TFrontendChoice;
+  /** Porte cliente du moteur front de l'application, ou `null`. */
+  appClient: IFrontendClientPort | null;
+  /**
+   * Paquet PUBLIABLE (surface npm : `exports`, `types`, `files`, `.d.ts`
+   * générés) ou module local privé.
+   */
+  publishable: boolean;
+  /** Dossier qui accueille le module, relatif à la racine (en `/`, il VOYAGE). */
+  moduleDir: string;
+  /** Version de départ du module. */
+  version: string;
+}
+
+/**
+ * Données de rendu des gabarits `module/`, dérivées des choix du module.
+ *
+ * Une seule dérivation pour `create module` et pour la démo
+ * ({@link renderDemoModule}) : deux copies du même objet divergeraient au
+ * premier champ ajouté, et un gabarit lirait `undefined` sans un mot.
+ */
+function buildModuleTemplateData(input: IModuleTemplateInput) {
+  const pascal = toPascalCase(input.name);
+  return {
+    name: input.name,
+    pkgName: input.pkgName,
+    appName: input.appName,
+    pascal,
+    camel: pascal.charAt(0).toLowerCase() + pascal.slice(1),
+    upper: input.name.replaceAll("-", "_").toUpperCase(),
+    description:
+      input.description || `Module ${input.name} de ${input.appName}`,
+    nodefonyVersion: input.nodefonyVersion,
+    peerRange: frameworkPeerRange(input.nodefonyVersion),
+    pkg: SCAFFOLD_VERSIONS,
+    service: input.service,
+    command: input.command,
+    controller: input.controller,
+    needsRealtime:
+      input.controller === "realtime" || input.controller === "duplex",
+    frontend: input.frontend,
+    front: input.frontend !== "none" ? FRONTEND_PARAMS[input.frontend] : null,
+    appClient: input.appClient,
+    publishable: input.publishable,
+    moduleDir: input.moduleDir,
+    version: input.version,
+  };
+}
+
+/**
+ * Rend les fichiers PROPRES d'un module dans `dest` — squelette, service,
+ * `AGENTS.md`, surface publiable — sans toucher à l'application qui l'accueille
+ * (workspace, manifeste, inventaire des agents : c'est l'affaire de
+ * `create module`).
+ */
+function renderModuleSkeleton(
+  eta: Eta,
+  packageRoot: string,
+  dest: string,
+  data: ReturnType<typeof buildModuleTemplateData>,
+  written: string[],
+  writer: ScaffoldWriter,
+): void {
+  const templates = path.join(packageRoot, "templates", "module");
+  const tokens = { __PASCAL__: data.pascal, __KEBAB__: data.name };
+  renderLayer(
+    eta,
+    path.join(templates, "base"),
+    dest,
+    data,
+    written,
+    writer,
+    tokens,
+  );
+  if (data.service) {
+    renderLayer(
+      eta,
+      path.join(templates, "service"),
+      dest,
+      data,
+      written,
+      writer,
+      tokens,
+    );
+  }
+  // AGENTS.md du module — TOUJOURS rendu : la précédence « le plus proche
+  // gagne » du standard fait qu'un agent travaillant dans le module lit son
+  // contexte, pas l'index global de l'app.
+  renderLayer(
+    eta,
+    path.join(templates, "ai"),
+    dest,
+    data,
+    written,
+    writer,
+    tokens,
+  );
+  // Layout `packages` : la surface que le layout d'app n'a pas (déclarations
+  // `.d.ts` émises, tsconfig des tests) et les deux fiches que la convention du
+  // dépôt attend.
+  if (data.publishable) {
+    renderLayer(
+      eta,
+      path.join(templates, "packages"),
+      dest,
+      data,
+      written,
+      writer,
+      tokens,
+    );
+  }
+}
+
+/**
+ * Rend le CONTENU de la démo (#747) par-dessus un module déjà posé dans
+ * `dest` : il remplace son `index.ts`, sa config et son test (la transaction
+ * garde la dernière écriture), et ajoute contrôleur, services, commande et la
+ * zone qu'il apporte à security. Les briques qu'il importe entrent en peers,
+ * par la règle de `doctor`.
+ *
+ * @returns les fichiers écrits, relatifs à `dest`.
+ */
+function renderDemoLayer(
+  eta: Eta,
+  packageRoot: string,
+  dest: string,
+  appName: string,
+  version: string,
+  writer: ScaffoldWriter,
+): string[] {
+  const manifestFile = path.join(dest, "package.json");
+  const files: string[] = [];
+  renderLayer(
+    eta,
+    path.join(packageRoot, "templates", "demo", "server"),
+    dest,
+    {
+      appName,
+      pkgName:
+        manifestString(readPackageManifest(manifestFile, writer), "name") ??
+        DEMO_MODULE,
+    },
+    files,
+    writer,
+    { __KEBAB__: DEMO_MODULE },
+  );
+  if (
+    declareImportedPeers(
+      dest,
+      readPackageManifest(manifestFile, writer),
+      files,
+      writer,
+      frameworkPeerRange(version),
+    )
+  ) {
+    files.push("package.json");
+  }
+  return files;
+}
+
+/** Ce que {@link renderDemoModule} rend, et où. */
+export interface IRenderDemoModuleOptions {
+  /** Racine de l'application qui charge le module. */
+  appRoot: string;
+  /** Dossier du module (créé s'il manque) ; ses fichiers sont remplacés. */
+  dest: string;
+  /** Nom de l'application qui l'accueille (journaux, description). */
+  appName: string;
+  /** Nom du paquet du module. */
+  pkgName: string;
+  /** Simulation : rend le plan sans écrire. */
+  dryRun?: boolean;
+}
+
+/**
+ * Rend le module de la démo (#747) — squelette privé de `create module` puis
+ * contenu de la démo — dans un dossier, SANS câbler d'application : ni
+ * workspace, ni manifeste, ni `AGENTS.md`.
+ *
+ * C'est la fonction que partagent `create app --demo` (qui câble ensuite son
+ * application par `create module`) et le dépôt du framework, dont
+ * l'application de développement charge le module par son CHEMIN
+ * (`modules: [{ name: "./src/demo" }]`). Une seule source : les gabarits
+ * `templates/demo/`, jamais une copie à synchroniser.
+ *
+ * @returns le dossier rendu et ses fichiers, relatifs à lui.
+ */
+export function renderDemoModule(
+  options: IRenderDemoModuleOptions,
+  version: string,
+): IScaffoldResult {
+  const packageRoot = findPackageRoot();
+  const writer = new ScaffoldWriter();
+  const dest = path.resolve(options.dest);
+  const eta = new Eta(ETA_OPTIONS);
+  const data = buildModuleTemplateData({
+    name: DEMO_MODULE,
+    pkgName: options.pkgName,
+    appName: options.appName,
+    description: demoDescription(options.appName),
+    nodefonyVersion: version,
+    service: false,
+    command: false,
+    controller: "none",
+    frontend: "none",
+    appClient: null,
+    publishable: false,
+    moduleDir: path
+      .relative(path.resolve(options.appRoot), path.dirname(dest))
+      .split(path.sep)
+      .join("/"),
+    version: "0.1.0",
+  });
+  const files: string[] = [];
+  renderModuleSkeleton(eta, packageRoot, dest, data, files, writer);
+  for (const file of renderDemoLayer(
+    eta,
+    packageRoot,
+    dest,
+    options.appName,
+    version,
+    writer,
+  )) {
+    if (!files.includes(file)) files.push(file);
+  }
+  // Même mise en forme que tout scaffold : le prettier du projet, dans la
+  // transaction (cf `runScaffold`).
+  const forme = formatScaffoldOutput(writer, dest);
+  const result: IScaffoldResult = {
+    dest,
+    files: files.sort(),
+    linked: [],
+    ...(forme.pending > 0 ? { unformatted: forme.pending } : {}),
+  };
+  if (options.dryRun) return { ...result, changes: writer.changes() };
+  writer.commit();
+  return result;
+}
+
+/** Description du module de la démo — la même pour `create app` et le dépôt. */
+function demoDescription(appName: string): string {
+  return `Démo de ${appName} — ce que Nodefony sait faire, dans du code qui tourne`;
+}
+
 function runModuleScaffold(
   request: IScaffoldRequest,
   answers: TScaffoldAnswers,
@@ -3263,24 +3496,16 @@ function runModuleScaffold(
         `"@nodefony/frontend" au manifeste, ou --frontend none`,
     );
   }
-  const pascal = toPascalCase(name);
-  const data = {
+  const data = buildModuleTemplateData({
     name,
     pkgName,
     appName,
-    pascal,
-    camel: pascal.charAt(0).toLowerCase() + pascal.slice(1),
-    upper: name.replaceAll("-", "_").toUpperCase(),
-    description: String(answers.description) || `Module ${name} de ${appName}`,
+    description: String(answers.description),
     nodefonyVersion: version,
-    peerRange: frameworkPeerRange(version),
-    pkg: SCAFFOLD_VERSIONS,
     service: answers.service === true,
     command: answers.command === true,
     controller,
-    needsRealtime: controller === "realtime" || controller === "duplex",
     frontend,
-    front: frontend !== "none" ? FRONTEND_PARAMS[frontend] : null,
     // La porte cliente du moteur de l'APPLICATION, constatée dans ses
     // dépendances : le module peut n'avoir aucun front et servir malgré tout
     // du code navigateur. Son guide doit alors nommer la liaison que l'app
@@ -3289,21 +3514,14 @@ function runModuleScaffold(
       const engine = detectFrontendEngine(appDeps);
       return engine === null ? null : FRONTEND_PARAMS[engine].client;
     })(),
-    /**
-     * Le module naît-il paquet PUBLIABLE (surface npm : `exports`, `types`,
-     * `files`, peerDependencies, `.d.ts` générés) ou module local privé ?
-     * Décidé par le layout du dépôt, pas par une option — c'est une propriété du
-     * dossier où il atterrit.
-     */
+    // Décidé par le layout du dépôt, pas par une option — c'est une propriété
+    // du dossier où le module atterrit.
     publishable: layout.kind === "packages",
-    /** Dossier où le module atterrit, relatif à la racine (en `/`, il VOYAGE). */
     moduleDir: layout.createDir,
-    /**
-     * Version de départ. Un paquet d'un monorepo suit la version de ses
-     * FRÈRES (verrouillage : les paquets publiés avancent ensemble ; la racine
-     * n'est qu'un repli, cf `siblingPackageVersion`) ; un module local
-     * d'application démarre à `0.1.0`, il a sa propre vie.
-     */
+    // Un paquet d'un monorepo suit la version de ses FRÈRES (verrouillage :
+    // les paquets publiés avancent ensemble ; la racine n'est qu'un repli, cf
+    // `siblingPackageVersion`) ; un module local d'application démarre à
+    // `0.1.0`, il a sa propre vie.
     version:
       layout.kind === "packages"
         ? siblingPackageVersion(
@@ -3313,58 +3531,13 @@ function runModuleScaffold(
             writer,
           )
         : "0.1.0",
-  };
+  });
   const eta = new Eta(ETA_OPTIONS);
-  const templates = path.join(packageRoot, "templates", "module");
-  const tokens = { __PASCAL__: pascal, __KEBAB__: name };
   const written: string[] = [];
-  renderLayer(
-    eta,
-    path.join(templates, "base"),
-    dest,
-    data,
-    written,
-    writer,
-    tokens,
-  );
-  if (data.service) {
-    renderLayer(
-      eta,
-      path.join(templates, "service"),
-      dest,
-      data,
-      written,
-      writer,
-      tokens,
-    );
-  }
-  // AGENTS.md du module — TOUJOURS rendu : la précédence « le plus proche
-  // gagne » du standard fait qu'un agent travaillant dans `modules/<nom>/` lit
-  // le contexte du module, pas l'index global de l'app. (L'ancien couple
-  // CLAUDE.md/MEMORY.md conditionné à un CLAUDE.md racine — que `create app`
-  // ne créait jamais — était du contenu mort.)
-  renderLayer(
-    eta,
-    path.join(templates, "ai"),
-    dest,
-    data,
-    written,
-    writer,
-    tokens,
-  );
-  // Layout `packages` : le module est un paquet publiable, il lui faut la
-  // surface que le layout d'app n'a pas (déclarations `.d.ts` émises, tsconfig
-  // des tests) et les deux fiches que la convention du dépôt attend.
+  renderModuleSkeleton(eta, packageRoot, dest, data, written, writer);
+  // Layout `packages` : le module est un paquet publiable — il hérite aussi des
+  // métadonnées du dépôt qui l'accueille.
   if (data.publishable) {
-    renderLayer(
-      eta,
-      path.join(templates, "packages"),
-      dest,
-      data,
-      written,
-      writer,
-      tokens,
-    );
     inheritRepositoryMetadata(
       projectRoot,
       dest,
@@ -3473,7 +3646,7 @@ function runModuleScaffold(
     pkgName,
     writer,
     layout.createDir,
-    `I${pascal}ConfigInput`,
+    `I${data.pascal}ConfigInput`,
   );
   notes.push(
     manifestNote ??
