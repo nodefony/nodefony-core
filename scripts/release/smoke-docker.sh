@@ -285,6 +285,15 @@ if (pm === "pnpm") {
   if (!/^overrides:$/mu.test(yaml)) { yaml += "\noverrides:\n"; }
   const lines = Object.entries(pins).map(([k, v]) => "  \"" + k + "\": \"" + v + "\"").join("\n");
   yaml = yaml.replace(/^overrides:\n/mu, "overrides:\n" + lines + "\n");
+  // Les overrides ne touchent PAS les pairs d’un paquet du workspace : le
+  // module local (`create module`, peerDependencies `nodefony@^10…`) les
+  // recevait du REGISTRE, à côté de la copie du tarball — le noyau refusait
+  // alors de démarrer (deux copies de `nodefony`, code 78). Chez un
+  // utilisateur, tout vient du registre et les pairs se résolvent sur la
+  // racine (`resolvePeersFromWorkspaceRoot`) ; un `file:` à la racine
+  // empêche ce rapprochement. Sans installation automatique des pairs, le
+  // module remonte jusqu’à la copie de la racine, comme sous npm.
+  if (!/^autoInstallPeers:/mu.test(yaml)) { yaml += "\nautoInstallPeers: false\n"; }
   fs.writeFileSync(y, yaml);
 } else if (pm === "yarn") {
   pkg.resolutions = { ...(pkg.resolutions ?? {}), ...pins };
