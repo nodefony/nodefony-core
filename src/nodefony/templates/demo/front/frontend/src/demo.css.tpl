@@ -1657,6 +1657,99 @@ a.ritem:hover .ritem-go {
   color: color-mix(in srgb, var(--blue) 50%, var(--fg));
 }
 .further code,
-.lesson-traps code {
+.lesson-traps code,
+.step-summary code {
   overflow-wrap: anywhere;
+}
+
+/* Section 3 de la leçon : un onglet par étape du cookbook, le code cité. */
+.lesson-code > p {
+  margin: 0 0 14px;
+  color: var(--muted);
+}
+.steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.step-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.step-tab:hover {
+  color: var(--fg);
+}
+.step-tab[aria-selected="true"] {
+  color: var(--fg);
+  background: var(--card);
+  border-color: color-mix(in srgb, var(--blue) 55%, var(--border));
+}
+.step-tab.soon {
+  border-style: dashed;
+}
+.step-num {
+  display: inline-grid;
+  place-items: center;
+  width: 1.4em;
+  height: 1.4em;
+  border-radius: 50%;
+  font-size: 0.8em;
+  background: color-mix(in srgb, var(--blue) 18%, transparent);
+}
+.step-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.step-summary,
+.step-soon {
+  margin: 0;
+}
+.step-soon {
+  color: var(--muted);
+  font-style: italic;
+}
+.excerpt {
+  margin: 0;
+  min-width: 0;
+}
+.excerpt figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.excerpt pre {
+  margin: 0;
+  /* Passe à la ligne plutôt que défiler : un `pre` n'est pas interactif. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 14px 16px;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  background: var(--code-bg);
+  color: var(--code-fg);
+  border-radius: 10px;
+}
+.step-doc {
+  align-self: flex-start;
+  color: color-mix(in srgb, var(--blue) 50%, var(--fg));
 }

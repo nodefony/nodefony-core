@@ -26,6 +26,7 @@ class ChatService extends Service {
     super("chat", module?.container ?? undefined, module?.notificationsCenter);
   }
 
+  // #region chat-store
   /** Garde un message ; le plus ancien sort au-delà de la borne. */
   add(message: ChatMessage): void {
     this.#messages.push(message);
@@ -45,6 +46,7 @@ class ChatService extends Service {
         : this.#messages.filter((message) => message.sentAt > since);
     return kept.slice(-limit);
   }
+  // #endregion
 }
 
 export default ChatService;

@@ -73,6 +73,8 @@ export function useChat(): IChatRoom {
     });
     socketRef.current = socket;
     let typingTimer: ReturnType<typeof setTimeout> | null = null;
+    // #region chat-history-client
+    // Relu à chaque connexion : les messages manqués pendant une coupure reviennent.
     const loadHistory = () => {
       socket
         .get("/demo/chat/history", { query: { limit: HISTORY_SIZE } })
@@ -81,10 +83,14 @@ export function useChat(): IChatRoom {
           // Coupure entre-temps : la reconnexion relira l'historique.
         });
     };
+    // #endregion
     const offs = [
+      // #region chat-room-client
+      // Chaque message publié sur le salon arrive ici, typé par le contrat.
       socket.on(ROOM_CHANNEL, (message) =>
         setMessages((known) => merge(known, [message])),
       ),
+      // #endregion
       socket.on(TYPING_CHANNEL, ({ author }) => {
         if (author === socket.identity?.userIdentifier) return;
         setTyping(author);
@@ -112,18 +118,24 @@ export function useChat(): IChatRoom {
     };
   }, []);
 
+  // #region chat-send-client
+  // Le texte seul : l'auteur, c'est le serveur qui le pose d'après la session.
   const send = useCallback(async (text: string) => {
     const socket = socketRef.current;
     if (socket === null) throw new Error("socket fermée");
     await socket.post("/demo/chat/send", { text });
   }, []);
+  // #endregion
 
+  // #region chat-typing-client
+  // Un signal SANS champ, au plus toutes les deux secondes.
   const notifyTyping = useCallback(() => {
     const now = Date.now();
     if (now - lastTyping.current < TYPING_THROTTLE_MS) return;
     lastTyping.current = now;
     socketRef.current?.emit(TYPING_CHANNEL, {});
   }, []);
+  // #endregion
 
   return { messages, typing, identity, state, send, notifyTyping };
 }

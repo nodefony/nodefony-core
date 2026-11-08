@@ -29,6 +29,7 @@ export const DEMO_AREA = "demo";
  */
 export const demoSecurity = {
   areas: {
+    // #region chat-area
     // Les pages, l'API de la page et les sockets de la démo : PUBLIQUES, mais
     // l'identité y est résolue — sans zone, `this.user` vaut `null` sans un
     // mot, et le chat ne saurait pas qui écrit. Session d'abord (le visiteur
@@ -40,6 +41,7 @@ export const demoSecurity = {
       pattern: "^/demo(/|$)",
       authenticators: ["session", "anonymous"],
     },
+    // #endregion
     // Programme qui présente un JETON d'accès : signé par cette application,
     // OU par Keycloak (flux `client_credentials`). Essai de bout en bout :
     // `npx nodefony demo:partner:call`.

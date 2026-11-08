@@ -28,6 +28,7 @@ export interface ChatMessage {
   sentAt: number;
 }
 
+// #region chat-contract
 export interface ChatContract extends IRealtimeContract {
   serverToClient: {
     "chat:room": ChatMessage;
@@ -47,3 +48,4 @@ export interface ChatContract extends IRealtimeContract {
     };
   };
 }
+// #endregion

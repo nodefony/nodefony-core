@@ -154,7 +154,7 @@ function footAction(demo: IDemoEntry): string {
 }
 
 /** Rend les segments entre accents graves en `<code>`, le reste en texte. */
-function Inline({ text }: { text: string }) {
+export function Inline({ text }: { text: string }) {
   // Clé = position du segment dans le texte : stable, et propre au contenu.
   let offset = 0;
   const segments = text.split("`").map((part, rank) => {

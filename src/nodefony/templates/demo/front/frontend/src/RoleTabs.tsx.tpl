@@ -3,6 +3,7 @@ import { flushSync } from "react-dom";
 import { DEMOS } from "../../demos";
 import { docUrl, repoFileUrl } from "./about";
 import { demoAnchor } from "./Catalogue";
+import { tabTargetIndex } from "./effects";
 import { ROLES, ROLES_DOC_PAGE, type Role, type RoleId } from "./roles";
 
 /** Icône de chaque métier (trait, 24 × 24). */
@@ -58,22 +59,6 @@ function RoleIcon({ id }: { id: RoleId }) {
   );
 }
 
-/** Touche → index visé, relatif à l'onglet courant (WAI-ARIA « tabs »). */
-function targetIndex(key: string, index: number, count: number): number | null {
-  switch (key) {
-    case "ArrowRight":
-      return (index + 1) % count;
-    case "ArrowLeft":
-      return (index - 1 + count) % count;
-    case "Home":
-      return 0;
-    case "End":
-      return count - 1;
-    default:
-      return null;
-  }
-}
-
 /**
  * « Selon qui tu es » — un onglet par métier, UN panneau paysage.
  *
@@ -105,7 +90,7 @@ export function RoleTabs({ version }: { version: string | null }) {
     event: KeyboardEvent<HTMLButtonElement>,
     index: number,
   ) => {
-    const next = targetIndex(event.key, index, ROLES.length);
+    const next = tabTargetIndex(event.key, index, ROLES.length);
     const role = next === null ? undefined : ROLES[next];
     if (next === null || role === undefined) return;
     event.preventDefault();

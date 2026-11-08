@@ -38,9 +38,15 @@ import type DemoPulseService from "../service/DemoPulseService";
  * Doc : `@nodefony/realtime/docs/cookbook-chat.md` ; générer l'équivalent :
  * `npx nodefony create controller chat --kind realtime` ; skill livré :
  * `nodefony-add-realtime-channel`.
+ *
+ * Les blocs `// #region <nom>` sont CITÉS par la page d'apprentissage
+ * (`frontend/src/chat/lessonSteps.ts`) : les renommer casse son test.
  */
+// #region chat-broadcast
+// Plusieurs pods : chaque publication sur un canal `chat:` traverse le bus.
 @RealtimeBroadcast("chat:")
 @controller("/demo/chat")
+// #endregion
 class ChatController extends ContractRealtimeController<ChatContract> {
   /**
    * Les VALEURS des routes du contrat — le schéma même que chaque route valide.
@@ -114,13 +120,15 @@ class ChatController extends ContractRealtimeController<ChatContract> {
   }
   // #endregion
 
-  // #region chat-channels
+  // #region chat-room
   /** Le salon : lecture libre. Il relaie, il n'émet rien de lui-même. */
   @RealtimeChannel(ROOM_CHANNEL)
   room(): () => void {
     return () => {};
   }
+  // #endregion
 
+  // #region chat-typing
   /** La frappe en cours : lecture libre, volatile. */
   @RealtimeChannel(TYPING_CHANNEL)
   typing(): () => void {

@@ -13,6 +13,11 @@ import type { IDemoPulse } from "../frontend/src/pulse";
 import ChatService, {
   CHAT_HISTORY_LIMIT,
 } from "../nodefony/service/ChatService";
+import {
+  CHAT_LESSON_STEPS,
+  extractRegion,
+} from "../frontend/src/chat/lessonSteps";
+import { LESSON_SOURCES } from "../frontend/src/chat/lessonSources";
 
 /**
  * Ce que ce test prouve, sans serveur :
@@ -22,7 +27,9 @@ import ChatService, {
  *  3. la zone qu'il apporte à `@nodefony/security` est VALIDE pour lui, et sa
  *     ressource suit l'adresse publique de l'application ;
  *  4. le pouls de l'accueil publie au plus une fois par seconde, et se tait
- *     quand personne n'écoute.
+ *     quand personne n'écoute ;
+ *  5. chaque extrait de code que cite la page du chat existe dans le fichier
+ *     qu'elle nomme, et n'est pas vide.
  */
 describe("demo", () => {
   it("s'importe sans kernel", () => {
@@ -70,6 +77,30 @@ describe("demo — l'historique du chat", () => {
       chat.add({ author: "a", text: String(i), sentAt: i });
     expect(chat.recent(50, 3).map((m) => m.text)).toEqual(["4", "5"]);
     expect(chat.recent(2).map((m) => m.text)).toEqual(["4", "5"]);
+  });
+});
+
+describe("demo — le code cité par la page du chat", () => {
+  const cited = CHAT_LESSON_STEPS.flatMap((step) =>
+    step.excerpts.map((excerpt) => ({ step: step.step, ...excerpt })),
+  );
+
+  it.each(cited)(
+    "étape $step : la région $region existe dans $file, et n'est pas vide",
+    ({ file, region }) => {
+      // Le texte que la PAGE affiche (lu par Vite), pas une relecture à part.
+      const code = extractRegion(LESSON_SOURCES[file], region);
+      expect(code, `// #region ${region} absente de ${file}`).not.toBeNull();
+      expect(code?.trim()).not.toBe("");
+    },
+  );
+
+  it("désindente la région, et rend null si elle manque ou reste ouverte", () => {
+    const source =
+      "a\n  // #region x\n    un()\n      deux()\n  // #endregion\n";
+    expect(extractRegion(source, "x")).toBe("un()\n  deux()");
+    expect(extractRegion(source, "y")).toBeNull();
+    expect(extractRegion("// #region x\nun()\n", "x")).toBeNull();
   });
 });
 

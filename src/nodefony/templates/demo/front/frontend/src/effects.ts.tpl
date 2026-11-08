@@ -40,6 +40,34 @@ export function usePointerLight(selector: string): void {
 }
 
 /**
+ * Touche → index de l'onglet visé, relatif à l'onglet courant (patron WAI-ARIA
+ * « tabs » : flèches, Début, Fin). Partagé par tous les onglets de la démo.
+ *
+ * @param key - `event.key` de la touche pressée
+ * @param index - index de l'onglet qui a le focus
+ * @param count - nombre d'onglets
+ * @returns l'index visé, ou `null` si la touche ne déplace pas
+ */
+export function tabTargetIndex(
+  key: string,
+  index: number,
+  count: number,
+): number | null {
+  switch (key) {
+    case "ArrowRight":
+      return (index + 1) % count;
+    case "ArrowLeft":
+      return (index - 1 + count) % count;
+    case "Home":
+      return 0;
+    case "End":
+      return count - 1;
+    default:
+      return null;
+  }
+}
+
+/**
  * Section en cours de lecture, pour la marquer dans la navigation : UN
  * observateur, déclenché quand une section traverse le milieu de l'écran.
  *

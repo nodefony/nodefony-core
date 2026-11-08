@@ -2,6 +2,7 @@ import { useId, useState, type ComponentProps } from "react";
 import { loginPagePath } from "nodefony/client";
 import { docUrl, type IDemoAbout } from "../about";
 import { LEVELS } from "../Catalogue";
+import { LessonCode } from "./LessonCode";
 import { useChat, type IChatRoom } from "./useChat";
 
 /** Heure d'un message, à la minute. */
@@ -68,6 +69,10 @@ export function ChatLesson({ about }: { about: IDemoAbout | null }) {
         </h2>
         <ChatRoom room={room} loginPath={about?.loginPath ?? null} />
       </section>
+
+      <LessonCode
+        cookbookUrl={docUrl(version, "modules/realtime/cookbook-chat")}
+      />
 
       <section className="lesson-traps" aria-labelledby="lesson-traps-title">
         <div>
