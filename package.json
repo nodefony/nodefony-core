@@ -110,7 +110,7 @@
     "lighthouse": "13.6.0",
     "lint-staged": "17.6.0",
     "markdown-it": "15.0.3",
-    "oxlint": "1.91.0",
+    "oxlint": "1.92.0",
     "oxlint-tsgolint": "7.0.2006",
     "picomatch": "4.0.7",
     "playwright": "1.65.0",
@@ -225,27 +225,21 @@
   "dependencies": {
     "@analogjs/vite-plugin-angular": "2.9.6",
     "@angular/build": "22.2.6",
-    "@angular/common": "22.2.4",
-    "@angular/compiler-cli": "22.2.4",
-    "@angular/core": "22.2.4",
-    "@angular/platform-browser": "22.2.4",
+    "@angular/common": "22.2.5",
+    "@angular/compiler-cli": "22.2.5",
+    "@angular/core": "22.2.5",
+    "@angular/platform-browser": "22.2.5",
     "@vitejs/plugin-react": "6.2.1",
     "@vitejs/plugin-vue": "6.0.10",
     "vite": "8.3.6"
   },
   "overrides": {
-    "brace-expansion": "^5.0.12",
     "@esbuild-kit/core-utils": {
       "esbuild": ">=0.25.0"
     },
     "@angular/build": {
       "vite": "$vite",
-      "vitest": "$vitest",
       "semver": "7.8.6"
-    },
-    "lodash-es": "^4.18.1",
-    "@sentry/bundler-plugins": {
-      "glob": "^14.0.2"
     },
     "deepmerge": "$deepmerge"
   }

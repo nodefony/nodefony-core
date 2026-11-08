@@ -75,7 +75,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   "@node-rs/argon2": "^2.2.2",
   "@types/node": "^26.6.6",
   "@typescript/native-preview": "^7.0.0-dev.20260707.2",
-  oxlint: "^1.91.0",
+  oxlint: "^1.92.0",
   // Les règles TYPÉES d'oxlint (`typeAware` du gabarit `.oxlintrc.json`) :
   // sans ce paquet, `npm run lint` sort en erreur « Failed to find tsgolint ».
   "oxlint-tsgolint": "^7.0.2006",
@@ -113,12 +113,12 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // Un caret laisserait une application générée tirer la mineure suivante
   // avant qu'analogjs l'ait suivie. Monter les deux ENSEMBLE, et prouver par
   // `frontend-families.test.ts` sur le serveur de développement.
-  "@angular/core": "~22.2.4",
-  "@angular/common": "~22.2.4",
-  "@angular/platform-browser": "~22.2.4",
+  "@angular/core": "~22.2.5",
+  "@angular/common": "~22.2.5",
+  "@angular/platform-browser": "~22.2.5",
   "@analogjs/vite-plugin-angular": "^2.9.6",
   "@angular/build": "~22.2.6",
-  "@angular/compiler-cli": "~22.2.4",
+  "@angular/compiler-cli": "~22.2.5",
 };
 
 /**

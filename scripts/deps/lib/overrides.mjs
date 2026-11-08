@@ -27,8 +27,6 @@ import semver from "semver";
 export const ACCEPTED_OVERRIDE_BREACHES = {
   "@esbuild-kit/core-utils>esbuild":
     "sécurité — écarte la version d'esbuild signalée par Dependabot",
-  "@sentry/bundler-plugins>glob":
-    "sécurité — npm audit : glob 13 vulnérable, la 14 corrige",
 };
 
 /**
