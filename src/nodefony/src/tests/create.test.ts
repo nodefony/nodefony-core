@@ -2898,9 +2898,12 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // Le module est créé pendant que l'application n'existe encore que dans
       // la TRANSACTION : sans le prédicat `exists` de celle-ci, `create module`
       // ne trouvait pas le projet qu'on est en train d'écrire.
+      // Base SERVEUR : la recette de migration (`deploy/migrate-job.yaml`)
+      // n'est rendue qu'avec elle, et elle fait partie des décors relus.
       const result = scaffold(dest, {
         name: "avec-demo",
         preset: "complete",
+        database: "postgres",
         demo: true,
       });
       const pkg = JSON.parse(
@@ -2911,7 +2914,25 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       ) as { name?: unknown; private?: unknown };
       assert.equal(pkg.name, "@avec-demo/demo");
       assert.isTrue(pkg.private);
-      assert.include(manifesteComplet(dest), 'use("@avec-demo/demo"');
+      // `policy: "dev"` : la démo ne part pas en production (#747) — le
+      // noyau la retire au démarrage, et rien d'autre ne l'en empêche.
+      assert.include(
+        manifesteComplet(dest),
+        'use("@avec-demo/demo", {}, { policy: "dev" })',
+      );
+      // Ce que la production exigeait pour elle part avec : plus aucun décor
+      // de déploiement ne pose l'adresse publique au nom de la démo.
+      for (const file of [
+        "compose.yaml",
+        path.join("deploy", "migrate-job.yaml"),
+        path.join("tests", "e2e.setup.ts"),
+      ]) {
+        assert.notInclude(
+          readFileSync(path.join(dest, file), "utf8"),
+          "NF_JWT_ISSUER",
+          file,
+        );
+      }
       const app = JSON.parse(
         readFileSync(path.join(dest, "package.json"), "utf8"),
       ) as { workspaces?: unknown };

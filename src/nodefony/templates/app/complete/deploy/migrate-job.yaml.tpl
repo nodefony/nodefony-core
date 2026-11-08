@@ -93,11 +93,7 @@ spec:
           env:
             - name: NODE_ENV
               value: production
-<% if (it.demo) { %>            # L'adresse publique de l'application : la tâche démarre les modules,
-            # et la zone à jeton de la démo refuse de démarrer sans elle.
-            - name: NF_JWT_ISSUER
-              value: ${NF_JWT_ISSUER}
-<% } %>            - name: NF_MIGRATE_DATABASE_URL
+            - name: NF_MIGRATE_DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: <%= it.appName %>-db-migrator

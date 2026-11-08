@@ -2319,10 +2319,6 @@ step(
     const env = {
       NF_ADMIN_PASSWORD: MOT_DE_PASSE_POSE,
       NF_JWT_KEYSET: keySet.stdout.trim(),
-      // L'adresse publique : la zone de la démo écrit sa ressource comme un
-      // chemin, et la production refuse de démarrer sans elle (vérifié par
-      // l'étape suivante).
-      NF_JWT_ISSUER: `https://localhost:${PORTS.NF_PORT_HTTPS}`,
     };
     // 🔴 Les migrations AVANT les exemplaires — le patron de déploiement, celui
     // du service `migrate` du `compose.yaml` généré : une étape à part, en
@@ -2392,20 +2388,45 @@ step(
 );
 
 step(
-  "la démo REFUSE la production sans adresse publique, en nommant jwt.issuer (#747)",
-  "Sa zone écrit sa ressource comme un chemin : sans NF_JWT_ISSUER, la retirer ouvrirait " +
-    "ses routes à la zone voisine — le démarrage doit refuser, et dire quoi poser.",
+  "la démo n'est PAS chargée en production, et l'est en développement (#747)",
+  'La démo montre le framework, elle ne sert pas l\'application : `policy: "dev"` au manifeste. ' +
+    "Écrite sans, elle partirait en ligne avec ses routes et sa zone à jeton.",
   () => {
-    const r = spawnSync(process.execPath, [BIN, "inspect", "modules"], {
-      cwd: APP,
-      encoding: "utf8",
-      timeout: 600_000,
-      env: envDecor(PORTS, { NODE_ENV: "production", NF_JWT_ISSUER: "" }),
-    });
-    const dit = withoutAnsi(`${r.stdout ?? ""}${r.stderr ?? ""}`);
-    if (r.status === 0 || !dit.includes("jwt.issuer")) {
+    /** Clés des modules chargés sous ce mode, lues par `inspect modules --json`. */
+    const loadedKeys = (nodeEnv) => {
+      const r = spawnSync(
+        process.execPath,
+        [BIN, "inspect", "modules", "--json"],
+        {
+          cwd: APP,
+          encoding: "utf8",
+          timeout: 600_000,
+          env: envDecor(PORTS, { NODE_ENV: nodeEnv }),
+        },
+      );
+      if (r.status !== 0) {
+        throw new Error(
+          `inspect modules (${nodeEnv}) : code ${r.status} — sortie :\n${withoutAnsi(`${r.stdout}${r.stderr}`)}`,
+        );
+      }
+      const modules = JSON.parse(r.stdout);
+      if (!Array.isArray(modules)) {
+        throw new Error(
+          `inspect modules (${nodeEnv}) : pas un tableau — ${r.stdout}`,
+        );
+      }
+      return modules.map((m) => m.key);
+    };
+    const dev = loadedKeys("development");
+    if (!dev.includes("demo")) {
       throw new Error(
-        `production sans NF_JWT_ISSUER : code ${r.status}, jwt.issuer non nommé — sortie :\n${dit}`,
+        `la démo manque en développement — modules : ${dev.join(", ")}`,
+      );
+    }
+    const prod = loadedKeys("production");
+    if (prod.includes("demo")) {
+      throw new Error(
+        `la démo est chargée en PRODUCTION — modules : ${prod.join(", ")}`,
       );
     }
   },

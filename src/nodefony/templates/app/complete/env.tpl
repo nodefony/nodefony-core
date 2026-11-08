@@ -186,12 +186,7 @@ NF_KEYCLOAK_MACHINE_SECRET=<%= it.keycloak.machineSecret %>
 #    `npx nodefony security:secrets --jwt-keyset` et pose-la dans ton terminal
 #    le temps de l'essai, jamais ici : ce fichier ne porte pas de clé de
 #    production.
-<% if (it.demo) { %>#
-# 3. Dire l'adresse publique de l'application. La zone à jeton de la démo
-#    (`/demo/api/partner`) s'écrit comme un chemin, rendu absolu contre elle ;
-#    sans elle, la production refuse de démarrer en le disant.
-# NF_JWT_ISSUER=https://localhost:5152
-<% } %>#
+#
 # Nombre de processus. Choix : 1 (défaut, un par conteneur — l'hébergeur
 # multiplie les conteneurs) | auto (un par cœur alloué) | un nombre.
 # NF_WORKERS=auto

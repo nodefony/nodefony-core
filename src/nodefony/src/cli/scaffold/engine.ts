@@ -1984,11 +1984,22 @@ export function runScaffold(
   return rendered;
 }
 
+/**
+ * Réglages qu'un scaffold APPELANT passe à un sous-scaffold, et que ni la CLI
+ * ni l'API publique n'exposent : ce sont des décisions du moteur, pas des
+ * réponses de l'utilisateur.
+ */
+interface IInternalScaffoldOptions {
+  /** Politique de l'entrée posée au manifeste par `create module`. */
+  manifestPolicy?: "dev";
+}
+
 /** Résout la spec puis route vers le scaffold du type demandé. */
 function dispatchScaffold(
   request: IScaffoldRequest,
   version: string,
   writer: ScaffoldWriter,
+  internal: IInternalScaffoldOptions = {},
 ): IScaffoldResult {
   const spec = getScaffoldSpec(request.type).at(0);
   if (!spec) {
@@ -2000,7 +2011,14 @@ function dispatchScaffold(
     hasCheckout: workspaces !== null,
   });
   if (request.type === "module") {
-    return runModuleScaffold(request, answers, packageRoot, version, writer);
+    return runModuleScaffold(
+      request,
+      answers,
+      packageRoot,
+      version,
+      writer,
+      internal,
+    );
   }
   if (request.type === "controller") {
     return runControllerScaffold(
@@ -2381,8 +2399,14 @@ function dispatchScaffold(
   // suivent ainsi la même règle qu'un module écrit par l'utilisateur, et la
   // retirer est le geste inverse (un dossier, une ligne du manifeste). Après
   // `renderProjectAgents` : le module régénère le bloc qui l'inventorie.
+  //
+  // `policy: "dev"` : la démo ne part pas en production (décision de l'auteur,
+  // #747) — elle montre le framework, elle ne sert pas l'application. Le noyau
+  // la retire alors au démarrage en production, comme à la racine du dépôt.
+  // Appel DIRECT du répartiteur (même transaction) : la politique est une
+  // décision du moteur, qu'aucune option publique ne porte.
   if (answers.demo === true) {
-    const sub = runScaffold(
+    const sub = dispatchScaffold(
       {
         type: "module",
         answers: {
@@ -2397,7 +2421,8 @@ function dispatchScaffold(
         force: request.force,
       },
       version,
-      { writer },
+      writer,
+      { manifestPolicy: "dev" },
     );
     // Le CONTENU de la démo, par la couche que partage le dépôt du framework
     // ({@link renderDemoModule}) : une seule source pour les deux.
@@ -2533,6 +2558,27 @@ export function declareWorkspaceDependency(
   return true;
 }
 
+/** Réglages de l'entrée que {@link wireModuleManifest} ajoute au manifeste. */
+export interface IWireModuleOptions {
+  /**
+   * Dossier où le module a été créé, relatif à la racine (en `/`) — seulement
+   * pour NOMMER le bon endroit dans le commentaire inséré. Défaut `modules`.
+   */
+  moduleDir?: string;
+  /** Type d'entrée de la config du module, câblé au registre `use()`. */
+  configInputType?: string;
+  /**
+   * Commentaire posé au-dessus de l'entrée ; absent, celui d'un module local
+   * (un module du framework ajouté après coup a le sien).
+   */
+  comment?: string;
+  /**
+   * Politique de chargement : `"dev"` retire le module en production (gating
+   * du noyau). C'est le cas de la démo, qui n'a rien à faire en ligne.
+   */
+  policy?: "dev";
+}
+
 /**
  * Ajoute le module au manifeste `modules` de `nodefony.config.ts` — c'est CE
  * tableau qui décide de ce qui se charge, et dans quel ordre. Un module local
@@ -2542,21 +2588,21 @@ export function declareWorkspaceDependency(
  * que si l'ancre est trouvée sans ambiguïté, sinon on rend une note actionnable —
  * jamais un `nodefony.config.ts` corrompu, qui empêcherait l'app de booter.
  *
- * @param moduleDir - dossier où le module a été créé, relatif à la racine (en
- *   `/`) — seulement pour NOMMER le bon endroit dans le commentaire inséré.
- * @param comment - commentaire posé au-dessus de l'entrée ; absent, celui d'un
- *   module local (un module du framework ajouté après coup a le sien).
+ * @param options - dossier, type de config, commentaire et politique de
+ *   chargement de l'entrée ({@link IWireModuleOptions}).
  * @returns note à afficher si un geste manuel reste nécessaire, sinon `null`.
  */
 export function wireModuleManifest(
   configPath: string,
   pkgName: string,
   writer: ScaffoldWriter,
-  moduleDir = "modules",
-  configInputType?: string,
-  comment?: string,
+  options: IWireModuleOptions = {},
 ): string | null {
-  const manual = `ajoute à la main dans le manifeste modules de nodefony.config.ts :\n  use("${pkgName}", {}),`;
+  const { moduleDir = "modules", configInputType, comment, policy } = options;
+  // La politique voyage dans l'entrée, sous ses DEUX formes : un module de
+  // développement écrit sans elle serait chargé en production sans un mot.
+  const useOptions = policy === undefined ? "" : `, { policy: "${policy}" }`;
+  const manual = `ajoute à la main dans le manifeste modules de nodefony.config.ts :\n  use("${pkgName}", {}${useOptions}),`;
   if (!writer.exists(configPath)) {
     return manual;
   }
@@ -2593,7 +2639,11 @@ export function wireModuleManifest(
   const hasUse = /import\s*\{[^}]*\buse\b[^}]*\}\s*from\s*"nodefony"/u.test(
     source,
   );
-  const entry = hasUse ? `use("${pkgName}", {}),` : `"${pkgName}",`;
+  const entry = hasUse
+    ? `use("${pkgName}", {}${useOptions}),`
+    : policy === undefined
+      ? `"${pkgName}",`
+      : `{ name: "${pkgName}", policy: "${policy}" },`;
   // Le dossier est DIT, jamais supposé : `modules/` pour une app, un dossier de
   // paquets scopés pour un monorepo — un commentaire qui nomme le mauvais
   // endroit envoie chercher le code là où il n'est pas.
@@ -3443,6 +3493,7 @@ function runModuleScaffold(
   packageRoot: string,
   version: string,
   writer: ScaffoldWriter,
+  internal: IInternalScaffoldOptions = {},
 ): IScaffoldResult {
   const projectRoot = findProjectRoot(request.dir, (file) =>
     writer.exists(file),
@@ -3645,8 +3696,16 @@ function runModuleScaffold(
     path.join(projectRoot, "nodefony.config.ts"),
     pkgName,
     writer,
-    layout.createDir,
-    `I${data.pascal}ConfigInput`,
+    {
+      moduleDir: layout.createDir,
+      configInputType: `I${data.pascal}ConfigInput`,
+      ...(internal.manifestPolicy === undefined
+        ? {}
+        : {
+            policy: internal.manifestPolicy,
+            comment: `// Module local du projet (${layout.createDir}/), chargé en développement\n    // seulement (policy "dev") : retiré en production.`,
+          }),
+    },
   );
   notes.push(
     manifestNote ??
@@ -7175,9 +7234,11 @@ function runFrontScaffold(
       configPath,
       "@nodefony/frontend",
       writer,
-      "modules",
-      "IFrontendConfigInput",
-      "// Builder Vite + statics : sert les fronts de l'application (HMR en dev,\n    // build pré-compilé en prod) — posé par `nodefony create front`.",
+      {
+        configInputType: "IFrontendConfigInput",
+        comment:
+          "// Builder Vite + statics : sert les fronts de l'application (HMR en dev,\n    // build pré-compilé en prod) — posé par `nodefony create front`.",
+      },
     );
     if (frontendWireNote === null) {
       written.push(path.relative(target.dir, configPath));
