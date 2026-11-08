@@ -36,6 +36,7 @@ export function fakeSocket(over: Record<string, unknown> = {}): NodefonySocket {
     onState: () => () => {},
     onIdentity: () => () => {},
     onNotice: () => () => {},
+    onFrame: () => () => {},
     onStats: () => () => {},
     onReconnect: () => () => {},
     subscribe: () => {},

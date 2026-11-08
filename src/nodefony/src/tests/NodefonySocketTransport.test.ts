@@ -311,3 +311,28 @@ describe("BrowserWsTransport — relaie le binaire (#451)", () => {
     expect(Array.from(vue)).to.deep.equal([9]);
   });
 });
+
+describe("NodefonySocket — onFrame, le journal des trames pour l'outillage", () => {
+  it("reçoit chaque trame, sortante comme entrante, avec sa taille et sa nature ; dispose → plus rien", async () => {
+    const { client, transports } = setup();
+    const frames: string[] = [];
+    const off = client.onFrame((frame) =>
+      frames.push(
+        `${frame.dir} ${frame.kind} ${frame.binary ? "binaire" : "texte"}`,
+      ),
+    );
+    const p = client.connect();
+    transports[0]!.fireOpen();
+    await p;
+    expect(frames).toContain("in realtime:welcome texte");
+    const request = client.request("demo:echo", {}, 200).catch(() => {});
+    expect(frames.at(-1)).toMatch(/^out \S+ texte$/u);
+    expect(frames.length).toBe(2);
+    off();
+    const before = frames.length;
+    client.request("demo:again", {}, 200).catch(() => {});
+    expect(frames.length).toBe(before);
+    client.disconnect();
+    await request;
+  });
+});

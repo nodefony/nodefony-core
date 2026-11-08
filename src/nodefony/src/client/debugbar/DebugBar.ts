@@ -29,11 +29,13 @@
  */
 import { NodefonySocket } from "../realtime/NodefonySocket";
 import {
+  codecBadges,
   describeCodec,
   describeSocket,
   socketSnapshot,
 } from "../realtime/snapshot";
 import { pageSockets, type InspectableSocket } from "../announce";
+import { RpcError } from "../../realtime/JsonRpcPeer";
 import { frameLinks, frameMeaning } from "./frames";
 import type { NodefonyNotice } from "../realtime/notice";
 import type { RealtimeFrame } from "../realtime/NodefonySocket";
@@ -764,6 +766,12 @@ export const STYLES =
 .chip .k { color: var(--muted); font-size:.82em; text-transform:uppercase; }
 .chip .hmrv { color: var(--orange); }
 .spacer { flex: 1 1 auto; min-width: 8px; }
+.card > .ttl.sk-head { font-size:12px; color:#e6e9ee; margin-bottom:11px; padding-bottom:8px; border-bottom:1px solid var(--line); }
+.fmts { display:inline-flex; gap:6px; }
+.fmt { display:inline-flex; align-items:center; padding:.15em .65em; border-radius:9px; border:1px solid; font-size:10.5px; font-weight:800; letter-spacing:.4px; text-transform:lowercase; }
+.fmt.bin { color:var(--blue2); border-color:rgba(58,160,255,.5); background:rgba(58,160,255,.12); }
+.fmt.txt { color:#c9ced6; border-color:var(--line); background:#22262e; }
+.fmt.codec { color:#c4b5fd; border-color:rgba(167,139,250,.5); background:rgba(167,139,250,.12); }
 .ok{color:var(--ok)} .warn{color:var(--warn)} .crit{color:var(--crit)} .info{color:var(--info)} .muted{color:var(--muted)} .blue{color:var(--blue2)}
 .spark.ok{stroke:var(--ok)} .spark.warn{stroke:var(--warn)} .spark.crit{stroke:var(--crit)} .spark.rt{stroke:var(--blue2)}
 .area.ok{fill:rgba(54,179,126,.12)} .area.warn{fill:rgba(255,171,0,.14)} .area.crit{fill:rgba(255,86,48,.16)} .area.rt{fill:rgba(58,160,255,.16)}
@@ -1402,6 +1410,12 @@ export class DebugBar {
   // ── Détail de la socket (onglet Realtime) — rien n'est lu panneau fermé ──
   /** Aller-retour mis en mots ; mesuré à l'ouverture de l'onglet et au bouton, JAMAIS en boucle (D1). */
   private rtRtt = "—";
+  /**
+   * Le ton de l'aller-retour : une mesure, une ABSENCE de mesure (grisée —
+   * méthode non offerte, réservée, socket fermée), ou une vraie panne (orange).
+   * Lire « échec » sur une simple absence faisait croire à une erreur.
+   */
+  private rtRttTone: "" | "muted" | "warn" = "";
   /** L'aller-retour a été demandé pour cette ouverture de l'onglet. */
   private rttAsked = false;
   /** Socket affichée (son adresse) ; `null` = la première. */
@@ -2536,7 +2550,7 @@ export class DebugBar {
       <div class="ctabs" data-el="connTabs" role="group" aria-label="Socket affichée"></div>
       <div class="sgrid" data-el="wsView">
       <div class="card hero sk-id">
-        <div class="ttl">Socket</div>
+        <div class="ttl sk-head">Socket<span class="spacer"></span><span class="fmts" data-el="rtFormat"></span></div>
         <div class="kv">${helpLabel("aller-retour", "Mesuré par nodefony:kernel:ping à l'ouverture de l'onglet et au bouton, jamais en boucle : chaque mesure écrit deux trames dans le journal qu'on lit pour diagnostiquer.")}<span class="v"><span data-el="rtRtt">—</span> <button type="button" class="toolbtn" data-el="btnRtt" aria-label="Mesurer l'aller-retour">mesurer</button></span></div>
         <div data-el="rtRows"></div>
       </div>
@@ -3889,17 +3903,27 @@ export class DebugBar {
     const c = this.shownSocket();
     if (c === null) return;
     const methods = c.serverMethods;
+    this.rtRttTone = "muted";
     if (c.state !== "connected") this.rtRtt = "socket non connectée";
     else if (methods !== null && !methods.includes(PLATFORM_METHODS.ping))
-      this.rtRtt = "non offert par ce serveur";
+      this.rtRtt =
+        "pas de mesure : ce serveur n'offre pas nodefony:kernel:ping";
     else {
       this.rtRtt = "mesure…";
       this.scheduleRender();
       try {
         const r = await c.ping(3000);
         this.rtRtt = `${r.rtt} ms à ${fmtClock(Date.now())}`;
+        this.rtRttTone = "";
       } catch (e) {
-        this.rtRtt = `échec — ${e instanceof Error ? e.message : String(e)}`;
+        // Refus de la politique de la méthode (-32001) : réservée à un autre
+        // rôle — la connexion va bien, c'est la mesure qui n'est pas permise.
+        if (e instanceof RpcError && e.code === -32001) {
+          this.rtRtt = "pas de mesure : réservée à un autre rôle que le vôtre";
+        } else {
+          this.rtRtt = `échec — ${e instanceof Error ? e.message : String(e)}`;
+          this.rtRttTone = "warn";
+        }
       }
     }
     this.scheduleRender();
@@ -4037,7 +4061,7 @@ export class DebugBar {
         .map((x) =>
           connTab(
             x.url ?? "",
-            `${socketPath(x.url)}${x === this.client ? " · barre de debug" : ""}`,
+            `${socketPath(x.url)}${x === this.client ? " · barre de debug" : ""} · ${codecBadges(x.codec).codec}`,
             x.state === "connected"
               ? "ok"
               : x.state === "connecting" || x.state === "reconnecting"
@@ -4058,6 +4082,18 @@ export class DebugBar {
         this.scheduleRender();
       });
       this.disposers.push(off);
+      // Ses trames aussi : sans cet écouteur, le journal ne se redessinait
+      // qu'aux trames de la barre — la requête d'une socket d'application, CBOR
+      // ou texte, était retenue mais restait invisible. Un rendu par image au
+      // plus (`scheduleRender`), et seulement onglet ouvert.
+      const offFrames = c.onFrame(() => {
+        if (
+          !this.rtLogPaused &&
+          (this.tabOpen("socket") || this.tabOpen("realtime"))
+        )
+          this.scheduleRender();
+      });
+      this.disposers.push(offFrames);
     }
     // Mesuré une fois l'ACCUEIL reçu : ouverte ne suffit pas — le ping partait
     // avant que le serveur ait dit ses méthodes, et un serveur qui ne l'offre
@@ -4067,6 +4103,14 @@ export class DebugBar {
       void this.measureRtt();
     }
     this.text("rtRtt", this.rtRtt);
+    this.cls("rtRtt", this.rtRttTone);
+    // En tête du panneau, le format en deux pastilles : ce que l'on cherche
+    // d'abord sur une socket binaire, sans lire la ligne « format ».
+    const fmt = codecBadges(c.codec);
+    this.setHtml(
+      "rtFormat",
+      `<span class="fmt ${fmt.nature === "binaire" ? "bin" : "txt"}">${fmt.nature}</span><span class="fmt codec">${escapeHtml(fmt.codec)}</span>`,
+    );
     // La même description que la console et les vitrines : le CŒUR la met en
     // mots, la barre ne fait que l'afficher.
     this.setHtml(

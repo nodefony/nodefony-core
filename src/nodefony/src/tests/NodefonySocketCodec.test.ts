@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { NodefonySocket } from "../client/realtime/NodefonySocket";
 import type { NodefonyNotice } from "../client/realtime/notice";
 import {
+  codecBadges,
   describeCodec,
   describeSocket,
   socketSnapshot,
@@ -567,6 +568,22 @@ describe("NodefonySocket — journal, instantané et diagnostic disent le format
       `JSON-RPC 2.0 · texte (${JSON_PROTOCOL})`,
     );
     client.disconnect();
+  });
+
+  it("pastilles : la nature des trames et le nom court du codec", () => {
+    expect(codecBadges(CBOR_PROTOCOL)).toEqual({
+      nature: "binaire",
+      codec: "cbor",
+    });
+    expect(codecBadges(JSON_PROTOCOL)).toEqual({
+      nature: "texte",
+      codec: "json",
+    });
+    // Un codec d'un autre espace de noms garde son nom entier.
+    expect(codecBadges("acme.wire")).toEqual({
+      nature: "binaire",
+      codec: "acme.wire",
+    });
   });
 });
 

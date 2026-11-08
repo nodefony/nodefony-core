@@ -6,6 +6,7 @@
  * aucun écouteur laissé sur le noyau au démontage de la barre.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import type { RealtimeFrame } from "../client/realtime/NodefonySocket";
 import { DebugBar } from "../client/debugbar/DebugBar";
 import { fakeSocket } from "./debugbarFakeSocket";
 import { NodefonyKernel } from "../client/NodefonyKernel";
@@ -254,6 +255,51 @@ describe("onglet Noyau — sans fuite", () => {
 });
 
 describe("onglet Realtime — il mesure la socket CHOISIE, pas la barre", () => {
+  it("🔴 une trame d'une socket de l'APPLICATION redessine le journal de l'onglet Socket", async () => {
+    // Vécu sur /demo/binary : la requête CBOR et sa réponse étaient retenues
+    // par la socket, mais le journal restait figé sur l'accueil — la barre ne
+    // se redessinait qu'aux trames de SA socket.
+    const frameLog: RealtimeFrame[] = [];
+    const listeners: (() => void)[] = [];
+    const app = fakeSocket({
+      url: "wss://h/demo/api/binary/realtime",
+      state: "connected",
+      codec: "nodefony.jsonrpc.cbor.v1",
+      frameLogSince: Date.now(),
+      frameLog,
+      onFrame: (handler: () => void) => {
+        listeners.push(handler);
+        return () => {};
+      },
+    });
+    Reflect.set(globalThis, "__nfSockets__", new Set([app]));
+    bar = new DebugBar({ client: fakeClient(), network: false, open: true });
+    bar.mount();
+    q(".tab[data-tab='socket']").click();
+    await image();
+    // L'en-tête dit le format avant tout : binaire, cbor.
+    expect(
+      [...shadow().querySelectorAll("[data-el='rtFormat'] .fmt")].map(
+        (chip) => chip.textContent,
+      ),
+    ).toEqual(["binaire", "cbor"]);
+    expect(q("[data-el='connTabs']").textContent).toContain("· cbor");
+    expect(q("[data-el='rtLogN']").textContent).toMatch(/^0 /u);
+    frameLog.push({
+      ts: Date.now(),
+      dir: "out",
+      kind: "request",
+      id: 1,
+      payload: { method: "binary:digest" },
+      size: 4556,
+      binary: true,
+    });
+    for (const listener of listeners) listener();
+    await image();
+    expect(q("[data-el='rtLogN']").textContent).toMatch(/^1 /u);
+    expect(q("[data-el='rtLog']").textContent).toContain("4556 octets");
+  });
+
   it("🔴 l'application d'abord, puis la socket choisie dans l'onglet Socket", async () => {
     // Vécu sur /demo/chat : l'onglet comptait les seules poussées de la barre
     // (`nodefony:debugbar`, une par seconde) — la barre se mesurait elle-même.

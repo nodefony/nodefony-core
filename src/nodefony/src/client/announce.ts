@@ -165,7 +165,7 @@ declare global {
 export type InspectableSocket = SnapshotSource &
   Pick<
     NodefonySocket,
-    "onNotice" | "ping" | "getStats" | "frameLog" | "frameLogSince"
+    "onFrame" | "onNotice" | "ping" | "getStats" | "frameLog" | "frameLogSince"
   >;
 
 /**

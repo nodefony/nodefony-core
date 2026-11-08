@@ -135,6 +135,29 @@ export function describeCodec(protocol: string): string {
   return `JSON-RPC 2.0 · ${protocol === JSON_PROTOCOL ? "texte" : "binaire"} (${protocol})`;
 }
 
+/** Le format d'une connexion en deux mots, pour des pastilles. */
+export interface ICodecBadges {
+  /** `binaire` ou `texte` : la nature des trames sur le fil. */
+  nature: "binaire" | "texte";
+  /** Le codec, sans le préfixe commun : `json`, `cbor`. */
+  codec: string;
+}
+
+/**
+ * Le format d'une connexion en deux mots — la nature des trames et le nom
+ * du codec — pour l'en-tête d'un panneau ; `describeCodec` en fait la phrase.
+ *
+ * @param protocol - sous-protocole du codec en vigueur (`NodefonySocket.codec`).
+ * @returns par exemple `{ nature: "binaire", codec: "cbor" }`.
+ */
+export function codecBadges(protocol: string): ICodecBadges {
+  if (protocol === JSON_PROTOCOL) return { nature: "texte", codec: "json" };
+  const codec = protocol
+    .replace(/^nodefony\.jsonrpc\./u, "")
+    .replace(/\.v\d+$/u, "");
+  return { nature: "binaire", codec: codec === "" ? protocol : codec };
+}
+
 /** L'état de la connexion, dit en français — un écran ne parle pas machine. */
 const STATE_WORDS: Record<RealtimeState, string> = {
   connected: "connecté",

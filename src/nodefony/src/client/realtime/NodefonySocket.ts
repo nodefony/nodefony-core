@@ -610,6 +610,16 @@ function isClosedNotice(value: unknown): value is IRealtimeClosed {
   );
 }
 
+/** Une entrée du journal des trames, telle que `buildFrame` la produit. */
+function isRealtimeFrame(value: unknown): value is RealtimeFrame {
+  const dir = ownField(value, "dir");
+  return (
+    (dir === "in" || dir === "out") &&
+    typeof ownField(value, "kind") === "string" &&
+    typeof ownField(value, "size") === "number"
+  );
+}
+
 /** Les chaînes d'une liste reçue (le reste est écarté) ; `null` si ce n'est pas une liste. */
 function stringsOf(value: unknown): string[] | null {
   return Array.isArray(value)
@@ -1343,6 +1353,33 @@ export class NodefonySocket<
     set.add(wrapped);
     return () => {
       this.handlers.get(LOCAL_EVENTS.subscribed)?.delete(wrapped);
+    };
+  }
+
+  /**
+   * S'abonne au **journal des trames** : chaque trame entrante ou sortante,
+   * décodée, avec sa taille sur le fil et sa nature (texte ou binaire) — celle
+   * que retient `frameLog`. L'écouteur ALLUME le journal, éteint en
+   * production tant que personne ne le lit. Event LOCAL `__frame__`. Les
+   * outils de la page (barre de debug, console) s'y branchent pour toute
+   * socket, quel que soit son contrat.
+   *
+   * @param handler - reçoit chaque {@link RealtimeFrame}.
+   * @returns dispose (désabonnement).
+   */
+  onFrame(handler: (frame: RealtimeFrame) => void): () => void {
+    this.startFrameLog();
+    const wrapped: RealtimeHandler = (frame) => {
+      if (isRealtimeFrame(frame)) handler(frame);
+    };
+    let set = this.handlers.get(LOCAL_EVENTS.frame);
+    if (!set) {
+      set = new Set();
+      this.handlers.set(LOCAL_EVENTS.frame, set);
+    }
+    set.add(wrapped);
+    return () => {
+      this.handlers.get(LOCAL_EVENTS.frame)?.delete(wrapped);
     };
   }
 

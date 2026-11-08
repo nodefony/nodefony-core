@@ -19,6 +19,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { DebugBar, STYLES } from "../client/debugbar/DebugBar";
 import type { NodefonySocket } from "../client/realtime/NodefonySocket";
 import { fakeSocket } from "./debugbarFakeSocket";
+import { RpcError } from "../realtime/JsonRpcPeer";
 
 /** Socket double — la barre s'y abonne, elle ne reçoit rien. */
 const fakeClient = (): NodefonySocket => fakeSocket();
@@ -461,9 +462,22 @@ describe("onglet Sockets — le détail de la socket, à part du Realtime", () =
     monterSocket({});
     q(".tab[data-tab='socket']").click();
     await tick();
+    // Une ABSENCE de mesure, pas une panne : grisée, jamais « échec ».
     expect(q("[data-el='rtRtt']").textContent).toBe(
-      "non offert par ce serveur",
+      "pas de mesure : ce serveur n'offre pas nodefony:kernel:ping",
     );
+    expect(q("[data-el='rtRtt']").className).toBe("muted");
+    // Offerte mais réservée (-32001) : toujours une absence, pas une panne.
+    monterSocket({
+      serverMethods: ["nodefony:kernel:ping"],
+      ping: () => Promise.reject(new RpcError("unauthorized", -32001)),
+    });
+    q(".tab[data-tab='socket']").click();
+    await tick();
+    expect(q("[data-el='rtRtt']").textContent).toBe(
+      "pas de mesure : réservée à un autre rôle que le vôtre",
+    );
+    expect(q("[data-el='rtRtt']").className).toBe("muted");
     monterSocket({
       serverMethods: ["nodefony:kernel:ping"],
       ping: () => Promise.resolve({ rtt: 7 }),
