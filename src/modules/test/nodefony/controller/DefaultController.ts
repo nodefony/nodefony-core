@@ -240,6 +240,17 @@ class DefaultController extends Controller {
     return this.renderJson({ echoed: val });
   }
 
+  /**
+   * Écrit UNE entrée ERROR au journal, hors ligne d'accès, et répond 200 :
+   * le banc du flux d'octets s'en sert comme requête ÉTRANGÈRE à sa fenêtre
+   * de journal (`byteStream.test.ts`).
+   */
+  @route("journal-error", { path: "/journal/error" })
+  journalError() {
+    this.log("erreur écrite par une requête étrangère", "ERROR", "FOREIGN");
+    return { written: true };
+  }
+
   // ── resilience routes ────────────────────────────────────────────
   @route("crash-sync", { path: "/crash/sync" })
   crashSync() {

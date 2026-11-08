@@ -466,6 +466,9 @@ class StreamController extends Controller {
         return {
           severity: pdu.severityName,
           msgid: pdu.msgid,
+          // La requête qui a écrit l'entrée : le banc écarte celles des
+          // AUTRES fichiers, qui partagent le serveur.
+          requestId: pdu.requestId ?? null,
           text:
             typeof payload === "string"
               ? payload

@@ -59,6 +59,8 @@ interface IJournalEntry {
   severity: string;
   msgid: string;
   text: string;
+  /** La requête qui l'a écrite ; `null` hors requête. */
+  requestId: string | null;
 }
 
 /**
@@ -88,11 +90,32 @@ async function journalFrom(): Promise<() => Promise<IJournalEntry[]>> {
 const ACCESS_MSGIDS = new Set(["req", "audit"]);
 
 /**
- * Les erreurs ÉCRITES au journal, hors lignes d'accès : une réponse 5xx
- * journalise aussi sa ligne d'accès en ERROR, mais c'est un autre fait.
+ * Les entrées de CE banc. Le serveur est partagé : les autres fichiers
+ * d'intégration tournent en même temps, et ce qu'écrit une de LEURS
+ * requêtes tombe dans la fenêtre lue (vécu : une ERROR `devkit-mcp`, la
+ * porte MCP appelée par `external-jwt-e2e`). Une entrée n'est écartée que
+ * si sa requête est PROUVÉE étrangère — sa ligne d'accès vise une autre
+ * adresse que `BASE`. Sans id, ou sans ligne d'accès, elle compte.
+ */
+function ownEntries(entries: IJournalEntry[]): IJournalEntry[] {
+  const foreign = new Set(
+    entries
+      .filter((e) => ACCESS_MSGIDS.has(e.msgid) && !e.text.includes(BASE))
+      .map((e) => e.requestId)
+      .filter((id) => id !== null),
+  );
+  return entries.filter(
+    (e) => e.requestId === null || !foreign.has(e.requestId),
+  );
+}
+
+/**
+ * Les erreurs ÉCRITES au journal par ce banc, hors lignes d'accès : une
+ * réponse 5xx journalise aussi sa ligne d'accès en ERROR, mais c'est un
+ * autre fait.
  */
 function errorsOf(entries: IJournalEntry[]): IJournalEntry[] {
-  return entries.filter(
+  return ownEntries(entries).filter(
     (e) => e.severity === "ERROR" && !ACCESS_MSGIDS.has(e.msgid),
   );
 }
@@ -135,7 +158,7 @@ function describeErrors(errors: IJournalEntry[]): string {
 
 /** Ce que le journal ne doit JAMAIS porter après un flux. */
 function expectQuietJournal(entries: IJournalEntry[]): void {
-  const joined = entries.map((e) => `${e.msgid} ${e.text}`);
+  const joined = ownEntries(entries).map((e) => `${e.msgid} ${e.text}`);
   expect(
     joined.filter((t) => t.includes("onError on closed context")),
     "« onError on closed context »",
@@ -243,6 +266,25 @@ describe("Flux d'octets — renderStream (requires server)", () => {
     expectQuietJournal(entries);
     // Coupé par le serveur : 500 au journal d'accès, jamais 499.
     expect(await accessLine(read, "/fail?when=after")).to.match(/^GET\s+500\s/);
+  });
+
+  it("journal : l'ERROR d'une requête ÉTRANGÈRE écrite pendant la fenêtre n'est pas comptée", async () => {
+    const read = await journalFrom();
+    const foreign = await fetch(`${H1}/nodefony/test/journal/error`);
+    expect(foreign.status).to.equal(200);
+    await foreign.arrayBuffer();
+    await pause(100);
+    const entries = await read();
+    const written = entries.filter(
+      (e) => e.severity === "ERROR" && !ACCESS_MSGIDS.has(e.msgid),
+    );
+    expect(
+      written.map((e) => e.msgid),
+      "l'ERROR étrangère est bien au journal",
+    ).to.include("FOREIGN");
+    expect(errorsOf(entries), describeErrors(errorsOf(entries))).to.have.length(
+      0,
+    );
   });
 
   it("journal d'un flux quitté par le client : aucun avertissement « réponse non envoyée »", async () => {
