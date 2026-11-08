@@ -145,7 +145,7 @@ export function parseProbes(raw) {
 }
 
 /** Verbes qui prennent une VALEUR après la cible. Les autres n'en ont aucune. */
-const VERBS_WITH_VALUE = new Set(["saisir", "choisir"]);
+const VERBS_WITH_VALUE = new Set(["saisir", "choisir", "touche"]);
 
 /** Verbes reconnus d'une action, le premier étant celui par défaut. */
 export const ACTION_VERBS = [
@@ -190,8 +190,8 @@ export function signsInMidway(actions) {
  * s'arrêtait en annonçant un élément introuvable, ce qui envoyait chercher un
  * défaut dans la page. D'où deux règles :
  *
- * 1. seuls les verbes qui PRENNENT une valeur (`saisir`, `choisir`) découpent
- *    sur `=` ;
+ * 1. seuls les verbes qui PRENNENT une valeur (`saisir`, `choisir`, `touche`)
+ *    découpent sur `=` ;
  *    pour tous les autres, la cible est le reste entier ;
  * 2. même pour ceux-là, la coupure ignore les `=` situés à l'intérieur de
  *    crochets — `saisir:input[name=q]=bonjour` saisit bien « bonjour » dans
@@ -222,6 +222,11 @@ export function parseActions(raw) {
         if (c === "[") depth += 1;
         else if (c === "]") depth = Math.max(0, depth - 1);
         else if (c === "=" && depth === 0) cut = i;
+      }
+      // `touche:Enter` SANS `=` : le reste est la TOUCHE, frappée sur
+      // l'élément focalisé — pas un texte à chercher dans la page.
+      if (cut === -1 && verb === "touche") {
+        return { verb, target: "", value: rest.trim() };
       }
       return cut === -1
         ? { verb, target: rest.trim(), value: "" }

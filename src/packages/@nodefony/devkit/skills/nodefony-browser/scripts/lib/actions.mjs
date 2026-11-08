@@ -47,6 +47,12 @@ export async function playActions(page, actions) {
       }, pixels);
       continue;
     }
+    // Une touche sans cible part à l'élément qui a le focus (onglets,
+    // listes, menus : c'est lui que le clavier pilote).
+    if (verb === "touche" && target === "") {
+      await page.keyboard.press(value || "Enter");
+      continue;
+    }
     // Le premier candidat VISIBLE, pas le premier du DOM : un libellé apparaît
     // souvent d'abord dans un menu replié ou un gabarit caché, et agir là ne fait
     // rien tout en passant pour un succès.

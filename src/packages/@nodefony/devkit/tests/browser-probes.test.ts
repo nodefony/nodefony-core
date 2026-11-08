@@ -829,6 +829,22 @@ describe("parseActions — le « = » des sélecteurs CSS n'est pas un séparate
     ]);
   });
 
+  it("`touche` : seule, la touche part à l'élément focalisé ; avec `=`, à la cible", () => {
+    // Vécu : `touche:End` cherchait un TEXTE « End » dans la page et
+    // s'arrêtait sur « cible introuvable » — le verbe documenté n'avait jamais
+    // marché sans cible.
+    expect(parseActions("touche:Escape")).toEqual([
+      { verb: "touche", target: "", value: "Escape" },
+    ]);
+    expect(parseActions("touche:[role=tab][aria-selected=true]=End")).toEqual([
+      {
+        verb: "touche",
+        target: "[role=tab][aria-selected=true]",
+        value: "End",
+      },
+    ]);
+  });
+
   it("prend `clic` par défaut quand aucun verbe n'est écrit", () => {
     expect(parseActions("Se connecter")).toEqual([
       { verb: "clic", target: "Se connecter", value: "" },

@@ -83,7 +83,7 @@ const EVAL = pageExpression(process.env.NF_BROWSER_EVAL);
  * | `survol`   | survol : révèle une infobulle, un menu déroulant          |
  * | `saisir`   | remplit un champ (`saisir:Nom=mon-app`)                   |
  * | `choisir`  | choisit une option d'une liste (`choisir:Habillage=dots`) |
- * | `touche`   | frappe une touche (`touche:Enter`, `touche:Escape`)       |
+ * | `touche`   | frappe une touche sur le focus (`touche:Escape`), ou sur une cible (`touche:#onglet=End`) |
  * | `voir`     | amène dans la vue SANS cliquer                            |
  * | `defiler`  | fait défiler de N pixels (`defiler:600`), page ou conteneur |
  * | `attendre` | attend qu'un texte APPARAISSE (après une action lente)    |
