@@ -579,7 +579,9 @@ const passkeysSchema = z
     rpId: z
       .string()
       .optional()
-      .describe("Relying Party ID (domaine). Omis = domaine de l'app au boot."),
+      .describe(
+        "Relying Party ID (domaine). Omis = domaine de l'app au boot. Un domaine international s'écrit tel quel : il est converti en punycode (`xn--…`) au démarrage, forme que présente le navigateur.",
+      ),
     rpName: z
       .string()
       .optional()
@@ -589,7 +591,9 @@ const passkeysSchema = z
     origins: z
       .array(z.string())
       .default([])
-      .describe("Origines autorisées aux ceremonies. Vide = origine de l'app."),
+      .describe(
+        "Origines autorisées aux cérémonies (`scheme://hôte[:port]`). Vide = origine de l'app. Converties en punycode au démarrage ; une entrée qui n'est pas une origine est écartée et nommée en ERROR.",
+      ),
     userVerification: z
       .enum(["required", "preferred", "discouraged"])
       .default("preferred")

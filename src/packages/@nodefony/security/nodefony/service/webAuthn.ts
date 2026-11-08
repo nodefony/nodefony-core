@@ -13,6 +13,7 @@ import {
 } from "nodefony";
 import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
+import { domainToASCII } from "node:url";
 import type {
   AuthenticationResponseJSON,
   PublicKeyCredentialCreationOptionsJSON,
@@ -134,6 +135,8 @@ class WebAuthnService extends Service {
   #store: IWebAuthnCredentialStore | null = null;
   #rpID = "localhost";
   #rpName = "Nodefony";
+  /** Origines de la config, en ASCII (punycode) — résolues au boot. */
+  #origins: readonly string[] = [];
   #ready = false;
 
   constructor(public module: Module) {
@@ -170,9 +173,25 @@ class WebAuthnService extends Service {
     // adresse IP (dev : 127.0.0.1 / 0.0.0.0, ou IPv6) est REFUSÉE par le
     // navigateur. On bascule alors sur « localhost » (l'unique host non-domaine
     // autorisé) → l'accès doit se faire via http(s)://localhost:<port>.
-    this.#rpID = /^(\d{1,3}\.){3}\d{1,3}$|:/.test(rawDomain)
-      ? "localhost"
-      : rawDomain;
+    // La lib (≥ 14.1) refuse un RP ID ou une origine non ASCII : le navigateur
+    // les lui présente en punycode (`xn--…`), un domaine international doit
+    // donc lui parler sous cette forme. Converti UNE fois ici, jamais par
+    // cérémonie.
+    const isIp = /^(\d{1,3}\.){3}\d{1,3}$|:/.test(rawDomain);
+    const asciiDomain = isIp ? "" : domainToASCII(rawDomain);
+    if (!isIp && asciiDomain === "") {
+      this.log(
+        `passkeys : domaine « ${rawDomain} » invalide comme RP ID — repli sur « localhost »`,
+        "ERROR",
+      );
+    }
+    this.#rpID = asciiDomain === "" ? "localhost" : asciiDomain;
+    this.#origins = asciiOrigins(config.passkeys.origins, (bad) =>
+      this.log(
+        `passkeys.origins : « ${bad} » n'est pas une origine (scheme://hôte[:port]) — écartée`,
+        "ERROR",
+      ),
+    );
     this.#rpName = config.passkeys.rpName ?? "Nodefony";
 
     // Store des credentials : adapter posé au container (ORM/Redis) en priorité,
@@ -368,7 +387,7 @@ class WebAuthnService extends Service {
       verification = await lib.verifyRegistrationResponse({
         response,
         expectedChallenge,
-        expectedOrigin: this.#expectedOrigin(pk.origins, requestOrigin),
+        expectedOrigin: this.#expectedOrigin(this.#origins, requestOrigin),
         expectedRPID: this.#rpID,
         requireUserVerification: pk.userVerification === "required",
       });
@@ -468,7 +487,7 @@ class WebAuthnService extends Service {
       verification = await lib.verifyAuthenticationResponse({
         response,
         expectedChallenge,
-        expectedOrigin: this.#expectedOrigin(pk.origins, requestOrigin),
+        expectedOrigin: this.#expectedOrigin(this.#origins, requestOrigin),
         expectedRPID: this.#rpID,
         credential: {
           id: stored.id,
@@ -596,3 +615,37 @@ class WebAuthnService extends Service {
 
 export default WebAuthnService;
 export { WebAuthnService };
+
+/**
+ * Origines WebAuthn rendues en ASCII (punycode), forme sous laquelle le
+ * navigateur les présente — `https://café.example` → `https://xn--caf-dma.example`.
+ *
+ * Une entrée qui n'est pas une origine (`scheme://hôte[:port]`) est écartée et
+ * signalée : la garder ferait échouer CHAQUE cérémonie, sans que personne ne
+ * sache pourquoi.
+ *
+ * @param origins - origines telles qu'écrites dans la config.
+ * @param onInvalid - appelé pour chaque entrée écartée.
+ * @returns les origines valides, sérialisées en ASCII, dans l'ordre reçu.
+ */
+export function asciiOrigins(
+  origins: readonly string[],
+  onInvalid: (origin: string) => void,
+): string[] {
+  const out: string[] = [];
+  for (const origin of origins) {
+    let ascii: string | null;
+    try {
+      const serialized = new URL(origin).origin;
+      ascii = serialized === "null" ? null : serialized;
+    } catch {
+      ascii = null;
+    }
+    if (ascii === null) {
+      onInvalid(origin);
+    } else {
+      out.push(ascii);
+    }
+  }
+  return out;
+}
