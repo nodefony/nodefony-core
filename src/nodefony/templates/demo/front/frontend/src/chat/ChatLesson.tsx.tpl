@@ -158,9 +158,6 @@ function ChatRoom({
     <div className="room">
       <div className="room-head">
         <strong>#salon</strong>
-        <span className="room-typing" aria-live="polite">
-          {room.typing === null ? "" : `${room.typing} écrit…`}
-        </span>
       </div>
       {/* `role="log"` sur un conteneur : un `<ul>` garde son rôle de liste.
           Les nouveaux messages sont annoncés, sans voler le focus. */}
@@ -179,6 +176,22 @@ function ChatRoom({
             </li>
           ))}
         </ul>
+      </div>
+      {/* Qui écrit : une pastille légère au-dessus du champ, là où le regard
+          est déjà. La zone garde sa hauteur — la liste ne saute pas. */}
+      <div className="room-typing" aria-live="polite">
+        {room.typing !== null && (
+          <span className="typing-pill">
+            <span className="typing-dots" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+            </span>
+            <span>
+              <strong>{room.typing}</strong> écrit…
+            </span>
+          </span>
+        )}
       </div>
       {canWrite ? (
         <form className="room-foot" onSubmit={onSubmit}>

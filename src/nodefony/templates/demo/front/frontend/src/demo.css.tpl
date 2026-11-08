@@ -1553,7 +1553,62 @@ a.ritem:hover .ritem-go {
   font-size: 0.85rem;
 }
 .room-typing {
-  color: var(--muted);
+  min-height: 34px;
+  padding: 0 16px 8px;
+}
+.typing-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 4px 10px;
+  font-size: 0.82rem;
+  color: var(--fg);
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+}
+.typing-dots {
+  display: inline-flex;
+  gap: 3px;
+}
+.typing-dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cyan);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .typing-pill {
+    animation: nf-typing-in 0.18s ease-out;
+  }
+  .typing-dots i {
+    animation: nf-typing 1.2s ease-in-out infinite;
+  }
+  .typing-dots i:nth-child(2) {
+    animation-delay: 0.15s;
+  }
+  .typing-dots i:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+  @keyframes nf-typing-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+  }
+  @keyframes nf-typing {
+    0%,
+    60%,
+    100% {
+      opacity: 0.35;
+      transform: translateY(0);
+    }
+    30% {
+      opacity: 1;
+      transform: translateY(-3px);
+    }
+  }
 }
 .room-list {
   list-style: none;
