@@ -1391,6 +1391,8 @@ export class DebugBar {
   private flowChanged = false;
   // Pouls realtime — débit msg/s dérivé du compteur de frames du client.
   private prevFrames = 0;
+  // La socket dont le débit est échantillonné — changée, la courbe repart.
+  private rtSource: InspectableSocket | null = null;
   private rtRate = 0;
   private rtPeak = 0;
   private readonly rtSeries: number[] = [];
@@ -2509,6 +2511,7 @@ export class DebugBar {
           <polygon class="area rt" data-el="rtArea" points=""/>
           <polyline class="spark rt" data-el="rtLine" points=""/>
         </svg>
+        ${this.kv("socket", "rtSock")}
         ${this.kv("transport", "rtTransport")}
         ${this.kv("protocole", "rtProto")}
         ${this.kv("état", "rtState")}
@@ -2787,6 +2790,8 @@ export class DebugBar {
         this.rtRtt = "—";
         this.rttAsked = false;
         this.rtOpen = null;
+        // L'onglet Realtime la suit : son débit repart de zéro, pas au tick suivant.
+        this.followRtSocket(this.rtSocket());
         this.scheduleRender();
       };
       seg.addEventListener("click", onSeg);
@@ -3004,7 +3009,7 @@ export class DebugBar {
     lsSet(LS.live, v ? "1" : "0");
     if (v) {
       // Recale la base du compteur GLOBAL → pas de pic « frames/s » au 1ᵉʳ tick.
-      this.prevFrames = this.client.framesReceived;
+      this.followRtSocket(this.rtSocket());
       this.ensureConnected();
       this.startLive();
     } else {
@@ -3072,7 +3077,9 @@ export class DebugBar {
   }
 
   private sampleThroughput(): void {
-    const total = this.client.framesReceived;
+    const src = this.rtSocket();
+    if (src !== this.rtSource) this.followRtSocket(src);
+    const total = src.framesReceived;
     this.rtRate = Math.max(0, total - this.prevFrames);
     this.prevFrames = total;
     if (this.rtRate > this.rtPeak) this.rtPeak = this.rtRate;
@@ -3759,7 +3766,7 @@ export class DebugBar {
     this.text("sseTab", String(this.sseStreams().length));
     switch (this.activeTab) {
       case "realtime":
-        this.renderRealtimePane(v);
+        this.renderRealtimePane();
         break;
       case "socket":
         this.renderSocketPane();
@@ -3903,15 +3910,22 @@ export class DebugBar {
     node.innerHTML = html;
   }
 
-  private renderRealtimePane(v: DebugBarView): void {
-    const live = v.state === "connected";
+  private renderRealtimePane(): void {
+    // La socket choisie dans l'onglet Socket — celle de l'application d'abord,
+    // jamais d'office celle de la barre, qui ne mesurerait qu'elle-même.
+    const s = this.rtSocket();
+    const live = s.state === "connected";
     this.text("rtBig", String(this.rtRate));
     this.setPoints("rtLine", "rtArea", this.rtSeries, "rt", 38);
+    this.text(
+      "rtSock",
+      `${socketPath(s.url)}${s === this.client ? " · barre de debug" : ""}`,
+    );
     this.text("rtTransport", "WebSocket");
-    this.text("rtProto", describeCodec(this.client.codec));
-    this.text("rtState", v.state);
+    this.text("rtProto", describeCodec(s.codec));
+    this.text("rtState", s.state);
     this.cls("rtState", `v ${live ? "ok" : "warn"}`);
-    this.text("rtFrames", String(this.client.framesReceived));
+    this.text("rtFrames", String(s.framesReceived));
     this.text("rtPeak", `${this.rtPeak}/s`);
     if (this.frontend) {
       this.text("hmrBig", String(this.hmrCount));
@@ -3929,6 +3943,24 @@ export class DebugBar {
    */
   private pageSockets(): InspectableSocket[] {
     return [...pageSockets().filter((x) => x !== this.client), this.client];
+  }
+
+  /** La socket que mesure l'onglet Realtime : la socket affichée, sinon la barre. */
+  private rtSocket(): InspectableSocket {
+    return this.shownSocket() ?? this.client;
+  }
+
+  /**
+   * Le débit suit une AUTRE socket : sa courbe et son pic repartent de zéro,
+   * et la base du compteur est recalée — sinon le premier échantillon serait
+   * l'écart entre deux compteurs qui n'ont rien à voir.
+   */
+  private followRtSocket(src: InspectableSocket): void {
+    this.rtSource = src;
+    this.prevFrames = src.framesReceived;
+    this.rtRate = 0;
+    this.rtPeak = 0;
+    this.rtSeries.length = 0;
   }
 
   /** La socket affichée : celle choisie, sinon la première de la page. */

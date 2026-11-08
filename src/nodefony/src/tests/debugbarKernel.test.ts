@@ -253,6 +253,39 @@ describe("onglet Noyau — sans fuite", () => {
   });
 });
 
+describe("onglet Realtime — il mesure la socket CHOISIE, pas la barre", () => {
+  it("🔴 l'application d'abord, puis la socket choisie dans l'onglet Socket", async () => {
+    // Vécu sur /demo/chat : l'onglet comptait les seules poussées de la barre
+    // (`nodefony:debugbar`, une par seconde) — la barre se mesurait elle-même.
+    const barre = fakeSocket({
+      url: "wss://h/nodefony/studio/api/realtime",
+      state: "connected",
+      framesReceived: 5,
+    });
+    const chat = fakeSocket({
+      url: "wss://h/demo/chat/realtime",
+      state: "connected",
+      framesReceived: 42,
+    });
+    Reflect.set(globalThis, "__nfSockets__", new Set([chat]));
+    bar = new DebugBar({ client: barre, network: false, open: true });
+    bar.mount();
+    q(".tab[data-tab='realtime']").click();
+    await image();
+    expect(q("[data-el='rtSock']").textContent).toBe("/demo/chat/realtime");
+    expect(q("[data-el='rtFrames']").textContent).toBe("42");
+    q(".tab[data-tab='socket']").click();
+    await image();
+    q(
+      "[data-el='connTabs'] [data-conn='wss://h/nodefony/studio/api/realtime']",
+    ).click();
+    q(".tab[data-tab='realtime']").click();
+    await image();
+    expect(q("[data-el='rtSock']").textContent).toContain("barre de debug");
+    expect(q("[data-el='rtFrames']").textContent).toBe("5");
+  });
+});
+
 describe("onglet Nodefony client — utile aussi SANS noyau", () => {
   /** Une socket accueillie : le serveur a reconnu un compte et lui offre trois canaux. */
   const accueillie = (): ReturnType<typeof fakeSocket> =>
