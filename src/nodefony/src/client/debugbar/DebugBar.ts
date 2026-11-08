@@ -33,7 +33,7 @@ import {
   describeSocket,
   socketSnapshot,
 } from "../realtime/snapshot";
-import { sharedSockets } from "../announce";
+import { pageSockets, type InspectableSocket } from "../announce";
 import type { NodefonyNotice } from "../realtime/notice";
 import type { RealtimeFrame } from "../realtime/NodefonySocket";
 import { AUTH_ME_PATH } from "../../runtime/authRoutes";
@@ -1404,11 +1404,11 @@ export class DebugBar {
   /** Flux SSE affiché (son id réseau) ; `null` = le premier. */
   private sseKey: number | null = null;
   /** Incidents par socket, les plus récents d'abord — alloués au premier. */
-  private sockIncidents: Map<NodefonySocket, NodefonyNotice[]> | null = null;
+  private sockIncidents: Map<InspectableSocket, NodefonyNotice[]> | null = null;
   /** Sockets de la page dont on écoute déjà les incidents (hors celle de la barre). */
-  private sockWatched: Set<NodefonySocket> | null = null;
+  private sockWatched: Set<InspectableSocket> | null = null;
   /** Sockets dont CE panneau a allumé le journal, et quand : ce qui précède n'y est pas (D5). */
-  private rtLogMine: Map<NodefonySocket, number> | null = null;
+  private rtLogMine: Map<InspectableSocket, number> | null = null;
   private rtLogPaused = false;
   private rtLogQuery = "";
   /** Trames affichées, pour bâtir une charge à son dépliage seulement. */
@@ -3923,15 +3923,16 @@ export class DebugBar {
   }
 
   /**
-   * Les sockets de la page — le registre de `NodefonySocket.shared()` — celles
-   * de l'application d'abord, celle de la barre en dernier.
+   * Les sockets de la page — partagées (`NodefonySocket.shared()`) ET privées
+   * connectées (`new NodefonySocket`, `fromContract()`) —, celles de
+   * l'application d'abord, celle de la barre en dernier.
    */
-  private pageSockets(): NodefonySocket[] {
-    return [...sharedSockets().filter((x) => x !== this.client), this.client];
+  private pageSockets(): InspectableSocket[] {
+    return [...pageSockets().filter((x) => x !== this.client), this.client];
   }
 
   /** La socket affichée : celle choisie, sinon la première de la page. */
-  private shownSocket(): NodefonySocket | null {
+  private shownSocket(): InspectableSocket | null {
     const list = this.pageSockets();
     return list.find((x) => x.url === this.connKey) ?? list[0] ?? null;
   }
@@ -3981,9 +3982,9 @@ export class DebugBar {
   }
 
   /** Retient un incident d'une socket (les 20 derniers). */
-  private noteIncident(sock: NodefonySocket, notice: NodefonyNotice): void {
+  private noteIncident(sock: InspectableSocket, notice: NodefonyNotice): void {
     const map = (this.sockIncidents ??= new Map<
-      NodefonySocket,
+      InspectableSocket,
       NodefonyNotice[]
     >());
     let inc = map.get(sock);
@@ -4016,7 +4017,7 @@ export class DebugBar {
     if (c === null) return;
     // Une autre socket de la page : on écoute ses incidents dès qu'on la montre.
     if (c !== this.client && this.sockWatched?.has(c) !== true) {
-      (this.sockWatched ??= new Set<NodefonySocket>()).add(c);
+      (this.sockWatched ??= new Set<InspectableSocket>()).add(c);
       const off = c.onNotice((n) => {
         this.noteIncident(c, n);
         this.scheduleRender();
@@ -4140,11 +4141,14 @@ export class DebugBar {
    * Le journal des trames : les 100 dernières (D2), filtrées, les plus récentes
    * en tête ; la charge d'une trame ne se met en forme qu'à son dépliage.
    */
-  private renderFrameLog(c: NodefonySocket): void {
+  private renderFrameLog(c: InspectableSocket): void {
     // Lire le journal l'ALLUME s'il était éteint : seul l'onglet ouvert le lit,
     // et il dit alors que ce qui précède n'y est pas (D5).
     if (c.frameLogSince === null)
-      (this.rtLogMine ??= new Map<NodefonySocket, number>()).set(c, Date.now());
+      (this.rtLogMine ??= new Map<InspectableSocket, number>()).set(
+        c,
+        Date.now(),
+      );
     const all = c.frameLog;
     const query = this.rtLogQuery;
     const shown = (

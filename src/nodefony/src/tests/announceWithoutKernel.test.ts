@@ -17,6 +17,24 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { fileURLToPath } from "node:url";
 import { NodefonySocket } from "../client/realtime/NodefonySocket";
 import { NodefonyKernel } from "../client/NodefonyKernel";
+import {
+  TransportState,
+  type IRealtimeTransport,
+} from "../realtime/IRealtimeTransport";
+
+/** Un transport qui ne s'ouvre jamais : la connexion est DEMANDÉE, rien ne part. */
+class TransportMuet implements IRealtimeTransport {
+  readyState: number = TransportState.CONNECTING;
+  connect(): void {}
+  send(): void {}
+  close(): void {
+    this.readyState = TransportState.CLOSED;
+  }
+  onOpen(): void {}
+  onMessage(): void {}
+  onClose(): void {}
+  onError(): void {}
+}
 
 type Globals = {
   nodefony?: {
@@ -26,6 +44,7 @@ type Globals = {
     identity(): unknown;
   };
   __nfRealtime__?: Map<string, unknown>;
+  __nfSockets__?: Set<unknown>;
   __nfAnnounced__?: boolean;
   __nfDetailed__?: boolean;
 };
@@ -52,6 +71,7 @@ function pageVierge(): void {
   delete g.__nfAnnounced__;
   delete g.__nfDetailed__;
   delete g.__nfRealtime__;
+  delete g.__nfSockets__;
 }
 
 /**
@@ -108,8 +128,34 @@ describe("Sans noyau — une socket nue annonce, et se laisse inspecter", () => 
       // c'est du bruit qui pousse les messages de l'application hors de vue.
       expect(spy.calls.filter((l) => l.includes("nodefony"))).toHaveLength(1);
       // Les deux sockets PARTAGÉES sont listées ; la troisième, construite hors
-      // du partage, ne l'est pas — la retenir ici en ferait une fuite.
+      // du partage mais jamais connectée, ne l'est pas — retenir un objet qui
+      // n'a rien ouvert en ferait une fuite.
       expect(g.nodefony?.sockets()).toHaveLength(2);
+    } finally {
+      spy.restore();
+    }
+  });
+
+  it("🔴 une socket PRIVÉE connectée est vue de l'outillage, puis oubliée à la déconnexion", () => {
+    // Vécu sur /demo/chat : `fromContract()` rend une socket privée par
+    // défaut. Invisible du registre, elle manquait à la barre de debug, qui ne
+    // montrait plus que sa propre socket — et son journal, que ses propres
+    // poussées.
+    const spy = spyConsole();
+    try {
+      const page = NodefonySocket.shared({ url: "https://exemple.test/barre" });
+      const chat = new NodefonySocket(
+        { url: "https://exemple.test/demo/chat/realtime" },
+        () => new TransportMuet(),
+      );
+      chat.connect().catch(() => undefined);
+      const urls = g.nodefony?.sockets().map((s) => s.url) ?? [];
+      expect(urls).toHaveLength(2);
+      expect(urls.some((u) => u.includes("/demo/chat/realtime"))).toBe(true);
+      // L'inscription dure le temps de la CONNEXION, pas celui de l'objet.
+      chat.disconnect();
+      expect(g.nodefony?.sockets()).toHaveLength(1);
+      expect(g.nodefony?.sockets()[0]!.url).toBe(page.url);
     } finally {
       spy.restore();
     }

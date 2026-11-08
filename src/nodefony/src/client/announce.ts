@@ -25,15 +25,16 @@
  * @module nodefony/client
  */
 import type { NodefonySocket } from "./realtime/NodefonySocket";
+import type { SnapshotSource } from "./realtime/snapshot";
 import type { INodefonyKernel } from "./INodefonyKernel";
 
 /** Ce que `nodefony` rend dans la console. Dev uniquement — jamais publié. */
 interface NodefonyConsoleHandle {
   /** Le noyau vivant, s'il y en a un. */
   readonly kernel?: unknown;
-  /** La première socket partagée — le raccourci du cas courant. */
-  readonly socket?: NodefonySocket | undefined;
-  /** Les sockets partagées de la page : adresse et état. */
+  /** La première socket de la page — le raccourci du cas courant. */
+  readonly socket?: InspectableSocket | undefined;
+  /** Les sockets de la page, partagées et privées connectées : adresse et état. */
   sockets(): Array<{ url: string; state: string }>;
   /** L'identité courante — du noyau s'il y en a un, sinon de la socket. */
   identity(): unknown;
@@ -143,6 +144,70 @@ export function sharedSockets(): NodefonySocket[] {
 }
 
 /**
+ * Le registre d'OBSERVATION de la page — distinct de celui du partage. Ce
+ * dernier sert à RÉUTILISER une connexion par adresse ; celui-ci sert à VOIR
+ * toutes celles qui sont ouvertes, privées comprises (`new NodefonySocket`,
+ * `fromContract()` sans `shared`). Sur `globalThis` pour la même raison que
+ * `__nfRealtime__` : la barre de debug et l'application ne partagent pas
+ * forcément le même exemplaire du module.
+ */
+declare global {
+  /** Registre d'observation de la page (développement) — {@link observeSocket}. */
+  var __nfSockets__: Set<InspectableSocket> | undefined;
+}
+
+/**
+ * Ce que l'outillage LIT d'une socket : les membres qui ne dépendent pas du
+ * contrat de l'application. C'est ce qui permet d'inscrire une socket typée
+ * par SON contrat sans conversion — ses écouteurs, eux, sont contravariants et
+ * ne se rangent dans aucun registre commun.
+ */
+export type InspectableSocket = SnapshotSource &
+  Pick<
+    NodefonySocket,
+    "onNotice" | "ping" | "getStats" | "frameLog" | "frameLogSince"
+  >;
+
+/**
+ * Inscrit une socket qui ouvre sa connexion, pour que l'outillage la voie.
+ *
+ * Développement seulement, comme le handle `nodefony` : une application
+ * publiée n'offre pas ses sockets à qui ouvre la console. Idempotent.
+ *
+ * @param socket - la socket qui se connecte
+ */
+export function observeSocket(socket: InspectableSocket): void {
+  if (!isVerbose()) return;
+  (globalThis.__nfSockets__ ??= new Set<InspectableSocket>()).add(socket);
+}
+
+/**
+ * Retire une socket du registre d'observation — à sa déconnexion volontaire.
+ * L'inscription dure le temps de la CONNEXION : une socket abandonnée sans
+ * être déconnectée garde de toute façon son transport, donc sa référence.
+ *
+ * @param socket - la socket qui se déconnecte
+ */
+export function forgetSocket(socket: InspectableSocket): void {
+  globalThis.__nfSockets__?.delete(socket);
+}
+
+/**
+ * Toutes les sockets de la page que l'outillage peut montrer : les partagées
+ * d'abord, dans leur ordre de création, puis les privées connectées.
+ *
+ * @returns une liste neuve, sans doublon
+ */
+export function pageSockets(): InspectableSocket[] {
+  const shared: InspectableSocket[] = sharedSockets();
+  const observed = globalThis.__nfSockets__;
+  if (observed === undefined || observed.size === 0) return shared;
+  const known = new Set<InspectableSocket>(shared);
+  for (const socket of observed) if (!known.has(socket)) shared.push(socket);
+  return shared;
+}
+
+/**
  * Pose ou actualise `globalThis.nodefony`.
  *
  * Développement seulement : la console d'une application publiée appartient à
@@ -155,16 +220,16 @@ function poseHandle(): void {
       return liveKernel ?? undefined;
     },
     get socket() {
-      return sharedSockets()[0];
+      return pageSockets()[0];
     },
     sockets: () =>
-      sharedSockets().map((s) => ({
+      pageSockets().map((s) => ({
         url: s.url ?? "(adresse non résolue)",
         state: s.state,
       })),
     identity: () => {
       if (liveKernel) return (liveKernel as { identity: unknown }).identity;
-      return sharedSockets()[0]?.identity ?? null;
+      return pageSockets()[0]?.identity ?? null;
     },
   };
   (globalThis as { nodefony?: unknown }).nodefony = handle;

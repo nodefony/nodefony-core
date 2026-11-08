@@ -87,9 +87,11 @@ import {
   announceRealtime,
   hasKernel,
   consoleDetails,
+  forgetSocket,
   isDevBuild,
   isVerbose,
   noteServerEnv,
+  observeSocket,
 } from "../announce";
 import {
   bindAdaptiveChannel,
@@ -1180,6 +1182,9 @@ export class NodefonySocket<
     // le constructeur, un intervalle jamais arrêté retenait l'instance (et
     // allouait chaque seconde) pour la vie du processus.
     this.startStatsSampler();
+    // Visible de l'outillage (barre de debug, `nodefony.sockets()`) le temps de
+    // la connexion — partagée OU privée. Développement seulement.
+    observeSocket(this);
     return this.openSocket();
   }
 
@@ -1219,6 +1224,7 @@ export class NodefonySocket<
     this._serverChannels = null;
     this._serverMethods = null;
     this.peer.codec = this.codecs.text;
+    forgetSocket(this);
     this.fireLocal(LOCAL_EVENTS.identity, null);
     this.setState("disconnected");
   }
@@ -2392,6 +2398,9 @@ export class NodefonySocket<
     // trame qui l'allume y entre AUSSI, et ici — avant le rejeu des abonnements,
     // pour garder l'ordre du fil : `receive` l'a vue passer journal éteint. Sa
     // taille sur le fil n'est plus connue à ce point (`0` = inconnue).
+    // Bundle de production servi par un serveur de développement : `connect()`
+    // ne pouvait pas encore le savoir — l'outillage la voit dès maintenant.
+    if (!this.intentionalClose) observeSocket(this);
     if (isVerbose() && this.startFrameLog())
       this.recordFrame(
         "in",

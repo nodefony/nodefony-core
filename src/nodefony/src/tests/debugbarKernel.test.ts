@@ -68,6 +68,9 @@ async function ongletNoyau(): Promise<HTMLElement> {
 
 beforeEach(() => {
   Reflect.deleteProperty(globalThis, "__nfKernels__");
+  // La barre ne déconnecte pas sa socket au démontage (elle la partage avec
+  // l'application hôte) : celle du test précédent resterait observée.
+  Reflect.deleteProperty(globalThis, "__nfSockets__");
 });
 afterEach(async () => {
   bar?.unmount();
