@@ -14,6 +14,8 @@
  * fichier produit est versionné, et ni le dépôt ni une application n'ont
  * besoin de ffmpeg pour s'en servir.
  *
+ * @usage node scripts/generate/demo-video.mjs
+ *
  * Réglages qui comptent pour la leçon :
  * - une image-clé par seconde (`-g`) : un saut tombe sur une seconde ronde
  *   sans décoder ce qui précède ;

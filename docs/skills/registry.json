@@ -1176,6 +1176,28 @@
       "testedBy": []
     },
     {
+      "path": "scripts/generate/demo-video.mjs",
+      "test": false,
+      "purpose": "Fabrique la vidéo d'essai de la démo « Vidéo par plages » (#747) : `src/nodefony/assets/demo-video.mp4`, que `create app --demo` copie dans `media/` du module de démo (`renderDemoLayer`, moteur du scaffold).",
+      "usage": [
+        "node scripts/generate/demo-video.mjs"
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "HEIGHT",
+          "help": ""
+        },
+        {
+          "name": "WIDTH",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [],
+      "testedBy": []
+    },
+    {
       "path": "scripts/generate/env-catalog.ts",
       "test": false,
       "purpose": "Ce que les variables de DÉCOR DE BANC font — la seule part qu'aucun automate ne sait rendre.",

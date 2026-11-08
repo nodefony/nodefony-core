@@ -23,6 +23,15 @@ brand-assets.mjs — dérive le PNG et le favicon du logo depuis sa source SVG.
 - **Appelé par** : aucun automate
 - **Utilise** : `lib/repo-root.mjs`
 
+## [`demo-video.mjs`](demo-video.mjs)
+
+Fabrique la vidéo d'essai de la démo « Vidéo par plages » (#747) : `src/nodefony/assets/demo-video.mp4`, que `create app --demo` copie dans `media/` du module de démo (`renderDemoLayer`, moteur du scaffold).
+
+- **Usage** : `node scripts/generate/demo-video.mjs`
+- **Variable** `HEIGHT`
+- **Variable** `WIDTH`
+- **Appelé par** : aucun automate
+
 ## [`env-catalog.ts`](env-catalog.ts)
 
 Ce que les variables de DÉCOR DE BANC font — la seule part qu'aucun automate ne sait rendre.

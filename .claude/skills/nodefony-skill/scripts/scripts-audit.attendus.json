@@ -61,8 +61,8 @@
     ".claude/skills/nodefony-load-test/scripts/micro/micro-realtime-frame-ab.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-realtime-state.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-request-scope.mjs",
-    ".claude/skills/nodefony-load-test/scripts/micro/micro-return-controller-ab.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-resolver-field.mjs",
+    ".claude/skills/nodefony-load-test/scripts/micro/micro-return-controller-ab.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-route-scale.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-route-scan.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-select-ops.mjs",
@@ -103,6 +103,7 @@
     ".claude/skills/nodefony-ticket/scripts/pose-lexique.mjs",
     ".claude/skills/nodefony-ticket/scripts/ticket-reorder.mjs",
     "scripts/generate/brand-assets.mjs",
+    "scripts/generate/demo-video.mjs",
     "scripts/repo/safe-commit.sh",
     "scripts/test/realtime-coverage-map.mjs",
     "scripts/test/testbed-report.ts"
