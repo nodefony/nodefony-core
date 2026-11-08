@@ -9,6 +9,8 @@ import type { ILesson, LessonFile } from "../lesson/lesson";
 
 const CONTROLLER: LessonFile = "nodefony/controllers/ChatController.ts";
 const HOOK: LessonFile = "frontend/src/chat/useChat.ts";
+const SERVICE: LessonFile = "nodefony/service/ChatService.ts";
+const RULES: LessonFile = "frontend/src/chat/attachments.ts";
 
 export const CHAT_LESSON = {
   tabs: [
@@ -65,6 +67,14 @@ export const CHAT_LESSON = {
           excerpt: { file: CONTROLLER, region: "chat-send", step: 5 },
         },
         {
+          text: "Un message AVEC des pièces : la MÊME classe, mais en HTTP. Le fichier monte en `POST` multipart, en flux jusqu'au disque — des octets en volume n'ont rien à faire dans une trame de socket. Les règles de la page sont REJOUÉES ici, puis le message part sur le salon comme tout autre : HTTP entre, WebSocket sort.",
+          excerpt: { file: CONTROLLER, region: "chat-attach", step: 6 },
+        },
+        {
+          text: "Servir une pièce : le type vient des OCTETS, jamais du nom ni du type déclaré par le navigateur. Seules les images reconnues s'affichent dans la page ; le reste se télécharge, `nosniff` interdit de deviner et `sandbox` désarme un document ouvert dans un onglet.",
+          excerpt: { file: CONTROLLER, region: "chat-file", step: 6 },
+        },
+        {
           text: "Le salon : un canal auquel la page s'abonne. Il relaie ce que l'envoi publie, il n'émet rien de lui-même.",
           excerpt: { file: CONTROLLER, region: "chat-room", step: 1 },
         },
@@ -79,11 +89,11 @@ export const CHAT_LESSON = {
       blocks: [
         {
           text: "L'historique survit aux connexions parce qu'il vit dans un service, unique pour toute l'application. Ici un tampon BORNÉ en mémoire : au-delà de la limite, les plus anciens sortent. Le passer en base (cookbook, étape 4) ne change rien au contrôleur.",
-          excerpt: {
-            file: "nodefony/service/ChatService.ts",
-            region: "chat-store",
-            step: 4,
-          },
+          excerpt: { file: SERVICE, region: "chat-store", step: 4 },
+        },
+        {
+          text: "Les pièces : chaque fichier est DÉPLACÉ sous un nom tiré par le serveur, puis classé d'après ses premiers octets — image reconnue, texte UTF-8, ou simple fichier. Le stock est borné lui aussi : une pièce sortie laisse son message, marqué « retirée ».",
+          excerpt: { file: SERVICE, region: "chat-attachments", step: 6 },
         },
       ],
     },
@@ -113,6 +123,18 @@ export const CHAT_LESSON = {
         {
           text: "L'envoi : le texte seul. Un refus rejette la promesse, et la page l'affiche.",
           excerpt: { file: HOOK, region: "chat-send-client", step: 5 },
+        },
+        {
+          text: "Un grand collage ne remplit pas le champ : au-delà d'un seuil, il devient une pièce, une boîte « Texte collé » — comme un fichier.",
+          excerpt: { file: RULES, region: "chat-paste", step: 6 },
+        },
+        {
+          text: "Les règles d'envoi, écrites UNE fois : la page s'en sert pour prévenir, le serveur pour décider.",
+          excerpt: { file: RULES, region: "chat-attach-rules", step: 6 },
+        },
+        {
+          text: "Avec des pièces, un `POST` multipart ordinaire, et une clé d'idempotence par intention d'envoi. L'écran ne bouge pas à la réponse : le message revient par le salon, chez l'expéditeur comme chez les autres.",
+          excerpt: { file: HOOK, region: "chat-attach-client", step: 6 },
         },
       ],
     },
@@ -202,6 +224,13 @@ export const CHAT_LESSON = {
       role: "mémorise la réponse par clé d'idempotence : un envoi rejoué n'agit pas deux fois.",
       file: CONTROLLER,
       region: "chat-send",
+    },
+    {
+      name: "Param",
+      from: "@nodefony/framework",
+      role: "lie un paramètre du chemin (`/files/{id}`) à un argument de l'action.",
+      file: CONTROLLER,
+      region: "chat-file",
     },
     {
       name: "RealtimeChannel",

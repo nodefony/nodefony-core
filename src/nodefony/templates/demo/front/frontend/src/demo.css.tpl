@@ -1653,19 +1653,252 @@ a.ritem:hover .ritem-go {
   margin: 0;
   font-size: 0.9rem;
 }
-.room-foot input {
-  flex: 1 1 220px;
+.room-foot .room-error {
+  flex-basis: 100%;
+  margin: 0;
+  color: #c62828;
+}
+/* La zone d'écriture : pastilles en attente au-dessus, outils, champ, envoi. */
+.composer {
+  flex-direction: column;
+  align-items: stretch;
+}
+.composer.dragging {
+  outline: 2px dashed var(--cyan);
+  outline-offset: -6px;
+}
+.composer-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+.composer textarea {
+  flex: 1 1 auto;
+  min-width: 0;
   min-height: 44px;
-  padding: 0 12px;
+  max-height: 160px;
+  padding: 11px 12px;
   font: inherit;
+  line-height: 1.4;
   color: var(--fg);
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 8px;
+  resize: vertical;
+  field-sizing: content;
 }
-.room-foot .room-error {
-  flex-basis: 100%;
-  color: #c62828;
+.composer .tool {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  font-size: 1.15rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.composer .tool:hover,
+.composer .tool[aria-expanded="true"] {
+  border-color: var(--cyan);
+}
+.emoji-wrap {
+  position: relative;
+}
+.emoji-grid {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: repeat(6, 40px);
+  gap: 2px;
+  padding: 6px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+.emoji-grid button {
+  width: 40px;
+  height: 40px;
+  font-size: 1.25rem;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.emoji-grid button:hover,
+.emoji-grid button:focus-visible {
+  background: var(--bg-soft);
+}
+.chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chip {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 320px;
+  padding: 6px 6px 6px 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.chip-thumb {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+.chip-icon {
+  font-size: 1.4rem;
+  line-height: 44px;
+}
+.chip-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 0.85rem;
+}
+.chip-body strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chip-meta {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+.chip-preview,
+.att-pre {
+  margin: 4px 0 0;
+  padding: 6px 8px;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--code-fg);
+  background: var(--code-bg);
+  border-radius: 6px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.chip-preview {
+  max-height: 4.4em;
+  overflow: hidden;
+}
+.chip-remove {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.chip-remove:hover {
+  color: var(--fg);
+  background: var(--bg-soft);
+}
+/* Les pièces d'un message, dans la fenêtre du salon. */
+.att-list {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.att-thumb {
+  padding: 0;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: zoom-in;
+}
+.att-thumb img {
+  display: block;
+  max-width: 220px;
+  max-height: 160px;
+  object-fit: cover;
+}
+.att-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: min(420px, 100%);
+  padding: 10px 12px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 0.88rem;
+}
+.att-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.att-head strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.att-size {
+  margin-left: auto;
+  flex: none;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+.att-pre {
+  margin: 0;
+}
+.att-actions {
+  display: flex;
+  gap: 14px;
+  font-size: 0.82rem;
+}
+.att-actions button {
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-decoration: underline;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.att-gone {
+  color: var(--muted);
+  font-style: italic;
+}
+.att-dialog {
+  max-width: min(92vw, 1200px);
+  padding: 12px;
+  color: var(--fg);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.att-dialog::backdrop {
+  background: rgba(10, 15, 28, 0.7);
+}
+.att-dialog img {
+  display: block;
+  max-width: 100%;
+  max-height: 80vh;
+  margin: 0 auto;
+}
+.att-dialog p {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0 0;
+  font-size: 0.85rem;
 }
 .lesson-traps {
   display: flex;

@@ -83,6 +83,9 @@ export const DEMOS = [
       "nodefony/controllers/ChatController.ts",
       "nodefony/service/ChatService.ts",
       "frontend/src/chat/ChatLesson.tsx",
+      "frontend/src/chat/attachments.ts",
+      "frontend/src/chat/ChatComposer.tsx",
+      "frontend/src/chat/ChatAttachments.tsx",
     ],
     types: [
       "ContractRealtimeController (@nodefony/realtime)",

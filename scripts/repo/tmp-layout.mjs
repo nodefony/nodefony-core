@@ -106,9 +106,15 @@ export const TMP_LAYOUT = Object.freeze([
  *
  * - `upload` : dossier d'upload de l'application de dev (`nodefony.config.ts`),
  *   relu par les bancs de résidus d'upload ;
- * - `long-run.lock` : le verrou d'un run long (`scripts/repo/long-run-lock.mjs`).
+ * - `long-run.lock` : le verrou d'un run long (`scripts/repo/long-run-lock.mjs`) ;
+ * - `demo-chat` : les pièces jointes du salon de la démo (`ChatService`),
+ *   bornées, et vidées à chaque démarrage.
  */
-export const RUNTIME_ENTRIES = Object.freeze(["upload", "long-run.lock"]);
+export const RUNTIME_ENTRIES = Object.freeze([
+  "upload",
+  "long-run.lock",
+  "demo-chat",
+]);
 
 /** Le README régénéré : présent dans `tmp/`, donc jamais égaré ni purgé. */
 const README = "README.md";

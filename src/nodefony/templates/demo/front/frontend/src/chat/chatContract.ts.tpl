@@ -21,11 +21,48 @@ export const ROOM_CHANNEL = "chat:room";
 /** « Untel écrit… » : volatil, ni conservé ni compté. */
 export const TYPING_CHANNEL = "chat:typing";
 
+/**
+ * Un message AVEC des pièces : un `POST` multipart, hors du pont socket — des
+ * octets en volume voyagent en HTTP, en flux jusqu'au disque.
+ */
+export const CHAT_ATTACH_PATH = "/demo/chat/attachments";
+
+/** Une pièce se lit à `${CHAT_FILE_PATH}/<id>`. */
+export const CHAT_FILE_PATH = "/demo/chat/files";
+
+/** Au plus cinq pièces par message… */
+export const ATTACHMENT_MAX_COUNT = 5;
+
+/** …de 2 Mio chacune (2 × 1024 × 1024 octets). */
+export const ATTACHMENT_MAX_BYTES = 2_097_152;
+
+/**
+ * Ce qu'une pièce montre dans le salon — décidé par le SERVEUR d'après son
+ * contenu, jamais d'après son nom ni le type que le navigateur déclare.
+ */
+export type ChatAttachmentKind = "image" | "text" | "file";
+
+/** Une pièce jointe, telle que le salon l'annonce à tous. */
+export interface ChatAttachment {
+  id: string;
+  name: string;
+  size: number;
+  kind: ChatAttachmentKind;
+  /** Texte : son nombre de lignes. */
+  lines?: number;
+  /** Texte : ses premières lignes. */
+  preview?: string;
+  /** Sortie du stockage borné : le message reste, la pièce non. */
+  expired?: boolean;
+}
+
 /** Un message du salon. L'auteur est posé par le SERVEUR, jamais par le client. */
 export interface ChatMessage {
   author: string;
   text: string;
   sentAt: number;
+  /** Les pièces du message, absentes d'un message de texte seul. */
+  attachments?: ChatAttachment[];
 }
 
 // #region chat-contract

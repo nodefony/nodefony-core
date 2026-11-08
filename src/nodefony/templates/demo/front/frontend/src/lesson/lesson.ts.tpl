@@ -25,6 +25,7 @@ export type LessonFile =
   | "nodefony/service/PartnerTokenService.ts"
   | "nodefony/command/PartnerCallCommand.ts"
   | "frontend/src/chat/chatContract.ts"
+  | "frontend/src/chat/attachments.ts"
   | "frontend/src/chat/useChat.ts"
   | "frontend/src/partner/partnerApi.ts"
   | "frontend/src/partner/usePartnerLab.ts";

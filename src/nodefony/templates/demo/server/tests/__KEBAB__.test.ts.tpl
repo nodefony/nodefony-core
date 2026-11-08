@@ -1,7 +1,16 @@
-import { existsSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { rename } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, afterAll } from "vitest";
+import type { IUploadedFile } from "@nodefony/http";
 import { getScaffoldSpec, readSymbolsGraph } from "nodefony";
 import { defineSecurityConfig } from "@nodefony/security";
 import {
@@ -15,8 +24,24 @@ import DemoPulseService, {
 } from "../nodefony/service/DemoPulseService";
 import type { IDemoPulse } from "../frontend/src/pulse";
 import ChatService, {
+  CHAT_ATTACHMENT_LIMIT,
   CHAT_HISTORY_LIMIT,
+  decodeText,
+  isUploadedFile,
+  sniffImage,
 } from "../nodefony/service/ChatService";
+import {
+  LARGE_PASTE_CHARS,
+  LARGE_PASTE_LINES,
+  attachmentProblem,
+  countLines,
+  insertAt,
+  isLargePaste,
+} from "../frontend/src/chat/attachments";
+import {
+  ATTACHMENT_MAX_BYTES,
+  ATTACHMENT_MAX_COUNT,
+} from "../frontend/src/chat/chatContract";
 import {
   LESSON_LAYERS,
   extractRegion,
@@ -100,6 +125,138 @@ describe("demo — l'historique du chat", () => {
       chat.add({ author: "a", text: String(i), sentAt: i });
     expect(chat.recent(50, 3).map((m) => m.text)).toEqual(["4", "5"]);
     expect(chat.recent(2).map((m) => m.text)).toEqual(["4", "5"]);
+  });
+});
+
+describe("demo — les règles des pièces jointes (page ET serveur)", () => {
+  it("un grand collage devient une pièce : trop de caractères OU trop de lignes", () => {
+    expect(isLargePaste("x".repeat(LARGE_PASTE_CHARS))).toBe(false);
+    expect(isLargePaste("x".repeat(LARGE_PASTE_CHARS + 1))).toBe(true);
+    expect(isLargePaste("a\n".repeat(LARGE_PASTE_LINES))).toBe(false);
+    expect(isLargePaste("a\n".repeat(LARGE_PASTE_LINES + 1))).toBe(true);
+    expect(countLines("")).toBe(0);
+    expect(countLines("un\ndeux\n")).toBe(2);
+  });
+
+  it("refuse le vide, le trop-plein et la pièce trop grosse ou vide", () => {
+    const one = { name: "a.txt", size: 10 };
+    expect(attachmentProblem("", [])).toBe("message vide");
+    expect(attachmentProblem("salut", [])).toBeNull();
+    expect(attachmentProblem("", [one])).toBeNull();
+    expect(
+      attachmentProblem(
+        "",
+        Array.from({ length: ATTACHMENT_MAX_COUNT + 1 }, () => one),
+      ),
+    ).toMatch(/au plus/u);
+    expect(
+      attachmentProblem("", [
+        { name: "g.bin", size: ATTACHMENT_MAX_BYTES + 1 },
+      ]),
+    ).toMatch(/dépasse/u);
+    expect(attachmentProblem("", [{ name: "v.txt", size: 0 }])).toMatch(
+      /vide/u,
+    );
+  });
+
+  it("une émoticône s'insère à la place de la sélection, curseur après elle", () => {
+    expect(insertAt("bonjour", 3, 7, "🙂")).toEqual({
+      value: "bon🙂",
+      caret: 5,
+    });
+  });
+});
+
+describe("demo — les pièces du salon, classées d'après leurs OCTETS", () => {
+  const work = mkdtempSync(path.join(os.tmpdir(), "nf-demo-chat-"));
+  afterAll(() => rmSync(work, { recursive: true, force: true }));
+  let seq = 0;
+
+  /** Un fichier reçu, tel que le sous-système d'upload le rend. */
+  const upload = (filename: string, bytes: Uint8Array): IUploadedFile => {
+    seq += 1;
+    let at = path.join(work, `incoming-${seq}`);
+    writeFileSync(at, bytes);
+    const file: IUploadedFile = {
+      filename,
+      size: bytes.length,
+      prettySize: `${bytes.length} o`,
+      mimeType: "image/png", // ce que le navigateur DÉCLARE : jamais cru
+      hash: null,
+      hashAlgorithm: false,
+      lastModifiedDate: null,
+      move: () => file,
+      moveAsync: async (target) => {
+        await rename(at, target);
+        at = target;
+        return file;
+      },
+      getMimeType: () => file.mimeType,
+      getSize: () => file.size,
+      getPrettySize: () => file.prettySize,
+    };
+    return file;
+  };
+  const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const store = () => new ChatService(undefined, path.join(work, `s${seq}`));
+
+  it("🔴 une page HTML déclarée image/png n'est PAS une image : texte, téléchargée", async () => {
+    const chat = store();
+    const [piece] = await chat.saveAttachments([
+      upload("photo.png", new TextEncoder().encode("<script>x</script>\n")),
+    ]);
+    expect(piece?.kind).toBe("text");
+    expect(chat.attachment(piece?.id ?? "")?.mime).toBe(
+      "text/plain; charset=utf-8",
+    );
+  });
+
+  it("une vraie image est reconnue à sa signature ; un binaire reste un fichier", async () => {
+    expect(sniffImage(PNG)).toBe("image/png");
+    expect(sniffImage(new Uint8Array([0x3c, 0x73, 0x76, 0x67]))).toBeNull();
+    expect(decodeText(new Uint8Array([0x61, 0x00, 0x62]))).toBeNull();
+    expect(decodeText(new Uint8Array([0xff, 0xfe]))).toBeNull();
+    const chat = store();
+    const [image, binary] = await chat.saveAttachments([
+      upload("a.png", PNG),
+      upload("b.bin", new Uint8Array([1, 0, 2, 3])),
+    ]);
+    expect(image?.kind).toBe("image");
+    expect(binary?.kind).toBe("file");
+    expect(chat.attachment(binary?.id ?? "")?.mime).toBe(
+      "application/octet-stream",
+    );
+  });
+
+  it("un texte annonce ses lignes et ses trois premières", async () => {
+    const chat = store();
+    const [piece] = await chat.saveAttachments([
+      upload("collé.txt", new TextEncoder().encode("1\n2\n3\n4\n5\n")),
+    ]);
+    expect(piece).toMatchObject({ kind: "text", lines: 5, preview: "1\n2\n3" });
+  });
+
+  it("le stock est BORNÉ : la plus ancienne sort, fichier effacé, annonce marquée", async () => {
+    const chat = store();
+    const [first] = await chat.saveAttachments([upload("0.png", PNG)]);
+    for (let i = 1; i <= CHAT_ATTACHMENT_LIMIT; i += 1)
+      await chat.saveAttachments([upload(`${i}.png`, PNG)]);
+    expect(chat.attachment(first?.id ?? "")).toBeUndefined();
+    expect(first?.expired).toBe(true);
+    const dir = path.dirname(
+      chat.attachment(
+        (await chat.saveAttachments([upload("z.png", PNG)]))[0]?.id ?? "",
+      )?.file ?? "",
+    );
+    expect(readdirSync(dir)).toHaveLength(CHAT_ATTACHMENT_LIMIT);
+  });
+
+  it("un envoi refusé ne laisse rien sur le disque", async () => {
+    const chat = new ChatService(undefined, path.join(work, "refus"));
+    await chat.discard([upload("x.bin", new Uint8Array([1, 2]))]);
+    expect(readdirSync(path.join(work, "refus"))).toEqual([]);
+    expect(isUploadedFile({ filename: "x" })).toBe(false);
+    expect(isUploadedFile(upload("y", PNG))).toBe(true);
   });
 });
 

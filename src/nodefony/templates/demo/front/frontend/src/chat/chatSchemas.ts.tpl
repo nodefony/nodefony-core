@@ -14,6 +14,14 @@ export const SendBody = z.strictObject({
   text: z.string().trim().min(1).max(2000),
 });
 
+/**
+ * Le champ texte d'un envoi AVEC pièces (multipart) : il peut être vide, les
+ * pièces suffisent alors à faire un message.
+ */
+export const AttachBody = z.strictObject({
+  text: z.string().trim().max(2000).default(""),
+});
+
 /** La query de l'historique — elle arrive en texte, `coerce` la convertit. */
 export const HistoryQuery = z.strictObject({
   limit: z.coerce.number().int().min(1).max(200).default(50),

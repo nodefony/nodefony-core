@@ -1,6 +1,12 @@
 import { Inject } from "nodefony";
 import type { ContractRouteSchemas } from "nodefony";
-import { controller, route, Idempotent, IsGranted } from "@nodefony/framework";
+import {
+  controller,
+  route,
+  Idempotent,
+  IsGranted,
+  Param,
+} from "@nodefony/framework";
 import type { RouteInput } from "@nodefony/framework";
 import {
   ContractRealtimeController,
@@ -11,13 +17,19 @@ import {
 } from "@nodefony/realtime";
 import { HttpError } from "@nodefony/http";
 import type { ContextType } from "@nodefony/http";
-import { HistoryQuery, SendBody } from "../../frontend/src/chat/chatSchemas";
+import {
+  AttachBody,
+  HistoryQuery,
+  SendBody,
+} from "../../frontend/src/chat/chatSchemas";
+import { attachmentProblem } from "../../frontend/src/chat/attachments";
 import {
   ROOM_CHANNEL,
   TYPING_CHANNEL,
   type ChatContract,
   type ChatMessage,
 } from "../../frontend/src/chat/chatContract";
+import { isUploadedFile } from "../service/ChatService";
 import type ChatService from "../service/ChatService";
 import type DemoPulseService from "../service/DemoPulseService";
 
@@ -135,6 +147,79 @@ class ChatController extends ContractRealtimeController<ChatContract> {
   }
   // #endregion
 
+  // #region chat-attach
+  /**
+   * Un message AVEC des pièces — `POST /demo/chat/attachments`, multipart : le
+   * champ `text` et jusqu'à cinq fichiers. HTTP SEULEMENT : des octets en
+   * volume voyagent en flux jusqu'au disque, jamais dans une trame de socket.
+   * La réponse va à l'expéditeur ; le message part sur le salon comme tout
+   * autre, et l'expéditeur le reçoit par la socket, comme tout le monde.
+   * `@Idempotent()` exige l'en-tête `Idempotency-Key` : un formulaire d'un
+   * autre site ne sait pas le poser, l'envoi forgé s'arrête là.
+   */
+  @route("demo-chat-attach", {
+    path: "/attachments",
+    requirements: { methods: ["POST"] },
+    schema: { body: AttachBody },
+  })
+  @IsGranted(["ROLE_USER"])
+  @Idempotent()
+  async attach(
+    input: RouteInput<{ body: typeof AttachBody }>,
+  ): Promise<{ sentAt: number }> {
+    const me = this.user;
+    if (me === null) throw new HttpError("connexion requise", 401);
+    const files = this.files.filter(isUploadedFile);
+    // Les règles de la page, REJOUÉES ici : le navigateur n'est jamais cru.
+    const problem = attachmentProblem(
+      input.body.text,
+      files.map((file) => ({ name: file.filename, size: file.size })),
+    );
+    if (problem !== null) {
+      await this.chat.discard(files);
+      throw new HttpError(problem, files.length === 0 ? 400 : 413);
+    }
+    const message: ChatMessage = {
+      author: me.identifier,
+      text: input.body.text,
+      sentAt: Date.now(),
+      attachments: await this.chat.saveAttachments(files),
+    };
+    this.chat.add(message);
+    getRealtimeHub<ChatContract>().publish(ROOM_CHANNEL, message);
+    this.pulse.recordChatMessage();
+    return { sentAt: message.sentAt };
+  }
+  // #endregion
+
+  // #region chat-file
+  /**
+   * Une pièce — `GET /demo/chat/files/<id>`, lecture libre comme l'historique.
+   * Le type servi vient des OCTETS : seules les images reconnues s'affichent
+   * dans la page, tout le reste se télécharge ; `nosniff` interdit au
+   * navigateur de deviner, `sandbox` désarme un document ouvert dans un onglet.
+   */
+  @route("demo-chat-file", {
+    path: "/files/{id}",
+    requirements: { methods: ["GET"] },
+  })
+  async file(@Param("id") id: string): Promise<void> {
+    const stored = this.chat.attachment(id);
+    if (stored === undefined)
+      throw new HttpError("pièce introuvable, ou sortie du stockage", 404);
+    const inline = stored.meta.kind === "image";
+    await this.streamFile(stored.file, {
+      "Content-Type": stored.mime,
+      "Content-Disposition": contentDisposition(
+        inline ? "inline" : "attachment",
+        stored.meta.name,
+      ),
+      "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "sandbox",
+    });
+  }
+  // #endregion
+
   // #region chat-room
   /** Le salon : lecture libre. Il relaie, il n'émet rien de lui-même. */
   @RealtimeChannel(ROOM_CHANNEL)
@@ -162,6 +247,23 @@ class ChatController extends ContractRealtimeController<ChatContract> {
     getRealtimeHub<ChatContract>().publish(TYPING_CHANNEL, { author });
   }
   // #endregion
+}
+
+/**
+ * L'en-tête `Content-Disposition` d'une pièce (RFC 6266) : un nom ASCII de
+ * repli, et le vrai nom en UTF-8 (`filename*`, RFC 8187) — le nom vient du
+ * client, il est encodé, jamais recopié tel quel dans un en-tête.
+ */
+function contentDisposition(
+  type: "inline" | "attachment",
+  name: string,
+): string {
+  const ascii = name.replace(/[^\x20-\x7e]|["\\%]/g, "_");
+  const utf8 = encodeURIComponent(name).replace(
+    /['()*]/g,
+    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+  return `${type}; filename="${ascii}"; filename*=UTF-8''${utf8}`;
 }
 
 export default ChatController;

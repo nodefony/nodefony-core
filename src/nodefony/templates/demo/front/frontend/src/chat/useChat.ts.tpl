@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { NodefonySocket } from "nodefony/client";
 import type { RealtimeIdentity, RealtimeState } from "nodefony/client";
 import {
+  CHAT_ATTACH_PATH,
   CHAT_REALTIME_PATH,
   ROOM_CHANNEL,
   TYPING_CHANNEL,
@@ -21,20 +22,36 @@ const TYPING_DISPLAY_MS = 3000;
 /** Ce que l'écran du salon lit et fait. */
 export interface IChatRoom {
   messages: ChatMessage[];
-  /** Qui écrit en ce moment (un autre que soi), ou `null`. */
+  /** Qui écrit en ce moment, soi compris : la même fenêtre pour tous. */
   typing: string | null;
   /** L'identité annoncée par le serveur ; `null` avant l'accueil. */
   identity: RealtimeIdentity | null;
   state: RealtimeState;
-  /** Envoie un message ; rejette avec le motif du serveur (403, 422…). */
-  send(text: string): Promise<void>;
+  /**
+   * Envoie un message, avec ses pièces s'il en a ; rejette avec le motif du
+   * serveur (403, 413, 422…). Rien ne s'affiche avant l'annonce du salon.
+   */
+  send: (text: string, files?: readonly File[]) => Promise<void>;
   /** Signale qu'on écrit (borné : au plus un signal par intervalle). */
-  notifyTyping(): void;
+  notifyTyping: () => void;
 }
 
 /** Clé d'un message — l'historique et le salon peuvent livrer le même. */
-function keyOf(message: ChatMessage): string {
-  return `${message.sentAt}|${message.author}|${message.text}`;
+export function keyOf(message: ChatMessage): string {
+  const pieces = message.attachments?.map((piece) => piece.id).join(",") ?? "";
+  return `${message.sentAt}|${message.author}|${message.text}|${pieces}`;
+}
+
+/** Le motif d'un refus HTTP : le message du serveur, sinon le statut. */
+async function refusalOf(response: Response): Promise<string> {
+  const body: unknown = await response.json().catch(() => null);
+  if (typeof body === "object" && body !== null) {
+    for (const key of ["message", "error"]) {
+      const value: unknown = Reflect.get(body, key);
+      if (typeof value === "string" && value !== "") return value;
+    }
+  }
+  return `envoi refusé (${response.status})`;
 }
 
 /** Fusionne sans doublon, dans l'ordre d'envoi. */
@@ -119,14 +136,18 @@ export function useChat(): IChatRoom {
     };
   }, []);
 
-  // #region chat-send-client
-  // Le texte seul : l'auteur, c'est le serveur qui le pose d'après la session.
-  const send = useCallback(async (text: string) => {
-    const socket = socketRef.current;
-    if (socket === null) throw new Error("socket fermée");
-    await socket.post("/demo/chat/send", { text });
-  }, []);
-  // #endregion
+  const send = useCallback(
+    async (text: string, files: readonly File[] = []) => {
+      if (files.length > 0) return sendWithFiles(text, files);
+      // #region chat-send-client
+      // Le texte seul : l'auteur, c'est le serveur qui le pose d'après la session.
+      const socket = socketRef.current;
+      if (socket === null) throw new Error("socket fermée");
+      await socket.post("/demo/chat/send", { text });
+      // #endregion
+    },
+    [],
+  );
 
   // #region chat-typing-client
   // Un signal SANS champ, au plus toutes les deux secondes.
@@ -140,3 +161,27 @@ export function useChat(): IChatRoom {
 
   return { messages, typing, identity, state, send, notifyTyping };
 }
+
+// #region chat-attach-client
+/**
+ * Un message AVEC pièces : un `POST` multipart ordinaire, la session suit par
+ * le cookie. La clé d'idempotence est tirée par INTENTION d'envoi. Et rien
+ * d'autre : le message reviendra par le salon, comme chez tout le monde — un
+ * seul chemin met l'écran à jour.
+ */
+async function sendWithFiles(
+  text: string,
+  files: readonly File[],
+): Promise<void> {
+  const form = new FormData();
+  form.append("text", text);
+  for (const file of files) form.append("file", file, file.name);
+  const response = await fetch(CHAT_ATTACH_PATH, {
+    method: "POST",
+    body: form,
+    credentials: "same-origin",
+    headers: { "Idempotency-Key": crypto.randomUUID() },
+  });
+  if (!response.ok) throw new Error(await refusalOf(response));
+}
+// #endregion

@@ -1,10 +1,11 @@
-import { useId, useState, type ComponentProps } from "react";
 import { loginPagePath } from "nodefony/client";
 import { docUrl, type IDemoAbout } from "../about";
 import { LEVELS } from "../Catalogue";
 import { LessonCode } from "../lesson/LessonCode";
 import { CHAT_LESSON } from "./chatTabs";
-import { useChat, type IChatRoom } from "./useChat";
+import { ChatAttachments } from "./ChatAttachments";
+import { ChatComposer } from "./ChatComposer";
+import { keyOf, useChat, type IChatRoom } from "./useChat";
 
 /** Heure d'un message, à la minute. */
 const TIME = new Intl.DateTimeFormat("fr-FR", {
@@ -92,6 +93,21 @@ export function ChatLesson({ about }: { about: IDemoAbout | null }) {
             </li>
             <li>
               <strong>
+                Le type d'un fichier déclaré par le navigateur ment.
+              </strong>{" "}
+              Une page HTML nommée <code>photo.png</code> s'exécuterait si on
+              l'affichait : ici, seules les images reconnues à leurs premiers
+              octets s'affichent, tout le reste se télécharge.
+            </li>
+            <li>
+              <strong>
+                Des octets en volume n'ont rien à faire dans la socket.
+              </strong>{" "}
+              Le fichier monte en HTTP, en flux jusqu'au disque ; seule
+              l'annonce passe par le salon.
+            </li>
+            <li>
+              <strong>
                 Un canal dont la fabrique rend <code>null</code> est INCONNU
               </strong>{" "}
               : l'abonnement est refusé. Rendre une fonction de nettoyage, même
@@ -130,29 +146,7 @@ function ChatRoom({
   room: IChatRoom;
   loginPath: string | null;
 }) {
-  const inputId = useId();
-  const [draft, setDraft] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const canWrite = room.identity?.authenticated === true;
-
-  const onSubmit: ComponentProps<"form">["onSubmit"] = (event) => {
-    event.preventDefault();
-    const text = draft.trim();
-    if (text === "") return;
-    room
-      .send(text)
-      .then(() => {
-        setDraft("");
-        setError(null);
-      })
-      .catch((reason: unknown) => {
-        setError(
-          reason instanceof Error
-            ? reason.message
-            : "envoi refusé par le serveur",
-        );
-      });
-  };
 
   return (
     <div className="room">
@@ -167,12 +161,18 @@ function ChatRoom({
             <li className="room-empty">Aucun message pour l'instant.</li>
           )}
           {room.messages.map((message) => (
-            <li key={`${message.sentAt}|${message.author}|${message.text}`}>
+            <li key={keyOf(message)}>
               <span className="room-meta">
                 <strong>{message.author}</strong> ·{" "}
                 {TIME.format(message.sentAt)}
               </span>
-              <span className="room-text">{message.text}</span>
+              {message.text !== "" && (
+                <span className="room-text">{message.text}</span>
+              )}
+              {message.attachments !== undefined &&
+                message.attachments.length > 0 && (
+                  <ChatAttachments pieces={message.attachments} />
+                )}
             </li>
           ))}
         </ul>
@@ -194,30 +194,11 @@ function ChatRoom({
         )}
       </div>
       {canWrite ? (
-        <form className="room-foot" onSubmit={onSubmit}>
-          <label htmlFor={inputId} className="sr-only">
-            Message
-          </label>
-          <input
-            id={inputId}
-            value={draft}
-            maxLength={2000}
-            autoComplete="off"
-            placeholder={`Écrire en tant que ${room.identity?.userIdentifier ?? ""}`}
-            onChange={(event) => {
-              setDraft(event.target.value);
-              room.notifyTyping();
-            }}
-          />
-          <button type="submit" className="btn primary">
-            Envoyer
-          </button>
-          {error !== null && (
-            <p className="room-error" role="alert">
-              {error}
-            </p>
-          )}
-        </form>
+        <ChatComposer
+          author={room.identity?.userIdentifier ?? ""}
+          send={room.send}
+          notifyTyping={room.notifyTyping}
+        />
       ) : (
         <div className="room-foot">
           <p>
