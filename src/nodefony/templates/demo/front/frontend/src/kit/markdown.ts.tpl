@@ -1,13 +1,15 @@
 /**
- * Le Markdown du salon — un sous-ensemble réduit, lu À L'IDENTIQUE par chaque
- * page : gras, italique, code, bloc de code, lien, liste, citation.
+ * Un Markdown réduit, lu À L'IDENTIQUE par chaque page : gras, italique,
+ * code, bloc de code, lien, liste, citation — et les gestes de l'éditeur qui
+ * l'écrivent.
  *
- * Guide pour un agent : le message voyage en TEXTE BRUT (le serveur ne le
- * transforme pas) ; chaque page l'analyse avec ces fonctions pures, puis le
- * rend en éléments React (`ChatText.tsx`) — jamais en HTML injecté. Un
- * lien ne s'ouvre que vers `http:` ou `https:` : `javascript:` reste du
- * texte. Le message est borné (2 000 caractères, `SendBody`), donc l'analyse
- * aussi.
+ * Guide pour un agent : brique du KIT, partagée par les démos. Le texte
+ * voyage BRUT (le serveur ne le transforme pas) ; chaque page l'analyse avec
+ * ces fonctions pures, puis le rend en éléments React (`MarkdownText.tsx`) —
+ * jamais en HTML injecté. Un lien ne s'ouvre que vers `http:` ou `https:` :
+ * `javascript:` reste du texte. L'appelant borne le texte (le salon : 2 000
+ * caractères, `SendBody`), donc l'analyse aussi. L'éditeur
+ * (`MarkdownEditor.tsx`) n'écrit qu'avec les fonctions de `chat-format`.
  */
 
 /** Un morceau de ligne. */
@@ -290,3 +292,80 @@ export function linkMark(
   };
 }
 // #endregion
+
+/** Une ligne de liste : son retrait, sa puce ou son numéro, son texte. */
+const LIST_ITEM = /^(\s*)(?:([-*+])|(\d{1,9})([.)]))\s+(.*)$/;
+
+/**
+ * Pose (ou ÔTE, si toutes l'ont déjà) une puce, un numéro ou un `>` en tête
+ * de chaque ligne touchée par la sélection — les boutons « liste » et
+ * « citation ». Une liste numérotée se compte de 1 en 1.
+ *
+ * @returns le texte, et les lignes touchées sélectionnées
+ */
+export function prefixLines(
+  value: string,
+  start: number,
+  end: number,
+  prefix: "- " | "1. " | "> ",
+): { value: string; start: number; end: number } {
+  const from = value.lastIndexOf("\n", start - 1) + 1;
+  const stop = value.indexOf("\n", end);
+  const to = stop < 0 ? value.length : stop;
+  const lines = value.slice(from, to).split("\n");
+  const marker =
+    prefix === "1. " ? /^\d{1,9}\. / : prefix === "- " ? /^- / : /^> ?/;
+  const remove = lines.every((line) => marker.test(line));
+  const next = lines
+    .map((line, index) => {
+      if (remove) return line.replace(marker, "");
+      return `${prefix === "1. " ? `${index + 1}. ` : prefix}${line}`;
+    })
+    .join("\n");
+  return {
+    value: value.slice(0, from) + next + value.slice(to),
+    start: from,
+    end: from + next.length,
+  };
+}
+
+/**
+ * Entrée sur une ligne de liste : ouvre l'élément suivant (même retrait,
+ * même puce, numéro suivant) ; sur un élément VIDE, retire sa puce et sort
+ * de la liste. Hors d'une liste, `null` : Entrée garde son sens ordinaire.
+ *
+ * @param caret - le curseur (sans sélection)
+ */
+export function continueList(
+  value: string,
+  caret: number,
+): { value: string; start: number; end: number } | null {
+  const from = value.lastIndexOf("\n", caret - 1) + 1;
+  const stop = value.indexOf("\n", caret);
+  const to = stop < 0 ? value.length : stop;
+  const match = LIST_ITEM.exec(value.slice(from, to));
+  if (match === null) return null;
+  const indent = match.at(1) ?? "";
+  const bullet = match.at(2);
+  const number = match.at(3);
+  const text = match.at(5) ?? "";
+  if (text.trim() === "") {
+    // Élément vide : on sort de la liste, la ligne reste vide.
+    return {
+      value: value.slice(0, from) + value.slice(to),
+      start: from,
+      end: from,
+    };
+  }
+  const marker =
+    bullet !== undefined
+      ? `${bullet} `
+      : `${Number(number ?? "0") + 1}${match.at(4) ?? "."} `;
+  const inserted = `\n${indent}${marker}`;
+  const at = caret + inserted.length;
+  return {
+    value: value.slice(0, caret) + inserted + value.slice(caret),
+    start: at,
+    end: at,
+  };
+}

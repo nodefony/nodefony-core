@@ -1,85 +1,86 @@
 import {
+  useCallback,
   useEffect,
-  useId,
-  useLayoutEffect,
   useRef,
   useState,
   type ClipboardEvent,
-  type KeyboardEvent,
 } from "react";
-import { ATTACHMENT_MAX_COUNT } from "./chatContract";
+import { FilePreview } from "../kit/FilePreview";
+import { MarkdownEditor, type IEditorHandle } from "../kit/MarkdownEditor";
+import { describeFile, type IFilePreview } from "../kit/preview";
+import { ATTACHMENT_MAX_BYTES, ATTACHMENT_MAX_COUNT } from "./chatContract";
 import {
   EMOJIS,
   attachmentProblem,
-  countLines,
-  formatSize,
-  insertAt,
   isLargePaste,
   pastedFileName,
-  previewLines,
 } from "./attachments";
-import { codeMark, linkMark, toggleMark } from "./markdown";
-
-/** Une mise en forme : rend le texte et la sélection à reposer. */
-type Format = (
-  value: string,
-  start: number,
-  end: number,
-) => { value: string; start: number; end: number };
-
-/** Les boutons de mise en forme, et leur raccourci (Ctrl ou ⌘). */
-const FORMATS: readonly {
-  label: string;
-  glyph: string;
-  key: string;
-  apply: Format;
-}[] = [
-  {
-    label: "Gras",
-    glyph: "G",
-    key: "b",
-    apply: (v, s, e) => toggleMark(v, s, e, "**"),
-  },
-  {
-    label: "Italique",
-    glyph: "I",
-    key: "i",
-    apply: (v, s, e) => toggleMark(v, s, e, "_"),
-  },
-  { label: "Code", glyph: "</>", key: "e", apply: codeMark },
-  { label: "Lien", glyph: "🔗", key: "k", apply: linkMark },
-];
 
 /** Une pièce en attente d'envoi — locale à l'écrivain, rien n'est parti. */
 interface IPending {
   key: string;
   file: File;
-  /** Vignette d'une image (URL locale, rendue au retrait). */
-  thumb: string | null;
-  /** Un grand collage : ses lignes et son début. */
-  pasted: { lines: number; preview: string } | null;
+  /** Adresse locale du contenu (`blob:`), posée avec l'aperçu, rendue au retrait. */
+  url: string | null;
+  /** L'aperçu lu dans le navigateur ; `null` pendant la lecture. */
+  preview: IFilePreview | null;
 }
 
 /** Une pièce en attente, née d'un fichier choisi, déposé ou collé. */
 function pendingFile(file: File): IPending {
-  return {
-    key: crypto.randomUUID(),
-    file,
-    thumb: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
-    pasted: null,
-  };
+  return { key: crypto.randomUUID(), file, url: null, preview: null };
 }
 
 /**
- * La zone d'écriture du salon : texte, émoticônes, pièces (trombone,
- * glisser-déposer, image collée) — et un grand collage devient une boîte
- * « Texte collé » au lieu d'envahir le champ.
+ * L'adresse locale d'une pièce lue. Un PDF est RETYPÉ d'après ses octets :
+ * le type déclaré vient du nom, et un fichier nommé `.html` ouvert dans un
+ * onglet s'exécuterait sous l'origine de la page.
+ */
+function localUrl(file: File, preview: IFilePreview): string {
+  return URL.createObjectURL(
+    preview.kind === "pdf"
+      ? new Blob([file], { type: "application/pdf" })
+      : file,
+  );
+}
+
+/** Rend l'adresse locale d'une pièce, s'il y en a une. */
+function release(piece: IPending): void {
+  if (piece.url !== null) URL.revokeObjectURL(piece.url);
+}
+
+/**
+ * L'aperçu d'une pièce, lu DANS LE NAVIGATEUR par le même code que le
+ * serveur (`describeFile`). Une pièce vide ou trop grosse n'est pas lue :
+ * l'envoi la refusera.
+ */
+async function previewOf(file: File): Promise<IFilePreview> {
+  if (file.size === 0 || file.size > ATTACHMENT_MAX_BYTES)
+    return { kind: "file" };
+  try {
+    const described = await describeFile(
+      new Uint8Array(await file.arrayBuffer()),
+    );
+    return described.fields;
+  } catch {
+    return { kind: "file" };
+  }
+}
+
+/**
+ * La zone d'écriture du salon : l'éditeur Markdown du kit, habillé des
+ * pièces jointes (trombone, glisser-déposer, image collée) et des
+ * émoticônes — et un grand collage devient une pièce au lieu d'envahir le
+ * champ.
  *
  * Guide pour un agent : tout ici reste LOCAL jusqu'à « Envoyer » ; ensuite le
- * message n'apparaît que lorsque le serveur l'annonce sur le salon. Les règles
- * (nombre, taille, grand collage) viennent de `attachments.ts`, que le serveur
- * rejoue. Entrée envoie, Maj+Entrée va à la ligne ; G, I, </> et 🔗 (ou
- * Ctrl/⌘ + B, I, E, K) écrivent le Markdown du salon (`markdown.ts`).
+ * message n'apparaît que lorsque le serveur l'annonce sur le salon. Une pièce
+ * montre son aperçu dès qu'on la choisit — les MÊMES boîtes que le salon
+ * (`FilePreview.tsx`), calculées dans le navigateur par `describeFile` ; le
+ * serveur refait le sien à la réception et ne croit jamais celui-ci. Les
+ * règles (nombre, taille, grand collage) viennent de `attachments.ts`, que le
+ * serveur rejoue. L'édition (mise en forme, listes, aperçu) est celle du kit
+ * (`MarkdownEditor.tsx`).
  */
 export function ChatComposer({
   author,
@@ -90,9 +91,8 @@ export function ChatComposer({
   send: (text: string, files: readonly File[]) => Promise<void>;
   notifyTyping: () => void;
 }) {
-  const inputId = useId();
   const zone = useRef<HTMLFormElement>(null);
-  const field = useRef<HTMLTextAreaElement>(null);
+  const editor = useRef<IEditorHandle>(null);
   const picker = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState("");
   const [pending, setPending] = useState<IPending[]>([]);
@@ -101,28 +101,15 @@ export function ChatComposer({
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
   const pasteCount = useRef(0);
-  // La sélection à reposer après le rendu du nouveau texte : en
-  // `useLayoutEffect`, AVANT toute frappe suivante (un `requestAnimationFrame`
-  // arrivait après une frappe rapide, qui remplaçait alors la sélection).
-  const selection = useRef<{ start: number; end: number } | null>(null);
-  useLayoutEffect(() => {
-    const el = field.current;
-    const next = selection.current;
-    if (el === null || next === null) return;
-    selection.current = null;
-    el.focus();
-    el.setSelectionRange(next.start, next.end);
-  }, [draft]);
 
-  // Les vignettes locales sont rendues au démontage.
-  const thumbs = useRef(pending);
+  // Les adresses locales sont rendues au démontage.
+  const known = useRef(pending);
   useEffect(() => {
-    thumbs.current = pending;
+    known.current = pending;
   }, [pending]);
   useEffect(
     () => () => {
-      for (const piece of thumbs.current)
-        if (piece.thumb !== null) URL.revokeObjectURL(piece.thumb);
+      for (const piece of known.current) release(piece);
     },
     [],
   );
@@ -134,57 +121,42 @@ export function ChatComposer({
   const blocked =
     pending.length > 0 && problem !== null && problem !== "message vide";
 
-  const add = (pieces: IPending[]) => {
-    if (pieces.length === 0) return;
-    setPending((known) => [...known, ...pieces]);
+  // Ajoute les pièces, puis lit leur aperçu ; une pièce retirée entre-temps
+  // ne revient pas (le `map` ne la trouve plus). Stable : rien que des setters.
+  const add = useCallback((files: readonly File[]) => {
+    if (files.length === 0) return;
+    const pieces = files.map(pendingFile);
+    setPending((list) => [...list, ...pieces]);
     setError(null);
-  };
+    for (const piece of pieces)
+      void previewOf(piece.file).then((preview) => {
+        const url = localUrl(piece.file, preview);
+        setPending((list) => {
+          // Retirée pendant la lecture : son adresse est rendue aussitôt.
+          if (!list.some((item) => item.key === piece.key))
+            URL.revokeObjectURL(url);
+          return list.map((item) =>
+            item.key === piece.key ? { ...item, preview, url } : item,
+          );
+        });
+      });
+  }, []);
 
   const remove = (key: string) => {
-    setPending((known) =>
-      known.filter((piece) => {
+    setPending((list) =>
+      list.filter((piece) => {
         if (piece.key !== key) return true;
-        if (piece.thumb !== null) URL.revokeObjectURL(piece.thumb);
+        release(piece);
         return false;
       }),
     );
-  };
-
-  const dropThumb = (key: string) => {
-    setPending((known) =>
-      known.map((piece) => {
-        if (piece.key !== key || piece.thumb === null) return piece;
-        URL.revokeObjectURL(piece.thumb);
-        return { ...piece, thumb: null };
-      }),
-    );
-  };
-
-  const insert = (text: string) => {
-    const el = field.current;
-    const start = el?.selectionStart ?? draft.length;
-    const end = el?.selectionEnd ?? draft.length;
-    const next = insertAt(draft, start, end, text);
-    selection.current = { start: next.caret, end: next.caret };
-    setDraft(next.value);
-  };
-
-  const format = (apply: Format) => {
-    const el = field.current;
-    const next = apply(
-      draft,
-      el?.selectionStart ?? draft.length,
-      el?.selectionEnd ?? draft.length,
-    );
-    selection.current = { start: next.start, end: next.end };
-    setDraft(next.value);
   };
 
   const onPaste = (event: ClipboardEvent<HTMLTextAreaElement>) => {
     const files = [...event.clipboardData.files];
     if (files.length > 0) {
       event.preventDefault();
-      add(files.map(pendingFile));
+      add(files);
       return;
     }
     const text = event.clipboardData.getData("text/plain");
@@ -192,16 +164,10 @@ export function ChatComposer({
     // Trop long pour le champ : une pièce, comme un fichier.
     event.preventDefault();
     pasteCount.current += 1;
-    const file = new File([text], pastedFileName(pasteCount.current), {
-      type: "text/plain",
-    });
     add([
-      {
-        key: crypto.randomUUID(),
-        file,
-        thumb: null,
-        pasted: { lines: countLines(text), preview: previewLines(text) },
-      },
+      new File([text], pastedFileName(pasteCount.current), {
+        type: "text/plain",
+      }),
     ]);
   };
 
@@ -220,10 +186,7 @@ export function ChatComposer({
     const drop = (event: DragEvent) => {
       event.preventDefault();
       setDragging(false);
-      const files = [...(event.dataTransfer?.files ?? [])];
-      if (files.length === 0) return;
-      setPending((known) => [...known, ...files.map(pendingFile)]);
-      setError(null);
+      add([...(event.dataTransfer?.files ?? [])]);
     };
     el.addEventListener("dragover", over);
     el.addEventListener("dragleave", leave);
@@ -233,7 +196,7 @@ export function ChatComposer({
       el.removeEventListener("dragleave", leave);
       el.removeEventListener("drop", drop);
     };
-  }, []);
+  }, [add]);
 
   const submit = () => {
     const text = draft.trim();
@@ -247,8 +210,7 @@ export function ChatComposer({
       pending.map((piece) => piece.file),
     )
       .then(() => {
-        for (const piece of pending)
-          if (piece.thumb !== null) URL.revokeObjectURL(piece.thumb);
+        for (const piece of pending) release(piece);
         setDraft("");
         setPending([]);
         setError(null);
@@ -263,28 +225,6 @@ export function ChatComposer({
       .finally(() => setSending(false));
   };
 
-  const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === "Escape" && emojiOpen) setEmojiOpen(false);
-    if ((event.ctrlKey || event.metaKey) && !event.altKey) {
-      const shortcut = FORMATS.find(
-        (item) => item.key === event.key.toLowerCase(),
-      );
-      if (shortcut !== undefined) {
-        event.preventDefault();
-        format(shortcut.apply);
-        return;
-      }
-    }
-    if (
-      event.key === "Enter" &&
-      !event.shiftKey &&
-      !event.nativeEvent.isComposing
-    ) {
-      event.preventDefault();
-      submit();
-    }
-  };
-
   return (
     <form
       ref={zone}
@@ -296,136 +236,122 @@ export function ChatComposer({
         submit();
       }}
     >
-      {pending.length > 0 && (
-        <ul className="chips" aria-label="Pièces à envoyer">
-          {pending.map((piece) => (
-            <li key={piece.key} className="chip">
-              {piece.thumb !== null ? (
-                <img
-                  src={piece.thumb}
-                  alt=""
-                  className="chip-thumb"
-                  // Le type déclaré mentait : pas une image, l'icône reprend.
-                  onError={() => dropThumb(piece.key)}
-                />
-              ) : (
-                <span className="chip-icon" aria-hidden="true">
-                  {piece.pasted !== null ? "📝" : "📄"}
-                </span>
-              )}
-              <span className="chip-body">
-                <strong>
-                  {piece.pasted !== null ? "Texte collé" : piece.file.name}
-                </strong>
-                <span className="chip-meta">
-                  {piece.pasted !== null
-                    ? `${piece.pasted.lines} lignes · ${formatSize(piece.file.size)}`
-                    : formatSize(piece.file.size)}
-                </span>
-                {piece.pasted !== null && (
-                  <pre className="chip-preview">{piece.pasted.preview}</pre>
-                )}
-              </span>
+      <MarkdownEditor
+        label="Message"
+        value={draft}
+        maxLength={2000}
+        placeholder={`Écrire en tant que ${author}`}
+        onChange={(value) => {
+          setDraft(value);
+          notifyTyping();
+        }}
+        onEnter={submit}
+        onPaste={onPaste}
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && emojiOpen) {
+            event.preventDefault();
+            setEmojiOpen(false);
+          }
+        }}
+        above={
+          pending.length > 0 && (
+            <ul className="pending" aria-label="Pièces à envoyer">
+              {pending.map((piece) => (
+                <li key={piece.key} className="pending-piece">
+                  <FilePreview
+                    file={{
+                      name: piece.file.name,
+                      size: piece.file.size,
+                      ...(piece.preview ?? { kind: "file" }),
+                    }}
+                    url={piece.url}
+                    local
+                  />
+                  {piece.preview === null && (
+                    <span className="pending-reading">lecture…</span>
+                  )}
+                  <button
+                    type="button"
+                    className="pending-remove"
+                    aria-label={`Retirer ${piece.file.name}`}
+                    title={`Retirer ${piece.file.name}`}
+                    onClick={() => remove(piece.key)}
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )
+        }
+        editor={editor}
+        tools={
+          <>
+            <button
+              type="button"
+              className="md-tool"
+              aria-label={`Joindre des fichiers (${ATTACHMENT_MAX_COUNT} au plus)`}
+              title={`Joindre des fichiers (${ATTACHMENT_MAX_COUNT} au plus)`}
+              onClick={() => picker.current?.click()}
+            >
+              📎
+            </button>
+            <input
+              ref={picker}
+              type="file"
+              multiple
+              hidden
+              onChange={(event) => {
+                add([...(event.target.files ?? [])]);
+                event.target.value = "";
+              }}
+            />
+            <div className="emoji-wrap">
               <button
                 type="button"
-                className="chip-remove"
-                aria-label={`Retirer ${piece.file.name}`}
-                onClick={() => remove(piece.key)}
+                className="md-tool"
+                aria-label="Émoticônes"
+                title="Émoticônes"
+                aria-expanded={emojiOpen}
+                onClick={() => setEmojiOpen((open) => !open)}
               >
-                ✕
+                🙂
               </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <div className="format-bar" role="group" aria-label="Mise en forme">
-        {FORMATS.map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            className={`tool fmt fmt-${item.key}`}
-            aria-label={`${item.label} (Ctrl+${item.key.toUpperCase()})`}
-            title={`${item.label} (Ctrl+${item.key.toUpperCase()})`}
-            onClick={() => format(item.apply)}
-          >
-            {item.glyph}
-          </button>
-        ))}
-      </div>
-      <div className="composer-row">
-        <button
-          type="button"
-          className="tool"
-          aria-label={`Joindre des fichiers (${ATTACHMENT_MAX_COUNT} au plus)`}
-          onClick={() => picker.current?.click()}
-        >
-          📎
-        </button>
-        <input
-          ref={picker}
-          type="file"
-          multiple
-          hidden
-          onChange={(event) => {
-            add([...(event.target.files ?? [])].map(pendingFile));
-            event.target.value = "";
-          }}
-        />
-        <div className="emoji-wrap">
-          <button
-            type="button"
-            className="tool"
-            aria-label="Émoticônes"
-            aria-expanded={emojiOpen}
-            onClick={() => setEmojiOpen((open) => !open)}
-          >
-            🙂
-          </button>
-          {emojiOpen && (
-            <div className="emoji-grid" role="group" aria-label="Émoticônes">
-              {EMOJIS.map((emoji) => (
-                <button
-                  key={emoji.char}
-                  type="button"
-                  aria-label={emoji.label}
-                  title={emoji.label}
-                  onClick={() => {
-                    insert(emoji.char);
-                    setEmojiOpen(false);
-                  }}
+              {emojiOpen && (
+                <div
+                  className="emoji-grid"
+                  role="group"
+                  aria-label="Émoticônes"
                 >
-                  {emoji.char}
-                </button>
-              ))}
+                  {EMOJIS.map((emoji) => (
+                    <button
+                      key={emoji.char}
+                      type="button"
+                      aria-label={emoji.label}
+                      title={emoji.label}
+                      onClick={() => {
+                        editor.current?.insert(emoji.char);
+                        setEmojiOpen(false);
+                      }}
+                    >
+                      {emoji.char}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </div>
-        <label htmlFor={inputId} className="sr-only">
-          Message
-        </label>
-        <textarea
-          id={inputId}
-          ref={field}
-          rows={1}
-          value={draft}
-          maxLength={2000}
-          autoComplete="off"
-          placeholder={`Écrire en tant que ${author}`}
-          onPaste={onPaste}
-          onKeyDown={onKeyDown}
-          onChange={(event) => {
-            setDraft(event.target.value);
-            notifyTyping();
-          }}
-        />
-        <button
-          type="submit"
-          className="btn primary"
-          disabled={sending || blocked}
-        >
-          {sending ? "Envoi…" : "Envoyer"}
-        </button>
-      </div>
+          </>
+        }
+        actions={
+          <button
+            type="submit"
+            className="btn primary md-send"
+            disabled={sending || blocked}
+          >
+            {sending ? "Envoi…" : "Envoyer"}
+          </button>
+        }
+      />
       {(error ?? (blocked ? problem : null)) !== null && (
         <p className="room-error" role="alert">
           {error ?? problem}

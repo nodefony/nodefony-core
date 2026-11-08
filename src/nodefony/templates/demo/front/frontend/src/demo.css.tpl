@@ -166,6 +166,35 @@ code {
   background: var(--blue);
   font-weight: 600;
 }
+/* Le compte connecté : l'identifiant, puis la déconnexion. */
+.account {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 6px;
+}
+.account-who {
+  max-width: 16ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.account-out {
+  min-height: 36px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--fg);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.account-out:hover {
+  background: var(--bg-soft);
+}
 
 main {
   max-width: 1080px;
@@ -1712,57 +1741,112 @@ a.ritem:hover .ritem-go {
   outline: 2px dashed var(--cyan);
   outline-offset: -6px;
 }
-.composer-row {
+/* L'éditeur Markdown du kit : UNE boîte — pièces, champ, puis la barre. */
+.md-editor {
   display: flex;
-  align-items: flex-end;
-  gap: 8px;
-}
-.composer textarea {
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: 44px;
-  max-height: 160px;
-  padding: 11px 12px;
-  font: inherit;
-  line-height: 1.4;
-  color: var(--fg);
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  resize: vertical;
+  border-radius: 12px;
+}
+.md-editor:focus-within {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--cyan) 22%, transparent);
+}
+.md-editor textarea {
+  min-height: 48px;
+  max-height: 240px;
+  padding: 6px 6px 2px;
+  font: inherit;
+  line-height: 1.45;
+  color: var(--fg);
+  background: none;
+  border: 0;
+  outline: none;
+  resize: none;
   field-sizing: content;
 }
-.composer .tool {
-  flex: none;
-  width: 44px;
-  height: 44px;
-  font-size: 1.15rem;
-  background: var(--card);
-  border: 1px solid var(--border);
+.md-preview {
+  min-height: 48px;
+  max-height: 240px;
+  overflow: auto;
+  padding: 6px;
+  border-radius: 8px;
+  background: var(--bg-soft);
+}
+.md-empty {
+  margin: 0;
+  color: var(--muted);
+}
+.md-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+.md-formats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin-left: 4px;
+  padding-left: 6px;
+  border-left: 1px solid var(--border);
+}
+.md-tool {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 8px;
+  font-size: 0.95rem;
+  color: var(--fg);
+  background: none;
+  border: 0;
   border-radius: 8px;
   cursor: pointer;
 }
-.composer .tool:hover,
-.composer .tool[aria-expanded="true"] {
-  border-color: var(--cyan);
+.md-tool:hover:not(:disabled),
+.md-tool[aria-expanded="true"] {
+  background: var(--bg-soft);
 }
-.format-bar {
-  display: flex;
-  gap: 4px;
+.md-tool:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
-.composer .fmt {
-  width: 32px;
-  height: 32px;
-  font-size: 0.85rem;
-}
-.fmt-b {
+.md-tool-b {
   font-weight: 700;
 }
-.fmt-i {
+.md-tool-i {
   font-style: italic;
+  font-family: Georgia, serif;
 }
-.fmt-e {
+.md-tool-e {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+}
+.md-spacer {
+  flex: 1 1 auto;
+}
+.md-mode {
+  min-height: 36px;
+  padding: 0 12px;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--muted);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.md-mode[aria-pressed="true"] {
+  color: var(--fg);
+  border-color: var(--cyan);
+  background: color-mix(in srgb, var(--cyan) 12%, transparent);
+}
+.md-send {
+  margin-left: 6px;
 }
 .emoji-wrap {
   position: relative;
@@ -1794,50 +1878,46 @@ a.ritem:hover .ritem-go {
 .emoji-grid button:focus-visible {
   background: var(--bg-soft);
 }
-.chips {
+/* Les pièces en attente : les mêmes boîtes que le salon, et un retrait. */
+.pending {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 0 0 6px;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  border-bottom: 1px solid var(--border);
 }
-.chip {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  max-width: 320px;
-  padding: 6px 6px 6px 8px;
+.pending-piece {
+  position: relative;
+  width: min(420px, 100%);
+}
+/* La croix de retrait a sa place : le nom et la taille ne passent pas dessous. */
+.pending-piece .att-head {
+  padding-right: 32px;
+}
+.pending-reading {
+  position: absolute;
+  left: 10px;
+  bottom: 8px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.pending-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 28px;
+  height: 28px;
+  color: var(--muted);
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 50%;
+  cursor: pointer;
 }
-.chip-thumb {
-  width: 44px;
-  height: 44px;
-  object-fit: cover;
-  border-radius: 6px;
+.pending-remove:hover {
+  color: var(--fg);
 }
-.chip-icon {
-  font-size: 1.4rem;
-  line-height: 44px;
-}
-.chip-body {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  font-size: 0.85rem;
-}
-.chip-body strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.chip-meta {
-  color: var(--muted);
-  font-size: 0.78rem;
-}
-.chip-preview,
 .att-pre {
   margin: 4px 0 0;
   padding: 6px 8px;
@@ -1848,24 +1928,6 @@ a.ritem:hover .ritem-go {
   border-radius: 6px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-}
-.chip-preview {
-  max-height: 4.4em;
-  overflow: hidden;
-}
-.chip-remove {
-  flex: none;
-  width: 28px;
-  height: 28px;
-  color: var(--muted);
-  background: none;
-  border: 0;
-  border-radius: 6px;
-  cursor: pointer;
-}
-.chip-remove:hover {
-  color: var(--fg);
-  background: var(--bg-soft);
 }
 /* Les pièces d'un message, dans la fenêtre du salon. */
 .att-list {

@@ -5,7 +5,7 @@ import { LessonCode } from "../lesson/LessonCode";
 import { CHAT_LESSON } from "./chatTabs";
 import { ChatAttachments } from "./ChatAttachments";
 import { ChatComposer } from "./ChatComposer";
-import { ChatText } from "./ChatText";
+import { MarkdownText } from "../kit/MarkdownText";
 import { keyOf, useChat, type IChatRoom } from "./useChat";
 
 /** Heure d'un message, à la minute. */
@@ -179,7 +179,9 @@ function ChatRoom({
                 <strong>{message.author}</strong> ·{" "}
                 {TIME.format(message.sentAt)}
               </span>
-              {message.text !== "" && <ChatText text={message.text} />}
+              {message.text !== "" && (
+                <MarkdownText className="room-text" text={message.text} />
+              )}
               {message.attachments !== undefined &&
                 message.attachments.length > 0 && (
                   <ChatAttachments pieces={message.attachments} />

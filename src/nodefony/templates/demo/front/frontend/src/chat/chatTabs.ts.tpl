@@ -11,8 +11,8 @@ const CONTROLLER: LessonFile = "nodefony/controllers/ChatController.ts";
 const HOOK: LessonFile = "frontend/src/chat/useChat.ts";
 const SERVICE: LessonFile = "nodefony/service/ChatService.ts";
 const RULES: LessonFile = "frontend/src/chat/attachments.ts";
-const PREVIEW: LessonFile = "nodefony/service/chatPreview.ts";
-const MARKDOWN: LessonFile = "frontend/src/chat/markdown.ts";
+const PREVIEW: LessonFile = "frontend/src/kit/preview.ts";
+const MARKDOWN: LessonFile = "frontend/src/kit/markdown.ts";
 
 export const CHAT_LESSON = {
   tabs: [

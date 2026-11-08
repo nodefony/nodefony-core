@@ -1,6 +1,7 @@
 import {
   existsSync,
   mkdtempSync,
+  readFileSync,
   readdirSync,
   rmSync,
   writeFileSync,
@@ -27,27 +28,30 @@ import type { IDemoPulse } from "../frontend/src/pulse";
 import ChatService, {
   CHAT_ATTACHMENT_LIMIT,
   CHAT_HISTORY_LIMIT,
-  decodeText,
   isUploadedFile,
-  sniffImage,
 } from "../nodefony/service/ChatService";
 import {
   INFLATE_LIMIT,
   PREVIEW_ENTRIES,
+  countLines,
+  decodeText,
+  describeFile,
   inflateHead,
-} from "../nodefony/service/chatPreview";
+  sniffImage,
+} from "../frontend/src/kit/preview";
 import {
   codeMark,
+  continueList,
   linkMark,
   parseInline,
   parseMarkdown,
+  prefixLines,
   toggleMark,
-} from "../frontend/src/chat/markdown";
+} from "../frontend/src/kit/markdown";
 import {
   LARGE_PASTE_CHARS,
   LARGE_PASTE_LINES,
   attachmentProblem,
-  countLines,
   insertAt,
   isLargePaste,
 } from "../frontend/src/chat/attachments";
@@ -452,6 +456,42 @@ describe("demo — les pièces du salon, classées d'après leurs OCTETS", () =>
     expect(chat.attachment(pdf?.id ?? "")?.mime).toBe("application/pdf");
     expect(broken?.kind).toBe("file");
   });
+
+  it("🔴 le navigateur annonce le MÊME aperçu que le serveur (`describeFile`, isomorphe)", async () => {
+    const samples: [string, Uint8Array][] = [
+      ["a.png", PNG],
+      ["notes.txt", new TextEncoder().encode("un\ndeux\ntrois\nquatre\n")],
+      ["code.zip", zip({ "a.txt": "abc", "b/c.txt": "de" })],
+      ["code.tar.gz", gzipSync(tar({ "x.txt": "hello" }))],
+      ["b.bin", new Uint8Array([1, 0, 2, 3])],
+    ];
+    const pieces = await store().saveAttachments(
+      samples.map(([name, bytes]) => upload(name, bytes)),
+    );
+    for (const [i, [, bytes]] of samples.entries()) {
+      const {
+        id: _id,
+        name: _name,
+        size: _size,
+        ...server
+      } = pieces[i] ?? {
+        id: "",
+        name: "",
+        size: 0,
+        kind: "file",
+      };
+      expect((await describeFile(bytes)).fields).toEqual(server);
+    }
+    // Le même fichier tourne dans le navigateur : aucune API propre à Node.
+    const source = readFileSync(
+      path.join(
+        path.dirname(path.dirname(fileURLToPath(import.meta.url))),
+        "frontend/src/kit/preview.ts",
+      ),
+      "utf8",
+    );
+    expect(source).not.toMatch(/["']node:|\bBuffer\b|\brequire\(/);
+  });
 });
 
 describe("demo — le Markdown du salon, le même pour tous", () => {
@@ -515,6 +555,34 @@ describe("demo — le Markdown du salon, le même pour tous", () => {
       start: 11,
       end: 19,
     });
+  });
+
+  it("listes et citation : posées sur chaque ligne touchée, ôtées au second clic", () => {
+    const list = prefixLines("titre\nun\ndeux", 7, 12, "1. ");
+    expect(list).toEqual({ value: "titre\n1. un\n2. deux", start: 6, end: 19 });
+    expect(prefixLines(list.value, list.start, list.end, "1. ").value).toBe(
+      "titre\nun\ndeux",
+    );
+    expect(prefixLines("cité", 0, 0, "> ").value).toBe("> cité");
+  });
+
+  it("🔴 Entrée dans une liste ouvre l'élément suivant ; sur un élément vide, en sort", () => {
+    expect(continueList("- un", 4)).toEqual({
+      value: "- un\n- ",
+      start: 7,
+      end: 7,
+    });
+    expect(continueList("  9) neuf", 9)).toEqual({
+      value: "  9) neuf\n  10) ",
+      start: 16,
+      end: 16,
+    });
+    expect(continueList("- un\n- ", 7)).toEqual({
+      value: "- un\n",
+      start: 5,
+      end: 5,
+    });
+    expect(continueList("pas une liste", 13)).toBeNull();
   });
 });
 

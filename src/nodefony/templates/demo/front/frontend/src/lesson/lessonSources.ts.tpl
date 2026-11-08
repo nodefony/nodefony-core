@@ -12,13 +12,13 @@ const RAW = import.meta.glob<string>(
     "../../../nodefony/controllers/PartnerController.ts",
     "../../../nodefony/controllers/PartnerTokenController.ts",
     "../../../nodefony/service/ChatService.ts",
-    "../../../nodefony/service/chatPreview.ts",
     "../../../nodefony/service/PartnerTokenService.ts",
     "../../../nodefony/command/PartnerCallCommand.ts",
     "../chat/chatContract.ts",
     "../chat/attachments.ts",
-    "../chat/markdown.ts",
     "../chat/useChat.ts",
+    "../kit/markdown.ts",
+    "../kit/preview.ts",
     "../partner/partnerApi.ts",
     "../partner/usePartnerLab.ts",
   ],
@@ -54,9 +54,6 @@ export const LESSON_SOURCES = {
   "nodefony/service/ChatService.ts": read(
     "../../../nodefony/service/ChatService.ts",
   ),
-  "nodefony/service/chatPreview.ts": read(
-    "../../../nodefony/service/chatPreview.ts",
-  ),
   "nodefony/service/PartnerTokenService.ts": read(
     "../../../nodefony/service/PartnerTokenService.ts",
   ),
@@ -65,8 +62,9 @@ export const LESSON_SOURCES = {
   ),
   "frontend/src/chat/chatContract.ts": read("../chat/chatContract.ts"),
   "frontend/src/chat/attachments.ts": read("../chat/attachments.ts"),
-  "frontend/src/chat/markdown.ts": read("../chat/markdown.ts"),
   "frontend/src/chat/useChat.ts": read("../chat/useChat.ts"),
+  "frontend/src/kit/markdown.ts": read("../kit/markdown.ts"),
+  "frontend/src/kit/preview.ts": read("../kit/preview.ts"),
   "frontend/src/partner/partnerApi.ts": read("../partner/partnerApi.ts"),
   "frontend/src/partner/usePartnerLab.ts": read("../partner/usePartnerLab.ts"),
 } satisfies Record<LessonFile, string>;

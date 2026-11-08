@@ -36,6 +36,12 @@ un renvoi mort le fait échouer.
 - `nodefony/command/PartnerCallCommand.ts` — `npx nodefony demo:partner:call`.
 - `frontend/src/` — React, un seul front. Les types de messages sont PARTAGÉS
   avec le serveur (`chat/chatContract.ts`, `chat/chatSchemas.ts`).
+- `frontend/src/kit/` — les briques PARTAGÉES par les démos, à réutiliser
+  plutôt que recopier : l'éditeur Markdown (`MarkdownEditor.tsx`), son rendu
+  (`MarkdownText.tsx`, `markdown.ts`), l'aperçu d'un fichier d'après ses
+  octets (`preview.ts`, ISOMORPHE : le navigateur avant l'envoi, le serveur à
+  la réception) et ses boîtes (`FilePreview.tsx`), le compte de la barre du
+  haut (`Account.tsx`).
 
 ## Les extraits de code des pages
 

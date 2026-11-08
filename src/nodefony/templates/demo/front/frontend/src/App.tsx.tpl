@@ -12,6 +12,7 @@ import { Catalogue } from "./Catalogue";
 import { debugBarControl, type IDebugBarControl } from "./debugBar";
 import { useCurrentSection, usePointerLight } from "./effects";
 import { ChatLesson } from "./chat/ChatLesson";
+import { Account } from "./kit/Account";
 import { PartnerLesson } from "./partner/PartnerLesson";
 import { RoleTabs } from "./RoleTabs";
 import { usePulse } from "./usePulse";
@@ -163,6 +164,7 @@ function Topbar({
         <a className="gh" href={REPO_URL}>
           GitHub
         </a>
+        <Account loginPath={about?.loginPath ?? null} />
         <DebugBarButtons />
       </nav>
     </header>

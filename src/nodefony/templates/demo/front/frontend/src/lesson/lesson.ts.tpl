@@ -22,13 +22,13 @@ export type LessonFile =
   | "nodefony/controllers/PartnerController.ts"
   | "nodefony/controllers/PartnerTokenController.ts"
   | "nodefony/service/ChatService.ts"
-  | "nodefony/service/chatPreview.ts"
   | "nodefony/service/PartnerTokenService.ts"
   | "nodefony/command/PartnerCallCommand.ts"
   | "frontend/src/chat/chatContract.ts"
   | "frontend/src/chat/attachments.ts"
-  | "frontend/src/chat/markdown.ts"
   | "frontend/src/chat/useChat.ts"
+  | "frontend/src/kit/markdown.ts"
+  | "frontend/src/kit/preview.ts"
   | "frontend/src/partner/partnerApi.ts"
   | "frontend/src/partner/usePartnerLab.ts";
 

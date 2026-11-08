@@ -1,22 +1,56 @@
-import { createGunzip, createInflateRaw } from "node:zlib";
-import type {
-  ChatArchiveEntry,
-  ChatAttachment,
-  ChatAttachmentFormat,
-} from "../../frontend/src/chat/chatContract";
-
 /**
- * L'aperçu d'une pièce qu'on ne montre pas telle quelle : PDF, archive (zip,
- * tar, tar.gz), document Word ou ODT, tableur Excel ou ODS.
+ * L'aperçu d'un fichier, décidé d'après ses OCTETS : image, PDF, archive
+ * (zip, tar, tar.gz), document Word ou ODT, tableur Excel ou ODS, texte —
+ * sinon un simple fichier.
  *
- * Guide pour un agent : fonctions PURES, sans dépendance — une archive se
- * lit par son INDEX, rien n'est extrait sur le disque. Tout est borné : la
- * pièce fait 2 Mio au plus (`ATTACHMENT_MAX_BYTES`), et ce qui se
+ * Guide pour un agent : ce module est ISOMORPHE — le même code tourne dans
+ * le navigateur (aperçu d'une pièce dès qu'on la choisit, avant l'envoi) et
+ * sur le serveur (qui refait l'aperçu à la réception et ne croit jamais celui
+ * du navigateur). Aucune dépendance : la décompression passe par
+ * `DecompressionStream`, que Node et les navigateurs fournissent. Une archive
+ * se lit par son INDEX, rien n'est extrait. Tout est borné : ce qui se
  * décompresse s'arrête à `INFLATE_LIMIT` — une « bombe » de quelques Ko qui
  * se déplierait en gigaoctets est coupée au premier mégaoctet. Hors
  * périmètre : la mise en page, les images d'un document, les présentations
- * (pptx, odp) — elles restent des fichiers à télécharger.
+ * (pptx, odp) — elles restent des fichiers à télécharger. Les boîtes qui
+ * montrent ces aperçus : `FilePreview.tsx`.
  */
+
+/** Ce qu'un fichier montre. */
+export type PreviewKind =
+  "image" | "text" | "pdf" | "archive" | "document" | "sheet" | "file";
+
+/** Le format reconnu d'une archive ou d'un document bureautique. */
+export type PreviewFormat =
+  "zip" | "tar" | "tar.gz" | "docx" | "odt" | "xlsx" | "ods";
+
+/** Une entrée d'archive, lue dans son INDEX — rien n'est extrait. */
+export interface IArchiveEntry {
+  name: string;
+  /** Taille déclarée par l'archive, décompressée. */
+  size: number;
+}
+
+/** Ce qu'on sait montrer d'un fichier, selon son genre. */
+export interface IFilePreview {
+  kind: PreviewKind;
+  /** Texte : son nombre de lignes. */
+  lines?: number;
+  /** Texte : ses premières lignes. */
+  preview?: string;
+  /** Archive ou document : le format reconnu. */
+  format?: PreviewFormat;
+  /** Archive : ses premières entrées… */
+  entries?: IArchiveEntry[];
+  /** …sur ce nombre total. */
+  total?: number;
+  /** Document Word ou ODT : ses premiers paragraphes. */
+  paragraphs?: string[];
+  /** Tableur : le coin haut-gauche de la première feuille. */
+  rows?: string[][];
+  /** L'aperçu s'arrête avant la fin (plafond atteint). */
+  truncated?: boolean;
+}
 
 /** Entrées d'archive annoncées au plus. */
 export const PREVIEW_ENTRIES = 20;
@@ -39,20 +73,20 @@ export const PREVIEW_CELL_CHARS = 60;
 /** Octets décompressés au plus, par flux (1 Mio). */
 export const INFLATE_LIMIT = 1_048_576;
 
-/** Ce que l'aperçu ajoute à l'annonce d'une pièce, et le type à servir. */
+/** L'aperçu d'un fichier, et le type sous lequel le servir. */
 export interface IPreview {
-  fields: Omit<ChatAttachment, "id" | "name" | "size">;
+  fields: IFilePreview;
   mime: string;
 }
 
 /** Ce qu'un flux compressé a rendu, coupé ou non au plafond. */
 export interface IInflated {
-  bytes: Buffer;
+  bytes: Uint8Array;
   truncated: boolean;
 }
 
 /** Une entrée de l'index central d'un zip. */
-export interface IZipEntry extends ChatArchiveEntry {
+export interface IZipEntry extends IArchiveEntry {
   compressedSize: number;
   method: number;
   offset: number;
@@ -60,7 +94,7 @@ export interface IZipEntry extends ChatArchiveEntry {
 }
 
 /** Les types servis, par format. */
-const MIME: Record<ChatAttachmentFormat, string> = {
+const MIME: Record<PreviewFormat, string> = {
   zip: "application/zip",
   tar: "application/x-tar",
   "tar.gz": "application/gzip",
@@ -123,6 +157,101 @@ export async function previewOf(bytes: Uint8Array): Promise<IPreview | null> {
 }
 // #endregion
 
+// #region file-describe
+/**
+ * Ce que montre un fichier ENTIER : image, conteneur reconnu (PDF, archive,
+ * bureautique), texte UTF-8 — sinon un fichier à télécharger. La même
+ * décision des deux côtés : le navigateur pour l'aperçu avant l'envoi, le
+ * serveur pour l'annonce faite à tous.
+ *
+ * @param bytes - le fichier entier (borné par l'appelant)
+ */
+export async function describeFile(bytes: Uint8Array): Promise<IPreview> {
+  const image = sniffImage(bytes);
+  if (image !== null) return { fields: { kind: "image" }, mime: image };
+  const preview = await previewOf(bytes);
+  if (preview !== null) return preview;
+  const text = decodeText(bytes);
+  if (text !== null)
+    return {
+      fields: {
+        kind: "text",
+        lines: countLines(text),
+        preview: previewLines(text),
+      },
+      mime: "text/plain; charset=utf-8",
+    };
+  return { fields: { kind: "file" }, mime: "application/octet-stream" };
+}
+// #endregion
+
+/** Les signatures d'image reconnues : octets attendus, et leur position. */
+const IMAGE_SIGNATURES: readonly {
+  mime: string;
+  at: number;
+  bytes: readonly number[];
+}[] = [
+  { mime: "image/png", at: 0, bytes: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a] },
+  { mime: "image/jpeg", at: 0, bytes: [0xff, 0xd8, 0xff] },
+  { mime: "image/gif", at: 0, bytes: [0x47, 0x49, 0x46, 0x38] },
+  { mime: "image/webp", at: 8, bytes: [0x57, 0x45, 0x42, 0x50] },
+];
+
+/**
+ * Le type d'image que prouvent les premiers octets, ou `null`.
+ *
+ * @param head - les premiers octets du fichier (12 suffisent)
+ */
+export function sniffImage(head: Uint8Array): string | null {
+  for (const signature of IMAGE_SIGNATURES) {
+    if (signature.bytes.every((byte, i) => head[signature.at + i] === byte)) {
+      // WebP : « RIFF » en tête, en plus de « WEBP » à l'octet 8.
+      if (signature.mime === "image/webp" && head[0] !== 0x52) continue;
+      return signature.mime;
+    }
+  }
+  return null;
+}
+
+/**
+ * Le texte d'un fichier, s'il en est un : UTF-8 valide, sans octet nul.
+ *
+ * @returns le texte, ou `null` pour un fichier binaire
+ */
+export function decodeText(bytes: Uint8Array): string | null {
+  if (bytes.includes(0)) return null;
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return null;
+  }
+}
+
+/** Nombre de lignes d'un texte ; un saut de ligne final n'en ouvre pas une. */
+export function countLines(text: string): number {
+  if (text === "") return 0;
+  const body = text.endsWith("\n") ? text.slice(0, -1) : text;
+  return body.split("\n").length;
+}
+
+/** Les premières lignes d'un texte, chacune bornée. */
+export function previewLines(text: string, count = 3): string {
+  return text
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .slice(0, count)
+    .map((line) => (line.length > 160 ? `${line.slice(0, 159)}…` : line))
+    .join("\n");
+}
+
+/** Une taille lisible : « 812 o », « 4,2 Ko », « 1,9 Mo ». */
+export function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} o`;
+  const unit = bytes < 1024 * 1024 ? "Ko" : "Mo";
+  const value = bytes / (unit === "Ko" ? 1024 : 1024 * 1024);
+  return `${value.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} ${unit}`;
+}
+
 // #region chat-inflate-cap
 /**
  * Décompresse au plus `limit` octets, puis COUPE le flux : la taille annoncée
@@ -131,38 +260,56 @@ export async function previewOf(bytes: Uint8Array): Promise<IPreview | null> {
  * @param kind - `raw` (entrée de zip) ou `gzip`
  * @returns les octets obtenus, et s'il en restait
  */
-export function inflateHead(
+export async function inflateHead(
   data: Uint8Array,
   kind: "raw" | "gzip",
   limit: number,
 ): Promise<IInflated> {
-  return new Promise((resolve) => {
-    const stream = kind === "raw" ? createInflateRaw() : createGunzip();
-    const chunks: Buffer[] = [];
-    let total = 0;
-    const finish = (truncated: boolean) => {
-      stream.removeAllListeners();
-      stream.destroy();
-      resolve({ bytes: Buffer.concat(chunks, total), truncated });
-    };
-    stream.on("data", (chunk: Buffer) => {
+  const inflate = new DecompressionStream(
+    kind === "raw" ? "deflate-raw" : "gzip",
+  );
+  const writer = inflate.writable.getWriter();
+  // Écrit sans attendre : la lecture ci-dessous tire le flux. Un flux
+  // corrompu rejette AUSSI ici — l'erreur est lue par la boucle.
+  writer.write(new Uint8Array(data)).catch(() => undefined);
+  writer.close().catch(() => undefined);
+  const reader = inflate.readable.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  let truncated = false;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
       const room = limit - total;
-      if (chunk.length > room) {
-        chunks.push(chunk.subarray(0, room));
+      if (value.length > room) {
+        chunks.push(value.subarray(0, room));
         total = limit;
-        finish(true);
-        return;
+        truncated = true;
+        await reader.cancel();
+        break;
       }
-      chunks.push(chunk);
-      total += chunk.length;
-    });
-    stream.on("end", () => finish(false));
+      chunks.push(value);
+      total += value.length;
+    }
+  } catch {
     // Flux corrompu : ce qui est déjà sorti suffit à l'aperçu.
-    stream.on("error", () => finish(true));
-    stream.end(data);
-  });
+    truncated = true;
+  }
+  return { bytes: concat(chunks, total), truncated };
 }
 // #endregion
+
+/** Des morceaux mis bout à bout. */
+function concat(chunks: readonly Uint8Array[], total: number): Uint8Array {
+  const out = new Uint8Array(total);
+  let at = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, at);
+    at += chunk.length;
+  }
+  return out;
+}
 
 /**
  * L'index central d'un zip : noms et tailles, sans rien décompresser.
@@ -226,7 +373,7 @@ export async function readZipEntry(
   const data = bytes.subarray(start, start + entry.compressedSize);
   if (entry.method === 0)
     return {
-      bytes: Buffer.from(data.subarray(0, limit)),
+      bytes: data.slice(0, limit),
       truncated: data.length > limit,
     };
   if (entry.method === 8) return inflateHead(data, "raw", limit);
@@ -305,7 +452,7 @@ export function previewTar(
   truncated: boolean,
 ): IPreview | null {
   if (sniffContainer(bytes) !== "tar") return null;
-  const entries: ChatArchiveEntry[] = [];
+  const entries: IArchiveEntry[] = [];
   let total = 0;
   let longName: string | null = null;
   let at = 0;

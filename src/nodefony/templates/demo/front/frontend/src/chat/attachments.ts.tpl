@@ -1,3 +1,4 @@
+import { countLines, formatSize } from "../kit/preview";
 import { ATTACHMENT_MAX_BYTES, ATTACHMENT_MAX_COUNT } from "./chatContract";
 
 /**
@@ -18,13 +19,6 @@ export const LARGE_PASTE_CHARS = 1500;
 /** …ou au-delà de ce nombre de lignes. */
 export const LARGE_PASTE_LINES = 20;
 
-/** Nombre de lignes d'un texte ; un saut de ligne final n'en ouvre pas une. */
-export function countLines(text: string): number {
-  if (text === "") return 0;
-  const body = text.endsWith("\n") ? text.slice(0, -1) : text;
-  return body.split("\n").length;
-}
-
 /**
  * Un collage trop long pour le champ : il part en pièce jointe (une boîte
  * « Texte collé »), comme un fichier — le champ reste lisible, et le salon
@@ -40,24 +34,6 @@ export function isLargePaste(text: string): boolean {
 /** Le nom du fichier né d'un collage. */
 export function pastedFileName(index: number): string {
   return `texte-collé-${index}.txt`;
-}
-
-/** Les premières lignes d'un texte, chacune bornée. */
-export function previewLines(text: string, count = 3): string {
-  return text
-    .replace(/\r\n?/g, "\n")
-    .split("\n")
-    .slice(0, count)
-    .map((line) => (line.length > 160 ? `${line.slice(0, 159)}…` : line))
-    .join("\n");
-}
-
-/** Une taille lisible : « 812 o », « 4,2 Ko », « 1,9 Mo ». */
-export function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} o`;
-  const unit = bytes < 1024 * 1024 ? "Ko" : "Mo";
-  const value = bytes / (unit === "Ko" ? 1024 : 1024 * 1024);
-  return `${value.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} ${unit}`;
 }
 
 // #region chat-attach-rules

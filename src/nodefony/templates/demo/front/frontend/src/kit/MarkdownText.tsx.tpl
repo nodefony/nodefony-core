@@ -2,18 +2,27 @@ import { createElement, type ReactNode } from "react";
 import { parseMarkdown, type MdBlock, type MdInline } from "./markdown";
 
 /**
- * Le texte d'un message, mis en forme — le MÊME rendu chez chacun, puisque
- * chaque page analyse le même texte brut (`markdown.ts`).
+ * Un texte Markdown, mis en forme — le MÊME rendu chez chacun, puisque
+ * chaque page analyse le même texte brut (`markdown.ts`). Sert au fil d'un
+ * salon comme à l'aperçu de l'éditeur (`MarkdownEditor.tsx`).
  *
- * Guide pour un agent : React échappe chaque chaîne ; aucun HTML n'est
- * injecté, et `href` n'accepte que `http:`/`https:` (filtré à l'analyse).
- * Les enfants passent en arguments de `createElement` : un message est figé,
- * jamais réordonné, et n'a donc pas besoin de clés.
+ * Guide pour un agent : brique du KIT. React échappe chaque chaîne ; aucun
+ * HTML n'est injecté, et `href` n'accepte que `http:`/`https:` (filtré à
+ * l'analyse). Les enfants passent en arguments de `createElement` : un texte
+ * rendu est figé, jamais réordonné, et n'a donc pas besoin de clés.
+ *
+ * @param className - classes ajoutées à `md`
  */
-export function ChatText({ text }: { text: string }) {
+export function MarkdownText({
+  text,
+  className,
+}: {
+  text: string;
+  className?: string;
+}) {
   return createElement(
     "div",
-    { className: "room-text md" },
+    { className: className === undefined ? "md" : `${className} md` },
     ...parseMarkdown(text).map(block),
   );
 }

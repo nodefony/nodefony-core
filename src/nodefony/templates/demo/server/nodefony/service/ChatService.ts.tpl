@@ -8,8 +8,7 @@ import type {
   ChatAttachment,
   ChatMessage,
 } from "../../frontend/src/chat/chatContract";
-import { countLines, previewLines } from "../../frontend/src/chat/attachments";
-import { previewOf, sniffContainer } from "./chatPreview";
+import { describeFile, sniffImage } from "../../frontend/src/kit/preview";
 
 /** Messages gardés en mémoire : au-delà, les plus anciens sortent. */
 export const CHAT_HISTORY_LIMIT = 200;
@@ -27,51 +26,6 @@ export interface IStoredAttachment {
   file: string;
   /** Le type servi, tiré des octets. */
   mime: string;
-}
-
-/**
- * Les seules images affichées DANS la page, reconnues à leurs premiers octets.
- * Un SVG n'y est pas : c'est un document, qui peut porter du script.
- */
-const IMAGE_SIGNATURES: readonly {
-  mime: string;
-  at: number;
-  bytes: readonly number[];
-}[] = [
-  { mime: "image/png", at: 0, bytes: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a] },
-  { mime: "image/jpeg", at: 0, bytes: [0xff, 0xd8, 0xff] },
-  { mime: "image/gif", at: 0, bytes: [0x47, 0x49, 0x46, 0x38] },
-  { mime: "image/webp", at: 8, bytes: [0x57, 0x45, 0x42, 0x50] },
-];
-
-/**
- * Le type d'image que prouvent les premiers octets, ou `null`.
- *
- * @param head - les premiers octets du fichier (12 suffisent)
- */
-export function sniffImage(head: Uint8Array): string | null {
-  for (const signature of IMAGE_SIGNATURES) {
-    if (signature.bytes.every((byte, i) => head[signature.at + i] === byte)) {
-      // WebP : « RIFF » en tête, en plus de « WEBP » à l'octet 8.
-      if (signature.mime === "image/webp" && head[0] !== 0x52) continue;
-      return signature.mime;
-    }
-  }
-  return null;
-}
-
-/**
- * Le texte d'un fichier, s'il en est un : UTF-8 valide, sans octet nul.
- *
- * @returns le texte, ou `null` pour un fichier binaire
- */
-export function decodeText(bytes: Uint8Array): string | null {
-  if (bytes.includes(0)) return null;
-  try {
-    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-  } catch {
-    return null;
-  }
 }
 
 /** Un fichier reçu en multipart : `this.files` est typé `unknown[]`. */
@@ -220,7 +174,9 @@ class ChatService extends Service {
 
 /**
  * Classe une pièce d'après ses octets : image, puis conteneur reconnu (PDF,
- * archive, bureautique — `chatPreview.ts`), puis texte, sinon fichier.
+ * archive, bureautique), puis texte, sinon fichier — `describeFile` du kit,
+ * le MÊME code que l'aperçu du navigateur avant l'envoi. Le serveur le
+ * rejoue : l'aperçu annoncé à tous ne vient jamais du navigateur.
  */
 async function classify(
   id: string,
@@ -228,48 +184,30 @@ async function classify(
   size: number,
   file: string,
 ): Promise<IStoredAttachment> {
+  if (size <= ATTACHMENT_MAX_BYTES) {
+    const described = await describeFile(await readFile(file));
+    return {
+      meta: { id, name, size, ...described.fields },
+      file,
+      mime: described.mime,
+    };
+  }
+  // Au-delà du plafond (filet : l'envoi l'a déjà refusé), la tête seule.
   const handle = await open(file, "r");
-  // 512 octets : la signature tar est à l'octet 257.
-  const head = new Uint8Array(512);
+  const head = new Uint8Array(12);
   try {
     await handle.read(head, 0, head.length, 0);
   } finally {
     await handle.close();
   }
   const image = sniffImage(head);
-  if (image !== null) {
-    return { meta: { id, name, size, kind: "image" }, file, mime: image };
-  }
-  if (sniffContainer(head) !== null && size <= ATTACHMENT_MAX_BYTES) {
-    const preview = await previewOf(await readFile(file));
-    if (preview !== null)
-      return {
-        meta: { id, name, size, ...preview.fields },
+  return image === null
+    ? {
+        meta: { id, name, size, kind: "file" },
         file,
-        mime: preview.mime,
-      };
-  }
-  const text =
-    size <= ATTACHMENT_MAX_BYTES ? decodeText(await readFile(file)) : null;
-  if (text !== null) {
-    return {
-      meta: {
-        id,
-        name,
-        size,
-        kind: "text",
-        lines: countLines(text),
-        preview: previewLines(text),
-      },
-      file,
-      mime: "text/plain; charset=utf-8",
-    };
-  }
-  return {
-    meta: { id, name, size, kind: "file" },
-    file,
-    mime: "application/octet-stream",
-  };
+        mime: "application/octet-stream",
+      }
+    : { meta: { id, name, size, kind: "image" }, file, mime: image };
 }
 
 export default ChatService;
