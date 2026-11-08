@@ -1141,11 +1141,14 @@ describe("demo — Temps réel binaire", () => {
     const chunks = [
       frame(0, "cbor ▶ offre : nodefony.jsonrpc.cbor.v1, nodefony.jsonrpc.v1"),
       frame(1, "texte ▶ offre : rien"),
+      // La socket que la page garde : son offre a eu lieu avant le geste.
+      frame(2, "app ● déjà ouverte — offre : nodefony.jsonrpc.cbor.v1"),
       frame(9, "cbor ■ fermée 1009 Max payload size exceeded"),
     ];
     expect(readOffers(chunks)).toEqual({
       cbor: "nodefony.jsonrpc.cbor.v1, nodefony.jsonrpc.v1",
       texte: "rien",
+      app: "nodefony.jsonrpc.cbor.v1",
     });
     expect(readCloses(chunks)).toEqual({ cbor: 1009 });
   });

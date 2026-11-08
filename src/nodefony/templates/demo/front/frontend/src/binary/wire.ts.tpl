@@ -27,8 +27,8 @@ export interface IWireLine {
 /** `cbor ← 568 o binaire 0.12 ms · a3 67 …` */
 const FRAME = /^(\S+) (←|→) (\d+) o (binaire|texte)(?: ([\d.]+) ms)? · (.*)$/su;
 
-/** `cbor ▶ offre : a, b` */
-const OFFER = /^(\S+) ▶ offre : (.*)$/u;
+/** `cbor ▶ offre : a, b`, ou `cbor ● déjà ouverte — offre : a, b` */
+const OFFER = /^(\S+) (?:▶|● déjà ouverte —) offre : (.*)$/u;
 
 /** `cbor ■ fermée 1009 …` */
 const CLOSE = /^(\S+) ■ fermée (\d+)/u;

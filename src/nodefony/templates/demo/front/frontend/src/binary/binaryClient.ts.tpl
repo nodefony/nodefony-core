@@ -15,12 +15,13 @@ import {
  * que donner un transport qui COMPTE les trames ; tout le reste est ici.
  *
  * Guide pour un agent : une région `client-*` par geste, citée par la leçon.
- * Chaque fonction ouvre sa socket, fait son geste, et la ferme — même en
- * échec (`finally`). `transport` n'est là que pour la mesure : une
- * application l'omet.
+ * Chaque geste REÇOIT sa socket : la page lui passe celle qu'elle garde
+ * ouverte (CBOR, visible dans la barre de debug), ou une socket texte ouverte
+ * le temps d'une comparaison (`withSocket`). `transport` n'est là que pour la
+ * mesure : une application l'omet.
  */
 
-/** Au-delà, un geste abandonne : rien ne reste ouvert. */
+/** Au-delà, un geste abandonne. */
 const GESTURE_TIMEOUT_MS = 10_000;
 
 /** La promesse, ou une erreur qui dit ce qui n'est pas venu. */
@@ -49,8 +50,9 @@ function within<T>(promise: Promise<T>, what: string): Promise<T> {
  * La socket de la démo, typée par le contrat partagé. `codec` est l'OFFRE :
  * le serveur choisit, et l'annonce dans son accueil. Sans offre, la
  * connexion reste en texte — et les octets arrivent quand même en
- * `Uint8Array`. Une socket NEUVE par geste : `NodefonySocket.shared()`
- * fige ses réglages à sa première création.
+ * `Uint8Array`. Une application en ouvre UNE et la garde ;
+ * `NodefonySocket.shared()` le fait pour elle, mais fige ses réglages à sa
+ * première création — d'où une socket à part pour cette adresse.
  */
 export function openBinary(
   cbor: boolean,
@@ -66,6 +68,9 @@ export function openBinary(
   );
 }
 
+/** Une socket de la démo, typée par le contrat. */
+export type BinarySocket = ReturnType<typeof openBinary>;
+
 /** Se connecte et attend l'ACCUEIL : c'est lui qui annonce le codec retenu. */
 export async function connectBinary(socket: NodefonySocket): Promise<void> {
   const welcomed = new Promise<void>((resolve) => {
@@ -77,24 +82,35 @@ export async function connectBinary(socket: NodefonySocket): Promise<void> {
   await socket.connect();
   await within(welcomed, "accueil du serveur");
 }
+
+/** Se (re)connecte seulement si la socket ne l'est pas — après un 1009, par exemple. */
+export async function ensureConnected(socket: NodefonySocket): Promise<void> {
+  if (socket.state !== "connected") await connectBinary(socket);
+}
+
+/** Une socket ouverte le temps de `use`, puis fermée — même en échec. */
+export async function withSocket<T>(
+  cbor: boolean,
+  transport: RealtimeTransportFactory | undefined,
+  use: (socket: BinarySocket) => Promise<T>,
+): Promise<T> {
+  const socket = openBinary(cbor, transport);
+  try {
+    return await use(socket);
+  } finally {
+    socket.disconnect();
+  }
+}
 // #endregion
 
 // #region client-negotiate
 /**
- * Négocier : ouvrir, lire `socket.codec` — le sous-protocole retenu —, fermer.
+ * Négocier : se connecter, lire `socket.codec` — le sous-protocole retenu.
  * `nodefony.jsonrpc.cbor.v1` : binaire ; `nodefony.jsonrpc.v1` : texte.
  */
-export async function negotiate(
-  cbor: boolean,
-  transport?: RealtimeTransportFactory,
-): Promise<string> {
-  const socket = openBinary(cbor, transport);
-  try {
-    await connectBinary(socket);
-    return socket.codec;
-  } finally {
-    socket.disconnect();
-  }
+export async function negotiate(socket: BinarySocket): Promise<string> {
+  await ensureConnected(socket);
+  return socket.codec;
 }
 // #endregion
 
@@ -113,56 +129,50 @@ export function readSamples(bytes: Uint8Array): Int16Array {
   return samples;
 }
 
-/** INDUSTRIE : suivre `frames` trames de vibrations, puis se désabonner. */
+/**
+ * INDUSTRIE : suivre `frames` trames de vibrations, puis se désabonner et
+ * retirer l'écouteur — la socket, elle, reste ouverte.
+ */
 export async function watchVibration(
+  socket: BinarySocket,
   frames: number,
   onFrame: (rpm: number, samples: Int16Array) => void,
-  transport?: RealtimeTransportFactory,
 ): Promise<number> {
-  const socket = openBinary(true, transport);
+  await ensureConnected(socket);
   let seen = 0;
+  let off = () => {};
   const done = new Promise<void>((resolve) => {
-    socket.on(VIBRATION_CHANNEL, ({ rpm, samples }) => {
+    off = socket.on(VIBRATION_CHANNEL, ({ rpm, samples }) => {
       onFrame(rpm, readSamples(samples));
       seen += 1;
       if (seen === frames) resolve();
     });
   });
-  // Posé avant la connexion : l'abonnement part avec l'accueil.
   socket.subscribe(VIBRATION_CHANNEL);
   try {
-    await connectBinary(socket);
     await within(done, "trames de vibrations");
     return seen;
   } finally {
     socket.unsubscribe(VIBRATION_CHANNEL);
-    socket.disconnect();
+    off();
   }
 }
 // #endregion
 
 // #region client-measure
 /**
- * Demander chaque taille de `SAMPLE_SIZES`, une à la fois, sur une connexion
- * CBOR ou texte. Le code ne mesure rien : c'est le transport compteur de la
- * page qui voit la trame de chaque réponse passer.
+ * Demander chaque taille de `SAMPLE_SIZES`, une à la fois. Le code ne mesure
+ * rien : c'est le transport compteur de la page qui voit la trame de chaque
+ * réponse passer.
  */
-export async function requestSizes(
-  cbor: boolean,
-  transport?: RealtimeTransportFactory,
-): Promise<number> {
-  const socket = openBinary(cbor, transport);
-  try {
-    await connectBinary(socket);
-    let received = 0;
-    for (const size of SAMPLE_SIZES) {
-      const { bytes } = await socket.request("binary:sample", { size });
-      received += bytes.byteLength;
-    }
-    return received;
-  } finally {
-    socket.disconnect();
+export async function requestSizes(socket: BinarySocket): Promise<number> {
+  await ensureConnected(socket);
+  let received = 0;
+  for (const size of SAMPLE_SIZES) {
+    const { bytes } = await socket.request("binary:sample", { size });
+    received += bytes.byteLength;
   }
+  return received;
 }
 // #endregion
 
@@ -185,40 +195,32 @@ export async function sha256(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
 }
 
 /**
- * Rejette dès que la connexion est perdue pour de bon : une réponse ne
- * viendra plus, inutile d'attendre le délai de la requête.
+ * ENVOYER des octets : un `Uint8Array` dans les paramètres d'une méthode,
+ * rien de plus. Le serveur rend leur taille et leur empreinte ; la page
+ * calcule la sienne — même empreinte, mêmes octets. Si le serveur ferme la
+ * connexion, la promesse rejette tout de suite : sa réponse ne viendra plus.
  */
-function lost(socket: NodefonySocket): Promise<never> {
-  return new Promise<never>((_resolve, reject) => {
-    const off = socket.onState((state) => {
+export async function sendBytes(
+  socket: BinarySocket,
+  bytes: Uint8Array<ArrayBuffer>,
+): Promise<{ server: IDigest; local: string }> {
+  await ensureConnected(socket);
+  let off = () => {};
+  const lost = new Promise<never>((_resolve, reject) => {
+    off = socket.onState((state) => {
       if (state === "error" || state === "disconnected") {
-        off();
         reject(new Error("connexion fermée par le serveur"));
       }
     });
   });
-}
-
-/**
- * ENVOYER des octets : un `Uint8Array` dans les paramètres d'une méthode,
- * rien de plus. Le serveur rend leur taille et leur empreinte ; la page
- * calcule la sienne — même empreinte, mêmes octets.
- */
-export async function sendBytes(
-  bytes: Uint8Array<ArrayBuffer>,
-  cbor: boolean,
-  transport?: RealtimeTransportFactory,
-): Promise<{ server: IDigest; local: string }> {
-  const socket = openBinary(cbor, transport);
   try {
-    await connectBinary(socket);
     const server = await within(
-      Promise.race([socket.request("binary:digest", { bytes }), lost(socket)]),
+      Promise.race([socket.request("binary:digest", { bytes }), lost]),
       "empreinte du serveur",
     );
     return { server, local: await sha256(bytes) };
   } finally {
-    socket.disconnect();
+    off();
   }
 }
 // #endregion
@@ -226,19 +228,18 @@ export async function sendBytes(
 // #region client-limit
 /**
  * Envoyer `size` octets, et dire ce qui est arrivé. Au-delà de `maxPayload`,
- * le serveur ferme la connexion (code 1009) au lieu de répondre : la requête
- * en cours est rejetée, la trame n'a jamais atteint l'action.
+ * le serveur ferme la connexion (code 1009) au lieu de répondre : la trame
+ * n'a jamais atteint l'action. Le geste suivant rouvre la socket.
  */
 export async function trySize(
+  socket: BinarySocket,
   size: number,
-  cbor: boolean,
-  transport?: RealtimeTransportFactory,
 ): Promise<string> {
   try {
-    const { server } = await sendBytes(new Uint8Array(size), cbor, transport);
+    const { server } = await sendBytes(socket, new Uint8Array(size));
     return `reçu par le serveur : ${server.size} octets`;
   } catch (error) {
-    return `refusé : ${error instanceof Error ? error.message : String(error)}`;
+    return `refusé : ${error instanceof Error ? error.message : String(error)}`;
   }
 }
 // #endregion
@@ -254,17 +255,17 @@ export function readPositions(bytes: Uint8Array): Float32Array {
   return positions;
 }
 
-/** JEU : suivre `frames` images, sur une connexion CBOR ou texte. */
+/** JEU : suivre `frames` images, puis se désabonner et retirer l'écouteur. */
 export async function watchGame(
+  socket: BinarySocket,
   frames: number,
-  cbor: boolean,
   onFrame: ((positions: Float32Array) => void) | null,
-  transport?: RealtimeTransportFactory,
 ): Promise<number> {
-  const socket = openBinary(cbor, transport);
+  await ensureConnected(socket);
   let seen = 0;
+  let off = () => {};
   const done = new Promise<void>((resolve) => {
-    socket.on(GAME_CHANNEL, ({ positions }) => {
+    off = socket.on(GAME_CHANNEL, ({ positions }) => {
       onFrame?.(readPositions(positions));
       seen += 1;
       if (seen === frames) resolve();
@@ -272,12 +273,11 @@ export async function watchGame(
   });
   socket.subscribe(GAME_CHANNEL);
   try {
-    await connectBinary(socket);
     await within(done, "images du jeu");
     return seen;
   } finally {
     socket.unsubscribe(GAME_CHANNEL);
-    socket.disconnect();
+    off();
   }
 }
 // #endregion
@@ -307,7 +307,7 @@ export async function forgeBytes(
     return "accepté";
   } catch (error) {
     return error instanceof Error
-      ? `${error.name} : ${error.message}`
+      ? `${error.name} : ${error.message}`
       : String(error);
   } finally {
     socket.disconnect();

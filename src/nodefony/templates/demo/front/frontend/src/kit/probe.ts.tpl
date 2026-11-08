@@ -406,25 +406,33 @@ export function probeSse(
 // #endregion
 
 // #region probe-realtime
-/**
- * Un compteur de FIL : la fabrique de transport à donner à une socket, et ce
- * qu'il a vu passer. Il enveloppe le transport du navigateur
- * (`BrowserWsTransport`) sans rien changer : chaque trame est comptée telle
- * qu'elle passe, en octets — `byteLength` d'une trame binaire, son UTF-8
- * d'une trame texte. Rien n'est recalculé à partir de la charge.
- */
-export interface IWireMeter {
-  /** À passer à `NodefonySocket.fromContract(opts, transport)`. */
-  readonly transport: RealtimeTransportFactory;
+/** Ce qu'un relevé reçoit d'un compteur de fil. */
+export interface IWireSink {
+  /** Une ligne du relevé. */
+  note: (text: string) => void;
+  /** Un transport est créé, puis fermé : le relevé peut attendre sa fermeture. */
+  created: () => void;
+  closed: () => void;
+  /** Le handshake a réussi. */
+  opened: () => void;
 }
 
 /**
- * Ce qu'une leçon temps réel reçoit pour jouer son geste : un compteur par
- * socket (`label` les distingue dans le relevé), et de quoi noter un fait.
+ * Un compteur de FIL : la fabrique de transport à donner à une socket. Il
+ * enveloppe le transport du navigateur (`BrowserWsTransport`) sans rien
+ * changer : chaque trame est comptée telle qu'elle passe, en octets —
+ * `byteLength` d'une trame binaire, son UTF-8 d'une trame texte. Rien n'est
+ * recalculé à partir de la charge. Il vit aussi longtemps que sa socket : un
+ * relevé l'écoute le temps d'un geste (`listen`), puis le rend.
  */
-export interface IRealtimeRun {
-  meter: (label: string) => IWireMeter;
-  note: (text: string) => void;
+export interface IWireTap {
+  readonly label: string;
+  /** À passer à `NodefonySocket.fromContract(opts, transport)`. */
+  readonly transport: RealtimeTransportFactory;
+  /** Sa socket est-elle ouverte en ce moment ? */
+  readonly open: boolean;
+  /** Le relevé qui écoute ; `null` : les trames passent sans être notées. */
+  listen: (sink: IWireSink | null) => void;
 }
 
 /** Les premiers octets d'une trame, en hexadécimal ; d'une trame texte, ses premiers caractères. */
@@ -444,10 +452,102 @@ function frameBytes(raw: RealtimeFrameData, utf8: TextEncoder): number {
 }
 
 /**
- * Note chaque trame des sockets que le code client du geste ouvre, une ligne
- * par trame : `cbor ← 568 o binaire 0.12 ms · a3 67 …` — le compteur, le
- * sens, la taille, la nature, le temps que la socket a passé sur la trame
- * reçue (décodage compris), et son début. `wire.ts` relit ces lignes.
+ * Un compteur de fil nommé `label` (`cbor`, `texte`), qui note une ligne par
+ * trame : `cbor ← 568 o binaire 0.12 ms · a3 67 …` — le sens, la taille, la
+ * nature, le temps que la socket a passé sur une trame reçue (décodage
+ * compris), et son début. `wire.ts` relit ces lignes.
+ *
+ * @param label - le nom du compteur dans le relevé
+ */
+export function wireTap(label: string): IWireTap {
+  const utf8 = new TextEncoder();
+  const state: { sink: IWireSink | null; offer: string | null } = {
+    sink: null,
+    offer: null,
+  };
+  const kind = (raw: RealtimeFrameData) =>
+    typeof raw === "string" ? "texte" : "binaire";
+  return {
+    label,
+    get open() {
+      return state.offer !== null;
+    },
+    listen: (sink) => {
+      state.sink = sink;
+      // Ouverte avant ce geste : son offre a eu lieu, on la rappelle sans
+      // prétendre qu'elle vient de passer.
+      if (sink !== null && state.offer !== null) {
+        sink.note(`${label} ● déjà ouverte — offre : ${state.offer}`);
+      }
+    },
+    transport: (url, protocols) => {
+      const offer = protocols?.join(", ") ?? "rien";
+      state.sink?.note(`${label} ▶ offre : ${offer}`);
+      state.sink?.created();
+      const inner = new BrowserWsTransport(url, protocols);
+      const metered: IRealtimeTransport = {
+        connect: () => inner.connect(),
+        send: (raw) => {
+          state.sink?.note(
+            `${label} → ${frameBytes(raw, utf8)} o ${kind(raw)} · ${frameHead(raw)}`,
+          );
+          inner.send(raw);
+        },
+        close: (code, reason) => inner.close(code, reason),
+        get readyState() {
+          return inner.readyState;
+        },
+        get bufferedAmount() {
+          return inner.bufferedAmount;
+        },
+        onOpen: (cb) =>
+          inner.onOpen(() => {
+            state.offer = offer;
+            state.sink?.opened();
+            cb();
+          }),
+        onMessage: (cb) =>
+          inner.onMessage((raw) => {
+            // La socket décode et distribue la trame dans cet appel : sa
+            // durée est ce que la page paie pour elle.
+            const before = performance.now();
+            cb(raw);
+            const ms = (performance.now() - before).toFixed(2);
+            state.sink?.note(
+              `${label} ← ${frameBytes(raw, utf8)} o ${kind(raw)} ${ms} ms · ${frameHead(raw)}`,
+            );
+          }),
+        onClose: (cb) =>
+          inner.onClose((code, reason) => {
+            state.offer = null;
+            state.sink?.note(
+              `${label} ■ fermée ${code}${reason === "" ? "" : ` ${reason}`}`,
+            );
+            state.sink?.closed();
+            cb(code, reason);
+          }),
+        onError: (cb) => inner.onError(cb),
+      };
+      return metered;
+    },
+  };
+}
+
+/**
+ * Ce qu'une leçon temps réel reçoit pour jouer son geste : un compteur NEUF
+ * pour une socket ouverte le temps du geste (`meter`), l'écoute d'un
+ * compteur qui vit plus longtemps (`attach`), et de quoi noter un fait.
+ */
+export interface IRealtimeRun {
+  meter: (label: string) => IWireTap;
+  attach: (tap: IWireTap) => void;
+  note: (text: string) => void;
+}
+
+/**
+ * Note chaque trame des sockets du geste : celles que le code client ouvre
+ * pour l'occasion, et celle que la page garde ouverte, écoutée le temps du
+ * geste seulement.
  *
  * @param path - chemin de la socket, pour l'affichage
  * @param run - le code CLIENT du geste ; rend la phrase qui conclut
@@ -463,82 +563,59 @@ export async function probeRealtime(
   const start = performance.now();
   const since = () => Math.round(performance.now() - start);
   const chunks: IProbeChunk[] = [];
-  const utf8 = new TextEncoder();
-  // Un objet, pas un `let` : l'ouverture est notée par un rappel.
-  // `open` : transports pas encore fermés ; `done` : le relevé est rendu,
-  // une note tardive ne le rouvre pas.
-  const seen = { opened: false, open: 0, done: false };
+  // Un objet, pas des `let` : les rappels des transports le modifient.
+  // `owned` : sockets du geste pas encore fermées ; `done` : le relevé est
+  // rendu, une note tardive ne le rouvre pas.
+  const seen = { opened: false, owned: 0, done: false };
   let drained: (() => void) | null = null;
   const note = (text: string) => {
     if (seen.done) return;
     chunks.push({ at: since(), text });
     onChunk?.([...chunks]);
   };
-  const meter = (label: string): IWireMeter => ({
-    transport: (url, protocols) => {
-      note(`${label} ▶ offre : ${protocols?.join(", ") ?? "rien"}`);
-      const inner = new BrowserWsTransport(url, protocols);
-      seen.open += 1;
-      const metered: IRealtimeTransport = {
-        connect: () => inner.connect(),
-        send: (raw) => {
-          note(
-            `${label} → ${frameBytes(raw, utf8)} o ${typeof raw === "string" ? "texte" : "binaire"} · ${frameHead(raw)}`,
-          );
-          inner.send(raw);
-        },
-        close: (code, reason) => inner.close(code, reason),
-        get readyState() {
-          return inner.readyState;
-        },
-        get bufferedAmount() {
-          return inner.bufferedAmount;
-        },
-        onOpen: (cb) =>
-          inner.onOpen(() => {
-            seen.opened = true;
-            cb();
-          }),
-        onMessage: (cb) =>
-          inner.onMessage((raw) => {
-            // La socket décode et distribue la trame dans cet appel : sa
-            // durée est ce que la page paie pour elle.
-            const before = performance.now();
-            cb(raw);
-            const ms = (performance.now() - before).toFixed(2);
-            note(
-              `${label} ← ${frameBytes(raw, utf8)} o ${typeof raw === "string" ? "texte" : "binaire"} ${ms} ms · ${frameHead(raw)}`,
-            );
-          }),
-        onClose: (cb) =>
-          inner.onClose((code, reason) => {
-            note(
-              `${label} ■ fermée ${code}${reason === "" ? "" : ` ${reason}`}`,
-            );
-            seen.open -= 1;
-            if (seen.open === 0) drained?.();
-            cb(code, reason);
-          }),
-        onError: (cb) => inner.onError(cb),
-      };
-      return metered;
+  // Seules les sockets ouvertes POUR le geste se font attendre à la fin.
+  const sink = (owned: boolean): IWireSink => ({
+    note,
+    opened: () => {
+      seen.opened = true;
+    },
+    created: () => {
+      if (owned) seen.owned += 1;
+    },
+    closed: () => {
+      if (!owned) return;
+      seen.owned -= 1;
+      if (seen.owned === 0) drained?.();
     },
   });
+  const attached: IWireTap[] = [];
+  const meter = (label: string): IWireTap => {
+    const tap = wireTap(label);
+    tap.listen(sink(true));
+    return tap;
+  };
+  const attach = (tap: IWireTap) => {
+    if (tap.open) seen.opened = true;
+    tap.listen(sink(false));
+    attached.push(tap);
+  };
   let body = "";
   let error: string | null = null;
   try {
-    body = await run({ meter, note });
+    body = await run({ meter, attach, note });
   } catch (caught) {
     error = caught instanceof Error ? caught.message : String(caught);
   }
   // La fermeture d'une socket se signale APRÈS `disconnect()` : on l'attend
   // (deux secondes au plus) pour qu'elle figure au relevé.
-  if (seen.open > 0) {
+  if (seen.owned > 0) {
     await new Promise<void>((resolve) => {
       drained = resolve;
       setTimeout(resolve, 2000);
     });
   }
+  // La socket gardée continue de vivre : son compteur cesse d'écrire ici.
+  for (const tap of attached) tap.listen(null);
   seen.done = true;
   return {
     request,

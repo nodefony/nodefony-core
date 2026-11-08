@@ -1,23 +1,29 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { docUrl, type IDemoAbout } from "../about";
 import { LEVELS } from "../Catalogue";
 import { LessonCode } from "../lesson/LessonCode";
 import type { LessonFile } from "../lesson/lesson";
 import {
   probeRealtime,
+  wireTap,
   type IProbeChunk,
   type IProbeResult,
+  type IWireTap,
 } from "../kit/probe";
 import { StepsLesson, type ILessonStep } from "../kit/StepsLesson";
 import {
   canvasPng,
+  ensureConnected,
   forgeBytes,
   negotiate,
+  openBinary,
   requestSizes,
   sendBytes,
   trySize,
   watchGame,
   watchVibration,
+  withSocket,
+  type BinarySocket,
 } from "./binaryClient";
 import {
   BINARY_PATH,
@@ -71,6 +77,15 @@ interface IBinaryScreen {
   canvas: () => HTMLCanvasElement | null;
 }
 
+/**
+ * La socket que la page GARDE ouverte, en CBOR — celle d'une application,
+ * visible dans la barre de debug — et le compteur de fil qui la suit.
+ */
+interface IAppSocket {
+  socket: BinarySocket;
+  tap: IWireTap;
+}
+
 /** Une écoute de la sonde sur la socket de la démo. */
 function onSocket(
   run: Parameters<typeof probeRealtime>[1],
@@ -81,6 +96,7 @@ function onSocket(
 /** Les sept gestes. */
 function buildSteps(
   screen: IBinaryScreen,
+  app: IAppSocket,
 ): readonly [IBinaryStep, ...IBinaryStep[]] {
   return [
     {
@@ -88,7 +104,7 @@ function buildSteps(
       short: "Négocier",
       gesture: "codec: CBOR_FRAME_CODEC",
       title: "Négocier le codec, connexion par connexion",
-      text: "Le serveur sait parler CBOR ; chaque page choisit d'en profiter. La première connexion OFFRE CBOR au handshake et l'obtient. La seconde n'offre rien et reste en texte — sur le même serveur, au même moment.",
+      text: "Le serveur sait parler CBOR ; chaque page choisit d'en profiter. La socket de la page OFFRE CBOR au handshake et l'obtient. Une seconde, ouverte le temps de comparer, n'offre rien et reste en texte — sur le même serveur, au même moment.",
       excerpts: [
         { file: CONFIG, region: "binary-config" },
         { file: CLIENT, region: "client-open" },
@@ -98,13 +114,18 @@ function buildSteps(
       shows: "codecs",
       calls: [
         {
-          label: "Ouvrir les deux connexions",
+          label: "Comparer les deux connexions",
           verb: "WS",
           path: BINARY_SOCKET,
-          run: onSocket(async ({ meter }) => {
-            const cbor = await negotiate(true, meter(WIRE_CBOR).transport);
+          run: onSocket(async ({ attach, meter }) => {
+            attach(app.tap);
+            const cbor = await negotiate(app.socket);
             screen.codec(WIRE_CBOR, cbor);
-            const text = await negotiate(false, meter(WIRE_TEXT).transport);
+            const text = await withSocket(
+              false,
+              meter(WIRE_TEXT).transport,
+              negotiate,
+            );
             screen.codec(WIRE_TEXT, text);
             return `avec l'offre : ${cbor}\nsans offre : ${text}`;
           }),
@@ -128,11 +149,12 @@ function buildSteps(
           label: "Écouter trois secondes",
           verb: "WS",
           path: BINARY_SOCKET,
-          run: onSocket(async ({ meter }) => {
+          run: onSocket(async ({ attach }) => {
+            attach(app.tap);
             const seen = await watchVibration(
+              app.socket,
               VIBRATION_FRAMES,
               screen.vibration,
-              meter(WIRE_CBOR).transport,
             );
             return `${seen} trames de vibrations reçues`;
           }),
@@ -157,9 +179,14 @@ function buildSteps(
           label: "Mesurer, CBOR puis texte",
           verb: "WS",
           path: BINARY_SOCKET,
-          run: onSocket(async ({ meter }) => {
-            const cbor = await requestSizes(true, meter(WIRE_CBOR).transport);
-            const text = await requestSizes(false, meter(WIRE_TEXT).transport);
+          run: onSocket(async ({ attach, meter }) => {
+            attach(app.tap);
+            const cbor = await requestSizes(app.socket);
+            const text = await withSocket(
+              false,
+              meter(WIRE_TEXT).transport,
+              requestSizes,
+            );
             return `octets de charge reçus : ${cbor} en CBOR, ${text} en texte — les mêmes`;
           }),
         },
@@ -170,7 +197,7 @@ function buildSteps(
       short: "Envoyer",
       gesture: "{ bytes: Uint8Array }",
       title: "Envoyer des octets, recevoir leur empreinte",
-      text: "Dessine, puis envoie : les octets PNG du canevas partent dans les paramètres d'une méthode. Le serveur rend leur taille et leur SHA-256 ; le navigateur calcule le sien. Même empreinte : pas un octet n'a changé en route.",
+      text: "Dessine, puis envoie : les octets PNG du canevas partent dans les paramètres d'une méthode. Le serveur rend leur taille et leur SHA-256 ; le navigateur calcule le sien. Même empreinte : pas un octet n'a changé en route. La socket de la page reste ouverte : la barre de debug montre la trame envoyée et la réponse.",
       excerpts: [
         { file: CONTROLLER, region: "binary-digest" },
         { file: CLIENT, region: "client-send" },
@@ -182,15 +209,12 @@ function buildSteps(
           label: "Envoyer le dessin",
           verb: "WS",
           path: BINARY_SOCKET,
-          run: onSocket(async ({ meter }) => {
+          run: onSocket(async ({ attach }) => {
+            attach(app.tap);
             const canvas = screen.canvas();
             if (canvas === null) throw new Error("canevas absent");
             screen.digest(null);
-            const result = await sendBytes(
-              await canvasPng(canvas),
-              true,
-              meter(WIRE_CBOR).transport,
-            );
+            const result = await sendBytes(app.socket, await canvasPng(canvas));
             screen.digest(result);
             return `serveur : ${result.server.sha256}\nnavigateur : ${result.local}`;
           }),
@@ -202,7 +226,7 @@ function buildSteps(
       short: "La limite",
       gesture: "maxPayload",
       title: "Trop gros : la connexion se ferme",
-      text: "Un message entrant ne dépasse pas `maxPayload` — relevé ici à 2 Mio. 1,5 Mio passe en CBOR. 3 Mio : le serveur ferme en 1009 sans appeler l'action. Et les mêmes 1,5 Mio en texte pèsent 2 Mio passés une fois en base64 : refusés aussi.",
+      text: "Un message entrant ne dépasse pas `maxPayload` — relevé ici à 2 Mio. 1,5 Mio passe en CBOR. 3 Mio : le serveur ferme en 1009 sans appeler l'action. La socket de la page est fermée ; le geste suivant la rouvre. Et les mêmes 1,5 Mio en texte pèsent 2 Mio passés une fois en base64 : refusés aussi.",
       excerpts: [
         { file: CONFIG, region: "binary-config" },
         { file: CLIENT, region: "client-limit" },
@@ -214,24 +238,28 @@ function buildSteps(
           label: "1,5 Mio en CBOR",
           verb: "WS",
           path: BINARY_SOCKET,
-          run: onSocket(({ meter }) =>
-            trySize(UNDER_LIMIT, true, meter(WIRE_CBOR).transport),
-          ),
+          run: onSocket(({ attach }) => {
+            attach(app.tap);
+            return trySize(app.socket, UNDER_LIMIT);
+          }),
         },
         {
           label: "3 Mio en CBOR",
           verb: "WS",
           path: BINARY_SOCKET,
-          run: onSocket(({ meter }) =>
-            trySize(OVER_LIMIT, true, meter(WIRE_CBOR).transport),
-          ),
+          run: onSocket(({ attach }) => {
+            attach(app.tap);
+            return trySize(app.socket, OVER_LIMIT);
+          }),
         },
         {
           label: "1,5 Mio en texte",
           verb: "WS",
           path: BINARY_SOCKET,
           run: onSocket(({ meter }) =>
-            trySize(UNDER_LIMIT, false, meter(WIRE_TEXT).transport),
+            withSocket(false, meter(WIRE_TEXT).transport, (socket) =>
+              trySize(socket, UNDER_LIMIT),
+            ),
           ),
         },
       ],
@@ -254,15 +282,13 @@ function buildSteps(
           label: "Jouer trois secondes",
           verb: "WS",
           path: BINARY_SOCKET,
-          run: onSocket(async ({ meter }) => {
+          run: onSocket(async ({ attach, meter }) => {
+            attach(app.tap);
             const [cbor, text] = await Promise.all([
-              watchGame(
-                GAME_FRAMES,
-                true,
-                screen.positions,
-                meter(WIRE_CBOR).transport,
+              watchGame(app.socket, GAME_FRAMES, screen.positions),
+              withSocket(false, meter(WIRE_TEXT).transport, (socket) =>
+                watchGame(socket, GAME_FRAMES, null),
               ),
-              watchGame(GAME_FRAMES, false, null, meter(WIRE_TEXT).transport),
             ]);
             return `${cbor} images en CBOR, ${text} images en texte`;
           }),
@@ -317,6 +343,18 @@ function buildSteps(
 export function BinaryLesson({ about }: { about: IDemoAbout | null }) {
   const version = about?.nodefony.version ?? null;
   const canvas = useRef<HTMLCanvasElement | null>(null);
+  // UNE socket CBOR pour toute la page, ouverte à l'arrivée, fermée au
+  // départ : les gestes la partagent, la barre de debug la montre.
+  const [app] = useState<IAppSocket>(() => {
+    const tap = wireTap(WIRE_CBOR);
+    return { tap, socket: openBinary(true, tap.transport) };
+  });
+  useEffect(() => {
+    ensureConnected(app.socket).catch(() => {
+      // Le premier geste réessaiera, et dira pourquoi s'il échoue encore.
+    });
+    return () => app.socket.disconnect();
+  }, [app]);
   const [last, setLast] = useState<Partial<Record<string, IProbeResult>>>({});
   const [codecs, setCodecs] = useState<Partial<Record<string, string>>>({});
   const [vibration, setVibration] = useState<{
@@ -328,14 +366,17 @@ export function BinaryLesson({ about }: { about: IDemoAbout | null }) {
     server: IDigest;
     local: string;
   } | null>(null);
-  const steps = buildSteps({
-    codec: (label, codec) =>
-      setCodecs((before) => ({ ...before, [label]: codec })),
-    vibration: (rpm, samples) => setVibration({ rpm, samples }),
-    positions: setPositions,
-    digest: setDigest,
-    canvas: () => canvas.current,
-  });
+  const steps = buildSteps(
+    {
+      codec: (label, codec) =>
+        setCodecs((before) => ({ ...before, [label]: codec })),
+      vibration: (rpm, samples) => setVibration({ rpm, samples }),
+      positions: setPositions,
+      digest: setDigest,
+      canvas: () => canvas.current,
+    },
+    app,
+  );
 
   const fields = (
     step: IBinaryStep,
@@ -418,9 +459,10 @@ export function BinaryLesson({ about }: { about: IDemoAbout | null }) {
           </ol>
           <p>
             Une vraie application ouvre <strong>une seule socket</strong>, qui
-            offre CBOR. Si cette page en ouvre parfois deux, l'une en CBOR,
-            l'autre en texte, c'est pour peser les mêmes messages dans les deux
-            formats.
+            offre CBOR, et la garde. Cette page fait de même : sa socket reste
+            ouverte pendant tous les gestes, et la barre de debug la montre.
+            Elle n'en ouvre une seconde, en texte, que le temps de peser les
+            mêmes messages dans les deux formats.
           </p>
         </aside>
       </header>
