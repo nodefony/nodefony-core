@@ -226,7 +226,20 @@ describe("unit — l'environnement passe par le catalogue, et par lui seul", () 
         citees.add(m[0]);
       }
     }
-    const inconnues = [...citees].filter((v) => !catalogue.includes(v)).sort();
+    // Le SCHÉMA d'un module est l'autre catalogue : une clé de sa config marquée
+    // `.meta({ env: "NF_…" })` est lue au démarrage par le framework, sans que
+    // le module touche `process.env` (la démo y déclare son secret machine).
+    const declarees = new Set<string>();
+    for (const p of SOURCES) {
+      for (const m of codeSeul(lire(p)).matchAll(
+        /\.meta\(\s*\{[^}]*?\benv:\s*["'](NF_[A-Z0-9_]+)["']/g,
+      )) {
+        if (m[1] !== undefined) declarees.add(m[1]);
+      }
+    }
+    const inconnues = [...citees]
+      .filter((v) => !catalogue.includes(v) && !declarees.has(v))
+      .sort();
     expect(inconnues).toEqual([]);
   });
 });

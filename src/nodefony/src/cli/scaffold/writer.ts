@@ -147,6 +147,11 @@ export class ScaffoldWriter {
   /**
    * Entrées d'un dossier, disque et transaction fusionnés — la vue dont
    * `listTargets` a besoin pour voir un module qui n'est pas encore committé.
+   *
+   * Triées par nom (ordre des unités de code, sans locale) : l'ordre de
+   * `readdir` dépend du système, et une entrée en attente se rangeait sinon à
+   * la FIN — un `AGENTS.md` écrit pendant `create module` ne correspondait plus
+   * à sa relecture sur le disque, et `nodefony doctor` le disait périmé.
    */
   listDir(dir: string): { name: string; isDirectory: boolean }[] {
     const entries = new Map<string, boolean>();
@@ -164,7 +169,9 @@ export class ScaffoldWriter {
       const sep = rest.indexOf(path.sep);
       entries.set(sep === -1 ? rest : rest.slice(0, sep), sep !== -1);
     }
-    return [...entries].map(([name, isDirectory]) => ({ name, isDirectory }));
+    return [...entries]
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+      .map(([name, isDirectory]) => ({ name, isDirectory }));
   }
 
   /** Retient une écriture. Rien ne touche le disque avant {@link commit}. */
