@@ -22,7 +22,8 @@ export type LessonFile =
   | "nodefony/controllers/PartnerTokenController.ts"
   | "nodefony/service/PartnerTokenService.ts"
   | "nodefony/command/PartnerCallCommand.ts"
-  | "frontend/src/partner/usePartnerLab.ts";
+  | "frontend/src/partner/usePartnerLab.ts"
+  | "frontend/src/partner/partnerApi.ts";
 
 /** Un extrait : la région `region` du fichier `file`, et ce qu'il faut y lire. */
 export interface ILessonExcerpt {

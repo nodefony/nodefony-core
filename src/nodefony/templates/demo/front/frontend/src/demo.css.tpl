@@ -2003,3 +2003,40 @@ a.ritem:hover .ritem-go {
   color: color-mix(in srgb, var(--blue) 50%, var(--fg));
   border-color: color-mix(in srgb, var(--blue) 45%, var(--border));
 }
+
+/* Les constantes d'un extrait, et leur valeur lue dans les sources. */
+.excerpt-consts {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding: 10px 14px;
+  font-size: 0.84rem;
+  background: var(--bg-soft);
+  border-radius: 10px;
+}
+.excerpt-consts > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  min-width: 0;
+}
+.excerpt-consts dt code {
+  font-weight: 700;
+}
+.excerpt-consts dt::after {
+  content: " =";
+  color: var(--muted);
+}
+.excerpt-consts dd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.excerpt-consts dd span {
+  color: var(--muted);
+  font-size: 0.92em;
+}

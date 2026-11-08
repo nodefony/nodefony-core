@@ -292,7 +292,7 @@ const FEATURES = [
   },
   {
     title: "Sécurité par conception",
-    text: "Zones du pare-feu, session, jeton machine. Démos : chat, API entre programmes.",
+    text: "Zones du firewall, session, jeton machine. Démos : chat, API entre programmes.",
   },
   {
     title: "DI et modules",

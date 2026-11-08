@@ -25,6 +25,10 @@ import {
 } from "../frontend/src/chat/lessonSteps";
 import { highlight } from "../frontend/src/highlight";
 import {
+  constantNames,
+  resolveConstants,
+} from "../frontend/src/chat/lessonConstants";
+import {
   PARTNER_DECORATED_FILES,
   PARTNER_DECORATORS,
   PARTNER_LESSON_STEPS,
@@ -233,6 +237,43 @@ describe("demo — les décorateurs et la coloration des pages", () => {
           .join(""),
       ).toBe(source);
     }
+  });
+});
+
+describe("demo — les constantes montrées sous chaque extrait", () => {
+  const regions = [...CHAT_LESSON_STEPS, ...PARTNER_LESSON_STEPS].flatMap(
+    (step) => {
+      const excerpts: readonly { file: LessonFile; region: string }[] =
+        step.excerpts;
+      return excerpts.map((excerpt) => ({
+        file: excerpt.file,
+        region: excerpt.region,
+      }));
+    },
+  );
+
+  it.each(regions)(
+    "$region : chaque constante employée a sa valeur",
+    ({ file, region }) => {
+      const code = extractRegion(LESSON_SOURCES[file], region) ?? "";
+      const resolved = resolveConstants(code, LESSON_SOURCES).map(
+        (constant) => constant.name,
+      );
+      expect(resolved).toEqual(constantNames(code));
+    },
+  );
+
+  it("résout un gabarit à travers les autres constantes, ignore chaînes et commentaires", () => {
+    const sources = {
+      "a.ts": 'export const BASE_PATH = "/demo/api";\nconst LIMIT_N = 50;',
+      "b.ts": "const FULL_PATH = `${BASE_PATH}/whoami`;",
+    };
+    const code = 'call(FULL_PATH, LIMIT_N); // NOT_THIS\nlog("NOR_THIS");';
+    expect(resolveConstants(code, sources)).toEqual([
+      { name: "FULL_PATH", value: '"/demo/api/whoami"', file: "b.ts" },
+      { name: "LIMIT_N", value: "50", file: "a.ts" },
+    ]);
+    expect(resolveConstants("use(MISSING_ONE)", sources)).toEqual([]);
   });
 });
 

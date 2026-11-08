@@ -16,7 +16,7 @@ import { PartnerTokenError } from "../service/PartnerTokenService";
  *
  * Guide pour un agent : cette route vit sous `/demo/api/token`, donc dans la
  * zone `demo` (session, puis anonyme) — PAS sous `/demo/api/partner`, que
- * seule la zone à jeton couvre (un cookie n'y ouvre rien). `@IsGranted`
+ * seule la zone `demo-partner` du firewall couvre (un cookie n'y ouvre rien). `@IsGranted`
  * refuse le visiteur anonyme (403 : la zone lui donne une identité, sans
  * rôle) avant l'action ; le compte vient de `this.user`,
  * jamais d'un champ envoyé. L'émission elle-même est celle de la commande

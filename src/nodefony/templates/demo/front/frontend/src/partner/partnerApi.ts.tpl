@@ -4,11 +4,11 @@
  * les deux, aucun type n'est recopié.
  *
  * Guide pour un agent : la page décode le jeton pour MONTRER ce qu'il porte ;
- * elle ne le vérifie pas — c'est le travail du pare-feu, côté serveur, et un
+ * elle ne le vérifie pas — c'est le travail du firewall, côté serveur, et un
  * client ne doit jamais fonder une décision sur un jeton qu'il a décodé.
  */
 
-/** Le guichet : `POST`, sous session (zone `demo`), hors de la zone à jeton. */
+/** Le guichet : `POST`, sous session (zone `demo`), hors de la zone `demo-partner` du firewall. */
 export const PARTNER_TOKEN_PATH = "/demo/api/token";
 
 /** Ce que rend le guichet. */

@@ -33,7 +33,7 @@ function readIssuer(token: unknown): string | null {
  * (`nodefony/command/PartnerCallCommand.ts`).
  */
 // #region partner-class
-// Toute la classe sous `/demo/api/partner` : la zone à jeton la couvre.
+// Toute la classe sous `/demo/api/partner` : la zone `demo-partner` du firewall la couvre.
 @controller(PARTNER_PATH)
 class PartnerController extends Controller {
   constructor(

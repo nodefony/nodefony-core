@@ -7,7 +7,7 @@ import type { ISecurityConfigInput } from "@nodefony/security";
  */
 export const PARTNER_PATH = "/demo/api/partner";
 
-/** Nom de la zone du pare-feu qui protège l'API partenaire. */
+/** Nom de la zone du firewall qui protège l'API partenaire. */
 export const PARTNER_AREA = "demo-partner";
 
 /** Nom de la zone qui couvre les pages et la socket de la démo. */

@@ -166,7 +166,7 @@ export const PARTNER_CALL_COMMAND = "demo:partner:call";
  *    n'a pas accès aux clés de l'application.
  *
  * Dans les deux cas, le jeton vise la `resource` de la zone `demo-partner`,
- * lue dans la config VALIDÉE du pare-feu (déjà rendue absolue contre
+ * lue dans la config VALIDÉE du firewall (déjà rendue absolue contre
  * `jwt.issuer`) : c'est l'audience que la zone exige, et un jeton délivré pour
  * une autre est refusé. La commande ne lit aucune variable d'environnement :
  * tout ce qu'elle sait vient de la configuration des modules.

@@ -36,7 +36,7 @@ export interface IPartnerToken {
  * et pour la seule API partenaire — partagé par la commande
  * `demo:partner:call` et par la page `/demo/partner`.
  *
- * Guide pour un agent : l'audience vient de la config VALIDÉE du pare-feu
+ * Guide pour un agent : l'audience vient de la config VALIDÉE du firewall
  * (`firewall.getArea("demo-partner").resource`, rendue absolue contre
  * `jwt.issuer`), jamais d'une URL recopiée — un jeton pour une autre audience
  * est refusé par la zone. Les services du framework s'atteignent par leur CLÉ
@@ -61,7 +61,7 @@ class PartnerTokenService extends Service {
   }
 
   /**
-   * La ressource de la zone partenaire, telle que le pare-feu l'a validée.
+   * La ressource de la zone partenaire, telle que le firewall l'a validée.
    *
    * @throws PartnerTokenError si la zone n'est pas chargée
    */
@@ -73,7 +73,7 @@ class PartnerTokenService extends Service {
         : undefined;
     if (resource === undefined) {
       throw new PartnerTokenError(
-        `zone « ${PARTNER_AREA} » introuvable dans le pare-feu.`,
+        `zone « ${PARTNER_AREA} » introuvable dans le firewall.`,
         "le module demo et @nodefony/security sont-ils chargés ? " +
           "npx nodefony inspect modules",
       );

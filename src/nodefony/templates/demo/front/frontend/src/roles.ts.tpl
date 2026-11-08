@@ -157,7 +157,10 @@ export const ROLES = [
     steps: [
       { demo: "first-steps", description: "Contrôleur, route, réponse." },
       { demo: "chat", description: "Historique en base, salon protégé." },
-      { demo: "partner", description: "Une zone à jeton machine." },
+      {
+        demo: "partner",
+        description: "Une zone du firewall réservée aux jetons machine.",
+      },
       { demo: "grpc", description: "Un service dans le pipeline HTTP/2." },
     ],
   },

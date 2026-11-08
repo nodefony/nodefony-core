@@ -24,7 +24,7 @@ import { registerDemoEntry } from "./nodefony/frontend/registerDemoEntry";
  * dans du code qui tourne.
  *
  * Un module PRIVÉ comme un autre (`modules/demo/`), posé par
- * `create app --demo` : ses routes vivent sous `/demo`, sa zone de pare-feu
+ * `create app --demo` : ses routes vivent sous `/demo`, sa zone de firewall
  * dans sa propre config (`nodefony/config/security.ts`). La retirer tient en
  * deux gestes — supprimer ce dossier, retirer sa ligne `use(…)` du manifeste
  * de `nodefony.config.ts` — et l'application reste entière.

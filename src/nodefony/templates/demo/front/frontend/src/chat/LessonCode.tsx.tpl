@@ -2,6 +2,7 @@ import { useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Inline } from "../Catalogue";
 import { tabTargetIndex } from "../effects";
 import { highlight } from "../highlight";
+import { resolveConstants } from "./lessonConstants";
 import { LESSON_SOURCES } from "./lessonSources";
 import {
   extractRegion,
@@ -150,6 +151,10 @@ function Excerpt({ excerpt }: { excerpt: ILessonExcerpt }) {
     () => (code === null ? null : highlight(code)),
     [code],
   );
+  const constants = useMemo(
+    () => (code === null ? [] : resolveConstants(code, LESSON_SOURCES)),
+    [code],
+  );
   return (
     <figure className="excerpt">
       <figcaption>
@@ -175,6 +180,21 @@ function Excerpt({ excerpt }: { excerpt: ILessonExcerpt }) {
               ))}
         </code>
       </pre>
+      {constants.length > 0 && (
+        <dl className="excerpt-consts" aria-label="Constantes de cet extrait">
+          {constants.map((constant) => (
+            <div key={constant.name}>
+              <dt>
+                <code>{constant.name}</code>
+              </dt>
+              <dd>
+                <code>{constant.value}</code>
+                <span>{constant.file}</span>
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
     </figure>
   );
 }

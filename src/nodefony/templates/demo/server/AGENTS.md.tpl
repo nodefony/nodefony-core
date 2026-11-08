@@ -28,7 +28,7 @@ un renvoi mort le fait échouer.
   l'entrée front `demo`.
 - `nodefony/controllers/` — une démo = un contrôleur sous `/demo/…` :
   `ChatController` (HTTP + socket, `ContractRealtimeController`),
-  `PartnerController` (`/demo/api/partner`, zone à jeton), les pages et l'accueil.
+  `PartnerController` (`/demo/api/partner`, zone `demo-partner` du firewall), les pages et l'accueil.
 - `nodefony/service/` — l'état qui survit à une connexion (`ChatService`),
   le pouls de l'accueil (`DemoPulseService`, canal `demo:pulse`).
 - `nodefony/config/security.ts` — les zones qu'apporte la démo :

@@ -16,6 +16,7 @@ const RAW = import.meta.glob<string>(
     "../../../nodefony/service/PartnerTokenService.ts",
     "../../../nodefony/command/PartnerCallCommand.ts",
     "../partner/usePartnerLab.ts",
+    "../partner/partnerApi.ts",
   ],
   { query: "?raw", import: "default", eager: true },
 );
@@ -57,4 +58,5 @@ export const LESSON_SOURCES = {
     "../../../nodefony/command/PartnerCallCommand.ts",
   ),
   "frontend/src/partner/usePartnerLab.ts": read("../partner/usePartnerLab.ts"),
+  "frontend/src/partner/partnerApi.ts": read("../partner/partnerApi.ts"),
 } satisfies Record<LessonFile, string>;

@@ -41,7 +41,7 @@ const TRIALS: readonly ITrialSpec[] = [
   {
     id: "with-token",
     title: "Appeler avec le jeton",
-    text: "Le même appel, avec `Authorization: Bearer …`. Le pare-feu vérifie la signature, l'expiration et l'audience, puis l'action répond.",
+    text: "Le même appel, avec `Authorization: Bearer …`. Le firewall vérifie la signature, l'expiration et l'audience, puis l'action répond.",
     expect: "200",
     action: "Appeler avec le jeton",
     needsToken: true,
@@ -49,7 +49,7 @@ const TRIALS: readonly ITrialSpec[] = [
   {
     id: "tampered",
     title: "Appeler avec un jeton altéré",
-    text: "Un seul caractère de la signature change : le jeton ne prouve plus rien. Le pare-feu le refuse avant le contrôleur.",
+    text: "Un seul caractère de la signature change : le jeton ne prouve plus rien. Le firewall le refuse avant le contrôleur.",
     expect: "401",
     action: "Appeler avec un jeton altéré",
     needsToken: true,
@@ -91,7 +91,7 @@ export function PartnerLesson({ about }: { about: IDemoAbout | null }) {
         <p>
           Un service partenaire, un script ou un agent n'a pas de navigateur :
           il se présente avec un <strong>jeton d'accès</strong>. Ici, une zone
-          du pare-feu protège <code>/demo/api/partner</code> : elle vérifie le
+          du firewall protège <code>/demo/api/partner</code> : elle vérifie le
           jeton AVANT le contrôleur, qui ne contient plus que le métier. Le
           jeton peut venir de cette application ou d'un serveur d'identité
           (Keycloak) — l'API ne change pas.

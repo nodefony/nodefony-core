@@ -19,9 +19,9 @@ const PAGE = "frontend/src/partner/usePartnerLab.ts";
 export const PARTNER_LESSON_STEPS = [
   {
     step: 1,
-    title: "La zone à jeton",
+    title: "Le firewall",
     summary:
-      "Une zone du pare-feu couvre `/demo/api/partner` : elle n'accepte qu'un jeton d'accès, vérifié AVANT le contrôleur — signature, expiration, audience.",
+      "Le firewall de `@nodefony/security` découpe l'application en zones (`areas`). La zone `demo-partner` couvre `/demo/api/partner` : elle n'accepte qu'un jeton d'accès, vérifié AVANT le contrôleur — signature, expiration, audience.",
     status: "ready",
     excerpts: [
       {
@@ -35,7 +35,7 @@ export const PARTNER_LESSON_STEPS = [
     step: 2,
     title: "L'API du programme",
     summary:
-      "Le contrôleur ne contient AUCUN contrôle d'accès : quand l'action s'exécute, le pare-feu a déjà prouvé qui appelle.",
+      "Le contrôleur ne contient AUCUN contrôle d'accès : quand l'action s'exécute, le firewall a déjà prouvé qui appelle.",
     status: "ready",
     excerpts: [
       {
@@ -65,7 +65,7 @@ export const PARTNER_LESSON_STEPS = [
       {
         file: ISSUER,
         region: "partner-issue",
-        note: "L'audience vient de la config VALIDÉE du pare-feu, jamais d'une URL recopiée : un jeton émis ici n'ouvre rien d'autre.",
+        note: "L'audience vient de la config VALIDÉE du firewall, jamais d'une URL recopiée : un jeton émis ici n'ouvre rien d'autre.",
       },
       {
         file: DESK,
@@ -118,7 +118,7 @@ export const PARTNER_DECORATORS = [
     name: "controller",
     file: API,
     from: "@nodefony/framework",
-    role: "Place toute la classe sous un chemin — ici celui que couvre la zone à jeton.",
+    role: "Place toute la classe sous un chemin — ici celui que couvre la zone `demo-partner` du firewall.",
     step: 2,
     region: "partner-class",
   },
