@@ -84,9 +84,14 @@ step("le build (rolldown)", [
   "-c",
   "rolldown.config.ts",
 ]);
+// Les options STRICTES que le banc de vérité impose à une application générée
+// (`verify-generated.mjs`) : sans elles, ce rendu reste vert sur un accès
+// indexé que l'app de l'utilisateur refuse. Vécu : `ROLES[next].id`.
 step("le typecheck (tsgo)", [
   ...nodeBin("@typescript/native-preview", "bin/tsgo"),
   "--noEmit",
+  "--noUncheckedIndexedAccess",
+  "--exactOptionalPropertyTypes",
   "-p",
   "tsconfig.json",
 ]);

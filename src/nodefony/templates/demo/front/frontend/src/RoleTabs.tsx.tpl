@@ -106,9 +106,10 @@ export function RoleTabs({ version }: { version: string | null }) {
     index: number,
   ) => {
     const next = targetIndex(event.key, index, ROLES.length);
-    if (next === null) return;
+    const role = next === null ? undefined : ROLES[next];
+    if (next === null || role === undefined) return;
     event.preventDefault();
-    select(ROLES[next].id, next);
+    select(role.id, next);
   };
 
   return (
