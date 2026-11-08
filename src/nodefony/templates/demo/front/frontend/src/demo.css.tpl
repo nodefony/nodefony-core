@@ -2015,3 +2015,8 @@ a.ritem:hover .ritem-go {
   color: var(--muted);
   font-size: 0.92em;
 }
+/* Un réglage (terminal, .env, journal) : montré, pas cité d'un fichier. */
+.snippet-label {
+  font-weight: 600;
+  color: var(--fg);
+}

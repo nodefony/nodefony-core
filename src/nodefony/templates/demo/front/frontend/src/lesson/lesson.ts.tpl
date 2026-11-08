@@ -52,11 +52,22 @@ export interface ILessonExcerpt {
   step?: number;
 }
 
-/** Un paragraphe de l'onglet, et le code qu'il explique. */
+/**
+ * Ce que l'exploitation tape ou pose — terminal, `.env`, journal — et qui ne
+ * vit dans aucun fichier du module : il ne se cite donc pas, il se montre.
+ */
+export interface ILessonSnippet {
+  /** Où ça se tape ou se lit (« Terminal », « .env de l'application »). */
+  label: string;
+  lines: readonly string[];
+}
+
+/** Un paragraphe de l'onglet, et le code ou les réglages qu'il explique. */
 export interface ILessonBlock {
   /** Le paragraphe ; `code` entre accents graves. */
   text: string;
   excerpt?: ILessonExcerpt;
+  snippet?: ILessonSnippet;
 }
 
 /** Un onglet : une couche, ce qu'elle porte pour cette démo, et son code. */

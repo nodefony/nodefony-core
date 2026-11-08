@@ -109,6 +109,16 @@ export function LessonCode({ lesson, doc }: ILessonCodeProps) {
               <Inline text={block.text} />
             </p>
             {block.excerpt !== undefined && <Excerpt excerpt={block.excerpt} />}
+            {block.snippet !== undefined && (
+              <figure className="excerpt snippet">
+                <figcaption>
+                  <span className="snippet-label">{block.snippet.label}</span>
+                </figcaption>
+                <pre>
+                  <code>{block.snippet.lines.join("\n")}</code>
+                </pre>
+              </figure>
+            )}
           </div>
         ))}
         {decorators.length > 0 && (

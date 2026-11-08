@@ -107,8 +107,37 @@ export const PARTNER_LESSON = {
       layer: "devops",
       blocks: [
         {
-          text: "Un vrai partenaire n'a pas les clés de l'application : il obtient son jeton chez un serveur d'identité, par le flux `client_credentials` (RFC 6749 §4.4), sans utilisateur ni navigateur. L'exploitation fournit Keycloak (`docker compose --profile keycloak up -d keycloak`), son adresse (`NF_KEYCLOAK_ISSUER`) et le secret du client machine (`NF_KEYCLOAK_MACHINE_SECRET`). Le point de jeton est DÉCOUVERT depuis l'émetteur (RFC 8414), jamais recopié.",
+          text: "Un vrai partenaire n'a pas les clés de l'application : il obtient son jeton chez un serveur d'identité, par le flux `client_credentials` (RFC 6749 §4.4), sans utilisateur ni navigateur. L'application ne connaît que l'adresse du realm ; le point de jeton est DÉCOUVERT depuis elle (RFC 8414), jamais recopié.",
           excerpt: { file: COMMAND, region: "partner-keycloak" },
+        },
+        {
+          text: "En développement, tout est déjà en place : le compose de l'application lève Keycloak avec son realm, et `.env` porte l'adresse du realm et le secret du client machine de la démo — des valeurs PUBLIQUES de développement. Keycloak éteint, l'application démarre quand même, avec un avertissement.",
+          snippet: {
+            label: "Terminal",
+            lines: [
+              "docker compose --profile keycloak up -d",
+              "npx nodefony demo:partner:call --issuer keycloak",
+            ],
+          },
+        },
+        {
+          text: "Le jeton du partenaire doit porter l'audience de la zone `demo-partner`, et c'est le realm qui la lui donne. Un appel refusé (401) avec un jeton Keycloak ? La commande donne le geste : écrire le realm, puis l'importer dans la console Keycloak (Realm settings → Partial import).",
+          snippet: {
+            label: "Terminal",
+            lines: [
+              "npx nodefony security:keycloak:realm --write --machine <nom-de-l-app>-machine",
+            ],
+          },
+        },
+        {
+          text: "Dans une vraie application (la démo, elle, ne part pas en production), ce sont deux variables du déploiement : l'adresse du realm, et le secret du client machine, posé comme un secret — secret Kubernetes, variable protégée de la CI —, jamais dans une image. Le partenaire, lui, ne reçoit que l'identifiant et le secret de SON client.",
+          snippet: {
+            label: "Variables du déploiement",
+            lines: [
+              "NF_KEYCLOAK_ISSUER=https://sso.exemple.com/realms/mon-app",
+              "NF_KEYCLOAK_MACHINE_SECRET=<secret du client machine>",
+            ],
+          },
         },
       ],
     },

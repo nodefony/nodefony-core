@@ -120,8 +120,49 @@ export const CHAT_LESSON = {
       layer: "devops",
       blocks: [
         {
-          text: "Plusieurs serveurs : côté code, un décorateur — toute publication sur un canal `chat:` passe par le backplane, et chaque serveur la relaie à ses abonnés. Côté exploitation, on choisit le backplane : `cluster` pour plusieurs workers d'une machine (`npx nodefony cluster -w 2`), `redis` pour plusieurs machines ; avec un Redis partagé, poser `backplane.namespace` dans chaque déploiement.",
+          text: "Le problème : chaque serveur a son propre hub. Un message publié sur le serveur A n'atteint pas les abonnés connectés au serveur B — et rien ne le signale. Côté code, on déclare UNE fois quels canaux doivent traverser : tout ce qui commence par `chat:`. Le reste (état d'un processus, métriques) reste local.",
           excerpt: { file: CONTROLLER, region: "chat-broadcast", step: 7 },
+        },
+        {
+          text: "Le relais entre serveurs s'appelle le BACKPLANE, et il se choisit dans la config de l'application, jamais dans le code. Une application créée avec `--demo` démarre déjà avec le driver `cluster` : les workers d'UNE machine se relaient entre eux, sans rien installer.",
+          snippet: {
+            label: "nodefony.config.ts — déjà écrit dans l'application",
+            lines: [
+              'use("@nodefony/realtime", { backplane: { driver: "cluster" } }),',
+            ],
+          },
+        },
+        {
+          text: "Pour l'essayer : deux workers sur ta machine, puis deux onglets. Un message envoyé depuis l'un arrive dans l'autre, même quand les deux sockets sont tenues par des workers différents.",
+          snippet: { label: "Terminal", lines: ["npx nodefony cluster -w 2"] },
+        },
+        {
+          text: "Plusieurs machines (des pods Kubernetes, par exemple) : le relais passe par Redis, en pub/sub. Aucun changement de code, tout passe par l'environnement. `NF_REDIS_URL` donne l'adresse de Redis, et sa seule présence charge `@nodefony/redis`, qui ouvre les connexions `publish` et `subscribe` du relais. `NF_REALTIME_DRIVER` choisit le driver : il l'emporte sur la valeur écrite dans `nodefony.config.ts`. `NF_REALTIME_BACKPLANE_NAMESPACE` est la cloison, obligatoire dès que deux déploiements partagent un Redis : le numéro de base ne cloisonne pas le pub/sub, et préproduction et production échangeraient leurs messages. `NF_REALTIME_BACKPLANE_SECRET`, facultatif, scelle chaque message.",
+          snippet: {
+            label: ".env, ou variables d'environnement du pod",
+            lines: [
+              "NF_REDIS_URL=redis://:motdepasse@redis:6379",
+              "NF_REALTIME_DRIVER=redis",
+              "NF_REALTIME_BACKPLANE_NAMESPACE=mon-app.prod",
+              "NF_REALTIME_BACKPLANE_SECRET=un-secret-par-deploiement",
+            ],
+          },
+        },
+        {
+          text: "En développement, `docker compose up -d` lève le Redis de l'application ; son adresse est déjà écrite, en commentaire, dans `.env`. Décommente-la, pose `NF_REALTIME_DRIVER=redis`, puis relance en deux workers : le relais passe maintenant par Redis.",
+          snippet: {
+            label: "Terminal",
+            lines: ["docker compose up -d", "npx nodefony cluster -w 2"],
+          },
+        },
+        {
+          text: "Au démarrage, une ligne du journal dit le relais retenu, avec le canal effectif (cloison comprise). Redis injoignable ? Le démarrage continue : chaque serveur garde son hub local, et un avertissement le dit. On perd la diffusion entre serveurs, pas l'application.",
+          snippet: {
+            label: "Journal de démarrage",
+            lines: [
+              "realtime backplane driver=redis kind=redis-pubsub … cross-pod=yes channel=nodefony:realtime:mon-app.prod",
+            ],
+          },
         },
       ],
     },
