@@ -2970,7 +2970,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const index = lireMod("index.ts");
       assert.include(
         index,
-        "@controllers([\n  PartnerController,\n  DemoPageController,\n  DemoController,\n  DemoRealtimeController,\n  ChatController,\n  FirstStepsController,\n  SseController,\n  VideoController,\n  PartnerTokenController,\n])",
+        "@controllers([\n  PartnerController,\n  DemoPageController,\n  DemoController,\n  DemoRealtimeController,\n  ChatController,\n  FirstStepsController,\n  SseController,\n  VideoController,\n  BinaryController,\n  PartnerTokenController,\n])",
       );
       assert.include(index, "registerDemoEntry(this);");
       assert.include(
@@ -2984,6 +2984,12 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(
         lireMod("nodefony", "config", "config.ts"),
         '"module-security": demoSecurity',
+      );
+      // Le temps réel binaire : CBOR pour l'application, et des messages
+      // entrants jusqu'à 2 Mio — posés par surcharge, le module retiré les emporte.
+      assert.include(
+        lireMod("nodefony", "config", "config.ts"),
+        '"module-realtime": { codec: "cbor" }',
       );
       const zone = lireMod("nodefony", "config", "security.ts");
       assert.include(zone, 'PARTNER_PATH = "/demo/api/partner"');

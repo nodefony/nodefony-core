@@ -85,10 +85,13 @@ export function ProbeResult({
 
 /** Les morceaux d'un flux, chacun avec son instant d'arrivée. */
 function Chunks({ chunks }: { chunks: readonly IProbeChunk[] }) {
+  // Les morceaux ne font que s'ajouter : leur rang est leur identité. Deux
+  // trames identiques peuvent arriver dans la même milliseconde.
+  const ranked = chunks.map((chunk, rank) => ({ ...chunk, rank }));
   return (
     <ol className="probe-chunks" aria-label="Morceaux reçus">
-      {chunks.map((chunk) => (
-        <li key={`${chunk.at}-${chunk.text}`}>
+      {ranked.map((chunk) => (
+        <li key={chunk.rank}>
           <span className="probe-at">+{chunk.at} ms</span>
           <code>{chunk.text.trimEnd()}</code>
         </li>

@@ -35,6 +35,10 @@ un renvoi mort le fait échouer.
   `VideoController` (`/demo/api/media`, les vidéos du dossier `media/` servies
   par plages : `Range`, 206, 416, `If-Range` — `sample.mp4` y est posée à la
   création, une vidéo qu'on y dépose est servie pareil),
+  `BinaryController` (`/demo/api/binary/realtime`, des octets sur une socket
+  dédiée : vibrations Int16, positions Float32, empreinte d'un envoi — la
+  config de la démo passe le serveur en `codec: "cbor"` et relève
+  `maxPayload` à 2 Mio, `nodefony/config/config.ts`),
   `ChatController` (HTTP + socket, `ContractRealtimeController`),
   `PartnerController` (`/demo/api/partner`, zone `demo-partner` du firewall), les pages et l'accueil.
 - `nodefony/service/` — l'état qui survit à une connexion (`ChatService`),
@@ -54,13 +58,14 @@ un renvoi mort le fait échouer.
   `ProbeResult.tsx`), la mise en page des leçons à gestes — carte en haut, un
   geste à l'écran (`StepsLesson.tsx`).
 - Leçons à gestes — chaque geste cite le contrôleur ET le code CLIENT qui
-  tourne (`first/firstClient.ts`, `sse/sseClient.ts`, régions
+  tourne (`first/firstClient.ts`, `sse/sseClient.ts`, `binary/binaryClient.ts`, régions
   `// #region client-*`) : la page prépare la requête ou ouvre le flux, la
   sonde ne fait qu'envoyer et écouter. Un visuel dit ce que la réponse veut
   dire (`first/FirstVisuals.tsx` : l'aller-retour ; `sse/SseVisuals.tsx` :
-  la frise du flux ; `video/VideoVisuals.tsx` : la carte du fichier) ; leur
-  lecture vit dans un module pur, testé (`exchange.ts`, `sseTimeline.ts`,
-  `fileMap.ts`).
+  la frise du flux ; `video/VideoVisuals.tsx` : la carte du fichier ;
+  `binary/BinaryVisuals.tsx` : tailles, débits et temps MESURÉS sur le fil par
+  `probeRealtime`) ; leur lecture vit dans un module pur, testé (`exchange.ts`,
+  `sseTimeline.ts`, `fileMap.ts`, `wire.ts`).
 
 ## Les extraits de code des pages
 

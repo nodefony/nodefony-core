@@ -1,4 +1,10 @@
-import { NodefonySse } from "nodefony/client";
+import {
+  BrowserWsTransport,
+  NodefonySse,
+  type IRealtimeTransport,
+  type RealtimeFrameData,
+  type RealtimeTransportFactory,
+} from "nodefony/client";
 
 /**
  * Appeler une route depuis la page et montrer ce qui revient VRAIMENT :
@@ -396,6 +402,156 @@ export function probeSse(
       }
     });
   });
+}
+// #endregion
+
+// #region probe-realtime
+/**
+ * Un compteur de FIL : la fabrique de transport à donner à une socket, et ce
+ * qu'il a vu passer. Il enveloppe le transport du navigateur
+ * (`BrowserWsTransport`) sans rien changer : chaque trame est comptée telle
+ * qu'elle passe, en octets — `byteLength` d'une trame binaire, son UTF-8
+ * d'une trame texte. Rien n'est recalculé à partir de la charge.
+ */
+export interface IWireMeter {
+  /** À passer à `NodefonySocket.fromContract(opts, transport)`. */
+  readonly transport: RealtimeTransportFactory;
+}
+
+/**
+ * Ce qu'une leçon temps réel reçoit pour jouer son geste : un compteur par
+ * socket (`label` les distingue dans le relevé), et de quoi noter un fait.
+ */
+export interface IRealtimeRun {
+  meter: (label: string) => IWireMeter;
+  note: (text: string) => void;
+}
+
+/** Les premiers octets d'une trame, en hexadécimal ; d'une trame texte, ses premiers caractères. */
+function frameHead(raw: RealtimeFrameData): string {
+  if (typeof raw === "string") {
+    return raw.length > 72 ? `${raw.slice(0, 72)}…` : raw;
+  }
+  const hex = [...raw.subarray(0, 12)].map((byte) =>
+    byte.toString(16).padStart(2, "0"),
+  );
+  return `${hex.join(" ")}${raw.byteLength > 12 ? " …" : ""}`;
+}
+
+/** La taille d'une trame sur le fil, en octets. */
+function frameBytes(raw: RealtimeFrameData, utf8: TextEncoder): number {
+  return typeof raw === "string" ? utf8.encode(raw).byteLength : raw.byteLength;
+}
+
+/**
+ * Note chaque trame des sockets que le code client du geste ouvre, une ligne
+ * par trame : `cbor ← 568 o binaire 0.12 ms · a3 67 …` — le compteur, le
+ * sens, la taille, la nature, le temps que la socket a passé sur la trame
+ * reçue (décodage compris), et son début. `wire.ts` relit ces lignes.
+ *
+ * @param path - chemin de la socket, pour l'affichage
+ * @param run - le code CLIENT du geste ; rend la phrase qui conclut
+ * @param onChunk - appelé à chaque trame
+ * @returns les trames, en `chunks` ; ne rejette jamais
+ */
+export async function probeRealtime(
+  path: string,
+  run: (probe: IRealtimeRun) => Promise<string>,
+  onChunk?: (chunks: readonly IProbeChunk[]) => void,
+): Promise<IProbeResult> {
+  const request = `WEBSOCKET ${path}`;
+  const start = performance.now();
+  const since = () => Math.round(performance.now() - start);
+  const chunks: IProbeChunk[] = [];
+  const utf8 = new TextEncoder();
+  // Un objet, pas un `let` : l'ouverture est notée par un rappel.
+  // `open` : transports pas encore fermés ; `done` : le relevé est rendu,
+  // une note tardive ne le rouvre pas.
+  const seen = { opened: false, open: 0, done: false };
+  let drained: (() => void) | null = null;
+  const note = (text: string) => {
+    if (seen.done) return;
+    chunks.push({ at: since(), text });
+    onChunk?.([...chunks]);
+  };
+  const meter = (label: string): IWireMeter => ({
+    transport: (url, protocols) => {
+      note(`${label} ▶ offre : ${protocols?.join(", ") ?? "rien"}`);
+      const inner = new BrowserWsTransport(url, protocols);
+      seen.open += 1;
+      const metered: IRealtimeTransport = {
+        connect: () => inner.connect(),
+        send: (raw) => {
+          note(
+            `${label} → ${frameBytes(raw, utf8)} o ${typeof raw === "string" ? "texte" : "binaire"} · ${frameHead(raw)}`,
+          );
+          inner.send(raw);
+        },
+        close: (code, reason) => inner.close(code, reason),
+        get readyState() {
+          return inner.readyState;
+        },
+        get bufferedAmount() {
+          return inner.bufferedAmount;
+        },
+        onOpen: (cb) =>
+          inner.onOpen(() => {
+            seen.opened = true;
+            cb();
+          }),
+        onMessage: (cb) =>
+          inner.onMessage((raw) => {
+            // La socket décode et distribue la trame dans cet appel : sa
+            // durée est ce que la page paie pour elle.
+            const before = performance.now();
+            cb(raw);
+            const ms = (performance.now() - before).toFixed(2);
+            note(
+              `${label} ← ${frameBytes(raw, utf8)} o ${typeof raw === "string" ? "texte" : "binaire"} ${ms} ms · ${frameHead(raw)}`,
+            );
+          }),
+        onClose: (cb) =>
+          inner.onClose((code, reason) => {
+            note(
+              `${label} ■ fermée ${code}${reason === "" ? "" : ` ${reason}`}`,
+            );
+            seen.open -= 1;
+            if (seen.open === 0) drained?.();
+            cb(code, reason);
+          }),
+        onError: (cb) => inner.onError(cb),
+      };
+      return metered;
+    },
+  });
+  let body = "";
+  let error: string | null = null;
+  try {
+    body = await run({ meter, note });
+  } catch (caught) {
+    error = caught instanceof Error ? caught.message : String(caught);
+  }
+  // La fermeture d'une socket se signale APRÈS `disconnect()` : on l'attend
+  // (deux secondes au plus) pour qu'elle figure au relevé.
+  if (seen.open > 0) {
+    await new Promise<void>((resolve) => {
+      drained = resolve;
+      setTimeout(resolve, 2000);
+    });
+  }
+  seen.done = true;
+  return {
+    request,
+    sent: [],
+    status: seen.opened ? 101 : null,
+    ms: since(),
+    headers: [],
+    body,
+    chunks,
+    redirected: false,
+    finalUrl: null,
+    error,
+  };
 }
 // #endregion
 

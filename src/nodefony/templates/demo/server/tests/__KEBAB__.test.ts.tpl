@@ -100,6 +100,32 @@ import {
   tamperSignature,
 } from "../frontend/src/partner/partnerApi";
 import { DEMOS } from "../demos";
+import demoModuleConfig from "../nodefony/config/config";
+import { BINARY_LESSON } from "../frontend/src/binary/binaryTabs";
+import {
+  BINARY_PATH,
+  BINARY_SOCKET,
+  DigestParams,
+  PAYLOAD_LIMIT,
+  SAMPLE_SIZES,
+  SampleParams,
+} from "../frontend/src/binary/binaryDemo";
+import {
+  readPositions,
+  readSamples,
+} from "../frontend/src/binary/binaryClient";
+import {
+  WIRE_CBOR,
+  formatBytes,
+  median,
+  readCloses,
+  readOffers,
+  readWire,
+  responses,
+  sizeRows,
+  throughput,
+  typicalFrame,
+} from "../frontend/src/binary/wire";
 import { PARTNER_CALL_COMMAND } from "../nodefony/command/PartnerCallCommand";
 
 /**
@@ -615,6 +641,7 @@ const LESSONS: readonly { page: string; lesson: ILesson }[] = [
   { page: "first-steps", lesson: FIRST_LESSON },
   { page: "sse", lesson: SSE_LESSON },
   { page: "video", lesson: VIDEO_LESSON },
+  { page: "binary", lesson: BINARY_LESSON },
 ];
 
 /** Chaque extrait cité, avec sa page et sa couche. */
@@ -780,6 +807,7 @@ describe("demo — les leçons à gestes : la sonde et le contrôleur cité", ()
     ["nodefony/controllers/FirstStepsController.ts", FIRST_LESSON],
     ["nodefony/controllers/SseController.ts", SSE_LESSON],
     ["nodefony/controllers/VideoController.ts", VIDEO_LESSON],
+    ["nodefony/controllers/BinaryController.ts", BINARY_LESSON],
   ] as const)(
     "chaque région de %s est citée par la leçon : aucun geste oublié",
     (file, lesson) => {
@@ -1081,6 +1109,143 @@ describe("demo — Vidéo par plages", () => {
       '@Get("/{name}", { schema: { params: MediaParams } })',
     );
     expect(source).toContain("this.renderMediaStream(file)");
+  });
+});
+
+describe("demo — Temps réel binaire", () => {
+  /** Une ligne de la sonde, comme `probeRealtime` l'écrit. */
+  const frame = (at: number, text: string) => ({ at, text });
+
+  it("relit chaque trame du relevé : compteur, sens, taille, nature, temps", () => {
+    const lines = readWire([
+      frame(0, "cbor ▶ offre : nodefony.jsonrpc.cbor.v1, nodefony.jsonrpc.v1"),
+      frame(4, 'cbor ← 210 o texte 0.08 ms · {"jsonrpc":"2.0"…'),
+      frame(9, "cbor → 41 o binaire · a3 67 6a 73"),
+      frame(12, "cbor ← 568 o binaire 0.12 ms · a3 67 6a 73 6f 6e …"),
+      frame(20, "cbor ■ fermée 1000"),
+    ]);
+    expect(lines).toHaveLength(3);
+    expect(lines[2]).toEqual({
+      at: 12,
+      label: "cbor",
+      dir: "in",
+      bytes: 568,
+      binary: true,
+      ms: 0.12,
+      head: "a3 67 6a 73 6f 6e …",
+    });
+    expect(lines[1]?.ms).toBeNull();
+  });
+
+  it("l'offre et la fermeture se lisent par compteur", () => {
+    const chunks = [
+      frame(0, "cbor ▶ offre : nodefony.jsonrpc.cbor.v1, nodefony.jsonrpc.v1"),
+      frame(1, "texte ▶ offre : rien"),
+      frame(9, "cbor ■ fermée 1009 Max payload size exceeded"),
+    ];
+    expect(readOffers(chunks)).toEqual({
+      cbor: "nodefony.jsonrpc.cbor.v1, nodefony.jsonrpc.v1",
+      texte: "rien",
+    });
+    expect(readCloses(chunks)).toEqual({ cbor: 1009 });
+  });
+
+  it("la réponse d'une requête est la première trame reçue APRÈS son envoi — ni l'accueil ni une trame de plus", () => {
+    const lines = readWire([
+      frame(0, "cbor ← 300 o texte 0.1 ms · accueil"),
+      frame(1, "texte ← 290 o texte 0.1 ms · accueil"),
+      frame(2, "cbor → 40 o binaire · req 64"),
+      frame(3, "cbor ← 110 o binaire 0.01 ms · rép 64"),
+      // Une trame de plus avant la requête suivante : ce n'est pas une réponse.
+      frame(3, "cbor ← 50 o binaire 0.01 ms · intrus"),
+      frame(4, "texte → 60 o texte · req 64"),
+      frame(5, "cbor → 40 o binaire · req 1024"),
+      frame(6, "texte ← 140 o texte 0.02 ms · rép 64"),
+      frame(7, "cbor ← 1070 o binaire 0.02 ms · rép 1024"),
+    ]);
+    expect(responses(lines, WIRE_CBOR).map((line) => line.bytes)).toEqual([
+      110, 1070,
+    ]);
+    const rows = sizeRows(lines, [64, 1024]);
+    expect(
+      rows.map((row) => [row.size, row.cbor?.bytes, row.text?.bytes]),
+    ).toEqual([
+      [64, 110, 140],
+      [1024, 1070, undefined],
+    ]);
+  });
+
+  it("le débit somme les octets REÇUS par fenêtre COMPLÈTE, ramenés à la seconde", () => {
+    const lines = readWire([
+      frame(0, "cbor ← 500 o binaire 0.1 ms · a"),
+      frame(100, "cbor ← 500 o binaire 0.1 ms · b"),
+      frame(200, "cbor → 999 o binaire · envoi ignoré"),
+      frame(600, "cbor ← 500 o binaire 0.1 ms · c"),
+      // Fenêtre [1000, 1500) seulement entamée : elle ne compte pas.
+      frame(1100, "cbor ← 500 o binaire 0.1 ms · d"),
+    ]);
+    expect(throughput(lines, WIRE_CBOR, 500)).toEqual([
+      { at: 500, perSecond: 2000 },
+      { at: 1000, perSecond: 1000 },
+    ]);
+    expect(typicalFrame(lines, WIRE_CBOR)).toBe(500);
+    expect(median([3, 1, 2, 10])).toBe(2.5);
+    expect(median([])).toBeNull();
+  });
+
+  it("une taille s'écrit en octets, Kio ou Mio, avec une espace insécable", () => {
+    expect(formatBytes(568)).toBe("568 o");
+    expect(formatBytes(4150)).toBe("4,1 Kio");
+    expect(formatBytes(1.5 * 1024 * 1024)).toBe("1,5 Mio");
+  });
+
+  it("Int16 et Float32 se lisent sur la TRANCHE reçue, en petit-boutiste", () => {
+    // Un tampon plus grand que la tranche : la lecture doit partir de byteOffset.
+    const buffer = new Uint8Array(16).fill(0xff);
+    const view = new DataView(buffer.buffer);
+    view.setInt16(4, -1234, true);
+    view.setInt16(6, 32_000, true);
+    expect([...readSamples(buffer.subarray(4, 8))]).toEqual([-1234, 32_000]);
+    view.setFloat32(8, 0.25, true);
+    view.setFloat32(12, 0.75, true);
+    expect([...readPositions(buffer.subarray(8, 16))]).toEqual([0.25, 0.75]);
+  });
+
+  it("le serveur ne produit que les tailles du contrat, et n'empreinte que des octets", () => {
+    for (const size of SAMPLE_SIZES) {
+      expect(SampleParams.safeParse({ size }).success, String(size)).toBe(true);
+    }
+    expect(SampleParams.safeParse({ size: 100 }).success).toBe(false);
+    expect(SampleParams.safeParse({ size: 64, extra: 1 }).success).toBe(false);
+    expect(DigestParams.safeParse({ bytes: new Uint8Array(3) }).success).toBe(
+      true,
+    );
+    for (const bytes of [{ $bytes: "AQID" }, [1, 2, 3], "AQID"]) {
+      expect(DigestParams.safeParse({ bytes }).success).toBe(false);
+    }
+  });
+
+  it("la config de la démo passe le serveur en CBOR et relève maxPayload sur ws ET wss", () => {
+    expect(demoModuleConfig["module-realtime"]).toEqual({ codec: "cbor" });
+    expect(demoModuleConfig["module-http"]).toEqual({
+      websocket: { maxPayload: PAYLOAD_LIMIT },
+      websocketSecure: { maxPayload: PAYLOAD_LIMIT },
+    });
+    // 1,5 Mio passe en CBOR ; en base64, il dépasse : le geste 5 le montre.
+    expect(1.5 * 1024 * 1024).toBeLessThan(PAYLOAD_LIMIT);
+    expect(Math.ceil((1.5 * 1024 * 1024) / 3) * 4).toBeGreaterThanOrEqual(
+      PAYLOAD_LIMIT,
+    );
+  });
+
+  it("le contrôleur binaire vit sous son préfixe, sur sa propre socket", () => {
+    const source = LESSON_SOURCES["nodefony/controllers/BinaryController.ts"];
+    expect(source).toContain("@controller(BINARY_PATH)");
+    expect(BINARY_PATH).toBe("/demo/api/binary");
+    expect(BINARY_SOCKET).toBe("/demo/api/binary/realtime");
+    // Le codec est l'affaire de la config et de la négociation : aucun import ici.
+    expect(source).not.toContain("nodefony/cbor");
+    expect(source).not.toContain("CBOR_FRAME_CODEC");
   });
 });
 

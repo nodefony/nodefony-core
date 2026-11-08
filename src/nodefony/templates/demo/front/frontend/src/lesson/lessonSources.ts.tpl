@@ -8,6 +8,7 @@ const RAW = import.meta.glob<string>(
   [
     "../../../nodefony/config/config.ts",
     "../../../nodefony/config/security.ts",
+    "../../../nodefony/controllers/BinaryController.ts",
     "../../../nodefony/controllers/ChatController.ts",
     "../../../nodefony/controllers/FirstStepsController.ts",
     "../../../nodefony/controllers/PartnerController.ts",
@@ -17,6 +18,8 @@ const RAW = import.meta.glob<string>(
     "../../../nodefony/service/ChatService.ts",
     "../../../nodefony/service/PartnerTokenService.ts",
     "../../../nodefony/command/PartnerCallCommand.ts",
+    "../binary/binaryClient.ts",
+    "../binary/binaryDemo.ts",
     "../chat/chatContract.ts",
     "../chat/attachments.ts",
     "../chat/useChat.ts",
@@ -53,6 +56,9 @@ function read(key: string): string {
 export const LESSON_SOURCES = {
   "nodefony/config/config.ts": read("../../../nodefony/config/config.ts"),
   "nodefony/config/security.ts": read("../../../nodefony/config/security.ts"),
+  "nodefony/controllers/BinaryController.ts": read(
+    "../../../nodefony/controllers/BinaryController.ts",
+  ),
   "nodefony/controllers/ChatController.ts": read(
     "../../../nodefony/controllers/ChatController.ts",
   ),
@@ -80,6 +86,8 @@ export const LESSON_SOURCES = {
   "nodefony/command/PartnerCallCommand.ts": read(
     "../../../nodefony/command/PartnerCallCommand.ts",
   ),
+  "frontend/src/binary/binaryClient.ts": read("../binary/binaryClient.ts"),
+  "frontend/src/binary/binaryDemo.ts": read("../binary/binaryDemo.ts"),
   "frontend/src/chat/chatContract.ts": read("../chat/chatContract.ts"),
   "frontend/src/chat/attachments.ts": read("../chat/attachments.ts"),
   "frontend/src/chat/useChat.ts": read("../chat/useChat.ts"),

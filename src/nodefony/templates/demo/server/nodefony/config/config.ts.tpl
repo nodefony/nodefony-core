@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { demoSecurity } from "./security";
+import { PAYLOAD_LIMIT } from "../../frontend/src/binary/binaryDemo";
 
 /**
  * <%= it.pkgName %> — CONFIGURATION DE LA DÉMO (schéma Zod = source unique).
@@ -48,10 +49,30 @@ const defaults: IDemoConfig = demoConfigSchema.parse({});
  * la clé `module-security` avant de valider la config de la démo, qui ne la
  * voit donc jamais.
  */
+// #region binary-config
+/**
+ * Temps réel binaire : deux réglages que la démo pose sur d'AUTRES modules,
+ * pour toute l'application.
+ */
+const binaryOverrides = {
+  // Le serveur sait parler CBOR. Le codec se NÉGOCIE par connexion : une page
+  // qui ne l'offre pas (le chat) reste en texte, et reçoit ses octets sous
+  // `{"$bytes":"…"}`, relus en `Uint8Array`.
+  "module-realtime": { codec: "cbor" },
+  // Un message ENTRANT plafonne à 1 Mio par défaut (fermeture 1009 au-delà) :
+  // relevé à 2 Mio, sur les deux serveurs WebSocket (ws et wss).
+  "module-http": {
+    websocket: { maxPayload: PAYLOAD_LIMIT },
+    websocketSecure: { maxPayload: PAYLOAD_LIMIT },
+  },
+};
+// #endregion
+
 // #region demo-module-security
 export default {
   ...defaults,
   // La zone de la démo rejoint le firewall de l'application.
   "module-security": demoSecurity,
+  ...binaryOverrides,
 };
 // #endregion

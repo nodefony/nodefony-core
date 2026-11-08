@@ -11,6 +11,9 @@
   --green: #4a8b3e;
   --amber: #b7791f;
   --violet: #7c4dbd;
+  /* Séries des graphes du fil (validées CVD) : CBOR, texte. */
+  --wire-cbor: #096bbf;
+  --wire-text: #b7791f;
   --bg: #fafbfd;
   --bg-soft: #f1f5fa;
   --fg: #0e1726;
@@ -33,6 +36,7 @@
     --border: #223046;
     --code-bg: #0b1220;
     --code-fg: #cfe0f2;
+    --wire-cbor: #3d9be6;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
     --shadow-hover:
       0 2px 4px rgba(0, 0, 0, 0.3), 0 14px 34px rgba(30, 160, 236, 0.18);
@@ -40,6 +44,7 @@
   }
 }
 :root[data-theme="dark"] {
+  --wire-cbor: #3d9be6;
   --bg: #0a0f1c;
   --bg-soft: #0e1524;
   --fg: #e8edf6;
@@ -3347,4 +3352,201 @@ a.ritem:hover .ritem-go {
 .snippet-label {
   font-weight: 600;
   color: var(--fg);
+}
+
+/* Temps réel binaire : les visuels du fil (BinaryVisuals.tsx). Deux séries,
+   toujours nommées : CBOR (--wire-cbor) et texte (--wire-text). */
+.wire-figure {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.wire-figure figcaption {
+  margin: 0 0 8px;
+  font-size: 0.86rem;
+}
+.wire-figure svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.wire-legend {
+  display: inline-flex;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.wire-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.wire-chip {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.wire-chip.is-cbor,
+.wire-bar.is-cbor,
+.gauge-fill.is-cbor {
+  background: var(--wire-cbor);
+}
+.wire-chip.is-texte,
+.wire-bar.is-texte,
+.gauge-fill.is-texte {
+  background: var(--wire-text);
+}
+.wire-axis {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.osc-trace,
+.rate-line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.osc-trace,
+.rate-line.is-cbor {
+  stroke: var(--wire-cbor);
+}
+.rate-line.is-texte {
+  stroke: var(--wire-text);
+}
+.wire-scale {
+  display: flex;
+  justify-content: space-between;
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+.codec-row {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr;
+  gap: 2px 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  font-size: 0.84rem;
+}
+.codec-name {
+  grid-row: span 2;
+  font-weight: 700;
+}
+.codec-row.is-cbor .codec-name {
+  color: var(--wire-cbor);
+}
+.codec-offer code {
+  overflow-wrap: anywhere;
+}
+.wire-rows {
+  display: grid;
+  gap: 10px;
+}
+.wire-row {
+  display: grid;
+  grid-template-columns: 7.5rem 1fr;
+  gap: 10px;
+  align-items: center;
+  font-size: 0.8rem;
+}
+.wire-row-size small {
+  display: block;
+  color: var(--muted);
+}
+.wire-row-bars {
+  display: grid;
+  gap: 3px;
+}
+.wire-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.wire-bar {
+  height: 10px;
+  border-radius: 0 4px 4px 0;
+}
+.wire-bar-value {
+  white-space: nowrap;
+  color: var(--fg);
+}
+.wire-note {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+.draw-pad canvas {
+  display: block;
+  width: min(100%, 360px);
+  aspect-ratio: 240 / 150;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+  touch-action: none;
+  cursor: crosshair;
+}
+.digest-match dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 10px;
+  margin: 0;
+  font-size: 0.78rem;
+}
+.digest-match dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.digest-match.is-same strong {
+  color: var(--green);
+}
+.digest-match.is-different strong,
+.payload-gauge.is-refused strong {
+  color: var(--amber);
+}
+.gauge-track {
+  position: relative;
+  height: 16px;
+  margin: 8px 0 22px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.gauge-fill {
+  position: absolute;
+  inset: 2px auto 2px 2px;
+  border-radius: 0 4px 4px 0;
+}
+.gauge-limit {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  background: var(--fg);
+}
+.gauge-limit span {
+  position: absolute;
+  top: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.game-ground {
+  fill: var(--card);
+  stroke: var(--border);
+}
+.sprite {
+  stroke: var(--card);
+  stroke-width: 1;
+}
+.sprite.is-even {
+  fill: var(--wire-cbor);
+}
+.sprite.is-odd {
+  fill: var(--violet);
 }
