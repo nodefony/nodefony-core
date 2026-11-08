@@ -12,7 +12,7 @@ export const PULSE_MIN_INTERVAL_MS = 1000;
  *  • UN service pour tous : les contrôleurs sont instanciés par requête ou par
  *    connexion, le compteur doit survivre à chacun — il vit ici, injecté par
  *    `@Inject("DemoPulseService")` dans `PartnerController` (qui compte) et
- *    `DemoRealtimeController` (qui diffuse) ;
+ *    `DemoRealtimeController` (qui diffuse), ainsi que `ChatController` ;
  *  • un canal d'ÉTAT ne publie pas à chaque événement : il publie la dernière
  *    valeur, au plus une fois par intervalle. Cent appels dans la même seconde
  *    donnent UNE trame ; un appel isolé part tout de suite ;
@@ -25,6 +25,7 @@ export const PULSE_MIN_INTERVAL_MS = 1000;
 @injectable()
 class DemoPulseService extends Service {
   #partnerCalls = 0;
+  #chatMessages = 0;
   #publish: ((pulse: IDemoPulse) => void) | null = null;
   #lastSent = Number.NEGATIVE_INFINITY;
   #timer: ReturnType<typeof setTimeout> | null = null;
@@ -43,12 +44,21 @@ class DemoPulseService extends Service {
 
   /** Le pouls courant — l'état initial d'une page qui arrive. */
   snapshot(): IDemoPulse {
-    return { partner: { calls: this.#partnerCalls } };
+    return {
+      partner: { calls: this.#partnerCalls },
+      chat: { messages: this.#chatMessages },
+    };
   }
 
   /** Un appel authentifié a atteint `/demo/api/partner`. */
   recordPartnerCall(): void {
     this.#partnerCalls += 1;
+    this.#schedule();
+  }
+
+  /** Un message a été envoyé au salon du chat. */
+  recordChatMessage(): void {
+    this.#chatMessages += 1;
     this.#schedule();
   }
 

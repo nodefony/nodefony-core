@@ -2962,12 +2962,12 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const index = lireMod("index.ts");
       assert.include(
         index,
-        "@controllers([\n  PartnerController,\n  DemoPageController,\n  DemoController,\n  DemoRealtimeController,\n])",
+        "@controllers([\n  PartnerController,\n  DemoPageController,\n  DemoController,\n  DemoRealtimeController,\n  ChatController,\n])",
       );
       assert.include(index, "registerDemoEntry(this);");
       assert.include(
         index,
-        "@services([AppInfoService, AppBannerService, DemoPulseService])",
+        "@services([AppInfoService, AppBannerService, DemoPulseService, ChatService])",
       );
       assert.include(index, "this.addCommand(PartnerCallCommand);");
       assert.include(index, "override configSchema(): unknown");
@@ -3101,6 +3101,21 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
       assert.include(realtime, 'from "../../frontend/src/pulse"');
       assert.include(lireMod("index.ts"), "DemoRealtimeController");
+      // D5 — le chat : lecture anonyme, écriture sous session, auteur venu du
+      // SERVEUR ; la zone `demo` (session puis anonyme) donne l'identité.
+      const chat = lireMod("nodefony", "controllers", "ChatController.ts");
+      assert.include(chat, "extends ContractRealtimeController<ChatContract>");
+      assert.include(chat, '@IsGranted(["ROLE_USER"])');
+      assert.include(chat, "author: me.identifier");
+      assert.notInclude(chat, "params.author");
+      assert.include(
+        lireMod("frontend", "src", "chat", "chatContract.ts"),
+        '"POST /demo/chat/send"',
+      );
+      assert.include(
+        lireMod("nodefony", "config", "security.ts"),
+        'authenticators: ["session", "anonymous"]',
+      );
       // L'API partenaire nourrit le pouls : chaque appel compte.
       assert.include(
         lireMod("nodefony", "controllers", "PartnerController.ts"),

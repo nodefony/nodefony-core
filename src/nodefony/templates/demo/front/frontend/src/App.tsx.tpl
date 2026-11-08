@@ -11,6 +11,7 @@ import {
 import { Catalogue } from "./Catalogue";
 import { debugBarControl, type IDebugBarControl } from "./debugBar";
 import { useCurrentSection, usePointerLight } from "./effects";
+import { ChatLesson } from "./chat/ChatLesson";
 import { RoleTabs } from "./RoleTabs";
 import { usePulse } from "./usePulse";
 import "./demo.css";
@@ -37,9 +38,9 @@ const SECTION_IDS = SECTIONS.map((section) => section.id);
  */
 export function App() {
   const about = useAbout();
-  const version = about?.nodefony.version ?? null;
-  usePointerLight(".card");
-  const pulse = usePulse();
+  // La même page sert l'accueil et les pages d'apprentissage : l'adresse
+  // choisit l'écran (`DemoController.lesson` n'accepte que celles de l'index).
+  const lesson = window.location.pathname.replace(/\/+$/u, "") === "/demo/chat";
   // Le logo vient du paquet (`brand.ts`) : la feuille le lit par variable.
   const logo: CSSProperties & Record<"--demo-logo", string> = {
     "--demo-logo": `url(${JSON.stringify(NODEFONY_LOGO)})`,
@@ -47,7 +48,19 @@ export function App() {
   return (
     <div style={logo}>
       <div className="reading" aria-hidden="true" />
-      <Topbar about={about} />
+      <Topbar about={about} home={!lesson} />
+      {lesson ? <ChatLesson about={about} /> : <Home about={about} />}
+    </div>
+  );
+}
+
+/** L'accueil : le haut de page, les métiers, le catalogue vivant, le socle. */
+function Home({ about }: { about: IDemoAbout | null }) {
+  const version = about?.nodefony.version ?? null;
+  usePointerLight(".card");
+  const pulse = usePulse();
+  return (
+    <>
       <main>
         <Hero />
         <RoleTabs version={version} />
@@ -62,7 +75,7 @@ export function App() {
           <a href="https://nodefony.net">nodefony.net</a>
         </footer>
       </main>
-    </div>
+    </>
   );
 }
 
@@ -88,7 +101,13 @@ function useAbout(): IDemoAbout | null {
  * quand la marque du haut de page s'y pose au défilement (CSS pur,
  * `view-timeline`).
  */
-function Topbar({ about }: { about: IDemoAbout | null }) {
+function Topbar({
+  about,
+  home,
+}: {
+  about: IDemoAbout | null;
+  home: boolean;
+}) {
   const appName = about?.app.name ?? "<%= it.appName %>";
   const current = useCurrentSection(SECTION_IDS);
   // PAS d'`aria-label` : le nom accessible est le CONTENU des DEUX identités.
@@ -124,7 +143,7 @@ function Topbar({ about }: { about: IDemoAbout | null }) {
         {SECTIONS.map((section) => (
           <a
             key={section.id}
-            href={`#${section.id}`}
+            href={home ? `#${section.id}` : `/demo#${section.id}`}
             aria-current={current === section.id ? "true" : undefined}
           >
             {section.label}

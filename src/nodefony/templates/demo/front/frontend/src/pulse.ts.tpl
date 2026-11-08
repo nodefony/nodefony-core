@@ -16,6 +16,8 @@ import type { IRealtimeContract } from "nodefony/client";
 export interface IDemoPulse {
   /** API entre programmes : appels authentifiés reçus par `/demo/api/partner`. */
   partner: { calls: number };
+  /** Chat : messages envoyés au salon. */
+  chat: { messages: number };
 }
 
 /** Adresse de la socket de la démo (`DemoRealtimeController`). */

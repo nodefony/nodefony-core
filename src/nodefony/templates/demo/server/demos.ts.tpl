@@ -74,10 +74,24 @@ export const DEMOS = [
     level: "intermediate",
     teaches:
       "Présence, « en train d'écrire », historique, salon protégé. Lecture libre, écriture sous session.",
-    status: "soon",
+    status: "ready",
     tag: "cookbook, 7 étapes",
-    files: [],
-    types: [],
+    path: "/demo/chat",
+    files: [
+      "frontend/src/chat/chatSchemas.ts",
+      "frontend/src/chat/chatContract.ts",
+      "nodefony/controllers/ChatController.ts",
+      "nodefony/service/ChatService.ts",
+      "frontend/src/chat/ChatLesson.tsx",
+    ],
+    types: [
+      "ContractRealtimeController (@nodefony/realtime)",
+      "IRealtimeContract (nodefony/client)",
+      "NodefonySocket (nodefony/client)",
+    ],
+    doc: "@nodefony/realtime/docs/cookbook-chat.md",
+    command: "npx nodefony create controller chat --kind realtime",
+    skill: "nodefony-add-realtime-channel",
   },
   {
     id: "binary",

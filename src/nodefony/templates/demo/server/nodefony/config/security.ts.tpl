@@ -10,6 +10,9 @@ export const PARTNER_PATH = "/demo/api/partner";
 /** Nom de la zone du pare-feu qui protège l'API partenaire. */
 export const PARTNER_AREA = "demo-partner";
 
+/** Nom de la zone qui couvre les pages et la socket de la démo. */
+export const DEMO_AREA = "demo";
+
 /**
  * Ce que la démo apporte à la configuration de `@nodefony/security`, sans
  * toucher à celle de l'application.
@@ -26,6 +29,17 @@ export const PARTNER_AREA = "demo-partner";
  */
 export const demoSecurity = {
   areas: {
+    // Les pages, l'API de la page et les sockets de la démo : PUBLIQUES, mais
+    // l'identité y est résolue — sans zone, `this.user` vaut `null` sans un
+    // mot, et le chat ne saurait pas qui écrit. Session d'abord (le visiteur
+    // connecté est reconnu), anonyme ensuite (les autres passent, en lecture).
+    // Écrire reste gardé action par action (`@IsGranted`).
+    // `(/|$)` : `/demonstration` n'y entre pas. La zone partenaire, au
+    // pattern plus LONG, l'emporte sur `/demo/api/partner`.
+    [DEMO_AREA]: {
+      pattern: "^/demo(/|$)",
+      authenticators: ["session", "anonymous"],
+    },
     // Programme qui présente un JETON d'accès : signé par cette application,
     // OU par Keycloak (flux `client_credentials`). Essai de bout en bout :
     // `npx nodefony demo:partner:call`.

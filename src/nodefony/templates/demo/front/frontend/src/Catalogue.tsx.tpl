@@ -29,6 +29,7 @@ const RUBRIC_STYLE: Record<DemoRubric, { anchor: string; accent: string }> = {
  * (`pulse.ts`), son compteur dans `DemoPulseService`, sa ligne ici.
  */
 const LIVE: Partial<Record<DemoId, (pulse: IDemoPulse) => string>> = {
+  chat: ({ chat }) => `${chat.messages} message${chat.messages > 1 ? "s" : ""}`,
   partner: ({ partner }) =>
     `${partner.calls} appel${partner.calls > 1 ? "s" : ""} reçu${partner.calls > 1 ? "s" : ""}`,
 };

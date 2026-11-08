@@ -9,6 +9,8 @@
 export interface IDemoAbout {
   app: { name: string; version: string };
   nodefony: { version: string };
+  /** Page de connexion de l'application (`loginPage.path`), `null` si désactivée. */
+  loginPath: string | null;
 }
 
 /** Route servie par `DemoController.about`. */
@@ -44,7 +46,15 @@ export function parseDemoAbout(value: unknown): IDemoAbout | null {
   ) {
     return null;
   }
-  return { app: { name, version }, nodefony: { version: nfVersion } };
+  const loginPath =
+    "loginPath" in value && typeof value.loginPath === "string"
+      ? value.loginPath
+      : null;
+  return {
+    app: { name, version },
+    nodefony: { version: nfVersion },
+    loginPath,
+  };
 }
 
 /**

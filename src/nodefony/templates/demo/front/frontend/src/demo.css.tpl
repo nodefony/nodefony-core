@@ -1460,3 +1460,203 @@ a.ritem:hover .ritem-go {
     display: none;
   }
 }
+
+/* ═══ Page d'apprentissage (/demo/chat…) : le gabarit commun des démos ═══ */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.lesson {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  padding-top: 24px;
+}
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.crumbs .sock {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.crumbs .sock::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.crumbs .sock-connected::before {
+  background: #2ea043;
+}
+/* Les sections d'une leçon se suivent de près : l'espacement est celui de
+   `.lesson`, pas la marge des sections de l'accueil. */
+.lesson section {
+  padding-block: 0;
+}
+.lesson-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.lesson-meta .lesson-step {
+  margin: 0;
+}
+.lesson-intro {
+  max-width: 800px;
+}
+.lesson-intro h1 {
+  margin: 8px 0 12px;
+  font-size: clamp(1.6rem, 3vw, 2.1rem);
+  line-height: 1.2;
+}
+.lesson-intro p {
+  margin: 0;
+  line-height: 1.6;
+}
+.lesson-step {
+  margin: 0 0 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.room {
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.room-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+.room-typing {
+  color: var(--muted);
+}
+.room-list {
+  list-style: none;
+  margin: 0;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  /* Pas de défilement interne : une zone qui défile devrait être atteignable
+     au clavier. L'historique chargé est borné (50), la page défile. */
+  min-height: 240px;
+}
+.room-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.room-meta {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.room-meta strong {
+  color: var(--fg);
+}
+.room-text {
+  overflow-wrap: anywhere;
+}
+.room-empty {
+  color: var(--muted);
+}
+.room-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-soft);
+}
+.room-foot p {
+  flex: 1 1 220px;
+  margin: 0;
+  font-size: 0.9rem;
+}
+.room-foot input {
+  flex: 1 1 220px;
+  min-height: 44px;
+  padding: 0 12px;
+  font: inherit;
+  color: var(--fg);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.room-foot .room-error {
+  flex-basis: 100%;
+  color: #c62828;
+}
+.lesson-traps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+.lesson-traps > div {
+  flex: 2 1 520px;
+  min-width: 0;
+}
+.lesson-traps ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.lesson-traps li {
+  padding: 14px 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  line-height: 1.5;
+}
+.further {
+  flex: 1 1 280px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--cyan) 12%, var(--card));
+  line-height: 1.5;
+}
+.further .lesson-step {
+  margin: 0;
+}
+/* Le bleu brut tombe sous 3:1 sur le fond sombre : mêlé au texte, il passe
+   dans les deux thèmes (même règle que le lien Documentation du haut). */
+.further a,
+.crumbs a {
+  color: color-mix(in srgb, var(--blue) 50%, var(--fg));
+}
+.further code,
+.lesson-traps code {
+  overflow-wrap: anywhere;
+}
