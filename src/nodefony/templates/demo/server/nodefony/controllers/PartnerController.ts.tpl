@@ -1,7 +1,8 @@
-import { RequestContext } from "nodefony";
+import { Inject, RequestContext } from "nodefony";
 import { route, controller, Controller } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
 import { PARTNER_PATH } from "../config/security";
+import type DemoPulseService from "../service/DemoPulseService";
 
 /**
  * Émetteur (`issuer`) que l'authenticator a posé sur le jeton de la requête.
@@ -33,7 +34,11 @@ function readIssuer(token: unknown): string | null {
  */
 @controller(PARTNER_PATH)
 class PartnerController extends Controller {
-  constructor(context: ContextType) {
+  constructor(
+    context: ContextType,
+    // Le pouls de l'accueil : chaque appel le fait battre (`demo:pulse`).
+    @Inject("DemoPulseService") private readonly pulse: DemoPulseService,
+  ) {
     super("partner", context);
   }
 
@@ -57,6 +62,7 @@ class PartnerController extends Controller {
     // `this.user` : l'identité, sans appel de plus. Le jeton lui-même est
     // dans le contexte de la requête ; chaque authenticator y pose l'attribut
     // `issuer`.
+    this.pulse.recordPartnerCall();
     return this.renderJson({
       identifier: this.user?.identifier ?? null,
       roles: this.user?.roles ?? [],

@@ -11,6 +11,8 @@ import AppBannerService from "./nodefony/service/AppBannerService";
 import PartnerCallCommand from "./nodefony/command/PartnerCallCommand";
 import DemoPageController from "./nodefony/controllers/DemoPageController";
 import DemoController from "./nodefony/controllers/DemoController";
+import DemoRealtimeController from "./nodefony/controllers/DemoRealtimeController";
+import DemoPulseService from "./nodefony/service/DemoPulseService";
 import { registerDemoEntry } from "./nodefony/frontend/registerDemoEntry";
 
 /**
@@ -30,8 +32,13 @@ declare module "nodefony" {
   }
 }
 
-@controllers([PartnerController, DemoPageController, DemoController])
-@services([AppInfoService, AppBannerService])
+@controllers([
+  PartnerController,
+  DemoPageController,
+  DemoController,
+  DemoRealtimeController,
+])
+@services([AppInfoService, AppBannerService, DemoPulseService])
 class DemoModule extends Module {
   constructor(kernel: Kernel) {
     super("demo", kernel, import.meta.url, config);

@@ -2,10 +2,12 @@ import { Fragment, type CSSProperties } from "react";
 import {
   DEMOS,
   DEMO_RUBRICS,
+  type DemoId,
   type DemoLevel,
   type DemoRubric,
   type IDemoEntry,
 } from "../../demos";
+import type { IDemoPulse } from "./pulse";
 
 /** Étiquette et classe de chaque niveau. */
 export const LEVELS: Record<DemoLevel, { label: string; className: string }> = {
@@ -21,6 +23,16 @@ const RUBRIC_STYLE: Record<DemoRubric, { anchor: string; accent: string }> = {
   programs: { anchor: "programmes", accent: "var(--violet)" },
 };
 
+/**
+ * L'état vivant d'une carte, lu dans le pouls (`demo:pulse`). Une démo sans
+ * entrée ici n'en montre pas — en ajouter une : un champ dans `IDemoPulse`
+ * (`pulse.ts`), son compteur dans `DemoPulseService`, sa ligne ici.
+ */
+const LIVE: Partial<Record<DemoId, (pulse: IDemoPulse) => string>> = {
+  partner: ({ partner }) =>
+    `${partner.calls} appel${partner.calls > 1 ? "s" : ""} reçu${partner.calls > 1 ? "s" : ""}`,
+};
+
 /** Ancre de la carte d'une démo, visée par les onglets de métier. */
 export function demoAnchor(id: string): string {
   return `demo-${id}`;
@@ -31,7 +43,7 @@ export function demoAnchor(id: string): string {
  * aussi l'agent de l'application. Une démo `soon` est une carte grisée
  * « Démo à venir » : la fonctionnalité existe, sa démo pas encore.
  */
-export function Catalogue() {
+export function Catalogue({ pulse }: { pulse: IDemoPulse | null }) {
   return (
     <section id="catalogue">
       <div className="sec-head">
@@ -63,7 +75,7 @@ export function Catalogue() {
             </h3>
             <div className="grid">
               {DEMOS.filter((demo) => demo.rubric === rubric.id).map((demo) => (
-                <DemoCard key={demo.id} demo={demo} />
+                <DemoCard key={demo.id} demo={demo} pulse={pulse} />
               ))}
             </div>
           </div>
@@ -77,8 +89,15 @@ export function Catalogue() {
  * Une carte : un lien vers la page de la démo quand elle en a une ; sinon,
  * la commande qui la montre ; grisée quand elle est à venir.
  */
-function DemoCard({ demo }: { demo: IDemoEntry }) {
+function DemoCard({
+  demo,
+  pulse,
+}: {
+  demo: IDemoEntry & { id: DemoId };
+  pulse: IDemoPulse | null;
+}) {
   const level = LEVELS[demo.level];
+  const live = pulse === null ? undefined : LIVE[demo.id]?.(pulse);
   const body = (
     <>
       <div className="top">
@@ -90,6 +109,11 @@ function DemoCard({ demo }: { demo: IDemoEntry }) {
       <p>
         <Inline text={demo.teaches} />
       </p>
+      {live !== undefined && (
+        <span className="live" title="Depuis le démarrage de ce serveur">
+          {live}
+        </span>
+      )}
       {demo.status === "ready" &&
         demo.path === undefined &&
         demo.command !== undefined && (

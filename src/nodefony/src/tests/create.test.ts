@@ -2962,10 +2962,13 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const index = lireMod("index.ts");
       assert.include(
         index,
-        "@controllers([PartnerController, DemoPageController, DemoController])",
+        "@controllers([\n  PartnerController,\n  DemoPageController,\n  DemoController,\n  DemoRealtimeController,\n])",
       );
       assert.include(index, "registerDemoEntry(this);");
-      assert.include(index, "@services([AppInfoService, AppBannerService])");
+      assert.include(
+        index,
+        "@services([AppInfoService, AppBannerService, DemoPulseService])",
+      );
       assert.include(index, "this.addCommand(PartnerCallCommand);");
       assert.include(index, "override configSchema(): unknown");
       // La zone arrive par la surcharge `module-security`, avec une ressource
@@ -3081,6 +3084,27 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(
         lireMod("frontend", "src", "RoleTabs.tsx"),
         'role="tablist"',
+      );
+      // D4 : UN canal d'état `demo:pulse`, typé par un contrat PARTAGÉ — le
+      // contrôleur temps réel et la page lisent le même fichier.
+      const pulseContract = lireMod("frontend", "src", "pulse.ts");
+      assert.include(pulseContract, '"demo:pulse"');
+      assert.include(pulseContract, "extends IRealtimeContract");
+      const realtime = lireMod(
+        "nodefony",
+        "controllers",
+        "DemoRealtimeController.ts",
+      );
+      assert.include(
+        realtime,
+        "extends ContractRealtimeController<DemoContract>",
+      );
+      assert.include(realtime, 'from "../../frontend/src/pulse"');
+      assert.include(lireMod("index.ts"), "DemoRealtimeController");
+      // L'API partenaire nourrit le pouls : chaque appel compte.
+      assert.include(
+        lireMod("nodefony", "controllers", "PartnerController.ts"),
+        "this.pulse.recordPartnerCall()",
       );
       // Le moteur et Vite en développement, la brique en pair.
       const pkg = JSON.parse(lireMod("package.json")) as {

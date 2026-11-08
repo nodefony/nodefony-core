@@ -12,6 +12,7 @@ import { Catalogue } from "./Catalogue";
 import { debugBarControl, type IDebugBarControl } from "./debugBar";
 import { useCurrentSection, usePointerLight } from "./effects";
 import { RoleTabs } from "./RoleTabs";
+import { usePulse } from "./usePulse";
 import "./demo.css";
 
 /** Les sections que la barre du haut permet d'atteindre, dans l'ordre. */
@@ -38,6 +39,7 @@ export function App() {
   const about = useAbout();
   const version = about?.nodefony.version ?? null;
   usePointerLight(".card");
+  const pulse = usePulse();
   // Le logo vient du paquet (`brand.ts`) : la feuille le lit par variable.
   const logo: CSSProperties & Record<"--demo-logo", string> = {
     "--demo-logo": `url(${JSON.stringify(NODEFONY_LOGO)})`,
@@ -49,7 +51,7 @@ export function App() {
       <main>
         <Hero />
         <RoleTabs version={version} />
-        <Catalogue />
+        <Catalogue pulse={pulse} />
         <Foundation />
         <Agents />
         <footer>
