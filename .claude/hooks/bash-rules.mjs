@@ -298,6 +298,31 @@ export function bashVerdict(
 }
 
 /**
+ * Le contenu qu'un heredoc de la commande écrit dans `file` — `cat > f <<EOF` comme
+ * `cat <<EOF > f` (et `tee`) ; `null` si aucun ne l'écrit.
+ *
+ * @param cmd - la commande Bash BRUTE (le heredoc y est encore).
+ * @param file - le chemin tel qu'écrit après `-F`.
+ */
+export function heredocWrittenTo(cmd, file) {
+  const f = file.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const target = `['"]?${f}['"]?`;
+  const body = String.raw`<<-?\s*(['"]?)(\w+)\1[^\n]*\n([\s\S]*?)\n\s*\2(?=\s|$)`;
+  const forms = [
+    new RegExp(String.raw`\b(?:cat|tee)\s*>\s*${target}\s*${body}`),
+    new RegExp(
+      String.raw`\b(?:cat|tee)\s*` +
+        body.replace("[^\\n]*", String.raw`\s*>\s*${target}[^\n]*`),
+    ),
+  ];
+  for (const re of forms) {
+    const m = re.exec(cmd);
+    if (m) return m[3] ?? null;
+  }
+  return null;
+}
+
+/**
  * Le message d'un `git commit` tel qu'il partira : les `-m` (joints comme git les joint),
  * `-F <fichier>`, ou `-F -` alimenté par un heredoc. `null` si la commande ne commite
  * pas, ou si le message n'est pas lisible ici (éditeur, `--amend` sans `-m`, `-C`).
@@ -333,8 +358,16 @@ export function commitMessageOf(cmd) {
                 cmd,
               );
             if (m) parts.push(m[3]);
-          } else if (fs.existsSync(file))
-            parts.push(fs.readFileSync(file, "utf8"));
+          } else {
+            // Le fichier écrit par la MÊME commande (`cat > f <<EOF … git commit -F f`)
+            // gagne sur le disque : absent au contrôle, il passait sans être jugé, et
+            // présent, c'est son ANCIENNE version qu'on aurait lue. Vécu : un titre de
+            // 110 caractères refusé seulement après tout le pre-commit.
+            const written = heredocWrittenTo(cmd, file);
+            if (written !== null) parts.push(written);
+            else if (fs.existsSync(file))
+              parts.push(fs.readFileSync(file, "utf8"));
+          }
         }
       }
       return parts.length ? parts.join("\n\n") : null;

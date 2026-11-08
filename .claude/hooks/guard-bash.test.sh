@@ -191,7 +191,20 @@ for c in 'git commit -m "docs(adr): ADR-0022 fixe le codec"' "git commit -qm \"$
 feat(realtime): Majuscule en tête
 
 Corps.
-EOF"; do
+EOF" \
+  "cat > tmp/scratch/nf-msg-absent.txt <<'EOF'
+$LONG
+
+Corps.
+EOF
+git add x && git commit -q -F tmp/scratch/nf-msg-absent.txt" \
+  "cat <<'EOF' > tmp/scratch/nf-msg-absent.txt
+$LONG
+EOF
+git commit -F tmp/scratch/nf-msg-absent.txt"; do
+  # Les deux derniers : le fichier est écrit par la MÊME commande — absent au
+  # contrôle. Vécu : le titre de 110 caractères n'a été refusé qu'après tout le
+  # pre-commit, par commitlint.
   t deny "$c"
 done
 echo "=== règle 15 — messages conformes, commit sans message lisible : doivent PASSER ==="
@@ -200,7 +213,12 @@ for c in 'git commit -q -m "fix(http): corriger une chose" -m "Corps libre, Maju
 feat(realtime): router les trames binaires
 
 Corps.
-EOF"; do
+EOF" "cat > tmp/scratch/nf-msg-absent.txt <<'EOF'
+fix(scaffold): un titre conforme écrit par la même commande
+
+Corps.
+EOF
+git commit -q -F tmp/scratch/nf-msg-absent.txt"; do
   t PASSE "$c"
 done
 

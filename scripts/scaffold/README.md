@@ -20,7 +20,7 @@ Le code que `nodefony create` PRODUIT est-il accepté par le formateur que ce m�
 
 - **Usage** : `npm run format:scaffold`
 - **Usage** : `node scripts/scaffold/check-scaffold-format.mjs --keep`
-- **Appelé par** : `npm run format:scaffold` · `.githooks/pre-commit`
+- **Appelé par** : `npm run format:scaffold` · `.githooks/_read-only-gates.sh`
 - **Utilise** : `lib/repo-root.mjs`
 
 ## [`check-scaffold-frontends.mjs`](check-scaffold-frontends.mjs)

@@ -23,3 +23,7 @@ npx --no-install commitlint --edit "$1" || {
   echo "     sans éditeur (agent, script) : corriger le fichier, puis git commit -F .git/COMMIT_EDITMSG" >&2
   exit 1
 }
+
+# Message accepté : SEULEMENT maintenant les contrôles longs en lecture seule
+# (`_read-only-gates.sh`). Un message refusé ne les fait plus attendre.
+sh "$(dirname "$0")/_read-only-gates.sh" || exit 1

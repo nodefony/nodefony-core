@@ -87,7 +87,7 @@ check-no-nul-bytes — un octet NUL dans une source la rend INVISIBLE aux outils
 Garde de pré-commit — surface des paquets du dépôt du framework.
 
 - **Usage** : `node scripts/gates/check-package-deps.mjs`
-- **Appelé par** : `.githooks/pre-commit`
+- **Appelé par** : `.githooks/_read-only-gates.sh`
 - **Utilise** : `lib/repo-root.mjs`
 
 ## [`check-platform-channels.mjs`](check-platform-channels.mjs)
@@ -96,7 +96,7 @@ Gate — aucun nom de canal/méthode de plateforme écrit EN DUR dans le code.
 
 - **Usage** : `node scripts/gates/check-platform-channels.mjs`
 - **Variable** `TABLE`
-- **Appelé par** : `.githooks/pre-commit`
+- **Appelé par** : `.githooks/_read-only-gates.sh`
 
 ## [`check-portable-filenames.mjs`](check-portable-filenames.mjs)
 
@@ -142,7 +142,7 @@ check-type-assertions — cliquet : le total des conversions de type qui RESSERR
 - **Usage** : `node scripts/gates/check-type-assertions.mjs --triage   # relevé : d'où vient chaque valeur convertie (#572)`
 - **Variable** `RULE`
 - **Produit** : l'écart par paquet ; sortie 0 tenu · 1 refusé · 78 oxlint n'a pas répondu
-- **Appelé par** : `node.js.yml` · `.githooks/pre-commit`
+- **Appelé par** : `node.js.yml` · `.githooks/_read-only-gates.sh`
 
 ## [`dev-credentials.test.mjs`](dev-credentials.test.mjs)
 
