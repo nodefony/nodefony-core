@@ -3,6 +3,12 @@ import { Firewall, InvalidTargetError, TokenService } from "@nodefony/security";
 import { UserService } from "@nodefony/user";
 import { PARTNER_AREA } from "../config/security";
 
+/**
+ * Clé d'INSTANCE du service dans le conteneur (`container.get(…)`) — à ne pas
+ * confondre avec le nom de CLASSE que prend `@Inject("PartnerTokenService")`.
+ */
+export const PARTNER_TOKEN_SERVICE = "partnerToken";
+
 /** Durée d'un jeton émis ici : le temps d'un appel, pas d'une session. */
 export const PARTNER_TOKEN_TTL_S = 300;
 
@@ -48,7 +54,7 @@ class PartnerTokenService extends Service {
    */
   constructor(module?: Module) {
     super(
-      "partnerToken",
+      PARTNER_TOKEN_SERVICE,
       module?.container ?? undefined,
       module?.notificationsCenter,
     );

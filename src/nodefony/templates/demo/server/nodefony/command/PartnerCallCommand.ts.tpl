@@ -13,6 +13,7 @@ import {
 import { defineDemoConfig } from "../config/defineModuleConfig";
 import { PARTNER_PATH } from "../config/security";
 import PartnerTokenService, {
+  PARTNER_TOKEN_SERVICE,
   PartnerTokenError,
 } from "../service/PartnerTokenService";
 
@@ -237,7 +238,7 @@ class PartnerCallCommand extends Command {
    * le même que la page `/demo/partner`.
    */
   #partnerTokens(): PartnerTokenService {
-    const service = this.kernel?.container?.get("PartnerTokenService");
+    const service = this.kernel?.container?.get(PARTNER_TOKEN_SERVICE);
     if (!(service instanceof PartnerTokenService)) {
       throw new CallFailure(
         "service PartnerTokenService introuvable.",
