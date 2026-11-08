@@ -18,13 +18,6 @@ const TYPING_THROTTLE_MS = 2000;
 /** « Untel écrit… » s'efface sans nouveau signal. */
 const TYPING_DISPLAY_MS = 3000;
 
-/**
- * Délai sous lequel un « j'écris » de son propre compte est l'ÉCHO de cet
- * onglet (il revient en quelques millisecondes), et non la frappe du même
- * compte dans un autre onglet.
- */
-const TYPING_ECHO_MS = 1000;
-
 /** Ce que l'écran du salon lit et fait. */
 export interface IChatRoom {
   messages: ChatMessage[];
@@ -99,13 +92,8 @@ export function useChat(): IChatRoom {
       ),
       // #endregion
       socket.on(TYPING_CHANNEL, ({ author }) => {
-        // Le serveur rediffuse à TOUS, l'émetteur compris : on écarte l'écho de
-        // CET onglet, pas le compte — le même compte dans un autre onglet se voit.
-        if (
-          author === socket.identity?.userIdentifier &&
-          Date.now() - lastTyping.current < TYPING_ECHO_MS
-        )
-          return;
+        // Le serveur rediffuse à TOUS, l'émetteur compris, et la page montre
+        // tout : chacun voit la MÊME fenêtre du salon.
         setTyping(author);
         if (typingTimer !== null) clearTimeout(typingTimer);
         typingTimer = setTimeout(() => setTyping(null), TYPING_DISPLAY_MS);
