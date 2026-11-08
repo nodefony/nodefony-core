@@ -1,5 +1,4 @@
 import {
-  typeOf,
   isPromise,
   isPlainObject,
   isArray,
@@ -26,6 +25,8 @@ import {
   WebsocketContext,
   isContentlessStatus,
 } from "@nodefony/http";
+import { Buffer } from "node:buffer";
+import { Readable } from "node:stream";
 import Route, { ControllerConstructor } from "./Route.js";
 import Controller from "./Controller";
 import { guardSingletonState, isDevelopment } from "./singletonGuard";
@@ -55,6 +56,9 @@ import {
   authenticationShortfall,
   stepUpChallenge,
 } from "./requireAuthentication.js";
+
+/** Une annulation qui échoue (flux déjà fermé) n'a plus personne à prévenir. */
+const IGNORE_CANCEL_ERROR = (): void => undefined;
 
 /**
  * Surface MINIMALE du service `authorization` (@nodefony/security) consommée par
@@ -1123,7 +1127,15 @@ class Resolver implements IResolver {
   /**
    * Rend la valeur d'une action sur le transport, selon sa nature : promesse
    * (démêlée puis re-rendue), texte, Buffer, réponse déjà construite, scalaire
-   * ou objet (auto-JSON), rien (l'action envoie elle-même).
+   * ou objet (auto-JSON), rien (l'action envoie elle-même) — et, en HTTP, une
+   * `Response` Web standard (`fetch()`, `new Response(…)`, `Response.json(…)`)
+   * ou un flux d'octets nu (`Readable` Node, `ReadableStream` Web), envoyés EN
+   * FLUX par `HttpContext.openWebResponse` / `HttpContext.openStream`.
+   *
+   * Ces deux-là sont reconnus APRÈS l'objet simple et le tableau : l'auto-JSON,
+   * le cas courant, ne paie aucun test de plus. Une réponse déjà partie
+   * (`sended`) n'est jamais réécrite ; une `Response` renvoyée en plus voit
+   * alors son corps annulé, pour ne pas retenir l'amont.
    *
    * Pas `async` : l'envelopper dans une promesse de plus ne changeait rien au
    * rendu, et coûtait une suspension à chaque requête (#505). La valeur n'est
@@ -1135,124 +1147,155 @@ class Resolver implements IResolver {
    * @throws de façon SYNCHRONE ce que lève un envoi synchrone.
    */
   returnController(result: unknown): MaybePromise<unknown> {
-    const type = typeOf(result);
-    // `switch (true)` : chaque `case` est une expression booléenne, jamais le
-    // littéral `true` — la règle réclame un `case true` qui n'a pas de sens ici,
-    // et le `default` final couvre déjà tout le reste.
-    // oxlint-disable-next-line typescript/switch-exhaustiveness-check
-    switch (true) {
-      case result instanceof Promise:
-      case isPromise(result):
-        // Unwrap puis re-dispatch. `isPromise` duck-type tout thenable
-        // (Promise natif, ex-Bluebird userland, Q…) via `.then` → couvre les
-        // promesses tierces sans dépendance dédiée.
-        // Pas de `.catch(e => throw e)` (no-op qui ajoute une microtask par
-        // requête) — le rejet se propage seul.
-        // `switch(true)` ne narrow pas `result` → cast localisé sur le thenable.
-        return (result as PromiseLike<unknown>).then((myresult: unknown) =>
-          this.returnController(myresult),
-        );
-      case type === "string":
-      // oxlint-disable-next-line no-instanceof-builtins -- le remplacement suggéré (`typeof`) EST le cas juste au-dessus : cette branche attrape l'objet enveloppe `new String()`, dont le `typeof` vaut "object"
-      case result instanceof String:
-        return (this.context as HttpContext | WebsocketContext).send(
-          result as string,
-        );
-      case result instanceof Http2Response:
-      case result instanceof HttpResponse:
-      case result instanceof WebsocketResponse:
-        return result;
-      //return (this.context as HttpContext).send().catch((e: Error) => {
-      //  throw e;
-      //});
-      case type === "buffer":
-        // Buffer brut retourné par l'action → envoi direct (parité avec le
-        // `case string`). ⚠️ `typeOf(Buffer)` = "buffer" (pas "object") : sans
-        // ce case dédié il tombait dans le default → AUCUN envoi → requête
-        // pendue jusqu'au timeout 408.
-        if ((this.context as HttpContext).sended) {
-          return;
-        }
-        return (this.context as HttpContext | WebsocketContext).send(
-          result as Buffer,
-        );
-      case type === "number":
-      case type === "boolean":
+    // Promesse ou thenable tiers (Bluebird, Q…) : démêlé puis re-rendu. En
+    // tête : la plupart des actions sont `async`. Pas de `.catch(e => throw e)`
+    // (une microtâche de plus par requête) — le rejet se propage seul.
+    if (isPromise(result)) {
+      return result.then((myresult: unknown) =>
+        this.returnController(myresult),
+      );
+    }
+    // `typeof` natif, UNE fois. `typeOf()` du cœur testait en plus Buffer,
+    // Date, RegExp, `arguments` et Error — dont un `toString.call` que
+    // `isPlainObject` refait ensuite — pour CHAQUE objet rendu, sans que rien
+    // ne se serve de la réponse.
+    switch (typeof result) {
+      case "object":
+        if (result === null) break;
+        return this.returnObject(result);
+      case "string":
+        return (this.context as HttpContext | WebsocketContext).send(result);
+      case "number":
+      case "boolean":
         // RFC 8259 §2 : un scalaire JSON est un document valide top-level.
-        // Parité DX avec string/object/array (NestJS/Fastify font pareil) :
         // `return 42` / `return true` répondent "42"/"true" en
-        // application/json — avant : valeur « non rendable » → hang → 408.
-        // undefined/null restent « l'action a géré elle-même » (default).
+        // application/json. undefined/null restent « l'action a géré
+        // elle-même » (ci-dessous).
         if ((this.context as HttpContext).sended) {
           return;
         }
         this.context.setContextJson();
         return (this.context as HttpContext | WebsocketContext).render(result);
-      case type === "array":
-      case type === "object": {
-        // Réponse déjà envoyée (ex: ReadStream piped par streamFile, send
-        // manuel) → ne rien refaire. (`sended` n'existe que sur HttpContext ;
-        // undefined pour le WS → on poursuit, le WS peut répondre par message.)
-        if ((this.context as HttpContext).sended) {
-          return;
-        }
-        // Objet/array sérialisable → auto-JSON. Contrat moderne, symétrique avec
-        // le `case string`, et VALABLE POUR LE REALTIME WS (un handler qui
-        // `return { type: "pong" }` envoie désormais au lieu d'être droppé).
-        // `render()` sérialise via `isJson` (posé par `setContextJson`).
-        // ReadStream / instances de classe → NON sérialisés (un stream est déjà
-        // pipé par streamFile → `sended` ci-dessus), jamais `JSON.stringify`.
-        if (isPlainObject(result) || isArray(result)) {
-          this.context.setContextJson();
-          return (this.context as HttpContext | WebsocketContext).render(
-            result,
-          );
-        }
-        // Instance de classe jamais envoyée (entité ORM Mongoose, DTO…) : valeur
-        // non rendable — même traitement que number/boolean (default) : poser
-        // `waitAsync` pour que le warning dev du teardown signale le hang au
-        // lieu d'un timeout muet. (WS : pas de teardown → no-op.)
-        switch (this.context.type) {
-          case "http":
-            this.context.waitAsync = true;
-            this.unrendered = `une instance de ${
-              (typeof result === "object" && result !== null
-                ? result.constructor.name
-                : undefined) ?? "classe"
-            }`;
-            break;
-          case "websocket":
-            // WS : pas de teardown qui surveille un hang → rien à poser.
-            break;
-        }
+      case "undefined":
+      case "function":
+      case "symbol":
+      case "bigint":
+        break;
+    }
+    return this.returnNothing(result);
+  }
+
+  /**
+   * Aiguille une valeur OBJET rendue par l'action — dans l'ordre de fréquence :
+   * le tableau et l'objet simple (auto-JSON) d'abord, les instances rares
+   * ensuite. Partie de {@link Resolver.returnController}.
+   *
+   * @param result - un objet non nul.
+   * @returns ce que rend l'envoi, ou `undefined` quand il n'y a rien à envoyer.
+   */
+  private returnObject(result: object): MaybePromise<unknown> {
+    const context = this.context;
+    // Auto-JSON — le cas courant. Symétrique avec la chaîne, et VALABLE POUR LE
+    // REALTIME WS (un handler qui `return { type: "pong" }` envoie). `render()`
+    // sérialise via `isJson` (posé par `setContextJson`). Une réponse déjà
+    // envoyée (`streamFile`, envoi manuel) n'est jamais réécrite ; `sended`
+    // n'existe que sur HttpContext (undefined en WS → on poursuit).
+    if (isArray(result) || isPlainObject(result)) {
+      if ((context as HttpContext).sended) {
         return;
       }
-      default:
-        switch (this.context.type) {
-          case "http":
-            if ((this.context as HttpContext).sended) {
-              return;
-            }
-            if ((this.context as HttpContext).isRedirect) {
-              return (this.context as HttpContext).send();
-            }
-            // Statut SANS CORPS (RFC 9110 §15.3.5 / §15.4.5) : `204 No Content`,
-            // `205 Reset Content`, `304 Not Modified`. Ici, un retour `null` ne veut
-            // PAS dire « l'action enverra elle-même » — il veut dire « il n'y a rien à
-            // dire ». Sans ce cas, un `@Delete @HttpCode(204) { …; return null; }`
-            // laissait la requête pendue jusqu'au timeout, alors que la suppression
-            // avait bien eu lieu (vécu sur une ressource générée).
-            if (isContentlessStatus(this.getResponseStatus())) {
-              return (this.context as HttpContext).send();
-            }
-            this.context.waitAsync = true;
-            this.unrendered = result === null ? "null" : typeof result;
-            break;
-          case "websocket":
-            // WS : l'action répond par message, ou ne répond pas — pas de hang.
-            break;
-        }
+      context.setContextJson();
+      return (context as HttpContext | WebsocketContext).render(result);
     }
+    // Buffer brut → envoi direct (parité avec la chaîne).
+    if (Buffer.isBuffer(result)) {
+      if ((context as HttpContext).sended) {
+        return;
+      }
+      return (context as HttpContext | WebsocketContext).send(result);
+    }
+    // Objet enveloppe `new String()` (son `typeof` vaut "object").
+    // oxlint-disable-next-line no-instanceof-builtins -- c'est précisément l'objet enveloppe que cette branche attrape ; la chaîne primitive est traitée par `returnController`
+    if (result instanceof String) {
+      return (context as HttpContext | WebsocketContext).send(result.valueOf());
+    }
+    // Réponse Nodefony déjà construite : rendue telle quelle.
+    if (
+      result instanceof HttpResponse ||
+      result instanceof Http2Response ||
+      result instanceof WebsocketResponse
+    ) {
+      return result;
+    }
+    if ((context as HttpContext).sended) {
+      // Corps jamais lu : l'annuler libère l'amont (connexion d'un `fetch`).
+      if (result instanceof Response) {
+        result.body?.cancel().catch(IGNORE_CANCEL_ERROR);
+      }
+      return;
+    }
+    // Date, RegExp, Error : traités comme « rien à rendre » (redirection en
+    // cours, statut sans corps, sinon requête signalée comme non rendue).
+    if (
+      result instanceof Date ||
+      result instanceof RegExp ||
+      result instanceof Error
+    ) {
+      return this.returnNothing(result);
+    }
+    // `Response` Web et flux d'octets nu (#749) : sans ces deux tests, ils
+    // tombaient ci-dessous — requête pendue jusqu'au 408. HTTP seulement : une
+    // trame WebSocket n'a ni statut ni en-têtes. `instanceof` restreint le
+    // type, aucune conversion.
+    if (context.type === "http") {
+      if (result instanceof Response) {
+        return (context as HttpContext).openWebResponse(result);
+      }
+      if (result instanceof Readable || result instanceof ReadableStream) {
+        return (context as HttpContext).openStream(result);
+      }
+      // Instance de classe jamais envoyée (entité ORM, DTO…) : valeur non
+      // rendable — `waitAsync` pour que l'avertissement de développement du
+      // teardown signale la requête pendue au lieu d'un délai muet.
+      context.waitAsync = true;
+      this.unrendered = `une instance de ${result.constructor.name || "classe"}`;
+    }
+    // WS : pas de teardown qui surveille une requête pendue → rien à poser.
+    return undefined;
+  }
+
+  /**
+   * Ce qui arrive quand l'action ne rend RIEN d'envoyable (`undefined`,
+   * `null`, une fonction…) : en HTTP, la redirection posée ou le statut sans
+   * corps part ; sinon la requête est marquée non rendue (`waitAsync`). Partie
+   * de {@link Resolver.returnController}.
+   *
+   * @param result - la valeur rendue par l'action.
+   * @returns l'envoi d'une redirection ou d'un statut sans corps, sinon `undefined`.
+   */
+  private returnNothing(result: unknown): MaybePromise<unknown> {
+    if (this.context.type !== "http") {
+      // WS : l'action répond par message, ou ne répond pas — pas de hang.
+      return undefined;
+    }
+    const context = this.context as HttpContext;
+    if (context.sended) {
+      return;
+    }
+    if (context.isRedirect) {
+      return context.send();
+    }
+    // Statut SANS CORPS (RFC 9110 §15.3.5 / §15.4.5) : `204 No Content`,
+    // `205 Reset Content`, `304 Not Modified`. Ici, un retour `null` ne veut
+    // PAS dire « l'action enverra elle-même » — il veut dire « il n'y a rien à
+    // dire ». Sans ce cas, un `@Delete @HttpCode(204) { …; return null; }`
+    // laissait la requête pendue jusqu'au timeout, alors que la suppression
+    // avait bien eu lieu (vécu sur une ressource générée).
+    if (isContentlessStatus(this.getResponseStatus())) {
+      return context.send();
+    }
+    context.waitAsync = true;
+    this.unrendered = result === null ? "null" : typeof result;
     return undefined;
   }
 

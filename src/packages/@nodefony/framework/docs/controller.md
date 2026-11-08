@@ -404,20 +404,24 @@ class MeController extends Controller {
 ## 🧰 Répondre — ce que ton `return` déclenche
 
 Le traducteur unique est `Resolver.returnController()` (`Resolver.ts#Resolver.returnController`). Il regarde le **type**
-de ce que tu as retourné :
+de ce que tu as retourné — dans l'ordre de fréquence : la promesse, puis le tableau et l'objet simple,
+le cas courant, qui ne paient aucun test de plus que nécessaire (`Resolver.ts#Resolver.returnObject`) :
 
 <!-- prettier-ignore -->
 | Tu retournes… | Ce qui se passe | Ancre |
 | --- | --- | --- |
-| Une `Promise` / un thenable | Déballée puis re-traitée (récursif) | `Resolver.ts#Resolver._areaSecurity` |
-| Une `string` | Envoyée telle quelle en corps | `Resolver.ts#Resolver._callWithIdempotency` |
-| Un objet simple ou un tableau | **Auto-JSON** : `application/json` + sérialisation | `Resolver.ts#Resolver.returnController` |
-| Un `number` / un `boolean` | Auto-JSON scalaire (RFC 8259 §2 : `42`, `true` sont des documents valides) | `Resolver.ts#Resolver._callWithIdempotency` |
-| Un `Buffer` | Envoyé brut | `Resolver.ts#Resolver.returnController` |
-| Une `Response` (via un `render*`) | Retournée telle quelle — l'envoi a déjà eu lieu | `Resolver.ts#Resolver._invokeAction` |
+| Une `Promise` / un thenable | Déballée puis re-traitée (récursif) | `Resolver.ts#Resolver.returnController` |
+| Une `string` | Envoyée telle quelle en corps | `Resolver.ts#Resolver.returnController` |
+| Un objet simple ou un tableau | **Auto-JSON** : `application/json` + sérialisation | `Resolver.ts#Resolver.returnObject` |
+| Un `number` / un `boolean` | Auto-JSON scalaire (RFC 8259 §2 : `42`, `true` sont des documents valides) | `Resolver.ts#Resolver.returnController` |
+| Un `Buffer` | Envoyé brut | `Resolver.ts#Resolver.returnObject` |
+| Une réponse Nodefony (rendue par un `render*`) | Retournée telle quelle — l'envoi a déjà eu lieu | `Resolver.ts#Resolver.returnObject` |
+| Une **`Response` Web standard** — `fetch()`, `new Response(…)`, `Response.json(…)` | **Envoyée en flux** : son statut, ses en-têtes, son corps (HTTP seulement) — détail ci-dessous | `HttpContext.openWebResponse()` (`HttpContext.ts#HttpContext.openWebResponse`, `@nodefony/http`) |
+| Un **flux d'octets nu** — `Readable` Node, `ReadableStream` Web | **Envoyé en flux**, comme `this.renderStream(source)` sans option (HTTP seulement) | `Resolver.ts#Resolver.returnObject` |
 | `void`/`null` **et** statut 204/205/304 | Réponse **vide envoyée** (RFC 9110 : ces statuts n'ont pas de corps) | `isContentlessStatus` (`Response.ts#isContentlessStatus`, `@nodefony/http`) |
-| `void`/`null` avec tout autre statut | `waitAsync` : « l'action enverra plus tard » | `Resolver.ts#Resolver.returnController` |
-| Une instance de classe (entité ORM, DTO) | **Non sérialisée** → `waitAsync` (le teardown avertit du blocage) | `Resolver.ts#Resolver.returnController` |
+| `void`/`null` avec tout autre statut | `waitAsync` : « l'action enverra plus tard » | `Resolver.ts#Resolver.returnNothing` |
+| Une `Date`, une `RegExp`, une `Error` | Comme `void` : rien à rendre | `Resolver.ts#Resolver.returnNothing` |
+| Une instance de classe (entité ORM, DTO) | **Non sérialisée** → `waitAsync` (le teardown avertit du blocage) | `Resolver.ts#Resolver.returnObject` |
 
 > [!WARNING]
 > **Le piège n° 1 : `return null` sur un statut à corps.** Le framework l'interprète comme « je
@@ -428,6 +432,82 @@ de ce que tu as retourné :
 
 Même règle pour une **instance de classe** (une entité ORM renvoyée telle quelle) : elle n'est
 volontairement pas passée à `JSON.stringify`. Retourne un objet simple — ou appelle `renderJson()`.
+
+### Renvoyer une `Response` Web ou un flux
+
+La `Response` est l'objet standard que rend `fetch()` — dans le navigateur, et dans Node depuis la
+version 18. Beaucoup de bibliothèques en produisent une toute prête (un kit d'IA qui rend son texte
+en flux, un client d'API). Ton action peut la **renvoyer telle quelle** : le framework envoie son
+statut, ses en-têtes et son corps EN FLUX, sans le lire d'avance.
+
+```ts
+import { Readable } from "node:stream";
+import { Controller, controller, route } from "@nodefony/framework";
+import type { Context } from "@nodefony/http";
+
+@controller("/examples")
+export class ExamplesController extends Controller {
+  constructor(context: Context) {
+    super("ExamplesController", context);
+  }
+
+  /** Relayer une API tierce : sa réponse, telle quelle. */
+  @route("weather", { path: "/weather" })
+  weather() {
+    // Le signal coupe l'appel amont si le client s'en va.
+    return fetch("https://api.exemple.org/meteo", {
+      signal: this.context?.signal ?? null,
+    });
+  }
+
+  /** Une réponse construite : statut, en-têtes et cookie à toi. */
+  @route("export", { path: "/export.csv" })
+  export() {
+    return new Response("id;libellé\n1;Cordage\n", {
+      status: 200,
+      headers: [
+        ["content-type", "text/csv; charset=utf-8"],
+        ["content-disposition", 'attachment; filename="export.csv"'],
+        ["set-cookie", "export=fait; Path=/; HttpOnly"],
+      ],
+    });
+  }
+
+  /** Un flux d'octets renvoyé nu. */
+  @route("lines", { path: "/lines" })
+  lines() {
+    return Readable.from(["une\n", "deux\n"], { objectMode: false });
+  }
+}
+```
+
+Ce que le framework fait de la réponse (`webResponse.ts#webResponseParts`, `@nodefony/http`) :
+
+| Origine de la `Response`                                                           | En-têtes envoyés                                                                                                                                                                                                                   |
+| ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Construite** par ton code (`new Response`, `Response.json`, `Response.redirect`) | tous les siens, **cookies compris**                                                                                                                                                                                                |
+| **Relayée** — rendue par `fetch()`                                                 | les siens, **sauf** `content-encoding` et `content-length` (`fetch` a déjà décompressé le corps : ils décriraient des octets qui ne sont plus là) et `set-cookie` (les cookies d'un service tiers seraient posés sous TON domaine) |
+
+Dans les deux cas, les en-têtes de connexion (`connection`, `keep-alive`, `transfer-encoding`,
+`upgrade`… — RFC 9110 §7.6.1) ne partent jamais : ils décrivent un saut, et HTTP/2 les refuse.
+La différence se lit sur `response.type` : `"default"` pour une réponse construite, `"basic"` ou
+`"cors"` pour une réponse de `fetch`.
+
+> [!TIP]
+> **Quand préférer `this.renderStream()`** : dès qu'il faut des options — délai de silence
+> (`idleTimeout`), durée maximale (`maxDuration`), écouteur de fin (`onClose`), ou ne recopier que
+> certains en-têtes de l'amont. `return response` est le geste court du cas courant ;
+> `renderStream` est le réglage fin. Les deux passent par la même tuyauterie
+> (`HttpContext.ts#HttpContext.openStream`) : contre-pression, arrêt au départ du client, `HEAD` sans
+> lire le corps.
+
+> [!WARNING]
+>
+> - **`Response.error()`** ne porte aucune réponse (statut 0) : le client reçoit un **502**.
+> - **WebSocket** : une `Response` ou un flux renvoyé par une action de message n'est pas envoyé — une
+>   trame n'a ni statut ni en-têtes. Renvoie un objet (envoyé en trame JSON) ou un `Buffer`.
+> - **Réponse déjà partie** (tu as appelé `render*` ou `streamFile` ET renvoyé une `Response`) : rien
+>   n'est réécrit, et le corps de la `Response` est annulé pour libérer l'amont.
 
 ### Les helpers de rendu
 

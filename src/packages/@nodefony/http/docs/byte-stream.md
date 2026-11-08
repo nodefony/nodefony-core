@@ -181,6 +181,27 @@ L'union **peut s'agrandir** : un `switch` exhaustif sur `reason` garde une branc
 
 ### Relayer un autre service
 
+**Le plus court : renvoyer la réponse de `fetch` telle quelle.** Une action qui renvoie une
+`Response` Web est envoyée en flux par `HttpContext.openWebResponse()`
+(`HttpContext.ts#HttpContext.openWebResponse`) — même tuyauterie que `openStream`, statut et
+en-têtes de l'amont compris :
+
+```ts
+@route("camera-live", { path: "/camera" })
+camera() {
+  return fetch("http://camera.local/stream", { signal: this.context.signal });
+}
+```
+
+Ce que ce geste court fait pour toi (`webResponse.ts#webResponseParts`) : il recopie le statut et les
+en-têtes de l'amont **sauf** `content-encoding` et `content-length` (le corps a déjà été décompressé
+par `fetch`), `set-cookie` (les cookies d'un tiers ne se posent pas sous ton domaine) et les en-têtes
+de connexion (RFC 9110 §7.6.1). Une `Response` que ton code CONSTRUIT (`new Response(…)`) garde, elle,
+tous ses en-têtes, cookies compris — `response.type` les distingue (`"default"` contre `"basic"`).
+
+**Le réglage fin : `renderStream`**, dès qu'il faut refuser un amont en erreur, choisir les en-têtes
+recopiés ou poser des délais :
+
 ```ts
 @route("camera-live", { path: "/camera" })
 async camera() {
@@ -347,26 +368,29 @@ désoptimisation de V8 (`--trace-deopt`) ne cite pas `ByteStream`.
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                              | Cause                                                                                  | Correction                                                                 |
-| ----------------------------------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `TypeError : une source en mode objet`                | `Readable.from([...])` est en mode objet par défaut                                    | `Readable.from(chunks, { objectMode: false })`                             |
-| Un processus fils survit à un crash du processus Node | la destruction de la source n'a jamais eu lieu : le processus Node est mort avant      | supervision de l'application (cgroup, `detached: false`, `kill` au signal) |
-| Coupé au bout de 30 s alors que la source est lente   | `idleTimeout` (défaut 30 s) : la source n'a rien produit pendant ce délai              | relever `idleTimeout`, ou `0` pour une source légitimement silencieuse     |
-| Coupé derrière nginx au bout de 60 s                  | `proxy_read_timeout` (60 s) plus court que le silence de la source                     | garder `idleTimeout` SOUS ce délai, ou l'allonger sur le proxy             |
-| Le flux répond 429 sans avoir rien fait               | `wsMaxConnectionsPerIp` atteint — sockets, flux SSE et flux d'octets comptent ensemble | relever le plafond, ou fermer les connexions laissées ouvertes             |
-| `content-encoding` faux sur un relais                 | en-têtes de l'amont recopiés, alors que `fetch` a décompressé                          | ne recopier que `content-type`                                             |
+| Symptôme                                                 | Cause                                                                                  | Correction                                                                           |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `TypeError : une source en mode objet`                   | `Readable.from([...])` est en mode objet par défaut                                    | `Readable.from(chunks, { objectMode: false })`                                       |
+| Un processus fils survit à un crash du processus Node    | la destruction de la source n'a jamais eu lieu : le processus Node est mort avant      | supervision de l'application (cgroup, `detached: false`, `kill` au signal)           |
+| Coupé au bout de 30 s alors que la source est lente      | `idleTimeout` (défaut 30 s) : la source n'a rien produit pendant ce délai              | relever `idleTimeout`, ou `0` pour une source légitimement silencieuse               |
+| Coupé derrière nginx au bout de 60 s                     | `proxy_read_timeout` (60 s) plus court que le silence de la source                     | garder `idleTimeout` SOUS ce délai, ou l'allonger sur le proxy                       |
+| Le flux répond 429 sans avoir rien fait                  | `wsMaxConnectionsPerIp` atteint — sockets, flux SSE et flux d'octets comptent ensemble | relever le plafond, ou fermer les connexions laissées ouvertes                       |
+| `content-encoding` faux sur un relais                    | en-têtes de l'amont recopiés, alors que `fetch` a décompressé                          | ne recopier que `content-type` — ou `return fetch(…)`, qui les écarte                |
+| Requête pendue jusqu'au 408 sur `return new Response(…)` | framework antérieur à la reconnaissance de la `Response` Web                           | mettre à jour, ou `return this.renderStream(response.body, …)`                       |
+| Un cookie de l'amont n'arrive pas au navigateur          | `return fetch(…)` écarte le `set-cookie` d'une réponse RELAYÉE                         | le reposer soi-même, en connaissance de cause (`Response.ts#HttpResponse.setCookie`) |
 
 ## 🧪 Tests & couverture
 
-| Type                   | Où                                                                                                                                                                                                                                                                                                                                                                                                     |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Parité du cycle de vie | `http/streamLifecycle.test.ts` — la MÊME table jouée sur le SSE et le flux d'octets : réponse prise, départ du client en HTTP/1.1, HTTP/2 et h2c, fin propre, session, double ouverture, client lent, durée de vie                                                                                                                                                                                     |
-| Parité — unitaire      | `unit/streamLifecycleParity.test.ts` — client parti PENDANT la sauvegarde de session : flux né fermé, source détruite                                                                                                                                                                                                                                                                                  |
-| Intégration            | `http/byteStream.test.ts` — HEAD (3 transports), coupure après le premier octet (3 transports), 500 / 502 avant, source muette 504 et coupure, `idleTimeout: 0`, source déjà finie, en-tête refusé, producteur bloqué libéré, relais `fetch` ; anneau du journal relu (une seule `ERROR`, aucun « onError on closed context », statut de la ligne d'accès) ; session sauvée deux fois, écrite une fois |
-| Délais réels           | même fichier, derrière `NF_RUN_LONG_STREAM=1` (~80 s) — défaut d'`idleTimeout` (coupure entre 30 et 37,5 s, 504 au journal) et `idleTimeout: 0` tenu 40 s, au-delà du délai de socket du serveur                                                                                                                                                                                                       |
-| Gardes                 | `http/sse-guards.attack.test.ts` — plafond par IP (429, place rendue, source refusée détruite), anonyme refusé (401) et révocation, joués sur le SSE ET le flux d'octets                                                                                                                                                                                                                               |
-| Refus — unitaire       | `unit/byteStreamRefusal.test.ts` — un appel qui lève (500, 429, `RangeError`, `TypeError`) détruit la source, annule un flux web                                                                                                                                                                                                                                                                       |
-| Mémoire                | `http/memory.test.ts` — flux finis par leur source et flux abandonnés par le client : pente du tas, scopes et contextes résiduels                                                                                                                                                                                                                                                                      |
+| Type                               | Où                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Parité du cycle de vie             | `http/streamLifecycle.test.ts` — la MÊME table jouée sur le SSE et le flux d'octets : réponse prise, départ du client en HTTP/1.1, HTTP/2 et h2c, fin propre, session, double ouverture, client lent, durée de vie                                                                                                                                                                                        |
+| Parité — unitaire                  | `unit/streamLifecycleParity.test.ts` — client parti PENDANT la sauvegarde de session : flux né fermé, source détruite                                                                                                                                                                                                                                                                                     |
+| Intégration                        | `http/byteStream.test.ts` — HEAD (3 transports), coupure après le premier octet (3 transports), 500 / 502 avant, source muette 504 et coupure, `idleTimeout: 0`, source déjà finie, en-tête refusé, producteur bloqué libéré, relais `fetch` ; anneau du journal relu (une seule `ERROR`, aucun « onError on closed context », statut de la ligne d'accès) ; session sauvée deux fois, écrite une fois    |
+| `Response` Web et flux nu renvoyés | `http/webResponse.test.ts` — `return new Response(…)` (statut, en-têtes, deux cookies, en-tête de connexion écarté), `Response.json`, réponse sans corps (204), `Response.error()` (502), `return fetch(…)` d'un amont gzip (encodage et cookies de l'amont écartés), `Readable` et `ReadableStream` nus, départ du client (source détruite / annulée) — chaque cas vu ROUGE (408) sans la reconnaissance |
+| Délais réels                       | même fichier, derrière `NF_RUN_LONG_STREAM=1` (~80 s) — défaut d'`idleTimeout` (coupure entre 30 et 37,5 s, 504 au journal) et `idleTimeout: 0` tenu 40 s, au-delà du délai de socket du serveur                                                                                                                                                                                                          |
+| Gardes                             | `http/sse-guards.attack.test.ts` — plafond par IP (429, place rendue, source refusée détruite), anonyme refusé (401) et révocation, joués sur le SSE ET le flux d'octets                                                                                                                                                                                                                                  |
+| Refus — unitaire                   | `unit/byteStreamRefusal.test.ts` — un appel qui lève (500, 429, `RangeError`, `TypeError`) détruit la source, annule un flux web                                                                                                                                                                                                                                                                          |
+| Mémoire                            | `http/memory.test.ts` — flux finis par leur source et flux abandonnés par le client : pente du tas, scopes et contextes résiduels                                                                                                                                                                                                                                                                         |
 
 Le cas du **producteur bloqué** lance un enfant `node -e` qui écrit sans fin par `fs.writeSync(1, …)`
 — une écriture bloquante, comme ffmpeg — et vérifie qu'il sort en moins de 5 s après le départ du

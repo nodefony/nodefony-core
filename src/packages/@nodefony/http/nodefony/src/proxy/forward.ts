@@ -51,7 +51,7 @@ export interface IRelaySettings {
  * outre INTERDITS en HTTP/2 (RFC 9113 §8.2.2) : Node lève
  * `ERR_HTTP2_INVALID_CONNECTION_HEADERS` si une réponse les porte.
  */
-const HOP_BY_HOP: ReadonlySet<string> = new Set([
+export const HOP_BY_HOP: ReadonlySet<string> = new Set([
   "connection",
   "keep-alive",
   "proxy-connection",

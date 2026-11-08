@@ -361,6 +361,89 @@ class StreamController extends Controller {
     });
   }
 
+  // ── #749 — l'action RENVOIE une `Response` Web ou un flux nu, sans appeler
+  // `renderStream` : c'est le framework qui doit répondre, pas pendre au 408.
+
+  /** `return fetch(…)` : la réponse d'un amont local (`port`), relayée telle quelle. */
+  @route("stream-web-fetch", { path: "/web/fetch" })
+  webFetch() {
+    return fetch(`http://127.0.0.1:${Number(this.query.port)}/`, {
+      signal: this.context?.signal ?? null,
+    });
+  }
+
+  /**
+   * Une `Response` construite : statut, en-têtes et DEUX cookies à elle ; plus
+   * un en-tête de connexion (`upgrade`), qui ne doit jamais partir.
+   */
+  @route("stream-web-constructed", { path: "/web/constructed" })
+  webConstructed() {
+    return new Response("bonjour", {
+      status: 201,
+      headers: [
+        ["content-type", "text/plain; charset=utf-8"],
+        ["x-web", "construite"],
+        ["set-cookie", "a=1; Path=/"],
+        ["set-cookie", "b=2; Path=/"],
+        ["upgrade", "h2c"],
+      ],
+    });
+  }
+
+  /** `return Response.json(…)`. */
+  @route("stream-web-json", { path: "/web/json" })
+  webJson() {
+    return Response.json({ ok: true, source: "web" });
+  }
+
+  /** Une `Response` sans corps : `204`. */
+  @route("stream-web-empty", { path: "/web/empty" })
+  webEmpty() {
+    return new Response(null, { status: 204 });
+  }
+
+  /** `Response.error()` : aucune réponse à envoyer — 502. */
+  @route("stream-web-error", { path: "/web/error" })
+  webError() {
+    return Response.error();
+  }
+
+  /** Un `Readable` Node renvoyé nu : `held=1` le tient ouvert (point / 50 ms). */
+  @route("stream-web-readable", { path: "/web/readable" })
+  webReadable() {
+    streamState.sourceDestroyed = false;
+    return this.query.held === "1"
+      ? heldSource("prêt", 50)
+      : finiteSource(["prêt", " fin"]);
+  }
+
+  /**
+   * Un `ReadableStream` Web renvoyé nu : fini, ou tenu ouvert (`held=1`) ; son
+   * annulation est relevée dans l'état.
+   */
+  @route("stream-web-stream", { path: "/web/stream" })
+  webStream() {
+    streamState.sourceDestroyed = false;
+    const held = this.query.held === "1";
+    const encoder = new TextEncoder();
+    let timer: ReturnType<typeof setInterval> | null = null;
+    return new ReadableStream<Uint8Array>({
+      start(sink) {
+        sink.enqueue(encoder.encode("prêt"));
+        if (held) {
+          timer = setInterval(() => sink.enqueue(encoder.encode(".")), 50);
+        } else {
+          sink.enqueue(encoder.encode(" fin"));
+          sink.close();
+        }
+      },
+      cancel() {
+        if (timer !== null) clearInterval(timer);
+        streamState.sourceDestroyed = true;
+      },
+    });
+  }
+
   /**
    * Repère du journal : l'identifiant de la dernière entrée de l'anneau. Le
    * banc le relève AVANT un cas, puis relit ce qui a été écrit depuis.

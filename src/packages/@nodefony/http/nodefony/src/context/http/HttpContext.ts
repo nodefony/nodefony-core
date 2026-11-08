@@ -160,6 +160,7 @@ import {
   type IByteStreamOptions,
   type IByteStreamResult,
 } from "./ByteStream";
+import { webResponseParts } from "./webResponse";
 
 class HttpContext extends Context implements IHttpContextInterface {
   //url: string;
@@ -747,6 +748,43 @@ class HttpContext extends Context implements IHttpContextInterface {
     options?: IByteStreamOptions,
   ): Promise<IByteStreamResult> {
     return openByteStream(this, source, options);
+  }
+
+  /**
+   * Répond par une `Response` Web standard — celle que rend `fetch()`, ou une
+   * réponse construite (`new Response(…)`, `Response.json(…)`) : son statut,
+   * ses en-têtes, et son corps EN FLUX, jamais lu d'avance.
+   *
+   * C'est ce que fait le framework quand une action renvoie une `Response`.
+   * Une réponse relayée (issue de `fetch`) perd `content-encoding`,
+   * `content-length` et `set-cookie` de l'amont ; une réponse construite garde
+   * les siens. Les en-têtes de connexion ne partent jamais. Le reste — arrêt au
+   * départ du client, contre-pression, délais, HEAD sans lire le corps — est
+   * celui de {@link HttpContext.openStream}.
+   *
+   * @param response - une `Response` dont le corps n'a pas été consommé.
+   * @param options - délais et écouteur de fin ; statut et en-têtes viennent de la réponse.
+   * @returns la raison de la fin et le nombre d'octets ; ne rejette jamais.
+   * @throws HttpError 502 pour `Response.error()` (statut 0, aucune réponse) ;
+   *   les cas de {@link HttpContext.openStream} sinon.
+   */
+  openWebResponse(
+    response: Response,
+    options?: Omit<IByteStreamOptions, "status" | "headers">,
+  ): Promise<IByteStreamResult> {
+    if (response.type === "error") {
+      throw new HttpError(
+        "Réponse Web en erreur : Response.error() ne porte aucune réponse",
+        502,
+        this,
+      );
+    }
+    const parts = webResponseParts(response);
+    return openByteStream(this, parts.source, {
+      ...options,
+      status: parts.status,
+      headers: parts.headers,
+    });
   }
 
   flush(chunk: unknown, encoding: BufferEncoding) {
