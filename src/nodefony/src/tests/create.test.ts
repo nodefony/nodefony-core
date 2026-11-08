@@ -3058,6 +3058,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(app, "Voir les démos");
       assert.include(app, 'import "./demo.css";');
       assert.notInclude(app, "/api/hello");
+      // Plus de client de la vitrine générique : rien ne l'appellerait.
+      assert.isFalse(existsSync(path.join(mod, "frontend", "src", "api.ts")));
       // Le logo arrive du paquet, jamais embarqué dans la feuille.
       const css = lireMod("frontend", "src", "demo.css");
       assert.include(css, "var(--demo-logo)");
