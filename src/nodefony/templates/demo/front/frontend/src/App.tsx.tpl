@@ -14,6 +14,7 @@ import { useCurrentSection, usePointerLight } from "./effects";
 import { ChatLesson } from "./chat/ChatLesson";
 import { FirstStepsLesson } from "./first/FirstStepsLesson";
 import { SseLesson } from "./sse/SseLesson";
+import { VideoLesson } from "./video/VideoLesson";
 import { Account } from "./kit/Account";
 import { applyTheme, readTheme, type DemoTheme } from "./kit/theme";
 import { PartnerLesson } from "./partner/PartnerLesson";
@@ -53,7 +54,8 @@ export function App() {
     page === "/demo/chat" ||
     page === "/demo/partner" ||
     page === "/demo/first-steps" ||
-    page === "/demo/sse";
+    page === "/demo/sse" ||
+    page === "/demo/video";
   // Le logo vient du paquet (`brand.ts`) : la feuille le lit par variable.
   const logo: CSSProperties & Record<"--demo-logo", string> = {
     "--demo-logo": `url(${JSON.stringify(NODEFONY_LOGO)})`,
@@ -70,6 +72,8 @@ export function App() {
         <FirstStepsLesson about={about} />
       ) : page === "/demo/sse" ? (
         <SseLesson about={about} />
+      ) : page === "/demo/video" ? (
+        <VideoLesson about={about} />
       ) : (
         <Home about={about} />
       )}

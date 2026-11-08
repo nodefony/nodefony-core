@@ -1,9 +1,11 @@
 import type { IProbeChunk, IProbeResult } from "./probe";
 
 /**
- * La requête telle que partie et la réponse telle que reçue : statut, durée,
+ * La requête telle que partie — avec les en-têtes qui changent la réponse
+ * (`Range`, `If-Range`…) — et la réponse telle que reçue : statut, durée,
  * en-têtes utiles, redirection suivie, puis le corps — ou, pendant un flux,
- * les morceaux au fil de leur arrivée.
+ * les morceaux au fil de leur arrivée. Un corps binaire est montré en
+ * hexadécimal.
  *
  * Guide pour un agent : brique du KIT ; les données viennent de `probe.ts`.
  * `live` affiche les morceaux d'un flux encore ouvert.
@@ -40,6 +42,18 @@ export function ProbeResult({
         <code>{result.request}</code>
         <span className="probe-ms">{result.ms} ms</span>
       </p>
+      {result.sent.length > 0 && (
+        <dl className="trial-headers probe-sent" aria-label="En-têtes envoyés">
+          {result.sent.map(([name, value]) => (
+            <div key={name}>
+              <dt>{name}</dt>
+              <dd>
+                <code>{value}</code>
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
       {result.finalUrl !== null && (
         <p className="probe-redirect">
           Redirection suivie par le navigateur, arrivée sur{" "}

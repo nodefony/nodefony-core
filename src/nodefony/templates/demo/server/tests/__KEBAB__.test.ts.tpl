@@ -76,9 +76,18 @@ import { PARTNER_LESSON } from "../frontend/src/partner/partnerTabs";
 import { FIRST_LESSON } from "../frontend/src/first/firstTabs";
 import { SSE_LESSON } from "../frontend/src/sse/sseTabs";
 import { answerWords, SSE_PATH } from "../frontend/src/sse/sseDemo";
+import { VIDEO_LESSON } from "../frontend/src/video/videoTabs";
+import {
+  MediaParams,
+  SAMPLE_VIDEO,
+  VIDEO_PATH,
+} from "../frontend/src/video/videoDemo";
 import {
   formatBody,
+  hexPreview,
+  isTextual,
   pickHeaders,
+  pickSent,
   PROBE_BODY_LIMIT,
 } from "../frontend/src/kit/probe";
 import {
@@ -600,6 +609,7 @@ const LESSONS: readonly { page: string; lesson: ILesson }[] = [
   { page: "partner", lesson: PARTNER_LESSON },
   { page: "first-steps", lesson: FIRST_LESSON },
   { page: "sse", lesson: SSE_LESSON },
+  { page: "video", lesson: VIDEO_LESSON },
 ];
 
 /** Chaque extrait cité, avec sa page et sa couche. */
@@ -754,10 +764,11 @@ describe("demo — les pages d'apprentissage suivent le modèle commun", () => {
   });
 });
 
-describe("demo — Premiers pas et Flux SSE : la sonde et le contrôleur cité", () => {
+describe("demo — les leçons à gestes : la sonde et le contrôleur cité", () => {
   it.each([
     ["nodefony/controllers/FirstStepsController.ts", FIRST_LESSON],
     ["nodefony/controllers/SseController.ts", SSE_LESSON],
+    ["nodefony/controllers/VideoController.ts", VIDEO_LESSON],
   ] as const)(
     "chaque région de %s est citée par la leçon : aucun geste oublié",
     (file, lesson) => {
@@ -799,6 +810,31 @@ describe("demo — Premiers pas et Flux SSE : la sonde et le contrôleur cité",
     ]);
   });
 
+  it("un corps binaire se lit en hexadécimal : position, octets, ASCII", () => {
+    const bytes = new Uint8Array([0, 0, 0, 0x20, 0x66, 0x74, 0x79, 0x70, 0x69]);
+    expect(hexPreview(bytes, 900).split("\n")).toEqual([
+      "900 octets reçus — les 9 premiers :",
+      `00000000  00 00 00 20 66 74 79 70 69${" ".repeat(21)}  ... ftypi`,
+    ]);
+    expect(isTextual("video/mp4")).toBe(false);
+    expect(isTextual("application/octet-stream")).toBe(false);
+    expect(isTextual("text/plain; charset=utf-8")).toBe(true);
+    expect(isTextual("application/json")).toBe(true);
+    expect(isTextual(null)).toBe(true);
+  });
+
+  it("seuls les en-têtes ENVOYÉS qui changent la réponse sont montrés", () => {
+    expect(
+      pickSent({
+        headers: { "if-range": '"e"', range: "bytes=0-9", "x-other": "1" },
+      }),
+    ).toEqual([
+      ["range", "bytes=0-9"],
+      ["if-range", '"e"'],
+    ]);
+    expect(pickSent({})).toEqual([]);
+  });
+
   it("la réponse en flux reprend la question, un mot par événement", () => {
     const words = answerWords("Pourquoi SSE ?");
     expect(words.join(" ")).toContain("« Pourquoi SSE ? »");
@@ -815,6 +851,53 @@ describe("demo — Premiers pas et Flux SSE : la sonde et le contrôleur cité",
     const opened = [...source.matchAll(/this\.renderSse/g)].length;
     expect(actions).toBe(7);
     expect(opened).toBe(actions);
+  });
+});
+
+describe("demo — Vidéo par plages", () => {
+  const moduleDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+
+  it("un nom de vidéo passe, un chemin ou un autre fichier est refusé", () => {
+    expect(MediaParams.safeParse({ name: SAMPLE_VIDEO }).success).toBe(true);
+    expect(MediaParams.safeParse({ name: "ma-video_2.webm" }).success).toBe(
+      true,
+    );
+    for (const name of [
+      "../package.json",
+      "..",
+      "a/b.mp4",
+      "notes.txt",
+      ".mp4",
+      "",
+    ]) {
+      expect(MediaParams.safeParse({ name }).success, name).toBe(false);
+    }
+  });
+
+  it("la vidéo d'essai est posée, et son index (moov) précède les images (mdat)", () => {
+    const bytes = readFileSync(path.join(moduleDir, "media", SAMPLE_VIDEO));
+    // Les boîtes de tête d'un MP4 : 4 octets de taille, 4 de type.
+    const boxes: string[] = [];
+    for (let at = 0; at + 8 <= bytes.length;) {
+      const size = bytes.readUInt32BE(at);
+      boxes.push(bytes.toString("latin1", at + 4, at + 8));
+      if (size < 8) break;
+      at += size;
+    }
+    expect(boxes[0]).toBe("ftyp");
+    expect(boxes).toContain("mdat");
+    expect(boxes.indexOf("moov")).toBeGreaterThan(-1);
+    expect(boxes.indexOf("moov")).toBeLessThan(boxes.indexOf("mdat"));
+  });
+
+  it("le contrôleur sert le dossier par plages, le nom validé avant l'action", () => {
+    const source = LESSON_SOURCES["nodefony/controllers/VideoController.ts"];
+    expect(source).toContain("@controller(VIDEO_PATH)");
+    expect(VIDEO_PATH).toBe("/demo/api/media");
+    expect(source).toContain(
+      '@Get("/{name}", { schema: { params: MediaParams } })',
+    );
+    expect(source).toContain("this.renderMediaStream(file)");
   });
 });
 

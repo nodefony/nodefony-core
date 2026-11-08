@@ -32,6 +32,9 @@ un renvoi mort le fait échouer.
   WebSocket — le point de départ d'un débutant),
   `SseController` (`/demo/api/sse`, les flux d'événements serveur : nommés et
   typés, reprise par `Last-Event-ID`, battement, négociation, `POST` en flux),
+  `VideoController` (`/demo/api/media`, les vidéos du dossier `media/` servies
+  par plages : `Range`, 206, 416, `If-Range` — `sample.mp4` y est posée à la
+  création, une vidéo qu'on y dépose est servie pareil),
   `ChatController` (HTTP + socket, `ContractRealtimeController`),
   `PartnerController` (`/demo/api/partner`, zone `demo-partner` du firewall), les pages et l'accueil.
 - `nodefony/service/` — l'état qui survit à une connexion (`ChatService`),

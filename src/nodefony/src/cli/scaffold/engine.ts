@@ -59,6 +59,20 @@ const DEMO_MODULE = "demo";
 const DEMO_INDEX_FILE = "demos.ts";
 
 /**
+ * La vidéo d'essai de la démo « Vidéo par plages », relative à la racine du
+ * paquet `nodefony` (publiée par `files`). Fabriquée par
+ * `scripts/generate/demo-video.mjs` (dépôt) : un minuteur et une barre de
+ * progression, pour qu'un saut dans le lecteur se VOIE.
+ */
+const DEMO_VIDEO_ASSET = path.join("assets", "demo-video.mp4");
+
+/**
+ * Où la démo la pose, relatif au module : le dossier `media/` que sert son
+ * contrôleur — une vidéo qu'on y dépose est servie de la même façon.
+ */
+const DEMO_VIDEO_FILE = path.join("media", "sample.mp4");
+
+/**
  * Mot de passe du compte `admin` qu'une application générée sème en développement.
  *
  * Seule source : chaque gabarit le rend par `<%= it.devAdminPassword %>` (injecté
@@ -3499,6 +3513,13 @@ function renderDemoLayer(
     { __KEBAB__: DEMO_MODULE },
   );
   files.push(...renderDemoFront(eta, packageRoot, dest, appName, writer));
+  // COPIÉE du paquet, octet pour octet : un layer ne transporte que du texte
+  // (même règle que les fichiers de marque, `writeBrandAssets`).
+  writer.writeBinary(
+    path.join(dest, DEMO_VIDEO_FILE),
+    readFileSync(path.join(packageRoot, DEMO_VIDEO_ASSET)),
+  );
+  files.push(DEMO_VIDEO_FILE);
   if (
     declareImportedPeers(
       dest,

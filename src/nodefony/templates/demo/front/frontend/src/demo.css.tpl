@@ -2490,6 +2490,26 @@ a.ritem:hover .ritem-go {
 .trial-headers > div {
   display: contents;
 }
+/* Le lecteur de « Vidéo par plages », au-dessus des appels du geste. */
+.video-player {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  margin: 0 0 12px;
+  background: #000;
+  border-radius: 10px;
+}
+/* Les en-têtes ENVOYÉS, au-dessus de la réponse : une flèche et un filet
+   les distinguent de ceux reçus. */
+.probe-sent {
+  padding: 6px 10px;
+  border-left: 3px solid var(--blue);
+  background: var(--bg-soft);
+  border-radius: 0 8px 8px 0;
+}
+.probe-sent dt::before {
+  content: "→ ";
+}
 .status.pending {
   color: var(--muted);
   background: var(--bg-soft);
@@ -2572,6 +2592,10 @@ a.ritem:hover .ritem-go {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 .steps-tab {
+  /* Ancre le « (essayé) » invisible (`.sr-only`, absolu) : sans elle, il se
+     place contre la page et l'élargit dès qu'un onglet hors champ du
+     bandeau mobile est essayé. */
+  position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;

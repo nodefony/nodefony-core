@@ -25,6 +25,8 @@ export interface IProbeChunk {
 export interface IProbeResult {
   /** La requête, telle qu'on l'écrirait : `GET /demo/api/first/web`. */
   request: string;
+  /** Les en-têtes de `SENT_HEADERS` que la requête a portés. */
+  sent: readonly (readonly [string, string])[];
   /** `null` quand la requête n'a pas abouti (réseau, socket refusée). */
   status: number | null;
   /** Durée totale, corps compris, en millisecondes. */
@@ -43,6 +45,8 @@ export interface IProbeResult {
 export const SHOWN_HEADERS = [
   "content-type",
   "content-length",
+  "accept-ranges",
+  "content-range",
   "content-disposition",
   "cache-control",
   "etag",
@@ -50,6 +54,18 @@ export const SHOWN_HEADERS = [
   "x-accel-buffering",
   "x-demo",
 ] as const;
+
+/** Les en-têtes de REQUÊTE qui changent la réponse, montrés avec elle. */
+export const SENT_HEADERS = [
+  "accept",
+  "range",
+  "if-range",
+  "if-none-match",
+  "last-event-id",
+] as const;
+
+/** Octets montrés d'un corps binaire. */
+export const PROBE_BINARY_BYTES = 64;
 
 /** Au-delà, le corps affiché est coupé : la page n'est pas un éditeur. */
 export const PROBE_BODY_LIMIT = 6000;
@@ -67,6 +83,50 @@ export function formatBody(text: string, contentType: string | null): string {
   return shown.length > PROBE_BODY_LIMIT
     ? `${shown.slice(0, PROBE_BODY_LIMIT)}\n… (${shown.length - PROBE_BODY_LIMIT} caractères de plus)`
     : shown;
+}
+
+/**
+ * Un corps qui se lit comme du texte : JSON, HTML, texte, flux SSE — ou sans
+ * type annoncé. Le reste (vidéo, image, octets) se montre en hexadécimal.
+ */
+export function isTextual(contentType: string | null): boolean {
+  if (contentType === null) return true;
+  return /^text\/|json|xml|javascript|x-www-form-urlencoded/u.test(contentType);
+}
+
+/**
+ * Les premiers octets d'un corps binaire, comme un éditeur hexadécimal :
+ * position, seize octets, puis leur lecture en ASCII (`.` hors imprimable).
+ *
+ * @param bytes - les premiers octets reçus
+ * @param total - la taille totale du corps
+ */
+export function hexPreview(bytes: Uint8Array, total: number): string {
+  const lines = [`${total} octets reçus — les ${bytes.length} premiers :`];
+  for (let at = 0; at < bytes.length; at += 16) {
+    const row = [...bytes.subarray(at, at + 16)];
+    const hex = row.map((byte) => byte.toString(16).padStart(2, "0"));
+    const ascii = row
+      .map((byte) =>
+        byte >= 32 && byte < 127 ? String.fromCharCode(byte) : ".",
+      )
+      .join("");
+    lines.push(
+      `${at.toString(16).padStart(8, "0")}  ${hex.join(" ").padEnd(47)}  ${ascii}`,
+    );
+  }
+  return lines.join("\n");
+}
+
+/** Les en-têtes de `SENT_HEADERS` que porte `init`. */
+export function pickSent(
+  init: RequestInit,
+): readonly (readonly [string, string])[] {
+  const headers = new Headers(init.headers);
+  return SENT_HEADERS.flatMap((name) => {
+    const value = headers.get(name);
+    return value === null ? [] : [[name, value] as const];
+  });
 }
 
 /** Les en-têtes de `SHOWN_HEADERS` présents dans la réponse. */
@@ -95,10 +155,17 @@ export async function probeHttp(
   onChunk?: (chunks: readonly IProbeChunk[]) => void,
 ): Promise<IProbeResult> {
   const request = `${init.method ?? "GET"} ${url}`;
+  const sent = pickSent(init);
   const start = performance.now();
   const since = () => Math.round(performance.now() - start);
   try {
     const response = await fetch(url, { cache: "no-store", ...init });
+    const contentType = response.headers.get("content-type");
+    // Un corps binaire décodé en texte n'apprend rien : on en garde les
+    // premiers octets, et on compte le reste.
+    const textual = isTextual(contentType);
+    const head = new Uint8Array(PROBE_BINARY_BYTES);
+    let received = 0;
     const chunks: IProbeChunk[] = [];
     const decoder = new TextDecoder();
     const reader = response.body?.getReader();
@@ -106,26 +173,40 @@ export async function probeHttp(
       if (reader === undefined) break;
       const { done, value } = await reader.read();
       if (done) break;
+      if (received < PROBE_BINARY_BYTES) {
+        head.set(value.subarray(0, PROBE_BINARY_BYTES - received), received);
+      }
+      received += value.byteLength;
       chunks.push({
         at: since(),
-        text: decoder.decode(value, { stream: true }),
+        text: textual
+          ? decoder.decode(value, { stream: true })
+          : `+${value.byteLength} octets`,
       });
       onChunk?.([...chunks]);
     }
     const text = chunks.map((chunk) => chunk.text).join("") + decoder.decode();
     return {
       request,
+      sent,
       status: response.status,
       ms: since(),
       headers: pickHeaders(response.headers),
-      body: formatBody(text, response.headers.get("content-type")),
-      chunks,
+      body: textual
+        ? formatBody(text, contentType)
+        : received === 0
+          ? ""
+          : hexPreview(
+              head.subarray(0, Math.min(received, PROBE_BINARY_BYTES)),
+              received,
+            ),
+      chunks: textual ? chunks : [],
       redirected: response.redirected,
       finalUrl: response.redirected ? new URL(response.url).pathname : null,
       error: null,
     };
   } catch (error) {
-    return failed(request, since(), error);
+    return failed(request, since(), error, sent);
   }
 }
 // #endregion
@@ -162,6 +243,7 @@ export function probeSocket(
       socket.close();
       resolve({
         request,
+        sent: [],
         status: error === null ? 101 : null,
         ms: since(),
         headers: [],
@@ -256,6 +338,7 @@ export function probeSse(
       source.close();
       resolve({
         request,
+        sent: [],
         status: opened ? 200 : null,
         ms: since(),
         headers: [],
@@ -316,9 +399,15 @@ export function probeSse(
 // #endregion
 
 /** Le résultat d'un appel qui n'a pas abouti. */
-function failed(request: string, ms: number, error: unknown): IProbeResult {
+function failed(
+  request: string,
+  ms: number,
+  error: unknown,
+  sent: readonly (readonly [string, string])[] = [],
+): IProbeResult {
   return {
     request,
+    sent,
     status: null,
     ms,
     headers: [],
