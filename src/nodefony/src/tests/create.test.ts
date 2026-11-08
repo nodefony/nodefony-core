@@ -2960,7 +2960,11 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // La couche démo REMPLACE l'index du sous-scaffold : controller,
       // services et commande y sont déclarés.
       const index = lireMod("index.ts");
-      assert.include(index, "@controllers([PartnerController])");
+      assert.include(
+        index,
+        "@controllers([PartnerController, DemoPageController, DemoController])",
+      );
+      assert.include(index, "registerDemoEntry(this);");
       assert.include(index, "@services([AppInfoService, AppBannerService])");
       assert.include(index, "this.addCommand(PartnerCallCommand);");
       assert.include(index, "override configSchema(): unknown");
@@ -3019,6 +3023,65 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(
         result.files,
         path.join("modules", "demo", "nodefony", "config", "security.ts"),
+      );
+    });
+
+    it("le front React de la démo vit DANS le module : page /demo, entry Vite, API d'identité typée", () => {
+      const dest = path.join(tmp, "demo-front");
+      const result = scaffold(dest, {
+        name: "demo-front",
+        preset: "complete",
+        demo: true,
+      });
+      const mod = path.join(dest, "modules", "demo");
+      const lireMod = (...rel: string[]) =>
+        readFileSync(path.join(mod, ...rel), "utf8");
+      // La page : les MÊMES gabarits que `create front`, route `/demo`.
+      assert.include(
+        lireMod("nodefony", "controllers", "DemoPageController.ts"),
+        'path: "/demo"',
+      );
+      assert.include(
+        lireMod("nodefony", "frontend", "registerDemoEntry.ts"),
+        'name: "demo"',
+      );
+      assert.include(
+        lireMod("frontend", "index.html"),
+        "<!--nodefony:frontend-->",
+      );
+      assert.include(
+        lireMod("frontend", "src", "main.tsx"),
+        'import { App } from "./App";',
+      );
+      // L'application de la démo remplace celle de la vitrine générique.
+      const app = lireMod("frontend", "src", "App.tsx");
+      assert.include(app, "Voir les démos");
+      assert.include(app, 'import "./demo.css";');
+      assert.notInclude(app, "/api/hello");
+      // Le logo arrive du paquet, jamais embarqué dans la feuille.
+      const css = lireMod("frontend", "src", "demo.css");
+      assert.include(css, "var(--demo-logo)");
+      assert.notInclude(css, "data:image");
+      // Type PARTAGÉ entre le contrôleur et la page.
+      assert.include(
+        lireMod("nodefony", "controllers", "DemoController.ts"),
+        'from "../../frontend/src/about"',
+      );
+      // Le moteur et Vite en développement, la brique en pair.
+      const pkg = JSON.parse(lireMod("package.json")) as {
+        devDependencies?: Record<string, string>;
+        peerDependencies?: Record<string, string>;
+      };
+      assert.property(pkg.devDependencies, "react");
+      assert.property(pkg.devDependencies, "vite");
+      assert.property(pkg.peerDependencies, "@nodefony/frontend");
+      // Le typecheck du module VOIT le front.
+      const tsconfig = lireMod("tsconfig.json");
+      assert.include(tsconfig, "frontend/src/**/*");
+      assert.include(tsconfig, '"jsx": "react-jsx"');
+      assert.include(
+        result.files,
+        path.join("modules", "demo", "frontend", "src", "App.tsx"),
       );
     });
 

@@ -3356,6 +3356,97 @@ function renderModuleSkeleton(
   }
 }
 
+/** Moteur du front de la démo : React seul (#747, décision de l'auteur). */
+const DEMO_FRONTEND = "react" satisfies Exclude<TFrontendChoice, "none">;
+
+/**
+ * Rend le front React de la démo dans son module : coquille HTML, page
+ * `/demo`, déclaration de l'entry Vite et point de montage — les MÊMES
+ * gabarits que `create front`, jamais une copie —, puis la couche propre à la
+ * démo (`templates/demo/front/`), qui remplace l'application de la page.
+ *
+ * Tout ce qui touche au module se fait ici (dépendances de développement du
+ * moteur, `tsconfig`), et rien à l'application : la même fonction sert
+ * `create app --demo` et le dépôt du framework, dont le module doit rester
+ * identique fichier pour fichier.
+ *
+ * @returns les fichiers écrits, relatifs à `dest`.
+ */
+function renderDemoFront(
+  eta: Eta,
+  packageRoot: string,
+  dest: string,
+  appName: string,
+  writer: ScaffoldWriter,
+): string[] {
+  const front = FRONTEND_PARAMS[DEMO_FRONTEND];
+  const data = {
+    nameClass: "DemoPageController",
+    pascal: "Demo",
+    kebab: DEMO_MODULE,
+    entryName: DEMO_MODULE,
+    route: `/${DEMO_MODULE}`,
+    frontend: DEMO_FRONTEND,
+    front,
+    appName,
+    complete: true,
+  };
+  const tokens = { __NAME__: data.nameClass, __PASCAL__: data.pascal };
+  const files: string[] = [];
+  const templates = path.join(packageRoot, "templates");
+  for (const layer of [
+    path.join(templates, "shared", "front-shell"),
+    path.join(templates, "front", "base"),
+    path.join(templates, "shared", "front-registrar"),
+    path.join(templates, "shared", "front-entry", DEMO_FRONTEND),
+  ]) {
+    renderLayer(eta, layer, dest, data, files, writer, tokens);
+  }
+  // Le logo importé du paquet (`brand.ts`) : même source que les fronts
+  // générés. Chemins recalés, la couche étant rendue dans `frontend/`.
+  const brandStart = files.length;
+  renderLayer(
+    eta,
+    path.join(templates, "app", "frontend", "shared", "frontend"),
+    path.join(dest, "frontend"),
+    data,
+    files,
+    writer,
+    tokens,
+  );
+  for (let i = brandStart; i < files.length; i += 1) {
+    const file = files[i];
+    if (file !== undefined) files[i] = path.join("frontend", file);
+  }
+  renderLayer(
+    eta,
+    path.join(templates, "demo", "front"),
+    dest,
+    data,
+    files,
+    writer,
+    tokens,
+  );
+  // Le moteur et Vite en développement, depuis le catalogue unique ; la brique
+  // `@nodefony/frontend` entre en pair par `declareImportedPeers`.
+  const manifest = readPackageManifest(path.join(dest, "package.json"), writer);
+  const devDeps = ensureObjectField(manifest, "devDependencies");
+  for (const [name, range] of Object.entries(front.devDeps)) {
+    devDeps[name] = range;
+  }
+  writePackageManifest(manifest, writer);
+  if (!files.includes("package.json")) files.push("package.json");
+  const tsWire = wireFrontTsconfig(
+    path.join(dest, "tsconfig.json"),
+    { include: front.tsInclude, jsx: front.tsJsx },
+    writer,
+  );
+  if (tsWire.changed && !files.includes("tsconfig.json")) {
+    files.push("tsconfig.json");
+  }
+  return files;
+}
+
 /**
  * Rend le CONTENU de la démo (#747) par-dessus un module déjà posé dans
  * `dest` : il remplace son `index.ts`, sa config et son test (la transaction
@@ -3389,6 +3480,7 @@ function renderDemoLayer(
     writer,
     { __KEBAB__: DEMO_MODULE },
   );
+  files.push(...renderDemoFront(eta, packageRoot, dest, appName, writer));
   if (
     declareImportedPeers(
       dest,
@@ -6843,20 +6935,6 @@ export function wireEntitiesDecorator(
 }
 
 /**
- * Scaffold IN-PROJECT d'un frontend Vite (`create front`) : pose la coquille
- * HTML (la MÊME brique que `create app`), l'entry du framework choisi, le
- * controller de page (`renderDocument` + nonce CSP) et le registrar d'entry ;
- * câble `@controllers` et le hook `onKernelBoot` de la cible ; complète les
- * deps npm du framework (catalogue UNIQUE `FRONTEND_PARAMS`).
- *
- * @throws hors projet, cible inconnue, cible portant DÉJÀ un front
- *   (`frontend/index.html` — ce scaffold pose l'INITIAL, il ne fusionne pas),
- *   ou dep `@nodefony/frontend` absente de l'APPLICATION. Absente du seul module
- *   visé, elle y est POSÉE en peer : un workspace résout depuis l'arbre de
- *   l'app, et exiger une édition manuelle du `package.json` revenait à demander
- *   à la main ce que ce scaffold existe pour écrire.
- */
-/**
  * Fait couvrir un front AJOUTÉ par le `tsconfig.json` de sa cible, comme si
  * elle était née avec : entrée `include`, option `jsx` du moteur, et les types
  * `vite/client` — application comme MODULE : le front importe des feuilles de
@@ -6964,6 +7042,18 @@ function appendScriptStep(
   return true;
 }
 
+/**
+ * Scaffold IN-PROJECT d'un frontend Vite (`create front`) : pose la coquille
+ * HTML (la MÊME brique que `create app`), l'entry du framework choisi, le
+ * controller de page (`renderDocument` + nonce CSP) et le registrar d'entry ;
+ * câble `@controllers` et le hook `onKernelBoot` de la cible ; complète les
+ * deps npm du framework (catalogue UNIQUE `FRONTEND_PARAMS`).
+ *
+ * @throws hors projet, cible inconnue, ou cible portant DÉJÀ un front
+ *   (`frontend/index.html` — ce scaffold pose l'INITIAL, il ne fusionne pas).
+ *   `@nodefony/frontend` absent n'est PAS un refus : il est posé — en pair
+ *   dans un module, en dépendance et au manifeste dans l'application.
+ */
 function runFrontScaffold(
   request: IScaffoldRequest,
   answers: TScaffoldAnswers,

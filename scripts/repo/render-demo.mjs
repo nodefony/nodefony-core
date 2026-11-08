@@ -104,7 +104,8 @@ step(
     ...readdirSync(dest, { recursive: true, encoding: "utf8" })
       .filter(
         (rel) =>
-          rel.endsWith(".ts") &&
+          // `.tsx` compris : le front React de la démo est du code de la démo.
+          /\.tsx?$/u.test(rel) &&
           !rel
             .split(path.sep)
             .some((seg) => seg === "dist" || seg === "node_modules"),

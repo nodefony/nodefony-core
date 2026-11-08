@@ -9,6 +9,9 @@ import PartnerController from "./nodefony/controllers/PartnerController";
 import AppInfoService from "./nodefony/service/AppInfoService";
 import AppBannerService from "./nodefony/service/AppBannerService";
 import PartnerCallCommand from "./nodefony/command/PartnerCallCommand";
+import DemoPageController from "./nodefony/controllers/DemoPageController";
+import DemoController from "./nodefony/controllers/DemoController";
+import { registerDemoEntry } from "./nodefony/frontend/registerDemoEntry";
 
 /**
  * <%= it.pkgName %> — la démo de <%= it.appName %> : ce que Nodefony sait faire,
@@ -27,7 +30,7 @@ declare module "nodefony" {
   }
 }
 
-@controllers([PartnerController])
+@controllers([PartnerController, DemoPageController, DemoController])
 @services([AppInfoService, AppBannerService])
 class DemoModule extends Module {
   constructor(kernel: Kernel) {
@@ -38,6 +41,15 @@ class DemoModule extends Module {
   /** Valide la config au boot — une clé inconnue arrête le démarrage, nommée. */
   override async onKernelRegister(): Promise<this> {
     this.options = defineDemoConfig(this.options);
+    return this;
+  }
+
+  /**
+   * Déclare le front React de la démo (`/demo`) auprès du FrontendService —
+   * AVANT onKernelReady, pour que le superviseur Vite démarre avec lui.
+   */
+  override async onKernelBoot(): Promise<this> {
+    registerDemoEntry(this);
     return this;
   }
 
