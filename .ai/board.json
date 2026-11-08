@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-07T23:19:19.447Z",
+  "generatedAt": "2026-11-08T04:19:27.175Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,7 +39,7 @@
       "title": "13.0.0"
     },
     {
-      "closed": 241,
+      "closed": 242,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
       "open": 16,
@@ -6368,6 +6368,22 @@
       "debut": null,
       "cible": null,
       "labels": []
+    },
+    {
+      "number": 749,
+      "title": "fix(framework): répondre quand une action renvoie une Response Web ou un flux",
+      "url": "https://github.com/nodefony/nodefony-core/issues/749",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 7,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-7"
+      ]
     },
     {
       "number": 739,
