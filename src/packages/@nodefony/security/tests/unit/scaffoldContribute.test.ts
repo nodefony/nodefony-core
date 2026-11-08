@@ -46,6 +46,7 @@ let counter = 0;
 const scaffoldApp = (
   name: string,
   preset: "complete" | "minimal" = "complete",
+  demo = false,
 ) => {
   counter += 1;
   const dest = path.join(tmp, `${name}-${String(counter)}`);
@@ -54,7 +55,7 @@ const scaffoldApp = (
       type: "app",
       answers:
         preset === "complete"
-          ? { name, preset, frontend: "none" }
+          ? { name, preset, frontend: "none", demo }
           : { name, preset },
       dir: dest,
       force: false,
@@ -64,8 +65,8 @@ const scaffoldApp = (
   return dest;
 };
 /** Une app `complete` neuve, contribution jouée. */
-const scaffoldWithContribution = (name = "kcapp") => {
-  const dest = scaffoldApp(name);
+const scaffoldWithContribution = (name = "kcapp", demo = false) => {
+  const dest = scaffoldApp(name, "complete", demo);
   const run = createAppContributionContext(dest);
   contribute(run.context);
   return { dest, ...run };
@@ -341,8 +342,9 @@ describe("contribution Keycloak de @nodefony/security", () => {
   it("une application neuve : realm SANS client machine ni audience (#746)", () => {
     const dest = dossierKeycloak();
     // Le gabarit n'ouvre plus aucune zone à jeton tiers : rien à inscrire.
-    const security = lire(dest, "nodefony", "config", "security.ts");
-    assert.notInclude(security, "partnerResource(");
+    assert.isFalse(
+      existsSync(path.join(dest, "modules", "demo", "nodefony", "config")),
+    );
     const realm = JSON.parse(
       lire(dest, "docker", "keycloak", "import", "realm.json"),
     ) as {
@@ -372,12 +374,42 @@ describe("contribution Keycloak de @nodefony/security", () => {
     ]);
     assert.strictEqual(input.machine?.clientId, "kcapp-machine");
     assert.strictEqual(input.machine?.secret, devMachineSecret("kcapp"));
-    assert.strictEqual(
-      APP_PARTNER_DEV_RESOURCE,
-      "https://localhost:5152/api/partner",
-    );
     assert.isNull(
       appDevRealmInput("kcapp", [], { user: "u", admin: "a" }).machine,
+    );
+  });
+
+  it("une application --demo RENDUE : client machine, audience de la zone de la démo, même secret que le .env (#747)", () => {
+    const dest = scaffoldWithContribution("kcapp", true).dest;
+    const realm = JSON.parse(
+      lire(dest, "docker", "keycloak", "import", "realm.json"),
+    ) as {
+      clients: {
+        clientId: string;
+        secret?: string;
+        protocolMappers?: {
+          protocolMapper: string;
+          config?: Record<string, string>;
+        }[];
+      }[];
+    };
+    const machine = realm.clients.find((c) => c.clientId === "kcapp-machine");
+    assert.ok(machine, "client machine absent du realm d'une app --demo");
+    assert.strictEqual(machine.secret, devMachineSecret("kcapp"));
+    // L'audience est celle que la zone de la démo rend en développement : le
+    // chemin écrit dans son module, contre l'émetteur de développement.
+    assert.include(
+      JSON.stringify(machine.protocolMappers ?? []),
+      APP_PARTNER_DEV_RESOURCE,
+    );
+    assert.include(
+      lire(dest, "modules", "demo", "nodefony", "config", "security.ts"),
+      `"${new URL(APP_PARTNER_DEV_RESOURCE).pathname}"`,
+    );
+    // Le .env porte le MÊME secret, que lit la config du module démo.
+    assert.include(
+      lire(dest, ".env"),
+      `NF_KEYCLOAK_MACHINE_SECRET=${devMachineSecret("kcapp")}`,
     );
   });
 

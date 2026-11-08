@@ -34,16 +34,21 @@ export const APP_KEYCLOAK_THEMES_DIR = "docker/keycloak/themes";
 export const APP_KEYCLOAK_THEME_DIR = `${APP_KEYCLOAK_THEMES_DIR}/${KEYCLOAK_THEME_NAME}`;
 
 /** Fichier de configuration de sécurité d'une application générée. */
-const APP_SECURITY_CONFIG_FILE = "nodefony/config/security.ts";
+/**
+ * Le fichier où la démo de `create app --demo` (module privé `modules/demo`)
+ * déclare sa zone à jeton — la surcharge `module-security` qu'elle apporte.
+ */
+const DEMO_SECURITY_CONFIG_FILE = "modules/demo/nodefony/config/security.ts";
 
 /**
- * Ressource de l'API partenaire de la démo en développement :
- * ce que rend `partnerResource()` de la démo sans `NF_JWT_ISSUER`
- * ni `NF_PORT_HTTPS` — le port HTTPS par défaut, comme les URL de retour du
- * realm. Deux paquets, une valeur : le test de contribution compare le
- * gabarit rendu à cette constante.
+ * Ressource de l'API partenaire de la démo en développement : le chemin de sa
+ * zone (`/demo/api/partner`) rendu absolu contre l'émetteur de développement
+ * — le port HTTPS par défaut, comme les URL de retour du realm. Deux paquets,
+ * une valeur : le test de contribution la confronte à une application
+ * `--demo` réellement rendue.
  */
-export const APP_PARTNER_DEV_RESOURCE = "https://localhost:5152/api/partner";
+export const APP_PARTNER_DEV_RESOURCE =
+  "https://localhost:5152/demo/api/partner";
 
 /** Les types de thème que le realm sait déclarer, et la clé qui les porte. */
 const THEME_TYPES = ["login", "account", "email", "admin"] as const;
@@ -246,18 +251,23 @@ function mountsKeycloak(context: IAppContributionContext): boolean {
 
 /**
  * Les audiences que la configuration RENDUE de l'application déclare. Une
- * application neuve n'en déclare aucune ; la démo ouvre la zone `partner`
- * (`jwt` + `external-jwt`) par `partnerResource` : sans son audience dans le
- * realm, le jeton du client machine y serait refusé dès le premier essai, et
- * `security:keycloak:realm --check` trouverait le realm né en désaccord avec
- * la configuration.
+ * application neuve n'en déclare aucune ; la démo ouvre la zone
+ * `demo-partner` (`jwt` + `external-jwt`) dans son propre module : sans son
+ * audience dans le realm, le jeton du client machine y serait refusé dès le
+ * premier essai, et `security:keycloak:realm --check` trouverait le realm né
+ * en désaccord avec la configuration.
+ *
+ * Le fichier de zone de la démo doit écrire le CHEMIN de la ressource : un
+ * module qui l'aurait changé n'a pas l'audience de cette constante, et
+ * mieux vaut ne rien inscrire qu'une audience que la zone refuserait.
  *
  * @param context - contexte de contribution
  * @returns les ressources à inscrire dans les jetons du realm
  */
 function renderedAudiences(context: IAppContributionContext): string[] {
-  const security = context.read(APP_SECURITY_CONFIG_FILE);
-  return security?.includes("partnerResource(") === true
+  const demo = context.read(DEMO_SECURITY_CONFIG_FILE);
+  const resourcePath = new URL(APP_PARTNER_DEV_RESOURCE).pathname;
+  return demo?.includes(`"${resourcePath}"`) === true
     ? [APP_PARTNER_DEV_RESOURCE]
     : [];
 }

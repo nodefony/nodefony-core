@@ -265,10 +265,10 @@ lui, en a un de test — Mailpit (`--profile keycloak`, interface `http://localh
    processus dès le démarrage, commandes en ligne comprises (`addDefaultCaCertificate()`,
    `certificates.ts#addDefaultCaCertificate`). La variable `NODE_EXTRA_CA_CERTS` n'est plus nécessaire.
 
-Le realm généré porte aussi, comme celui du dépôt, un client **machine** `<app>-machine` (compte de
-service, `client_credentials`). Ses jetons portent l'audience de la zone `partner` que le gabarit
-`complete` ouvre (`https://localhost:5152/api/partner`) : `npx nodefony app:partner:call --issuer
-keycloak` obtient un jeton et appelle `GET /api/partner/whoami` dès le premier démarrage. Quand tu
+Une application créée avec `--demo` reçoit aussi, comme le dépôt, un client **machine** `<app>-machine`
+(compte de service, `client_credentials`). Ses jetons portent l'audience de la zone `demo-partner`
+que la démo ouvre (`https://localhost:5152/demo/api/partner`) : `npx nodefony demo:partner:call
+--issuer keycloak` obtient un jeton et appelle `GET /demo/api/partner/whoami` dès le premier démarrage. Quand tu
 ouvres une autre zone (section « Le jeton Keycloak sur ton API », plus bas),
 `npx nodefony security:keycloak:realm --write` ajoute le mapper qui inscrit sa `resource` dans les
 jetons.
