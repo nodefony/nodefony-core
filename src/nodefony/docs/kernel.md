@@ -223,7 +223,14 @@ config colocalisée est typée par le registre. Pour un module local qui n'est *
 installé** — ni workspace, ni lien dans `node_modules` — l'entrée peut être son **chemin** :
 
 ```typescript
-modules: [{ name: "./src/demo", policy: "dev" }],
+// nodefony.config.ts — un module local désigné par son CHEMIN (non installé).
+export default defineConfig(() => ({
+  modules: [
+    "@nodefony/http",
+    "@nodefony/framework",
+    { name: "./src/demo", policy: "dev" },
+  ],
+}));
 ```
 
 Le chemin relatif part de la racine de l'application, jamais du répertoire courant ; un

@@ -55,7 +55,13 @@ type TIssuer = (typeof ISSUERS)[number];
 function keycloakIssuer(
   config: ISecurityConfig,
 ): { issuer: string; discoveryUrl?: string | undefined } | undefined {
-  const provider = config.oauth2.providers["keycloak"];
+  // `Object.hasOwn` : le type vaut `… | undefined` que l'application active ou
+  // non `noUncheckedIndexedAccess` — un accès indexé nu rendait le `?.` exigé
+  // par l'un des réglages et refusé (« inutile ») par l'autre.
+  const providers = config.oauth2.providers;
+  const provider = Object.hasOwn(providers, "keycloak")
+    ? providers["keycloak"]
+    : undefined;
   if (provider?.issuer !== undefined) {
     return { issuer: provider.issuer, discoveryUrl: provider.discoveryUrl };
   }

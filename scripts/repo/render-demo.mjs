@@ -19,9 +19,11 @@
  * Exige le `dist` du cœur (`renderDemoModule` vient du paquet `nodefony`) : il se
  * place APRÈS le build turbo.
  *
+ * Le lint aussi : la configuration de la racine, règles typées comprises.
+ *
  * Sorties : 0 rendu, bâti et vérifié · 1 une étape a échoué (elle est nommée).
  */
-import { readFileSync, rmSync } from "node:fs";
+import { readdirSync, readFileSync, rmSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -45,8 +47,8 @@ const nodeBin = (pkg, rel) => [
   path.join(path.dirname(require.resolve(`${pkg}/package.json`)), rel),
 ];
 
-const step = (label, [file, ...args]) => {
-  const run = spawnSync(file, args, { cwd: dest, stdio: "inherit" });
+const step = (label, [file, ...args], cwd = dest) => {
+  const run = spawnSync(file, args, { cwd, stdio: "inherit" });
   if (run.status !== 0) {
     console.error(
       `✗ démo : ${label} a échoué (code ${run.status ?? run.signal})`,
@@ -88,4 +90,27 @@ step("le typecheck (tsgo)", [
   "-p",
   "tsconfig.json",
 ]);
+// Le lint, depuis la racine (sa configuration, règles typées comprises) : le
+// banc de vérité le joue dans une application générée, et un `.tpl` n'est vu
+// par aucun linter du dépôt. Vécu : un `?.` exigé sous `noUncheckedIndexedAccess`
+// et refusé sans — rouge sur huit jobs de la forge, vert ici.
+step(
+  "le lint (oxlint)",
+  [
+    ...nodeBin("oxlint", "bin/oxlint"),
+    "--deny-warnings",
+    // Les FICHIERS, nommés : `src/demo/` est ignoré par git, et oxlint saute un
+    // dossier ignoré qu'on lui passe en entier (« No files found to lint »).
+    ...readdirSync(dest, { recursive: true, encoding: "utf8" })
+      .filter(
+        (rel) =>
+          rel.endsWith(".ts") &&
+          !rel
+            .split(path.sep)
+            .some((seg) => seg === "dist" || seg === "node_modules"),
+      )
+      .map((rel) => path.join(dest, rel)),
+  ],
+  root,
+);
 console.log("✓ démo bâtie et vérifiée");
