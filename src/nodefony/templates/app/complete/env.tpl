@@ -89,7 +89,11 @@ NF_CSRF_SECRET=<%= it.secrets.NF_CSRF_SECRET %>
 NF_KEYCLOAK_ISSUER=https://localhost:8444/realms/<%= it.appName %>
 NF_KEYCLOAK_CLIENT_ID=<%= it.appName %>
 NF_KEYCLOAK_CLIENT_SECRET=<%= it.keycloak.clientSecret %>
-#
+<% if (it.demo) { %># Appelant MACHINE du même realm (client <%= it.appName %>-machine), pour
+# `npx nodefony demo:partner:call --issuer keycloak` — lu par la config de la
+# démo (modules/demo) :
+NF_KEYCLOAK_MACHINE_SECRET=<%= it.keycloak.machineSecret %>
+<% } %>#
 # Compte d'administration de ce Keycloak (console https://localhost:8444/admin,
 # commandes `security:keycloak:*`) — ce sont les valeurs du compose :
 # NF_KEYCLOAK_ADMIN_USERNAME=admin
@@ -182,7 +186,12 @@ NF_KEYCLOAK_CLIENT_SECRET=<%= it.keycloak.clientSecret %>
 #    `npx nodefony security:secrets --jwt-keyset` et pose-la dans ton terminal
 #    le temps de l'essai, jamais ici : ce fichier ne porte pas de clé de
 #    production.
-#
+<% if (it.demo) { %>#
+# 3. Dire l'adresse publique de l'application. La zone à jeton de la démo
+#    (`/demo/api/partner`) s'écrit comme un chemin, rendu absolu contre elle ;
+#    sans elle, la production refuse de démarrer en le disant.
+# NF_JWT_ISSUER=https://localhost:5152
+<% } %>#
 # Nombre de processus. Choix : 1 (défaut, un par conteneur — l'hébergeur
 # multiplie les conteneurs) | auto (un par cœur alloué) | un nombre.
 # NF_WORKERS=auto

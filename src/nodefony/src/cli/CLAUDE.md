@@ -934,6 +934,15 @@ bloc d'`AGENTS.md` l'inventorie). Exige `complete` : la spec efface la réponse 
 (`askWhen`), donc un `--demo` EXPLICITE y est refusé par `dispatchScaffold`, avant tout fichier.
 Les scaffolds in-project lisent la racine par `findProjectRoot(dir, writer.exists)` : sans le
 prédicat de la transaction, l'application en cours de création est introuvable.
+Le CONTENU (`templates/demo/server/`) est rendu PAR-DESSUS le module (même transaction, dernière
+écriture gagnante : `index.ts`, `config.ts`, test) ; ses imports entrent en peers
+(`declareImportedPeers`). Rien dans l'application : routes sous `/demo`, zone `demo-partner`
+apportée par la clé `module-security` de sa config, `resource` écrite en CHEMIN (security la rend
+absolue contre `jwt.issuer` — d'où `NF_JWT_ISSUER` posé, sous `it.demo`, dans le décor e2e, le
+compose et le travail de migration : sans lui la production refuse). Secret machine = champ du
+module (`.meta({ env: "NF_KEYCLOAK_MACHINE_SECRET" })`), rempli dans `.env`. Commande
+`demo:partner:call` : ne lit aucune variable, tout vient du pare-feu, de `keycloak` et de la config
+de la démo.
 
 **Templates = LAYERS eta** (`templates/app/`, moteur eta — dep core, conditionnels
 `preset × frontend` impossibles en overlays purs) : `base/` (commun : controller

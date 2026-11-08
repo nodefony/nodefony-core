@@ -49,7 +49,11 @@ x-app-env: &app-env
   # est celle du CONTENEUR, et la base est ailleurs.
 <% if (it.db) { %>  NF_DATABASE_URL: "<%= it.db.url.replace("127.0.0.1", it.db.service) %>"
 <% } %>  NF_REDIS_URL: "redis://:${REDIS_PASSWORD:-<%= it.appName %>-dev}@redis:6379"
-
+<% if (it.demo) { %>  # L'adresse publique de l'application : la zone à jeton de la démo écrit sa
+  # ressource comme un chemin, rendu absolu contre elle, et la production
+  # refuse de démarrer sans. Pose la tienne (`NF_JWT_ISSUER=https://…`).
+  NF_JWT_ISSUER: "${NF_JWT_ISSUER:-https://localhost}"
+<% } %>
 x-app-service: &app-service
   build:
     context: .

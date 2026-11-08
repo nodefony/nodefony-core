@@ -2924,6 +2924,90 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
     });
 
+    it("le contenu de la démo vit DANS le module : routes sous /demo, zone par surcharge, rien dans l'application", () => {
+      const dest = path.join(tmp, "demo-contenu");
+      const result = scaffold(dest, {
+        name: "demo-contenu",
+        preset: "complete",
+        demo: true,
+      });
+      const mod = path.join(dest, "modules", "demo");
+      const lireMod = (...rel: string[]) =>
+        readFileSync(path.join(mod, ...rel), "utf8");
+      // La couche démo REMPLACE l'index du sous-scaffold : controller,
+      // services et commande y sont déclarés.
+      const index = lireMod("index.ts");
+      assert.include(index, "@controllers([PartnerController])");
+      assert.include(index, "@services([AppInfoService, AppBannerService])");
+      assert.include(index, "this.addCommand(PartnerCallCommand);");
+      assert.include(index, "override configSchema(): unknown");
+      // La zone arrive par la surcharge `module-security`, avec une ressource
+      // écrite en CHEMIN (security la rend absolue contre jwt.issuer).
+      assert.include(
+        lireMod("nodefony", "config", "config.ts"),
+        '"module-security": demoSecurity',
+      );
+      const zone = lireMod("nodefony", "config", "security.ts");
+      assert.include(zone, 'PARTNER_PATH = "/demo/api/partner"');
+      assert.include(zone, "resource: PARTNER_PATH");
+      assert.include(zone, 'subjectPolicy: "ephemeral"');
+      assert.include(
+        lireMod("nodefony", "controllers", "PartnerController.ts"),
+        "@controller(PARTNER_PATH)",
+      );
+      // La commande ne lit plus l'environnement de l'application : sa config
+      // vient des modules (pare-feu, keycloak, config de la démo).
+      const command = lireMod("nodefony", "command", "PartnerCallCommand.ts");
+      assert.include(command, '"demo:partner:call"');
+      assert.notMatch(command, /from "\.\.\/\.\.\/env"|\benv\.NF_/u);
+      // Le secret machine se règle par un nom court du module…
+      assert.include(
+        lireMod("nodefony", "config", "config.ts"),
+        'env: "NF_KEYCLOAK_MACHINE_SECRET", secret: true',
+      );
+      // …que le .env du poste remplit, avec le secret du realm de dev.
+      assert.include(
+        readFileSync(path.join(dest, ".env"), "utf8"),
+        "NF_KEYCLOAK_MACHINE_SECRET=demo-contenu-machine-dev-secret",
+      );
+      // Le test du sous-scaffold (qui lisait `greeting`) est remplacé.
+      assert.notInclude(lireMod("tests", "demo.test.ts"), "greeting");
+      // Les briques importées par la démo entrent en peers du module.
+      const peers = (
+        JSON.parse(lireMod("package.json")) as {
+          peerDependencies?: Record<string, string>;
+        }
+      ).peerDependencies;
+      assert.property(peers, "@nodefony/security");
+      assert.property(peers, "@nodefony/user");
+      // Et l'application n'en porte rien.
+      assert.isFalse(
+        existsSync(
+          path.join(dest, "nodefony", "controllers", "PartnerController.ts"),
+        ),
+      );
+      assert.notInclude(
+        readFileSync(
+          path.join(dest, "nodefony", "config", "security.ts"),
+          "utf8",
+        ),
+        "/demo/api/partner",
+      );
+      assert.include(
+        result.files,
+        path.join("modules", "demo", "nodefony", "config", "security.ts"),
+      );
+    });
+
+    it("sans --demo, le .env ne porte pas de secret machine", () => {
+      const dest = path.join(tmp, "sans-demo-env");
+      scaffold(dest, { name: "sans-demo-env", preset: "complete" });
+      assert.notInclude(
+        readFileSync(path.join(dest, ".env"), "utf8"),
+        "NF_KEYCLOAK_MACHINE_SECRET",
+      );
+    });
+
     it("--demo sous minimal est REFUSÉ en le disant, et rien n'est écrit", () => {
       const dest = path.join(tmp, "demo-minimal");
       assert.throws(

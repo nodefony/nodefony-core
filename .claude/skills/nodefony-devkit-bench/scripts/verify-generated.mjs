@@ -820,6 +820,10 @@ step(
         // qui décide du dialecte dans lequel les entités seront écrites.
         "--database",
         DATABASE,
+        // La démo (#747) : un module privé `modules/demo` qui porte sa zone à
+        // jeton par surcharge `module-security`. Le témoin la reçoit pour que
+        // son contenu soit compilé, testé et APPELÉ comme le reste.
+        "--demo",
         ...(LINKED ? ["--link"] : []),
         // 🔴 En décor ISOLÉ, le scaffold ne doit PAS installer : ses dépendances
         // `@nodefony/*` ne sont publiées nulle part (#175), son `npm install`
@@ -2315,6 +2319,10 @@ step(
     const env = {
       NF_ADMIN_PASSWORD: MOT_DE_PASSE_POSE,
       NF_JWT_KEYSET: keySet.stdout.trim(),
+      // L'adresse publique : la zone de la démo écrit sa ressource comme un
+      // chemin, et la production refuse de démarrer sans elle (vérifié par
+      // l'étape suivante).
+      NF_JWT_ISSUER: `https://localhost:${PORTS.NF_PORT_HTTPS}`,
     };
     // 🔴 Les migrations AVANT les exemplaires — le patron de déploiement, celui
     // du service `migrate` du `compose.yaml` généré : une étape à part, en
@@ -2374,6 +2382,93 @@ step(
     } finally {
       // Toujours, même en échec : un serveur détaché qui survit au banc tient
       // les ports et fait échouer le run SUIVANT sur un symptôme sans rapport.
+      spawnSync(process.execPath, [BIN, "stop"], {
+        cwd: APP,
+        encoding: "utf8",
+        env: envDecor(PORTS),
+      });
+    }
+  },
+);
+
+step(
+  "la démo REFUSE la production sans adresse publique, en nommant jwt.issuer (#747)",
+  "Sa zone écrit sa ressource comme un chemin : sans NF_JWT_ISSUER, la retirer ouvrirait " +
+    "ses routes à la zone voisine — le démarrage doit refuser, et dire quoi poser.",
+  () => {
+    const r = spawnSync(process.execPath, [BIN, "inspect", "modules"], {
+      cwd: APP,
+      encoding: "utf8",
+      timeout: 600_000,
+      env: envDecor(PORTS, { NODE_ENV: "production", NF_JWT_ISSUER: "" }),
+    });
+    const dit = withoutAnsi(`${r.stdout ?? ""}${r.stderr ?? ""}`);
+    if (r.status === 0 || !dit.includes("jwt.issuer")) {
+      throw new Error(
+        `production sans NF_JWT_ISSUER : code ${r.status}, jwt.issuer non nommé — sortie :\n${dit}`,
+      );
+    }
+  },
+);
+
+step(
+  "la démo APPELLE son API partenaire avec un jeton (#544, #747)",
+  "`demo:partner:call` est livrée pour être lancée : un jeton émis par l'app doit " +
+    "ouvrir `/demo/api/partner`, et un émetteur non configuré doit SORTIR en échec en nommant le geste.",
+  () => {
+    try {
+      run(process.execPath, [BIN, "development", "--detach"], APP, {
+        NODE_ENV: "development",
+      });
+      const out = run(
+        process.execPath,
+        [BIN, "demo:partner:call", "--json"],
+        APP,
+        { NODE_ENV: "development" },
+      );
+      // `--json` : une ligne, `{ status, body }`. Le journal peut se mêler à
+      // la sortie : on prend la DERNIÈRE ligne qui commence par `{`.
+      const ligne = out.split("\n").findLast((l) => l.startsWith("{"));
+      const answer = ligne ? JSON.parse(ligne) : null;
+      if (answer?.status !== 200) {
+        throw new Error(
+          `l'API partenaire n'a pas rendu 200 — sortie :\n${out}`,
+        );
+      }
+      const attendu = `https://localhost:${PORTS.NF_PORT_HTTPS}`;
+      if (
+        answer.body?.identifier !== "admin" ||
+        answer.body?.issuer !== attendu
+      ) {
+        throw new Error(
+          `identité inattendue — attendu admin émis par ${attendu}, reçu ${JSON.stringify(answer.body)}`,
+        );
+      }
+      // L'échec DIT : Keycloak non configuré, la commande sort non nul en
+      // NOMMANT ce qui manque. Le `.env` généré pose les variables ACTIVES :
+      // on les vide dans l'environnement du processus, qui gagne sur le
+      // fichier — sinon l'étape mesurerait un Keycloak injoignable.
+      const kc = spawnSync(
+        process.execPath,
+        [BIN, "demo:partner:call", "--issuer", "keycloak"],
+        {
+          cwd: APP,
+          encoding: "utf8",
+          timeout: 600_000,
+          env: envDecor(PORTS, {
+            NODE_ENV: "development",
+            NF_KEYCLOAK_ISSUER: "",
+            NF_KEYCLOAK_MACHINE_SECRET: "",
+          }),
+        },
+      );
+      const dit = `${kc.stdout ?? ""}${kc.stderr ?? ""}`;
+      if (kc.status === 0 || !dit.includes("NF_KEYCLOAK_ISSUER")) {
+        throw new Error(
+          `--issuer keycloak sans configuration : code ${kc.status}, la variable manquante n'est pas nommée — sortie :\n${dit}`,
+        );
+      }
+    } finally {
       spawnSync(process.execPath, [BIN, "stop"], {
         cwd: APP,
         encoding: "utf8",

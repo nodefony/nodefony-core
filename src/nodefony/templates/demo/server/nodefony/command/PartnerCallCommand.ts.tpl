@@ -5,14 +5,16 @@ import {
   type OptionsCommandInterface,
 } from "nodefony";
 import {
+  Firewall,
   InvalidTargetError,
+  KeycloakService,
   OAuth2RequestError,
   requestClientCredentialsToken,
   TokenService,
 } from "@nodefony/security";
 import { UserService } from "@nodefony/user";
-import { env } from "../../env";
-import { partnerResource, publicBaseUrl } from "../config/security";
+import { defineDemoConfig } from "../config/defineModuleConfig";
+import { PARTNER_AREA, PARTNER_PATH } from "../config/security";
 
 /**
  * Le cycle de vie d'une commande (phase d'arrêt, `quietBoot`, sortie ou
@@ -31,12 +33,12 @@ const options: OptionsCommandInterface = {
   kernelEvent: "onReady",
   quietBoot: true,
   examples: [
-    "nodefony app:partner:call",
-    "nodefony app:partner:call --issuer keycloak --json",
+    "nodefony demo:partner:call",
+    "nodefony demo:partner:call --issuer keycloak --json",
   ],
 };
 
-/** Les deux émetteurs que la zone `partner` accepte. */
+/** Les deux émetteurs que la zone `demo-partner` accepte. */
 const ISSUERS = ["nodefony", "keycloak"] as const;
 type TIssuer = (typeof ISSUERS)[number];
 
@@ -59,6 +61,17 @@ class CallFailure extends Error {
   ) {
     super(message);
   }
+}
+
+/**
+ * L'adresse de `whoami` : sous la ressource de la zone — l'adresse publique
+ * de l'application, plus le chemin de l'API —, ou sous l'adresse donnée par
+ * `--url` quand l'application appelée n'est pas celle-ci.
+ */
+function whoamiUrl(resource: string, base: string | undefined): URL {
+  const root =
+    base === undefined ? resource : `${base.replace(/\/+$/u, "")}${PARTNER_PATH}`;
+  return new URL(`${root}/whoami`);
 }
 
 /** Le premier code d'erreur système (`ECONNREFUSED`, certificat…) d'une chaîne de causes. */
@@ -109,8 +122,8 @@ function networkFailure(
 }
 
 /**
- * `nodefony app:partner:call` — obtient un jeton d'accès, puis appelle
- * `GET /api/partner/whoami` comme le ferait un PROGRAMME partenaire.
+ * `nodefony demo:partner:call` — obtient un jeton d'accès, puis appelle
+ * `GET /demo/api/partner/whoami` comme le ferait un PROGRAMME partenaire.
  *
  * Deux émetteurs, deux façons d'obtenir le jeton :
  *  • `--issuer nodefony` (défaut) — l'application SIGNE elle-même le jeton
@@ -122,13 +135,16 @@ function networkFailure(
  *    utilisateur, aucun navigateur. C'est la voie d'un vrai partenaire, qui
  *    n'a pas accès aux clés de l'application.
  *
- * Dans les deux cas, le jeton vise la ressource `partnerResource` : c'est
- * l'audience que la zone exige, et un jeton délivré pour une autre est refusé.
+ * Dans les deux cas, le jeton vise la `resource` de la zone `demo-partner`,
+ * lue dans la config VALIDÉE du pare-feu (déjà rendue absolue contre
+ * `jwt.issuer`) : c'est l'audience que la zone exige, et un jeton délivré pour
+ * une autre est refusé. La commande ne lit aucune variable d'environnement :
+ * tout ce qu'elle sait vient de la configuration des modules.
  */
 class PartnerCallCommand extends Command {
   constructor(cli: CliKernel) {
     super(
-      "app:partner:call",
+      "demo:partner:call",
       "appelle l'API partenaire avec un jeton d'accès",
       cli,
       options,
@@ -159,19 +175,19 @@ class PartnerCallCommand extends Command {
         ),
       );
     }
-    const resource = partnerResource(env);
-    const base = opts.url ?? publicBaseUrl(env);
     try {
+      const resource = this.#partnerResource();
+      const url = whoamiUrl(resource, opts.url);
       const accessToken =
         issuer === "keycloak"
           ? await this.#keycloakToken(resource)
           : await this.#nodefonyToken(opts.as ?? "admin", resource);
-      const answer = await this.#call(base, accessToken, issuer);
+      const answer = await this.#call(url, accessToken, issuer);
       // La SORTIE va sur la sortie standard ; le journal ne raconte que le reste.
       process.stdout.write(
         opts.json
           ? `${JSON.stringify(answer)}\n`
-          : `${answer.status} ${new URL("/api/partner/whoami", base).href}\n` +
+          : `${answer.status} ${url.href}\n` +
               `${JSON.stringify(answer.body, null, 2)}\n`,
       );
       // Un statut d'échec reste un échec pour qui enchaîne la commande.
@@ -181,6 +197,23 @@ class PartnerCallCommand extends Command {
       throw error;
     }
     return this;
+  }
+
+  /** La ressource de la zone, telle que le pare-feu l'a validée. */
+  #partnerResource(): string {
+    const firewall = this.kernel?.container?.get("firewall");
+    const resource =
+      firewall instanceof Firewall
+        ? firewall.getArea(PARTNER_AREA)?.resource
+        : undefined;
+    if (resource === undefined) {
+      throw new CallFailure(
+        `zone « ${PARTNER_AREA} » introuvable dans le pare-feu.`,
+        "le module demo et @nodefony/security sont-ils chargés ? " +
+          "npx nodefony inspect modules",
+      );
+    }
+    return resource;
   }
 
   /** Jeton signé par CETTE application, pour un de ses comptes. */
@@ -212,7 +245,7 @@ class PartnerCallCommand extends Command {
       if (error instanceof InvalidTargetError) {
         throw new CallFailure(
           `l'application refuse d'émettre un jeton pour ${resource}.`,
-          "ajoute `partnerResource(ctx.env)` à `jwt.audiences` (nodefony/config/security.ts)",
+          `la zone « ${PARTNER_AREA} » porte-t-elle cette resource ? npx nodefony inspect config`,
         );
       }
       throw error;
@@ -221,25 +254,35 @@ class PartnerCallCommand extends Command {
 
   /** Jeton obtenu chez Keycloak par le client machine, sans utilisateur. */
   async #keycloakToken(resource: string): Promise<string> {
-    const issuer = env.NF_KEYCLOAK_ISSUER;
-    const secret = env.NF_KEYCLOAK_MACHINE_SECRET;
-    if (!issuer || !secret) {
+    // L'émetteur de confiance que l'application déclare (`resourceServer`
+    // de sa config security, posé quand NF_KEYCLOAK_ISSUER l'est), et le
+    // secret que la config de la démo lit dans NF_KEYCLOAK_MACHINE_SECRET.
+    const keycloak = this.kernel?.container?.get("keycloak");
+    const trusted =
+      keycloak instanceof KeycloakService
+        ? keycloak.config().resourceServer.issuers[0]
+        : undefined;
+    const secret = defineDemoConfig(
+      this.kernel?.getModule("demo")?.options,
+    ).machineSecret;
+    if (trusted === undefined || secret === undefined) {
       const missing = [
-        ...(issuer ? [] : ["NF_KEYCLOAK_ISSUER"]),
+        ...(trusted ? [] : ["NF_KEYCLOAK_ISSUER"]),
         ...(secret ? [] : ["NF_KEYCLOAK_MACHINE_SECRET"]),
       ];
       throw new CallFailure(
         `variable(s) absente(s) : ${missing.join(", ")}.`,
-        "pose-les dans .env (une app générée les y écrit, actives)",
+        "pose-les dans .env (une app générée avec --demo les y écrit, actives)",
       );
     }
+    const issuer = trusted.issuer;
     try {
       // Le point de jeton est DÉCOUVERT depuis l'émetteur (RFC 8414) : jamais
       // une URL recopiée, qui survivrait au déménagement du realm.
       const tokens = await requestClientCredentialsToken({
         issuer,
         // Adresse INTERNE où lire les métadonnées (cluster), si elle diffère.
-        discoveryUrl: env.NF_KEYCLOAK_DISCOVERY_URL,
+        discoveryUrl: trusted.discoveryUrl,
         clientId: MACHINE_CLIENT_ID,
         clientSecret: secret,
         resource,
@@ -264,11 +307,10 @@ class PartnerCallCommand extends Command {
 
   /** Présente le jeton à l'API, comme le ferait le partenaire. */
   async #call(
-    base: string,
+    url: URL,
     accessToken: string,
     issuer: TIssuer,
   ): Promise<{ status: number; body: unknown }> {
-    const url = new URL("/api/partner/whoami", base);
     let response: Response;
     try {
       response = await fetch(url, {

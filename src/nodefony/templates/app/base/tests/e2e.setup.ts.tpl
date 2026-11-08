@@ -93,7 +93,12 @@ function runNodefony(args: string[], options: ExecFileSyncOptions): void {
 export const PRODUCTION_SECRETS: Readonly<Record<string, string>> = {
   NF_CSRF_SECRET:
     process.env.NF_CSRF_SECRET ?? randomBytes(32).toString("base64"),
-};
+<% if (it.demo) { %>  // Pas un secret, mais la même exigence : la zone à jeton de la démo écrit
+  // sa ressource comme un chemin, rendu absolu contre l'adresse publique de
+  // l'application — sans elle, la production refuse de démarrer. La suite ne
+  // présente aucun jeton à cette zone : une adresse valide suffit.
+  NF_JWT_ISSUER: process.env.NF_JWT_ISSUER ?? "https://localhost",
+<% } %>};
 
 /**
  * Base de données de la suite E2E — jetable, et surtout SÉPARÉE de celle du
@@ -305,6 +310,9 @@ export async function setup(): Promise<void> {
       ...process.env,
       NODE_ENV: "production",
       NF_DATABASE_URL: E2E_BASE_URL,
+      // Un démarrage de production comme un autre : il valide la configuration
+      // de chaque module, donc il exige ce qu'exige le serveur.
+      ...PRODUCTION_SECRETS,
     },
   });
 <% } %>  started = readRuntimeState(process.cwd()) === null;

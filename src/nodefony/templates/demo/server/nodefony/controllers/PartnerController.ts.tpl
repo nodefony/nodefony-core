@@ -1,6 +1,7 @@
 import { RequestContext } from "nodefony";
 import { route, controller, Controller } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
+import { PARTNER_PATH } from "../config/security";
 
 /**
  * Émetteur (`issuer`) que l'authenticator a posé sur le jeton de la requête.
@@ -21,15 +22,16 @@ function readIssuer(token: unknown): string | null {
  * L'API d'un PROGRAMME — service partenaire, script, agent — qui se présente
  * avec un jeton d'accès (`Authorization: Bearer …`), jamais avec un cookie.
  *
- * Tout `/api/partner` tombe dans la zone `partner` de
- * `nodefony/config/security.ts` : le firewall y a vérifié le jeton (signature,
- * expiration, audience) AVANT d'entrer ici, et répond 401 sinon. Aucune ligne
- * de contrôle d'accès n'a donc sa place dans ces actions.
+ * Tout `/demo/api/partner` tombe dans la zone `demo-partner` que la démo
+ * apporte à `@nodefony/security` (`nodefony/config/security.ts` du module) :
+ * le firewall y a vérifié le jeton (signature, expiration, audience) AVANT
+ * d'entrer ici, et répond 401 sinon. Aucune ligne de contrôle d'accès n'a
+ * donc sa place dans ces actions.
  *
- * Essai de bout en bout, jeton compris : `npx nodefony app:partner:call`
+ * Essai de bout en bout, jeton compris : `npx nodefony demo:partner:call`
  * (`nodefony/command/PartnerCallCommand.ts`).
  */
-@controller("/api/partner")
+@controller(PARTNER_PATH)
 class PartnerController extends Controller {
   constructor(context: ContextType) {
     super("partner", context);

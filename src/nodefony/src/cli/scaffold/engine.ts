@@ -2150,7 +2150,13 @@ function dispatchScaffold(
     // test de ce paquet). Secret PUBLIC par nature : décor de développement.
     keycloak: {
       clientSecret: `${String(answers.name)}-dev-keycloak-secret`,
+      // Secret du client MACHINE de la démo — le realm d'import porte le même
+      // (`devMachineSecret` de la contribution de `@nodefony/security`).
+      machineSecret: `${String(answers.name)}-machine-dev-secret`,
     },
+    // La démo (#747) : le `.env` y ajoute le secret machine, que lit la config
+    // du module `modules/demo`.
+    demo: answers.demo === true,
   };
   // autoEscape false : on génère du CODE, pas du HTML — l'échappement des
   // entités corromprait chaque fichier. useWith false = accès via `it.` strict.
@@ -2393,11 +2399,45 @@ function dispatchScaffold(
       version,
       { writer },
     );
+    // Le CONTENU de la démo, rendu par-dessus le module : il remplace son
+    // `index.ts`, sa config et son test (la transaction garde la dernière
+    // écriture), et ajoute controller, services, commande et la zone qu'il
+    // apporte à security. Les briques qu'il importe (`@nodefony/security`,
+    // `@nodefony/user`) entrent en peers, par la règle de `doctor`.
+    const demoManifestFile = path.join(sub.dest, "package.json");
+    const demoFiles: string[] = [];
+    renderLayer(
+      eta,
+      path.join(packageRoot, "templates", "demo", "server"),
+      sub.dest,
+      {
+        ...data,
+        pkgName:
+          manifestString(
+            readPackageManifest(demoManifestFile, writer),
+            "name",
+          ) ?? DEMO_MODULE,
+      },
+      demoFiles,
+      writer,
+      { __KEBAB__: DEMO_MODULE },
+    );
+    if (
+      declareImportedPeers(
+        sub.dest,
+        readPackageManifest(demoManifestFile, writer),
+        demoFiles,
+        writer,
+        frameworkPeerRange(version),
+      )
+    ) {
+      demoFiles.push("package.json");
+    }
     // Les chemins du module sont relatifs à SON dossier ; ceux de l'app, à la
     // racine. Sans préfixe, `package.json` du module se confondrait avec celui
     // de l'application dans la liste rendue.
     const moduleDir = path.relative(dest, sub.dest);
-    for (const file of sub.files) {
+    for (const file of [...sub.files, ...demoFiles]) {
       const rel = path.join(moduleDir, file);
       if (!written.includes(rel)) {
         written.push(rel);

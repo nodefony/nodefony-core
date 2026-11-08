@@ -150,6 +150,9 @@ async function cli(args: string[], env: NodeJS.ProcessEnv = {}): Promise<IRun> {
       env: {
         ...process.env,
         NODE_ENV: "production",
+        // Chaque commande démarre les modules en production : elle exige ce
+        // qu'exige le serveur (cf `PRODUCTION_SECRETS`).
+        ...PRODUCTION_SECRETS,
         // La base de la SUITE, jamais celle du développement. Sans cette
         // ligne, la commande inspecte une base que le décor n'a pas migrée et
         // rend « en retard » — un verdict juste, sur la mauvaise base.

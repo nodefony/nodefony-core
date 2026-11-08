@@ -215,8 +215,8 @@ preuve à chaque appel, `Authorization: Bearer …`.
 
 ❌ Un `POST` vers la route de login depuis un script, ou un cookie de session recopié dans sa
 configuration : le premier fait stocker un mot de passe au programme, le second expire et casse
-en silence. La zone qui reçoit ces preuves (`machine`, `partner`, `stateless: true`) et la
-commande qui l'éprouve (`app:partner:call`) → skill `nodefony-protect-route`. Détail :
+en silence. La zone qui reçoit ces preuves (`stateless: true`) → skill `nodefony-protect-route` ;
+une application née avec `--demo` en porte une qui marche (`demo:partner:call`). Détail :
 `node_modules/@nodefony/security/docs/api-keys.md`, `obtenir-un-jeton.md`.
 
 ## 12. Prouver que c'est fait
