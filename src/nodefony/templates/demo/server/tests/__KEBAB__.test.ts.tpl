@@ -1,4 +1,8 @@
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { getScaffoldSpec, readSymbolsGraph } from "nodefony";
 import { defineSecurityConfig } from "@nodefony/security";
 import {
   defineDemoConfig,
@@ -18,6 +22,8 @@ import {
   extractRegion,
 } from "../frontend/src/chat/lessonSteps";
 import { LESSON_SOURCES } from "../frontend/src/chat/lessonSources";
+import { DEMOS } from "../demos";
+import { PARTNER_CALL_COMMAND } from "../nodefony/command/PartnerCallCommand";
 
 /**
  * Ce que ce test prouve, sans serveur :
@@ -29,7 +35,10 @@ import { LESSON_SOURCES } from "../frontend/src/chat/lessonSources";
  *  4. le pouls de l'accueil publie au plus une fois par seconde, et se tait
  *     quand personne n'écoute ;
  *  5. chaque extrait de code que cite la page du chat existe dans le fichier
- *     qu'elle nomme, et n'est pas vide.
+ *     qu'elle nomme, et n'est pas vide ;
+ *  6. chaque RENVOI de l'index des démos (`demos.ts`) mène quelque part :
+ *     fichier, page de doc, type exporté, commande, skill — c'est l'index que
+ *     lit un agent avant d'ouvrir un fichier, un renvoi mort l'égare.
  */
 describe("demo", () => {
   it("s'importe sans kernel", () => {
@@ -101,6 +110,114 @@ describe("demo — le code cité par la page du chat", () => {
     expect(extractRegion(source, "x")).toBe("un()\n  deux()");
     expect(extractRegion(source, "y")).toBeNull();
     expect(extractRegion("// #region x\nun()\n", "x")).toBeNull();
+  });
+});
+
+describe("demo — les renvois de l'index des démos", () => {
+  const moduleDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+
+  /** Un chemin sous `node_modules`, résolu comme Node le fait : en remontant. */
+  const inNodeModules = (relative: string): string | null => {
+    let dir = moduleDir;
+    for (;;) {
+      const candidate = path.join(dir, "node_modules", ...relative.split("/"));
+      if (existsSync(candidate)) return candidate;
+      const parent = path.dirname(dir);
+      if (parent === dir) return null;
+      dir = parent;
+    }
+  };
+
+  const ready = DEMOS.filter((demo) => demo.status === "ready");
+  const files = ready.flatMap((demo) =>
+    demo.files.map((file) => ({ id: demo.id, file })),
+  );
+  const docs = ready.flatMap((demo) =>
+    "doc" in demo ? [{ id: demo.id, doc: demo.doc }] : [],
+  );
+  const skills = ready.flatMap((demo) =>
+    "skill" in demo ? [{ id: demo.id, skill: demo.skill }] : [],
+  );
+  const commands = ready.flatMap((demo) =>
+    "command" in demo ? [{ id: demo.id, command: demo.command }] : [],
+  );
+  const types = ready.flatMap((demo) =>
+    demo.types.map((type) => ({ id: demo.id, type })),
+  );
+
+  it("une démo prête cite au moins un fichier et une page de doc", () => {
+    for (const demo of ready) {
+      expect(demo.files.length, demo.id).toBeGreaterThan(0);
+      expect("doc" in demo, demo.id).toBe(true);
+    }
+  });
+
+  it.each(files)("$id : le fichier $file existe dans le module", ({ file }) => {
+    expect(existsSync(path.join(moduleDir, ...file.split("/")))).toBe(true);
+  });
+
+  it.each(docs)("$id : la page $doc est installée", ({ doc }) => {
+    expect(
+      inNodeModules(doc),
+      `node_modules/${doc} introuvable`,
+    ).not.toBeNull();
+  });
+
+  it.each(skills)("$id : le skill $skill est livré", ({ skill }) => {
+    const file = `@nodefony/devkit/skills/${skill}/SKILL.md`;
+    expect(
+      inNodeModules(file),
+      `node_modules/${file} introuvable`,
+    ).not.toBeNull();
+  });
+
+  it.each(types)(
+    "$id : le type $type est exporté par son paquet",
+    ({ type }) => {
+      // Forme imposée : `Nom (paquet)` — `nodefony/client` est porté par le cœur.
+      const match = /^(\w+) \(([^)]+)\)$/.exec(type);
+      expect(
+        match,
+        `« ${type} » : forme attendue \`Nom (paquet)\``,
+      ).not.toBeNull();
+      const [, name = "", pkg = ""] = match ?? [];
+      const owner =
+        pkg === "nodefony" || pkg.startsWith("nodefony/")
+          ? "@nodefony/core"
+          : pkg;
+      const graph = readSymbolsGraph(moduleDir);
+      expect(
+        graph,
+        "graphe symbolique du framework introuvable",
+      ).not.toBeNull();
+      const entry = graph?.symbols[`${owner}:${name}`] ?? graph?.symbols[name];
+      expect(entry?.module).toBe(owner);
+      expect(entry?.exported).toBe(true);
+    },
+  );
+
+  it.each(commands)("$id : la commande « $command » existe", ({ command }) => {
+    const [npx, bin, verb = "", ...rest] = command.split(" ");
+    expect(`${npx} ${bin}`).toBe("npx nodefony");
+    if (verb === "create") {
+      // Un générateur : son type existe, et chaque valeur de drapeau est un
+      // choix qu'il propose.
+      const spec = getScaffoldSpec(rest[0]).at(0);
+      expect(spec, `create ${rest[0]} : générateur inconnu`).toBeDefined();
+      for (let i = 1; i < rest.length; i += 1) {
+        const value = rest[i + 1];
+        if (!rest[i]?.startsWith("--") || value === undefined) continue;
+        expect(
+          spec?.questions.some((q) =>
+            q.choices?.some((c) => c.value === value),
+          ),
+          `${rest[i]} ${value} : choix inconnu de create ${rest[0]}`,
+        ).toBe(true);
+      }
+      return;
+    }
+    // Une commande du module : son nom est celui qu'elle déclare.
+    expect([PARTNER_CALL_COMMAND]).toContain(verb);
   });
 });
 

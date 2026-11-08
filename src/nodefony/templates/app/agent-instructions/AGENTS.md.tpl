@@ -193,7 +193,7 @@ s'enrichit, ta mémoire non.
 ## Modules du projet
 
 <% if (it.modules.length === 0) { %>Aucun — `npx nodefony create module <nom>` en pose un (workspace npm sous `modules/`).
-<% } else { %><% it.modules.forEach(function (m) { %>- `<%= m.dir %>/` — `<%= m.name %>` (son `AGENTS.md` local prime quand tu travailles dedans)
+<% } else { %><% it.modules.forEach(function (m) { %>- `<%= m.dir %>/` — `<%= m.name %>` (son `AGENTS.md` local prime quand tu travailles dedans)<% if (m.demoIndex) { %>. **Démos : lis d'abord `<%= m.dir %>/demos.ts`** — l'index de ce que le framework sait faire, avec, pour chaque démo, les fichiers à lire, les types, la doc, la commande et le skill<% } %>
 <% }) %><% } %>
 ## Gates — vérifier avant de dire « fait »
 

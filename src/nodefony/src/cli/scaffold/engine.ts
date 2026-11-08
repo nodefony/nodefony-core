@@ -53,6 +53,12 @@ const EXAMPLE_SERVICE = "Greeting";
 const DEMO_MODULE = "demo";
 
 /**
+ * Index des démos, à la racine du module de la démo : sa présence fait
+ * renvoyer la porte `AGENTS.md` de l'application vers lui.
+ */
+const DEMO_INDEX_FILE = "demos.ts";
+
+/**
  * Mot de passe du compte `admin` qu'une application générée sème en développement.
  *
  * Seule source : chaque gabarit le rend par `<%= it.devAdminPassword %>` (injecté
@@ -1113,8 +1119,12 @@ interface IAgentsData {
    * cherche pendant que l'application, elle, n'a rien à migrer (sqlite).
    */
   hasMigrateRecipe: boolean;
-  /** Modules du projet (`modules/*`), chemin relatif à la racine. */
-  modules: { name: string; dir: string }[];
+  /**
+   * Modules du projet (`modules/*`), chemin relatif à la racine.
+   * `demoIndex` : le module porte un index de démos (`demos.ts`) — CONSTATÉ
+   * sur le disque, pour que `doctor` et la régénération rendent la même porte.
+   */
+  modules: { name: string; dir: string; demoIndex: boolean }[];
   /**
    * Clés des agents que l'utilisateur a CHOISIS — et rien qu'eux.
    *
@@ -2444,6 +2454,13 @@ function dispatchScaffold(
         written.push(rel);
       }
     }
+    // La porte de l'application renvoie à l'index des démos : le module l'a
+    // régénérée AVANT que la couche ne pose `demos.ts`, on la rejoue.
+    const agents: string[] = [];
+    refreshProjectAgents(eta, packageRoot, dest, version, agents, writer);
+    for (const file of agents) {
+      if (!written.includes(file)) written.push(file);
+    }
   }
   let linked: string[] = [];
   if (answers.link === true) {
@@ -3015,6 +3032,7 @@ function refreshProjectAgents(
         .filter((t) => t.kind === "module")
         .map((t) => ({
           name: t.name,
+          demoIndex: writer.exists(path.join(t.dir, DEMO_INDEX_FILE)),
           // Ce chemin est RENDU dans `AGENTS.md` — un document que lisent des agents et
           // des humains, pas un chemin qu'on redonne au système de fichiers. Il s'écrit
           // donc `modules/blog` partout, jamais `modules\blog`.

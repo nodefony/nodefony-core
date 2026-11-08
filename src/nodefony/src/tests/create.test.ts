@@ -2937,10 +2937,18 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         readFileSync(path.join(dest, "package.json"), "utf8"),
       ) as { workspaces?: unknown };
       assert.deepInclude(app.workspaces, "modules/*");
-      assert.include(
-        readFileSync(path.join(dest, "AGENTS.md"), "utf8"),
-        "@avec-demo/demo",
+      const agents = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+      assert.include(agents, "@avec-demo/demo");
+      // La porte de l'application renvoie à l'index des démos (D3) — rejouée
+      // APRÈS que la couche a posé `demos.ts`.
+      assert.include(agents, "lis d'abord `modules/demo/demos.ts`");
+      // Et l'`AGENTS.md` du module décrit la démo, pas un module générique.
+      const local = readFileSync(
+        path.join(dest, "modules", "demo", "AGENTS.md"),
+        "utf8",
       );
+      assert.include(local, "Trouver la bonne démo");
+      assert.notInclude(local, "greeting");
       assert.include(
         result.files,
         path.join("modules", "demo", "package.json"),

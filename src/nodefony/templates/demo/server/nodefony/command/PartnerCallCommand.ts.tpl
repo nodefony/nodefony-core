@@ -149,6 +149,12 @@ function networkFailure(
 }
 
 /**
+ * Nom de la commande — cité par `demos.ts` ; le test du module vérifie que
+ * le renvoi désigne bien cette commande.
+ */
+export const PARTNER_CALL_COMMAND = "demo:partner:call";
+
+/**
  * `nodefony demo:partner:call` — obtient un jeton d'accès, puis appelle
  * `GET /demo/api/partner/whoami` comme le ferait un PROGRAMME partenaire.
  *
@@ -171,7 +177,7 @@ function networkFailure(
 class PartnerCallCommand extends Command {
   constructor(cli: CliKernel) {
     super(
-      "demo:partner:call",
+      PARTNER_CALL_COMMAND,
       "appelle l'API partenaire avec un jeton d'accès",
       cli,
       options,
