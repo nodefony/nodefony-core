@@ -397,6 +397,32 @@ export function BinaryLesson({ about }: { about: IDemoAbout | null }) {
           codec <strong>CBOR</strong>, ils voyagent tels quels ; sans lui, en
           base64. La page le mesure, trame par trame.
         </p>
+        <aside className="codec-explain" aria-label="Une connexion, un codec">
+          <h2>Une connexion, un codec</h2>
+          <ol>
+            <li>
+              Au handshake, le navigateur <strong>offre</strong> CBOR (
+              <code>codec: CBOR_FRAME_CODEC</code>) ou n'offre rien.
+            </li>
+            <li>
+              Le serveur <strong>choisit</strong> et l'annonce dans l'accueil,
+              la seule trame toujours en texte. Toute la suite de la connexion
+              garde ce format&nbsp;: elle n'en change jamais.
+            </li>
+            <li>
+              Le serveur en <code>codec: "cbor"</code> parle les{" "}
+              <strong>deux à la fois</strong>, une connexion de chaque sorte.
+              Une page qui n'offre rien reste en texte et reçoit quand même ses
+              octets en <code>Uint8Array</code>.
+            </li>
+          </ol>
+          <p>
+            Une vraie application ouvre <strong>une seule socket</strong>, qui
+            offre CBOR. Si cette page en ouvre parfois deux, l'une en CBOR,
+            l'autre en texte, c'est pour peser les mêmes messages dans les deux
+            formats.
+          </p>
+        </aside>
       </header>
 
       <StepsLesson

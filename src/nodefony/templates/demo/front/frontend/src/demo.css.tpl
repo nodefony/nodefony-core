@@ -3550,3 +3550,31 @@ a.ritem:hover .ritem-go {
 .sprite.is-odd {
   fill: var(--violet);
 }
+/* « Une connexion, un codec » : ce qu'offre le handshake, ce que garde la connexion. */
+.codec-explain {
+  flex-basis: 100%;
+  max-width: 72ch;
+  margin: 4px 0 0;
+  padding: 12px 16px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--wire-cbor);
+  border-radius: 10px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.codec-explain h2 {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+}
+.codec-explain ol {
+  margin: 0 0 8px;
+  padding-left: 1.3rem;
+}
+.codec-explain li + li {
+  margin-top: 4px;
+}
+.codec-explain p {
+  margin: 0;
+  color: var(--fg);
+}
