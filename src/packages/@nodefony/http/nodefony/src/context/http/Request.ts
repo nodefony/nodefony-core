@@ -636,6 +636,9 @@ class HttpRequest {
     return new Promise((resolve, reject) => {
       const fields: Record<string, unknown> = {};
       const files: { field: string; file: IParsedUploadFile }[] = [];
+      // Rang d'ARRIVÉE du prochain fichier : chacun s'écrit à son rythme sur
+      // le disque, mais `files` garde l'ordre d'envoi du formulaire.
+      let order = 0;
       const pending: Promise<void>[] = [];
       const tempPaths: string[] = [];
       const openStreams = new Set<fs.WriteStream>();
@@ -676,6 +679,8 @@ class HttpRequest {
             stream.resume(); // discard obligatoire sinon 'finish' ne fire jamais
             return;
           }
+          const slot = order;
+          order += 1;
           const match = reg.exec(fieldname);
           const field = match?.[1] ?? fieldname;
           const ext = filename ? path.extname(filename) : "";
@@ -720,7 +725,9 @@ class HttpRequest {
               if (aborted) {
                 return res();
               }
-              files.push({
+              // Rangé à son rang d'arrivée, pas à la fin de son écriture : un
+              // petit fichier envoyé après un gros ne le double plus.
+              files[slot] = {
                 field,
                 file: {
                   filepath,
@@ -732,7 +739,7 @@ class HttpRequest {
                   hashAlgorithm: algo,
                   hash: hasher ? hasher.digest("hex") : null,
                 },
-              });
+              };
               res();
             });
           });

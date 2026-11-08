@@ -248,8 +248,31 @@ describe("File Upload Tests", () => {
     expect(statusCode).to.equal(200);
     const files = body as Array<Record<string, unknown>>;
     expect(files).to.be.an("array").with.lengthOf(2);
-    const names = files.map((f) => f.filename).sort();
+    // Sans tri : l'ordre d'envoi est garanti (le test suivant le prouve).
+    const names = files.map((f) => f.filename);
     expect(names).to.deep.equal(["a.txt", "b.txt"]);
+  });
+
+  it("🔴 rend les fichiers dans l'ORDRE D'ENVOI, quel que soit leur temps d'écriture", async () => {
+    // Chaque fichier s'écrit sur le disque à son rythme : rangés à la fin de
+    // leur écriture, un petit doublait un plus gros envoyé avant lui. Vingt
+    // pièces de tailles alternées rendent la course systématique, sous les
+    // seuils du banc (1 Mo par fichier, 1,5 Mo cumulés).
+    const parts = Array.from({ length: 20 }, (_, i) => ({
+      field: "file",
+      filename: `${String(i).padStart(2, "0")}.bin`,
+      contentType: "application/octet-stream",
+      content: Buffer.alloc(i % 2 === 0 ? 120 * 1024 : 1, i),
+    }));
+    const { statusCode, body } = await postParts(
+      "/nodefony/test/html/upload",
+      parts,
+    );
+    expect(statusCode).to.equal(200);
+    const files = body as Array<Record<string, unknown>>;
+    expect(files.map((f) => f.filename)).to.deep.equal(
+      parts.map((p) => p.filename),
+    );
   });
 
   it("preserves a non-octet mime type (image/png)", async () => {
