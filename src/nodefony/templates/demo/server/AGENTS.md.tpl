@@ -30,6 +30,8 @@ un renvoi mort le fait échouer.
   `FirstStepsController` (`/demo/api/first`, les gestes de base d'un contrôleur :
   rendre, rediriger, valider, flux, fichier, `Response` Web, même action en
   WebSocket — le point de départ d'un débutant),
+  `SseController` (`/demo/api/sse`, les flux d'événements serveur : nommés et
+  typés, reprise par `Last-Event-ID`, battement, négociation, `POST` en flux),
   `ChatController` (HTTP + socket, `ContractRealtimeController`),
   `PartnerController` (`/demo/api/partner`, zone `demo-partner` du firewall), les pages et l'accueil.
 - `nodefony/service/` — l'état qui survit à une connexion (`ChatService`),
@@ -45,7 +47,9 @@ un renvoi mort le fait échouer.
   octets (`preview.ts`, ISOMORPHE : le navigateur avant l'envoi, le serveur à
   la réception) et ses boîtes (`FilePreview.tsx`), le compte de la barre du
   haut (`Account.tsx`), la sonde qui appelle une route depuis la page et
-  montre statut, en-têtes et flux (`probe.ts`, `ProbeResult.tsx`).
+  montre statut, en-têtes, flux, trames et événements SSE (`probe.ts`,
+  `ProbeResult.tsx`), la mise en page des leçons à gestes — carte en haut, un
+  geste à l'écran (`StepsLesson.tsx`).
 
 ## Les extraits de code des pages
 

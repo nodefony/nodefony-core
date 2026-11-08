@@ -155,18 +155,34 @@ code {
   color: color-mix(in srgb, var(--blue) 50%, var(--fg));
   border-color: color-mix(in srgb, var(--blue) 35%, var(--border));
 }
-.topnav a.doc {
-  color: color-mix(in srgb, var(--blue) 50%, var(--fg));
+/* Les liens qui SORTENT de la démo : même style, marqués d'une flèche. */
+.topnav a.ext::after {
+  content: " ↗";
+  font-size: 0.8em;
+  opacity: 0.7;
+}
+.topnav-sep {
+  flex: none;
+  width: 1px;
+  height: 18px;
+  margin-inline: 6px;
+  background: var(--border);
+}
+/* À droite : les outils d'affichage en UN groupe, puis le compte. */
+.topbar-tools {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.topbar-tools a.login {
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 0.9rem;
   font-weight: 600;
-}
-.topnav a.gh {
-  color: var(--fg);
-  border: 1px solid var(--border);
-}
-.topnav a.login {
+  text-decoration: none;
   color: #fff;
   background: var(--blue);
-  font-weight: 600;
 }
 /* Le compte connecté : l'identifiant, puis la déconnexion. */
 .account {
@@ -1040,8 +1056,8 @@ body {
     }
   }
 }
-/* ═══ Contrôle de la barre de debug (développement seulement) ═══ */
-.dbg {
+/* ═══ Outils d'affichage : thème, puis la barre de debug (développement) ═══ */
+.tools {
   display: inline-flex;
   gap: 2px;
   padding: 2px;
@@ -1110,8 +1126,7 @@ body {
   .topnav::-webkit-scrollbar {
     display: none;
   }
-  .topnav a,
-  .topnav .dbg {
+  .topnav a {
     flex: none;
     white-space: nowrap;
   }
@@ -1126,6 +1141,29 @@ body {
     min-width: 0;
     overflow-wrap: anywhere;
     white-space: normal;
+  }
+}
+/* Téléphone étroit : identité et outils en haut, la navigation dessous. */
+@media (max-width: 640px) {
+  .topbar {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .topbar-tools {
+    margin-left: auto;
+    gap: 6px;
+  }
+  .topbar-tools a.login {
+    padding: 7px 10px;
+  }
+  /* La version reste lisible dans « À propos » : ici, la place va aux outils. */
+  .brand .tag.ver {
+    display: none;
+  }
+  .topnav {
+    order: 3;
+    flex-basis: 100%;
+    margin-left: 0;
   }
 }
 /* Une option ne se coupe pas : « --demo » sur deux lignes se lirait « - » puis « -demo ». */
@@ -2498,34 +2536,42 @@ a.ritem:hover .ritem-go {
   }
 }
 
-/* Premiers pas : la CARTE des dix gestes, puis un geste à l'écran — son
-   code à gauche, ses appels et leurs réponses à droite. */
-.first {
+/* Leçons à gestes (kit/StepsLesson.tsx — Premiers pas, Flux SSE) : la CARTE
+   des gestes, puis un geste à l'écran — son code à gauche, ses appels et
+   leurs réponses à droite. */
+.steps-page {
   gap: 18px;
 }
-.first-head {
+.steps-head {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px 14px;
 }
-.first-head h1 {
+.steps-head h1 {
   margin: 0;
   font-size: clamp(1.35rem, 2.4vw, 1.8rem);
 }
-.first-head p {
+.steps-head p {
   flex-basis: 100%;
   margin: 0;
   max-width: 72ch;
   color: var(--muted);
   line-height: 1.55;
 }
-.first-map {
+.steps-map {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
 }
-.first-tab {
+/* Deux rangées au plus : sept gestes tiennent en 4 + 3, dix en 5 + 5. */
+.steps-cols-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.steps-cols-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.steps-tab {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
@@ -2544,19 +2590,19 @@ a.ritem:hover .ritem-go {
     box-shadow 0.15s,
     transform 0.15s;
 }
-.first-tab:hover {
+.steps-tab:hover {
   border-color: color-mix(in srgb, var(--blue) 45%, var(--border));
   transform: translateY(-1px);
 }
-.first-tab:focus-visible {
+.steps-tab:focus-visible {
   outline: 2px solid var(--blue);
   outline-offset: 2px;
 }
-.first-tab[aria-selected="true"] {
+.steps-tab[aria-selected="true"] {
   border-color: var(--blue);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 16%, transparent);
 }
-.first-tab-num {
+.steps-tab-num {
   grid-row: span 2;
   display: grid;
   place-items: center;
@@ -2567,16 +2613,16 @@ a.ritem:hover .ritem-go {
   font-weight: 700;
   background: color-mix(in srgb, var(--blue) 14%, transparent);
 }
-.first-tab[aria-selected="true"] .first-tab-num {
+.steps-tab[aria-selected="true"] .steps-tab-num {
   color: #fff;
   background: var(--blue);
 }
-.first-tab-title {
+.steps-tab-title {
   font-size: 0.9rem;
   font-weight: 600;
   line-height: 1.2;
 }
-.first-tab-gesture {
+.steps-tab-gesture {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2584,14 +2630,14 @@ a.ritem:hover .ritem-go {
   color: var(--muted);
 }
 
-.first-stage {
+.steps-stage {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
   gap: 16px;
   align-items: start;
 }
 /* Le code tient dans l'écran : il défile DANS sa colonne, pas la page. */
-.first-code {
+.steps-code {
   position: sticky;
   top: 76px;
   display: grid;
@@ -2600,16 +2646,16 @@ a.ritem:hover .ritem-go {
   overflow: auto;
   overscroll-behavior: contain;
 }
-.first-code .excerpt {
+.steps-code .excerpt {
   margin: 0;
 }
 /* Plus serré que dans les autres pages : la colonne est étroite, et une
    ligne de code qui se replie se lit mal. */
-.first-code .excerpt pre {
+.steps-code .excerpt pre {
   padding: 12px 14px;
   font-size: 0.78rem;
 }
-.first-try {
+.steps-try {
   display: grid;
   gap: 12px;
   padding: 16px 18px;
@@ -2617,7 +2663,7 @@ a.ritem:hover .ritem-go {
   border: 1px solid var(--border);
   border-radius: 14px;
 }
-.first-kicker {
+.steps-kicker {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
@@ -2626,32 +2672,32 @@ a.ritem:hover .ritem-go {
   font-size: 0.8rem;
   color: var(--muted);
 }
-.first-try h2 {
+.steps-try h2 {
   margin: 0;
   font-size: 1.2rem;
 }
-.first-text {
+.steps-text {
   margin: 0;
   line-height: 1.55;
 }
-.first-text code {
+.steps-text code {
   font-size: 0.92em;
   padding: 1px 5px;
   border-radius: 5px;
   background: var(--bg-soft);
 }
-.first-fields {
+.steps-fields {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
 }
-.first-fields label {
+.steps-fields label {
   display: grid;
   gap: 4px;
   font-size: 0.82rem;
   color: var(--muted);
 }
-.first-fields input {
+.steps-fields input {
   width: 11rem;
   min-width: 0;
   padding: 7px 10px;
@@ -2728,6 +2774,10 @@ a.ritem:hover .ritem-go {
   color: color-mix(in srgb, var(--violet) 62%, var(--fg));
   background: color-mix(in srgb, var(--violet) 16%, transparent);
 }
+.verb-sse {
+  color: color-mix(in srgb, var(--blue) 62%, var(--fg));
+  background: color-mix(in srgb, var(--blue) 16%, transparent);
+}
 .call-text {
   display: grid;
   min-width: 0;
@@ -2748,32 +2798,32 @@ a.ritem:hover .ritem-go {
   font-size: 0.75rem;
   color: var(--muted);
 }
-.first-link {
+.steps-link {
   justify-self: start;
   font-size: 0.88rem;
   color: color-mix(in srgb, var(--blue) 55%, var(--fg));
 }
 /* Les réponses défilent dans le panneau : le panneau garde sa place. */
-.first-results {
+.steps-results {
   display: grid;
   gap: 10px;
   max-height: 46vh;
   overflow: auto;
 }
-.first-results:empty {
+.steps-results:empty {
   display: none;
 }
-.first-results .trial-result {
+.steps-results .trial-result {
   margin: 0;
 }
-.first-nav {
+.steps-nav {
   display: flex;
   justify-content: space-between;
   gap: 8px;
   padding-top: 10px;
   border-top: 1px solid var(--border);
 }
-.first-nav button {
+.steps-nav button {
   padding: 6px 10px;
   font: inherit;
   font-size: 0.86rem;
@@ -2783,38 +2833,38 @@ a.ritem:hover .ritem-go {
   border-radius: 8px;
   cursor: pointer;
 }
-.first-nav button:hover:not(:disabled) {
+.steps-nav button:hover:not(:disabled) {
   background: var(--bg-soft);
 }
-.first-nav button:disabled {
+.steps-nav button:disabled {
   visibility: hidden;
 }
-.first-more {
+.steps-more {
   padding: 12px 16px;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 14px;
 }
-.first-more > summary {
+.steps-more > summary {
   cursor: pointer;
   font-weight: 600;
 }
-.first-more[open] > summary {
+.steps-more[open] > summary {
   margin-bottom: 12px;
 }
 
 @media (max-width: 1000px) {
-  .first-map {
+  .steps-map {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .first-stage {
+  .steps-stage {
     grid-template-columns: minmax(0, 1fr);
   }
   /* Une colonne : le panneau d'essai d'abord, le code ensuite. */
-  .first-try {
+  .steps-try {
     order: -1;
   }
-  .first-code {
+  .steps-code {
     position: static;
     max-height: 60vh;
   }
@@ -2822,19 +2872,19 @@ a.ritem:hover .ritem-go {
 /* Téléphone : la carte devient un bandeau qui défile de côté, pour que
    le geste choisi reste dans le premier écran. */
 @media (max-width: 600px) {
-  .first-map {
+  .steps-map {
     display: flex;
     overflow-x: auto;
     scroll-snap-type: x mandatory;
     padding-bottom: 4px;
   }
-  .first-tab {
+  .steps-tab {
     flex: 0 0 62%;
     scroll-snap-align: start;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .first-tab,
+  .steps-tab,
   .call {
     transition: none;
   }

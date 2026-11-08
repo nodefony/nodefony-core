@@ -22,6 +22,7 @@ export type LessonFile =
   | "nodefony/controllers/FirstStepsController.ts"
   | "nodefony/controllers/PartnerController.ts"
   | "nodefony/controllers/PartnerTokenController.ts"
+  | "nodefony/controllers/SseController.ts"
   | "nodefony/service/ChatService.ts"
   | "nodefony/service/PartnerTokenService.ts"
   | "nodefony/command/PartnerCallCommand.ts"
@@ -33,7 +34,8 @@ export type LessonFile =
   | "frontend/src/kit/preview.ts"
   | "frontend/src/kit/probe.ts"
   | "frontend/src/partner/partnerApi.ts"
-  | "frontend/src/partner/usePartnerLab.ts";
+  | "frontend/src/partner/usePartnerLab.ts"
+  | "frontend/src/sse/sseDemo.ts";
 
 /** Les couches, dans l'ordre où l'on construit une fonctionnalité. */
 export const LESSON_LAYERS = [

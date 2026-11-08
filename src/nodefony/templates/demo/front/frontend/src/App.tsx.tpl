@@ -13,11 +13,16 @@ import { debugBarControl, type IDebugBarControl } from "./debugBar";
 import { useCurrentSection, usePointerLight } from "./effects";
 import { ChatLesson } from "./chat/ChatLesson";
 import { FirstStepsLesson } from "./first/FirstStepsLesson";
+import { SseLesson } from "./sse/SseLesson";
 import { Account } from "./kit/Account";
+import { applyTheme, readTheme, type DemoTheme } from "./kit/theme";
 import { PartnerLesson } from "./partner/PartnerLesson";
 import { RoleTabs } from "./RoleTabs";
 import { usePulse } from "./usePulse";
 import "./demo.css";
+
+// Le thème AVANT le premier rendu : sombre par défaut, sinon le choix retenu.
+applyTheme(readTheme());
 
 /** Les sections que la barre du haut permet d'atteindre, dans l'ordre. */
 const SECTIONS = [
@@ -47,7 +52,8 @@ export function App() {
   const lesson =
     page === "/demo/chat" ||
     page === "/demo/partner" ||
-    page === "/demo/first-steps";
+    page === "/demo/first-steps" ||
+    page === "/demo/sse";
   // Le logo vient du paquet (`brand.ts`) : la feuille le lit par variable.
   const logo: CSSProperties & Record<"--demo-logo", string> = {
     "--demo-logo": `url(${JSON.stringify(NODEFONY_LOGO)})`,
@@ -62,6 +68,8 @@ export function App() {
         <PartnerLesson about={about} />
       ) : page === "/demo/first-steps" ? (
         <FirstStepsLesson about={about} />
+      ) : page === "/demo/sse" ? (
+        <SseLesson about={about} />
       ) : (
         <Home about={about} />
       )}
@@ -164,16 +172,52 @@ function Topbar({
             {section.label}
           </a>
         ))}
-        <a className="doc" href={docUrl(about?.nodefony.version ?? null)}>
+        <span className="topnav-sep" aria-hidden="true" />
+        <a className="ext" href={docUrl(about?.nodefony.version ?? null)}>
           Documentation
         </a>
-        <a className="gh" href={REPO_URL}>
+        <a className="ext" href={REPO_URL}>
           GitHub
         </a>
-        <Account loginPath={about?.loginPath ?? null} />
-        <DebugBarButtons />
       </nav>
+      <div className="topbar-tools">
+        <div className="tools" role="group" aria-label="Affichage">
+          <ThemeButton />
+          <DebugBarButtons />
+        </div>
+        <Account loginPath={about?.loginPath ?? null} />
+      </div>
     </header>
+  );
+}
+
+/** Sombre ou clair : le choix est retenu par le navigateur. */
+function ThemeButton() {
+  const [theme, setTheme] = useState<DemoTheme>(readTheme);
+  const next: DemoTheme = theme === "dark" ? "light" : "dark";
+  const label = next === "light" ? "Passer en thème clair" : "Passer en thème sombre";
+  return (
+    <button
+      type="button"
+      className="dbg-btn"
+      aria-label={label}
+      title={label}
+      onClick={() => {
+        applyTheme(next, true);
+        setTheme(next);
+      }}
+    >
+      {theme === "dark" ? (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+        </svg>
+      ) : (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+        </svg>
+      )}
+    </button>
   );
 }
 
@@ -197,7 +241,7 @@ function DebugBarButtons() {
   }, []);
   if (control === null) return null;
   return (
-    <div className="dbg" role="group" aria-label="Barre de debug (développement)">
+    <>
       <button
         type="button"
         className="dbg-btn"
@@ -241,7 +285,7 @@ function DebugBarButtons() {
           <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" />
         </svg>
       </button>
-    </div>
+    </>
   );
 }
 

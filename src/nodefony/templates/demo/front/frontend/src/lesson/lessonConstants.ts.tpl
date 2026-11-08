@@ -57,6 +57,20 @@ function literal(
   if (/^("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|-?\d[\d_.]*)$/.test(expression)) {
     return expression;
   }
+  // Un tableau de littéraux, sur une ligne : chaque élément doit en être un.
+  // Une virgule DANS une chaîne coupe l'élément en deux morceaux qui n'en
+  // sont plus : le tableau n'a alors pas de valeur, jamais une fausse.
+  const items = /^\[(.*)\]$/.exec(expression)?.[1];
+  if (items !== undefined) {
+    const parts = items
+      .split(",")
+      .map((part) => part.trim())
+      .filter((part) => part !== "");
+    const values = parts.map((part) => literal(part, resolve));
+    return values.every((value) => value !== null)
+      ? `[${values.join(", ")}]`
+      : null;
+  }
   const template = /^`([^`]*)`$/.exec(expression)?.[1];
   if (template === undefined) return null;
   // Chaque constante du gabarit, résolue d'abord : une seule manque, et le

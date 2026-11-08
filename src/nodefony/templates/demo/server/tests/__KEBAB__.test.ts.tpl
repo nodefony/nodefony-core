@@ -74,6 +74,8 @@ import { LESSON_SOURCES } from "../frontend/src/lesson/lessonSources";
 import { CHAT_LESSON } from "../frontend/src/chat/chatTabs";
 import { PARTNER_LESSON } from "../frontend/src/partner/partnerTabs";
 import { FIRST_LESSON } from "../frontend/src/first/firstTabs";
+import { SSE_LESSON } from "../frontend/src/sse/sseTabs";
+import { answerWords, SSE_PATH } from "../frontend/src/sse/sseDemo";
 import {
   formatBody,
   pickHeaders,
@@ -597,6 +599,7 @@ const LESSONS: readonly { page: string; lesson: ILesson }[] = [
   { page: "chat", lesson: CHAT_LESSON },
   { page: "partner", lesson: PARTNER_LESSON },
   { page: "first-steps", lesson: FIRST_LESSON },
+  { page: "sse", lesson: SSE_LESSON },
 ];
 
 /** Chaque extrait cité, avec sa page et sa couche. */
@@ -739,22 +742,37 @@ describe("demo — les pages d'apprentissage suivent le modèle commun", () => {
     ]);
     expect(resolveConstants("use(MISSING_ONE)", sources)).toEqual([]);
   });
+
+  it("résout un tableau de littéraux ; une virgule dans une chaîne le rend sans valeur", () => {
+    const sources = {
+      "a.ts":
+        'const STEPS_LIST = ["a", "b", 3];\nconst BAD_LIST = ["x, y"];\nconst MIXED_LIST = ["a", other];',
+    };
+    expect(
+      resolveConstants("use(STEPS_LIST, BAD_LIST, MIXED_LIST)", sources),
+    ).toEqual([{ name: "STEPS_LIST", value: '["a", "b", 3]', file: "a.ts" }]);
+  });
 });
 
-describe("demo — Premiers pas : la sonde et le contrôleur cité", () => {
-  it("chaque région du contrôleur est citée par la leçon : aucun geste oublié", () => {
-    const file = "nodefony/controllers/FirstStepsController.ts" as const;
-    const declared = [
-      ...LESSON_SOURCES[file].matchAll(/^\s*\/\/ #region (\S+)\s*$/gm),
-    ].map((match) => match[1]);
-    const cited = FIRST_LESSON.tabs.flatMap((tab) =>
-      tabExcerpts(tab)
-        .filter((excerpt) => excerpt.file === file)
-        .map((excerpt) => excerpt.region),
-    );
-    expect(declared.length).toBeGreaterThan(0);
-    expect([...declared].sort()).toEqual([...new Set(cited)].sort());
-  });
+describe("demo — Premiers pas et Flux SSE : la sonde et le contrôleur cité", () => {
+  it.each([
+    ["nodefony/controllers/FirstStepsController.ts", FIRST_LESSON],
+    ["nodefony/controllers/SseController.ts", SSE_LESSON],
+  ] as const)(
+    "chaque région de %s est citée par la leçon : aucun geste oublié",
+    (file, lesson) => {
+      const declared = [
+        ...LESSON_SOURCES[file].matchAll(/^\s*\/\/ #region (\S+)\s*$/gm),
+      ].map((match) => match[1]);
+      const cited = lesson.tabs.flatMap((tab) =>
+        tabExcerpts(tab)
+          .filter((excerpt) => excerpt.file === file)
+          .map((excerpt) => excerpt.region),
+      );
+      expect(declared.length).toBeGreaterThan(0);
+      expect([...declared].sort()).toEqual([...new Set(cited)].sort());
+    },
+  );
 
   it("un corps JSON est remis en forme ; un JSON faux reste tel quel", () => {
     expect(formatBody('{"a":1}', "application/json")).toBe('{\n  "a": 1\n}');
@@ -779,6 +797,24 @@ describe("demo — Premiers pas : la sonde et le contrôleur cité", () => {
       ["content-type", "text/plain"],
       ["etag", '"abc"'],
     ]);
+  });
+
+  it("la réponse en flux reprend la question, un mot par événement", () => {
+    const words = answerWords("Pourquoi SSE ?");
+    expect(words.join(" ")).toContain("« Pourquoi SSE ? »");
+    expect(words.every((word) => word !== "" && !word.includes(" "))).toBe(
+      true,
+    );
+  });
+
+  it("le contrôleur SSE vit sous son préfixe, et chaque action ouvre un flux", () => {
+    const source = LESSON_SOURCES["nodefony/controllers/SseController.ts"];
+    expect(source).toContain("@controller(SSE_PATH)");
+    expect(SSE_PATH).toBe("/demo/api/sse");
+    const actions = [...source.matchAll(/^\s*@(Get|Post)\(/gm)].length;
+    const opened = [...source.matchAll(/this\.renderSse/g)].length;
+    expect(actions).toBe(7);
+    expect(opened).toBe(actions);
   });
 });
 

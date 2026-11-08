@@ -1,11 +1,15 @@
+import { NodefonySse, type NodefonySseOptions } from "nodefony/client";
+
 /**
  * Appeler une route depuis la page et montrer ce qui revient VRAIMENT :
  * statut, en-têtes utiles, durée, et le corps morceau par morceau quand il
- * arrive en flux. Plus la même chose pour une WebSocket : les trames reçues.
+ * arrive en flux. Plus la même chose pour une WebSocket (les trames reçues)
+ * et pour un flux SSE (les événements, et les reconnexions).
  *
  * Guide pour un agent : brique du KIT, partagée par les démos — « Premiers
- * pas » s'en sert pour chacune de ses étapes (`ProbeResult.tsx` l'affiche).
- * Rien n'est simulé : `fetch` et `WebSocket` du navigateur, contre le serveur
+ * pas » et « Flux SSE » s'en servent pour chaque geste (`ProbeResult.tsx`
+ * l'affiche). Rien n'est simulé : `fetch`, `WebSocket` et `EventSource` du
+ * navigateur, contre le serveur
  * qui sert la page. Une redirection est SUIVIE (c'est ce que fait un
  * navigateur) : `redirected` et `finalUrl` disent où elle a mené.
  */
@@ -43,6 +47,7 @@ export const SHOWN_HEADERS = [
   "cache-control",
   "etag",
   "last-modified",
+  "x-accel-buffering",
   "x-demo",
 ] as const;
 
@@ -180,6 +185,132 @@ export function probeSocket(
       else finish(null);
     });
     socket.addEventListener("error", () => finish("socket refusée"));
+  });
+}
+// #endregion
+
+// #region probe-sse
+/** Comment lire un flux SSE, et quand s'arrêter. */
+export interface IProbeSseOptions {
+  /** Types d'événements écoutés, en plus de `message`. */
+  events?: readonly string[];
+  /** Le type qui annonce la fin : la page ferme en le recevant. */
+  doneEvent?: string;
+  /** La page ferme après ce nombre d'événements. */
+  maxEvents?: number;
+  /**
+   * Les événements de ce type se mettent bout à bout sur UNE ligne, qui
+   * grandit : une réponse écrite mot à mot se lit comme une phrase.
+   */
+  growEvent?: string;
+  /**
+   * Pour `EventSource`, une fin de flux est une coupure : il se reconnecte.
+   * Vrai : la page ferme à la première coupure.
+   */
+  closeOnError?: boolean;
+  /** `POST`, en-têtes, reprise : `NodefonySse`, qui sait ce que le natif refuse. */
+  init?: NodefonySseOptions;
+}
+
+/**
+ * Lit le flux SSE de `url` avec `EventSource` — ou `NodefonySse` quand
+ * `init` est donné — et note chaque événement, chaque ouverture et chaque
+ * coupure, horodatés.
+ *
+ * @param url - chemin de la route (même origine que la page)
+ * @param options - événements écoutés, condition d'arrêt
+ * @param onChunk - appelé à chaque événement
+ * @returns les événements reçus, en `chunks` ; ne rejette jamais
+ */
+export function probeSse(
+  url: string,
+  options: IProbeSseOptions = {},
+  onChunk?: (chunks: readonly IProbeChunk[]) => void,
+): Promise<IProbeResult> {
+  const client = options.init === undefined ? "EventSource" : "NodefonySse";
+  const request = `${client} ${options.init?.method ?? "GET"} ${url}`;
+  const start = performance.now();
+  const since = () => Math.round(performance.now() - start);
+  return new Promise((resolve) => {
+    const chunks: IProbeChunk[] = [];
+    const note = (text: string) => {
+      chunks.push({ at: since(), text });
+      onChunk?.([...chunks]);
+    };
+    let source: EventSource | NodefonySse;
+    try {
+      source =
+        options.init === undefined
+          ? new EventSource(url)
+          : new NodefonySse(url, options.init);
+    } catch (error) {
+      resolve(failed(request, since(), error));
+      return;
+    }
+    // Un flux ne s'ouvre qu'en 200 `text/event-stream` : ouvert, c'est un 200.
+    let opened = false;
+    let received = 0;
+    let lastId = "";
+    const finish = (error: string | null) => {
+      clearTimeout(guard);
+      source.close();
+      resolve({
+        request,
+        status: opened ? 200 : null,
+        ms: since(),
+        headers: [],
+        body: chunks.map((chunk) => chunk.text).join("\n"),
+        chunks,
+        redirected: false,
+        finalUrl: null,
+        error,
+      });
+    };
+    const guard = setTimeout(() => finish("flux non terminé en 15 s"), 15_000);
+    source.addEventListener("open", () => {
+      note(lastId === "" ? "▶ ouvert" : `▶ rouvert — Last-Event-ID: ${lastId}`);
+      opened = true;
+    });
+    const onEvent = (event: Event) => {
+      if (!(event instanceof MessageEvent)) return;
+      received += 1;
+      if (event.lastEventId !== "") lastId = event.lastEventId;
+      const id = event.lastEventId === "" ? "" : ` #${event.lastEventId}`;
+      const last = chunks.at(-1);
+      const head = `${event.type}${id} · `;
+      if (
+        event.type === options.growEvent &&
+        last?.text.startsWith(head) === true
+      ) {
+        chunks[chunks.length - 1] = {
+          at: since(),
+          text: `${last.text} ${String(event.data)}`,
+        };
+        onChunk?.([...chunks]);
+      } else {
+        note(`${head}${String(event.data)}`);
+      }
+      if (event.type === options.doneEvent || received === options.maxEvents) {
+        note("■ la page ferme le flux");
+        finish(null);
+      }
+    };
+    for (const type of ["message", ...(options.events ?? [])]) {
+      source.addEventListener(type, onEvent);
+    }
+    source.addEventListener("error", () => {
+      if (source.readyState === EventSource.CLOSED) {
+        note("■ réponse sans flux : le client ne se reconnecte plus");
+        finish(null);
+      } else if (options.closeOnError === true) {
+        note(
+          "■ fin du flux — la page ferme, sinon le client se reconnecterait",
+        );
+        finish(null);
+      } else {
+        note("↻ coupé : le client se reconnecte");
+      }
+    });
   });
 }
 // #endregion

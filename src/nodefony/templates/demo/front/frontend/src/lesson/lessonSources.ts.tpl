@@ -12,6 +12,7 @@ const RAW = import.meta.glob<string>(
     "../../../nodefony/controllers/FirstStepsController.ts",
     "../../../nodefony/controllers/PartnerController.ts",
     "../../../nodefony/controllers/PartnerTokenController.ts",
+    "../../../nodefony/controllers/SseController.ts",
     "../../../nodefony/service/ChatService.ts",
     "../../../nodefony/service/PartnerTokenService.ts",
     "../../../nodefony/command/PartnerCallCommand.ts",
@@ -24,6 +25,7 @@ const RAW = import.meta.glob<string>(
     "../kit/probe.ts",
     "../partner/partnerApi.ts",
     "../partner/usePartnerLab.ts",
+    "../sse/sseDemo.ts",
   ],
   { query: "?raw", import: "default", eager: true },
 );
@@ -57,6 +59,9 @@ export const LESSON_SOURCES = {
   "nodefony/controllers/PartnerTokenController.ts": read(
     "../../../nodefony/controllers/PartnerTokenController.ts",
   ),
+  "nodefony/controllers/SseController.ts": read(
+    "../../../nodefony/controllers/SseController.ts",
+  ),
   "nodefony/service/ChatService.ts": read(
     "../../../nodefony/service/ChatService.ts",
   ),
@@ -75,4 +80,5 @@ export const LESSON_SOURCES = {
   "frontend/src/kit/probe.ts": read("../kit/probe.ts"),
   "frontend/src/partner/partnerApi.ts": read("../partner/partnerApi.ts"),
   "frontend/src/partner/usePartnerLab.ts": read("../partner/usePartnerLab.ts"),
+  "frontend/src/sse/sseDemo.ts": read("../sse/sseDemo.ts"),
 } satisfies Record<LessonFile, string>;
