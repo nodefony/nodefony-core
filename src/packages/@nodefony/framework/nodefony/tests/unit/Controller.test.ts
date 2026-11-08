@@ -1077,5 +1077,7 @@ describe("Framework.onKernelRegister — la config `fileServing` atteint le Cont
     const { c, opened } = makeHttpController();
     await c.streamFile(HERE);
     expect(opened[0]?.options?.headers?.["Cache-Control"]).toBe("no-store");
-  });
+    // Le délai couvre l'import À FROID du barrel du framework, pas une mesure
+    // du produit : 5 058 ms sur l'exécuteur macOS de la CI, au-delà du défaut.
+  }, 30_000);
 });
