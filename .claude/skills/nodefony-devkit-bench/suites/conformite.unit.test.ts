@@ -229,11 +229,24 @@ describe("unit — l'environnement passe par le catalogue, et par lui seul", () 
     // Le SCHÉMA d'un module est l'autre catalogue : une clé de sa config marquée
     // `.meta({ env: "NF_…" })` est lue au démarrage par le framework, sans que
     // le module touche `process.env` (la démo y déclare son secret machine).
+    //
+    // Ce schéma vit aussi dans les modules INSTALLÉS : une page qui explique
+    // `NF_REALTIME_DRIVER` cite une variable que `@nodefony/realtime` déclare
+    // dans SON schéma, lu au démarrage comme celui de l'application. Ne lire que
+    // les sources de l'application rendait rouge toute leçon qui nomme une
+    // variable du framework (vécu : la démo du chat, #747).
     const declarees = new Set<string>();
-    for (const p of SOURCES) {
-      for (const m of codeSeul(lire(p)).matchAll(
-        /\.meta\(\s*\{[^}]*?\benv:\s*["'](NF_[A-Z0-9_]+)["']/g,
-      )) {
+    const schemaEnv = /\.meta\(\s*\{[^}]*?\benv:\s*["'](NF_[A-Z0-9_]+)["']/g;
+    const installes = path.join(APP, "node_modules", "@nodefony");
+    const schemasInstalles = existsSync(installes)
+      ? readdirSync(installes)
+          .map((m) =>
+            path.join(installes, m, "dist", "nodefony", "config", "config.js"),
+          )
+          .filter((p) => existsSync(p))
+      : [];
+    for (const p of [...SOURCES, ...schemasInstalles]) {
+      for (const m of codeSeul(lire(p)).matchAll(schemaEnv)) {
         if (m[1] !== undefined) declarees.add(m[1]);
       }
     }
