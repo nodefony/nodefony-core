@@ -43,7 +43,7 @@ function devConfig(
   }> = {
     audiences: [
       "https://localhost:5152/nodefony/test/keycloak",
-      "https://localhost:5152/api/partner",
+      "https://localhost:5152/demo/api/partner",
     ],
   },
 ): ISecurityConfigInput {
@@ -61,12 +61,12 @@ function devConfig(
         stateless: true,
         resource: "https://localhost:5152/nodefony/test/keycloak",
       },
-      // Zone de l'APPLICATION (`nodefony/config/security.ts`, #544).
-      partner: {
-        pattern: "^/api/partner",
+      // Zone de la DÉMO (`src/demo/nodefony/config/security.ts`, #747).
+      "demo-partner": {
+        pattern: "^/demo/api/partner",
         authenticators: ["jwt", "external-jwt"],
         stateless: true,
-        resource: "https://localhost:5152/api/partner",
+        resource: "https://localhost:5152/demo/api/partner",
         subjectPolicy: "ephemeral",
         ephemeralRoles: ["ROLE_PARTNER"],
       },
@@ -123,7 +123,7 @@ describe("realm Keycloak — dérivé de la configuration", () => {
     assert.deepEqual(input.audiences, [
       "https://api.foreign.example/v1",
       "https://localhost:5152/nodefony/test/keycloak",
-      "https://localhost:5152/api/partner",
+      "https://localhost:5152/demo/api/partner",
     ]);
     assert.equal(warnings.length, 1);
     assert.match(warnings[0] ?? "", /oauth2\.providers\.keycloak\.audiences/);

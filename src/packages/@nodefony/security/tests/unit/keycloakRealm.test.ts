@@ -49,7 +49,7 @@ const devInput: IKeycloakRealmInput = {
     "http://host.docker.internal:5151/nodefony/security/api/oauth2/keycloak/backchannel-logout",
   audiences: [
     "https://localhost:5152/nodefony/test/keycloak",
-    "https://localhost:5152/api/partner",
+    "https://localhost:5152/demo/api/partner",
   ],
   clientRoles: [{ name: "admin" }, { name: "admin-nodefony" }],
   realmRoles: [],

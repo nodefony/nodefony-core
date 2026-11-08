@@ -43,7 +43,7 @@
     "doc:anchors:fix": "node .claude/skills/nodefony-documentation/scripts/anchor-migrate.mjs docs src/nodefony/docs src/packages/@nodefony --apply",
     "doc:lint": "node .claude/skills/nodefony-documentation/scripts/gen-counters.mjs && node .claude/skills/nodefony-documentation/scripts/doc-lint.mjs --published",
     "deps:gate": "node scripts/deps/check-deps-latest.mjs --gate",
-    "dev": "nodefony development",
+    "dev": "node src/nodefony/bin/nodefony development",
     "devkit:selftest": "node .claude/skills/nodefony-devkit-bench/scripts/selftests.mjs",
     "env:snapshot": "tsx scripts/generate/env-snapshot.ts",
     "externals:check": "node scripts/gates/check-externals.mjs",

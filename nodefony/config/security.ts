@@ -227,11 +227,18 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
     // vient du client) : c'est l'exploitant qui l'écrit. Renseignée, elle
     // ouvre `/.well-known/oauth-authorization-server` et
     // `/.well-known/jwks.json` — sans quoi aucun tiers ne peut vérifier une
-    // signature émise ici. En dev, l'adresse publique EST connue.
+    // signature émise ici. En dev, l'adresse publique EST connue — et sous
+    // le BANC (`ctx.devModules`, que la marche `production` de la forge
+    // charge) aussi : elle suit la même règle que `audiences` ci-dessous.
+    // Sans elle, l'émetteur retombait sur « nodefony » quand l'audience par
+    // défaut valait déjà `https://localhost:5152`, et la zone de la démo — sa
+    // ressource est un CHEMIN, rendu absolu contre l'émetteur — refusait le
+    // démarrage de tout banc de production sans `NF_JWT_ISSUER`. Une
+    // production réelle, sans modules de développement, n'en reçoit aucun.
     jwt: {
       issuer:
         ctx.env.NF_JWT_ISSUER ??
-        (ctx.isProd ? undefined : "https://localhost:5152"),
+        (ctx.isProd && !ctx.devModules ? undefined : "https://localhost:5152"),
       // Clés de signature PERSISTANTES (dossier gitignoré, chmod 600).
       //
       // 🔴 Sans elles, chaque process génère la sienne au démarrage : un
