@@ -304,16 +304,21 @@ sequenceDiagram
    comparaison, flux normal, **zéro** lookup de store et zéro allocation.
 2. **No-op sur méthode sûre.** Une action `GET` sous une classe `@Idempotent` repart directement en
    exécution (`Resolver.ts#Resolver._callWithIdempotency`).
-3. **Empreinte du payload.** `computeFingerprint()` (`idempotency.ts#computeFingerprint`) hache
-   `[nom de route, params de route, corps]` (`Resolver.ts#Resolver._enforceActionSecurity`). Le corps vient de l'ALS (pont WS) ou
+3. **La garde d'abord.** `@IsGranted`, `@RequireScope` et le rôle de la zone sont jugés AVANT
+   la porte (`Resolver.ts#Resolver._enforceActionSecurity`), comme avant la validation d'un schéma :
+   un appelant sans le droit reçoit 401/403, jamais un 400 « clé requise » ni un 422 qui lui
+   apprendrait le contrat de la route ; aucune clé n'est réservée pour lui ; et un **rejeu est
+   rejugé** — un droit retiré entre-temps rend 403, pas la réponse mémorisée.
+4. **Empreinte du payload.** `computeFingerprint()` (`idempotency.ts#computeFingerprint`) hache
+   `[nom de route, params de route, corps]` (`Resolver.ts#Resolver._callWithIdempotency`). Le corps vient de l'ALS (pont WS) ou
    du body HTTP parsé.
-4. **Identité.** `resolveIdentity()` (`idempotency.ts#resolveIdentity`) rend l'`identifier` de l'utilisateur
+5. **Identité.** `resolveIdentity()` (`idempotency.ts#resolveIdentity`) rend l'`identifier` de l'utilisateur
    AUTHENTIFIÉ de la requête (`RequestContext.getAuthenticatedUser()`, la règle unique du cœur).
    L'anonyme d'une zone `anonymous` n'a pas d'identité : tous les visiteurs anonymes partagent le
    même `identifier`, ils partageraient donc le même cache. **`null` = pas de cache** : le verdict
    devient `execute` — jamais de partage cross-identité.
-5. **Réservation.** `store.begin()` compose la clé scopée et tranche.
-6. **Mémorisation.** En succès, `complete(clé, {status, body})` où `status` est le code de réponse
+6. **Réservation.** `store.begin()` compose la clé scopée et tranche.
+7. **Mémorisation.** En succès, `complete(clé, {status, body})` où `status` est le code de réponse
    courant et `body` la **valeur retournée** par l'action (`Resolver.ts#Resolver._callWithIdempotency`). En erreur,
    `abort(clé)` libère la clé : **un échec ne se mémorise pas**, il doit rester réessayable.
 
@@ -323,7 +328,7 @@ sequenceDiagram
 > double-effet reste évité, mais le corps rejoué est vide. Pire, si le corps retourné n'est pas
 > sérialisable (retour d'un objet Response circulaire), un store SQL/Redis lève au `stringify`. Le
 > Resolver attrape ce cas : il **journalise un WARNING explicite** puis mémorise le statut avec un
-> corps `null` (`Resolver.ts#Resolver._acquireAndInvoke`) — la dédup est préservée plutôt que perdue en silence.
+> corps `null` (`Resolver.ts#Resolver._callWithIdempotency`) — la dédup est préservée plutôt que perdue en silence.
 
 ### Où la porte est câblée
 
