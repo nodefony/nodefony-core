@@ -27,6 +27,9 @@ un renvoi mort le fait échouer.
 - `index.ts` — `DemoModule` : enregistre contrôleurs, services, commande et
   l'entrée front `demo`.
 - `nodefony/controllers/` — une démo = un contrôleur sous `/demo/…` :
+  `FirstStepsController` (`/demo/api/first`, les gestes de base d'un contrôleur :
+  rendre, rediriger, valider, flux, fichier, `Response` Web, même action en
+  WebSocket — le point de départ d'un débutant),
   `ChatController` (HTTP + socket, `ContractRealtimeController`),
   `PartnerController` (`/demo/api/partner`, zone `demo-partner` du firewall), les pages et l'accueil.
 - `nodefony/service/` — l'état qui survit à une connexion (`ChatService`),
@@ -41,7 +44,8 @@ un renvoi mort le fait échouer.
   (`MarkdownText.tsx`, `markdown.ts`), l'aperçu d'un fichier d'après ses
   octets (`preview.ts`, ISOMORPHE : le navigateur avant l'envoi, le serveur à
   la réception) et ses boîtes (`FilePreview.tsx`), le compte de la barre du
-  haut (`Account.tsx`).
+  haut (`Account.tsx`), la sonde qui appelle une route depuis la page et
+  montre statut, en-têtes et flux (`probe.ts`, `ProbeResult.tsx`).
 
 ## Les extraits de code des pages
 

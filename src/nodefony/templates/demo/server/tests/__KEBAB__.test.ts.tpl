@@ -73,6 +73,12 @@ import {
 import { LESSON_SOURCES } from "../frontend/src/lesson/lessonSources";
 import { CHAT_LESSON } from "../frontend/src/chat/chatTabs";
 import { PARTNER_LESSON } from "../frontend/src/partner/partnerTabs";
+import { FIRST_LESSON } from "../frontend/src/first/firstTabs";
+import {
+  formatBody,
+  pickHeaders,
+  PROBE_BODY_LIMIT,
+} from "../frontend/src/kit/probe";
 import {
   decodeClaims,
   tamperSignature,
@@ -590,6 +596,7 @@ describe("demo — le Markdown du salon, le même pour tous", () => {
 const LESSONS: readonly { page: string; lesson: ILesson }[] = [
   { page: "chat", lesson: CHAT_LESSON },
   { page: "partner", lesson: PARTNER_LESSON },
+  { page: "first-steps", lesson: FIRST_LESSON },
 ];
 
 /** Chaque extrait cité, avec sa page et sa couche. */
@@ -731,6 +738,47 @@ describe("demo — les pages d'apprentissage suivent le modèle commun", () => {
       { name: "LIMIT_N", value: "50", file: "a.ts" },
     ]);
     expect(resolveConstants("use(MISSING_ONE)", sources)).toEqual([]);
+  });
+});
+
+describe("demo — Premiers pas : la sonde et le contrôleur cité", () => {
+  it("chaque région du contrôleur est citée par la leçon : aucun geste oublié", () => {
+    const file = "nodefony/controllers/FirstStepsController.ts" as const;
+    const declared = [
+      ...LESSON_SOURCES[file].matchAll(/^\s*\/\/ #region (\S+)\s*$/gm),
+    ].map((match) => match[1]);
+    const cited = FIRST_LESSON.tabs.flatMap((tab) =>
+      tabExcerpts(tab)
+        .filter((excerpt) => excerpt.file === file)
+        .map((excerpt) => excerpt.region),
+    );
+    expect(declared.length).toBeGreaterThan(0);
+    expect([...declared].sort()).toEqual([...new Set(cited)].sort());
+  });
+
+  it("un corps JSON est remis en forme ; un JSON faux reste tel quel", () => {
+    expect(formatBody('{"a":1}', "application/json")).toBe('{\n  "a": 1\n}');
+    expect(formatBody("{pas du json", "application/json")).toBe("{pas du json");
+    expect(formatBody('{"a":1}', "text/plain")).toBe('{"a":1}');
+  });
+
+  it("un corps trop long est coupé, en disant combien manque", () => {
+    const shown = formatBody("x".repeat(PROBE_BODY_LIMIT + 7), "text/plain");
+    expect(shown.startsWith("x".repeat(PROBE_BODY_LIMIT))).toBe(true);
+    expect(shown).toContain("7 caractères de plus");
+  });
+
+  it("seuls les en-têtes qui apprennent quelque chose sont gardés, dans l'ordre", () => {
+    const headers = new Headers({
+      etag: '"abc"',
+      "content-type": "text/plain",
+      "set-cookie": "s=1",
+      date: "Sun, 08 Nov 2026 10:00:00 GMT",
+    });
+    expect(pickHeaders(headers)).toEqual([
+      ["content-type", "text/plain"],
+      ["etag", '"abc"'],
+    ]);
   });
 });
 

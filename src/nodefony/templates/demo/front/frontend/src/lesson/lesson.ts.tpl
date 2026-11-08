@@ -19,6 +19,7 @@ export type LessonFile =
   | "nodefony/config/config.ts"
   | "nodefony/config/security.ts"
   | "nodefony/controllers/ChatController.ts"
+  | "nodefony/controllers/FirstStepsController.ts"
   | "nodefony/controllers/PartnerController.ts"
   | "nodefony/controllers/PartnerTokenController.ts"
   | "nodefony/service/ChatService.ts"
@@ -27,8 +28,10 @@ export type LessonFile =
   | "frontend/src/chat/chatContract.ts"
   | "frontend/src/chat/attachments.ts"
   | "frontend/src/chat/useChat.ts"
+  | "frontend/src/first/firstSteps.ts"
   | "frontend/src/kit/markdown.ts"
   | "frontend/src/kit/preview.ts"
+  | "frontend/src/kit/probe.ts"
   | "frontend/src/partner/partnerApi.ts"
   | "frontend/src/partner/usePartnerLab.ts";
 

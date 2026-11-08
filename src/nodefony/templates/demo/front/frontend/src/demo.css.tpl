@@ -138,7 +138,9 @@ code {
 }
 .topnav a {
   text-decoration: none;
-  color: var(--muted);
+  /* La barre est translucide : sur un contenu gris, `--muted` seul tombait
+     à 4,44:1. Mêlé au texte, il tient 4,5:1 quel que soit le dessous. */
+  color: color-mix(in srgb, var(--muted) 80%, var(--fg));
   font-size: 0.9rem;
   font-weight: 500;
   padding: 7px 12px;
@@ -2443,6 +2445,84 @@ a.ritem:hover .ritem-go {
 .trial-actions .btn:not(.primary) {
   color: color-mix(in srgb, var(--blue) 50%, var(--fg));
   border-color: color-mix(in srgb, var(--blue) 45%, var(--border));
+}
+
+/* Sonde du kit (`kit/ProbeResult.tsx`) : en-têtes groupés par paire — le
+   groupe s'efface, la grille garde ses deux colonnes. */
+.trial-headers > div {
+  display: contents;
+}
+.status.pending {
+  color: var(--muted);
+  background: var(--bg-soft);
+}
+.probe-ms {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.probe-redirect {
+  margin: 0 0 8px;
+  font-size: 0.86rem;
+}
+.probe-chunks {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 12px 14px;
+  list-style: none;
+  font-size: 0.85rem;
+  background: var(--code-bg);
+  color: var(--code-fg);
+  border-radius: 10px;
+}
+.probe-chunks li {
+  display: flex;
+  gap: 12px;
+  animation: probe-in 180ms ease-out;
+}
+.probe-at {
+  min-width: 7ch;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+@keyframes probe-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .probe-chunks li {
+    animation: none;
+  }
+}
+
+/* Premiers pas : le code de l'étape, entre l'explication et l'essai. */
+.trial .excerpt {
+  margin: 0 0 12px;
+}
+.first-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 10px;
+}
+.first-form label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+.first-form input {
+  min-width: 0;
+  width: 11rem;
+  padding: 7px 10px;
+  font: inherit;
+  color: var(--fg);
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
 }
 
 /* Les constantes d'un extrait, et leur valeur lue dans les sources. */

@@ -144,8 +144,12 @@ export function LessonCode({ lesson, doc }: ILessonCodeProps) {
   );
 }
 
-/** Un extrait : son fichier, son texte coloré, et ses constantes résolues. */
-function Excerpt({ excerpt }: { excerpt: ILessonExcerpt }) {
+/**
+ * Un extrait : son fichier, son texte coloré, et ses constantes résolues.
+ * Exporté pour les pages qui montrent le code d'une étape à côté de son essai
+ * (« Premiers pas »).
+ */
+export function Excerpt({ excerpt }: { excerpt: ILessonExcerpt }) {
   const code = extractRegion(LESSON_SOURCES[excerpt.file], excerpt.region);
   const tokens = useMemo(
     () => (code === null ? null : highlight(code)),

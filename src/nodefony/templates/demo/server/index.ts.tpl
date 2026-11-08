@@ -14,6 +14,7 @@ import DemoController from "./nodefony/controllers/DemoController";
 import DemoRealtimeController from "./nodefony/controllers/DemoRealtimeController";
 import DemoPulseService from "./nodefony/service/DemoPulseService";
 import ChatController from "./nodefony/controllers/ChatController";
+import FirstStepsController from "./nodefony/controllers/FirstStepsController";
 import ChatService from "./nodefony/service/ChatService";
 import PartnerTokenService from "./nodefony/service/PartnerTokenService";
 import PartnerTokenController from "./nodefony/controllers/PartnerTokenController";
@@ -42,6 +43,7 @@ declare module "nodefony" {
   DemoController,
   DemoRealtimeController,
   ChatController,
+  FirstStepsController,
   PartnerTokenController,
 ])
 @services([
