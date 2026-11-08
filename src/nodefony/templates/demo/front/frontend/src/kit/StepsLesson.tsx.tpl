@@ -64,7 +64,8 @@ function initialStep(steps: readonly ILessonStep[]): number {
  * @param steps - les gestes, jamais vide
  * @param label - nom accessible de la carte (« Les dix gestes »)
  * @param prefix - préfixe commun des chemins, retiré de leur affichage
- * @param fields - champs à saisir avant d'appeler, pour un geste donné
+ * @param fields - champs à saisir avant d'appeler, ou visuels, pour un geste
+ *   donné ; reçoit aussi les morceaux de l'appel EN COURS de ce geste
  * @param extra - liens ajoutés sous les appels d'un geste
  * @param onResult - reçoit chaque résultat et l'`id` de son geste (garder un
  *   `etag`, dessiner ce qui est revenu)
@@ -80,7 +81,10 @@ export function StepsLesson<E extends ILessonExcerpt>({
   steps: readonly [ILessonStep<E>, ...ILessonStep<E>[]];
   label: string;
   prefix: string;
-  fields?: (step: ILessonStep<E>) => ReactNode;
+  fields?: (
+    step: ILessonStep<E>,
+    live: readonly IProbeChunk[] | null,
+  ) => ReactNode;
   extra?: (step: ILessonStep<E>) => ReactNode;
   onResult?: (result: IProbeResult, step: string) => void;
 }) {
@@ -177,7 +181,7 @@ export function StepsLesson<E extends ILessonExcerpt>({
           <p className="steps-text">
             <Inline text={step.text} />
           </p>
-          {fields?.(step)}
+          {fields?.(step, live?.step === step.id ? live.chunks : null)}
           <div className="calls">
             {step.calls.map((call) => (
               <CallButton

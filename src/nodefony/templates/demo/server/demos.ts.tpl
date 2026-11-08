@@ -147,7 +147,9 @@ export const DEMOS = [
     files: [
       "frontend/src/first/firstSteps.ts",
       "nodefony/controllers/FirstStepsController.ts",
+      "frontend/src/first/firstClient.ts",
       "frontend/src/first/FirstStepsLesson.tsx",
+      "frontend/src/first/FirstVisuals.tsx",
       "frontend/src/kit/probe.ts",
       "frontend/src/kit/ProbeResult.tsx",
     ],
@@ -169,7 +171,9 @@ export const DEMOS = [
     files: [
       "frontend/src/sse/sseDemo.ts",
       "nodefony/controllers/SseController.ts",
+      "frontend/src/sse/sseClient.ts",
       "frontend/src/sse/SseLesson.tsx",
+      "frontend/src/sse/SseVisuals.tsx",
       "frontend/src/kit/probe.ts",
       "frontend/src/kit/StepsLesson.tsx",
     ],

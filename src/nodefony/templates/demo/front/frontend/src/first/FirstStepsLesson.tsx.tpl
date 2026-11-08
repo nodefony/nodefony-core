@@ -4,25 +4,38 @@ import { docUrl, type IDemoAbout } from "../about";
 import { LEVELS } from "../Catalogue";
 import { LessonCode } from "../lesson/LessonCode";
 import type { LessonFile } from "../lesson/lesson";
-import { probeHttp, probeSocket } from "../kit/probe";
+import { probeRequest, probeSocket, type IProbeResult } from "../kit/probe";
 import {
   StepsLesson,
   type ILessonStep,
   type IStepCall,
 } from "../kit/StepsLesson";
+import {
+  checkEcho,
+  echoRequest,
+  getRequest,
+  helloPath,
+  helloRequest,
+  noteRequest,
+  openHello,
+  sourceRequest,
+} from "./firstClient";
 import { FIRST_PATH } from "./firstSteps";
-import { FIRST_LESSON, type FirstControllerRegion } from "./firstTabs";
+import {
+  FIRST_LESSON,
+  type FirstClientRegion,
+  type FirstControllerRegion,
+  type FirstExcerpt,
+} from "./firstTabs";
+import { Exchange } from "./FirstVisuals";
 
-const CONTROLLER: LessonFile = "nodefony/controllers/FirstStepsController.ts";
-
-/** Un extrait du contrôleur : seules les régions que la leçon cite. */
-interface IFirstExcerpt {
-  file: LessonFile;
-  region: FirstControllerRegion;
-}
+const CONTROLLER =
+  "nodefony/controllers/FirstStepsController.ts" satisfies LessonFile;
+const CLIENT = "frontend/src/first/firstClient.ts" satisfies LessonFile;
+const PROBE = "frontend/src/kit/probe.ts" satisfies LessonFile;
 
 /** Un geste de Premiers pas, et les champs qu'il demande. */
-interface IFirstStep extends ILessonStep<IFirstExcerpt> {
+interface IFirstStep extends ILessonStep<FirstExcerpt> {
   fields?: "name" | "name-age";
 }
 
@@ -33,33 +46,35 @@ interface IFormState {
   etag: string | null;
 }
 
-/** Les régions du contrôleur citées par un geste. */
-function at(...regions: FirstControllerRegion[]): IFirstExcerpt[] {
-  return regions.map((region) => ({ file: CONTROLLER, region }));
+/** Les régions citées par un geste : le contrôleur, puis le code client. */
+function at(
+  server: FirstControllerRegion[],
+  client: FirstClientRegion[],
+): FirstExcerpt[] {
+  return [
+    ...server.map((region): FirstExcerpt => ({ file: CONTROLLER, region })),
+    ...client.map((region): FirstExcerpt => ({ file: CLIENT, region })),
+  ];
 }
 
-/** L'adresse de `/hello/{name}`, le nom encodé. */
-function helloPath(name: string, lang: "fr" | "en"): string {
-  return `${FIRST_PATH}/hello/${encodeURIComponent(name.trim() || "visiteur")}?lang=${lang}`;
-}
-
-/** Un `POST` JSON. */
-function postJson(body: unknown): RequestInit {
-  return {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  };
-}
-
-/** Un `GET` du préfixe, en une ligne. */
-function get(label: string, path: string, init?: RequestInit): IStepCall {
+/** Un `GET` du préfixe, préparé par le code client (`getRequest`). */
+function get(label: string, path: string): IStepCall {
   return {
     label,
     verb: "GET",
     path: `${FIRST_PATH}${path}`,
-    run: (live) => probeHttp(`${FIRST_PATH}${path}`, init, live),
+    run: (live) => probeRequest(getRequest(path), live),
   };
+}
+
+/** Le corps que le geste « Recevoir » envoie avec l'âge en lettres. */
+function wordAgeBody(form: IFormState): { name: string; age: string } {
+  return { name: form.name, age: "vingt" };
+}
+
+/** Le corps qu'envoie le geste « Recevoir ». */
+function echoBody(form: IFormState): { name: string; age: number } {
+  return { name: form.name, age: Number(form.age) };
 }
 
 /** Les dix gestes ; les appels lisent les champs saisis. */
@@ -70,8 +85,8 @@ function buildSteps(form: IFormState): readonly [IFirstStep, ...IFirstStep[]] {
       short: "Dire bonjour",
       gesture: "return { … }",
       title: "Retourner une valeur",
-      text: "La règle d'or : l'action RETOURNE une valeur, le framework la rend. Un objet devient du JSON, sans `send()`. Le prénom vient de l'adresse (`{name}`), la langue de `?lang=`.",
-      excerpts: at("first-hello"),
+      text: "La règle d'or : l'action RETOURNE une valeur, le framework la rend. Un objet devient du JSON, sans `send()`. Le prénom vient de l'adresse (`{name}`), la langue de `?lang=`.",
+      excerpts: at(["first-hello"], ["client-hello"]),
       expect: "200, JSON",
       fields: "name",
       calls: [
@@ -79,13 +94,13 @@ function buildSteps(form: IFormState): readonly [IFirstStep, ...IFirstStep[]] {
           label: "En français",
           verb: "GET",
           path: helloPath(form.name, "fr"),
-          run: () => probeHttp(helloPath(form.name, "fr")),
+          run: () => probeRequest(helloRequest(form.name, "fr")),
         },
         {
           label: "In English",
           verb: "GET",
           path: helloPath(form.name, "en"),
-          run: () => probeHttp(helloPath(form.name, "en")),
+          run: () => probeRequest(helloRequest(form.name, "en")),
         },
       ],
     },
@@ -94,8 +109,8 @@ function buildSteps(form: IFormState): readonly [IFirstStep, ...IFirstStep[]] {
       short: "HTML ou texte",
       gesture: "render()",
       title: "Rendre du HTML ou du texte",
-      text: "Pour choisir soi-même le type, le statut ou les en-têtes : `render()`. `setContextHtml()` annonce du HTML ; un `Content-Type` en en-tête annonce autre chose.",
-      excerpts: at("first-render"),
+      text: "Pour choisir soi-même le type, le statut ou les en-têtes : `render()`. `setContextHtml()` annonce du HTML ; un `Content-Type` en en-tête annonce autre chose.",
+      excerpts: at(["first-render"], ["client-get"]),
       expect: "text/html, puis text/plain",
       calls: [get("La page HTML", "/page"), get("Le texte brut", "/text")],
     },
@@ -104,8 +119,8 @@ function buildSteps(form: IFormState): readonly [IFirstStep, ...IFirstStep[]] {
       short: "Recevoir",
       gesture: "schema: { body }",
       title: "Recevoir des données, validées",
-      text: "Le corps d'un `POST` est vérifié par un schéma AVANT l'action : elle ne reçoit que des données conformes, déjà typées. Un âge en lettres est refusé sans y entrer.",
-      excerpts: at("first-echo"),
+      text: "Le corps d'un `POST` est vérifié par un schéma AVANT l'action : elle ne reçoit que des données conformes, déjà typées. Un âge en lettres est refusé sans y entrer.",
+      excerpts: at(["first-echo"], ["client-echo"]),
       expect: "200, puis 422",
       fields: "name-age",
       calls: [
@@ -113,21 +128,13 @@ function buildSteps(form: IFormState): readonly [IFirstStep, ...IFirstStep[]] {
           label: "Envoyer",
           verb: "POST",
           path: `${FIRST_PATH}/echo`,
-          run: () =>
-            probeHttp(
-              `${FIRST_PATH}/echo`,
-              postJson({ name: form.name, age: Number(form.age) }),
-            ),
+          run: () => probeRequest(echoRequest(echoBody(form))),
         },
         {
           label: "Envoyer l'âge en lettres",
           verb: "POST",
           path: `${FIRST_PATH}/echo`,
-          run: () =>
-            probeHttp(
-              `${FIRST_PATH}/echo`,
-              postJson({ name: form.name, age: "vingt" }),
-            ),
+          run: () => probeRequest(echoRequest(wordAgeBody(form))),
         },
       ],
     },
@@ -136,8 +143,8 @@ function buildSteps(form: IFormState): readonly [IFirstStep, ...IFirstStep[]] {
       short: "Erreurs",
       gesture: "throw new HttpError",
       title: "Statuts et erreurs",
-      text: "Une erreur levée devient une réponse propre, avec son statut : `throw new HttpError(message, 404)`. En production, aucune pile de code ne part.",
-      excerpts: at("first-errors"),
+      text: "Une erreur levée devient une réponse propre, avec son statut : `throw new HttpError(message, 404)`. En production, aucune pile de code ne part.",
+      excerpts: at(["first-errors"], ["client-get"]),
       expect: "200, puis 404",
       calls: [get("Le livre 1", "/books/1"), get("Le livre 42", "/books/42")],
     },
@@ -146,8 +153,8 @@ function buildSteps(form: IFormState): readonly [IFirstStep, ...IFirstStep[]] {
       short: "Rediriger",
       gesture: "redirect()",
       title: "Rediriger, et le message flash",
-      text: "`redirect(url)` renvoie ailleurs (302). Après un envoi, on redirige en 303 : recharger n'envoie pas deux fois. Le message flash vit en session et ne se lit qu'UNE fois : relisez la note.",
-      excerpts: at("first-redirect", "first-flash"),
+      text: "`redirect(url)` renvoie ailleurs (302). Après un envoi, on redirige en 303 : recharger n'envoie pas deux fois. Le message flash vit en session et ne se lit qu'UNE fois : relisez la note.",
+      excerpts: at(["first-redirect", "first-flash"], ["client-note"]),
       expect: "redirection suivie, flash lu une fois",
       calls: [
         get("Ancienne adresse", "/old-hello"),
@@ -155,7 +162,7 @@ function buildSteps(form: IFormState): readonly [IFirstStep, ...IFirstStep[]] {
           label: "Envoyer une note",
           verb: "POST",
           path: `${FIRST_PATH}/note`,
-          run: () => probeHttp(`${FIRST_PATH}/note`, { method: "POST" }),
+          run: () => probeRequest(noteRequest()),
         },
         get("Relire la note", "/note"),
       ],
@@ -165,8 +172,8 @@ function buildSteps(form: IFormState): readonly [IFirstStep, ...IFirstStep[]] {
       short: "Response Web",
       gesture: "Response.json()",
       title: "Renvoyer une Response Web",
-      text: "L'objet `Response` de la Fetch API, celui que rend `fetch()` : l'action le renvoie tel quel, statut et en-têtes compris. Pratique pour relayer une API, ou une bibliothèque qui en produit une.",
-      excerpts: at("first-web-response"),
+      text: "L'objet `Response` de la Fetch API, celui que rend `fetch()` : l'action le renvoie tel quel, statut et en-têtes compris. Pratique pour relayer une API, ou une bibliothèque qui en produit une.",
+      excerpts: at(["first-web-response"], ["client-get"]),
       expect: "200, en-tête x-demo",
       calls: [get("Appeler", "/web")],
     },
@@ -176,7 +183,10 @@ function buildSteps(form: IFormState): readonly [IFirstStep, ...IFirstStep[]] {
       gesture: "renderStream()",
       title: "Envoyer un flux",
       text: "`renderStream()` envoie chaque morceau dès qu'il est prêt. Regardez-les arriver un par un, avec leur instant d'arrivée.",
-      excerpts: at("first-stream"),
+      excerpts: [
+        ...at(["first-stream"], ["client-get"]),
+        { file: PROBE, region: "probe-http" },
+      ],
       expect: "6 morceaux, 400 ms d'écart",
       calls: [get("Lancer le compte à rebours", "/countdown")],
     },
@@ -185,26 +195,32 @@ function buildSteps(form: IFormState): readonly [IFirstStep, ...IFirstStep[]] {
       short: "Fichier",
       gesture: "streamFile()",
       title: "Servir un fichier, et le cache offert",
-      text: "`streamFile()` lit le fichier du disque en flux — ici, ce contrôleur. Il pose seul un `etag` : redemandé avec, le fichier ne repart pas (304). `renderFileDownload()` le sert en pièce à enregistrer.",
-      excerpts: at("first-file"),
+      text: "`streamFile()` lit le fichier du disque en flux — ici, ce contrôleur. Il pose seul un `etag` : redemandé avec, le fichier ne repart pas (304). `renderFileDownload()` le sert en pièce à enregistrer.",
+      excerpts: at(["first-file"], ["client-file"]),
       expect: "200, puis 304",
       calls: [
-        get("Lire le fichier", "/source"),
         {
-          ...get("Redemander avec son etag", "/source", {
-            headers: { "if-none-match": form.etag ?? "" },
-          }),
+          label: "Lire le fichier",
+          verb: "GET",
+          path: `${FIRST_PATH}/source`,
+          run: (live) => probeRequest(sourceRequest(null), live),
+        },
+        {
+          label: "Redemander avec son etag",
+          verb: "GET",
+          path: `${FIRST_PATH}/source`,
+          run: (live) => probeRequest(sourceRequest(form.etag), live),
           blocked: form.etag === null ? "lisez d'abord le fichier" : null,
         },
       ],
     },
     {
       id: "whoami",
-      short: "Qui appelle ?",
+      short: "Qui appelle ?",
       gesture: "this.user",
-      title: "Qui appelle ?",
-      text: "`this.user` : l'identité posée par le pare-feu, ou `null` pour un visiteur. Le serveur ne croit jamais un nom envoyé par le navigateur. Connectez-vous, puis rappelez.",
-      excerpts: at("first-whoami"),
+      title: "Qui appelle ?",
+      text: "`this.user` : l'identité posée par le pare-feu, ou `null` pour un visiteur. Le serveur ne croit jamais un nom envoyé par le navigateur. Connectez-vous, puis rappelez.",
+      excerpts: at(["first-whoami"], ["client-get"]),
       expect: "connected: false, ou votre identifiant",
       calls: [get("Qui suis-je ?", "/whoami")],
     },
@@ -213,8 +229,8 @@ function buildSteps(form: IFormState): readonly [IFirstStep, ...IFirstStep[]] {
       short: "Deux transports",
       gesture: '"WEBSOCKET"',
       title: "Une action, deux transports",
-      text: "L'action du geste 1 déclare aussi `WEBSOCKET` : la même méthode répond à une socket. La première trame est sa réponse, et chaque message envoyé la rappelle. Même code, même sécurité — seul `transport` change.",
-      excerpts: at("first-hello"),
+      text: "L'action du geste 1 déclare aussi `WEBSOCKET` : la même méthode répond à une socket. La première trame est sa réponse, et chaque message envoyé la rappelle. Même code, même sécurité — seul `transport` change.",
+      excerpts: at(["first-hello"], ["client-socket"]),
       expect: "transport: websocket",
       fields: "name",
       calls: [
@@ -222,13 +238,16 @@ function buildSteps(form: IFormState): readonly [IFirstStep, ...IFirstStep[]] {
           label: "Par WebSocket",
           verb: "WS",
           path: helloPath(form.name, "fr"),
-          run: () => probeSocket(helloPath(form.name, "fr"), "encore"),
+          run: () =>
+            probeSocket(helloPath(form.name, "fr"), "encore", () =>
+              openHello(form.name),
+            ),
         },
         {
           label: "Par HTTP, pour comparer",
           verb: "GET",
           path: helloPath(form.name, "fr"),
-          run: () => probeHttp(helloPath(form.name, "fr")),
+          run: () => probeRequest(helloRequest(form.name, "fr")),
         },
       ],
     },
@@ -241,8 +260,10 @@ function buildSteps(form: IFormState): readonly [IFirstStep, ...IFirstStep[]] {
  * `kit/StepsLesson.tsx`). Ici : les gestes, les champs qu'ils demandent,
  * et l'etag gardé pour le geste « Fichier ».
  *
- * Guide pour un agent : le contrôleur est `FirstStepsController.ts`, les
- * appels passent par la sonde du kit (`kit/probe.ts`).
+ * Guide pour un agent : le contrôleur est `FirstStepsController.ts` ; le
+ * code client qui prépare chaque appel est `firstClient.ts`, envoyé par la
+ * sonde du kit (`kit/probe.ts`) ; l'échange dessiné vit dans
+ * `FirstVisuals.tsx`.
  */
 export function FirstStepsLesson({ about }: { about: IDemoAbout | null }) {
   const version = about?.nodefony.version ?? null;
@@ -250,9 +271,29 @@ export function FirstStepsLesson({ about }: { about: IDemoAbout | null }) {
   const [age, setAge] = useState("30");
   // L'etag du dernier fichier lu : un 304 ne le renvoie pas, on le garde.
   const [etag, setEtag] = useState<string | null>(null);
-  const steps = buildSteps({ name, age, etag });
+  // Le dernier résultat de chaque geste : l'échange le dessine.
+  const [last, setLast] = useState<Partial<Record<string, IProbeResult>>>({});
+  const form = { name, age, etag };
+  const steps = buildSteps(form);
 
-  const fields = (step: IFirstStep): ReactNode =>
+  const fields = (step: IFirstStep): ReactNode => {
+    const done = last[step.id];
+    return (
+      <>
+        {inputs(step)}
+        {step.id === "echo" && (
+          <EchoCheck
+            bodies={[
+              ["Envoyer", echoBody(form)],
+              ["Envoyer l'âge en lettres", wordAgeBody(form)],
+            ]}
+          />
+        )}
+        {done !== undefined && <Exchange result={done} />}
+      </>
+    );
+  };
+  const inputs = (step: IFirstStep): ReactNode =>
     step.fields === undefined ? null : (
       <div className="steps-fields">
         <label>
@@ -326,9 +367,10 @@ export function FirstStepsLesson({ about }: { about: IDemoAbout | null }) {
         prefix={FIRST_PATH}
         fields={fields}
         extra={extra}
-        onResult={(result) => {
+        onResult={(result, step) => {
           const found = result.headers.find(([header]) => header === "etag");
           if (found !== undefined) setEtag(found[1]);
+          setLast((done) => ({ ...done, [step]: result }));
         }}
       />
 
@@ -390,5 +432,42 @@ export function FirstStepsLesson({ about }: { about: IDemoAbout | null }) {
         </aside>
       </section>
     </main>
+  );
+}
+
+/**
+ * Ce que la page sait AVANT d'envoyer : le même schéma que le serveur
+ * (`checkEcho`, code client), appliqué à chacun des deux corps du geste.
+ *
+ * @param bodies - le libellé de chaque bouton, et le corps qu'il envoie
+ */
+function EchoCheck({
+  bodies,
+}: {
+  bodies: readonly (readonly [string, unknown])[];
+}) {
+  return (
+    <div className="echo-check">
+      <p>
+        La page vérifie AVANT d'envoyer, avec le schéma partagé{" "}
+        <code>EchoBody</code> :
+      </p>
+      <ul>
+        {bodies.map(([label, body]) => {
+          const issues = checkEcho(body);
+          return (
+            <li
+              key={label}
+              className={issues.length === 0 ? "is-ok" : "is-bad"}
+            >
+              <strong>{label}</strong> :{" "}
+              {issues.length === 0
+                ? "conforme — le serveur l'acceptera."
+                : `refusé (${issues.join(", ")}) — le serveur refusera aussi.`}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }

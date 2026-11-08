@@ -2623,6 +2623,275 @@ a.ritem:hover .ritem-go {
   color: var(--muted);
   font-weight: 500;
 }
+/* L'aller-retour d'un geste de « Premiers pas » : la page envoie, le
+   serveur répond ; la couleur suit le sens du statut. */
+.exchange {
+  --tone: var(--green);
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--tone);
+  border-radius: 12px;
+}
+.exchange.tone-redirect {
+  --tone: var(--blue);
+}
+.exchange.tone-cache {
+  --tone: var(--cyan);
+}
+.exchange.tone-refused {
+  --tone: var(--amber);
+}
+.exchange.tone-error {
+  --tone: var(--muted);
+}
+.exchange-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+}
+.exchange-end {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.exchange-arrow {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  padding: 0 10px 6px;
+  border-bottom: 2px solid var(--tone);
+  font-size: 0.8rem;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.exchange-arrow.is-out {
+  border-color: var(--muted);
+}
+.exchange-arrow::after {
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  border: 5px solid transparent;
+}
+.exchange-arrow.is-out::after {
+  right: -4px;
+  border-left: 7px solid var(--muted);
+}
+.exchange-arrow.is-back::after {
+  left: -4px;
+  border-right: 7px solid var(--tone);
+}
+.exchange-arrow small {
+  color: var(--muted);
+}
+.exchange-chunks {
+  position: relative;
+  height: 12px;
+  margin: 8px 6px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.exchange-chunks > span {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  width: 4px;
+  margin-left: -2px;
+  background: var(--tone);
+  border-radius: 2px;
+}
+.exchange figcaption {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.echo-check {
+  margin: 0 0 14px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.86rem;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+}
+.echo-check p {
+  margin: 0 0 4px;
+}
+.echo-check ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.echo-check .is-ok::marker {
+  content: "✓ ";
+  color: var(--green);
+}
+.echo-check .is-bad::marker {
+  content: "✗ ";
+  color: var(--amber);
+}
+
+/* La frise d'un flux SSE : une bande par connexion ouverte, un repère par
+   événement (bleu), battement (gris), coupure (ambre) ou fermeture. */
+.sse-timeline {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.sse-timeline figcaption {
+  margin: 0 0 4px;
+  font-size: 0.86rem;
+}
+.sse-track {
+  position: relative;
+  height: 14px;
+  margin: 26px 6px 24px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+.sse-link {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  background: color-mix(in srgb, var(--green) 55%, transparent);
+  border-radius: 5px;
+}
+.sse-mark {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  border: 2px solid var(--card);
+}
+.sse-event {
+  background: var(--blue);
+}
+.sse-comment {
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border: 0;
+  background: var(--muted);
+}
+.sse-cut {
+  background: var(--amber);
+  border-radius: 2px;
+}
+.sse-close {
+  background: var(--fg);
+  border-radius: 2px;
+}
+.sse-mark-label {
+  position: absolute;
+  bottom: 13px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.7rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.sse-mark-label.is-low {
+  top: 13px;
+  bottom: auto;
+}
+.sse-mark-label.is-start {
+  left: 0;
+  transform: none;
+}
+.sse-mark-label.is-end {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+.sse-chip-link {
+  background: color-mix(in srgb, var(--green) 55%, transparent);
+}
+.sse-chip-event {
+  background: var(--blue);
+  border-radius: 50%;
+}
+.sse-chip-comment {
+  width: 6px;
+  height: 6px;
+  background: var(--muted);
+  border-radius: 50%;
+}
+.sse-chip-cut {
+  background: var(--amber);
+}
+.sse-chip-close {
+  background: var(--fg);
+}
+.sse-heard {
+  margin: 0 0 14px;
+  font-size: 0.86rem;
+  color: var(--muted);
+}
+/* Ce que le code client fait des données : une barre, une réponse. */
+.sse-build,
+.sse-answer {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.sse-build figcaption,
+.sse-answer figcaption {
+  margin: 0 0 8px;
+  font-size: 0.86rem;
+}
+.sse-build-bar {
+  height: 14px;
+  margin: 0 0 6px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  overflow: hidden;
+}
+.sse-build-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--green);
+  transition: width 0.3s ease;
+}
+.sse-answer p {
+  margin: 0;
+  line-height: 1.5;
+}
+.sse-caret {
+  display: inline-block;
+  width: 8px;
+  height: 1em;
+  margin-left: 3px;
+  vertical-align: -2px;
+  background: var(--blue);
+  animation: sse-blink 1s steps(1) infinite;
+}
+@keyframes sse-blink {
+  50% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sse-build-bar > span {
+    transition: none;
+  }
+  .sse-caret {
+    animation: none;
+  }
+}
 /* Les en-têtes ENVOYÉS, au-dessus de la réponse : une flèche et un filet
    les distinguent de ceux reçus. */
 .probe-sent {

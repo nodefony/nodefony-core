@@ -74,8 +74,11 @@ import { LESSON_SOURCES } from "../frontend/src/lesson/lessonSources";
 import { CHAT_LESSON } from "../frontend/src/chat/chatTabs";
 import { PARTNER_LESSON } from "../frontend/src/partner/partnerTabs";
 import { FIRST_LESSON } from "../frontend/src/first/firstTabs";
+import { describeExchange } from "../frontend/src/first/exchange";
+import { checkEcho } from "../frontend/src/first/firstClient";
 import { SSE_LESSON } from "../frontend/src/sse/sseTabs";
 import { answerWords, SSE_PATH } from "../frontend/src/sse/sseDemo";
+import { readTimeline } from "../frontend/src/sse/sseTimeline";
 import { VIDEO_LESSON } from "../frontend/src/video/videoTabs";
 import { describeReceived, readBox } from "../frontend/src/video/fileMap";
 import {
@@ -90,6 +93,7 @@ import {
   pickHeaders,
   pickSent,
   PROBE_BODY_LIMIT,
+  type IProbeResult,
 } from "../frontend/src/kit/probe";
 import {
   decodeClaims,
@@ -840,6 +844,118 @@ describe("demo — les leçons à gestes : la sonde et le contrôleur cité", ()
       ["if-range", '"e"'],
     ]);
     expect(pickSent({})).toEqual([]);
+  });
+
+  /** Un résultat de sonde minimal, à compléter. */
+  const probed = (over: Partial<IProbeResult>): IProbeResult => ({
+    request: "GET /demo/api/first/web",
+    sent: [],
+    status: 200,
+    ms: 12,
+    headers: [["content-type", "application/json; charset=utf-8"]],
+    body: "{}",
+    chunks: [],
+    redirected: false,
+    finalUrl: null,
+    error: null,
+    ...over,
+  });
+
+  it("l'échange dit le sens du statut : suivi, gardé, refusé AVANT l'action, absent", () => {
+    expect(describeExchange(probed({})).phrase).toMatch(/^200 — du JSON reçu/u);
+    const followed = describeExchange(
+      probed({ redirected: true, finalUrl: "/demo/api/first/note" }),
+    );
+    expect([followed.tone, followed.phrase]).toEqual([
+      "redirect",
+      "Redirigé\u00a0: le navigateur a suivi jusqu'à /demo/api/first/note, qui a répondu 200.",
+    ]);
+    expect(describeExchange(probed({ status: 304, body: "" })).tone).toBe(
+      "cache",
+    );
+    expect(describeExchange(probed({ status: 422 })).phrase).toContain(
+      "AVANT l'action",
+    );
+    expect(describeExchange(probed({ status: 404 })).tone).toBe("refused");
+    expect(
+      describeExchange(probed({ status: null, error: "réseau coupé" })),
+    ).toMatchObject({ tone: "error", status: "—" });
+    const stream = describeExchange(
+      probed({
+        headers: [["content-type", "text/plain"]],
+        body: "5 4 3",
+        ms: 2000,
+        chunks: [
+          { at: 1, text: "5" },
+          { at: 400, text: "4" },
+        ],
+      }),
+    );
+    expect(stream.phrase).toBe(
+      "200 — du texte reçu, en 2 morceaux sur 2000 ms.",
+    );
+  });
+
+  it("la page vérifie le corps AVANT d'envoyer, avec le schéma du serveur", () => {
+    expect(checkEcho({ name: "Alice", age: 30 })).toEqual([]);
+    expect(checkEcho({ name: "Alice", age: "vingt" })).toEqual(["age"]);
+    expect(checkEcho({ name: "", age: 30, extra: 1 })).toEqual([
+      "name",
+      "corps",
+    ]);
+  });
+
+  it("la frise : une bande par connexion, la coupure et la reprise à leur instant", () => {
+    const timeline = readTimeline(
+      [
+        { at: 10, text: "▶ ouvert" },
+        { at: 20, text: "message #1 · événement 1 sur 6" },
+        { at: 30, text: "message #2 · événement 2 sur 6" },
+        { at: 40, text: "↻ coupé : le client se reconnecte" },
+        { at: 850, text: "▶ rouvert — Last-Event-ID: 2" },
+        { at: 860, text: 'progress · {"step":"lecture","percent":25}' },
+        { at: 900, text: "■ la page a fermé le flux" },
+      ],
+      920,
+    );
+    expect(timeline.span).toBe(920);
+    expect(timeline.links).toEqual([
+      { start: 10, end: 40 },
+      { start: 850, end: 900 },
+    ]);
+    expect(
+      timeline.marks.map((mark) => [mark.at, mark.kind, mark.label]),
+    ).toEqual([
+      [20, "event", "message #1"],
+      [30, "event", "message #2"],
+      [40, "cut", "coupé"],
+      [860, "event", "progress"],
+      [900, "close", "fermé"],
+    ]);
+  });
+
+  it("la frise lit aussi le fil BRUT : battements à part, la réponse est la connexion", () => {
+    const timeline = readTimeline(
+      [
+        { at: 5, text: ": heartbeat\n\n" },
+        { at: 1005, text: ": heartbeat\n\n" },
+        { at: 3500, text: "id: 4\nevent: status\ndata: {}\n\ndata: enfin\n\n" },
+      ],
+      3510,
+    );
+    expect(timeline.links).toEqual([{ start: 0, end: 3510 }]);
+    expect(timeline.marks.map((mark) => [mark.kind, mark.label])).toEqual([
+      ["comment", "battement"],
+      ["comment", "battement"],
+      ["event", "status #4"],
+      ["event", "message"],
+    ]);
+    // Un corps JSON n'est pas un flux : rien à dessiner.
+    expect(readTimeline([{ at: 3, text: '{ "state": "prêt" }' }], 4)).toEqual({
+      span: 4,
+      links: [],
+      marks: [],
+    });
   });
 
   it("la réponse en flux reprend la question, un mot par événement", () => {

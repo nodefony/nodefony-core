@@ -1,4 +1,4 @@
-import { NodefonySse, type NodefonySseOptions } from "nodefony/client";
+import { NodefonySse } from "nodefony/client";
 
 /**
  * Appeler une route depuis la page et montrer ce qui revient VRAIMENT :
@@ -139,27 +139,47 @@ export function pickHeaders(
   });
 }
 
-// #region probe-http
 /**
- * Appelle `url` et lit le corps EN FLUX : `onChunk` reçoit chaque morceau à
- * son arrivée, pour l'afficher sans attendre la fin.
+ * Appelle `url` et lit le corps EN FLUX (`probeRequest`). `cache: "no-store"` :
+ * la page veut voir le réseau, pas le cache du navigateur.
  *
  * @param url - chemin de la route (même origine que la page)
  * @param init - méthode, en-têtes, corps
  * @param onChunk - appelé à chaque morceau du corps
  * @returns ce que le navigateur a reçu ; ne rejette jamais
  */
-export async function probeHttp(
+export function probeHttp(
   url: string,
   init: RequestInit = {},
   onChunk?: (chunks: readonly IProbeChunk[]) => void,
 ): Promise<IProbeResult> {
-  const request = `${init.method ?? "GET"} ${url}`;
-  const sent = pickSent(init);
+  return probeRequest(
+    new Request(url, { cache: "no-store", ...init }),
+    onChunk,
+  );
+}
+
+// #region probe-http
+/**
+ * Envoie `request` — préparée par le code client de la page — et lit le
+ * corps EN FLUX : `onChunk` reçoit chaque morceau à son arrivée, pour
+ * l'afficher sans attendre la fin.
+ *
+ * @param request - méthode, adresse (même origine que la page), en-têtes, corps
+ * @param onChunk - appelé à chaque morceau du corps
+ * @returns ce que le navigateur a reçu ; ne rejette jamais
+ */
+export async function probeRequest(
+  request: Request,
+  onChunk?: (chunks: readonly IProbeChunk[]) => void,
+): Promise<IProbeResult> {
+  const address = new URL(request.url);
+  const label = `${request.method} ${address.pathname}${address.search}`;
+  const sent = pickSent({ headers: request.headers });
   const start = performance.now();
   const since = () => Math.round(performance.now() - start);
   try {
-    const response = await fetch(url, { cache: "no-store", ...init });
+    const response = await fetch(request);
     const contentType = response.headers.get("content-type");
     // Un corps binaire décodé en texte n'apprend rien : on en garde les
     // premiers octets, et on compte le reste.
@@ -187,7 +207,7 @@ export async function probeHttp(
     }
     const text = chunks.map((chunk) => chunk.text).join("") + decoder.decode();
     return {
-      request,
+      request: label,
       sent,
       status: response.status,
       ms: since(),
@@ -206,34 +226,34 @@ export async function probeHttp(
       error: null,
     };
   } catch (error) {
-    return failed(request, since(), error, sent);
+    return failed(label, since(), error, sent);
   }
 }
 // #endregion
 
 // #region probe-socket
 /**
- * Ouvre une WebSocket vers `path`, garde la PREMIÈRE trame reçue, envoie
- * `message`, garde la réponse, puis referme.
+ * Écoute la WebSocket que `open` ouvre (le code client de la page), garde
+ * la PREMIÈRE trame reçue, envoie `message`, garde la réponse, puis referme.
  *
- * @param path - chemin de la route (même origine que la page)
+ * @param path - chemin de la route, pour l'affichage
  * @param message - envoyé une fois la première trame reçue
+ * @param open - le code client : ouvre la socket
  * @returns les trames reçues, en `chunks` ; ne rejette jamais
  */
 export function probeSocket(
   path: string,
   message: string,
+  open: () => WebSocket,
 ): Promise<IProbeResult> {
   const request = `WEBSOCKET ${path}`;
   const start = performance.now();
   const since = () => Math.round(performance.now() - start);
   return new Promise((resolve) => {
     const chunks: IProbeChunk[] = [];
-    const url = new URL(path, window.location.href);
-    url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
     let socket: WebSocket;
     try {
-      socket = new WebSocket(url);
+      socket = open();
     } catch (error) {
       resolve(failed(request, since(), error));
       return;
@@ -272,45 +292,32 @@ export function probeSocket(
 // #endregion
 
 // #region probe-sse
-/** Comment lire un flux SSE, et quand s'arrêter. */
+/** Ce que la sonde écoute sur un flux que le code de la page a ouvert. */
 export interface IProbeSseOptions {
-  /** Types d'événements écoutés, en plus de `message`. */
+  /**
+   * Le code CLIENT du geste (`sse/sseClient.ts`) : il ouvre le flux, pose
+   * ses écouteurs, le ferme et appelle `end` quand il a fini — la sonde ne
+   * fait qu'écouter et noter.
+   */
+  open: (end: () => void) => EventSource | NodefonySse;
+  /** Types d'événements notés, en plus de `message`. */
   events?: readonly string[];
-  /** Le type qui annonce la fin : la page ferme en le recevant. */
-  doneEvent?: string;
-  /** La page ferme après ce nombre d'événements. */
-  maxEvents?: number;
-  /**
-   * Les événements de ce type se mettent bout à bout sur UNE ligne, qui
-   * grandit : une réponse écrite mot à mot se lit comme une phrase.
-   */
-  growEvent?: string;
-  /**
-   * Pour `EventSource`, une fin de flux est une coupure : il se reconnecte.
-   * Vrai : la page ferme à la première coupure.
-   */
-  closeOnError?: boolean;
-  /** `POST`, en-têtes, reprise : `NodefonySse`, qui sait ce que le natif refuse. */
-  init?: NodefonySseOptions;
 }
 
 /**
- * Lit le flux SSE de `url` avec `EventSource` — ou `NodefonySse` quand
- * `init` est donné — et note chaque événement, chaque ouverture et chaque
- * coupure, horodatés.
+ * Note chaque ouverture, chaque événement et chaque coupure du flux que
+ * `options.open` a ouvert, horodatés.
  *
- * @param url - chemin de la route (même origine que la page)
- * @param options - événements écoutés, condition d'arrêt
+ * @param url - chemin de la route, pour l'affichage
+ * @param options - le code client qui ouvre, les événements notés
  * @param onChunk - appelé à chaque événement
  * @returns les événements reçus, en `chunks` ; ne rejette jamais
  */
 export function probeSse(
   url: string,
-  options: IProbeSseOptions = {},
+  options: IProbeSseOptions,
   onChunk?: (chunks: readonly IProbeChunk[]) => void,
 ): Promise<IProbeResult> {
-  const client = options.init === undefined ? "EventSource" : "NodefonySse";
-  const request = `${client} ${options.init?.method ?? "GET"} ${url}`;
   const start = performance.now();
   const since = () => Math.round(performance.now() - start);
   return new Promise((resolve) => {
@@ -319,23 +326,18 @@ export function probeSse(
       chunks.push({ at: since(), text });
       onChunk?.([...chunks]);
     };
-    let source: EventSource | NodefonySse;
-    try {
-      source =
-        options.init === undefined
-          ? new EventSource(url)
-          : new NodefonySse(url, options.init);
-    } catch (error) {
-      resolve(failed(request, since(), error));
-      return;
-    }
     // Un flux ne s'ouvre qu'en 200 `text/event-stream` : ouvert, c'est un 200.
     let opened = false;
-    let received = 0;
+    let closed = false;
+    // La page a fini : sa propre fermeture n'est pas un refus du serveur.
+    let ending = false;
     let lastId = "";
+    let request = `SSE ${url}`;
     const finish = (error: string | null) => {
+      if (closed) return;
+      closed = true;
       clearTimeout(guard);
-      source.close();
+      source?.close();
       resolve({
         request,
         sent: [],
@@ -350,45 +352,44 @@ export function probeSse(
       });
     };
     const guard = setTimeout(() => finish("flux non terminé en 15 s"), 15_000);
-    source.addEventListener("open", () => {
+    let source: EventSource | NodefonySse | null = null;
+    try {
+      // Différé : les autres écouteurs du MÊME événement (la sonde note
+      // `done`) passent avant que la page ne conclue.
+      source = options.open(() => {
+        ending = true;
+        setTimeout(() => {
+          if (closed) return;
+          note("■ la page a fermé le flux");
+          finish(null);
+        }, 0);
+      });
+    } catch (error) {
+      chunks.push({ at: since(), text: String(error) });
+      finish(error instanceof Error ? error.message : String(error));
+      return;
+    }
+    const client =
+      source instanceof NodefonySse ? "NodefonySse" : "EventSource";
+    request = `${client} ${url}`;
+    const stream = source;
+    stream.addEventListener("open", () => {
       note(lastId === "" ? "▶ ouvert" : `▶ rouvert — Last-Event-ID: ${lastId}`);
       opened = true;
     });
     const onEvent = (event: Event) => {
-      if (!(event instanceof MessageEvent)) return;
-      received += 1;
+      if (closed || !(event instanceof MessageEvent)) return;
       if (event.lastEventId !== "") lastId = event.lastEventId;
       const id = event.lastEventId === "" ? "" : ` #${event.lastEventId}`;
-      const last = chunks.at(-1);
-      const head = `${event.type}${id} · `;
-      if (
-        event.type === options.growEvent &&
-        last?.text.startsWith(head) === true
-      ) {
-        chunks[chunks.length - 1] = {
-          at: since(),
-          text: `${last.text} ${String(event.data)}`,
-        };
-        onChunk?.([...chunks]);
-      } else {
-        note(`${head}${String(event.data)}`);
-      }
-      if (event.type === options.doneEvent || received === options.maxEvents) {
-        note("■ la page ferme le flux");
-        finish(null);
-      }
+      note(`${event.type}${id} · ${String(event.data)}`);
     };
     for (const type of ["message", ...(options.events ?? [])]) {
-      source.addEventListener(type, onEvent);
+      stream.addEventListener(type, onEvent);
     }
-    source.addEventListener("error", () => {
-      if (source.readyState === EventSource.CLOSED) {
+    stream.addEventListener("error", () => {
+      if (closed || ending) return;
+      if (stream.readyState === EventSource.CLOSED) {
         note("■ réponse sans flux : le client ne se reconnecte plus");
-        finish(null);
-      } else if (options.closeOnError === true) {
-        note(
-          "■ fin du flux — la page ferme, sinon le client se reconnecterait",
-        );
         finish(null);
       } else {
         note("↻ coupé : le client se reconnecte");

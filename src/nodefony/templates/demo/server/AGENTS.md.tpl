@@ -53,6 +53,14 @@ un renvoi mort le fait échouer.
   montre statut, en-têtes, flux, trames et événements SSE (`probe.ts`,
   `ProbeResult.tsx`), la mise en page des leçons à gestes — carte en haut, un
   geste à l'écran (`StepsLesson.tsx`).
+- Leçons à gestes — chaque geste cite le contrôleur ET le code CLIENT qui
+  tourne (`first/firstClient.ts`, `sse/sseClient.ts`, régions
+  `// #region client-*`) : la page prépare la requête ou ouvre le flux, la
+  sonde ne fait qu'envoyer et écouter. Un visuel dit ce que la réponse veut
+  dire (`first/FirstVisuals.tsx` : l'aller-retour ; `sse/SseVisuals.tsx` :
+  la frise du flux ; `video/VideoVisuals.tsx` : la carte du fichier) ; leur
+  lecture vit dans un module pur, testé (`exchange.ts`, `sseTimeline.ts`,
+  `fileMap.ts`).
 
 ## Les extraits de code des pages
 
