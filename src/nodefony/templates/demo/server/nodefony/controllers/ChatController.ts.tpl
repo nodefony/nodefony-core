@@ -42,12 +42,15 @@ import type DemoPulseService from "../service/DemoPulseService";
  * Les blocs `// #region <nom>` sont CITÉS par la page d'apprentissage
  * (`frontend/src/chat/lessonSteps.ts`) : les renommer casse son test.
  */
-// #region chat-broadcast
+// #region chat-class
 // Plusieurs pods : chaque publication sur un canal `chat:` traverse le bus.
 @RealtimeBroadcast("chat:")
+// Préfixe de toutes les routes de la classe.
 @controller("/demo/chat")
-// #endregion
+// Le contrat typé : les canaux et les routes que le navigateur compile aussi.
 class ChatController extends ContractRealtimeController<ChatContract> {
+  // #endregion
+  // #region chat-routes
   /**
    * Les VALEURS des routes du contrat — le schéma même que chaque route valide.
    * Vérifiées au démarrage : une route du contrat sans action ne démarre pas.
@@ -56,7 +59,14 @@ class ChatController extends ContractRealtimeController<ChatContract> {
     "POST /demo/chat/send": { body: SendBody },
     "GET /demo/chat/history": { query: HistoryQuery },
   } satisfies ContractRouteSchemas<ChatContract>;
+  // #endregion
 
+  // #region chat-inject
+  /**
+   * Les services arrivent par leur NOM (`@Inject("ChatService")`) : le
+   * contrôleur, recréé à chaque connexion, ne garde rien ; l'historique vit
+   * dans le service, unique pour toute l'application.
+   */
   constructor(
     context: ContextType,
     @Inject("ChatService") private readonly chat: ChatService,
@@ -64,7 +74,9 @@ class ChatController extends ContractRealtimeController<ChatContract> {
   ) {
     super("chat", context);
   }
+  // #endregion
 
+  // #region chat-door
   /** Ouvre le pont : les actions ci-dessous deviennent joignables par la socket. */
   protected override realtimeApiRequest(): boolean {
     return true;
@@ -78,6 +90,7 @@ class ChatController extends ContractRealtimeController<ChatContract> {
   async realtime(message: string | Uint8Array | null): Promise<void> {
     this.handleRealtime(message);
   }
+  // #endregion
 
   // #region chat-history
   /** L'historique — `GET /demo/chat/history` ou `socket.get(…)`, ouvert à tous. */

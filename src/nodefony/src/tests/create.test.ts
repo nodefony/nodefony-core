@@ -3128,13 +3128,13 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // la liste des étapes, le texte lu par Vite, et la région dans le source.
       assert.include(
         lireMod("frontend", "src", "chat", "lessonSteps.ts"),
-        'region: "chat-broadcast"',
+        'region: "chat-class"',
       );
       assert.include(
         lireMod("frontend", "src", "chat", "lessonSources.ts"),
         "satisfies Record<LessonFile, string>",
       );
-      assert.include(chat, "// #region chat-broadcast");
+      assert.include(chat, "// #region chat-class");
       assert.include(
         lireMod("frontend", "src", "chat", "ChatLesson.tsx"),
         "<LessonCode",

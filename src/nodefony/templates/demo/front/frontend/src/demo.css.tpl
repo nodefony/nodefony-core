@@ -1743,7 +1743,7 @@ a.ritem:hover .ritem-go {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   padding: 14px 16px;
-  font-size: 0.82rem;
+  font-size: 0.9rem;
   line-height: 1.55;
   background: var(--code-bg);
   color: var(--code-fg);
@@ -1752,4 +1752,104 @@ a.ritem:hover .ritem-go {
 .step-doc {
   align-self: flex-start;
   color: color-mix(in srgb, var(--blue) 50%, var(--fg));
+}
+
+/* Coloration des extraits (highlight.ts) — le fond du code est sombre dans
+   les deux thèmes : une seule palette, chaque teinte au-delà de 7:1. */
+.tok-comment {
+  color: #9fb0c8;
+  font-style: italic;
+}
+.tok-string {
+  color: #b5e3a0;
+}
+.tok-keyword {
+  color: #d2b8ff;
+}
+.tok-decorator {
+  color: #ffd27a;
+  font-weight: 700;
+}
+.tok-type {
+  color: #8fdcff;
+}
+.tok-number {
+  color: #ffbf98;
+}
+.excerpt-note {
+  margin: 0 0 8px;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+.excerpt-note code,
+.decorators code:not(.decorator-name) {
+  font-size: 0.92em;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--bg-soft);
+}
+.excerpt + .excerpt {
+  margin-top: 18px;
+}
+
+/* Les décorateurs du contrôleur, chacun relié à l'étape qui le montre. */
+.decorators {
+  margin-top: 28px;
+}
+.decorators h3 {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+}
+.decorators > p {
+  margin: 0 0 14px;
+  color: var(--muted);
+}
+.decorators ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.decorators li {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.decorators li p {
+  flex: 1;
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+.decorator-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  /* Mêlée au texte : assombrie en clair, éclaircie en sombre. */
+  color: color-mix(in srgb, var(--violet) 60%, var(--fg));
+}
+.decorator-from {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.decorators button {
+  align-self: flex-start;
+  min-height: 32px;
+  padding: 4px 12px;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--blue) 45%, var(--border));
+  border-radius: 999px;
+  cursor: pointer;
+}
+.decorators button:hover {
+  background: color-mix(in srgb, var(--blue) 12%, transparent);
 }

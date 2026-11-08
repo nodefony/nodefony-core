@@ -18,9 +18,11 @@ import ChatService, {
   CHAT_HISTORY_LIMIT,
 } from "../nodefony/service/ChatService";
 import {
+  CHAT_DECORATORS,
   CHAT_LESSON_STEPS,
   extractRegion,
 } from "../frontend/src/chat/lessonSteps";
+import { highlight } from "../frontend/src/highlight";
 import { LESSON_SOURCES } from "../frontend/src/chat/lessonSources";
 import { DEMOS } from "../demos";
 import { PARTNER_CALL_COMMAND } from "../nodefony/command/PartnerCallCommand";
@@ -110,6 +112,57 @@ describe("demo — le code cité par la page du chat", () => {
     expect(extractRegion(source, "x")).toBe("un()\n  deux()");
     expect(extractRegion(source, "y")).toBeNull();
     expect(extractRegion("// #region x\nun()\n", "x")).toBeNull();
+  });
+});
+
+describe("demo — les décorateurs et la coloration de la page du chat", () => {
+  const controller = LESSON_SOURCES["nodefony/controllers/ChatController.ts"];
+
+  it("la liste des décorateurs est COMPLÈTE : chaque décorateur du contrôleur y figure", () => {
+    // Hors commentaires et TSDoc, qui en citent aussi.
+    const code = controller
+      .split("\n")
+      .filter((line) => !/^\s*(\*|\/\/|\/\*)/.test(line))
+      .join("\n");
+    const used = new Set(
+      [...code.matchAll(/@([A-Za-z]\w*)\(/g)].map((match) => match[1]),
+    );
+    expect([...used].sort()).toEqual(
+      CHAT_DECORATORS.map((decorator) => decorator.name).sort(),
+    );
+  });
+
+  it.each(CHAT_DECORATORS)(
+    "@$name apparaît dans la région $region, citée par l'étape $step",
+    ({ name, region, step }) => {
+      expect(extractRegion(controller, region)).toContain(`@${name}(`);
+      const cited = CHAT_LESSON_STEPS.find((entry) => entry.step === step);
+      const regions: readonly { region: string }[] = cited?.excerpts ?? [];
+      expect(regions.map((excerpt) => excerpt.region)).toContain(region);
+    },
+  );
+
+  it("la coloration est sans perte, et distingue décorateurs, mots-clés et chaînes", () => {
+    const source = '@route("x", { a: 1 }) // note\nconst it: Type = `t`;';
+    const tokens = highlight(source);
+    expect(tokens.map((token) => token.text).join("")).toBe(source);
+    const kinds = Object.fromEntries(
+      tokens.map((token) => [token.text, token.kind]),
+    );
+    expect(kinds).toMatchObject({
+      "@route": "decorator",
+      '"x"': "string",
+      "1": "number",
+      "// note": "comment",
+      const: "keyword",
+      Type: "type",
+      "`t`": "string",
+    });
+    expect(
+      highlight(controller)
+        .map((token) => token.text)
+        .join(""),
+    ).toBe(controller);
   });
 });
 
