@@ -204,6 +204,11 @@ export default defineConfig<Env>((ctx) => ({
 
     // ── Démo / tests d'intégration — hors production.
     { name: "@nodefony/test", policy: "dev" },
+    // La démo que reçoit `create app --demo` (#747), chargée par son CHEMIN :
+    // rendue à chaque build depuis `src/nodefony/templates/demo/`
+    // (`scripts/repo/render-demo.mjs`), elle n'est ni versionnée ni un
+    // workspace — un workspace gitignoré entrerait dans `package-lock.json`.
+    { name: "./src/demo", policy: "dev" },
 
     // Frontend AVANT ses consumers. Vite écoute sur la boucle locale ; le
     // navigateur ne le joint jamais directement : Nodefony le relaie sur

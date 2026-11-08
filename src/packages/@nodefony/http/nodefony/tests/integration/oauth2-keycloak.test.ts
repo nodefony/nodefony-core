@@ -23,7 +23,7 @@
  *     par session ET par jeton ; le rôle retiré dans le realm disparaît au
  *     login suivant ; un rôle donné à la main dans l'application survit ;
  *  6. appelant machine (#544) : un jeton `client_credentials` ouvre la zone
- *     `partner` (`ephemeral`) et est refusé par `test-keycloak` (`require`) ;
+ *     `demo-partner` (`ephemeral`) et est refusé par `test-keycloak` (`require`) ;
  *     un jeton signé par l'application ouvre la même zone ;
  *  7. temps réel (#525) : une socket ouverte par un jeton Keycloak se ferme
  *     (4006, jeton expiré) une fois `exp` passé, une socket ouverte par une session BFF
@@ -89,10 +89,10 @@ const OAUTH = "/nodefony/security/api/oauth2/keycloak";
 const ME = "/nodefony/security/api/auth/me";
 const LOGOUT = "/nodefony/security/api/auth/logout";
 const API = "/nodefony/test/keycloak/whoami";
-/** L'API partenaire de l'application (zone `partner`, `nodefony/config/security.ts`). */
-const PARTNER = "/api/partner/whoami";
-/** Sa ressource (RFC 8707) — `partnerResource()` de l'app, en développement. */
-const PARTNER_RESOURCE = "https://localhost:5152/api/partner";
+/** L'API partenaire de la démo (zone `demo-partner`, module `src/demo` rendu depuis `templates/demo/`). */
+const PARTNER = "/demo/api/partner/whoami";
+/** Sa ressource (RFC 8707) : le chemin de la zone rendu absolu contre `jwt.issuer`, en développement. */
+const PARTNER_RESOURCE = "https://localhost:5152/demo/api/partner";
 /** L'appelant machine du realm (compte de service, `client_credentials`). */
 const MACHINE_CLIENT_ID = "nodefony-machine";
 /** URL de redirection enregistrée sur le client du realm (jamais suivie ici). */
@@ -982,14 +982,14 @@ describe.skipIf(!ISSUER || !CLIENT_ID || !CLIENT_SECRET)(
 
     describe("appelant machine (#544) — une politique de sujet PAR ZONE", () => {
       // Le même jeton `client_credentials` frappe deux zones `external-jwt` du
-      // même émetteur. `partner` (app) l'accepte sans compte local
+      // même émetteur. `demo-partner` (démo) l'accepte sans compte local
       // (`subjectPolicy: "ephemeral"`) ; `test-keycloak` (module test) garde le
       // défaut `require` et le refuse. Le jeton porte les DEUX audiences (mappers
       // du realm) : le refus ne tient donc qu'à la politique de la zone.
-      it("jeton client_credentials → 200 sur `partner`, identité éphémère nommée par l'émetteur", async () => {
+      it("jeton client_credentials → 200 sur `demo-partner`, identité éphémère nommée par l'émetteur", async () => {
         const token = await machineToken();
         const res = await app(PARTNER, { authorization: `Bearer ${token}` });
-        expect(res.status, `zone partner (${res.text})`).toBe(200);
+        expect(res.status, `zone demo-partner (${res.text})`).toBe(200);
         const body = JSON.parse(res.text) as {
           identifier: string;
           roles: string[];
@@ -1032,7 +1032,7 @@ describe.skipIf(!ISSUER || !CLIENT_ID || !CLIENT_SECRET)(
         const token = (JSON.parse(issued.text) as { access_token: string })
           .access_token;
         const res = await app(PARTNER, { authorization: `Bearer ${token}` });
-        expect(res.status, `zone partner (${res.text})`).toBe(200);
+        expect(res.status, `zone demo-partner (${res.text})`).toBe(200);
         const body = JSON.parse(res.text) as {
           identifier: string;
           issuer: string;

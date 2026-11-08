@@ -11,6 +11,7 @@ import {
   OAuth2RequestError,
   requestClientCredentialsToken,
   TokenService,
+  type ISecurityConfig,
 } from "@nodefony/security";
 import { UserService } from "@nodefony/user";
 import { defineDemoConfig } from "../config/defineModuleConfig";
@@ -41,6 +42,26 @@ const options: OptionsCommandInterface = {
 /** Les deux émetteurs que la zone `demo-partner` accepte. */
 const ISSUERS = ["nodefony", "keycloak"] as const;
 type TIssuer = (typeof ISSUERS)[number];
+
+/**
+ * Le Keycloak où demander le jeton : l'émetteur du fournisseur OAuth
+ * `keycloak` s'il est configuré, sinon l'émetteur de confiance de la zone
+ * quand il est SEUL.
+ *
+ * Plusieurs émetteurs de confiance sans fournisseur : lequel est Keycloak ne
+ * se devine pas — prendre le premier aurait demandé un jeton à un autre
+ * serveur, avec le secret de celui-ci. `undefined`, et la commande le dit.
+ */
+function keycloakIssuer(
+  config: ISecurityConfig,
+): { issuer: string; discoveryUrl?: string | undefined } | undefined {
+  const provider = config.oauth2.providers["keycloak"];
+  if (provider?.issuer !== undefined) {
+    return { issuer: provider.issuer, discoveryUrl: provider.discoveryUrl };
+  }
+  const issuers = config.resourceServer.issuers;
+  return issuers.length === 1 ? issuers[0] : undefined;
+}
 
 /** `value` est-il l'un des émetteurs acceptés ? (la garde rend le type, sans l'affirmer) */
 function isIssuer(value: string): value is TIssuer {
@@ -254,13 +275,13 @@ class PartnerCallCommand extends Command {
 
   /** Jeton obtenu chez Keycloak par le client machine, sans utilisateur. */
   async #keycloakToken(resource: string): Promise<string> {
-    // L'émetteur de confiance que l'application déclare (`resourceServer`
-    // de sa config security, posé quand NF_KEYCLOAK_ISSUER l'est), et le
-    // secret que la config de la démo lit dans NF_KEYCLOAK_MACHINE_SECRET.
+    // Le Keycloak que l'application déclare (sa config security, posée
+    // quand NF_KEYCLOAK_ISSUER l'est), et le secret que la config de la démo
+    // lit dans NF_KEYCLOAK_MACHINE_SECRET.
     const keycloak = this.kernel?.container?.get("keycloak");
     const trusted =
       keycloak instanceof KeycloakService
-        ? keycloak.config().resourceServer.issuers[0]
+        ? keycloakIssuer(keycloak.config())
         : undefined;
     const secret = defineDemoConfig(
       this.kernel?.getModule("demo")?.options,

@@ -28,14 +28,14 @@ export const publicBaseUrl = (e: IPublicUrlEnv): string =>
   e.NF_JWT_ISSUER ?? `https://localhost:${e.NF_PORT_HTTPS ?? 5152}`;
 
 /**
- * La ressource de l'API partenaire (RFC 8707) : l'audience que doit porter un
- * jeton présenté sur `/api/partner`, qu'il vienne de cette application ou de
- * Keycloak. UNE définition, lue par la zone `partner`, `jwt.audiences`,
- * l'audience Keycloak ET la commande `app:partner:call` : une audience
- * recopiée finit par différer, et le seul symptôme est un 401.
+ * La ressource de l'API partenaire de la démo (RFC 8707), telle que le realm
+ * Keycloak doit l'inscrire dans ses jetons. La zone `demo-partner` vit dans le
+ * module de la démo (`src/demo`, rendu depuis `templates/demo/`), qui l'écrit
+ * comme un CHEMIN rendu absolu contre `jwt.issuer` ; seul le realm en a besoin
+ * ici, en absolu. Un écart se voit au test `oauth2-keycloak` (401).
  */
-export const partnerResource = (e: IPublicUrlEnv): string =>
-  `${publicBaseUrl(e)}/api/partner`;
+const demoPartnerResource = (e: IPublicUrlEnv): string =>
+  `${publicBaseUrl(e)}/demo/api/partner`;
 
 /**
  * Redirections et rôles communs à tous les fournisseurs OAuth de CETTE app.
@@ -77,36 +77,16 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
     // et l'anonyme passe toujours. Les deux pages SEULEMENT : une zone lit la
     // session à chaque requête, ce que ni `/app/debugbar.js` ni la
     // déconnexion n'ont besoin de payer.
+    // L'API entre programmes (jeton d'accès, `/demo/api/partner`) n'est pas
+    // ici : sa zone `demo-partner` arrive avec le module de la démo, par sa
+    // surcharge `module-security` (`src/demo/nodefony/config/security.ts`).
+    // ⚠️ Le realm Keycloak n'y est émetteur de confiance que par le module
+    // `test` (`resourceServer.issuers`) : sans les modules de développement,
+    // seule la voie `--issuer nodefony` de `demo:partner:call` ouvre.
     areas: {
       "app-pages": {
         pattern: "^/(app)?$",
         authenticators: ["session", "anonymous"],
-      },
-      // Programme qui présente un JETON d'accès — signé par cette application
-      // OU par Keycloak (flux `client_credentials`, client `nodefony-machine`).
-      // Essai de bout en bout : `npx nodefony app:partner:call`
-      // (nodefony/command/PartnerCallCommand.ts). Patron du gabarit `complete`.
-      //
-      // Les deux authenticators s'aiguillent sur l'émetteur du jeton (`iss`) :
-      // leur ordre ne décide de rien. Chacun contrôle l'audience à sa façon —
-      // `jwt` contre `jwt.audiences`, `external-jwt` contre `resource` —, d'où
-      // la même valeur aux deux endroits, tirée de `partnerResource`.
-      //
-      // ⚠️ Le realm Keycloak n'est émetteur de confiance que par le module
-      // `test` (`resourceServer.issuers`, cf son config.ts : `extend` fusionne
-      // les tableaux case par case, une entrée posée ici serait écrasée). Sans
-      // les modules de développement, seule la voie `--issuer nodefony` ouvre.
-      partner: {
-        pattern: "^/api/partner",
-        authenticators: ["jwt", "external-jwt"],
-        stateless: true,
-        resource: partnerResource(ctx.env),
-        // L'appelant Keycloak n'a PAS de compte ici : son `sub` est le compte
-        // de service du realm. `ephemeral` l'accepte le temps de la requête,
-        // avec les seuls rôles ci-dessous. La politique vaut pour CETTE zone :
-        // `test-keycloak` garde `require` (le défaut) et refuse ce même jeton.
-        subjectPolicy: "ephemeral",
-        ephemeralRoles: ["ROLE_PARTNER"],
       },
     },
     loginPage: {
@@ -198,11 +178,11 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
                 // TOUTES les zones external-jwt — dont `test-foreign-audience`,
                 // qui existe pour refuser un jeton délivré pour un autre service.
                 // Lue par `security:keycloak:realm`, qui en écrit les mappers.
-                // `partner` : l'API partenaire de CETTE application (zone
-                // `partner` ci-dessus), ouverte à l'appelant machine.
+                // La seconde : l'API partenaire de la démo (zone
+                // `demo-partner`), ouverte à l'appelant machine.
                 audiences: [
                   "https://localhost:5152/nodefony/test/keycloak",
-                  partnerResource(ctx.env),
+                  demoPartnerResource(ctx.env),
                 ],
                 ...oauthPerProvider,
               },
@@ -312,10 +292,8 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
             // d'APPLICATION qui exige un jeton, distincte de celle de devkit.
             "http://localhost:5151/nodefony/test/mcp-gate/secure",
             "https://localhost:5152/nodefony/test/mcp-gate/secure",
-            // L'API partenaire (zone `partner`) : sans elle,
-            // `app:partner:call --issuer nodefony` se voit refuser son jeton
-            // (`invalid_target`).
-            partnerResource(ctx.env),
+            // L'API partenaire de la démo n'a pas à figurer ici : la
+            // ressource d'une zone est émettable d'office.
           ],
     },
     // 2FA TOTP (P6) — secret 2FA chiffré au repos (AES-256-GCM). Clé prod via

@@ -942,7 +942,12 @@ absolue contre `jwt.issuer` — d'où `NF_JWT_ISSUER` posé, sous `it.demo`, dan
 compose et le travail de migration : sans lui la production refuse). Secret machine = champ du
 module (`.meta({ env: "NF_KEYCLOAK_MACHINE_SECRET" })`), rempli dans `.env`. Commande
 `demo:partner:call` : ne lit aucune variable, tout vient du pare-feu, de `keycloak` et de la config
-de la démo.
+de la démo. **Une seule fonction de rendu** : `renderDemoModule` (squelette privé + couche démo, sans
+câbler d'hôte) ; `create app --demo` passe par la même couche (`renderDemoLayer`). L'application
+RACINE du dépôt la rend dans `src/demo/` (gitignoré, `scripts/repo/render-demo.mjs`, dans
+`npm run build` : rendu + rolldown + typecheck) et la charge par son CHEMIN
+(`{ name: "./src/demo", policy: "dev" }`) — un workspace gitignoré entrerait dans le lock. Corriger
+la démo = corriger le GABARIT, jamais `src/demo/`.
 
 **Templates = LAYERS eta** (`templates/app/`, moteur eta — dep core, conditionnels
 `preset × frontend` impossibles en overlays purs) : `base/` (commun : controller

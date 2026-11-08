@@ -133,3 +133,9 @@ src/nodefony/.ai/
 # Archives de mesures brutes — produites par `bench-ab-mono.sh purge`.
 # Ce sont des PHOTOS (cf docs/performance/README.md) : elles se refabriquent,
 # et seul le jeu retenu entre dans `docs/performance/data/`.
+
+# Le module de la démo de l'application de développement (#747) : RENDU à
+# chaque build (`scripts/repo/render-demo.mjs`) depuis `src/nodefony/templates/demo/`,
+# la seule source — celle que reçoit `create app --demo`. Le corriger ici serait
+# perdu au build suivant : on corrige le gabarit.
+/src/demo/

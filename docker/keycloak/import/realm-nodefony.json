@@ -62,7 +62,7 @@
           "protocol": "openid-connect",
           "protocolMapper": "oidc-audience-mapper",
           "config": {
-            "included.custom.audience": "https://localhost:5152/api/partner",
+            "included.custom.audience": "https://localhost:5152/demo/api/partner",
             "access.token.claim": "true",
             "id.token.claim": "false",
             "introspection.token.claim": "true"
@@ -100,7 +100,7 @@
           "protocol": "openid-connect",
           "protocolMapper": "oidc-audience-mapper",
           "config": {
-            "included.custom.audience": "https://localhost:5152/api/partner",
+            "included.custom.audience": "https://localhost:5152/demo/api/partner",
             "access.token.claim": "true",
             "id.token.claim": "false",
             "introspection.token.claim": "true"
