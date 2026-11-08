@@ -41,7 +41,8 @@ un renvoi mort le fait échouer.
 
 Une page d'apprentissage ne recopie jamais de code : elle CITE des régions
 `// #region <nom>` … `// #endregion` des vrais fichiers
-(`frontend/src/chat/lessonSteps.ts`), lus par Vite au build. Renommer ou vider
+(`frontend/src/chat/chatTabs.ts`, `frontend/src/partner/partnerTabs.ts` ;
+mécanisme commun dans `frontend/src/lesson/`), lus par Vite au build. Renommer ou vider
 une région citée fait échouer le test du module — mettre à jour la liste dans
 le même geste.
 
@@ -51,8 +52,15 @@ le même geste.
    de page — la carte s'affiche grisée « Démo à venir ».
 2. Son contrôleur sous `/demo/<id>` : `npx nodefony create controller <nom>
    --module <%= it.pkgName %>` (ajouter `--kind realtime` pour une socket).
-3. Sa page, ses régions citées, puis `status: "ready"`, `path`, `files`,
-   `types`, `doc`, `command`, `skill` — le test vérifie aussitôt chaque renvoi.
+3. Sa page, sur le gabarit commun (`frontend/src/lesson/LessonCode.tsx`) :
+   ses onglets PAR COUCHE (`ILesson` de `frontend/src/lesson/lesson.ts` —
+   config, sécurité, contrôleur, service, données, commande, front, devops,
+   dans cet ordre, seulement ceux où la démo a du code), chacun en paragraphes
+   qui suivent la logique métier, chaque paragraphe suivi de la région qu'il
+   explique ; TOUS les décorateurs des fichiers cités, expliqués en une ligne.
+   Ajouter la démo à `LESSONS` dans `tests/demo.test.ts`.
+4. Puis `status: "ready"`, `path`, `files`, `types`, `doc`, `command`,
+   `skill` dans `demos.ts` — le test vérifie aussitôt chaque renvoi.
 
 ## Décisions figées
 

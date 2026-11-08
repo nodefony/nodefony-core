@@ -18,26 +18,23 @@ import ChatService, {
   CHAT_HISTORY_LIMIT,
 } from "../nodefony/service/ChatService";
 import {
-  CHAT_DECORATORS,
-  CHAT_LESSON_STEPS,
+  LESSON_LAYERS,
   extractRegion,
-  type LessonFile,
-} from "../frontend/src/chat/lessonSteps";
+  tabExcerpts,
+  type ILesson,
+} from "../frontend/src/lesson/lesson";
 import { highlight } from "../frontend/src/highlight";
 import {
   constantNames,
   resolveConstants,
-} from "../frontend/src/chat/lessonConstants";
-import {
-  PARTNER_DECORATED_FILES,
-  PARTNER_DECORATORS,
-  PARTNER_LESSON_STEPS,
-} from "../frontend/src/partner/partnerSteps";
+} from "../frontend/src/lesson/lessonConstants";
+import { LESSON_SOURCES } from "../frontend/src/lesson/lessonSources";
+import { CHAT_LESSON } from "../frontend/src/chat/chatTabs";
+import { PARTNER_LESSON } from "../frontend/src/partner/partnerTabs";
 import {
   decodeClaims,
   tamperSignature,
 } from "../frontend/src/partner/partnerApi";
-import { LESSON_SOURCES } from "../frontend/src/chat/lessonSources";
 import { DEMOS } from "../demos";
 import { PARTNER_CALL_COMMAND } from "../nodefony/command/PartnerCallCommand";
 
@@ -50,8 +47,9 @@ import { PARTNER_CALL_COMMAND } from "../nodefony/command/PartnerCallCommand";
  *     ressource suit l'adresse publique de l'application ;
  *  4. le pouls de l'accueil publie au plus une fois par seconde, et se tait
  *     quand personne n'écoute ;
- *  5. chaque extrait de code que cite la page du chat existe dans le fichier
- *     qu'elle nomme, et n'est pas vide ;
+ *  5. chaque page d'apprentissage suit le modèle commun : onglets dans
+ *     l'ordre des couches, chaque extrait cité existe et n'est pas vide,
+ *     chaque décorateur employé est expliqué, chaque constante a sa valeur ;
  *  6. chaque RENVOI de l'index des démos (`demos.ts`) mène quelque part :
  *     fichier, page de doc, type exporté, commande, skill — c'est l'index que
  *     lit un agent avant d'ouvrir un fichier, un renvoi mort l'égare.
@@ -105,23 +103,39 @@ describe("demo — l'historique du chat", () => {
   });
 });
 
-describe("demo — le code cité par les pages d'apprentissage", () => {
-  const cited = [
-    ...CHAT_LESSON_STEPS.map((step) => ({ page: "chat", step })),
-    ...PARTNER_LESSON_STEPS.map((step) => ({ page: "partner", step })),
-  ].flatMap(({ page, step }) => {
-    const excerpts: readonly { file: LessonFile; region: string }[] =
-      step.excerpts;
-    return excerpts.map((excerpt) => ({
+/** Toutes les pages d'apprentissage : une démo neuve s'ajoute ICI. */
+const LESSONS: readonly { page: string; lesson: ILesson }[] = [
+  { page: "chat", lesson: CHAT_LESSON },
+  { page: "partner", lesson: PARTNER_LESSON },
+];
+
+/** Chaque extrait cité, avec sa page et sa couche. */
+const CITED = LESSONS.flatMap(({ page, lesson }) =>
+  lesson.tabs.flatMap((tab) =>
+    tabExcerpts(tab).map((excerpt) => ({
       page,
-      step: step.step,
+      layer: tab.layer,
       file: excerpt.file,
       region: excerpt.region,
-    }));
-  });
+    })),
+  ),
+);
 
-  it.each(cited)(
-    "$page, étape $step : la région $region existe dans $file, et n'est pas vide",
+describe("demo — les pages d'apprentissage suivent le modèle commun", () => {
+  it.each(LESSONS)(
+    "$page : onglets dans l'ordre des couches, sans doublon, aucun vide",
+    ({ lesson }) => {
+      const order = LESSON_LAYERS.map((layer) => layer.id);
+      const ranks = lesson.tabs.map((tab) => order.indexOf(tab.layer));
+      expect(ranks).toEqual([...new Set(ranks)].sort((x, y) => x - y));
+      for (const tab of lesson.tabs) {
+        expect(tab.blocks.length, tab.layer).toBeGreaterThan(0);
+      }
+    },
+  );
+
+  it.each(CITED)(
+    "$page / $layer : la région $region existe dans $file, et n'est pas vide",
     ({ file, region }) => {
       // Le texte que la PAGE affiche (lu par Vite), pas une relecture à part.
       const code = extractRegion(LESSON_SOURCES[file], region);
@@ -130,16 +144,17 @@ describe("demo — le code cité par les pages d'apprentissage", () => {
     },
   );
 
-  it("désindente la région, et rend null si elle manque ou reste ouverte", () => {
-    const source =
-      "a\n  // #region x\n    un()\n      deux()\n  // #endregion\n";
-    expect(extractRegion(source, "x")).toBe("un()\n  deux()");
-    expect(extractRegion(source, "y")).toBeNull();
-    expect(extractRegion("// #region x\nun()\n", "x")).toBeNull();
-  });
-});
+  it.each(CITED)(
+    "$page / $layer : chaque constante de $region a sa valeur",
+    ({ file, region }) => {
+      const code = extractRegion(LESSON_SOURCES[file], region) ?? "";
+      const resolved = resolveConstants(code, LESSON_SOURCES).map(
+        (constant) => constant.name,
+      );
+      expect(resolved).toEqual(constantNames(code));
+    },
+  );
 
-describe("demo — les décorateurs et la coloration des pages", () => {
   /** Les décorateurs d'un source, hors commentaires et TSDoc qui en citent. */
   const decoratorsIn = (source: string): string[] =>
     [
@@ -150,69 +165,52 @@ describe("demo — les décorateurs et la coloration des pages", () => {
         .matchAll(/@([A-Za-z]\w*)\(/g),
     ].map((match) => match[1] ?? "");
 
-  const lessons = [
-    {
-      page: "chat",
-      steps: CHAT_LESSON_STEPS,
-      decorators: CHAT_DECORATORS,
-      files: ["nodefony/controllers/ChatController.ts"],
-    },
-    {
-      page: "partner",
-      steps: PARTNER_LESSON_STEPS,
-      decorators: PARTNER_DECORATORS,
-      files: PARTNER_DECORATED_FILES,
-    },
-  ] as const;
-
-  it.each(lessons)(
+  it.each(LESSONS)(
     "$page : la liste des décorateurs est COMPLÈTE",
-    ({ decorators, files }) => {
+    ({ lesson }) => {
       const used = new Set(
-        files.flatMap((file: LessonFile) => decoratorsIn(LESSON_SOURCES[file])),
+        lesson.decoratedFiles.flatMap((file) =>
+          decoratorsIn(LESSON_SOURCES[file]),
+        ),
       );
-      const listed: readonly { name: string }[] = decorators;
       expect([...used].sort()).toEqual(
-        listed.map((decorator) => decorator.name).sort(),
+        lesson.decorators.map((decorator) => decorator.name).sort(),
       );
     },
   );
 
-  const placed = lessons.flatMap((lesson) => {
-    const decorators: readonly {
-      name: string;
-      file: LessonFile;
-      region: string;
-      step: number;
-    }[] = lesson.decorators;
-    const steps: readonly {
-      step: number;
-      excerpts: readonly { file: LessonFile; region: string }[];
-    }[] = lesson.steps;
-    return decorators.map((decorator) => ({
-      page: lesson.page,
-      steps,
+  const placed = LESSONS.flatMap(({ page, lesson }) =>
+    lesson.decorators.map((decorator) => ({
+      page,
+      lesson,
       name: decorator.name,
       file: decorator.file,
       region: decorator.region,
-      step: decorator.step,
-    }));
-  });
+    })),
+  );
 
   it.each(placed)(
-    "$page : @$name apparaît dans la région $region, citée par l'étape $step",
-    ({ name, file, region, step, steps }) => {
+    "$page : @$name est dans la région $region, citée par un onglet",
+    ({ lesson, name, file, region }) => {
       expect(extractRegion(LESSON_SOURCES[file], region)).toContain(
         `@${name}(`,
       );
-      const cited = steps.find((entry) => entry.step === step);
-      expect(
-        cited?.excerpts.some(
+      const cited = lesson.tabs.some((tab) =>
+        tabExcerpts(tab).some(
           (excerpt) => excerpt.file === file && excerpt.region === region,
         ),
-      ).toBe(true);
+      );
+      expect(cited).toBe(true);
     },
   );
+
+  it("désindente la région, et rend null si elle manque ou reste ouverte", () => {
+    const source =
+      "a\n  // #region x\n    un()\n      deux()\n  // #endregion\n";
+    expect(extractRegion(source, "x")).toBe("un()\n  deux()");
+    expect(extractRegion(source, "y")).toBeNull();
+    expect(extractRegion("// #region x\nun()\n", "x")).toBeNull();
+  });
 
   it("la coloration est sans perte, et distingue décorateurs, mots-clés et chaînes", () => {
     const source = '@route("x", { a: 1 }) // note\nconst it: Type = `t`;';
@@ -230,38 +228,14 @@ describe("demo — les décorateurs et la coloration des pages", () => {
       Type: "type",
       "`t`": "string",
     });
-    for (const source of Object.values(LESSON_SOURCES)) {
+    for (const text of Object.values(LESSON_SOURCES)) {
       expect(
-        highlight(source)
+        highlight(text)
           .map((token) => token.text)
           .join(""),
-      ).toBe(source);
+      ).toBe(text);
     }
   });
-});
-
-describe("demo — les constantes montrées sous chaque extrait", () => {
-  const regions = [...CHAT_LESSON_STEPS, ...PARTNER_LESSON_STEPS].flatMap(
-    (step) => {
-      const excerpts: readonly { file: LessonFile; region: string }[] =
-        step.excerpts;
-      return excerpts.map((excerpt) => ({
-        file: excerpt.file,
-        region: excerpt.region,
-      }));
-    },
-  );
-
-  it.each(regions)(
-    "$region : chaque constante employée a sa valeur",
-    ({ file, region }) => {
-      const code = extractRegion(LESSON_SOURCES[file], region) ?? "";
-      const resolved = resolveConstants(code, LESSON_SOURCES).map(
-        (constant) => constant.name,
-      );
-      expect(resolved).toEqual(constantNames(code));
-    },
-  );
 
   it("résout un gabarit à travers les autres constantes, ignore chaînes et commentaires", () => {
     const sources = {

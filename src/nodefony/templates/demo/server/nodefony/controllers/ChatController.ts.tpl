@@ -40,11 +40,13 @@ import type DemoPulseService from "../service/DemoPulseService";
  * `nodefony-add-realtime-channel`.
  *
  * Les blocs `// #region <nom>` sont CITÉS par la page d'apprentissage
- * (`frontend/src/chat/lessonSteps.ts`) : les renommer casse son test.
+ * (`frontend/src/chat/chatTabs.ts`) : les renommer casse son test.
  */
-// #region chat-class
+// #region chat-broadcast
 // Plusieurs pods : chaque publication sur un canal `chat:` traverse le bus.
 @RealtimeBroadcast("chat:")
+// #endregion
+// #region chat-class
 // Préfixe de toutes les routes de la classe.
 @controller("/demo/chat")
 // Le contrat typé : les canaux et les routes que le navigateur compile aussi.

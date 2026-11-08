@@ -13,6 +13,7 @@ import { demoSecurity } from "./security";
  * d'être retirée sans un mot.
  */
 export const demoConfigSchema = z.strictObject({
+  // #region partner-config
   /**
    * Secret du client machine `<%= it.appName %>-machine` du realm Keycloak —
    * celui qui obtient un jeton par `client_credentials` pour
@@ -29,6 +30,7 @@ export const demoConfigSchema = z.strictObject({
       "Secret du client machine Keycloak de la démo (flux client_credentials de demo:partner:call)",
     )
     .meta({ env: "NF_KEYCLOAK_MACHINE_SECRET", secret: true }),
+  // #endregion
 });
 
 /** Config telle que l'APP l'écrit dans `use()` — tous les champs optionnels. */
@@ -46,7 +48,10 @@ const defaults: IDemoConfig = demoConfigSchema.parse({});
  * la clé `module-security` avant de valider la config de la démo, qui ne la
  * voit donc jamais.
  */
+// #region demo-module-security
 export default {
   ...defaults,
+  // La zone de la démo rejoint le firewall de l'application.
   "module-security": demoSecurity,
 };
+// #endregion

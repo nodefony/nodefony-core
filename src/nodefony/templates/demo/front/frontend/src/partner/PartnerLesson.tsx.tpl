@@ -1,9 +1,9 @@
 import { loginPagePath } from "nodefony/client";
 import { docUrl, type IDemoAbout } from "../about";
 import { Inline, LEVELS } from "../Catalogue";
-import { LessonCode } from "../chat/LessonCode";
+import { LessonCode } from "../lesson/LessonCode";
 import { decodeClaims } from "./partnerApi";
-import { PARTNER_DECORATORS, PARTNER_LESSON_STEPS } from "./partnerSteps";
+import { PARTNER_LESSON } from "./partnerTabs";
 import {
   usePartnerLab,
   type IPartnerLab,
@@ -106,12 +106,10 @@ export function PartnerLesson({ about }: { about: IDemoAbout | null }) {
       </section>
 
       <LessonCode
-        steps={PARTNER_LESSON_STEPS}
-        decorators={PARTNER_DECORATORS}
-        stepsLabel="Étapes de la démo"
+        lesson={PARTNER_LESSON}
         doc={{
           href: docUrl(version, "modules/security/obtenir-un-jeton"),
-          label: () => "Obtenir un jeton — la doc complète",
+          label: "Obtenir un jeton — la doc complète",
         }}
       />
 

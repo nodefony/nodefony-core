@@ -2,8 +2,8 @@ import { useId, useState, type ComponentProps } from "react";
 import { loginPagePath } from "nodefony/client";
 import { docUrl, type IDemoAbout } from "../about";
 import { LEVELS } from "../Catalogue";
-import { LessonCode } from "./LessonCode";
-import { CHAT_DECORATORS, CHAT_LESSON_STEPS } from "./lessonSteps";
+import { LessonCode } from "../lesson/LessonCode";
+import { CHAT_LESSON } from "./chatTabs";
 import { useChat, type IChatRoom } from "./useChat";
 
 /** Heure d'un message, à la minute. */
@@ -72,12 +72,10 @@ export function ChatLesson({ about }: { about: IDemoAbout | null }) {
       </section>
 
       <LessonCode
-        steps={CHAT_LESSON_STEPS}
-        decorators={CHAT_DECORATORS}
-        stepsLabel="Étapes du cookbook"
+        lesson={CHAT_LESSON}
         doc={{
           href: docUrl(version, "modules/realtime/cookbook-chat"),
-          label: (step) => `L'étape ${step} dans le cookbook`,
+          label: "Le cookbook complet, étape par étape",
         }}
       />
 

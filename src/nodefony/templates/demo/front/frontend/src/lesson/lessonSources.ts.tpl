@@ -1,4 +1,4 @@
-import type { LessonFile } from "./lessonSteps";
+import type { LessonFile } from "./lesson";
 
 /**
  * Le texte brut des fichiers cités, lu par Vite à la construction. Les motifs
@@ -6,17 +6,18 @@ import type { LessonFile } from "./lessonSteps";
  */
 const RAW = import.meta.glob<string>(
   [
-    "../../../nodefony/controllers/ChatController.ts",
-    "../../../nodefony/service/ChatService.ts",
+    "../../../nodefony/config/config.ts",
     "../../../nodefony/config/security.ts",
-    "./chatContract.ts",
-    "./useChat.ts",
+    "../../../nodefony/controllers/ChatController.ts",
     "../../../nodefony/controllers/PartnerController.ts",
     "../../../nodefony/controllers/PartnerTokenController.ts",
+    "../../../nodefony/service/ChatService.ts",
     "../../../nodefony/service/PartnerTokenService.ts",
     "../../../nodefony/command/PartnerCallCommand.ts",
-    "../partner/usePartnerLab.ts",
+    "../chat/chatContract.ts",
+    "../chat/useChat.ts",
     "../partner/partnerApi.ts",
+    "../partner/usePartnerLab.ts",
   ],
   { query: "?raw", import: "default", eager: true },
 );
@@ -27,29 +28,28 @@ function read(key: string): string {
 }
 
 /**
- * Le texte des fichiers que les pages d'apprentissage citent : la page montre le
- * code qui tourne, pas une copie.
+ * Le texte des fichiers que les pages d'apprentissage citent : la page montre
+ * le code qui tourne, pas une copie.
  *
- * Guide pour un agent : la clé est le chemin déclaré dans `lessonSteps.ts`.
- * `satisfies Record<LessonFile, string>` refuse la compilation si un fichier
- * cité n'a pas son texte ici ; le test du module vérifie chaque région citée
- * sur CE texte, celui que la page affiche.
+ * Guide pour un agent : la clé est le chemin déclaré dans `lesson.ts`
+ * (`LessonFile`). `satisfies Record<LessonFile, string>` refuse la compilation
+ * si un fichier cité n'a pas son texte ici ; le test du module vérifie chaque
+ * région citée sur CE texte, celui que la page affiche.
  */
 export const LESSON_SOURCES = {
+  "nodefony/config/config.ts": read("../../../nodefony/config/config.ts"),
+  "nodefony/config/security.ts": read("../../../nodefony/config/security.ts"),
   "nodefony/controllers/ChatController.ts": read(
     "../../../nodefony/controllers/ChatController.ts",
   ),
-  "nodefony/service/ChatService.ts": read(
-    "../../../nodefony/service/ChatService.ts",
-  ),
-  "nodefony/config/security.ts": read("../../../nodefony/config/security.ts"),
-  "frontend/src/chat/chatContract.ts": read("./chatContract.ts"),
-  "frontend/src/chat/useChat.ts": read("./useChat.ts"),
   "nodefony/controllers/PartnerController.ts": read(
     "../../../nodefony/controllers/PartnerController.ts",
   ),
   "nodefony/controllers/PartnerTokenController.ts": read(
     "../../../nodefony/controllers/PartnerTokenController.ts",
+  ),
+  "nodefony/service/ChatService.ts": read(
+    "../../../nodefony/service/ChatService.ts",
   ),
   "nodefony/service/PartnerTokenService.ts": read(
     "../../../nodefony/service/PartnerTokenService.ts",
@@ -57,6 +57,8 @@ export const LESSON_SOURCES = {
   "nodefony/command/PartnerCallCommand.ts": read(
     "../../../nodefony/command/PartnerCallCommand.ts",
   ),
-  "frontend/src/partner/usePartnerLab.ts": read("../partner/usePartnerLab.ts"),
+  "frontend/src/chat/chatContract.ts": read("../chat/chatContract.ts"),
+  "frontend/src/chat/useChat.ts": read("../chat/useChat.ts"),
   "frontend/src/partner/partnerApi.ts": read("../partner/partnerApi.ts"),
+  "frontend/src/partner/usePartnerLab.ts": read("../partner/usePartnerLab.ts"),
 } satisfies Record<LessonFile, string>;

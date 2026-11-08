@@ -8,6 +8,7 @@
  * client ne doit jamais fonder une décision sur un jeton qu'il a décodé.
  */
 
+// #region partner-token-contract
 /** Le guichet : `POST`, sous session (zone `demo`), hors de la zone `demo-partner` du firewall. */
 export const PARTNER_TOKEN_PATH = "/demo/api/token";
 
@@ -21,6 +22,7 @@ export interface IPartnerTokenResponse {
   /** Chemin de `whoami`, à appeler avec le jeton. */
   whoamiPath: string;
 }
+// #endregion
 
 /**
  * Lit la réponse du guichet sans la croire sur parole.
