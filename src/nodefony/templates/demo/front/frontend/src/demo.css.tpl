@@ -2498,31 +2498,346 @@ a.ritem:hover .ritem-go {
   }
 }
 
-/* Premiers pas : le code de l'étape, entre l'explication et l'essai. */
-.trial .excerpt {
-  margin: 0 0 12px;
+/* Premiers pas : la CARTE des dix gestes, puis un geste à l'écran — son
+   code à gauche, ses appels et leurs réponses à droite. */
+.first {
+  gap: 18px;
 }
-.first-form {
+.first-head {
   display: flex;
   flex-wrap: wrap;
-  align-items: end;
-  gap: 10px;
+  align-items: center;
+  gap: 6px 14px;
 }
-.first-form label {
+.first-head h1 {
+  margin: 0;
+  font-size: clamp(1.35rem, 2.4vw, 1.8rem);
+}
+.first-head p {
+  flex-basis: 100%;
+  margin: 0;
+  max-width: 72ch;
+  color: var(--muted);
+  line-height: 1.55;
+}
+.first-map {
   display: grid;
-  gap: 4px;
-  font-size: 0.84rem;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+.first-tab {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 2px;
+  padding: 10px 12px;
+  text-align: left;
+  font: inherit;
+  color: var(--fg);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s,
+    transform 0.15s;
+}
+.first-tab:hover {
+  border-color: color-mix(in srgb, var(--blue) 45%, var(--border));
+  transform: translateY(-1px);
+}
+.first-tab:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.first-tab[aria-selected="true"] {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 16%, transparent);
+}
+.first-tab-num {
+  grid-row: span 2;
+  display: grid;
+  place-items: center;
+  width: 1.9em;
+  height: 1.9em;
+  border-radius: 50%;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--blue) 14%, transparent);
+}
+.first-tab[aria-selected="true"] .first-tab-num {
+  color: #fff;
+  background: var(--blue);
+}
+.first-tab-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.first-tab-gesture {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.74rem;
   color: var(--muted);
 }
-.first-form input {
-  min-width: 0;
+
+.first-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+/* Le code tient dans l'écran : il défile DANS sa colonne, pas la page. */
+.first-code {
+  position: sticky;
+  top: 76px;
+  display: grid;
+  gap: 12px;
+  max-height: calc(100vh - 96px);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.first-code .excerpt {
+  margin: 0;
+}
+/* Plus serré que dans les autres pages : la colonne est étroite, et une
+   ligne de code qui se replie se lit mal. */
+.first-code .excerpt pre {
+  padding: 12px 14px;
+  font-size: 0.78rem;
+}
+.first-try {
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+.first-kicker {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px;
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.first-try h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+.first-text {
+  margin: 0;
+  line-height: 1.55;
+}
+.first-text code {
+  font-size: 0.92em;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--bg-soft);
+}
+.first-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.first-fields label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.first-fields input {
   width: 11rem;
+  min-width: 0;
   padding: 7px 10px;
   font: inherit;
   color: var(--fg);
   background: var(--bg-soft);
   border: 1px solid var(--border);
   border-radius: 8px;
+}
+
+/* Un appel : la méthode en pastille, le libellé, le chemin visé. */
+.calls {
+  display: grid;
+  gap: 8px;
+}
+.call {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 14px 9px 10px;
+  text-align: left;
+  text-decoration: none;
+  font: inherit;
+  color: var(--fg);
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    transform 0.15s;
+}
+.call:hover:not(:disabled) {
+  background: var(--card);
+  border-color: color-mix(in srgb, var(--blue) 50%, var(--border));
+  transform: translateX(2px);
+}
+.call:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.call:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.call[aria-busy="true"] {
+  opacity: 1;
+  border-color: var(--blue);
+}
+.call-verb {
+  min-width: 4.6ch;
+  padding: 4px 7px;
+  border-radius: 6px;
+  text-align: center;
+  font:
+    700 0.72rem/1 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    monospace;
+  letter-spacing: 0.03em;
+}
+.verb-get {
+  color: color-mix(in srgb, var(--green) 62%, var(--fg));
+  background: color-mix(in srgb, var(--green) 16%, transparent);
+}
+.verb-post {
+  color: color-mix(in srgb, var(--amber) 58%, var(--fg));
+  background: color-mix(in srgb, var(--amber) 18%, transparent);
+}
+.verb-ws {
+  color: color-mix(in srgb, var(--violet) 62%, var(--fg));
+  background: color-mix(in srgb, var(--violet) 16%, transparent);
+}
+.call-text {
+  display: grid;
+  min-width: 0;
+}
+.call-label {
+  font-size: 0.93rem;
+  font-weight: 600;
+}
+.call-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+.call-go {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.first-link {
+  justify-self: start;
+  font-size: 0.88rem;
+  color: color-mix(in srgb, var(--blue) 55%, var(--fg));
+}
+/* Les réponses défilent dans le panneau : le panneau garde sa place. */
+.first-results {
+  display: grid;
+  gap: 10px;
+  max-height: 46vh;
+  overflow: auto;
+}
+.first-results:empty {
+  display: none;
+}
+.first-results .trial-result {
+  margin: 0;
+}
+.first-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.first-nav button {
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 0.86rem;
+  color: color-mix(in srgb, var(--blue) 55%, var(--fg));
+  background: none;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.first-nav button:hover:not(:disabled) {
+  background: var(--bg-soft);
+}
+.first-nav button:disabled {
+  visibility: hidden;
+}
+.first-more {
+  padding: 12px 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+.first-more > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.first-more[open] > summary {
+  margin-bottom: 12px;
+}
+
+@media (max-width: 1000px) {
+  .first-map {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .first-stage {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* Une colonne : le panneau d'essai d'abord, le code ensuite. */
+  .first-try {
+    order: -1;
+  }
+  .first-code {
+    position: static;
+    max-height: 60vh;
+  }
+}
+/* Téléphone : la carte devient un bandeau qui défile de côté, pour que
+   le geste choisi reste dans le premier écran. */
+@media (max-width: 600px) {
+  .first-map {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 4px;
+  }
+  .first-tab {
+    flex: 0 0 62%;
+    scroll-snap-align: start;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .first-tab,
+  .call {
+    transition: none;
+  }
 }
 
 /* Les constantes d'un extrait, et leur valeur lue dans les sources. */

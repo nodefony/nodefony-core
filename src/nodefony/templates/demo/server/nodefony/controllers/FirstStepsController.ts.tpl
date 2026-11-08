@@ -41,16 +41,18 @@ import {
 // Toutes les routes de la classe commencent par FIRST_PATH.
 @controller(FIRST_PATH)
 class FirstStepsController extends Controller {
-  // Le nom passé à `super()` est celui du service, dans les journaux.
+  // Le nom passé à `super()` est celui du service, dans les
+  // journaux.
   constructor(context: ContextType) {
     super("first-steps", context);
   }
   // #endregion
 
   // #region first-hello
-  // `return` d'un objet : le framework le rend en JSON, sans `send()`.
-  // `{name}` dans le chemin arrive par `@Param`, `?lang=` par `@Query`.
-  // Étape 10 : `WEBSOCKET` ajouté, la MÊME action répond aussi à une socket.
+  // `return` d'un objet : le framework le rend en JSON, sans
+  // `send()`. `{name}` dans le chemin arrive par `@Param`,
+  // `?lang=` par `@Query`. Geste 10 : `WEBSOCKET` ajouté, la MÊME
+  // action répond aussi à une socket.
   @Get("/hello/{name}", { requirements: { methods: ["WEBSOCKET"] } })
   hello(@Param("name") name: string, @Query("lang") lang?: string): IHello {
     const english = lang === "en";
@@ -83,8 +85,9 @@ class FirstStepsController extends Controller {
   // #endregion
 
   // #region first-echo
-  // Le corps est VALIDÉ avant l'action, avec le schéma que la page partage :
-  // un âge manquant ou du texte à la place d'un nombre rend 422, sans entrer ici.
+  // Le corps est VALIDÉ avant l'action, avec le schéma que la page
+  // partage : un âge manquant ou du texte à la place d'un nombre
+  // rend 422, sans entrer ici.
   @Post("/echo", { schema: { body: EchoBody } })
   echo(input: RouteInput<{ body: typeof EchoBody }>) {
     return { received: input.body, adult: input.body.age >= 18 };
@@ -92,8 +95,8 @@ class FirstStepsController extends Controller {
   // #endregion
 
   // #region first-errors
-  // Une erreur levée devient une réponse : 404 en JSON, jamais de pile en
-  // production. Le statut est le second argument.
+  // Une erreur levée devient une réponse : 404 en JSON, jamais de
+  // pile en production. Le statut est le second argument.
   @Get("/books/{id}")
   book(@Param("id") id: string) {
     const found = BOOKS.find((book) => String(book.id) === id);
@@ -105,8 +108,8 @@ class FirstStepsController extends Controller {
   // #endregion
 
   // #region first-redirect
-  // Une ancienne adresse renvoie vers la nouvelle. 302 par défaut : un 301
-  // est gardé par le navigateur presque pour toujours.
+  // Une ancienne adresse renvoie vers la nouvelle. 302 par défaut
+  // : un 301 est gardé par le navigateur presque pour toujours.
   @Get("/old-hello")
   oldHello() {
     this.redirect(`${FIRST_PATH}/hello/visiteur`);
@@ -114,8 +117,9 @@ class FirstStepsController extends Controller {
   // #endregion
 
   // #region first-flash
-  // Envoyer, puis rediriger (303) : recharger la page d'arrivée ne renvoie
-  // pas le formulaire. Le message flash vit en session, et se lit UNE fois.
+  // Envoyer, puis rediriger (303) : recharger la page d'arrivée ne
+  // renvoie pas le formulaire. Le message flash vit en session, et
+  // se lit UNE fois.
   @Post("/note")
   @UseSession()
   note() {
@@ -131,8 +135,8 @@ class FirstStepsController extends Controller {
   // #endregion
 
   // #region first-web-response
-  // La `Response` standard, celle de `fetch()` : renvoyée telle quelle, son
-  // statut, ses en-têtes et son corps partent en flux.
+  // La `Response` standard, celle de `fetch()` : renvoyée telle
+  // quelle, son statut, ses en-têtes et son corps partent en flux.
   @Get("/web")
   web() {
     return Response.json(
@@ -143,8 +147,9 @@ class FirstStepsController extends Controller {
   // #endregion
 
   // #region first-stream
-  // Un flux : chaque morceau part dès qu'il est prêt, la page le lit en
-  // direct. Le client s'en va ? Le flux est coupé, le générateur s'arrête.
+  // Un flux : chaque morceau part dès qu'il est prêt, la page le
+  // lit en direct. Le client s'en va ? Le flux est coupé, le
+  // générateur s'arrête.
   @Get("/countdown")
   countdown() {
     async function* lines(): AsyncGenerator<string> {
@@ -164,10 +169,11 @@ class FirstStepsController extends Controller {
   // #endregion
 
   // #region first-file
-  // Un fichier du disque, en flux : ETag et Last-Modified sont posés tout
-  // seuls, et un client qui a déjà la version reçoit 304, sans corps.
-  // `?download` : le même fichier, en pièce à enregistrer. Le type se dit :
-  // déduit de l'extension, `.ts` serait une vidéo MPEG (`video/mp2t`).
+  // Un fichier du disque, en flux : ETag et Last-Modified sont
+  // posés tout seuls, et un client qui a déjà la version reçoit
+  // 304, sans corps. `?download` : le même fichier, en pièce à
+  // enregistrer. Le type se dit : déduit de l'extension, `.ts`
+  // serait une vidéo MPEG (`video/mp2t`).
   @Get("/source")
   async source(@Query("download") download?: string) {
     const file = path.join(
@@ -189,8 +195,9 @@ class FirstStepsController extends Controller {
   // #endregion
 
   // #region first-whoami
-  // Qui appelle ? `this.user` : l'identité posée par le pare-feu, ou `null`
-  // pour un visiteur. Jamais un champ envoyé par le navigateur.
+  // Qui appelle ? `this.user` : l'identité posée par le pare-feu,
+  // ou `null` pour un visiteur. Jamais un champ envoyé par le
+  // navigateur.
   @Get("/whoami")
   whoami() {
     const me = this.user;

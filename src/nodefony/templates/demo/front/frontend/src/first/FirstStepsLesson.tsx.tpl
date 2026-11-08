@@ -1,7 +1,8 @@
-import { useState, type ReactNode } from "react";
+import { useState, type KeyboardEvent, type ReactNode } from "react";
 import { loginPagePath } from "nodefony/client";
 import { docUrl, type IDemoAbout } from "../about";
 import { Inline, LEVELS } from "../Catalogue";
+import { tabTargetIndex } from "../effects";
 import { Excerpt, LessonCode } from "../lesson/LessonCode";
 import type { LessonFile } from "../lesson/lesson";
 import { ProbeResult } from "../kit/ProbeResult";
@@ -16,70 +17,41 @@ import { FIRST_LESSON, type FirstControllerRegion } from "./firstTabs";
 
 const CONTROLLER: LessonFile = "nodefony/controllers/FirstStepsController.ts";
 
-/** Ce que la page sait faire : appeler, et montrer en direct. */
-interface IRunner {
-  /**
-   * Lance un appel ; son résultat s'affiche sous l'étape `step`, à la
-   * place du précédent du même bouton `trial` — ceux des autres restent,
-   * pour comparer.
-   */
+/** Un appel qu'un bouton lance : sa méthode, son chemin, et l'appel lui-même. */
+interface ICall {
+  label: string;
+  verb: "GET" | "POST" | "WS";
+  /** Chemin affiché sous le libellé, relatif à `FIRST_PATH`. */
+  path: string;
   run: (
-    step: string,
-    trial: string,
-    call: (live: (c: readonly IProbeChunk[]) => void) => Promise<IProbeResult>,
-  ) => void;
-  busy: string | null;
-}
-
-/** Une étape : l'explication, le code, et ses essais. */
-interface IStep {
-  id: string;
-  title: string;
-  text: string;
-  /** Les régions du contrôleur montrées, dans l'ordre. */
-  regions: readonly FirstControllerRegion[];
-  expect: string;
-  /** Les boutons (et champs) de l'essai. */
-  trials: (runner: IRunner, state: IFormState) => ReactNode;
-}
-
-/** L'appel en cours : son étape, son bouton, les morceaux déjà reçus. */
-interface ILive {
-  step: string;
-  trial: string;
-  chunks: readonly IProbeChunk[];
-}
-
-/**
- * Les résultats d'une étape, un par bouton, dans l'ordre des premiers
- * clics ; celui du bouton en cours montre ses morceaux en direct.
- */
-function StepResults({
-  done,
-  live,
-}: {
-  done: Readonly<Record<string, IProbeResult>>;
-  live: ILive | null;
-}) {
-  const trials = Object.keys(done);
-  if (live !== null && !trials.includes(live.trial)) trials.push(live.trial);
-  return trials.map((trial) => (
-    <ProbeResult
-      key={trial}
-      result={live?.trial === trial ? null : (done[trial] ?? null)}
-      live={live?.trial === trial ? live.chunks : null}
-    />
-  ));
+    live: (chunks: readonly IProbeChunk[]) => void,
+  ) => Promise<IProbeResult>;
+  /** Raison de ne pas pouvoir l'appeler encore, ou `null`. */
+  blocked?: string | null;
 }
 
 /** Les champs que les essais partagent. */
 interface IFormState {
   name: string;
-  setName: (name: string) => void;
   age: string;
-  setAge: (age: string) => void;
   etag: string | null;
-  loginPath: string | null;
+}
+
+/** Un geste : son nom court pour la carte, l'explication, le code, les appels. */
+interface IStep {
+  id: string;
+  /** Nom court, sur la carte. */
+  short: string;
+  /** Ce qu'on écrit pour ce geste, sur la carte. */
+  gesture: string;
+  title: string;
+  text: string;
+  /** Les régions du contrôleur montrées, dans l'ordre. */
+  regions: readonly FirstControllerRegion[];
+  expect: string;
+  /** Les champs à saisir avant d'appeler. */
+  fields?: "name" | "name-age";
+  calls: (form: IFormState) => readonly ICall[];
 }
 
 /** L'adresse de `/hello/{name}`, le nom encodé. */
@@ -96,436 +68,431 @@ function postJson(body: unknown): RequestInit {
   };
 }
 
-/** Un bouton d'essai : désactivé pendant qu'un autre appel court. */
-function Trial({
-  runner,
-  step,
-  label,
-  call,
-  primary = false,
-}: {
-  runner: IRunner;
-  step: string;
-  label: string;
-  call: Parameters<IRunner["run"]>[2];
-  primary?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      className={primary ? "btn primary" : "btn"}
-      disabled={runner.busy !== null}
-      aria-busy={runner.busy === step}
-      onClick={() => runner.run(step, label, call)}
-    >
-      {label}
-    </button>
-  );
+/** Le chemin sans le préfixe commun : c'est ce qui change d'un appel à l'autre. */
+function shortPath(path: string): string {
+  return path.startsWith(FIRST_PATH) ? path.slice(FIRST_PATH.length) : path;
 }
 
-const STEPS: readonly IStep[] = [
+/** Un `GET` du préfixe, en une ligne. */
+function get(label: string, path: string, init?: RequestInit): ICall {
+  return {
+    label,
+    verb: "GET",
+    path,
+    run: (live) => probeHttp(`${FIRST_PATH}${path}`, init, live),
+  };
+}
+
+// Non vide par son type : le premier geste existe toujours.
+const STEPS: readonly [IStep, ...IStep[]] = [
   {
     id: "hello",
-    title: "Dire bonjour : retourner une valeur",
-    text: "La règle d'or : l'action RETOURNE une valeur, le framework la rend. Un objet devient du JSON, sans `send()` ni `res.json()`. Le prénom vient de l'adresse (`{name}`), la langue de `?lang=`.",
+    short: "Dire bonjour",
+    gesture: "return { … }",
+    title: "Retourner une valeur",
+    text: "La règle d'or : l'action RETOURNE une valeur, le framework la rend. Un objet devient du JSON, sans `send()`. Le prénom vient de l'adresse (`{name}`), la langue de `?lang=`.",
     regions: ["first-hello"],
-    expect: "200, application/json",
-    trials: (runner, form) => (
-      <>
-        <label className="first-form">
-          Prénom
-          <input
-            value={form.name}
-            maxLength={40}
-            onChange={(event) => form.setName(event.target.value)}
-          />
-        </label>
-        <Trial
-          runner={runner}
-          step="hello"
-          primary
-          label="En français"
-          call={() => probeHttp(helloPath(form.name, "fr"))}
-        />
-        <Trial
-          runner={runner}
-          step="hello"
-          label="In English"
-          call={() => probeHttp(helloPath(form.name, "en"))}
-        />
-      </>
-    ),
+    expect: "200, JSON",
+    fields: "name",
+    calls: (form) => [
+      {
+        label: "En français",
+        verb: "GET",
+        path: helloPath(form.name, "fr"),
+        run: () => probeHttp(helloPath(form.name, "fr")),
+      },
+      {
+        label: "In English",
+        verb: "GET",
+        path: helloPath(form.name, "en"),
+        run: () => probeHttp(helloPath(form.name, "en")),
+      },
+    ],
   },
   {
     id: "render",
+    short: "HTML ou texte",
+    gesture: "render()",
     title: "Rendre du HTML ou du texte",
-    text: "Quand on veut choisir soi-même le type, le statut ou les en-têtes : `render()`. `setContextHtml()` annonce du HTML ; un `Content-Type` passé en en-tête annonce autre chose.",
+    text: "Pour choisir soi-même le type, le statut ou les en-têtes : `render()`. `setContextHtml()` annonce du HTML ; un `Content-Type` en en-tête annonce autre chose.",
     regions: ["first-render"],
-    expect: "200, text/html puis text/plain",
-    trials: (runner) => (
-      <>
-        <Trial
-          runner={runner}
-          step="render"
-          primary
-          label="La page HTML"
-          call={() => probeHttp(`${FIRST_PATH}/page`)}
-        />
-        <Trial
-          runner={runner}
-          step="render"
-          label="Le texte brut"
-          call={() => probeHttp(`${FIRST_PATH}/text`)}
-        />
-      </>
-    ),
+    expect: "text/html, puis text/plain",
+    calls: () => [get("La page HTML", "/page"), get("Le texte brut", "/text")],
   },
   {
     id: "echo",
+    short: "Recevoir",
+    gesture: "schema: { body }",
     title: "Recevoir des données, validées",
-    text: "Le corps d'un `POST` est vérifié par un schéma AVANT d'entrer dans l'action : elle ne reçoit que des données conformes, déjà typées. Envoyez un âge en lettres pour voir le refus.",
+    text: "Le corps d'un `POST` est vérifié par un schéma AVANT l'action : elle ne reçoit que des données conformes, déjà typées. Un âge en lettres est refusé sans y entrer.",
     regions: ["first-echo"],
-    expect: "200, puis 422 si le corps est faux",
-    trials: (runner, form) => (
-      <>
-        <label className="first-form">
-          Nom
-          <input
-            value={form.name}
-            maxLength={40}
-            onChange={(event) => form.setName(event.target.value)}
-          />
-        </label>
-        <label className="first-form">
-          Âge
-          <input
-            value={form.age}
-            inputMode="numeric"
-            onChange={(event) => form.setAge(event.target.value)}
-          />
-        </label>
-        <Trial
-          runner={runner}
-          step="echo"
-          primary
-          label="Envoyer"
-          call={() =>
-            probeHttp(
-              `${FIRST_PATH}/echo`,
-              postJson({ name: form.name, age: Number(form.age) }),
-            )
-          }
-        />
-        <Trial
-          runner={runner}
-          step="echo"
-          label="Envoyer l'âge en lettres"
-          call={() =>
-            probeHttp(
-              `${FIRST_PATH}/echo`,
-              postJson({ name: form.name, age: "vingt" }),
-            )
-          }
-        />
-      </>
-    ),
+    expect: "200, puis 422",
+    fields: "name-age",
+    calls: (form) => [
+      {
+        label: "Envoyer",
+        verb: "POST",
+        path: `${FIRST_PATH}/echo`,
+        run: () =>
+          probeHttp(
+            `${FIRST_PATH}/echo`,
+            postJson({ name: form.name, age: Number(form.age) }),
+          ),
+      },
+      {
+        label: "Envoyer l'âge en lettres",
+        verb: "POST",
+        path: `${FIRST_PATH}/echo`,
+        run: () =>
+          probeHttp(
+            `${FIRST_PATH}/echo`,
+            postJson({ name: form.name, age: "vingt" }),
+          ),
+      },
+    ],
   },
   {
     id: "errors",
+    short: "Erreurs",
+    gesture: "throw new HttpError",
     title: "Statuts et erreurs",
-    text: "Une erreur levée dans l'action devient une réponse propre, avec son statut : `throw new HttpError(message, 404)`. Pas de pile de code envoyée en production.",
+    text: "Une erreur levée devient une réponse propre, avec son statut : `throw new HttpError(message, 404)`. En production, aucune pile de code ne part.",
     regions: ["first-errors"],
     expect: "200, puis 404",
-    trials: (runner) => (
-      <>
-        <Trial
-          runner={runner}
-          step="errors"
-          primary
-          label="Le livre 1"
-          call={() => probeHttp(`${FIRST_PATH}/books/1`)}
-        />
-        <Trial
-          runner={runner}
-          step="errors"
-          label="Le livre 42"
-          call={() => probeHttp(`${FIRST_PATH}/books/42`)}
-        />
-      </>
-    ),
+    calls: () => [
+      get("Le livre 1", "/books/1"),
+      get("Le livre 42", "/books/42"),
+    ],
   },
   {
     id: "redirect",
+    short: "Rediriger",
+    gesture: "redirect()",
     title: "Rediriger, et le message flash",
-    text: "`redirect(url)` renvoie le navigateur ailleurs (302). Après un envoi, on redirige en 303 : recharger la page d'arrivée ne renvoie pas le formulaire. Le message flash, gardé en session, ne se lit qu'UNE fois — relisez la note deux fois.",
+    text: "`redirect(url)` renvoie ailleurs (302). Après un envoi, on redirige en 303 : recharger n'envoie pas deux fois. Le message flash vit en session et ne se lit qu'UNE fois : relisez la note.",
     regions: ["first-redirect", "first-flash"],
-    expect: "redirection suivie, puis le flash une seule fois",
-    trials: (runner) => (
-      <>
-        <Trial
-          runner={runner}
-          step="redirect"
-          primary
-          label="Ancienne adresse"
-          call={() => probeHttp(`${FIRST_PATH}/old-hello`)}
-        />
-        <Trial
-          runner={runner}
-          step="redirect"
-          label="Envoyer une note"
-          call={() => probeHttp(`${FIRST_PATH}/note`, { method: "POST" })}
-        />
-        <Trial
-          runner={runner}
-          step="redirect"
-          label="Relire la note"
-          call={() => probeHttp(`${FIRST_PATH}/note`)}
-        />
-      </>
-    ),
+    expect: "redirection suivie, flash lu une fois",
+    calls: () => [
+      get("Ancienne adresse", "/old-hello"),
+      {
+        label: "Envoyer une note",
+        verb: "POST",
+        path: `${FIRST_PATH}/note`,
+        run: () => probeHttp(`${FIRST_PATH}/note`, { method: "POST" }),
+      },
+      get("Relire la note", "/note"),
+    ],
   },
   {
     id: "web",
+    short: "Response Web",
+    gesture: "Response.json()",
     title: "Renvoyer une Response Web",
-    text: "L'objet `Response` de la Fetch API, celui que rend `fetch()` dans le navigateur comme dans Node : l'action peut le renvoyer tel quel, avec son statut et ses en-têtes. Pratique pour relayer une API, ou une bibliothèque qui en produit une.",
+    text: "L'objet `Response` de la Fetch API, celui que rend `fetch()` : l'action le renvoie tel quel, statut et en-têtes compris. Pratique pour relayer une API, ou une bibliothèque qui en produit une.",
     regions: ["first-web-response"],
     expect: "200, en-tête x-demo",
-    trials: (runner) => (
-      <Trial
-        runner={runner}
-        step="web"
-        primary
-        label="Appeler"
-        call={() => probeHttp(`${FIRST_PATH}/web`)}
-      />
-    ),
+    calls: () => [get("Appeler", "/web")],
   },
   {
     id: "stream",
+    short: "Flux",
+    gesture: "renderStream()",
     title: "Envoyer un flux",
-    text: "`renderStream()` envoie chaque morceau dès qu'il est prêt, sans attendre la fin. Regardez les morceaux arriver un par un, avec leur instant d'arrivée.",
+    text: "`renderStream()` envoie chaque morceau dès qu'il est prêt. Regardez-les arriver un par un, avec leur instant d'arrivée.",
     regions: ["first-stream"],
-    expect: "6 morceaux, espacés de 400 ms",
-    trials: (runner) => (
-      <Trial
-        runner={runner}
-        step="stream"
-        primary
-        label="Lancer le compte à rebours"
-        call={(live) => probeHttp(`${FIRST_PATH}/countdown`, {}, live)}
-      />
-    ),
+    expect: "6 morceaux, 400 ms d'écart",
+    calls: () => [get("Lancer le compte à rebours", "/countdown")],
   },
   {
     id: "file",
+    short: "Fichier",
+    gesture: "streamFile()",
     title: "Servir un fichier, et le cache offert",
-    text: "`streamFile()` lit le fichier du disque en flux — ici, le contrôleur que vous lisez. Il pose seul un `etag` : redemandé avec, le fichier n'est pas renvoyé (304, corps vide). `renderFileDownload()` sert le même fichier en pièce à enregistrer.",
+    text: "`streamFile()` lit le fichier du disque en flux — ici, ce contrôleur. Il pose seul un `etag` : redemandé avec, le fichier ne repart pas (304). `renderFileDownload()` le sert en pièce à enregistrer.",
     regions: ["first-file"],
     expect: "200, puis 304",
-    trials: (runner, form) => (
-      <>
-        <Trial
-          runner={runner}
-          step="file"
-          primary
-          label="Lire le fichier"
-          call={() => probeHttp(`${FIRST_PATH}/source`)}
-        />
-        <button
-          type="button"
-          className="btn"
-          disabled={runner.busy !== null || form.etag === null}
-          onClick={() =>
-            runner.run("file", "Redemander avec son etag", () =>
-              probeHttp(`${FIRST_PATH}/source`, {
-                headers: { "if-none-match": form.etag ?? "" },
-              }),
-            )
-          }
-        >
-          Redemander avec son etag
-        </button>
-        <a className="btn" href={`${FIRST_PATH}/source?download=1`} download>
-          Télécharger
-        </a>
-        {form.etag === null && (
-          <span className="trial-hint">Lisez d'abord le fichier.</span>
-        )}
-      </>
-    ),
+    calls: (form) => [
+      get("Lire le fichier", "/source"),
+      {
+        ...get("Redemander avec son etag", "/source", {
+          headers: { "if-none-match": form.etag ?? "" },
+        }),
+        blocked: form.etag === null ? "lisez d'abord le fichier" : null,
+      },
+    ],
   },
   {
     id: "whoami",
+    short: "Qui appelle ?",
+    gesture: "this.user",
     title: "Qui appelle ?",
-    text: "`this.user` : l'identité que le pare-feu a posée, ou `null` pour un visiteur. Le serveur ne croit jamais un nom envoyé par le navigateur. Connectez-vous, puis rappelez.",
+    text: "`this.user` : l'identité posée par le pare-feu, ou `null` pour un visiteur. Le serveur ne croit jamais un nom envoyé par le navigateur. Connectez-vous, puis rappelez.",
     regions: ["first-whoami"],
     expect: "connected: false, ou votre identifiant",
-    trials: (runner, form) => (
-      <>
-        <Trial
-          runner={runner}
-          step="whoami"
-          primary
-          label="Qui suis-je ?"
-          call={() => probeHttp(`${FIRST_PATH}/whoami`)}
-        />
-        {form.loginPath !== null && (
-          <a
-            className="btn"
-            href={loginPagePath("/demo/first-steps", form.loginPath)}
-          >
-            Se connecter
-          </a>
-        )}
-      </>
-    ),
+    calls: () => [get("Qui suis-je ?", "/whoami")],
   },
   {
     id: "socket",
+    short: "Deux transports",
+    gesture: '"WEBSOCKET"',
     title: "Une action, deux transports",
-    text: "L'action de l'étape 1 déclare aussi `WEBSOCKET` : la même méthode répond à une socket. La page ouvre une `WebSocket` vers la même adresse ; la première trame est la réponse de l'action, et chaque message envoyé la rappelle. Même code, même sécurité — seul `transport` change.",
+    text: "L'action du geste 1 déclare aussi `WEBSOCKET` : la même méthode répond à une socket. La première trame est sa réponse, et chaque message envoyé la rappelle. Même code, même sécurité — seul `transport` change.",
     regions: ["first-hello"],
     expect: "transport: websocket",
-    trials: (runner, form) => (
-      <>
-        <Trial
-          runner={runner}
-          step="socket"
-          primary
-          label="Par WebSocket"
-          call={() => probeSocket(helloPath(form.name, "fr"), "encore")}
-        />
-        <Trial
-          runner={runner}
-          step="socket"
-          label="Par HTTP, pour comparer"
-          call={() => probeHttp(helloPath(form.name, "fr"))}
-        />
-      </>
-    ),
+    fields: "name",
+    calls: (form) => [
+      {
+        label: "Par WebSocket",
+        verb: "WS",
+        path: helloPath(form.name, "fr"),
+        run: () => probeSocket(helloPath(form.name, "fr"), "encore"),
+      },
+      {
+        label: "Par HTTP, pour comparer",
+        verb: "GET",
+        path: helloPath(form.name, "fr"),
+        run: () => probeHttp(helloPath(form.name, "fr")),
+      },
+    ],
   },
 ];
 
+/** L'appel en cours : son geste, son bouton, les morceaux déjà reçus. */
+interface ILive {
+  step: string;
+  call: string;
+  chunks: readonly IProbeChunk[];
+}
+
+/** Le geste que l'adresse désigne (`#redirect`), sinon le premier. */
+function initialStep(): number {
+  const index = STEPS.findIndex(
+    (step) => `#${step.id}` === window.location.hash,
+  );
+  return index === -1 ? 0 : index;
+}
+
 /**
- * Page d'apprentissage « Premiers pas » (`/demo/first-steps`) — le gabarit
- * commun : (1) ce qu'on construit, (2) la démo qui tourne, (3) le code qui
- * la fait, (4) les pièges et la suite. Ici la démo EST la leçon : dix
- * étapes, chacune avec son code et un essai contre la vraie route.
+ * Page d'apprentissage « Premiers pas » (`/demo/first-steps`) : la CARTE des
+ * dix gestes en haut, puis UN geste à l'écran — son code à gauche, ses
+ * appels et leurs réponses à droite. Rien à faire défiler pour passer d'un
+ * geste à l'autre ; l'adresse garde le geste choisi (`#stream`).
  *
  * Guide pour un agent : le contrôleur est `FirstStepsController.ts`, les
  * appels passent par la sonde du kit (`kit/probe.ts`), affichée par
- * `kit/ProbeResult.tsx`.
+ * `kit/ProbeResult.tsx`. La carte suit le patron WAI-ARIA « tabs ».
  */
 export function FirstStepsLesson({ about }: { about: IDemoAbout | null }) {
   const version = about?.nodefony.version ?? null;
-  // Par étape, le dernier résultat de CHAQUE bouton.
+  const [selected, setSelected] = useState(initialStep);
+  // Par geste, le dernier résultat de CHAQUE bouton : ils se comparent.
   const [results, setResults] = useState<
     Record<string, Record<string, IProbeResult>>
   >({});
   const [live, setLive] = useState<ILive | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
   const [name, setName] = useState("Alice");
   const [age, setAge] = useState("30");
   // L'etag du dernier fichier lu : un 304 ne le renvoie pas, on le garde.
   const [etag, setEtag] = useState<string | null>(null);
+  const step = STEPS.at(selected) ?? STEPS[0];
+  const form: IFormState = { name, age, etag };
 
-  const runner: IRunner = {
-    busy,
-    run: (step, trial, call) => {
-      setBusy(step);
-      setLive({ step, trial, chunks: [] });
-      void call((chunks) => setLive({ step, trial, chunks })).then((result) => {
+  const choose = (index: number) => {
+    const next = STEPS.at(index);
+    if (next === undefined) return;
+    setSelected(index);
+    window.history.replaceState(null, "", `#${next.id}`);
+  };
+  const onTabKey = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+    const next = tabTargetIndex(event.key, index, STEPS.length);
+    if (next === null) return;
+    event.preventDefault();
+    choose(next);
+    document.getElementById(`first-tab-${STEPS[next]?.id ?? ""}`)?.focus();
+  };
+  const run = (call: ICall) => {
+    const at = { step: step.id, call: call.label };
+    setLive({ ...at, chunks: [] });
+    void call
+      .run((chunks) => setLive({ ...at, chunks }))
+      .then((result) => {
         const found = result.headers.find(([header]) => header === "etag");
         if (found !== undefined) setEtag(found[1]);
         setResults((done) => ({
           ...done,
-          [step]: { ...done[step], [trial]: result },
+          [at.step]: { ...done[at.step], [at.call]: result },
         }));
         setLive(null);
-        setBusy(null);
       });
-    },
-  };
-  const form: IFormState = {
-    name,
-    setName,
-    age,
-    setAge,
-    etag,
-    loginPath: about?.loginPath ?? null,
   };
 
   return (
-    <main className="lesson">
+    <main className="lesson first">
       <nav className="crumbs" aria-label="Fil d'Ariane">
         <a href="/demo">Démo</a>
         <span aria-hidden="true">›</span>
         <span aria-current="page">Premiers pas</span>
       </nav>
 
-      <section className="lesson-intro" aria-labelledby="lesson-title">
-        <p className="lesson-meta">
-          <span className={`lvl ${LEVELS.beginner.className}`}>
-            {LEVELS.beginner.label}
-          </span>
-          <span className="lesson-step">
-            1 · Ce qu'on construit, et pourquoi
-          </span>
-        </p>
-        <h1 id="lesson-title">Premiers pas — un contrôleur, dix gestes</h1>
+      <header className="first-head">
+        <span className={`lvl ${LEVELS.beginner.className}`}>
+          {LEVELS.beginner.label}
+        </span>
+        <h1>Premiers pas — un contrôleur, dix gestes</h1>
         <p>
           Un <strong>contrôleur</strong> reçoit une requête et rend une réponse.
-          Tout tient dans une classe : une méthode par adresse, et un décorateur
-          au-dessus pour dire laquelle. Chaque étape ci-dessous montre le code,
-          puis l'appelle pour de vrai : ce qui s'affiche est ce que le serveur a
-          répondu.
+          Choisissez un geste : vous voyez son code, vous l'appelez pour de
+          vrai, et le serveur répond.
         </p>
-      </section>
+      </header>
 
-      <section className="lesson-demo" aria-labelledby="lesson-demo-title">
-        <h2 id="lesson-demo-title" className="lesson-step">
-          2 · La démo qui tourne
-        </h2>
-        <ol className="trials">
-          {STEPS.map((step, index) => (
-            <li key={step.id} className="trial">
-              <div className="trial-head">
-                <span className="trial-num" aria-hidden="true">
-                  {index + 1}
-                </span>
-                <h3>{step.title}</h3>
-                <span className="trial-expect">Attendu : {step.expect}</span>
-              </div>
-              <p>
-                <Inline text={step.text} />
-              </p>
-              {step.regions.map((region) => (
-                <Excerpt key={region} excerpt={{ file: CONTROLLER, region }} />
-              ))}
-              <div className="trial-actions">{step.trials(runner, form)}</div>
-              <div aria-live="polite">
-                <StepResults
-                  done={results[step.id] ?? {}}
-                  live={live?.step === step.id ? live : null}
-                />
-              </div>
-            </li>
+      <div className="first-map" role="tablist" aria-label="Les dix gestes">
+        {STEPS.map((entry, index) => {
+          const tried = entry.id in results;
+          return (
+            <button
+              key={entry.id}
+              id={`first-tab-${entry.id}`}
+              type="button"
+              role="tab"
+              aria-selected={index === selected}
+              aria-controls="first-stage"
+              tabIndex={index === selected ? 0 : -1}
+              className="first-tab"
+              onClick={() => choose(index)}
+              onKeyDown={(event) => onTabKey(event, index)}
+            >
+              <span className="first-tab-num">{tried ? "✓" : index + 1}</span>
+              <span className="first-tab-title">{entry.short}</span>
+              <code className="first-tab-gesture">{entry.gesture}</code>
+              {tried && <span className="sr-only"> (essayé)</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      <section
+        id="first-stage"
+        role="tabpanel"
+        aria-labelledby={`first-tab-${step.id}`}
+        className="first-stage"
+      >
+        <div className="first-code">
+          {step.regions.map((region) => (
+            <Excerpt key={region} excerpt={{ file: CONTROLLER, region }} />
           ))}
-        </ol>
+        </div>
+
+        <div className="first-try">
+          <p className="first-kicker">
+            <span>
+              Geste {selected + 1} / {STEPS.length}
+            </span>
+            <span>Attendu : {step.expect}</span>
+          </p>
+          <h2>{step.title}</h2>
+          <p className="first-text">
+            <Inline text={step.text} />
+          </p>
+          {step.fields !== undefined && (
+            <div className="first-fields">
+              <label>
+                {step.fields === "name-age" ? "Nom" : "Prénom"}
+                <input
+                  value={name}
+                  maxLength={40}
+                  onChange={(event) => setName(event.target.value)}
+                />
+              </label>
+              {step.fields === "name-age" && (
+                <label>
+                  Âge
+                  <input
+                    value={age}
+                    inputMode="numeric"
+                    onChange={(event) => setAge(event.target.value)}
+                  />
+                </label>
+              )}
+            </div>
+          )}
+          <div className="calls">
+            {step.calls(form).map((call) => (
+              <CallButton
+                key={call.label}
+                call={call}
+                busy={live !== null}
+                running={live?.call === call.label}
+                onRun={run}
+              />
+            ))}
+            {step.id === "file" && (
+              <a
+                className="call"
+                href={`${FIRST_PATH}/source?download=1`}
+                download
+              >
+                <span className="call-verb verb-get">GET</span>
+                <span className="call-text">
+                  <span className="call-label">Télécharger</span>
+                  <code className="call-path">/source?download=1</code>
+                </span>
+              </a>
+            )}
+            {step.id === "whoami" &&
+              about !== null &&
+              about.loginPath !== null && (
+                <a
+                  className="first-link"
+                  href={loginPagePath(
+                    `/demo/first-steps#${step.id}`,
+                    about.loginPath,
+                  )}
+                >
+                  Se connecter, puis rappeler
+                </a>
+              )}
+          </div>
+          <div className="first-results" aria-live="polite">
+            <StepResults
+              done={results[step.id] ?? {}}
+              live={live?.step === step.id ? live : null}
+            />
+          </div>
+          <div className="first-nav">
+            <button
+              type="button"
+              disabled={selected === 0}
+              onClick={() => choose(selected - 1)}
+            >
+              ← {STEPS[selected - 1]?.short ?? "Précédent"}
+            </button>
+            <button
+              type="button"
+              disabled={selected === STEPS.length - 1}
+              onClick={() => choose(selected + 1)}
+            >
+              {STEPS[selected + 1]?.short ?? "Suivant"} →
+            </button>
+          </div>
+        </div>
       </section>
 
-      <LessonCode
-        lesson={FIRST_LESSON}
-        doc={{
-          href: docUrl(version, "modules/framework/controller"),
-          label: "Le contrôleur — la doc complète",
-        }}
-      />
+      <details className="first-more">
+        <summary>Le contrôleur entier, et la page, couche par couche</summary>
+        <LessonCode
+          lesson={FIRST_LESSON}
+          doc={{
+            href: docUrl(version, "modules/framework/controller"),
+            label: "Le contrôleur — la doc complète",
+          }}
+        />
+      </details>
 
       <section className="lesson-traps" aria-labelledby="lesson-traps-title">
         <div>
           <h2 id="lesson-traps-title" className="lesson-step">
-            4 · Les pièges
+            Les pièges
           </h2>
           <ul>
             <li>
@@ -543,12 +510,12 @@ export function FirstStepsLesson({ about }: { about: IDemoAbout | null }) {
             <li>
               <strong>Un 301 ne s'oublie pas.</strong> Le navigateur le garde
               presque pour toujours : <code>redirect()</code> fait un 302 par
-              défaut, gardez le 301 pour un déménagement définitif.
+              défaut.
             </li>
             <li>
               <strong>Un flash sans session ne fait rien.</strong> Sans{" "}
               <code>@UseSession()</code> sur la route, le message n'est pas
-              gardé, et rien ne le signale à l'écran.
+              gardé, et rien ne le signale.
             </li>
             <li>
               <strong>Une Response renvoyée par une socket ne part pas.</strong>{" "}
@@ -570,4 +537,62 @@ export function FirstStepsLesson({ about }: { about: IDemoAbout | null }) {
       </section>
     </main>
   );
+}
+
+/** Un appel : la méthode, le libellé, et le chemin qu'il vise. */
+function CallButton({
+  call,
+  busy,
+  running,
+  onRun,
+}: {
+  call: ICall;
+  busy: boolean;
+  running: boolean;
+  onRun: (call: ICall) => void;
+}) {
+  const blocked = call.blocked ?? null;
+  return (
+    <button
+      type="button"
+      className="call"
+      disabled={busy || blocked !== null}
+      aria-busy={running}
+      title={blocked ?? undefined}
+      onClick={() => onRun(call)}
+    >
+      <span className={`call-verb verb-${call.verb.toLowerCase()}`}>
+        {call.verb}
+      </span>
+      <span className="call-text">
+        <span className="call-label">{call.label}</span>
+        <code className="call-path">{blocked ?? shortPath(call.path)}</code>
+      </span>
+      <span className="call-go" aria-hidden="true">
+        {running ? "…" : "▶"}
+      </span>
+    </button>
+  );
+}
+
+/**
+ * Les résultats d'un geste, un par bouton, dans l'ordre des premiers clics ;
+ * celui du bouton en cours montre ses morceaux en direct.
+ */
+function StepResults({
+  done,
+  live,
+}: {
+  done: Readonly<Record<string, IProbeResult>>;
+  live: ILive | null;
+}): ReactNode {
+  const calls = Object.keys(done);
+  if (live !== null && !calls.includes(live.call)) calls.push(live.call);
+  return calls.map((call) => (
+    <ProbeResult
+      key={call}
+      result={live?.call === call ? null : (done[call] ?? null)}
+      live={live?.call === call ? live.chunks : null}
+    />
+  ));
 }
