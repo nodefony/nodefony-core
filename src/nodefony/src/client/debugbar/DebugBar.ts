@@ -34,6 +34,7 @@ import {
   socketSnapshot,
 } from "../realtime/snapshot";
 import { pageSockets, type InspectableSocket } from "../announce";
+import { frameLinks, frameMeaning } from "./frames";
 import type { NodefonyNotice } from "../realtime/notice";
 import type { RealtimeFrame } from "../realtime/NodefonySocket";
 import { AUTH_ME_PATH } from "../../runtime/authRoutes";
@@ -1024,6 +1025,8 @@ export const STYLES =
 .rtlog summary:focus-visible { outline:2px solid var(--ok); outline-offset:-2px; }
 .rtlog pre { margin:2px 0 6px 16px; white-space:pre-wrap; word-break:break-all; color:#c4c9d0; }
 .rtlog .in { color:var(--ok); } .rtlog .out { color:var(--blue2); }
+.rtlog .fmean, .rtlog .flink { display:block; white-space:normal; margin-left:16px; font-family:system-ui,sans-serif; }
+.rtlog .flink { color:var(--muted); }
 .kev { display:grid; grid-template-columns: 96px 150px minmax(0,1fr); gap:10px; padding:3px 0; border-bottom:1px solid rgba(255,255,255,.04); }
 .kev .ts { color:var(--muted); font-variant-numeric:tabular-nums; }
 .kev .kn { color:#9ecbff; }
@@ -4183,15 +4186,25 @@ export class DebugBar {
       );
     const all = c.frameLog;
     const query = this.rtLogQuery;
-    const shown = (
-      query
-        ? all.filter((fr) =>
-            `${fr.kind} ${fr.channel ?? ""}`.toLowerCase().includes(query),
-          )
-        : all
-    )
-      .slice(-100)
-      .reverse();
+    // Les liens se calculent sur TOUT le journal : une réponse affichée doit
+    // retrouver sa requête même quand le filtre ou la fenêtre la cachent.
+    const links = frameLinks(all);
+    const picked: number[] = [];
+    for (let i = all.length - 1; i >= 0 && picked.length < 100; i--) {
+      const fr = all.at(i);
+      if (fr === undefined) continue;
+      if (
+        !query ||
+        `${fr.kind} ${fr.channel ?? ""} ${frameMeaning(fr)}`
+          .toLowerCase()
+          .includes(query)
+      )
+        picked.push(i);
+    }
+    const shown = picked.flatMap((i) => {
+      const fr = all.at(i);
+      return fr === undefined ? [] : [fr];
+    });
     this.rtShown = shown;
     this.text(
       "rtLogN",
@@ -4209,10 +4222,11 @@ export class DebugBar {
         (shown.length === 0
           ? `<div class="kv"><span class="k">aucune trame${query ? " pour ce filtre" : ""}</span></div>`
           : shown
-              .map((fr) => {
+              .map((fr, n) => {
                 const k = frameKey(fr);
                 const isOpen = open?.has(k) === true;
-                return `<details data-k="${escapeHtml(k)}"${isOpen ? " open" : ""}><summary><span class="${fr.dir}">${fr.dir === "in" ? "↓" : "↑"}</span> ${fmtClock(fr.ts)} <b>${escapeHtml(fr.kind)}</b>${fr.id === undefined ? "" : ` #${fr.id}`}${fr.channel ? ` · ${escapeHtml(fr.channel)}` : ""} · ${fr.size === 0 ? "taille inconnue" : `${fr.size} ${fr.binary ? "octets" : "car."}`} · ${fr.binary ? "binaire" : "texte"}</summary><pre>${isOpen ? escapeHtml(payloadText(fr)) : ""}</pre></details>`;
+                const link = links.get(picked.at(n) ?? -1);
+                return `<details data-k="${escapeHtml(k)}"${isOpen ? " open" : ""}><summary><span class="${fr.dir}">${fr.dir === "in" ? "↓" : "↑"}</span> ${fmtClock(fr.ts)} <b>${escapeHtml(fr.kind)}</b>${fr.id === undefined ? "" : ` #${fr.id}`}${fr.channel ? ` · ${escapeHtml(fr.channel)}` : ""} · ${fr.size === 0 ? "taille inconnue" : `${fr.size} ${fr.binary ? "octets" : "car."}`} · ${fr.binary ? "binaire" : "texte"}<span class="fmean">${escapeHtml(frameMeaning(fr))}</span>${link === undefined ? "" : `<span class="flink">↳ ${escapeHtml(link)}</span>`}</summary><pre>${isOpen ? escapeHtml(payloadText(fr)) : ""}</pre></details>`;
               })
               .join("")),
     );
