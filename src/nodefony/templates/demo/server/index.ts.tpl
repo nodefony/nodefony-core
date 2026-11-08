@@ -15,6 +15,8 @@ import DemoRealtimeController from "./nodefony/controllers/DemoRealtimeControlle
 import DemoPulseService from "./nodefony/service/DemoPulseService";
 import ChatController from "./nodefony/controllers/ChatController";
 import ChatService from "./nodefony/service/ChatService";
+import PartnerTokenService from "./nodefony/service/PartnerTokenService";
+import PartnerTokenController from "./nodefony/controllers/PartnerTokenController";
 import { registerDemoEntry } from "./nodefony/frontend/registerDemoEntry";
 
 /**
@@ -40,8 +42,15 @@ declare module "nodefony" {
   DemoController,
   DemoRealtimeController,
   ChatController,
+  PartnerTokenController,
 ])
-@services([AppInfoService, AppBannerService, DemoPulseService, ChatService])
+@services([
+  AppInfoService,
+  AppBannerService,
+  DemoPulseService,
+  ChatService,
+  PartnerTokenService,
+])
 class DemoModule extends Module {
   constructor(kernel: Kernel) {
     super("demo", kernel, import.meta.url, config);

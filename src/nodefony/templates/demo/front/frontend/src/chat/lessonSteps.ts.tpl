@@ -17,7 +17,12 @@ export type LessonFile =
   | "nodefony/service/ChatService.ts"
   | "nodefony/config/security.ts"
   | "frontend/src/chat/chatContract.ts"
-  | "frontend/src/chat/useChat.ts";
+  | "frontend/src/chat/useChat.ts"
+  | "nodefony/controllers/PartnerController.ts"
+  | "nodefony/controllers/PartnerTokenController.ts"
+  | "nodefony/service/PartnerTokenService.ts"
+  | "nodefony/command/PartnerCallCommand.ts"
+  | "frontend/src/partner/usePartnerLab.ts";
 
 /** Un extrait : la région `region` du fichier `file`, et ce qu'il faut y lire. */
 export interface ILessonExcerpt {
@@ -152,7 +157,7 @@ export const CHAT_LESSON_STEPS = [
       {
         file: CONTROLLER,
         region: "chat-send",
-        note: "`@IsGranted` refuse l'anonyme (401) avant l'action ; `@Idempotent` rend la même réponse à une trame rejouée au lieu de publier deux fois.",
+        note: "`@IsGranted` refuse le visiteur anonyme (403) avant l'action ; `@Idempotent` rend la même réponse à une trame rejouée au lieu de publier deux fois.",
       },
       {
         file: HOOK,
@@ -185,17 +190,19 @@ export const CHAT_LESSON_STEPS = [
   },
 ] as const satisfies readonly ILessonStep[];
 
-/** Un décorateur du contrôleur, et l'étape qui le montre. */
+/** Un décorateur employé par une démo, et l'étape qui le montre. */
 export interface ILessonDecorator {
   /** Nom, sans `@`. */
   name: string;
+  /** Fichier où il apparaît, dans la région `region`. */
+  file: LessonFile;
   /** Paquet qui l'exporte. */
   from: string;
   /** Ce qu'il fait, en une phrase. */
   role: string;
   /** Étape dont un extrait le montre. */
   step: number;
-  /** Région du contrôleur où il apparaît. */
+  /** Région de `file` où il apparaît. */
   region: string;
 }
 
@@ -206,6 +213,7 @@ export interface ILessonDecorator {
 export const CHAT_DECORATORS = [
   {
     name: "controller",
+    file: CONTROLLER,
     from: "@nodefony/framework",
     role: "Déclare la classe comme contrôleur et préfixe toutes ses routes.",
     step: 1,
@@ -213,6 +221,7 @@ export const CHAT_DECORATORS = [
   },
   {
     name: "route",
+    file: CONTROLLER,
     from: "@nodefony/framework",
     role: "Une route : son nom, son chemin, ses méthodes (dont `WEBSOCKET`) et le schéma qui valide l'entrée.",
     step: 1,
@@ -220,6 +229,7 @@ export const CHAT_DECORATORS = [
   },
   {
     name: "RealtimeChannel",
+    file: CONTROLLER,
     from: "@nodefony/realtime",
     role: "Un canal auquel le navigateur s'abonne ; la méthode rend son nettoyage.",
     step: 1,
@@ -227,6 +237,7 @@ export const CHAT_DECORATORS = [
   },
   {
     name: "RealtimeInbound",
+    file: CONTROLLER,
     from: "@nodefony/realtime",
     role: "Reçoit les messages que le navigateur envoie sur un canal, avec sa politique d'accès.",
     step: 3,
@@ -234,6 +245,7 @@ export const CHAT_DECORATORS = [
   },
   {
     name: "Inject",
+    file: CONTROLLER,
     from: "nodefony",
     role: "Fournit un service par son nom au constructeur.",
     step: 4,
@@ -241,13 +253,15 @@ export const CHAT_DECORATORS = [
   },
   {
     name: "IsGranted",
+    file: CONTROLLER,
     from: "@nodefony/framework",
-    role: "Exige des rôles avant d'entrer dans l'action : 401 sans session, 403 sans le rôle.",
+    role: "Exige des rôles avant d'entrer dans l'action : 401 sans identité, 403 quand l'identité ne les porte pas — l'anonyme d'une zone `anonymous` compris.",
     step: 5,
     region: "chat-send",
   },
   {
     name: "Idempotent",
+    file: CONTROLLER,
     from: "@nodefony/framework",
     role: "Mémorise la réponse par clé d'idempotence : un envoi rejoué n'agit pas deux fois.",
     step: 5,
@@ -255,6 +269,7 @@ export const CHAT_DECORATORS = [
   },
   {
     name: "RealtimeBroadcast",
+    file: CONTROLLER,
     from: "@nodefony/realtime",
     role: "Fait traverser les canaux d'un préfixe d'un serveur à l'autre.",
     step: 7,

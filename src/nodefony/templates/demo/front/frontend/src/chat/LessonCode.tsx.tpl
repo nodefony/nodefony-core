@@ -4,28 +4,43 @@ import { tabTargetIndex } from "../effects";
 import { highlight } from "../highlight";
 import { LESSON_SOURCES } from "./lessonSources";
 import {
-  CHAT_DECORATORS,
-  CHAT_LESSON_STEPS,
   extractRegion,
+  type ILessonDecorator,
   type ILessonExcerpt,
+  type ILessonStep,
 } from "./lessonSteps";
 
+/** Ce qu'une page d'apprentissage donne à sa section de code. */
+export interface ILessonCodeProps {
+  steps: readonly ILessonStep[];
+  decorators: readonly ILessonDecorator[];
+  /** Nom des onglets pour les lecteurs d'écran (« Étapes du cookbook »). */
+  stepsLabel: string;
+  /** Le lien de doc sous chaque étape. */
+  doc: { href: string; label: (step: number) => string };
+}
+
 /**
- * Section 3 de la page d'apprentissage — « le code qui la fait » : un onglet
- * par étape du cookbook, et pour chacune les extraits CITÉS des fichiers du
- * module (`lessonSteps.ts`), colorés, avec ce qu'il faut y lire. Sous les
- * onglets, tous les décorateurs du contrôleur, chacun relié à son étape.
+ * Section 3 d'une page d'apprentissage — « le code qui la fait » : un onglet
+ * par étape, et pour chacune les extraits CITÉS des fichiers du module,
+ * colorés, avec ce qu'il faut y lire. Sous les onglets, tous les décorateurs
+ * employés, chacun relié à l'étape qui le montre. Sert le chat
+ * (`lessonSteps.ts`) comme l'API entre programmes (`partnerSteps.ts`).
  *
  * Patron WAI-ARIA « tabs » à activation automatique : clic, flèches,
  * Début/Fin ; seul l'onglet choisi est dans l'ordre de tabulation.
- *
- * @param cookbookUrl - adresse du cookbook complet, pour la version installée
  */
-export function LessonCode({ cookbookUrl }: { cookbookUrl: string }) {
+export function LessonCode({
+  steps,
+  decorators,
+  stepsLabel,
+  doc,
+}: ILessonCodeProps) {
   const [selected, setSelected] = useState(0);
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
-  const current = CHAT_LESSON_STEPS[selected] ?? CHAT_LESSON_STEPS[0];
-  const excerpts: readonly ILessonExcerpt[] = current.excerpts;
+  const current = steps.at(selected) ?? steps.at(0);
+  if (current === undefined) return null;
+  const excerpts = current.excerpts;
 
   const select = (index: number) => {
     setSelected(index);
@@ -36,7 +51,7 @@ export function LessonCode({ cookbookUrl }: { cookbookUrl: string }) {
     event: KeyboardEvent<HTMLButtonElement>,
     index: number,
   ) => {
-    const next = tabTargetIndex(event.key, index, CHAT_LESSON_STEPS.length);
+    const next = tabTargetIndex(event.key, index, steps.length);
     if (next === null) return;
     event.preventDefault();
     select(next);
@@ -44,7 +59,7 @@ export function LessonCode({ cookbookUrl }: { cookbookUrl: string }) {
 
   /** Va à l'étape qui montre un décorateur, et l'amène dans la vue. */
   const showStep = (step: number) => {
-    const index = CHAT_LESSON_STEPS.findIndex((entry) => entry.step === step);
+    const index = steps.findIndex((entry) => entry.step === step);
     if (index === -1) return;
     select(index);
     tabs.current[index]?.scrollIntoView({ block: "nearest" });
@@ -59,8 +74,8 @@ export function LessonCode({ cookbookUrl }: { cookbookUrl: string }) {
         Chaque extrait est lu dans les fichiers de ce module au moment de la
         construction : c'est le code qui tourne au-dessus, pas une copie.
       </p>
-      <div className="steps" role="tablist" aria-label="Étapes du cookbook">
-        {CHAT_LESSON_STEPS.map((step, index) => (
+      <div className="steps" role="tablist" aria-label={stepsLabel}>
+        {steps.map((step, index) => (
           <button
             key={step.step}
             ref={(element) => {
@@ -99,18 +114,18 @@ export function LessonCode({ cookbookUrl }: { cookbookUrl: string }) {
             />
           ))
         )}
-        <a className="step-doc" href={cookbookUrl}>
-          L'étape {current.step} dans le cookbook
+        <a className="step-doc" href={doc.href}>
+          {doc.label(current.step)}
         </a>
       </div>
       <div className="decorators">
-        <h3>Les {CHAT_DECORATORS.length} décorateurs de ce contrôleur</h3>
+        <h3>Les {decorators.length} décorateurs de cette démo</h3>
         <p>
           Toute la mécanique est déclarée : le framework lit ces décorateurs au
           démarrage, et l'action ne contient plus que le métier.
         </p>
         <ul>
-          {CHAT_DECORATORS.map((decorator) => (
+          {decorators.map((decorator) => (
             <li key={decorator.name}>
               <code className="decorator-name">@{decorator.name}</code>
               <span className="decorator-from">{decorator.from}</span>

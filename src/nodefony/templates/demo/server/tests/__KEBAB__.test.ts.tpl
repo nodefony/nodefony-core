@@ -21,8 +21,18 @@ import {
   CHAT_DECORATORS,
   CHAT_LESSON_STEPS,
   extractRegion,
+  type LessonFile,
 } from "../frontend/src/chat/lessonSteps";
 import { highlight } from "../frontend/src/highlight";
+import {
+  PARTNER_DECORATED_FILES,
+  PARTNER_DECORATORS,
+  PARTNER_LESSON_STEPS,
+} from "../frontend/src/partner/partnerSteps";
+import {
+  decodeClaims,
+  tamperSignature,
+} from "../frontend/src/partner/partnerApi";
 import { LESSON_SOURCES } from "../frontend/src/chat/lessonSources";
 import { DEMOS } from "../demos";
 import { PARTNER_CALL_COMMAND } from "../nodefony/command/PartnerCallCommand";
@@ -91,13 +101,23 @@ describe("demo — l'historique du chat", () => {
   });
 });
 
-describe("demo — le code cité par la page du chat", () => {
-  const cited = CHAT_LESSON_STEPS.flatMap((step) =>
-    step.excerpts.map((excerpt) => ({ step: step.step, ...excerpt })),
-  );
+describe("demo — le code cité par les pages d'apprentissage", () => {
+  const cited = [
+    ...CHAT_LESSON_STEPS.map((step) => ({ page: "chat", step })),
+    ...PARTNER_LESSON_STEPS.map((step) => ({ page: "partner", step })),
+  ].flatMap(({ page, step }) => {
+    const excerpts: readonly { file: LessonFile; region: string }[] =
+      step.excerpts;
+    return excerpts.map((excerpt) => ({
+      page,
+      step: step.step,
+      file: excerpt.file,
+      region: excerpt.region,
+    }));
+  });
 
   it.each(cited)(
-    "étape $step : la région $region existe dans $file, et n'est pas vide",
+    "$page, étape $step : la région $region existe dans $file, et n'est pas vide",
     ({ file, region }) => {
       // Le texte que la PAGE affiche (lu par Vite), pas une relecture à part.
       const code = extractRegion(LESSON_SOURCES[file], region);
@@ -115,30 +135,78 @@ describe("demo — le code cité par la page du chat", () => {
   });
 });
 
-describe("demo — les décorateurs et la coloration de la page du chat", () => {
-  const controller = LESSON_SOURCES["nodefony/controllers/ChatController.ts"];
+describe("demo — les décorateurs et la coloration des pages", () => {
+  /** Les décorateurs d'un source, hors commentaires et TSDoc qui en citent. */
+  const decoratorsIn = (source: string): string[] =>
+    [
+      ...source
+        .split("\n")
+        .filter((line) => !/^\s*(\*|\/\/|\/\*)/.test(line))
+        .join("\n")
+        .matchAll(/@([A-Za-z]\w*)\(/g),
+    ].map((match) => match[1] ?? "");
 
-  it("la liste des décorateurs est COMPLÈTE : chaque décorateur du contrôleur y figure", () => {
-    // Hors commentaires et TSDoc, qui en citent aussi.
-    const code = controller
-      .split("\n")
-      .filter((line) => !/^\s*(\*|\/\/|\/\*)/.test(line))
-      .join("\n");
-    const used = new Set(
-      [...code.matchAll(/@([A-Za-z]\w*)\(/g)].map((match) => match[1]),
-    );
-    expect([...used].sort()).toEqual(
-      CHAT_DECORATORS.map((decorator) => decorator.name).sort(),
-    );
+  const lessons = [
+    {
+      page: "chat",
+      steps: CHAT_LESSON_STEPS,
+      decorators: CHAT_DECORATORS,
+      files: ["nodefony/controllers/ChatController.ts"],
+    },
+    {
+      page: "partner",
+      steps: PARTNER_LESSON_STEPS,
+      decorators: PARTNER_DECORATORS,
+      files: PARTNER_DECORATED_FILES,
+    },
+  ] as const;
+
+  it.each(lessons)(
+    "$page : la liste des décorateurs est COMPLÈTE",
+    ({ decorators, files }) => {
+      const used = new Set(
+        files.flatMap((file: LessonFile) => decoratorsIn(LESSON_SOURCES[file])),
+      );
+      const listed: readonly { name: string }[] = decorators;
+      expect([...used].sort()).toEqual(
+        listed.map((decorator) => decorator.name).sort(),
+      );
+    },
+  );
+
+  const placed = lessons.flatMap((lesson) => {
+    const decorators: readonly {
+      name: string;
+      file: LessonFile;
+      region: string;
+      step: number;
+    }[] = lesson.decorators;
+    const steps: readonly {
+      step: number;
+      excerpts: readonly { file: LessonFile; region: string }[];
+    }[] = lesson.steps;
+    return decorators.map((decorator) => ({
+      page: lesson.page,
+      steps,
+      name: decorator.name,
+      file: decorator.file,
+      region: decorator.region,
+      step: decorator.step,
+    }));
   });
 
-  it.each(CHAT_DECORATORS)(
-    "@$name apparaît dans la région $region, citée par l'étape $step",
-    ({ name, region, step }) => {
-      expect(extractRegion(controller, region)).toContain(`@${name}(`);
-      const cited = CHAT_LESSON_STEPS.find((entry) => entry.step === step);
-      const regions: readonly { region: string }[] = cited?.excerpts ?? [];
-      expect(regions.map((excerpt) => excerpt.region)).toContain(region);
+  it.each(placed)(
+    "$page : @$name apparaît dans la région $region, citée par l'étape $step",
+    ({ name, file, region, step, steps }) => {
+      expect(extractRegion(LESSON_SOURCES[file], region)).toContain(
+        `@${name}(`,
+      );
+      const cited = steps.find((entry) => entry.step === step);
+      expect(
+        cited?.excerpts.some(
+          (excerpt) => excerpt.file === file && excerpt.region === region,
+        ),
+      ).toBe(true);
     },
   );
 
@@ -158,11 +226,40 @@ describe("demo — les décorateurs et la coloration de la page du chat", () => 
       Type: "type",
       "`t`": "string",
     });
-    expect(
-      highlight(controller)
-        .map((token) => token.text)
-        .join(""),
-    ).toBe(controller);
+    for (const source of Object.values(LESSON_SOURCES)) {
+      expect(
+        highlight(source)
+          .map((token) => token.text)
+          .join(""),
+      ).toBe(source);
+    }
+  });
+});
+
+describe("demo — le jeton montré par la page partenaire", () => {
+  // Un JWT fabriqué pour le test : en-tête, charge, signature.
+  const encode = (value: object): string =>
+    Buffer.from(JSON.stringify(value)).toString("base64url");
+  const token = `${encode({ alg: "ES256" })}.${encode({ sub: "admin", exp: 10, aud: "https://x.test/demo/api/partner" })}.c2lnbmF0dXJlLWRlLXRlc3QtYXNzZXotbG9uZ3Vl`;
+
+  it("décode les revendications pour l'affichage, et rend null sur un jeton malformé", () => {
+    expect(decodeClaims(token)).toEqual({
+      sub: "admin",
+      exp: 10,
+      aud: "https://x.test/demo/api/partner",
+    });
+    expect(decodeClaims("deux.parties")).toBeNull();
+    expect(decodeClaims("a.bm9uLWpzb24.c")).toBeNull();
+  });
+
+  it("l'altération change la SIGNATURE, et elle seule", () => {
+    const tampered = tamperSignature(token);
+    const [head, body, signature] = tampered.split(".");
+    const [origHead, origBody, origSignature] = token.split(".");
+    expect(head).toBe(origHead);
+    expect(body).toBe(origBody);
+    expect(signature).not.toBe(origSignature);
+    expect(signature?.length).toBe(origSignature?.length);
   });
 });
 

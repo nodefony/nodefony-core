@@ -106,8 +106,8 @@ class ChatController extends ContractRealtimeController<ChatContract> {
 
   // #region chat-send
   /**
-   * L'envoi — `POST /demo/chat/send` ou `socket.post(…)`. Sans session : 401,
-   * avant d'entrer ici. La socket pose une clé d'idempotence par appel :
+   * L'envoi — `POST /demo/chat/send` ou `socket.post(…)`. Sans session : 403
+   * (le visiteur anonyme n'a aucun rôle), avant d'entrer ici. La socket pose une clé d'idempotence par appel :
    * `@Idempotent()` rend la réponse déjà calculée à une trame rejouée, au lieu
    * de publier deux fois.
    */

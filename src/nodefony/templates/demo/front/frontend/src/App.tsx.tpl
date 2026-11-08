@@ -12,6 +12,7 @@ import { Catalogue } from "./Catalogue";
 import { debugBarControl, type IDebugBarControl } from "./debugBar";
 import { useCurrentSection, usePointerLight } from "./effects";
 import { ChatLesson } from "./chat/ChatLesson";
+import { PartnerLesson } from "./partner/PartnerLesson";
 import { RoleTabs } from "./RoleTabs";
 import { usePulse } from "./usePulse";
 import "./demo.css";
@@ -40,7 +41,8 @@ export function App() {
   const about = useAbout();
   // La même page sert l'accueil et les pages d'apprentissage : l'adresse
   // choisit l'écran (`DemoController.lesson` n'accepte que celles de l'index).
-  const lesson = window.location.pathname.replace(/\/+$/u, "") === "/demo/chat";
+  const page = window.location.pathname.replace(/\/+$/u, "");
+  const lesson = page === "/demo/chat" || page === "/demo/partner";
   // Le logo vient du paquet (`brand.ts`) : la feuille le lit par variable.
   const logo: CSSProperties & Record<"--demo-logo", string> = {
     "--demo-logo": `url(${JSON.stringify(NODEFONY_LOGO)})`,
@@ -49,7 +51,13 @@ export function App() {
     <div style={logo}>
       <div className="reading" aria-hidden="true" />
       <Topbar about={about} home={!lesson} />
-      {lesson ? <ChatLesson about={about} /> : <Home about={about} />}
+      {page === "/demo/chat" ? (
+        <ChatLesson about={about} />
+      ) : page === "/demo/partner" ? (
+        <PartnerLesson about={about} />
+      ) : (
+        <Home about={about} />
+      )}
     </div>
   );
 }

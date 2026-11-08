@@ -32,6 +32,8 @@ function readIssuer(token: unknown): string | null {
  * Essai de bout en bout, jeton compris : `npx nodefony demo:partner:call`
  * (`nodefony/command/PartnerCallCommand.ts`).
  */
+// #region partner-class
+// Toute la classe sous `/demo/api/partner` : la zone à jeton la couvre.
 @controller(PARTNER_PATH)
 class PartnerController extends Controller {
   constructor(
@@ -41,6 +43,7 @@ class PartnerController extends Controller {
   ) {
     super("partner", context);
   }
+  // #endregion
 
   /**
    * Qui appelle, et qui l'a dit : l'identité que le firewall a établie, et
@@ -57,6 +60,7 @@ class PartnerController extends Controller {
    * l'action (`import { IsGranted } from "@nodefony/framework"`). Un compte
    * d'ici n'a pas ce rôle tant que `roleHierarchy` ne le lui donne pas.
    */
+  // #region partner-whoami
   @route("partner-whoami", { path: "/whoami", method: "GET" })
   whoami() {
     // `this.user` : l'identité, sans appel de plus. Le jeton lui-même est
@@ -69,6 +73,7 @@ class PartnerController extends Controller {
       issuer: readIssuer(RequestContext.get()?.token),
     });
   }
+  // #endregion
 }
 
 export default PartnerController;

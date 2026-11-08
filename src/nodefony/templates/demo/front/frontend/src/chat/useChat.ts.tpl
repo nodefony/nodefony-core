@@ -26,7 +26,7 @@ export interface IChatRoom {
   /** L'identité annoncée par le serveur ; `null` avant l'accueil. */
   identity: RealtimeIdentity | null;
   state: RealtimeState;
-  /** Envoie un message ; rejette avec le motif du serveur (401, 422…). */
+  /** Envoie un message ; rejette avec le motif du serveur (403, 422…). */
   send(text: string): Promise<void>;
   /** Signale qu'on écrit (borné : au plus un signal par intervalle). */
   notifyTyping(): void;

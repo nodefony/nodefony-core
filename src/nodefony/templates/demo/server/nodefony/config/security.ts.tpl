@@ -42,6 +42,7 @@ export const demoSecurity = {
       authenticators: ["session", "anonymous"],
     },
     // #endregion
+    // #region partner-area
     // Programme qui présente un JETON d'accès : signé par cette application,
     // OU par Keycloak (flux `client_credentials`). Essai de bout en bout :
     // `npx nodefony demo:partner:call`.
@@ -62,5 +63,6 @@ export const demoSecurity = {
       subjectPolicy: "ephemeral",
       ephemeralRoles: ["ROLE_PARTNER"],
     },
+    // #endregion
   },
 } satisfies ISecurityConfigInput;

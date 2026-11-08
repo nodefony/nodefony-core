@@ -11,6 +11,11 @@ const RAW = import.meta.glob<string>(
     "../../../nodefony/config/security.ts",
     "./chatContract.ts",
     "./useChat.ts",
+    "../../../nodefony/controllers/PartnerController.ts",
+    "../../../nodefony/controllers/PartnerTokenController.ts",
+    "../../../nodefony/service/PartnerTokenService.ts",
+    "../../../nodefony/command/PartnerCallCommand.ts",
+    "../partner/usePartnerLab.ts",
   ],
   { query: "?raw", import: "default", eager: true },
 );
@@ -21,7 +26,7 @@ function read(key: string): string {
 }
 
 /**
- * Le texte des fichiers que la page d'apprentissage cite : la page montre le
+ * Le texte des fichiers que les pages d'apprentissage citent : la page montre le
  * code qui tourne, pas une copie.
  *
  * Guide pour un agent : la clé est le chemin déclaré dans `lessonSteps.ts`.
@@ -39,4 +44,17 @@ export const LESSON_SOURCES = {
   "nodefony/config/security.ts": read("../../../nodefony/config/security.ts"),
   "frontend/src/chat/chatContract.ts": read("./chatContract.ts"),
   "frontend/src/chat/useChat.ts": read("./useChat.ts"),
+  "nodefony/controllers/PartnerController.ts": read(
+    "../../../nodefony/controllers/PartnerController.ts",
+  ),
+  "nodefony/controllers/PartnerTokenController.ts": read(
+    "../../../nodefony/controllers/PartnerTokenController.ts",
+  ),
+  "nodefony/service/PartnerTokenService.ts": read(
+    "../../../nodefony/service/PartnerTokenService.ts",
+  ),
+  "nodefony/command/PartnerCallCommand.ts": read(
+    "../../../nodefony/command/PartnerCallCommand.ts",
+  ),
+  "frontend/src/partner/usePartnerLab.ts": read("../partner/usePartnerLab.ts"),
 } satisfies Record<LessonFile, string>;

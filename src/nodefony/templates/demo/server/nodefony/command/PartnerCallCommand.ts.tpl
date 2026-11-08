@@ -5,17 +5,16 @@ import {
   type OptionsCommandInterface,
 } from "nodefony";
 import {
-  Firewall,
-  InvalidTargetError,
   KeycloakService,
   OAuth2RequestError,
   requestClientCredentialsToken,
-  TokenService,
   type ISecurityConfig,
 } from "@nodefony/security";
-import { UserService } from "@nodefony/user";
 import { defineDemoConfig } from "../config/defineModuleConfig";
-import { PARTNER_AREA, PARTNER_PATH } from "../config/security";
+import { PARTNER_PATH } from "../config/security";
+import PartnerTokenService, {
+  PartnerTokenError,
+} from "../service/PartnerTokenService";
 
 /**
  * Le cycle de vie d'une commande (phase d'arrêt, `quietBoot`, sortie ou
@@ -76,9 +75,6 @@ function isIssuer(value: string): value is TIssuer {
 
 /** Le client machine que le realm de développement déclare pour cette app. */
 const MACHINE_CLIENT_ID = "<%= it.appName %>-machine";
-
-/** Durée du jeton signé ici : le temps d'un appel, pas d'une session. */
-const TOKEN_TTL_S = 300;
 
 /** Une panne dite à l'utilisateur : ce qui s'est passé, et le geste qui répare. */
 class CallFailure extends Error {
@@ -160,9 +156,9 @@ export const PARTNER_CALL_COMMAND = "demo:partner:call";
  *
  * Deux émetteurs, deux façons d'obtenir le jeton :
  *  • `--issuer nodefony` (défaut) — l'application SIGNE elle-même le jeton
- *    d'un de ses comptes (`--as`, défaut `admin`), par le service
- *    `tokenService` : sans mot de passe, puisque la commande tourne DANS
- *    l'application. Aucun serveur d'identité requis.
+ *    d'un de ses comptes (`--as`, défaut `admin`), par `PartnerTokenService`
+ *    (le même que la page `/demo/partner`) : sans mot de passe, puisque la
+ *    commande tourne DANS l'application. Aucun serveur d'identité requis.
  *  • `--issuer keycloak` — le client machine `<%= it.appName %>-machine` obtient un jeton
  *    EN SON NOM par le flux `client_credentials` (RFC 6749 §4.4) : aucun
  *    utilisateur, aucun navigateur. C'est la voie d'un vrai partenaire, qui
@@ -209,12 +205,13 @@ class PartnerCallCommand extends Command {
       );
     }
     try {
-      const resource = this.#partnerResource();
+      const partnerTokens = this.#partnerTokens();
+      const resource = partnerTokens.resource();
       const url = whoamiUrl(resource, opts.url);
       const accessToken =
         issuer === "keycloak"
           ? await this.#keycloakToken(resource)
-          : await this.#nodefonyToken(opts.as ?? "admin", resource);
+          : (await partnerTokens.issueFor(opts.as ?? "admin")).accessToken;
       const answer = await this.#call(url, accessToken, issuer);
       // La SORTIE va sur la sortie standard ; le journal ne raconte que le reste.
       process.stdout.write(
@@ -227,64 +224,30 @@ class PartnerCallCommand extends Command {
       if (answer.status >= 400) process.exitCode = 1;
     } catch (error) {
       if (error instanceof CallFailure) return this.#fail(error);
+      if (error instanceof PartnerTokenError) {
+        return this.#fail(new CallFailure(error.message, error.remedy));
+      }
       throw error;
     }
     return this;
   }
 
-  /** La ressource de la zone, telle que le pare-feu l'a validée. */
-  #partnerResource(): string {
-    const firewall = this.kernel?.container?.get("firewall");
-    const resource =
-      firewall instanceof Firewall
-        ? firewall.getArea(PARTNER_AREA)?.resource
-        : undefined;
-    if (resource === undefined) {
+  /**
+   * Le service qui émet les jetons de l'application pour l'API partenaire —
+   * le même que la page `/demo/partner`.
+   */
+  #partnerTokens(): PartnerTokenService {
+    const service = this.kernel?.container?.get("PartnerTokenService");
+    if (!(service instanceof PartnerTokenService)) {
       throw new CallFailure(
-        `zone « ${PARTNER_AREA} » introuvable dans le pare-feu.`,
-        "le module demo et @nodefony/security sont-ils chargés ? " +
-          "npx nodefony inspect modules",
+        "service PartnerTokenService introuvable.",
+        "le module demo est-il chargé ? npx nodefony inspect modules",
       );
     }
-    return resource;
+    return service;
   }
 
-  /** Jeton signé par CETTE application, pour un de ses comptes. */
-  async #nodefonyToken(identifier: string, resource: string): Promise<string> {
-    // Un service s'atteint par sa CLÉ de conteneur, jamais par sa classe.
-    const tokens = this.kernel?.container?.get("tokenService");
-    const users = this.kernel?.container?.get("users");
-    if (
-      !(tokens instanceof TokenService) ||
-      !tokens.isEnabled() ||
-      !(users instanceof UserService)
-    ) {
-      throw new CallFailure(
-        "cette application n'émet pas de jetons (service tokenService ou users absent).",
-        "vérifie le bloc `jwt` de nodefony/config/security.ts",
-      );
-    }
-    const user = await users.findByIdentifier(identifier);
-    if (!user) {
-      throw new CallFailure(
-        `compte « ${identifier} » introuvable.`,
-        `npx nodefony security:user:add ${identifier}   (ou --as <compte existant>)`,
-      );
-    }
-    try {
-      const issued = await tokens.issueTokens(user, [], resource, TOKEN_TTL_S);
-      return issued.access_token;
-    } catch (error) {
-      if (error instanceof InvalidTargetError) {
-        throw new CallFailure(
-          `l'application refuse d'émettre un jeton pour ${resource}.`,
-          `la zone « ${PARTNER_AREA} » porte-t-elle cette resource ? npx nodefony inspect config`,
-        );
-      }
-      throw error;
-    }
-  }
-
+  // #region partner-keycloak
   /** Jeton obtenu chez Keycloak par le client machine, sans utilisateur. */
   async #keycloakToken(resource: string): Promise<string> {
     // Le Keycloak que l'application déclare (sa config security, posée
@@ -337,7 +300,9 @@ class PartnerCallCommand extends Command {
       );
     }
   }
+  // #endregion
 
+  // #region partner-call
   /** Présente le jeton à l'API, comme le ferait le partenaire. */
   async #call(
     url: URL,
@@ -383,6 +348,7 @@ class PartnerCallCommand extends Command {
     }
     return { status: response.status, body };
   }
+  // #endregion
 
   /** Dit la panne et son geste sur la sortie d'erreur, et sort en 1. */
   #fail(failure: CallFailure): this {

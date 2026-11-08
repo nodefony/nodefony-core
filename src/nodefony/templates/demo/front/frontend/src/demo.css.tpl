@@ -1853,3 +1853,153 @@ a.ritem:hover .ritem-go {
 .decorators button:hover {
   background: color-mix(in srgb, var(--blue) 12%, transparent);
 }
+
+/* Page « API entre programmes » : les essais, dans l'ordre, chacun avec sa
+   réponse réelle. */
+.trials {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.trial {
+  padding: 16px 18px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+.trial-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.trial-head h3 {
+  margin: 0;
+  font-size: 1.02rem;
+}
+.trial-num {
+  display: inline-grid;
+  place-items: center;
+  width: 1.7em;
+  height: 1.7em;
+  border-radius: 50%;
+  font-size: 0.85rem;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--blue) 18%, transparent);
+}
+.trial-expect {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.trial > p {
+  margin: 8px 0 12px;
+  line-height: 1.55;
+}
+.trial > p code,
+.trial-hint code {
+  font-size: 0.92em;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--bg-soft);
+}
+.trial-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.trial-actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.trial-hint {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.trial-result,
+.claims {
+  margin-top: 12px;
+}
+.trial-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 8px;
+}
+.status {
+  min-width: 3ch;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-align: center;
+}
+/* Mêlées au texte : lisibles dans les deux thèmes. */
+.status.ok {
+  color: color-mix(in srgb, var(--green) 55%, var(--fg));
+  background: color-mix(in srgb, var(--green) 16%, transparent);
+}
+.status.ko {
+  color: color-mix(in srgb, #c62828 60%, var(--fg));
+  background: color-mix(in srgb, #c62828 14%, transparent);
+}
+.trial-headers {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 12px;
+  margin: 0 0 8px;
+  font-size: 0.84rem;
+}
+.trial-headers dt {
+  color: var(--muted);
+}
+.trial-headers dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.trial-result pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 12px 14px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  background: var(--code-bg);
+  color: var(--code-fg);
+  border-radius: 10px;
+}
+.claims > p {
+  margin: 0 0 8px;
+  font-size: 0.88rem;
+}
+.claims dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: 8px;
+  margin: 0;
+}
+.claims dl > div {
+  min-width: 0;
+  padding: 8px 10px;
+  background: var(--bg-soft);
+  border-radius: 8px;
+}
+.claims dt {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.claims dd {
+  margin: 2px 0 0;
+  font-size: 0.86rem;
+  overflow-wrap: anywhere;
+}
+/* Bouton secondaire sur une carte : le bleu brut tombe à 3:1 en sombre. */
+.trial-actions .btn:not(.primary) {
+  color: color-mix(in srgb, var(--blue) 50%, var(--fg));
+  border-color: color-mix(in srgb, var(--blue) 45%, var(--border));
+}
