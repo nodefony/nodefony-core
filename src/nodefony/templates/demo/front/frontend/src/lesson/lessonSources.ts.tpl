@@ -28,6 +28,8 @@ const RAW = import.meta.glob<string>(
     "../partner/usePartnerLab.ts",
     "../sse/sseDemo.ts",
     "../video/videoDemo.ts",
+    "../video/VideoLesson.tsx",
+    "../video/VideoVisuals.tsx",
   ],
   { query: "?raw", import: "default", eager: true },
 );
@@ -87,4 +89,6 @@ export const LESSON_SOURCES = {
   "frontend/src/partner/usePartnerLab.ts": read("../partner/usePartnerLab.ts"),
   "frontend/src/sse/sseDemo.ts": read("../sse/sseDemo.ts"),
   "frontend/src/video/videoDemo.ts": read("../video/videoDemo.ts"),
+  "frontend/src/video/VideoLesson.tsx": read("../video/VideoLesson.tsx"),
+  "frontend/src/video/VideoVisuals.tsx": read("../video/VideoVisuals.tsx"),
 } satisfies Record<LessonFile, string>;

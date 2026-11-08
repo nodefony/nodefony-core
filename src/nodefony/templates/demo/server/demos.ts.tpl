@@ -192,6 +192,7 @@ export const DEMOS = [
       "frontend/src/video/videoDemo.ts",
       "nodefony/controllers/VideoController.ts",
       "frontend/src/video/VideoLesson.tsx",
+      "frontend/src/video/VideoVisuals.tsx",
       "frontend/src/kit/probe.ts",
       "frontend/src/kit/StepsLesson.tsx",
     ],

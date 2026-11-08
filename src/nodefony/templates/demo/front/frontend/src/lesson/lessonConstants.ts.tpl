@@ -30,11 +30,22 @@ const MAX_DEPTH = 4;
 
 /**
  * Les constantes employées par un extrait, dans l'ordre d'apparition, sans
- * doublon — celles des chaînes et des commentaires ne comptent pas.
+ * doublon — celles des chaînes et des commentaires ne comptent pas, ni une
+ * PROPRIÉTÉ (`Number.POSITIVE_INFINITY`) : elle n'est définie par aucun
+ * fichier de la leçon.
  */
 export function constantNames(code: string): string[] {
-  const names = highlight(code)
-    .filter((token) => token.kind === "type" && CONSTANT_NAME.test(token.text))
+  const tokens = highlight(code);
+  // Le morceau qui précède : `at(-1)` rendrait le DERNIER, d'où la borne.
+  const before = (index: number): string =>
+    index > 0 ? (tokens.at(index - 1)?.text ?? "") : "";
+  const names = tokens
+    .filter(
+      (token, index) =>
+        token.kind === "type" &&
+        CONSTANT_NAME.test(token.text) &&
+        !before(index).endsWith("."),
+    )
     .map((token) => token.text);
   return [...new Set(names)];
 }

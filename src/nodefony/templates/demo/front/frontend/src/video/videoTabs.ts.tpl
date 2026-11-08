@@ -10,6 +10,8 @@ import type { ILesson, LessonFile } from "../lesson/lesson";
 const CONTROLLER: LessonFile = "nodefony/controllers/VideoController.ts";
 const SHARED: LessonFile = "frontend/src/video/videoDemo.ts";
 const PROBE: LessonFile = "frontend/src/kit/probe.ts";
+const PAGE: LessonFile = "frontend/src/video/VideoLesson.tsx";
+const VISUALS: LessonFile = "frontend/src/video/VideoVisuals.tsx";
 
 export const VIDEO_LESSON = {
   tabs: [
@@ -40,6 +42,22 @@ export const VIDEO_LESSON = {
         {
           text: "Le chemin, le nom accepté et la forme de la liste, écrits UNE fois et importés par le contrôleur ET par la page.",
           excerpt: { file: SHARED, region: "video-shared" },
+        },
+        {
+          text: "Le lecteur : un `<video>` et l'adresse de la route. Le navigateur envoie `Range` tout seul.",
+          excerpt: { file: VISUALS, region: "client-player" },
+        },
+        {
+          text: "Ce que le lecteur a déjà chargé, en secondes : `video.buffered`.",
+          excerpt: { file: VISUALS, region: "client-buffered" },
+        },
+        {
+          text: "Un morceau demandé à la main : `fetch` avec `Range`, un 206, `Content-Range`. La carte du fichier se lit ainsi.",
+          excerpt: { file: VISUALS, region: "client-range" },
+        },
+        {
+          text: "Reprendre la même version : l'`ETag` lu par `HEAD`, renvoyé en `If-Range`.",
+          excerpt: { file: PAGE, region: "client-if-range" },
         },
         {
           text: "La page envoie `Range` avec `fetch` et montre ce qui revient : statut, `Content-Range`, et les premiers octets en hexadécimal.",

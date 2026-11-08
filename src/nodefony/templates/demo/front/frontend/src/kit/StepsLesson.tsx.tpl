@@ -66,7 +66,8 @@ function initialStep(steps: readonly ILessonStep[]): number {
  * @param prefix - préfixe commun des chemins, retiré de leur affichage
  * @param fields - champs à saisir avant d'appeler, pour un geste donné
  * @param extra - liens ajoutés sous les appels d'un geste
- * @param onResult - reçoit chaque résultat (garder un `etag`, par exemple)
+ * @param onResult - reçoit chaque résultat et l'`id` de son geste (garder un
+ *   `etag`, dessiner ce qui est revenu)
  */
 export function StepsLesson<E extends ILessonExcerpt>({
   steps,
@@ -81,7 +82,7 @@ export function StepsLesson<E extends ILessonExcerpt>({
   prefix: string;
   fields?: (step: ILessonStep<E>) => ReactNode;
   extra?: (step: ILessonStep<E>) => ReactNode;
-  onResult?: (result: IProbeResult) => void;
+  onResult?: (result: IProbeResult, step: string) => void;
 }) {
   const [selected, setSelected] = useState(() => initialStep(steps));
   // Par geste, le dernier résultat de CHAQUE bouton : ils se comparent.
@@ -110,7 +111,7 @@ export function StepsLesson<E extends ILessonExcerpt>({
     void call
       .run((chunks) => setLive({ ...at, chunks }))
       .then((result) => {
-        onResult?.(result);
+        onResult?.(result, at.step);
         setResults((done) => ({
           ...done,
           [at.step]: { ...done[at.step], [at.call]: result },

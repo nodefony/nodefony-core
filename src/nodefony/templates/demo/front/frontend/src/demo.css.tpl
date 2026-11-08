@@ -2490,14 +2490,138 @@ a.ritem:hover .ritem-go {
 .trial-headers > div {
   display: contents;
 }
-/* Le lecteur de « Vidéo par plages », au-dessus des appels du geste. */
+/* Le lecteur de « Vidéo par plages », au-dessus des appels du geste, et sa
+   frise : ce qui est chargé (îlots), où en est la lecture (trait). */
+.video-box {
+  margin: 0 0 14px;
+}
 .video-player {
   display: block;
   width: 100%;
   aspect-ratio: 16 / 9;
-  margin: 0 0 12px;
   background: #000;
   border-radius: 10px;
+}
+.video-timeline {
+  position: relative;
+  height: 10px;
+  margin: 8px 0 6px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.video-loaded {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--green) 70%, transparent);
+}
+.video-head {
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  width: 3px;
+  margin-left: -1px;
+  background: var(--cyan);
+}
+.video-caption {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+/* La carte du fichier : une barre = toute la vidéo, ses boîtes MP4, et le
+   morceau que la dernière réponse a fait voyager (cadre ambre). */
+.file-map {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.file-map figcaption {
+  margin: 0 0 8px;
+  font-size: 0.86rem;
+}
+.file-map-bar {
+  position: relative;
+  height: 28px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.file-map-box {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-right: 1px solid var(--card);
+}
+.box-ftyp {
+  background: var(--violet);
+}
+.box-moov {
+  background: var(--blue);
+}
+.box-mdat {
+  background: color-mix(in srgb, var(--green) 45%, var(--card));
+}
+.box-free {
+  background: var(--border);
+}
+.file-map-got {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  background: color-mix(in srgb, var(--amber) 55%, transparent);
+  outline: 2px solid var(--amber);
+  border-radius: 3px;
+}
+.file-map-scale {
+  display: flex;
+  justify-content: space-between;
+  margin: 4px 0 8px;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.file-map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.file-map-chip {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 5px;
+  vertical-align: -1px;
+  border-radius: 2px;
+}
+.file-map-chip-got {
+  background: color-mix(in srgb, var(--amber) 55%, transparent);
+  outline: 2px solid var(--amber);
+}
+.video-chip-loaded {
+  background: color-mix(in srgb, var(--green) 70%, transparent);
+}
+.video-chip-head {
+  width: 3px;
+  background: var(--cyan);
+}
+.file-map-note {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.file-map-note.is-none {
+  color: var(--muted);
+  font-weight: 500;
 }
 /* Les en-têtes ENVOYÉS, au-dessus de la réponse : une flèche et un filet
    les distinguent de ceux reçus. */

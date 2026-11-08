@@ -37,7 +37,9 @@ export type LessonFile =
   | "frontend/src/partner/partnerApi.ts"
   | "frontend/src/partner/usePartnerLab.ts"
   | "frontend/src/sse/sseDemo.ts"
-  | "frontend/src/video/videoDemo.ts";
+  | "frontend/src/video/videoDemo.ts"
+  | "frontend/src/video/VideoLesson.tsx"
+  | "frontend/src/video/VideoVisuals.tsx";
 
 /** Les couches, dans l'ordre où l'on construit une fonctionnalité. */
 export const LESSON_LAYERS = [

@@ -1,24 +1,31 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { docUrl, type IDemoAbout } from "../about";
 import { LEVELS } from "../Catalogue";
 import { LessonCode } from "../lesson/LessonCode";
 import type { LessonFile } from "../lesson/lesson";
-import { probeHttp, type IProbeChunk } from "../kit/probe";
+import { probeHttp, type IProbeChunk, type IProbeResult } from "../kit/probe";
 import { StepsLesson, type ILessonStep } from "../kit/StepsLesson";
 import { RANGE_BYTES, SAMPLE_VIDEO, VIDEO_PATH } from "./videoDemo";
 import { VIDEO_LESSON, type VideoExcerpt } from "./videoTabs";
+import { FileMap, VideoPlayer } from "./VideoVisuals";
 
 const CONTROLLER =
   "nodefony/controllers/VideoController.ts" satisfies LessonFile;
 const SHARED = "frontend/src/video/videoDemo.ts" satisfies LessonFile;
+const PAGE = "frontend/src/video/VideoLesson.tsx" satisfies LessonFile;
+const VISUALS = "frontend/src/video/VideoVisuals.tsx" satisfies LessonFile;
 
 /** La vidéo d'essai, et sa version à télécharger. */
 const SAMPLE = `${VIDEO_PATH}/${SAMPLE_VIDEO}`;
 const DOWNLOAD = `${SAMPLE}/download`;
 
-/** Un geste de la leçon ; `player` montre le lecteur au-dessus des appels. */
+/**
+ * Un geste de la leçon ; `player` montre le lecteur au-dessus des appels,
+ * `noMap` retire la carte du fichier (le geste ne lit pas la vidéo).
+ */
 interface IVideoStep extends ILessonStep<VideoExcerpt> {
   player?: boolean;
+  noMap?: boolean;
 }
 
 /** `GET` avec un en-tête `Range`, et ce qui revient. */
@@ -30,11 +37,15 @@ function ranged(
   return probeHttp(url, { headers: { range } }, live);
 }
 
-/** L'`ETag` actuel de la vidéo, lu par un `HEAD` : rien du corps ne part. */
+// #region client-if-range
+// Reprendre la version qu'on a : lire son `ETag` par un `HEAD`
+// (aucun octet du corps ne voyage), puis le renvoyer en `If-Range`
+// avec la plage — ou en `If-None-Match` pour savoir si elle a changé.
 async function currentEtag(): Promise<string> {
   const head = await fetch(SAMPLE, { method: "HEAD", cache: "no-store" });
   return head.headers.get("etag") ?? "";
 }
+// #endregion
 
 /** Les sept gestes. */
 const STEPS: readonly [IVideoStep, ...IVideoStep[]] = [
@@ -44,7 +55,11 @@ const STEPS: readonly [IVideoStep, ...IVideoStep[]] = [
     gesture: "renderMediaStream()",
     title: "Une ligne, et le lecteur saute où il veut",
     text: "Le lecteur ne télécharge pas la vidéo d'un bloc : il demande des MORCEAUX, et l'action n'a qu'à désigner le fichier. Sautez à 0:20 : le minuteur s'y affiche sans attendre ce qui précède. Sans `Range`, la réponse est entière (200) et annonce `Accept-Ranges: bytes` : « vous pourrez demander des plages ».",
-    excerpts: [{ file: CONTROLLER, region: "video-serve" }],
+    excerpts: [
+      { file: CONTROLLER, region: "video-serve" },
+      { file: VISUALS, region: "client-player" },
+      { file: VISUALS, region: "client-buffered" },
+    ],
     expect: "200, Accept-Ranges: bytes",
     player: true,
     calls: [
@@ -62,7 +77,10 @@ const STEPS: readonly [IVideoStep, ...IVideoStep[]] = [
     gesture: "Range: bytes=0-99",
     title: "Demander un morceau",
     text: `\`Range: bytes=0-99\` demande les ${RANGE_BYTES} premiers octets : la réponse est un 206, \`Content-Range\` dit lesquels et sur combien. On y lit \`ftyp\` puis \`moov\` : l'en-tête du MP4, et son index, placé en tête pour que le lecteur sache tout de suite où est chaque instant.`,
-    excerpts: [{ file: CONTROLLER, region: "video-serve" }],
+    excerpts: [
+      { file: CONTROLLER, region: "video-serve" },
+      { file: VISUALS, region: "client-range" },
+    ],
     expect: "206, Content-Range: bytes 0-99/…",
     calls: [
       {
@@ -85,7 +103,10 @@ const STEPS: readonly [IVideoStep, ...IVideoStep[]] = [
     gesture: "bytes=N- · bytes=-N",
     title: "Jusqu'au bout, ou les derniers octets",
     text: "Sans fin, `bytes=40000-` va jusqu'au dernier octet : c'est ce que demande un lecteur qui saute. Sans début, `bytes=-100` désigne les 100 DERNIERS octets, sans connaître la taille.",
-    excerpts: [{ file: CONTROLLER, region: "video-serve" }],
+    excerpts: [
+      { file: CONTROLLER, region: "video-serve" },
+      { file: VISUALS, region: "client-range" },
+    ],
     expect: "206 les deux fois",
     calls: [
       {
@@ -137,7 +158,10 @@ const STEPS: readonly [IVideoStep, ...IVideoStep[]] = [
     gesture: "If-Range · ETag",
     title: "Reprendre la MÊME version",
     text: "Un lecteur qui reprend après une coupure envoie `If-Range` avec l'`ETag` qu'il a déjà : si le fichier n'a pas changé, il reçoit la suite (206) ; s'il a changé, la vidéo repart entière (200) — jamais deux versions recollées. Et `If-None-Match` sur la version qu'on a déjà : 304, sans corps.",
-    excerpts: [{ file: CONTROLLER, region: "video-serve" }],
+    excerpts: [
+      { file: CONTROLLER, region: "video-serve" },
+      { file: PAGE, region: "client-if-range" },
+    ],
     expect: "206, 200, puis 304",
     calls: [
       {
@@ -213,6 +237,7 @@ const STEPS: readonly [IVideoStep, ...IVideoStep[]] = [
       { file: SHARED, region: "video-shared" },
     ],
     expect: "la liste, puis 422 et 404",
+    noMap: true,
     calls: [
       {
         label: "Ce que contient media/",
@@ -236,21 +261,6 @@ const STEPS: readonly [IVideoStep, ...IVideoStep[]] = [
   },
 ];
 
-/** Le lecteur, au-dessus des appels du premier geste. */
-function player(step: IVideoStep): ReactNode {
-  if (step.player !== true) return null;
-  return (
-    <video
-      className="video-player"
-      src={SAMPLE}
-      controls
-      muted
-      preload="metadata"
-      aria-label="Vidéo d'essai, sans son : un minuteur de 30 secondes"
-    />
-  );
-}
-
 /**
  * Page d'apprentissage « Vidéo par plages » (`/demo/video`) : la carte des
  * sept gestes, puis UN geste à l'écran (mise en page du kit,
@@ -262,6 +272,16 @@ function player(step: IVideoStep): ReactNode {
  */
 export function VideoLesson({ about }: { about: IDemoAbout | null }) {
   const version = about?.nodefony.version ?? null;
+  // La dernière réponse de CHAQUE geste : la carte du fichier la dessine.
+  const [last, setLast] = useState<Record<string, IProbeResult>>({});
+  const visuals = (step: IVideoStep): ReactNode => (
+    <>
+      {step.player === true && <VideoPlayer url={SAMPLE} />}
+      {step.noMap !== true && (
+        <FileMap url={SAMPLE} result={last[step.id] ?? null} />
+      )}
+    </>
+  );
   return (
     <main className="lesson steps-page">
       <nav className="crumbs" aria-label="Fil d'Ariane">
@@ -288,7 +308,10 @@ export function VideoLesson({ about }: { about: IDemoAbout | null }) {
         steps={STEPS}
         label="Les sept gestes"
         prefix={VIDEO_PATH}
-        fields={player}
+        fields={visuals}
+        onResult={(result, step) =>
+          setLast((done) => ({ ...done, [step]: result }))
+        }
       />
 
       <details className="steps-more">

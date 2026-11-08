@@ -77,6 +77,7 @@ import { FIRST_LESSON } from "../frontend/src/first/firstTabs";
 import { SSE_LESSON } from "../frontend/src/sse/sseTabs";
 import { answerWords, SSE_PATH } from "../frontend/src/sse/sseDemo";
 import { VIDEO_LESSON } from "../frontend/src/video/videoTabs";
+import { describeReceived, readBox } from "../frontend/src/video/fileMap";
 import {
   MediaParams,
   SAMPLE_VIDEO,
@@ -753,6 +754,12 @@ describe("demo — les pages d'apprentissage suivent le modèle commun", () => {
     expect(resolveConstants("use(MISSING_ONE)", sources)).toEqual([]);
   });
 
+  it("une propriété en capitales n'est pas une constante de la leçon", () => {
+    expect(
+      constantNames("Number.POSITIVE_INFINITY + LIMIT_N; a?.MAX_X; B_C"),
+    ).toEqual(["LIMIT_N", "B_C"]);
+  });
+
   it("résout un tableau de littéraux ; une virgule dans une chaîne le rend sans valeur", () => {
     const sources = {
       "a.ts":
@@ -888,6 +895,66 @@ describe("demo — Vidéo par plages", () => {
     expect(boxes).toContain("mdat");
     expect(boxes.indexOf("moov")).toBeGreaterThan(-1);
     expect(boxes.indexOf("moov")).toBeLessThan(boxes.indexOf("mdat"));
+  });
+
+  it("la carte lit l'en-tête d'une boîte MP4 ; une taille 0 va jusqu'au bout", () => {
+    const head = (size: number, type: string) => {
+      const bytes = new Uint8Array(8);
+      new DataView(bytes.buffer).setUint32(0, size);
+      bytes.set(new TextEncoder().encode(type), 4);
+      return bytes;
+    };
+    expect(readBox(head(32, "ftyp"), 0, 1000)).toEqual({
+      type: "ftyp",
+      start: 0,
+      size: 32,
+    });
+    expect(readBox(head(0, "mdat"), 200, 1000)).toEqual({
+      type: "mdat",
+      start: 200,
+      size: 800,
+    });
+    expect(readBox(head(4, "moov"), 0, 1000)).toBeNull();
+    expect(readBox(new Uint8Array(3), 0, 1000)).toBeNull();
+  });
+
+  it("la carte dit ce qu'une réponse a fait voyager du fichier", () => {
+    const result = (
+      status: number,
+      headers: [string, string][],
+    ): Parameters<typeof describeReceived>[0] => ({
+      request: "GET /x",
+      sent: [],
+      status,
+      ms: 1,
+      headers,
+      body: "",
+      chunks: [],
+      redirected: false,
+      finalUrl: null,
+      error: null,
+    });
+    const part = describeReceived(
+      result(206, [["content-range", "bytes 0-99/1000"]]),
+    );
+    expect(part.span).toEqual({ start: 0, end: 99 });
+    expect(part.total).toBe(1000);
+    expect(part.text).toContain("MORCEAU");
+    const whole = describeReceived(
+      result(200, [
+        ["content-type", "video/mp4"],
+        ["content-length", "1000"],
+      ]),
+    );
+    expect(whole.span).toEqual({ start: 0, end: 999 });
+    expect(
+      describeReceived(result(416, [["content-range", "bytes */1000"]])),
+    ).toMatchObject({ span: null, total: 1000 });
+    expect(describeReceived(result(304, [])).span).toBeNull();
+    expect(
+      describeReceived(result(200, [["content-type", "application/json"]]))
+        .span,
+    ).toBeNull();
   });
 
   it("le contrôleur sert le dossier par plages, le nom validé avant l'action", () => {
