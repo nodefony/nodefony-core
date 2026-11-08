@@ -804,6 +804,14 @@ class Resolver implements IResolver {
     if (!isMutationMethod(this.methodOverride ?? context.method)) {
       return this.executeAction(data, reload, meta);
     }
+    // SECURITY d'abord — la garde parle AVANT la porte d'idempotence, comme
+    // avant le schéma : un refusé n'apprend rien du contrat (400 clé exigée,
+    // 422 payload déjà vu, 409 en cours), ne réserve aucune clé, et un REJEU
+    // est rejugé — un droit retiré entre-temps ne rend pas la réponse
+    // mémorisée. Le verdict favorable vaut pour l'exécution qui suit
+    // (`preAuthorized`), qui ne le rejuge pas.
+    if (this.preAuthorized) this.preAuthorized = false;
+    else await this._enforceActionSecurity(meta);
     const als = RequestContext.get();
     const httpReq: IParamArgContext["request"] = context.request;
     // Params de route (noms → valeurs) pour le fingerprint du payload.
@@ -846,6 +854,8 @@ class Resolver implements IResolver {
       }
       return { result: memo, redirectMeta: undefined };
     }
+    // La garde a déjà parlé (tête de méthode) : l'exécution ne la rejuge pas.
+    this.preAuthorized = true;
     if (verdict.kind === "execute") {
       return this.executeAction(data, reload, meta);
     }

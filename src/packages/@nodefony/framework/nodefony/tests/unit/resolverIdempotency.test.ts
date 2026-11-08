@@ -11,6 +11,7 @@ import {
   Post,
   Get,
   Idempotent,
+  IsGranted,
 } from "../../decorators/routerDecorators.js";
 import type { IIdempotencyStore, IdempotentResponse } from "nodefony";
 import { emptyIdempotencyPage } from "../support/idempotencyDoubles";
@@ -59,6 +60,13 @@ class IdemCtrl extends Controller {
     resp.self = resp;
     return resp;
   }
+  @Post("/admin")
+  @Idempotent()
+  @IsGranted("ROLE_ADMIN")
+  guarded() {
+    execCount += 1;
+    return { guarded: true, n: execCount };
+  }
 }
 
 // Mini-store fidèle au contrat (le vrai MemoryIdempotencyStore est un Service DI,
@@ -94,11 +102,19 @@ function makeResolver(opts: {
   action: string;
   method?: string;
   store?: IIdempotencyStore;
+  /** Moteur d'autorisation : accorde-t-il cet attribut ? */
+  decide?: (attribute: string) => boolean;
 }): Resolver {
   const r = Object.create(Resolver.prototype) as Resolver;
   const container = new Container();
   if (opts.store) {
     container.set("idempotencyStore", opts.store);
+  }
+  const decide = opts.decide;
+  if (decide !== undefined) {
+    container.set("authorization", {
+      decide: async (_token: unknown, attribute: string) => decide(attribute),
+    });
   }
   const response = {
     statusCode: 200,
@@ -377,6 +393,65 @@ describe("Resolver — seam @Idempotent userland (callController)", () => {
     const replay = await call();
     expect(execCount).to.equal(1); // ← LE point : pas de ré-exécution
     expect(replay).to.equal(null); // corps mémorisé vide (dégradé, annoncé)
+  });
+
+  it("🔴 @IsGranted refuse AVANT la porte d'idempotence : 403, pas 400, store intact", async () => {
+    // Un appelant sans le droit ne doit rien apprendre du contrat de la route
+    // (clé exigée, payload déjà vu, requête en cours) : la garde parle d'abord,
+    // comme pour une action à schéma.
+    const store = makeStore();
+    const err = await RequestContext.run(
+      { requestId: "t", ...authed("eve") },
+      () =>
+        caught(() =>
+          makeResolver({
+            action: "guarded",
+            store,
+            decide: () => false,
+          }).callController(),
+        ),
+    );
+    expect(err?.code).to.equal(403);
+    expect(execCount).to.equal(0);
+    expect(store.size).to.equal(0); // aucune réservation pour un refusé
+  });
+
+  it("🔴 un rejeu est REJUGÉ : droit retiré entre-temps → 403, jamais la réponse mémorisée", async () => {
+    const store = makeStore();
+    const call = (granted: boolean) =>
+      RequestContext.run(
+        { requestId: "t", ...authed("alice"), idempotencyKey: "k1" },
+        () =>
+          caught(() =>
+            makeResolver({
+              action: "guarded",
+              store,
+              decide: () => granted,
+            }).callController(),
+          ),
+      );
+    expect(await call(true)).to.equal(null);
+    expect(execCount).to.equal(1);
+    const err = await call(false);
+    expect(err?.code).to.equal(403);
+  });
+
+  it("garde accordée + clé fraîche → exécute UNE fois, la garde n'est pas rejugée deux fois", async () => {
+    let decisions = 0;
+    const out = await RequestContext.run(
+      { requestId: "t", ...authed("alice"), idempotencyKey: "k2" },
+      () =>
+        makeResolver({
+          action: "guarded",
+          store: makeStore(),
+          decide: () => {
+            decisions += 1;
+            return true;
+          },
+        }).callController(),
+    );
+    expect(out).to.deep.equal({ guarded: true, n: 1 });
+    expect(decisions).to.equal(1);
   });
 
   it("no store registered → executes (degrade, no dedup)", async () => {
