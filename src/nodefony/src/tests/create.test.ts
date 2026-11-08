@@ -3069,6 +3069,19 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         lireMod("nodefony", "controllers", "DemoController.ts"),
         'from "../../frontend/src/about"',
       );
+      // L'index des démos (D3) : à la racine du module, source unique du
+      // catalogue et des onglets de métier — pas de JSON parallèle.
+      const demos = lireMod("demos.ts");
+      assert.include(demos, "as const satisfies readonly IDemoEntry[]");
+      assert.include(demos, 'id: "partner"');
+      assert.include(
+        lireMod("frontend", "src", "Catalogue.tsx"),
+        'from "../../demos"',
+      );
+      assert.include(
+        lireMod("frontend", "src", "RoleTabs.tsx"),
+        'role="tablist"',
+      );
       // Le moteur et Vite en développement, la brique en pair.
       const pkg = JSON.parse(lireMod("package.json")) as {
         devDependencies?: Record<string, string>;

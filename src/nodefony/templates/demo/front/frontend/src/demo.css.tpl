@@ -530,7 +530,10 @@ a.card:hover {
 }
 .agents-panel pre {
   margin: 16px 0 0;
-  overflow-x: auto;
+  /* Passe à la ligne plutôt que défiler : un bloc qui défile devrait être
+     atteignable au clavier, et un `pre` n'est pas interactif. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   background: var(--code-bg);
   color: var(--code-fg);
   border-radius: 10px;
@@ -867,6 +870,15 @@ a.card:hover .go {
   margin: 0;
   padding: 0;
 }
+/* Démo sans page : sa commande, sur sa propre ligne, au-dessus du pied. */
+.card .cmd {
+  margin-top: auto;
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+.card .cmd + .foot {
+  margin-top: 0;
+}
 .lvl {
   font-size: 0.72rem;
   font-weight: 600;
@@ -1103,9 +1115,11 @@ body {
   gap: 10px;
   white-space: nowrap;
 }
+/* Opacité SEULE, jamais `visibility` : les deux identités restent dans
+   l'arbre d'accessibilité, et le nom du lien contient le texte visible
+   avant comme après la bascule (WCAG 2.5.3). */
 .brand .id-nf {
   opacity: 0;
-  visibility: hidden;
 }
 @supports (animation-timeline: view()) {
   @media (prefers-reduced-motion: no-preference) {
@@ -1114,7 +1128,6 @@ body {
         opacity: 0;
         transform: translateY(-10px);
         filter: blur(3px);
-        visibility: hidden;
       }
     }
     @keyframes nf-id-in {
@@ -1122,7 +1135,6 @@ body {
         opacity: 0;
         transform: translateY(10px);
         filter: blur(3px);
-        visibility: hidden;
       }
       to {
         opacity: 1;

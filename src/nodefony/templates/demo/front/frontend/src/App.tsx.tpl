@@ -1,13 +1,29 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { NODEFONY_LOGO } from "./brand";
+import { DEMOS, type IDemoEntry } from "../../demos";
 import {
   DEMO_ABOUT_PATH,
+  REPO_URL,
   docUrl,
   parseDemoAbout,
   type IDemoAbout,
 } from "./about";
+import { Catalogue } from "./Catalogue";
 import { debugBarControl, type IDebugBarControl } from "./debugBar";
+import { useCurrentSection, usePointerLight } from "./effects";
+import { RoleTabs } from "./RoleTabs";
 import "./demo.css";
+
+/** Les sections que la barre du haut permet d'atteindre, dans l'ordre. */
+const SECTIONS = [
+  { id: "roles", label: "Par où commencer" },
+  { id: "realtime", label: "Temps réel" },
+  { id: "catalogue", label: "Démos" },
+  { id: "socle", label: "Le socle" },
+  { id: "agents", label: "Pour les agents" },
+] as const;
+
+const SECTION_IDS = SECTIONS.map((section) => section.id);
 
 /**
  * Accueil de la démo (`/demo`) — le haut de l'accueil du cœur, en React.
@@ -15,11 +31,13 @@ import "./demo.css";
  * Guide pour un agent : la page lit son identité à `/demo/api/about`
  * (`DemoController`, type partagé `IDemoAbout`) et pilote la barre de debug
  * par sa poignée publiée (`debugBar.ts`), sans importer le widget. Le
- * catalogue des démos et les onglets de métier arrivent dans les lots
- * suivants (#747).
+ * catalogue et les onglets de métier lisent l'index `modules/demo/demos.ts`
+ * — une démo s'ajoute là, jamais dans la page.
  */
 export function App() {
   const about = useAbout();
+  const version = about?.nodefony.version ?? null;
+  usePointerLight(".card");
   // Le logo vient du paquet (`brand.ts`) : la feuille le lit par variable.
   const logo: CSSProperties & Record<"--demo-logo", string> = {
     "--demo-logo": `url(${JSON.stringify(NODEFONY_LOGO)})`,
@@ -30,6 +48,17 @@ export function App() {
       <Topbar about={about} />
       <main>
         <Hero />
+        <RoleTabs version={version} />
+        <Catalogue />
+        <Foundation />
+        <Agents />
+        <footer>
+          <span>
+            Démo livrée par <code>create app --demo</code> — la retirer :
+            supprimer <code>modules/demo/</code> et sa ligne du manifeste.
+          </span>
+          <a href="https://nodefony.net">nodefony.net</a>
+        </footer>
       </main>
     </div>
   );
@@ -59,9 +88,12 @@ function useAbout(): IDemoAbout | null {
  */
 function Topbar({ about }: { about: IDemoAbout | null }) {
   const appName = about?.app.name ?? "<%= it.appName %>";
-  // PAS d'`aria-label` : le nom accessible est le CONTENU. L'étiquette « démo »
-  // disparaît sous 1200 px, et un libellé fixe ne contiendrait plus le texte
-  // visible à l'une des deux largeurs (WCAG 2.5.3, « label in name »).
+  const current = useCurrentSection(SECTION_IDS);
+  // PAS d'`aria-label` : le nom accessible est le CONTENU des DEUX identités.
+  // L'étiquette « démo » disparaît sous 1200 px, et la barre bascule vers
+  // Nodefony au défilement : seul le contenu entier contient le texte visible
+  // dans chaque état (WCAG 2.5.3, « label in name »). La bascule joue donc sur
+  // l'opacité, jamais sur `visibility`, qui retirerait une identité du nom.
   return (
     <header className="topbar">
       <a className="brand" href="/demo">
@@ -75,10 +107,10 @@ function Topbar({ about }: { about: IDemoAbout | null }) {
               v{about.app.version}
             </span>
           )}
-        </span>
-        <span className="id id-nf" aria-hidden="true">
+        </span>{" "}
+        <span className="id id-nf">
           <span className="brand-logo" />
-          <span className="brand-name">Nodefony</span>
+          <span className="brand-name">Nodefony</span>{" "}
           {about && (
             <span className="tag ver" title="Version de Nodefony installée">
               v{about.nodefony.version}
@@ -87,17 +119,19 @@ function Topbar({ about }: { about: IDemoAbout | null }) {
         </span>
       </a>
       <nav className="topnav" aria-label="Navigation de la démo">
-        <a
-          className="doc"
-          href={
-            about
-              ? docUrl(about.nodefony.version)
-              : "https://nodefony.github.io/nodefony-core/"
-          }
-        >
+        {SECTIONS.map((section) => (
+          <a
+            key={section.id}
+            href={`#${section.id}`}
+            aria-current={current === section.id ? "true" : undefined}
+          >
+            {section.label}
+          </a>
+        ))}
+        <a className="doc" href={docUrl(about?.nodefony.version ?? null)}>
           Documentation
         </a>
-        <a className="gh" href="https://github.com/nodefony/nodefony-core">
+        <a className="gh" href={REPO_URL}>
           GitHub
         </a>
         <DebugBarButtons />
@@ -219,4 +253,90 @@ function Hero() {
       </div>
     </div>
   );
+}
+
+/** Les six briques que les démos utilisent, chacune avec les démos qui la montrent. */
+const FEATURES = [
+  {
+    title: "Temps réel natif",
+    text: "Même pipeline, même sécurité que le HTTP. Démos : chat, sonde, jeu.",
+  },
+  {
+    title: "Sécurité par conception",
+    text: "Zones du pare-feu, session, jeton machine. Démos : chat, API entre programmes.",
+  },
+  {
+    title: "DI et modules",
+    text: "La démo est un module privé : un dossier et une ligne du manifeste.",
+  },
+  {
+    title: "Persistance portable",
+    text: "Historique du chat en base, Drizzle par défaut.",
+  },
+  {
+    title: "Front Vite",
+    text: "Cette page est un front React servi par le framework, HMR en développement.",
+  },
+  {
+    title: "Socle isomorphe",
+    text: "Les mêmes types de messages côté serveur et navigateur, par nodefony/react.",
+  },
+] as const;
+
+function Foundation() {
+  return (
+    <section id="socle">
+      <div className="sec-head">
+        <p className="kicker">Ce que les démos utilisent</p>
+        <h2>Le socle, en six briques</h2>
+        <p>
+          Reprise courte des fonctionnalités de l'accueil du framework, chacune
+          renvoyant aux démos qui la montrent.
+        </p>
+      </div>
+      <div className="features">
+        {FEATURES.map((feature) => (
+          <div key={feature.title} className="feature">
+            <h3>{feature.title}</h3>
+            <p>{feature.text}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Ce qu'un agent lit et que l'écran ne montre pas : une entrée RÉELLE de
+ * l'index, imprimée depuis `demos.ts` — jamais un exemple recopié.
+ */
+function Agents() {
+  const entry = DEMOS.find((demo) => demo.status === "ready");
+  return (
+    <section id="agents">
+      <div className="agents-panel">
+        <p className="kicker">Pour les agents</p>
+        <h2 style={{ margin: "0 0 8px" }}>Une couche invisible à l'écran</h2>
+        <p style={{ margin: 0, color: "var(--muted)" }}>
+          L'<code>AGENTS.md</code> de l'application renvoie à l'index des
+          démos ; chaque fichier porte un TSDoc qui dit le type à utiliser, la
+          doc, la commande et le skill.
+        </p>
+        {entry !== undefined && (
+          <pre>{formatEntry(entry)}</pre>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/** Imprime une entrée comme dans `demos.ts` : clés nues, chaînes entre guillemets. */
+function formatEntry(entry: IDemoEntry): string {
+  const lines = Object.entries(entry).map(([key, value]: [string, unknown]) => {
+    const printed = Array.isArray(value)
+      ? `[${value.map((item: unknown) => JSON.stringify(item)).join(", ")}]`
+      : JSON.stringify(value);
+    return `  ${key}: ${printed},`;
+  });
+  return `{\n${lines.join("\n")}\n}`;
 }
