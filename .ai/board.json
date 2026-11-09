@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-09T14:55:40.800Z",
+  "generatedAt": "2026-11-09T16:20:46.014Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 245,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 17,
+      "open": 20,
       "title": "10.0.0-beta"
     },
     {
@@ -6402,6 +6402,22 @@
       ]
     },
     {
+      "number": 758,
+      "title": "fix(realtime): séparer lecture et écriture d'un canal, sans écrasement",
+      "url": "https://github.com/nodefony/nodefony-core/issues/758",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P0 — bloque le reste",
+      "jours": 1,
+      "ordre": 7.005,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-7"
+      ]
+    },
+    {
       "number": 694,
       "title": "feat(http): servir des services gRPC dans le pipeline HTTP/2",
       "url": "https://github.com/nodefony/nodefony-core/issues/694",
@@ -6713,11 +6729,27 @@
       "title": "ci(scaffold): éprouver à chaque poussée une app pnpm avec sa démo",
       "url": "https://github.com/nodefony/nodefony-core/issues/755",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 7.13,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-7"
+      ]
+    },
+    {
+      "number": 756,
+      "title": "fix(cli): faire passer son propre lint à l'app générée avec sa démo",
+      "url": "https://github.com/nodefony/nodefony-core/issues/756",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P0 — bloque le reste",
+      "jours": 0.25,
+      "ordre": 7.131,
       "debut": null,
       "cible": null,
       "labels": [
@@ -6749,6 +6781,22 @@
       "milestone": "10.0.0-beta",
       "priorite": "P0 — bloque le reste",
       "jours": 0.5,
+      "ordre": 7.141,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-7"
+      ]
+    },
+    {
+      "number": 757,
+      "title": "test(demo): éprouver de bout en bout le temps réel de la démo",
+      "url": "https://github.com/nodefony/nodefony-core/issues/757",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
       "ordre": 7.141,
       "debut": null,
       "cible": null,
