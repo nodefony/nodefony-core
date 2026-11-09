@@ -13,13 +13,17 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, expect, vi, afterEach, afterAll } from "vitest";
 import type { IUploadedFile } from "@nodefony/http";
-import { getScaffoldSpec, readSymbolsGraph } from "nodefony";
+import { getScaffoldSpec, readSymbolsGraph, RequestContext } from "nodefony";
 import { defineSecurityConfig } from "@nodefony/security";
 import {
   defineDemoConfig,
   demoConfigJsonSchema,
 } from "../nodefony/config/defineModuleConfig";
-import { demoSecurity, PARTNER_AREA } from "../nodefony/config/security";
+import {
+  demoSecurity,
+  MCP_AREA,
+  PARTNER_AREA,
+} from "../nodefony/config/security";
 import DemoModule from "../index";
 import DemoPulseService, {
   PULSE_MIN_INTERVAL_MS,
@@ -102,6 +106,32 @@ import {
 import { DEMOS } from "../demos";
 import demoModuleConfig from "../nodefony/config/config";
 import { BINARY_LESSON } from "../frontend/src/binary/binaryTabs";
+import { MCP_LESSON } from "../frontend/src/mcp/mcpTabs";
+import {
+  authServerMetadataRequest,
+  authorizationServersOf,
+  finalMessage,
+  offersCodeFlow,
+  progressOf,
+  readMessages,
+  readToken,
+  sameOriginServer,
+  toolText,
+  toolsOf,
+} from "../frontend/src/mcp/mcpClient";
+import {
+  CHAT_READ_MAX,
+  MCP_GATE_PATH,
+  MCP_TOOL_DIGEST,
+  MCP_TOOL_POST,
+  MCP_TOOL_READ,
+  MCP_WRITE_SCOPE,
+  type IMcpFeedEntry,
+} from "../frontend/src/mcp/mcpDemo";
+import { demoTools } from "../nodefony/mcp/demoTools";
+import DemoMcpService, {
+  MCP_FEED_MAX_PER_S,
+} from "../nodefony/service/DemoMcpService";
 import {
   BINARY_PATH,
   BINARY_SOCKET,
@@ -642,6 +672,7 @@ const LESSONS: readonly { page: string; lesson: ILesson }[] = [
   { page: "sse", lesson: SSE_LESSON },
   { page: "video", lesson: VIDEO_LESSON },
   { page: "binary", lesson: BINARY_LESSON },
+  { page: "mcp", lesson: MCP_LESSON },
 ];
 
 /** Chaque extrait cité, avec sa page et sa couche. */
@@ -808,6 +839,10 @@ describe("demo — les leçons à gestes : la sonde et le contrôleur cité", ()
     ["nodefony/controllers/SseController.ts", SSE_LESSON],
     ["nodefony/controllers/VideoController.ts", VIDEO_LESSON],
     ["nodefony/controllers/BinaryController.ts", BINARY_LESSON],
+    ["nodefony/controllers/DemoMcpController.ts", MCP_LESSON],
+    ["nodefony/controllers/McpTokenController.ts", MCP_LESSON],
+    ["nodefony/service/DemoMcpService.ts", MCP_LESSON],
+    ["nodefony/mcp/demoTools.ts", MCP_LESSON],
   ] as const)(
     "chaque région de %s est citée par la leçon : aucun geste oublié",
     (file, lesson) => {
@@ -1417,5 +1452,285 @@ describe("demo — le pouls de l'accueil (demo:pulse)", () => {
     vi.advanceTimersByTime(PULSE_MIN_INTERVAL_MS * 3);
     expect(sent).toEqual([]);
     expect(pulse.snapshot().partner.calls).toBe(1);
+  });
+});
+
+describe("demo — MCP", () => {
+  /** Les outils de la porte, sur un salon neuf. */
+  const toolsOn = (chat: ChatService) =>
+    Object.fromEntries(demoTools(chat).map((tool) => [tool.name, tool]));
+  const anyCaller = { authenticated: false, roles: [], scopes: [] };
+
+  it("lit une réponse JSON, et un flux SSE dont le dernier bloc est encore incomplet", () => {
+    expect(
+      readMessages('{"jsonrpc":"2.0","id":1,"result":{"ok":true}}'),
+    ).toEqual([
+      {
+        id: 1,
+        method: null,
+        params: undefined,
+        result: { ok: true },
+        error: null,
+      },
+    ]);
+    const stream =
+      'event: message\ndata: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progressToken":"p","progress":1,"total":8,"message":"lot 1/8 parcouru"}}\n\n' +
+      'data: {"jsonrpc":"2.0","id":2,"result":{"content":[{"type":"text","text":"fini"}]}}\n\n' +
+      'data: {"jsonrpc":"2.0","id":3,"res';
+    const messages = readMessages(stream);
+    expect(messages).toHaveLength(2);
+    expect(
+      progressOf(
+        messages[0] ?? {
+          id: null,
+          method: null,
+          params: null,
+          result: null,
+          error: null,
+        },
+      ),
+    ).toEqual({
+      progress: 1,
+      total: 8,
+      message: "lot 1/8 parcouru",
+    });
+    expect(toolText(finalMessage(messages))).toEqual({
+      text: "fini",
+      isError: false,
+    });
+  });
+
+  it("lit les annotations d'un outil, et une erreur JSON-RPC", () => {
+    const listed = readMessages(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        result: {
+          tools: [
+            {
+              name: "a",
+              description: "d",
+              annotations: {
+                readOnlyHint: false,
+                openWorldHint: false,
+                destructiveHint: false,
+              },
+            },
+            { name: "b", description: "e" },
+          ],
+        },
+      }),
+    );
+    expect(toolsOf(finalMessage(listed))).toEqual([
+      {
+        name: "a",
+        title: null,
+        description: "d",
+        readOnly: false,
+        openWorld: false,
+        destructive: false,
+      },
+      {
+        name: "b",
+        title: null,
+        description: "e",
+        readOnly: null,
+        openWorld: null,
+        destructive: null,
+      },
+    ]);
+    const failed = readMessages(
+      '{"jsonrpc":"2.0","id":2,"error":{"code":-32602,"message":"outil inconnu"}}',
+    );
+    expect(finalMessage(failed)?.error).toEqual({
+      code: -32602,
+      message: "outil inconnu",
+    });
+  });
+
+  it("le flux normé : un émetteur sans autorisation par code arrête l'agent, Keycloak non", () => {
+    // Ce que publie l'émetteur d'une application Nodefony (RFC 8414).
+    expect(
+      offersCodeFlow({
+        issuer: "https://app.test",
+        jwks_uri: "https://app.test/.well-known/jwks.json",
+        response_types_supported: [],
+        grant_types_supported: [],
+      }),
+    ).toBe(false);
+    expect(
+      offersCodeFlow({
+        authorization_endpoint: "https://kc.test/auth",
+        grant_types_supported: ["authorization_code", "refresh_token"],
+      }),
+    ).toBe(true);
+    // `grant_types_supported` absent : la RFC 8414 sous-entend le code.
+    expect(
+      offersCodeFlow({ authorization_endpoint: "https://kc.test/auth" }),
+    ).toBe(true);
+    expect(
+      offersCodeFlow({ grant_types_supported: ["authorization_code"] }),
+    ).toBe(false);
+  });
+
+  it("la page ne lit que le serveur de SA propre origine ; les autres restent à l'agent", () => {
+    const servers = authorizationServersOf({
+      resource: "https://app.test/mcp/demo",
+      authorization_servers: [
+        "https://kc.test/realms/app",
+        "https://app.test",
+        42,
+      ],
+    });
+    expect(servers).toEqual(["https://kc.test/realms/app", "https://app.test"]);
+    expect(sameOriginServer(servers, "https://app.test")).toBe(
+      "https://app.test",
+    );
+    expect(sameOriginServer(servers, "https://127.0.0.1:5152")).toBeNull();
+    expect(authorizationServersOf("pas un document")).toEqual([]);
+  });
+
+  it("le chemin bien connu s'insère entre l'origine et le chemin de l'émetteur (RFC 8414)", () => {
+    expect(authServerMetadataRequest("https://kc.test/realms/app/").url).toBe(
+      "https://kc.test/.well-known/oauth-authorization-server/realms/app",
+    );
+    expect(authServerMetadataRequest("https://app.test").url).toBe(
+      "https://app.test/.well-known/oauth-authorization-server",
+    );
+  });
+
+  it("relit le jeton du guichet, et refuse ce qui n'en est pas un", () => {
+    const token = {
+      account: "admin",
+      accessToken: "x.y.z",
+      expiresIn: 300,
+      resource: "https://app.test/mcp/demo",
+      scopes: ["demo:write"],
+    };
+    expect(readToken(JSON.stringify(token))).toEqual(token);
+    expect(readToken('{"accessToken":"x"}')).toBeNull();
+    expect(readToken("pas du json")).toBeNull();
+  });
+
+  it("la zone de la porte rend sa ressource absolue, et le scope est réservé aux administrateurs", () => {
+    const config = defineSecurityConfig({
+      jwt: { issuer: "https://exemple.test" },
+      ...demoSecurity,
+    });
+    expect(config.areas[MCP_AREA]?.resource).toBe(
+      `https://exemple.test${MCP_GATE_PATH}`,
+    );
+    expect(config.areas[MCP_AREA]?.authenticators).toEqual(["anonymous"]);
+    expect(config.grantableScopes[MCP_WRITE_SCOPE]).toEqual(["ROLE_ADMIN"]);
+  });
+
+  it("chaque outil dit s'il lit ou s'il modifie (annotations MCP)", () => {
+    for (const tool of demoTools(new ChatService())) {
+      expect(typeof tool.annotations?.readOnlyHint, tool.name).toBe("boolean");
+      expect(typeof tool.annotations?.openWorldHint, tool.name).toBe("boolean");
+      if (tool.annotations?.readOnlyHint === false) {
+        expect(typeof tool.annotations.destructiveHint, tool.name).toBe(
+          "boolean",
+        );
+      }
+    }
+    const tools = toolsOn(new ChatService());
+    expect(tools[MCP_TOOL_POST]?.scopes).toEqual([MCP_WRITE_SCOPE]);
+    expect(tools[MCP_TOOL_POST]?.actsForUser).toBe(true);
+    expect(tools[MCP_TOOL_READ]?.scopes).toBeUndefined();
+  });
+
+  it("la lecture rend les derniers messages ; hors bornes, un échec MÉTIER que l'agent lit", async () => {
+    const chat = new ChatService();
+    chat.add({ author: "alice", text: "un", sentAt: 1 });
+    chat.add({ author: "bob", text: "deux", sentAt: 2 });
+    const read = toolsOn(chat)[MCP_TOOL_READ];
+    const ok = await read?.handler({ limit: 1 }, anyCaller);
+    expect(ok).toEqual({
+      content: [
+        { type: "text", text: '[{"author":"bob","text":"deux","sentAt":2}]' },
+      ],
+    });
+    const tooMany = await read?.handler(
+      { limit: CHAT_READ_MAX + 1 },
+      anyCaller,
+    );
+    expect(tooMany?.isError).toBe(true);
+  });
+
+  it("l'outil long s'arrête dès que l'agent a fermé le flux", async () => {
+    const abort = new AbortController();
+    abort.abort();
+    const digest = toolsOn(new ChatService())[MCP_TOOL_DIGEST];
+    const reported: number[] = [];
+    const result = await digest?.handler({}, anyCaller, {
+      signal: abort.signal,
+      progress: (progress) => reported.push(progress),
+    });
+    expect(result).toEqual({
+      content: [{ type: "text", text: "interrompu" }],
+      isError: true,
+    });
+    expect(reported).toEqual([]);
+  });
+
+  it("l'écriture signe au nom du compte du jeton, et refuse sans compte", async () => {
+    const chat = new ChatService();
+    const post = toolsOn(chat)[MCP_TOOL_POST];
+    const anonymous = await post?.handler({ text: "salut" }, anyCaller);
+    expect(anonymous?.isError).toBe(true);
+    expect(chat.recent(10)).toEqual([]);
+    const signed = await RequestContext.run(
+      {
+        requestId: "mcp-test",
+        token: { isAuthenticated: () => true },
+        user: { id: "1", identifier: "admin", roles: ["ROLE_ADMIN"] },
+      },
+      () => post?.handler({ text: "  bonjour  " }, anyCaller),
+    );
+    expect(signed?.isError).toBeUndefined();
+    expect(
+      chat.recent(10).map(({ author, text }) => ({ author, text })),
+    ).toEqual([{ author: "admin", text: "bonjour" }]);
+    // La règle du salon, la même que la route d'envoi : un texte vide est refusé.
+    const empty = await RequestContext.run(
+      {
+        requestId: "mcp-test",
+        token: { isAuthenticated: () => true },
+        user: { id: "1", identifier: "admin", roles: ["ROLE_ADMIN"] },
+      },
+      () => post?.handler({ text: "   " }, anyCaller),
+    );
+    expect(empty?.isError).toBe(true);
+  });
+
+  it("le fil ne bâtit rien sans spectateur, et plafonne une rafale", () => {
+    const service = new DemoMcpService();
+    const entry = (at: number): IMcpFeedEntry => ({
+      at,
+      method: "tools/list",
+      tool: null,
+      caller: "anonyme",
+      ms: 1,
+      status: 200,
+    });
+    expect(service.watched).toBe(false);
+    service.record(entry(1000));
+    const sent: IMcpFeedEntry[] = [];
+    const detach = service.attach((line) => sent.push(line));
+    expect(service.watched).toBe(true);
+    for (let i = 0; i < MCP_FEED_MAX_PER_S * 3; i += 1)
+      service.record(entry(5000));
+    expect(sent).toHaveLength(MCP_FEED_MAX_PER_S);
+    service.record(entry(6000));
+    expect(sent).toHaveLength(MCP_FEED_MAX_PER_S + 1);
+    detach();
+    expect(service.watched).toBe(false);
+  });
+
+  it("la carte MCP est prête, et pointe la leçon", () => {
+    const card = DEMOS.find((demo) => demo.id === "mcp");
+    expect(card?.status).toBe("ready");
+    expect(card?.path).toBe("/demo/mcp");
   });
 });

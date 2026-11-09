@@ -11,6 +11,8 @@
   --green: #4a8b3e;
   --amber: #b7791f;
   --violet: #7c4dbd;
+  /* Un refus, une erreur (leçon MCP) — jamais une série de graphe. */
+  --danger: #b4232a;
   /* Séries des graphes du fil (validées CVD) : CBOR, texte. */
   --wire-cbor: #096bbf;
   --wire-text: #b7791f;
@@ -28,6 +30,7 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
+    --danger: #e0646a;
     --bg: #0a0f1c;
     --bg-soft: #0e1524;
     --fg: #e8edf6;
@@ -46,6 +49,7 @@
 :root[data-theme="dark"] {
   --wire-cbor: #3d9be6;
   --bg: #0a0f1c;
+  --danger: #e0646a;
   --bg-soft: #0e1524;
   --fg: #e8edf6;
   --muted: #93a1ba;
@@ -3577,4 +3581,213 @@ a.ritem:hover .ritem-go {
 .codec-explain p {
   margin: 0;
   color: var(--fg);
+}
+/* Leçon MCP : outils, trames, progression, chaîne du jeton, publics, fil. */
+.mcp-pill {
+  --accent: var(--muted);
+}
+.mcp-pill.is-read {
+  --accent: var(--green);
+}
+.mcp-pill.is-write {
+  --accent: var(--amber);
+}
+.mcp-pill.is-danger {
+  --accent: var(--danger);
+}
+.mcp-hints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.mcp-frame {
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  max-height: 260px;
+  overflow: auto;
+  font:
+    0.78rem/1.5 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--blue);
+  border-radius: 8px;
+}
+.mcp-frame.is-in {
+  border-left-color: var(--green);
+}
+.mcp-frame.is-err {
+  border-left-color: var(--danger);
+}
+.mcp-instructions {
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  font-size: 0.84rem;
+  border-left: 3px solid var(--violet);
+  border-radius: 0 8px 8px 0;
+  background: color-mix(in srgb, var(--violet) 7%, transparent);
+}
+.mcp-cards {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mcp-card,
+.mcp-door {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  min-width: 0;
+  padding: 10px 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.mcp-name {
+  font-weight: 700;
+}
+.mcp-desc,
+.mcp-empty,
+.mcp-label {
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+.mcp-empty,
+.mcp-label {
+  margin: 8px 0 0;
+}
+.mcp-bubbles {
+  display: grid;
+  gap: 8px;
+}
+.mcp-bubble {
+  display: grid;
+  gap: 2px;
+  max-width: 92%;
+  margin: 0;
+  padding: 8px 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.mcp-meta {
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+.mcp-two {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 10px;
+}
+.mcp-two > div {
+  min-width: 0;
+}
+.mcp-bar {
+  height: 10px;
+  overflow: hidden;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.mcp-bar > i {
+  display: block;
+  height: 100%;
+  background: var(--blue);
+  border-radius: 999px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .mcp-bar > i {
+    transition: width 0.3s ease;
+  }
+}
+.mcp-timeline {
+  display: grid;
+  gap: 2px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  font:
+    0.78rem ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    monospace;
+}
+.mcp-timeline li {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.mcp-at {
+  text-align: right;
+  color: var(--muted);
+}
+.mcp-outcome {
+  margin: 10px 0 0;
+  font-size: 0.86rem;
+}
+.mcp-chain ol {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-left: 1.3rem;
+}
+.mcp-chain li {
+  min-width: 0;
+  font-size: 0.86rem;
+}
+.mcp-chain li.is-ok b {
+  color: var(--green);
+}
+.mcp-chain li.is-stop b {
+  color: var(--danger);
+}
+.mcp-scroll {
+  overflow-x: auto;
+}
+.mcp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+.mcp-table th,
+.mcp-table td {
+  padding: 6px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.mcp-table thead th {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.mcp-table .is-served {
+  color: var(--green);
+  font-weight: 600;
+}
+.mcp-table .is-absent {
+  color: var(--muted);
+}
+.mcp-table .is-refused {
+  color: var(--danger);
+  font-weight: 600;
+}
+.mcp-copy {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.mcp-copy .mcp-frame {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
 }

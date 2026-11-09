@@ -1,4 +1,5 @@
 import type { IRealtimeContract } from "nodefony/client";
+import type { IMcpFeedEntry } from "./mcp/mcpDemo";
 
 /**
  * Le pouls de la démo : l'état VIVANT des cartes de l'accueil, poussé par le
@@ -30,7 +31,11 @@ export const DEMO_PULSE_CHANNEL = "demo:pulse";
 export const DEMO_PULSE_NOW = "demo:pulse:now";
 
 export interface DemoContract extends IRealtimeContract {
-  serverToClient: { "demo:pulse": IDemoPulse };
+  serverToClient: {
+    "demo:pulse": IDemoPulse;
+    /** Le fil en direct de la porte MCP (`DEMO_MCP_CHANNEL`) : un appel par trame. */
+    "demo:mcp": IMcpFeedEntry;
+  };
   serverMethods: {
     "demo:pulse:now": { in: Record<string, never>; out: IDemoPulse };
   };

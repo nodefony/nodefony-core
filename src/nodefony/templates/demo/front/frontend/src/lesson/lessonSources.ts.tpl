@@ -10,14 +10,19 @@ const RAW = import.meta.glob<string>(
     "../../../nodefony/config/security.ts",
     "../../../nodefony/controllers/BinaryController.ts",
     "../../../nodefony/controllers/ChatController.ts",
+    "../../../nodefony/controllers/DemoMcpController.ts",
     "../../../nodefony/controllers/FirstStepsController.ts",
     "../../../nodefony/controllers/PartnerController.ts",
     "../../../nodefony/controllers/PartnerTokenController.ts",
+    "../../../nodefony/controllers/McpTokenController.ts",
     "../../../nodefony/controllers/SseController.ts",
     "../../../nodefony/controllers/VideoController.ts",
     "../../../nodefony/service/ChatService.ts",
+    "../../../nodefony/service/DemoMcpService.ts",
+    "../../../nodefony/service/DemoPulseService.ts",
     "../../../nodefony/service/PartnerTokenService.ts",
     "../../../nodefony/command/PartnerCallCommand.ts",
+    "../../../nodefony/mcp/demoTools.ts",
     "../binary/binaryClient.ts",
     "../binary/binaryDemo.ts",
     "../chat/chatContract.ts",
@@ -28,8 +33,12 @@ const RAW = import.meta.glob<string>(
     "../kit/markdown.ts",
     "../kit/preview.ts",
     "../kit/probe.ts",
+    "../mcp/mcpClient.ts",
+    "../mcp/mcpDemo.ts",
+    "../mcp/useMcpFeed.ts",
     "../partner/partnerApi.ts",
     "../partner/usePartnerLab.ts",
+    "../pulse.ts",
     "../sse/sseClient.ts",
     "../sse/sseDemo.ts",
     "../video/videoDemo.ts",
@@ -62,6 +71,9 @@ export const LESSON_SOURCES = {
   "nodefony/controllers/ChatController.ts": read(
     "../../../nodefony/controllers/ChatController.ts",
   ),
+  "nodefony/controllers/DemoMcpController.ts": read(
+    "../../../nodefony/controllers/DemoMcpController.ts",
+  ),
   "nodefony/controllers/FirstStepsController.ts": read(
     "../../../nodefony/controllers/FirstStepsController.ts",
   ),
@@ -70,6 +82,9 @@ export const LESSON_SOURCES = {
   ),
   "nodefony/controllers/PartnerTokenController.ts": read(
     "../../../nodefony/controllers/PartnerTokenController.ts",
+  ),
+  "nodefony/controllers/McpTokenController.ts": read(
+    "../../../nodefony/controllers/McpTokenController.ts",
   ),
   "nodefony/controllers/SseController.ts": read(
     "../../../nodefony/controllers/SseController.ts",
@@ -80,12 +95,19 @@ export const LESSON_SOURCES = {
   "nodefony/service/ChatService.ts": read(
     "../../../nodefony/service/ChatService.ts",
   ),
+  "nodefony/service/DemoMcpService.ts": read(
+    "../../../nodefony/service/DemoMcpService.ts",
+  ),
+  "nodefony/service/DemoPulseService.ts": read(
+    "../../../nodefony/service/DemoPulseService.ts",
+  ),
   "nodefony/service/PartnerTokenService.ts": read(
     "../../../nodefony/service/PartnerTokenService.ts",
   ),
   "nodefony/command/PartnerCallCommand.ts": read(
     "../../../nodefony/command/PartnerCallCommand.ts",
   ),
+  "nodefony/mcp/demoTools.ts": read("../../../nodefony/mcp/demoTools.ts"),
   "frontend/src/binary/binaryClient.ts": read("../binary/binaryClient.ts"),
   "frontend/src/binary/binaryDemo.ts": read("../binary/binaryDemo.ts"),
   "frontend/src/chat/chatContract.ts": read("../chat/chatContract.ts"),
@@ -96,8 +118,12 @@ export const LESSON_SOURCES = {
   "frontend/src/kit/markdown.ts": read("../kit/markdown.ts"),
   "frontend/src/kit/preview.ts": read("../kit/preview.ts"),
   "frontend/src/kit/probe.ts": read("../kit/probe.ts"),
+  "frontend/src/mcp/mcpClient.ts": read("../mcp/mcpClient.ts"),
+  "frontend/src/mcp/mcpDemo.ts": read("../mcp/mcpDemo.ts"),
+  "frontend/src/mcp/useMcpFeed.ts": read("../mcp/useMcpFeed.ts"),
   "frontend/src/partner/partnerApi.ts": read("../partner/partnerApi.ts"),
   "frontend/src/partner/usePartnerLab.ts": read("../partner/usePartnerLab.ts"),
+  "frontend/src/pulse.ts": read("../pulse.ts"),
   "frontend/src/sse/sseClient.ts": read("../sse/sseClient.ts"),
   "frontend/src/sse/sseDemo.ts": read("../sse/sseDemo.ts"),
   "frontend/src/video/videoDemo.ts": read("../video/videoDemo.ts"),

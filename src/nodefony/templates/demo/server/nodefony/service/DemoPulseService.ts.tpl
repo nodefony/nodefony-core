@@ -5,6 +5,12 @@ import type { IDemoPulse } from "../../frontend/src/pulse";
 export const PULSE_MIN_INTERVAL_MS = 1000;
 
 /**
+ * Clé d'INSTANCE du service dans le conteneur (`this.get(…)`) — à ne pas
+ * confondre avec le nom de CLASSE que prend `@Inject("DemoPulseService")`.
+ */
+export const DEMO_PULSE_SERVICE = "demoPulse";
+
+/**
  * Le pouls de la démo : ses compteurs vivants, et leur diffusion COALESCÉE sur
  * le canal d'état `demo:pulse`.
  *
@@ -12,7 +18,8 @@ export const PULSE_MIN_INTERVAL_MS = 1000;
  *  • UN service pour tous : les contrôleurs sont instanciés par requête ou par
  *    connexion, le compteur doit survivre à chacun — il vit ici, injecté par
  *    `@Inject("DemoPulseService")` dans `PartnerController` (qui compte) et
- *    `DemoRealtimeController` (qui diffuse), ainsi que `ChatController` ;
+ *    `DemoRealtimeController` (qui diffuse) ; `ChatService` le retrouve par sa
+ *    clé de conteneur (`DEMO_PULSE_SERVICE`) ;
  *  • un canal d'ÉTAT ne publie pas à chaque événement : il publie la dernière
  *    valeur, au plus une fois par intervalle. Cent appels dans la même seconde
  *    donnent UNE trame ; un appel isolé part tout de suite ;
@@ -36,7 +43,7 @@ class DemoPulseService extends Service {
    */
   constructor(module?: Module) {
     super(
-      "demoPulse",
+      DEMO_PULSE_SERVICE,
       module?.container ?? undefined,
       module?.notificationsCenter,
     );

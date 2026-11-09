@@ -31,7 +31,6 @@ import {
 } from "../../frontend/src/chat/chatContract";
 import { isUploadedFile } from "../service/ChatService";
 import type ChatService from "../service/ChatService";
-import type DemoPulseService from "../service/DemoPulseService";
 
 /**
  * Le salon du chat — UN contrôleur, deux transports : chaque action répond en
@@ -84,7 +83,6 @@ class ChatController extends ContractRealtimeController<ChatContract> {
   constructor(
     context: ContextType,
     @Inject("ChatService") private readonly chat: ChatService,
-    @Inject("DemoPulseService") private readonly pulse: DemoPulseService,
   ) {
     super("chat", context);
   }
@@ -140,9 +138,7 @@ class ChatController extends ContractRealtimeController<ChatContract> {
       text: input.body.text,
       sentAt: Date.now(),
     };
-    this.chat.add(message);
-    getRealtimeHub<ChatContract>().publish(ROOM_CHANNEL, message);
-    this.pulse.recordChatMessage();
+    this.chat.publish(message);
     return { sentAt: message.sentAt };
   }
   // #endregion
@@ -185,9 +181,7 @@ class ChatController extends ContractRealtimeController<ChatContract> {
       sentAt: Date.now(),
       attachments: await this.chat.saveAttachments(files),
     };
-    this.chat.add(message);
-    getRealtimeHub<ChatContract>().publish(ROOM_CHANNEL, message);
-    this.pulse.recordChatMessage();
+    this.chat.publish(message);
     return { sentAt: message.sentAt };
   }
   // #endregion

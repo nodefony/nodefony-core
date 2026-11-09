@@ -3,11 +3,17 @@ import { mkdir, open, readFile, rm, unlink } from "node:fs/promises";
 import path from "node:path";
 import { Service, Module, injectable } from "nodefony";
 import type { IUploadedFile } from "@nodefony/http";
-import { ATTACHMENT_MAX_BYTES } from "../../frontend/src/chat/chatContract";
+import { getRealtimeHub } from "@nodefony/realtime";
+import {
+  ATTACHMENT_MAX_BYTES,
+  ROOM_CHANNEL,
+} from "../../frontend/src/chat/chatContract";
 import type {
   ChatAttachment,
+  ChatContract,
   ChatMessage,
 } from "../../frontend/src/chat/chatContract";
+import DemoPulseService, { DEMO_PULSE_SERVICE } from "./DemoPulseService";
 import { describeFile, sniffImage } from "../../frontend/src/kit/preview";
 
 /** Messages gardés en mémoire : au-delà, les plus anciens sortent. */
@@ -78,6 +84,19 @@ class ChatService extends Service {
   add(message: ChatMessage): void {
     this.#messages.push(message);
     if (this.#messages.length > CHAT_HISTORY_LIMIT) this.#messages.shift();
+  }
+
+  /**
+   * Publie un message au salon : gardé, diffusé à tous les abonnés de
+   * `chat:room`, compté dans le pouls de l'accueil. SEULE voie d'écriture —
+   * la route d'envoi, l'envoi de pièces et l'outil MCP `demo_chat_post`
+   * l'appellent : trois copies de ces trois gestes divergeraient.
+   */
+  publish(message: ChatMessage): void {
+    this.add(message);
+    getRealtimeHub<ChatContract>().publish(ROOM_CHANNEL, message);
+    const pulse = this.get<unknown>(DEMO_PULSE_SERVICE);
+    if (pulse instanceof DemoPulseService) pulse.recordChatMessage();
   }
 
   /**

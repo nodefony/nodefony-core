@@ -1,4 +1,5 @@
 import type { ISecurityConfigInput } from "@nodefony/security";
+import { MCP_GATE_PATH, MCP_WRITE_SCOPE } from "../../frontend/src/mcp/mcpDemo";
 
 /**
  * Chemin de l'API partenaire de la démo. Une seule définition, lue par la zone
@@ -12,6 +13,14 @@ export const PARTNER_AREA = "demo-partner";
 
 /** Nom de la zone qui couvre les pages et la socket de la démo. */
 export const DEMO_AREA = "demo";
+
+/**
+ * Nom de la zone qui porte la RESSOURCE de la porte MCP (`/mcp/demo`) : le
+ * firewall la rend absolue contre `jwt.issuer` et l'ajoute aux audiences que
+ * l'application peut émettre. Elle n'authentifie personne : la porte juge
+ * elle-même le jeton (`@nodefony/ai`).
+ */
+export const MCP_AREA = "demo-mcp";
 
 /**
  * Ce que la démo apporte à la configuration de `@nodefony/security`, sans
@@ -64,5 +73,24 @@ export const demoSecurity = {
       ephemeralRoles: ["ROLE_PARTNER"],
     },
     // #endregion
+    // #region mcp-area
+    // La porte MCP de la démo. Le module ne connaît pas l'adresse publique de
+    // l'application : il écrit le CHEMIN de sa ressource, et security le rend
+    // absolu contre `jwt.issuer` — c'est aussi ce qui permet d'émettre un jeton
+    // pour elle sans toucher à `jwt.audiences`. La zone laisse tout passer en
+    // anonyme : la porte vérifie elle-même le jeton, et répond dans SON
+    // protocole (JSON-RPC), pas en 401 du firewall.
+    [MCP_AREA]: {
+      pattern: `^${MCP_GATE_PATH}$`,
+      authenticators: ["anonymous"],
+      stateless: true,
+      resource: MCP_GATE_PATH,
+    },
+    // #endregion
   },
+  // #region mcp-grant
+  // Qui peut OBTENIR le scope de l'outil réservé : un administrateur. Un autre
+  // compte reçoit un jeton SANS lui — l'outil reste alors invisible.
+  grantableScopes: { [MCP_WRITE_SCOPE]: ["ROLE_ADMIN"] },
+  // #endregion
 } satisfies ISecurityConfigInput;

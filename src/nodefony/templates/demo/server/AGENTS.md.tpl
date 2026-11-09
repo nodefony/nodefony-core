@@ -40,11 +40,20 @@ un renvoi mort le fait échouer.
   config de la démo passe le serveur en `codec: "cbor"` et relève
   `maxPayload` à 2 Mio, `nodefony/config/config.ts`),
   `ChatController` (HTTP + socket, `ContractRealtimeController`),
+  `DemoMcpController` (`/mcp/demo`, la porte MCP de la démo : une route, tout
+  le protocole dans la porte que définit `DemoMcpService` avec `defineMcpGate`
+  de `@nodefony/ai` ; outils dans `nodefony/mcp/demoTools.ts`),
+  `McpTokenController` (`/demo/api/mcp/token`, le RACCOURCI qui remet un jeton
+  au visiteur connecté — un vrai agent suit la chaîne RFC 9728 → RFC 8414),
   `PartnerController` (`/demo/api/partner`, zone `demo-partner` du firewall), les pages et l'accueil.
 - `nodefony/service/` — l'état qui survit à une connexion (`ChatService`),
-  le pouls de l'accueil (`DemoPulseService`, canal `demo:pulse`).
+  le pouls de l'accueil (`DemoPulseService`, canal `demo:pulse`), la porte MCP
+  et son fil en direct (`DemoMcpService`, canal `demo:mcp`).
 - `nodefony/config/security.ts` — les zones qu'apporte la démo :
-  `demo` (session, puis anonyme) et `demo-partner` (jeton, `^/demo/api/partner`).
+  `demo` (session, puis anonyme), `demo-partner` (jeton, `^/demo/api/partner`)
+  et `demo-mcp` (la RESSOURCE de la porte MCP, `^/mcp/demo$` : rendue absolue
+  contre `jwt.issuer`, elle n'authentifie personne) ; et `grantableScopes`
+  (`demo:write` réservé à `ROLE_ADMIN`).
 - `nodefony/command/PartnerCallCommand.ts` — `npx nodefony demo:partner:call`.
 - `frontend/src/` — React, un seul front. Les types de messages sont PARTAGÉS
   avec le serveur (`chat/chatContract.ts`, `chat/chatSchemas.ts`).
@@ -58,7 +67,7 @@ un renvoi mort le fait échouer.
   `ProbeResult.tsx`), la mise en page des leçons à gestes — carte en haut, un
   geste à l'écran (`StepsLesson.tsx`).
 - Leçons à gestes — chaque geste cite le contrôleur ET le code CLIENT qui
-  tourne (`first/firstClient.ts`, `sse/sseClient.ts`, `binary/binaryClient.ts`, régions
+  tourne (`first/firstClient.ts`, `sse/sseClient.ts`, `binary/binaryClient.ts`, `mcp/mcpClient.ts`, régions
   `// #region client-*`) : la page prépare la requête ou ouvre le flux, la
   sonde ne fait qu'envoyer et écouter. Un visuel dit ce que la réponse veut
   dire (`first/FirstVisuals.tsx` : l'aller-retour ; `sse/SseVisuals.tsx` :

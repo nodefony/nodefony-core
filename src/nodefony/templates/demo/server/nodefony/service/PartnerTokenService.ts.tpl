@@ -27,14 +27,16 @@ export interface IPartnerToken {
   accessToken: string;
   /** Durée de vie, en secondes. */
   expiresIn: number;
-  /** L'audience du jeton : la ressource de la zone `demo-partner`. */
+  /** L'audience du jeton : la ressource de la zone visée. */
   resource: string;
+  /** Les scopes ACCORDÉS — ceux que `grantableScopes` ouvre au rôle du compte. */
+  scopes: string[];
 }
 
 /**
  * Émet un jeton d'accès SIGNÉ PAR CETTE APPLICATION, pour un de ses comptes,
- * et pour la seule API partenaire — partagé par la commande
- * `demo:partner:call` et par la page `/demo/partner`.
+ * et pour la ressource d'UNE zone — l'API partenaire (commande
+ * `demo:partner:call`, page `/demo/partner`) ou la porte MCP (page `/demo/mcp`).
  *
  * Guide pour un agent : l'audience vient de la config VALIDÉE du firewall
  * (`firewall.getArea("demo-partner").resource`, rendue absolue contre
@@ -61,19 +63,21 @@ class PartnerTokenService extends Service {
   }
 
   /**
-   * La ressource de la zone partenaire, telle que le firewall l'a validée.
+   * La ressource d'une zone, telle que le firewall l'a validée : absolue,
+   * rendue contre `jwt.issuer` quand la zone l'écrit comme un chemin.
    *
+   * @param area - la zone ; défaut : l'API partenaire
    * @throws PartnerTokenError si la zone n'est pas chargée
    */
-  resource(): string {
+  resource(area: string = PARTNER_AREA): string {
     const firewall = this.get<unknown>("firewall");
     const resource =
       firewall instanceof Firewall
-        ? firewall.getArea(PARTNER_AREA)?.resource
+        ? firewall.getArea(area)?.resource
         : undefined;
     if (resource === undefined) {
       throw new PartnerTokenError(
-        `zone « ${PARTNER_AREA} » introuvable dans le firewall.`,
+        `zone « ${area} » introuvable dans le firewall.`,
         "le module demo et @nodefony/security sont-ils chargés ? " +
           "npx nodefony inspect modules",
       );
@@ -83,13 +87,22 @@ class PartnerTokenService extends Service {
 
   // #region partner-issue
   /**
-   * Un jeton pour le compte `identifier`, valable sur l'API partenaire seule.
-   * Comme toute émission, elle garde un jeton de rafraîchissement en base.
+   * Un jeton pour le compte `identifier`, valable sur la ressource d'une seule
+   * zone. Comme toute émission, elle garde un jeton de rafraîchissement en base.
+   *
+   * @param identifier - le compte porteur
+   * @param area - la zone dont la ressource sera l'audience ; défaut : l'API partenaire
+   * @param scopes - les scopes DEMANDÉS ; l'émetteur ne garde que ceux que
+   *   `grantableScopes` ouvre au rôle du compte
    *
    * @throws PartnerTokenError si l'application n'émet pas de jetons, si le
    *   compte n'existe pas, ou si la zone refuse cette audience
    */
-  async issueFor(identifier: string): Promise<IPartnerToken> {
+  async issueFor(
+    identifier: string,
+    area: string = PARTNER_AREA,
+    scopes: readonly string[] = [],
+  ): Promise<IPartnerToken> {
     const tokens = this.get<unknown>("tokenService");
     const users = this.get<unknown>("users");
     if (
@@ -109,12 +122,12 @@ class PartnerTokenService extends Service {
         `npx nodefony security:user:add ${identifier}`,
       );
     }
-    const resource = this.resource();
+    const resource = this.resource(area);
     try {
       // L'audience est la ressource de la zone : le jeton n'ouvre RIEN d'autre.
       const issued = await tokens.issueTokens(
         user,
-        [],
+        [...scopes],
         resource,
         PARTNER_TOKEN_TTL_S,
       );
@@ -122,12 +135,13 @@ class PartnerTokenService extends Service {
         accessToken: issued.access_token,
         expiresIn: PARTNER_TOKEN_TTL_S,
         resource,
+        scopes: issued.scope === "" ? [] : issued.scope.split(" "),
       };
     } catch (error) {
       if (error instanceof InvalidTargetError) {
         throw new PartnerTokenError(
           `l'application refuse d'émettre un jeton pour ${resource}.`,
-          `la zone « ${PARTNER_AREA} » porte-t-elle cette resource ? npx nodefony inspect config`,
+          `la zone « ${area} » porte-t-elle cette resource ? npx nodefony inspect config`,
         );
       }
       throw error;

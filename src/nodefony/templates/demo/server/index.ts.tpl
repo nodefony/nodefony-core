@@ -21,6 +21,9 @@ import BinaryController from "./nodefony/controllers/BinaryController";
 import ChatService from "./nodefony/service/ChatService";
 import PartnerTokenService from "./nodefony/service/PartnerTokenService";
 import PartnerTokenController from "./nodefony/controllers/PartnerTokenController";
+import DemoMcpController from "./nodefony/controllers/DemoMcpController";
+import McpTokenController from "./nodefony/controllers/McpTokenController";
+import DemoMcpService from "./nodefony/service/DemoMcpService";
 import { registerDemoEntry } from "./nodefony/frontend/registerDemoEntry";
 
 /**
@@ -51,6 +54,8 @@ declare module "nodefony" {
   VideoController,
   BinaryController,
   PartnerTokenController,
+  DemoMcpController,
+  McpTokenController,
 ])
 @services([
   AppInfoService,
@@ -58,6 +63,7 @@ declare module "nodefony" {
   DemoPulseService,
   ChatService,
   PartnerTokenService,
+  DemoMcpService,
 ])
 class DemoModule extends Module {
   constructor(kernel: Kernel) {

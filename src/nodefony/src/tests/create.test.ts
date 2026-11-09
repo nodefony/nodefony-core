@@ -2970,12 +2970,12 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const index = lireMod("index.ts");
       assert.include(
         index,
-        "@controllers([\n  PartnerController,\n  DemoPageController,\n  DemoController,\n  DemoRealtimeController,\n  ChatController,\n  FirstStepsController,\n  SseController,\n  VideoController,\n  BinaryController,\n  PartnerTokenController,\n])",
+        "@controllers([\n  PartnerController,\n  DemoPageController,\n  DemoController,\n  DemoRealtimeController,\n  ChatController,\n  FirstStepsController,\n  SseController,\n  VideoController,\n  BinaryController,\n  PartnerTokenController,\n  DemoMcpController,\n  McpTokenController,\n])",
       );
       assert.include(index, "registerDemoEntry(this);");
       assert.include(
         index,
-        "@services([\n  AppInfoService,\n  AppBannerService,\n  DemoPulseService,\n  ChatService,\n  PartnerTokenService,\n])",
+        "@services([\n  AppInfoService,\n  AppBannerService,\n  DemoPulseService,\n  ChatService,\n  PartnerTokenService,\n  DemoMcpService,\n])",
       );
       assert.include(index, "this.addCommand(PartnerCallCommand);");
       assert.include(index, "override configSchema(): unknown");

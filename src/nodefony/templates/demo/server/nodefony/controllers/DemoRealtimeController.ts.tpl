@@ -12,9 +12,12 @@ import {
   type DemoContract,
 } from "../../frontend/src/pulse";
 import type DemoPulseService from "../service/DemoPulseService";
+import type DemoMcpService from "../service/DemoMcpService";
+import { DEMO_MCP_CHANNEL } from "../../frontend/src/mcp/mcpDemo";
 
 /**
- * La socket de la démo, `/demo/realtime` : le pouls de l'accueil (D4).
+ * La socket de la démo, `/demo/realtime` : le pouls de l'accueil (D4), et le
+ * fil en direct de la porte MCP (`demo:mcp`).
  *
  * Guide pour un agent : une socket TYPÉE par un contrat partagé
  * (`frontend/src/pulse.ts`) — le serveur et la page lisent le même fichier, et
@@ -34,6 +37,7 @@ class DemoRealtimeController extends ContractRealtimeController<DemoContract> {
   constructor(
     context: ContextType,
     @Inject("DemoPulseService") private readonly pulse: DemoPulseService,
+    @Inject("DemoMcpService") private readonly demoMcp: DemoMcpService,
   ) {
     super("demo-realtime", context);
   }
@@ -62,6 +66,19 @@ class DemoRealtimeController extends ContractRealtimeController<DemoContract> {
     publish: ContractRealtimePublish<DemoContract>,
   ): () => void {
     return this.pulse.attach((value) => publish("demo:pulse", value));
+  }
+
+  /**
+   * Le fil en direct de la porte MCP : chaque appel reçu par `/mcp/demo`, sans
+   * ses arguments. Même cycle que le pouls : la diffusion n'existe que tant
+   * qu'une page regarde.
+   */
+  @RealtimeChannel(DEMO_MCP_CHANNEL)
+  mcpChannel(
+    _channel: string,
+    publish: ContractRealtimePublish<DemoContract>,
+  ): () => void {
+    return this.demoMcp.attach((entry) => publish("demo:mcp", entry));
   }
 }
 
