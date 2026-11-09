@@ -44,6 +44,8 @@ l'infrastructure répond (`npm run test:all`).
 ## Nodefony en bref
 
 Nodefony est un framework serveur fullstack pour Node.js, écrit en TypeScript strict et bâti
+
+[![Nodefony on StartupScores](https://startupscores.com/badge/nodefony.svg?style=shield&v=combo&theme=dark)](https://startupscores.com/open-source/nodefony)
 directement sur les modules natifs de la plateforme — `node:http`, `node:http2`, WebSocket. Il
 apporte un noyau à injection de dépendances qui donne à chaque requête son propre conteneur, un
 système de modules, un pare-feu applicatif, une
