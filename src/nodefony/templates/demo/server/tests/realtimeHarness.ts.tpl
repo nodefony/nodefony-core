@@ -75,14 +75,14 @@ export async function startDemoServer(): Promise<() => Promise<void>> {
 }
 
 /** L'adresse `http://` d'un chemin, sur l'exemplaire démarré. */
-export function httpUrl(path: string): string {
+export function httpUrl(pathname: string): string {
   if (server === null) throw new Error("startDemoServer() d'abord");
-  return `http://127.0.0.1:${server.port}${path}`;
+  return `http://127.0.0.1:${server.port}${pathname}`;
 }
 
 /** L'adresse `ws://` d'un chemin, sur l'exemplaire démarré. */
-export function socketUrl(path: string): string {
-  return httpUrl(path).replace(/^http/u, "ws");
+export function socketUrl(pathname: string): string {
+  return httpUrl(pathname).replace(/^http/u, "ws");
 }
 
 /** Une socket ouverte par ce décor, typée par le contrat de sa démo. */
@@ -97,15 +97,15 @@ const opened = new Set<{ disconnect(): void }>();
  * clients) et attend qu'elle soit connectée. La page passe une adresse
  * relative ; Node n'a pas de page, l'adresse est donc absolue.
  *
- * @param path - le chemin de la socket, celui que la page emploie
+ * @param pathname - le chemin de la socket, celui que la page emploie
  * @param options - `cbor: false` pour une socket texte
  */
 export async function openSocket<C extends IRealtimeContract>(
-  path: string,
+  pathname: string,
   options: { cbor?: boolean } = {},
 ): Promise<ContractSocket<C>> {
   const socket = NodefonySocket.fromContract<C>({
-    url: socketUrl(path),
+    url: socketUrl(pathname),
     // Un test qui perd sa socket doit ÉCHOUER, pas se reconnecter en silence.
     autoReconnect: false,
     ...(options.cbor === false ? {} : { codec: nodefonyCbor.CBOR_FRAME_CODEC }),

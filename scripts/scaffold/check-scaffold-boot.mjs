@@ -22,7 +22,10 @@
  *   - `demo` dans `modulesLoaded` ;
  *   - aucune notice `MODULE_FAILED` ni `FRONTEND_BUILD_FAILED` ;
  *   - aucun `ERROR` émis pendant le démarrage ;
- *   - `GET /demo` → 200.
+ *   - `GET /demo` → 200 ;
+ *   - puis, serveur arrêté, `test:e2e` de l'application est vert : les tests
+ *     de bout en bout de la démo (pages, canaux, sondes, jeu, discussion)
+ *     tournent sous le gestionnaire choisi (#757).
  *
  * Le décor est câblé sur le checkout (`--link`), pour la raison que porte
  * `check-scaffold-format.mjs` : sur un commit d'estampille, la version
@@ -284,10 +287,31 @@ async function stopServer() {
   // courant, et Windows refuserait de le supprimer. Sans survivant, no-op.
   if (server.pid !== undefined) signalProcessGroup(server.pid, "SIGKILL");
   if (!dead) await serverExited;
+  server = null;
+}
+
+/**
+ * Les tests de bout en bout de l'application, démo comprise (#757) : chaque
+ * fichier démarre SON serveur sur des ports libres, et ouvre les sockets de
+ * la page. Joués APRÈS l'arrêt du serveur du banc — deux exemplaires dans le
+ * même dossier se disputeraient son bilan de démarrage —, et par la ligne
+ * que le produit conseille : sous pnpm, ils trouvent ce que npm masque.
+ */
+function runE2e() {
+  const line = lines.run("test:e2e");
+  const e2e = runLine(line);
+  check(
+    line,
+    e2e.status === 0,
+    tailOf(`${e2e.stdout}${e2e.stderr}`, 80, "rejouer avec --keep"),
+  );
 }
 
 try {
   await main();
+  await stopServer();
+  // Un démarrage déjà rouge rendrait chaque test e2e rouge pour la même cause.
+  if (failures.length === 0) runE2e();
 } finally {
   await stopServer();
   if (failures.length > 0 && existsSync(serverLog)) {
