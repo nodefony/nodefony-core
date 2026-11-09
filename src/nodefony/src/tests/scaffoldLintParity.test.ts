@@ -90,6 +90,19 @@ describe("gabarit d'application — même rigueur de typage que le dépôt", () 
     expect(typed(tplTests?.rules)).toEqual(typed(repoTests?.rules));
   });
 
+  it("reprend les arbitrages de forme qui valent pour toute application", () => {
+    // Hors `typescript/*`, le dépôt garde des réglages qui ne concernent que
+    // lui (`no-console`…) ; ceux-ci, non : leur motif vaut pour tout code.
+    // Absents du gabarit, la démo générée tombait sous `--deny-warnings` pour
+    // l'idiome d'un effet React (`if (!el) return;` puis un nettoyage) et pour
+    // un dernier `.then()` sans `return`.
+    const shared = ["consistent-return", "promise/always-return"];
+    for (const rule of shared) {
+      expect(repo.rules?.[rule], rule).toBeDefined();
+      expect(template.rules?.[rule], rule).toEqual(repo.rules?.[rule]);
+    }
+  });
+
   it("n'applique pas au JavaScript les règles de propagation d'`any`", () => {
     const repoJs = overrideFor(repo, "**/*.mjs");
     const tplJs = overrideFor(template, "**/*.mjs");

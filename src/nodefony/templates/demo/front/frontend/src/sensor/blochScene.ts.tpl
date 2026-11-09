@@ -76,7 +76,7 @@ const INITIAL_YAW = -0.55;
 const INITIAL_PITCH = 0.35;
 
 // Objets de travail partagés : jamais alloués pendant un geste.
-const _dir = new THREE.Vector3();
+const workDir = new THREE.Vector3();
 const UP = new THREE.Vector3(0, 1, 0);
 
 /** Lit une variable CSS du document, ou rend le repli si elle est absente. */
@@ -313,8 +313,8 @@ export function createBlochScene(
   });
   const targetHead = new THREE.Mesh(targetHeadGeometry, targetHeadMaterial);
   if (targetLength > 1e-6) {
-    _dir.copy(targetTip).divideScalar(targetLength);
-    pointAlong(targetHead, _dir);
+    workDir.copy(targetTip).divideScalar(targetLength);
+    pointAlong(targetHead, workDir);
     targetHead.position.copy(targetTip);
   } else {
     targetHead.visible = false;
@@ -449,11 +449,11 @@ export function createBlochScene(
     v: readonly [number, number, number],
     projected: boolean,
   ): void {
-    toScene(v, _dir);
-    const length = _dir.length();
+    toScene(v, workDir);
+    const length = workDir.length();
     if (length > 1e-6) {
-      _dir.divideScalar(length);
-      pointAlong(estimate, _dir);
+      workDir.divideScalar(length);
+      pointAlong(estimate, workDir);
       const body = Math.max(0.001, length - HEAD_LENGTH);
       shaft.scale.y = body;
       head.position.y = body;

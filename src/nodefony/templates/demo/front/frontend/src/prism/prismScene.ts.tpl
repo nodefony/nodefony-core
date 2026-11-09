@@ -86,12 +86,12 @@ const DUST_COUNT = 260;
 const sqrt3Over3 = Math.sqrt(3) / 3;
 
 // Objets de travail partagés : jamais alloués pendant `render`.
-const _m4 = new THREE.Matrix4();
-const _pos = new THREE.Vector3();
-const _scale = new THREE.Vector3();
-const _quat = new THREE.Quaternion();
-const _euler = new THREE.Euler();
-const _color = new THREE.Color();
+const workMatrix = new THREE.Matrix4();
+const workPosition = new THREE.Vector3();
+const workScale = new THREE.Vector3();
+const workQuat = new THREE.Quaternion();
+const workEuler = new THREE.Euler();
+const workColor = new THREE.Color();
 const identityQuat = new THREE.Quaternion();
 
 /** Fraction du chemin parcourue en `dt` vers une cible : lissage indépendant de la cadence. */
@@ -104,10 +104,10 @@ function teamPalette(): Float32Array {
   const rgb = new Float32Array(prismTeamColors.length * 3);
   let i = 0;
   for (const hex of prismTeamColors) {
-    _color.setHex(hex);
-    rgb[i] = _color.r;
-    rgb[i + 1] = _color.g;
-    rgb[i + 2] = _color.b;
+    workColor.setHex(hex);
+    rgb[i] = workColor.r;
+    rgb[i + 1] = workColor.g;
+    rgb[i + 2] = workColor.b;
     i += 3;
   }
   return rgb;
@@ -235,10 +235,13 @@ function createTileField(
     team: number,
     pulse: number,
   ): void {
-    _pos.set(x, height * 0.5, z);
-    _scale.set(1, height, 1);
-    prisms.setMatrixAt(i, _m4.compose(_pos, identityQuat, _scale));
-    rims.setMatrixAt(i, _m4.makeTranslation(x, height + RIM_LIFT, z));
+    workPosition.set(x, height * 0.5, z);
+    workScale.set(1, height, 1);
+    prisms.setMatrixAt(
+      i,
+      workMatrix.compose(workPosition, identityQuat, workScale),
+    );
+    rims.setMatrixAt(i, workMatrix.makeTranslation(x, height + RIM_LIFT, z));
 
     const lift = THREE.MathUtils.clamp(
       (height - TILE_LOW) / (TILE_HIGH - TILE_LOW),
@@ -624,12 +627,15 @@ function createDroneSwarm(
         ? 0
         : Math.sin(time * 2.4 + drone.id * 1.3) * 0.16;
       const spin = reducedMotion ? drone.id * 0.7 : time * 1.6 + drone.id * 0.7;
-      _euler.set(tiltX, spin, tiltZ, "ZXY");
-      _quat.setFromEuler(_euler);
+      workEuler.set(tiltX, spin, tiltZ, "ZXY");
+      workQuat.setFromEuler(workEuler);
       const size = drone.mine ? 1.18 : 1;
-      _pos.set(drone.x, DRONE_HOVER + bob, drone.z);
-      _scale.set(size, size, size);
-      bodies.setMatrixAt(s, _m4.compose(_pos, _quat, _scale));
+      workPosition.set(drone.x, DRONE_HOVER + bob, drone.z);
+      workScale.set(size, size, size);
+      bodies.setMatrixAt(
+        s,
+        workMatrix.compose(workPosition, workQuat, workScale),
+      );
 
       if (sample) {
         const head = ((trailHead.at(s) ?? 0) + 1) % TRAIL_SAMPLES;

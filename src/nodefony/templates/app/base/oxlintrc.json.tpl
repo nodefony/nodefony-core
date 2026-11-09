@@ -231,6 +231,14 @@
     // correct par défaut.
     "typescript/no-unsafe-type-assertion": "off",
     "typescript/require-array-sort-compare": "off",
+    // `consistent-return` double le `noImplicitReturns` du compilateur, et
+    // refuserait l'idiome d'un effet React : `if (!el) return;` puis
+    // `return () => …` pour le nettoyage.
+    "consistent-return": "off",
+    // Le DERNIER maillon d'une chaîne n'a personne à qui transmettre : il pose
+    // un état, journalise. Sur un maillon INTERMÉDIAIRE, l'oubli d'un `return`
+    // est un vrai défaut — le suivant reçoit `undefined` — et la règle le dit.
+    "promise/always-return": ["warn", { "ignoreLastCallback": true }],
     // `async` sans `await` est juste quand la signature promet une `Promise` :
     // une exception du corps devient un rejet. Une promesse oubliée reste
     // signalée par `no-floating-promises`.

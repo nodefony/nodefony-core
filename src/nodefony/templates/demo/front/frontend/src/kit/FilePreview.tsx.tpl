@@ -241,7 +241,6 @@ function PdfPiece({ piece }: { piece: IPiece }) {
           // Pas de `sandbox` : Chrome refuse d'afficher un PDF dans un cadre
           // isolé. Servi par le salon, il part sans script de la page, et seule
           // l'application peut l'encadrer (`ChatController.file`).
-          // oxlint-disable-next-line react/iframe-missing-sandbox
           <iframe src={urlOf(piece)} title={`Aperçu de ${piece.name}`} />
         )}
         <p>

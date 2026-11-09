@@ -49,7 +49,7 @@ export class PrismRules implements IGameRules<
 
   /** Propriétaire de chaque case + 1 ; 0 : neutre. */
   readonly tiles = new Uint8Array(prismTiles.length);
-  readonly scores = new Array<number>(PRISM_TEAMS).fill(0);
+  readonly scores = Array.from({ length: PRISM_TEAMS }, () => 0);
   phase: "play" | "podium" = "play";
   left = ROUND_SECONDS;
   round = 1;

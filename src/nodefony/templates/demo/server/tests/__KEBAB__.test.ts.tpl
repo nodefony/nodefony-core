@@ -730,7 +730,7 @@ describe("demo — les pages d'apprentissage suivent le modèle commun", () => {
     ({ lesson }) => {
       const order = LESSON_LAYERS.map((layer) => layer.id);
       const ranks = lesson.tabs.map((tab) => order.indexOf(tab.layer));
-      expect(ranks).toEqual([...new Set(ranks)].sort((x, y) => x - y));
+      expect(ranks).toEqual([...new Set(ranks)].toSorted((x, y) => x - y));
       for (const tab of lesson.tabs) {
         expect(tab.blocks.length, tab.layer).toBeGreaterThan(0);
       }
@@ -776,8 +776,8 @@ describe("demo — les pages d'apprentissage suivent le modèle commun", () => {
           decoratorsIn(LESSON_SOURCES[file]),
         ),
       );
-      expect([...used].sort()).toEqual(
-        lesson.decorators.map((decorator) => decorator.name).sort(),
+      expect([...used].toSorted()).toEqual(
+        lesson.decorators.map((decorator) => decorator.name).toSorted(),
       );
     },
   );
@@ -908,7 +908,7 @@ describe("demo — les leçons à gestes : la sonde et le contrôleur cité", ()
           .map((excerpt) => excerpt.region),
       );
       expect(declared.length).toBeGreaterThan(0);
-      expect([...declared].sort()).toEqual([...new Set(cited)].sort());
+      expect(declared.toSorted()).toEqual([...new Set(cited)].toSorted());
     },
   );
 
@@ -2025,7 +2025,7 @@ describe("Sonde — le service d'acquisition", () => {
     const points = cryoRecord.read(history.points);
     expect(points).toHaveLength(6);
     const hours = points.map((point) => point.h);
-    expect(hours).toEqual([...hours].sort((a, b) => a - b));
+    expect(hours).toEqual(hours.toSorted((a, b) => a - b));
   });
 
   it("la carte Sonde est prête et mène à sa page", () => {

@@ -38,6 +38,7 @@ import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { REPO_ROOT as ROOT } from "../lib/repo-root.mjs";
+import { tailOf } from "../lib/tail-of.mjs";
 import {
   assertPeerUnique,
   epinglerPairs,
@@ -114,7 +115,7 @@ for (const { preset, fw, label } of runs) {
   if (gen.status !== 0) {
     console.error(`✗ ${label} — la génération a échoué (code ${gen.status})`);
     console.error(
-      (gen.stderr || gen.stdout || "").split("\n").slice(-12).join("\n"),
+      tailOf(gen.stderr || gen.stdout || "", 12, "rejouer avec --keep"),
     );
     failed++;
     if (!keep) rmSync(dir, { recursive: true, force: true });
@@ -153,10 +154,11 @@ for (const { preset, fw, label } of runs) {
       // Le refus de npm porte sa cause (ERESOLVE, réseau…) : la taire laissait
       // un « code 1 » qu'il fallait rejouer à la main pour lire.
       console.error(
-        `${reinstall.stdout}${reinstall.stderr}`
-          .split("\n")
-          .slice(-25)
-          .join("\n"),
+        tailOf(
+          `${reinstall.stdout}${reinstall.stderr}`,
+          25,
+          "rejouer avec --keep",
+        ),
       );
     }
     failed++;
@@ -175,7 +177,9 @@ for (const { preset, fw, label } of runs) {
     if (r.status !== 0) {
       red.push(check);
       console.error(`✗ ${label} — npm run ${check} (code ${r.status})`);
-      console.error(`${r.stdout}${r.stderr}`.split("\n").slice(-25).join("\n"));
+      // ENTIÈRE : un contrôle statique ne parle que du code généré, sa
+      // sortie est bornée par lui — et chaque ligne y est un verdict.
+      console.error(`${r.stdout}${r.stderr}`);
     }
   }
   if (red.length === 0) console.log(`✓ ${label} — ${CHECKS.join(", ")}`);

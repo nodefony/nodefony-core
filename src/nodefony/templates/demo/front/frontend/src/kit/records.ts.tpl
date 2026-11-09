@@ -16,24 +16,22 @@ const SIZES = { u8: 1, u16: 2, u32: 4, i16: 2, f32: 4 } as const;
 
 export type FieldType = keyof typeof SIZES;
 
-/** Un champ du schéma. */
-export interface IFieldSpec {
-  readonly name: string;
+/** Un champ du schéma ; `N` est l'union des noms de champs. */
+export interface IFieldSpec<N extends string = string> {
+  readonly name: N;
   readonly type: FieldType;
   /** Facteur appliqué avant d'écrire un entier, retiré à la lecture. */
   readonly scale?: number;
 }
 
 /** Un enregistrement lu ou à écrire : un nombre par champ du schéma. */
-export type RecordOf<F extends readonly IFieldSpec[]> = {
-  [K in F[number]["name"]]: number;
-};
+export type RecordOf<N extends string> = Record<N, number>;
 
 /** Ce que rend `defineRecord` : la taille d'une entrée, et les deux sens. */
-export interface IRecordCodec<F extends readonly IFieldSpec[]> {
+export interface IRecordCodec<N extends string> {
   readonly bytes: number;
-  write(list: readonly RecordOf<F>[]): Uint8Array;
-  read(bytes: Uint8Array): RecordOf<F>[];
+  write(list: readonly RecordOf<N>[]): Uint8Array;
+  read(bytes: Uint8Array): RecordOf<N>[];
 }
 
 const LIMITS: Record<FieldType, readonly [number, number]> = {
@@ -50,9 +48,9 @@ const LIMITS: Record<FieldType, readonly [number, number]> = {
  * de son type est BORNÉ, jamais replié : une position au-delà du bord reste au
  * bord, elle ne réapparaît pas de l'autre côté.
  */
-export function defineRecord<const F extends readonly IFieldSpec[]>(
-  fields: F,
-): IRecordCodec<F> {
+export function defineRecord<const N extends string>(
+  fields: readonly IFieldSpec<N>[],
+): IRecordCodec<N> {
   const offsets: number[] = [];
   let size = 0;
   for (const field of fields) {
@@ -97,8 +95,7 @@ export function defineRecord<const F extends readonly IFieldSpec[]>(
       const view = new DataView(out.buffer);
       list.forEach((entry, i) => {
         fields.forEach((field, f) => {
-          const value: number = entry[field.name as F[number]["name"]];
-          put(view, i * size + (offsets[f] ?? 0), field, value);
+          put(view, i * size + (offsets[f] ?? 0), field, entry[field.name]);
         });
       });
       return out;
@@ -111,13 +108,17 @@ export function defineRecord<const F extends readonly IFieldSpec[]>(
         bytes.byteOffset,
         bytes.byteLength,
       );
-      const list: RecordOf<F>[] = [];
+      const list: RecordOf<N>[] = [];
       for (let at = 0; at + size <= bytes.byteLength; at += size) {
-        const entry: Record<string, number> = {};
+        const entry: Partial<RecordOf<N>> = {};
         fields.forEach((field, f) => {
           entry[field.name] = get(view, at + (offsets[f] ?? 0), field);
         });
-        list.push(entry as RecordOf<F>);
+        // Seule conversion du kit, et elle est sûre : `N` est déduit de
+        // `fields`, que la boucle vient de parcourir en entier — chaque nom
+        // a reçu sa valeur. Le compilateur ne suit pas un objet rempli clé
+        // par clé ; il faut le lui dire.
+        list.push(entry as RecordOf<N>);
       }
       return list;
     },

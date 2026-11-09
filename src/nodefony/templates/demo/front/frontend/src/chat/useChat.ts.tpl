@@ -59,7 +59,7 @@ function merge(known: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
   const seen = new Set(known.map(keyOf));
   const added = incoming.filter((message) => !seen.has(keyOf(message)));
   if (added.length === 0) return known;
-  return [...known, ...added].sort((a, b) => a.sentAt - b.sentAt);
+  return [...known, ...added].toSorted((a, b) => a.sentAt - b.sentAt);
 }
 
 /**

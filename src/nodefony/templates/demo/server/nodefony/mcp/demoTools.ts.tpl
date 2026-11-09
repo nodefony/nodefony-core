@@ -108,7 +108,7 @@ export function demoTools(chat: ChatService): IMcpTool[] {
           );
         }
         const byAuthor = [...counts]
-          .sort((a, b) => b[1] - a[1])
+          .toSorted((a, b) => b[1] - a[1])
           .map(([author, count]) => `${author} ${count}`)
           .join(", ");
         return mcpText(
