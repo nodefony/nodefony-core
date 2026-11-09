@@ -1289,8 +1289,20 @@ function diagnostic(run: {
   stdout: string;
   stderr: string;
 }): string {
+  // Le RÉSUMÉ d'un refus ouvre le document `--json` : la fin du flux, seule
+  // montrée, le coupait — et l'on cherchait la cause sans la phrase qui la dit.
+  let summary = "";
+  try {
+    const doc = JSON.parse(run.stdout) as { error?: { summary?: unknown } };
+    if (typeof doc.error?.summary === "string") {
+      summary = `summary: ${doc.error.summary}\n`;
+    }
+  } catch {
+    // Sortie non JSON : l'extrait brut suffit.
+  }
   return (
     `code=${run.code}\n` +
+    summary +
     `stdout: ${run.stdout.slice(-1500)}\n` +
     `stderr: ${run.stderr.slice(-800)}`
   );
