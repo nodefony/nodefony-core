@@ -477,8 +477,8 @@ export function ConnectPanel({ resource }: { resource: string }) {
             l'écriture, que <code>grantableScopes</code> réserve à{" "}
             <code>ROLE_ADMIN</code> — le compte <code>user</code> reçoit un
             jeton sans. <code>--ttl 480</code> le fait vivre 8 h. La commande
-            l'affiche après <code>export NF_MCP_TOKEN=</code> : copie la valeur
-            seule, celle qui commence par <code>eyJ</code>.
+            l'affiche seul, sur sa ligne : copie la valeur, celle qui commence
+            par <code>eyJ</code>.
           </span>
         </li>
         <li>
@@ -507,12 +507,11 @@ export function ConnectPanel({ resource }: { resource: string }) {
         text={`claude mcp add --transport http nodefony-demo ${resource} --header "Authorization: Bearer $(npx nodefony security:mcp:token admin --resource ${resource} --scope demo:write --ttl 480 --json | node -p 'JSON.parse(require("node:fs").readFileSync(0, "utf8")).access_token')"`}
       />
       <p className="mcp-desc">
-        N'ajoute pas <code>--write</code>, même si la commande le propose : il
-        remplacerait <code>NF_MCP_TOKEN</code>, le jeton de la porte de
-        développement, par celui-ci — qu'elle refuse, son audience est une autre
-        porte. Ses outils réservés disparaîtraient sans un mot. À l'échéance des
-        8 h, <code>demo_chat_post</code> quitte la liste : refais les étapes 1
-        et 2.
+        <code>--write</code> est refusé pour cette porte : il remplacerait{" "}
+        <code>NF_MCP_TOKEN</code>, le jeton de la porte de développement, par
+        celui-ci — qu'elle refuse, son audience est une autre porte. Ses outils
+        réservés disparaîtraient sans un mot. À l'échéance des 8 h,{" "}
+        <code>demo_chat_post</code> quitte la liste : refais les étapes 1 et 2.
       </p>
     </figure>
   );
