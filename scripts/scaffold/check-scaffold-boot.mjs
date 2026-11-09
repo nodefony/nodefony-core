@@ -128,8 +128,11 @@ function runLine(line) {
  * `GET` sur le serveur de l'application ; rend le statut, ou l'erreur.
  *
  * Le message d'erreur vient du réseau, et finit dans un libellé journalisé :
- * ses fins de ligne sont aplaties ICI, au point d'entrée, pour qu'aucune
- * ligne forgée n'entre dans le journal (`js/log-injection`).
+ * ses fins de ligne sont RETIRÉES ici, au point d'entrée, pour qu'aucune
+ * ligne forgée n'entre dans le journal (`js/log-injection`). Retirées, pas
+ * remplacées par une espace : l'analyse ne reconnaît comme assainisseur qu'un
+ * `replace` des fins de ligne par la chaîne VIDE — `/[\r\n]+/g → " "` laissait
+ * l'alerte ouverte.
  */
 function statusOf(pathname) {
   return new Promise((resolve) => {
@@ -142,7 +145,7 @@ function statusOf(pathname) {
     );
     request.on("timeout", () => request.destroy(new Error("délai dépassé")));
     request.on("error", (error) =>
-      resolve(error.message.replace(/[\r\n]+/g, " ")),
+      resolve(error.message.replace(/\n|\r/g, "")),
     );
   });
 }
