@@ -128,7 +128,7 @@ class IssuerMetadataController extends Controller {
       // depuis. Publier un document approximatif serait pire que rien — un
       // client le met en cache, et il porte l'identité de l'application.
       this.log(
-        `métadonnées d'émetteur impubliables : ${(error as Error).message}`,
+        `métadonnées d'émetteur impubliables : ${error instanceof Error ? error.message : String(error)}`,
         "CRITIC",
       );
       return this.renderJson({ error: "server_error" }, 500);
@@ -159,7 +159,10 @@ class IssuerMetadataController extends Controller {
     try {
       keys = await publisher.getPublicJWKS();
     } catch (error) {
-      this.log(`JWKS illisible : ${(error as Error).message}`, "CRITIC");
+      this.log(
+        `JWKS illisible : ${error instanceof Error ? error.message : String(error)}`,
+        "CRITIC",
+      );
       return this.renderJson({ error: "server_error" }, 500);
     }
     return this.renderJson(keys, 200, {

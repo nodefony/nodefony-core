@@ -96,10 +96,11 @@ class ProtectedResourceMetadataController extends Controller {
 
   /** Chemin bien connu demandé, tel que le Router l'a matché. */
   #askedPath(): string | null {
-    const req = this.request as { pathname?: unknown; url?: unknown } | null;
-    const p = req?.pathname;
+    const req: unknown = this.request;
+    if (typeof req !== "object" || req === null) return null;
+    const p = "pathname" in req ? req.pathname : undefined;
     if (typeof p === "string") return p;
-    const url = req?.url;
+    const url = "url" in req ? req.url : undefined;
     if (url instanceof URL) return url.pathname;
     if (typeof url === "string") {
       try {
@@ -159,7 +160,7 @@ class ProtectedResourceMetadataController extends Controller {
       // pire que rien — un client le met en cache, et il porte l'identité de la
       // ressource.
       this.log(
-        `métadonnées de ressource protégée impubliables : ${(error as Error).message}`,
+        `métadonnées de ressource protégée impubliables : ${error instanceof Error ? error.message : String(error)}`,
         "CRITIC",
       );
       return this.renderJson({ error: "server_error" }, 500);
@@ -206,29 +207,147 @@ export interface IServiceScan {
  * interface à implémenter formellement — le même couplage que `tokenService` ou
  * `adminBroker`.
  *
+ * Deux sources peuvent déclarer la MÊME ressource — une zone du pare-feu et la
+ * porte MCP qu'elle couvre, typiquement — : elles sont fusionnées
+ * ({@link mergeProtectedResources}), jamais départagées par leur ordre.
+ *
  * @param container - conteneur de services de l'application
- * @returns les ressources déclarées, dans l'ordre des services
+ * @returns les ressources déclarées, une entrée par ressource, dans l'ordre des
+ *          services
  */
 export function collectProtectedResources(
   container: IServiceScan,
 ): readonly IProtectedResourceInput[] {
   const collected: IProtectedResourceInput[] = [];
   for (const name of container.keys()) {
-    // Forme SUPPOSÉE, vérifiée juste en dessous (`typeof … === "function"`).
-    const service = container.get(name) as
-      Partial<IProtectedResourcePublisher> | null | undefined;
-    if (typeof service?.publishedProtectedResources !== "function") continue;
-    let declared: readonly IProtectedResourceInput[];
+    const service = container.get(name);
+    if (
+      typeof service !== "object" ||
+      service === null ||
+      !("publishedProtectedResources" in service) ||
+      typeof service.publishedProtectedResources !== "function"
+    ) {
+      continue;
+    }
+    let declared: unknown;
     try {
-      declared = service.publishedProtectedResources();
+      // `Reflect.apply` : la méthode n'est connue que comme `Function` — son
+      // résultat entre en `unknown`, et se vérifie juste en dessous.
+      declared = Reflect.apply(
+        service.publishedProtectedResources,
+        service,
+        [],
+      );
     } catch {
       // Un service qui ne sait pas répondre ne doit pas empêcher les autres de
       // publier — et surtout pas faire tomber le boot pour un document.
       continue;
     }
-    for (const entry of declared) collected.push(entry);
+    if (!Array.isArray(declared)) continue;
+    for (const entry of declared) {
+      if (isProtectedResourceInput(entry)) collected.push(entry);
+    }
   }
-  return collected;
+  return mergeProtectedResources(collected);
+}
+
+/** Une liste de chaînes, ou rien. */
+function isStringList(value: unknown): value is readonly string[] {
+  return (
+    Array.isArray(value) &&
+    value.every((item: unknown) => typeof item === "string")
+  );
+}
+
+/**
+ * Une déclaration a-t-elle la forme d'une ressource publiable ? Le contrat est
+ * structurel ({@link IProtectedResourcePublisher}) : ce qu'un service rend se
+ * VÉRIFIE, il ne se suppose pas.
+ */
+function isProtectedResourceInput(
+  value: unknown,
+): value is IProtectedResourceInput {
+  if (typeof value !== "object" || value === null) return false;
+  if (!("resource" in value) || typeof value.resource !== "string") {
+    return false;
+  }
+  if (
+    !("authorizationServers" in value) ||
+    !isStringList(value.authorizationServers)
+  ) {
+    return false;
+  }
+  return (
+    !("scopesSupported" in value) ||
+    value.scopesSupported === undefined ||
+    isStringList(value.scopesSupported)
+  );
+}
+
+/** L'union de deux listes, dans l'ordre d'apparition. */
+function union(
+  first: readonly string[],
+  second: readonly string[],
+): readonly string[] {
+  return [...new Set([...first, ...second])];
+}
+
+/**
+ * Une ressource, UN document : fusionne les déclarations d'une même ressource
+ * (même URI canonique) — l'union de leurs serveurs d'autorisation et de leurs
+ * scopes ; le premier nom et la première documentation déclarés.
+ *
+ * Pourquoi fusionner plutôt que garder la première : une zone du pare-feu
+ * publie sa ressource avec les émetteurs de confiance, et la porte MCP qu'elle
+ * couvre publie la MÊME ressource avec les scopes de ses outils. Garder la
+ * première jetait les scopes sans un mot — et un agent qui suit le document
+ * demandait alors un jeton sans eux, qui n'ouvrait pas l'outil.
+ *
+ * @param entries - déclarations, dans l'ordre des services
+ * @returns une entrée par ressource, à la place de la première déclaration
+ */
+export function mergeProtectedResources(
+  entries: readonly IProtectedResourceInput[],
+): IProtectedResourceInput[] {
+  const merged: IProtectedResourceInput[] = [];
+  const byResource = new Map<string, IProtectedResourceInput>();
+  for (const entry of entries) {
+    let key: string;
+    try {
+      key = canonicalResourceUri(entry.resource);
+    } catch {
+      // Impubliable : la route ne sera pas montée (`protectedResourceRoutePaths`).
+      merged.push(entry);
+      continue;
+    }
+    const seen = byResource.get(key);
+    if (seen === undefined) {
+      const first = { ...entry };
+      byResource.set(key, first);
+      merged.push(first);
+      continue;
+    }
+    seen.authorizationServers = union(
+      seen.authorizationServers,
+      entry.authorizationServers,
+    );
+    if (entry.scopesSupported !== undefined) {
+      seen.scopesSupported = union(
+        seen.scopesSupported ?? [],
+        entry.scopesSupported,
+      );
+    }
+    if (seen.resourceName === undefined && entry.resourceName !== undefined) {
+      seen.resourceName = entry.resourceName;
+    }
+    if (
+      seen.resourceDocumentation === undefined &&
+      entry.resourceDocumentation !== undefined
+    ) {
+      seen.resourceDocumentation = entry.resourceDocumentation;
+    }
+  }
+  return merged;
 }
 
 /**

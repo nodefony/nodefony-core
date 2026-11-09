@@ -3,6 +3,7 @@ import type { IProtectedResourceInput } from "nodefony";
 import {
   protectedResourceRoutePaths,
   collectProtectedResources,
+  mergeProtectedResources,
   type IServiceScan,
 } from "../../controller/ProtectedResourceMetadataController";
 import {
@@ -181,5 +182,106 @@ describe("collectProtectedResources — plusieurs sources, une seule règle", ()
 
   it("rend une liste vide quand aucun service ne publie", () => {
     assert.deepEqual(collectProtectedResources(scan({ template: {} })), []);
+  });
+});
+
+describe("mergeProtectedResources — une ressource, un document", () => {
+  it("une zone et la porte qu'elle couvre : les scopes de la porte ne sont PAS perdus", () => {
+    const merged = collectProtectedResources(
+      scan({
+        // Le pare-feu publie la zone avec ses émetteurs de confiance…
+        firewall: {
+          publishedProtectedResources: () => [
+            {
+              resource: "https://app.example/mcp/demo",
+              authorizationServers: [
+                "https://app.example",
+                "https://kc.example/realms/app",
+              ],
+            },
+          ],
+        },
+        // …et la porte MCP la même ressource, avec les scopes de ses outils.
+        demoMcp: {
+          publishedProtectedResources: () => [
+            {
+              resource: "https://app.example/mcp/demo",
+              authorizationServers: ["https://app.example"],
+              scopesSupported: ["demo:write"],
+              resourceName: "demo",
+            },
+          ],
+        },
+      }),
+    );
+    assert.deepEqual(merged, [
+      {
+        resource: "https://app.example/mcp/demo",
+        authorizationServers: [
+          "https://app.example",
+          "https://kc.example/realms/app",
+        ],
+        scopesSupported: ["demo:write"],
+        resourceName: "demo",
+      },
+    ]);
+  });
+
+  it("fusionne sur l'URI CANONIQUE, garde les ressources distinctes, et laisse la première entrée en place", () => {
+    const merged = mergeProtectedResources([
+      {
+        resource: "https://app.example/api",
+        authorizationServers: ["a"],
+        scopesSupported: ["x"],
+      },
+      { resource: "https://app.example/mcp", authorizationServers: ["a"] },
+      {
+        resource: "https://APP.example:443/api",
+        authorizationServers: ["b"],
+        scopesSupported: ["x", "y"],
+      },
+    ]);
+    assert.deepEqual(
+      merged.map((entry) => [
+        entry.resource,
+        entry.authorizationServers,
+        entry.scopesSupported,
+      ]),
+      [
+        ["https://app.example/api", ["a", "b"], ["x", "y"]],
+        ["https://app.example/mcp", ["a"], undefined],
+      ],
+    );
+  });
+
+  it("ne mute pas la déclaration d'un service", () => {
+    const first = {
+      resource: "https://app.example/api",
+      authorizationServers: ["a"],
+    };
+    mergeProtectedResources([
+      first,
+      { resource: "https://app.example/api", authorizationServers: ["b"] },
+    ]);
+    assert.deepEqual(first.authorizationServers, ["a"]);
+  });
+
+  it("ignore une déclaration qui n'a pas la forme d'une ressource — sans empêcher les autres", () => {
+    const collected = collectProtectedResources(
+      scan({
+        bancal: {
+          publishedProtectedResources: () => [
+            { resource: 42 },
+            "texte",
+            input("https://app.example/ok"),
+          ],
+        },
+        pasUneListe: { publishedProtectedResources: () => "non" },
+      }),
+    );
+    assert.deepEqual(
+      collected.map((entry) => entry.resource),
+      ["https://app.example/ok"],
+    );
   });
 });
