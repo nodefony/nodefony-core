@@ -354,26 +354,39 @@ describe("forge et image — rendues pour le gestionnaire choisi", () => {
   // Le banc de publication installe l'outil sur l'exécuteur avec la MÊME
   // majeure que le gabarit — la frontière de paquets impose la copie, ce
   // test l'empêche de dériver.
-  it("le banc de la forge éprouve les majeures que le gabarit suppose", () => {
-    const workflow = fs.readFileSync(
-      path.resolve(
-        path.dirname(fileURLToPath(import.meta.url)),
-        "../../../../.github/workflows/release-smoke.yml",
-      ),
-      "utf8",
-    );
-    for (const pm of ["pnpm", "bun"] as const) {
-      const setup = packageManagerToolchain(pm).githubSetup;
-      assert.isNotNull(setup, pm);
-      assert.include(workflow, `uses: ${setup!.uses}`, pm);
-      // pnpm : l'application lit son champ `packageManager` (version null) ;
-      // l'hôte du banc pose la MAJEURE, pnpm bascule ensuite tout seul sur la
-      // version exacte qu'épingle l'application.
-      const hostVersion = setup!.version ?? PACKAGE_MANAGER_TOOL_MAJOR[pm];
-      assert.include(workflow, `${setup!.versionInput}: "${hostVersion}"`, pm);
-      assert.include(hostVersion, PACKAGE_MANAGER_TOOL_MAJOR[pm], pm);
-    }
-  });
+  // Deux bancs : le smoke de publication (pnpm, bun) et le démarrage d'une
+  // app à chaque poussée (`scaffold.yml`, job `gestionnaires` : pnpm).
+  it.each([
+    { file: "release-smoke.yml", managers: ["pnpm", "bun"] as const },
+    { file: "scaffold.yml", managers: ["pnpm"] as const },
+  ])(
+    "le banc $file éprouve les majeures que le gabarit suppose",
+    ({ file, managers }) => {
+      const workflow = fs.readFileSync(
+        path.resolve(
+          path.dirname(fileURLToPath(import.meta.url)),
+          "../../../../.github/workflows",
+          file,
+        ),
+        "utf8",
+      );
+      for (const pm of managers) {
+        const setup = packageManagerToolchain(pm).githubSetup;
+        assert.isNotNull(setup, pm);
+        assert.include(workflow, `uses: ${setup!.uses}`, pm);
+        // pnpm : l'application lit son champ `packageManager` (version null) ;
+        // l'hôte du banc pose la MAJEURE, pnpm bascule ensuite tout seul sur la
+        // version exacte qu'épingle l'application.
+        const hostVersion = setup!.version ?? PACKAGE_MANAGER_TOOL_MAJOR[pm];
+        assert.include(
+          workflow,
+          `${setup!.versionInput}: "${hostVersion}"`,
+          pm,
+        );
+        assert.include(hostVersion, PACKAGE_MANAGER_TOOL_MAJOR[pm], pm);
+      }
+    },
+  );
 
   // Le verrou écrit par une version mineure de pnpm peut être refusé par une
   // autre : le poste, la forge et l'image doivent parler la MÊME version.

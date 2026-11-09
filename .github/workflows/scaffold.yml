@@ -700,6 +700,63 @@ jobs:
           if-no-files-found: ignore
 
   # ───────────────────────────────────────────────────────────────────────────
+  # LES GESTIONNAIRES — une application pnpm démarre-t-elle, démo comprise ?
+  #
+  # Le témoin du job `generated` est installé par npm, qui HISSE les
+  # dépendances : un module non déclaré, un plugin Vite installé dans un seul
+  # module, une pair prise au registre y passent sans bruit. pnpm, strict, les
+  # refuse. Vécu (#754) : une app pnpm avec sa démo démarrait sans elle — deux
+  # copies de `nodefony`, `/demo` en 404 — et rien ne l'a vu, le seul scénario
+  # pnpm vivant dans le smoke de publication, lancé à la main (#755).
+  #
+  # Le banc joue le geste de l'utilisateur, par SON gestionnaire : génération,
+  # build, `nodefony development` ; puis lit le bilan du noyau et la page.
+  # Rejouer en local : `node scripts/scaffold/check-scaffold-boot.mjs --keep`.
+  gestionnaires:
+    name: App ${{ matrix.package-manager }} + démo démarrée
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package-manager: pnpm
+            frontend: svelte
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "26.x"
+          cache: "npm"
+
+      # La majeure que le gabarit suppose (`PACKAGE_MANAGER_TOOL_MAJOR`), comme
+      # le smoke de publication.
+      - name: pnpm
+        if: matrix.package-manager == 'pnpm'
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: "12"
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build workspaces (turbo)
+        run: node scripts/ci/run-watched.mjs npm run build
+
+      - name: Générer le graphe symbolique (absent d'un checkout frais)
+        run: npm run generate-symbols
+
+      - name: Banc — l'app ${{ matrix.package-manager }} démarre et sert /demo
+        run: >-
+          node scripts/scaffold/check-scaffold-boot.mjs
+          --package-manager=${{ matrix.package-manager }}
+          --frontend=${{ matrix.frontend }}
+
+  # ───────────────────────────────────────────────────────────────────────────
   # LE VERDICT — un moteur non lancé ne compte pas comme vert.
   #
   # Sans ce job, une matrice qui ne DÉMARRE pas (annulation, service qui ne
