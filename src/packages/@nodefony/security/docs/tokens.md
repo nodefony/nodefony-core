@@ -485,7 +485,7 @@ Tables dérivées du schéma Zod — `jwtSchema` (`config.ts#jwtSchema`) et `tok
 | `refreshTtlS` | number (s) | `604800` | TTL du refresh — 7 jours (`config.ts#jwtSchema`) |
 | `rotateRefresh` | boolean | `true` | Rotation du refresh à chaque usage, OWASP (`config.ts#jwtSchema`) |
 | `jwks` | boolean | `true` | Publie `/.well-known/jwks.json` + les métadonnées RFC 8414 — sans `issuer` en URL https, rien n'est publié |
-| `audiences` | string[] | `[]` | `aud` acceptées (RFC 8707) ; vide = `[issuer]` (`config.ts#jwtSchema`) |
+| `audiences` | string[] | `[]` | Liste blanche des `aud` ÉMETTABLES (RFC 8707), la 1ʳᵉ = défaut ; vide = `[issuer]`. Une zone `jwt` n’accepte que SA `resource`, sinon l’audience par défaut (`JwtAuthenticator.ts#JwtAuthenticator.authenticate`) |
 | `issuer` | string? | — | Claim `iss`, **STABLE** après émission ; omis → repli `"nodefony"`, qui n'est PAS publiable (RFC 8414 §2 exige une URL https) |
 | `keystore.keySetJson` | string? | — | JWK Set privé partagé par tous les process (`NF_JWT_KEYSET`) — SECRET, forme vérifiée au démarrage (`security/nodefony/config/config.ts#jwtSchema`) |
 | `keystore.dir` | string? | — | Dossier `keyset.json` chmod 600, création exclusive — dev, ou serveur unique à disque persistant (`config.ts#jwtSchema`) |

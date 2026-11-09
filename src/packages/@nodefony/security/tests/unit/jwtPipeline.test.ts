@@ -27,9 +27,14 @@ import type { IJwtRuntime } from "../../nodefony/src/token/jwtRuntime";
  * Tout est monté sur le VRAI firewall + JwtAuthenticator + keystore/store réels.
  */
 
+// Audiences déclarées : celle de l'application (la première, par défaut), puis
+// une porte MCP et une zone partenaire — le décor de l'application générée.
+const MCP_AUDIENCE = "https://test.nf/nodefony/mcp";
+const PARTNER_RESOURCE = "https://test.nf/demo/api/partner";
+
 const RT: IJwtRuntime = {
   issuer: "https://test.nf",
-  audiences: ["nf-api"],
+  audiences: ["nf-api", MCP_AUDIENCE, PARTNER_RESOURCE],
   accessTtlS: 900,
   refreshTtlS: 604800,
   rotateRefresh: true,
@@ -183,6 +188,25 @@ describe("Pont HTTP — Firewall.handleSecurity sur zone JWT", () => {
     assert.equal(headers["WWW-Authenticate"], "Bearer");
   });
 
+  it("🔴 un jeton émis pour une AUTRE audience déclarée ne franchit pas une zone sans `resource` (#748)", async () => {
+    // La zone sans ressource protège l'application elle-même : seule
+    // l'audience par défaut l'ouvre. Le jeton de la porte MCP ou de la zone
+    // partenaire figure dans la liste blanche d'émission, pas dans la sienne.
+    for (const aud of [MCP_AUDIENCE, PARTNER_RESOURCE]) {
+      const { context } = makeContext(
+        m2mArea(),
+        await bearer({ claims: { aud } }),
+      );
+      await RequestContext.run({ requestId: "p-other-aud" }, async () => {
+        await assert.rejects(
+          () => firewall.handleSecurity(context),
+          AuthenticationError,
+          aud,
+        );
+      });
+    }
+  });
+
   it("Bearer révoqué (jti denylisté) → 401", async () => {
     const raw = await bearer({ claims: { jti: "rev-1" } });
     await store.denyJti("rev-1", Date.now() + 60_000);
@@ -192,6 +216,55 @@ describe("Pont HTTP — Firewall.handleSecurity sur zone JWT", () => {
         () => firewall.handleSecurity(context),
         AuthenticationError,
       );
+    });
+  });
+});
+
+describe("Zone `jwt` à ressource — l'audience est celle de la zone (#748, RFC 8707)", () => {
+  const partnerArea = (): SecuredArea =>
+    new SecuredArea("partner", {
+      pattern: "^/demo/api/partner",
+      security: true,
+      stateless: true,
+      mode: "first",
+      roles: [],
+      realtime: true,
+      authenticators: ["jwt"],
+      resource: PARTNER_RESOURCE,
+    });
+
+  it("🔴 un jeton émis pour la porte MCP est REFUSÉ (401) sur la zone partenaire", async () => {
+    const { context, headers } = makeContext(
+      partnerArea(),
+      await bearer({ claims: { aud: MCP_AUDIENCE } }),
+    );
+    await RequestContext.run({ requestId: "p-mcp" }, async () => {
+      await assert.rejects(
+        () => firewall.handleSecurity(context),
+        AuthenticationError,
+      );
+    });
+    assert.equal(headers["WWW-Authenticate"], "Bearer");
+  });
+
+  it("🔴 le jeton de l'audience par défaut ne l'ouvre pas non plus", async () => {
+    const { context } = makeContext(partnerArea(), await bearer());
+    await RequestContext.run({ requestId: "p-default" }, async () => {
+      await assert.rejects(
+        () => firewall.handleSecurity(context),
+        AuthenticationError,
+      );
+    });
+  });
+
+  it("le jeton émis pour la ressource de la zone y est accepté", async () => {
+    const { context } = makeContext(
+      partnerArea(),
+      await bearer({ claims: { aud: PARTNER_RESOURCE } }),
+    );
+    await RequestContext.run({ requestId: "p-partner" }, async () => {
+      await firewall.handleSecurity(context);
+      assert.equal((RequestContext.getUser() as IUser).identifier, "alice");
     });
   });
 });

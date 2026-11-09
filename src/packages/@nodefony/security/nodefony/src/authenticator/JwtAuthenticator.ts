@@ -9,7 +9,7 @@ import type { IJwtKeystore } from "../../contracts/IJwtKeystore";
 import type { ITokenStore } from "../../contracts/ITokenStore";
 import { AuthenticationError } from "../../errors/AuthenticationError";
 import { UserToken } from "../token/UserToken";
-import type { IJwtRuntime } from "../token/jwtRuntime";
+import { defaultAudience, type IJwtRuntime } from "../token/jwtRuntime";
 import {
   CLOCK_TOLERANCE_S,
   REQUIRED_TIME_CLAIMS,
@@ -35,6 +35,10 @@ const COMPACT_JWS = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*$/;
 // dans les logs d'audit, jamais au client (anti-énumération / anti-oracle).
 const INVALID_TOKEN = "Invalid token";
 
+// Attribut du token qui porte la ressource de la zone, de `createToken` à
+// `authenticate`.
+const AUDIENCE = "audience";
+
 type GetKey = ReturnType<typeof Jose.createLocalJWKSet>;
 
 /**
@@ -48,7 +52,8 @@ type GetKey = ReturnType<typeof Jose.createLocalJWKSet>;
  *  - **clé par `kid` depuis le keyset LOCAL** (`createLocalJWKSet`) — jamais
  *    `jku`/`jwk` de l'en-tête (injection de clé / SSRF, §3.5).
  *  - **`aud` (§3.9) + `iss` (§3.8) obligatoires** + `typ:"at+jwt"` (§3.11, sépare
- *    access et refresh) + `exp`/`nbf` (jose).
+ *    access et refresh) + `exp`/`nbf` (jose). L'audience est celle de la ZONE
+ *    (`resource`, ou l'audience par défaut), jamais toute la liste `jwt.audiences`.
  *  - **révocation** : denylist `jti` + seuil `invalidBefore` par porteur (le JWT
  *    est auto-porté et non révocable sans état serveur).
  *  - **sujet revérifié** (§3.10) : `loadUserByIdentifier(sub)` → compte disparu,
@@ -100,15 +105,40 @@ export class JwtAuthenticator implements IAuthenticator {
     return issuer === null || issuer === this.#runtime.issuer;
   }
 
-  /** Extrait le token brut (non vérifié) → porté par un `UserToken` type `"jwt"`. */
+  /**
+   * Extrait le token brut (non vérifié) → porté par un `UserToken` type `"jwt"`,
+   * avec la ressource de la zone quand elle en déclare une.
+   *
+   * L'audience transite par le token parce que `authenticate()` ne reçoit pas
+   * le contexte (même patron que `ExternalJwtAuthenticator`). Rien n'est posé
+   * pour une zone sans ressource : l'audience par défaut s'y applique.
+   */
   createToken(context: ContextType): Promise<IToken> {
     const auth = context.request?.headers.authorization;
-    return Promise.resolve(new UserToken("jwt", bearerToken(auth) ?? ""));
+    const token = new UserToken("jwt", bearerToken(auth) ?? "");
+    // Le contexte ne connaît que `ISecurityZone` (contrat de http) ; la
+    // ressource est un champ de la zone de security, vérifié et non affirmé.
+    const zone = context.security;
+    if (
+      zone &&
+      "resource" in zone &&
+      typeof zone.resource === "string" &&
+      zone.resource.length > 0
+    ) {
+      token.setAttribute(AUDIENCE, zone.resource);
+    }
+    return Promise.resolve(token);
   }
 
   /**
    * Vérifie la signature + les claims du JWT, applique la révocation et résout le
    * sujet — ou lève un 401 au message uniforme.
+   *
+   * L'audience exigée est celle de la ZONE, jamais la liste blanche d'émission
+   * entière (RFC 8707, RFC 9068 §4) : la `resource` de la zone si elle en
+   * déclare une, sinon l'audience par défaut — l'application elle-même. Un
+   * jeton émis pour la porte MCP, ou pour la ressource d'une autre zone, figure
+   * dans `jwt.audiences` sans pour autant ouvrir celle-ci.
    *
    * @throws AuthenticationError (401) — token absent/invalide/expiré/révoqué, ou
    *   sujet disparu/banni.
@@ -120,7 +150,9 @@ export class JwtAuthenticator implements IAuthenticator {
     if (typeof raw !== "string" || raw.length === 0) {
       throw new AuthenticationError(INVALID_TOKEN);
     }
-    const { user, payload } = await this.#verify(raw, this.#runtime.audiences);
+    const audience =
+      token.getAttribute<string>(AUDIENCE) ?? defaultAudience(this.#runtime);
+    const { user, payload } = await this.#verify(raw, audience);
     return this.#promote(token, user, payload);
   }
 
