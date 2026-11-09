@@ -539,7 +539,30 @@
         // et la garde qui protège d'un argument absent passerait pour inutile.
         "typescript/no-unnecessary-condition": "off",
         // `readonly` est un mot de TypeScript : JavaScript n'a pas de quoi le poser.
-        "typescript/prefer-readonly": "off"
+        "typescript/prefer-readonly": "off",
+        // Le compilateur ne relit pas un `.mjs` : un nom jamais déclaré n'y
+        // tombe qu'à l'exécution. Vécu (#755) : `const keep` retiré d'un banc,
+        // deux lectures restées dans un `finally` — chaque run levait une
+        // `ReferenceError` APRÈS ses contrôles, et le lint était vert.
+        "no-undef": "error"
+      }
+    },
+    {
+      // Fonctions SÉRIALISÉES et jouées dans la page (`page.evaluate`,
+      // `addInitScript`) : leurs globaux sont ceux du navigateur. Les quatre
+      // aides de contraste y sont injectées depuis `lib/wcag.mjs` avant la
+      // première mesure ; ailleurs, elles ne sont pas des globaux.
+      "files": [
+        "**/nodefony-browser/scripts/**/*.mjs",
+        ".claude/skills/nodefony-documentation/scripts/*.mjs",
+        "docs/design/**/*.js"
+      ],
+      "env": { "browser": true },
+      "globals": {
+        "parseColor": "readonly",
+        "compose": "readonly",
+        "contrastRatio": "readonly",
+        "verdictWcag": "readonly"
       }
     }
   ]

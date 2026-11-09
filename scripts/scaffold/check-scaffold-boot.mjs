@@ -88,6 +88,7 @@ function choice(name, allowed, fallback) {
 const pm = choice("package-manager", PACKAGE_MANAGERS, "pnpm");
 const frontend = choice("frontend", FRONTENDS, "svelte");
 const port = Number(option("port", "15161"));
+const keep = args.includes("--keep");
 if (!Number.isInteger(port) || port <= 0 || port >= 65_535) {
   console.error("--port invalide : un entier entre 1 et 65 534");
   process.exit(2);
@@ -123,7 +124,13 @@ function runLine(line) {
   return spawnSync(line, { cwd: app, env, encoding: "utf8", shell: true });
 }
 
-/** `GET` sur le serveur de l'application ; rend le statut, ou l'erreur. */
+/**
+ * `GET` sur le serveur de l'application ; rend le statut, ou l'erreur.
+ *
+ * Le message d'erreur vient du réseau, et finit dans un libellé journalisé :
+ * ses fins de ligne sont aplaties ICI, au point d'entrée, pour qu'aucune
+ * ligne forgée n'entre dans le journal (`js/log-injection`).
+ */
 function statusOf(pathname) {
   return new Promise((resolve) => {
     const request = http.get(
@@ -134,7 +141,9 @@ function statusOf(pathname) {
       },
     );
     request.on("timeout", () => request.destroy(new Error("délai dépassé")));
-    request.on("error", (error) => resolve(error.message));
+    request.on("error", (error) =>
+      resolve(error.message.replace(/[\r\n]+/g, " ")),
+    );
   });
 }
 
