@@ -165,6 +165,7 @@ function Topbar({
         <span className="id id-app">
           {/* Espaces entre les éléments : sans eux, le texte lu est
               « mon-appdémov0.1.0 » et ne correspond plus au nom accessible. */}
+          <span className="brand-logo" />
           <span className="brand-name">{appName}</span>{" "}
           <span className="tag">démo</span>{" "}
           {about && (

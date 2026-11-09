@@ -5,31 +5,55 @@
  */
 /* Mise en page : celle de l'accueil du cœur (nodefony/views/index.eta), mêmes jetons ;
    le catalogue des démos remplace les quatre fronts et Studio. */
+/*
+ * Thème clair : les trois couleurs du LOGO (bleu #0067ba, cyan #00a0f2,
+ * vert #448438) sur un fond teinté de leur bleu — jamais un blanc nu. Le bleu
+ * est celui du logo, tel quel ; le cyan et le vert sont assombris juste assez
+ * pour tenir 4,5:1 en texte sur le fond, la carte ET la bande douce.
+ */
 :root {
-  --blue: #096bbf;
-  --cyan: #1ea0ec;
-  --green: #4a8b3e;
-  --amber: #b7791f;
-  --violet: #7c4dbd;
+  --blue: #0067ba;
+  --cyan: #00699f;
+  --green: #3b7430;
+  --amber: #8a5a10;
+  --violet: #6b3fb0;
   /* Un refus, une erreur (leçon MCP) — jamais une série de graphe. */
-  --danger: #b4232a;
+  --danger: #a81e26;
   /* Séries des graphes du fil (validées CVD) : CBOR, texte. */
-  --wire-cbor: #096bbf;
-  --wire-text: #b7791f;
-  --bg: #fafbfd;
-  --bg-soft: #f1f5fa;
-  --fg: #0e1726;
-  --muted: #5b6b84;
-  --card: #ffffff;
-  --border: #e3e9f2;
-  --code-bg: #0e1726;
+  --wire-cbor: #0067ba;
+  --wire-text: #8a5a10;
+  --bg: #e9f0f8;
+  --bg-soft: #dde7f3;
+  --fg: #0a2440;
+  --muted: #3d5571;
+  --card: #f7fafd;
+  --border: #c4d4e6;
+  --code-bg: #0a2440;
   --code-fg: #d9e6f5;
-  --shadow: 0 1px 2px rgba(14, 23, 38, 0.05), 0 8px 24px rgba(14, 23, 38, 0.06);
+  /* Le halo du haut de page : le bleu et le vert du logo. */
+  --wash-blue: rgba(0, 160, 242, 0.16);
+  --wash-green: rgba(68, 132, 56, 0.1);
+  /* Le pied de page : un bandeau marine, celui du bleu du logo. */
+  --footer-bg: #0a2440;
+  --footer-fg: #c9d6e8;
+  --footer-link: #8fcdf7;
+  --shadow:
+    0 1px 2px rgba(10, 36, 64, 0.06), 0 8px 24px rgba(0, 103, 186, 0.08);
   --shadow-hover:
-    0 2px 4px rgba(14, 23, 38, 0.06), 0 14px 34px rgba(9, 107, 191, 0.14);
+    0 2px 4px rgba(10, 36, 64, 0.08), 0 14px 34px rgba(0, 103, 186, 0.2);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
+    --blue: #096bbf;
+    --cyan: #1ea0ec;
+    --green: #4a8b3e;
+    --amber: #b7791f;
+    --violet: #7c4dbd;
+    --wash-blue: rgba(30, 160, 236, 0.08);
+    --wash-green: rgba(74, 139, 62, 0.06);
+    --footer-bg: #060a14;
+    --footer-fg: #c9d6e8;
+    --footer-link: #8fcdf7;
     --danger: #e0646a;
     --bg: #0a0f1c;
     --bg-soft: #0e1524;
@@ -47,6 +71,16 @@
   }
 }
 :root[data-theme="dark"] {
+  --blue: #096bbf;
+  --cyan: #1ea0ec;
+  --green: #4a8b3e;
+  --amber: #b7791f;
+  --violet: #7c4dbd;
+  --wash-blue: rgba(30, 160, 236, 0.08);
+  --wash-green: rgba(74, 139, 62, 0.06);
+  --footer-bg: #060a14;
+  --footer-fg: #c9d6e8;
+  --footer-link: #8fcdf7;
   --wire-cbor: #3d9be6;
   --bg: #0a0f1c;
   --danger: #e0646a;
@@ -77,10 +111,11 @@ body {
   color: var(--fg);
   background:
     radial-gradient(
-      1100px 480px at 50% -14%,
-      rgba(9, 107, 191, 0.07),
-      transparent 60%
+      1100px 520px at 30% -12%,
+      var(--wash-blue),
+      transparent 62%
     ),
+    radial-gradient(900px 460px at 78% -8%, var(--wash-green), transparent 60%),
     var(--bg);
   line-height: 1.6;
   font-size: 15px;
@@ -604,19 +639,42 @@ a.card:hover {
   font-size: 0.9rem;
 }
 
+/*
+ * Bandes pleine largeur sans débordement : l'ombre peint le fond jusqu'aux
+ * bords de l'écran, le clip-path la retient à la hauteur de la section — la
+ * page ne défile jamais de côté.
+ */
+#catalogue,
+#agents,
 footer {
-  border-top: 1px solid var(--border);
-  margin-top: 24px;
-  padding-block: 24px 6px;
+  box-shadow: 0 0 0 100vmax var(--band-bg);
+  clip-path: inset(0 -100vmax);
+  background: var(--band-bg);
+}
+#catalogue,
+#agents {
+  --band-bg: var(--bg-soft);
+}
+main:has(> footer) {
+  padding-bottom: 0;
+}
+footer {
+  --band-bg: var(--footer-bg);
+  margin-top: 0;
+  padding-block: 28px;
   display: flex;
   flex-wrap: wrap;
   gap: 8px 22px;
   justify-content: space-between;
-  color: var(--muted);
+  color: var(--footer-fg);
   font-size: 0.85rem;
 }
 footer a {
   text-decoration: none;
+}
+footer a,
+footer code {
+  color: var(--footer-link);
 }
 /* Barre de debug (développement) : fixée en bas, elle publie sa hauteur dans
    --nodefony-debugbar-height (0px réduite ou en haut) ; la page la réserve. */
