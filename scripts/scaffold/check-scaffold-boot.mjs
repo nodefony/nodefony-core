@@ -298,12 +298,32 @@ async function stopServer() {
  * que le produit conseille : sous pnpm, ils trouvent ce que npm masque.
  */
 function runE2e() {
+  // Ce qui sera RAMASSÉ, d'abord : un vert sans les fichiers de la démo
+  // (motif de ramassage changé) resterait vert sans rien éprouver. Sans
+  // terminal, vitest ne nomme pas les fichiers passés ; `list` les nomme.
+  const listing = runLine(
+    `${lines.exec("vitest")} list -c vitest.e2e.config.ts --filesOnly`,
+  );
+  const demoFiles = new Set(
+    `${listing.stdout}${listing.stderr}`
+      .replaceAll("\\", "/")
+      .match(/modules\/demo\/tests\/[\w.-]+\.e2e\.test\.ts/gu) ?? [],
+  );
+  check(
+    `test:e2e ramasse ${demoFiles.size} fichier(s) de la démo`,
+    demoFiles.size > 0,
+    tailOf(`${listing.stdout}${listing.stderr}`, 40, "rejouer avec --keep"),
+  );
+
   const line = lines.run("test:e2e");
   const e2e = runLine(line);
+  const output = `${e2e.stdout}${e2e.stderr}`;
+  const summary =
+    output.replace(/\u001B\[[\d;]*m/gu, "").match(/Tests\s+[^\n]+/u)?.[0] ?? "";
   check(
-    line,
+    `${line} — ${summary.trim()}`,
     e2e.status === 0,
-    tailOf(`${e2e.stdout}${e2e.stderr}`, 80, "rejouer avec --keep"),
+    tailOf(output, 80, "rejouer avec --keep"),
   );
 }
 
