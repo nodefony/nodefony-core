@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-08T04:19:27.175Z",
+  "generatedAt": "2026-11-09T08:58:33.924Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,7 +39,7 @@
       "title": "13.0.0"
     },
     {
-      "closed": 242,
+      "closed": 243,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
       "open": 16,
@@ -56,7 +56,7 @@
       "closed": 6,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 46,
+      "open": 47,
       "title": "10.1.0"
     }
   ],
@@ -282,7 +282,7 @@
       "title": "feat(security): authentifier par certificat client sur carte à puce",
       "url": "https://github.com/nodefony/nodefony-core/issues/583",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "13.0.0",
       "priorite": "P2 — décision",
       "jours": 3,
@@ -6693,6 +6693,22 @@
       ]
     },
     {
+      "number": 750,
+      "title": "fix(http): effacer les fichiers d'upload que la requête n'a pas déplacés",
+      "url": "https://github.com/nodefony/nodefony-core/issues/750",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-beta",
+      "priorite": "P0 — bloque le reste",
+      "jours": 0.5,
+      "ordre": 7.141,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-7"
+      ]
+    },
+    {
       "number": 748,
       "title": "fix(security): vérifier l'audience d'un jeton contre la ressource de la zone",
       "url": "https://github.com/nodefony/nodefony-core/issues/748",
@@ -10048,6 +10064,20 @@
       "priorite": "P2 — décision",
       "jours": 2,
       "ordre": 172,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 751,
+      "title": "feat(http): mesurer l'aller-retour de chaque WebSocket au ping/pong",
+      "url": "https://github.com/nodefony/nodefony-core/issues/751",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1.0",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 172.5,
       "debut": null,
       "cible": null,
       "labels": []
