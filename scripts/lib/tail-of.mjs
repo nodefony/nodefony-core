@@ -5,6 +5,8 @@
  * rangée au-dessus de vingt avertissements — la CI disait « 1 error » sans
  * la nommer. Toute coupe s'annonce donc, avec le nombre de lignes tues.
  *
+ * @usage import { tailOf } from "../lib/tail-of.mjs"
+ *
  * @param {string} text - la sortie entière
  * @param {number} lines - combien de lignes de fin garder
  * @param {string} [hint] - comment tout relire (option, fichier conservé…)

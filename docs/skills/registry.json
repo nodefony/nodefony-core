@@ -77,6 +77,7 @@
         "scripts/generate/readmes.mjs",
         "scripts/repo/long-run-lock.mjs",
         "scripts/repo/tmp-layout.mjs",
+        "scripts/scaffold/check-scaffold-boot.mjs",
         "scripts/scaffold/check-scaffold-format.mjs",
         "scripts/scaffold/check-scaffold-frontends.mjs",
         "scripts/scaffold/format-templates.mjs",
@@ -130,6 +131,22 @@
       "calledBy": [
         "node.js.yml",
         "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/lib/tail-of.mjs",
+      "test": false,
+      "purpose": "La fin d'une sortie, en DISANT ce qui manque.",
+      "usage": [
+        "import { tailOf } from \"../lib/tail-of.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/scaffold/check-scaffold-boot.mjs",
+        "scripts/scaffold/check-scaffold-frontends.mjs"
       ],
       "testedBy": []
     },
@@ -498,6 +515,30 @@
       "output": "",
       "calledBy": [
         "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/scaffold/check-scaffold-boot.mjs",
+      "test": false,
+      "purpose": "Une application que `nodefony create app` PRODUIT pour un gestionnaire donné démarre-t-elle, démo comprise, et sert-elle sa page `/demo` ?",
+      "usage": [
+        "node scripts/scaffold/check-scaffold-boot.mjs [--package-manager=pnpm] [--frontend=svelte] [--port=15161] [--keep]"
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "BOOT_TIMEOUT_MS",
+          "help": ""
+        },
+        {
+          "name": "STOP_TIMEOUT_MS",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        "scaffold.yml"
       ],
       "testedBy": []
     },

@@ -10,9 +10,9 @@ de forge, autre script). Tout est extrait du source — l'en-tête du script (`@
 
 | Dossier | Contenu | Scripts |
 | --- | --- | --- |
-| [`lib/`](lib/README.md) | Helpers transverses, importés par les scripts des autres dossiers. | 9 |
+| [`lib/`](lib/README.md) | Helpers transverses, importés par les scripts des autres dossiers. | 10 |
 | [`gates/`](gates/README.md) | Gardes de commit et de forge : chacune refuse un état précis du dépôt. | 18 |
-| [`scaffold/`](scaffold/README.md) | Contrôles et mise en forme des gabarits d'application. | 3 |
+| [`scaffold/`](scaffold/README.md) | Contrôles et mise en forme des gabarits d'application. | 4 |
 | [`deps/`](deps/README.md) | Inventaire et garde des dépendances, gabarits compris. | 5 |
 | [`deps/lib/`](deps/lib/README.md) | Helpers propres à l'inventaire des dépendances. | 3 |
 | [`deps/shims/deepmerge/`](deps/shims/deepmerge/README.md) | Remplaçant interne de `deepmerge` (aucune version amont saine, GHSA-gcqx-w48m-w2h4), branché par les `overrides` de la racine. À retirer quand `npm run deps:gate` signale une version amont au-dessus de sa base. | 3 |

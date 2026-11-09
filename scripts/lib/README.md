@@ -38,7 +38,7 @@ Racine du dépôt — seule implémentation pour les scripts de `scripts/`.
 - **Usage** : `import { REPO_ROOT } from "../lib/repo-root.mjs"`
 - **Variable** `REPO_ROOT`
 - **Variable** `ROOT_PACKAGE_NAME`
-- **Appelé par** : `.claude/skills/nodefony-documentation/scripts/mermaid-check.mjs` · `deps/check-deps-latest.mjs` · `gates/check-licenses.mjs` · `gates/check-package-deps.mjs` · `gates/size-check.mjs` · `generate/brand-assets.mjs` · `generate/env-reference.ts` · `generate/env-snapshot.ts` · `generate/generate-man.mjs` · `generate/generate-symbols.ts` · `generate/readmes.mjs` · `repo/long-run-lock.mjs` · `repo/tmp-layout.mjs` · `scaffold/check-scaffold-format.mjs` · `scaffold/check-scaffold-frontends.mjs` · `scaffold/format-templates.mjs` · `site/assemble-site.mjs` · `site/build-docs-site.mjs` · `site/build-perf-site.mjs` · `site/build-qualite-site.mjs` · `site/build-site-plan.mjs` · `site/build-site.mjs` · `site/readme-html.mjs` · `test/test-all.ts` · `test/testbed-report.ts`
+- **Appelé par** : `.claude/skills/nodefony-documentation/scripts/mermaid-check.mjs` · `deps/check-deps-latest.mjs` · `gates/check-licenses.mjs` · `gates/check-package-deps.mjs` · `gates/size-check.mjs` · `generate/brand-assets.mjs` · `generate/env-reference.ts` · `generate/env-snapshot.ts` · `generate/generate-man.mjs` · `generate/generate-symbols.ts` · `generate/readmes.mjs` · `repo/long-run-lock.mjs` · `repo/tmp-layout.mjs` · `scaffold/check-scaffold-boot.mjs` · `scaffold/check-scaffold-format.mjs` · `scaffold/check-scaffold-frontends.mjs` · `scaffold/format-templates.mjs` · `site/assemble-site.mjs` · `site/build-docs-site.mjs` · `site/build-perf-site.mjs` · `site/build-qualite-site.mjs` · `site/build-site-plan.mjs` · `site/build-site.mjs` · `site/readme-html.mjs` · `test/test-all.ts` · `test/testbed-report.ts`
 - **Testé par** : `gates/dev-credentials.test.mjs` · `gates/vitest-tmp-guard.test.mjs` · `lib/redis-session-purge.test.mjs` · `site/schemas-organigramme.test.mjs` · `site/schemas-sequence.test.mjs` · `site/site-plan.test.mjs` · `site/site-versions.test.mjs`
 
 ## [`symbols-publish.mjs`](symbols-publish.mjs)
@@ -56,6 +56,13 @@ Copie publiée du graphe symbolique — module d'un fichier, modules publiés, f
 
 - **Lancé par** : `node.js.yml` · `npm run test:tooling`
 - **Utilise** : `lib/symbols-publish.mjs`
+
+## [`tail-of.mjs`](tail-of.mjs)
+
+La fin d'une sortie, en DISANT ce qui manque.
+
+- **Usage** : `import { tailOf } from "../lib/tail-of.mjs"`
+- **Appelé par** : `scaffold/check-scaffold-boot.mjs` · `scaffold/check-scaffold-frontends.mjs`
 
 ## [`turbo-replay.mjs`](turbo-replay.mjs)
 

@@ -14,6 +14,16 @@ _Rien de noté : ce qui se découvre en travaillant ici s'écrit dans ce bloc._
 
 Index de tout l'outillage : [`scripts/`](../README.md).
 
+## [`check-scaffold-boot.mjs`](check-scaffold-boot.mjs)
+
+Une application que `nodefony create app` PRODUIT pour un gestionnaire donné démarre-t-elle, démo comprise, et sert-elle sa page `/demo` ?
+
+- **Usage** : `node scripts/scaffold/check-scaffold-boot.mjs [--package-manager=pnpm] [--frontend=svelte] [--port=15161] [--keep]`
+- **Variable** `BOOT_TIMEOUT_MS`
+- **Variable** `STOP_TIMEOUT_MS`
+- **Appelé par** : `scaffold.yml`
+- **Utilise** : `lib/repo-root.mjs` · `lib/tail-of.mjs`
+
 ## [`check-scaffold-format.mjs`](check-scaffold-format.mjs)
 
 Le code que `nodefony create` PRODUIT est-il accepté par le formateur que ce même code embarque ?
@@ -29,7 +39,7 @@ Le front que `nodefony create app --frontend <fw>` PRODUIT passe-t-il les contr�
 
 - **Usage** : `node scripts/scaffold/check-scaffold-frontends.mjs [react vue angular svelte] [--preset=complete|minimal] [--keep]`
 - **Appelé par** : `scaffold.yml`
-- **Utilise** : `lib/repo-root.mjs`
+- **Utilise** : `lib/repo-root.mjs` · `lib/tail-of.mjs`
 
 ## [`format-templates.mjs`](format-templates.mjs)
 
