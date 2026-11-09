@@ -11,7 +11,9 @@
  * AUTHENTIFIÉE `ROLE_USER` :
  *
  * - `free`  : trame entrante sur un canal plein-duplex SANS politique ;
- * - `roles` : trame entrante sur un canal plein-duplex à politique `{ roles: ["ROLE_USER"] }`.
+ * - `roles` : trame entrante sur un canal plein-duplex à politique `{ roles: ["ROLE_USER"] }` ;
+ * - `action` : requête RPC (`id`) vers une action au défaut FERMÉ — jamais
+ *   retenue, elle paie le verrou à CHAQUE appel ; mesurée en `verrou seul`.
  *
  * Pour chacun, trois mesures :
  * - `sans verrou`  : la trame complète, aucun verrou posé sur le hub ;
@@ -32,8 +34,12 @@
  * build, copie sous `tmp/bench/`). Les mesures `nolock` et `lock` des deux `dist`
  * sont alors ALTERNÉES, run par run : deux runs pris à une heure d'écart mesurent
  * aussi la dérive de la machine, et l'écart se lit à tort comme un effet du diff.
+ * Le `verrou seul` y est comparé aussi : sur le chemin complet, le verdict retenu
+ * masque presque tout changement du juge. Un diff qui touche AUSSI le juge
+ * (@nodefony/security) passe `--baseline-security <dist>` : sans lui, l'« avant »
+ * jugerait avec le security d'APRÈS, et l'écart du juge disparaîtrait.
  *
- * Mode enfant (interne) : --child <chemin> <mesure> [<dist realtime>]
+ * Mode enfant (interne) : --child <chemin> <mesure> [<dist realtime>] [<dist security>]
  */
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -52,26 +58,36 @@ const opt = (name, def) => {
 };
 
 if (args[0] === "--child") {
-  await child(args[1], args[2], args[3] ?? DEFAULT_RT);
+  await child(args[1], args[2], args[3] ?? DEFAULT_RT, args[4] ?? SEC);
 } else {
   parent();
 }
 
 /** Mesure UN chemin, UNE variante, imprime `ns/trame` en JSON. */
-async function child(which, variant, RT) {
+async function child(which, variant, RT, SECURITY) {
   await import("reflect-metadata");
   const load = (dir, rel) => import(pathToFileURL(path.join(dir, rel)).href);
-  const { RealtimeController, RealtimeInbound, getRealtimeHub } = await load(
-    RT,
-    "index.js",
-  );
+  const {
+    RealtimeController,
+    RealtimeInbound,
+    RealtimeAction,
+    getRealtimeHub,
+  } = await load(RT, "index.js");
   const { createRealtimeHarness } = await load(RT, "nodefony/testing/index.js");
   const { createTestFrameAuthorizer, createTestIdentity } = await load(
-    SEC,
+    SECURITY,
     "nodefony/testing/index.js",
   );
 
-  const channel = which === "roles" ? "bench:in-roles" : "bench:in-free";
+  if (which === "action" && variant !== "lockonly") {
+    fail("le chemin action ne se mesure qu'en verrou seul");
+  }
+  const channel =
+    which === "roles"
+      ? "bench:in-roles"
+      : which === "action"
+        ? "bench:act"
+        : "bench:in-free";
   let received = 0;
   class BenchRt extends RealtimeController {
     constructor(ctx) {
@@ -89,6 +105,8 @@ async function child(which, variant, RT) {
     channel,
     which === "roles" ? { roles: ["ROLE_USER"] } : undefined,
   )(BenchRt.prototype, "onIn");
+  // Défaut FERMÉ (`{ authenticated: true }`) : ce que pose un `@RealtimeAction` nu.
+  if (which === "action") RealtimeAction(channel)(BenchRt.prototype, "onIn");
 
   const hub = getRealtimeHub();
   const realLock = createTestFrameAuthorizer(hub);
@@ -118,7 +136,10 @@ async function child(which, variant, RT) {
   rt.context.connection.send = (_data, cb) => cb?.();
 
   const text = `{"jsonrpc":"2.0","method":"${channel}","params":{"n":1}}`;
-  const frame = { jsonrpc: "2.0", method: channel, params: { n: 1 } };
+  const frame =
+    which === "action"
+      ? { jsonrpc: "2.0", id: 1, method: channel, params: { n: 1 } }
+      : { jsonrpc: "2.0", method: channel, params: { n: 1 } };
 
   // Passe de contrôle : le verrou est-il APPELÉ, et laisse-t-il passer ?
   if (variant === "lock" || variant === "memo") {
@@ -159,10 +180,10 @@ function fail(message) {
 function parent() {
   const runs = Number(opt("--runs", "7"));
   const self = new URL(import.meta.url).pathname;
-  const measure = (which, variant, rt = DEFAULT_RT) => {
+  const measure = (which, variant, rt = DEFAULT_RT, sec = SEC) => {
     const r = spawnSync(
       process.execPath,
-      [self, "--child", which, variant, rt],
+      [self, "--child", which, variant, rt, sec],
       {
         encoding: "utf8",
         cwd: ROOT,
@@ -181,29 +202,45 @@ function parent() {
   const baseline = opt("--baseline", null);
   if (baseline !== null) {
     const ref = path.resolve(ROOT, baseline);
+    const refSec = path.resolve(ROOT, opt("--baseline-security", SEC));
     const rows = [];
-    for (const which of ["free", "roles"]) {
-      const S = { avantSans: [], avantAvec: [], apresSans: [], apresAvec: [] };
+    for (const which of ["free", "roles", "action"]) {
+      const full = which !== "action";
+      const S = {
+        avantSans: [],
+        avantAvec: [],
+        apresSans: [],
+        apresAvec: [],
+        avantSeul: [],
+        apresSeul: [],
+      };
       for (let i = 0; i < runs; i++) {
-        S.avantSans.push(measure(which, "nolock", ref));
-        S.apresSans.push(measure(which, "nolock"));
-        S.avantAvec.push(measure(which, "lock", ref));
-        S.apresAvec.push(measure(which, "lock"));
+        if (full) {
+          S.avantSans.push(measure(which, "nolock", ref, refSec));
+          S.apresSans.push(measure(which, "nolock"));
+          S.avantAvec.push(measure(which, "lock", ref, refSec));
+          S.apresAvec.push(measure(which, "lock"));
+        }
+        S.avantSeul.push(measure(which, "lockonly", ref, refSec));
+        S.apresSeul.push(measure(which, "lockonly"));
       }
-      const m = Object.fromEntries(
-        Object.entries(S).map(([k, v]) => [k, median(v)]),
-      );
-      const pct = (x, y) => (((x - y) / y) * 100).toFixed(1);
+      const fmt = (xs) => (xs.length === 0 ? "—" : median(xs).toFixed(0));
+      const pct = (x, y) =>
+        x.length === 0
+          ? "—"
+          : (((median(x) - median(y)) / median(y)) * 100).toFixed(1);
       rows.push({
         canal: which,
-        "avant sans verrou": m.avantSans.toFixed(0),
-        "avant avec verrou": m.avantAvec.toFixed(0),
-        "après sans verrou": m.apresSans.toFixed(0),
-        "après avec verrou": m.apresAvec.toFixed(0),
-        "après avec / avant sans %": pct(m.apresAvec, m.avantSans),
-        "après sans / avant sans %": pct(m.apresSans, m.avantSans),
-        "étendue avant sans": spread(S.avantSans),
-        "étendue après avec": spread(S.apresAvec),
+        "avant sans verrou": fmt(S.avantSans),
+        "avant avec verrou": fmt(S.avantAvec),
+        "après sans verrou": fmt(S.apresSans),
+        "après avec verrou": fmt(S.apresAvec),
+        "après avec / avant avec %": pct(S.apresAvec, S.avantAvec),
+        "avant verrou seul": fmt(S.avantSeul),
+        "après verrou seul": fmt(S.apresSeul),
+        "verrou seul après / avant %": pct(S.apresSeul, S.avantSeul),
+        "étendue verrou seul avant": spread(S.avantSeul),
+        "étendue verrou seul après": spread(S.apresSeul),
       });
     }
     console.table(rows);
