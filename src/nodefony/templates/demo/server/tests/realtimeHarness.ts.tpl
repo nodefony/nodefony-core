@@ -9,6 +9,14 @@ import {
   startSpareApp,
   type ISpareApp,
 } from "nodefony/testing";
+import { inject } from "vitest";
+
+declare module "vitest" {
+  export interface ProvidedContext {
+    /** La base de la suite e2e de l'application (`tests/e2e.setup.ts`). */
+    e2eDatabaseUrl: string | null;
+  }
+}
 
 /**
  * Le décor des tests de bout en bout de la démo : un serveur RÉEL, et les
@@ -20,9 +28,10 @@ import {
  *   de production. Chaque fichier démarre donc SON exemplaire, en
  *   développement (`startDemoServer` en `beforeAll`, `stop` en `afterAll`).
  * - Les ports sont pris LIBRES, HTTPS compris : jamais 5151/5152, ceux d'un
- *   `nodefony development` déjà ouvert sur le poste. La base est un SQLite
- *   JETABLE : la base de développement de l'application n'est jamais touchée,
- *   et le compte `admin` y naît avec le mot de passe du décor e2e.
+ *   `nodefony development` déjà ouvert sur le poste. La base est celle du
+ *   décor e2e (un SQLite JETABLE, ou la base `<base>_e2e` d'un moteur
+ *   serveur) : la base de développement de l'application n'est jamais
+ *   touchée, et le compte `admin` y naît avec le mot de passe du décor e2e.
  * - Un test ouvre ses sockets par `openSocket`, attend ce qu'il veut voir par
  *   `waitFor` — jamais par une pause fixe —, et referme tout par `closeAll`.
  */
@@ -52,25 +61,45 @@ function freePort(): Promise<number> {
  */
 export async function startDemoServer(): Promise<() => Promise<void>> {
   const [port, httpsPort] = [await freePort(), await freePort()];
-  const dir = mkdtempSync(path.join(tmpdir(), "nf-demo-e2e-"));
+  // La base est celle que `tests/e2e.setup.ts` a CHOISIE et remise à neuf,
+  // transmise par `provide` — jamais une copie de sa règle. Un moteur
+  // serveur : la même base `<base>_e2e` (une entité écrite pour un dialecte
+  // refuse de démarrer sur un autre). SQLite, ou rien de transmis : un fichier
+  // JETABLE par fichier de test. Les fichiers se suivent
+  // (`fileParallelism: false`) : un seul exemplaire de développement à la fois
+  // écrit dans une base partagée.
+  const shared = inject("e2eDatabaseUrl") ?? null;
+  let dir: string | null = null;
+  let database: string;
+  if (shared !== null && !shared.startsWith("sqlite:")) {
+    database = shared;
+  } else {
+    dir = mkdtempSync(path.join(tmpdir(), "nf-demo-e2e-"));
+    database = `sqlite:${path.join(dir, "demo.db")}`;
+  }
+  const cleanup = () => {
+    if (dir !== null) {
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
+    }
+  };
   const spare = await startSpareApp({
     command: "development",
     port,
     httpsPort,
     timeoutMs: 120_000,
     env: {
-      NF_DATABASE_URL: `sqlite:${path.join(dir, "demo.db")}`,
+      NF_DATABASE_URL: database,
       NF_ADMIN_PASSWORD: E2E_ADMIN_PASSWORD,
     },
   }).catch((error: unknown) => {
-    rmSync(dir, { recursive: true, force: true });
+    cleanup();
     throw error;
   });
   server = spare;
   return async () => {
     server = null;
     await spare.stop();
-    rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
+    cleanup();
   };
 }
 

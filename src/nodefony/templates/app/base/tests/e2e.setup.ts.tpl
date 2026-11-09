@@ -11,6 +11,19 @@ import {
 <% } %>  nodefonyBin,
   runningAppPort,
 } from "nodefony/testing";
+import type { TestProject } from "vitest/node";
+
+declare module "vitest" {
+  export interface ProvidedContext {
+    /**
+     * La base de la suite (`E2E_BASE_URL`), transmise aux fichiers de test qui
+     * démarrent leur PROPRE exemplaire — ceux de la démo, par exemple — pour
+     * qu'ils visent la même, sans recopier la règle qui la choisit. `null` :
+     * application servie à l'externe, ou moteur dont ils gardent leur décor.
+     */
+    e2eDatabaseUrl: string | null;
+  }
+}
 /**
  * Démarre l'application UNE fois pour toute la suite E2E, et l'arrête à la fin.
  *
@@ -241,8 +254,10 @@ export const isTlsTarget =
  */
 let started = false;
 
-export async function setup(): Promise<void> {
-  if (EXTERNAL_BASE_URL) {
+export async function setup(project: TestProject): Promise<void> {
+<% if (it.mongo) { %>  project.provide("e2eDatabaseUrl", null);
+<% } else { %>  project.provide("e2eDatabaseUrl", EXTERNAL_BASE_URL ? null : E2E_BASE_URL);
+<% } %>  if (EXTERNAL_BASE_URL) {
     process.stdout.write(
       `e2e : application visée à l'externe (${EXTERNAL_BASE_URL}) — ` +
         "aucun démarrage, aucune base touchée ici.\n",
