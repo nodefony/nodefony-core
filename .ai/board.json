@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-09T21:07:45.178Z",
+  "generatedAt": "2026-11-09T22:23:01.616Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 249,
+      "closed": 250,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 16,
+      "open": 15,
       "title": "10.0.0-beta"
     },
     {
@@ -6694,7 +6694,7 @@
     },
     {
       "number": 687,
-      "title": "fix(orm): ne plus générer en production les tables d'un module de dev",
+      "title": "fix(orm): garder les tables d'un module de dev hors des migrations",
       "url": "https://github.com/nodefony/nodefony-core/issues/687",
       "state": "OPEN",
       "status": "In Progress",
@@ -6808,8 +6808,8 @@
       "number": 748,
       "title": "fix(security): vérifier l'audience d'un jeton contre la ressource de la zone",
       "url": "https://github.com/nodefony/nodefony-core/issues/748",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
