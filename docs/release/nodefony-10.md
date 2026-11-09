@@ -647,7 +647,7 @@ le protocole `git://` est mort depuis 2022 (port 9418 fermé par GitHub).
 
 **Fait.** Les dix-neuf `package.json` du périmètre portent `repository`, `homepage` et `bugs` vers
 `nodefony-core`. **`homepage` a depuis été REPOINTÉE vers le site de documentation**
-(`https://nodefony.github.io/nodefony-core/`) : npm affiche déjà le README du paquet sur sa
+(`https://nodefony.net/`) : npm affiche déjà le README du paquet sur sa
 propre page, si bien qu'y renvoyer une seconde fois n'apportait rien, tandis que le chemin
 vers le code reste porté par `repository.directory` et le suivi par `bugs` — tous deux posés
 sur les quinze publiables. Le motif d'origine du `tree/HEAD` (survivre à un renommage de

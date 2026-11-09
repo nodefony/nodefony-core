@@ -55,10 +55,10 @@ const socket = NodefonySocket.shared({
 });
 ```
 
-→ [La socket Nodefony](https://nodefony.github.io/nodefony-core/docs/modules/realtime/) ·
-[Les cas d'usage](https://nodefony.github.io/nodefony-core/docs/modules/realtime/cas-d-usage/) ·
-[Les flux SSE](https://nodefony.github.io/nodefony-core/docs/modules/http/sse/) ·
-[Le codec CBOR](https://nodefony.github.io/nodefony-core/docs/modules/core/cbor/)
+→ [La socket Nodefony](https://nodefony.net/docs/modules/realtime/) ·
+[Les cas d'usage](https://nodefony.net/docs/modules/realtime/cas-d-usage/) ·
+[Les flux SSE](https://nodefony.net/docs/modules/http/sse/) ·
+[Le codec CBOR](https://nodefony.net/docs/modules/core/cbor/)
 
 <!-- @if app -->
 <% } %>

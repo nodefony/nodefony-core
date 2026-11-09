@@ -23,9 +23,9 @@ fait rien (21 686 requêtes/s, p99 4,4 ms sur la machine de référence), entre 
 route qui lit et écrit une base — pour une résolution de banc de 3 %. Quatre-vingt-huit minutes de
 charge continue et 97,5 millions de requêtes laissent **le tas, l'empreinte mémoire et le `rss`
 plats** : 0,021 Mo par million de requêtes. La page de mesures de la version courante —
-**[peut-on partir en production ?](https://nodefony.github.io/nodefony-core/performance/latest/)** — porte le comparatif, la
+**[peut-on partir en production ?](https://nodefony.net/performance/latest/)** — porte le comparatif, la
 tenue dans la durée, le dimensionnement d'un pod et un calculateur ; elle nomme aussi ce que ces
-chiffres **ne** prouvent pas. Le dossier [`docs/performance/`](https://nodefony.github.io/nodefony-core/performance/) donne le
+chiffres **ne** prouvent pas. Le dossier [`docs/performance/`](https://nodefony.net/performance/) donne le
 protocole, les scripts qui rejouent chaque chiffre et les instruments qui ont menti avant qu'on
 s'en aperçoive — aucun absolu pris derrière un chemin virtualisé n'est transposable.
 

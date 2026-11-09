@@ -22,7 +22,7 @@ file, et la latence monte.
 Mesurées sur Nodefony **10.0.0**, en **production**, Node 26.10, **un** process, route de banc
 **triviale**, charge de 1 Ko. Chaque débit est ramené à ELU 1 (débit observé ÷ ELU), donc c'est un
 **plafond**. Source et calculateur :
-[peut-on partir en production ?](https://nodefony.github.io/nodefony-core/performance/latest/).
+[peut-on partir en production ?](https://nodefony.net/performance/latest/).
 
 | Constante                                         | Valeur                        | Ce qu'elle dit                                                                        |
 | ------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------- |

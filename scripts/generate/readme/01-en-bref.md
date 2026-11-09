@@ -63,7 +63,7 @@ export class RequestStamp extends Service {
 ```
 
 Le détail — les trois durées de vie, l'accès par `RequestContext`, les pièges :
-[Injection & portées](https://nodefony.github.io/nodefony-core/docs/architecture/injection-portees/).
+[Injection & portées](https://nodefony.net/docs/architecture/injection-portees/).
 
 Les frontends ne sont pas laissés dehors. Nodefony pilote **Vite** : en développement il démarre
 les serveurs de développement — React, Vue, Angular, Svelte —, les surveille, relaie leur rechargement à
@@ -82,14 +82,14 @@ s'exécutent là où ils servent — une règle corrigée l'est des deux côtés
 application React ne contient pas React. Le framework vit ailleurs, et c'est une distinction
 qui évite beaucoup de temps perdu.
 
-- **Comprendre ce que fait le framework** → [la documentation](https://nodefony.github.io/nodefony-core/docs/), en
-  commençant par [Par où commencer](https://nodefony.github.io/nodefony-core/docs/demarrer/).
+- **Comprendre ce que fait le framework** → [la documentation](https://nodefony.net/docs/), en
+  commençant par [Par où commencer](https://nodefony.net/docs/demarrer/).
 - **Ce qu'est Nodefony, et ce que ses partis pris coûtent** →
-  [l'architecture en vue d'ensemble](https://nodefony.github.io/nodefony-core/docs/architecture/vue-ensemble/).
+  [l'architecture en vue d'ensemble](https://nodefony.net/docs/architecture/vue-ensemble/).
 - **Le code d'un paquet que cette app importe** → [`nodefony/nodefony-core`](https://github.com/nodefony/nodefony-core),
   dans `src/packages/@nodefony/<nom>`.
 - **Brancher TON implémentation** — authentification, stockage, bus temps réel →
-  [Étendre le framework](https://nodefony.github.io/nodefony-core/docs/guides/etendre/), quatorze points d'accroche.
+  [Étendre le framework](https://nodefony.net/docs/guides/etendre/), quatorze points d'accroche.
 - **Signaler un défaut, demander une évolution** → [les issues de `nodefony-core`](https://github.com/nodefony/nodefony-core/issues).
 - **Qui décide, et comment** → [la gouvernance](https://github.com/nodefony/nodefony-core/blob/main/GOVERNANCE.md).
 

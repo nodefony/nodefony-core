@@ -14,7 +14,7 @@ _Une action de contrôleur. Deux transports. La même session, la même sécurit
 [![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-blue?style=flat-square)](tsconfig.json)
 [![ESM](https://img.shields.io/badge/ESM-only-orange?style=flat-square)](package.json)
 
-**[📖 Documentation](https://nodefony.github.io/nodefony-core/docs/)** · [Par où commencer](https://nodefony.github.io/nodefony-core/docs/demarrer/) · [Application de démonstration](https://github.com/nodefony/nodefony)
+**[📖 Documentation](https://nodefony.net/docs/)** · [Par où commencer](https://nodefony.net/docs/demarrer/) · [Application de démonstration](https://github.com/nodefony/nodefony)
 
 </div>
 
@@ -80,7 +80,7 @@ applicatif et une console d'administration** — engendrée par
 [![Node ≥ 24.14](https://img.shields.io/badge/Node.js-%E2%89%A5%2024.14-green?style=flat-square)](package.json)
 [![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-blue?style=flat-square)](tsconfig.json)
 
-**[📖 Documentation](https://nodefony.github.io/nodefony-core/docs/)** · [Par où commencer](https://nodefony.github.io/nodefony-core/docs/demarrer/) · [Le framework](https://github.com/nodefony/nodefony-core)
+**[📖 Documentation](https://nodefony.net/docs/)** · [Par où commencer](https://nodefony.net/docs/demarrer/) · [Le framework](https://github.com/nodefony/nodefony-core)
 
 </div>
 <!-- @end -->

@@ -17,7 +17,7 @@ export interface IDemoAbout {
 export const DEMO_ABOUT_PATH = "/demo/api/about";
 
 /** Site de la documentation publique (une publication par dossier). */
-const SITE_URL = "https://nodefony.github.io/nodefony-core/";
+const SITE_URL = "https://nodefony.net/";
 
 /** Dépôt du framework. */
 export const REPO_URL = "https://github.com/nodefony/nodefony-core";

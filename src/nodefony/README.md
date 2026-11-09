@@ -15,7 +15,7 @@ _Une action de contrôleur. Deux transports. La même session, la même sécurit
 [![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-blue?style=flat-square)](https://github.com/nodefony/nodefony-core/blob/main/tsconfig.json)
 [![ESM](https://img.shields.io/badge/ESM-only-orange?style=flat-square)](https://github.com/nodefony/nodefony-core/blob/main/package.json)
 
-**[📖 Documentation](https://nodefony.github.io/nodefony-core/docs/)** · [Par où commencer](https://nodefony.github.io/nodefony-core/docs/demarrer/) · [Application de démonstration](https://github.com/nodefony/nodefony)
+**[📖 Documentation](https://nodefony.net/docs/)** · [Par où commencer](https://nodefony.net/docs/demarrer/) · [Application de démonstration](https://github.com/nodefony/nodefony)
 
 </div>
 
@@ -106,7 +106,7 @@ export class RequestStamp extends Service {
 ```
 
 Le détail — les trois durées de vie, l'accès par `RequestContext`, les pièges :
-[Injection & portées](https://nodefony.github.io/nodefony-core/docs/architecture/injection-portees/).
+[Injection & portées](https://nodefony.net/docs/architecture/injection-portees/).
 
 Les frontends ne sont pas laissés dehors. Nodefony pilote **Vite** : en développement il démarre
 les serveurs de développement — React, Vue, Angular, Svelte —, les surveille, relaie leur rechargement à
@@ -277,10 +277,10 @@ const socket = NodefonySocket.shared({
 });
 ```
 
-→ [La socket Nodefony](https://nodefony.github.io/nodefony-core/docs/modules/realtime/) ·
-[Les cas d'usage](https://nodefony.github.io/nodefony-core/docs/modules/realtime/cas-d-usage/) ·
-[Les flux SSE](https://nodefony.github.io/nodefony-core/docs/modules/http/sse/) ·
-[Le codec CBOR](https://nodefony.github.io/nodefony-core/docs/modules/core/cbor/)
+→ [La socket Nodefony](https://nodefony.net/docs/modules/realtime/) ·
+[Les cas d'usage](https://nodefony.net/docs/modules/realtime/cas-d-usage/) ·
+[Les flux SSE](https://nodefony.net/docs/modules/http/sse/) ·
+[Le codec CBOR](https://nodefony.net/docs/modules/core/cbor/)
 
 ## Prêt pour les agents — ce que ça veut dire ici
 
@@ -348,8 +348,8 @@ appeler.
 
 `@nodefony/ai` ne monte aucune route tant que tu n'ouvres pas de porte ; paquet **expérimental**, il suit la spécification MCP et peut évoluer en version mineure, toujours annoncé au journal des versions.
 
-→ [Le module IA](https://nodefony.github.io/nodefony-core/docs/modules/ai/) ·
-[La boîte à outils MCP](https://nodefony.github.io/nodefony-core/docs/modules/ai/mcp/)
+→ [Le module IA](https://nodefony.net/docs/modules/ai/) ·
+[La boîte à outils MCP](https://nodefony.net/docs/modules/ai/mcp/)
 
 ## Démarrage
 
@@ -713,15 +713,15 @@ dans `nodefony.config.ts`).
 <!-- prettier-ignore -->
 | Brique | Rôle |
 | --- | --- |
-| [`nodefony`](https://nodefony.github.io/nodefony-core/docs/modules/core/) | **Ce paquet** — noyau : modules, injection de dépendances, configuration validée au démarrage, journalisation structurée corrélée, CLI — et le client temps réel partagé avec le navigateur |
-| [`@nodefony/http`](https://nodefony.github.io/nodefony-core/docs/modules/http/) | Serveurs HTTP, HTTPS, HTTP/2 et WebSocket natifs, flux SSE, sessions, contextes de requête, certificats TLS |
-| [`@nodefony/framework`](https://nodefony.github.io/nodefony-core/docs/modules/framework/) | Routeur, contrôleurs, décorateurs, vues — le modèle de programmation |
-| [`@nodefony/security`](https://nodefony.github.io/nodefony-core/docs/modules/security/) · [`@nodefony/user`](https://nodefony.github.io/nodefony-core/docs/modules/user/) | Pare-feu par zones, authentification, autorisation par rôles, CSRF, audit |
-| [`@nodefony/realtime`](https://nodefony.github.io/nodefony-core/docs/modules/realtime/) | Socket à canaux, salons et leurs membres, admission par canal, binaire CBOR, contre-pression, diffusion entre plusieurs instances |
-| [`@nodefony/ai`](https://nodefony.github.io/nodefony-core/docs/modules/ai/) | Porte MCP : les outils de l'application offerts aux agents d'IA, en HTTP avec flux SSE ou en stdio |
-| [`@nodefony/orm-core`](https://nodefony.github.io/nodefony-core/docs/modules/orm-core/) | Un contrat de dépôt de données, plusieurs moteurs : [Drizzle](https://nodefony.github.io/nodefony-core/docs/modules/drizzle/) (SQLite, PostgreSQL, MySQL), [Mongoose](https://nodefony.github.io/nodefony-core/docs/modules/mongoose/), [Redis](https://nodefony.github.io/nodefony-core/docs/modules/redis/) |
-| [`@nodefony/frontend`](https://nodefony.github.io/nodefony-core/docs/modules/frontend/) | Construction et rechargement à chaud des frontends de chaque module |
-| [`@nodefony/studio`](https://nodefony.github.io/nodefony-core/docs/modules/studio/) | Console d'administration |
+| [`nodefony`](https://nodefony.net/docs/modules/core/) | **Ce paquet** — noyau : modules, injection de dépendances, configuration validée au démarrage, journalisation structurée corrélée, CLI — et le client temps réel partagé avec le navigateur |
+| [`@nodefony/http`](https://nodefony.net/docs/modules/http/) | Serveurs HTTP, HTTPS, HTTP/2 et WebSocket natifs, flux SSE, sessions, contextes de requête, certificats TLS |
+| [`@nodefony/framework`](https://nodefony.net/docs/modules/framework/) | Routeur, contrôleurs, décorateurs, vues — le modèle de programmation |
+| [`@nodefony/security`](https://nodefony.net/docs/modules/security/) · [`@nodefony/user`](https://nodefony.net/docs/modules/user/) | Pare-feu par zones, authentification, autorisation par rôles, CSRF, audit |
+| [`@nodefony/realtime`](https://nodefony.net/docs/modules/realtime/) | Socket à canaux, salons et leurs membres, admission par canal, binaire CBOR, contre-pression, diffusion entre plusieurs instances |
+| [`@nodefony/ai`](https://nodefony.net/docs/modules/ai/) | Porte MCP : les outils de l'application offerts aux agents d'IA, en HTTP avec flux SSE ou en stdio |
+| [`@nodefony/orm-core`](https://nodefony.net/docs/modules/orm-core/) | Un contrat de dépôt de données, plusieurs moteurs : [Drizzle](https://nodefony.net/docs/modules/drizzle/) (SQLite, PostgreSQL, MySQL), [Mongoose](https://nodefony.net/docs/modules/mongoose/), [Redis](https://nodefony.net/docs/modules/redis/) |
+| [`@nodefony/frontend`](https://nodefony.net/docs/modules/frontend/) | Construction et rechargement à chaud des frontends de chaque module |
+| [`@nodefony/studio`](https://nodefony.net/docs/modules/studio/) | Console d'administration |
 
 Par défaut, un processus Node égale une instance : le passage à l'échelle revient à l'orchestrateur,
 et les journaux partent sur la sortie standard. Sans orchestrateur, `nodefony cluster -w N` démarre N
@@ -729,12 +729,12 @@ workers isolés, relancés s'ils tombent.
 
 ## Où aller ensuite
 
-- [Par où commencer](https://nodefony.github.io/nodefony-core/docs/demarrer/) — cinq parcours selon ce que tu viens faire
-- [Documentation](https://nodefony.github.io/nodefony-core/docs/) · [Guides](https://nodefony.github.io/nodefony-core/docs/guides/) · [Première application](https://nodefony.github.io/nodefony-core/docs/tutoriels/premiere-application/)
-- [L'architecture en vue d'ensemble](https://nodefony.github.io/nodefony-core/docs/architecture/vue-ensemble/) — ce que le framework est, et ce que ses partis pris coûtent
-- [Performance](https://nodefony.github.io/nodefony-core/performance/) — ce qui a été mesuré, avec quel
+- [Par où commencer](https://nodefony.net/docs/demarrer/) — cinq parcours selon ce que tu viens faire
+- [Documentation](https://nodefony.net/docs/) · [Guides](https://nodefony.net/docs/guides/) · [Première application](https://nodefony.net/docs/tutoriels/premiere-application/)
+- [L'architecture en vue d'ensemble](https://nodefony.net/docs/architecture/vue-ensemble/) — ce que le framework est, et ce que ses partis pris coûtent
+- [Performance](https://nodefony.net/performance/) — ce qui a été mesuré, avec quel
   protocole, et ce que ces chiffres ne permettent pas de conclure ; une page par version publiée,
-  dont [la version courante](https://nodefony.github.io/nodefony-core/performance/latest/)
+  dont [la version courante](https://nodefony.net/performance/latest/)
 - [Décisions d'architecture](https://github.com/nodefony/nodefony-core/tree/main/docs/adr/) — les choix structurants et leur pourquoi
 - [Signaler une faille](https://github.com/nodefony/nodefony-core/blob/main/SECURITY.md) — canal privé, jamais en ticket public
 - Contribuer : ouvre une issue avant toute contribution substantielle. Le dépôt impose les
@@ -754,9 +754,9 @@ fait rien (21 686 requêtes/s, p99 4,4 ms sur la machine de référence), entre 
 route qui lit et écrit une base — pour une résolution de banc de 3 %. Quatre-vingt-huit minutes de
 charge continue et 97,5 millions de requêtes laissent **le tas, l'empreinte mémoire et le `rss`
 plats** : 0,021 Mo par million de requêtes. La page de mesures de la version courante —
-**[peut-on partir en production ?](https://nodefony.github.io/nodefony-core/performance/latest/)** — porte le comparatif, la
+**[peut-on partir en production ?](https://nodefony.net/performance/latest/)** — porte le comparatif, la
 tenue dans la durée, le dimensionnement d'un pod et un calculateur ; elle nomme aussi ce que ces
-chiffres **ne** prouvent pas. Le dossier [`docs/performance/`](https://nodefony.github.io/nodefony-core/performance/) donne le
+chiffres **ne** prouvent pas. Le dossier [`docs/performance/`](https://nodefony.net/performance/) donne le
 protocole, les scripts qui rejouent chaque chiffre et les instruments qui ont menti avant qu'on
 s'en aperçoive — aucun absolu pris derrière un chemin virtualisé n'est transposable.
 

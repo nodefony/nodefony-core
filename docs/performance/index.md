@@ -15,7 +15,7 @@ source: "docs/performance/"
 📍 [Documentation](../index.md) › **Performance**
 
 > 📊 **Les mesures de la version courante se lisent en ligne :**
-> [peut-on partir en production ?](https://nodefony.github.io/nodefony-core/performance/latest/) —
+> [peut-on partir en production ?](https://nodefony.net/performance/latest/) —
 > comparatif, tenue dans la durée, dimensionnement d'un pod, calculateur. Une page par version
 > publiée ; les données qui la nourrissent sont versionnées dans [`data/`](data/README.md).
 

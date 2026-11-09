@@ -14,7 +14,7 @@ applicatif et une console d'administration** — engendrée par
 [![Node ≥ 24.14](https://img.shields.io/badge/Node.js-%E2%89%A5%2024.14-green?style=flat-square)](package.json)
 [![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-blue?style=flat-square)](tsconfig.json)
 
-**[📖 Documentation](https://nodefony.github.io/nodefony-core/docs/)** · [Par où commencer](https://nodefony.github.io/nodefony-core/docs/demarrer/) · [Le framework](https://github.com/nodefony/nodefony-core)
+**[📖 Documentation](https://nodefony.net/docs/)** · [Par où commencer](https://nodefony.net/docs/demarrer/) · [Le framework](https://github.com/nodefony/nodefony-core)
 
 </div>
 
@@ -24,14 +24,14 @@ applicatif et une console d'administration** — engendrée par
 application React ne contient pas React. Le framework vit ailleurs, et c'est une distinction
 qui évite beaucoup de temps perdu.
 
-- **Comprendre ce que fait le framework** → [la documentation](https://nodefony.github.io/nodefony-core/docs/), en
-  commençant par [Par où commencer](https://nodefony.github.io/nodefony-core/docs/demarrer/).
+- **Comprendre ce que fait le framework** → [la documentation](https://nodefony.net/docs/), en
+  commençant par [Par où commencer](https://nodefony.net/docs/demarrer/).
 - **Ce qu'est Nodefony, et ce que ses partis pris coûtent** →
-  [l'architecture en vue d'ensemble](https://nodefony.github.io/nodefony-core/docs/architecture/vue-ensemble/).
+  [l'architecture en vue d'ensemble](https://nodefony.net/docs/architecture/vue-ensemble/).
 - **Le code d'un paquet que cette app importe** → [`nodefony/nodefony-core`](https://github.com/nodefony/nodefony-core),
   dans `src/packages/@nodefony/<nom>`.
 - **Brancher TON implémentation** — authentification, stockage, bus temps réel →
-  [Étendre le framework](https://nodefony.github.io/nodefony-core/docs/guides/etendre/), quatorze points d'accroche.
+  [Étendre le framework](https://nodefony.net/docs/guides/etendre/), quatorze points d'accroche.
 - **Signaler un défaut, demander une évolution** → [les issues de `nodefony-core`](https://github.com/nodefony/nodefony-core/issues).
 - **Qui décide, et comment** → [la gouvernance](https://github.com/nodefony/nodefony-core/blob/main/GOVERNANCE.md).
 
@@ -94,10 +94,10 @@ const socket = NodefonySocket.shared({
 });
 ```
 
-→ [La socket Nodefony](https://nodefony.github.io/nodefony-core/docs/modules/realtime/) ·
-[Les cas d'usage](https://nodefony.github.io/nodefony-core/docs/modules/realtime/cas-d-usage/) ·
-[Les flux SSE](https://nodefony.github.io/nodefony-core/docs/modules/http/sse/) ·
-[Le codec CBOR](https://nodefony.github.io/nodefony-core/docs/modules/core/cbor/)
+→ [La socket Nodefony](https://nodefony.net/docs/modules/realtime/) ·
+[Les cas d'usage](https://nodefony.net/docs/modules/realtime/cas-d-usage/) ·
+[Les flux SSE](https://nodefony.net/docs/modules/http/sse/) ·
+[Le codec CBOR](https://nodefony.net/docs/modules/core/cbor/)
 <% } %>
 ## L'IA : ton application, ouverte aux agents
 
@@ -121,8 +121,8 @@ appeler.
 
 `@nodefony/ai` ne monte aucune route tant que tu n'ouvres pas de porte ; paquet **expérimental**, il suit la spécification MCP et peut évoluer en version mineure, toujours annoncé au journal des versions.
 
-→ [Le module IA](https://nodefony.github.io/nodefony-core/docs/modules/ai/) ·
-[La boîte à outils MCP](https://nodefony.github.io/nodefony-core/docs/modules/ai/mcp/)
+→ [Le module IA](https://nodefony.net/docs/modules/ai/) ·
+[La boîte à outils MCP](https://nodefony.net/docs/modules/ai/mcp/)
 
 ## Démarrage
 

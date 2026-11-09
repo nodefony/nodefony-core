@@ -20,5 +20,5 @@ appeler.
 
 `@nodefony/ai` ne monte aucune route tant que tu n'ouvres pas de porte ; paquet **expérimental**, il suit la spécification MCP et peut évoluer en version mineure, toujours annoncé au journal des versions.
 
-→ [Le module IA](https://nodefony.github.io/nodefony-core/docs/modules/ai/) ·
-[La boîte à outils MCP](https://nodefony.github.io/nodefony-core/docs/modules/ai/mcp/)
+→ [Le module IA](https://nodefony.net/docs/modules/ai/) ·
+[La boîte à outils MCP](https://nodefony.net/docs/modules/ai/mcp/)

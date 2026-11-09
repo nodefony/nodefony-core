@@ -2,8 +2,8 @@
 
 - **Maintenue par** — Christophe Camensuli, auteur de Nodefony
   ([`nodefony/nodefony-core`](https://github.com/nodefony/nodefony-core))
-- **Où trouver de l'aide** — [la documentation](https://nodefony.github.io/nodefony-core/docs/),
-  en commençant par [Par où commencer](https://nodefony.github.io/nodefony-core/docs/demarrer/)
+- **Où trouver de l'aide** — [la documentation](https://nodefony.net/docs/),
+  en commençant par [Par où commencer](https://nodefony.net/docs/demarrer/)
 
 # Étiquettes disponibles
 
@@ -59,7 +59,7 @@ Le framework, lui, s'installe depuis npm ; le code vit sur GitHub.
 
 - **Framework** — <https://www.npmjs.com/package/nodefony>
 - **Code source** — <https://github.com/nodefony/nodefony-core>
-- **Documentation** — <https://nodefony.github.io/nodefony-core/>
+- **Documentation** — <https://nodefony.net/>
 
 # Utiliser cette image
 

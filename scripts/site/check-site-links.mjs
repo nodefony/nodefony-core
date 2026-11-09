@@ -2,8 +2,8 @@
 /**
  * Refuse un site dont un lien interne ne mène nulle part.
  *
- * POURQUOI CE GATE EXISTE. Le site est servi sous un sous-chemin
- * (`https://nodefony.github.io/nodefony-core/`), donc ses liens sont RELATIFS :
+ * POURQUOI CE GATE EXISTE. Une partie du site est servie sous un sous-chemin
+ * (archives `next/` et `<version>/`), donc ses liens sont RELATIFS :
  * un `/adr/` y désignerait la racine du domaine, et 122 pages deviendraient un
  * cimetière de 404 — invisibles en local, découverts par le premier lecteur.
  * Rien dans une génération ne signale ça : le rendu réussit, les pages sont
@@ -139,7 +139,7 @@ for (const file of found) {
     const target = href.split("#")[0].split("?")[0];
     if (target === "") continue; // lien d'ancre pure
     // 🔴 Un lien interne ABSOLU est un défaut EN SOI, même si le fichier existe
-    // dans le dossier de sortie : le site est servi sous `/nodefony-core/`, où
+    // dans le dossier de sortie : une archive est servie sous `next/` ou `<version>/`, où
     // `/adr/` désigne la racine du DOMAINE. Le résoudre contre la racine du
     // dossier le déclarerait valide — c'est précisément ainsi que ce gate a
     // laissé passer, à sa première version, le seul défaut qu'il devait voir.

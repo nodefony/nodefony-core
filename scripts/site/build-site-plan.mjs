@@ -13,14 +13,10 @@
  * `build-docs-site.mjs`, et le recopier ici garantirait qu'un jour les deux ne
  * disent plus la même chose. Ce qui est publié est ce qui est là.
  *
- * ⚠️ PORTÉE RÉELLE SOUS GITHUB PAGES. Le site est servi sous un SOUS-CHEMIN
- * (`/nodefony-core/`). Un `robots.txt` n'est lu par un moteur qu'à la racine du
- * DOMAINE : celui qu'on écrit ici n'a donc aucun effet sur l'indexation tant
- * qu'un nom de domaine propre n'est pas posé. On l'écrit quand même — il coûte
- * trois lignes, il devient effectif le jour du domaine, et il déclare le plan du
- * site à qui le lit. Mais il ne faut pas croire avoir gagné une indexation :
- * seul `llms.txt`, que l'on va chercher explicitement sous l'URL du site, agit
- * dès maintenant.
+ * PORTÉE RÉELLE. Un `robots.txt` n'est lu par un moteur qu'à la racine du
+ * DOMAINE : il agit parce que le site y est servi (`https://nodefony.net/`).
+ * Un sous-chemin (`next/`, `<version>/`) n'a pas de `robots.txt` propre : la
+ * préversion `next/` se retire de l'index par le `noindex` de ses pages.
  *
  * Usage : node scripts/site/build-site-plan.mjs [--out tmp/sites/docs] [--base <url>]
  *
@@ -35,7 +31,7 @@ import {
 } from "./lib/app-template-deps.mjs";
 import { REPO_ROOT } from "../lib/repo-root.mjs";
 
-const DEFAULT_BASE = "https://nodefony.github.io/nodefony-core";
+const DEFAULT_BASE = "https://nodefony.net";
 
 /**
  * Les pages d'ENTRÉE, dans l'ordre où on veut qu'elles soient lues.

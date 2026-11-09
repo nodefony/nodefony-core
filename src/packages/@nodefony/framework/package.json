@@ -73,7 +73,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "homepage": "https://nodefony.github.io/nodefony-core/",
+  "homepage": "https://nodefony.net/",
   "bugs": {
     "url": "https://github.com/nodefony/nodefony-core/issues"
   }

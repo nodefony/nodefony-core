@@ -1190,8 +1190,8 @@ ${STYLE_CODE}
       : "",
     `<div class="noprint page-actions" style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem">${deckControls()}${printButton()}</div>`,
     // Cette page est la PORTE D'ENTRÉE du site publié : le lecteur doit y trouver
-    // SA question avant la nôtre. Les cibles sont relatives — le site vit dans un
-    // sous-chemin (`/nodefony-core/`) — et restent justes quand la page est aussi
+    // SA question avant la nôtre. Les cibles sont relatives — une archive vit dans un
+    // sous-chemin (`next/`, `<version>/`) — et restent justes quand la page est aussi
     // ouverte depuis le disque, la doc étant alors simplement absente à côté.
     profils,
     // Le reste du README (démarrage, inventaire, état) vient APRÈS l'accroche :

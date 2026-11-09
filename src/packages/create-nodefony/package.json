@@ -31,7 +31,7 @@
     "url": "git+https://github.com/nodefony/nodefony-core.git",
     "directory": "src/packages/create-nodefony"
   },
-  "homepage": "https://nodefony.github.io/nodefony-core/",
+  "homepage": "https://nodefony.net/",
   "bugs": {
     "url": "https://github.com/nodefony/nodefony-core/issues"
   },

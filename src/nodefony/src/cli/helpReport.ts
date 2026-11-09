@@ -540,7 +540,7 @@ export function renderHelp(
   lines.push("");
   for (const [terme, value] of [
     ["Manuel :", "nodefony man"],
-    ["Docs :", "nodefony.github.io/nodefony-core"],
+    ["Docs :", "nodefony.net"],
   ] as const) {
     lines.push(`  ${p.dim(terme)} ${value}`);
   }

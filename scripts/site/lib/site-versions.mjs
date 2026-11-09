@@ -126,7 +126,7 @@ export function relativeDir(from, to) {
 /**
  * Manifeste à poser dans le dossier `fromDir` : les liens y sont RELATIFS à lui.
  *
- * Le site est servi sous un sous-chemin (`/nodefony-core/`) et une archive ne
+ * Une archive est servie sous un sous-chemin (`next/`, `<version>/`) et ne
  * sait pas où elle sera rangée : chaque dossier reçoit donc sa propre copie,
  * qu'une page lit à côté de sa racine sans rien deviner.
  *

@@ -1,12 +1,12 @@
 <!-- @if core,npm -->
 ## Où aller ensuite
 
-- [Par où commencer](https://nodefony.github.io/nodefony-core/docs/demarrer/) — cinq parcours selon ce que tu viens faire
-- [Documentation](https://nodefony.github.io/nodefony-core/docs/) · [Guides](https://nodefony.github.io/nodefony-core/docs/guides/) · [Première application](https://nodefony.github.io/nodefony-core/docs/tutoriels/premiere-application/)
-- [L'architecture en vue d'ensemble](https://nodefony.github.io/nodefony-core/docs/architecture/vue-ensemble/) — ce que le framework est, et ce que ses partis pris coûtent
-- [Performance](https://nodefony.github.io/nodefony-core/performance/) — ce qui a été mesuré, avec quel
+- [Par où commencer](https://nodefony.net/docs/demarrer/) — cinq parcours selon ce que tu viens faire
+- [Documentation](https://nodefony.net/docs/) · [Guides](https://nodefony.net/docs/guides/) · [Première application](https://nodefony.net/docs/tutoriels/premiere-application/)
+- [L'architecture en vue d'ensemble](https://nodefony.net/docs/architecture/vue-ensemble/) — ce que le framework est, et ce que ses partis pris coûtent
+- [Performance](https://nodefony.net/performance/) — ce qui a été mesuré, avec quel
   protocole, et ce que ces chiffres ne permettent pas de conclure ; une page par version publiée,
-  dont [la version courante](https://nodefony.github.io/nodefony-core/performance/latest/)
+  dont [la version courante](https://nodefony.net/performance/latest/)
 - [Décisions d'architecture](docs/adr/) — les choix structurants et leur pourquoi
 - [Signaler une faille](SECURITY.md) — canal privé, jamais en ticket public
 - Contribuer : ouvre une issue avant toute contribution substantielle. Le dépôt impose les

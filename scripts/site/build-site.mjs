@@ -48,7 +48,7 @@ if (CHANNEL !== "published" && CHANNEL !== "next") {
   console.error(`✗ --channel ${CHANNEL} : attendu « published » ou « next ».`);
   process.exit(2);
 }
-const BASE = "https://nodefony.github.io/nodefony-core";
+const BASE = "https://nodefony.net";
 const SITE_URL = flag(
   "site-url",
   CHANNEL === "next" ? `${BASE}/${NEXT_DIR}` : BASE,

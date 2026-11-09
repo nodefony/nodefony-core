@@ -137,7 +137,7 @@ const MOUNT = arg("mount", "").replace(/\/+$/, "");
 const ONLY = arg("only", "");
 const QUIET = process.argv.includes("--quiet");
 const REPO_URL = "https://github.com/nodefony/nodefony-core";
-const SITE_URL = arg("site-url", "https://nodefony.github.io/nodefony-core");
+const SITE_URL = arg("site-url", "https://nodefony.net");
 
 const git = (...a) => {
   try {
@@ -384,8 +384,8 @@ function moduleDirs() {
  * Traduit une URL de site (`/adr/`) en chemin RELATIF depuis la page courante
  * (`../../adr/`).
  *
- * Pourquoi ne pas publier des chemins absolus : GitHub Pages sert ce dépôt sous
- * `/nodefony-core/`, et un `/adr/` y désignerait la racine du domaine — donc
+ * Pourquoi ne pas publier des chemins absolus : une archive est servie sous
+ * `next/` ou `<version>/`, et un `/adr/` y désignerait la racine du domaine — donc
  * 122 pages de liens morts, invisibles en local et découverts en ligne. Un site
  * à liens relatifs marche partout, sans réglage : sous un sous-chemin, sur un
  * domaine propre, ouvert depuis le disque. C'est déjà le choix du site de
