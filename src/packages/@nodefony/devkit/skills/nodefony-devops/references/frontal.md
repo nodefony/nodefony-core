@@ -207,9 +207,12 @@ Avec `--reencrypt`, h2c est ignoré : le port TLS négocie déjà HTTP/2. **C'es
 contre un frontal réel** (HAProxy 3.0, configuration générée) : requête servie en h2c, sonde lue
 sur le port HTTP, WebSocket ouverte sur le port HTTP.
 
-### nginx — reste en HTTP/1.1 vers l'application
+### nginx — HTTP/1.1 vers l'application, gRPC vers h2c
 
-nginx ne parle pas HTTP/2 à ses amonts (hors gRPC) : `proxy:generate nginx` ignore h2c.
+nginx ne parle HTTP/2 à ses amonts que par `grpc_pass`. Avec `servers.h2c` actif,
+`proxy:generate nginx` écoute en HTTP/2 et envoie les seuls appels gRPC (`content-type:
+application/grpc…`) au port h2c ; le reste, gRPC-Web compris, garde le port HTTP en HTTP/1.1.
+Re-chiffrement demandé : pas de lien h2c, la configuration le dit en commentaire.
 
 ### Envoy
 

@@ -119,7 +119,7 @@ trois réglages décident s'il le relaie bien. `proxy:generate` les pose tous.
 | De quel côté       | Ce qui est réglé                                                                  | Pourquoi                                                                                                                                                                                                                                                                             |
 | ------------------ | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | navigateur ↔ proxy | HTTP/2 servi par le proxy (`http2 on`, `generateProxyConfig.ts#nginxServerBlock`) | le plafond d'environ six connexions par origine est celui du navigateur envers le **proxy** : c'est là que le multiplexage compte                                                                                                                                                    |
-| proxy ↔ Nodefony   | HTTP/1.1 (`proxy_http_version 1.1`, `generateProxyConfig.ts#nginxServerBlock`)    | une connexion par flux vers le backend ; activer HTTP/2 sur Nodefony n'y change rien                                                                                                                                                                                                 |
+| proxy ↔ Nodefony   | HTTP/1.1 (`proxy_http_version 1.1`, `generateProxyConfig.ts#nginxServerBlock`)    | une connexion par flux vers le backend ; activer HTTP/2 sur Nodefony n'y change rien — hors gRPC, relayé en h2c                                                                                                                                                                      |
 | mise en tampon     | Nodefony envoie `X-Accel-Buffering: no` (`SseStream.ts#startSseStream`)           | nginx relaie chaque événement au lieu d'attendre de remplir son tampon. Le scénario `edge` du banc de publication mesure les arrivées à travers le frontal généré : nginx 1.30 les relaie au fil de l'eau même SANS l'en-tête — il reste la consigne pour un proxy qui, lui, retient |
 | inactivité         | délai d'au moins 300 s, soit vingt battements SSE de 15 s                         | un flux muet n'est tenu que par son battement ; un test lie les deux valeurs, il tombe si le battement est relevé au-delà                                                                                                                                                            |
 
@@ -255,10 +255,15 @@ La commande lit la configuration **de l'environnement où elle tourne** : lancez
 comme en production, sinon elle produit la variante HTTP/1.1. Avec `--reencrypt`, h2c est ignoré —
 le port TLS négocie déjà HTTP/2.
 
-### nginx — HTTP/1.1 vers l'application
+### nginx — HTTP/1.1 vers l'application, gRPC vers h2c
 
-nginx ne parle pas HTTP/2 à ses amonts (hors gRPC, par `grpc_pass`) : `proxy_http_version`
-s'arrête à 1.1. Gardez le port HTTP ; `proxy:generate nginx` ignore h2c.
+nginx ne parle HTTP/2 à ses amonts que par `grpc_pass` : `proxy_http_version` s'arrête à 1.1.
+Le trafic ordinaire garde donc le port HTTP. Quand `servers.h2c` est actif, `proxy:generate nginx`
+écoute en HTTP/2 (`http2 on`, le HTTP/1.1 reste servi sur le même port) et aiguille les appels gRPC
+— reconnus à leur `content-type: application/grpc…` — vers le port h2c par `grpc_pass`
+(`generateProxyConfig.ts#nginxGrpcRelay`). gRPC-Web, conçu pour HTTP/1.1, reste sur le chemin
+ordinaire. h2c inactif ou re-chiffrement demandé : la configuration le dit en commentaire, et
+gRPC n'est pas relayé.
 
 ### Envoy
 

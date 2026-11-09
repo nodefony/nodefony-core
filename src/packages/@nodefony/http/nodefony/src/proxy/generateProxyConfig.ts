@@ -47,8 +47,9 @@ export interface ProxyIntrospection {
   httpsPort: number;
   /**
    * Port h2c du backend (`servers.h2c`), ou `null` s'il n'est pas activé. Le
-   * générateur haproxy y envoie le trafic en HTTP/2 (`proto h2`) ; nginx, qui
-   * ne parle pas HTTP/2 à ses amonts, l'ignore.
+   * générateur haproxy y envoie tout le trafic hors WebSocket (`proto h2`) ;
+   * nginx, qui ne parle HTTP/2 à ses amonts que par `grpc_pass`, n'y envoie
+   * que gRPC. Règle d'usage : {@link upstreamH2cPort}.
    */
   h2cPort?: number | null;
   /** Dossiers statiques servis à la racine `/` (ordre = priorité). */
@@ -133,6 +134,32 @@ function idleTimeoutSeconds(intro: ProxyIntrospection): number {
   return Math.max(300, Math.ceil((intro.keepaliveIntervalMs * 4) / 1000));
 }
 
+/**
+ * Port h2c que le proxy doit joindre, ou `null` — règle UNIQUE des deux
+ * générateurs.
+ *
+ * Seulement vers un backend en clair : le re-chiffrement vise le port TLS, qui
+ * négocie déjà HTTP/2 par ALPN, et mélanger les deux liens ferait voyager une
+ * partie du trafic en clair alors que l'utilisateur a demandé le chiffrement.
+ *
+ * @param intro - modèle d'introspection Nodefony.
+ * @returns le port h2c à joindre, ou `null` s'il n'y a pas de lien h2c.
+ */
+export function upstreamH2cPort(intro: ProxyIntrospection): number | null {
+  return intro.reencrypt ? null : (intro.h2cPort ?? null);
+}
+
+/**
+ * Le `content-type` d'un appel gRPC natif, en expression régulière nginx :
+ * `application/grpc`, suivi de rien, d'un sous-type (`+proto`, `+json`) ou de
+ * paramètres (`;`).
+ *
+ * gRPC-Web (`application/grpc-web…`) n'y entre PAS, et c'est voulu : il est
+ * conçu pour HTTP/1.1, le chemin ordinaire le sert déjà, et l'envoyer sur le
+ * lien h2c retirerait la traduction que le serveur fait pour le navigateur.
+ */
+const NGINX_GRPC_CONTENT_TYPE = "^application/grpc($|[+;])";
+
 /** `server_name` nginx / hôte de comparaison — IP et `0.0.0.0` exclus. */
 function serverNames(domains: string[]): string {
   const names = domains.filter((d) => d && d !== "0.0.0.0" && !isIpLiteral(d));
@@ -144,15 +171,24 @@ function isIpLiteral(host: string): boolean {
   return /^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.includes(":");
 }
 
-/** En-têtes forwarded nginx (pattern EDGE : on ÉCRASE X-Forwarded-For). */
-const NGINX_FORWARD_HEADERS_TPL = `      # EDGE (face client) : on ÉCRASE X-Forwarded-For avec la SEULE IP vue par
+/**
+ * En-têtes d'identité du client (pattern EDGE : on ÉCRASE X-Forwarded-For),
+ * communs au relais HTTP (`proxy_set_header`) et au relais gRPC
+ * (`grpc_set_header`) — `__SET__` reçoit la directive. Un seul texte : les deux
+ * chemins annoncent au serveur le même client, sinon `trustProxy` lirait deux
+ * vérités selon le protocole.
+ */
+const NGINX_CLIENT_HEADERS_TPL = `      # EDGE (face client) : on ÉCRASE X-Forwarded-For avec la SEULE IP vue par
       # nginx → toute valeur forgée par le client est jetée (RFC 7239 §8.1).
-      proxy_set_header Host              $host;
-      proxy_set_header X-Real-IP         $remote_addr;
-      proxy_set_header X-Forwarded-For   $remote_addr;
-      proxy_set_header X-Forwarded-Proto $scheme;
-      proxy_set_header X-Forwarded-Host  $host;
-      proxy_set_header X-Forwarded-Port  $server_port;
+      __SET__ Host              $host;
+      __SET__ X-Real-IP         $remote_addr;
+      __SET__ X-Forwarded-For   $remote_addr;
+      __SET__ X-Forwarded-Proto $scheme;
+      __SET__ X-Forwarded-Host  $host;
+      __SET__ X-Forwarded-Port  $server_port;`;
+
+/** En-têtes forwarded nginx (pattern EDGE : on ÉCRASE X-Forwarded-For). */
+const NGINX_FORWARD_HEADERS_TPL = `${NGINX_CLIENT_HEADERS_TPL.replaceAll("__SET__ ", "proxy_set_header ")}
       # WebSocket (Nodefony co-héberge HTTP + WS sur le même port).
       proxy_set_header Upgrade           $http_upgrade;
       proxy_set_header Connection        $connection_upgrade;
@@ -165,6 +201,46 @@ const NGINX_FORWARD_HEADERS_TPL = `      # EDGE (face client) : on ÉCRASE X-For
 /** Les en-têtes forwarded nginx, avec le délai d'inactivité effectif. */
 function nginxForwardHeaders(idleSeconds: number): string {
   return NGINX_FORWARD_HEADERS_TPL.replaceAll("__IDLE__", String(idleSeconds));
+}
+
+/**
+ * Le relais gRPC d'un bloc `server` : aiguillage par `content-type`, puis la
+ * location nommée qui parle HTTP/2 au port h2c.
+ *
+ * nginx ne parle HTTP/2 à un amont que par `grpc_pass` (`proxy_pass` s'arrête à
+ * HTTP/1.1) ; or gRPC n'existe qu'en HTTP/2, avec son statut dans les trailers.
+ * Une `location` ne choisit que sur l'URI, et l'URI d'un appel gRPC
+ * (`/paquet.Service/Méthode`) ne se distingue d'aucune autre : c'est donc le
+ * `content-type` qui aiguille, au niveau du `server`, par un `if` qui ne fait
+ * que `return` — la seule forme qui ne se mêle pas aux `try_files` des
+ * locations. Le `418` est un code INTERNE (jamais rendu au client) que
+ * `error_page` convertit en saut vers `@grpc`.
+ *
+ * @param idleSeconds - inactivité tolérée, dérivée du heartbeat WebSocket.
+ * @returns les lignes à poser dans le bloc `server`.
+ */
+function nginxGrpcRelay(idleSeconds: number): string[] {
+  return [
+    "",
+    "    # gRPC (servers.h2c) : HTTP/2 jusqu'au backend, seul chemin où ses trailers",
+    "    # (grpc-status) survivent. gRPC-Web reste sur le chemin HTTP/1.1 ordinaire.",
+    `    if ($content_type ~* "${NGINX_GRPC_CONTENT_TYPE}") { return 418; }`,
+    "    error_page 418 = @grpc;",
+    "",
+    "    location @grpc {",
+    "      grpc_pass grpc://nodefony_h2c;",
+    NGINX_CLIENT_HEADERS_TPL.replaceAll("__SET__ ", "grpc_set_header  "),
+    // Un flux gRPC peut rester ouvert longtemps entre deux messages : le même
+    // délai que pour une WebSocket, pas le défaut de 60 s du module.
+    `      grpc_read_timeout ${idleSeconds}s;`,
+    `      grpc_send_timeout ${idleSeconds}s;`,
+    // Le corps d'un flux est la SOMME de ses messages, sans fin par conception :
+    // la limite globale du serveur couperait un flux légitime au premier Mo
+    // cumulé. La borne par message appartient au serveur gRPC ; nginx, lui,
+    // relaie ce corps HTTP/2 au fil de l'eau sans le retenir.
+    "      client_max_body_size 0;",
+    "    }",
+  ];
 }
 
 /**
@@ -232,8 +308,23 @@ export function generateNginxConfig(intro: ProxyIntrospection): string {
     "  map $http_upgrade $connection_upgrade { default upgrade; '' close; }",
     "",
     `  upstream nodefony { server ${intro.backendHost}:${backendPort}; keepalive 32; }`,
-    "",
   );
+
+  const h2cPort = upstreamH2cPort(intro);
+  if (h2cPort === null) {
+    // Dire pourquoi gRPC n'est pas relayé : sans cette ligne, le lecteur de la
+    // config ne saurait pas qu'il lui manque un réglage, ni lequel.
+    lines.push(
+      intro.reencrypt && intro.h2cPort
+        ? "  # gRPC : non relayé — le re-chiffrement vise le port TLS ; h2c reste un lien en clair."
+        : "  # gRPC : non relayé — activer `servers.h2c` côté Nodefony puis régénérer.",
+    );
+  } else {
+    lines.push(
+      `  upstream nodefony_h2c { server ${intro.backendHost}:${h2cPort}; keepalive 32; }`,
+    );
+  }
+  lines.push("");
 
   // La limite de corps est celle du SERVEUR, pas celle de nginx. Sans cette
   // ligne, nginx refuse à 1 Mo (son défaut) une requête que Nodefony aurait
@@ -247,13 +338,17 @@ export function generateNginxConfig(intro: ProxyIntrospection): string {
     );
   }
 
-  lines.push(...nginxServerBlock(intro, scheme, idleSeconds, null));
+  const grpc = h2cPort !== null;
+  lines.push(...nginxServerBlock(intro, scheme, idleSeconds, null, grpc));
 
   // Le MÊME vhost, écouté une seconde fois en TLS. Deux blocs plutôt qu'un
   // `listen … ssl` ajouté au premier : nginx appliquerait alors le certificat
   // aux deux écoutes, et le port en clair cesserait de répondre en clair.
   if (intro.tls) {
-    lines.push("", ...nginxServerBlock(intro, scheme, idleSeconds, intro.tls));
+    lines.push(
+      "",
+      ...nginxServerBlock(intro, scheme, idleSeconds, intro.tls, grpc),
+    );
   }
 
   lines.push("}", "");
@@ -272,6 +367,7 @@ export function generateNginxConfig(intro: ProxyIntrospection): string {
  * @param scheme - `http` ou `https` vers le BACKEND (re-chiffrement).
  * @param idleSeconds - inactivité tolérée, dérivée du heartbeat WebSocket.
  * @param tls - terminaison TLS de CE bloc, ou `null` pour une écoute en clair.
+ * @param grpc - relayer gRPC vers l'amont `nodefony_h2c` (h2c actif).
  * @returns les lignes du bloc `server`.
  */
 function nginxServerBlock(
@@ -279,6 +375,7 @@ function nginxServerBlock(
   scheme: string,
   idleSeconds: number,
   tls: ProxyTlsTermination | null,
+  grpc: boolean,
 ): string[] {
   const lines: string[] = ["  server {"];
 
@@ -315,11 +412,15 @@ function nginxServerBlock(
       "    error_page 497 =301 https://$http_host$request_uri;",
     );
   } else {
-    lines.push(
-      `    listen ${intro.listen};`,
-      `    server_name ${serverNames(intro.domains)};`,
-    );
+    lines.push(`    listen ${intro.listen};`);
+    // HTTP/2 en clair (connaissance préalable, RFC 9113 §3.3) — la seule voie
+    // d'un client gRPC sans TLS. nginx reconnaît la préface HTTP/2 et sert le
+    // HTTP/1.1 sur le même port : navigateurs et WebSocket ne voient rien changer.
+    if (grpc) lines.push("    http2 on;");
+    lines.push(`    server_name ${serverNames(intro.domains)};`);
   }
+
+  if (grpc) lines.push(...nginxGrpcRelay(idleSeconds));
 
   if (intro.reencrypt) {
     lines.push(
@@ -421,9 +522,7 @@ function nginxServerBlock(
  */
 export function generateHaproxyConfig(intro: ProxyIntrospection): string {
   const backendPort = intro.reencrypt ? intro.httpsPort : intro.httpPort;
-  // h2c : seulement vers un backend en clair — le re-chiffrement vise le port
-  // TLS, qui négocie déjà HTTP/2 par ALPN.
-  const h2cPort = intro.reencrypt ? null : (intro.h2cPort ?? null);
+  const h2cPort = upstreamH2cPort(intro);
   const idleSeconds = idleTimeoutSeconds(intro);
   const serverSsl = intro.reencrypt
     ? " ssl ca-file /etc/haproxy/certs/ca.pem verify required" +

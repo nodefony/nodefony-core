@@ -4,6 +4,7 @@ import {
   generateNginxConfig,
   generateHaproxyConfig,
   defaultIntrospection,
+  upstreamH2cPort,
   type ProxyIntrospection,
 } from "../../src/proxy/generateProxyConfig.js";
 import { SSE_HEARTBEAT_MS } from "../../src/context/http/SseStream.js";
@@ -390,6 +391,129 @@ describe("generateProxyConfig — haproxy vers h2c (servers.h2c)", () => {
     const c = generateHaproxyConfig(intro({ reencrypt: true, h2cPort: 5153 }));
     expect(c).not.to.include("be_nodefony_h2c");
     expect(c).to.include("default_backend be_nodefony\n");
+  });
+});
+
+describe("generateProxyConfig — nginx vers h2c (gRPC, servers.h2c)", () => {
+  /** Le bloc `server` en clair, borné à sa fermeture. */
+  const plainServer = (c: string): string => {
+    const start = c.indexOf("  server {");
+    return c.slice(start, c.indexOf("\n  }\n", start));
+  };
+
+  it("sans h2c : rien de neuf, et la config dit pourquoi gRPC n'est pas relayé", () => {
+    const c = generateNginxConfig(intro());
+    expect(c).not.to.include("grpc_pass");
+    expect(c).not.to.include("nodefony_h2c");
+    // L'écoute en clair reste en HTTP/1.1 seul : rien n'y réclame HTTP/2.
+    expect(plainServer(c)).not.to.include("http2 on;");
+    expect(c).to.include(
+      "# gRPC : non relayé — activer `servers.h2c` côté Nodefony puis régénérer.",
+    );
+  });
+
+  it("h2c actif : HTTP/2 en clair, gRPC aiguillé par content-type vers grpc_pass", () => {
+    const c = generateNginxConfig(
+      intro({ backendHost: "app", httpPort: 5151, h2cPort: 5153 }),
+    );
+    expect(c).to.include(
+      "upstream nodefony_h2c { server app:5153; keepalive 32; }",
+    );
+    const server = plainServer(c);
+    // Sans HTTP/2 sur l'écoute, un client gRPC ne se connecte même pas.
+    expect(server).to.include("    http2 on;");
+    expect(server).to.include(
+      '    if ($content_type ~* "^application/grpc($|[+;])") { return 418; }',
+    );
+    expect(server).to.include("    error_page 418 = @grpc;");
+    expect(server).to.include("    location @grpc {");
+    expect(server).to.include("      grpc_pass grpc://nodefony_h2c;");
+    // Le même client annoncé au serveur que sur le chemin HTTP (trustProxy).
+    expect(server).to.include(
+      "grpc_set_header  X-Forwarded-For   $remote_addr;",
+    );
+    expect(server).to.include("grpc_set_header  X-Forwarded-Proto $scheme;");
+    // Un flux n'est pas coupé par la limite de corps ni par le délai par défaut.
+    expect(server).to.include("      client_max_body_size 0;");
+    expect(server).to.include("      grpc_read_timeout 3600s;");
+    // Le reste ne change pas : HTTP/1.1 vers le port HTTP, WebSocket comprise.
+    expect(server).to.include("proxy_pass http://nodefony;");
+    expect(c).to.include(
+      "upstream nodefony { server app:5151; keepalive 32; }",
+    );
+    expect(c).not.to.include("# gRPC : non relayé");
+  });
+
+  it("l'aiguillage laisse gRPC-Web au chemin HTTP/1.1 et prend toutes les formes de gRPC", () => {
+    // La regex est celle que nginx évaluera — PCRE et JavaScript s'accordent
+    // sur cette syntaxe (ancres, classe, alternance), le `~*` = insensible.
+    const c = generateNginxConfig(intro({ h2cPort: 5153 }));
+    const pattern = /if \(\$content_type ~\* "([^"]+)"\)/.exec(c)?.[1];
+    expect(pattern).toBeDefined();
+    const re = new RegExp(pattern!, "i");
+    for (const t of [
+      "application/grpc",
+      "application/grpc+proto",
+      "application/grpc+json",
+      "application/grpc; charset=utf-8",
+      "Application/GRPC",
+    ]) {
+      expect(re.test(t), t).toBe(true);
+    }
+    for (const t of [
+      "application/grpc-web",
+      "application/grpc-web+proto",
+      "application/grpc-web-text",
+      "application/json",
+      "text/application/grpc",
+    ]) {
+      expect(re.test(t), t).toBe(false);
+    }
+  });
+
+  it("terminaison TLS : le vhost TLS relaie gRPC lui aussi", () => {
+    const c = generateNginxConfig(
+      intro({
+        h2cPort: 5153,
+        tls: { certPath: "/c.pem", keyPath: "/k.pem", listen: 8443 },
+      }),
+    );
+    const blocks = c.split(/^  server \{$/m).slice(1);
+    expect(blocks.length).to.equal(2);
+    for (const b of blocks) {
+      expect(b).to.include("http2 on;");
+      expect(b).to.include("error_page 418 = @grpc;");
+      expect(b).to.include("grpc_pass grpc://nodefony_h2c;");
+    }
+  });
+
+  it("re-chiffrement : aucun lien h2c, et la config le dit", () => {
+    const c = generateNginxConfig(intro({ reencrypt: true, h2cPort: 5153 }));
+    expect(c).not.to.include("grpc_pass");
+    expect(c).not.to.include("nodefony_h2c");
+    expect(c).to.include(
+      "# gRPC : non relayé — le re-chiffrement vise le port TLS ; h2c reste un lien en clair.",
+    );
+  });
+
+  it("une seule règle décide du lien h2c pour nginx ET haproxy", () => {
+    for (const over of [
+      {},
+      { h2cPort: 5153 },
+      { reencrypt: true },
+      { reencrypt: true, h2cPort: 5153 },
+    ]) {
+      const i = intro(over);
+      const port = upstreamH2cPort(i);
+      expect(
+        generateNginxConfig(i).includes("nodefony_h2c"),
+        JSON.stringify(over),
+      ).toBe(port !== null);
+      expect(
+        generateHaproxyConfig(i).includes("be_nodefony_h2c"),
+        JSON.stringify(over),
+      ).toBe(port !== null);
+    }
   });
 });
 
