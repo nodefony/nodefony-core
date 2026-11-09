@@ -384,7 +384,7 @@ export function packageManagerToolchain(
         setupNodeCache: "pnpm",
         packageManagerField: `pnpm@${PNPM_PINNED_VERSION}`,
         githubSetup: {
-          uses: "pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0",
+          uses: "pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1",
           versionInput: "version",
           // L'action lit `packageManager` : lui passer aussi une version la
           // ferait échouer dès qu'elle diffère du champ (« Multiple versions of pnpm specified »).
