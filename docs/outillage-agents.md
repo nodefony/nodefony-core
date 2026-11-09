@@ -202,7 +202,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme v1.1.0 · 📎 1 réf" },
   { "icon": "🔧", "title": "ticket", "href": "skills/nodefony-ticket.md",
     "desc": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre Conventional Commits compréhensible sans connaître le dépôt, lexique, corps en quatre blocs avec preuve `<fichier>.ts#<Symbole>` et critère de fin observable, gravité normée d'un défaut (CVSS 3.1 calculé, échelle IEEE 1044), parents…",
-    "meta": "🟢 conforme v1.11.0 · ⚙️ 23 scripts · 📎 8 réf" },
+    "meta": "🟢 conforme v1.12.0 · ⚙️ 24 scripts · 📎 8 réf" },
   { "icon": "🔧", "title": "add-crud", "href": "skills/nodefony-add-crud.md",
     "desc": "Crée une ressource complète dans une application Nodefony — entité, schémas de validation, service CRUD, controller REST+WebSocket et tests — par le générateur `nodefony create entity`, sur SQL comme sur MongoDB.",
     "meta": "🟢 conforme" },

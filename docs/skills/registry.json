@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-11-08",
+  "generatedAt": "2026-11-09",
   "count": 41,
   "repoScripts": [
     {
@@ -12079,7 +12079,7 @@
       "name": "nodefony-ticket",
       "summary": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre Conventional Commits compréhensible sans connaître le dépôt, lexique, corps en quatre blocs avec preuve `<fichier>.ts#<Symbole>` et critère de fin observable, gravité normée d'un défaut (CVSS 3.1 calculé, échelle IEEE 1044), parents et sous-tickets, champs et DATES du tableau, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps.",
       "family": "Autres",
-      "version": "1.11.0",
+      "version": "1.12.0",
       "keywords": [
         "<fichier>.ts#<Symbole>"
       ],
@@ -12107,8 +12107,8 @@
       ],
       "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre Conventional Commits compréhensible sans connaître le dépôt, lexique, corps en quatre blocs avec preuve `<fichier>.ts#<Symbole>` et critère de fin observable, gravité normée d'un défaut (CVSS 3.1 calculé, échelle IEEE 1044), parents et sous-tickets, champs et DATES du tableau, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps. À charger AVANT d'ouvrir une issue. Déclencheurs : \"crée un ticket\", \"ouvre une issue\", \"corrige les tickets\", \"ce titre est incompréhensible\", \"renomme cette issue\", \"ticket parent\", \"découper cette issue\", \"estimer un ticket\", \"priorité d'un ticket\", \"quelle gravité pour ce bug ?\", \"CVSS\", \"ce ticket est-il encore vrai ?\", \"ferme ce ticket\", \"quel ticket prendre maintenant ?\", \"ce ticket est trop vague\", \"quels tickets parlent de ce que j'ai changé ?\", \"dater les tickets\", \"recaler les estimations\", \"explique le ticket\", \"pour les nuls\".",
       "cost": {
-        "bodyLines": 509,
-        "approxTokens": 10127
+        "bodyLines": 515,
+        "approxTokens": 10300
       },
       "requires": [
         "redis"
@@ -12237,6 +12237,20 @@
             "selfDocumented": true
           },
           {
+            "path": "scripts/github-limits.mjs",
+            "purpose": "Les limites de GitHub qu'un corps d'issue ou un commentaire ne doit pas franchir — vérifiées AVANT l'envoi, jamais découvertes au refus.",
+            "usage": [],
+            "options": [],
+            "env": [
+              {
+                "name": "GITHUB_BODY_MAX",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/github-templates.test.mjs",
             "purpose": "Le protocole de ticket vit à UN seul endroit — `SKILL.md` §2 — et il est désormais rendu DEUX fois : dans cette page, et dans les formulaires que GitHub sert à qui ouvre une issue depuis l'interface.",
             "usage": [],
@@ -12318,12 +12332,16 @@
             "path": "scripts/ticket-close.mjs",
             "purpose": "Compose le COMPTE RENDU de fermeture d'un ticket — la moitié mécanique.",
             "usage": [
-              "node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>]"
+              "node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>] | --check <fichier>"
             ],
             "options": [
               {
                 "flag": "--since",
                 "help": "début de la plage de commits du ticket"
+              },
+              {
+                "flag": "--check",
+                "help": "vérifie qu'un compte rendu tient dans un commentaire GitHub (65 536 caractères)"
               }
             ],
             "env": [],
@@ -12659,7 +12677,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": false,
-            "detail": "509",
+            "detail": "515",
             "advisory": true
           }
         ]

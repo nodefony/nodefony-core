@@ -71,6 +71,7 @@ import {
   severityFloor,
   withSeverityLine,
 } from "./severity.mjs";
+import { checkBodyLength } from "./github-limits.mjs";
 import { guardCli } from "../../nodefony-session/scripts/cli-guard.mjs";
 
 const OWNER = "nodefony";
@@ -340,6 +341,14 @@ if (process.argv[1]?.endsWith("ticket-open.mjs")) {
         `⚠️ priorité ${prio} sous le plancher ${plancher} qu'impose cette gravité (PRIORITE-SOUS-GRAVITE)`,
       );
     }
+  }
+
+  // LA TAILLE — refusée AVANT de créer : GitHub refuse un corps de plus de
+  // 65 536 caractères, et le refus tombe après coup (github-limits.mjs).
+  const size = checkBodyLength(body);
+  if (!size.ok) {
+    console.error(`refusé : ${size.reason}`);
+    process.exit(2);
   }
 
   const create = [

@@ -6,7 +6,7 @@ audience: [developer]
 topic: skills
 tests: none
 status: stable
-updated: 2026-11-07
+updated: 2026-11-09
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "docs/skills/index.md"
 ---
@@ -162,7 +162,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v1.1.0 · 📎 1 réf" },
   { "icon": "🔧", "title": "ticket", "href": "nodefony-ticket.md",
     "desc": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre Conventional Commits compréhensible sans connaître le dépôt, lexique, corps en quatre blocs avec preuve `<fichier>.ts#<Symbole>` et critère de fin observable, gravité normée d'un défaut (CVSS 3.1 calculé, échelle IEEE 1044), parents…",
-    "meta": "🟢 conforme v1.11.0 · ⚙️ 23 scripts · 📎 8 réf" },
+    "meta": "🟢 conforme v1.12.0 · ⚙️ 24 scripts · 📎 8 réf" },
   { "icon": "🔧", "title": "add-crud", "href": "nodefony-add-crud.md",
     "desc": "Crée une ressource complète dans une application Nodefony — entité, schémas de validation, service CRUD, controller REST+WebSocket et tests — par le générateur `nodefony create entity`, sur SQL comme sur MongoDB.",
     "meta": "🟢 conforme" },
@@ -222,7 +222,7 @@ source: "docs/skills/index.md"
 | [`nodefony-studio-dev`](nodefony-studio-dev.md) | 2.1.0 | 145 | 6 | 0 | ✅ |
 | [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md) | — | 84 | 0 | 0 | ✅ |
 | [`nodefony-test-campaign`](nodefony-test-campaign.md) | 1.1.0 | 227 | 1 | 0 | ✅ |
-| [`nodefony-ticket`](nodefony-ticket.md) | 1.11.0 | 509 | 8 | 23 | ✅ |
+| [`nodefony-ticket`](nodefony-ticket.md) | 1.12.0 | 515 | 8 | 24 | ✅ |
 | [`nodefony-add-crud`](nodefony-add-crud.md) | — | 257 | 0 | 0 | ✅ |
 | [`nodefony-add-realtime-channel`](nodefony-add-realtime-channel.md) | 2.1.1 | 413 | 2 | 0 | ✅ |
 | [`nodefony-add-service`](nodefony-add-service.md) | — | 115 | 0 | 0 | ✅ |

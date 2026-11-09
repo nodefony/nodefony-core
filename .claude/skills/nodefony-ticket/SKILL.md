@@ -1,7 +1,7 @@
 ---
 name: nodefony-ticket
 metadata:
-  version: 1.11.0
+  version: 1.12.0
 description: >
   Écrit et organise les tickets GitHub du dépôt Nodefony — titre Conventional Commits compréhensible
   sans connaître le dépôt, lexique, corps en quatre blocs avec preuve `<fichier>.ts#<Symbole>` et
@@ -424,6 +424,11 @@ la forme du **compte rendu de fermeture** vivent en référence.
 
 **Ce qu'il faut savoir sans l'ouvrir** :
 
+- **Un correctif fait à chaud prend un ticket de TRACE**, ouvert puis fermé dans la session : le
+  commit le cite à la fin de son titre (`… (#753)`) et en dernière ligne (`Closes #753`).
+- 🔴 **65 536 caractères au plus** pour un corps d’issue comme pour un commentaire : au-delà GitHub
+  refuse, et une fermeture refusée laisse le ticket ouvert. `ticket:open` le refuse avant de créer,
+  `ticket-close.mjs --check` avant de fermer.
 - ⚠️ **`Closes #95` ne ferme RIEN depuis `dev`** : GitHub n'honore le mot-clé que sur la branche par
   défaut. La fermeture est toujours un geste — `gh issue close`, avec son compte rendu.
 - **Fermer sur « fait » perd ce que la session a appris.** Deux blocs qu'aucun automate ne peut
@@ -486,6 +491,7 @@ d'aucun de ceux-ci. Le câblage npm ne décide pas du placement (`board:snapshot
 | [`scripts/proof-commands.mjs`](scripts/proof-commands.mjs)               | relance les preuves `rg … rend 0` des corps (hors « Fini quand »), `rg` seul, sans shell — démentie ou cassée = sortie 1   | `ticket-verify.mjs`, mode par défaut                    |
 | [`scripts/ticket-anchor-migrate.mjs`](scripts/ticket-anchor-migrate.mjs) | convertit les ancres `fichier:ligne` des tickets ouverts en symboles, chacune lue dans le code de SA date ; liste le reste | à la main, quand `ANCRE-LIGNE` sonne ; `--apply` envoie |
 | [`scripts/ticket-close.mjs`](scripts/ticket-close.mjs)                   | compose le compte rendu de fermeture (commits + tests ; les deux blocs de jugement restent à l'auteur)                     | à la main, avant `gh issue close`                       |
+| [`scripts/github-limits.mjs`](scripts/github-limits.mjs)                 | la limite de taille de GitHub (65 536 caractères), vérifiée AVANT l’envoi d’un corps ou d’un commentaire                   | `ticket-open.mjs`, `ticket-close.mjs --check`           |
 | [`scripts/francise.mjs`](scripts/francise.mjs)                           | repère les tournures à franciser dans un corps de ticket                                                                   | à la main                                               |
 | [`scripts/pose-lexique.mjs`](scripts/pose-lexique.mjs)                   | insère le bloc **Lexique** des abréviations détectées                                                                      | à la main                                               |
 

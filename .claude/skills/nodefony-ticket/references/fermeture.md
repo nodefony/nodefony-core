@@ -59,6 +59,35 @@ irréversible pour le pilotage, et ne se délègue pas à un automate qui n'a pa
 > **Un débordement STRUCTURANT prend son propre ticket**, ouvert et refermé dans la foulée : le
 > compte rendu dit ce qui a été fait, il ne remplace pas l'endroit où l'on cherche.
 
+### Un correctif fait à chaud prend un ticket de TRACE
+
+Un défaut trouvé en travaillant se corrige tout de suite (règle « ce qu'on voit, on le corrige »).
+Corrigé sans ticket, il n'existe que dans `git log` : invisible au tableau, à la recherche
+`type:Bug`, au jalon. Le geste, dans cet ordre :
+
+1. **Ouvrir** le ticket par `npm run ticket:open`, dans le jalon et le lot COURANTS, avec son type
+   et sa gravité. Le corps suit les quatre blocs, et sa preuve est le banc qui a trouvé le défaut.
+2. **Commiter** en citant le ticket selon la norme de GitHub : le numéro à la fin du **titre**,
+   `fix(http): libérer la trame reçue par une connexion inactive (#753)`, et `Closes #753` en
+   **dernière ligne** du corps. Le titre le rend visible dans toute liste de commits, et le
+   mot-clé lie le commit au ticket dans sa timeline (sans le fermer, voir plus bas).
+3. **Fermer** par `gh issue close` avec le compte rendu (commit, preuve vue mordre, débordé, non fait).
+
+### 🔴 Un corps ou un commentaire GitHub ne dépasse pas 65 536 caractères
+
+GitHub refuse au-delà, et pour tous : corps d'issue, de demande de fusion, commentaire (« Body is
+too long (maximum is 65536 characters) »). Le refus tombe APRÈS la rédaction, souvent en fin de
+session, et un `gh issue close --comment` refusé laisse le ticket **ouvert**, sans un mot si la
+sortie n'est pas lue. Deux gardes le vérifient AVANT l'envoi, par une seule implémentation
+([`scripts/github-limits.mjs`](../scripts/github-limits.mjs)) :
+
+- `ticket:open` refuse un corps trop long avant de créer quoi que ce soit ;
+- `ticket-close.mjs --check compte-rendu.md` dit si le compte rendu complété tient, avant
+  `gh issue close N --comment "$(cat compte-rendu.md)"`.
+
+Le remède n'est jamais de tasser : un compte rendu de cette taille raconte au lieu de pointer. Le
+détail va dans le message de commit ou un fichier versionné, et le ticket le **pointe** (§3).
+
 ⚠️ **Le message de commit doit CITER le ticket** (`#95`, ou `Closes #95` pour le dernier) — sinon
 la timeline reste vide, le bloc « Commits » sort vide, et `ticket-progress.mjs` ne marque rien.
 

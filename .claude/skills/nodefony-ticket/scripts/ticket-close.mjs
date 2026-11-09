@@ -29,11 +29,16 @@
  *   node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs 95
  *   node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs 95 --since <sha>
  *
- * @usage  node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>]
+ *   node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs --check compte-rendu.md
+ *
+ * @usage  node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>] | --check <fichier>
  * @option --since  début de la plage de commits du ticket
+ * @option --check  vérifie qu'un compte rendu tient dans un commentaire GitHub (65 536 caractères)
  */
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { guardCli } from "../../nodefony-session/scripts/cli-guard.mjs";
+import { checkBodyLength } from "./github-limits.mjs";
 
 const sh = (cmd, args) => {
   try {
@@ -164,10 +169,27 @@ export function composer(numero, commits, tests) {
 }
 
 function main() {
+  // `--check <fichier>` : le compte rendu COMPLÉTÉ tient-il dans un commentaire
+  // GitHub ? Un `gh issue close --comment` refusé laisse le ticket OUVERT — la
+  // limite se vérifie avant l'envoi, jamais au refus.
+  const check = process.argv.indexOf("--check");
+  if (check > 0) {
+    const verdict = checkBodyLength(
+      readFileSync(process.argv[check + 1], "utf8"),
+    );
+    if (!verdict.ok) {
+      console.error(`refusé : ${verdict.reason}`);
+      process.exit(1);
+    }
+    console.log(
+      `compte rendu : ${verdict.length} caractères — tient dans un commentaire`,
+    );
+    return;
+  }
   const numero = process.argv[2];
   if (!numero || !/^\d+$/.test(numero)) {
     console.error(
-      "usage : ticket-close.mjs <numéro> [--since <sha>]\n" +
+      "usage : ticket-close.mjs <numéro> [--since <sha>] | --check <fichier>\n" +
         "  imprime le brouillon de compte rendu ; n'écrit RIEN sur GitHub.",
     );
     process.exit(2);
@@ -186,10 +208,13 @@ function main() {
   console.log(corps);
   console.log("");
   console.log("─".repeat(72));
-  console.log("Compléter les deux derniers blocs, PUIS fermer :");
   console.log(
-    `  gh issue close ${numero} --comment "$(cat <<'EOF'\n<le compte rendu complété>\nEOF\n)"`,
+    "Compléter les deux derniers blocs dans un fichier, le VÉRIFIER, PUIS fermer :",
   );
+  console.log(
+    "  node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs --check compte-rendu.md",
+  );
+  console.log(`  gh issue close ${numero} --comment "$(cat compte-rendu.md)"`);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

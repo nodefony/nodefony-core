@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-11-07
+updated: 2026-11-09
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-ticket/SKILL.md"
 ---
@@ -18,7 +18,7 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **0/1** recommandé (SHOULD) · 🏷️ `v1.11.0`.
+> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **0/1** recommandé (SHOULD) · 🏷️ `v1.12.0`.
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -26,14 +26,14 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 
 | | |
 | --- | --- |
-| Version | `1.11.0` |
+| Version | `1.12.0` |
 | Famille | Autres |
-| Corps | 509 lignes |
-| Coût d'activation | ~10 127 tokens (le corps est chargé à l'invocation) |
+| Corps | 515 lignes |
+| Coût d'activation | ~10 300 tokens (le corps est chargé à l'invocation) |
 | Description | 978 / 1024 caractères |
 | Déclencheurs | 20 |
 | Ressources `references/` | 8 page(s) |
-| Scripts | 23 |
+| Scripts | 24 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -80,7 +80,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/conventional-commits.md` | Conventional Commits 1.0.0 — la spec, hors ligne | 53 |
 | `references/dates.md` | Les dates du tableau de bord — poser, régler, recaler | 106 |
 | `references/economie.md` | Le ticket comme instrument d'économie — le détail | 149 |
-| `references/fermeture.md` | Fermer un ticket — le geste est TRIPLE | 106 |
+| `references/fermeture.md` | Fermer un ticket — le geste est TRIPLE | 135 |
 | `references/github-issues.md` | Issues GitHub — sous-tickets, jalons, projets | 80 |
 | `references/gravite.md` | La gravité d'un défaut — une norme, jamais une impression | 107 |
 | `references/lexique.md` | Lexique des tickets — source unique | 143 |
@@ -101,13 +101,14 @@ script, donc toujours à jour après régénération.
 | `scripts/dependents.mjs` | Les tickets OUVERTS qui dépendent d'un ticket — la règle, pure et éprouvable. | — | — |
 | `scripts/dependents.test.mjs` | `dependentsOf` — qui relire avant de fermer un ticket. / | — | — |
 | `scripts/francise.mjs` | Remplace, dans le corps des tickets ouverts, les anglicismes qui ont un équivalent français. | `--write` | — |
+| `scripts/github-limits.mjs` | Les limites de GitHub qu'un corps d'issue ou un commentaire ne doit pas franchir — vérifiées AVANT l'envoi, jamais découvertes au refus. | — | `GITHUB_BODY_MAX` |
 | `scripts/github-templates.test.mjs` | Le protocole de ticket vit à UN seul endroit — `SKILL.md` §2 — et il est désormais rendu DEUX fois : dans cette page, et dans les formulaires que GitHub sert à qui ouvre une issue depuis l'interface. | — | — |
 | `scripts/pose-lexique.mjs` | Pose le bloc `Lexique` en tête du corps des tickets GitHub ouverts. | `--write` | — |
 | `scripts/proof-commands.mjs` | proof-commands.mjs — exécute les PREUVES écrites en commande dans un ticket. | — | — |
 | `scripts/proof-commands.test.mjs` | `proof-commands` — relancer les preuves d'ABSENCE écrites dans un ticket. | — | — |
 | `scripts/severity.mjs` | Gravité d'un défaut — lue, validée et calculée selon une NORME, jamais estimée à l'impression. | — | — |
 | `scripts/ticket-anchor-migrate.mjs` | ticket-anchor-migrate.mjs — convertit les ancres `fichier:ligne` des tickets OUVERTS en ancres par symbole (`<fichier>.ts#<Symbole>`). | `--apply` | `APPLY` `QUERY` |
-| `scripts/ticket-close.mjs` | Compose le COMPTE RENDU de fermeture d'un ticket — la moitié mécanique. | `--since` | — |
+| `scripts/ticket-close.mjs` | Compose le COMPTE RENDU de fermeture d'un ticket — la moitié mécanique. | `--since` `--check` | — |
 | `scripts/ticket-close.test.mjs` | Suite du compte rendu de fermeture. | — | — |
 | `scripts/ticket-effort.mjs` | ticket-effort.mjs — confronte l'estimation d'un ticket à ce que le travail a RÉELLEMENT pris, mesuré sur ses commits. | `--format` `--grep` `--json` `--limit` `--paginate` `--since` `--slurp` `--state` | `OWNER` `REPO` |
 | `scripts/ticket-open.mjs` | Ouvre un ticket ET l'inscrit au tableau de bord, d'un seul geste. | `--title` `--body-file` `--milestone` `--label` `--jours` `--priorite` `--parent` `--ordre` `--backlog` `--type` `--gravite` `--cvss` | `OWNER` `REPO` |
@@ -125,7 +126,7 @@ node .claude/skills/nodefony-ticket/scripts/board-lint.mjs [--json] [--milestone
 node .claude/skills/nodefony-ticket/scripts/francise.mjs [--write]
 node .claude/skills/nodefony-ticket/scripts/pose-lexique.mjs [<numéro>…] [--write]
 node .claude/skills/nodefony-ticket/scripts/ticket-anchor-migrate.mjs [<numéro>…]
-node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>]
+node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>] | --check <fichier>
 node .claude/skills/nodefony-ticket/scripts/ticket-effort.mjs [<numéro>…]
 node .claude/skills/nodefony-ticket/scripts/ticket-open.mjs --title "fix(x): …" --body-file corps.md [options]
 node .claude/skills/nodefony-ticket/scripts/ticket-progress.mjs [<sha>]   (défaut : HEAD)
@@ -134,7 +135,7 @@ node .claude/skills/nodefony-ticket/scripts/ticket-severity.mjs <N> "<Classe> �
 node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs [<numéro>…]
 ```
 
-**Toutes les variables lues par ce skill** : `APPLY` · `JOURS_EN_COURS` · `OWNER` · `POST_PUBLICATION_LABEL` · `PROJECT` · `QUERY` · `QUERY_ITEMS` · `REPO` · `VITRINE_REPO`
+**Toutes les variables lues par ce skill** : `APPLY` · `GITHUB_BODY_MAX` · `JOURS_EN_COURS` · `OWNER` · `POST_PUBLICATION_LABEL` · `PROJECT` · `QUERY` · `QUERY_ITEMS` · `REPO` · `VITRINE_REPO`
 
 ### Détail des scripts auto-documentés
 
@@ -188,12 +189,13 @@ node .claude/skills/nodefony-ticket/scripts/ticket-anchor-migrate.mjs --apply [<
 
 
 ```bash
-node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>]
+node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>] | --check <fichier>
 ```
 
 | Option | Rôle |
 | --- | --- |
 | `--since` | début de la plage de commits du ticket |
+| `--check` | vérifie qu'un compte rendu tient dans un commentaire GitHub (65 536 caractères) |
 
 #### `scripts/ticket-effort.mjs`
 
@@ -275,7 +277,7 @@ node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs --dependents <num�
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ❌ | 509 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ❌ | 515 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

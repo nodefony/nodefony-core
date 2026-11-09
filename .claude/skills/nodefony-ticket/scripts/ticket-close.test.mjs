@@ -168,3 +168,25 @@ describe("le brouillon rendu à l'auteur", () => {
     expect(t).to.include("aucun fichier de test touché");
   });
 });
+
+import { GITHUB_BODY_MAX, checkBodyLength } from "./github-limits.mjs";
+
+describe("checkBodyLength — la limite de GitHub vérifiée AVANT l'envoi", () => {
+  it("un corps à la limite passe", () => {
+    expect(checkBodyLength("x".repeat(GITHUB_BODY_MAX))).toEqual({
+      ok: true,
+      length: GITHUB_BODY_MAX,
+    });
+  });
+
+  it("un caractère de trop est refusé, avec le compte et le geste", () => {
+    const verdict = checkBodyLength("x".repeat(GITHUB_BODY_MAX + 1));
+    expect(verdict.ok).toBe(false);
+    expect(verdict.reason).toContain(String(GITHUB_BODY_MAX + 1));
+    expect(verdict.reason).toContain("POINTE");
+  });
+
+  it("compte en unités UTF-16 : un émoji pèse deux, jamais moins que GitHub", () => {
+    expect(checkBodyLength("🚀").length).toBe(2);
+  });
+});
