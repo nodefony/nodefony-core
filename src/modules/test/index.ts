@@ -73,6 +73,7 @@ import {
   registerBenchOrmEntities,
   seedBenchOrm,
 } from "./nodefony/entity/benchOrm";
+import { registerDevModuleFixtureEntity } from "./nodefony/entity/devModuleFixture";
 // P6 J8 — banc preuve garde @IsGranted côté WS via api.request (/nodefony/test/api/*).
 import SecureWsController from "./nodefony/secure/SecureWsController";
 // P6 J8 (volet b) — endpoint realtime JWT Bearer (zone test-api) pour prouver la
@@ -223,6 +224,9 @@ class Test extends Module {
     if (BENCH_ORM) {
       await registerBenchOrmEntities();
     }
+    // Décor du refus « module de dev sur le connecteur de l'application »
+    // (opt-in `NF_DEV_MODULE_FIXTURE`, #687) : ne fait rien sans la variable.
+    registerDevModuleFixtureEntity();
     return this;
   }
 

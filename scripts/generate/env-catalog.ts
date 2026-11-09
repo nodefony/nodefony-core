@@ -250,6 +250,13 @@ export const BENCH_DECOR: Record<string, IEnvDeclaration> = {
     absent: "Le banc de coupure PostgreSQL est SAUTÉ.",
     group: "coupure réelle de base",
   },
+  NF_DEV_MODULE_FIXTURE: {
+    what: "Fait lier par le module `test` (policy dev) une table au connecteur de l'application — la configuration que la génération et l'adoption doivent refuser.",
+    values: "`sqlite|postgres|mysql`",
+    absent:
+      "Le fichier d'entité s'importe et n'exporte AUCUNE table : le cas du banc d'adoption qui prouve ce refus échoue, faute de décor.",
+    group: "banc d'adoption de base (migrations)",
+  },
   NF_MCP_TEST_BASE: {
     what: "Origine de la porte MCP éprouvée par le banc.",
     values: "URL — défaut `https://127.0.0.1:5152`",

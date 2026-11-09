@@ -12,6 +12,7 @@ import {
   ORPHAN_FIXTURE_ENTITY,
   ORPHAN_FIXTURE_TABLE,
 } from "../../../../../../nodefony/entity/adoptFixture";
+import { DEV_MODULE_FIXTURE_TABLE } from "../../../../../modules/test/nodefony/entity/devModuleFixture";
 import {
   ACTIF,
   ciblesPour,
@@ -1034,6 +1035,76 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
                 .catch(() => undefined);
             }
           }
+        });
+      }, 600_000);
+
+      it("🔴 un module de DÉVELOPPEMENT lié à ce connecteur fait refuser la génération ET l'adoption (#687)", async () => {
+        await surBase(async (_base, env) => {
+          // Le module `test` porte `policy: "dev"` : chargé ici par la
+          // dérogation, il lie une table au connecteur de l'application. Une
+          // migration s'applique en production, où il n'est pas : les deux
+          // commandes qui en ÉCRIVENT une doivent refuser en le nommant, et ne
+          // rien écrire — ni l'y mettre, ni l'en écarter en silence.
+          const devModule = {
+            ...env,
+            NF_DEV_MODULE_FIXTURE: cible.dialect,
+            NF_WITH_DEV_MODULES: "1",
+          };
+          const migre = await cli(["orm:migrate", "--json"], env);
+          assert.equal(migre.code, 0, diagnostic(migre));
+
+          const attendu = (run: {
+            code: number;
+            stdout: string;
+            stderr: string;
+          }): void => {
+            const erreur = (parse(run.stdout).error ?? {}) as {
+              code?: string;
+              summary?: string;
+            };
+            assert.equal(
+              erreur.code,
+              "NF_GENERATE_DEV_MODULE_TABLE",
+              diagnostic(run),
+            );
+            assert.notEqual(run.code, 0, "un refus ne rend jamais 0");
+            assert.match(
+              String(erreur.summary),
+              new RegExp(DEV_MODULE_FIXTURE_TABLE, "u"),
+              "le refus doit NOMMER la table",
+            );
+            assert.match(
+              String(erreur.summary),
+              /@nodefony\/test/u,
+              "le refus doit NOMMER le module",
+            );
+          };
+
+          const gen = await cli(
+            ["orm:generate", "--json", "--name", "module_dev"],
+            devModule,
+          );
+          attendu(gen);
+          assert.deepEqual(
+            await migrationsPresentes(),
+            auDepart,
+            "la génération refusée a tout de même écrit",
+          );
+
+          // L'adoption ne s'ouvre que sur un dossier VIDE : sans cela, son
+          // propre refus (« déjà des migrations ») passerait avant celui-ci.
+          await fs.rm(outDir, { recursive: true, force: true });
+          await fs.mkdir(outDir, { recursive: true });
+          const adopt = await cli(
+            ["orm:migrate:baseline", "--from-database", "--json"],
+            devModule,
+          );
+          attendu(adopt);
+          assert.deepEqual(
+            await migrationsPresentes(),
+            [],
+            "l'adoption refusée a tout de même écrit",
+          );
         });
       }, 600_000);
 

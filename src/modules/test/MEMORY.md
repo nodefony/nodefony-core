@@ -58,6 +58,8 @@ Module Nodefony d'intégration. Expose routes de test pour valider le pipeline H
 - ⚠️ Le succès exige `NODE_EXTRA_CA_CERTS` (CA de dev, posé par `start.sh`) : le serveur se joint en
   https pour se découvrir. Sans, 503 — fidèle mais hors sujet.
 
+**Décor `entity/devModuleFixture.ts`** (OPT-IN `NF_DEV_MODULE_FIXTURE=<dialecte>`) : ce module (policy dev) lie `dev_module_probe` au connecteur `default` — la configuration que `orm:generate` et `orm:migrate:baseline --from-database` REFUSENT (`NF_GENERATE_DEV_MODULE_TABLE`). Chargé en prod par `NF_WITH_DEV_MODULES=1`. Banc : `drizzle/…/migrate-adopt-cli.e2e.test.ts`. Le décor `adopt_cli_article` n'est PLUS ici : il vit dans l'app (`nodefony/entity/adoptFixture.ts`) — un module de dev ne peut pas fournir une table de l'application.
+
 **BenchOrmController** (`/nodefony/test/bench-orm`, OPT-IN `NF_BENCH_ORM=1`) :
 
 - `/read` · `/read-lean` · `/write` · `/reset` · `/status` — cycle ORM sur corpus `erp` (connecteur dédié `bench-orm`, `ddl: auto`, déclaré par `config.ts` sous `NF_BENCH_ORM=1` — base serveur de l'app si `NF_DATABASE_URL`, sinon SQLite `nodefony-bench-orm.db`, seed 50/200/10 k, `entity/benchOrm.ts`, corpus gitignoré `entity/benchCorpus/` écrit par `bench-orm-corpus.mjs`, montants décimaux en chaîne)
