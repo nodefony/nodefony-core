@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-09T16:20:46.014Z",
+  "generatedAt": "2026-11-09T18:41:45.482Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -6406,7 +6406,7 @@
       "title": "fix(realtime): séparer lecture et écriture d'un canal, sans écrasement",
       "url": "https://github.com/nodefony/nodefony-core/issues/758",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
