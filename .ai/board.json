@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-09T08:58:33.924Z",
+  "generatedAt": "2026-11-09T09:33:56.818Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -897,7 +897,7 @@
       "title": "chore(drizzle): monter Drizzle vers sa version 1",
       "url": "https://github.com/nodefony/nodefony-core/issues/685",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "11.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 2,
