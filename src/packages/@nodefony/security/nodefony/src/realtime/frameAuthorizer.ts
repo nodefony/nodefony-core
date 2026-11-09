@@ -218,25 +218,36 @@ export function buildSystemRules(
 }
 
 /**
- * `s` contient-il `needle`, insensible à la casse et sans allocation ? Pour les
- * conventions transverses `:health`/`:stats` (après le namespace de module —
- * `mymod:health` — éventuellement suffixées d'une cadence `nodefony:orm:health:5000`).
+ * `word` (en minuscules) figure-t-il à la position `at` de `s`, insensible à la casse, sans allocation ?
  */
-function containsCI(s: string, needle: string): boolean {
-  const last = s.length - needle.length;
-  for (let i = 0; i <= last; i++) {
-    let ok = true;
-    for (let j = 0; j < needle.length; j++) {
-      let a = s.charCodeAt(i + j);
-      if (a >= 65 && a <= 90) a += 32;
-      let b = needle.charCodeAt(j);
-      if (b >= 65 && b <= 90) b += 32;
-      if (a !== b) {
-        ok = false;
-        break;
-      }
+function wordAtCI(s: string, at: number, word: string): boolean {
+  if (at + word.length > s.length) return false;
+  for (let j = 0; j < word.length; j++) {
+    let c = s.charCodeAt(at + j);
+    if (c >= 65 && c <= 90) c += 32;
+    if (c !== word.charCodeAt(j)) return false;
+  }
+  return true;
+}
+
+/**
+ * Le nom porte-t-il une convention transverse `:health` ou `:stats`, insensible à la casse et sans allocation ? Après le namespace de module (`mymod:health`), éventuellement suffixée d'une cadence (`nodefony:orm:health:5000`).
+ *
+ * Exécuté à CHAQUE trame jugée — une action RPC n'est jamais retenue. Les deux
+ * motifs commencent par `:`, qui n'a pas de casse : on saute de `:` en `:` par
+ * `indexOf` (natif) et on ne compare les deux mots qu'à ces positions, en une
+ * passe. Le balayage naïf (chaque position, deux passes, casse abaissée à
+ * chaque caractère) pesait plus que tout le reste du verrou sur un canal libre
+ * (micro-frame-authorizer, verrou seul : 125 → 55 ns). Même verdict, prouvé
+ * contre le balayage naïf par `realtimeFrameLock.test.ts`.
+ */
+function hasReservedConvention(s: string): boolean {
+  let i = s.indexOf(":");
+  while (i !== -1) {
+    if (wordAtCI(s, i + 1, "health") || wordAtCI(s, i + 1, "stats")) {
+      return true;
     }
-    if (ok) return true;
+    i = s.indexOf(":", i + 1);
   }
   return false;
 }
@@ -258,7 +269,7 @@ function matchSystemPolicy(
       return floorReserved(channel, rule.policy);
     }
   }
-  if (containsCI(channel, ":health") || containsCI(channel, ":stats")) {
+  if (hasReservedConvention(channel)) {
     return SYSTEM_CHANNEL_POLICY;
   }
   return null;

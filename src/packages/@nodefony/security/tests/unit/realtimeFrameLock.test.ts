@@ -966,3 +966,72 @@ describe("buildFrameAuthorizer — lecture et écriture distinctes (#758, ADR-00
     assert.equal(legacy({ method: "old:feed" }, AUTH_TOKEN), true);
   });
 });
+
+describe("buildFrameAuthorizer — conventions :health / :stats, même verdict que le balayage naïf", () => {
+  // Le balayage d'origine, gardé ICI comme référence : le verrou saute
+  // désormais de `:` en `:` (micro-frame-authorizer, verrou seul 125 → 55 ns),
+  // il doit rendre exactement les mêmes verdicts.
+  const naiveContainsCI = (s: string, needle: string): boolean =>
+    s.toLowerCase().includes(needle.toLowerCase());
+  const reserved = (name: string): boolean =>
+    naiveContainsCI(name, ":health") || naiveContainsCI(name, ":stats");
+  const authorize = buildFrameAuthorizer(
+    { matchPath: () => null, hasRole: (roles, r) => roles.includes(r) },
+    { channelResolver: null, systemRules: DEFAULT_SYSTEM_RULES },
+  );
+  const sub = (channel: string) => ({
+    method: "subscribe",
+    params: { channel },
+  });
+  // Un connecté sans rôle d'administration : refusé sur une convention
+  // réservée, admis partout ailleurs (aucune politique métier ici).
+  const verdict = (name: string): boolean => authorize(sub(name), AUTH_TOKEN);
+
+  it("cas limites : casse, bord de chaîne, deux-points répétés, mot tronqué", () => {
+    const cases = [
+      "health",
+      ":health",
+      "x:health",
+      "x:HEALTH",
+      "x:hEaLtH:5000",
+      "x:heal",
+      "x:healt",
+      "x:stats",
+      "x:Stats:",
+      "x:stat",
+      "a:b:c:STATS1",
+      ":",
+      "::",
+      "::health",
+      "x::stats",
+      "x:y:z",
+      "",
+      "health:x",
+      "stats",
+      "x-health",
+      "x:healthy",
+      "x:statsd",
+      "x:h:health",
+    ];
+    for (const name of cases) {
+      assert.equal(verdict(name), !reserved(name), name);
+    }
+  });
+
+  it("20 000 noms aléatoires : verdict identique au balayage naïf", () => {
+    const alphabet = "aehlstxHEALTS:-";
+    let seed = 758;
+    const rnd = (n: number): number => {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      return seed % n;
+    };
+    for (let k = 0; k < 20_000; k++) {
+      let name = "";
+      const len = rnd(18);
+      for (let i = 0; i < len; i++) name += alphabet[rnd(alphabet.length)];
+      // Les namespaces de plateforme relèvent d'une autre règle (préfixes).
+      if (name.toLowerCase().startsWith("nodefony")) continue;
+      assert.equal(verdict(name), !reserved(name), JSON.stringify(name));
+    }
+  });
+});
