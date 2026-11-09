@@ -18,7 +18,12 @@ import { expect } from "vitest";
 import https from "node:https";
 import WebSocket from "ws";
 import { drainTo } from "../helpers/scopeDrain.js";
-import { THRESHOLDS, serverHeap, setSyslogRing } from "../helpers/retention.js";
+import {
+  THRESHOLDS,
+  serverExternal,
+  serverHeap,
+  setSyslogRing,
+} from "../helpers/retention.js";
 import { asError } from "../helpers/wsText";
 
 const WSS = "wss://localhost:5152";
@@ -166,6 +171,49 @@ describe("LOAD — WS connections (axis 1: count)", function () {
       perConnection,
       `${(perConnection / 1024).toFixed(1)} Ko de tas par connexion tenue ` +
         `(${FLEET} connexions)`,
+    ).to.be.below(seuil);
+
+    await closeAll(sockets);
+    expect(
+      await drainTo(scopes, scopesBefore, 1),
+      "all WS scopes released after close",
+    ).to.be.at.most(0);
+  });
+
+  it("une trame de 60 Ko puis silence — la connexion inactive ne retient pas la trame", async () => {
+    // Le cas d'une sonde qui parle puis se tait. Lu en mémoire EXTERNE : la
+    // trame est une vue sur un tampon de lecture, que le tas ne compte pas —
+    // d'où `[held]`, qui lit le tas, ne voyait rien.
+    const FLEET = 200;
+    const frame = "x".repeat(60_000);
+    await setSyslogRing(false);
+    const scopesBefore = await scopes();
+    const externalBefore = await serverExternal();
+
+    const sockets = await openFleet(FLEET);
+    await Promise.all(
+      sockets.map(
+        (ws) =>
+          new Promise<void>((resolve) => {
+            ws.once("message", () => resolve());
+            ws.send(frame);
+          }),
+      ),
+    );
+
+    const externalIdle = await serverExternal();
+    await setSyslogRing(true);
+    const perConnection = (externalIdle - externalBefore) / FLEET;
+    const seuil = THRESHOLDS.wsIdleAfterFrame;
+    console.log(
+      `[idle] ${FLEET} connexions inactives après une trame de 60 Ko : ` +
+        `${(perConnection / 1024).toFixed(1)} Ko externes par connexion · ` +
+        `seuil ${(seuil / 1024).toFixed(1)} Ko`,
+    );
+    expect(
+      perConnection,
+      `${(perConnection / 1024).toFixed(1)} Ko externes retenus par connexion ` +
+        `inactive (${FLEET} connexions)`,
     ).to.be.below(seuil);
 
     await closeAll(sockets);

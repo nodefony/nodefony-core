@@ -30,9 +30,34 @@ function probeJson(path: string): Promise<Record<string, unknown>> {
   });
 }
 
+async function probeMemory(field: "heapUsed" | "external"): Promise<number> {
+  const value = (await probeJson("/nodefony/test/memory"))[field];
+  if (typeof value !== "number") {
+    throw new Error(`/nodefony/test/memory : champ ${field} absent`);
+  }
+  return value;
+}
+
 /** Tas du serveur de banc, relevé APRÈS un GC forcé (`/nodefony/test/memory`). */
-export async function serverHeap(): Promise<number> {
-  return (await probeJson("/nodefony/test/memory")).heapUsed as number;
+export function serverHeap(): Promise<number> {
+  return probeMemory("heapUsed");
+}
+
+/**
+ * Mémoire EXTERNE du serveur de banc (tampons, `ArrayBuffer`), relevée APRÈS un
+ * GC forcé. Le tas ne la compte pas : un tampon de lecture réseau retenu par une
+ * connexion inactive y est invisible.
+ */
+export async function serverExternal(): Promise<number> {
+  // Le MINIMUM de trois lectures espacées : une retenue tient à chaque lecture,
+  // un pic d'écritures en vol (journal, tampons TLS sortants) non. Vécu : un
+  // passage à 32,9 Ko parmi quatre entre −1,7 et 3,1 Ko.
+  let floor = await probeMemory("external");
+  for (let i = 0; i < 2; i++) {
+    await new Promise((r) => setTimeout(r, 400));
+    floor = Math.min(floor, await probeMemory("external"));
+  }
+  return floor;
 }
 
 /**
@@ -152,6 +177,14 @@ export const THRESHOLDS = {
    * 500 connexions) en tolérait 120.
    */
   wsHeldConnection: 32 * 1024,
+  /**
+   * Mémoire EXTERNE retenue par une connexion WS restée INACTIVE après une trame
+   * de 60 Ko (`ws-connections-load`) — le cas d'une sonde qui parle puis se tait.
+   * Fuite témoin : la trame rangée dans `response.body` jusqu'à la suivante,
+   * 64 Ko par connexion (124 Ko en TLS sous ws 8.22.1, qui gardait aussi le
+   * masque). Seuil au quart de la fuite témoin.
+   */
+  wsIdleAfterFrame: 16 * 1024,
 } as const;
 
 const ko = (octets: number): string => `${(octets / 1024).toFixed(2)} Ko`;

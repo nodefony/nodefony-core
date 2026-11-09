@@ -528,7 +528,7 @@ class WebsocketContext extends Context implements IWebsocketContextInterface {
 
   async send(data?: string | Buffer | null, encoding?: BufferEncoding) {
     if (this.response) {
-      const payload = data ?? this.response.body;
+      const payload = data ?? WebsocketContext.takeRenderedBody(this.response);
       // Pont `api.request` : une invocation qui REND (`renderJson`/`renderView`)
       // ne doit pas écrire une frame NUE hors protocole JSON-RPC — le payload
       // est capturé dans le sink ALS per-invocation et servi en `result` RPC
@@ -547,9 +547,22 @@ class WebsocketContext extends Context implements IWebsocketContextInterface {
     throw new Error("No response found");
   }
 
+  /**
+   * Rend le corps rendu (`setBody`) en le RETIRANT de la réponse : une trame
+   * envoyée n'a plus à vivre aussi longtemps que la connexion.
+   *
+   * @param response - la réponse de ce contexte
+   * @returns le corps rendu, ou `null` s'il n'y en a pas
+   */
+  private static takeRenderedBody(response: WebsocketResponse): Buffer | null {
+    const body = response.body;
+    response.body = null;
+    return body;
+  }
+
   broadcast(data?: string | Buffer | null, encoding?: BufferEncoding) {
     if (this.response) {
-      const payload = data ?? this.response.body;
+      const payload = data ?? WebsocketContext.takeRenderedBody(this.response);
       if (payload) {
         this.logMessageContent("BROADCAST", payload);
         this.fire("onMessage", payload, this, "BROADCAST");
@@ -714,9 +727,10 @@ class WebsocketContext extends Context implements IWebsocketContextInterface {
     this.webSocketState = "message";
     const message = isBinary ? data : data.toString();
     this.logMessageContent("RECEIVE", message);
-    if (this.response) {
-      this.response.body = Buffer.isBuffer(data) ? data : Buffer.from(data);
-    }
+    // La trame reçue n'est PAS rangée dans `response.body` : ce champ porte le
+    // rendu SORTANT (`setBody` → `send()`). L'y ranger la retenait jusqu'à la
+    // trame suivante — indéfiniment sur une connexion qui se tait, avec le
+    // tampon de lecture dont elle est une vue (64 Ko mesurés par connexion).
     try {
       if (!this.resolver) {
         this.resolver = this.router?.resolve(this) ?? null;
