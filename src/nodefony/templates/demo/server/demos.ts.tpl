@@ -14,7 +14,7 @@
 export type DemoLevel = "beginner" | "intermediate" | "advanced";
 
 /** Rubrique du catalogue. */
-export type DemoRubric = "realtime" | "transports" | "programs";
+export type DemoRubric = "realtime" | "games" | "transports" | "programs";
 
 /** Une entrée de l'index. */
 export interface IDemoEntry {
@@ -49,6 +49,11 @@ export const DEMO_RUBRICS = [
     id: "realtime",
     title: "Temps réel",
     summary: "la socket, les canaux, le binaire",
+  },
+  {
+    id: "games",
+    title: "Jeux",
+    summary: "le temps réel, à plusieurs, en jouant",
   },
   {
     id: "transports",
@@ -142,15 +147,67 @@ export const DEMOS = [
     types: [],
   },
   {
-    id: "game",
-    title: "Jeu",
-    rubric: "realtime",
+    id: "meteor",
+    title: "Météores",
+    rubric: "games",
     level: "advanced",
     teaches:
-      "Coups joués en direct et appariement des joueurs. Part des cas `gameMoves` et `matchmaking`.",
-    status: "soon",
-    files: [],
-    types: [],
+      "Un jeu coopératif : des centaines de météores, un canon par joueur, le serveur qui arbitre trente fois par seconde et le monde en octets sur le fil.",
+    status: "ready",
+    tag: "jeu, à plusieurs",
+    path: "/demo/meteor",
+    files: [
+      "frontend/src/meteor/meteorDemo.ts",
+      "nodefony/controllers/MeteorController.ts",
+      "nodefony/service/MeteorService.ts",
+      "nodefony/game/GameRoom.ts",
+      "nodefony/game/fixedStep.ts",
+      "frontend/src/game/records.ts",
+      "frontend/src/game/snapshots.ts",
+      "frontend/src/game/commandSender.ts",
+      "frontend/src/meteor/meteorClient.ts",
+      "frontend/src/meteor/MeteorGame.tsx",
+      "frontend/src/meteor/meteorScene.ts",
+    ],
+    types: [
+      "ContractRealtimeController (@nodefony/realtime)",
+      "IRealtimeConnection (@nodefony/realtime)",
+      "NodefonySocket (nodefony/client)",
+      "CBOR_FRAME_CODEC (nodefony/cbor)",
+    ],
+    doc: "@nodefony/realtime/docs/cas-d-usage.md",
+    command: "npx nodefony create controller --kind realtime",
+    skill: "nodefony-add-realtime-channel",
+  },
+  {
+    id: "prism",
+    title: "Prisme",
+    rubric: "games",
+    level: "advanced",
+    teaches:
+      "Quatre équipes colorent une arène 3D : la même salle de jeu que Météores, d'autres règles. Ce qui se partage entre deux jeux, et ce qui leur reste propre.",
+    status: "ready",
+    tag: "jeu 3D, en équipes",
+    path: "/demo/prism",
+    files: [
+      "frontend/src/prism/prismDemo.ts",
+      "nodefony/controllers/PrismController.ts",
+      "nodefony/service/PrismService.ts",
+      "nodefony/game/GameRoom.ts",
+      "frontend/src/game/records.ts",
+      "frontend/src/game/snapshots.ts",
+      "frontend/src/prism/prismClient.ts",
+      "frontend/src/prism/PrismGame.tsx",
+      "frontend/src/prism/prismScene.ts",
+    ],
+    types: [
+      "ContractRealtimeController (@nodefony/realtime)",
+      "IRealtimeConnection (@nodefony/realtime)",
+      "NodefonySocket (nodefony/client)",
+    ],
+    doc: "@nodefony/realtime/docs/cas-d-usage.md",
+    command: "npx nodefony create controller --kind realtime",
+    skill: "nodefony-add-realtime-channel",
   },
   {
     id: "first-steps",

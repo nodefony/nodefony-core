@@ -3811,3 +3811,190 @@ a.ritem:hover .ritem-go {
   min-width: 0;
   margin: 0;
 }
+
+/* ── Jeux (Météores, Prisme) ─────────────────────────────────────────────
+ * Mise en page COMMUNE aux jeux (`game/GamePage.tsx`). La scène reste
+ * sombre dans les deux thèmes, voulu : c'est un ciel, une arène. Ses
+ * surimpressions ont donc leurs propres couleurs, lisibles sur ce fond-là. */
+.game-page {
+  --game-ink: #e9e6ff;
+  --game-muted: #b4aedb;
+  --game-ground: #0b0a1a;
+  --game-glass: rgba(11, 10, 26, 0.78);
+  --game-edge: #2c2852;
+}
+.game-head {
+  display: grid;
+  gap: 10px;
+  margin-block-end: 18px;
+}
+.game-head h1 {
+  margin: 0;
+  text-wrap: balance;
+}
+.game-head p {
+  margin: 0;
+  max-inline-size: 68ch;
+  color: var(--muted);
+}
+.game-stage {
+  display: grid;
+  gap: 10px;
+}
+.game-board {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-block-size: 32px;
+  font-variant-numeric: tabular-nums;
+}
+.game-chip {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.game-team {
+  background: var(--game-ground);
+  border-color: var(--game-edge);
+}
+.game-health {
+  position: relative;
+  inline-size: 140px;
+  block-size: 12px;
+  border-radius: 999px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.game-health > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: linear-gradient(90deg, #ff5a5a, #ffb547 40%, #3ee6ff);
+  transition: inline-size 0.25s ease-out;
+}
+.game-canvas {
+  position: relative;
+  inline-size: 100%;
+  max-inline-size: 100%;
+  aspect-ratio: 16 / 10;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--game-ground);
+  border: 1px solid var(--game-edge);
+  touch-action: none;
+}
+@media (max-width: 640px) {
+  .game-canvas {
+    aspect-ratio: 4 / 5;
+  }
+}
+.game-canvas canvas {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  outline: none;
+  cursor: crosshair;
+}
+.game-canvas canvas:focus-visible {
+  box-shadow: inset 0 0 0 2px #ffb547;
+}
+.game-hint,
+.game-banner {
+  position: absolute;
+  inset-inline: 0;
+  margin: 0 auto;
+  inline-size: fit-content;
+  max-inline-size: calc(100% - 32px);
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: var(--game-glass);
+  border: 1px solid var(--game-edge);
+  color: var(--game-ink);
+  text-align: center;
+  pointer-events: none;
+}
+.game-hint {
+  inset-block-end: 14px;
+  font-size: 0.92rem;
+}
+.game-banner {
+  inset-block-start: 40%;
+  font-size: clamp(1.1rem, 3vw, 1.6rem);
+  font-weight: 700;
+  color: #ffb547;
+}
+.game-hud {
+  position: absolute;
+  inset-block-start: 10px;
+  inset-inline-end: 10px;
+  min-inline-size: 220px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--game-glass);
+  border: 1px solid var(--game-edge);
+  color: var(--game-ink);
+  font-family: var(--mono, ui-monospace, Menlo, Consolas, monospace);
+  font-size: 12px;
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+}
+.game-hud h2 {
+  margin: 0 0 4px;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #3ee6ff;
+}
+.game-hud dl {
+  margin: 0;
+  display: grid;
+  gap: 2px;
+}
+.game-hud dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.game-hud dt {
+  color: var(--game-muted);
+}
+.game-hud dd {
+  margin: 0;
+}
+@media (max-width: 640px) {
+  .game-hud {
+    inset-block-start: auto;
+    inset-block-end: 10px;
+    min-inline-size: 0;
+    font-size: 10.5px;
+  }
+}
+.game-how ol {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.game-how li {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+}
+.game-how li span {
+  color: var(--muted);
+}
+@media (prefers-reduced-motion: reduce) {
+  .game-health > span {
+    transition: none;
+  }
+}

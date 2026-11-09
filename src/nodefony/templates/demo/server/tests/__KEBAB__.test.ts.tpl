@@ -107,6 +107,29 @@ import { DEMOS } from "../demos";
 import demoModuleConfig from "../nodefony/config/config";
 import { BINARY_LESSON } from "../frontend/src/binary/binaryTabs";
 import { MCP_LESSON } from "../frontend/src/mcp/mcpTabs";
+import { METEOR_LESSON } from "../frontend/src/meteor/meteorTabs";
+import { PRISM_LESSON } from "../frontend/src/prism/prismTabs";
+import { defineRecord } from "../frontend/src/game/records";
+import {
+  SnapshotBuffer,
+  interpolateById,
+} from "../frontend/src/game/snapshots";
+import {
+  BOOM_METEOR,
+  boomRecord,
+  DEFENDERS,
+  meteorRecord,
+  RING_RADIUS,
+} from "../frontend/src/meteor/meteorDemo";
+import {
+  droneRecord,
+  PRISM_CREW,
+  prismTiles,
+  tileAt,
+} from "../frontend/src/prism/prismDemo";
+import { GameRoom, IDLE_MS } from "../nodefony/game/GameRoom";
+import { MeteorRules } from "../nodefony/service/MeteorService";
+import { PrismRules } from "../nodefony/service/PrismService";
 import {
   authServerMetadataRequest,
   authorizationServersOf,
@@ -673,6 +696,8 @@ const LESSONS: readonly { page: string; lesson: ILesson }[] = [
   { page: "video", lesson: VIDEO_LESSON },
   { page: "binary", lesson: BINARY_LESSON },
   { page: "mcp", lesson: MCP_LESSON },
+  { page: "meteor", lesson: METEOR_LESSON },
+  { page: "prism", lesson: PRISM_LESSON },
 ];
 
 /** Chaque extrait cité, avec sa page et sa couche. */
@@ -843,6 +868,12 @@ describe("demo — les leçons à gestes : la sonde et le contrôleur cité", ()
     ["nodefony/controllers/McpTokenController.ts", MCP_LESSON],
     ["nodefony/service/DemoMcpService.ts", MCP_LESSON],
     ["nodefony/mcp/demoTools.ts", MCP_LESSON],
+    ["nodefony/controllers/MeteorController.ts", METEOR_LESSON],
+    ["nodefony/service/MeteorService.ts", METEOR_LESSON],
+    ["nodefony/controllers/PrismController.ts", PRISM_LESSON],
+    ["nodefony/service/PrismService.ts", PRISM_LESSON],
+    ["nodefony/game/GameRoom.ts", METEOR_LESSON],
+    ["nodefony/game/fixedStep.ts", PRISM_LESSON],
   ] as const)(
     "chaque région de %s est citée par la leçon : aucun geste oublié",
     (file, lesson) => {
@@ -1732,5 +1763,148 @@ describe("demo — MCP", () => {
     const card = DEMOS.find((demo) => demo.id === "mcp");
     expect(card?.status).toBe("ready");
     expect(card?.path).toBe("/demo/mcp");
+  });
+});
+
+describe("Jeux — les briques communes et les règles", () => {
+  /** Une connexion de test : la salle ne lit que `open`. */
+  const connection = () => ({ userId: null, open: true });
+
+  it("un enregistrement fait l'aller-retour octet pour octet, et borne au lieu de replier", () => {
+    const record = defineRecord([
+      { name: "id", type: "u16" },
+      { name: "x", type: "i16", scale: 10 },
+      { name: "r", type: "u8" },
+      { name: "v", type: "f32" },
+    ] as const);
+    const bytes = record.write([
+      { id: 513, x: -12.3, r: 7, v: 1.5 },
+      { id: 2, x: 99_999, r: 300, v: -0.25 },
+    ]);
+    expect(bytes.byteLength).toBe(2 * record.bytes);
+    expect(record.bytes).toBe(9);
+    // Un Uint8Array reçu ne commence pas toujours au début de son tampon.
+    const shifted = new Uint8Array(bytes.byteLength + 3);
+    shifted.set(bytes, 3);
+    const [first, second] = record.read(shifted.subarray(3));
+    expect(first).toEqual({ id: 513, x: -12.3, r: 7, v: 1.5 });
+    expect(second?.x).toBe(3276.7);
+    expect(second?.r).toBe(255);
+  });
+
+  it("les enregistrements des deux jeux ont la taille annoncée sur la page", () => {
+    expect(meteorRecord.bytes).toBe(8);
+    expect(boomRecord.bytes).toBe(6);
+    expect(droneRecord.bytes).toBe(8);
+  });
+
+  it("la salle assoit un humain à sa première commande, et les robots complètent", () => {
+    const rules = new MeteorRules();
+    const room = new GameRoom(rules);
+    room.tick(1 / 30);
+    expect(room.pilots()).toHaveLength(DEFENDERS);
+    expect(room.humans).toBe(0);
+    const player = connection();
+    expect(room.command(player, { angle: 1, fire: false, tag: 42 })).toBe(true);
+    room.tick(1 / 30);
+    expect(room.humans).toBe(1);
+    expect(room.pilots()).toHaveLength(DEFENDERS);
+    expect(room.pilots().find((p) => !p.robot)?.tag).toBe(42);
+  });
+
+  it("la salle refuse une commande invalide, et libère la place d'une connexion fermée", () => {
+    const room = new GameRoom(new MeteorRules());
+    const player = connection();
+    expect(room.command(player, { angle: "1", fire: false, tag: 1 })).toBe(
+      false,
+    );
+    expect(room.command(player, { angle: 1, fire: false, tag: 1, x: 3 })).toBe(
+      false,
+    );
+    expect(room.humans).toBe(0);
+    room.command(player, { angle: 1, fire: false, tag: 1 });
+    player.open = false;
+    room.tick(1 / 30);
+    expect(room.humans).toBe(0);
+    expect(room.pilots().every((p) => p.robot)).toBe(true);
+    expect(IDLE_MS).toBeGreaterThan(1000);
+  });
+
+  it("Météores : un tir qui touche casse le météore — décidé par le serveur", () => {
+    const rules = new MeteorRules();
+    const room = new GameRoom(rules);
+    room.command(connection(), { angle: 0, fire: true, tag: 7 });
+    rules.meteors.push({
+      id: 1,
+      x: RING_RADIUS + 60,
+      y: 0,
+      vx: 0,
+      vy: 0,
+      r: 8,
+      hp: 1,
+    });
+    let boomed = false;
+    // Le canon part de −π/2 et pivote à 7 rad/s vers 0 : une dizaine de tours, puis le vol du tir.
+    for (let i = 0; i < 40 && !boomed; i += 1) {
+      const frame = room.tick(1 / 30);
+      boomed = boomRecord.read(frame.booms).some((b) => b.kind === BOOM_METEOR);
+    }
+    expect(boomed).toBe(true);
+    expect(rules.score).toBeGreaterThan(0);
+  });
+
+  it("Prisme : une case survolée prend la couleur de l'équipe, et le score suit", () => {
+    const rules = new PrismRules();
+    const room = new GameRoom(rules);
+    const frame = room.tick(1 / 30);
+    expect(room.pilots()).toHaveLength(PRISM_CREW);
+    expect(frame.tiles.byteLength).toBe(prismTiles.length);
+    const owned = [...frame.tiles].filter((owner) => owner > 0).length;
+    expect(owned).toBeGreaterThan(0);
+    expect(frame.scores.reduce((a, b) => a + b, 0)).toBe(owned);
+    // La trame porte une COPIE : la grille qui change ensuite ne la touche pas.
+    const before = frame.tiles.slice();
+    for (let i = 0; i < 30; i += 1) room.tick(1 / 30);
+    expect(frame.tiles).toEqual(before);
+  });
+
+  it("Prisme : la grille se calcule à l'identique des deux côtés, case par case", () => {
+    expect(prismTiles).toHaveLength(397);
+    prismTiles.forEach((tile, i) => expect(tileAt(tile.x, tile.z)).toBe(i));
+    expect(tileAt(100, 100)).toBe(-1);
+  });
+
+  it("l'interpolation place une entité entre deux trames, et montre une entité neuve telle quelle", () => {
+    const buffer = new SnapshotBuffer<number>(30);
+    expect(buffer.pair(0)).toBeNull();
+    buffer.push(1, 1000);
+    buffer.push(2, 1033);
+    buffer.push(3, 1066);
+    const pair = buffer.pair(1066 + buffer.delayMs - 16);
+    expect(pair?.from.data).toBe(2);
+    expect(pair?.to.data).toBe(3);
+    const mixed = interpolateById(
+      [{ id: 1, x: 0 }],
+      [
+        { id: 1, x: 10 },
+        { id: 2, x: 5 },
+      ],
+      0.5,
+      (a, b, k) => ({ ...b, x: a.x + (b.x - a.x) * k }),
+    );
+    expect(mixed).toEqual([
+      { id: 1, x: 5 },
+      { id: 2, x: 5 },
+    ]);
+  });
+
+  it("les deux cartes de jeu sont prêtes et mènent à leur page", () => {
+    for (const id of ["meteor", "prism"]) {
+      const card = DEMOS.find((demo) => demo.id === id);
+      expect(card?.status).toBe("ready");
+      expect(card !== undefined && "path" in card ? card.path : null).toBe(
+        `/demo/${id}`,
+      );
+    }
   });
 });

@@ -1,0 +1,126 @@
+/**
+ * Des enregistrements binaires décrits par un schéma — la brique que les jeux
+ * de la démo partagent pour mettre leur monde sur le fil.
+ *
+ * Guide pour un agent : un schéma = une liste de champs, chacun avec son type
+ * (`u8`, `u16`, `i16`, `f32`) et, pour un entier qui porte un réel, son
+ * facteur (`scale: 10` = au dixième). Le MÊME objet écrit côté serveur et lit
+ * côté page : `meteorRecord.write(list)` dans le service, `.read(bytes)` dans
+ * le client. Tout en petit-boutiste, écrit explicitement. Un octet décalé ne
+ * peut pas passer inaperçu : le test fait l'aller-retour.
+ */
+
+/** Les types d'un champ, et ce que chacun pèse. */
+const SIZES = { u8: 1, u16: 2, i16: 2, f32: 4 } as const;
+
+export type FieldType = keyof typeof SIZES;
+
+/** Un champ du schéma. */
+export interface IFieldSpec {
+  readonly name: string;
+  readonly type: FieldType;
+  /** Facteur appliqué avant d'écrire un entier, retiré à la lecture. */
+  readonly scale?: number;
+}
+
+/** Un enregistrement lu ou à écrire : un nombre par champ du schéma. */
+export type RecordOf<F extends readonly IFieldSpec[]> = {
+  [K in F[number]["name"]]: number;
+};
+
+/** Ce que rend `defineRecord` : la taille d'une entrée, et les deux sens. */
+export interface IRecordCodec<F extends readonly IFieldSpec[]> {
+  readonly bytes: number;
+  write(list: readonly RecordOf<F>[]): Uint8Array;
+  read(bytes: Uint8Array): RecordOf<F>[];
+}
+
+const LIMITS: Record<FieldType, readonly [number, number]> = {
+  u8: [0, 255],
+  u16: [0, 65_535],
+  i16: [-32_768, 32_767],
+  f32: [-Infinity, Infinity],
+};
+
+// #region game-records
+/**
+ * Décrit un enregistrement et rend son écrivain et son lecteur. Un entier hors
+ * de son type est BORNÉ, jamais replié : une position au-delà du bord reste au
+ * bord, elle ne réapparaît pas de l'autre côté.
+ */
+export function defineRecord<const F extends readonly IFieldSpec[]>(
+  fields: F,
+): IRecordCodec<F> {
+  const offsets: number[] = [];
+  let size = 0;
+  for (const field of fields) {
+    offsets.push(size);
+    size += SIZES[field.type];
+  }
+  const put = (
+    view: DataView,
+    at: number,
+    field: IFieldSpec,
+    value: number,
+  ) => {
+    const [min, max] = LIMITS[field.type];
+    const scaled = value * (field.scale ?? 1);
+    if (field.type === "f32") {
+      view.setFloat32(at, scaled, true);
+      return;
+    }
+    const n = Math.max(min, Math.min(max, Math.round(scaled)));
+    if (field.type === "u8") view.setUint8(at, n);
+    else if (field.type === "u16") view.setUint16(at, n, true);
+    else view.setInt16(at, n, true);
+  };
+  const get = (view: DataView, at: number, field: IFieldSpec): number => {
+    const raw =
+      field.type === "f32"
+        ? view.getFloat32(at, true)
+        : field.type === "u8"
+          ? view.getUint8(at)
+          : field.type === "u16"
+            ? view.getUint16(at, true)
+            : view.getInt16(at, true);
+    return raw / (field.scale ?? 1);
+  };
+  return {
+    bytes: size,
+    write(list) {
+      const out = new Uint8Array(list.length * size);
+      const view = new DataView(out.buffer);
+      list.forEach((entry, i) => {
+        fields.forEach((field, f) => {
+          const value: number = entry[field.name as F[number]["name"]];
+          put(view, i * size + (offsets[f] ?? 0), field, value);
+        });
+      });
+      return out;
+    },
+    read(bytes) {
+      // Bornée à SA tranche : un Uint8Array reçu ne commence pas toujours
+      // au début de son tampon.
+      const view = new DataView(
+        bytes.buffer,
+        bytes.byteOffset,
+        bytes.byteLength,
+      );
+      const list: RecordOf<F>[] = [];
+      for (let at = 0; at + size <= bytes.byteLength; at += size) {
+        const entry: Record<string, number> = {};
+        fields.forEach((field, f) => {
+          entry[field.name] = get(view, at + (offsets[f] ?? 0), field);
+        });
+        list.push(entry as RecordOf<F>);
+      }
+      return list;
+    },
+  };
+}
+// #endregion
+
+/** Un angle ramené dans ]-π, π] : il tient dans un Int16 au dix-millième. */
+export function wrapAngle(angle: number): number {
+  return Math.atan2(Math.sin(angle), Math.cos(angle));
+}

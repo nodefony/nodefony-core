@@ -19,6 +19,7 @@ export const LEVELS: Record<DemoLevel, { label: string; className: string }> = {
 /** Ancre et couleur de chaque rubrique (la nav du haut vise `#realtime`). */
 const RUBRIC_STYLE: Record<DemoRubric, { anchor: string; accent: string }> = {
   realtime: { anchor: "realtime", accent: "var(--cyan)" },
+  games: { anchor: "jeux", accent: "var(--amber)" },
   transports: { anchor: "flux", accent: "var(--blue)" },
   programs: { anchor: "programmes", accent: "var(--violet)" },
 };

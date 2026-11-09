@@ -15,6 +15,8 @@ import { ChatLesson } from "./chat/ChatLesson";
 import { FirstStepsLesson } from "./first/FirstStepsLesson";
 import { BinaryLesson } from "./binary/BinaryLesson";
 import { McpLesson } from "./mcp/McpLesson";
+import { MeteorLesson } from "./meteor/MeteorLesson";
+import { PrismLesson } from "./prism/PrismLesson";
 import { SseLesson } from "./sse/SseLesson";
 import { VideoLesson } from "./video/VideoLesson";
 import { Account } from "./kit/Account";
@@ -32,6 +34,7 @@ const SECTIONS = [
   { id: "roles", label: "Par où commencer" },
   { id: "realtime", label: "Temps réel" },
   { id: "catalogue", label: "Démos" },
+  { id: "jeux", label: "Jeux" },
   { id: "socle", label: "Le socle" },
   { id: "agents", label: "Pour les agents" },
 ] as const;
@@ -59,7 +62,9 @@ export function App() {
     page === "/demo/sse" ||
     page === "/demo/video" ||
     page === "/demo/binary" ||
-    page === "/demo/mcp";
+    page === "/demo/mcp" ||
+    page === "/demo/meteor" ||
+    page === "/demo/prism";
   // Le logo vient du paquet (`brand.ts`) : la feuille le lit par variable.
   const logo: CSSProperties & Record<"--demo-logo", string> = {
     "--demo-logo": `url(${JSON.stringify(NODEFONY_LOGO)})`,
@@ -82,6 +87,10 @@ export function App() {
         <BinaryLesson about={about} />
       ) : page === "/demo/mcp" ? (
         <McpLesson about={about} />
+      ) : page === "/demo/meteor" ? (
+        <MeteorLesson about={about} />
+      ) : page === "/demo/prism" ? (
+        <PrismLesson about={about} />
       ) : (
         <Home about={about} />
       )}

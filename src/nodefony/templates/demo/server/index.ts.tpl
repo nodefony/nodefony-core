@@ -24,6 +24,10 @@ import PartnerTokenController from "./nodefony/controllers/PartnerTokenControlle
 import DemoMcpController from "./nodefony/controllers/DemoMcpController";
 import McpTokenController from "./nodefony/controllers/McpTokenController";
 import DemoMcpService from "./nodefony/service/DemoMcpService";
+import MeteorController from "./nodefony/controllers/MeteorController";
+import MeteorService from "./nodefony/service/MeteorService";
+import PrismController from "./nodefony/controllers/PrismController";
+import PrismService from "./nodefony/service/PrismService";
 import { registerDemoEntry } from "./nodefony/frontend/registerDemoEntry";
 
 /**
@@ -56,6 +60,8 @@ declare module "nodefony" {
   PartnerTokenController,
   DemoMcpController,
   McpTokenController,
+  MeteorController,
+  PrismController,
 ])
 @services([
   AppInfoService,
@@ -64,6 +70,8 @@ declare module "nodefony" {
   ChatService,
   PartnerTokenService,
   DemoMcpService,
+  MeteorService,
+  PrismService,
 ])
 class DemoModule extends Module {
   constructor(kernel: Kernel) {

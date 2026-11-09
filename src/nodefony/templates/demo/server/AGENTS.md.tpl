@@ -45,10 +45,26 @@ un renvoi mort le fait échouer.
   de `@nodefony/ai` ; outils dans `nodefony/mcp/demoTools.ts`),
   `McpTokenController` (`/demo/api/mcp/token`, le RACCOURCI qui remet un jeton
   au visiteur connecté — un vrai agent suit la chaîne RFC 9728 → RFC 8414),
-  `PartnerController` (`/demo/api/partner`, zone `demo-partner` du firewall), les pages et l'accueil.
+  `PartnerController` (`/demo/api/partner`, zone `demo-partner` du firewall),
+  `MeteorController` et `PrismController` (`/demo/api/meteor/realtime`,
+  `/demo/api/prism/realtime` : deux jeux, deux portes chacun — le canal
+  d'état et la commande du joueur), les pages et l'accueil.
+- `nodefony/game/` — les briques SERVEUR communes aux jeux, à réutiliser pour
+  un jeu neuf : `GameRoom` (pilotes identifiés par leur CONNEXION, robots qui
+  complètent, boucle tant que quelqu'un regarde, trame publiée à chaque tour)
+  et `fixedStep` (boucle à pas fixe sur `hrtime`). Un jeu n'écrit que ses
+  `IGameRules` : `MeteorService.ts`, `PrismService.ts`.
+- `frontend/src/game/` — les briques PAGE communes aux jeux : enregistrements
+  binaires décrits par schéma (`records.ts`, ISOMORPHE : le serveur écrit, la
+  page lit), socket (`gameSocket.ts`), interpolation entre deux trames
+  (`snapshots.ts`), envoi des commandes (`commandSender.ts`), boucle
+  d'affichage (`useGameLoop.ts`), fil mesuré (`wireMeter.ts`, `WireHud.tsx`),
+  mise en page (`GamePage.tsx`). Un jeu n'écrit que son contrat, son client,
+  son écran et sa scène (`meteor/`, `prism/` — Three.js chargé à la demande).
 - `nodefony/service/` — l'état qui survit à une connexion (`ChatService`),
   le pouls de l'accueil (`DemoPulseService`, canal `demo:pulse`), la porte MCP
-  et son fil en direct (`DemoMcpService`, canal `demo:mcp`).
+  et son fil en direct (`DemoMcpService`, canal `demo:mcp`), la salle de
+  chaque jeu (`MeteorService`, `PrismService`).
 - `nodefony/config/security.ts` — les zones qu'apporte la démo :
   `demo` (session, puis anonyme), `demo-partner` (jeton, `^/demo/api/partner`)
   et `demo-mcp` (la RESSOURCE de la porte MCP, `^/mcp/demo$` : rendue absolue

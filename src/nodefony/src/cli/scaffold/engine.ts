@@ -3391,6 +3391,9 @@ function renderModuleSkeleton(
 /** Moteur du front de la démo : React seul (#747, décision de l'auteur). */
 const DEMO_FRONTEND = "react" satisfies Exclude<TFrontendChoice, "none">;
 
+/** Dépendances de développement propres au front de la démo, versions lues dans `SCAFFOLD_VERSIONS`. */
+export const DEMO_FRONT_DEV_DEPS = ["three", "@types/three"] as const;
+
 /**
  * Rend le front React de la démo dans son module : coquille HTML, page
  * `/demo`, déclaration de l'entry Vite et point de montage — les MÊMES
@@ -3465,6 +3468,12 @@ function renderDemoFront(
   const devDeps = ensureObjectField(manifest, "devDependencies");
   for (const [name, range] of Object.entries(front.devDeps)) {
     devDeps[name] = range;
+  }
+  // Three.js : la scène 3D de Prisme, propre à la démo. Une devDependency,
+  // comme le moteur front : Vite l'inline dans le bundle de sa seule page.
+  for (const name of DEMO_FRONT_DEV_DEPS) {
+    const range = SCAFFOLD_VERSIONS[name];
+    if (range !== undefined) devDeps[name] = range;
   }
   writePackageManifest(manifest, writer);
   if (!files.includes("package.json")) files.push("package.json");

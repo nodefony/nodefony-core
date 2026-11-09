@@ -53,7 +53,25 @@ export type LessonFile =
   | "frontend/src/sse/sseDemo.ts"
   | "frontend/src/video/videoDemo.ts"
   | "frontend/src/video/VideoLesson.tsx"
-  | "frontend/src/video/VideoVisuals.tsx";
+  | "frontend/src/video/VideoVisuals.tsx"
+  | "nodefony/controllers/MeteorController.ts"
+  | "nodefony/controllers/PrismController.ts"
+  | "nodefony/service/MeteorService.ts"
+  | "nodefony/service/PrismService.ts"
+  | "nodefony/game/GameRoom.ts"
+  | "nodefony/game/fixedStep.ts"
+  | "frontend/src/game/records.ts"
+  | "frontend/src/game/snapshots.ts"
+  | "frontend/src/game/commandSender.ts"
+  | "frontend/src/game/wireMeter.ts"
+  | "frontend/src/game/gameSocket.ts"
+  | "frontend/src/game/useGameLoop.ts"
+  | "frontend/src/meteor/meteorDemo.ts"
+  | "frontend/src/meteor/meteorClient.ts"
+  | "frontend/src/meteor/meteorScene.ts"
+  | "frontend/src/prism/prismDemo.ts"
+  | "frontend/src/prism/prismClient.ts"
+  | "frontend/src/prism/prismScene.ts";
 
 /** Les couches, dans l'ordre où l'on construit une fonctionnalité. */
 export const LESSON_LAYERS = [

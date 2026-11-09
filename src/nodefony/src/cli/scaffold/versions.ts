@@ -95,6 +95,10 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   "@vitejs/plugin-react": "^6.2.1",
   "@types/react": "^19.3.0",
   "@types/react-dom": "^19.3.0",
+  // La scène 3D du jeu Prisme de la démo (`create app --demo`) : chargée à la
+  // demande sur sa seule page, jamais par le framework.
+  three: "^0.187.0",
+  "@types/three": "^0.187.0",
   vue: "^3.5.45",
   "@vitejs/plugin-vue": "^6.0.10",
   svelte: "^5.57.3",

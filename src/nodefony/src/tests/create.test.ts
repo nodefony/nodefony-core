@@ -75,6 +75,7 @@ import {
 import type { IPrompts } from "../cli/prompts";
 import type { IScaffoldTypeSpec } from "../cli/scaffold/spec";
 import { SysExit } from "../cli/sysexits";
+import { SCAFFOLD_VERSIONS as VERSION_CATALOG } from "../cli/scaffold/versions";
 
 const argv = (...words: string[]): string[] => ["node", "nodefony", ...words];
 
@@ -2970,12 +2971,12 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const index = lireMod("index.ts");
       assert.include(
         index,
-        "@controllers([\n  PartnerController,\n  DemoPageController,\n  DemoController,\n  DemoRealtimeController,\n  ChatController,\n  FirstStepsController,\n  SseController,\n  VideoController,\n  BinaryController,\n  PartnerTokenController,\n  DemoMcpController,\n  McpTokenController,\n])",
+        "@controllers([\n  PartnerController,\n  DemoPageController,\n  DemoController,\n  DemoRealtimeController,\n  ChatController,\n  FirstStepsController,\n  SseController,\n  VideoController,\n  BinaryController,\n  PartnerTokenController,\n  DemoMcpController,\n  McpTokenController,\n  MeteorController,\n  PrismController,\n])",
       );
       assert.include(index, "registerDemoEntry(this);");
       assert.include(
         index,
-        "@services([\n  AppInfoService,\n  AppBannerService,\n  DemoPulseService,\n  ChatService,\n  PartnerTokenService,\n  DemoMcpService,\n])",
+        "@services([\n  AppInfoService,\n  AppBannerService,\n  DemoPulseService,\n  ChatService,\n  PartnerTokenService,\n  DemoMcpService,\n  MeteorService,\n  PrismService,\n])",
       );
       assert.include(index, "this.addCommand(PartnerCallCommand);");
       assert.include(index, "override configSchema(): unknown");
@@ -3157,6 +3158,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       };
       assert.property(pkg.devDependencies, "react");
       assert.property(pkg.devDependencies, "vite");
+      // La scène 3D de Prisme : Three.js en devDependency de la démo, version
+      // du catalogue unique — jamais dans l'application ni dans le framework.
+      assert.strictEqual(pkg.devDependencies?.three, VERSION_CATALOG.three);
+      assert.property(pkg.devDependencies, "@types/three");
       assert.property(pkg.peerDependencies, "@nodefony/frontend");
       // Le typecheck du module VOIT le front.
       const tsconfig = lireMod("tsconfig.json");
@@ -11476,7 +11481,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
 
   describe("dépendances des GABARITS (anti-dépendance fantôme)", () => {
     it("aucun gabarit n'importe un paquet qu'aucun manifeste généré ne déclare", async () => {
-      const { FRONTEND_PARAMS } = await import("../cli/scaffold/engine");
+      const { DEMO_FRONT_DEV_DEPS, FRONTEND_PARAMS } =
+        await import("../cli/scaffold/engine");
       const templates = path.join(findPackageRoot(), "templates");
 
       // Ce qu'un projet généré DÉCLARE, tous gabarits et toutes saveurs
@@ -11504,6 +11510,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           declared.add(name);
         }
       }
+      // Ce que le moteur ajoute au SEUL module de démo (Three.js de Prisme).
+      for (const name of DEMO_FRONT_DEV_DEPS) declared.add(name);
 
       // Ancré en début de ligne, comme la règle `undeclared-import` de
       // `nodefony doctor` : un gabarit MONTRE des imports dans son TSDoc (le
