@@ -810,7 +810,7 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
 - **Décision 1 quater (validée par l'auteur le 2026-11-09, #758) : une politique de LECTURE et
   une politique d'ÉCRITURE par nom — chacune s'applique telle qu'elle est déclarée.**
   - **Constaté** : `@RealtimeChannel(nom, p)` et `@RealtimeInbound(nom, q)` écrivaient la même
-    case (`src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts#definePolicy`) ;
+    case du registre des politiques (une seule métadonnée par nom) ;
     la seconde déclaration effaçait la première sans un mot, selon l'ordre des méthodes. Une règle
     de sécurité déclarée pouvait donc ne s'appliquer nulle part, et « tout le monde lit, seuls les
     connectés écrivent » n'était pas exprimable.
