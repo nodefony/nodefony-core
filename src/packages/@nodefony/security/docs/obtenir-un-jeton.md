@@ -125,15 +125,15 @@ Puis `npm run build` — le runtime lit le `dist`, pas la source.
 
 ### Les options, et ce que chacune décide
 
-| Option                 | Défaut                                       | Ce qu'elle change                                        |
-| ---------------------- | -------------------------------------------- | -------------------------------------------------------- |
-| `[identifier]`         | `admin`                                      | le compte porteur du jeton                               |
-| `-s, --scope <liste>`  | `admin:read`                                 | les pouvoirs demandés — ajouter `admin:write` pour muter |
-| `-r, --resource <uri>` | la porte MCP de l'application                | viser une **autre** audience                             |
-| `-a, --agent <noms>`   | ceux détectés                                | quels agents servir — `none` pour aucun                  |
-| `-t, --ttl <minutes>`  | 8 h avec `--write`, sinon la config (15 min) | la durée de validité, **bornée à 30 jours**              |
-| `-w, --write`          | proposé en terminal                          | poser `NF_MCP_TOKEN` chez les agents présents            |
-| `-j, --json`           | —                                            | sortie machine, sans invite                              |
+| Option                 | Défaut                                       | Ce qu'elle change                                                                                        |
+| ---------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `[identifier]`         | `admin`                                      | le compte porteur du jeton                                                                               |
+| `-s, --scope <liste>`  | `admin:read`                                 | les pouvoirs demandés — ajouter `admin:write` pour muter                                                 |
+| `-r, --resource <uri>` | la porte MCP de l'application                | viser une **autre** porte — son jeton va dans l'en-tête de l'agent, jamais dans `NF_MCP_TOKEN`           |
+| `-a, --agent <noms>`   | ceux détectés                                | quels agents servir — `none` pour aucun                                                                  |
+| `-t, --ttl <minutes>`  | 8 h avec `--write`, sinon la config (15 min) | la durée de validité, **bornée à 30 jours**                                                              |
+| `-w, --write`          | proposé en terminal                          | poser `NF_MCP_TOKEN` chez les agents présents — **refusé** avec un `--resource` qui vise une autre porte |
+| `-j, --json`           | —                                            | sortie machine, sans invite                                                                              |
 
 Le plafond de `--ttl` n'est pas décoratif : un jeton posé dans un fichier **est une clé**, et une
 clé se remplace (`security-mcp-token.ts#ttlSeconds`).
@@ -151,6 +151,13 @@ La variable est `NF_MCP_TOKEN` (`src/nodefony/src/cli/aiMcpReport.ts#MCP_TOKEN_E
 les agents dont la présence est **constatée** dans le projet — on ne crée pas la configuration d'un
 outil que personne n'utilise ici. La table des cibles vit au cœur
 (`src/nodefony/src/cli/agentTargets.ts#AGENT_TARGETS`) : Claude, Gemini, Vibe, Codex.
+
+`NF_MCP_TOKEN` sert **la porte de l'outillage**, et elle seule. Un jeton émis pour une autre porte
+(`--resource`) porte une autre audience : posé dans cette variable, il serait refusé par la porte de
+l'outillage, dont les outils réservés disparaîtraient sans un mot. La commande refuse donc `--write`
+dans ce cas, et n'affiche pas de ligne d'`export` (`security-mcp-token.ts#targetsOtherGate`) : ce
+jeton va dans l'en-tête de l'agent qui parle à cette porte, par exemple
+`claude mcp add --transport http <nom> <porte> --header "Authorization: Bearer <le jeton>"`.
 
 Deux garanties qui ne se négocient pas :
 
