@@ -39,8 +39,7 @@ import { entityRegistry } from "@nodefony/orm-core";
  * `NF_ADOPT_FIXTURE=<dialecte>+orphelin` — l'écart INVERSE : l'entité est
  * inscrite au REGISTRE et AUCUN fichier ne la fournit. Elle ne peut donc pas
  * être exportée d'ici — c'est tout l'objet du décor —, et l'application doit
- * être DÉMARRÉE pour que le registre la porte : sous `NODE_ENV=production` ce
- * module est écarté par sa politique, il faut donc `NF_WITH_DEV_MODULES=1`.
+ * être DÉMARRÉE pour que le registre la porte.
  * La génération doit REFUSER : une migration écrite sans la table d'une entité
  * déclarée ne se corrige pas, elle se remplace sur toutes les bases qui ont
  * déjà reçu la première.
@@ -54,6 +53,15 @@ import { entityRegistry } from "@nodefony/orm-core";
  * Une valeur absente n'exporte AUCUNE table : le fichier s'importe, et il n'y
  * a rien à trouver dedans. C'est voulu — la découverte des entités lit le
  * disque, pas le registre.
+ *
+ * ## Pourquoi il vit dans l'APPLICATION, et pas dans un module de banc
+ *
+ * Il simule une table que l'application déclare : il appartient donc à
+ * l'application, chargée dans tous les environnements. Logé dans un module
+ * `policy: "dev"`, il ne tenait qu'à un défaut — la génération lisait les
+ * fichiers d'un module que la production ne charge pas, et rangeait ses tables
+ * dans les migrations de l'application. La génération écarte désormais ces
+ * fichiers, et refuse quand un tel module lie ses tables au connecteur généré.
  */
 export const ADOPT_FIXTURE_TABLE = "adopt_cli_article";
 
@@ -206,7 +214,7 @@ export function registerAdoptFixtureEntity(): boolean {
   if (adoptFixtureTable !== undefined) {
     entityRegistry.register({
       connector: ADOPT_FIXTURE_CONNECTOR,
-      module: "test",
+      module: "app",
       name: ADOPT_FIXTURE_TABLE,
       schema: adoptFixtureTable,
     });
@@ -217,7 +225,7 @@ export function registerAdoptFixtureEntity(): boolean {
   if (orphelineTable !== undefined) {
     entityRegistry.register({
       connector: ADOPT_FIXTURE_CONNECTOR,
-      module: "test",
+      module: "app",
       name: ORPHAN_FIXTURE_ENTITY,
       schema: orphelineTable,
     });

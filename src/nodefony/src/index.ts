@@ -5,6 +5,8 @@
 // ─── Framework ────────────────────────────────────────────────────────────────
 export { Nodefony } from "./Nodefony";
 export { default as Kernel } from "./kernel/Kernel";
+export { devOnlyModules } from "./kernel/moduleGating";
+export { isModulePath } from "./kernel/resolveModuleEntry";
 export { default as Module } from "./kernel/Module";
 export { BootConfigurationError } from "./kernel/BootConfigurationError";
 export { parseStoreManifest } from "./kernel/storeManifest";

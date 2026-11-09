@@ -11,7 +11,7 @@ import {
 import {
   ORPHAN_FIXTURE_ENTITY,
   ORPHAN_FIXTURE_TABLE,
-} from "../../../../../modules/test/nodefony/entity/adoptFixture";
+} from "../../../../../../nodefony/entity/adoptFixture";
 import {
   ACTIF,
   ciblesPour,
@@ -43,10 +43,12 @@ import {
  * L'adoption ne lit QUE les tables de l'application : celles du framework ont
  * leurs propres migrations et sont exclues. Or le dépôt ne déclarait aucune
  * entité applicative — l'adoption n'avait donc rien à adopter, et la commande
- * ne pouvait pas être exercée sur un démarrage réel. Le module `test` fournit
- * cette table manquante, sous l'interrupteur `NF_ADOPT_FIXTURE` : elle
+ * ne pouvait pas être exercée sur un démarrage réel. L'application témoin
+ * fournit cette table manquante, sous l'interrupteur `NF_ADOPT_FIXTURE` : elle
  * n'existe que le temps de ce banc, et n'apparaît dans aucune génération
- * lancée par ailleurs (cf `src/modules/test/nodefony/entity/adoptFixture.ts`).
+ * lancée par ailleurs (cf `nodefony/entity/adoptFixture.ts`, à la racine).
+ * Elle vit dans l'APPLICATION et non dans un module de banc : la génération
+ * écarte les fichiers d'un module `policy: "dev"` (#687).
  *
  * ## Le scénario, qui est celui d'une application vraie
  *
@@ -60,7 +62,7 @@ import {
  * ```
  *
  * ⚠️ Exige un `npm run build` préalable : c'est le paquet BÂTI que le kernel
- * charge, et le module `test` doit porter la table du décor.
+ * charge, et l'application doit porter la table du décor.
  */
 
 /** Un nom propre à ce banc — les bases de serveur sont partagées. */
@@ -511,7 +513,11 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
         base: { sql: (q: string[]) => Promise<unknown> },
         avecTable: Record<string, string>,
       ): Promise<string> => {
-        const migre = await cli(["orm:migrate", "--json"], avecTable);
+        // Le premier passage n'applique que ce qui EXISTE (framework, User) :
+        // sans la consigne, sinon l'application déclare déjà une table que
+        // rien n'a encore créée, et le passage refuse — à juste titre.
+        const { NF_ADOPT_FIXTURE: _consigne, ...sansTable } = avecTable;
+        const migre = await cli(["orm:migrate", "--json"], sansTable);
         assert.equal(migre.code, 0, diagnostic(migre));
         await base.sql([`DROP TABLE IF EXISTS ${citer(cible.dialect, TABLE)}`]);
         const initiale = await cli(
@@ -553,13 +559,10 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
       /**
        * Table du FRAMEWORK, retirée de la base pour fabriquer un écart réel.
        *
-       * 🔴 Pourquoi pas la table du décor applicatif : elle est déclarée par le
-       * module « test », qui porte `policy: "dev"`. Le décor de ce banc impose
-       * `NODE_ENV=production` — le module n'est donc pas chargé, sa table
-       * n'entre jamais au registre, et la comparaison au schéma déclaré ne peut
-       * pas la voir. Mesuré : le statut rend `up-to-date` sur une base à qui
-       * il manque une colonne. La garde était inexerçable par cette voie, et
-       * l'écart devait venir d'une entité qu'un module OBLIGATOIRE déclare.
+       * 🔴 Pourquoi pas la table du décor applicatif : elle n'existe que sous
+       * sa consigne (`NF_ADOPT_FIXTURE`). L'écart doit venir d'une entité que
+       * TOUT démarrage déclare, décor ou pas — sinon la garde ne se voit que
+       * dans les cas qui posent la consigne.
        *
        * Celle-ci ne sert qu'aux routes idempotentes : la retirer ne gêne aucun
        * démarrage.
@@ -754,14 +757,7 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
         });
       }, 600_000);
 
-      it("🔴 rien à écrire sur une base NEUVE : les migrations en attente se nomment, l'historique n'est pas accusé", async (ctx) => {
-        if (cible.dialect === "sqlite") {
-          // Décor pollué, pas le produit : sous NODE_ENV=production, la
-          // découverte balaie dans `default` les tables SQLite du module
-          // `mediasoup` (policy dev, connecteur propre) — défaut suivi à part.
-          ctx.skip();
-          return;
-        }
+      it("🔴 rien à écrire sur une base NEUVE : les migrations en attente se nomment, l'historique n'est pas accusé", async () => {
         // Le parcours du banc de schéma réel : les fichiers existent (écrits
         // pour un autre moteur du même dialecte, ou sur un autre poste), la
         // base est vide. L'écart est entièrement expliqué par ce qui attend ;
@@ -802,11 +798,7 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
         });
       }, 600_000);
 
-      it("🔴 un historique qui MENT reste refusé : rien n'attend, et la table manque", async (ctx) => {
-        if (cible.dialect === "sqlite") {
-          ctx.skip(); // même décor pollué que le cas précédent.
-          return;
-        }
+      it("🔴 un historique qui MENT reste refusé : rien n'attend, et la table manque", async () => {
         await surBase(async (base, env) => {
           const migre = await cli(["orm:migrate", "--json"], env);
           assert.equal(migre.code, 0, diagnostic(migre));
@@ -938,15 +930,11 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
           // L'écart INVERSE de celui du cas précédent : là le fichier fournit
           // une table que le registre ignore, ici le registre déclare une
           // entité que nul fichier ne fournit. Il ne peut donc PAS venir de la
-          // découverte — qui lit le disque, module chargé ou non : il faut que
-          // l'application ait DÉMARRÉ avec le module qui l'inscrit. En
-          // production ce module est écarté par sa politique, d'où la
-          // dérogation du produit (`NF_WITH_DEV_MODULES`) — et non un module de
-          // décor de plus, chargé pour toujours au démarrage du dépôt.
+          // découverte — qui lit le disque : il faut que l'application ait
+          // DÉMARRÉ, et c'est elle qui l'inscrit.
           const orphelin = {
             ...env,
             NF_ADOPT_FIXTURE: `${cible.dialect}+orphelin`,
-            NF_WITH_DEV_MODULES: "1",
           };
           try {
             const migre = await cli(["orm:migrate", "--json"], env);
@@ -1008,11 +996,13 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
           return;
         }
         await surBase(async (base, env) => {
-          // Le module du décor est CHARGÉ — la dérogation seule, sans la
+          // Les modules de développement sont CHARGÉS (dérogation), sans la
           // consigne qui dit quoi inscrire. C'est l'état dans lequel se trouve
           // quiconque lance une génération depuis ce dépôt, et il ne doit RIEN
           // en coûter : un décor qui s'inscrirait par défaut ferait refuser
-          // toutes les générations, ou pire, entrerait dans l'une d'elles.
+          // toutes les générations, ou pire, entrerait dans l'une d'elles. Et
+          // un module de développement chargé sur SON connecteur ne fait pas
+          // refuser la génération de `default`.
           const sansConsigne = { ...env, NF_WITH_DEV_MODULES: "1" };
           try {
             const migre = await cli(["orm:migrate", "--json"], env);

@@ -89,6 +89,49 @@ export function devModulesLoaded(
   return !isProduction || forceFlag === "1";
 }
 
+/**
+ * Normalise une entrée de manifeste écrite à la main — une chaîne nue ou un
+ * objet. Seul `name` est vérifié : le reste de la forme est SUPPOSÉ.
+ *
+ * @param item - l'entrée telle qu'elle est déclarée.
+ * @returns l'entrée objet, ou `null` si elle n'a pas de nom.
+ */
+function toManifestEntry(item: unknown): IModuleManifestEntry | null {
+  const entry =
+    typeof item === "string"
+      ? { name: item }
+      : (item as IModuleManifestEntry | null | undefined);
+  return entry?.name ? entry : null;
+}
+
+/** La politique qui écarte un module d'un runtime de production — lue à UN endroit. */
+function isDevPolicy(entry: IModuleManifestEntry): boolean {
+  return entry.policy === "dev";
+}
+
+/**
+ * Les modules du manifeste qu'un runtime de PRODUCTION écarte par leur
+ * politique `policy: "dev"` — quel que soit le runtime qui pose la question.
+ *
+ * Le second lecteur est la génération des migrations : ce qu'elle écrit part
+ * en base de production, donc elle doit savoir quels modules n'y seront pas,
+ * y compris quand elle tourne en développement, où ils sont chargés. Les gardes
+ * `when(config)` ne sont PAS évaluées : elles dépendent d'une configuration que
+ * ce lecteur n'a pas, et la politique se lit sans elle.
+ *
+ * @param manifest - le manifeste `config.modules`, tel qu'il est déclaré.
+ * @returns les noms d'entrée des modules de développement, dans l'ordre du manifeste.
+ */
+export function devOnlyModules(manifest: unknown): string[] {
+  if (!Array.isArray(manifest)) return [];
+  const names: string[] = [];
+  for (const item of manifest as unknown[]) {
+    const entry = toManifestEntry(item);
+    if (entry !== null && isDevPolicy(entry)) names.push(entry.name);
+  }
+  return names;
+}
+
 /** La raison affichée quand la politique du module l'écarte d'un runtime de production. */
 export const GATED_BY_POLICY = 'policy "dev" — runtime production';
 
@@ -116,15 +159,10 @@ export function gateModuleManifest(
   if (!Array.isArray(manifest)) return { entries, gated, derogated };
 
   for (const item of manifest as unknown[]) {
-    // Manifeste écrit à la main : la forme d'une entrée objet est SUPPOSÉE,
-    // seul `name` est vérifié (ligne suivante).
-    const entry =
-      typeof item === "string"
-        ? { name: item }
-        : (item as IModuleManifestEntry | null | undefined);
-    if (!entry?.name) continue;
+    const entry = toManifestEntry(item);
+    if (entry === null) continue;
 
-    if (entry.policy === "dev" && input.isProduction) {
+    if (isDevPolicy(entry) && input.isProduction) {
       if (input.forceDevModules) {
         derogated.push(entry.name);
       } else {

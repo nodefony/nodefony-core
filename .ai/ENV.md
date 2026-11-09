@@ -40,7 +40,7 @@ rien : elle change ce qui est EXÉCUTÉ.
 
 | Variable | Rôle | Valeurs | Absente ⇒ |
 | --- | --- | --- | --- |
-| `NF_ADOPT_FIXTURE` | Fait exporter au module `test` la table applicative que le banc d'adoption doit trouver. | `sqlite|postgres|mysql`, éventuellement suffixé `+slug`, `+paire`, `+orphelin` ou `+usurpe` | Le fichier d'entité s'importe et n'exporte AUCUNE table : l'adoption n'a rien à adopter, et une génération voit disparaître la table — ce qu'un outil de diff prend pour une suppression. |
+| `NF_ADOPT_FIXTURE` | Fait déclarer à l'application témoin la table que le banc d'adoption doit trouver. | `sqlite|postgres|mysql`, éventuellement suffixé `+slug`, `+paire`, `+orphelin` ou `+usurpe` | Le fichier d'entité s'importe et n'exporte AUCUNE table : l'adoption n'a rien à adopter, et une génération voit disparaître la table — ce qu'un outil de diff prend pour une suppression. |
 
 ### banc de compatibilité entre versions
 
@@ -176,7 +176,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_ACCUEIL_REGISTRY` | `scripts/release/accueil-gate.mjs:87` |
 | `NF_ACCUEIL_ROOT` | `scripts/release/accueil-gate.mjs:84` |
 | `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:950` |
-| `NF_BENCH_ROUTE` | `src/modules/test/index.ts:118` |
+| `NF_BENCH_ROUTE` | `src/modules/test/index.ts:117` |
 | `NF_BIND_ALL` | `scripts/test/test-all.ts:805` |
 | `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:3018` |
 | `NF_BOOT_WARN_MS` | `src/nodefony/src/kernel/Kernel.ts:3030` |

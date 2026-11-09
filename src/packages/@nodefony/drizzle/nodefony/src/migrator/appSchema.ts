@@ -35,6 +35,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { Table, getTableName, is } from "drizzle-orm";
 import { entityRegistry } from "@nodefony/orm-core";
+import { isModulePath } from "nodefony";
 import { MySqlTable } from "drizzle-orm/mysql-core";
 import { PgTable } from "drizzle-orm/pg-core";
 import { SQLiteTable } from "drizzle-orm/sqlite-core";
@@ -150,6 +151,89 @@ export async function entityFilesOf(targetDir: string): Promise<string[]> {
     .filter((n) => n.endsWith(".ts") && !n.endsWith(".schema.ts"))
     .sort()
     .map((n) => path.join(dir, n));
+}
+
+/**
+ * Cibles de génération qui appartiennent à un module de DÉVELOPPEMENT — un
+ * module que le runtime de production ne chargera pas.
+ *
+ * Une entrée du manifeste désigne son module par son nom de paquet, ou par son
+ * chemin (`./src/demo`, relatif à la racine de l'application, comme le résout
+ * le Kernel) : les deux formes sont reconnues. La correspondance porte sur le
+ * nom déclaré par le `package.json` de la cible, ou sur son dossier.
+ *
+ * @param targets - les cibles de l'application (elle-même et ses modules).
+ * @param devModules - les entrées du manifeste écartées en production.
+ * @param root - racine de l'application.
+ * @param paths - grammaire de chemins (injectée pour éprouver Windows partout).
+ * @returns les cibles de développement, dans l'ordre reçu.
+ */
+export function devModuleTargets<T extends { name: string; dir: string }>(
+  targets: readonly T[],
+  devModules: readonly string[],
+  root: string,
+  paths: typeof path = path,
+): T[] {
+  if (devModules.length === 0) {
+    return [];
+  }
+  const byName = new Set<string>();
+  const byDir = new Set<string>();
+  for (const entry of devModules) {
+    if (isModulePath(entry)) {
+      byDir.add(paths.resolve(root, entry));
+    } else {
+      byName.add(entry);
+    }
+  }
+  return targets.filter(
+    (t) => byName.has(t.name) || byDir.has(paths.resolve(t.dir)),
+  );
+}
+
+/** Une table d'un module de développement que la génération REFUSE d'écarter en silence. */
+export interface IDevModuleTable<T> {
+  table: T;
+  /** Le module, tel que sa cible le nomme. */
+  module: string;
+}
+
+/**
+ * Sépare les tables qu'une migration peut porter de celles d'un module de
+ * DÉVELOPPEMENT — qui n'entrent dans aucune, quel que soit l'environnement de
+ * la génération.
+ *
+ * Une table de module de développement est écartée sans un mot quand elle
+ * n'est pas liée au connecteur généré (son propre connecteur, ou un module non
+ * chargé que le registre ignore). Elle est REFUSÉE quand le registre la lie à
+ * ce connecteur : le module est alors chargé et compte sur ces migrations pour
+ * bâtir sa base, et l'écarter la lui retirerait.
+ *
+ * @param tables - tables découvertes dans les fichiers.
+ * @param devModuleOf - `fichier → module` pour les fichiers d'un module de développement.
+ * @param connector - connecteur généré.
+ * @param owners - `table → connecteurs` qui la déclarent (le registre).
+ * @returns les tables gardées, et celles qui doivent faire refuser la génération.
+ */
+export function splitDevModuleTables<
+  T extends { file: string; tableName: string },
+>(
+  tables: readonly T[],
+  devModuleOf: ReadonlyMap<string, string>,
+  connector: string,
+  owners: ReadonlyMap<string, ReadonlySet<string>>,
+): { kept: T[]; refused: IDevModuleTable<T>[] } {
+  const kept: T[] = [];
+  const refused: IDevModuleTable<T>[] = [];
+  for (const table of tables) {
+    const module = devModuleOf.get(table.file);
+    if (module === undefined) {
+      kept.push(table);
+    } else if (owners.get(table.tableName)?.has(connector) === true) {
+      refused.push({ table, module });
+    }
+  }
+  return { kept, refused };
 }
 
 /**

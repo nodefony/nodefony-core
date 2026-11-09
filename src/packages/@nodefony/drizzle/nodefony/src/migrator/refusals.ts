@@ -55,6 +55,8 @@ export type CommandFailureCode =
   | "NF_GENERATE_UNREADABLE_ENTITY"
   /** Un fichier de l'application fournit une table qui appartient au framework. */
   | "NF_GENERATE_FRAMEWORK_TABLE"
+  /** Un module de développement (`policy: "dev"`) lie ses tables à un connecteur migré. */
+  | "NF_GENERATE_DEV_MODULE_TABLE"
   /** La migration produite DÉTRUIT des données, et personne ne l'a dit. */
   | "NF_GENERATE_DESTRUCTIVE"
   /** Rien à écrire, et pourtant la base ne porte pas le schéma déclaré. */

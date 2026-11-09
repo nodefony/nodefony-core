@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import {
+  devOnlyModules,
   listTargets,
   type CliKernel,
   type OptionsCommandInterface,
@@ -8,7 +9,10 @@ import {
 import type { SqlDialect } from "../interfaces/IDrizzleConfig";
 import {
   collectTables,
+  devModuleTargets,
   entityFilesOf,
+  registeredOwners,
+  splitDevModuleTables,
   writeCustomMigration,
   writeKitConfig,
   missingProviders,
@@ -425,12 +429,63 @@ class OrmGenerate extends OrmMigrateCommand {
     //    fichier est-il sous la racine de ce paquet ?) au lieu de se deviner à
     //    un préfixe de nom : dans le dépôt du framework, ses paquets sont des
     //    espaces de travail, donc des cibles de scaffold comme les autres.
+    //
+    //    🔴 Et pas ceux d'un module de DÉVELOPPEMENT (`policy: "dev"`), quel
+    //    que soit l'environnement de la génération. Une migration s'applique
+    //    en production ; ce module n'y est pas chargé. Écarté seulement en
+    //    production, il rendait deux générations différentes selon l'endroit où
+    //    on la lance — et la seconde proposait de supprimer ce que la première
+    //    avait créé. Gardé partout, il créait ses tables dans la base de
+    //    production. La politique se lit au MANIFESTE, pas au registre : en
+    //    production le module n'a rien enregistré.
+    const targets = listTargets(root);
+    const devTargets = devModuleTargets(
+      targets,
+      devOnlyModules(this.appKernel?.options.modules),
+      root,
+    );
     const files: string[] = [];
-    for (const target of listTargets(root)) {
-      files.push(...(await entityFilesOf(target.dir)));
+    const devModuleOf = new Map<string, string>();
+    for (const target of targets) {
+      const own = await entityFilesOf(target.dir);
+      files.push(...own);
+      if (devTargets.includes(target)) {
+        for (const file of own) {
+          devModuleOf.set(file, target.name);
+        }
+      }
     }
-    const { tables: found, unreadable: rawUnreadable } =
+    const { tables: discovered, unreadable: rawUnreadable } =
       await collectTables(files);
+    const owners = registeredOwners();
+    // Le module est CHARGÉ (développement, ou dérogation) et lie ses tables à
+    // CE connecteur : les écarter en silence laisserait sa base de
+    // développement sans elles — le connecteur est bâti par ses migrations.
+    // C'est la configuration qu'il faut changer, et le refus la nomme.
+    const { kept: found, refused: devHere } = splitDevModuleTables(
+      discovered,
+      devModuleOf,
+      connector,
+      owners,
+    );
+    if (devHere.length > 0) {
+      const list = devHere
+        .map(
+          ({ table, module }) =>
+            `  • « ${table.tableName} », module « ${module} » (${relative(table.file)})`,
+        )
+        .join("\n");
+      this.fail(
+        connector,
+        "NF_GENERATE_DEV_MODULE_TABLE",
+        `${devHere.length} table(s) d'un module de développement entreraient dans les migrations du connecteur « ${connector} » :\n${list}`,
+        "Rien n'a été écrit. Un module déclaré « policy: \"dev\" » n'est pas chargé en production, mais une migration s'applique partout : ses tables seraient créées dans la base de production, et une génération lancée sans lui proposerait ensuite de les supprimer. Donner à ce module un connecteur à lui, sans migration versionnée : son schéma est alors dérivé au démarrage, en développement seulement. Si ces tables doivent exister en production, ce n'est pas un module de développement — retirer sa politique « dev » du manifeste.",
+        [action("nodefony inspect entities --json")],
+        opts.json,
+        EXIT.actionRequired,
+      );
+      return this;
+    }
     // Les chemins du rapport sont relatifs à la racine de l'application, tous
     // sans exception : un chemin absolu au milieu d'une liste de chemins courts
     // se lit comme un autre genre de chose.
@@ -448,7 +503,7 @@ class OrmGenerate extends OrmMigrateCommand {
     // sans elle est la seule façon de ne pas mentir sur ce qui a été écrit.
     // Et une table d'un AUTRE connecteur non plus : elle vit dans une autre
     // base, dont les migrations sont écrites à part.
-    const ofConnector = tablesOfConnector(mine, connector);
+    const ofConnector = tablesOfConnector(mine, connector, owners);
     // Une table PORTABLE sert tous les moteurs : elle entre toujours.
     const servesDialect = (t: IDiscoveredTable): boolean =>
       t.portable || t.dialect === dialect;

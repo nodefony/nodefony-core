@@ -54,7 +54,7 @@ export const BENCH_DECOR: Record<string, IEnvDeclaration> = {
     group: "pare-feu — limitation de débit",
   },
   NF_ADOPT_FIXTURE: {
-    what: "Fait exporter au module `test` la table applicative que le banc d'adoption doit trouver.",
+    what: "Fait déclarer à l'application témoin la table que le banc d'adoption doit trouver.",
     values:
       "`sqlite|postgres|mysql`, éventuellement suffixé `+slug`, `+paire`, `+orphelin` ou `+usurpe`",
     absent:

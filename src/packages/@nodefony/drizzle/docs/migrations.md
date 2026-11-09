@@ -271,16 +271,22 @@ genre, ou rendre une colonne obligatoire reste refusé sans `--allow-destructive
 
 **Une migration est immuable dès qu'une base l'a reçue.** Une migration à laquelle il manque une
 table ne se corrige donc pas : elle se remplace par une suivante, sur toutes les bases qui ont déjà
-appliqué la première. C'est pour cela que trois situations arrêtent la commande avant qu'elle
+appliqué la première. C'est pour cela que quatre situations arrêtent la commande avant qu'elle
 n'écrive quoi que ce soit — chacune nomme ce qui cloche :
 
-| Ce qui est refusé                                              | Ce que ça veut dire                                                                                                                                 |
-| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| une entité enregistrée qu'aucun fichier ne fournit             | son fichier a été déplacé, renommé, ou ne s'importe pas seul — la migration serait écrite **sans sa table**                                         |
-| un fichier de l'application qui exporte une table du framework | la migration porterait un second `CREATE TABLE` pour cette table : elle passerait sur une base vierge, et échouerait sur toute base **déjà migrée** |
-| une migration qui **supprime** des données                     | les fichiers **sont écrits** et conservés : ce sont eux qu'il faut lire. C'est leur mise en service qui est retenue, et elle a sa propre garde      |
+| Ce qui est refusé                                                 | Ce que ça veut dire                                                                                                                                                                                                                                                    |
+| ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| une entité enregistrée qu'aucun fichier ne fournit                | son fichier a été déplacé, renommé, ou ne s'importe pas seul — la migration serait écrite **sans sa table**                                                                                                                                                            |
+| un fichier de l'application qui exporte une table du framework    | la migration porterait un second `CREATE TABLE` pour cette table : elle passerait sur une base vierge, et échouerait sur toute base **déjà migrée**                                                                                                                    |
+| un module `policy: "dev"` qui lie ses tables au connecteur généré | ce module n'est pas chargé en production, mais une migration s'applique partout : ses tables y seraient créées (`NF_GENERATE_DEV_MODULE_TABLE`). Donnez-lui un connecteur à lui, sans migration : son schéma est alors dérivé au démarrage, en développement seulement |
+| une migration qui **supprime** des données                        | les fichiers **sont écrits** et conservés : ce sont eux qu'il faut lire. C'est leur mise en service qui est retenue, et elle a sa propre garde                                                                                                                         |
 
-Le troisième cas mérite deux précisions.
+Les fichiers d'entités d'un module de développement n'entrent dans **aucune** migration, quel que
+soit l'environnement où vous la générez : une génération rend la même migration en développement
+et en production. Ils ne font refuser que dans le cas du tableau — quand ce module, chargé, attend
+de ces migrations qu'elles bâtissent sa base.
+
+Le dernier cas mérite deux précisions.
 
 D'abord, quand une colonne disparaît et qu'une autre apparaît, aucun outil ne peut deviner s'il
 s'agit d'un **renommage** — les données suivent — ou d'une suppression suivie d'un ajout — les
@@ -294,14 +300,14 @@ propose : annuler les fichiers avec votre outil de gestion de versions, ou les a
 `orm:migrate` qui met en service, et c'est lui qui porte la garde `--allow-destructive` hors du
 développement.
 
-Un quatrième refus n'a rien à voir avec votre schéma : **l'outil qui écrit les migrations n'est pas
+Un cinquième refus n'a rien à voir avec votre schéma : **l'outil qui écrit les migrations n'est pas
 installé** (`NF_GENERATE_TOOL_MISSING`). C'est une dépendance de DÉVELOPPEMENT — votre application
 la déclare, et un `npm install` la pose. Elle manque quand l'installation s'est faite sans les
 dépendances de développement (`--omit=dev`, une image de production). Le refus le dit et donne le
 geste ; il ne parle pas de votre base, qui n'y est pour rien — appliquer des migrations, lui, ne
 réclame aucun outil tiers.
 
-Un cinquième tient à la forme d'un fichier d'entité : **un `await` de premier niveau**
+Un sixième tient à la forme d'un fichier d'entité : **un `await` de premier niveau**
 (`NF_GENERATE_TOP_LEVEL_AWAIT`). Votre application est ESM et démarre très bien avec lui, mais
 l'outil qui écrit les migrations relit les fichiers de schéma de son côté, en CommonJS, où cette
 construction n'existe pas. Le refus nomme le fichier et la ligne. Un fichier d'entité **déclare**

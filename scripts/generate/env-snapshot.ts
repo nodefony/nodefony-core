@@ -70,8 +70,11 @@ import {
 import { REPO_ROOT as ROOT } from "../lib/repo-root.mjs";
 import { ENV_REFERENCE_PAGE, renderEnvReference } from "./env-reference.ts";
 
-/** Dossiers balayés — les seuls qui portent du code exécuté. */
-const SCANNED = ["src", "scripts"];
+/**
+ * Dossiers balayés — ceux qui portent du code exécuté : le framework, son
+ * outillage, et le code de l'application témoin (`nodefony/`, à la racine).
+ */
+const SCANNED = ["src", "scripts", "nodefony"];
 
 /** Ce qu'on ne lit jamais : produit du build, dépendances, artefacts. */
 const IGNORED = new Set(["node_modules", "dist", ".git", "coverage", "tmp"]);
@@ -120,7 +123,10 @@ function isBenchFile(rel: string): boolean {
     rel.startsWith("tests/") ||
     rel.endsWith(".test.ts") ||
     rel.includes("harness") ||
-    rel.startsWith("src/modules/test/")
+    rel.startsWith("src/modules/test/") ||
+    // Le décor du banc d'adoption vit dans l'APPLICATION témoin, qu'il
+    // simule : une table déclarée par elle, inerte hors de sa consigne.
+    rel === "nodefony/entity/adoptFixture.ts"
   );
 }
 

@@ -9,7 +9,12 @@
  */
 import { describe, it } from "vitest";
 import { assert } from "vitest";
-import { devModulesLoaded, gateModuleManifest } from "../kernel/moduleGating";
+import {
+  devModulesLoaded,
+  devOnlyModules,
+  gateModuleManifest,
+  GATED_BY_POLICY,
+} from "../kernel/moduleGating";
 
 describe("devModulesLoaded — le verdict du gating, publié à la configuration", () => {
   it("hors production : chargés, dérogation ou pas", () => {
@@ -39,5 +44,50 @@ describe("devModulesLoaded — le verdict du gating, publié à la configuration
         );
       }
     }
+  });
+});
+
+describe("devOnlyModules — ce que la production n'aura pas, demandé de n'importe où", () => {
+  const manifest = [
+    "@nodefony/http",
+    { name: "@app/bench", policy: "dev" as const },
+    { name: "./src/demo", policy: "dev" as const },
+    { name: "@app/sometimes", when: () => false },
+    { name: "@app/mandatory", policy: "mandatory" as const },
+  ];
+
+  it('rend les modules `policy: "dev"`, dans l\'ordre du manifeste', () => {
+    assert.deepEqual(devOnlyModules(manifest), ["@app/bench", "./src/demo"]);
+  });
+
+  it("n'évalue AUCUNE garde `when()` — sa config n'est pas celle du lecteur", () => {
+    let called = false;
+    devOnlyModules([
+      {
+        name: "@app/guarded",
+        when: () => {
+          called = true;
+          return true;
+        },
+      },
+    ]);
+    assert.isFalse(called);
+  });
+
+  it("dit la MÊME chose que le gating d'un runtime de production", () => {
+    const { gated } = gateModuleManifest(manifest, {
+      isProduction: true,
+      forceDevModules: false,
+      config: {},
+    });
+    const byPolicy = gated
+      .filter((g) => g.reason === GATED_BY_POLICY)
+      .map((g) => g.module);
+    assert.deepEqual(devOnlyModules(manifest), byPolicy);
+  });
+
+  it("un manifeste absent ou mal formé ne rend rien", () => {
+    assert.deepEqual(devOnlyModules(undefined), []);
+    assert.deepEqual(devOnlyModules([null, { policy: "dev" }]), []);
   });
 });

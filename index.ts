@@ -13,6 +13,7 @@ import { provisionUsers } from "./nodefony/security/provisionUsers";
 // L'identité appartient à l'APPLICATION : le framework ne livre plus la table
 // `User` dans ses migrations. Ce dépôt en est une — il porte donc la sienne.
 import { AppUserEntity } from "./nodefony/entity/User";
+import { registerAdoptFixtureEntity } from "./nodefony/entity/adoptFixture";
 
 /**
  * Point d'entrée de l'application Nodefony.
@@ -56,6 +57,16 @@ class App extends Module {
    */
   override configSchema(): unknown {
     return appConfigJsonSchema();
+  }
+
+  /**
+   * Décor du banc d'adoption en ligne de commande (opt-in `NF_ADOPT_FIXTURE`) :
+   * la table que l'application déclare en propre, inscrite AVANT que
+   * l'adaptateur ne se connecte. Sans la variable, rien n'est inscrit.
+   */
+  override async onKernelRegister(): Promise<this> {
+    registerAdoptFixtureEntity();
+    return this;
   }
 
   /**
