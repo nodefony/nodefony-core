@@ -226,11 +226,7 @@ describe("security:mcp:token --resource <autre porte> — jamais NF_MCP_TOKEN", 
       { tokenService: emetteur, users: annuaire },
       modules,
     );
-    const journal: string[] = [];
-    vi.spyOn(cmd, "log").mockImplementation((msg: unknown) => {
-      journal.push(String(msg));
-      return cmd;
-    });
+    const journal = vi.spyOn(cmd, "log");
     const avant = process.exitCode;
     try {
       const sortie = await sortieDe(() =>
@@ -239,8 +235,11 @@ describe("security:mcp:token --resource <autre porte> — jamais NF_MCP_TOKEN", 
       expect(process.exitCode).toBe(1);
       expect(emetteur.appels).toEqual([]);
       expect(sortie).not.toContain("eyJ.JETON.DEMO");
-      expect(journal.join("\n")).toContain("--write refusé");
+      expect(journal.mock.calls.map((c) => String(c[0])).join("\n")).toContain(
+        "--write refusé",
+      );
     } finally {
+      journal.mockRestore();
       process.exitCode = avant;
     }
   });
