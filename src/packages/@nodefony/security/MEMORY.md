@@ -127,7 +127,9 @@ Consomme `@nodefony/user`. Coupling http→security = **type-only** (`Firewall`/
   de config. `jwt.audiences` = **liste BLANCHE de ressources demandables** (la 1ʳᵉ = défaut), complétée
   EN FIN par la `resource` de chaque zone (`jwtRuntime.ts#resolveJwtRuntime`, partagé émetteur + vérificateurs :
   un module apporte sa zone à jeton par `module-security` sans toucher `jwt.audiences`, que la fusion
-  profonde écraserait par index) ; hors liste,
+  profonde écraserait par index). ⚠️ Liste d’ÉMISSION, pas d’acceptation : une zone `jwt` n’exige QUE sa
+  `resource`, ou l’audience par défaut sans `resource` (`JwtAuthenticator.ts#JwtAuthenticator.authenticate`, RFC 9068 §4)
+  — un jeton MCP n’ouvre pas une zone à jeton ; hors liste,
   multiple, non-URI ou fragment ⇒ **`InvalidTargetError` (400, `invalid_target`)**, jamais servi avec
   l'audience par défaut. Une seule ressource par jeton (§3 : plusieurs destinataires ⇒ chacun peut agir
   chez les autres). L'audience ACCORDÉE est stockée au record refresh et **rejouée à la rotation** —

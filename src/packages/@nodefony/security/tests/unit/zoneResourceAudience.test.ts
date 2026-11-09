@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { BootConfigurationError, Container } from "nodefony";
 import type { Module } from "nodefony";
 import type { IUser } from "@nodefony/user";
+import type { ContextType } from "@nodefony/http";
+import { AuthenticationError } from "../../nodefony/errors/AuthenticationError";
 import * as jose from "jose";
 import { TokenService } from "../../nodefony/service/tokenService";
 import { InvalidTargetError } from "../../nodefony/errors/InvalidTargetError";
@@ -142,7 +144,7 @@ describe("ressource d'une zone — audience émettable (RFC 8707)", () => {
     );
   });
 
-  it("vérification : l'authenticator `jwt` du registre accepte le jeton émis pour la ressource de la zone", async () => {
+  it("vérification : l'authenticator `jwt` du registre accepte, SUR LA ZONE, le jeton émis pour sa ressource", async () => {
     const { svc, container } = bootTokenService();
     const issued = await svc.issueTokens(alice, [], RESOURCE);
     const factory = getAuthenticatorFactory("jwt");
@@ -151,10 +153,29 @@ describe("ressource d'une zone — audience émettable (RFC 8707)", () => {
       container,
       config: defineSecurityConfig(input),
     });
+    const context = {
+      request: { headers: { authorization: `Bearer ${issued.access_token}` } },
+      security: { resource: RESOURCE },
+    } as unknown as ContextType;
     const token = await authenticator.authenticate(
-      new UserToken("jwt", issued.access_token),
+      await authenticator.createToken(context),
     );
     assert.equal(token.getUser()?.identifier, "alice");
+  });
+
+  it("🔴 vérification : hors de la zone, le même jeton n'ouvre pas l'audience par défaut (#748)", async () => {
+    const { svc, container } = bootTokenService();
+    const issued = await svc.issueTokens(alice, [], RESOURCE);
+    const factory = getAuthenticatorFactory("jwt");
+    assert.ok(factory);
+    const authenticator = factory({
+      container,
+      config: defineSecurityConfig(input),
+    });
+    await assert.rejects(
+      authenticator.authenticate(new UserToken("jwt", issued.access_token)),
+      AuthenticationError,
+    );
   });
 });
 

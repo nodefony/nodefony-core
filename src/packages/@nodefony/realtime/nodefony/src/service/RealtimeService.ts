@@ -1,4 +1,10 @@
-import { Service, Module, type IFrameCodec, type JsonRpcPeer } from "nodefony";
+import {
+  Service,
+  Module,
+  type IChannelPolicies,
+  type IFrameCodec,
+  type JsonRpcPeer,
+} from "nodefony";
 
 import {
   getRealtimeHub,
@@ -349,6 +355,16 @@ class RealtimeService extends Service {
    */
   resolveChannelPolicy(channel: string): IChannelPolicy | null {
     return this.getHub().resolveChannelPolicy(channel);
+  }
+
+  /**
+   * **Seam #1b** — lecture ET écriture distincte d'un nom, en une résolution (ADR-0022 §6, décision 1 quater). Lu par `@nodefony/security` sur chaque trame jugée.
+   *
+   * @param channel - nom du canal, de la méthode entrante ou de l'action.
+   * @returns les deux politiques, ou `null` si aucune ne couvre ce nom.
+   */
+  resolveChannelPolicies(channel: string): IChannelPolicies | null {
+    return this.getHub().resolveChannelPolicies(channel);
   }
 
   /**

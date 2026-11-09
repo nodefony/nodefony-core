@@ -114,3 +114,18 @@ export interface IChannelPolicy {
    */
   readonly anonymous?: boolean | undefined;
 }
+
+/**
+ * Les deux politiques qui s'appliquent à un nom de canal — celle de LECTURE et, quand elle en diffère, celle d'ÉCRITURE (ADR-0022 §6, décision 1 quater).
+ *
+ * `subscribe` exige `policy` ; une trame entrante (notification sur un canal
+ * plein-duplex, requête d'action) exige `policy` ET `write`. Lu par
+ * `@nodefony/security` à chaque trame jugée : une seule résolution rend les
+ * deux, sans allocation.
+ */
+export interface IChannelPolicies {
+  /** Politique de LECTURE (`@RealtimeChannel`) ; héritée de l'écriture quand seule celle-ci est déclarée. */
+  readonly policy: IChannelPolicy;
+  /** Politique d'ÉCRITURE DISTINCTE de la lecture (`@RealtimeInbound`, `@RealtimeAction`), ou `null` : la lecture suffit. */
+  readonly write: IChannelPolicy | null;
+}

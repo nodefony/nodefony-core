@@ -1,9 +1,11 @@
 import { BootConfigurationError, Injector } from "nodefony";
 import type { ChannelAdmissionClass, IChannelAdmission } from "nodefony";
+import type { IChannelPolicy } from "../../interfaces/IChannelPolicy";
 import {
   declaresAction,
-  getChannelPoliciesOf,
+  getDeclaredChannelPolicies,
   isAdmissionClass,
+  samePolicy,
 } from "../../decorators/realtimeDecorators";
 import type RealtimeHub from "./RealtimeHub";
 
@@ -28,8 +30,15 @@ export type AdmissionResolver = (
  * @param ctor - constructeur du contrôleur.
  * @param resolveAdmission - résolution des classes d'admission ; `null` hors
  *   démarrage, et le hub refuse alors une politique qui en désigne une.
- * @throws BootConfigurationError Politique illisible, `allow` posé sur une
- *   action, ou classe d'admission non résolue.
+ * Chaque nom est déclaré au hub SORTE PAR SORTE (lecture, écriture), sans
+ * héritage : le hub les fusionne avec les motifs de toutes les classes
+ * (ADR-0022 §6, décision 1 quater). Deux classes qui déclarent la même sorte
+ * différemment sous un même nom refusent le démarrage : la seconde effaçait la
+ * première sans un mot.
+ *
+ * @throws BootConfigurationError Politique illisible ou contredite, `allow`
+ *   posé sur une action ou sur une écriture distincte de la lecture, classe
+ *   d'admission non résolue, ou deux classes en désaccord sur un nom.
  */
 export function registerControllerPolicies(
   hub: RealtimeHub,
@@ -37,32 +46,80 @@ export function registerControllerPolicies(
   resolveAdmission: AdmissionResolver | null,
 ): void {
   if (hub.hasPolicyOwner(ctor)) return;
-  const policies = getChannelPoliciesOf(ctor);
-  if (policies !== null) {
-    for (const name in policies) {
-      const policy = policies[name];
-      if (policy === undefined) continue;
-      const allow = policy.allow;
+  const declared = getDeclaredChannelPolicies(ctor);
+  if (declared !== null) {
+    const owner = typeof ctor === "function" ? ctor.name : "(contrôleur)";
+    for (const [name, { read, write }] of Object.entries(declared.kinds)) {
+      // `allow` est une règle de LECTURE, demandée au `subscribe`. Sur une
+      // écriture distincte de la lecture de la même classe, rien ne
+      // l'évaluerait. (Le hub refuse aussi le cas où la lecture vient d'une
+      // autre déclaration — un motif, une autre classe.)
+      if (
+        write?.allow !== undefined &&
+        read !== null &&
+        !samePolicy(read, write)
+      ) {
+        throw new BootConfigurationError(
+          `${owner} : « allow » est posé sur l'écriture du canal « ${name} », ` +
+            `qui déclare aussi une lecture différente — il ne s'applique qu'à la ` +
+            `lecture (demandé au subscribe). Le poser sur @RealtimeChannel ; ` +
+            `l'écriture se garde par authenticated, roles ou scopes.`,
+        );
+      }
+      // La politique qui portera `allow` au subscribe : la lecture, sinon
+      // l'écriture dont elle hérite.
+      const allow = (read ?? write)?.allow;
       let admission: IChannelAdmission | undefined;
       if (allow !== undefined) {
         // Une action est jugée à CHAQUE appel par le verrou ; `allow` n'est
         // demandé qu'au `subscribe`. Posé sur une action, il ne garderait rien.
         if (declaresAction(ctor, name)) {
           throw new BootConfigurationError(
-            `${typeof ctor === "function" ? ctor.name : "(contrôleur)"} : ` +
-              `« allow » est posé sur l'action « ${name} » — il ne s'applique ` +
-              `qu'aux canaux (demandé au subscribe). Une action se garde par ` +
-              `authenticated, roles ou scopes.`,
+            `${owner} : « allow » est posé sur l'action « ${name} » — il ne ` +
+              `s'applique qu'aux canaux (demandé au subscribe). Une action se ` +
+              `garde par authenticated, roles ou scopes.`,
           );
         }
         if (isAdmissionClass(allow) && resolveAdmission !== null) {
           admission = resolveAdmission(allow, name);
         }
       }
-      hub.registerChannelPolicy(name, policy, admission);
+      if (read !== null) claim(hub, name, "read", ctor, owner, read);
+      if (write !== null) claim(hub, name, "write", ctor, owner, write);
+      hub.declareChannelPolicy(name, read, write, admission);
     }
+    // Le défaut fermé de chaque action : son écriture tant que rien d'exact ne
+    // déclare le nom (aucune classe) et qu'aucun motif ne pose d'écriture.
+    for (const name of declared.actions) hub.declareActionDefault(name);
   }
   hub.addPolicyOwner(ctor);
+}
+
+/**
+ * Revendique une sorte de politique d'un nom pour cette classe — refuse le démarrage si une AUTRE classe en a déclaré une différente : le registre est unique par nom, une seule s'appliquerait.
+ */
+function claim(
+  hub: RealtimeHub,
+  name: string,
+  kind: "read" | "write",
+  ctor: object,
+  owner: string,
+  policy: IChannelPolicy,
+): void {
+  const previous = hub.claimChannelPolicy(name, kind, ctor, policy);
+  if (
+    previous === null ||
+    previous.owner === ctor ||
+    samePolicy(previous.policy, policy)
+  )
+    return;
+  const which = kind === "read" ? "LECTURE" : "ÉCRITURE";
+  throw new BootConfigurationError(
+    `canal temps réel « ${name} » : ${previous.ownerName} et ${owner} ` +
+      `déclarent des politiques de ${which} différentes sous ce nom — le ` +
+      `registre est unique par nom, une seule s'appliquerait. Les accorder, ou ` +
+      `renommer l'un des canaux.`,
+  );
 }
 
 /**

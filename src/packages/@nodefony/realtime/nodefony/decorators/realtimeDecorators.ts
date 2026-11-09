@@ -40,11 +40,27 @@ import { isCallable, isRecord } from "../src/guards";
 const ACTIONS_KEY = "realtime:actions";
 const CHANNELS_KEY = "realtime:channels";
 const INBOUND_KEY = "realtime:inbound";
-// Registre UNIQUE des politiques d'autorisation (canaux `@RealtimeChannel` ET
-// méthodes inbound `@RealtimeInbound`), indexé par NOM de canal/méthode. Séparé
-// des maps nom→méthode ci-dessus : la policy est attachée au NOM (ce que le
-// firewall security résout), pas à la méthode TS qui l'implémente.
+// Politiques d'autorisation, indexées par NOM de canal/méthode — séparées des
+// maps nom→méthode ci-dessus : la politique est attachée au NOM (ce que le
+// firewall security résout), pas à la méthode TS qui l'implémente. DEUX sortes
+// (ADR-0022 §6, décision 1 quater) : la LECTURE (`@RealtimeChannel`, exigée au
+// `subscribe`) et l'ÉCRITURE (`@RealtimeInbound`, `@RealtimeAction`, exigée en
+// plus de la lecture sur une trame entrante). Deux cases : une seule faisait
+// disparaître, selon l'ordre des méthodes, la règle déclarée la première.
 const POLICIES_KEY = "realtime:policies";
+const WRITE_POLICIES_KEY = "realtime:write-policies";
+// Noms déclarés par CETTE classe, par sorte — métadonnée PROPRE, jamais lue à
+// travers la chaîne de prototypes : une sous-classe qui redéclare la politique
+// de son parent la surcharge, elle ne la contredit pas.
+const OWN_READ_KEY = "realtime:policies:own-read";
+const OWN_WRITE_KEY = "realtime:policies:own-write";
+// Deux déclarations contradictoires d'une même sorte, retenues pour refuser le
+// démarrage : le décorateur s'exécute à l'import, où lever rendrait le module
+// inimportable (et intestable).
+const CONFLICTS_KEY = "realtime:policies:conflicts";
+
+/** Sorte d'une politique déclarée : ce qu'elle garde. */
+type PolicyKind = "read" | "write";
 
 /**
  * Lit une métadonnée de classe posée par ces décorateurs : un objet nom → valeur,
@@ -57,6 +73,15 @@ function readMetadataMap(
   ctor: object,
 ): Record<string, unknown> | undefined {
   const raw: unknown = Reflect.getMetadata(key, ctor);
+  return isRecord(raw) ? raw : undefined;
+}
+
+/** Comme {@link readMetadataMap}, sans remonter la chaîne de prototypes : ce que la classe a posé ELLE-MÊME. */
+function readOwnMetadataMap(
+  key: string,
+  ctor: object,
+): Record<string, unknown> | undefined {
+  const raw: unknown = Reflect.getOwnMetadata(key, ctor);
   return isRecord(raw) ? raw : undefined;
 }
 
@@ -148,6 +173,47 @@ export function channelPolicyDefect(value: unknown): string | null {
   return null;
 }
 
+/** Une valeur lue sous la métadonnée des politiques est-elle une politique recevable ? */
+function isChannelPolicy(value: unknown): value is IChannelPolicy {
+  return channelPolicyDefect(value) === null;
+}
+
+const NO_NAMES: readonly string[] = [];
+
+/** Deux listes de rôles ou de scopes désignent-elles le même ENSEMBLE — ordre et doublons indifférents, absente = vide ? */
+function sameNames(
+  a: readonly string[] | undefined,
+  b: readonly string[] | undefined,
+): boolean {
+  const x = a ?? NO_NAMES;
+  const y = b ?? NO_NAMES;
+  for (const name of x) if (!y.includes(name)) return false;
+  for (const name of y) if (!x.includes(name)) return false;
+  return true;
+}
+
+/**
+ * Deux politiques exigent-elles exactement la même chose ? Structurel : deux littéraux identiques écrits dans deux classes le sont ; `allow` se compare par référence.
+ *
+ * Sert à refuser deux déclarations CONTRADICTOIRES d'un même nom (une seule
+ * s'appliquerait) sans refuser deux déclarations ÉQUIVALENTES, et à ne juger
+ * l'écriture que si elle diffère de la lecture. Démarrage seulement.
+ *
+ * @param a - une politique recevable.
+ * @param b - une politique recevable.
+ * @returns `true` si aucun pair ne peut satisfaire l'une sans l'autre.
+ */
+export function samePolicy(a: IChannelPolicy, b: IChannelPolicy): boolean {
+  if (a === b) return true;
+  return (
+    (a.authenticated === true) === (b.authenticated === true) &&
+    sameNames(a.roles, b.roles) &&
+    sameNames(a.scopes, b.scopes) &&
+    a.allow === b.allow &&
+    (a.anonymous === true) === (b.anonymous === true)
+  );
+}
+
 /**
  * Exige que chaque entrée du registre soit une politique recevable — sinon le démarrage s'arrête en nommant la classe, le canal et le défaut.
  *
@@ -186,10 +252,13 @@ function hasDefinedKey(policy: object): boolean {
 /** Libération d'un canal dont la fabrique décorée n'en a rendu aucune. */
 const NO_DISPOSE = (): void => {};
 
-/** Enregistre (idempotent) une politique non vide sous son nom de canal/méthode. */
-function definePolicy(
+/**
+ * Déclare une politique non vide d'une sorte sous son nom — sans jamais écraser une déclaration contradictoire de la même classe : celle-ci est retenue pour refuser le démarrage.
+ */
+function declarePolicy(
   ctor: object,
   name: string,
+  kind: PolicyKind,
   policy?: IChannelPolicy,
 ): void {
   // Pas de politique, ou objet vide (aucune contrainte) → ne rien stocker : le
@@ -198,10 +267,35 @@ function definePolicy(
   // (l'oublier ici ouvrait le canal à tous), et une clé inconnue est gardée
   // pour être REFUSÉE au démarrage, pas effacée.
   if (!policy || !hasDefinedKey(policy)) return;
-  // Copie : sur une sous-classe, la lecture rend l'objet du PARENT.
-  const map = { ...readMetadataMap(POLICIES_KEY, ctor) };
-  map[name] = policy;
-  Reflect.defineMetadata(POLICIES_KEY, map, ctor);
+  const key = kind === "read" ? POLICIES_KEY : WRITE_POLICIES_KEY;
+  const ownKey = kind === "read" ? OWN_READ_KEY : OWN_WRITE_KEY;
+  const own = readOwnMetadataMap(ownKey, ctor);
+  const current = readMetadataMap(key, ctor)?.[name];
+  if (
+    own?.[name] === true &&
+    current !== undefined &&
+    !(
+      isChannelPolicy(current) &&
+      isChannelPolicy(policy) &&
+      samePolicy(current, policy)
+    )
+  ) {
+    // La PREMIÈRE déclaration reste : le refus au démarrage nommera le canal.
+    Reflect.defineMetadata(
+      CONFLICTS_KEY,
+      { ...readOwnMetadataMap(CONFLICTS_KEY, ctor), [name]: kind },
+      ctor,
+    );
+    return;
+  }
+  // Copie : sur une sous-classe, la lecture rend l'objet du PARENT. Clé
+  // calculée : `map[name] = …` sur « __proto__ » changerait le prototype.
+  Reflect.defineMetadata(
+    key,
+    { ...readMetadataMap(key, ctor), [name]: policy },
+    ctor,
+  );
+  Reflect.defineMetadata(ownKey, { ...own, [name]: true }, ctor);
 }
 
 /**
@@ -213,12 +307,6 @@ function definePolicy(
 export const DEFAULT_ACTION_POLICY: IChannelPolicy = Object.freeze({
   authenticated: true,
 });
-
-/** Une politique est-elle DÉJÀ déclarée sous ce nom ? */
-function hasPolicy(ctor: object, name: string): boolean {
-  const map = readMetadataMap(POLICIES_KEY, ctor);
-  return map ? Object.prototype.hasOwnProperty.call(map, name) : false;
-}
 
 /**
  * Factory d'un provider de canal — appelée par la base au 1ᵉʳ `subscribe`.
@@ -257,9 +345,12 @@ export type RealtimeChannelFactory = (
  * défaut, toute action applicative serait publique sans que rien ne le dise.
  * Pour une action délibérément ouverte, l'écrire : `{ authenticated: false }`.
  *
- * Si une politique est **déjà déclarée sous ce nom** (canal homonyme via
- * `@RealtimeChannel`/`@RealtimeInbound`), elle est conservée : le défaut ne
- * rétrograde jamais une politique existante, souvent plus stricte.
+ * Une politique d'action est une politique d'**écriture** : l'appel exige aussi
+ * la lecture déclarée sous le même nom. Sans politique, l'action **hérite** de la
+ * lecture d'un canal homonyme (`@RealtimeChannel`) si elle existe — le défaut ne
+ * rétrograde jamais une politique déclarée —, et sinon du défaut fermé, quel que
+ * soit l'ordre des méthodes. Deux politiques explicites différentes sur le même
+ * nom (action et `@RealtimeInbound`) refusent le démarrage.
  *
  * ⚠️ Le NOM peut primer sur ta politique : le plancher système de
  * `@nodefony/security` réserve les préfixes plateforme (`kernel:`, `syslog:`…)
@@ -295,13 +386,10 @@ export function RealtimeAction(
     const map = { ...readMetadataMap(ACTIONS_KEY, ctor) };
     map[method] = propertyKey;
     Reflect.defineMetadata(ACTIONS_KEY, map, ctor);
-    // Politique explicite de l'auteur, sinon le défaut FERMÉ — et jamais par
-    // dessus une politique déjà posée sous ce nom.
-    if (policy) {
-      definePolicy(ctor, method, policy);
-    } else if (!hasPolicy(ctor, method)) {
-      definePolicy(ctor, method, DEFAULT_ACTION_POLICY);
-    }
+    // Politique explicite de l'auteur = écriture. Sans elle, RIEN n'est posé :
+    // le défaut FERMÉ se calcule à la lecture (`getDeclaredChannelPolicies`),
+    // une fois toutes les méthodes décorées — l'ordre ne décide plus rien.
+    declarePolicy(ctor, method, "write", policy);
   };
 }
 
@@ -337,6 +425,10 @@ type PolicyNamesCheck<P, T> = [NamesNotInContract<P, T>] extends [never]
  *
  * Un nom qui porte `*` est un motif (famille de canaux), comme partout ailleurs.
  *
+ * La politique vaut pour la LECTURE et l'ÉCRITURE du nom (le même objet, jugé
+ * une fois). Elle prime sur le défaut fermé d'une action ; contredire une
+ * politique explicite d'un décorateur de méthode refuse le démarrage.
+ *
  * **Sur un contrôleur de contrat** (`extends ContractRealtimeController<C>`), le
  * décorateur lit le contrat sur la classe qu'il décore : chaque nom doit être
  * une méthode ou un canal de `C`, sinon la classe ne compile pas, et l'erreur
@@ -359,7 +451,8 @@ export function RealtimePolicy<
 ) => void {
   return function (target) {
     for (const [name, policy] of Object.entries(policies)) {
-      definePolicy(target, name, policy);
+      declarePolicy(target, name, "read", policy);
+      declarePolicy(target, name, "write", policy);
     }
   };
 }
@@ -382,6 +475,12 @@ export function RealtimePolicy<
  * créé. Capturer des **valeurs long-lived** (broker, syslog) dans la closure,
  * jamais `this.context` (lié à la connexion créatrice qui peut fermer).
  *
+ * La `policy` est celle de **LECTURE** : exigée au `subscribe`, et en plus de
+ * l'écriture sur toute trame entrante du même nom. Absente, la lecture hérite de
+ * l'écriture (`@RealtimeInbound`) si elle est déclarée — une application qui ne
+ * garde que l'écriture reste protégée en lecture. Pour un canal que tout le
+ * monde lit et que seuls certains écrivent, l'écrire : `{ authenticated: false }`.
+ *
  * @example
  *   class ChatController extends RealtimeController {
  *     @RealtimeChannel("chat:room42")
@@ -401,9 +500,9 @@ export function RealtimeChannel(
     const map = { ...readMetadataMap(CHANNELS_KEY, ctor) };
     map[channel] = propertyKey;
     Reflect.defineMetadata(CHANNELS_KEY, map, ctor);
-    // Politique d'autorisation (opt-in) — lue par `@nodefony/security` au
-    // `subscribe`. Absente = canal libre. Cf {@link IChannelPolicy}.
-    definePolicy(ctor, channel, policy);
+    // Politique de LECTURE (opt-in) — lue par `@nodefony/security` au
+    // `subscribe`. Absente = héritée de l'écriture, sinon canal libre.
+    declarePolicy(ctor, channel, "read", policy);
   };
 }
 
@@ -418,6 +517,20 @@ export function RealtimeChannel(
  * inbound QUE s'il est explicitement déclaré (défaut sûr — un client ne peut rien
  * pousser tant qu'aucun handler n'est enregistré ici). Cf seam P13.8a
  * (`beforeDispatch`) pour la gate sécurité par voter P6.
+ *
+ * La `policy` est celle d'**ÉCRITURE** : une trame entrante exige la LECTURE du
+ * même nom (`@RealtimeChannel`) ET elle — l'écriture n'est jamais moins stricte
+ * que la lecture. Sans lecture déclarée, la lecture en hérite.
+ *
+ * @example
+ *   class ChatController extends RealtimeController {
+ *     @RealtimeChannel("chat:typing", { authenticated: false }) // tout le monde lit
+ *     typing(_channel: string, _publish: RealtimePublish): () => void {
+ *       return () => {};
+ *     }
+ *     @RealtimeInbound("chat:typing", { authenticated: true }) // seuls les connectés écrivent
+ *     onTyping(): void {}
+ *   }
  *
  * @example
  *   class ChatController extends RealtimeController {
@@ -439,9 +552,8 @@ export function RealtimeInbound(
     const map = { ...readMetadataMap(INBOUND_KEY, ctor) };
     map[method] = propertyKey;
     Reflect.defineMetadata(INBOUND_KEY, map, ctor);
-    // Même politique que les canaux : un client ne peut pousser sur un canal
-    // inbound protégé sans satisfaire la policy (vérif côté security).
-    definePolicy(ctor, method, policy);
+    // Politique d'ÉCRITURE : jugée par security en plus de la lecture.
+    declarePolicy(ctor, method, "write", policy);
   };
 }
 
@@ -532,22 +644,109 @@ export function declaresAction(ctor: object, name: string): boolean {
   return map !== undefined && Object.prototype.hasOwnProperty.call(map, name);
 }
 
+/** Ce qu'une classe DÉCLARE sous un nom, par sorte — `null` : elle ne pose pas cette sorte. */
+export interface IDeclaredPolicyKinds {
+  readonly read: IChannelPolicy | null;
+  readonly write: IChannelPolicy | null;
+}
+
 /**
- * Politiques d'autorisation déclarées sur une CLASSE de contrôleur (`@RealtimeChannel`/`@RealtimeInbound`/`@RealtimePolicy` avec politique), validées — lues au démarrage du noyau, jamais par trame.
+ * Politiques déclarées par une classe de contrôleur (ADR-0022 §6, décision 1 quater) : ce qu'elle pose par sorte — que le hub résout ensuite avec les motifs des autres classes — et sa vue seule.
+ */
+export interface IDeclaredChannelPolicies {
+  /** Vue de la classe SEULE, nom → politique de LECTURE (déclarée, sinon son écriture, sinon le défaut fermé d'une action). */
+  readonly read: Record<string, IChannelPolicy>;
+  /** Nom → ce que la classe déclare, sorte par sorte (sans héritage : le hub le calcule, motifs compris). */
+  readonly kinds: Record<string, IDeclaredPolicyKinds>;
+  /** Noms des actions décorées : chacune reçoit le défaut fermé comme REPLI au hub. */
+  readonly actions: readonly string[];
+}
+
+/**
+ * Politiques déclarées sur une CLASSE de contrôleur, validées et résolues par sorte — lues au démarrage du noyau, jamais par trame.
+ *
+ * Résolution indépendante de l'ordre des méthodes :
+ * - l'écriture d'un nom est celle déclarée (`@RealtimeInbound`, `@RealtimeAction`
+ *   avec politique, `@RealtimePolicy`) ; pour une action SANS politique, le
+ *   défaut fermé, sauf si une lecture est déclarée — l'action en hérite alors ;
+ * - la lecture est celle déclarée (`@RealtimeChannel`, `@RealtimePolicy`),
+ *   sinon l'écriture : une application qui ne garde que l'écriture reste
+ *   protégée en lecture ;
+ * - `kinds` garde ce que la classe déclare, SANS héritage : le hub le fusionne
+ *   avec les motifs de toutes les classes, sorte par sorte.
  *
  * @param ctor - constructeur du contrôleur.
- * @returns nom de canal ou de méthode → politique, ou `null` si la classe n'en
- *   déclare aucune (0 allocation).
- * @throws BootConfigurationError Une politique est illisible : la classe, le
- *   canal et le défaut sont nommés.
+ * @returns les deux tables, ou `null` si la classe ne déclare aucune politique.
+ * @throws BootConfigurationError Une politique est illisible, ou deux
+ *   déclarations d'une même sorte se contredisent : la classe, le canal et le
+ *   défaut sont nommés.
+ */
+export function getDeclaredChannelPolicies(
+  ctor: object,
+): IDeclaredChannelPolicies | null {
+  const readMap = readMetadataMap(POLICIES_KEY, ctor);
+  const writeMap = readMetadataMap(WRITE_POLICIES_KEY, ctor);
+  const actions = readMetadataMap(ACTIONS_KEY, ctor);
+  if (readMap === undefined && writeMap === undefined && actions === undefined)
+    return null;
+  const owner = typeof ctor === "function" ? ctor.name : "(contrôleur)";
+  const conflicts = readMetadataMap(CONFLICTS_KEY, ctor);
+  if (conflicts !== undefined) {
+    for (const [name, kind] of Object.entries(conflicts)) {
+      const which = kind === "read" ? "LECTURE" : "ÉCRITURE";
+      throw new BootConfigurationError(
+        `${owner} : le canal temps réel « ${name} » déclare deux politiques de ` +
+          `${which} différentes — une seule s'appliquerait, l'autre disparaîtrait ` +
+          `sans un mot. Garder une seule déclaration ; pour garder la lecture et ` +
+          `l'écriture séparément : @RealtimeChannel(nom, lecture) et ` +
+          `@RealtimeInbound(nom, écriture).`,
+      );
+    }
+  }
+  if (readMap !== undefined) assertPolicyMap(owner, readMap);
+  if (writeMap !== undefined) assertPolicyMap(owner, writeMap);
+  const read: Record<string, IChannelPolicy> = {};
+  const kinds: Record<string, IDeclaredPolicyKinds> = {};
+  let any = false;
+  if (readMap !== undefined) {
+    for (const [name, policy] of Object.entries(readMap)) {
+      read[name] = policy;
+      kinds[name] = { read: policy, write: null };
+      any = true;
+    }
+  }
+  if (writeMap !== undefined) {
+    for (const [name, policy] of Object.entries(writeMap)) {
+      kinds[name] = { read: kinds[name]?.read ?? null, write: policy };
+      read[name] ??= policy; // la lecture hérite de l'écriture
+      any = true;
+    }
+  }
+  const actionNames = actions === undefined ? [] : Object.keys(actions);
+  for (const name of actionNames) {
+    if (Object.hasOwn(read, name)) continue; // déclarée : l'action en hérite
+    read[name] = DEFAULT_ACTION_POLICY;
+    any = true;
+  }
+  return any ? { read, kinds, actions: actionNames } : null;
+}
+
+/**
+ * Politiques de LECTURE déclarées sur une CLASSE de contrôleur (`@RealtimeChannel`/`@RealtimeInbound`/`@RealtimeAction`/`@RealtimePolicy`), validées — lues au démarrage du noyau, jamais par trame.
+ *
+ * La lecture d'un nom est celle exigée au `subscribe` ; une écriture distincte
+ * se lit par {@link getDeclaredChannelPolicies}.
+ *
+ * @param ctor - constructeur du contrôleur.
+ * @returns nom de canal ou de méthode → politique de lecture, ou `null` si la
+ *   classe n'en déclare aucune.
+ * @throws BootConfigurationError Une politique est illisible ou contredite :
+ *   la classe, le canal et le défaut sont nommés.
  */
 export function getChannelPoliciesOf(
   ctor: object,
 ): Record<string, IChannelPolicy> | null {
-  const map = readMetadataMap(POLICIES_KEY, ctor);
-  if (map === undefined) return null;
-  assertPolicyMap(typeof ctor === "function" ? ctor.name : "(contrôleur)", map);
-  return map;
+  return getDeclaredChannelPolicies(ctor)?.read ?? null;
 }
 
 /**

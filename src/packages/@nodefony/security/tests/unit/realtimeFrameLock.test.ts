@@ -881,3 +881,157 @@ describe("FirewallRealtimeAuthenticator — re-validation Zero Trust du token (i
     assert.equal(await token.isValid!(), false);
   });
 });
+
+describe("buildFrameAuthorizer — lecture et écriture distinctes (#758, ADR-0022 §6 1 quater)", () => {
+  const firewall: IFrameAuthorizerFirewall = {
+    matchPath: () => null,
+    hasRole: (roles, required) => roles.includes(required),
+  };
+  const OPEN = { authenticated: false };
+  const CONNECTED = { authenticated: true };
+  // `split:typing` : tout le monde lit, seuls les connectés écrivent.
+  // `split:admin` : lecture aux connectés, écriture aux admins.
+  // `nodefony:split` : namespace réservé — le plancher reste seul juge.
+  const channelResolver: IChannelPolicyResolver = {
+    resolveChannelPolicies: (channel) => {
+      switch (channel) {
+        case "split:typing":
+          return { policy: OPEN, write: CONNECTED };
+        case "split:admin":
+          return { policy: CONNECTED, write: { roles: ["ROLE_ADMIN"] } };
+        case "nodefony:split":
+          return { policy: OPEN, write: OPEN };
+        default:
+          return null;
+      }
+    },
+  };
+  const denied: string[] = [];
+  const authorize = buildFrameAuthorizer(firewall, {
+    channelResolver,
+    systemRules: DEFAULT_SYSTEM_RULES,
+    onDeny: (_surface, target, reason) => denied.push(`${target}:${reason}`),
+  });
+  const sub = (channel: string) => ({
+    method: "subscribe",
+    params: { channel },
+  });
+
+  it("subscribe ne juge QUE la lecture : l'anonyme s'abonne à un canal en écriture connectée", () => {
+    assert.equal(authorize(sub("split:typing"), ANON_TOKEN), true);
+  });
+
+  it("une notification entrante juge la lecture ET l'écriture", () => {
+    assert.equal(authorize({ method: "split:typing" }, ANON_TOKEN), false);
+    assert.equal(authorize({ method: "split:typing" }, AUTH_TOKEN), true);
+  });
+
+  it("une requête d'action juge aussi la lecture ET l'écriture", () => {
+    const call = { jsonrpc: "2.0", id: 1, method: "split:admin" };
+    assert.equal(authorize(call, AUTH_TOKEN), false); // lecture oui, écriture non
+    assert.equal(authorize(call, ADMIN_TOKEN), true);
+    assert.equal(authorize(sub("split:admin"), AUTH_TOKEN), true);
+  });
+
+  it("le refus d'écriture est audité sous son propre motif, distinct de la lecture", () => {
+    denied.length = 0;
+    authorize({ method: "split:admin" }, AUTH_TOKEN);
+    authorize({ method: "split:admin" }, ANON_TOKEN);
+    assert.deepEqual(denied, [
+      "split:admin:channel_write_policy",
+      "split:admin:channel_policy",
+    ]);
+  });
+
+  it("dans un namespace réservé, le plancher reste seul juge (l'écriture métier ne l'affaiblit pas)", () => {
+    assert.equal(authorize({ method: "nodefony:split" }, AUTH_TOKEN), false);
+    assert.equal(authorize(sub("nodefony:split"), ANON_TOKEN), false);
+  });
+
+  it("le verrou déclare juger l'écriture (garde de version du hub)", () => {
+    const lock: FrameAuthorizer = authorize;
+    assert.equal(lock.judgesWrite, true);
+  });
+
+  it("un hub d'avant (lecture seule exposée) reste jugé sur sa politique unique", () => {
+    const legacy = buildFrameAuthorizer(firewall, {
+      channelResolver: {
+        resolveChannelPolicy: (channel) =>
+          channel === "old:feed" ? CONNECTED : null,
+      },
+      systemRules: DEFAULT_SYSTEM_RULES,
+    });
+    assert.equal(legacy(sub("old:feed"), ANON_TOKEN), false);
+    assert.equal(legacy({ method: "old:feed" }, ANON_TOKEN), false);
+    assert.equal(legacy({ method: "old:feed" }, AUTH_TOKEN), true);
+  });
+});
+
+describe("buildFrameAuthorizer — conventions :health / :stats, même verdict que le balayage naïf", () => {
+  // Le balayage d'origine, gardé ICI comme référence : le verrou saute
+  // désormais de `:` en `:` (micro-frame-authorizer, verrou seul 125 → 55 ns),
+  // il doit rendre exactement les mêmes verdicts.
+  const naiveContainsCI = (s: string, needle: string): boolean =>
+    s.toLowerCase().includes(needle.toLowerCase());
+  const reserved = (name: string): boolean =>
+    naiveContainsCI(name, ":health") || naiveContainsCI(name, ":stats");
+  const authorize = buildFrameAuthorizer(
+    { matchPath: () => null, hasRole: (roles, r) => roles.includes(r) },
+    { channelResolver: null, systemRules: DEFAULT_SYSTEM_RULES },
+  );
+  const sub = (channel: string) => ({
+    method: "subscribe",
+    params: { channel },
+  });
+  // Un connecté sans rôle d'administration : refusé sur une convention
+  // réservée, admis partout ailleurs (aucune politique métier ici).
+  const verdict = (name: string): boolean => authorize(sub(name), AUTH_TOKEN);
+
+  it("cas limites : casse, bord de chaîne, deux-points répétés, mot tronqué", () => {
+    const cases = [
+      "health",
+      ":health",
+      "x:health",
+      "x:HEALTH",
+      "x:hEaLtH:5000",
+      "x:heal",
+      "x:healt",
+      "x:stats",
+      "x:Stats:",
+      "x:stat",
+      "a:b:c:STATS1",
+      ":",
+      "::",
+      "::health",
+      "x::stats",
+      "x:y:z",
+      "",
+      "health:x",
+      "stats",
+      "x-health",
+      "x:healthy",
+      "x:statsd",
+      "x:h:health",
+    ];
+    for (const name of cases) {
+      assert.equal(verdict(name), !reserved(name), name);
+    }
+  });
+
+  it("20 000 noms aléatoires : verdict identique au balayage naïf", () => {
+    const alphabet = "aehlstxHEALTS:-";
+    let seed = 758;
+    const rnd = (n: number): number => {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      return seed % n;
+    };
+    for (let k = 0; k < 20_000; k++) {
+      let name = "";
+      const len = rnd(18);
+      for (let i = 0; i < len; i++) name += alphabet[rnd(alphabet.length)];
+      // Les namespaces de plateforme relèvent d'une autre règle (préfixes).
+      if (name.toLowerCase().startsWith("nodefony")) continue;
+      assert.equal(verdict(name), !reserved(name), JSON.stringify(name));
+    }
+  });
+});

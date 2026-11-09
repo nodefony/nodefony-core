@@ -539,9 +539,9 @@ Registre `rt/nodefony/src/backplane/backplaneRegistry.ts` (sélection ouverte, *
 
 `rt/nodefony/decorators/realtimeDecorators.ts` (style NestJS, posent des métadonnées `reflect-metadata` sur le constructeur, lues 1× au handshake). Coexistent avec les overrides (override gagne en conflit).
 
-- `@RealtimeAction(method: string)` — méthode = action RPC (retour → `result`).
-- `@RealtimeChannel(channel: string, policy?: IChannelPolicy)` — méthode = provider de canal pub/sub (**match EXACT**, doit renvoyer `dispose`). `policy` (opt-in) lue par security au `subscribe`.
-- `@RealtimeInbound(method: string, policy?: IChannelPolicy)` — méthode = handler full-duplex entrant (`(params, reply) => void`).
+- `@RealtimeAction(method: string, policy?: IChannelPolicy)` — méthode = action RPC (retour → `result`). `policy` = ÉCRITURE ; sans elle, hérite de la lecture déclarée sous le même nom, sinon défaut fermé `{ authenticated: true }`.
+- `@RealtimeChannel(channel: string, policy?: IChannelPolicy)` — méthode = provider de canal pub/sub (**match EXACT**, doit renvoyer `dispose`). `policy` (opt-in) = LECTURE, exigée au `subscribe` et EN PLUS de l'écriture sur toute trame entrante ; absente → héritée de l'écriture (ADR-0022 §6 1 quater).
+- `@RealtimeInbound(method: string, policy?: IChannelPolicy)` — méthode = handler full-duplex entrant (`(params, reply) => void`). `policy` = ÉCRITURE, jugée avec la lecture. Deux déclarations contradictoires d'une même sorte (classe ou entre classes) = refus au démarrage.
 
 Lecteurs internes : `getRealtimeActions`/`getRealtimeChannels`/`getRealtimeInbound`/`getRealtimeChannelPolicies` (, `null` si aucun décorateur → 0 alloc, `.bind(instance)`).
 

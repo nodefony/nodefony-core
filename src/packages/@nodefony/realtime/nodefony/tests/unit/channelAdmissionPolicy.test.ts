@@ -705,9 +705,10 @@ describe("#622 — inscription au démarrage (onKernelReady) et à la poignée d
     }
     new ActionCtrl(fakeCtx()).feed();
     await new Promise<void>((resolve) => setImmediate(resolve));
-    assert.equal(
-      getRealtimeHub().resolveChannelPolicy("orders:quote"),
-      DEFAULT_ACTION_POLICY,
-    );
+    // La lecture vient du motif public ; l'ÉCRITURE de l'action reste le défaut
+    // fermé — un appel exige les deux (ADR-0022 §6, décision 1 quater).
+    const policies = getRealtimeHub().resolveChannelPolicies("orders:quote");
+    assert.deepEqual(policies?.policy, { authenticated: false });
+    assert.equal(policies?.write, DEFAULT_ACTION_POLICY);
   });
 });

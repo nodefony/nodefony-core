@@ -449,9 +449,9 @@ mémoire : le token déjà résolu, et la cible de la frame.
 | Frame | Contrôle appliqué |
 | --- | --- |
 | `api.request {path}` | Re-match de zone HTTP : zone protégée + anonyme → refus |
-| `subscribe {channel}` | Plancher système, puis policy métier déclarée sur le canal |
-| notification `method` = canal inbound | Même politique que `subscribe` (on ne pousse pas sur un canal protégé) |
-| action `@RealtimeAction` | Authentifié **par défaut** ; rôle/scope si déclarés ; ouverte seulement si `{ authenticated: false }` est écrit |
+| `subscribe {channel}` | Plancher système, puis policy de **LECTURE** déclarée sur le canal |
+| notification `method` = canal inbound | Policy de lecture **ET** policy d'**ÉCRITURE** du même nom (on ne pousse pas sur un canal qu'on n'a pas le droit de lire) |
+| action `@RealtimeAction` | Lecture **ET** écriture du nom. Sans politique : la lecture d'un canal homonyme si elle est déclarée, sinon authentifié **par défaut** ; ouverte seulement si `{ authenticated: false }` est écrit |
 | `ping`, `unsubscribe` | **passent** — pas de surface de données |
 
 Deux détails évitent des faux refus : `authorizeApiRequest()` (`frameAuthorizer.ts#authorizeApiRequest`) laisse
@@ -494,9 +494,41 @@ jamais de canal d'audit non gardé.
 
 ### La policy métier — déclarer sur le canal
 
-`@RealtimeChannel(name, policy)` (`realtimeDecorators.ts#RealtimeChannel`) et `@RealtimeInbound(name, policy)`
-(`realtimeDecorators.ts#RealtimeInbound`) attachent un `IChannelPolicy` au **nom** du canal. Les trois axes sont
-cumulatifs (ET) ; un axe absent n'impose rien :
+Deux politiques par **nom** de canal, chacune un `IChannelPolicy` :
+
+- la **LECTURE** — `@RealtimeChannel(name, policy)` (`realtimeDecorators.ts#RealtimeChannel`) — exigée au
+  `subscribe` ;
+- l'**ÉCRITURE** — `@RealtimeInbound(name, policy)` (`realtimeDecorators.ts#RealtimeInbound`),
+  `@RealtimeAction(name, policy)` — exigée **en plus** de la lecture sur toute trame entrante.
+
+Ce qui n'est pas déclaré s'hérite, quel que soit l'ordre des méthodes : une lecture absente reprend
+l'écriture (un canal gardé par `@RealtimeInbound` seul reste protégé en lecture), une action sans
+politique reprend la lecture déclarée sous son nom, sinon le défaut fermé. Un canal que tout le monde
+lit et que seuls certains écrivent s'écrit donc :
+
+```typescript
+@RealtimeChannel("chat:typing", { authenticated: false }) // tout le monde voit « Untel écrit… »
+typing(): () => void {
+  return () => {};
+}
+@RealtimeInbound("chat:typing", { authenticated: true }) // seuls les connectés écrivent
+onTyping(): void {}
+```
+
+Deux déclarations **contradictoires** d'une même sorte sur un nom — dans une classe, ou dans deux
+classes — refusent le démarrage en nommant le canal : une seule s'appliquerait, l'autre
+disparaîtrait. Une sous-classe qui redéclare la politique de son parent la surcharge. `allow` est
+une règle de lecture : posé sur une écriture distincte de la lecture, il refuse le démarrage.
+
+Avec des **motifs** (`room:*`), la lecture d'un nom appartient à la déclaration la plus spécifique
+qui déclare quelque chose sur lui (le nom exact, sinon le motif au littéral le plus long) ; l'écriture
+vient de la plus spécifique qui en déclare une, motifs compris. Une écriture de famille réservée
+s'applique donc aussi à un nom exact qui n'a déclaré que sa lecture, et une commande déclarée par
+`@RealtimeInbound("task:start")` sous une famille `task:*` à `allow` reste une commande. Le canal
+personnel `user:<id>` garde sa règle « son canal seulement » tant qu'aucune déclaration ne vise
+explicitement `user:` : un motif attrape-tout (`*`) ne la retire pas.
+
+Les trois axes d'une politique sont cumulatifs (ET) ; un axe absent n'impose rien :
 
 | Axe             | Sens                                                                          | Évalué par                                            |
 | --------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------- |
@@ -504,14 +536,17 @@ cumulatifs (ET) ; un axe absent n'impose rien :
 | `roles`         | un des rôles suffit, **hiérarchie comprise**                                  | `Firewall.hasRole()` (`firewall.ts#Firewall.hasRole`) |
 | `scopes`        | un des scopes suffit — axe API (JWT, clé API), une session BFF n'en porte pas | comparaison directe                                   |
 
-Une policy **vide** n'est pas enregistrée : `definePolicy()` (`realtimeDecorators.ts#definePolicy`) ignore un
+Une policy **vide** n'est pas enregistrée : `declarePolicy()` (`realtimeDecorators.ts#declarePolicy`) ignore un
 objet sans contrainte — le canal reste libre, le registre reste vide. Les déclarations sont inscrites
 au hub **au démarrage** (`channelPolicyRegistry.ts#registerControllerPolicies`, à `onKernelReady`) :
 un exemplaire qui n'a encore vu aucune poignée de main a déjà ses politiques — celui qui n'émet
 que des webhooks aussi. Un contrôleur échappé au démarrage s'inscrit à sa première poignée de main
 (`RealtimeHub.registerChannelPolicy()`, `RealtimeHub.ts#RealtimeHub.registerChannelPolicy`, idempotent) ;
-le décideur les relit par `RealtimeService.resolveChannelPolicy()`
-(`RealtimeService.ts#RealtimeService.resolveChannelPolicy`).
+le décideur les relit en une résolution par `RealtimeService.resolveChannelPolicies()`
+(`RealtimeService.ts#RealtimeService.resolveChannelPolicies`). Un refus d'écriture est audité sous
+le motif `channel_write_policy`, distinct de `channel_policy` (lecture). Un verrou qui ne sait pas
+juger l'écriture (il ne déclare pas `judgesWrite`) refuse le démarrage dès qu'une écriture distincte
+est déclarée : versions de `@nodefony/realtime` et `@nodefony/security` à aligner.
 
 ### ⚠️ Une policy est attachée à un nom EXACT — les canaux dérivés n'héritent pas
 

@@ -10,7 +10,11 @@ import type { ISecurityConfig } from "../../config/defineModuleConfig";
 export interface IJwtRuntime {
   /** Émetteur (`iss`). */
   readonly issuer: string;
-  /** Audiences acceptées au verify ; la première sert d'`aud` à l'émission. */
+  /**
+   * Liste blanche des audiences ÉMETTABLES (RFC 8707) ; la première est
+   * l'audience par défaut. Ce n'est pas ce qu'une zone accepte : une zone `jwt`
+   * n'accepte que SA ressource, ou l'audience par défaut si elle n'en a pas.
+   */
   readonly audiences: string[];
   /** TTL access token (s). */
   readonly accessTtlS: number;
@@ -34,9 +38,9 @@ export interface IJwtRuntime {
  * à l'émission. Ajoutée en fin de liste, elle ne change jamais l'audience par
  * défaut ({@link defaultAudience}).
  *
- * Elle n'ouvre rien de plus à la VÉRIFICATION que ce que `jwt.audiences` ouvre
- * déjà : le vérificateur accepte toute audience de cette liste, et une zone
- * `external-jwt` contrôle la sienne contre `resource`, inchangé.
+ * Elle n'ouvre rien de plus à la VÉRIFICATION : chaque zone, `jwt` comme
+ * `external-jwt`, exige SA ressource (l'audience par défaut pour une zone `jwt`
+ * qui n'en déclare pas) — un jeton émis pour une zone n'en ouvre pas une autre.
  *
  * @param jwt - section `jwt` de la config validée
  * @param areas - zones du pare-feu ; omises, seules les audiences déclarées comptent

@@ -807,6 +807,60 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
   - **Gardé par** (#622) : un test prouve qu'une trame `ping` ne consulte ni les règles système ni
     le résolveur de politiques ; un test prouve qu'une trame sur un canal admis ne lit ni
     `getRoles()` ni la hiérarchie ; la matrice de la décision 1 bis rend les mêmes verdicts.
+- **Décision 1 quater (validée par l'auteur le 2026-11-09, #758) : une politique de LECTURE et
+  une politique d'ÉCRITURE par nom — chacune s'applique telle qu'elle est déclarée.**
+  - **Constaté** : `@RealtimeChannel(nom, p)` et `@RealtimeInbound(nom, q)` écrivaient la même
+    case du registre des politiques (une seule métadonnée par nom) ;
+    la seconde déclaration effaçait la première sans un mot, selon l'ordre des méthodes. Une règle
+    de sécurité déclarée pouvait donc ne s'appliquer nulle part, et « tout le monde lit, seuls les
+    connectés écrivent » n'était pas exprimable.
+  - **La règle** : `subscribe` exige la LECTURE (`@RealtimeChannel`) ; une trame entrante —
+    notification sur un canal plein-duplex ou requête d'action — exige la LECTURE **et**
+    l'ÉCRITURE (`@RealtimeInbound`, `@RealtimeAction`). L'écriture n'est donc jamais moins stricte
+    que la lecture : le motif « on ne pousse pas sur un canal protégé » tient toujours.
+  - **Héritage, indépendant de l'ordre des méthodes** : une lecture absente hérite de l'écriture
+    explicite (une application qui ne garde que `@RealtimeInbound` reste protégée en lecture) ;
+    une action sans politique explicite hérite de ce que son nom EXACT déclare ; s'il ne déclare
+    rien, le défaut FERMÉ (`#DEFAULT_ACTION_POLICY`) devient son écriture — un motif de lecture
+    public (`orders:*` ouvert) s'y ajoute sans l'ouvrir. `@RealtimePolicy({ nom: p })` pose les
+    deux sortes. Deux classes qui déclarent des sortes DIFFÉRENTES d'un même nom se complètent.
+  - **Plus d'écrasement silencieux** : deux déclarations explicites non équivalentes d'une même
+    sorte, dans une même classe ou entre deux classes, refusent le démarrage en nommant le canal et
+    les classes. Une sous-classe qui redéclare son parent le surcharge. `allow` reste une règle de
+    lecture : posé sur une écriture distincte de la lecture, il refuse le démarrage.
+  - **Précédence — la lecture appartient, l'écriture descend** (`channelPolicyResolution.ts#resolveDeclaredPolicies`) :
+    la LECTURE d'un nom appartient à la déclaration la plus spécifique qui déclare quelque chose
+    sur lui (nom exact, puis motif au littéral le plus long) — déclarée, ou héritée de sa propre
+    écriture ; l'ÉCRITURE vient de la plus spécifique qui déclare une écriture, motifs compris.
+    L'écriture s'ajoute à la lecture, elle ne peut que durcir : une écriture de famille (`mix:*`
+    réservée) n'est plus perdue sur un nom exact qui ne déclare que sa lecture (attaque A3 de la
+    red-team #758). La lecture, elle, ne descend pas : une commande `task:start` déclarée sous une
+    famille `task:*` à `allow` ne devient pas un canal à membres, et une écriture exacte ne voit
+    pas sa lecture s'ouvrir par un motif plus général. Écarté : résoudre chaque sorte séparément
+    — vu rouge sur trois cas d'usage documentés, et ouvrant une lecture au moment de la mise à jour.
+  - **Canal personnel** : un nom `user:…` garde sa politique intégrée (son canal seulement) tant
+    qu'aucune déclaration ne VISE `user:` (nom exact, ou motif dont le littéral commence par
+    `user:`) — un motif attrape-tout (`*`) ne la retire plus (attaque K1, antérieure à #758).
+  - **Coût** : la vue fusionnée de chaque nom exact est recalculée à chaque inscription (à
+    froid) ; une trame sur un nom exact reste UNE lecture de `Map`. Le plancher système balaye les
+    conventions `:health`/`:stats` de `:` en `:` (`frameAuthorizer.ts#hasReservedConvention`)
+    au lieu de chaque position : verrou seul −42 % sur un canal libre, −32 % sur un canal à rôles
+    (`micro-frame-authorizer.mjs`, médiane de 15, code d'avant #758 en référence).
+  - **`allow` n'admet plus d'office l'écriture** : la première trame entrante d'un canal à `allow`
+    exige l'abonnement puis passe le verrou (lecture et écriture), et son verdict est retenu comme
+    celui de tout canal entrant (décision 1 bis). Sans quoi l'admission contournerait l'écriture.
+  - **Garde de version** : aucun paquet ne lie `@nodefony/realtime` à `@nodefony/security`. Un juge
+    qui ne sait pas juger l'écriture face à un hub qui en porte une distincte refuse le démarrage,
+    plutôt que de laisser l'écriture ouverte.
+  - **Écarté — interdire le doublon sans séparer** : la faille se fermait, mais la limite d'usage
+    devenait officielle et obligeait à recoder à la main une règle de sécurité.
+  - **Rupture : de comportement, pas de signature.** Seul change le code qui déclare les DEUX
+    sortes, différentes — c'est-à-dire celui dont une règle n'était pas appliquée. L'écriture n'y
+    devient jamais plus permissive ; la lecture devient celle qui est écrite. Annoncée au changelog
+    (`Changed`).
+  - **Gardé par** : `src/packages/@nodefony/realtime/nodefony/tests/unit/channelPolicySplit.test.ts`
+    (vu rouge sur le code d'avant), `…/tests/unit/channelPolicy.attack.test.ts` (39 attaques de la
+    red-team), et des mutations basculées une à une (chacune vue rouge).
 - **Abonnés identifiables** (#623) : le registre d'un canal associe chaque sink à sa connexion,
   alloué au `subscribe` seulement ; le fan-out reste une boucle sans allocation. API serveur :
   ce qui désigne une **connexion** (lister, abonner d'office, éjecter une connexion) est **local

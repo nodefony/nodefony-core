@@ -57,9 +57,9 @@ export const demoSecurity = {
     // `npx nodefony demo:partner:call`.
     //
     // Les deux authenticators s'aiguillent sur l'émetteur du jeton (`iss`) :
-    // leur ordre ne décide de rien. Chacun contrôle l'audience à sa façon :
-    // `jwt` contre les audiences de l'application (la `resource` de la zone y
-    // entre d'office), `external-jwt` contre `resource`.
+    // leur ordre ne décide de rien. Tous deux exigent l'audience de la zone,
+    // `resource` : un jeton émis pour la porte MCP ne l'ouvre pas. L'émetteur
+    // de l'application sait signer pour elle sans toucher à `jwt.audiences`.
     [PARTNER_AREA]: {
       pattern: `^${PARTNER_PATH}`,
       authenticators: ["jwt", "external-jwt"],
