@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-09T21:03:30.300Z",
+  "generatedAt": "2026-11-09T21:07:45.178Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 248,
+      "closed": 249,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 17,
+      "open": 16,
       "title": "10.0.0-beta"
     },
     {
@@ -6792,8 +6792,8 @@
       "number": 757,
       "title": "test(demo): éprouver de bout en bout le temps réel de la démo",
       "url": "https://github.com/nodefony/nodefony-core/issues/757",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 2,
