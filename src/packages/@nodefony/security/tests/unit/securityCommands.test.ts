@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { Cli } from "nodefony";
 import SecurityUserList from "../../nodefony/command/security-user-list";
 import SecurityMcpToken, {
+  targetsOtherGate,
   tokenTtlSeconds,
   ttlSeconds,
 } from "../../nodefony/command/security-mcp-token";
@@ -182,6 +183,96 @@ describe("security:mcp:token — un jeton mort-né doit s'ANNONCER", () => {
  * défaut de configuration (15 min), les outils réservés répondaient 401 au
  * bout d'un quart d'heure, sans que le refus accuse l'expiration.
  */
+describe("security:mcp:token --resource <autre porte> — jamais NF_MCP_TOKEN", () => {
+  // Vécu sur la démo MCP : la commande, visant /mcp/demo, affichait
+  // `export NF_MCP_TOKEN=…` et proposait `--write`. L'agent a été branché avec
+  // le jeton de l'outillage, la porte l'a servi comme un anonyme, et `--write`
+  // aurait coupé les outils réservés de l'outillage sans un mot.
+  const outillage = "http://localhost:5151/nodefony/mcp";
+  const demo = "https://localhost:5152/mcp/demo";
+  const modules = {
+    devkit: { options: { mcp: { authorization: { resource: outillage } } } },
+    security: { options: { jwt: { keystore: { dir: "var/keys" } } } },
+  };
+  const annuaire = { findByIdentifier: async () => utilisateurAvecCredential };
+  const emetteurQuiCompte = () => {
+    const appels: string[] = [];
+    return {
+      appels,
+      issueTokens: async (_u: unknown, _s: unknown, resource: string) => {
+        appels.push(resource);
+        return {
+          access_token: "eyJ.JETON.DEMO",
+          refresh_token: "",
+          token_type: "Bearer",
+          expires_in: 900,
+          scope: "demo:write",
+        };
+      },
+    };
+  };
+
+  it("la porte par défaut, écrite ou non, n'est pas « une autre porte »", () => {
+    expect(targetsOtherGate(undefined, outillage)).toBe(false);
+    expect(targetsOtherGate(outillage, outillage)).toBe(false);
+    expect(targetsOtherGate(`${outillage}/`, outillage)).toBe(false);
+    expect(targetsOtherGate(demo, outillage)).toBe(true);
+  });
+
+  it("🔴 --write est REFUSÉ, et rien n'est signé", async () => {
+    const emetteur = emetteurQuiCompte();
+    const cmd = commandeAvecKernel(
+      SecurityMcpToken,
+      { tokenService: emetteur, users: annuaire },
+      modules,
+    );
+    const journal: string[] = [];
+    vi.spyOn(cmd, "log").mockImplementation((msg: unknown) => {
+      journal.push(String(msg));
+      return cmd;
+    });
+    const avant = process.exitCode;
+    try {
+      const sortie = await sortieDe(() =>
+        cmd.generate("admin", { resource: demo, write: true }),
+      );
+      expect(process.exitCode).toBe(1);
+      expect(emetteur.appels).toEqual([]);
+      expect(sortie).not.toContain("eyJ.JETON.DEMO");
+      expect(journal.join("\n")).toContain("--write refusé");
+    } finally {
+      process.exitCode = avant;
+    }
+  });
+
+  it("sans --write, le jeton sort SEUL, avec l'en-tête — pas d'export NF_MCP_TOKEN", async () => {
+    const emetteur = emetteurQuiCompte();
+    const cmd = commandeAvecKernel(
+      SecurityMcpToken,
+      { tokenService: emetteur, users: annuaire },
+      modules,
+    );
+    const sortie = await sortieDe(() =>
+      cmd.generate("admin", { resource: demo }),
+    );
+    expect(emetteur.appels).toEqual([demo]);
+    expect(sortie).toContain("eyJ.JETON.DEMO");
+    expect(sortie).toContain("Authorization: Bearer");
+    expect(sortie).not.toContain("export NF_MCP_TOKEN");
+    expect(sortie).not.toContain("--write pose");
+  });
+
+  it("la porte par défaut garde son export NF_MCP_TOKEN", async () => {
+    const cmd = commandeAvecKernel(
+      SecurityMcpToken,
+      { tokenService: emetteurQuiCompte(), users: annuaire },
+      modules,
+    );
+    const sortie = await sortieDe(() => cmd.generate("admin", {}));
+    expect(sortie).toContain("export NF_MCP_TOKEN=eyJ.JETON.DEMO");
+  });
+});
+
 describe("security:mcp:token --write — 8 h par défaut pour un agent", () => {
   it("--ttl explicite > 8 h si --write > défaut de configuration", () => {
     expect(tokenTtlSeconds(undefined, true)).toBe(8 * 3600);

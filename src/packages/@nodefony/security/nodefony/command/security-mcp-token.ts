@@ -111,6 +111,35 @@ export function tokenTtlSeconds(
   return write ? AGENT_TTL_MINUTES * 60 : undefined;
 }
 
+/** Une URI de ressource sous une forme comparable : sans barre finale. */
+function comparableResource(uri: string): string {
+  try {
+    const url = new URL(uri);
+    return `${url.origin}${url.pathname.replace(/\/+$/u, "")}`;
+  } catch {
+    return uri.trim().replace(/\/+$/u, "");
+  }
+}
+
+/**
+ * Le jeton vise-t-il une AUTRE porte que celle de l'outillage ?
+ *
+ * `NF_MCP_TOKEN` et `--write` servent la porte par défaut, et elle seule : un
+ * jeton d'une autre audience (RFC 8707) y prendrait sa place, et cette porte le
+ * refuserait — ses outils réservés disparaîtraient sans un mot.
+ *
+ * @param resource - la valeur de `--resource`, ou rien
+ * @param defaultResource - la porte par défaut de l'application
+ * @returns `true` quand `--resource` désigne une autre porte
+ */
+export function targetsOtherGate(
+  resource: string | undefined,
+  defaultResource: string,
+): boolean {
+  if (resource === undefined) return false;
+  return comparableResource(resource) !== comparableResource(defaultResource);
+}
+
 /** « 8 h », « 1 h 30 », « 15 min » — la durée telle qu'on la dit. */
 function humanDuration(seconds: number): string {
   const minutes = Math.round(seconds / 60);
@@ -447,7 +476,29 @@ class SecurityMcpToken extends Command {
       return this;
     }
 
-    const resource = opts.resource ?? this.#defaultResource();
+    const defaultResource = this.#defaultResource();
+    const resource = opts.resource ?? defaultResource;
+    // 🔴 `--write` pose `NF_MCP_TOKEN`, la variable de la porte de l'outillage.
+    // Un jeton d'une autre audience l'y remplacerait, et elle le refuserait :
+    // ses outils réservés disparaîtraient sans un mot — vécu sur la démo MCP.
+    // Refusé AVANT d'émettre : rien n'est signé pour un geste qui n'aura pas lieu.
+    const otherGate = targetsOtherGate(opts.resource, defaultResource);
+    if (otherGate && opts.write === true) {
+      this.log(
+        `--write refusé pour cette porte.\n` +
+          `\n` +
+          `  --write pose ${MCP_TOKEN_ENV}, le jeton de la porte de l'outillage\n` +
+          `  (${defaultResource}). Ce jeton-ci a pour audience ${resource} :\n` +
+          `  il y prendrait sa place, cette porte le refuserait, et ses outils\n` +
+          `  réservés disparaîtraient sans un mot.\n` +
+          `\n` +
+          `  → relance sans --write, puis pose le jeton dans l'en-tête de\n` +
+          `    l'agent qui parle à ${resource}.`,
+        "ERROR",
+      );
+      process.exitCode = 1;
+      return this;
+    }
     // 🔴 Défaut UTILE, pas défaut vide. Ce jeton part dans la configuration
     // d'un agent : il vise la porte MCP, qui exige un scope d'administration.
     // Un jeton sans scope serait accepté par la vérification d'audience puis
@@ -474,7 +525,7 @@ class SecurityMcpToken extends Command {
     // terminal, on propose de poser la valeur plutôt que de laisser copier un
     // jeton de 400 caractères à la main.
     let write = opts.write === true;
-    if (!write && !opts.json && process.stdin.isTTY) {
+    if (!write && !opts.json && !otherGate && process.stdin.isTTY) {
       await this.loadPrompts();
       write = await this.prompts.confirm({
         message: `Poser ${MCP_TOKEN_ENV} dans la configuration des agents présents ?`,
@@ -498,7 +549,10 @@ class SecurityMcpToken extends Command {
       // fréquente : la porte MCP est servie par un module `policy: "dev"`, donc
       // elle N'EXISTE PAS en production — et le CLI boote en production quand
       // le terminal n'a pas posé `NODE_ENV`.
-      const oauth = (e as { oauthError?: string }).oauthError;
+      const oauth =
+        typeof e === "object" && e !== null && "oauthError" in e
+          ? e.oauthError
+          : undefined;
       if (oauth === "invalid_target") {
         // Le message dit d'abord ce que ce N'EST PAS : le premier réflexe est
         // de chercher un serveur éteint — vécu — alors que cette commande n'en
@@ -673,6 +727,20 @@ class SecurityMcpToken extends Command {
       return this;
     }
 
+    if (otherGate) {
+      // Ni `export NF_MCP_TOKEN=` ni `--write` : les proposer ici ferait coller
+      // ce jeton à la place de celui de l'outillage — vécu, c'est ce conseil
+      // qui a branché un agent avec le mauvais jeton.
+      w(`  ${token}\n\n`);
+      w(
+        `${DIM}  Ce jeton ne vaut que pour ${resource} : pose-le dans l'en-tête\n` +
+          `  de l'agent qui parle à cette porte, par exemple :\n` +
+          `    claude mcp add --transport http <nom> ${resource} \\\n` +
+          `      --header "Authorization: Bearer <ce jeton>"\n` +
+          `  Pas dans ${MCP_TOKEN_ENV} : elle porte le jeton de ${defaultResource}.${RESET}\n\n`,
+      );
+      return this;
+    }
     w(`  export ${MCP_TOKEN_ENV}=${token}\n\n`);
     w(
       `${DIM}  --write pose la valeur chez les agents présents · nodefony ai:mcp --auth câble .mcp.json${RESET}\n\n`,
