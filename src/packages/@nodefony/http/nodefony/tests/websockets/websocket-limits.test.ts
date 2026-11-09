@@ -122,11 +122,16 @@ describe("WEBSOCKETS LIMITS", function () {
         if (err) reject(asError(err));
         else resolve();
       };
-      // Défaut maxPayload = 1 MiB (config http). Un message de 2 MiB doit
-      // déclencher la fermeture RFC 6455 §7.4.1 « Message Too Big » côté ws,
-      // SANS crash process (capté par WebsocketContext.onConnectionError).
+      // Un message au-delà de `maxPayload` doit déclencher la fermeture
+      // RFC 6455 §7.4.1 « Message Too Big » côté ws, SANS crash process
+      // (capté par WebsocketContext.onConnectionError). La limite est celle
+      // de l'APPLICATION qui tourne, pas le défaut du module : 1 Mio par
+      // défaut, mais la démo de l'application de dev (`src/demo`, rendue
+      // depuis `templates/demo/`) la relève à 2 Mio pour toute l'application
+      // (temps réel binaire). 4 Mio dépasse l'une et l'autre — un message à
+      // la limite exacte passe (`ws` ne refuse que STRICTEMENT au-delà).
       ws = openWs(`${WSS}/nodefony/test/ws/echo`);
-      const huge = "z".repeat(2 * 1024 * 1024); // 2 MiB > 1 MiB
+      const huge = "z".repeat(4 * 1024 * 1024);
       let closed = false;
       ws.on("message", (data) => {
         const msg = JSON.parse(rawDataText(data));
@@ -136,8 +141,14 @@ describe("WEBSOCKETS LIMITS", function () {
       });
       ws.on("close", (code) => {
         closed = true;
-        expect(code).to.equal(1009);
-        done();
+        // L'assertion revient au test : levée dans l'écouteur, elle
+        // partirait en exception non captée et le test mourrait en délai.
+        try {
+          expect(code).to.equal(1009);
+          done();
+        } catch (error) {
+          done(error);
+        }
       });
       // 'error' peut précéder 'close' (ws émet error puis close) — toléré.
       ws.on("error", () => {
