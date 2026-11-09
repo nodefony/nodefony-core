@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-09T20:05:47.554Z",
+  "generatedAt": "2026-11-09T21:03:30.300Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -6809,7 +6809,7 @@
       "title": "fix(security): vérifier l'audience d'un jeton contre la ressource de la zone",
       "url": "https://github.com/nodefony/nodefony-core/issues/748",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
