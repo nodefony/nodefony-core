@@ -1141,14 +1141,25 @@ export abstract class RealtimeController<
     // Imposé par le serveur : l'acquittement le dit (le client inscrit alors
     // le canal), et l'appelant de `subscribeConnection` apprend le succès.
     const connection = state.connection;
-    if (connection?.isImposing(channel) === true) {
-      state.transport.send(imposedSubscribedAckFrame(channel));
-      connection.settleImposed(channel, true);
-      return;
+    const imposed = connection?.isImposing(channel) === true;
+    if (state.binaryCodec !== null) {
+      // Codec binaire négocié (ADR-0022 §2) : seul l'accueil est en texte, les
+      // frames suivantes l'emploient — l'accusé passe donc par le peer, qui
+      // encode avec le codec de la connexion. Cold path : aucun raccourci.
+      state.peer.notify(
+        "realtime:subscribed",
+        imposed ? { channel, imposed: true } : { channel },
+      );
+    } else {
+      // Texte : écrite d'un bloc, sans enveloppe ni sérialisation générique —
+      // même voie que la frame pré-sérialisée du sink (cf `subscribedAck.ts`).
+      state.transport.send(
+        imposed
+          ? imposedSubscribedAckFrame(channel)
+          : subscribedAckFrame(channel),
+      );
     }
-    // Écrite d'un bloc, sans enveloppe ni sérialisation générique : même voie
-    // que la frame pré-sérialisée du sink (cf `subscribedAck.ts`).
-    state.transport.send(subscribedAckFrame(channel));
+    if (imposed) connection.settleImposed(channel, true);
   }
 
   /**

@@ -3,6 +3,8 @@ import "reflect-metadata";
 import { RealtimeController } from "../../src/server/RealtimeController.js";
 import { getRealtimeHub } from "../../src/server/RealtimeHub.js";
 import type { RealtimeInboundHandler } from "../../interfaces/IRealtimeController.js";
+import type { IRealtimeConnection } from "../../interfaces/IRealtimeConnection.js";
+import { subscribedAckFrame } from "../../src/server/subscribedAck.js";
 // Serveur : le codec et `RpcError` du dist `nodefony`, ceux que charge le service.
 import { RpcError as RpcErrorServer, type RpcActionHandler } from "nodefony";
 import { CBOR_FRAME_CODEC as SERVER_CBOR } from "nodefony/cbor";
@@ -57,8 +59,14 @@ class CodecRt extends RealtimeController {
   /** Charges reçues par le canal entrant `upload` — telles que le handler les voit. */
   readonly inbound: unknown[] = [];
 
+  /** Appelé par le canal entrant `join` — le banc y impose un abonnement. */
+  onJoin: ((connection: IRealtimeConnection) => void) | null = null;
+
   override realtimeInbound(): Record<string, RealtimeInboundHandler> {
-    return { upload: (params) => void this.inbound.push(params) };
+    return {
+      upload: (params) => void this.inbound.push(params),
+      join: (_params, _reply, connection) => this.onJoin?.(connection),
+    };
   }
 
   // Annoncé à l'accueil, sous réserve de la sonde des canaux (porte B2).
@@ -375,6 +383,87 @@ describe("Codec binaire côté serveur — négociation, accueil, bascule (#618)
     // Une diffusion de canal n'est jamais tracée (volume, boucle du journal).
     expect(cbor.server.traced).toEqual([]);
     expect(text.server.traced).toEqual([]);
+  });
+
+  it("#741 — l'accusé d'abonnement suit le codec : binaire sous CBOR, après l'accueil comme toute trame", async () => {
+    const { client, server } = await connect(true, `${CBOR}, ${TEXT}`);
+    const before = server.sent.length;
+    client.subscribe("tick");
+    await flush();
+    await flush();
+    const out = server.sent.slice(before);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toBeInstanceOf(Uint8Array);
+    expect(SERVER_CBOR.decode(out[0] as Uint8Array)).toEqual({
+      jsonrpc: "2.0",
+      method: "realtime:subscribed",
+      params: { channel: "tick" },
+    });
+  });
+
+  it("#741 — l'accusé d'un abonnement IMPOSÉ suit le codec, et porte `imposed`", async () => {
+    const joined: Promise<boolean>[] = [];
+    const { client, server } = await connect(true, `${CBOR}, ${TEXT}`);
+    server.rt.onJoin = (connection) =>
+      joined.push(getRealtimeHub().subscribeConnection("tock", connection));
+    const before = server.sent.length;
+    client.emit("join", {});
+    await flush();
+    await flush();
+    expect(await joined[0]).toBe(true);
+    const out = server.sent.slice(before);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toBeInstanceOf(Uint8Array);
+    expect(SERVER_CBOR.decode(out[0] as Uint8Array)).toEqual({
+      jsonrpc: "2.0",
+      method: "realtime:subscribed",
+      params: { channel: "tock", imposed: true },
+    });
+  });
+
+  it("#741 — désabonnement sous CBOR : le client n'est pas acquitté, la fin décidée par le serveur part en binaire", async () => {
+    const members: IRealtimeConnection[] = [];
+    const { client, server } = await connect(true, `${CBOR}, ${TEXT}`);
+    server.rt.onJoin = (connection) => void members.push(connection);
+    client.subscribe("tick");
+    client.emit("join", {});
+    await flush();
+    await flush();
+    // Désabonnement du CLIENT : aucune trame en retour, ni texte ni binaire.
+    let before = server.sent.length;
+    client.unsubscribe("tick");
+    await flush();
+    expect(server.sent.slice(before)).toEqual([]);
+    // Fin décidée par le SERVEUR : `realtime:closed`, encodée par le codec.
+    client.subscribe("tick");
+    await flush();
+    await flush();
+    before = server.sent.length;
+    const [member] = members;
+    if (member === undefined) throw new Error("la connexion n'a pas rejoint");
+    expect(getRealtimeHub().evictConnection("tick", member)).toBe(true);
+    await flush();
+    const out = server.sent.slice(before);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toBeInstanceOf(Uint8Array);
+    expect(SERVER_CBOR.decode(out[0] as Uint8Array)).toMatchObject({
+      method: "realtime:closed",
+      params: { channel: "tick", reason: "evicted" },
+    });
+    // Et sur toute la vie de la connexion, aucune trame texte après l'accueil.
+    expect(server.sent.slice(1).every((f) => f instanceof Uint8Array)).toBe(
+      true,
+    );
+  });
+
+  it("#741 — connexion TEXTE : l'accusé reste la trame JSON pré-sérialisée", async () => {
+    getRealtimeHub().setFrameCodec();
+    const { client, server } = await connect(false, undefined);
+    const before = server.sent.length;
+    client.subscribe("tick");
+    await flush();
+    await flush();
+    expect(server.sent.slice(before)).toEqual([subscribedAckFrame("tick")]);
   });
 
   it("connexion TEXTE : le flux brut sert comme avant", async () => {

@@ -22,6 +22,9 @@ const SUBSCRIBED_FRAME_PREFIX =
 /**
  * Sérialise la notification `realtime:subscribed { channel }`.
  *
+ * Connexion TEXTE seulement : sous codec binaire, l'accusé passe par
+ * `peer.notify` (`RealtimeController.ts#RealtimeController.acknowledgeSubscription`).
+ *
  * @param channel - le canal acquitté (entrée réseau : échappé par `JSON.stringify`).
  * @returns la trame JSON-RPC 2.0 prête à écrire sur le transport.
  */
