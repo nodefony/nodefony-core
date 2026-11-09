@@ -250,6 +250,28 @@ describe("unit — l'environnement passe par le catalogue, et par lui seul", () 
         if (m[1] !== undefined) declarees.add(m[1]);
       }
     }
+    // Le troisième catalogue : les variables RÉSERVÉES du cœur
+    // (`config/reservedEnv.ts` du paquet `nodefony`), que le framework pose ou
+    // que lit un outil voisin — `NF_MCP_TOKEN`, lu par le client de l'agent
+    // dans `.mcp.json`, jamais par l'application. Une leçon qui met en garde
+    // contre l'une d'elles la NOMME ; ne pas lire ce catalogue condamnait la
+    // démo MCP pour avoir expliqué la règle (#747).
+    const reserve = path.join(
+      APP,
+      "node_modules",
+      "nodefony",
+      "dist",
+      "node",
+      "config",
+      "reservedEnv.js",
+    );
+    if (existsSync(reserve)) {
+      for (const m of lire(reserve).matchAll(
+        /\bname:\s*["'](NF_[A-Z0-9_]+)["']/g,
+      )) {
+        if (m[1] !== undefined) declarees.add(m[1]);
+      }
+    }
     const inconnues = [...citees]
       .filter((v) => !catalogue.includes(v) && !declarees.has(v))
       .sort();
