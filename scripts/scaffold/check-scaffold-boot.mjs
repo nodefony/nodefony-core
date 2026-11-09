@@ -70,24 +70,26 @@ const option = (name, fallback) => {
   const hit = args.find((a) => a.startsWith(`--${name}=`));
   return hit === undefined ? fallback : hit.slice(name.length + 3);
 };
-const pm = option("package-manager", "pnpm");
-const frontend = option("frontend", "svelte");
+/**
+ * La valeur d'une option, prise DANS sa liste autorisée : ce qui vient de la
+ * ligne de commande n'est jamais recopié tel quel dans le journal (injection
+ * de lignes forgées, `js/log-injection`). Un `includes` contrôlerait la
+ * valeur sans changer sa provenance.
+ */
+function choice(name, allowed, fallback) {
+  const asked = option(name, fallback);
+  const hit = allowed.find((value) => value === asked);
+  if (hit === undefined) {
+    console.error(`--${name} inconnu — attendus : ${allowed.join(", ")}`);
+    process.exit(2);
+  }
+  return hit;
+}
+const pm = choice("package-manager", PACKAGE_MANAGERS, "pnpm");
+const frontend = choice("frontend", FRONTENDS, "svelte");
 const port = Number(option("port", "15161"));
-const keep = args.includes("--keep");
-if (!PACKAGE_MANAGERS.includes(pm)) {
-  console.error(
-    `gestionnaire inconnu : ${pm} — attendus : ${PACKAGE_MANAGERS.join(", ")}`,
-  );
-  process.exit(2);
-}
-if (!FRONTENDS.includes(frontend)) {
-  console.error(
-    `front inconnu : ${frontend} — attendus : ${FRONTENDS.join(", ")}`,
-  );
-  process.exit(2);
-}
 if (!Number.isInteger(port) || port <= 0 || port >= 65_535) {
-  console.error(`port invalide : ${option("port", "")}`);
+  console.error("--port invalide : un entier entre 1 et 65 534");
   process.exit(2);
 }
 
