@@ -6,6 +6,7 @@ import {
 } from "nodefony";
 import type {
   FrameAuthorizer,
+  IChannelPolicies,
   IChannelPolicy,
   IRealtimeToken,
 } from "./realtimeContracts";
@@ -34,6 +35,12 @@ export interface IFrameAuthorizerFirewall {
  */
 export interface IChannelPolicyResolver {
   resolveChannelPolicy?(channel: string): IChannelPolicy | null;
+  /**
+   * Lecture ET écriture distincte d'un nom, en une résolution (ADR-0022 §6,
+   * décision 1 quater). Préférée quand elle existe ; un hub d'une version
+   * antérieure ne l'expose pas, et ne porte alors aucune écriture distincte.
+   */
+  resolveChannelPolicies?(channel: string): IChannelPolicies | null;
 }
 
 /**
@@ -57,7 +64,9 @@ export interface ISystemChannelRule {
  * @param surface - cible refusée : pont socket (`api.request`) ou canal
  *   (subscribe/inbound).
  * @param target  - pathname (api.request) ou nom de canal refusé.
- * @param reason  - raison machine stable (`zone_protected` | `channel_policy`).
+ * @param reason  - raison machine stable (`zone_protected` | `channel_policy`
+ *   | `channel_write_policy` — l'écriture distincte du canal a refusé, la
+ *   lecture était satisfaite).
  * @param token   - jeton WS de l'acteur (lu pour `getUserIdentifier()`).
  */
 export type FrameDenyReporter = (
@@ -355,26 +364,49 @@ function authorizeApiRequest(
 }
 
 /**
- * Verrou `subscribe {channel}` (et canaux inbound full-duplex) — applique la
- * politique du canal. PLANCHER système prioritaire (namespace réservé) ; sinon
- * politique métier déclarée (`@RealtimeChannel`) ; sinon canal libre.
+ * Verrou `subscribe {channel}`, canaux entrants et actions — applique la
+ * politique du nom. PLANCHER système prioritaire (namespace réservé) ; sinon
+ * politique métier déclarée ; sinon canal libre.
+ *
+ * Deux sortes (ADR-0022 §6, décision 1 quater) : `subscribe` exige la LECTURE ;
+ * une trame entrante (`writing`) exige la lecture ET l'écriture distincte quand
+ * le nom en déclare une. L'écriture n'est jamais moins stricte que la lecture.
  */
 function authorizeChannel(
   channel: string,
+  writing: boolean,
   token: IRealtimeToken,
   firewall: IFrameAuthorizerFirewall,
   resolver: IChannelPolicyResolver | null,
   systemRules: readonly ISystemChannelRule[],
   onDeny?: FrameDenyReporter,
 ): boolean {
-  // 1. Système = plancher non contournable (le métier ne peut pas l'affaiblir).
-  const sys = matchSystemPolicy(channel, systemRules);
-  // 2. Métier (décorateur) seulement hors namespace système.
-  const policy = sys ?? resolver?.resolveChannelPolicy?.(channel) ?? null;
-  if (policy === null) return true; // canal applicatif libre (public)
-  if (satisfies(policy, token, firewall)) return true;
-  onDeny?.("channel", channel, "channel_policy", token); // refus audité (cold)
-  return false;
+  // 1. Système = plancher non contournable (le métier ne peut pas l'affaiblir),
+  //    et seul juge dans son namespace.
+  let read = matchSystemPolicy(channel, systemRules);
+  let write: IChannelPolicy | null = null;
+  // 2. Métier (décorateur) seulement hors namespace système. UNE résolution
+  //    rend les deux sortes ; un hub d'avant n'expose que la lecture.
+  if (read === null && resolver !== null) {
+    if (resolver.resolveChannelPolicies !== undefined) {
+      const declared = resolver.resolveChannelPolicies(channel);
+      if (declared === null) return true; // canal applicatif libre (public)
+      read = declared.policy;
+      if (writing) write = declared.write; // null : la lecture suffit
+    } else {
+      read = resolver.resolveChannelPolicy?.(channel) ?? null;
+    }
+  }
+  if (read === null) return true; // canal applicatif libre (public)
+  if (!satisfies(read, token, firewall)) {
+    onDeny?.("channel", channel, "channel_policy", token); // refus audité (cold)
+    return false;
+  }
+  if (write !== null && !satisfies(write, token, firewall)) {
+    onDeny?.("channel", channel, "channel_write_policy", token);
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -413,7 +445,7 @@ export function buildFrameAuthorizer(
   const resolver = options?.channelResolver ?? null;
   const systemRules = options?.systemRules ?? DEFAULT_SYSTEM_RULES;
   const onDeny = options?.onDeny;
-  return (frame: unknown, token: IRealtimeToken): boolean => {
+  const authorizer = (frame: unknown, token: IRealtimeToken): boolean => {
     // La trame arrive du réseau : on la RÉTRÉCIT, on ne la convertit pas. Une
     // trame sans `method` n'est soumise à aucune règle (le pair la rejette).
     if (typeof frame !== "object" || frame === null || !("method" in frame)) {
@@ -434,6 +466,7 @@ export function buildFrameAuthorizer(
       if (typeof channel !== "string") return true;
       return authorizeChannel(
         channel,
+        false,
         token,
         firewall,
         resolver,
@@ -448,6 +481,7 @@ export function buildFrameAuthorizer(
     if (typeof method === "string") {
       return authorizeChannel(
         method,
+        true,
         token,
         firewall,
         resolver,
@@ -457,6 +491,9 @@ export function buildFrameAuthorizer(
     }
     return true;
   };
+  // Le hub refuse un verrou qui ne juge pas l'écriture face à une écriture
+  // distincte déclarée : celui-ci la juge. Posé une fois, à la construction.
+  return Object.assign(authorizer, { judgesWrite: true as const });
 }
 
 export default buildFrameAuthorizer;

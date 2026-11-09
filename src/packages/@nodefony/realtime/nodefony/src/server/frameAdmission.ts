@@ -69,24 +69,6 @@ function admittedTable(
 }
 
 /**
- * Admet les trames entrantes d'un canal que sa règle `allow` vient d'ouvrir à la connexion.
- *
- * Pas de plafond propre : le nombre de canaux ouverts l'est déjà. Sans effet si le
- * canal n'accepte pas d'entrée client.
- *
- * @param state - état de la connexion.
- * @param channel - canal ouvert par `allow`.
- */
-export function admitByRule(
-  state: IRealtimeConnectionState,
-  channel: string,
-): void {
-  const inbound = state.inbound;
-  if (inbound === null || !canAdmit(state, inbound, channel)) return;
-  admittedTable(state, inbound)[channel] = true;
-}
-
-/**
  * Retire TOUTE admission d'un canal à la connexion — marque de sa règle ET verdict retenu du verrou — quand le serveur l'en éjecte ou le termine (ADR-0022 §6 décision 3).
  *
  * Plus fort que {@link releaseRuleAdmission}, qui garde le verdict du verrou :
@@ -112,37 +94,47 @@ export function revokeAdmission(
 }
 
 /**
- * Retire l'admission d'un canal à la fin de son abonnement — celle de sa règle
- * `allow`, que rien ne justifie plus. Un verdict du verrou, lui, ne tient qu'à
- * l'identité et survit au désabonnement.
+ * Retire l'admission d'un canal à la fin de son abonnement quand elle en dépendait — celle d'un canal à `allow`, dont l'abonnement est la condition.
+ *
+ * Un verdict du verrou sur un canal SANS `allow` ne tient qu'à l'identité et
+ * survit au désabonnement ; sur un canal à `allow`, il ne valait que le temps
+ * de l'abonnement (ADR-0022 §6, décisions 1 et 1 quater).
  *
  * @param state - état de la connexion.
  * @param channel - canal quitté.
+ * @param hub - hub qui porte les règles d'admission.
  */
 export function releaseRuleAdmission(
   state: IRealtimeConnectionState,
   channel: string,
+  hub: RealtimeHub,
 ): void {
-  const admitted = state.admitted;
-  if (admitted === null || admitted[channel] !== true) return;
-  if (state.retained?.includes(channel) === true) return;
-  admitted[channel] = false;
+  if (state.admitted?.[channel] !== true) return;
+  if (hub.resolveChannelAdmission(channel) !== null) {
+    revokeAdmission(state, channel);
+  }
 }
 
 /**
- * Retient le « oui » du verrou pour un canal entrant à politique fixe (jamais un refus).
+ * Retient le « oui » du verrou pour un canal entrant (jamais un refus).
  *
- * Au plus {@link MAX_RETAINED_FRAME_VERDICTS} par connexion. La première retenue
- * inscrit la connexion auprès du hub, qui pourra la vider si une politique arrive
- * après coup.
+ * Au plus {@link MAX_RETAINED_FRAME_VERDICTS} par connexion, sauf sur un canal
+ * à `allow` (`bySubscription`) : ceux-là sont déjà bornés par le plafond de
+ * canaux ouverts. La première retenue inscrit la connexion auprès du hub, qui
+ * pourra la vider si une politique arrive après coup.
  */
 function retainVerdict(
   state: IRealtimeConnectionState,
   method: string,
   hub: RealtimeHub,
+  bySubscription: boolean,
 ): void {
   const retained = state.retained;
-  if (retained !== null && retained.length >= MAX_RETAINED_FRAME_VERDICTS)
+  if (
+    !bySubscription &&
+    retained !== null &&
+    retained.length >= MAX_RETAINED_FRAME_VERDICTS
+  )
     return;
   const inbound = state.inbound;
   if (inbound === null || !canAdmit(state, inbound, method)) return;
@@ -155,8 +147,9 @@ function retainVerdict(
 
 /**
  * Oublie les verdicts du verrou retenus par la connexion — leur politique vient
- * de changer. Les admissions par `allow` restent : elles valent autant que
- * l'abonnement qui les porte.
+ * de changer. Ceux des canaux à `allow` compris : une écriture inscrite après
+ * coup doit être jugée à la trame suivante, abonnement ou pas. `allow`, lui,
+ * n'est pas redemandé — l'abonnement reste.
  *
  * @param state - état de la connexion.
  */
@@ -176,8 +169,10 @@ export function dropRetainedVerdicts(state: IRealtimeConnectionState): void {
  * - `ping` et `unsubscribe` passent sans règle ;
  * - `subscribe` passe par le verrou (`allow` est jugé après, à l'ouverture) ;
  * - un nom hérité du prototype de la table entrante est refusé ;
- * - un canal entrant à `allow` que l'abonnement n'a pas admis est refusé ;
- * - un canal entrant à politique fixe passe par le verrou, dont le « oui » est retenu ;
+ * - un canal entrant à `allow` exige l'abonnement de CETTE connexion (`allow`
+ *   n'est jamais rappelé), puis passe par le verrou comme les autres ;
+ * - un canal entrant passe par le verrou — lecture ET écriture —, dont le « oui »
+ *   est retenu ;
  * - toute autre notification passe par le verrou.
  *
  * Le premier test du contrôleur (`admitted[method] === true`) a déjà écarté les trames
@@ -207,8 +202,11 @@ export function gateFrame(
     if (method in inbound) return false;
     return hub.runAuthorizer(frame, state.peer);
   }
-  if (hub.resolveChannelAdmission(method) !== null) return false;
+  // Canal à `allow` : l'abonnement fait foi de l'admission. Le verrou juge
+  // ensuite lecture ET écriture — une admission ne vaut pas droit d'écrire.
+  const bySubscription = hub.resolveChannelAdmission(method) !== null;
+  if (bySubscription && !state.channels.has(method)) return false;
   if (!hub.runAuthorizer(frame, state.peer)) return false;
-  retainVerdict(state, method, hub);
+  retainVerdict(state, method, hub, bySubscription);
   return true;
 }

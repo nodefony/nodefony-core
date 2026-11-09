@@ -232,8 +232,12 @@ class ChatController extends ContractRealtimeController<ChatContract> {
   // #endregion
 
   // #region chat-typing
-  /** La frappe en cours : lecture libre, volatile. */
-  @RealtimeChannel(TYPING_CHANNEL)
+  /**
+   * La frappe en cours, volatile : tout le monde la VOIT (lecture libre),
+   * seuls les connectés l'ÉCRIVENT (`onTyping`). Sans `authenticated: false`,
+   * la lecture hériterait de l'écriture et un visiteur ne verrait rien.
+   */
+  @RealtimeChannel(TYPING_CHANNEL, { authenticated: false })
   typing(): () => void {
     return () => {};
   }

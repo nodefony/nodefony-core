@@ -1,4 +1,5 @@
 import type {
+  IChannelPolicies,
   IChannelPolicy,
   ISubscriberIdentity,
   TokenStatus,
@@ -101,11 +102,15 @@ export interface IRealtimeAuthenticatorMatcher {
 /**
  * Verrou de frame (miroir de `FrameAuthorizer`) — SYNC : `true` = frame
  * autorisée. Lit le token déjà résolu au handshake (0 lecture base par frame).
+ *
+ * `judgesWrite` : le verrou juge l'écriture distincte d'un canal (ADR-0022 §6,
+ * décision 1 quater) ; un hub refuse de démarrer face à un verrou qui ne le
+ * déclare pas dès qu'une telle écriture est inscrite.
  */
-export type FrameAuthorizer = (
+export type FrameAuthorizer = ((
   frame: unknown,
   token: IRealtimeToken,
-) => boolean;
+) => boolean) & { readonly judgesWrite?: true };
 
 /**
  * Politique d'autorisation d'un canal — déclaration UNIQUE au cœur (`nodefony`), que le
@@ -118,7 +123,7 @@ export type FrameAuthorizer = (
  * (`defineSecurityConfig().realtimeChannels` + namespaces système réservés —
  * cf {@link buildFrameAuthorizer}).
  */
-export type { IChannelPolicy };
+export type { IChannelPolicy, IChannelPolicies };
 
 /**
  * Surface consommée du `realtimeService` (miroir partiel de `RealtimeService`) —
@@ -152,6 +157,12 @@ export interface IRealtimeService {
    * hub d'une version antérieure ne l'expose pas → traité comme `undefined`.
    */
   resolveChannelPolicy?(channel: string): IChannelPolicy | null;
+  /**
+   * Seam #1b — lecture ET écriture distincte d'un nom, en une résolution
+   * (ADR-0022 §6, décision 1 quater). Optionnel : un hub d'une version
+   * antérieure ne l'expose pas, et ne porte alors aucune écriture distincte.
+   */
+  resolveChannelPolicies?(channel: string): IChannelPolicies | null;
   /**
    * Namespaces de canaux **réservés à la plateforme**, tels que le hub les connaît
    * (`syslog:`, `orm:`, `kernel:`…). Le firewall y accroche ses politiques au lieu

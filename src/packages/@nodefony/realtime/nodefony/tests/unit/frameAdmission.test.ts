@@ -427,14 +427,16 @@ describe("#622 lot 4 — canal entrant à allow", () => {
     assert.equal(denied?.detail, undefined);
   });
 
-  it("abonné et admis par sa règle : les trames passent sans le verrou", async () => {
+  it("abonné et admis par sa règle : la première trame passe le verrou UNE fois, les suivantes sont admises (#758)", async () => {
+    // Une admission par `allow` ne vaut pas droit d'écrire : l'écriture du
+    // canal est jugée à la première trame, puis le « oui » est retenu.
     const spy = spyLock();
     getRealtimeHub().setFrameAuthorizer(spy.lock);
     const { rt } = await connect();
     rt.subscribe("room:1");
     await settle();
     for (let i = 0; i < 3; i++) rt.push("room:1");
-    assert.equal(spy.count("room:1"), 0);
+    assert.equal(spy.count("room:1"), 1);
     assert.equal(rt.received["room:1"], 3);
   });
 
@@ -475,15 +477,22 @@ describe("#622 lot 4 — canal entrant à allow", () => {
     );
   });
 
-  it("un verrou posé après coup n'oublie PAS une admission par allow — elle vaut autant que l'abonnement, qui reste servi", async () => {
+  it("un verrou posé après coup JUGE la trame suivante d'un canal admis par allow — l'abonnement reste, allow n'est pas rappelé (#758)", async () => {
+    // Avant #758 l'admission par `allow` survivait au changement de verrou :
+    // une écriture inscrite après coup n'était jamais jugée.
     const { rt } = await connect();
     rt.subscribe("room:1");
     await settle();
-    const spy = spyLock(() => false);
-    getRealtimeHub().setFrameAuthorizer(spy.lock);
+    rt.push("room:1"); // retenue sous l'ancien verrou (aucun)
+    const refuse = spyLock(() => false);
+    getRealtimeHub().setFrameAuthorizer(refuse.lock);
     rt.push("room:1");
-    assert.equal(rt.received["room:1"], 1);
-    assert.equal(spy.count("room:1"), 0);
+    assert.equal(refuse.count("room:1"), 1);
+    assert.equal(rt.received["room:1"], 1, "refusée par le nouveau verrou");
+    const accept = spyLock();
+    getRealtimeHub().setFrameAuthorizer(accept.lock);
+    rt.push("room:1");
+    assert.equal(rt.received["room:1"], 2, "l'abonnement tient toujours");
   });
 });
 

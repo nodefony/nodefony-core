@@ -92,7 +92,6 @@ import {
   type IChannelAdmissionRule,
 } from "./connectionAdmission";
 import {
-  admitByRule,
   gateFrame,
   releaseRuleAdmission,
   revokeAdmission,
@@ -1247,9 +1246,10 @@ export abstract class RealtimeController<
   ): boolean {
     const sink = state.channels.get(channel);
     if (sink === undefined) return false;
-    getRealtimeHub().unsubscribe(channel, sink);
+    const hub = getRealtimeHub();
+    hub.unsubscribe(channel, sink);
     state.channels.delete(channel);
-    releaseRuleAdmission(state, channel);
+    releaseRuleAdmission(state, channel, hub);
     return true;
   }
 
@@ -1374,12 +1374,10 @@ export abstract class RealtimeController<
       }
       admission = new ConnectionAdmission(
         {
-          open: (ch) => {
-            this.openChannel(ctx, state, ch);
-            // Admis par sa règle ET servi : ses trames entrantes passent sans
-            // le verrou, le temps de l'abonnement.
-            if (state.channels.has(ch)) admitByRule(state, ch);
-          },
+          // Admis par sa règle ET servi. Ses trames entrantes passeront le
+          // verrou une fois (lecture ET écriture), puis seront admises le
+          // temps de l'abonnement : une admission ne vaut pas droit d'écrire.
+          open: (ch) => this.openChannel(ctx, state, ch),
           deny: (ch, reason, detail, retryAfterMs) => {
             this.refuseChannel(state, ch, reason, detail, retryAfterMs);
             this.log(`WS subscribe refusé (${reason}) → ${ch}`, "DEBUG");

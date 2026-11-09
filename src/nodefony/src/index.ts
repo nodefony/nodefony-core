@@ -412,6 +412,7 @@ export type {
   ChannelAdmissionClass,
   ChannelAllow,
   IChannelPolicy,
+  IChannelPolicies,
 } from "./realtime/channelAdmission";
 export {
   USER_CHANNEL_PREFIX,

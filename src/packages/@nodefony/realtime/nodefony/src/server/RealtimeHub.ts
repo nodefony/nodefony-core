@@ -24,7 +24,11 @@ import {
 } from "nodefony";
 import { RealtimeConnection } from "./RealtimeConnection";
 import type { IRealtimeConnection } from "../../interfaces/IRealtimeConnection";
-import type { IChannelAdmission, UserChannelPayload } from "nodefony";
+import type {
+  IChannelAdmission,
+  IChannelPolicies,
+  UserChannelPayload,
+} from "nodefony";
 import { AdmissionBudget, type IAdmissionLimits } from "./admissionBudget";
 import type { IChannelAdmissionRule } from "./connectionAdmission";
 import { dropRetainedVerdicts } from "./frameAdmission";
@@ -79,11 +83,16 @@ export type OriginGuard = (origin: string | undefined) => boolean;
  * `@nodefony/security` au boot via {@link RealtimeService.setFrameAuthorizer}.
  * Doctrine SYNC stricte (cf `JsonRpcPeerOptions.beforeDispatch`) : un `await` par
  * frame coûterait une microtask et sérialiserait le pipeline RPC du peer.
+ *
+ * `judgesWrite` : le verrou sait juger une politique d'ÉCRITURE distincte de la
+ * lecture (ADR-0022 §6, décision 1 quater). Un verrou qui ne le déclare pas ne
+ * lirait que la lecture, et laisserait ouverte une écriture plus stricte : le
+ * hub refuse alors de démarrer dès qu'une telle écriture est déclarée.
  */
-export type FrameAuthorizer = (
+export type FrameAuthorizer = ((
   frame: unknown,
   token: IRealtimeToken,
-) => boolean;
+) => boolean) & { readonly judgesWrite?: true };
 
 interface RegisteredAuthenticator {
   readonly matcher: ICompiledRealtimeMatcher;
@@ -334,11 +343,27 @@ interface ChannelState {
 }
 
 /**
- * Entrée du registre des politiques : la déclaration, et — quand elle porte `allow` — la règle d'admission prête à appeler.
+ * Entrée du registre des politiques : la LECTURE, l'ÉCRITURE quand elle en diffère, et — quand la lecture porte `allow` — la règle d'admission prête à appeler.
+ *
+ * L'entrée satisfait {@link IChannelPolicies} : `resolveChannelPolicies` la rend
+ * telle quelle, sans allocation.
  */
-interface IChannelPolicyEntry {
-  readonly policy: IChannelPolicy;
+interface IChannelPolicyEntry extends IChannelPolicies {
   readonly admission: IChannelAdmissionRule | null;
+}
+
+/**
+ * Qui a déclaré la politique d'un nom, et laquelle — retenu au démarrage pour refuser deux classes en désaccord sur un même nom.
+ */
+export interface IChannelPolicyClaim {
+  /** Constructeur du contrôleur qui a déclaré le premier. */
+  readonly owner: object;
+  /** Son nom, pour le message de refus. */
+  readonly ownerName: string;
+  /** Sa lecture. */
+  readonly policy: IChannelPolicy;
+  /** Son écriture distincte, ou `null`. */
+  readonly write: IChannelPolicy | null;
 }
 
 /**
@@ -380,6 +405,7 @@ function admissionRuleOf(
  */
 const USER_CHANNEL_POLICY: IChannelPolicyEntry = Object.freeze({
   policy: Object.freeze({ authenticated: true, allow: isOwnUserChannel }),
+  write: null,
   admission: Object.freeze({ allow: isOwnUserChannel, anonymous: false }),
 });
 
@@ -544,6 +570,10 @@ export class RealtimeHub {
    * l'inscription elle-même n'a lieu qu'une fois par classe.
    */
   #policyOwners: WeakSet<object> | null = null;
+  // Première classe à déclarer chaque nom, et ce qu'elle a déclaré — lu au
+  // démarrage seulement (`claimChannelPolicy`). `null` tant qu'aucune classe
+  // décorée n'a inscrit de politique.
+  #policyClaims: Map<string, IChannelPolicyClaim> | null = null;
 
   /**
    * Politiques déclarées par MOTIF de nom (`chat:room:*`), triées du plus
@@ -1601,11 +1631,19 @@ export class RealtimeHub {
    * **Seam #1 (P13 → P6)** — pose le verrou de frame (cf {@link FrameAuthorizer}).
    * `null` retire la politique (bypass total). Posé 1× au boot par
    * `@nodefony/security` depuis les zones `realtime: true`. Cold path.
+   *
+   * @throws BootConfigurationError Le verrou ne déclare pas `judgesWrite`
+   *   alors qu'une écriture distincte de la lecture est inscrite : il la
+   *   laisserait ouverte.
    */
   setFrameAuthorizer(
     authorizer: FrameAuthorizer | null,
     options?: { readonly silentProbe?: FrameAuthorizer | null },
   ): void {
+    if (authorizer !== null && authorizer.judgesWrite !== true) {
+      const unjudged = this.#firstDistinctWrite();
+      if (unjudged !== null) this.#refuseUnjudgedWrite(unjudged);
+    }
     this.#frameAuthorizer = authorizer;
     // Un « oui » retenu valait pour l'ANCIEN verrou.
     this.#dropRetainedVerdicts();
@@ -1711,19 +1749,33 @@ export class RealtimeHub {
    * par l'injecteur, dont la méthode est liée ICI, une fois — le `subscribe`
    * n'appelle qu'une fonction prête.
    *
-   * @param policy - exigences ({@link IChannelPolicy}) lues par security.
+   * @param policy - exigences de LECTURE ({@link IChannelPolicy}) lues par
+   *   security ; seules exigées au `subscribe`.
    * @param admission - instance de la classe d'admission quand `policy.allow`
    *   en est une ; ignorée sinon.
+   * @param write - exigences d'ÉCRITURE DISTINCTES de la lecture, exigées EN
+   *   PLUS d'elle sur une trame entrante (ADR-0022 §6, décision 1 quater) ;
+   *   `null` ou absente : la lecture suffit.
    * @throws BootConfigurationError La politique désigne une classe d'admission
-   *   et aucune instance de CETTE classe n'est fournie.
+   *   et aucune instance de CETTE classe n'est fournie ; ou une écriture est
+   *   déclarée face à un verrou qui ne sait pas la juger.
    */
   registerChannelPolicy(
     name: string,
     policy: IChannelPolicy,
     admission?: IChannelAdmission,
+    write: IChannelPolicy | null = null,
   ): void {
+    if (
+      write !== null &&
+      this.#frameAuthorizer !== null &&
+      this.#frameAuthorizer.judgesWrite !== true
+    ) {
+      this.#refuseUnjudgedWrite(name);
+    }
     const entry: IChannelPolicyEntry = {
       policy,
+      write,
       admission: admissionRuleOf(name, policy, admission),
     };
     // Inscrite après coup, la politique peut couvrir un canal dont le verrou a
@@ -1816,6 +1868,73 @@ export class RealtimeHub {
    */
   resolveChannelPolicy(name: string): IChannelPolicy | null {
     return this.#resolvePolicyEntry(name)?.policy ?? null;
+  }
+
+  /**
+   * Lecture ET écriture qui s'appliquent à ce nom, en UNE résolution — `null` si aucune politique ne le couvre (ADR-0022 §6, décision 1 quater).
+   *
+   * Même résolution que {@link resolveChannelPolicy} : l'entrée la plus
+   * spécifique (nom exact, puis motif) gouverne les deux sortes. Rendue telle
+   * quelle : aucune allocation, une seule recherche par trame jugée.
+   *
+   * @param name - nom du canal, de la méthode entrante ou de l'action.
+   */
+  resolveChannelPolicies(name: string): IChannelPolicies | null {
+    return this.#resolvePolicyEntry(name);
+  }
+
+  /**
+   * Retient la PREMIÈRE classe qui déclare une politique sous ce nom, et rend celle qui l'avait déjà déclarée — pour refuser au démarrage deux classes en désaccord.
+   *
+   * @param name - nom exact ou motif.
+   * @param owner - constructeur du contrôleur qui déclare.
+   * @param policy - sa lecture.
+   * @param write - son écriture distincte, ou `null`.
+   * @returns la déclaration antérieure, ou `null` si ce nom n'en avait aucune.
+   */
+  claimChannelPolicy(
+    name: string,
+    owner: object,
+    policy: IChannelPolicy,
+    write: IChannelPolicy | null,
+  ): IChannelPolicyClaim | null {
+    const claims = (this.#policyClaims ??= new Map<
+      string,
+      IChannelPolicyClaim
+    >());
+    const previous = claims.get(name);
+    if (previous !== undefined) return previous;
+    claims.set(name, {
+      owner,
+      ownerName: typeof owner === "function" ? owner.name : "(contrôleur)",
+      policy,
+      write,
+    });
+    return null;
+  }
+
+  /** Premier nom inscrit dont l'écriture diffère de la lecture, ou `null`. Cold path. */
+  #firstDistinctWrite(): string | null {
+    if (this.#channelPolicies !== null) {
+      for (const [name, entry] of this.#channelPolicies) {
+        if (entry.write !== null) return name;
+      }
+    }
+    for (const entry of this.#channelPolicyPatterns ?? []) {
+      if (entry.write !== null) return entry.source;
+    }
+    return null;
+  }
+
+  /** Refuse le démarrage : une écriture distincte face à un verrou qui ne la juge pas resterait ouverte. */
+  #refuseUnjudgedWrite(name: string): never {
+    throw new BootConfigurationError(
+      `canal temps réel « ${name} » : il déclare une politique d'ÉCRITURE ` +
+        `distincte de sa lecture, et le verrou des trames posé sur le hub ne ` +
+        `sait pas la juger (il ne déclare pas « judgesWrite ») — l'écriture ` +
+        `resterait ouverte. Aligner @nodefony/security sur la version de ` +
+        `@nodefony/realtime.`,
+    );
   }
 
   /**
@@ -2086,6 +2205,7 @@ export class RealtimeHub {
     this.#channelPolicies = null;
     this.#channelPolicyPatterns = null;
     this.#policyOwners = null;
+    this.#policyClaims = null;
     this.#originGuard = null;
     // Détache le backplane (reset). On ne `stop()` PAS ici : le hub n'en est pas
     // l'owner (créé/détruit par le module qui l'a branché) — il le libère lui-même.
