@@ -450,6 +450,15 @@
       "rules": { "no-restricted-imports": "off" }
     },
     {
+      // L'aperçu PDF de la démo : Chrome n'affiche pas un PDF dans un cadre
+      // `sandbox`. Le fichier est servi par la discussion, sans script de la
+      // page (`ChatController.file`). La dérogation vit ICI et non en
+      // directive au gabarit : la grille d'une application générée n'a pas le
+      // plugin React et déclarerait la directive morte (`--deny-warnings`).
+      "files": ["**/demo/frontend/src/kit/FilePreview.tsx"],
+      "rules": { "react/iframe-missing-sandbox": "off" }
+    },
+    {
       "files": [
         "**/*.test.ts",
         "**/*.spec.ts",
