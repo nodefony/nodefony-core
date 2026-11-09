@@ -3786,6 +3786,26 @@ a.ritem:hover .ritem-go {
   gap: 8px;
   align-items: flex-start;
 }
+.mcp-steps {
+  display: grid;
+  gap: 12px;
+  margin: 8px 0 0;
+  padding-left: 1.4rem;
+  font-size: 0.9rem;
+}
+.mcp-steps li {
+  min-width: 0;
+}
+.mcp-steps .mcp-copy,
+.mcp-steps .mcp-desc {
+  margin-top: 6px;
+}
+.mcp-steps .mcp-desc {
+  display: block;
+}
+.mcp-steps .mcp-desc code {
+  white-space: nowrap;
+}
 .mcp-copy .mcp-frame {
   flex: 1;
   min-width: 0;

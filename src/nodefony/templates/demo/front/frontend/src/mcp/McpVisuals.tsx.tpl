@@ -461,17 +461,58 @@ export function ConnectPanel({ resource }: { resource: string }) {
         </div>
       </div>
       <p className="mcp-label">
-        Claude Code — un jeton à part, d'audience cette porte (shell POSIX)
+        Brancher Claude Code sur cette porte, en trois étapes
+      </p>
+      <ol className="mcp-steps">
+        <li>
+          <strong>Obtenir un jeton.</strong> L'application le signe elle-même
+          avec sa clé : ni mot de passe, ni appel réseau.
+          <Copy
+            text={`npx nodefony security:mcp:token admin --resource ${resource} --scope demo:write --ttl 480`}
+          />
+          <span className="mcp-desc">
+            <code>admin</code> est le compte qui porte le jeton.{" "}
+            <code>--resource</code> fixe son audience : cette porte, sinon elle
+            le refuse (RFC 8707). <code>--scope demo:write</code> demande
+            l'écriture, que <code>grantableScopes</code> réserve à{" "}
+            <code>ROLE_ADMIN</code> — le compte <code>user</code> reçoit un
+            jeton sans. <code>--ttl 480</code> le fait vivre 8 h. La commande
+            l'affiche après <code>export NF_MCP_TOKEN=</code> : copie la valeur
+            seule, celle qui commence par <code>eyJ</code>.
+          </span>
+        </li>
+        <li>
+          <strong>Le donner à Claude Code</strong>, qui le posera dans l'en-tête
+          de chaque appel.
+          <Copy
+            text={`claude mcp add --transport http nodefony-demo ${resource} --header "Authorization: Bearer <colle le jeton ici>"`}
+          />
+          <span className="mcp-desc">
+            Déjà ajouté, sans jeton ou avec un jeton expiré ? Retire-le d'abord
+            : <code>claude mcp remove nodefony-demo</code>.
+          </span>
+        </li>
+        <li>
+          <strong>Recharger.</strong> Une session déjà ouverte ne voit pas un
+          serveur ajouté : tape <code>/mcp</code>, choisis{" "}
+          <code>nodefony-demo</code>, puis Reconnect. Demande ensuite à ton
+          agent « lis les derniers messages du salon de démo » : son appel
+          s'affiche dans le fil ci-dessous, appelant « jeton ».
+        </li>
+      </ol>
+      <p className="mcp-label">
+        Les étapes 1 et 2 d'une seule ligne (bash, zsh)
       </p>
       <Copy
         text={`claude mcp add --transport http nodefony-demo ${resource} --header "Authorization: Bearer $(npx nodefony security:mcp:token admin --resource ${resource} --scope demo:write --ttl 480 --json | node -p 'JSON.parse(require("node:fs").readFileSync(0, "utf8")).access_token')"`}
       />
       <p className="mcp-desc">
-        Pas de <code>--write</code> ici : il remplacerait{" "}
-        <code>NF_MCP_TOKEN</code>, le jeton de la porte de développement, par
-        celui-ci — qu'elle refuse, son audience est une autre porte. Ses outils
-        réservés disparaîtraient sans un mot. Le jeton vit 8 h : à l'échéance,{" "}
-        <code>demo_chat_post</code> quitte la liste ; relance la ligne.
+        N'ajoute pas <code>--write</code>, même si la commande le propose : il
+        remplacerait <code>NF_MCP_TOKEN</code>, le jeton de la porte de
+        développement, par celui-ci — qu'elle refuse, son audience est une autre
+        porte. Ses outils réservés disparaîtraient sans un mot. À l'échéance des
+        8 h, <code>demo_chat_post</code> quitte la liste : refais les étapes 1
+        et 2.
       </p>
     </figure>
   );
