@@ -192,7 +192,7 @@ passent par elle : `defaultMigrationSources` (secondaire = source `app` sur son 
 `orm:generate` et `orm:migrate:baseline --from-database` (`outDir`) · `DrizzleService`
 (`hasMigrations` : secondaire sans fichier en `migrate` → avertissement qui donne la commande).
 Nom réservé → `refuseReservedConnector` → `NF_MIGRATE_SECONDARY_CONNECTOR` (seul cas refusé).
-Module `policy:"dev"` à la génération : ses fichiers n'entrent dans AUCUNE migration, quel que soit
+Module `policy:"dev"` à la génération ET à l'adoption (`baseline --from-database` : ses tables EXCLUES de la lecture) : découverte unique `appSchema.ts#discoverEntityFiles`, refus unique `refusals.ts#devModuleTablesRefusal` ; ses fichiers n'entrent dans AUCUNE migration, quel que soit
 `NODE_ENV` (politique lue au MANIFESTE par `devOnlyModules` du cœur — en prod le registre l'ignore ;
 cible reconnue par nom de paquet ou chemin, `appSchema.ts#devModuleTargets`). Tables liées par le
 registre au connecteur généré → refus `NF_GENERATE_DEV_MODULE_TABLE` (`appSchema.ts#splitDevModuleTables`) ;

@@ -382,8 +382,13 @@ Deux faits qu'elle publie, et qu'il faut lire :
 | des tables **lues sans être déclarées** | la base est partagée. L'outil de lecture ne sait pas restreindre son champ ; la génération suivante proposera de les **supprimer**. Relisez le fichier. |
 | un corps **resté en commentaire**       | la référence ne recréerait rien sur une base neuve — l'outil a changé sa mise en forme.                                                                 |
 
-Deux nettoyages ont lieu sans que vous ayez à y penser, et il vaut mieux savoir qu'ils existent :
+Trois nettoyages ont lieu sans que vous ayez à y penser, et il vaut mieux savoir qu'ils existent :
 
+- **Les tables d'un module de développement ne sont pas reprises.** Une base de développement porte
+  les tables des modules `policy: "dev"` ; la référence les livrerait à la production, où ces
+  modules ne sont pas chargés. Même règle qu'à la génération : un tel module qui lie ses tables à
+  ce connecteur fait refuser (`NF_GENERATE_DEV_MODULE_TABLE`), sinon ses tables sont exclues de la
+  lecture.
 - **Les objets d'une table exclue ne sont pas repris.** L'exclusion porte sur les tables, jamais sur
   ce qui gravite autour : la séquence de la table d'historique entrait dans la référence, qui
   échouait alors sur un environnement neuf — la séquence y est déjà posée par les migrations du

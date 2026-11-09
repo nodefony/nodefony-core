@@ -35,7 +35,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { Table, getTableName, is } from "drizzle-orm";
 import { entityRegistry } from "@nodefony/orm-core";
-import { isModulePath } from "nodefony";
+import { devOnlyModules, isModulePath, listTargets } from "nodefony";
 import { MySqlTable } from "drizzle-orm/mysql-core";
 import { PgTable } from "drizzle-orm/pg-core";
 import { SQLiteTable } from "drizzle-orm/sqlite-core";
@@ -189,6 +189,48 @@ export function devModuleTargets<T extends { name: string; dir: string }>(
   return targets.filter(
     (t) => byName.has(t.name) || byDir.has(paths.resolve(t.dir)),
   );
+}
+
+/** Les fichiers d'entités d'une application, et ceux qui appartiennent à un module de développement. */
+export interface IEntityFilesDiscovery {
+  /** Tous les fichiers d'entités, dans l'ordre des cibles. */
+  files: string[];
+  /** `fichier → module` pour ceux d'un module que la production ne chargera pas. */
+  devModuleOf: Map<string, string>;
+}
+
+/**
+ * Découvre les fichiers d'entités de l'application et de ses modules, en
+ * marquant ceux d'un module de DÉVELOPPEMENT.
+ *
+ * Les deux commandes qui écrivent une migration de l'application — la
+ * génération, et l'adoption d'une base existante — en dépendent : une table de
+ * module de développement n'entre dans aucune, quel que soit l'environnement.
+ * La politique se lit au MANIFESTE (`devOnlyModules`, cœur), jamais au
+ * registre, qui ignore en production un module non chargé.
+ *
+ * @param root - racine de l'application.
+ * @param manifest - le manifeste `config.modules`, tel qu'il est déclaré.
+ * @returns les fichiers, et le module de développement de chacun qui en a un.
+ */
+export async function discoverEntityFiles(
+  root: string,
+  manifest: unknown,
+): Promise<IEntityFilesDiscovery> {
+  const targets = listTargets(root);
+  const devTargets = devModuleTargets(targets, devOnlyModules(manifest), root);
+  const files: string[] = [];
+  const devModuleOf = new Map<string, string>();
+  for (const target of targets) {
+    const own = await entityFilesOf(target.dir);
+    files.push(...own);
+    if (devTargets.includes(target)) {
+      for (const file of own) {
+        devModuleOf.set(file, target.name);
+      }
+    }
+  }
+  return { files, devModuleOf };
 }
 
 /** Une table d'un module de développement que la génération REFUSE d'écarter en silence. */

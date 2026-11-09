@@ -33,6 +33,7 @@ import { composeReport } from "../src/migrator/status";
 import { isReservedConnectorName } from "../src/migrator/paths";
 import {
   describeResolutionRefusal,
+  devModuleTablesRefusal,
   moduleAbsent,
   reservedConnectorName,
   type CommandFailureCode,
@@ -316,6 +317,37 @@ export abstract class OrmMigrateCommand extends Command {
       return false;
     }
     const refusal = reservedConnectorName(connector);
+    this.fail(
+      connector,
+      refusal.code,
+      refusal.summary,
+      refusal.meaning,
+      refusal.nextActions,
+      json,
+      refusal.exitCode,
+    );
+    return true;
+  }
+
+  /**
+   * Arrête une commande qui écrirait une migration de l'application alors
+   * qu'un module de DÉVELOPPEMENT lie ses tables à ce connecteur — la
+   * génération comme l'adoption, une seule prose (`devModuleTablesRefusal`).
+   *
+   * @param connector - connecteur résolu.
+   * @param tables - les tables en cause (fichier déjà relatif à la racine).
+   * @param json - mode machine.
+   * @returns `true` si la commande est arrêtée.
+   */
+  protected refuseDevModuleTables(
+    connector: string,
+    tables: readonly { table: string; module: string; file: string }[],
+    json?: boolean,
+  ): boolean {
+    if (tables.length === 0) {
+      return false;
+    }
+    const refusal = devModuleTablesRefusal(connector, tables);
     this.fail(
       connector,
       refusal.code,

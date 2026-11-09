@@ -1,16 +1,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import {
-  devOnlyModules,
-  listTargets,
-  type CliKernel,
-  type OptionsCommandInterface,
-} from "nodefony";
+import { type CliKernel, type OptionsCommandInterface } from "nodefony";
 import type { SqlDialect } from "../interfaces/IDrizzleConfig";
 import {
   collectTables,
-  devModuleTargets,
-  entityFilesOf,
+  discoverEntityFiles,
   registeredOwners,
   splitDevModuleTables,
   writeCustomMigration,
@@ -438,23 +432,10 @@ class OrmGenerate extends OrmMigrateCommand {
     //    avait créé. Gardé partout, il créait ses tables dans la base de
     //    production. La politique se lit au MANIFESTE, pas au registre : en
     //    production le module n'a rien enregistré.
-    const targets = listTargets(root);
-    const devTargets = devModuleTargets(
-      targets,
-      devOnlyModules(this.appKernel?.options.modules),
+    const { files, devModuleOf } = await discoverEntityFiles(
       root,
+      this.appKernel?.options.modules,
     );
-    const files: string[] = [];
-    const devModuleOf = new Map<string, string>();
-    for (const target of targets) {
-      const own = await entityFilesOf(target.dir);
-      files.push(...own);
-      if (devTargets.includes(target)) {
-        for (const file of own) {
-          devModuleOf.set(file, target.name);
-        }
-      }
-    }
     const { tables: discovered, unreadable: rawUnreadable } =
       await collectTables(files);
     const owners = registeredOwners();
@@ -468,22 +449,17 @@ class OrmGenerate extends OrmMigrateCommand {
       connector,
       owners,
     );
-    if (devHere.length > 0) {
-      const list = devHere
-        .map(
-          ({ table, module }) =>
-            `  • « ${table.tableName} », module « ${module} » (${relative(table.file)})`,
-        )
-        .join("\n");
-      this.fail(
+    if (
+      this.refuseDevModuleTables(
         connector,
-        "NF_GENERATE_DEV_MODULE_TABLE",
-        `${devHere.length} table(s) d'un module de développement entreraient dans les migrations du connecteur « ${connector} » :\n${list}`,
-        "Rien n'a été écrit. Un module déclaré « policy: \"dev\" » n'est pas chargé en production, mais une migration s'applique partout : ses tables seraient créées dans la base de production, et une génération lancée sans lui proposerait ensuite de les supprimer. Donner à ce module un connecteur à lui, sans migration versionnée : son schéma est alors dérivé au démarrage, en développement seulement. Si ces tables doivent exister en production, ce n'est pas un module de développement — retirer sa politique « dev » du manifeste.",
-        [action("nodefony inspect entities --json")],
+        devHere.map(({ table, module }) => ({
+          table: table.tableName,
+          module,
+          file: relative(table.file),
+        })),
         opts.json,
-        EXIT.actionRequired,
-      );
+      )
+    ) {
       return this;
     }
     // Les chemins du rapport sont relatifs à la racine de l'application, tous

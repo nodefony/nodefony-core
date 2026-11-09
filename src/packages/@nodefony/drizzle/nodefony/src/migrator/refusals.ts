@@ -403,6 +403,38 @@ export function notConfigured(
 }
 
 /**
+ * Écrire une migration de l'application alors qu'un module de DÉVELOPPEMENT
+ * lie ses tables au même connecteur — refusé, par la génération comme par
+ * l'adoption d'une base existante.
+ *
+ * Le module n'est pas chargé en production ; une migration, elle, s'applique
+ * partout. Ses tables seraient donc créées dans la base de production, et une
+ * génération lancée sans lui proposerait ensuite de les supprimer. Les écarter
+ * en silence ne vaut pas mieux : le module, chargé ici, compte sur ces
+ * migrations pour bâtir sa base. C'est la configuration qu'il faut changer.
+ *
+ * @param connector - connecteur visé.
+ * @param tables - les tables en cause, leur module et leur fichier (déjà relatif).
+ * @returns le refus, prêt pour la ligne de commande.
+ */
+export function devModuleTablesRefusal(
+  connector: string,
+  tables: readonly { table: string; module: string; file: string }[],
+): IResolutionRefusal {
+  const list = tables
+    .map((t) => `  • « ${t.table} », module « ${t.module} » (${t.file})`)
+    .join("\n");
+  return {
+    code: "NF_GENERATE_DEV_MODULE_TABLE",
+    summary: `${tables.length} table(s) d'un module de développement entreraient dans les migrations du connecteur « ${connector} » :\n${list}`,
+    meaning:
+      "Rien n'a été écrit. Un module déclaré « policy: \"dev\" » n'est pas chargé en production, mais une migration s'applique partout : ses tables seraient créées dans la base de production, et une génération lancée sans lui proposerait ensuite de les supprimer. Donner à ce module un connecteur à lui, sans migration versionnée : son schéma est alors dérivé au démarrage, en développement seulement. Si ces tables doivent exister en production, ce n'est pas un module de développement — retirer sa politique « dev » du manifeste.",
+    nextActions: [action("nodefony inspect entities --json")],
+    exitCode: 1,
+  };
+}
+
+/**
  * Écrire une migration pour un connecteur secondaire dont le NOM est celui d'un
  * dossier de dialecte — refusé.
  *

@@ -14,7 +14,13 @@ import {
   type IAdoptedBaseline,
 } from "../src/migrator/adopt";
 import { appMigrationsDir } from "../src/migrator/resolve";
-import { registeredTables } from "../src/migrator/appSchema";
+import {
+  collectTables,
+  discoverEntityFiles,
+  registeredOwners,
+  registeredTables,
+  splitDevModuleTables,
+} from "../src/migrator/appSchema";
 import { frameworkTables } from "../src/migrator/sources";
 import { connectorMigrationsDir } from "../src/migrator/paths";
 import { ownsSharedMigrations } from "../src/frameworkConnector";
@@ -229,6 +235,37 @@ class OrmMigrateBaseline extends OrmMigrateCommand {
       );
       return null;
     }
+    // 🔴 Une table de module de DÉVELOPPEMENT n'entre pas dans la référence :
+    // la lecture prend TOUTE la base, et une base de développement porte les
+    // tables de ces modules — la référence les livrerait à la production. Même
+    // règle que la génération (`discoverEntityFiles`, `splitDevModuleTables`) :
+    // liées à CE connecteur par un module chargé, refus ; sinon, exclues.
+    const { files, devModuleOf } = await discoverEntityFiles(
+      root,
+      this.requiredKernel.options.modules,
+    );
+    const { tables: devTables } = await collectTables(
+      files.filter((f) => devModuleOf.has(f)),
+    );
+    const { refused } = splitDevModuleTables(
+      devTables,
+      devModuleOf,
+      resolution.connector,
+      registeredOwners(),
+    );
+    if (
+      this.refuseDevModuleTables(
+        resolution.connector,
+        refused.map(({ table, module }) => ({
+          table: table.tableName,
+          module,
+          file: path.relative(root, table.file).split(path.sep).join("/"),
+        })),
+        opts.json,
+      )
+    ) {
+      return null;
+    }
     const adopted = await adoptFromDatabase({
       projectRoot: root,
       outDir,
@@ -245,6 +282,7 @@ class OrmMigrateBaseline extends OrmMigrateCommand {
           ? await frameworkTables(resolution.dialect)
           : []),
         HISTORY_TABLE,
+        ...devTables.map((t) => t.tableName),
       ],
       declaredTables: registeredTables(resolution.connector).map(
         (t) => t.table,
