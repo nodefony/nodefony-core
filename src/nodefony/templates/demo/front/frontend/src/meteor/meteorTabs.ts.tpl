@@ -9,9 +9,9 @@ import type { ILesson, LessonFile } from "../lesson/lesson";
 const CONTROLLER: LessonFile = "nodefony/controllers/MeteorController.ts";
 const SERVICE: LessonFile = "nodefony/service/MeteorService.ts";
 const ROOM: LessonFile = "nodefony/game/GameRoom.ts";
-const STEP: LessonFile = "nodefony/game/fixedStep.ts";
+const STEP: LessonFile = "nodefony/kit/fixedStep.ts";
 const SHARED: LessonFile = "frontend/src/meteor/meteorDemo.ts";
-const RECORDS: LessonFile = "frontend/src/game/records.ts";
+const RECORDS: LessonFile = "frontend/src/kit/records.ts";
 const CLIENT: LessonFile = "frontend/src/meteor/meteorClient.ts";
 const SOCKET: LessonFile = "frontend/src/game/gameSocket.ts";
 const SNAPSHOTS: LessonFile = "frontend/src/game/snapshots.ts";
@@ -40,7 +40,7 @@ export const METEOR_LESSON = {
         },
         {
           text: "La boucle à pas fixe : l'heure du prochain tour se calcule sur `hrtime`, un retard se rattrape au lieu de décaler tous les tours suivants.",
-          excerpt: { file: STEP, region: "game-fixed-step" },
+          excerpt: { file: STEP, region: "kit-fixed-step" },
         },
         {
           text: "Les règles de Météores, branchées sur la salle : valider la visée, l'appliquer, faire avancer le monde, écrire la trame. Le serveur seul décide qu'un tir touche.",
@@ -61,7 +61,7 @@ export const METEOR_LESSON = {
         },
         {
           text: "La brique commune qui fait ces octets : un schéma de champs, et ses deux sens.",
-          excerpt: { file: RECORDS, region: "game-records" },
+          excerpt: { file: RECORDS, region: "kit-records" },
         },
         {
           text: "Une socket par jeu, qui offre CBOR et se reconnecte seule.",

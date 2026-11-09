@@ -49,14 +49,16 @@ un renvoi mort le fait échouer.
   `MeteorController` et `PrismController` (`/demo/api/meteor/realtime`,
   `/demo/api/prism/realtime` : deux jeux, deux portes chacun — le canal
   d'état et la commande du joueur), les pages et l'accueil.
-- `nodefony/game/` — les briques SERVEUR communes aux jeux, à réutiliser pour
-  un jeu neuf : `GameRoom` (pilotes identifiés par leur CONNEXION, robots qui
-  complètent, boucle tant que quelqu'un regarde, trame publiée à chaque tour)
-  et `fixedStep` (boucle à pas fixe sur `hrtime`). Un jeu n'écrit que ses
-  `IGameRules` : `MeteorService.ts`, `PrismService.ts`.
-- `frontend/src/game/` — les briques PAGE communes aux jeux : enregistrements
-  binaires décrits par schéma (`records.ts`, ISOMORPHE : le serveur écrit, la
-  page lit), socket (`gameSocket.ts`), interpolation entre deux trames
+- `nodefony/kit/fixedStep.ts` — la boucle à pas fixe sur `hrtime`, partagée par
+  tout ce qui tourne à cadence régulière (les jeux, l'acquisition de la sonde).
+- `frontend/src/kit/records.ts` — enregistrements binaires décrits par schéma
+  (`u8`, `u16`, `u32`, `i16`, `f32`), ISOMORPHES : le serveur écrit, la page
+  lit. Servent aux jeux et à la sonde.
+- `nodefony/game/GameRoom.ts` — la salle commune aux jeux, à réutiliser pour un
+  jeu neuf : pilotes identifiés par leur CONNEXION, robots qui complètent,
+  boucle tant que quelqu'un regarde, trame publiée à chaque tour. Un jeu
+  n'écrit que ses `IGameRules` : `MeteorService.ts`, `PrismService.ts`.
+- `frontend/src/game/` — les briques PAGE communes aux jeux : socket (`gameSocket.ts`), interpolation entre deux trames
   (`snapshots.ts`), envoi des commandes (`commandSender.ts`), boucle
   d'affichage (`useGameLoop.ts`), fil mesuré (`wireMeter.ts`, `WireHud.tsx`),
   mise en page (`GamePage.tsx`). Un jeu n'écrit que son contrat, son client,

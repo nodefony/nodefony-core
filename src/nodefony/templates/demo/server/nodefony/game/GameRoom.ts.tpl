@@ -1,5 +1,5 @@
 import type { IRealtimeConnection } from "@nodefony/realtime";
-import { startFixedStep, type IFixedStep } from "./fixedStep";
+import { startFixedStep, type IFixedStep } from "../kit/fixedStep";
 
 /**
  * Une salle de jeu : la brique serveur que TOUT jeu de la démo réutilise. Elle

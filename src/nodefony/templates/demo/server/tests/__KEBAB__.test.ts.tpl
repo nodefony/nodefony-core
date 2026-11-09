@@ -109,7 +109,7 @@ import { BINARY_LESSON } from "../frontend/src/binary/binaryTabs";
 import { MCP_LESSON } from "../frontend/src/mcp/mcpTabs";
 import { METEOR_LESSON } from "../frontend/src/meteor/meteorTabs";
 import { PRISM_LESSON } from "../frontend/src/prism/prismTabs";
-import { defineRecord } from "../frontend/src/game/records";
+import { defineRecord } from "../frontend/src/kit/records";
 import {
   SnapshotBuffer,
   interpolateById,
@@ -873,7 +873,7 @@ describe("demo — les leçons à gestes : la sonde et le contrôleur cité", ()
     ["nodefony/controllers/PrismController.ts", PRISM_LESSON],
     ["nodefony/service/PrismService.ts", PRISM_LESSON],
     ["nodefony/game/GameRoom.ts", METEOR_LESSON],
-    ["nodefony/game/fixedStep.ts", PRISM_LESSON],
+    ["nodefony/kit/fixedStep.ts", PRISM_LESSON],
   ] as const)(
     "chaque région de %s est citée par la leçon : aucun geste oublié",
     (file, lesson) => {
@@ -1776,20 +1776,23 @@ describe("Jeux — les briques communes et les règles", () => {
       { name: "x", type: "i16", scale: 10 },
       { name: "r", type: "u8" },
       { name: "v", type: "f32" },
+      { name: "n", type: "u32" },
     ] as const);
     const bytes = record.write([
-      { id: 513, x: -12.3, r: 7, v: 1.5 },
-      { id: 2, x: 99_999, r: 300, v: -0.25 },
+      { id: 513, x: -12.3, r: 7, v: 1.5, n: 182_790 },
+      { id: 2, x: 99_999, r: 300, v: -0.25, n: 5e9 },
     ]);
     expect(bytes.byteLength).toBe(2 * record.bytes);
-    expect(record.bytes).toBe(9);
+    expect(record.bytes).toBe(13);
     // Un Uint8Array reçu ne commence pas toujours au début de son tampon.
     const shifted = new Uint8Array(bytes.byteLength + 3);
     shifted.set(bytes, 3);
     const [first, second] = record.read(shifted.subarray(3));
-    expect(first).toEqual({ id: 513, x: -12.3, r: 7, v: 1.5 });
+    expect(first).toEqual({ id: 513, x: -12.3, r: 7, v: 1.5, n: 182_790 });
     expect(second?.x).toBe(3276.7);
     expect(second?.r).toBe(255);
+    // Un compte au-delà de 32 bits reste au plafond, il ne repart pas de zéro.
+    expect(second?.n).toBe(4_294_967_295);
   });
 
   it("les enregistrements des deux jeux ont la taille annoncée sur la page", () => {

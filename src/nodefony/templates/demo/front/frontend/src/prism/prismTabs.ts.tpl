@@ -9,9 +9,9 @@ import type { ILesson, LessonFile } from "../lesson/lesson";
 const CONTROLLER: LessonFile = "nodefony/controllers/PrismController.ts";
 const SERVICE: LessonFile = "nodefony/service/PrismService.ts";
 const ROOM: LessonFile = "nodefony/game/GameRoom.ts";
-const STEP: LessonFile = "nodefony/game/fixedStep.ts";
+const STEP: LessonFile = "nodefony/kit/fixedStep.ts";
 const SHARED: LessonFile = "frontend/src/prism/prismDemo.ts";
-const RECORDS: LessonFile = "frontend/src/game/records.ts";
+const RECORDS: LessonFile = "frontend/src/kit/records.ts";
 const CLIENT: LessonFile = "frontend/src/prism/prismClient.ts";
 const SOCKET: LessonFile = "frontend/src/game/gameSocket.ts";
 const SNAPSHOTS: LessonFile = "frontend/src/game/snapshots.ts";
@@ -40,7 +40,7 @@ export const PRISM_LESSON = {
         },
         {
           text: "La boucle à pas fixe, commune elle aussi.",
-          excerpt: { file: STEP, region: "game-fixed-step" },
+          excerpt: { file: STEP, region: "kit-fixed-step" },
         },
         {
           text: "Les règles de Prisme : une case appartient à l'équipe du dernier drone qui l'a survolée, décidé par le serveur à chaque tour. La trame porte une COPIE de la grille : elle continue de changer après l'envoi.",
@@ -57,7 +57,7 @@ export const PRISM_LESSON = {
         },
         {
           text: "Les enregistrements binaires, communs aux jeux.",
-          excerpt: { file: RECORDS, region: "game-records" },
+          excerpt: { file: RECORDS, region: "kit-records" },
         },
         {
           text: "La socket du jeu, commune aux jeux.",

@@ -24,7 +24,7 @@ export interface IFixedStep {
   readonly dropped: number;
 }
 
-// #region game-fixed-step
+// #region kit-fixed-step
 /**
  * Lance `tick` `hz` fois par seconde, à pas fixe, jusqu'à `stop()`.
  *

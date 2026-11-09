@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { IRealtimeContract } from "nodefony/client";
-import { defineRecord } from "../game/records";
+import { defineRecord } from "../kit/records";
 
 /**
  * Météores — ce que le serveur et la page partagent : l'adresse de la socket,
@@ -9,7 +9,7 @@ import { defineRecord } from "../game/records";
  *
  * Guide pour un agent : importé par `MeteorService.ts`, `MeteorController.ts`
  * ET par la page (`meteorClient.ts`, `meteorScene.ts`). Les enregistrements
- * binaires viennent de la brique commune aux jeux (`game/records.ts`) : le
+ * binaires viennent de la brique commune de la démo (`kit/records.ts`) : le
  * même objet écrit côté serveur et lit côté page.
  */
 

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { IRealtimeContract } from "nodefony/client";
-import { defineRecord } from "../game/records";
+import { defineRecord } from "../kit/records";
 
 /**
  * Prisme — ce que le serveur et la page partagent : l'adresse de la socket, le
