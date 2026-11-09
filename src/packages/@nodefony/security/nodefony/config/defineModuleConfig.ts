@@ -1,7 +1,11 @@
 import { z } from "zod";
 import { securityConfigSchema } from "./config";
 import type { ISecurityConfig, ISecurityConfigInput } from "./config";
-import { parseModuleConfig, BootConfigurationError } from "nodefony";
+import {
+  parseModuleConfig,
+  BootConfigurationError,
+  stripTrailingSlashes,
+} from "nodefony";
 
 /**
  * Builder type-safe de la configuration de sécurité Nodefony (PUR — ne retape
@@ -106,7 +110,7 @@ function publicIssuerBase(issuer: string | undefined): string | null {
     return null;
   }
   if (url.protocol !== "https:" && url.protocol !== "http:") return null;
-  return issuer.replace(/\/+$/u, "");
+  return stripTrailingSlashes(issuer);
 }
 
 /**

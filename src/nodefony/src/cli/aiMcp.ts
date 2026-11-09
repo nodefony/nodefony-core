@@ -35,6 +35,7 @@ import {
 } from "./agentTargets";
 import { spawnedOutput } from "../runtime/spawnedOutput";
 import { isTerminal } from "../runtime/isTerminal";
+import { stripTrailingSlashes } from "../Tools";
 
 /**
  * `nodefony ai:mcp` — déclare le serveur MCP de cette application à ton agent.
@@ -458,14 +459,7 @@ export function renderTokenState(
 
 /** Deux audiences sont les mêmes à une barre oblique finale près. */
 function sameAudience(a: string, b: string): boolean {
-  return trimTrailingSlashes(a) === trimTrailingSlashes(b);
-}
-
-/** Sans expression régulière : `/\/+$/` backtracke sur une suite de barres. */
-function trimTrailingSlashes(s: string): string {
-  let end = s.length;
-  while (end > 0 && s.charCodeAt(end - 1) === 47) end -= 1;
-  return s.slice(0, end);
+  return stripTrailingSlashes(a) === stripTrailingSlashes(b);
 }
 
 /** État du jeton posé chez UN agent : ce qu'on en dit, et ce qui l'empêche de servir. */

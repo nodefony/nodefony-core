@@ -17,6 +17,7 @@ import {
   poseVariable,
   alreadyHasKey,
   agentRoot,
+  stripTrailingSlashes,
   type IAgentTarget,
 } from "nodefony";
 import type { UserService } from "@nodefony/user";
@@ -115,9 +116,9 @@ export function tokenTtlSeconds(
 function comparableResource(uri: string): string {
   try {
     const url = new URL(uri);
-    return `${url.origin}${url.pathname.replace(/\/+$/u, "")}`;
+    return `${url.origin}${stripTrailingSlashes(url.pathname)}`;
   } catch {
-    return uri.trim().replace(/\/+$/u, "");
+    return stripTrailingSlashes(uri.trim());
   }
 }
 

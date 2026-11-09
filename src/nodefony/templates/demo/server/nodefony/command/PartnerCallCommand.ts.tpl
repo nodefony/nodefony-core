@@ -2,6 +2,7 @@ import {
   Command,
   CliKernel,
   CONSOLE_DATA_RUN_PROFILE,
+  stripTrailingSlashes,
   type OptionsCommandInterface,
 } from "nodefony";
 import {
@@ -94,7 +95,7 @@ class CallFailure extends Error {
  */
 function whoamiUrl(resource: string, base: string | undefined): URL {
   const root =
-    base === undefined ? resource : `${base.replace(/\/+$/u, "")}${PARTNER_PATH}`;
+    base === undefined ? resource : `${stripTrailingSlashes(base)}${PARTNER_PATH}`;
   return new URL(`${root}/whoami`);
 }
 
