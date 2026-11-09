@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-09T22:23:01.616Z",
+  "generatedAt": "2026-11-09T23:30:49.597Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 250,
+      "closed": 252,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 15,
+      "open": 13,
       "title": "10.0.0-beta"
     },
     {
@@ -6680,8 +6680,8 @@
       "number": 741,
       "title": "fix(realtime): encoder l'accusé d'abonnement par le codec négocié",
       "url": "https://github.com/nodefony/nodefony-core/issues/741",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.25,
@@ -6696,8 +6696,8 @@
       "number": 687,
       "title": "fix(orm): garder les tables d'un module de dev hors des migrations",
       "url": "https://github.com/nodefony/nodefony-core/issues/687",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
