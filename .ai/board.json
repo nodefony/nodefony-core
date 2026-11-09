@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-09T09:33:56.818Z",
+  "generatedAt": "2026-11-09T14:55:40.800Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 243,
+      "closed": 245,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 16,
+      "open": 17,
       "title": "10.0.0-beta"
     },
     {
@@ -6514,6 +6514,22 @@
       ]
     },
     {
+      "number": 753,
+      "title": "fix(http): libérer la trame reçue par une connexion WebSocket inactive",
+      "url": "https://github.com/nodefony/nodefony-core/issues/753",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 7.09,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-7"
+      ]
+    },
+    {
       "number": 446,
       "title": "test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation",
       "url": "https://github.com/nodefony/nodefony-core/issues/446",
@@ -6629,6 +6645,22 @@
       ]
     },
     {
+      "number": 754,
+      "title": "fix(cli): faire démarrer une app pnpm avec sa démo, désormais par défaut",
+      "url": "https://github.com/nodefony/nodefony-core/issues/754",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-beta",
+      "priorite": "P0 — bloque le reste",
+      "jours": 0.5,
+      "ordre": 7.1,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-7"
+      ]
+    },
+    {
       "number": 741,
       "title": "fix(realtime): encoder l'accusé d'abonnement par le codec négocié",
       "url": "https://github.com/nodefony/nodefony-core/issues/741",
@@ -6669,6 +6701,22 @@
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 2,
+      "ordre": 7.13,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-7"
+      ]
+    },
+    {
+      "number": 755,
+      "title": "ci(scaffold): éprouver à chaque poussée une app pnpm avec sa démo",
+      "url": "https://github.com/nodefony/nodefony-core/issues/755",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
       "ordre": 7.13,
       "debut": null,
       "cible": null,
