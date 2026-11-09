@@ -133,7 +133,7 @@ describe("discussion — le salon", () => {
     const intruder = await listener();
     const text = unique("anonyme");
     await expect(
-      intruder.socket.post("/demo/chat/send", { body: { text } }),
+      intruder.socket.post("/demo/chat/send", { text }),
     ).rejects.toThrow();
     // Témoin : quand ce message arrive, celui de l'anonyme l'aurait précédé.
     const witness = unique("témoin");
