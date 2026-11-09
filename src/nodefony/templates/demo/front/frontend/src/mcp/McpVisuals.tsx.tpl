@@ -461,15 +461,18 @@ export function ConnectPanel({ resource }: { resource: string }) {
         </div>
       </div>
       <p className="mcp-label">
-        Le jeton, posé dans la configuration de tes agents
+        Claude Code — un jeton à part, d'audience cette porte (shell POSIX)
       </p>
       <Copy
-        text={`npx nodefony security:mcp:token admin --resource ${resource} --scope demo:write --write`}
+        text={`claude mcp add --transport http nodefony-demo ${resource} --header "Authorization: Bearer $(npx nodefony security:mcp:token admin --resource ${resource} --scope demo:write --ttl 480 --json | node -p 'JSON.parse(require("node:fs").readFileSync(0, "utf8")).access_token')"`}
       />
-      <p className="mcp-label">Claude Code</p>
-      <Copy
-        text={`claude mcp add --transport http nodefony-demo ${resource} --header "Authorization: Bearer $NF_MCP_TOKEN"`}
-      />
+      <p className="mcp-desc">
+        Pas de <code>--write</code> ici : il remplacerait{" "}
+        <code>NF_MCP_TOKEN</code>, le jeton de la porte de développement, par
+        celui-ci — qu'elle refuse, son audience est une autre porte. Ses outils
+        réservés disparaîtraient sans un mot. Le jeton vit 8 h : à l'échéance,{" "}
+        <code>demo_chat_post</code> quitte la liste ; relance la ligne.
+      </p>
     </figure>
   );
 }

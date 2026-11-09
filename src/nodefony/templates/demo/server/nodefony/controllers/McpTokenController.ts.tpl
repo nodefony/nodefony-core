@@ -20,7 +20,9 @@ import { PartnerTokenError } from "../service/PartnerTokenService";
  * d'autorisation, puis obtenir son jeton par autorisation avec code (PKCE) —
  * ce que fait Keycloak, et pas encore l'émetteur de l'application (#244). En
  * développement, un agent reçoit son jeton de
- * `npx nodefony security:mcp:token <compte> --resource <porte> --scope demo:write --write`.
+ * `npx nodefony security:mcp:token <compte> --resource <porte> --scope demo:write --json`,
+ * posé dans l'en-tête de l'agent — jamais `--write`, qui remplacerait
+ * `NF_MCP_TOKEN`, le jeton de la porte de développement (autre audience).
  *
  * L'émetteur ne garde que les scopes que `grantableScopes` ouvre au rôle du
  * compte : un administrateur reçoit `demo:write`, un utilisateur un jeton
