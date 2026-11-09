@@ -509,6 +509,16 @@ export interface ISpareAppOptions {
   root?: string;
   /** Délai maximal d'attente de la première réponse, en ms (défaut 60 000). */
   timeoutMs?: number;
+  /**
+   * Mode de démarrage (défaut `"production"`).
+   *
+   * `"development"` sert à éprouver un module `policy: "dev"` — la démo,
+   * un outil de développement —, que la production RETIRE : le décor e2e de
+   * l'application, démarré en production, ne le charge pas. L'exemplaire part
+   * sans superviseur (`--no-watch`) : un seul processus, aucune relance sur
+   * une modification de fichier pendant que le test lui parle.
+   */
+  command?: "production" | "development";
 }
 
 /** Un exemplaire jetable, démarré et joignable. */
@@ -572,7 +582,11 @@ export async function startSpareApp(
   // L'état d'exécution est relevé AVANT le spawn : c'est la seule photo fidèle.
   const state = readStateFiles(root);
 
-  const child = spawn(process.execPath, [nodefonyBin(), "production"], {
+  const args =
+    options.command === "development"
+      ? ["development", "--no-watch"]
+      : ["production"];
+  const child = spawn(process.execPath, [nodefonyBin(), ...args], {
     cwd: root,
     // Chef de son groupe : c'est ce qui permet d'emporter l'arbre à l'arrêt.
     // Sous Windows, où les groupes n'existent pas, `signalProcessGroup` passe
