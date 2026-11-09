@@ -644,14 +644,22 @@ export function declaresAction(ctor: object, name: string): boolean {
   return map !== undefined && Object.prototype.hasOwnProperty.call(map, name);
 }
 
+/** Ce qu'une classe DÉCLARE sous un nom, par sorte — `null` : elle ne pose pas cette sorte. */
+export interface IDeclaredPolicyKinds {
+  readonly read: IChannelPolicy | null;
+  readonly write: IChannelPolicy | null;
+}
+
 /**
- * Politiques effectives d'une classe de contrôleur, par nom : la LECTURE de chacun, et l'ÉCRITURE quand elle en diffère (ADR-0022 §6, décision 1 quater).
+ * Politiques déclarées par une classe de contrôleur (ADR-0022 §6, décision 1 quater) : ce qu'elle pose par sorte — que le hub résout ensuite avec les motifs des autres classes — et sa vue seule.
  */
 export interface IDeclaredChannelPolicies {
-  /** Nom → politique de LECTURE (déclarée, sinon héritée de l'écriture, sinon défaut fermé d'une action). */
+  /** Vue de la classe SEULE, nom → politique de LECTURE (déclarée, sinon son écriture, sinon le défaut fermé d'une action). */
   readonly read: Record<string, IChannelPolicy>;
-  /** Nom → politique d'ÉCRITURE DISTINCTE de la lecture, ou `null` s'il n'y en a aucune. */
-  readonly write: Record<string, IChannelPolicy> | null;
+  /** Nom → ce que la classe déclare, sorte par sorte (sans héritage : le hub le calcule, motifs compris). */
+  readonly kinds: Record<string, IDeclaredPolicyKinds>;
+  /** Noms des actions décorées : chacune reçoit le défaut fermé comme REPLI au hub. */
+  readonly actions: readonly string[];
 }
 
 /**
@@ -664,7 +672,8 @@ export interface IDeclaredChannelPolicies {
  * - la lecture est celle déclarée (`@RealtimeChannel`, `@RealtimePolicy`),
  *   sinon l'écriture : une application qui ne garde que l'écriture reste
  *   protégée en lecture ;
- * - l'écriture n'est rendue que si elle exige autre chose que la lecture.
+ * - `kinds` garde ce que la classe déclare, SANS héritage : le hub le fusionne
+ *   avec les motifs de toutes les classes, sorte par sorte.
  *
  * @param ctor - constructeur du contrôleur.
  * @returns les deux tables, ou `null` si la classe ne déclare aucune politique.
@@ -697,33 +706,29 @@ export function getDeclaredChannelPolicies(
   if (readMap !== undefined) assertPolicyMap(owner, readMap);
   if (writeMap !== undefined) assertPolicyMap(owner, writeMap);
   const read: Record<string, IChannelPolicy> = {};
-  let write: Record<string, IChannelPolicy> | null = null;
+  const kinds: Record<string, IDeclaredPolicyKinds> = {};
   let any = false;
   if (readMap !== undefined) {
     for (const [name, policy] of Object.entries(readMap)) {
       read[name] = policy;
+      kinds[name] = { read: policy, write: null };
       any = true;
     }
   }
   if (writeMap !== undefined) {
     for (const [name, policy] of Object.entries(writeMap)) {
-      const declaredRead = read[name];
-      if (declaredRead === undefined) {
-        read[name] = policy; // la lecture hérite de l'écriture
-        any = true;
-      } else if (!samePolicy(declaredRead, policy)) {
-        (write ??= {})[name] = policy;
-      }
-    }
-  }
-  if (actions !== undefined) {
-    for (const name of Object.keys(actions)) {
-      if (Object.hasOwn(read, name)) continue; // déclarée : l'action en hérite
-      read[name] = DEFAULT_ACTION_POLICY;
+      kinds[name] = { read: kinds[name]?.read ?? null, write: policy };
+      read[name] ??= policy; // la lecture hérite de l'écriture
       any = true;
     }
   }
-  return any ? { read, write } : null;
+  const actionNames = actions === undefined ? [] : Object.keys(actions);
+  for (const name of actionNames) {
+    if (Object.hasOwn(read, name)) continue; // déclarée : l'action en hérite
+    read[name] = DEFAULT_ACTION_POLICY;
+    any = true;
+  }
+  return any ? { read, kinds, actions: actionNames } : null;
 }
 
 /**

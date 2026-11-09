@@ -520,6 +520,14 @@ classes — refusent le démarrage en nommant le canal : une seule s'appliquerai
 disparaîtrait. Une sous-classe qui redéclare la politique de son parent la surcharge. `allow` est
 une règle de lecture : posé sur une écriture distincte de la lecture, il refuse le démarrage.
 
+Avec des **motifs** (`room:*`), la lecture d'un nom appartient à la déclaration la plus spécifique
+qui déclare quelque chose sur lui (le nom exact, sinon le motif au littéral le plus long) ; l'écriture
+vient de la plus spécifique qui en déclare une, motifs compris. Une écriture de famille réservée
+s'applique donc aussi à un nom exact qui n'a déclaré que sa lecture, et une commande déclarée par
+`@RealtimeInbound("task:start")` sous une famille `task:*` à `allow` reste une commande. Le canal
+personnel `user:<id>` garde sa règle « son canal seulement » tant qu'aucune déclaration ne vise
+explicitement `user:` : un motif attrape-tout (`*`) ne la retire pas.
+
 Les trois axes d'une politique sont cumulatifs (ET) ; un axe absent n'impose rien :
 
 | Axe             | Sens                                                                          | Évalué par                                            |

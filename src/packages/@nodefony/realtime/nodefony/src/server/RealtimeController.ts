@@ -76,7 +76,6 @@ import {
   getRealtimeActions,
   getRealtimeChannels,
   getRealtimeInbound,
-  DEFAULT_ACTION_POLICY,
   type RealtimeChannelFactory,
   type RealtimeActionWrapper,
 } from "../../decorators/realtimeDecorators";
@@ -866,18 +865,15 @@ export abstract class RealtimeController<
     };
     for (const [name, handler] of Object.entries(allActions)) {
       peer.register(name, handler);
-      // Défaut FERMÉ pour TOUTE action, quelle que soit sa voie de déclaration.
-      // `@RealtimeAction` pose déjà sa politique ; l'override `realtimeActions()`
-      // n'a aucun endroit où en écrire une — sans cette ligne, il resterait la
-      // porte ouverte d'à côté (le verrou laisse passer ce qu'aucune politique
-      // ne couvre). On ne pose QUE si rien n'est déclaré SOUS CE NOM : une
-      // politique existante, plus stricte ou volontairement ouverte, est
-      // conservée — mais un MOTIF de canal (`orders:*`, inscrit dès le
-      // démarrage) ne vaut pas déclaration pour une action, qui resterait sinon
-      // ouverte par une famille de canaux publique.
-      if (!hub.hasExactChannelPolicy(name)) {
-        hub.registerChannelPolicy(name, DEFAULT_ACTION_POLICY);
-      }
+      // Défaut FERMÉ pour TOUTE action, quelle que soit sa voie de déclaration :
+      // l'override `realtimeActions()` n'a aucun endroit où écrire une
+      // politique — sans ce repli, il resterait la porte ouverte d'à côté (le
+      // verrou laisse passer ce qu'aucune politique ne couvre). Il devient
+      // l'écriture de l'action tant que rien d'exact ne déclare son nom et
+      // qu'aucun motif ne pose d'écriture : un MOTIF de lecture public
+      // (`orders:*`) ne l'ouvre pas (ADR-0022 §6, décision 1 quater).
+      // Idempotent : une poignée de main n'en paie qu'une lecture.
+      hub.declareActionDefault(name);
     }
     // Pont socket `api.request` (opt-in) — enregistré APRÈS les actions custom : la
     // plateforme garde la main sur `api.request` quand le pont est activé.

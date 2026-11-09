@@ -820,15 +820,32 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
     que la lecture : le motif « on ne pousse pas sur un canal protégé » tient toujours.
   - **Héritage, indépendant de l'ordre des méthodes** : une lecture absente hérite de l'écriture
     explicite (une application qui ne garde que `@RealtimeInbound` reste protégée en lecture) ;
-    une action sans politique explicite hérite de la lecture déclarée sous son nom, sinon du
-    défaut FERMÉ (`#DEFAULT_ACTION_POLICY`). `@RealtimePolicy({ nom: p })` pose les deux sortes.
+    une action sans politique explicite hérite de ce que son nom EXACT déclare ; s'il ne déclare
+    rien, le défaut FERMÉ (`#DEFAULT_ACTION_POLICY`) devient son écriture — un motif de lecture
+    public (`orders:*` ouvert) s'y ajoute sans l'ouvrir. `@RealtimePolicy({ nom: p })` pose les
+    deux sortes. Deux classes qui déclarent des sortes DIFFÉRENTES d'un même nom se complètent.
   - **Plus d'écrasement silencieux** : deux déclarations explicites non équivalentes d'une même
     sorte, dans une même classe ou entre deux classes, refusent le démarrage en nommant le canal et
     les classes. Une sous-classe qui redéclare son parent le surcharge. `allow` reste une règle de
     lecture : posé sur une écriture distincte de la lecture, il refuse le démarrage.
-  - **Précédence inchangée** : l'entrée la plus spécifique (nom exact, puis motif) gouverne les
-    deux sortes. Écarté : résoudre chaque sorte séparément, qui ouvrirait en lecture un canal exact
-    à écriture seule placé sous un motif libre — un relâchement au moment de la mise à jour.
+  - **Précédence — la lecture appartient, l'écriture descend** (`channelPolicyResolution.ts#resolveDeclaredPolicies`) :
+    la LECTURE d'un nom appartient à la déclaration la plus spécifique qui déclare quelque chose
+    sur lui (nom exact, puis motif au littéral le plus long) — déclarée, ou héritée de sa propre
+    écriture ; l'ÉCRITURE vient de la plus spécifique qui déclare une écriture, motifs compris.
+    L'écriture s'ajoute à la lecture, elle ne peut que durcir : une écriture de famille (`mix:*`
+    réservée) n'est plus perdue sur un nom exact qui ne déclare que sa lecture (attaque A3 de la
+    red-team #758). La lecture, elle, ne descend pas : une commande `task:start` déclarée sous une
+    famille `task:*` à `allow` ne devient pas un canal à membres, et une écriture exacte ne voit
+    pas sa lecture s'ouvrir par un motif plus général. Écarté : résoudre chaque sorte séparément
+    — vu rouge sur trois cas d'usage documentés, et ouvrant une lecture au moment de la mise à jour.
+  - **Canal personnel** : un nom `user:…` garde sa politique intégrée (son canal seulement) tant
+    qu'aucune déclaration ne VISE `user:` (nom exact, ou motif dont le littéral commence par
+    `user:`) — un motif attrape-tout (`*`) ne la retire plus (attaque K1, antérieure à #758).
+  - **Coût** : la vue fusionnée de chaque nom exact est recalculée à chaque inscription (à
+    froid) ; une trame sur un nom exact reste UNE lecture de `Map`. Le plancher système balaye les
+    conventions `:health`/`:stats` de `:` en `:` (`frameAuthorizer.ts#hasReservedConvention`)
+    au lieu de chaque position : verrou seul −42 % sur un canal libre, −32 % sur un canal à rôles
+    (`micro-frame-authorizer.mjs`, médiane de 15, code d'avant #758 en référence).
   - **`allow` n'admet plus d'office l'écriture** : la première trame entrante d'un canal à `allow`
     exige l'abonnement puis passe le verrou (lecture et écriture), et son verdict est retenu comme
     celui de tout canal entrant (décision 1 bis). Sans quoi l'admission contournerait l'écriture.
@@ -842,7 +859,8 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
     devient jamais plus permissive ; la lecture devient celle qui est écrite. Annoncée au changelog
     (`Changed`).
   - **Gardé par** : `src/packages/@nodefony/realtime/nodefony/tests/unit/channelPolicySplit.test.ts`
-    (vu rouge sur le code d'avant), et les tests d'attaque du ticket.
+    (vu rouge sur le code d'avant), `…/tests/unit/channelPolicy.attack.test.ts` (39 attaques de la
+    red-team), et des mutations basculées une à une (chacune vue rouge).
 - **Abonnés identifiables** (#623) : le registre d'un canal associe chaque sink à sa connexion,
   alloué au `subscribe` seulement ; le fan-out reste une boucle sans allocation. API serveur :
   ce qui désigne une **connexion** (lister, abonner d'office, éjecter une connexion) est **local
