@@ -28,7 +28,15 @@ class HomeController extends Controller {
 
   @route("app-home", { path: "/", method: "GET" })
   async home() {
-    // Le NOM, rien d'autre. Pas de version du framework : un littéral figé à
+<% if (it.demo) { %>    // Sans front choisi, l'accueil n'a pas de page : tant que la démo est
+    // chargée, il y mène. Elle est `policy: "dev"` — la production la retire,
+    // et ce JSON reprend sa place, sans rien à défaire le jour où tu supprimes
+    // le module. (Avec un front, `/` sert TA page, démo ou pas.)
+    if (this.kernel?.getModule("demo") !== undefined) {
+      this.redirect("/demo");
+      return;
+    }
+<% } %>    // Le NOM, rien d'autre. Pas de version du framework : un littéral figé à
     // la création deviendrait faux à la première mise à jour, et une version
     // exposée est une empreinte offerte à qui cherche une faille connue. La
     // vraie version se demande au terminal : `npx nodefony card`.

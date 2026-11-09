@@ -88,6 +88,20 @@ describe("démo — les pages", () => {
     expect(response.headers.get("content-type")).toMatch(/^text\/html/u);
   });
 
+  it("l'accueil sert la page du front choisi, sinon mène à la démo", async () => {
+    // Avec un front, `/` est TA page (HTML), démo ou pas. Sans front, il n'y a
+    // pas de page : `/` mène à la démo tant qu'elle est chargée — jamais le
+    // JSON nu. En production la démo est retirée, et `tests/e2e.test.ts` de
+    // l'application y vérifie `/` → 200 sans redirection.
+    const home = await fetch(httpUrl("/"), { redirect: "manual" });
+    if (home.status === 302) {
+      expect(home.headers.get("location")).toBe("/demo");
+    } else {
+      expect(home.status).toBe(200);
+      expect(home.headers.get("content-type")).toMatch(/^text\/html/u);
+    }
+  });
+
   it("une page que l'index ne déclare pas rend 404", async () => {
     const response = await fetch(httpUrl("/demo/page-inconnue"));
     expect(response.status).toBe(404);
