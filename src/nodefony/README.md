@@ -54,6 +54,16 @@ Sa particularité tient en une propriété : **le WebSocket n'y est pas un ajout
 de première classe, servi par le même pipeline, la même table de routes et la même sécurité que le
 HTTP. Une application temps réel s'y écrit comme une application web ordinaire.
 
+**Conçu pour le cloud.** Un processus par conteneur : l'orchestrateur le réplique et le relance,
+le framework n'embarque aucun gestionnaire de processus. Sondes de vie et de disponibilité, arrêt
+propre sur `SIGTERM` — l'instance quitte la répartition, termine ses requêtes en cours et ferme ses
+WebSockets proprement —, configuration par variables d'environnement, journaux sur la sortie
+standard, traçage OpenTelemetry par le
+[canal de diagnostic](https://nodefony.net/docs/modules/http/diagnostics-channel/) de Node.
+L'application générée porte son image et sa tâche de migration ; les manifestes Kubernetes sont
+documentés, pas encore générés — [Docker et cloud](https://nodefony.net/docs/guides/docker-cloud-native/)
+· [Kubernetes](https://nodefony.net/docs/guides/kubernetes/).
+
 <div align="center">
 
 ```bash
