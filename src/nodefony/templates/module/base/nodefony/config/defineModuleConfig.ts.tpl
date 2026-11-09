@@ -41,10 +41,11 @@ import type { I<%= it.pascal %>Config } from "./config";
  * @throws BootConfigurationError si un champ est invalide ou inconnu (toutes les
  *   erreurs Zod agrégées, par champ) — le boot s'interrompt, en dev comme en prod.
  */
-export function define<%= it.pascal %>Config(
+<% if (("export function define" + it.pascal + "Config(config: unknown = {}): I" + it.pascal + "Config {").length <= 80) { %>export function define<%= it.pascal %>Config(config: unknown = {}): I<%= it.pascal %>Config {
+<% } else { %>export function define<%= it.pascal %>Config(
   config: unknown = {},
 ): I<%= it.pascal %>Config {
-  return Object.freeze(
+<% } %>  return Object.freeze(
     parseModuleConfig(<%= it.camel %>ConfigSchema, config, "<%= it.pkgName %>"),
   );
 }

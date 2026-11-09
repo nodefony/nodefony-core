@@ -5,10 +5,7 @@ import type { ContextType } from "@nodefony/http";
 import { FrontendService } from "@nodefony/frontend";
 import { AuthFlow } from "@nodefony/security";
 import { DEMOS } from "../../demos";
-import {
-  DEMO_ABOUT_PATH,
-  type IDemoAbout,
-} from "../../frontend/src/about";
+import { DEMO_ABOUT_PATH, type IDemoAbout } from "../../frontend/src/about";
 
 /**
  * API de l'accueil de la démo, sous `/demo/api` — hors de toute zone de
@@ -56,7 +53,9 @@ class DemoController extends Controller {
    */
   @route("demo-lesson-page", { path: "/demo/{page}", method: "GET" })
   lesson(page: string): unknown {
-    if (!DEMOS.some((demo) => "path" in demo && demo.path === `/demo/${page}`)) {
+    if (
+      !DEMOS.some((demo) => "path" in demo && demo.path === `/demo/${page}`)
+    ) {
       throw new HttpError("page de démo inconnue", 404);
     }
     this.setContextHtml();

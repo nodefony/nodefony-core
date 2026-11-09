@@ -193,6 +193,8 @@ export function parseCreateArgv(
       // Le refus sous `minimal` vit dans le moteur (`dispatchScaffold`) : la
       // spec efface une réponse dont la condition `askWhen` tombe, sans un mot.
       answers.demo = true;
+    } else if (word === "--no-demo") {
+      answers.demo = false;
     } else if (word === "--link") {
       answers.link = true;
     } else if (word === "--no-link") {

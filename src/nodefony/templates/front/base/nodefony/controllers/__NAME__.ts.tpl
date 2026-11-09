@@ -47,11 +47,12 @@ class <%= it.nameClass %> extends Controller {
       // En développement, les URLs vers Vite sont relatives à la page
       // (`/_vite/<famille>/…`, relayées par Nodefony) : un poste, un conteneur
       // ou un téléphone chargent la MÊME page sans configuration.
-      svc.renderDocument(
+<% if (("      svc.renderDocument(\"" + it.kebab + "\", this.context?.cspNonce),").length <= 80) { %>      svc.renderDocument("<%= it.kebab %>", this.context?.cspNonce),
+<% } else { %>      svc.renderDocument(
         "<%= it.kebab %>",
         this.context?.cspNonce,
       ),
-    );
+<% } %>    );
   }
 }
 

@@ -107,7 +107,14 @@ const scaffold = (
   // vitest efface les types, un `npm test` vert n'en dit rien.
   answers: TScaffoldAnswers,
   force = false,
-) => runScaffold({ type: "app", answers, dir, force }, version);
+  // La démo naît par DÉFAUT ; ces tests portent sur l'application elle-même,
+  // donc ils s'en passent sauf à la demander (`demo: true`). Le défaut
+  // lui-même est éprouvé à part, par `runScaffold` sans réponse.
+) =>
+  runScaffold(
+    { type: "app", answers: { demo: false, ...answers }, dir, force },
+    version,
+  );
 
 /**
  * Ce qu'une app générée DIT elle-même : sa porte, et rien d'autre.
@@ -2887,11 +2894,103 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
   });
 
   describe("--demo — la démo naît module PRIVÉ, par le moteur de create module (#747)", () => {
-    it("sans --demo, l'application ne porte AUCUN fichier de la démo", () => {
+    it("--no-demo : l'application ne porte AUCUN fichier de la démo", () => {
       const dest = path.join(tmp, "sans-demo");
       scaffold(dest, { name: "sans-demo", preset: "complete" });
       assert.isFalse(existsSync(path.join(dest, "modules", "demo")));
       assert.notInclude(manifesteComplet(dest), "@sans-demo/demo");
+    });
+
+    it("par DÉFAUT, une application complete naît AVEC la démo", () => {
+      const dest = path.join(tmp, "demo-defaut");
+      runScaffold(
+        {
+          type: "app",
+          answers: { name: "demo-defaut" },
+          dir: dest,
+          force: false,
+        },
+        version,
+      );
+      assert.isTrue(
+        existsSync(path.join(dest, "modules", "demo", "package.json")),
+      );
+      assert.include(manifesteComplet(dest), "@demo-defaut/demo");
+    });
+
+    it("minimal : pas de démo, alors que la réponse retombe sur le défaut vrai", () => {
+      const dest = path.join(tmp, "demo-minimal");
+      runScaffold(
+        {
+          type: "app",
+          answers: { name: "demo-minimal", preset: "minimal" },
+          dir: dest,
+          force: false,
+        },
+        version,
+      );
+      assert.isFalse(existsSync(path.join(dest, "modules", "demo")));
+    });
+
+    it("pnpm : la démo est DÉCLARÉE en workspace:* et les scripts suivent pnpm", () => {
+      // Le sous-scaffold devinait le gestionnaire (aucun verrou encore, puis
+      // l'agent de la commande) : une app pnpm recevait une démo câblée pour npm,
+      // introuvable au démarrage.
+      const dest = path.join(tmp, "demo-pnpm");
+      scaffold(dest, { name: "demo-pnpm", packageManager: "pnpm", demo: true });
+      const pkg = readJson(path.join(dest, "package.json"));
+      assert.equal(pkg.dependencies?.["@demo-pnpm/demo"], "workspace:*");
+      assert.notInclude(pkg.scripts?.build ?? "", "--workspaces");
+      assert.include(pkg.scripts?.build ?? "", "pnpm -r");
+    });
+
+    it("pnpm --link : racine ET pairs de la démo liés par link:, une seule instance", () => {
+      // pnpm prenait au REGISTRE le pair `nodefony` de la démo pendant que la
+      // racine tournait sur le checkout : deux Container, démo refusée au boot.
+      const dest = path.join(tmp, "demo-pnpm-link");
+      scaffold(dest, {
+        name: "demo-pnpm-link",
+        packageManager: "pnpm",
+        demo: true,
+        link: true,
+      });
+      const root = readJson(path.join(dest, "package.json"));
+      assert.match(root.dependencies?.["nodefony"] ?? "", /^link:/);
+      const demo = readJson(path.join(dest, "modules", "demo", "package.json"));
+      const peers = Object.keys(demo.peerDependencies ?? {}).filter(
+        (n) => n === "nodefony" || n.startsWith("@nodefony/"),
+      );
+      assert.isAbove(peers.length, 0);
+      for (const name of peers) {
+        assert.equal(
+          demo.devDependencies?.[name],
+          root.dependencies?.[name],
+          name,
+        );
+      }
+    });
+
+    it("démo React dans une app Svelte : l'APP déclare le plugin Vite et le runtime React", () => {
+      // La config Vite est générée à la racine : elle importe le plugin de chaque
+      // moteur et force `react` à s'y résoudre. Sous pnpm, sans ces déclarations,
+      // Vite ne démarrait pas et AUCUN bundle n'était servi.
+      const dest = path.join(tmp, "demo-svelte");
+      scaffold(dest, { name: "demo-svelte", frontend: "svelte", demo: true });
+      const dev =
+        readJson(path.join(dest, "package.json")).devDependencies ?? {};
+      for (const name of ["@vitejs/plugin-react", "react", "react-dom"]) {
+        assert.isString(dev[name], name);
+      }
+      assert.isUndefined(dev["@types/react"]);
+    });
+
+    it("npm --link : file: inchangé, la démo ne lie pas ses pairs (npm les hisse)", () => {
+      const dest = path.join(tmp, "demo-npm-link");
+      scaffold(dest, { name: "demo-npm-link", demo: true, link: true });
+      const root = readJson(path.join(dest, "package.json"));
+      assert.match(root.dependencies?.["nodefony"] ?? "", /^file:/);
+      const demo = readJson(path.join(dest, "modules", "demo", "package.json"));
+      assert.isUndefined(demo.devDependencies?.["nodefony"]);
     });
 
     it("avec --demo, modules/demo/ est un workspace privé, câblé au manifeste et à AGENTS.md", () => {

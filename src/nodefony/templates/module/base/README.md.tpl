@@ -1,8 +1,6 @@
 # <%= it.pkgName %>
 
-
 <%= it.description %>
-
 
 Module applicatif Nodefony — un **workspace npm**
 (`<%= it.moduleDir %>/<%= it.name %>/`) chargé par le
@@ -14,10 +12,9 @@ use("<%= it.pkgName %>", { enabled: true }),
 
 ## Configuration
 
-| Clé        | Type      | Défaut                           | Rôle                                        |
-| ---------- | --------- | -------------------------------- | ------------------------------------------- |
-| `enabled`  | `boolean` | `true`                           | Interrupteur du module                      |
-| `greeting` | `string`  | `"Bonjour de <%= it.name %>"` | Exemple de champ — à remplacer par la vôtre |
+- `enabled` (`boolean`, défaut `true`) — interrupteur du module.
+- `greeting` (`string`, défaut `"Bonjour de <%= it.name %>"`) — exemple de champ, à
+  remplacer par la vôtre.
 
 La source unique est le schéma Zod de `nodefony/config/config.ts` : c'est lui qui porte
 les défauts, les descriptions et la validation. Une clé inconnue ou mal typée fait échouer

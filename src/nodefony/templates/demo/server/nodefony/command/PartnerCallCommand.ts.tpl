@@ -95,7 +95,9 @@ class CallFailure extends Error {
  */
 function whoamiUrl(resource: string, base: string | undefined): URL {
   const root =
-    base === undefined ? resource : `${stripTrailingSlashes(base)}${PARTNER_PATH}`;
+    base === undefined
+      ? resource
+      : `${stripTrailingSlashes(base)}${PARTNER_PATH}`;
   return new URL(`${root}/whoami`);
 }
 

@@ -416,17 +416,19 @@ const APP_SPEC: IScaffoldTypeSpec = {
     },
     {
       key: "demo",
+      flag: "--no-demo",
       label: "Installer la démo ?",
       type: "boolean",
-      // false : la démo se LIT dans une application jetable, elle n'entre pas
-      // dans celle qu'on garde sans qu'on l'ait demandé. Elle exige `complete`
-      // (sécurité + temps réel) ; un `--demo` explicite sous `minimal` est
-      // REFUSÉ par le moteur — `askWhen` seul l'effacerait sans un mot.
+      // true (décision de l'auteur) : une application fraîche MONTRE ce que le
+      // framework sait faire, au lieu d'une page vide. Elle exige `complete`
+      // (sécurité + temps réel) : sous `minimal` la question n'est pas posée,
+      // et le moteur n'écrit la démo que sous `complete` — la réponse retombe
+      // sinon sur ce défaut. Un `--demo` explicite sous `minimal` est REFUSÉ.
       note:
         "Un module privé `modules/demo/` : chaque démo est une page qui montre " +
         "le code qui la fait tourner. La retirer = supprimer ce dossier et sa " +
         "ligne du manifeste.",
-      default: false,
+      default: true,
       askWhen: { key: "preset", equals: "complete" },
     },
     {

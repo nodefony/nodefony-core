@@ -117,8 +117,10 @@ function Home({ about }: { about: IDemoAbout | null }) {
         <Agents />
         <footer>
           <span>
-            Démo livrée par <code>create app --demo</code> — la retirer :
-            supprimer <code>modules/demo/</code> et sa ligne du manifeste.
+            Démo livrée par <code>create app</code> (<code>--no-demo</code>
+            pour s’en passer) — la retirer : supprimer{" "}
+            <code>modules/demo/</code>
+            et sa ligne du manifeste.
           </span>
           <a href="https://nodefony.net">nodefony.net</a>
         </footer>
@@ -149,13 +151,7 @@ function useAbout(): IDemoAbout | null {
  * quand la marque du haut de page s'y pose au défilement (CSS pur,
  * `view-timeline`).
  */
-function Topbar({
-  about,
-  home,
-}: {
-  about: IDemoAbout | null;
-  home: boolean;
-}) {
+function Topbar({ about, home }: { about: IDemoAbout | null; home: boolean }) {
   const appName = about?.app.name ?? "<%= it.appName %>";
   const current = useCurrentSection(SECTION_IDS);
   // PAS d'`aria-label` : le nom accessible est le CONTENU des DEUX identités.
@@ -221,7 +217,8 @@ function Topbar({
 function ThemeButton() {
   const [theme, setTheme] = useState<DemoTheme>(readTheme);
   const next: DemoTheme = theme === "dark" ? "light" : "dark";
-  const label = next === "light" ? "Passer en thème clair" : "Passer en thème sombre";
+  const label =
+    next === "light" ? "Passer en thème clair" : "Passer en thème sombre";
   return (
     <button
       type="button"
@@ -234,12 +231,28 @@ function ThemeButton() {
       }}
     >
       {theme === "dark" ? (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
           <circle cx="12" cy="12" r="4" />
           <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
         </svg>
       ) : (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
           <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
         </svg>
       )}
@@ -279,7 +292,15 @@ function DebugBarButtons() {
           setVisible(!visible);
         }}
       >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
           <path d="M8 2l1.9 1.9M16 2l-1.9 1.9" />
           <path d="M9 7.1V6a3 3 0 0 1 6 0v1.1" />
           <path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6z" />
@@ -307,7 +328,15 @@ function DebugBarButtons() {
           setMinimized(!minimized);
         }}
       >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
           <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" />
         </svg>
       </button>
@@ -346,11 +375,11 @@ function Hero() {
       <div
         className="install"
         role="img"
-        aria-label="Commande : npx nodefony create app mon-app --demo"
+        aria-label="Commande : npx nodefony create app mon-app"
       >
         <span className="p">$</span>
         <span>
-          npx nodefony create app mon-app <b>--demo</b>
+          npx nodefony create app <b>mon-app</b>
         </span>
       </div>
       <div className="cta">
@@ -425,13 +454,11 @@ function Agents() {
         <p className="kicker">Pour les agents</p>
         <h2 style={{ margin: "0 0 8px" }}>Une couche invisible à l'écran</h2>
         <p style={{ margin: 0, color: "var(--muted)" }}>
-          L'<code>AGENTS.md</code> de l'application renvoie à l'index des
-          démos ; chaque fichier porte un TSDoc qui dit le type à utiliser, la
-          doc, la commande et le skill.
+          L'<code>AGENTS.md</code> de l'application renvoie à l'index des démos
+          ; chaque fichier porte un TSDoc qui dit le type à utiliser, la doc, la
+          commande et le skill.
         </p>
-        {entry !== undefined && (
-          <pre>{formatEntry(entry)}</pre>
-        )}
+        {entry !== undefined && <pre>{formatEntry(entry)}</pre>}
       </div>
     </section>
   );

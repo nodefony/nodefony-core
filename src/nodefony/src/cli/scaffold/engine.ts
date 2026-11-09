@@ -789,6 +789,8 @@ export function resolveLocalWorkspaces(
  * et installe ses deps transitives. Rend l'app contrôlable AVANT toute release
  * npm (dev du framework) ; les deps publiques (zod, react…) restent au registre.
  *
+ * @param packageManager - gestionnaire de l'app : il décide du protocole
+ *   ({@link localLinkSpecifier})
  * @returns les noms de paquets liés (triés, pour le récap)
  * @throws si une dep du scope nodefony n'existe pas dans le checkout
  */
@@ -796,6 +798,7 @@ export function linkLocalDeps(
   destDir: string,
   workspaces: Record<string, string>,
   writer: ScaffoldWriter,
+  packageManager: PackageManagerName = "npm",
 ): string[] {
   const manifest = readPackageManifest(
     path.join(destDir, "package.json"),
@@ -815,13 +818,138 @@ export function linkLocalDeps(
       if (!workspace) {
         throw new Error(`link : workspace introuvable pour ${name}`);
       }
-      // Un specifier `file:` est une donnée qui VOYAGE (le `package.json` généré est lu
-      // par npm, commité, partagé) — pas un chemin qu'on redonne au système de fichiers.
-      // Il s'écrit donc avec des `/` sur toutes les plateformes, là où `workspace` porte
-      // le séparateur natif (`D:\a\checkout\src\nodefony` sous Windows).
-      deps[name] = `file:${workspace.split(path.sep).join("/")}`;
+      deps[name] = localLinkSpecifier(workspace, packageManager);
       linked.push(name);
     }
+  }
+  writePackageManifest(manifest, writer);
+  return linked.sort();
+}
+
+/**
+ * Le specifier qui lie un paquet au checkout, selon le gestionnaire.
+ *
+ * npm, yarn et bun : `file:` — npm en fait un lien symbolique. pnpm : `link:`,
+ * parce que son `file:` COPIE le dossier dans son magasin, une copie par
+ * contexte de pairs : deux importeurs du même paquet lié n'en partageaient pas
+ * l'instance. `link:` est un lien vers le checkout, une seule instance.
+ *
+ * Le chemin VOYAGE (le `package.json` généré est lu, commité, partagé) : il
+ * s'écrit avec des `/` sur toutes les plateformes, là où `workspace` porte le
+ * séparateur natif (`D:\a\checkout\src\nodefony` sous Windows).
+ *
+ * @param workspace - dossier du paquet dans le checkout (séparateur natif)
+ * @param packageManager - gestionnaire de l'app
+ * @returns `file:<chemin>` ou `link:<chemin>`
+ */
+export function localLinkSpecifier(
+  workspace: string,
+  packageManager: PackageManagerName,
+): string {
+  const protocol = packageManager === "pnpm" ? "link" : "file";
+  return `${protocol}:${workspace.split(path.sep).join("/")}`;
+}
+
+/**
+ * Déclare dans l'APPLICATION ce que la config Vite d'un module local résout
+ * depuis la racine : le plugin de son moteur et le runtime de ce moteur.
+ *
+ * La config Vite est générée à la racine de l'app, une seule instance par
+ * famille : elle importe le plugin de CHAQUE moteur présent, et son
+ * `resolve.dedupe` force le runtime (`react`, `vue`…) à se résoudre depuis
+ * la racine. C'est la doctrine de `@nodefony/frontend` — l'application porte
+ * vite et ses plugins. Un module dont le front n'est pas celui de l'app (la
+ * démo React dans une app Svelte) ne tenait que par le hissage de npm ; sous
+ * pnpm, Vite ne trouvait pas `@vitejs/plugin-react`, ne démarrait pas, et
+ * AUCUN bundle n'était servi — ni celui du module, ni celui de l'app.
+ *
+ * Une déclaration existante de l'app n'est jamais réécrite ; les `@types/*`
+ * restent au module, qui seul les compile.
+ *
+ * @param appDir - racine de l'app
+ * @param moduleDir - dossier du module (`<app>/modules/<nom>`)
+ * @param writer - transaction du scaffold
+ * @returns les paquets ajoutés à l'app (triés)
+ */
+export function hoistModuleFrontDeps(
+  appDir: string,
+  moduleDir: string,
+  writer: ScaffoldWriter,
+): string[] {
+  const moduleManifest = readPackageManifest(
+    path.join(moduleDir, "package.json"),
+    writer,
+  );
+  const declared = dependencyNames(moduleManifest, [
+    "dependencies",
+    "devDependencies",
+  ]);
+  const wanted: Record<string, string> = {};
+  for (const params of Object.values(FRONTEND_PARAMS)) {
+    const all: Record<string, string> = { ...params.deps, ...params.devDeps };
+    const plugins = Object.keys(all).filter((n) => n.includes("plugin"));
+    if (!plugins.some((n) => declared.has(n))) continue;
+    for (const [name, range] of Object.entries(all)) {
+      if (!name.startsWith("@types/")) wanted[name] = range;
+    }
+  }
+  const app = readPackageManifest(path.join(appDir, "package.json"), writer);
+  const present = dependencyNames(app, ["dependencies", "devDependencies"]);
+  const added: string[] = [];
+  for (const [name, range] of Object.entries(wanted)) {
+    if (present.has(name)) continue;
+    ensureObjectField(app, "devDependencies")[name] = range;
+    added.push(name);
+  }
+  if (added.length > 0) writePackageManifest(app, writer);
+  return added.sort();
+}
+
+/**
+ * Lie au checkout les PAIRS du framework d'un module local, en dépendances de
+ * développement (mode link sous pnpm).
+ *
+ * pnpm installe d'office un pair que le module ne porte pas, et le prend au
+ * REGISTRE même quand la racine de l'app porte le paquet lié : le module
+ * tournait alors sur la version publiée, la racine sur le checkout — deux
+ * `Container` distincts, et le Kernel refusait le module. Le pair satisfait
+ * par le même lien, il n'existe plus qu'une instance.
+ *
+ * @param moduleDir - dossier du module (`<app>/modules/<nom>`)
+ * @param workspaces - paquets du checkout ({@link resolveLocalWorkspaces})
+ * @param writer - transaction du scaffold
+ * @param packageManager - gestionnaire de l'app
+ * @returns les noms de pairs liés (triés)
+ * @throws si un pair du scope nodefony n'existe pas dans le checkout
+ */
+export function linkLocalPeers(
+  moduleDir: string,
+  workspaces: Record<string, string>,
+  writer: ScaffoldWriter,
+  packageManager: PackageManagerName,
+): string[] {
+  const manifest = readPackageManifest(
+    path.join(moduleDir, "package.json"),
+    writer,
+  );
+  if (manifest.data["peerDependencies"] === undefined) {
+    return [];
+  }
+  const peers = ensureObjectField(manifest, "peerDependencies");
+  const linked: string[] = [];
+  for (const name of Object.keys(peers)) {
+    if (name !== "nodefony" && !name.startsWith("@nodefony/")) {
+      continue;
+    }
+    const workspace = workspaces[name];
+    if (!workspace) {
+      throw new Error(`link : workspace introuvable pour ${name}`);
+    }
+    ensureObjectField(manifest, "devDependencies")[name] = localLinkSpecifier(
+      workspace,
+      packageManager,
+    );
+    linked.push(name);
   }
   writePackageManifest(manifest, writer);
   return linked.sort();
@@ -2016,6 +2144,14 @@ export function runScaffold(
 interface IInternalScaffoldOptions {
   /** Politique de l'entrée posée au manifeste par `create module`. */
   manifestPolicy?: "dev";
+  /**
+   * Gestionnaire CHOISI par `create app` pour l'application en cours de
+   * création. Sans lui, le sous-scaffold le DEVINE — par un verrou qui n'existe
+   * pas encore, puis par l'agent qui a lancé la commande — et une app pnpm
+   * recevait une démo câblée pour npm : module non déclaré en `workspace:*`,
+   * donc introuvable au démarrage, et scripts racine `npm run … --workspaces`.
+   */
+  packageManager?: PackageManagerName;
 }
 
 /** Résout la spec puis route vers le scaffold du type demandé. */
@@ -2429,7 +2565,10 @@ function dispatchScaffold(
   // la retire alors au démarrage en production, comme à la racine du dépôt.
   // Appel DIRECT du répartiteur (même transaction) : la politique est une
   // décision du moteur, qu'aucune option publique ne porte.
-  if (answers.demo === true) {
+  // La démo exige `complete` : sous `minimal`, la question n'est pas posée
+  // (`askWhen`) et sa réponse retombe sur le DÉFAUT — qui vaut `true`.
+  let demoDir: string | null = null;
+  if (answers.demo === true && preset === "complete") {
     const sub = dispatchScaffold(
       {
         type: "module",
@@ -2446,10 +2585,11 @@ function dispatchScaffold(
       },
       version,
       writer,
-      { manifestPolicy: "dev" },
+      { manifestPolicy: "dev", packageManager },
     );
     // Le CONTENU de la démo, par la couche que partage le dépôt du framework
     // ({@link renderDemoModule}) : une seule source pour les deux.
+    demoDir = sub.dest;
     const demoFiles = renderDemoLayer(
       eta,
       packageRoot,
@@ -2458,6 +2598,7 @@ function dispatchScaffold(
       version,
       writer,
     );
+    hoistModuleFrontDeps(dest, sub.dest, writer);
     // Les chemins du module sont relatifs à SON dossier ; ceux de l'app, à la
     // racine. Sans préfixe, `package.json` du module se confondrait avec celui
     // de l'application dans la liste rendue.
@@ -2484,7 +2625,14 @@ function dispatchScaffold(
           "sans checkout, attends la release npm puis installe sans --link",
       );
     }
-    linked = linkLocalDeps(dest, workspaces, writer);
+    linked = linkLocalDeps(dest, workspaces, writer, packageManager);
+    // pnpm installe d'office un pair absent — DEPUIS LE REGISTRE, même quand la
+    // racine porte le paquet lié : la démo tournait sur la version publiée et
+    // la racine sur le checkout, deux `Container` distincts, et le Kernel
+    // rejetait la démo. Ses pairs du framework sont donc liés eux aussi.
+    if (demoDir !== null && packageManager === "pnpm") {
+      linkLocalPeers(demoDir, workspaces, writer, packageManager);
+    }
   }
   return { dest, files: written.sort(), linked };
 }
@@ -3810,6 +3958,7 @@ function runModuleScaffold(
   // Gestionnaire du projet, lu UNE fois : il décide de la forme des scripts
   // délégués et du protocole `workspace:*`, comme de l'installation qui suit.
   const packageManager = resolvePackageManager({
+    configured: internal.packageManager,
     dir: projectRoot,
     exists: (file) => writer.exists(file),
   }).name;
@@ -7023,19 +7172,28 @@ function wireFrontTsconfig(
   let src = writer.read(tsconfigPath);
   const before = src;
   // Ajoute une valeur à un tableau de chaînes nommé, vide ou non, sans
-  // laisser de virgule finale (le fichier doit rester du JSON valide).
+  // laisser de virgule finale (le fichier doit rester du JSON valide). Un
+  // tableau écrit une entrée par ligne le RESTE : recoller la première sur la
+  // ligne du crochet rendait un fichier que le formateur du projet refuse.
   const addToArray = (key: string, value: string, first: boolean): boolean => {
     const re = new RegExp(`("${key}"\\s*:\\s*\\[)([^\\]]*)(\\])`, "u");
     const m = re.exec(src);
     if (m === null) return false;
-    const inner = (m[2] ?? "").trim();
-    const items =
-      inner === ""
-        ? `"${value}"`
-        : first
-          ? `"${value}", ${inner}`
-          : `${inner}, "${value}"`;
-    src = src.replace(re, `$1${items}$3`);
+    const raw = m[2] ?? "";
+    const inner = raw.trim();
+    let items: string;
+    if (inner === "") {
+      items = `"${value}"`;
+    } else if (raw.includes("\n")) {
+      const indent = /\n([ \t]*)\S/u.exec(raw)?.[1] ?? "    ";
+      const tail = raw.slice(raw.trimEnd().length);
+      items = first
+        ? `\n${indent}"${value}",${raw}`
+        : `${raw.trimEnd()},\n${indent}"${value}"${tail}`;
+    } else {
+      items = first ? `"${value}", ${inner}` : `${inner}, "${value}"`;
+    }
+    src = src.replace(re, () => `${m[1] ?? ""}${items}${m[3] ?? ""}`);
     return true;
   };
   if (!src.includes(`"${needs.include}"`)) {
