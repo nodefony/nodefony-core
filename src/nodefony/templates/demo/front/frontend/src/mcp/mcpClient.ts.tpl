@@ -1,3 +1,4 @@
+import { jsonRpcRequest } from "nodefony/client";
 import {
   MCP_GATE_PATH,
   MCP_PROTOCOL_VERSION,
@@ -11,8 +12,9 @@ import {
  * `Request` ; la page la passe à la sonde du kit (`probeRequest` de
  * `kit/probe.ts`), qui fait le `fetch` et lit le corps EN FLUX.
  *
- * Guide pour un agent : un `fetch` JSON-RPC écrit à la main, sans SDK — le
- * protocole reste visible tel quel. Un vrai agent passe par son client MCP
+ * Guide pour un agent : un `fetch` JSON-RPC sans SDK — le protocole reste
+ * visible tel quel ; seule la frame se FABRIQUE (`jsonRpcRequest` de
+ * `nodefony/client`, la même que le serveur emploie). Un vrai agent passe par son client MCP
  * (Claude Code : `claude mcp add --transport http …`). Les blocs
  * `// #region client-*` sont CITÉS par la page : les renommer casse le test
  * du module. Doc : `node_modules/@nodefony/ai/docs/mcp.md`.
@@ -85,12 +87,8 @@ export function mcpRequest(
     method: "POST",
     headers,
     cache: "no-store",
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: lastId,
-      method,
-      ...(withMeta === undefined ? {} : { params: withMeta }),
-    }),
+    // `params` absent : `JSON.stringify` omet la clé du fil.
+    body: JSON.stringify(jsonRpcRequest(lastId, method, withMeta)),
     ...(options.signal === undefined ? {} : { signal: options.signal }),
   });
 }

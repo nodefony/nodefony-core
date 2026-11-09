@@ -504,7 +504,7 @@ export function ConnectPanel({ resource }: { resource: string }) {
         Les étapes 1 et 2 d'une seule ligne (bash, zsh)
       </p>
       <Copy
-        text={`claude mcp add --transport http nodefony-demo ${resource} --header "Authorization: Bearer $(npx nodefony security:mcp:token admin --resource ${resource} --scope demo:write --ttl 480 --json | node -p 'JSON.parse(require("node:fs").readFileSync(0, "utf8")).access_token')"`}
+        text={`claude mcp add --transport http nodefony-demo ${resource} --header "Authorization: Bearer $(npx nodefony security:mcp:token admin --resource ${resource} --scope demo:write --ttl 480 --json | node -p 'JSON.parse(fs.readFileSync(0, "utf8")).access_token')"`}
       />
       <p className="mcp-desc">
         <code>--write</code> est refusé pour cette porte : il remplacerait{" "}
