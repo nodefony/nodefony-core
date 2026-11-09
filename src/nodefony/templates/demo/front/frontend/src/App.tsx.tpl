@@ -17,6 +17,7 @@ import { BinaryLesson } from "./binary/BinaryLesson";
 import { McpLesson } from "./mcp/McpLesson";
 import { MeteorLesson } from "./meteor/MeteorLesson";
 import { PrismLesson } from "./prism/PrismLesson";
+import { SensorLesson } from "./sensor/SensorLesson";
 import { SseLesson } from "./sse/SseLesson";
 import { VideoLesson } from "./video/VideoLesson";
 import { Account } from "./kit/Account";
@@ -64,7 +65,8 @@ export function App() {
     page === "/demo/binary" ||
     page === "/demo/mcp" ||
     page === "/demo/meteor" ||
-    page === "/demo/prism";
+    page === "/demo/prism" ||
+    page === "/demo/sensor";
   // Le logo vient du paquet (`brand.ts`) : la feuille le lit par variable.
   const logo: CSSProperties & Record<"--demo-logo", string> = {
     "--demo-logo": `url(${JSON.stringify(NODEFONY_LOGO)})`,
@@ -91,6 +93,8 @@ export function App() {
         <MeteorLesson about={about} />
       ) : page === "/demo/prism" ? (
         <PrismLesson about={about} />
+      ) : page === "/demo/sensor" ? (
+        <SensorLesson about={about} />
       ) : (
         <Home about={about} />
       )}

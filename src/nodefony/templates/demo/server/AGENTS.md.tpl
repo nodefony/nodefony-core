@@ -48,7 +48,11 @@ un renvoi mort le fait échouer.
   `PartnerController` (`/demo/api/partner`, zone `demo-partner` du firewall),
   `MeteorController` et `PrismController` (`/demo/api/meteor/realtime`,
   `/demo/api/prism/realtime` : deux jeux, deux portes chacun — le canal
-  d'état et la commande du joueur), les pages et l'accueil.
+  d'état et la commande du joueur), `SensorController`
+  (`/demo/api/sensor/realtime` : la sonde, un canal CADENCÉ
+  `sensor:plant:<ms>` par surcharge de `createRealtimeChannel`, quatre canaux
+  de laboratoire ; lire est public, acquitter et régler la source exigent une
+  session), les pages et l'accueil.
 - `nodefony/kit/fixedStep.ts` — la boucle à pas fixe sur `hrtime`, partagée par
   tout ce qui tourne à cadence régulière (les jeux, l'acquisition de la sonde).
 - `frontend/src/kit/records.ts` — enregistrements binaires décrits par schéma
@@ -58,6 +62,15 @@ un renvoi mort le fait échouer.
   jeu neuf : pilotes identifiés par leur CONNEXION, robots qui complètent,
   boucle tant que quelqu'un regarde, trame publiée à chaque tour. Un jeu
   n'écrit que ses `IGameRules` : `MeteorService.ts`, `PrismService.ts`.
+- `nodefony/sensor/` — les simulations de la sonde, PURES et testées : usine
+  et réduction par fenêtre (`plant.ts`), moyenne glissante et alarmes ISA-18.2
+  (`alarms.ts`), source gamma avec temps mort (`gamma.ts`), cryostat à
+  dilution (`cryostat.ts`), test de Bell et qubit (`quantum.ts`). Les données
+  sont SIMULÉES ; Nodefony supervise, il ne commande aucun verrouillage.
+- `frontend/src/sensor/` — le contrat de la sonde (`sensorDemo.ts`), son
+  client (`sensorClient.ts`, AIMD par `socket.adaptiveChannel()`), les calculs
+  isomorphes (`sensorStats.ts` : CHSH, vecteur de Bloch), les figures
+  (`SensorCharts.tsx`, `BlochView.tsx` — Three.js chargé à la demande).
 - `frontend/src/game/` — les briques PAGE communes aux jeux : socket (`gameSocket.ts`), interpolation entre deux trames
   (`snapshots.ts`), envoi des commandes (`commandSender.ts`), boucle
   d'affichage (`useGameLoop.ts`), fil mesuré (`wireMeter.ts`, `WireHud.tsx`),
@@ -66,7 +79,8 @@ un renvoi mort le fait échouer.
 - `nodefony/service/` — l'état qui survit à une connexion (`ChatService`),
   le pouls de l'accueil (`DemoPulseService`, canal `demo:pulse`), la porte MCP
   et son fil en direct (`DemoMcpService`, canal `demo:mcp`), la salle de
-  chaque jeu (`MeteorService`, `PrismService`).
+  chaque jeu (`MeteorService`, `PrismService`), la sonde (`SensorService` :
+  une boucle à 50 Hz qui ne tourne que tant qu'un écran regarde).
 - `nodefony/config/security.ts` — les zones qu'apporte la démo :
   `demo` (session, puis anonyme), `demo-partner` (jeton, `^/demo/api/partner`)
   et `demo-mcp` (la RESSOURCE de la porte MCP, `^/mcp/demo$` : rendue absolue

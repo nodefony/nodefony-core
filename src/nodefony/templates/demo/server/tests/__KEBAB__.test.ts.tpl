@@ -109,6 +109,17 @@ import { BINARY_LESSON } from "../frontend/src/binary/binaryTabs";
 import { MCP_LESSON } from "../frontend/src/mcp/mcpTabs";
 import { METEOR_LESSON } from "../frontend/src/meteor/meteorTabs";
 import { PRISM_LESSON } from "../frontend/src/prism/prismTabs";
+import { SENSOR_LESSON } from "../frontend/src/sensor/sensorTabs";
+import SensorService from "../nodefony/service/SensorService";
+import {
+  ACQUISITION_HZ,
+  MACHINES,
+  QUANTITIES,
+  cryoRecord,
+  windowRecord,
+  type IAlarmBoard,
+  type IPlantWindow,
+} from "../frontend/src/sensor/sensorDemo";
 import { defineRecord } from "../frontend/src/kit/records";
 import {
   SnapshotBuffer,
@@ -698,6 +709,7 @@ const LESSONS: readonly { page: string; lesson: ILesson }[] = [
   { page: "mcp", lesson: MCP_LESSON },
   { page: "meteor", lesson: METEOR_LESSON },
   { page: "prism", lesson: PRISM_LESSON },
+  { page: "sensor", lesson: SENSOR_LESSON },
 ];
 
 /** Chaque extrait cité, avec sa page et sa couche. */
@@ -874,6 +886,16 @@ describe("demo — les leçons à gestes : la sonde et le contrôleur cité", ()
     ["nodefony/service/PrismService.ts", PRISM_LESSON],
     ["nodefony/game/GameRoom.ts", METEOR_LESSON],
     ["nodefony/kit/fixedStep.ts", PRISM_LESSON],
+    ["nodefony/controllers/SensorController.ts", SENSOR_LESSON],
+    ["nodefony/service/SensorService.ts", SENSOR_LESSON],
+    ["frontend/src/sensor/sensorDemo.ts", SENSOR_LESSON],
+    ["frontend/src/sensor/sensorClient.ts", SENSOR_LESSON],
+    ["nodefony/sensor/plant.ts", SENSOR_LESSON],
+    ["nodefony/sensor/alarms.ts", SENSOR_LESSON],
+    ["nodefony/sensor/gamma.ts", SENSOR_LESSON],
+    ["nodefony/sensor/cryostat.ts", SENSOR_LESSON],
+    ["nodefony/sensor/quantum.ts", SENSOR_LESSON],
+    ["frontend/src/sensor/sensorStats.ts", SENSOR_LESSON],
   ] as const)(
     "chaque région de %s est citée par la leçon : aucun geste oublié",
     (file, lesson) => {
@@ -1909,5 +1931,108 @@ describe("Jeux — les briques communes et les règles", () => {
         `/demo/${id}`,
       );
     }
+  });
+});
+
+describe("Sonde — le service d'acquisition", () => {
+  /** Avance la sonde de `ticks` tours, sans attendre l'horloge. */
+  const run = (sensors: SensorService, ticks: number) => {
+    for (let i = 0; i < ticks; i += 1) sensors.step();
+  };
+
+  it("chaque cadence reçoit la réduction de SA période : 100 ms = 5 échantillons, 1 s = 50", () => {
+    const sensors = new SensorService();
+    const fast: IPlantWindow[] = [];
+    const slow: IPlantWindow[] = [];
+    const stops = [
+      sensors.watchPlant(100, (frame) => fast.push(frame)),
+      sensors.watchPlant(1000, (frame) => slow.push(frame)),
+    ];
+    run(sensors, ACQUISITION_HZ);
+    stops.forEach((stop) => stop());
+    expect(fast).toHaveLength(10);
+    expect(slow).toHaveLength(1);
+    expect(fast.at(0)?.n).toBe(5);
+    expect(slow.at(0)?.n).toBe(50);
+    // 4 machines × 3 grandeurs, 12 octets par série : 144 octets de mesures.
+    const window = slow.at(0);
+    expect(window?.w.byteLength).toBe(
+      MACHINES.length * QUANTITIES.length * windowRecord.bytes,
+    );
+    const series = windowRecord.read(window?.w ?? new Uint8Array());
+    for (const { min, max, mean } of series) {
+      expect(min).toBeLessThanOrEqual(mean);
+      expect(mean).toBeLessThanOrEqual(max);
+    }
+  });
+
+  it("le tableau d'alarmes part au premier tour, puis chaque seconde", () => {
+    const sensors = new SensorService();
+    const boards: IAlarmBoard[] = [];
+    const stop = sensors.watchAlarms((board) => boards.push(board));
+    run(sensors, 1);
+    expect(boards).toHaveLength(1);
+    expect(boards.at(0)?.alarms.map((a) => a.id)).toEqual([
+      ...MACHINES.map((m) => `vibration-${m.id}`),
+      "cryo-mxc",
+    ]);
+    run(sensors, ACQUISITION_HZ);
+    stop();
+    expect(boards.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("🔴 acquitter signe du nom DONNÉ par le contrôleur (la session), et refuse ce qui n'attend rien", () => {
+    const sensors = new SensorService();
+    const seen: { board: IAlarmBoard | null } = { board: null };
+    const stop = sensors.watchAlarms((board) => {
+      seen.board = board;
+    });
+    expect(sensors.acknowledge("vibration-1", "admin")).toBe(false);
+    expect(sensors.acknowledge("inconnue", "admin")).toBe(false);
+    // Le roulement de la machine 3 se dégrade par cycle : au plus quelques minutes simulées.
+    let pending = false;
+    for (let i = 0; i < ACQUISITION_HZ * 240 && !pending; i += 1) {
+      sensors.step();
+      pending =
+        seen.board?.alarms.some(
+          (a) => a.id === "vibration-3" && a.state === "unacknowledged",
+        ) ?? false;
+    }
+    expect(pending).toBe(true);
+    expect(sensors.acknowledge("vibration-3", "admin")).toBe(true);
+    stop();
+    const event = seen.board?.journal.at(-1);
+    expect(event?.id).toBe("vibration-3");
+    expect(event?.state).toBe("acknowledged");
+    expect(event?.by).toBe("admin");
+  });
+
+  it("le spectre entier part en u32 : 1 024 canaux, 4 096 octets", () => {
+    const sensors = new SensorService();
+    const stop = sensors.watchGamma(() => {});
+    run(sensors, ACQUISITION_HZ);
+    stop();
+    const whole = sensors.spectrum();
+    expect(whole.s.byteLength).toBe(4096);
+    expect(whole.live).toBeGreaterThan(0);
+    expect(whole.live).toBeLessThanOrEqual(whole.real);
+  });
+
+  it("l'historique du cryostat garde les points du run en cours, deux par seconde", () => {
+    const sensors = new SensorService();
+    run(sensors, ACQUISITION_HZ * 3);
+    const history = sensors.cryoHistory();
+    const points = cryoRecord.read(history.points);
+    expect(points).toHaveLength(6);
+    const hours = points.map((point) => point.h);
+    expect(hours).toEqual([...hours].sort((a, b) => a - b));
+  });
+
+  it("la carte Sonde est prête et mène à sa page", () => {
+    const card = DEMOS.find((demo) => demo.id === "sensor");
+    expect(card?.status).toBe("ready");
+    expect(card !== undefined && "path" in card ? card.path : null).toBe(
+      "/demo/sensor",
+    );
   });
 });

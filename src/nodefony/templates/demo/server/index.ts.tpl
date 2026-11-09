@@ -28,6 +28,8 @@ import MeteorController from "./nodefony/controllers/MeteorController";
 import MeteorService from "./nodefony/service/MeteorService";
 import PrismController from "./nodefony/controllers/PrismController";
 import PrismService from "./nodefony/service/PrismService";
+import SensorController from "./nodefony/controllers/SensorController";
+import SensorService from "./nodefony/service/SensorService";
 import { registerDemoEntry } from "./nodefony/frontend/registerDemoEntry";
 
 /**
@@ -62,6 +64,7 @@ declare module "nodefony" {
   McpTokenController,
   MeteorController,
   PrismController,
+  SensorController,
 ])
 @services([
   AppInfoService,
@@ -72,6 +75,7 @@ declare module "nodefony" {
   DemoMcpService,
   MeteorService,
   PrismService,
+  SensorService,
 ])
 class DemoModule extends Module {
   constructor(kernel: Kernel) {

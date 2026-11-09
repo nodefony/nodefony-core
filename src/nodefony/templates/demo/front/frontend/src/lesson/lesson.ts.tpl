@@ -71,7 +71,18 @@ export type LessonFile =
   | "frontend/src/meteor/meteorScene.ts"
   | "frontend/src/prism/prismDemo.ts"
   | "frontend/src/prism/prismClient.ts"
-  | "frontend/src/prism/prismScene.ts";
+  | "frontend/src/prism/prismScene.ts"
+  | "nodefony/controllers/SensorController.ts"
+  | "nodefony/service/SensorService.ts"
+  | "nodefony/sensor/plant.ts"
+  | "nodefony/sensor/alarms.ts"
+  | "nodefony/sensor/gamma.ts"
+  | "nodefony/sensor/cryostat.ts"
+  | "nodefony/sensor/quantum.ts"
+  | "frontend/src/sensor/sensorDemo.ts"
+  | "frontend/src/sensor/sensorClient.ts"
+  | "frontend/src/sensor/sensorStats.ts"
+  | "frontend/src/sensor/BlochView.tsx";
 
 /** Les couches, dans l'ordre où l'on construit une fonctionnalité. */
 export const LESSON_LAYERS = [
