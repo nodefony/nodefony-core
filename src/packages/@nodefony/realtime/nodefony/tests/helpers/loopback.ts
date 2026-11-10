@@ -39,6 +39,8 @@ export class LoopbackWire {
 export interface ILoopbackHandshake {
   url?: string;
   origin?: string;
+  /** En-tête `Host` de la poignée de main : un authentificateur par vhost s'y accroche. */
+  host?: string;
 }
 
 /**
@@ -77,7 +79,10 @@ export function loopbackServerContext(
     once: (event: string, fn: () => void) => {
       if (event === "onFinish") onFinish = fn;
     },
-    request: { headers: {}, url: hs.url ?? "/realtime" },
+    request: {
+      headers: hs.host === undefined ? {} : { host: hs.host },
+      url: hs.url ?? "/realtime",
+    },
     cookies: {},
     url: hs.url ?? "/realtime",
     remoteAddress: "127.0.0.1",

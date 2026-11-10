@@ -6,6 +6,7 @@ import {
   REDIS_GATE,
   gateValue,
 } from "../../../../../../../scripts/test/vitest/gates";
+import { openTab, screenOf, settledOn } from "../helpers/presenceScreen.js";
 
 /**
  * Banc e2e cluster **Redis** — workers Node forkés RÉELS (1 process = 1 pod),
@@ -87,6 +88,10 @@ interface AnyMsg {
   members?: Record<string, number>;
   unnamed?: number;
   probe?: { endedTotal: number; forgottenTotal: number } | null;
+  /** Instantané poussé à l'écran d'un onglet (`browser-view`, #760). */
+  tab?: string;
+  ready?: boolean;
+  partial?: boolean | null;
 }
 
 interface ForkedWorker {
@@ -277,6 +282,47 @@ describe.skipIf(!NF_RUN_CLUSTER_E2E || !REDIS_UP)(
       );
       expect(after).to.deep.include({ members: { bob: 1 }, unnamed: 0 });
       expect(after.probe).to.deep.include({ endedTotal: 1, forgottenTotal: 0 });
+    });
+
+    it("🔴 #760 — l'ÉCRAN à travers Redis : les onglets de A s'affichent chez Bob sur B (deux onglets d'une identité = UN présent) ; l'arrêt propre de A les retire par la fin annoncée", async () => {
+      const rt = `nodefony:rt:screen:${Date.now()}`;
+      const [a, b] = await Promise.all([spawnWorker(rt), spawnWorker(rt)]);
+      workers = [a, b];
+      await openTab(a, "a-alice", "pres:screen", "alice");
+      await openTab(a, "a-anon", "pres:screen");
+      await openTab(b, "b-alice", "pres:screen", "alice");
+      await openTab(b, "b-bob", "pres:screen", "bob");
+      const want = { alice: 2, bob: 1 };
+      expect(await screenOf(b, "b-bob", settledOn(want, 1))).to.deep.include({
+        ready: true,
+        partial: false,
+        count: 2,
+        unnamed: 1,
+        members: want,
+      });
+      expect(await screenOf(a, "a-alice", settledOn(want, 1))).to.deep.include({
+        partial: false,
+        unnamed: 1,
+        members: want,
+      });
+
+      const exited = new Promise((r) => a.child.once("exit", r));
+      a.child.send({ cmd: "presence-terminate" });
+      await exited;
+      const left = { alice: 1, bob: 1 };
+      expect(await screenOf(b, "b-bob", settledOn(left))).to.deep.include({
+        partial: false,
+        unnamed: 0,
+        members: left,
+      });
+      // La fin annoncée l'explique, pas l'oubli (délai de 15 s).
+      b.events.length = 0;
+      b.child.send({ cmd: "presence", channel: "pres:screen" });
+      const pulled = await b.awaitEvent((e) => e.cmd === "presence");
+      expect(pulled.probe).to.deep.include({
+        endedTotal: 1,
+        forgottenTotal: 0,
+      });
     });
 
     it.skipIf(!NF_RUN_PERF)(

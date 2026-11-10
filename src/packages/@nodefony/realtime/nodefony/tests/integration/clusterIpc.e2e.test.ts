@@ -26,6 +26,12 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { fork, type ChildProcess, type Serializable } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { ClusterRelay, type IRelayWorker, CLUSTER_RT_KIND } from "nodefony";
+import {
+  openTab as openScreenTab,
+  screenOf,
+  settledOn,
+  viewsOf,
+} from "../helpers/presenceScreen.js";
 
 const WORKER_PATH = fileURLToPath(
   new URL("./clusterIpcWorker.ts", import.meta.url),
@@ -52,6 +58,10 @@ interface AnyMsg {
   unnamed?: number;
   partial?: boolean | null;
   probe?: { endedTotal: number; forgottenTotal: number } | null;
+  /** Onglet de navigateur d'un instantané poussé à l'écran (`browser-view`, #760). */
+  tab?: string;
+  ready?: boolean;
+  count?: number;
 }
 
 interface ForkedWorker {
@@ -462,6 +472,113 @@ describe.skipIf(!NF_RUN_CLUSTER_E2E)(
       expect(after.members).toEqual({ bob: 1 });
       expect(after.probe).to.deep.include({ forgottenTotal: 1, endedTotal: 0 });
     }, 60_000);
+
+    /** Onglet de navigateur affichant `pres:screen` (aide commune aux bancs IPC et Redis). */
+    const openTab = (w: ForkedWorker, tab: string, user?: string) =>
+      openScreenTab(w, tab, "pres:screen", user);
+
+    it("#760 — l'ÉCRAN : un onglet sur A est affiché par l'onglet de Bob sur B ; une identité dans deux onglets sur deux pods = UN présent ; l'anonyme dans `unnamed`", async () => {
+      const [a, b] = await spawnN(2);
+      await openTab(a!, "a-alice", "alice");
+      await openTab(a!, "a-anon");
+      await openTab(b!, "b-alice", "alice");
+      await openTab(b!, "b-bob", "bob");
+      const want = { alice: 2, bob: 1 };
+      for (const [w, tab] of [
+        [b!, "b-bob"],
+        [b!, "b-alice"],
+        [a!, "a-alice"],
+        [a!, "a-anon"],
+      ] as const) {
+        const screen = await screenOf(w, tab, settledOn(want, 1));
+        expect(screen, tab).to.deep.include({
+          ready: true,
+          partial: false,
+          count: 2,
+          unnamed: 1,
+          members: want,
+        });
+      }
+    });
+
+    it("🔴 #760 — l'ÉCRAN : arrêt propre de A → Alice quitte l'écran de Bob par la fin annoncée, sans oubli", async () => {
+      const [a, b] = await spawnN(2);
+      await openTab(a!, "a-alice", "alice");
+      await openTab(b!, "b-bob", "bob");
+      await screenOf(b!, "b-bob", settledOn({ alice: 1, bob: 1 }));
+      const exited = new Promise((r) => a!.child.once("exit", r));
+      a!.child.send({ cmd: "presence-terminate" });
+      await exited;
+      const screen = await screenOf(b!, "b-bob", settledOn({ bob: 1 }));
+      expect(screen).to.deep.include({
+        ready: true,
+        partial: false,
+        members: { bob: 1 },
+      });
+      // La fin annoncée l'explique, pas l'oubli (délai de 15 s).
+      const probe = await presenceOn(b!, "pres:screen", () => true);
+      expect(probe.probe).to.deep.include({ endedTotal: 1, forgottenTotal: 0 });
+    });
+
+    it("🔴 #760 — l'ÉCRAN : A vivant et calme ne quitte jamais l'écran de Bob ; A tué (SIGKILL) en sort au délai d'oubli", async () => {
+      const [a, b] = await spawnN(2);
+      await openTab(a!, "a-alice", "alice");
+      await openTab(b!, "b-bob", "bob");
+      const both = settledOn({ alice: 1, bob: 1 });
+      expect(await screenOf(b!, "b-bob", both)).to.deep.include({
+        ready: true,
+        partial: false,
+        members: { alice: 1, bob: 1 },
+      });
+      const mark = b!.events.length;
+      // Calme au-delà du délai d'oubli (3 × 5 s) : seules les preuves de vie passent.
+      await new Promise((r) => setTimeout(r, 20_000));
+      // Témoin : aucun instantané poussé pendant le calme n'a retiré Alice.
+      for (const view of viewsOf(b!, "b-bob", mark))
+        expect(view.members, "poussé pendant le calme").to.have.property(
+          "alice",
+        );
+      expect(both(await screenOf(b!, "b-bob", () => true))).toBe(true);
+
+      const exited = new Promise((r) => a!.child.once("exit", r));
+      a!.child.kill("SIGKILL");
+      await exited;
+      const screen = await screenOf(b!, "b-bob", settledOn({ bob: 1 }), 25_000);
+      expect(screen).to.deep.include({ partial: false, members: { bob: 1 } });
+      const probe = await presenceOn(b!, "pres:screen", () => true);
+      expect(probe.probe).to.deep.include({ forgottenTotal: 1, endedTotal: 0 });
+    }, 60_000);
+
+    it("#760 — l'ÉCRAN : la connexion de Bob tombe → sa vue se FIGE (`partial`, Alice gardée), puis se refonde à la reconnexion", async () => {
+      const [a, b] = await spawnN(2);
+      await openTab(a!, "a-alice", "alice");
+      await openTab(b!, "b-bob", "bob");
+      const both = settledOn({ alice: 1, bob: 1 });
+      await screenOf(b!, "b-bob", both);
+      // Réseau coupé : aucune reconnexion tant que `resume` n'est pas donné, donc
+      // ce que l'écran montre ici ne peut venir que de la CHUTE.
+      b!.child.send({ cmd: "presence-browser-drop", tab: "b-bob" });
+      const frozen = await screenOf(b!, "b-bob", (e) => e.partial === true);
+      expect(frozen, "vue figée à la chute").to.deep.include({
+        ready: true,
+        partial: true,
+        members: { alice: 1, bob: 1 },
+      });
+      const mark = b!.events.length;
+      b!.child.send({ cmd: "presence-browser-resume", tab: "b-bob" });
+      const refounded = await screenOf(
+        b!,
+        "b-bob",
+        (e) => both(e) && viewsOf(b!, "b-bob", mark).length > 0,
+      );
+      expect(refounded, "refondée au retour").to.deep.include({
+        ready: true,
+        partial: false,
+        members: { alice: 1, bob: 1 },
+      });
+      // L'écran d'Alice, sur l'autre pod, revoit Bob.
+      expect(both(await screenOf(a!, "a-alice", both))).toBe(true);
+    });
 
     it("canal NON déclaré broadcast : reste instance-local (B ne reçoit pas)", async () => {
       const [a, b] = await spawnN(2);
