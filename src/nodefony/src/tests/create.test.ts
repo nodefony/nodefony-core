@@ -2310,10 +2310,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         // Le pilote du décor e2e, à la version de @nodefony/mongoose.
         assert.property(pkg["devDependencies"], "mongodb");
         // Pas de pilote SQLite : sa ligne n'a rien à faire dans la politique.
-        assert.notProperty(
-          (pkg["allowScripts"] ?? {}) as Record<string, boolean>,
-          "better-sqlite3",
-        );
+        assert.notProperty(pkg["allowScripts"] ?? {}, "better-sqlite3");
 
         const config = readFileSync(
           path.join(dest, "nodefony.config.ts"),
