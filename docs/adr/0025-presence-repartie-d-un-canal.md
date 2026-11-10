@@ -149,10 +149,12 @@ canaux, de membres ou d'abonnés.**
     demandeur garde une vue périmée et redemande à chaque intervalle. Une demande non ciblée
     (premier abonné local) n'est servie que par les pods qui ont des présents sur ces canaux,
     sinon vingt pods répondraient « rien ». La réponse porte `last` (le `seq` du dernier lot émis
-    avant elle). Découpée en messages de 64 Ko au plus, chaque part porte (canal, `i`/`n`) ; les
+    avant elle). Découpée en messages de 64 Ko au plus, chaque part porte `i`/`n` et une liste d'entrées de
+    canal (un canal peut s'étendre sur plusieurs parts, ses membres s'additionnent) ; les
     `n` parts d'une réponse partent d'un bloc, à `seq` consécutifs, ce qui les identifie. **Elle
-    s'applique d'un bloc** : la vue de ce pod pour ce canal n'est remplacée qu'une fois les `n`
-    parts reçues (une part est jetable et aucun `prev` ne révèle sa perte — RFC 6665 §5.3.1 exige
+    s'applique d'un bloc** : la vue de ce pod n'est touchée qu'une fois les `n` parts reçues, et
+    une réponse ne FERME le trou que si elle nomme tous les canaux que la demande nommait — celle
+    servie à un autre demandeur peut en nommer moins (`server/remotePresence.ts#RemotePresence`) (une part est jetable et aucun `prev` ne révèle sa perte — RFC 6665 §5.3.1 exige
     « a well-defined and complete state ») ; une réponse incomplète un intervalle après sa
     demande laisse le trou ouvert et se redemande.
 - **Incarnation et numéros** — entiers, comparés comme des nombres, aucune chaîne :
@@ -170,11 +172,16 @@ canaux, de membres ou d'abonnés.**
     au sens du compteur de réfutation de SWIM ; `generation` est déjà pris par l'ordre de contrôle
     (`src/packages/@nodefony/realtime/nodefony/src/backplane/controlOrder.ts#IEvictUserOrder.generation`) ;
   - **`seq`** croît strictement à chaque message par (`originId`, incarnation), preuve de vie
-    comprise : `seq` déjà vu = ignoré. C'est l'anti-rejeu de la présence — le sceau ne couvre pas
+    comprise : `seq` déjà vu = ignoré. Le « déjà vu » se relève PAR CANAL du bus (lots, demandes
+    et réponses d'un côté, preuve de vie de l'autre) : la preuve de vie passe hors quota et peut
+    doubler dans la file une demande encore en attente — un relevé unique jetterait celle-ci comme
+    un rejeu. L'ordre d'un même canal, lui, est conservé. C'est l'anti-rejeu de la présence — le sceau ne couvre pas
     le rejeu (`backplane/envelope.ts#seal`), et un message rejoué ajouterait des fantômes. Le
     `seq` est attribué AVANT l'envoi, que la file l'ait laissé partir ou non ;
   - **trou** = `prev` d'un lot, ou `last` d'une preuve de vie, différent du dernier lot appliqué.
-    Une preuve de vie perdue ne crée aucun trou. Un trou déclenche une demande d'état ciblée,
+    Une preuve de vie perdue ne crée aucun trou. Un pair
+    dont la preuve de vie porte `last: 0`, ou dont le premier lot porte `prev: 0`, n'a jamais
+    émis de lot : sa vue, vide, est connue sans demande (aucun aller-retour au démarrage). Un trou déclenche une demande d'état ciblée,
     répétée une fois par intervalle tant qu'il dure ; l'ancienne vue reste affichée entre-temps.
     Pendant un trou, les lots reçus de ce pod ne s'appliquent pas, mais leur numéro est retenu
     (RFC 6665 §5.3.2 : « except for the version number, which it retains to detect message

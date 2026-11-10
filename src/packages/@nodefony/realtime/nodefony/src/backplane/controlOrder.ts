@@ -42,14 +42,21 @@ export interface IEvictUserOrder {
 /** Un ordre de contrôle reconnu. */
 export type ControlOrder = ICloseChannelOrder | IEvictUserOrder;
 
-function isBoundedText(value: unknown): value is string {
+/**
+ * Un texte venu du bus est-il recevable — chaîne non vide d'au plus {@link MAX_CONTROL_FIELD_LENGTH} caractères ?
+ *
+ * Seule borne des textes du bus (nom de canal, identifiant de compte), lue par
+ * les ordres de contrôle ET par les messages de présence (ADR-0025 P2).
+ *
+ * @param value - champ reçu (forme inconnue).
+ */
+export function isBoundedBusText(value: unknown): value is string {
   return (
     typeof value === "string" &&
     value.length > 0 &&
     value.length <= MAX_CONTROL_FIELD_LENGTH
   );
 }
-
 /** Les types d'ordre que cette version sait appliquer — liste fermée. */
 function isKnownOp(op: unknown): op is ControlOrder["op"] {
   return op === "close" || op === "evictUser";
@@ -70,7 +77,7 @@ function isKnownOp(op: unknown): op is ControlOrder["op"] {
  */
 export function isUnknownControlOrder(payload: unknown): boolean {
   const op = ownField(payload, "op");
-  return isBoundedText(op) && !isKnownOp(op);
+  return isBoundedBusText(op) && !isKnownOp(op);
 }
 
 /**
@@ -89,12 +96,12 @@ export function isUnknownControlOrder(payload: unknown): boolean {
  */
 export function readControlOrder(payload: unknown): ControlOrder | null {
   const channel = ownField(payload, "channel");
-  if (!isBoundedText(channel)) return null;
+  if (!isBoundedBusText(channel)) return null;
   const op = ownField(payload, "op");
   if (!isKnownOp(op)) return null;
   if (op === "close") return { op, channel };
   const user = ownField(payload, "user");
-  if (!isBoundedText(user)) return null;
+  if (!isBoundedBusText(user)) return null;
   const generation = ownField(payload, "generation");
   if (generation === undefined) return { op, channel, user };
   if (
