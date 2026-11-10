@@ -662,7 +662,18 @@ export type {
 export {
   sealBackplaneEnvelope,
   openBackplaneEnvelope,
+  BackplaneEcho,
 } from "./nodefony/src/backplane/envelope";
+// Briques communes d'un pilote à transport réseau (Redis, et demain Kafka, NATS…) :
+// la file d'envoi bornée (canaux prioritaires hors quota) et le tri de l'entrée
+// (écho, sceau, refus comptés) — jamais recopiées dans un pilote.
+export {
+  BackplanePublishQueue,
+  DEFAULT_MAX_QUEUE_BYTES,
+  type BackplaneNotice,
+  type BackplaneNoticeSeverity,
+} from "./nodefony/src/backplane/publishQueue";
+export { BackplaneIngress } from "./nodefony/src/backplane/ingress";
 export type { IClusterProbeTransport } from "./nodefony/src/cluster/ClusterProbeClient";
 export type { RawWsConnection } from "./nodefony/src/transport/WsConnectionTransport";
 export type {

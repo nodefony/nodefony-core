@@ -30,11 +30,15 @@
  * modérateur éjecte un compte sur un serveur et ce compte continue de lire sur un
  * autre, sans que personne le sache. Les ordres sont rares et petits (une décision
  * du serveur, quelques dizaines d'octets) : les exempter ne rouvre pas la mémoire.
+ * La **preuve de vie** de la présence répartie passe aussi hors quota (ADR-0025
+ * P2) : jetée, elle ferait oublier un pod vivant chez ses pairs ; elle est petite
+ * et d'intervalle borné. Liste des canaux prioritaires : `isPriorityBusChannel`
+ * (cœur), seule source.
  * Un ordre que le bus REFUSE malgré tout (bus injoignable) est compté à part
  * (`controlLostTotal`) et annoncé une fois par épisode.
  */
 
-import { PLATFORM_BUS_CHANNELS } from "nodefony";
+import { isPriorityBusChannel, PLATFORM_BUS_CHANNELS } from "nodefony";
 import type { IBackplaneQueueInfo } from "../../interfaces/IBackplane.js";
 import { isThenable } from "../guards.js";
 
@@ -103,9 +107,9 @@ export class BackplanePublishQueue {
    * (sinon elle ne partirait jamais — famine silencieuse), quitte à dépasser
    * transitoirement. Même règle que le drop WS, qui teste `bufferedAmount` seul.
    *
-   * Un ordre de contrôle (`PLATFORM_BUS_CHANNELS.control`) est admis hors quota :
-   * la règle vit ICI, pas dans le driver, pour qu'un driver qui emploie la file
-   * la porte sans y penser.
+   * Un canal prioritaire (`isPriorityBusChannel` du cœur : ordre de contrôle,
+   * preuve de vie de la présence) est admis hors quota : la file l'applique, pas
+   * le driver, pour qu'un driver qui emploie la file la porte sans y penser.
    *
    * @param channel - canal logique de la publication.
    * @param bytes - taille de la charge sérialisée.
@@ -119,7 +123,7 @@ export class BackplanePublishQueue {
     if (
       this.#maxBytes > 0 &&
       this.#bytes >= this.#maxBytes &&
-      channel !== CONTROL_CHANNEL
+      !isPriorityBusChannel(channel)
     ) {
       this.#droppedTotal += 1;
       this.#droppedInEpisode += 1;

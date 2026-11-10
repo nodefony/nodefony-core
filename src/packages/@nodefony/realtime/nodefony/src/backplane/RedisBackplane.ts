@@ -8,11 +8,10 @@ import { containsBytes, type IFrameCodec } from "nodefony";
 import { resolveBackplaneOriginId } from "./originId.js";
 import { isCallable, isRecord, isThenable } from "../guards.js";
 import {
-  openBackplaneEnvelope,
-  openBackplaneEnvelopeBytes,
   sealBackplaneEnvelope,
   sealBackplaneEnvelopeBytes,
 } from "./envelope.js";
+import { BackplaneIngress } from "./ingress.js";
 import {
   BackplanePublishQueue,
   DEFAULT_MAX_QUEUE_BYTES,
@@ -330,8 +329,8 @@ export class RedisBackplane implements IBackplane {
   /** Borne mémoire des publications en vol (cf {@link BackplanePublishQueue}). */
   readonly #queue: BackplanePublishQueue;
   readonly #notice: BackplaneNotice | null;
-  /** Messages reçus dont le sceau est refusé alors qu'un secret est posé (monotone). */
-  #sealRejectedTotal = 0;
+  /** Tri de l'entrée : écho, sceau, refus comptés (brique commune aux pilotes). */
+  readonly #ingress: BackplaneIngress;
   #handler: BackplaneHandler | null = null;
   #started = false;
   /**
@@ -357,6 +356,7 @@ export class RedisBackplane implements IBackplane {
       options.maxQueueBytes ?? DEFAULT_MAX_QUEUE_BYTES,
       this.#notice,
     );
+    this.#ingress = new BackplaneIngress(originId, secret, this.#notice);
   }
 
   /**
@@ -368,7 +368,7 @@ export class RedisBackplane implements IBackplane {
     this.#started = true;
     await Promise.all([
       this.#transport.subscribe(this.#redisChannel, (raw) =>
-        this.#ingress(raw),
+        this.#receive(raw),
       ),
       this.#subscribeBytes(),
     ]);
@@ -407,7 +407,7 @@ export class RedisBackplane implements IBackplane {
     const bytes = this.#bytes;
     if (bytes === null) return;
     await this.#transport.subscribeBytes?.(bytes.channel, (raw) =>
-      this.#ingressBytes(raw, bytes.codec),
+      this.#receiveBytes(raw, bytes.codec),
     );
   }
 
@@ -451,46 +451,20 @@ export class RedisBackplane implements IBackplane {
   }
 
   /**
-   * Ouverture d'enveloppe (parse + vérification du sceau) + anti-echo + délégation.
-   * Robuste par construction : un message malformé, non scellé alors qu'un secret
-   * est exigé, ou au sceau invalide, est **ignoré** — jamais réinjecté, jamais fatal.
-   * Sous un secret, chaque rejet est compté (`sealRejectedTotal`) et journalisé la
-   * première fois puis une fois sur cent (ADR-0021 S6) : une rotation du secret ou
-   * un producteur mal configuré ne perd plus de messages en silence.
+   * Remet au hub ce que le tri d'entrée admet ({@link BackplaneIngress}) : l'écho
+   * de ce pod (Redis renvoie à l'émetteur) est compté sans être décodé ; un message
+   * malformé ou au sceau refusé est **ignoré** — jamais réinjecté, jamais fatal —,
+   * compté et annoncé la première fois puis une fois sur cent (ADR-0021 S6).
    */
-  #ingress(raw: string): void {
-    const msg = openBackplaneEnvelope(raw, this.#secret);
-    if (msg === null) {
-      // Sans secret, seul un JSON malformé est jeté : rien à voir avec un sceau.
-      if (this.#secret !== null) this.#sealRejected();
-      return;
-    }
-    if (msg.originId === this.originId) return; // anti-echo (Redis renvoie à l'émetteur)
-    this.#handler?.(msg);
+  #receive(raw: string): void {
+    const msg = this.#ingress.text(raw);
+    if (msg !== null) this.#handler?.(msg);
   }
 
-  /** Même tri que {@link #ingress}, sur le sujet binaire : décodage, sceau, anti-echo. */
-  #ingressBytes(raw: Uint8Array, codec: IFrameCodec): void {
-    const msg = openBackplaneEnvelopeBytes(raw, codec, this.#secret);
-    if (msg === null) {
-      if (this.#secret !== null) this.#sealRejected();
-      return;
-    }
-    if (msg.originId === this.originId) return;
-    this.#handler?.(msg);
-  }
-
-  /** Compte un sceau refusé ; annonce le premier, puis un sur cent (pas d'inondation du journal). */
-  #sealRejected(): void {
-    this.#sealRejectedTotal += 1;
-    const n = this.#sealRejectedTotal;
-    if (n !== 1 && n % 100 !== 0) return;
-    this.#notice?.(
-      `backplane : ${n} message(s) reçu(s) au sceau refusé, JETÉS. Causes : rotation ` +
-        `du secret en cours (des exemplaires n'ont pas le même NF_REALTIME_BACKPLANE_SECRET), ` +
-        `producteur mal configuré, ou écriture tierce dans le bus. Compteur : sealRejectedTotal.`,
-      "WARNING",
-    );
+  /** Même tri que {@link #receive}, sur le sujet binaire. */
+  #receiveBytes(raw: Uint8Array, codec: IFrameCodec): void {
+    const msg = this.#ingress.bytes(raw, codec);
+    if (msg !== null) this.#handler?.(msg);
   }
 
   /** Désabonne du canal Redis et détache le handler. Idempotent. */
@@ -515,8 +489,9 @@ export class RedisBackplane implements IBackplane {
       channel: this.#redisChannel,
       sealed: this.#secret !== null,
       ...(this.#secret !== null && {
-        sealRejectedTotal: this.#sealRejectedTotal,
+        sealRejectedTotal: this.#ingress.sealRejectedTotal,
       }),
+      echoTotal: this.#ingress.echoTotal,
       queue: this.#queue.describe(),
       ...(this.#bytes !== null && { bytes: true }),
     };

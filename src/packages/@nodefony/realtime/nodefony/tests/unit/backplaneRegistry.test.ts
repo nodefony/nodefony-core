@@ -113,6 +113,8 @@ describe("backplaneRegistry (résolution driver SANS if en dur)", () => {
       // Bus partagé sans secret : la carte d'identité l'annonce, et Studio
       // l'affiche — un transport non authentifié ne doit jamais être discret.
       sealed: false,
+      // Pub/sub qui rend à l'émetteur : l'écho compté est le signal « bus vivant ».
+      echoTotal: 0,
       // Transport réseau ⇒ file d'envoi bornée : la carte d'identité porte son
       // état (octets en vol, seuil, jetés), sinon une perte de fan-out pour
       // cause de bus saturé serait invisible.

@@ -628,8 +628,11 @@ même process). Sans filtre, le fan-out local serait fait deux fois. D'où **deu
 et non une :
 
 1. **Côté hub** : l'arrivée passe par `publishLocal`, jamais par `publish`. Rien ne repart.
-2. **Côté backplane** : à la réception, on compare l'`originId` de l'enveloppe au sien et
-   on jette si c'est le même (`RedisBackplane.ts#RedisBackplane.originId`, `ClusterBackplane.ts#ClusterBackplane.#ingress`).
+2. **Côté backplane** : à la réception, l'écho se reconnaît à son `originId` et se jette
+   (`ingress.ts#BackplaneIngress`, `ClusterBackplane.ts#ClusterBackplane.#ingress`). Sur un bus
+   partagé, il se reconnaît à la **fin** du message, sans le décoder : sous un secret, un seul
+   calcul de sceau le vérifie (`envelope.ts#BackplaneEcho`). Chaque écho est compté
+   (`echoTotal` de la carte d'identité du backplane) : tant qu'il revient, le bus est vivant.
 
 L'étiquette elle-même est calculée par `resolveBackplaneOriginId()` (`originId.ts#resolveBackplaneOriginId`), et
 sa recette mérite qu'on s'y arrête :

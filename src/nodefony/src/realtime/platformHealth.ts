@@ -179,6 +179,15 @@ export interface IBackplaneInfo {
    */
   sealRejectedTotal?: number;
   /**
+   * Échos de CE pod reçus du bus — unité : une de ses propres publications que le
+   * bus lui rend (un pub/sub comme Redis renvoie à l'émetteur). Monotone. Reconnus
+   * sans décodage et, sous un secret, au sceau vérifié (ADR-0021 S6). C'est le
+   * signal « le bus est vivant » de la présence répartie (ADR-0025) : un compteur
+   * qui ne monte plus alors que le pod publie = bus perdu. Facultatif : un
+   * transport qui ne renvoie pas à l'émetteur (IPC) n'a pas d'écho à compter.
+   */
+  echoTotal?: number;
+  /**
    * État de la **file d'envoi** vers le bus (octets en vol, seuil, jetés). Renseigné
    * par les drivers à transport RÉSEAU, dont les publications sont acquittées de
    * façon asynchrone : c'est là qu'un bus lent fait grossir la mémoire du pod.

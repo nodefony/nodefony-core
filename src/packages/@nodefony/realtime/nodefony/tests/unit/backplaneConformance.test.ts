@@ -143,6 +143,12 @@ describe("suite de conformité — vue ROUGE sur des drivers défectueux", () =>
     ).rejects.toThrow(/n'est pas arrivé/);
   });
 
+  it("un bus dont la file jette la PREUVE DE VIE avec les publications tombe sur la preuve de vie sous saturation", async () => {
+    await expect(
+      runCase(flawed("lossy"), C.aliveUnderLoad, { floodBytes: FLOOD_BYTES }),
+    ).rejects.toThrow(/preuve de vie émise sous saturation/);
+  });
+
   it("une rafale qui ne sature pas la file déclarée fait échouer le cas — jamais un vert qui ne prouve rien", async () => {
     await expect(
       runCase(redisBus(), C.controlUnderLoad, { floodBytes: 1024 }),

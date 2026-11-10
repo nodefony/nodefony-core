@@ -25,7 +25,7 @@
  */
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
-import { PLATFORM_BUS_CHANNELS, PLATFORM_CHANNELS } from "nodefony";
+import { ownField, PLATFORM_BUS_CHANNELS, PLATFORM_CHANNELS } from "nodefony";
 import type { IBackplane, IBackplaneMessage } from "../interfaces/IBackplane";
 import { RealtimeHub } from "../src/server/RealtimeHub";
 import {
@@ -98,6 +98,8 @@ export const BACKPLANE_CONFORMANCE_CASES = {
   control: "ordres de contrôle : le canal de contrôle traverse intact",
   controlUnderLoad:
     "ordre sous saturation : un ordre de contrôle n'est jamais jeté pour faire place aux publications",
+  aliveUnderLoad:
+    "preuve de vie sous saturation : la preuve de vie de la présence n'est jamais jetée pour faire place aux publications",
   reserved:
     "espace réservé : refusé et compté à l'entrée du hub, la diffusion passe sans revenir",
   replaceHandler: "onMessage remplace le handler précédent",
@@ -402,16 +404,23 @@ export function runBackplaneConformance(
       }),
     );
 
-    options.it(
-      C.controlUnderLoad,
+    /**
+     * Rafale qui sature la file d'envoi de A, puis UN message sur un canal
+     * prioritaire : il doit arriver chez B. `pick` reconnaît le message du cas.
+     */
+    const underLoad = (
+      channel: string,
+      payload: (prefix: string) => unknown,
+      pick: (msg: unknown, prefix: string) => boolean,
+      lost: string,
+    ): (() => Promise<void>) =>
       scenario(async (open, prefix) => {
         const a = await open();
         const b = await open();
-        const got: ControlOrder[] = [];
+        const got: unknown[] = [];
         b.peer.onMessage((msg) => {
-          if (msg.channel !== PLATFORM_BUS_CHANNELS.control) return;
-          const order = readControlOrder(msg.payload);
-          if (order?.channel.startsWith(prefix) === true) got.push(order);
+          if (msg.channel === channel && pick(msg.payload, prefix))
+            got.push(msg.payload);
         });
         // Rafale d'une traite, sans rendre la main : rien n'est acquitté entre
         // deux envois, la file d'envoi se remplit comme sous une vraie charge.
@@ -420,12 +429,8 @@ export function runBackplaneConformance(
         const count = Math.ceil(floodBytes / chunk);
         for (let i = 0; i < count; i += 1)
           a.peer.publish(`${prefix}flood`, { seq: i, pad });
-        const order: ControlOrder = {
-          op: "evictUser",
-          channel: `${prefix}chat`,
-          user: "mallory",
-        };
-        a.peer.publish(PLATFORM_BUS_CHANNELS.control, order);
+        const sent = payload(prefix);
+        a.peer.publish(channel, sent);
 
         const queue = a.peer.describe().queue;
         if (queue !== undefined && queue.maxBytes > 0)
@@ -436,11 +441,36 @@ export function runBackplaneConformance(
         await until(
           () => got.length > 0,
           timeoutMs,
-          () =>
-            "l'ordre d'éjection émis sous saturation n'est pas arrivé — la file l'a-t-elle jeté avec les publications ?",
+          () => lost,
         );
-        assert.deepEqual(got, [order]);
-      }),
+        assert.deepEqual(got, [sent]);
+      });
+
+    options.it(
+      C.controlUnderLoad,
+      underLoad(
+        PLATFORM_BUS_CHANNELS.control,
+        (prefix): ControlOrder => ({
+          op: "evictUser",
+          channel: `${prefix}chat`,
+          user: "mallory",
+        }),
+        (msg, prefix) =>
+          readControlOrder(msg)?.channel.startsWith(prefix) === true,
+        "l'ordre d'éjection émis sous saturation n'est pas arrivé — la file l'a-t-elle jeté avec les publications ?",
+      ),
+    );
+
+    options.it(
+      C.aliveUnderLoad,
+      underLoad(
+        PLATFORM_BUS_CHANNELS.presenceAlive,
+        // La forme de la preuve de vie appartient à la présence (ADR-0025 P2) ;
+        // le bus, lui, ne la lit pas : seul le canal décide de la priorité.
+        (prefix) => ({ probe: prefix }),
+        (msg, prefix) => ownField(msg, "probe") === prefix,
+        "la preuve de vie émise sous saturation n'est pas arrivée — la file l'a-t-elle jetée avec les publications ? Un pair oublierait ce pod vivant.",
+      ),
     );
 
     options.it(
