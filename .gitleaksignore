@@ -55,3 +55,11 @@
 # lancement depuis `1698ba793` (`randomBytes`) ; seul l'historique publié garde
 # l'ancienne ligne.
 491c050e3b6944932425a5db6bbcb62274115feb:.claude/skills/nodefony-multipod-bench/scripts/bus-bytes.mjs:generic-api-key:39
+
+# Le secret du micro-banc A/B du bus (`micro-backplane-envelope-ab.mjs`), écrit
+# en clair au commit qui l'a introduit (`7aec46ee7`, #760 lot B) :
+# « bench-secret-0123456789abcdef », sceau HMAC d'un bus EN MÉMOIRE monté pour
+# la seule mesure, dans un process détruit à la fin du run — il n'ouvre rien.
+# Le commit suivant (`2af2cba38`) le TIRE à l'exécution ; l'historique d'une
+# branche publiée ne se réécrit pas pour une valeur inventée.
+7aec46ee73b1084f254b17fd8eb40781de9a6df5:.claude/skills/nodefony-load-test/scripts/micro/micro-backplane-envelope-ab.mjs:generic-api-key:39
