@@ -72,6 +72,10 @@ import { createSubscriber } from "svelte/reactivity";
 // `kernel` > `client` > `url` et le cycle de connexion — la même fonction que celle
 // appelée par les trois autres fronts.
 import type { NodefonySocket } from "../realtime/NodefonySocket";
+import {
+  EMPTY_PRESENCE,
+  type IPresenceSnapshot,
+} from "../../realtime/presenceView";
 import type {
   MessageStats,
   NodefonyNotice,
@@ -88,6 +92,7 @@ import {
   adaptiveRebindKey,
   connectShared,
   observeChannel,
+  observePresence,
   observeChannelStats,
   observeIdentity,
   observeKernelIdentity,
@@ -138,6 +143,7 @@ export type {
   NodefonyNotice,
 } from "../realtime/NodefonySocket";
 export type { SocketSnapshot } from "../realtime/observe";
+export type { IPresenceSnapshot } from "../../realtime/presenceView";
 export type { SseSnapshot, ObserveSseOptions } from "../sse/observe";
 export type { ISseEvent } from "../sse/SseParser";
 export type {
@@ -486,6 +492,36 @@ export function nodefonyChannelData(
   const channel = typed ? channelArg(second) : first;
   return observedValue<unknown>((typed ? third : second) ?? null, (emit) =>
     observeChannel(client, read(channel), emit),
+  );
+}
+
+/**
+ * `nodefonyPresence(socket, canal)` — **qui est présent** sur un canal qui déclare
+ * `presence` (ADR-0025) : `.current` vaut `{ ready, count, unnamed, partial, members }`,
+ * `members` étant une `ReadonlyMap` identité → `{ tabs, states? }`. Le canal n'est
+ * demandé qu'au premier lecteur, et rendu quand plus personne ne lit.
+ *
+ * `ready` vaut `false` avant la première liste ; `partial` dit une vue incomplète ou
+ * figée. La vue est celle du cœur, partagée par toutes les liaisons et par le serveur.
+ *
+ * Forme courte `nodefonyPresence(canal)` : la socket de `configureNodefony()`.
+ */
+export function nodefonyPresence(
+  socket: NodefonySocket,
+  channel: Source<string>,
+): Reactive<IPresenceSnapshot>;
+export function nodefonyPresence(
+  channel: Source<string>,
+): Reactive<IPresenceSnapshot>;
+export function nodefonyPresence(
+  first: NodefonySocket | Source<string>,
+  second?: Source<string>,
+): Reactive<IPresenceSnapshot> {
+  const typed = isSocketArg(first);
+  const client = typed ? first : nodefony();
+  const channel = typed ? channelArg(second) : first;
+  return observedValue<IPresenceSnapshot>(EMPTY_PRESENCE, (emit) =>
+    observePresence(client, read(channel), emit),
   );
 }
 

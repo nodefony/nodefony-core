@@ -85,6 +85,10 @@ import {
 // `kernel` > `client` > `url` et le cycle de connexion — la même fonction que celle
 // appelée par les trois autres fronts.
 import type { NodefonySocket } from "../realtime/NodefonySocket";
+import {
+  EMPTY_PRESENCE,
+  type IPresenceSnapshot,
+} from "../../realtime/presenceView";
 import type {
   MessageStats,
   NodefonyNotice,
@@ -101,6 +105,7 @@ import {
   adaptiveRebindKey,
   connectShared,
   observeChannel,
+  observePresence,
   observeChannelStats,
   observeIdentity,
   observeKernelIdentity,
@@ -151,6 +156,7 @@ export type {
   NodefonyNotice,
 } from "../realtime/NodefonySocket";
 export type { SocketSnapshot } from "../realtime/observe";
+export type { IPresenceSnapshot } from "../../realtime/presenceView";
 export type { SseSnapshot, ObserveSseOptions } from "../sse/observe";
 export type { ISseEvent } from "../sse/SseParser";
 export type {
@@ -546,6 +552,39 @@ export function injectNodefonyChannelData(
     observeChannel(client, name, (payload) => data.set(payload)),
   );
   return data.asReadonly();
+}
+
+/**
+ * `injectNodefonyPresence(socket, canal)` — **qui est présent** sur un canal qui
+ * déclare `presence` (ADR-0025) : un `Signal` de `{ ready, count, unnamed, partial,
+ * members }`, `members` étant une `ReadonlyMap` identité → `{ tabs, states? }`. Demande
+ * le canal, le rend à la destruction ; un nom en fonction-signal rebranche.
+ *
+ * `ready` vaut `false` avant la première liste ; `partial` dit une vue incomplète ou
+ * figée. La vue est celle du cœur, partagée par toutes les liaisons et par le serveur.
+ *
+ * Forme courte `injectNodefonyPresence(canal)` : la socket de `provideNodefony()`.
+ */
+export function injectNodefonyPresence(
+  socket: NodefonySocket,
+  channel: Source<string>,
+): Signal<IPresenceSnapshot>;
+export function injectNodefonyPresence(
+  channel: Source<string>,
+): Signal<IPresenceSnapshot>;
+export function injectNodefonyPresence(
+  first: NodefonySocket | Source<string>,
+  second?: Source<string>,
+): Signal<IPresenceSnapshot> {
+  assertInInjectionContext(injectNodefonyPresence);
+  const typed = isSocketArg(first);
+  const client = typed ? first : injectNodefony();
+  const channel = typed ? channelArg(second) : first;
+  const view = signal<IPresenceSnapshot>(EMPTY_PRESENCE);
+  observeReactive(channel, (name) =>
+    observePresence(client, name, (snapshot) => view.set(snapshot)),
+  );
+  return view.asReadonly();
 }
 
 /** Réglages adaptatifs (la cadence désirée se passe à part, en argument). */

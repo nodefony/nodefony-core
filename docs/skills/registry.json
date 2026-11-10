@@ -1047,6 +1047,7 @@
         "src/packages/@nodefony/http/vitest.load.config.ts",
         "src/packages/@nodefony/http/vitest.proxy.config.ts",
         "src/packages/@nodefony/mongoose/vitest.config.ts",
+        "src/packages/@nodefony/realtime/nodefony/tests/helpers/redisDecor.ts",
         "src/packages/@nodefony/realtime/vitest.cluster.config.ts",
         "src/packages/@nodefony/realtime/vitest.config.ts",
         "src/packages/@nodefony/redis/vitest.config.ts",
@@ -1059,7 +1060,6 @@
         "src/modules/test/nodefony/tests/testbed.test.ts",
         "src/nodefony/src/tests/ciGateVars.test.ts",
         "src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts",
-        "src/packages/@nodefony/realtime/nodefony/tests/integration/memberOrdersRedis.test.ts",
         "src/packages/@nodefony/realtime/nodefony/tests/integration/redisCluster.e2e.test.ts"
       ]
     },

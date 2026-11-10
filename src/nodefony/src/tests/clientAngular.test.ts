@@ -50,6 +50,7 @@ import {
   injectNodefonyKernelState,
   injectNodefonyChannel,
   injectNodefonyChannelData,
+  injectNodefonyPresence,
   injectNodefonySnapshot,
   injectNodefonySse,
   injectNodefonyLogin,
@@ -529,6 +530,31 @@ describe("injectNodefonyLogin — Angular", () => {
     arreter();
     login.flow.back();
     expect(login.state().step).toBe("authenticated");
+    app.destroy();
+  });
+});
+
+describe("injectNodefonyPresence — la vue du cœur dans un signal", () => {
+  it("🔴 neutre avant la liste, remplie par elle ; canal rendu à la destruction", async () => {
+    const client = newClient();
+    const t = await connected(client);
+    const app = await appAvec([provideNodefony({ client })]);
+    const { valeur, arreter } = monter(app, () =>
+      injectNodefonyPresence("room:1"),
+    );
+    expect(valeur().ready).toBe(false);
+    expect(abonnements(t)).toEqual(["subscribe room:1"]);
+    t.push("realtime:presence", {
+      channel: "room:1",
+      version: 2,
+      count: 1,
+      unnamed: 0,
+      members: ["alice", 2],
+    });
+    expect(valeur().ready).toBe(true);
+    expect(valeur().members.get("alice")).toEqual({ tabs: 2 });
+    arreter();
+    expect(abonnements(t)).toEqual(["subscribe room:1", "unsubscribe room:1"]);
     app.destroy();
   });
 });

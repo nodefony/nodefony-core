@@ -1,9 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  PLATFORM_BUS_CHANNELS,
-  classifyNumberedChange,
-  type RealtimePresenceFrame,
-} from "nodefony";
+import { PLATFORM_BUS_CHANNELS } from "nodefony";
 import {
   presenceClient as client,
   presenceView as view,
@@ -119,49 +115,23 @@ function pod(net: ReturnType<typeof network>, id: string): RealtimeHub {
   return hub;
 }
 
-/** Vue d'un client rejouée trame par trame (règle pure du navigateur). */
+/** Vue d'un client — celle que tient la vue pure du cœur (`PresenceView`), comme le navigateur. */
 function replay(c: IClient): {
   members: Record<string, number>;
   unnamed: number;
   partial: boolean;
   gaps: number;
 } {
-  let ref: number | null = null;
-  const members = new Map<string, number>();
-  let unnamed = 0;
-  let partial = false;
-  let gaps = 0;
-  const put = (flat: readonly (string | number)[]): void => {
-    for (let i = 0; i + 1 < flat.length; i += 2) {
-      const id = flat[i];
-      const tabs = flat[i + 1];
-      if (typeof id === "string" && typeof tabs === "number")
-        members.set(id, tabs);
-    }
-  };
-  for (const p of c.frames) {
-    if (p.changes === undefined) {
-      members.clear();
-      if (p.members !== undefined) put(p.members);
-      ref = p.version;
-    } else {
-      const outcome = classifyNumberedChange(ref, p.version);
-      if (outcome === "gap") gaps += 1;
-      if (outcome !== "applied") continue;
-      if (p.changes.set !== undefined) put(p.changes.set);
-      for (const id of p.changes.gone ?? []) members.delete(id);
-      ref = p.version;
-    }
-    unnamed = p.unnamed;
-    partial = p.partial === true;
-  }
+  const snap = c.view.snapshot();
   return {
     members: Object.fromEntries(
-      [...members].sort(([a], [b]) => a.localeCompare(b)),
+      [...snap.members]
+        .map(([id, entry]): [string, number] => [id, entry.tabs])
+        .sort(([x], [y]) => x.localeCompare(y)),
     ),
-    unnamed,
-    partial,
-    gaps,
+    unnamed: snap.unnamed,
+    partial: snap.partial,
+    gaps: c.outcomes.filter((o) => o === "gap").length,
   };
 }
 

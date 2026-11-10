@@ -50,6 +50,7 @@ import type {
   EventsMap,
 } from "../../realtime/RealtimeEventMap";
 import { isPlainObject } from "../../runtime/isPlainObject";
+import type { IPresenceSnapshot } from "../../realtime/presenceView";
 import type {
   NodefonyKernelIdentity,
   NodefonyKernelEvent,
@@ -379,6 +380,28 @@ export function observeChannelData(
 ): Dispose {
   emit(initial);
   return observeChannel(client, channel, emit);
+}
+
+/**
+ * Observe la **présence** d'un canal (ADR-0025) : demande le canal, suit ses trames
+ * `realtime:presence`, et `emit` reçoit l'instantané courant tout de suite
+ * (`ready: false` avant la première liste), puis à chaque changement.
+ *
+ * L'écoute est posée AVANT la demande : la liste servie à l'acquittement ne peut pas
+ * arriver sur une vue absente. `dispose` rend le canal (ref-compté) et l'écoute.
+ */
+export function observePresence(
+  client: ObservableClient,
+  channel: string,
+  emit: Emit<IPresenceSnapshot>,
+): Dispose {
+  const off = client.onPresence(channel, emit);
+  client.subscribe(channel);
+  emit(client.presence(channel));
+  return () => {
+    off();
+    client.unsubscribe(channel);
+  };
 }
 
 /**

@@ -40,6 +40,7 @@ import {
   nodefonyKernelState,
   nodefonyChannel,
   nodefonyChannelData,
+  nodefonyPresence,
   nodefonySnapshot,
   nodefonySse,
   nodefonyLogin,
@@ -514,5 +515,32 @@ describe("nodefonyLogin — Svelte", () => {
     // Plus aucun lecteur : la valeur rend l'instantané figé au démontage.
     login.flow.back();
     expect(login.state.current.step).toBe("authenticated");
+  });
+});
+
+describe("nodefonyPresence — la vue du cœur en .current", () => {
+  it("🔴 paresseuse : canal demandé au premier lecteur, rempli par la liste, rendu au démontage", async () => {
+    const client = newClient();
+    const t = await connected(client);
+    const source = nodefonyPresence(client, "room:1");
+    expect(client.subscribedChannels).toEqual([]);
+    const el = cible();
+    const app = mount(LitValeur, { target: el, props: { source } });
+    flushSync();
+    expect(client.subscribedChannels).toEqual(["room:1"]);
+    expect(el.textContent).toContain('"ready":false');
+    t.push("realtime:presence", {
+      channel: "room:1",
+      version: 2,
+      count: 1,
+      unnamed: 0,
+      members: ["alice", 2],
+    });
+    flushSync();
+    expect(el.textContent).toContain('"ready":true');
+    expect(source.current.members.get("alice")).toEqual({ tabs: 2 });
+    void unmount(app);
+    flushSync();
+    expect(client.subscribedChannels).toEqual([]);
   });
 });

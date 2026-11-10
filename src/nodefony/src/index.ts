@@ -349,6 +349,14 @@ export {
   startsWithCI,
 } from "./realtime/platformChannels";
 export { classifyNumberedChange } from "./realtime/numberedChange";
+export {
+  EMPTY_PRESENCE,
+  PRESENCE_RESYNC_JITTER,
+  PRESENCE_RESYNC_MS,
+  PresenceView,
+  isPresenceFrame,
+} from "./realtime/presenceView";
+export type { IPresenceSnapshot, IPresenceView } from "./realtime/presenceView";
 export type { NumberedChangeOutcome } from "./realtime/numberedChange";
 export type {
   PlatformChannel,

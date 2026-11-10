@@ -329,11 +329,21 @@ canaux, de membres ou d'abonnés.**
   vers le navigateur. C'est aussi la voie de l'observateur qui lit sans figurer (modérateur,
   tableau de bord) : RFC 2778 §2.1 sépare observateur et présent, la présence d'un canal les
   confond côté navigateur.
-- Navigateur : `useNodefonyPresence(socket, "room:42")` (React, et son équivalent Vue) →
-  `{ ready, count, unnamed, members, partial }`, `members` étant une `ReadonlyMap` identité →
-  `{ tabs, states? }`, désabonnée au démontage ; `ready` vaut `false` avant la première trame —
-  l'« état neutre » qu'exige RFC 6665 §4.1.2.4 : « vide » et « pas encore reçu » ne se
-  confondent pas ; `socket.onPresence(canal, handler)` hors framework.
+- Navigateur : `useNodefonyPresence(socket, "room:42")` (React et Vue ;
+  `injectNodefonyPresence` pour Angular, `nodefonyPresence` pour Svelte, toutes posées sur le
+  socle `observePresence`) → `{ ready, count, unnamed, members, partial }`, `members` étant une
+  `ReadonlyMap` identité → `{ tabs, states? }`, désabonnée au démontage ; `ready` vaut `false`
+  avant la première trame — l'« état neutre » qu'exige RFC 6665 §4.1.2.4 : « vide » et « pas
+  encore reçu » ne se confondent pas ; `socket.onPresence(canal, handler)` et
+  `socket.presence(canal)` hors framework. Une vue non synchronisée (socket fermée, trou,
+  re-`subscribe` en cours) reste affichée avec `partial: true` : elle est figée, au sens même
+  de `partial`.
+- **Isomorphe** : le lecteur à liste fermée et la vue sont UNE implémentation du cœur
+  (`src/nodefony/src/realtime/presenceView.ts#isPresenceFrame`, `#PresenceView`), chargée par
+  la socket, par le kit de test du serveur et par ses bancs ; la forme de la vue
+  (`#IPresenceView`) est aussi celle de `hub.presence()`. Ce que le serveur écrit, les tests le
+  lisent avec le lecteur du navigateur, et un test compare la vue du navigateur à
+  `hub.presence()`.
 - `members` désigne les PRÉSENTS (les _occupants_ de XEP-0045), pas les inscrits d'un salon — le
   mot _member_ y désigne une affiliation durable ; une application qui stocke ses membres garde
   ce mot pour elle. Le nom suit `RealtimeHub.ts#RealtimeHub.channelMembers`, qui le porte déjà. L'identité de l'onglet courant se lit déjà sur la socket
@@ -344,8 +354,11 @@ canaux, de membres ou d'abonnés.**
   (`<émetteur>#<sujet>`) et un anonyme sont comptés dans `unnamed`, jamais nommés : la présence ne
   publie ni fournisseur d'identité ni sujet externe. Le champ ne s'appelle pas `anonymous` : il
   compte aussi des appelants AUTHENTIFIÉS, et `IChannelPolicy.anonymous` porte déjà un autre sens.
-- Le hook et `socket.onPresence` sont génériques sur le contrat de l'application dès 10.0 : le
-  type de l'état s'y inférera plus tard sans conversion.
+- Le type de l'état n'est PAS un paramètre du hook en 10.0 : aucun état ne peut être posé
+  (P4), et un paramètre `TState` sans garde qui le vérifie serait une conversion déguisée. La
+  forme le prévoit (`IPresenceEntry<TState>`) ; le hook et `socket.onPresence` le prendront
+  avec l'écriture d'état, inféré du contrat de l'application comme les canaux — ajout
+  additif, sans rupture.
 - **Aucun nom affiché dans la présence** : l'application résout identité → nom par sa route.
   Un libellé posé par le SERVEUR est un ajout possible ; un nom posé par le navigateur serait
   usurpable, il ne le sera jamais.

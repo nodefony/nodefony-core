@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   BootConfigurationError,
+  isPresenceFrame,
+  PresenceView,
   REALTIME_PRESENCE_METHOD,
-  classifyNumberedChange,
+  type IPresenceEntry,
   type RealtimePresenceFrame,
 } from "nodefony";
 import { createTestIdentity } from "@nodefony/security/testing";
@@ -76,7 +78,7 @@ function machine(): IRealtimeToken {
   });
 }
 
-/** Vue reconstruite par un client qui applique la règle pure (`classifyNumberedChange`). */
+/** Vue du canal telle que le NAVIGATEUR la tient — la vue pure du cœur (`PresenceView`), plus les compteurs du banc. */
 interface IClientView {
   ref: number | null;
   members: Map<string, number>;
@@ -88,58 +90,48 @@ interface IClientView {
   named: boolean;
 }
 
+/** Trames de présence d'un canal reçues par `h`, passées au lecteur du cœur : une trame qu'il refuse est un défaut du serveur. */
 function presenceFrames(h: Harness, channel: string): RealtimePresenceFrame[] {
   const out: RealtimePresenceFrame[] = [];
   for (const f of h.received) {
     if (f.method !== REALTIME_PRESENCE_METHOD) continue;
-    const p = f.params as RealtimePresenceFrame;
+    const p = f.params;
+    if (!isPresenceFrame(p))
+      throw new Error(
+        `trame de présence refusée par le lecteur : ${JSON.stringify(p)}`,
+      );
     if (p.channel === channel) out.push(p);
   }
   return out;
 }
 
-function pairs(
-  flat: readonly (string | number)[],
-  into: Map<string, number>,
-): void {
-  for (let i = 0; i + 1 < flat.length; i += 2) {
-    const id = flat[i];
-    const tabs = flat[i + 1];
-    if (typeof id === "string" && typeof tabs === "number") into.set(id, tabs);
-  }
-}
-
+/** Rejoue les trames reçues sur la vue du cœur — exactement ce que fait `NodefonySocket`. */
 function replay(h: Harness, channel: string): IClientView {
-  const v: IClientView = {
-    ref: null,
-    members: new Map(),
-    count: 0,
-    unnamed: 0,
-    lists: 0,
-    deltas: 0,
-    gaps: 0,
-    named: true,
-  };
+  const view = new PresenceView(channel);
+  let lists = 0;
+  let deltas = 0;
+  let gaps = 0;
+  let named = true;
   for (const p of presenceFrames(h, channel)) {
     if (p.changes === undefined) {
-      v.lists += 1;
-      v.members = new Map();
-      v.named = p.members !== undefined;
-      if (p.members !== undefined) pairs(p.members, v.members);
-      v.ref = p.version;
-    } else {
-      v.deltas += 1;
-      const outcome = classifyNumberedChange(v.ref, p.version);
-      if (outcome === "gap") v.gaps += 1;
-      if (outcome !== "applied") continue;
-      if (p.changes.set !== undefined) pairs(p.changes.set, v.members);
-      for (const id of p.changes.gone ?? []) v.members.delete(id);
-      v.ref = p.version;
-    }
-    v.count = p.count;
-    v.unnamed = p.unnamed;
+      lists += 1;
+      named = p.members !== undefined;
+    } else deltas += 1;
+    if (view.apply(p) === "gap") gaps += 1;
   }
-  return v;
+  const snap = view.snapshot();
+  const members = new Map<string, number>();
+  for (const [id, entry] of snap.members) members.set(id, entry.tabs);
+  return {
+    ref: view.reference,
+    members,
+    count: snap.count,
+    unnamed: snap.unnamed,
+    lists,
+    deltas,
+    gaps,
+    named,
+  };
 }
 
 const asObject = (m: ReadonlyMap<string, number>): Record<string, number> =>
@@ -285,6 +277,47 @@ describe("#760 lot C — présence locale", () => {
     c.close();
     const v = await converges(a, "room:1", { alice: 1 });
     expect(v.gaps).toBe(0);
+  });
+
+  it("🔴 isomorphe : la vue du navigateur (lecteur et vue du cœur) ÉGALE `hub.presence()`, à chaque étape", async () => {
+    const byId = (
+      m: ReadonlyMap<string, IPresenceEntry>,
+    ): [string, IPresenceEntry][] =>
+      [...m].sort(([x], [y]) => x.localeCompare(y));
+    const sameAsServer = (h: Harness, channel: string): void => {
+      const browser = new PresenceView(channel);
+      for (const p of presenceFrames(h, channel)) browser.apply(p);
+      const client = browser.snapshot();
+      const server = getRealtimeHub().presence(channel);
+      if (server === null) throw new Error("canal sans présence");
+      expect({
+        ready: client.ready,
+        count: client.count,
+        unnamed: client.unnamed,
+        partial: client.partial,
+        members: byId(client.members),
+      }).to.deep.equal({
+        ready: true,
+        count: server.count,
+        unnamed: server.unnamed,
+        partial: server.partial,
+        members: byId(server.members),
+      });
+    };
+    const a = await user("alice", true);
+    await a.subscribe("room:iso");
+    await converges(a, "room:iso", { alice: 1 });
+    sameAsServer(a, "room:iso");
+    const bob1 = await user("bob");
+    const bob2 = await user("bob");
+    const carol = await user("carol");
+    for (const h of [bob1, bob2, carol]) await h.subscribe("room:iso");
+    await converges(a, "room:iso", { alice: 1, bob: 2, carol: 1 });
+    sameAsServer(a, "room:iso");
+    await bob1.unsubscribe("room:iso");
+    carol.close();
+    await converges(a, "room:iso", { alice: 1, bob: 1 });
+    sameAsServer(a, "room:iso");
   });
 
   it("🔴 chaque (re-)subscribe reçoit la liste — aucune borne serveur (S-rt-103)", async () => {

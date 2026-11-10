@@ -13,7 +13,9 @@ import {
   NodefonyProvider,
   useNodefonyChannel,
   useNodefonyChannelData,
+  useNodefonyPresence,
 } from "../client/react/index";
+import type { IPresenceSnapshot } from "../realtime/presenceView";
 import {
   connectedContractSocket,
   connectedPlainSocket,
@@ -148,5 +150,55 @@ describe("hooks de canal React — la forme historique", () => {
     expect(() => rendre(React.createElement(Orphelin))).toThrow(
       /NodefonyProvider/u,
     );
+  });
+});
+
+describe("useNodefonyPresence — la vue du cœur, un rendu par changement", () => {
+  it("🔴 neutre avant la liste, remplie par elle, figée par un trou ; canal rendu au démontage", async () => {
+    const { socket, transport } = await connectedContractSocket();
+    const vus: IPresenceSnapshot[] = [];
+    function Salon() {
+      vus.push(useNodefonyPresence(socket, "room:1"));
+      return null;
+    }
+    rendre(React.createElement(Salon));
+    expect(vus.at(-1)?.ready).toBe(false);
+    expect(socket.subscribedChannels).toEqual(["room:1"]);
+    const base = { channel: "room:1", unnamed: 1 };
+    act(() =>
+      transport.push("realtime:presence", {
+        ...base,
+        version: 2,
+        count: 1,
+        members: ["alice", 2],
+      }),
+    );
+    const pleine = vus.at(-1);
+    expect(pleine?.ready).toBe(true);
+    expect(pleine?.members.get("alice")).toEqual({ tabs: 2 });
+    expect(pleine?.unnamed).toBe(1);
+    const rendus = vus.length;
+    act(() =>
+      transport.push("realtime:presence", {
+        ...base,
+        version: 2,
+        count: 1,
+        changes: { set: ["bob", 1] },
+      }),
+    );
+    expect(vus).toHaveLength(rendus); // déjà vue : aucun rendu
+    act(() =>
+      transport.push("realtime:presence", {
+        ...base,
+        version: 5,
+        count: 2,
+        changes: { set: ["bob", 1] },
+      }),
+    );
+    expect(vus.at(-1)?.partial).toBe(true);
+    expect([...(vus.at(-1)?.members.keys() ?? [])]).toEqual(["alice"]);
+    act(() => root!.unmount());
+    root = null;
+    expect(socket.subscribedChannels).toEqual([]);
   });
 });

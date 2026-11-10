@@ -78,6 +78,15 @@ import type {
   ContractRouteParams,
   ContractRouteResult,
 } from "../../realtime/RealtimeEventMap";
+import { REALTIME_PRESENCE_METHOD } from "../../realtime/RealtimeEventMap";
+import {
+  EMPTY_PRESENCE,
+  PRESENCE_RESYNC_JITTER,
+  PRESENCE_RESYNC_MS,
+  PresenceView,
+  isPresenceFrame,
+  type IPresenceSnapshot,
+} from "../../realtime/presenceView";
 import { unrefTimer } from "../../runtime/unrefTimer";
 import { ownField } from "../../runtime/ownField";
 import { CircularBuffer } from "../../runtime/CircularBuffer";
@@ -395,6 +404,41 @@ interface IAdmissionRetry {
  *   déjà validé fini et positif par l'appelant.
  * @returns un délai entier dans `[0, TIMER_MAX]`.
  */
+/**
+ * Présence suivie d'un canal sur cette socket : la vue pure du cœur, ses écouteurs, et
+ * la limite de resynchronisation (ADR-0025 P2 bis). Forme stable, champs déclarés.
+ */
+class PresenceSlot {
+  readonly view: PresenceView;
+  readonly handlers = new Set<(snapshot: IPresenceSnapshot) => void>();
+  /** Instant (ms) du dernier re-`subscribe` émis pour combler un trou ; 0 = jamais. */
+  lastResync = 0;
+  /** Re-`subscribe` différé par la limite, ou `null`. */
+  timer: ReturnType<typeof setTimeout> | null = null;
+
+  constructor(channel: string) {
+    this.view = new PresenceView(channel);
+  }
+
+  /** Annonce l'instantané courant à chaque écouteur. */
+  notify(): void {
+    const snapshot = this.view.snapshot();
+    for (const h of this.handlers) {
+      try {
+        h(snapshot);
+      } catch {
+        /* ignore handler errors */
+      }
+    }
+  }
+
+  /** Coupe le re-`subscribe` différé. */
+  cancel(): void {
+    if (this.timer !== null) clearTimeout(this.timer);
+    this.timer = null;
+  }
+}
+
 function admissionRetryDelay(
   attempt: number,
   retryAfterMs: number | undefined,
@@ -903,6 +947,9 @@ export class NodefonySocket<
   // `unavailable` n'est reçu, le cas de presque toutes les connexions).
   // `Map` : quelques entrées, posées et retirées au fil des refus.
   private _admissionRetries: Map<string, IAdmissionRetry> | null = null;
+  // Présence suivie, par canal — lazy (`null` tant qu'aucun `onPresence` n'est posé :
+  // une application sans présence ne paie ni `Map`, ni lecture de trame).
+  private _presence: Map<string, PresenceSlot> | null = null;
   private reconnectAttempt = 0;
   private _nextRetryAt: number | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1221,6 +1268,7 @@ export class NodefonySocket<
     this._welcomed = false;
     this._subscriptionAcks = false;
     this._acked = null;
+    if (this._presence !== null) this.unsyncPresence(null);
     const waiters = this._ackWaiters;
     if (waiters !== null) {
       this._ackWaiters = null;
@@ -1409,6 +1457,49 @@ export class NodefonySocket<
   }
 
   /**
+   * Suit la **présence** d'un canal (trames `realtime:presence`, ADR-0025) : `handler`
+   * reçoit l'instantané de la vue à chaque changement — trame appliquée, trou de
+   * version, fermeture ou rejeu de la connexion. Ne DEMANDE pas le canal : comme
+   * {@link on}, il écoute ; {@link subscribe} le demande (les liaisons font les deux).
+   *
+   * La vue est celle du cœur (`PresenceView`, partagée avec le serveur et le kit de
+   * test) ; un trou de version fait réémettre `subscribe`, une fois par canal toutes
+   * les 2 s au plus, avec gigue — le serveur renvoie alors la liste complète.
+   *
+   * @param channel - nom EXACT du canal.
+   * @param handler - reçoit l'instantané (immuable, partagé entre écouteurs).
+   * @returns dispose : au dernier écouteur, la vue du canal est oubliée.
+   */
+  onPresence(
+    channel: string,
+    handler: (snapshot: IPresenceSnapshot) => void,
+  ): () => void {
+    const slots = (this._presence ??= new Map<string, PresenceSlot>());
+    let slot = slots.get(channel);
+    if (slot === undefined) {
+      slot = new PresenceSlot(channel);
+      slots.set(channel, slot);
+    }
+    const own = slot;
+    own.handlers.add(handler);
+    return () => {
+      if (!own.handlers.delete(handler) || own.handlers.size > 0) return;
+      own.cancel();
+      if (this._presence?.get(channel) === own) this._presence.delete(channel);
+      if (this._presence?.size === 0) this._presence = null;
+    };
+  }
+
+  /**
+   * Instantané de la présence d'un canal suivi par {@link onPresence} ;
+   * `EMPTY_PRESENCE` (`ready: false`) s'il n'est pas suivi ou qu'aucune trame complète
+   * n'est arrivée. Le même objet tant que rien ne change.
+   */
+  presence(channel: string): IPresenceSnapshot {
+    return this._presence?.get(channel)?.view.snapshot() ?? EMPTY_PRESENCE;
+  }
+
+  /**
    * Attend que l'abonnement à `channel` soit EFFECTIF côté serveur — le signal
    * qui manquait au patron « je recharge l'état, puis je suis le flux ».
    *
@@ -1585,6 +1676,7 @@ export class NodefonySocket<
       this._subscriptions.delete(c);
       this._acked?.delete(c);
       if (this._admissionRetries !== null) this.dropAdmissionRetry(c);
+      if (this._presence !== null) this.unsyncPresence(c);
       this.rejectAckWaiters(c, unsubscribedBeforeAck);
       // Avant le welcome, le serveur n'a rien enregistré : retirer l'entrée suffit.
       if (this._welcomed) this._emitRaw("unsubscribe", { channel: c });
@@ -2345,6 +2437,9 @@ export class NodefonySocket<
    */
   private replaySubscriptions(): void {
     this._welcomed = true;
+    // Chaque `subscribe` émis retire la référence de version de sa vue de présence
+    // (ADR-0025 P2 bis) : la liste de CETTE connexion la refondera.
+    if (this._presence !== null) this.unsyncPresence(null);
     for (const channel of this._subscriptions.keys()) {
       this._emitRaw("subscribe", { channel });
     }
@@ -2403,6 +2498,7 @@ export class NodefonySocket<
     if (!this._subscriptions.delete(channel)) return;
     this._acked?.delete(channel);
     if (this._admissionRetries !== null) this.dropAdmissionRetry(channel);
+    if (this._presence !== null) this.unsyncPresence(channel);
     // Charge relue champ par champ : rien d'autre que le contrat n'atteint l'écran.
     const closed: IRealtimeClosed = { channel, reason };
     this.rejectAckWaiters(channel, closedBeforeAck, closed);
@@ -2541,6 +2637,7 @@ export class NodefonySocket<
     } else if (method === "realtime:subscribed") this.ingestSubscribed(params);
     else if (method === "realtime:denied") this.ingestDenied(params);
     else if (method === "realtime:closed") this.ingestClosed(params);
+    else if (method === REALTIME_PRESENCE_METHOD) this.ingestPresence(params);
     this.trackFrame(method); // stats génériques avant dispatch
     // `for…of` plutôt que `forEach((h) => …)` : aucune closure allouée par trame.
     const listeners = this.handlers.get(method);
@@ -2724,6 +2821,8 @@ export class NodefonySocket<
         if (replaced()) return;
         this.clearTimers();
         this.transport = null;
+        // Socket fermée : les vues de présence restent affichées, figées (`partial`).
+        if (this._presence !== null) this.unsyncPresence(null);
         if (this.intentionalClose) {
           this.setState("disconnected");
           return;
@@ -2898,6 +2997,84 @@ export class NodefonySocket<
     );
     retries.set(channel, { attempt: attempt + 1, timer });
     return true;
+  }
+
+  /**
+   * Ingère une trame `realtime:presence` : seulement pour un canal suivi par
+   * {@link onPresence} — sinon elle n'est même pas lue. Lecteur et vue sont ceux du
+   * cœur ; `applied` annonce la vue, `gap` la fige et demande la liste, `stale` est
+   * jetée. Une trame mal formée est jetée sans un mot (comme `realtime:closed`).
+   */
+  private ingestPresence(params: unknown): void {
+    const slots = this._presence;
+    if (slots === null) return;
+    const channel = ownField(params, "channel");
+    if (typeof channel !== "string") return;
+    const slot = slots.get(channel);
+    if (slot === undefined || !isPresenceFrame(params)) return;
+    const wasSynced = slot.view.synced;
+    const outcome = slot.view.apply(params);
+    if (outcome === "applied") slot.notify();
+    else if (outcome === "gap") {
+      if (wasSynced) slot.notify();
+      this.resyncPresence(slot);
+    }
+  }
+
+  /**
+   * Redemande la liste d'un canal après un trou de version, par un `subscribe` répété
+   * (XEP-0045 §17.3 : « full synchronization request ») — tout de suite la première
+   * fois, puis au plus une fois toutes les {@link PRESENCE_RESYNC_MS} ms, gigue comprise.
+   * Rien tant que le canal n'est pas demandé sur une connexion accueillie : le rejeu
+   * du prochain `welcome` s'en charge.
+   */
+  private resyncPresence(slot: PresenceSlot): void {
+    if (slot.timer !== null) return;
+    if (!this._welcomed || !this._subscriptions.has(slot.view.channel)) return;
+    const wait =
+      slot.lastResync === 0
+        ? 0
+        : slot.lastResync +
+          PRESENCE_RESYNC_MS * (1 + Math.random() * PRESENCE_RESYNC_JITTER) -
+          Date.now();
+    if (wait <= 0) {
+      this.emitPresenceResync(slot);
+      return;
+    }
+    slot.timer = setTimeout(() => {
+      slot.timer = null;
+      this.emitPresenceResync(slot);
+    }, wait);
+  }
+
+  /** Émet le `subscribe` de resynchronisation et fige la vue jusqu'à la liste. */
+  private emitPresenceResync(slot: PresenceSlot): void {
+    const channel = slot.view.channel;
+    if (!this._welcomed || !this._subscriptions.has(channel)) return;
+    slot.lastResync = Date.now();
+    this._emitRaw("subscribe", { channel });
+    if (slot.view.unsync()) slot.notify();
+  }
+
+  /**
+   * Retire la référence de version d'une vue de présence (`channel`) ou de toutes
+   * (`null`) — fermeture, rejeu, désabonnement, fin du canal — et coupe les
+   * re-`subscribe` différés. N'annonce que les vues qui ont changé.
+   */
+  private unsyncPresence(channel: string | null): void {
+    const slots = this._presence;
+    if (slots === null) return;
+    if (channel !== null) {
+      const slot = slots.get(channel);
+      if (slot === undefined) return;
+      slot.cancel();
+      if (slot.view.unsync()) slot.notify();
+      return;
+    }
+    for (const slot of slots.values()) {
+      slot.cancel();
+      if (slot.view.unsync()) slot.notify();
+    }
   }
 
   /** Oublie le réessai d'un canal (acquitté ou rendu) et coupe son minuteur. */

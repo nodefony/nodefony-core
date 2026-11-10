@@ -32,6 +32,7 @@ import * as React from "react";
 // `kernel` > `client` > `url` et le cycle de connexion — la même fonction que celle
 // appelée par les trois autres fronts.
 import type { NodefonySocket } from "../realtime/NodefonySocket";
+import type { IPresenceSnapshot } from "../../realtime/presenceView";
 import type {
   RealtimeState,
   NodefonyNotice,
@@ -56,6 +57,7 @@ import {
   observeNoticeLog,
   observeSyslog,
   observeSnapshot,
+  observePresence,
   adaptiveRebindKey,
   type ObserveSyslogOptions,
   type ObserveNoticeLogOptions,
@@ -96,6 +98,7 @@ export type {
   RealtimeState,
   NodefonyNotice,
 } from "../realtime/NodefonySocket";
+export type { IPresenceSnapshot } from "../../realtime/presenceView";
 export type { SocketSnapshot } from "../realtime/observe";
 export type { SseSnapshot, ObserveSseOptions } from "../sse/observe";
 export type { ISseEvent } from "../sse/SseParser";
@@ -440,6 +443,40 @@ export function useNodefonyChannelData(
   );
   useChannelSubscription(socket, channel, setData, []);
   return data;
+}
+
+/**
+ * `useNodefonyPresence(socket, canal)` — **qui est présent** sur un canal qui déclare
+ * `presence` (ADR-0025) : `{ ready, count, unnamed, partial, members }`, `members`
+ * étant une `ReadonlyMap` identité → `{ tabs, states? }`. Demande le canal au montage,
+ * le rend au démontage.
+ *
+ * `ready` vaut `false` avant la première liste (« vide » ≠ « pas encore reçu ») ;
+ * `partial` dit une vue incomplète ou figée (socket fermée, resynchronisation). La vue
+ * est celle du cœur, partagée par toutes les liaisons et par le serveur.
+ * `useSyncExternalStore` : un rendu par changement, aucun entre deux.
+ *
+ * Forme courte `useNodefonyPresence(canal)` : la socket du `<NodefonyProvider>`.
+ */
+export function useNodefonyPresence(
+  socket: NodefonySocket,
+  channel: string,
+): IPresenceSnapshot;
+export function useNodefonyPresence(channel: string): IPresenceSnapshot;
+export function useNodefonyPresence(
+  first: NodefonySocket | string,
+  second?: string,
+): IPresenceSnapshot {
+  const fromProvider = React.useContext(NodefonyContext);
+  const named = typeof first === "string";
+  const client = named ? requireProvided(fromProvider) : first;
+  const channel = named ? first : channelArg(second);
+  const subscribe = React.useCallback(
+    (cb: () => void) => observePresence(client, channel, cb),
+    [client, channel],
+  );
+  const read = () => client.presence(channel);
+  return React.useSyncExternalStore(subscribe, read, read);
 }
 
 /** Réglages adaptatifs du hook (cadence désirée fixée à part par `intervalMs`). */

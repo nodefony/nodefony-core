@@ -1,6 +1,7 @@
 import type {
   IChannelPolicy,
   IPresenceEntry,
+  IPresenceView,
   IRealtimePresenceChanges,
   IRealtimePresenceCount,
   IRealtimePresenceList,
@@ -37,17 +38,10 @@ export interface IPresenceSettings {
 
 /**
  * Ce qu'un observateur serveur lit de la présence d'un canal (`hub.presence()`, ADR-0025 P3) — les membres TOUJOURS, quel que soit le seuil de la trame.
+ *
+ * La forme est celle du cœur (`IPresenceView`), que le navigateur lit aussi : serveur et client voient le même objet.
  */
-export interface IChannelPresenceView {
-  /** Identités nommées distinctes présentes (comptes seulement). */
-  readonly count: number;
-  /** Connexions comptées sans être nommées (anonymes, appelants machine sans compte). */
-  readonly unnamed: number;
-  /** Les présents nommés : identité → onglets. */
-  readonly members: ReadonlyMap<string, IPresenceEntry>;
-  /** `true` si la vue est connue incomplète ou figée. */
-  readonly partial: boolean;
-}
+export type IChannelPresenceView = IPresenceView;
 
 /**
  * Départ d'un PAIR retenu par la grâce (pod oublié, arrêté, remplacé) — ses onglets restent comptés jusqu'à l'échéance. Forme fixe : alloué au seul départ d'un pod, chemin froid.

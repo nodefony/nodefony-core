@@ -416,6 +416,34 @@ s'attache d'abord) — la garantie porte sur ce qui suit, pas sur « rien n'arri
 > s'abonner donne un canal silencieux ; s'abonner sans écouter fait transiter des trames que personne
 > ne lit.
 
+### Qui est là — la présence d'un canal
+
+Un canal qui déclare `presence` côté serveur (`@RealtimeChannel("room:*", { presence: true })`)
+envoie à chaque abonné la notification `realtime:presence` : la liste des présents à
+l'abonnement, puis les changements, numérotés. La socket les applique à une vue et la tient à
+jour ; l'écran lit l'instantané :
+
+```ts
+const presence = useNodefonyPresence(socket, "room:42"); // React ou Vue
+// presence.ready    → false tant que la première liste n'est pas arrivée
+// presence.count    → identités nommées (comptes) ; presence.unnamed → les autres
+// presence.members  → ReadonlyMap identité → { tabs } (onglets ouverts)
+// presence.partial  → vue incomplète ou figée : socket fermée, resynchronisation
+```
+
+Angular : `injectNodefonyPresence`, Svelte : `nodefonyPresence`, hors framework :
+`socket.onPresence(canal, handler)` et `socket.presence(canal)`
+(`client/realtime/NodefonySocket.ts#NodefonySocket.onPresence`). Les quatre reposent sur
+`observePresence` (`client/realtime/observe.ts#observePresence`).
+
+La vue est celle du cœur, la MÊME que lisent les tests du serveur
+(`realtime/presenceView.ts#PresenceView`) : un changement au numéro attendu s'applique, un
+numéro déjà vu est jeté, un numéro trop loin (une trame perdue) fige la vue et fait redemander
+la liste par un `subscribe` répété, une fois par canal toutes les 2 s au plus. À la fermeture
+de la socket, la vue reste affichée, marquée `partial`, jusqu'à la liste de la connexion
+suivante. L'instantané est immuable : le même objet tant que rien ne change, un objet neuf à
+chaque changement.
+
 **Un abonnement conditionnel se monte et se démonte — il ne se met pas en pause.** Aucune liaison de
 vue n'accepte un canal « vide » ni un interrupteur : un interrupteur « temps réel » à l'écran rend
 ou retire le composant abonné, et c'est son démontage qui libère le canal côté serveur. L'option

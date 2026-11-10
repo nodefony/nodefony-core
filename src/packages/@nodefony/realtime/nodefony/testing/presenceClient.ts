@@ -1,6 +1,9 @@
 import {
+  isPresenceFrame,
   ownField,
+  PresenceView,
   REALTIME_PRESENCE_METHOD,
+  type NumberedChangeOutcome,
   type RealtimePresenceFrame,
 } from "nodefony";
 import { RealtimeConnection } from "../src/server/RealtimeConnection";
@@ -10,26 +13,21 @@ import type {
   RealtimeHub,
 } from "../src/server/RealtimeHub";
 
-/** Un client de présence branché sur un hub : ses trames `realtime:presence`, et son départ. */
+/** Un client de présence branché sur un hub : ses trames `realtime:presence`, sa vue, et son départ. */
 export interface IPresenceClient {
+  /** Trames reçues, dans l'ordre. */
   frames: RealtimePresenceFrame[];
+  /** Sort de chaque trame appliquée à {@link view} (même index que {@link frames}). */
+  outcomes: NumberedChangeOutcome[];
+  /**
+   * Vue du canal tenue par la vue PURE du cœur — celle du navigateur (`NodefonySocket`) : ce que le serveur écrit, le navigateur le lit ainsi.
+   */
+  view: PresenceView;
   leave: () => void;
 }
 
 /**
- * Forme d'une trame `realtime:presence` reçue — les champs communs à toutes ses variantes (liste, changements, nombres seuls). Le banc lit ce que le serveur produit : une trame qui y manque est un défaut à nommer, pas une valeur à convertir.
- */
-function isPresenceFrame(value: unknown): value is RealtimePresenceFrame {
-  return (
-    typeof ownField(value, "channel") === "string" &&
-    typeof ownField(value, "version") === "number" &&
-    typeof ownField(value, "count") === "number" &&
-    typeof ownField(value, "unnamed") === "number"
-  );
-}
-
-/**
- * Abonne à `channel` une connexion de `hub` — nommée `user`, ou anonyme (`null`) — et relève les trames de présence qu'elle reçoit, comme le ferait un navigateur.
+ * Abonne à `channel` une connexion de `hub` — nommée `user`, ou anonyme (`null`) — et relève les trames de présence qu'elle reçoit, lues et appliquées par le lecteur et la vue du cœur, comme le ferait un navigateur. Une trame que le lecteur refuse est un défaut du serveur : le banc lève en la citant.
  */
 export function presenceClient(
   hub: RealtimeHub,
@@ -37,6 +35,8 @@ export function presenceClient(
   user: string | null,
 ): IPresenceClient {
   const frames: RealtimePresenceFrame[] = [];
+  const outcomes: NumberedChangeOutcome[] = [];
+  const view = new PresenceView(channel);
   const codec = hub.textFrameCodec;
   const conn = new RealtimeConnection(
     {
@@ -51,6 +51,7 @@ export function presenceClient(
         if (!isPresenceFrame(params))
           throw new Error(`trame de présence mal formée : ${data}`);
         frames.push(params);
+        outcomes.push(view.apply(params));
       },
     },
     () => ({
@@ -70,6 +71,8 @@ export function presenceClient(
   hub.presenceSubscribed(channel, conn);
   return {
     frames,
+    outcomes,
+    view,
     leave: () => {
       hub.unsubscribe(channel, sink);
     },

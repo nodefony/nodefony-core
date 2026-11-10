@@ -305,6 +305,18 @@ export {
 // Présence d'un canal (ADR-0025) : la règle pure applied/gap/stale que la vue cliente
 // partage avec la vue distante d'un pod, et la forme de la trame `realtime:presence`.
 export { classifyNumberedChange } from "../realtime/numberedChange";
+export { REALTIME_PRESENCE_METHOD } from "../realtime/RealtimeEventMap";
+export {
+  EMPTY_PRESENCE,
+  PRESENCE_RESYNC_JITTER,
+  PRESENCE_RESYNC_MS,
+  PresenceView,
+  isPresenceFrame,
+} from "../realtime/presenceView";
+export type {
+  IPresenceSnapshot,
+  IPresenceView,
+} from "../realtime/presenceView";
 export type { NumberedChangeOutcome } from "../realtime/numberedChange";
 export type {
   IPresenceEntry,
@@ -364,6 +376,7 @@ export {
   observeReconnect,
   observeChannel,
   observeChannelData,
+  observePresence,
   observeChannelStats,
   observeAdaptiveChannel,
   observeSyslog,

@@ -33,6 +33,7 @@ import {
   useNodefonyKernelState,
   useNodefonyChannel,
   useNodefonyChannelData,
+  useNodefonyPresence,
   useNodefonySnapshot,
   useNodefonySse,
   useNodefonyLogin,
@@ -434,5 +435,29 @@ describe("useNodefonyLogin — Vue", () => {
 
   it("hors portée, l'appel est refusé — rien ne libérerait l'abonnement", () => {
     expect(() => useNodefonyLogin({ passkey: null })).toThrow(/effectScope/u);
+  });
+});
+
+describe("useNodefonyPresence — la vue du cœur dans une ref", () => {
+  it("🔴 neutre avant la liste, remplie par elle ; canal rendu au démontage", async () => {
+    const client = newClient();
+    const t = await connected(client);
+    const app = appAvec(client);
+    const { valeur, arreter } = monter(app, () =>
+      useNodefonyPresence("room:1"),
+    );
+    expect(valeur.value.ready).toBe(false);
+    expect(abonnements(t)).toEqual(["subscribe room:1"]);
+    t.push("realtime:presence", {
+      channel: "room:1",
+      version: 2,
+      count: 1,
+      unnamed: 0,
+      members: ["alice", 2],
+    });
+    expect(valeur.value.ready).toBe(true);
+    expect(valeur.value.members.get("alice")).toEqual({ tabs: 2 });
+    arreter();
+    expect(abonnements(t)).toEqual(["subscribe room:1", "unsubscribe room:1"]);
   });
 });
