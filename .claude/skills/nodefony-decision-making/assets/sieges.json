@@ -9,9 +9,9 @@
     "contradicteur": {
       "modele": "fable",
       "raison": "prouvé (3 tables) : en #702, chaque passe a fait tomber la forme proposée ; au tour « quand allow », 8 constats sur 8 retenus, dont une décision acceptée que le dossier du principal avait ratée (ADR-0022 §6) — le siège le plus cher ET celui dont les constats changent la décision. Faux : deux ABSENCES affirmées à tort (tables précédentes) ; table du gel (2026-10-30) : 10 constats au tour 1, tous vérifiés au code, dont l’option E de R1 et la prémisse fausse « limit réessayé » ; environ 6 retenus au tour 2",
-      "tables": 5,
-      "constatsRendus": 65,
-      "constatsRetenus": 63,
+      "tables": 6,
+      "constatsRendus": 73,
+      "constatsRetenus": 71,
       "constatsFaux": 2,
       "essais": [
         {
@@ -22,14 +22,14 @@
           "verdict": "NON concordant — sonnet ~4 constats retenus, fable ~12 (sonnet a raté l'identité gelée par ADR-0021 §S10, le schéma de route IRouteSchema déjà validant, la question oubliée Q6 des hooks, les verbes du pont limités à GET/POST) ; fable reste"
         }
       ],
-      "coutUsd": 22.45
+      "coutUsd": 24.31
     },
     "attaquant": {
       "modele": "fable",
-      "raison": "remonté à fable après la table #622 (règle : premier constat faux) — a affirmé qu'une famille `user:*` servie par la fabrique dynamique est toujours sans garde, FAUX (une politique par motif la couvre, RealtimeHub.noticeUnguardedDynamicChannel) ; induit par un commentaire PÉRIMÉ de RealtimeController.startChannel (correction portée par #707). Retenus : oracle unknown/forbidden, usurpation par la trame entrante, égalité de chaîne contre découpage. Un essai sonnet contrôlé à la prochaine table peut le faire redescendre",
-      "tables": 5,
-      "constatsRendus": 36,
-      "constatsRetenus": 27,
+      "raison": "remonté à fable après la table #622 (règle : premier constat faux) — a affirmé qu'une famille `user:*` servie par la fabrique dynamique est toujours sans garde, FAUX (une politique par motif la couvre, RealtimeHub.noticeUnguardedDynamicChannel) ; induit par un commentaire PÉRIMÉ de RealtimeController.startChannel (correction portée par #707). Retenus : oracle unknown/forbidden, usurpation par la trame entrante, égalité de chaîne contre découpage. Un essai sonnet contrôlé à la prochaine table peut le faire redescendre ; #760 : essai CONTRÔLÉ non concordant, fable reste",
+      "tables": 6,
+      "constatsRendus": 42,
+      "constatsRetenus": 32,
       "constatsFaux": 1,
       "essais": [
         {
@@ -52,37 +52,44 @@
           "vers": "sonnet",
           "controle": false,
           "verdict": "concordant — constats retenus (S-rt-69, S-rt-70, plafond par connexion), aucun faux ; comptes exacts non relevés à cette table. Le siège descend, décision de l’auteur au kit du gel"
+        },
+        {
+          "table": "#760 présence",
+          "de": "fable",
+          "vers": "sonnet",
+          "controle": true,
+          "verdict": "NON concordant — sonnet 3 attaques retenues sur 6, fable 5 sur 6 ; sonnet a raté le rejeu ADDITIF (le sceau ne couvre pas le rejeu, envelope.ts#seal), l’anti-écho qui aveugle le pod usurpé, maxFramesPerSecond à 0 par défaut, et la fuite de l’id machine <émetteur>#<sujet> ; fable reste"
         }
       ],
-      "coutUsd": 6.59
+      "coutUsd": 8.53
     },
     "gardien-compatibilite": {
       "modele": "sonnet",
       "raison": "point de départ : appliquer une politique écrite à un cas",
-      "tables": 3,
-      "constatsRendus": 34,
-      "constatsRetenus": 25,
+      "tables": 4,
+      "constatsRendus": 44,
+      "constatsRetenus": 34,
       "constatsFaux": 0,
       "essais": [],
-      "coutUsd": 2.03
+      "coutUsd": 2.44
     },
     "specialiste-perf": {
-      "modele": "sonnet",
-      "raison": "1 table (#702) : seul siège à voir qu’un verdict retenu par (abonnement, canal) ne borne rien quand chaque ressource a son canal — constat qui a fait reporter le choix à une mesure",
-      "tables": 2,
-      "constatsRendus": 10,
-      "constatsRetenus": 7,
+      "modele": "fable",
+      "raison": "monté à fable pour #760 : la question était d’INVENTER le protocole le moins coûteux, pas de confronter à des règles — 9 constats retenus sur 10 (front montant, lot bus par pod avec annulation à la source, liste encodée une fois par version, vue rangée par pod, minuteur unique, budgets chiffrés, tempête d’états, barre latérale) ; sur une question de simple confrontation, redescendre à sonnet",
+      "tables": 3,
+      "constatsRendus": 20,
+      "constatsRetenus": 16,
       "constatsFaux": 0,
       "essais": [],
-      "coutUsd": 0.41
+      "coutUsd": 2.07
     },
     "exploitant": {
       "modele": "sonnet",
       "raison": "point de départ : repérer ce qui casse en silence en production",
-      "tables": 4,
-      "constatsRendus": 31,
-      "constatsRetenus": 22,
-      "constatsFaux": 0,
+      "tables": 5,
+      "constatsRendus": 40,
+      "constatsRetenus": 28,
+      "constatsFaux": 1,
       "essais": [
         {
           "table": "#622 chat de référence",
@@ -92,14 +99,14 @@
           "verdict": "concordant — haiku a rendu les mêmes constats (oubli de diffusion invisible côté émetteur, S-rt-61, déploiement progressif, coupure Redis) plus la rotation du secret ; 1er essai concordant sur 2"
         }
       ],
-      "coutUsd": 1.42
+      "coutUsd": 1.67
     },
     "developpeur-application": {
       "modele": "sonnet",
       "raison": "vue = kit d’une application générée seul (skill livré nodefony-dev, doc publique) : a montré que « arguments seuls » était inécrivable sans accès aux services — constat qui a changé la signature (troisième argument)",
-      "tables": 4,
-      "constatsRendus": 32,
-      "constatsRetenus": 20,
+      "tables": 5,
+      "constatsRendus": 40,
+      "constatsRetenus": 26,
       "constatsFaux": 0,
       "essais": [
         {
@@ -110,7 +117,7 @@
           "verdict": "NON concordant — haiku recommandait de faire de `send` une méthode du contrat sans voir la perte d'identité revérifiée (que sonnet a trouvée dans actions.md), et a lu realtime/CLAUDE.md, hors du kit d'une application générée ; sonnet reste"
         }
       ],
-      "coutUsd": 1.87
+      "coutUsd": 2.2
     },
     "auteur-extension": {
       "modele": "sonnet",
