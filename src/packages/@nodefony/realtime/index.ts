@@ -637,6 +637,11 @@ export type {
   ChannelFrameBuilder,
 } from "./nodefony/src/server/RealtimeHub";
 export { ChannelFrame } from "./nodefony/src/server/RealtimeHub";
+export {
+  PRESENCE_WINDOW_MS,
+  DEFAULT_PRESENCE_MAX_NAMED,
+} from "./nodefony/src/server/channelPresence";
+export type { IChannelPresenceView } from "./nodefony/src/server/channelPresence";
 export type {
   IBackplane,
   IBackplaneMessage,

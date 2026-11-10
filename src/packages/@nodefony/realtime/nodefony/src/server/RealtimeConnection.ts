@@ -1,4 +1,5 @@
-import type { RealtimeClosedReason } from "nodefony";
+import type { ISubscriberIdentity, RealtimeClosedReason } from "nodefony";
+import type { ChannelFrame } from "./RealtimeHub";
 import type { IRealtimeConnection } from "../../interfaces/IRealtimeConnection";
 
 /**
@@ -16,6 +17,8 @@ export interface IRealtimeConnectionHost {
    * @returns `false` si la connexion n'est pas abonnée à ce canal.
    */
   end(channel: string, reason: RealtimeClosedReason): boolean;
+  /** Écrit une trame partagée, encodée pour le codec de cette connexion. */
+  send(frame: ChannelFrame): void;
 }
 
 /** Un abonnement imposé qui attend son verdict (politique fixe, puis `allow`). */
@@ -45,30 +48,61 @@ export class RealtimeConnection implements IRealtimeConnection {
   readonly #host: IRealtimeConnectionHost;
   // Lue à la première demande seulement : un abonnement sans `allow` ne lit
   // pas l'identité, et la poignée ne doit pas l'y obliger.
-  #identify: (() => string | null) | null;
+  #identify: (() => ISubscriberIdentity | null) | null;
   #userId: string | null = null;
+  #account = false;
   #open = true;
   // Abonnements imposés en attente de verdict — `null` tant qu'aucun.
   #imposing: Map<string, IImposedSubscription> | null = null;
 
   /**
    * @param host - le contrôleur qui sert la connexion.
-   * @param identify - lit l'identifiant du compte, figé au handshake ; appelé
+   * @param identify - lit l'identité d'admission, figée au handshake ; appelé
    *   au plus une fois.
    */
-  constructor(host: IRealtimeConnectionHost, identify: () => string | null) {
+  constructor(
+    host: IRealtimeConnectionHost,
+    identify: () => ISubscriberIdentity | null,
+  ) {
     this.#host = host;
     this.#identify = identify;
   }
 
+  /** Lit l'identité au premier besoin, une fois. */
+  #resolveIdentity(): void {
+    const identify = this.#identify;
+    if (identify === null) return;
+    this.#identify = null;
+    const identity = identify();
+    this.#userId = identity?.id ?? null;
+    this.#account = identity?.account === true;
+  }
+
   /** Identifiant du compte connecté ; `null` pour l'anonyme. */
   get userId(): string | null {
-    const identify = this.#identify;
-    if (identify !== null) {
-      this.#identify = null;
-      this.#userId = identify();
-    }
+    this.#resolveIdentity();
     return this.#userId;
+  }
+
+  /**
+   * `userId` désigne-t-il un compte LOCAL ? `false` pour l'anonyme et l'appelant
+   * machine sans compte (`<émetteur>#<sujet>`) — ceux que la présence compte sans
+   * les nommer (ADR-0025 P3).
+   */
+  get account(): boolean {
+    this.#resolveIdentity();
+    return this.#account;
+  }
+
+  /**
+   * Écrit une trame PARTAGÉE (encodée une fois par codec) sur cette connexion — rien si la socket est fermée.
+   *
+   * Voie des notifications du protocole qui visent les membres d'un canal (la
+   * présence) : elles ne passent pas par le sink du canal, qui les livrerait
+   * sous le nom du canal.
+   */
+  deliver(frame: ChannelFrame): void {
+    if (this.#open) this.#host.send(frame);
   }
 
   /** `false` une fois la socket fermée. */

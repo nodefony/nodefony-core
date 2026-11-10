@@ -35,6 +35,7 @@ import type {
   RealtimeContractOf,
 } from "../src/server/ContractRealtimeController";
 import { isCallable, isRecord } from "../src/guards";
+import { presenceDefect, samePresence } from "../src/server/channelPresence";
 
 /** Clés de métadonnées posées sur le constructor de la classe controller. */
 const ACTIONS_KEY = "realtime:actions";
@@ -102,6 +103,7 @@ const POLICY_KEYS: ReadonlySet<string> = new Set([
   "scopes",
   "allow",
   "anonymous",
+  "presence",
 ]);
 
 /**
@@ -133,7 +135,9 @@ export function channelPolicyDefect(value: unknown): string | null {
       return `clé inconnue « ${key} » (clés admises : ${[...POLICY_KEYS].join(", ")})`;
     }
   }
-  const { authenticated, roles, scopes, allow, anonymous } = value;
+  const { authenticated, roles, scopes, allow, anonymous, presence } = value;
+  const presenceIssue = presenceDefect(presence);
+  if (presenceIssue !== null) return presenceIssue;
   if (authenticated !== undefined && typeof authenticated !== "boolean") {
     return "« authenticated » doit être un booléen";
   }
@@ -277,7 +281,8 @@ function declarePolicy(
     !(
       isChannelPolicy(current) &&
       isChannelPolicy(policy) &&
-      samePolicy(current, policy)
+      samePolicy(current, policy) &&
+      samePresence(current, policy)
     )
   ) {
     // La PREMIÈRE déclaration reste : le refus au démarrage nommera le canal.

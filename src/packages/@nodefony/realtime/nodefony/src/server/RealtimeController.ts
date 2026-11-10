@@ -1171,6 +1171,10 @@ export abstract class RealtimeController<
       );
     }
     if (imposed) connection.settleImposed(channel, true);
+    // Canal à présence : la liste suit l'acquittement, à CHAQUE (re-)subscribe —
+    // c'est elle qui répare une vue cliente trouée (ADR-0025 P2 bis, S-rt-103).
+    if (connection !== null)
+      getRealtimeHub().presenceSubscribed(channel, connection);
   }
 
   /**
@@ -1190,8 +1194,14 @@ export abstract class RealtimeController<
         {
           impose: (channel) => this.imposeChannel(ctx, channel),
           end: (channel, reason) => this.endChannel(ctx, channel, reason),
+          send: (frame) => {
+            const data = frame.encodeFor(peer.codec);
+            if (data !== undefined) state.transport.send(data);
+            else if (frame.claimFailure(peer.codec))
+              this.log("trame partagée non encodable : non envoyée", "ERROR");
+          },
         },
-        () => getRealtimeHub().getTokenForPeer(peer).getIdentity?.().id ?? null,
+        () => getRealtimeHub().getTokenForPeer(peer).getIdentity?.() ?? null,
       );
       state.connection = connection;
     }

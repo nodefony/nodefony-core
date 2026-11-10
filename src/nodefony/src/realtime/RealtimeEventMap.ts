@@ -817,6 +817,11 @@ export interface IRealtimePresenceCount extends IRealtimePresenceHead {
 }
 
 /**
+ * Nom de la notification du protocole qui porte la présence d'un canal (ADR-0025 P2 bis) — une source pour le serveur qui l'émet et le navigateur qui la lit.
+ */
+export const REALTIME_PRESENCE_METHOD = "realtime:presence";
+
+/**
  * Payload de la notification du protocole `realtime:presence` (ADR-0025 P2 bis) : qui
  * est présent sur un canal à présence. Exactement une des trois formes — la discriminer
  * par `changes !== undefined`, puis `members !== undefined`, sinon nombres seuls.

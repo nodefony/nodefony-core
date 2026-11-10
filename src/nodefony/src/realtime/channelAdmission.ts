@@ -113,6 +113,30 @@ export interface IChannelPolicy {
    * (`who.id === null`). Sans `allow`, la clé n'a pas de sens et est refusée.
    */
   readonly anonymous?: boolean | undefined;
+  /**
+   * Le canal publie QUI y est présent (ADR-0025 P3) : `true`, ou ses options.
+   * Être admis donne la présence — aucun second canal. Refusée au démarrage sur
+   * une politique d'ÉCRITURE seule et sur un canal réservé de la plateforme.
+   */
+  readonly presence?: boolean | IChannelPresenceOptions | undefined;
+}
+
+/**
+ * Options de la présence d'un canal (ADR-0025 P2 bis, P5) — toutes facultatives, toute autre clé refusée au démarrage.
+ */
+export interface IChannelPresenceOptions {
+  /**
+   * Délai (ms) avant de publier un départ, annulé si l'identité revient — un
+   * rechargement de page ne fait plus clignoter la liste. Défaut `0` : départs
+   * exacts.
+   */
+  readonly grace?: number | undefined;
+  /**
+   * Au-delà de ce nombre d'identités nommées, la trame vers le navigateur ne
+   * porte que les nombres. Défaut 1 000 ; `0` = présents comptés, jamais nommés.
+   * `hub.presence()` rend toujours les membres.
+   */
+  readonly maxNamed?: number | undefined;
 }
 
 /**

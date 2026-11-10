@@ -8,6 +8,7 @@ import {
   samePolicy,
 } from "../../decorators/realtimeDecorators";
 import type RealtimeHub from "./RealtimeHub";
+import { samePresence } from "./channelPresence";
 
 /**
  * Résout l'instance d'une classe d'admission pour un canal — fournie par le module realtime au démarrage, absente à la poignée de main.
@@ -110,7 +111,8 @@ function claim(
   if (
     previous === null ||
     previous.owner === ctor ||
-    samePolicy(previous.policy, policy)
+    (samePolicy(previous.policy, policy) &&
+      samePresence(previous.policy, policy))
   )
     return;
   const which = kind === "read" ? "LECTURE" : "ÉCRITURE";

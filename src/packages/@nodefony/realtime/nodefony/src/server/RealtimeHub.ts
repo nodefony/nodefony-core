@@ -3,6 +3,7 @@ import {
   IDENTITY_REFRESH_CLOSE_CODE,
   TOKEN_EXPIRED_CLOSE_CODE,
   JsonRpcPeer,
+  REALTIME_PRESENCE_METHOD,
   NODEFONY_CHANNEL_NAMESPACE,
   PLATFORM_BUS_CHANNELS,
   RevocationWatch,
@@ -20,9 +21,17 @@ import {
   containsBytes,
   type IFrameCodec,
   type IFrameCodecSet,
+  type IPresenceProbe,
   type RealtimeFrameData,
 } from "nodefony";
 import { RealtimeConnection } from "./RealtimeConnection";
+import {
+  ChannelPresence,
+  PRESENCE_WINDOW_MS,
+  presenceDefect,
+  presenceSettingsOf,
+  type IChannelPresenceView,
+} from "./channelPresence";
 import type { IRealtimeConnection } from "../../interfaces/IRealtimeConnection";
 import type {
   IChannelAdmission,
@@ -349,6 +358,12 @@ interface ChannelState {
    */
   members: Map<ChannelSink, RealtimeConnection> | null;
   /**
+   * Présence locale du canal (ADR-0025) — `null` pour un canal dont la
+   * politique ne déclare pas `presence` : aucune structure, aucun minuteur.
+   * Résolue avec `members`, au premier client.
+   */
+  presence: ChannelPresence | null;
+  /**
    * Fabrique de frame du canal, posée par le 1ᵉʳ abonné qui en fournit une.
    * `null` = canal sans mutualisation possible (sink historique) → chemin d'avant.
    */
@@ -381,6 +396,19 @@ export interface IChannelPolicyClaim {
  */
 const USER_CHANNEL_DISPOSE = (): void => {};
 
+/** Identité sous laquelle une connexion figure dans la présence : nommée ⇔ compte local (ADR-0025 P3). */
+function presenceKeyOf(member: RealtimeConnection): string | null {
+  return member.account ? member.userId : null;
+}
+
+/** Vue d'un canal à présence où personne n'est là — partagée, gelée. */
+const EMPTY_PRESENCE: IChannelPresenceView = Object.freeze({
+  count: 0,
+  unnamed: 0,
+  members: new Map(),
+  partial: false,
+});
+
 /**
  * RealtimeHub — broker temps réel **PAR INSTANCE** (1 pod = 1 process = 1 hub local).
  *
@@ -411,6 +439,16 @@ const USER_CHANNEL_DISPOSE = (): void => {};
 export class RealtimeHub {
   // Lazy : alloué au 1ᵉʳ subscribe (un process sans abonné n'alloue rien).
   #channels: Map<string, ChannelState> | null = null;
+
+  // Présence (ADR-0025) : canaux dont une fenêtre ou une grâce attend le tic
+  // UNIQUE — `null` tant qu'aucun canal à présence ne bouge.
+  #presenceActive: Set<ChannelState> | null = null;
+  #presenceTimer: ReturnType<typeof setTimeout> | null = null;
+  #presenceTimerAt = Number.POSITIVE_INFINITY;
+  // Sonde : listes servies (une par (re-)subscribe), trames de changements.
+  #presenceListTotal = 0;
+  #presenceFrameTotal = 0;
+  #presenceListBuiltTotal = 0;
 
   // Compteurs d'auto-observabilité (sonde socket). Primitives → 0 alloc, incrément
   // O(1) sur le chemin `publish` (pas de syscall/stringify). Cumuls MONOTONES → le
@@ -685,11 +723,20 @@ export class RealtimeHub {
       // Inscrit APRÈS l'abonnement réussi : un refus ne laisse aucune entrée.
       // `st` existe : `subscribe` vient de rendre `true` pour ce canal.
       const st = this.#channels?.get(channel);
-      if (st !== undefined)
-        (st.members ??= new Map<ChannelSink, RealtimeConnection>()).set(
-          sink,
-          member,
-        );
+      if (st !== undefined) {
+        if (st.members === null) {
+          st.members = new Map<ChannelSink, RealtimeConnection>();
+          // Premier client : la présence se résout ici, une fois par canal
+          // ouvert (chemin froid) — jamais par trame.
+          const settings = presenceSettingsOf(
+            this.resolveChannelPolicy(channel),
+          );
+          if (settings !== null)
+            st.presence = new ChannelPresence(channel, settings);
+        }
+        st.members.set(sink, member);
+        st.presence?.join(presenceKeyOf(member));
+      }
     }
     return true;
   }
@@ -746,6 +793,7 @@ export class RealtimeHub {
       owned: false,
       sinks: new Set([sink]),
       members: null,
+      presence: null,
       buildFrame: buildFrame ?? null,
       messages: 0,
       forward: this.#isBroadcast(channel),
@@ -787,6 +835,7 @@ export class RealtimeHub {
       owned: false,
       sinks: new Set([sink]),
       members: null,
+      presence: null,
       buildFrame: null,
       messages: 0,
       forward: this.#isBroadcast(channel),
@@ -834,6 +883,14 @@ export class RealtimeHub {
     const st = channels?.get(channel);
     if (!channels || !st) return;
     st.sinks.delete(sink);
+    const presence = st.presence;
+    if (presence !== null) {
+      const member = st.members?.get(sink);
+      if (member !== undefined) {
+        presence.leave(presenceKeyOf(member), performance.now());
+        this.#presenceTouch(st, presence);
+      }
+    }
     st.members?.delete(sink);
     if (st.sinks.size === 0) {
       try {
@@ -842,7 +899,149 @@ export class RealtimeHub {
         /* noop — un provider fautif ne bloque pas le nettoyage */
       }
       channels.delete(channel);
+      if (presence !== null) presence.live = false;
     }
+  }
+
+  /**
+   * Présence d'un canal vue de CE pod (ADR-0025 P3) — `count`, `unnamed`, `members` (toujours, quel que soit le seuil de la trame), `partial`.
+   *
+   * La voie de l'observateur qui lit sans figurer (modérateur, tableau de
+   * bord). Chemin froid : une copie à chaque appel.
+   *
+   * @param channel - nom exact du canal.
+   * @returns la vue (vide si personne n'est là), ou `null` si la politique du
+   *   canal ne déclare pas `presence`.
+   */
+  presence(channel: string): IChannelPresenceView | null {
+    const live = this.#channels?.get(channel)?.presence;
+    if (live != null) return live.view();
+    if (presenceSettingsOf(this.resolveChannelPolicy(channel)) === null)
+      return null;
+    return EMPTY_PRESENCE;
+  }
+
+  /**
+   * Un abonnement vient d'être acquitté : sur un canal à présence, la liste complète part vers CETTE connexion, puis les changements en attente partent si la fenêtre le permet.
+   *
+   * Appelé par le contrôleur APRÈS `realtime:subscribed`, à chaque (re-)`subscribe`
+   * — aucune borne : la contre-pression peut avoir jeté la liste d'avant sans
+   * le dire, et c'est le re-`subscribe` qui répare (ADR-0025 P2 bis). La liste
+   * est encodée une fois par envoi de changements et par codec, puis servie
+   * telle quelle.
+   *
+   * @param channel - nom exact du canal acquitté.
+   * @param connection - la connexion abonnée.
+   */
+  presenceSubscribed(channel: string, connection: RealtimeConnection): void {
+    const st = this.#channels?.get(channel);
+    const presence = st?.presence;
+    if (st === undefined || presence == null) return;
+    if (presence.listFrame === null) {
+      presence.listFrame = new ChannelFrame(
+        JsonRpcPeer.buildNotification(
+          REALTIME_PRESENCE_METHOD,
+          presence.listParams(),
+        ),
+      );
+      this.#presenceListBuiltTotal += 1;
+    }
+    this.#presenceListTotal += 1;
+    connection.deliver(presence.listFrame);
+    this.#presenceTouch(st, presence);
+  }
+
+  /**
+   * Un changement de présence vient d'avoir lieu : part tout de suite sur un canal calme (front montant), sinon au tic qui ferme la fenêtre.
+   */
+  #presenceTouch(st: ChannelState, presence: ChannelPresence): void {
+    if (!presence.dirty && presence.nextDeadline() === Infinity) return;
+    const now = performance.now();
+    if (presence.dirty && now >= presence.windowEnd)
+      this.#presenceFlush(st, presence, now);
+    (this.#presenceActive ??= new Set<ChannelState>()).add(st);
+    this.#armPresenceTick(now);
+  }
+
+  /** Envoie les changements en attente à tous les membres, et ouvre une fenêtre. */
+  #presenceFlush(
+    st: ChannelState,
+    presence: ChannelPresence,
+    now: number,
+  ): void {
+    const params = presence.takeChanges();
+    if (params === null) return;
+    presence.windowEnd = now + PRESENCE_WINDOW_MS;
+    const members = st.members;
+    if (members === null || members.size === 0) return;
+    const frame = new ChannelFrame(
+      JsonRpcPeer.buildNotification(REALTIME_PRESENCE_METHOD, params),
+    );
+    this.#presenceFrameTotal += 1;
+    for (const member of members.values()) {
+      try {
+        member.deliver(frame);
+      } catch {
+        /* une connexion fautive ne prive pas les autres */
+      }
+    }
+  }
+
+  /**
+   * Arme le minuteur UNIQUE de la présence à la prochaine échéance (fin de fenêtre, fin de grâce) — aucun minuteur par canal ni par présent.
+   */
+  #armPresenceTick(now: number): void {
+    const active = this.#presenceActive;
+    if (active === null) return;
+    let next = Number.POSITIVE_INFINITY;
+    for (const st of active) {
+      const presence = st.presence;
+      if (presence === null) continue;
+      if (presence.dirty || now < presence.windowEnd) {
+        if (presence.windowEnd < next) next = presence.windowEnd;
+      }
+      const deadline = presence.nextDeadline();
+      if (deadline < next) next = deadline;
+    }
+    if (next === Infinity) return;
+    if (this.#presenceTimer !== null && this.#presenceTimerAt <= next) return;
+    if (this.#presenceTimer !== null) clearTimeout(this.#presenceTimer);
+    this.#presenceTimerAt = next;
+    this.#presenceTimer = setTimeout(
+      () => this.#presenceTick(),
+      Math.max(0, Math.ceil(next - now)),
+    );
+    this.#presenceTimer.unref();
+  }
+
+  /** Tic unique : grâces écoulées, fenêtres échues ; se retire quand plus rien n'attend. */
+  #presenceTick(): void {
+    this.#presenceTimer = null;
+    this.#presenceTimerAt = Number.POSITIVE_INFINITY;
+    const active = this.#presenceActive;
+    if (active === null) return;
+    const now = performance.now();
+    for (const st of active) {
+      const presence = st.presence;
+      if (presence === null || !presence.live) {
+        active.delete(st);
+        continue;
+      }
+      presence.expire(now);
+      if (presence.dirty && now >= presence.windowEnd)
+        this.#presenceFlush(st, presence, now);
+      if (
+        !presence.dirty &&
+        now >= presence.windowEnd &&
+        presence.nextDeadline() === Infinity
+      )
+        active.delete(st);
+    }
+    if (active.size === 0) {
+      this.#presenceActive = null;
+      return;
+    }
+    this.#armPresenceTick(now);
   }
 
   /**
@@ -1499,6 +1698,21 @@ export class RealtimeHub {
         drops,
       },
       backplane,
+      presence: this.#presenceProbe(),
+    };
+  }
+
+  /** Compteurs de la présence (chemin froid : un parcours des canaux ouverts). */
+  #presenceProbe(): IPresenceProbe {
+    let channels = 0;
+    if (this.#channels !== null)
+      for (const st of this.#channels.values())
+        if (st.presence !== null) channels += 1;
+    return {
+      channels,
+      listTotal: this.#presenceListTotal,
+      listBuiltTotal: this.#presenceListBuiltTotal,
+      frameTotal: this.#presenceFrameTotal,
     };
   }
 
@@ -1817,6 +2031,47 @@ export class RealtimeHub {
     this.#declare(name, null, null, DEFAULT_ACTION_POLICY, undefined, true);
   }
 
+  /**
+   * Refuse une présence mal déclarée (ADR-0025 P3) : valeur illisible, posée sur une ÉCRITURE seule (rien ne s'y abonne), ou sur un canal réservé de la plateforme.
+   *
+   * Une seule porte pour les décorateurs et la voie programmatique. Une
+   * politique posée par `@RealtimePolicy` sert la lecture ET l'écriture sous le
+   * même objet : elle est admise, c'est la lecture qui la porte.
+   *
+   * @throws BootConfigurationError En nommant le canal et le défaut.
+   */
+  static #assertPresence(
+    name: string,
+    read: IChannelPolicy | null,
+    write: IChannelPolicy | null,
+  ): void {
+    const refuse = (why: string): never => {
+      throw new BootConfigurationError(
+        `canal temps réel « ${name} » : présence refusée — ${why}`,
+      );
+    };
+    for (const policy of [read, write]) {
+      const defect = presenceDefect(policy?.presence);
+      if (defect !== null) refuse(defect);
+    }
+    if (
+      write !== null &&
+      write !== read &&
+      presenceSettingsOf(write) !== null
+    ) {
+      refuse(
+        `« presence » est posée sur une politique d'ÉCRITURE (@RealtimeInbound, ` +
+          `@RealtimeAction), où rien ne s'abonne. La poser sur @RealtimeChannel.`,
+      );
+    }
+    if (presenceSettingsOf(read) !== null && isReservedSystemChannel(name)) {
+      refuse(
+        `un canal réservé de la plateforme (${RESERVED_SYSTEM_PREFIXES.join(" ")}) ` +
+          `ne publie pas sa présence.`,
+      );
+    }
+  }
+
   /** Construit la déclaration d'un nom (remplacée ou fusionnée), puis la valide et la publie. */
   #declare(
     name: string,
@@ -1854,6 +2109,7 @@ export class RealtimeHub {
       fallback ?? previous?.fallback ?? null,
       admission ?? previous?.instance,
     );
+    RealtimeHub.#assertPresence(name, declaration.read, declaration.write);
     if (!isPattern) {
       const exact = new Map<string, IPolicyDeclaration>(
         this.#policyDeclarations ?? [],
@@ -2260,6 +2516,13 @@ export class RealtimeHub {
 
   /** Dispose tous les providers et vide le hub (arrêt process / reset de test). */
   clear(): void {
+    if (this.#presenceTimer !== null) clearTimeout(this.#presenceTimer);
+    this.#presenceTimer = null;
+    this.#presenceTimerAt = Number.POSITIVE_INFINITY;
+    this.#presenceActive = null;
+    this.#presenceListTotal = 0;
+    this.#presenceFrameTotal = 0;
+    this.#presenceListBuiltTotal = 0;
     if (this.#channels) {
       for (const st of this.#channels.values()) {
         try {

@@ -332,6 +332,7 @@ export type {
   IBackplaneQueueInfo,
   IRealtimeChannelStat,
   IRealtimeProbe,
+  IPresenceProbe,
   IRealtimeHealth,
   IRealtimeClusterHealth,
   RealtimeHealthReport,

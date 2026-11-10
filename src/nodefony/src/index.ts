@@ -360,6 +360,7 @@ export type {
   IBackplaneQueueInfo,
   IRealtimeChannelStat,
   IRealtimeProbe,
+  IPresenceProbe,
   IRealtimeHealth,
   IRealtimeClusterHealth,
   RealtimeHealthReport,
@@ -370,7 +371,10 @@ export type {
   IPlatformRealtimeContract,
   PlatformServerToClient,
 } from "./realtime/platformContract";
-export { expectType } from "./realtime/RealtimeEventMap";
+export {
+  expectType,
+  REALTIME_PRESENCE_METHOD,
+} from "./realtime/RealtimeEventMap";
 export type {
   EventsMap,
   ActionsMap,
@@ -429,6 +433,7 @@ export type {
   ChannelAllow,
   IChannelPolicy,
   IChannelPolicies,
+  IChannelPresenceOptions,
 } from "./realtime/channelAdmission";
 export {
   USER_CHANNEL_PREFIX,

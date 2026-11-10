@@ -346,6 +346,29 @@ export interface IRealtimeProbe {
    * rétrocompat des consommateurs qui construisent un probe partiel.
    */
   backplane?: IBackplaneInfo;
+  /**
+   * Présence des canaux qui la déclarent (ADR-0025) — absente d'un hub qui ne
+   * la connaît pas. Facultatif : un producteur de sonde plus ancien reste valide.
+   */
+  presence?: IPresenceProbe;
+}
+
+/**
+ * Compteurs de la présence d'un pod (ADR-0025 § « Budgets ») — monotones, sauf `channels`.
+ */
+export interface IPresenceProbe {
+  /** Canaux à présence ouverts sur ce pod (au moins un client). */
+  channels: number;
+  /** Listes complètes SERVIES — une par (re-)`subscribe` sur un canal à présence. */
+  listTotal: number;
+  /**
+   * Listes complètes CONSTRUITES — au plus une par envoi de changements, chacune
+   * encodée une fois par codec puis servie telle quelle : `listTotal` qui
+   * monte sans elle, c'est la mutualisation qui tient.
+   */
+  listBuiltTotal: number;
+  /** Trames de changements (ou de nombres seuls) envoyées aux membres. */
+  frameTotal: number;
 }
 
 /** Snapshot enrichi de l'identité d'instance — santé per-instance d'un worker/pod. */
