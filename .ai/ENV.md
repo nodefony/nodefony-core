@@ -15,7 +15,7 @@
 | Infrastructure | 14 |
 | Interrupteur de coût | 8 |
 | Décor de banc | 41 |
-| Runtime produit | 88 |
+| Runtime produit | 90 |
 
 ## Décor de banc
 
@@ -164,7 +164,7 @@ déclarée n'a pas été exercée.
 | `NF_RUN_PERF` | micro-bancs de performance (seuils non déterministes) |
 | `NF_RUN_WS_RUPTURE` | sondes de rupture WebSocket (épuisent les ports) |
 
-## Runtime produit (88)
+## Runtime produit (90)
 
 Lues par le produit : leur vérité est le TSDoc de leur site de lecture, et
 c'est là qu'elle doit rester — la recopier ici en ferait une seconde vérité.
@@ -176,6 +176,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_ACCUEIL_PAQUET` | `scripts/release/accueil-gate.mjs:91` |
 | `NF_ACCUEIL_REGISTRY` | `scripts/release/accueil-gate.mjs:87` |
 | `NF_ACCUEIL_ROOT` | `scripts/release/accueil-gate.mjs:84` |
+| `NF_ADMIN_PASSWORD` | `src/packages/@nodefony/http/nodefony/tests/websockets/presence-e2e.test.ts:49` |
 | `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:950` |
 | `NF_BENCH_ROUTE` | `src/modules/test/index.ts:118` |
 | `NF_BIND_ALL` | `scripts/test/test-all.ts:805` |
@@ -257,6 +258,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_START` | `src/nodefony/src/kernel/Kernel.ts:565` |
 | `NF_TEST_ENV` | `src/packages/@nodefony/devkit/tests/integration/mcp-http.test.ts:67` |
 | `NF_TLS_CA_FILE` | `src/packages/@nodefony/http/nodefony/tests/unit/httpRegisterTrust.test.ts:62` |
+| `NF_USER_PASSWORD` | `src/packages/@nodefony/http/nodefony/tests/websockets/presence-e2e.test.ts:50` |
 | `NF_WORKER_SLOT` | `src/nodefony/src/service/cluster/ClusterManager.ts:84` |
 | `NF_WORKERS` | `src/nodefony/src/service/cluster/topology.ts:89` |
 | `NF_X` | `src/nodefony/src/tests/reservedEnv.test.ts:174` |

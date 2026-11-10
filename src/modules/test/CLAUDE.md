@@ -66,7 +66,7 @@ src/modules/test/
 
 | Route                       | Méthode   | Description                                                                                                                                                      |
 | --------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/live/realtime`        | WEBSOCKET | socket des quatre vitrines : canal libre `live:salon`, pont `api.request`                                                                                        |
+| `/api/live/realtime`        | WEBSOCKET | socket des quatre vitrines : canal libre `live:salon`, salles à présence `live:room:*` (fabrique `createRealtimeChannel`), pont `api.request`                    |
 | `/nodefony/test/api/syslog` | GET (SSE) | journal du serveur en direct, événements `log` (INFO et plus graves), reprise `Last-Event-ID`                                                                    |
 | `/api/live/codec`           | WEBSOCKET | banc du codec binaire (`LiveCodecController`) : actions OUVERTES `codec:echo`, `codec:fail` (`RpcError` à octets), `codec:publish` → canal `codec:tick` (octets) |
 

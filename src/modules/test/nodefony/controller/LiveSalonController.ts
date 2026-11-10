@@ -99,6 +99,28 @@ class LiveSalonController extends RealtimeController {
   }
 
   /**
+   * Les salles à **présence** (ADR-0025) : qui est là, nommé par son compte,
+   * compté sans nom s'il est anonyme. Le fournisseur ne produit rien — la
+   * présence est portée par le canal lui-même, être admis suffit. Un nom de
+   * salle par banc (`live:room:<aléa>`) : deux passes ne se voient pas.
+   *
+   * Banc : `http/tests/websockets/presence-e2e.test.ts` (client du navigateur
+   * contre ce serveur).
+   */
+  @RealtimeChannel("live:room:*", { presence: true })
+  room(): () => void {
+    return () => {};
+  }
+
+  /**
+   * La fabrique de la famille `live:room:*` : un motif décoré ne pose que la
+   * POLITIQUE (#700), la fabrique d'un canal concret se déclare ici.
+   */
+  override createRealtimeChannel(channel: string): (() => void) | null {
+    return channel.startsWith("live:room:") ? () => {} : null;
+  }
+
+  /**
    * Ce qu'une page envoie, et que TOUTES reçoivent (canal FULL-DUPLEX entrant).
    *
    * `params` vient du navigateur : il n'est pas fiable. On borne la longueur et
