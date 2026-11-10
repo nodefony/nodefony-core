@@ -24,6 +24,18 @@ Pour **TOUT** développement (nouvelle feature, refacto, hook, instrumentation, 
 
 ### Avant de coder
 
+- 🔴 **EXIGENCE PERMANENTE DE L'AUTEUR — à appliquer sans qu'il le redise : TOUT code produit
+  s'écrit le PLUS PERFORMANT possible, avec le TYPE NATIF le mieux adapté au travail.** Avant
+  chaque structure, se demander ce que le travail exige : clé texte et accès fréquent → `Map` ;
+  appartenance → `Set` ; compteurs ou mesures numériques indexés densément → typed array
+  (`Uint32Array`, `Float64Array`) ; octets → `Uint8Array` (jamais `Buffer` si on décode
+  ensuite) ; petit enregistrement fixe → classe à champs déclarés au constructeur (forme stable),
+  jamais un objet qui gagne des champs en route ; liste au fil → paires à plat plutôt qu'un objet
+  par élément ; entier → rester dans `Number.MAX_SAFE_INTEGER`, `BigInt` seulement si exigé.
+  Mettre à jour EN PLACE plutôt que reconstruire ; encoder une fois, jamais reconvertir
+  (`feedback_zero_reconversion_pattern`). **Un choix de structure sur un chemin chaud se MESURE
+  en A/B, petite charge comprise** — l'intuition s'est déjà trompée (+22 %). Le dire dans le
+  compte rendu : « type retenu — pourquoi — mesuré ou non ».
 - **Penser au coût par requête** : combien d'allocations, combien d'appels système (`performance.now()`, `Date.now()`, `randomUUID()`), combien de listeners attachés ?
 - **Pas de structure allouée "au cas où"** : préférer `null` + lazy init au premier usage (`if (this._x === null) this._x = []`) plutôt que `[]` ou `new Map()` par défaut.
 - **Pas de listener silencieux** : si tu attaches `response.on(...)` ou `ws.on(...)`, prévoir explicitement le `removeListener` (ou `once` + cleanup manuel quand le pair event est attendu).
