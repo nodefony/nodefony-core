@@ -344,9 +344,12 @@ export {
   PLATFORM_METHODS,
   PLATFORM_EVENTS,
   isPlatformBusChannel,
+  isPriorityBusChannel,
   isPlatformChannel,
   startsWithCI,
 } from "./realtime/platformChannels";
+export { classifyNumberedChange } from "./realtime/numberedChange";
+export type { NumberedChangeOutcome } from "./realtime/numberedChange";
 export type {
   PlatformChannel,
   PlatformInboundChannel,
@@ -408,6 +411,15 @@ export type {
   IRealtimeSubscribed,
   IRealtimeClosed,
   RealtimeClosedReason,
+  IPresenceEntry,
+  PresencePairs,
+  PresenceStates,
+  IRealtimePresenceHead,
+  IRealtimePresenceChanges,
+  IRealtimePresenceList,
+  IRealtimePresenceDelta,
+  IRealtimePresenceCount,
+  RealtimePresenceFrame,
 } from "./realtime/RealtimeEventMap";
 export type {
   ISubscriberIdentity,

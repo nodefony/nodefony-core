@@ -702,6 +702,136 @@ export interface IRealtimeClosed {
 }
 
 /**
+ * Ce que porte une identité présente sur un canal (ADR-0025 P4) — l'entrée de la VUE
+ * (`ReadonlyMap` du hook, `hub.presence()`). Sur le fil, entre pods comme vers le
+ * navigateur, elle voyage à plat ({@link PresencePairs}, {@link PresenceStates}).
+ *
+ * Le nombre d'onglets suffit tant qu'aucun état n'existe ; les états voyagent dans un
+ * champ FACULTATIF distinct, jamais par un changement de type de la valeur, qu'un lecteur
+ * plus ancien refuserait pendant un déploiement progressif. 10.0 livre la forme et AUCUN
+ * moyen de poser un état.
+ *
+ * @typeParam TState - état d'un onglet, fixé plus tard par le contrat de l'application.
+ */
+export interface IPresenceEntry<TState = unknown> {
+  /** Connexions (onglets) de cette identité sur le canal, tous pods confondus — entier ≥ 1. */
+  tabs: number;
+  /**
+   * États par onglet ; clé = référence d'onglet OPAQUE (elle ne dit rien de la topologie
+   * des pods), présente seulement avec un état (RFC 3863 §4.1.2, `id` de chaque tuple).
+   */
+  states?: Readonly<Record<string, TState>>;
+}
+
+/**
+ * En-tête commun des trames `realtime:presence` (ADR-0025 P2 bis) — champs figés.
+ */
+export interface IRealtimePresenceHead {
+  /** Nom EXACT du canal décrit (un canal cadencé `base:<ms>` en est un autre). */
+  channel: string;
+  /**
+   * Version de la vue, entière, propre au canal SUR le pod qui sert la connexion.
+   * +1 par trame de changements seulement ; une liste complète porte la version COURANTE.
+   */
+  version: number;
+  /** Identités NOMMÉES distinctes présentes (comptes seulement). */
+  count: number;
+  /** Connexions comptées sans être nommées (anonymes, appelants machine sans compte). */
+  unnamed: number;
+  /**
+   * Présent seulement à `true` : la vue est connue incomplète ou figée (liste locale avant
+   * la réponse des pairs, bus perdu, trou en cours sur un pod). Absent = complète.
+   */
+  partial?: true;
+}
+
+/**
+ * Identités et nombre d'onglets À PLAT : `[identité, onglets, identité, onglets, …]` —
+ * la forme sur le fil de {@link IPresenceEntry} (sans ses états).
+ *
+ * Choisie pour le coût, pas pour la lecture : aucun objet par membre à l'encodage ni au
+ * décodage (un tableau compact de primitives, là où `{ id: { tabs } }` alloue un objet
+ * par identité et un objet à clés dynamiques), -18 % d’octets en JSON et -13 % en CBOR à 1 000 membres (mesuré),
+ * et une identité n'y est jamais une CLÉ d'objet (`__proto__` sans objet). Le lecteur
+ * avance de deux en deux et garde chaque paire par `typeof` (gratuit, et exigé par
+ * `noUncheckedIndexedAccess`).
+ */
+export type PresencePairs = readonly (string | number)[];
+
+/**
+ * États par identité puis par onglet (référence opaque → état) — champ FACULTATIF voisin
+ * des paires, présent seulement pour les identités qui ont un état. Un lecteur qui ne le
+ * connaît pas l'ignore ; jamais posé en 10.0 (ADR-0025 P4).
+ */
+export type PresenceStates<TState = unknown> = Readonly<
+  Record<string, Readonly<Record<string, TState>>>
+>;
+
+/** Changements appliqués à la vue (trame {@link IRealtimePresenceDelta}). */
+export interface IRealtimePresenceChanges<TState = unknown> {
+  /** Identités arrivées ou modifiées, avec leur nombre d'onglets (remplace l'ancien). */
+  set?: PresencePairs;
+  /** États des identités de `set` qui en portent un. */
+  states?: PresenceStates<TState>;
+  /** Identités parties. Un pod perdu = UNE trame qui les nomme toutes. */
+  gone?: readonly string[];
+}
+
+/**
+ * Liste complète : REMPLACE la vue et RÉINITIALISE sa référence de version. Servie à
+ * chaque (re-)`subscribe`, et à tout moment quand elle pèse moins que les changements
+ * (RFC 5262 §4) — le client l'accepte sans l'avoir demandée.
+ */
+export interface IRealtimePresenceList<
+  TState = unknown,
+> extends IRealtimePresenceHead {
+  /** Tous les présents NOMMÉS, à plat (cf {@link PresencePairs}). */
+  members: PresencePairs;
+  /** États des présents qui en portent un. */
+  states?: PresenceStates<TState>;
+  changes?: never;
+}
+
+/**
+ * Changements numérotés : s'appliquent à la vue seulement si la règle
+ * `classifyNumberedChange(référence, version)` rend `applied` ; `gap` → le client réémet
+ * `subscribe`, `stale` → jetée.
+ */
+export interface IRealtimePresenceDelta<
+  TState = unknown,
+> extends IRealtimePresenceHead {
+  changes: IRealtimePresenceChanges<TState>;
+  members?: never;
+  states?: never;
+}
+
+/**
+ * Nombres seuls : au-delà du seuil de membres nommés (défaut 1 000 ; seuil 0 = jamais
+ * nommés), aucune identité ne voyage. Complète comme une liste — elle porte la version
+ * courante, remplace la vue (vide d'identités) et réinitialise la référence.
+ */
+export interface IRealtimePresenceCount extends IRealtimePresenceHead {
+  members?: never;
+  changes?: never;
+  states?: never;
+}
+
+/**
+ * Payload de la notification du protocole `realtime:presence` (ADR-0025 P2 bis) : qui
+ * est présent sur un canal à présence. Exactement une des trois formes — la discriminer
+ * par `changes !== undefined`, puis `members !== undefined`, sinon nombres seuls.
+ *
+ * Un client plus ancien l'ignore (méthode inconnue). Les identités voyagent en paires à
+ * plat ({@link PresencePairs}) ; le client les range dans une `Map`.
+ *
+ * @typeParam TState - état d'un onglet (cf {@link IPresenceEntry}).
+ */
+export type RealtimePresenceFrame<TState = unknown> =
+  | IRealtimePresenceList<TState>
+  | IRealtimePresenceDelta<TState>
+  | IRealtimePresenceCount;
+
+/**
  * Payload de la notification système `realtime:denied` — poussée par le serveur
  * quand une frame `subscribe`/inbound est REFUSÉE par le verrou d'autorisation
  * (P6). Rend le refus OBSERVABLE côté client (une notification, contrairement à

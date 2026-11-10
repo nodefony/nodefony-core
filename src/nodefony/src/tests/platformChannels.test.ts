@@ -7,6 +7,7 @@ import {
   PLATFORM_BUS_CHANNELS,
   PLATFORM_BUS_PREFIX,
   isPlatformBusChannel,
+  isPriorityBusChannel,
   isPlatformChannel,
   startsWithCI,
 } from "../realtime/platformChannels";
@@ -164,5 +165,48 @@ describe("Territoire du bus entre serveurs (ADR-0025, règle de lecture)", () =>
       false,
     );
     expect(isPlatformBusChannel("room:nodefony:bus:x")).toBe(false);
+  });
+
+  it("les canaux de présence ont les noms figés par l'ADR-0025 (contrat entre pods de versions différentes)", () => {
+    expect(PLATFORM_BUS_CHANNELS.presence).toBe("nodefony:bus:presence");
+    expect(PLATFORM_BUS_CHANNELS.presenceAlive).toBe(
+      "nodefony:bus:presence:alive",
+    );
+  });
+});
+
+describe("Voie hors quota de la file d'envoi (ADR-0025 P2)", () => {
+  it("l'ordre de contrôle et la preuve de vie passent hors quota — jetés, ils feraient garder un éjecté ou oublier un pod vivant", () => {
+    expect(isPriorityBusChannel(PLATFORM_BUS_CHANNELS.control)).toBe(true);
+    expect(isPriorityBusChannel(PLATFORM_BUS_CHANNELS.presenceAlive)).toBe(
+      true,
+    );
+  });
+
+  it("les lots de présence restent jetables : leur volume suit l'activité", () => {
+    expect(isPriorityBusChannel(PLATFORM_BUS_CHANNELS.presence)).toBe(false);
+  });
+
+  it("aucun autre canal du bus n'y gagne sa place — la liste est fermée", () => {
+    const priority = Object.values(PLATFORM_BUS_CHANNELS).filter(
+      isPriorityBusChannel,
+    );
+    expect(priority.sort()).toEqual(
+      [
+        PLATFORM_BUS_CHANNELS.control,
+        PLATFORM_BUS_CHANNELS.presenceAlive,
+      ].sort(),
+    );
+  });
+
+  it("nom EXACT : ni variante de casse, ni canal applicatif, ni préfixe du canal", () => {
+    expect(
+      isPriorityBusChannel(PLATFORM_BUS_CHANNELS.presenceAlive.toUpperCase()),
+    ).toBe(false);
+    expect(isPriorityBusChannel(`${PLATFORM_BUS_CHANNELS.control}:x`)).toBe(
+      false,
+    );
+    expect(isPriorityBusChannel("room:42")).toBe(false);
+    expect(isPriorityBusChannel(PLATFORM_CHANNELS.socket)).toBe(false);
   });
 });

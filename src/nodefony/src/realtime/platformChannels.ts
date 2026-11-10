@@ -107,6 +107,18 @@ export const PLATFORM_BUS_CHANNELS = {
    * terminer un canal, éjecter un compte d'un canal (ADR-0022 §6 décision 4).
    */
   control: "nodefony:bus:control",
+  /**
+   * Présence répartie (ADR-0025 P2) : lots de changements, demandes d'état et réponses.
+   * JETABLES par la file d'envoi saturée — leur volume suit l'activité, et une perte se
+   * répare (trou → demande d'état ciblée).
+   */
+  presence: "nodefony:bus:presence",
+  /**
+   * Preuve de vie de la présence (ADR-0025 P2) : quelques dizaines d'octets par intervalle,
+   * indépendants du nombre de canaux. HORS QUOTA de la file d'envoi
+   * ({@link isPriorityBusChannel}) — jetée, elle ferait oublier un pod vivant.
+   */
+  presenceAlive: "nodefony:bus:presence:alive",
 } as const;
 
 /**
@@ -132,6 +144,28 @@ export const PLATFORM_BUS_PREFIX = "nodefony:bus:";
  */
 export function isPlatformBusChannel(channel: string): boolean {
   return channel.startsWith(PLATFORM_BUS_PREFIX);
+}
+
+/**
+ * Le canal du bus passe-t-il HORS QUOTA de la file d'envoi (jamais jeté quand elle sature) ?
+ *
+ * Seule source de la règle, lue par la file et par tout driver qui en tient une
+ * (ADR-0025 P2) : l'ordre de contrôle (il ENLÈVE — éjection, fin de canal) et la preuve
+ * de vie de la présence (jetée, elle ferait oublier un pod vivant). Tout le reste est
+ * jetable, lots de présence compris. « Hors quota » veut dire jamais jeté, pas livré à
+ * temps : un bus bloqué se constate par l'écho.
+ *
+ * Nom EXACT, sensible à la casse : un pair légitime émet toujours la forme exacte, et
+ * une variante n'a pas à gagner la voie prioritaire. Deux comparaisons de chaîne, sans
+ * allocation — l'appelant ne la consulte que file saturée.
+ *
+ * @param channel - canal d'une publication vers le bus.
+ */
+export function isPriorityBusChannel(channel: string): boolean {
+  return (
+    channel === PLATFORM_BUS_CHANNELS.control ||
+    channel === PLATFORM_BUS_CHANNELS.presenceAlive
+  );
 }
 
 /** Nom d'un canal montant de plateforme (valeur de {@link PLATFORM_INBOUND}). */

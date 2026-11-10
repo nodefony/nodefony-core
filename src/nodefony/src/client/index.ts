@@ -302,6 +302,21 @@ export {
   PLATFORM_EVENTS,
   isPlatformChannel,
 } from "../realtime/platformChannels";
+// Présence d'un canal (ADR-0025) : la règle pure applied/gap/stale que la vue cliente
+// partage avec la vue distante d'un pod, et la forme de la trame `realtime:presence`.
+export { classifyNumberedChange } from "../realtime/numberedChange";
+export type { NumberedChangeOutcome } from "../realtime/numberedChange";
+export type {
+  IPresenceEntry,
+  PresencePairs,
+  PresenceStates,
+  IRealtimePresenceHead,
+  IRealtimePresenceChanges,
+  IRealtimePresenceList,
+  IRealtimePresenceDelta,
+  IRealtimePresenceCount,
+  RealtimePresenceFrame,
+} from "../realtime/RealtimeEventMap";
 export type {
   PlatformChannel,
   PlatformInboundChannel,

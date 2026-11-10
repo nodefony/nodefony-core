@@ -185,7 +185,7 @@ canaux, de membres ou d'abonnés.**
 - **Ce qu'un pod garde** : la vue distante des seuls canaux qu'il sert ; un message pour un
   canal non servi est lu puis jeté sans stockage. La vue se range par pod puis par canal :
   oublier un pod libère une table. **Forme du lot entre pods** : par identité, le NOMBRE
-  d'onglets (entier) ; les états voyageront dans un champ FACULTATIF distinct (`states`, clé =
+  d'onglets (entier), en paires à plat comme vers le navigateur (P2 bis, « Sur le fil ») ; les états voyageront dans un champ FACULTATIF distinct (`states`, clé =
   référence d'onglet opaque, qui ne dit rien de la topologie), qu'un lecteur 10.0 ignore — jamais par un changement de type de la valeur, qu'un lecteur à liste
   fermée refuserait pendant tout déploiement progressif. Les présents locaux ne coûtent rien de
   plus (dérivés des membres du hub). Le premier abonné local d'un canal déclenche une demande
@@ -249,7 +249,16 @@ canaux, de membres ou d'abonnés.**
   (`set` : identité → `{ tabs }`, `gone` : identités parties — qui s'applique à la vue). Au-delà
   d'un seuil de membres nommés (défaut 1 000, réglable), la trame ne porte que `count` et
   `unnamed` ; **seuil à 0** = présents comptés, jamais nommés (le salon semi-anonyme de
-  XEP-0045 §4.2).
+  XEP-0045 §4.2). Cette trame de nombres seuls est complète comme une liste : elle porte la
+  version courante et réinitialise la référence.
+- **Sur le fil, à plat** (`src/nodefony/src/realtime/RealtimeEventMap.ts#PresencePairs`) :
+  `members` et `changes.set` sont des paires `[identité, onglets, identité, onglets, …]`, les
+  états dans un champ voisin facultatif `states` (identité → référence d'onglet → état). La
+  correspondance identité → `{ tabs, states? }` est celle de la VUE (hook, `hub.presence()`),
+  pas du fil. Pourquoi : aucun objet par membre à l'encodage ni au décodage, un tableau compact
+  de primitives au lieu d'un objet à clés dynamiques, -18 % d’octets en JSON et -13 % en CBOR à 1 000 membres
+  (mesuré, identifiants de 36 caractères ; budget S-rt-87), et une identité n'est jamais une clé d'objet. Même forme dans le lot entre
+  pods.
 - **`version` : +1 par trame `changes`, jamais par une `members`**, qui porte la version
   COURANTE. Servie à un nouvel abonné, une liste qui prendrait un numéro ferait voir un trou à
   tous les autres abonnés, qui se resynchroniseraient ensemble à chaque arrivée. (RFC 5263 §4.4
