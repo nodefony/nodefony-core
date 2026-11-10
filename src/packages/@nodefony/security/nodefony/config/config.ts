@@ -1484,7 +1484,7 @@ const realtimeChannelRuleSchema = z
     pattern: z
       .string()
       .describe(
-        "Préfixe de canal (match `startsWith`) : ex. 'orm:' couvre nodefony:orm:health/nodefony:orm:flow. Placé AVANT les défauts système → permet de surcharger (assouplir/durcir) un namespace réservé.",
+        "Préfixe de canal (match `startsWith`) : ex. 'nodefony:orm:' couvre nodefony:orm:health/nodefony:orm:flow, 'net:' couvre net:health. Placé AVANT les défauts système → permet de surcharger un namespace réservé (le durcir, le re-cibler sur un autre rôle — jamais l'ouvrir à l'anonyme) ou d'ouvrir à l'application un canal à suffixe :health/:stats.",
       ),
     authenticated: z
       .boolean()
@@ -1530,7 +1530,7 @@ export const securityConfigSchema = z.strictObject({
     .array(realtimeChannelRuleSchema)
     .default([])
     .describe(
-      "Politiques d'autorisation par préfixe sur le temps réel. Couvre les canaux WS (subscribe/inbound) **ET les actions RPC** : le nom de méthode d'une frame entrante est soumis aux mêmes règles de préfixe — une règle `admin:` garde donc aussi l'action `admin:purge`. Étend/surcharge les défauts système (syslog:/orm:/node:/dashboard:/debugbar:/realtime:/cluster: + :health/:stats = ROLE_NODEFONY_ADMIN, l'échelle PLATEFORME : ces canaux exposent l'état du processus, pas celui d'une application). Ce qui n'est couvert par aucune règle reste libre, sauf gating `@RealtimeChannel` côté controller.",
+      "Politiques d'autorisation par préfixe sur le temps réel. Couvre les canaux WS (subscribe/inbound) **ET les actions RPC** : le nom de méthode d'une frame entrante est soumis aux mêmes règles de préfixe — une règle `admin:` garde donc aussi l'action `admin:purge`. Étend/surcharge les défauts système (espace nodefony: + suffixes :health/:stats dans TOUT espace de noms = ROLE_NODEFONY_ADMIN, l'échelle PLATEFORME : ces canaux exposent l'état du processus, pas celui d'une application). Ce qui n'est couvert par aucune règle reste libre, sauf gating `@RealtimeChannel` côté controller.",
     ),
   // Section omise → défauts internes appliqués (parse d'un objet vide).
   cors: corsSchema.default(() => corsSchema.parse({})),

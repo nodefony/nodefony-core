@@ -1035,3 +1035,75 @@ describe("buildFrameAuthorizer — conventions :health / :stats, même verdict q
     }
   });
 });
+
+describe("buildFrameAuthorizer — refus d'une convention :health / :stats expliqué (#742)", () => {
+  const firewall: IFrameAuthorizerFirewall = {
+    matchPath: () => null,
+    hasRole: (roles, r) => roles.includes(r),
+  };
+  const sub = (channel: string) => ({
+    method: "subscribe",
+    params: { channel },
+  });
+  const authorize = buildFrameAuthorizer(firewall, {
+    systemRules: DEFAULT_SYSTEM_RULES,
+  });
+  const explain = (frame: unknown, token: IRealtimeToken): string | null => {
+    assert.ok(authorize.explain, "le verrou expose `explain`");
+    return authorize.explain(frame, token);
+  };
+
+  it("nomme le suffixe, le rôle exigé et la règle qui surcharge", () => {
+    assert.equal(authorize(sub("net:health"), AUTH_TOKEN), false);
+    const said = explain(sub("net:health"), AUTH_TOKEN);
+    assert.ok(said !== null);
+    assert.match(said, /« net:health »/);
+    assert.match(said, /« :health »/);
+    assert.match(said, /ROLE_NODEFONY_ADMIN/);
+    assert.match(said, /realtimeChannels/);
+    assert.match(said, /pattern: "net:"/);
+  });
+
+  it("canal entrant et casse altérée : le suffixe trouvé est nommé en minuscules", () => {
+    const said = explain({ method: "Net:STATS:5000" }, ANON_TOKEN);
+    assert.ok(said !== null);
+    assert.match(said, /« :stats »/);
+    assert.match(said, /pattern: "Net:"/);
+  });
+
+  it("se tait quand le refus a une autre cause, ou qu'il n'y a pas de refus", () => {
+    // Espace de plateforme : jugé par sa règle de préfixe, pas par la convention.
+    assert.equal(explain(sub("nodefony:orm:health"), AUTH_TOKEN), null);
+    // Admis : rien à expliquer.
+    assert.equal(explain(sub("net:health"), ADMIN_TOKEN), null);
+    // Aucune convention dans le nom.
+    assert.equal(explain(sub("net:boxes"), AUTH_TOKEN), null);
+    // Le pont socket relève de la zone, pas d'un canal.
+    assert.equal(
+      explain(
+        { method: "api.request", params: { path: "/x:health" } },
+        ANON_TOKEN,
+      ),
+      null,
+    );
+    // Trame illisible.
+    assert.equal(explain(null, AUTH_TOKEN), null);
+    assert.equal(
+      explain({ method: "subscribe", params: {} }, AUTH_TOKEN),
+      null,
+    );
+  });
+
+  it("la surcharge annoncée fonctionne : une règle de préfixe ouvre le canal, plus rien à expliquer", () => {
+    const opened = buildFrameAuthorizer(firewall, {
+      systemRules: [
+        { prefix: "net:", policy: { authenticated: true } },
+        ...DEFAULT_SYSTEM_RULES,
+      ],
+    });
+    assert.equal(opened(sub("net:health"), AUTH_TOKEN), true);
+    assert.equal(opened.explain?.(sub("net:health"), AUTH_TOKEN), null);
+    // La surcharge ne descend pas sous `authenticated`.
+    assert.equal(opened(sub("net:health"), ANON_TOKEN), false);
+  });
+});

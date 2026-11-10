@@ -601,3 +601,87 @@ describe("#622 lot 4 — ce qui fait oublier les verdicts retenus", () => {
     track.mockRestore();
   });
 });
+
+describe("#742 — le verrou qui sait dire pourquoi : au journal toujours, au client hors production", () => {
+  const WHY =
+    "« net:health » porte le suffixe « :health » réservé à la plateforme";
+  // Verrou qui refuse `net:health` et sait expliquer ce refus — la forme que
+  // pose @nodefony/security (`explain`, lu après un refus seulement).
+  const explaining = (
+    explain: NonNullable<FrameAuthorizer["explain"]>,
+  ): FrameAuthorizer =>
+    Object.assign(
+      (frame: unknown) =>
+        (frame as { params?: { channel?: string } }).params?.channel !==
+        "net:health",
+      { explain },
+    );
+  const spyLog = (rt: GateRt): string[] => {
+    const lines: string[] = [];
+    Object.defineProperty(rt, "log", {
+      value: (message: unknown) => {
+        lines.push(String(message));
+      },
+    });
+    return lines;
+  };
+
+  beforeEach(() => {
+    getRealtimeHub().clear();
+    GateRt.extraInbound = [];
+  });
+
+  it("hors production : le détail rendu au client EST l'explication du verrou, et le journal la porte", async () => {
+    getRealtimeHub().setFrameAuthorizer(explaining(() => WHY));
+    const { rt, sent } = await connect("development");
+    const logs = spyLog(rt);
+    rt.subscribe("net:health");
+    const [denied] = denials(sent);
+    assert.equal(denied?.channel, "net:health");
+    assert.equal(denied?.reason, "forbidden");
+    assert.equal(denied?.detail, WHY);
+    assert.ok(
+      logs.some((line) => line.includes(WHY)),
+      logs.join("\n"),
+    );
+  });
+
+  it("en production : le client n'apprend que le motif, le journal du serveur garde l'explication", async () => {
+    getRealtimeHub().setFrameAuthorizer(explaining(() => WHY));
+    const { rt, sent } = await connect("production");
+    const logs = spyLog(rt);
+    rt.subscribe("net:health");
+    const [denied] = denials(sent);
+    assert.equal(denied?.reason, "forbidden");
+    assert.equal(denied?.detail, undefined);
+    assert.ok(
+      logs.some((line) => line.includes(WHY)),
+      logs.join("\n"),
+    );
+  });
+
+  it("une explication qui lève ou se tait laisse le détail générique — le refus, lui, tient", async () => {
+    for (const explain of [
+      () => {
+        throw new Error("boum");
+      },
+      () => null,
+    ]) {
+      getRealtimeHub().clear();
+      getRealtimeHub().setFrameAuthorizer(explaining(explain));
+      const { rt, sent } = await connect("development");
+      // `identityHint` lit les modules du kernel : un module de sécurité chargé
+      // le fait taire, il ne reste que le détail générique.
+      Object.defineProperty(rt, "kernel", {
+        value: {
+          environment: "development",
+          modules: { security: {} },
+        },
+      });
+      rt.subscribe("net:health");
+      const [denied] = denials(sent);
+      assert.equal(denied?.reason, "forbidden");
+      assert.match(String(denied?.detail), /le verrou de frame a refusé/);
+    }
+  });
+});

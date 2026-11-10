@@ -843,7 +843,7 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
     `user:`) — un motif attrape-tout (`*`) ne la retire plus (attaque K1, antérieure à #758).
   - **Coût** : la vue fusionnée de chaque nom exact est recalculée à chaque inscription (à
     froid) ; une trame sur un nom exact reste UNE lecture de `Map`. Le plancher système balaye les
-    conventions `:health`/`:stats` de `:` en `:` (`frameAuthorizer.ts#hasReservedConvention`)
+    conventions `:health`/`:stats` de `:` en `:` (`frameAuthorizer.ts#reservedConventionAt`)
     au lieu de chaque position : verrou seul −42 % sur un canal libre, −32 % sur un canal à rôles
     (`micro-frame-authorizer.mjs`, médiane de 15, code d'avant #758 en référence).
   - **`allow` n'admet plus d'office l'écriture** : la première trame entrante d'un canal à `allow`

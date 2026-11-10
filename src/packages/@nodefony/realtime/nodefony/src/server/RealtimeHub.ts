@@ -96,11 +96,19 @@ export type OriginGuard = (origin: string | undefined) => boolean;
  * lecture (ADR-0022 §6, décision 1 quater). Un verrou qui ne le déclare pas ne
  * lirait que la lecture, et laisserait ouverte une écriture plus stricte : le
  * hub refuse alors de démarrer dès qu'une telle écriture est déclarée.
+ *
+ * `explain` : la phrase qui dit POURQUOI une trame a été refusée, quand le
+ * verrou sait la rédiger (`null` sinon). Lu après un refus seulement
+ * ({@link RealtimeHub.explainDenial}) — jamais sur le trajet d'une trame
+ * acceptée. Elle va au journal du serveur, et au client hors production.
  */
 export type FrameAuthorizer = ((
   frame: unknown,
   token: IRealtimeToken,
-) => boolean) & { readonly judgesWrite?: true };
+) => boolean) & {
+  readonly judgesWrite?: true;
+  readonly explain?: (frame: unknown, token: IRealtimeToken) => string | null;
+};
 
 interface RegisteredAuthenticator {
   readonly matcher: ICompiledRealtimeMatcher;
@@ -2047,16 +2055,6 @@ export class RealtimeHub {
   }
 
   /**
-   * Pont hot-path entre `JsonRpcPeer.beforeDispatch` et le verrou métier : lit
-   * le token déjà caché du peer (O(1), 0 lecture base) puis délègue à
-   * l'authorizer. `true` (autorisée) si aucun verrou posé (bypass 0-coût) —
-   * mais en pratique `beforeDispatch` n'est branché que si `hasFrameAuthorizer()`.
-   *
-   * @param frame - frame JSON-RPC entrante (brute) à autoriser.
-   * @param peer  - peer émetteur (clé du mapping `peer → token`).
-   * @returns `true` si la frame peut être dispatchée, `false` si refusée.
-   */
-  /**
    * Ouvre (ou referme) la réception des journaux du navigateur, avec ses bornes.
    *
    * @param limits - bornes de débit et de taille, ou `null` pour refermer le canal.
@@ -2070,6 +2068,39 @@ export class RealtimeHub {
     return this.#clientLogs;
   }
 
+  /**
+   * La raison d'un refus du verrou, quand il sait la dire — `null` sinon, ou si l'explication lève.
+   *
+   * Chemin FROID : appelé après un refus, jamais par trame acceptée. Le
+   * verdict, lui, est déjà rendu : une explication fautive ne change rien à la
+   * décision, elle se tait.
+   *
+   * @param frame - la trame refusée.
+   * @param peer - la connexion qui l'a émise.
+   * @returns la phrase, ou `null`.
+   */
+  explainDenial(frame: unknown, peer: JsonRpcPeer): string | null {
+    const explain = this.#frameAuthorizer?.explain;
+    if (explain === undefined) return null;
+    try {
+      const said: unknown = explain(frame, this.getTokenForPeer(peer));
+      return typeof said === "string" && said.length > 0 ? said : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Pont hot-path entre `JsonRpcPeer.beforeDispatch` et le verrou métier : lit
+   * le token déjà caché du peer (O(1), 0 lecture base) puis délègue à
+   * l'authorizer. `true` (autorisée) si aucun verrou posé : `beforeDispatch`
+   * est armé sur TOUTE connexion, et c'est ici que le bypass se paie — un
+   * appel et une comparaison de champ.
+   *
+   * @param frame - frame JSON-RPC entrante (brute) à autoriser.
+   * @param peer  - peer émetteur (clé du mapping `peer → token`).
+   * @returns `true` si la frame peut être dispatchée, `false` si refusée.
+   */
   runAuthorizer(frame: unknown, peer: JsonRpcPeer): boolean {
     const authorizer = this.#frameAuthorizer;
     if (authorizer === null) return true;

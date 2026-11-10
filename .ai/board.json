@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-10T00:04:21.564Z",
+  "generatedAt": "2026-11-10T00:53:04.426Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -6494,7 +6494,10 @@
       "ordre": 7.06,
       "debut": "2026-11-17",
       "cible": "2026-11-17",
-      "labels": []
+      "labels": [
+        "good first issue",
+        "help wanted"
+      ]
     },
     {
       "number": 621,
@@ -10204,7 +10207,9 @@
       "ordre": 173,
       "debut": null,
       "cible": null,
-      "labels": []
+      "labels": [
+        "good first issue"
+      ]
     },
     {
       "number": 494,
@@ -10321,6 +10326,7 @@
       "debut": null,
       "cible": null,
       "labels": [
+        "good first issue",
         "backlog"
       ]
     },

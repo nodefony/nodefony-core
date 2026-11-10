@@ -106,11 +106,17 @@ export interface IRealtimeAuthenticatorMatcher {
  * `judgesWrite` : le verrou juge l'écriture distincte d'un canal (ADR-0022 §6,
  * décision 1 quater) ; un hub refuse de démarrer face à un verrou qui ne le
  * déclare pas dès qu'une telle écriture est inscrite.
+ *
+ * `explain` : la phrase qui dit pourquoi une trame a été refusée, ou `null` —
+ * lue par le hub après un refus seulement (chemin froid).
  */
 export type FrameAuthorizer = ((
   frame: unknown,
   token: IRealtimeToken,
-) => boolean) & { readonly judgesWrite?: true };
+) => boolean) & {
+  readonly judgesWrite?: true;
+  readonly explain?: (frame: unknown, token: IRealtimeToken) => string | null;
+};
 
 /**
  * Politique d'autorisation d'un canal — déclaration UNIQUE au cœur (`nodefony`), que le

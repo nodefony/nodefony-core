@@ -231,7 +231,7 @@ function wordAtCI(s: string, at: number, word: string): boolean {
 }
 
 /**
- * Le nom porte-t-il une convention transverse `:health` ou `:stats`, insensible à la casse et sans allocation ? Après le namespace de module (`mymod:health`), éventuellement suffixée d'une cadence (`nodefony:orm:health:5000`).
+ * Convention transverse `:health` ou `:stats` portée par le nom, insensible à la casse et sans allocation — le suffixe trouvé (en minuscules), ou `null`. Après le namespace de module (`mymod:health`), éventuellement suffixée d'une cadence (`nodefony:orm:health:5000`).
  *
  * Exécuté à CHAQUE trame jugée — une action RPC n'est jamais retenue. Les deux
  * motifs commencent par `:`, qui n'a pas de casse : on saute de `:` en `:` par
@@ -239,40 +239,115 @@ function wordAtCI(s: string, at: number, word: string): boolean {
  * passe. Le balayage naïf (chaque position, deux passes, casse abaissée à
  * chaque caractère) pesait plus que tout le reste du verrou sur un canal libre
  * (micro-frame-authorizer, verrou seul : 125 → 55 ns). Même verdict, prouvé
- * contre le balayage naïf par `realtimeFrameLock.test.ts`.
+ * contre le balayage naïf par `realtimeFrameLock.test.ts`. Les retours sont des
+ * littéraux : rien n'est alloué, et le refus expliqué
+ * ({@link explainReservedSuffix}) nomme le suffixe par la MÊME fonction.
  */
-function hasReservedConvention(s: string): boolean {
+function reservedConventionAt(s: string): ":health" | ":stats" | null {
   let i = s.indexOf(":");
   while (i !== -1) {
-    if (wordAtCI(s, i + 1, "health") || wordAtCI(s, i + 1, "stats")) {
-      return true;
-    }
+    if (wordAtCI(s, i + 1, "health")) return ":health";
+    if (wordAtCI(s, i + 1, "stats")) return ":stats";
     i = s.indexOf(":", i + 1);
   }
-  return false;
+  return null;
+}
+
+/**
+ * Première règle système dont le préfixe couvre le canal, ou `null`. Premier
+ * préfixe qui matche gagne (la config est placée AVANT les défauts par le
+ * firewall → elle peut surcharger). Match INSENSIBLE À LA CASSE (cf
+ * {@link startsWithCI}) : le plancher ne se contourne pas en altérant la casse
+ * du namespace.
+ */
+function matchSystemRule(
+  channel: string,
+  rules: readonly ISystemChannelRule[],
+): ISystemChannelRule | null {
+  for (const rule of rules) {
+    if (startsWithCI(channel, rule.prefix)) return rule;
+  }
+  return null;
 }
 
 /**
  * Politique système applicable à un canal, ou `null` si le canal n'est pas
- * réservé. Premier préfixe qui matche gagne (la config est placée AVANT les
- * défauts par le firewall → elle peut surcharger). Les conventions transverses
- * `:health`/`:stats` retombent sur la politique système par défaut. Le match est
- * INSENSIBLE À LA CASSE (cf {@link startsWithCI}) : le plancher ne se contourne
- * pas en altérant la casse du namespace.
+ * réservé. Une règle de préfixe ({@link matchSystemRule}) passe avant tout ; à
+ * défaut, les conventions transverses `:health`/`:stats` retombent sur la
+ * politique système par défaut.
  */
 function matchSystemPolicy(
   channel: string,
   rules: readonly ISystemChannelRule[],
 ): IChannelPolicy | null {
-  for (const rule of rules) {
-    if (startsWithCI(channel, rule.prefix)) {
-      return floorReserved(channel, rule.policy);
-    }
+  const rule = matchSystemRule(channel, rules);
+  if (rule !== null) return floorReserved(channel, rule.policy);
+  return reservedConventionAt(channel) !== null ? SYSTEM_CHANNEL_POLICY : null;
+}
+
+/**
+ * Explique un refus dû à la convention transverse `:health` / `:stats` — la phrase qui nomme le suffixe réservé, le rôle exigé et la surcharge, ou `null` si le refus a une autre cause.
+ *
+ * Le cas mérite sa phrase parce qu'il SURPREND : le hub ne réserve que l'espace
+ * `nodefony:`, et une application qui nomme son canal `net:health` se le voit
+ * refuser sans avoir rien déclaré — elle finissait par le renommer à l'aveugle.
+ * Les autres refus (namespace de plateforme, politique déclarée) gardent le
+ * détail générique du hub : la règle y est écrite par l'application ou nommée
+ * par l'espace lui-même.
+ *
+ * Chemin FROID : appelé seulement après un refus. Ce n'est pas un oracle de
+ * plus — la convention est un défaut public du framework, pas une politique de
+ * l'application —, et le hub ne la laisse de toute façon partir au client
+ * qu'hors production (`deniedDetail`).
+ *
+ * @param channel - canal refusé.
+ * @param token - jeton de la connexion.
+ * @param firewall - checker de rôle (hiérarchie comprise).
+ * @param rules - règles système effectives (config puis défauts).
+ * @returns la phrase, ou `null`.
+ */
+function explainReservedSuffix(
+  channel: string,
+  token: IRealtimeToken,
+  firewall: IFrameAuthorizerFirewall,
+  rules: readonly ISystemChannelRule[],
+): string | null {
+  // Une règle de préfixe a jugé : la convention n'y est pour rien.
+  if (matchSystemRule(channel, rules) !== null) return null;
+  const suffix = reservedConventionAt(channel);
+  if (suffix === null) return null;
+  if (satisfies(SYSTEM_CHANNEL_POLICY, token, firewall)) return null;
+  const colon = channel.indexOf(":");
+  const prefix = colon > 0 ? channel.slice(0, colon + 1) : channel;
+  const roles = SYSTEM_CHANNEL_POLICY.roles ?? [];
+  return (
+    `« ${channel} » porte le suffixe « ${suffix} », que les politiques par ` +
+    `défaut de la sécurité réservent à la plateforme dans TOUT espace de noms ` +
+    `(${roles.join(" ou ")} exigé). Pour l'ouvrir à l'application, déclare une ` +
+    `règle de préfixe dans \`realtimeChannels\` de la configuration de sécurité — ` +
+    `par exemple \`{ pattern: "${prefix}", authenticated: true }\` : placée avant ` +
+    `les défauts, elle gagne`
+  );
+}
+
+/**
+ * Canal visé par une trame — celui d'un `subscribe`, ou le nom d'un canal
+ * entrant — ; `null` pour un `api.request` ou une trame sans nom lisible.
+ */
+function frameChannel(frame: unknown): string | null {
+  if (typeof frame !== "object" || frame === null || !("method" in frame)) {
+    return null;
   }
-  if (hasReservedConvention(channel)) {
-    return SYSTEM_CHANNEL_POLICY;
+  const method = frame.method;
+  if (method === "subscribe") {
+    const params = "params" in frame ? frame.params : undefined;
+    const channel =
+      typeof params === "object" && params !== null && "channel" in params
+        ? params.channel
+        : undefined;
+    return typeof channel === "string" ? channel : null;
   }
-  return null;
+  return typeof method === "string" && method !== "api.request" ? method : null;
 }
 
 /**
@@ -502,9 +577,17 @@ export function buildFrameAuthorizer(
     }
     return true;
   };
+  // Lu par le hub APRÈS un refus seulement (chemin froid) : la trame acceptée
+  // n'en paie rien.
+  const explain = (frame: unknown, token: IRealtimeToken): string | null => {
+    const channel = frameChannel(frame);
+    return channel === null
+      ? null
+      : explainReservedSuffix(channel, token, firewall, systemRules);
+  };
   // Le hub refuse un verrou qui ne juge pas l'écriture face à une écriture
   // distincte déclarée : celui-ci la juge. Posé une fois, à la construction.
-  return Object.assign(authorizer, { judgesWrite: true as const });
+  return Object.assign(authorizer, { judgesWrite: true as const, explain });
 }
 
 export default buildFrameAuthorizer;

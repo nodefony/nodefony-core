@@ -474,6 +474,22 @@ peut **resserrer**, jamais desserrer.
 Le journal d'audit est un **canal précis**, pas un namespace : sa règle est posée devant celle du
 territoire (premier match gagnant), et elle n'existe que si le hub réserve bien ce territoire.
 
+**Les suffixes `:health` et `:stats` sont réservés dans TOUT espace de noms**, pas seulement sous
+`nodefony:`. C'est la convention transverse des canaux de santé et de mesures : `net:health` est
+donc refusé à quiconque ne porte pas `ROLE_NODEFONY_ADMIN`, même si l'application ne déclare rien
+sur ce canal. Le hub, lui, ne réserve que `nodefony:` — d'où la surprise. Le refus le dit : sa
+phrase nomme le suffixe, le rôle exigé et la règle qui le surcharge (`frameAuthorizer.ts#explainReservedSuffix`).
+Pour ouvrir un tel canal à l'application, déclarer une **règle de préfixe** — placée avant les
+défauts, elle gagne et la convention n'est plus consultée :
+
+```ts
+use("@nodefony/security", {
+  realtimeChannels: [{ pattern: "net:", authenticated: true }],
+});
+```
+
+La règle ne descend pas sous ce qu'elle déclare : ici, `net:health` reste fermé à l'anonyme.
+
 Trois durcissements méritent d'être connus :
 
 - **Match insensible à la casse, sans allocation** — `startsWithCI()` (`frameAuthorizer.ts#buildSystemRules`).
@@ -843,7 +859,10 @@ Le refus doit être observable sans devenir un oracle. Nodefony tranche ainsi :
 | Canal sans aucun producteur         | `realtime:denied { channel, reason: "unknown" }`                                                            |
 
 Le message est **générique** dans les trois cas : jamais « il te manque `ROLE_ADMIN` », jamais le nom
-de la zone. Sans `realtime:denied`, une notification refusée serait droppée en silence (elle n'a pas
+de la zone. Hors production seulement, un champ `detail` ajoute la phrase qui aide le développeur
+(`deniedDetail.ts#deniedDetail`) ; quand le verrou sait dire pourquoi il a refusé — un suffixe
+`:health`/`:stats` réservé à la plateforme —, `detail` EST cette explication
+(`RealtimeHub.ts#RealtimeHub.explainDenial`). Le journal du serveur la porte, lui, dans tous les modes. Sans `realtime:denied`, une notification refusée serait droppée en silence (elle n'a pas
 de canal de réponse) et le client se croirait abonné. **Aucun abonnement ne reste sans réponse** :
 un canal que personne ne produit — nom mal orthographié, module non chargé — rend `unknown`, qui
 n'ouvre aucun oracle (un canal gardé est tranché en amont, donc `forbidden` qu'il existe ou non).

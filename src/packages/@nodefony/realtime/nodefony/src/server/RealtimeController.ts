@@ -772,7 +772,16 @@ export abstract class RealtimeController<
         // autres motifs (invalid/method_not_found/internal_error) sont déjà gérés
         // par le peer (réponse d'erreur normalisée) → pas de double log.
         if (reason !== "denied") return;
-        this.log("WS realtime frame refused by authorizer", "WARNING");
+        // La raison, quand le verrou sait la dire (convention de plateforme
+        // `:health`/`:stats`…) : au journal TOUJOURS — c'est le serveur, pas un
+        // oracle —, au client hors production seulement (`deniedDetail`).
+        const explained = hub.explainDenial(frame, state.peer);
+        this.log(
+          explained === null
+            ? "WS realtime frame refused by authorizer"
+            : `WS realtime frame refused by authorizer: ${explained}`,
+          "WARNING",
+        );
         // Refus OBSERVABLE : une requête (avec `id`) reçoit déjà `-32001` du peer ;
         // une NOTIFICATION (subscribe/inbound, sans `id`) serait droppée en silence
         // → le client resterait aveugle (croit être abonné). On lui pousse
@@ -798,7 +807,8 @@ export abstract class RealtimeController<
             state.inbound !== null &&
             Object.hasOwn(state.inbound, channel) &&
             hub.resolveChannelAdmission(channel) !== null;
-          const hint = unadmitted ? null : identityHint(this.kernel);
+          const hint =
+            unadmitted || explained !== null ? null : identityHint(this.kernel);
           // Type de PROTOCOLE isomorphe (core) : un seul contrat, garanti par le
           // compilateur des deux bouts (serveur émet ⇄ client `ingestDenied`).
           const denied: IRealtimeDenied = {
@@ -810,11 +820,12 @@ export abstract class RealtimeController<
             // transport là où une politique a simplement fait son travail.
             ...deniedDetail(
               this.kernel?.environment,
-              unadmitted
-                ? `« ${channel} » n'accepte d'entrée que des connexions que sa ` +
+              explained ??
+                (unadmitted
+                  ? `« ${channel} » n'accepte d'entrée que des connexions que sa ` +
                     `règle \`allow\` a admises : abonne-toi d'abord au canal ` +
                     `(\`subscribe\`), puis pousse une fois l'abonnement acquitté`
-                : `le verrou de frame a refusé l'accès à « ${channel} » pour cette ` +
+                  : `le verrou de frame a refusé l'accès à « ${channel} » pour cette ` +
                     `identité : vérifie les rôles ou scopes exigés par le canal ` +
                     `(décorateur \`@RealtimeChannel(nom, { roles })\` ou clé ` +
                     `\`realtimeChannels\` de la configuration de sécurité), et ceux ` +
@@ -822,7 +833,7 @@ export abstract class RealtimeController<
                     // Le diagnostic ne suffit pas : sans identité à présenter, il
                     // n'y a RIEN à vérifier. Le geste est donc joint au détail, qui
                     // ne franchit déjà pas la production.
-                    (hint === null ? "" : `. ${hint}`),
+                    (hint === null ? "" : `. ${hint}`)),
             ),
           };
           auditedPeer.notify("realtime:denied", denied);
