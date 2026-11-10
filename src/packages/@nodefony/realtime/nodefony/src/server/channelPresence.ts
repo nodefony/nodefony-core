@@ -6,8 +6,13 @@ import type {
   IRealtimePresenceList,
   RealtimePresenceFrame,
 } from "nodefony";
+import type {
+  IPresenceChannelDelta,
+  IPresenceChannelState,
+} from "../backplane/presenceMessage";
 import { isRecord } from "../guards";
 import type { ChannelFrame } from "./RealtimeHub";
+import type { IPresenceAggregate } from "./remotePresence";
 
 /**
  * Fenêtre de regroupement des changements de présence vers le navigateur (ms) — front montant : le premier changement d'un canal calme part tout de suite, les suivants attendent la fin de la fenêtre (ADR-0025 P2 bis).
@@ -114,18 +119,43 @@ export function samePresence(a: IChannelPolicy, b: IChannelPolicy): boolean {
  * ABSOLUES (nombre d'onglets, départ), donc rejouer un changement déjà inclus
  * dans une liste ne change rien — c'est ce qui permet de servir à un nouvel
  * abonné la liste prise au dernier envoi, encodée une fois.
+ *
+ * Sur un canal DIFFUSÉ entre pods, c'est aussi l'agrégat de la vue des pairs
+ * ({@link IPresenceAggregate}) : les compteurs portent le TOTAL (local + pairs),
+ * et une table à part garde la seule part locale — ce que ce pod annonce à ses
+ * pairs, en deltas par lot. Ailleurs, cette table n'existe pas.
  */
-export class ChannelPresence {
+export class ChannelPresence implements IPresenceAggregate {
   readonly channel: string;
   readonly settings: IPresenceSettings;
+  /** Canal diffusé entre pods : sa part locale part sur le bus, la vue des pairs s'y ajoute. */
+  readonly distributed: boolean;
   /** Fin de la fenêtre de regroupement en cours (horloge monotone, ms). */
   windowEnd = Number.NEGATIVE_INFINITY;
   /** Liste complète encodée, servie telle quelle jusqu'au prochain envoi. */
   listFrame: ChannelFrame | null = null;
   /** Le canal est-il encore tenu par le hub ? `false` après son retrait. */
   live = true;
+  /**
+   * Fin de la synchronisation initiale avec les pairs (ms monotone) — la vue
+   * n'est que locale tant que la demande d'état du premier abonné n'a pas eu le
+   * temps d'être servie ; `0` = synchronisée (ou canal non diffusé).
+   */
+  syncUntil = 0;
+  // Identités nommées → onglets, TOUS pods confondus.
   readonly #named = new Map<string, number>();
   #unnamed = 0;
+  // Part LOCALE d'un canal diffusé (identité → onglets de CE pod) ; `null`
+  // ailleurs : un canal local ne paie aucune seconde table.
+  readonly #local: Map<string, number> | null;
+  #localUnnamed = 0;
+  // Pour le prochain lot du bus : identité → onglets locaux au DERNIER lot (la
+  // valeur d'avant le premier changement de la fenêtre). Une arrivée suivie d'un
+  // départ dans la même fenêtre retrouve sa valeur d'avant : rien ne part
+  // (annulation à la source). `-1` = non nommés inchangés.
+  #busBefore: Map<string, number> | null = null;
+  #busUnnamedBefore = -1;
+  #partial = false;
   #version = 0;
   #dirty: Set<string> | null = null;
   #countsDirty = false;
@@ -140,9 +170,29 @@ export class ChannelPresence {
   #unnamedLeaving: number[] | null = null;
   #unnamedHead = 0;
 
-  constructor(channel: string, settings: IPresenceSettings) {
+  /**
+   * @param distributed - le canal est diffusé entre pods (bus branché, préfixe
+   *   diffusé) : la part locale est tenue à part pour le bus.
+   */
+  constructor(
+    channel: string,
+    settings: IPresenceSettings,
+    distributed = false,
+  ) {
     this.channel = channel;
     this.settings = settings;
+    this.distributed = distributed;
+    this.#local = distributed ? new Map<string, number>() : null;
+  }
+
+  /** La part locale a-t-elle changé depuis le dernier lot ? */
+  get busDirty(): boolean {
+    return this.#busBefore !== null || this.#busUnnamedBefore >= 0;
+  }
+
+  /** La vue est-elle connue incomplète (synchronisation initiale, trou chez un pair) ? */
+  get partial(): boolean {
+    return this.#partial;
   }
 
   /** Version courante de la vue (+1 par trame de changements). */
@@ -161,15 +211,18 @@ export class ChannelPresence {
    * @param key - identité nommée, ou `null` pour une connexion non nommée.
    */
   join(key: string | null): void {
+    const local = this.#local;
     if (key === null) {
       this.#unnamed += 1;
       this.#countsDirty = true;
+      if (local !== null) this.#addLocalUnnamed(1);
       return;
     }
     // Revenue pendant sa grâce : son départ n'a jamais été publié, rien ne change.
     if (this.#leaving?.delete(key) === true) return;
     this.#named.set(key, (this.#named.get(key) ?? 0) + 1);
     this.#markDirty(key);
+    if (local !== null) this.#setLocal(local, key, (local.get(key) ?? 0) + 1);
   }
 
   /**
@@ -180,19 +233,27 @@ export class ChannelPresence {
    */
   leave(key: string | null, now: number): void {
     const grace = this.settings.grace;
+    const local = this.#local;
     if (key === null) {
       if (grace > 0) (this.#unnamedLeaving ??= []).push(now + grace);
       else {
         this.#unnamed -= 1;
         this.#countsDirty = true;
+        if (local !== null) this.#addLocalUnnamed(-1);
       }
       return;
     }
     const tabs = this.#named.get(key);
     if (tabs === undefined) return;
     if (tabs > 1) {
+      // Encore présente (autre onglet, ici ou chez un pair) : aucun départ,
+      // donc aucune grâce — seule la part locale baisse.
       this.#named.set(key, tabs - 1);
       this.#markDirty(key);
+      if (local !== null) {
+        const mine = local.get(key) ?? 0;
+        if (mine > 0) this.#setLocal(local, key, mine - 1);
+      }
       return;
     }
     if (grace > 0) {
@@ -201,11 +262,13 @@ export class ChannelPresence {
     }
     this.#named.delete(key);
     this.#markDirty(key);
+    if (local !== null) this.#setLocal(local, key, 0);
   }
 
   /** Publie les départs dont la grâce est écoulée. */
   expire(now: number): void {
     const leaving = this.#leaving;
+    const local = this.#local;
     if (leaving !== null) {
       // Échéances croissantes : on s'arrête à la première non échue.
       for (const [key, deadline] of leaving) {
@@ -213,6 +276,7 @@ export class ChannelPresence {
         leaving.delete(key);
         this.#named.delete(key);
         this.#markDirty(key);
+        if (local !== null) this.#setLocal(local, key, 0);
       }
       if (leaving.size === 0) this.#leaving = null;
     }
@@ -224,6 +288,7 @@ export class ChannelPresence {
       if (head > from) {
         this.#unnamed -= head - from;
         this.#countsDirty = true;
+        if (local !== null) this.#addLocalUnnamed(from - head);
       }
       if (head === queue.length) {
         this.#unnamedLeaving = null;
@@ -259,28 +324,20 @@ export class ChannelPresence {
   listParams(): IRealtimePresenceList | IRealtimePresenceCount {
     const named = this.#named;
     const count = named.size;
+    const channel = this.channel;
+    const version = this.#version;
+    const unnamed = this.#unnamed;
+    // Littéraux construits d'un bloc (forme stable) ; `partial` n'est posé qu'à
+    // `true`, cas rare.
     if (count > this.settings.maxNamed) {
-      return {
-        channel: this.channel,
-        version: this.#version,
-        count,
-        unnamed: this.#unnamed,
-      };
+      return this.#partial
+        ? { channel, version, count, unnamed, partial: true }
+        : { channel, version, count, unnamed };
     }
-    // Taille connue : un tableau pré-dimensionné, rempli en place.
-    const members = new Array<string | number>(count * 2);
-    let i = 0;
-    for (const [key, tabs] of named) {
-      members[i++] = key;
-      members[i++] = tabs;
-    }
-    return {
-      channel: this.channel,
-      version: this.#version,
-      count,
-      unnamed: this.#unnamed,
-      members,
-    };
+    const members = pairsOf(named);
+    return this.#partial
+      ? { channel, version, count, unnamed, members, partial: true }
+      : { channel, version, count, unnamed, members };
   }
 
   /**
@@ -320,13 +377,13 @@ export class ChannelPresence {
         : gone === null
           ? { set }
           : { set, gone };
-    return {
-      channel: this.channel,
-      version: this.#version,
-      count: this.#named.size,
-      unnamed: this.#unnamed,
-      changes,
-    };
+    const channel = this.channel;
+    const version = this.#version;
+    const count = this.#named.size;
+    const unnamed = this.#unnamed;
+    return this.#partial
+      ? { channel, version, count, unnamed, changes, partial: true }
+      : { channel, version, count, unnamed, changes };
   }
 
   /** Vue de l'observateur serveur : les membres toujours, une copie. */
@@ -337,11 +394,130 @@ export class ChannelPresence {
       count: this.#named.size,
       unnamed: this.#unnamed,
       members,
-      partial: false,
+      partial: this.#partial,
     };
+  }
+
+  /**
+   * Pose l'état « incomplet » de la vue ; un changement fait partir une trame (la version suit) et périme la liste encodée.
+   */
+  setPartial(partial: boolean): void {
+    if (partial === this.#partial) return;
+    this.#partial = partial;
+    this.#countsDirty = true;
+    this.listFrame = null;
+  }
+
+  /** {@inheritDoc IPresenceAggregate.remoteTabs} */
+  remoteTabs(key: string, delta: number): void {
+    const named = this.#named;
+    const before = named.get(key) ?? 0;
+    let total = before;
+    // Départ local retenu par la grâce, et l'identité est là chez un pair :
+    // elle est restée présente, le départ local prend effet sans être publié.
+    if (delta > 0 && this.#leaving?.delete(key) === true) {
+      total -= 1;
+      const local = this.#local;
+      if (local !== null) this.#setLocal(local, key, 0);
+    }
+    total += delta;
+    if (total > 0) named.set(key, total);
+    else named.delete(key);
+    if (total !== before) this.#markDirty(key);
+  }
+
+  /** {@inheritDoc IPresenceAggregate.remoteUnnamed} */
+  remoteUnnamed(delta: number): void {
+    this.#unnamed += delta;
+    this.#countsDirty = true;
+  }
+
+  /**
+   * Consomme les changements de la part locale depuis le dernier lot et rend l'entrée du lot, en valeurs absolues — `null` s'ils s'annulent tous.
+   */
+  takeBusDelta(): IPresenceChannelDelta | null {
+    const local = this.#local;
+    const before = this.#busBefore;
+    const unnamedBefore = this.#busUnnamedBefore;
+    this.#busBefore = null;
+    this.#busUnnamedBefore = -1;
+    if (local === null) return null;
+    let set: (string | number)[] | null = null;
+    let gone: string[] | null = null;
+    if (before !== null) {
+      for (const [key, was] of before) {
+        const tabs = local.get(key) ?? 0;
+        if (tabs === was) continue;
+        if (tabs === 0) (gone ??= []).push(key);
+        else (set ??= []).push(key, tabs);
+      }
+    }
+    const unnamed = this.#localUnnamed;
+    if (
+      set === null &&
+      gone === null &&
+      (unnamedBefore < 0 || unnamedBefore === unnamed)
+    )
+      return null;
+    return { channel: this.channel, set, gone, unnamed };
+  }
+
+  /** État COMPLET de la part locale, pour une réponse d'état (paires à plat). */
+  localState(): IPresenceChannelState {
+    const local = this.#local;
+    return {
+      channel: this.channel,
+      members: local === null ? [] : pairsOf(local),
+      unnamed: this.#localUnnamed,
+    };
+  }
+
+  /** La part locale compte-t-elle quelqu'un ? */
+  get hasLocal(): boolean {
+    return (this.#local?.size ?? 0) > 0 || this.#localUnnamed > 0;
+  }
+
+  /**
+   * Le canal n'est plus servi ici : toute la part locale part à zéro au prochain lot, pour que les pairs ne gardent aucun fantôme.
+   */
+  release(): void {
+    const local = this.#local;
+    if (local === null) return;
+    // Retirer l'entrée courante d'une `Map` pendant son parcours est sûr : aucune copie.
+    for (const key of local.keys()) this.#setLocal(local, key, 0);
+    this.#leaving = null;
+    if (this.#localUnnamed !== 0) this.#addLocalUnnamed(-this.#localUnnamed);
+    this.#unnamedLeaving = null;
+    this.#unnamedHead = 0;
   }
 
   #markDirty(key: string): void {
     (this.#dirty ??= new Set<string>()).add(key);
   }
+
+  /** Pose les onglets LOCAUX d'une identité, en retenant la valeur du dernier lot. */
+  #setLocal(local: Map<string, number>, key: string, tabs: number): void {
+    const before = local.get(key) ?? 0;
+    if (tabs === before) return;
+    const pending = (this.#busBefore ??= new Map<string, number>());
+    if (!pending.has(key)) pending.set(key, before);
+    if (tabs === 0) local.delete(key);
+    else local.set(key, tabs);
+  }
+
+  #addLocalUnnamed(delta: number): void {
+    if (this.#busUnnamedBefore < 0) this.#busUnnamedBefore = this.#localUnnamed;
+    this.#localUnnamed += delta;
+  }
+}
+
+/** Paires à plat `[identité, onglets, …]` d'une table — tableau pré-dimensionné, rempli en place. */
+function pairsOf(table: ReadonlyMap<string, number>): (string | number)[] {
+  const pairs = new Array<string | number>(table.size * 2);
+  let i = 0;
+  for (const [key, tabs] of table) {
+    pairs[i++] = key;
+    pairs[i++] = tabs;
+  }
+  return pairs;
 }

@@ -32,7 +32,9 @@ import {
   presenceDefect,
   presenceSettingsOf,
   type IChannelPresenceView,
+  type IPresenceSettings,
 } from "./channelPresence";
+import { PresenceBus } from "./presenceBus";
 import type { IRealtimeConnection } from "../../interfaces/IRealtimeConnection";
 import type {
   IChannelAdmission,
@@ -405,6 +407,8 @@ function presenceKeyOf(member: RealtimeConnection): string | null {
 /**
  * Prochain instant où la présence d'un canal a quelque chose à faire : la fin de la fenêtre si des changements attendent, la prochaine fin de grâce — `Infinity` sinon. O(1).
  */
+const EMPTY_PRESENCES: ReadonlySet<ChannelPresence> = new Set();
+
 function presenceDue(presence: ChannelPresence): number {
   const deadline = presence.nextDeadline();
   return presence.dirty && presence.windowEnd < deadline
@@ -448,6 +452,15 @@ export class RealtimeHub {
   #presenceActive: Set<ChannelState> | null = null;
   #presenceTimer: ReturnType<typeof setTimeout> | null = null;
   #presenceTimerAt = Number.POSITIVE_INFINITY;
+  // Présence RÉPARTIE (ADR-0025 P2) : `null` tant qu'aucun canal à présence
+  // diffusé n'est servi et qu'aucun message de présence n'est arrivé.
+  #presenceBus: PresenceBus | null = null;
+  // Présences servies ET diffusées ici (la part qui va sur le bus).
+  #presenceServed: Set<ChannelPresence> | null = null;
+  // Une politique déclare-t-elle la présence ? Sans elle, un message de présence
+  // venu du bus est refusé sans rien allouer.
+  #presenceDeclared = false;
+  #presenceRejectedTotal = 0;
   // Sonde : listes servies (une par (re-)subscribe), trames de changements.
   #presenceListTotal = 0;
   #presenceFrameTotal = 0;
@@ -734,14 +747,127 @@ export class RealtimeHub {
           const settings = presenceSettingsOf(
             this.resolveChannelPolicy(channel),
           );
-          if (settings !== null)
-            st.presence = new ChannelPresence(channel, settings);
+          if (settings !== null) this.#openPresence(st, channel, settings);
         }
         st.members.set(sink, member);
-        st.presence?.join(presenceKeyOf(member));
+        const presence = st.presence;
+        if (presence !== null) {
+          presence.join(presenceKeyOf(member));
+          if (presence.distributed) this.#presenceBusChanged(presence);
+        }
       }
     }
     return true;
+  }
+
+  /**
+   * Ouvre la présence d'un canal à son premier client : répartie s'il est diffusé et qu'un bus est branché, locale sinon (avis unique : un bus est là, ce canal n'en profite pas).
+   */
+  #openPresence(
+    st: ChannelState,
+    channel: string,
+    settings: IPresenceSettings,
+  ): void {
+    const backplane = this.#backplane;
+    const distributed = backplane !== null && st.forward;
+    const presence = new ChannelPresence(channel, settings, distributed);
+    st.presence = presence;
+    if (!distributed) {
+      if (backplane !== null)
+        this.#notifyOnce(
+          "presence-local",
+          `realtime: le canal « ${channel} » déclare la présence sans être ` +
+            `diffusé entre serveurs (@RealtimeBroadcast) : sa présence ne compte ` +
+            `que les connexions de CE serveur.`,
+          "INFO",
+        );
+      return;
+    }
+    const bus = this.#presenceBusFor(backplane);
+    (this.#presenceServed ??= new Set<ChannelPresence>()).add(presence);
+    const now = performance.now();
+    bus.served(presence, now);
+    this.#armPresenceAt(bus.due(), now);
+  }
+
+  /** La présence répartie de ce hub, créée au premier besoin. */
+  #presenceBusFor(backplane: IBackplane): PresenceBus {
+    const existing = this.#presenceBus;
+    if (existing !== null) return existing;
+    const bus = new PresenceBus({
+      originId: backplane.originId,
+      publish: (channel, payload) => backplane.publish(channel, payload),
+      lookup: (channel) => this.#presenceLookup(channel),
+      served: (channel) => {
+        const presence = this.#channels?.get(channel)?.presence;
+        return presence != null && presence.distributed && presence.live
+          ? presence
+          : null;
+      },
+      servedPresences: () => this.#presenceServed ?? EMPTY_PRESENCES,
+      servedCount: () => this.#presenceServed?.size ?? 0,
+    });
+    this.#presenceBus = bus;
+    return bus;
+  }
+
+  /**
+   * Résout un canal nommé par un pair : sa présence s'il est servi et diffusé ici ; `null` s'il déclare la présence et se diffuse sans être servi (lu puis jeté) ; `false` sinon (refusé, compté).
+   */
+  #presenceLookup(channel: string): ChannelPresence | null | false {
+    const presence = this.#channels?.get(channel)?.presence;
+    if (presence != null && presence.distributed && presence.live)
+      return presence;
+    if (
+      !this.#isBroadcast(channel) ||
+      presenceSettingsOf(this.resolveChannelPolicy(channel)) === null
+    )
+      return false;
+    return null;
+  }
+
+  /** La part locale d'une présence répartie a changé : prochain lot armé. */
+  #presenceBusChanged(presence: ChannelPresence): void {
+    const bus = this.#presenceBus;
+    if (bus === null) return;
+    const now = performance.now();
+    bus.changed(presence, now);
+    this.#armPresenceAt(bus.due(), now);
+  }
+
+  /** Rafraîchit les canaux que le bus a touchés (vue des pairs, état incomplet). */
+  #presenceTouchFromBus(bus: PresenceBus, now: number): void {
+    const touched = bus.takeTouched();
+    if (touched === null) return;
+    const channels = this.#channels;
+    for (const presence of touched) {
+      const st = channels?.get(presence.channel);
+      if (st === undefined || st.presence !== presence) continue;
+      // Une arrivée chez un pair a pu annuler un départ local en grâce.
+      if (presence.busDirty) bus.changed(presence, now);
+      this.#presenceTouch(st, presence, now);
+    }
+  }
+
+  /**
+   * Entrée des deux canaux de présence du bus (ADR-0025 P2) — lots, demandes, réponses, preuve de vie.
+   */
+  #admitPresence(msg: IBackplaneMessage, alive: boolean): void {
+    let bus = this.#presenceBus;
+    if (bus === null) {
+      const backplane = this.#backplane;
+      if (!this.#presenceDeclared || backplane === null) {
+        this.#presenceRejectedTotal += 1;
+        return;
+      }
+      bus = this.#presenceBusFor(backplane);
+    }
+    const now = performance.now();
+    if (alive) bus.receiveAlive(msg.originId, msg.payload, now);
+    else if (bus.receive(msg.originId, msg.payload, now))
+      this.#discardUnknownFromBus("presence");
+    this.#presenceTouchFromBus(bus, now);
+    this.#armPresenceAt(bus.due(), now);
   }
 
   /**
@@ -893,6 +1019,7 @@ export class RealtimeHub {
         const now = performance.now();
         presence.leave(presenceKeyOf(member), now);
         this.#presenceTouch(st, presence, now);
+        if (presence.distributed) this.#presenceBusChanged(presence);
       }
     }
     st.members?.delete(sink);
@@ -903,8 +1030,23 @@ export class RealtimeHub {
         /* noop — un provider fautif ne bloque pas le nettoyage */
       }
       channels.delete(channel);
-      if (presence !== null) presence.live = false;
+      if (presence !== null) {
+        presence.live = false;
+        if (presence.distributed) this.#releasePresence(presence);
+      }
     }
+  }
+
+  /**
+   * Un canal à présence répartie n'est plus servi ici : sa part locale part à zéro au prochain lot (aucun fantôme chez les pairs), sa vue des pairs est jetée.
+   */
+  #releasePresence(presence: ChannelPresence): void {
+    this.#presenceServed?.delete(presence);
+    const bus = this.#presenceBus;
+    if (bus === null) return;
+    bus.remote.dropChannel(presence.channel);
+    presence.release();
+    this.#presenceBusChanged(presence);
   }
 
   /**
@@ -1020,30 +1162,41 @@ export class RealtimeHub {
   #presenceTick(): void {
     this.#presenceTimer = null;
     this.#presenceTimerAt = Number.POSITIVE_INFINITY;
-    const active = this.#presenceActive;
-    if (active === null) return;
     const now = performance.now();
-    // Le seul parcours des canaux actifs : un par tic, jamais par changement.
-    // Un canal n'y reste que tant qu'il a quelque chose d'échu à venir.
+    const bus = this.#presenceBus;
+    // Le bus d'abord : ce qu'il applique (oubli, fin de synchronisation) touche
+    // des canaux, rafraîchis dans le même tic.
+    if (bus !== null) {
+      bus.tick(now);
+      this.#presenceTouchFromBus(bus, now);
+    }
     let next = Number.POSITIVE_INFINITY;
-    for (const st of active) {
-      const presence = st.presence;
-      if (presence === null || !presence.live) {
-        active.delete(st);
-        continue;
+    const active = this.#presenceActive;
+    if (active !== null) {
+      // Le seul parcours des canaux actifs : un par tic, jamais par changement.
+      // Un canal n'y reste que tant qu'il a quelque chose d'échu à venir.
+      for (const st of active) {
+        const presence = st.presence;
+        if (presence === null || !presence.live) {
+          active.delete(st);
+          continue;
+        }
+        presence.expire(now);
+        // Une grâce échue change la part locale : elle part au prochain lot.
+        if (bus !== null && presence.busDirty) bus.changed(presence, now);
+        if (presence.dirty && now >= presence.windowEnd)
+          this.#presenceFlush(st, presence, now);
+        const due = presenceDue(presence);
+        if (due === Infinity) active.delete(st);
+        else if (due < next) next = due;
       }
-      presence.expire(now);
-      if (presence.dirty && now >= presence.windowEnd)
-        this.#presenceFlush(st, presence, now);
-      const due = presenceDue(presence);
-      if (due === Infinity) active.delete(st);
-      else if (due < next) next = due;
+      if (active.size === 0) this.#presenceActive = null;
     }
-    if (active.size === 0) {
-      this.#presenceActive = null;
-      return;
+    if (bus !== null) {
+      const due = bus.due();
+      if (due < next) next = due;
     }
-    this.#armPresenceAt(next, now);
+    if (next !== Number.POSITIVE_INFINITY) this.#armPresenceAt(next, now);
   }
 
   /**
@@ -1446,6 +1599,9 @@ export class RealtimeHub {
    */
   setBackplane(backplane: IBackplane): IBackplane {
     this.#backplane = backplane;
+    // Une autre identité sur le bus : la présence répartie repart de zéro.
+    this.#presenceBus = null;
+    this.#presenceServed = null;
     // Le canal personnel doit atteindre l'identité sur TOUS les serveurs : son
     // préfixe est diffusé par le framework, sans déclaration de l'application.
     this.markBroadcastChannel(USER_CHANNEL_PREFIX);
@@ -1502,7 +1658,12 @@ export class RealtimeHub {
       return;
     }
     if (isPlatformBusChannel(msg.channel)) {
-      this.#discardUnknownFromBus("channel");
+      // Comparés ici seulement : un message ordinaire ne paie rien de plus.
+      if (msg.channel === PLATFORM_BUS_CHANNELS.presence)
+        this.#admitPresence(msg, false);
+      else if (msg.channel === PLATFORM_BUS_CHANNELS.presenceAlive)
+        this.#admitPresence(msg, true);
+      else this.#discardUnknownFromBus("channel");
       return;
     }
     if (!this.#isBroadcast(msg.channel)) {
@@ -1525,13 +1686,17 @@ export class RealtimeHub {
    *
    * @param kind - `channel` (canal inconnu) ou `order` (type d'ordre inconnu).
    */
-  #discardUnknownFromBus(kind: "channel" | "order"): void {
+  #discardUnknownFromBus(kind: "channel" | "order" | "presence"): void {
     this.#ingressUnknownDiscardedTotal += 1;
+    const what =
+      kind === "channel"
+        ? "un canal de la plateforme inconnu"
+        : kind === "order"
+          ? "un ordre de contrôle d'un type inconnu"
+          : "un message de présence d'un type inconnu";
     this.#notifyOnce(
       `backplane:unknown-${kind}`,
-      kind === "channel"
-        ? "realtime: un canal de la plateforme inconnu de cette version est arrivé par le bus — ignoré (un serveur plus récent pendant un déploiement ?), compté dans ingressUnknownDiscardedTotal"
-        : "realtime: un ordre de contrôle d'un type inconnu de cette version est arrivé par le bus — ignoré (un serveur plus récent pendant un déploiement ?), compté dans ingressUnknownDiscardedTotal",
+      `realtime: ${what} de cette version est arrivé par le bus — ignoré (un serveur plus récent pendant un déploiement ?), compté dans ingressUnknownDiscardedTotal`,
       "INFO",
     );
   }
@@ -1710,11 +1875,25 @@ export class RealtimeHub {
     if (this.#channels !== null)
       for (const st of this.#channels.values())
         if (st.presence !== null) channels += 1;
+    const bus = this.#presenceBus;
+    const remote = bus?.remote;
     return {
       channels,
       listTotal: this.#presenceListTotal,
       listBuiltTotal: this.#presenceListBuiltTotal,
       frameTotal: this.#presenceFrameTotal,
+      distributedChannels: this.#presenceServed?.size ?? 0,
+      pods: remote?.size ?? 0,
+      gaps: remote?.gaps ?? 0,
+      gapTotal: remote?.gapTotal ?? 0,
+      forgottenTotal: remote?.forgottenTotal ?? 0,
+      presenceRejectedTotal:
+        this.#presenceRejectedTotal + (remote?.rejectedTotal ?? 0),
+      presenceStaleDiscardedTotal: remote?.staleTotal ?? 0,
+      batchTotal: bus?.batchTotal ?? 0,
+      requestTotal: bus?.requestTotal ?? 0,
+      answerTotal: bus?.answerTotal ?? 0,
+      aliveTotal: bus?.aliveTotal ?? 0,
     };
   }
 
@@ -2112,6 +2291,8 @@ export class RealtimeHub {
       admission ?? previous?.instance,
     );
     RealtimeHub.#assertPresence(name, declaration.read, declaration.write);
+    if (presenceSettingsOf(declaration.read) !== null)
+      this.#presenceDeclared = true;
     if (!isPattern) {
       const exact = new Map<string, IPolicyDeclaration>(
         this.#policyDeclarations ?? [],
@@ -2522,6 +2703,10 @@ export class RealtimeHub {
     this.#presenceTimer = null;
     this.#presenceTimerAt = Number.POSITIVE_INFINITY;
     this.#presenceActive = null;
+    this.#presenceBus = null;
+    this.#presenceServed = null;
+    this.#presenceDeclared = false;
+    this.#presenceRejectedTotal = 0;
     this.#presenceListTotal = 0;
     this.#presenceFrameTotal = 0;
     this.#presenceListBuiltTotal = 0;

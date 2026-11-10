@@ -369,6 +369,31 @@ export interface IPresenceProbe {
   listBuiltTotal: number;
   /** Trames de changements (ou de nombres seuls) envoyées aux membres. */
   frameTotal: number;
+  /** Canaux à présence DIFFUSÉS servis ici — leur part locale va sur le bus (instantané). */
+  distributedChannels: number;
+  /** Pairs connus de la présence répartie, arrêts propres récents compris (instantané). */
+  pods: number;
+  /** Pairs dont la vue est en trou, en attente d'une réponse d'état (instantané) ; `> 0` = vues `partial`. */
+  gaps: number;
+  /** Trous ouverts : lot perdu, pair inconnu, vie neuve. */
+  gapTotal: number;
+  /** Pairs oubliés faute de signe de vie dans le délai d'oubli. */
+  forgottenTotal: number;
+  /**
+   * Messages de présence REFUSÉS — forme invalide, plafond dépassé, ou canal non
+   * déclaré à présence ici (ADR-0025 P2). Unité : un message reçu d'un exemplaire.
+   */
+  presenceRejectedTotal: number;
+  /** Messages de présence déjà vus (`seq`) ou d'une vie plus ancienne — l'anti-rejeu. */
+  presenceStaleDiscardedTotal: number;
+  /** Lots de changements émis sur le bus. */
+  batchTotal: number;
+  /** Demandes d'état émises (ciblées et non ciblées). */
+  requestTotal: number;
+  /** Parts de réponse d'état émises. */
+  answerTotal: number;
+  /** Preuves de vie émises. */
+  aliveTotal: number;
 }
 
 /** Snapshot enrichi de l'identité d'instance — santé per-instance d'un worker/pod. */
