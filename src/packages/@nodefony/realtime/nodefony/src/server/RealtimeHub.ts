@@ -1204,17 +1204,31 @@ export class RealtimeHub {
     prefixes.push(prefix);
     if (this.#channels) {
       for (const [channel, st] of this.#channels) {
-        if (!st.forward && channel.startsWith(prefix)) st.forward = true;
+        if (
+          !st.forward &&
+          channel.startsWith(prefix) &&
+          !isPlatformChannel(channel)
+        )
+          st.forward = true;
       }
     }
   }
 
-  /** Un canal est-il broadcast (préfixe déclaré) ? `false` si aucune politique (défaut local). */
+  /**
+   * Un canal est-il broadcast (préfixe déclaré) ? `false` si aucune politique (défaut local).
+   *
+   * Un canal de PLATEFORME ne l'est jamais, quel que soit le préfixe : un
+   * préfixe large (`""`, `"n"`) le couvrirait, et {@link markBroadcastChannel}
+   * ne refuse que le préfixe réservé lui-même. Sans cette exclusion, ses
+   * publications sortaient sur le bus et l'entrée acceptait de faux évènements
+   * d'admin venus d'un pair (F83). Le test n'est payé qu'après une
+   * correspondance de préfixe.
+   */
   #isBroadcast(channel: string): boolean {
     const prefixes = this.#broadcastPrefixes;
     if (prefixes === null) return false;
     for (const prefix of prefixes) {
-      if (channel.startsWith(prefix)) return true;
+      if (channel.startsWith(prefix)) return !isPlatformChannel(channel);
     }
     return false;
   }

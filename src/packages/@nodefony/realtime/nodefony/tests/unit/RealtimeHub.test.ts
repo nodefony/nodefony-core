@@ -535,6 +535,54 @@ describe("RealtimeHub — politique de forward par canal (opt-in broadcast)", ()
     hub.publish("chat:room1", { v: 1 });
     expect(bp.published).to.deep.equal([]); // préfixe oublié → de nouveau local
   });
+
+  // Un préfixe LARGE (`""`, `"n"`, `"N"`) couvre aussi le territoire réservé :
+  // `markBroadcastChannel` ne refuse que le préfixe réservé lui-même. Sans
+  // exclusion à l'évaluation, les canaux de plateforme sortaient sur le bus, et
+  // l'entrée acceptait de faux évènements d'admin venus d'un pair (F83).
+  // `N` vise la casse : le plancher tient `NODEFONY:` pour réservé (insensible à la casse).
+  for (const prefix of ["", "n", "N"]) {
+    const ns = prefix === "N" ? "NODEFONY:" : "nodefony:";
+    it(`préfixe large « ${prefix} » : un canal de plateforme ne SORT jamais sur le bus`, () => {
+      const hub = new RealtimeHub();
+      const bp = new FakeBackplane();
+      hub.setBackplane(bp);
+      hub.markBroadcastChannel(prefix);
+      hub.subscribe(`${ns}socket:1000`, () => {}, factory);
+      hub.publish(`${ns}socket:1000`, { cpu: 1 });
+      hub.publish(`${ns}audit`, { forged: false }); // sans abonné local
+      hub.publish("news:1", { v: 1 }); // le préfixe garde son effet ailleurs
+      expect(bp.published).to.deep.equal(
+        prefix === "N" ? [] : [{ channel: "news:1", payload: { v: 1 } }],
+      );
+    });
+
+    it(`préfixe large « ${prefix} » : un canal de plateforme venu du bus est REFUSÉ et compté`, () => {
+      const hub = new RealtimeHub();
+      const bp = new FakeBackplane();
+      hub.setBackplane(bp);
+      hub.markBroadcastChannel(prefix);
+      const got: unknown[] = [];
+      hub.subscribe(`${ns}audit`, (p) => got.push(p), factory);
+      bp.deliver({
+        channel: `${ns}audit`,
+        payload: { forged: true },
+        originId: "other",
+      });
+      expect(got).to.deep.equal([]);
+      expect(hub.probe().ingressRejectedTotal).to.equal(1);
+    });
+  }
+
+  it("préfixe large déclaré APRÈS l'abonnement : la réévaluation n'ouvre pas un canal de plateforme", () => {
+    const hub = new RealtimeHub();
+    const bp = new FakeBackplane();
+    hub.setBackplane(bp);
+    hub.subscribe("nodefony:socket:1000", () => {}, factory);
+    hub.markBroadcastChannel("");
+    hub.publish("nodefony:socket:1000", { cpu: 1 });
+    expect(bp.published).to.deep.equal([]);
+  });
 });
 
 /**
