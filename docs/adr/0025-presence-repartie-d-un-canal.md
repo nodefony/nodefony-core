@@ -453,6 +453,17 @@ présent = _occupant_ (XEP-0045) ; demande d'état = _fetch_ / _probe_ ; `member
 _full_ / _partial presence_ (RFC 5262), `presence_state` / `presence_diff` (Phoenix) ; `stale` est
 le mot de RFC 3856 §9.4 ; preuve de vie = _heartbeat_.
 
+**Passerelle XMPP ou SIP : possible, et à garder possible.** Le modèle étant celui des normes, une
+passerelle se traduit concept par concept : abonnement = entrée dans un salon / `SUBSCRIBE` ;
+`members` / `changes` + `version` = liste des occupants puis présences / `NOTIFY` complet puis
+partiel ; demande d'état = _probe_ / _fetch_ ; identité → `{ tabs }` = sessions d'un occupant /
+personne → appareils. Elle vivrait dans un module à part, consommateur de la présence comme toute
+application ; le cœur ne parle aucun de ces protocoles. Ce qui lui manque, tout ADDITIF : un
+abonnement serveur aux CHANGEMENTS de présence (`hub.presence()` ne fait que lire), le motif d'un
+départ (codes 307 / 332 / 333), l'état (P4). Les présents `unnamed` n'y apparaîtraient pas un par
+un — XMPP exige un pseudo par occupant : voulu, ils ne sont jamais nommés. **Toute évolution qui
+rendrait l'une de ces traductions impossible se juge contre ce paragraphe.**
+
 ## Alternatives écartées
 
 - **La présence reste à l'application** (ADR-0022 D1 avant P1) : trois mécanismes difficiles
