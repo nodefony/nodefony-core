@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { createClient } from "redis";
 import {
   RedisBackplane,
   createRedisServiceTransport,
@@ -12,9 +11,10 @@ import type { IRealtimeHarness } from "../../testing/index.js";
 import { PLATFORM_BUS_CHANNELS } from "nodefony";
 import { createTestIdentity } from "@nodefony/security/testing";
 import {
-  REDIS_GATE,
-  gateValue,
-} from "../../../../../../../scripts/test/vitest/gates";
+  redisReachable,
+  redisTestClient,
+  type RedisTestClient,
+} from "../helpers/redisDecor.js";
 
 /**
  * #623 lot 2 sur un Redis RÉEL — terminer un canal et éjecter un compte
@@ -25,43 +25,7 @@ import {
  *   docker compose -f src/packages/@nodefony/redis/docker/docker-compose.yml up -d
  */
 
-const PASSWORD = process.env.NF_REDIS_PASSWORD ?? "nodefony-dev";
-const HOST = process.env.NF_REDIS_HOST ?? "localhost";
-const PORT = Number.parseInt(process.env.NF_REDIS_PORT ?? "6379", 10);
-
-// Type rendu par `createClient` lui-même : aucune conversion.
-function mkClient() {
-  const url = gateValue(REDIS_GATE, "NF_REDIS_URL");
-  const c = createClient(
-    url
-      ? { url, socket: { reconnectStrategy: false } }
-      : {
-          socket: { host: HOST, port: PORT, reconnectStrategy: false },
-          password: PASSWORD,
-        },
-  );
-  c.on("error", () => {});
-  return c;
-}
-
-async function redisReachable(): Promise<boolean> {
-  const probe = mkClient();
-  try {
-    await probe.connect();
-    await probe.ping();
-    await probe.quit();
-    return true;
-  } catch {
-    try {
-      probe.destroy();
-    } catch {
-      /* déjà fermé */
-    }
-    return false;
-  }
-}
-
-type RedisClient = ReturnType<typeof mkClient>;
+type RedisClient = RedisTestClient;
 
 const REDIS_UP = await redisReachable();
 const wait = (ms: number): Promise<void> =>
@@ -99,7 +63,7 @@ describe.skipIf(!REDIS_UP)("#623 — ordres de contrôle sur Redis", () => {
   let other: RealtimeHub | null = null;
 
   async function connected(): Promise<RedisClient> {
-    const c = mkClient();
+    const c = redisTestClient();
     await c.connect();
     clients.push(c);
     return c;

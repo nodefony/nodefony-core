@@ -31,6 +31,21 @@ export interface IPresenceAggregate {
    * @param delta - entier non nul.
    */
   remoteUnnamed(delta: number): void;
+  /**
+   * Un pair PART (oublié, arrêt propre, vie remplacée) avec les `tabs` onglets de l'identité qu'il annonçait — retenu par la grâce du canal s'il en déclare une (ADR-0025 P5), annulé si l'identité revient pendant ce délai.
+   *
+   * @param key - identité nommée.
+   * @param tabs - onglets retirés, entier > 0.
+   * @param now - instant monotone local (ms).
+   */
+  remoteLeave(key: string, tabs: number, now: number): void;
+  /**
+   * Un pair part avec `count` connexions non nommées — décompte retardé par la grâce du canal.
+   *
+   * @param count - entier > 0.
+   * @param now - instant monotone local (ms).
+   */
+  remoteUnnamedLeave(count: number, now: number): void;
 }
 
 /**
@@ -109,10 +124,15 @@ class RemotePod {
   }
 }
 
-/** Entrées d'une table, retirées de l'agrégat (oubli d'un pod, canal retiré). */
-function withdraw(table: RemoteChannel, aggregate: IPresenceAggregate): void {
-  for (const [key, tabs] of table.members) aggregate.remoteTabs(key, -tabs);
-  if (table.unnamed !== 0) aggregate.remoteUnnamed(-table.unnamed);
+/** Entrées d'une table, retirées de l'agrégat quand le pod PART (grâce du canal comprise). */
+function withdraw(
+  table: RemoteChannel,
+  aggregate: IPresenceAggregate,
+  now: number,
+): void {
+  for (const [key, tabs] of table.members)
+    aggregate.remoteLeave(key, tabs, now);
+  if (table.unnamed !== 0) aggregate.remoteUnnamedLeave(table.unnamed, now);
 }
 
 /** Un canal nommé par une réponse d'état, pendant son application. */
@@ -205,6 +225,7 @@ export class RemotePresence {
   #staleTotal = 0;
   #forgottenTotal = 0;
   #gapTotal = 0;
+  #endedTotal = 0;
 
   /**
    * @throws RangeError si `factor` < 2 (Phoenix Tracker exige le même plancher :
@@ -248,6 +269,11 @@ export class RemotePresence {
   /** Pairs oubliés faute de signe de vie. */
   get forgottenTotal(): number {
     return this.#forgottenTotal;
+  }
+
+  /** Arrêts propres reçus (preuve de vie `final`) — présents retirés sans attendre l'oubli. */
+  get endedTotal(): number {
+    return this.#endedTotal;
   }
 
   /** Trous ouverts depuis le début (lot perdu, pair inconnu, vie neuve). */
@@ -313,7 +339,7 @@ export class RemotePresence {
     pod.lastSeen = now;
     pod.interval = alive.interval;
     if (alive.final) {
-      this.#bury(pod);
+      this.#bury(pod, now);
       return;
     }
     const reference = pod.reference;
@@ -355,7 +381,7 @@ export class RemotePresence {
     for (const pod of this.#pods.values()) {
       if (now - pod.lastSeen < this.#factor * pod.interval) continue;
       if (!pod.ended) {
-        this.#withdrawPod(pod);
+        this.#withdrawPod(pod, now);
         forgotten += 1;
       }
       this.#pods.delete(pod.origin);
@@ -432,7 +458,7 @@ export class RemotePresence {
       }
       // Vie plus récente (conteneur redémarré sous le même `originId`) :
       // l'ancienne est purgée, la neuve repart d'un trou.
-      if (!pod.ended) this.#withdrawPod(pod);
+      if (!pod.ended) this.#withdrawPod(pod, now);
       this.#pods.delete(origin);
     }
     pod = new RemotePod(origin, incarnation, this.#interval, now);
@@ -642,7 +668,7 @@ export class RemotePresence {
   }
 
   /** Retire toutes les contributions d'un pod des agrégats. */
-  #withdrawPod(pod: RemotePod): void {
+  #withdrawPod(pod: RemotePod, now: number): void {
     if (pod.reference === null) this.#gaps -= 1;
     const channels = pod.channels;
     pod.channels = null;
@@ -650,13 +676,15 @@ export class RemotePresence {
     if (channels === null) return;
     for (const [channel, table] of channels) {
       const aggregate = this.#lookup(channel);
-      if (aggregate !== null && aggregate !== false) withdraw(table, aggregate);
+      if (aggregate !== null && aggregate !== false)
+        withdraw(table, aggregate, now);
     }
   }
 
   /** Arrêt propre : présents retirés aussitôt, vie enterrée jusqu'au délai d'oubli. */
-  #bury(pod: RemotePod): void {
-    this.#withdrawPod(pod);
+  #bury(pod: RemotePod, now: number): void {
+    this.#withdrawPod(pod, now);
+    this.#endedTotal += 1;
     pod.ended = true;
     pod.reference = 0;
   }

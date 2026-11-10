@@ -47,6 +47,11 @@ interface AnyMsg {
   kind?: unknown;
   /** `compte → raisons` des `realtime:closed` reçus (commande `closed`, #623). */
   closed?: unknown;
+  /** Présence lue sur un worker (commande `presence`, #760). */
+  members?: Record<string, number>;
+  unnamed?: number;
+  partial?: boolean | null;
+  probe?: { endedTotal: number; forgottenTotal: number } | null;
 }
 
 interface ForkedWorker {
@@ -358,6 +363,105 @@ describe.skipIf(!NF_RUN_CLUSTER_E2E)(
       const ended = { alice: ["evicted", "evicted"], bob: ["ended"] };
       expect(await closedOnB(ended)).toEqual(ended);
     });
+
+    /** Pose un présent sur `w` (`user` absent = anonyme) et attend son acquittement. */
+    async function presenceMember(
+      w: ForkedWorker,
+      channel: string,
+      user?: string,
+    ): Promise<void> {
+      w.events.length = 0;
+      w.child.send({ cmd: "presence-member", channel, user: user ?? "" });
+      await w.awaitEvent((e) => e.cmd === "ack" && e.op === "presence-member");
+    }
+
+    /** Relit la présence de `channel` sur `w` jusqu'à `done` (ou l'échéance). */
+    async function presenceOn(
+      w: ForkedWorker,
+      channel: string,
+      done: (e: AnyMsg) => boolean,
+      timeoutMs = 3000,
+    ): Promise<AnyMsg> {
+      const end = Date.now() + timeoutMs;
+      for (;;) {
+        w.events.length = 0;
+        w.child.send({ cmd: "presence", channel });
+        const got = await w.awaitEvent((e) => e.cmd === "presence");
+        if (done(got) || Date.now() > end) return got;
+        await new Promise((r) => setTimeout(r, 50));
+      }
+    }
+
+    const same = (a: unknown, b: unknown): boolean =>
+      JSON.stringify(a) === JSON.stringify(b);
+
+    it("#760 — présence entre deux PROCESSUS : une identité dans deux onglets sur deux workers = UN présent ; l'anonyme compte dans `unnamed`", async () => {
+      const [a, b] = await spawnN(2);
+      await presenceMember(a!, "pres:1", "alice");
+      await presenceMember(a!, "pres:1");
+      await presenceMember(b!, "pres:1", "alice");
+      await presenceMember(b!, "pres:1", "bob");
+      const want = { alice: 2, bob: 1 };
+      const onB = await presenceOn(
+        b!,
+        "pres:1",
+        (e) => same(e.members, want) && e.unnamed === 1 && e.partial === false,
+      );
+      expect(onB).to.deep.include({
+        members: want,
+        unnamed: 1,
+        partial: false,
+      });
+      const onA = await presenceOn(a!, "pres:1", (e) => same(e.members, want));
+      expect(onA.members).toEqual(want);
+    });
+
+    it("🔴 #760 — arrêt propre de A (séquence de `Kernel.terminate`) : ses présents quittent B par la preuve de vie FINALE, pas par l'oubli", async () => {
+      const [a, b] = await spawnN(2);
+      await presenceMember(a!, "pres:1", "alice");
+      await presenceMember(a!, "pres:1");
+      await presenceMember(b!, "pres:1", "bob");
+      await presenceOn(b!, "pres:1", (e) =>
+        same(e.members, { alice: 1, bob: 1 }),
+      );
+      const exited = new Promise((r) => a!.child.once("exit", r));
+      a!.child.send({ cmd: "presence-terminate" });
+      await exited;
+      // Bien avant le délai d'oubli (15 s) : seule la fin annoncée l'explique.
+      const after = await presenceOn(
+        b!,
+        "pres:1",
+        (e) => same(e.members, { bob: 1 }) && e.unnamed === 0,
+      );
+      expect(after).to.deep.include({ members: { bob: 1 }, unnamed: 0 });
+      expect(after.probe).to.deep.include({ endedTotal: 1, forgottenTotal: 0 });
+    });
+
+    it("🔴 #760 — A vivant et calme n'est jamais oublié ; A tué (SIGKILL) disparaît de B au délai d'oubli", async () => {
+      const [a, b] = await spawnN(2);
+      await presenceMember(a!, "pres:1", "alice");
+      await presenceMember(b!, "pres:1", "bob");
+      await presenceOn(b!, "pres:1", (e) =>
+        same(e.members, { alice: 1, bob: 1 }),
+      );
+      // Calme au-delà du délai d'oubli (3 × 5 s) : seules les preuves de vie passent.
+      await new Promise((r) => setTimeout(r, 20_000));
+      const calm = await presenceOn(b!, "pres:1", () => true);
+      expect(calm.members).toEqual({ alice: 1, bob: 1 });
+      expect(calm.probe?.forgottenTotal).toBe(0);
+
+      const exited = new Promise((r) => a!.child.once("exit", r));
+      a!.child.kill("SIGKILL");
+      await exited;
+      const after = await presenceOn(
+        b!,
+        "pres:1",
+        (e) => same(e.members, { bob: 1 }),
+        25_000,
+      );
+      expect(after.members).toEqual({ bob: 1 });
+      expect(after.probe).to.deep.include({ forgottenTotal: 1, endedTotal: 0 });
+    }, 60_000);
 
     it("canal NON déclaré broadcast : reste instance-local (B ne reçoit pas)", async () => {
       const [a, b] = await spawnN(2);

@@ -36,6 +36,17 @@ class Agg implements IPresenceAggregate {
     this.unnamed += delta;
     if (this.unnamed < 0) throw new Error("non nommés négatifs");
   }
+  // Agrégat sans grâce : un pair parti retire ses onglets tout de suite (la
+  // grâce des départs de pod est éprouvée sur `ChannelPresence`).
+  remoteLeave(key: string, tabs: number): void {
+    if (tabs <= 0)
+      throw new Error(`départ de ${String(tabs)} onglet(s) pour ${key}`);
+    this.remoteTabs(key, -tabs);
+  }
+  remoteUnnamedLeave(count: number): void {
+    if (count <= 0) throw new Error(`départ de ${String(count)} non nommé(s)`);
+    this.remoteUnnamed(-count);
+  }
   snapshot(): Record<string, number> {
     return Object.fromEntries([...this.tabs].sort());
   }

@@ -806,6 +806,8 @@ export class RealtimeHub {
       },
       servedPresences: () => this.#presenceServed ?? EMPTY_PRESENCES,
       servedCount: () => this.#presenceServed?.size ?? 0,
+      // Relevé une fois par intervalle de preuve de vie, jamais par message.
+      echoTotal: () => backplane.describe().echoTotal,
     });
     this.#presenceBus = bus;
     return bus;
@@ -1072,6 +1074,22 @@ export class RealtimeHub {
       members: new Map<string, IPresenceEntry>(),
       partial: false,
     };
+  }
+
+  /**
+   * Arrêt propre de la présence répartie (ADR-0025 P5) — le dernier lot part, puis une preuve de vie FINALE : les pairs retirent aussitôt les présents de ce serveur, sans attendre le délai d'oubli. Plus rien ne part ensuite ; idempotent, sans effet sans bus.
+   *
+   * Appelé par le module à l'arrêt du noyau (`onTerminate`), AVANT que le bus ne
+   * se ferme. Les connexions qui se ferment ensuite ne publient plus rien : la
+   * preuve de vie finale les a déjà retirées chez les pairs.
+   */
+  endPresence(): void {
+    const bus = this.#presenceBus;
+    if (bus === null) return;
+    bus.end();
+    if (this.#presenceTimer !== null) clearTimeout(this.#presenceTimer);
+    this.#presenceTimer = null;
+    this.#presenceTimerAt = Number.POSITIVE_INFINITY;
   }
 
   /**
@@ -1894,6 +1912,10 @@ export class RealtimeHub {
       requestTotal: bus?.requestTotal ?? 0,
       answerTotal: bus?.answerTotal ?? 0,
       aliveTotal: bus?.aliveTotal ?? 0,
+      endedTotal: remote?.endedTotal ?? 0,
+      busLost: bus?.busLost ?? false,
+      busLostTotal: bus?.busLostTotal ?? 0,
+      rearmTotal: bus?.rearmTotal ?? 0,
     };
   }
 

@@ -97,6 +97,10 @@ import {
   buildOwnHealth,
 } from "./nodefony/src/server/RealtimeAdminApi";
 import type { IBackplane } from "./nodefony/interfaces/IBackplane";
+import {
+  BACKPLANE_STOP_TIMEOUT_MS,
+  shutdownRealtime,
+} from "./nodefony/src/server/realtimeShutdown";
 
 /**
  * Délai max (ms) d'attente du `backplane.start()` au boot avant de basculer en
@@ -204,6 +208,9 @@ class Realtime extends Module<IRealtimeConfig> {
   /** Rôle topologique du process, capté à `onCluster` (défaut mono-process). */
   #clusterRole: "MASTER" | "WORKER" | "MONO" = "MONO";
 
+  /** Bus créé PAR ce module (registre de pilotes) — à lui de l'arrêter ; `null` s'il est fourni par l'application ou absent. */
+  #ownedBackplane: IBackplane | null = null;
+
   constructor(kernel: Kernel) {
     super("realtime", kernel, import.meta.url, defaultConfig);
     // Le kernel annonce le rôle cluster via `onCluster` (émis en preRegister,
@@ -290,6 +297,24 @@ class Realtime extends Module<IRealtimeConfig> {
       getRealtimeHub().refreshIdentity(event.identifier);
     });
     await this.#wireBackplane();
+    // Arrêt propre : la présence répartie annonce sa fin aux pairs (dernier lot +
+    // preuve de vie finale, ADR-0025 P5), puis le bus créé ici s'arrête en
+    // laissant partir ce qui est émis — sinon chaque déploiement laisserait ses
+    // présents chez les pairs jusqu'au délai d'oubli. Sans bus : no-op.
+    this.kernel?.once("onTerminate", async () => {
+      const stopped = await shutdownRealtime(
+        getRealtimeHub(),
+        this.#ownedBackplane,
+      );
+      this.#ownedBackplane = null;
+      if (!stopped)
+        this.log(
+          `realtime backplane : arrêt non terminé en ${BACKPLANE_STOP_TIMEOUT_MS} ms ` +
+            `(bus injoignable ?) — la fin de la présence peut ne pas avoir atteint ` +
+            `les autres serveurs, qui oublieront celui-ci au délai d'oubli`,
+          "WARNING",
+        );
+    });
     // Sonde pod (cluster worker) — différée ici pour lire `cluster.probe.enabled`
     // (config indisponible dans le callback `onCluster` du constructeur).
     this.#wireClusterProbe(this.#clusterRole);
@@ -443,6 +468,7 @@ class Realtime extends Module<IRealtimeConfig> {
       return;
     }
     hub.setBackplane(backplane);
+    this.#ownedBackplane = backplane;
     const info = backplane.describe();
     this.log(
       `realtime backplane  driver=${info.driver} kind=${info.kind} ` +

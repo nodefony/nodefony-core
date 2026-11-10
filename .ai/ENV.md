@@ -250,8 +250,8 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_REALTIME_BACKPLANE_NAMESPACE` | `src/packages/@nodefony/realtime/nodefony/tests/unit/defineRealtimeConfig.test.ts:166` |
 | `NF_REALTIME_BACKPLANE_SECRET` | `src/packages/@nodefony/realtime/nodefony/tests/unit/defineRealtimeConfig.test.ts:167` |
 | `NF_REALTIME_DRIVER` | `src/packages/@nodefony/realtime/nodefony/tests/unit/defineRealtimeConfig.test.ts:165` |
-| `NF_REDIS_HOST` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:26` |
-| `NF_REDIS_PASSWORD` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:25` |
+| `NF_REDIS_HOST` | `src/packages/@nodefony/realtime/nodefony/tests/helpers/redisDecor.ts:8` |
+| `NF_REDIS_PASSWORD` | `src/packages/@nodefony/realtime/nodefony/tests/helpers/redisDecor.ts:7` |
 | `NF_REDIS_PORT` | `src/nodefony/src/tests/envShortcuts.test.ts:251` |
 | `NF_RELEASE_REPO` | `scripts/release/pack-all.mjs:102` |
 | `NF_START` | `src/nodefony/src/kernel/Kernel.ts:565` |

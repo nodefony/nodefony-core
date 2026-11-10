@@ -35,6 +35,10 @@ import {
   ClusterBackplane,
   processIpcTransport,
 } from "../../src/backplane/ClusterBackplane.js";
+import {
+  declareWorkerPresence,
+  handlePresenceCommand,
+} from "../helpers/presenceWorker.js";
 
 /**
  * Envoie un message de contrôle au master — et seulement si le canal IPC est
@@ -58,9 +62,13 @@ function sendToMaster(message: unknown): void {
 
 const hub = getRealtimeHub();
 // Branche le backplane IPC comme le ferait `Realtime.#wireCluster` en cluster réel.
-hub.setBackplane(
-  new ClusterBackplane(processIpcTransport, String(process.pid)),
+const backplane = new ClusterBackplane(
+  processIpcTransport,
+  String(process.pid),
 );
+hub.setBackplane(backplane);
+// Présence répartie (#760) : canaux `pres:` à présence, diffusés entre workers.
+declareWorkerPresence(hub);
 
 interface SubState {
   sink: (payload: unknown) => void;
@@ -100,6 +108,7 @@ function closedReasons(): Record<string, string[]> {
 process.on("message", (raw: unknown) => {
   // Tri : on ignore les enveloppes realtime (déjà traitées par le backplane).
   if (ownField(raw, "kind") === CLUSTER_RT_KIND) return;
+  if (handlePresenceCommand(hub, raw, sendToMaster, backplane)) return;
   const cmd = ownField(raw, "cmd");
   if (typeof cmd !== "string") return;
   /** Un champ texte du message de contrôle ; `""` s'il manque. */

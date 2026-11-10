@@ -47,6 +47,10 @@ export interface IPresenceBusHost {
   servedPresences(): Iterable<ChannelPresence>;
   /** Nombre de présences servies et diffusées ici. */
   servedCount(): number;
+  /**
+   * Échos de ses propres messages comptés par le pilote (`IBackplaneInfo.echoTotal`), `undefined` s'il n'en expose pas — l'oubli reste alors normal.
+   */
+  echoTotal(): number | undefined;
 }
 
 /** Réglages de la présence répartie (défauts de l'ADR). */
@@ -157,6 +161,17 @@ export class PresenceBus {
   #requestTotal = 0;
   #answerTotal = 0;
   #aliveTotal = 0;
+  // Écho : relevé au tic de la preuve de vie (un entier, aucun horodatage par
+  // message) ; `-1` = jamais relevé.
+  #echoSeen = -1;
+  // Une preuve de vie est partie depuis le dernier relevé : son écho est attendu.
+  #echoExpected = false;
+  // Bus perdu, constaté par l'écho : la vue se fige, aucun pair n'est oublié.
+  #busLost = false;
+  #busLostTotal = 0;
+  #rearmTotal = 0;
+  // Arrêt propre émis : plus rien ne part.
+  #ended = false;
 
   /**
    * @throws RangeError si le délai d'oubli est sous 2 intervalles (cf `RemotePresence`).
@@ -206,6 +221,7 @@ export class PresenceBus {
    * Un canal à présence diffusé vient d'être servi (premier abonné local) : la vue reste incomplète le temps que la demande d'état groupée soit servie.
    */
   served(presence: ChannelPresence, now: number): void {
+    if (this.#ended) return;
     (this.#ask ??= new Set<string>()).add(presence.channel);
     presence.syncUntil = now + PRESENCE_BATCH_MS * 3;
     presence.setPartial(true);
@@ -216,6 +232,7 @@ export class PresenceBus {
 
   /** La part locale d'une présence a changé : elle part au prochain lot. */
   changed(presence: ChannelPresence, now: number): void {
+    if (this.#ended) return;
     (this.#dirty ??= new Set<ChannelPresence>()).add(presence);
     this.#armBatch(now);
     this.#activate(now);
@@ -229,6 +246,7 @@ export class PresenceBus {
    *   compris refusé, compté ici (`presenceRejectedTotal`).
    */
   receive(origin: string, payload: unknown, now: number): boolean {
+    if (this.#ended) return false;
     const message = readPresenceMessage(payload);
     if (message === null) {
       if (isUnknownPresenceMessage(payload)) return true;
@@ -243,6 +261,7 @@ export class PresenceBus {
 
   /** Applique une preuve de vie ; une forme fausse est refusée et comptée. */
   receiveAlive(origin: string, payload: unknown, now: number): void {
+    if (this.#ended) return;
     const alive = readPresenceAlive(payload);
     if (alive === null) {
       this.remote.countRejected();
@@ -254,6 +273,13 @@ export class PresenceBus {
 
   /** Fait avancer la présence répartie à l'instant `now` (tic unique du hub). */
   tick(now: number): void {
+    if (this.#ended) return;
+    const remote = this.remote;
+    // Tic en retard de plus d'un intervalle sur son échéance : c'est CE pod qui
+    // a gelé (GC, cgroup étranglé), et les preuves de vie des pairs attendent
+    // encore dans son tampon — les minuteurs passent avant la lecture des
+    // sockets. Réarmer au lieu d'oublier (Lifeguard).
+    if (now - this.due() > this.#interval) this.#rearm(now);
     if (now >= this.#batchAt) {
       this.#batchAt = Number.POSITIVE_INFINITY;
       // Le lot d'abord : `last` des réponses qui suivent le compte.
@@ -261,14 +287,17 @@ export class PresenceBus {
       this.#flushAsk();
       this.#flushAnswers();
     }
-    const remote = this.remote;
-    if (now >= this.#expireAt) remote.expire(now);
+    const alive = now >= this.#aliveAt;
+    // L'écho se relève AVANT l'oubli : un bus perdu fige la vue au lieu de
+    // faire oublier d'un coup tous les pairs vivants (S-rt-102).
+    if (alive) this.#checkEcho(now);
+    if (now >= this.#expireAt && !this.#busLost) remote.expire(now);
     if (now >= this.#requestAt) {
       this.#requestAt = Number.POSITIVE_INFINITY;
       this.#sendRequests(now);
     }
-    if (now >= this.#aliveAt) {
-      this.#sendAlive();
+    if (alive) {
+      this.#sendAlive(false);
       this.#aliveAt = this.#active()
         ? now + this.#interval
         : Number.POSITIVE_INFINITY;
@@ -281,7 +310,7 @@ export class PresenceBus {
         if (presence === undefined || presence.syncUntil > now) break;
         presence.syncUntil = 0;
         if (presence.live) {
-          presence.setPartial(remote.gaps > 0);
+          presence.setPartial(this.#incomplete());
           this.#touch(presence);
         }
         head += 1;
@@ -291,9 +320,57 @@ export class PresenceBus {
         this.#syncHead = 0;
       } else this.#syncHead = head;
     }
+    // Vue figée : aucune échéance d'oubli tant que l'écho ne revient pas.
     this.#expireAt =
-      remote.size > 0 ? remote.nextDeadline() : Number.POSITIVE_INFINITY;
+      remote.size > 0 && !this.#busLost
+        ? remote.nextDeadline()
+        : Number.POSITIVE_INFINITY;
     this.#refreshGaps(now);
+  }
+
+  /**
+   * Arrêt propre (ADR-0025 P5) : le dernier lot part, puis une preuve de vie FINALE — les pairs retirent aussitôt les présents de ce pod, sans attendre le délai d'oubli. Plus rien ne part ensuite ; idempotent.
+   *
+   * Rien n'est émis si ce pod ne s'est jamais annoncé (aucune preuve de vie
+   * émise ni vue des pairs) : personne n'a rien à retirer.
+   */
+  end(): void {
+    if (this.#ended) return;
+    const announced = this.#aliveTotal > 0 || this.#active();
+    if (announced) {
+      this.#flushBatch();
+      this.#sendAlive(true);
+    }
+    this.#ended = true;
+    this.#batchAt = Number.POSITIVE_INFINITY;
+    this.#requestAt = Number.POSITIVE_INFINITY;
+    this.#aliveAt = Number.POSITIVE_INFINITY;
+    this.#expireAt = Number.POSITIVE_INFINITY;
+    this.#dirty = null;
+    this.#ask = null;
+    this.#answer = null;
+    this.#syncing = null;
+    this.#touched = null;
+  }
+
+  /** Arrêt propre émis ? */
+  get ended(): boolean {
+    return this.#ended;
+  }
+
+  /** Bus perdu, constaté par l'écho : la vue est figée et `partial` (instantané). */
+  get busLost(): boolean {
+    return this.#busLost;
+  }
+
+  /** Pertes du bus constatées par l'écho. */
+  get busLostTotal(): number {
+    return this.#busLostTotal;
+  }
+
+  /** Réarmements du délai d'oubli (tic en retard, retour de l'écho). */
+  get rearmTotal(): number {
+    return this.#rearmTotal;
   }
 
   /** Compteurs de la sonde. */
@@ -350,19 +427,50 @@ export class PresenceBus {
     this.#refreshGaps(now);
   }
 
-  /** Un trou s'ouvre ou se ferme chez un pair : la vue des canaux servis change d'état. */
+  /** La vue des pairs est-elle incomplète (trou chez un pair) ou figée (bus perdu) ? */
+  #incomplete(): boolean {
+    return this.remote.gaps > 0 || this.#busLost;
+  }
+
+  /**
+   * Un trou s'ouvre ou se ferme chez un pair, le bus se perd ou revient : la vue des canaux servis change d'état.
+   */
   #refreshGaps(now: number): void {
-    const remote = this.remote;
-    const gapped = remote.gaps > 0;
-    if (gapped && this.#requestAt === Number.POSITIVE_INFINITY)
+    if (this.remote.gaps > 0 && this.#requestAt === Number.POSITIVE_INFINITY)
       this.#requestAt = now + this.#interval;
-    if (gapped === this.#gapped) return;
-    this.#gapped = gapped;
+    const incomplete = this.#incomplete();
+    if (incomplete === this.#gapped) return;
+    this.#gapped = incomplete;
     for (const presence of this.#host.servedPresences()) {
       if (presence.syncUntil !== 0) continue;
-      presence.setPartial(gapped);
+      presence.setPartial(incomplete);
       this.#touch(presence);
     }
+  }
+
+  /**
+   * Relève l'écho au tic de la preuve de vie : une preuve de vie partie au relevé précédent et aucun écho depuis = bus perdu ; l'écho qui revient réarme le délai d'oubli de tous les pairs.
+   */
+  #checkEcho(now: number): void {
+    const total = this.#host.echoTotal();
+    if (total === undefined) return;
+    if (total !== this.#echoSeen) {
+      if (this.#busLost) {
+        this.#busLost = false;
+        this.#rearm(now);
+      }
+    } else if (this.#echoExpected && !this.#busLost) {
+      this.#busLost = true;
+      this.#busLostTotal += 1;
+    }
+    this.#echoSeen = total;
+    this.#echoExpected = true;
+  }
+
+  #rearm(now: number): void {
+    if (this.remote.size === 0) return;
+    this.remote.rearm(now);
+    this.#rearmTotal += 1;
   }
 
   #queueAnswer(request: IPresenceRequest, now: number): void {
@@ -487,13 +595,18 @@ export class PresenceBus {
     }
   }
 
-  #sendAlive(): void {
-    this.#host.publish(PLATFORM_BUS_CHANNELS.presenceAlive, {
-      incarnation: this.incarnation,
-      seq: ++this.#seq,
-      last: this.#lastBatch,
-      interval: this.#interval,
-    });
+  #sendAlive(final: boolean): void {
+    const incarnation = this.incarnation;
+    const seq = ++this.#seq;
+    const last = this.#lastBatch;
+    const interval = this.#interval;
+    // Littéraux construits d'un bloc : `final` n'existe que sur la dernière.
+    this.#host.publish(
+      PLATFORM_BUS_CHANNELS.presenceAlive,
+      final
+        ? { incarnation, seq, last, interval, final: true }
+        : { incarnation, seq, last, interval },
+    );
     this.#aliveTotal += 1;
   }
 }

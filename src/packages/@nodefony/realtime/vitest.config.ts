@@ -15,7 +15,7 @@ import { tmpGuard } from "../../../../scripts/test/vitest/tmp-guard.ts";
 export const expectations: GateExpectations = [
   {
     gate: REDIS_GATE,
-    // Cinq bancs distincts parlent à un vrai Redis, et il faut les
+    // Six bancs distincts parlent à un vrai Redis, et il faut les
     // compter tous : ne prouver que le premier avait fait conclure
     // « une seule preuve cross-pod » alors que six autres cas tournaient
     // déjà.
@@ -25,6 +25,7 @@ export const expectations: GateExpectations = [
       "RedisBackplane — contre-pression",
       "RedisBackplane — reconnexion",
       "#623 — ordres de contrôle sur Redis",
+      "#760 — présence répartie sur Redis réel",
     ],
   },
 ];

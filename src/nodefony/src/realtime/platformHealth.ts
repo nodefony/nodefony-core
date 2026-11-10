@@ -394,6 +394,17 @@ export interface IPresenceProbe {
   answerTotal: number;
   /** Preuves de vie émises. */
   aliveTotal: number;
+  /** Arrêts propres de pairs reçus (preuve de vie finale) — présents retirés sans attendre l'oubli. */
+  endedTotal: number;
+  /**
+   * Bus perdu, constaté par l'écho (instantané) : la vue des pairs est figée et
+   * `partial`, aucun pair n'est oublié tant que l'écho ne revient pas.
+   */
+  busLost: boolean;
+  /** Pertes du bus constatées par l'écho. */
+  busLostTotal: number;
+  /** Réarmements du délai d'oubli — tic en retard (ce pod a gelé) ou retour de l'écho. */
+  rearmTotal: number;
 }
 
 /** Snapshot enrichi de l'identité d'instance — santé per-instance d'un worker/pod. */

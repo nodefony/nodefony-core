@@ -112,6 +112,26 @@ describe("Backplane — file d'envoi bornée (mémoire du pod)", () => {
     expect(bp.describe().queue?.droppedTotal).to.equal(0);
   });
 
+  it("🔴 #760 — `stop()` ne se résout qu'APRÈS l'acquittement de ce qui est déjà émis (la preuve de vie finale part avant la sortie du processus)", async () => {
+    const t = new SlowTransport();
+    const bp = new RedisBackplane(t, "pod-A", "ch", null);
+    await bp.start();
+    bp.publish("chat:room", KB); // en vol : le bus n'a pas encore acquitté
+    let stopped = false;
+    const stopping = bp.stop().then(() => {
+      stopped = true;
+    });
+    // Le désabonnement est immédiat ici : seul l'acquittement retient l'arrêt.
+    // Un tour de boucle COMPLET : toutes les microtâches de l'arrêt ont tourné.
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(stopped).toBe(false);
+    await t.settleAll();
+    await stopping;
+    expect(stopped).toBe(true);
+    // Rien en vol : l'arrêt suivant (idempotent) rend la main aussitôt.
+    await bp.stop();
+  });
+
   it("draine : une fois les publications acquittées, les suivantes repassent", async () => {
     const t = new SlowTransport();
     const bp = new RedisBackplane(t, "pod-A", "ch", null, {

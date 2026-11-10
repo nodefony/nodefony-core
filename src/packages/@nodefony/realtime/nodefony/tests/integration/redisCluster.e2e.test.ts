@@ -83,6 +83,10 @@ interface AnyMsg {
   received?: number;
   latencies?: number[];
   error?: string;
+  /** Présence lue sur un worker (commande `presence`, #760). */
+  members?: Record<string, number>;
+  unnamed?: number;
+  probe?: { endedTotal: number; forgottenTotal: number } | null;
 }
 
 interface ForkedWorker {
@@ -226,6 +230,53 @@ describe.skipIf(!NF_RUN_CLUSTER_E2E || !REDIS_UP)(
         ra.received,
         "A reçoit son propre message UNE seule fois (local), jamais en rebond Redis",
       ).to.equal(1);
+    });
+
+    it("🔴 #760 — arrêt propre de A (séquence de `Kernel.terminate`, sortie au tick suivant) : la preuve de vie FINALE traverse Redis AVANT la mort du processus", async () => {
+      const rt = `nodefony:rt:presence:${Date.now()}`;
+      const [a, b] = await Promise.all([spawnWorker(rt), spawnWorker(rt)]);
+      workers = [a, b];
+      const member = async (w: ForkedWorker, user?: string): Promise<void> => {
+        w.events.length = 0;
+        w.child.send({
+          cmd: "presence-member",
+          channel: "pres:1",
+          user: user ?? "",
+        });
+        await w.awaitEvent(
+          (e) => e.cmd === "ack" && e.op === "presence-member",
+        );
+      };
+      /** Relit la présence sur B jusqu'à `done` (ou 3 s — bien sous le délai d'oubli de 15 s). */
+      const onB = async (done: (e: AnyMsg) => boolean): Promise<AnyMsg> => {
+        const end = Date.now() + 3000;
+        for (;;) {
+          b.events.length = 0;
+          b.child.send({ cmd: "presence", channel: "pres:1" });
+          const got = await b.awaitEvent((e) => e.cmd === "presence");
+          if (done(got) || Date.now() > end) return got;
+          await wait(50);
+        }
+      };
+      const same = (x: unknown, y: unknown): boolean =>
+        JSON.stringify(x) === JSON.stringify(y);
+      await member(a, "alice");
+      await member(a);
+      await member(b, "bob");
+      const before = await onB((e) => same(e.members, { alice: 1, bob: 1 }));
+      expect(before).to.deep.include({
+        members: { alice: 1, bob: 1 },
+        unnamed: 1,
+      });
+
+      const exited = new Promise((r) => a.child.once("exit", r));
+      a.child.send({ cmd: "presence-terminate" });
+      await exited;
+      const after = await onB(
+        (e) => same(e.members, { bob: 1 }) && e.unnamed === 0,
+      );
+      expect(after).to.deep.include({ members: { bob: 1 }, unnamed: 0 });
+      expect(after.probe).to.deep.include({ endedTotal: 1, forgottenTotal: 0 });
     });
 
     it.skipIf(!NF_RUN_PERF)(

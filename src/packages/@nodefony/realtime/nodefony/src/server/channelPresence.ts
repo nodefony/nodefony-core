@@ -49,6 +49,19 @@ export interface IChannelPresenceView {
   readonly partial: boolean;
 }
 
+/**
+ * Départ d'un PAIR retenu par la grâce (pod oublié, arrêté, remplacé) — ses onglets restent comptés jusqu'à l'échéance. Forme fixe : alloué au seul départ d'un pod, chemin froid.
+ */
+class RemoteDeparture {
+  readonly deadline: number;
+  tabs: number;
+
+  constructor(deadline: number, tabs: number) {
+    this.deadline = deadline;
+    this.tabs = tabs;
+  }
+}
+
 /** Entier sûr ≥ 0 ? */
 function isCount(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
@@ -169,6 +182,13 @@ export class ChannelPresence implements IPresenceAggregate {
   #leaving: Map<string, number> | null = null;
   #unnamedLeaving: number[] | null = null;
   #unnamedHead = 0;
+  // Départs d'un PAIR retenus par la grâce — même ordre (une grâce par canal,
+  // horloge monotone) ; tenus à part des départs locaux : ils ne touchent pas la
+  // part locale et peuvent porter plusieurs onglets.
+  #remoteLeaving: Map<string, RemoteDeparture> | null = null;
+  // Non nommés d'un pair parti, en paires à plat `[échéance, nombre, …]`.
+  #remoteUnnamedLeaving: number[] | null = null;
+  #remoteUnnamedHead = 0;
 
   /**
    * @param distributed - le canal est diffusé entre pods (bus branché, préfixe
@@ -220,8 +240,13 @@ export class ChannelPresence implements IPresenceAggregate {
     }
     // Revenue pendant sa grâce : son départ n'a jamais été publié, rien ne change.
     if (this.#leaving?.delete(key) === true) return;
-    this.#named.set(key, (this.#named.get(key) ?? 0) + 1);
-    this.#markDirty(key);
+    const named = this.#named;
+    const before = named.get(key) ?? 0;
+    // Revenue ici pendant la grâce d'un pair parti : ses onglets là-bas tombent,
+    // celui-ci s'ajoute — aucun départ publié entre les deux.
+    const total = before - this.#cancelRemoteDeparture(key) + 1;
+    named.set(key, total);
+    if (total !== before) this.#markDirty(key);
     if (local !== null) this.#setLocal(local, key, (local.get(key) ?? 0) + 1);
   }
 
@@ -269,6 +294,8 @@ export class ChannelPresence implements IPresenceAggregate {
   expire(now: number): void {
     const leaving = this.#leaving;
     const local = this.#local;
+    if (this.#remoteLeaving !== null || this.#remoteUnnamedLeaving !== null)
+      this.#expireRemote(now);
     if (leaving !== null) {
       // Échéances croissantes : on s'arrête à la première non échue.
       for (const [key, deadline] of leaving) {
@@ -312,6 +339,14 @@ export class ChannelPresence implements IPresenceAggregate {
     }
     const first = this.#unnamedLeaving?.[this.#unnamedHead];
     if (first !== undefined && first < next) next = first;
+    if (this.#remoteLeaving !== null) {
+      for (const departure of this.#remoteLeaving.values()) {
+        if (departure.deadline < next) next = departure.deadline;
+        break;
+      }
+    }
+    const remote = this.#remoteUnnamedLeaving?.[this.#remoteUnnamedHead];
+    if (remote !== undefined && remote < next) next = remote;
     return next;
   }
 
@@ -415,10 +450,12 @@ export class ChannelPresence implements IPresenceAggregate {
     let total = before;
     // Départ local retenu par la grâce, et l'identité est là chez un pair :
     // elle est restée présente, le départ local prend effet sans être publié.
-    if (delta > 0 && this.#leaving?.delete(key) === true) {
-      total -= 1;
-      const local = this.#local;
-      if (local !== null) this.#setLocal(local, key, 0);
+    if (delta > 0) {
+      if (this.#leaving?.delete(key) === true) {
+        total -= 1;
+        const local = this.#local;
+        if (local !== null) this.#setLocal(local, key, 0);
+      } else total -= this.#cancelRemoteDeparture(key);
     }
     total += delta;
     if (total > 0) named.set(key, total);
@@ -430,6 +467,30 @@ export class ChannelPresence implements IPresenceAggregate {
   remoteUnnamed(delta: number): void {
     this.#unnamed += delta;
     this.#countsDirty = true;
+  }
+
+  /** {@inheritDoc IPresenceAggregate.remoteLeave} */
+  remoteLeave(key: string, tabs: number, now: number): void {
+    const grace = this.settings.grace;
+    // Encore présente ailleurs (ici ou chez un autre pair) : aucun départ, aucune grâce.
+    if (grace === 0 || (this.#named.get(key) ?? 0) > tabs) {
+      this.remoteTabs(key, -tabs);
+      return;
+    }
+    const leaving = (this.#remoteLeaving ??= new Map<
+      string,
+      RemoteDeparture
+    >());
+    const pending = leaving.get(key);
+    if (pending !== undefined) pending.tabs += tabs;
+    else leaving.set(key, new RemoteDeparture(now + grace, tabs));
+  }
+
+  /** {@inheritDoc IPresenceAggregate.remoteUnnamedLeave} */
+  remoteUnnamedLeave(count: number, now: number): void {
+    const grace = this.settings.grace;
+    if (grace === 0) this.remoteUnnamed(-count);
+    else (this.#remoteUnnamedLeaving ??= []).push(now + grace, count);
   }
 
   /**
@@ -489,6 +550,53 @@ export class ChannelPresence implements IPresenceAggregate {
     if (this.#localUnnamed !== 0) this.#addLocalUnnamed(-this.#localUnnamed);
     this.#unnamedLeaving = null;
     this.#unnamedHead = 0;
+    this.#remoteLeaving = null;
+    this.#remoteUnnamedLeaving = null;
+    this.#remoteUnnamedHead = 0;
+  }
+
+  /** Annule le départ en grâce d'un pair pour `key` ; rend les onglets qu'il retenait (`0` sans départ). */
+  #cancelRemoteDeparture(key: string): number {
+    const leaving = this.#remoteLeaving;
+    if (leaving === null) return 0;
+    const departure = leaving.get(key);
+    if (departure === undefined) return 0;
+    leaving.delete(key);
+    if (leaving.size === 0) this.#remoteLeaving = null;
+    return departure.tabs;
+  }
+
+  /** Départs de pairs dont la grâce est écoulée — échéances croissantes, arrêt à la première non échue. */
+  #expireRemote(now: number): void {
+    const leaving = this.#remoteLeaving;
+    if (leaving !== null) {
+      const named = this.#named;
+      for (const [key, departure] of leaving) {
+        if (departure.deadline > now) break;
+        leaving.delete(key);
+        const total = (named.get(key) ?? 0) - departure.tabs;
+        if (total > 0) named.set(key, total);
+        else named.delete(key);
+        this.#markDirty(key);
+      }
+      if (leaving.size === 0) this.#remoteLeaving = null;
+    }
+    const queue = this.#remoteUnnamedLeaving;
+    if (queue === null) return;
+    let head = this.#remoteUnnamedHead;
+    let gone = 0;
+    while (head < queue.length && (queue[head] ?? 0) <= now) {
+      gone += queue[head + 1] ?? 0;
+      head += 2;
+    }
+    if (gone !== 0) {
+      this.#unnamed -= gone;
+      this.#countsDirty = true;
+    }
+    if (head >= queue.length) {
+      this.#remoteUnnamedLeaving = null;
+      this.#remoteUnnamedHead = 0;
+    } else this.#remoteUnnamedHead = head;
   }
 
   #markDirty(key: string): void {

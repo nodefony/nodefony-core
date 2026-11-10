@@ -86,6 +86,10 @@ export class BackplanePublishQueue {
   #controlLostTotal = 0;
   /** Ordres perdus de l'épisode courant ; `> 0` = épisode ouvert (1 log par épisode). */
   #controlLostInEpisode = 0;
+  /** Publications réseau en vol (un entier : le compte, pas les octets — un message vide compte). */
+  #inFlight = 0;
+  /** Attentes de {@link BackplanePublishQueue.settled} ; `null` tant que personne n'attend (arrêt seulement). */
+  #idle: (() => void)[] | null = null;
 
   /**
    * @param maxBytes - seuil d'octets en vol ; `0` (ou négatif) = illimité.
@@ -143,6 +147,7 @@ export class BackplanePublishQueue {
     // Transport synchrone → rien à suivre : pas de file, donc pas de borne à tenir.
     if (!isThenable(result)) return true;
     this.#bytes += bytes;
+    this.#inFlight += 1;
     // 1 closure + 1 `.then` par publication réseau : le transport a déjà alloué sa
     // promesse, et ce chemin n'existe que sur le fan-out cross-pod (jamais sur le
     // hot path HTTP, ni en mono-process où le hub n'a aucun backplane).
@@ -156,6 +161,12 @@ export class BackplanePublishQueue {
       )
         this.#controlSettled(failed);
       this.#drain();
+      this.#inFlight -= 1;
+      if (this.#inFlight === 0 && this.#idle !== null) {
+        const waiting = this.#idle;
+        this.#idle = null;
+        for (const resolve of waiting) resolve();
+      }
     };
     result.then(
       () => settle(false),
@@ -213,6 +224,19 @@ export class BackplanePublishQueue {
         `perdu(s) pendant la coupure.`,
       "INFO",
     );
+  }
+
+  /**
+   * Attend que toutes les publications en vol soient acquittées ou refusées par le bus — à l'arrêt, pour que ce qui est déjà émis (la preuve de vie finale de la présence) parte avant la sortie du processus.
+   *
+   * Ne borne rien : un bus qui ne répond plus ne la résout jamais. L'appelant
+   * pose la limite (l'arrêt du noyau a la sienne).
+   */
+  settled(): Promise<void> {
+    if (this.#inFlight === 0) return Promise.resolve();
+    return new Promise((resolve) => {
+      (this.#idle ??= []).push(resolve);
+    });
   }
 
   /** Compteurs pour la carte d'identité du backplane (sonde + Studio). */

@@ -222,10 +222,13 @@ canaux, de membres ou d'abonnés.**
   du sceau (`src/packages/@nodefony/realtime/nodefony/src/backplane/RedisBackplane.ts#RedisBackplane.#ingress`).
   Le driver compte les échos (`echoTotal`, un entier incrémenté sur la branche anti-écho, aucun
   horodatage par message), champ FACULTATIF de son `describe()` — aucune méthode neuve dans
-  `IBackplane`. À chaque tic, le pod compare ce compteur à son relevé précédent : écho vu et pair
-  muet = pair mort, oublié ; aucun écho = bus perdu, la vue se fige, aucun oubli de masse
-  (S-rt-102). Un driver qui n'expose pas l'écho (IPC du `cluster`, sans file ni perte ; driver
-  tiers) : oubli normal.
+  `IBackplane`. Au tic de chaque preuve de vie (un `describe()` par intervalle, jamais par
+  message), le pod compare ce compteur à son relevé précédent, AVANT l'oubli du même tic : écho vu
+  et pair muet = pair mort, oublié ; une preuve de vie partie au relevé précédent et aucun écho
+  depuis = bus perdu, la vue se fige (`partial`), aucune échéance d'oubli n'est armée, aucun oubli
+  de masse (S-rt-102). L'écho revenu réarme le délai de tous les pairs. Sonde : `busLost`,
+  `busLostTotal`, `rearmTotal`. Un driver qui n'expose pas l'écho (IPC du `cluster`, sans file ni
+  perte ; driver tiers) : oubli normal.
 - **Compteurs** (ensemble fermé d'ADR-0021 S9) : `presenceRejectedTotal` — message de présence de
   forme invalide, au-delà d'un plafond, ou pour un canal non déclaré à présence ;
   `presenceStaleDiscardedTotal` — `seq` déjà vu ou incarnation plus ancienne. Unité : un message
@@ -380,6 +383,13 @@ canaux, de membres ou d'abonnés.**
   déploiement laisserait ses présents chez les pairs jusqu'au délai d'oubli, et compterait deux
   fois dans `unnamed` les clients reconnectés ailleurs. Les normes annoncent cette fin : RFC 6121
   §4.5.1 (« gracefully become unavailable »), XEP-0045 §11.2 (code 332), RFC 6665 §4.2.1.4.
+  Branchement : l'écouteur `onTerminate` du module appelle
+  `src/packages/@nodefony/realtime/nodefony/src/server/realtimeShutdown.ts#shutdownRealtime` —
+  `hub.endPresence()`, puis l'arrêt du bus QUE LE MODULE A CRÉÉ, qui laisse partir ce qui est déjà
+  émis (`BackplanePublishQueue.settled`), borné à 2 s. Le noyau sort au tick suivant
+  l'`onTerminate` : sans cette attente, la preuve de vie finale se perdait sur Redis (vu au banc
+  multi-processus) — l'IPC du `cluster`, lui, la livrait. Un bus fourni par l'application
+  (service `realtimeBackplane`) reçoit la fin, mais c'est à l'application de l'arrêter.
 - **Grâce** : option `presence: { grace: <ms> }`. Un départ — connexion fermée, pod oublié ou
   parti — n'est publié qu'après ce délai, et s'annule si l'identité revient : un rechargement de
   page ou un déploiement ne fait plus clignoter la liste. Pour `unnamed`, la grâce retarde le

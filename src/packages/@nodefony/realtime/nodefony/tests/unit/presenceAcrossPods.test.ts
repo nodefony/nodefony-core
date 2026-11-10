@@ -1,19 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   PLATFORM_BUS_CHANNELS,
-  REALTIME_PRESENCE_METHOD,
   classifyNumberedChange,
   type RealtimePresenceFrame,
 } from "nodefony";
-import { RealtimeConnection } from "../../src/server/RealtimeConnection";
+import {
+  presenceClient as client,
+  presenceView as view,
+  type IPresenceClient as IClient,
+} from "../helpers/presenceClient";
 import { RealtimeHub } from "../../src/server/RealtimeHub";
-import type { ChannelFrame, ChannelSink } from "../../src/server/RealtimeHub";
 import type { BackplaneHandler, IBackplane } from "../../interfaces/IBackplane";
 import { PRESENCE_WINDOW_MS } from "../../src/server/channelPresence";
 import {
   PRESENCE_BATCH_MS,
   PRESENCE_FORGET_FACTOR,
   PRESENCE_INTERVAL_MS,
+  PresenceBus,
+  type IPresenceBusHost,
 } from "../../src/server/presenceBus";
 
 /**
@@ -29,17 +33,25 @@ interface IWire {
   from: string;
 }
 
-/** Réseau en mémoire : chaque publication est rendue à tous les AUTRES pairs. */
-function network(): {
+/**
+ * Réseau en mémoire : chaque publication est rendue à tous les AUTRES pairs.
+ * `cut` coupe les envois d'un pair, `deaf` ses réceptions ; `echo` fait
+ * compter à chaque pair l'écho de ses propres envois (`describe().echoTotal`,
+ * comme le pilote Redis) — perdu si le pair est coupé dans un sens ou l'autre.
+ */
+function network(options: { echo?: boolean } = {}): {
   peer: (originId: string) => IBackplane;
   wire: IWire[];
   cut: Set<string>;
+  deaf: Set<string>;
   dropNext: (pred: (w: IWire) => boolean) => void;
   inject: (to: string, msg: IWire) => void;
 } {
   const handlers = new Map<string, BackplaneHandler>();
   const wire: IWire[] = [];
   const cut = new Set<string>();
+  const deaf = new Set<string>();
+  const echoes = new Map<string, number>();
   let drop: ((w: IWire) => boolean) | null = null;
   const deliver = (to: BackplaneHandler, w: IWire): void => {
     const payload = structuredClone(w.payload);
@@ -48,6 +60,7 @@ function network(): {
   return {
     wire,
     cut,
+    deaf,
     dropNext: (pred) => {
       drop = pred;
     },
@@ -69,17 +82,26 @@ function network(): {
           drop = null;
           return;
         }
-        for (const [id, h] of handlers) if (id !== originId) deliver(h, w);
+        for (const [id, h] of handlers)
+          if (id !== originId && !deaf.has(id)) deliver(h, w);
+        if (options.echo === true && !deaf.has(originId))
+          queueMicrotask(() => {
+            echoes.set(originId, (echoes.get(originId) ?? 0) + 1);
+          });
       },
       onMessage: (h) => {
         handlers.set(originId, h);
       },
-      describe: () => ({
-        driver: "test-net",
-        kind: "memory",
-        originId,
-        crossPod: true,
-      }),
+      describe: () =>
+        options.echo === true
+          ? {
+              driver: "test-net",
+              kind: "memory",
+              originId,
+              crossPod: true,
+              echoTotal: echoes.get(originId) ?? 0,
+            }
+          : { driver: "test-net", kind: "memory", originId, crossPod: true },
     }),
   };
 }
@@ -95,57 +117,6 @@ function pod(net: ReturnType<typeof network>, id: string): RealtimeHub {
   hub.markBroadcastChannel("plain:");
   hub.setBackplane(net.peer(id));
   return hub;
-}
-
-interface IClient {
-  frames: RealtimePresenceFrame[];
-  leave: () => void;
-}
-
-/** Un client du hub : `user` nommé, ou `null` pour un anonyme. */
-function client(
-  hub: RealtimeHub,
-  channel: string,
-  user: string | null,
-): IClient {
-  const frames: RealtimePresenceFrame[] = [];
-  const codec = hub.textFrameCodec;
-  const conn = new RealtimeConnection(
-    {
-      impose: () => {},
-      end: () => false,
-      send: (frame: ChannelFrame) => {
-        const data = frame.encodeFor(codec);
-        if (typeof data !== "string") return;
-        const msg = JSON.parse(data) as {
-          method: string;
-          params: RealtimePresenceFrame;
-        };
-        if (msg.method === REALTIME_PRESENCE_METHOD) frames.push(msg.params);
-      },
-    },
-    () => ({
-      type: user === null ? "anonymous" : "test",
-      authenticated: user !== null,
-      id: user,
-      userIdentifier: user ?? "anon.",
-      roles: [],
-      scopes: [],
-      issuer: null,
-      account: user !== null,
-    }),
-  );
-  const sink: ChannelSink = () => {};
-  expect(
-    hub.subscribeClient(channel, sink, () => () => {}, undefined, conn),
-  ).toBe(true);
-  hub.presenceSubscribed(channel, conn);
-  return {
-    frames,
-    leave: () => {
-      hub.unsubscribe(channel, sink);
-    },
-  };
 }
 
 /** Vue d'un client rejouée trame par trame (règle pure du navigateur). */
@@ -194,15 +165,6 @@ function replay(c: IClient): {
   };
 }
 
-const view = (hub: RealtimeHub, channel: string): Record<string, number> => {
-  const v = hub.presence(channel);
-  const out: Record<string, number> = {};
-  if (v !== null)
-    for (const [k, e] of [...v.members].sort(([a], [b]) => a.localeCompare(b)))
-      out[k] = e.tabs;
-  return out;
-};
-
 const onBus = (net: ReturnType<typeof network>, from: string): IWire[] =>
   net.wire.filter(
     (w) =>
@@ -234,6 +196,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.useRealTimers();
 });
 
@@ -338,6 +301,11 @@ describe("#760 lot D2 — présence répartie entre deux pods (bus en mémoire)"
   });
 
   it("🔴 un lot perdu : trou, vue `partial`, demande CIBLÉE, réponse, vue réparée", async () => {
+    // Première preuve de vie après le scénario (gigue de 0 à 25 % de
+    // l'intervalle) : tombée entre le lot perdu et le suivant, son `last`
+    // révélerait le trou — à bon droit — et le fermerait avant l'assertion
+    // (vu rouge 1 run sur 10 avec l'aléa réel).
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
     const net = network();
     const a = pod(net, "A");
     const b = pod(net, "B");
@@ -561,5 +529,217 @@ describe("#760 lot D2 — présence répartie entre deux pods (bus en mémoire)"
       );
     expect(b.presence("room:1")?.count).toBe(3001);
     expect(b.probe().presence?.gaps).toBe(0);
+  });
+});
+
+/** Messages de présence publiés par `from` depuis l'indice `since` du fil. */
+const presenceSince = (
+  net: ReturnType<typeof network>,
+  from: string,
+  since: number,
+): IWire[] => onBus({ ...net, wire: net.wire.slice(since) }, from);
+
+/** Un client a-t-il reçu une trame annonçant le départ de `id` ? */
+const sawLeave = (c: IClient, id: string): boolean =>
+  c.frames.some((f) => f.changes?.gone?.includes(id) === true);
+
+describe("#760 lot D3 — pannes : arrêt propre, grâce des pods, écho, gel", () => {
+  it("🔴 arrêt propre : dernier lot puis preuve de vie FINALE — présents retirés chez B en ≤ 1 fenêtre, sans attendre l'oubli ; plus rien ne part ensuite", async () => {
+    const net = network();
+    const a = pod(net, "A");
+    const b = pod(net, "B");
+    client(a, "room:1", "alice");
+    const bob = client(b, "room:1", "bob");
+    await tick(PRESENCE_BATCH_MS * 4);
+    expect(view(b, "room:1")).to.deep.equal({ alice: 1, bob: 1 });
+    client(a, "room:1", "carol"); // part avec le DERNIER lot
+    a.endPresence();
+    const last = onBus(net, "A").slice(-2);
+    expect(ops(last)).to.deep.equal(["batch", "alive"]);
+    expect((last[1]?.payload as { final?: unknown } | undefined)?.final).toBe(
+      true,
+    );
+    await tick(PRESENCE_WINDOW_MS);
+    expect(view(b, "room:1")).to.deep.equal({ bob: 1 });
+    expect(replay(bob).members).to.deep.equal({ bob: 1 });
+    expect(b.probe().presence?.endedTotal).toBe(1);
+    expect(b.probe().presence?.forgottenTotal).toBe(0);
+    // Après l'arrêt : une connexion qui arrive ou part ne publie plus rien.
+    const since = net.wire.length;
+    client(a, "room:1", "dave");
+    a.endPresence(); // idempotent
+    await tick(FORGET_MS * 2);
+    expect(presenceSince(net, "A", since)).toHaveLength(0);
+    expect(view(b, "room:1")).to.deep.equal({ bob: 1 });
+  });
+
+  it("🔴 grâce des départs de POD : A arrêté, ses présents restent chez B le temps de la grâce ; revenue sur B pendant la grâce, jamais vue partir", async () => {
+    const net = network();
+    const a = pod(net, "A");
+    const b = pod(net, "B");
+    client(a, "wait:1", "alice");
+    client(a, "wait:1", "carol");
+    client(a, "wait:1", null);
+    const bob = client(b, "wait:1", "bob");
+    await tick(PRESENCE_WINDOW_MS * 2);
+    expect(view(b, "wait:1")).to.deep.equal({ alice: 1, bob: 1, carol: 1 });
+    expect(b.presence("wait:1")?.unnamed).toBe(1);
+    a.endPresence();
+    await tick(1); // preuve de vie finale reçue par B
+    expect(b.probe().presence?.endedTotal).toBe(1);
+    client(b, "wait:1", "alice"); // reconnectée ailleurs (déploiement)
+    await tick(500);
+    // Grâce de 1 000 ms en cours : personne n'est encore parti.
+    expect(view(b, "wait:1")).to.deep.equal({ alice: 1, bob: 1, carol: 1 });
+    expect(b.presence("wait:1")?.unnamed).toBe(1);
+    await tick(500 + PRESENCE_WINDOW_MS);
+    expect(view(b, "wait:1")).to.deep.equal({ alice: 1, bob: 1 });
+    expect(b.presence("wait:1")?.unnamed).toBe(0);
+    expect(sawLeave(bob, "carol")).toBe(true);
+    expect(sawLeave(bob, "alice")).toBe(false);
+    expect(replay(bob).members).to.deep.equal({ alice: 1, bob: 1 });
+  });
+
+  it("🔴 bus perdu constaté par l'ÉCHO : vue figée et `partial`, aucun pair oublié ; l'écho revenu réarme, et un pair mort pendant la coupure n'est oublié qu'APRÈS", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0); // battements en phase, lisibles
+    const net = network({ echo: true });
+    const a = pod(net, "A");
+    const b = pod(net, "B");
+    const c = pod(net, "C");
+    client(a, "room:1", "alice");
+    client(c, "room:1", "carol");
+    const bob = client(b, "room:1", "bob");
+    await tick(PRESENCE_INTERVAL_MS * 2);
+    const all = { alice: 1, bob: 1, carol: 1 };
+    expect(view(b, "room:1")).to.deep.equal(all);
+    // B perd le bus dans les deux sens : ni envoi, ni réception, ni écho.
+    net.cut.add("B");
+    net.deaf.add("B");
+    await tick(FORGET_MS * 3);
+    expect(b.probe().presence?.busLost).toBe(true);
+    expect(b.probe().presence?.busLostTotal).toBe(1);
+    expect(b.probe().presence?.forgottenTotal).toBe(0);
+    expect(view(b, "room:1")).to.deep.equal(all);
+    expect(b.presence("room:1")?.partial).toBe(true);
+    expect(replay(bob).partial).toBe(true);
+    // Pendant la coupure, C est mort ; le bus de B revient.
+    net.cut.add("C");
+    net.cut.delete("B");
+    net.deaf.delete("B");
+    await tick(PRESENCE_INTERVAL_MS * 2);
+    expect(b.probe().presence?.busLost).toBe(false);
+    expect(b.probe().presence?.rearmTotal).toBeGreaterThan(0);
+    // Réarmé au retour de l'écho : C n'est pas oublié d'un coup.
+    expect(view(b, "room:1")).to.deep.equal(all);
+    await tick(FORGET_MS + PRESENCE_INTERVAL_MS);
+    expect(view(b, "room:1")).to.deep.equal({ alice: 1, bob: 1 });
+    expect(b.probe().presence?.forgottenTotal).toBe(1);
+    await tick(PRESENCE_WINDOW_MS);
+    expect(b.presence("room:1")?.partial).toBe(false);
+    expect(replay(bob)).to.deep.include({ partial: false, gaps: 0 });
+    // A avait oublié B pendant la coupure ; B revenu, A le revoit.
+    expect(view(a, "room:1")).to.deep.equal({ alice: 1, bob: 1 });
+  });
+
+  it("un pilote sans écho (IPC du `cluster`, pilote tiers) : oubli normal, jamais de vue figée", async () => {
+    const net = network(); // `describe()` sans `echoTotal`
+    const a = pod(net, "A");
+    const b = pod(net, "B");
+    client(a, "room:1", "alice");
+    client(b, "room:1", "bob");
+    await tick(PRESENCE_BATCH_MS * 4);
+    net.cut.add("A");
+    await tick(FORGET_MS + PRESENCE_INTERVAL_MS * 2);
+    expect(view(b, "room:1")).to.deep.equal({ bob: 1 });
+    expect(b.probe().presence).to.deep.include({
+      busLost: false,
+      busLostTotal: 0,
+      forgottenTotal: 1,
+    });
+  });
+});
+
+describe("#760 lot D3 — gel du récepteur (PresenceBus, horloge passée à la main)", () => {
+  const host: IPresenceBusHost = {
+    originId: "B",
+    publish: () => {},
+    lookup: () => null,
+    served: () => null,
+    servedPresences: () => [],
+    servedCount: () => 0,
+    echoTotal: () => undefined,
+  };
+  const alive = (seq: number) => ({
+    incarnation: 7,
+    seq,
+    last: 0,
+    interval: PRESENCE_INTERVAL_MS,
+  });
+  const make = (): PresenceBus =>
+    new PresenceBus(host, { random: () => 0.5, wallClock: () => 1_000 });
+
+  it("témoin : tics à l'heure, un pair muet est oublié au délai d'oubli, pas avant", () => {
+    const bus = make();
+    bus.receiveAlive("A", alive(1), 0);
+    let now = 0;
+    while (bus.remote.size > 0 && now < FORGET_MS * 2) {
+      now = bus.due();
+      bus.tick(now);
+    }
+    expect(now).toBe(FORGET_MS);
+    expect(bus.remote.forgottenTotal).toBe(1);
+    expect(bus.rearmTotal).toBe(0);
+  });
+
+  it("🔴 récepteur gelé 20 s : le tic en retard RÉARME au lieu d'oublier ; la preuve de vie restée au tampon le garde vivant", () => {
+    const bus = make();
+    bus.receiveAlive("A", alive(1), 0);
+    bus.tick(bus.due()); // premier battement (gigue)
+    // Gel : aucun tic pendant 20 s, puis les minuteurs passent AVANT la
+    // lecture des sockets.
+    bus.tick(20_000);
+    expect(bus.remote.size).toBe(1);
+    expect(bus.remote.forgottenTotal).toBe(0);
+    expect(bus.rearmTotal).toBe(1);
+    bus.receiveAlive("A", alive(2), 20_000); // lue après les minuteurs
+    let now = 20_000;
+    while (now < 20_000 + FORGET_MS - 1) {
+      now = Math.min(bus.due(), 20_000 + FORGET_MS - 1);
+      bus.tick(now);
+    }
+    expect(bus.remote.forgottenTotal).toBe(0);
+  });
+
+  it("🔴 bus perdu constaté AU MÊME TIC que l'échéance d'oubli : l'écho passe avant, aucun pair oublié", () => {
+    let echo = 0;
+    const bus = new PresenceBus(
+      { ...host, echoTotal: () => echo },
+      { random: () => 0.5, wallClock: () => 1_000 },
+    );
+    bus.tick(0); // rien encore
+    bus.receiveAlive("A", alive(1), 0);
+    const first = bus.due(); // premier battement (gigue : 625 ms)
+    bus.tick(first);
+    // A ne parle plus qu'une fois, calé pour que son échéance d'oubli tombe
+    // pile sur un battement de B.
+    bus.receiveAlive("A", alive(2), first);
+    let now = first;
+    // L'écho suit chaque battement… jusqu'à ce que le bus se perde.
+    while (now < first + PRESENCE_INTERVAL_MS * 2) {
+      echo += 1;
+      now = bus.due();
+      bus.tick(now);
+    }
+    // Plus aucun écho : le battement suivant constate la perte, au tic même
+    // où A devrait être oublié.
+    now = bus.due();
+    expect(now).toBe(first + FORGET_MS);
+    bus.tick(now);
+    expect(bus.busLost).toBe(true);
+    expect(bus.remote.forgottenTotal).toBe(0);
+    expect(bus.remote.size).toBe(1);
+    // Vue figée : aucune échéance d'oubli restée dans le passé, sinon le tic
+    // unique se réarmerait à 0 ms en boucle pendant toute la perte.
+    expect(bus.due()).toBe(now + PRESENCE_INTERVAL_MS);
   });
 });

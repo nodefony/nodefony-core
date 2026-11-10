@@ -24,6 +24,10 @@ import {
   RedisBackplane,
   createRedisServiceTransport,
 } from "../../src/backplane/RedisBackplane.js";
+import {
+  declareWorkerPresence,
+  handlePresenceCommand,
+} from "../helpers/presenceWorker.js";
 
 /**
  * Envoie un message de contrôle au master — et seulement si le canal IPC est
@@ -90,8 +94,11 @@ async function boot(): Promise<void> {
   // Abonnement Redis effectif AVANT ready (start idempotent → no-op dans setBackplane).
   await bp.start();
   hub.setBackplane(bp);
+  // Présence répartie (#760) : canaux `pres:` à présence, diffusés entre pods.
+  declareWorkerPresence(hub);
 
   process.on("message", (raw: unknown) => {
+    if (handlePresenceCommand(hub, raw, sendToMaster, bp)) return;
     const msg = raw as ControlMsg;
     if (!msg || typeof msg !== "object" || typeof msg.cmd !== "string") return;
 

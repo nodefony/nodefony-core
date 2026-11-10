@@ -467,11 +467,19 @@ export class RedisBackplane implements IBackplane {
     if (msg !== null) this.#handler?.(msg);
   }
 
-  /** Désabonne du canal Redis et détache le handler. Idempotent. */
+  /**
+   * Laisse partir les publications déjà émises (acquittées ou refusées par Redis), puis désabonne du canal et détache le handler. Idempotent.
+   *
+   * Sans l'attente, un arrêt suivi de la sortie du processus perdait ce qui
+   * était encore dans la file — la preuve de vie FINALE de la présence comprise,
+   * et les pairs gardaient alors ce pod jusqu'au délai d'oubli. Un Redis qui ne
+   * répond plus fait attendre : l'appelant borne (l'arrêt du module le fait).
+   */
   async stop(): Promise<void> {
     this.#handler = null;
     if (!this.#started) return;
     this.#started = false;
+    await this.#queue.settled();
     await Promise.all([
       this.#transport.unsubscribe(this.#redisChannel),
       this.#bytes !== null
