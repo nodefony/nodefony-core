@@ -511,15 +511,15 @@ Sur la socket, la trame `subscribe` tourne dans la bulle de contexte de la conne
 
 - **Situation** : même salon ; le bus est coupé 30 s, ou saturé : la file d'émission jette alors les messages, preuves de vie comprises (`publishQueue.ts#BackplanePublishQueue.send`).
 - **Catégorie** : panne et réseau
-- **Tient si** : oublier un pod coûte UNE trame par client (« pod perdu »), jamais un départ par membre ; aucun oubli quand c'est la file LOCALE qui a jeté ; aucun clignotement sous charge.
+- **Tient si** : oublier un pod coûte UNE trame par client (« pod perdu »), jamais un départ par membre ; la preuve de vie n'est jamais jetée par la file (voie hors quota), donc aucun pod vivant oublié sous charge ; un lot jeté se répare par le trou (`last`) sans clignotement ; bus coupé = plus d'écho de sa propre preuve de vie = vue figée, aucun oubli de masse.
 - **Décisions jugées** : ADR-0025 (présence)
-- **A fait changer** : une trame « pod perdu » dans la forme (trouvé par le contradicteur)
+- **A fait changer** : une trame « pod perdu » dans la forme (trouvé par le contradicteur) ; la preuve de vie hors quota sur son propre canal, et le bus perdu constaté par l'écho (revue finale, étape 0 de #760 : « pas d'oubli quand la file LOCALE a jeté » était inapplicable — celui qui jette n'est pas celui qui oublie)
 
 ### S-rt-103 — Un onglet lent perd un changement
 
 - **Situation** : un onglet mobile en arrière-plan ; un départ est jeté par la contre-pression (politique par défaut `drop`, silencieuse — `WsConnectionTransport.ts#WsConnectionTransport.send`).
 - **Catégorie** : panne et réseau
-- **Tient si** : le client détecte le trou (numéro de version dans la trame) et redemande la liste ; un présent fantôme ne survit pas au-delà d'une borne, testée.
+- **Tient si** : le client détecte le trou (numéro de version dans la trame) et réémet `subscribe`, qui renvoie la liste ; un présent fantôme ne survit pas au-delà d'une borne, testée.
 - **Décisions jugées** : ADR-0025 (présence)
 - **A fait changer** : un numéro de version dans la trame vers le navigateur, à figer dès la première version (trouvé par le contradicteur)
 
@@ -535,9 +535,9 @@ Sur la socket, la trame `subscribe` tourne dans la bulle de contexte de la conne
 
 - **Situation** : bascule de sentinelle : un pod garde sa connexion mais ne reçoit plus rien, sans erreur.
 - **Catégorie** : panne et réseau
-- **Tient si** : la sonde montre l'âge du dernier message de présence reçu ; le silence de TOUS les pairs fige la vue au lieu d'oublier tout le monde.
+- **Tient si** : la sonde montre l'âge du dernier message de présence reçu ; un pod qui ne reçoit plus l'écho de sa propre preuve de vie fige la vue au lieu d'oublier tout le monde.
 - **Décisions jugées** : ADR-0025 (présence)
-- **A fait changer** : le gel sur silence général (sièges exploitant et perf)
+- **A fait changer** : le gel sur bus perdu (sièges exploitant et perf) ; constaté par l'écho et non par « le silence de tous les pairs », indécidable à deux pods (revue finale, étape 0 de #760)
 
 ## Plusieurs instances
 
@@ -622,7 +622,7 @@ Sur la socket, la trame `subscribe` tourne dans la bulle de contexte de la conne
 
 - **Situation** : `room:42` compte 300 présents sur A et B ; Carol est la première à l'ouvrir sur le pod C.
 - **Catégorie** : plusieurs instances
-- **Tient si** : Carol reçoit la liste complète en moins de 200 ms, mesuré — que le pod garde la vue de tout ou la demande à la première ouverture.
+- **Tient si** : Carol reçoit tout de suite la liste locale, puis la liste complète au plus deux fenêtres de 50 ms après la demande (invariant à horloge simulée) ; la latence réelle se mesure au banc multi-pods.
 - **Décisions jugées** : ADR-0025 (présence)
 - **A fait changer** : aucune — le mécanisme se rejuge avec S-rt-100
 
@@ -735,7 +735,7 @@ Sur la socket, la trame `subscribe` tourne dans la bulle de contexte de la conne
 
 - **Situation** : le pod A tourne une version sans présence, le pod B la version qui l'apporte, même bus.
 - **Catégorie** : versions qui cohabitent
-- **Tient si** : aucun client d'un pod ancien ne reçoit un message de présence ; le rejet ne gonfle pas le compteur lu comme une injection (`#ingressRejectedTotal`, F83) ; le nombre de pods vus sans présence est exposé.
+- **Tient si** : aucun client d'un pod ancien ne reçoit un message de présence ; le rejet ne gonfle pas le compteur lu comme une injection (`#ingressRejectedTotal`, F83) mais `ingressUnknownDiscardedTotal`. Les présents du pod ancien ne sont pas vus tant qu'il tourne — écrit dans « Ce qu'on ne promet pas » d'ADR-0025 : le bus n'a pas d'annuaire de pairs, un compte des « pods vus sans présence » serait irréalisable.
 - **Décisions jugées** : ADR-0025 (présence)
 - **A fait changer** : le rejet d'un canal de plateforme inconnu compté à part, jamais comme une attaque (trouvé par le contradicteur)
 

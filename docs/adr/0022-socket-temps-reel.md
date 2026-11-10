@@ -936,7 +936,9 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
   publications, et des ordres qui ne font qu'ENLEVER.**
   - **Publications** : `{ channel, payload, originId }` des seuls canaux déclarés diffusables
     (S6, `#RealtimeHub.markBroadcastChannel`). Un message venu du bus n'atteint que des abonnés
-    **déjà admis** sur leur pod. Ni membres, ni politiques, ni acquittements ne traversent.
+    **déjà admis** sur leur pod. Ni politiques, ni acquittements ne traversent ; les membres,
+    seulement sur les canaux de présence (ADR-0025 P2), comptés par identité, jamais leurs
+    connexions.
   - **Ordres par NOM — traversent** : fermer un canal (`ended`) et éjecter un utilisateur par son
     identifiant. Sans eux, une fin de partie ou une modération décidée sur le pod B laisse ouverts
     les abonnés du pod A — un défaut qui marche en développement et une fois sur N en production.
@@ -953,7 +955,8 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
     préfixe (`#RealtimeHub.#admitFromBackplane`), qui n'accepte qu'une **liste fermée** d'ordres
     de forme vérifiée (`src/packages/@nodefony/realtime/nodefony/src/backplane/controlOrder.ts#readControlOrder`,
     même garde à l'émission) ; tout autre contenu, et tout ordre visant un canal de la
-    plateforme, est rejeté et compté (`ingressRejectedTotal`). Son nom vient de la table du cœur
+    plateforme, est rejeté et compté (`ingressRejectedTotal`) — sauf un TYPE d'ordre inconnu de
+    cette version, compté dans `ingressUnknownDiscardedTotal` (ADR-0025, #761). Son nom vient de la table du cœur
     (`PLATFORM_BUS_CHANNELS.control`) ; il n'est jamais diffusé aux abonnés locaux. **Livré
     (#623).**
   - **Pourquoi c'est sûr** : un ordre ne fait qu'**enlever** — seul `allow` fait entrer. Il est
