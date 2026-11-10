@@ -267,6 +267,18 @@ ce garde-fou, `JSON.stringify` les rendait en objet ordinaire (`{"0":1,"1":2}`),
   (`envelope.ts#openBackplaneEnvelope`) ; un producteur écrit dans un autre langage n'est donc pas
   garanti en 10.0 (S-rt-44). Vérifier aussi le sceau sur les octets reçus reste un élargissement
   possible en 10.x : il accepte strictement plus, aucun exemplaire ne refuse ce qu'il acceptait.
+- **Aucune reconversion de la charge sur le bus (décision du 2026-11-10, #760 lot B).** Le format
+  sur le fil et ce que signe le sceau sont INCHANGÉS ; seul le geste change, sur les deux sujets
+  (texte et CBOR). À l'envoi, la charge est encodée UNE fois, le sceau calculé sur ces octets, et
+  l'enveloppe assemblée par fragments (début + charge + fin) — plus de double encodage en CBOR. À
+  la réception, le début et la fin de l'enveloppe se recomposent depuis les champs courts, et le
+  sceau se vérifie sur la TRANCHE reçue de la charge — plus de re-sérialisation ; une forme
+  différente (producteur tiers) retombe sur l'ancienne vérification, si bien qu'on accepte
+  strictement plus. L'ÉCHO se reconnaît à la fin du message (son propre `originId`, connu
+  d'avance) et ne coûte qu'un HMAC : ni `JSON.parse`, ni décodage. Raison : la présence répartie
+  (ADR-0025) fait de l'écho et des petits messages le cas courant — chaque pod reçoit l'écho de
+  chacune de ses publications. Écarté : un format neuf (en-tête maison + octets), seconde
+  grammaire déjà écartée ci-dessus, et rupture du déploiement progressif.
 - **La rotation du secret.** Un seul secret est lu : pendant la fenêtre où les exemplaires n'ont
   pas le même, leurs messages se refusent — comptés par `sealRejectedTotal`, écrit dans la page
   d'exploitation. Accepter un second secret en lecture est un ajout de 10.x.
