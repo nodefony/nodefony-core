@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-10T14:31:42.863Z",
+  "generatedAt": "2026-11-10T14:57:26.805Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,10 +46,10 @@
       "title": "10.0.0-beta"
     },
     {
-      "closed": 136,
+      "closed": 137,
       "dueOn": "2026-11-15T00:00:00Z",
       "number": 1,
-      "open": 6,
+      "open": 5,
       "title": "10.0.0"
     },
     {
@@ -6961,8 +6961,8 @@
       "number": 762,
       "title": "fix(realtime): ne jamais jeter un ordre d'éjection quand la file Redis sature",
       "url": "https://github.com/nodefony/nodefony-core/issues/762",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
