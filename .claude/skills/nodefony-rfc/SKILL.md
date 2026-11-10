@@ -359,6 +359,17 @@ cœur MCP et A2A ne parlent pas de CSP. Consommateur : la politique par défaut 
 `@nodefony/security` (`config.ts#headersSchema`) et la fusion des contributions de modules
 (`csp.ts#mergeCspFragments`).
 
+### 16. Présence (qui est dans ce salon ?) — **HORS LIGNE, dans le corpus UNIQUE**
+
+Aucune norme ne couvre la présence ENTRE serveurs ; plusieurs couvrent ce qu'un client voit. Textes :
+`nodefony-framework-dev/references/rfc/ietf/` (RFC 2778, 2779, 3856, 3863, 4479, 5262, 5263, 6121, 6665) et `…/rfc/specs/` (`xep-0045-multi-user-chat.xml`, `matrix-presence.md`). Ce que chacune
+tranche : §23 du README du corpus ; comment ADR-0025 s'y conforme ou s'en écarte : sa section
+« Normes et antériorités ».
+
+🔴 **Le cas le plus proche est XEP-0045 (présence d'un SALON), pas RFC 6121 (carnet de
+contacts)** — et SIP / PIDF (RFC 5262, 5263, 6665) porte la mécanique liste complète /
+changements numérotés / resynchronisation. Avant de toucher à la présence, lire les deux.
+
 ## Pattern d'usage — lire une norme EN ENTIER
 
 Lire une norme, c'est lire **toutes** ses phrases normatives, pas celles qu'on soupçonne. Un

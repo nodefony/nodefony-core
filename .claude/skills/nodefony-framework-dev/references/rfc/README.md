@@ -3,7 +3,7 @@
 > Chargé à la demande par `SKILL.md`. **Cheatsheet normatif** : pour chaque norme que le cœur Nodefony
 > implémente — le n°, les **sections exactes** utilisées, la **règle concrète** appliquée, et l'**ancrage
 > code**. But : coder/auditer la conformité **sans réseau** et **sans re-fetch** (une RFC est IMMUABLE →
-> 0 dérive). **Full-text des RFC IETF = bundlé OFFLINE** dans `ietf/rfcNNNN.txt` (42 fichiers, ~3,4 Mo) —
+> 0 dérive). **Full-text des RFC IETF = bundlé OFFLINE** dans `ietf/rfcNNNN.txt` (51 fichiers, ~4,2 Mo) —
 > 🔴 **corpus UNIQUE du dépôt** : aucun autre skill n'héberge de full-text RFC (`nodefony-rfc` en avait
 > gardé deux copies byte-identiques, que rien ne resynchronisait) —
 > `grep`/`awk` la section exacte **sans réseau**. Normes **non-RFC** (W3C WebAuthn/Trace Context, WHATWG
@@ -13,7 +13,8 @@
 
 ## 0. Fichiers PRÉSENTS offline (~5,6 Mo — `grep`/`awk` sans réseau)
 
-- **`ietf/rfc<N>.txt`** — 42 RFC full-text : 1918 4226 4648 5280 5424 5737 5789 5842 6238 6265 6455 6585 6749 6750 6797 6890 7009 7118 7239 7301 7519 7617 7636 7638 7692 8259 8414 8707 8725 9106 9110 9111 9112 9113 9207 9449 9457 9525 9651 9700 9728 9931.
+- **`ietf/rfc<N>.txt`** — 51 RFC full-text : 1918 2778 2779 3856 3863 4226 4479 4648 5262 5263 5280 5424 5737 5789 5842 6121 6238 6265 6455 6585 6665 6749 6750 6797 6890 7009 7118 7239 7301 7519 7617 7636 7638 7692 8259 8414 8707 8725 9106 9110 9111 9112 9113 9207 9449 9457 9525 9651 9700 9728 9931.
+  - **Présence** (ADR-0025, #760) : 2778 2779 4479 (modèle), 3863 5262 (PIDF complet / partiel), 3856 5263 6665 (notification SIP), 6121 (XMPP) — règles tirées : § 23.
   - 🔴 **Obsolètes RETIRÉES du corpus** (le dépôt cite la REMPLAÇANTE, jamais l'ancienne) : 2818 → **9110 §4.2.2** · 6125 → **9525** · 7230 → **9110/9112** · 7235 → **9110 §11** · 7807 → **9457** · 8941 → **9651**. RFC **9931** (2026) met à jour 9112 : sécurité des transitions de protocole optimistes (`Upgrade`, donc WebSocket et proxy inverse).
   - **Fraîcheur** : `npm run refs:check` (volet `nodefony-rfc/scripts/check-rfc-status.mjs`) — obsolescence et mises à jour d'après l'éditeur des RFC, révision courante d'un brouillon d'après le datatracker (0 à jour · 3 dépassé · 78 réseau).
 - **`specs/` (non-RFC)** :
@@ -21,6 +22,7 @@
   - OWASP cheat sheets : `owasp-{authentication,authorization,csp,csrf,jwt,mfa,password-storage,rest-security,security-headers,session-management,ssrf-prevention,tls,xss-prevention}.md`.
   - `standard-webhooks.md` (Standard Webhooks v1), `draft-idempotency-key-header-08.txt` (IETF draft, révision courante ; rédactionnelle sur la 06 hormis le rejeu après complétion, assoupli en « réponse conforme à l’intention de l’utilisateur » — rejouer la réponse mémorisée reste conforme)..
   - Brouillons OAuth cités par la spec MCP 2026-07-28 (qui cite des révisions plus anciennes) : `draft-ietf-oauth-v2-1-16.txt` (OAuth 2.1 — la 16 retire PKCE `plain` et rend `iss` obligatoire côté serveur d'autorisation ; Nodefony envoie déjà S256 seul et vérifie `iss`, RFC 9207) · `draft-ietf-oauth-client-id-metadata-document-02.txt` (CIMD, `client_id` = URL ; non implémenté par Nodefony, qui n'est que serveur de ressources MCP). Révisions courantes posées à côté (`draft-ietf-oauth-v2-1-17.txt`, `draft-ietf-oauth-client-id-metadata-document-03.txt`) ; leur relecture contre le code, puis le retrait des anciennes : #738.
+  - `xep-0045-multi-user-chat.xml` (XSF, XMPP — présence d'un salon, version 1.35.5) et `matrix-presence.md` (`matrix-org/matrix-spec`, module présence client-serveur) — présence, § 23.
   - `whatwg-sse.md` — WHATWG HTML §9.2 Server-sent events (format `text/event-stream`, `EventSource`, `Last-Event-ID`) ; SSE n'a PAS de RFC, la norme est cette section.
 - **`specs/nodejs/*.md`** — 17 docs API Node.js **v26.11.1** (`doc/api/` du tag, passés à prettier — comparer à format égal) : `async_context` (ALS), `http`, `http2`, `https`, `net`, `dgram`, `tls`, `stream`, `worker_threads`, `cluster`, `crypto`, `events`, `process`, `perf_hooks`, `buffer`, `fs`, `globals` (`fetch`, `WebSocket`, `EventSource`).
 
@@ -161,3 +163,14 @@ Pour une revue/veille sécurité → skill **`nodefony-security-review`** (mode 
 
 - **WHATWG HTML §9.2 — Server-sent events** (`specs/whatwg-sse.md`, #559) — §9.2.5 : `text/event-stream`, **UTF-8 seul**, fins de ligne CRLF/CR/LF toutes trois admises (le serveur émet LF), BOM initial ignoré. §9.2.6 : ligne vide = dispatch ; ligne `:` = commentaire ignoré ; champs comparés SANS repli de casse ; `data` multiples joints par LF ; `id` contenant NUL ignoré, `id` VIDE remet l'identifiant à zéro (plus de `Last-Event-ID`) ; `retry` = chiffres ASCII seuls, sinon ignoré ; un champ inconnu est ignoré ; **un bloc non terminé par une ligne vide n'est jamais dispatché**. §9.2.3 : statut ≠ 200 ou type ≠ `text/event-stream` → échec SANS reconnexion ; **204 = « cesse de te reconnecter »** ; erreur réseau → reconnexion après le délai `retry`, avec `Last-Event-ID`. §9.2.7 : commentaire de garde ~15 s contre les proxys qui coupent ; plafond de connexions par serveur côté navigateur en HTTP/1.1 (pas en HTTP/2, RFC 9113 : un flux du multiplexage). Côté transport : RFC 9112 §7.1 chunked en HTTP/1.1 ; RFC 9113 §8.2.2 `Transfer-Encoding` INTERDIT en HTTP/2. Node 26 : `EventSource` global seulement sous `--experimental-eventsource` (`specs/nodejs/globals.md`) → client bâti sur `fetch`.
 - **RFC 8693 (OAuth Token Exchange)** — délégation « on-behalf-of » (agents IA / MCP). **RFC 9449 (DPoP)** — token sender-constrained (anti-vol/replay, service-to-service). **RFC 8707 (Resource Indicators)** — `aud` ciblée (déjà partiellement, cf §9). **RFC 7118 / SIP** — bridge VoIP/RTC futur (P15, `PlainTransport` RTP).
+
+## 23. Présence d'un canal (ADR-0025, #760 — PRÉVUE)
+
+> Aucune interopérabilité visée : on reprend les PROBLÈMES résolus, pas le format. Détail source par source, et ce dont on s'écarte : ADR-0025 § « Normes et antériorités ».
+
+- **XEP-0045** (`specs/xep-0045-multi-user-chat.xml`) — §5.1.1 être dans le salon donne la présence ; §7.2.2 liste complète à l'entrée ; **§17.3 point 3** : une seconde demande d'entrée = « full synchronization request » → le re-`subscribe` renvoie TOUJOURS la liste ; §7.2.8 plusieurs sessions d'une identité ; §4.2 salon semi-anonyme (= seuil 0) ; §11 codes de départ 307 / 332 / 333 ; §14.6 attaques (rafales de changements, usurpation de pseudo).
+- **RFC 6121 §4** — §4.5.2 le serveur fabrique le départ d'un présent mort (« MUST NOT depend on receiving unavailable presence ») ; §4.3 _presence probe_ = demande d'état ; §4.3.2 réponse déterministe ; §4.4.1 la présence ne porte que la disponibilité (la frappe passe ailleurs).
+- **RFC 5263 §4.4-4.5 / RFC 5262** — liste complète puis changements numérotés ; trois issues d'un numéro (+1 → appliquer ; plus loin → perdu, resynchroniser ; ≤ → jeter) = `applied` / `gap` / `stale` ; liste envoyée quand les changements pèsent plus (RFC 5262 §4).
+- **RFC 6665** — §4.2.1.2 état initial à l'abonnement ; §5.3.2 changement ignoré mais numéro retenu ; §3.1.1 la durée ANNONCÉE fait foi (→ `interval` dans la preuve de vie) ; §5.4.10 débit maximal des notifications ; §4.1.2.4 état neutre avant la première notification.
+- **RFC 2778 / 4479 / 3863** — observateur ≠ présent, _fetch_ ; personne → services / appareils (= identité → onglets) ; `id` de chaque _tuple_ (RFC 3863 §4.1.2 → référence d'onglet).
+- **Hors norme (état de l'art)** — Lifeguard : le récepteur lent est la 1ʳᵉ cause de faux positifs → réarmer les délais après un tic en retard ; Phoenix Tracker : délai d'oubli ≥ 2 intervalles refusé au démarrage, incarnation par l'horloge (`vsn`). Sources non figées ici (code et articles) : URL dans ADR-0025.
