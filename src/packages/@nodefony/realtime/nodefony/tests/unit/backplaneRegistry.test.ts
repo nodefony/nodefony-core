@@ -121,6 +121,7 @@ describe("backplaneRegistry (résolution driver SANS if en dur)", () => {
         maxBytes: 1 << 23,
         droppedTotal: 0,
         failedTotal: 0,
+        controlLostTotal: 0,
       },
     });
   });

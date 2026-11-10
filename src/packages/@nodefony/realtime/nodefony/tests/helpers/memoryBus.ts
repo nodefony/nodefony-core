@@ -15,7 +15,15 @@ export type MemoryBusFlaw =
   /** Rejoue tout l'historique à qui démarre : lecture depuis le début du journal. */
   | "replay"
   /** Ignore le secret : rien n'est scellé ni vérifié. */
-  | "unsealed";
+  | "unsealed"
+  /**
+   * File bornée qui ne distingue pas les ordres : au-delà de deux envois par
+   * tour de boucle, elle jette TOUT, ordres de contrôle compris.
+   */
+  | "lossy";
+
+/** Envois admis par tour de boucle sous le défaut `lossy`. */
+const LOSSY_PER_TICK = 2;
 
 /**
  * Bus en mémoire, livraison asynchrone (microtâche) comme un vrai réseau — le
@@ -33,6 +41,8 @@ export function memoryBus(flaw: MemoryBusFlaw = "none"): {
     secret: string | null;
   }[] = [];
   let next = 0;
+  /** Envois du tour de boucle courant (défaut `lossy`) ; remis à zéro au suivant. */
+  let inTick = 0;
 
   class MemoryPeer implements IBackplane {
     readonly originId: string;
@@ -52,6 +62,11 @@ export function memoryBus(flaw: MemoryBusFlaw = "none"): {
     }
 
     publish(channel: string, payload: unknown): void {
+      if (flaw === "lossy") {
+        if (inTick === 0) setImmediate(() => (inTick = 0));
+        inTick += 1;
+        if (inTick > LOSSY_PER_TICK) return;
+      }
       const msg = {
         channel,
         payload: structuredClone(payload),

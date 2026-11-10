@@ -67,6 +67,10 @@ export type BackplaneHandler = (msg: IBackplaneMessage) => void;
  *  - **aucun rejeu au démarrage** : lire à partir du dernier message, jamais depuis le
  *    début — un ordre de fin rejoué couperait une partie rouverte ;
  *  - **aucune attente de regroupement** à l'émission : `publish` part tout de suite ;
+ *  - **un ordre de contrôle n'est jamais jeté pour faire place aux publications**
+ *    (`PLATFORM_BUS_CHANNELS.control` : terminer un canal, éjecter un compte) —
+ *    une file d'envoi bornée lui laisse une voie hors quota ; un ordre perdu malgré
+ *    tout (bus injoignable) se compte et s'annonce, jamais en silence ;
  *  - **le sceau appliqué** dès que le bus quitte la machine (`crossPod`) :
  *    `sealBackplaneEnvelope` à l'émission, `openBackplaneEnvelope` à la réception ;
  *  - `start` après `stop` remet la réception en route sans doubler les messages ;

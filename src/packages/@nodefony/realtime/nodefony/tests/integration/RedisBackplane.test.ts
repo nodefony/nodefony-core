@@ -136,9 +136,12 @@ describe.skipIf(!REDIS_UP)("RedisBackplane — intégration (Redis réel)", () =
         `pod-${(next += 1)}`,
         channel,
         secret,
+        // Seuil bas : le cas « ordre sous saturation » sature la file sans
+        // déverser des mégaoctets dans Redis.
+        { maxQueueBytes: 64 * 1024 },
       );
     },
-    { describe, it },
+    { describe, it, floodBytes: 256 * 1024 },
   );
 });
 

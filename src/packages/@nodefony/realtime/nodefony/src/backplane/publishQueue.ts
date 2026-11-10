@@ -24,8 +24,17 @@
  * Ce qui est jeté est le message **nouveau**, pas le plus ancien : contrairement au
  * WS (drop latest-wins sur une file qu'on possède), ce qui est déjà remis au client
  * réseau ne peut plus être repris.
+ *
+ * **Les ordres de contrôle ne sont JAMAIS jetés** (#762) : terminer un canal ou
+ * éjecter un compte passe hors quota, même file saturée. Sinon, sous charge, un
+ * modérateur éjecte un compte sur un serveur et ce compte continue de lire sur un
+ * autre, sans que personne le sache. Les ordres sont rares et petits (une décision
+ * du serveur, quelques dizaines d'octets) : les exempter ne rouvre pas la mémoire.
+ * Un ordre que le bus REFUSE malgré tout (bus injoignable) est compté à part
+ * (`controlLostTotal`) et annoncé une fois par épisode.
  */
 
+import { PLATFORM_BUS_CHANNELS } from "nodefony";
 import type { IBackplaneQueueInfo } from "../../interfaces/IBackplane.js";
 import { isThenable } from "../guards.js";
 
@@ -37,6 +46,9 @@ export type BackplaneNotice = (
   message: string,
   severity: BackplaneNoticeSeverity,
 ) => void;
+
+/** Canal des ordres de contrôle, lu une fois au chargement (pas d'accès de propriété par envoi). */
+const CONTROL_CHANNEL: string = PLATFORM_BUS_CHANNELS.control;
 
 /** Seuil par défaut (8 MiB) — voir `DEFAULT_MAX_QUEUE_BYTES`. */
 const DEFAULT_MAX_BYTES = 1 << 23;
@@ -66,6 +78,10 @@ export class BackplanePublishQueue {
   #saturated = false;
   /** Jetés de l'épisode de saturation courant — chiffre annoncé au retour à la normale. */
   #droppedInEpisode = 0;
+  /** Ordres de contrôle refusés par le transport (monotone). */
+  #controlLostTotal = 0;
+  /** Ordres perdus de l'épisode courant ; `> 0` = épisode ouvert (1 log par épisode). */
+  #controlLostInEpisode = 0;
 
   /**
    * @param maxBytes - seuil d'octets en vol ; `0` (ou négatif) = illimité.
@@ -87,13 +103,24 @@ export class BackplanePublishQueue {
    * (sinon elle ne partirait jamais — famine silencieuse), quitte à dépasser
    * transitoirement. Même règle que le drop WS, qui teste `bufferedAmount` seul.
    *
+   * Un ordre de contrôle (`PLATFORM_BUS_CHANNELS.control`) est admis hors quota :
+   * la règle vit ICI, pas dans le driver, pour qu'un driver qui emploie la file
+   * la porte sans y penser.
+   *
+   * @param channel - canal logique de la publication.
    * @param bytes - taille de la charge sérialisée.
    * @param emit - envoi réel ; appelé UNIQUEMENT si la publication est admise.
    *   Son retour est suivi s'il s'agit d'une promesse (transport asynchrone).
    * @returns `true` si la publication est partie, `false` si elle a été jetée.
    */
-  send(bytes: number, emit: () => unknown): boolean {
-    if (this.#maxBytes > 0 && this.#bytes >= this.#maxBytes) {
+  send(channel: string, bytes: number, emit: () => unknown): boolean {
+    // Chemin chaud : le canal n'est comparé QUE file saturée — en régime sain,
+    // deux comparaisons de nombres et aucune de chaîne.
+    if (
+      this.#maxBytes > 0 &&
+      this.#bytes >= this.#maxBytes &&
+      channel !== CONTROL_CHANNEL
+    ) {
       this.#droppedTotal += 1;
       this.#droppedInEpisode += 1;
       if (!this.#saturated) {
@@ -118,6 +145,12 @@ export class BackplanePublishQueue {
     const settle = (failed: boolean): void => {
       this.#bytes -= bytes;
       if (failed) this.#failedTotal += 1;
+      // Acquittement sain hors épisode : rien à suivre, le canal n'est pas lu.
+      if (
+        (failed || this.#controlLostInEpisode > 0) &&
+        channel === CONTROL_CHANNEL
+      )
+        this.#controlSettled(failed);
       this.#drain();
     };
     result.then(
@@ -149,6 +182,35 @@ export class BackplanePublishQueue {
     );
   }
 
+  /**
+   * Suit l'acquittement d'un ordre de contrôle : un refus ouvre un épisode,
+   * annoncé une fois ; le premier ordre de nouveau acquitté le ferme, avec le
+   * bilan des pertes.
+   */
+  #controlSettled(failed: boolean): void {
+    if (failed) {
+      this.#controlLostTotal += 1;
+      this.#controlLostInEpisode += 1;
+      if (this.#controlLostInEpisode === 1) {
+        this.#notice?.(
+          `backplane : un ordre de contrôle (terminer un canal, éjecter un compte) ` +
+            `a été REFUSÉ par le bus — les autres serveurs ne l'appliqueront pas. ` +
+            `Cause : bus injoignable. Compteur : controlLostTotal.`,
+          "WARNING",
+        );
+      }
+      return;
+    }
+    if (this.#controlLostInEpisode === 0) return;
+    const lost = this.#controlLostInEpisode;
+    this.#controlLostInEpisode = 0;
+    this.#notice?.(
+      `backplane : ordres de contrôle de nouveau acquittés — ${lost} ordre(s) ` +
+        `perdu(s) pendant la coupure.`,
+      "INFO",
+    );
+  }
+
   /** Compteurs pour la carte d'identité du backplane (sonde + Studio). */
   describe(): IBackplaneQueueInfo {
     return {
@@ -156,6 +218,7 @@ export class BackplanePublishQueue {
       maxBytes: this.#maxBytes,
       droppedTotal: this.#droppedTotal,
       failedTotal: this.#failedTotal,
+      controlLostTotal: this.#controlLostTotal,
     };
   }
 }

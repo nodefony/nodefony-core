@@ -226,7 +226,10 @@ transporte les **publications** et deux **ordres** — terminer un canal, éject
 chaque exemplaire applique à SES connexions ; ni membres, ni politiques, ni acquittements. Ces deux
 ordres ne font qu'enlever : seul `allow` fait entrer. Livrés « au plus une fois », comme toute
 publication : un exemplaire qui en manque un, ou qui démarre après, est rattrapé par `allow` (pour
-une éjection) ou par la fabrique qui rend `null` à une instance terminée (pour une fin).
+une éjection) ou par la fabrique qui rend `null` à une instance terminée (pour une fin). Un bus
+chargé ne les sacrifie pas : quand la file d'envoi vers le bus est pleine, les publications en
+trop sont abandonnées, les ordres passent quand même. Seul un bus injoignable en perd un, et la
+perte se compte (`controlLostTotal`) et s'annonce.
 
 Les gestes **par connexion** agissent sur les connexions de ce processus. Deux voies marchent en
 cluster pour eux :

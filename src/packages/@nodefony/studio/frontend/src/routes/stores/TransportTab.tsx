@@ -332,6 +332,7 @@ export const TransportTab = observer(
     const fill = maxBytes > 0 ? Math.min(100, (inFlight / maxBytes) * 100) : 0;
     const dropped = queue?.droppedTotal ?? 0;
     const failed = queue?.failedTotal ?? 0;
+    const controlLost = queue?.controlLostTotal ?? 0;
     // « Vérifié » n'a de sens que sur un fond de panier PARTAGÉ, où un tiers peut
     // écrire. En mono-serveur ou entre les processus d'une même machine, l'émetteur
     // est connu par construction : afficher « non vérifié » y serait un faux signal.
@@ -560,7 +561,7 @@ export const TransportTab = observer(
                     },
                     {
                       label: "Pourquoi un plafond",
-                      body: "Sans limite, un fond de panier lent finirait par saturer la mémoire et faire tomber le serveur. Au-delà du plafond, les messages en trop sont jetés : on sacrifie des messages pour garder le serveur debout.",
+                      body: "Sans limite, un fond de panier lent finirait par saturer la mémoire et faire tomber le serveur. Au-delà du plafond, les messages en trop sont jetés : on sacrifie des messages pour garder le serveur debout. Les ordres (éjecter un compte, terminer un canal) ne sont jamais jetés : ils passent toujours.",
                     },
                     {
                       label: "Activité",
@@ -573,6 +574,13 @@ export const TransportTab = observer(
                 <Text size="xs" c="orange" mt="xs">
                   Ces messages n'ont jamais atteint les autres serveurs : ils
                   ont été sacrifiés pour éviter de saturer la mémoire.
+                </Text>
+              )}
+              {controlLost > 0 && (
+                <Text size="xs" c="red" mt="xs">
+                  <strong>{controlLost} ordre(s) perdu(s)</strong> — le fond de
+                  panier était injoignable : une éjection ou une fin de canal
+                  n'a pas été appliquée par les autres serveurs.
                 </Text>
               )}
             </>

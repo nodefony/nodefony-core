@@ -136,6 +136,13 @@ export interface IBackplaneQueueInfo {
   droppedTotal: number;
   /** Publications REFUSÉES par le transport (bus coupé…) (monotone). */
   failedTotal: number;
+  /**
+   * Ordres de contrôle (terminer un canal, éjecter un compte) refusés par le
+   * transport, donc non appliqués par les autres serveurs (monotone). Un ordre
+   * n'est jamais JETÉ par la file — seul un bus injoignable le perd. `0` en
+   * régime sain. Absent d'un driver tiers qui ne le mesure pas.
+   */
+  controlLostTotal?: number;
 }
 
 /**

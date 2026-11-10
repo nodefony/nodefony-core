@@ -998,13 +998,15 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
     (un groupe de lecteurs par pod pour un journal partitionné — un groupe partagé répartirait
     les messages en silence) ; l'**ordre par émetteur** de S5 tenu (journal partitionné : une
     clé par émetteur, `originId`, jamais par canal) ; aucun rejeu au démarrage (lire à partir du
-    dernier message) ; aucune attente de regroupement à l'émission ; le sceau appliqué
+    dernier message) ; aucune attente de regroupement à l'émission ; un ordre de contrôle
+    jamais jeté pour faire place aux publications (voie hors quota de la file d'envoi ; un
+    ordre que le bus refuse se compte, `controlLostTotal`, et s'annonce) ; le sceau appliqué
     (`sealBackplaneEnvelope`, mutualisé pour les drivers tiers) ; sa dépendance npm vit dans le
     driver, jamais au cœur.
   - **Suite de conformité exportée** (`@nodefony/realtime/testing`) : diffusion à tous les pairs,
     ordre par émetteur, pas de rejeu au démarrage, sceau vérifié (message non scellé ou mal
-    scellé refusé quand un secret est posé), ordres de contrôle transportés, espace réservé
-    injecté refusé. Les drivers
+    scellé refusé quand un secret est posé), ordres de contrôle transportés, y compris sous
+    une rafale qui sature la file d'envoi, espace réservé injecté refusé. Les drivers
     livrés qui ont des pairs (cluster, Redis) la passent — `loopback`, sans pair, n'a rien
     à y prouver ; un driver tiers s'y prouve. Une définition du contrat, pas une par driver.
     **Livré (#701)** : `src/packages/@nodefony/realtime/nodefony/testing/backplaneConformance.ts#runBackplaneConformance`,

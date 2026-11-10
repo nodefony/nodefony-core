@@ -9,18 +9,30 @@ import { REDIS_RT_CHANNEL } from "../../src/backplane/RedisBackplane";
  */
 export class FakeRedisBus {
   readonly #subs = new Map<string, Set<(m: string) => void>>();
+  readonly #asyncAck: boolean;
   /** Enveloppes JSON publiées (introspection des tests). */
   readonly published: { channel: string; message: string | Uint8Array }[] = [];
+
+  /**
+   * @param options.asyncAck - acquitter chaque publication au tour de boucle
+   *   suivant, comme un vrai client réseau : la file d'envoi bornée du backplane
+   *   se remplit alors sous une rafale. Défaut : acquittement synchrone (pas de file).
+   */
+  constructor(options: { asyncAck?: boolean } = {}) {
+    this.#asyncAck = options.asyncAck ?? false;
+  }
 
   transport(): IRedisBackplaneTransport {
     const bus = this;
     let mine: ((m: string) => void) | null = null;
     return {
-      publish(channel, message): void {
+      publish(channel, message): void | Promise<unknown> {
         bus.published.push({ channel, message });
         // Bus texte seul : le sujet binaire a sa doublure (`RedisBackplaneBytes.test.ts`).
         if (typeof message === "string")
           bus.#subs.get(channel)?.forEach((l) => l(message));
+        if (!bus.#asyncAck) return;
+        return new Promise((resolve) => setImmediate(resolve));
       },
       subscribe(channel, onMessage): void {
         mine = onMessage;

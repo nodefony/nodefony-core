@@ -32,6 +32,7 @@ import {
   readControlOrder,
   type ControlOrder,
 } from "../src/backplane/controlOrder";
+import { DEFAULT_MAX_QUEUE_BYTES } from "../src/backplane/publishQueue";
 
 /**
  * Lanceur de tests de l'appelant — le sous-ensemble que la suite emploie.
@@ -63,6 +64,14 @@ export interface IBackplaneConformanceOptions extends IConformanceRunner {
   quietMs?: number;
   /** Délai maximal d'arrivée d'un message attendu, en millisecondes. Défaut 2 000. */
   timeoutMs?: number;
+  /**
+   * Octets publiés d'une traite avant l'ordre du cas « ordre sous saturation ».
+   * Défaut : deux fois le seuil par défaut de la file d'envoi (16 Mio). Un driver
+   * dont la file est bornée plus haut relève cette valeur : si la rafale ne
+   * sature pas la file que `describe().queue` déclare, le cas échoue plutôt que
+   * de passer sans rien prouver.
+   */
+  floodBytes?: number;
 }
 
 /**
@@ -87,6 +96,8 @@ export const BACKPLANE_CONFORMANCE_CASES = {
     "pas de rejeu : un pair démarré après une publication ne la reçoit pas",
   seal: "sceau : un message non scellé ou mal scellé est refusé",
   control: "ordres de contrôle : le canal de contrôle traverse intact",
+  controlUnderLoad:
+    "ordre sous saturation : un ordre de contrôle n'est jamais jeté pour faire place aux publications",
   reserved:
     "espace réservé : refusé et compté à l'entrée du hub, la diffusion passe sans revenir",
   replaceHandler: "onMessage remplace le handler précédent",
@@ -168,8 +179,8 @@ class Inbox {
  * Vérifie, sur plusieurs pairs reliés au même bus : la diffusion à TOUS les pairs
  * sans écho, l'ordre par émetteur, l'absence de rejeu au démarrage, le sceau
  * (message non scellé ou mal scellé refusé), le transport des ordres de contrôle,
- * le refus de l'espace réservé à l'entrée du hub, le remplacement du handler et
- * l'arrêt.
+ * même quand une rafale de publications sature la file d'envoi, le refus de
+ * l'espace réservé à l'entrée du hub, le remplacement du handler et l'arrêt.
  *
  * @param name - nom du driver, affiché dans le rapport.
  * @param makePeer - fabrique d'un pair relié au bus commun.
@@ -183,6 +194,7 @@ export function runBackplaneConformance(
   const sealed = options.sealed ?? true;
   const quietMs = options.quietMs ?? 100;
   const timeoutMs = options.timeoutMs ?? 2_000;
+  const floodBytes = options.floodBytes ?? 2 * DEFAULT_MAX_QUEUE_BYTES;
   // Un secret par suite : deux suites sur le même bus ne se scellent pas mutuellement.
   const secret = sealed ? randomBytes(32).toString("hex") : null;
   const C = BACKPLANE_CONFORMANCE_CASES;
@@ -387,6 +399,47 @@ export function runBackplaneConformance(
           () => `ordres de contrôle reçus : ${got.length} sur ${orders.length}`,
         );
         assert.deepEqual(got, orders);
+      }),
+    );
+
+    options.it(
+      C.controlUnderLoad,
+      scenario(async (open, prefix) => {
+        const a = await open();
+        const b = await open();
+        const got: ControlOrder[] = [];
+        b.peer.onMessage((msg) => {
+          if (msg.channel !== PLATFORM_BUS_CHANNELS.control) return;
+          const order = readControlOrder(msg.payload);
+          if (order?.channel.startsWith(prefix) === true) got.push(order);
+        });
+        // Rafale d'une traite, sans rendre la main : rien n'est acquitté entre
+        // deux envois, la file d'envoi se remplit comme sous une vraie charge.
+        const chunk = Math.min(64 * 1024, Math.ceil(floodBytes / 4));
+        const pad = "x".repeat(chunk);
+        const count = Math.ceil(floodBytes / chunk);
+        for (let i = 0; i < count; i += 1)
+          a.peer.publish(`${prefix}flood`, { seq: i, pad });
+        const order: ControlOrder = {
+          op: "evictUser",
+          channel: `${prefix}chat`,
+          user: "mallory",
+        };
+        a.peer.publish(PLATFORM_BUS_CHANNELS.control, order);
+
+        const queue = a.peer.describe().queue;
+        if (queue !== undefined && queue.maxBytes > 0)
+          assert.ok(
+            queue.droppedTotal > 0,
+            `la rafale de ${floodBytes} octets n'a pas saturé la file (seuil ${queue.maxBytes}) : relever floodBytes, sinon ce cas ne prouve rien`,
+          );
+        await until(
+          () => got.length > 0,
+          timeoutMs,
+          () =>
+            "l'ordre d'éjection émis sous saturation n'est pas arrivé — la file l'a-t-elle jeté avec les publications ?",
+        );
+        assert.deepEqual(got, [order]);
       }),
     );
 

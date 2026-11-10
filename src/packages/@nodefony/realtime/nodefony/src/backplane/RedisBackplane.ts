@@ -418,7 +418,8 @@ export class RedisBackplane implements IBackplane {
    * L'envoi passe par la **file bornée** : si le bus n'acquitte plus, les
    * publications suivantes sont jetées et comptées plutôt que d'empiler des
    * mégaoctets dans le client Redis (sémantique at-most-once déjà assumée par le
-   * port ; le client realtime re-synchronise).
+   * port ; le client realtime re-synchronise). Un ordre de contrôle, lui, part
+   * toujours (cf {@link BackplanePublishQueue.send}).
    */
   publish(channel: string, payload: unknown): void {
     const env: IBackplaneMessage = {
@@ -431,7 +432,7 @@ export class RedisBackplane implements IBackplane {
     const bytes = this.#bytes;
     if (bytes !== null && containsBytes(payload)) {
       const bin = sealBackplaneEnvelopeBytes(env, bytes.codec, this.#secret);
-      this.#queue.send(bin.byteLength, () =>
+      this.#queue.send(channel, bin.byteLength, () =>
         this.#transport.publish(bytes.channel, bin),
       );
       return;
@@ -439,7 +440,7 @@ export class RedisBackplane implements IBackplane {
     const raw = sealBackplaneEnvelope(env, this.#secret);
     // `byteLength` mesure ce qui partira réellement sur la socket (UTF-8) ; son
     // coût est négligeable devant le HMAC déjà calculé sur la même chaîne.
-    this.#queue.send(Buffer.byteLength(raw), () =>
+    this.#queue.send(channel, Buffer.byteLength(raw), () =>
       this.#transport.publish(this.#redisChannel, raw),
     );
   }

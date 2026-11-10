@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { PLATFORM_BUS_CHANNELS } from "nodefony";
 import {
   RedisBackplane,
   type IRedisBackplaneTransport,
@@ -274,6 +275,55 @@ describe("Backplane — file d'envoi bornée (mémoire du pod)", () => {
       notices.filter((n) => n.severity === "WARNING"),
       "voie 2 — l'annonce syslog, une par épisode",
     ).to.have.lengthOf(1);
+  });
+
+  it("#762 — un ORDRE de contrôle passe la file saturée : hors quota, il part quand même", () => {
+    const t = new SlowTransport();
+    const bp = new RedisBackplane(t, "pod-A", "ch", null, {
+      maxQueueBytes: 2000,
+    });
+    bp.publish("chat:room", KB);
+    bp.publish("chat:room", KB);
+    bp.publish("chat:room", KB); // file saturée → JETÉ
+    const order = { op: "evictUser", channel: "chat:room", user: "mallory" };
+
+    bp.publish(PLATFORM_BUS_CHANNELS.control, order);
+    bp.publish("chat:room", KB); // l'ordre n'a pas rouvert la voie aux publications
+
+    expect(t.sent, "l'ordre est remis au transport").to.have.lengthOf(3);
+    expect(t.sent[2]).to.include("mallory");
+    const q = bp.describe().queue;
+    expect(q?.droppedTotal, "seules les publications sont jetées").to.equal(2);
+    expect(q?.controlLostTotal).to.equal(0);
+  });
+
+  it("#762 — un ordre REFUSÉ par le bus est compté à part, annoncé une fois par épisode, puis le retour avec le bilan", async () => {
+    const notices: { message: string; severity: string }[] = [];
+    const t = new SlowTransport();
+    const bp = new RedisBackplane(t, "pod-A", "ch", null, {
+      maxQueueBytes: 2000,
+      onNotice: (message, severity) => notices.push({ message, severity }),
+    });
+    const order = { op: "close", channel: "chat:room" };
+
+    bp.publish(PLATFORM_BUS_CHANNELS.control, order);
+    bp.publish(PLATFORM_BUS_CHANNELS.control, order);
+    bp.publish("chat:room", KB); // une publication refusée n'est pas un ordre perdu
+    await t.failAll(); // Redis injoignable
+
+    const q = bp.describe().queue;
+    expect(q?.controlLostTotal).to.equal(2);
+    expect(q?.failedTotal).to.equal(3);
+    const warnings = notices.filter((n) => n.severity === "WARNING");
+    expect(warnings, "un épisode = une annonce").to.have.lengthOf(1);
+    expect(warnings[0]?.message).to.match(/ordre de contrôle.*REFUSÉ/);
+
+    bp.publish(PLATFORM_BUS_CHANNELS.control, order);
+    await t.settleAll(); // le bus revient
+    const infos = notices.filter((n) => n.severity === "INFO");
+    expect(infos).to.have.lengthOf(1);
+    expect(infos[0]?.message).to.match(/2 ordre\(s\) perdu/);
+    expect(bp.describe().queue?.controlLostTotal, "monotone").to.equal(2);
   });
 
   it("sans option, la file est bornée par défaut (une app non configurée est protégée)", () => {

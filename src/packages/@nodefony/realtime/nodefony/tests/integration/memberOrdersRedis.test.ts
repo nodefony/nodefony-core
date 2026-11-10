@@ -105,12 +105,16 @@ describe.skipIf(!REDIS_UP)("#623 — ordres de contrôle sur Redis", () => {
     return c;
   }
 
-  async function backplane(originId: string): Promise<RedisBackplane> {
+  async function backplane(
+    originId: string,
+    maxQueueBytes?: number,
+  ): Promise<RedisBackplane> {
     const bp = new RedisBackplane(
       createRedisServiceTransport(await connected(), await connected()),
       originId,
       bus,
       SECRET,
+      maxQueueBytes === undefined ? {} : { maxQueueBytes },
     );
     await bp.start();
     backplanes.push(bp);
@@ -178,6 +182,36 @@ describe.skipIf(!REDIS_UP)("#623 — ordres de contrôle sur Redis", () => {
       { channel: "chat:general", reason: "ended" },
     ]);
     expect(a.probe().ingressRejectedTotal).toBe(0);
+  });
+
+  it("#762 — file d'envoi saturée de publications : l'éjection émise par B part quand même, Alice sort sur A", async () => {
+    const alice = await tab("alice", true);
+    await alice.subscribe("chat:general");
+    const a = getRealtimeHub();
+    a.setBackplane(await backplane("pod-a"));
+    // Seuil bas : la rafale ci-dessous sature la file de B sans déverser des
+    // mégaoctets dans Redis — c'est la file qui est éprouvée, pas le débit.
+    const busB = await backplane("pod-b", 4096);
+    const b = new RealtimeHub();
+    b.setBackplane(busB);
+    other = b;
+
+    const pad = "x".repeat(1024);
+    for (let i = 0; i < 64; i += 1) busB.publish("flood", { i, pad });
+    b.evictUser("chat:general", "alice");
+    expect(
+      busB.describe().queue?.droppedTotal,
+      "la rafale a bien saturé la file de B — sinon ce test ne prouve rien",
+    ).toBeGreaterThan(0);
+
+    await until(
+      () => closedOf(alice).length === 1,
+      "Alice éjectée sur A malgré la file saturée de B",
+    );
+    expect(closedOf(alice)).to.deep.equal([
+      { channel: "chat:general", reason: "evicted" },
+    ]);
+    expect(busB.describe().queue?.controlLostTotal).toBe(0);
   });
 
   it("secret posé : un ordre NON scellé publié par un intrus n'éjecte personne", async () => {

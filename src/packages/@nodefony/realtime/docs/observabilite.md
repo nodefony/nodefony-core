@@ -425,7 +425,10 @@ Trois champs n'apparaissent que lorsqu'ils ont un sens :
   signale une perte **volontaire** : la mémoire du processus a été préservée au prix de messages non
   relayés aux autres répliques. Il doit rester à zéro ; s'il bouge, regarder l'état du bus avant de
   relever le plafond (`backplane.maxQueueBytes`) — un plafond plus haut ne rattrape pas un bus en
-  retard, il repousse l'échéance.
+  retard, il repousse l'échéance. Les **ordres** (terminer un canal, éjecter un compte) ne sont
+  jamais abandonnés pour faire place : ils passent hors plafond. Un ordre que le bus refuse (bus
+  injoignable) est compté à part, `controlLostTotal`, et annoncé une fois par épisode — s'il bouge,
+  une éjection n'a pas été appliquée par les autres répliques.
 
 ### La couche d'identité, au-dessus
 

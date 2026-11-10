@@ -52,9 +52,18 @@ function clusterBus(): BackplanePeerFactory {
   };
 }
 
-/** Redis sur un bus en mémoire (le Redis réel : `tests/integration/RedisBackplane.test.ts`). */
+/** Seuil de la file d'envoi des pairs Redis de ce banc — bas, pour saturer à peu de frais. */
+const QUEUE_BYTES = 64 * 1024;
+/** Rafale du cas « ordre sous saturation » : quatre fois le seuil ci-dessus. */
+const FLOOD_BYTES = 4 * QUEUE_BYTES;
+
+/**
+ * Redis sur un bus en mémoire (le Redis réel : `tests/integration/RedisBackplane.test.ts`).
+ * Acquittement différé, comme un vrai client réseau : sans lui, la file d'envoi
+ * reste vide et le cas « ordre sous saturation » ne prouverait rien.
+ */
 function redisBus(): BackplanePeerFactory {
-  const bus = new FakeRedisBus();
+  const bus = new FakeRedisBus({ asyncAck: true });
   let next = 0;
   return (secret) =>
     new RedisBackplane(
@@ -62,6 +71,7 @@ function redisBus(): BackplanePeerFactory {
       `pod-${(next += 1)}`,
       undefined,
       secret,
+      { maxQueueBytes: QUEUE_BYTES },
     );
 }
 
@@ -70,16 +80,19 @@ runBackplaneConformance("cluster", clusterBus(), {
   it,
   sealed: false,
   quietMs: 20,
+  floodBytes: FLOOD_BYTES,
 });
 runBackplaneConformance("redis (bus en mémoire)", redisBus(), {
   describe,
   it,
   quietMs: 20,
+  floodBytes: FLOOD_BYTES,
 });
 runBackplaneConformance("mémoire (banc de la suite)", memoryBus().makePeer, {
   describe,
   it,
   quietMs: 20,
+  floodBytes: FLOOD_BYTES,
 });
 
 /** Joue un cas de la suite hors du lanceur, pour constater qu'il ÉCHOUE. */
@@ -122,6 +135,18 @@ describe("suite de conformité — vue ROUGE sur des drivers défectueux", () =>
     await expect(runCase(flawed("unsealed"), C.seal)).rejects.toThrow(
       /non scellé ou mal scellé/,
     );
+  });
+
+  it("un bus dont la file jette les ORDRES avec les publications tombe sur l'ordre sous saturation", async () => {
+    await expect(
+      runCase(flawed("lossy"), C.controlUnderLoad, { floodBytes: FLOOD_BYTES }),
+    ).rejects.toThrow(/n'est pas arrivé/);
+  });
+
+  it("une rafale qui ne sature pas la file déclarée fait échouer le cas — jamais un vert qui ne prouve rien", async () => {
+    await expect(
+      runCase(redisBus(), C.controlUnderLoad, { floodBytes: 1024 }),
+    ).rejects.toThrow(/n'a pas saturé la file/);
   });
 
   it("un bus qui quitte la machine ne peut pas se dispenser du sceau", async () => {
