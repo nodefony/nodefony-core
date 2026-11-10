@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-10T14:57:26.805Z",
+  "generatedAt": "2026-11-10T22:28:19.130Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10601,7 +10601,7 @@
       "title": "perf(cli): faire porter Vite par le superviseur de développement",
       "url": "https://github.com/nodefony/nodefony-core/issues/692",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 5,
