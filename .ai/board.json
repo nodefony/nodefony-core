@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-10T00:53:04.426Z",
+  "generatedAt": "2026-11-10T01:35:41.815Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -53,10 +53,10 @@
       "title": "10.0.0"
     },
     {
-      "closed": 6,
+      "closed": 7,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 47,
+      "open": 46,
       "title": "10.1.0"
     }
   ],
@@ -10199,8 +10199,8 @@
       "number": 742,
       "title": "fix(security): dire pourquoi un canal en :health est refusé",
       "url": "https://github.com/nodefony/nodefony-core/issues/742",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 0.25,
