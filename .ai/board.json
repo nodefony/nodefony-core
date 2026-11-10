@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-10T01:35:41.815Z",
+  "generatedAt": "2026-11-10T12:45:15.898Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 253,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 12,
+      "open": 13,
       "title": "10.0.0-beta"
     },
     {
@@ -6736,6 +6736,22 @@
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
+      "ordre": 7.13,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-7"
+      ]
+    },
+    {
+      "number": 760,
+      "title": "feat(realtime): connaître les présents d'un canal sur tous les pods",
+      "url": "https://github.com/nodefony/nodefony-core/issues/760",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
       "ordre": 7.13,
       "debut": null,
       "cible": null,
