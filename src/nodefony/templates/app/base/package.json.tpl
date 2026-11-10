@@ -10,8 +10,10 @@
   "engines": {
     "node": ">=24.14.0"
   },
-<% if (it.packageManager === "npm" && it.complete && it.dialect === "sqlite") { %>  "allowScripts": {
-    "better-sqlite3": false
+<% if (it.packageManager === "npm") { %>  "allowScripts": {
+<% if (it.complete && !it.mongo && it.dialect === "sqlite") { %>    "better-sqlite3": false,
+<% } %>    "esbuild": false,
+    "fsevents": false
   },
 <% } %>  "scripts": {
     "prepare": "node --eval \"const f=require('node:fs');if(f.existsSync('.githooks'))try{require('node:child_process').execSync('git config core.hooksPath .githooks',{stdio:'ignore'})}catch{}\"",

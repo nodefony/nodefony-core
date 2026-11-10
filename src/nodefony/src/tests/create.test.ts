@@ -945,15 +945,28 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       });
     }
 
-    it("preset minimal : aucune politique, le paquet n'est pas là", () => {
-      const dest = path.join(tmp, "npm-deny-minimal");
-      scaffold(dest, {
-        name: "npmdenymin",
-        preset: "minimal",
-        frontend: "none",
-      });
-      const pkg = readJson(path.join(dest, "package.json"));
-      assert.notProperty(pkg, "allowScripts");
+    it("tout preset : esbuild et fsevents refusés explicitement, better-sqlite3 absent sans lui", () => {
+      // npm 12 BLOQUE les scripts d'installation non déclarés et l'annonce
+      // (« 3 packages had install scripts blocked ») au premier écran d'une
+      // application fraîche. esbuild (tiré par vitest → vite, et drizzle-kit)
+      // et fsevents n'en ont pas besoin : leurs binaires arrivent par les
+      // dépendances optionnelles — l'application générée passe `verify` et
+      // son e2e scripts bloqués. Le refus explicite fait taire l'annonce sans
+      // rien exécuter ; une approbation ferait lancer node-gyp pour fsevents.
+      for (const preset of ["minimal", "complete"] as const) {
+        const dest = path.join(tmp, `npm-deny-tools-${preset}`);
+        scaffold(dest, { name: `npmdeny${preset}`, preset, frontend: "none" });
+        const policy = readJson(path.join(dest, "package.json"))[
+          "allowScripts"
+        ] as unknown as Record<string, boolean> | undefined;
+        assert.isObject(policy, `${preset} : politique allowScripts absente`);
+        assert.strictEqual(policy?.["esbuild"], false, preset);
+        assert.strictEqual(policy?.["fsevents"], false, preset);
+        if (preset === "minimal") {
+          // Pas de pilote SQLite dans l'arbre : rien à refuser pour lui.
+          assert.notProperty(policy, "better-sqlite3");
+        }
+      }
     });
   });
 
@@ -2296,7 +2309,11 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         assert.notProperty(pkg["devDependencies"], "drizzle-kit");
         // Le pilote du décor e2e, à la version de @nodefony/mongoose.
         assert.property(pkg["devDependencies"], "mongodb");
-        assert.notProperty(pkg, "allowScripts");
+        // Pas de pilote SQLite : sa ligne n'a rien à faire dans la politique.
+        assert.notProperty(
+          (pkg["allowScripts"] ?? {}) as Record<string, boolean>,
+          "better-sqlite3",
+        );
 
         const config = readFileSync(
           path.join(dest, "nodefony.config.ts"),
