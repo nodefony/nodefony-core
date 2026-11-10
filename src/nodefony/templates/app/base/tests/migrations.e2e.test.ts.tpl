@@ -8,7 +8,6 @@ import {
   readFileSync,
   rmSync,
 } from "node:fs";
-import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -368,27 +367,6 @@ dbSuite("migrations — la base de cette application", () => {
 });
 
 /**
- * Un port LIBRE, demandé au système.
- *
- * L'application de la suite tient déjà le sien ; un exemplaire jetable doit en
- * prendre un autre, et un port écrit en dur finit toujours par tomber sur le
- * décor de quelqu'un d'autre.
- */
-async function freePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const server = net.createServer();
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address();
-      const port = typeof address === "object" && address ? address.port : 0;
-      server.close(() =>
-        port > 0 ? resolve(port) : reject(new Error("aucun port libre")),
-      );
-    });
-  });
-}
-
-/**
  * Cite un identifiant pour le moteur visé.
  *
  * MySQL cite à l'accent grave, les deux autres au guillemet droit. Écrire une
@@ -555,8 +533,10 @@ dbSuite("migrations — générer, retenir le trafic, constater une dérive", ()
     // n'ayant rien fait.
     const suitePort = runningAppPort();
     const spare = await startSpareApp({
-      port: await freePort(),
-      httpsPort: await freePort(),
+      // Le noyau attribue les deux ports : aucun tirage d'avance, donc aucune
+      // course — ni avec un tiers, ni entre les deux tirages eux-mêmes.
+      port: 0,
+      httpsPort: 0,
       env: {
         NODE_ENV: "production",
         ...PRODUCTION_SECRETS,

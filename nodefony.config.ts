@@ -103,10 +103,14 @@ export default defineConfig<Env>((ctx) => ({
   // un port occupé est un échec franc (le port est un CONTRAT : service, ingress, sonde).
   // Forcer la politique : `servers: { portPolicy: "strict" }`.
   servers: {
-    ...((ctx.env.NF_PORT ?? ctx.env.PORT)
+    // `!== undefined`, jamais un test de vérité : `0` est un port LÉGITIME — le
+    // noyau en attribue un libre (exemplaire jetable d'une suite, `startSpareApp`).
+    // Un `NF_PORT=0` avalé retombait sur 5151 en silence : le port même qu'on fuyait.
+    // Même règle que le gabarit d'application (`nodefony.config.ts.tpl`).
+    ...(ctx.env.NF_PORT !== undefined || ctx.env.PORT !== undefined
       ? { http: { port: ctx.env.NF_PORT ?? ctx.env.PORT } }
       : {}),
-    ...(ctx.env.NF_PORT_HTTPS
+    ...(ctx.env.NF_PORT_HTTPS !== undefined
       ? { https: { port: ctx.env.NF_PORT_HTTPS } }
       : {}),
     // HTTP/2 en clair (5153) hors production : le dépôt éprouve le chemin que

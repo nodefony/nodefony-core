@@ -825,15 +825,22 @@ export function defaultDevPorts(
  * `NF_PORT_HTTPS`) — ceux qu'il écoutera, par opposition à ceux qu'un runtime
  * déjà en marche a publiés.
  *
+ * `0` (le noyau attribue un port libre) n'est rendu que sur demande
+ * (`kernelAssigned`) : c'est une DÉCLARATION — ce lancement ne prendra aucun
+ * port convoité — mais ce n'est pas un port qu'on puisse sonder.
+ *
  * @param env - l'environnement lu (défaut : `process.env`).
+ * @param options - `kernelAssigned` : garder les `0` déclarés.
  * @returns les ports déclarés valides, ou une liste vide.
  */
 export function declaredPorts(
   env: Record<string, string | undefined> = process.env,
+  options: { readonly kernelAssigned?: boolean } = {},
 ): number[] {
+  const min = options.kernelAssigned === true ? 0 : 1;
   return [env.NF_PORT, env.NF_PORT_HTTPS]
     .map((v) => Number.parseInt(v ?? "", 10))
-    .filter((n) => Number.isInteger(n) && n > 0);
+    .filter((n) => Number.isInteger(n) && n >= min);
 }
 
 /**

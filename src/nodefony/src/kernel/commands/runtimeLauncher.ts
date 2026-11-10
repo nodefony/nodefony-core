@@ -43,7 +43,7 @@ export interface RuntimeConflictDeps {
   probe?: (ports: readonly number[]) => Promise<PortState[]>;
   /** Sortie du process en cas de refus (défaut : `process.exit`). */
   exit?: (code: number) => void;
-  /** Ports que CE lancement déclare écouter (défaut : `declaredPorts()`). */
+  /** Ports que CE lancement déclare écouter, `0` compris (défaut : `declaredPorts(env, { kernelAssigned: true })`). */
   declared?: readonly number[];
 }
 
@@ -103,8 +103,10 @@ export async function assertNoConflictingRuntime(
   // collisionne pas : c'est l'exemplaire jetable d'une suite (`startSpareApp`),
   // lancé à côté du serveur qu'elle teste. Le refus porte sur une collision, pas
   // sur une cohabitation — et un port déclaré pris par un tiers garde son filet
-  // natif (`EADDRINUSE`).
-  const declared = deps.declared ?? declaredPorts();
+  // natif (`EADDRINUSE`). Un `0` déclaré (`NF_PORT=0`) en est une : le noyau
+  // attribue un port libre, aucun port tenu ne peut être celui-là.
+  const declared =
+    deps.declared ?? declaredPorts(process.env, { kernelAssigned: true });
   if (declared.length > 0 && !declared.some((port) => held.includes(port))) {
     log(
       `un runtime Nodefony ${modeLabelFr(first.mode)} de CE projet tient le(s) ` +

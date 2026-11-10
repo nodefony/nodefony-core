@@ -24,12 +24,14 @@ import { JSON_BYTES_FRAME_CODEC, type IFrameCodec } from "nodefony";
  */
 
 const RUN = process.env.NF_RUN_CLUSTER_E2E === "1";
-const HTTP_PORT = 5381;
-const HTTPS_PORT = 5382;
+// Ports ATTRIBUÉS par le noyau (`port: 0`) : un port écrit en dur finit par
+// tomber sur le décor de quelqu'un d'autre, un port tiré d'avance peut être
+// repris avant le démarrage. Le vrai port se lit sur l'exemplaire.
+let httpPort = 0;
 const REPO_ROOT = fileURLToPath(
   new URL("../../../../../../../", import.meta.url),
 );
-const URL_CODEC = `ws://127.0.0.1:${HTTP_PORT}/api/live/codec`;
+const urlCodec = (): string => `ws://127.0.0.1:${httpPort}/api/live/codec`;
 const CBOR = "nodefony.jsonrpc.cbor.v1";
 const TEXT = "nodefony.jsonrpc.v1";
 
@@ -43,7 +45,7 @@ interface IRawPeer {
 
 function openRaw(protocols: string[]): Promise<IRawPeer> {
   return new Promise((resolve, reject) => {
-    const ws = new WebSocket(URL_CODEC, protocols);
+    const ws = new WebSocket(urlCodec(), protocols);
     ws.binaryType = "arraybuffer";
     const frames: Array<string | ArrayBuffer> = [];
     const waiters: Array<() => void> = [];
@@ -77,7 +79,7 @@ async function openClient(
   codec: IFrameCodec | undefined,
 ): Promise<NodefonySocket> {
   const client = new NodefonySocket({
-    url: URL_CODEC,
+    url: urlCodec(),
     autoReconnect: false,
     ...(codec === undefined ? {} : { codec }),
   });
@@ -96,8 +98,8 @@ describe.skipIf(!RUN)("Codec CBOR sur un vrai serveur WebSocket (#618)", () => {
 
   beforeAll(async () => {
     app = await startSpareApp({
-      port: HTTP_PORT,
-      httpsPort: HTTPS_PORT,
+      port: 0,
+      httpsPort: 0,
       root: REPO_ROOT,
       env: {
         NODE_ENV: "production",
@@ -106,6 +108,9 @@ describe.skipIf(!RUN)("Codec CBOR sur un vrai serveur WebSocket (#618)", () => {
         NF_WITH_DEV_MODULES: "1",
       },
     });
+    httpPort = app.port;
+    // Attribué, jamais 0 : sinon toute la suite parlerait à un port inexistant.
+    expect(httpPort).toBeGreaterThan(0);
   }, 90_000);
 
   afterAll(async () => {

@@ -160,7 +160,7 @@ décor de la suite, lui, a démarré l'application dans l'état normal — et c'
 
 ```ts ignore
 const jetable = await startSpareApp({
-  port: 5399,
+  port: 0, // le noyau attribue ; `jetable.port` dit lequel
   env: { NODE_ENV: "production", NF_DATABASE_URL: "sqlite:/tmp/vierge.db" },
 });
 try {
@@ -171,8 +171,11 @@ try {
 }
 ```
 
-Le port est **imposé, jamais deviné** : l'exemplaire du décor tient déjà celui de l'application, et
-la sonde doit savoir à qui elle parle.
+Le port est **attribué ou imposé, jamais deviné** : l'exemplaire du décor tient déjà celui de
+l'application, et la sonde doit savoir à qui elle parle. Avec `port: 0` (et `httpsPort: 0`), le
+noyau choisit et le port se lit dans l'état que l'exemplaire publie, reconnu à son pid. C'est la
+forme à préférer : un port tiré d'avance (`listen(0)` puis `close`) peut être repris avant le
+démarrage, et deux tirages successifs peuvent rendre le même numéro.
 
 ## 📖 Lexique
 

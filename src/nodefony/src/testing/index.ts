@@ -493,15 +493,22 @@ export function createTestModule(settings: ITestModuleOptions = {}): Module {
 /** Réglages d'un exemplaire JETABLE — le port est le seul obligatoire. */
 export interface ISpareAppOptions {
   /**
-   * Port HTTP de l'exemplaire — **imposé, jamais deviné**.
+   * Port HTTP de l'exemplaire — **imposé ou attribué, jamais deviné**.
    *
    * L'exemplaire déjà démarré par le décor tient le port de l'application ;
    * celui-ci doit en prendre un autre, et la sonde doit savoir à qui elle
    * parle. Un port découvert après coup ferait retomber le test sur le premier
    * serveur venu, exactement ce que {@link runningAppPort} refuse de faire.
+   *
+   * `0` (recommandé) : le noyau attribue un port libre, et le port se LIT dans
+   * l'état que CET exemplaire publie — reconnu à son pid, jamais celui de la
+   * suite. Aucune course possible. Un port tiré d'avance (`listen(0)` puis
+   * `close`) peut être repris par un autre avant le démarrage, et deux tirages
+   * successifs peuvent rendre le MÊME numéro : l'exemplaire mourait alors sur
+   * son propre port HTTP au moment d'ouvrir le HTTPS.
    */
   port: number;
-  /** Port HTTPS, quand la configuration en ouvre un — même raison. */
+  /** Port HTTPS, quand la configuration en ouvre un — même raison, `0` compris. */
   httpsPort?: number;
   /** Variables ajoutées à l'environnement de l'exemplaire. */
   env?: NodeJS.ProcessEnv;
@@ -523,7 +530,7 @@ export interface ISpareAppOptions {
 
 /** Un exemplaire jetable, démarré et joignable. */
 export interface ISpareApp {
-  /** Port sur lequel il répond — celui qui a été demandé. */
+  /** Port HTTP sur lequel il répond — celui demandé, ou celui que le noyau a attribué (`port: 0`). */
   port: number;
   /** Tout ce qu'il a écrit sur ses deux flux jusqu'ici. */
   output(): string;
@@ -558,7 +565,7 @@ export interface ISpareApp {
  *
  * ```ts
  * const jetable = await startSpareApp({
- *   port: 5399,
+ *   port: 0,
  *   env: { NODE_ENV: "production", NF_DATABASE_URL: "sqlite:/tmp/vierge.db" },
  * });
  * try {
@@ -619,7 +626,16 @@ export async function startSpareApp(
   };
 
   const deadline = Date.now() + timeoutMs;
+  // Port 0 : connu seulement quand l'exemplaire l'a publié — l'état dont le
+  // pid est le SIEN (celui de la suite y figurait avant le démarrage).
+  let port = options.port;
   for (;;) {
+    if (port === 0) {
+      const published = readRuntimeState(root, { purgeStale: false });
+      if (published !== null && published.pid === child.pid) {
+        port = published.ports.at(0) ?? 0;
+      }
+    }
     if (exitCode !== null) {
       restoreStateFiles(state);
       throw new Error(
@@ -628,22 +644,24 @@ export async function startSpareApp(
     }
     // `/livez` et non `/readyz` : on attend qu'il SERVE, pas qu'il soit prêt —
     // un exemplaire dont la mise en service est retenue répond quand même.
-    const alive = await fetch(`http://127.0.0.1:${options.port}/livez`)
-      .then((r) => r.ok)
-      .catch(() => false);
+    const alive =
+      port !== 0 &&
+      (await fetch(`http://127.0.0.1:${port}/livez`)
+        .then((r) => r.ok)
+        .catch(() => false));
     if (alive) {
       break;
     }
     if (Date.now() > deadline) {
       await stop();
       throw new Error(
-        `l'exemplaire jetable n'a pas répondu sur le port ${options.port} en ${timeoutMs} ms :\n${output.slice(-2000)}`,
+        `l'exemplaire jetable n'a pas répondu sur le port ${port === 0 ? "(pas encore publié)" : port} en ${timeoutMs} ms :\n${output.slice(-2000)}`,
       );
     }
     await new Promise((r) => setTimeout(r, 250));
   }
 
-  return { port: options.port, output: () => output, stop: stop };
+  return { port, output: () => output, stop: stop };
 }
 
 /** Contenu brut des fichiers d'état, ou `null` quand le fichier n'existe pas. */

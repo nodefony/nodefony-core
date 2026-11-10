@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { assertNoConflictingRuntime } from "../kernel/commands/runtimeLauncher";
 import { SysExit } from "../cli/sysexits";
+import { declaredPorts } from "../service/dev/devProcess";
 import type { DevProcessInfo, PortState } from "../service/dev/devProcess";
 import type { Severity } from "../syslog/Pdu";
 
@@ -105,5 +106,65 @@ describe("garde anti-collision runtime — la collision se CONSTATE", () => {
     const { exits, logs } = await runGuard([5151], []);
     expect(exits).toEqual([]);
     expect(logs).toEqual([]);
+  });
+});
+
+describe("garde anti-collision — un port 0 déclaré est attribué par le noyau, donc disjoint", () => {
+  /** La garde SANS `declared` injecté : elle lit l'environnement, comme au démarrage. */
+  async function guardFromEnv(
+    env: Record<string, string | undefined>,
+  ): Promise<number[]> {
+    const keys = ["NF_PORT", "NF_PORT_HTTPS"] as const;
+    const saved = keys.map((k) => process.env[k]);
+    for (const k of keys) {
+      const v = env[k];
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+    const exits: number[] = [];
+    const cwd = process.cwd();
+    try {
+      await assertNoConflictingRuntime("prod", () => {}, {
+        cwd,
+        discover: () => [supervisor()],
+        getCwd: () => cwd,
+        probe: probeHolding([5151, 5152]),
+        exit: (code: number) => {
+          exits.push(code);
+        },
+      });
+    } finally {
+      keys.forEach((k, i) => {
+        const v = saved[i];
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      });
+    }
+    return exits;
+  }
+
+  it("`NF_PORT=0` + `NF_PORT_HTTPS=0` cohabite avec un runtime qui tient ses ports (exemplaire jetable)", async () => {
+    expect(await guardFromEnv({ NF_PORT: "0", NF_PORT_HTTPS: "0" })).toEqual(
+      [],
+    );
+  });
+
+  it("rien de déclaré : la garde refuse toujours", async () => {
+    expect(await guardFromEnv({})).toEqual([SysExit.UNAVAILABLE]);
+  });
+
+  it("un port tenu déclaré à côté d'un 0 : refusé — le 0 ne blanchit pas l'autre", async () => {
+    expect(await guardFromEnv({ NF_PORT: "0", NF_PORT_HTTPS: "5152" })).toEqual(
+      [SysExit.UNAVAILABLE],
+    );
+  });
+
+  it("`declaredPorts` ne rend le 0 que sur demande : un 0 ne se sonde pas", () => {
+    const env = { NF_PORT: "0", NF_PORT_HTTPS: "x" };
+    expect(declaredPorts(env)).toEqual([]);
+    expect(declaredPorts(env, { kernelAssigned: true })).toEqual([0]);
+    expect(declaredPorts({ NF_PORT: "-1" }, { kernelAssigned: true })).toEqual(
+      [],
+    );
   });
 });

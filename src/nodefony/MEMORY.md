@@ -407,7 +407,10 @@ Sous-chemin exporté, importé par les tests de **toute application générée**
   ⚠️ Pas de résolution par conteneur (`@Inject` passe par `Nodefony.getKernel()`, absent ici) : un
   test unitaire DONNE la dépendance au constructeur.
 - `startSpareApp({port, httpsPort?, env?, root?, timeoutMs?})` → `{port, output(), stop()}` —
-  exemplaire JETABLE dans un état choisi (schéma en retard, dépendance absente). Attend `/livez`,
+  exemplaire JETABLE dans un état choisi (schéma en retard, dépendance absente). `port: 0` (+ `httpsPort: 0`) =
+  noyau attribue, port LU dans l'état publié dont `pid === child.pid` (jamais un port tiré d'avance : course,
+  et deux tirages peuvent coïncider) ; la garde `assertNoConflictingRuntime` compte un `0` déclaré comme
+  disjoint (`declaredPorts(env, { kernelAssigned: true })`). Attend `/livez`,
   lève avec la sortie si le process meurt. Chef de groupe + `signalProcessGroup` à l'arrêt.
   🔴 **Sa raison d'être est `stop()`, pas le `spawn`** : un second exemplaire écrase
   `node_modules/.cache/nodefony/{runtime,readiness}.json`, et `runningAppPort()` désigne alors le
