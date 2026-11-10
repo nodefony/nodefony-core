@@ -383,16 +383,6 @@ export const DEMOS = [
     files: [],
     types: [],
   },
-  {
-    id: "quick-doc",
-    title: "Doc rapide",
-    rubric: "programs",
-    level: "beginner",
-    teaches: "Trouver la page de doc d'un module depuis l'application.",
-    status: "soon",
-    files: [],
-    types: [],
-  },
 ] as const satisfies readonly IDemoEntry[];
 
 /** Identifiant d'une démo de l'index — une faute de frappe ne compile pas. */
