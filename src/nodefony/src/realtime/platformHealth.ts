@@ -230,6 +230,15 @@ export interface IRealtimeProbe {
    */
   ingressRejectedTotal: number;
   /**
+   * Messages du bus JETÉS parce que d'une version plus récente — canal de la
+   * plateforme `nodefony:bus:*` ou type d'ordre que ce serveur ne connaît pas —
+   * monotone. Jamais compté dans `ingressRejectedTotal` (ADR-0025, S-rt-92) : il
+   * monte LÉGITIMEMENT pendant un déploiement progressif, et retombe à plat quand
+   * tous les serveurs portent la même version. Qui monte hors déploiement = un
+   * serveur resté sur une version plus ancienne.
+   */
+  ingressUnknownDiscardedTotal: number;
+  /**
    * Publications restées sur CE serveur alors qu'un bus est branché — canal non
    * déclaré diffusable (`@RealtimeBroadcast`) — monotone ; toujours 0 sans bus.
    * Voulu pour un canal propre au pod (forage de Studio, barre de débogage) ;

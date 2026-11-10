@@ -340,8 +340,10 @@ export {
   PLATFORM_CHANNELS,
   PLATFORM_INBOUND,
   PLATFORM_BUS_CHANNELS,
+  PLATFORM_BUS_PREFIX,
   PLATFORM_METHODS,
   PLATFORM_EVENTS,
+  isPlatformBusChannel,
   isPlatformChannel,
   startsWithCI,
 } from "./realtime/platformChannels";

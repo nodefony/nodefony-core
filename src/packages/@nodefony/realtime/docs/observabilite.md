@@ -261,14 +261,15 @@ Le contrat est `IRealtimeProbe` (`nodefony/src/realtime/platformHealth.ts#IRealt
 
 ### Fan-out — l'amplification réelle du broker
 
-| Champ                  | Ce qu'il dit                                                                                                                             |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `publishTotal`         | Appels à `publish`. **Ce que le serveur a voulu envoyer.**                                                                               |
-| `fanoutTotal`          | Livraisons effectives (`publish` × abonnés). **Ce que ça a réellement coûté.**                                                           |
-| `inboundTotal`         | Frames poussées par les clients sur les canaux entrants, via `RealtimeHub.recordInbound()` (`RealtimeHub.ts#RealtimeHub.recordInbound`). |
-| `ingressRejectedTotal` | Messages venus du **backplane** et jetés parce que leur canal n'est pas déclaré diffusable.                                              |
-| `sealRejectedTotal`    | Messages venus du **backplane** et jetés parce que leur sceau ne se vérifie pas. `0` sans bus scellé.                                    |
-| `localOnlyTotal`       | Publications restées sur ce serveur alors qu'un bus est branché (canal non diffusable). `0` sans bus.                                    |
+| Champ                          | Ce qu'il dit                                                                                                                             |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `publishTotal`                 | Appels à `publish`. **Ce que le serveur a voulu envoyer.**                                                                               |
+| `fanoutTotal`                  | Livraisons effectives (`publish` × abonnés). **Ce que ça a réellement coûté.**                                                           |
+| `inboundTotal`                 | Frames poussées par les clients sur les canaux entrants, via `RealtimeHub.recordInbound()` (`RealtimeHub.ts#RealtimeHub.recordInbound`). |
+| `ingressRejectedTotal`         | Messages venus du **backplane** et jetés parce que leur canal n'est pas déclaré diffusable.                                              |
+| `sealRejectedTotal`            | Messages venus du **backplane** et jetés parce que leur sceau ne se vérifie pas. `0` sans bus scellé.                                    |
+| `ingressUnknownDiscardedTotal` | Messages venus du **backplane** et jetés parce que d'une version **plus récente** : canal `nodefony:bus:*` ou type d'ordre inconnus.     |
+| `localOnlyTotal`               | Publications restées sur ce serveur alors qu'un bus est branché (canal non diffusable). `0` sans bus.                                    |
 
 Le rapport `fanoutTotal / publishTotal` est la mesure la plus parlante de la page : c'est la **taille
 moyenne d'un salon**. S'il vaut 1, chaque publication ne touche qu'une personne — un canal par client,
@@ -297,6 +298,21 @@ lectures possibles quand il grimpe :
 
 Le canal visé n'est délibérément pas exposé : un compteur d'observabilité ne doit pas devenir un
 moyen de sonder ce que le système accepte.
+
+### Messages du bus d'une version plus récente — compté à part
+
+Une version suivante peut ajouter des messages au bus : un canal du territoire `nodefony:bus:`, ou un
+nouveau type d'ordre sur le canal de contrôle. Pendant un déploiement progressif, un serveur resté sur
+l'ancienne version les reçoit sans les connaître. Il les **jette** — aucun abonné n'en reçoit rien —
+et les compte dans `ingressUnknownDiscardedTotal`, **jamais** dans `ingressRejectedTotal` : sinon
+chaque déploiement déclencherait de fausses alertes d'injection, et une vraie attaque passerait
+inaperçue dans ce bruit. Le journal le signale une seule fois par motif, en `INFO`, sans recopier le
+nom reçu.
+
+Il monte pendant un déploiement, puis s'arrête quand tous les serveurs portent la même version. S'il
+continue de monter ensuite, un serveur est resté sur une version plus ancienne. Ce qui reste
+suspect reste compté comme une injection : un autre canal de la plateforme, une variante de casse du
+territoire, un ordre d'un type connu mais de forme fausse, ou qui vise un canal de la plateforme.
 
 Un message **mal scellé** n'entre pas dans ce compteur : le transport l'écarte avant le hub, et le
 compte à part dans `sealRejectedTotal` (relayé au même niveau de la sonde, et dans

@@ -248,8 +248,9 @@ marcherait en développement et une fois sur N en production serait le pire des 
   gestionnaire entrant, refus de `allow` rendu au seul appelant, connexion fermée ou désabonnée
   pendant l'attente ; fin du canal, producteur libéré, écouteur conservé, fabrique rejouée.
 - **Entre exemplaires** (`memberOrdersAcrossPods.test.ts`) : fin et éjection d'un compte données sur
-  un hub atteignent les membres de l'autre ; canal de contrôle jamais diffusé ; ordres mal formés,
-  inventés ou visant un canal de la plateforme rejetés et comptés (`ingressRejectedTotal`). Sur un
+  un hub atteignent les membres de l'autre ; canal de contrôle jamais diffusé ; ordres mal formés
+  ou visant un canal de la plateforme rejetés et comptés (`ingressRejectedTotal`), ordre d'un type
+  inconnu de cette version jeté et compté à part (`ingressUnknownDiscardedTotal`). Sur un
   **Redis réel** (`memberOrdersRedis.test.ts`, gate Redis) : ordre scellé appliqué, ordre non scellé
   ignoré, et le rejeu d'une éjection captée — le risque accepté — décrit par un test. Sur le **bus du
   cluster** (`clusterIpc.e2e.test.ts`, `npm run test:cluster`) : deux vrais processus.

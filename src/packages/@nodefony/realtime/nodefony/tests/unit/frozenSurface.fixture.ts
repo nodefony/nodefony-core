@@ -37,6 +37,7 @@ export const FROZEN_CLOSED_REASONS = [
 /** Compteurs de REFUS, un par cause, ensemble fermé (S9) — sonde du hub. */
 export const FROZEN_REFUSAL_COUNTERS = [
   { name: "ingressRejectedTotal" },
+  { name: "ingressUnknownDiscardedTotal" },
   { name: "systemFloorDeniedTotal" },
   { name: "sealRejectedTotal" },
   { name: "frameRateRejectedTotal" },

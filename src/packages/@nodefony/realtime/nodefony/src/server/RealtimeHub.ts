@@ -6,6 +6,7 @@ import {
   NODEFONY_CHANNEL_NAMESPACE,
   PLATFORM_BUS_CHANNELS,
   RevocationWatch,
+  isPlatformBusChannel,
   isPlatformChannel,
   isRealtimePayload,
   realtimePayloadError,
@@ -62,7 +63,11 @@ import type {
   IBackplaneMessage,
 } from "../../interfaces/IBackplane";
 import LoopbackBackplane from "../backplane/LoopbackBackplane";
-import { readControlOrder, type ControlOrder } from "../backplane/controlOrder";
+import {
+  isUnknownControlOrder,
+  readControlOrder,
+  type ControlOrder,
+} from "../backplane/controlOrder";
 import type { IRealtimeAuthenticator } from "../../interfaces/IRealtimeAuthenticator";
 import type {
   ICompiledRealtimeMatcher,
@@ -429,6 +434,12 @@ export class RealtimeHub {
   // « fail-loud » de cette porte : le hub est sans dépendance (aucun logger), la
   // sonde est son unique canal de signalement. Cf {@link #admitFromBackplane}.
   #ingressRejectedTotal = 0;
+  // Messages du bus jetés parce que d'une version PLUS RÉCENTE : canal du
+  // territoire `nodefony:bus:` ou type d'ordre que cette version ignore (ADR-0025,
+  // « Règle de lecture du bus »). Compté À PART : pendant un déploiement
+  // progressif, il monte légitimement — dans `#ingressRejectedTotal`, il noierait
+  // le signal d'injection. Cf {@link #discardUnknownFromBus}.
+  #ingressUnknownDiscardedTotal = 0;
 
   // Publications restées sur ce serveur ALORS qu'un bus est branché (canal non
   // déclaré diffusable) — monotone. Jamais compté sans bus : la question ne se
@@ -969,7 +980,12 @@ export class RealtimeHub {
   /** Applique un ordre reçu du bus : forme vérifiée, canal de la plateforme refusé, sinon compté en rejet. */
   #applyControl(payload: unknown): void {
     const order = readControlOrder(payload);
-    if (order === null || isReservedSystemChannel(order.channel)) {
+    if (order === null) {
+      if (isUnknownControlOrder(payload)) this.#discardUnknownFromBus("order");
+      else this.#ingressRejectedTotal += 1;
+      return;
+    }
+    if (isReservedSystemChannel(order.channel)) {
       this.#ingressRejectedTotal += 1;
       return;
     }
@@ -1261,10 +1277,17 @@ export class RealtimeHub {
    * Seule exception, AVANT ce contrôle : le canal de contrôle
    * (`PLATFORM_BUS_CHANNELS.control`), jamais diffusé aux abonnés — ses ordres,
    * en liste fermée, sont appliqués aux connexions de ce pod ou comptés en rejet.
+   * Puis, avant le contrôle aussi : un AUTRE canal du territoire `nodefony:bus:`
+   * vient d'une version plus récente — jeté et compté à part
+   * ({@link #discardUnknownFromBus}), jamais comme une injection.
    */
   #admitFromBackplane(msg: IBackplaneMessage): void {
     if (msg.channel === PLATFORM_BUS_CHANNELS.control) {
       this.#applyControl(msg.payload);
+      return;
+    }
+    if (isPlatformBusChannel(msg.channel)) {
+      this.#discardUnknownFromBus("channel");
       return;
     }
     if (!this.#isBroadcast(msg.channel)) {
@@ -1272,6 +1295,30 @@ export class RealtimeHub {
       return;
     }
     this.publishLocal(msg.channel, msg.payload);
+  }
+
+  /**
+   * Jette un message du bus venu d'une version plus RÉCENTE — canal `nodefony:bus:` ou type d'ordre inconnus — et le compte à part.
+   *
+   * Règle de lecture figée par l'ADR-0025 (S-rt-92) : pendant un déploiement
+   * progressif, un serveur ancien reçoit à la cadence du message ce qu'une
+   * version suivante ajoute au bus. Le compter dans `#ingressRejectedTotal`
+   * déclencherait de fausses alertes d'injection et noierait la vraie. Rien
+   * n'atteint un abonné ; le journal ne parle qu'une fois par motif (pas une
+   * ligne par message), sans recopier le nom reçu — une donnée venue du bus
+   * n'entre pas dans le journal.
+   *
+   * @param kind - `channel` (canal inconnu) ou `order` (type d'ordre inconnu).
+   */
+  #discardUnknownFromBus(kind: "channel" | "order"): void {
+    this.#ingressUnknownDiscardedTotal += 1;
+    this.#notifyOnce(
+      `backplane:unknown-${kind}`,
+      kind === "channel"
+        ? "realtime: un canal de la plateforme inconnu de cette version est arrivé par le bus — ignoré (un serveur plus récent pendant un déploiement ?), compté dans ingressUnknownDiscardedTotal"
+        : "realtime: un ordre de contrôle d'un type inconnu de cette version est arrivé par le bus — ignoré (un serveur plus récent pendant un déploiement ?), compté dans ingressUnknownDiscardedTotal",
+      "INFO",
+    );
   }
 
   /** Backplane cross-process branché, ou `null` en mono-process (lecture/tests/sonde). */
@@ -1415,6 +1462,7 @@ export class RealtimeHub {
       fanoutTotal: this.#fanoutTotal,
       inboundTotal: this.#inboundTotal,
       ingressRejectedTotal: this.#ingressRejectedTotal,
+      ingressUnknownDiscardedTotal: this.#ingressUnknownDiscardedTotal,
       localOnlyTotal: this.#localOnlyTotal,
       systemFloorDeniedTotal: this.#systemFloorDeniedTotal,
       // Compté par le driver (seul à ouvrir l'enveloppe), relayé ici à côté des
@@ -2240,6 +2288,7 @@ export class RealtimeHub {
     this.#closedMalformedDiscarded = 0;
     this.#inboundTotal = 0;
     this.#ingressRejectedTotal = 0;
+    this.#ingressUnknownDiscardedTotal = 0;
     this.#localOnlyTotal = 0;
     this.#systemFloorDeniedTotal = 0;
     this.admissionBudget.reset();

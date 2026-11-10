@@ -4,6 +4,9 @@ import {
   PLATFORM_CHANNELS,
   PLATFORM_METHODS,
   PLATFORM_EVENTS,
+  PLATFORM_BUS_CHANNELS,
+  PLATFORM_BUS_PREFIX,
+  isPlatformBusChannel,
   isPlatformChannel,
   startsWithCI,
 } from "../realtime/platformChannels";
@@ -138,5 +141,28 @@ describe("Composition avec la cadence et le forage", () => {
     expect(isPlatformChannel(`${PLATFORM_CHANNELS.ormRich}@4242`)).to.equal(
       true,
     );
+  });
+});
+
+describe("Territoire du bus entre serveurs (ADR-0025, règle de lecture)", () => {
+  it("TOUT canal du bus porte le préfixe du territoire — sinon un serveur plus ancien le compterait comme une injection", () => {
+    for (const channel of Object.values(PLATFORM_BUS_CHANNELS)) {
+      expect(isPlatformBusChannel(channel), channel).toBe(true);
+    }
+  });
+
+  it("le territoire est DANS l'espace de la plateforme : son plancher s'applique", () => {
+    expect(PLATFORM_BUS_PREFIX.startsWith(NODEFONY_CHANNEL_NAMESPACE)).toBe(
+      true,
+    );
+    expect(isPlatformChannel(`${PLATFORM_BUS_PREFIX}x`)).toBe(true);
+  });
+
+  it("un canal de la plateforme hors du bus n'en est pas, ni une variante de casse", () => {
+    expect(isPlatformBusChannel(PLATFORM_CHANNELS.socket)).toBe(false);
+    expect(isPlatformBusChannel(PLATFORM_BUS_PREFIX.toUpperCase() + "x")).toBe(
+      false,
+    );
+    expect(isPlatformBusChannel("room:nodefony:bus:x")).toBe(false);
   });
 });

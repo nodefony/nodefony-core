@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { PLATFORM_BUS_CHANNELS } from "nodefony";
+import { PLATFORM_BUS_CHANNELS, PLATFORM_BUS_PREFIX } from "nodefony";
 import type { IBackplaneInfo } from "nodefony";
 import { RealtimeController } from "../../src/server/RealtimeController";
 import { RealtimeHub, getRealtimeHub } from "../../src/server/RealtimeHub";
@@ -217,10 +217,8 @@ describe("#623 lot 2 — 🔴 l'entrée du canal de contrôle : liste fermée, c
 
   it.each([
     ["charge nulle", null],
-    [
-      "ordre inventé qui admettrait",
-      { op: "subscribe", channel: "room:1", user: "alice" },
-    ],
+    ["type d'ordre non textuel", { op: 7, channel: "room:1" }],
+    ["type d'ordre vide", { op: "", channel: "room:1" }],
     ["ordre sans canal", { op: "close" }],
     ["canal vide", { op: "close", channel: "" }],
     ["éjection sans compte", { op: "evictUser", channel: "room:1" }],
@@ -322,5 +320,95 @@ describe("#623 lot 2 — 🔴 l'entrée du canal de contrôle : liste fermée, c
         channel: "x".repeat(MAX_CONTROL_FIELD_LENGTH + 1),
       }),
     ).toBe(null);
+  });
+});
+
+describe("#761 — un message de bus d'une version plus récente : jeté, compté À PART, jamais comme une injection", () => {
+  const control = PLATFORM_BUS_CHANNELS.control;
+  // Ce qu'une version 10.x ajoutera au bus (présence répartie, ADR-0025).
+  const newerChannel = `${PLATFORM_BUS_PREFIX}zq-presence`;
+
+  it("canal `nodefony:bus:*` inconnu : compteur à part, injection intacte, aucun abonné servi", async () => {
+    const alice = await tab("alice", true);
+    await alice.subscribe("room:1");
+    const { a, inject } = pods();
+    const fanout = a.probe().fanoutTotal;
+    const frames = alice.received.length;
+    inject({
+      channel: newerChannel,
+      payload: { room: "room:1" },
+      originId: "pod-1",
+    });
+    const p = a.probe();
+    expect(p.ingressUnknownDiscardedTotal).toBe(1);
+    expect(p.ingressRejectedTotal).toBe(0);
+    expect(p.fanoutTotal).toBe(fanout);
+    expect(alice.received).to.have.length(frames);
+  });
+
+  it.each([
+    ["ordre bien formé", { op: "inconnu", channel: "room:1" }],
+    [
+      "ordre qui admettrait",
+      { op: "subscribe", channel: "room:1", user: "alice" },
+    ],
+    ["ordre sans canal", { op: "presence" }],
+  ])(
+    "type d'ordre inconnu (%s) : compteur à part, injection intacte, rien d'appliqué",
+    async (_label, payload) => {
+      const alice = await tab("alice", true);
+      await alice.subscribe("room:1");
+      const { a, inject } = pods();
+      inject({ channel: control, payload, originId: "pod-1" });
+      const p = a.probe();
+      expect(p.ingressUnknownDiscardedTotal).toBe(1);
+      expect(p.ingressRejectedTotal).toBe(0);
+      expect(closedOf(alice)).to.deep.equal([]);
+      expect(a.channelMembers("room:1")).to.have.length(1);
+    },
+  );
+
+  it("le journal parle UNE fois par motif, pas une ligne par message, sans recopier le nom reçu", () => {
+    const { a, inject } = pods();
+    const notices: { message: string; severity: string }[] = [];
+    a.onPlatformNotice((message, severity) =>
+      notices.push({ message, severity }),
+    );
+    for (let i = 0; i < 5; i += 1) {
+      inject({ channel: newerChannel, payload: i, originId: "pod-1" });
+      inject({
+        channel: control,
+        payload: { op: "zq-op", channel: "room:1" },
+        originId: "pod-1",
+      });
+    }
+    expect(a.probe().ingressUnknownDiscardedTotal).toBe(10);
+    expect(notices).to.have.length(2);
+    for (const n of notices) {
+      expect(n.severity).toBe("INFO");
+      expect(n.message).toContain("ingressUnknownDiscardedTotal");
+      expect(n.message).not.toContain("zq-");
+    }
+  });
+
+  it("ce qui reste suspect reste une injection : canal de la plateforme hors du bus, variante de casse du bus", () => {
+    const { a, inject } = pods();
+    inject({ channel: "nodefony:socket", payload: {}, originId: "pod-1" });
+    inject({
+      channel: newerChannel.toUpperCase(),
+      payload: {},
+      originId: "pod-1",
+    });
+    const p = a.probe();
+    expect(p.ingressRejectedTotal).toBe(2);
+    expect(p.ingressUnknownDiscardedTotal).toBe(0);
+  });
+
+  it("clear() remet le compteur à zéro", () => {
+    const { a, inject } = pods();
+    inject({ channel: newerChannel, payload: {}, originId: "pod-1" });
+    expect(a.probe().ingressUnknownDiscardedTotal).toBe(1);
+    a.clear();
+    expect(a.probe().ingressUnknownDiscardedTotal).toBe(0);
   });
 });

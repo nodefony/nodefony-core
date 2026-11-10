@@ -50,6 +50,29 @@ function isBoundedText(value: unknown): value is string {
   );
 }
 
+/** Les types d'ordre que cette version sait appliquer — liste fermée. */
+function isKnownOp(op: unknown): op is ControlOrder["op"] {
+  return op === "close" || op === "evictUser";
+}
+
+/**
+ * La charge est-elle un ordre d'un TYPE que cette version ne connaît pas — `op` lisible, mais hors de la liste fermée ?
+ *
+ * C'est ce qu'émet un serveur d'une version plus récente pendant un
+ * déploiement progressif (ADR-0025, « Règle de lecture du bus ») : l'ordre
+ * n'est pas appliqué, mais il ne se compte pas comme une injection. Rien
+ * d'autre que `op` n'est lu — ses autres champs appartiennent à une version
+ * qui n'est pas celle-ci. Une charge sans `op` textuel, ou d'un type CONNU de
+ * forme fausse, n'est pas « inconnue » : elle est invalide.
+ *
+ * @param payload - la charge du message reçu (forme inconnue).
+ * @returns `true` si le type d'ordre est inconnu de cette version.
+ */
+export function isUnknownControlOrder(payload: unknown): boolean {
+  const op = ownField(payload, "op");
+  return isBoundedText(op) && !isKnownOp(op);
+}
+
 /**
  * Lit un ordre de contrôle dans une charge venue du bus — `null` si la forme n'est pas celle d'un ordre connu.
  *
@@ -68,8 +91,8 @@ export function readControlOrder(payload: unknown): ControlOrder | null {
   const channel = ownField(payload, "channel");
   if (!isBoundedText(channel)) return null;
   const op = ownField(payload, "op");
+  if (!isKnownOp(op)) return null;
   if (op === "close") return { op, channel };
-  if (op !== "evictUser") return null;
   const user = ownField(payload, "user");
   if (!isBoundedText(user)) return null;
   const generation = ownField(payload, "generation");

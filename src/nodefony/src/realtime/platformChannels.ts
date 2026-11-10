@@ -109,6 +109,31 @@ export const PLATFORM_BUS_CHANNELS = {
   control: "nodefony:bus:control",
 } as const;
 
+/**
+ * Préfixe de tous les canaux de {@link PLATFORM_BUS_CHANNELS} — le territoire du bus entre serveurs.
+ *
+ * Une version suivante y AJOUTE des canaux (présence répartie, ADR-0025) : un
+ * serveur plus ancien les reçoit pendant un déploiement progressif sans les
+ * connaître. Le préfixe est ce qui lui permet de les reconnaître comme « de la
+ * plateforme, d'une autre version » plutôt que comme une injection.
+ */
+export const PLATFORM_BUS_PREFIX = "nodefony:bus:";
+
+/**
+ * Le canal appartient-il au territoire du bus de la plateforme ({@link PLATFORM_BUS_PREFIX}) ?
+ *
+ * Sensible à la casse, à l'inverse d'{@link isPlatformChannel} : celle-ci pose
+ * un plancher de sécurité, qu'une variante de casse ne doit pas contourner ;
+ * celle-là CLASSE un message qu'un pair légitime émet toujours sous sa forme
+ * exacte. Une variante de casse n'est donc pas « d'une autre version » — elle
+ * reste comptée comme suspecte.
+ *
+ * @param channel - canal d'un message reçu du bus.
+ */
+export function isPlatformBusChannel(channel: string): boolean {
+  return channel.startsWith(PLATFORM_BUS_PREFIX);
+}
+
 /** Nom d'un canal montant de plateforme (valeur de {@link PLATFORM_INBOUND}). */
 export type PlatformInboundChannel =
   (typeof PLATFORM_INBOUND)[keyof typeof PLATFORM_INBOUND];
