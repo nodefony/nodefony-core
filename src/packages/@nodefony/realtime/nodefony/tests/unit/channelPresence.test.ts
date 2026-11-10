@@ -9,6 +9,7 @@ import { createTestIdentity } from "@nodefony/security/testing";
 import { RealtimeController } from "../../src/server/RealtimeController";
 import { getRealtimeHub } from "../../src/server/RealtimeHub";
 import { registerControllerPolicies } from "../../src/server/channelPolicyRegistry";
+import { ChannelPresence } from "../../src/server/channelPresence";
 import {
   RealtimeChannel,
   RealtimeInbound,
@@ -419,5 +420,42 @@ describe("#760 lot C — fenêtre et grâce (horloge simulée)", () => {
     expect(replay(a, "lobby:1").members.has("bob")).toBe(true);
     vi.advanceTimersByTime(400);
     expect(asObject(replay(a, "lobby:1").members)).to.deep.equal({ alice: 1 });
+  });
+});
+
+describe("#760 lot C — état pur `ChannelPresence` (départs en masse)", () => {
+  it("🔴 2 000 départs en grâce : échéance lue en tête, UNE trame qui les nomme tous à l'échéance", () => {
+    const p = new ChannelPresence("room:mass", { grace: 1000, maxNamed: 5000 });
+    for (let i = 0; i < 2000; i++) p.join(`u${i}`);
+    for (let i = 0; i < 3000; i++) p.join(null);
+    p.takeChanges();
+    for (let i = 0; i < 2000; i++) p.leave(`u${i}`, i); // échéances 1000…2999
+    for (let i = 0; i < 3000; i++) p.leave(null, i);
+    expect(p.nextDeadline()).toBe(1000);
+    expect(p.dirty).toBe(false); // rien de publié pendant la grâce
+    p.expire(1499);
+    expect(p.nextDeadline()).toBe(1500);
+    expect(p.view().unnamed).toBe(3000 - 500);
+    p.expire(10_000);
+    expect(p.nextDeadline()).toBe(Infinity);
+    const frame = p.takeChanges();
+    expect(frame?.changes?.gone?.length).toBe(2000); // aucun envoi entre les deux échéances
+    expect(frame?.count).toBe(0);
+    expect(frame?.unnamed).toBe(0);
+    expect(p.takeChanges()).toBe(null);
+  });
+
+  it("une liste porte la version COURANTE ; seuls les changements la font avancer", () => {
+    const p = new ChannelPresence("room:v", { grace: 0, maxNamed: 10 });
+    p.join("a");
+    expect(p.listParams().version).toBe(0);
+    expect(p.takeChanges()?.version).toBe(1);
+    expect(p.listParams()).to.deep.equal({
+      channel: "room:v",
+      version: 1,
+      count: 1,
+      unnamed: 0,
+      members: ["a", 1],
+    });
   });
 });

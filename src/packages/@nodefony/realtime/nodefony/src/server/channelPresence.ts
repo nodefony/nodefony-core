@@ -2,6 +2,8 @@ import type {
   IChannelPolicy,
   IPresenceEntry,
   IRealtimePresenceChanges,
+  IRealtimePresenceCount,
+  IRealtimePresenceList,
   RealtimePresenceFrame,
 } from "nodefony";
 import { isRecord } from "../guards";
@@ -130,9 +132,13 @@ export class ChannelPresence {
   // La dernière trame complète nommait-elle les présents ? Au retour sous le
   // seuil, la vue cliente est vide d'identités : la liste est due à tous.
   #namedSent = true;
-  // Départs retenus par la grâce — `null` tant qu'aucun.
+  // Départs retenus par la grâce — `null` tant qu'aucun. UNE grâce par canal
+  // et une horloge monotone : l'ordre d'insertion EST l'ordre des échéances,
+  // donc la première entrée est la prochaine (O(1), jamais un parcours par
+  // départ — un pod qui redémarre en fait mille d'un coup).
   #leaving: Map<string, number> | null = null;
   #unnamedLeaving: number[] | null = null;
+  #unnamedHead = 0;
 
   constructor(channel: string, settings: IPresenceSettings) {
     this.channel = channel;
@@ -201,8 +207,9 @@ export class ChannelPresence {
   expire(now: number): void {
     const leaving = this.#leaving;
     if (leaving !== null) {
+      // Échéances croissantes : on s'arrête à la première non échue.
       for (const [key, deadline] of leaving) {
-        if (deadline > now) continue;
+        if (deadline > now) break;
         leaving.delete(key);
         this.#named.delete(key);
         this.#markDirty(key);
@@ -211,25 +218,34 @@ export class ChannelPresence {
     }
     const queue = this.#unnamedLeaving;
     if (queue !== null) {
-      // Une seule grâce par canal : les échéances arrivent dans l'ordre.
-      let gone = 0;
-      while (gone < queue.length && (queue[gone] ?? 0) <= now) gone += 1;
-      if (gone > 0) {
-        queue.splice(0, gone);
-        this.#unnamed -= gone;
+      let head = this.#unnamedHead;
+      const from = head;
+      while (head < queue.length && (queue[head] ?? 0) <= now) head += 1;
+      if (head > from) {
+        this.#unnamed -= head - from;
         this.#countsDirty = true;
       }
-      if (queue.length === 0) this.#unnamedLeaving = null;
+      if (head === queue.length) {
+        this.#unnamedLeaving = null;
+        this.#unnamedHead = 0;
+      } else if (head > 1024 && head * 2 > queue.length) {
+        // Compactage amorti : la tête consommée ne grossit pas sans fin.
+        queue.splice(0, head);
+        this.#unnamedHead = 0;
+      } else this.#unnamedHead = head;
     }
   }
 
-  /** Prochaine échéance de grâce (ms monotone), `Infinity` sans départ retenu. */
+  /** Prochaine échéance de grâce (ms monotone), `Infinity` sans départ retenu — O(1). */
   nextDeadline(): number {
     let next = Number.POSITIVE_INFINITY;
-    if (this.#leaving !== null)
-      for (const deadline of this.#leaving.values())
-        if (deadline < next) next = deadline;
-    const first = this.#unnamedLeaving?.[0];
+    if (this.#leaving !== null) {
+      for (const deadline of this.#leaving.values()) {
+        next = deadline; // la première est la plus proche
+        break;
+      }
+    }
+    const first = this.#unnamedLeaving?.[this.#unnamedHead];
     if (first !== undefined && first < next) next = first;
     return next;
   }
@@ -240,18 +256,31 @@ export class ChannelPresence {
    * Une liste ne prend jamais de numéro : servie à un nouvel abonné, elle ferait
    * voir un trou à tous les autres (ADR-0025 P2 bis).
    */
-  listParams(): RealtimePresenceFrame {
-    const count = this.#named.size;
-    const head = {
+  listParams(): IRealtimePresenceList | IRealtimePresenceCount {
+    const named = this.#named;
+    const count = named.size;
+    if (count > this.settings.maxNamed) {
+      return {
+        channel: this.channel,
+        version: this.#version,
+        count,
+        unnamed: this.#unnamed,
+      };
+    }
+    // Taille connue : un tableau pré-dimensionné, rempli en place.
+    const members = new Array<string | number>(count * 2);
+    let i = 0;
+    for (const [key, tabs] of named) {
+      members[i++] = key;
+      members[i++] = tabs;
+    }
+    return {
       channel: this.channel,
       version: this.#version,
       count,
       unnamed: this.#unnamed,
+      members,
     };
-    if (count > this.settings.maxNamed) return head;
-    const members: (string | number)[] = [];
-    for (const [key, tabs] of this.#named) members.push(key, tabs);
-    return { ...head, members };
   }
 
   /**
@@ -273,18 +302,24 @@ export class ChannelPresence {
       return this.listParams();
     }
     this.#version += 1;
-    const changes: IRealtimePresenceChanges = {};
+    let set: (string | number)[] | null = null;
+    let gone: string[] | null = null;
     if (dirty !== null) {
-      let set: (string | number)[] | null = null;
-      let gone: string[] | null = null;
       for (const key of dirty) {
         const tabs = this.#named.get(key);
         if (tabs === undefined) (gone ??= []).push(key);
         else (set ??= []).push(key, tabs);
       }
-      if (set !== null) changes.set = set;
-      if (gone !== null) changes.gone = gone;
     }
+    // Littéral construit d'un bloc : forme d'objet stable, aucune clé ajoutée après coup.
+    const changes: IRealtimePresenceChanges =
+      set === null
+        ? gone === null
+          ? {}
+          : { gone }
+        : gone === null
+          ? { set }
+          : { set, gone };
     return {
       channel: this.channel,
       version: this.#version,

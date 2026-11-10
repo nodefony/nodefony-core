@@ -21,6 +21,7 @@ import {
   containsBytes,
   type IFrameCodec,
   type IFrameCodecSet,
+  type IPresenceEntry,
   type IPresenceProbe,
   type RealtimeFrameData,
 } from "nodefony";
@@ -401,13 +402,15 @@ function presenceKeyOf(member: RealtimeConnection): string | null {
   return member.account ? member.userId : null;
 }
 
-/** Vue d'un canal à présence où personne n'est là — partagée, gelée. */
-const EMPTY_PRESENCE: IChannelPresenceView = Object.freeze({
-  count: 0,
-  unnamed: 0,
-  members: new Map(),
-  partial: false,
-});
+/**
+ * Prochain instant où la présence d'un canal a quelque chose à faire : la fin de la fenêtre si des changements attendent, la prochaine fin de grâce — `Infinity` sinon. O(1).
+ */
+function presenceDue(presence: ChannelPresence): number {
+  const deadline = presence.nextDeadline();
+  return presence.dirty && presence.windowEnd < deadline
+    ? presence.windowEnd
+    : deadline;
+}
 
 /**
  * RealtimeHub — broker temps réel **PAR INSTANCE** (1 pod = 1 process = 1 hub local).
@@ -887,8 +890,9 @@ export class RealtimeHub {
     if (presence !== null) {
       const member = st.members?.get(sink);
       if (member !== undefined) {
-        presence.leave(presenceKeyOf(member), performance.now());
-        this.#presenceTouch(st, presence);
+        const now = performance.now();
+        presence.leave(presenceKeyOf(member), now);
+        this.#presenceTouch(st, presence, now);
       }
     }
     st.members?.delete(sink);
@@ -918,7 +922,14 @@ export class RealtimeHub {
     if (live != null) return live.view();
     if (presenceSettingsOf(this.resolveChannelPolicy(channel)) === null)
       return null;
-    return EMPTY_PRESENCE;
+    // Personne n'est là : une vue FRAÎCHE, jamais une `Map` partagée qu'un
+    // appelant pourrait remplir pour tous les autres.
+    return {
+      count: 0,
+      unnamed: 0,
+      members: new Map<string, IPresenceEntry>(),
+      partial: false,
+    };
   }
 
   /**
@@ -948,19 +959,23 @@ export class RealtimeHub {
     }
     this.#presenceListTotal += 1;
     connection.deliver(presence.listFrame);
-    this.#presenceTouch(st, presence);
+    this.#presenceTouch(st, presence, performance.now());
   }
 
   /**
    * Un changement de présence vient d'avoir lieu : part tout de suite sur un canal calme (front montant), sinon au tic qui ferme la fenêtre.
    */
-  #presenceTouch(st: ChannelState, presence: ChannelPresence): void {
-    if (!presence.dirty && presence.nextDeadline() === Infinity) return;
-    const now = performance.now();
+  #presenceTouch(
+    st: ChannelState,
+    presence: ChannelPresence,
+    now: number,
+  ): void {
     if (presence.dirty && now >= presence.windowEnd)
       this.#presenceFlush(st, presence, now);
+    const due = presenceDue(presence);
+    if (due === Infinity) return;
     (this.#presenceActive ??= new Set<ChannelState>()).add(st);
-    this.#armPresenceTick(now);
+    this.#armPresenceAt(due, now);
   }
 
   /** Envoie les changements en attente à tous les membres, et ouvre une fenêtre. */
@@ -988,22 +1003,9 @@ export class RealtimeHub {
   }
 
   /**
-   * Arme le minuteur UNIQUE de la présence à la prochaine échéance (fin de fenêtre, fin de grâce) — aucun minuteur par canal ni par présent.
+   * Avance le minuteur UNIQUE de la présence à `at` s'il est plus proche que l'échéance déjà armée — O(1) par changement, aucun parcours des canaux, aucun minuteur par canal ni par présent.
    */
-  #armPresenceTick(now: number): void {
-    const active = this.#presenceActive;
-    if (active === null) return;
-    let next = Number.POSITIVE_INFINITY;
-    for (const st of active) {
-      const presence = st.presence;
-      if (presence === null) continue;
-      if (presence.dirty || now < presence.windowEnd) {
-        if (presence.windowEnd < next) next = presence.windowEnd;
-      }
-      const deadline = presence.nextDeadline();
-      if (deadline < next) next = deadline;
-    }
-    if (next === Infinity) return;
+  #armPresenceAt(next: number, now: number): void {
     if (this.#presenceTimer !== null && this.#presenceTimerAt <= next) return;
     if (this.#presenceTimer !== null) clearTimeout(this.#presenceTimer);
     this.#presenceTimerAt = next;
@@ -1021,6 +1023,9 @@ export class RealtimeHub {
     const active = this.#presenceActive;
     if (active === null) return;
     const now = performance.now();
+    // Le seul parcours des canaux actifs : un par tic, jamais par changement.
+    // Un canal n'y reste que tant qu'il a quelque chose d'échu à venir.
+    let next = Number.POSITIVE_INFINITY;
     for (const st of active) {
       const presence = st.presence;
       if (presence === null || !presence.live) {
@@ -1030,18 +1035,15 @@ export class RealtimeHub {
       presence.expire(now);
       if (presence.dirty && now >= presence.windowEnd)
         this.#presenceFlush(st, presence, now);
-      if (
-        !presence.dirty &&
-        now >= presence.windowEnd &&
-        presence.nextDeadline() === Infinity
-      )
-        active.delete(st);
+      const due = presenceDue(presence);
+      if (due === Infinity) active.delete(st);
+      else if (due < next) next = due;
     }
     if (active.size === 0) {
       this.#presenceActive = null;
       return;
     }
-    this.#armPresenceTick(now);
+    this.#armPresenceAt(next, now);
   }
 
   /**
