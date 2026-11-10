@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-10T12:45:15.898Z",
+  "generatedAt": "2026-11-10T14:09:10.767Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,14 +42,14 @@
       "closed": 253,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 13,
+      "open": 14,
       "title": "10.0.0-beta"
     },
     {
       "closed": 136,
       "dueOn": "2026-11-15T00:00:00Z",
       "number": 1,
-      "open": 5,
+      "open": 6,
       "title": "10.0.0"
     },
     {
@@ -6712,6 +6712,22 @@
       ]
     },
     {
+      "number": 761,
+      "title": "fix(realtime): compter à part un message de bus inconnu, jamais comme une injection",
+      "url": "https://github.com/nodefony/nodefony-core/issues/761",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 7.125,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-7"
+      ]
+    },
+    {
       "number": 746,
       "title": "refactor(scaffold): retirer les exemples de l'application générée",
       "url": "https://github.com/nodefony/nodefony-core/issues/746",
@@ -6748,7 +6764,7 @@
       "title": "feat(realtime): connaître les présents d'un canal sur tous les pods",
       "url": "https://github.com/nodefony/nodefony-core/issues/760",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 2,
@@ -6936,6 +6952,20 @@
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
       "jours": 0.5,
+      "ordre": 8.5,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 762,
+      "title": "fix(realtime): ne jamais jeter un ordre d'éjection quand la file Redis sature",
+      "url": "https://github.com/nodefony/nodefony-core/issues/762",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
       "ordre": 8.5,
       "debut": null,
       "cible": null,
