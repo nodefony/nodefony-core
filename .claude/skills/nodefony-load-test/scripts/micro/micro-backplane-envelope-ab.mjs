@@ -32,11 +32,13 @@
  *    AVANT de modifier, pour garder la version « avant »)
  * Mode enfant (interne) : --child <dist> <chemin> <taille>
  */
+import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-const SECRET = "bench-secret-0123456789abcdef";
+// Secret tiré à chaque process : aucune valeur fixe versionnée (gate gitleaks).
+const SECRET = randomBytes(32).toString("hex");
 const ME = "pod-a.1234";
 const PEER = "pod-b.5678";
 const CHANNEL = "room:42";
