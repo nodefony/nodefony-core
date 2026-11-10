@@ -1033,8 +1033,10 @@ Exemple : un capteur pousse 5 000 petites trames par seconde sur une connexion ;
 
 **Décision (validée par l'auteur le 2026-10-31, table ronde de #622) : livrer à une identité est
 une brique du framework (D1).** Le développeur écrit son chat — contrat, actions, base,
-historique, salons, présence ; le framework garantit qu'un message adressé à une personne
-n'atteint qu'elle, sur tous ses onglets et tous les pods.
+historique, salons ; le framework garantit qu'un message adressé à une personne
+n'atteint qu'elle, sur tous ses onglets et tous les pods. La présence
+d'un canal, d'abord laissée à l'application par cette décision, est portée par le framework
+depuis ADR-0025 (P1).
 
 - Surface : `getRealtimeHub<C>().publishToUser(id, charge)` côté serveur, `socket.onUser(handler)`
   côté navigateur — rien à déclarer.

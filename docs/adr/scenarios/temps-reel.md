@@ -243,6 +243,38 @@ Sur la socket, la trame `subscribe` tourne dans la bulle de contexte de la conne
 - **Décisions jugées** : ADR-0022 §4 (D4)
 - **A fait changer** : le geste reste une route : l'idempotence est portée par le pont
 
+### S-rt-84 — « Qui est dans le salon ? » sur trois pods
+
+- **Situation** : un salon de discussion de 50 personnes servi par trois exemplaires derrière Redis ; chacun affiche la liste des présents et choisit le destinataire d'un message privé.
+- **Catégorie** : usages hétérogènes
+- **Tient si** : la liste lue sur n'importe quel pod est la même, à un intervalle près ; un départ s'y voit sans recharger la page.
+- **Décisions jugées** : ADR-0025 (présence)
+- **A fait changer** : aucune
+
+### S-rt-85 — « Qui supervise la ligne 3 ? »
+
+- **Situation** : quatre opérateurs regardent le tableau d'une ligne de production ; le chef d'atelier veut savoir qui la surveille avant de lancer un arrêt.
+- **Catégorie** : usages hétérogènes
+- **Tient si** : la même primitive que le salon, sans code propre à l'industrie ; un poste anonyme (écran mural) compte sans être nommé.
+- **Décisions jugées** : ADR-0025 (présence)
+- **A fait changer** : aucune
+
+### S-rt-86 — Le salon d'attente d'une partie
+
+- **Situation** : un salon de jeu lance la partie quand huit joueurs distincts sont présents, quel que soit leur nombre d'onglets.
+- **Catégorie** : usages hétérogènes
+- **Tient si** : le compte se fait par identité, jamais par connexion.
+- **Décisions jugées** : ADR-0025 (présence)
+- **A fait changer** : aucune
+
+### S-rt-97 — Micro coupé, caméra allumée, en train d'écrire
+
+- **Situation** : une visioconférence (ADR-0002, la présence portée par le meeting) affiche pour chaque participant son micro et sa caméra ; Alice a deux onglets, caméra allumée dans l'un seulement.
+- **Catégorie** : usages hétérogènes
+- **Tient si** : l'état d'un présent s'ajoute SANS changer la forme de la trame ni l'API du client ; il se porte par connexion (onglet), le compte reste par identité.
+- **Décisions jugées** : ADR-0025 (présence)
+- **A fait changer** : la forme de la trame — une table identité → états par onglet dès la première version, jamais une liste d'identifiants
+
 ## Charge
 
 ### S-rt-9 — 60 coups/s × 1 000 joueurs sur un canal à rôles
@@ -322,6 +354,54 @@ Sur la socket, la trame `subscribe` tourne dans la bulle de contexte de la conne
 - **Tient si** : le coût est payé par les seuls onglets qui écoutent — mesuré 494 octets par abonnement, envoi ~60 ns ; le bus (deux scellements par message avec écho) se mesure au banc multi-pods.
 - **Décisions jugées** : ADR-0022 §6 (D1)
 - **A fait changer** : jamais d'abonnement d'office à la connexion
+
+### S-rt-87 — Un salon de 1 000 joueurs, 30 arrivées par seconde
+
+- **Situation** : 1 000 identités sur un canal, réparties sur quatre pods ; 30 arrivées ou départs par seconde.
+- **Catégorie** : charge
+- **Tient si** : au plus N trames de présence par seconde et par client, quel que soit le nombre de membres et d'états ; octets du bus et CPU par pod mesurés à 1 000 et 10 000 présents ; au-delà d'un seuil, le nombre seul reste une issue.
+- **Décisions jugées** : ADR-0025 (présence)
+- **A fait changer** : aucune
+
+### S-rt-88 — 10 000 canaux, aucun avec présence
+
+- **Situation** : une application qui n'active la présence nulle part.
+- **Catégorie** : charge
+- **Tient si** : aucun minuteur armé, aucune structure allouée, aucun message sur le bus (test) ; gate mémoire vert.
+- **Décisions jugées** : ADR-0025 (présence)
+- **A fait changer** : aucune
+
+### S-rt-100 — 100 000 petits canaux à présence, 20 pods, aucun mouvement
+
+- **Situation** : un éditeur collaboratif : `doc:*`, deux présents par document, personne ne bouge.
+- **Catégorie** : charge
+- **Tient si** : le trafic du bus AU REPOS est proportionnel au nombre de pods, pas au nombre de canaux ni de présents (mesuré) ; la mémoire retenue par pod est bornée par ce qu'il sert. Le driver Redis n'a qu'un sujet (`nodefony:realtime:<namespace>`) : chaque pod reçoit, vérifie et lit TOUT ce qui passe.
+- **Décisions jugées** : ADR-0025 (présence)
+- **A fait changer** : la republication périodique de l'état complet et la vue complète gardée par chaque pod (trouvé par le contradicteur)
+
+### S-rt-101 — Retour en masse après la chute d'un pod
+
+- **Situation** : salon de 1 000 sur 4 pods ; le pod A tombe, ses 250 clients rejouent leur `subscribe` en 2 s sur B, C et D (`NodefonySocket.ts#NodefonySocket.replaySubscriptions`, sans gigue).
+- **Catégorie** : charge
+- **Tient si** : la liste complète est sérialisée une fois par fenêtre et partagée, jamais une fois par abonné ; le nombre de trames par client reste borné.
+- **Décisions jugées** : ADR-0025 (présence)
+- **A fait changer** : l'envoi immédiat de chaque changement au navigateur (trouvé par le contradicteur)
+
+### S-rt-105 — Tempête d'états dans un salon de 1 000
+
+- **Situation** : 10 % des membres basculent « en train d'écrire » deux fois par seconde : 200 changements/s, plus que les arrivées.
+- **Catégorie** : charge
+- **Tient si** : dernier écrit gagnant par onglet et par fenêtre ; octets par client bornés, pas seulement les trames.
+- **Décisions jugées** : ADR-0025 (présence)
+- **A fait changer** : le budget en octets par client (siège perf)
+
+### S-rt-106 — Une barre latérale abonnée à 50 canaux à présence
+
+- **Situation** : un client suit 50 salons à présence sur la même socket.
+- **Catégorie** : charge
+- **Tient si** : le tic unique du pod regroupe les écritures par connexion ; aucune multiplication des trames par le nombre de canaux.
+- **Décisions jugées** : ADR-0025 (présence)
+- **A fait changer** : le regroupement par connexion (siège perf)
 
 ## Panne et réseau
 
@@ -419,6 +499,46 @@ Sur la socket, la trame `subscribe` tourne dans la bulle de contexte de la conne
 - **Décisions jugées** : S10 bis
 - **A fait changer** : S10 bis (2026-10-30 — motif `unavailable`, plafonds en vol, réessai client ≤ 3)
 
+### S-rt-89 — Un pod tué sans prévenir
+
+- **Situation** : le pod A tient 40 présents d'un salon ; il reçoit `SIGKILL`.
+- **Catégorie** : panne et réseau
+- **Tient si** : ses présents disparaissent de la liste lue sur B en moins du délai d'oubli ; test vu rouge en coupant la republication.
+- **Décisions jugées** : ADR-0025 (présence)
+- **A fait changer** : aucune
+
+### S-rt-102 — Bus coupé 30 s, plus long que le délai d'oubli
+
+- **Situation** : même salon ; le bus est coupé 30 s, ou saturé : la file d'émission jette alors les messages, preuves de vie comprises (`publishQueue.ts#BackplanePublishQueue.send`).
+- **Catégorie** : panne et réseau
+- **Tient si** : oublier un pod coûte UNE trame par client (« pod perdu »), jamais un départ par membre ; aucun oubli quand c'est la file LOCALE qui a jeté ; aucun clignotement sous charge.
+- **Décisions jugées** : ADR-0025 (présence)
+- **A fait changer** : une trame « pod perdu » dans la forme (trouvé par le contradicteur)
+
+### S-rt-103 — Un onglet lent perd un changement
+
+- **Situation** : un onglet mobile en arrière-plan ; un départ est jeté par la contre-pression (politique par défaut `drop`, silencieuse — `WsConnectionTransport.ts#WsConnectionTransport.send`).
+- **Catégorie** : panne et réseau
+- **Tient si** : le client détecte le trou (numéro de version dans la trame) et redemande la liste ; un présent fantôme ne survit pas au-delà d'une borne, testée.
+- **Décisions jugées** : ADR-0025 (présence)
+- **A fait changer** : un numéro de version dans la trame vers le navigateur, à figer dès la première version (trouvé par le contradicteur)
+
+### S-rt-107 — Un processus gelé (GC long, cgroup, veille d'un hôte)
+
+- **Situation** : un pod ne republie plus pendant 20 s, puis revient.
+- **Catégorie** : panne et réseau
+- **Tient si** : l'oubli se mesure sur l'horloge locale du récepteur ; au retour, même incarnation et version suivante : aucun double comptage, un clignotement au plus.
+- **Décisions jugées** : ADR-0025 (présence)
+- **A fait changer** : oubli sur l'horloge locale (siège exploitant)
+
+### S-rt-108 — Redis bascule sans couper la socket
+
+- **Situation** : bascule de sentinelle : un pod garde sa connexion mais ne reçoit plus rien, sans erreur.
+- **Catégorie** : panne et réseau
+- **Tient si** : la sonde montre l'âge du dernier message de présence reçu ; le silence de TOUS les pairs fige la vue au lieu d'oublier tout le monde.
+- **Décisions jugées** : ADR-0025 (présence)
+- **A fait changer** : le gel sur silence général (sièges exploitant et perf)
+
 ## Plusieurs instances
 
 ### S-rt-15 — Deux serveurs reliés par Redis, un modérateur éjecte sur l'autre
@@ -481,6 +601,38 @@ Sur la socket, la trame `subscribe` tourne dans la bulle de contexte de la conne
 - **Tient si** : le canal personnel est déclaré par le framework ; pour les canaux de l'application, l'oubli se voit (compteur côté émetteur, préfixes listés au démarrage).
 - **Décisions jugées** : ADR-0022 §6 (D5)
 - **A fait changer** : `localOnlyTotal` et la liste des préfixes (#710)
+
+### S-rt-90 — Un pod qui démarre après les autres, et un message perdu
+
+- **Situation** : le pod C démarre alors que A et B tiennent déjà des présents ; un départ annoncé par A se perd sur le bus (livraison au plus une fois).
+- **Catégorie** : plusieurs instances
+- **Tient si** : C voit la présence complète en au plus un intervalle ; le départ perdu est réparé à la republication suivante.
+- **Décisions jugées** : ADR-0025 (présence)
+- **A fait changer** : aucune
+
+### S-rt-91 — Alice dans deux onglets, sur deux pods
+
+- **Situation** : Alice a un onglet sur A et un sur B ; elle ferme celui de A.
+- **Catégorie** : plusieurs instances
+- **Tient si** : Alice compte pour UN présent, et le reste tant qu'un onglet est ouvert.
+- **Décisions jugées** : ADR-0025 (présence)
+- **A fait changer** : aucune
+
+### S-rt-99 — Le premier abonné du salon sur un pod
+
+- **Situation** : `room:42` compte 300 présents sur A et B ; Carol est la première à l'ouvrir sur le pod C.
+- **Catégorie** : plusieurs instances
+- **Tient si** : Carol reçoit la liste complète en moins de 200 ms, mesuré — que le pod garde la vue de tout ou la demande à la première ouverture.
+- **Décisions jugées** : ADR-0025 (présence)
+- **A fait changer** : aucune — le mécanisme se rejuge avec S-rt-100
+
+### S-rt-104 — Un conteneur redémarre avec le même `originId`
+
+- **Situation** : crash-loop Kubernetes : même nom de pod, pid 1, redémarrage en 3 s — l'`originId` vaut `${host}:${pid}` (`originId.ts#resolveBackplaneOriginId`) et reste IDENTIQUE.
+- **Catégorie** : plusieurs instances
+- **Tient si** : chaque message de présence porte une incarnation de démarrage ; un pair qui la voit changer purge l'ancienne vie aussitôt.
+- **Décisions jugées** : ADR-0025 (présence)
+- **A fait changer** : une incarnation dans le message entre pods (trouvé par le contradicteur)
 
 ## Versions qui cohabitent
 
@@ -578,6 +730,14 @@ Sur la socket, la trame `subscribe` tourne dans la bulle de contexte de la conne
   inconnu est replié sur `forbidden`.
 - **Décisions jugées** : S10 bis, S11
 - **A fait changer** : S10 bis, S11 (2026-10-30 — `unavailable` et `4006` ajoutés avant 10.0)
+
+### S-rt-92 — Déploiement progressif : un pod sans présence, un pod avec
+
+- **Situation** : le pod A tourne une version sans présence, le pod B la version qui l'apporte, même bus.
+- **Catégorie** : versions qui cohabitent
+- **Tient si** : aucun client d'un pod ancien ne reçoit un message de présence ; le rejet ne gonfle pas le compteur lu comme une injection (`#ingressRejectedTotal`, F83) ; le nombre de pods vus sans présence est exposé.
+- **Décisions jugées** : ADR-0025 (présence)
+- **A fait changer** : le rejet d'un canal de plateforme inconnu compté à part, jamais comme une attaque (trouvé par le contradicteur)
 
 ## Attaquant
 
@@ -677,6 +837,38 @@ Sur la socket, la trame `subscribe` tourne dans la bulle de contexte de la conne
 - **Décisions jugées** : ADR-0022 §6 (identité au handler d'entrée)
 - **A fait changer** : `who` remis au handler d'entrée (#622)
 
+### S-rt-93 — Mallory veut savoir si Bob est dans `room:42`
+
+- **Situation** : Mallory n'a pas le droit d'entrer dans `room:42`.
+- **Catégorie** : attaquant
+- **Tient si** : la présence d'un canal ne se lit qu'en y étant admis (`allow`) ; aucun registre global identité → canaux ; aucun oracle de présence hors de ce que l'admission accorde déjà.
+- **Décisions jugées** : ADR-0025 (présence)
+- **A fait changer** : aucune
+
+### S-rt-98 — Mallory pousse un état de présence
+
+- **Situation** : Mallory envoie un état de 1 Mo, ou un état qui dit « je suis Alice », ou en change 1 000 fois par seconde.
+- **Catégorie** : attaquant
+- **Tient si** : l'état est rattaché à l'identité de la connexion, jamais à la trame ; un canal qui ne déclare pas d'état le refuse ; taille et cadence bornées par connexion ET en agrégat par canal (1 000 membres honnêtes à 1 changement/s ne font pas 1 M de trames/s) ; refus comptés. Un nom affiché ne vient jamais de l'état posé par le client.
+- **Décisions jugées** : ADR-0025 (présence), S-rt-83
+- **A fait changer** : aucune
+
+### S-rt-109 — Un message de présence scellé rejoué
+
+- **Situation** : un lecteur du bus SANS le secret recapte une arrivée scellée, puis la republie une heure plus tard.
+- **Catégorie** : attaquant
+- **Tient si** : une version déjà vue est ignorée ; une incarnation plus ancienne que la connue est refusée : aucun fantôme durable.
+- **Décisions jugées** : ADR-0025 (présence)
+- **A fait changer** : incarnation ordonnée et version anti-rejeu (siège attaquant)
+
+### S-rt-110 — Un appelant machine dans un salon
+
+- **Situation** : un service externe authentifié par jeton, sans compte local (`<émetteur>#<sujet>`), s'abonne à un canal à présence.
+- **Catégorie** : attaquant
+- **Tient si** : il est compté sans être nommé : ni fournisseur d'identité ni sujet externe ne sortent vers les membres.
+- **Décisions jugées** : ADR-0025 (présence)
+- **A fait changer** : seuls les comptes sont nommés (siège attaquant)
+
 ## Plateformes
 
 ### S-rt-28 — Développer et tester sous Windows
@@ -762,6 +954,14 @@ Sur la socket, la trame `subscribe` tourne dans la bulle de contexte de la conne
 - **Décisions jugées** : S10 bis
 - **A fait changer** : S10 bis (2026-10-30 — troisième argument `services` retiré, classe `@injectable`)
 
+### S-rt-94 — La présence sur un driver de bus écrit par un tiers
+
+- **Situation** : une application branche son propre driver (NATS, journal partitionné).
+- **Catégorie** : extension tierce
+- **Tient si** : la présence voyage comme un message ordinaire scellé : aucune méthode neuve sur `IBackplane`, la suite de conformité la couvre.
+- **Décisions jugées** : ADR-0025 (présence)
+- **A fait changer** : aucune
+
 ## Agent IA consommateur
 
 ### S-rt-31 — « Notifie l'utilisateur 42 quand sa commande part »
@@ -791,6 +991,14 @@ Sur la socket, la trame `subscribe` tourne dans la bulle de contexte de la conne
   contrat (multiplexé `event:` = canal, ou un flux = un canal).
 - **Décisions jugées** : ADR-0022 §4
 - **A fait changer** : ADR-0022 §4 (2026-10-30 — même moule pour les trois livraisons, `renderSse()` sans type reste valide)
+
+### S-rt-95 — Un agent recopie le cookbook du chat
+
+- **Situation** : un agent à qui l'on demande « une liste des connectés » copie l'exemple le plus proche.
+- **Catégorie** : agent ia consommateur
+- **Tient si** : l'exemple qu'il trouve est la primitive, exécuté par un test ; aucun `Set` par processus ne subsiste dans la doc.
+- **Décisions jugées** : ADR-0025 (présence)
+- **A fait changer** : aucune
 
 ## Exploitation
 
@@ -830,6 +1038,14 @@ Sur la socket, la trame `subscribe` tourne dans la bulle de contexte de la conne
 - **Tient si** : chaque refus a son compteur, à unité écrite ; le filtrage n'en est pas un.
 - **Décisions jugées** : S9
 - **A fait changer** : S9 (2026-10-30 — un compteur par cause, pas de générique)
+
+### S-rt-96 — « La liste des présents est fausse » en production
+
+- **Situation** : un exploitant reçoit une plainte : un présent fantôme reste affiché.
+- **Catégorie** : exploitation
+- **Tient si** : la sonde dit combien de canaux portent une présence, quels pods sont vus, lesquels ont été oubliés et quand.
+- **Décisions jugées** : ADR-0025 (présence)
+- **A fait changer** : aucune
 
 ## Mainteneur solo
 

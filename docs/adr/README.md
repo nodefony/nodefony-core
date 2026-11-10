@@ -40,3 +40,4 @@ status: stable
 | [0022](0022-socket-temps-reel.md)                             | Socket temps réel — un canal, une enveloppe, un contrat pour les deux bouts                   | accepted | 2026-10-29 |
 | [0023](0023-webhooks-evenements-et-abonnements.md)            | Webhooks — la livraison hors connexion d'un événement générique                               | accepted | 2026-10-29 |
 | [0024](0024-politique-csp-par-defaut.md)                      | Politique de sécurité du contenu — stricte par défaut, jamais bloquante                       | accepted | 2026-11-04 |
+| [0025](0025-presence-repartie-d-un-canal.md)                  | Présence répartie d'un canal temps réel — portée par le canal lui-même                        | accepted | 2026-11-10 |
