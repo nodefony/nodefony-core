@@ -66,8 +66,8 @@ eux.
 ## La direction technique, et ses limites
 
 Le projet suit une ligne assumée : **un framework générique, jamais de logique métier dans le
-cœur**, inspiré de Symfony pour le noyau (injection de dépendances, modules, pare-feu applicatif)
-et de NestJS pour l'ergonomie TypeScript.
+cœur** : un noyau à injection de dépendances, à modules et à pare-feu applicatif, et des
+décorateurs TypeScript pour l'ergonomie.
 
 Cette ligne a des **conséquences opposables**, qui ne sont pas des préférences :
 
@@ -88,8 +88,25 @@ C'est le genre de retour qui a le plus de chances de changer quelque chose.
 
 ## Le point faible, nommé
 
-**Le projet dépend d'une personne.** C'est le risque réel, il ne se corrige pas par un document, et
-le nier serait plus inquiétant que l'écrire.
+**Le projet dépend d'une personne.** Le nier serait plus inquiétant que l'écrire. Mais « dépendre
+d'une personne » recouvre deux risques, et ils ne se traitent pas de la même façon.
+
+**Le premier, c'est la connaissance qui disparaît avec son auteur. Celui-là est traité, et vérifié.**
+Le savoir du projet ne vit pas dans une tête : il est dans le dépôt, sous une forme qu'un développeur
+— ou un agent qui l'assiste — lit sans avoir à demander.
+
+- **Le pourquoi** : chaque décision d'architecture est un [ADR](docs/adr/README.md), avec les options
+  écartées et leur raison.
+- **Le quoi** : la documentation renvoie aux symboles du code (`fichier.ts#Symbole`), et un contrôle
+  automatique refuse un renvoi devenu faux.
+- **Le comment** : [`AGENTS.md`](AGENTS.md) à la racine, des consignes par module, des procédures
+  versionnées pour les gestes récurrents, et un graphe des symboles régénéré à chaque changement.
+- **La preuve** : des milliers de tests exécutables sur infrastructure réelle, et des seuils de
+  mémoire et de charge qui échouent d'eux-mêmes.
+
+**Le second, c'est la responsabilité, et lui reste entier.** Qui publie un correctif de sécurité,
+qui tranche une rupture, qui répond d'une version : une personne, et aucun document ne le change.
+Seul un second mainteneur le réduira (voir plus bas).
 
 Ce qui est fait pour qu'il ne devienne pas un piège pour ceux qui s'en servent :
 
@@ -97,10 +114,14 @@ Ce qui est fait pour qu'il ne devienne pas un piège pour ceux qui s'en servent 
   restent sous la licence du projet, personne ne signe de transfert, et aucune entité ne peut
   refermer le code ou le relicencier. Si le projet s'arrête, **un fork ne demande l'autorisation de
   personne** — et la licence concède en plus une licence de brevet explicite.
-- **Rien d'essentiel ne vit en dehors du dépôt.** La chaîne de publication, les contrôles, les
-  décisions et la documentation sont versionnés ici. Il n'y a pas de service privé, pas de script
-  sur un poste, pas de clé personnelle dans la boucle : reprendre le projet demande le dépôt, pas
-  un accès à quelqu'un.
+- **Rien d'essentiel au CODE ne vit en dehors du dépôt.** La chaîne de publication, les contrôles,
+  les décisions et la documentation sont versionnés ici. Il n'y a pas de service privé ni de script
+  sur un poste, et la publication npm passe par l'identité du dépôt (trusted publishing), sans clé
+  personnelle : continuer le code demande le dépôt, pas un accès à quelqu'un.
+- **Les NOMS, eux, sont détenus par l'auteur** : les paquets npm (`nodefony`, `@nodefony/*`),
+  l'organisation GitHub, l'espace Docker Hub et le domaine `nodefony.net`. Un fork repart donc
+  sous un autre nom, à moins d'un transfert. C'est la part du risque qu'un dépôt ne peut pas
+  porter.
 - **La politique de support est étroite et dite d'avance**, précisément pour qu'une interruption ne
   surprenne personne.
 

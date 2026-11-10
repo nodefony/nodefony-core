@@ -30,7 +30,16 @@ protocole, les scripts qui rejouent chaque chiffre et les instruments qui ont me
 s'en aperçoive — aucun absolu pris derrière un chemin virtualisé n'est transposable.
 
 Ce qu'il faut savoir avant de bâtir dessus : les versions JavaScript historiques (≤ 7.x) ne
-reçoivent plus de correctifs. Projet libre, développé bénévolement par une seule personne.
+reçoivent plus de correctifs.
+
+**Une seule personne en répond, et le projet est écrit pour être repris.** Nodefony est libre et
+développé bénévolement par son auteur. Si l'auteur s'arrête, la connaissance ne part pas avec lui :
+chaque décision d'architecture est consignée dans un ADR, la documentation renvoie aux symboles du
+code source et un contrôle refuse un renvoi devenu faux, et le dépôt porte ses consignes pour agents,
+ses tests et sa chaîne de publication. Ce qui dépend vraiment d'une personne, c'est la
+responsabilité : publier un correctif, trancher une rupture. La
+[gouvernance](https://github.com/nodefony/nodefony-core/blob/main/GOVERNANCE.md) le dit sans
+détour, avec ce qui protège ceux qui s'en servent.
 
 Licence [Apache 2.0](LICENSE.txt) — permissive, avec concession de brevet explicite.
 **Christophe Camensuli** · [ccamensuli@gmail.com](mailto:ccamensuli@gmail.com)
