@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-10T14:09:10.767Z",
+  "generatedAt": "2026-11-10T14:31:42.863Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 253,
+      "closed": 254,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 14,
+      "open": 13,
       "title": "10.0.0-beta"
     },
     {
@@ -6715,8 +6715,8 @@
       "number": 761,
       "title": "fix(realtime): compter à part un message de bus inconnu, jamais comme une injection",
       "url": "https://github.com/nodefony/nodefony-core/issues/761",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
