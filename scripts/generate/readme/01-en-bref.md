@@ -7,6 +7,13 @@ apporte un noyau à injection de dépendances qui donne à chaque requête son p
 système de modules, un pare-feu applicatif, une
 persistance portable, une console d'administration et la construction des frontends.
 
+**Né du modèle Symfony, devenu un framework de l'écosystème Node.js.** Ses premières versions
+transposaient Symfony en JavaScript : bundles, conteneur, configuration. La version 10 s'en est
+nettement écartée pour rejoindre sa famille, l'écosystème Node.js : serveurs natifs de la
+plateforme, ESM, TypeScript et décorateurs, et pour tout ce que l'écosystème fait déjà bien — Vite
+pour les frontends, Drizzle pour la persistance, Zod pour la validation — ses outils plutôt que des
+briques maison.
+
 Sa particularité tient en une propriété : **le WebSocket n'y est pas un ajout.** C'est un transport
 de première classe, servi par le même pipeline, la même table de routes et la même sécurité que le
 HTTP. Une application temps réel s'y écrit comme une application web ordinaire.
