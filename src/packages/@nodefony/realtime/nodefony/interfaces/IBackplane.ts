@@ -115,7 +115,14 @@ export interface IBackplane {
    */
   enableBytes?(codec: IFrameCodec): boolean;
 
-  /** Arrête le transport et libère les ressources (connexions, listeners). Idempotent. */
+  /**
+   * Arrête le transport et libère les ressources (connexions, listeners). Idempotent.
+   *
+   * Un transport asynchrone laisse d'abord partir ce qui est déjà émis (la promesse
+   * se résout une fois ces envois acquittés ou refusés) : à l'arrêt du processus,
+   * la preuve de vie finale de la présence part juste avant, et la sortie suit au
+   * tick suivant. L'appelant borne l'attente (`shutdownRealtime`).
+   */
   stop(): void | Promise<void>;
 
   /**

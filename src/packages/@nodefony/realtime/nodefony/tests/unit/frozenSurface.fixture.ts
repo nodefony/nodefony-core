@@ -58,6 +58,16 @@ export const FROZEN_CONTRACT_VALUES = [
   { name: "getRealtimeHub" },
 ] as const;
 
+/**
+ * Arrêt propre de la présence répartie (ADR-0025 P5) — ce qu'une application qui
+ * fournit son propre bus appelle à l'arrêt. Le reste de la surface de présence
+ * entre à l'étape 6 de #760.
+ */
+export const FROZEN_PRESENCE_VALUES = [
+  { name: "shutdownRealtime", kind: "function" },
+  { name: "BACKPLANE_STOP_TIMEOUT_MS", kind: "number" },
+] as const;
+
 /** Types de la même porte : vérifiés à la compilation par `frozenSurface.test.ts`. */
 export const FROZEN_CONTRACT_TYPES = [
   { name: "ContractRealtimePublish" },

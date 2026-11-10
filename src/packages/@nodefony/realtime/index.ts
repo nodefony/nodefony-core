@@ -695,6 +695,14 @@ export {
   openBackplaneEnvelope,
   BackplaneEcho,
 } from "./nodefony/src/backplane/envelope";
+// Arrêt propre du temps réel (ADR-0025 P5) : le module l'appelle à `onTerminate`
+// pour le bus qu'il crée ; une application qui FOURNIT son bus (service
+// `realtimeBackplane`) l'appelle à son tour avec ce bus, pour que la fin de la
+// présence parte avant la sortie du processus.
+export {
+  BACKPLANE_STOP_TIMEOUT_MS,
+  shutdownRealtime,
+} from "./nodefony/src/server/realtimeShutdown";
 // Briques communes d'un pilote à transport réseau (Redis, et demain Kafka, NATS…) :
 // la file d'envoi bornée (canaux prioritaires hors quota) et le tri de l'entrée
 // (écho, sceau, refus comptés) — jamais recopiées dans un pilote.

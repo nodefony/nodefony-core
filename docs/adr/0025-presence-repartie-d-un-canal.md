@@ -176,7 +176,7 @@ canaux, de membres ou d'abonnés.**
     et réponses d'un côté, preuve de vie de l'autre) : la preuve de vie passe hors quota et peut
     doubler dans la file une demande encore en attente — un relevé unique jetterait celle-ci comme
     un rejeu. L'ordre d'un même canal, lui, est conservé. C'est l'anti-rejeu de la présence — le sceau ne couvre pas
-    le rejeu (`backplane/envelope.ts#seal`), et un message rejoué ajouterait des fantômes. Le
+    le rejeu (`backplane/envelope.ts#sealBackplaneEnvelope`), et un message rejoué ajouterait des fantômes. Le
     `seq` est attribué AVANT l'envoi, que la file l'ait laissé partir ou non ;
   - **trou** = `prev` d'un lot, ou `last` d'une preuve de vie, différent du dernier lot appliqué.
     Une preuve de vie perdue ne crée aucun trou. Un pair

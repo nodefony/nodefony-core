@@ -21,7 +21,7 @@ tags:
   ]
 version: "doc"
 status: stable
-updated: 2026-07-19
+updated: 2026-11-10
 source: "src/packages/@nodefony/realtime/docs/architecture.md"
 ---
 
@@ -748,9 +748,21 @@ drivers livrés, exporté pour lui : `sealBackplaneEnvelope` à l'émission,
 La preuve est la même pour tous : `runBackplaneConformance`, exportée par
 `@nodefony/realtime/testing` (`backplaneConformance.ts#runBackplaneConformance`). Elle
 relie plusieurs pairs du driver sur un même bus et vérifie la diffusion à tous, l'ordre,
-l'absence de rejeu, le sceau, le transport des ordres de contrôle, le refus de l'espace
-réservé à l'entrée du hub, le remplacement du handler et l'arrêt. Les drivers `cluster` et
-`redis` la passent dans le dépôt ; `loopback`, qui n'a aucun pair, n'a rien à y prouver.
+l'absence de rejeu, le sceau, le transport des ordres de contrôle et de la preuve de vie même
+file saturée, le refus de l'espace réservé à l'entrée du hub, la présence entre deux pods, le
+remplacement du handler et l'arrêt. Les drivers `cluster` et `redis` la passent dans le
+dépôt ; `loopback`, qui n'a aucun pair, n'a rien à y prouver.
+
+Le cas « présence entre deux pods » branche deux hubs réels sur deux pairs du driver.
+Il vérifie trois choses :
+
+- une identité ouverte sur les deux compte pour un seul présent ;
+- l'arrêt propre d'un hub retire ses présents chez l'autre bien avant le délai d'oubli ;
+- aucun message de présence n'arrive en double ni altéré.
+
+Un bus « au moins une fois », qui relivre un message, y tombe : la présence compte les doublons
+dans `presenceStaleDiscardedTotal`. Le driver n'a rien à écrire pour la présence, qui ne parle
+qu'à `IBackplane`. Ce cas prouve que son transport la porte.
 
 ```typescript
 import { describe, it } from "vitest";

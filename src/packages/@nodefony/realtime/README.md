@@ -145,6 +145,10 @@ import { registerBackplaneDriver } from "@nodefony/realtime";
 registerBackplaneDriver("nats", (config) => new MyNatsBackplane(config));
 ```
 
+Un bus fourni par l'application (service `realtimeBackplane`) s'arrête à la charge de
+l'application : `await shutdownRealtime(getRealtimeHub(), bus)` dans son `onTerminate`, pour que
+la fin de la présence parte avant la sortie du processus.
+
 Détail des réglages : [`docs/configuration.md`](./docs/configuration.md).
 
 ## API
@@ -162,6 +166,7 @@ Détail des réglages : [`docs/configuration.md`](./docs/configuration.md).
 | `LoopbackBackplane` / `ClusterBackplane` / `RedisBackplane` | classes | Les 3 drivers natifs |
 | `registerBackplaneDriver` / `getBackplaneDriver` / `listBackplaneDrivers` | functions | Registre ouvert de drivers |
 | `IBackplane` | interface | Contrat d'un fond de panier |
+| `shutdownRealtime` / `BACKPLANE_STOP_TIMEOUT_MS` | fn / const | Arrêt propre : fin de la présence annoncée aux pairs, puis arrêt du bus en laissant partir ce qui est émis (borné). Appelé par le module pour le bus qu'il crée ; à appeler soi-même pour un bus fourni (`realtimeBackplane`) |
 | `ContractRealtimeController<C>` | classe | Base d'un contrôleur qui implémente un contrat (`realtimeActions()` complète si le contrat déclare des `serverMethods`, rien sinon) |
 | `getRealtimeHub<C>()` | fonction | Le hub lu par le contrat (`IContractRealtimeHub<C>`) : `publish` d'un service vérifié ; sans paramètre, le hub libre |
 | `ContractRealtimePublish<C>` | type | Le `publish` d'une fabrique de canal, typé par le contrat |

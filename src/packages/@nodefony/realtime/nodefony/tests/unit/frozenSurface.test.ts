@@ -23,6 +23,7 @@ import {
   FROZEN_CONTRACT_VALUES,
   FROZEN_DENIED_REASONS,
   FROZEN_PERSONAL_CHANNEL,
+  FROZEN_PRESENCE_VALUES,
   FROZEN_REFUSAL_COUNTERS,
 } from "./frozenSurface.fixture";
 import { NodefonySocket } from "../../../../../../nodefony/src/client/realtime/NodefonySocket.js";
@@ -172,6 +173,13 @@ describe("surface temps réel figée par 10.0", () => {
     const values: Record<string, unknown> = realtime;
     for (const e of FROZEN_CONTRACT_VALUES) {
       expect(typeof values[e.name], e.name).toBe("function");
+    }
+  });
+
+  it("l'arrêt propre de la présence s'exporte depuis l'index public", () => {
+    const values: Record<string, unknown> = realtime;
+    for (const e of FROZEN_PRESENCE_VALUES) {
+      expect(typeof values[e.name], e.name).toBe(e.kind);
     }
   });
 

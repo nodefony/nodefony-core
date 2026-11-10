@@ -33,6 +33,7 @@ import {
   type ControlOrder,
 } from "../src/backplane/controlOrder";
 import { DEFAULT_MAX_QUEUE_BYTES } from "../src/backplane/publishQueue";
+import { presenceClient, presenceView } from "./presenceClient";
 
 /**
  * Lanceur de tests de l'appelant — le sous-ensemble que la suite emploie.
@@ -102,6 +103,8 @@ export const BACKPLANE_CONFORMANCE_CASES = {
     "preuve de vie sous saturation : la preuve de vie de la présence n'est jamais jetée pour faire place aux publications",
   reserved:
     "espace réservé : refusé et compté à l'entrée du hub, la diffusion passe sans revenir",
+  presence:
+    "présence entre deux pods : chaque hub voit les présents de l'autre, l'arrêt propre les retire sans attendre l'oubli, sans doublon ni rejeu",
   replaceHandler: "onMessage remplace le handler précédent",
   stop: "stop coupe la réception, et se rappelle sans erreur",
 } as const;
@@ -182,7 +185,8 @@ class Inbox {
  * sans écho, l'ordre par émetteur, l'absence de rejeu au démarrage, le sceau
  * (message non scellé ou mal scellé refusé), le transport des ordres de contrôle,
  * même quand une rafale de publications sature la file d'envoi, le refus de
- * l'espace réservé à l'entrée du hub, le remplacement du handler et l'arrêt.
+ * l'espace réservé à l'entrée du hub, la présence répartie entre deux hubs
+ * (ADR-0025), le remplacement du handler et l'arrêt.
  *
  * @param name - nom du driver, affiché dans le rapport.
  * @param makePeer - fabrique d'un pair relié au bus commun.
@@ -523,6 +527,81 @@ export function runBackplaneConformance(
             gotA,
             [{ ok: 1 }],
             "message renvoyé sur le bus (boucle)",
+          );
+        } finally {
+          hubA.clear();
+          hubB.clear();
+        }
+      }),
+    );
+
+    options.it(
+      C.presence,
+      scenario(async (open, prefix) => {
+        const a = await open();
+        const b = await open();
+        const hubA = new RealtimeHub();
+        const hubB = new RealtimeHub();
+        try {
+          for (const hub of [hubA, hubB]) {
+            hub.declareChannelPolicy(`${prefix}*`, { presence: true }, null);
+            hub.markBroadcastChannel(prefix);
+          }
+          // Pairs déjà démarrés : le `start` que rejoue `setBackplane` est idempotent.
+          hubA.setBackplane(a.peer);
+          hubB.setBackplane(b.peer);
+          const channel = `${prefix}room`;
+          const same = (
+            hub: RealtimeHub,
+            want: Record<string, number>,
+          ): boolean =>
+            JSON.stringify(presenceView(hub, channel)) === JSON.stringify(want);
+          presenceClient(hubA, channel, "alice");
+          presenceClient(hubA, channel, null);
+          presenceClient(hubB, channel, "alice");
+          presenceClient(hubB, channel, "bob");
+
+          // Une identité dans deux onglets sur deux pods = UN présent ; l'anonyme
+          // compte dans `unnamed`, jamais nommé.
+          const both = { alice: 2, bob: 1 };
+          await until(
+            () =>
+              same(hubB, both) &&
+              hubB.presence(channel)?.unnamed === 1 &&
+              hubB.presence(channel)?.partial === false &&
+              same(hubA, both),
+            timeoutMs,
+            () =>
+              `présence attendue ${JSON.stringify(both)} — A voit ${JSON.stringify(presenceView(hubA, channel))}, B voit ${JSON.stringify(presenceView(hubB, channel))} (lots, demandes ou réponses de présence perdus par le bus ?)`,
+          );
+
+          // Arrêt propre de A : retiré chez B par la preuve de vie finale, bien
+          // avant le délai d'oubli (plusieurs secondes).
+          hubA.endPresence();
+          await until(
+            () =>
+              same(hubB, { alice: 1, bob: 1 }) &&
+              hubB.presence(channel)?.unnamed === 0,
+            timeoutMs,
+            () =>
+              `après l'arrêt propre de A, B voit encore ${JSON.stringify(presenceView(hubB, channel))} — la preuve de vie finale a-t-elle traversé le bus ?`,
+          );
+          const probe = hubB.probe().presence;
+          assert.equal(probe?.endedTotal, 1, "arrêt propre non reçu");
+          assert.equal(
+            probe.forgottenTotal,
+            0,
+            "A oublié au lieu d'être retiré",
+          );
+          assert.equal(
+            probe.presenceStaleDiscardedTotal,
+            0,
+            "messages de présence reçus en double ou rejoués — le bus livre-t-il deux fois ?",
+          );
+          assert.equal(
+            probe.presenceRejectedTotal,
+            0,
+            "messages de présence refusés — la charge a-t-elle été altérée en route ?",
           );
         } finally {
           hubA.clear();

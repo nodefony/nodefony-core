@@ -149,6 +149,12 @@ describe("suite de conformité — vue ROUGE sur des drivers défectueux", () =>
     ).rejects.toThrow(/preuve de vie émise sous saturation/);
   });
 
+  it("un bus qui livre DEUX fois tombe sur la présence entre deux pods (anti-rejeu)", async () => {
+    await expect(runCase(flawed("duplicate"), C.presence)).rejects.toThrow(
+      /livre-t-il deux fois/,
+    );
+  });
+
   it("une rafale qui ne sature pas la file déclarée fait échouer le cas — jamais un vert qui ne prouve rien", async () => {
     await expect(
       runCase(redisBus(), C.controlUnderLoad, { floodBytes: 1024 }),

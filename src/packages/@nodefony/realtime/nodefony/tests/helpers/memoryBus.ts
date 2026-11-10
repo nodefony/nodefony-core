@@ -20,7 +20,9 @@ export type MemoryBusFlaw =
    * File bornée qui ne distingue pas les ordres : au-delà de deux envois par
    * tour de boucle, elle jette TOUT, ordres de contrôle compris.
    */
-  | "lossy";
+  | "lossy"
+  /** Livre chaque message DEUX fois : un bus « au moins une fois » qui relivre. */
+  | "duplicate";
 
 /** Envois admis par tour de boucle sous le défaut `lossy`. */
 const LOSSY_PER_TICK = 2;
@@ -79,6 +81,7 @@ export function memoryBus(flaw: MemoryBusFlaw = "none"): {
         if (peer === this) continue;
         if (flaw === "unicast" && delivered > 0) break;
         peer.deliver(msg);
+        if (flaw === "duplicate") peer.deliver(msg);
         delivered += 1;
       }
     }

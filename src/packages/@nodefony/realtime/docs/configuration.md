@@ -23,7 +23,7 @@ tags:
   ]
 version: "doc"
 status: stable
-updated: 2026-07-19
+updated: 2026-11-10
 source: "src/packages/@nodefony/realtime/docs/configuration.md"
 ---
 
@@ -750,7 +750,8 @@ class NatsBackplane implements IBackplane {
     this.#handler = handler;
   }
   async stop(): Promise<void> {
-    /* fermer, libérer les écouteurs — idempotent */
+    /* laisser partir ce qui est déjà émis (résoudre APRÈS l'acquittement),
+       puis fermer et libérer les écouteurs — idempotent */
   }
   describe(): IBackplaneInfo {
     return {
@@ -782,6 +783,13 @@ Quatre points que la fabrique doit respecter :
 4. `describe()` alimente **trois** sorties depuis une source unique : la ligne de journal, la sonde
    de santé et l'écran Studio. Remplis-la honnêtement, en particulier `crossPod`.
 
+Côté driver, un point compte à l'arrêt : **`stop()` laisse partir ce qui est déjà émis**. Le
+processus sort au tick qui suit l'arrêt du noyau. Un `stop()` qui ferme la connexion sans attendre
+l'acquittement perd la dernière publication, c'est-à-dire la fin de la présence de ce serveur. Les
+autres serveurs gardent alors ses présents jusqu'au délai d'oubli. Le pilote Redis attend sa file
+d'envoi (`publishQueue.ts#BackplanePublishQueue.settled`) ; un pilote maison bâti sur
+`BackplanePublishQueue` en hérite.
+
 **L'autre voie : fournir une instance déjà construite.** Déclare un service nommé
 `realtimeBackplane` dans le conteneur d'injection de ton module. `RealtimeService.init()`
 (`RealtimeService.ts#RealtimeService.init`) le lit et le branche **avant** que le registre soit consulté : une instance
@@ -794,6 +802,34 @@ backplane })`), et la documentation d'architecture présente cette voie. En prat
 > fusionnée (`src/packages/@nodefony/realtime/index.ts#Realtime.onKernelRegister`), et le schéma Zod est strict : une clé
 > inconnue, dont une instance de classe posée dans `backplane`, fait échouer le boot. Pour brancher un objet déjà construit, utilise
 > le service `realtimeBackplane`.
+
+### Arrêter proprement un bus que tu fournis
+
+À l'arrêt du noyau, le module arrête **le bus qu'il a créé lui-même** depuis le registre. Il appelle
+`shutdownRealtime` (`realtimeShutdown.ts#shutdownRealtime`), qui fait trois choses :
+
+1. la présence des canaux annonce sa fin : dernier lot, puis preuve de vie finale ;
+2. le bus s'arrête en laissant partir ce qui est déjà émis ;
+3. le tout est borné à `BACKPLANE_STOP_TIMEOUT_MS` (2 s), pour qu'un bus injoignable ne retienne
+   pas l'arrêt.
+
+Un bus fourni par `realtimeBackplane` reste **à toi** : le module envoie bien la fin de la
+présence, mais n'arrête pas ce bus. Branche le même appel à l'arrêt du module qui l'a construit :
+
+```ts ignore
+import { getRealtimeHub, shutdownRealtime } from "@nodefony/realtime";
+
+// Dans le module qui a construit `bus` et l'a déclaré comme `realtimeBackplane`.
+this.kernel?.once("onTerminate", async () => {
+  const stopped = await shutdownRealtime(getRealtimeHub(), bus);
+  if (!stopped)
+    this.log("bus temps réel : arrêt non terminé dans le délai", "WARNING");
+});
+```
+
+`shutdownRealtime` rend `false` quand le bus n'a pas fini à temps. Ce qui restait en vol peut alors
+être perdu, et les autres serveurs oublieront celui-ci au délai d'oubli, sans fantôme durable.
+L'appel est idempotent : la présence ne s'annonce terminée qu'une fois.
 
 Le détail du contrat, de l'anti-écho et du cycle de vie d'un driver est dans
 [Architecture](./architecture.md).
