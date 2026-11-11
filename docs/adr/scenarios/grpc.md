@@ -122,6 +122,23 @@ Le champ « A fait changer » garde la trace des cas qui ont coûté : il ne se 
 - **Tient si** : refus au démarrage qui nomme la méthode et le décorateur — jamais ignoré.
 - **A fait changer** : D1 — garde au boot exigée ; ajouté par le contradicteur.
 
+### S-grpc-22 — Une page hostile vise un service ouvert aux navigateurs
+
+- **Situation** : Connect et gRPC-Web ouverts par défaut ; une page d'une autre origine envoie un
+  formulaire, un `text/plain`, un POST JSON, ou un `GET` vers une méthode, avec les cookies de la
+  victime.
+- **Tient si** : 415 sur un `content-type` hors `application/json` / `application/proto` ; POST JSON
+  bloqué par le contrôle préalable CORS (D9) ; `GET` réservé à `NO_SIDE_EFFECTS` ; réponse illisible
+  d'une autre origine.
+- **A fait changer** : D3 — vérifié avant d'ouvrir les trois protocoles par défaut.
+
+### S-grpc-23 — Un client gRPC natif vise le port HTTP/1.1
+
+- **Situation** : `grpcurl -plaintext` ou un agent configuré sur 5151.
+- **Tient si** : la connexion échoue franchement et vite (préface HTTP/2 incomprise), jamais une
+  connexion qui pend.
+- **A fait changer** : D3 — l'annonce d'un « refus gRPC » sur 5151 était fausse.
+
 ## Plateformes
 
 ### S-grpc-10 — Linux, macOS, Windows

@@ -164,9 +164,37 @@ module :
 Hors D2 : un générateur `nodefony create` pour un service gRPC et un script `grpc:generate` au
 gabarit d'application (accord de l'auteur requis pour un `package.json`).
 
-### D3 à D13 — à rendre
+### D3 — Sur quels ports, avec quels protocoles
 
-Ports et protocoles servis par défaut ; limites (`readMaxBytes`, `writeMaxBytes`, `maxTimeoutMs`,
+**Décision (validée par l'auteur le 2026-11-11) :**
+
+1. **Aucun serveur ni port neuf.** Une méthode gRPC étant une route (D1), elle répond sur tous les
+   serveurs DÉJÀ actifs, chacun avec ce que son HTTP permet (`connect-node-server-plugins.md`,
+   « HTTP/2, TLS, and gRPC ») : 5152 (HTTP/2 + TLS) sert navigateur, Connect, gRPC-Web et gRPC ;
+   5153 (h2c) sert Connect, gRPC-Web et gRPC ; 5151 (HTTP/1.1) sert navigateur, Connect et
+   gRPC-Web — jamais le gRPC natif, qui exige HTTP/2. Un service qui ne doit jamais passer en clair
+   l'exige par le mécanisme existant (`Route.ts`, `requirements.scheme`), sans code neuf.
+2. **Les trois protocoles ouverts par défaut** (gRPC, gRPC-Web, Connect) : défaut de l'adaptateur
+   (`@connectrpc/connect`, `router.d.ts` : « The protocol is enabled by default »). Aucun coût par
+   appel : l'adaptateur choisit le protocole au `content-type`, dans le même gestionnaire.
+3. **Pas de faille CSRF ouverte par les navigateurs** : un POST Connect exige `application/json` ou
+   `application/proto`, sinon 415 (`connect-protocol.md`) — un formulaire, un `text/plain` sont
+   refusés ; un POST JSON d'une autre origine déclenche un contrôle préalable CORS, refusé tant que
+   D9 ne l'autorise pas ; le `GET` n'existe que pour `NO_SIDE_EFFECTS` (D1) et sa réponse reste
+   illisible d'une autre origine. `requireConnectProtocolHeader` ajoute une couche (D4).
+4. **h2c reste une activation explicite** (`kernelServers.ts#isH2cEnabled` : seul `enabled: true`
+   l'allume) : déclarer un service n'ouvre jamais un port en clair ; h2c ne sert que derrière une
+   passerelle de confiance (A2A §10 exige TLS en production).
+5. **Restreindre les protocoles se fait pour l'application entière**, par une option de la section
+   `grpc` de la configuration http, branchée sur les options `grpc` / `grpcWeb` / `connect` de
+   l'adaptateur. Le grain « par service » attend un usage réel ; il s'ajoutera sans rupture.
+
+Un client gRPC natif qui vise 5151 n'obtient pas un statut gRPC : le serveur HTTP/1.1 ne comprend
+pas la préface HTTP/2 et la connexion échoue — le test exige qu'elle échoue franchement et vite.
+
+### D4 à D13 — à rendre
+
+Limites (`readMaxBytes`, `writeMaxBytes`, `maxTimeoutMs`,
 `requireConnectProtocolHeader`) ; pare-feu et format des refus (`requestGate`, 16 / 7) ; contexte
 Nodefony (`requestId`, ALS, portée d'injection, identité) ; erreurs riches (`ErrorInfo`) ; arrêt
 (`shutdownSignal` → `UNAVAILABLE`) ; CORS ; OpenTelemetry et journal d'accès ; `@experimental` au
