@@ -183,3 +183,75 @@ export function diagnoseEmptyManifest(
       );
   }
 }
+
+/** Paquet absent, tel que Node le nomme : `Cannot find package '<nom>' imported from …`. */
+const MISSING_PACKAGE = /Cannot find package '([^']+)'/;
+/** Fichier absent : `Cannot find module '<chemin>'` — un `dist/` qui ne porte plus ce que l'on importe. */
+const MISSING_MODULE = "Cannot find module '";
+
+/** Un module écarté au boot : son nom au manifeste et la raison de l'échec. */
+export interface IFailedImport {
+  /** Nom du module, tel qu'écrit au manifeste `modules`. */
+  module: string;
+  /** Raison de l'échec (message de l'erreur). */
+  reason: string;
+}
+
+/**
+ * Nomme le geste qui répare un `import()` en échec au boot, d'après les
+ * modules écartés, ou `null` si aucun ne relève d'un import manquant.
+ *
+ * Trois causes que le même code `ERR_MODULE_NOT_FOUND` confond, et qui
+ * n'appellent pas le même geste :
+ * - un PAIR absent (`Cannot find package 'x'` levé par un module qui
+ *   s'appelle autrement) — une dépendance que le module importe et que
+ *   l'application n'a pas installée (`@connectrpc/connect-node`…) : le remède
+ *   est `npm i x`, et rebâtir le `dist/` n'y change rien ;
+ * - le MODULE lui-même introuvable (`Cannot find package` sur son propre
+ *   nom) — souvent un module LOCAL (`modules/*`) non lié : le remède est de le
+ *   déclarer puis `npm install`. Jamais `npm i <nom>` ici : sur un nom local,
+ *   ce serait inviter à télécharger un homonyme du registre ;
+ * - un FICHIER absent (`Cannot find module '/…/dist/x.js'`) — un `dist/`
+ *   périmé après un pull ou un merge : le remède est de rebâtir.
+ *
+ * Les paquets passent en premier : les installer est le geste le plus court,
+ * et il reste nécessaire même si un `dist/` est AUSSI périmé.
+ *
+ * @param failures - modules écartés au boot.
+ * @returns une phrase d'action, ou `null`.
+ */
+export function diagnoseMissingImport(
+  failures: readonly IFailedImport[],
+): string | null {
+  let peers: string[] | null = null;
+  let modules: string[] | null = null;
+  let staleDist = false;
+  for (const failure of failures) {
+    const missing = MISSING_PACKAGE.exec(failure.reason);
+    if (missing === null) {
+      if (failure.reason.includes(MISSING_MODULE)) staleDist = true;
+      continue;
+    }
+    const name = missing[1] ?? "";
+    if (name === failure.module) {
+      modules ??= [];
+      if (!modules.includes(name)) modules.push(name);
+    } else {
+      peers ??= [];
+      if (!peers.includes(name)) peers.push(name);
+    }
+  }
+  const gestures: string[] = [];
+  if (peers !== null) {
+    gestures.push(`paquet absent ⇒ npm i ${peers.join(" ")}`);
+  }
+  if (modules !== null) {
+    gestures.push(
+      `module introuvable (${modules.join(", ")}) ⇒ le déclarer au package.json de l'application, puis npm install`,
+    );
+  }
+  if (gestures.length > 0) return gestures.join(" ; ");
+  return staleDist
+    ? "dist périmé probable ⇒ npm run clean && npm run build"
+    : null;
+}

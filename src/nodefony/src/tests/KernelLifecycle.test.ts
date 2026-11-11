@@ -1310,16 +1310,32 @@ describe("Kernel — BootReport (verdict de boot)", () => {
     assert.strictEqual(r.modulesSkipped[0]!.module, "@scope/peripheral");
   });
 
-  it("remediation : « Cannot find package » → indice dist périmé", () => {
+  it("remediation : « Cannot find module » (fichier du dist) → indice dist périmé", () => {
     const k = mkKernel();
     (k as any).recordBootFailure({
       module: "@nodefony/sequelize",
-      reason: "Cannot find package @nodefony/sequelize",
+      reason:
+        "Cannot find module '/app/node_modules/@nodefony/sequelize/dist/x.js' imported from /app/y.js",
       phase: "load",
     });
     const r = k.getBootReport();
     assert.match(r.remediation ?? "", /dist périmé/);
     assert.match(r.remediation ?? "", /npm run clean && npm run build/);
+  });
+
+  it("remediation : « Cannot find package » d'un pair → npm i <pair>, pas dist périmé (#695)", () => {
+    const k = mkKernel();
+    (k as any).recordBootFailure({
+      module: "@nodefony/http",
+      reason:
+        "Cannot find package '@connectrpc/connect-node' imported from /app/z.js",
+      phase: "load",
+    });
+    const r = k.getBootReport();
+    assert.strictEqual(
+      r.remediation,
+      "paquet absent ⇒ npm i @connectrpc/connect-node",
+    );
   });
 
   it("recordBootFailure est lazy : null par défaut, alloué au 1er échec", () => {

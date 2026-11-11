@@ -1,6 +1,9 @@
 import { describe, it } from "vitest";
 import { expect } from "vitest";
-import { diagnoseEmptyManifest } from "../kernel/bootConfigDiagnosis";
+import {
+  diagnoseEmptyManifest,
+  diagnoseMissingImport,
+} from "../kernel/bootConfigDiagnosis";
 
 /**
  * SPEC — « un manifeste vide recouvre trois causes, le diagnostic doit les
@@ -84,5 +87,62 @@ describe("diagnoseEmptyManifest — nommer la cause, pas accuser au hasard", () 
         }),
     );
     expect(new Set(messages).size).to.equal(3);
+  });
+});
+
+describe("diagnoseMissingImport — le geste selon ce qui manque (#695, critère 49)", () => {
+  const NODE_PEER =
+    "Cannot find package '@connectrpc/connect-node' imported from /app/node_modules/@nodefony/http/dist/grpc.js";
+  const NODE_FILE =
+    "Cannot find module '/app/node_modules/@nodefony/http/dist/gone.js' imported from /app/node_modules/@nodefony/http/dist/index.js";
+
+  it("un PAIR absent → npm i <nom>, jamais « dist périmé »", () => {
+    const hint = diagnoseMissingImport([
+      { module: "@nodefony/http", reason: NODE_PEER },
+    ]);
+    expect(hint).to.equal("paquet absent ⇒ npm i @connectrpc/connect-node");
+  });
+
+  it("un FICHIER absent → dist périmé, et rien que ça", () => {
+    const hint = diagnoseMissingImport([
+      { module: "@nodefony/http", reason: NODE_FILE },
+    ]);
+    expect(hint).to.equal(
+      "dist périmé probable ⇒ npm run clean && npm run build",
+    );
+  });
+
+  it("le MODULE lui-même introuvable → le déclarer puis npm install, jamais npm i (homonyme du registre)", () => {
+    const hint = diagnoseMissingImport([
+      {
+        module: "@app/blog",
+        reason: "Cannot find package '@app/blog' imported from /x/Kernel.js",
+      },
+    ]);
+    expect(hint).to.match(/module introuvable \(@app\/blog\)/);
+    expect(hint).to.match(/npm install$/);
+    expect(hint).to.not.match(/npm i @app/);
+  });
+
+  it("plusieurs pairs : un seul npm i, sans doublon ; le paquet passe avant le dist", () => {
+    const hint = diagnoseMissingImport([
+      { module: "@nodefony/http", reason: NODE_PEER },
+      { module: "@nodefony/grpc", reason: NODE_PEER },
+      {
+        module: "@nodefony/grpc",
+        reason: "Cannot find package '@bufbuild/protobuf' imported from /x.js",
+      },
+      { module: "@nodefony/http", reason: NODE_FILE },
+    ]);
+    expect(hint).to.equal(
+      "paquet absent ⇒ npm i @connectrpc/connect-node @bufbuild/protobuf",
+    );
+  });
+
+  it("aucune raison d'import → null", () => {
+    expect(
+      diagnoseMissingImport([{ module: "x", reason: "TypeError: boom" }]),
+    ).to.equal(null);
+    expect(diagnoseMissingImport([])).to.equal(null);
   });
 });

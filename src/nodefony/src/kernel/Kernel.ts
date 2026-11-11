@@ -92,6 +92,7 @@ import {
 } from "../runtime/packageInstances";
 import {
   diagnoseEmptyManifest,
+  diagnoseMissingImport,
   isForeignDescriptor,
   foreignPackageWarning,
   type AppConfigOrigin,
@@ -3633,8 +3634,10 @@ class Kernel extends Service implements IKernel {
 
   /**
    * Action corrective suggérée d'après les raisons d'échec — surfacée dans le
-   * verdict (écran + log). Heuristique : un `import()` qui échoue (« Cannot find
-   * package/module ») pointe presque toujours un `dist/` périmé après pull/merge.
+   * verdict (écran + log). Un `import()` qui échoue se lit par
+   * {@link diagnoseMissingImport} : pair absent ⇒ `npm i`, module absent ⇒
+   * `npm install`, fichier absent ⇒
+   * `dist/` périmé.
    *
    * Le manifeste VIDE est traité en premier parce qu'il ne produit aucune raison
    * d'échec : rien n'ayant été tenté, `skipped` est vide et l'heuristique
@@ -3662,15 +3665,7 @@ class Kernel extends Service implements IKernel {
       origin: this.appConfigOrigin,
     });
     if (emptyManifest) return emptyManifest;
-    const moduleNotFound = skipped.some((f) =>
-      /Cannot find package|Cannot find module|ERR_MODULE_NOT_FOUND/i.test(
-        f.reason,
-      ),
-    );
-    if (moduleNotFound) {
-      return "dist périmé probable ⇒ npm run clean && npm run build";
-    }
-    return null;
+    return diagnoseMissingImport(skipped);
   }
 
   /**
