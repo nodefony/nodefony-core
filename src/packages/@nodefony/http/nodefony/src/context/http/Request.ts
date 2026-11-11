@@ -77,6 +77,16 @@ const unlinkQuiet = (p: string): Promise<void> =>
 class BodyHandled {}
 const BODY_DONE = new BodyHandled();
 
+/**
+ * Une réception multipart EN COURS, interruptible de l'extérieur : `fail` rompt
+ * la lecture comme le ferait un dépassement de limite (temporaires nettoyés).
+ * Posée dans `request.parser` le temps de la lecture seulement — l'allocation
+ * est réservée au multipart, déjà lourd.
+ */
+class MultipartReception {
+  constructor(readonly fail: (error: HttpError) => boolean) {}
+}
+
 // Hoisted hors de getCharset() — évite de réallouer l'objet d'alias + la regex
 // à CHAQUE requête (getCharset tourne dans le ctor de Request, hot path).
 const CHARSET_ALIASES: Record<string, BufferEncoding> = {
@@ -137,7 +147,8 @@ declare module "http2" {
   }
 }
 
-type ParserType = ParserXml | ParserQs | Parser | BodyHandled;
+type ParserType =
+  ParserXml | ParserQs | Parser | BodyHandled | MultipartReception;
 
 // Sonde perf in-situ (cf http-kernel.ts) — flag lu 1× ; éteinte, les marques
 // de ce fichier ne coûtent rien (branche morte). t0 posé par la fenêtre HTTP.
@@ -607,6 +618,8 @@ class HttpRequest {
     }
 
     const { fields, files } = await this.streamMultipart(bb);
+    // Reçu : plus rien à interrompre, la prise posée par `streamMultipart` part.
+    this.parser = null;
     this.body = fields;
     for (const pf of files) {
       await this.createFileUpload(pf.field, pf.file);
@@ -644,6 +657,9 @@ class HttpRequest {
       const openStreams = new Set<fs.WriteStream>();
       let totalBytes = 0;
       let aborted = false;
+      // Corps entièrement lu par busboy : un délai de réception ne mord plus
+      // (les écritures disque peuvent encore courir, la réception est finie).
+      let received = false;
 
       const abort = (err: Error): void => {
         if (aborted) {
@@ -767,6 +783,7 @@ class HttpRequest {
         abort(e instanceof Error ? e : new Error(String(e))),
       );
       bb.on("finish", () => {
+        received = true;
         if (aborted) {
           return;
         }
@@ -779,8 +796,34 @@ class HttpRequest {
           .catch(abort);
       });
 
+      // Prise d'interruption (`abortBody`) — même chemin qu'une limite dépassée.
+      this.parser = new MultipartReception((error) => {
+        if (aborted || received) return false;
+        abort(error);
+        return true;
+      });
       this.request.pipe(bb);
     });
+  }
+
+  /**
+   * Interrompt la réception du corps en cours : la promesse de `initialize()`
+   * rejette avec `error`, rendue par le chemin d'erreur habituel — comme un
+   * corps qui dépasse sa limite (413).
+   *
+   * Sert le délai de réception HTTP/2 (`requestTimeout`), que `node:http2` ne
+   * borne pas. Sans effet hors réception : corps déjà reçu, lu en flux par
+   * l'action (`bodyStream`), ou méthode sans corps.
+   *
+   * @param error - la cause rendue au client (408 au délai dépassé)
+   * @returns vrai si une réception en cours a été interrompue
+   */
+  abortBody(error: HttpError): boolean {
+    const parser = this.parser;
+    if (parser instanceof Parser || parser instanceof MultipartReception) {
+      return parser.fail(error);
+    }
+    return false;
   }
 
   /**

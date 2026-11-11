@@ -177,7 +177,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_ACCUEIL_REGISTRY` | `scripts/release/accueil-gate.mjs:87` |
 | `NF_ACCUEIL_ROOT` | `scripts/release/accueil-gate.mjs:84` |
 | `NF_ADMIN_PASSWORD` | `src/packages/@nodefony/http/nodefony/tests/websockets/presence-e2e.test.ts:49` |
-| `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:950` |
+| `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:964` |
 | `NF_BENCH_ROUTE` | `src/modules/test/index.ts:118` |
 | `NF_BIND_ALL` | `scripts/test/test-all.ts:805` |
 | `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:3018` |
@@ -220,8 +220,8 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_CLUSTER` | `src/nodefony/src/service/cluster/clusterMaster.ts:56` |
 | `NF_CLUSTER_PROBE` | `src/nodefony/src/service/cluster/clusterMaster.ts:66` |
 | `NF_DATABASE_URL` | `src/nodefony/src/tests/CliIntegration.test.ts:2619` |
-| `NF_DEPS_REGISTRY` | `scripts/deps/check-deps-latest.mjs:85` |
-| `NF_DEPS_ROOT` | `scripts/deps/check-deps-latest.mjs:83` |
+| `NF_DEPS_REGISTRY` | `scripts/deps/check-deps-latest.mjs:86` |
+| `NF_DEPS_ROOT` | `scripts/deps/check-deps-latest.mjs:84` |
 | `NF_DEV_CHILD` | `src/nodefony/src/kernel/supervisorLink.ts:130` |
 | `NF_DEV_PORTS` | `src/nodefony/src/tests/devProcess.test.ts:377` |
 | `NF_DOCKERHUB_TOKEN` | `scripts/release/hub-description.mjs:211` |
@@ -243,7 +243,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_NODE_DIST_URL` | `src/nodefony/src/kernel/checks/nodeSecurity.ts:132` |
 | `NF_ORM_FLOW` | `src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts:102` |
 | `NF_ORM_HEARTBEAT_MS` | `src/packages/@nodefony/orm-core/nodefony/src/Orm.ts:23` |
-| `NF_PERF_PROBE` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:184` |
+| `NF_PERF_PROBE` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:186` |
 | `NF_POD_NAME` | `src/packages/@nodefony/realtime/nodefony/src/backplane/originId.ts:25` |
 | `NF_PORT` | `src/nodefony/src/tests/devProcess.test.ts:441` |
 | `NF_PORT_HTTPS` | `src/nodefony/src/tests/devProcess.test.ts:442` |

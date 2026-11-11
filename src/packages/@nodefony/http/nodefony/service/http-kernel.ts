@@ -72,9 +72,11 @@ import WebsocketContext, {
   toHandshakeStatus,
 } from "../src/context/websocket/WebsocketContext";
 import type { IUpgradeAdmission } from "../src/servers/upgradeDispatch";
+import { ReceiveDeadline } from "../src/servers/receiveDeadline";
 import { trackPong } from "./servers/wsHeartbeat";
 import { parseWebsocketUrl } from "../src/context/websocket/websocketUrl";
 import HttpContext from "../src/context/http/HttpContext";
+import Http2Response from "../src/context/http2/Response";
 import Context, { HTTPMethod, WebSocketState } from "../src/context/Context";
 import { logColor } from "nodefony";
 import Certicates from "./certificates";
@@ -349,6 +351,16 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     ws: number;
     wss: number;
   };
+  /**
+   * Échéance de réception du corps HTTP/2, par serveur (`requestTimeout` de sa
+   * section) : `node:http2` ne borne pas la réception, HTTP/1.1 l'est par Node.
+   * `undefined` tant qu'aucun corps HTTP/2 n'a été lu, `null` si le délai est
+   * désactivé (0). Cf {@link ReceiveDeadline}.
+   */
+  #h2Receive: {
+    http: ReceiveDeadline<HttpContext> | null | undefined;
+    https: ReceiveDeadline<HttpContext> | null | undefined;
+  } = { http: undefined, https: undefined };
   // Pré-calculés au boot (constants) : 0 alloc, 0 concat par requête sur le hot path.
   // null = header désactivé en config → skip setHeader.
   private secContentTypeOptions: string | null = null;
@@ -726,6 +738,8 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     // stoppe proprement pour les restarts DevSupervisor / les tests).
     this.once("onTerminate", () => {
       this.rateLimitGc?.stop();
+      this.#h2Receive.http?.close();
+      this.#h2Receive.https?.close();
     });
     // Bascule readiness au shutdown. Posé à `onPostReady` (= APRÈS les prepends
     // des serveurs WS créés à initServers) pour prepend EN DERNIER → passer EN
@@ -1199,6 +1213,11 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         } catch (e) {
           this.log(e, "CRITIC");
           throw e;
+        }
+        // HTTP/2 : erreur rendue AVANT la fin du corps (408, 413, refus
+        // précoce) — le flux se ferme une fois la réponse écrite (RFC 9113 §8.1).
+        if (context.response instanceof Http2Response) {
+          context.response.closeUnfinishedRequest();
         }
         return context;
       }
@@ -2031,6 +2050,35 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   }
 
   /**
+   * L'échéance de réception HTTP/2 du serveur qui sert (`requestTimeout` de sa
+   * section), créée au premier corps HTTP/2 lu ; `null` si le délai vaut 0.
+   *
+   * À l'échéance, la réception en cours est interrompue (`abortBody`) et la
+   * requête rendue en 408 par le chemin d'erreur habituel — comme un corps qui
+   * dépasse sa limite (413).
+   */
+  private http2ReceiveDeadline(
+    serverType: ServerType,
+  ): ReceiveDeadline<HttpContext> | null {
+    const key = serverType === "https" ? "https" : "http";
+    let deadline = this.#h2Receive[key];
+    if (deadline === undefined) {
+      const timeoutMs = this.options[key].requestTimeout;
+      deadline =
+        timeoutMs > 0
+          ? new ReceiveDeadline<HttpContext>(timeoutMs, (context) => {
+              if (context.finished) return;
+              context.request.abortBody(
+                new HttpError("Request Timeout", 408, context),
+              );
+            })
+          : null;
+      this.#h2Receive[key] = deadline;
+    }
+    return deadline;
+  }
+
+  /**
    * Le corps — lu seulement s'il y en a un à lire —, puis les gardes
    * ({@link onRequestEnd}) et l'action. Chacun n'est attendu que s'il attend.
    */
@@ -2057,10 +2105,31 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       httpContext.resolver?.resolve === true &&
       httpContext.resolver.route?.bodyStream === true;
     httpContext.phaseStart("parse");
+    // HTTP/2 : réception bornée par `requestTimeout` (#765) — `node:http2` ne
+    // la borne pas. Seule une réception EN COURS est suivie (une case
+    // d'anneau) ; HTTP/1.1, GET et `bodyStream` ne paient que deux
+    // comparaisons — aucune allocation, aucun minuteur, aucun appel.
+    let receiving: ReceiveDeadline<HttpContext> | null = null;
+    let receivingSeq = 0;
     // streamBody : body laissé en flux brut (Readable) pour @Body({stream}).
     const parsed = finallyMaybe(
-      () => (streamBody ? undefined : httpContext.request.initialize()),
-      () => httpContext.phaseEnd("parse"),
+      () => {
+        if (streamBody) return undefined;
+        const pending = httpContext.request.initialize();
+        if (
+          pending !== undefined &&
+          (httpContext.alpnProtocol === "h2" ||
+            httpContext.alpnProtocol === "h2c")
+        ) {
+          receiving = this.http2ReceiveDeadline(httpContext.serverType);
+          if (receiving !== null) receivingSeq = receiving.track(httpContext);
+        }
+        return pending;
+      },
+      () => {
+        httpContext.phaseEnd("parse");
+        if (receiving !== null) receiving.release(receivingSeq, httpContext);
+      },
     );
     return thenMaybe(parsed, () =>
       thenMaybe(this.onRequestEnd(httpContext), (guarded) => {

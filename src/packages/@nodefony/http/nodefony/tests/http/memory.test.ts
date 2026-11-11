@@ -401,6 +401,28 @@ function h2SharedGet(path: string): Promise<void> {
   return h2cGet(h2Shared, path);
 }
 
+/**
+ * Un POST JSON sur la session HTTP/2 TLS partagée : le corps est LU par le
+ * pipeline, donc la réception est suivie par l'échéance HTTP/2 (#765) — le
+ * seul chemin qu'aucun GET n'exerce.
+ */
+function h2SharedPost(path: string, body: string): Promise<void> {
+  if (h2Shared === null || h2Shared.destroyed)
+    h2Shared = http2.connect(H2, H2_TLS);
+  const session = h2Shared;
+  return new Promise((resolve, reject) => {
+    const stream = session.request({
+      ":method": "POST",
+      ":path": path,
+      "content-type": "application/json",
+    });
+    stream.on("error", reject);
+    stream.on("end", () => resolve());
+    stream.resume();
+    stream.end(body);
+  });
+}
+
 /** GET relayé par le proxy interne, reçu en h2c : 200 et `via` exigés, comme `relayedGet`. */
 function h2cRelayedGet(path: string): Promise<void> {
   if (h2cShared === null || h2cShared.destroyed) h2cShared = http2.connect(H2C);
@@ -451,6 +473,8 @@ const ACTIONS = {
   h2cStream: () => h2cSharedGet("/nodefony/test/index"),
   h2Session: () => h2SessionGet("/nodefony/test/index"),
   h2Stream: () => h2SharedGet("/nodefony/test/index"),
+  h2StreamPost: () =>
+    h2SharedPost("/nodefony/test/decorators/body", '{"n":1,"ok":true}'),
   // Le service `request` d'une connexion, résolu au handshake puis à un message.
   wsRequestService: () =>
     new Promise<void>((resolve, reject) => {
@@ -586,6 +610,7 @@ const WARMUP = {
   h2cStream: 1500,
   h2Session: 0,
   h2Stream: 1500,
+  h2StreamPost: 1500,
   wsRefused: 400,
   // Chemin HTTP complet (session, pare-feu, audit du refus) : même plateau
   // que `get`. Mesuré hors gate, échauffement 1 500 / paliers de 300 :
@@ -820,6 +845,16 @@ describe("Memory leaks — HTTP (requires server)", function () {
     await httpLoop(
       "HTTP/2 TLS GET streams on a shared session",
       plan("h2Stream", 250),
+      THRESHOLDS.h2Stream,
+    );
+  });
+
+  it("HTTP/2 TLS POST bodies on a shared session — retains nothing per stream", async () => {
+    // Corps lu par le pipeline : la réception est suivie puis libérée par
+    // l'échéance HTTP/2 (#765). Même unité que le GET : un flux.
+    await httpLoop(
+      "HTTP/2 TLS POST bodies on a shared session",
+      plan("h2StreamPost", 250),
       THRESHOLDS.h2Stream,
     );
   });

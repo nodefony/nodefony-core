@@ -540,7 +540,8 @@ Extension de l'`AuditErrorEntry` :
 
 ## Request timeout — 2 couches distinctes
 
-- **Couche réseau** : `requestTimeout` natif Node (config `http/https`, défaut 30s) = délai de réception headers+body → anti-slowloris. Node renvoie un 408 brut + ferme. **Hors pipeline volontairement** (aucun Context/controller à ce stade).
+- **Couche réseau** : `requestTimeout` (config `http/https`, défaut 30s) = délai ABSOLU de réception → anti-slowloris. **HTTP/1.1** : natif Node (408 brut + ferme, hors pipeline). **HTTP/2** : `node:http2` n'a que des délais d'INACTIVITÉ → borne du framework, `src/servers/receiveDeadline.ts#ReceiveDeadline` (anneau + UN balayage `unref` par serveur, 0 minuteur/requête, ~30 ns/réception), armée dans `http-kernel.ts#HttpKernel.serveHttpRequest` sur la seule branche h2 qui LIT un corps (GET, `bodyStream`, h1 = 2 comparaisons). Échéance → `request.abortBody(408)` (`Parser.fail` / prise multipart, chemin du 413) → `onError`. Expire dans ]délai, délai + 1 s]. Anneau : sous charge capacité + minuteur GARDÉS (anti-churn), rendus au premier tour sans réception.
+- **Réponse rendue avant la fin du corps (HTTP/2)** : `Http2Response.closeUnfinishedRequest()` (appelé par `onError`) ferme le flux en `NO_ERROR` APRÈS `finish` (RFC 9113 §8.1) — sinon le client garde sa place de flux. Node ne le fait pas pour le 408 (il le fait déjà pour le 413 par Content-Length).
 - **Couche pipeline** : `responseTimeout` (Nodefony) armé via `HttpContext.setTimeout()` → socket idle → `onTimeout` event → **`_abortIfPending("Request timeout")` (annule `ctx.signal`)** PUIS `httpKernel.onError(408 | 504 si HTTP/2 stream)` → errorRenderer.
 - Sondes test : `/nodefony/test/timeout/{probe,state,reset}` (la sonde re-arme un socket timeout court via `ctx.response.response.setTimeout(ms, cb)` + `fire("onTimeout")`). Test : `nodefony/tests/http/timeout-abort.test.ts`.
 

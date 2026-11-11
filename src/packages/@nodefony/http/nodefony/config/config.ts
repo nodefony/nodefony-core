@@ -307,7 +307,9 @@ const httpServerSchema = z
       .nonnegative()
       .default(30_000)
       .describe(
-        "Timeout de réception requête complète (ms) — anti slow-loris.",
+        "Timeout de réception requête complète (ms) — anti slow-loris. HTTP/1.1 : " +
+          "borne native de Node ; HTTP/2 : borne du framework (corps lu par le " +
+          "pipeline), 408 puis flux fermé. 0 désactive.",
       ),
     responseTimeout: z
       .number()

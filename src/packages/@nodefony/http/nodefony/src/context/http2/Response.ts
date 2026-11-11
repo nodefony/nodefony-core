@@ -272,6 +272,33 @@ class Http2Response extends HttpResponse {
     };
   }
 
+  /**
+   * Ferme le flux en `NO_ERROR` une fois la réponse écrite, quand le client n'a
+   * pas fini d'envoyer son corps — réponse rendue avant la fin de la réception
+   * (408 délai, 413 trop gros, refus précoce).
+   *
+   * RFC 9113 §8.1 : après une réponse complète, le serveur PEUT demander au
+   * client d'arrêter d'émettre par un `RST_STREAM` `NO_ERROR`. `node:http2` ne
+   * le fait pas : le flux resterait ouvert tant que le client émet, et un
+   * client lent garderait sa place de flux sur la session. Attendre `finish`
+   * (fin d'écriture) garantit que la réponse elle-même n'est pas tronquée.
+   *
+   * Sans effet si le corps est entièrement reçu, ou le flux déjà fermé.
+   */
+  closeUnfinishedRequest(): void {
+    const stream = this.stream;
+    if (stream === null || stream.closed || stream.destroyed) return;
+    const request = this.context.request.request as { complete?: boolean };
+    if (request.complete === true) return;
+    const close = (): void => {
+      if (!stream.closed && !stream.destroyed) {
+        stream.close(http2.constants.NGHTTP2_NO_ERROR);
+      }
+    };
+    if (stream.writableFinished) close();
+    else stream.once("finish", close);
+  }
+
   // push(ele, headers, options) {
   //   return new Promise((resolve, reject) => {
   //     try {

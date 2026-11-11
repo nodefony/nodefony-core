@@ -10,6 +10,7 @@ import {
   acceptParser,
 } from "../../src/context/http/parser.js";
 import type HttpRequest from "../../src/context/http/Request.js";
+import HttpError from "../../src/errors/httpError.js";
 
 // Stub minimal d'une HttpRequest : le flux `request.request` est un EventEmitter
 // (le Parser y attache .on("data")), + les champs lus par les parsers concrets.
@@ -223,6 +224,50 @@ describe("Parser.ended() — cleanup des listeners jumeaux end/error", () => {
     expect(threw).to.equal(true);
     expect(stream.listenerCount("end")).to.equal(0); // jumeau retiré (fix)
     expect(stream.listenerCount("error")).to.equal(0);
+  });
+
+  // #765 — le délai de réception HTTP/2 interrompt la lecture par `fail()`,
+  // le chemin du dépassement de taille (413).
+  it("fail() PENDANT l'attente rejette parse() avec sa cause ET détache les jumeaux", async () => {
+    const { req, stream } = makePendingReq();
+    const p = new Parser(req);
+    const done = p.parse();
+    stream.emit("data", Buffer.from("x"));
+    const timeout = new HttpError("Request Timeout", 408);
+    expect(p.fail(timeout)).to.equal(true);
+    let caught: unknown = null;
+    try {
+      await done;
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).to.equal(timeout);
+    expect(stream.listenerCount("end")).to.equal(0);
+    expect(stream.listenerCount("error")).to.equal(0);
+    // RAM déjà bufferisée libérée ; une seconde interruption ne fait rien.
+    expect(p.chunks).to.have.length(0);
+    expect(p.fail(new HttpError("again", 408))).to.equal(false);
+  });
+
+  it("fail() AVANT l'attente : parse() rejette aussitôt avec la cause", async () => {
+    const { req } = makePendingReq();
+    const p = new Parser(req);
+    const timeout = new HttpError("Request Timeout", 408);
+    expect(p.fail(timeout)).to.equal(true);
+    let caught: unknown = null;
+    try {
+      await p.parse();
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).to.equal(timeout);
+  });
+
+  it("fail() sur un corps DÉJÀ reçu ne fait rien", () => {
+    const { req, stream } = makePendingReq();
+    (stream as EventEmitter & { complete?: boolean }).complete = true;
+    const p = new Parser(req);
+    expect(p.fail(new HttpError("Request Timeout", 408))).to.equal(false);
   });
 });
 
