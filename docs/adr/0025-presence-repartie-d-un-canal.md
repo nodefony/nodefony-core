@@ -153,10 +153,14 @@ canaux, de membres ou d'abonnés.**
     canal (un canal peut s'étendre sur plusieurs parts, ses membres s'additionnent) ; les
     `n` parts d'une réponse partent d'un bloc, à `seq` consécutifs, ce qui les identifie. **Elle
     s'applique d'un bloc** : la vue de ce pod n'est touchée qu'une fois les `n` parts reçues, et
-    une réponse ne FERME le trou que si elle nomme tous les canaux que la demande nommait — celle
-    servie à un autre demandeur peut en nommer moins (`server/remotePresence.ts#RemotePresence`) (une part est jetable et aucun `prev` ne révèle sa perte — RFC 6665 §5.3.1 exige
+    les réponses ne FERMENT le trou que si elles nomment tous les canaux que la demande nommait —
+    celle servie à un autre demandeur peut en nommer moins (`server/remotePresence.ts#RemotePresence`) (une part est jetable et aucun `prev` ne révèle sa perte — RFC 6665 §5.3.1 exige
     « a well-defined and complete state ») ; une réponse incomplète un intervalle après sa
-    demande laisse le trou ouvert et se redemande.
+    demande laisse le trou ouvert et se redemande. Une demande de plus de 4 096 canaux part en
+    tranches, que le répondeur peut servir dans deux fenêtres : les réponses au MÊME `last`
+    décrivent le même état et leurs canaux s'additionnent ; un `last` différent repart de zéro,
+    car les lots émis entre les deux, ignorés pendant le trou, ont pu toucher les canaux de la
+    première.
 - **Incarnation et numéros** — entiers, comparés comme des nombres, aucune chaîne :
   - l'**incarnation** est tirée au démarrage : `Date.now() × 1024 + aléa sur 10 bits`, entier sûr
     jusqu'en 2248 (un facteur 4096 dépasserait `Number.MAX_SAFE_INTEGER` en 2039). Un `originId`
@@ -209,7 +213,10 @@ canaux, de membres ou d'abonnés.**
   Tracker exige le même plancher) ; intervalle local par défaut 5 s. Mesuré sur l'intervalle
   annoncé et non sur la configuration du récepteur, un déploiement progressif qui change
   l'intervalle ne fait pas oublier en boucle un pod vivant. Tout message valide de l'incarnation
-  courante vaut signe de vie, pas seulement la preuve de vie.
+  courante vaut signe de vie, pas seulement la preuve de vie. Une preuve de vie dont l'intervalle
+  annoncé est plus court que le local RAPPROCHE l'échéance d'oubli : elle est relevée à la
+  réception, pas au tic suivant — sinon un pair neuf qui annonce 1 s serait oublié jusqu'à un
+  intervalle local trop tard (`server/presenceBus.ts#PresenceBus`).
   **Le récepteur aussi peut geler** (GC, cgroup étranglé) — c'est la première cause de faux
   positifs d'un détecteur de panne (Lifeguard : « slow processing by the failure detector module
   itself is the primary cause of the false positives »). Un tic en retard de plus d'un intervalle

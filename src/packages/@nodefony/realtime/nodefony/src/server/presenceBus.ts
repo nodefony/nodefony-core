@@ -421,8 +421,11 @@ export class PresenceBus {
       const at = now + PRESENCE_BATCH_MS;
       if (at < this.#requestAt) this.#requestAt = at;
     }
-    // Un pair neuf a pu rapprocher l'échéance d'oubli : relevée au tic suivant
-    // au plus tard d'un intervalle local (le battement réveille le tic).
+    // Un pair neuf, ou un intervalle annoncé plus court, rapproche l'échéance
+    // d'oubli : relevée tout de suite, le hub réarme son tic sur `due()`. Vue
+    // figée (bus perdu) : aucune échéance.
+    const closer = remote.takeCloserDeadline();
+    if (closer < this.#expireAt && !this.#busLost) this.#expireAt = closer;
     this.#activate(now);
     this.#refreshGaps(now);
   }

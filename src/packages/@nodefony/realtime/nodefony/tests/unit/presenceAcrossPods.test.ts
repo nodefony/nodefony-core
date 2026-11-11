@@ -7,7 +7,11 @@ import {
 } from "../helpers/presenceClient";
 import { RealtimeHub } from "../../src/server/RealtimeHub";
 import type { BackplaneHandler, IBackplane } from "../../interfaces/IBackplane";
-import { PRESENCE_WINDOW_MS } from "../../src/server/channelPresence";
+import {
+  ChannelPresence,
+  PRESENCE_WINDOW_MS,
+} from "../../src/server/channelPresence";
+import { MAX_PRESENCE_CHANNELS } from "../../src/backplane/presenceMessage";
 import {
   PRESENCE_BATCH_MS,
   PRESENCE_FORGET_FACTOR,
@@ -711,5 +715,115 @@ describe("#760 lot D3 — gel du récepteur (PresenceBus, horloge passée à la 
     // Vue figée : aucune échéance d'oubli restée dans le passé, sinon le tic
     // unique se réarmerait à 0 ms en boucle pendant toute la perte.
     expect(bus.due()).toBe(now + PRESENCE_INTERVAL_MS);
+    // Un pair neuf pendant la perte n'arme pas d'échéance non plus.
+    bus.receiveAlive(
+      "C",
+      { incarnation: 3, seq: 1, last: 0, interval: 1_000 },
+      now,
+    );
+    expect(bus.due()).toBe(now + PRESENCE_INTERVAL_MS);
+  });
+
+  it("🔴 pair NEUF à l'intervalle plus court que le local : oublié à SON délai, sans attendre le battement suivant de B", () => {
+    const bus = make();
+    bus.receiveAlive("P", alive(1), 0); // un pair déjà connu : B bat
+    bus.tick(bus.due()); // premier battement (gigue : 625 ms), le suivant 5 s plus tard
+    // A naît, annonce un intervalle de 1 s, puis se tait.
+    const born = 1_000;
+    bus.receiveAlive(
+      "A",
+      { incarnation: 9, seq: 1, last: 0, interval: 1_000 },
+      born,
+    );
+    let now = born;
+    while (bus.remote.forgottenTotal === 0 && now < FORGET_MS) {
+      now = Math.max(now, bus.due());
+      bus.tick(now);
+    }
+    expect(bus.remote.forgottenTotal).toBe(1);
+    expect(now).toBe(born + PRESENCE_FORGET_FACTOR * 1_000);
+  });
+});
+
+describe("#760 lot D — demande ciblée de plus de 4 096 canaux (PresenceBus, horloge passée à la main)", () => {
+  /** Hôte d'un pod qui sert `presences`, tous diffusés. */
+  function hostOf(
+    originId: string,
+    presences: readonly ChannelPresence[],
+    sent: { channel: string; payload: object }[],
+  ): IPresenceBusHost {
+    const byName = new Map(presences.map((p) => [p.channel, p]));
+    return {
+      originId,
+      publish: (channel, payload) => sent.push({ channel, payload }),
+      lookup: (channel) => byName.get(channel) ?? false,
+      served: (channel) => byName.get(channel) ?? null,
+      servedPresences: () => presences,
+      servedCount: () => presences.length,
+      echoTotal: () => undefined,
+    };
+  }
+  const settings = { grace: 0, maxNamed: 1_000 };
+  const field = (payload: object, key: string): unknown =>
+    key in payload ? Reflect.get(payload, key) : undefined;
+  const ofKind = (sent: { channel: string; payload: object }[], op: string) =>
+    sent
+      .filter(
+        (m) =>
+          m.channel === PLATFORM_BUS_CHANNELS.presence &&
+          field(m.payload, "op") === op,
+      )
+      .map((m) => m.payload);
+
+  it("🔴 tranches servies dans DEUX fenêtres du répondeur : les réponses de même `last` ferment ENSEMBLE le trou", () => {
+    // A sert `room:0`, où alice est présente ; son premier lot se perd.
+    const fromA: { channel: string; payload: object }[] = [];
+    const room = new ChannelPresence("room:0", settings, true);
+    const a = new PresenceBus(hostOf("A", [room], fromA), {
+      random: () => 0.5,
+      wallClock: () => 1_000,
+    });
+    room.join("alice");
+    a.changed(room, 0);
+    a.tick(a.due());
+    expect(ofKind(fromA, "batch")).toHaveLength(1); // perdu en route
+    // B sert plus de canaux qu'une demande n'en porte.
+    const fromB: { channel: string; payload: object }[] = [];
+    const served = Array.from(
+      { length: MAX_PRESENCE_CHANNELS + 100 },
+      (_, i) => new ChannelPresence(`room:${i}`, settings, true),
+    );
+    const b = new PresenceBus(hostOf("B", served, fromB), {
+      random: () => 0.25,
+      wallClock: () => 2_000,
+    });
+    // La preuve de vie de A annonce un lot que B n'a pas : trou, demande ciblée.
+    a.tick(a.due());
+    const proof = fromA.find(
+      (m) => m.channel === PLATFORM_BUS_CHANNELS.presenceAlive,
+    );
+    expect(proof && field(proof.payload, "last")).toBe(1);
+    b.receiveAlive("A", proof?.payload, 700);
+    expect(b.remote.gaps).toBe(1);
+    b.tick(b.due());
+    const requests = ofKind(fromB, "request");
+    expect(requests).toHaveLength(2);
+    // A sert chaque tranche dans sa propre fenêtre de 50 ms.
+    let now = 800;
+    for (const request of requests) {
+      a.receive("B", request, now);
+      now = a.due();
+      a.tick(now);
+    }
+    const answers = ofKind(fromA, "state");
+    expect(answers.filter((p) => field(p, "i") === 0)).toHaveLength(2);
+    expect(new Set(answers.map((p) => field(p, "last")))).toEqual(new Set([1]));
+    for (const answer of answers) b.receive("A", answer, now);
+    expect(b.remote.gaps).toBe(0);
+    expect(served[0]?.view().members.has("alice")).toBe(true);
+    // Trou fermé : plus aucune demande ne repart.
+    fromB.length = 0;
+    b.tick(now + PRESENCE_INTERVAL_MS * 2);
+    expect(ofKind(fromB, "request")).toHaveLength(0);
   });
 });

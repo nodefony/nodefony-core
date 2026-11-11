@@ -433,6 +433,24 @@ describe("#760 lot D — vue distante de la présence (RemotePresence)", () => {
       expect(d.view.gaps).toBe(1);
     });
 
+    it("🔴 deux réponses au même `last` couvrent ENSEMBLE la demande ; à des `last` différents, jamais", () => {
+      const room1 = { channel: "room:1", members: ["a", 1], unnamed: 0 };
+      const room2 = { channel: "room:2", members: [], unnamed: 0 };
+      // Même `last` : le même état du pair, servi en deux fois.
+      const d = inGap();
+      d.view.receive(A, part(5, 3, 0, 1, [room1]), 3);
+      expect(d.view.gaps).toBe(1);
+      d.view.receive(A, part(6, 3, 0, 1, [room2]), 3);
+      expect(d.view.gaps).toBe(0);
+      // `last` différents : un lot a pu changer `room:1` entre les deux.
+      const e = inGap();
+      e.view.receive(A, part(5, 3, 0, 1, [room1]), 3);
+      e.view.receive(A, part(6, 4, 0, 1, [room2]), 3);
+      expect(e.view.gaps).toBe(1);
+      e.view.receive(A, part(7, 4, 0, 1, [room1]), 3);
+      expect(e.view.gaps).toBe(0);
+    });
+
     it("canal demandé puis retiré, nommé quand même : la couverture compte les canaux NOMMÉS, servis ou non", () => {
       const d = inGap();
       d.agg.delete("room:2");

@@ -99,8 +99,14 @@ class RemotePod {
   lastSeen: number;
   /** Instant de la dernière demande d'état pendant un trou ; `-Infinity` = à faire. */
   requestedAt = Number.NEGATIVE_INFINITY;
-  /** Canaux nommés par la demande en cours — une réponse ne ferme le trou que si elle les couvre. */
+  /** Canaux nommés par la demande en cours — les réponses ne ferment le trou que si elles les couvrent. */
   asked: readonly string[] | null = null;
+  /**
+   * Canaux nommés pendant le trou par les réponses au même `last` — elles décrivent le même état, leurs couvertures s'additionnent ; `null` hors trou.
+   */
+  covered: Set<string> | null = null;
+  /** `last` des réponses relevées dans {@link RemotePod.covered}. */
+  coveredLast = 0;
   /** Pierre tombale : arrêt propre reçu, plus rien de cette vie ne s'applique. */
   ended = false;
   /** Tables par canal servi ; `null` tant que le pair n'a présenté personne ici. */
@@ -226,6 +232,8 @@ export class RemotePresence {
   #forgottenTotal = 0;
   #gapTotal = 0;
   #endedTotal = 0;
+  // Plus proche échéance d'oubli apparue depuis le dernier relevé du porteur.
+  #closer = Number.POSITIVE_INFINITY;
 
   /**
    * @throws RangeError si `factor` < 2 (Phoenix Tracker exige le même plancher :
@@ -338,6 +346,8 @@ export class RemotePresence {
     pod.aliveSeq = alive.seq;
     pod.lastSeen = now;
     pod.interval = alive.interval;
+    // Un intervalle annoncé plus court que celui supposé rapproche l'échéance.
+    this.#closerAt(now + this.#factor * alive.interval);
     if (alive.final) {
       this.#bury(pod, now);
       return;
@@ -390,6 +400,19 @@ export class RemotePresence {
     return forgotten;
   }
 
+  /**
+   * Plus proche échéance d'oubli APPARUE depuis le dernier appel — celle d'une preuve de vie, dont l'intervalle annoncé peut être plus court que le local ; `Infinity` sinon. O(1), relevée à chaque réception pour que le porteur avance son tic sans attendre le suivant.
+   *
+   * Tout autre message recule l'échéance, et celle d'un pair neuf tombe au
+   * moins deux intervalles LOCAUX plus loin : le tic suivant la relève à temps.
+   * {@link RemotePresence.nextDeadline} reste la valeur exacte, recalculée au tic.
+   */
+  takeCloserDeadline(): number {
+    const at = this.#closer;
+    this.#closer = Number.POSITIVE_INFINITY;
+    return at;
+  }
+
   /** Prochaine échéance d'oubli (ms monotone), `Infinity` sans pair. */
   nextDeadline(): number {
     let next = Number.POSITIVE_INFINITY;
@@ -429,6 +452,7 @@ export class RemotePresence {
   clear(): void {
     this.#pods.clear();
     this.#gaps = 0;
+    this.#closer = Number.POSITIVE_INFINITY;
   }
 
   /**
@@ -639,10 +663,11 @@ export class RemotePresence {
     }
     if (rejected) this.#rejectedTotal += 1;
     if (reference === null) {
-      // Le trou ne se ferme que sur une réponse qui couvre CE qu'on a demandé :
-      // celle d'une demande d'un autre pod peut en nommer moins.
-      if (pod.asked !== null && covers(pod.asked, parts))
-        this.#close(pod, last);
+      // Le trou ne se ferme que sur des réponses qui couvrent CE qu'on a
+      // demandé : celle d'une demande d'un autre pod peut en nommer moins, et
+      // une demande de plus de 4 096 canaux part en tranches que le répondeur
+      // peut servir dans deux fenêtres.
+      if (covers(pod, parts, last)) this.#close(pod, last);
     } else if (last > reference) {
       // Des lots ont manqué depuis la vue : les canaux non nommés sont en retard.
       this.#openGap(pod);
@@ -664,7 +689,13 @@ export class RemotePresence {
   #close(pod: RemotePod, last: number): void {
     pod.reference = last;
     pod.asked = null;
+    pod.covered = null;
     this.#gaps -= 1;
+  }
+
+  /** Une échéance d'oubli neuve : retenue si elle précède celles déjà annoncées au porteur. */
+  #closerAt(deadline: number): void {
+    if (deadline < this.#closer) this.#closer = deadline;
   }
 
   /** Retire toutes les contributions d'un pod des agrégats. */
@@ -673,6 +704,7 @@ export class RemotePresence {
     const channels = pod.channels;
     pod.channels = null;
     pod.parts = null;
+    pod.covered = null;
     if (channels === null) return;
     for (const [channel, table] of channels) {
       const aggregate = this.#lookup(channel);
@@ -691,16 +723,27 @@ export class RemotePresence {
 }
 
 /**
- * La réponse nomme-t-elle tous les canaux demandés — servis ou non depuis ? Chemin froid : seulement à la fermeture d'un trou.
+ * Les réponses reçues pendant le trou au même `last` nomment-elles, ENSEMBLE, tous les canaux demandés — servis ou non depuis ? Chemin froid : seulement pendant un trou.
+ *
+ * Deux réponses au même `last` décrivent l'état du pair au même lot : leurs
+ * canaux s'additionnent. Un `last` différent repart de zéro — des lots ont
+ * changé l'état entre les deux, et ces lots, ignorés pendant le trou, auraient
+ * pu toucher les canaux de la première.
  */
 function covers(
-  asked: readonly string[],
+  pod: RemotePod,
   parts: readonly (readonly IPresenceChannelState[])[],
+  last: number,
 ): boolean {
-  if (asked.length === 0) return true;
-  const named = new Set<string>();
+  let named = pod.covered;
+  if (named === null || pod.coveredLast !== last) {
+    named = pod.covered = new Set<string>();
+    pod.coveredLast = last;
+  }
   for (const entries of parts)
     for (const entry of entries) named.add(entry.channel);
+  const asked = pod.asked;
+  if (asked === null) return false;
   for (const channel of asked) if (!named.has(channel)) return false;
   return true;
 }
