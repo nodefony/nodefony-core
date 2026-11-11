@@ -713,9 +713,17 @@ if runs front; then
   # Sans ce contrôle, la régression reviendrait par une simple ligne de manifeste,
   # et rien ne la signalerait — l'image marcherait.
   step "[front] (b2) image de production : la toolchain n'y est PAS"
+  # L'image est distroless : pas de `sh`. La présence se demande à Node, et un
+  # contrôle qui n'a pas pu tourner (code ≠ 0 et ≠ 1) ÉCHOUE — sinon son échec se
+  # lirait « absent », un faux vert.
   for tool in vite vue typescript; do
-    docker run --rm --entrypoint sh "$FIMG" -c "test -d node_modules/$tool" \
-      && fail "$tool est dans l'image de production — une peer ou une dep l'y a fait entrer"
+    code=0
+    docker run --rm "$FIMG" -e "process.exit(require('node:fs').existsSync('node_modules/$tool')?0:1)" \
+      > /dev/null 2>&1 || code=$?
+    [ "$code" -eq 1 ] || {
+      [ "$code" -eq 0 ] && fail "$tool est dans l'image de production — une peer ou une dep l'y a fait entrer"
+      fail "contrôle de présence de $tool impossible dans $FIMG (code $code)"
+    }
   done
   ok "vite, vue, typescript absents de l'image"
 
@@ -2059,8 +2067,13 @@ if runs pm; then
     # La toolchain de développement ne descend pas dans l'image : l'élagage
     # propre au gestionnaire a mordu.
     for tool in vitest typescript drizzle-kit; do
-      docker run --rm --entrypoint sh "$PIMG" -c "test ! -e node_modules/$tool" \
-        || fail "$PM : $tool présent dans l'image — l'élagage n'a pas eu lieu"
+      code=0
+      docker run --rm "$PIMG" -e "process.exit(require('node:fs').existsSync('node_modules/$tool')?0:1)" \
+        > /dev/null 2>&1 || code=$?
+      [ "$code" -eq 1 ] || {
+        [ "$code" -eq 0 ] && fail "$PM : $tool présent dans l'image — l'élagage n'a pas eu lieu"
+        fail "$PM : contrôle de présence de $tool impossible dans $PIMG (code $code)"
+      }
     done
     ok "dépendances de développement absentes de l'image (élagage $PM)"
 
