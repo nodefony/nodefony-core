@@ -29,6 +29,8 @@ Le champ « A fait changer » garde la trace des cas qui ont coûté : il ne se 
 - **Situation** : `grpc.health.v1.Health` et la réflexion (v1 et v1alpha) servies sans jeton, pour
   la sonde gRPC de Kubernetes (#697).
 - **Tient si** : elles se déclarent comme un service d'application, hors zone protégée.
+- **Ouvert, à trancher dans #697** : comment elles sortent d'une zone qui couvre `/` ; leur paquet
+  d'accueil (un `GrpcController` vit dans framework) ; la sonde en clair face à h2c opt-in (D3).
 - **A fait changer** : aucune.
 
 ### S-grpc-3 — Le pont vers le hub temps réel
@@ -36,6 +38,9 @@ Le champ « A fait changer » garde la trace des cas qui ont coûté : il ne se 
 - **Situation** : un flux serveur gRPC qui relaie un canal du hub (#745, `@nodefony/realtime`) ;
   voir aussi S-rt-6 et S-rt-73 du catalogue temps réel.
 - **Tient si** : le pont se bâtit dans `realtime` sans que http connaisse le hub.
+- **Ouvert, à trancher dans #745** : Connect sérialise chaque message par appel, sans voie publique
+  pour des octets déjà encodés ; la réutilisation des octets de `ChannelFrame` (ADR-0021) passe par
+  un champ `bytes` (une copie par abonné en binaire, un base64 en JSON). Coût à mesurer.
 - **A fait changer** : aucune.
 
 ### S-grpc-4 — A2A à la racine derrière une passerelle d'agents
@@ -69,9 +74,11 @@ Le champ « A fait changer » garde la trace des cas qui ont coûté : il ne se 
 
 - **Situation** : `grpc-timeout` dépassé, client parti en plein flux, arrêt du pod pendant un flux
   serveur long.
-- **Tient si** : annulation propagée (`HandlerContext.signal`), `UNAVAILABLE` avant le drain
-  (`shutdownSignal`), GOAWAY en deux temps (`http2Goaway.ts#announceSessionClose`).
-- **A fait changer** : #763 (session HTTP/2 inactive jamais fermée).
+- **Tient si** : annulation propagée (`HandlerContext.signal`), `UNAVAILABLE` avant le drain (par
+  le registre des flux longs du noyau, D8), GOAWAY en deux temps
+  (`http2Goaway.ts#announceSessionClose`).
+- **A fait changer** : #763 (session HTTP/2 inactive jamais fermée) ; D8 — `shutdownSignal` de
+  Connect, d'abord retenu ici, écarté pour son coût par appel.
 
 ## Plusieurs instances
 
@@ -169,9 +176,11 @@ Le champ « A fait changer » garde la trace des cas qui ont coûté : il ne se 
 
 - **Situation** : la limite de débit refuse (429 écrit d'emblée) ; un chemin de méthode inconnu
   (404).
-- **Tient si** : chaque client traduit selon la norme (`grpc-http-grpc-status-mapping.md`) :
-  `UNAVAILABLE` (réessaie plus tard), `UNIMPLEMENTED`.
-- **A fait changer** : D5 — retiré de la table : rien à coder.
+- **Tient si** : le refus part en forme gRPC, fin portée par la trame d'en-têtes, avec le code
+  qu'un client conforme déduirait (`grpc-http-grpc-status-mapping.md`) : `UNAVAILABLE` (réessaie
+  plus tard), `UNIMPLEMENTED`.
+- **A fait changer** : D5 — d'abord retiré de la table (« rien à coder ») ; D13 — rétabli, grpc-go
+  lit `INTERNAL` sur un refus de forme HTTP.
 
 ### S-grpc-30 — Un corps refusé qui n'en finit pas
 
@@ -236,15 +245,16 @@ Le champ « A fait changer » garde la trace des cas qui ont coûté : il ne se 
 
 - **Situation** : `SIGTERM` pendant que 10 000 flux sont ouverts et qu'un appel unaire est en vol.
 - **Tient si** : chaque flux reçoit 14 `UNAVAILABLE` et le client se reconnecte ailleurs ; l'appel
-  unaire finit ; un gestionnaire sourd tombe à `shutdownTimeout`.
+  unaire finit s'il tient dans `shutdownTimeout`, sinon le client lit `UNAVAILABLE` ; un
+  gestionnaire sourd tombe à `shutdownTimeout`.
 - **A fait changer** : D8 — un flux détruit sans statut laissait le client deviner.
 
 ### S-grpc-36 — Une rafale d'appels unaires à côté de dix mille flux
 
 - **Situation** : 10 000 flux ouverts, puis une rafale d'appels unaires.
 - **Tient si** : le coût d'un appel unaire ne dépend pas du nombre de flux ouverts.
-- **A fait changer** : D8 — `shutdownSignal` de Connect coûtait +72 µs par appel à 10 000 appels
-  ouverts (écouteur sur un signal partagé) : écarté.
+- **A fait changer** : D8 — `shutdownSignal` de Connect coûtait +122 µs par appel à 10 000 appels
+  ouverts (écouteur sur un signal partagé, mesuré sur `createHandlerContext` réel) : écarté.
 
 ### S-grpc-37 — Une page d'une autre origine appelle en gRPC-Web
 
@@ -330,7 +340,8 @@ Le champ « A fait changer » garde la trace des cas qui ont coûté : il ne se 
   réflexion n'existe pas encore (#697).
 - **Tient si** : la réponse arrive tout de suite, « server does not support the reflection API » ;
   jamais une attente jusqu'à l'échéance du client.
-- **A fait changer** : D13 — le 404 lisait le corps d'un flux qui ne finit jamais (60 s mesurées).
+- **A fait changer** : D13 — le 404 lisait le corps d'un flux qui ne finit jamais (60 s mesurées ;
+  #765 borne désormais cette lecture vers 31 s, à remesurer, et le 404 sans lecture reste exigé).
 
 ### S-grpc-47 — Un client Go appelle une méthode inconnue
 
@@ -368,9 +379,11 @@ Le champ « A fait changer » garde la trace des cas qui ont coûté : il ne se 
 
 - **Situation** : routes liées à un hôte (`Route.ts`, `hostRegexp`), page unique avec une route
   attrape-tout.
-- **Tient si** : les chemins gRPC sont des routes du Router, qui porte déjà la priorité et l'hôte.
+- **Tient si** : les chemins gRPC sont des routes du Router, qui porte déjà la priorité et l'hôte ;
+  une requête gRPC native qui aboutit à l'attrape-tout est refusée en `UNIMPLEMENTED`, jamais
+  servie en page HTML.
 - **A fait changer** : D1 — la table privée de l'option « service hors du Router » ; ajouté par le
-  contradicteur.
+  contradicteur. D13 point 3 — une méthode inconnue n'échoue pas au routage sous un attrape-tout.
 
 ## Agent IA consommateur
 
@@ -415,8 +428,8 @@ Le champ « A fait changer » garde la trace des cas qui ont coûté : il ne se 
 
 ## Antériorités consultées pour D1
 
-Formes connues de déclaration d'un service gRPC dans les frameworks serveur (relevé de mémoire,
-**non relu aux sources** — à confirmer avant d'accepter l'ADR) : une classe de service enregistrée
+Formes connues de déclaration d'un service gRPC dans les frameworks serveur (relues aux sources le
+2026-11-11, documentation amont de chaque famille) : une classe de service enregistrée
 par une ligne explicite de l'application ; une annotation de nom figé sur une classe de service ;
 un contrôleur dont les méthodes portent un décorateur de méthode gRPC. Dans les trois familles,
 l'autorisation déclarative par méthode s'applique à un appel gRPC.

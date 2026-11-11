@@ -28,7 +28,9 @@ le 2026-11-07 avec l'auteur, en cadrant #694 : la place de gRPC — son transpor
 `@nodefony/http`, son pont vers le hub dans `@nodefony/realtime` (« Ce qui reste hors du socle »). Socle commun des décisions temps réel :
 [ADR-0022](0022-socket-temps-reel.md) (la socket, #627) et
 [ADR-0023](0023-webhooks-evenements-et-abonnements.md) (les webhooks) en dépendent ; l'ADR de
-gRPC naîtra avec l'Epic #694. Instruit par un relevé des quatre briques existantes et par le
+gRPC naîtra avec l'Epic #694 : c'est [ADR-0026](0026-service-grpc-declare-par-un-module.md),
+qui précise le 2026-11-11 trois points de celui-ci (chargement du transport gRPC, fin des flux
+longs à l'arrêt, sérialisation du pont #745 ; lignes datées ci-dessous). Instruit par un relevé des quatre briques existantes et par le
 protocole A2A 1.0.1, figé hors ligne pour vérifier que rien ici n'empêche de le bâtir dessus.
 
 ## Contexte
@@ -41,12 +43,12 @@ MCP, un webhook métier) en sont des **consommateurs**.
 
 Quatre manières de livrer un événement existent déjà :
 
-| Livraison | Brique                                                                                        | Connexion                          |
-| --------- | --------------------------------------------------------------------------------------------- | ---------------------------------- |
-| Socket    | `@nodefony/realtime` (hub, canaux) sur WebSocket, client `nodefony/client`                    | ouverte, dans les deux sens        |
-| Flux SSE  | `src/packages/@nodefony/http/nodefony/src/context/http/SseStream.ts#SseStream`                | ouverte, du serveur vers le client |
-| Webhook   | `src/packages/@nodefony/security/nodefony/src/webhook/WebhookDispatcher.ts#WebhookDispatcher` | aucune : un `POST` par événement   |
-| gRPC      | POC #690, Epic #694 (service en 10.0, expérimental ; pont vers le hub #745 en 10.1)           | un flux HTTP/2 par appel           |
+| Livraison | Brique                                                                                        | Connexion                                                                       |
+| --------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Socket    | `@nodefony/realtime` (hub, canaux) sur WebSocket, client `nodefony/client`                    | ouverte, dans les deux sens                                                     |
+| Flux SSE  | `src/packages/@nodefony/http/nodefony/src/context/http/SseStream.ts#SseStream`                | ouverte, du serveur vers le client                                              |
+| Webhook   | `src/packages/@nodefony/security/nodefony/src/webhook/WebhookDispatcher.ts#WebhookDispatcher` | aucune : un `POST` par événement                                                |
+| gRPC      | POC #690, Epic #694 (service en 10.0, expérimental ; pont vers le hub #745 en 10.1)           | un flux HTTP/2 par appel ; gRPC-Web et Connect aussi en HTTP/1.1 (ADR-0026, D3) |
 
 Entre deux exemplaires de l'application, le **backplane** relaie la socket
 (`src/packages/@nodefony/realtime/nodefony/interfaces/IBackplane.ts#IBackplaneMessage`).
@@ -163,6 +165,11 @@ c'est une notification `realtime:closed { channel, reason }`, ajoutée en 10.x (
 `ended` (le canal est terminé pour tous) et `evicted` (cette connexion en est retirée). Un client
 qui la reçoit retire l'abonnement et ne le rejoue pas. En SSE, la fin est la fermeture du flux, et
 le code 204 dit de ne pas se reconnecter.
+
+_Précisé le 2026-11-11 par ADR-0026 (D8) : l'arrêt d'un exemplaire n'est pas la fin d'un canal. À
+l'étape de la fermeture `1001` des sockets, un flux SSE ouvert est fermé simplement, sans 204 :
+`EventSource` se reconnecte, vers un autre exemplaire. Avant, il était détruit à
+`shutdownTimeout`._
 
 **Règle pour les clients qui ignorent `closed`** : un client 10.0 garde l'abonnement et le
 **rejoue à sa reconnexion** (`src/nodefony/src/client/realtime/NodefonySocket.ts#NodefonySocket.replaySubscriptions`).
@@ -784,6 +791,10 @@ révocation ; le changement d'identité entre exemplaires (S-rt-61).
     trailers) est un service de `@nodefony/http`, au même rang que `SseStream` : la primitive.
     Chargé au premier appel, il coûte 0 octet à une application qui ne s'en sert pas (mesuré
     par le POC #690, qui n'a rien eu à changer au pipeline).
+    _Précisé le 2026-11-11 par ADR-0026 (D12) : le transport se charge au DÉMARRAGE, et
+    seulement si un service est déclaré — un pair manquant se voit au déploiement, pas au
+    premier appel. Sans service, rien n'est chargé ; reste un champ `rpc` à `null` par
+    contexte (D10)._
   - **Le pont vers le hub** vit dans `@nodefony/realtime`, jamais dans `@nodefony/http` :
     `realtime` dépend de `http`, l'inverse serait un cycle. Publier appelle le hub
     (`RealtimeService.publish`). S'abonner à un canal en flux serveur est une **livraison de
@@ -794,6 +805,11 @@ révocation ; le changement d'identité entre exemplaires (S-rt-61).
     texte ou binaire), jamais un réencodage par abonné : `ChannelFrame` ne met en cache que deux
     codecs, un troisième s'encode pour chaque abonné — mille abonnés gRPC, mille encodages par
     publication.
+    _Précisé le 2026-11-11 par ADR-0026 (« Contrôle de non-blocage ») : l'adaptateur gRPC
+    sérialise chaque message par appel, sans voie publique pour des octets déjà encodés. La
+    règle se tient par un message à champ `bytes` qui porte ces octets : une copie par abonné en
+    binaire, pas un réencodage ; en JSON (Connect, gRPC-Web JSON), un base64 par abonné. Coût à
+    mesurer et forme à trancher dans #745._
 
 ## Alternatives écartées
 

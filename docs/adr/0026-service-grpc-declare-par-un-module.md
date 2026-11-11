@@ -4,7 +4,7 @@ title: Service gRPC — un point d'entrée déclaré par un module, servi par le
 lang: fr
 navTitle: Service gRPC
 date: 2026-11-11
-status: proposed
+status: accepted
 deciders: [Christophe CAMENSULI]
 tags: [grpc, connect, http2, design, compatibility]
 ---
@@ -13,12 +13,23 @@ tags: [grpc, connect, http2, design, compatibility]
 
 ## Statut
 
-Proposé (2026-11-11). Annoncé par [ADR-0021](0021-temps-reel-evenement-et-livraisons.md)
-(« l'ADR de gRPC naîtra avec l'Epic #694 »). Instruit par le ticket #695 (Epic #694), décision
-par décision ; chaque décision porte sa ligne datée. Jugé contre le catalogue
-[`scenarios/grpc.md`](scenarios/grpc.md). La surface naît `@experimental`
-([politique de compatibilité](../guides/compatibilite.md), « Surfaces expérimentales ») ; l'ADR
-passe à « accepté » quand toutes ses décisions sont rendues.
+Accepté (2026-11-11), décision par décision (D1 à D13) avec l'auteur, après une relecture côte à
+côte avec ADR-0021 et ADR-0022 et un contradicteur indépendant (21 constats, corrigés ici).
+Annoncé par [ADR-0021](0021-temps-reel-evenement-et-livraisons.md) (« l'ADR de gRPC naîtra avec
+l'Epic #694 »). Instruit par le ticket #695 (Epic #694) ; chaque décision porte sa ligne datée.
+Jugé contre le catalogue [`scenarios/grpc.md`](scenarios/grpc.md) : matrice en fin de document.
+La surface naît `@experimental` ([politique de compatibilité](../guides/compatibilite.md),
+« Surfaces expérimentales »).
+
+**Précise deux ADR acceptés**, par une ligne datée dans chacun (accord de l'auteur, 2026-11-11) :
+
+- [ADR-0021](0021-temps-reel-evenement-et-livraisons.md) : le transport se charge au démarrage
+  quand un service est déclaré, et non au premier appel (D12) ; à l'arrêt, les flux longs (SSE,
+  octets, gRPC) reçoivent une fin au lieu d'être détruits (D8) ; le pont #745 hérite d'une
+  sérialisation par appel (« Contrôle de non-blocage », plus bas).
+- [ADR-0022](0022-socket-temps-reel.md) : #694 n'amène protobuf qu'en pair facultatif de http et
+  framework, jamais au client ; la preuve « poids de protobuf dans `nodefony/client` » ne lui
+  revient pas (D12).
 
 ## Contexte
 
@@ -48,9 +59,13 @@ name}` — la clé d'aiguillage d'un appel est dans l'URL, sensible à la casse 
   serveur conforme rend lui-même le statut gRPC.
 - **Intercepteurs et porte d'entrée de connect-node** (`connect-node-interceptors.md`) :
   `requestGate` décide avant la lecture du corps.
-- **Antériorités** : l'usage établi est une déclaration à nom figé, le contrat généré en argument,
-  et l'autorisation déclarative par méthode appliquée à l'appel gRPC (relevé au catalogue, à
-  confirmer aux sources avant acceptation).
+- **Antériorités** (relues aux sources le 2026-11-11) : trois familles de frameworks serveur.
+  Une ligne d'enregistrement explicite de la classe de service ; une annotation à nom figé sur la
+  classe, en singleton, le contexte de requête actif pendant l'appel ; un contrôleur dont les
+  méthodes portent un décorateur de méthode gRPC. Dans les trois, l'autorisation déclarative de la
+  classe ou de la méthode, et les gardes des routes HTTP, s'appliquent à l'appel gRPC.
+- **Bornes par défaut des implémentations de référence** : 4 Mio par message reçu, aucune borne à
+  l'émission (grpc-go, `server.go` ; grpc-js, `constants.js`).
 
 Le même critère range les autres protocoles du framework : la clé d'un appel MCP est dans le
 corps JSON-RPC, sur une seule route (crochet de module `getMcpTools`, ADR-0017) ; celle d'une action
@@ -109,8 +124,8 @@ Ce que la forme engage :
    finit en `UNIMPLEMENTED` sans atteindre la méthode (S-grpc-9). Le 404 nu que l'adaptateur écrit
    par défaut ne le garantit que pour grpc-js et connect-es : grpc-go y lit `INTERNAL`. D'où le
    `fallback` fourni par Nodefony (D13, point 2).
-7. **Coût nul** pour une application qui ne déclare aucun service : adaptateur, runtime protobuf et
-   code généré ne sont jamais chargés. Quand un service est déclaré, ils se chargent au démarrage,
+7. **Rien de chargé** pour une application qui ne déclare aucun service : adaptateur, runtime
+   protobuf et code généré ne sont jamais chargés (seul reste le champ `rpc`, `null`, de D10). Quand un service est déclaré, ils se chargent au démarrage,
    pas au premier appel (D12 point 4 : le contrôleur importe le code généré, et un pair manquant
    doit se voir au déploiement).
 
@@ -127,7 +142,7 @@ module :
 ├── buf.gen.yaml    protoc-gen-es → out: nodefony/gen, target=ts
 ├── proto/<paquet>/v1/*.proto
 └── nodefony/
-    ├── controllers/…          les points d'entrée (D1)
+    ├── controller/…           les points d'entrée (D1)
     └── gen/<paquet>/v1/*_pb.ts   GÉNÉRÉ, versionné, jamais édité
 ```
 
@@ -150,8 +165,8 @@ module :
    publie ses binaires pour les trois plateformes (Windows x64 et arm64 compris).
 7. **Contrats tiers — essayés le 2026-11-11, code produit compilé en `strict`** :
    - santé et réflexion : `buf.build/grpc/grpc` (`--path grpc/health/v1/health.proto`,
-     `--path grpc/reflection/v1/reflection.proto`) ; le framework les livre DÉJÀ générées (#697),
-     l'application n'a rien à générer ;
+     `--path grpc/reflection/v1/reflection.proto`) ; #697 les livrera générées dans le framework,
+     l'application n'aura rien à générer ;
    - A2A n'est PAS publié sur le registre buf (`resource "a2aproject/a2a" was not found` — un
      `curl` qui rend 200 sur `buf.build/…` ne prouve rien, c'est une page générique). Il se génère
      depuis son dépôt, version épinglée, sans copie :
@@ -186,7 +201,8 @@ d'application (accord de l'auteur requis pour un `package.json`) — ticket #764
    `application/proto`, sinon 415 (`connect-protocol.md`) — un formulaire, un `text/plain` sont
    refusés ; un POST JSON d'une autre origine déclenche un contrôle préalable CORS, refusé tant que
    D9 ne l'autorise pas ; le `GET` n'existe que pour `NO_SIDE_EFFECTS` (D1) et sa réponse reste
-   illisible d'une autre origine. `requireConnectProtocolHeader` ajoute une couche (D4).
+   illisible d'une autre origine. `requireConnectProtocolHeader` peut ajouter une couche ; elle
+   est désactivée par défaut, parce que ces trois défenses suffisent (D4, point 6).
 4. **h2c reste une activation explicite** (`kernelServers.ts#isH2cEnabled` : seul `enabled: true`
    l'allume) : déclarer un service n'ouvre jamais un port en clair ; h2c ne sert que derrière une
    passerelle de confiance (A2A §10 exige TLS en production).
@@ -199,7 +215,7 @@ pas la préface HTTP/2 et la connexion échoue — le test exige qu'elle échoue
 
 ### D4 — Les limites : taille, durée, flux
 
-**Décision (tranchée sur délégation de l'auteur le 2026-11-11) :**
+**Décision (tranchée sur délégation, validée par l'auteur le 2026-11-11) :**
 
 Deux faits du pipeline fondent la décision.
 
@@ -220,7 +236,10 @@ Deux faits du pipeline fondent la décision.
      sans elle, quelques Ko compressés peuvent devenir 4 Gio.
    - C'est la valeur que conseille `connect-node-server-plugins.md`.
 2. **`writeMaxBytes` = 4 Mio** : l'erreur naît chez nous, journalisée, au lieu d'arriver chez un
-   client qui refuse au-delà.
+   client qui refuse au-delà. Les implémentations de référence ne bornent pas l'émission ; leurs
+   clients, eux, refusent au-delà de 4 Mio par défaut.
+   - **Les deux bornes se règlent** dans la section `grpc` de la configuration http : un framework
+     borne par défaut, il n'interdit pas à une application d'échanger de plus gros messages.
 3. **Appel unaire : l'échéance vaut `min(échéance du client, responseTimeout)`**.
    - L'adaptateur pose l'en-tête d'échéance (`grpc-timeout` ou `connect-timeout-ms` selon le
      protocole) seulement quand le client n'en envoie pas, ou en envoie une plus longue.
@@ -309,7 +328,7 @@ ne sait pas pourquoi l'appel a échoué.
    concluait « rien à coder ». C'est faux pour les clients de la famille grpc-go (`grpcurl`, tout
    client en Go) : ils lisent `INTERNAL` dès que le statut arrive avec un corps, ou sans que la trame
    d'en-têtes porte la fin du flux. Une requête gRPC refusée avant l'adaptateur s'écrit donc en forme
-   gRPC (D13, point 2).
+   gRPC, avec la correspondance des refus de transport (D13, point 2).
 
 **Constaté sur le fil** (essai jetable, `connectNodeAdapter` nu, porte qui lève 16, corps envoyé
 incomplet puis complet ; implémentation appelée 0 fois) :
@@ -343,7 +362,7 @@ comme Nodefony.
 
 - Aucune dépendance transitive : un seul pair, `@bufbuild/protobuf`, qui n'en a aucune non plus.
 - Dépôt `connectrpc/connect-es`, créé par Buf (l'outil `buf` et `protobuf-es`, D2).
-- Statut CNCF Sandbox relevé par la veille, à confirmer aux sources avant acceptation.
+- Projet CNCF au niveau Sandbox (`cncf/landscape`, entrée « Connect RPC », relu le 2026-11-11).
 - Elle est retenue parce qu'elle est la seule à fournir une fonction `(requête, réponse)`, donc
   branchable dans une route. `@grpc/grpc-js`, l'implémentation officielle, ouvre son propre serveur
   (`bindAsync`) : ni pare-feu ni `@IsGranted`, et pas de gRPC-Web. C'est pourtant elle que le SDK
@@ -365,11 +384,14 @@ range ses en-têtes dans une réserve que seul `Response.ts#HttpResponse.writeHe
    services `request` comme toute action, pendant toute la durée du flux.
    - L'identité n'est PAS recopiée dans `contextValues` de Connect : ce serait une seconde source de
      vérité, et une écriture par appel pour rien quand le gestionnaire ne la lit pas.
-   - `contextValues` sert à Nodefony seul : il porte la fiche de l'appel (D8). Connect en alloue un
-     par appel de toute façon (`implementation.js#createHandlerContext`) ; le nôtre le remplace.
-   - Pour le passer, l'adaptateur compose les briques que connect-node publie pour les adaptateurs
-     de framework (`universalRequestFromNodeRequest`, `universalResponseToNodeResponse`), au lieu de
-     `connectNodeAdapter`.
+   - `contextValues` sert à Nodefony seul : il porte la **fiche de l'appel**, que lisent la porte
+     (D5), l'interruption (D8) et la ligne d'accès (D10). Connect en alloue un par appel de toute
+     façon (`implementation.js#createHandlerContext`) ; le nôtre le remplace.
+   - **Une seule composition** : `connectNodeAdapter`, avec trois de ses options publiques —
+     `contextValues` (la fiche), `requestGate` (D5, la porte lit le verdict de Nodefony dans la
+     fiche) et `fallback` (D13). Recomposer soi-même `universalRequestFromNodeRequest` et
+     `universalResponseToNodeResponse` n'apporterait rien, et exposerait à leur promesse qui ne se
+     résout jamais (D7 point 4, signalé : connect-es#1876).
 2. **Les en-têtes du pipeline passent sur la réponse gRPC.** Avant de confier la réponse à Connect,
    l'adaptateur la remet en état comme `HttpResponse.writeHead` le ferait :
    - la réserve (CORS, `Vary`, `Set-Cookie`), `X-Request-Id`, `traceparent` ;
@@ -420,8 +442,10 @@ lit ailleurs que dans `ctx.signal.reason` (`context.abort(e)`). Une `ConnectErro
 Connect la reconnaît à sa forme (`name === "ConnectError"`) : une `HttpError` de Nodefony, levée par
 un service partagé avec des routes HTTP, devient donc 13.
 
-1. **Une seule table HTTP → gRPC**, celle de `google-rpc-code.proto` (« HTTP Mapping »), servie par
-   une seule fonction, que les refus du pipeline (D5) emploient aussi :
+1. **Une table pour les erreurs de l'application**, celle de `google-rpc-code.proto` (« HTTP
+   Mapping »), servie par une seule fonction. Elle ne sert pas aux refus de transport (chemin
+   inconnu, limite de débit), qui ont leur propre correspondance normative (D13, point 2) ; les
+   deux partagent seulement la règle d'identité de la ligne 401/403 (D5) :
 
    | HTTP      | gRPC                           |
    | --------- | ------------------------------ |
@@ -460,7 +484,7 @@ un service partagé avec des routes HTTP, devient donc 13.
    - ⚠️ PAS à la fin de l'`await universalResponseToNodeResponse(…)` : cette promesse attend un
      événement `end` qu'une réponse Node n'émet jamais (`finish`, oui). Constaté à l'essai : elle
      ne se résout pas, en HTTP/1.1 comme en HTTP/2. `connectNodeAdapter` ne l'attend pas, d'où
-     l'absence de symptôme chez Connect.
+     l'absence de symptôme chez Connect (signalé : connect-es#1876).
    - Essai : une exception banale porte sa cause brute dans `ctx.signal.reason` (« base
      injoignable… »), et le client reçoit 13 « internal error », sans la cause.
 5. **Détails riches (`google.rpc.Status`, `ErrorInfo`) : aucun par défaut.**
@@ -491,7 +515,7 @@ Connect offre `shutdownSignal`, mais il y lie un écouteur par appel, unaire com
 `AbortSignal` parcourent les écouteurs déjà posés : le coût de CHAQUE appel croît avec le nombre
 d'appels ouverts (mesure ci-dessous).
 
-1. **Une seule liste de flux longs, celle du noyau, pas une liste gRPC.** Il n'emploie pas
+1. **Une seule liste de flux longs, celle du noyau, pas une liste gRPC.** Nodefony n'emploie pas
    `shutdownSignal`.
    - Ce qui existe (relu au code) :
      - `HttpKernel.#streams`, un `RevocationWatch` dont le `Set` ne tient que les flux PORTEURS
@@ -508,10 +532,18 @@ d'appels ouverts (mesure ci-dessous).
      (D6 point 3) ; SSE et les flux d'octets en profitent aussi.
    - Le `RevocationWatch` reste réservé aux flux à identité : y mettre les anonymes ferait
      travailler chaque fenêtre de 30 s pour rien.
+   - **Pour SSE, la fin à l'arrêt est une fermeture simple du flux** : `EventSource` se reconnecte,
+     vers un autre exemplaire. Ce n'est jamais la fin d'un canal d'ADR-0021 S4 (le 204, qui dit de
+     ne pas revenir). Changement de comportement d'une livraison gelée : précisé dans ADR-0021.
 2. **À l'étape de la fermeture 1001 des WebSocket, chaque flux ouvert est interrompu avec 14
    `UNAVAILABLE`** (« réessaie, ailleurs ») par `ctx.abort(…)`.
    - Coopératif : `ctx.signal` prévient le gestionnaire, qui termine. La documentation le prescrit :
      passer `ctx.signal` à ses sources.
+   - `abort` n'est pas sur le type `HandlerContext` que reçoit le gestionnaire. Il est déclaré par
+     le type de retour de `createHandlerContext`, fonction PUBLIQUE de `@connectrpc/connect`
+     (`index.d.ts`, sans marque `@private`), qui crée ce contexte. L'adaptateur l'atteint par un
+     garde de type, jamais une conversion, et un test casse si Connect le retire. Sans lui,
+     l'enrobage de l'itérateur (point suivant) arrête seul le gestionnaire qui produit.
    - Pour le gestionnaire sourd qui produit encore : l'itérateur de l'appel est enrobé. Après
      l'interruption, sa lecture et son écriture suivantes échouent avec ce statut, que Connect écrit
      en trailer. La révocation (D6) emprunte le même mécanisme.
@@ -530,9 +562,12 @@ d'appels ouverts (mesure ci-dessous).
    La deuxième ligne vaut aussi pour `shutdownSignal` de Connect : il ne fait qu'abattre
    `ctx.signal`, et n'arrête pas un gestionnaire sourd.
 
-3. **Un appel unaire en vol n'est pas interrompu** : il finit pendant le drain, borné par son
-   échéance (D4), comme l'arrêt gracieux de gRPC. Un appel neuf après le GOAWAY est refusé par
-   HTTP/2, et le client réessaie.
+3. **Un appel unaire en vol n'est pas interrompu** : il finit pendant le drain, comme l'arrêt
+   gracieux de gRPC. Un appel neuf après le GOAWAY est refusé par HTTP/2, et le client réessaie.
+   - Le drain dure `shutdownTimeout` (5 s), l'échéance par défaut d'un unaire 30 s (D4) : un appel
+     plus long que le drain voit sa connexion détruite, et le client lit `UNAVAILABLE`, qu'il
+     rejoue ailleurs. Ce statut vient du transport, pas de Nodefony : à prouver par S-grpc-35.
+   - Une application aux appels longs règle `shutdownTimeout` au-dessus de son échéance.
 
 **Coût, mesuré** (médiane de 7 passes, Node du poste) :
 
@@ -551,11 +586,11 @@ qui alloue une `DOMException` avec sa pile : 12,3 µs contre 4,8 µs avec un mot
 **≈ 7,5 µs évitables sur chaque appel**. C'est un plancher de la bibliothèque, pas un surcoût de
 Nodefony ; il entre dans la mesure par appel de #695.
 
-Trois signalements amont à Connect sont rédigés (promesse qui ne se résout pas, `DOMException` par
-appel, `shutdownSignal` linéaire), reproductions et mesures comprises ; un quatrième, chez Node
-(coût linéaire d'`EventTarget`), est retenu : le cas courant y va bien, et le motif disparaît si
-Connect corrige le sien. Brouillons : commentaire « Signalements amont » de #695. Envoi sur GO de
-l'auteur.
+Trois signalements amont sont envoyés à Connect, reproductions et mesures comprises :
+connect-es#1876 (promesse qui ne se résout pas), #1877 (`DOMException` par appel), #1878
+(`shutdownSignal` linéaire). Un quatrième, chez Node (coût linéaire d'`EventTarget`), est retenu :
+le cas courant y va bien, et le motif disparaît si Connect corrige le sien. Texte : commentaire
+« Signalements amont » de #695.
 
 ### D9 — Les navigateurs d'une autre origine (CORS)
 
@@ -733,8 +768,9 @@ tourne déjà à la publication.
 - **Le diagnostic.** `Kernel.ts#Kernel.bootRemediationHint` lit tout `ERR_MODULE_NOT_FOUND` comme
   un « dist périmé ». Or Node distingue les deux cas : `Cannot find package '<nom>'` pour un paquet
   absent, `Cannot find module '<chemin>'` pour un fichier absent.
-- **D1 point 7 était déjà inexact pour protobuf.** `@GrpcService(Contrat)` fait importer le code
-  généré directement par le contrôleur, si bien que protobuf se charge au démarrage.
+- **Le « premier appel » du POC ne tient pas pour protobuf.** `@GrpcService(Contrat)` fait importer
+  le code généré directement par le contrôleur, si bien que protobuf se charge au démarrage (D1
+  point 7, écrit en conséquence).
 
 1. **Pairs facultatifs**, jamais des `dependencies` :
    - `@nodefony/http` déclare les trois paquets (`peerDependencies` et
@@ -780,11 +816,11 @@ tourne déjà à la publication.
 
 **Coût**
 
-| Chemin                        | Coût                                                      |
-| ----------------------------- | --------------------------------------------------------- |
-| Application sans service gRPC | 0 : rien d'installé, rien de chargé                       |
-| Démarrage avec un service     | 171 ms et 6,6 Mo de tas, une fois par processus (mesurés) |
-| Appel, message                | 0                                                         |
+| Chemin                        | Coût                                                                                   |
+| ----------------------------- | -------------------------------------------------------------------------------------- |
+| Application sans service gRPC | rien d'installé, rien de chargé ; le champ `rpc` `null` de D10 (8 octets par contexte) |
+| Démarrage avec un service     | 171 ms et 6,6 Mo de tas, une fois par processus (mesurés)                              |
+| Appel, message                | 0                                                                                      |
 
 ### D13 — Interopérabilité avec `@grpc/grpc-js` et `grpcurl`
 
@@ -823,9 +859,10 @@ transports de connect-es.
   - Cause : quand aucune route ne correspond, `http-kernel.ts#HttpKernel.serveHttpRequest` lit le
     corps jusqu'au bout avant le 404. Le client d'un flux attend une réponse avant de finir son
     envoi.
-  - En HTTP/2, aucun délai ne borne cette lecture. C'est un défaut général du transport, hors gRPC,
-    constaté sur un POST nu (aucune réponse au bout de 40 s, alors que HTTP/1.1 coupe à 30 s) :
-    ticket #765.
+  - En HTTP/2, aucun délai ne bornait cette lecture : défaut général du transport, hors gRPC,
+    constaté sur un POST nu (aucune réponse au bout de 40 s, alors que HTTP/1.1 coupe à 30 s).
+    Corrigé par #765 (fermé) : 408 vers 31 s. Le point 1 reste nécessaire, un 404 n'a pas à
+    attendre le corps.
 
 1. **Ne pas lire le corps quand le routage a déjà échoué** (404, 405) :
    - l'ordre des gardes reste inchangé : en-têtes du schéma, domaine (421), crochet `beforeResolve`,
@@ -839,18 +876,39 @@ transports de connect-es.
    - une seule fonction dans `@nodefony/http`, sans Connect, appelée à deux endroits :
      - par le rendu d'erreur du noyau (404, 405, 429, 421…) ;
      - comme `fallback` de `connectNodeAdapter` (méthode inconnue, casse modifiée) ;
-   - le code suit la table de correspondance déjà posée (D7) ; jamais une seconde table ;
+   - le code est celui qu'un client conforme aurait déduit du statut HTTP : la **correspondance des
+     refus de transport** (`grpc-http-grpc-status-mapping.md`), servie par une seule fonction,
+     distincte de la table des erreurs de l'application (D7) :
+
+     | HTTP               | gRPC                                                            |
+     | ------------------ | --------------------------------------------------------------- |
+     | 400                | 13 `INTERNAL`                                                   |
+     | 401, 403           | 16 ou 7, selon l'identité (D5)                                  |
+     | 404, 405           | 12 `UNIMPLEMENTED` (405 : aucune méthode gRPC à ce chemin)      |
+     | 421                | 14 `UNAVAILABLE` (RFC 9110 : réessayer sur une autre connexion) |
+     | 429, 502, 503, 504 | 14 `UNAVAILABLE`                                                |
+     | autre              | 2 `UNKNOWN`                                                     |
+
+     405 et 421 manquent à la table normative, qui les laisserait en `UNKNOWN` ; le motif de chacun
+     est écrit dans la colonne ;
+
    - en HTTP/2, l'écriture passe par `stream.respond(en-têtes, { endStream: true })`, jamais par
      `writeHead` puis `end`. Cette seconde forme est constatée fausse chez les deux clients ;
    - gRPC-Web et le protocole Connect gardent leurs statuts HTTP : connect-es les lit
      correctement, et c'est ce que la spécification de Connect prescrit.
-3. **Les preuves tournent sur les deux clients** :
+3. **Une requête gRPC native qui aboutit à une route qui n'est pas gRPC est refusée en 12
+   `UNIMPLEMENTED`**, jamais servie. Le Router fusionne routes littérales et motifs par ordre
+   d'insertion, les replis en dernier (`router.ts`, commentaire de l'index) : sous une route
+   attrape-tout (page unique), une méthode inconnue n'échoue pas au routage, elle reçoit la page en
+   200 ou un 405 (S-grpc-19). Coût : une comparaison de préfixe du `content-type`, sur une requête
+   POST qui aboutit à une route non gRPC, et seulement quand un service est déclaré.
+4. **Les preuves tournent sur les deux clients** :
    - `@grpc/grpc-js` et `@grpc/proto-loader` en dépendances de développement du banc ;
    - `grpcurl`, version figée, installé dans la CI Linux sur le patron de gitleaks
      (`.github/workflows/secrets.yml`), et déclaré dans `scripts/test/vitest/gates.ts` ;
    - le cas « `writeHead` puis `end` » est vu rouge une fois.
-4. **Signalement amont à connect-es** : le 404 nu par défaut que grpc-go lit `INTERNAL`. Il est
-   rédigé et envoyé seulement sur le GO de l'auteur, comme #1876 à #1878.
+5. **Signalement amont à connect-es** : le 404 nu par défaut que grpc-go lit `INTERNAL`. Envoyé :
+   connect-es#1882, remesuré sur le vrai `connectNodeAdapter` avant l'envoi.
 
 **Coût**
 
@@ -878,14 +936,95 @@ transports de connect-es.
   (S-grpc-12, S-grpc-14). Le « deux » existe déjà sous forme de couches : contrôleur pour
   l'entrée, service pour la logique.
 
+Ailleurs dans l'ADR, les autres écarts sont écrits à leur décision : `shutdownSignal` (D8),
+paquet `@nodefony/grpc` à part (D11), `maxTimeoutMs` (D4), recomposition de l'adaptateur (D6).
+
+## Contrôle de non-blocage
+
+Les tickets qui bâtissent sur cet adaptateur ne doivent pas exiger de rupture.
+
+| Ticket                                        | Ce qu'il lui faut                                                        | Empêché ?                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| --------------------------------------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| #745, pont vers le hub (`@nodefony/realtime`) | un `ChannelSink` par abonné, refus avant le premier message, fin à motif | **non** : `realtime` dépend déjà de http et de framework ; D7 traduit les refus avant le premier message. **Contrainte** : Connect sérialise chaque message par appel (`serialization.js#createBinarySerialization`), sans voie publique pour des octets déjà encodés. La règle d'ADR-0021 (« jamais un réencodage par abonné ») se tient par un message à champ `bytes` portant les octets de `ChannelFrame` : une copie par abonné en binaire, un base64 par abonné en JSON (Connect, gRPC-Web JSON). Coût à mesurer et forme à trancher dans #745 ; ses pairs Connect s'ajoutent au test de parité des plages (D12, point 2). |
+| #697, santé et réflexion                      | servies sans jeton, joignables par la sonde de Kubernetes                | **non**, mais trois choix sont ouverts et appartiennent à #697 : les sortir d'une zone de pare-feu qui couvre `/` (sinon D5 rend 16 à la sonde) ; leur paquet d'accueil (un `GrpcController` vit dans framework, que http ne peut pas importer) ; la sonde en clair face à h2c, activation explicite (D3, point 4).                                                                                                                                                                                                                                                                                                              |
+
 ## Conséquences
 
-- `@nodefony/framework` gagne `GrpcController` et `@GrpcService` (marqués `@experimental`) ;
-  `@nodefony/http` garde la primitive de transport.
-- **Preuves exigées par #695** (tests vus rouges une fois) : refus `@IsGranted` en statut gRPC sur
-  les trois protocoles ; chemin à casse modifiée → `UNIMPLEMENTED` sans appel ; garde au démarrage
-  (décorateur sans effet, méthode manquante) ; `GET` refusé sur une méthode sans
-  `NO_SIDE_EFFECTS` ; contexte de requête (ALS) visible dans un flux long ; aucune instance de
-  contrôleur par appel.
-- **Mesure exigée par #695** : surcoût du pipeline par appel unaire contre l'adaptateur nu sur
-  `http2.createServer`, serveur en production, médiane de N passes, petite charge comprise.
+- **`@nodefony/framework`** gagne `GrpcController` et `@GrpcService`, et le sous-chemin
+  `@nodefony/framework/grpc` ; **`@nodefony/http`** garde la primitive de transport, sous
+  `@nodefony/http/grpc`. Connect et protobuf sont des pairs facultatifs des deux paquets (D12).
+- **Le noyau change pour toutes les routes, gRPC ou non** :
+  - un 404 ou un 405 ne lit plus le corps (D13, point 1) ;
+  - un registre de tous les flux longs ferme SSE, octets et gRPC à l'arrêt (D8) ;
+  - `HttpContext.rpc` et `IRequestTrace.rpc` existent, `null` hors RPC (D10) ;
+  - le relais ne recopie plus le statut de l'amont quand le client est parti (D10, point 2) ;
+  - `bootRemediationHint` distingue un paquet absent d'un `dist` périmé (D12, point 5).
+- **Configuration** : une section `grpc` dans la configuration http (protocoles servis, bornes de
+  taille, `requireConnectProtocolHeader`) ; la politique CORS reçoit au démarrage l'union avec les
+  listes de Connect quand un service est déclaré (D9).
+- **Politique de compatibilité** : contrôle de stabilité au grain du symbole, tableau des symboles
+  expérimentaux d'un paquet stable, changelog qui distingue un changement expérimental d'une
+  rupture (D11).
+- **Preuves exigées par #695** (tests vus rouges une fois) : les critères de fin du ticket, 1 à 49
+  et 51 à 54 (le 50 est passé à #764), dont l'interopérabilité en CI contre `@grpc/grpc-js` et
+  `grpcurl` (D13).
+- **Mesures exigées par #695** : surcoût du pipeline par appel unaire contre l'adaptateur nu sur
+  `http2.createServer`, serveur en production, médiane de N passes, petite charge comprise ; débit
+  d'un flux serveur contre la socket binaire, avec le plancher par message de l'adaptateur (D4) ;
+  coût d'un unaire à 0, 1 000 et 10 000 flux ouverts (D8).
+
+## Matrice des scénarios
+
+Chaque scénario du catalogue, avec la décision qui le tient. « À prouver » : la décision le tient
+sur le papier, un test de #695 doit le montrer.
+
+| Scénario | Décision(s)             | Verdict                                                                      |
+| -------- | ----------------------- | ---------------------------------------------------------------------------- |
+| 1        | D1, D5                  | tient                                                                        |
+| 2        | —                       | ouvert, appartient à #697 (contrôle de non-blocage)                          |
+| 3        | —                       | ouvert, appartient à #745 (contrôle de non-blocage)                          |
+| 4        | D1, D3                  | tient : chemins à la racine, h2c opt-in                                      |
+| 5        | D1 point 3, D4          | tient ; mesure exigée                                                        |
+| 6        | D4, D8                  | tient, sans `shutdownSignal`                                                 |
+| 7        | D3                      | tient : aucun état partagé par le transport                                  |
+| 8        | D11                     | tient                                                                        |
+| 9        | D1 point 6, D4, D5, D13 | tient                                                                        |
+| 10       | D2 point 6              | tient                                                                        |
+| 11       | D1                      | tient                                                                        |
+| 12       | D1, D2                  | tient                                                                        |
+| 13       | D10                     | tient                                                                        |
+| 14       | D1, D7, D8              | tient : une fonction par correspondance, un registre                         |
+| 15       | D1                      | tient                                                                        |
+| 16       | D11, D12                | tient                                                                        |
+| 17       | D1                      | tient                                                                        |
+| 18       | D1 point 5              | tient                                                                        |
+| 19       | D1, D13 point 3         | tient ; à prouver sous une route attrape-tout                                |
+| 20       | D2 point 3              | tient                                                                        |
+| 21       | D2 point 1              | tient                                                                        |
+| 22       | D3 point 3, D9          | tient                                                                        |
+| 23       | D3                      | tient                                                                        |
+| 24       | D4 point 1              | tient                                                                        |
+| 25       | D4 point 4              | tient                                                                        |
+| 26       | D4 point 3              | tient                                                                        |
+| 27       | D4                      | tient                                                                        |
+| 28       | D5 point 3              | tient                                                                        |
+| 29       | D13 point 2             | tient                                                                        |
+| 30       | D5                      | tient                                                                        |
+| 31       | D6 point 1              | tient                                                                        |
+| 32       | D6 point 2              | tient                                                                        |
+| 33       | D6 point 3, D8 point 2  | tient                                                                        |
+| 34       | D7                      | tient                                                                        |
+| 35       | D8                      | tient pour les flux ; unaire plus long que le drain : à prouver (D8 point 3) |
+| 36       | D8                      | tient ; mesure exigée                                                        |
+| 37       | D9                      | tient                                                                        |
+| 38       | D10                     | tient                                                                        |
+| 39       | D10 point 2             | tient                                                                        |
+| 40       | D10 point 5             | tient                                                                        |
+| 41       | D11                     | tient                                                                        |
+| 42       | D11 point 5             | tient                                                                        |
+| 43       | D12 point 3             | tient                                                                        |
+| 44       | D12 points 4 et 5       | tient                                                                        |
+| 45       | D12 point 2             | tient                                                                        |
+| 46       | D13 point 1             | tient ; à remesurer après #765                                               |
+| 47       | D13 point 2             | tient                                                                        |
+| 48       | D13 point 4             | tient                                                                        |

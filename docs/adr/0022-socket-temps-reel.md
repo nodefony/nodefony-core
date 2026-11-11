@@ -35,6 +35,8 @@ décisions S1 à S9 font foi ici ; les webhooks sont [ADR-0023](0023-webhooks-ev
 Les huit décisions de gel de #630 sont **déjà prises** (commit `1df6614c1`) : reprises, jamais
 rediscutées. Les tickets #618, #622, #623, #626, #628, #629 et #619 appliquent ce document. Le
 média (capture, codec audio) relève de l'ADR demandé par #624 : rien ici ne le recouvre.
+Précisé le 2026-11-11 par [ADR-0026](0026-service-grpc-declare-par-un-module.md) (D12) : le codec
+protobuf de la socket n'arrive pas avec l'Epic gRPC (§2, lignes datées).
 
 ## Contexte
 
@@ -127,6 +129,9 @@ dans l'écho du handshake, et le défaut d'écho de `ws` ne change pas en 10.x (
   n'émet pas le champ de codec. **Protobuf** n'arrive qu'avec l'Epic gRPC
   #694 : un seul usage connu d'ici là (règle de #621), et une dépendance que gRPC rendra de toute
   façon nécessaire ; son enveloppe ci-dessus est une intention, pas un engagement.
+  _Précisé le 2026-11-11 par ADR-0026 (D12) : l'Epic gRPC n'amène protobuf qu'en pair FACULTATIF
+  de `@nodefony/http` et `@nodefony/framework`, jamais au cœur ni dans `nodefony/client`. Le
+  codec protobuf de la socket n'en découle donc pas : il attend un usage à lui._
 - **JSON est la référence de tous les codecs** (remplace la règle « refus à l'encodage »,
   décision de l'auteur du 2026-10-29, après le banc) : quel que soit le codec, on reçoit **ce que
   `JSON.stringify` puis `JSON.parse` rendraient** — une `Date` devient sa chaîne ISO, `NaN` devient
@@ -1204,7 +1209,8 @@ fin de flux (section 7). Aucun vocabulaire d'A2A n'entre dans la socket.
   le pilote Redis (#618, S8) ; un champ inconnu dans `subscribe` ignoré par un serveur publié
   (#629, contrôle 5) ; un éjecté sur un pod non servi par un autre (#623) ; le codec CBOR
   maison branché sur le pair, octets intacts sans copie au décodage (#618) ; le poids du moteur
-  protobuf dans `nodefony/client` face à `.size-budgets.json` (#694, avec protobuf — §2).
+  protobuf dans `nodefony/client` face à `.size-budgets.json` (avec le codec protobuf de la
+  socket, le jour où il a un usage — §2 ; #694 ne l'amène pas au client, ADR-0026 D12).
 - À l'accord de l'auteur : un tsconfig neutre pour le serveur du paquet realtime (section 10).
 - `docs/protocole.md` écrit la reconnexion et la fin de flux avant qu'un protocole tiers s'y appuie.
 
