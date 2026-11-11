@@ -192,10 +192,75 @@ gabarit d'application (accord de l'auteur requis pour un `package.json`).
 Un client gRPC natif qui vise 5151 n'obtient pas un statut gRPC : le serveur HTTP/1.1 ne comprend
 pas la préface HTTP/2 et la connexion échoue — le test exige qu'elle échoue franchement et vite.
 
-### D4 à D13 — à rendre
+### D4 — Les limites : taille, durée, flux
 
-Limites (`readMaxBytes`, `writeMaxBytes`, `maxTimeoutMs`,
-`requireConnectProtocolHeader`) ; pare-feu et format des refus (`requestGate`, 16 / 7) ; contexte
+**Décision (tranchée sur délégation de l'auteur le 2026-11-11) :**
+
+Deux faits du pipeline fondent la décision.
+
+- **Le pipeline lit le corps d'un POST avant le contrôleur**
+  (`http-kernel.ts#HttpKernel.serveHttpRequest` → `Request.ts#HttpRequest.initialize`), ce qui
+  rendrait tout flux gRPC impossible. La route gRPC pose donc `bodyStream: true` (mécanisme
+  existant, celui de `@Body({ stream: true })`). Conséquence : `http.maxBodySize` (1 Mio, 413) ne
+  la borne plus, et seule reste la borne de l'adaptateur.
+- **À l'expiration du délai de réponse, Nodefony écrit lui-même un 504/408**
+  (`HttpContext.ts#HttpContext._onTimeout`). Sur une réponse que l'adaptateur possède, ce serait
+  un second écrivain. Sur une route gRPC, le délai de Nodefony est donc désarmé, et l'échéance
+  appartient à l'adaptateur : **un seul écrivain**.
+
+1. **`readMaxBytes` = 4 Mio par message**, au-delà le statut 8 `RESOURCE_EXHAUSTED`
+   (`grpc-statuscodes.md` : « Sent or received message was larger than configured limit »).
+   - Le défaut de l'adaptateur vaut `0xffffffff` (`limit-io.js`), c'est-à-dire aucune borne.
+   - La borne s'applique aussi à la décompression (`envelope.js` : `decompress(data, readMaxBytes)`) :
+     sans elle, quelques Ko compressés peuvent devenir 4 Gio.
+   - C'est la valeur que conseille `connect-node-server-plugins.md`.
+2. **`writeMaxBytes` = 4 Mio** : l'erreur naît chez nous, journalisée, au lieu d'arriver chez un
+   client qui refuse au-delà.
+3. **Appel unaire : l'échéance vaut `min(échéance du client, responseTimeout)`**.
+   - L'adaptateur pose l'en-tête d'échéance (`grpc-timeout` ou `connect-timeout-ms` selon le
+     protocole) seulement quand le client n'en envoie pas, ou en envoie une plus longue.
+   - À l'échéance, l'adaptateur rend le statut 4 `DEADLINE_EXCEEDED`, dans le format du protocole.
+   - Le gestionnaire lit le temps restant par `ctx.timeoutMs()`, et `ctx.signal` interrompt le
+     travail en cours.
+   - Le client n'obtient jamais le 408 ou 504 générique, qu'il lirait comme `UNKNOWN`.
+   - Aucune clé neuve : la valeur est celle de toute route.
+4. **Flux (serveur, client, bidirectionnel) : aucune échéance par défaut**, comme le veut gRPC
+   (un abonnement vit longtemps).
+   - Le flux s'ouvre par `StreamLifecycle.ts#openStreamLifecycle`, comme SSE et les flux d'octets :
+     - le délai d'inactivité est désarmé ;
+     - le flux prend une place dans le budget de connexions longues par IP (`wsMaxConnectionsPerIp`) ;
+     - `maxDuration` est désactivé ;
+     - la fermeture est suivie.
+   - Le client qui ne lit plus est coupé après le délai de blocage (30 s, la règle de
+     `StreamLifecycle.armStall`). Comme l'adaptateur garde ses écritures, ce blocage s'observe par
+     **un seul balayage paresseux** qui lit `writableNeedDrain` des flux ouverts, puis appelle
+     `armStall` / `clearStall` : le seuil reste dans `StreamLifecycle` (une règle, une
+     implémentation), et le coût par message est nul.
+5. **`maxTimeoutMs` n'est pas posé** : il REFUSERAIT (`INVALID_ARGUMENT`) le client qui demande plus
+   long (`connect-node-timeouts.md`). On rabote son échéance au lieu de la refuser.
+6. **`requireConnectProtocolHeader` = `false`**, réglable dans la section `grpc` :
+   - le CSRF est déjà fermé (D3, point 3) ;
+   - exiger l'en-tête casse `curl` et le JSON écrit à la main ;
+   - la norme dit « may reject » (`connect-protocol.md`).
+
+**Coût, mesuré** (médiane de 7 passes d'un million d'itérations, Node du poste) :
+
+| Geste                                                                 | Quand                                                      | Coût                                                                                                                                                     |
+| --------------------------------------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Comparaison de taille (`readMaxBytes`, `writeMaxBytes`)               | chaque message                                             | **0 de plus** : l'adaptateur la fait déjà avec son défaut (≈ 5 ns)                                                                                       |
+| Minuteur d'échéance (`setTimeout` + `clearTimeout`)                   | chaque appel unaire                                        | ≈ 0,4 µs. En HTTP/2, il **remplace** celui que Nodefony arme déjà par flux (`HttpContext.setTimeout`), d'où 0 de plus. En HTTP/1.1, c'est 0,4 µs de plus |
+| Pose de l'en-tête d'échéance (chaîne constante calculée au démarrage) | appel sans échéance                                        | ≤ 80 ns (borne haute : la mesure inclut un `delete`)                                                                                                     |
+| Cycle de vie du flux                                                  | ouverture d'un flux                                        | celui de SSE, une fois par flux, jamais par message                                                                                                      |
+| Balayage de blocage                                                   | un minuteur pour tous les flux, armé seulement s'il y en a | 0 par message                                                                                                                                            |
+
+Ce que D4 ne décide pas, et qu'il faut mesurer : le **plancher par message** de l'adaptateur. Chaque
+écriture crée une promesse et pose puis retire deux écouteurs
+(`node-universal-handler.js#write`). Pour un framework de référence du temps réel, le débit d'un
+flux serveur se compare à celui de la socket binaire, à charge utile égale (« Fini quand » de #695).
+
+### D5 à D13 — à rendre
+
+Pare-feu et format des refus (`requestGate`, 16 / 7) ; contexte
 Nodefony (`requestId`, ALS, portée d'injection, identité) ; erreurs riches (`ErrorInfo`) ; arrêt
 (`shutdownSignal` → `UNAVAILABLE`) ; CORS ; OpenTelemetry et journal d'accès ; `@experimental` au
 grain du symbole ; dépendances paires facultatives ; interopérabilité. Détail : ticket #695.

@@ -139,6 +139,40 @@ Le champ « A fait changer » garde la trace des cas qui ont coûté : il ne se 
   connexion qui pend.
 - **A fait changer** : D3 — l'annonce d'un « refus gRPC » sur 5151 était fausse.
 
+### S-grpc-24 — Une bombe de décompression
+
+- **Situation** : un message gzip de quelques Ko qui se décompresse en plusieurs Gio ; ou un corps
+  de 200 Mio envoyé à une route gRPC, que `http.maxBodySize` ne borne plus (`bodyStream`).
+- **Tient si** : `readMaxBytes` (4 Mio) borne la décompression elle-même (`envelope.js`) ; refus
+  `RESOURCE_EXHAUSTED`, méthode non appelée (témoin), mémoire du processus plate.
+- **A fait changer** : D4 — le défaut de l'adaptateur (`0xffffffff`) n'est aucune borne.
+
+### S-grpc-25 — Un client qui ne lit plus son flux
+
+- **Situation** : flux serveur ouvert, le client cesse de lire (fenêtre HTTP/2 pleine), ou ouvre
+  100 flux et n'en lit aucun.
+- **Tient si** : coupure après le délai de blocage (`StreamLifecycle.armStall`), place rendue au
+  budget par IP ; un abonnement MUET (rien à écrire) n'est jamais coupé.
+- **A fait changer** : D4 — le blocage est observé par balayage (`writableNeedDrain`), l'adaptateur
+  gardant ses écritures.
+
+## Panne et réseau (suite)
+
+### S-grpc-26 — Un gestionnaire qui ne rend jamais la main
+
+- **Situation** : appel unaire sans `grpc-timeout`, gestionnaire bloqué sur une base qui ne répond
+  pas.
+- **Tient si** : échéance posée à `responseTimeout` → `DEADLINE_EXCEEDED`, `ctx.signal` interrompt
+  le travail ; un client qui demande plus long est raboté, jamais refusé.
+- **A fait changer** : D4 — sans échéance du client, l'adaptateur n'en pose aucune.
+
+### S-grpc-27 — Deux écrivains sur la même réponse
+
+- **Situation** : le délai de réponse de Nodefony expire pendant qu'un appel gRPC est en cours.
+- **Tient si** : le délai de Nodefony est désarmé sur une route gRPC ; seul l'adaptateur écrit
+  (statut 4), jamais un 504/408 HTML ou JSON par-dessus.
+- **A fait changer** : D4 — `HttpContext._onTimeout` écrit lui-même la réponse.
+
 ## Plateformes
 
 ### S-grpc-10 — Linux, macOS, Windows
