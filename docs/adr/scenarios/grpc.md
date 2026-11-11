@@ -173,6 +173,20 @@ Le champ « A fait changer » garde la trace des cas qui ont coûté : il ne se 
   portée d'injection).
 - **A fait changer** : D1.
 
+### S-grpc-20 — Le code généré dérive de son contrat
+
+- **Situation** : un contrat modifié sans régénération, ou un générateur mis à jour (le POC est
+  généré par protoc-gen-es 2.16.0, la 2.17.0 est installée).
+- **Tient si** : la CI régénère et échoue sur toute différence, en lisant `buf.gen.yaml`.
+- **A fait changer** : D2 — code généré versionné ET gardé.
+
+### S-grpc-21 — Une application et un module, plusieurs dossiers de contrats
+
+- **Situation** : contrats propres dans `proto/`, contrat tiers copié dans `vendor/`, dans
+  l'application comme dans un module publié.
+- **Tient si** : même disposition partout ; `buf.yaml` réunit plusieurs dossiers (essayé).
+- **A fait changer** : D2 — la question « nouveau module ou nouvelle app ? » : ni l'un ni l'autre.
+
 ## Antériorités consultées pour D1
 
 Formes connues de déclaration d'un service gRPC dans les frameworks serveur (relevé de mémoire,

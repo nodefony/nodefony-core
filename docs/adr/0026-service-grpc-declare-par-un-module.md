@@ -110,10 +110,63 @@ Ce que la forme engage :
 7. **Coût nul** pour une application qui ne déclare aucun service : adaptateur, runtime protobuf et
    code généré chargés au premier appel (prouvé par le POC #690).
 
-### D2 à D13 — à rendre
+### D2 — Où vivent le contrat et le code généré
 
-Emplacement des `.proto` et du code généré (`edition = "2024"`) ; ports et protocoles servis par
-défaut ; limites (`readMaxBytes`, `writeMaxBytes`, `maxTimeoutMs`,
+**Décision (validée par l'auteur le 2026-11-11) :** une **convention par défaut, jamais une
+obligation** — Nodefony ne lit aucun de ces fichiers à l'exécution ; le contrôleur importe le code
+généré par un import ordinaire. Identique dans une application (sa racine est un module) et dans un
+module :
+
+```
+<application ou module>/
+├── buf.yaml        modules: [proto, …], deps, lint STANDARD, breaking FILE
+├── buf.gen.yaml    protoc-gen-es → out: nodefony/gen, target=ts
+├── proto/<paquet>/v1/*.proto
+└── nodefony/
+    ├── controllers/…          les points d'entrée (D1)
+    └── gen/<paquet>/v1/*_pb.ts   GÉNÉRÉ, versionné, jamais édité
+```
+
+1. **`proto/`** à la racine, hors du bundler : le contrat public, lisible par les clients d'autres
+   langages. Nom des guides protobuf-es et connect-node (`modules: - path: proto`). Plusieurs
+   dossiers de contrats sont permis (`modules: [proto, vendor]`, essayé : `buf build` les réunit).
+2. **`nodefony/gen/`** : nom de l'écosystème (`out: gen` chez connect-node, `src/gen` chez
+   protobuf-es) ; pas `grpc/`, les messages protobuf servent au-delà de gRPC (codec, ADR-0022).
+   Chaque fichier garde le suffixe imposé `*_pb.ts`, que les outils du dépôt excluent déjà
+   (`.prettierignore`, `.oxlintrc.json`).
+3. **Le développeur génère** (`npx buf generate`) après avoir modifié un contrat ; le code généré
+   est **commité** ; Nodefony ne génère rien au build ni au démarrage. **La CI refuse la dérive** :
+   elle régénère et échoue sur toute différence, en lisant `buf.gen.yaml` (aucun chemin codé en
+   dur). La dérive existe déjà : le fichier du POC est généré par protoc-gen-es 2.16.0, la 2.17.0
+   est installée.
+4. **`edition = "2024"`** pour un contrat neuf ; `proto3` accepté (A2A, santé et réflexion le sont).
+5. **Lint `STANDARD`** (dossier = paquet, paquet versionné `.v1`) et **`breaking FILE`**, la règle la
+   plus stricte, qui inclut `WIRE_JSON` — Connect sert aussi du JSON.
+6. **Outils** : `@bufbuild/buf` et `@bufbuild/protoc-gen-es` en dépendances de développement ; buf
+   publie ses binaires pour les trois plateformes (Windows x64 et arm64 compris).
+7. **Contrats tiers — essayés le 2026-11-11, code produit compilé en `strict`** :
+   - santé et réflexion : `buf.build/grpc/grpc` (`--path grpc/health/v1/health.proto`,
+     `--path grpc/reflection/v1/reflection.proto`) ; le framework les livre DÉJÀ générées (#697),
+     l'application n'a rien à générer ;
+   - A2A n'est PAS publié sur le registre buf (`resource "a2aproject/a2a" was not found` — un
+     `curl` qui rend 200 sur `buf.build/…` ne prouve rien, c'est une page générique). Il se génère
+     depuis son dépôt, version épinglée, sans copie :
+     `inputs: - git_repo: https://github.com/a2aproject/A2A.git, tag: v1.0.1, subdir: specification` ;
+     ses imports `google/api/*` suivent par son propre `buf.lock` ;
+   - `include_imports: true` est requis pour générer ces imports ; les types bien connus
+     (`google/protobuf/*`) viennent de `@bufbuild/protobuf/wkt`, jamais régénérés.
+8. **Dépendances npm** : le générateur (`@bufbuild/buf`, `@bufbuild/protoc-gen-es`) en
+   `devDependencies` ; le runtime (`@bufbuild/protobuf`, `@connectrpc/connect`,
+   `@connectrpc/connect-node`) en `dependencies` de l'application — une installation de
+   production (`npm ci --omit=dev`) n'aurait sinon pas l'adaptateur (le POC les range tous en
+   développement : module de test, jamais installé en production). Plages et pairs facultatifs : D12.
+
+Hors D2 : un générateur `nodefony create` pour un service gRPC et un script `grpc:generate` au
+gabarit d'application (accord de l'auteur requis pour un `package.json`).
+
+### D3 à D13 — à rendre
+
+Ports et protocoles servis par défaut ; limites (`readMaxBytes`, `writeMaxBytes`, `maxTimeoutMs`,
 `requireConnectProtocolHeader`) ; pare-feu et format des refus (`requestGate`, 16 / 7) ; contexte
 Nodefony (`requestId`, ALS, portée d'injection, identité) ; erreurs riches (`ErrorInfo`) ; arrêt
 (`shutdownSignal` → `UNAVAILABLE`) ; CORS ; OpenTelemetry et journal d'accès ; `@experimental` au
