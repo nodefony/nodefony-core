@@ -163,8 +163,9 @@ module :
    production (`npm ci --omit=dev`) n'aurait sinon pas l'adaptateur (le POC les range tous en
    développement : module de test, jamais installé en production). Plages et pairs facultatifs : D12.
 
-Hors D2 : un générateur `nodefony create` pour un service gRPC et un script `grpc:generate` au
-gabarit d'application (accord de l'auteur requis pour un `package.json`).
+Hors D2 : la variante `nodefony create controller --kind grpc` (contrat, `buf.yaml`,
+`buf.gen.yaml`, code généré, contrôleur, dépendances) et un script `grpc:generate` au gabarit
+d'application (accord de l'auteur requis pour un `package.json`) — ticket #764, après #695.
 
 ### D3 — Sur quels ports, avec quels protocoles
 
