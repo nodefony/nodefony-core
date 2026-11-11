@@ -169,6 +169,11 @@ export class ChannelPresence implements IPresenceAggregate {
   // La dernière trame complète nommait-elle les présents ? Au retour sous le
   // seuil, la vue cliente est vide d'identités : la liste est due à tous.
   #namedSent = true;
+  // Seuil de RETOUR à la liste nommée (hystérésis, ADR-0025 P2 bis) : en nombres
+  // seuls, on ne renomme qu'à `maxNamed − ⌊maxNamed / 10⌋` — un salon qui oscille
+  // autour de `maxNamed` renverrait sinon la liste complète à tous à chaque retour.
+  // La bande est proportionnelle au coût qu'elle évite (la liste) : nulle sous 10.
+  readonly #resumeNamed: number;
   // Départs retenus par la grâce — `null` tant qu'aucun. UNE grâce par canal
   // et une horloge monotone : l'ordre d'insertion EST l'ordre des échéances,
   // donc la première entrée est la prochaine (O(1), jamais un parcours par
@@ -197,6 +202,7 @@ export class ChannelPresence implements IPresenceAggregate {
     this.settings = settings;
     this.distributed = distributed;
     this.#local = distributed ? new Map<string, number>() : null;
+    this.#resumeNamed = settings.maxNamed - Math.floor(settings.maxNamed / 10);
   }
 
   /** La part locale a-t-elle changé depuis le dernier lot ? */
@@ -358,7 +364,7 @@ export class ChannelPresence implements IPresenceAggregate {
     const unnamed = this.#unnamed;
     // Littéraux construits d'un bloc (forme stable) ; `partial` n'est posé qu'à
     // `true`, cas rare.
-    if (count > this.settings.maxNamed) {
+    if (!this.#wantsNamed(count)) {
       return this.#partial
         ? { channel, version, count, unnamed, partial: true }
         : { channel, version, count, unnamed };
@@ -382,7 +388,7 @@ export class ChannelPresence implements IPresenceAggregate {
     this.#dirty = null;
     this.#countsDirty = false;
     this.listFrame = null;
-    const named = this.#named.size <= this.settings.maxNamed;
+    const named = this.#wantsNamed(this.#named.size);
     if (!named || !this.#namedSent) {
       this.#namedSent = named;
       return this.listParams();
@@ -591,6 +597,16 @@ export class ChannelPresence implements IPresenceAggregate {
       this.#remoteUnnamedLeaving = null;
       this.#remoteUnnamedHead = 0;
     } else this.#remoteUnnamedHead = head;
+  }
+
+  /**
+   * La trame complète doit-elle nommer `count` présents ? Nommée : tant qu'on ne
+   * dépasse pas `maxNamed`. En nombres seuls : seulement revenu au seuil de retour.
+   */
+  #wantsNamed(count: number): boolean {
+    return (
+      count <= (this.#namedSent ? this.settings.maxNamed : this.#resumeNamed)
+    );
   }
 
   #markDirty(key: string): void {

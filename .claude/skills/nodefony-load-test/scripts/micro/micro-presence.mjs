@@ -19,7 +19,7 @@
  *   - `apply-list`    : `PresenceView.apply` d'une liste de 1 000 (resynchronisation).
  * - OCTETS (déterministes, calculés DEUX fois et comparés) :
  *   - `alive-bytes`   : preuve de vie scellée par le vrai sceau, `originId` de
- *     48 caractères — budget ≤ 200 o ;
+ *     48 caractères — budget ≤ 280 o au pire, finale comprise ;
  *   - `client-bytes`  : S-rt-87 — 1 000 membres, 30 arrivées ou départs par
  *     seconde, identifiants de 36 caractères, fenêtre de 250 ms, 60 s simulées ;
  *     trame JSON-RPC texte telle que le hub l'émet, chaque trame relue par le
@@ -284,7 +284,8 @@ async function child(dist, which, arg) {
         );
       console.log(
         JSON.stringify({
-          value: seal(body),
+          value: Math.max(seal(body), seal({ ...body, final: true })),
+          regular: seal(body),
           final: seal({ ...body, final: true }),
         }),
       );
@@ -534,7 +535,7 @@ function parent() {
         valeur: `${one.value.toFixed(0)} ${unit}`,
         détail:
           one.final !== undefined
-            ? `finale ${one.final} o`
+            ? `courante ${one.regular} o, finale ${one.final} o`
             : one.framesPerSecond !== undefined
               ? `${one.framesPerSecond.toFixed(2)} trames/s`
               : "",
@@ -545,7 +546,7 @@ function parent() {
     }
   };
   if (wanted("alive-bytes"))
-    bytes("alive-bytes", "", "preuve de vie scellée", 200, "o");
+    bytes("alive-bytes", "", "preuve de vie scellée (pire des deux)", 280, "o");
   if (wanted("client-bytes")) {
     bytes(
       "client-bytes",

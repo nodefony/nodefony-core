@@ -134,7 +134,9 @@ export interface IChannelPresenceOptions {
   /**
    * Au-delà de ce nombre d'identités nommées, la trame vers le navigateur ne
    * porte que les nombres. Défaut 1 000 ; `0` = présents comptés, jamais nommés.
-   * `hub.presence()` rend toujours les membres.
+   * Le retour à la liste nommée se fait sous `maxNamed − ⌊maxNamed / 10⌋` (900
+   * pour 1 000) : un salon qui oscille autour du seuil ne renvoie pas la liste
+   * complète à chaque retour. `hub.presence()` rend toujours les membres.
    */
   readonly maxNamed?: number | undefined;
 }

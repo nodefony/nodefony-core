@@ -478,6 +478,45 @@ describe("#760 lot C — état pur `ChannelPresence` (départs en masse)", () =>
     expect(p.takeChanges()).toBe(null);
   });
 
+  it("🔴 salon AU seuil (S-rt-87) : osciller autour de `maxNamed` n'envoie pas la liste à chaque retour — elle revient sous `maxNamed − ⌊maxNamed / 10⌋` seulement", () => {
+    const p = new ChannelPresence("room:edge", { grace: 0, maxNamed: 10 });
+    for (let i = 0; i < 10; i++) p.join(`u${i}`);
+    p.takeChanges();
+    let lists = 0;
+    let counts = 0;
+    let changes = 0;
+    const send = (): void => {
+      const f = p.takeChanges();
+      if (f === null) return;
+      if (f.changes !== undefined) changes++;
+      else if (f.members !== undefined) lists++;
+      else counts++;
+    };
+    // 11 ↔ 10 pendant 50 fenêtres : au-dessus du seuil puis à la limite.
+    for (let w = 0; w < 50; w++) {
+      p.join("x");
+      send();
+      p.leave("x", 0);
+      send();
+    }
+    expect(lists, "aucune liste nommée pendant l'oscillation").toBe(0);
+    expect(counts).toBe(100);
+    expect(
+      p.listParams(),
+      "un nouvel abonné reçoit les nombres, comme les autres",
+    ).not.to.have.property("members");
+    // 9 = 10 − ⌊10 / 10⌋ : la liste, une fois, à tous.
+    p.leave("u0", 0);
+    send();
+    expect(lists).toBe(1);
+    expect(p.listParams()).to.have.property("members");
+    // Revenu à 10 (pas AU-DESSUS du seuil) : on reste nommé, par changements.
+    p.join("u0");
+    send();
+    expect(changes).toBe(1);
+    expect(lists).toBe(1);
+  });
+
   it("une liste porte la version COURANTE ; seuls les changements la font avancer", () => {
     const p = new ChannelPresence("room:v", { grace: 0, maxNamed: 10 });
     p.join("a");

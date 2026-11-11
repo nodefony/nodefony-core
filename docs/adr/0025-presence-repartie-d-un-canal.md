@@ -260,7 +260,13 @@ canaux, de membres ou d'abonnés.**
   d'un seuil de membres nommés (défaut 1 000, réglable), la trame ne porte que `count` et
   `unnamed` ; **seuil à 0** = présents comptés, jamais nommés (le salon semi-anonyme de
   XEP-0045 §4.2). Cette trame de nombres seuls est complète comme une liste : elle porte la
-  version courante et réinitialise la référence.
+  version courante et réinitialise la référence. **Retour à la liste avec hystérésis** : passé en
+  nombres seuls, le canal ne renomme qu'à `seuil − ⌊seuil / 10⌋` (900 pour 1 000), et la liste
+  repart alors une fois, à tous. Mesuré (`micro-presence.mjs`, S-rt-87) : sans cette bande, un
+  salon qui oscille entre 999 et 1 000 envoyait la liste complète une fenêtre sur deux —
+  41 789 o/s par client contre 1 788 o/s, ×23. La bande est proportionnelle au coût qu'elle
+  évite (une liste d'au plus `seuil` noms) : nulle sous 10. Un nouvel abonné reçoit la trame du
+  mode courant, comme les autres. Invariant : `channelPresence.test.ts`, « salon AU seuil ».
 - **Sur le fil, à plat** (`src/nodefony/src/realtime/RealtimeEventMap.ts#PresencePairs`) :
   `members` et `changes.set` sont des paires `[identité, onglets, identité, onglets, …]`, les
   états dans un champ voisin facultatif `states` (identité → référence d'onglet → état). La
@@ -450,23 +456,31 @@ pas une mesure) ; les **mesures** passent au banc
 avec le vrai sceau, un processus par mesure, variantes alternées, médiane, refus au-delà de 3 %
 de dispersion), plus le gate mémoire de `@nodefony/http`.
 
-| Grandeur                                                                                               | Budget                                                                                         | Preuve    |
-| ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- | --------- |
-| Trames de présence par client et par canal                                                             | ≤ 5/s, front montant compris, hors resynchronisation                                           | invariant |
-| Bus au repos, 1 000 contre 100 000 canaux                                                              | octets égaux (indépendants du nombre de canaux)                                                | invariant |
-| Bus au repos, canal sans présence                                                                      | 0 message, aucun minuteur, aucune structure                                                    | invariant |
-| Encodages de liste complète, 250 abonnés en 2 s                                                        | ≤ 1 par fenêtre et par codec (compteur lisible)                                                | invariant |
-| Premier abonné d'un pod (S-rt-99)                                                                      | liste complète en ≤ 2 fenêtres de 50 ms après la demande ; latence réelle au banc multi-pods   | invariant |
-| Récepteur gelé 20 s ; bus revenu après une coupure plus longue que le délai d'oubli                    | aucun pair vivant oublié                                                                       | invariant |
-| Deux pods d'intervalles différents (déploiement progressif)                                            | aucun oubli d'un pod vivant                                                                    | invariant |
-| 250 abonnés successifs d'un canal                                                                      | 0 trou de version chez les abonnés déjà présents                                               | invariant |
-| Réponse d'état en `n` parts, une part perdue                                                           | vue inchangée, trou maintenu puis redemandé                                                    | invariant |
-| Demande ciblée à un pod sans présent sur le canal                                                      | 1 réponse vide                                                                                 | invariant |
-| Liste complète jetée par la contre-pression, puis `subscribe` répété                                   | liste reçue                                                                                    | invariant |
-| Arrêt propre d'un pod                                                                                  | présents retirés chez les pairs en ≤ 1 fenêtre, sans attendre le délai d'oubli                 | invariant |
-| Preuve de vie                                                                                          | ≤ 200 o par message, `originId` ≤ 48 caractères, secret posé (enveloppe scellée = 112 o fixes) | mesure    |
-| Octets de présence par client (S-rt-87 : 1 000 membres, 30 mouvements/s, identifiant de 36 caractères) | ≤ 2 Ko/s, compte seul au-delà du seuil                                                         | mesure    |
-| Mémoire par présent distant (tas après GC forcé, 100 000 présents ; état de 128 o)                     | ≤ 160 o sans état, ≤ 320 o avec                                                                | mesure    |
+| Grandeur                                                                                               | Budget                                                                                                                           | Preuve    |
+| ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Trames de présence par client et par canal                                                             | ≤ 5/s, front montant compris, hors resynchronisation                                                                             | invariant |
+| Bus au repos, 1 000 contre 100 000 canaux                                                              | octets égaux (indépendants du nombre de canaux)                                                                                  | invariant |
+| Bus au repos, canal sans présence                                                                      | 0 message, aucun minuteur, aucune structure                                                                                      | invariant |
+| Encodages de liste complète, 250 abonnés en 2 s                                                        | ≤ 1 par fenêtre et par codec (compteur lisible)                                                                                  | invariant |
+| Premier abonné d'un pod (S-rt-99)                                                                      | liste complète en ≤ 2 fenêtres de 50 ms après la demande ; latence réelle au banc multi-pods                                     | invariant |
+| Récepteur gelé 20 s ; bus revenu après une coupure plus longue que le délai d'oubli                    | aucun pair vivant oublié                                                                                                         | invariant |
+| Deux pods d'intervalles différents (déploiement progressif)                                            | aucun oubli d'un pod vivant                                                                                                      | invariant |
+| 250 abonnés successifs d'un canal                                                                      | 0 trou de version chez les abonnés déjà présents                                                                                 | invariant |
+| Réponse d'état en `n` parts, une part perdue                                                           | vue inchangée, trou maintenu puis redemandé                                                                                      | invariant |
+| Demande ciblée à un pod sans présent sur le canal                                                      | 1 réponse vide                                                                                                                   | invariant |
+| Liste complète jetée par la contre-pression, puis `subscribe` répété                                   | liste reçue                                                                                                                      | invariant |
+| Arrêt propre d'un pod                                                                                  | présents retirés chez les pairs en ≤ 1 fenêtre, sans attendre le délai d'oubli                                                   | invariant |
+| Preuve de vie                                                                                          | ≤ 280 o par message au pire (`originId` de 48 caractères, compteurs à leur maximum, secret posé) ; mesuré 249 o, 262 o la finale | mesure    |
+| Octets de présence par client (S-rt-87 : 1 000 membres, 30 mouvements/s, identifiant de 36 caractères) | ≤ 2 Ko/s, compte seul au-delà du seuil ; mesuré 1 788 o/s                                                                        | mesure    |
+| Salon qui oscille autour du seuil (999 ↔ 1 000, S-rt-87)                                               | aucune liste nommée pendant l'oscillation (hystérésis, P2 bis)                                                                   | invariant |
+| Mémoire par présent distant (tas après GC forcé, 100 000 présents ; état de 128 o)                     | ≤ 160 o sans état, ≤ 320 o avec ; mesuré 75 o sans état (« avec » : aucun état ne se pose en 10.0, P4)                           | mesure    |
+
+Les budgets de cette table étaient des estimations ; le micro-banc les a mesurés. Celui de la
+preuve de vie (200 o) ne pouvait pas tenir : enveloppe scellée, nom du canal et charge font
+249 o avec un `originId` de 48 caractères. Il est corrigé à 280 o au pire plutôt que d'abréger
+les champs : ce que le budget garantit — un bus au repos minime (~50 o/s par pod) et indépendant
+du nombre de canaux — tient, et abréger aurait gagné 25 o pour un format illisible au débogage,
+juste avant d'être figé.
 
 ## Scénarios jugés
 
