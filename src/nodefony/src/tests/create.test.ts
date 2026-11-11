@@ -1566,7 +1566,11 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         dernier![2],
         `le dernier étage est nommé « ${dernier![2]} » : "docker build ." ne produirait plus l'image de l'application`,
       );
-      assert.include(dernier![1], "node:", "le dernier étage n'est plus Node");
+      assert.match(
+        dernier![1]!,
+        /^gcr\.io\/distroless\/nodejs\d+-debian13$/u,
+        "le dernier étage n'est plus Node",
+      );
       assert.include(dockerfile, "AS proxyconf");
       assert.include(dockerfile, "AS edge");
     });
@@ -2712,7 +2716,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         // vit dans les node_modules de l'image, jamais dans le PATH.
         assert.include(
           recipe,
-          'command: ["node_modules/.bin/nodefony", "orm:migrate", "--json"]',
+          'args: ["node_modules/.bin/nodefony", "orm:migrate", "--json"]',
         );
         // Le compte qui migre n'est pas celui qui sert.
         assert.include(recipe, "name: NF_MIGRATE_DATABASE_URL");
@@ -3488,29 +3492,30 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           1,
           `${anonymes.length} étages sans nom — "docker build ." ne produirait plus l'image attendue`,
         );
-        assert.match(anonymes[0]![1]!, /^node:/u);
+        assert.match(anonymes[0]![1]!, /^gcr\.io\/distroless\/nodejs/u);
 
         // 🔴 La BASE elle-même, et pas seulement sa forme. C'est un choix
-        // MESURÉ sur les images FINALES (application comprise) : Alpine rend
-        // 0 vulnérabilité critique et 4 hautes, là où `node:24-slim` en rend
-        // 2 et 14, pour 81 Mo de plus. Sans ce contrôle, un retour en arrière
+        // MESURÉ sur les images FINALES (application comprise) : distroless
+        // `debian13` rend 0 vulnérabilité critique et 0 haute, là où Alpine en
+        // rend 1 et 7, et `node:24-slim` 0 et 13 ; `debian12` est figée sous le
+        // plancher Node du framework. Sans ce contrôle, un retour en arrière
         // ne se verrait nulle part — l'image se construit et démarre à
         // l'identique, seule la surface d'attaque change.
         //
-        // Les DEUX étages sont contrôlés, et sur la MÊME valeur : ils doivent
-        // partager la même libc. Un binaire natif installé à la construction ne
+        // Les DEUX étages sont contrôlés, et sur la MÊME libc (glibc : `slim`
+        // pour construire, distroless pour exécuter). Un binaire natif installé à la construction ne
         // se charge pas à l'exécution sous l'autre, sur un message qui ne parle
         // jamais de libc — on cherche alors du côté du paquet, du cache npm ou
         // de la version de Node, jamais de l'image.
         const etageBuild = etages.find((e) => e[2] === "build");
         assert.equal(
           etageBuild?.[1],
-          "node:24-alpine",
+          "node:24-slim",
           "l'étage de construction a changé de base — si c'est voulu, la mesure qui le justifie doit être refaite (docker scout sur l'image FINALE) et ce test mis à jour avec elle",
         );
         assert.equal(
           anonymes[0]![1],
-          "node:24-alpine",
+          "gcr.io/distroless/nodejs24-debian13",
           "l'étage d'exécution a changé de base — c'est LUI qu'on déploie",
         );
 
@@ -3530,8 +3535,18 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         // qu'il recouvre. Sans eux, `docker run -v <vol>:/app/var` naît
         // `root:root` et le premier `mkdir` de l'application meurt en EACCES —
         // sur un message qui ne parle ni de volume ni de droits.
-        assert.match(dockerfile, /mkdir -p \/app\/tmp \/app\/var/u);
-        assert.match(dockerfile, /chown 1000:1000 \/app\/tmp \/app\/var/u);
+        // Distroless n'a pas de shell : ils naissent dans l'étage `nf-dirs`
+        // et descendent par un COPY qui les donne à 1000.
+        assert.match(
+          dockerfile,
+          /^FROM \S+ AS nf-dirs\nRUN mkdir -p \/out\/tmp \/out\/var$/mu,
+        );
+        assert.match(
+          dockerfile,
+          /^COPY --from=nf-dirs --chown=1000:1000 \/out\/ \/app\/$/mu,
+        );
+        // Et la sonde appelle Node par son chemin : il n'est pas sur le PATH.
+        assert.include(dockerfile, 'CMD ["/nodejs/bin/node", "-e",');
 
         // 🔴 Et ils naissent VIDES. L'étage de construction tourne en `root` et
         // BOOTE l'application (`npm run build`) : l'ORM y crée `var/databases/`

@@ -635,6 +635,10 @@
           "help": ""
         },
         {
+          "name": "NODE_FLOOR",
+          "help": ""
+        },
+        {
           "name": "REGISTRY",
           "help": ""
         }
@@ -677,6 +681,19 @@
       "testedBy": []
     },
     {
+      "path": "scripts/deps/engines.test.mjs",
+      "test": true,
+      "purpose": "Planchers Node des dépendances face au nôtre — vécu : `@inquirer/prompts` 8.8.0 exigeait `^24.15.0` sous un dépôt à `>=24.14.0`, sans que rien ne le dise. /",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
+    {
       "path": "scripts/deps/lib/deprecations.mjs",
       "test": false,
       "purpose": "Dépendances DÉCLARÉES dont la version au verrou est dépréciée en amont.",
@@ -691,6 +708,23 @@
       ],
       "testedBy": [
         "scripts/deps/deprecations.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/deps/lib/engines.mjs",
+      "test": false,
+      "purpose": "Une dépendance qui exige un Node plus récent que le NÔTRE.",
+      "usage": [
+        "import { enginesBelowFloor } from \"./lib/engines.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/deps/check-deps-latest.mjs"
+      ],
+      "testedBy": [
+        "scripts/deps/engines.test.mjs"
       ]
     },
     {
@@ -5739,8 +5773,8 @@
       ],
       "description": "Porte le déploiement d'une application Nodefony côté FRAMEWORK : les gabarits qui rendent son image, son compose, sa topologie, ses manifestes Kubernetes et sa chaîne d'intégration. Donne la carte de ce que le générateur rend déjà, et embarque HORS LIGNE le corpus de référence (Docker, Kubernetes, Podman, OCI, distroless) sur lequel toute décision se tranche. À charger AVANT de toucher à un gabarit de déploiement ou d'affirmer ce qu'un orchestrateur fait : les réponses se lisent dans le corpus, elles ne se déduisent pas. Le skill livré aux applications vit dans le paquet devkit. Déclencheurs : \"gabarit de déploiement\", \"Dockerfile généré\", \"manifeste Kubernetes du scaffold\", \"politique Restricted\", \"readOnlyRootFilesystem\", \"sondes liveness et readiness\", \"arrêt gracieux d'un pod\", \"Podman\", \"corpus docker\", \"corpus kubernetes\", \"la CI de l'application générée\", \"GitLab CI\", \"scanner l'image\".",
       "cost": {
-        "bodyLines": 161,
-        "approxTokens": 3464
+        "bodyLines": 164,
+        "approxTokens": 3523
       },
       "requires": [
         "docker",
@@ -5908,7 +5942,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "161",
+            "detail": "164",
             "advisory": true
           }
         ]

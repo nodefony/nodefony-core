@@ -26,9 +26,9 @@
 #            FIL de son émission (pas groupé par le tampon de nginx), et aucune
 #            brique de sécurité désactivée faute de clé de production
 #   sql    — les TROIS moteurs serveurs (`--database postgres|mariadb|mysql`)
-#            sous musl : la base jointe par son NOM de service — la seule chose
-#            qu'Alpine pouvait casser —, les migrations appliquées, et la suite
-#            e2e générée jouée DANS un conteneur Alpine
+#            avec la libc de l'image : la base jointe par son NOM de service,
+#            les migrations appliquées, et la suite e2e générée jouée DANS un
+#            conteneur de même libc que l'image déployée
 #   cluster — l'image lancée avec `NF_WORKERS=4` sur sa base SQLite NEUVE : les
 #            quatre workers démarrent ensemble (WAL et port partagé), aucun ne
 #            meurt, et le trafic les atteint TOUS
@@ -418,10 +418,10 @@ migrate_in() { # ctn
   local ctn="$1" out=""
   # Une app sans ORM n'a pas de migrations : ne pas confondre « rien à faire »
   # avec « la commande a échoué ».
-  if ! docker exec "$ctn" test -d node_modules/@nodefony/drizzle 2>/dev/null; then
+  if ! docker exec "$ctn" /nodejs/bin/node -e "process.exit(require('node:fs').existsSync('node_modules/@nodefony/drizzle')?0:1)" 2>/dev/null; then
     return 0
   fi
-  if ! out=$(docker exec "$ctn" node_modules/.bin/nodefony orm:migrate 2>&1); then
+  if ! out=$(docker exec "$ctn" /nodejs/bin/node node_modules/.bin/nodefony orm:migrate 2>&1); then
     echo "$out" | tail -25
     fail "migrations non appliquées dans $ctn"
   fi
@@ -1197,17 +1197,18 @@ YML
   # volume).
 fi
 
-# ═══ SCÉNARIO « sql » — les TROIS moteurs serveurs, sous musl ═══════════════
+# ═══ SCÉNARIO « sql » — les TROIS moteurs serveurs, avec la libc de l'image ═
 #
 # Ce que les quatre autres scénarios ne peuvent pas voir : ils tournent tous sur
-# SQLite, un FICHIER. Or l'image est bâtie sur Alpine (#420), dont la bibliothèque
-# C est musl — et ce qui change entre musl et glibc n'est pas le pilote (`pg` et
-# `mysql2` sont du JavaScript pur) mais la RÉSOLUTION DE NOMS. Joindre sa base
-# par un nom de service est le mode NOMINAL en compose comme en Kubernetes ;
-# c'est donc le premier appel système que fait une application déployée, et le
-# seul que le passage à Alpine pouvait casser.
+# SQLite, un FICHIER. Or ce qui change d'une libc à l'autre n'est pas le pilote
+# (`pg` et `mysql2` sont du JavaScript pur) mais la RÉSOLUTION DE NOMS. Joindre
+# sa base par un nom de service est le mode NOMINAL en compose comme en
+# Kubernetes : c'est le premier appel système que fait une application déployée,
+# et le seul qu'un changement de base peut casser. L'image est distroless
+# `debian13` (glibc) ; elle a été Alpine (musl, #420), et le scénario a été écrit
+# pour elle — il CONSTATE la libc au lieu de la supposer, et vaut pour les deux.
 #
-# Trois différences documentées de musl, toutes invisibles tant qu'on reste sur
+# Trois différences documentées de musl, si l'on revient à Alpine, toutes invisibles tant qu'on reste sur
 # un fichier : il n'implémente ni `search` à plusieurs domaines ni `ndots` comme
 # glibc, il interroge les serveurs de `resolv.conf` EN PARALLÈLE et retient la
 # première réponse, et il n'a pas de `nsswitch.conf`. Aucun de ces écarts ne
@@ -1217,12 +1218,12 @@ fi
 # Ce que ce scénario établit, moteur par moteur :
 #   1. le compose généré joint la base par son NOM (et non par une boucle locale,
 #      qui dans un conteneur désigne le conteneur lui-même) ;
-#   2. ce nom RÉSOUT depuis l'application, sous musl — constaté par `getaddrinfo`
+#   2. ce nom RÉSOUT depuis l'application, avec sa libc — constaté par `getaddrinfo`
 #      exécuté DANS le conteneur, pas déduit du fait que l'app démarre ;
 #   3. la tâche de migration, qui est le PREMIER à ouvrir une connexion par ce
 #      nom, s'est terminée avec succès ;
 #   4. l'application sert, et une route qui TOUCHE la base répond ;
-#   5. la suite de bout en bout générée passe, exécutée DANS Alpine et joignant
+#   5. la suite de bout en bout générée passe, exécutée sous la même libc et joignant
 #      l'application par son nom de service — les deux points que le « Fini
 #      quand » de #420 réclamait et qu'aucun banc ne couvrait.
 #
@@ -1363,14 +1364,17 @@ YML
     # DANS le conteneur de l'application, avec son `/etc/resolv.conf` et sa
     # bibliothèque C. Un `ping` prouverait autre chose (il existe des images sans
     # `ping`, et `busybox` ne passe pas toujours par le même chemin).
-    step "[sql:$MOTEUR] le nom « $SERVICE » résout DEPUIS l'app, sous musl"
-    LIBC=$(docker exec "$QAPP_NAME-app" sh -c 'ls /lib/ld-musl-* 2>/dev/null | head -1' || true)
-    [ -n "$LIBC" ] || fail "l'image de l'application n'est pas sur musl ($QAPP_IMAGE) — ce scénario ne mesurerait pas ce qu'il annonce"
-    ADDR=$(docker exec "$QAPP_NAME-app" node -e \
+    # L'image est distroless (gabarit) : ni shell ni `node` sur le PATH, tout
+    # passe par /nodejs/bin/node. La libc se CONSTATE par Node lui-même (rapport de
+    # diagnostic : version glibc, ou rien sous musl), jamais par un `ls`.
+    step "[sql:$MOTEUR] le nom « $SERVICE » résout DEPUIS l'app, avec la libc de l'image"
+    LIBC=$(docker exec "$QAPP_NAME-app" /nodejs/bin/node -p "const g=process.report.getReport().header.glibcVersionRuntime; g ? 'glibc ' + g : 'musl'" 2>&1) \
+      || { echo "$LIBC"; fail "impossible d'interroger Node dans le conteneur de l'application ($QAPP_IMAGE)"; }
+    ADDR=$(docker exec "$QAPP_NAME-app" /nodejs/bin/node -e \
       "require('node:dns').promises.lookup(process.argv[1]).then(r=>console.log(r.address),e=>{console.error(e.code||e.message);process.exit(1)})" \
       "$SERVICE" 2>&1) \
-      || { echo "$ADDR"; fail "getaddrinfo(« $SERVICE ») ÉCHOUE sous musl depuis le conteneur de l'app"; }
-    ok "getaddrinfo(« $SERVICE ») → $ADDR (musl : $(basename "$LIBC"))"
+      || { echo "$ADDR"; fail "getaddrinfo(« $SERVICE ») ÉCHOUE depuis le conteneur de l'app ($LIBC)"; }
+    ok "getaddrinfo(« $SERVICE ») → $ADDR ($LIBC)"
 
     # La tâche de migration est le PREMIER à ouvrir une connexion par ce nom :
     # son code de sortie est donc la preuve la plus précoce que la chaîne tient.
@@ -1404,16 +1408,18 @@ YML
            fail "connexion admin refusée sur $MOTEUR — la lecture de la table des comptes ne passe pas"; }
     ok "login admin → Set-Cookie (le compte a été SEMÉ puis RELU dans $MOTEUR)"
 
-    # ── LA SUITE e2e, JOUÉE DANS ALPINE ──────────────────────────────────────
+    # ── LA SUITE e2e, JOUÉE SOUS LA LIBC DE L'IMAGE ──────────────────────────
     # Deux choses d'un coup, et c'est pour cela qu'elle est jouée ici plutôt que
-    # depuis l'hôte : les tests s'exécutent sous musl (avec le build de
+    # depuis l'hôte : les tests s'exécutent sous la libc de l'image (avec le build de
     # l'application, que `test:e2e` refait), et ils joignent l'application par
     # son NOM DE SERVICE sur le réseau du compose.
     #
     # 🔴 Elle ne peut PAS tourner dans l'image de production : `vitest` est une
     # dépendance de développement, et l'image installe en `--omit=dev`. C'est
     # juste — une image de production n'embarque pas son banc. D'où une image
-    # SŒUR, bâtie du même `node:24-alpine`, avec les devDependencies.
+    # SŒUR, avec les devDependencies, bâtie sur la base de l'ÉTAGE DE
+    # CONSTRUCTION du Dockerfile : même libc que l'image déployée (distroless
+    # n'a ni npm ni shell pour installer quoi que ce soit).
     #
     # Son `.dockerignore` lui est propre (`Dockerfile.e2e.dockerignore`, lu en
     # priorité par BuildKit) : celui de l'application exclut `tests`, ce qui est
@@ -1423,16 +1429,16 @@ YML
     # Elle est écrite APRÈS le `up --build` : le `.dockerignore` de production
     # ne connaît pas ces deux fichiers, et ils entreraient dans l'image qu'on
     # vient de faire contrôler.
-    step "[sql:$MOTEUR] image sœur de test (même Alpine, AVEC les devDeps)"
-    ALPINE_BASE=$(sed -n 's/^FROM \(node:[0-9]*-alpine\).*/\1/p' "$QAPP/Dockerfile" | head -1)
-    [ -n "$ALPINE_BASE" ] \
-      || { grep -n "^FROM" "$QAPP/Dockerfile"; fail "base Alpine introuvable dans le Dockerfile généré — l'image sœur dériverait de l'image mesurée"; }
+    step "[sql:$MOTEUR] image sœur de test (base de l'étage de construction, AVEC les devDeps)"
+    BUILD_BASE=$(sed -n 's/^FROM \(node:[^ ]*\) AS build$/\1/p' "$QAPP/Dockerfile" | head -1)
+    [ -n "$BUILD_BASE" ] \
+      || { grep -n "^FROM" "$QAPP/Dockerfile"; fail "étage de construction introuvable dans le Dockerfile généré — l'image sœur dériverait de l'image mesurée"; }
     cat > "$QAPP/Dockerfile.e2e" <<DOCKERFILE
 # Image SŒUR du banc — jamais publiée, jamais déployée.
 # Même base que l'image de production (lue dans son Dockerfile, pas recopiée),
 # mais avec les devDependencies : la suite de bout en bout a besoin de vitest,
 # que \`--omit=dev\` retire à juste titre de l'image qu'on déploie.
-FROM $ALPINE_BASE
+FROM $BUILD_BASE
 WORKDIR /app
 COPY . ./
 RUN npm install --no-audit --no-fund --ignore-scripts
@@ -1462,9 +1468,9 @@ DOCKERIGNORE
     # image sans `tests/`, et la suite « passerait » en ne jouant rien.
     docker run --rm "$QAPP_E2E_IMAGE" sh -c 'test -f tests/e2e.setup.ts' \
       || fail "l'image sœur n'a pas tests/ — le .dockerignore dédié n'a pas été pris en compte, la suite ne jouerait rien"
-    ok "image sœur $QAPP_E2E_IMAGE bâtie sur $ALPINE_BASE, tests/ présents"
+    ok "image sœur $QAPP_E2E_IMAGE bâtie sur $BUILD_BASE, tests/ présents"
 
-    step "[sql:$MOTEUR] la suite e2e générée, JOUÉE DANS Alpine et par le nom de service"
+    step "[sql:$MOTEUR] la suite e2e générée, jouée sous la libc de l'image et par le nom de service"
     SQL_NET=$(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}' \
       "$QAPP_NAME-app" 2>/dev/null || true)
     [ -n "$SQL_NET" ] || fail "réseau du compose introuvable pour $QAPP_NAME-app"
@@ -1476,7 +1482,7 @@ DOCKERIGNORE
     docker run --rm --network "$SQL_NET" \
       -e NF_E2E_BASE_URL="http://app:5151" \
       "$QAPP_E2E_IMAGE" npm run test:e2e > "$WORK/.sql-$MOTEUR-e2e.out" 2>&1 \
-      || { tail -40 "$WORK/.sql-$MOTEUR-e2e.out"; fail "suite e2e DANS Alpine ($MOTEUR)"; }
+      || { tail -40 "$WORK/.sql-$MOTEUR-e2e.out"; fail "suite e2e sous la libc de l'image ($MOTEUR)"; }
     # Un run qui ne joue AUCUN test sort en 0 : le compte se lit, il ne se
     # suppose pas. Et les migrations se sautent délibérément en cible externe —
     # le banc le DIT plutôt que de laisser croire à une couverture complète.
@@ -1490,7 +1496,7 @@ DOCKERIGNORE
       | grep -E "Tests +[0-9]+ (passed|failed)" | tail -1 || true)
     [ -n "$SQL_E2E_LINE" ] \
       || { tail -25 "$WORK/.sql-$MOTEUR-e2e.out"; fail "la suite e2e n'annonce aucun test joué ($MOTEUR)"; }
-    ok "e2e sous musl, via http://app:5151 — $SQL_E2E_LINE"
+    ok "e2e sous la libc de l'image, via http://app:5151 — $SQL_E2E_LINE"
     ok "  (les cas « migrations » se sautent en cible externe : c'est le contrat de NF_E2E_BASE_URL)"
 
     # ── LA GARDE, VUE MORDRE ─────────────────────────────────────────────────
@@ -1526,7 +1532,7 @@ YML
     ok "$MOTEUR : décor rangé (une base survivante fausserait le moteur suivant)"
   done
 
-  ok "TROIS moteurs serveurs éprouvés sous musl : postgres, mariadb, mysql"
+  ok "TROIS moteurs serveurs éprouvés avec la libc de l'image : postgres, mariadb, mysql"
 fi
 
 # ═══ SCÉNARIO « cluster » — N workers sur une base SQLite NEUVE ══════════════
@@ -1635,7 +1641,7 @@ if runs cluster; then
     | awk '/api\/livez/ {print $1}' | sort -u | sed -n 1p)
   [ -n "$VICTIM" ] || fail "aucun PID de worker relevé dans les journaux"
   BEFORE=$(docker logs "$CCTN" 2>&1 | sed $'s/\033\[[0-9;]*m//g' | grep -c "server-http.*Server Listen" || true)
-  docker exec "$CCTN" kill -9 "$VICTIM" || fail "kill du worker $VICTIM"
+  docker exec "$CCTN" /nodejs/bin/node -e "process.kill(Number(process.argv[1]), 'SIGKILL')" "$VICTIM" || fail "kill du worker $VICTIM"
   relisten=0
   for _ in $(seq 1 60); do
     relisten=$(docker logs "$CCTN" 2>&1 | sed $'s/\033\[[0-9;]*m//g' | grep -c "server-http.*Server Listen" || true)

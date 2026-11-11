@@ -22,49 +22,50 @@
 # d'un côté ne se charge pas de l'autre, et le message ne parle pas de libc.
 #
 # Mesuré sur une application Nodefony `complete`, contenu identique, sur les
-# images FINALES (`docker scout quickview`), pas sur les bases seules :
+# images FINALES (`docker scout quickview`), pas sur les bases seules. Le banc
+# se rejoue : skill `nodefony-devops`, `scripts/bench-bases.mjs`.
 #
-#     base                                    poids   critiques  hautes  démarre
-#     node:24-alpine            ← ACTUELLE   438 Mo      0         4      oui
-#     node:24-slim                            519 Mo      2        14      oui
-#     gcr.io/distroless/nodejs24-debian12     400 Mo      0         8      oui
+#     base                                      poids   critiques  hautes  Node     démarre
+#     gcr.io/distroless/nodejs24-debian13 ← ICI  416 Mo      0        0    24.22.2  oui
+#     node:24-alpine                             444 Mo      1        7    24.22.2  oui
+#     node:24-slim                               531 Mo      0       13    24.22.2  oui
+#     gcr.io/distroless/nodejs24-debian12        404 Mo      4       33    24.14.0  NON
 #
-# POURQUOI Alpine. Zéro vulnérabilité critique, 4 hautes contre 14, et 81 Mo de
-# moins. L'objection historique — « les paquets natifs n'ont pas de binaire
-# musl » — est TOMBÉE : `better-sqlite3` et `@node-rs/argon2` embarquent les
-# leurs, et s'exécutent ici après une installation `--ignore-scripts` (mesuré :
-# base sqlite créée et relue, hash Argon2id produit).
+# POURQUOI distroless `debian13`. Aucune vulnérabilité critique ni haute :
+# l'image ne porte que Node et les bibliothèques dont il a besoin — ni shell, ni
+# gestionnaire de paquets, ni npm. Celles d'Alpine viennent de paquets que ton
+# application n'emploie pas : zlib et musl (le système, que seule une nouvelle
+# image Alpine corrige) et le npm embarqué (undici, tar, brace-expansion),
+# inutile une fois les dépendances installées. `debian13` suit la ligne
+# courante de Node 24 ; `debian12` est restée figée en Node 24.14.0, sous le
+# plancher du framework (`engines`) — elle se construit, puis meurt au
+# démarrage sur une API de `node:crypto` que son Node n'a pas.
 #
-# COMMENT EN CHANGER — remplacer les DEUX lignes, jamais une seule :
+# CE QU'ON Y PERD, et c'est le prix de ce zéro : pas de `docker exec … sh` pour
+# diagnostiquer (l'étiquette `:debug` de distroless ajoute un shell busybox, le
+# temps d'un diagnostic seulement), et pas de `RUN apk add` / `apt-get` dans
+# l'image finale — un outil système se COPIE depuis un étage de construction.
 #
-#   glibc (si un paquet natif que tu ajoutes ne publie pas de binaire musl ; le
-#   symptôme est un `.node` introuvable ou un « Error relocating » au DÉMARRAGE,
-#   jamais une erreur d'installation) :
-#       FROM node:24-slim AS build
-#       FROM node:24-slim
+# Les modules natifs (`better-sqlite3`, `@node-rs/argon2`) sont compilés pour la
+# libc de l'étage de construction : il est donc en `node:24-slim` (glibc), comme
+# l'image finale. Un étage Alpine (musl) produirait des `.node` qui ne se
+# chargent pas — au DÉMARRAGE, jamais à l'installation.
 #
-#   distroless (ni shell ni gestionnaire de paquets : plus de `docker exec sh`
-#   pour diagnostiquer, et le binaire node n'est PAS sur le PATH). Ce n'est PAS
-#   un remplacement d'une ligne : il faut aussi réécrire `CMD` et `HEALTHCHECK`
-#   en `/nodejs/bin/node`, et l'étage de construction reste sur une image
-#   complète :
-#       FROM node:24-slim AS build
-#       FROM gcr.io/distroless/nodejs24-debian13
-#   Son compte de vulnérabilités est MOINS bon que celui d'Alpine, pour une
-#   raison structurelle : elle embarque un Node plus ancien (24.14 contre
-#   24.21) et le suivra toujours avec du retard — c'est ce qui l'a fait mourir
-#   au démarrage sur une API de `node:crypto` que le framework employait
-#   (retirée depuis : les trois bases démarrent). Constaté depuis : la variante
-#   `debian12` est restée figée en Node 24.14.0 quand Alpine passait en 24.22 ;
-#   `gcr.io/distroless/nodejs24-debian13` suit, elle, la version courante.
+# COMMENT EN CHANGER — Alpine (shell `sh`, `apk add` possible) ou
+# `node:24-slim` (glibc, shell `bash`) ; quatre gestes, jamais un seul :
+#   1. l'étage de construction : `FROM node:24-alpine AS build` ;
+#   2. l'étage `nf-dirs` et le `FROM` distroless deviennent `FROM node:24-alpine` ;
+#   3. le `COPY --from=nf-dirs …` devient
+#        RUN mkdir -p /app/tmp /app/var && chown 1000:1000 /app/tmp /app/var
+#   4. la sonde appelle `node` (sur le PATH) au lieu de `/nodejs/bin/node`.
 #
 # Après tout changement de base : reconstruire, DÉMARRER, et vérifier que
-# l'application répond — « ça construit » ne prouve rien (mesuré : les trois
-# images se construisaient, et distroless mourait au démarrage).
+# l'application répond — « ça construit » ne prouve rien (vécu : `debian12` se
+# construisait, et mourait au démarrage).
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── Étape de construction : la chaîne de compilation ne descend PAS en prod ───
-FROM node:24-alpine AS build
+FROM node:24-slim AS build
 WORKDIR /app
 
 # Les sources d'ABORD, en un seul geste — et non le manifeste seul comme le
@@ -265,8 +266,14 @@ EXPOSE 8080 8443
 HEALTHCHECK --interval=10s --timeout=2s --start-period=5s --retries=3 \
   CMD ["wget", "-q", "--spider", "http://127.0.0.1:8080/livez"]
 
+# ── Points de montage : distroless n'a pas de shell pour les créer ───────────
+# Un `RUN mkdir` est impossible dans l'image finale. Les deux dossiers naissent
+# donc ici, VIDES, et descendent par un `COPY --chown` (plus bas).
+FROM node:24-slim AS nf-dirs
+RUN mkdir -p /out/tmp /out/var
+
 # ── Étape d'exécution : minimale, non-root ───────────────────────────────────
-FROM node:24-alpine
+FROM gcr.io/distroless/nodejs24-debian13
 ENV NODE_ENV=production
 WORKDIR /app
 
@@ -321,15 +328,16 @@ COPY --from=build /app ./
 #
 # C'est l'étage de CONSTRUCTION qui les efface (voir plus haut), et pas ce `RUN` :
 # un `rm` posé ICI laisserait la couche du `COPY` lisible par qui télécharge
-# l'image. Ce `RUN` ne fait donc que ce qu'il est seul à pouvoir faire — créer
+# l'image. Ce `COPY` ne fait donc que ce qu'il est seul à pouvoir faire — poser
 # les points de montage et les donner à l'utilisateur qui tourne.
-RUN mkdir -p /app/tmp /app/var \
- && chown 1000:1000 /app/tmp /app/var
+COPY --from=nf-dirs --chown=1000:1000 /out/ /app/
 
 # Jamais root : les ports de Nodefony (5151, 5152) n'exigent aucun privilège.
 # NUMÉRIQUE, pas `node` : le kubelet refuse `runAsNonRoot: true` quand l'image
 # ne déclare qu'un NOM d'utilisateur, qu'il ne sait pas résoudre en identifiant.
-# Constaté sur `node:24-alpine` : `node` vaut exactement `1000:1000`.
+# distroless n'a pas d'entrée 1000 dans `/etc/passwd` (son utilisateur non-root
+# est 65532) : un identifiant NUMÉRIQUE n'en a pas besoin, et 1000 garde le
+# propriétaire des volumes et le `fsGroup` qu'emploient les autres bases.
 USER 1000:1000
 EXPOSE 5151
 
@@ -343,10 +351,15 @@ EXPOSE 5151
 # Le reste passe tel quel sous Podman — cache monté, forme exec, node en PID 1,
 # arrêt gracieux en 0.
 HEALTHCHECK --interval=10s --timeout=2s --start-period=20s --retries=3 \
-  CMD ["node", "-e", "fetch('http://127.0.0.1:5151/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+  CMD ["/nodejs/bin/node", "-e", "fetch('http://127.0.0.1:5151/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
 
 # Forme EXEC obligatoire : `node` devient PID 1 et reçoit le SIGTERM. En forme
 # shell (`CMD npx nodefony production`), c'est `/bin/sh` qui est PID 1 — il ne
 # transmet pas les signaux, donc plus aucun arrêt gracieux et un SIGKILL à
 # chaque déploiement. L'image marcherait, et rien ne signalerait la perte.
+# L'`ENTRYPOINT` de distroless est `/nodejs/bin/node` : ce `CMD` devient ses
+# ARGUMENTS, et le script se lit sans passer par son shebang (`/usr/bin/env`
+# n'existe pas ici). Pour la même raison, un lanceur (Kubernetes, compose) qui
+# change la commande passe par `args:`, jamais par `command:`, qui remplacerait
+# l'`ENTRYPOINT`.
 CMD ["node_modules/.bin/nodefony", "production"]

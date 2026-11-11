@@ -261,42 +261,57 @@ l'ingress qui joue ce rôle.
 
 ## `nodefony/nodefony:<version>`
 
-Une seule variante, bâtie sur **`node:24-alpine`**. Ce n'est pas une habitude
-reprise d'un gabarit trouvé ailleurs : les trois candidates ont été construites
-avec un contenu identique, scannées et **démarrées**, et c'est la mesure qui a
-tranché.
+Une seule variante, bâtie sur **`gcr.io/distroless/nodejs24-debian13`**. Ce n'est
+pas une habitude reprise d'un gabarit trouvé ailleurs : quatre candidates ont été
+construites avec un contenu identique, scannées et **démarrées**, et c'est la
+mesure qui a tranché.
 
-| Base                                  | Image finale | Critiques | Hautes | Node embarqué | libc  | Shell dedans |
-| ------------------------------------- | -----------: | --------: | -----: | ------------- | ----- | ------------ |
-| **`node:24-alpine`** — celle-ci       |   **438 Mo** |     **0** |  **4** | 24.21         | musl  | oui (`sh`)   |
-| `node:24-slim`                        |       519 Mo |         2 |     14 | 24.18         | glibc | oui (`bash`) |
-| `gcr.io/distroless/nodejs24-debian12` |       400 Mo |         0 |      8 | 24.14         | glibc | **non**      |
+| Base                                                       | Image finale | Critiques | Hautes | Node embarqué             | libc  | Shell dedans |
+| ---------------------------------------------------------- | -----------: | --------: | -----: | ------------------------- | ----- | ------------ |
+| **`gcr.io/distroless/nodejs24-debian13`**                  |   **416 Mo** |     **0** |  **0** | 24.22.2                   | glibc | **non**      |
+| `node:24-alpine`                                           |       444 Mo |         1 |      7 | 24.22.2                   | musl  | oui (`sh`)   |
+| `node:24-slim`                                             |       531 Mo |         0 |     13 | 24.22.2                   | glibc | oui (`bash`) |
+| `gcr.io/distroless/nodejs24-debian12` — **ne démarre pas** |       404 Mo |         4 |     33 | 24.14.0, sous le plancher | glibc | **non**      |
 
 Les comptes de vulnérabilités portent sur les images **finales**, application
-comprise — pas sur les bases seules, qui affichent toutes des chiffres flatteurs
-et ne disent rien de ce qu'on déploie.
+comprise — pas sur les bases seules, qui ne disent rien de ce qu'on déploie.
 
-**Ce qui décide, et ce n'est pas le poids.** Distroless est la plus légère et
-perd quand même : elle embarque un Node plus ANCIEN, et le suivra toujours avec
-du retard. Ce retard n'est pas qu'une affaire de CVE — il nous a coûté un
-démarrage impossible, sur une API de `node:crypto` que le framework employait et
-que sa version de Node n'avait pas encore. Une base qui décide de ta version de
-Node décide de ce que ton code a le droit d'appeler.
+**Ce qui décide.** Distroless ne porte que Node et les bibliothèques dont il a
+besoin : ni shell, ni gestionnaire de paquets, ni npm. Les failles d'Alpine
+viennent de paquets que l'application n'emploie pas — zlib et musl, que seule une
+nouvelle image Alpine corrige, et le npm qu'elle embarque.
 
-**Et l'objection historique contre Alpine est tombée.** On évitait musl à cause
-des paquets natifs ; les deux qu'une application `complete` embarque —
-`better-sqlite3` et `@node-rs/argon2` — publient désormais leurs binaires musl,
-et s'exécutent ici après une installation **sans script d'installation**
-(`--ignore-scripts`) : base SQLite créée et relue, empreinte Argon2id produite.
-Mesuré, pas supposé.
+**Et la version de Node compte autant que les failles.** `nodejs24-debian12` est
+restée figée en Node 24.14.0, sous le plancher du framework : elle se construit,
+puis meurt au démarrage sur une API de `node:crypto` que son Node n'a pas. Une
+base qui décide de ta version de Node décide de ce que ton code a le droit
+d'appeler. `nodejs24-debian13` suit la ligne courante.
+
+**Ce que tu y perds.** Pas de `docker exec … sh` pour diagnostiquer (l'étiquette
+`:debug` de distroless ajoute un shell, le temps d'un diagnostic), pas de
+`RUN apk add` dans l'image finale, et `node` n'est pas sur le `PATH` :
+
+```bash
+docker exec <conteneur> /nodejs/bin/node node_modules/.bin/nodefony orm:migrate:status
+```
+
+Le Node d'entrée de l'image est son `ENTRYPOINT` : une commande se change par ses
+**arguments** — `docker run <image> node_modules/.bin/nodefony …`, `args:` en
+Kubernetes (jamais `command:`, qui le remplacerait), `command:` dans compose.
 
 ## En changer dans ton application
 
 Cette image est construite avec le `Dockerfile` que `nodefony create app`
-produit — le même que tu reçois. Sa base tient en **deux lignes `FROM`**, qui se
-changent **ensemble** : les deux étages doivent partager la même libc, sinon un
-binaire natif installé pendant la construction ne se charge pas à l'exécution, et
-le message d'erreur ne parle jamais de libc.
+produit — le même que tu reçois. En tête, il dit comment passer à
+**Alpine** (`apk add` possible) ou à **`node:24-slim`** (glibc, avec `bash`) :
+
+1. l'étage de construction et l'étage d'exécution changent **ensemble** — les
+   modules natifs sont compilés pour la libc de l'étage de construction, et un
+   mélange casse au **démarrage** (`.node` introuvable, « Error relocating »),
+   jamais à l'installation ;
+2. l'étage `nf-dirs` disparaît, et le `RUN mkdir` des dossiers de données revient
+   (une base à shell sait le faire elle-même) ;
+3. la sonde de santé appelle `node` au lieu de `/nodejs/bin/node`.
 
 ```dockerfile
 FROM node:24-alpine AS build   # étage de construction
@@ -304,35 +319,8 @@ FROM node:24-alpine AS build   # étage de construction
 FROM node:24-alpine            # étage d'exécution — celui qu'on déploie
 ```
 
-**Revenir à glibc** — à faire si un paquet natif que tu ajoutes ne publie pas de
-binaire musl. Le symptôme arrive au **démarrage** (`.node` introuvable, « Error
-relocating »), jamais à l'installation :
-
-```dockerfile
-FROM node:24-slim AS build
-FROM node:24-slim
-```
-
-**Passer en distroless** — la plus petite et la plus fermée, mais ce n'est pas un
-remplacement d'une ligne : elle n'a ni shell ni gestionnaire de paquets (plus de
-`docker exec … sh` pour diagnostiquer), et son binaire `node` n'est pas sur le
-`PATH`. Il faut donc aussi réécrire `CMD` et `HEALTHCHECK` en `/nodejs/bin/node`,
-et garder une image complète pour construire :
-
-```dockerfile
-FROM node:24-slim AS build
-FROM gcr.io/distroless/nodejs24-debian13
-```
-
-Préférer **`debian13`** à `debian12` : en novembre 2026, `nodejs24-debian12` était
-resté figé en Node 24.14.0 pendant que les autres bases passaient en 24.22 —
-exactement le retard décrit plus haut. `nodejs24-debian13` suit la version
-courante ; construite et démarrée avec une application `complete`, elle répond.
-
 > **Après tout changement de base : reconstruire, puis DÉMARRER.** « Ça
-> construit » ne prouve rien — les trois images se construisaient, et distroless
-> mourait au démarrage — sur une API de `node:crypto` absente de son Node,
-> retirée depuis : les trois démarrent.
+> construit » ne prouve rien — `debian12` se construit, et meurt au démarrage.
 
 # Licence
 
@@ -340,7 +328,7 @@ Le framework Nodefony est publié sous licence
 [Apache 2.0](https://github.com/nodefony/nodefony-core/blob/main/LICENSE.txt).
 L'application de démonstration est générée avec `--license MIT`.
 
-Comme toute image, celle-ci contient aussi d'autres logiciels — Alpine Linux,
+Comme toute image, celle-ci contient aussi d'autres logiciels — Debian (distroless),
 Node.js, les dépendances npm de l'application — chacun sous sa propre licence.
 Chaque paquet porte son fichier de licence dans `node_modules`, et l'inventaire
 complet se produit depuis une application générée, sans rien installer :

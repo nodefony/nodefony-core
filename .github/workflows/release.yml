@@ -680,9 +680,12 @@ jobs:
           # vit dans CETTE couche de démonstration, jamais dans le gabarit : une
           # application générée reste stricte. La page Hub le dit, et dit comment
           # le retirer derrière un frontal TLS.
+          #
+          # 🔴 `RUN` en forme EXEC : l'image est distroless (gabarit), sans shell —
+          # la forme texte passerait par `/bin/sh -c` et casserait la release.
           docker build -t "nodefony/nodefony:${V}" - <<EOF
           FROM nf-demo-app:${V}
-          RUN node_modules/.bin/nodefony orm:migrate
+          RUN ["/nodejs/bin/node", "node_modules/.bin/nodefony", "orm:migrate"]
           ENV NF__SECURITY__ALLOWINSECURECREDENTIALS=true
           EOF
 

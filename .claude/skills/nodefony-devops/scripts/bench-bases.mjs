@@ -11,11 +11,10 @@
  * Les bases sont tirées fraîches (`--pull`) : la version de Node relevée dit
  * aussi si une distribution s'est mise à jour depuis le dernier banc.
  *
- * Variante distroless — trois écarts au gabarit, et seulement trois : pas de
- * shell, donc les dossiers `tmp/` et `var/` naissent dans un étage
- * intermédiaire et se copient en `--chown` ; `node` n'est pas sur le PATH,
- * donc la sonde appelle `/nodejs/bin/node` ; le `CMD` reste tel quel, parce
- * que l'`ENTRYPOINT` de l'image est déjà `/nodejs/bin/node`. Chaque
+ * Le gabarit sert distroless `debian13`. Une base À SHELL (alpine, slim)
+ * s'en écarte en trois points, et seulement trois : l'étage `nf-dirs` disparaît
+ * et le `RUN mkdir … && chown` revient ; la sonde appelle `node` (sur le PATH)
+ * au lieu de `/nodejs/bin/node` ; le `CMD` reste tel quel. Chaque
  * substitution est VÉRIFIÉE : un gabarit qui a bougé arrête le banc au lieu de
  * mesurer l'image d'origine sous un autre nom.
  *
@@ -106,36 +105,46 @@ function swap(text, from, to, label) {
  * @returns le Dockerfile de la candidate.
  */
 export function variantDockerfile(source, base) {
+  // Le gabarit sert distroless `debian13` : construction en `node:24-slim`,
+  // étage `nf-dirs` pour les points de montage, sonde en `/nodejs/bin/node`.
   let out = swap(
     source,
-    "\nFROM node:24-alpine AS build\n",
+    "\nFROM node:24-slim AS build\n",
     `\nFROM ${base.build} AS build\n`,
     "FROM … AS build",
   );
-  if (!base.distroless) {
+  if (base.distroless) {
     return swap(
       out,
-      "\nFROM node:24-alpine\n",
+      "\nFROM gcr.io/distroless/nodejs24-debian13\n",
       `\nFROM ${base.run}\n`,
       "FROM d'exécution",
     );
   }
+  // Base À SHELL : l'étage `nf-dirs` disparaît, le `RUN mkdir` revient, et
+  // `node` est sur le PATH.
   out = swap(
     out,
-    "\nFROM node:24-alpine\n",
-    `\nFROM ${base.build} AS nf-dirs\nRUN mkdir -p /out/tmp /out/var\n\nFROM ${base.run}\n`,
+    "\nFROM node:24-slim AS nf-dirs\nRUN mkdir -p /out/tmp /out/var\n",
+    "\n",
+    "étage nf-dirs",
+  );
+  out = swap(
+    out,
+    "\nFROM gcr.io/distroless/nodejs24-debian13\n",
+    `\nFROM ${base.run}\n`,
     "FROM d'exécution",
   );
   out = swap(
     out,
-    "RUN mkdir -p /app/tmp /app/var \\\n && chown 1000:1000 /app/tmp /app/var\n",
     "COPY --from=nf-dirs --chown=1000:1000 /out/ /app/\n",
-    "RUN mkdir/chown",
+    "RUN mkdir -p /app/tmp /app/var \\\n && chown 1000:1000 /app/tmp /app/var\n",
+    "COPY nf-dirs",
   );
   return swap(
     out,
-    'CMD ["node", "-e",',
     'CMD ["/nodejs/bin/node", "-e",',
+    'CMD ["node", "-e",',
     "HEALTHCHECK node",
   );
 }

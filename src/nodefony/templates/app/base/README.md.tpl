@@ -126,6 +126,13 @@ appeler.
 
 ## Démarrage
 
+**Sur ton poste : Node 24.16+ ou 26+, et c'est tout** — npm vient avec lui (bun, pnpm et yarn
+marchent aussi).<% if (it.db) { %> **Docker** en plus, parce que cette application parle à
+<%= it.db.label %> : `npm run infra:up` le démarre dans un conteneur.<% } %> Le reste est
+facultatif : **mkcert** donne un HTTPS de développement que le navigateur approuve (sans lui, un
+certificat auto-signé), **git** versionne le projet, et **Docker** construit l'image de production
+depuis le `Dockerfile`.
+
 ```bash
 npm install
 npm run build<% if (it.db) { %>
@@ -441,33 +448,40 @@ lui appartiennent, ce qui est exactement ce dont elle a besoin pour écrire.
 
 #### Sur quelle base l'image est construite
 
-`node:24-alpine`, et c'est un choix **mesuré** — les trois candidates ont été
+`gcr.io/distroless/nodejs24-debian13`, et c'est un choix **mesuré** — quatre candidates
 construites avec un contenu identique, scannées, puis **démarrées** :
 
-| Base                                  | Image finale | Critiques | Hautes | Node  | libc  | Shell dedans |
-| ------------------------------------- | -----------: | --------: | -----: | ----- | ----- | ------------ |
-| **`node:24-alpine`** — actuelle       |   **438 Mo** |     **0** |  **4** | 24.21 | musl  | oui (`sh`)   |
-| `node:24-slim`                        |       519 Mo |         2 |     14 | 24.18 | glibc | oui (`bash`) |
-| `gcr.io/distroless/nodejs24-debian12` |       400 Mo |         0 |      8 | 24.14 | glibc | **non**      |
+| Base                                                       | Image finale | Critiques | Hautes | Node                      | libc  | Shell dedans |
+| ---------------------------------------------------------- | -----------: | --------: | -----: | ------------------------- | ----- | ------------ |
+| **`gcr.io/distroless/nodejs24-debian13`**                  |   **416 Mo** |     **0** |  **0** | 24.22.2                   | glibc | **non**      |
+| `node:24-alpine`                                           |       444 Mo |         1 |      7 | 24.22.2                   | musl  | oui (`sh`)   |
+| `node:24-slim`                                             |       531 Mo |         0 |     13 | 24.22.2                   | glibc | oui (`bash`) |
+| `gcr.io/distroless/nodejs24-debian12` — **ne démarre pas** |       404 Mo |         4 |     33 | 24.14.0, sous le plancher | glibc | **non**      |
 
-Distroless est la plus légère et perd quand même : elle embarque un Node plus
-ANCIEN et le suivra toujours avec du retard — ce qui l'expose aux CVE déjà
-corrigées en amont **et** aux API récentes que ton code appelle. Et l'objection
-historique contre Alpine est tombée : `better-sqlite3` et `@node-rs/argon2`
-publient leurs binaires musl et s'exécutent après une installation
-`--ignore-scripts`.
+Distroless ne porte que Node et les bibliothèques dont il a besoin : ni shell, ni gestionnaire de
+paquets, ni npm. Les failles d'Alpine viennent de paquets que ton application n'emploie pas — zlib
+et musl, que seule une nouvelle image Alpine corrige, et le npm qu'elle embarque. `debian12`, elle,
+est restée figée en Node 24.14.0, sous le plancher du framework : elle se construit, puis ne démarre
+pas.
 
-**Pour en changer**, le `Dockerfile` porte deux lignes `FROM` — elles se changent
-**ensemble**, les deux étages devant partager la même libc :
+**Ce que tu y perds**, et c'est le prix de ce zéro : pas de `docker exec … sh` pour diagnostiquer
+(l'étiquette `:debug` de distroless ajoute un shell, le temps d'un diagnostic), pas de
+`RUN apk add` dans l'image finale, et `node` n'est pas sur le PATH. Tout passe donc par Node
+lui-même :
 
-```dockerfile
-FROM node:24-slim AS build   # glibc : si un paquet natif n'a pas de binaire musl
-FROM node:24-slim            # le symptôme est au DÉMARRAGE, pas à l'installation
+```bash
+docker exec <conteneur> /nodejs/bin/node node_modules/.bin/nodefony orm:migrate:status
 ```
 
-Le détail de chaque candidate, et ce que distroless impose en plus (réécrire
-`CMD` et `HEALTHCHECK` en `/nodejs/bin/node`), est commenté en tête du
-`Dockerfile`.
+Pour la même raison, un lanceur qui change la commande la passe en **arguments** : `args:` en
+Kubernetes (jamais `command:`, qui remplacerait le Node d'entrée de l'image), `command:` dans
+compose, qui ne touche que les arguments.
+
+**Pour en changer** — vers Alpine (`apk add` possible) ou `node:24-slim` (glibc, avec `bash`) —,
+le `Dockerfile` le dit en tête, en quatre gestes : l'étage de construction et l'étage d'exécution
+changent **ensemble** (les modules natifs sont compilés pour la libc de l'étage de construction, et
+le symptôme d'un mélange est au DÉMARRAGE, pas à l'installation), le `RUN mkdir` des dossiers de
+données revient, et la sonde appelle `node`.
 
 #### Si tu PUBLIES cette image
 

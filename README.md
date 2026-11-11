@@ -675,33 +675,40 @@ lui appartiennent, ce qui est exactement ce dont elle a besoin pour écrire.
 
 ##### Sur quelle base l'image est construite
 
-`node:24-alpine`, et c'est un choix **mesuré** — les trois candidates ont été
+`gcr.io/distroless/nodejs24-debian13`, et c'est un choix **mesuré** — quatre candidates
 construites avec un contenu identique, scannées, puis **démarrées** :
 
-| Base                                  | Image finale | Critiques | Hautes | Node  | libc  | Shell dedans |
-| ------------------------------------- | -----------: | --------: | -----: | ----- | ----- | ------------ |
-| **`node:24-alpine`** — actuelle       |   **438 Mo** |     **0** |  **4** | 24.21 | musl  | oui (`sh`)   |
-| `node:24-slim`                        |       519 Mo |         2 |     14 | 24.18 | glibc | oui (`bash`) |
-| `gcr.io/distroless/nodejs24-debian12` |       400 Mo |         0 |      8 | 24.14 | glibc | **non**      |
+| Base                                                       | Image finale | Critiques | Hautes | Node                      | libc  | Shell dedans |
+| ---------------------------------------------------------- | -----------: | --------: | -----: | ------------------------- | ----- | ------------ |
+| **`gcr.io/distroless/nodejs24-debian13`**                  |   **416 Mo** |     **0** |  **0** | 24.22.2                   | glibc | **non**      |
+| `node:24-alpine`                                           |       444 Mo |         1 |      7 | 24.22.2                   | musl  | oui (`sh`)   |
+| `node:24-slim`                                             |       531 Mo |         0 |     13 | 24.22.2                   | glibc | oui (`bash`) |
+| `gcr.io/distroless/nodejs24-debian12` — **ne démarre pas** |       404 Mo |         4 |     33 | 24.14.0, sous le plancher | glibc | **non**      |
 
-Distroless est la plus légère et perd quand même : elle embarque un Node plus
-ANCIEN et le suivra toujours avec du retard — ce qui l'expose aux CVE déjà
-corrigées en amont **et** aux API récentes que ton code appelle. Et l'objection
-historique contre Alpine est tombée : `better-sqlite3` et `@node-rs/argon2`
-publient leurs binaires musl et s'exécutent après une installation
-`--ignore-scripts`.
+Distroless ne porte que Node et les bibliothèques dont il a besoin : ni shell, ni gestionnaire de
+paquets, ni npm. Les failles d'Alpine viennent de paquets que ton application n'emploie pas — zlib
+et musl, que seule une nouvelle image Alpine corrige, et le npm qu'elle embarque. `debian12`, elle,
+est restée figée en Node 24.14.0, sous le plancher du framework : elle se construit, puis ne démarre
+pas.
 
-**Pour en changer**, le `Dockerfile` porte deux lignes `FROM` — elles se changent
-**ensemble**, les deux étages devant partager la même libc :
+**Ce que tu y perds**, et c'est le prix de ce zéro : pas de `docker exec … sh` pour diagnostiquer
+(l'étiquette `:debug` de distroless ajoute un shell, le temps d'un diagnostic), pas de
+`RUN apk add` dans l'image finale, et `node` n'est pas sur le PATH. Tout passe donc par Node
+lui-même :
 
-```dockerfile
-FROM node:24-slim AS build   # glibc : si un paquet natif n'a pas de binaire musl
-FROM node:24-slim            # le symptôme est au DÉMARRAGE, pas à l'installation
+```bash
+docker exec <conteneur> /nodejs/bin/node node_modules/.bin/nodefony orm:migrate:status
 ```
 
-Le détail de chaque candidate, et ce que distroless impose en plus (réécrire
-`CMD` et `HEALTHCHECK` en `/nodejs/bin/node`), est commenté en tête du
-`Dockerfile`.
+Pour la même raison, un lanceur qui change la commande la passe en **arguments** : `args:` en
+Kubernetes (jamais `command:`, qui remplacerait le Node d'entrée de l'image), `command:` dans
+compose, qui ne touche que les arguments.
+
+**Pour en changer** — vers Alpine (`apk add` possible) ou `node:24-slim` (glibc, avec `bash`) —,
+le `Dockerfile` le dit en tête, en quatre gestes : l'étage de construction et l'étage d'exécution
+changent **ensemble** (les modules natifs sont compilés pour la libc de l'étage de construction, et
+le symptôme d'un mélange est au DÉMARRAGE, pas à l'installation), le `RUN mkdir` des dossiers de
+données revient, et la sonde appelle `node`.
 
 ##### Si tu PUBLIES cette image
 
@@ -748,6 +755,29 @@ et les journaux partent sur la sortie standard. Sans orchestrateur, `nodefony cl
 workers isolés, relancés s'ils tombent.
 
 ## Développer le framework lui-même
+
+### Le poste de travail
+
+Une application n'exige que Node. Le dépôt du framework, lui, se teste contre de vrais services et
+de vrais clients : il lui faut davantage. Chaque outil ci-dessous est appelé par un script ou une
+suite du dépôt — aucun n'est là par confort.
+
+| Outil                       | Pourquoi                                                                                               | Linux (Debian, Ubuntu)              | macOS (Homebrew)           | Windows                                            |
+| --------------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------- | -------------------------- | -------------------------------------------------- |
+| **Node 24.16+ ou 26+**      | le plancher `engines` ; la CI joue 24 et 26                                                            | `nvm install 26`                    | `nvm install 26`           | `nvm install 26` (nvm-windows)                     |
+| **git**, **GitHub CLI**     | dépôt, tickets, tableau de bord                                                                        | `apt install git gh`                | `brew install git gh`      | `winget install Git.Git GitHub.cli`                |
+| **Docker** et Compose       | bases, Redis, Keycloak, proxys : **sans lui, des suites entières se sautent et comptent comme vertes** | Docker Engine + extension `compose` | Docker Desktop             | Docker Desktop (WSL 2)                             |
+| **jq**, **ripgrep**         | scripts du dépôt, contrôle des tickets (`rg` doit être sur le PATH)                                    | `apt install jq ripgrep`            | `brew install jq ripgrep`  | `winget install jqlang.jq BurntSushi.ripgrep.MSVC` |
+| **bun**, **pnpm**, **yarn** | une application générée s'installe avec chacun                                                         | `npm i -g bun pnpm yarn`            | idem                       | idem                                               |
+| **mkcert**                  | certificat de développement approuvé (sinon : auto-signé)                                              | `apt install mkcert libnss3-tools`  | `brew install mkcert nss`  | `winget install FiloSottile.mkcert`                |
+| **gitleaks**                | garde anti-secrets                                                                                     | binaire publié                      | `brew install gitleaks`    | `winget install Gitleaks.Gitleaks`                 |
+| **wrk**, **h2load**         | bancs de charge HTTP/1.1 et HTTP/2                                                                     | `apt install wrk nghttp2-client`    | `brew install wrk nghttp2` | sous WSL 2                                         |
+| **grpcurl**                 | interopérabilité gRPC                                                                                  | binaire publié                      | `brew install grpcurl`     | `winget install fullstorydev.grpcurl`              |
+
+`npm run test:all -- --infra` dit ce qui manque au poste **avant** de lancer quoi que ce soit, et
+chaque suite qui saute faute d'un service le nomme en fin de passe.
+
+### Cloner et construire
 
 Pour travailler sur le framework, c'est ce dépôt qu'on clone :
 

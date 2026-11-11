@@ -44,6 +44,13 @@ même porte sert la personne au terminal, la console d'administration et un agen
 <!-- @if app -->
 ## Démarrage
 
+**Sur ton poste : Node 24.16+ ou 26+, et c'est tout** — npm vient avec lui (bun, pnpm et yarn
+marchent aussi).<% if (it.db) { %> **Docker** en plus, parce que cette application parle à
+<%= it.db.label %> : `npm run infra:up` le démarre dans un conteneur.<% } %> Le reste est
+facultatif : **mkcert** donne un HTTPS de développement que le navigateur approuve (sans lui, un
+certificat auto-signé), **git** versionne le projet, et **Docker** construit l'image de production
+depuis le `Dockerfile`.
+
 ```bash
 npm install
 npm run build<% if (it.db) { %>

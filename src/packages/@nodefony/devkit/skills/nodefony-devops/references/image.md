@@ -7,12 +7,13 @@ du frontal ne sort que si tu le demandes explicitement.
 
 ## 1. La carte
 
-| Étage       | Base                | Ce qu'il fait                                                         | Descend dans l'image finale ? |
-| ----------- | ------------------- | --------------------------------------------------------------------- | ----------------------------- |
-| `build`     | `node:24-alpine`    | Installe, compile, élague les dépendances de développement            | seulement son `/app`          |
-| `proxyconf` | hérite de `build`   | **Dérive** la configuration nginx et rassemble les fichiers statiques | non — étage intermédiaire     |
-| `edge`      | `nginx:1.30-alpine` | Le frontal, avec la configuration dérivée ci-dessus                   | non — cible séparée           |
-| _(final)_   | `node:24-alpine`    | L'application en production                                           | **oui**                       |
+| Étage       | Base                                  | Ce qu'il fait                                                           | Descend dans l'image finale ? |
+| ----------- | ------------------------------------- | ----------------------------------------------------------------------- | ----------------------------- |
+| `build`     | `node:24-slim`                        | Installe, compile, élague les dépendances de développement              | seulement son `/app`          |
+| `proxyconf` | hérite de `build`                     | **Dérive** la configuration nginx et rassemble les fichiers statiques   | non — étage intermédiaire     |
+| `edge`      | `nginx:1.30-alpine`                   | Le frontal, avec la configuration dérivée ci-dessus                     | non — cible séparée           |
+| `nf-dirs`   | `node:24-slim`                        | Crée `tmp/` et `var/` vides — distroless n'a pas de shell pour le faire | seulement ces deux dossiers   |
+| _(final)_   | `gcr.io/distroless/nodejs24-debian13` | L'application en production — ni shell, ni npm, `node` hors du `PATH`   | **oui**                       |
 
 ```bash
 docker build -t <app> .                      # l'application
@@ -71,14 +72,21 @@ Sans eux l'image se construit quand même — avec des étiquettes vides. Une im
 
 ## 3. Changer la base — c'est prévu, et c'est écrit dans le fichier
 
-Le gabarit porte deux alternatives en commentaire, avec leur mode d'emploi. La règle commune :
-**remplacer les DEUX `FROM`, jamais un seul** — un étage de compilation `alpine` et une exécution
-`slim` produisent des binaires natifs qui ne se chargeront pas.
+L'image finale est distroless `debian13` : aucune vulnérabilité critique ni haute, Node à jour. Le
+gabarit porte en commentaire comment passer à une base À SHELL, avec son mode d'emploi. La règle
+commune : **l'étage de construction et l'étage final partagent la même libc** — une compilation
+`alpine` (musl) et une exécution glibc produisent des binaires natifs qui ne se chargeront pas.
 
-| Tu veux…                                              | Bascule                                                          | Ce qu'il faut aussi changer                                     |
-| ----------------------------------------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------- |
-| Un paquet natif qui ne publie **pas** de binaire musl | `node:24-slim` (glibc) sur les deux `FROM`                       | rien                                                            |
-| La surface d'attaque minimale                         | `gcr.io/distroless/nodejs24-debian12` en finale, `slim` en build | **`CMD` et `HEALTHCHECK` en `/nodejs/bin/node`** — pas de shell |
+| Tu veux…                           | Bascule                              | Ce qu'il faut aussi changer                                                    |
+| ---------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------ |
+| Un `apk add` dans l'image finale   | `node:24-alpine` sur les deux `FROM` | retirer l'étage `nf-dirs`, remettre le `RUN mkdir … && chown`, sonde en `node` |
+| Un shell glibc (`bash`, `apt-get`) | `node:24-slim` sur les deux `FROM`   | idem                                                                           |
+
+Sous distroless, rien ne lit un shebang : `node` n'est pas sur le `PATH` et il n'y a pas de
+`/usr/bin/env`. L'`ENTRYPOINT` de l'image est `/nodejs/bin/node`, donc une commande se change par ses
+**arguments** — `docker run <image> node_modules/.bin/nodefony …`, `args:` en Kubernetes (jamais
+`command:`, qui remplacerait l'`ENTRYPOINT`), `command:` dans compose. Un diagnostic :
+`docker exec <conteneur> /nodejs/bin/node …`.
 
 Le symptôme d'un mélange musl/glibc est franc : un `.node` introuvable, ou `Error relocating`, **au
 démarrage** — jamais à la construction. L'image se construit parfaitement et ne démarre pas.

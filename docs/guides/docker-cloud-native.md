@@ -109,20 +109,30 @@ sonde et la forme exec du `CMD`. La source est le gabarit :
 
 ### La base de l'image
 
-L'image part de **`node:24-alpine`** : zéro vulnérabilité critique contre 2 sur
-`node:24-slim`, 4 hautes contre 14, et 81 Mo de moins — mesuré sur les images
-FINALES, application comprise. L'objection historique (« musl et les paquets
-natifs ») est tombée : `better-sqlite3` et `@node-rs/argon2` publient leurs
-binaires musl et s'exécutent après une installation `--ignore-scripts`.
+L'image part de **`gcr.io/distroless/nodejs24-debian13`** : aucune vulnérabilité
+critique ni haute, contre 1 critique et 7 hautes sur `node:24-alpine` et 13 hautes
+sur `node:24-slim` — mesuré sur les images FINALES, application comprise. Distroless
+ne porte que Node et ses bibliothèques : ni shell, ni gestionnaire de paquets, ni
+npm. Sa construction se fait en `node:24-slim`, même libc (glibc) que l'image
+finale. `nodejs24-debian12`, restée en Node 24.14.0, est sous le plancher du
+framework et ne démarre pas.
 
-Les candidates, leurs chiffres et **les deux lignes `FROM` à remplacer** pour en
-changer sont en tête du `Dockerfile` généré, et sur la page publique de l'image
+Les candidates, leurs chiffres et **les quatre gestes pour en changer** (vers
+Alpine pour un `apk add`, vers `node:24-slim` pour un shell) sont en tête du
+`Dockerfile` généré, et sur la page publique de l'image
 (`docker/hub-overview.md` dans le dépôt).
 
-> Deux points qui ne se devinent pas : les deux étages doivent partager la même
-> **libc** (un binaire natif installé à la construction ne se charge pas sinon,
-> sur un message qui ne parle pas de libc), et distroless n'est pas un
-> remplacement d'une ligne — ni shell, ni `node` sur le `PATH`.
+> Trois points qui ne se devinent pas :
+>
+> - les deux étages doivent partager la même **libc** — un binaire natif installé
+>   à la construction ne se charge pas sinon, sur un message qui ne parle pas de
+>   libc ;
+> - `node` n'est pas sur le `PATH` : un diagnostic passe par
+>   `docker exec <conteneur> /nodejs/bin/node …`, et la sonde de santé aussi ;
+> - le Node d'entrée de l'image est son `ENTRYPOINT` : une commande se change par
+>   ses **arguments** (`args:` en Kubernetes, jamais `command:`, qui le
+>   remplacerait — et le script lancé n'aurait plus personne pour lire son
+>   shebang).
 
 ### Les deux règles qui survivent à tout changement de base
 

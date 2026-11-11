@@ -87,9 +87,11 @@ spec:
       containers:
         - name: migrate
           image: <%= it.appName %>:${IMAGE_TAG}
-          # Même forme que le `CMD` du Dockerfile : le binaire vit dans les
-          # `node_modules` de l'image, jamais dans le PATH.
-          command: ["node_modules/.bin/nodefony", "orm:migrate", "--json"]
+          # `args`, jamais `command` : `command` remplacerait l'ENTRYPOINT de
+          # l'image (`/nodejs/bin/node` sur distroless, qui n'a ni shell ni
+          # `/usr/bin/env` pour lire un shebang). Le binaire vit dans les
+          # `node_modules` de l'image, jamais dans le PATH — même forme que le `CMD`.
+          args: ["node_modules/.bin/nodefony", "orm:migrate", "--json"]
           env:
             - name: NODE_ENV
               value: production
