@@ -375,6 +375,9 @@ range ses en-têtes dans une réserve que seul `Response.ts#HttpResponse.writeHe
    Il les pose en en-têtes natifs. Node les fusionne avec ceux de Connect, qui l'emportent en cas
    de conflit (`content-type`). Sans cela, la corrélation client↔serveur et le CORS disparaissent
    en silence.
+   - Antériorité : l'adaptateur Fastify officiel de Connect fait le même geste, pour la même raison
+     (`connect-fastify/src/fastify-connect-plugin.ts`, recopie de `reply.getHeaders()` sur la
+     réponse native avant de confier la réponse à Connect).
    - Constaté sur le fil (Connect réel, HTTP/2 et HTTP/1.1) : `x-request-id`, `vary` et
      `access-control-allow-origin` posés en natif reviennent sur la réponse ; un `content-type`
      posé avant est remplacé par celui de Connect. L'ALS est lu dans l'implémentation, à l'appel
@@ -538,10 +541,17 @@ d'appels ouverts (mesure ci-dessous).
 | **Écarté** : `shutdownSignal`       | CHAQUE appel, unaire compris         | mesuré sur `createHandlerContext` réel : +0,2 µs à vide, **+12 µs** à 1 000 appels ouverts, **+122 µs** à 10 000 |
 
 Relevé en passant, hors décision : le contexte que Connect crée par appel (`createHandlerContext`,
-signaux liés, puis un `abort()` final qui alloue une `DOMException`) coûte **≈ 7 µs par appel**,
-mesuré sur la fonction réelle, sans `shutdownSignal`. C'est un plancher de la bibliothèque, pas un
-surcoût de Nodefony ; il entre dans la mesure par appel de #695, et dans un signalement amont
-(avec le O(N) et la promesse qui ne se résout pas, D7 point 4), sur GO de l'auteur.
+signaux liés, puis un `abort()` final) coûte **7 à 12 µs par appel** selon la charge du poste,
+mesuré sur la fonction réelle, sans `shutdownSignal`. L'essentiel vient de l'`abort()` SANS motif,
+qui alloue une `DOMException` avec sa pile : 12,3 µs contre 4,8 µs avec un motif préalloué, soit
+**≈ 7,5 µs évitables sur chaque appel**. C'est un plancher de la bibliothèque, pas un surcoût de
+Nodefony ; il entre dans la mesure par appel de #695.
+
+Trois signalements amont à Connect sont rédigés (promesse qui ne se résout pas, `DOMException` par
+appel, `shutdownSignal` linéaire), reproductions et mesures comprises ; un quatrième, chez Node
+(coût linéaire d'`EventTarget`), est retenu : le cas courant y va bien, et le motif disparaît si
+Connect corrige le sien. Brouillons : commentaire « Signalements amont » de #695. Envoi sur GO de
+l'auteur.
 
 ### D9 — Les navigateurs d'une autre origine (CORS)
 
