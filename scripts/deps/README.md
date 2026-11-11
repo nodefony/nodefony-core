@@ -29,10 +29,11 @@ Inventaire EXHAUSTIF des dépendances en retard — remplaçant de `npm outdated
 - **Variable** `CATALOGUE_SCAFFOLD`
 - **Variable** `NF_DEPS_REGISTRY`
 - **Variable** `NF_DEPS_ROOT`
+- **Variable** `NODE_FLOOR`
 - **Variable** `REGISTRY`
 - **Appelé par** : `npm run deps:check` · `npm run deps:gate` · `node.js.yml`
 - **Testé par** : `deps/deps-gate.test.mjs`
-- **Utilise** : `lib/repo-root.mjs` · `deps/lib/deprecations.mjs` · `deps/lib/overrides.mjs` · `deps/lib/reconcile-versions.mjs`
+- **Utilise** : `lib/repo-root.mjs` · `deps/lib/deprecations.mjs` · `deps/lib/engines.mjs` · `deps/lib/overrides.mjs` · `deps/lib/reconcile-versions.mjs`
 
 ## [`deprecations.test.mjs`](deprecations.test.mjs)
 
@@ -47,6 +48,13 @@ Suite de bout en bout de la garde des dépendances — écrite pour la faire ÉC
 
 - **Lancé par** : `npm run test:deps-gate` · `npm run test:tooling`
 - **Utilise** : `deps/check-deps-latest.mjs`
+
+## [`engines.test.mjs`](engines.test.mjs)
+
+Planchers Node des dépendances face au nôtre — vécu : `@inquirer/prompts` 8.8.0 exigeait `^24.15.0` sous un dépôt à `>=24.14.0`, sans que rien ne le dise. /
+
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `deps/lib/engines.mjs`
 
 ## [`overrides.test.mjs`](overrides.test.mjs)
 

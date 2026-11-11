@@ -68,6 +68,7 @@ import {
   deprecatedInstalled,
   deprecatedVersionsOf,
 } from "./lib/deprecations.mjs";
+import { enginesBelowFloor } from "./lib/engines.mjs";
 import { guardCli } from "../../.claude/skills/nodefony-session/scripts/cli-guard.mjs";
 
 // Avant tout : `--help` lançait l'inventaire complet (registre interrogé pour
@@ -322,6 +323,8 @@ if (!AS_JSON) {
 }
 
 const latest = new Map();
+/** pkg → `engines.node` de sa version `latest` (absent = aucune exigence). */
+const latestNode = new Map();
 /** pkg → toutes les versions publiées (pour résoudre une plage sans deviner). */
 const published = new Map();
 const failed = [];
@@ -365,6 +368,8 @@ async function fetchOne(name) {
     const body = await res.json();
     const tag = body?.["dist-tags"]?.latest;
     if (tag) latest.set(name, tag);
+    const tagNode = tag ? body?.versions?.[tag]?.engines?.node : undefined;
+    if (typeof tagNode === "string") latestNode.set(name, tagNode);
     if (body?.versions) published.set(name, Object.keys(body.versions));
     const dep = deprecatedVersionsOf(body);
     if (dep !== null) deprecatedVersions.set(name, dep);
@@ -938,6 +943,56 @@ if (AS_JSON) {
   );
 }
 
+// ── Les planchers Node des dépendances face au NÔTRE ──────────────────────
+// Une dépendance qui exige un Node plus récent que le plancher du dépôt le
+// relève à notre place : `EBADENGINE` chez qui installe, échec franc sous
+// `engine-strict`. Règle (inclusion de plages) : `lib/engines.mjs`.
+// INSTALLÉ = lu dans `node_modules`, hors ligne — il fait échouer la garde.
+// LATEST = lu au registre — un avertissement AVANT de monter.
+const NODE_FLOOR = rootManifest.engines?.node ?? null;
+const floorInstalled =
+  NODE_FLOOR === null
+    ? []
+    : enginesBelowFloor(
+        NODE_FLOOR,
+        names.map((name) => {
+          const p = readPkg(name);
+          return { name, version: p?.version ?? null, node: p?.engines?.node };
+        }),
+      );
+const floorLatest =
+  NODE_FLOOR === null
+    ? []
+    : enginesBelowFloor(
+        NODE_FLOOR,
+        names
+          .filter(
+            (name) =>
+              latest.has(name) && latest.get(name) !== readPkg(name)?.version,
+          )
+          .map((name) => ({
+            name,
+            version: latest.get(name),
+            node: latestNode.get(name),
+          })),
+      );
+if ((floorInstalled.length || floorLatest.length) && !AS_JSON) {
+  process.stdout.write(
+    `\n🧱 dépendances qui exigent plus que notre plancher Node (${NODE_FLOOR}) :\n`,
+  );
+  for (const e of floorInstalled)
+    process.stdout.write(
+      `     [INSTALLÉ] ${e.name}@${e.version} exige ${e.requires}${e.unreadable ? " (plage illisible)" : ""}\n`,
+    );
+  for (const e of floorLatest)
+    process.stdout.write(
+      `     [À MONTER] ${e.name}@${e.version} exigerait ${e.requires}${e.unreadable ? " (plage illisible)" : ""}\n`,
+    );
+  process.stdout.write(
+    "     Faire : relever le plancher `engines` (rupture une fois publié — politique de compatibilité), ou rester sur la version d'avant.\n",
+  );
+}
+
 // ── 5. Le VERDICT — sous `--gate` seulement ─────────────────────────────────
 //
 // 🔴 Pourquoi un drapeau plutôt qu'un échec par défaut : ce script est d'abord
@@ -999,6 +1054,16 @@ if (ARGS.has("--gate")) {
             (x) =>
               `   ${x.name} : base ${x.base}, l'amont publie ${x.above.join(", ")} — retirer le shim, ou relever sa base`,
           )
+          .join("\n") +
+        "\n",
+    );
+    process.exit(1);
+  }
+  if (floorInstalled.length) {
+    process.stderr.write(
+      `\n❌ garde des dépendances : ${floorInstalled.length} dépendance(s) installée(s) exigent plus que notre plancher Node (${NODE_FLOOR})\n` +
+        floorInstalled
+          .map((e) => `   ${e.name}@${e.version} : ${e.requires}`)
           .join("\n") +
         "\n",
     );

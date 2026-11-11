@@ -22,6 +22,14 @@ Dépendances DÉCLARÉES dont la version au verrou est dépréciée en amont.
 - **Appelé par** : `deps/check-deps-latest.mjs`
 - **Testé par** : `deps/deprecations.test.mjs`
 
+## [`engines.mjs`](engines.mjs)
+
+Une dépendance qui exige un Node plus récent que le NÔTRE.
+
+- **Usage** : `import { enginesBelowFloor } from "./lib/engines.mjs"`
+- **Appelé par** : `deps/check-deps-latest.mjs`
+- **Testé par** : `deps/engines.test.mjs`
+
 ## [`overrides.mjs`](overrides.mjs)
 
 Lecture des `overrides` npm de la racine : une dépendance qu'un tiers déclare est-elle FORCÉE par nous ?
