@@ -453,8 +453,10 @@ canaux, de membres ou d'abonnés.**
 Deux natures, deux preuves. Les **invariants** sont des tests à horloge simulée (un compte exact,
 pas une mesure) ; les **mesures** passent au banc
 (`.claude/skills/nodefony-load-test/scripts/micro/micro-presence.mjs` : hub seul, bus en mémoire
-avec le vrai sceau, un processus par mesure, variantes alternées, médiane, refus au-delà de 3 %
-de dispersion), plus le gate mémoire de `@nodefony/http`.
+avec le vrai sceau, un processus par mesure, variantes alternées, médiane ; octets et mémoire
+refusés au-delà de 3 % de dispersion, temps indicatifs — un A/B ne conclut que sur des séries
+séparées : la variance entre processus d'une opération de ~100 ns est propre au moteur, 5 à
+40 %, bimodale), plus le gate mémoire de `@nodefony/http`.
 
 | Grandeur                                                                                               | Budget                                                                                                                           | Preuve    |
 | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- | --------- |

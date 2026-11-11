@@ -5,8 +5,9 @@
  *
  * Trois familles, trois natures de preuve :
  *
- * - TEMPS (ns, un process par mesure, variantes alternées, médiane, REFUS
- *   au-delà de 3 % de dispersion) :
+ * - TEMPS (ns, un process par mesure, médiane de 5 fenêtres dans le process,
+ *   variantes alternées, médiane et étendue entre process — INDICATIFS, aucun
+ *   budget n'y porte ; un A/B ne conclut que sur des séries séparées) :
  *   - `change-local`  : un changement (arrivée ou départ) d'un canal à présence
  *     NON diffusé de 1 000 membres, trame de changements comprise ;
  *   - `change-bus`    : le même sur un canal DIFFUSÉ (part locale + entrée du lot) ;
@@ -34,7 +35,8 @@
  *
  * Validité : chaque mesure prouve que son travail a eu lieu (trames non nulles,
  * issue `applied`, longueur de liste, présents vus par B) — sinon exit 1, aucun
- * chiffre. Une dispersion > 3 % : exit 3, la ligne est marquée REFUSÉE.
+ * chiffre. Mémoire (budgétée) : dispersion > 3 % = exit 3, ligne REFUSÉE. Temps
+ * (sans budget) : indicatifs ; un A/B ne conclut que sur des séries SÉPARÉES.
  *
  * Usage (depuis la racine du dépôt, `dist` bâti) :
  *   node .claude/skills/nodefony-load-test/scripts/micro/micro-presence.mjs \
@@ -82,6 +84,8 @@ const MEMBERS = 1000;
 const CHANNEL = "room:bench";
 const REMOTE_PRESENTS = 100_000;
 const MAX_DISPERSION = 0.03;
+/** Fenêtres de mesure par process (N doit en être un multiple). */
+const WINDOWS = 5;
 const TIMED = [
   "change-local",
   "change-bus",
@@ -147,11 +151,20 @@ async function child(dist, which, arg) {
 
   const n = N[which] ?? 0;
   const WARM = Math.floor(n / 10);
+  // Médiane de WINDOWS fenêtres DANS le process : une pause du GC ou un
+  // changement de palier du JIT tombe dans une fenêtre, pas dans la mesure.
   const timed = (step) => {
     for (let i = 0; i < WARM; i++) step(i);
-    const t0 = process.hrtime.bigint();
-    for (let i = 0; i < n; i++) step(i);
-    return Number(process.hrtime.bigint() - t0) / n;
+    const per = Math.floor(n / WINDOWS);
+    const windows = [];
+    let i = 0;
+    for (let w = 0; w < WINDOWS; w++) {
+      const t0 = process.hrtime.bigint();
+      for (const end = i + per; i < end; i++) step(i);
+      windows.push(Number(process.hrtime.bigint() - t0) / per);
+    }
+    windows.sort((x, y) => x - y);
+    return windows[Math.floor(WINDOWS / 2)];
   };
   const fail = (message) => {
     console.error(`${which} : ${message}`);
@@ -490,7 +503,11 @@ function parent() {
         ];
   let refused = false;
 
-  // TEMPS — variantes alternées, médiane, refus au-delà de 3 %.
+  // TEMPS — INDICATIFS : aucun budget de l'ADR ne porte sur un temps, et la
+  // variance ENTRE process d'une opération de ~100 ns est propre au moteur
+  // (palier du JIT, disposition du tas ; bimodale, 5 à 40 % — la graine de
+  // hachage fixée ne la réduit pas, essayé). Un A/B se tranche par SÉPARATION
+  // des séries (méthode de `bench-pairs.sh`), jamais par un écart de médianes.
   const timeRows = [];
   for (const which of TIMED.filter(wanted)) {
     const series = Object.fromEntries(camps.map(([k]) => [k, []]));
@@ -499,21 +516,26 @@ function parent() {
     const row = { mesure: which };
     for (const [k] of camps) {
       const xs = series[k];
-      const d = spread(xs);
       row[`${k} ns`] = median(xs).toFixed(1);
-      row[`${k} dispersion`] =
-        `${(d * 100).toFixed(1)} %${d > MAX_DISPERSION ? " REFUSÉ" : ""}`;
-      if (d > MAX_DISPERSION) refused = true;
+      row[`${k} étendue`] =
+        `${Math.min(...xs).toFixed(0)}–${Math.max(...xs).toFixed(0)}`;
     }
-    if (b !== null)
-      row["écart %"] = (
-        ((median(series.B) - median(series.A)) / median(series.A)) *
-        100
-      ).toFixed(1);
+    if (b !== null) {
+      const [A, B] = [series.A, series.B];
+      row["écart %"] = (((median(B) - median(A)) / median(A)) * 100).toFixed(1);
+      row.verdict =
+        Math.max(...B) < Math.min(...A)
+          ? "B PLUS RAPIDE (séparé)"
+          : Math.min(...B) > Math.max(...A)
+            ? "B PLUS LENT (séparé)"
+            : "DANS LE BRUIT";
+    }
     timeRows.push(row);
   }
   if (timeRows.length > 0) {
-    console.log("TEMPS (un process par mesure, médiane)");
+    console.log(
+      "TEMPS — indicatifs (médiane de 5 fenêtres par process, médiane et étendue entre process)",
+    );
     console.table(timeRows);
   }
 
