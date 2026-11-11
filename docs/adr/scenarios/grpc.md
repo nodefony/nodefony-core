@@ -253,6 +253,29 @@ Le champ « A fait changer » garde la trace des cas qui ont coûté : il ne se 
   inconnue refusée au format gRPC (D5) ; aucune route HTTP voisine n'expose `grpc-status`.
 - **A fait changer** : D9 — sans `Expose-Headers`, un client gRPC-Web ne lit pas le statut.
 
+### S-grpc-38 — Un appel en échec, lu dans le journal d'accès
+
+- **Situation** : un appel gRPC finit en 14 ; un appel en protocole Connect finit en 404 ; une
+  exception banale finit en 13.
+- **Tient si** : la ligne porte `RPC : <méthode> <NOM>` avec la gravité de la convention
+  OpenTelemetry ; le 404 natif de Connect apparaît ; l'exception tient en UNE ligne, cause comprise.
+- **A fait changer** : D10 — les journaux lisaient le 200 de la réponse de Nodefony.
+
+### S-grpc-39 — Un client abandonne un flux, en direct ou derrière le relais
+
+- **Situation** : un client annule un flux gRPC au troisième message ; un client quitte une requête
+  relayée avant sa fin.
+- **Tient si** : 499 et `CANCELLED` pour le flux ; 499 pour le relais, jamais le statut de l'amont.
+- **A fait changer** : D10 — la recopie du statut natif, sans condition dans le relais.
+
+### S-grpc-40 — Une extension OpenTelemetry trace les appels
+
+- **Situation** : une extension abonnée au canal `nodefony.http.request` exporte des spans RPC.
+- **Tient si** : elle lit méthode, système et code sur `trace.rpc`, le statut HTTP sur
+  `statusCode` ; la durée d'un flux couvre son ouverture jusqu'au `close` ; rien n'est publié par
+  message.
+- **A fait changer** : D10 — le canal ne portait aucune donnée RPC.
+
 ## Plateformes
 
 ### S-grpc-10 — Linux, macOS, Windows
@@ -292,8 +315,8 @@ Le champ « A fait changer » garde la trace des cas qui ont coûté : il ne se 
 ### S-grpc-13 — Ce qu'un exploitant voit
 
 - **Situation** : liste des routes, profileur, journal d'accès, métriques.
-- **Tient si** : chaque méthode apparaît comme une route ; la ligne d'accès porte `grpc-status`.
-- **A fait changer** : aucune.
+- **Tient si** : chaque méthode apparaît comme une route ; la ligne d'accès porte le code gRPC.
+- **A fait changer** : D10 (S-grpc-38).
 
 ## Mainteneur solo
 

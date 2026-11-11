@@ -452,7 +452,7 @@ un service partagé avec des routes HTTP, devient donc 13.
 4. **Journal.** À la fin de l'appel, l'adaptateur lit `ctx.signal.reason`. Une cause qui n'est pas
    une `ConnectError`, ou un code 2, 13 ou 15, part au journal en ERROR avec le `requestId` et la
    pile. Aucun écouteur de plus : la lecture se fait au `close` de la réponse, que le noyau écoute
-   déjà (`HttpKernel.teardownHttp`).
+   déjà (`HttpKernel.teardownHttp`). Ce journal est la ligne d'accès de l'appel (D10, point 3).
    - ⚠️ PAS à la fin de l'`await universalResponseToNodeResponse(…)` : cette promesse attend un
      événement `end` qu'une réponse Node n'émet jamais (`finish`, oui). Constaté à l'essai : elle
      ne se résout pas, en HTTP/1.1 comme en HTTP/2. `connectNodeAdapter` ne l'attend pas, d'où
@@ -580,10 +580,84 @@ par CORS (`csrf.ts#Csrf.enforce`, point 1). Connect publie les en-têtes que ses
 **Coût** : 0 par appel ; listes calculées une fois au démarrage ; ≈ 70 octets de plus, sur une
 réponse gRPC d'une autre origine seulement.
 
-### D10 à D13 — à rendre
+### D10 — Ce que voient la ligne d'accès et le traçage
 
-- OpenTelemetry et journal d'accès avec le statut gRPC. Constat de D6 : le journal lit aujourd'hui
-  le statut de la réponse de Nodefony, pas celui que Connect a écrit.
+**Décision (tranchée sur délégation, validée par l'auteur le 2026-11-11) :**
+
+**Le constat.** Les trois journaux (`request-logger.ts#DefaultRequestLogger`,
+`pretty-request-logger.ts#PrettyRequestLogger`, `audit-logger.ts#AuditLogEntry`) et le canal
+`nodefony.http.request` (`requestTrace.ts#closeRequestTrace`) lisent `context.response.statusCode`.
+Connect écrit sur la réponse native : ce statut reste 200. Constaté sur le fil (Connect 2.3.0,
+24 cas, trois protocoles, HTTP/1.1 et HTTP/2) : en protocole Connect, une erreur part en 404 ou 500
+natif, que Nodefony ne voit pas ; en gRPC et gRPC-Web, le résultat n'est que dans le trailer
+`grpc-status`, que personne ne lit.
+
+1. **Un enregistrement d'appel RPC sur le contexte, générique.** `HttpContext.rpc`, `null` par
+   défaut comme `requestTrace` : le système (le protocole parlé sur le fil : `grpc`, `grpc-web`,
+   `connect`), la méthode (`paquet.Service/Méthode`, connue de la route : jamais `_OTHER`), le code
+   et son nom (`UNAVAILABLE`, tiré d'une table constante).
+   - C'est la fiche d'appel de D6 qui le porte : aucune allocation de plus.
+   - Le contrat vit dans http et ne nomme rien de Connect. Un appel JSON-RPC (porte MCP, A2A) pourra
+     le remplir (`jsonrpc`, `-32602`) sans rupture.
+2. **Le code se lit une fois, au `close`**, avant la ligne d'accès (`HttpKernel.teardownHttp`),
+   là où D7 lit déjà `ctx.signal.reason` :
+
+   | Motif d'interruption | `responseEnded` | Code                                         |
+   | -------------------- | --------------- | -------------------------------------------- |
+   | `ConnectError`       | —               | son code                                     |
+   | `AbortError`, aucun  | vrai            | 0 `OK`                                       |
+   | `AbortError`, aucun  | faux            | 1 `CANCELLED` : le client est parti          |
+   | autre                | —               | 13 `INTERNAL`, la cause devient l'erreur (3) |
+   - « Réponse finie » = `responseEnded.ts#responseEnded`, la règle unique du noyau, celle qui pose
+     déjà 499 quand le client part (`HttpKernel.createHttpContext`). Elle sépare, en HTTP/2, la fin
+     posée par le serveur de l'annulation du client (`RST_STREAM`), que `writableFinished` confond.
+     Le code 1 et le statut 499 disent donc le même fait, comme la table de D7 (499 → 1).
+   - Constaté sur le fil, avec cette règle : les 24 codes sont ceux que lit le client, sauf une
+     course. En HTTP/1.1, quand l'échéance expire, le client coupe la connexion au même instant que
+     le minuteur du serveur. Selon le premier arrivé, le serveur journalise 4 ou 1 ; les deux sont
+     vus d'un passage à l'autre, et rien côté serveur ne permet de trancher.
+   - « Aucun motif » arrive en HTTP/1.1 : l'écouteur `close` du noyau, posé à la création du
+     contexte, passe avant celui de Connect.
+   - **Le statut HTTP natif est recopié si la réponse est finie, et seulement alors.** C'est la
+     règle du relais (`HttpContext.ts#HttpContext.logRequest`), tenue au même endroit pour toute
+     réponse écrite par un tiers. Le relais, lui, recopie aujourd'hui sans condition : un client
+     parti au milieu d'une requête relayée voit son 499 écrasé par le statut de l'amont (lu au
+     code, pas encore vu sur le fil). La règle commune le corrige ; un test vu rouge le prouvera.
+
+3. **Un appel en erreur = une ligne, comme une exception de route HTTP.** Une cause qui n'est pas
+   une `ConnectError` devient `context.error` : la ligne d'accès la porte, le canal publie `error`.
+   Précise D7 point 4 : « le journal » est cette ligne, jamais une seconde.
+4. **Gravité selon la convention OpenTelemetry du serveur gRPC** : 0 → INFO ; 2, 4, 12, 13, 14, 15
+   → ERROR (« SHOULD be considered errors ») ; les autres → WARNING. Une fonction, à côté de
+   `severityFromStatus`, pour les trois journaux.
+   - La ligne garde le statut HTTP et ajoute `RPC : <méthode> <NOM>`.
+   - L'audit JSON reçoit un champ `rpc`, `null` hors RPC (forme stable).
+5. **Canal de traçage.** `IRequestTrace` gagne `rpc` (`null` hors RPC) : un ajout, pas une rupture.
+   `statusCode` reste le statut HTTP, vrai sur le fil (`http.response.status_code`).
+   - Nodefony n'importe rien d'OpenTelemetry. La documentation donne la correspondance : nom du span
+     = `rpc.method` ; `rpc.system.name` = `grpc` (convention stable) ou `connectrpc` (convention en
+     développement, celle de l'implémentation), au choix de l'extension ; `rpc.status_code` = le
+     nom ; `error.type` ; `rpc.server.call.duration` = `durationMs / 1000`.
+   - Même horloge que le span, comme la norme l'exige. Un flux = un span, de l'ouverture au `close`.
+6. **`traceparent` : rien à coder.** Les métadonnées gRPC sont des en-têtes HTTP : la propagation
+   W3C existante les lit déjà.
+7. **Rien par message** : ni trace ni ligne, comme pour les trames WebSocket.
+
+**Normes** : conventions sémantiques OpenTelemetry, `docs/rpc/{rpc-spans,grpc,connect-rpc,rpc-metrics}.md`
+(`open-telemetry/semantic-conventions@d0d92008`).
+
+**Coût, mesuré** (médiane de 7 passes, Node du poste) :
+
+| Geste                                 | Quand                       | Coût                                             |
+| ------------------------------------- | --------------------------- | ------------------------------------------------ |
+| Code lu au `close`                    | chaque appel                | ≈ 14 ns (lecture du motif déjà comptée par D7)   |
+| Segment `RPC : …` de la ligne d'accès | chaque appel                | ≈ +6 ns (64 → 70 ns pour la ligne)               |
+| Champ `rpc` du contexte               | chaque requête HTTP         | un champ `null` (8 octets), un test au démontage |
+| Champ `rpc` de la trace               | chaque requête, avec abonné | une écriture de champ                            |
+| Message d'un flux                     | —                           | 0                                                |
+
+### D11 à D13 — à rendre
+
 - `@experimental` au grain du symbole.
 - Dépendances paires facultatives.
 - Interopérabilité contre les clients `@grpc/grpc-js` et `grpcurl`.
