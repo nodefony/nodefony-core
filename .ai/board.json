@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-11T21:56:36.096Z",
+  "generatedAt": "2026-11-11T22:35:48.911Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,18 +39,18 @@
       "title": "13.0.0"
     },
     {
-      "closed": 257,
-      "dueOn": "2026-11-12T00:00:00Z",
-      "number": 7,
-      "open": 14,
-      "title": "10.0.0-beta"
-    },
-    {
       "closed": 137,
       "dueOn": "2026-11-15T00:00:00Z",
       "number": 1,
       "open": 5,
       "title": "10.0.0"
+    },
+    {
+      "closed": 257,
+      "dueOn": "2026-11-15T00:00:00Z",
+      "number": 7,
+      "open": 14,
+      "title": "10.0.0-beta"
     },
     {
       "closed": 7,
