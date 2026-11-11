@@ -356,7 +356,7 @@ jobs:
         run: |
           set -euo pipefail
           docker compose -f compose.yaml -f compose.ci.yaml --profile edge exec -T app-edge \
-            node_modules/.bin/nodefony security:user:add "$NF_CI_MEMBER_ID" --password "$NF_CI_MEMBER_PASSWORD"
+            /nodejs/bin/node <%= it.imageCli %> security:user:add "$NF_CI_MEMBER_ID" --password "$NF_CI_MEMBER_PASSWORD"
 
       # 🔴 LE TÉMOIN DE TOUTE LA CHAÎNE, en un seul caractère de préfixe.
       # `__Host-` exige `Secure`, et `Secure` ne se pose que si l'application se

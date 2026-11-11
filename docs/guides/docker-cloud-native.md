@@ -142,7 +142,7 @@ Alpine pour un `apk add`, vers `node:24-slim` pour un shell) sont en tête du
   tue les requêtes en vol sans la moindre trace.
 - **Un process au premier plan**, jamais de superviseur dans l'image : la montée
   en charge vient des répliques de l'orchestrateur. Pour un VPS multi-cœurs sans
-  orchestrateur, `CMD ["node_modules/.bin/nodefony","cluster","-w","4"]` reste le seul cas où
+  orchestrateur, `CMD ["node_modules/nodefony/bin/nodefony","cluster","-w","4"]` reste le seul cas où
   plusieurs process partagent un conteneur.
 
 ## Configurer l'image — les secrets que la production exige
@@ -165,7 +165,7 @@ panne intermittente découverte en production.
 **Les générer — une fois, et depuis l'image elle-même** (aucun outil sur le poste) :
 
 ```bash
-docker run --rm mon-app:1.0 node_modules/.bin/nodefony security:secrets --env > nodefony.env
+docker run --rm mon-app:1.0 node_modules/nodefony/bin/nodefony security:secrets --env > nodefony.env
 echo "NF_ADMIN_PASSWORD=…" >> nodefony.env
 docker run -p 5151:5151 --env-file nodefony.env mon-app:1.0
 ```

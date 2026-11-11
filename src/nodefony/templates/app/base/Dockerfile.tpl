@@ -361,5 +361,7 @@ HEALTHCHECK --interval=10s --timeout=2s --start-period=20s --retries=3 \
 # ARGUMENTS, et le script se lit sans passer par son shebang (`/usr/bin/env`
 # n'existe pas ici). Pour la même raison, un lanceur (Kubernetes, compose) qui
 # change la commande passe par `args:`, jamais par `command:`, qui remplacerait
-# l'`ENTRYPOINT`.
-CMD ["node_modules/.bin/nodefony", "production"]
+# l'`ENTRYPOINT`. Le script est celui du PAQUET, jamais `node_modules/.bin/` :
+# sous pnpm, ce dernier est un script shell, que `node` lirait comme du
+# JavaScript — et qu'aucun shell ne peut lire ici.
+CMD ["<%= it.imageCli %>", "production"]

@@ -2,6 +2,24 @@ import { createRequire } from "node:module";
 import path from "node:path";
 
 /**
+ * Le lanceur `nodefony` dans l'IMAGE de production d'une application générée,
+ * relatif à son dossier de travail — le chemin que `node` reçoit en argument.
+ *
+ * L'image finale n'a pas de shell (distroless) : son `ENTRYPOINT` est
+ * `/nodejs/bin/node`, et tout `CMD`, `args:` Kubernetes, `command:` compose ou
+ * `docker exec … /nodejs/bin/node <chemin>` lui donne un FICHIER JavaScript à
+ * exécuter. `node_modules/.bin/nodefony` n'en est un que sous npm, qui y pose un
+ * lien vers ce script ; pnpm y écrit un script SHELL, que `node` lit comme du
+ * JavaScript (`SyntaxError`), et rien ne peut l'interpréter dans l'image. Le
+ * paquet, lui, est au même endroit sous les quatre gestionnaires — un dossier
+ * sous npm, yarn et bun, un lien vers le magasin sous pnpm, que `node` suit.
+ *
+ * Ce chemin est le champ `bin` du paquet (`src/tests/nodefonyBin.test.ts` les
+ * confronte) : il s'écrit ICI, et les gabarits le reçoivent par `it.imageCli`.
+ */
+export const IMAGE_NODEFONY_BIN = "node_modules/nodefony/bin/nodefony";
+
+/**
  * Le chemin du lanceur `nodefony`, tel que CETTE installation l'a reçu.
  *
  * ## Pourquoi une fonction, et pas un chemin écrit à la main

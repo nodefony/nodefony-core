@@ -697,7 +697,7 @@ pas.
 lui-même :
 
 ```bash
-docker exec <conteneur> /nodejs/bin/node node_modules/.bin/nodefony orm:migrate:status
+docker exec <conteneur> /nodejs/bin/node node_modules/nodefony/bin/nodefony orm:migrate:status
 ```
 
 Pour la même raison, un lanceur qui change la commande la passe en **arguments** : `args:` en

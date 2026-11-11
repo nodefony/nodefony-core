@@ -415,7 +415,7 @@ services:
     profiles: ["app", "edge"]
     # Une tâche, pas un service : elle se termine, et elle ne se relance pas.
     restart: "no"
-    command: ["node_modules/.bin/nodefony", "orm:migrate"]
+    command: ["<%= it.imageCli %>", "orm:migrate"]
     environment:
       <<: *app-env
 <% } %>

@@ -83,6 +83,7 @@ const DEMO_VIDEO_FILE = path.join("media", "sample.mp4");
  * contient l'identifiant.
  */
 export const DEV_ADMIN_PASSWORD = "nodefony-dev-42";
+import { IMAGE_NODEFONY_BIN } from "../nodefonyBin";
 import { findProjectRoot } from "../projectRoot";
 import {
   hasWorkspaceRun,
@@ -2273,6 +2274,9 @@ function dispatchScaffold(
     pmRun: `${packageManager} run`,
     pmAudit: packageManagerCommandLines(packageManager).audit,
     pmExec: packageManagerCommandLines(packageManager).exec,
+    // Le lanceur DANS l'image (sans shell) : le script du paquet, le même sous
+    // les quatre gestionnaires — jamais `node_modules/.bin/`, shell sous pnpm.
+    imageCli: IMAGE_NODEFONY_BIN,
     // Installation, cache et élagage de la forge et de l'image : `npm ci`
     // exige `package-lock.json`, et `npm prune` refuse `workspace:*`.
     toolchain: packageManagerToolchain(packageManager),

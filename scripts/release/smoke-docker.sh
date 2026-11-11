@@ -421,7 +421,7 @@ migrate_in() { # ctn
   if ! docker exec "$ctn" /nodejs/bin/node -e "process.exit(require('node:fs').existsSync('node_modules/@nodefony/drizzle')?0:1)" 2>/dev/null; then
     return 0
   fi
-  if ! out=$(docker exec "$ctn" /nodejs/bin/node node_modules/.bin/nodefony orm:migrate 2>&1); then
+  if ! out=$(docker exec "$ctn" /nodejs/bin/node node_modules/nodefony/bin/nodefony orm:migrate 2>&1); then
     echo "$out" | tail -25
     fail "migrations non appliquées dans $ctn"
   fi

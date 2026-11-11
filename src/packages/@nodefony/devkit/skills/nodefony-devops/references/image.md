@@ -28,7 +28,7 @@ docker build -t <app>-edge --target edge .   # le frontal, seulement si tu le ve
 | `USER`        | **`1000:1000`** — numérique, donc reportable tel quel dans un `runAsUser`      |
 | `ENV`         | `NODE_ENV=production`                                                          |
 | `EXPOSE`      | `5151`                                                                         |
-| `CMD`         | `["node_modules/.bin/nodefony", "production"]`                                 |
+| `CMD`         | `["node_modules/nodefony/bin/nodefony", "production"]`                         |
 | `HEALTHCHECK` | `/readyz`, intervalle 10 s, délai 2 s, **période de démarrage 20 s**, 3 essais |
 
 **`node` est le process n° 1.** Il n'y a pas d'`ENTRYPOINT` d'init : le signal `SIGTERM` arrive
@@ -84,7 +84,7 @@ commune : **l'étage de construction et l'étage final partagent la même libc**
 
 Sous distroless, rien ne lit un shebang : `node` n'est pas sur le `PATH` et il n'y a pas de
 `/usr/bin/env`. L'`ENTRYPOINT` de l'image est `/nodejs/bin/node`, donc une commande se change par ses
-**arguments** — `docker run <image> node_modules/.bin/nodefony …`, `args:` en Kubernetes (jamais
+**arguments** — `docker run <image> node_modules/nodefony/bin/nodefony …`, `args:` en Kubernetes (jamais
 `command:`, qui remplacerait l'`ENTRYPOINT`), `command:` dans compose. Un diagnostic :
 `docker exec <conteneur> /nodejs/bin/node …`.
 

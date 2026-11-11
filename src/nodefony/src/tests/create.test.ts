@@ -34,6 +34,7 @@ import {
   type ICreateRequest,
 } from "../cli/create";
 import { AGENT_TARGETS, pointeursInstructions } from "../cli/agentTargets";
+import { IMAGE_NODEFONY_BIN } from "../cli/nodefonyBin";
 import {
   DATABASE_CHOICES,
   FRONTEND_CHOICES,
@@ -2712,11 +2713,11 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         // une migration jouée depuis une autre version applique un schéma que
         // le code déployé ne connaît pas.
         assert.include(recipe, "image: demo:${IMAGE_TAG}");
-        // La MÊME forme d'invocation que le `CMD` du Dockerfile : le binaire
-        // vit dans les node_modules de l'image, jamais dans le PATH.
+        // La MÊME forme d'invocation que le `CMD` du Dockerfile : le script du
+        // paquet, dans les node_modules de l'image, jamais dans le PATH.
         assert.include(
           recipe,
-          'args: ["node_modules/.bin/nodefony", "orm:migrate", "--json"]',
+          `args: ["${IMAGE_NODEFONY_BIN}", "orm:migrate", "--json"]`,
         );
         // Le compte qui migre n'est pas celui qui sert.
         assert.include(recipe, "name: NF_MIGRATE_DATABASE_URL");
@@ -3719,6 +3720,52 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         assert.include(agents, "docker build");
         assert.include(agents, "Dockerfile");
         assertNoEtaResidue(dest);
+      });
+    }
+    // L'image finale n'a pas de shell (distroless) : tout ce qui y lance le CLI
+    // donne un FICHIER JavaScript à `node`. `node_modules/.bin/nodefony` n'en
+    // est un que sous npm ; pnpm y écrit un script shell, lu comme du JS
+    // (`SyntaxError`) — l'image d'une app pnpm ne démarrait plus.
+    for (const packageManager of ["npm", "pnpm", "yarn", "bun"] as const) {
+      it(`${packageManager} : l'image lance le script du PAQUET, jamais node_modules/.bin/`, () => {
+        const dest = path.join(tmp, `image-cli-${packageManager}`);
+        scaffold(dest, { name: "demo", database: "postgres", packageManager });
+        const read = (...p: string[]) =>
+          readFileSync(path.join(dest, ...p), "utf8");
+        // Le chemin publié est le champ `bin` du paquet, pas une supposition.
+        const pkgBin = readJson(
+          path.join(import.meta.dirname, "..", "..", "package.json"),
+        ).bin?.nodefony;
+        assert.equal(IMAGE_NODEFONY_BIN, `node_modules/nodefony/${pkgBin}`);
+        const launches: [string, string][] = [
+          [read("Dockerfile"), `CMD ["${IMAGE_NODEFONY_BIN}", "production"]`],
+          [
+            read("compose.yaml"),
+            `command: ["${IMAGE_NODEFONY_BIN}", "orm:migrate"]`,
+          ],
+          [
+            read("deploy", "migrate-job.yaml"),
+            `args: ["${IMAGE_NODEFONY_BIN}", "orm:migrate", "--json"]`,
+          ],
+          // `exec` ne passe PAS par l'ENTRYPOINT : `node` se nomme.
+          [
+            read(".github", "workflows", "production.yml"),
+            `/nodejs/bin/node ${IMAGE_NODEFONY_BIN} security:user:add`,
+          ],
+          [
+            read("README.md"),
+            `/nodejs/bin/node ${IMAGE_NODEFONY_BIN} orm:migrate:status`,
+          ],
+        ];
+        for (const [text, line] of launches) assert.include(text, line);
+        // Aucun lancement dans l'image finale par le lien de npm.
+        const imageLaunch =
+          /^\s*(CMD \[|command: \[|args: \[)|\/nodejs\/bin\/node /u;
+        for (const text of launches.map(([t]) => t)) {
+          for (const l of text.split("\n")) {
+            if (imageLaunch.test(l)) assert.notInclude(l, ".bin/nodefony", l);
+          }
+        }
       });
     }
   });

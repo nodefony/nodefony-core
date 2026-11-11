@@ -91,7 +91,7 @@ spec:
           # l'image (`/nodejs/bin/node` sur distroless, qui n'a ni shell ni
           # `/usr/bin/env` pour lire un shebang). Le binaire vit dans les
           # `node_modules` de l'image, jamais dans le PATH — même forme que le `CMD`.
-          args: ["node_modules/.bin/nodefony", "orm:migrate", "--json"]
+          args: ["<%= it.imageCli %>", "orm:migrate", "--json"]
           env:
             - name: NODE_ENV
               value: production

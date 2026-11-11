@@ -67,7 +67,7 @@ Le framework, lui, s'installe depuis npm ; le code vit sur GitHub.
 
 ```bash
 # 1. L'image fabrique ses propres secrets — une seule fois, gardés dans un fichier
-docker run --rm nodefony/nodefony:beta node_modules/.bin/nodefony security:secrets --env > nodefony.env
+docker run --rm nodefony/nodefony:beta node_modules/nodefony/bin/nodefony security:secrets --env > nodefony.env
 
 # 2. Le mot de passe du compte « admin » de la console — choisis-le
 echo "NF_ADMIN_PASSWORD=choisis-un-mot-de-passe" >> nodefony.env
@@ -292,11 +292,11 @@ d'appeler. `nodejs24-debian13` suit la ligne courante.
 `RUN apk add` dans l'image finale, et `node` n'est pas sur le `PATH` :
 
 ```bash
-docker exec <conteneur> /nodejs/bin/node node_modules/.bin/nodefony orm:migrate:status
+docker exec <conteneur> /nodejs/bin/node node_modules/nodefony/bin/nodefony orm:migrate:status
 ```
 
 Le Node d'entrée de l'image est son `ENTRYPOINT` : une commande se change par ses
-**arguments** — `docker run <image> node_modules/.bin/nodefony …`, `args:` en
+**arguments** — `docker run <image> node_modules/nodefony/bin/nodefony …`, `args:` en
 Kubernetes (jamais `command:`, qui le remplacerait), `command:` dans compose.
 
 ## En changer dans ton application

@@ -129,7 +129,7 @@ type: Opaque
 stringData:
   # 🔴 Sans ces deux-là, le pod REFUSE de démarrer (code 78, la variable nommée) :
   # générés UNE fois, identiques pour tous les pods — jamais régénérés au déploiement.
-  #   docker run --rm mon-app:1.0 node_modules/.bin/nodefony security:secrets --env
+  #   docker run --rm mon-app:1.0 node_modules/nodefony/bin/nodefony security:secrets --env
   NF_CSRF_SECRET: "…"
   NF_JWT_KEYSET: '{"active":"…","keys":[…]}'
   # Sans elles, le pod démarre, mais 2FA et webhooks sont désactivés (CRITIC au boot).
