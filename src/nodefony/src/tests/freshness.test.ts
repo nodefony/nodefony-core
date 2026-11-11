@@ -158,6 +158,16 @@ describe("doctor — fraîcheur du build et plancher de Node", () => {
     assert.ok(f, "un Node 24.13 doit être signalé sous un plancher 24.14");
     assert.match(f.message, />=24\.14\.0/);
   });
+
+  it("🔴 la plage du framework (^24.16.0 || >=26.0.0) signale Node 25 et 24.15, pas 24.16 ni 26", () => {
+    // Node 25, ligne impaire sans support long, est exclu comme le font nos
+    // dépendances (Angular, jsdom, vitest) : une borne basse seule l'accepterait.
+    const engines = { node: "^24.16.0 || >=26.0.0" };
+    assert.equal(nodeBelowEngines(engines, "v25.2.1"), engines.node);
+    assert.equal(nodeBelowEngines(engines, "v24.15.0"), engines.node);
+    assert.equal(nodeBelowEngines(engines, "v24.16.0"), null);
+    assert.equal(nodeBelowEngines(engines, "v26.13.0"), null);
+  });
 });
 
 /**

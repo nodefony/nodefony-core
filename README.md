@@ -11,7 +11,7 @@
 _Une action de contrôleur. Deux transports. La même session, la même sécurité, le même code._
 
 [![Licence Apache 2.0](https://img.shields.io/badge/licence-Apache--2.0-blue.svg?style=flat-square)](LICENSE.txt)
-[![Node ≥ 24.14](https://img.shields.io/badge/Node.js-%E2%89%A5%2024.14-green?style=flat-square)](package.json)
+[![Node 24.16+ ou 26+](https://img.shields.io/badge/Node.js-24.16%2B%20%7C%2026%2B-green?style=flat-square)](package.json)
 [![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-blue?style=flat-square)](tsconfig.json)
 [![ESM](https://img.shields.io/badge/ESM-only-orange?style=flat-square)](package.json)
 

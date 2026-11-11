@@ -8,7 +8,7 @@
   "description": "Application Nodefony — générée par `nodefony create app`",
   "main": "dist/index.js",
   "engines": {
-    "node": ">=24.14.0"
+    "node": "^24.16.0 || >=26.0.0"
   },
 <% if (it.packageManager === "npm") { %>  "allowScripts": {
 <% if (it.complete && !it.mongo && it.dialect === "sqlite") { %>    "better-sqlite3": false,

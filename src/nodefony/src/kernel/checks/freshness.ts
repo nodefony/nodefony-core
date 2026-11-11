@@ -145,9 +145,9 @@ function newestUnder(
  * satisfait (ou si aucune plage lisible n'est déclarée).
  *
  * La comparaison porte sur la plage ENTIÈRE, pas sur la seule majeure : un
- * plancher `>=24.14.0` existe pour une capacité apparue en cours de série
- * (l'option `ignore` de `fs.watch`), et un Node 24.10 le viole autant qu'un
- * Node 22.
+ * plancher `^24.16.0 || >=26.0.0` existe pour une capacité apparue en cours
+ * de série (`crypto.randomUUIDv7`), et un Node 24.10 le viole autant qu'un
+ * Node 22 — ou qu'un Node 25, que la plage exclut.
  *
  * @param engines - le champ `engines` du manifeste, tel quel.
  * @param nodeVersion - la version examinée (`v24.10.0` ou `24.10.0`).
