@@ -15,12 +15,15 @@ interface IProbe {
 function makeCtx(
   relay: "all" | "errors" | null,
   upstreamStatus: number,
+  // La réponse brute a-t-elle été TERMINÉE ? Faux = client parti avant la fin.
+  ended = true,
+  contextStatus = 200,
 ): IProbe {
   const ctx = Object.create(HttpContext.prototype) as HttpContext;
   const logged: number[] = [];
   const response = {
-    statusCode: 200,
-    response: { statusCode: upstreamStatus },
+    statusCode: contextStatus,
+    response: { statusCode: upstreamStatus, writableEnded: ended },
   };
   Object.assign(ctx, {
     relayAccessLog: relay,
@@ -60,6 +63,14 @@ describe("HttpContext.logRequest — requête relayée", () => {
     const { ctx, logged } = makeCtx("all", 304);
     ctx.logRequest();
     expect(logged).toEqual([304]);
+  });
+
+  it("client parti en cours de relais : le 499 du contexte n'est PAS écrasé par le statut natif (#695, critère 38)", () => {
+    // Le relais n'a rien terminé : le statut natif (200 par défaut de Node)
+    // n'a jamais atteint le client — la ligne doit dire 499.
+    const { ctx, logged } = makeCtx("all", 200, false, 499);
+    ctx.logRequest();
+    expect(logged).toEqual([499]);
   });
 
   it("requête servie par l'application : la réponse brute n'est pas lue", () => {

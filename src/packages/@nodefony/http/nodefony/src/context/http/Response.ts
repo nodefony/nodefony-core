@@ -5,6 +5,7 @@ import http, {
   validateHeaderValue,
 } from "node:http";
 import http2 from "node:http2";
+import type net from "node:net";
 import HttpContext from "../http/HttpContext";
 import {
   typeOf,
@@ -19,6 +20,44 @@ import type { MaybePromise } from "nodefony";
 import mime from "mime-types";
 import Cookie from "../../cookies/cookie";
 import type { IFirewallGate } from "../../../interfaces/ISecurity";
+
+/**
+ * Plafond, en octets, d'un corps de requête HTTP/1.1 non lu que le serveur
+ * accepte de vider pour garder la connexion réutilisable — 256 Kio, le geste du
+ * serveur HTTP de Go que Connect reprend (ADR-0026, D5). Au-delà, la réponse
+ * ferme la connexion.
+ */
+export const UNREAD_BODY_DRAIN_LIMIT = 256 * 1024;
+
+/**
+ * Silence, en millisecondes, au bout duquel une connexion HTTP/1.1 fermée sur
+ * un corps non lu est détruite — 5 s, le `lingering_timeout` par défaut de
+ * nginx. La durée TOTALE reste bornée par le délai de réception de Node
+ * (`requestTimeout`), qui court tant que le corps n'est pas fini.
+ */
+export const UNREAD_BODY_LINGER_MS = 5_000;
+
+/**
+ * Fermeture ATTARDÉE (RFC 9112 §9.6) d'une connexion qui part en
+ * `connection: close` avec un corps encore en route : la réponse écrite, le
+ * serveur ferme son côté écriture et continue de LIRE — Node jette les octets
+ * du corps non consommé — jusqu'à ce que le client ferme, ou après
+ * {@link UNREAD_BODY_LINGER_MS} de silence.
+ *
+ * Sans elle, Node détruit la socket aussitôt la réponse écrite
+ * (`destroySoon`) : le client qui écrit encore son corps prend une
+ * réinitialisation (`EPIPE`, `ECONNRESET`) et ne lit jamais la réponse — un
+ * 413 sur un envoi de 5 Mo devenait une erreur réseau. Posée sur CETTE socket
+ * seulement, qui ne sert plus d'autre requête.
+ *
+ * @param socket - la socket de la connexion qui se ferme.
+ */
+function lingerBeforeClose(socket: net.Socket): void {
+  socket.destroySoon = () => {
+    socket.setTimeout(UNREAD_BODY_LINGER_MS, () => socket.destroy());
+    socket.end();
+  };
+}
 
 // P8 — RegExp ANSI compilée UNE fois (avant : factory recompilant à chaque
 // setStatusCode). Le flag `g` partagé est sûr : `String.replace` réinitialise
@@ -1132,6 +1171,41 @@ class HttpResponse {
       chunk,
       encoding || this.encoding,
     );
+  }
+
+  /**
+   * Règle le sort d'un corps de requête resté NON LU au moment de répondre —
+   * route inconnue (404, 405), refus avant l'action, 408, 413. À appeler AVANT
+   * l'écriture des en-têtes ; sans effet si le corps est entièrement reçu.
+   *
+   * HTTP/1.1 : Node vide lui-même un corps non consommé une fois la réponse
+   * écrite, pour réutiliser la connexion — sans borne. On ne le laisse faire
+   * que pour un corps DÉCLARÉ d'au plus {@link UNREAD_BODY_DRAIN_LIMIT}
+   * octets ; au-delà, ou sans longueur déclarée (`transfer-encoding`), la
+   * réponse part avec `connection: close` (RFC 9112 §9.6) et la connexion
+   * n'est pas réutilisée — fermée par étapes ({@link lingerBeforeClose}),
+   * pour que le client qui écrit encore lise la réponse. La décision se prend
+   * sur la longueur ANNONCÉE, sans attendre un octet : la réponse n'est jamais
+   * retardée par le corps.
+   *
+   * HTTP/2 surcharge cette méthode (`Http2Response`) : fermeture du flux en
+   * `NO_ERROR` une fois la réponse écrite. Une seule entrée pour les deux
+   * protocoles, partagée par tout refus qui laisse un corps non lu (ADR-0026,
+   * D5).
+   */
+  closeUnfinishedRequest(): void {
+    const response = this.response;
+    if (response === null || response.headersSent) return;
+    if (this.context.request.request.complete) return;
+    const headers = this.context.request.headers;
+    if (headers["transfer-encoding"] === undefined) {
+      // RFC 9112 §6.3 : ni `content-length` ni `transfer-encoding` → corps vide.
+      const declared = Number(headers["content-length"] ?? 0);
+      if (declared <= UNREAD_BODY_DRAIN_LIMIT) return;
+    }
+    this.setHeader("connection", "close");
+    const socket = response.socket;
+    if (socket !== null) lingerBeforeClose(socket);
   }
 
   /**

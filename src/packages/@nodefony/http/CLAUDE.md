@@ -71,7 +71,7 @@ server-http.ts (IncomingMessage) → http-kernel.ts.handle()
   → Router.resolve()                   ← match hissé AVANT le parse du body (:1183)
   → response.headerPolicy = firewall   ← ARMÉ ici ; appliqué au writeHead selon le Content-Type (ADR-0024 §C11)
   → fallback statique                  ← ROUTER-FIRST : seulement si aucune route (:1201)
-  → request.initialize()               ← parse du body (sauté si @Body({stream:true})) (:1225)
+  → request.initialize()               ← parse du body (sauté si @Body({stream:true}) OU route non résolue — 404 sans lire le corps)
   → onRequestEnd() (:1251)
       → hook beforeResolve
       → prepareFrontController()       ← route + zone (context.secure) — N'INSTANCIE PAS (:1282)

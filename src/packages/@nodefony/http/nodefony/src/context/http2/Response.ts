@@ -283,13 +283,13 @@ class Http2Response extends HttpResponse {
    * client lent garderait sa place de flux sur la session. Attendre `finish`
    * (fin d'écriture) garantit que la réponse elle-même n'est pas tronquée.
    *
-   * Sans effet si le corps est entièrement reçu, ou le flux déjà fermé.
+   * Sans effet si le corps est entièrement reçu, ou le flux déjà fermé. Peut
+   * s'appeler avant comme après l'écriture de la réponse.
    */
-  closeUnfinishedRequest(): void {
+  override closeUnfinishedRequest(): void {
     const stream = this.stream;
     if (stream === null || stream.closed || stream.destroyed) return;
-    const request = this.context.request.request as { complete?: boolean };
-    if (request.complete === true) return;
+    if (this.context.request.request.complete) return;
     const close = (): void => {
       if (!stream.closed && !stream.destroyed) {
         stream.close(http2.constants.NGHTTP2_NO_ERROR);

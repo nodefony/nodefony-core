@@ -13,6 +13,10 @@
  *   entier, PUIS le flux fermé en `NO_ERROR` (RFC 9113 §8.1) — sans cette
  *   fermeture, le client garde sa place de flux sur la session ;
  * - une route `bodyStream` n'est pas concernée : le corps y est lu par l'action ;
+ * - une route inconnue (404) ne lit PAS le corps : la réponse part sans
+ *   l'attendre (#695, critère 51) — une méthode refusée (405) non plus, mais
+ *   elle est levée par le routeur AVANT l'étape du corps : ce cas est un
+ *   TÉMOIN, il ne mord pas si l'on remet la lecture ;
  * - témoin de non-régression : un refus rendu avant la fin du corps (413)
  *   ferme lui aussi son flux — Node le faisait déjà sur ce chemin ; ce cas ne
  *   mord donc PAS si l'on retire la fermeture, les cas 408 si.
@@ -25,8 +29,18 @@ import { IS_PROD_TARGET } from "../helpers/targetEnv";
 
 /** `requestTimeout` par défaut de la config http (non surchargé par l'app de banc). */
 const RECEIVE_TIMEOUT_MS = 30_000;
-/** Aucune route ne répond ici : le corps est lu (route inconnue → 404 après lecture). */
+/** Route POST qui LIT son corps (`@Body()`) : la réception y est bornée. */
+const READS_BODY = "/nodefony/test/decorators/body";
+/**
+ * Aucune route ne répond ici : le corps n'est PAS lu, le 404 part aussitôt
+ * (#695, critère 51).
+ */
 const UNROUTED = "/nodefony/test/http2-receive-timeout/unrouted";
+/**
+ * Route GET seule : un POST y reçoit 405, levé par le routeur avant l'étape du
+ * corps — témoin de non-régression, pas une preuve du critère 51.
+ */
+const GET_ONLY = "/nodefony/test/decorators/query";
 /** Route `bodyStream: true` du module test : l'action lit le flux elle-même. */
 const STREAMED = "/nodefony/test/schema/upload?name=lent";
 
@@ -50,6 +64,7 @@ function post(
   path: string,
   options: {
     headers?: Record<string, string>;
+    method?: string;
     drip: number;
     everyMs: number;
     end: boolean;
@@ -61,7 +76,7 @@ function post(
     const session = http2.connect(origin, { rejectUnauthorized: false });
     session.on("error", () => undefined);
     const stream = session.request({
-      ":method": "POST",
+      ":method": options.method ?? "POST",
       ":path": path,
       "content-type": "application/octet-stream",
       ...options.headers,
@@ -132,7 +147,7 @@ describe.concurrent(
       it.skipIf(skip)(
         `${label} : un corps jamais terminé reçoit 408 après le délai, puis le flux est fermé`,
         async () => {
-          const out = await post(origin, UNROUTED, {
+          const out = await post(origin, READS_BODY, {
             drip: 1,
             everyMs: 1000,
             end: false,
@@ -161,7 +176,7 @@ describe.concurrent(
       async () => {
         // Le multipart a sa propre lecture (busboy, en flux) : sa prise
         // d'interruption est distincte de celle des corps bufferisés.
-        const out = await post("https://localhost:5152", UNROUTED, {
+        const out = await post("https://localhost:5152", READS_BODY, {
           headers: { "content-type": "multipart/form-data; boundary=nf765" },
           drip: 1,
           everyMs: 1000,
@@ -200,7 +215,7 @@ describe.concurrent(
         `${label} : une erreur rendue avant la fin du corps (413) ferme aussi le flux`,
         async () => {
           // Content-Length au-delà de `maxBodySize` : refus AVANT lecture.
-          const out = await post(origin, UNROUTED, {
+          const out = await post(origin, READS_BODY, {
             headers: { "content-length": String(64 * 1024 * 1024) },
             drip: 1,
             everyMs: 1000,
@@ -219,6 +234,39 @@ describe.concurrent(
         },
         15_000,
       );
+    }
+
+    // #695, critère 51 — une route que personne ne lira ne lit pas le corps.
+    // Le FAIT asserté : la réponse arrive alors que le corps n'est pas fini
+    // (`end: false`) ; avant, elle n'arrivait qu'au délai de réception (408),
+    // bien après le plafond de 10 s.
+    for (const [label, origin, skip] of TARGETS) {
+      for (const [status, path, method] of [
+        [404, UNROUTED, "POST"],
+        [405, GET_ONLY, "POST"],
+      ] as const) {
+        it.skipIf(skip)(
+          `${label} : ${status} sans lire le corps — réponse avant la fin du corps, puis flux fermé`,
+          async () => {
+            const out = await post(origin, path, {
+              method,
+              drip: 1,
+              everyMs: 1000,
+              end: false,
+              capMs: 10_000,
+            });
+            expect(out.status, "aucune réponse avant le plafond").to.equal(
+              status,
+            );
+            expect(out.bodyBytes).to.be.greaterThan(0);
+            expect(out.closeMs, "flux encore ouvert au plafond").to.not.equal(
+              null,
+            );
+            expect(out.rstCode).to.equal(http2.constants.NGHTTP2_NO_ERROR);
+          },
+          15_000,
+        );
+      }
     }
   },
 );

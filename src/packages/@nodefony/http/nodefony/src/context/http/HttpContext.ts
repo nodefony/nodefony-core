@@ -431,12 +431,20 @@ class HttpContext extends Context implements IHttpContextInterface {
    * réellement rendu (le relais écrit la réponse brute, pas celle du
    * contexte) ; un montage `accessLog: "errors"` ne l'écrit qu'en échec.
    *
+   * Le statut natif n'est recopié que si la réponse a été TERMINÉE
+   * ({@link responseEnded}) : sinon il n'a jamais atteint le client (200 par
+   * défaut de Node), et le statut du contexte — 499 d'un client parti — dit
+   * vrai. Règle unique pour toute réponse écrite par un tiers (#695, critère
+   * 38).
+   *
    * @param httpError - l'erreur de la requête, s'il y en a une
    */
   override logRequest(httpError?: Error | HttpError | nodefonyError | null) {
     if (this.relayAccessLog !== null) {
       const raw = this.response.response;
-      if (raw !== null) this.response.statusCode = raw.statusCode;
+      if (raw !== null && responseEnded(raw)) {
+        this.response.statusCode = raw.statusCode;
+      }
       if (
         this.relayAccessLog === "errors" &&
         this.response.statusCode < 400 &&

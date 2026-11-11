@@ -76,7 +76,6 @@ import { ReceiveDeadline } from "../src/servers/receiveDeadline";
 import { trackPong } from "./servers/wsHeartbeat";
 import { parseWebsocketUrl } from "../src/context/websocket/websocketUrl";
 import HttpContext from "../src/context/http/HttpContext";
-import Http2Response from "../src/context/http2/Response";
 import Context, { HTTPMethod, WebSocketState } from "../src/context/Context";
 import { logColor } from "nodefony";
 import Certicates from "./certificates";
@@ -1208,16 +1207,16 @@ class HttpKernel extends Service implements IHttpKernelInterface {
           context.isRedirect = false;
           context.response.removeHeader("Location");
         }
+        // Erreur rendue AVANT la fin du corps (404 sans lecture, 408, 413,
+        // refus précoce) : HTTP/1.1 décide ici de la connexion (vidange bornée
+        // ou `connection: close`), HTTP/2 ferme le flux une fois la réponse
+        // écrite (RFC 9113 §8.1). Avant le rendu : l'en-tête doit partir avec.
+        context.response.closeUnfinishedRequest();
         try {
           await context.render(result.body);
         } catch (e) {
           this.log(e, "CRITIC");
           throw e;
-        }
-        // HTTP/2 : erreur rendue AVANT la fin du corps (408, 413, refus
-        // précoce) — le flux se ferme une fois la réponse écrite (RFC 9113 §8.1).
-        if (context.response instanceof Http2Response) {
-          context.response.closeUnfinishedRequest();
         }
         return context;
       }
@@ -2101,9 +2100,16 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         new HttpError("Host differs from :authority", 400, httpContext),
       );
     }
-    const streamBody =
-      httpContext.resolver?.resolve === true &&
-      httpContext.resolver.route?.bodyStream === true;
+    // Corps NON LU : route `bodyStream` (l'action lit le flux elle-même), ou
+    // route non résolue — 404, 426 — que personne ne lira (#695, critère 51 ;
+    // le 405 est levé par le routeur, avant ce point). Le refus part sans attendre le corps ; son sort (vidange
+    // bornée, `connection: close`, `RST NO_ERROR`) se règle au rendu de
+    // l'erreur (`HttpResponse.closeUnfinishedRequest`). Les gardes qui
+    // précèdent le refus (scheme, domaine 421, `beforeResolve`) ne lisent pas
+    // le corps : leur ordre est inchangé.
+    const resolved = httpContext.resolver?.resolve === true;
+    const skipBody =
+      !resolved || httpContext.resolver?.route?.bodyStream === true;
     httpContext.phaseStart("parse");
     // HTTP/2 : réception bornée par `requestTimeout` (#765) — `node:http2` ne
     // la borne pas. Seule une réception EN COURS est suivie (une case
@@ -2111,10 +2117,10 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     // comparaisons — aucune allocation, aucun minuteur, aucun appel.
     let receiving: ReceiveDeadline<HttpContext> | null = null;
     let receivingSeq = 0;
-    // streamBody : body laissé en flux brut (Readable) pour @Body({stream}).
+    // skipBody : corps laissé en flux brut (Readable) — @Body({stream}) ou refus.
     const parsed = finallyMaybe(
       () => {
-        if (streamBody) return undefined;
+        if (skipBody) return undefined;
         const pending = httpContext.request.initialize();
         if (
           pending !== undefined &&
