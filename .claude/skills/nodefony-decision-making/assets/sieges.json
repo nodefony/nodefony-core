@@ -8,11 +8,11 @@
   "sieges": {
     "contradicteur": {
       "modele": "fable",
-      "raison": "prouvé (3 tables) : en #702, chaque passe a fait tomber la forme proposée ; au tour « quand allow », 8 constats sur 8 retenus, dont une décision acceptée que le dossier du principal avait ratée (ADR-0022 §6) — le siège le plus cher ET celui dont les constats changent la décision. Faux : deux ABSENCES affirmées à tort (tables précédentes) ; table du gel (2026-10-30) : 10 constats au tour 1, tous vérifiés au code, dont l’option E de R1 et la prémisse fausse « limit réessayé » ; environ 6 retenus au tour 2",
-      "tables": 6,
-      "constatsRendus": 73,
-      "constatsRetenus": 71,
-      "constatsFaux": 2,
+      "raison": "prouvé (3 tables) : en #702, chaque passe a fait tomber la forme proposée ; au tour « quand allow », 8 constats sur 8 retenus, dont une décision acceptée que le dossier du principal avait ratée (ADR-0022 §6) — le siège le plus cher ET celui dont les constats changent la décision. Faux : deux ABSENCES affirmées à tort (tables précédentes) ; table du gel (2026-10-30) : 10 constats au tour 1, tous vérifiés au code, dont l’option E de R1 et la prémisse fausse « limit réessayé » ; environ 6 retenus au tour 2 ; #695 D1 (seul, pré-mortem, ~78 k tokens) : a fait tomber la forme « contrôleur seul » ET la forme « service hors Router », trouvé l’option manquante (service publié dans le Router) et une erreur du dossier (GET Connect = NO_SIDE_EFFECTS) ; 1 faux (v1/v2 « impossible » : liste conditionnelle existante)",
+      "tables": 7,
+      "constatsRendus": 85,
+      "constatsRetenus": 82,
+      "constatsFaux": 3,
       "essais": [
         {
           "table": "#622 chat de référence",
