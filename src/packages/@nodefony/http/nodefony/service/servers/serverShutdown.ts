@@ -1,7 +1,6 @@
 import http from "node:http";
 import https from "node:https";
 import tls from "node:tls";
-import { constants as http2constants } from "node:http2";
 import type { EventEmitter } from "node:events";
 import type { Server as HttpServer, ServerResponse } from "node:http";
 import type { Server as HttpsServer } from "node:https";
@@ -12,6 +11,10 @@ import type {
   ServerHttp2Session,
 } from "node:http2";
 import type { Socket } from "node:net";
+import {
+  ANNOUNCE_CAP_MS,
+  announceSessionClose,
+} from "../../src/servers/http2Goaway";
 
 /** Serveur que `createDrainTerminator` sait drainer. */
 export type DrainableServer =
@@ -142,7 +145,9 @@ export function createDrainTerminator(
     if (http1Sockets !== null) {
       emitter.on("request", closeAfterResponse);
       for (const socket of http1Sockets) {
-        const response = (socket as Http1Socket)._httpMessage;
+        // Élargissement sûr : le champ est optionnel, toute Socket s'y range.
+        const http1: Http1Socket = socket;
+        const response = http1._httpMessage;
         if (!response) socket.destroy();
         else if (!response.headersSent)
           response.setHeader("connection", "close");
@@ -158,22 +163,12 @@ export function createDrainTerminator(
   };
 }
 
-/** Plus long délai d'annonce (ms) : un pair qui ne répond pas au PING ne retient pas l'arrêt. */
-const ANNOUNCE_CAP_MS = 1000;
-
-/** Plus grand identifiant de flux (RFC 9113 §6.8) : « aucun flux n'est encore écarté ». */
-const LAST_POSSIBLE_STREAM = 2 ** 31 - 1;
-
 /**
- * Annonce l'arrêt à chaque session HTTP/2 SANS écarter un flux déjà en route :
- * un PING mesure l'aller-retour, puis GOAWAY à `2^31-1`, puis l'attente de cet
- * aller-retour — après elle, tout flux ouvert par le client avant l'annonce est
- * arrivé. Le GOAWAY définitif (`session.close()`, dernier flux traité) suit
- * dans `done`. Un pair qui ne répond pas au PING est réglé au délai `cap`.
- * RFC 9113 §6.8 : « SHOULD send an initial GOAWAY frame with the last stream
- * identifier set to 2^31-1 […] After allowing time for any in-flight stream
- * creation (at least one round-trip time) ». Sans annonce, un flux croisé avec
- * le GOAWAY est refusé alors qu'il aurait pu être servi.
+ * Annonce l'arrêt à chaque session HTTP/2 SANS écarter un flux déjà en route —
+ * l'annonce en deux temps de RFC 9113 §6.8, session par session
+ * ({@link announceSessionClose}, la même règle que la fermeture d'une session
+ * inactive). Le GOAWAY définitif (`session.close()`) suit dans `done`. Un pair
+ * qui ne répond pas au PING est réglé au délai `cap`.
  *
  * @param sessions - sessions HTTP/2 ouvertes, `null` pour un serveur HTTP/1.1
  * @param cap - délai maximal d'attente des échos (ms)
@@ -184,7 +179,10 @@ function announceShutdown(
   cap: number,
   done: () => void,
 ): void {
-  let pending = 0;
+  // Le compte part de 1 et ne se relâche qu'après la boucle : une session dont
+  // le PING ne part pas se règle AUSSITÔT, et sans cette garde elle ramenait le
+  // compte à 0 — l'arrêt partait avant que les sessions suivantes soient annoncées.
+  let pending = 1;
   let finished = false;
   const finish = (): void => {
     if (finished) return;
@@ -192,37 +190,18 @@ function announceShutdown(
     clearTimeout(timer);
     done();
   };
+  const settle = (): void => {
+    if (--pending === 0) finish();
+  };
   const timer = setTimeout(finish, cap);
   if (sessions !== null) {
     for (const session of sessions) {
       if (session.closed || session.destroyed) continue;
-      // L'aller-retour se MESURE avant l'annonce : après un GOAWAY, un client
-      // Node ne répond plus aux PING (constaté sur Node 26.13), l'écho ne peut
-      // donc pas suivre l'annonce. Écho reçu → GOAWAY initial, puis l'attente
-      // de cet aller-retour. Sans écho (pair muet, session fermée) : réglée.
-      let settled = false;
-      let wait: ReturnType<typeof setTimeout> | null = null;
-      const settle = (): void => {
-        if (settled) return;
-        settled = true;
-        if (wait !== null) clearTimeout(wait);
-        session.removeListener("close", settle);
-        if (--pending === 0) finish();
-      };
       pending++;
-      session.once("close", settle);
-      const sent = session.ping((error, rttMs) => {
-        if (error !== null || settled || session.closed) return settle();
-        session.goaway(http2constants.NGHTTP2_NO_ERROR, LAST_POSSIBLE_STREAM);
-        wait = setTimeout(settle, Math.max(1, Math.ceil(rttMs)));
-      });
-      if (!sent) {
-        session.goaway(http2constants.NGHTTP2_NO_ERROR, LAST_POSSIBLE_STREAM);
-        settle();
-      }
+      announceSessionClose(session, settle);
     }
   }
-  if (pending === 0) finish();
+  settle();
 }
 
 function track(set: Set<Socket>, socket: Socket): void {

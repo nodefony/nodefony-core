@@ -218,6 +218,49 @@ describe.each(["h2c", "h2"] as const)("drain HTTP/2 — %s", (kind) => {
     expect(seen[0]).toBe(2 ** 31 - 1);
   });
 
+  it("un PING qui ne part pas ne précipite pas l'arrêt : la session suivante est annoncée", async () => {
+    // `maxOutstandingPings: 1` + un PING déjà en attente sur la PREMIÈRE
+    // session : celui de l'annonce ne part pas, elle se règle aussitôt. Le
+    // compte ne doit pas retomber à zéro avant que la seconde soit annoncée.
+    const server =
+      kind === "h2c"
+        ? http2.createServer({ maxOutstandingPings: 1 })
+        : http2.createSecureServer({
+            key,
+            cert,
+            allowHTTP1: true,
+            maxOutstandingPings: 1,
+          });
+    server.on("request", (_req, res) => res.end("ok"));
+    const sessions: http2.ServerHttp2Session[] = [];
+    server.on("session", (s) => sessions.push(s));
+    const terminator = createDrainTerminator(server, 3000);
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    closers.push(
+      () =>
+        new Promise<void>((r) =>
+          server.listening ? server.close(() => r()) : r(),
+        ),
+    );
+    const { port } = server.address() as AddressInfo;
+    const origin = `${kind === "h2" ? "https" : "http"}://127.0.0.1:${port}`;
+    const first = connect(kind, origin);
+    expect((await get(first.session)).status).toBe(200);
+    const second = connect(kind, origin);
+    const seen: number[] = [];
+    second.session.on("goaway", (_code: number, last: number) => {
+      seen.push(last);
+    });
+    expect((await get(second.session)).status).toBe(200);
+    await until(() => sessions.length === 2);
+    const pendingPing = sessions[0];
+    if (pendingPing === undefined) throw new Error("session absente");
+    pendingPing.ping(() => {});
+    await terminator.terminate();
+    await until(() => seen.length > 0);
+    expect(seen[0], "la seconde session a reçu l'annonce").toBe(2 ** 31 - 1);
+  });
+
   it("un flux qui ne répond jamais est détruit à l'échéance, pas avant", async () => {
     const g = gate();
     const srv = await serve(kind, () => g.enter(), 300);

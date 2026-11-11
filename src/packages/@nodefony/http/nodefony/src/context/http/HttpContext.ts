@@ -115,7 +115,8 @@ const socketActiveContext = new WeakMap<object, HttpContext>();
  * serveur supprime aussi une fermeture et une entrée de registre par connexion.
  *
  * @param socket - la socket dont le délai a expiré ; une session HTTP/2 (même
- *   événement sur un serveur `allowHTTP1`) est laissée à son propre délai
+ *   événement sur un serveur `allowHTTP1`) est fermée par l'écouteur que pose
+ *   `setHttp2SessionTimeout` (`src/servers/http2Limits.ts`)
  */
 export function routeSocketTimeout(socket: unknown): void {
   if (!(socket instanceof net.Socket)) {
