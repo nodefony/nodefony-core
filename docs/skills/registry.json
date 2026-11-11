@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-11-10",
+  "generatedAt": "2026-11-11",
   "count": 41,
   "repoScripts": [
     {
@@ -10632,7 +10632,7 @@
       ],
       "resources": {
         "references": [],
-        "referenceFilesTotal": 288,
+        "referenceFilesTotal": 289,
         "scripts": [
           {
             "path": "scripts/amont-lib.mjs",

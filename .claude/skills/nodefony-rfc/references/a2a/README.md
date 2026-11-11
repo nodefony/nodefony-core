@@ -42,3 +42,6 @@ gRPC dans `../grpc/`, MCP dans `../mcp-2026-07-28/`.
 7. **Une liaison personnalisée doit dire** : mécanisme de flux, ordre, reconnexion, fin de flux,
    encodage du binaire (base64 dans un protocole texte), transport des paramètres de service
    (`A2A-Version`, `A2A-Extensions`) quand il n'y a pas d'en-têtes (§12.2, §12.3, §12.5).
+8. **En gRPC, l'interface d'un agent est une adresse `hôte:port`, sans chemin** (`a2a.proto`,
+   `AgentInterface.url`, corrigé en amont APRÈS le tag `v1.0.1`) : un service A2A gRPC se sert à
+   la racine, `/lf.a2a.v1.A2AService/<Méthode>`, jamais sous un préfixe.

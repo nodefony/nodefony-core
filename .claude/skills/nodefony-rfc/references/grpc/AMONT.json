@@ -120,10 +120,10 @@
       "copies": {
         "connect-protocol.md": {
           "path": "src/content/docs/docs/protocol.md",
-          "commit": "3498606e26a3d66f0f82914dfcc517805c1617d0",
-          "date": "2026-05-19T14:12:44Z",
-          "blob": "f3fc9df9308af0656e8c7d47b119e89918c93e7f",
-          "sha256": "36165b8ec0a21ad70f72cdb96a8f80a5ae9a75cf8c1863230867a8396484d59a"
+          "commit": "7ee634a8ad09ef323e925a420442c5d29adf2d00",
+          "date": "2026-10-29T16:12:51Z",
+          "blob": "7e1e9fcb91ff4b68ec7122a07f6cfd85185a5689",
+          "sha256": "8219499b89f5cd5f2488c8555603ad9d11349212a9674ec42362fc4f70e3eb32"
         },
         "connect-multi-protocol.md": {
           "path": "src/content/docs/docs/multi-protocol.md",
@@ -141,38 +141,45 @@
         },
         "connect-node-getting-started.md": {
           "path": "src/content/docs/docs/node/getting-started.md",
-          "commit": "5aa95a773bfaf5a46273c394bd496b4aacd42b4a",
-          "date": "2026-05-15T08:03:30Z",
-          "blob": "12fea233c1cc12e98955b64582adc837bcdf3677",
-          "sha256": "889168adc5527cc6567c0c9079126f771023f56ffd19032a4a5204014c5be584"
+          "commit": "a1d3f7f2ac92e56f2dbfbb794568e8c906f55bb9",
+          "date": "2026-11-07T00:27:08Z",
+          "blob": "666132d4ec6609ba307e8dede9a121b8f69b61c6",
+          "sha256": "33861328d8c5a646ad646ed9fa9baec2ef093077c7bc4bf8db41249b01067456"
         },
         "connect-node-implementing-services.md": {
           "path": "src/content/docs/docs/node/implementing-services.md",
-          "commit": "5aa95a773bfaf5a46273c394bd496b4aacd42b4a",
-          "date": "2026-05-15T08:03:30Z",
-          "blob": "d49999b65345125d6ca3697e34958ce853caab29",
-          "sha256": "17cdee58df8bf734bb75a6fc6be74c008d9b2d8e9f965027908a2d28f3261c20"
+          "commit": "a1d3f7f2ac92e56f2dbfbb794568e8c906f55bb9",
+          "date": "2026-11-07T00:27:08Z",
+          "blob": "b90d1b4580a7369726130c3a80b1d8a4b1f91372",
+          "sha256": "0739e4bcfd51975d02932afd1765110511d7cea07727adabac1acc1c6688de79"
         },
         "connect-node-server-plugins.md": {
           "path": "src/content/docs/docs/node/server-plugins.md",
-          "commit": "2def75975a217f43bc20a071dd2ae169fe5149d0",
-          "date": "2026-09-04T14:28:19Z",
-          "blob": "b1922bcdfb87ffc4b3167508d19248657b5111fd",
-          "sha256": "ef774cad346470352c3285ad8ed67c7be407418a1e40cc85094dc2848c3db612"
+          "commit": "a1d3f7f2ac92e56f2dbfbb794568e8c906f55bb9",
+          "date": "2026-11-07T00:27:08Z",
+          "blob": "2eaac856da4df3c63be4ff3287dd8bf34215eab8",
+          "sha256": "e9cdad94fdad49c42d332d83a520adda5ab58f1f827ee28788f9fcb76add96e6"
         },
         "connect-node-timeouts.md": {
           "path": "src/content/docs/docs/node/timeouts.md",
-          "commit": "2def75975a217f43bc20a071dd2ae169fe5149d0",
-          "date": "2026-09-04T14:28:19Z",
-          "blob": "8c5ddded99bcdf5572e62d7e12a665eedb2eb700",
-          "sha256": "ff8f4f6a38b5828b9e4da812e3d91c301cef6af59bbe590410bc76963fff42fb"
+          "commit": "a1d3f7f2ac92e56f2dbfbb794568e8c906f55bb9",
+          "date": "2026-11-07T00:27:08Z",
+          "blob": "ad6a6b2760f300d26a12a3ccab8e0ecf4380437f",
+          "sha256": "681c0ce68a73cbc4dea42f59bc2562cacc0e9ec81ba3387d65696607f58bbe7f"
         },
         "connect-node-full-streaming-example.md": {
           "path": "src/content/docs/docs/node/_full-streaming-example.md",
-          "commit": "5aa95a773bfaf5a46273c394bd496b4aacd42b4a",
-          "date": "2026-05-15T08:03:30Z",
-          "blob": "bd45ca6bfbcaa18ef469b03d71dd88bf39ae4d9d",
-          "sha256": "099cabcff43bcf9005a7ee0ac25326fb646a5935d7ec8f51b4d0df649a2b2832"
+          "commit": "a1d3f7f2ac92e56f2dbfbb794568e8c906f55bb9",
+          "date": "2026-11-07T00:27:08Z",
+          "blob": "65d4c1883b0dbe98af2d2d45a2896f369d458295",
+          "sha256": "2d7c18306b46d108c42a449a481d9b21acd53fb2df2c283cecb63b2f4b67be9a"
+        },
+        "connect-node-interceptors.md": {
+          "path": "src/content/docs/docs/node/interceptors.md",
+          "commit": "a1d3f7f2ac92e56f2dbfbb794568e8c906f55bb9",
+          "date": "2026-11-07T00:27:08Z",
+          "blob": "c27fd741ae0ae21a1ecef907c7c52e6a5abc225a",
+          "sha256": "9aab28d3b2b5f9dfca635bda7accea149682764da4ca7b5db078e27be3f1ffdf"
         }
       }
     },
@@ -225,17 +232,17 @@
       "copies": {
         "protobuf-es-getting-started.md": {
           "path": "docs/src/content/docs/getting-started.md",
-          "commit": "c3a71a8679b06b07a4ebb3bd6f5b02d68759a179",
-          "date": "2026-10-02T13:46:31Z",
-          "blob": "1c2162f47ffc0faa1c6134dd97bbe4f988910ab3",
-          "sha256": "110f27ef289b764783ae789f2578c2a1f454afb7467bdfa83722e0e99fa17109"
+          "commit": "f7538f7469accaa255791140931e3b89eaa40956",
+          "date": "2026-11-02T15:27:51Z",
+          "blob": "41f7f7a67a503024a96a776b8083b14c54c6e2c9",
+          "sha256": "b37c3ed7cec442f83647c6165e215d8207f70a368c6fc8855296aee540fd47b8"
         },
         "protobuf-es-serialization.md": {
           "path": "docs/src/content/docs/guides/serialization.md",
-          "commit": "a24d6132925794820dce1048715f9cec7d820884",
-          "date": "2026-08-31T17:51:02Z",
-          "blob": "0f682f341e426af389983d5432bb02b58d8b6266",
-          "sha256": "bbc284cd90447aef5ee56df3592f53a9e5438dfb6474e2bcdbdb6c36fd5877e4"
+          "commit": "9ef472d8642646444e38385c916055b461de8930",
+          "date": "2026-11-02T18:22:06Z",
+          "blob": "718f3b1ef3af6fa8dec297a0ecfaf0c12a72e904",
+          "sha256": "6afc1a3ade26c62a03122a00fb1575dbd50de61b8ced7ce06738d9f68f752425"
         },
         "protobuf-es-environments.md": {
           "path": "docs/src/content/docs/reference/environments.md",
@@ -246,10 +253,10 @@
         },
         "protobuf-es-using-with-grpc-node.md": {
           "path": "docs/src/content/docs/reference/using-with-grpc-node.md",
-          "commit": "aad2bfa185813e2093cebc378b3eec9d2e7fc9ba",
-          "date": "2026-10-16T11:39:41Z",
-          "blob": "552c01a76af64200de491e260719097c6e6dafff",
-          "sha256": "7641eeea6d6008db3b9578020d17d0433933889537369b895209b17931d38d15"
+          "commit": "f7538f7469accaa255791140931e3b89eaa40956",
+          "date": "2026-11-02T15:27:51Z",
+          "blob": "48d5bbfa57e8f2c3063ce1e4db8be350f6a18256",
+          "sha256": "8f57fb0138978df48990615f3d98415a429fb807d1d62c5dcc953d03f8857e2c"
         }
       }
     },

@@ -64,5 +64,8 @@
         }
       }
     }
-  ]
+  ],
+  "untracked": {
+    "README.md": "index local de ce dossier, écrit ici — sans amont"
+  }
 }

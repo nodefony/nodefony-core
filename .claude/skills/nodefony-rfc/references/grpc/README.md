@@ -14,6 +14,7 @@ vivent dans le corpus unique, `nodefony-framework-dev/references/rfc/ietf/`.
 | Le statut riche d'erreur                                                    | `google-rpc-status.proto`, `google-rpc-code.proto`              |
 | Le protocole Connect (unaire en HTTP/1.1 `POST` ou `GET`, flux)             | `connect-protocol.md`, `connect-multi-protocol.md`              |
 | L'adaptateur `(req, res)` pour Node, `fallback`, délais, flux               | `connect-node-*.md`, `connect-node-README.md`                   |
+| Authentifier AVANT de lire le corps (`requestGate`), `contextValues`        | `connect-node-interceptors.md` §Authentication, `connect-node-server-plugins.md` §Common options |
 | CORS pour gRPC-Web et Connect depuis un navigateur                          | `connect-cors.md`                                               |
 | L'encodage protobuf (varint, longueur préfixée) et proto3, ProtoJSON        | `protobuf-encoding.md`, `protobuf-proto3.md`, `protobuf-json.md` |
 | `@bufbuild/protobuf` : code généré, sérialisation, navigateur ET Node       | `protobuf-es-*.md`                                              |
@@ -36,3 +37,7 @@ vivent dans le corpus unique, `nodefony-framework-dev/references/rfc/ietf/`.
 5. **`connectNodeAdapter` rend un `404` hors de ses routes**, sauf `fallback`. Monté dans le
    pipeline, c'est par `fallback` qu'il rend la main au routeur de Nodefony.
 6. **`grpcurl` a besoin de la réflexion ou des `.proto`** ; `-plaintext` pour le h2c (5153).
+7. **L'authentification se fait dans `requestGate`, jamais dans un intercepteur** : la porte
+   s'exécute dès les en-têtes reçus, et une `ConnectError` y rejette l'appel avant toute lecture,
+   décompression ou décodage (`connect-node-interceptors.md` §Authentication). L'identité passe à
+   l'implémentation par `contextValues`. Borner `readMaxBytes` sur toute entrée non fiable.
