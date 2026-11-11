@@ -108,7 +108,9 @@ Ce que la forme engage :
 6. **Casse** : le Router compare sans la casse, l'adaptateur avec ; un chemin à casse modifiée
    finit en `UNIMPLEMENTED` sans atteindre la méthode (S-grpc-9).
 7. **Coût nul** pour une application qui ne déclare aucun service : adaptateur, runtime protobuf et
-   code généré chargés au premier appel (prouvé par le POC #690).
+   code généré ne sont jamais chargés. Quand un service est déclaré, ils se chargent au démarrage,
+   pas au premier appel (D12 point 4 : le contrôleur importe le code généré, et un pair manquant
+   doit se voir au déploiement).
 
 ### D2 — Où vivent le contrat et le code généré
 
@@ -708,9 +710,82 @@ sans être nommée nulle part. Le grain manque, et il a déjà dérivé une fois
 **Coût** : 0 à l'exécution (un commentaire) ; une lecture d'étiquette de plus dans un lecteur qui
 tourne déjà à la publication.
 
-### D12 et D13 — à rendre
+### D12 — Comment Connect et protobuf arrivent dans une application
 
-- Dépendances paires facultatives.
+**Décision (tranchée sur délégation, validée par l'auteur le 2026-11-11) :**
+
+**Le constat.**
+
+- `@connectrpc/connect-node` 2.3.0 exige `@connectrpc/connect` **exactement** en 2.3.0, et
+  `@bufbuild/protobuf` `^2.7.0`. `@bufbuild/protoc-gen-es` exige protobuf exactement à sa propre
+  version : le générateur et le runtime de l'application vont donc ensemble (D2).
+- **Coût du chargement**, mesuré avec un processus neuf par passe (médiane de 7) : importer
+  `connect-node` et le code généré coûte **171 ms et 6,6 Mo de tas**, une fois par processus.
+  `connect-node` tire les deux autres paquets, si bien que ce chiffre est le coût réel, pas une
+  borne. Sur disque, l'installation pèse 4,7 Mo.
+- **Les types.** Un `.d.ts` qui importe un paquet absent, même par `import type`, rend TS2307 à une
+  application en `skipLibCheck: false` (constaté). Le gabarit le met à `true`, mais l'application
+  reste libre de le changer.
+- **Le bundler.** Les `rolldown.config.ts` de http et de framework listent leurs dépendances
+  externes à la main : un paquet absent de cette liste serait recopié dans `dist`.
+- **Le diagnostic.** `Kernel.ts#Kernel.bootRemediationHint` lit tout `ERR_MODULE_NOT_FOUND` comme
+  un « dist périmé ». Or Node distingue les deux cas : `Cannot find package '<nom>'` pour un paquet
+  absent, `Cannot find module '<chemin>'` pour un fichier absent.
+- **D1 point 7 était déjà inexact pour protobuf.** `@GrpcService(Contrat)` fait importer le code
+  généré directement par le contrôleur, si bien que protobuf se charge au démarrage.
+
+1. **Pairs facultatifs**, jamais des `dependencies` :
+   - `@nodefony/http` déclare les trois paquets (`peerDependencies` et
+     `peerDependenciesMeta.optional`) ;
+   - `@nodefony/framework` déclare `@bufbuild/protobuf` et `@connectrpc/connect`, pour les types ;
+   - une application sans gRPC n'installe rien, ce qui suit le précédent `pg` (drizzle) et `argon2`
+     (user) ;
+   - l'application qui sert un service les déclare dans ses `dependencies` (D2 point 8).
+2. **Plages de versions** :
+   - `^2.3.0` pour les deux paquets Connect (la version éprouvée par D7 et D10) ;
+   - `^2.7.0` pour protobuf (le plancher de Connect lui-même) ;
+   - la majeure suivante est exclue, et l'élargir plus tard est un changement expérimental (D11),
+     jamais une rupture ;
+   - un test compare les plages déclarées par http et par framework, car la frontière entre les
+     paquets impose deux copies.
+3. **Deux sous-chemins, `@nodefony/http/grpc` et `@nodefony/framework/grpc`**, sur le modèle de
+   `nodefony/react` :
+   - le point d'entrée principal ne cite ni Connect ni protobuf, même en type. `HttpContext.rpc`,
+     `IRpcCall` et `IRequestTrace.rpc` restent dans le point d'entrée principal, puisqu'ils ne
+     dépendent pas de Connect (D10) ;
+   - la reconnaissance d'une `ConnectError` à la fermeture de la réponse (D10, point 2) vit dans le
+     sous-chemin, où elle est posée dans la fiche d'appel. Elle peut se faire là grâce à
+     `ConnectError[Symbol.hasInstance]` ;
+   - les sources de chaque sous-chemin sont déjà prises par le bundler (`nodefonyInput`) et par
+     `tsconfig.declarations.json` (`nodefony/**/*.ts`) ;
+   - le contrôle de stabilité de D11 lit chaque entrée d'`exports`, donc aussi les deux nouvelles.
+4. **Chargement au démarrage, et seulement si un service est déclaré** (précise D1 point 7) :
+   - le contrôleur importe le sous-chemin, qui importe Connect directement ;
+   - une application sans service ne charge rien, ce qui garde la promesse « coût nul sans service » ;
+   - un pair manquant se voit au déploiement, au lieu d'un exemplaire déclaré prêt qui échoue à
+     chaque appel ;
+   - les 171 ms ne tombent pas sur le premier appel ;
+   - pas d'`import()` dynamique. Le démarrage s'arrête en production pour un module critique, le
+     défaut (`Kernel.ts#Kernel.isBootErrorFatal`). Un module marqué `critical: false` démarre sans
+     le service, avec un avertissement : c'est le choix explicite de l'application.
+5. **Un pair absent est nommé.** `bootRemediationHint` distingue `Cannot find package '<nom>'` et
+   rend `npm i <nom>` ; « dist périmé » ne vaut que pour un fichier absent. Ce défaut existe déjà,
+   et le correctif vaut pour tout pair.
+6. **Deux fichiers de configuration changent avec l'accord de l'auteur** :
+   - `package.json` de http et de framework : les entrées `exports`, `peerDependencies` et
+     `peerDependenciesMeta` ;
+   - `rolldown.config.ts` de http et de framework : les trois paquets dans `external`.
+
+**Coût**
+
+| Chemin                        | Coût                                                      |
+| ----------------------------- | --------------------------------------------------------- |
+| Application sans service gRPC | 0 : rien d'installé, rien de chargé                       |
+| Démarrage avec un service     | 171 ms et 6,6 Mo de tas, une fois par processus (mesurés) |
+| Appel, message                | 0                                                         |
+
+### D13 — à rendre
+
 - Interopérabilité contre les clients `@grpc/grpc-js` et `grpcurl`.
 
 Détail : ticket #695.

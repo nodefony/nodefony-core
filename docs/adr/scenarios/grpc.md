@@ -295,6 +295,33 @@ Le champ « A fait changer » garde la trace des cas qui ont coûté : il ne se 
   « rupture » ; un retrait sur un symbole stable reste une rupture.
 - **A fait changer** : D11 — `apiDiffChangelogEntries` marquait tout retrait en rupture.
 
+## Installation
+
+### S-grpc-43 — Une application stricte, sans gRPC
+
+- **Situation** : une application compile en `skipLibCheck: false` et n'installe ni Connect ni
+  protobuf.
+- **Tient si** : elle compile, n'installe rien de plus et ne charge rien de plus ; seul un import
+  de `@nodefony/http/grpc` ou `@nodefony/framework/grpc` fait entrer Connect.
+- **A fait changer** : D12 — un `.d.ts` du point d'entrée principal qui importerait
+  `@bufbuild/protobuf`, même en type, rend TS2307 (constaté).
+
+### S-grpc-44 — Le déploiement oublie Connect
+
+- **Situation** : l'application déclare un service, mais `@connectrpc/connect-node` manque à ses
+  `dependencies` ; elle part en production.
+- **Tient si** : le démarrage s'arrête (module critique, le défaut) et le message nomme le paquet
+  et `npm i` ; jamais « dist périmé », jamais un exemplaire prêt qui échoue à chaque appel.
+- **A fait changer** : D12 — le diagnostic lisait tout `ERR_MODULE_NOT_FOUND` comme un `dist`
+  périmé ; un chargement au premier appel aurait passé la sonde de disponibilité.
+
+### S-grpc-45 — Connect publie une 3.0
+
+- **Situation** : l'application monte `@connectrpc/connect` en 3.0 sans que Nodefony l'ait suivi.
+- **Tient si** : l'installeur signale la plage paire non satisfaite (`^2.3.0`) ; élargir la plage
+  plus tard est un changement expérimental (D11), jamais une rupture.
+- **A fait changer** : D12.
+
 ## Plateformes
 
 ### S-grpc-10 — Linux, macOS, Windows
