@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-10T22:28:19.130Z",
+  "generatedAt": "2026-11-11T18:48:03.556Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 254,
+      "closed": 255,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 13,
+      "open": 15,
       "title": "10.0.0-beta"
     },
     {
@@ -6386,6 +6386,22 @@
       ]
     },
     {
+      "number": 763,
+      "title": "fix(http): fermer les connexions HTTP/2 inactives au-delà du délai",
+      "url": "https://github.com/nodefony/nodefony-core/issues/763",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-beta",
+      "priorite": "P0 — bloque le reste",
+      "jours": 0.5,
+      "ordre": 7,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-7"
+      ]
+    },
+    {
       "number": 739,
       "title": "fix(http): empêcher un flux en échec d'arrêter le serveur",
       "url": "https://github.com/nodefony/nodefony-core/issues/739",
@@ -6434,6 +6450,22 @@
       ]
     },
     {
+      "number": 765,
+      "title": "fix(http): borner la réception du corps d'une requête HTTP/2",
+      "url": "https://github.com/nodefony/nodefony-core/issues/765",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 7.019,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-7"
+      ]
+    },
+    {
       "number": 695,
       "title": "feat(http): déclarer et servir un service gRPC depuis un module",
       "url": "https://github.com/nodefony/nodefony-core/issues/695",
@@ -6443,6 +6475,22 @@
       "priorite": "P2 — décision",
       "jours": 3,
       "ordre": 7.02,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-7"
+      ]
+    },
+    {
+      "number": 764,
+      "title": "feat(cli): générer un service gRPC avec create controller --kind grpc",
+      "url": "https://github.com/nodefony/nodefony-core/issues/764",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 7.025,
       "debut": null,
       "cible": null,
       "labels": [
