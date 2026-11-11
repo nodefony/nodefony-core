@@ -36,7 +36,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // OUVRE une base, et une seule. Le scaffold pose donc le pilote du dialecte
   // CHOISI, et lui seul. Sans cette déclaration, npm n'avertit personne de son
   // absence et l'application meurt au premier accès.
-  "better-sqlite3": "13.0.3",
+  "better-sqlite3": "13.1.1",
   pg: "8.23.1",
   mysql2: "3.24.6",
   // Pilote MongoDB, en dépendance de DÉVELOPPEMENT d'une application MongoDB :
@@ -79,8 +79,8 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // Les règles TYPÉES d'oxlint (`typeAware` du gabarit `.oxlintrc.json`) :
   // sans ce paquet, `npm run lint` sort en erreur « Failed to find tsgolint ».
   "oxlint-tsgolint": "^7.0.2006",
-  prettier: "^3.9.10",
-  rolldown: "^1.3.1",
+  prettier: "^3.10.0",
+  rolldown: "^1.3.2",
   typescript: "^6.0.3",
   vitest: "^5.1.0",
   // Mesure de couverture. DÉCLARÉE, et non installée à la demande par un script
@@ -89,7 +89,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // entrée de plus dans un `package.json` que personne ne lit jusqu'au bout.
   "@vitest/coverage-v8": "^5.1.0",
   // ── Frontend (consommées par FRONTEND_PARAMS) ──
-  vite: "^8.3.7",
+  vite: "^8.3.8",
   react: "^19.3.1",
   "react-dom": "^19.3.1",
   "@vitejs/plugin-react": "^6.3.0",
@@ -120,7 +120,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   "@angular/core": "~22.2.5",
   "@angular/common": "~22.2.5",
   "@angular/platform-browser": "~22.2.5",
-  "@analogjs/vite-plugin-angular": "^2.9.6",
+  "@analogjs/vite-plugin-angular": "^2.9.7",
   "@angular/build": "~22.2.6",
   "@angular/compiler-cli": "~22.2.5",
 };
