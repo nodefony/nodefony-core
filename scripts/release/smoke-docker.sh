@@ -443,6 +443,25 @@ contient() { # texte motif
   esac
 }
 
+# En cible externe (`NF_E2E_BASE_URL`), la démo — module de développement, que
+# la production retire — doit SAUTER ses suites. Démarrer son propre exemplaire
+# à côté mesurerait ce poste, pas la cible : vert en SQLite sans rien prouver,
+# mort au démarrage (code 78) sur une base serveur. Le verdict se lit test par
+# test dans la sortie `--reporter=verbose` : un code de sortie 0 ne distingue
+# pas « sauté » de « joué contre un autre serveur ».
+demo_sautee_en_externe() { # dossier-app fichier-sortie
+  [ -d "$1/modules/demo" ] || return 0
+  local clean
+  clean=$(sed $'s/\033\[[0-9;]*m//g' "$2")
+  if grep -qE "^ *[✓×] modules/demo/" <<<"$clean"; then
+    grep -E "^ *[✓×] modules/demo/" <<<"$clean" | head -5
+    fail "la démo a JOUÉ ses tests en cible externe — contre un exemplaire démarré à côté, pas contre l'application visée"
+  fi
+  grep -qE "^ *↓ modules/demo/" <<<"$clean" \
+    || { tail -25 "$2"; fail "aucun test de la démo annoncé sauté en cible externe (sortie non verbeuse ?)"; }
+  ok "démo sautée en cible externe (retirée de la production) — aucun exemplaire démarré à côté"
+}
+
 # ═══ 1-3. Chaîne commune : pack, types, scaffolder ══════════════════════════
 
 step "pack — 14 tarballs depuis les workspaces"
@@ -1109,9 +1128,10 @@ YML
   # validation, qui ferait passer la suite contre n'importe quel certificat.
   (cd "$EAPP" && NF_E2E_BASE_URL="$EDGE_URL" \
     NODE_EXTRA_CA_CERTS="$EAPP/nodefony/config/certificates/ca/nodefony-root-ca.crt.pem" \
-    npm run test:e2e) > "$WORK/.edge-e2e.out" 2>&1 \
+    npm run test:e2e -- --reporter=verbose) > "$WORK/.edge-e2e.out" 2>&1 \
     || { tail -40 "$WORK/.edge-e2e.out"; fail "suite e2e générée À TRAVERS le frontal"; }
   ok "suite e2e verte à travers le frontal (mêmes tests, autre topologie)"
+  demo_sautee_en_externe "$EAPP" "$WORK/.edge-e2e.out"
 
   # La preuve que le frontal sert SEUL : on éteint l'application. Un asset qui
   # répond encore n'a pas pu passer par Node. C'est binaire, et ça ne dépend
@@ -1489,7 +1509,7 @@ DOCKERIGNORE
     # depuis un conteneur tiers.
     docker run --rm --network "$SQL_NET" \
       -e NF_E2E_BASE_URL="http://app:5151" \
-      "$QAPP_E2E_IMAGE" npm run test:e2e > "$WORK/.sql-$MOTEUR-e2e.out" 2>&1 \
+      "$QAPP_E2E_IMAGE" npm run test:e2e -- --reporter=verbose > "$WORK/.sql-$MOTEUR-e2e.out" 2>&1 \
       || { tail -40 "$WORK/.sql-$MOTEUR-e2e.out"; fail "suite e2e sous la libc de l'image ($MOTEUR)"; }
     # Un run qui ne joue AUCUN test sort en 0 : le compte se lit, il ne se
     # suppose pas. Et les migrations se sautent délibérément en cible externe —
@@ -1506,6 +1526,7 @@ DOCKERIGNORE
       || { tail -25 "$WORK/.sql-$MOTEUR-e2e.out"; fail "la suite e2e n'annonce aucun test joué ($MOTEUR)"; }
     ok "e2e sous la libc de l'image, via http://app:5151 — $SQL_E2E_LINE"
     ok "  (les cas « migrations » se sautent en cible externe : c'est le contrat de NF_E2E_BASE_URL)"
+    demo_sautee_en_externe "$QAPP" "$WORK/.sql-$MOTEUR-e2e.out"
 
     # ── LA GARDE, VUE MORDRE ─────────────────────────────────────────────────
     # Une fois, sur le premier moteur : ce qu'on débranche est la RÉSOLUTION DE

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NodefonySse } from "nodefony/client";
 import { adminLogin, csrfHeaders } from "nodefony/testing";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, expect, it } from "vitest";
 import { DEMOS } from "../demos";
 import {
   BINARY_SOCKET,
@@ -44,6 +44,7 @@ import {
 } from "../frontend/src/video/videoDemo";
 import {
   closeAll,
+  demoDescribe,
   httpUrl,
   openSocket,
   socketUrl,
@@ -81,7 +82,7 @@ afterAll(async () => {
 /** Les pages que l'index de la démo déclare — la liste que le serveur lit. */
 const PAGES = DEMOS.flatMap((demo) => ("path" in demo ? [demo.path] : []));
 
-describe("démo — les pages", () => {
+demoDescribe("démo — les pages", () => {
   it.each(["/demo", ...PAGES])("%s répond en HTML", async (page) => {
     const response = await fetch(httpUrl(page));
     expect(response.status).toBe(200);
@@ -108,7 +109,7 @@ describe("démo — les pages", () => {
   });
 });
 
-describe("démo — premiers pas", () => {
+demoDescribe("démo — premiers pas", () => {
   it("la même action répond en HTTP et à une socket", async () => {
     const http = await fetch(httpUrl(helloPath("Ada", "en")));
     expect(http.status).toBe(200);
@@ -168,7 +169,7 @@ describe("démo — premiers pas", () => {
   });
 });
 
-describe("démo — flux SSE", () => {
+demoDescribe("démo — flux SSE", () => {
   // #region sse-resume-e2e
   it("la reprise par Last-Event-ID enchaîne les lots sans rien rejouer, puis s'arrête (204)", async () => {
     const ids: string[] = [];
@@ -197,7 +198,7 @@ describe("démo — flux SSE", () => {
   // #endregion
 });
 
-describe("démo — canaux sans test dédié", () => {
+demoDescribe("démo — canaux sans test dédié", () => {
   it("binaire : la vibration et le jeu rendent leurs trames, relues des octets", async () => {
     const socket = await openSocket<BinaryContract>(BINARY_SOCKET);
     const samples: number[] = [];
@@ -251,7 +252,7 @@ describe("démo — canaux sans test dédié", () => {
   });
 });
 
-describe("démo — les portes", () => {
+demoDescribe("démo — les portes", () => {
   it("MCP : la porte liste ses outils, et le fil en direct voit l'appel", async () => {
     const socket = await openSocket<DemoContract>(DEMO_REALTIME_PATH);
     const methods: (string | null)[] = [];

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { adminLogin, csrfHeaders } from "nodefony/testing";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, expect, it } from "vitest";
 import {
   CHAT_ATTACH_PATH,
   CHAT_FILE_PATH,
@@ -12,6 +12,7 @@ import {
 } from "../frontend/src/chat/chatContract";
 import {
   closeAll,
+  demoDescribe,
   httpUrl,
   openSocket,
   startDemoServer,
@@ -81,7 +82,7 @@ function send(text: string, key = randomUUID(), extra: object = {}) {
 /** Un texte unique : les cas partagent le salon, jamais leurs messages. */
 const unique = (label: string) => `${label} ${randomUUID()}`;
 
-describe("discussion — le salon", () => {
+demoDescribe("discussion — le salon", () => {
   // #region chat-broadcast-e2e
   it("un message écrit atteint TOUS les abonnés, signé par le serveur", async () => {
     const [alice, bob] = [await listener(), await listener()];
@@ -181,7 +182,7 @@ describe("discussion — le salon", () => {
   });
 });
 
-describe("discussion — les pièces jointes", () => {
+demoDescribe("discussion — les pièces jointes", () => {
   // #region chat-attachment-e2e
   it("une pièce piégée (du HTML nommé .png) est jugée sur ses octets et servie désarmée", async () => {
     const watcher = await listener();

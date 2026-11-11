@@ -22,6 +22,12 @@ declare module "vitest" {
      * application servie à l'externe, ou moteur dont ils gardent leur décor.
      */
     e2eDatabaseUrl: string | null;
+    /**
+     * Vrai quand l'application est servie AILLEURS (`NF_E2E_BASE_URL`) : les
+     * fichiers qui démarrent leur propre exemplaire se SAUTENT alors, au lieu
+     * de mesurer ce poste en croyant mesurer la cible.
+     */
+    e2eExternalTarget: boolean;
   }
 }
 /**
@@ -255,6 +261,7 @@ export const isTlsTarget =
 let started = false;
 
 export async function setup(project: TestProject): Promise<void> {
+  project.provide("e2eExternalTarget", isExternalTarget);
 <% if (it.mongo) { %>  project.provide("e2eDatabaseUrl", null);
 <% } else { %>  project.provide("e2eDatabaseUrl", EXTERNAL_BASE_URL ? null : E2E_BASE_URL);
 <% } %>  if (EXTERNAL_BASE_URL) {

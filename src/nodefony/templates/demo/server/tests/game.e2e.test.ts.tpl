@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, expect, it } from "vitest";
 import {
   PRISM_CREW,
   PRISM_SOCKET,
@@ -12,6 +12,7 @@ import {
 } from "../frontend/src/prism/prismClient";
 import {
   closeAll,
+  demoDescribe,
   openSocket,
   startDemoServer,
   waitFor,
@@ -49,7 +50,7 @@ function droneOf(worlds: readonly IPrismWorld[], tag: number) {
   return worlds.at(-1)?.drones.find((drone) => drone.tag === tag);
 }
 
-describe("jeu — une salle, plusieurs joueurs", () => {
+demoDescribe("jeu — une salle, plusieurs joueurs", () => {
   it("chaque spectateur reçoit les tours, à pas fixe, avec tout l'équipage relu des octets", async () => {
     const { worlds } = await spectator();
     await waitFor("dix tours", () => worlds.length >= 10);

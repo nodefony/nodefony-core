@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, expect, it } from "vitest";
 import {
   MACHINES,
   plantRate,
@@ -16,6 +16,7 @@ import {
 } from "../frontend/src/sensor/sensorClient";
 import {
   closeAll,
+  demoDescribe,
   openSocket,
   startDemoServer,
   waitFor,
@@ -40,7 +41,7 @@ afterAll(async () => {
   await stop();
 });
 
-describe("sonde — l'usine, à la cadence que l'écran demande", () => {
+demoDescribe("sonde — l'usine, à la cadence que l'écran demande", () => {
   it("livre des fenêtres que le codec de la page relit : une valeur par machine et par grandeur", async () => {
     const socket = await openSocket<SensorContract>(SENSOR_SOCKET);
     const frames: IPlantScreenFrame[] = [];
@@ -117,7 +118,7 @@ describe("sonde — l'usine, à la cadence que l'écran demande", () => {
   });
 });
 
-describe("sonde — les bancs et leurs requêtes", () => {
+demoDescribe("sonde — les bancs et leurs requêtes", () => {
   it("le spectre : le cumul entier par requête, puis les canaux touchés s'y ajoutent", async () => {
     const socket = await openSocket<SensorContract>(SENSOR_SOCKET);
     const totals: number[] = [];

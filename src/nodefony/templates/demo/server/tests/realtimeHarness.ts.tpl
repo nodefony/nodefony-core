@@ -9,12 +9,14 @@ import {
   startSpareApp,
   type ISpareApp,
 } from "nodefony/testing";
-import { inject } from "vitest";
+import { describe, inject } from "vitest";
 
 declare module "vitest" {
   export interface ProvidedContext {
     /** La base de la suite e2e de l'application (`tests/e2e.setup.ts`). */
     e2eDatabaseUrl: string | null;
+    /** Vrai quand la suite vise une application servie AILLEURS (`NF_E2E_BASE_URL`). */
+    e2eExternalTarget: boolean;
   }
 }
 
@@ -32,11 +34,39 @@ declare module "vitest" {
  *   décor e2e (un SQLite JETABLE, ou la base `<base>_e2e` d'un moteur
  *   serveur) : la base de développement de l'application n'est jamais
  *   touchée, et le compte `admin` y naît avec le mot de passe du décor e2e.
+ * - Cible EXTERNE (`NF_E2E_BASE_URL`) : l'application visée est un
+ *   déploiement de production, d'où la démo est RETIRÉE. Il n'y a rien à y
+ *   viser, et démarrer un exemplaire ici mesurerait ce poste, pas la cible.
+ *   Les suites se décrivent donc par `demoDescribe`, qui les SAUTE en le
+ *   disant ; `startDemoServer` refuse de démarrer dans ce mode.
  * - Un test ouvre ses sockets par `openSocket`, attend ce qu'il veut voir par
  *   `waitFor` — jamais par une pause fixe —, et referme tout par `closeAll`.
  */
 
 let server: ISpareApp | null = null;
+
+/**
+ * Vrai quand la suite vise une application servie ailleurs — la décision de
+ * `tests/e2e.setup.ts`, transmise par `provide`, jamais recalculée ici.
+ * Absente (fichier joué sans ce décor, `undefined`) : la démo démarre son
+ * exemplaire.
+ */
+const externalTarget = inject("e2eExternalTarget");
+
+/**
+ * Le `describe` des suites de la démo : SAUTÉ quand la cible est externe.
+ *
+ * Un fichier dont toutes les suites sont sautées ne joue pas ses `beforeAll` :
+ * aucun exemplaire n'est démarré. La raison s'affiche — un saut muet se lit
+ * comme un vert.
+ */
+export const demoDescribe = externalTarget ? describe.skip : describe;
+if (externalTarget) {
+  process.stdout.write(
+    "démo : SAUTÉE — `NF_E2E_BASE_URL` vise un déploiement de production, " +
+      "d'où la démo (module de développement) est retirée.\n",
+  );
+}
 
 /** Un port TCP libre, demandé au système. */
 function freePort(): Promise<number> {
@@ -58,8 +88,16 @@ function freePort(): Promise<number> {
  * Démarre l'exemplaire de développement qui sert la démo.
  *
  * @returns l'arrêt, à appeler en `afterAll`
+ * @throws Error — en cible externe : la suite qui l'appelle devait être
+ * décrite par `demoDescribe`
  */
 export async function startDemoServer(): Promise<() => Promise<void>> {
+  if (externalTarget) {
+    throw new Error(
+      "startDemoServer() en cible externe (`NF_E2E_BASE_URL`) : la démo n'y " +
+        "est pas servie — décrire la suite par `demoDescribe`, qui la saute.",
+    );
+  }
   const [port, httpsPort] = [await freePort(), await freePort()];
   // La base est celle que `tests/e2e.setup.ts` a CHOISIE et remise à neuf,
   // transmise par `provide` — jamais une copie de sa règle. Un moteur

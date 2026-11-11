@@ -138,6 +138,10 @@ le même geste.
 - **Préfixe `/demo`** pour tout : aucune zone de l'application n'est touchée,
   et retirer la démo = supprimer ce dossier + sa ligne du manifeste.
 - **La démo ne part pas en production** (`policy: "dev"` au manifeste).
+  Ses suites de bout en bout se décrivent donc par `demoDescribe`
+  (`tests/realtimeHarness.ts`), jamais par `describe` : jouée contre un
+  déploiement (`NF_E2E_BASE_URL`), la suite les SAUTE au lieu de démarrer un
+  exemplaire à côté.
 - **Lire est libre, écrire exige une session** ; l'auteur d'un message vient
   de `this.user`, jamais d'un champ envoyé par le client.
 - **Aucun secret dans la page** : ni mot de passe de développement, ni lien
