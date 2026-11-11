@@ -199,6 +199,60 @@ Le champ « A fait changer » garde la trace des cas qui ont coûté : il ne se 
   (statut 4), jamais un 504/408 HTML ou JSON par-dessus.
 - **A fait changer** : D4 — `HttpContext._onTimeout` écrit lui-même la réponse.
 
+## Contexte, erreurs, arrêt, navigateur
+
+### S-grpc-31 — Un service de requête dans un flux de dix minutes
+
+- **Situation** : un flux serveur lit `this.user` et un service de portée `request` à chaque message.
+- **Tient si** : identité, `requestId` et MÊME instance du service jusqu'au dernier message ; portée
+  refermée au `close` de la réponse, aucune fuite.
+- **A fait changer** : D6 — rien : la bulle de la requête vit jusqu'au `close`
+  (`HttpKernel.teardownHttp`).
+
+### S-grpc-32 — Un exploitant suit un appel par son identifiant
+
+- **Situation** : un client envoie `X-Request-Id` ; un navigateur d'une origine autorisée appelle en
+  gRPC-Web.
+- **Tient si** : `X-Request-Id`, `traceparent`, en-têtes CORS et `Vary: Origin` reviennent sur la
+  réponse, comme sur une route HTTP.
+- **A fait changer** : D6 — Connect écrit sur la réponse native : sans remise en état, ces en-têtes
+  disparaissaient en silence.
+
+### S-grpc-33 — Un jeton révoqué pendant un abonnement
+
+- **Situation** : un agent abonné voit son jeton annulé (`jti` refusé) ou sa session détruite.
+- **Tient si** : le flux finit par 16 dans la fenêtre de revalidation ; plus aucun message ne part ;
+  un gestionnaire sourd à son signal est détruit à la fenêtre suivante.
+- **A fait changer** : D6 — la fermeture existante (`context.close()`) aurait été un second écrivain.
+
+### S-grpc-34 — Un service partagé avec des routes HTTP lève une erreur HTTP
+
+- **Situation** : le service lève une `HttpError` 404 ; ou une exception banale.
+- **Tient si** : 5 `NOT_FOUND` avec son message (unaire, et flux avant le premier message) ; 13 au
+  message générique pour l'exception, cause et `requestId` au journal.
+- **A fait changer** : D7 — Connect rendait 13 pour toute erreur qui n'est pas une `ConnectError`.
+
+### S-grpc-35 — Un déploiement roulant avec dix mille abonnements ouverts
+
+- **Situation** : `SIGTERM` pendant que 10 000 flux sont ouverts et qu'un appel unaire est en vol.
+- **Tient si** : chaque flux reçoit 14 `UNAVAILABLE` et le client se reconnecte ailleurs ; l'appel
+  unaire finit ; un gestionnaire sourd tombe à `shutdownTimeout`.
+- **A fait changer** : D8 — un flux détruit sans statut laissait le client deviner.
+
+### S-grpc-36 — Une rafale d'appels unaires à côté de dix mille flux
+
+- **Situation** : 10 000 flux ouverts, puis une rafale d'appels unaires.
+- **Tient si** : le coût d'un appel unaire ne dépend pas du nombre de flux ouverts.
+- **A fait changer** : D8 — `shutdownSignal` de Connect coûtait +72 µs par appel à 10 000 appels
+  ouverts (écouteur sur un signal partagé) : écarté.
+
+### S-grpc-37 — Une page d'une autre origine appelle en gRPC-Web
+
+- **Situation** : origine autorisée par CORS ; puis origine inconnue.
+- **Tient si** : préflight 204 avec les en-têtes de Connect, statut lisible par le client ; origine
+  inconnue refusée au format gRPC (D5) ; aucune route HTTP voisine n'expose `grpc-status`.
+- **A fait changer** : D9 — sans `Expose-Headers`, un client gRPC-Web ne lit pas le statut.
+
 ## Plateformes
 
 ### S-grpc-10 — Linux, macOS, Windows

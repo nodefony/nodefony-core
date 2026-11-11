@@ -345,12 +345,240 @@ comme Nodefony.
   (`bindAsync`) : ni pare-feu ni `@IsGranted`, et pas de gRPC-Web. C'est pourtant elle que le SDK
   A2A JS emploie : l'interopérabilité se prouve contre ses clients (D13).
 
-### D6 à D13 — à rendre
+### D6 — Le contexte de Nodefony dans un appel
 
-Contexte
-Nodefony (`requestId`, ALS, portée d'injection, identité) ; erreurs riches (`ErrorInfo`) ; arrêt
-(`shutdownSignal` → `UNAVAILABLE`) ; CORS ; OpenTelemetry et journal d'accès ; `@experimental` au
-grain du symbole ; dépendances paires facultatives ; interopérabilité. Détail : ticket #695.
+**Décision (tranchée sur délégation, validée par l'auteur le 2026-11-11) :**
+
+**Le constat.** L'appel s'exécute dans la bulle de la requête. `RequestContext` (ALS) et la portée
+d'injection `request` sont ouverts par `HttpKernel`, et ne se referment qu'au `close` de la réponse
+(`http-kernel.ts#HttpKernel.createHttpContext` → `HttpKernel.teardownHttp`), donc après le dernier
+message d'un flux. En revanche, Connect écrit sur la réponse Node native
+(`node-universal-handler.js#universalResponseToNodeResponse` → `writeHead`), alors que Nodefony
+range ses en-têtes dans une réserve que seul `Response.ts#HttpResponse.writeHead` vide.
+
+1. **Identité, ALS, portée : rien de neuf.** Le gestionnaire lit `this.user` (accesseur de
+   `Controller`, soit `RequestContext.getAuthenticatedUser()`) et `RequestContext`, et résout ses
+   services `request` comme toute action, pendant toute la durée du flux.
+   - L'identité n'est PAS recopiée dans `contextValues` de Connect : ce serait une seconde source de
+     vérité, et une écriture par appel pour rien quand le gestionnaire ne la lit pas.
+   - `contextValues` sert à Nodefony seul : il porte la fiche de l'appel (D8). Connect en alloue un
+     par appel de toute façon (`implementation.js#createHandlerContext`) ; le nôtre le remplace.
+   - Pour le passer, l'adaptateur compose les briques que connect-node publie pour les adaptateurs
+     de framework (`universalRequestFromNodeRequest`, `universalResponseToNodeResponse`), au lieu de
+     `connectNodeAdapter`.
+2. **Les en-têtes du pipeline passent sur la réponse gRPC.** Avant de confier la réponse à Connect,
+   l'adaptateur la remet en état comme `HttpResponse.writeHead` le ferait :
+   - la réserve (CORS, `Vary`, `Set-Cookie`), `X-Request-Id`, `traceparent` ;
+   - la politique d'en-têtes de sécurité, choisie sur le type de la requête, pour un corps écrit
+     par un tiers (comme un relais).
+
+   Il les pose en en-têtes natifs. Node les fusionne avec ceux de Connect, qui l'emportent en cas
+   de conflit (`content-type`). Sans cela, la corrélation client↔serveur et le CORS disparaissent
+   en silence.
+   - Constaté sur le fil (Connect réel, HTTP/2 et HTTP/1.1) : `x-request-id`, `vary` et
+     `access-control-allow-origin` posés en natif reviennent sur la réponse ; un `content-type`
+     posé avant est remplacé par celui de Connect. L'ALS est lu dans l'implémentation, à l'appel
+     unaire comme au cinquième message d'un flux.
+
+3. **Un flux ne survit pas à l'identité qui l'a ouvert**, l'invariant des sockets
+   (`FirewallRealtimeAuthenticator.ts#FirewallRealtimeAuthenticator`).
+   - Le flux s'ouvre par `openStreamLifecycle` (D4) : il est déjà inscrit dans la surveillance de
+     révocation du noyau (`HttpKernel.watchStream`, fenêtre `REVOCATION_REVALIDATE_MS` de 30 s).
+   - Mais la révocation ferme par `StreamLifecycle.close()`, qui appelle `context.close()` : sur une
+     réponse que Connect possède, ce serait un second écrivain (S-grpc-27). `StreamLifecycle` reçoit
+     donc une fermeture fournie par l'adaptateur, qui interrompt l'appel avec le statut 16
+     `UNAUTHENTICATED` : l'agent rafraîchit son jeton et se reconnecte.
+   - L'interruption suit le mécanisme de D8 (point 2) : au plus le message déjà en vol part encore
+     vers l'identité morte (constaté à l'essai), puis plus rien.
+   - Un appel unaire n'est pas surveillé : il est autorisé à son début et borné par son échéance
+     (D4).
+
+**Coût**
+
+| Geste                         | Quand                         | Coût                                                                  |
+| ----------------------------- | ----------------------------- | --------------------------------------------------------------------- |
+| ALS, portée, identité         | —                             | 0 : la bulle existe déjà                                              |
+| `contextValues` de Nodefony   | chaque appel                  | 0 de plus : il remplace celui que Connect alloue                      |
+| Remise en état des en-têtes   | chaque appel                  | le travail que `HttpResponse.writeHead` fait sur toute route, déplacé |
+| Surveillance de la révocation | chaque flux, à chaque fenêtre | celle de SSE, déjà payée par D4 ; 0 par message                       |
+
+### D7 — Les erreurs levées pendant un appel
+
+**Décision (tranchée sur délégation, validée par l'auteur le 2026-11-11) :**
+
+**Le constat** (lu dans Connect). Une exception qui n'est pas une `ConnectError` devient 13
+`INTERNAL`, message « internal error ». Sa cause est gardée côté serveur et jamais envoyée
+(`protocol-grpc/handler-factory.js#createHandler`, `transformCatchFinally`). La cause brute ne se
+lit ailleurs que dans `ctx.signal.reason` (`context.abort(e)`). Une `ConnectError` part telle quelle.
+Connect la reconnaît à sa forme (`name === "ConnectError"`) : une `HttpError` de Nodefony, levée par
+un service partagé avec des routes HTTP, devient donc 13.
+
+1. **Une seule table HTTP → gRPC**, celle de `google-rpc-code.proto` (« HTTP Mapping »), servie par
+   une seule fonction, que les refus du pipeline (D5) emploient aussi :
+
+   | HTTP      | gRPC                           |
+   | --------- | ------------------------------ |
+   | 400, 422  | 3 `INVALID_ARGUMENT`           |
+   | 401, 403  | 16 ou 7, selon l'identité (D5) |
+   | 404       | 5 `NOT_FOUND`                  |
+   | 409       | 10 `ABORTED`                   |
+   | 412       | 9 `FAILED_PRECONDITION`        |
+   | 413, 429  | 8 `RESOURCE_EXHAUSTED`         |
+   | 499       | 1 `CANCELLED`                  |
+   | 501       | 12 `UNIMPLEMENTED`             |
+   | 502, 503  | 14 `UNAVAILABLE`               |
+   | 408, 504  | 4 `DEADLINE_EXCEEDED`          |
+   | autre 5xx | 13 `INTERNAL`                  |
+   | autre     | 2 `UNKNOWN`                    |
+   - `code.proto` associe 409 à `ABORTED` et à `ALREADY_EXISTS`. `ABORTED` (conflit, réessayer plus
+     haut) est le sens le plus large ; `ALREADY_EXISTS` se lève en `ConnectError` quand c'est le cas.
+   - Chemin d'erreur seulement : un `switch`.
+
+2. **Le message suit la règle d'`HttpKernel.onError`** (`error-renderer.ts`) : en production, un 5xx
+   part avec un message générique ; sinon, le message de l'erreur. Les refus de D5 gardent leur
+   libellé générique.
+3. **Où la traduction s'applique.**
+   - Appel unaire et flux client (une seule réponse) : à chaque erreur.
+   - Flux serveur et bidirectionnel : aux erreurs levées AVANT le premier message (validation,
+     entité introuvable, droit refusé), là où un service partagé lève. Après le premier message,
+     l'erreur devient 13, et sa cause va au journal ; le code en cours de flux se choisit en levant
+     une `ConnectError`.
+   - Pourquoi cette borne : traduire en cours de flux impose une promesse par message, mesurée à
+     **+45 ns par message** (+27 % sur un itérateur nu), pour un travail qui ne sert qu'en cas
+     d'erreur.
+4. **Journal.** À la fin de l'appel, l'adaptateur lit `ctx.signal.reason`. Une cause qui n'est pas
+   une `ConnectError`, ou un code 2, 13 ou 15, part au journal en ERROR avec le `requestId` et la
+   pile. Aucun écouteur de plus : la lecture se fait au `close` de la réponse, que le noyau écoute
+   déjà (`HttpKernel.teardownHttp`).
+   - ⚠️ PAS à la fin de l'`await universalResponseToNodeResponse(…)` : cette promesse attend un
+     événement `end` qu'une réponse Node n'émet jamais (`finish`, oui). Constaté à l'essai : elle
+     ne se résout pas, en HTTP/1.1 comme en HTTP/2. `connectNodeAdapter` ne l'attend pas, d'où
+     l'absence de symptôme chez Connect.
+   - Essai : une exception banale porte sa cause brute dans `ctx.signal.reason` (« base
+     injoignable… »), et le client reçoit 13 « internal error », sans la cause.
+5. **Détails riches (`google.rpc.Status`, `ErrorInfo`) : aucun par défaut.**
+   - `ConnectError` les porte déjà (`details`). Les types `google.rpc.*` s'engendrent par une entrée
+     buf (D2), comme le fera le pont A2A (#745, A2A §10.6).
+   - Ils voyagent dans le trailer `grpc-status-details-bin`, que les clients bornent avec les
+     en-têtes (8 Kio courants, A2A#2433). La documentation le dit ; Nodefony ne le borne pas.
+
+**Coût**
+
+| Chemin              | Geste                                      | Coût                                            |
+| ------------------- | ------------------------------------------ | ----------------------------------------------- |
+| Appel unaire réussi | une promesse (`.then`) par appel           | ≈ 45 ns (mesuré sur le même geste, par message) |
+| Flux réussi         | une promesse au premier message, 0 ensuite | ≈ 45 ns par flux, 0 par message                 |
+| Fin d'appel         | lecture de `ctx.signal.reason`             | une lecture et un test de forme                 |
+| Erreur              | `switch` + journal                         | chemin d'erreur seulement                       |
+
+### D8 — L'arrêt du serveur
+
+**Décision (tranchée sur délégation, validée par l'auteur le 2026-11-11) :**
+
+**Le constat.** À `onTerminate`, la séquence existe (`HttpKernel.init`) : readyz passe à 503,
+fermeture 1001 des WebSocket, drain HTTP (GOAWAY en deux temps), destruction à `shutdownTimeout`
+(5 s). Un flux gRPC détruit sans statut laisse le client deviner.
+
+Connect offre `shutdownSignal`, mais il y lie un écouteur par appel, unaire compris
+(`signals.js#createLinkedAbortController`). Or l'ajout et le retrait d'un écouteur sur un
+`AbortSignal` parcourent les écouteurs déjà posés : le coût de CHAQUE appel croît avec le nombre
+d'appels ouverts (mesure ci-dessous).
+
+1. **Une seule liste de flux longs, celle du noyau, pas une liste gRPC.** Il n'emploie pas
+   `shutdownSignal`.
+   - Ce qui existe (relu au code) :
+     - `HttpKernel.#streams`, un `RevocationWatch` dont le `Set` ne tient que les flux PORTEURS
+       D'UNE IDENTITÉ (`StreamLifecycle` s'y inscrit seulement si `revalidate !== null`) ; un flux
+       anonyme n'y est pas ;
+     - `WsConnectionCounter`, des COMPTES par IP, et seulement si le plafond est armé ;
+     - les `Set` de sockets et de sessions HTTP/2 de `serverShutdown.ts#createDrainTerminator`, des
+       CONNEXIONS, pas des flux.
+   - Aucun ne liste tous les flux ouverts, et aucun flux long (SSE, octets) ne reçoit de fin à
+     l'arrêt aujourd'hui : il est détruit à `shutdownTimeout`.
+   - Donc : le noyau gagne UN registre de tous les flux longs ouverts, rempli par
+     `StreamLifecycle` à l'endroit même où il appelle déjà `watchStream` / `unwatchStream`. À l'arrêt,
+     le noyau ferme chacun par `StreamLifecycle.close(cause)`. gRPC n'apporte que sa fermeture
+     (D6 point 3) ; SSE et les flux d'octets en profitent aussi.
+   - Le `RevocationWatch` reste réservé aux flux à identité : y mettre les anonymes ferait
+     travailler chaque fenêtre de 30 s pour rien.
+2. **À l'étape de la fermeture 1001 des WebSocket, chaque flux ouvert est interrompu avec 14
+   `UNAVAILABLE`** (« réessaie, ailleurs ») par `ctx.abort(…)`.
+   - Coopératif : `ctx.signal` prévient le gestionnaire, qui termine. La documentation le prescrit :
+     passer `ctx.signal` à ses sources.
+   - Pour le gestionnaire sourd qui produit encore : l'itérateur de l'appel est enrobé. Après
+     l'interruption, sa lecture et son écriture suivantes échouent avec ce statut, que Connect écrit
+     en trailer. La révocation (D6) emprunte le même mécanisme.
+   - Filet : un gestionnaire bloqué qui n'écoute pas son signal tombe à `shutdownTimeout` (connexion
+     détruite, le client lit `UNAVAILABLE`) ; pour la révocation, à la fenêtre suivante (flux
+     détruit).
+
+   **Constaté sur le fil** (Connect 2.3.0 réel, flux bidirectionnel, interruption en 14) :
+
+   | Gestionnaire                    | Sans enrobage                                | Avec enrobage                         |
+   | ------------------------------- | -------------------------------------------- | ------------------------------------- |
+   | écoute `ctx.signal`             | 14 en 14 ms, 0 message après                 | idem                                  |
+   | sourd, produit toutes les 20 ms | **jamais fini, 19 messages après en 400 ms** | 14 en 17 ms, 1 message après (en vol) |
+   | sourd et bloqué                 | ouvert                                       | ouvert, 0 message → filet             |
+
+   La deuxième ligne vaut aussi pour `shutdownSignal` de Connect : il ne fait qu'abattre
+   `ctx.signal`, et n'arrête pas un gestionnaire sourd.
+
+3. **Un appel unaire en vol n'est pas interrompu** : il finit pendant le drain, borné par son
+   échéance (D4), comme l'arrêt gracieux de gRPC. Un appel neuf après le GOAWAY est refusé par
+   HTTP/2, et le client réessaie.
+
+**Coût, mesuré** (médiane de 7 passes, Node du poste) :
+
+| Geste                               | Quand                                | Coût                                                                                                             |
+| ----------------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| Registre du noyau : ajout + retrait | chaque flux long (SSE, octets, gRPC) | 44 à 77 ns, constant de 0 à 10 000 flux ouverts                                                                  |
+| Enrobage de l'itérateur             | chaque message d'un flux             | +3 ns (123 → 126 ns), dans le bruit                                                                              |
+| Appel unaire                        | —                                    | 0                                                                                                                |
+| Interruption à l'arrêt              | une fois                             | proportionnel aux flux ouverts                                                                                   |
+| **Écarté** : `shutdownSignal`       | CHAQUE appel, unaire compris         | mesuré sur `createHandlerContext` réel : +0,2 µs à vide, **+12 µs** à 1 000 appels ouverts, **+122 µs** à 10 000 |
+
+Relevé en passant, hors décision : le contexte que Connect crée par appel (`createHandlerContext`,
+signaux liés, puis un `abort()` final qui alloue une `DOMException`) coûte **≈ 7 µs par appel**,
+mesuré sur la fonction réelle, sans `shutdownSignal`. C'est un plancher de la bibliothèque, pas un
+surcoût de Nodefony ; il entre dans la mesure par appel de #695, et dans un signalement amont
+(avec le O(N) et la promesse qui ne se résout pas, D7 point 4), sur GO de l'auteur.
+
+### D9 — Les navigateurs d'une autre origine (CORS)
+
+**Décision (tranchée sur délégation, validée par l'auteur le 2026-11-11) :**
+
+**Le constat.** Le pare-feu répond au préflight `OPTIONS` en 204 AVANT le routage, avec la politique
+unique de l'application (`firewall.ts#Firewall.handleCors`, `cors.ts#Cors`). Il pose les en-têtes
+de la requête réelle dans la réserve de la réponse. L'étape CSRF accepte déjà une origine autorisée
+par CORS (`csrf.ts#Csrf.enforce`, point 1). Connect publie les en-têtes que ses protocoles exigent
+(`cors.allowedHeaders`, `cors.exposedHeaders`, `cors.allowedMethods`, `connect-cors.md`).
+
+1. **Une seule politique CORS**, celle de l'application : aucune section CORS dans `grpc`.
+2. **Préflight.** Dès qu'un service gRPC est déclaré et que le CORS est actif, la politique reçoit au
+   démarrage l'union de ses listes avec celles de Connect (`grpc-timeout`,
+   `connect-protocol-version`, `x-grpc-web`…, méthodes `POST` et `GET`). Le préflight ne connaît
+   pas la route : l'union est la seule voie. Le démarrage l'annonce.
+   - Nécessaire : la liste par défaut vaut `Authorization, Content-Type, X-Requested-With`
+     (`security/…/config/config.ts`, `corsSchema`) ; un client gRPC-Web qui envoie `x-grpc-web` ou
+     `grpc-timeout` serait refusé au préflight.
+3. **Réponse réelle.** La remise en état des en-têtes (D6, point 2) y porte les en-têtes CORS. Sur
+   une réponse gRPC seulement, `Access-Control-Expose-Headers` reçoit `grpc-status`,
+   `grpc-message` et `grpc-status-details-bin` : sans eux, un client gRPC-Web ne lit pas le statut.
+   Les autres routes n'en reçoivent rien.
+4. **CSRF : rien à coder.** Une origine autorisée passe ; une autre est refusée en gRPC (D5).
+
+**Coût** : 0 par appel ; listes calculées une fois au démarrage ; ≈ 70 octets de plus, sur une
+réponse gRPC d'une autre origine seulement.
+
+### D10 à D13 — à rendre
+
+- OpenTelemetry et journal d'accès avec le statut gRPC. Constat de D6 : le journal lit aujourd'hui
+  le statut de la réponse de Nodefony, pas celui que Connect a écrit.
+- `@experimental` au grain du symbole.
+- Dépendances paires facultatives.
+- Interopérabilité contre les clients `@grpc/grpc-js` et `grpcurl`.
+
+Détail : ticket #695.
 
 ## Alternatives écartées (D1)
 
