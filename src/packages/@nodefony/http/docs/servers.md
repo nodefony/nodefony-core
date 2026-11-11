@@ -522,16 +522,16 @@ Défauts matérialisés dans `defaultAppConfig` (`src/nodefony/src/config/defaul
 Table dérivée de `httpServerSchema` (`config.ts#httpServerSchema`) ; la section `https` reprend les mêmes clés et en
 ajoute une (`httpsServerSchema`, `config.ts#httpsServerSchema`).
 
-| Option                       | Type  | Défaut  | Effet                                                                            |
-| ---------------------------- | ----- | ------- | -------------------------------------------------------------------------------- |
-| `maxHeadersCount`            | int   | `2000`  | Nombre maximum d'en-têtes par requête — anti _header flooding_.                  |
-| `keepAliveTimeout`           | ms    | `5000`  | Délai de réutilisation de la socket TCP entre deux requêtes.                     |
-| `timeout`                    | ms    | `30000` | Timeout global de socket, aligné sur `responseTimeout`. `0` = désactivé.         |
-| `requestTimeout`             | ms    | `30000` | Délai de réception de la requête complète — **anti slow-loris**.                 |
-| `responseTimeout`            | ms    | `30000` | Délai d'envoi de la réponse complète (couche pipeline).                          |
-| `shutdownTimeout`            | ms    | `5000`  | Drain au shutdown avant destruction forcée. Garder < grâce orchestrateur.        |
-| `headers`                    | objet | `null`  | En-têtes ajoutés à toutes les réponses.                                          |
-| `rejectUnauthorized` (https) | bool  | `false` | Rejette les certificats invalides. `false` en dev (auto-signés), `true` en prod. |
+| Option                       | Type  | Défaut  | Effet                                                                                                                                                                                                   |
+| ---------------------------- | ----- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `maxHeadersCount`            | int   | `2000`  | Nombre maximum d'en-têtes par requête — anti _header flooding_.                                                                                                                                         |
+| `keepAliveTimeout`           | ms    | `5000`  | Délai de réutilisation de la socket TCP entre deux requêtes.                                                                                                                                            |
+| `timeout`                    | ms    | `30000` | Timeout global de socket, aligné sur `responseTimeout`. En HTTP/2 (5152, h2c), une connexion inactive au-delà de ce délai est fermée par GOAWAY ; les flux en cours vont à leur terme. `0` = désactivé. |
+| `requestTimeout`             | ms    | `30000` | Délai de réception de la requête complète — **anti slow-loris**.                                                                                                                                        |
+| `responseTimeout`            | ms    | `30000` | Délai d'envoi de la réponse complète (couche pipeline).                                                                                                                                                 |
+| `shutdownTimeout`            | ms    | `5000`  | Drain au shutdown avant destruction forcée. Garder < grâce orchestrateur.                                                                                                                               |
+| `headers`                    | objet | `null`  | En-têtes ajoutés à toutes les réponses.                                                                                                                                                                 |
+| `rejectUnauthorized` (https) | bool  | `false` | Rejette les certificats invalides. `false` en dev (auto-signés), `true` en prod.                                                                                                                        |
 
 Ces deux sections sont **permissives** (`z.looseObject`) : toute option supplémentaire de
 `http.Server` / `net.Server` / TLS (`insecureHTTPParser`, `ciphers`, `minVersion`…) est transmise telle
