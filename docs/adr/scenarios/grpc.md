@@ -276,6 +276,25 @@ Le champ « A fait changer » garde la trace des cas qui ont coûté : il ne se 
   message.
 - **A fait changer** : D10 — le canal ne portait aucune donnée RPC.
 
+## Stabilité
+
+### S-grpc-41 — Un agent d'utilisateur survole `GrpcController`
+
+- **Situation** : l'éditeur ou l'agent d'une application lit le `.d.ts` publié de
+  `@nodefony/framework`, paquet stable.
+- **Tient si** : `GrpcController`, `@GrpcService` et chaque membre ajouté par #695 portent
+  `@experimental` ; la politique et la page les nomment ; un symbole étiqueté que la politique
+  ignore fait échouer le contrôle (`buildReportDevtools` l'a montré).
+- **A fait changer** : D11 — la politique ne connaissait que le paquet entier.
+
+### S-grpc-42 — La 10.2 change la signature d'un symbole expérimental
+
+- **Situation** : une version mineure retire un membre de `IRpcCall`, et un autre de
+  `@nodefony/ai`.
+- **Tient si** : le changelog annonce les deux comme changements expérimentaux, sans les marquer
+  « rupture » ; un retrait sur un symbole stable reste une rupture.
+- **A fait changer** : D11 — `apiDiffChangelogEntries` marquait tout retrait en rupture.
+
 ## Plateformes
 
 ### S-grpc-10 — Linux, macOS, Windows

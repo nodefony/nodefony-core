@@ -656,9 +656,60 @@ natif, que Nodefony ne voit pas ; en gRPC et gRPC-Web, le résultat n'est que da
 | Champ `rpc` de la trace               | chaque requête, avec abonné | une écriture de champ                            |
 | Message d'un flux                     | —                           | 0                                                |
 
-### D11 à D13 — à rendre
+### D11 — Une surface expérimentale dans des paquets stables
 
-- `@experimental` au grain du symbole.
+**Décision (tranchée sur délégation, validée par l'auteur le 2026-11-11) :**
+
+**Le constat.** La politique ne connaît que le paquet entier : la clé `nodefony.stability`, recopiée
+à quatre endroits et gardée par `src/nodefony/src/tests/stability.test.ts`. Or la surface gRPC naît
+dans deux paquets STABLES : la déclaration dans `@nodefony/framework` (D1), le transport dans
+`@nodefony/http` (ADR-0021). Un paquet `@nodefony/grpc` à part suivrait le précédent de
+`@nodefony/realtime`, mais rouvrirait D1 et ADR-0021, accepté et sous le gel du temps réel :
+écarté. Le dépôt porte déjà une étiquette de symbole que la politique ignore :
+`bundler/buildReport.ts#buildReportDevtools`, publiée par `nodefony/bundler`, est `@experimental`
+sans être nommée nulle part. Le grain manque, et il a déjà dérivé une fois.
+
+1. **La source est l'étiquette TSDoc `@experimental` sur le symbole**, ou sur le membre (un champ
+   neuf d'une interface stable, comme `IRequestTrace.rpc`). C'est une étiquette standard de TSDoc
+   (`StandardTags.experimental`, même sens que `@beta`), conservée dans le `.d.ts` publié :
+   l'éditeur et l'agent de l'utilisateur la voient au survol.
+2. **Tout symbole public, ou membre public, qu'ajoute #695 naît `@experimental`.** Cela vaut pour
+   la déclaration (`GrpcController`, `@GrpcService`), le transport, le champ de route de D5, la
+   fermeture fournie de D6, le contrat d'appel RPC de D10 (`IRpcCall`, `HttpContext.rpc`,
+   `IRequestTrace.rpc`) et la section `grpc` de la configuration. Ce qui n'est pas exporté ne
+   porte rien : ce n'est pas une surface (`docs/guides/compatibilite.md`, « la garantie porte sur
+   `exports` »).
+3. **Deux copies, gardées par le contrôle de stabilité**, étendu au symbole (il lit le `.d.ts` bâti,
+   donc tourne après le build) :
+   - la politique gagne un tableau « Symboles expérimentaux d'un paquet stable » (symbole, paquet,
+     pourquoi). Le contrôle exige que l'ensemble des symboles étiquetés dans les paquets stables
+     publiés soit EXACTEMENT celui du tableau, dans les deux sens ;
+   - une page d'un paquet stable peut porter `status: experimental` si elle documente un symbole
+     expérimental de son paquet, et seulement alors.
+   - **Un seul lecteur de la surface** : `scripts/release/api-diff-core.mjs`, qui lit déjà le
+     `.d.ts` publié de chaque entrée d'`exports`, membre par membre, avec un programme TypeScript
+     (`readTypeDeclarations`). Il apprend à rendre l'étiquette (`ts.getJSDocTags`). Ce qu'il lit
+     est l'artefact reçu, et seulement la surface publique. Jamais une expression régulière sur les
+     sources : une étiquette sur un membre doit nommer le membre.
+   - `buildReportDevtools` entre au tableau (« suit une option expérimentale de rolldown ») : le
+     contrôle, vu rouge une fois, le signale avant toute correction.
+4. **Mêmes règles que le paquet** : un symbole sort de l'expérimental en version mineure, en
+   perdant son étiquette et sa ligne ; un symbole stable ne redevient jamais expérimental au cours
+   d'une série ; chaque changement est annoncé au changelog. Aucun avertissement à l'exécution.
+5. **Le changelog distingue une rupture d'un changement expérimental.** Aujourd'hui,
+   `api-diff-core.mjs#apiDiffChangelogEntries` marque `rupture: true` tout retrait mesuré, sans
+   regarder la stabilité (aucune mention de `stability` dans `scripts/release/`). Un retrait dans
+   `@nodefony/ai`, paquet expérimental, sortirait donc en « rupture » dans une version mineure, ce
+   que la politique permet sans rupture. Ce défaut existe déjà, avec ou sans gRPC.
+   - Désormais, un changement qui touche un symbole étiqueté (lu dans la version publiée de
+     référence, celle qui portait le symbole) ou un paquet `experimental` est écrit au changelog
+     comme changement expérimental, toujours annoncé, jamais marqué rupture.
+
+**Coût** : 0 à l'exécution (un commentaire) ; une lecture d'étiquette de plus dans un lecteur qui
+tourne déjà à la publication.
+
+### D12 et D13 — à rendre
+
 - Dépendances paires facultatives.
 - Interopérabilité contre les clients `@grpc/grpc-js` et `grpcurl`.
 
