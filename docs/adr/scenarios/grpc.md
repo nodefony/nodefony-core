@@ -322,6 +322,32 @@ Le champ « A fait changer » garde la trace des cas qui ont coûté : il ne se 
   plus tard est un changement expérimental (D11), jamais une rupture.
 - **A fait changer** : D12.
 
+## Interopérabilité
+
+### S-grpc-46 — `grpcurl list` avant la réflexion
+
+- **Situation** : un développeur ou un agent tape `grpcurl -plaintext localhost:5153 list` ; la
+  réflexion n'existe pas encore (#697).
+- **Tient si** : la réponse arrive tout de suite, « server does not support the reflection API » ;
+  jamais une attente jusqu'à l'échéance du client.
+- **A fait changer** : D13 — le 404 lisait le corps d'un flux qui ne finit jamais (60 s mesurées).
+
+### S-grpc-47 — Un client Go appelle une méthode inconnue
+
+- **Situation** : un service en Go appelle `paquet.Service/Nouvelle`, une méthode que le serveur
+  n'a pas encore, ou une casse modifiée.
+- **Tient si** : il lit `UNIMPLEMENTED`, comme grpc-js et connect-es.
+- **A fait changer** : D13 — grpc-go lisait `INTERNAL` sur le 404 de l'adaptateur et sur celui de
+  Nodefony ; D5 point 5 et D1 point 6 corrigés.
+
+### S-grpc-48 — Le SDK A2A JS parle à Nodefony
+
+- **Situation** : un client `@grpc/grpc-js` (celui du SDK A2A JS) appelle un service servi par le
+  pipeline : unaire, flux, échéance, métadonnées binaires, gzip, battements de maintien.
+- **Tient si** : chaque cas passe en h2c et en TLS, prouvé en CI contre ce client et contre
+  `grpcurl`.
+- **A fait changer** : D13 — aucun client tiers n'était éprouvé en CI.
+
 ## Plateformes
 
 ### S-grpc-10 — Linux, macOS, Windows

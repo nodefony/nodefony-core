@@ -106,7 +106,9 @@ Ce que la forme engage :
    schéma de route…) posé sur une méthode du contrat interrompt le démarrage en la nommant
    (S-grpc-18) ; une méthode du contrat absente de la classe aussi.
 6. **Casse** : le Router compare sans la casse, l'adaptateur avec ; un chemin à casse modifiée
-   finit en `UNIMPLEMENTED` sans atteindre la méthode (S-grpc-9).
+   finit en `UNIMPLEMENTED` sans atteindre la méthode (S-grpc-9). Le 404 nu que l'adaptateur écrit
+   par défaut ne le garantit que pour grpc-js et connect-es : grpc-go y lit `INTERNAL`. D'où le
+   `fallback` fourni par Nodefony (D13, point 2).
 7. **Coût nul** pour une application qui ne déclare aucun service : adaptateur, runtime protobuf et
    code généré ne sont jamais chargés. Quand un service est déclaré, ils se chargent au démarrage,
    pas au premier appel (D12 point 4 : le contrôleur importe le code généré, et un pair manquant
@@ -302,13 +304,12 @@ ne sait pas pourquoi l'appel a échoué.
 4. **Message envoyé au client : le libellé générique du code**, jamais le texte de l'erreur, qui
    nommait la zone refusée (même règle que `onError`). Le détail va au journal, avec le
    `requestId`.
-5. **Refus avant routage, laissés en HTTP.** Ils arrivent avant que Nodefony sache que la route est
-   gRPC, et la norme les traduit avec le bon sens (`grpc-http-grpc-status-mapping.md`) :
-   - la limite de débit (`HttpKernel`, 429 écrit d'emblée) devient `UNAVAILABLE`, c'est-à-dire
-     « réessaie plus tard » ;
-   - le chemin inconnu (404) devient `UNIMPLEMENTED`.
-
-   Rien à coder.
+5. **Refus avant routage — corrigé par D13.** La norme traduit un statut HTTP en code gRPC
+   (`grpc-http-grpc-status-mapping.md`) : 429 en `UNAVAILABLE`, 404 en `UNIMPLEMENTED`. On en
+   concluait « rien à coder ». C'est faux pour les clients de la famille grpc-go (`grpcurl`, tout
+   client en Go) : ils lisent `INTERNAL` dès que le statut arrive avec un corps, ou sans que la trame
+   d'en-têtes porte la fin du flux. Une requête gRPC refusée avant l'adaptateur s'écrit donc en forme
+   gRPC (D13, point 2).
 
 **Constaté sur le fil** (essai jetable, `connectNodeAdapter` nu, porte qui lève 16, corps envoyé
 incomplet puis complet ; implémentation appelée 0 fois) :
@@ -785,11 +786,79 @@ tourne déjà à la publication.
 | Démarrage avec un service     | 171 ms et 6,6 Mo de tas, une fois par processus (mesurés) |
 | Appel, message                | 0                                                         |
 
-### D13 — à rendre
+### D13 — Interopérabilité avec `@grpc/grpc-js` et `grpcurl`
 
-- Interopérabilité contre les clients `@grpc/grpc-js` et `grpcurl`.
+**Décision (tranchée sur délégation, validée par l'auteur le 2026-11-11) :**
 
-Détail : ticket #695.
+**Le constat.** Deux sources d'essai :
+
+- le POC du serveur de développement, interrogé en lecture seule (h2c 5153, TLS 5152, HTTP/1.1 5151) ;
+- l'adaptateur nu sur `node:http2`.
+
+Les clients éprouvés sont `@grpc/grpc-js` 1.14.7, `grpcurl` 1.9.4 (bâti sur grpc-go) et les trois
+transports de connect-es.
+
+- **Chemin nominal : conforme.** Sur les deux clients :
+  - appel unaire, en h2c et en TLS (ALPN `h2`) ;
+  - flux bidirectionnel réellement entrelacé ;
+  - erreur métier (code et message) ;
+  - échéance (`grpc-timeout` reçu, code 4) ;
+  - métadonnées texte et binaires (`-bin`), dans les deux sens ;
+  - compression gzip ;
+  - requête de 5 Mio ;
+  - battements de maintien (PING HTTP/2 toutes les 200 ms).
+- **Refus : la forme décide du code, et elle n'est pas la même pour tous.** Essai sur trois formes
+  de refus :
+  - quand la trame d'en-têtes porte la fin du flux, les deux clients lisent `UNIMPLEMENTED`, que la
+    réponse soit un 404 nu, un 404 `text/html` ou la forme gRPC (statut 200 et `grpc-status: 12`) ;
+  - quand la fin arrive dans une trame DATA, grpc-go lit `INTERNAL`. C'est le cas d'un `writeHead`
+    suivi de `end()` dans l'API de compatibilité : « server closed the stream without sending
+    trailers ».
+  - Le 404 JSON de Nodefony (chemin inconnu) et le 404 nu de l'adaptateur (méthode inconnue, casse
+    modifiée) sont dans ce second cas. grpc-js et connect-es lisent tous deux `UNIMPLEMENTED`.
+  - ⚠️ La forme gRPC écrite par l'API de compatibilité échoue aussi : grpc-js y lit `INTERNAL`
+    (« RST_STREAM with code 0 »).
+- **Un appel en flux vers un chemin inconnu reste bloqué.** `grpcurl list` tient 60 s, jusqu'à son
+  échéance.
+  - Cause : quand aucune route ne correspond, `http-kernel.ts#HttpKernel.serveHttpRequest` lit le
+    corps jusqu'au bout avant le 404. Le client d'un flux attend une réponse avant de finir son
+    envoi.
+  - En HTTP/2, aucun délai ne borne cette lecture. C'est un défaut général du transport, hors gRPC,
+    constaté sur un POST nu (aucune réponse au bout de 40 s, alors que HTTP/1.1 coupe à 30 s) :
+    ticket #765.
+
+1. **Ne pas lire le corps quand le routage a déjà échoué** (404, 405) :
+   - l'ordre des gardes reste inchangé : en-têtes du schéma, domaine (421), crochet `beforeResolve`,
+     puis le refus. Seule la lecture du corps est sautée, car un refus n'en a pas besoin ;
+   - le corps non lu est traité par la règle de D5 : en HTTP/2, réponse puis `RST NO_ERROR` ; en
+     HTTP/1.1, vidange d'au plus 256 Kio. Une seule implémentation pour les deux usages ;
+   - un 404 coûte moins qu'aujourd'hui.
+2. **Une requête `application/grpc` (gRPC natif) refusée avant l'adaptateur s'écrit en forme gRPC**
+   — statut 200, `content-type` gRPC, `grpc-status`, `grpc-message` générique (D5, point 4), et
+   fin du flux portée par la trame d'en-têtes :
+   - une seule fonction dans `@nodefony/http`, sans Connect, appelée à deux endroits :
+     - par le rendu d'erreur du noyau (404, 405, 429, 421…) ;
+     - comme `fallback` de `connectNodeAdapter` (méthode inconnue, casse modifiée) ;
+   - le code suit la table de correspondance déjà posée (D7) ; jamais une seconde table ;
+   - en HTTP/2, l'écriture passe par `stream.respond(en-têtes, { endStream: true })`, jamais par
+     `writeHead` puis `end`. Cette seconde forme est constatée fausse chez les deux clients ;
+   - gRPC-Web et le protocole Connect gardent leurs statuts HTTP : connect-es les lit
+     correctement, et c'est ce que la spécification de Connect prescrit.
+3. **Les preuves tournent sur les deux clients** :
+   - `@grpc/grpc-js` et `@grpc/proto-loader` en dépendances de développement du banc ;
+   - `grpcurl`, version figée, installé dans la CI Linux sur le patron de gitleaks
+     (`.github/workflows/secrets.yml`), et déclaré dans `scripts/test/vitest/gates.ts` ;
+   - le cas « `writeHead` puis `end` » est vu rouge une fois.
+4. **Signalement amont à connect-es** : le 404 nu par défaut que grpc-go lit `INTERNAL`. Il est
+   rédigé et envoyé seulement sur le GO de l'auteur, comme #1876 à #1878.
+
+**Coût**
+
+| Chemin                           | Coût                                   |
+| -------------------------------- | -------------------------------------- |
+| Appel accepté, message d'un flux | 0                                      |
+| Refus d'une requête gRPC         | une lecture d'en-tête (`content-type`) |
+| 404 ou 405, tout protocole       | la lecture du corps en moins           |
 
 ## Alternatives écartées (D1)
 
