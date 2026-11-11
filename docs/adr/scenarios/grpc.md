@@ -156,6 +156,32 @@ Le champ « A fait changer » garde la trace des cas qui ont coûté : il ne se 
 - **A fait changer** : D4 — le blocage est observé par balayage (`writableNeedDrain`), l'adaptateur
   gardant ses écritures.
 
+### S-grpc-28 — Un agent dont le jeton a expiré
+
+- **Situation** : un agent A2A appelle une méthode `@IsGranted` avec un jeton expiré ; ou sans jeton,
+  sous une zone qui admet l'anonyme.
+- **Tient si** : le code est 16 `UNAUTHENTICATED` (l'agent rafraîchit son jeton et réessaie), jamais
+  7 — alors que le pipeline rend 403 dans ce cas (`Resolver._enforceSecurity`).
+- **A fait changer** : D5 — la correspondance « 403 → 7 » violait `grpc-statuscodes.md` ; le code se
+  choisit sur l'identité.
+
+### S-grpc-29 — Un refus qui arrive avant le routage
+
+- **Situation** : la limite de débit refuse (429 écrit d'emblée) ; un chemin de méthode inconnu
+  (404).
+- **Tient si** : chaque client traduit selon la norme (`grpc-http-grpc-status-mapping.md`) :
+  `UNAVAILABLE` (réessaie plus tard), `UNIMPLEMENTED`.
+- **A fait changer** : D5 — retiré de la table : rien à coder.
+
+### S-grpc-30 — Un corps refusé qui n'en finit pas
+
+- **Situation** : appel refusé en HTTP/1.1 dont le client envoie le corps lentement, ou jamais en
+  entier ; ou un corps de 1 Mio.
+- **Tient si** : HTTP/2 refuse sans attendre ; HTTP/1.1 lit au plus 256 Kio puis répond en
+  `connection: close` ; un corps jamais fini est coupé à `requestTimeout`, comme toute route POST.
+- **A fait changer** : D5 — constaté à l'essai : une réponse attendue en HTTP/1.1 n'était pas un
+  refus perdu.
+
 ## Panne et réseau (suite)
 
 ### S-grpc-26 — Un gestionnaire qui ne rend jamais la main

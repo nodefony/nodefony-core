@@ -258,9 +258,96 @@ Ce que D4 ne décide pas, et qu'il faut mesurer : le **plancher par message** de
 (`node-universal-handler.js#write`). Pour un framework de référence du temps réel, le débit d'un
 flux serveur se compare à celui de la socket binaire, à charge utile égale (« Fini quand » de #695).
 
-### D5 à D13 — à rendre
+### D5 — Comment un refus atteint un client gRPC
 
-Pare-feu et format des refus (`requestGate`, 16 / 7) ; contexte
+**Décision (validée par l'auteur le 2026-11-11) :**
+
+**Le constat.** Avant l'action, le pipeline refuse (`HttpKernel.onRequestEnd`) dans cet ordre :
+provenance CSRF (`Firewall.enforceCsrf`, étape Fetch Metadata / `Origin`), session, zone du
+pare-feu, puis `@IsGranted`. Ces refus lèvent un 401 ou un 403, que `HttpKernel.onError` rend en
+HTML ou JSON. Un client gRPC y cherche un `grpc-status`, ne le trouve pas, et lit `UNKNOWN` : il
+ne sait pas pourquoi l'appel a échoué.
+
+1. **Nodefony décide, sans rien de neuf.** Les mêmes gardes que pour toute route, une seule
+   autorisation (D1).
+   - L'étape CSRF Fetch Metadata / `Origin` s'applique au POST gRPC : un appel cross-site est
+     refusé. Un client natif n'envoie ni `Sec-Fetch-Site` ni `Origin`, et passe.
+   - La redirection vers la page de connexion exige GET, `Accept: text/html` et
+     `Sec-Fetch-Mode: navigate` (`entryPoint.ts`) : un client gRPC ne reçoit jamais de 302.
+2. **Connect écrit le refus**, au format du client, par `requestGate`, la seule voie publique. Ses
+   fonctions d'écriture internes (`protocol-grpc`, `protocol-connect`) sont marquées `@private`,
+   sans garantie de version.
+   - La route gRPC porte un champ optionnel ajouté au contrat `IResolvedRoute` de http (ajout sans
+     rupture). `onError` le lit sur le chemin d'erreur seulement et confie le refus à
+     l'adaptateur.
+   - L'adaptateur rappelle Connect avec une porte qui lève le refus.
+3. **Le code se choisit sur l'IDENTITÉ, pas sur le chiffre HTTP** :
+
+   | Situation                                                                                                                   | Code                  |
+   | --------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+   | refus, aucune identité authentifiée (`RequestContext.getAuthenticatedUser()` vaut `null`, un anonyme compte comme personne) | 16 `UNAUTHENTICATED`  |
+   | refus, appelant identifié                                                                                                   | 7 `PERMISSION_DENIED` |
+
+   Pourquoi ce choix :
+   - `@IsGranted` répond 403 même sans identité (`Resolver.ts#Resolver._enforceSecurity`). Or la
+     norme interdit `PERMISSION_DENIED` « if the caller can not be identified »
+     (`grpc-statuscodes.md`).
+   - L'enjeu est concret. Avec 16, un client sait qu'il doit présenter ou rafraîchir son jeton.
+     Avec 7, il abandonne : un agent dont le jeton a expiré s'arrêterait au lieu de se reconnecter.
+   - La correspondance des autres erreurs (400, 500…) relève de D7.
+
+4. **Message envoyé au client : le libellé générique du code**, jamais le texte de l'erreur, qui
+   nommait la zone refusée (même règle que `onError`). Le détail va au journal, avec le
+   `requestId`.
+5. **Refus avant routage, laissés en HTTP.** Ils arrivent avant que Nodefony sache que la route est
+   gRPC, et la norme les traduit avec le bon sens (`grpc-http-grpc-status-mapping.md`) :
+   - la limite de débit (`HttpKernel`, 429 écrit d'emblée) devient `UNAVAILABLE`, c'est-à-dire
+     « réessaie plus tard » ;
+   - le chemin inconnu (404) devient `UNIMPLEMENTED`.
+
+   Rien à coder.
+
+**Constaté sur le fil** (essai jetable, `connectNodeAdapter` nu, porte qui lève 16, corps envoyé
+incomplet puis complet ; implémentation appelée 0 fois) :
+
+| Protocole                     | HTTP/2                                                     | HTTP/1.1        |
+| ----------------------------- | ---------------------------------------------------------- | --------------- |
+| gRPC unaire et bidirectionnel | `200`, en-têtes puis trailers `grpc-status: 16`            | sans objet (D3) |
+| gRPC-Web                      | `200`, cadre de trailers `grpc-status: 16` dans le corps   | idem            |
+| Connect unaire                | `401` + `{"code":"unauthenticated"}`                       | idem            |
+| Connect en flux               | `200` + fin de flux `{"error":{"code":"unauthenticated"}}` | —               |
+
+- **Ce n'est pas un _Trailers-Only_** : Connect envoie des en-têtes puis des trailers. Les deux
+  formes sont valides (`grpc-PROTOCOL-HTTP2.md`), et le statut arrive bien au client.
+- **HTTP/2** : le refus part sans attendre le corps. Connect coupe ensuite le flux avec `NO_ERROR`
+  (`node-universal-handler.js#universalResponseToNodeResponse`).
+- **HTTP/1.1** : Connect lit et jette le reste du corps, jusqu'à 256 Kio, AVANT de répondre (le
+  geste du serveur HTTP de Go), pour garder la connexion réutilisable.
+  - Au-delà de 256 Kio, il répond avec `connection: close` (essai : 1 Mio envoyé, réponse en 3 ms).
+  - Un client qui n'envoie jamais la fin de son corps tient la connexion jusqu'à `requestTimeout`
+    (30 s), comme sur toute route POST : l'exposition n'est pas nouvelle.
+
+**Coût**
+
+| Chemin        | Coût                                                                                                                                                            |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Appel accepté | une lecture de propriété dans la porte                                                                                                                          |
+| Appel refusé  | une lecture d'identité, déjà en mémoire, puis l'écriture par Connect sans décodage, à la place du rendu HTML ou JSON. Le débit des refus reste à mesurer (#695) |
+
+**La bibliothèque.** `@connectrpc/connect` et `@connectrpc/connect-node` 2.3.0, sous Apache-2.0
+comme Nodefony.
+
+- Aucune dépendance transitive : un seul pair, `@bufbuild/protobuf`, qui n'en a aucune non plus.
+- Dépôt `connectrpc/connect-es`, créé par Buf (l'outil `buf` et `protobuf-es`, D2).
+- Statut CNCF Sandbox relevé par la veille, à confirmer aux sources avant acceptation.
+- Elle est retenue parce qu'elle est la seule à fournir une fonction `(requête, réponse)`, donc
+  branchable dans une route. `@grpc/grpc-js`, l'implémentation officielle, ouvre son propre serveur
+  (`bindAsync`) : ni pare-feu ni `@IsGranted`, et pas de gRPC-Web. C'est pourtant elle que le SDK
+  A2A JS emploie : l'interopérabilité se prouve contre ses clients (D13).
+
+### D6 à D13 — à rendre
+
+Contexte
 Nodefony (`requestId`, ALS, portée d'injection, identité) ; erreurs riches (`ErrorInfo`) ; arrêt
 (`shutdownSignal` → `UNAVAILABLE`) ; CORS ; OpenTelemetry et journal d'accès ; `@experimental` au
 grain du symbole ; dépendances paires facultatives ; interopérabilité. Détail : ticket #695.
