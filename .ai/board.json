@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-11T18:48:03.556Z",
+  "generatedAt": "2026-11-11T19:04:44.392Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 255,
       "dueOn": "2026-11-12T00:00:00Z",
       "number": 7,
-      "open": 15,
+      "open": 16,
       "title": "10.0.0-beta"
     },
     {
@@ -6426,6 +6426,22 @@
       "milestone": "10.0.0-beta",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
+      "ordre": 7.005,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-7"
+      ]
+    },
+    {
+      "number": 766,
+      "title": "fix(scaffold): viser l'application démarrée dans les e2e de la démo en cible externe",
+      "url": "https://github.com/nodefony/nodefony-core/issues/766",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P0 — bloque le reste",
+      "jours": 0.5,
       "ordre": 7.005,
       "debut": null,
       "cible": null,
