@@ -918,8 +918,12 @@ transport.
 Dès qu'un écouteur `clientError` est attaché, **Node cesse de fermer la socket automatiquement**. Un
 écouteur naïf (« je journalise et je passe ») transforme donc une requête malformée en **fuite de
 socket et de descripteur de fichier** — c'est-à-dire un vecteur de déni de service. Nodefony répond et
-ferme explicitement (`handleClientError()`, `clientError.ts#handleClientError`) : `431` si les en-têtes débordent
-(RFC 6585 §5), `400` sinon (`clientError.ts#handleClientError`), et rien du tout si la socket est déjà morte.
+ferme explicitement (`clientError.ts#handleClientError`), avec la réponse que Node aurait donnée sans
+écouteur : `431` si les en-têtes débordent (RFC 6585 §5) ou `414` si c'est la cible (RFC 9112 §3),
+`413` si les extensions de chunk débordent, `408` si la réception dépasse `requestTimeout`
+(RFC 9110 §15.5.9), `400` sinon. Rien n'est écrit si la socket est déjà morte — ni si une réponse en
+vol a déjà envoyé ses en-têtes : une ligne de statut écrite après elle corromprait ce que lit le
+client ; la socket est alors détruite, comme le fait Node.
 
 ### Connexions WebSocket zombies
 
