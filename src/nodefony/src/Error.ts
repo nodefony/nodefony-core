@@ -394,6 +394,17 @@ class nodefonyError extends Error {
    * @param message - string, `Error`, ou objet quelconque à interpréter.
    */
   parseMessage(message: unknown) {
+    // Un TEXTE — le cas des verdicts du framework (`new HttpError("Not Found",
+    // 404)`) — n'a rien à classifier : aucun champ à copier, aucun adapter
+    // d'erreur tiers à interroger. Même verdict que la voie générale
+    // (`constructorName` → « String ») et même repli sur le message par défaut,
+    // sans la parcourir : quatre `instanceof`, un appel par adapter enregistré
+    // et `typeOf`, à chaque 404.
+    if (typeof message === "string") {
+      this.errorType = "String";
+      this.getDefaultMessage();
+      return;
+    }
     // `getType` ne lit que des champs optionnels : toute valeur y est admise.
     this.errorType = this.getType(message as Error);
     // `code` reste typé `number | null` (contrat historique) mais reçoit tel

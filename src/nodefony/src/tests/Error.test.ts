@@ -179,6 +179,27 @@ describe("nodefonyError", () => {
       expect(e.errorType).to.equal("FakeOrmError");
     });
 
+    it("message TEXTE : aucun adapter interrogé, errorType « String » inchangé", () => {
+      // Le cas des verdicts du framework (`new HttpError("Not Found", 404)`),
+      // sur chaque 404 : un texte n'a rien à classifier. Le témoin (une vraie
+      // erreur) prouve que le compteur compte.
+      let calls = 0;
+      registerErrorAdapter("fake-orm", {
+        isError: (): boolean => {
+          calls++;
+          return false;
+        },
+        errorToString: (): string => "x",
+      });
+      const e = new nodefonyError("Not Found", 404);
+      expect(calls).to.equal(0);
+      expect(e.errorType).to.equal("String");
+      expect(e.message).to.equal("Not Found");
+      expect(e.code).to.equal(404);
+      void new nodefonyError(new Error("plain"));
+      expect(calls).to.be.greaterThan(0);
+    });
+
     it("un adapter qui throw n'empêche pas la classification", () => {
       registerErrorAdapter("fake-orm", {
         isError: (): boolean => {
