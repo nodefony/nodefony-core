@@ -4,6 +4,7 @@ import {
   checkStreamTimer,
   MAX_TIMER_MS,
   openStreamLifecycle,
+  STREAM_STALL_TIMEOUT_MS,
   type StreamLifecycle,
 } from "./StreamLifecycle";
 import type { DefaultEventsMap, EventNames, EventsMap } from "nodefony";
@@ -81,8 +82,8 @@ export interface ISseSendOptions<K extends string = string> {
 
 /** Battement de cœur par défaut, en ms (§9.2.7 : « every 15 seconds or so »). */
 export const SSE_HEARTBEAT_MS = 15_000;
-/** Délai de blocage d'écriture par défaut, en ms. */
-export const SSE_STALL_TIMEOUT_MS = 30_000;
+/** Délai de blocage d'écriture par défaut, en ms — celui de tout flux. */
+export const SSE_STALL_TIMEOUT_MS = STREAM_STALL_TIMEOUT_MS;
 /** Taille maximale d'un événement par défaut, en octets (1 Mio). */
 export const SSE_MAX_EVENT_BYTES = 1_048_576;
 /** Commentaire de battement de cœur — ignoré par tout client conforme. */

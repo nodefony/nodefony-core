@@ -20,7 +20,10 @@ import type HttpContext from "../src/context/http/HttpContext";
 import HttpError from "../src/errors/httpError";
 import {
   disarmResponseTimeout,
+  openStreamLifecycle,
   resolveStreamTarget,
+  STREAM_STALL_TIMEOUT_MS,
+  type StreamLifecycle,
 } from "../src/context/http/StreamLifecycle";
 import { GRPC_DEFAULT_MAX_MESSAGE_BYTES } from "../src/grpc/limits";
 import { GrpcCall } from "./GrpcCall";
@@ -144,13 +147,18 @@ export class GrpcEndpoint<S extends DescService = DescService> {
     if (context !== null) context.rpc = call;
     return call;
   };
-  /** Chemins des méthodes unaires : leur délai de réponse reste armé. */
-  readonly #unaryPaths: ReadonlySet<string>;
+  /**
+   * Chemins des méthodes en flux (serveur, client, bidirectionnel) : elles
+   * s'ouvrent par le cycle de vie d'un flux. Tout autre chemin — unaire, ou
+   * inconnu, que l'adaptateur refusera sans rien écrire — garde son délai de
+   * réponse.
+   */
+  readonly #streamingPaths: ReadonlySet<string>;
 
   constructor(service: S, options: IGrpcEndpointOptions = {}) {
     this.service = service;
     this.perCall = options.perCall ?? false;
-    this.#unaryPaths = unaryPathsOf(service);
+    this.#streamingPaths = streamingPathsOf(service);
   }
 
   /**
@@ -158,23 +166,32 @@ export class GrpcEndpoint<S extends DescService = DescService> {
    * réponse et ses trailers. Synchrone : rien n'est attendu ici.
    *
    * Avant de la remettre : le contexte est marqué répondu (`sended`), si bien
-   * que le pipeline n'attend aucune réponse de l'action. Le délai de réponse
-   * de Nodefony est désarmé pour un flux (à l'expiration il écrirait un
-   * 408/504 par-dessus — un seul écrivain) ; pour un appel unaire il reste
-   * armé, et termine l'appel en 4 `DEADLINE_EXCEEDED` par sa fiche
-   * (`HttpContext.rpc`, ADR-0026 D4 point 3).
+   * que le pipeline n'attend aucune réponse de l'action.
+   *
+   * - Appel unaire : le délai de réponse de Nodefony reste armé, et termine
+   *   l'appel en 4 `DEADLINE_EXCEEDED` par sa fiche (`HttpContext.rpc`,
+   *   ADR-0026 D4 point 3).
+   * - Flux : aucune échéance. Il s'ouvre par le cycle de vie d'un flux
+   *   (`openStreamLifecycle`, D4 point 4) — délai de réponse désarmé (à
+   *   l'expiration il écrirait un 408/504 par-dessus l'adaptateur), place dans
+   *   le budget de connexions longues par IP, client qui ne lit plus coupé
+   *   par le balayage de blocage. Synchrone, sauf quand une session est à
+   *   sauver : l'appel n'est remis qu'après.
    *
    * @param context - le contexte HTTP de la requête, pas encore répondu.
    * @param target - l'objet qui implémente le service pour cet appel.
+   * @returns rien, ou la promesse de la remise quand une session est à sauver.
    * @throws HttpError 500 quand la réponse est déjà partie, ou que son
    *   transport n'est pas reconnu.
+   * @throws HttpError 429 quand l'IP du client a déjà tous ses flux et sockets
+   *   (`wsMaxConnectionsPerIp`) — rendu par le pipeline en 14 `UNAVAILABLE`.
    * @throws HttpError 400 quand l'adaptateur refuse la requête avant d'avoir
    *   rien écrit (requête sans autorité `Host`) — la réponse revient alors au
    *   pipeline.
    * @throws HttpError 404 quand aucune méthode ne correspond au chemin exact
    *   (casse modifiée) — rendu par le pipeline en 12 `UNIMPLEMENTED`.
    */
-  serve(context: HttpContext, target: object): void {
+  serve(context: HttpContext, target: object): void | Promise<void> {
     if (context.sended || context.finished || context.response.isHeaderSent()) {
       // Sans contexte : `HttpError` réécrirait le statut de la réponse déjà prise.
       throw new HttpError("gRPC : la réponse est déjà partie", 500);
@@ -187,14 +204,55 @@ export class GrpcEndpoint<S extends DescService = DescService> {
     // Construit AVANT de prendre la réponse : une méthode introuvable rend
     // une erreur que le pipeline sait encore écrire.
     const handler = this.#handler ?? this.#build(context, target);
-    // Un flux n'a aucune échéance : le délai de Nodefony est désarmé (à
-    // l'expiration il écrirait un 408/504 par-dessus l'adaptateur). Un appel
-    // unaire le GARDE : à l'expiration, le noyau termine l'appel par sa fiche
-    // (`HttpContext._onTimeout` → `GrpcCall.expire`) — aucun minuteur de plus.
-    if (!this.#unaryPaths.has(context.request.url.pathname)) {
-      disarmResponseTimeout(streamTarget);
+    // Un appel unaire GARDE le délai de Nodefony : à l'expiration, le noyau
+    // termine l'appel par sa fiche (`HttpContext._onTimeout` →
+    // `GrpcCall.expire`) — aucun minuteur de plus.
+    if (!this.#streamingPaths.has(context.request.url.pathname)) {
+      context.sended = true;
+      this.#hand(context, target, handler, nodeResponse);
+      return undefined;
     }
-    context.sended = true;
+    // Un flux n'a aucune échéance : le délai de Nodefony est désarmé (à
+    // l'expiration il écrirait un 408/504 par-dessus l'adaptateur), le cycle
+    // de vie prend la réponse (`sended`) et une place de connexion longue.
+    disarmResponseTimeout(streamTarget);
+    const opened = openStreamLifecycle(context, {
+      label: "gRPC",
+      stallTimeout: STREAM_STALL_TIMEOUT_MS,
+      maxDuration: false,
+      foreignWriter: true,
+    });
+    if (opened instanceof Promise) {
+      return opened.then((lifecycle) =>
+        this.#handStream(lifecycle, target, handler, nodeResponse),
+      );
+    }
+    this.#handStream(opened, target, handler, nodeResponse);
+    return undefined;
+  }
+
+  /** Remet un flux à l'adaptateur — sauf si le client est déjà parti. */
+  #handStream(
+    lifecycle: StreamLifecycle,
+    target: object,
+    handler: NodeHandler,
+    nodeResponse: NonNullable<HttpContext["response"]["response"]>,
+  ): void {
+    if (lifecycle.closed) return;
+    this.#hand(lifecycle.context, target, handler, nodeResponse);
+  }
+
+  /**
+   * Remet la requête à l'adaptateur. La fiche d'appel est créée par
+   * `contextValues`, appelée de façon SYNCHRONE dans l'appel : les cases
+   * `#pending*` ne vivent que le temps de celui-ci.
+   */
+  #hand(
+    context: HttpContext,
+    target: object,
+    handler: NodeHandler,
+    nodeResponse: NonNullable<HttpContext["response"]["response"]>,
+  ): void {
     this.#pendingTarget = target;
     this.#pendingContext = context;
     try {
@@ -242,11 +300,11 @@ export class GrpcEndpoint<S extends DescService = DescService> {
   }
 }
 
-/** Les chemins `/<paquet.Service>/<Méthode>` des méthodes unaires du contrat. */
-function unaryPathsOf(service: DescService): ReadonlySet<string> {
+/** Les chemins `/<paquet.Service>/<Méthode>` des méthodes en flux du contrat. */
+function streamingPathsOf(service: DescService): ReadonlySet<string> {
   const paths = new Set<string>();
   for (const method of service.methods) {
-    if (isUnary(method)) paths.add(`/${service.typeName}/${method.name}`);
+    if (!isUnary(method)) paths.add(`/${service.typeName}/${method.name}`);
   }
   return paths;
 }

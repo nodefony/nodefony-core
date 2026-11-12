@@ -66,7 +66,11 @@ import {
   runTraced,
 } from "../src/context/requestTrace";
 import type { IncomingHttpHeaders, IncomingMessage } from "node:http";
-import type { IWatchedStream } from "../src/context/http/StreamLifecycle";
+import {
+  StallSweep,
+  type IWatchedStream,
+  type StreamLifecycle,
+} from "../src/context/http/StreamLifecycle";
 import Ws from "ws";
 import httpServer from "../service/servers/server-http";
 import httpsServer from "../service/servers/server-https";
@@ -420,6 +424,9 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   // Flux SSE à identité révocable — même registre que les sockets du hub
   // (`RevocationWatch`, cœur). Lazy : naît au premier flux authentifié.
   #streams: RevocationWatch<IWatchedStream> | null = null;
+  // Flux dont un tiers tient les écritures (gRPC) : le balayage de blocage.
+  // Lazy : naît au premier flux inscrit.
+  #stallSweep: StallSweep | null = null;
   // Probes de santé cloud-native (0.7) — null = désactivé (0 coût hot path :
   // 1 null-check + 2 comparaisons de string par requête quand actif).
   #healthPaths: { liveness: string; readiness: string } | null = null;
@@ -2815,6 +2822,21 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   /** Retire un flux du registre de révocation (à sa fermeture). @internal */
   unwatchStream(stream: IWatchedStream): void {
     this.#streams?.unregister(stream);
+  }
+
+  /**
+   * Inscrit au balayage de blocage un flux dont un tiers tient les écritures :
+   * un client qui ne lit plus y est coupé (`StreamLifecycle.sweepStall`).
+   *
+   * @internal — appelé par le cycle de vie du flux (`StreamLifecycle`).
+   */
+  sweepStall(stream: StreamLifecycle): void {
+    (this.#stallSweep ??= new StallSweep()).add(stream);
+  }
+
+  /** Retire un flux du balayage de blocage (à sa fermeture). @internal */
+  unsweepStall(stream: StreamLifecycle): void {
+    this.#stallSweep?.delete(stream);
   }
 
   /**

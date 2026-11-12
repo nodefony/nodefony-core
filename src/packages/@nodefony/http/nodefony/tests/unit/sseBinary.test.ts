@@ -26,6 +26,7 @@ describe("SseStream.send — des octets sont refusés, pas déformés", () => {
         maxDuration: false,
         revalidate: null,
         identifier: null,
+        foreignWriter: false,
       },
     );
     const sse = new SseStream(lifecycle, {

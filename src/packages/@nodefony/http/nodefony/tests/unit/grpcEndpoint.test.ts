@@ -16,7 +16,7 @@
 //   - `GrpcEndpoint.serve` : `disarmResponseTimeout`, `context.sended = true`,
 //     ou le `catch` de l'appel synchrone.
 //
-import { expect } from "vitest";
+import { expect, vi } from "vitest";
 import http from "node:http";
 import net from "node:net";
 import type { AddressInfo } from "node:net";
@@ -178,7 +178,7 @@ interface IFakeContext {
   request: { request: http.IncomingMessage; url: URL };
   /** L'appel RPC du contexte (`HttpContext.rpc`), posé par `serve`. */
   rpc: IRpcCall | null;
-  httpKernel: { options: { grpc: IGrpcSettings } } | null;
+  httpKernel: (IKernelHooks & { options: { grpc: IGrpcSettings } }) | null;
   logged: unknown[];
   log(error: unknown): void;
 }
@@ -193,11 +193,19 @@ const SETTINGS: IGrpcSettings = {
   requireConnectProtocolHeader: false,
 };
 
+/** Ce que le cycle de vie d'un flux demande au noyau — tracé par les tests. */
+interface IKernelHooks {
+  acquireConnectionSlot?(req: unknown, res: http.ServerResponse): boolean;
+  sweepStall?(lifecycle: unknown): void;
+  unsweepStall?(lifecycle: unknown): void;
+}
+
 function fakeContext(
   req: http.IncomingMessage,
   res: http.ServerResponse,
   settings: Partial<IGrpcSettings> | null,
   responseTimeout = 30_000,
+  hooks: IKernelHooks | null = null,
 ): IFakeContext {
   return {
     sended: false,
@@ -210,9 +218,9 @@ function fakeContext(
     request: { request: req, url: new URL(req.url ?? "/", "http://localhost") },
     rpc: null,
     httpKernel:
-      settings === null
+      settings === null && hooks === null
         ? null
-        : { options: { grpc: { ...SETTINGS, ...settings } } },
+        : { ...hooks, options: { grpc: { ...SETTINGS, ...settings } } },
     logged: [],
     log(error) {
       this.logged.push(error);
@@ -236,6 +244,7 @@ async function serveWith(
   pickTarget: () => object,
   settings: Partial<IGrpcSettings> | null = null,
   responseTimeout = 30_000,
+  hooks: IKernelHooks | null = null,
 ): Promise<{
   url: string;
   port: number;
@@ -244,7 +253,7 @@ async function serveWith(
 }> {
   const served: IServed[] = [];
   const server = http.createServer((req, res) => {
-    const context = fakeContext(req, res, settings, responseTimeout);
+    const context = fakeContext(req, res, settings, responseTimeout, hooks);
     // Le délai que Nodefony arme sur toute requête (`HttpContext.setTimeout`),
     // AVANT que l'adaptateur n'arme le sien. À l'expiration, comme
     // `HttpContext._onTimeout` : un appel RPC est terminé par sa fiche
@@ -270,12 +279,18 @@ async function serveWith(
       socketTimeoutAfter: undefined,
     };
     served.push(record);
-    try {
-      endpoint.serve(asHttpContext(context), pickTarget());
-    } catch (e) {
+    // Un refus, levé tout de suite ou rendu par la promesse de la remise (flux
+    // dont la session est à sauver), part comme le pipeline l'écrirait.
+    const refuse = (e: unknown): void => {
       record.error = e;
       res.statusCode = e instanceof HttpError && e.code !== null ? e.code : 599;
       res.end();
+    };
+    try {
+      const pending = endpoint.serve(asHttpContext(context), pickTarget());
+      if (pending instanceof Promise) pending.catch(refuse);
+    } catch (e) {
+      refuse(e);
     }
     record.socketTimeoutAfter = res.socket?.timeout;
   });
@@ -460,6 +475,118 @@ describe("GrpcEndpoint.serve — sur un vrai serveur HTTP/1.1", () => {
     }
   });
 
+  it("flux : cycle de vie d'un flux — place de connexion prise, inscrit au balayage, retiré à la fin (critère 21)", async () => {
+    const service = makeService(true);
+    const target = {
+      say: (r: { text: string }) => ({ text: r.text }),
+      async *watch(): AsyncGenerator<{ text: string }> {
+        yield { text: "w" };
+      },
+    };
+    const slots: http.ServerResponse[] = [];
+    const swept: unknown[] = [];
+    const unswept: unknown[] = [];
+    const srv = await serveWith(
+      new GrpcEndpoint(service),
+      () => target,
+      null,
+      30_000,
+      {
+        acquireConnectionSlot: (_req, res) => {
+          slots.push(res);
+          return true;
+        },
+        sweepStall: (l) => swept.push(l),
+        unsweepStall: (l) => unswept.push(l),
+      },
+    );
+    try {
+      const r = await fetch(`${srv.url}/${service.typeName}/Watch`, {
+        method: "POST",
+        headers: { "content-type": "application/connect+json" },
+        body: envelope(new TextEncoder().encode("{}")),
+      });
+      await r.arrayBuffer();
+      await vi.waitFor(() => expect(unswept).to.have.length(1));
+      const [rec] = srv.served;
+      expect(rec?.error).to.equal(null);
+      expect(rec?.context.sended, "réponse prise").to.equal(true);
+      expect(slots, "une place de connexion longue").to.have.length(1);
+      expect(swept, "inscrit au balayage").to.have.length(1);
+      expect(unswept[0], "retiré, le même").to.equal(swept[0]);
+    } finally {
+      await srv.close();
+    }
+  });
+
+  it("unaire : aucun cycle de vie de flux — ni place de connexion, ni balayage", async () => {
+    const service = makeService();
+    let slots = 0;
+    let swept = 0;
+    const target = new Target("U");
+    const srv = await serveWith(
+      new GrpcEndpoint(service),
+      () => target,
+      null,
+      30_000,
+      {
+        acquireConnectionSlot: () => {
+          slots++;
+          return true;
+        },
+        sweepStall: () => {
+          swept++;
+        },
+      },
+    );
+    try {
+      const r = await connectJson(srv.url, service, "u");
+      expect(r.status).to.equal(200);
+      expect(slots).to.equal(0);
+      expect(swept).to.equal(0);
+    } finally {
+      await srv.close();
+    }
+  });
+
+  it("flux : plus de place pour cette IP → 429 rendu au pipeline, la méthode n'est pas appelée", async () => {
+    const service = makeService(true);
+    let called = 0;
+    const target = {
+      say: (r: { text: string }) => ({ text: r.text }),
+      async *watch(): AsyncGenerator<{ text: string }> {
+        called++;
+        yield { text: "w" };
+      },
+    };
+    const srv = await serveWith(
+      new GrpcEndpoint(service),
+      () => target,
+      null,
+      30_000,
+      {
+        acquireConnectionSlot: () => false,
+      },
+    );
+    try {
+      const r = await fetch(`${srv.url}/${service.typeName}/Watch`, {
+        method: "POST",
+        headers: { "content-type": "application/connect+json" },
+        body: envelope(new TextEncoder().encode("{}")),
+      });
+      await r.arrayBuffer();
+      const [rec] = srv.served;
+      expect(rec?.error).to.be.instanceOf(HttpError);
+      expect(rec?.error).toMatchObject({ code: 429 });
+      expect(rec?.context.sended, "réponse laissée au pipeline").to.equal(
+        false,
+      );
+      expect(called).to.equal(0);
+    } finally {
+      await srv.close();
+    }
+  });
+
   it("singleton : la cible du premier appel sert les suivants, méthodes liées une fois", async () => {
     const service = makeService();
     const targets = [new Target("A"), new Target("B")];
@@ -548,7 +675,7 @@ describe("GrpcEndpoint.serve — sur un vrai serveur HTTP/1.1", () => {
       const context = fakeContext(req, res, null);
       context.sended = true;
       try {
-        endpoint.serve(asHttpContext(context), target);
+        void endpoint.serve(asHttpContext(context), target);
         res.end("servi");
       } catch (e) {
         res.statusCode =

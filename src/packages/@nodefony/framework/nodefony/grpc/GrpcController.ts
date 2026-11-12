@@ -128,12 +128,13 @@ export abstract class GrpcController extends Controller {
   /**
    * L'action de base de toute route gRPC : remet la requête et la réponse
    * brutes à l'adaptateur, qui appelle la méthode du contrat et écrit la
-   * réponse. Synchrone ; ne rend rien.
+   * réponse. Synchrone, sauf pour un flux dont la session est à sauver : la
+   * promesse de la remise est alors rendue au résolveur, qui en lit l'échec.
    *
    * @throws Error quand la classe n'a pas été enregistrée par le routeur, ou
    *   hors d'une requête HTTP.
    */
-  serveGrpc(): void {
+  serveGrpc(): void | Promise<void> {
     const endpoint = this.grpcEndpoint;
     if (endpoint === undefined) {
       throw new Error(
@@ -145,6 +146,6 @@ export abstract class GrpcController extends Controller {
     if (!(context instanceof HttpContext)) {
       throw new Error("Un appel gRPC n'est servi que sur une requête HTTP.");
     }
-    endpoint.serve(context, this);
+    return endpoint.serve(context, this);
   }
 }

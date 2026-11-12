@@ -36,6 +36,21 @@ import { RequestContext } from "nodefony";
 export const MAX_TIMER_MS = 2_147_483_647;
 
 /**
+ * Délai de blocage par défaut d'un flux, en ms : un client qui ne lit plus
+ * depuis ce délai est coupé. Valeur commune aux flux d'événements, d'octets et
+ * aux flux RPC.
+ */
+export const STREAM_STALL_TIMEOUT_MS = 30_000;
+
+/**
+ * Période du balayage de blocage ({@link StallSweep}) : la moitié du délai de
+ * blocage. Un client bloqué est coupé entre `stallTimeout` et
+ * `stallTimeout + période` après la première contre-pression vue — jamais
+ * avant le délai réglé.
+ */
+export const STALL_SWEEP_PERIOD_MS = STREAM_STALL_TIMEOUT_MS / 2;
+
+/**
  * Refuse une option de délai hors de ce qu'un minuteur sait tenir.
  *
  * @param label - préfixe du message (`SSE`, `Flux`).
@@ -129,6 +144,13 @@ export interface IStreamLifecycleSettings {
   revalidate: (() => Promise<boolean>) | null;
   /** Identifiant de connexion de l'identité qui ouvre le flux — `null` anonyme. */
   identifier: string | null;
+  /**
+   * Les écritures appartiennent à un tiers (adaptateur RPC) : la brique ne les
+   * voit pas. Le blocage s'observe alors par le balayage du noyau
+   * ({@link StallSweep}), et la fermeture par le serveur détruit le transport
+   * au lieu de terminer la réponse — jamais un second écrivain.
+   */
+  foreignWriter: boolean;
 }
 
 /**
@@ -148,6 +170,12 @@ export class StreamLifecycle implements IWatchedStream {
   readonly #stallTimeout: number | false;
   readonly #revalidate: (() => Promise<boolean>) | null;
   readonly identifier: string | null;
+  readonly #foreignWriter: boolean;
+  /**
+   * Fin d'attente d'un flux balayé : posée sur `drain` quand le balayage voit
+   * une contre-pression — créée à la première, `null` avant (lazy).
+   */
+  #onSweptDrain: (() => void) | null = null;
   #closed = false;
   #cause: StreamLifecycleCause = null;
   /**
@@ -181,8 +209,7 @@ export class StreamLifecycle implements IWatchedStream {
       this.#stall.unref();
       return;
     }
-    this.#cause = "stall";
-    this.target.destroy();
+    this.#cutStalled();
   };
 
   constructor(
@@ -197,6 +224,7 @@ export class StreamLifecycle implements IWatchedStream {
     this.#stallTimeout = settings.stallTimeout;
     this.#revalidate = settings.revalidate;
     this.identifier = settings.identifier;
+    this.#foreignWriter = settings.foreignWriter;
     // Posé AVANT toute attente : la fermeture d'un client parti pendant la
     // sauvegarde de la session ne doit pas passer inaperçue.
     response.on("close", this.#onResponseClose);
@@ -210,6 +238,10 @@ export class StreamLifecycle implements IWatchedStream {
     // Seule une identité révocable entre au registre : un anonyme n'a rien à
     // perdre, et ne coûte rien.
     if (this.#revalidate !== null) context.httpKernel?.watchStream(this);
+    // Écritures invisibles : seul le balayage voit un client qui ne lit plus.
+    if (this.#foreignWriter && this.#stallTimeout !== false) {
+      context.httpKernel?.sweepStall(this);
+    }
   }
 
   /** Le flux est-il fermé — par le serveur, ou par le client parti ? */
@@ -287,6 +319,41 @@ export class StreamLifecycle implements IWatchedStream {
   }
 
   /**
+   * Un tour du balayage de blocage, pour un flux dont un tiers tient les
+   * écritures ({@link StallSweep}).
+   *
+   * Une contre-pression vue (`writableNeedDrain`) ouvre l'attente et pose un
+   * `drain` : seul ce progrès RÉEL la ferme, jamais un tour qui verrait le
+   * tampon vide — un client lent qui lit voit son tampon se remplir à nouveau
+   * aussitôt, et serait sinon pris pour bloqué. Une attente qui dure
+   * `stallTimeout` coupe le client.
+   *
+   * @param now - l'heure du tour (`Date.now()`), lue une fois pour tous les flux.
+   */
+  sweepStall(now: number): void {
+    const limit = this.#stallTimeout;
+    if (this.#closed || limit === false) return;
+    if (this.#stallSince !== 0) {
+      if (now - this.#stallSince >= limit) this.#cutStalled();
+      return;
+    }
+    if (!this.target.writableNeedDrain) return;
+    this.#stallSince = now;
+    this.target.once(
+      "drain",
+      (this.#onSweptDrain ??= (): void => {
+        this.#stallSince = 0;
+      }),
+    );
+  }
+
+  /** Coupe un client qui ne lit plus : la fermeture de la réponse termine le flux. */
+  #cutStalled(): void {
+    this.#cause = "stall";
+    this.target.destroy();
+  }
+
+  /**
    * Désarme le délai d'inactivité de la requête : un flux n'a pas de fin
    * attendue, ses propres gardes le remplacent.
    */
@@ -294,11 +361,19 @@ export class StreamLifecycle implements IWatchedStream {
     disarmResponseTimeout(this.target);
   }
 
-  /** Ferme le flux et termine la requête. Idempotent. */
+  /**
+   * Ferme le flux et termine la requête. Idempotent. Quand un tiers tient les
+   * écritures, le transport est détruit : terminer la réponse en ferait un
+   * second écrivain.
+   */
   close(): Promise<void> | undefined {
     if (this.#closed) return undefined;
     this.#cause = "server";
     this.finish();
+    if (this.#foreignWriter) {
+      this.target.destroy();
+      return undefined;
+    }
     const done = this.context.close();
     return done instanceof Promise ? done.then(() => undefined) : undefined;
   }
@@ -320,6 +395,12 @@ export class StreamLifecycle implements IWatchedStream {
       this.#stall = null;
     }
     if (this.#revalidate !== null) this.context.httpKernel?.unwatchStream(this);
+    if (this.#foreignWriter) {
+      this.context.httpKernel?.unsweepStall(this);
+      if (this.#onSweptDrain !== null) {
+        this.target.removeListener("drain", this.#onSweptDrain);
+      }
+    }
     const release = this.#release;
     this.#release = null;
     release?.();
@@ -335,6 +416,82 @@ export interface IOpenStreamLifecycle {
   label: string;
   stallTimeout: number | false;
   maxDuration: number | false;
+  /**
+   * Un tiers tient les écritures (adaptateur RPC) — cf
+   * {@link IStreamLifecycleSettings.foreignWriter}. Défaut `false`.
+   */
+  foreignWriter?: boolean;
+}
+
+/**
+ * Le balayage de blocage des flux dont un tiers tient les écritures : UN
+ * minuteur pour tous, armé au premier flux inscrit, arrêté au dernier retiré.
+ *
+ * Pourquoi un balayage : l'adaptateur écrit et attend `drain` lui-même, la
+ * brique ne voit aucune écriture. Le délai d'inactivité que Node tient sur un
+ * flux HTTP/2 ne suffit pas : il est repoussé tant que la SESSION avance
+ * (`internal/http2/core#callTimeout`), si bien qu'un flux bloqué ne serait
+ * jamais coupé tant qu'un voisin de la même connexion est lu.
+ *
+ * Le seuil reste dans {@link StreamLifecycle.sweepStall} : une règle, une
+ * implémentation.
+ *
+ * Coût mesuré (300 flux HTTP/2 réels, médiane de 9 passes) : ~6 ns par flux et
+ * par tour ; ~60 ns pour inscrire puis retirer un flux ; 0 par message.
+ *
+ * @internal
+ */
+export class StallSweep {
+  #entries: Set<StreamLifecycle> | null = null;
+  #timer: ReturnType<typeof setInterval> | null = null;
+  readonly #periodMs: number;
+  readonly #tick = (): void => {
+    this.sweep(Date.now());
+  };
+
+  /** @param periodMs - période du balayage (défaut {@link STALL_SWEEP_PERIOD_MS}). */
+  constructor(periodMs: number = STALL_SWEEP_PERIOD_MS) {
+    this.#periodMs = periodMs;
+  }
+
+  /** Nombre de flux balayés. */
+  get size(): number {
+    return this.#entries?.size ?? 0;
+  }
+
+  /** Le minuteur est-il armé ? */
+  get running(): boolean {
+    return this.#timer !== null;
+  }
+
+  /** Inscrit un flux ; arme le minuteur au premier. */
+  add(lifecycle: StreamLifecycle): void {
+    (this.#entries ??= new Set<StreamLifecycle>()).add(lifecycle);
+    if (this.#timer === null) {
+      this.#timer = setInterval(this.#tick, this.#periodMs);
+      this.#timer.unref();
+    }
+  }
+
+  /** Retire un flux (idempotent) ; arrête le minuteur quand il n'en reste aucun. */
+  delete(lifecycle: StreamLifecycle): void {
+    if (this.#entries === null) return;
+    this.#entries.delete(lifecycle);
+    if (this.#entries.size === 0 && this.#timer !== null) {
+      clearInterval(this.#timer);
+      this.#timer = null;
+    }
+  }
+
+  /**
+   * Un tour : chaque flux inscrit juge son propre blocage.
+   *
+   * @param now - l'heure du tour (`Date.now()`).
+   */
+  sweep(now: number): void {
+    if (this.#entries === null) return;
+    for (const lifecycle of this.#entries) lifecycle.sweepStall(now);
+  }
 }
 
 /**
@@ -410,6 +567,7 @@ export function openStreamLifecycle(
     maxDuration: options.maxDuration,
     revalidate,
     identifier,
+    foreignWriter: options.foreignWriter ?? false,
   });
   if (gone) {
     lifecycle.finish();
