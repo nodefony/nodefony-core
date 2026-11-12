@@ -9,14 +9,37 @@
  */
 
 /**
+ * Compare deux noms de jalon selon SemVer 2.0.0 §11 : le noyau `x.y.z` en
+ * numérique, puis une pré-version (`-beta`) AVANT la version finale qui la
+ * porte. Une comparaison de chaînes rangeait `10.0.0` avant `10.0.0-beta`
+ * (préfixe plus court d'abord) : à échéance égale, la reprise sautait le lot
+ * beta entier. Un nom hors SemVer (`outillage-agents`) passe après.
+ */
+export function compareMilestoneTitles(a, b) {
+  const pa = /^(\d+(?:\.\d+)*)(?:-(.+))?$/.exec(a);
+  const pb = /^(\d+(?:\.\d+)*)(?:-(.+))?$/.exec(b);
+  if (pa === null || pb === null) {
+    if (pa !== pb) return pa === null ? 1 : -1;
+    return a.localeCompare(b, "en", { numeric: true });
+  }
+  const core = pa[1].localeCompare(pb[1], "en", { numeric: true });
+  if (core !== 0) return core;
+  if (pa[2] === undefined || pb[2] === undefined) {
+    if (pa[2] === pb[2]) return 0;
+    return pa[2] === undefined ? 1 : -1;
+  }
+  return pa[2].localeCompare(pb[2], "en", { numeric: true });
+}
+
+/**
  * L'ordre de SÉQUENCE des jalons : échéance croissante, sans échéance en dernier,
- * puis le nom en comparaison numérique (`10.0.0-alpha` avant `10.1.0`).
+ * puis le nom selon SemVer (`10.0.0-alpha` < `10.0.0-beta` < `10.0.0` < `10.1.0`).
  */
 export const sortMilestones = (milestones) =>
   [...milestones].sort(
     (a, b) =>
       (a.dueOn ?? "9999-12-31").localeCompare(b.dueOn ?? "9999-12-31") ||
-      a.title.localeCompare(b.title, "en", { numeric: true }),
+      compareMilestoneTitles(a.title, b.title),
   );
 
 /** Les items ouverts d'un jalon, dans l'ordre de travail (sans ordre = en fin). */

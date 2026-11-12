@@ -81,6 +81,23 @@ describe("les fonctions d'appui", () => {
     ]);
   });
 
+  it("à échéance égale, place la pré-version AVANT la version finale", () => {
+    // Vécu : `10.0.0-beta` et `10.0.0` échus le même jour — la comparaison de
+    // chaînes rangeait `10.0.0` d'abord, et la reprise sautait tout le lot beta.
+    const memeJour = [
+      { title: "10.0.0", dueOn: "2026-11-15" },
+      { title: "10.0.0-beta", dueOn: "2026-11-15" },
+      { title: "10.1.0", dueOn: "2026-11-15" },
+      { title: "10.0.0-alpha", dueOn: "2026-11-15" },
+    ];
+    expect(sortMilestones(memeJour).map((m) => m.title)).toEqual([
+      "10.0.0-alpha",
+      "10.0.0-beta",
+      "10.0.0",
+      "10.1.0",
+    ]);
+  });
+
   it("classe les items d'un jalon par ordre puis par numéro", () => {
     expect(openItemsOf(OUVERTS, "10.0.0-alpha").map((i) => i.number)).toEqual([
       274, 271,
