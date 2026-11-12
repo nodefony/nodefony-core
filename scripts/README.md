@@ -11,7 +11,7 @@ de forge, autre script). Tout est extrait du source — l'en-tête du script (`@
 | Dossier | Contenu | Scripts |
 | --- | --- | --- |
 | [`lib/`](lib/README.md) | Helpers transverses, importés par les scripts des autres dossiers. | 10 |
-| [`gates/`](gates/README.md) | Gardes de commit et de forge : chacune refuse un état précis du dépôt. | 18 |
+| [`gates/`](gates/README.md) | Gardes de commit et de forge : chacune refuse un état précis du dépôt. | 19 |
 | [`scaffold/`](scaffold/README.md) | Contrôles et mise en forme des gabarits d'application. | 4 |
 | [`deps/`](deps/README.md) | Inventaire et garde des dépendances, gabarits compris. | 6 |
 | [`deps/lib/`](deps/lib/README.md) | Helpers propres à l'inventaire des dépendances. | 4 |
@@ -24,4 +24,4 @@ de forge, autre script). Tout est extrait du source — l'en-tête du script (`@
 | [`site/lib/`](site/lib/README.md) | Helpers propres au rendu du site de documentation. | 6 |
 | [`repo/`](repo/README.md) | Hygiène de l'arbre de travail : verrous, rangement de tmp/, commit sans verrou orphelin. | 8 |
 | [`ci/`](ci/README.md) | Ce que la forge lance ou éprouve sur elle-même. | 7 |
-| [`release/`](release/README.md) | Chaîne de publication du produit. | 31 |
+| [`release/`](release/README.md) | Chaîne de publication du produit. | 33 |

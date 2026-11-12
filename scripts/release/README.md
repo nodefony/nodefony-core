@@ -117,9 +117,9 @@ Les pages `publish: core|none` restent-elles hors du tarball ?
 Les types publiés d'un paquet n'importent-ils que ce que l'installeur RECEVRA ?
 
 - **Usage** : `node scripts/release/dts-deps.mjs`
-- **Appelé par** : aucun automate
+- **Appelé par** : `release/peers.mjs`
 - **Testé par** : `release/dts-deps.test.mjs`
-- **Utilise** : `lib/workspaces.mjs` · `deps/shims/deepmerge/index.js`
+- **Utilise** : `lib/workspaces.mjs` · `deps/shims/deepmerge/index.d.ts` · `deps/shims/deepmerge/index.js`
 
 ## [`dts-deps.test.mjs`](dts-deps.test.mjs)
 
@@ -222,6 +222,22 @@ Pack release des workspaces publiables (modèle B — N-packages lockstep).
 - **Variable** `OUT`
 - **Appelé par** : `npm run release:pack` · `release-smoke.yml` · `scaffold.yml` · `release/release.mjs` · `release/smoke-docker.sh` · `.claude/skills/nodefony-devkit-bench/scripts/lib/isolation.mjs`
 - **Utilise** : `lib/symbols-publish.mjs` · `lib/workspaces.mjs` · `release/doc-pages.mjs` · `release/fix-dts-extensions.mjs` · `release/release-core.mjs`
+
+## [`peers.mjs`](peers.mjs)
+
+Les pairs (`peerDependencies`) des paquets publiés tiennent-ils leur promesse ?
+
+- **Usage** : `node scripts/release/peers.mjs`
+- **Appelé par** : aucun automate
+- **Testé par** : `release/peers.test.mjs`
+- **Utilise** : `lib/workspaces.mjs` · `release/dts-deps.mjs`
+
+## [`peers.test.mjs`](peers.test.mjs)
+
+Les pairs des paquets publiés tiennent-ils leur promesse ? Branches pures d'abord, puis le constat RÉEL : chaque point d'entrée principal importé dans un processus neuf (cf `peers.mjs`).
+
+- **Lancé par** : `npm run test:release`
+- **Utilise** : `release/peers.mjs`
 
 ## [`readme-gate.mjs`](readme-gate.mjs)
 

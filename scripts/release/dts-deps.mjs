@@ -13,6 +13,12 @@
  * Contrôle STATIQUE, sans réseau : pour chaque module nu importé par les
  * `.d.ts` du `dist`, le paquet doit le fournir —
  * - pair (`peerDependencies`) : l'application l'installe, avec ses types ;
+ * - pair FACULTATIF (`peerDependenciesMeta.optional`) : seulement l'application
+ *   qui s'en sert l'installe. Il ne doit donc JAMAIS être atteint depuis les
+ *   types du point d'entrée principal (`exports["."]`), sans quoi une application
+ *   qui ne s'en sert pas prend `TS2307` dès que `skipLibCheck` vaut `false`
+ *   (constaté, ADR-0026 D12). Sa place est un sous-chemin (`nodefony/react`,
+ *   `@nodefony/http/grpc`) ;
  * - dépendance : le module embarque ses types, ou `@types/<module>` est déclaré
  *   hors `devDependencies` ;
  * - non déclaré : seulement s'il figure dans {@link DELIBERATELY_UNDECLARED}, avec
@@ -56,15 +62,14 @@ export function packageNameOf(specifier) {
 }
 
 /**
- * Spécificateurs NUS importés par un `.d.ts` — lignes de commentaire ignorées
- * (un exemple de TSDoc n'est pas un import), chemins relatifs et modules
- * natifs exclus.
+ * Tous les spécificateurs importés par un `.d.ts`, relatifs compris — lignes de
+ * commentaire ignorées (un exemple de TSDoc n'est pas un import).
  *
  * @param {string} source - contenu du `.d.ts`.
- * @returns {Set<string>} noms de paquets.
+ * @returns {string[]} spécificateurs, dans l'ordre du fichier.
  */
-export function bareImports(source) {
-  const found = new Set();
+export function importSpecifiers(source) {
+  const found = [];
   const pattern =
     /\bfrom\s*["']([^"']+)["']|\bimport\s*\(\s*["']([^"']+)["']\s*\)|^\s*import\s+["']([^"']+)["']/gu;
   for (const line of source.split("\n")) {
@@ -78,14 +83,149 @@ export function bareImports(source) {
     }
     for (const m of line.matchAll(pattern)) {
       const spec = m[1] ?? m[2] ?? m[3];
-      if (spec === undefined || spec.startsWith(".") || spec.startsWith("/")) {
-        continue;
-      }
-      if (spec.startsWith("node:") || BUILTINS.has(spec)) continue;
-      found.add(packageNameOf(spec));
+      if (spec !== undefined) found.push(spec);
     }
   }
   return found;
+}
+
+/**
+ * Le spécificateur désigne-t-il un PAQUET (ni chemin relatif ou absolu, ni
+ * module natif) ?
+ */
+function isPackageSpecifier(spec) {
+  if (spec.startsWith(".") || spec.startsWith("/")) return false;
+  return !spec.startsWith("node:") && !BUILTINS.has(spec);
+}
+
+/**
+ * Spécificateurs NUS importés par un `.d.ts` — lignes de commentaire ignorées,
+ * chemins relatifs et modules natifs exclus.
+ *
+ * @param {string} source - contenu du `.d.ts`.
+ * @returns {Set<string>} noms de paquets.
+ */
+export function bareImports(source) {
+  const found = new Set();
+  for (const spec of importSpecifiers(source)) {
+    if (isPackageSpecifier(spec)) found.add(packageNameOf(spec));
+  }
+  return found;
+}
+
+/**
+ * Fichiers de types du point d'entrée PRINCIPAL : chaque feuille `types`
+ * d'`exports["."]` (variantes navigateur et Node comprises), sinon le champ
+ * `types` du manifeste. Chemins POSIX relatifs au paquet, sans `./`.
+ *
+ * @param {{ exports?: unknown, types?: string }} manifest
+ * @returns {string[]}
+ */
+export function mainTypeEntries(manifest) {
+  const out = [];
+  const walk = (node, underTypes) => {
+    if (typeof node === "string") {
+      if (underTypes) out.push(node.replace(/^\.\//u, ""));
+    } else if (node !== null && typeof node === "object") {
+      for (const [key, value] of Object.entries(node)) {
+        walk(value, key === "types");
+      }
+    }
+  };
+  const exportsField = manifest.exports;
+  const main =
+    exportsField !== null && typeof exportsField === "object"
+      ? exportsField["."]
+      : undefined;
+  if (main !== undefined) walk(main, false);
+  if (out.length === 0 && typeof manifest.types === "string") {
+    out.push(manifest.types.replace(/^\.\//u, ""));
+  }
+  return [...new Set(out)];
+}
+
+/**
+ * Paquets atteints par les types d'un point d'entrée, en suivant ses imports
+ * RELATIFS de proche en proche — exactement ce que TypeScript charge quand
+ * l'application importe ce point d'entrée.
+ *
+ * Fonction PURE : le disque est injecté (`readDeclaration`).
+ *
+ * @param {object} input
+ * @param {string[]} input.entries - `.d.ts` de départ (POSIX, relatifs au paquet).
+ * @param {(file: string) => string | null} input.readDeclaration - contenu d'un
+ *   `.d.ts` (POSIX, relatif au paquet), `null` s'il n'existe pas.
+ * @returns {Map<string, string>} paquet → premier `.d.ts` atteint qui l'importe.
+ */
+export function reachableTypeImports({ entries, readDeclaration }) {
+  const imports = new Map();
+  const seen = new Set();
+  const queue = [...entries];
+  const resolveRelative = (from, spec) => {
+    const base = path.posix.join(path.posix.dirname(from), spec);
+    const candidates = [
+      base.endsWith(".d.ts") ? base : null,
+      /\.[cm]?js$/u.test(base)
+        ? base.replace(/\.([cm]?)js$/u, ".d.$1ts")
+        : `${base}.d.ts`,
+      `${base}/index.d.ts`,
+    ];
+    for (const candidate of candidates) {
+      if (candidate === null) continue;
+      const source = readDeclaration(candidate);
+      if (source !== null) return { file: candidate, source };
+    }
+    return null;
+  };
+  const sources = new Map();
+  for (const entry of entries) {
+    const source = readDeclaration(entry);
+    if (source !== null) sources.set(entry, source);
+  }
+  while (queue.length > 0) {
+    const file = queue.shift();
+    if (seen.has(file)) continue;
+    seen.add(file);
+    const source = sources.get(file) ?? readDeclaration(file);
+    if (source === null) continue;
+    for (const spec of importSpecifiers(source)) {
+      if (spec.startsWith(".")) {
+        const target = resolveRelative(file, spec);
+        if (target !== null && !seen.has(target.file)) {
+          sources.set(target.file, target.source);
+          queue.push(target.file);
+        }
+      } else if (isPackageSpecifier(spec)) {
+        const mod = packageNameOf(spec);
+        if (!imports.has(mod)) imports.set(mod, file);
+      }
+    }
+  }
+  return imports;
+}
+
+/**
+ * Pairs FACULTATIFS atteints depuis les types du point d'entrée principal.
+ *
+ * @param {object} input
+ * @param {{ peerDependenciesMeta?: Record<string, { optional?: boolean }> }} input.manifest
+ * @param {Map<string, string>} input.imports - sortie de {@link reachableTypeImports}.
+ * @returns {Array<{ module: string, file: string, reason: string }>}
+ */
+export function optionalPeersInMainTypes({ manifest, imports }) {
+  const meta = manifest.peerDependenciesMeta ?? {};
+  const optional = (name) => meta[name]?.optional === true;
+  const problems = [];
+  for (const [mod, file] of imports) {
+    if (!optional(mod) && !optional(typesPackageName(mod))) continue;
+    problems.push({
+      module: mod,
+      file,
+      reason:
+        "pair FACULTATIF atteint depuis les types du point d'entrée principal : une application qui ne l'installe pas prend TS2307 (skipLibCheck: false) — le déplacer dans un sous-chemin",
+    });
+  }
+  return problems;
 }
 
 /**
@@ -223,6 +363,32 @@ export function checkRepository(root) {
       manifest: ws,
       imports,
       hasOwnTypes: ownTypesReader(pkgDir, root),
+    })) {
+      problems.push({ package: ws.name, ...p });
+    }
+    const meta = ws.peerDependenciesMeta ?? {};
+    if (!Object.values(meta).some((m) => m?.optional === true)) continue;
+    const readDeclaration = (rel) => {
+      const file = path.join(pkgDir, ...rel.split("/"));
+      return fs.existsSync(file) ? fs.readFileSync(file, "utf8") : null;
+    };
+    const entries = mainTypeEntries(ws);
+    // Une entrée illisible rendrait une clôture VIDE, donc un vert qui n'a rien lu.
+    const unread = entries.filter((e) => readDeclaration(e) === null);
+    if (entries.length === 0 || unread.length > 0) {
+      problems.push({
+        package: ws.name,
+        module: "(point d'entrée principal)",
+        file: unread.join(", ") || 'exports["."]',
+        reason:
+          "types du point d'entrée principal introuvables — `npm run build` d'abord",
+      });
+      continue;
+    }
+    const mainImports = reachableTypeImports({ entries, readDeclaration });
+    for (const p of optionalPeersInMainTypes({
+      manifest: ws,
+      imports: mainImports,
     })) {
       problems.push({ package: ws.name, ...p });
     }

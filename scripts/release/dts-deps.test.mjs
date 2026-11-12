@@ -10,6 +10,9 @@ import {
   bareImports,
   checkRepository,
   entryPoints,
+  mainTypeEntries,
+  optionalPeersInMainTypes,
+  reachableTypeImports,
   typesPackageName,
   unprovidedTypeImports,
 } from "./dts-deps.mjs";
@@ -88,6 +91,60 @@ describe("dts-deps — ce que les types publiés exigent de l'installeur", () =>
       hasOwnTypes: (m) => m === "cookie",
     });
     expect(ok).toEqual([]);
+  });
+
+  it("prend les types du point d'entrée PRINCIPAL, variantes navigateur et Node comprises", () => {
+    expect(
+      mainTypeEntries({
+        exports: {
+          ".": {
+            browser: { import: { types: "./dist/client/index.d.ts" } },
+            import: { types: "./dist/types/index.d.ts", default: "./x.js" },
+          },
+          "./react": { types: "./dist/react.d.ts" },
+        },
+      }),
+    ).toEqual(["dist/client/index.d.ts", "dist/types/index.d.ts"]);
+    expect(mainTypeEntries({ types: "./dist/index.d.ts" })).toEqual([
+      "dist/index.d.ts",
+    ]);
+  });
+
+  it("suit les imports RELATIFS depuis le point d'entrée, jamais un fichier qu'il n'atteint pas", () => {
+    const disk = {
+      "dist/index.d.ts":
+        'export * from "./a";\nexport type { X } from "./b.js";',
+      "dist/a.d.ts":
+        'import type { WebSocket } from "ws";\nexport * from "./deep";',
+      "dist/deep/index.d.ts": 'type M = import("@bufbuild/protobuf").Message;',
+      "dist/b.d.ts": 'export type X = import("zod").ZodType;',
+      "dist/grpc.d.ts": 'import type { Code } from "@connectrpc/connect";',
+    };
+    const reached = reachableTypeImports({
+      entries: ["dist/index.d.ts"],
+      readDeclaration: (file) => disk[file] ?? null,
+    });
+    expect(Object.fromEntries(reached)).toEqual({
+      ws: "dist/a.d.ts",
+      "@bufbuild/protobuf": "dist/deep/index.d.ts",
+      zod: "dist/b.d.ts",
+    });
+  });
+
+  it("REFUSE un pair FACULTATIF atteint depuis le point d'entrée principal, accepte un pair requis", () => {
+    const manifest = {
+      peerDependencies: { "@bufbuild/protobuf": "^2.7.0", zod: "^4" },
+      peerDependenciesMeta: { "@bufbuild/protobuf": { optional: true } },
+    };
+    expect(
+      optionalPeersInMainTypes({
+        manifest,
+        imports: imports("@bufbuild/protobuf", "zod"),
+      }).map((p) => p.module),
+    ).toEqual(["@bufbuild/protobuf"]);
+    expect(
+      optionalPeersInMainTypes({ manifest, imports: imports("zod") }),
+    ).toEqual([]);
   });
 
   it("REFUSE un module déclaré nulle part, sauf la liste volontaire", () => {
