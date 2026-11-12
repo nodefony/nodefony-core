@@ -9039,6 +9039,10 @@
             ],
             "env": [
               {
+                "name": "BENCH_BODY",
+                "help": ""
+              },
+              {
                 "name": "BENCH_CONN",
                 "help": ""
               },
@@ -9047,7 +9051,15 @@
                 "help": ""
               },
               {
+                "name": "BENCH_EXPECT_STATUS",
+                "help": ""
+              },
+              {
                 "name": "BENCH_LOGIN",
+                "help": ""
+              },
+              {
+                "name": "BENCH_METHOD",
                 "help": ""
               },
               {

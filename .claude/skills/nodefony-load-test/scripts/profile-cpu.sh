@@ -21,7 +21,12 @@
 #   dépôt — un worktree pour profiler un AUTRE commit, cf bisect-perf.sh),
 #   BENCH_PROTO=h2c (charge HTTP/2 en clair par h2load : BENCH_CONN connexions ×
 #   BENCH_STREAMS flux, 4 × 16 par défaut, la forme d'un proxy ; <port> est alors
-#   celui de servers.h2c, activé par XENV=NF__APP__SERVERS__H2C__ENABLED=true).
+#   celui de servers.h2c, activé par XENV=NF__APP__SERVERS__H2C__ENABLED=true),
+#   BENCH_METHOD / BENCH_BODY / BENCH_HEADER / BENCH_EXPECT_STATUS (la requête,
+#   par `bench-request.sh` — UNE implémentation avec bench-ab-mono et bench.sh ;
+#   BENCH_EXPECT_STATUS=404 profile le chemin d'erreur : wrk compte alors tout
+#   AUTRE statut, et le contrôle d'avant-mesure exige ce statut au lieu de 200 ;
+#   HTTP/1.1 seulement).
 # ⚠️ Toujours en production : `phaseStart/phaseEnd` ne sont actifs qu'ailleurs,
 #   et un profil pris en développement surestime le coût du pipeline.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -30,6 +35,13 @@ LABEL=$1; PORT=$2; shift 2
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 OUT="${NF_PROFILE_DIR:-$ROOT/tmp/profiles}/$LABEL"
 URL="http://127.0.0.1:$PORT${BENCH_PATH:-/nodefony/test/als-test/state}"
+. "$(dirname "${BASH_SOURCE[0]}")/bench-request.sh"
+if [ "${BENCH_PROTO:-h1}" = h2c ] && [ -n "${BENCH_METHOD:-}${BENCH_BODY:-}${BENCH_EXPECT_STATUS:-}" ]; then
+  echo "❌ BENCH_METHOD/BODY/EXPECT_STATUS : HTTP/1.1 seulement (h2load n'en porte pas l'équivalent)"; exit 2
+fi
+bench_request_args
+trap 'rm -f "${TMPDIR:-/tmp}/nf-bench-request.$$.lua"' EXIT
+EXPECT="${BENCH_EXPECT_STATUS:-200}"
 # h2c refuse HTTP/1.1 : sans connaissance préalable, curl échoue sur un port
 # qui écoute, et la garde ci-dessous croirait le port libre.
 CURL_PROTO=()
@@ -61,8 +73,8 @@ if [ -n "${BENCH_LOGIN:-}" ]; then
   [ -n "$COOKIE" ] || { echo "❌ connexion ${BENCH_LOGIN%%:*} refusée — aucun cookie de session"; kill -INT $PID; exit 1; }
   HDR=(-H "Cookie: $COOKIE")
 fi
-CODE=$(curl -s ${CURL_PROTO[@]+"${CURL_PROTO[@]}"} -o /dev/null -w '%{http_code}' ${HDR[@]+"${HDR[@]}"} "$URL")
-[ "$CODE" = "200" ] || { echo "❌ $URL répond $CODE — rien ne serait valide"; kill -INT $PID; exit 1; }
+CODE=$(curl -s ${CURL_PROTO[@]+"${CURL_PROTO[@]}"} -o /dev/null -w '%{http_code}' ${HDR[@]+"${HDR[@]}"} ${CURL_REQ[@]+"${CURL_REQ[@]}"} "$URL")
+[ "$CODE" = "$EXPECT" ] || { echo "❌ $URL répond $CODE (attendu $EXPECT) — rien ne serait valide"; kill -INT $PID; exit 1; }
 if [ "${BENCH_PROTO:-h1}" = h2c ]; then
   # wrk ne parle que HTTP/1.1 ; h2load mesure h2c. Mêmes sorties : rps, refus du non-2xx.
   H2=(-t4 -c"${BENCH_CONN:-4}" -m"${BENCH_STREAMS:-16}" ${HDR[@]+"${HDR[@]}"} "$URL")
@@ -74,13 +86,15 @@ if [ "${BENCH_PROTO:-h1}" = h2c ]; then
   fi
   sed -n 's/^finished in [^,]*, \([0-9.]*\) req\/s.*/\1/p' "$OUT/h2load.txt" > "$OUT/rps"
 else
-wrk -t4 -c"${BENCH_CONN:-128}" -d10s ${HDR[@]+"${HDR[@]}"} "$URL" >/dev/null
-wrk -t4 -c"${BENCH_CONN:-128}" -d"${BENCH_DUR:-20}"s ${HDR[@]+"${HDR[@]}"} "$URL" > "$OUT/wrk.txt"
-grep -E "Requests/sec|Latency|Non-2xx" "$OUT/wrk.txt"
+wrk -t4 -c"${BENCH_CONN:-128}" -d10s ${HDR[@]+"${HDR[@]}"} ${WRK_REQ[@]+"${WRK_REQ[@]}"} "$URL" >/dev/null
+wrk -t4 -c"${BENCH_CONN:-128}" -d"${BENCH_DUR:-20}"s ${HDR[@]+"${HDR[@]}"} ${WRK_REQ[@]+"${WRK_REQ[@]}"} "$URL" > "$OUT/wrk.txt"
+grep -E "Requests/sec|Latency|Non-2xx|Unexpected status|Socket errors" "$OUT/wrk.txt"
 # Le débit SERVI fixe le dénominateur de profile-analyze (µs par requête).
-# Une réponse non-2xx coûte moins qu'une vraie : le profil serait faux.
-if grep -q "Non-2xx" "$OUT/wrk.txt"; then
-  echo "❌ réponses non-2xx sous charge — profil invalide"; kill -INT $PID; exit 1
+# Une réponse d'un autre statut que celui visé coûte autre chose : le profil
+# serait faux. Même verdict que les lanceurs de banc (bench_run_invalid).
+INVALID=$(bench_run_invalid "$(cat "$OUT/wrk.txt")")
+if [ -n "$INVALID" ]; then
+  echo "❌ $INVALID sous charge — profil invalide"; kill -INT $PID; exit 1
 fi
 awk '/Requests\/sec/ {print $2}' "$OUT/wrk.txt" > "$OUT/rps"
 fi
