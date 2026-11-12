@@ -479,7 +479,7 @@ class Router extends Service implements IRequestRouter {
         // pare-feu en zone protégée. C'est la SONDE d'un handshake refusé : le
         // client qui n'a vu qu'un échec d'ouverture apprend ici 401 (refusé)
         // ou 426 (admis), comme son handshake l'aurait appris.
-        resolver.exception = new HttpError(
+        resolver.exception = HttpError.withoutStack(
           "Upgrade Required: websocket",
           426,
           context,
@@ -488,7 +488,7 @@ class Router extends Service implements IRequestRouter {
       }
       if (allowed.size > 0) {
         const allowHeader = Array.from(allowed).join(", ");
-        const err = new HttpError(
+        const err = HttpError.withoutStack(
           `Method ${context.method} Not Allowed`,
           405,
           context,

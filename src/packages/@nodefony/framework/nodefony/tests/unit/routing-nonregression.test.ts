@@ -158,6 +158,8 @@ describe("Routing NR — B. méthodes et 405 agrégé", () => {
       err = e as HttpError & { allow?: string };
     }
     expect(err?.code).to.equal(405);
+    // Verdict de protocole : aucune pile capturée (HttpError.withoutStack).
+    expect(err?.stack).not.to.match(/\n\s+at /);
     expect(err?.allow ?? "").to.equal("GET, HEAD, POST"); // HEAD implicite sur GET (RFC 9110 §9.1)
     // l'en-tête Allow est posé sur la response (RFC 9110 §15.5.6)
     expect(String(ctx.response.headers["Allow"])).to.equal("GET, HEAD, POST");
@@ -203,6 +205,7 @@ describe("Routing NR — B. méthodes et 405 agrégé", () => {
     expect(resolver.resolve).to.equal(false);
     const err = resolver.exception as HttpError | null | undefined;
     expect(err?.code).to.equal(426);
+    expect(err?.stack).not.to.match(/\n\s+at /);
     expect(String(ctx.response.headers["Upgrade"])).to.equal("websocket");
     expect(String(ctx.response.headers["Connection"])).to.equal("Upgrade");
     expect(ctx.response.headers["Allow"]).to.equal(undefined);
