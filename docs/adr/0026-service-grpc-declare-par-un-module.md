@@ -935,6 +935,17 @@ transports de connect-es.
      `writeHead` puis `end`. Cette seconde forme est constatée fausse chez les deux clients ;
    - gRPC-Web et le protocole Connect gardent leurs statuts HTTP : connect-es les lit
      correctement, et c'est ce que la spécification de Connect prescrit.
+   - **Précision (2026-11-12, lot 2, accord de l'auteur) : le statut seul ne suffit pas, le
+     CORPS aussi doit être celui du protocole.** Constaté par la suite de conformité officielle
+     de Connect (`connectconformance` v1.0.7, 20 cas `unexpected-uri` / `unexpected-verb`) : le
+     404 ou 405 du routeur porte le JSON générique de Nodefony (`"code": 404`, numérique), que le
+     client de référence refuse.
+     - Connect : corps absent, ou une `Error` à code TEXTE (`{"code":"unimplemented"}`) en
+       `application/json` (`connect-protocol.md` §Unary-Response, table des codes) ;
+     - gRPC-Web : une réponse au format gRPC-Web portant le statut gRPC de la table ci-dessus ;
+     - la requête Connect se reconnaît à `connect-protocol-version` (ou `application/connect+*`),
+       gRPC-Web à `application/grpc-web*` ; le JSON d'une API ordinaire reste inchangé ;
+     - preuve : vider `src/modules/test/conformance/known-failing.txt` (lot 3).
 3. **Une requête gRPC native qui aboutit à une route qui n'est pas gRPC est refusée en 12
    `UNIMPLEMENTED`**, jamais servie. Le Router fusionne routes littérales et motifs par ordre
    d'insertion, les replis en dernier (`router.ts`, commentaire de l'index) : sous une route
