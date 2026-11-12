@@ -10,5 +10,8 @@ export default defineNodefonyRolldownConfig({
     "reflect-metadata",
     "tslib",
     "zod",
+    // Pairs FACULTATIFS de gRPC (ADR-0026 D12) : jamais recopiés dans `dist`.
+    "@bufbuild/protobuf",
+    "@connectrpc/connect",
   ],
 });

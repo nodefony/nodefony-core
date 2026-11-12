@@ -62,9 +62,19 @@
   "readmeFilename": "README.md",
   "contributors": [],
   "peerDependencies": {
+    "@bufbuild/protobuf": "^2.7.0",
+    "@connectrpc/connect": "^2.3.0",
     "@nodefony/http": "^10.0.0-beta.6",
     "nodefony": "^10.0.0-beta.6",
     "zod": "^4.6.7"
+  },
+  "peerDependenciesMeta": {
+    "@bufbuild/protobuf": {
+      "optional": true
+    },
+    "@connectrpc/connect": {
+      "optional": true
+    }
   },
   "files": [
     "dist",
