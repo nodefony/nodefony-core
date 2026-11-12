@@ -61,6 +61,7 @@ function harness(): IHarness {
           revalidate: null,
           identifier: null,
           foreignWriter: true,
+          endsAtShutdown: false,
         },
       ),
   };

@@ -1,5 +1,6 @@
 import { Code, ConnectError } from "@connectrpc/connect";
 import type { HandlerContext } from "@connectrpc/connect";
+import { setTimeout as sleep } from "node:timers/promises";
 import type { MessageInitShape } from "@bufbuild/protobuf";
 import { GrpcController, GrpcService } from "@nodefony/framework/grpc";
 import type { ContextType } from "@nodefony/http";
@@ -111,16 +112,30 @@ export class GrpcEchoController extends GrpcController {
    * Échéance d'un appel unaire (ADR-0026 D4). `block` : ne répond jamais et
    * ne lit pas son signal — seule l'échéance de Nodefony termine l'appel ;
    * l'interruption du signal est notée pour le témoin. Sinon : rend le temps
-   * restant vu à l'appel et le constat du témoin.
+   * restant vu à l'appel et le constat du témoin, après `delayMs` — un unaire
+   * en vol pendant l'arrêt du serveur finit pendant le drain (ADR-0026 D8).
    */
   stall(
     request: StallRequest,
     ctx: HandlerContext,
-  ): MessageInitShape<typeof StallResponseSchema> | Promise<never> {
+  ):
+    | MessageInitShape<typeof StallResponseSchema>
+    | Promise<MessageInitShape<typeof StallResponseSchema>> {
     if (request.block) {
       witnessAbort(ctx.signal, request.witness);
       return new Promise<never>(() => {});
     }
+    if (request.delayMs > 0) {
+      return sleep(request.delayMs).then(() => this.stallReport(request, ctx));
+    }
+    return this.stallReport(request, ctx);
+  }
+
+  /** Le temps restant vu par l'appel, et le constat du témoin. */
+  private stallReport(
+    request: StallRequest,
+    ctx: HandlerContext,
+  ): MessageInitShape<typeof StallResponseSchema> {
     const timeoutMs = ctx.timeoutMs();
     return {
       timeoutMs: timeoutMs === undefined ? 0 : Math.ceil(timeoutMs),
@@ -133,6 +148,8 @@ export class GrpcEchoController extends GrpcController {
    * Flux serveur long (ADR-0026 D4 point 4) : `burst` messages, puis sans
    * fin (`follow`) ou muet jusqu'à l'annulation. L'adaptateur attend `drain`
    * entre deux messages : un client qui ne lit plus bloque le générateur.
+   * `follow` avec `intervalMs` : un message par intervalle, SOURD à son signal
+   * — seule la fiche d'appel l'arrête (arrêt du serveur, ADR-0026 D8).
    */
   async *watch(
     request: WatchRequest,
@@ -142,6 +159,12 @@ export class GrpcEchoController extends GrpcController {
     const payload = new Uint8Array(request.bytes);
     let seq = 0;
     for (; seq < request.burst; seq++) yield { seq, payload };
+    if (request.follow && request.intervalMs > 0) {
+      for (;;) {
+        await sleep(request.intervalMs);
+        yield { seq: seq++, payload };
+      }
+    }
     if (request.follow) {
       while (!ctx.signal.aborted) yield { seq: seq++, payload };
       return;

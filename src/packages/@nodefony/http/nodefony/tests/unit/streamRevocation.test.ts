@@ -35,6 +35,7 @@ class RecordingCall implements IRpcCall {
   revoke(): void {
     this.revoked += 1;
   }
+  shutdown(): void {}
 }
 
 function open(options: { foreignWriter: boolean; rpc: IRpcCall | null }) {
@@ -60,6 +61,7 @@ function open(options: { foreignWriter: boolean; rpc: IRpcCall | null }) {
       revalidate: null,
       identifier: null,
       foreignWriter: options.foreignWriter,
+      endsAtShutdown: false,
     },
   );
   return { lifecycle, response, closes };

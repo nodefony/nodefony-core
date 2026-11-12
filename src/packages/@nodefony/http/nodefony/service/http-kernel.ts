@@ -68,6 +68,8 @@ import {
 } from "../src/context/requestTrace";
 import type { IncomingHttpHeaders, IncomingMessage } from "node:http";
 import {
+  SHUTDOWN_STREAMS_WAIT_MS,
+  ShutdownRegistry,
   StallSweep,
   type IWatchedStream,
   type StreamLifecycle,
@@ -428,6 +430,9 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   // Flux dont un tiers tient les écritures (gRPC) : le balayage de blocage.
   // Lazy : naît au premier flux inscrit.
   #stallSweep: StallSweep | null = null;
+  // Flux sans fin à eux (SSE, flux RPC, octets vivants) : terminés à l'arrêt,
+  // AVANT le drain (ADR-0026 D8). Lazy : naît au premier flux.
+  #openStreams: ShutdownRegistry | null = null;
   // Probes de santé cloud-native (0.7) — null = désactivé (0 coût hot path :
   // 1 null-check + 2 comparaisons de string par requête quand actif).
   #healthPaths: { liveness: string; readiness: string } | null = null;
@@ -761,6 +766,15 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     // readyz→503 (+ shutdownDelay : le LB retire le pod) → close 1001 WS →
     // drain HTTP → exit. Jamais posé si le boot échoue avant onPostReady
     // (terminate(1) au boot = rien à drainer).
+    // Les flux longs reçoivent leur fin (gRPC : 14) AVANT le drain HTTP
+    // (ADR-0026 D8). Posé dès init, et non à `onPostReady` : le serveur sert
+    // déjà pendant la fin du boot (frontends), et un flux ouvert dans cette
+    // fenêtre doit l'avoir aussi. Prepend le plus ancien : il passe après la
+    // bascule readiness et les 1001 (prepends plus récents), avant les drains
+    // des serveurs (`once`, ajoutés en fin).
+    this.kernel?.prependOnceListener("onTerminate", () =>
+      this.shutdownStreams(),
+    );
     this.kernel?.once("onPostReady", () => {
       this.kernel?.prependOnceListener("onTerminate", async () => {
         this.#terminating = true;
@@ -2863,6 +2877,72 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   /** Retire un flux du balayage de blocage (à sa fermeture). @internal */
   unsweepStall(stream: StreamLifecycle): void {
     this.#stallSweep?.delete(stream);
+  }
+
+  /**
+   * Inscrit un flux sans fin à lui (SSE, flux RPC, octets vivants) au registre
+   * de l'arrêt : il sera terminé AVANT le drain ({@link shutdownStreams}).
+   * Ouvert pendant l'arrêt, il l'est au tour suivant — une fois son appel RPC
+   * relié, qui ne l'est qu'après l'ouverture.
+   *
+   * @internal — appelé par le cycle de vie du flux (`StreamLifecycle`).
+   */
+  trackStream(stream: StreamLifecycle): void {
+    (this.#openStreams ??= new ShutdownRegistry()).add(stream);
+  }
+
+  /** Retire un flux du registre de l'arrêt (à sa fermeture). @internal */
+  untrackStream(stream: StreamLifecycle): void {
+    this.#openStreams?.delete(stream);
+  }
+
+  /**
+   * L'arrêt du serveur : termine chaque flux long ouvert, puis attend leur
+   * fermeture, au plus `waitMs` (ADR-0026 D8).
+   *
+   * Un appel RPC se termine au format de son protocole (gRPC : 14
+   * `UNAVAILABLE`, le client le rejoue ailleurs), un flux SSE ou d'octets
+   * vivant par une fin simple (`EventSource` se reconnecte). Un gestionnaire
+   * qui n'entend rien laisse l'attente aller à son terme : sa connexion tombe
+   * ensuite au drain, à `shutdownTimeout`.
+   *
+   * Appelé à `onTerminate`, après la bascule de la sonde de disponibilité et
+   * les fermetures 1001, avant le drain : le client lit la fin du flux AVANT
+   * le GOAWAY définitif. Un appel unaire en vol n'est pas touché — il finit
+   * pendant le drain.
+   *
+   * @param waitMs - attente maximale des fermetures.
+   * @returns la promesse de l'attente, ou rien quand aucun flux n'est ouvert.
+   *
+   * @internal
+   */
+  shutdownStreams(
+    waitMs: number = SHUTDOWN_STREAMS_WAIT_MS,
+  ): Promise<void> | undefined {
+    // Créé même vide : il retient l'arrêt pour les flux qui s'ouvriraient encore.
+    const registry = (this.#openStreams ??= new ShutdownRegistry());
+    const count = registry.size;
+    const left = registry.shutdown(waitMs);
+    if (count === 0) return undefined;
+    if (typeof left === "number") {
+      this.#logStreamsShutdown(count, left, waitMs);
+      return undefined;
+    }
+    return left.then((still) => this.#logStreamsShutdown(count, still, waitMs));
+  }
+
+  /** Une ligne pour l'arrêt des flux longs ; un avertissement s'il en reste. */
+  #logStreamsShutdown(count: number, still: number, waitMs: number): void {
+    if (still === 0) {
+      this.log(`Arrêt : ${count} flux long(s) terminé(s)`, "INFO");
+      return;
+    }
+    this.log(
+      `Arrêt : ${still} flux long(s) sur ${count} toujours ouvert(s) après ` +
+        `${waitMs} ms — gestionnaire qui n'écoute pas son signal ; coupé(s) ` +
+        "par le drain à shutdownTimeout",
+      "WARNING",
+    );
   }
 
   /**

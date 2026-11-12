@@ -33,7 +33,7 @@ source: ".claude/skills/nodefony-load-test/SKILL.md"
 | Description | 1023 / 1024 caractères |
 | Déclencheurs | 16 |
 | Ressources `references/` | 5 page(s) |
-| Scripts | 81 |
+| Scripts | 82 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -80,7 +80,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
 | `references/ab-perf-mono-prod.md` | Niveau 3 — A/B perf mono prod : détails | 148 |
-| `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 420 |
+| `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 421 |
 | `references/profil-compare.md` | Profil comparé — le coût d'une requête face à un témoin équitable | 88 |
 | `references/protocoles-bancs-charge.md` | Protocoles détaillés des bancs de charge les plus utilisés | 237 |
 | `references/reperes-empiriques.md` | Repères empiriques — pour situer un résultat | 30 |
@@ -120,8 +120,9 @@ script, donc toujours à jour après régénération.
 | `scripts/debug-runtime-e2e.mjs` | Banc e2e TERRAIN — debug runtime par-module à chaud — sans navigateur. | — | — |
 | `scripts/decor-probe.mjs` | Garde de DÉCOR d'un banc de débit Nodefony — préchargée (`node --import`) dans le serveur mesuré. À la PREMIÈRE requête, elle refuse (code 3) si un hook du chemin de requête a un écouteur : un seul suffit à faire passer chaque requête par `fireAsync` (une Promise, une microtâche), coût qu'une application sans ce hook ne paie pas — et que le banc imputerait au framework. Vécu deux fois sur #508, les deux fois posé par le module test (`onRequestScope`, puis `beforeResolve`) ; la seconde n'a été vue qu'au chronométrage in situ, parce que rien ne la cherchait. | — | — |
 | `scripts/dev-restart-cycle.mjs` | dev-restart-cycle.mjs — simule un développeur sous le DevSupervisor : modifie un fichier backend, chronomètre jusqu'à la remise en écoute, N cycles, médiane. Le fichier est RESTAURÉ à la fin. Prérequis : serveur de dev lancé par start.sh (journal /tmp/nodefony-server.log). Usage : node dev-restart-cycle.mjs <fichier-backend> [cycles=5] | — | `NF_DEV_CYCLE_PORT` |
-| `scripts/graceful-shutdown-e2e.mjs` | Banc e2e du GRACEFUL SHUTDOWN (@nodefony/http, trous 1+3 revue 0.7) — sans navigateur. | `--detach` `--wait` | `HTTP_SLOW_URL` `PORT` `WS_URL` |
+| `scripts/graceful-shutdown-e2e.mjs` | Banc e2e du GRACEFUL SHUTDOWN (@nodefony/http, trous 1+3 revue 0.7) — sans navigateur. | `--detach` `--wait` | `H2C_URL` `HTTP_SLOW_URL` `PORT` `WS_URL` |
 | `scripts/grpc-stream-throughput.mjs` | Débit d'un flux serveur gRPC comparé à la socket binaire (#695, critère 22 ; ADR-0026 D4 « plancher par message de l'adaptateur »). | `--runs` `--sizes` `--out` `--profile` `--profile-seconds` `--serve-raw` | — |
+| `scripts/grpc-unary-vs-open-streams.mjs` | Banc #695 critère 34 (ADR-0026 D8) — le coût d'un appel gRPC UNAIRE ne doit pas dépendre du nombre de flux longs ouverts sur le serveur. | `--detach` `--no-watch` `--wait` | `CALLS` `H2C_URL` `OUT` `PASSES` `SCOPES_URL` `STEPS` |
 | `scripts/h2c-vs-h1-bare.mjs` | Témoin du banc h2c-vs-h1.sh : Node NU, sans framework — le coût de HTTP/2 lui-même. HTTP/1.1 et h2c sur deux ports, même réponse triviale. | — | — |
 | `scripts/h2c-vs-h1.sh` | HTTP/1.1 contre HTTP/2 en clair (h2c) — « h2c est-il plus rapide derrière mon proxy ? », et surtout : le surcoût de h2c est-il celui de HTTP/2, ou le nôtre ? | `--h1` `--http2-prior-knowledge` | `BARE` `DUR` `PAIRS` `PROBE` `ROUTE` |
 | `scripts/header-snapshot.mjs` | Relevé des BLOCS D'EN-TÊTES qu'un serveur rend sur des réponses types — page, JSON, 404, 401, fichier statique, sonde de santé, HEAD, CORS — en HTTP/1.1 ET en HTTP/2. Les valeurs qui changent à chaque requête (date, identifiant de requête, nonce, cookie) sont masquées : deux relevés du même code sont identiques, deux relevés de deux codes se comparent ligne à ligne. | `--diff` | `HOST` `NF_PORT_HTTP` `NF_PORT_HTTPS` |
@@ -199,6 +200,7 @@ node .claude/skills/nodefony-load-test/scripts/debug-runtime-e2e.mjs
 Usage : node dev-restart-cycle.mjs <fichier-backend> [cycles=5]
 node .claude/skills/nodefony-load-test/scripts/graceful-shutdown-e2e.mjs
 node .claude/skills/nodefony-load-test/scripts/grpc-stream-throughput.mjs
+node .claude/skills/nodefony-load-test/scripts/grpc-unary-vs-open-streams.mjs
 Usage : node h2c-vs-h1-bare.mjs [port HTTP/1.1=5161] [port h2c=5163] [plain|headers=plain]
 node .claude/skills/nodefony-load-test/scripts/header-snapshot.mjs avant
 bash .claude/skills/nodefony-start-server/start.sh
@@ -239,7 +241,7 @@ node .claude/skills/load-test/scripts/ws-messages.mjs
 node .claude/skills/nodefony-load-test/scripts/ws-tls-batching.mjs
 ```
 
-**Toutes les variables lues par ce skill** : `BAD` · `BARE` · `BATCH` · `BENCH_BODY` · `BENCH_CONN` · `BENCH_DUR` · `BENCH_EXPECT_STATUS` · `BENCH_HEADER` · `BENCH_INDEX_TARGET` · `BENCH_LOGIN` · `BENCH_METHOD` · `BENCH_PATH` · `BENCH_PROTO` · `BENCH_ROLE` · `BENCH_STREAMS` · `BENCH_THERM_TARGET` · `BENCH_THREADS` · `BENCH_URL` · `BENCH_WARMUP` · `BODY` · `BURST` · `BURSTS` · `CAP` · `CHANNEL` · `CLIENTS` · `CONC` · `DUR` · `DURATION` · `E2E_ROLE` · `ERR_RUPTURE` · `HEAP_URL` · `HOLD_MS` · `HOST` · `HTTP_PATH` · `HTTP_RPS` · `HTTP_SLOW_URL` · `HTTP_STEP` · `HTTP_URL` · `JSON_OUT` · `LINES` · `METHOD` · `MODE` · `MSG_HZ` · `NF_ADMIN_PASSWORD` · `NF_ADMIN_USER` · `NF_BENCH_ADMIN_PASSWORD` · `NF_BENCH_ADMIN_USER` · `NF_BENCH_CUT` · `NF_BENCH_HEAP_FILE` · `NF_BENCH_OUT` · `NF_BISECT_WT` · `NF_DATABASE_URL` · `NF_DEV_CYCLE_PORT` · `NF_HOST` · `NF_NATIVE_SAMPLE` · `NF_NATIVE_TOP` · `NF_PARITY_CAMPS` · `NF_PG_URL` · `NF_PORT` · `NF_PORT_HTTP` · `NF_PORT_HTTPS` · `NF_PROFILE_APP_ROOT` · `NF_PROFILE_DIR` · `NF_PROMISE_COUNTER_PORT` · `NF_SPAN_DIR` · `NF_SPAN_PROBE_OUT` · `NF_SPAN_SET` · `NF_STEPS` · `NF_USER_PASSWORD` · `NF_WAIT` · `NF_WAIT_APP_ROOT` · `NF_WAIT_CUTS` · `NF_WAIT_DIR` · `NF_WAIT_PROBE_OUT` · `NODE_TLS_REJECT_UNAUTHORIZED` · `ONLY` · `ORM_PATH` · `ORM_STEP` · `OUT` · `PAIRS` · `PAYLOAD` · `PG_CONTAINER` · `PG_URL` · `PORT` · `PROBE` · `RATE` · `REPS` · `RL_URL` · `ROUTE` · `ROWS` · `RUNS` · `SEC` · `SERIES` · `SETTLE` · `SOAK_MIN` · `STAGES` · `STAGE_MS` · `STEP` · `THRESHOLD` · `TIMEOUT_MS` · `TRIES` · `URL` · `VARIANT` · `WARMUP` · `WID` · `WITNESS` · `WORKERS` · `WS_BATCH_PAYLOAD` · `WS_PATH` · `WS_STEP` · `WS_URL` · `XENV`
+**Toutes les variables lues par ce skill** : `BAD` · `BARE` · `BATCH` · `BENCH_BODY` · `BENCH_CONN` · `BENCH_DUR` · `BENCH_EXPECT_STATUS` · `BENCH_HEADER` · `BENCH_INDEX_TARGET` · `BENCH_LOGIN` · `BENCH_METHOD` · `BENCH_PATH` · `BENCH_PROTO` · `BENCH_ROLE` · `BENCH_STREAMS` · `BENCH_THERM_TARGET` · `BENCH_THREADS` · `BENCH_URL` · `BENCH_WARMUP` · `BODY` · `BURST` · `BURSTS` · `CALLS` · `CAP` · `CHANNEL` · `CLIENTS` · `CONC` · `DUR` · `DURATION` · `E2E_ROLE` · `ERR_RUPTURE` · `H2C_URL` · `HEAP_URL` · `HOLD_MS` · `HOST` · `HTTP_PATH` · `HTTP_RPS` · `HTTP_SLOW_URL` · `HTTP_STEP` · `HTTP_URL` · `JSON_OUT` · `LINES` · `METHOD` · `MODE` · `MSG_HZ` · `NF_ADMIN_PASSWORD` · `NF_ADMIN_USER` · `NF_BENCH_ADMIN_PASSWORD` · `NF_BENCH_ADMIN_USER` · `NF_BENCH_CUT` · `NF_BENCH_HEAP_FILE` · `NF_BENCH_OUT` · `NF_BISECT_WT` · `NF_DATABASE_URL` · `NF_DEV_CYCLE_PORT` · `NF_HOST` · `NF_NATIVE_SAMPLE` · `NF_NATIVE_TOP` · `NF_PARITY_CAMPS` · `NF_PG_URL` · `NF_PORT` · `NF_PORT_HTTP` · `NF_PORT_HTTPS` · `NF_PROFILE_APP_ROOT` · `NF_PROFILE_DIR` · `NF_PROMISE_COUNTER_PORT` · `NF_SPAN_DIR` · `NF_SPAN_PROBE_OUT` · `NF_SPAN_SET` · `NF_STEPS` · `NF_USER_PASSWORD` · `NF_WAIT` · `NF_WAIT_APP_ROOT` · `NF_WAIT_CUTS` · `NF_WAIT_DIR` · `NF_WAIT_PROBE_OUT` · `NODE_TLS_REJECT_UNAUTHORIZED` · `ONLY` · `ORM_PATH` · `ORM_STEP` · `OUT` · `PAIRS` · `PASSES` · `PAYLOAD` · `PG_CONTAINER` · `PG_URL` · `PORT` · `PROBE` · `RATE` · `REPS` · `RL_URL` · `ROUTE` · `ROWS` · `RUNS` · `SCOPES_URL` · `SEC` · `SERIES` · `SETTLE` · `SOAK_MIN` · `STAGES` · `STAGE_MS` · `STEP` · `STEPS` · `THRESHOLD` · `TIMEOUT_MS` · `TRIES` · `URL` · `VARIANT` · `WARMUP` · `WID` · `WITNESS` · `WORKERS` · `WS_BATCH_PAYLOAD` · `WS_PATH` · `WS_STEP` · `WS_URL` · `XENV`
 
 ### Détail des scripts auto-documentés
 

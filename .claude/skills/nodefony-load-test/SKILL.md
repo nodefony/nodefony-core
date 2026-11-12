@@ -65,7 +65,7 @@ cd src/packages/@nodefony/http && npm run test:memory
 Pour pousser **à la main** au-delà des seuils CI et trouver les vraies limites.
 Node ESM purs (`ws` + builtins), **lancés depuis la racine du repo**, paramétrés par ENV.
 
-> **📇 Les 31 scripts sont catalogués dans [`references/catalogue.md`](references/catalogue.md)** —
+> **📇 Les 32 scripts sont catalogués dans [`references/catalogue.md`](references/catalogue.md)** —
 > ce que chacun prouve, son alias `run.sh`, ses variables. Le catalogue couvre **tout**, notamment
 > la vingtaine de **preuves e2e sans navigateur** (idempotence distribuée, TOTP, webhooks,
 > rate-limit, arrêt gracieux, cluster) qui vivent ici parce qu'elles exigent le même décor qu'un
@@ -487,7 +487,7 @@ rejoue et se compare.
 
 ## Références
 
-- `references/catalogue.md` — les 31 scripts, ce que chacun prouve, alias et variables
+- `references/catalogue.md` — les 32 scripts, ce que chacun prouve, alias et variables
 - `references/protocoles-bancs-charge.md` — protocole détaillé des 9 bancs de charge les plus utilisés
 - `references/ab-perf-mono-prod.md` — détail du Niveau 3 (cible dédiée, diff structurel, matrice store, comparatif frameworks)
 - `references/reperes-empiriques.md` — chiffres de référence pour situer un résultat

@@ -229,6 +229,8 @@ interface IKernelHooks {
   acquireConnectionSlot?(req: unknown, res: http.ServerResponse): boolean;
   sweepStall?(lifecycle: unknown): void;
   unsweepStall?(lifecycle: unknown): void;
+  trackStream?(lifecycle: unknown): void;
+  untrackStream?(lifecycle: unknown): void;
 }
 
 function fakeContext(
@@ -587,6 +589,8 @@ describe("GrpcEndpoint.serve — sur un vrai serveur HTTP/1.1", () => {
     const slots: http.ServerResponse[] = [];
     const swept: unknown[] = [];
     const unswept: unknown[] = [];
+    const tracked: unknown[] = [];
+    const untracked: unknown[] = [];
     const srv = await serveWith(
       new GrpcEndpoint(service),
       () => target,
@@ -599,6 +603,8 @@ describe("GrpcEndpoint.serve — sur un vrai serveur HTTP/1.1", () => {
         },
         sweepStall: (l) => swept.push(l),
         unsweepStall: (l) => unswept.push(l),
+        trackStream: (l) => tracked.push(l),
+        untrackStream: (l) => untracked.push(l),
       },
     );
     try {
@@ -615,15 +621,19 @@ describe("GrpcEndpoint.serve — sur un vrai serveur HTTP/1.1", () => {
       expect(slots, "une place de connexion longue").to.have.length(1);
       expect(swept, "inscrit au balayage").to.have.length(1);
       expect(unswept[0], "retiré, le même").to.equal(swept[0]);
+      // Registre de l'arrêt (ADR-0026 D8) : terminé avant le drain.
+      expect(tracked, "inscrit au registre de l'arrêt").to.have.length(1);
+      expect(untracked[0], "retiré, le même").to.equal(tracked[0]);
     } finally {
       await srv.close();
     }
   });
 
-  it("unaire : aucun cycle de vie de flux — ni place de connexion, ni balayage", async () => {
+  it("unaire : aucun cycle de vie de flux — ni place de connexion, ni balayage, ni registre de l'arrêt", async () => {
     const service = makeService();
     let slots = 0;
     let swept = 0;
+    let tracked = 0;
     const target = new Target("U");
     const srv = await serveWith(
       new GrpcEndpoint(service),
@@ -638,6 +648,9 @@ describe("GrpcEndpoint.serve — sur un vrai serveur HTTP/1.1", () => {
         sweepStall: () => {
           swept++;
         },
+        trackStream: () => {
+          tracked++;
+        },
       },
     );
     try {
@@ -645,6 +658,9 @@ describe("GrpcEndpoint.serve — sur un vrai serveur HTTP/1.1", () => {
       expect(r.status).to.equal(200);
       expect(slots).to.equal(0);
       expect(swept).to.equal(0);
+      // Critère 34 : un unaire ne touche pas le registre de l'arrêt — son coût
+      // ne dépend pas du nombre de flux ouverts.
+      expect(tracked).to.equal(0);
     } finally {
       await srv.close();
     }
@@ -1813,6 +1829,141 @@ describe("GrpcEndpoint — appel révoqué en cours (critère 31, ADR-0026 D6)",
         await server.close();
       }
     });
+  }
+});
+
+describe("GrpcCall — arrêt du serveur (critère 33, ADR-0026 D8)", () => {
+  const service = makeService();
+  const method = service.methods[0];
+  const handlerContext = () => {
+    if (method === undefined) throw new Error("méthode absente");
+    return createHandlerContext({
+      service,
+      method,
+      protocolName: "grpc",
+      requestMethod: "POST",
+      url: "http://localhost/x",
+    });
+  };
+
+  it("flux suivi : le signal s'abaisse en 14 UNAVAILABLE, l'interruption est lisible", () => {
+    const call = new GrpcCall(null);
+    const ctx = handlerContext();
+    call.follow(ctx);
+    call.shutdown();
+    expect(ctx.signal.aborted).to.equal(true);
+    expect(call.interruption?.code).to.equal(Code.Unavailable);
+    expect(ctx.signal.reason).to.equal(call.interruption);
+  });
+
+  it("réponse unique suivie : rejetée en 14", () => {
+    const call = new GrpcCall(null);
+    const reasons: unknown[] = [];
+    call.attach(handlerContext(), (reason) => reasons.push(reason));
+    call.shutdown();
+    expect(reasons).to.have.length(1);
+    const reason = reasons[0];
+    expect(reason instanceof ConnectError && reason.code).to.equal(
+      Code.Unavailable,
+    );
+  });
+
+  it("la première cause gagne : révoquée puis arrêtée → 16, et l'inverse → 14", () => {
+    const revoked = new GrpcCall(null);
+    revoked.follow(handlerContext());
+    revoked.revoke();
+    revoked.shutdown();
+    expect(revoked.interruption?.code).to.equal(Code.Unauthenticated);
+    const stopped = new GrpcCall(null);
+    stopped.follow(handlerContext());
+    stopped.shutdown();
+    stopped.revoke();
+    expect(stopped.interruption?.code).to.equal(Code.Unavailable);
+  });
+
+  it("transport détruit après l'arrêt (réponse non finie) : 14 garde son code", () => {
+    const call = new GrpcCall(null);
+    const ctx = handlerContext();
+    call.follow(ctx);
+    call.open(ctx);
+    call.shutdown();
+    call.settle(false);
+    expect(call.code).to.equal(Code.Unavailable);
+    expect(call.codeName).to.equal("UNAVAILABLE");
+  });
+
+  it("flux serveur SOURD qui produit : 14 au message suivant, au plus le message en vol", async () => {
+    const service = makeService(true);
+    const server = await serveWith(
+      new GrpcEndpoint(service, { perCall: true }),
+      () => ({
+        async *watch(_request: unknown, ctx: { values: unknown }) {
+          for (let i = 0; i < 50; i++) {
+            // Comme le registre de l'arrêt du noyau.
+            if (i === 2 && ctx.values instanceof GrpcCall)
+              ctx.values.shutdown();
+            yield { text: String(i) };
+          }
+        },
+      }),
+    );
+    try {
+      const r = await connectStream(server.url, service, "Watch", [
+        { text: "x" },
+      ]);
+      expect(r.messages).to.deep.equal([
+        { text: "0" },
+        { text: "1" },
+        { text: "2" },
+      ]);
+      expect(r.error).to.deep.equal({
+        code: "unavailable",
+        message: "le serveur s'arrête",
+      });
+    } finally {
+      await server.close();
+    }
+  });
+
+  // Un gestionnaire qui ÉCOUTE son signal et rend la main normalement : sa fin
+  // porte le statut de l'interruption — jamais `OK`, qui ferait passer un flux
+  // tronqué pour complet. Avant ET après le premier message (révocation : plus haut).
+  for (const [label, interrupt, code] of [
+    ["arrêt", (c: GrpcCall) => c.shutdown(), "unavailable"],
+  ] as const) {
+    for (const before of [0, 2]) {
+      it(`${label}, gestionnaire qui écoute puis rend la main après ${before} message(s) : ${code}, pas OK`, async () => {
+        const service = makeService(true);
+        const server = await serveWith(
+          new GrpcEndpoint(service, { perCall: true }),
+          () => ({
+            async *watch(
+              _request: unknown,
+              ctx: { values: unknown; signal: AbortSignal },
+            ) {
+              for (let i = 0; i < before; i++) yield { text: String(i) };
+              setTimeout(() => {
+                if (ctx.values instanceof GrpcCall) interrupt(ctx.values);
+              }, 5);
+              await new Promise<void>((resolve) =>
+                ctx.signal.addEventListener("abort", () => resolve(), {
+                  once: true,
+                }),
+              );
+            },
+          }),
+        );
+        try {
+          const r = await connectStream(server.url, service, "Watch", [
+            { text: "x" },
+          ]);
+          expect(r.messages).to.have.length(before);
+          expect(r.error?.code).to.equal(code);
+        } finally {
+          await server.close();
+        }
+      });
+    }
   }
 });
 

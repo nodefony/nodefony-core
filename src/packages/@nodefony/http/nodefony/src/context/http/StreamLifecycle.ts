@@ -4,6 +4,7 @@ import type http2 from "node:http2";
 import type HttpContext from "./HttpContext";
 import Http2Response from "../http2/Response";
 import HttpError from "../../errors/httpError";
+import { ANNOUNCE_CAP_MS } from "../../servers/http2Goaway";
 import { RequestContext, REVOCATION_REVALIDATE_MS } from "nodefony";
 
 /**
@@ -49,6 +50,17 @@ export const STREAM_STALL_TIMEOUT_MS = 30_000;
  * avant le délai réglé.
  */
 export const STALL_SWEEP_PERIOD_MS = STREAM_STALL_TIMEOUT_MS / 2;
+
+/**
+ * Attente maximale, à l'arrêt du serveur, des flux longs qu'on vient de
+ * terminer (`HttpKernel.shutdownStreams`), avant le drain des connexions.
+ *
+ * Un flux qui écoute son signal se ferme en quelques millisecondes : l'attente
+ * finit avec lui. Elle ne dure jusqu'à son terme que pour un gestionnaire qui
+ * n'écoute rien — et ce temps s'AJOUTE au drain (`shutdownTimeout`), d'où une
+ * borne courte, celle de l'annonce du GOAWAY.
+ */
+export const SHUTDOWN_STREAMS_WAIT_MS = ANNOUNCE_CAP_MS;
 
 /**
  * Refuse une option de délai hors de ce qu'un minuteur sait tenir.
@@ -156,6 +168,14 @@ export interface IStreamLifecycleSettings {
    * au lieu de terminer la réponse — jamais un second écrivain.
    */
   foreignWriter: boolean;
+  /**
+   * Le flux n'a pas de fin à lui (SSE, flux RPC, sortie d'un processus) : à
+   * l'arrêt du serveur, le noyau le termine AVANT le drain des connexions
+   * ({@link StreamLifecycle.shutdown}), au lieu de le laisser détruire sans un
+   * mot à `shutdownTimeout`. `false` pour une source FINIE (une archive) : elle
+   * a le drain pour finir, comme toute réponse en vol.
+   */
+  endsAtShutdown: boolean;
 }
 
 /**
@@ -176,6 +196,16 @@ export class StreamLifecycle implements IWatchedStream {
   readonly #revalidate: (() => Promise<boolean>) | null;
   readonly identifier: string | null;
   readonly #foreignWriter: boolean;
+  /**
+   * Le noyau des registres où le flux s'inscrit, pris À L'OUVERTURE : le
+   * nettoyage du contexte (`Context.clean`) remet `context.httpKernel` à
+   * `null`, et il passe à la fermeture AVANT celui du flux — relu là, le
+   * retrait ne se ferait pas, et le flux fermé resterait dans les registres
+   * (révocation, balayage, arrêt) avec son contexte.
+   */
+  readonly #kernel: HttpContext["httpKernel"];
+  /** Terminé par le noyau à l'arrêt du serveur — et donc inscrit à son registre. */
+  readonly #endsAtShutdown: boolean;
   /**
    * Fin d'attente d'un flux balayé : posée sur `drain` quand le balayage voit
    * une contre-pression — créée à la première, `null` avant (lazy).
@@ -235,6 +265,9 @@ export class StreamLifecycle implements IWatchedStream {
     this.#revalidate = settings.revalidate;
     this.identifier = settings.identifier;
     this.#foreignWriter = settings.foreignWriter;
+    this.#endsAtShutdown = settings.endsAtShutdown;
+    const kernel = context.httpKernel;
+    this.#kernel = kernel;
     // Posé AVANT toute attente : la fermeture d'un client parti pendant la
     // sauvegarde de la session ne doit pas passer inaperçue.
     response.on("close", this.#onResponseClose);
@@ -247,10 +280,12 @@ export class StreamLifecycle implements IWatchedStream {
     }
     // Seule une identité révocable entre au registre : un anonyme n'a rien à
     // perdre, et ne coûte rien.
-    if (this.#revalidate !== null) context.httpKernel?.watchStream(this);
+    if (this.#revalidate !== null) kernel?.watchStream(this);
+    // Tout flux sans fin à lui entre au registre de l'arrêt (ADR-0026 D8).
+    if (this.#endsAtShutdown) kernel?.trackStream(this);
     // Écritures invisibles : seul le balayage voit un client qui ne lit plus.
     if (this.#foreignWriter && this.#stallTimeout !== false) {
-      context.httpKernel?.sweepStall(this);
+      kernel?.sweepStall(this);
     }
   }
 
@@ -415,6 +450,26 @@ export class StreamLifecycle implements IWatchedStream {
     return undefined;
   }
 
+  /**
+   * Le serveur s'arrête : le flux prend fin AVANT le drain des connexions
+   * (ADR-0026 D8). Idempotent.
+   *
+   * Quand un adaptateur RPC tient les écritures, c'est LUI qui termine l'appel,
+   * au format de son protocole (`HttpContext.rpc.shutdown`, gRPC : 14
+   * `UNAVAILABLE`) : le client le rejoue ailleurs. Un gestionnaire qui n'entend
+   * rien tombe avec sa connexion, détruite par le drain à `shutdownTimeout` —
+   * aucun minuteur de plus. Sinon : {@link close} — `EventSource` se
+   * reconnecte, vers un autre exemplaire.
+   */
+  shutdown(): Promise<void> | undefined {
+    if (this.#closed) return undefined;
+    const rpc = this.#foreignWriter ? this.context.rpc : null;
+    if (rpc === null) return this.close();
+    this.#cause = "server";
+    rpc.shutdown();
+    return undefined;
+  }
+
   /** Fenêtre écoulée : l'appel révoqué n'a pas fini, le transport est détruit. */
   static #destroyRevoked(this: void, lifecycle: StreamLifecycle): void {
     lifecycle.#revokeGrace = null;
@@ -443,9 +498,11 @@ export class StreamLifecycle implements IWatchedStream {
       clearTimeout(this.#stall);
       this.#stall = null;
     }
-    if (this.#revalidate !== null) this.context.httpKernel?.unwatchStream(this);
+    const kernel = this.#kernel;
+    if (this.#revalidate !== null) kernel?.unwatchStream(this);
+    if (this.#endsAtShutdown) kernel?.untrackStream(this);
     if (this.#foreignWriter) {
-      this.context.httpKernel?.unsweepStall(this);
+      kernel?.unsweepStall(this);
       if (this.#onSweptDrain !== null) {
         this.target.removeListener("drain", this.#onSweptDrain);
       }
@@ -470,6 +527,11 @@ export interface IOpenStreamLifecycle {
    * {@link IStreamLifecycleSettings.foreignWriter}. Défaut `false`.
    */
   foreignWriter?: boolean;
+  /**
+   * Terminé par le noyau à l'arrêt du serveur — cf
+   * {@link IStreamLifecycleSettings.endsAtShutdown}. Défaut `true`.
+   */
+  endsAtShutdown?: boolean;
 }
 
 /**
@@ -541,6 +603,89 @@ export class StallSweep {
     if (this.#entries === null) return;
     for (const lifecycle of this.#entries) lifecycle.sweepStall(now);
   }
+}
+
+/** Ce que le registre de l'arrêt retient d'un flux : de quoi le terminer. */
+export interface IShutdownStream {
+  /** Le serveur s'arrête : le flux prend fin (cf {@link StreamLifecycle.shutdown}). */
+  shutdown(): unknown;
+}
+
+/**
+ * Le registre de l'arrêt : TOUS les flux longs ouverts qui n'ont pas de fin à
+ * eux — SSE, flux RPC, flux d'octets vivants (ADR-0026 D8). À l'arrêt du
+ * serveur, le noyau les termine AVANT le drain des connexions, au lieu de les
+ * laisser détruire sans un mot à `shutdownTimeout`.
+ *
+ * Distinct du registre de révocation (`RevocationWatch`), qui ne tient que les
+ * flux à identité : y mettre les anonymes ferait travailler chaque fenêtre de
+ * re-validation pour rien.
+ *
+ * Coût : un ajout et un retrait par flux long, constants (44 à 77 ns mesurés
+ * de 0 à 10 000 flux ouverts, ADR-0026 D8) ; 0 par appel unaire, 0 par
+ * message.
+ *
+ * @internal
+ */
+export class ShutdownRegistry {
+  readonly #entries = new Set<IShutdownStream>();
+  /** L'arrêt a commencé : un flux inscrit désormais est terminé au tour suivant. */
+  #closing = false;
+  /** Fin de l'attente de l'arrêt, appelée au retrait du dernier flux. */
+  #onEmpty: (() => void) | null = null;
+
+  /** Nombre de flux ouverts. */
+  get size(): number {
+    return this.#entries.size;
+  }
+
+  /**
+   * Inscrit un flux. Pendant l'arrêt, il est terminé au tour suivant — une
+   * fois son appel RPC relié, qui ne l'est qu'après l'ouverture.
+   */
+  add(stream: IShutdownStream): void {
+    this.#entries.add(stream);
+    if (this.#closing) setImmediate(shutdownLate, stream);
+  }
+
+  /** Retire un flux (idempotent) ; le dernier retiré met fin à l'attente. */
+  delete(stream: IShutdownStream): void {
+    if (!this.#entries.delete(stream) || this.#entries.size !== 0) return;
+    const done = this.#onEmpty;
+    this.#onEmpty = null;
+    done?.();
+  }
+
+  /**
+   * L'arrêt : termine chaque flux, puis attend que tous se soient retirés, au
+   * plus `waitMs`.
+   *
+   * @param waitMs - attente maximale des fermetures.
+   * @returns le nombre de flux encore ouverts à la fin de l'attente — tout de
+   *   suite quand il n'y a rien à attendre, sinon sa promesse.
+   */
+  shutdown(waitMs: number): number | Promise<number> {
+    this.#closing = true;
+    // Un flux fermé se retire pendant le parcours : un `Set` le supporte,
+    // l'élément retiré n'est simplement plus visité.
+    for (const stream of this.#entries) stream.shutdown();
+    if (this.#entries.size === 0) return 0;
+    return new Promise<number>((resolve) => {
+      const timer = setTimeout(() => {
+        this.#onEmpty = null;
+        resolve(this.#entries.size);
+      }, waitMs);
+      this.#onEmpty = () => {
+        clearTimeout(timer);
+        resolve(0);
+      };
+    });
+  }
+}
+
+/** Termine un flux inscrit pendant l'arrêt (rappel de `setImmediate`). */
+function shutdownLate(stream: IShutdownStream): void {
+  stream.shutdown();
 }
 
 /**
@@ -617,6 +762,7 @@ export function openStreamLifecycle(
     revalidate,
     identifier,
     foreignWriter: options.foreignWriter ?? false,
+    endsAtShutdown: options.endsAtShutdown ?? true,
   });
   if (gone) {
     lifecycle.finish();

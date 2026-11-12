@@ -61,6 +61,15 @@ export interface IRpcCall extends IRpcOutcome {
    */
   revoke(): void;
   /**
+   * Le serveur s'arrête : termine l'appel au format de son protocole (gRPC :
+   * 14 `UNAVAILABLE`, « réessaie, ailleurs »). Appelé par le noyau à l'arrêt,
+   * AVANT le drain des connexions, pour chaque flux long encore ouvert
+   * (ADR-0026 D8) — à la place de la destruction du transport à
+   * `shutdownTimeout`, qui ne dirait au client qu'une coupure. Sans effet sur
+   * un appel déjà terminé, ou déjà interrompu.
+   */
+  shutdown(): void;
+  /**
    * Fixe le code de l'appel, une fois, au `close` de la réponse — appelé par
    * le noyau AVANT la ligne d'accès (`HttpKernel.teardownHttp`, ADR-0026 D10
    * point 2). Les appels suivants ne changent rien.

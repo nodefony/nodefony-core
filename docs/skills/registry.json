@@ -7264,6 +7264,10 @@
             ],
             "env": [
               {
+                "name": "H2C_URL",
+                "help": ""
+              },
+              {
                 "name": "HTTP_SLOW_URL",
                 "help": ""
               },
@@ -7315,6 +7319,55 @@
             "env": [],
             "output": "tableau msg/s et µs/msg par camp, plancher de l'adaptateur et verdict de séparation ; code 1 si une passe est invalide",
             "selfDocumented": true
+          },
+          {
+            "path": "scripts/grpc-unary-vs-open-streams.mjs",
+            "purpose": "Banc #695 critère 34 (ADR-0026 D8) — le coût d'un appel gRPC UNAIRE ne doit pas dépendre du nombre de flux longs ouverts sur le serveur.",
+            "usage": [
+              "node .claude/skills/nodefony-load-test/scripts/grpc-unary-vs-open-streams.mjs"
+            ],
+            "options": [
+              {
+                "flag": "--detach",
+                "help": ""
+              },
+              {
+                "flag": "--no-watch",
+                "help": ""
+              },
+              {
+                "flag": "--wait",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "CALLS",
+                "help": ""
+              },
+              {
+                "name": "H2C_URL",
+                "help": ""
+              },
+              {
+                "name": "OUT",
+                "help": ""
+              },
+              {
+                "name": "PASSES",
+                "help": ""
+              },
+              {
+                "name": "SCOPES_URL",
+                "help": ""
+              },
+              {
+                "name": "STEPS",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
           },
           {
             "path": "scripts/h2c-vs-h1-bare.mjs",

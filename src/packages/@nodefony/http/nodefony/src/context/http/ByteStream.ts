@@ -36,7 +36,7 @@ import {
  * Raison de la fin d'un flux d'octets.
  *
  * - `end` : la source est finie, ou le serveur a fermé le flux (durée de vie,
- *   révocation de l'identité) ;
+ *   révocation de l'identité, arrêt du serveur pour un flux `live`) ;
  * - `client` : le client est parti ;
  * - `error` : la source a échoué ;
  * - `timeout` : la source est restée muette plus de `idleTimeout` ;
@@ -570,6 +570,10 @@ export function openByteStream(
       label: "Flux",
       stallTimeout: options.stallTimeout ?? SSE_STALL_TIMEOUT_MS,
       maxDuration: options.maxDuration ?? false,
+      // Un flux vivant n'a pas de fin à lui : terminé à l'arrêt du serveur. Une
+      // source finie (une archive) garde le drain pour finir — la tronquer
+      // d'une fin propre ferait croire au client un corps complet.
+      endsAtShutdown: settings.live,
     });
   } catch (error) {
     // La source appartient au flux dès l'appel : refusée, personne d'autre ne

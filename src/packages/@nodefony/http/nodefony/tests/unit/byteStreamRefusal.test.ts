@@ -37,6 +37,8 @@ function contextOf(state: {
     httpKernel: {
       acquireConnectionSlot: () => state.slot ?? true,
       firewall: null,
+      trackStream: () => undefined,
+      untrackStream: () => undefined,
     },
     log: () => undefined,
   };

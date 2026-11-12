@@ -60,7 +60,7 @@ export class GrpcCall implements ContextValues, IRpcCall {
   #reject: ((reason: unknown) => void) | null = null;
   /**
    * Pourquoi le serveur a interrompu l'appel — délai échu (4), identité
-   * révoquée (16) —, `null` tant qu'il ne l'a pas fait. Posé une fois : la
+   * révoquée (16), arrêt du serveur (14) —, `null` tant qu'il ne l'a pas fait. Posé une fois : la
    * première cause gagne.
    */
   #reason: ConnectError | null = null;
@@ -248,6 +248,18 @@ export class GrpcCall implements ContextValues, IRpcCall {
     this.#interrupt(
       new ConnectError("identité révoquée", Code.Unauthenticated),
     );
+  }
+
+  /**
+   * Le serveur s'arrête : le signal de l'appel s'abaisse et l'appel se termine
+   * en 14 `UNAVAILABLE` — le client le rejoue ailleurs (ADR-0026 D8). Flux : il
+   * s'arrête au message suivant, même si le gestionnaire ne lit pas son
+   * signal. Un gestionnaire bloqué qui n'écoute rien tombe avec sa connexion, à
+   * `shutdownTimeout`. Sans effet après la fin, ou après une autre interruption.
+   */
+  shutdown(): void {
+    if (this.#reason !== null) return;
+    this.#interrupt(new ConnectError("le serveur s'arrête", Code.Unavailable));
   }
 
   /**

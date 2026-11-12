@@ -90,6 +90,9 @@ message StallRequest {
   bool block = 1;
   // Relie un appel bloqué à l'appel qui lit son interruption.
   string witness = 2;
+  // `block` faux : attend ce délai (ms) avant de répondre — un unaire en vol
+  // pendant l'arrêt du serveur (ADR-0026 D8 point 3).
+  uint32 delay_ms = 3;
 }
 
 message WatchRequest {
@@ -97,6 +100,9 @@ message WatchRequest {
   uint32 bytes = 2;
   bool follow = 3;
   string witness = 4;
+  // `follow` vrai et non nul : un message toutes les `interval_ms`, SANS lire
+  // son signal — gestionnaire sourd qui produit (ADR-0026 D8 point 2).
+  uint32 interval_ms = 5;
 }
 
 message WatchResponse {

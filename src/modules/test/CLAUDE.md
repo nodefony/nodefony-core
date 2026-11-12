@@ -292,6 +292,8 @@ cours de flux : `GET /nodefony/test/sse/revoke?jti=…` (liste de refus du `toke
 | `Converse` | flux bidirectionnel ENTRELACÉ (corps lu au fil de l'eau, route `bodyStream`)                                                                                                                                                        |
 | `Fail`     | `FAILED_PRECONDITION` au format de chaque protocole, jamais un 500                                                                                                                                                                  |
 | `Mirror`   | types complexes (`complex.proto` : récursion, `oneof`, `map`, 64 bits, `Any`…), 512 Kio                                                                                                                                             |
+| `Stall`    | échéance d'un unaire (D4) ; `block` = ne répond jamais, sourd ; `delay_ms` = répond après ce délai — unaire en vol pendant l'arrêt (D8)                                                                                             |
+| `Watch`    | flux serveur long ; `follow` + `interval_ms` = producteur SOURD (un message par intervalle, signal ignoré) ; muet sinon jusqu'à l'annulation — arrêt du serveur (D8, `graceful-shutdown-e2e.mjs`)                                   |
 | `Who`      | numéro d'instance : une neuve par appel sous `@Scope("request")`                                                                                                                                                                    |
 
 Banc : `framework/nodefony/tests/integration/grpc.test.ts` (matrice 5151/5152/5153 × gRPC,
