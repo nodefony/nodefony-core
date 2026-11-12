@@ -73,15 +73,23 @@ describe("RED-TEAM NodefonySse — serveur hostile", () => {
     // la 2ᵉ tentative partirait à 400 ms — tous les clients ensemble.
     const random = vi.spyOn(Math, "random").mockReturnValue(1);
     try {
-      const decor = await serve((_req, res) => {
+      // Une seule horloge, celle du processus (client et serveur y vivent) :
+      // fin de la 1ʳᵉ réponse, arrivée de la 2ᵉ connexion.
+      let ended = 0;
+      let returned = 0;
+      const decor = await serve((_req, res, n) => {
         stream(res);
+        if (n === 1) res.on("finish", () => (ended = performance.now()));
+        if (n === 2) returned = performance.now();
         res.end("data: x\n\n");
       });
       track(new NodefonySse(decor.url, { retry: 400 }));
-      await wait(500);
-      expect(decor.hits.length, "reconnexion avant 1,5 × retry").to.equal(1);
-      await wait(300);
-      expect(decor.hits.length).to.equal(2);
+      await until(() => decor.hits.length >= 2);
+      expect(decor.hits.length, "le client revient").to.be.at.least(2);
+      // Borne BASSE seulement : un minuteur ne part jamais en avance, une
+      // machine lente peut toujours retarder (vécu : runner macOS). Sans
+      // gigue, la reconnexion partirait à 400 ms.
+      expect(returned - ended, "délai = 1,5 × retry").to.be.at.least(590);
     } finally {
       random.mockRestore();
     }
