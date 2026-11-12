@@ -1779,6 +1779,41 @@ describe("GrpcEndpoint — appel révoqué en cours (critère 31, ADR-0026 D6)",
       await server.close();
     }
   });
+
+  // Un gestionnaire qui ÉCOUTE son signal et rend la main normalement : sa fin
+  // porte le statut de l'interruption — jamais `OK`, qui ferait passer un flux
+  // tronqué pour complet. Avant ET après le premier message.
+  for (const before of [0, 2]) {
+    it(`gestionnaire qui écoute puis rend la main après ${before} message(s) : unauthenticated, pas OK`, async () => {
+      const service = makeService(true);
+      const server = await serveWith(
+        new GrpcEndpoint(service, { perCall: true }),
+        () => ({
+          async *watch(
+            _request: unknown,
+            ctx: { values: unknown; signal: AbortSignal },
+          ) {
+            for (let i = 0; i < before; i++) yield { text: String(i) };
+            setTimeout(() => revoke(ctx), 5);
+            await new Promise<void>((resolve) =>
+              ctx.signal.addEventListener("abort", () => resolve(), {
+                once: true,
+              }),
+            );
+          },
+        }),
+      );
+      try {
+        const r = await connectStream(server.url, service, "Watch", [
+          { text: "x" },
+        ]);
+        expect(r.messages).to.have.length(before);
+        expect(r.error?.code).to.equal("unauthenticated");
+      } finally {
+        await server.close();
+      }
+    });
+  }
 });
 
 describe("GrpcCall.settle — code de l'appel lu au close (critères 36 et 37, ADR-0026 D10)", () => {
