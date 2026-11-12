@@ -1094,6 +1094,7 @@
         "src/packages/@nodefony/devkit/vitest.browser.config.ts",
         "src/packages/@nodefony/devkit/vitest.integration.config.ts",
         "src/packages/@nodefony/drizzle/vitest.config.ts",
+        "src/packages/@nodefony/framework/vitest.integration.config.ts",
         "src/packages/@nodefony/http/vitest.integration.config.ts",
         "src/packages/@nodefony/http/vitest.load.config.ts",
         "src/packages/@nodefony/http/vitest.proxy.config.ts",
