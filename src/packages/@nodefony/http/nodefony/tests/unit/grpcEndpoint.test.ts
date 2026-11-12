@@ -190,6 +190,10 @@ interface IFakeContext {
     isHeaderSent(): boolean;
     /** Délai de réponse du contexte (`Response.timeout`, ms). */
     timeout: number;
+    /** Chaque recopie de la réserve : le type donné, et si la réponse était déjà partie. */
+    commits: Array<{ type: string | undefined; headersSent: boolean }>;
+    /** Recopie de la réserve (`HttpResponse.commitHeaders`) : pose un témoin natif. */
+    commitHeaders(contentType?: string): void;
   };
   request: { request: http.IncomingMessage; url: URL };
   /** L'appel RPC du contexte (`HttpContext.rpc`), posé par `serve`. */
@@ -235,6 +239,12 @@ function fakeContext(
       response: res,
       isHeaderSent: () => res.headersSent,
       timeout: responseTimeout,
+      commits: [],
+      commitHeaders(contentType) {
+        this.commits.push({ type: contentType, headersSent: res.headersSent });
+        // Ce que la réserve porte (CORS, corrélation…) : posé en natif.
+        if (!res.headersSent) res.setHeader("x-pipeline", "reserve");
+      },
     },
     request: { request: req, url: new URL(req.url ?? "/", "http://localhost") },
     rpc: null,
@@ -338,13 +348,13 @@ async function connectJson(
   url: string,
   service: DescService,
   text: string,
-): Promise<{ status: number; body: string }> {
+): Promise<{ status: number; body: string; headers: Headers }> {
   const r = await fetch(url + path(service), {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ text }),
   });
-  return { status: r.status, body: await r.text() };
+  return { status: r.status, body: await r.text(), headers: r.headers };
 }
 
 /** Un appel gRPC-Web : une enveloppe de 5 octets, message vide. */
@@ -441,6 +451,13 @@ describe("GrpcEndpoint.serve — sur un vrai serveur HTTP/1.1", () => {
       const r = await connectJson(srv.url, service, "bonjour");
       expect(r.status).to.equal(200);
       expect(JSON.parse(r.body)).to.deep.equal({ text: "A:bonjour" });
+      // La réserve du pipeline est recopiée AVANT que l'adaptateur n'écrive,
+      // au type de la requête — et Connect la laisse partir (ADR-0026 D6).
+      expect(srv.served[0]?.context.response.commits).to.deep.equal([
+        { type: "application/json", headersSent: false },
+      ]);
+      expect(r.headers.get("x-pipeline")).to.equal("reserve");
+      expect(r.headers.get("content-type")).to.equal("application/json");
       const ctx = target.calls[0];
       expect(ctx?.values).to.be.instanceOf(GrpcCall);
       expect(ctx?.values instanceof GrpcCall && ctx.values.target).to.equal(

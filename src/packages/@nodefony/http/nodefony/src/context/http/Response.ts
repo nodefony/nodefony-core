@@ -600,25 +600,47 @@ class HttpResponse {
   }
 
   /**
-   * Recopie la réserve sur la réponse Node, pour un émetteur qui écrit sans
-   * passer par {@link writeHead} — fichier statique, relais vers un amont. La
-   * réserve se vide ; ce qui se pose ensuite y retourne, et Node fusionne les
-   * deux au `writeHead`.
+   * Range les en-têtes de corrélation du contexte — `X-Request-Id` et le
+   * `traceparent` W3C — que toute réponse renvoie, quel qu'en soit l'émetteur.
+   * Validés par Node à la remise, comme le reste de la réserve.
    */
-  commitHeaders(): void {
+  protected putCorrelationHeaders(): void {
+    if (this.context.requestId) {
+      this.#put("x-request-id", this.context.requestId);
+    }
+    if (this.context.traceparent) {
+      this.#put("traceparent", this.context.traceparent);
+    }
+  }
+
+  /**
+   * Recopie la réserve sur la réponse Node, pour un émetteur qui écrit sans
+   * passer par {@link writeHead} — fichier statique, relais vers un amont,
+   * adaptateur RPC. La réserve se vide ; ce qui se pose ensuite y retourne, et
+   * Node fusionne les deux au `writeHead` (l'émetteur l'emporte, nom par nom).
+   *
+   * @param contentType - type de la réponse que l'émetteur écrira, quand il
+   *   est connu d'avance (adaptateur RPC). Omis : il se lit à l'extension du
+   *   chemin, comme le serveur statique le fera.
+   */
+  commitHeaders(contentType?: string): void {
     const res = this.response;
     if (res === null || res.headersSent) return;
     if (this.headerPolicy !== null) {
-      // Le tiers posera le type APRÈS cette recopie : celui d'un fichier se lit
-      // à son extension, comme le serveur statique le fera. Sans extension
-      // connue (index d'un dossier), type inconnu → politique complète. Un `/`
-      // final vise un dossier, dont l'index est servi quel que soit son nom :
-      // `mime.lookup("/dir.js/")` rendrait `text/javascript` à tort.
-      const pathname = this.context.request.pathname;
-      const type = pathname.endsWith("/") ? false : mime.lookup(pathname);
+      let type: string | undefined = contentType;
+      if (type === undefined) {
+        // Sans extension connue (index d'un dossier), type inconnu → politique
+        // complète. Un `/` final vise un dossier, dont l'index est servi quel
+        // que soit son nom : `mime.lookup("/dir.js/")` rendrait
+        // `text/javascript` à tort.
+        const pathname = this.context.request.pathname;
+        const found = pathname.endsWith("/") ? false : mime.lookup(pathname);
+        if (found !== false) type = found;
+      }
       // Corps écrit par le tiers : aucun nonce n'y figure (ADR-0024 §C1).
-      this.applyHeaderPolicy(type === false ? undefined : type, true);
+      this.applyHeaderPolicy(type, true);
     }
+    this.putCorrelationHeaders();
     const list = this.#store();
     for (let i = 0; i + 1 < list.length; i += 2) {
       const name = list[i];
@@ -986,16 +1008,7 @@ class HttpResponse {
       if (headers) {
         this.#apply(headers);
       }
-      // Validés par Node au `writeHead`, comme lorsqu'ils étaient posés ici
-      // par `setHeader` natif.
-      if (this.context.requestId) {
-        this.#put("x-request-id", this.context.requestId);
-      }
-      // P2.7 — echo W3C traceparent so downstream services and clients can
-      // continue the trace. Header name is lower-case per the spec.
-      if (this.context.traceparent) {
-        this.#put("traceparent", this.context.traceparent);
-      }
+      this.putCorrelationHeaders();
       this.setLength();
       this.ensureContentTypeHeader();
       this.applyHeaderPolicy(this.contentTypeForPolicy());

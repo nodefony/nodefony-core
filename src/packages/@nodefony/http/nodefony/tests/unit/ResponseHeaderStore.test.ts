@@ -182,6 +182,28 @@ describe("HttpResponse — réserve d'en-têtes (#727)", () => {
     expect(lines.join("\n")).to.include("default-src 'self'");
   });
 
+  it("commitHeaders recopie aussi la corrélation (X-Request-Id, traceparent) — un seul exemplaire si un writeHead suit", () => {
+    const { r, res } = make();
+    const trace = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01";
+    Reflect.set(r.context, "traceparent", trace);
+    // Écrit par un tiers (statique, relais, adaptateur RPC) : jamais par writeHead.
+    r.commitHeaders();
+    res.setHeader("Content-Type", "application/grpc");
+    res.writeHead(200);
+    res.end();
+    const lines = wire(res);
+    expect(lines).to.include("x-request-id: req-1");
+    expect(lines).to.include(`traceparent: ${trace}`);
+    // Un refus du pipeline APRÈS la recopie : la corrélation reste unique.
+    const second = make();
+    second.r.commitHeaders();
+    second.r.setBody("{}");
+    second.r.writeHead(404);
+    expect(
+      wire(second.res).filter((l) => /^x-request-id:/i.test(l)),
+    ).to.deep.equal(["x-request-id: req-1"]);
+  });
+
   it("statique servi : la réserve est recopiée à la PREMIÈRE écriture du tiers, avant elle", () => {
     const { r, res } = make();
     r.setHeader("Content-Security-Policy", "default-src 'self'");
@@ -373,6 +395,16 @@ describe("HttpResponse — politique d'en-têtes armée, choisie au writeHead (A
     expect(calls).to.deep.equal(["text/javascript"]);
     expect(String(Reflect.get(res, "_header"))).to.match(/^HTTP\/1\.1 304 /);
     expect(wire(res)).to.include("content-security-policy: fw");
+  });
+
+  it("type fourni par l'émetteur (adaptateur RPC) : il prime sur l'extension du chemin", () => {
+    // `/pkg.Service/Method` n'a pas d'extension ; `/x.v1.S/Get.js` en aurait
+    // une — le type que l'adaptateur écrira fait foi dans les deux cas.
+    const { r } = makeAt("/x.v1.S/Get.js");
+    const calls = arm(r);
+    r.commitHeaders("application/grpc+proto");
+    expect(calls).to.deep.equal(["application/grpc+proto"]);
+    expect(servedAsFile).to.deep.equal([true]);
   });
 
   it("statique visant un dossier (`/` final) : type inconnu, même si son nom a une extension", () => {

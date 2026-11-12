@@ -120,6 +120,9 @@ class Http2Response extends HttpResponse {
           }
         }
         this.statusMessage = this.getStatusMessage();
+        // Le chemin du flux HTTP/2 ne passe pas par `super.writeHead` : la
+        // corrélation entre dans la réserve ici, comme là-bas.
+        this.putCorrelationHeaders();
         this.setLength();
         this.ensureContentTypeHeader();
         this.applyHeaderPolicy(this.contentTypeForPolicy());
@@ -130,15 +133,6 @@ class Http2Response extends HttpResponse {
           this.headerList(),
         );
         this.headers[HTTP2_HEADER_STATUS] = this.statusCode;
-        // Request tracing — le chemin stream HTTP/2 bypasse super.writeHead
-        // (http/Response.ts), donc on pose ICI les headers de corrélation,
-        // sinon les réponses HTTP/2 (port 5152) n'ont NI x-request-id NI
-        // traceparent → la debug bar / profiler ne peut pas corréler.
-        const requestId = (this.context as { requestId?: string }).requestId;
-        if (requestId) this.headers["x-request-id"] = requestId;
-        const traceparent = (this.context as { traceparent?: string | null })
-          .traceparent;
-        if (traceparent) this.headers["traceparent"] = traceparent;
         // Un statut gRPC dans les EN-TÊTES = réponse _Trailers-Only_ : le flux
         // se termine sur la trame d'en-têtes (`grpc-PROTOCOL-HTTP2.md`). Une
         // fin portée par une trame DATA vide est lue `INTERNAL` par les

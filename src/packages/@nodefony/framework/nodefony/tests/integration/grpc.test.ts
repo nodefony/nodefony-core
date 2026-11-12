@@ -96,6 +96,9 @@ const H2C_SERVED: ICase[] = [
   },
 ];
 
+/** Origine de confiance du décor (`security.cors.origins` du module `test`). */
+const CORS_ORIGIN = "https://trusted.example";
+
 /** La matrice servie d'ADR-0026 D3 (`connect-node-server-plugins.md`). */
 const SERVED: ICase[] = [
   {
@@ -307,6 +310,36 @@ describe("gRPC — matrice servie (critère 13, ADR-0026 D3)", () => {
         expect(r.requestId, "requestId du contexte Nodefony").to.match(
           /^[0-9a-f-]{36}$/,
         );
+      });
+
+      it(`${label} : en-têtes du pipeline présents — corrélation, CORS, transport (critère 30)`, async () => {
+        const client = createClient(EchoService, c.transport(binary));
+        const traceId = "0af7651916cd43dd8448eb211c80319c";
+        const seen: { headers: Headers | null } = { headers: null };
+        const r = await client.say(
+          { sentence: "en-têtes" },
+          {
+            headers: {
+              origin: CORS_ORIGIN,
+              traceparent: `00-${traceId}-b7ad6b7169203331-01`,
+            },
+            onHeader: (headers) => (seen.headers = headers),
+          },
+        );
+        const h = seen.headers;
+        expect(h, "en-têtes de réponse reçus").not.to.equal(null);
+        if (h === null) return;
+        expect(
+          h.get("x-request-id"),
+          "X-Request-Id = celui du contexte",
+        ).to.equal(r.requestId);
+        // Trace W3C poursuivie : même trace, nouveau parent.
+        expect(h.get("traceparent")).to.match(
+          new RegExp(`^00-${traceId}-[0-9a-f]{16}-01$`),
+        );
+        expect(h.get("access-control-allow-origin")).to.equal(CORS_ORIGIN);
+        expect(h.get("vary") ?? "").to.match(/(^|,\s*)Origin(\s*,|$)/i);
+        expect(h.get("x-content-type-options")).to.equal("nosniff");
       });
 
       it(`${label} : erreur levée → statut 9 au format du protocole`, async () => {

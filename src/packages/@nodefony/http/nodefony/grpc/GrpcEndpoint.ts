@@ -110,6 +110,12 @@ export interface IGrpcEndpointOptions {
 }
 
 /**
+ * Type retenu pour la politique d'en-têtes d'un appel sans `Content-Type` (GET
+ * Connect, dont le codage passe en paramètre d'URL).
+ */
+const RPC_RESPONSE_TYPE = "application/proto";
+
+/**
  * Point d'entrée gRPC d'un service : possède l'adaptateur Connect
  * (`connectNodeAdapter`) et lui confie la requête et la réponse BRUTES de Node
  * d'un contexte déjà passé par le pipeline (pare-feu, gardes).
@@ -248,6 +254,12 @@ export class GrpcEndpoint<S extends DescService = DescService> {
    * Remet la requête à l'adaptateur. La fiche d'appel est créée par
    * `contextValues`, appelée de façon SYNCHRONE dans l'appel : les cases
    * `#pending*` ne vivent que le temps de celui-ci.
+   *
+   * L'adaptateur écrit sur la réponse Node : ce que le pipeline a posé dans la
+   * réserve — transport, CORS et `Vary`, corrélation (`X-Request-Id`,
+   * `traceparent`), politique de sécurité, cookie de session — y passe d'abord
+   * (ADR-0026 D6). Node fusionne au `writeHead` de l'adaptateur, qui garde la
+   * main sur ce qu'il écrit lui-même (`content-type`).
    */
   #hand(
     context: HttpContext,
@@ -255,6 +267,12 @@ export class GrpcEndpoint<S extends DescService = DescService> {
     handler: NodeHandler,
     nodeResponse: NonNullable<HttpContext["response"]["response"]>,
   ): void {
+    // Le type de la réponse reprend celui de la requête (gRPC, gRPC-Web,
+    // Connect) ; un GET Connect n'en porte pas. Aucun n'est un document : la
+    // politique courte des ressources.
+    context.response.commitHeaders(
+      context.request.request.headers["content-type"] ?? RPC_RESPONSE_TYPE,
+    );
     this.#pendingTarget = target;
     this.#pendingContext = context;
     try {
