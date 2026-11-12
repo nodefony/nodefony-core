@@ -6,7 +6,7 @@ import {
   RealtimeController,
 } from "@nodefony/realtime";
 import type { RealtimePublish } from "@nodefony/realtime";
-import { Context } from "@nodefony/http";
+import { Context, isWebsocketContext } from "@nodefony/http";
 import { JsonRpcServerError, RpcError } from "nodefony";
 
 /**
@@ -15,6 +15,23 @@ import { JsonRpcServerError, RpcError } from "nodefony";
  * connexion, le canal par processus).
  */
 let publishTick: RealtimePublish | null = null;
+
+/** Bornes de `codec:burst` : voir {@link LiveCodecController.burst}. */
+const BURST_MAX_COUNT = 100_000;
+const BURST_MAX_BYTES = 65_536;
+/** File d'envoi au-delà de laquelle la rafale rend la main (seuil d'un flux Node). */
+const BURST_HIGH_WATER = 16_384;
+
+/** Entier `0 ≤ n ≤ max` lu dans les paramètres d'une action, 0 sinon. */
+function readBound(params: unknown, key: string, max: number): number {
+  if (typeof params !== "object" || params === null || !(key in params)) {
+    return 0;
+  }
+  const value: unknown = Reflect.get(params, key);
+  return typeof value === "number" && Number.isInteger(value) && value > 0
+    ? Math.min(value, max)
+    : 0;
+}
 
 /**
  * Banc du **codec binaire sur un serveur réel** (ADR-0022 §2) : une poignée de
@@ -78,6 +95,42 @@ class LiveCodecController extends RealtimeController {
     if (publishTick === null) return { published: false };
     publishTick("codec:tick", { seq, data: new Uint8Array([1, 2, 3, 255]) });
     return { published: true };
+  }
+
+  /**
+   * Rafale vers CETTE connexion (`codec:item`, notification ciblée) : `count`
+   * messages de `bytes` octets — le pendant d'un flux serveur gRPC (`Watch`),
+   * pour comparer leurs débits à charge utile égale (#695, critère 22).
+   *
+   * L'émetteur respecte la contre-pression comme l'adaptateur gRPC attend
+   * `drain` : il rend la main tant que la file d'envoi dépasse 16 Kio (le seuil
+   * d'un flux Node). Sans cela il mesurerait la vitesse de remplissage d'une
+   * file, et la politique `drop` jetterait des trames. Bornée (100 000 messages,
+   * 64 Kio) : le module de test est réservé au développement, la borne évite
+   * qu'une faute de frappe sature le poste.
+   *
+   * @returns messages émis, et trames jetées par la contre-pression (0 attendu).
+   */
+  @RealtimeAction("codec:burst", { authenticated: false })
+  async burst(params: unknown): Promise<{ sent: number; dropped: number }> {
+    const count = readBound(params, "count", BURST_MAX_COUNT);
+    const bytes = readBound(params, "bytes", BURST_MAX_BYTES);
+    const ctx = this.context;
+    const transport =
+      ctx !== undefined && isWebsocketContext(ctx)
+        ? (ctx.__nfRealtime?.transport ?? null)
+        : null;
+    if (transport === null) return { sent: 0, dropped: 0 };
+    const dropped = transport.dropped;
+    const data = new Uint8Array(bytes);
+    for (let seq = 0; seq < count; seq++) {
+      while (transport.bufferedAmount > BURST_HIGH_WATER) {
+        if (transport.readyState !== 1) return { sent: seq, dropped: 0 };
+        await new Promise<void>((resolve) => setImmediate(resolve));
+      }
+      this.notifyClient("codec:item", { seq, data });
+    }
+    return { sent: count, dropped: transport.dropped - dropped };
   }
 
   /** Canal de diffusion du banc, alimenté par {@link publish}. */
