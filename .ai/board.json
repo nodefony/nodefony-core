@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-11T22:35:48.911Z",
+  "generatedAt": "2026-11-12T00:22:35.645Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -49,7 +49,7 @@
       "closed": 257,
       "dueOn": "2026-11-15T00:00:00Z",
       "number": 7,
-      "open": 14,
+      "open": 15,
       "title": "10.0.0-beta"
     },
     {
@@ -6526,6 +6526,23 @@
       "debut": null,
       "cible": null,
       "labels": [
+        "beta-7"
+      ]
+    },
+    {
+      "number": 767,
+      "title": "fix(http): rendre 503 sur délai d'action dépassé, réglable par route",
+      "url": "https://github.com/nodefony/nodefony-core/issues/767",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 7.03,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "irrattrapable",
         "beta-7"
       ]
     },

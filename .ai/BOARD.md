@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-11-11 22:35** (UTC).
+> Empreinte prise le **2026-11-12 00:22** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -21,7 +21,7 @@
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 96% | 137 | 5 | 2026-11-15 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `██████████` 95% | 257 | 14 | 2026-11-15 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 94% | 257 | 15 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 13% | 7 | 46 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 33 | — |
 | **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 8 | — |
@@ -160,13 +160,14 @@ Ordre 7.06 · P1 — figé à la création · 0.5 j · jalon 10.0.0 · frise 202
 | 925.4 | P3 — fin de cycle | 2 | — | #730 | feat(security): partager et afficher les rapports de violation CSP |
 | 925.5 | P3 — fin de cycle | 1 | — | #728 | feat(client): signer les styles créés à l'exécution sous CSP stricte |
 
-## Jalon 10.0.0-beta — 14 ouverts
+## Jalon 10.0.0-beta — 15 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
 | 7.01 | P2 — décision | 6.5 | — | #694 | feat(http): servir des services gRPC dans le pipeline HTTP/2 |
 | 7.02 | P2 — décision | 3 | — | #695 | feat(http): déclarer et servir un service gRPC depuis un module |
 | 7.025 | P2 — décision | 2 | — | #764 | feat(cli): générer un service gRPC avec create controller --kind grpc |
+| 7.03 | P1 — figé à la création | 1 | — | #767 | fix(http): rendre 503 sur délai d'action dépassé, réglable par route |
 | 7.05 | P2 — décision | 0.5 | 2026-11-19 → 11-19 | #89 | docs(notification): faire la veille des canaux de communication attendus |
 | 7.08 | P2 — décision | 11.25 | 2026-11-10 → 11-16 | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
 | 7.09 | P2 — décision | 3.25 | 2026-11-10 → 11-16 | #445 | test(ecosysteme): éprouver le framework par un module tiers temps réel |
