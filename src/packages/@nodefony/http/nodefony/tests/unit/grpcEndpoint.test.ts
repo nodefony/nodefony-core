@@ -197,7 +197,7 @@ function fakeContext(
   req: http.IncomingMessage,
   res: http.ServerResponse,
   settings: Partial<IGrpcSettings> | null,
-  responseTimeout: number,
+  responseTimeout = 30_000,
 ): IFakeContext {
   return {
     sended: false,
@@ -670,7 +670,10 @@ function msgHead(textLength: number, out: Uint8Array): Uint8Array {
 }
 
 /** Une enveloppe gRPC-Web : drapeau, longueur sur 32 bits, message. */
-function envelope(payload: Uint8Array, compressed = false): Uint8Array {
+function envelope(
+  payload: Uint8Array,
+  compressed = false,
+): Uint8Array<ArrayBuffer> {
   const out = new Uint8Array(5 + payload.length);
   out[0] = compressed ? 1 : 0;
   new DataView(out.buffer).setUint32(1, payload.length);
@@ -691,7 +694,7 @@ interface IGrpcWebReply {
 async function grpcWebCall(
   url: string,
   service: DescService,
-  body: Uint8Array,
+  body: Uint8Array<ArrayBuffer>,
   headers: Record<string, string> = {},
 ): Promise<IGrpcWebReply> {
   const r = await fetch(url + path(service), {
