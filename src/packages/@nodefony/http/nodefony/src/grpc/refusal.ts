@@ -157,6 +157,57 @@ export function transportRefusalCode(
 }
 
 /**
+ * Le code gRPC d'une erreur levée par l'APPLICATION pendant un appel — une
+ * `HttpError` d'un service partagé avec des routes HTTP, une validation, un
+ * conflit (ADR-0026 D7, table « HTTP Mapping » de `google/rpc/code.proto`).
+ * Distincte de la table des refus de transport ({@link transportRefusalCode}) :
+ * un 404 levé par un service dit « entité introuvable » (5), un chemin inconnu
+ * dit « méthode absente » (12). Seule la règle d'identité de 401/403 est
+ * commune (D5).
+ *
+ * `code.proto` associe 409 à `ABORTED` et à `ALREADY_EXISTS` : `ABORTED`, le
+ * sens le plus large, est retenu ; `ALREADY_EXISTS` se lève en `ConnectError`.
+ *
+ * @param status - le statut HTTP que rendrait une route HTTP.
+ * @param identified - un appelant authentifié est connu.
+ * @returns le code gRPC.
+ */
+export function applicationErrorCode(
+  status: number,
+  identified: boolean,
+): number {
+  switch (status) {
+    case 400:
+    case 422:
+      return 3;
+    case 401:
+    case 403:
+      return identified ? GRPC_PERMISSION_DENIED : GRPC_UNAUTHENTICATED;
+    case 404:
+      return 5;
+    case 409:
+      return 10;
+    case 412:
+      return 9;
+    case 413:
+    case 429:
+      return 8;
+    case 499:
+      return 1;
+    case 501:
+      return 12;
+    case 502:
+    case 503:
+      return 14;
+    case 408:
+    case 504:
+      return 4;
+    default:
+      return status >= 500 && status <= 599 ? 13 : 2;
+  }
+}
+
+/**
  * Le code d'un refus en protocole Connect : celui qu'un client DÉDUIT du
  * statut HTTP (`connect-protocol.md`, « HTTP to Error Code »), puisque le
  * statut voyage avec la réponse et doit s'accorder au code. 405 et 421 y

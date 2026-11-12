@@ -473,6 +473,7 @@ export type {
   IErrorRenderer,
   IErrorHttpResult,
   IErrorWebsocketResult,
+  IErrorDescription,
 } from "./nodefony/interfaces/IErrorRenderer";
 export type {
   IRequestLogger,

@@ -29,6 +29,8 @@ import {
   file_google_protobuf_any,
 } from "@bufbuild/protobuf/wkt";
 import {
+  Code,
+  ConnectError,
   createContextKey,
   createHandlerContext,
   type HandlerContext,
@@ -104,7 +106,10 @@ function makeAnyService(): DescService {
 }
 
 let serial = 0;
-function makeService(withStream = false): DescService {
+function makeService(
+  withStream = false,
+  withClientStream = false,
+): DescService {
   serial += 1;
   const file = create(FileDescriptorProtoSchema, {
     name: `endpoint_${serial}.proto`,
@@ -140,6 +145,16 @@ function makeService(withStream = false): DescService {
                   inputType: ".nodefony.httptest.v1.Msg",
                   outputType: ".nodefony.httptest.v1.Msg",
                   serverStreaming: true,
+                },
+              ]
+            : []),
+          ...(withClientStream
+            ? [
+                {
+                  name: "Collect",
+                  inputType: ".nodefony.httptest.v1.Msg",
+                  outputType: ".nodefony.httptest.v1.Msg",
+                  clientStreaming: true,
                 },
               ]
             : []),
@@ -181,7 +196,12 @@ interface IFakeContext {
   httpKernel: (IKernelHooks & { options: { grpc: IGrpcSettings } }) | null;
   logged: unknown[];
   log(error: unknown): void;
+  /** L'identité posée par le pare-feu (`Context.authenticatedUser`). */
+  authenticatedUser(): object | null;
 }
+
+/** L'utilisateur que rendent les contextes factices (règle d'identité, D5). */
+let fakeUser: object | null = null;
 
 /** La section `grpc` telle que Zod la rend : tous les champs, défauts compris. */
 const SETTINGS: IGrpcSettings = {
@@ -225,6 +245,7 @@ function fakeContext(
     log(error) {
       this.logged.push(error);
     },
+    authenticatedUser: () => fakeUser,
   };
 }
 
@@ -1189,6 +1210,303 @@ describe("GrpcEndpoint — échéance d'un appel unaire (critères 19 et 20, ADR
       expect(target.timeoutAtCall).to.equal(undefined);
     } finally {
       await srv.close();
+    }
+  });
+});
+
+// ─── Erreurs de l'application (critères 32 et 56, ADR-0026 D7) ──────────────
+//
+// Débrancher (chacun fait tomber au moins un cas) :
+//   - `translateError` → `return error` (tout redevient 13) ;
+//   - `invoke` : le `catch` (l'erreur synchrone redevient 13) ;
+//   - `settleUnary` : `reject(error)` au lieu de la traduction ;
+//   - `translateSettled` / `translateFirst` : rendre la source telle quelle ;
+//   - `FirstMessageTranslator.next` : traduire AUSSI après le premier message ;
+//   - `FirstMessageTranslator.return` ET `.throw` : ne plus déléguer à la source
+//     (le `finally` ne court plus ; chacun seul est rattrapé par l'autre).
+
+/** Une enveloppe Connect en flux : drapeaux, longueur, JSON. */
+function connectEnvelope(message: object): Uint8Array<ArrayBuffer> {
+  const data = new TextEncoder().encode(JSON.stringify(message));
+  const out = new Uint8Array(5 + data.length);
+  new DataView(out.buffer).setUint32(1, data.length);
+  out.set(data, 5);
+  return out;
+}
+
+interface IConnectError {
+  code?: string;
+  message?: string;
+}
+
+/** Lit un `Error` de Connect (`code`, `message`) dans un JSON reçu. */
+function readConnectError(value: unknown): IConnectError {
+  const error: IConnectError = {};
+  if (typeof value !== "object" || value === null) return error;
+  const code: unknown = Reflect.get(value, "code");
+  const message: unknown = Reflect.get(value, "message");
+  if (typeof code === "string") error.code = code;
+  if (typeof message === "string") error.message = message;
+  return error;
+}
+
+/** Un appel unaire Connect JSON : statut HTTP et corps `Error`. */
+async function connectUnary(
+  url: string,
+  service: DescService,
+): Promise<{ status: number; error: IConnectError }> {
+  const r = await connectJson(url, service, "x");
+  const body: unknown = JSON.parse(r.body);
+  return { status: r.status, error: readConnectError(body) };
+}
+
+/** Un appel Connect en flux : messages reçus et erreur du message de fin. */
+async function connectStream(
+  url: string,
+  service: DescService,
+  method: string,
+  messages: object[],
+): Promise<{ messages: unknown[]; error: IConnectError | null }> {
+  const chunks = messages.map(connectEnvelope);
+  const body = new Uint8Array(chunks.reduce((n, c) => n + c.length, 0));
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.length;
+  }
+  const r = await fetch(`${url}/${service.typeName}/${method}`, {
+    method: "POST",
+    headers: { "content-type": "application/connect+json" },
+    body,
+  });
+  const bytes = new Uint8Array(await r.arrayBuffer());
+  const received: unknown[] = [];
+  let error: IConnectError | null = null;
+  let at = 0;
+  while (at + 5 <= bytes.length) {
+    const flags = bytes[at] ?? 0;
+    const length = new DataView(
+      bytes.buffer,
+      bytes.byteOffset + at + 1,
+      4,
+    ).getUint32(0);
+    const json: unknown = JSON.parse(
+      new TextDecoder().decode(bytes.subarray(at + 5, at + 5 + length)),
+    );
+    if ((flags & 0x02) !== 0) {
+      const end: unknown =
+        typeof json === "object" && json !== null
+          ? Reflect.get(json, "error")
+          : undefined;
+      error = end === undefined ? null : readConnectError(end);
+    } else {
+      received.push(json);
+    }
+    at += 5 + length;
+  }
+  return { messages: received, error };
+}
+
+describe("GrpcEndpoint — erreurs de l'application (critères 32 et 56, ADR-0026 D7)", () => {
+  afterEach(() => {
+    fakeUser = null;
+  });
+
+  /** Sert `target` sur un serveur neuf, rend la réponse unaire Connect. */
+  async function unaryWith(
+    target: object,
+  ): Promise<{ status: number; error: IConnectError }> {
+    const service = makeService();
+    const server = await serveWith(new GrpcEndpoint(service), () => target);
+    try {
+      return await connectUnary(server.url, service);
+    } finally {
+      await server.close();
+    }
+  }
+
+  it("unaire : une HttpError 404 levée de façon synchrone → 5 not_found, son message", async () => {
+    const r = await unaryWith({
+      say() {
+        throw new HttpError("entité introuvable", 404);
+      },
+    });
+    expect(r.status).to.equal(404);
+    expect(r.error).to.deep.equal({
+      code: "not_found",
+      message: "entité introuvable",
+    });
+  });
+
+  it("unaire : la même, rejetée par un gestionnaire asynchrone → 5", async () => {
+    const r = await unaryWith({
+      async say() {
+        await Promise.resolve();
+        throw new HttpError("entité introuvable", 404);
+      },
+    });
+    expect(r.error.code).to.equal("not_found");
+  });
+
+  it("unaire : une exception banale → 13 « internal error », la cause n'est PAS envoyée", async () => {
+    const r = await unaryWith({
+      say() {
+        throw new Error("base injoignable : 10.0.0.7 table users_secret");
+      },
+    });
+    expect(r.status).to.equal(500);
+    expect(r.error).to.deep.equal({
+      code: "internal",
+      message: "internal error",
+    });
+  });
+
+  it("unaire : un code numérique (409) garde son sens → 10 aborted", async () => {
+    const r = await unaryWith({
+      say() {
+        throw Object.assign(new Error("conflit de version"), { code: 409 });
+      },
+    });
+    expect(r.error).to.deep.equal({
+      code: "aborted",
+      message: "conflit de version",
+    });
+  });
+
+  it("unaire : une ConnectError passe telle quelle (son code est voulu)", async () => {
+    const r = await unaryWith({
+      say() {
+        throw new ConnectError("déjà là", Code.AlreadyExists);
+      },
+    });
+    expect(r.error.code).to.equal("already_exists");
+  });
+
+  it("unaire : 403 sans identité → 16 unauthenticated ; identifié → 7 permission_denied (D5)", async () => {
+    const target = {
+      say() {
+        throw new HttpError("refusé", 403);
+      },
+    };
+    expect((await unaryWith(target)).error.code).to.equal("unauthenticated");
+    fakeUser = { id: 1 };
+    expect((await unaryWith(target)).error.code).to.equal("permission_denied");
+  });
+
+  it("flux serveur : une HttpError AVANT le premier message → 5", async () => {
+    const service = makeService(true);
+    const server = await serveWith(
+      new GrpcEndpoint(service, { perCall: true }),
+      () => ({
+        // Lève avant tout `yield` (validation, entité absente) : le cas de D7.
+        async *watch(request: { text: string }) {
+          await Promise.resolve();
+          if (request.text === "x") {
+            throw new HttpError("entité introuvable", 404);
+          }
+          yield request;
+        },
+      }),
+    );
+    try {
+      const r = await connectStream(server.url, service, "Watch", [
+        { text: "x" },
+      ]);
+      expect(r.messages).to.have.length(0);
+      expect(r.error).to.deep.equal({
+        code: "not_found",
+        message: "entité introuvable",
+      });
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("flux serveur : APRÈS le premier message, la même erreur → 13 (borne de D7 point 3)", async () => {
+    const service = makeService(true);
+    const server = await serveWith(
+      new GrpcEndpoint(service, { perCall: true }),
+      () => ({
+        async *watch() {
+          yield { text: "un" };
+          throw new HttpError("entité introuvable", 404);
+        },
+      }),
+    );
+    try {
+      const r = await connectStream(server.url, service, "Watch", [
+        { text: "x" },
+      ]);
+      expect(r.messages).to.deep.equal([{ text: "un" }]);
+      expect(r.error?.code).to.equal("internal");
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("flux client : une HttpError 400 après lecture des messages → 3 invalid_argument", async () => {
+    const service = makeService(true, true);
+    const server = await serveWith(
+      new GrpcEndpoint(service, { perCall: true }),
+      () => ({
+        async collect(requests: AsyncIterable<unknown>) {
+          for await (const _ of requests) {
+            // tout lire
+          }
+          throw new HttpError("lot incomplet", 400);
+        },
+      }),
+    );
+    try {
+      const r = await connectStream(server.url, service, "Collect", [
+        { text: "a" },
+        { text: "b" },
+      ]);
+      expect(r.error).to.deep.equal({
+        code: "invalid_argument",
+        message: "lot incomplet",
+      });
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("flux serveur : un client qui part → le `finally` du gestionnaire s'exécute (return délégué)", async () => {
+    const service = makeService(true);
+    let finished: () => void = () => undefined;
+    const finallyRan = new Promise<void>((resolve) => {
+      finished = resolve;
+    });
+    const server = await serveWith(
+      new GrpcEndpoint(service, { perCall: true }),
+      () => ({
+        // Sourd à son signal : seul un `return` délégué le fait sortir.
+        async *watch() {
+          try {
+            for (;;) {
+              yield { text: "tic" };
+              await new Promise((resolve) => setTimeout(resolve, 5));
+            }
+          } finally {
+            finished();
+          }
+        },
+      }),
+    );
+    try {
+      const abort = new AbortController();
+      const r = await fetch(`${server.url}/${service.typeName}/Watch`, {
+        method: "POST",
+        headers: { "content-type": "application/connect+json" },
+        body: connectEnvelope({ text: "x" }),
+        signal: abort.signal,
+      });
+      const reader = r.body?.getReader();
+      await reader?.read();
+      abort.abort();
+      await finallyRan;
+    } finally {
+      await server.close();
     }
   });
 });

@@ -15,6 +15,21 @@ export interface IErrorHttpResult {
 }
 
 /**
+ * Ce qu'une route HTTP rendrait pour une erreur — son statut et le message
+ * destiné au client —, sans rien écrire. Sert les transports qui n'ont pas de
+ * corps d'erreur à rendre : un appel gRPC traduit ce statut en code
+ * (ADR-0026 D7).
+ *
+ * @experimental Surface gRPC, ADR-0026 D11.
+ */
+export interface IErrorDescription {
+  /** Statut HTTP émettable (100 à 599). */
+  readonly status: number;
+  /** Message pour le client : opaque pour un 5xx en production. */
+  readonly message: string;
+}
+
+/**
  * Aide jointe au corps d'erreur — ce que le développeur doit faire, en clair.
  *
  * **Jamais en production**, et ce n'est pas une précaution de confort : une

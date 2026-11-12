@@ -26,6 +26,8 @@ import {
   type StreamLifecycle,
 } from "../src/context/http/StreamLifecycle";
 import { GRPC_DEFAULT_MAX_MESSAGE_BYTES } from "../src/grpc/limits";
+import { applicationErrorCode } from "../src/grpc/refusal";
+import DefaultErrorRenderer from "../service/error-renderer";
 import { GrpcCall } from "./GrpcCall";
 
 /** Le gestionnaire `(req, res)` que rend l'adaptateur. */
@@ -142,8 +144,8 @@ export class GrpcEndpoint<S extends DescService = DescService> {
    * délai de réponse, le noyau la termine au lieu d'écrire un 408/504.
    */
   readonly #contextValues = (): GrpcCall => {
-    const call = new GrpcCall(this.#pendingTarget);
     const context = this.#pendingContext;
+    const call = new GrpcCall(this.#pendingTarget, context);
     if (context !== null) context.rpc = call;
     return call;
   };
@@ -345,10 +347,10 @@ function settleUnary<T>(
       },
       (error: unknown) => {
         call.detach();
-        // Le motif du gestionnaire passe TEL QUEL : l'adaptateur le traduit
-        // (ConnectError → son code, toute autre valeur → 13 `INTERNAL`).
+        // Erreur de l'application : traduite comme une route HTTP la lirait
+        // (ADR-0026 D7) ; toute autre valeur passe, l'adaptateur en fait 13.
         // oxlint-disable-next-line typescript/prefer-promise-reject-errors
-        reject(error);
+        reject(translateError(error, ctx));
       },
     );
   });
@@ -392,48 +394,215 @@ function registerMethods(
       if (shared !== null) {
         const impl = pick(method, shared);
         router.rpc(method, (request, ctx) =>
-          settleUnary(impl.call(shared, request, ctx), ctx),
+          settleUnary(invoke(impl, shared, request, ctx), ctx),
         );
       } else {
         router.rpc(method, (request, ctx) => {
           const target = callTarget(ctx);
           return settleUnary(
-            pick(method, target).call(target, request, ctx),
+            invoke(pick(method, target), target, request, ctx),
             ctx,
           );
         });
       }
     } else if (isServerStreaming(method)) {
-      router.rpc(
-        method,
-        shared !== null
-          ? pick(method, shared).bind(shared)
-          : (request, ctx) => {
-              const target = callTarget(ctx);
-              return pick(method, target).call(target, request, ctx);
-            },
-      );
+      if (shared !== null) {
+        const impl = pick(method, shared);
+        router.rpc(method, (request, ctx) =>
+          translateFirst(invoke(impl, shared, request, ctx), ctx),
+        );
+      } else {
+        router.rpc(method, (request, ctx) => {
+          const target = callTarget(ctx);
+          return translateFirst(
+            invoke(pick(method, target), target, request, ctx),
+            ctx,
+          );
+        });
+      }
     } else if (isClientStreaming(method)) {
-      router.rpc(
-        method,
-        shared !== null
-          ? pick(method, shared).bind(shared)
-          : (requests, ctx) => {
-              const target = callTarget(ctx);
-              return pick(method, target).call(target, requests, ctx);
-            },
-      );
+      if (shared !== null) {
+        const impl = pick(method, shared);
+        router.rpc(method, (requests, ctx) =>
+          translateSettled(invoke(impl, shared, requests, ctx), ctx),
+        );
+      } else {
+        router.rpc(method, (requests, ctx) => {
+          const target = callTarget(ctx);
+          return translateSettled(
+            invoke(pick(method, target), target, requests, ctx),
+            ctx,
+          );
+        });
+      }
     } else if (isBiDiStreaming(method)) {
-      router.rpc(
-        method,
-        shared !== null
-          ? pick(method, shared).bind(shared)
-          : (requests, ctx) => {
-              const target = callTarget(ctx);
-              return pick(method, target).call(target, requests, ctx);
-            },
-      );
+      if (shared !== null) {
+        const impl = pick(method, shared);
+        router.rpc(method, (requests, ctx) =>
+          translateFirst(invoke(impl, shared, requests, ctx), ctx),
+        );
+      } else {
+        router.rpc(method, (requests, ctx) => {
+          const target = callTarget(ctx);
+          return translateFirst(
+            invoke(pick(method, target), target, requests, ctx),
+            ctx,
+          );
+        });
+      }
     }
+  }
+}
+
+/**
+ * Lit les erreurs comme une route HTTP les lirait : statut et message client
+ * (`DefaultErrorRenderer.describe`). Sans état, partagé par tous les appels.
+ */
+const ERRORS = new DefaultErrorRenderer();
+
+/**
+ * Traduit une erreur levée par l'application en `ConnectError` (ADR-0026 D7) :
+ * une `HttpError` d'un service partagé avec des routes HTTP, une validation, un
+ * conflit, un code numérique, gardent leur sens — 404 → 5 `NOT_FOUND`, et non
+ * 13. Le message suit la règle des routes HTTP (opaque pour un 5xx en
+ * production) ; l'erreur d'origine reste la cause, côté serveur.
+ *
+ * Passent TELLES QUELLES : une `ConnectError` (son code est voulu), une valeur
+ * qui n'est pas une `Error`, et une exception que rien ne classe (statut 500
+ * hors `HttpError`) — l'adaptateur en fait 13 « internal error », sans jamais
+ * envoyer sa cause.
+ *
+ * Chemin d'erreur seulement : rien n'est payé sur un appel qui réussit.
+ */
+function translateError(error: unknown, ctx: HandlerContext): unknown {
+  if (!(error instanceof Error) || error instanceof ConnectError) return error;
+  const { status, message } = ERRORS.describe(error);
+  if (status === 500 && !(error instanceof HttpError)) return error;
+  const call = ctx.values;
+  const identified =
+    call instanceof GrpcCall &&
+    call.context !== null &&
+    call.context.authenticatedUser() !== null;
+  return new ConnectError(
+    message,
+    CONNECT_CODES[applicationErrorCode(status, identified)] ?? Code.Unknown,
+    undefined,
+    undefined,
+    error,
+  );
+}
+
+/**
+ * Le `Code` de Connect de chaque code gRPC (index = numéro, 1 à 16). La table
+ * D7 vit hors du sous-chemin gRPC, sans Connect (ADR-0026 D12) : elle rend
+ * un nombre, que cette correspondance ramène au type attendu.
+ */
+const CONNECT_CODES: readonly (Code | undefined)[] = [
+  undefined,
+  Code.Canceled,
+  Code.Unknown,
+  Code.InvalidArgument,
+  Code.DeadlineExceeded,
+  Code.NotFound,
+  Code.AlreadyExists,
+  Code.PermissionDenied,
+  Code.ResourceExhausted,
+  Code.FailedPrecondition,
+  Code.Aborted,
+  Code.OutOfRange,
+  Code.Unimplemented,
+  Code.Internal,
+  Code.Unavailable,
+  Code.DataLoss,
+  Code.Unauthenticated,
+];
+
+/**
+ * Appelle l'implémentation sur sa cible ; une erreur levée de façon SYNCHRONE
+ * (validation avant toute attente) est traduite ({@link translateError}). Un
+ * `try` ne coûte rien à l'appel qui réussit.
+ */
+function invoke<A, R>(
+  impl: (arg: A, ctx: HandlerContext) => R,
+  target: object,
+  arg: A,
+  ctx: HandlerContext,
+): R {
+  try {
+    return impl.call(target, arg, ctx);
+  } catch (error) {
+    throw translateError(error, ctx);
+  }
+}
+
+/**
+ * Flux client (une seule réponse) : toute erreur est traduite (ADR-0026 D7,
+ * point 3). Une promesse par appel, aucune par message reçu.
+ */
+function translateSettled<T>(
+  result: Promise<T>,
+  ctx: HandlerContext,
+): Promise<T> {
+  return result.then(undefined, (error: unknown) => {
+    throw translateError(error, ctx);
+  });
+}
+
+/**
+ * Flux serveur et bidirectionnel : traduit les erreurs levées AVANT le premier
+ * message (validation, entité introuvable, droit refusé) — là où un service
+ * partagé avec des routes HTTP lève (ADR-0026 D7, point 3). Après le premier
+ * message, l'erreur passe telle quelle : 13, sauf une `ConnectError`, dont le
+ * code est voulu.
+ */
+function translateFirst<T>(
+  source: AsyncIterable<T>,
+  ctx: HandlerContext,
+): AsyncIterable<T> {
+  return new FirstMessageTranslator(source, ctx);
+}
+
+/**
+ * Itérateur d'un flux dont seule la PREMIÈRE lecture est suivie : une
+ * promesse au premier message, puis un appel délégué par message, sans
+ * allocation. `return` et `throw` vont à la source : un gestionnaire
+ * `async function*` voit son `finally` s'exécuter quand le client part.
+ */
+class FirstMessageTranslator<T> implements AsyncIterator<T>, AsyncIterable<T> {
+  readonly #source: AsyncIterator<T>;
+  readonly #ctx: HandlerContext;
+  #started = false;
+
+  constructor(source: AsyncIterable<T>, ctx: HandlerContext) {
+    this.#source = source[Symbol.asyncIterator]();
+    this.#ctx = ctx;
+  }
+
+  [Symbol.asyncIterator](): this {
+    return this;
+  }
+
+  next(): Promise<IteratorResult<T>> {
+    if (this.#started) return this.#source.next();
+    this.#started = true;
+    return this.#source.next().then(undefined, (error: unknown) => {
+      throw translateError(error, this.#ctx);
+    });
+  }
+
+  return(value?: unknown): Promise<IteratorResult<T>> {
+    const source = this.#source;
+    return source.return === undefined
+      ? Promise.resolve({ done: true, value: undefined })
+      : source.return(value);
+  }
+
+  throw(error?: unknown): Promise<IteratorResult<T>> {
+    const source = this.#source;
+    if (source.throw !== undefined) return source.throw(error);
+    return this.return().then(() => {
+      throw error;
+    });
   }
 }
 

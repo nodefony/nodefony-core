@@ -736,6 +736,29 @@ describe("DefaultErrorRenderer — ce qui fuit en production (F189)", () => {
     expect(body.error).to.have.property("stack");
   });
 
+  it("describe : statut et message d'une route HTTP, sans RIEN écrire (ADR-0026 D7)", () => {
+    // Le transport gRPC n'a pas de corps : il lit ce que la route HTTP aurait
+    // rendu. Même classement (422, 409, code numérique), même opacité.
+    pretendEnvironment("production");
+    expect(renderer.describe(new HttpError("introuvable", 404))).to.deep.equal({
+      status: 404,
+      message: "introuvable",
+    });
+    expect(
+      renderer.describe(
+        zodError([{ path: ["email"], message: "invalide", code: "invalid" }]),
+      ).status,
+    ).to.equal(422);
+    expect(
+      renderer.describe(Object.assign(new Error("conflit"), { code: 409 })),
+    ).to.deep.equal({ status: 409, message: "conflit" });
+    expect(
+      renderer.describe(new Error("table users_secret injoignable")),
+    ).to.deep.equal({ status: 500, message: "Internal Server Error" });
+    pretendEnvironment("development");
+    expect(renderer.describe(new Error("brut")).message).to.equal("brut");
+  });
+
   it("`prod` écrit à la main est normalisé par le kernel — la garde ne teste QUE `production`", () => {
     // Kernel.setEnv() réduit toujours l'environnement à development|production.
     // Ce test scelle la raison pour laquelle la garde ne compare pas à "prod" :

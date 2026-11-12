@@ -5,6 +5,7 @@
 //
 import { describe, expect, it } from "vitest";
 import {
+  applicationErrorCode,
   connectRefusalCode,
   GRPC_WIRE_CONNECT,
   GRPC_WIRE_CONNECT_STREAM,
@@ -99,6 +100,45 @@ describe("transportRefusalCode — table des refus de transport (D13 point 2)", 
       expect(transportRefusalCode(status, identified)).to.equal(code);
     });
   }
+});
+
+describe("applicationErrorCode — table des erreurs de l'application (D7, code.proto)", () => {
+  // Table DISTINCTE de celle des refus de transport (critère 56) : un 404 levé
+  // par un service dit « entité introuvable » (5), un chemin inconnu dit
+  // « méthode absente » (12).
+  const table: Array<[number, boolean, number]> = [
+    [400, false, 3],
+    [422, false, 3],
+    [401, false, 16],
+    [403, false, 16],
+    [401, true, 7],
+    [403, true, 7],
+    [404, false, 5],
+    [409, false, 10],
+    [412, false, 9],
+    [413, false, 8],
+    [429, false, 8],
+    [499, false, 1],
+    [501, false, 12],
+    [502, false, 14],
+    [503, false, 14],
+    [408, false, 4],
+    [504, false, 4],
+    [500, false, 13],
+    [507, false, 13],
+    [418, false, 2],
+    [302, false, 2],
+  ];
+  for (const [status, identified, code] of table) {
+    it(`${status}${identified ? " identifié" : ""} → ${code} ${grpcCodeName(code)}`, () => {
+      expect(applicationErrorCode(status, identified)).to.equal(code);
+    });
+  }
+
+  it("404 : 5 pour l'application, 12 pour le transport — deux tables", () => {
+    expect(applicationErrorCode(404, false)).to.equal(5);
+    expect(transportRefusalCode(404, false)).to.equal(12);
+  });
 });
 
 describe("connectRefusalCode — le code que le client Connect DÉDUIT du statut", () => {

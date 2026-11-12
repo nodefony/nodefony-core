@@ -4,6 +4,7 @@ import type {
   IErrorHttpResult,
   IErrorWebsocketResult,
   IErrorHint,
+  IErrorDescription,
 } from "../interfaces/IErrorRenderer";
 import type { IHttpContext, IWebsocketContext } from "../interfaces/IContext";
 import HttpError, { serializeHttpError } from "../src/errors/httpError";
@@ -61,6 +62,17 @@ const UNIQUE_VIOLATION_MESSAGE =
  * revient à publier de la reconnaissance gratuite.
  */
 const OPAQUE_SERVER_ERROR = "Internal Server Error";
+
+/**
+ * Le message rendu au client : celui de l'erreur, sauf une panne 5xx en
+ * production, qui devient opaque. Un 4xx garde le sien — c'est un message
+ * écrit POUR le client (validation, refus de politique), pas une fuite.
+ */
+const clientMessage = (
+  status: number,
+  message: string,
+  production: boolean,
+): string => (production && status >= 500 ? OPAQUE_SERVER_ERROR : message);
 
 /**
  * Clés d'un `HttpError` sérialisé qui décrivent les ENTRAILLES du serveur et ne
@@ -531,8 +543,7 @@ class DefaultErrorRenderer implements IErrorRenderer {
       httpError,
       production ? INTERNAL_ERROR_KEYS : null,
     );
-    const message =
-      production && status >= 500 ? OPAQUE_SERVER_ERROR : httpError.message;
+    const message = clientMessage(status, httpError.message, production);
     if (production) {
       serialized.message = message;
     }
@@ -592,9 +603,38 @@ class DefaultErrorRenderer implements IErrorRenderer {
     return { code, reason };
   }
 
+  /**
+   * Le statut HTTP et le message client qu'une route HTTP rendrait pour cette
+   * erreur — mêmes classements que {@link renderHttp} (validation 422, conflit
+   * 409, identifiant malformé, code numérique) et même opacité d'un 5xx en
+   * production —, sans RIEN écrire : ni statut sur la réponse, ni `metaData`,
+   * ni pile formatée. Sert les transports sans corps d'erreur : un appel gRPC
+   * traduit ce statut en code (ADR-0026 D7).
+   *
+   * Un identifiant malformé y vaut 400 : sans contexte, aucun chemin ne le
+   * désigne.
+   *
+   * @param error - l'erreur levée.
+   * @returns son statut émettable et le message destiné au client.
+   *
+   * @experimental Surface gRPC, ADR-0026 D11.
+   */
+  describe(error: Error): IErrorDescription {
+    const httpError = this.toHttpError(error, undefined);
+    const status = this.normalizeHttpStatus(httpError.code);
+    return {
+      status,
+      message: clientMessage(status, httpError.message, isProduction()),
+    };
+  }
+
+  /**
+   * Ramène une erreur à une `HttpError`. Sans contexte (`describe`), rien
+   * n'est écrit : `HttpError` ne pose le statut sur la réponse qu'avec lui.
+   */
   private toHttpError(
     error: Error,
-    context: IHttpContext | IWebsocketContext,
+    context: IHttpContext | IWebsocketContext | undefined,
   ): HttpError {
     if (error instanceof HttpError) return error;
     const fields = toValidationFields(error);

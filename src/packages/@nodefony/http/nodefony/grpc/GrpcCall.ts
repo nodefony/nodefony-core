@@ -5,6 +5,7 @@ import type {
   HandlerContext,
 } from "@connectrpc/connect";
 import type { IRpcCall } from "../interfaces/IRpcCall";
+import type HttpContext from "../src/context/http/HttpContext";
 
 /**
  * Fiche d'un appel gRPC : ce que Nodefony attache à l'appel, et le
@@ -33,6 +34,12 @@ export class GrpcCall implements ContextValues, IRpcCall {
    * appelé hors de {@link GrpcEndpoint.serve} (jamais en service normal).
    */
   readonly target: object | null;
+  /**
+   * Le contexte de la requête qui porte l'appel : l'identité y est lue
+   * (`authenticatedUser()`) sur son magasin, jamais par l'ALS, pour choisir
+   * entre 16 et 7 (ADR-0026 D5, D7). `null` hors de {@link GrpcEndpoint.serve}.
+   */
+  readonly context: HttpContext | null;
 
   /** Magasin des clés de tiers, créé au premier `set`. */
   #values: ContextValues | null = null;
@@ -43,8 +50,9 @@ export class GrpcCall implements ContextValues, IRpcCall {
   /** Le délai de réponse est échu (avant ou pendant le gestionnaire). */
   #expired = false;
 
-  constructor(target: object | null) {
+  constructor(target: object | null, context: HttpContext | null = null) {
     this.target = target;
+    this.context = context;
   }
 
   /**
