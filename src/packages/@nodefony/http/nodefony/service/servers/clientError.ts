@@ -1,5 +1,36 @@
+import { STATUS_CODES } from "node:http";
 import type { Duplex } from "node:stream";
 import { isPeerGoneError } from "../../src/context/websocket/Response";
+
+/**
+ * Le statut que Node lui-même aurait répondu (`_http_server.js#socketOnError`),
+ * hors débordement d'en-têtes ({@link overflowStatusLine}) ; 400 sinon.
+ * Brancher un écouteur `clientError` retire cette réponse par défaut : sans
+ * cette table, un délai de réception dépassé partait en `400 Bad Request` —
+ * le client lisait sa requête malformée alors qu'elle était seulement lente.
+ */
+const CLIENT_ERROR_STATUS: ReadonlyMap<unknown, number> = new Map([
+  ["ERR_HTTP_REQUEST_TIMEOUT", 408],
+  ["HPE_CHUNK_EXTENSIONS_OVERFLOW", 413],
+]);
+
+function statusLineOf(status: number): string {
+  return `${status} ${STATUS_CODES[status] ?? ""}`;
+}
+
+/**
+ * La réponse en vol sur cette socket a-t-elle déjà écrit ses en-têtes ? La
+ * garde même de Node (`socketOnError` : `_httpMessage._headerSent`), lue par
+ * réflexion — deux champs internes, sans équivalent public sur la socket.
+ */
+function inFlightHeaderSent(socket: Duplex): boolean {
+  const message: unknown = Reflect.get(socket, "_httpMessage");
+  return (
+    message !== null &&
+    typeof message === "object" &&
+    Reflect.get(message, "_headerSent") === true
+  );
+}
 
 /**
  * Gère l'event `clientError` d'un `http.Server` / `https.Server`, et des connexions
@@ -20,10 +51,17 @@ export function handleClientError(error: Error, socket: Duplex): void {
   if (code === "ECONNRESET" || !socket.writable) {
     return;
   }
+  // Une réponse EN VOL a déjà envoyé ses en-têtes (un flux qui répond pendant
+  // qu'un corps n'en finit pas d'arriver) : une ligne de statut écrite après
+  // elle corromprait ce que lit le client. Node se tait et détruit — idem.
+  if (inFlightHeaderSent(socket)) {
+    socket.destroy();
+    return;
+  }
   const statusLine =
     code === "HPE_HEADER_OVERFLOW"
       ? overflowStatusLine(error)
-      : "400 Bad Request";
+      : statusLineOf(CLIENT_ERROR_STATUS.get(code) ?? 400);
   // `Content-Length: 0` délimite le refus (RFC 9112 §6.3) : sans lui, seule
   // la fermeture dit au client que le message est fini.
   socket.end(

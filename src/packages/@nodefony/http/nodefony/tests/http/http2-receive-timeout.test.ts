@@ -21,8 +21,14 @@
  *   ferme lui aussi son flux — Node le faisait déjà sur ce chemin ; ce cas ne
  *   mord donc PAS si l'on retire la fermeture, les cas 408 si.
  *
- * Les cas sont indépendants et longs (≈ 31–40 s) : ils tournent en parallèle.
+ * - HTTP/1.1 (5151) : la borne est celle de Node (`server.requestTimeout`),
+ *   vérifiée toutes les 30 s (`connectionsCheckingInterval`) — coupure entre
+ *   30 et 60 s. Le statut est 408, celui de Node : notre écouteur
+ *   `clientError` le répondait 400 (#695, critère 26).
+ *
+ * Les cas sont indépendants et longs (≈ 31–60 s) : ils tournent en parallèle.
  */
+import net from "node:net";
 import { describe, expect, it } from "vitest";
 import http2 from "node:http2";
 import { IS_PROD_TARGET } from "../helpers/targetEnv";
@@ -131,6 +137,62 @@ function post(
       outcome.rstCode = stream.rstCode;
       finish();
     });
+  });
+}
+
+/** Pas de contrôle de Node pour `requestTimeout` en HTTP/1.1 (défaut). */
+const NODE_CHECK_INTERVAL_MS = 30_000;
+
+interface IH1Outcome {
+  readonly statusLine: string | null;
+  readonly responseMs: number | null;
+  readonly closeMs: number | null;
+}
+
+/**
+ * Un POST HTTP/1.1 brut au corps JAMAIS fini : `declared` octets annoncés,
+ * un octet par seconde — le client LENT, que borne `requestTimeout` ; un
+ * client muet serait coupé avant, en silence, par l'inactivité de la socket.
+ * Rend la ligne de statut, son instant, et l'instant où le SERVEUR ferme la
+ * socket (`null` au plafond).
+ */
+function postH1Unfinished(
+  path: string,
+  declared: number,
+  capMs: number,
+): Promise<IH1Outcome> {
+  return new Promise((resolve, reject) => {
+    const t0 = performance.now();
+    let statusLine: string | null = null;
+    let responseMs: number | null = null;
+    const socket = net.connect(5151, "127.0.0.1");
+    const drip = setInterval(() => {
+      if (socket.writable) socket.write("1");
+    }, 1000);
+    const cap = setTimeout(() => {
+      clearInterval(drip);
+      socket.destroy();
+      resolve({ statusLine, responseMs, closeMs: null });
+    }, capMs);
+    socket.on("data", (c: Buffer) => {
+      if (statusLine !== null) return;
+      statusLine = c.toString("latin1").split("\r\n")[0] ?? "";
+      responseMs = performance.now() - t0;
+    });
+    socket.on("close", () => {
+      clearTimeout(cap);
+      clearInterval(drip);
+      resolve({ statusLine, responseMs, closeMs: performance.now() - t0 });
+    });
+    socket.on("error", (e) => {
+      clearInterval(drip);
+      reject(e);
+    });
+    socket.write(
+      `POST ${path} HTTP/1.1\r\nHost: 127.0.0.1:5151\r\n` +
+        `Content-Type: application/json\r\nContent-Length: ${declared}\r\n\r\n`,
+    );
+    socket.write('{"a":');
   });
 }
 
@@ -268,5 +330,24 @@ describe.concurrent(
         );
       }
     }
+
+    // #695, critère 26 — HTTP/1.1 : la borne de Node, au statut de Node.
+    it(
+      "HTTP/1.1 (5151) : un corps jamais terminé reçoit 408 — jamais 400 — après le délai, puis la socket est fermée",
+      async () => {
+        const out = await postH1Unfinished(
+          READS_BODY,
+          1000,
+          RECEIVE_TIMEOUT_MS + NODE_CHECK_INTERVAL_MS + 10_000,
+        );
+        expect(out.statusLine).to.equal("HTTP/1.1 408 Request Timeout");
+        // Jamais AVANT le délai configuré.
+        expect(out.responseMs ?? 0).to.be.at.least(RECEIVE_TIMEOUT_MS);
+        expect(out.closeMs, "socket encore ouverte au plafond").to.not.equal(
+          null,
+        );
+      },
+      RECEIVE_TIMEOUT_MS + NODE_CHECK_INTERVAL_MS + 20_000,
+    );
   },
 );

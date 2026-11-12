@@ -3,6 +3,7 @@ import { expect } from "vitest";
 import type { Socket } from "node:net";
 import http2 from "node:http2";
 import net from "node:net";
+import { Duplex } from "node:stream";
 import type { AddressInfo } from "node:net";
 import {
   handleClientError,
@@ -48,6 +49,64 @@ describe("handleClientError — fermeture du socket malformé", () => {
       socket,
     );
     expect(ended[0]).to.include("431 Request Header Fields Too Large");
+  });
+
+  // La table de Node (`_http_server.js#socketOnError`) : un écouteur
+  // `clientError` la retire, elle doit donc être rendue à l'identique.
+  for (const [code, status] of [
+    ["ERR_HTTP_REQUEST_TIMEOUT", "408 Request Timeout"],
+    ["HPE_CHUNK_EXTENSIONS_OVERFLOW", "413 Payload Too Large"],
+  ] as const) {
+    it(`${code} → répond ${status}, comme Node sans écouteur`, () => {
+      const { socket, ended } = makeSocket();
+      handleClientError(Object.assign(new Error(code), { code }), socket);
+      expect(ended[0]).to.match(new RegExp(`^HTTP/1\\.1 ${status}\\r\\n`));
+    });
+  }
+
+  // Une réponse EN VOL dont les en-têtes sont partis (une 404 rendue avant la
+  // fin d'un corps qui n'arrive jamais) : écrire une ligne de statut après
+  // elle corromprait le flux du client — Node se tait et détruit.
+  function inFlightSocket(headerSent: boolean): {
+    socket: Duplex;
+    written: string[];
+    destroyed: () => boolean;
+  } {
+    const written: string[] = [];
+    let destroyed = false;
+    const socket = Object.assign(
+      new Duplex({
+        read() {},
+        write(chunk: Buffer, _enc, done) {
+          written.push(chunk.toString("latin1"));
+          done();
+        },
+      }),
+      { _httpMessage: { _headerSent: headerSent } },
+    );
+    socket.on("close", () => (destroyed = true));
+    return { socket, written, destroyed: () => destroyed };
+  }
+
+  it("réponse en vol déjà partie → RIEN n'est écrit, la socket est détruite", async () => {
+    const { socket, written, destroyed } = inFlightSocket(true);
+    const timeout = Object.assign(new Error("timeout"), {
+      code: "ERR_HTTP_REQUEST_TIMEOUT",
+    });
+    handleClientError(timeout, socket);
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(written).to.deep.equal([]);
+    expect(destroyed()).to.equal(true);
+  });
+
+  it("réponse en vol pas encore partie → le 408 est écrit", async () => {
+    const { socket, written } = inFlightSocket(false);
+    const timeout = Object.assign(new Error("timeout"), {
+      code: "ERR_HTTP_REQUEST_TIMEOUT",
+    });
+    handleClientError(timeout, socket);
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(written.join("")).to.match(/^HTTP\/1\.1 408 Request Timeout\r\n/);
   });
 
   it("refus délimité : Content-Length: 0 (RFC 9112 §6.3)", () => {
