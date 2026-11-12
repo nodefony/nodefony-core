@@ -58,7 +58,8 @@ name}` — la clé d'aiguillage d'un appel est dans l'URL, sensible à la casse 
   statut HTTP autre que 200 le traduit (401 → `UNAUTHENTICATED`, 403 → `PERMISSION_DENIED`) — un
   serveur conforme rend lui-même le statut gRPC.
 - **Intercepteurs et porte d'entrée de connect-node** (`connect-node-interceptors.md`) :
-  `requestGate` décide avant la lecture du corps.
+  `requestGate` décide avant la lecture du corps. Écarté par D5 (point 2) : le pipeline de
+  Nodefony décide déjà avant la lecture du corps, et un seul écrivain rend tous les refus.
 - **Antériorités** (relues aux sources le 2026-11-11) : trois familles de frameworks serveur.
   Une ligne d'enregistrement explicite de la classe de service ; une annotation à nom figé sur la
   classe, en singleton, le contexte de requête actif pendant l'appel ; un contrôleur dont les
@@ -326,13 +327,19 @@ ne sait pas pourquoi l'appel a échoué.
      refusé. Un client natif n'envoie ni `Sec-Fetch-Site` ni `Origin`, et passe.
    - La redirection vers la page de connexion exige GET, `Accept: text/html` et
      `Sec-Fetch-Mode: navigate` (`entryPoint.ts`) : un client gRPC ne reçoit jamais de 302.
-2. **Connect écrit le refus**, au format du client, par `requestGate`, la seule voie publique. Ses
-   fonctions d'écriture internes (`protocol-grpc`, `protocol-connect`) sont marquées `@private`,
-   sans garantie de version.
-   - La route gRPC porte un champ optionnel ajouté au contrat `IResolvedRoute` de http (ajout sans
-     rupture). `onError` le lit sur le chemin d'erreur seulement et confie le refus à
-     l'adaptateur.
-   - L'adaptateur rappelle Connect avec une porte qui lève le refus.
+2. **Le noyau écrit le refus**, au format du client, par la fonction de refus de D13 (point 2) —
+   la même que pour un chemin inconnu ou une méthode refusée. **Corrigé le 2026-11-12 (lot 3,
+   accord de l'auteur)** : la première rédaction confiait l'écriture à Connect par `requestGate`.
+   - Pourquoi l'abandon : D13 a ensuite imposé une fonction de http, sans Connect, qui écrit les
+     refus en forme gRPC. Garder `requestGate` aurait fait deux écrivains pour le même refus, aux
+     sorties différentes (Connect envoie en-têtes puis trailers, la fonction de D13 un
+     _Trailers-Only_) et à la vidange du corps HTTP/1.1 faite deux fois, de deux façons.
+   - Le corps non lu suit la seule règle du noyau (`HttpResponse.closeUnfinishedRequest`, D13
+     point 1) ; un refus ne construit plus l'adaptateur.
+   - `onError` reconnaît le protocole du client à ses en-têtes (`content-type`,
+     `connect-protocol-version`), sur le chemin d'erreur seulement. La route gRPC porte un champ
+     optionnel du contrat `IResolvedRoute` de http (`grpc`, ajout sans rupture), que lit la garde
+     de D13 (point 3).
 3. **Le code se choisit sur l'IDENTITÉ, pas sur le chiffre HTTP** :
 
    | Situation                                                                                                                   | Code                  |
@@ -358,8 +365,9 @@ ne sait pas pourquoi l'appel a échoué.
    d'en-têtes porte la fin du flux. Une requête gRPC refusée avant l'adaptateur s'écrit donc en forme
    gRPC, avec la correspondance des refus de transport (D13, point 2).
 
-**Constaté sur le fil** (essai jetable, `connectNodeAdapter` nu, porte qui lève 16, corps envoyé
-incomplet puis complet ; implémentation appelée 0 fois) :
+**Constaté sur le fil** (essai jetable de la première rédaction, `connectNodeAdapter` nu, porte qui
+lève 16, corps envoyé incomplet puis complet ; implémentation appelée 0 fois). La forme des
+protocoles reste celle-ci ; seul le gRPC natif part désormais en _Trailers-Only_ (D13, point 2) :
 
 | Protocole                     | HTTP/2                                                     | HTTP/1.1        |
 | ----------------------------- | ---------------------------------------------------------- | --------------- |
@@ -380,10 +388,10 @@ incomplet puis complet ; implémentation appelée 0 fois) :
 
 **Coût**
 
-| Chemin        | Coût                                                                                                                                                            |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Appel accepté | une lecture de propriété dans la porte                                                                                                                          |
-| Appel refusé  | une lecture d'identité, déjà en mémoire, puis l'écriture par Connect sans décodage, à la place du rendu HTML ou JSON. Le débit des refus reste à mesurer (#695) |
+| Chemin        | Coût                                                                                                                                |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Appel accepté | 0 : aucune porte                                                                                                                    |
+| Appel refusé  | deux lectures d'en-tête et une d'identité, déjà en mémoire, puis l'écriture du refus sans Connect, à la place du rendu HTML ou JSON |
 
 **La bibliothèque.** `@connectrpc/connect` et `@connectrpc/connect-node` 2.3.0, sous Apache-2.0
 comme Nodefony.
@@ -415,9 +423,9 @@ range ses en-têtes dans une réserve que seul `Response.ts#HttpResponse.writeHe
    - `contextValues` sert à Nodefony seul : il porte la **fiche de l'appel**, que lisent la porte
      (D5), l'interruption (D8) et la ligne d'accès (D10). Connect en alloue un par appel de toute
      façon (`implementation.js#createHandlerContext`) ; le nôtre le remplace.
-   - **Une seule composition** : `connectNodeAdapter`, avec trois de ses options publiques —
-     `contextValues` (la fiche), `requestGate` (D5, la porte lit le verdict de Nodefony dans la
-     fiche) et `fallback` (D13). Recomposer soi-même `universalRequestFromNodeRequest` et
+   - **Une seule composition** : `connectNodeAdapter`, avec deux de ses options publiques —
+     `contextValues` (la fiche) et `fallback` (D13). `requestGate` n'est plus employé (D5,
+     point 2). Recomposer soi-même `universalRequestFromNodeRequest` et
      `universalResponseToNodeResponse` n'apporterait rien, et exposerait à leur promesse qui ne se
      résout jamais (D7 point 4, signalé : connect-es#1876).
 2. **Les en-têtes du pipeline passent sur la réponse gRPC.** Avant de confier la réponse à Connect,
@@ -906,8 +914,30 @@ transports de connect-es.
 1. **Ne pas lire le corps quand le routage a déjà échoué** (404, 405) :
    - l'ordre des gardes reste inchangé : en-têtes du schéma, domaine (421), crochet `beforeResolve`,
      puis le refus. Seule la lecture du corps est sautée, car un refus n'en a pas besoin ;
-   - le corps non lu est traité par la règle de D5 : en HTTP/2, réponse puis `RST NO_ERROR` ; en
-     HTTP/1.1, vidange d'au plus 256 Kio. Une seule implémentation pour les deux usages ;
+   - le corps non lu est traité par la règle de D5 : en HTTP/2, réponse puis `RST NO_ERROR` si
+     le client ÉMET ENCORE ; en HTTP/1.1, vidange d'au plus 256 Kio. Une seule implémentation
+     pour les deux usages (`HttpResponse.closeUnfinishedRequest`, surchargée par
+     `Http2Response`) ;
+     - **précisé le 2026-11-12 (lot 3)** : « émet encore » se décide après **une grâce d'un
+       aller-retour** — un `PING` (RFC 9113 §6.7), puis l'état du flux
+       (`stream.state.remoteClose`). Ce n'est PAS une garantie : §6.7 fait passer l'écho d'un
+       `PING` avant les autres trames (« SHOULD be given higher priority »), une trame DATA
+       encore en file chez le client peut donc arriver après lui ; le `RST_STREAM` reste alors
+       conforme (§8.1 : le serveur PEUT couper, le client NE DOIT PAS jeter la réponse).
+     - **Ce que font les autres** (sources lues) : grpc-go (`http2_server.go#WriteStatus`), Go
+       `net/http2` (`server.go`, en citant §8.1) et nginx (`ngx_http_v2.c`, `!in_closed`)
+       coupent AUSSITÔT si le client n'a pas fini d'émettre — sans `PING`. Le `PING` est un
+       ajout de Nodefony, et son motif est mesuré : Node répond AVANT de lire les trames DATA
+       déjà en route (les autres lisent la requête d'abord), si bien que la coupe immédiate
+       frappait des clients qui finissaient d'émettre. Le client HTTP/2 de Go (connect-go,
+       référence de la suite de conformité) lit ce `RST_STREAM` en erreur malgré §8.1
+       (`stream error … NO_ERROR; received from peer`) : 4 cas `unexpected-uri` rouges, et 13
+       cas du banc `grpc-refusal.test.ts` avec les clients Node et connect-es.
+     - Bornes : un `PING` par refus au corps inachevé, chemin d'erreur seul ; Node plafonne à 10
+       `PING` en vol par session (constaté), au-delà la coupe est immédiate — la règle des
+       autres. Un client muet ou qui émet sans fin est coupé en un aller-retour (banc #765
+       vert). `request.complete` ne sert pas : il ne passe à `true` qu'une fois le corps
+       CONSOMMÉ ;
    - un 404 coûte moins qu'aujourd'hui.
 2. **Une requête `application/grpc` (gRPC natif) refusée avant l'adaptateur s'écrit en forme gRPC**
    — statut 200, `content-type` gRPC, `grpc-status`, `grpc-message` générique (D5, point 4), et
@@ -933,8 +963,8 @@ transports de connect-es.
 
    - en HTTP/2, l'écriture passe par `stream.respond(en-têtes, { endStream: true })`, jamais par
      `writeHead` puis `end`. Cette seconde forme est constatée fausse chez les deux clients ;
-   - gRPC-Web et le protocole Connect gardent leurs statuts HTTP : connect-es les lit
-     correctement, et c'est ce que la spécification de Connect prescrit.
+   - le protocole Connect garde ses statuts HTTP : connect-es les lit correctement, et c'est ce
+     que la spécification de Connect prescrit (précisé ci-dessous, avec la forme de gRPC-Web).
    - **Précision (2026-11-12, lot 2, accord de l'auteur) : le statut seul ne suffit pas, le
      CORPS aussi doit être celui du protocole.** Constaté par la suite de conformité officielle
      de Connect (`connectconformance` v1.0.7, 20 cas `unexpected-uri` / `unexpected-verb`) : le
@@ -946,6 +976,30 @@ transports de connect-es.
      - la requête Connect se reconnaît à `connect-protocol-version` (ou `application/connect+*`),
        gRPC-Web à `application/grpc-web*` ; le JSON d'une API ordinaire reste inchangé ;
      - preuve : vider `src/modules/test/conformance/known-failing.txt` (lot 3).
+   - **Précision (2026-11-12, lot 3, accord de l'auteur) : en Connect, le code est celui que le
+     client DÉDUIT du statut HTTP**, par la table « HTTP to Error Code » de `connect-protocol.md`
+     (405 et 421 → `unknown`), jamais par la table ci-dessus.
+     - Pourquoi : en Connect le statut HTTP voyage avec la réponse, et la norme veut que le code de
+       l'`Error` corresponde au statut (« HTTP-Status should match Error.code »). Les lignes 405 et
+       421 de la table ci-dessus sont des ajouts de Nodefony pour le gRPC natif, où le statut HTTP
+       vaut 200 et ne dit rien ; en Connect, elles contrediraient le statut qui part avec.
+     - Constaté : la suite de conformité exige `405` + `unknown` en Connect
+       (`connect_server_unexpected.yaml`, cas `unexpected-verb`), et accepte `UNIMPLEMENTED` pour
+       la même requête en gRPC et en gRPC-Web.
+     - La règle d'identité (D5) s'applique aussi : un refus sans identité part en
+       `unauthenticated` avec le statut 401, un appelant identifié en `permission_denied` avec 403.
+   - **Formes écrites**, par protocole :
+
+     | Protocole                                   | Statut HTTP                   | Corps                                           |
+     | ------------------------------------------- | ----------------------------- | ----------------------------------------------- |
+     | gRPC (`application/grpc*`)                  | 200, _Trailers-Only_          | aucun                                           |
+     | gRPC-Web (`application/grpc-web*`)          | 200, _Trailers-Only_          | aucun (`grpc-PROTOCOL-WEB.md`, point 4)         |
+     | Connect unaire (`connect-protocol-version`) | celui du refus (401/403 : D5) | `{"code":"<code>"}`, `application/json`         |
+     | Connect en flux (`application/connect+*`)   | 200                           | un message de fin `{"error":{"code":"<code>"}}` |
+
+     En HTTP/2, toute réponse dont les en-têtes portent `grpc-status` se termine sur la trame
+     d'en-têtes (`Http2Response.writeHead`) : c'est la définition du _Trailers-Only_, et la règle
+     ne dépend d'aucun drapeau.
 3. **Une requête gRPC native qui aboutit à une route qui n'est pas gRPC est refusée en 12
    `UNIMPLEMENTED`**, jamais servie. Le Router fusionne routes littérales et motifs par ordre
    d'insertion, les replis en dernier (`router.ts`, commentaire de l'index) : sous une route
