@@ -1205,6 +1205,44 @@ const proxySchema = z
 
 // ───────────────────────── racine ───────────────────────────────────────────
 
+/**
+ * Section `grpc` — ce que servent les points d'entrée gRPC d'une application
+ * (ADR-0026 D3, point 5). Lue au premier appel d'un service : une application
+ * qui n'en déclare aucun ne la lit jamais.
+ *
+ * @experimental Surface gRPC, ADR-0026 D11.
+ */
+const grpcSchema = z
+  .strictObject({
+    grpc: z
+      .boolean()
+      .default(true)
+      .describe(
+        "Sert le protocole gRPC (HTTP/2 seulement : 5152, et 5153 si h2c est " +
+          "activé). Défaut de l'adaptateur Connect.",
+      ),
+    grpcWeb: z
+      .boolean()
+      .default(true)
+      .describe("Sert le protocole gRPC-Web, sur tous les serveurs actifs."),
+    connect: z
+      .boolean()
+      .default(true)
+      .describe(
+        "Sert le protocole Connect (JSON ou binaire, `curl` compris), sur tous " +
+          "les serveurs actifs.",
+      ),
+  })
+  .refine((grpc) => grpc.grpc || grpc.grpcWeb || grpc.connect, {
+    message:
+      "grpc : au moins un protocole doit rester servi (grpc, grpcWeb ou connect) — " +
+      "pour ne servir aucun service gRPC, n'en déclarer aucun.",
+  })
+  .describe(
+    "Services gRPC déclarés par `@GrpcService` (ADR-0026) : protocoles servis, " +
+      "pour toute l'application. Expérimental.",
+  );
+
 export const httpConfigSchema = z
   .strictObject({
     headerServer: z
@@ -1284,6 +1322,7 @@ export const httpConfigSchema = z
     rateLimit: rateLimitSchema.default(() => rateLimitSchema.parse({})),
     health: healthSchema.default(() => healthSchema.parse({})),
     proxy: proxySchema.default(() => proxySchema.parse({})),
+    grpc: grpcSchema.default(() => grpcSchema.parse({})),
     wsMaxConnectionsPerIp: z
       .number()
       .int()

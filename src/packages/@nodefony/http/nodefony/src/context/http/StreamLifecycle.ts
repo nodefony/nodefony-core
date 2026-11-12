@@ -69,6 +69,44 @@ export type StreamLifecycleCause = "server" | "stall" | null;
 export type StreamTarget = http.ServerResponse | http2.ServerHttp2Stream;
 
 /**
+ * Constate le transport de la réponse d'un contexte : le flux en HTTP/2, la
+ * réponse en HTTP/1.1. Seule implémentation de ce constat — un flux SSE,
+ * d'octets ou un appel gRPC le lisent ici.
+ *
+ * @param context - le contexte de la requête.
+ * @returns la cible d'écriture, ou `null` quand la réponse est absente ou que
+ *   son transport n'est pas reconnu.
+ *
+ * @internal
+ */
+export function resolveStreamTarget(context: HttpContext): StreamTarget | null {
+  const response = context.response;
+  const stream = response instanceof Http2Response ? response.stream : null;
+  if (stream !== null) return stream;
+  const nodeResponse = response.response;
+  return nodeResponse instanceof http.ServerResponse ? nodeResponse : null;
+}
+
+/**
+ * Désarme le délai de réponse que Nodefony arme sur toute requête
+ * (`HttpContext.setTimeout`) : celui du flux en HTTP/2, celui de la socket en
+ * HTTP/1.1. Seule implémentation de cette règle — un flux long l'appelle, et
+ * une réponse possédée par un tiers aussi, pour qu'à l'expiration Nodefony
+ * n'écrive pas un 408/504 par-dessus (un seul écrivain).
+ *
+ * En HTTP/1.1, la requête suivante de la même connexion réarme la socket
+ * (`HttpContext.setTimeout` compare `socket.timeout` à son délai).
+ *
+ * @param target - la cible d'écriture constatée par {@link resolveStreamTarget}.
+ *
+ * @internal
+ */
+export function disarmResponseTimeout(target: StreamTarget): void {
+  if (target instanceof http.ServerResponse) target.socket?.setTimeout(0);
+  else target.setTimeout(0);
+}
+
+/**
  * Ce que le registre de révocation du noyau HTTP retient d'un flux : de quoi
  * re-valider son identité, et de quoi le fermer.
  *
@@ -253,9 +291,7 @@ export class StreamLifecycle implements IWatchedStream {
    * attendue, ses propres gardes le remplacent.
    */
   disarmIdleTimeout(): void {
-    const target = this.target;
-    if (target instanceof http.ServerResponse) target.socket?.setTimeout(0);
-    else target.setTimeout(0);
+    disarmResponseTimeout(this.target);
   }
 
   /** Ferme le flux et termine la requête. Idempotent. */
@@ -336,11 +372,8 @@ export function openStreamLifecycle(
   }
   // Le transport se CONSTATE, AVANT d'écrire quoi que ce soit : en HTTP/2 on
   // écrit sur le flux, en HTTP/1.1 sur la réponse.
-  const stream = response instanceof Http2Response ? response.stream : null;
-  let target: StreamTarget;
-  if (stream !== null) target = stream;
-  else if (nodeResponse instanceof http.ServerResponse) target = nodeResponse;
-  else {
+  const target = resolveStreamTarget(context);
+  if (target === null) {
     throw new HttpError(
       `${label} : transport de réponse inconnu`,
       500,

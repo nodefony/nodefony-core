@@ -226,9 +226,20 @@ d'application (accord de l'auteur requis pour un `package.json`) — ticket #764
 5. **Restreindre les protocoles se fait pour l'application entière**, par une option de la section
    `grpc` de la configuration http, branchée sur les options `grpc` / `grpcWeb` / `connect` de
    l'adaptateur. Le grain « par service » attend un usage réel ; il s'ajoutera sans rupture.
+   Les méthodes s'inscrivent SANS option (`router.rpc(méthode, impl)`) : une option passée à
+   l'inscription rallumerait gRPC et gRPC-Web coupés (connectrpc/connect-es#1835).
+6. **Le JSON résout les types du contrat** (précision du 2026-11-12, lot 2, accord de l'auteur).
+   Le mappage JSON de proto3 exige de résoudre le type emballé dans un `google.protobuf.Any` ; sans
+   registre, Connect répond `INVALID_ARGUMENT` en Connect JSON et en gRPC-Web JSON (constaté aux
+   trois ports), quand le binaire passe. L'adaptateur reçoit donc `jsonOptions.registry` : le
+   fichier du contrat et tous ses imports, types bien connus compris, construit une fois, consulté
+   par Connect pour `Any` en JSON seulement — aucun coût par appel. Un `Any` qui emballe un type
+   hors du graphe d'imports du contrat ne se lit qu'en binaire.
 
 Un client gRPC natif qui vise 5151 n'obtient pas un statut gRPC : le serveur HTTP/1.1 ne comprend
 pas la préface HTTP/2 et la connexion échoue — le test exige qu'elle échoue franchement et vite.
+Constaté (lot 2) : le client lit `ERR_HTTP2_ERROR: Protocol error` en une quinzaine de
+millisecondes, que Connect classe 13 `INTERNAL` ; jamais une échéance atteinte.
 
 ### D4 — Les limites : taille, durée, flux
 
