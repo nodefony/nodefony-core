@@ -255,8 +255,9 @@ Deux faits du pipeline fondent la décision.
   la borne plus, et seule reste la borne de l'adaptateur.
 - **À l'expiration du délai de réponse, Nodefony écrit lui-même un 504/408**
   (`HttpContext.ts#HttpContext._onTimeout`). Sur une réponse que l'adaptateur possède, ce serait
-  un second écrivain. Sur une route gRPC, le délai de Nodefony est donc désarmé, et l'échéance
-  appartient à l'adaptateur : **un seul écrivain**.
+  un second écrivain. Sur une route gRPC, le délai de Nodefony n'écrit donc jamais : désarmé
+  pour un flux, il termine un appel unaire par sa fiche (point 3), au format du protocole —
+  **un seul écrivain**.
 
 1. **`readMaxBytes` = 4 Mio par message**, au-delà le statut 8 `RESOURCE_EXHAUSTED`
    (`grpc-statuscodes.md` : « Sent or received message was larger than configured limit »).
@@ -270,11 +271,23 @@ Deux faits du pipeline fondent la décision.
    - **Les deux bornes se règlent** dans la section `grpc` de la configuration http : un framework
      borne par défaut, il n'interdit pas à une application d'échanger de plus gros messages.
 3. **Appel unaire : l'échéance vaut `min(échéance du client, responseTimeout)`**.
-   - L'adaptateur pose l'en-tête d'échéance (`grpc-timeout` ou `connect-timeout-ms` selon le
-     protocole) seulement quand le client n'en envoie pas, ou en envoie une plus longue.
-   - À l'échéance, l'adaptateur rend le statut 4 `DEADLINE_EXCEEDED`, dans le format du protocole.
-   - Le gestionnaire lit le temps restant par `ctx.timeoutMs()`, et `ctx.signal` interrompt le
-     travail en cours.
+   - L'échéance du client reste celle de l'adaptateur : il la lit dans son en-tête, abaisse
+     `ctx.signal` et rend le statut 4 `DEADLINE_EXCEEDED` dans le format du protocole.
+   - Le délai du serveur n'est **pas** écrit dans l'en-tête d'échéance. `ctx.timeoutMs()` rend
+     l'échéance envoyée par le client, et elle seule. Poser l'en-tête faisait échouer 1 717 cas
+     sur 4 932 de la suite de conformité de Connect (« server echoed back a timeout but none was
+     expected »).
+   - Le délai du serveur est celui que Nodefony arme déjà sur toute requête (`HttpContext.setTimeout`).
+     Sur une route unaire, il reste armé ; seul un flux le désarme. À son expiration,
+     `HttpContext._onTimeout` termine l'appel par sa fiche (`HttpContext.rpc`, D10) au lieu
+     d'écrire un 408/504 : `GrpcCall.expire` abaisse `ctx.signal` (`ctx.abort`) et l'appel se
+     termine en 4. Aucun minuteur de plus.
+   - L'appel se termine même quand le gestionnaire ne lit pas son signal. L'adaptateur, lui,
+     attend sans fin la promesse du gestionnaire
+     (`invoke-implementation.js#invokeUnaryImplementation`).
+   - Un gestionnaire synchrone n'est pas suivi.
+   - `HttpContext.rpc` arrive donc dès ce lot, avec le seul membre dont il a besoin (`expire`) ;
+     D10 y ajoute système, méthode et code.
    - Le client n'obtient jamais le 408 ou 504 générique, qu'il lirait comme `UNKNOWN`.
    - Aucune clé neuve : la valeur est celle de toute route.
 4. **Flux (serveur, client, bidirectionnel) : aucune échéance par défaut**, comme le veut gRPC
@@ -298,13 +311,12 @@ Deux faits du pipeline fondent la décision.
 
 **Coût, mesuré** (médiane de 7 passes d'un million d'itérations, Node du poste) :
 
-| Geste                                                                 | Quand                                                      | Coût                                                                                                                                                     |
-| --------------------------------------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Comparaison de taille (`readMaxBytes`, `writeMaxBytes`)               | chaque message                                             | **0 de plus** : l'adaptateur la fait déjà avec son défaut (≈ 5 ns)                                                                                       |
-| Minuteur d'échéance (`setTimeout` + `clearTimeout`)                   | chaque appel unaire                                        | ≈ 0,4 µs. En HTTP/2, il **remplace** celui que Nodefony arme déjà par flux (`HttpContext.setTimeout`), d'où 0 de plus. En HTTP/1.1, c'est 0,4 µs de plus |
-| Pose de l'en-tête d'échéance (chaîne constante calculée au démarrage) | appel sans échéance                                        | ≤ 80 ns (borne haute : la mesure inclut un `delete`)                                                                                                     |
-| Cycle de vie du flux                                                  | ouverture d'un flux                                        | celui de SSE, une fois par flux, jamais par message                                                                                                      |
-| Balayage de blocage                                                   | un minuteur pour tous les flux, armé seulement s'il y en a | 0 par message                                                                                                                                            |
+| Geste                                                           | Quand                                                      | Coût                                                                                                                                                                                                                                                                                  |
+| --------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Comparaison de taille (`readMaxBytes`, `writeMaxBytes`)         | chaque message                                             | **0 de plus** : l'adaptateur la fait déjà avec son défaut (≈ 5 ns)                                                                                                                                                                                                                    |
+| Fin au délai du serveur (délai existant gardé, fiche accrochée) | chaque appel unaire                                        | **≈ 24 ns** : reconnaître le chemin unaire, accrocher la fiche. Écarté : désarmer puis tenir un anneau partagé, 97 ns en HTTP/2 et 174 ns en HTTP/1.1 keep-alive (réarmement de la socket à la requête suivante). Mesuré sur une vraie socket et un vrai flux, médiane de 9 × 200 000 |
+| Cycle de vie du flux                                            | ouverture d'un flux                                        | celui de SSE, une fois par flux, jamais par message                                                                                                                                                                                                                                   |
+| Balayage de blocage                                             | un minuteur pour tous les flux, armé seulement s'il y en a | 0 par message                                                                                                                                                                                                                                                                         |
 
 Ce que D4 ne décide pas, et qu'il faut mesurer : le **plancher par message** de l'adaptateur. Chaque
 écriture crée une promesse et pose puis retire deux écouteurs
