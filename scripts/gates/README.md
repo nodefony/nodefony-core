@@ -102,7 +102,6 @@ Garde de pré-commit — surface des paquets du dépôt du framework.
 Gate — aucun nom de canal/méthode de plateforme écrit EN DUR dans le code.
 
 - **Usage** : `node scripts/gates/check-platform-channels.mjs`
-- **Variable** `TABLE`
 - **Appelé par** : `.githooks/_read-only-gates.sh`
 
 ## [`check-portable-filenames.mjs`](check-portable-filenames.mjs)
@@ -147,7 +146,6 @@ check-type-assertions — cliquet : le total des conversions de type qui RESSERR
 - **Usage** : `node scripts/gates/check-type-assertions.mjs            # contrôle`
 - **Usage** : `node scripts/gates/check-type-assertions.mjs --update   # abaisse les plafonds (jamais ne les monte)`
 - **Usage** : `node scripts/gates/check-type-assertions.mjs --triage   # relevé : d'où vient chaque valeur convertie (#572)`
-- **Variable** `RULE`
 - **Produit** : l'écart par paquet ; sortie 0 tenu · 1 refusé · 78 oxlint n'a pas répondu
 - **Appelé par** : `node.js.yml` · `.githooks/_read-only-gates.sh`
 

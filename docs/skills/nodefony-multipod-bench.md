@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-11-01
+updated: 2026-11-12
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-multipod-bench/SKILL.md"
 ---
@@ -86,9 +86,9 @@ script, donc toujours à jour après régénération.
 | --- | --- | --- | --- |
 | `scripts/bench.mjs` | Banc de charge F83 — latence de bout en bout d'un fan-out CROSS-POD. | — | — |
 | `scripts/bus-bytes.mjs` | bus-bytes.mjs — ce que coûtent des OCTETS sur le bus Redis entre deux serveurs : JSON + base64 (ce qu'une application devait faire avant le sujet binaire) contre le sujet binaire CBOR (ADR-0021 S6, #618). | `--child` `--flood` `--out` `--pings` `--runs` `--secret` `--sizes` `--window` | `NF_REDIS_TEST_URL` |
-| `scripts/db-outage-pod.mjs` | **Banc — une application Nodefony en PRODUCTION face à la chute de sa base.** | `--container` `--db` `--format` `--port` `--workers` | `BASE` `BOX` `NF_DATABASE_URL` `WORKERS` |
-| `scripts/db-persistance-pod.mjs` | Banc E2E SYSTÈME — une donnée écrite par HTTP survit-elle au pod qui l'a écrite ? | `--url` | `CLE` `MODE` `NF_DATABASE_URL` `PORT` `URL_BASE` |
-| `scripts/db-readiness-pod.mjs` | **Banc — ce que la sonde de disponibilité fait d'un schéma qui ne colle pas.** | `--container` `--db` `--format` `--port` | `BASE` `PORT` |
+| `scripts/db-outage-pod.mjs` | **Banc — une application Nodefony en PRODUCTION face à la chute de sa base.** | `--container` `--db` `--format` `--port` `--workers` | `NF_DATABASE_URL` |
+| `scripts/db-persistance-pod.mjs` | Banc E2E SYSTÈME — une donnée écrite par HTTP survit-elle au pod qui l'a écrite ? | `--url` | `NF_DATABASE_URL` |
+| `scripts/db-readiness-pod.mjs` | **Banc — ce que la sonde de disponibilité fait d'un schéma qui ne colle pas.** | `--container` `--db` `--format` `--port` | — |
 | `scripts/forge.mjs` | — | — | — |
 | `scripts/ipc-bytes.mjs` | ipc-bytes.mjs — ce que coûte la sérialisation `advanced` (clonage structuré) de l'IPC du cluster, que le master pose depuis #618, face au JSON d'avant : - OCTETS : JSON + base64 (avant) contre `Uint8Array` brut en `advanced` ; - TEXTE ORDINAIRE : la même enveloppe realtime en JSON et en `advanced` — le changement s'applique à TOUT l'IPC, il ne doit pas ralentir le cas courant. | `--child` `--flood` `--pings` `--runs` `--sizes` `--window` | — |
 | `scripts/latency.mjs` | Latence PURE du chemin cross-pod, hors saturation : 1 client, messages espacés (aucun backlog). Mesure : publish A1 → sceau → Redis → ingress A2 → fan-out → frame WS. node latency.mjs <portRx> <portTx> <nbMessages> <intervalleMs> / | — | — |
@@ -115,7 +115,7 @@ bash scripts/setup.sh [dossier] [namespace]
 node soak.mjs <portRx> <portTx> <paliers> <secondesParPalier>
 ```
 
-**Toutes les variables lues par ce skill** : `APP` · `BASE` · `BOX` · `CLE` · `MODE` · `NF_BENCH_SECRET` · `NF_DATABASE_URL` · `NF_REDIS_TEST_URL` · `PORT` · `URL_BASE` · `WORKERS`
+**Toutes les variables lues par ce skill** : `APP` · `NF_BENCH_SECRET` · `NF_DATABASE_URL` · `NF_REDIS_TEST_URL`
 
 ## Conformité au standard Agent Skills
 

@@ -33,7 +33,7 @@ source: ".claude/skills/nodefony-load-test/SKILL.md"
 | Description | 1023 / 1024 caractères |
 | Déclencheurs | 16 |
 | Ressources `references/` | 5 page(s) |
-| Scripts | 80 |
+| Scripts | 81 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -80,7 +80,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
 | `references/ab-perf-mono-prod.md` | Niveau 3 — A/B perf mono prod : détails | 148 |
-| `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 419 |
+| `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 420 |
 | `references/profil-compare.md` | Profil comparé — le coût d'une requête face à un témoin équitable | 88 |
 | `references/protocoles-bancs-charge.md` | Protocoles détaillés des bancs de charge les plus utilisés | 237 |
 | `references/reperes-empiriques.md` | Repères empiriques — pour situer un résultat | 30 |
@@ -93,7 +93,7 @@ script, donc toujours à jour après régénération.
 
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
-| `scripts/aimd-demo.mjs` | aimd-demo — démonstration LISIBLE et déterministe de la cadence adaptative (AIMD). | — | `DIST` |
+| `scripts/aimd-demo.mjs` | aimd-demo — démonstration LISIBLE et déterministe de la cadence adaptative (AIMD). | — | — |
 | `scripts/app-download-probe.mjs` | `binaryType` par défaut de `ws` = "nodebuffer" : `raw` est toujours un `Buffer` ici. | — | — |
 | `scripts/bench-ab-mono.sh` | Banc perf A/B — mono process PRODUCTION. Mesure le COÛT DU PIPELINE PAR REQUÊTE. | `--latency` `--show-toplevel` | `BENCH_CONN` `BENCH_DUR` `BENCH_EXPECT_STATUS` `BENCH_INDEX_TARGET` `BENCH_THERM_TARGET` `BENCH_THREADS` `BENCH_URL` `BENCH_WARMUP` `NF_BENCH_OUT` |
 | `scripts/bench-out.mjs` | Dossier des sorties de banc, côté JavaScript — miroir de `bench-out.sh`. | `--show-toplevel` | `NF_BENCH_OUT` |
@@ -104,57 +104,58 @@ script, donc toujours à jour après régénération.
 | `scripts/bisect-perf.sh` | Bissection d'une RÉGRESSION de coût par requête — quel commit a fait monter le ratio Nodefony / témoin du profil comparé ? | `--date` `--detach` `--format` `--no-audit` `--no-fund` `--short` `--step` | `BAD` `NF_BISECT_WT` `THRESHOLD` `WITNESS` |
 | `scripts/boot-bench.mjs` | boot-bench.mjs — mesure le temps de boot d'un mode Nodefony (du spawn jusqu'à ce que les serveurs écoutent) et compte le nombre de `new Kernel()` via NF_KERNEL_TRACE_FILE. | `--workers` | — |
 | `scripts/boot-profile.mjs` | boot-profile.mjs — AUDIT fin du boot Nodefony. Capture la sortie horodatée d'un boot (jusqu'à "Server Listen on http") et révèle où part le temps : - jalons de phase (onPreStart→onPostReady + Server Listen) avec leur t (ms depuis le 1er log) - top des plus gros écarts entre 2 logs consécutifs (= opérations lentes du boot) | `--workers` | — |
-| `scripts/byte-stream-overhead.mjs` | Surcoût d'un flux d'octets du framework face au plancher `source.pipe(res)`. | `--mb` `--quick` `--runs` | `RUNS` |
-| `scripts/capacity-html.mjs` | capacity-html.mjs — rendu du rapport de capacité. | — | `PAYLOAD` `REPEAT` |
-| `scripts/capacity.mjs` | capacity.mjs — BANC DE CAPACITÉ + rapport de dimensionnement. | `--capacity` `--json` `--out` `--rupture` `--seconds` `--short` `--skip-ws` `--sockets` `--target` | `HOST` `JSON_OUT` `MAX_SPREAD` `MIN_ELU_SAMPLES` `MIN_R2` `NF_ADMIN_PASSWORD` `NF_ADMIN_USER` `NF_HOST` `NF_PORT` `NF_PORT_HTTPS` `OUT` `PAYLOAD` `PCLR` `PTLS` `REPEAT` `ROUTE` |
+| `scripts/byte-stream-overhead.mjs` | Surcoût d'un flux d'octets du framework face au plancher `source.pipe(res)`. | `--mb` `--quick` `--runs` | — |
+| `scripts/capacity-html.mjs` | capacity-html.mjs — rendu du rapport de capacité. | — | — |
+| `scripts/capacity.mjs` | capacity.mjs — BANC DE CAPACITÉ + rapport de dimensionnement. | `--capacity` `--json` `--out` `--rupture` `--seconds` `--short` `--skip-ws` `--sockets` `--target` | `NF_ADMIN_PASSWORD` `NF_ADMIN_USER` `NF_HOST` `NF_PORT` `NF_PORT_HTTPS` |
 | `scripts/cluster-health-endpoint-e2e.mjs` | Preuve BOUT-EN-BOUT de la forme JSON de l'ENDPOINT santé en mode cluster — ce que le panneau Studio « Realtime Hub » (vue pod) consomme réellement. | — | `E2E_ROLE` `SETTLE` |
 | `scripts/cluster-ipc.mjs` | Bench du FIL IPC du backplane cluster Nodefony (mode sans PM2) — mesure le coût RÉEL du fan-out cross-process worker→MASTER(gateway)→workers, AVANT Redis. | — | `BATCH` `BENCH_ROLE` `CHANNEL` `DURATION` `MODE` `PAYLOAD` `RATE` `WORKERS` |
 | `scripts/cluster-orm-rich-e2e.mjs` | Preuve BOUT-EN-BOUT du RELAIS ORM RICHE @pid (drill cluster, facette "orm") — sans navigateur. | — | `E2E_ROLE` `SETTLE` |
 | `scripts/cluster-probe-e2e.mjs` | Preuve BOUT-EN-BOUT de la SONDE AGRÉGÉE pod (cluster sans PM2) — Phase 4c, mode push. | — | `E2E_ROLE` `SETTLE` |
 | `scripts/cluster-realtime-e2e.mjs` | Preuve BOUT-EN-BOUT du realtime cross-process Nodefony (cluster sans PM2) — Phase 4b. | — | `E2E_ROLE` `SETTLE` |
-| `scripts/config-env-override-e2e.mjs` | Banc e2e TERRAIN — override de config par variable d'environnement (ADR-0006) — sans navigateur. | — | `BOOT_TIMEOUT_MS` `FAIL_TIMEOUT_MS` `HTTPS_PORT` `HTTP_PORT` |
+| `scripts/config-env-override-e2e.mjs` | Banc e2e TERRAIN — override de config par variable d'environnement (ADR-0006) — sans navigateur. | — | — |
 | `scripts/console-boot-bench.mjs` | Banc — boot CONSOLE du noyau, N runs, médiane. | `--json` | — |
-| `scripts/cut-analyze.mjs` | Relit une bissection par court-circuit (`NF_WAIT_CUTS` de `wait-compare.sh`) et rend le COÛT DE CHAQUE ÉTAGE en µs de CPU du fil principal par requête. | `--partial` | `KEY` `MAX_SPREAD` |
+| `scripts/cut-analyze.mjs` | Relit une bissection par court-circuit (`NF_WAIT_CUTS` de `wait-compare.sh`) et rend le COÛT DE CHAQUE ÉTAGE en µs de CPU du fil principal par requête. | `--partial` | — |
 | `scripts/cut-probe.mjs` | Bissection par COURT-CIRCUIT du pipeline HTTP — préchargée dans le serveur (`NODE_OPTIONS=--import=…/cut-probe.mjs`), jamais dans le produit. | — | `NF_BENCH_CUT` |
-| `scripts/db-backend-cost.mjs` | db-backend-cost — ce qu'un backend de base de données coûte AU SERVEUR, et non ce qu'il coûte en lui-même. | `--ceiling` `--prove` | `CONC` `JSON_OUT` `LIMIT` `NF_DATABASE_URL` `NF_PG_URL` `PG_CONTAINER` `REPS` `ROWS` `SEC` `SERIES` |
+| `scripts/db-backend-cost.mjs` | db-backend-cost — ce qu'un backend de base de données coûte AU SERVEUR, et non ce qu'il coûte en lui-même. | `--ceiling` `--prove` | `CONC` `JSON_OUT` `NF_DATABASE_URL` `NF_PG_URL` `PG_CONTAINER` `REPS` `ROWS` `SEC` `SERIES` |
 | `scripts/debug-runtime-e2e.mjs` | Banc e2e TERRAIN — debug runtime par-module à chaud — sans navigateur. | — | — |
 | `scripts/decor-probe.mjs` | Garde de DÉCOR d'un banc de débit Nodefony — préchargée (`node --import`) dans le serveur mesuré. À la PREMIÈRE requête, elle refuse (code 3) si un hook du chemin de requête a un écouteur : un seul suffit à faire passer chaque requête par `fireAsync` (une Promise, une microtâche), coût qu'une application sans ce hook ne paie pas — et que le banc imputerait au framework. Vécu deux fois sur #508, les deux fois posé par le module test (`onRequestScope`, puis `beforeResolve`) ; la seconde n'a été vue qu'au chronométrage in situ, parce que rien ne la cherchait. | — | — |
-| `scripts/dev-restart-cycle.mjs` | dev-restart-cycle.mjs — simule un développeur sous le DevSupervisor : modifie un fichier backend, chronomètre jusqu'à la remise en écoute, N cycles, médiane. Le fichier est RESTAURÉ à la fin. Prérequis : serveur de dev lancé par start.sh (journal /tmp/nodefony-server.log). Usage : node dev-restart-cycle.mjs <fichier-backend> [cycles=5] | — | `NF_DEV_CYCLE_PORT` `RUNS` |
+| `scripts/dev-restart-cycle.mjs` | dev-restart-cycle.mjs — simule un développeur sous le DevSupervisor : modifie un fichier backend, chronomètre jusqu'à la remise en écoute, N cycles, médiane. Le fichier est RESTAURÉ à la fin. Prérequis : serveur de dev lancé par start.sh (journal /tmp/nodefony-server.log). Usage : node dev-restart-cycle.mjs <fichier-backend> [cycles=5] | — | `NF_DEV_CYCLE_PORT` |
 | `scripts/graceful-shutdown-e2e.mjs` | Banc e2e du GRACEFUL SHUTDOWN (@nodefony/http, trous 1+3 revue 0.7) — sans navigateur. | `--detach` `--wait` | `HTTP_SLOW_URL` `PORT` `WS_URL` |
+| `scripts/grpc-stream-throughput.mjs` | Débit d'un flux serveur gRPC comparé à la socket binaire (#695, critère 22 ; ADR-0026 D4 « plancher par message de l'adaptateur »). | `--runs` `--sizes` `--out` `--serve-raw` | — |
 | `scripts/h2c-vs-h1-bare.mjs` | Témoin du banc h2c-vs-h1.sh : Node NU, sans framework — le coût de HTTP/2 lui-même. HTTP/1.1 et h2c sur deux ports, même réponse triviale. | — | — |
 | `scripts/h2c-vs-h1.sh` | HTTP/1.1 contre HTTP/2 en clair (h2c) — « h2c est-il plus rapide derrière mon proxy ? », et surtout : le surcoût de h2c est-il celui de HTTP/2, ou le nôtre ? | `--h1` `--http2-prior-knowledge` | `BARE` `DUR` `PAIRS` `PROBE` `ROUTE` |
 | `scripts/header-snapshot.mjs` | Relevé des BLOCS D'EN-TÊTES qu'un serveur rend sur des réponses types — page, JSON, 404, 401, fichier statique, sonde de santé, HEAD, CORS — en HTTP/1.1 ET en HTTP/2. Les valeurs qui changent à chaque requête (date, identifiant de requête, nonce, cookie) sont masquées : deux relevés du même code sont identiques, deux relevés de deux codes se comparent ligne à ligne. | `--diff` | `HOST` `NF_PORT_HTTP` `NF_PORT_HTTPS` |
 | `scripts/header-writes-probe.mjs` | Sonde de DIAGNOSTIC — compte, par réponse servie, les `setHeader` NATIFS posés AVANT le `writeHead`, et la forme sous laquelle `writeHead` reçoit ses en-têtes (rien, objet, liste plate). Un seul `setHeader` natif avant le `writeHead` fait retomber Node sur son chemin lent pour TOUTE la réponse (`micro/micro-write-head.mjs`, ligne « mixte ») : c'est ce que cette sonde rend visible, couche appelante comprise. Né de #727. | `--summary` | — |
 | `scripts/heap-at-exit.mjs` | Crochet de banc (`console-boot-bench.mjs`) — chargé par `NODE_OPTIONS=--import=<ce fichier>` dans un processus `nodefony` en boot CONSOLE. À la sortie du processus, force deux collectes (exige `--expose-gc`) puis consigne le tas RETENU et la durée de vie du processus (UNE horloge : `process.uptime()`), une ligne JSON par processus, dans le fichier `NF_BENCH_HEAP_FILE`. | — | `NF_BENCH_HEAP_FILE` |
-| `scripts/http-load.mjs` | Stress HTTP — N requêtes avec concurrence C sur une route Nodefony. Mesure : RPS, latence p50/p90/p95/p99/max, distribution des codes, erreurs. | — | `BODY` `METHOD` `URL` `URL_STR` |
-| `scripts/hub-load.mjs` | Charge de la SOCKET Nodefony côté HUB (RealtimeHub) — fait bouger le panneau « Realtime Hub » de Studio (/nodefony/hub) + l'endpoint /nodefony/realtime/api/health. | — | `ADMIN_USER` `BASE` `BATCH` `HOLD` `HOLD_MS` `HOST` `HTTP_PATH` `HTTP_RPS` `MODE` `NF_BENCH_ADMIN_PASSWORD` `NF_BENCH_ADMIN_USER` `NODE_TLS_REJECT_UNAUTHORIZED` `PORT` `WS_URL` |
+| `scripts/http-load.mjs` | Stress HTTP — N requêtes avec concurrence C sur une route Nodefony. Mesure : RPS, latence p50/p90/p95/p99/max, distribution des codes, erreurs. | — | `BODY` `METHOD` `URL` |
+| `scripts/hub-load.mjs` | Charge de la SOCKET Nodefony côté HUB (RealtimeHub) — fait bouger le panneau « Realtime Hub » de Studio (/nodefony/hub) + l'endpoint /nodefony/realtime/api/health. | — | `BATCH` `HOLD_MS` `HOST` `HTTP_PATH` `HTTP_RPS` `MODE` `NF_BENCH_ADMIN_PASSWORD` `NF_BENCH_ADMIN_USER` `NODE_TLS_REJECT_UNAUTHORIZED` `PORT` `WS_URL` |
 | `scripts/ic-sites.mjs` | Lit un journal V8 `--log-ic` et rend les sites d'accès aux propriétés qui ont basculé en MÉGAMORPHE (état `N`) — là où V8 renonce au chemin rapide et passe par un cache global (`LoadIC_Megamorphic`, `KeyedLoadIC_Megamorphic`…). | `--log-ic` `--logfile` `--no-logfile-per-isolate` | — |
 | `scripts/idempotency-cluster-e2e.mjs` | Banc CROSS-WORKER de l'idempotence distribuée Redis (cluster multi-process, P6.8) — sans navigateur. | `--detach` `--wait` `--workers` | — |
-| `scripts/idempotency-postgres-e2e.mjs` | Banc CROSS-POD de l'idempotence distribuée Drizzle/PostgreSQL (axe 3, P6.8) — sans navigateur. | `--profile` | `CONC` `PG_URL` `ROUNDS` |
+| `scripts/idempotency-postgres-e2e.mjs` | Banc CROSS-POD de l'idempotence distribuée Drizzle/PostgreSQL (axe 3, P6.8) — sans navigateur. | `--profile` | `PG_URL` |
 | `scripts/idempotency-userland-e2e.mjs` | Banc e2e USERLAND @Idempotent contre un VRAI Redis (single-pod, P6.8) — sans navigateur. | — | — |
 | `scripts/kill-guard.sh` | Garde de mise à mort des bancs — À SOURCER, jamais à exécuter. | — | — |
-| `scripts/log-sink-contention.mjs` | Microbench ISOLÉ du driver de sink de log (LB.W / axe W2). | — | `DIR` `JSON_OUT` `LINES` `ONLY` `RUNS` `VARIANT` `WARMUP` `WID` `WORKERS` |
+| `scripts/log-sink-contention.mjs` | Microbench ISOLÉ du driver de sink de log (LB.W / axe W2). | — | `JSON_OUT` `LINES` `ONLY` `RUNS` `VARIANT` `WARMUP` `WID` `WORKERS` |
 | `scripts/machine-regime.sh` | RÉGIME MACHINE — l'état du processeur au moment d'une mesure. | `--format` | — |
-| `scripts/native-sample.mjs` | Lit une capture `sample <pid> <s> -file <f>` (macOS) et rend le temps PROPRE du fil principal, par famille et par frame, en µs par requête — et, quand la table `perf.map` du process est posée à côté de la capture, QUI l'a payé : chaque échantillon natif est imputé à son premier ancêtre JavaScript. | `--accept-noise` `--cpu-prof` `--dir` `--perf-basic-prof` `--prof` | `MAX_DISPERSION` |
+| `scripts/native-sample.mjs` | Lit une capture `sample <pid> <s> -file <f>` (macOS) et rend le temps PROPRE du fil principal, par famille et par frame, en µs par requête — et, quand la table `perf.map` du process est posée à côté de la capture, QUI l'a payé : chaque échantillon natif est imputé à son premier ancêtre JavaScript. | `--accept-noise` `--cpu-prof` `--dir` `--perf-basic-prof` `--prof` | — |
 | `scripts/native-sample.test.mjs` | Éprouve le lecteur de captures `sample` (native-sample.mjs) sur une capture miniature écrite à la main : temps propre, nommage par perf.map, imputation au premier ancêtre JS, moyenne par camp. Un changement du format de `sample` ou de la table perf doit faire tomber ce test, pas fausser un banc en silence. npx vitest run .claude/skills/nodefony-load-test/scripts/native-sample.test.mjs | — | — |
 | `scripts/perf-campaign.sh` | Campagne de mesure PUBLIABLE, sans surveillance — la matière de `docs/performance/data/<version>.json`, rejouée au protocole de la dernière publication : trois paires de débit, le cas applicatif, et une tenue longue. | `--at` `--conn` `--minutes` `--only` `--out` `--porcelain` `--short` `--soak-min` `--tries` `--window` | `NF_PARITY_CAMPS` `ONLY` `SOAK_MIN` `TRIES` |
-| `scripts/perf-compose.mjs` | Compose `docs/performance/data/<version>.json` depuis le dossier d'une campagne (`perf-campaign.sh`) — les CHIFFRES, jamais le récit. | `--absent` `--allow-missing` `--campaign` `--capacity` `--data` `--format` `--json` `--only` `--quiet` `--reuse` `--soak` `--version` `--write` | `CAMPAIGN` `DATA` |
-| `scripts/perf-dossier-report.mjs` | Rapport HTML de synthèse — dossier Performance de Nodefony. | `--data` `--prove` | `OUT` |
+| `scripts/perf-compose.mjs` | Compose `docs/performance/data/<version>.json` depuis le dossier d'une campagne (`perf-campaign.sh`) — les CHIFFRES, jamais le récit. | `--absent` `--allow-missing` `--campaign` `--capacity` `--data` `--format` `--json` `--only` `--quiet` `--reuse` `--soak` `--version` `--write` | — |
+| `scripts/perf-dossier-report.mjs` | Rapport HTML de synthèse — dossier Performance de Nodefony. | `--data` `--prove` | — |
 | `scripts/poc-bench.mjs` | POC bench — mesure la latence p50/p95/p99 du backend Nodefony pendant que Vite tourne / compile. | `--concurrency` `--duration` `--label` `--touch` `--touch-delay` `--url` | — |
 | `scripts/poc-hmr-perf.mjs` | POC HMR perf — mesure le délai end-to-end entre : 1. `fs.utimes()` (touch) sur un fichier source surveillé par Vite 2. réception du 1er message HMR ("update" ou "full-reload") côté client WS | `--file` `--gap-ms` `--iterations` `--vite-url` | — |
-| `scripts/prod-readiness-report.mjs` | prod-readiness-report.mjs — « Nodefony peut-il partir en production ? » | `--at` `--campaign` `--data` `--http-path` `--json` `--minutes` `--only` `--out` `--seconds` `--soak` `--window` | `DATA` `SOAK` |
+| `scripts/prod-readiness-report.mjs` | prod-readiness-report.mjs — « Nodefony peut-il partir en production ? » | `--at` `--campaign` `--data` `--http-path` `--json` `--minutes` `--only` `--out` `--seconds` `--soak` `--window` | — |
 | `scripts/profile-analyze.mjs` | Relit un profil `--cpu-prof` pris par `profile-cpu.sh` : temps PROPRE agrégé par fonction et par origine (paquet, module node:, natif), FENÊTRÉ sur les 20 dernières secondes actives — le profil couvre aussi le démarrage — et rapporté en µs par requête servie. | `--cpu-prof` | — |
 | `scripts/profile-compare.mjs` | Compare DEUX profils pris par `profile-cpu.sh` dans le même décor, poste à poste, en µs par requête. C'est la question qu'un profil isolé ne pose jamais : « combien de trop, et OÙ, par rapport à ce qui est possible ? ». | — | — |
 | `scripts/profile-compare.sh` | « Comparé à QUOI ? » — profile Nodefony ET le camp témoin équitable dans le MÊME décor, puis rend l'écart poste par poste en µs par requête. | — | `NF_PROFILE_DIR` |
 | `scripts/profile-cpu.sh` | Profil CPU d'un serveur SOUS CHARGE — où part le temps d'une requête. Lance le serveur sous `node --cpu-prof`, le chauffe (wrk non compté), le charge 20 s, puis l'arrête GRACIEUSEMENT (SIGINT : V8 n'écrit le profil qu'à la sortie). Relire ensuite avec `profile-analyze.mjs`, qui fenêtre sur la charge. | `--cpu-prof` `--cpu-prof-dir` `--cpu-prof-interval` `--http2-prior-knowledge` `--max-time` | `BENCH_BODY` `BENCH_CONN` `BENCH_DUR` `BENCH_EXPECT_STATUS` `BENCH_LOGIN` `BENCH_METHOD` `BENCH_PATH` `BENCH_PROTO` `BENCH_STREAMS` `NF_PROFILE_APP_ROOT` `NF_PROFILE_DIR` `PORT` `XENV` |
-| `scripts/promise-map.mjs` | Carte des Promises d'UNE requête — OÙ chacune naît, pile par pile. | `--body` `--method` | `COUNTER_PORT` `PORT` |
+| `scripts/promise-map.mjs` | Carte des Promises d'UNE requête — OÙ chacune naît, pile par pile. | `--body` `--method` | — |
 | `scripts/promise-sites.mjs` | Carte des sites de création des Promises d'UNE requête (#505) — préchargé par `node --import` dans le serveur mesuré. GET :5199/start ouvre la fenêtre, GET :5199/stop la ferme et rend les piles (JSON). Compteur jumeau, pour la garde : `src/packages/@nodefony/http/nodefony/tests/helpers/promiseCounter.mjs`. ⚠️ Sous crochet, V8 crée une Promise jetable par `await` : le compte vaut « Promises + suspensions » — ne se compare qu'à un camp mesuré pareil (nest-fair : 20, Fastify nu : 2, Express : 0 ; Nodefony avant L2 : 53-57). | — | `NF_PROMISE_COUNTER_PORT` |
-| `scripts/ratelimit-e2e.mjs` | Banc e2e du RATE-LIMIT GÉNÉRAL par IP (@nodefony/http, P0.3) — sans navigateur. | — | `MAX` `RL_URL` `URL` |
+| `scripts/ratelimit-e2e.mjs` | Banc e2e du RATE-LIMIT GÉNÉRAL par IP (@nodefony/http, P0.3) — sans navigateur. | — | `RL_URL` |
 | `scripts/route-scan-cost.mjs` | route-scan-cost — ce que la RÉSOLUTION DE ROUTE coûte à une application, et comment ce coût grandit avec le nombre de routes. | `--diagnostic` `--json` `--measure` `--reps` `--routes` `--scale` `--target` | `JSON_OUT` |
 | `scripts/run.sh` | Wrapper unique du skill load-test. Route vers les suites vitest VERSIONNÉES (non-régression de charge) ou vers les scripts client standalone (exploration). | `--config` `--rupture` | — |
 | `scripts/scaffold-ws-probe.mjs` | Sonde : prouve que le job de scaffold est bien streamé sur la socket Nodefony. | — | `NF_STEPS` `NF_WAIT` |
 | `scripts/server-boot-bench.mjs` | Banc — boot SERVEUR de développement, N cycles start/stop, médiane. | `--keep-last` | — |
-| `scripts/soak.mjs` | soak.mjs — TENUE DANS LA DURÉE d'un process Nodefony sous trafic continu. | `--attendre-charge` `--conn` `--force-charge` `--format` `--latency` `--minutes` `--pid` `--show-toplevel` `--skip` `--url` `--version` `--workspace` | `ATTENDRE_CHARGE` `COEURS` `CONN` `LOG` `MINUTES` `MIN_AMPLITUDE_MB` `MIN_MINUTES` `OUT` `PROBE` `ROOT` `SKIP` `SONDE_ESSAIS` `SONDE_TIMEOUT_MS` `THREADS` `TRANCHE` `TTL_DEROGATION_MIN` `URL` `VCPU_VIRTUALISES` `WINDOW` `WINDOWS` |
+| `scripts/soak.mjs` | soak.mjs — TENUE DANS LA DURÉE d'un process Nodefony sous trafic continu. | `--attendre-charge` `--conn` `--force-charge` `--format` `--latency` `--minutes` `--pid` `--show-toplevel` `--skip` `--url` `--version` `--workspace` | — |
 | `scripts/span-analyze.mjs` | Relit les fenêtres de `span-probe.mjs` (via `span-run.sh`) et rend, par méthode, la MÉDIANE des runs en ns/requête — brute, puis corrigée du coût de l'enveloppe (étalonné par la sonde, multiplié par les appels imbriqués). | — | — |
 | `scripts/span-probe.mjs` | Chronométrage IN SITU des appels d'un étage du pipeline — préchargé dans le serveur COMPLET (`NODE_OPTIONS=--import=…/span-probe.mjs`), jamais dans le produit. | — | `NF_SPAN_PROBE_OUT` `NF_SPAN_SET` |
 | `scripts/span-run.sh` | Chronométrage in situ d'un étage (`span-probe.mjs`) sur le serveur Nodefony COMPLET — même décor que `wait-compare.sh` (production, garde machine calme, cible prouvée 200, chauffe non comptée, fenêtre SIGUSR2), sans témoin : la sonde attribue, elle ne compare pas. | — | `BENCH_CONN` `BENCH_DUR` `BENCH_EXPECT_STATUS` `BENCH_PATH` `NF_SPAN_DIR` |
@@ -167,12 +168,12 @@ script, donc toujours à jour après régénération.
 | `scripts/wait-lib.mjs` | Lecture des fenêtres de `wait-probe.mjs` — partagée par `wait-analyze.mjs` (deux camps) et `cut-analyze.mjs` (étages d'une bissection) : un seul calcul « par requête », deux lecteurs. | — | — |
 | `scripts/wait-probe.mjs` | Sonde « où part le temps HORS du JavaScript » — préchargée dans un serveur (`node --import …/wait-probe.mjs`), identique pour tous les camps. | — | `NF_WAIT_PROBE_OUT` |
 | `scripts/webhooks-dataplane-e2e.mjs` | Banc e2e — Data plane WEBHOOKS (P6.13 Slice C) — VRAI serveur, session BFF, sans navigateur. […] | — | `NF_ADMIN_PASSWORD` `NF_USER_PASSWORD` |
-| `scripts/ws-backpressure-e2e.mjs` | Contre-pression WebSocket SORTANTE (serveur → client) sur une VRAIE socket. | — | `BASE` `HOST` `NODE_TLS_REJECT_UNAUTHORIZED` `PORT` `URL` `WS_URL` |
+| `scripts/ws-backpressure-e2e.mjs` | Contre-pression WebSocket SORTANTE (serveur → client) sur une VRAIE socket. | — | `HOST` `NODE_TLS_REJECT_UNAUTHORIZED` `PORT` `WS_URL` |
 | `scripts/ws-conn-cap-e2e.mjs` | Banc e2e du BACKSTOP de connexions WS concurrentes par IP (@nodefony/http, F6c revue 0.6) — sans navigateur. Prouve le CÂBLAGE bout-en-bout du plafond OPT-IN : au-delà de `wsMaxConnectionsPerIp` sockets simultanément ouvertes depuis une même IP, l'upgrade est fermé (RFC 6455 close 1013). Distinct du rate-limit (débit) : ici ce sont des sockets HELD open EN MÊME TEMPS (pas une rafale séquentielle). | — | `NODE_TLS_REJECT_UNAUTHORIZED` `WS_URL` |
 | `scripts/ws-connections.mjs` | Stress WS — AXE 1 : nombre de connexions simultanées (combien de sockets un process tient), distinct du débit messages (axe 2 → ws-messages.mjs). | `--pending` | `BATCH` `CAP` `HEAP_URL` `HOLD_MS` `STEP` `WS_URL` |
-| `scripts/ws-handshake-ratelimit-e2e.mjs` | Banc e2e du RATE-LIMIT du HANDSHAKE WebSocket (@nodefony/http, F5 revue 0.6) — sans navigateur. | — | `HTTP_URL` `MAX` `NODE_TLS_REJECT_UNAUTHORIZED` `WS_URL` |
+| `scripts/ws-handshake-ratelimit-e2e.mjs` | Banc e2e du RATE-LIMIT du HANDSHAKE WebSocket (@nodefony/http, F5 revue 0.6) — sans navigateur. | — | `HTTP_URL` `NODE_TLS_REJECT_UNAUTHORIZED` `WS_URL` |
 | `scripts/ws-messages.mjs` | Stress WS — AXE 2 : débit de messages / fan-out broadcast (combien de frames le pipeline encaisse), distinct du nombre de connexions (axe 1 → ws-connections.mjs). | — | `BURST` `BURSTS` `CLIENTS` `HOST` `MODE` `TIMEOUT_MS` `WS_URL` |
-| `scripts/ws-tls-batching.mjs` | ws-tls-batching.mjs — pourquoi l'écho WebSocket sort plus RAPIDE en TLS qu'en clair sur `capacity.mjs`, preuve sur un serveur `ws` NU (sans Nodefony). | — | `CLIENTS` `PAYLOAD` `RUNS` `WINDOW` `WS_BATCH_PAYLOAD` |
+| `scripts/ws-tls-batching.mjs` | ws-tls-batching.mjs — pourquoi l'écho WebSocket sort plus RAPIDE en TLS qu'en clair sur `capacity.mjs`, preuve sur un serveur `ws` NU (sans Nodefony). | — | `WS_BATCH_PAYLOAD` |
 
 **Invocation telle que documentée dans chaque script :**
 
@@ -197,6 +198,7 @@ Usage : node cut-analyze.mjs <dossier> <témoin> <coupe…> [--partial]
 node .claude/skills/nodefony-load-test/scripts/debug-runtime-e2e.mjs
 Usage : node dev-restart-cycle.mjs <fichier-backend> [cycles=5]
 node .claude/skills/nodefony-load-test/scripts/graceful-shutdown-e2e.mjs
+node .claude/skills/nodefony-load-test/scripts/grpc-stream-throughput.mjs
 Usage : node h2c-vs-h1-bare.mjs [port HTTP/1.1=5161] [port h2c=5163] [plain|headers=plain]
 node .claude/skills/nodefony-load-test/scripts/header-snapshot.mjs avant
 bash .claude/skills/nodefony-start-server/start.sh
@@ -237,7 +239,7 @@ node .claude/skills/load-test/scripts/ws-messages.mjs
 node .claude/skills/nodefony-load-test/scripts/ws-tls-batching.mjs
 ```
 
-**Toutes les variables lues par ce skill** : `ADMIN_USER` · `ATTENDRE_CHARGE` · `BAD` · `BARE` · `BASE` · `BATCH` · `BENCH_BODY` · `BENCH_CONN` · `BENCH_DUR` · `BENCH_EXPECT_STATUS` · `BENCH_HEADER` · `BENCH_INDEX_TARGET` · `BENCH_LOGIN` · `BENCH_METHOD` · `BENCH_PATH` · `BENCH_PROTO` · `BENCH_ROLE` · `BENCH_STREAMS` · `BENCH_THERM_TARGET` · `BENCH_THREADS` · `BENCH_URL` · `BENCH_WARMUP` · `BODY` · `BOOT_TIMEOUT_MS` · `BURST` · `BURSTS` · `CAMPAIGN` · `CAP` · `CHANNEL` · `CLIENTS` · `COEURS` · `CONC` · `CONN` · `COUNTER_PORT` · `DATA` · `DIR` · `DIST` · `DUR` · `DURATION` · `E2E_ROLE` · `ERR_RUPTURE` · `FAIL_TIMEOUT_MS` · `HEAP_URL` · `HOLD` · `HOLD_MS` · `HOST` · `HTTPS_PORT` · `HTTP_PATH` · `HTTP_PORT` · `HTTP_RPS` · `HTTP_SLOW_URL` · `HTTP_STEP` · `HTTP_URL` · `JSON_OUT` · `KEY` · `LIMIT` · `LINES` · `LOG` · `MAX` · `MAX_DISPERSION` · `MAX_SPREAD` · `METHOD` · `MINUTES` · `MIN_AMPLITUDE_MB` · `MIN_ELU_SAMPLES` · `MIN_MINUTES` · `MIN_R2` · `MODE` · `MSG_HZ` · `NF_ADMIN_PASSWORD` · `NF_ADMIN_USER` · `NF_BENCH_ADMIN_PASSWORD` · `NF_BENCH_ADMIN_USER` · `NF_BENCH_CUT` · `NF_BENCH_HEAP_FILE` · `NF_BENCH_OUT` · `NF_BISECT_WT` · `NF_DATABASE_URL` · `NF_DEV_CYCLE_PORT` · `NF_HOST` · `NF_NATIVE_SAMPLE` · `NF_NATIVE_TOP` · `NF_PARITY_CAMPS` · `NF_PG_URL` · `NF_PORT` · `NF_PORT_HTTP` · `NF_PORT_HTTPS` · `NF_PROFILE_APP_ROOT` · `NF_PROFILE_DIR` · `NF_PROMISE_COUNTER_PORT` · `NF_SPAN_DIR` · `NF_SPAN_PROBE_OUT` · `NF_SPAN_SET` · `NF_STEPS` · `NF_USER_PASSWORD` · `NF_WAIT` · `NF_WAIT_APP_ROOT` · `NF_WAIT_CUTS` · `NF_WAIT_DIR` · `NF_WAIT_PROBE_OUT` · `NODE_TLS_REJECT_UNAUTHORIZED` · `ONLY` · `ORM_PATH` · `ORM_STEP` · `OUT` · `PAIRS` · `PAYLOAD` · `PCLR` · `PG_CONTAINER` · `PG_URL` · `PORT` · `PROBE` · `PTLS` · `RATE` · `REPEAT` · `REPS` · `RL_URL` · `ROOT` · `ROUNDS` · `ROUTE` · `ROWS` · `RUNS` · `SEC` · `SERIES` · `SETTLE` · `SKIP` · `SOAK` · `SOAK_MIN` · `SONDE_ESSAIS` · `SONDE_TIMEOUT_MS` · `STAGES` · `STAGE_MS` · `STEP` · `THREADS` · `THRESHOLD` · `TIMEOUT_MS` · `TRANCHE` · `TRIES` · `TTL_DEROGATION_MIN` · `URL` · `URL_STR` · `VARIANT` · `VCPU_VIRTUALISES` · `WARMUP` · `WID` · `WINDOW` · `WINDOWS` · `WITNESS` · `WORKERS` · `WS_BATCH_PAYLOAD` · `WS_PATH` · `WS_STEP` · `WS_URL` · `XENV`
+**Toutes les variables lues par ce skill** : `BAD` · `BARE` · `BATCH` · `BENCH_BODY` · `BENCH_CONN` · `BENCH_DUR` · `BENCH_EXPECT_STATUS` · `BENCH_HEADER` · `BENCH_INDEX_TARGET` · `BENCH_LOGIN` · `BENCH_METHOD` · `BENCH_PATH` · `BENCH_PROTO` · `BENCH_ROLE` · `BENCH_STREAMS` · `BENCH_THERM_TARGET` · `BENCH_THREADS` · `BENCH_URL` · `BENCH_WARMUP` · `BODY` · `BURST` · `BURSTS` · `CAP` · `CHANNEL` · `CLIENTS` · `CONC` · `DUR` · `DURATION` · `E2E_ROLE` · `ERR_RUPTURE` · `HEAP_URL` · `HOLD_MS` · `HOST` · `HTTP_PATH` · `HTTP_RPS` · `HTTP_SLOW_URL` · `HTTP_STEP` · `HTTP_URL` · `JSON_OUT` · `LINES` · `METHOD` · `MODE` · `MSG_HZ` · `NF_ADMIN_PASSWORD` · `NF_ADMIN_USER` · `NF_BENCH_ADMIN_PASSWORD` · `NF_BENCH_ADMIN_USER` · `NF_BENCH_CUT` · `NF_BENCH_HEAP_FILE` · `NF_BENCH_OUT` · `NF_BISECT_WT` · `NF_DATABASE_URL` · `NF_DEV_CYCLE_PORT` · `NF_HOST` · `NF_NATIVE_SAMPLE` · `NF_NATIVE_TOP` · `NF_PARITY_CAMPS` · `NF_PG_URL` · `NF_PORT` · `NF_PORT_HTTP` · `NF_PORT_HTTPS` · `NF_PROFILE_APP_ROOT` · `NF_PROFILE_DIR` · `NF_PROMISE_COUNTER_PORT` · `NF_SPAN_DIR` · `NF_SPAN_PROBE_OUT` · `NF_SPAN_SET` · `NF_STEPS` · `NF_USER_PASSWORD` · `NF_WAIT` · `NF_WAIT_APP_ROOT` · `NF_WAIT_CUTS` · `NF_WAIT_DIR` · `NF_WAIT_PROBE_OUT` · `NODE_TLS_REJECT_UNAUTHORIZED` · `ONLY` · `ORM_PATH` · `ORM_STEP` · `OUT` · `PAIRS` · `PAYLOAD` · `PG_CONTAINER` · `PG_URL` · `PORT` · `PROBE` · `RATE` · `REPS` · `RL_URL` · `ROUTE` · `ROWS` · `RUNS` · `SEC` · `SERIES` · `SETTLE` · `SOAK_MIN` · `STAGES` · `STAGE_MS` · `STEP` · `THRESHOLD` · `TIMEOUT_MS` · `TRIES` · `URL` · `VARIANT` · `WARMUP` · `WID` · `WITNESS` · `WORKERS` · `WS_BATCH_PAYLOAD` · `WS_PATH` · `WS_STEP` · `WS_URL` · `XENV`
 
 ### Détail des scripts auto-documentés
 
@@ -271,6 +273,22 @@ Produit : médianes wall/uptime/heapUsed/rss en JSON (défaut : tmp/bench/consol
 node .claude/skills/nodefony-load-test/scripts/console-boot-bench.mjs 7 tmp/bench/<sujet>-console-boot-before.json
 node .claude/skills/nodefony-load-test/scripts/console-boot-bench.mjs 7 tmp/bench/<sujet>-console-boot.json -- inspect routes --json
 ```
+
+#### `scripts/grpc-stream-throughput.mjs`
+
+Produit : tableau msg/s et µs/msg par camp, plancher de l'adaptateur et verdict de séparation ; code 1 si une passe est invalide
+
+```bash
+node .claude/skills/nodefony-load-test/scripts/grpc-stream-throughput.mjs
+node .claude/skills/nodefony-load-test/scripts/grpc-stream-throughput.mjs --runs 9 --sizes 16,65536
+```
+
+| Option | Rôle |
+| --- | --- |
+| `--runs` | passes comptées par camp et par charge (défaut 7, plus une de chauffe) |
+| `--sizes` | charges utiles en octets, séparées par des virgules (défaut 16,1024,16384,65536) |
+| `--out` | données JSON (défaut tmp/bench/grpc-stream-throughput.json) |
+| `--serve-raw` | interne : démarre le serveur `node:http2` des camps h2-nu et h2-écriture |
 
 #### `scripts/server-boot-bench.mjs`
 

@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-11-03
+updated: 2026-11-12
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-documentation/SKILL.md"
 ---
@@ -95,10 +95,10 @@ script, donc toujours à jour après régénération.
 | `scripts/anchor-migrate.selftest.mjs` | Éprouve `anchor-migrate.mjs --apply` sur un dépôt JETABLE : chaque règle de conversion a son cas, la page convertie doit être EXACTEMENT celle attendue, puis passer le gate (`anchor-check` sans option, qui refuse toute ligne). | `--apply` `--history` `--keep-orphans` `--report` | — |
 | `scripts/code-check.mjs` | code-check.mjs — gate de COMPILABILITÉ du « Démarrage rapide » (standard §8sexies). | `--show-toplevel` | — |
 | `scripts/corpus.mjs` | Dossiers qu'on ne descend jamais. | — | — |
-| `scripts/doc-lint.mjs` | doc-lint.mjs — Definition of Done mécanique pour la doc Nodefony. Une page ne peut être marquée ✅ que si elle PASSE ce linter. Usage : node doc-lint.mjs /tmp/corpus/*.md | `--instructions` `--list` `--published` `--show-toplevel` | `COVERAGE` `NAV_MAX` |
+| `scripts/doc-lint.mjs` | doc-lint.mjs — Definition of Done mécanique pour la doc Nodefony. Une page ne peut être marquée ✅ que si elle PASSE ce linter. Usage : node doc-lint.mjs /tmp/corpus/*.md | `--instructions` `--list` `--published` `--show-toplevel` | — |
 | `scripts/examples.mjs` | Garde des EXEMPLES de code d'une page publiée (`doc-lint`). | — | — |
 | `scripts/examples.selftest.mjs` | Auto-contrôle de la garde des exemples (`examples.mjs`). | — | `NF_AUTRE` `NF_HOOK` `NF_JWT_KEYSET` `NF_X` `PG_URL` |
-| `scripts/figures.mjs` | Lisibilité des figures mermaid d'une page — ce qu'on ne voit qu'en REGARDANT le rendu, ramené à des règles qu'une machine relit. | — | `DIRECTIVE_COURBE` |
+| `scripts/figures.mjs` | Lisibilité des figures mermaid d'une page — ce qu'on ne voit qu'en REGARDANT le rendu, ramené à des règles qu'une machine relit. | — | — |
 | `scripts/figures.selftest.mjs` | Auto-contrôle des règles de lisibilité des figures (`figures.mjs`). | — | — |
 | `scripts/gen-counters.mjs` | gen-counters.mjs — génère les compteurs `coverage/tests.<topic>.json` en COMPTANT les cas réels (`it(`/`test(`) dans les fichiers de `test-map.json`. | `--show-toplevel` | — |
 | `scripts/mermaid-check.mjs` | mermaid-check.mjs — chaque schéma du corpus passe-t-il le mermaid de la CONSOLE ? | — | — |
@@ -125,7 +125,7 @@ Usage : node render-figures.mjs <page.md> [--console-seulement]
 `@usage` node .claude/skills/nodefony-documentation/scripts/symboles.selftest.mjs
 ```
 
-**Toutes les variables lues par ce skill** : `COVERAGE` · `DIRECTIVE_COURBE` · `NAV_MAX` · `NF_AUTRE` · `NF_HOOK` · `NF_JWT_KEYSET` · `NF_X` · `PG_URL`
+**Toutes les variables lues par ce skill** : `NF_AUTRE` · `NF_HOOK` · `NF_JWT_KEYSET` · `NF_X` · `PG_URL`
 
 ### Détail des scripts auto-documentés
 

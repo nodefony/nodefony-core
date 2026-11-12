@@ -19,8 +19,6 @@ Index de tout l'outillage : [`scripts/`](../README.md).
 Une application que `nodefony create app` PRODUIT pour un gestionnaire donné démarre-t-elle, démo comprise, et sert-elle sa page `/demo` ?
 
 - **Usage** : `node scripts/scaffold/check-scaffold-boot.mjs [--package-manager=pnpm] [--frontend=svelte] [--port=15161] [--keep]`
-- **Variable** `BOOT_TIMEOUT_MS`
-- **Variable** `STOP_TIMEOUT_MS`
 - **Appelé par** : `scaffold.yml`
 - **Utilise** : `lib/repo-root.mjs` · `lib/tail-of.mjs`
 
@@ -47,6 +45,5 @@ Formate les gabarits de scaffold **sans casser leurs balises eta**.
 
 - **Usage** : `npm run format:templates`
 - **Usage** : `npm run format:templates -- --check`
-- **Variable** `CHECK`
 - **Appelé par** : `npm run format:templates`
 - **Utilise** : `lib/repo-root.mjs`

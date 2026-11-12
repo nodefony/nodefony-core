@@ -31,11 +31,8 @@ Index de tout l'outillage : [`scripts/`](../../README.md).
 **Gates d'infrastructure des suites de test — source unique du monorepo.**
 
 - **Usage** : `reporters: ["default", gateReporter([PG_GATE])]  // config vitest d’une suite qui touche un serveur réel`
-- **Variable** `COMPOSE`
-- **Variable** `COMPOSE_FILE`
 - **Variable** `NF_GATES_ALLOW`
 - **Variable** `NF_GATES_EXPECT`
-- **Variable** `POSTGRES_PORT`
 - **Appelé par** : `orm.yml` · `src/nodefony/vitest.config.ts` · `src/packages/@nodefony/ai/vitest.integration.config.ts` · `src/packages/@nodefony/devkit/vitest.browser.config.ts` · `src/packages/@nodefony/devkit/vitest.integration.config.ts` · `src/packages/@nodefony/drizzle/vitest.config.ts` · `src/packages/@nodefony/framework/vitest.integration.config.ts` · `src/packages/@nodefony/http/vitest.integration.config.ts` · `src/packages/@nodefony/http/vitest.load.config.ts` · `src/packages/@nodefony/http/vitest.proxy.config.ts` · `src/packages/@nodefony/mongoose/vitest.config.ts` · `src/packages/@nodefony/realtime/nodefony/tests/helpers/redisDecor.ts` · `src/packages/@nodefony/realtime/vitest.cluster.config.ts` · `src/packages/@nodefony/realtime/vitest.config.ts` · `src/packages/@nodefony/redis/vitest.config.ts` · `generate/env-snapshot.ts` · `test/coverage-all.ts` · `test/lib/testbed.ts` · `test/testbed-report.ts`
 - **Testé par** : `src/modules/test/nodefony/tests/testbed.test.ts` · `src/nodefony/src/tests/ciGateVars.test.ts` · `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts` · `src/packages/@nodefony/realtime/nodefony/tests/integration/redisCluster.e2e.test.ts`
 

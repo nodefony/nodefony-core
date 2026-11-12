@@ -76,9 +76,5 @@ Lance turbo pour les scripts du dépôt — et, sous `CI`, lui reprend la main q
 
 Le lanceur turbo rend la main quand turbo a affiché son bilan mais ne se termine pas (#479) — avec le code que le bilan annonce — et ne tue jamais un turbo qui n'a pas encore fini.
 
-- **Variable** `GREEN`
-- **Variable** `HANG`
-- **Variable** `LOG`
-- **Variable** `RED`
 - **Lancé par** : `npm run test:tooling`
 - **Utilise** : `repo/turbo.mjs`

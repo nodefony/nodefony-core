@@ -94,29 +94,29 @@ script, donc toujours à jour après régénération.
 
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
-| `scripts/board-lint.mjs` | Confronte le TABLEAU DE BORD à ses propres règles de pilotage. | `--json` `--milestone` | `JOURS_EN_COURS` `OWNER` `POST_PUBLICATION_LABEL` `PROJECT` `QUERY_ITEMS` `REPO` `VITRINE_REPO` |
+| `scripts/board-lint.mjs` | Confronte le TABLEAU DE BORD à ses propres règles de pilotage. | `--json` `--milestone` | — |
 | `scripts/board-lint.test.mjs` | — | — | — |
 | `scripts/board-source.test.mjs` | Le tableau de bord ne se lit JAMAIS par `gh project item-list` — ni dans un script, ni dans un bloc de commande qu'un skill donne à exécuter. | — | — |
 | `scripts/commit-kind.mjs` | Ce qu'un commit PROUVE au sujet des tickets qu'il cite. | — | — |
 | `scripts/dependents.mjs` | Les tickets OUVERTS qui dépendent d'un ticket — la règle, pure et éprouvable. | — | — |
 | `scripts/dependents.test.mjs` | `dependentsOf` — qui relire avant de fermer un ticket. / | — | — |
 | `scripts/francise.mjs` | Remplace, dans le corps des tickets ouverts, les anglicismes qui ont un équivalent français. | `--write` | — |
-| `scripts/github-limits.mjs` | Les limites de GitHub qu'un corps d'issue ou un commentaire ne doit pas franchir — vérifiées AVANT l'envoi, jamais découvertes au refus. | — | `GITHUB_BODY_MAX` |
+| `scripts/github-limits.mjs` | Les limites de GitHub qu'un corps d'issue ou un commentaire ne doit pas franchir — vérifiées AVANT l'envoi, jamais découvertes au refus. | — | — |
 | `scripts/github-templates.test.mjs` | Le protocole de ticket vit à UN seul endroit — `SKILL.md` §2 — et il est désormais rendu DEUX fois : dans cette page, et dans les formulaires que GitHub sert à qui ouvre une issue depuis l'interface. | — | — |
 | `scripts/pose-lexique.mjs` | Pose le bloc `Lexique` en tête du corps des tickets GitHub ouverts. | `--write` | — |
 | `scripts/proof-commands.mjs` | proof-commands.mjs — exécute les PREUVES écrites en commande dans un ticket. | — | — |
 | `scripts/proof-commands.test.mjs` | `proof-commands` — relancer les preuves d'ABSENCE écrites dans un ticket. | — | — |
 | `scripts/severity.mjs` | Gravité d'un défaut — lue, validée et calculée selon une NORME, jamais estimée à l'impression. | — | — |
-| `scripts/ticket-anchor-migrate.mjs` | ticket-anchor-migrate.mjs — convertit les ancres `fichier:ligne` des tickets OUVERTS en ancres par symbole (`<fichier>.ts#<Symbole>`). | `--apply` | `APPLY` `QUERY` |
+| `scripts/ticket-anchor-migrate.mjs` | ticket-anchor-migrate.mjs — convertit les ancres `fichier:ligne` des tickets OUVERTS en ancres par symbole (`<fichier>.ts#<Symbole>`). | `--apply` | — |
 | `scripts/ticket-close.mjs` | Compose le COMPTE RENDU de fermeture d'un ticket — la moitié mécanique. | `--since` `--check` | — |
 | `scripts/ticket-close.test.mjs` | Suite du compte rendu de fermeture. | — | — |
-| `scripts/ticket-effort.mjs` | ticket-effort.mjs — confronte l'estimation d'un ticket à ce que le travail a RÉELLEMENT pris, mesuré sur ses commits. | `--format` `--grep` `--json` `--limit` `--paginate` `--since` `--slurp` `--state` | `OWNER` `REPO` |
-| `scripts/ticket-open.mjs` | Ouvre un ticket ET l'inscrit au tableau de bord, d'un seul geste. | `--title` `--body-file` `--milestone` `--label` `--jours` `--priorite` `--parent` `--ordre` `--backlog` `--type` `--gravite` `--cvss` | `OWNER` `REPO` |
+| `scripts/ticket-effort.mjs` | ticket-effort.mjs — confronte l'estimation d'un ticket à ce que le travail a RÉELLEMENT pris, mesuré sur ses commits. | `--format` `--grep` `--json` `--limit` `--paginate` `--since` `--slurp` `--state` | — |
+| `scripts/ticket-open.mjs` | Ouvre un ticket ET l'inscrit au tableau de bord, d'un seul geste. | `--title` `--body-file` `--milestone` `--label` `--jours` `--priorite` `--parent` `--ordre` `--backlog` `--type` `--gravite` `--cvss` | — |
 | `scripts/ticket-open.test.mjs` | Suite de la dérivation d'ordre d'un sous-ticket. | — | — |
-| `scripts/ticket-progress.mjs` | Passe en « In Progress » les tickets qu'un commit vient de citer sans les fermer. | `--field-id` `--format` `--id` `--owner` `--project-id` `--single-select-option-id` | `OWNER` |
+| `scripts/ticket-progress.mjs` | Passe en « In Progress » les tickets qu'un commit vient de citer sans les fermer. | `--field-id` `--format` `--id` `--owner` `--project-id` `--single-select-option-id` | — |
 | `scripts/ticket-progress.test.mjs` | Suite du marquage automatique « In Progress ». | — | — |
-| `scripts/ticket-reorder.mjs` | Réordonne un lot de tickets au tableau de bord : pose le champ `Ordre` ET la position physique sur la grille (le champ seul ne trie pas la vue). | `--dry-run` `--help` | `PROJECT` |
-| `scripts/ticket-severity.mjs` | Pose la gravité d'un ticket existant : la colonne « Gravité » du tableau de bord (classe de l'IEEE 1044, SOURCE de la classe) et, au corps, la ligne du motif — plus la ligne CVSS 3.1, score CALCULÉ, quand le défaut est une faille. | `--cvss` | `OWNER` `REPO` |
+| `scripts/ticket-reorder.mjs` | Réordonne un lot de tickets au tableau de bord : pose le champ `Ordre` ET la position physique sur la grille (le champ seul ne trie pas la vue). | `--dry-run` `--help` | — |
+| `scripts/ticket-severity.mjs` | Pose la gravité d'un ticket existant : la colonne « Gravité » du tableau de bord (classe de l'IEEE 1044, SOURCE de la classe) et, au corps, la ligne du motif — plus la ligne CVSS 3.1, score CALCULÉ, quand le défaut est une faille. | `--cvss` | — |
 | `scripts/ticket-verify.mjs` | ticket-verify.mjs — confronte les tickets OUVERTS au code réel, par deux voies. | `--touched-by` `--dependents` | — |
 
 **Invocation telle que documentée dans chaque script :**
@@ -134,8 +134,6 @@ node .claude/skills/nodefony-ticket/scripts/ticket-reorder.mjs 630=4.01 472=4.02
 node .claude/skills/nodefony-ticket/scripts/ticket-severity.mjs <N> "<Classe> — motif" [--cvss CVSS:3.1/…]
 node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs [<numéro>…]
 ```
-
-**Toutes les variables lues par ce skill** : `APPLY` · `GITHUB_BODY_MAX` · `JOURS_EN_COURS` · `OWNER` · `POST_PUBLICATION_LABEL` · `PROJECT` · `QUERY` · `QUERY_ITEMS` · `REPO` · `VITRINE_REPO`
 
 ### Détail des scripts auto-documentés
 

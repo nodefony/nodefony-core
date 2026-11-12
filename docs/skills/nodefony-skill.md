@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-30
+updated: 2026-11-12
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-skill/SKILL.md"
 ---
@@ -78,11 +78,11 @@ script, donc toujours à jour après régénération.
 
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
-| `scripts/scripts-audit.mjs` | scripts-audit — chaque script du dépôt est-il au bon endroit, et quelqu'un l'appelle-t-il ? | `--strict` | `ACQUITTES_PATH` |
+| `scripts/scripts-audit.mjs` | scripts-audit — chaque script du dépôt est-il au bon endroit, et quelqu'un l'appelle-t-il ? | `--strict` | — |
 | `scripts/skills-doc.mjs` | skills-doc — fiche de documentation par skill, ET gate de conformité. | `--check` | `SKILLS_DOC_DATE` |
-| `scripts/trigger-bench.mjs` | trigger-bench — prouve qu'une phrase réelle élit le bon skill. | `--verbose` `--list` | `FRAGILE_MARGIN` |
-| `lib/script-doc.mjs` | Ce qu'on sait d'un script du dépôt — sa documentation et l'automate qui le lance — en une seule implémentation. | — | `VAR` |
-| `lib/script-doc.test.mjs` | `analyzeScript` — ce que la fiche publique d'un skill dit de chacun de ses scripts. | `--color` `--count` `--fast` `--json` `--no-config` `--port` | — |
+| `scripts/trigger-bench.mjs` | trigger-bench — prouve qu'une phrase réelle élit le bon skill. | `--verbose` `--list` | — |
+| `lib/script-doc.mjs` | Ce qu'on sait d'un script du dépôt — sa documentation et l'automate qui le lance — en une seule implémentation. | — | — |
+| `lib/script-doc.test.mjs` | `analyzeScript` — ce que la fiche publique d'un skill dit de chacun de ses scripts. | `--color` `--count` `--fast` `--json` `--no-config` `--port` | `NF_PROBE_PORT` |
 
 **Invocation telle que documentée dans chaque script :**
 
@@ -92,7 +92,7 @@ node .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs
 ```
 
-**Toutes les variables lues par ce skill** : `ACQUITTES_PATH` · `FRAGILE_MARGIN` · `SKILLS_DOC_DATE` · `VAR`
+**Toutes les variables lues par ce skill** : `NF_PROBE_PORT` · `SKILLS_DOC_DATE`
 
 ### Détail des scripts auto-documentés
 

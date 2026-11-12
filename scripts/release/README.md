@@ -23,8 +23,6 @@ Index de tout l'outillage : [`scripts/`](../README.md).
 - **Variable** `NF_ACCUEIL_PAQUET`
 - **Variable** `NF_ACCUEIL_REGISTRY`
 - **Variable** `NF_ACCUEIL_ROOT`
-- **Variable** `PAQUET`
-- **Variable** `REGISTRY`
 - **Appelé par** : `release-preflight.yml` · `release.yml` · `release/readme-gate.mjs` · `release/release.mjs`
 - **Testé par** : `release/accueil-gate.test.mjs` · `site/site-versions.test.mjs`
 
@@ -155,16 +153,12 @@ Réécriture des specifiers relatifs des `.d.ts` publiés : un import que node16
 **Publie sur Docker Hub la description de l'image — depuis un fichier versionné.**
 
 - **Usage** : `node scripts/release/hub-description.mjs [--dry-run]`
-- **Variable** `API`
-- **Variable** `DEPOT`
-- **Variable** `MAX_LONGUE`
 - **Variable** `NF_DOCKERHUB_TOKEN`
 - **Variable** `NF_DOCKERHUB_USER`
 - **Variable** `NF_HUB_API`
 - **Variable** `NF_HUB_DEPOT`
 - **Variable** `NF_HUB_ROOT`
 - **Variable** `NF_HUB_SOURCE`
-- **Variable** `SOURCE`
 - **Appelé par** : `release.yml`
 - **Testé par** : `release/hub-description.test.mjs`
 
@@ -172,7 +166,6 @@ Réécriture des specifiers relatifs des `.d.ts` publiés : un import que node16
 
 Le contrôle de la page Docker Hub, éprouvé SANS réseau.
 
-- **Variable** `SOURCE`
 - **Lancé par** : `npm run test:release`
 - **Utilise** : `release/hub-description.mjs`
 
@@ -199,8 +192,6 @@ Le contrôle qui refuse une image porteuse d'un secret, éprouvé SANS docker.
 **Refuse de publier une image dont les étiquettes OCI ne disent pas d'où elle vient.**
 
 - **Usage** : `node scripts/release/image-labels-gate.mjs <image> --version <v> --revision <sha>`
-- **Variable** `LICENCE_ATTENDUE`
-- **Variable** `OCI`
 - **Appelé par** : `release.yml`
 - **Testé par** : `release/image-labels-gate.test.mjs`
 
@@ -208,7 +199,6 @@ Le contrôle qui refuse une image porteuse d'un secret, éprouvé SANS docker.
 
 Le contrôle des étiquettes OCI, éprouvé SANS docker.
 
-- **Variable** `OCI`
 - **Lancé par** : `npm run test:release`
 - **Utilise** : `release/image-labels-gate.mjs`
 
@@ -217,9 +207,7 @@ Le contrôle des étiquettes OCI, éprouvé SANS docker.
 Pack release des workspaces publiables (modèle B — N-packages lockstep).
 
 - **Usage** : `npm run release:pack`
-- **Variable** `CHANGELOG`
 - **Variable** `NF_RELEASE_REPO`
-- **Variable** `OUT`
 - **Appelé par** : `npm run release:pack` · `release-smoke.yml` · `scaffold.yml` · `release/release.mjs` · `release/smoke-docker.sh` · `.claude/skills/nodefony-devkit-bench/scripts/lib/isolation.mjs`
 - **Utilise** : `lib/symbols-publish.mjs` · `lib/workspaces.mjs` · `release/doc-pages.mjs` · `release/fix-dts-extensions.mjs` · `release/release-core.mjs`
 
@@ -261,7 +249,6 @@ La confrontation des README publiés, éprouvée SANS npm ni réseau.
 release-core.mjs — le RAISONNEMENT d'une release, sans aucune entrée/sortie.
 
 - **Usage** : `import { validerVersion, comparerVersions, SEMVER } from "./release-core.mjs"`
-- **Variable** `LONGUEUR_MIN_DESCRIPTION`
 - **Appelé par** : `release/attendre-ci.mjs` · `release/compat.mjs` · `release/pack-all.mjs` · `release/release.mjs`
 - **Testé par** : `release/release-core.test.mjs`
 
@@ -269,7 +256,6 @@ release-core.mjs — le RAISONNEMENT d'une release, sans aucune entrée/sortie.
 
 Suite du cœur de release — écrite pour FAIRE ÉCHOUER le script, pas pour l'accompagner.
 
-- **Variable** `BON`
 - **Lancé par** : `npm run test:release`
 - **Utilise** : `lib/workspaces.mjs` · `deps/shims/deepmerge/index.d.ts` · `deps/shims/deepmerge/index.js` · `release/release-core.mjs` · `release/release.mjs`
 
@@ -279,12 +265,7 @@ release.mjs — PRÉPARE une release Nodefony, et refuse tout ce qui ne se rattr
 
 - **Usage** : `npm run release -- --version <v> --npm-tag <tag> [--write] [--pack]`
 - **Usage** : `npm run release -- --version <v> --publish`
-- **Variable** `BRANCHE_ATTENDUE`
-- **Variable** `BRANCHE_PUBLICATION`
 - **Variable** `GITHUB_ACTIONS`
-- **Variable** `PUBLIER`
-- **Variable** `TAG_NPM`
-- **Variable** `VERSION`
 - **Appelé par** : `npm run release` · `node.js.yml` · `release-preflight.yml` · `release.yml`
 - **Testé par** : `release/release-core.test.mjs`
 - **Utilise** : `lib/workspaces.mjs` · `gates/size-check.mjs` · `deps/shims/deepmerge/index.js` · `generate/generate-man.mjs` · `release/accueil-gate.mjs` · `release/api-diff-core.mjs` · `release/api-diff.mjs` · `release/attendre-ci.mjs` · `release/pack-all.mjs` · `release/readme-gate.mjs` · `release/release-core.mjs`

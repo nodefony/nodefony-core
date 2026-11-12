@@ -63,6 +63,24 @@ describe("analyzeScript — les options d'un script", () => {
   });
 });
 
+describe("analyzeScript — les variables d'environnement d'un script", () => {
+  it("l'interpolation d'une constante JavaScript n'est pas une variable d'environnement", () => {
+    const file = write(
+      "probe.mjs",
+      "// Sonde.\nconst LIMIT_MS = 5;\nconst port = process.env.NF_PROBE_PORT;\nconsole.log(`${LIMIT_MS} ${port}`);\n",
+    );
+    expect(analyzeScript(file).envs).toEqual(["NF_PROBE_PORT"]);
+  });
+
+  it("en shell, `${VAR}` reste une variable d'environnement", () => {
+    const file = write(
+      "probe.sh",
+      '#!/bin/sh\n# Sonde.\necho "${NF_PROBE_PORT}"\n',
+    );
+    expect(analyzeScript(file).envs).toEqual(["NF_PROBE_PORT"]);
+  });
+});
+
 describe("createLaunchFinder — un runner lancé sur un DOSSIER", () => {
   const finder = (scripts) =>
     createLaunchFinder(new Map(), JSON.stringify({ scripts }));

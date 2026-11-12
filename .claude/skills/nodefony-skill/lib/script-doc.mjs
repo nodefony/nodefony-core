@@ -239,7 +239,12 @@ export function analyzeScript(path) {
       ...[...src.matchAll(/process\.env\[["']([A-Z][A-Z0-9_]{2,})["']\]/g)].map(
         (m) => m[1],
       ),
-      ...[...src.matchAll(/\$\{?([A-Z][A-Z0-9_]{2,})[:}\s]/g)].map((m) => m[1]),
+      // `${VAR}` n'est une variable d'environnement qu'en SHELL : en JavaScript,
+      // c'est l'interpolation d'une constante (`${PASS_TIMEOUT_MS}`), qui se
+      // publiait sinon comme une variable que le script ne lit pas.
+      ...(/\.(?:sh|bash)$/.test(path)
+        ? [...src.matchAll(/\$\{?([A-Z][A-Z0-9_]{2,})[:}\s]/g)].map((m) => m[1])
+        : []),
     ]),
   ]
     .filter(

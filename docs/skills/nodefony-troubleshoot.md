@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-22
+updated: 2026-11-12
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "src/packages/@nodefony/devkit/skills/nodefony-troubleshoot/SKILL.md"
 ---
@@ -69,9 +69,7 @@ script, donc toujours à jour après régénération.
 
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
-| `scripts/log-errors.mjs` | Extrait les erreurs du journal d'une application Nodefony — regroupées, datées, avec le geste qui suit. | `--detach` `--help` `--json` `--last` `--live` `--root` `--warnings` | `USAGE` |
-
-**Toutes les variables lues par ce skill** : `USAGE`
+| `scripts/log-errors.mjs` | Extrait les erreurs du journal d'une application Nodefony — regroupées, datées, avec le geste qui suit. | `--detach` `--help` `--json` `--last` `--live` `--root` `--warnings` | — |
 
 ## Conformité au standard Agent Skills
 

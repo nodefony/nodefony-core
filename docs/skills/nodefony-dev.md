@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-11-06
+updated: 2026-11-12
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "src/packages/@nodefony/devkit/skills/nodefony-dev/SKILL.md"
 ---
@@ -82,9 +82,7 @@ script, donc toujours à jour après régénération.
 
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
-| `scripts/docs.mjs` | Cherche dans la documentation INSTALLÉE avec les paquets Nodefony. | `--help` `--json` `--limit` `--list` `--open` `--root` | `DEFAULT_LIMIT` `USAGE` |
-
-**Toutes les variables lues par ce skill** : `DEFAULT_LIMIT` · `USAGE`
+| `scripts/docs.mjs` | Cherche dans la documentation INSTALLÉE avec les paquets Nodefony. | `--help` `--json` `--limit` `--list` `--open` `--root` | — |
 
 ## Conformité au standard Agent Skills
 

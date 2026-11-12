@@ -19,7 +19,6 @@ Index de tout l'outillage : [`scripts/`](../README.md).
 brand-assets.mjs — dérive le PNG et le favicon du logo depuis sa source SVG.
 
 - **Usage** : `node scripts/generate/brand-assets.mjs`
-- **Variable** `SVG`
 - **Appelé par** : aucun automate
 - **Utilise** : `lib/repo-root.mjs`
 
@@ -28,8 +27,6 @@ brand-assets.mjs — dérive le PNG et le favicon du logo depuis sa source SVG.
 Fabrique la vidéo d'essai de la démo « Vidéo par plages » (#747) : `src/nodefony/assets/demo-video.mp4`, que `create app --demo` copie dans `media/` du module de démo (`renderDemoLayer`, moteur du scaffold).
 
 - **Usage** : `node scripts/generate/demo-video.mjs`
-- **Variable** `HEIGHT`
-- **Variable** `WIDTH`
 - **Appelé par** : aucun automate
 
 ## [`env-catalog.ts`](env-catalog.ts)
@@ -53,7 +50,6 @@ Ce que les variables de DÉCOR DE BANC font — la seule part qu'aucun automate 
 La page PUBLIQUE des variables d'environnement, rendue depuis les registres du produit — jamais écrite à la main.
 
 - **Usage** : `import { renderEnvReference } from "./env-reference"`
-- **Variable** `SAMPLE_APP`
 - **Produit** : docs/guides/variables-environnement.md (écrit par son appelant)
 - **Appelé par** : `generate/env-snapshot.ts`
 - **Testé par** : `generate/env-reference.test.ts`
@@ -111,10 +107,6 @@ Tableaux de bord d'EXEMPLE des journaux Nodefony — Grafana (Loki) et OpenSearc
 
 - **Usage** : `node scripts/generate/observability-dashboards.mjs          # réécrit les deux exemples`
 - **Usage** : `node scripts/generate/observability-dashboards.mjs --check  # sortie 1 si un exemple est périmé`
-- **Variable** `AUDIT`
-- **Variable** `HTTP`
-- **Variable** `LINES`
-- **Variable** `SEV_ERR`
 - **Produit** : src/nodefony/templates/app/complete/docker/examples/dashboards/{grafana,opensearch}-nodefony-logs.*.tpl
 - **Appelé par** : aucun automate
 - **Testé par** : `generate/observability-dashboards.test.mjs`
@@ -131,8 +123,5 @@ Les tableaux de bord d'exemple livrés aux applications sont GÉNÉRÉS : un fic
 readmes.mjs — assemble les trois README depuis UNE matrice de sections.
 
 - **Usage** : `node scripts/generate/readmes.mjs [--check]`
-- **Variable** `GENERATED`
-- **Variable** `GITHUB`
-- **Variable** `RAW`
 - **Appelé par** : `npm run readme:build` · `node.js.yml`
 - **Utilise** : `lib/repo-root.mjs`

@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-30
+updated: 2026-11-12
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-html-report/SKILL.md"
 ---
@@ -90,15 +90,15 @@ script, donc toujours à jour après régénération.
 
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
-| `scripts/demo.mjs` | demo.mjs — vitrine ET test de non-régression de `lib/report.mjs`. | `--accent` | `OUT` |
+| `scripts/demo.mjs` | demo.mjs — vitrine ET test de non-régression de `lib/report.mjs`. | `--accent` | — |
 | `scripts/echarts.selftest.mjs` | Auto-contrôle du moteur de graphes ECharts — les CONTRATS, pas l'esthétique. | `--prove` | — |
 | `scripts/formats.selftest.mjs` | Auto-contrôle des FORMATS d'un rapport et du tri de ses tableaux. | — | — |
 | `scripts/schemas.selftest.mjs` | Auto-contrôle du lecteur mermaid de `schemas.mjs` — ce qu'il ne doit JAMAIS perdre en silence. | — | — |
 | `lib/brand.mjs` | brand.mjs — identité visuelle d'un rapport (logo, nom, couleurs). | — | — |
 | `lib/echarts.mjs` | Moteur de graphes **Apache ECharts** rendu CÔTÉ SERVEUR, en SVG statique. | — | — |
 | `lib/report-echarts.mjs` | **Adaptateurs** — les fonctions de `report.mjs`, rendues par ECharts. | — | — |
-| `lib/report.mjs` | report.mjs — bibliothèque de rendu de RAPPORTS HTML autonomes. | — | `CSS` `PRINT_JS` `SORT_JS` `THEME_JS` |
-| `lib/schemas.mjs` | Les **SCHÉMAS** de la documentation — organigrammes et diagrammes de séquence — rendus à la charte, depuis la source Mermaid qui vit déjà dans les `.md`. | — | `HAUT` `INTERLIGNE` `MARGE` `POLICE` |
+| `lib/report.mjs` | report.mjs — bibliothèque de rendu de RAPPORTS HTML autonomes. | — | — |
+| `lib/schemas.mjs` | Les **SCHÉMAS** de la documentation — organigrammes et diagrammes de séquence — rendus à la charte, depuis la source Mermaid qui vit déjà dans les `.md`. | — | — |
 
 **Invocation telle que documentée dans chaque script :**
 
@@ -108,8 +108,6 @@ node .claude/skills/nodefony-html-report/scripts/echarts.selftest.mjs
 node .claude/skills/nodefony-html-report/scripts/formats.selftest.mjs
 node .claude/skills/nodefony-html-report/scripts/schemas.selftest.mjs
 ```
-
-**Toutes les variables lues par ce skill** : `CSS` · `HAUT` · `INTERLIGNE` · `MARGE` · `OUT` · `POLICE` · `PRINT_JS` · `SORT_JS` · `THEME_JS`
 
 ## Conformité au standard Agent Skills
 

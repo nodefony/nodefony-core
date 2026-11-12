@@ -32,10 +32,6 @@
         {
           "name": "NF_REDIS_TEST_URL",
           "help": ""
-        },
-        {
-          "name": "OTHER",
-          "help": ""
         }
       ],
       "output": "",
@@ -52,16 +48,7 @@
         "import { REPO_ROOT } from \"../lib/repo-root.mjs\""
       ],
       "options": [],
-      "env": [
-        {
-          "name": "REPO_ROOT",
-          "help": ""
-        },
-        {
-          "name": "ROOT_PACKAGE_NAME",
-          "help": ""
-        }
-      ],
+      "env": [],
       "output": "",
       "calledBy": [
         ".claude/skills/nodefony-documentation/scripts/mermaid-check.mjs",
@@ -391,12 +378,7 @@
         "node scripts/gates/check-platform-channels.mjs"
       ],
       "options": [],
-      "env": [
-        {
-          "name": "TABLE",
-          "help": ""
-        }
-      ],
+      "env": [],
       "output": "",
       "calledBy": [
         ".githooks/_read-only-gates.sh"
@@ -477,12 +459,7 @@
         "node scripts/gates/check-type-assertions.mjs --triage   # relevé : d'où vient chaque valeur convertie (#572)"
       ],
       "options": [],
-      "env": [
-        {
-          "name": "RULE",
-          "help": ""
-        }
-      ],
+      "env": [],
       "output": "l'écart par paquet ; sortie 0 tenu · 1 refusé · 78 oxlint n'a pas répondu",
       "calledBy": [
         "node.js.yml",
@@ -542,16 +519,7 @@
         "node scripts/scaffold/check-scaffold-boot.mjs [--package-manager=pnpm] [--frontend=svelte] [--port=15161] [--keep]"
       ],
       "options": [],
-      "env": [
-        {
-          "name": "BOOT_TIMEOUT_MS",
-          "help": ""
-        },
-        {
-          "name": "STOP_TIMEOUT_MS",
-          "help": ""
-        }
-      ],
+      "env": [],
       "output": "",
       "calledBy": [
         "scaffold.yml"
@@ -599,12 +567,7 @@
         "npm run format:templates -- --check"
       ],
       "options": [],
-      "env": [
-        {
-          "name": "CHECK",
-          "help": ""
-        }
-      ],
+      "env": [],
       "output": "",
       "calledBy": [
         "npm run format:templates"
@@ -639,23 +602,11 @@
       ],
       "env": [
         {
-          "name": "CATALOGUE_SCAFFOLD",
-          "help": ""
-        },
-        {
           "name": "NF_DEPS_REGISTRY",
           "help": ""
         },
         {
           "name": "NF_DEPS_ROOT",
-          "help": ""
-        },
-        {
-          "name": "NODE_FLOOR",
-          "help": ""
-        },
-        {
-          "name": "REGISTRY",
           "help": ""
         }
       ],
@@ -891,16 +842,7 @@
         "npm run coverage -- --json"
       ],
       "options": [],
-      "env": [
-        {
-          "name": "ONLY",
-          "help": ""
-        },
-        {
-          "name": "OUT",
-          "help": ""
-        }
-      ],
+      "env": [],
       "output": "",
       "calledBy": [
         "npm run coverage"
@@ -1066,23 +1008,11 @@
       "options": [],
       "env": [
         {
-          "name": "COMPOSE",
-          "help": ""
-        },
-        {
-          "name": "COMPOSE_FILE",
-          "help": ""
-        },
-        {
           "name": "NF_GATES_ALLOW",
           "help": ""
         },
         {
           "name": "NF_GATES_EXPECT",
-          "help": ""
-        },
-        {
-          "name": "POSTGRES_PORT",
           "help": ""
         }
       ],
@@ -1258,12 +1188,7 @@
         "node scripts/generate/brand-assets.mjs"
       ],
       "options": [],
-      "env": [
-        {
-          "name": "SVG",
-          "help": ""
-        }
-      ],
+      "env": [],
       "output": "",
       "calledBy": [],
       "testedBy": []
@@ -1276,16 +1201,7 @@
         "node scripts/generate/demo-video.mjs"
       ],
       "options": [],
-      "env": [
-        {
-          "name": "HEIGHT",
-          "help": ""
-        },
-        {
-          "name": "WIDTH",
-          "help": ""
-        }
-      ],
+      "env": [],
       "output": "",
       "calledBy": [],
       "testedBy": []
@@ -1328,12 +1244,7 @@
         "import { renderEnvReference } from \"./env-reference\""
       ],
       "options": [],
-      "env": [
-        {
-          "name": "SAMPLE_APP",
-          "help": ""
-        }
-      ],
+      "env": [],
       "output": "docs/guides/variables-environnement.md (écrit par son appelant)",
       "calledBy": [
         "scripts/generate/env-snapshot.ts"
@@ -1451,24 +1362,7 @@
         "node scripts/generate/observability-dashboards.mjs --check  # sortie 1 si un exemple est périmé"
       ],
       "options": [],
-      "env": [
-        {
-          "name": "AUDIT",
-          "help": ""
-        },
-        {
-          "name": "HTTP",
-          "help": ""
-        },
-        {
-          "name": "LINES",
-          "help": ""
-        },
-        {
-          "name": "SEV_ERR",
-          "help": ""
-        }
-      ],
+      "env": [],
       "output": "src/nodefony/templates/app/complete/docker/examples/dashboards/{grafana,opensearch}-nodefony-logs.*.tpl",
       "calledBy": [],
       "testedBy": [
@@ -1496,20 +1390,7 @@
         "node scripts/generate/readmes.mjs [--check]"
       ],
       "options": [],
-      "env": [
-        {
-          "name": "GENERATED",
-          "help": ""
-        },
-        {
-          "name": "GITHUB",
-          "help": ""
-        },
-        {
-          "name": "RAW",
-          "help": ""
-        }
-      ],
+      "env": [],
       "output": "",
       "calledBy": [
         "npm run readme:build",
@@ -1538,16 +1419,7 @@
         "node scripts/site/assemble-site.mjs --published <dossier> --out <dossier> [--next <dossier>] [--archives <dossier>] [--version <x.y.z>]"
       ],
       "options": [],
-      "env": [
-        {
-          "name": "NEXT",
-          "help": ""
-        },
-        {
-          "name": "VERSION",
-          "help": ""
-        }
-      ],
+      "env": [],
       "output": "",
       "calledBy": [
         "pages.yml"
@@ -1565,56 +1437,7 @@
         "node scripts/site/build-docs-site.mjs --list"
       ],
       "options": [],
-      "env": [
-        {
-          "name": "BRANCH",
-          "help": ""
-        },
-        {
-          "name": "BUILT_AT",
-          "help": ""
-        },
-        {
-          "name": "CHANNEL",
-          "help": ""
-        },
-        {
-          "name": "COMMIT",
-          "help": ""
-        },
-        {
-          "name": "FAVICON",
-          "help": ""
-        },
-        {
-          "name": "MOUNT",
-          "help": ""
-        },
-        {
-          "name": "OUT",
-          "help": ""
-        },
-        {
-          "name": "PUBLISHED",
-          "help": ""
-        },
-        {
-          "name": "REPO_URL",
-          "help": ""
-        },
-        {
-          "name": "SITE_URL",
-          "help": ""
-        },
-        {
-          "name": "STYLE_CODE",
-          "help": ""
-        },
-        {
-          "name": "VERSION",
-          "help": ""
-        }
-      ],
+      "env": [],
       "output": "",
       "calledBy": [
         "node.js.yml",
@@ -1634,20 +1457,7 @@
         "node scripts/site/build-perf-site.mjs [--out tmp/sites/perf] [--data docs/performance/data]"
       ],
       "options": [],
-      "env": [
-        {
-          "name": "BLOB",
-          "help": ""
-        },
-        {
-          "name": "DATA_DIR",
-          "help": ""
-        },
-        {
-          "name": "OUT",
-          "help": ""
-        }
-      ],
+      "env": [],
       "output": "",
       "calledBy": [
         "scripts/site/build-site.mjs"
@@ -1662,12 +1472,7 @@
         "node scripts/site/build-qualite-site.mjs [--out tmp/sites/quality] [--data docs/qualite/data]"
       ],
       "options": [],
-      "env": [
-        {
-          "name": "DATA",
-          "help": ""
-        }
-      ],
+      "env": [],
       "output": "",
       "calledBy": [
         "scripts/site/build-site.mjs"
@@ -1683,12 +1488,7 @@
         "node scripts/site/build-site-plan.mjs [--out tmp/sites/docs] [--base <url>]"
       ],
       "options": [],
-      "env": [
-        {
-          "name": "APP_TEMPLATE_HREF",
-          "help": ""
-        }
-      ],
+      "env": [],
       "output": "",
       "calledBy": [
         "npm run site:plan",
@@ -1704,20 +1504,7 @@
         "node scripts/site/build-site.mjs --out dist-site [--channel published|next] [--site-url <url>]"
       ],
       "options": [],
-      "env": [
-        {
-          "name": "BASE",
-          "help": ""
-        },
-        {
-          "name": "CHANNEL",
-          "help": ""
-        },
-        {
-          "name": "NEXT_DIR",
-          "help": ""
-        }
-      ],
+      "env": [],
       "output": "",
       "calledBy": [
         "pages.yml",
@@ -1735,12 +1522,7 @@
         "node scripts/site/check-site-links.mjs <dossier-du-site>"
       ],
       "options": [],
-      "env": [
-        {
-          "name": "ROOT",
-          "help": ""
-        }
-      ],
+      "env": [],
       "output": "",
       "calledBy": [
         "pages.yml"
@@ -1912,36 +1694,7 @@
         "node scripts/site/readme-html.mjs [fichier-de-sortie.html] [--channel published|next]"
       ],
       "options": [],
-      "env": [
-        {
-          "name": "BLOB",
-          "help": ""
-        },
-        {
-          "name": "CHANNEL",
-          "help": ""
-        },
-        {
-          "name": "OUT",
-          "help": ""
-        },
-        {
-          "name": "PRERELEASE",
-          "help": ""
-        },
-        {
-          "name": "RAW",
-          "help": ""
-        },
-        {
-          "name": "REPO",
-          "help": ""
-        },
-        {
-          "name": "STYLE_CODE",
-          "help": ""
-        }
-      ],
+      "env": [],
       "output": "",
       "calledBy": [
         "scripts/site/build-site.mjs",
@@ -1955,12 +1708,7 @@
       "purpose": "Le tracé des organigrammes du site — jugé sur le CORPUS réel.",
       "usage": [],
       "options": [],
-      "env": [
-        {
-          "name": "REPO_ROOT",
-          "help": ""
-        }
-      ],
+      "env": [],
       "output": "",
       "calledBy": [
         "npm run test:tooling"
@@ -1973,12 +1721,7 @@
       "purpose": "Les diagrammes de séquence du site tiennent leurs libellés — sur le CORPUS réel.",
       "usage": [],
       "options": [],
-      "env": [
-        {
-          "name": "REPO_ROOT",
-          "help": ""
-        }
-      ],
+      "env": [],
       "output": "",
       "calledBy": [
         "npm run test:tooling"
@@ -2144,24 +1887,7 @@
       "purpose": "Le lanceur turbo rend la main quand turbo a affiché son bilan mais ne se termine pas (#479) — avec le code que le bilan annonce — et ne tue jamais un turbo qui n'a pas encore fini.",
       "usage": [],
       "options": [],
-      "env": [
-        {
-          "name": "GREEN",
-          "help": ""
-        },
-        {
-          "name": "HANG",
-          "help": ""
-        },
-        {
-          "name": "LOG",
-          "help": ""
-        },
-        {
-          "name": "RED",
-          "help": ""
-        }
-      ],
+      "env": [],
       "output": "",
       "calledBy": [
         "npm run test:tooling"
@@ -2317,14 +2043,6 @@
         },
         {
           "name": "NF_ACCUEIL_ROOT",
-          "help": ""
-        },
-        {
-          "name": "PAQUET",
-          "help": ""
-        },
-        {
-          "name": "REGISTRY",
           "help": ""
         }
       ],
@@ -2612,18 +2330,6 @@
       "options": [],
       "env": [
         {
-          "name": "API",
-          "help": ""
-        },
-        {
-          "name": "DEPOT",
-          "help": ""
-        },
-        {
-          "name": "MAX_LONGUE",
-          "help": ""
-        },
-        {
           "name": "NF_DOCKERHUB_TOKEN",
           "help": ""
         },
@@ -2646,10 +2352,6 @@
         {
           "name": "NF_HUB_SOURCE",
           "help": ""
-        },
-        {
-          "name": "SOURCE",
-          "help": ""
         }
       ],
       "output": "",
@@ -2666,12 +2368,7 @@
       "purpose": "Le contrôle de la page Docker Hub, éprouvé SANS réseau.",
       "usage": [],
       "options": [],
-      "env": [
-        {
-          "name": "SOURCE",
-          "help": ""
-        }
-      ],
+      "env": [],
       "output": "",
       "calledBy": [
         "npm run test:release"
@@ -2720,16 +2417,7 @@
         "node scripts/release/image-labels-gate.mjs <image> --version <v> --revision <sha>"
       ],
       "options": [],
-      "env": [
-        {
-          "name": "LICENCE_ATTENDUE",
-          "help": ""
-        },
-        {
-          "name": "OCI",
-          "help": ""
-        }
-      ],
+      "env": [],
       "output": "",
       "calledBy": [
         "release.yml"
@@ -2744,12 +2432,7 @@
       "purpose": "Le contrôle des étiquettes OCI, éprouvé SANS docker.",
       "usage": [],
       "options": [],
-      "env": [
-        {
-          "name": "OCI",
-          "help": ""
-        }
-      ],
+      "env": [],
       "output": "",
       "calledBy": [
         "npm run test:release"
@@ -2766,15 +2449,7 @@
       "options": [],
       "env": [
         {
-          "name": "CHANGELOG",
-          "help": ""
-        },
-        {
           "name": "NF_RELEASE_REPO",
-          "help": ""
-        },
-        {
-          "name": "OUT",
           "help": ""
         }
       ],
@@ -2861,12 +2536,7 @@
         "import { validerVersion, comparerVersions, SEMVER } from \"./release-core.mjs\""
       ],
       "options": [],
-      "env": [
-        {
-          "name": "LONGUEUR_MIN_DESCRIPTION",
-          "help": ""
-        }
-      ],
+      "env": [],
       "output": "",
       "calledBy": [
         "scripts/release/attendre-ci.mjs",
@@ -2884,12 +2554,7 @@
       "purpose": "Suite du cœur de release — écrite pour FAIRE ÉCHOUER le script, pas pour l'accompagner.",
       "usage": [],
       "options": [],
-      "env": [
-        {
-          "name": "BON",
-          "help": ""
-        }
-      ],
+      "env": [],
       "output": "",
       "calledBy": [
         "npm run test:release"
@@ -2907,27 +2572,7 @@
       "options": [],
       "env": [
         {
-          "name": "BRANCHE_ATTENDUE",
-          "help": ""
-        },
-        {
-          "name": "BRANCHE_PUBLICATION",
-          "help": ""
-        },
-        {
           "name": "GITHUB_ACTIONS",
-          "help": ""
-        },
-        {
-          "name": "PUBLIER",
-          "help": ""
-        },
-        {
-          "name": "TAG_NPM",
-          "help": ""
-        },
-        {
-          "name": "VERSION",
           "help": ""
         }
       ],
@@ -3881,12 +3526,7 @@
                 "help": ""
               }
             ],
-            "env": [
-              {
-                "name": "USAGE",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": false
           },
@@ -4194,166 +3834,6 @@
             ],
             "env": [
               {
-                "name": "AGENT",
-                "help": ""
-              },
-              {
-                "name": "AGE_MAX_CONNEXION_S",
-                "help": ""
-              },
-              {
-                "name": "CANAL_OPS_ALERTES",
-                "help": ""
-              },
-              {
-                "name": "CHAMP_DEMANDE",
-                "help": ""
-              },
-              {
-                "name": "CONTROLLER_EN_PANNE",
-                "help": ""
-              },
-              {
-                "name": "CONTROLLER_RELU",
-                "help": ""
-              },
-              {
-                "name": "COULEUR_CONNEXION",
-                "help": ""
-              },
-              {
-                "name": "ENTITE_MIGREE",
-                "help": ""
-              },
-              {
-                "name": "FICHIER_RELECTURE",
-                "help": ""
-              },
-              {
-                "name": "JUGE_CSP",
-                "help": ""
-              },
-              {
-                "name": "JUGE_CSRF_PARTENAIRE",
-                "help": ""
-              },
-              {
-                "name": "JUGE_ENTITY_DELETE",
-                "help": ""
-              },
-              {
-                "name": "JUGE_LISTE",
-                "help": ""
-              },
-              {
-                "name": "JUGE_LOGIN_BRANDING",
-                "help": ""
-              },
-              {
-                "name": "JUGE_LOGIN_FRONT",
-                "help": ""
-              },
-              {
-                "name": "JUGE_LOGIN_RETURN",
-                "help": ""
-              },
-              {
-                "name": "JUGE_M2M",
-                "help": ""
-              },
-              {
-                "name": "JUGE_MCP_PORTE",
-                "help": ""
-              },
-              {
-                "name": "JUGE_MEDIA",
-                "help": ""
-              },
-              {
-                "name": "JUGE_MIGRATION",
-                "help": ""
-              },
-              {
-                "name": "JUGE_MODULE",
-                "help": ""
-              },
-              {
-                "name": "JUGE_PARAM",
-                "help": ""
-              },
-              {
-                "name": "JUGE_PREFIXE",
-                "help": ""
-              },
-              {
-                "name": "JUGE_REALTIME_CHANNEL",
-                "help": ""
-              },
-              {
-                "name": "JUGE_ROLE_HIERARCHY",
-                "help": ""
-              },
-              {
-                "name": "JUGE_ROUTE_RETABLIE",
-                "help": ""
-              },
-              {
-                "name": "JUGE_SCRIPT_API",
-                "help": ""
-              },
-              {
-                "name": "JUGE_SECURE",
-                "help": ""
-              },
-              {
-                "name": "JUGE_SESSION",
-                "help": ""
-              },
-              {
-                "name": "JUGE_STEP_UP",
-                "help": ""
-              },
-              {
-                "name": "JUGE_TACHE_ZERO",
-                "help": ""
-              },
-              {
-                "name": "JUGE_THROTTLE",
-                "help": ""
-              },
-              {
-                "name": "JUGE_UPLOAD",
-                "help": ""
-              },
-              {
-                "name": "JUGE_USER_FIELD",
-                "help": ""
-              },
-              {
-                "name": "JUGE_ZONE",
-                "help": ""
-              },
-              {
-                "name": "LINKED",
-                "help": ""
-              },
-              {
-                "name": "LOGO_CONNEXION",
-                "help": ""
-              },
-              {
-                "name": "LOTS_REINDEX",
-                "help": ""
-              },
-              {
-                "name": "MARQUE_CONNEXION",
-                "help": ""
-              },
-              {
-                "name": "MCP_REGIME",
-                "help": ""
-              },
-              {
                 "name": "NF_DEVKIT_BENCH_AGENT",
                 "help": ""
               },
@@ -4371,142 +3851,6 @@
               },
               {
                 "name": "NF_DEVKIT_BENCH_MODEL",
-                "help": ""
-              },
-              {
-                "name": "NF_MCP_TOKEN",
-                "help": ""
-              },
-              {
-                "name": "NOM_APP_TEMOIN",
-                "help": ""
-              },
-              {
-                "name": "ORIGINE_PARTENAIRE",
-                "help": ""
-              },
-              {
-                "name": "OUTIL_REINDEX",
-                "help": ""
-              },
-              {
-                "name": "OUTIL_STOCK",
-                "help": ""
-              },
-              {
-                "name": "PAGE_COMPTE",
-                "help": ""
-              },
-              {
-                "name": "PAGE_ESPACE",
-                "help": ""
-              },
-              {
-                "name": "PAGE_WIDGET",
-                "help": ""
-              },
-              {
-                "name": "PREPARE_BASE_MIGREE",
-                "help": ""
-              },
-              {
-                "name": "PREPARE_MODULE_ABSENT",
-                "help": ""
-              },
-              {
-                "name": "PREPARE_RELECTURE",
-                "help": ""
-              },
-              {
-                "name": "PREPARE_ROLE_HIERARCHY",
-                "help": ""
-              },
-              {
-                "name": "PREPARE_UTILISATEUR",
-                "help": ""
-              },
-              {
-                "name": "ROLE_FACTURATION",
-                "help": ""
-              },
-              {
-                "name": "ROUTE_ARTICLES",
-                "help": ""
-              },
-              {
-                "name": "ROUTE_COMMANDES",
-                "help": ""
-              },
-              {
-                "name": "ROUTE_COMPTE_FACTURES",
-                "help": ""
-              },
-              {
-                "name": "ROUTE_COMPTE_PROFIL",
-                "help": ""
-              },
-              {
-                "name": "ROUTE_DEPOT",
-                "help": ""
-              },
-              {
-                "name": "ROUTE_EN_PANNE",
-                "help": ""
-              },
-              {
-                "name": "ROUTE_FACTURATION",
-                "help": ""
-              },
-              {
-                "name": "ROUTE_IMPORT",
-                "help": ""
-              },
-              {
-                "name": "ROUTE_MACHINE",
-                "help": ""
-              },
-              {
-                "name": "ROUTE_MCP_APP",
-                "help": ""
-              },
-              {
-                "name": "ROUTE_RAPPORT_MACHINE",
-                "help": ""
-              },
-              {
-                "name": "ROUTE_RELUE",
-                "help": ""
-              },
-              {
-                "name": "ROUTE_SYNTHESE",
-                "help": ""
-              },
-              {
-                "name": "ROUTE_VIREMENT",
-                "help": ""
-              },
-              {
-                "name": "RUN_ROOT",
-                "help": ""
-              },
-              {
-                "name": "SCRIPT_RAPPORT",
-                "help": ""
-              },
-              {
-                "name": "TEXTE_SESSION_OUVERTE",
-                "help": ""
-              },
-              {
-                "name": "TITRE_SEME",
-                "help": ""
-              },
-              {
-                "name": "VAR_CLE_RAPPORT",
-                "help": ""
-              },
-              {
-                "name": "VAR_URL_RAPPORT",
                 "help": ""
               }
             ],
@@ -4644,14 +3988,6 @@
             ],
             "env": [
               {
-                "name": "AGENT",
-                "help": ""
-              },
-              {
-                "name": "MODEL",
-                "help": ""
-              },
-              {
                 "name": "NF_DEVKIT_BENCH_AGENT",
                 "help": ""
               },
@@ -4677,12 +4013,7 @@
                 "help": ""
               }
             ],
-            "env": [
-              {
-                "name": "SPECS_FILE",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": false
           },
@@ -4792,16 +4123,7 @@
                 "help": ""
               }
             ],
-            "env": [
-              {
-                "name": "APP",
-                "help": ""
-              },
-              {
-                "name": "DB_DEV",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": false
           },
@@ -4887,32 +4209,7 @@
                 "help": ""
               }
             ],
-            "env": [
-              {
-                "name": "DB_APP",
-                "help": ""
-              },
-              {
-                "name": "DB_CONTRACT",
-                "help": ""
-              },
-              {
-                "name": "EVOLVE",
-                "help": ""
-              },
-              {
-                "name": "ONLY",
-                "help": ""
-              },
-              {
-                "name": "ROOT",
-                "help": ""
-              },
-              {
-                "name": "SPECS_FILE",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": false
           },
@@ -5028,30 +4325,6 @@
             ],
             "env": [
               {
-                "name": "AGENT",
-                "help": ""
-              },
-              {
-                "name": "BENCH_DB",
-                "help": ""
-              },
-              {
-                "name": "DIALECT",
-                "help": ""
-              },
-              {
-                "name": "LINKED",
-                "help": ""
-              },
-              {
-                "name": "MODEL",
-                "help": ""
-              },
-              {
-                "name": "MOI",
-                "help": ""
-              },
-              {
                 "name": "NF_DEVKIT_BENCH_AGENT",
                 "help": ""
               },
@@ -5109,10 +4382,6 @@
             ],
             "env": [
               {
-                "name": "JUDGE_TABLE",
-                "help": ""
-              },
-              {
                 "name": "NF_PG_URL",
                 "help": ""
               }
@@ -5144,16 +4413,7 @@
                 "help": ""
               }
             ],
-            "env": [
-              {
-                "name": "DATA",
-                "help": ""
-              },
-              {
-                "name": "OUT",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": false
           },
@@ -5280,12 +4540,7 @@
                 "help": ""
               }
             ],
-            "env": [
-              {
-                "name": "ADDED_KEY",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": false
           },
@@ -5365,10 +4620,6 @@
             "env": [
               {
                 "name": "NF_DEVKIT_BENCH_AGENT",
-                "help": ""
-              },
-              {
-                "name": "RACINE_RUNS",
                 "help": ""
               }
             ],
@@ -5613,71 +4864,7 @@
             ],
             "env": [
               {
-                "name": "APP",
-                "help": ""
-              },
-              {
-                "name": "COMMAND_ACTION",
-                "help": ""
-              },
-              {
-                "name": "COMMAND_CLASS",
-                "help": ""
-              },
-              {
-                "name": "CONTROLLER_GARDE_CLASS",
-                "help": ""
-              },
-              {
-                "name": "DATABASE",
-                "help": ""
-              },
-              {
-                "name": "INJECTED_SERVICE",
-                "help": ""
-              },
-              {
-                "name": "KEYCLOAK_PORT",
-                "help": ""
-              },
-              {
-                "name": "MCP_LOCAL",
-                "help": ""
-              },
-              {
-                "name": "MCP_MIXTE",
-                "help": ""
-              },
-              {
-                "name": "MCP_OAUTH",
-                "help": ""
-              },
-              {
-                "name": "MODULE",
-                "help": ""
-              },
-              {
-                "name": "MODULE_PKG",
-                "help": ""
-              },
-              {
                 "name": "NF_DEVKIT_REQUIRE_DOCKER",
-                "help": ""
-              },
-              {
-                "name": "PASCAL_MODULE",
-                "help": ""
-              },
-              {
-                "name": "ROLE_GARDE",
-                "help": ""
-              },
-              {
-                "name": "SERVICE",
-                "help": ""
-              },
-              {
-                "name": "SERVICE_METHOD",
                 "help": ""
               }
             ],
@@ -5710,12 +4897,7 @@
                 "help": ""
               }
             ],
-            "env": [
-              {
-                "name": "APP",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": false
           }
@@ -6232,16 +5414,7 @@
                 "help": ""
               }
             ],
-            "env": [
-              {
-                "name": "COVERAGE",
-                "help": ""
-              },
-              {
-                "name": "NAV_MAX",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": false
           },
@@ -6291,12 +5464,7 @@
             "purpose": "Lisibilité des figures mermaid d'une page — ce qu'on ne voit qu'en REGARDANT le rendu, ramené à des règles qu'une machine relit.",
             "usage": [],
             "options": [],
-            "env": [
-              {
-                "name": "DIRECTIVE_COURBE",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": false
           },
@@ -6812,12 +5980,7 @@
                 "help": ""
               }
             ],
-            "env": [
-              {
-                "name": "OUT",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": false
           },
@@ -6891,24 +6054,7 @@
             "purpose": "report.mjs — bibliothèque de rendu de RAPPORTS HTML autonomes.",
             "usage": [],
             "options": [],
-            "env": [
-              {
-                "name": "CSS",
-                "help": ""
-              },
-              {
-                "name": "PRINT_JS",
-                "help": ""
-              },
-              {
-                "name": "SORT_JS",
-                "help": ""
-              },
-              {
-                "name": "THEME_JS",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": false
           },
@@ -6917,24 +6063,7 @@
             "purpose": "Les **SCHÉMAS** de la documentation — organigrammes et diagrammes de séquence — rendus à la charte, depuis la source Mermaid qui vit déjà dans les `.md`.",
             "usage": [],
             "options": [],
-            "env": [
-              {
-                "name": "HAUT",
-                "help": ""
-              },
-              {
-                "name": "INTERLIGNE",
-                "help": ""
-              },
-              {
-                "name": "MARGE",
-                "help": ""
-              },
-              {
-                "name": "POLICE",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": false
           }
@@ -7067,12 +6196,7 @@
                 "help": ""
               }
             ],
-            "env": [
-              {
-                "name": "HELP",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "taux de faux positifs par paquet, sensibilité, échantillon terrain ;",
             "selfDocumented": true
           },
@@ -7114,20 +6238,7 @@
                 "help": ""
               }
             ],
-            "env": [
-              {
-                "name": "HELP",
-                "help": ""
-              },
-              {
-                "name": "IDENT",
-                "help": ""
-              },
-              {
-                "name": "MODIFIERS",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "`fichier:ligne  identifiant  ← mot(s) français  → suggestion` ;",
             "selfDocumented": true
           },
@@ -7500,12 +6611,7 @@
               "Usage : bash .claude/skills/nodefony-load-test/scripts/run.sh aimd"
             ],
             "options": [],
-            "env": [
-              {
-                "name": "DIST",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": false
           },
@@ -7785,12 +6891,7 @@
                 "help": ""
               }
             ],
-            "env": [
-              {
-                "name": "RUNS",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": false
           },
@@ -7799,16 +6900,7 @@
             "purpose": "capacity-html.mjs — rendu du rapport de capacité.",
             "usage": [],
             "options": [],
-            "env": [
-              {
-                "name": "PAYLOAD",
-                "help": ""
-              },
-              {
-                "name": "REPEAT",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": false
           },
@@ -7858,26 +6950,6 @@
             ],
             "env": [
               {
-                "name": "HOST",
-                "help": ""
-              },
-              {
-                "name": "JSON_OUT",
-                "help": ""
-              },
-              {
-                "name": "MAX_SPREAD",
-                "help": ""
-              },
-              {
-                "name": "MIN_ELU_SAMPLES",
-                "help": ""
-              },
-              {
-                "name": "MIN_R2",
-                "help": ""
-              },
-              {
                 "name": "NF_ADMIN_PASSWORD",
                 "help": ""
               },
@@ -7895,30 +6967,6 @@
               },
               {
                 "name": "NF_PORT_HTTPS",
-                "help": ""
-              },
-              {
-                "name": "OUT",
-                "help": ""
-              },
-              {
-                "name": "PAYLOAD",
-                "help": ""
-              },
-              {
-                "name": "PCLR",
-                "help": ""
-              },
-              {
-                "name": "PTLS",
-                "help": ""
-              },
-              {
-                "name": "REPEAT",
-                "help": ""
-              },
-              {
-                "name": "ROUTE",
                 "help": ""
               }
             ],
@@ -8056,24 +7104,7 @@
               "node .claude/skills/nodefony-load-test/scripts/config-env-override-e2e.mjs"
             ],
             "options": [],
-            "env": [
-              {
-                "name": "BOOT_TIMEOUT_MS",
-                "help": ""
-              },
-              {
-                "name": "FAIL_TIMEOUT_MS",
-                "help": ""
-              },
-              {
-                "name": "HTTPS_PORT",
-                "help": ""
-              },
-              {
-                "name": "HTTP_PORT",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": false
           },
@@ -8106,16 +7137,7 @@
                 "help": ""
               }
             ],
-            "env": [
-              {
-                "name": "KEY",
-                "help": ""
-              },
-              {
-                "name": "MAX_SPREAD",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": false
           },
@@ -8154,10 +7176,6 @@
               },
               {
                 "name": "JSON_OUT",
-                "help": ""
-              },
-              {
-                "name": "LIMIT",
                 "help": ""
               },
               {
@@ -8223,10 +7241,6 @@
               {
                 "name": "NF_DEV_CYCLE_PORT",
                 "help": ""
-              },
-              {
-                "name": "RUNS",
-                "help": ""
               }
             ],
             "output": "",
@@ -8264,6 +7278,35 @@
             ],
             "output": "",
             "selfDocumented": false
+          },
+          {
+            "path": "scripts/grpc-stream-throughput.mjs",
+            "purpose": "Débit d'un flux serveur gRPC comparé à la socket binaire (#695, critère 22 ; ADR-0026 D4 « plancher par message de l'adaptateur »).",
+            "usage": [
+              "node .claude/skills/nodefony-load-test/scripts/grpc-stream-throughput.mjs",
+              "node .claude/skills/nodefony-load-test/scripts/grpc-stream-throughput.mjs --runs 9 --sizes 16,65536"
+            ],
+            "options": [
+              {
+                "flag": "--runs",
+                "help": "passes comptées par camp et par charge (défaut 7, plus une de chauffe)"
+              },
+              {
+                "flag": "--sizes",
+                "help": "charges utiles en octets, séparées par des virgules (défaut 16,1024,16384,65536)"
+              },
+              {
+                "flag": "--out",
+                "help": "données JSON (défaut tmp/bench/grpc-stream-throughput.json)"
+              },
+              {
+                "flag": "--serve-raw",
+                "help": "interne : démarre le serveur `node:http2` des camps h2-nu et h2-écriture"
+              }
+            ],
+            "env": [],
+            "output": "tableau msg/s et µs/msg par camp, plancher de l'adaptateur et verdict de séparation ; code 1 si une passe est invalide",
+            "selfDocumented": true
           },
           {
             "path": "scripts/h2c-vs-h1-bare.mjs",
@@ -8393,10 +7436,6 @@
               {
                 "name": "URL",
                 "help": ""
-              },
-              {
-                "name": "URL_STR",
-                "help": ""
               }
             ],
             "output": "",
@@ -8411,19 +7450,7 @@
             "options": [],
             "env": [
               {
-                "name": "ADMIN_USER",
-                "help": ""
-              },
-              {
-                "name": "BASE",
-                "help": ""
-              },
-              {
                 "name": "BATCH",
-                "help": ""
-              },
-              {
-                "name": "HOLD",
                 "help": ""
               },
               {
@@ -8532,15 +7559,7 @@
             ],
             "env": [
               {
-                "name": "CONC",
-                "help": ""
-              },
-              {
                 "name": "PG_URL",
-                "help": ""
-              },
-              {
-                "name": "ROUNDS",
                 "help": ""
               }
             ],
@@ -8575,10 +7594,6 @@
             ],
             "options": [],
             "env": [
-              {
-                "name": "DIR",
-                "help": ""
-              },
               {
                 "name": "JSON_OUT",
                 "help": ""
@@ -8657,12 +7672,7 @@
                 "help": ""
               }
             ],
-            "env": [
-              {
-                "name": "MAX_DISPERSION",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": false
           },
@@ -8804,16 +7814,7 @@
                 "help": ""
               }
             ],
-            "env": [
-              {
-                "name": "CAMPAIGN",
-                "help": ""
-              },
-              {
-                "name": "DATA",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": false
           },
@@ -8833,12 +7834,7 @@
                 "help": ""
               }
             ],
-            "env": [
-              {
-                "name": "OUT",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": false
           },
@@ -8958,16 +7954,7 @@
                 "help": ""
               }
             ],
-            "env": [
-              {
-                "name": "DATA",
-                "help": ""
-              },
-              {
-                "name": "SOAK",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": false
           },
@@ -9111,16 +8098,7 @@
                 "help": ""
               }
             ],
-            "env": [
-              {
-                "name": "COUNTER_PORT",
-                "help": ""
-              },
-              {
-                "name": "PORT",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": false
           },
@@ -9147,15 +8125,7 @@
             "options": [],
             "env": [
               {
-                "name": "MAX",
-                "help": ""
-              },
-              {
                 "name": "RL_URL",
-                "help": ""
-              },
-              {
-                "name": "URL",
                 "help": ""
               }
             ],
@@ -9317,88 +8287,7 @@
                 "help": ""
               }
             ],
-            "env": [
-              {
-                "name": "ATTENDRE_CHARGE",
-                "help": ""
-              },
-              {
-                "name": "COEURS",
-                "help": ""
-              },
-              {
-                "name": "CONN",
-                "help": ""
-              },
-              {
-                "name": "LOG",
-                "help": ""
-              },
-              {
-                "name": "MINUTES",
-                "help": ""
-              },
-              {
-                "name": "MIN_AMPLITUDE_MB",
-                "help": ""
-              },
-              {
-                "name": "MIN_MINUTES",
-                "help": ""
-              },
-              {
-                "name": "OUT",
-                "help": ""
-              },
-              {
-                "name": "PROBE",
-                "help": ""
-              },
-              {
-                "name": "ROOT",
-                "help": ""
-              },
-              {
-                "name": "SKIP",
-                "help": ""
-              },
-              {
-                "name": "SONDE_ESSAIS",
-                "help": ""
-              },
-              {
-                "name": "SONDE_TIMEOUT_MS",
-                "help": ""
-              },
-              {
-                "name": "THREADS",
-                "help": ""
-              },
-              {
-                "name": "TRANCHE",
-                "help": ""
-              },
-              {
-                "name": "TTL_DEROGATION_MIN",
-                "help": ""
-              },
-              {
-                "name": "URL",
-                "help": ""
-              },
-              {
-                "name": "VCPU_VIRTUALISES",
-                "help": ""
-              },
-              {
-                "name": "WINDOW",
-                "help": ""
-              },
-              {
-                "name": "WINDOWS",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": false
           },
@@ -9690,10 +8579,6 @@
             "options": [],
             "env": [
               {
-                "name": "BASE",
-                "help": ""
-              },
-              {
                 "name": "HOST",
                 "help": ""
               },
@@ -9703,10 +8588,6 @@
               },
               {
                 "name": "PORT",
-                "help": ""
-              },
-              {
-                "name": "URL",
                 "help": ""
               },
               {
@@ -9791,10 +8672,6 @@
                 "help": ""
               },
               {
-                "name": "MAX",
-                "help": ""
-              },
-              {
                 "name": "NODE_TLS_REJECT_UNAUTHORIZED",
                 "help": ""
               },
@@ -9854,22 +8731,6 @@
             ],
             "options": [],
             "env": [
-              {
-                "name": "CLIENTS",
-                "help": ""
-              },
-              {
-                "name": "PAYLOAD",
-                "help": ""
-              },
-              {
-                "name": "RUNS",
-                "help": ""
-              },
-              {
-                "name": "WINDOW",
-                "help": ""
-              },
               {
                 "name": "WS_BATCH_PAYLOAD",
                 "help": ""
@@ -10190,19 +9051,7 @@
             ],
             "env": [
               {
-                "name": "BASE",
-                "help": ""
-              },
-              {
-                "name": "BOX",
-                "help": ""
-              },
-              {
                 "name": "NF_DATABASE_URL",
-                "help": ""
-              },
-              {
-                "name": "WORKERS",
                 "help": ""
               }
             ],
@@ -10223,23 +9072,7 @@
             ],
             "env": [
               {
-                "name": "CLE",
-                "help": ""
-              },
-              {
-                "name": "MODE",
-                "help": ""
-              },
-              {
                 "name": "NF_DATABASE_URL",
-                "help": ""
-              },
-              {
-                "name": "PORT",
-                "help": ""
-              },
-              {
-                "name": "URL_BASE",
                 "help": ""
               }
             ],
@@ -10270,16 +9103,7 @@
                 "help": ""
               }
             ],
-            "env": [
-              {
-                "name": "BASE",
-                "help": ""
-              },
-              {
-                "name": "PORT",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": false
           },
@@ -11212,28 +10036,7 @@
                 "help": "montre ce qui partirait, sans rien écrire"
               }
             ],
-            "env": [
-              {
-                "name": "PROJECT_NUMBER",
-                "help": ""
-              },
-              {
-                "name": "PROJECT_OWNER",
-                "help": ""
-              },
-              {
-                "name": "QUERY",
-                "help": ""
-              },
-              {
-                "name": "REPO_NAME",
-                "help": ""
-              },
-              {
-                "name": "REPO_OWNER",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": ".ai/board.json (machine) + .ai/BOARD.md (lisible) — jamais édités à la main",
             "selfDocumented": true
           },
@@ -11315,16 +10118,7 @@
                 "help": "ne republie pas le README ni l'issue du tableau de bord"
               }
             ],
-            "env": [
-              {
-                "name": "MEM",
-                "help": ""
-              },
-              {
-                "name": "PUBLISH",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "≤ 25 lignes en préparation ; la liste des manques en `--verify`",
             "selfDocumented": true
           },
@@ -11543,12 +10337,7 @@
                 "help": "sort en échec dès qu'un script est orphelin ou qu'un renvoi est mort"
               }
             ],
-            "env": [
-              {
-                "name": "ACQUITTES_PATH",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "un classement de chaque script : bien placé, à déplacer, orphelin, ou renvoi mort",
             "selfDocumented": true
           },
@@ -11591,12 +10380,7 @@
                 "help": "liste les cas du banc sans les exécuter"
               }
             ],
-            "env": [
-              {
-                "name": "FRAGILE_MARGIN",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "phrases élisant le bon skill, cas négatifs respectés, couverture, recouvrements (arbitrés vs à trancher)",
             "selfDocumented": true
           },
@@ -11605,12 +10389,7 @@
             "purpose": "Ce qu'on sait d'un script du dépôt — sa documentation et l'automate qui le lance — en une seule implémentation.",
             "usage": [],
             "options": [],
-            "env": [
-              {
-                "name": "VAR",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": false
           },
@@ -11644,7 +10423,12 @@
                 "help": ""
               }
             ],
-            "env": [],
+            "env": [
+              {
+                "name": "NF_PROBE_PORT",
+                "help": ""
+              }
+            ],
             "output": "",
             "selfDocumented": false
           }
@@ -12281,36 +11065,7 @@
                 "help": "ne contrôle que ce jalon (ex. 10.0.0)"
               }
             ],
-            "env": [
-              {
-                "name": "JOURS_EN_COURS",
-                "help": ""
-              },
-              {
-                "name": "OWNER",
-                "help": ""
-              },
-              {
-                "name": "POST_PUBLICATION_LABEL",
-                "help": ""
-              },
-              {
-                "name": "PROJECT",
-                "help": ""
-              },
-              {
-                "name": "QUERY_ITEMS",
-                "help": ""
-              },
-              {
-                "name": "REPO",
-                "help": ""
-              },
-              {
-                "name": "VITRINE_REPO",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": true
           },
@@ -12380,12 +11135,7 @@
             "purpose": "Les limites de GitHub qu'un corps d'issue ou un commentaire ne doit pas franchir — vérifiées AVANT l'envoi, jamais découvertes au refus.",
             "usage": [],
             "options": [],
-            "env": [
-              {
-                "name": "GITHUB_BODY_MAX",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": false
           },
@@ -12454,16 +11204,7 @@
                 "help": "réécrit les corps convertis sur GitHub (sans : bilan seul)"
               }
             ],
-            "env": [
-              {
-                "name": "APPLY",
-                "help": ""
-              },
-              {
-                "name": "QUERY",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": true
           },
@@ -12536,16 +11277,7 @@
                 "help": ""
               }
             ],
-            "env": [
-              {
-                "name": "OWNER",
-                "help": ""
-              },
-              {
-                "name": "REPO",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": true
           },
@@ -12605,16 +11337,7 @@
                 "help": "vecteur CVSS:3.1/… d'une faille (score calculé, écrit au corps)"
               }
             ],
-            "env": [
-              {
-                "name": "OWNER",
-                "help": ""
-              },
-              {
-                "name": "REPO",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": true
           },
@@ -12659,12 +11382,7 @@
                 "help": ""
               }
             ],
-            "env": [
-              {
-                "name": "OWNER",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": true
           },
@@ -12693,12 +11411,7 @@
                 "help": ""
               }
             ],
-            "env": [
-              {
-                "name": "PROJECT",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": false
           },
@@ -12714,16 +11427,7 @@
                 "help": "vecteur CVSS 3.1 d'une faille (le score est calculé et écrit au corps)"
               }
             ],
-            "env": [
-              {
-                "name": "OWNER",
-                "help": ""
-              },
-              {
-                "name": "REPO",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": true
           },
@@ -13319,18 +12023,6 @@
             ],
             "env": [
               {
-                "name": "BASE",
-                "help": ""
-              },
-              {
-                "name": "FORMFACTOR",
-                "help": ""
-              },
-              {
-                "name": "LOGIN",
-                "help": ""
-              },
-              {
                 "name": "NF_BROWSER_CATEGORIES",
                 "help": ""
               },
@@ -13349,10 +12041,6 @@
               {
                 "name": "NF_BROWSER_SEUIL_AUDIT",
                 "help": ""
-              },
-              {
-                "name": "PAGE",
-                "help": ""
               }
             ],
             "output": "",
@@ -13366,10 +12054,6 @@
             ],
             "options": [],
             "env": [
-              {
-                "name": "EXPECT",
-                "help": ""
-              },
               {
                 "name": "NF_BROWSER_ACTIONS",
                 "help": ""
@@ -13475,10 +12159,6 @@
             "options": [],
             "env": [
               {
-                "name": "DURATION",
-                "help": ""
-              },
-              {
                 "name": "NF_BROWSER_ACTIONS",
                 "help": ""
               },
@@ -13496,10 +12176,6 @@
               },
               {
                 "name": "NF_BROWSER_UNTIL",
-                "help": ""
-              },
-              {
-                "name": "UNTIL",
                 "help": ""
               }
             ],
@@ -13643,16 +12319,7 @@
                 "help": ""
               }
             ],
-            "env": [
-              {
-                "name": "DEFAULT_LIMIT",
-                "help": ""
-              },
-              {
-                "name": "USAGE",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": false
           }
@@ -14182,12 +12849,7 @@
                 "help": ""
               }
             ],
-            "env": [
-              {
-                "name": "USAGE",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": false
           }
@@ -14337,12 +12999,7 @@
                 "help": ""
               }
             ],
-            "env": [
-              {
-                "name": "USAGE",
-                "help": ""
-              }
-            ],
+            "env": [],
             "output": "",
             "selfDocumented": false
           }
