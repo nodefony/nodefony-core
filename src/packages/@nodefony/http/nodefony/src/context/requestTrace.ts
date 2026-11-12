@@ -3,7 +3,9 @@ import type {
   IRequestTrace,
   RequestTraceProtocol,
 } from "../../interfaces/IRequestTrace";
+import type { IRpcOutcome } from "../../interfaces/IRpcCall";
 import type Context from "./Context";
+import { rpcOutcomeOf } from "./rpcOutcome";
 
 /**
  * Nom du `TracingChannel` qui encadre chaque requête HTTP et chaque handshake
@@ -72,6 +74,7 @@ export function openRequestTrace(
     statusCode: null,
     durationMs: null,
     error: null,
+    rpc: null,
   };
   context.requestTrace = trace;
   return trace;
@@ -114,11 +117,13 @@ export function runTraced<ThisArg, Args extends unknown[], Result>(
  * @param context - le contexte de la requête
  * @param statusCode - le statut rendu au client, `null` s'il n'y en a pas eu
  * @param error - l'exception attrapée par le pipeline, `null` ou `undefined` sinon
+ * @param rpc - l'appel RPC de la requête, `null` hors RPC : copié, jamais publié tel quel
  */
 export function closeRequestTrace(
   context: Context,
   statusCode: number | null,
   error: unknown,
+  rpc: IRpcOutcome | null = null,
 ): void {
   const trace = context.requestTrace;
   if (trace === null) return;
@@ -131,6 +136,7 @@ export function closeRequestTrace(
   trace.routePath = path === undefined ? null : path === "" ? "/" : path;
   trace.module = context.logModule ?? route?.module?.name ?? null;
   trace.statusCode = statusCode;
+  trace.rpc = rpcOutcomeOf(rpc);
   trace.durationMs = context.stopClock();
   if (error !== null && error !== undefined) {
     trace.error = error;

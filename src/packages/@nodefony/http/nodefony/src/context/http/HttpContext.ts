@@ -457,11 +457,12 @@ class HttpContext extends Context implements IHttpContextInterface {
    * @param httpError - l'erreur de la requête, s'il y en a une
    */
   override logRequest(httpError?: Error | HttpError | nodefonyError | null) {
+    // Appel RPC : l'adaptateur écrit sur la réponse native — en protocole
+    // Connect, une erreur y part en 404 ou 500 que le contexte ne voit pas
+    // (ADR-0026 D10 point 2). Même règle que le relais.
+    if (this.rpc !== null) this.adoptNativeStatus();
     if (this.relayAccessLog !== null) {
-      const raw = this.response.response;
-      if (raw !== null && responseEnded(raw)) {
-        this.response.statusCode = raw.statusCode;
-      }
+      this.adoptNativeStatus();
       if (
         this.relayAccessLog === "errors" &&
         this.response.statusCode < 400 &&
@@ -472,6 +473,18 @@ class HttpContext extends Context implements IHttpContextInterface {
       }
     }
     return super.logRequest(httpError);
+  }
+
+  /**
+   * Reprend le statut de la réponse native, écrite par un tiers (relais,
+   * adaptateur RPC) — si la réponse est TERMINÉE seulement : sinon ce statut
+   * n'a jamais atteint le client, et celui du contexte (499) dit vrai.
+   */
+  private adoptNativeStatus(): void {
+    const raw = this.response.response;
+    if (raw !== null && responseEnded(raw)) {
+      this.response.statusCode = raw.statusCode;
+    }
   }
 
   /**

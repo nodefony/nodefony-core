@@ -311,6 +311,9 @@ export class GrpcEndpoint<S extends DescService = DescService> {
       writeMaxBytes: settings.writeMaxBytes,
       requireConnectProtocolHeader: settings.requireConnectProtocolHeader,
       contextValues: this.#contextValues,
+      // Observateur, jamais un refus : les refus ont UN écrivain, le noyau
+      // (ADR-0026 D5 point 2). Voir {@link observeCall}.
+      requestGate: observeCall,
       fallback: unrouted,
       jsonOptions: { registry: contractRegistry(this.service) },
       routes: (router) => registerMethods(router, this.service, shared),
@@ -543,6 +546,19 @@ const CONNECT_CODES: readonly (Code | undefined)[] = [
   Code.DataLoss,
   Code.Unauthenticated,
 ];
+
+/**
+ * Option `requestGate` de l'adaptateur, en simple OBSERVATEUR : Connect
+ * l'appelle avec le contexte d'appel AVANT de lire le corps, dans les trois
+ * protocoles. La fiche le garde jusqu'au `close`, où son signal porte la cause
+ * de la fin (ADR-0026 D10 point 2) — y compris d'un refus de Connect avant
+ * le gestionnaire (bombe gzip → 8, encodage inconnu → 12), que le
+ * gestionnaire ne voit jamais. Ne lève jamais.
+ */
+function observeCall(ctx: HandlerContext): void {
+  const call = ctx.values;
+  if (call instanceof GrpcCall) call.open(ctx);
+}
 
 /**
  * Appelle l'implémentation sur sa cible ; une erreur levée de façon SYNCHRONE

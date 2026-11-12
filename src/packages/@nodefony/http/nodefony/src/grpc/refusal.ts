@@ -123,6 +123,26 @@ export function grpcCodeName(code: number): string {
 }
 
 /**
+ * Les mêmes noms tels que les écrivent `google/rpc/code.proto` et les
+ * conventions OpenTelemetry (`rpc.status_code`) : `OK`, `UNAVAILABLE`… Tirés
+ * une fois, au chargement, de {@link CODE_NAMES} — une seule liste.
+ */
+const STATUS_NAMES: readonly string[] = Object.freeze(
+  CODE_NAMES.map((name) => name.toUpperCase()),
+);
+
+/**
+ * Le nom d'un code gRPC tel que le publient la ligne d'accès et le canal de
+ * traçage (`UNAVAILABLE`) — ADR-0026 D10 point 1.
+ *
+ * @param code - le code gRPC, de 0 à 16.
+ * @returns son nom ; `UNKNOWN` hors de la plage.
+ */
+export function grpcStatusName(code: number): string {
+  return STATUS_NAMES[code] ?? "UNKNOWN";
+}
+
+/**
  * Le code gRPC d'un refus de transport — rendu avant l'implémentation (chemin
  * inconnu, méthode refusée, limite de débit, pare-feu) — en gRPC natif et en
  * gRPC-Web (ADR-0026 D13 point 2). Distincte de la table des erreurs de

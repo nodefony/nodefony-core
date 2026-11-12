@@ -58,6 +58,7 @@ import http from "node:http";
 //import https from "node:https";
 import http2 from "node:http2";
 import { responseEnded } from "../src/context/responseEnded";
+import type { IRpcCall } from "../interfaces/IRpcCall";
 import { unsentResponseWarning } from "../src/context/unsentResponse";
 import {
   closeRequestTrace,
@@ -1648,6 +1649,22 @@ class HttpKernel extends Service implements IHttpKernelInterface {
    * @returns `undefined` quand le démontage est terminé ; sinon la promesse de
    *   sa fin, qui ne rejette pas.
    */
+  /**
+   * Fixe le code d'un appel RPC au `close` : « réponse finie » est la règle
+   * unique du noyau ({@link responseEnded}, celle du 499), jamais
+   * `writableFinished`, qui dit « finie » sur une annulation HTTP/2. Une cause
+   * rendue par l'appel devient l'erreur de la requête : la ligne d'accès la
+   * porte, le canal la publie — une ligne par appel en erreur (D10 point 3).
+   *
+   * @param context - le contexte de la requête.
+   * @param rpc - son appel RPC.
+   */
+  private settleRpc(context: HttpContext, rpc: IRpcCall): void {
+    const raw = context.response.response;
+    const cause = rpc.settle(raw !== null && responseEnded(raw));
+    if (cause !== null && !context.error) context.error = cause;
+  }
+
   private teardownHttp(
     context: HttpContext,
     scope: Scope,
@@ -1663,12 +1680,20 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       // ici que l'action muette se signale. Garde EN LIGNE : une requête
       // servie ne paie que cette lecture, comme avant (aucun appel).
       if (context.waitAsync) this.warnUnsentResponse(context);
+      // Code d'un appel RPC, lu UNE fois, AVANT la ligne d'accès qui le
+      // publie (ADR-0026 D10 point 2). Hors RPC : une lecture de champ.
+      if (context.rpc !== null) this.settleRpc(context, context.rpc);
       context.logRequest();
       // Fin du canal `nodefony.http.request` — APRÈS la ligne d'accès, qui a
       // recopié sur la réponse le statut de l'amont d'une requête relayée.
       // Garde en ligne : sans abonné, une lecture de champ, aucun appel.
       if (context.requestTrace !== null) {
-        closeRequestTrace(context, context.response.statusCode, context.error);
+        closeRequestTrace(
+          context,
+          context.response.statusCode,
+          context.error,
+          context.rpc,
+        );
       }
       // P3.7 — détail phase-par-phase (opt-in timing.verbose ; no-op sinon).
       context.logPhasesVerbose();

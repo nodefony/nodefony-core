@@ -4,8 +4,17 @@ import type {
   ContextValues,
   HandlerContext,
 } from "@connectrpc/connect";
-import type { IRpcCall } from "../interfaces/IRpcCall";
+import type { IRpcCall, RpcSystem } from "../interfaces/IRpcCall";
 import type HttpContext from "../src/context/http/HttpContext";
+import {
+  GRPC_WIRE_GRPC,
+  GRPC_WIRE_WEB,
+  grpcStatusName,
+  grpcWireOf,
+} from "../src/grpc/refusal";
+
+/** Code 0 `OK` : Connect n'en a pas dans son énumération (`Code` part de 1). */
+const OK = 0;
 
 /**
  * Fiche d'un appel gRPC : ce que Nodefony attache à l'appel, et le
@@ -23,7 +32,9 @@ import type HttpContext from "../src/context/http/HttpContext";
  * que le magasin de Connect a typée.
  *
  * C'est aussi l'appel RPC du contexte (`HttpContext.rpc`, ADR-0026 D10) : à
- * l'échéance du délai de réponse, le noyau le termine par {@link expire}.
+ * l'échéance du délai de réponse, le noyau le termine par {@link expire} ; au
+ * `close` de la réponse, il en fixe le code par {@link settle}, que lisent la
+ * ligne d'accès, l'audit et le canal de traçage.
  *
  * @experimental Surface gRPC, ADR-0026 D11.
  */
@@ -53,10 +64,127 @@ export class GrpcCall implements ContextValues, IRpcCall {
    * première cause gagne.
    */
   #reason: ConnectError | null = null;
+  /**
+   * Le contexte d'appel que Connect crée AVANT de lire le corps (remis par
+   * {@link open}), gardé jusqu'au `close` : son signal porte la cause de la
+   * fin, refus de Connect avant le gestionnaire compris. `null` si l'appel n'a
+   * jamais commencé (refusé par le transport).
+   */
+  #call: HandlerContext | null = null;
+  /** Code de l'appel, fixé une fois par {@link settle}. */
+  #code: number | null = null;
+  /** `paquet.Service/Méthode`, tiré du chemin à la première lecture. */
+  #method: string | null = null;
 
   constructor(target: object | null, context: HttpContext | null = null) {
     this.target = target;
     this.context = context;
+  }
+
+  /**
+   * Le protocole parlé sur le fil : celui du contexte d'appel (`grpc`,
+   * `grpc-web`, `connect`) ; à défaut, celui des en-têtes de la requête.
+   */
+  get system(): RpcSystem {
+    const call = this.#call;
+    if (call !== null) return call.protocolName;
+    const request = this.context?.request.request;
+    const wire = request === undefined ? 0 : grpcWireOf(request.headers);
+    if (wire === GRPC_WIRE_GRPC) return "grpc";
+    if (wire === GRPC_WIRE_WEB) return "grpc-web";
+    return "connect";
+  }
+
+  /**
+   * `paquet.Service/Méthode` : le chemin de la route, que l'adaptateur a
+   * reconnu à l'octet près. Lu à la première demande, puis retenu.
+   */
+  get method(): string {
+    if (this.#method !== null) return this.#method;
+    const call = this.#call;
+    const path = this.context?.request.url.pathname;
+    this.#method =
+      path !== undefined
+        ? path.slice(1)
+        : call !== null
+          ? `${call.service.typeName}/${call.method.name}`
+          : "";
+    return this.#method;
+  }
+
+  /** Le code de l'appel (0 à 16), `null` avant {@link settle}. */
+  get code(): number | null {
+    return this.#code;
+  }
+
+  /** Le nom du code (`OK`, `UNAVAILABLE`…), `null` avec lui. */
+  get codeName(): string | null {
+    return this.#code === null ? null : grpcStatusName(this.#code);
+  }
+
+  /**
+   * Garde le contexte d'appel que Connect vient de créer, avant le corps
+   * (option `requestGate` de l'adaptateur, en simple observateur).
+   *
+   * @param ctx - le contexte d'appel.
+   *
+   * @internal
+   */
+  open(ctx: HandlerContext): void {
+    this.#call = ctx;
+  }
+
+  /**
+   * Fixe le code de l'appel au `close` de la réponse (ADR-0026 D10 point 2) :
+   *
+   * - motif `ConnectError` → son code ; sa cause, si c'est une `Error`, part
+   *   à la ligne d'accès (exception traduite par D7). Réponse NON finie : 1,
+   *   sauf une fin posée par le serveur (échéance 4, interruption de la fiche)
+   *   — le client est parti, quel que soit le code de son `RST_STREAM` ;
+   * - `AbortError` ou aucun motif → 0 si la réponse est finie, sinon 1 (le
+   *   client est parti — le 499 du noyau, dit en gRPC) ;
+   * - autre valeur → 13, et elle part à la ligne d'accès.
+   *
+   * Une interruption du serveur (délai échu, identité révoquée) abaisse le
+   * signal avec sa `ConnectError` : elle suit la première règle. Sans contexte
+   * d'appel, le code reste `null`.
+   *
+   * @param ended - la réponse a-t-elle été terminée par le serveur ?
+   * @returns la cause à porter par la ligne d'accès, `null` sinon.
+   */
+  settle(ended: boolean): Error | null {
+    const call = this.#call;
+    if (this.#code !== null || call === null) return null;
+    const reason: unknown = call.signal.reason;
+    if (reason instanceof ConnectError) {
+      // Réponse non finie : le client est parti — 1, comme le 499 du noyau.
+      // Son `RST_STREAM` arrive traduit (connect-node : `INTERNAL_ERROR` → 13
+      // à l'échéance du client) ; seule une fin posée par le SERVEUR garde son
+      // code : l'échéance (4), une interruption de la fiche (délai, identité).
+      if (
+        !ended &&
+        reason !== this.#reason &&
+        reason.code !== Code.DeadlineExceeded
+      ) {
+        this.#code = Code.Canceled;
+        return null;
+      }
+      this.#code = reason.code;
+      return reason.cause instanceof Error ? reason.cause : null;
+    }
+    if (endsWithoutError(reason)) {
+      this.#code = ended ? OK : Code.Canceled;
+      return null;
+    }
+    this.#code = Code.Internal;
+    return reason instanceof Error
+      ? reason
+      : new Error(
+          "gRPC : le gestionnaire a levé une valeur qui n'est pas une Error",
+          {
+            cause: reason,
+          },
+        );
   }
 
   /**
@@ -219,4 +347,16 @@ export interface IAbortableHandlerContext extends HandlerContext {
  */
 export function hasAbort(ctx: HandlerContext): ctx is IAbortableHandlerContext {
   return "abort" in ctx && typeof ctx.abort === "function";
+}
+
+/**
+ * Le motif d'une fin SANS erreur : aucun (le signal n'est pas abaissé — en
+ * HTTP/1.1, l'écouteur `close` du noyau passe avant celui de Connect), ou un
+ * `AbortError` (fin normale, ou client parti).
+ */
+function endsWithoutError(reason: unknown): boolean {
+  return (
+    reason === undefined ||
+    (reason instanceof Error && reason.name === "AbortError")
+  );
 }

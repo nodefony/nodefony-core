@@ -5,7 +5,8 @@ import type {
   IRequestLogEntry,
 } from "../interfaces/IRequestLogger";
 import type { IHttpContext, IWebsocketContext } from "../interfaces/IContext";
-import { severityFromStatus, statusOf } from "./audit-logger";
+import { severityFromStatus, severityOfHttp, statusOf } from "./audit-logger";
+import { rpcSegment } from "./request-logger";
 import { handshakeRefusalStatus } from "../src/context/websocket/WebsocketContext";
 
 /**
@@ -33,6 +34,7 @@ class PrettyRequestLogger implements IRequestLogger {
     const status = statusOf(ctx) ?? (err ? 500 : null);
     const method = ctx.method ?? "?";
     const duration = ctx.stopClock();
+    const rpc = ctx.rpc ?? null;
 
     const text =
       `${logColor.cyan(method.padEnd(4))} ` +
@@ -41,11 +43,12 @@ class PrettyRequestLogger implements IRequestLogger {
       `${logColor.blackBright(formatDuration(duration))} ` +
       `${logColor.blackBright(ctx.remoteAddress ?? "-")} ` +
       logColor.magenta(`[${shortId(ctx.requestId)}]`) +
+      (rpc === null ? "" : ` ${rpcSegment(rpc)}`) +
       (err ? ` ${logColor.red(err.message)}` : "");
 
     return {
       text,
-      severity: severityFromStatus(status),
+      severity: severityOfHttp(ctx, status),
       msgid: "req",
     };
   }

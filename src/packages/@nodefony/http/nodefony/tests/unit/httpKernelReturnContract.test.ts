@@ -254,6 +254,7 @@ describe("HttpKernel.teardownHttp — ne lève jamais, libère TOUJOURS le scope
       // Personne n'écoute le canal `nodefony.http.request` : `null`, comme
       // le pose le constructeur de `Context`.
       requestTrace: null,
+      rpc: null,
       logRequest: vi.fn(),
       logPhasesVerbose: vi.fn(),
       _runAfterResponse: () => undefined,
@@ -278,6 +279,35 @@ describe("HttpKernel.teardownHttp — ne lève jamais, libère TOUJOURS le scope
     expect(call(kernel, "teardownHttp", context, scope)).to.equal(undefined);
     expect(context.logRequest).not.toHaveBeenCalled();
     expect(container.scopeCount("request")).to.equal(1);
+  });
+
+  it("appel RPC : code fixé AVANT la ligne d'accès, « finie » selon `responseEnded`, sa cause devient l'erreur (ADR-0026 D10)", () => {
+    const order: string[] = [];
+    const cause = new Error("base injoignable");
+    const settle = vi.fn((ended: boolean) => {
+      order.push(`settle:${String(ended)}`);
+      return cause;
+    });
+    const { kernel, context, scope } = setup({
+      response: { response: { writableEnded: true }, statusCode: 200 },
+      error: null,
+      rpc: { settle },
+      logRequest: vi.fn(() => order.push("logRequest")),
+    });
+    call(kernel, "teardownHttp", context, scope);
+    expect(order).to.deep.equal(["settle:true", "logRequest"]);
+    expect(context.error).to.equal(cause);
+  });
+
+  it("appel RPC : une erreur déjà posée par le pipeline n'est pas remplacée", () => {
+    const first = new Error("pipeline");
+    const { kernel, context, scope } = setup({
+      response: { response: { writableEnded: false }, statusCode: 499 },
+      error: first,
+      rpc: { settle: () => new Error("cause") },
+    });
+    call(kernel, "teardownHttp", context, scope);
+    expect(context.error).to.equal(first);
   });
 
   it("hook `onAfterResponse` → promesse ; scope libéré APRÈS le hook", async () => {

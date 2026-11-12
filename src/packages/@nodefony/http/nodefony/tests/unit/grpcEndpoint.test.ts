@@ -48,6 +48,7 @@ import zlib from "node:zlib";
 import { once } from "node:events";
 import HttpError from "../../src/errors/httpError";
 import type HttpContext from "../../src/context/http/HttpContext";
+import { responseEnded } from "../../src/context/responseEnded";
 
 // ─── Contrat construit à la volée : un service par cas ───────────────────────
 
@@ -263,11 +264,25 @@ function fakeContext(
 const asHttpContext = (c: IFakeContext): HttpContext =>
   c as unknown as HttpContext;
 
+/** Ce que le noyau a fixé au `close` : le code de l'appel et sa cause. */
+interface ISettled {
+  system: string;
+  method: string;
+  code: number | null;
+  codeName: string | null;
+  cause: Error | null;
+  ended: boolean;
+}
+
 interface IServed {
   context: IFakeContext;
   error: unknown;
   socketTimeoutBefore: number | undefined;
   socketTimeoutAfter: number | undefined;
+  /** Fixé au `close` de la réponse, `null` hors appel RPC. */
+  settled: ISettled | null;
+  /** Résolue au `close` de la réponse, après `settled`. */
+  closed: Promise<void>;
 }
 
 /** Un serveur dont chaque requête passe par `endpoint.serve`. */
@@ -304,12 +319,35 @@ async function serveWith(
       }, responseTimeout);
       res.on("close", () => clearTimeout(timer));
     }
+    let closed: () => void = () => undefined;
     const record: IServed = {
       context,
       error: null,
       socketTimeoutBefore: res.socket?.timeout,
       socketTimeoutAfter: undefined,
+      settled: null,
+      closed: new Promise<void>((resolve) => {
+        closed = resolve;
+      }),
     };
+    // Le geste du noyau au `close` (`HttpKernel.settleRpc`) : le code de
+    // l'appel est fixé UNE fois, « finie » selon `responseEnded`.
+    res.once("close", () => {
+      const rpc = context.rpc;
+      if (rpc !== null) {
+        const ended = responseEnded(res);
+        const cause = rpc.settle(ended);
+        record.settled = {
+          system: rpc.system,
+          method: rpc.method,
+          code: rpc.code,
+          codeName: rpc.codeName,
+          cause,
+          ended,
+        };
+      }
+      closed();
+    });
     served.push(record);
     // Un refus, levé tout de suite ou rendu par la promesse de la remise (flux
     // dont la session est à sauver), part comme le pipeline l'écrirait.
@@ -1716,5 +1754,304 @@ describe("GrpcEndpoint — appel révoqué en cours (critère 31, ADR-0026 D6)",
     } finally {
       await server.close();
     }
+  });
+});
+
+describe("GrpcCall.settle — code de l'appel lu au close (critères 36 et 37, ADR-0026 D10)", () => {
+  /**
+   * Sert `target` sur un serveur neuf, joue `call`, puis attend le `close` de
+   * la réponse : rend ce que le noyau y a fixé.
+   */
+  async function settledWith(
+    target: object,
+    call: (url: string, service: DescService) => Promise<unknown>,
+    options: { stream?: boolean; responseTimeout?: number } = {},
+  ): Promise<{ settled: ISettled | null; service: DescService }> {
+    const service = makeService(options.stream === true);
+    const server = await serveWith(
+      new GrpcEndpoint(service, { perCall: true }),
+      () => target,
+      null,
+      options.responseTimeout ?? 30_000,
+    );
+    try {
+      await call(server.url, service).catch(() => undefined);
+      const served = server.served[0];
+      if (served === undefined) throw new Error("aucune requête servie");
+      await served.closed;
+      return { settled: served.settled, service };
+    } finally {
+      await server.close();
+    }
+  }
+
+  const unary = (url: string, service: DescService) =>
+    connectJson(url, service, "x");
+
+  it("unaire réussi : 0 OK, système `connect`, méthode tirée de la route, aucune cause", async () => {
+    const { settled, service } = await settledWith(
+      { say: (request: { text: string }) => request },
+      unary,
+    );
+    expect(settled).to.deep.equal({
+      system: "connect",
+      method: `${service.typeName}/Say`,
+      code: 0,
+      codeName: "OK",
+      cause: null,
+      ended: true,
+    });
+  });
+
+  it("gRPC-Web : le système est celui du fil", async () => {
+    const { settled } = await settledWith(
+      { say: (request: { text: string }) => request },
+      (url, service) => grpcWebCall(url, service, envelope(new Uint8Array(0))),
+    );
+    expect(settled?.system).to.equal("grpc-web");
+    expect(settled?.code).to.equal(0);
+  });
+
+  it("une ConnectError : son code, aucune cause (le code est voulu)", async () => {
+    const { settled } = await settledWith(
+      {
+        say() {
+          throw new ConnectError("déjà là", Code.AlreadyExists);
+        },
+      },
+      unary,
+    );
+    expect(settled?.code).to.equal(6);
+    expect(settled?.codeName).to.equal("ALREADY_EXISTS");
+    expect(settled?.cause).to.equal(null);
+  });
+
+  it("une exception banale : 13, et la cause part à la ligne d'accès (D7 point 4)", async () => {
+    const failure = new Error("base injoignable");
+    const { settled } = await settledWith(
+      {
+        say() {
+          throw failure;
+        },
+      },
+      unary,
+    );
+    expect(settled?.code).to.equal(13);
+    expect(settled?.codeName).to.equal("INTERNAL");
+    expect(settled?.cause).to.equal(failure);
+  });
+
+  it("une HttpError 404 traduite : 5 NOT_FOUND, sa cause est l'HttpError", async () => {
+    const failure = new HttpError("entité introuvable", 404);
+    const { settled } = await settledWith(
+      {
+        say() {
+          throw failure;
+        },
+      },
+      unary,
+    );
+    expect(settled?.code).to.equal(5);
+    expect(settled?.cause).to.equal(failure);
+  });
+
+  it("une valeur qui n'est pas une Error : 13, enveloppée dans une Error qui la garde en cause", async () => {
+    const { settled } = await settledWith(
+      {
+        say() {
+          // eslint-disable-next-line @typescript-eslint/only-throw-error -- le cas éprouvé
+          throw "panne texte";
+        },
+      },
+      unary,
+    );
+    expect(settled?.code).to.equal(13);
+    expect(settled?.cause).to.be.instanceOf(Error);
+    expect(settled?.cause?.cause).to.equal("panne texte");
+  });
+
+  it("refusé par l'adaptateur AVANT le gestionnaire (bombe gzip) : 8, pas 0 — le gestionnaire ne l'a jamais vu", async () => {
+    const target = new Target("A");
+    const bomb = await gzipBomb(16 * MIB);
+    const { settled } = await settledWith(target, (url, service) =>
+      grpcWebCall(url, service, envelope(bomb, true), {
+        "grpc-encoding": "gzip",
+      }),
+    );
+    expect(target.calls.length).to.equal(0);
+    expect(settled?.code).to.equal(8);
+    expect(settled?.codeName).to.equal("RESOURCE_EXHAUSTED");
+  });
+
+  it("délai de réponse échu : 4 DEADLINE_EXCEEDED", async () => {
+    const { settled } = await settledWith(
+      { say: () => new Promise<never>(() => {}) },
+      unary,
+      { responseTimeout: 50 },
+    );
+    expect(settled?.code).to.equal(4);
+    expect(settled?.cause).to.equal(null);
+  });
+
+  it("client parti pendant un appel unaire : 1 CANCELLED, réponse non finie", async () => {
+    const { settled } = await settledWith(
+      { say: () => new Promise<never>(() => {}) },
+      async (url, service) => {
+        const abort = new AbortController();
+        setTimeout(() => abort.abort(), 50);
+        await fetch(url + path(service), {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: "{}",
+          signal: abort.signal,
+        });
+      },
+    );
+    expect(settled?.ended).to.equal(false);
+    expect(settled?.code).to.equal(1);
+    expect(settled?.codeName).to.equal("CANCELLED");
+  });
+
+  it("flux serveur fini normalement : 0", async () => {
+    const { settled } = await settledWith(
+      {
+        async *watch() {
+          yield { text: "un" };
+        },
+      },
+      (url, service) => connectStream(url, service, "Watch", [{ text: "x" }]),
+      { stream: true },
+    );
+    expect(settled?.code).to.equal(0);
+  });
+
+  it("flux serveur dont le client part : 1", async () => {
+    const { settled } = await settledWith(
+      {
+        async *watch() {
+          for (;;) {
+            yield { text: "tic" };
+            await new Promise((resolve) => setTimeout(resolve, 5));
+          }
+        },
+      },
+      async (url, service) => {
+        const abort = new AbortController();
+        const r = await fetch(`${url}/${service.typeName}/Watch`, {
+          method: "POST",
+          headers: { "content-type": "application/connect+json" },
+          body: connectEnvelope({ text: "x" }),
+          signal: abort.signal,
+        });
+        await r.body?.getReader().read();
+        abort.abort();
+      },
+      { stream: true },
+    );
+    expect(settled?.code).to.equal(1);
+  });
+
+  it("fixé UNE fois : un second appel ne change rien et ne rend aucune cause", async () => {
+    const failure = new Error("panne");
+    const service = makeService();
+    const server = await serveWith(new GrpcEndpoint(service), () => ({
+      say() {
+        throw failure;
+      },
+    }));
+    try {
+      await connectJson(server.url, service, "x");
+      const served = server.served[0];
+      await served?.closed;
+      const rpc = served?.context.rpc ?? null;
+      expect(rpc?.code).to.equal(13);
+      expect(rpc?.settle(true)).to.equal(null);
+      expect(rpc?.code).to.equal(13);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("une fiche dont l'appel n'a jamais commencé : code et nom null", () => {
+    const call = new GrpcCall(null);
+    expect(call.settle(true)).to.equal(null);
+    expect(call.code).to.equal(null);
+    expect(call.codeName).to.equal(null);
+  });
+});
+
+describe("GrpcCall.settle — réponse non finie : le client est parti (critère 37)", () => {
+  const service = makeService();
+  const method = service.methods[0];
+
+  /** Un contexte d'appel RÉEL de Connect, dont la requête s'est fermée sur `reason`. */
+  function closedWith(reason: unknown, timeoutMs?: number): GrpcCall {
+    if (method === undefined) throw new Error("méthode introuvable");
+    const call = new GrpcCall(null);
+    call.open(
+      createHandlerContext({
+        service,
+        method,
+        protocolName: "grpc",
+        requestMethod: "POST",
+        url: "http://localhost/x",
+        requestSignal: AbortSignal.abort(reason),
+        ...(timeoutMs === undefined ? {} : { timeoutMs }),
+      }),
+    );
+    return call;
+  }
+
+  it("RST_STREAM INTERNAL_ERROR du client (connect-node à son échéance) : 1, jamais 13", () => {
+    const call = closedWith(
+      new ConnectError(
+        "http/2 stream closed with error code INTERNAL_ERROR (0x2)",
+        Code.Internal,
+      ),
+    );
+    expect(call.settle(false)).to.equal(null);
+    expect(call.code).to.equal(1);
+  });
+
+  it("ECONNRESET en HTTP/1.1 (Aborted, cause Node) : 1, la cause ne part pas à la ligne", () => {
+    const call = closedWith(
+      Object.assign(new ConnectError("reset", Code.Aborted), {
+        cause: new Error("ECONNRESET"),
+      }),
+    );
+    expect(call.settle(false)).to.equal(null);
+    expect(call.code).to.equal(1);
+  });
+
+  it("échéance du serveur, réponse non finie : 4 garde son code", () => {
+    const call = closedWith(
+      new ConnectError("the operation timed out", Code.DeadlineExceeded),
+    );
+    call.settle(false);
+    expect(call.code).to.equal(4);
+  });
+
+  it("identité révoquée, transport détruit (réponse non finie) : 16 garde son code", () => {
+    if (method === undefined) throw new Error("méthode introuvable");
+    const call = new GrpcCall(null);
+    call.revoke();
+    const ctx = createHandlerContext({
+      service,
+      method,
+      protocolName: "grpc",
+      requestMethod: "POST",
+      url: "http://localhost/x",
+    });
+    // Le flux suit son contexte : l'interruption l'abaisse avec SA raison.
+    call.follow(ctx);
+    call.open(ctx);
+    call.settle(false);
+    expect(call.code).to.equal(16);
+  });
+
+  it("réponse FINIE : la ConnectError garde son code (13 voulu)", () => {
+    const call = closedWith(new ConnectError("panne", Code.Internal));
+    call.settle(true);
+    expect(call.code).to.equal(13);
   });
 });

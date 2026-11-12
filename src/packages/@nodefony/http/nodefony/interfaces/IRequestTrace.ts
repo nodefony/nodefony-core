@@ -1,5 +1,6 @@
 import type { SchemeType } from "./IContext";
 import type { HTTPMethodType } from "./IRequest";
+import type { IRpcOutcome } from "./IRpcCall";
 
 /**
  * Nature de l'opération tracée : une requête HTTP, ou le handshake d'une
@@ -55,4 +56,13 @@ export interface IRequestTrace {
    * sans exception n'en porte pas ; c'est à l'abonné de classer un statut.
    */
   readonly error: unknown;
+  /**
+   * L'appel RPC (gRPC, gRPC-Web, Connect) servi par la requête, `null` hors
+   * RPC : système, méthode, code et son nom (ADR-0026 D10 point 5). Un flux
+   * est UN message, de l'ouverture au `close` ; rien par message.
+   * `statusCode` reste le statut HTTP, vrai sur le fil.
+   *
+   * @experimental Surface gRPC, ADR-0026 D11.
+   */
+  readonly rpc: IRpcOutcome | null;
 }

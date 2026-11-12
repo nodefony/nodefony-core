@@ -9,7 +9,8 @@ import type {
   IHttpContext,
   IWebsocketContext,
 } from "../interfaces/IContext";
-import { severityFromStatus } from "./audit-logger";
+import { severityFromRpcCode, severityFromStatus } from "./audit-logger";
+import type { IRpcOutcome } from "../interfaces/IRpcCall";
 import { handshakeRefusalStatus } from "../src/context/websocket/WebsocketContext";
 
 /**
@@ -21,6 +22,21 @@ const statusOf = (context: IContext): number | undefined => {
   const response: { statusCode?: number } | null = context.response;
   return response?.statusCode;
 };
+
+/**
+ * Segment d'un appel RPC sur la ligne d'accès : `RPC : <méthode> <NOM>`
+ * (ADR-0026 D10 point 4) — le statut HTTP reste à sa place. Sans code (appel
+ * jamais commencé), la méthode seule.
+ *
+ * @param rpc - le résultat de l'appel.
+ * @returns le segment, sans espace de tête.
+ */
+export function rpcSegment(rpc: IRpcOutcome): string {
+  const name = rpc.codeName;
+  return name === null
+    ? `${logColor.cyan("RPC")} : ${rpc.method}`
+    : `${logColor.cyan("RPC")} : ${rpc.method} ${name}`;
+}
 
 /**
  * Default Nodefony per-request logger — preserves the legacy colored format.
@@ -35,11 +51,15 @@ const statusOf = (context: IContext): number | undefined => {
  */
 class DefaultRequestLogger implements IRequestLogger {
   renderHttp(context: IHttpContext, error?: Error | null): IRequestLogEntry {
+    const rpc = context.rpc ?? null;
     const txt =
       `${logColor.cyan("URL")} : ${context.url} ` +
       `${logColor.cyan("FROM")} : ${context.remoteAddress} ` +
       `${logColor.cyan("ORIGIN")} : ${context.originUrl?.host} ` +
-      `${logColor.cyan("ID")} : ${context.requestId}`;
+      `${logColor.cyan("ID")} : ${context.requestId}` +
+      (rpc === null ? "" : ` ${rpcSegment(rpc)}`);
+    // Appel RPC : la gravité suit son code, pas l'exception (ADR-0026 D10).
+    const code = rpc === null ? null : rpc.code;
 
     const err = error ?? context.error;
     if (err) {
@@ -51,10 +71,18 @@ class DefaultRequestLogger implements IRequestLogger {
         (context as { kernel?: { environment?: string } }).kernel
           ?.environment === "production";
       const text = isProd ? `${txt} ${err}` : `${txt}\n          ${err}`;
-      return { text, severity: "ERROR", msgid };
+      return {
+        text,
+        severity: code === null ? "ERROR" : severityFromRpcCode(code),
+        msgid,
+      };
     }
     const msgid = `${context.serverType} ${logColor.magenta(statusOf(context) ?? "")} ${context.method}`;
-    return { text: txt, severity: "INFO", msgid };
+    return {
+      text: txt,
+      severity: code === null ? "INFO" : severityFromRpcCode(code),
+      msgid,
+    };
   }
 
   renderWebsocket(

@@ -17,6 +17,7 @@ function makeCtx<T extends object>(
   const entry = { text: "x", severity: "INFO", msgid: "req" };
   Object.assign(ctx, {
     relayAccessLog: null,
+    rpc: null,
     logModule,
     requestId: "r",
     response: { statusCode: 200 },

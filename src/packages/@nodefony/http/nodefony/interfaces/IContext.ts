@@ -3,6 +3,7 @@ import type { MaybePromise } from "nodefony";
 import type { ICookie } from "./ICookie";
 import type { ISession } from "./ISession";
 import type { HTTPMethodType } from "./IRequest";
+import type { IRpcCall } from "./IRpcCall";
 
 /**
  * Identité du serveur qui a reçu la requête, nommée par le schéma d'URI qu'il
@@ -224,6 +225,14 @@ export interface IHttpContext extends IContext {
   // ⚠️ RFC 7239 §8.2 : topologie interne — JAMAIS recopiée en réponse / metaData (cf ProxyType).
   proxy: object | null;
   isRedirect: boolean;
+  /**
+   * L'appel RPC servi par cette requête (gRPC, gRPC-Web, Connect), `null` hors
+   * appel RPC — ADR-0026 D10. Son code est fixé au `close`, avant la ligne
+   * d'accès.
+   *
+   * @experimental Surface gRPC, ADR-0026 D11.
+   */
+  rpc: IRpcCall | null;
 
   /**
    * Sert la requête — synchrone quand l'action et son rendu le sont.

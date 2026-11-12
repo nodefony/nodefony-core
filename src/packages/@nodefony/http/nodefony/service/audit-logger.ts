@@ -10,6 +10,8 @@ import type {
   IHttpContext,
   IWebsocketContext,
 } from "../interfaces/IContext";
+import type { IRpcOutcome } from "../interfaces/IRpcCall";
+import { rpcOutcomeOf } from "../src/context/rpcOutcome";
 
 // Le contrat ne type `response` et `request` qu'en `object` : deux annotations
 // (vérifiées, pas des assertions) les lisent, tout le reste passe par le contrat, que le compilateur surveille.
@@ -57,6 +59,15 @@ export interface AuditLogEntry {
   hasAuthorization: boolean;
   hasCookie: boolean;
   phases?: { name: string; durationMs: number | null }[] | undefined;
+  /**
+   * L'appel RPC de la requête (système, méthode, code, nom), `null` hors
+   * RPC et pour une WebSocket : forme stable (ADR-0026 D10 point 4) —
+   * toujours posé par `JsonAuditLogger` ; optionnel au type, pour qu'un
+   * journal maison qui bâtit une entrée ne casse pas.
+   *
+   * @experimental Surface gRPC, ADR-0026 D11.
+   */
+  rpc?: IRpcOutcome | null | undefined;
   error?: AuditErrorEntry | undefined;
   // WS-specific
   protocol?: string | null | undefined;
@@ -88,6 +99,56 @@ function severityFromStatus(status: number | null | undefined): Severity {
   if (status >= 500) return "ERROR";
   if (status >= 400) return "WARNING";
   return "INFO";
+}
+
+/**
+ * Codes gRPC qu'un SERVEUR compte comme des erreurs, selon la convention
+ * OpenTelemetry (`docs/rpc/grpc.md`, « SHOULD be considered errors ») :
+ * 2 UNKNOWN, 4 DEADLINE_EXCEEDED, 12 UNIMPLEMENTED, 13 INTERNAL,
+ * 14 UNAVAILABLE, 15 DATA_LOSS. Un masque : un décalage, aucune table.
+ */
+const RPC_SERVER_ERRORS =
+  (1 << 2) | (1 << 4) | (1 << 12) | (1 << 13) | (1 << 14) | (1 << 15);
+
+/**
+ * Gravité d'un appel RPC selon son code (ADR-0026 D10 point 4) : 0 → INFO ;
+ * une erreur du serveur ({@link RPC_SERVER_ERRORS}) → ERROR ; les autres —
+ * refus, échecs métier ou client — → WARNING.
+ *
+ * @param code - le code de l'appel (gRPC : 0 à 16).
+ * @returns la gravité de la ligne.
+ */
+function severityFromRpcCode(code: number): Severity {
+  if (code === 0) return "INFO";
+  return code < 32 && ((RPC_SERVER_ERRORS >>> code) & 1) === 1
+    ? "ERROR"
+    : "WARNING";
+}
+
+/**
+ * Gravité de la ligne d'une requête HTTP : celle du code de son appel RPC
+ * quand il est fixé — le statut HTTP d'un appel gRPC reste 200 quand l'appel
+ * échoue —, sinon celle de son statut.
+ *
+ * @param context - le contexte de la requête.
+ * @param status - son statut HTTP.
+ * @returns la gravité de la ligne.
+ */
+function severityOfHttp(
+  context: IHttpContext,
+  status: number | null | undefined,
+): Severity {
+  const code = context.rpc?.code ?? null;
+  return code === null ? severityFromStatus(status) : severityFromRpcCode(code);
+}
+
+/**
+ * Un appel RPC en échec (code fixé, non nul) — sous un statut HTTP qui peut
+ * rester 200 : jamais écarté par l'échantillonnage.
+ */
+function rpcFailed(context: IHttpContext): boolean {
+  const code = context.rpc?.code ?? null;
+  return code !== null && code !== 0;
 }
 
 export interface JsonAuditLoggerOptions {
@@ -157,8 +218,9 @@ class JsonAuditLogger implements IRequestLogger {
   /**
    * Decide whether the current HTTP request must be logged (audit sampling).
    *
-   * Always `true` when `sampleRate <= 1`, on errors, and for `status >= 400`
-   * (failures are never sampled out). Otherwise selects 1 in `sampleRate` of
+   * Always `true` when `sampleRate <= 1`, on errors, for `status >= 400` and
+   * for a failed RPC call — whose HTTP status may stay 200 (failures are
+   * never sampled out). Otherwise selects 1 in `sampleRate` of
    * the 2xx/3xx requests with a deterministic counter.
    *
    * Called by `Context.logRequest()` **before** `renderHttp`, so a sampled-out
@@ -175,11 +237,13 @@ class JsonAuditLogger implements IRequestLogger {
     // renderHttp (0 objet, 0 toISOString, 0 stringify, 0 Pdu au ring).
     if (!this.nominalEnabled) {
       if (error ?? ctx.error) return true;
+      if (rpcFailed(ctx)) return true;
       const status = statusOf(ctx);
       return status !== null && status >= 400;
     }
     if (this.sampleRate <= 1) return true;
     if (error ?? ctx.error) return true;
+    if (rpcFailed(ctx)) return true;
     const status = statusOf(ctx);
     if (status !== null && status >= 400) return true;
     // 2xx/3xx nominal path → keep 1 every `sampleRate` (deterministic).
@@ -214,10 +278,11 @@ class JsonAuditLogger implements IRequestLogger {
           }))
         : undefined,
       error: err ? this.serializeError(err, 0) : undefined,
+      rpc: rpcOutcomeOf(ctx.rpc ?? null),
     };
     return {
       text: JSON.stringify(entry),
-      severity: severityFromStatus(status ?? (err ? 500 : null)),
+      severity: severityOfHttp(ctx, status ?? (err ? 500 : null)),
       msgid: "audit",
     };
   }
@@ -255,6 +320,7 @@ class JsonAuditLogger implements IRequestLogger {
         : undefined,
       protocol: acceptedProtocol ?? null,
       error: error ? this.serializeError(error, 0) : undefined,
+      rpc: null,
     };
     return {
       text: JSON.stringify(entry),
@@ -297,4 +363,4 @@ class JsonAuditLogger implements IRequestLogger {
 }
 
 export default JsonAuditLogger;
-export { severityFromStatus, statusOf };
+export { severityFromRpcCode, severityFromStatus, severityOfHttp, statusOf };

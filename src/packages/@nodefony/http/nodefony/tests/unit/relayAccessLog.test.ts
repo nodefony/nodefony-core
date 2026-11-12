@@ -27,6 +27,7 @@ function makeCtx(
   };
   Object.assign(ctx, {
     relayAccessLog: relay,
+    rpc: null,
     response,
     error: null,
     httpKernel: {

@@ -2,7 +2,7 @@ import diagnosticsChannel from "node:diagnostics_channel";
 import type { TracingChannelSubscribers } from "node:diagnostics_channel";
 import { Controller, controller, Get } from "@nodefony/framework";
 import { Context, REQUEST_TRACE_CHANNEL } from "@nodefony/http";
-import type { IRequestTrace } from "@nodefony/http";
+import type { IRequestTrace, IRpcOutcome } from "@nodefony/http";
 
 /** Sous-canal d'un `TracingChannel`, dans l'ordre où il est publié. */
 type TraceEventName = "start" | "end" | "asyncStart" | "asyncEnd" | "error";
@@ -20,6 +20,8 @@ interface ITraceSnapshot {
   readonly statusCode: number | null;
   readonly durationMs: number | null;
   readonly error: string | null;
+  /** Appel RPC : copie des quatre champs publiés, `null` hors RPC (ADR-0026 D10). */
+  readonly rpc: IRpcOutcome | null;
   /** Le message est-il le MÊME objet que celui reçu à `start` ? */
   readonly sameObject: boolean;
 }
@@ -58,8 +60,13 @@ const record = (event: TraceEventName, message: IRequestTrace): void => {
     durationMs: message.durationMs,
     error:
       error === null ? null : error instanceof Error ? error.message : "throw",
+    rpc: message.rpc,
     sameObject: firstMessage.get(message.requestId) === message,
   });
+  // Fin de la requête : le témoin est calculé, le message ORIGINAL se relâche
+  // — il porte l'erreur de la requête, qui retient son contexte (le gate
+  // mémoire, abonné armé, comptait sinon 128 contextes vivants).
+  if (event === "asyncEnd") firstMessage.delete(message.requestId);
 };
 
 const subscribers: TracingChannelSubscribers<IRequestTrace> = {

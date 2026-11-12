@@ -23,8 +23,15 @@ import type { IRpcCall } from "../../interfaces/IRpcCall";
 
 /** Fiche d'appel doublure : compte ses révocations. */
 class RecordingCall implements IRpcCall {
+  readonly system = "grpc";
+  readonly method = "test.v1.Svc/Call";
+  readonly code = null;
+  readonly codeName = null;
   revoked = 0;
   expire(): void {}
+  settle(): Error | null {
+    return null;
+  }
   revoke(): void {
     this.revoked += 1;
   }

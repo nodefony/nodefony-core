@@ -72,6 +72,10 @@ export class GrpcEchoController extends GrpcController {
     request: SayRequest,
     ctx: HandlerContext,
   ): MessageInitShape<typeof SayResponseSchema> {
+    // Exception banale (ADR-0026 D7 et D10) : 13, la cause à la ligne d'accès.
+    if (ctx.requestHeader.get("x-fail") === "plain") {
+      throw new Error("panne voulue (x-fail)");
+    }
     const witness = ctx.requestHeader.get("x-witness") ?? "";
     if (!sayCalls.has(witness) && sayCalls.size >= WITNESS_LIMIT) {
       sayCalls.clear();
