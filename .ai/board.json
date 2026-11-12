@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-12T18:55:43.408Z",
+  "generatedAt": "2026-11-12T19:32:23.497Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -11112,7 +11112,7 @@
       "title": "test(cli): valider le plein écran du serveur de dev sous Windows",
       "url": "https://github.com/nodefony/nodefony-core/issues/541",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": null,
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
