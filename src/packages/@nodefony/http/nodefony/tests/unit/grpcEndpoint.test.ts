@@ -17,6 +17,7 @@
 //     ou le `catch` de l'appel synchrone.
 //
 import { expect, vi } from "vitest";
+import { Nodefony } from "nodefony";
 import http from "node:http";
 import net from "node:net";
 import type { AddressInfo } from "node:net";
@@ -1348,17 +1349,37 @@ describe("GrpcEndpoint — erreurs de l'application (critères 32 et 56, ADR-002
     expect(r.error.code).to.equal("not_found");
   });
 
-  it("unaire : une exception banale → 13 « internal error », la cause n'est PAS envoyée", async () => {
+  it("unaire : une exception banale → 13 ; en développement son message est servi (même règle que HTTP)", async () => {
     const r = await unaryWith({
       say() {
-        throw new Error("base injoignable : 10.0.0.7 table users_secret");
+        throw new Error("base injoignable");
       },
     });
     expect(r.status).to.equal(500);
     expect(r.error).to.deep.equal({
       code: "internal",
-      message: "internal error",
+      message: "base injoignable",
     });
+  });
+
+  it("unaire : en PRODUCTION, la même → 13 opaque, la cause ne quitte pas le serveur", async () => {
+    const previous: unknown = Nodefony.getKernel();
+    const setKernel = (k: unknown): void =>
+      (Nodefony as unknown as { setKernel(k: unknown): void }).setKernel(k);
+    setKernel({ environment: "production" });
+    try {
+      const r = await unaryWith({
+        say() {
+          throw new Error("base injoignable : 10.0.0.7 table users_secret");
+        },
+      });
+      expect(r.error).to.deep.equal({
+        code: "internal",
+        message: "Internal Server Error",
+      });
+    } finally {
+      setKernel(previous);
+    }
   });
 
   it("unaire : un code numérique (409) garde son sens → 10 aborted", async () => {

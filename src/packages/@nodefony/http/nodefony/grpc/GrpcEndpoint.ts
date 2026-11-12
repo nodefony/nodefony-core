@@ -467,17 +467,18 @@ const ERRORS = new DefaultErrorRenderer();
  * 13. Le message suit la règle des routes HTTP (opaque pour un 5xx en
  * production) ; l'erreur d'origine reste la cause, côté serveur.
  *
- * Passent TELLES QUELLES : une `ConnectError` (son code est voulu), une valeur
- * qui n'est pas une `Error`, et une exception que rien ne classe (statut 500
- * hors `HttpError`) — l'adaptateur en fait 13 « internal error », sans jamais
- * envoyer sa cause.
+ * Une exception que rien ne classe devient 13 avec la MÊME règle de message
+ * qu'une route HTTP : son message en développement (« sinon on débogue à
+ * l'aveugle »), opaque en production, où sa cause ne quitte jamais le serveur.
+ *
+ * Passent TELLES QUELLES : une `ConnectError` (son code est voulu) et une
+ * valeur qui n'est pas une `Error` (l'adaptateur en fait 13 « internal error »).
  *
  * Chemin d'erreur seulement : rien n'est payé sur un appel qui réussit.
  */
 function translateError(error: unknown, ctx: HandlerContext): unknown {
   if (!(error instanceof Error) || error instanceof ConnectError) return error;
   const { status, message } = ERRORS.describe(error);
-  if (status === 500 && !(error instanceof HttpError)) return error;
   const call = ctx.values;
   const identified =
     call instanceof GrpcCall &&
