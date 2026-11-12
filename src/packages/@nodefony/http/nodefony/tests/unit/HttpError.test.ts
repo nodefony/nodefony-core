@@ -105,9 +105,10 @@ describe("HttpError — unit tests", () => {
   });
 
   describe("context (optional)", () => {
-    it("context is undefined when not provided", () => {
+    it("without context : no URL, short toString", () => {
       const err = new HttpError("test", 400);
-      expect(err.context).to.be.undefined;
+      expect(err.url).to.equal(undefined);
+      expect(err.toString()).not.to.contain("Url :");
     });
   });
 });

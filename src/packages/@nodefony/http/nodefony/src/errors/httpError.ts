@@ -1,6 +1,6 @@
 import { nodefonyError as NodefonyError, clc } from "nodefony";
 import { ContextType } from "../../service/http-kernel";
-import { HttpRequestType, HttpRsponseType } from "../context/http/HttpContext";
+import { HttpRsponseType } from "../context/http/HttpContext";
 
 type JsonDescriptor = {
   configurable?: boolean;
@@ -53,9 +53,6 @@ const jsonHttpError: JsonDescriptor = {
 };
 
 class HttpError extends NodefonyError {
-  context?: ContextType | undefined;
-  response?: HttpRsponseType | undefined;
-  request?: HttpRequestType | undefined;
   url?: string | undefined;
   controller?: string | undefined;
   action?: string | undefined;
@@ -69,14 +66,13 @@ class HttpError extends NodefonyError {
     context?: ContextType,
   ) {
     super(message as string | Error, code);
-    this.context = context;
-    // `context.response` est nul après `clean()`, et le contexte est optionnel :
-    // la réponse se lit une fois, avec son absence.
+    // Le contexte est LU ici, jamais gardé : une erreur survit souvent à sa
+    // requête (abonné du canal `nodefony.http.request` qui garde le message,
+    // journal différé, cause d'une autre erreur) et retenait sinon le contexte
+    // entier, sa réponse et sa requête. `context.response` est nul après
+    // `clean()`, et le contexte est optionnel : lu une fois, avec son absence.
     const res = context?.response as HttpRsponseType | null | undefined;
-    this.response = res ?? undefined;
-    this.request =
-      (context?.request as HttpRequestType | null | undefined) ?? undefined;
-    this.url = this.context?.url;
+    this.url = context?.url;
     if (res && code) {
       res.statusCode = code;
     }
@@ -123,7 +119,7 @@ class HttpError extends NodefonyError {
   }
 
   override toString(): string {
-    if (this.context) {
+    if (this.url !== undefined) {
       return `${clc.red(this.message)}
     ${clc.blue("Name :")} ${this.name}
     ${clc.blue("Type :")} ${this.errorType}
