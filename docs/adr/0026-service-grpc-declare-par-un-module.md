@@ -182,6 +182,21 @@ module :
    production (`npm ci --omit=dev`) n'aurait sinon pas l'adaptateur (le POC les range tous en
    développement : module de test, jamais installé en production). Plages et pairs facultatifs : D12.
 
+9. **En développement, le superviseur régénère** (validé par l'auteur le 2026-11-12, livré par
+   #764). Aujourd'hui, modifier un `.proto` ne déclenche rien, pour deux raisons.
+   `DevSupervisor.ts#isIgnoredWatchPath` ignore tout fichier qui n'est pas en `.ts`, et le
+   `proto/` à la racine de l'application est hors de `DevSupervisor.ts#DEV_WATCH_PATHS` (celui
+   d'un module local, sous `modules/`, y est déjà). Décision :
+   - le superviseur surveille aussi les `.proto` de tout dossier qui porte un `buf.gen.yaml` ;
+   - un changement lance `buf generate` dans ce dossier, depuis le superviseur lui-même. Le
+     `.proto` ne déclenche donc pas de redémarrage par lui-même : c'est le `*_pb.ts` régénéré, déjà
+     surveillé, qui provoque le redémarrage habituel, un seul ;
+   - si `buf` échoue (erreur de syntaxe dans le contrat), sa sortie s'affiche et l'exemplaire en
+     cours continue de servir l'ancien code. Si `buf` est absent, le message nomme
+     `npm i -D @bufbuild/buf @bufbuild/protoc-gen-es`, jamais un échec muet ;
+   - rien de tout cela en production, où le superviseur ne tourne pas : le code généré reste
+     commité (point 3), et le gate de dérive en CI garde l'écart.
+
 Hors D2 : la variante `nodefony create controller --kind grpc` (contrat, `buf.yaml`,
 `buf.gen.yaml`, code généré, contrôleur, dépendances) et un script `grpc:generate` au gabarit
 d'application (accord de l'auteur requis pour un `package.json`) — ticket #764, après #695.
