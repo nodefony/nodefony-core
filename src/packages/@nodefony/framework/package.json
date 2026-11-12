@@ -12,6 +12,12 @@
       "types": "./dist/types/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./grpc": {
+      "nodefony-source": "./nodefony/grpc/index.ts",
+      "types": "./dist/types/nodefony/grpc/index.d.ts",
+      "import": "./dist/nodefony/grpc/index.js",
+      "default": "./dist/nodefony/grpc/index.js"
     }
   },
   "scripts": {

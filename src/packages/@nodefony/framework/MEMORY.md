@@ -239,6 +239,13 @@ Protège une **mutation** (POST/PUT/PATCH/DELETE ; no-op GET/HEAD/WEBSOCKET) con
 
 **Metadata keys exportées** : `HTTP_CODE_METADATA`, `HEADERS_METADATA`, `REDIRECT_METADATA`, `PARAM_ARGS_METADATA`, `RedirectMeta`, `ParamMeta`, `ParamSource` + `RouteActionMeta`, `computeActionMeta`, `resolveActionMeta`.
 
+## gRPC — `@nodefony/framework/grpc` (ADR-0026 D1, expérimental)
+
+- `@GrpcService(Contrat)` (`nodefony/grpc/GrpcService.ts`) sur `class X extends GrpcController`, déclarée par `@controllers`. Contrainte de type `GrpcServiceClass<S>` = `new (...never[]) => GrpcController & ServiceImpl<S>` (méthode manquante/mal typée = TS). Monte À L'IMPORT une route littérale par méthode : `POST /<paquet.Service>/<Méthode>` (+ `GET` si `idempotency === NO_SIDE_EFFECTS`), `classMethod: "serveGrpc"`, `@Domain`/`@BypassFirewall` par `applyDeclaredRouteOptions` (règle partagée avec `@controller`). Un contrat = un point d'entrée (refus à la déclaration).
+- `GrpcController.assertScope()` (appelé par `Router.setController`, AU DÉMARRAGE) : refuse sans `@GrpcService`, méthode absente, nom réservé (`getReservedActionNames` + `serveGrpc`/`grpcEndpoint`), décorateur inerte (paramètres, schéma, `@UseSession`, `@Csp`, `@Idempotent`, `@HttpCode`, `@Header`, `@Redirect` — méthode OU classe) ; FIGE `route.actionMeta = computeActionMeta(Classe, méthodeDuContrat)` (+ `bodyStream`) et `route.bodyStream = true`; pose `grpcEndpoint` (http) sur le prototype.
+- `serveGrpc()` : action de base, synchrone, `endpoint.serve(this.context, this)`.
+- Gotcha : un nom de méthode proto = un membre de `Controller` (`Render`, `Remove`…) → TS2416 puis refus au démarrage ; renommer dans le contrat.
+
 ## Réponses en flux — `renderSse` / `renderStream`
 
 - Habillages MINCES de `HttpContext.openSse` / `HttpContext.openStream` (http) : 500 hors HTTP, rien d'autre. Le cycle de vie (prise de la réponse, session, gardes, parité) vit dans http (`StreamLifecycle`, cf `http/MEMORY.md`).

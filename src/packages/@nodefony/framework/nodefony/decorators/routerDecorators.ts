@@ -182,6 +182,60 @@ function controllers(
 }
 
 /**
+ * Applique à une route en cours de montage ce que la classe et la méthode
+ * déclarent par décorateur : `@Domain` (hôte) et `@BypassFirewall`. Seule
+ * implémentation de ces précédences — `@controller` et `@GrpcService` montent
+ * leurs routes par elle.
+ *
+ * Précédences : `@route({ host })` > `@Domain` méthode > `@Domain` classe ;
+ * option `bypassFirewall: true` > `@BypassFirewall` méthode > classe. Lecture
+ * au montage, fail-closed : un oubli laisse la route gardée.
+ *
+ * @param ctor - la classe contrôleur.
+ * @param options - les options de la route, complétées EN PLACE.
+ * @param method - la méthode dont les décorateurs s'appliquent (celle du
+ *   contrat pour une route gRPC, pas l'action de base).
+ *
+ * @internal
+ */
+function applyDeclaredRouteOptions(
+  ctor: object,
+  options: RouteOptions,
+  method: string | undefined,
+): void {
+  if (options.host === undefined) {
+    const methodDomain =
+      method === undefined
+        ? undefined
+        : (Reflect.getMetadata(DOMAIN_METHOD_METADATA, ctor, method) as
+            string[] | undefined);
+    const classDomain = Reflect.getMetadata(DOMAIN_CLASS_METADATA, ctor) as
+      string[] | undefined;
+    const domain = methodDomain ?? classDomain;
+    if (domain) {
+      options.host = domain;
+    }
+  }
+  if (options.bypassFirewall !== true) {
+    const methodBypass =
+      method === undefined
+        ? undefined
+        : (Reflect.getMetadata(
+            BYPASS_FIREWALL_METHOD_METADATA,
+            ctor,
+            method,
+          ) as boolean | undefined);
+    const classBypass = Reflect.getMetadata(
+      BYPASS_FIREWALL_CLASS_METADATA,
+      ctor,
+    ) as boolean | undefined;
+    if (methodBypass === true || classBypass === true) {
+      options.bypassFirewall = true;
+    }
+  }
+}
+
+/**
  * Declaration Controller
  *
  * @param prefix - prefixage du router du controller.
@@ -217,46 +271,7 @@ function controller(prefix: string) {
       let hasMagic: false | { name: string; options: RouteOptions } = false;
       for (const [name, options] of Object.entries(metadata)) {
         options.prefix = prefix;
-        // @Domain : précédence @route({host}) > @Domain méthode > @Domain classe.
-        if (options.host === undefined) {
-          const methodDomain =
-            options.classMethod === undefined
-              ? undefined
-              : (Reflect.getMetadata(
-                  DOMAIN_METHOD_METADATA,
-                  mycontroller,
-                  options.classMethod,
-                ) as string[] | undefined);
-          const classDomain = Reflect.getMetadata(
-            DOMAIN_CLASS_METADATA,
-            mycontroller,
-          ) as string[] | undefined;
-          const domain = methodDomain ?? classDomain;
-          if (domain) {
-            options.host = domain;
-          }
-        }
-        // @BypassFirewall : précédence méthode > classe (comme @Domain). L'option
-        // `@Get(…, { bypassFirewall:true })` est déjà dans `options` et l'emporte.
-        // Lecture au montage → ordre des décorateurs indifférent (fail-closed : un
-        // oubli laisse la route gatée).
-        if (options.bypassFirewall !== true) {
-          const methodBypass =
-            options.classMethod === undefined
-              ? undefined
-              : (Reflect.getMetadata(
-                  BYPASS_FIREWALL_METHOD_METADATA,
-                  mycontroller,
-                  options.classMethod,
-                ) as boolean | undefined);
-          const classBypass = Reflect.getMetadata(
-            BYPASS_FIREWALL_CLASS_METADATA,
-            mycontroller,
-          ) as boolean | undefined;
-          if (methodBypass === true || classBypass === true) {
-            options.bypassFirewall = true;
-          }
-        }
+        applyDeclaredRouteOptions(mycontroller, options, options.classMethod);
         if (options.path === "*") {
           hasMagic = { options, name };
           continue;
@@ -2118,6 +2133,8 @@ export {
   computeActionMeta,
   resolveActionMeta,
   extractActionScopes,
+  applyDeclaredRouteOptions,
+  getReservedActionNames,
 };
 
 // ── @RequireAuthentication — connexion récente et moyens exigés ─────────────

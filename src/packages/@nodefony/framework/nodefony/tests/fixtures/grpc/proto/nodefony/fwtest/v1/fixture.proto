@@ -1,0 +1,58 @@
+// Contrat de test du framework (#695) : une méthode par genre d'appel, et une
+// méthode sans effet de bord (servie aussi en GET par Connect).
+syntax = "proto3";
+
+package nodefony.fwtest.v1;
+
+import "google/protobuf/timestamp.proto";
+
+message SayRequest {
+  string sentence = 1;
+}
+
+message SayResponse {
+  string sentence = 1;
+}
+
+service FixtureService {
+  rpc Say(SayRequest) returns (SayResponse);
+  rpc Ping(SayRequest) returns (SayResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc Watch(SayRequest) returns (stream SayResponse);
+  rpc Collect(stream SayRequest) returns (SayResponse);
+  rpc Converse(stream SayRequest) returns (stream SayResponse);
+}
+
+// Types complexes : le test de type exige qu'une implémentation qui se trompe
+// d'un type IMBRIQUÉ ne compile pas.
+enum Level {
+  LEVEL_UNSPECIFIED = 0;
+  LEVEL_LOW = 1;
+  LEVEL_HIGH = 2;
+}
+
+message Node {
+  string label = 1;
+  repeated Node children = 2;
+  map<string, Node> named = 3;
+}
+
+message Envelope {
+  message Header {
+    google.protobuf.Timestamp sent_at = 1;
+    int64 sequence = 2;
+  }
+  Header header = 1;
+  oneof payload {
+    Node tree = 2;
+    bytes raw = 3;
+    string text = 4;
+  }
+  Level level = 5;
+  optional double score = 6;
+}
+
+service TreeService {
+  rpc Mirror(Envelope) returns (Envelope);
+}

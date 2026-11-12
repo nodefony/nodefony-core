@@ -1,0 +1,9 @@
+# Contrat de test du framework (#695) — régénérer : `npx buf generate` dans ce dossier.
+# Gardé par le gate de dérive (`scripts/gates/check-generated-protobuf.mjs`).
+version: v2
+inputs:
+  - directory: proto
+plugins:
+  - local: protoc-gen-es
+    out: gen
+    opt: target=ts
