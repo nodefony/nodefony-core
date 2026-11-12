@@ -203,7 +203,7 @@ const closedWithin = (p: Promise<number>, ms: number): Promise<number | null> =>
 
 describe("gRPC — flux longs (critère 21, ADR-0026 D4 point 4)", () => {
   it(
-    "tous les décors à la fois : muet vivant au-delà de tous les délais de 30 s, bloqué coupé entre le seuil et seuil + période",
+    "tous les décors à la fois : muet vivant au-delà de tous les délais de 30 s, bloqué coupé, jamais avant le seuil",
     async () => {
       const t0 = Date.now();
       const muted: Array<[string, IOpened, string | null]> = [];
@@ -242,7 +242,10 @@ describe("gRPC — flux longs (critère 21, ADR-0026 D4 point 4)", () => {
       try {
         const cuts = await Promise.all(
           blocked.map(([, , witness]) =>
-            cutOnServer(witness, t0, STALL_MS + SWEEP_MS + 10_000),
+            // Attendre le FAIT, large : la fenêtre exacte (seuil, seuil +
+            // période) est prouvée en unitaire, horloge injectée
+            // (`stallSweep.test.ts`) — jamais une durée assertée ici.
+            cutOnServer(witness, t0, STALL_MS + SWEEP_MS + 60_000),
           ),
         );
         const alive = await Promise.all(
@@ -264,11 +267,6 @@ describe("gRPC — flux longs (critère 21, ADR-0026 D4 point 4)", () => {
           expect(at, `${label} : pas avant le seuil`).to.be.greaterThanOrEqual(
             STALL_MS,
           );
-          expect(
-            at,
-            `${label} : au plus seuil + période`,
-            // + 2 s : un tour de sondage (1 s) et la mise en place des appels.
-          ).to.be.lessThanOrEqual(STALL_MS + SWEEP_MS + 2_000);
         });
         muted.forEach(([label, o], i) => {
           expect(
