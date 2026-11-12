@@ -121,7 +121,7 @@ script, donc toujours à jour après régénération.
 | `scripts/decor-probe.mjs` | Garde de DÉCOR d'un banc de débit Nodefony — préchargée (`node --import`) dans le serveur mesuré. À la PREMIÈRE requête, elle refuse (code 3) si un hook du chemin de requête a un écouteur : un seul suffit à faire passer chaque requête par `fireAsync` (une Promise, une microtâche), coût qu'une application sans ce hook ne paie pas — et que le banc imputerait au framework. Vécu deux fois sur #508, les deux fois posé par le module test (`onRequestScope`, puis `beforeResolve`) ; la seconde n'a été vue qu'au chronométrage in situ, parce que rien ne la cherchait. | — | — |
 | `scripts/dev-restart-cycle.mjs` | dev-restart-cycle.mjs — simule un développeur sous le DevSupervisor : modifie un fichier backend, chronomètre jusqu'à la remise en écoute, N cycles, médiane. Le fichier est RESTAURÉ à la fin. Prérequis : serveur de dev lancé par start.sh (journal /tmp/nodefony-server.log). Usage : node dev-restart-cycle.mjs <fichier-backend> [cycles=5] | — | `NF_DEV_CYCLE_PORT` |
 | `scripts/graceful-shutdown-e2e.mjs` | Banc e2e du GRACEFUL SHUTDOWN (@nodefony/http, trous 1+3 revue 0.7) — sans navigateur. | `--detach` `--wait` | `HTTP_SLOW_URL` `PORT` `WS_URL` |
-| `scripts/grpc-stream-throughput.mjs` | Débit d'un flux serveur gRPC comparé à la socket binaire (#695, critère 22 ; ADR-0026 D4 « plancher par message de l'adaptateur »). | `--runs` `--sizes` `--out` `--serve-raw` | — |
+| `scripts/grpc-stream-throughput.mjs` | Débit d'un flux serveur gRPC comparé à la socket binaire (#695, critère 22 ; ADR-0026 D4 « plancher par message de l'adaptateur »). | `--runs` `--sizes` `--out` `--profile` `--profile-seconds` `--serve-raw` | — |
 | `scripts/h2c-vs-h1-bare.mjs` | Témoin du banc h2c-vs-h1.sh : Node NU, sans framework — le coût de HTTP/2 lui-même. HTTP/1.1 et h2c sur deux ports, même réponse triviale. | — | — |
 | `scripts/h2c-vs-h1.sh` | HTTP/1.1 contre HTTP/2 en clair (h2c) — « h2c est-il plus rapide derrière mon proxy ? », et surtout : le surcoût de h2c est-il celui de HTTP/2, ou le nôtre ? | `--h1` `--http2-prior-knowledge` | `BARE` `DUR` `PAIRS` `PROBE` `ROUTE` |
 | `scripts/header-snapshot.mjs` | Relevé des BLOCS D'EN-TÊTES qu'un serveur rend sur des réponses types — page, JSON, 404, 401, fichier statique, sonde de santé, HEAD, CORS — en HTTP/1.1 ET en HTTP/2. Les valeurs qui changent à chaque requête (date, identifiant de requête, nonce, cookie) sont masquées : deux relevés du même code sont identiques, deux relevés de deux codes se comparent ligne à ligne. | `--diff` | `HOST` `NF_PORT_HTTP` `NF_PORT_HTTPS` |
@@ -288,6 +288,8 @@ node .claude/skills/nodefony-load-test/scripts/grpc-stream-throughput.mjs --runs
 | `--runs` | passes comptées par camp et par charge (défaut 7, plus une de chauffe) |
 | `--sizes` | charges utiles en octets, séparées par des virgules (défaut 16,1024,16384,65536) |
 | `--out` | données JSON (défaut tmp/bench/grpc-stream-throughput.json) |
+| `--profile` | dossier : profil CPU du serveur sous le seul camp grpc (première charge de --sizes), à lire par profile-analyze.mjs |
+| `--profile-seconds` | durée de charge du profil (défaut 25, ≥ 20) |
 | `--serve-raw` | interne : démarre le serveur `node:http2` des camps h2-nu et h2-écriture |
 
 #### `scripts/server-boot-bench.mjs`

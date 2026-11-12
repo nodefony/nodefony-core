@@ -26,6 +26,8 @@
  * @option   --runs   passes comptées par camp et par charge (défaut 7, plus une de chauffe)
  * @option   --sizes  charges utiles en octets, séparées par des virgules (défaut 16,1024,16384,65536)
  * @option   --out    données JSON (défaut tmp/bench/grpc-stream-throughput.json)
+ * @option   --profile  dossier : profil CPU du serveur sous le seul camp grpc (première charge de --sizes), à lire par profile-analyze.mjs
+ * @option   --profile-seconds  durée de charge du profil (défaut 25, ≥ 20)
  * @option   --serve-raw  interne : démarre le serveur `node:http2` des camps h2-nu et h2-écriture
  * @output   tableau msg/s et µs/msg par camp, plancher de l'adaptateur et verdict de séparation ; code 1 si une passe est invalide
  */
@@ -386,23 +388,9 @@ const countFor = (bytes) =>
 
 // ── Banc ───────────────────────────────────────────────────────────────────
 
-async function main() {
-  const { values } = parseArgs({
-    options: {
-      runs: { type: "string", default: "7" },
-      sizes: { type: "string", default: "16,1024,16384,65536" },
-      out: {
-        type: "string",
-        default: path.join("tmp", "bench", "grpc-stream-throughput.json"),
-      },
-    },
-  });
-  const runs = Number(values.runs);
-  const sizes = values.sizes.split(",").map(Number);
+/** L'exemplaire `production` jetable du banc, `extraEnv` en plus du décor. */
+async function startApp(extraEnv) {
   const { startSpareApp } = await import("nodefony/testing");
-  const { CBOR_FRAME_CODEC } = await import("nodefony/cbor");
-  const { WebSocket } = await import("ws");
-
   const httpsPort = await freePort();
   process.stdout.write(`exemplaire production jetable (https ${httpsPort})…\n`);
   const app = await startSpareApp({
@@ -416,8 +404,89 @@ async function main() {
       NF_REALTIME_CODEC: "cbor",
       NF_WITH_DEV_MODULES: "1",
       NF_WITH_DEV_MODULES_TTL_MIN: "120",
+      ...extraEnv,
     },
   });
+  return { app, httpsPort };
+}
+
+/**
+ * Profil CPU du serveur sous le seul camp `grpc` — de quoi découper le
+ * plancher de l'adaptateur par fonction. Le flux tourne sans relâche
+ * `seconds` secondes (≥ 20 : `profile-analyze.mjs` lit les 20 DERNIÈRES
+ * secondes actives), puis l'exemplaire s'arrête et écrit son profil. Rend le
+ * nombre de messages servis sur ces 20 s, à passer à `profile-analyze.mjs`.
+ */
+async function profileGrpc(dir, bytes, seconds) {
+  fs.mkdirSync(dir, { recursive: true });
+  const { app, httpsPort } = await startApp({
+    NODE_OPTIONS: `--cpu-prof --cpu-prof-dir=${dir}`,
+  });
+  const count = countFor(bytes);
+  let messages = 0;
+  let busy = 0;
+  try {
+    // Chauffe (JIT), hors fenêtre utile.
+    await grpcPass(httpsPort, count, bytes, null);
+    const end = performance.now() + seconds * 1000;
+    while (performance.now() < end) {
+      const r = await grpcPass(httpsPort, count, bytes, null);
+      messages += r.received;
+      busy += r.last - r.first;
+    }
+  } finally {
+    // `stop()` tue d'un SIGKILL : Node n'écrit alors AUCUN profil. Arrêt
+    // propre d'abord, par la commande du produit — l'état d'exécution du dépôt
+    // désigne l'exemplaire jetable tant qu'il vit. `stop()` restaure ensuite.
+    const bin = path.join(repoRoot, "src", "nodefony", "bin", "nodefony");
+    const stopped = spawn(process.execPath, [bin, "stop"], {
+      cwd: repoRoot,
+      stdio: "ignore",
+    });
+    await once(stopped, "exit");
+    await app.stop();
+  }
+  const written = fs.readdirSync(dir).filter((f) => f.endsWith(".cpuprofile"));
+  if (written.length === 0) {
+    process.stdout.write(`aucun profil écrit dans ${dir}\n`);
+    process.exitCode = 1;
+    return;
+  }
+  const rate = messages / (busy / 1000);
+  const inWindow = Math.round(rate * 20);
+  process.stdout.write(
+    `${messages} messages de ${bytes} o en ${seconds} s (${Math.round(rate)} msg/s)\n` +
+      `profil : ${dir}\n` +
+      `node .claude/skills/nodefony-load-test/scripts/profile-analyze.mjs ${dir} ${inWindow}\n`,
+  );
+}
+
+async function main() {
+  const { values } = parseArgs({
+    options: {
+      runs: { type: "string", default: "7" },
+      sizes: { type: "string", default: "16,1024,16384,65536" },
+      out: {
+        type: "string",
+        default: path.join("tmp", "bench", "grpc-stream-throughput.json"),
+      },
+      profile: { type: "string" },
+      "profile-seconds": { type: "string", default: "25" },
+    },
+  });
+  const runs = Number(values.runs);
+  const sizes = values.sizes.split(",").map(Number);
+  if (values.profile !== undefined) {
+    return profileGrpc(
+      path.resolve(values.profile),
+      sizes[0],
+      Number(values["profile-seconds"]),
+    );
+  }
+  const { CBOR_FRAME_CODEC } = await import("nodefony/cbor");
+  const { WebSocket } = await import("ws");
+
+  const { app, httpsPort } = await startApp({});
   const raw = await startRaw();
   const camps = {
     grpc: (n, b) => grpcPass(httpsPort, n, b, null),

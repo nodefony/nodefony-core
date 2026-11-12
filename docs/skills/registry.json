@@ -7300,6 +7300,14 @@
                 "help": "données JSON (défaut tmp/bench/grpc-stream-throughput.json)"
               },
               {
+                "flag": "--profile",
+                "help": "dossier : profil CPU du serveur sous le seul camp grpc (première charge de --sizes), à lire par profile-analyze.mjs"
+              },
+              {
+                "flag": "--profile-seconds",
+                "help": "durée de charge du profil (défaut 25, ≥ 20)"
+              },
+              {
                 "flag": "--serve-raw",
                 "help": "interne : démarre le serveur `node:http2` des camps h2-nu et h2-écriture"
               }
