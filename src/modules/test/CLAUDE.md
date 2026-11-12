@@ -282,6 +282,27 @@ contrôleurs.
 Banc : `framework/nodefony/tests/integration/grpc.test.ts` (matrice 5151/5152/5153 × gRPC,
 gRPC-Web, Connect × binaire/JSON).
 
+**Suite de conformité officielle de Connect** — `GrpcConformanceController`
+(`connectrpc.conformance.v1.ConformanceService`, adapté du serveur de référence de connect-es,
+attribution Apache-2.0 en tête du fichier) et `conformance/` :
+
+```bash
+node src/modules/test/conformance/run.mjs        # serveur de dev démarré, module bâti
+node src/modules/test/conformance/run.mjs --run 'Deadline Propagation/**'   # un groupe
+```
+
+- ~4 900 cas (protocoles × HTTP/1.1, HTTP/2 × codecs × compressions × flux × erreurs × délais),
+  quelques secondes. Le binaire `connectconformance` (version ÉPINGLÉE = celle du contrat généré
+  par `buf.gen.yaml`) est téléchargé dans `node_modules/.cache/`, somme SHA-256 vérifiée.
+- `server.mjs` = lanceur exigé par la suite : il DÉSIGNE le serveur de dev (5151/5152/5153 +
+  `fullchain.pem`), il n'en démarre pas. La limite de réception annoncée à chaque lancement est
+  ignorée (capacité déclarée absente : bornes au lot 4) ; `NF_GRPC_CONFORMANCE_DEBUG=1` trace les
+  lancements.
+- `config.yaml` = capacités (YAML : format imposé par la suite) ; `known-failing.txt` = chaque
+  échec connu avec son lot. Un cas qui se met à passer fait ÉCHOUER la passe : le retirer.
+- `--max-servers 1` : un serveur partagé subirait sinon 4× la charge d'un serveur de référence
+  (un cas d'échéance instable constaté).
+
 ```bash
 grpcurl -plaintext -import-path proto -proto nodefony/test/v1/echo.proto \
   -d '{"sentence":"bonjour"}' localhost:5153 nodefony.test.v1.EchoService/Say

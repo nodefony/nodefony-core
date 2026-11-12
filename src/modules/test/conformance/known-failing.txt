@@ -1,0 +1,16 @@
+# Cas de la suite de conformité connus en échec (#695). Chaque bloc dit
+# POURQUOI et QUEL lot le soldera. Un cas qui se met à passer fait échouer la
+# passe (`--known-failing`) : on le retire alors d'ici.
+
+# Lot 3 — refus au format du protocole (ADR-0026 D13, point 2).
+# Chemin inconnu (404) ou méthode HTTP refusée (405) : le ROUTEUR de Nodefony
+# répond avant l'adaptateur, avec son erreur JSON générique (`"code": 404`
+# numérique). Le statut est juste ; le corps ne l'est pas : Connect attend une
+# `Error` à code texte (ou aucun corps), gRPC et gRPC-Web une réponse à leur
+# format (statut gRPC).
+Connect Unexpected Requests/**/unexpected-uri
+Connect Unexpected Requests/**/unexpected-verb
+gRPC Unexpected Requests/**/unexpected-uri
+gRPC Unexpected Requests/**/unexpected-verb
+gRPC-Web Unexpected Requests/**/unexpected-uri
+gRPC-Web Unexpected Requests/**/unexpected-verb

@@ -14,7 +14,7 @@
 | --- | ---: |
 | Infrastructure | 14 |
 | Interrupteur de coût | 8 |
-| Décor de banc | 41 |
+| Décor de banc | 42 |
 | Runtime produit | 90 |
 
 ## Décor de banc
@@ -128,6 +128,12 @@ rien : elle change ce qui est EXÉCUTÉ.
 | `NF_WS_RUPTURE_CAP` | Plafond de connexions simultanées que la sonde de rupture WebSocket s'autorise. | entier — défaut 8000 | La sonde s'arrête à 8000 : elle mesure alors SON plafond, pas celui du produit — le vrai plafond exige de relever cette borne. |
 | `NF_WS_RUPTURE_STEP` | Pas d'augmentation des connexions entre deux paliers de la sonde de rupture. | entier — défaut 1000 | La sonde progresse par paliers de 1000 connexions. |
 
+### suite de conformité gRPC (#695)
+
+| Variable | Rôle | Valeurs | Absente ⇒ |
+| --- | --- | --- | --- |
+| `NF_GRPC_CONFORMANCE_DEBUG` | Fait tracer au lanceur de la suite de conformité gRPC chaque lancement demandé par le runner (version HTTP, TLS, protocole, limite de réception annoncée). | `1` — toute autre valeur laisse le lanceur muet | Le lanceur (`src/modules/test/conformance/server.mjs`) ne trace rien ; la passe est inchangée. |
+
 ## Infrastructure
 
 Décrites dans [`scripts/test/vitest/gates.ts`](../scripts/test/vitest/gates.ts), qui porte AUSSI la
@@ -178,7 +184,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_ACCUEIL_ROOT` | `scripts/release/accueil-gate.mjs:84` |
 | `NF_ADMIN_PASSWORD` | `src/packages/@nodefony/http/nodefony/tests/websockets/presence-e2e.test.ts:49` |
 | `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:963` |
-| `NF_BENCH_ROUTE` | `src/modules/test/index.ts:119` |
+| `NF_BENCH_ROUTE` | `src/modules/test/index.ts:121` |
 | `NF_BIND_ALL` | `scripts/test/test-all.ts:805` |
 | `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:3019` |
 | `NF_BOOT_WARN_MS` | `src/nodefony/src/kernel/Kernel.ts:3031` |

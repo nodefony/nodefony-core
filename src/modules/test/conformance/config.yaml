@@ -1,0 +1,30 @@
+# Capacités du serveur testé par la suite de conformité officielle de Connect
+# (#695) — schéma : message `connectrpc.conformance.v1.Config`.
+# Le serveur testé est l'application de DÉVELOPPEMENT réelle (pipeline complet) :
+# 5151 HTTP/1.1, 5152 HTTP/2 + TLS (HTTP/1.1 par ALPN), 5153 h2c.
+features:
+  versions:
+    - HTTP_VERSION_1
+    - HTTP_VERSION_2
+  protocols:
+    - PROTOCOL_CONNECT
+    - PROTOCOL_GRPC
+    - PROTOCOL_GRPC_WEB
+  codecs:
+    - CODEC_PROTO
+    - CODEC_JSON
+  compressions:
+    - COMPRESSION_IDENTITY
+    - COMPRESSION_GZIP
+    - COMPRESSION_BR
+  supportsH2c: true
+  supportsTls: true
+  supportsTrailers: true
+  supportsConnectGet: true
+  # Connect-node ne sert pas le flux bidirectionnel en HTTP/1.1.
+  supportsHalfDuplexBidiOverHttp1: false
+  # Le serveur de développement n'exige pas de certificat client : un réglage
+  # par lancement est impossible sur un serveur partagé.
+  supportsTlsClientCerts: false
+  # Bornes de taille réglables (`readMaxBytes`) : lot 4 de #695 (ADR-0026 D4).
+  supportsMessageReceiveLimit: false

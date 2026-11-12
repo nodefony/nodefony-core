@@ -4,6 +4,15 @@
 version: v2
 inputs:
   - directory: proto
+  # Suite de conformité officielle de Connect (#695), version ÉPINGLÉE — la
+  # même que le binaire `connectconformance` (`conformance/run.mjs`).
+  - git_repo: https://github.com/connectrpc/conformance.git
+    tag: v1.0.7
+    subdir: proto
+    paths:
+      - connectrpc/conformance/v1/config.proto
+      - connectrpc/conformance/v1/server_compat.proto
+      - connectrpc/conformance/v1/service.proto
 plugins:
   - local: protoc-gen-es
     out: nodefony/gen

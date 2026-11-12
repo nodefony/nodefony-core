@@ -257,6 +257,13 @@ export const BENCH_DECOR: Record<string, IEnvDeclaration> = {
       "Le fichier d'entité s'importe et n'exporte AUCUNE table : le cas du banc d'adoption qui prouve ce refus échoue, faute de décor.",
     group: "banc d'adoption de base (migrations)",
   },
+  NF_GRPC_CONFORMANCE_DEBUG: {
+    what: "Fait tracer au lanceur de la suite de conformité gRPC chaque lancement demandé par le runner (version HTTP, TLS, protocole, limite de réception annoncée).",
+    values: "`1` — toute autre valeur laisse le lanceur muet",
+    absent:
+      "Le lanceur (`src/modules/test/conformance/server.mjs`) ne trace rien ; la passe est inchangée.",
+    group: "suite de conformité gRPC (#695)",
+  },
   NF_MCP_TEST_BASE: {
     what: "Origine de la porte MCP éprouvée par le banc.",
     values: "URL — défaut `https://127.0.0.1:5152`",
