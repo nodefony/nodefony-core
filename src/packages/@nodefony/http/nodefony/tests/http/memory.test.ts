@@ -460,6 +460,35 @@ function h2SharedPost(path: string, body: string): Promise<void> {
 }
 
 /** GET relayé par le proxy interne, reçu en h2c : 200 et `via` exigés, comme `relayedGet`. */
+/**
+ * Un appel unaire gRPC binaire (`EchoService/Say` du module `test`, #695) sur
+ * la session h2c partagée : enveloppe de 5 octets + `SayRequest{sentence:"x"}`
+ * encodé à la main (champ 1, chaîne) — aucun code généré côté banc. Résolu à
+ * la fin des TRAILERS, où vit le statut gRPC ; un statut non nul rompt.
+ */
+const GRPC_SAY = "/nodefony.test.v1.EchoService/Say";
+const GRPC_SAY_FRAME = new Uint8Array([0, 0, 0, 0, 3, 0x0a, 0x01, 0x78]);
+function h2cGrpcUnary(): Promise<void> {
+  if (h2cShared === null || h2cShared.destroyed) h2cShared = http2.connect(H2C);
+  const session = h2cShared;
+  return new Promise((resolve, reject) => {
+    const stream = session.request({
+      ":method": "POST",
+      ":path": GRPC_SAY,
+      "content-type": "application/grpc",
+      te: "trailers",
+    });
+    stream.on("error", reject);
+    stream.on("trailers", (trailers) => {
+      const status = trailers["grpc-status"];
+      if (status !== "0") reject(new Error(`grpc-status ${String(status)}`));
+    });
+    stream.on("end", () => resolve());
+    stream.resume();
+    stream.end(GRPC_SAY_FRAME);
+  });
+}
+
 function h2cRelayedGet(path: string): Promise<void> {
   if (h2cShared === null || h2cShared.destroyed) h2cShared = http2.connect(H2C);
   const session = h2cShared;
@@ -517,6 +546,9 @@ const ACTIONS = {
   unroutedPost: () => postUnrouted(200),
   unroutedPostClose: () => postUnrouted(300 * 1024),
   h2StreamPostUnrouted: () => h2SharedPost(UNROUTED, '{"n":1,"ok":true}'),
+  // gRPC (#695) : l'adaptateur Connect reçoit la requête brute du pipeline.
+  grpcUnary: () => h2cGrpcUnary(),
+  connectUnary: () => h2SharedPost(GRPC_SAY, '{"sentence":"x"}'),
   // Le service `request` d'une connexion, résolu au handshake puis à un message.
   wsRequestService: () =>
     new Promise<void>((resolve, reject) => {
@@ -658,6 +690,8 @@ const WARMUP = {
   // envoyés : plateau comme l'upload.
   unroutedPostClose: 200,
   h2StreamPostUnrouted: 1500,
+  grpcUnary: 1500,
+  connectUnary: 1500,
   wsRefused: 400,
   // Chemin HTTP complet (session, pare-feu, audit du refus) : même plateau
   // que `get`. Mesuré hors gate, échauffement 1 500 / paliers de 300 :
@@ -923,6 +957,24 @@ describe("Memory leaks — HTTP (requires server)", function () {
       "POST over 256 KiB to an unknown route",
       plan("unroutedPostClose", 100),
       THRESHOLDS.upload,
+    );
+  });
+
+  it("gRPC unary calls on a shared h2c session — retains nothing per call", async () => {
+    // #695 : fiche d'appel, contexte d'en-têtes et contrôleur d'abandon de
+    // Connect, écouteurs `close` de l'adaptateur — rien ne doit survivre à l'appel.
+    await httpLoop(
+      "gRPC unary calls on a shared h2c session",
+      plan("grpcUnary", 250),
+      THRESHOLDS.h2cStream,
+    );
+  });
+
+  it("Connect JSON unary calls on a shared HTTP/2 TLS session — retains nothing per call", async () => {
+    await httpLoop(
+      "Connect JSON unary calls on a shared HTTP/2 TLS session",
+      plan("connectUnary", 250),
+      THRESHOLDS.h2Stream,
     );
   });
 

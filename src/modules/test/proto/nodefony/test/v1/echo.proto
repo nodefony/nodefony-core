@@ -1,0 +1,83 @@
+// Service d'écho du module `test` (#695) : l'application de référence de
+// `@GrpcService`, et les preuves des tests d'intégration.
+syntax = "proto3";
+
+package nodefony.test.v1;
+
+import "nodefony/test/v1/complex.proto";
+
+// Point d'entrée singleton (défaut) : une instance pour tous les appels.
+service EchoService {
+  // Unaire : traverse le pipeline (`request_id`), compte ses appels (témoin).
+  rpc Say(SayRequest) returns (SayResponse);
+  // Sans effet de bord : servie aussi en GET par Connect.
+  rpc Ping(PingRequest) returns (PingResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // Flux bidirectionnel entrelacé : le corps est lu au fil de l'eau.
+  rpc Converse(stream ConverseRequest) returns (stream ConverseResponse);
+  // Erreur : le statut part dans les trailers, jamais en HTTP 500.
+  rpc Fail(FailRequest) returns (FailResponse);
+  // Types complexes, renvoyés tels quels : la sérialisation, octet pour octet.
+  rpc Mirror(MirrorRequest) returns (MirrorResponse);
+}
+
+// Point d'entrée `@Scope("request")` : une instance par appel.
+service ScopedEchoService {
+  rpc Who(WhoRequest) returns (WhoResponse);
+}
+
+message SayRequest {
+  string sentence = 1;
+}
+
+message SayResponse {
+  string sentence = 1;
+  // `requestId` du contexte Nodefony : l'appel a traversé le pipeline.
+  string request_id = 2;
+  // Numéro de l'instance qui a servi l'appel.
+  uint32 instance = 3;
+  // Appels de `Say` servis depuis le démarrage : témoin qu'un appel refusé
+  // n'a PAS atteint la méthode.
+  uint32 calls = 4;
+}
+
+message PingRequest {
+  string sentence = 1;
+}
+
+message PingResponse {
+  string sentence = 1;
+  // Méthode HTTP de la requête (`GET` pour le GET de Connect).
+  string http_method = 2;
+}
+
+message ConverseRequest {
+  string sentence = 1;
+}
+
+message ConverseResponse {
+  string sentence = 1;
+  // Rang du message reçu au moment de répondre : 1, 2, 3… au fil des envois.
+  uint32 received = 2;
+}
+
+message FailRequest {}
+
+message FailResponse {}
+
+message MirrorRequest {
+  Complex value = 1;
+}
+
+message MirrorResponse {
+  Complex value = 1;
+  // Octets du champ `raw` reçus : la charge est arrivée entière.
+  uint32 raw_size = 2;
+}
+
+message WhoRequest {}
+
+message WhoResponse {
+  uint32 instance = 1;
+}

@@ -1,0 +1,10 @@
+# Contrats protobuf du module `test` (ADR-0026 D2) — `npx buf lint`, `npx buf breaking`.
+version: v2
+modules:
+  - path: proto
+lint:
+  use:
+    - STANDARD
+breaking:
+  use:
+    - FILE

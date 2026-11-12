@@ -256,24 +256,35 @@ se faire sur le MÊME canal (http/https) que le banc.
 | `/status`                              | comptes (preuve « cible valide » avant mesure)                         |
 | `/nodefony/test/secure/bench-orm/read` | même lecture DERRIÈRE le firewall (zone `test-secure`) = cycle complet |
 
-### GrpcPocController (`/nodefony.poc.v1.EchoService`) — POC gRPC dans le pipeline (#690)
+### Services gRPC (`@GrpcService`, ADR-0026) — l'application de référence
 
-Service gRPC servi par le pipeline HTTP/2, sans second serveur : l'adaptateur
-`@connectrpc/connect-node` reçoit la requête et la réponse BRUTES de Node depuis une route
-`bodyStream` (sinon l'analyseur consomme le corps : `grpc-status: 12`, flux bloqué). Adaptateur,
-runtime protobuf et code généré sont importés au PREMIER appel (externes dans `rolldown.config.ts`) :
-une application qui n'appelle pas gRPC ne les charge pas. Contrat : `nodefony/poc/grpc/proto/`,
-TypeScript généré par `npx buf generate` (`buf.gen.yaml`) dans `nodefony/poc/grpc/gen/`.
+Rangement D2, l'exemple qu'une application recopie : `buf.yaml` + `buf.gen.yaml` à la racine du
+module, contrats `proto/nodefony/test/v1/*.proto` (lint STANDARD, breaking FILE), TypeScript
+GÉNÉRÉ et commité dans `nodefony/gen/` (`npx buf generate` depuis la racine du module ; le gate
+`scripts/gates/check-generated-protobuf.mjs` refuse la dérive). Connect et protobuf sont des pairs
+OBLIGATOIRES du module (un module ne fournit jamais sa copie) ; importés au démarrage par les
+contrôleurs.
 
-| Méthode    | Ce qu'elle prouve                                                                                     |
-| ---------- | ----------------------------------------------------------------------------------------------------- |
-| `Say`      | unaire, h2c (5153), TLS (5152), gRPC-Web et Connect JSON en HTTP/1.1 (5151) ; `requestId` du contexte |
-| `Converse` | flux bidirectionnel ENTRELACÉ — `nodefony/poc/grpc/proof-converse.mjs` (ping-pong, exige `grpcurl`)   |
-| `Fail`     | HTTP 200 + `grpc-status: 9` dans les trailers, jamais un 500                                          |
+| Contrôleur                 | Service                              | Portée    |
+| -------------------------- | ------------------------------------ | --------- |
+| `GrpcEchoController`       | `nodefony.test.v1.EchoService`       | singleton |
+| `GrpcScopedEchoController` | `nodefony.test.v1.ScopedEchoService` | `request` |
+
+| Méthode    | Ce qu'elle prouve                                                                        |
+| ---------- | ---------------------------------------------------------------------------------------- |
+| `Say`      | unaire à travers le pipeline (`requestId`) ; `calls` = témoin qu'un refus n'appelle rien |
+| `Ping`     | `NO_SIDE_EFFECTS` → servie aussi en GET (Connect), `httpMethod` le dit                   |
+| `Converse` | flux bidirectionnel ENTRELACÉ (corps lu au fil de l'eau, route `bodyStream`)             |
+| `Fail`     | `FAILED_PRECONDITION` au format de chaque protocole, jamais un 500                       |
+| `Mirror`   | types complexes (`complex.proto` : récursion, `oneof`, `map`, 64 bits, `Any`…), 512 Kio  |
+| `Who`      | numéro d'instance : une neuve par appel sous `@Scope("request")`                         |
+
+Banc : `framework/nodefony/tests/integration/grpc.test.ts` (matrice 5151/5152/5153 × gRPC,
+gRPC-Web, Connect × binaire/JSON).
 
 ```bash
-grpcurl -plaintext -import-path nodefony/poc/grpc/proto -proto nodefony/poc/v1/echo.proto \
-  -d '{"sentence":"bonjour"}' localhost:5153 nodefony.poc.v1.EchoService/Say
+grpcurl -plaintext -import-path proto -proto nodefony/test/v1/echo.proto \
+  -d '{"sentence":"bonjour"}' localhost:5153 nodefony.test.v1.EchoService/Say
 ```
 
 ### RestController (`/nodefony/test/rest`)

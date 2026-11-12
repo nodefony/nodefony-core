@@ -1,8 +1,10 @@
-# POC #690 — génère le TypeScript du contrat gRPC : `npx buf generate`.
+# TypeScript des contrats gRPC du module `test` (ADR-0026 D2) : `npx buf generate`
+# depuis ce dossier. Le code généré est COMMITÉ, jamais édité ; la CI refuse la
+# dérive (`scripts/gates/check-generated-protobuf.mjs`).
 version: v2
 inputs:
-  - directory: nodefony/poc/grpc/proto
+  - directory: proto
 plugins:
   - local: protoc-gen-es
-    out: nodefony/poc/grpc/gen
+    out: nodefony/gen
     opt: target=ts

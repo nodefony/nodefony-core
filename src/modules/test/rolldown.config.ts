@@ -15,7 +15,9 @@ export default defineNodefonyRolldownConfig({
     "@nodefony/user",
     "tslib",
     "zod",
-    // POC #690 — chargés par `import()` au premier appel gRPC, jamais embarqués.
+    // gRPC (#695, ADR-0026 D12) — importés au démarrage par les contrôleurs
+    // gRPC, jamais embarqués. Le préfixe couvre `@bufbuild/protobuf/wkt` et
+    // `/codegenv2` (code généré), comme `@nodefony/framework` couvre `/grpc`.
     "@connectrpc/connect",
     "@connectrpc/connect-node",
     "@bufbuild/protobuf",

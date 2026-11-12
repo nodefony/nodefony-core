@@ -1,0 +1,50 @@
+// Message aux types complexes (#695) : imbrication, récursion, `oneof`,
+// `map`, `enum`, entiers 64 bits, octets, types bien connus.
+syntax = "proto3";
+
+package nodefony.test.v1;
+
+import "google/protobuf/any.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+message Complex {
+  message Header {
+    google.protobuf.Timestamp sent_at = 1;
+    google.protobuf.Duration ttl = 2;
+    int64 sequence = 3;
+    uint64 big = 4;
+  }
+
+  enum Level {
+    LEVEL_UNSPECIFIED = 0;
+    LEVEL_LOW = 1;
+    LEVEL_HIGH = 2;
+  }
+
+  Header header = 1;
+  oneof payload {
+    Tree tree = 2;
+    bytes raw = 3;
+    string text = 4;
+  }
+  map<string, Tree> forest = 5;
+  repeated Header history = 6;
+  Level level = 7;
+  optional double score = 8;
+  google.protobuf.Struct attributes = 9;
+  google.protobuf.Any extra = 10;
+  repeated string tags = 11;
+  map<int32, string> codes = 12;
+  bool flag = 13;
+  float ratio = 14;
+  sint32 delta = 15;
+  fixed64 stamp = 16;
+}
+
+// Arbre récursif : un nœud porte ses enfants.
+message Tree {
+  string label = 1;
+  repeated Tree children = 2;
+}
