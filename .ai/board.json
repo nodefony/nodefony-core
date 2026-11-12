@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-12T02:49:32.701Z",
+  "generatedAt": "2026-11-12T10:49:52.070Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -49,7 +49,7 @@
       "closed": 257,
       "dueOn": "2026-11-15T00:00:00Z",
       "number": 7,
-      "open": 15,
+      "open": 16,
       "title": "10.0.0-beta"
     },
     {
@@ -6543,6 +6543,22 @@
       "cible": null,
       "labels": [
         "irrattrapable",
+        "beta-7"
+      ]
+    },
+    {
+      "number": 770,
+      "title": "feat(http): borner l'âge des connexions HTTP/2 et sonder les pairs muets",
+      "url": "https://github.com/nodefony/nodefony-core/issues/770",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 7.04,
+      "debut": null,
+      "cible": null,
+      "labels": [
         "beta-7"
       ]
     },
