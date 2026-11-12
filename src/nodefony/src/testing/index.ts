@@ -618,10 +618,15 @@ export async function startSpareApp(
   child.on("exit", (code: number | null) => (exitCode = code ?? -1));
 
   const stop = async (): Promise<void> => {
-    if (exitCode === null && typeof child.pid === "number") {
-      signalProcessGroup(child.pid, "SIGKILL");
+    // Déjà sorti (arrêt propre par `nodefony stop`, crash) : son `exit` est
+    // PASSÉ, l'attendre ne rendrait jamais la main — et l'état d'exécution ne
+    // serait jamais restauré.
+    if (exitCode === null) {
+      if (typeof child.pid === "number") {
+        signalProcessGroup(child.pid, "SIGKILL");
+      }
+      await once(child, "exit").catch(() => undefined);
     }
-    await once(child, "exit").catch(() => undefined);
     restoreStateFiles(state);
   };
 
