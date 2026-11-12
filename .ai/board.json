@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-12T10:49:52.070Z",
+  "generatedAt": "2026-11-12T18:55:43.408Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 137,
       "dueOn": "2026-11-15T00:00:00Z",
       "number": 1,
-      "open": 5,
+      "open": 4,
       "title": "10.0.0"
     },
     {
@@ -6580,23 +6580,6 @@
       ]
     },
     {
-      "number": 541,
-      "title": "test(cli): valider le plein écran du serveur de dev sous Windows",
-      "url": "https://github.com/nodefony/nodefony-core/issues/541",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0",
-      "priorite": "P1 — figé à la création",
-      "jours": 0.5,
-      "ordre": 7.06,
-      "debut": "2026-11-17",
-      "cible": "2026-11-17",
-      "labels": [
-        "good first issue",
-        "help wanted"
-      ]
-    },
-    {
       "number": 621,
       "title": "feat(realtime): compléter le temps réel : binaire, canaux privés, voix",
       "url": "https://github.com/nodefony/nodefony-core/issues/621",
@@ -11121,6 +11104,24 @@
       "debut": null,
       "cible": null,
       "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 541,
+      "title": "test(cli): valider le plein écran du serveur de dev sous Windows",
+      "url": "https://github.com/nodefony/nodefony-core/issues/541",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 926,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "good first issue",
+        "help wanted",
         "backlog"
       ]
     },

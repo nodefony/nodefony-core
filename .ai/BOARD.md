@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-11-12 10:49** (UTC).
+> Empreinte prise le **2026-11-12 18:55** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,7 +20,7 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 96% | 137 | 5 | 2026-11-15 |
+| **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 97% | 137 | 4 | 2026-11-15 |
 | **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████████░` 94% | 257 | 16 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 13% | 7 | 46 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 33 | — |
@@ -31,11 +31,11 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#541 — test(cli): valider le plein écran du serveur de dev sous Windows**
+**#744 — build(scaffold): choisir l'image de base des applications générées**
 
-Ordre 7.06 · P1 — figé à la création · 0.5 j · jalon 10.0.0 · frise 2026-11-17 → 11-17
+Ordre 58.3 · P1 — figé à la création · 0.5 j · jalon 10.0.0 · frise —
 
-> Choisi dans le **jalon courant `10.0.0`**, qui a encore 5 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0`**, qui a encore 4 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -117,7 +117,7 @@ Ordre 7.06 · P1 — figé à la création · 0.5 j · jalon 10.0.0 · frise 202
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Backlog — aucune date promise · 39 ouverts
+## Backlog — aucune date promise · 40 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -160,6 +160,7 @@ Ordre 7.06 · P1 — figé à la création · 0.5 j · jalon 10.0.0 · frise 202
 | 925.4 | P3 — fin de cycle | 2 | — | #730 | feat(security): partager et afficher les rapports de violation CSP |
 | 925.5 | P3 — fin de cycle | 1 | — | #728 | feat(client): signer les styles créés à l'exécution sous CSP stricte |
 | 925.6 | P3 — fin de cycle | 1 | — | #768 | perf(http): mesurer le coût du journal d'accès par requête |
+| 926 | P1 — figé à la création | 0.5 | — | #541 | test(cli): valider le plein écran du serveur de dev sous Windows |
 
 ## Jalon 10.0.0-beta — 16 ouverts
 
@@ -181,16 +182,6 @@ Ordre 7.06 · P1 — figé à la création · 0.5 j · jalon 10.0.0 · frise 202
 | 7.1 | P1 — figé à la création | 1 | 2026-11-20 → 11-20 | #659 | docs(performance): remesurer les pages de performance avant la release |
 | 7.13 | P1 — figé à la création | 2 | — | #760 | feat(realtime): connaître les présents d'un canal sur tous les pods |
 | 7.14 | P2 — décision | 3 | — | #747 | feat(scaffold): livrer une démo complète, copiée dans l'application |
-
-## Jalon 10.0.0 — 5 ouverts
-
-| Ordre | Prio | Jours | Frise | Ticket | Titre |
-| --- | --- | ---: | --- | --- | --- |
-| 7.06 | P1 — figé à la création | 0.5 | 2026-11-17 → 11-17 | #541 | test(cli): valider le plein écran du serveur de dev sous Windows |
-| 58.3 | P1 — figé à la création | 0.5 | — | #744 | build(scaffold): choisir l'image de base des applications générées |
-| 58.5 | P1 — figé à la création | 1 | 2026-11-23 → 11-23 | #658 | test(devkit-bench): réenregistrer la référence du banc sur le modèle courant |
-| 59 | P1 — figé à la création | 1 | 2026-11-24 → 11-24 | #47 | docs(release): faire suivre à l'accueil ce qui est réellement publié |
-| 60 | P3 — fin de cycle | 1 | 2026-11-25 → 11-25 | #27 | chore(release): publier les paquets de la version 10 sur npm |
 
 ## Jalon 10.2.0 — 33 ouverts
 
@@ -229,6 +220,15 @@ Ordre 7.06 · P1 — figé à la création · 0.5 j · jalon 10.0.0 · frise 202
 | 163.7 | P3 — fin de cycle | — | — | #714 | feat(realtime): livrer les ajouts différés des ADR temps réel |
 | 163.71 | P3 — fin de cycle | 2 | — | #715 | feat(realtime): reprendre un abonnement depuis un curseur |
 | 163.72 | P3 — fin de cycle | 1 | — | #716 | feat(realtime): signaler la fin d'un canal par realtime:closed |
+
+## Jalon 10.0.0 — 4 ouverts
+
+| Ordre | Prio | Jours | Frise | Ticket | Titre |
+| --- | --- | ---: | --- | --- | --- |
+| 58.3 | P1 — figé à la création | 0.5 | — | #744 | build(scaffold): choisir l'image de base des applications générées |
+| 58.5 | P1 — figé à la création | 1 | 2026-11-23 → 11-23 | #658 | test(devkit-bench): réenregistrer la référence du banc sur le modèle courant |
+| 59 | P1 — figé à la création | 1 | 2026-11-24 → 11-24 | #47 | docs(release): faire suivre à l'accueil ce qui est réellement publié |
+| 60 | P3 — fin de cycle | 1 | 2026-11-25 → 11-25 | #27 | chore(release): publier les paquets de la version 10 sur npm |
 
 ## Jalon 12.0.0 — 11 ouverts
 
