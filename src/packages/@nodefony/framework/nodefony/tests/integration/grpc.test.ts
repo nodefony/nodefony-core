@@ -13,6 +13,7 @@
 // 14 (formulaire, texte, urlencoded → 415, méthode non appelée), 15 (gRPC natif
 // vers 5151 : échec franc avant l'échéance).
 //
+import { randomUUID } from "node:crypto";
 import { expect } from "vitest";
 import {
   create,
@@ -43,11 +44,17 @@ import {
   TreeSchema,
   type Complex,
 } from "../../../../../../modules/test/nodefony/gen/nodefony/test/v1/complex_pb.js";
+import { IS_PROD_TARGET } from "../../../../http/nodefony/tests/helpers/targetEnv";
 
 const TLS = { rejectUnauthorized: false };
 const H1 = "http://127.0.0.1:5151";
 const H2_TLS = "https://127.0.0.1:5152";
 const H2C = "http://127.0.0.1:5153";
+/**
+ * HTTP/2 quand le test n'a rien de propre à h2c : h2c n'existe que sur l'app
+ * de dev (`servers.h2c`, éteint en production) — TLS prend alors le relais.
+ */
+const H2 = IS_PROD_TARGET ? H2_TLS : H2C;
 // `Any` en JSON exige de connaître le type emballé, des deux côtés.
 const registry = createRegistry(TreeSchema, ComplexSchema);
 
@@ -57,6 +64,37 @@ interface ICase {
   protocol: Protocol;
   transport: (binary: boolean) => Transport;
 }
+
+/** Lignes h2c de la matrice : app de dev seulement (cf `H2`). */
+const H2C_SERVED: ICase[] = [
+  {
+    label: "5153 h2c gRPC",
+    protocol: "grpc",
+    transport: () => createGrpcTransport({ baseUrl: H2C }),
+  },
+  {
+    label: "5153 h2c gRPC-Web",
+    protocol: "grpc-web",
+    transport: (binary) =>
+      createGrpcWebTransport({
+        baseUrl: H2C,
+        httpVersion: "2",
+        useBinaryFormat: binary,
+        jsonOptions: { registry },
+      }),
+  },
+  {
+    label: "5153 h2c Connect",
+    protocol: "connect",
+    transport: (binary) =>
+      createConnectTransport({
+        baseUrl: H2C,
+        httpVersion: "2",
+        useBinaryFormat: binary,
+        jsonOptions: { registry },
+      }),
+  },
+];
 
 /** La matrice servie d'ADR-0026 D3 (`connect-node-server-plugins.md`). */
 const SERVED: ICase[] = [
@@ -101,33 +139,7 @@ const SERVED: ICase[] = [
         nodeOptions: TLS,
       }),
   },
-  {
-    label: "5153 h2c gRPC",
-    protocol: "grpc",
-    transport: () => createGrpcTransport({ baseUrl: H2C }),
-  },
-  {
-    label: "5153 h2c gRPC-Web",
-    protocol: "grpc-web",
-    transport: (binary) =>
-      createGrpcWebTransport({
-        baseUrl: H2C,
-        httpVersion: "2",
-        useBinaryFormat: binary,
-        jsonOptions: { registry },
-      }),
-  },
-  {
-    label: "5153 h2c Connect",
-    protocol: "connect",
-    transport: (binary) =>
-      createConnectTransport({
-        baseUrl: H2C,
-        httpVersion: "2",
-        useBinaryFormat: binary,
-        jsonOptions: { registry },
-      }),
-  },
+  ...(IS_PROD_TARGET ? [] : H2C_SERVED),
   {
     label: "5151 HTTP/1.1 gRPC-Web",
     protocol: "grpc-web",
@@ -169,13 +181,21 @@ async function connectErrorOf(
   throw new Error("l'appel devait échouer");
 }
 
-/** Appels de `Say` servis à ce jour : le témoin des appels refusés. */
-async function sayCalls(): Promise<number> {
+/**
+ * Appels de `Say` servis sous ce témoin (`x-witness`) : le témoin des appels
+ * refusés. Propre à chaque test — les autres fichiers appellent `Say` en
+ * parallèle, un compteur global se laissait fausser.
+ */
+async function sayCalls(witness: string): Promise<number> {
   const client = createClient(
     EchoService,
     createConnectTransport({ baseUrl: H1, httpVersion: "1.1" }),
   );
-  return (await client.say({ sentence: "témoin" })).calls;
+  const r = await client.say(
+    { sentence: "témoin" },
+    { headers: { "x-witness": witness } },
+  );
+  return r.calls;
 }
 
 /** Un message qui exerce chaque famille de type du contrat. */
@@ -342,13 +362,19 @@ describe("gRPC — matrice servie (critère 13, ADR-0026 D3)", () => {
 });
 
 describe("gRPC — flux bidirectionnel entrelacé (corps lu au fil de l'eau)", () => {
-  for (const [label, transport] of [
-    ["5153 h2c gRPC", () => createGrpcTransport({ baseUrl: H2C })],
+  const bidi: Array<[string, () => Transport]> = [
     [
       "5152 HTTP/2+TLS gRPC",
       () => createGrpcTransport({ baseUrl: H2_TLS, nodeOptions: TLS }),
     ],
-  ] as const) {
+  ];
+  if (!IS_PROD_TARGET) {
+    bidi.unshift([
+      "5153 h2c gRPC",
+      () => createGrpcTransport({ baseUrl: H2C }),
+    ]);
+  }
+  for (const [label, transport] of bidi) {
     it(`${label} : chaque réponse arrive AVANT l'envoi suivant`, async () => {
       const client = createClient(EchoService, transport());
       const out = queue<{ sentence: string }>();
@@ -375,22 +401,30 @@ describe("gRPC — routage (critères 2 et 4)", () => {
   };
 
   for (const [label, transport] of [
-    ["gRPC h2c", () => createGrpcTransport({ baseUrl: H2C })],
+    [
+      `gRPC ${IS_PROD_TARGET ? "HTTP/2+TLS" : "h2c"}`,
+      () => createGrpcTransport({ baseUrl: H2, nodeOptions: TLS }),
+    ],
     [
       "Connect HTTP/1.1",
       () => createConnectTransport({ baseUrl: H1, httpVersion: "1.1" }),
     ],
   ] as const) {
     it(`${label} : casse modifiée → 12 UNIMPLEMENTED, la méthode n'est PAS appelée`, async () => {
-      const before = await sayCalls();
+      const witness = randomUUID();
+      const before = await sayCalls(witness);
       const err = await connectErrorOf(
-        transport().unary(loweredSay, undefined, undefined, undefined, {
-          sentence: "x",
-        }),
+        transport().unary(
+          loweredSay,
+          undefined,
+          undefined,
+          { "x-witness": witness },
+          { sentence: "x" },
+        ),
       );
       expect(err.code).to.equal(Code.Unimplemented);
       // Témoin : seul l'appel témoin a été compté.
-      expect(await sayCalls()).to.equal(before + 1);
+      expect(await sayCalls(witness)).to.equal(before + 1);
     });
   }
 
@@ -451,7 +485,7 @@ describe("gRPC — points normatifs que le pipeline pourrait casser", () => {
 
   it("gRPC : statut dans les TRAILERS, même OK, HTTP 200 (grpc PROTOCOL-HTTP2 §Responses)", async () => {
     const { connect } = await import("node:http2");
-    const session = connect(H2C);
+    const session = connect(H2, TLS);
     try {
       const frame = new Uint8Array([0, 0, 0, 0, 0]);
       const { headers, trailers } = await new Promise<{
@@ -489,15 +523,16 @@ describe("gRPC — un navigateur ne forge pas d'appel (critère 14)", () => {
     ["text/plain", '{"sentence":"x"}'],
   ] as const) {
     it(`POST ${type.split(";")[0]} → 415, la méthode n'est PAS appelée`, async () => {
-      const before = await sayCalls();
+      const witness = randomUUID();
+      const before = await sayCalls(witness);
       const r = await fetch(`${H1}/nodefony.test.v1.EchoService/Say`, {
         method: "POST",
-        headers: { "content-type": type },
+        headers: { "content-type": type, "x-witness": witness },
         body,
       });
       await r.arrayBuffer();
       expect(r.status).to.equal(415);
-      expect(await sayCalls()).to.equal(before + 1);
+      expect(await sayCalls(witness)).to.equal(before + 1);
     });
   }
 
@@ -516,7 +551,7 @@ describe("gRPC — portée du contrôleur (critère 6)", () => {
   it("singleton (défaut) : la même instance sert chaque appel", async () => {
     const client = createClient(
       EchoService,
-      createGrpcTransport({ baseUrl: H2C }),
+      createGrpcTransport({ baseUrl: H2, nodeOptions: TLS }),
     );
     const seen = new Set<number>();
     for (let i = 0; i < 3; i++) {
@@ -528,7 +563,7 @@ describe("gRPC — portée du contrôleur (critère 6)", () => {
   it('@Scope("request") : une instance neuve par appel', async () => {
     const client = createClient(
       ScopedEchoService,
-      createGrpcTransport({ baseUrl: H2C }),
+      createGrpcTransport({ baseUrl: H2, nodeOptions: TLS }),
     );
     const a = (await client.who({})).instance;
     const b = (await client.who({})).instance;

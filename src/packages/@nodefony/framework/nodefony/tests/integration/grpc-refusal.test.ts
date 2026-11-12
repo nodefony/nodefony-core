@@ -12,6 +12,7 @@
 // les en-têtes en HTTP/2) et point 3 (gRPC natif vers une route non gRPC).
 // Critères de #695 : 1, 23-26, 52, 55, 56.
 //
+import { randomUUID } from "node:crypto";
 import http from "node:http";
 import https from "node:https";
 import http2 from "node:http2";
@@ -29,16 +30,29 @@ import {
 } from "@connectrpc/connect-node";
 import { EchoService } from "../../../../../../modules/test/nodefony/gen/nodefony/test/v1/echo_pb.js";
 import { GuardedEchoService } from "../../../../../../modules/test/nodefony/gen/nodefony/test/v1/guarded_pb.js";
+import { IS_PROD_TARGET } from "../../../../http/nodefony/tests/helpers/targetEnv";
 
 const TLS = { rejectUnauthorized: false };
 const H1 = "http://127.0.0.1:5151";
 const H2_TLS = "https://127.0.0.1:5152";
 const H2C = "http://127.0.0.1:5153";
+/**
+ * HTTP/2 quand le test n'a rien de propre à h2c : h2c n'existe que sur l'app
+ * de dev (`servers.h2c`, éteint en production) — TLS prend alors le relais.
+ */
+const H2 = IS_PROD_TARGET ? H2_TLS : H2C;
 const PASSWORD = "secret-de-dev-42";
 
+type ProtocolCase = [string, () => Transport];
+
+const GRPC_H2C: ProtocolCase = [
+  "gRPC h2c",
+  () => createGrpcTransport({ baseUrl: H2C }),
+];
+
 /** Les trois protocoles, sur les ports qui les servent (ADR-0026 D3). */
-const PROTOCOLS: Array<[string, () => Transport]> = [
-  ["gRPC h2c", () => createGrpcTransport({ baseUrl: H2C })],
+const PROTOCOLS: ProtocolCase[] = [
+  ...(IS_PROD_TARGET ? [] : [GRPC_H2C]),
   [
     "gRPC HTTP/2+TLS",
     () => createGrpcTransport({ baseUrl: H2_TLS, nodeOptions: TLS }),
@@ -113,13 +127,20 @@ async function guardedCalls(adminToken: string): Promise<number> {
   return r.calls;
 }
 
-/** Appels de `Say` servis à ce jour (`EchoService`, hors zone). */
-async function sayCalls(): Promise<number> {
+/**
+ * Appels de `Say` servis sous ce témoin (`x-witness`, `EchoService` hors
+ * zone) — propre à chaque test : `grpc.test.ts` appelle `Say` en parallèle.
+ */
+async function sayCalls(witness: string): Promise<number> {
   const client = createClient(
     EchoService,
     createConnectTransport({ baseUrl: H1, httpVersion: "1.1" }),
   );
-  return (await client.say({ sentence: "témoin" })).calls;
+  const r = await client.say(
+    { sentence: "témoin" },
+    { headers: { "x-witness": witness } },
+  );
+  return r.calls;
 }
 
 /** Le message d'un refus : le nom du code, jamais le texte de l'erreur. */
@@ -241,7 +262,8 @@ describe("gRPC — forme Connect d'un refus : statut accordé au code (D13 point
 
 describe("gRPC — un navigateur d'une autre origine ne forge pas d'appel (critère 24)", () => {
   it("POST Connect `Sec-Fetch-Site: cross-site` → refusé, la méthode n'est PAS appelée", async () => {
-    const before = await sayCalls();
+    const witness = randomUUID();
+    const before = await sayCalls(witness);
     const r = await fetch(`${H1}/nodefony.test.v1.EchoService/Say`, {
       method: "POST",
       headers: {
@@ -249,6 +271,7 @@ describe("gRPC — un navigateur d'une autre origine ne forge pas d'appel (crit�
         "connect-protocol-version": "1",
         "sec-fetch-site": "cross-site",
         origin: "https://evil.example",
+        "x-witness": witness,
       },
       body: '{"sentence":"x"}',
     });
@@ -257,7 +280,7 @@ describe("gRPC — un navigateur d'une autre origine ne forge pas d'appel (crit�
     expect(body)
       .to.have.property("code")
       .that.is.oneOf(["unauthenticated", "permission_denied"]);
-    expect(await sayCalls()).to.equal(before + 1);
+    expect(await sayCalls(witness)).to.equal(before + 1);
   });
 });
 
@@ -316,7 +339,7 @@ function rawH2(
 
 describe("gRPC natif — forme d'un refus de transport : Trailers-Only (D13 point 2)", () => {
   it("chemin inconnu → 200, grpc-status 12 dans les EN-TÊTES, fin du flux sur leur trame, ni corps ni trailers", async () => {
-    const r = await rawH2(H2C, { ":path": "/nodefony.test.v1.Nope/Call" });
+    const r = await rawH2(H2, { ":path": "/nodefony.test.v1.Nope/Call" });
     expect(r.headers[":status"]).to.equal(200);
     expect(r.headers["content-type"]).to.equal("application/grpc");
     expect(r.headers["grpc-status"]).to.equal("12");
@@ -333,7 +356,7 @@ describe("gRPC natif — forme d'un refus de transport : Trailers-Only (D13 poin
   });
 
   it("405 (méthode HTTP refusée) → 12, table des refus de transport (critère 56)", async () => {
-    const r = await rawH2(H2C, {
+    const r = await rawH2(H2, {
       ":method": "DELETE",
       ":path": "/nodefony.test.v1.EchoService/Say",
     });
@@ -342,7 +365,7 @@ describe("gRPC natif — forme d'un refus de transport : Trailers-Only (D13 poin
   });
 
   it("421 (hôte non servi) → 14 UNAVAILABLE : le client réessaie ailleurs (critère 56)", async () => {
-    const r = await rawH2(H2C, {
+    const r = await rawH2(H2, {
       ":path": "/nodefony.test.v1.EchoService/Say",
       ":authority": "evil.example",
     });
@@ -351,7 +374,7 @@ describe("gRPC natif — forme d'un refus de transport : Trailers-Only (D13 poin
   });
 
   it("casse modifiée (repli de l'adaptateur) → même forme, 12", async () => {
-    const r = await rawH2(H2C, {
+    const r = await rawH2(H2, {
       ":path": "/nodefony.test.v1.echoservice/say",
     });
     expect(r.headers["grpc-status"]).to.equal("12");
@@ -359,7 +382,7 @@ describe("gRPC natif — forme d'un refus de transport : Trailers-Only (D13 poin
   });
 
   it("CONTRÔLE : un appel servi garde son statut dans les TRAILERS", async () => {
-    const r = await rawH2(H2C, {
+    const r = await rawH2(H2, {
       ":path": "/nodefony.test.v1.EchoService/Ping",
     });
     expect(r.headers["grpc-status"]).to.equal(undefined);
@@ -372,7 +395,7 @@ describe("gRPC natif vers une route qui n'est pas gRPC (attrape-tout) → 12 (cr
   const CATCH_ALL = "/nodefony/test/route/nodefony.test.v1.Nope/Call";
 
   it("gRPC natif sur l'attrape-tout : refusé en 12, jamais la page", async () => {
-    const r = await rawH2(H2C, { ":path": CATCH_ALL });
+    const r = await rawH2(H2, { ":path": CATCH_ALL });
     expect(r.headers[":status"]).to.equal(200);
     expect(r.headers["grpc-status"]).to.equal("12");
     expect(r.body).to.equal(0);
@@ -392,7 +415,7 @@ describe("gRPC natif vers une route qui n'est pas gRPC (attrape-tout) → 12 (cr
 describe("gRPC — corps non lu d'un refus (D13 point 1, critère 26)", () => {
   it("HTTP/2 : le refus arrive alors que le corps n'est PAS fini", async () => {
     const r = await rawH2(
-      H2C,
+      H2,
       { ":path": "/nodefony.test.v1.Nope/Call" },
       new Uint8Array([0, 0, 0, 0, 9, 1, 2, 3]),
       false,
@@ -401,7 +424,7 @@ describe("gRPC — corps non lu d'un refus (D13 point 1, critère 26)", () => {
   });
 
   it("HTTP/2 : un client qui émet sans jamais finir voit son flux fermé (NO_ERROR) après la réponse", async () => {
-    const session = http2.connect(H2C);
+    const session = http2.connect(H2, TLS);
     try {
       const closed = await new Promise<number>((resolve, reject) => {
         const stream = session.request({

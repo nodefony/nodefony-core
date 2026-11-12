@@ -37,8 +37,8 @@ message SayResponse {
   string request_id = 2;
   // Numéro de l'instance qui a servi l'appel.
   uint32 instance = 3;
-  // Appels de `Say` servis depuis le démarrage : témoin qu'un appel refusé
-  // n'a PAS atteint la méthode.
+  // Appels de `Say` servis portant le même en-tête `x-witness` : témoin qu'un
+  // appel refusé n'a PAS atteint la méthode.
   uint32 calls = 4;
 }
 

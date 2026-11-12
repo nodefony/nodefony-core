@@ -18,8 +18,14 @@ import {
 
 /** Instances construites depuis le démarrage : un singleton n'en a qu'une. */
 let instances = 0;
-/** Appels de `Say` servis : témoin qu'un appel refusé n'atteint pas la méthode. */
-let sayCalls = 0;
+/**
+ * Appels de `Say` servis, comptés PAR valeur de l'en-tête `x-witness` : témoin
+ * qu'un appel refusé n'atteint pas la méthode. Un compteur global se faisait
+ * fausser par les `Say` des autres fichiers du banc, joués en parallèle ;
+ * chaque test tire son propre témoin. Borné : un banc n'en tient que quelques-uns.
+ */
+const sayCalls = new Map<string, number>();
+const WITNESS_LIMIT = 1024;
 
 /**
  * `nodefony.test.v1.EchoService` — l'application de référence de
@@ -39,13 +45,21 @@ export class GrpcEchoController extends GrpcController {
     this.serial = instances;
   }
 
-  say(request: SayRequest): MessageInitShape<typeof SayResponseSchema> {
-    sayCalls += 1;
+  say(
+    request: SayRequest,
+    ctx: HandlerContext,
+  ): MessageInitShape<typeof SayResponseSchema> {
+    const witness = ctx.requestHeader.get("x-witness") ?? "";
+    if (!sayCalls.has(witness) && sayCalls.size >= WITNESS_LIMIT) {
+      sayCalls.clear();
+    }
+    const calls = (sayCalls.get(witness) ?? 0) + 1;
+    sayCalls.set(witness, calls);
     return {
       sentence: request.sentence,
       requestId: RequestContext.getRequestId() ?? "",
       instance: this.serial,
-      calls: sayCalls,
+      calls,
     };
   }
 

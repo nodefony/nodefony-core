@@ -58,8 +58,8 @@ export type SayResponse = Message<"nodefony.test.v1.SayResponse"> & {
   instance: number;
 
   /**
-   * Appels de `Say` servis depuis le démarrage : témoin qu'un appel refusé
-   * n'a PAS atteint la méthode.
+   * Appels de `Say` servis portant le même en-tête `x-witness` : témoin qu'un
+   * appel refusé n'a PAS atteint la méthode.
    *
    * @generated from field: uint32 calls = 4;
    */
