@@ -156,8 +156,10 @@ module :
 3. **Le développeur génère** (`npx buf generate`) après avoir modifié un contrat ; le code généré
    est **commité** ; Nodefony ne génère rien au build ni au démarrage. **La CI refuse la dérive** :
    elle régénère et échoue sur toute différence, en lisant `buf.gen.yaml` (aucun chemin codé en
-   dur). La dérive existe déjà : le fichier du POC est généré par protoc-gen-es 2.16.0, la 2.17.0
-   est installée.
+   dur). La dérive existait : le fichier du POC venait de protoc-gen-es 2.16.0 quand la 2.17.0 était
+   installée. Gate : `scripts/gates/check-generated-protobuf.mjs`. Il rejoue chaque
+   `buf.gen.yaml` versionné dans un dossier jetable et signale tout fichier manquant, en trop ou
+   différent.
 4. **`edition = "2024"`** pour un contrat neuf ; `proto3` accepté (A2A, santé et réflexion le sont).
 5. **Lint `STANDARD`** (dossier = paquet, paquet versionné `.v1`) et **`breaking FILE`**, la règle la
    plus stricte, qui inclut `WIRE_JSON` — Connect sert aussi du JSON.
@@ -785,7 +787,8 @@ tourne déjà à la publication.
    - la majeure suivante est exclue, et l'élargir plus tard est un changement expérimental (D11),
      jamais une rupture ;
    - un test compare les plages déclarées par http et par framework, car la frontière entre les
-     paquets impose deux copies.
+     paquets impose deux copies. La règle est générale : un pair déclaré par plusieurs paquets
+     publiés n'a qu'une plage (`scripts/release/peers.mjs#divergentPeerRanges`).
 3. **Deux sous-chemins, `@nodefony/http/grpc` et `@nodefony/framework/grpc`**, sur le modèle de
    `nodefony/react` :
    - le point d'entrée principal ne cite ni Connect ni protobuf, même en type. `HttpContext.rpc`,
@@ -796,7 +799,17 @@ tourne déjà à la publication.
      `ConnectError[Symbol.hasInstance]` ;
    - les sources de chaque sous-chemin sont déjà prises par le bundler (`nodefonyInput`) et par
      `tsconfig.declarations.json` (`nodefony/**/*.ts`) ;
-   - le contrôle de stabilité de D11 lit chaque entrée d'`exports`, donc aussi les deux nouvelles.
+   - le contrôle de stabilité de D11 lit chaque entrée d'`exports`, donc aussi les deux nouvelles ;
+   - deux contrôles de la chaîne de publication gardent la promesse, pour TOUT pair facultatif et
+     non pour gRPC seul. Côté types, `scripts/release/dts-deps.mjs#reachableTypeImports` suit les
+     imports relatifs depuis les types d'`exports["."]` : c'est ce que TypeScript charge, donc un
+     pair facultatif atteint vaut TS2307. Côté exécution, `scripts/release/peers.mjs` importe le
+     point d'entrée principal dans un processus neuf et relève les paquets résolus par
+     `module.registerHooks`. Une application témoin compilée sans les pairs était envisagée ; elle
+     est écartée, car dans le dépôt les pairs sont hissés dans `node_modules` et seraient trouvés
+     quand même. Les deux contrôles ont été vus rouges sur un `import type` de protobuf et un import
+     de Connect posés au fond du graphe de http, et le second a relevé aussi la contagion à
+     framework.
 4. **Chargement au démarrage, et seulement si un service est déclaré** (précise D1 point 7) :
    - le contrôleur importe le sous-chemin, qui importe Connect directement ;
    - une application sans service ne charge rien, ce qui garde la promesse « coût nul sans service » ;

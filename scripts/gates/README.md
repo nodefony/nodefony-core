@@ -47,6 +47,13 @@ Suite de l'audit `external` — écrite pour le faire ÉCHOUER, pas pour l'accom
 - **Lancé par** : `npm run test:externals` · `npm run test:tooling`
 - **Utilise** : `gates/check-externals.mjs` · `deps/shims/deepmerge/index.js`
 
+## [`check-generated-protobuf.mjs`](check-generated-protobuf.mjs)
+
+Gate — le code protobuf VERSIONNÉ est-il celui que ses contrats produisent ?
+
+- **Usage** : `node scripts/gates/check-generated-protobuf.mjs`
+- **Appelé par** : `node.js.yml`
+
 ## [`check-import-specifiers.mjs`](check-import-specifiers.mjs)
 
 check-import-specifiers — un `import()` ne reçoit jamais un chemin NATIF.

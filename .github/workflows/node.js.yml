@@ -562,6 +562,16 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
         run: npm run check:migrations -w @nodefony/drizzle
 
+      # Le code protobuf VERSIONNÉ, régénéré depuis ses contrats (ADR-0026 D2) :
+      # Nodefony ne génère rien au build ni au démarrage, le code généré se
+      # commite — et dérive en silence quand un contrat change sans régénérer,
+      # ou quand le générateur monte de version (vécu : POC en 2.16.0, 2.17.0
+      # installée). Chaque `buf.gen.yaml` versionné est rejoué dans un dossier
+      # jetable et comparé fichier par fichier ; aucun réseau, aucun serveur.
+      - name: Gate — code protobuf aligné sur ses contrats
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
+        run: node scripts/gates/check-generated-protobuf.mjs
+
       # Les ancres `fichier:ligne` de la doc, résolues contre le code RÉEL.
       #
       # Le contrôle existait et personne ne le lançait — ni ici, ni dans un

@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-11-11",
+  "generatedAt": "2026-11-12",
   "count": 41,
   "repoScripts": [
     {
@@ -196,6 +196,7 @@
         "scripts/release/api-diff.mjs",
         "scripts/release/dts-deps.mjs",
         "scripts/release/pack-all.mjs",
+        "scripts/release/peers.mjs",
         "scripts/release/readme-gate.mjs",
         "scripts/release/release.mjs",
         "scripts/release/types-rigor.mjs",
@@ -286,6 +287,21 @@
       "calledBy": [
         "npm run test:externals",
         "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/gates/check-generated-protobuf.mjs",
+      "test": false,
+      "purpose": "Gate — le code protobuf VERSIONNÉ est-il celui que ses contrats produisent ?",
+      "usage": [
+        "node scripts/gates/check-generated-protobuf.mjs"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "node.js.yml"
       ],
       "testedBy": []
     },
@@ -799,6 +815,7 @@
       "env": [],
       "output": "",
       "calledBy": [
+        "scripts/release/dts-deps.mjs",
         "scripts/release/fix-dts-extensions.mjs",
         ".claude/skills/nodefony-release/scripts/compare-dts-exports.mjs"
       ],
@@ -2521,7 +2538,9 @@
       "options": [],
       "env": [],
       "output": "",
-      "calledBy": [],
+      "calledBy": [
+        "scripts/release/peers.mjs"
+      ],
       "testedBy": [
         "scripts/release/dts-deps.test.mjs"
       ]
@@ -2766,6 +2785,34 @@
         "scripts/release/release.mjs",
         "scripts/release/smoke-docker.sh",
         ".claude/skills/nodefony-devkit-bench/scripts/lib/isolation.mjs"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/release/peers.mjs",
+      "test": false,
+      "purpose": "Les pairs (`peerDependencies`) des paquets publiés tiennent-ils leur promesse ?",
+      "usage": [
+        "node scripts/release/peers.mjs"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [],
+      "testedBy": [
+        "scripts/release/peers.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/release/peers.test.mjs",
+      "test": true,
+      "purpose": "Les pairs des paquets publiés tiennent-ils leur promesse ? Branches pures d'abord, puis le constat RÉEL : chaque point d'entrée principal importé dans un processus neuf (cf `peers.mjs`).",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:release"
       ],
       "testedBy": []
     },
