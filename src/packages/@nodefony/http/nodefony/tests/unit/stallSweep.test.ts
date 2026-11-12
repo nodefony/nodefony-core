@@ -75,6 +75,17 @@ async function fill(target: StreamTarget): Promise<void> {
   throw new Error("aucune contre-pression");
 }
 
+/**
+ * Écrit quatre fenêtres de flux HTTP/2 (4 × 64 Kio) sans rendre la main : un
+ * client en pause n'en laisse partir qu'une, le reste attend un `drain` qui ne
+ * vient jamais — un blocage RÉEL, indépendant des tampons de l'OS.
+ */
+function stallBeyondWindow(target: StreamTarget): void {
+  for (let written = 0; written < 4 * 65_536; written += CHUNK.length) {
+    target.write(CHUNK);
+  }
+}
+
 interface ITransport {
   name: string;
   /** Ouvre `count` flux ; le client lit ceux dont l'indice est dans `read`. */
@@ -281,15 +292,22 @@ describe("Balayage de blocage — h2c, deux flux d'UNE session (unitaire)", () =
       const [blocked, neighbour] = run.served;
       h.open(blocked!);
       h.open(neighbour!);
-      await fill(blocked!.target);
-      // Le voisin écrit plus que sa fenêtre de flux (64 Kio) : il entre en
-      // contre-pression sur TOUTE plateforme — sans quoi seule une écriture
-      // restée en vol (Windows, IOCP) l'y mettait, et le test disait autre
-      // chose selon l'OS. Son attente s'ouvre au premier tour…
+      // Le bloqué reçoit PLUS que sa fenêtre de flux HTTP/2 (64 Kio) : son
+      // client en pause ne la renouvelle jamais, ce surplus ne peut pas partir
+      // et aucun `drain` ne viendra, quelle que soit la plateforme. S'arrêter au
+      // premier refus d'écriture laissait ~16 Kio dans la fenêtre — Windows les
+      // envoyait pendant l'attente du voisin, et le bloqué n'était plus bloqué.
+      stallBeyondWindow(blocked!.target);
+      // Le voisin écrit jusqu'au refus d'écriture : il entre en contre-pression
+      // sur TOUTE plateforme. Son attente s'ouvre au premier tour…
       await fill(neighbour!.target);
       h.sweep.sweep(1_000);
       // … et son client lit : le `drain` RÉEL la ferme avant le tour du seuil.
       await once(neighbour!.target, "drain");
+      expect(
+        blocked!.target.writableLength,
+        "le bloqué n'a rien pu vider pendant l'attente du voisin",
+      ).to.be.greaterThan(65_536);
       h.sweep.sweep(1_000 + STALL);
       expect(blocked!.target.destroyed, "bloqué coupé").to.equal(true);
       expect(neighbour!.target.destroyed, "voisin vivant").to.equal(false);
