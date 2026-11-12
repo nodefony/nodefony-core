@@ -297,11 +297,27 @@ Deux faits du pipeline fondent la décision.
      - le flux prend une place dans le budget de connexions longues par IP (`wsMaxConnectionsPerIp`) ;
      - `maxDuration` est désactivé ;
      - la fermeture est suivie.
-   - Le client qui ne lit plus est coupé après le délai de blocage (30 s, la règle de
-     `StreamLifecycle.armStall`). Comme l'adaptateur garde ses écritures, ce blocage s'observe par
-     **un seul balayage paresseux** qui lit `writableNeedDrain` des flux ouverts, puis appelle
-     `armStall` / `clearStall` : le seuil reste dans `StreamLifecycle` (une règle, une
-     implémentation), et le coût par message est nul.
+   - Le client qui ne lit plus est coupé après le délai de blocage (30 s,
+     `StreamLifecycle.ts#STREAM_STALL_TIMEOUT_MS`). Comme l'adaptateur garde ses écritures, ce
+     blocage s'observe par **un seul balayage** (`StreamLifecycle.ts#StallSweep`), armé seulement
+     s'il y a un flux, de période **la moitié du seuil** (15 s) :
+     - un tour qui voit `writableNeedDrain` ouvre l'attente et pose un `drain` ; **seul ce
+       `drain`** — un progrès réel — la ferme, jamais un tour qui verrait le tampon vide ;
+     - une attente qui dure le seuil coupe le client : entre 30 et 45 s après la première
+       contre-pression vue, **jamais avant le seuil** ;
+     - le seuil reste dans `StreamLifecycle.sweepStall` (une règle, une implémentation), et le coût
+       par message est nul.
+   - Écartés, sur essai réel (h2c et HTTP/1.1, client bloqué, muet, lent, et bloqué à côté d'un
+     voisin lu sur la même session) :
+     - effacer l'attente quand un tour voit le tampon vide (la forme d'abord écrite ici) : un
+       client LENT qui lit voit son tampon se remplir aussitôt, chaque tour le trouve plein, et il
+       est coupé à tort ;
+     - garder le délai d'inactivité que Node tient déjà sur le flux, sans minuteur de plus : en
+       HTTP/2 il est repoussé tant que la SESSION avance (`internal/http2/core#callTimeout`, compteur
+       de session) — un flux bloqué n'est jamais coupé si un voisin de la même connexion est lu,
+       le cas même d'un client gRPC qui multiplexe tout sur une connexion ;
+     - les autres minuteurs du noyau : `RevocationWatch` (passe asynchrone par entrée, anonymes
+       exclus), `ReceiveDeadline` (échéance absolue d'un corps reçu), battements WS et SSE.
 5. **`maxTimeoutMs` n'est pas posé** : il REFUSERAIT (`INVALID_ARGUMENT`) le client qui demande plus
    long (`connect-node-timeouts.md`). On rabote son échéance au lieu de la refuser.
 6. **`requireConnectProtocolHeader` = `false`**, réglable dans la section `grpc` :
@@ -316,7 +332,7 @@ Deux faits du pipeline fondent la décision.
 | Comparaison de taille (`readMaxBytes`, `writeMaxBytes`)         | chaque message                                             | **0 de plus** : l'adaptateur la fait déjà avec son défaut (≈ 5 ns)                                                                                                                                                                                                                    |
 | Fin au délai du serveur (délai existant gardé, fiche accrochée) | chaque appel unaire                                        | **≈ 24 ns** : reconnaître le chemin unaire, accrocher la fiche. Écarté : désarmer puis tenir un anneau partagé, 97 ns en HTTP/2 et 174 ns en HTTP/1.1 keep-alive (réarmement de la socket à la requête suivante). Mesuré sur une vraie socket et un vrai flux, médiane de 9 × 200 000 |
 | Cycle de vie du flux                                            | ouverture d'un flux                                        | celui de SSE, une fois par flux, jamais par message                                                                                                                                                                                                                                   |
-| Balayage de blocage                                             | un minuteur pour tous les flux, armé seulement s'il y en a | 0 par message                                                                                                                                                                                                                                                                         |
+| Balayage de blocage                                             | un minuteur pour tous les flux, armé seulement s'il y en a | 0 par message ; ~6 ns par flux et par tour (58 µs par tour à 10 000 flux, toutes les 15 s) ; ~60 ns pour inscrire puis retirer un flux, une fois. Mesuré sur 300 flux HTTP/2 réels, médiane de 9 passes                                                                               |
 
 Ce que D4 ne décide pas, et qu'il faut mesurer : le **plancher par message** de l'adaptateur. Chaque
 écriture crée une promesse et pose puis retire deux écouteurs
@@ -464,7 +480,9 @@ range ses en-têtes dans une réserve que seul `Response.ts#HttpResponse.writeHe
    - Mais la révocation ferme par `StreamLifecycle.close()`, qui appelle `context.close()` : sur une
      réponse que Connect possède, ce serait un second écrivain (S-grpc-27). `StreamLifecycle` reçoit
      donc une fermeture fournie par l'adaptateur, qui interrompt l'appel avec le statut 16
-     `UNAUTHENTICATED` : l'agent rafraîchit son jeton et se reconnecte.
+     `UNAUTHENTICATED` : l'agent rafraîchit son jeton et se reconnecte. Sans fermeture fournie, un
+     flux dont un tiers tient les écritures est fermé en DÉTRUISANT son transport, jamais par
+     `context.close()`.
    - L'interruption suit le mécanisme de D8 (point 2) : au plus le message déjà en vol part encore
      vers l'identité morte (constaté à l'essai), puis plus rien.
    - Un appel unaire n'est pas surveillé : il est autorisé à son début et borné par son échéance
