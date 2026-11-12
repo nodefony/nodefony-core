@@ -181,6 +181,9 @@ function resolveContentType(type: string): IResolvedContentType | null {
  * en minuscules : la forme que `ServerResponse.writeHead` compose le plus vite.
  */
 type HeaderList = OutgoingHttpHeader[];
+/** `setHeader` de la réponse Node, HTTP/1 ou HTTP/2 (compatibilité). */
+type NativeSetHeader =
+  http.ServerResponse["setHeader"] | http2.Http2ServerResponse["setHeader"];
 
 /**
  * Valeur d'en-tête sous la forme que Node accepte (une liste figée est copiée),
@@ -251,6 +254,11 @@ class HttpResponse {
    * le transport y est déjà, il ne s'amorce plus.
    */
   #committed = false;
+  /**
+   * Méthode `setHeader` native retenue pendant que l'interception du repli
+   * statique est armée ; `null` sinon (et sur toute réponse routée).
+   */
+  #nativeSetHeader: NativeSetHeader | null = null;
   constructor(
     response: http.ServerResponse | http2.Http2ServerResponse,
     context: HttpContext,
@@ -630,17 +638,24 @@ class HttpResponse {
    * rien, sa réponse part ensuite en un seul `writeHead`. À désarmer par
    * {@link disarmNativeWrite} quand le tiers rend la main sans avoir écrit.
    *
-   * L'interception est une propriété PROPRE de la réponse, ajoutée puis
-   * retirée : V8 annule alors la dernière transition de forme de l'objet.
+   * L'interception est une propriété PROPRE de la réponse, posée une fois avec
+   * des attributs constants — toutes les réponses interceptées partagent donc
+   * la même forme — et désarmée en lui RÉAFFECTANT la méthode native, jamais
+   * en la supprimant : un `delete` fait basculer la réponse Node en mode
+   * dictionnaire (constaté par `%HasFastProperties` sur Node 26, 200 réponses
+   * sur 200), et chaque accès suivant de `node:http` le paie — mesuré in situ
+   * sur un 404 : `writeHead` +1,1 µs, `end` +4,3 µs.
    */
   commitBeforeNativeWrite(): void {
     const res = this.response;
-    if (res === null || res.headersSent || Object.hasOwn(res, "setHeader")) {
+    if (res === null || res.headersSent || this.#nativeSetHeader !== null) {
       return;
     }
-    const native = res.setHeader;
+    const native: NativeSetHeader = res.setHeader;
+    this.#nativeSetHeader = native;
     Object.defineProperty(res, "setHeader", {
       configurable: true,
+      enumerable: false,
       writable: true,
       value: (
         name: string,
@@ -653,11 +668,19 @@ class HttpResponse {
     });
   }
 
-  /** Retire l'interception posée par {@link commitBeforeNativeWrite}. */
+  /**
+   * Retire l'interception posée par {@link commitBeforeNativeWrite} : la
+   * propriété propre reçoit la méthode native — la forme de l'objet ne change
+   * pas, la réponse reste en mode rapide pour V8.
+   */
   disarmNativeWrite(): void {
+    const native = this.#nativeSetHeader;
+    if (native === null) return;
+    this.#nativeSetHeader = null;
     const res = this.response;
-    if (res !== null && Object.hasOwn(res, "setHeader")) {
-      Reflect.deleteProperty(res, "setHeader");
+    if (res !== null) {
+      // Redéfinir la VALEUR (attributs inchangés) : même forme d'objet.
+      Object.defineProperty(res, "setHeader", { value: native });
     }
   }
 

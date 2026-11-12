@@ -190,7 +190,8 @@ describe("HttpResponse — réserve d'en-têtes (#727)", () => {
     // `send` : ses en-têtes, puis le flux.
     res.setHeader("ETag", '"v1"');
     res.setHeader("Content-Type", "image/x-icon");
-    expect(Object.hasOwn(res, "setHeader")).to.equal(false);
+    // Désarmée à la première écriture : la méthode native est rendue.
+    expect(res.setHeader).to.equal(Object.getPrototypeOf(res).setHeader);
     res.end("x");
     const lines = wire(res);
     expect(lines.slice(0, 4)).to.deep.equal([
@@ -206,7 +207,16 @@ describe("HttpResponse — réserve d'en-têtes (#727)", () => {
     const { r, res } = make();
     r.commitBeforeNativeWrite();
     r.disarmNativeWrite();
-    expect(Object.hasOwn(res, "setHeader")).to.equal(false);
+    // Désarmer RÉAFFECTE la méthode native, ne SUPPRIME jamais la propriété :
+    // un `delete` fait basculer la réponse Node en mode dictionnaire pour V8
+    // (constaté par `%HasFastProperties`, Node 26), et chaque accès suivant de
+    // `node:http` le paie (`end` +4,3 µs mesuré in situ sur un 404).
+    expect(Object.hasOwn(res, "setHeader")).to.equal(true);
+    expect(res.setHeader).to.equal(Object.getPrototypeOf(res).setHeader);
+    // Réarmable : un second passage reprend l'interception.
+    r.commitBeforeNativeWrite();
+    expect(res.setHeader).not.to.equal(Object.getPrototypeOf(res).setHeader);
+    r.disarmNativeWrite();
     r.setBody("absent");
     r.writeHead(404);
     expect(res.nativeSets).to.equal(0);
