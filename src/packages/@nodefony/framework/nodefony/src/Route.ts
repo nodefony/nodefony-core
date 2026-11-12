@@ -311,6 +311,13 @@ class Route implements IRoute {
    */
   bodyStream?: boolean | undefined;
   /**
+   * Route servie par un point d'entrée gRPC — posé au démarrage par
+   * `markGrpcRoute` (`@nodefony/http/grpc`), jamais à la main.
+   *
+   * @experimental Surface gRPC, ADR-0026 D11.
+   */
+  grpc?: boolean | undefined;
+  /**
    * P5 — Metadata d'action figées (`@HttpCode`/`@Header`/`@Redirect`/params/
    * session), memo au 1er hit comme {@link bodyStream} : `undefined` = pas
    * encore résolu (via `resolveActionMeta`, 1 lecture Reflect par route, O(1)

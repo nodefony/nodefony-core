@@ -269,7 +269,21 @@ class RequestContext {
    *   ne doit pas se faire passer, sans un mot, pour un visiteur anonyme.
    */
   static getAuthenticatedUser(): IRequestUser | null {
-    const store = this.get();
+    return this.authenticatedUserOf(this.get());
+  }
+
+  /**
+   * La même règle que {@link getAuthenticatedUser}, sur un magasin donné —
+   * pour qui le tient HORS de la bulle ALS (rendu d'erreur, démontage d'une
+   * requête : `Context.authenticatedUser`).
+   *
+   * @param store - le magasin d'une unité de travail, ou `undefined`
+   * @returns l'utilisateur connecté, ou `null`
+   * @throws TypeError dans les mêmes cas que {@link getAuthenticatedUser}.
+   */
+  static authenticatedUserOf(
+    store: RequestContextPayload | undefined,
+  ): IRequestUser | null {
     if (store?.token == null || isAnonymousToken(store.token)) return null;
     const user = store.user;
     if (user == null) return null;

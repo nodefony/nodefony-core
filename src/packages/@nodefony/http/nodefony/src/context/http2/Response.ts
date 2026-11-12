@@ -139,8 +139,12 @@ class Http2Response extends HttpResponse {
         const traceparent = (this.context as { traceparent?: string | null })
           .traceparent;
         if (traceparent) this.headers["traceparent"] = traceparent;
+        // Un statut gRPC dans les EN-TÊTES = réponse _Trailers-Only_ : le flux
+        // se termine sur la trame d'en-têtes (`grpc-PROTOCOL-HTTP2.md`). Une
+        // fin portée par une trame DATA vide est lue `INTERNAL` par les
+        // clients grpc-go et grpc-js (ADR-0026 D13). Une lecture de propriété.
         this.stream.respond(this.headers, {
-          endStream: false,
+          endStream: this.headers["grpc-status"] !== undefined,
         });
       } else {
         // throw new Error("Headers already sent !!");
@@ -229,8 +233,9 @@ class Http2Response extends HttpResponse {
   }
 
   /**
-   * Termine la réponse de compatibilité d'un HEAD, dont Node a clos le flux de
-   * lui-même au `respond()`.
+   * Termine la réponse de compatibilité d'un HEAD, ou d'une réponse gRPC
+   * _Trailers-Only_ (statut gRPC dans les en-têtes), dont le flux s'est clos
+   * au `respond()`.
    *
    * Sans ce geste, `Http2ServerResponse` n'émet ni `finish` ni `close` : le
    * démontage de la requête, branché sur ce `close` (ligne d'accès, profil,
@@ -243,7 +248,8 @@ class Http2Response extends HttpResponse {
     const raw = this.response;
     if (
       raw !== null &&
-      this.context.method === "HEAD" &&
+      (this.context.method === "HEAD" ||
+        this.headers["grpc-status"] !== undefined) &&
       this.stream?.destroyed === false &&
       !raw.writableEnded
     ) {
@@ -273,9 +279,10 @@ class Http2Response extends HttpResponse {
   }
 
   /**
-   * Ferme le flux en `NO_ERROR` une fois la réponse écrite, quand le client n'a
-   * pas fini d'envoyer son corps — réponse rendue avant la fin de la réception
-   * (408 délai, 413 trop gros, refus précoce).
+   * Règle le sort d'un corps non lu quand la réponse part avant qu'il soit
+   * consommé (408 délai, 413 trop gros, refus précoce) : les octets en tampon
+   * sont jetés, puis — une fois la réponse écrite — le flux est fermé en
+   * `NO_ERROR` si le client ÉMET ENCORE.
    *
    * RFC 9113 §8.1 : après une réponse complète, le serveur PEUT demander au
    * client d'arrêter d'émettre par un `RST_STREAM` `NO_ERROR`. `node:http2` ne
@@ -283,20 +290,51 @@ class Http2Response extends HttpResponse {
    * client lent garderait sa place de flux sur la session. Attendre `finish`
    * (fin d'écriture) garantit que la réponse elle-même n'est pas tronquée.
    *
-   * Sans effet si le corps est entièrement reçu, ou le flux déjà fermé. Peut
-   * s'appeler avant comme après l'écriture de la réponse.
+   * « Émet encore » se décide après une GRÂCE d'un aller-retour : un `PING`
+   * (RFC 9113 §6.7), puis l'état du flux (`remoteClose`, tenu par nghttp2).
+   * Fini → le flux se ferme seul, sans `RST_STREAM` ; sinon — client qui
+   * émet encore, ou muet — fermé. Ce n'est pas une garantie : l'écho d'un
+   * `PING` passe avant les autres trames (§6.7), une trame DATA encore en
+   * file chez le client peut arriver après lui ; la coupe reste conforme
+   * (§8.1). grpc-go, Go `net/http2` et nginx coupent AUSSITÔT : Node, lui,
+   * répond avant de lire les trames DATA déjà en route, et la coupe
+   * immédiate frappait des clients qui finissaient d'émettre — le client
+   * HTTP/2 de Go la lit en erreur (ADR-0026 D13 point 1, constaté par la
+   * suite de conformité de Connect). `request.complete` ne dit rien ici : il
+   * ne passe à `true` qu'une fois le corps CONSOMMÉ.
+   *
+   * Chemin d'erreur seulement : un `PING` par refus au corps inachevé ; trop
+   * de `PING` en vol (`ping` rend `false`, 10 par session) → coupe immédiate.
+   *
+   * Sans effet si le corps est entièrement consommé, ou le flux déjà fermé.
+   * Peut s'appeler avant comme après l'écriture de la réponse.
    */
   override closeUnfinishedRequest(): void {
     const stream = this.stream;
     if (stream === null || stream.closed || stream.destroyed) return;
-    if (this.context.request.request.complete) return;
-    const close = (): void => {
+    const request = this.context.request.request;
+    if (request.complete) return;
+    // Corps en tampon, jamais lu : jeté, le flux peut finir.
+    request.resume();
+    const reset = (): void => {
       if (!stream.closed && !stream.destroyed) {
         stream.close(http2.constants.NGHTTP2_NO_ERROR);
       }
     };
-    if (stream.writableFinished) close();
-    else stream.once("finish", close);
+    const decide = (): void => {
+      if (stream.closed || stream.destroyed || stream.state.remoteClose) {
+        return;
+      }
+      reset();
+    };
+    const afterResponse = (): void => {
+      if (stream.closed || stream.destroyed || stream.state.remoteClose) {
+        return;
+      }
+      if (!stream.session?.ping(decide)) reset();
+    };
+    if (stream.writableFinished) afterResponse();
+    else stream.once("finish", afterResponse);
   }
 
   // push(ele, headers, options) {

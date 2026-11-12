@@ -21,6 +21,13 @@ export interface IResolvedRoute {
   readonly module?: { readonly name: string } | undefined;
   /** Corps laissé en flux (`@Body({ stream: true })`) : le parse est sauté. */
   readonly bodyStream?: boolean | undefined;
+  /**
+   * Route servie par un point d'entrée gRPC (`markGrpcRoute`) : une requête
+   * gRPC native n'est acceptée que sur une telle route (ADR-0026 D13 point 3).
+   *
+   * @experimental Surface gRPC, ADR-0026 D11.
+   */
+  readonly grpc?: boolean | undefined;
 }
 
 /**

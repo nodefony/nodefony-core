@@ -39,6 +39,25 @@ export interface IGrpcProtocols {
   readonly connect: boolean;
 }
 
+/**
+ * Levé par le repli de l'adaptateur (`fallback`), qui l'appelle de façon
+ * SYNCHRONE quand aucune méthode ne correspond au chemin exact — casse
+ * modifiée, le Router étant insensible à la casse. Une seule instance : le
+ * repli ne paie aucune allocation, et `serve` le reconnaît par identité.
+ */
+const UNROUTED = new Error("gRPC : aucune méthode à ce chemin");
+
+/**
+ * Repli de l'adaptateur : rien n'est écrit ici. Le refus remonte au pipeline,
+ * qui l'écrit au format du protocole comme tout chemin inconnu (ADR-0026 D13
+ * point 2) — un seul écrivain des refus. Le repli par défaut de Connect, un
+ * 404 nu terminé par une trame DATA, est lu `INTERNAL` par grpc-go
+ * (connectrpc/connect-es#1882).
+ */
+function unrouted(): never {
+  throw UNROUTED;
+}
+
 /** Défaut de l'adaptateur : les trois protocoles (`router.d.ts`). */
 const ALL_PROTOCOLS: IGrpcProtocols = Object.freeze({
   grpc: true,
@@ -112,6 +131,8 @@ export class GrpcEndpoint<S extends DescService = DescService> {
    * @throws HttpError 400 quand l'adaptateur refuse la requête avant d'avoir
    *   rien écrit (requête sans autorité `Host`) — la réponse revient alors au
    *   pipeline.
+   * @throws HttpError 404 quand aucune méthode ne correspond au chemin exact
+   *   (casse modifiée) — rendu par le pipeline en 12 `UNIMPLEMENTED`.
    */
   serve(context: HttpContext, target: object): void {
     if (context.sended || context.finished || context.response.isHeaderSent()) {
@@ -133,9 +154,13 @@ export class GrpcEndpoint<S extends DescService = DescService> {
       handler(context.request.request, nodeResponse);
     } catch (error) {
       // `universalRequestFromNodeRequest` lève de façon SYNCHRONE, avant
-      // d'écrire quoi que ce soit, sur une requête sans autorité.
+      // d'écrire quoi que ce soit, sur une requête sans autorité ; le repli
+      // aussi, sur un chemin sans méthode.
       if (nodeResponse.headersSent) throw error;
       context.sended = false;
+      if (error === UNROUTED) {
+        throw HttpError.withoutStack("Not Found", 404, context);
+      }
       context.log(error, "WARNING", "GRPC");
       throw HttpError.withoutStack("gRPC : requête mal formée", 400, context);
     } finally {
@@ -152,6 +177,7 @@ export class GrpcEndpoint<S extends DescService = DescService> {
       grpcWeb: protocols.grpcWeb,
       connect: protocols.connect,
       contextValues: this.#contextValues,
+      fallback: unrouted,
       jsonOptions: { registry: contractRegistry(this.service) },
       routes: (router) => registerMethods(router, this.service, shared),
     });

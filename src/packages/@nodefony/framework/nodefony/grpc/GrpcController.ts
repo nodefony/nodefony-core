@@ -1,5 +1,5 @@
 import { HttpContext } from "@nodefony/http";
-import { GrpcEndpoint } from "@nodefony/http/grpc";
+import { GrpcEndpoint, markGrpcRoute } from "@nodefony/http/grpc";
 import { BootConfigurationError } from "nodefony";
 import Controller from "../src/Controller";
 import {
@@ -115,6 +115,7 @@ export abstract class GrpcController extends Controller {
       if (meta === undefined) continue;
       route.actionMeta = { ...meta, bodyStream: true };
       route.bodyStream = true;
+      markGrpcRoute(route);
     }
     Object.defineProperty(this.prototype, "grpcEndpoint", {
       value: new GrpcEndpoint(declaration.service, {

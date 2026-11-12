@@ -30,6 +30,13 @@ import HttpError from "../src/errors/httpError";
 import { isUnsupportedTransferCoding } from "../src/proxy/rules";
 import { hasConflictingAuthority } from "../src/context/transport";
 import {
+  GRPC_WIRE_GRPC,
+  GRPC_WIRE_NONE,
+  grpcWireOf,
+  hasGrpcRoutes,
+  prepareGrpcRefusal,
+} from "../src/grpc/refusal";
+import {
   buildTrustProxy,
   type TrustProxyChecker,
   type TrustProxyConfig,
@@ -1212,8 +1219,31 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         // ou `connection: close`), HTTP/2 ferme le flux une fois la réponse
         // écrite (RFC 9113 §8.1). Avant le rendu : l'en-tête doit partir avec.
         context.response.closeUnfinishedRequest();
+        // Client gRPC (natif, Web, Connect) : le refus au format de son
+        // protocole, jamais la page ni le JSON de Nodefony (ADR-0026 D5
+        // point 2, D13 point 2). Lu sur le chemin d'erreur seulement.
+        const headers = context.request.headers;
+        const wire = grpcWireOf(
+          headers,
+          context.method === "GET" &&
+            context.request.url.searchParams.get("connect") === "v1",
+        );
         try {
-          await context.render(result.body);
+          if (wire === GRPC_WIRE_NONE) {
+            await context.render(result.body);
+          } else {
+            await context.send(
+              prepareGrpcRefusal(
+                context.response,
+                wire,
+                result.status,
+                // Sur le magasin du contexte : `onError` peut tourner hors
+                // de la bulle ALS de la requête.
+                context.authenticatedUser() !== null,
+                headers["content-type"],
+              ),
+            );
+          }
         } catch (e) {
           this.log(e, "CRITIC");
           throw e;
@@ -2115,9 +2145,24 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     // l'erreur (`HttpResponse.closeUnfinishedRequest`). Les gardes qui
     // précèdent le refus (scheme, domaine 421, `beforeResolve`) ne lisent pas
     // le corps : leur ordre est inchangé.
-    const resolved = httpContext.resolver?.resolve === true;
-    const skipBody =
-      !resolved || httpContext.resolver?.route?.bodyStream === true;
+    const resolver = httpContext.resolver;
+    // gRPC natif abouti à une route qui n'est pas gRPC (attrape-tout d'une
+    // page unique) : jamais servi — ni la page en 200, ni un 405. La route est
+    // déclarée non résolue : le corps n'est pas lu, et le 404 part à sa place
+    // dans l'ordre des gardes (`prepareFrontController`), rendu en 12
+    // `UNIMPLEMENTED` (ADR-0026 D13 point 3). Sans route gRPC déclarée : une
+    // lecture de booléen.
+    if (
+      hasGrpcRoutes() &&
+      resolver?.resolve === true &&
+      httpContext.method === "POST" &&
+      resolver.route?.grpc !== true &&
+      grpcWireOf(headers) === GRPC_WIRE_GRPC
+    ) {
+      resolver.resolve = false;
+    }
+    const resolved = resolver?.resolve === true;
+    const skipBody = !resolved || resolver.route?.bodyStream === true;
     httpContext.phaseStart("parse");
     // HTTP/2 : réception bornée par `requestTimeout` (#765) — `node:http2` ne
     // la borne pas. Seule une réception EN COURS est suivie (une case

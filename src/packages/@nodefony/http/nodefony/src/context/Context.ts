@@ -13,7 +13,11 @@ import {
   //DebugType,
   Scope,
 } from "nodefony";
-import type { IProfilerQuery, RequestContextPayload } from "nodefony";
+import type {
+  IProfilerQuery,
+  IRequestUser,
+  RequestContextPayload,
+} from "nodefony";
 import type { IRouteResolver, IRequestRouter } from "../../interfaces/IRouting";
 import type { ISecurityZone } from "../../interfaces/ISecurity";
 import { buildMetaData } from "./metaData.js";
@@ -615,6 +619,18 @@ class Context extends Service implements IContextInterface {
    */
   holdRequestStore(store: RequestContextPayload): void {
     this.requestStore = store;
+  }
+
+  /**
+   * L'utilisateur authentifié de l'unité de travail, lu sur son magasin et
+   * non sur l'ALS : valable là où la bulle n'est plus active (rendu d'une
+   * erreur, démontage). Même règle que `RequestContext.getAuthenticatedUser`.
+   *
+   * @returns l'utilisateur connecté, ou `null` (anonyme, hors zone, nettoyé).
+   */
+  authenticatedUser(): IRequestUser | null {
+    const store = this.requestStore;
+    return store === null ? null : RequestContext.authenticatedUserOf(store);
   }
 
   override clean(): void {

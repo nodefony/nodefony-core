@@ -12,3 +12,4 @@ export { GrpcCall, hasAbort } from "./GrpcCall";
 export type { IAbortableHandlerContext } from "./GrpcCall";
 export { GrpcEndpoint } from "./GrpcEndpoint";
 export type { IGrpcEndpointOptions, IGrpcProtocols } from "./GrpcEndpoint";
+export { markGrpcRoute } from "../src/grpc/refusal";
