@@ -18,4 +18,12 @@ export interface IRpcCall {
    * Sans effet sur un appel déjà terminé.
    */
   expire(): void;
+  /**
+   * L'identité qui a ouvert l'appel n'est plus valable (jeton révoqué,
+   * session fermée, droits changés) : termine l'appel au format de son
+   * protocole (gRPC : 16 `UNAUTHENTICATED`). Appelé par le cycle de vie d'un
+   * flux À LA PLACE de la destruction du transport, qui ne dirait au client
+   * qu'une coupure (ADR-0026 D6). Sans effet sur un appel déjà terminé.
+   */
+  revoke(): void;
 }

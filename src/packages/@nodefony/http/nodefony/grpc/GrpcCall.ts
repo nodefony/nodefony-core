@@ -43,12 +43,16 @@ export class GrpcCall implements ContextValues, IRpcCall {
 
   /** Magasin des clés de tiers, créé au premier `set`. */
   #values: ContextValues | null = null;
-  /** Gestionnaire unaire asynchrone en cours : son contexte d'appel. */
+  /** Contexte d'appel du gestionnaire en cours (unaire, flux). */
   #ctx: HandlerContext | null = null;
-  /** …et le rejet de la promesse rendue à l'adaptateur. */
+  /** Rejet de la promesse rendue à l'adaptateur (réponse unique). */
   #reject: ((reason: unknown) => void) | null = null;
-  /** Le délai de réponse est échu (avant ou pendant le gestionnaire). */
-  #expired = false;
+  /**
+   * Pourquoi le serveur a interrompu l'appel — délai échu (4), identité
+   * révoquée (16) —, `null` tant qu'il ne l'a pas fait. Posé une fois : la
+   * première cause gagne.
+   */
+  #reason: ConnectError | null = null;
 
   constructor(target: object | null, context: HttpContext | null = null) {
     this.target = target;
@@ -95,15 +99,42 @@ export class GrpcCall implements ContextValues, IRpcCall {
    * démarre : il est terminé dès son démarrage. Sans effet après la fin.
    */
   expire(): void {
-    if (this.#expired) return;
-    this.#expired = true;
-    const reject = this.#reject;
-    if (reject !== null) this.#end(reject);
+    if (this.#reason !== null) return;
+    this.#interrupt(
+      new ConnectError(
+        "délai de réponse du serveur dépassé",
+        Code.DeadlineExceeded,
+      ),
+    );
   }
 
   /**
-   * Suit un gestionnaire unaire asynchrone jusqu'à sa fin : {@link expire}
-   * pourra rejeter sa promesse.
+   * L'identité qui a ouvert l'appel n'est plus valable : le signal de l'appel
+   * s'abaisse et l'appel se termine en 16 `UNAUTHENTICATED`. Réponse unique :
+   * sa promesse est rejetée. Flux : il s'arrête au message suivant, même si le
+   * gestionnaire ne lit pas son signal — au plus le message déjà en vol part.
+   * Sans effet après la fin, ou après une autre interruption.
+   */
+  revoke(): void {
+    if (this.#reason !== null) return;
+    this.#interrupt(
+      new ConnectError("identité révoquée", Code.Unauthenticated),
+    );
+  }
+
+  /**
+   * L'interruption posée par le serveur, `null` tant qu'il n'y en a pas — lue
+   * par l'enrobage d'un flux avant chaque message.
+   *
+   * @internal
+   */
+  get interruption(): ConnectError | null {
+    return this.#reason;
+  }
+
+  /**
+   * Suit un gestionnaire à réponse unique (unaire, flux client) jusqu'à sa
+   * fin : une interruption pourra rejeter sa promesse.
    *
    * @param ctx - le contexte d'appel remis au gestionnaire.
    * @param reject - le rejet de la promesse rendue à l'adaptateur.
@@ -111,13 +142,27 @@ export class GrpcCall implements ContextValues, IRpcCall {
    * @internal
    */
   attach(ctx: HandlerContext, reject: (reason: unknown) => void): void {
-    if (this.#expired) {
-      this.#ctx = ctx;
-      this.#end(reject);
+    this.#ctx = ctx;
+    const reason = this.#reason;
+    if (reason !== null) {
+      this.#end(reason, reject);
       return;
     }
-    this.#ctx = ctx;
     this.#reject = reject;
+  }
+
+  /**
+   * Suit un gestionnaire en flux (serveur, bidirectionnel) : une interruption
+   * abaissera son signal. Son itérateur s'arrête par {@link interruption}.
+   *
+   * @param ctx - le contexte d'appel remis au gestionnaire.
+   *
+   * @internal
+   */
+  follow(ctx: HandlerContext): void {
+    this.#ctx = ctx;
+    const reason = this.#reason;
+    if (reason !== null && hasAbort(ctx)) ctx.abort(reason);
   }
 
   /**
@@ -130,11 +175,18 @@ export class GrpcCall implements ContextValues, IRpcCall {
     this.#reject = null;
   }
 
-  #end(reject: (reason: unknown) => void): void {
-    const reason = new ConnectError(
-      "délai de réponse du serveur dépassé",
-      Code.DeadlineExceeded,
-    );
+  #interrupt(reason: ConnectError): void {
+    this.#reason = reason;
+    const reject = this.#reject;
+    if (reject !== null) {
+      this.#end(reason, reject);
+      return;
+    }
+    const ctx = this.#ctx;
+    if (ctx !== null && hasAbort(ctx)) ctx.abort(reason);
+  }
+
+  #end(reason: ConnectError, reject: (reason: unknown) => void): void {
     const ctx = this.#ctx;
     this.detach();
     if (ctx !== null && hasAbort(ctx)) ctx.abort(reason);

@@ -2812,7 +2812,8 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   watchStream(stream: IWatchedStream): void {
     (this.#streams ??= new RevocationWatch<IWatchedStream>({
       isValid: (entry) => entry.revalidate(),
-      revoke: (entry) => void entry.close(),
+      // Au format du protocole quand un adaptateur RPC tient les écritures.
+      revoke: (entry) => void entry.revoke(),
       // Droits changés : la même fermeture — `EventSource` se reconnecte seul,
       // avec l'identité à jour.
       identityOf: (entry) => entry.identifier ?? undefined,

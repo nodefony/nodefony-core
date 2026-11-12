@@ -330,9 +330,10 @@ function streamingPathsOf(service: DescService): ReadonlySet<string> {
 }
 
 /**
- * Fin d'un appel unaire (ADR-0026 D4, point 3) : l'appel se termine au plus
- * tard au délai de réponse du serveur, même si le gestionnaire ne lit pas son
- * signal.
+ * Fin d'un appel à réponse unique — unaire (ADR-0026 D4, point 3), flux
+ * client : l'appel se termine dès que le serveur l'interrompt — délai de
+ * réponse échu (unaire), identité révoquée (D6) —, même si le gestionnaire ne
+ * lit pas son signal.
  *
  * - L'adaptateur tient l'échéance DU CLIENT et abaisse `ctx.signal`, mais
  *   attend la promesse du gestionnaire
@@ -353,9 +354,16 @@ function settleUnary<T>(
   ctx: HandlerContext,
 ): T | Promise<T> {
   if (!(result instanceof Promise)) return result;
+  return settlePending(result, ctx);
+}
+
+/** {@link settleUnary} d'une réponse attendue : suivie par la fiche d'appel. */
+function settlePending<T>(
+  pending: Promise<T>,
+  ctx: HandlerContext,
+): Promise<T> {
   const call = ctx.values;
-  if (!(call instanceof GrpcCall)) return result;
-  const pending: Promise<T> = result;
+  if (!(call instanceof GrpcCall)) return pending;
   return new Promise<T>((resolve, reject) => {
     call.attach(ctx, reject);
     pending.then(
@@ -556,15 +564,15 @@ function invoke<A, R>(
 
 /**
  * Flux client (une seule réponse) : toute erreur est traduite (ADR-0026 D7,
- * point 3). Une promesse par appel, aucune par message reçu.
+ * point 3), et l'appel se termine dès que le serveur l'interrompt (identité
+ * révoquée, D6) — le même règlement qu'un appel unaire. Une promesse par
+ * appel, aucune par message reçu.
  */
 function translateSettled<T>(
   result: Promise<T>,
   ctx: HandlerContext,
 ): Promise<T> {
-  return result.then(undefined, (error: unknown) => {
-    throw translateError(error, ctx);
-  });
+  return settlePending(result, ctx);
 }
 
 /**
@@ -590,11 +598,16 @@ function translateFirst<T>(
 class FirstMessageTranslator<T> implements AsyncIterator<T>, AsyncIterable<T> {
   readonly #source: AsyncIterator<T>;
   readonly #ctx: HandlerContext;
+  /** La fiche de l'appel : son interruption arrête le flux (ADR-0026 D6). */
+  readonly #call: GrpcCall | null;
   #started = false;
 
   constructor(source: AsyncIterable<T>, ctx: HandlerContext) {
     this.#source = source[Symbol.asyncIterator]();
     this.#ctx = ctx;
+    const call = ctx.values;
+    this.#call = call instanceof GrpcCall ? call : null;
+    this.#call?.follow(ctx);
   }
 
   [Symbol.asyncIterator](): this {
@@ -602,6 +615,10 @@ class FirstMessageTranslator<T> implements AsyncIterator<T>, AsyncIterable<T> {
   }
 
   next(): Promise<IteratorResult<T>> {
+    // Interrompu par le serveur (identité révoquée) : le flux s'arrête ICI,
+    // que le gestionnaire lise son signal ou non — Connect écrit le statut.
+    const interruption = this.#call?.interruption ?? null;
+    if (interruption !== null) return this.#stop(interruption);
     if (this.#started) return this.#source.next();
     this.#started = true;
     return this.#source.next().then(undefined, (error: unknown) => {
@@ -623,6 +640,21 @@ class FirstMessageTranslator<T> implements AsyncIterator<T>, AsyncIterable<T> {
       throw error;
     });
   }
+
+  /**
+   * Arrête un flux interrompu : la source est refermée (le `finally` d'un
+   * gestionnaire `async function*` s'exécute), sans attendre qu'elle finisse
+   * — le statut part tout de suite.
+   */
+  #stop(reason: ConnectError): Promise<IteratorResult<T>> {
+    this.#source.return?.().catch(ignoreClosingError);
+    return Promise.reject(reason);
+  }
+}
+
+/** Une source qui lève en se refermant : l'appel est déjà terminé. */
+function ignoreClosingError(): undefined {
+  return undefined;
 }
 
 // `DescMethod` porte `methodKind` sans être une union discriminée : ces gardes

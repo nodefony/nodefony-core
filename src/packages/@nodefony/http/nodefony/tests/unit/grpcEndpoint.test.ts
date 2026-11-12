@@ -1548,3 +1548,167 @@ describe("GrpcEndpoint — erreurs de l'application (critères 32 et 56, ADR-002
     }
   });
 });
+
+describe("GrpcCall — révocation de l'identité (critère 31, ADR-0026 D6)", () => {
+  const service = makeService();
+  const method = service.methods[0];
+  const handlerContext = () => {
+    if (method === undefined) throw new Error("méthode absente");
+    return createHandlerContext({
+      service,
+      method,
+      protocolName: "grpc",
+      requestMethod: "POST",
+      url: "http://localhost/x",
+    });
+  };
+
+  it("réponse unique suivie : rejet 16, signal abaissé avec la même raison", () => {
+    const call = new GrpcCall(null);
+    const ctx = handlerContext();
+    const reasons: unknown[] = [];
+    call.attach(ctx, (reason) => reasons.push(reason));
+    call.revoke();
+    const reason = reasons[0];
+    expect(reason).to.be.instanceOf(ConnectError);
+    expect(reason instanceof ConnectError && reason.code).to.equal(
+      Code.Unauthenticated,
+    );
+    expect(ctx.signal.reason).to.equal(reason);
+    expect(call.interruption).to.equal(reason);
+  });
+
+  it("révoquée AVANT que le gestionnaire ne démarre : rejetée dès qu'il est suivi", () => {
+    const call = new GrpcCall(null);
+    call.revoke();
+    const reasons: unknown[] = [];
+    call.attach(handlerContext(), (reason) => reasons.push(reason));
+    expect(reasons).to.have.length(1);
+  });
+
+  it("la première cause gagne : échue puis révoquée → 4, un seul rejet", () => {
+    const call = new GrpcCall(null);
+    const reasons: unknown[] = [];
+    call.attach(handlerContext(), (reason) => reasons.push(reason));
+    call.expire();
+    call.revoke();
+    expect(reasons).to.have.length(1);
+    expect(call.interruption?.code).to.equal(Code.DeadlineExceeded);
+  });
+
+  it("flux suivi : le signal s'abaisse en 16, l'interruption est lisible", () => {
+    const call = new GrpcCall(null);
+    const ctx = handlerContext();
+    call.follow(ctx);
+    expect(call.interruption).to.equal(null);
+    call.revoke();
+    expect(ctx.signal.aborted).to.equal(true);
+    expect(call.interruption?.code).to.equal(Code.Unauthenticated);
+  });
+});
+
+describe("GrpcEndpoint — appel révoqué en cours (critère 31, ADR-0026 D6)", () => {
+  /** Révoque l'appel du contexte comme le registre du noyau le ferait. */
+  const revoke = (ctx: { values: unknown }): void => {
+    if (ctx.values instanceof GrpcCall) ctx.values.revoke();
+  };
+
+  it("flux serveur SOURD qui produit : 16 au message suivant, au plus le message en vol, `finally` exécuté", async () => {
+    const service = makeService(true);
+    const state = { finished: false };
+    const server = await serveWith(
+      new GrpcEndpoint(service, { perCall: true }),
+      () => ({
+        // Ignore son signal ; fini (50 messages) pour qu'un débranchement se
+        // lise en échec, jamais en délai dépassé.
+        async *watch(_request: unknown, ctx: { values: unknown }) {
+          try {
+            for (let i = 0; i < 50; i++) {
+              if (i === 3) revoke(ctx);
+              yield { text: String(i) };
+            }
+          } finally {
+            state.finished = true;
+          }
+        },
+      }),
+    );
+    try {
+      const r = await connectStream(server.url, service, "Watch", [
+        { text: "x" },
+      ]);
+      // 0, 1, 2 avant la révocation ; 3 était déjà en vol.
+      expect(r.messages).to.deep.equal([
+        { text: "0" },
+        { text: "1" },
+        { text: "2" },
+        { text: "3" },
+      ]);
+      expect(r.error).to.deep.equal({
+        code: "unauthenticated",
+        message: "identité révoquée",
+      });
+      expect(state.finished, "le gestionnaire est refermé").to.equal(true);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("flux serveur qui ÉCOUTE son signal : il lit la raison 16 et la lève", async () => {
+    const service = makeService(true);
+    const server = await serveWith(
+      new GrpcEndpoint(service, { perCall: true }),
+      () => ({
+        async *watch(
+          _request: unknown,
+          ctx: { values: unknown; signal: AbortSignal },
+        ) {
+          yield { text: "un" };
+          setTimeout(() => revoke(ctx), 5);
+          await new Promise<void>((resolve) =>
+            ctx.signal.addEventListener("abort", () => resolve(), {
+              once: true,
+            }),
+          );
+          throw ctx.signal.reason;
+        },
+      }),
+    );
+    try {
+      const r = await connectStream(server.url, service, "Watch", [
+        { text: "x" },
+      ]);
+      expect(r.messages).to.deep.equal([{ text: "un" }]);
+      expect(r.error?.code).to.equal("unauthenticated");
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("flux client révoqué, gestionnaire SOURD qui ne rend jamais : 16 sans l'attendre", async () => {
+    const service = makeService(true, true);
+    const server = await serveWith(
+      new GrpcEndpoint(service, { perCall: true }),
+      () => ({
+        async collect(
+          requests: AsyncIterable<unknown>,
+          ctx: { values: unknown },
+        ) {
+          for await (const _ of requests) {
+            // tout lire
+          }
+          revoke(ctx);
+          return new Promise<never>(() => undefined);
+        },
+      }),
+    );
+    try {
+      const r = await connectStream(server.url, service, "Collect", [
+        { text: "a" },
+      ]);
+      expect(r.error?.code).to.equal("unauthenticated");
+    } finally {
+      await server.close();
+    }
+  });
+});

@@ -4,7 +4,7 @@ import type http2 from "node:http2";
 import type HttpContext from "./HttpContext";
 import Http2Response from "../http2/Response";
 import HttpError from "../../errors/httpError";
-import { RequestContext } from "nodefony";
+import { RequestContext, REVOCATION_REVALIDATE_MS } from "nodefony";
 
 /**
  * Cycle de vie d'une réponse en flux — la brique commune au flux d'événements
@@ -134,6 +134,11 @@ export interface IWatchedStream {
   revalidate(): Promise<boolean>;
   /** Ferme le flux et termine la requête. */
   close(): unknown;
+  /**
+   * L'identité du flux est morte : il prend fin — au format de son protocole
+   * quand un adaptateur RPC tient les écritures, sinon par {@link close}.
+   */
+  revoke(): unknown;
 }
 
 /** Gardes et identité d'un flux, options résolues. */
@@ -176,6 +181,11 @@ export class StreamLifecycle implements IWatchedStream {
    * une contre-pression — créée à la première, `null` avant (lazy).
    */
   #onSweptDrain: (() => void) | null = null;
+  /**
+   * Fenêtre laissée à un appel RPC révoqué pour se terminer à son format avant
+   * la destruction du transport — armée seulement à la révocation.
+   */
+  #revokeGrace: ReturnType<typeof setTimeout> | null = null;
   #closed = false;
   #cause: StreamLifecycleCause = null;
   /**
@@ -378,6 +388,41 @@ export class StreamLifecycle implements IWatchedStream {
     return done instanceof Promise ? done.then(() => undefined) : undefined;
   }
 
+  /**
+   * L'identité qui a ouvert le flux est morte (révocation, droits changés) :
+   * le flux prend fin. Idempotent.
+   *
+   * Quand un adaptateur RPC tient les écritures, c'est LUI qui termine l'appel,
+   * au format de son protocole (`HttpContext.rpc.revoke`, gRPC : 16) : le
+   * client lit un statut, pas une coupure, et aucun second écrivain ne touche
+   * la réponse. Un gestionnaire qui n'entend rien — bloqué, sans message à
+   * produire — est détruit à la fenêtre de re-validation suivante. Sinon :
+   * {@link close}.
+   */
+  revoke(): Promise<void> | undefined {
+    if (this.#closed) return undefined;
+    const rpc = this.#foreignWriter ? this.context.rpc : null;
+    if (rpc === null) return this.close();
+    if (this.#revokeGrace !== null) return undefined;
+    this.#cause = "server";
+    rpc.revoke();
+    this.#revokeGrace = setTimeout(
+      StreamLifecycle.#destroyRevoked,
+      REVOCATION_REVALIDATE_MS,
+      this,
+    );
+    this.#revokeGrace.unref();
+    return undefined;
+  }
+
+  /** Fenêtre écoulée : l'appel révoqué n'a pas fini, le transport est détruit. */
+  static #destroyRevoked(this: void, lifecycle: StreamLifecycle): void {
+    lifecycle.#revokeGrace = null;
+    if (lifecycle.#closed) return;
+    lifecycle.finish();
+    lifecycle.target.destroy();
+  }
+
   /** Fin du flux : minuteurs, écouteurs et registre libérés, une seule fois. */
   finish(): void {
     if (this.#closed) return;
@@ -386,6 +431,10 @@ export class StreamLifecycle implements IWatchedStream {
     if (this.#lifetime !== null) {
       clearTimeout(this.#lifetime);
       this.#lifetime = null;
+    }
+    if (this.#revokeGrace !== null) {
+      clearTimeout(this.#revokeGrace);
+      this.#revokeGrace = null;
     }
     this.#stallSince = 0;
     if (this.#stall !== null) {
