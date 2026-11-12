@@ -265,10 +265,18 @@ GÉNÉRÉ et commité dans `nodefony/gen/` (`npx buf generate` depuis la racine 
 OBLIGATOIRES du module (un module ne fournit jamais sa copie) ; importés au démarrage par les
 contrôleurs.
 
-| Contrôleur                 | Service                              | Portée    |
-| -------------------------- | ------------------------------------ | --------- |
-| `GrpcEchoController`       | `nodefony.test.v1.EchoService`       | singleton |
-| `GrpcScopedEchoController` | `nodefony.test.v1.ScopedEchoService` | `request` |
+| Contrôleur                 | Service                               | Portée    |
+| -------------------------- | ------------------------------------- | --------- |
+| `GrpcEchoController`       | `nodefony.test.v1.EchoService`        | singleton |
+| `GrpcScopedEchoController` | `nodefony.test.v1.ScopedEchoService`  | `request` |
+| `GrpcGuardedController`    | `nodefony.test.v1.GuardedEchoService` | singleton |
+
+`GuardedEchoService` (refus au format du protocole, ADR-0026 D5) : `Member` sous la zone
+`test-grpc-member` (JWT seul → sans jeton, 16), `Admin` sous `test-grpc` (JWT puis anonyme) avec
+`@IsGranted("ROLE_ADMIN")` (anonyme → 16, `user` → 7, `admin` servi). Chemins DISJOINTS : aucun
+ordre de zone n'entre en jeu. `calls` = témoin qu'un refus n'atteint pas la méthode. Banc :
+`framework/nodefony/tests/integration/grpc-refusal.test.ts` (formes Trailers-Only, 405/421,
+attrape-tout `/nodefony/test/route*`, corps non lu h1/h2).
 
 | Méthode    | Ce qu'elle prouve                                                                        |
 | ---------- | ---------------------------------------------------------------------------------------- |

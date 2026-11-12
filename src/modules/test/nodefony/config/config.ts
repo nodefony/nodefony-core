@@ -95,6 +95,21 @@ export default {
       // une session). Les deux se présentent en `Authorization: Bearer <…>` — la
       // discrimination se fait par FORME (JWT = `a.b.c`, PAT = `nf_…`), donc les deux
       // authenticators coexistent SANS ambiguïté (supports() mutuellement exclusifs).
+      // #695 lot 3 — refus gRPC au format du protocole (ADR-0026 D5). Les deux
+      // chemins sont DISJOINTS : aucun ordre de zone n'entre en jeu.
+      // `Member` : JWT seul — sans jeton, le pare-feu refuse (16).
+      "test-grpc-member": {
+        pattern: "^/nodefony\\.test\\.v1\\.GuardedEchoService/Member$",
+        authenticators: ["jwt"],
+        stateless: true,
+      },
+      // `Admin` : JWT, sinon l'anonyme passe — `@IsGranted("ROLE_ADMIN")` décide
+      // (anonyme → 16, identifié sans le rôle → 7).
+      "test-grpc": {
+        pattern: "^/nodefony\\.test\\.v1\\.GuardedEchoService/Admin$",
+        authenticators: ["jwt", "anonymous"],
+        stateless: true,
+      },
       "test-api": {
         pattern: "^/nodefony/test/m2m",
         authenticators: ["jwt", "apikey"],

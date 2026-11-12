@@ -1,0 +1,38 @@
+// Service gardé du module `test` (#695, lot 3) : les refus du pare-feu et de
+// `@IsGranted` rendus au format de chaque protocole (ADR-0026 D5).
+syntax = "proto3";
+
+package nodefony.test.v1;
+
+// Chaque méthode vit sous une zone du pare-feu (`nodefony/config/config.ts`).
+service GuardedEchoService {
+  // Zone stricte (JWT seul) : sans jeton, le PARE-FEU refuse — 16.
+  rpc Member(MemberRequest) returns (MemberResponse);
+  // Zone ouverte à l'anonyme, méthode `@IsGranted("ROLE_ADMIN")` : anonyme → 16,
+  // identifié sans le rôle → 7.
+  rpc Admin(AdminRequest) returns (AdminResponse);
+}
+
+message MemberRequest {
+  string sentence = 1;
+}
+
+message MemberResponse {
+  string sentence = 1;
+  // Identifiant de l'appelant authentifié.
+  string identifier = 2;
+  // Appels servis depuis le démarrage : témoin qu'un refus n'atteint pas la méthode.
+  uint32 calls = 3;
+}
+
+message AdminRequest {
+  string sentence = 1;
+}
+
+message AdminResponse {
+  string sentence = 1;
+  // Identifiant de l'appelant authentifié.
+  string identifier = 2;
+  // Appels servis depuis le démarrage : témoin qu'un refus n'atteint pas la méthode.
+  uint32 calls = 3;
+}

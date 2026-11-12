@@ -50,6 +50,7 @@ import PocBookResourceController from "./nodefony/poc/PocBookResourceController"
 // gRPC (#695) — services déclarés par @GrpcService (contrats : proto/, code généré : nodefony/gen/).
 import { GrpcEchoController } from "./nodefony/controller/GrpcEchoController";
 import { GrpcScopedEchoController } from "./nodefony/controller/GrpcScopedEchoController";
+import { GrpcGuardedController } from "./nodefony/controller/GrpcGuardedController";
 // Serveur testé par la suite de conformité officielle de Connect (conformance/run.mjs).
 import { GrpcConformanceController } from "./nodefony/controller/GrpcConformanceController";
 // P6 J1 — banc ZONE PROTÉGÉE (dossier secure/ = préfixe /secure = zone "test-secure").
@@ -210,6 +211,7 @@ function overlayProbe(context: unknown): void {
   // POC #690 — gRPC dans le pipeline
   GrpcEchoController,
   GrpcScopedEchoController,
+  GrpcGuardedController,
   GrpcConformanceController,
 ])
 class Test extends Module {
