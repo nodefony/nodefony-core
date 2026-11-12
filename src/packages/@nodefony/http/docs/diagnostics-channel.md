@@ -167,6 +167,7 @@ seule pour l'abonné.
 | `statusCode` | fin     | statut rendu : celui de l'amont pour une requête relayée, `101` pour un handshake accepté, `null` si le client est parti |
 | `durationMs` | fin     | construction du contexte → dernier octet remis (fin du handshake en WebSocket) ; `null` si `timing.enabled: false`       |
 | `error`      | `error` | l'exception attrapée par le pipeline, `null` sinon                                                                       |
+| `rpc`        | fin     | appel RPC (gRPC, gRPC-Web, Connect) servi par la requête — `system`, `method`, `code`, `codeName` — ; `null` hors RPC    |
 
 Les champs « fin » valent `null` à `start` et `end` : c'est normal, la route et le statut ne sont
 pas encore connus. On les lit sur `asyncEnd`.
@@ -187,6 +188,43 @@ Pour qui écrit un plugin OTel, la table des attributs du span serveur (conventi
 
 Un **4xx sans exception** ne publie pas `error` : pour un span serveur, OTel demande de laisser le
 statut d'un 4xx non renseigné. C'est à l'abonné de classer un statut ; `statusCode` est là pour ça.
+
+### Un appel RPC — gRPC, gRPC-Web, Connect
+
+Un appel gRPC répond le plus souvent en HTTP 200 : son résultat voyage dans le trailer
+`grpc-status`. `statusCode` reste le statut HTTP, vrai sur le fil ; le résultat de l'appel est dans
+`rpc`, une COPIE de quatre champs, fixée au `close` de la réponse :
+
+| Champ      | Contenu                                                                                    |
+| ---------- | ------------------------------------------------------------------------------------------ |
+| `system`   | protocole parlé sur le fil : `grpc`, `grpc-web` ou `connect`                               |
+| `method`   | `paquet.Service/Méthode`, tiré de la route                                                 |
+| `code`     | code de l'appel (0 à 16) ; `null` si l'appel n'a jamais commencé (refusé par le transport) |
+| `codeName` | son nom (`OK`, `UNAVAILABLE`…), `null` avec lui                                            |
+
+Le code est celui que lit le client, à une course près : quand l'échéance du client expire, sa
+coupure et le minuteur du serveur se croisent, et le serveur publie 4 ou 1. Une réponse que le
+serveur n'a pas terminée vaut 1 `CANCELLED` — le client est parti, comme le statut 499 —, sauf une
+fin qu'il a lui-même posée (échéance 4, identité révoquée 16). Un refus de l'adaptateur avant le
+gestionnaire (message trop grand, encodage inconnu) porte son code. Une exception devient `error` :
+un appel en erreur publie UN `error`. Rien n'est publié par message d'un flux : un flux est un span,
+de l'ouverture au `close`.
+
+Correspondance avec les conventions RPC d'OpenTelemetry :
+
+| Attribut OTel              | Champ                                                                                           |
+| -------------------------- | ----------------------------------------------------------------------------------------------- |
+| nom du span                | `rpc.method`                                                                                    |
+| `rpc.method`               | `rpc.method`                                                                                    |
+| `rpc.system.name`          | `grpc` (convention stable) ou `connectrpc` (convention en développement) — au choix de l'abonné |
+| `rpc.status_code`          | `rpc.codeName`                                                                                  |
+| `error.type`               | dérivé de `error`, sinon `rpc.codeName` pour un code d'erreur                                   |
+| `rpc.server.call.duration` | `durationMs / 1000` — même horloge que le span                                                  |
+
+Un code est une erreur du serveur — statut du span en erreur — pour 2, 4, 12, 13, 14 et 15 ; les
+autres codes non nuls sont des refus ou des échecs du client. La ligne d'accès suit la même règle
+pour sa gravité, et ajoute `RPC : <méthode> <NOM>` au statut HTTP. `traceparent` voyage dans les
+métadonnées gRPC, qui sont des en-têtes HTTP : la propagation W3C existante les lit.
 
 ## La séquence, sortie par sortie
 
@@ -240,6 +278,9 @@ pas — ou on se désabonne (`channel.unsubscribe(subscribers)`).
 - **Conventions sémantiques HTTP d'OpenTelemetry** — `http.route` exige un gabarit de faible
   cardinalité, d'où `routePath` ; la durée de `http.server.request.duration` doit égaler celle du
   span serveur, d'où une seule horloge.
+- **Conventions sémantiques RPC d'OpenTelemetry** (`docs/rpc/rpc-spans.md`, `grpc.md`,
+  `connect-rpc.md`, `rpc-metrics.md`) — nom du span = `rpc.method`, jamais une valeur inventée ;
+  codes d'erreur du serveur gRPC (« SHOULD be considered errors ») ; durée sur l'horloge du span.
 
 ## Sécurité
 
@@ -261,11 +302,14 @@ Mesuré au micro-banc (Node 26, médiane de 7 passages) :
 | ----------------------------- | ------------------------------------------------------------------------------------- |
 | Personne n'écoute (le défaut) | une lecture de `hasSubscribers` (~1,6 ns), un champ `null` sur le contexte (8 octets) |
 | Un abonné                     | un objet de message, l'appel des abonnés, l'entrée dans les stores liés               |
+| Un appel RPC, avec un abonné  | une copie de quatre champs (`rpc`), à la fin — rien par message d'un flux             |
 
 `diagnostics_channel.hasSubscribers("nom")` coûterait ~41 ns : la garde lit donc le
 `TracingChannel` gardé en mémoire de module, jamais une recherche par nom. Le gate mémoire
 (`npm run test:memory`) est vert **sans** abonné et **avec** un abonné armé : le message ne retient
-ni contexte ni scope.
+ni contexte ni scope. Un abonné peut le garder après la fin de la requête : son `error` ne
+retient pas davantage la requête — une `HttpError` lit le contexte à sa construction et n'en garde
+aucune référence.
 
 ## Pièges
 
