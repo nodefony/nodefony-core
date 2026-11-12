@@ -224,7 +224,7 @@ class HttpResponse {
   // l'oblige à un `writev` en deux morceaux, après une copie d'encodage —
   // ~5 µs par réponse JSON mesurés au profil, pour un octet identique sur le fil.
   #text: string | null = null;
-  #textEncoding: BufferEncoding = "utf-8";
+  #textEncoding: BufferEncoding = "utf8";
   #buffer: Buffer | null = null;
   contentType: string = "application/octet-stream";
   headers: http.OutgoingHttpHeaders = {};
@@ -893,7 +893,12 @@ class HttpResponse {
   #setText(text: string, encoding: BufferEncoding): void {
     this.#buffer = null;
     this.#text = text;
-    this.#textEncoding = encoding;
+    // Node ne colle les en-têtes au premier morceau du corps que pour `"utf8"`
+    // ou `"latin1"` EXACTEMENT (`OutgoingMessage._send`) : sous `"utf-8"`, les
+    // en-têtes partent en morceau séparé et `end()` écrit par `writev` — deux
+    // morceaux par réponse au lieu d'un. L'alias se normalise donc ici, seul
+    // point d'entrée du texte, une fois par corps.
+    this.#textEncoding = encoding === "utf-8" ? "utf8" : encoding;
   }
 
   setLength(

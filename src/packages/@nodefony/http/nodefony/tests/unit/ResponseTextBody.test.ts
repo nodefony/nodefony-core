@@ -40,7 +40,9 @@ describe("HttpResponse — corps texte écrit tel quel", () => {
     await r.send('{"ok":true}');
     expect(ended).to.have.length(1);
     expect(ended[0]![0]).to.equal('{"ok":true}');
-    expect(ended[0]![1]).to.equal("utf-8");
+    // `"utf8"` EXACTEMENT, jamais l'alias `"utf-8"` : Node ne colle les en-têtes
+    // au corps que sous ce nom-là (cf ResponseHeaderCoalesce.test.ts).
+    expect(ended[0]![1]).to.equal("utf8");
   });
 
   it("setBody(objet) : sérialisé en JSON et écrit en texte", async () => {

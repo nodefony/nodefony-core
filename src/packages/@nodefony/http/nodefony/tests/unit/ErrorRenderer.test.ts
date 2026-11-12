@@ -631,6 +631,40 @@ describe("DefaultErrorRenderer — ce qui fuit en production (F189)", () => {
     expect(body.error).to.not.have.property("action");
   });
 
+  it("HTTP 404 : la pile n'est jamais LUE en production — son formatage serait jeté", () => {
+    // Lire `stack` déclenche le formatage de V8 (`prepareStackTrace`, plusieurs
+    // µs). Le lire pour le supprimer ensuite, c'était payer ce formatage sur
+    // chaque 404 — mesuré au profil comparé 404/200. L'accesseur compte les
+    // lectures : la clé doit être écartée AVANT d'être lue.
+    const reads = (environment: string): number => {
+      pretendEnvironment(environment);
+      const error = new HttpError("Not Found", 404);
+      let count = 0;
+      Object.defineProperty(error, "stack", {
+        configurable: true,
+        enumerable: false,
+        get() {
+          count++;
+          return "HttpError: Not Found\n    at /srv/app/x.js:1:1";
+        },
+      });
+      const ctx = fakeHttpContext();
+      renderer.renderHttp(error, ctx as never);
+      const body = ctx.metaData as { error: Record<string, unknown> };
+      expect(body.error).to.have.property("message", "Not Found");
+      if (environment === "production") {
+        expect(body.error).to.not.have.property("stack");
+      } else {
+        expect(body.error).to.have.property("stack");
+      }
+      return count;
+    };
+    expect(reads("production")).to.equal(0);
+    // Témoin : hors production la pile est servie, donc lue — l'accesseur
+    // compte bien, le zéro ci-dessus n'est pas un instrument aveugle.
+    expect(reads("development")).to.be.greaterThan(0);
+  });
+
   it("HTTP 4xx : le message VOULU par le framework passe (403 n'est pas une fuite)", () => {
     pretendEnvironment("production");
     const ctx = fakeHttpContext();

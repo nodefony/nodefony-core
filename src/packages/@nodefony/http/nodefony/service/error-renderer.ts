@@ -6,7 +6,7 @@ import type {
   IErrorHint,
 } from "../interfaces/IErrorRenderer";
 import type { IHttpContext, IWebsocketContext } from "../interfaces/IContext";
-import HttpError from "../src/errors/httpError";
+import HttpError, { serializeHttpError } from "../src/errors/httpError";
 import { toWsCloseCode } from "../src/context/websocket/WebsocketContext";
 import { Nodefony, nodefonyError } from "nodefony";
 
@@ -66,14 +66,14 @@ const OPAQUE_SERVER_ERROR = "Internal Server Error";
  * Clés d'un `HttpError` sérialisé qui décrivent les ENTRAILLES du serveur et ne
  * doivent jamais franchir la frontière en production.
  */
-const INTERNAL_ERROR_KEYS = [
+const INTERNAL_ERROR_KEYS: ReadonlySet<string> = new Set([
   "stack",
   "controller",
   "action",
   "bundle",
   "url",
   "pdu",
-] as const;
+]);
 
 /**
  * Vrai si le runtime tourne en production — le détail des erreurs reste alors au
@@ -519,19 +519,21 @@ class DefaultErrorRenderer implements IErrorRenderer {
     // expects nodefony.* fields to be present alongside error/code/message.
     const obj = (context as unknown as { metaData: Record<string, unknown> })
       .metaData;
-    const serialized = (httpError as nodefonyError).toJSON() as Record<
-      string,
-      unknown
-    >;
     // PRODUCTION — le client reçoit un verdict, pas un rapport d'autopsie :
     // la stack et le nommage interne (controller/action/module/url) sortent du
     // corps, et le message d'une panne 5xx devient opaque. Les 4xx gardent le
     // leur : un 422 de validation ou un 403 de policy est un message ÉCRIT POUR
     // le client, pas une fuite. Le détail réel part au journal (`logRequest`).
+    // Les clés internes sont écartées AVANT lecture, jamais lues puis
+    // supprimées : lire `stack` la formate, et ce formatage serait jeté.
+    const production = isProduction();
+    const serialized = serializeHttpError(
+      httpError,
+      production ? INTERNAL_ERROR_KEYS : null,
+    );
     const message =
-      isProduction() && status >= 500 ? OPAQUE_SERVER_ERROR : httpError.message;
-    if (isProduction()) {
-      for (const key of INTERNAL_ERROR_KEYS) delete serialized[key];
+      production && status >= 500 ? OPAQUE_SERVER_ERROR : httpError.message;
+    if (production) {
       serialized.message = message;
     }
     obj.error = serialized;

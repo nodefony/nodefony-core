@@ -5,31 +5,50 @@ import { HttpRequestType, HttpRsponseType } from "../context/http/HttpContext";
 type JsonDescriptor = {
   configurable?: boolean;
   enumerable?: boolean;
-  value?: () => unknown;
+  value?: (this: Error) => unknown;
   writable?: boolean;
 };
 
-const exclude = {
-  context: true,
-  resolver: true,
-  container: true,
-  secure: true,
-  request: true,
-  response: true,
-};
+/** Références vivantes (circulaires) jamais sérialisées, quel que soit l'environnement. */
+const EXCLUDED_KEYS: ReadonlySet<string> = new Set([
+  "context",
+  "resolver",
+  "container",
+  "secure",
+  "request",
+  "response",
+]);
+
+/**
+ * Sérialise les propriétés propres d'une erreur HTTP, sans jamais LIRE celles
+ * qu'on écarte.
+ *
+ * Ne pas lire compte : `stack` est un accesseur paresseux de V8, et sa première
+ * lecture FORMATE la pile (`prepareStackTrace`, plusieurs µs). Lire puis
+ * supprimer, c'est payer ce formatage pour le jeter — ce que faisait le rendu
+ * d'erreur en production, sur chaque 404.
+ *
+ * @param error - l'erreur à sérialiser (en pratique un `HttpError`).
+ * @param omit - clés à écarter EN PLUS des références vivantes, ou `null`.
+ * @returns un objet plat, prêt pour `JSON.stringify`.
+ */
+export function serializeHttpError(
+  error: Error,
+  omit: ReadonlySet<string> | null = null,
+): Record<string, unknown> {
+  const alt: Record<string, unknown> = {};
+  for (const key of Object.getOwnPropertyNames(error)) {
+    if (EXCLUDED_KEYS.has(key) || omit?.has(key)) continue;
+    alt[key] = Reflect.get(error, key);
+  }
+  return alt;
+}
+
 const jsonHttpError: JsonDescriptor = {
   configurable: true,
   writable: true,
-  value() {
-    const alt: Record<string, unknown> = {};
-    const storeKey = function (this: Record<string, unknown>, key: string) {
-      if (key in exclude) {
-        return;
-      }
-      alt[key] = this[key];
-    };
-    Object.getOwnPropertyNames(this).forEach(storeKey, this);
-    return alt;
+  value(this: Error) {
+    return serializeHttpError(this);
   },
 };
 
