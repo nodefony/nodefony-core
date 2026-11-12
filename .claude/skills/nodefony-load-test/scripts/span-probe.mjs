@@ -87,7 +87,46 @@ if (outDir) {
     [HttpContext.prototype, "phaseStart", "phaseStart"],
     [HttpContext.prototype, "phaseEnd", "phaseEnd"],
   ];
-  const sets = { chain, action, guards };
+  // `NF_SPAN_SET=error` : le chemin d'ERREUR d'une requête (404 de scanner) —
+  // rendu d'erreur, ligne d'audit et ses accesseurs DANS LE VRAI CONTEXTE (un
+  // micro-banc à contexte factice ne voit pas ce que coûtent `getHost`,
+  // `stopClock`…), l'interception d'écriture du repli statique, et les
+  // écritures de `node:http` — à comparer au même jeu servi sur un 200 : un
+  // `delete` qui ferait basculer la réponse Node en dictionnaire se paierait
+  // LÀ, pas dans la fonction qui l'a fait.
+  const { Context, JsonAuditLogger, DefaultErrorRenderer } =
+    await import("@nodefony/http");
+  /** @type {Array<[Record<string, unknown>, string, string]>} */
+  const error = [
+    [K, "onHttpRequest", "onHttpRequest (tout)"],
+    [K, "onError", "HttpKernel.onError"],
+    [
+      DefaultErrorRenderer.prototype,
+      "renderHttp",
+      "DefaultErrorRenderer.renderHttp",
+    ],
+    [HttpContext.prototype, "render", "HttpContext.render"],
+    [Context.prototype, "logRequest", "Context.logRequest (rendu + log)"],
+    [JsonAuditLogger.prototype, "renderHttp", "JsonAuditLogger.renderHttp"],
+    [Context.prototype, "log", "Context.log (toute la requête)"],
+    [HttpContext.prototype, "getHost", "HttpContext.getHost"],
+    [HttpContext.prototype, "getUserAgent", "HttpContext.getUserAgent"],
+    [Context.prototype, "stopClock", "Context.stopClock"],
+    [
+      HttpResponse.prototype,
+      "commitBeforeNativeWrite",
+      "HttpResponse.commitBeforeNativeWrite",
+    ],
+    [
+      HttpResponse.prototype,
+      "disarmNativeWrite",
+      "HttpResponse.disarmNativeWrite",
+    ],
+    [NodeRes, "writeHead", "node ServerResponse.writeHead"],
+    [NodeRes, "end", "node ServerResponse.end"],
+    [NodeRes, "setHeader", "node ServerResponse.setHeader (toute la requête)"],
+  ];
+  const sets = { chain, action, guards, error };
   const targets = sets[process.env.NF_SPAN_SET ?? "guards"] ?? guards;
   let active = false;
   let requests = 0;
@@ -111,8 +150,9 @@ if (outDir) {
     const acc = (stats[label] = { calls: 0, ms: 0 });
     proto[name] = wrap(proto[name], acc);
   }
-  // Requêtes de la fenêtre : un appel de `serveHttpRequest` par requête HTTP.
-  const counter = stats["serveHttpRequest (étage + action)"];
+  // Requêtes de la fenêtre : la PREMIÈRE méthode de chaque jeu est appelée une
+  // fois par requête HTTP (`serveHttpRequest`, `onHttpRequest`).
+  const counter = stats[targets[0][2]];
 
   /** Coût d'une enveloppe active autour d'une fonction vide, en ns. */
   const calibrate = () => {

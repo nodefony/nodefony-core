@@ -9445,6 +9445,10 @@
                 "help": ""
               },
               {
+                "name": "BENCH_EXPECT_STATUS",
+                "help": ""
+              },
+              {
                 "name": "BENCH_PATH",
                 "help": ""
               },

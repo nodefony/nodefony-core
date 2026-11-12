@@ -5,7 +5,10 @@
 # cible prouvée 200, chauffe non comptée, fenêtre SIGUSR2), sans témoin : la
 # sonde attribue, elle ne compare pas.
 #
-# Usage : [NF_SPAN_SET=guards|chain|action] span-run.sh [runs=3]
+# Usage : [NF_SPAN_SET=guards|chain|action|error] span-run.sh [runs=3]
+# Requête : BENCH_PATH, et BENCH_METHOD / BENCH_BODY / BENCH_EXPECT_STATUS par
+#   `bench-request.sh` (une implémentation avec les autres lanceurs) — le jeu
+#   `error` se sert sur un 404 : BENCH_EXPECT_STATUS=404.
 # Sortie : tmp/profiles/span/run-<n>/<pid>.spans.json, puis le tableau (span-analyze.mjs).
 # ⚠️ Tue ce qui écoute sur 5151 — arrêter le serveur de dev avant.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -21,6 +24,10 @@ node src/nodefony/bin/nodefony stop >/dev/null 2>&1 || true
 . "$DIR/kill-guard.sh"; kill_listeners 5151; sleep 1
 . "$DIR/machine-regime.sh"
 url="http://127.0.0.1:5151${BENCH_PATH:-/nodefony/test/als-test/state}"
+. "$DIR/bench-request.sh"
+bench_request_args
+trap 'rm -f "${TMPDIR:-/tmp}/nf-bench-request.$$.lua"' EXIT
+EXPECT="${BENCH_EXPECT_STATUS:-200}"
 for i in $(seq 1 "$RUNS"); do
   out="$BASE/run-$i"; rm -rf "$out"; mkdir -p "$out"
   attendre_machine_calme
@@ -30,8 +37,8 @@ for i in $(seq 1 "$RUNS"); do
     node --import "$DIR/decor-probe.mjs" src/nodefony/bin/nodefony production >"$out/server.log" 2>&1 &
   pid=$!
   for _ in $(seq 1 150); do curl -s -o /dev/null "$url" && break; sleep 0.2; done
-  code=$(curl -s -o /dev/null -w '%{http_code}' "$url")
-  if [ "$code" != "200" ] || ! grep -q "span-probe:" "$out/server.log"; then
+  code=$(curl -s -o /dev/null -w '%{http_code}' ${CURL_REQ[@]+"${CURL_REQ[@]}"} "$url")
+  if [ "$code" != "$EXPECT" ] || ! grep -q "span-probe:" "$out/server.log"; then
     echo "❌ run $i : cible $code ou sonde absente — $(grep -o 'decor-probe: REFUS.*' "$out/server.log" || echo "voir $out/server.log")"
     kill -INT $pid 2>/dev/null; exit 1
   fi
@@ -40,14 +47,15 @@ for i in $(seq 1 "$RUNS"); do
     echo "❌ run $i : décor refusé — $(grep -o 'decor-probe:.*' "$out/server.log" || echo 'garde absente')"
     kill -INT $pid 2>/dev/null; exit 1
   fi
-  wrk -t4 -c"$CONN" -d10s "$url" >/dev/null
+  wrk -t4 -c"$CONN" -d10s ${WRK_REQ[@]+"${WRK_REQ[@]}"} "$url" >/dev/null
   kill -USR2 $pid
-  wrk -t4 -c"$CONN" -d"${DUR}s" "$url" > "$out/wrk.txt"
+  wrk -t4 -c"$CONN" -d"${DUR}s" ${WRK_REQ[@]+"${WRK_REQ[@]}"} "$url" > "$out/wrk.txt"
   kill -USR2 $pid
   for _ in $(seq 1 100); do ls "$out"/*.spans.json >/dev/null 2>&1 && break; sleep 0.1; done
   kill -INT $pid; for _ in $(seq 1 50); do kill -0 $pid 2>/dev/null || break; sleep 0.2; done
   kill -0 $pid 2>/dev/null && { kill -TERM $pid; sleep 2; }
-  if grep -q "Non-2xx" "$out/wrk.txt"; then echo "❌ run $i : non-2xx sous charge"; exit 1; fi
+  invalid=$(bench_run_invalid "$(cat "$out/wrk.txt")")
+  if [ -n "$invalid" ]; then echo "❌ run $i : $invalid sous charge"; exit 1; fi
   ls "$out"/*.spans.json >/dev/null 2>&1 || { echo "❌ run $i : la sonde n'a rien écrit"; exit 1; }
   echo "run $i : $(awk '/Requests\/sec/ {print $2}' "$out/wrk.txt") req/s"
 done
