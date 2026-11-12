@@ -15,6 +15,7 @@ import {
 } from "nodefony";
 import type { IProtectedResourceInput } from "nodefony";
 import type { ContextType, ISecurityTrace } from "@nodefony/http";
+import { rpcCorsLists } from "@nodefony/http";
 import { encoderFromConfig } from "@nodefony/user";
 import type { IUserProvider } from "@nodefony/user";
 
@@ -236,6 +237,39 @@ class Firewall extends Service implements IFirewall {
       module.options,
     );
     this.kernel?.once("onBoot", () => this.#build());
+    // Après TOUS les `onBoot` (les routes gRPC se marquent au leur), avant
+    // l'ouverture des ports : la politique CORS reçoit ce que les protocoles
+    // RPC demandent (ADR-0026 D9).
+    this.kernel?.once("onReady", () => this.#widenCorsForRpc());
+  }
+
+  /**
+   * Ajoute à la politique CORS les méthodes et en-têtes que demandent les
+   * protocoles RPC — dès qu'un service gRPC est déclaré et que le CORS est
+   * actif (ADR-0026 D9 point 2). Le préflight part AVANT le routage et ne
+   * connaît pas la route : l'union est la seule voie. Une seule politique,
+   * celle de l'application ; calculée une fois, annoncée au démarrage.
+   */
+  #widenCorsForRpc(): void {
+    const config = this.#config;
+    const rpc = rpcCorsLists();
+    if (this.#cors === null || config === null || rpc === null) return;
+    const methods = withMissing(config.cors.methods, rpc.allowedMethods);
+    const allowedHeaders = withMissing(
+      config.cors.allowedHeaders,
+      rpc.allowedHeaders,
+    );
+    const added = [...methods.added, ...allowedHeaders.added];
+    if (added.length === 0) return;
+    this.#cors = new Cors({
+      ...config.cors,
+      methods: methods.list,
+      allowedHeaders: allowedHeaders.list,
+    });
+    this.log(
+      `CORS : service gRPC déclaré — le préflight autorise aussi ${added.join(", ")} (ADR-0026 D9)`,
+      "INFO",
+    );
   }
 
   // Compile config (Zod fail-fast) + zones + hiérarchie de rôles +
@@ -1747,3 +1781,21 @@ class Firewall extends Service implements IFirewall {
 
 export default Firewall;
 export { Firewall };
+
+/**
+ * La liste `base` complétée des entrées de `extra` qu'elle ne porte pas encore
+ * — comparaison sans casse (les noms d'en-têtes et de méthodes HTTP ne
+ * distinguent pas la casse) ; l'ordre et l'écriture de `base` sont gardés.
+ *
+ * @param base - la liste de la configuration.
+ * @param extra - les entrées à garantir.
+ * @returns la liste complétée et les entrées ajoutées.
+ */
+function withMissing(
+  base: readonly string[],
+  extra: readonly string[],
+): { list: string[]; added: string[] } {
+  const known = new Set(base.map((entry) => entry.toLowerCase()));
+  const added = extra.filter((entry) => !known.has(entry.toLowerCase()));
+  return { list: [...base, ...added], added };
+}

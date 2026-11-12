@@ -195,6 +195,11 @@ interface IFakeContext {
     commits: Array<{ type: string | undefined; headersSent: boolean }>;
     /** Recopie de la réserve (`HttpResponse.commitHeaders`) : pose un témoin natif. */
     commitHeaders(contentType?: string): void;
+    /** Réserve d'en-têtes du pipeline (CORS posé par le pare-feu…), clés en minuscules. */
+    reserve: Map<string, string>;
+    hasHeader(name: string): boolean;
+    getHeader(name: string): string | undefined;
+    setHeader(name: string, value: string): void;
   };
   request: { request: http.IncomingMessage; url: URL };
   /** L'appel RPC du contexte (`HttpContext.rpc`), posé par `serve`. */
@@ -232,6 +237,7 @@ function fakeContext(
   settings: Partial<IGrpcSettings> | null,
   responseTimeout = 30_000,
   hooks: IKernelHooks | null = null,
+  reserve: Record<string, string> = {},
 ): IFakeContext {
   return {
     sended: false,
@@ -245,6 +251,16 @@ function fakeContext(
         this.commits.push({ type: contentType, headersSent: res.headersSent });
         // Ce que la réserve porte (CORS, corrélation…) : posé en natif.
         if (!res.headersSent) res.setHeader("x-pipeline", "reserve");
+      },
+      reserve: new Map(Object.entries(reserve)),
+      hasHeader(name) {
+        return this.reserve.has(name.toLowerCase());
+      },
+      getHeader(name) {
+        return this.reserve.get(name.toLowerCase());
+      },
+      setHeader(name, value) {
+        this.reserve.set(name.toLowerCase(), value);
       },
     },
     request: { request: req, url: new URL(req.url ?? "/", "http://localhost") },
@@ -292,6 +308,7 @@ async function serveWith(
   settings: Partial<IGrpcSettings> | null = null,
   responseTimeout = 30_000,
   hooks: IKernelHooks | null = null,
+  reserve: Record<string, string> = {},
 ): Promise<{
   url: string;
   port: number;
@@ -300,7 +317,14 @@ async function serveWith(
 }> {
   const served: IServed[] = [];
   const server = http.createServer((req, res) => {
-    const context = fakeContext(req, res, settings, responseTimeout, hooks);
+    const context = fakeContext(
+      req,
+      res,
+      settings,
+      responseTimeout,
+      hooks,
+      reserve,
+    );
     // Le délai que Nodefony arme sur toute requête (`HttpContext.setTimeout`),
     // AVANT que l'adaptateur n'arme le sien. À l'expiration, comme
     // `HttpContext._onTimeout` : un appel RPC est terminé par sa fiche
@@ -2053,5 +2077,54 @@ describe("GrpcCall.settle — réponse non finie : le client est parti (critère
     const call = closedWith(new ConnectError("panne", Code.Internal));
     call.settle(true);
     expect(call.code).to.equal(13);
+  });
+});
+
+describe("GrpcEndpoint — CORS d'une réponse RPC (critère 35, ADR-0026 D9 point 3)", () => {
+  /** Sert un appel unaire avec la réserve donnée ; rend la réserve après la remise. */
+  async function reserveAfterCall(
+    reserve: Record<string, string>,
+  ): Promise<Map<string, string>> {
+    const service = makeService();
+    const server = await serveWith(
+      new GrpcEndpoint(service),
+      () => ({ say: (request: { text: string }) => request }),
+      null,
+      30_000,
+      null,
+      reserve,
+    );
+    try {
+      await connectJson(server.url, service, "x");
+      const served = server.served[0];
+      if (served === undefined) throw new Error("aucune requête servie");
+      return served.context.response.reserve;
+    } finally {
+      await server.close();
+    }
+  }
+
+  it("origine autorisée : statut, message, détails et encodage exposés au script", async () => {
+    const reserve = await reserveAfterCall({
+      "access-control-allow-origin": "https://app.example",
+    });
+    expect(reserve.get("access-control-expose-headers")).to.equal(
+      "Grpc-Status, Grpc-Message, Grpc-Status-Details-Bin, Content-Encoding, Connect-Content-Encoding",
+    );
+  });
+
+  it("la liste de l'application est gardée, celle des RPC s'y ajoute", async () => {
+    const reserve = await reserveAfterCall({
+      "access-control-allow-origin": "https://app.example",
+      "access-control-expose-headers": "X-Total-Count",
+    });
+    expect(reserve.get("access-control-expose-headers")).to.match(
+      /^X-Total-Count, Grpc-Status, /,
+    );
+  });
+
+  it("requête sans origine autorisée : rien n'est exposé", async () => {
+    const reserve = await reserveAfterCall({});
+    expect(reserve.has("access-control-expose-headers")).to.equal(false);
   });
 });

@@ -27,6 +27,7 @@ import {
 } from "../src/context/http/StreamLifecycle";
 import { GRPC_DEFAULT_MAX_MESSAGE_BYTES } from "../src/grpc/limits";
 import { applicationErrorCode } from "../src/grpc/refusal";
+import { RPC_EXPOSED_HEADERS } from "../src/grpc/cors";
 import DefaultErrorRenderer from "../service/error-renderer";
 import { GrpcCall } from "./GrpcCall";
 
@@ -267,6 +268,13 @@ export class GrpcEndpoint<S extends DescService = DescService> {
     handler: NodeHandler,
     nodeResponse: NonNullable<HttpContext["response"]["response"]>,
   ): void {
+    // Origine autorisée (la politique CORS a posé `Access-Control-Allow-Origin`) :
+    // le statut et l'encodage voyagent dans des en-têtes que le navigateur cache
+    // au script sans `Expose-Headers` (ADR-0026 D9 point 3). Réponse RPC
+    // seulement — les autres routes n'en reçoivent rien.
+    if (context.response.hasHeader("access-control-allow-origin")) {
+      exposeRpcHeaders(context.response);
+    }
     // Le type de la réponse reprend celui de la requête (gRPC, gRPC-Web,
     // Connect) ; un GET Connect n'en porte pas. Aucun n'est un document : la
     // politique courte des ressources.
@@ -546,6 +554,23 @@ const CONNECT_CODES: readonly (Code | undefined)[] = [
   Code.DataLoss,
   Code.Unauthenticated,
 ];
+
+/**
+ * Ajoute à `Access-Control-Expose-Headers` les en-têtes qu'un client RPC doit
+ * lire (statut, message, détails, encodage) — à ce que la politique de
+ * l'application expose déjà. Une chaîne composée au chargement ; un appel
+ * d'une origine autorisée seulement.
+ */
+function exposeRpcHeaders(response: HttpContext["response"]): void {
+  const current = response.getHeader("access-control-expose-headers");
+  const listed = Array.isArray(current) ? current.join(", ") : current;
+  response.setHeader(
+    "access-control-expose-headers",
+    listed === undefined || listed === ""
+      ? RPC_EXPOSED_HEADERS
+      : `${String(listed)}, ${RPC_EXPOSED_HEADERS}`,
+  );
+}
 
 /**
  * Option `requestGate` de l'adaptateur, en simple OBSERVATEUR : Connect

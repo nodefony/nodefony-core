@@ -233,6 +233,8 @@ export { isWebsocketContext } from "./nodefony/src/context/websocket/isWebsocket
 // Canal `diagnostics_channel` du cycle de chaque requête — à passer à
 // `tracingChannel()` côté abonné, plutôt que de recopier la chaîne.
 export { REQUEST_TRACE_CHANNEL } from "./nodefony/src/context/requestTrace";
+export { rpcCorsLists } from "./nodefony/src/grpc/cors";
+export type { IRpcCorsLists } from "./nodefony/src/grpc/cors";
 export type {
   IRequestTrace,
   RequestTraceProtocol,
