@@ -16,6 +16,8 @@ import {
   type SayResponseSchema,
   type StallRequest,
   type StallResponseSchema,
+  type WatchRequest,
+  type WatchResponseSchema,
 } from "../gen/nodefony/test/v1/echo_pb";
 
 /** Instances construites depuis le démarrage : un singleton n'en a qu'une. */
@@ -30,11 +32,23 @@ const sayCalls = new Map<string, number>();
 const WITNESS_LIMIT = 1024;
 
 /**
- * Appels `Stall` bloqués dont le signal s'est abaissé, PAR témoin : un appel
- * bloqué ne répond jamais, l'appel suivant de même témoin lit le constat.
- * Borné comme `sayCalls`.
+ * Appels bloqués (`Stall`, `Watch`) dont le signal s'est abaissé, PAR
+ * témoin : un appel bloqué ne répond plus, l'appel `Stall` suivant de même
+ * témoin lit le constat. Borné comme `sayCalls`.
  */
 const stallAborted = new Set<string>();
+
+/** Note l'interruption du signal d'un appel bloqué, pour son témoin. */
+function witnessAbort(signal: AbortSignal, witness: string): void {
+  signal.addEventListener(
+    "abort",
+    () => {
+      if (stallAborted.size >= WITNESS_LIMIT) stallAborted.clear();
+      stallAborted.add(witness);
+    },
+    { once: true },
+  );
+}
 
 /**
  * `nodefony.test.v1.EchoService` — l'application de référence de
@@ -100,10 +114,7 @@ export class GrpcEchoController extends GrpcController {
     ctx: HandlerContext,
   ): MessageInitShape<typeof StallResponseSchema> | Promise<never> {
     if (request.block) {
-      if (stallAborted.size >= WITNESS_LIMIT) stallAborted.clear();
-      ctx.signal.addEventListener("abort", () => {
-        stallAborted.add(request.witness);
-      });
+      witnessAbort(ctx.signal, request.witness);
       return new Promise<never>(() => {});
     }
     const timeoutMs = ctx.timeoutMs();
@@ -112,6 +123,30 @@ export class GrpcEchoController extends GrpcController {
       hasDeadline: timeoutMs !== undefined,
       aborted: stallAborted.has(request.witness),
     };
+  }
+
+  /**
+   * Flux serveur long (ADR-0026 D4 point 4) : `burst` messages, puis sans
+   * fin (`follow`) ou muet jusqu'à l'annulation. L'adaptateur attend `drain`
+   * entre deux messages : un client qui ne lit plus bloque le générateur.
+   */
+  async *watch(
+    request: WatchRequest,
+    ctx: HandlerContext,
+  ): AsyncIterable<MessageInitShape<typeof WatchResponseSchema>> {
+    if (request.witness !== "") witnessAbort(ctx.signal, request.witness);
+    const payload = new Uint8Array(request.bytes);
+    let seq = 0;
+    for (; seq < request.burst; seq++) yield { seq, payload };
+    if (request.follow) {
+      while (!ctx.signal.aborted) yield { seq: seq++, payload };
+      return;
+    }
+    await new Promise<void>((resolve) => {
+      if (ctx.signal.aborted) resolve();
+      else
+        ctx.signal.addEventListener("abort", () => resolve(), { once: true });
+    });
   }
 
   fail(): never {

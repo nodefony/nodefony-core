@@ -15,7 +15,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file nodefony/test/v1/echo.proto.
  */
 export const file_nodefony_test_v1_echo: GenFile = /*@__PURE__*/
-  fileDesc("Chtub2RlZm9ueS90ZXN0L3YxL2VjaG8ucHJvdG8SEG5vZGVmb255LnRlc3QudjEiHgoKU2F5UmVxdWVzdBIQCghzZW50ZW5jZRgBIAEoCSJUCgtTYXlSZXNwb25zZRIQCghzZW50ZW5jZRgBIAEoCRISCgpyZXF1ZXN0X2lkGAIgASgJEhAKCGluc3RhbmNlGAMgASgNEg0KBWNhbGxzGAQgASgNIh8KC1BpbmdSZXF1ZXN0EhAKCHNlbnRlbmNlGAEgASgJIjUKDFBpbmdSZXNwb25zZRIQCghzZW50ZW5jZRgBIAEoCRITCgtodHRwX21ldGhvZBgCIAEoCSIjCg9Db252ZXJzZVJlcXVlc3QSEAoIc2VudGVuY2UYASABKAkiNgoQQ29udmVyc2VSZXNwb25zZRIQCghzZW50ZW5jZRgBIAEoCRIQCghyZWNlaXZlZBgCIAEoDSINCgtGYWlsUmVxdWVzdCIOCgxGYWlsUmVzcG9uc2UiOQoNTWlycm9yUmVxdWVzdBIoCgV2YWx1ZRgBIAEoCzIZLm5vZGVmb255LnRlc3QudjEuQ29tcGxleCJMCg5NaXJyb3JSZXNwb25zZRIoCgV2YWx1ZRgBIAEoCzIZLm5vZGVmb255LnRlc3QudjEuQ29tcGxleBIQCghyYXdfc2l6ZRgCIAEoDSIuCgxTdGFsbFJlcXVlc3QSDQoFYmxvY2sYASABKAgSDwoHd2l0bmVzcxgCIAEoCSJKCg1TdGFsbFJlc3BvbnNlEhIKCnRpbWVvdXRfbXMYASABKA0SFAoMaGFzX2RlYWRsaW5lGAIgASgIEg8KB2Fib3J0ZWQYAyABKAgiDAoKV2hvUmVxdWVzdCIfCgtXaG9SZXNwb25zZRIQCghpbnN0YW5jZRgBIAEoDTLSAwoLRWNob1NlcnZpY2USQgoDU2F5Ehwubm9kZWZvbnkudGVzdC52MS5TYXlSZXF1ZXN0Gh0ubm9kZWZvbnkudGVzdC52MS5TYXlSZXNwb25zZRJKCgRQaW5nEh0ubm9kZWZvbnkudGVzdC52MS5QaW5nUmVxdWVzdBoeLm5vZGVmb255LnRlc3QudjEuUGluZ1Jlc3BvbnNlIgOQAgESVQoIQ29udmVyc2USIS5ub2RlZm9ueS50ZXN0LnYxLkNvbnZlcnNlUmVxdWVzdBoiLm5vZGVmb255LnRlc3QudjEuQ29udmVyc2VSZXNwb25zZSgBMAESRQoERmFpbBIdLm5vZGVmb255LnRlc3QudjEuRmFpbFJlcXVlc3QaHi5ub2RlZm9ueS50ZXN0LnYxLkZhaWxSZXNwb25zZRJLCgZNaXJyb3ISHy5ub2RlZm9ueS50ZXN0LnYxLk1pcnJvclJlcXVlc3QaIC5ub2RlZm9ueS50ZXN0LnYxLk1pcnJvclJlc3BvbnNlEkgKBVN0YWxsEh4ubm9kZWZvbnkudGVzdC52MS5TdGFsbFJlcXVlc3QaHy5ub2RlZm9ueS50ZXN0LnYxLlN0YWxsUmVzcG9uc2UyVwoRU2NvcGVkRWNob1NlcnZpY2USQgoDV2hvEhwubm9kZWZvbnkudGVzdC52MS5XaG9SZXF1ZXN0Gh0ubm9kZWZvbnkudGVzdC52MS5XaG9SZXNwb25zZWIGcHJvdG8z", [file_nodefony_test_v1_complex]);
+  fileDesc("Chtub2RlZm9ueS90ZXN0L3YxL2VjaG8ucHJvdG8SEG5vZGVmb255LnRlc3QudjEiHgoKU2F5UmVxdWVzdBIQCghzZW50ZW5jZRgBIAEoCSJUCgtTYXlSZXNwb25zZRIQCghzZW50ZW5jZRgBIAEoCRISCgpyZXF1ZXN0X2lkGAIgASgJEhAKCGluc3RhbmNlGAMgASgNEg0KBWNhbGxzGAQgASgNIh8KC1BpbmdSZXF1ZXN0EhAKCHNlbnRlbmNlGAEgASgJIjUKDFBpbmdSZXNwb25zZRIQCghzZW50ZW5jZRgBIAEoCRITCgtodHRwX21ldGhvZBgCIAEoCSIjCg9Db252ZXJzZVJlcXVlc3QSEAoIc2VudGVuY2UYASABKAkiNgoQQ29udmVyc2VSZXNwb25zZRIQCghzZW50ZW5jZRgBIAEoCRIQCghyZWNlaXZlZBgCIAEoDSINCgtGYWlsUmVxdWVzdCIOCgxGYWlsUmVzcG9uc2UiOQoNTWlycm9yUmVxdWVzdBIoCgV2YWx1ZRgBIAEoCzIZLm5vZGVmb255LnRlc3QudjEuQ29tcGxleCJMCg5NaXJyb3JSZXNwb25zZRIoCgV2YWx1ZRgBIAEoCzIZLm5vZGVmb255LnRlc3QudjEuQ29tcGxleBIQCghyYXdfc2l6ZRgCIAEoDSIuCgxTdGFsbFJlcXVlc3QSDQoFYmxvY2sYASABKAgSDwoHd2l0bmVzcxgCIAEoCSJNCgxXYXRjaFJlcXVlc3QSDQoFYnVyc3QYASABKA0SDQoFYnl0ZXMYAiABKA0SDgoGZm9sbG93GAMgASgIEg8KB3dpdG5lc3MYBCABKAkiLQoNV2F0Y2hSZXNwb25zZRILCgNzZXEYASABKA0SDwoHcGF5bG9hZBgCIAEoDCJKCg1TdGFsbFJlc3BvbnNlEhIKCnRpbWVvdXRfbXMYASABKA0SFAoMaGFzX2RlYWRsaW5lGAIgASgIEg8KB2Fib3J0ZWQYAyABKAgiDAoKV2hvUmVxdWVzdCIfCgtXaG9SZXNwb25zZRIQCghpbnN0YW5jZRgBIAEoDTKeBAoLRWNob1NlcnZpY2USQgoDU2F5Ehwubm9kZWZvbnkudGVzdC52MS5TYXlSZXF1ZXN0Gh0ubm9kZWZvbnkudGVzdC52MS5TYXlSZXNwb25zZRJKCgRQaW5nEh0ubm9kZWZvbnkudGVzdC52MS5QaW5nUmVxdWVzdBoeLm5vZGVmb255LnRlc3QudjEuUGluZ1Jlc3BvbnNlIgOQAgESVQoIQ29udmVyc2USIS5ub2RlZm9ueS50ZXN0LnYxLkNvbnZlcnNlUmVxdWVzdBoiLm5vZGVmb255LnRlc3QudjEuQ29udmVyc2VSZXNwb25zZSgBMAESRQoERmFpbBIdLm5vZGVmb255LnRlc3QudjEuRmFpbFJlcXVlc3QaHi5ub2RlZm9ueS50ZXN0LnYxLkZhaWxSZXNwb25zZRJLCgZNaXJyb3ISHy5ub2RlZm9ueS50ZXN0LnYxLk1pcnJvclJlcXVlc3QaIC5ub2RlZm9ueS50ZXN0LnYxLk1pcnJvclJlc3BvbnNlEkgKBVN0YWxsEh4ubm9kZWZvbnkudGVzdC52MS5TdGFsbFJlcXVlc3QaHy5ub2RlZm9ueS50ZXN0LnYxLlN0YWxsUmVzcG9uc2USSgoFV2F0Y2gSHi5ub2RlZm9ueS50ZXN0LnYxLldhdGNoUmVxdWVzdBofLm5vZGVmb255LnRlc3QudjEuV2F0Y2hSZXNwb25zZTABMlcKEVNjb3BlZEVjaG9TZXJ2aWNlEkIKA1dobxIcLm5vZGVmb255LnRlc3QudjEuV2hvUmVxdWVzdBodLm5vZGVmb255LnRlc3QudjEuV2hvUmVzcG9uc2ViBnByb3RvMw", [file_nodefony_test_v1_complex]);
 
 /**
  * @generated from message nodefony.test.v1.SayRequest
@@ -247,6 +247,60 @@ export const StallRequestSchema: GenMessage<StallRequest> = /*@__PURE__*/
   messageDesc(file_nodefony_test_v1_echo, 10);
 
 /**
+ * @generated from message nodefony.test.v1.WatchRequest
+ */
+export type WatchRequest = Message<"nodefony.test.v1.WatchRequest"> & {
+  /**
+   * @generated from field: uint32 burst = 1;
+   */
+  burst: number;
+
+  /**
+   * @generated from field: uint32 bytes = 2;
+   */
+  bytes: number;
+
+  /**
+   * @generated from field: bool follow = 3;
+   */
+  follow: boolean;
+
+  /**
+   * @generated from field: string witness = 4;
+   */
+  witness: string;
+};
+
+/**
+ * Describes the message nodefony.test.v1.WatchRequest.
+ * Use `create(WatchRequestSchema)` to create a new message.
+ */
+export const WatchRequestSchema: GenMessage<WatchRequest> = /*@__PURE__*/
+  messageDesc(file_nodefony_test_v1_echo, 11);
+
+/**
+ * @generated from message nodefony.test.v1.WatchResponse
+ */
+export type WatchResponse = Message<"nodefony.test.v1.WatchResponse"> & {
+  /**
+   * @generated from field: uint32 seq = 1;
+   */
+  seq: number;
+
+  /**
+   * @generated from field: bytes payload = 2;
+   */
+  payload: Uint8Array;
+};
+
+/**
+ * Describes the message nodefony.test.v1.WatchResponse.
+ * Use `create(WatchResponseSchema)` to create a new message.
+ */
+export const WatchResponseSchema: GenMessage<WatchResponse> = /*@__PURE__*/
+  messageDesc(file_nodefony_test_v1_echo, 12);
+
+/**
  * @generated from message nodefony.test.v1.StallResponse
  */
 export type StallResponse = Message<"nodefony.test.v1.StallResponse"> & {
@@ -263,7 +317,8 @@ export type StallResponse = Message<"nodefony.test.v1.StallResponse"> & {
   hasDeadline: boolean;
 
   /**
-   * Un appel bloqué de même témoin a vu son signal interrompu.
+   * Un appel bloqué (`Stall`, `Watch`) de même témoin a vu son signal
+   * interrompu.
    *
    * @generated from field: bool aborted = 3;
    */
@@ -275,7 +330,7 @@ export type StallResponse = Message<"nodefony.test.v1.StallResponse"> & {
  * Use `create(StallResponseSchema)` to create a new message.
  */
 export const StallResponseSchema: GenMessage<StallResponse> = /*@__PURE__*/
-  messageDesc(file_nodefony_test_v1_echo, 11);
+  messageDesc(file_nodefony_test_v1_echo, 13);
 
 /**
  * @generated from message nodefony.test.v1.WhoRequest
@@ -288,7 +343,7 @@ export type WhoRequest = Message<"nodefony.test.v1.WhoRequest"> & {
  * Use `create(WhoRequestSchema)` to create a new message.
  */
 export const WhoRequestSchema: GenMessage<WhoRequest> = /*@__PURE__*/
-  messageDesc(file_nodefony_test_v1_echo, 12);
+  messageDesc(file_nodefony_test_v1_echo, 14);
 
 /**
  * @generated from message nodefony.test.v1.WhoResponse
@@ -305,7 +360,7 @@ export type WhoResponse = Message<"nodefony.test.v1.WhoResponse"> & {
  * Use `create(WhoResponseSchema)` to create a new message.
  */
 export const WhoResponseSchema: GenMessage<WhoResponse> = /*@__PURE__*/
-  messageDesc(file_nodefony_test_v1_echo, 13);
+  messageDesc(file_nodefony_test_v1_echo, 15);
 
 /**
  * Point d'entrée singleton (défaut) : une instance pour tous les appels.
@@ -375,6 +430,19 @@ export const EchoService: GenService<{
     methodKind: "unary";
     input: typeof StallRequestSchema;
     output: typeof StallResponseSchema;
+  },
+  /**
+   * Flux serveur long (ADR-0026 D4 point 4, critère 21) : `burst` messages de
+   * `bytes` octets, puis `follow` vrai → émet sans fin (un client qui ne lit
+   * plus se bloque) ; faux → muet jusqu'à l'annulation. L'interruption de son
+   * signal est notée par `witness`, que `Stall` lit.
+   *
+   * @generated from rpc nodefony.test.v1.EchoService.Watch
+   */
+  watch: {
+    methodKind: "server_streaming";
+    input: typeof WatchRequestSchema;
+    output: typeof WatchResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_nodefony_test_v1_echo, 0);

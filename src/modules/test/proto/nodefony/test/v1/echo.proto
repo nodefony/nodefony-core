@@ -25,6 +25,11 @@ service EchoService {
   // ce qu'il voit — temps restant, et si un appel bloqué de même témoin a vu
   // son signal interrompu.
   rpc Stall(StallRequest) returns (StallResponse);
+  // Flux serveur long (ADR-0026 D4 point 4, critère 21) : `burst` messages de
+  // `bytes` octets, puis `follow` vrai → émet sans fin (un client qui ne lit
+  // plus se bloque) ; faux → muet jusqu'à l'annulation. L'interruption de son
+  // signal est notée par `witness`, que `Stall` lit.
+  rpc Watch(WatchRequest) returns (stream WatchResponse);
 }
 
 // Point d'entrée `@Scope("request")` : une instance par appel.
@@ -87,11 +92,24 @@ message StallRequest {
   string witness = 2;
 }
 
+message WatchRequest {
+  uint32 burst = 1;
+  uint32 bytes = 2;
+  bool follow = 3;
+  string witness = 4;
+}
+
+message WatchResponse {
+  uint32 seq = 1;
+  bytes payload = 2;
+}
+
 message StallResponse {
   // Temps restant vu à l'appel (ms), 0 sans échéance.
   uint32 timeout_ms = 1;
   bool has_deadline = 2;
-  // Un appel bloqué de même témoin a vu son signal interrompu.
+  // Un appel bloqué (`Stall`, `Watch`) de même témoin a vu son signal
+  // interrompu.
   bool aborted = 3;
 }
 
