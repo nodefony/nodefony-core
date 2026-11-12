@@ -704,23 +704,38 @@ natif, que Nodefony ne voit pas ; en gRPC et gRPC-Web, le résultat n'est que da
    - C'est la fiche d'appel de D6 qui le porte : aucune allocation de plus.
    - Le contrat vit dans http et ne nomme rien de Connect. Un appel JSON-RPC (porte MCP, A2A) pourra
      le remplir (`jsonrpc`, `-32602`) sans rupture.
-2. **Le code se lit une fois, au `close`**, avant la ligne d'accès (`HttpKernel.teardownHttp`),
-   là où D7 lit déjà `ctx.signal.reason` :
+2. **Le code se lit une fois, au `close`**, avant la ligne d'accès (`HttpKernel.settleRpc`,
+   appelé par `HttpKernel.teardownHttp`), sur le motif d'interruption du contexte d'appel
+   (`ctx.signal.reason`) :
 
-   | Motif d'interruption | `responseEnded` | Code                                         |
-   | -------------------- | --------------- | -------------------------------------------- |
-   | `ConnectError`       | —               | son code                                     |
-   | `AbortError`, aucun  | vrai            | 0 `OK`                                       |
-   | `AbortError`, aucun  | faux            | 1 `CANCELLED` : le client est parti          |
-   | autre                | —               | 13 `INTERNAL`, la cause devient l'erreur (3) |
+   | Motif d'interruption                                     | `responseEnded` | Code                                                       |
+   | -------------------------------------------------------- | --------------- | ---------------------------------------------------------- |
+   | `ConnectError`                                           | vrai            | son code ; sa cause, une `Error`, devient l'erreur (3)     |
+   | `ConnectError` d'une fin posée par le serveur (4, fiche) | faux            | son code : échéance 4, délai 4 ou identité révoquée 16     |
+   | toute autre `ConnectError`                               | faux            | 1 `CANCELLED` : le client est parti, quel que soit son RST |
+   | `AbortError`, aucun                                      | vrai            | 0 `OK`                                                     |
+   | `AbortError`, aucun                                      | faux            | 1 `CANCELLED` : le client est parti                        |
+   | autre                                                    | —               | 13 `INTERNAL`, la cause devient l'erreur (3)               |
+   - **Le contexte d'appel est capté AVANT le corps**, par l'option `requestGate` de l'adaptateur
+     prise en simple observateur (`GrpcEndpoint.ts#observeCall`) : elle ne refuse jamais, les refus
+     gardent leur unique écrivain (D5 point 2). C'est le seul crochet de Connect qui voie les refus
+     posés AVANT le gestionnaire — message trop grand ou bombe de décompression (8), encodage
+     inconnu (12), en-tête d'échéance illisible —, Connect abaissant alors le signal sans jamais
+     appeler le gestionnaire : capté par le gestionnaire seul, l'appel se lisait 0 `OK`. Les
+     intercepteurs ne conviennent pas : ils s'exécutent après la lecture du premier message.
+   - **Réponse non finie : 1, sauf une fin posée par le serveur.** Le signal relaie le `RST_STREAM`
+     du client traduit en code (`node-error.js#connectErrorFromH2ResetCode`) : connect-node coupe à
+     son échéance en `INTERNAL_ERROR`, que le serveur lisait 13 — une ligne `499 … INTERNAL` en
+     gravité ERROR, pour un client simplement parti. Le code du RST est le fait du client ; le fait
+     du serveur, c'est que la réponse n'a pas été terminée.
    - « Réponse finie » = `responseEnded.ts#responseEnded`, la règle unique du noyau, celle qui pose
      déjà 499 quand le client part (`HttpKernel.createHttpContext`). Elle sépare, en HTTP/2, la fin
      posée par le serveur de l'annulation du client (`RST_STREAM`), que `writableFinished` confond.
      Le code 1 et le statut 499 disent donc le même fait, comme la table de D7 (499 → 1).
    - Constaté sur le fil, avec cette règle : les 24 codes sont ceux que lit le client, sauf une
-     course. En HTTP/1.1, quand l'échéance expire, le client coupe la connexion au même instant que
-     le minuteur du serveur. Selon le premier arrivé, le serveur journalise 4 ou 1 ; les deux sont
-     vus d'un passage à l'autre, et rien côté serveur ne permet de trancher.
+     course. Quand l'échéance du client expire, il coupe au même instant que le minuteur du
+     serveur, en HTTP/1.1 comme en HTTP/2. Selon le premier arrivé, le serveur journalise 4 ou 1 ;
+     les deux sont vus d'un passage à l'autre, et rien côté serveur ne permet de trancher.
    - « Aucun motif » arrive en HTTP/1.1 : l'écouteur `close` du noyau, posé à la création du
      contexte, passe avant celui de Connect.
    - **Le statut HTTP natif est recopié si la réponse est finie, et seulement alors.** C'est la
@@ -756,10 +771,19 @@ natif, que Nodefony ne voit pas ; en gRPC et gRPC-Web, le résultat n'est que da
 | Geste                                 | Quand                       | Coût                                             |
 | ------------------------------------- | --------------------------- | ------------------------------------------------ |
 | Code lu au `close`                    | chaque appel                | ≈ 14 ns (lecture du motif déjà comptée par D7)   |
+| Observateur `requestGate`             | chaque appel                | ≈ 55 à 95 ns isolé, invisible dans un appel (¹)  |
 | Segment `RPC : …` de la ligne d'accès | chaque appel                | ≈ +6 ns (64 → 70 ns pour la ligne)               |
 | Champ `rpc` du contexte               | chaque requête HTTP         | un champ `null` (8 octets), un test au démontage |
 | Champ `rpc` de la trace               | chaque requête, avec abonné | une écriture de champ                            |
 | Message d'un flux                     | —                           | 0                                                |
+
+(¹) Connect écrit `await opt.requestGate(context)` : même pour une fonction synchrone qui rend
+`undefined`, l'`await` suspend le gestionnaire et le reprend par une microtâche. L'appel lui-même
+coûte ≈ 4 ns (un `instanceof`, une écriture de champ) ; la suspension, le reste. Ni allocation
+retenue, ni entrée-sortie, ni tour de boucle : une microtâche, pas une latence réseau. Dans un appel
+unaire Connect complet servi en process (≈ 36 µs), l'écart reste sous le bruit d'une mesure A/A
+(± 0,6 µs). Le ramener à 0 relève de Connect — n'attendre que ce qui est une promesse —, pas de
+Nodefony.
 
 ### D11 — Une surface expérimentale dans des paquets stables
 
