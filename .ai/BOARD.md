@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-11-12 00:22** (UTC).
+> Empreinte prise le **2026-11-12 02:49** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -117,7 +117,7 @@ Ordre 7.06 · P1 — figé à la création · 0.5 j · jalon 10.0.0 · frise 202
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Backlog — aucune date promise · 38 ouverts
+## Backlog — aucune date promise · 39 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -159,6 +159,7 @@ Ordre 7.06 · P1 — figé à la création · 0.5 j · jalon 10.0.0 · frise 202
 | 925.3 | P3 — fin de cycle | 2 | — | #729 | feat(security): signaler les puits DOM, interdire les scripts créés |
 | 925.4 | P3 — fin de cycle | 2 | — | #730 | feat(security): partager et afficher les rapports de violation CSP |
 | 925.5 | P3 — fin de cycle | 1 | — | #728 | feat(client): signer les styles créés à l'exécution sous CSP stricte |
+| 925.6 | P3 — fin de cycle | 1 | — | #768 | perf(http): mesurer le coût du journal d'accès par requête |
 
 ## Jalon 10.0.0-beta — 15 ouverts
 

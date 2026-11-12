@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-12T00:22:35.645Z",
+  "generatedAt": "2026-11-12T02:49:32.701Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -11093,6 +11093,22 @@
       ]
     },
     {
+      "number": 768,
+      "title": "perf(http): mesurer le coût du journal d'accès par requête",
+      "url": "https://github.com/nodefony/nodefony-core/issues/768",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P3 — fin de cycle",
+      "jours": 1,
+      "ordre": 925.6,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
       "number": 82,
       "title": "fix(build): rétablir le contrôle des dépendances avalées par le bundler",
       "url": "https://github.com/nodefony/nodefony-core/issues/82",
@@ -11106,6 +11122,22 @@
       "cible": null,
       "labels": [
         "irrattrapable"
+      ]
+    },
+    {
+      "number": 769,
+      "title": "perf(http): alléger le chemin de réponse d'un 404",
+      "url": "https://github.com/nodefony/nodefony-core/issues/769",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": null,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
       ]
     }
   ]
