@@ -123,6 +123,8 @@ describe("HttpKernel.prepareFrontController — synchrone", () => {
     }
     expect(caught).to.be.instanceOf(HttpError);
     expect((caught as HttpError).code).to.equal(404);
+    // Verdict de protocole : aucune pile capturée (~3,6 µs par 404 de scanner).
+    expect((caught as HttpError).stack).not.to.match(/\n\s+at /);
   });
 
   it("exception du résolveur (405) → levée telle quelle en SYNCHRONE", () => {

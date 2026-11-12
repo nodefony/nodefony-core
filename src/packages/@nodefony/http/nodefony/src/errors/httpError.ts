@@ -92,6 +92,36 @@ class HttpError extends NodefonyError {
     }
   }
 
+  /**
+   * Construit un VERDICT de protocole (404, 405, 426…) sans capturer de pile.
+   *
+   * La pile d'un verdict pointe toujours au même endroit du noyau ou du routeur
+   * et ne dit rien de la requête ; la capturer coûte ~3,6 µs à profondeur
+   * réelle (`micro-error-path.mjs`), payés par chaque requête d'un scanner.
+   * Réservé à ce que le framework DÉCIDE — une panne garde sa pile. `stack` ne
+   * porte que l'en-tête (`HttpError: Not Found`).
+   *
+   * @param message - message du verdict.
+   * @param code - statut HTTP (ou code de fermeture WebSocket).
+   * @param context - contexte de la requête, comme pour le constructeur.
+   * @returns l'erreur, sans pile.
+   */
+  static withoutStack(
+    message: string,
+    code: number,
+    context?: ContextType,
+  ): HttpError {
+    // Synchrone sur l'unique fil : la limite est rétablie avant que quoi que
+    // ce soit d'autre ne construise une erreur.
+    const limit = Error.stackTraceLimit;
+    Error.stackTraceLimit = 0;
+    try {
+      return new HttpError(message, code, context);
+    } finally {
+      Error.stackTraceLimit = limit;
+    }
+  }
+
   override toString(): string {
     if (this.context) {
       return `${clc.red(this.message)}
@@ -118,235 +148,3 @@ class HttpError extends NodefonyError {
 Object.defineProperty(HttpError.prototype, "toJSON", jsonHttpError);
 
 export default HttpError;
-
-// module.exports = nodefony.register("httpError", () => {
-//   class httpError extends nodefony.Error {
-//     constructor(message, code, container) {
-//       super(message as string | Error, code);
-//       this.container = container;
-//       this.context = null;
-//       this.bundle = "";
-//       this.controller = "";
-//       this.action = "";
-//       this.url = "";
-//       this.xjson = null;
-//       this.resolver = null;
-//       if (this.container) {
-//         this.parserContainer();
-//       }
-//       if (
-//         this.code === 1000 ||
-//         this.code === 200 ||
-//         typeof this.code === "string"
-//       ) {
-//         this.code = 500;
-//       }
-//     }
-
-//     log(data) {
-//       if (this.context) {
-//         if (data) {
-//           return this.context.log.apply(this.context, arguments);
-//         }
-//         return this.context.log(
-//           this.toString(),
-//           "ERROR",
-//           `${clc.magenta(this.code)} ${clc.red(this.method)}`
-//         );
-//       }
-//       return super.log(data);
-//     }
-
-// toString() {
-//   let err = "";
-//   switch (this.errorType) {
-//     case "httpError":
-//       if (kernel && kernel.environment === "prod") {
-//         return ` ${clc.blue("Url :")} ${this.url} ${err}`;
-//       }
-//       err += `${clc.blue("Name :")} ${this.name}
-//     ${clc.blue("Type :")} ${this.errorType}
-//     ${clc.red("Code :")} ${this.code}
-//     ${clc.blue("Url :")} ${this.url}
-//     ${clc.red("Message :")} ${this.message}
-//     ${clc.green("Bundle :")} ${this.bundle}
-//     ${clc.green("Controller :")} ${this.controller}
-//     ${clc.green("Action :")} ${this.action}`;
-//       if (kernel.debug) {
-//         err += `
-//         ${clc.green("Stack :")} ${this.stack}`;
-//       }
-//       return err;
-//     default:
-//       return super.toString();
-//   }
-// }
-
-//     parserContainer() {
-//       this.bundle = this.container.get("bundle")
-//         ? this.container.get("bundle").name
-//         : "";
-//       this.controller = this.container.get("controller")
-//         ? this.container.get("controller").name
-//         : "";
-//       this.action = this.container.get("action")
-//         ? this.container.get("action")
-//         : "";
-//       this.context = this.container.get("context");
-//       if (this.context) {
-//         this.url = this.context.url || "";
-//         this.method = this.context.method;
-//         this.scheme = this.context.scheme;
-//         if (!this.code && this.context.response) {
-//           this.code = this.context.response.getStatusCode();
-//         }
-//         if (this.xjson && this.context.setXjson) {
-//           this.context.setXjson(this.xjson);
-//         }
-//         if (this.context.response) {
-//           if (this.message === "null") {
-//             this.message = "Internal Server Error";
-//           }
-//           const st = this.context.response.setStatusCode(
-//             this.code,
-//             this.message
-//           );
-//           this.code = st.code;
-//           this.message = st.message;
-//           this.resolve();
-//         }
-//         if (
-//           this.code === 1000 ||
-//           this.code === 200 ||
-//           typeof code === "string"
-//         ) {
-//           this.code = 500;
-//         }
-
-//         /* if (this.context.isJson) {
-//           try {
-//             let obj = {
-//               code: this.code,
-//               message: this.message,
-//               bundle: this.bundle,
-//               controller: this.controller,
-//               action: this.action,
-//               url: this.url
-//             };
-//             if (this.context.kernel.debug) {
-//               obj.stack = this.stack;
-//             }
-//             this.pdu = JSON.stringify(new nodefony.PDU(obj, "ERROR"));
-//           } catch (e) {
-//             this.message = e.message;
-//             this.log(e, "WARNING");
-//           }
-//         }*/
-//       }
-//     }
-
-// parserResponse() {
-//   const json = this.response?.toJSON();
-//   if (json) {
-//     this.requestUrl = json.request.uri.href;
-//     this.code = json.statusCode;
-//     this.jsonResponse = JSON.stringify(json, null, " ");
-//   }
-//   this.parseMessage(json.body);
-// }
-
-// parserResponse() {
-//   const json = this.response.toJSON();
-//   if (json) {
-//     this.requestUrl = json.request.uri.href;
-//     this.code = json.statusCode;
-//     this.jsonResponse = JSON.stringify(json, null, " ");
-//   }
-//   this.parseMessage(json.body);
-// }
-
-//     resolve(setStatus = false) {
-//       switch (this.code) {
-//         case 404:
-//           this.resolver = this.context.router.resolveName(
-//             this.context,
-//             "frameworkBundle:default:404"
-//           );
-//           break;
-//         case 401:
-//           this.resolver = this.context.router.resolveName(
-//             this.context,
-//             "frameworkBundle:default:401"
-//           );
-//           break;
-//         case 403:
-//           this.resolver = this.context.router.resolveName(
-//             this.context,
-//             "frameworkBundle:default:403"
-//           );
-//           break;
-//         case 408:
-//           this.resolver = this.context.router.resolveName(
-//             this.context,
-//             "frameworkBundle:default:timeout"
-//           );
-//           break;
-//         default:
-//           this.resolver = this.context.router.resolveName(
-//             this.context,
-//             "frameworkBundle:default:exceptions"
-//           );
-//           if (this.code < 400) {
-//             this.code = 500;
-//           }
-//       }
-//       if (setStatus) {
-//         this.context.response.setStatusCode(this.code, this.message);
-//       }
-//     }
-
-//     parseMessage(message) {
-//       switch (nodefony.typeOf(message)) {
-//         case "Error":
-//           super.parseMessage(message);
-//           if (message.status) {
-//             this.code = message.status;
-//           }
-//           if (message.xjson) {
-//             this.xjson = message.xjson;
-//           }
-//           break;
-//         case "string":
-//           this.message = message;
-//           break;
-//         case "object":
-//           if (message.status) {
-//             this.code = message.status;
-//           }
-//           if (message.code) {
-//             this.code = message.code;
-//           }
-//           if (message.xjson) {
-//             this.xjson = message.xjson;
-//           }
-//           try {
-//             if (message.error) {
-//               return this.parseMessage(message.error);
-//             }
-//             if (message.message) {
-//               return (this.message = message.message);
-//             }
-//             return (this.message = util.inspect(message, { depth: 0 }));
-//           } catch (e) {
-//             this.error = e;
-//             this.code = 500;
-//           }
-//           break;
-//         default:
-//           return super.parseMessage(message);
-//       }
-//     }
-//   }
-
-//   return httpError;
-// });

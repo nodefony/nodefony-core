@@ -886,7 +886,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     }
     // Code WS 1008 « Policy Violation » directement : le renderWebsocket laisse
     // passer 1000-4999 ; un 403 HTTP serait écrasé en 1011 au handshake.
-    const error = new HttpError(
+    const error = HttpError.withoutStack(
       `WebSocket Origin "${raw}" not allowed (CSWSH protection)`,
       1008,
       context,
@@ -1072,7 +1072,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       }
       throw resolver.exception;
     }
-    throw new HttpError("Not Found", 404, context);
+    throw HttpError.withoutStack("Not Found", 404, context);
   }
 
   /**
@@ -2068,7 +2068,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
           ? new ReceiveDeadline<HttpContext>(timeoutMs, (context) => {
               if (context.finished) return;
               context.request.abortBody(
-                new HttpError("Request Timeout", 408, context),
+                HttpError.withoutStack("Request Timeout", 408, context),
               );
             })
           : null;
@@ -2090,14 +2090,22 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     const headers = httpContext.request.headers;
     if (isUnsupportedTransferCoding(headers["transfer-encoding"])) {
       return Promise.reject(
-        new HttpError("Transfer-Encoding not implemented", 501, httpContext),
+        HttpError.withoutStack(
+          "Transfer-Encoding not implemented",
+          501,
+          httpContext,
+        ),
       );
     }
     // HTTP/2 : `Host` qui contredit `:authority` → requête malformée (RFC 9113
     // §8.3.1) — l'action verrait un autre hôte que celui jugé par le routage.
     if (hasConflictingAuthority(headers)) {
       return Promise.reject(
-        new HttpError("Host differs from :authority", 400, httpContext),
+        HttpError.withoutStack(
+          "Host differs from :authority",
+          400,
+          httpContext,
+        ),
       );
     }
     // Corps NON LU : route `bodyStream` (l'action lit le flux elle-même), ou

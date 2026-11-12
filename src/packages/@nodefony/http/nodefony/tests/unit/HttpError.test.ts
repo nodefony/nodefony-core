@@ -90,6 +90,18 @@ describe("HttpError — unit tests", () => {
       const err = new HttpError("test", 400);
       expect(err.stack).to.include("HttpError");
     });
+
+    it("withoutStack : un verdict sans cadre de pile, limite globale rétablie", () => {
+      const limit = Error.stackTraceLimit;
+      const verdict = HttpError.withoutStack("Not Found", 404);
+      expect(verdict).to.be.instanceOf(HttpError);
+      expect(verdict.code).to.equal(404);
+      expect(verdict.message).to.equal("Not Found");
+      expect(verdict.stack).to.equal("HttpError: Not Found");
+      expect(Error.stackTraceLimit).to.equal(limit);
+      // Témoin : le constructeur, lui, capture des cadres.
+      expect(new HttpError("Not Found", 404).stack).to.match(/\n\s+at /);
+    });
   });
 
   describe("context (optional)", () => {
