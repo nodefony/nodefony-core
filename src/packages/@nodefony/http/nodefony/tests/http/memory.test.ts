@@ -91,6 +91,42 @@ function openCloseWs(url: string): Promise<void> {
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
+/** Chemin qu'aucune route ne sert : 404 SANS lecture du corps (#695, critère 51). */
+const UNROUTED = "/nodefony/test/memory/unrouted";
+
+/**
+ * POST de `size` octets vers {@link UNROUTED}, en HTTP/1.1. Au plus 256 Kio :
+ * Node vide le corps et garde la connexion ; au-delà : `connection: close` et
+ * fermeture attardée (`HttpResponse.closeUnfinishedRequest`). Le client écrit
+ * tout avant de lire — sans l'attente, il prendrait `EPIPE` et le scénario
+ * rougirait.
+ */
+function postUnrouted(size: number): Promise<void> {
+  const body = Buffer.alloc(size, 0x78);
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      {
+        ...BASE,
+        path: UNROUTED,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "Content-Length": body.length,
+        },
+      },
+      (res) => {
+        res.resume();
+        res.on("end", () => {
+          if (res.statusCode === 404) resolve();
+          else reject(new Error(`404 attendu, reçu ${res.statusCode}`));
+        });
+      },
+    );
+    req.on("error", reject);
+    req.end(body);
+  });
+}
+
 /** Un upload multipart minimal (1 petit fichier) — pour le test de fuite. */
 function uploadSmall(): Promise<void> {
   const boundary = "----nfMemBoundary";
@@ -475,6 +511,12 @@ const ACTIONS = {
   h2Stream: () => h2SharedGet("/nodefony/test/index"),
   h2StreamPost: () =>
     h2SharedPost("/nodefony/test/decorators/body", '{"n":1,"ok":true}'),
+  // 404 sans lecture du corps (#695) : corps vidé par Node, connexion gardée ;
+  // puis au-delà de 256 Kio, `connection: close` et fermeture attardée ; puis
+  // en HTTP/2, flux fermé en `NO_ERROR` (écouteur `finish` posé puis parti).
+  unroutedPost: () => postUnrouted(200),
+  unroutedPostClose: () => postUnrouted(300 * 1024),
+  h2StreamPostUnrouted: () => h2SharedPost(UNROUTED, '{"n":1,"ok":true}'),
   // Le service `request` d'une connexion, résolu au handshake puis à un message.
   wsRequestService: () =>
     new Promise<void>((resolve, reject) => {
@@ -611,6 +653,11 @@ const WARMUP = {
   h2Session: 0,
   h2Stream: 1500,
   h2StreamPost: 1500,
+  unroutedPost: 1500,
+  // Une connexion TLS neuve par itération (`connection: close`), 300 Kio
+  // envoyés : plateau comme l'upload.
+  unroutedPostClose: 200,
+  h2StreamPostUnrouted: 1500,
   wsRefused: 400,
   // Chemin HTTP complet (session, pare-feu, audit du refus) : même plateau
   // que `get`. Mesuré hors gate, échauffement 1 500 / paliers de 300 :
@@ -855,6 +902,36 @@ describe("Memory leaks — HTTP (requires server)", function () {
     await httpLoop(
       "HTTP/2 TLS POST bodies on a shared session",
       plan("h2StreamPost", 250),
+      THRESHOLDS.h2Stream,
+    );
+  });
+
+  it("POST to an unknown route (404, body not read) — retains nothing per request", async () => {
+    // #695, critère 51 : le corps n'est pas lu, Node le vide (≤ 256 Kio) et
+    // garde la connexion. Même unité que le GET : une requête.
+    await httpLoop(
+      "POST to an unknown route",
+      plan("unroutedPost", 250),
+      THRESHOLDS.get,
+    );
+  });
+
+  it("POST over 256 KiB to an unknown route (connection: close) — retains nothing per connection", async () => {
+    // Fermeture attardée : `destroySoon` remplacé sur la socket, minuteur de
+    // silence armé — tout doit partir avec la connexion.
+    await httpLoop(
+      "POST over 256 KiB to an unknown route",
+      plan("unroutedPostClose", 100),
+      THRESHOLDS.upload,
+    );
+  });
+
+  it("HTTP/2 TLS POST to an unknown route on a shared session — retains nothing per stream", async () => {
+    // Le flux est fermé en `NO_ERROR` après la réponse : l'écouteur `finish`
+    // posé par `closeUnfinishedRequest` doit partir avec lui.
+    await httpLoop(
+      "HTTP/2 TLS POST to an unknown route on a shared session",
+      plan("h2StreamPostUnrouted", 250),
       THRESHOLDS.h2Stream,
     );
   });

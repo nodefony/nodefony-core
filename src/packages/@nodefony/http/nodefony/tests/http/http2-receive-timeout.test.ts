@@ -14,9 +14,9 @@
  *   fermeture, le client garde sa place de flux sur la session ;
  * - une route `bodyStream` n'est pas concernée : le corps y est lu par l'action ;
  * - une route inconnue (404) ne lit PAS le corps : la réponse part sans
- *   l'attendre (#695, critère 51) — une méthode refusée (405) non plus, mais
- *   elle est levée par le routeur AVANT l'étape du corps : ce cas est un
- *   TÉMOIN, il ne mord pas si l'on remet la lecture ;
+ *   l'attendre (#695, critère 51) — une méthode refusée (405) non plus : elle
+ *   est levée par le routeur AVANT l'étape du corps. Vu rouge en lisant le
+ *   corps avant le routage ;
  * - témoin de non-régression : un refus rendu avant la fin du corps (413)
  *   ferme lui aussi son flux — Node le faisait déjà sur ce chemin ; ce cas ne
  *   mord donc PAS si l'on retire la fermeture, les cas 408 si.
@@ -38,7 +38,7 @@ const READS_BODY = "/nodefony/test/decorators/body";
 const UNROUTED = "/nodefony/test/http2-receive-timeout/unrouted";
 /**
  * Route GET seule : un POST y reçoit 405, levé par le routeur avant l'étape du
- * corps — témoin de non-régression, pas une preuve du critère 51.
+ * corps — rougit si le corps venait à être lu avant le routage.
  */
 const GET_ONLY = "/nodefony/test/decorators/query";
 /** Route `bodyStream: true` du module test : l'action lit le flux elle-même. */
