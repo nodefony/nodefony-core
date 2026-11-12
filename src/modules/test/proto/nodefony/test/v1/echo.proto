@@ -20,6 +20,11 @@ service EchoService {
   rpc Fail(FailRequest) returns (FailResponse);
   // Types complexes, renvoyés tels quels : la sérialisation, octet pour octet.
   rpc Mirror(MirrorRequest) returns (MirrorResponse);
+  // Échéance d'un appel unaire (ADR-0026 D4, critères 19 et 20). `block` vrai :
+  // le gestionnaire ne répond jamais et ne lit pas son signal. Faux : il rend
+  // ce qu'il voit — temps restant, et si un appel bloqué de même témoin a vu
+  // son signal interrompu.
+  rpc Stall(StallRequest) returns (StallResponse);
 }
 
 // Point d'entrée `@Scope("request")` : une instance par appel.
@@ -74,6 +79,20 @@ message MirrorResponse {
   Complex value = 1;
   // Octets du champ `raw` reçus : la charge est arrivée entière.
   uint32 raw_size = 2;
+}
+
+message StallRequest {
+  bool block = 1;
+  // Relie un appel bloqué à l'appel qui lit son interruption.
+  string witness = 2;
+}
+
+message StallResponse {
+  // Temps restant vu à l'appel (ms), 0 sans échéance.
+  uint32 timeout_ms = 1;
+  bool has_deadline = 2;
+  // Un appel bloqué de même témoin a vu son signal interrompu.
+  bool aborted = 3;
 }
 
 message WhoRequest {}

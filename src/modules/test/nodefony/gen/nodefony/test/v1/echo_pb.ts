@@ -15,7 +15,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file nodefony/test/v1/echo.proto.
  */
 export const file_nodefony_test_v1_echo: GenFile = /*@__PURE__*/
-  fileDesc("Chtub2RlZm9ueS90ZXN0L3YxL2VjaG8ucHJvdG8SEG5vZGVmb255LnRlc3QudjEiHgoKU2F5UmVxdWVzdBIQCghzZW50ZW5jZRgBIAEoCSJUCgtTYXlSZXNwb25zZRIQCghzZW50ZW5jZRgBIAEoCRISCgpyZXF1ZXN0X2lkGAIgASgJEhAKCGluc3RhbmNlGAMgASgNEg0KBWNhbGxzGAQgASgNIh8KC1BpbmdSZXF1ZXN0EhAKCHNlbnRlbmNlGAEgASgJIjUKDFBpbmdSZXNwb25zZRIQCghzZW50ZW5jZRgBIAEoCRITCgtodHRwX21ldGhvZBgCIAEoCSIjCg9Db252ZXJzZVJlcXVlc3QSEAoIc2VudGVuY2UYASABKAkiNgoQQ29udmVyc2VSZXNwb25zZRIQCghzZW50ZW5jZRgBIAEoCRIQCghyZWNlaXZlZBgCIAEoDSINCgtGYWlsUmVxdWVzdCIOCgxGYWlsUmVzcG9uc2UiOQoNTWlycm9yUmVxdWVzdBIoCgV2YWx1ZRgBIAEoCzIZLm5vZGVmb255LnRlc3QudjEuQ29tcGxleCJMCg5NaXJyb3JSZXNwb25zZRIoCgV2YWx1ZRgBIAEoCzIZLm5vZGVmb255LnRlc3QudjEuQ29tcGxleBIQCghyYXdfc2l6ZRgCIAEoDSIMCgpXaG9SZXF1ZXN0Ih8KC1dob1Jlc3BvbnNlEhAKCGluc3RhbmNlGAEgASgNMogDCgtFY2hvU2VydmljZRJCCgNTYXkSHC5ub2RlZm9ueS50ZXN0LnYxLlNheVJlcXVlc3QaHS5ub2RlZm9ueS50ZXN0LnYxLlNheVJlc3BvbnNlEkoKBFBpbmcSHS5ub2RlZm9ueS50ZXN0LnYxLlBpbmdSZXF1ZXN0Gh4ubm9kZWZvbnkudGVzdC52MS5QaW5nUmVzcG9uc2UiA5ACARJVCghDb252ZXJzZRIhLm5vZGVmb255LnRlc3QudjEuQ29udmVyc2VSZXF1ZXN0GiIubm9kZWZvbnkudGVzdC52MS5Db252ZXJzZVJlc3BvbnNlKAEwARJFCgRGYWlsEh0ubm9kZWZvbnkudGVzdC52MS5GYWlsUmVxdWVzdBoeLm5vZGVmb255LnRlc3QudjEuRmFpbFJlc3BvbnNlEksKBk1pcnJvchIfLm5vZGVmb255LnRlc3QudjEuTWlycm9yUmVxdWVzdBogLm5vZGVmb255LnRlc3QudjEuTWlycm9yUmVzcG9uc2UyVwoRU2NvcGVkRWNob1NlcnZpY2USQgoDV2hvEhwubm9kZWZvbnkudGVzdC52MS5XaG9SZXF1ZXN0Gh0ubm9kZWZvbnkudGVzdC52MS5XaG9SZXNwb25zZWIGcHJvdG8z", [file_nodefony_test_v1_complex]);
+  fileDesc("Chtub2RlZm9ueS90ZXN0L3YxL2VjaG8ucHJvdG8SEG5vZGVmb255LnRlc3QudjEiHgoKU2F5UmVxdWVzdBIQCghzZW50ZW5jZRgBIAEoCSJUCgtTYXlSZXNwb25zZRIQCghzZW50ZW5jZRgBIAEoCRISCgpyZXF1ZXN0X2lkGAIgASgJEhAKCGluc3RhbmNlGAMgASgNEg0KBWNhbGxzGAQgASgNIh8KC1BpbmdSZXF1ZXN0EhAKCHNlbnRlbmNlGAEgASgJIjUKDFBpbmdSZXNwb25zZRIQCghzZW50ZW5jZRgBIAEoCRITCgtodHRwX21ldGhvZBgCIAEoCSIjCg9Db252ZXJzZVJlcXVlc3QSEAoIc2VudGVuY2UYASABKAkiNgoQQ29udmVyc2VSZXNwb25zZRIQCghzZW50ZW5jZRgBIAEoCRIQCghyZWNlaXZlZBgCIAEoDSINCgtGYWlsUmVxdWVzdCIOCgxGYWlsUmVzcG9uc2UiOQoNTWlycm9yUmVxdWVzdBIoCgV2YWx1ZRgBIAEoCzIZLm5vZGVmb255LnRlc3QudjEuQ29tcGxleCJMCg5NaXJyb3JSZXNwb25zZRIoCgV2YWx1ZRgBIAEoCzIZLm5vZGVmb255LnRlc3QudjEuQ29tcGxleBIQCghyYXdfc2l6ZRgCIAEoDSIuCgxTdGFsbFJlcXVlc3QSDQoFYmxvY2sYASABKAgSDwoHd2l0bmVzcxgCIAEoCSJKCg1TdGFsbFJlc3BvbnNlEhIKCnRpbWVvdXRfbXMYASABKA0SFAoMaGFzX2RlYWRsaW5lGAIgASgIEg8KB2Fib3J0ZWQYAyABKAgiDAoKV2hvUmVxdWVzdCIfCgtXaG9SZXNwb25zZRIQCghpbnN0YW5jZRgBIAEoDTLSAwoLRWNob1NlcnZpY2USQgoDU2F5Ehwubm9kZWZvbnkudGVzdC52MS5TYXlSZXF1ZXN0Gh0ubm9kZWZvbnkudGVzdC52MS5TYXlSZXNwb25zZRJKCgRQaW5nEh0ubm9kZWZvbnkudGVzdC52MS5QaW5nUmVxdWVzdBoeLm5vZGVmb255LnRlc3QudjEuUGluZ1Jlc3BvbnNlIgOQAgESVQoIQ29udmVyc2USIS5ub2RlZm9ueS50ZXN0LnYxLkNvbnZlcnNlUmVxdWVzdBoiLm5vZGVmb255LnRlc3QudjEuQ29udmVyc2VSZXNwb25zZSgBMAESRQoERmFpbBIdLm5vZGVmb255LnRlc3QudjEuRmFpbFJlcXVlc3QaHi5ub2RlZm9ueS50ZXN0LnYxLkZhaWxSZXNwb25zZRJLCgZNaXJyb3ISHy5ub2RlZm9ueS50ZXN0LnYxLk1pcnJvclJlcXVlc3QaIC5ub2RlZm9ueS50ZXN0LnYxLk1pcnJvclJlc3BvbnNlEkgKBVN0YWxsEh4ubm9kZWZvbnkudGVzdC52MS5TdGFsbFJlcXVlc3QaHy5ub2RlZm9ueS50ZXN0LnYxLlN0YWxsUmVzcG9uc2UyVwoRU2NvcGVkRWNob1NlcnZpY2USQgoDV2hvEhwubm9kZWZvbnkudGVzdC52MS5XaG9SZXF1ZXN0Gh0ubm9kZWZvbnkudGVzdC52MS5XaG9SZXNwb25zZWIGcHJvdG8z", [file_nodefony_test_v1_complex]);
 
 /**
  * @generated from message nodefony.test.v1.SayRequest
@@ -223,6 +223,61 @@ export const MirrorResponseSchema: GenMessage<MirrorResponse> = /*@__PURE__*/
   messageDesc(file_nodefony_test_v1_echo, 9);
 
 /**
+ * @generated from message nodefony.test.v1.StallRequest
+ */
+export type StallRequest = Message<"nodefony.test.v1.StallRequest"> & {
+  /**
+   * @generated from field: bool block = 1;
+   */
+  block: boolean;
+
+  /**
+   * Relie un appel bloqué à l'appel qui lit son interruption.
+   *
+   * @generated from field: string witness = 2;
+   */
+  witness: string;
+};
+
+/**
+ * Describes the message nodefony.test.v1.StallRequest.
+ * Use `create(StallRequestSchema)` to create a new message.
+ */
+export const StallRequestSchema: GenMessage<StallRequest> = /*@__PURE__*/
+  messageDesc(file_nodefony_test_v1_echo, 10);
+
+/**
+ * @generated from message nodefony.test.v1.StallResponse
+ */
+export type StallResponse = Message<"nodefony.test.v1.StallResponse"> & {
+  /**
+   * Temps restant vu à l'appel (ms), 0 sans échéance.
+   *
+   * @generated from field: uint32 timeout_ms = 1;
+   */
+  timeoutMs: number;
+
+  /**
+   * @generated from field: bool has_deadline = 2;
+   */
+  hasDeadline: boolean;
+
+  /**
+   * Un appel bloqué de même témoin a vu son signal interrompu.
+   *
+   * @generated from field: bool aborted = 3;
+   */
+  aborted: boolean;
+};
+
+/**
+ * Describes the message nodefony.test.v1.StallResponse.
+ * Use `create(StallResponseSchema)` to create a new message.
+ */
+export const StallResponseSchema: GenMessage<StallResponse> = /*@__PURE__*/
+  messageDesc(file_nodefony_test_v1_echo, 11);
+
+/**
  * @generated from message nodefony.test.v1.WhoRequest
  */
 export type WhoRequest = Message<"nodefony.test.v1.WhoRequest"> & {
@@ -233,7 +288,7 @@ export type WhoRequest = Message<"nodefony.test.v1.WhoRequest"> & {
  * Use `create(WhoRequestSchema)` to create a new message.
  */
 export const WhoRequestSchema: GenMessage<WhoRequest> = /*@__PURE__*/
-  messageDesc(file_nodefony_test_v1_echo, 10);
+  messageDesc(file_nodefony_test_v1_echo, 12);
 
 /**
  * @generated from message nodefony.test.v1.WhoResponse
@@ -250,7 +305,7 @@ export type WhoResponse = Message<"nodefony.test.v1.WhoResponse"> & {
  * Use `create(WhoResponseSchema)` to create a new message.
  */
 export const WhoResponseSchema: GenMessage<WhoResponse> = /*@__PURE__*/
-  messageDesc(file_nodefony_test_v1_echo, 11);
+  messageDesc(file_nodefony_test_v1_echo, 13);
 
 /**
  * Point d'entrée singleton (défaut) : une instance pour tous les appels.
@@ -307,6 +362,19 @@ export const EchoService: GenService<{
     methodKind: "unary";
     input: typeof MirrorRequestSchema;
     output: typeof MirrorResponseSchema;
+  },
+  /**
+   * Échéance d'un appel unaire (ADR-0026 D4, critères 19 et 20). `block` vrai :
+   * le gestionnaire ne répond jamais et ne lit pas son signal. Faux : il rend
+   * ce qu'il voit — temps restant, et si un appel bloqué de même témoin a vu
+   * son signal interrompu.
+   *
+   * @generated from rpc nodefony.test.v1.EchoService.Stall
+   */
+  stall: {
+    methodKind: "unary";
+    input: typeof StallRequestSchema;
+    output: typeof StallResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_nodefony_test_v1_echo, 0);

@@ -14,6 +14,8 @@ import {
   type PingResponseSchema,
   type SayRequest,
   type SayResponseSchema,
+  type StallRequest,
+  type StallResponseSchema,
 } from "../gen/nodefony/test/v1/echo_pb";
 
 /** Instances construites depuis le démarrage : un singleton n'en a qu'une. */
@@ -26,6 +28,13 @@ let instances = 0;
  */
 const sayCalls = new Map<string, number>();
 const WITNESS_LIMIT = 1024;
+
+/**
+ * Appels `Stall` bloqués dont le signal s'est abaissé, PAR témoin : un appel
+ * bloqué ne répond jamais, l'appel suivant de même témoin lit le constat.
+ * Borné comme `sayCalls`.
+ */
+const stallAborted = new Set<string>();
 
 /**
  * `nodefony.test.v1.EchoService` — l'application de référence de
@@ -78,6 +87,31 @@ export class GrpcEchoController extends GrpcController {
       received += 1;
       yield { sentence: request.sentence, received };
     }
+  }
+
+  /**
+   * Échéance d'un appel unaire (ADR-0026 D4). `block` : ne répond jamais et
+   * ne lit pas son signal — seule l'échéance de Nodefony termine l'appel ;
+   * l'interruption du signal est notée pour le témoin. Sinon : rend le temps
+   * restant vu à l'appel et le constat du témoin.
+   */
+  stall(
+    request: StallRequest,
+    ctx: HandlerContext,
+  ): MessageInitShape<typeof StallResponseSchema> | Promise<never> {
+    if (request.block) {
+      if (stallAborted.size >= WITNESS_LIMIT) stallAborted.clear();
+      ctx.signal.addEventListener("abort", () => {
+        stallAborted.add(request.witness);
+      });
+      return new Promise<never>(() => {});
+    }
+    const timeoutMs = ctx.timeoutMs();
+    return {
+      timeoutMs: timeoutMs === undefined ? 0 : Math.ceil(timeoutMs),
+      hasDeadline: timeoutMs !== undefined,
+      aborted: stallAborted.has(request.witness),
+    };
   }
 
   fail(): never {

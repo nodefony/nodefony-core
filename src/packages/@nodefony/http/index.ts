@@ -237,6 +237,7 @@ export type {
   IRequestTrace,
   RequestTraceProtocol,
 } from "./nodefony/interfaces/IRequestTrace";
+export type { IRpcCall } from "./nodefony/interfaces/IRpcCall";
 
 // Matching de domaine (Host) — fonctions pures réutilisées par @nodefony/framework
 // (Route.matchHostname / @Domain) pour la cohérence kernel ↔ route.

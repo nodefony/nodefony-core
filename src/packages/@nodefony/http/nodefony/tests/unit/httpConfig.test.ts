@@ -336,3 +336,29 @@ interface SchemaNode {
   properties?: Record<string, SchemaNode>;
   anyOf?: SchemaNode[];
 }
+
+describe("section grpc — bornes des messages (ADR-0026 D4, critère 59)", () => {
+  it("défauts : 4 Mio reçus et émis, en-tête Connect non exigé", () => {
+    const { grpc } = httpConfigSchema.parse({});
+    expect(grpc.readMaxBytes).to.equal(4 * 1024 * 1024);
+    expect(grpc.writeMaxBytes).to.equal(4 * 1024 * 1024);
+    expect(grpc.requireConnectProtocolHeader).to.equal(false);
+  });
+
+  it("réglables : une application échange de plus gros messages", () => {
+    const { grpc } = httpConfigSchema.parse({
+      grpc: { readMaxBytes: 8 * 1024 * 1024, writeMaxBytes: 16 * 1024 * 1024 },
+    });
+    expect(grpc.readMaxBytes).to.equal(8 * 1024 * 1024);
+    expect(grpc.writeMaxBytes).to.equal(16 * 1024 * 1024);
+  });
+
+  it("hors de ce qu'accepte l'adaptateur (< 1 ou > 0xffffffff) : refusé au démarrage, en nommant la clé", () => {
+    expect(() =>
+      httpConfigSchema.parse({ grpc: { readMaxBytes: 0 } }),
+    ).to.throw(/readMaxBytes/);
+    expect(() =>
+      httpConfigSchema.parse({ grpc: { writeMaxBytes: 0x1_0000_0000 } }),
+    ).to.throw(/writeMaxBytes/);
+  });
+});

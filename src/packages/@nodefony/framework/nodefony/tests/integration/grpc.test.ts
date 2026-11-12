@@ -361,6 +361,72 @@ describe("gRPC — matrice servie (critère 13, ADR-0026 D3)", () => {
   });
 });
 
+/** Délai de réponse par défaut des serveurs (`http.responseTimeout`). */
+const RESPONSE_TIMEOUT_MS = 30_000;
+
+/** L'en-tête d'échéance du protocole, posé à la main : aucun minuteur client. */
+function deadlineHeader(c: ICase, ms: number): Record<string, string> {
+  return c.protocol === "connect"
+    ? { "connect-timeout-ms": String(ms) }
+    : { "grpc-timeout": `${ms}m` };
+}
+
+describe("gRPC — échéance d'un appel unaire (critères 19 et 20, ADR-0026 D4)", () => {
+  for (const c of SERVED) {
+    const binary = c.protocol !== "connect";
+
+    it(`${c.label} : sans échéance du client, le gestionnaire n'en voit aucune`, async () => {
+      // Le délai du serveur n'est pas déguisé en échéance reçue : la suite de
+      // conformité de Connect le refuse (« server echoed back a timeout »).
+      const client = createClient(EchoService, c.transport(binary));
+      const r = await client.stall({ block: false });
+      expect(r.hasDeadline).to.equal(false);
+    });
+
+    it(`${c.label} : client à 120 s, le gestionnaire la voit — jamais INVALID_ARGUMENT`, async () => {
+      const client = createClient(EchoService, c.transport(binary));
+      const r = await client.stall({ block: false }, { timeoutMs: 120_000 });
+      expect(r.hasDeadline).to.equal(true);
+      expect(r.timeoutMs).to.be.within(119_000, 120_000);
+    });
+  }
+
+  // Tous les décors EN PARALLÈLE : un seul délai de réponse à attendre.
+  it(
+    "client à 120 s, gestionnaire sourd : 4 au délai de réponse du serveur, jamais 504/408 (tous les décors)",
+    async () => {
+      const results = await Promise.all(
+        SERVED.map(async (c) => {
+          const client = createClient(
+            EchoService,
+            c.transport(c.protocol !== "connect"),
+          );
+          const witness = randomUUID();
+          const err = await connectErrorOf(
+            client.stall(
+              { block: true, witness },
+              { headers: deadlineHeader(c, 120_000) },
+            ),
+          );
+          // Client NEUF : après 30 s sans trame, la session HTTP/2 a reçu son
+          // GOAWAY (`http2Goaway.ts#closeIdleSession`) ; un nouvel appel sur
+          // elle serait refusé (`REFUSED_STREAM`, rejouable).
+          const seen = await createClient(
+            EchoService,
+            c.transport(c.protocol !== "connect"),
+          ).stall({ block: false, witness });
+          return { label: c.label, code: err.code, aborted: seen.aborted };
+        }),
+      );
+      for (const r of results) {
+        expect(r.code, r.label).to.equal(Code.DeadlineExceeded);
+        expect(r.aborted, r.label).to.equal(true);
+      }
+    },
+    RESPONSE_TIMEOUT_MS + 15_000,
+  );
+});
+
 describe("gRPC — flux bidirectionnel entrelacé (corps lu au fil de l'eau)", () => {
   const bidi: Array<[string, () => Transport]> = [
     [

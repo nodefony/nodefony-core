@@ -22,6 +22,7 @@ import {
   disarmResponseTimeout,
   resolveStreamTarget,
 } from "../src/context/http/StreamLifecycle";
+import { GRPC_DEFAULT_MAX_MESSAGE_BYTES } from "../src/grpc/limits";
 import { GrpcCall } from "./GrpcCall";
 
 /** Le gestionnaire `(req, res)` que rend l'adaptateur. */
@@ -37,6 +38,21 @@ export interface IGrpcProtocols {
   readonly grpc: boolean;
   readonly grpcWeb: boolean;
   readonly connect: boolean;
+}
+
+/**
+ * La section `grpc` de la configuration http : protocoles servis (D3, point
+ * 5) et bornes des messages (D4, points 1, 2 et 6).
+ *
+ * @experimental Surface gRPC, ADR-0026 D11.
+ */
+export interface IGrpcSettings extends IGrpcProtocols {
+  /** Taille maximale d'un message reçu, après décompression (octets). */
+  readonly readMaxBytes: number;
+  /** Taille maximale d'un message émis (octets). */
+  readonly writeMaxBytes: number;
+  /** Exige l'en-tête `Connect-Protocol-Version` sur les requêtes Connect. */
+  readonly requireConnectProtocolHeader: boolean;
 }
 
 /**
@@ -58,11 +74,19 @@ function unrouted(): never {
   throw UNROUTED;
 }
 
-/** Défaut de l'adaptateur : les trois protocoles (`router.d.ts`). */
-const ALL_PROTOCOLS: IGrpcProtocols = Object.freeze({
+/**
+ * Défauts de la section `grpc`, quand le contexte n'a pas de noyau http (banc
+ * hors serveur) : les trois protocoles (défaut de l'adaptateur,
+ * `router.d.ts`) et les bornes de Nodefony — jamais celles de l'adaptateur,
+ * qui n'en pose aucune.
+ */
+const DEFAULT_SETTINGS: IGrpcSettings = Object.freeze({
   grpc: true,
   grpcWeb: true,
   connect: true,
+  readMaxBytes: GRPC_DEFAULT_MAX_MESSAGE_BYTES,
+  writeMaxBytes: GRPC_DEFAULT_MAX_MESSAGE_BYTES,
+  requireConnectProtocolHeader: false,
 });
 
 /**
@@ -107,22 +131,38 @@ export class GrpcEndpoint<S extends DescService = DescService> {
   #handler: NodeHandler | null = null;
   /** Case synchrone : la cible de l'appel en cours de remise à l'adaptateur. */
   #pendingTarget: object | null = null;
-  /** Option `contextValues` : une fiche par appel, rien sur le chemin du 404. */
-  readonly #contextValues = (): GrpcCall => new GrpcCall(this.#pendingTarget);
+  /** Case synchrone : le contexte de l'appel en cours de remise. */
+  #pendingContext: HttpContext | null = null;
+  /**
+   * Option `contextValues` : une fiche par appel, rien sur le chemin du 404.
+   * Accrochée au contexte (`HttpContext.rpc`, ADR-0026 D10) : à l'échéance du
+   * délai de réponse, le noyau la termine au lieu d'écrire un 408/504.
+   */
+  readonly #contextValues = (): GrpcCall => {
+    const call = new GrpcCall(this.#pendingTarget);
+    const context = this.#pendingContext;
+    if (context !== null) context.rpc = call;
+    return call;
+  };
+  /** Chemins des méthodes unaires : leur délai de réponse reste armé. */
+  readonly #unaryPaths: ReadonlySet<string>;
 
   constructor(service: S, options: IGrpcEndpointOptions = {}) {
     this.service = service;
     this.perCall = options.perCall ?? false;
+    this.#unaryPaths = unaryPathsOf(service);
   }
 
   /**
    * Remet la requête du contexte à l'adaptateur, qui écrit lui-même la
    * réponse et ses trailers. Synchrone : rien n'est attendu ici.
    *
-   * Avant de la remettre : le délai de réponse de Nodefony est désarmé (à
-   * l'expiration il écrirait un 408/504 par-dessus — un seul écrivain), et le
-   * contexte est marqué répondu (`sended`), si bien que le pipeline n'attend
-   * aucune réponse de l'action.
+   * Avant de la remettre : le contexte est marqué répondu (`sended`), si bien
+   * que le pipeline n'attend aucune réponse de l'action. Le délai de réponse
+   * de Nodefony est désarmé pour un flux (à l'expiration il écrirait un
+   * 408/504 par-dessus — un seul écrivain) ; pour un appel unaire il reste
+   * armé, et termine l'appel en 4 `DEADLINE_EXCEEDED` par sa fiche
+   * (`HttpContext.rpc`, ADR-0026 D4 point 3).
    *
    * @param context - le contexte HTTP de la requête, pas encore répondu.
    * @param target - l'objet qui implémente le service pour cet appel.
@@ -147,9 +187,16 @@ export class GrpcEndpoint<S extends DescService = DescService> {
     // Construit AVANT de prendre la réponse : une méthode introuvable rend
     // une erreur que le pipeline sait encore écrire.
     const handler = this.#handler ?? this.#build(context, target);
-    disarmResponseTimeout(streamTarget);
+    // Un flux n'a aucune échéance : le délai de Nodefony est désarmé (à
+    // l'expiration il écrirait un 408/504 par-dessus l'adaptateur). Un appel
+    // unaire le GARDE : à l'expiration, le noyau termine l'appel par sa fiche
+    // (`HttpContext._onTimeout` → `GrpcCall.expire`) — aucun minuteur de plus.
+    if (!this.#unaryPaths.has(context.request.url.pathname)) {
+      disarmResponseTimeout(streamTarget);
+    }
     context.sended = true;
     this.#pendingTarget = target;
+    this.#pendingContext = context;
     try {
       handler(context.request.request, nodeResponse);
     } catch (error) {
@@ -158,6 +205,7 @@ export class GrpcEndpoint<S extends DescService = DescService> {
       // aussi, sur un chemin sans méthode.
       if (nodeResponse.headersSent) throw error;
       context.sended = false;
+      context.rpc = null;
       if (error === UNROUTED) {
         throw HttpError.withoutStack("Not Found", 404, context);
       }
@@ -165,17 +213,25 @@ export class GrpcEndpoint<S extends DescService = DescService> {
       throw HttpError.withoutStack("gRPC : requête mal formée", 400, context);
     } finally {
       this.#pendingTarget = null;
+      this.#pendingContext = null;
     }
   }
 
   /** Construit l'adaptateur, une fois, depuis la configuration http. */
   #build(context: HttpContext, target: object): NodeHandler {
-    const protocols = context.httpKernel?.options.grpc ?? ALL_PROTOCOLS;
+    const settings: IGrpcSettings =
+      context.httpKernel?.options.grpc ?? DEFAULT_SETTINGS;
     const shared = this.perCall ? null : target;
     const handler = connectNodeAdapter({
-      grpc: protocols.grpc,
-      grpcWeb: protocols.grpcWeb,
-      connect: protocols.connect,
+      grpc: settings.grpc,
+      grpcWeb: settings.grpcWeb,
+      connect: settings.connect,
+      // Bornes posées sur l'adaptateur, jamais à l'inscription d'une méthode
+      // (connectrpc/connect-es#1835). `readMaxBytes` borne aussi la
+      // décompression (`envelope.js#envelopeDecompress`).
+      readMaxBytes: settings.readMaxBytes,
+      writeMaxBytes: settings.writeMaxBytes,
+      requireConnectProtocolHeader: settings.requireConnectProtocolHeader,
       contextValues: this.#contextValues,
       fallback: unrouted,
       jsonOptions: { registry: contractRegistry(this.service) },
@@ -184,6 +240,60 @@ export class GrpcEndpoint<S extends DescService = DescService> {
     this.#handler = handler;
     return handler;
   }
+}
+
+/** Les chemins `/<paquet.Service>/<Méthode>` des méthodes unaires du contrat. */
+function unaryPathsOf(service: DescService): ReadonlySet<string> {
+  const paths = new Set<string>();
+  for (const method of service.methods) {
+    if (isUnary(method)) paths.add(`/${service.typeName}/${method.name}`);
+  }
+  return paths;
+}
+
+/**
+ * Fin d'un appel unaire (ADR-0026 D4, point 3) : l'appel se termine au plus
+ * tard au délai de réponse du serveur, même si le gestionnaire ne lit pas son
+ * signal.
+ *
+ * - L'adaptateur tient l'échéance DU CLIENT et abaisse `ctx.signal`, mais
+ *   attend la promesse du gestionnaire
+ *   (`invoke-implementation.js#invokeUnaryImplementation`) : un gestionnaire
+ *   sourd tiendrait l'appel ouvert sans fin.
+ * - Le délai du serveur est celui que Nodefony arme déjà sur toute requête,
+ *   gardé sur une route unaire : à l'expiration, `HttpContext._onTimeout`
+ *   appelle `GrpcCall.expire`, qui abaisse le signal et rejette la promesse
+ *   rendue ici avec 4 `DEADLINE_EXCEEDED`. Aucun minuteur de plus.
+ * - Ce délai n'est PAS écrit dans l'en-tête d'échéance : le gestionnaire
+ *   verrait par `ctx.timeoutMs()` une échéance que le client n'a pas envoyée
+ *   (suite de conformité de Connect : « server echoed back a timeout but none
+ *   was expected »).
+ * - Un résultat synchrone passe tel quel : ni promesse, ni suivi.
+ */
+function settleUnary<T>(
+  result: T | Promise<T>,
+  ctx: HandlerContext,
+): T | Promise<T> {
+  if (!(result instanceof Promise)) return result;
+  const call = ctx.values;
+  if (!(call instanceof GrpcCall)) return result;
+  const pending: Promise<T> = result;
+  return new Promise<T>((resolve, reject) => {
+    call.attach(ctx, reject);
+    pending.then(
+      (value) => {
+        call.detach();
+        resolve(value);
+      },
+      (error: unknown) => {
+        call.detach();
+        // Le motif du gestionnaire passe TEL QUEL : l'adaptateur le traduit
+        // (ConnectError → son code, toute autre valeur → 13 `INTERNAL`).
+        // oxlint-disable-next-line typescript/prefer-promise-reject-errors
+        reject(error);
+      },
+    );
+  });
 }
 
 /**
@@ -221,15 +331,20 @@ function registerMethods(
 ): void {
   for (const method of service.methods) {
     if (isUnary(method)) {
-      router.rpc(
-        method,
-        shared !== null
-          ? pick(method, shared).bind(shared)
-          : (request, ctx) => {
-              const target = callTarget(ctx);
-              return pick(method, target).call(target, request, ctx);
-            },
-      );
+      if (shared !== null) {
+        const impl = pick(method, shared);
+        router.rpc(method, (request, ctx) =>
+          settleUnary(impl.call(shared, request, ctx), ctx),
+        );
+      } else {
+        router.rpc(method, (request, ctx) => {
+          const target = callTarget(ctx);
+          return settleUnary(
+            pick(method, target).call(target, request, ctx),
+            ctx,
+          );
+        });
+      }
     } else if (isServerStreaming(method)) {
       router.rpc(
         method,

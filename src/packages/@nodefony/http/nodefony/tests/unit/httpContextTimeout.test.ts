@@ -204,6 +204,7 @@ describe("HttpContext._onTimeout — l'action muette se signale AVANT la répons
       listenerCount: () => 0,
       _abortIfPending: () => undefined,
       response: { stream: {} },
+      rpc: null,
       httpKernel: {
         warnUnsentResponse: () => order.push("warn"),
         onError: () => {
@@ -214,5 +215,27 @@ describe("HttpContext._onTimeout — l'action muette se signale AVANT la répons
     });
     ctx._onTimeout();
     expect(order).to.deep.equal(["warn", "onError"]);
+  });
+
+  // ADR-0026 D4 point 3 : la réponse d'un appel RPC appartient à l'adaptateur.
+  // Un 408/504 serait un second écrivain ; l'appel se termine par sa fiche.
+  it("appel RPC : la fiche est terminée (expire), ni avertissement ni 408/504", () => {
+    const order: string[] = [];
+    const ctx = Object.create(HttpContext.prototype) as HttpContext;
+    Object.assign(ctx, {
+      listenerCount: () => 0,
+      _abortIfPending: () => order.push("abort"),
+      response: { stream: {} },
+      rpc: { expire: () => order.push("expire") },
+      httpKernel: {
+        warnUnsentResponse: () => order.push("warn"),
+        onError: () => {
+          order.push("onError");
+          return Promise.resolve();
+        },
+      },
+    });
+    ctx._onTimeout();
+    expect(order).to.deep.equal(["abort", "expire"]);
   });
 });

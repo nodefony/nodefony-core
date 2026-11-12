@@ -147,6 +147,7 @@ const PERF_PROBE_SUB = process.env.NF_PERF_PROBE === "1";
 type PerfSubMarks = { t0: bigint; uploadNs: number; reqResNs: number };
 
 import type { IHttpContext as IHttpContextInterface } from "../../../interfaces/IContext";
+import type { IRpcCall } from "../../../interfaces/IRpcCall";
 import { describeSessionStoreFailure } from "../../session/sessionStoreFailure";
 import { responseEnded } from "../responseEnded";
 import { alpnProtocolOf } from "../transport";
@@ -177,6 +178,15 @@ class HttpContext extends Context implements IHttpContextInterface {
    * son montage. `null` = servie par l'application (cas de toute requête).
    */
   relayAccessLog: "all" | "errors" | null = null;
+  /**
+   * L'appel RPC servi sur cette requête (gRPC, gRPC-Web, Connect), `null`
+   * hors appel RPC (ADR-0026 D10) : un champ, aucune allocation. Posé par le
+   * point d'entrée gRPC ; à l'échéance du délai de réponse, {@link _onTimeout}
+   * le termine au lieu d'écrire un 408/504.
+   *
+   * @experimental Surface gRPC, ADR-0026 D11.
+   */
+  rpc: IRpcCall | null = null;
   //isHtml: boolean = false;
   override request: HttpRequestType;
   override response: HttpRsponseType;
@@ -321,6 +331,13 @@ class HttpContext extends Context implements IHttpContextInterface {
     // controller stops producing a response the client will never receive.
     // No-op if nobody read `signal` (cold path, zero overhead otherwise).
     this._abortIfPending("Request timeout");
+    // Appel RPC : la réponse appartient à l'adaptateur. Un 408/504 serait un
+    // second écrivain ; l'appel se termine au format de son protocole (gRPC :
+    // 4 `DEADLINE_EXCEEDED`, ADR-0026 D4 point 3).
+    if (this.rpc !== null) {
+      this.rpc.expire();
+      return;
+    }
     // L'action muette se signale ICI : une fois le 504/408 envoyé, `sended`
     // est vrai et le démontage n'aurait plus rien à dire (vécu : un `null`
     // rendu pour un id absent, 30 s de 504 sans un mot).

@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { overlayField } from "nodefony";
 import { normalizePrefix, proxyMountProblems } from "../src/proxy/rules";
+import {
+  GRPC_DEFAULT_MAX_MESSAGE_BYTES,
+  GRPC_MAX_MESSAGE_BYTES,
+} from "../src/grpc/limits";
 
 /**
  * @nodefony/http — CONFIGURATION DU MODULE (schéma Zod = source unique).
@@ -1232,6 +1236,37 @@ const grpcSchema = z
         "Sert le protocole Connect (JSON ou binaire, `curl` compris), sur tous " +
           "les serveurs actifs.",
       ),
+    readMaxBytes: z
+      .number()
+      .int()
+      .min(1)
+      .max(GRPC_MAX_MESSAGE_BYTES)
+      .default(GRPC_DEFAULT_MAX_MESSAGE_BYTES)
+      .describe(
+        "Taille maximale d'un message REÇU, en octets (défaut 4 Mio), après " +
+          "décompression : au-delà, statut 8 `RESOURCE_EXHAUSTED` et la " +
+          "méthode n'est pas appelée. Sans borne, quelques Ko compressés " +
+          "peuvent se décompresser en plusieurs Gio.",
+      ),
+    writeMaxBytes: z
+      .number()
+      .int()
+      .min(1)
+      .max(GRPC_MAX_MESSAGE_BYTES)
+      .default(GRPC_DEFAULT_MAX_MESSAGE_BYTES)
+      .describe(
+        "Taille maximale d'un message ÉMIS, en octets (défaut 4 Mio) : au-delà, " +
+          "statut 8 `RESOURCE_EXHAUSTED`, journalisé chez nous plutôt que " +
+          "refusé par un client borné à 4 Mio.",
+      ),
+    requireConnectProtocolHeader: z
+      .boolean()
+      .default(false)
+      .describe(
+        "Exige l'en-tête `Connect-Protocol-Version` sur les requêtes Connect " +
+          "(400 sans lui). Défaut `false` : le CSRF est déjà fermé par le type " +
+          "de contenu et CORS, et l'exiger casse `curl` et le JSON écrit à la main.",
+      ),
   })
   .refine((grpc) => grpc.grpc || grpc.grpcWeb || grpc.connect, {
     message:
@@ -1239,8 +1274,8 @@ const grpcSchema = z
       "pour ne servir aucun service gRPC, n'en déclarer aucun.",
   })
   .describe(
-    "Services gRPC déclarés par `@GrpcService` (ADR-0026) : protocoles servis, " +
-      "pour toute l'application. Expérimental.",
+    "Services gRPC déclarés par `@GrpcService` (ADR-0026) : protocoles servis " +
+      "et bornes des messages, pour toute l'application. Expérimental.",
   );
 
 export const httpConfigSchema = z
