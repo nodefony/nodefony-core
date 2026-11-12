@@ -282,9 +282,14 @@ describe("Balayage de blocage — h2c, deux flux d'UNE session (unitaire)", () =
       h.open(blocked!);
       h.open(neighbour!);
       await fill(blocked!.target);
-      // Le voisin avance pendant toute l'attente.
-      for (let i = 0; i < 32; i++) neighbour!.target.write(CHUNK);
+      // Le voisin écrit plus que sa fenêtre de flux (64 Kio) : il entre en
+      // contre-pression sur TOUTE plateforme — sans quoi seule une écriture
+      // restée en vol (Windows, IOCP) l'y mettait, et le test disait autre
+      // chose selon l'OS. Son attente s'ouvre au premier tour…
+      await fill(neighbour!.target);
       h.sweep.sweep(1_000);
+      // … et son client lit : le `drain` RÉEL la ferme avant le tour du seuil.
+      await once(neighbour!.target, "drain");
       h.sweep.sweep(1_000 + STALL);
       expect(blocked!.target.destroyed, "bloqué coupé").to.equal(true);
       expect(neighbour!.target.destroyed, "voisin vivant").to.equal(false);
