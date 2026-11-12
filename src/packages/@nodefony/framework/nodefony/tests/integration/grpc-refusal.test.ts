@@ -16,6 +16,7 @@ import { randomUUID } from "node:crypto";
 import http from "node:http";
 import https from "node:https";
 import http2 from "node:http2";
+import net from "node:net";
 import { expect } from "vitest";
 import {
   Code,
@@ -470,5 +471,41 @@ describe("gRPC — corps non lu d'un refus (D13 point 1, critère 26)", () => {
     expect(reply.statusCode).to.equal(200);
     expect(reply.headers["grpc-status"]).to.equal("12");
     expect(reply.headers.connection).to.equal("close");
+  });
+
+  it("HTTP/1.1 gRPC-Web : corps JAMAIS fini vers un chemin inconnu → refus aussitôt, socket fermée par le serveur sans attendre requestTimeout", async () => {
+    // Content-Length de 1 Mio, cinq octets envoyés, puis plus rien : le
+    // serveur ne doit ni attendre la fin du corps pour refuser, ni garder la
+    // socket jusqu'à `requestTimeout` (30 s par défaut).
+    const out = await new Promise<{ head: string; closed: boolean }>(
+      (resolve, reject) => {
+        let head = "";
+        const socket = net.connect(5151, "127.0.0.1");
+        const cap = setTimeout(() => {
+          socket.destroy();
+          resolve({ head, closed: false });
+        }, 10_000);
+        socket.on("data", (c: Buffer) => {
+          if (head === "")
+            head = c.toString("latin1").split("\r\n\r\n")[0] ?? "";
+        });
+        socket.on("close", () => {
+          clearTimeout(cap);
+          resolve({ head, closed: true });
+        });
+        socket.on("error", reject);
+        socket.write(
+          "POST /nodefony.test.v1.Nope/Call HTTP/1.1\r\nHost: 127.0.0.1:5151\r\n" +
+            "Content-Type: application/grpc-web+proto\r\nContent-Length: 1048576\r\n\r\n",
+        );
+        socket.write(new Uint8Array([0, 0, 0, 0, 9]));
+      },
+    );
+    expect(out.head).to.match(/^HTTP\/1\.1 200 /);
+    expect(out.head).to.match(/\r\ngrpc-status: 12\r\n/);
+    expect(out.head).to.match(/\r\nconnection: close\r\n/i);
+    expect(out.closed, "socket encore ouverte au plafond de 10 s").to.equal(
+      true,
+    );
   });
 });
