@@ -899,9 +899,15 @@ async function grpcWebCall(
 /**
  * Bombe gzip : un `Msg` dont le texte décompressé fait `textLength` octets,
  * compressé en flux — le banc lui-même n'alloue jamais la taille décompressée.
+ *
+ * Niveau le plus rapide : au niveau par défaut, compresser 256 Mio coûte
+ * ~0,9 s en local et dépassait le délai de 5 s sur les machines Windows de
+ * la CI — le banc mesurait sa propre fabrication. Le niveau 1 coûte 4 fois
+ * moins pour un message de ~1,1 Mio, toujours sous la borne filaire : la
+ * bombe atteint bien la décompression, seule mise à l'épreuve ici.
  */
 async function gzipBomb(textLength: number): Promise<Uint8Array> {
-  const gzip = zlib.createGzip();
+  const gzip = zlib.createGzip({ level: zlib.constants.Z_BEST_SPEED });
   const chunks: Buffer[] = [];
   gzip.on("data", (chunk: Buffer) => chunks.push(chunk));
   const ended = once(gzip, "end");
