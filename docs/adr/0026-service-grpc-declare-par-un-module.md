@@ -673,17 +673,28 @@ par CORS (`csrf.ts#Csrf.enforce`, point 1). Connect publie les en-têtes que ses
    démarrage l'union de ses listes avec celles de Connect (`grpc-timeout`,
    `connect-protocol-version`, `x-grpc-web`…, méthodes `POST` et `GET`). Le préflight ne connaît
    pas la route : l'union est la seule voie. Le démarrage l'annonce.
+   - L'union se fait à `onReady` (`firewall.ts#Firewall.#widenCorsForRpc`) : après TOUS les
+     `onBoot` — les routes gRPC s'y marquent, dans un ordre de modules que rien ne fixe —, avant
+     l'ouverture des ports. Comparaison sans casse : une liste écrite `content-type` ne reçoit pas
+     un second `Content-Type`.
+   - Les listes sont celles de Connect (`cors` de `@connectrpc/connect`), RECOPIÉES dans
+     `@nodefony/http` principal (`grpc/cors.ts#rpcCorsLists`), qui ne charge jamais Connect (D12) ;
+     un test compare la copie à l'original.
    - Nécessaire : la liste par défaut vaut `Authorization, Content-Type, X-Requested-With`
      (`security/…/config/config.ts`, `corsSchema`) ; un client gRPC-Web qui envoie `x-grpc-web` ou
      `grpc-timeout` serait refusé au préflight.
 3. **Réponse réelle.** La remise en état des en-têtes (D6, point 2) y porte les en-têtes CORS. Sur
-   une réponse gRPC seulement, `Access-Control-Expose-Headers` reçoit `grpc-status`,
-   `grpc-message` et `grpc-status-details-bin` : sans eux, un client gRPC-Web ne lit pas le statut.
-   Les autres routes n'en reçoivent rien.
+   une réponse gRPC d'une origine autorisée seulement, `Access-Control-Expose-Headers` reçoit la
+   liste exposée de Connect — `Grpc-Status`, `Grpc-Message`, `Grpc-Status-Details-Bin`,
+   `Content-Encoding`, `Connect-Content-Encoding` —, ajoutée à celle de l'application
+   (`GrpcEndpoint.ts#exposeRpcHeaders`) : sans elle, un client gRPC-Web ne lit ni le statut ni
+   l'encodage d'une réponse compressée. Les autres routes n'en reçoivent rien.
 4. **CSRF : rien à coder.** Une origine autorisée passe ; une autre est refusée en gRPC (D5).
 
-**Coût** : 0 par appel ; listes calculées une fois au démarrage ; ≈ 70 octets de plus, sur une
-réponse gRPC d'une autre origine seulement.
+**Coût** : 0 par requête ; au démarrage, un écouteur `onReady` par pare-feu — même sans service
+gRPC, retiré dès qu'il a tourné — et la politique recomposée une fois s'il y a lieu ; ≈ 110 octets
+de plus, sur une réponse gRPC d'une origine autorisée seulement (une chaîne composée au
+chargement, une lecture de la réserve).
 
 ### D10 — Ce que voient la ligne d'accès et le traçage
 
