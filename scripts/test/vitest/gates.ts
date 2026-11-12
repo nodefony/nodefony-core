@@ -612,6 +612,23 @@ export const KEYCLOAK_GATE: EnvGate = {
     "sans elles il ne déclare pas le fournisseur `keycloak` et le banc rend 404.",
 };
 
+/**
+ * Interopérabilité gRPC avec `grpcurl` (grpc-go) — ADR-0026 D13, #695 critère 53.
+ *
+ * Une CAPACITÉ de la machine, pas une variable : le banc
+ * (`framework/nodefony/tests/integration/grpc-interop.test.ts`) constate
+ * `grpcurl -version` et saute sans lui. La CI l'installe, version et somme
+ * SHA-256 figées, dans le job d'intégration Linux
+ * (`.github/workflows/node.js.yml`, étape « Installer grpcurl ») ; sur macOS et
+ * Windows, son absence s'énonce par `NF_GATES_ALLOW=grpcurl`. En local :
+ * `brew install grpcurl`, ou l'archive de la release.
+ */
+export const GRPCURL_EXPECTATION: GateExpectation = {
+  label: "Interopérabilité gRPC — grpcurl réel",
+  capability: "grpcurl",
+  proof: "grpcurl",
+};
+
 /** Famille d'un décor, pour le ranger dans l'onglet Décors de la console. */
 export type TestbedFamily =
   "database" | "cache" | "observability" | "identity" | "network";

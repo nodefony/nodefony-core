@@ -290,6 +290,14 @@ attrape-tout `/nodefony/test/route*`, corps non lu h1/h2).
 Banc : `framework/nodefony/tests/integration/grpc.test.ts` (matrice 5151/5152/5153 × gRPC,
 gRPC-Web, Connect × binaire/JSON).
 
+Banc d'INTEROPÉRABILITÉ : `framework/nodefony/tests/integration/grpc-interop.test.ts` — clients TIERS
+`@grpc/grpc-js` + `@grpc/proto-loader` (dépendances de développement figées de ce module) et
+`grpcurl` (grpc-go ; capacité CONSTATÉE, `scripts/test/vitest/gates.ts#GRPCURL_EXPECTATION`, installé
+en CI Linux, `NF_GATES_ALLOW=grpcurl` ailleurs). Contrat lu par un descriptor set bâti depuis
+`nodefony/gen/` (couvre la conformité, sans `.proto` source) : côté grpc-js, champs aux noms du
+`.proto` (`request_id`), pas en camelCase. Le service de conformité renvoie en-têtes et échéance
+reçus : c'est lui qui prouve le sens client → serveur.
+
 **Suite de conformité officielle de Connect** — `GrpcConformanceController`
 (`connectrpc.conformance.v1.ConformanceService`, adapté du serveur de référence de connect-es,
 attribution Apache-2.0 en tête du fichier) et `conformance/` :

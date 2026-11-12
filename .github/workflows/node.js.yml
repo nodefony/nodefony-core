@@ -937,10 +937,12 @@ jobs:
       # déclare alors son fournisseur `keycloak`) et au banc. Valeurs du realm
       # importé (`docker/keycloak/import/realm-nodefony.json`), secret de DEV.
       # Ailleurs, l'absence est ÉNONCÉE (`NF_GATES_ALLOW`), jamais oubliée.
+      # Même règle pour `grpcurl` (#695, critère 53) : installé sur les seules
+      # lignes Linux (étape « Installer grpcurl »), énoncé absent ailleurs.
       NF_KEYCLOAK_ISSUER: ${{ matrix.os == 'ubuntu-latest' && 'https://localhost:8444/realms/nodefony' || '' }}
       NF_KEYCLOAK_CLIENT_ID: ${{ matrix.os == 'ubuntu-latest' && 'nodefony-dev' || '' }}
       NF_KEYCLOAK_CLIENT_SECRET: ${{ matrix.os == 'ubuntu-latest' && 'nodefony-dev-keycloak-secret' || '' }}
-      NF_GATES_ALLOW: ${{ matrix.os != 'ubuntu-latest' && 'NF_KEYCLOAK_ISSUER' || '' }}
+      NF_GATES_ALLOW: ${{ matrix.os != 'ubuntu-latest' && 'NF_KEYCLOAK_ISSUER,grpcurl' || '' }}
 
     steps:
       - name: Checkout
@@ -1102,6 +1104,24 @@ jobs:
           # `NODE_TLS_REJECT_UNAUTHORIZED` — un vrai défaut de certificat doit
           # rester visible. Même décor que `start.sh` en local.
           env: NODE_EXTRA_CA_CERTS=${{ github.workspace }}/nodefony/config/certificates/ca/nodefony-root-ca.crt.pem
+
+      # Client gRPC de l'écosystème Go (grpc-go) pour le banc d'interopérabilité
+      # (`framework/…/grpc-interop.test.ts`, ADR-0026 D13) — patron de gitleaks
+      # (`secrets.yml`), plus une somme FIGÉE : la lire dans la release même de
+      # l'archive ne prouverait que le transfert. Changer `VERSION` = recopier
+      # la somme de `grpcurl_<version>_checksums.txt`.
+      - name: Installer grpcurl
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          VERSION=1.9.4
+          SHA256=97e13d58d2733a0e62cd2571d1d5f0c02823f0d25282f08bddedf1ad9c5d1736
+          ARCHIVE="grpcurl_${VERSION}_linux_x86_64.tar.gz"
+          curl -sSfL -o "$RUNNER_TEMP/$ARCHIVE" \
+            "https://github.com/fullstorydev/grpcurl/releases/download/v${VERSION}/${ARCHIVE}"
+          echo "$SHA256  $RUNNER_TEMP/$ARCHIVE" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/$ARCHIVE" -C /usr/local/bin grpcurl
+          grpcurl -version
 
       - name: Run integration tests
         run: node scripts/ci/run-watched.mjs npm run test:integration

@@ -1,10 +1,21 @@
 import { defineConfig } from "vitest/config";
 import { oxcDecorators } from "../../../../scripts/test/vitest/oxc.ts";
 import { fileURLToPath } from "node:url";
+import {
+  gateReporter,
+  GRPCURL_EXPECTATION,
+  type GateExpectations,
+} from "../../../../scripts/test/vitest/gates.ts";
 import { transformCache } from "../../../../scripts/test/vitest/perf.ts";
 import { tmpGuard } from "../../../../scripts/test/vitest/tmp-guard.ts";
 
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
+
+/**
+ * Décors que cette passe exige — lus aussi par l'onglet Décors de la console
+ * (`scripts/test/lib/testbed.ts`), pour dire quelle suite chaque décor débloque.
+ */
+export const expectations: GateExpectations = [GRPCURL_EXPECTATION];
 
 /**
  * Vitest — suite d'INTÉGRATION @nodefony/framework (HTTP réel : Controller,
@@ -28,6 +39,7 @@ export default defineConfig({
     testTimeout: 10_000,
     hookTimeout: 10_000,
     setupFiles: [r("./nodefony/tests/vitest.setup.ts")],
+    reporters: ["default", gateReporter(expectations)],
   },
   resolve: {
     alias: {
