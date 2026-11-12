@@ -14,7 +14,6 @@
 //
 import { randomUUID } from "node:crypto";
 import http from "node:http";
-import https from "node:https";
 import http2 from "node:http2";
 import net from "node:net";
 import { expect } from "vitest";
@@ -32,6 +31,7 @@ import {
 import { EchoService } from "../../../../../../modules/test/nodefony/gen/nodefony/test/v1/echo_pb.js";
 import { GuardedEchoService } from "../../../../../../modules/test/nodefony/gen/nodefony/test/v1/guarded_pb.js";
 import { IS_PROD_TARGET } from "../../../../http/nodefony/tests/helpers/targetEnv";
+import { accessToken } from "../support/accessToken";
 
 const TLS = { rejectUnauthorized: false };
 const H1 = "http://127.0.0.1:5151";
@@ -42,7 +42,6 @@ const H2C = "http://127.0.0.1:5153";
  * de dev (`servers.h2c`, éteint en production) — TLS prend alors le relais.
  */
 const H2 = IS_PROD_TARGET ? H2_TLS : H2C;
-const PASSWORD = "secret-de-dev-42";
 
 type ProtocolCase = [string, () => Transport];
 
@@ -67,41 +66,6 @@ const PROTOCOLS: ProtocolCase[] = [
     () => createConnectTransport({ baseUrl: H1, httpVersion: "1.1" }),
   ],
 ];
-
-/** Password grant (RFC 6749 §5.1) → jeton d'accès JWT. */
-function accessToken(username: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const data = Buffer.from(JSON.stringify({ username, password: PASSWORD }));
-    const req = https.request(
-      {
-        hostname: "127.0.0.1",
-        port: 5152,
-        path: "/nodefony/security/api/token",
-        method: "POST",
-        rejectUnauthorized: false,
-        headers: {
-          "content-type": "application/json",
-          "content-length": String(data.length),
-        },
-      },
-      (res) => {
-        const chunks: Buffer[] = [];
-        res.on("data", (c: Buffer) => chunks.push(c));
-        res.on("end", () => {
-          const body: unknown = JSON.parse(Buffer.concat(chunks).toString());
-          const token =
-            typeof body === "object" && body !== null && "access_token" in body
-              ? body.access_token
-              : undefined;
-          if (typeof token === "string") resolve(token);
-          else reject(new Error(`jeton refusé pour ${username}`));
-        });
-      },
-    );
-    req.on("error", reject);
-    req.end(data);
-  });
-}
 
 /** L'erreur Connect que rend `promise`, ou un échec du test. */
 async function connectErrorOf(

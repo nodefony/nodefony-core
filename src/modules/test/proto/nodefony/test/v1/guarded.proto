@@ -11,6 +11,13 @@ service GuardedEchoService {
   // Zone ouverte à l'anonyme, méthode `@IsGranted("ROLE_ADMIN")` : anonyme → 16,
   // identifié sans le rôle → 7.
   rpc Admin(AdminRequest) returns (AdminResponse);
+  // Zone stricte (JWT seul), flux serveur long (lot 5, ADR-0026 D6) : identité,
+  // requête et service de portée `request` relus à CHAQUE message. Gestionnaire
+  // SOURD : il ignore son signal — seule la fiche d'appel l'arrête.
+  rpc Follow(FollowRequest) returns (stream FollowResponse);
+  // Zone stricte (JWT seul), flux bidirectionnel : un écho par message reçu,
+  // avec le même relevé.
+  rpc Relay(stream RelayRequest) returns (stream RelayResponse);
 }
 
 message MemberRequest {
@@ -35,4 +42,33 @@ message AdminResponse {
   string identifier = 2;
   // Appels servis depuis le démarrage : témoin qu'un refus n'atteint pas la méthode.
   uint32 calls = 3;
+}
+
+message FollowRequest {
+  // Messages émis (0 : aucun).
+  uint32 count = 1;
+  // Pause entre deux messages.
+  uint32 interval_ms = 2;
+}
+
+// Relevé fait au moment du message, dans la bulle de la requête.
+message FollowResponse {
+  uint32 seq = 1;
+  // `this.user.identifier`.
+  string identifier = 2;
+  // `RequestContext.getRequestId()`.
+  string request_id = 3;
+  // Numéro de l'exemplaire du service `request` résolu À CE MESSAGE.
+  uint32 probe = 4;
+}
+
+message RelayRequest {
+  string sentence = 1;
+}
+
+message RelayResponse {
+  string sentence = 1;
+  string identifier = 2;
+  string request_id = 3;
+  uint32 probe = 4;
 }

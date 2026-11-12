@@ -2,6 +2,21 @@ import { Controller, route, controller, UseSession } from "@nodefony/framework";
 import { Context, HttpContext } from "@nodefony/http";
 import { RequestContext } from "nodefony";
 
+/** Ce que la route de révocation lit du store de jetons. */
+interface IJtiDenier {
+  denyJti(jti: string, expiresAt: number): Promise<void>;
+}
+
+/** Garde de type : le service porte-t-il `denyJti` ? */
+function isJtiDenier(value: unknown): value is IJtiDenier {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "denyJti" in value &&
+    typeof value.denyJti === "function"
+  );
+}
+
 /**
  * Ce que le banc relit après coup : combien de flux se sont fermés côté
  * serveur, et si l'écouteur de fermeture voyait encore la requête dans l'ALS
@@ -252,6 +267,25 @@ class SseController extends Controller {
   async revalidate() {
     await this.context?.httpKernel?.revalidateStreams();
     return { ...sseState };
+  }
+
+  /**
+   * Révoque un jeton par son `jti` (liste de refus du store de jetons), puis
+   * déclenche la re-validation : ce que le tick du noyau ferait dans la
+   * fenêtre suivante. Décor du banc `grpc-context.test.ts` (#695, critère 31).
+   */
+  @route("sse-revoke", { path: "/revoke" })
+  async revoke() {
+    const jti =
+      this.context instanceof HttpContext
+        ? this.context.request.url.searchParams.get("jti")
+        : null;
+    if (jti === null || jti === "") return { revoked: false };
+    const store: unknown = this.get("tokenStore");
+    if (!isJtiDenier(store)) return { revoked: false };
+    await store.denyJti(jti, Date.now() + 3_600_000);
+    await this.context?.httpKernel?.revalidateStreams();
+    return { revoked: true };
   }
 
   /** État relu par le banc. */

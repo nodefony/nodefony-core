@@ -13,7 +13,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file nodefony/test/v1/guarded.proto.
  */
 export const file_nodefony_test_v1_guarded: GenFile = /*@__PURE__*/
-  fileDesc("Ch5ub2RlZm9ueS90ZXN0L3YxL2d1YXJkZWQucHJvdG8SEG5vZGVmb255LnRlc3QudjEiIQoNTWVtYmVyUmVxdWVzdBIQCghzZW50ZW5jZRgBIAEoCSJFCg5NZW1iZXJSZXNwb25zZRIQCghzZW50ZW5jZRgBIAEoCRISCgppZGVudGlmaWVyGAIgASgJEg0KBWNhbGxzGAMgASgNIiAKDEFkbWluUmVxdWVzdBIQCghzZW50ZW5jZRgBIAEoCSJECg1BZG1pblJlc3BvbnNlEhAKCHNlbnRlbmNlGAEgASgJEhIKCmlkZW50aWZpZXIYAiABKAkSDQoFY2FsbHMYAyABKA0yqwEKEkd1YXJkZWRFY2hvU2VydmljZRJLCgZNZW1iZXISHy5ub2RlZm9ueS50ZXN0LnYxLk1lbWJlclJlcXVlc3QaIC5ub2RlZm9ueS50ZXN0LnYxLk1lbWJlclJlc3BvbnNlEkgKBUFkbWluEh4ubm9kZWZvbnkudGVzdC52MS5BZG1pblJlcXVlc3QaHy5ub2RlZm9ueS50ZXN0LnYxLkFkbWluUmVzcG9uc2ViBnByb3RvMw");
+  fileDesc("Ch5ub2RlZm9ueS90ZXN0L3YxL2d1YXJkZWQucHJvdG8SEG5vZGVmb255LnRlc3QudjEiIQoNTWVtYmVyUmVxdWVzdBIQCghzZW50ZW5jZRgBIAEoCSJFCg5NZW1iZXJSZXNwb25zZRIQCghzZW50ZW5jZRgBIAEoCRISCgppZGVudGlmaWVyGAIgASgJEg0KBWNhbGxzGAMgASgNIiAKDEFkbWluUmVxdWVzdBIQCghzZW50ZW5jZRgBIAEoCSJECg1BZG1pblJlc3BvbnNlEhAKCHNlbnRlbmNlGAEgASgJEhIKCmlkZW50aWZpZXIYAiABKAkSDQoFY2FsbHMYAyABKA0iMwoNRm9sbG93UmVxdWVzdBINCgVjb3VudBgBIAEoDRITCgtpbnRlcnZhbF9tcxgCIAEoDSJUCg5Gb2xsb3dSZXNwb25zZRILCgNzZXEYASABKA0SEgoKaWRlbnRpZmllchgCIAEoCRISCgpyZXF1ZXN0X2lkGAMgASgJEg0KBXByb2JlGAQgASgNIiAKDFJlbGF5UmVxdWVzdBIQCghzZW50ZW5jZRgBIAEoCSJYCg1SZWxheVJlc3BvbnNlEhAKCHNlbnRlbmNlGAEgASgJEhIKCmlkZW50aWZpZXIYAiABKAkSEgoKcmVxdWVzdF9pZBgDIAEoCRINCgVwcm9iZRgEIAEoDTLIAgoSR3VhcmRlZEVjaG9TZXJ2aWNlEksKBk1lbWJlchIfLm5vZGVmb255LnRlc3QudjEuTWVtYmVyUmVxdWVzdBogLm5vZGVmb255LnRlc3QudjEuTWVtYmVyUmVzcG9uc2USSAoFQWRtaW4SHi5ub2RlZm9ueS50ZXN0LnYxLkFkbWluUmVxdWVzdBofLm5vZGVmb255LnRlc3QudjEuQWRtaW5SZXNwb25zZRJNCgZGb2xsb3cSHy5ub2RlZm9ueS50ZXN0LnYxLkZvbGxvd1JlcXVlc3QaIC5ub2RlZm9ueS50ZXN0LnYxLkZvbGxvd1Jlc3BvbnNlMAESTAoFUmVsYXkSHi5ub2RlZm9ueS50ZXN0LnYxLlJlbGF5UmVxdWVzdBofLm5vZGVmb255LnRlc3QudjEuUmVsYXlSZXNwb25zZSgBMAFiBnByb3RvMw");
 
 /**
  * @generated from message nodefony.test.v1.MemberRequest
@@ -112,6 +112,121 @@ export const AdminResponseSchema: GenMessage<AdminResponse> = /*@__PURE__*/
   messageDesc(file_nodefony_test_v1_guarded, 3);
 
 /**
+ * @generated from message nodefony.test.v1.FollowRequest
+ */
+export type FollowRequest = Message<"nodefony.test.v1.FollowRequest"> & {
+  /**
+   * Messages émis (0 : aucun).
+   *
+   * @generated from field: uint32 count = 1;
+   */
+  count: number;
+
+  /**
+   * Pause entre deux messages.
+   *
+   * @generated from field: uint32 interval_ms = 2;
+   */
+  intervalMs: number;
+};
+
+/**
+ * Describes the message nodefony.test.v1.FollowRequest.
+ * Use `create(FollowRequestSchema)` to create a new message.
+ */
+export const FollowRequestSchema: GenMessage<FollowRequest> = /*@__PURE__*/
+  messageDesc(file_nodefony_test_v1_guarded, 4);
+
+/**
+ * Relevé fait au moment du message, dans la bulle de la requête.
+ *
+ * @generated from message nodefony.test.v1.FollowResponse
+ */
+export type FollowResponse = Message<"nodefony.test.v1.FollowResponse"> & {
+  /**
+   * @generated from field: uint32 seq = 1;
+   */
+  seq: number;
+
+  /**
+   * `this.user.identifier`.
+   *
+   * @generated from field: string identifier = 2;
+   */
+  identifier: string;
+
+  /**
+   * `RequestContext.getRequestId()`.
+   *
+   * @generated from field: string request_id = 3;
+   */
+  requestId: string;
+
+  /**
+   * Numéro de l'exemplaire du service `request` résolu À CE MESSAGE.
+   *
+   * @generated from field: uint32 probe = 4;
+   */
+  probe: number;
+};
+
+/**
+ * Describes the message nodefony.test.v1.FollowResponse.
+ * Use `create(FollowResponseSchema)` to create a new message.
+ */
+export const FollowResponseSchema: GenMessage<FollowResponse> = /*@__PURE__*/
+  messageDesc(file_nodefony_test_v1_guarded, 5);
+
+/**
+ * @generated from message nodefony.test.v1.RelayRequest
+ */
+export type RelayRequest = Message<"nodefony.test.v1.RelayRequest"> & {
+  /**
+   * @generated from field: string sentence = 1;
+   */
+  sentence: string;
+};
+
+/**
+ * Describes the message nodefony.test.v1.RelayRequest.
+ * Use `create(RelayRequestSchema)` to create a new message.
+ */
+export const RelayRequestSchema: GenMessage<RelayRequest> = /*@__PURE__*/
+  messageDesc(file_nodefony_test_v1_guarded, 6);
+
+/**
+ * @generated from message nodefony.test.v1.RelayResponse
+ */
+export type RelayResponse = Message<"nodefony.test.v1.RelayResponse"> & {
+  /**
+   * @generated from field: string sentence = 1;
+   */
+  sentence: string;
+
+  /**
+   * @generated from field: string identifier = 2;
+   */
+  identifier: string;
+
+  /**
+   * @generated from field: string request_id = 3;
+   */
+  requestId: string;
+
+  /**
+   * @generated from field: uint32 probe = 4;
+   */
+  probe: number;
+};
+
+/**
+ * Describes the message nodefony.test.v1.RelayResponse.
+ * Use `create(RelayResponseSchema)` to create a new message.
+ */
+export const RelayResponseSchema: GenMessage<RelayResponse> = /*@__PURE__*/
+  messageDesc(file_nodefony_test_v1_guarded, 7);
+
+/**
  * Chaque méthode vit sous une zone du pare-feu (`nodefony/config/config.ts`).
  *
  * @generated from service nodefony.test.v1.GuardedEchoService
@@ -137,6 +252,29 @@ export const GuardedEchoService: GenService<{
     methodKind: "unary";
     input: typeof AdminRequestSchema;
     output: typeof AdminResponseSchema;
+  },
+  /**
+   * Zone stricte (JWT seul), flux serveur long (lot 5, ADR-0026 D6) : identité,
+   * requête et service de portée `request` relus à CHAQUE message. Gestionnaire
+   * SOURD : il ignore son signal — seule la fiche d'appel l'arrête.
+   *
+   * @generated from rpc nodefony.test.v1.GuardedEchoService.Follow
+   */
+  follow: {
+    methodKind: "server_streaming";
+    input: typeof FollowRequestSchema;
+    output: typeof FollowResponseSchema;
+  },
+  /**
+   * Zone stricte (JWT seul), flux bidirectionnel : un écho par message reçu,
+   * avec le même relevé.
+   *
+   * @generated from rpc nodefony.test.v1.GuardedEchoService.Relay
+   */
+  relay: {
+    methodKind: "bidi_streaming";
+    input: typeof RelayRequestSchema;
+    output: typeof RelayResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_nodefony_test_v1_guarded, 0);

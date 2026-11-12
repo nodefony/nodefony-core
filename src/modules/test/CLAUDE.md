@@ -278,6 +278,13 @@ ordre de zone n'entre en jeu. `calls` = témoin qu'un refus n'atteint pas la mé
 `framework/nodefony/tests/integration/grpc-refusal.test.ts` (formes Trailers-Only, 405/421,
 attrape-tout `/nodefony/test/route*`, corps non lu h1/h2).
 
+`Follow` (flux serveur SOURD : ignore son signal) et `Relay` (bidirectionnel), même zone
+`test-grpc-member` (ADR-0026 D6) : chaque message relève `identifier` (`this.user`), `requestId`
+(ALS) et `probe` (exemplaire de `RequestProbe` résolu À CE message). Révocation d'un jeton en
+cours de flux : `GET /nodefony/test/sse/revoke?jti=…` (liste de refus du `tokenStore`, puis
+`revalidateStreams()` — la passe que le tick ferait). Banc :
+`framework/nodefony/tests/integration/grpc-context.test.ts` (critères 5, 29, 31 ; flux de 2 min).
+
 | Méthode    | Ce qu'elle prouve                                                                                                                                                                                                                   |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Say`      | unaire à travers le pipeline (`requestId`) ; `calls` = appels sous le même en-tête `x-witness` — témoin PROPRE à chaque test qu'un refus n'appelle rien (un compteur global se faisait fausser par les fichiers joués en parallèle) |

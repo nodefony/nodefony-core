@@ -97,9 +97,11 @@ export default {
       // authenticators coexistent SANS ambiguïté (supports() mutuellement exclusifs).
       // #695 lot 3 — refus gRPC au format du protocole (ADR-0026 D5). Les deux
       // chemins sont DISJOINTS : aucun ordre de zone n'entre en jeu.
-      // `Member` : JWT seul — sans jeton, le pare-feu refuse (16).
+      // `Member` : JWT seul — sans jeton, le pare-feu refuse (16). `Follow` et
+      // `Relay` (lot 5, D6) : flux sous une identité révocable.
       "test-grpc-member": {
-        pattern: "^/nodefony\\.test\\.v1\\.GuardedEchoService/Member$",
+        pattern:
+          "^/nodefony\\.test\\.v1\\.GuardedEchoService/(Member|Follow|Relay)$",
         authenticators: ["jwt"],
         stateless: true,
       },
