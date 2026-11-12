@@ -278,14 +278,14 @@ ordre de zone n'entre en jeu. `calls` = témoin qu'un refus n'atteint pas la mé
 `framework/nodefony/tests/integration/grpc-refusal.test.ts` (formes Trailers-Only, 405/421,
 attrape-tout `/nodefony/test/route*`, corps non lu h1/h2).
 
-| Méthode    | Ce qu'elle prouve                                                                        |
-| ---------- | ---------------------------------------------------------------------------------------- |
-| `Say`      | unaire à travers le pipeline (`requestId`) ; `calls` = témoin qu'un refus n'appelle rien |
-| `Ping`     | `NO_SIDE_EFFECTS` → servie aussi en GET (Connect), `httpMethod` le dit                   |
-| `Converse` | flux bidirectionnel ENTRELACÉ (corps lu au fil de l'eau, route `bodyStream`)             |
-| `Fail`     | `FAILED_PRECONDITION` au format de chaque protocole, jamais un 500                       |
-| `Mirror`   | types complexes (`complex.proto` : récursion, `oneof`, `map`, 64 bits, `Any`…), 512 Kio  |
-| `Who`      | numéro d'instance : une neuve par appel sous `@Scope("request")`                         |
+| Méthode    | Ce qu'elle prouve                                                                                                                                                                                                                   |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Say`      | unaire à travers le pipeline (`requestId`) ; `calls` = appels sous le même en-tête `x-witness` — témoin PROPRE à chaque test qu'un refus n'appelle rien (un compteur global se faisait fausser par les fichiers joués en parallèle) |
+| `Ping`     | `NO_SIDE_EFFECTS` → servie aussi en GET (Connect), `httpMethod` le dit                                                                                                                                                              |
+| `Converse` | flux bidirectionnel ENTRELACÉ (corps lu au fil de l'eau, route `bodyStream`)                                                                                                                                                        |
+| `Fail`     | `FAILED_PRECONDITION` au format de chaque protocole, jamais un 500                                                                                                                                                                  |
+| `Mirror`   | types complexes (`complex.proto` : récursion, `oneof`, `map`, 64 bits, `Any`…), 512 Kio                                                                                                                                             |
+| `Who`      | numéro d'instance : une neuve par appel sous `@Scope("request")`                                                                                                                                                                    |
 
 Banc : `framework/nodefony/tests/integration/grpc.test.ts` (matrice 5151/5152/5153 × gRPC,
 gRPC-Web, Connect × binaire/JSON).
@@ -301,7 +301,7 @@ node src/modules/test/conformance/run.mjs --run 'Deadline Propagation/**'   # un
 
 - ~4 900 cas (protocoles × HTTP/1.1, HTTP/2 × codecs × compressions × flux × erreurs × délais),
   quelques secondes. Le binaire `connectconformance` (version ÉPINGLÉE = celle du contrat généré
-  par `buf.gen.yaml`) est téléchargé dans `node_modules/.cache/`, somme SHA-256 vérifiée.
+  par `buf.gen.yaml`) est téléchargé dans `node_modules/.cache/`, somme SHA-256 FIGÉE dans `run.mjs` (jamais lue dans la release : qui altère l'archive altère aussi ses sommes).
 - `server.mjs` = lanceur exigé par la suite : il DÉSIGNE le serveur de dev (5151/5152/5153 +
   `fullchain.pem`), il n'en démarre pas. La limite de réception annoncée à chaque lancement est
   ignorée (capacité déclarée absente : bornes au lot 4) ; `NF_GRPC_CONFORMANCE_DEBUG=1` trace les

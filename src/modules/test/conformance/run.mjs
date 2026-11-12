@@ -28,6 +28,26 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const VERSION = "v1.0.7";
+/**
+ * SHA-256 de chaque archive de `VERSION`, FIGÉES ici depuis
+ * `connectconformance_1.0.7_checksums.txt`. Les lire dans la même release que
+ * l'archive ne prouverait que l'intégrité du transfert : qui altère l'une
+ * altère l'autre. Changer `VERSION` = recopier les six sommes publiées.
+ */
+const SHA256 = {
+  "connectconformance-v1.0.7-Darwin-arm64.tar.gz":
+    "6e3534f8a39ad91843913af80fa7f68fdc266a71560b00ad078a0637d380100b",
+  "connectconformance-v1.0.7-Darwin-x86_64.tar.gz":
+    "969de3f343c67bebe37db2a1641c2ced15d44ddd358400de24cbb53e28d3a561",
+  "connectconformance-v1.0.7-Linux-aarch64.tar.gz":
+    "c43e11cdca4cf7936a502fa25e1d7f27a6475b806d0ab5647668a5777b9d2121",
+  "connectconformance-v1.0.7-Linux-x86_64.tar.gz":
+    "cf2d7c671c8cfbdfba5e48dc58cbe0b2db01fa7b1c160ecf060f20d27479d63c",
+  "connectconformance-v1.0.7-Windows-arm64.zip":
+    "7bc8163afa2c54c680a2ff94a87c52ab99d21080720b43a1a837f73bf025ef61",
+  "connectconformance-v1.0.7-Windows-x86_64.zip":
+    "c549bbde6ba7e80e96fd682de7b9aa5c3be8a278cd6048d2074a56d2dac84ad6",
+};
 const here = path.dirname(fileURLToPath(import.meta.url));
 const moduleRoot = path.join(here, "..");
 const repoRoot = path.join(moduleRoot, "..", "..", "..");
@@ -71,23 +91,15 @@ async function ensureRunner() {
   if (existsSync(binPath)) return binPath;
   mkdirSync(cacheDir, { recursive: true });
   const base = `https://github.com/connectrpc/conformance/releases/download/${VERSION}`;
-  const sums = new TextDecoder().decode(
-    await download(
-      `${base}/connectconformance_${VERSION.slice(1)}_checksums.txt`,
-    ),
-  );
-  const expected = sums
-    .split("\n")
-    .map((line) => line.trim().split(/\s+/))
-    .find(([, name]) => name === archive)?.[0];
+  const expected = SHA256[archive];
   if (expected === undefined) {
-    throw new Error(`${archive} absent des sommes publiées`);
+    throw new Error(`${archive} : aucune somme SHA-256 figée pour ${VERSION}`);
   }
   const bytes = await download(`${base}/${archive}`);
   const actual = createHash("sha256").update(bytes).digest("hex");
   if (actual !== expected) {
     throw new Error(
-      `${archive} : SHA-256 ${actual} ≠ ${expected} publié — téléchargement refusé`,
+      `${archive} : SHA-256 ${actual} ≠ ${expected} figé — téléchargement refusé`,
     );
   }
   const archivePath = path.join(cacheDir, archive);
