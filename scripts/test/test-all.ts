@@ -729,6 +729,14 @@ async function main(): Promise<void> {
         "npx turbo run test:integration --continue",
         phases,
       );
+      // La suite de conformité officielle de Connect (#695) contre le MÊME
+      // serveur : ~4 900 cas normatifs gRPC, gRPC-Web et Connect, quelques
+      // secondes. Un cas connu en échec qui se met à passer la fait échouer.
+      await phase(
+        "Conformité gRPC (suite officielle Connect)",
+        "npm run test:grpc-conformance",
+        phases,
+      );
     }
   }
 

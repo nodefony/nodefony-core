@@ -287,7 +287,7 @@ gRPC-Web, Connect × binaire/JSON).
 attribution Apache-2.0 en tête du fichier) et `conformance/` :
 
 ```bash
-node src/modules/test/conformance/run.mjs        # serveur de dev démarré, module bâti
+npm run test:grpc-conformance                    # serveur de dev démarré, module bâti
 node src/modules/test/conformance/run.mjs --run 'Deadline Propagation/**'   # un groupe
 ```
 
@@ -300,6 +300,7 @@ node src/modules/test/conformance/run.mjs --run 'Deadline Propagation/**'   # un
   lancements.
 - `config.yaml` = capacités (YAML : format imposé par la suite) ; `known-failing.txt` = chaque
   échec connu avec son lot. Un cas qui se met à passer fait ÉCHOUER la passe : le retirer.
+- Jouée par `npm run test:all` (après l'intégration) et par la CI (job d'intégration, mode `development` seulement : le module `test` n'existe pas en production).
 - `--max-servers 1` : un serveur partagé subirait sinon 4× la charge d'un serveur de référence
   (un cas d'échéance instable constaté).
 

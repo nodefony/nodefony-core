@@ -1106,6 +1106,14 @@ jobs:
       - name: Run integration tests
         run: node scripts/ci/run-watched.mjs npm run test:integration
 
+      # Suite de conformité officielle de Connect (#695) contre le serveur
+      # démarré : ~4 900 cas gRPC, gRPC-Web et Connect, quelques secondes. Le
+      # module `test`, qui porte le service testé, est `policy: "dev"` et h2c
+      # n'est ouvert qu'en développement : en production, rien à interroger.
+      - name: Conformité gRPC (suite officielle Connect)
+        if: matrix.mode == 'development'
+        run: node scripts/ci/run-watched.mjs npm run test:grpc-conformance
+
       - name: Stop Nodefony server
         if: always()
         uses: ./.github/actions/nodefony-server
