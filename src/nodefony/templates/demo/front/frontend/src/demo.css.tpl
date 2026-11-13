@@ -13,6 +13,9 @@
  */
 :root {
   --blue: #0067ba;
+  /* Bleu d'un TEXTE (lien, bouton sans fond) : `--blue` remplit, et ne tient
+     pas 4,5:1 en texte sur le fond sombre. */
+  --link: var(--blue);
   --cyan: #00699f;
   --green: #3b7430;
   --amber: #8a5a10;
@@ -45,6 +48,7 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --blue: #096bbf;
+    --link: color-mix(in srgb, var(--blue) 50%, var(--fg));
     --cyan: #1ea0ec;
     --green: #4a8b3e;
     --amber: #b7791f;
@@ -72,6 +76,7 @@
 }
 :root[data-theme="dark"] {
   --blue: #096bbf;
+  --link: color-mix(in srgb, var(--blue) 50%, var(--fg));
   --cyan: #1ea0ec;
   --green: #4a8b3e;
   --amber: #b7791f;
@@ -129,7 +134,7 @@ body::before {
   background: var(--bg);
 }
 a {
-  color: var(--blue);
+  color: var(--link);
 }
 a:focus-visible,
 button:focus-visible {
@@ -4294,7 +4299,7 @@ a.ritem:hover .ritem-go {
 }
 .person-actions button:hover {
   border-color: var(--blue);
-  color: color-mix(in srgb, var(--blue) 50%, var(--fg));
+  color: var(--link);
 }
 .person-actions button:focus-visible {
   outline: 2px solid var(--blue);
@@ -4549,9 +4554,7 @@ a.ritem:hover .ritem-go {
   border: 1px dashed var(--border);
   border-radius: 7px;
   background: none;
-  /* Le bleu de remplissage (`--blue`) tombe à 3,35:1 sur le rail en sombre :
-     un TEXTE prend le mélange de ses voisins (`.room-list a`). */
-  color: color-mix(in srgb, var(--blue) 50%, var(--fg));
+  color: var(--link);
   cursor: pointer;
 }
 .room-rail-add:hover {

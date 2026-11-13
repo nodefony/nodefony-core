@@ -214,7 +214,14 @@ export function MeteorGame() {
             <span className="game-chip">Vague {board.wave}</span>
             <span
               className="game-health"
-              aria-label={`Planète : ${board.health} sur 100`}
+              // Une jauge se dit `meter` (WAI-ARIA 1.2) : sans rôle, un
+              // `aria-label` sur un `span` n'est lu par personne.
+              role="meter"
+              aria-label="Planète"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={board.health}
+              aria-valuetext={`${board.health} sur 100`}
             >
               <span style={{ inlineSize: `${board.health}%` }} />
             </span>
