@@ -1,4 +1,4 @@
-import { Service, Module, injectable } from "nodefony";
+import { Service, Module, injectable, runWorksOnSchema } from "nodefony";
 import type { IOrm, IRepository } from "@nodefony/orm-core";
 import { ormRegistry } from "@nodefony/orm-core";
 import { getRealtimeHub } from "@nodefony/realtime";
@@ -195,9 +195,15 @@ class RoomService extends Service implements IMessageArchive {
     );
   }
 
-  /** La base de la démo est-elle ouverte ? (fermée sous une commande console) */
+  /**
+   * La base de la démo est-elle utilisable ? Non sous une commande console
+   * (fermée), ni sous une commande qui TRAVAILLE le schéma (`orm:reset`,
+   * `orm:migrate`…) : la connexion y est ouverte, mais son schéma n'est pas
+   * dérivé — la première requête tomberait sur `no such table`.
+   */
   isOpen(): boolean {
     return (
+      !runWorksOnSchema(this.kernel) &&
       ormRegistry.has(DEMO_CONNECTOR) &&
       ormRegistry.get(DEMO_CONNECTOR).isConnected()
     );
