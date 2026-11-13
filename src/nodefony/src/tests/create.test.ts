@@ -5576,6 +5576,15 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         /NF_PORT:\s*"0"/u,
         "le serveur de test doit prendre un port libre du noyau, jamais 5151",
       );
+      // …HTTPS compris : sur sa valeur par défaut (5152), un `nodefony
+      // development` d'un AUTRE projet le tient, la production ne glisse pas,
+      // et la suite meurt au démarrage sur un port qu'elle ne nomme pas. Vécu
+      // au banc `check-scaffold-boot` : HTTP sur 56394 (noyau), HTTPS sur 15162.
+      assert.match(
+        e2eSetup,
+        /NF_PORT_HTTPS:\s*"0"/u,
+        "le serveur de test doit aussi prendre son port HTTPS du noyau",
+      );
       // Le teardown n'arrête que ce que le setup a LANCÉ. Vitest l'appelle même
       // après un setup en échec — or le lanceur refuse de démarrer quand
       // `npm run dev` tourne, et un `stop` aveugle tuait alors ce serveur de
@@ -5616,6 +5625,11 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         configPorts,
         /NF_PORT\s*!==\s*undefined/u,
         "un NF_PORT à 0 doit atteindre la config, pas être avalé comme falsy",
+      );
+      assert.match(
+        configPorts,
+        /NF_PORT_HTTPS\s*!==\s*undefined/u,
+        "un NF_PORT_HTTPS à 0 doit atteindre la config, pas être avalé comme falsy",
       );
       // Le mot `stateless` n'existait NULLE PART dans une application générée.
       // Un agent à qui on demande une API pour un programme n'avait donc aucun

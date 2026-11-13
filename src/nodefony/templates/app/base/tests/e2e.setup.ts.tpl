@@ -354,7 +354,16 @@ export async function setup(project: TestProject): Promise<void> {
       // `0` supprime la question : le noyau donne un port dont personne d'autre
       // ne dispose, l'application le publie, et `runningAppPort()` le lit. Aucun
       // port n'est écrit nulle part — il n'y a rien à tenir à jour.
+      //
+      // Les DEUX ports : laisser HTTPS sur sa valeur (5152 par défaut), c'est
+      // reprendre la même loterie sur l'autre serveur. Un `nodefony development`
+      // ouvert dans un autre projet tient 5152, la production ne glisse pas
+      // (`portPolicy` strict) et le démarrage de la suite échoue sur un port
+      // pris dont elle ne parle même pas. Aucune valeur de production n'en
+      // dépend : l'émetteur des jetons s'y ÉCRIT (`NF_JWT_ISSUER`), il ne se
+      // dérive pas du port.
       NF_PORT: "0",
+      NF_PORT_HTTPS: "0",
       ...PRODUCTION_SECRETS,
 <% if (it.hasSecurity) { %>      // Sans cette variable, la production ne sème AUCUN compte : les tests des
       // routes protégées n'auraient aucune identité à présenter, et échoueraient
