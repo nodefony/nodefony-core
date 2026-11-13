@@ -155,7 +155,9 @@ export class RosterTracker {
         rows.push(this.#row(id, left.tabs, me, "left"));
       }
     }
-    return rows.sort(compareRows);
+    // Tri EN PLACE : `rows` est neuf, une copie (`toSorted`) n'apporterait rien.
+    rows.sort(compareRows);
+    return rows;
   }
 
   /**

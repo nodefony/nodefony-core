@@ -1558,6 +1558,11 @@ step(
           extraitEchec(`${verdict.stdout ?? ""}${verdict.stderr ?? ""}`),
         );
       }
+      // 3. La grille de L'APPLICATION, celle que lance son `npm run lint` :
+      // c'est elle que l'utilisateur subit, et elle diffère de celle du dépôt
+      // (`unicorn/no-array-sort` coupé ici, allumé là). Vécu : une application
+      // `--demo` sortait rouge de son propre lint, et aucun banc ne le voyait.
+      run("npm", ["run", "lint"]);
     } finally {
       effaceDansApp(temoin);
       effaceDansApp(rcPath);
