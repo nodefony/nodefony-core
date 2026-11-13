@@ -8,6 +8,7 @@ import {
   type BinaryContract,
 } from "../frontend/src/binary/binaryDemo";
 import { watchGame, watchVibration } from "../frontend/src/binary/binaryClient";
+import { LOBBY_ROOM_ID } from "../frontend/src/chat/rooms";
 import { FIRST_PATH } from "../frontend/src/first/firstSteps";
 import { checkEcho, helloPath } from "../frontend/src/first/firstClient";
 import {
@@ -236,15 +237,18 @@ demoDescribe("démo — canaux sans test dédié", () => {
     socket.subscribe(DEMO_PULSE_CHANNEL);
     await socket.whenSubscribed(DEMO_PULSE_CHANNEL);
 
-    const sent = await fetch(httpUrl("/demo/chat/send"), {
-      method: "POST",
-      headers: {
-        ...admin,
-        "content-type": "application/json",
-        "idempotency-key": randomUUID(),
+    const sent = await fetch(
+      httpUrl(`/demo/chat/rooms/${LOBBY_ROOM_ID}/send`),
+      {
+        method: "POST",
+        headers: {
+          ...admin,
+          "content-type": "application/json",
+          "idempotency-key": randomUUID(),
+        },
+        body: JSON.stringify({ text: "battement" }),
       },
-      body: JSON.stringify({ text: "battement" }),
-    });
+    );
     expect(sent.status).toBe(200);
     await waitFor("le pouls compte le message", () =>
       beats.some((pulse) => pulse.chat.messages > before.chat.messages),

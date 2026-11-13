@@ -91,8 +91,8 @@ class ChatService extends Service {
   }
 
   /**
-   * Publie un message au salon : gardé, diffusé à tous les abonnés de
-   * `chat:room`, compté dans le pouls de l'accueil. SEULE voie d'écriture —
+   * Publie un message au salon : gardé, diffusé à tous les abonnés de son
+   * canal `chat:room:<id>`, compté dans le pouls de l'accueil. SEULE voie d'écriture —
    * la route d'envoi, l'envoi de pièces et l'outil MCP `demo_chat_post`
    * l'appellent : trois copies de ces trois gestes divergeraient.
    */
