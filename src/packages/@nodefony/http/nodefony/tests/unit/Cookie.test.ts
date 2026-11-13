@@ -405,6 +405,26 @@ describe("Cookie — conformité RFC 6265 (#736)", () => {
       expect(cookies["csrf-token"]?.value).to.equal("first");
     });
 
+    it("🔴 une paire SANS NOM est ignorée, jamais une exception (HTTP et WebSocket)", () => {
+      // Vécu : `Cookie: =abc` faisait répondre 500 à TOUTES les pages.
+      for (const header of ["=abc", "a=b; =c; d=e"]) {
+        const ws = wsContext(header);
+        expect(() => cookiesParser(ws.context), header).to.not.throw();
+        const cookies: Record<string, Cookie> = {};
+        const http = {
+          type: "http",
+          request: { request: { headers: { cookie: header } } },
+          addRequestCookie: (c: Cookie) => (cookies[c.name] = c),
+          response: null,
+        } as unknown as ContextType;
+        expect(() => cookiesParser(http), header).to.not.throw();
+        expect(Object.keys(cookies), header).to.not.include("");
+      }
+      const { context, cookies } = wsContext("a=b; =c; d=e");
+      cookiesParser(context);
+      expect(Object.keys(cookies)).to.deep.equal(["a", "d"]);
+    });
+
     it("setValue garde un % invalide au lieu de lever", () => {
       expect(new Cookie("a", "100%").value).to.equal("100%");
     });

@@ -80,6 +80,11 @@ function cookiesParser(context: ContextType) {
       if (cookies) {
         const obj = parseCookie(cookies, RAW_VALUES);
         for (const cookie in obj) {
+          // Une paire sans nom (`=x`) n'est pas un cookie : ignorée, comme un
+          // navigateur ignore un `Set-Cookie` sans nom (RFC 6265 §5.2). Le
+          // constructeur la refusait ici, hors de tout rattrapage : 500 sur
+          // CHAQUE requête de ce client, jusqu'à ce qu'il vide ses cookies.
+          if (cookie === "") continue;
           co = new Cookie(cookie, obj[cookie]);
           (context as HttpContext).addRequestCookie(co);
         }
@@ -95,6 +100,7 @@ function cookiesParser(context: ContextType) {
       if (cookieHeader) {
         const parsed = parseCookie(cookieHeader, RAW_VALUES);
         for (const name in parsed) {
+          if (name === "") continue; // paire sans nom : ignorée (cf. HTTP)
           co = new Cookie(name, parsed[name]);
           (context as WebsocketContext).addRequestCookie(co);
         }
