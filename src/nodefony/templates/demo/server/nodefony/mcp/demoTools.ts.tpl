@@ -12,7 +12,10 @@ import {
   MCP_WRITE_SCOPE,
 } from "../../frontend/src/mcp/mcpDemo";
 import { LOBBY_ROOM_ID } from "../../frontend/src/chat/rooms";
-import { CHAT_HISTORY_LIMIT } from "../service/ChatService";
+import {
+  CHAT_HISTORY_LIMIT,
+  MESSAGE_MAX_BYTES,
+} from "../../frontend/src/chat/chatContract";
 import type ChatService from "../service/ChatService";
 
 /** Messages lus quand l'agent ne précise pas `limit`. */
@@ -54,7 +57,7 @@ export function demoTools(chat: ChatService): IMcpTool[] {
         readOnlyHint: true,
         openWorldHint: false,
       },
-      handler: (args) => {
+      handler: async (args) => {
         const limit = args.limit ?? CHAT_READ_DEFAULT;
         if (
           typeof limit !== "number" ||
@@ -68,9 +71,9 @@ export function demoTools(chat: ChatService): IMcpTool[] {
             true,
           );
         }
-        const messages = chat
-          .recent(LOBBY_ROOM_ID, limit)
-          .map(({ author, text, sentAt }) => ({ author, text, sentAt }));
+        const messages = (await chat.recent(LOBBY_ROOM_ID, limit)).map(
+          ({ id, author, text, sentAt }) => ({ id, author, text, sentAt }),
+        );
         return mcpText(JSON.stringify(messages));
       },
     },
@@ -90,7 +93,7 @@ export function demoTools(chat: ChatService): IMcpTool[] {
       // `run` porte l'annulation (le client a fermé le flux) et la progression
       // (une notification au plus toutes les 100 ms, sur le flux SSE).
       handler: async (_args, _caller, run) => {
-        const history = chat.recent(LOBBY_ROOM_ID, CHAT_HISTORY_LIMIT);
+        const history = await chat.recent(LOBBY_ROOM_ID, CHAT_HISTORY_LIMIT);
         const size = Math.ceil(history.length / DIGEST_BATCHES);
         const counts = new Map<string, number>();
         for (let batch = 1; batch <= DIGEST_BATCHES; batch += 1) {
@@ -127,7 +130,11 @@ export function demoTools(chat: ChatService): IMcpTool[] {
         "du jeton. Écriture : n'appeler que si l'humain l'a demandé.",
       inputSchema: {
         type: "object",
-        properties: { text: { type: "string", minLength: 1, maxLength: 2000 } },
+        // JSON Schema compte des CARACTÈRES : `maxLength` ne fait qu'écarter
+        // l'évidence ; la borne en octets est celle de `SendBody`, rejouée.
+        properties: {
+          text: { type: "string", minLength: 1, maxLength: MESSAGE_MAX_BYTES },
+        },
         required: ["text"],
       },
       // Il ÉCRIT, sans rien effacer ; deux appels donnent deux messages.
@@ -142,11 +149,14 @@ export function demoTools(chat: ChatService): IMcpTool[] {
       // propriétaire du jeton, retrouvé par la porte AVANT le handler.
       scopes: [MCP_WRITE_SCOPE],
       actsForUser: true,
-      handler: (args) => {
+      handler: async (args) => {
         // La règle du salon, la MÊME que la route d'envoi (`SendBody`).
         const parsed = SendBody.safeParse({ text: args.text });
         if (!parsed.success) {
-          return mcpText("`text` : de 1 à 2000 caractères, non vide", true);
+          return mcpText(
+            `\`text\` : non vide, au plus ${MESSAGE_MAX_BYTES} octets (UTF-8)`,
+            true,
+          );
         }
         const me = RequestContext.getAuthenticatedUser();
         if (me === null) {
@@ -155,10 +165,10 @@ export function demoTools(chat: ChatService): IMcpTool[] {
             true,
           );
         }
-        chat.publish(LOBBY_ROOM_ID, {
+        await chat.publish(LOBBY_ROOM_ID, {
+          authorId: me.id,
           author: me.identifier,
           text: parsed.data.text,
-          sentAt: Date.now(),
         });
         return mcpText(`publié dans le salon, signé ${me.identifier}`);
       },

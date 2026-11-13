@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { defineEntity } from "@nodefony/orm-core";
 import type { IEntityDefinition } from "@nodefony/orm-core";
-import { defineTable } from "@nodefony/drizzle";
+import { defineTable, jsonType } from "@nodefony/drizzle";
 import type { RowOf } from "@nodefony/drizzle";
+import type { ChatAttachment } from "../../frontend/src/chat/chatContract";
 
 /**
  * Les salons du chat en base — le modèle d'une salle de conférence
@@ -122,6 +123,37 @@ export const eventAttendeeTable = defineTable({
   ],
 });
 
+// #region messages-table
+/**
+ * Un message d'une salle. Son `id` est tiré par le SERVEUR à l'archivage —
+ * c'est l'identifiant stable et unique de XEP-0359 (`stanza-id`), celui
+ * qu'une réponse, une réaction ou un retrait viseront ; la clé
+ * d'idempotence du client n'en est que l'`origin-id`. `author` est le nom
+ * AU MOMENT de l'envoi : une conversation garde ce qui a été dit, sous le nom
+ * d'alors.
+ */
+export const messageTable = defineTable({
+  name: "message",
+  columns: {
+    id: { kind: "text", primaryKey: true, defaultFn: () => randomUUID() },
+    roomId: { kind: "text", notNull: true },
+    authorId: { kind: "text", notNull: true },
+    author: { kind: "string", length: 128, notNull: true },
+    /** Jusqu'à `MESSAGE_MAX_BYTES` (64 Kio) : un `text`, pas une chaîne bornée. */
+    text: { kind: "text", notNull: true },
+    /** Instant d'archivage, en ms UTC — l'ordre de l'historique. */
+    sentAt: { kind: "int64", notNull: true },
+    /** Ce que le salon annonce des pièces ; absent d'un message de texte seul. */
+    attachments: { kind: "json", type: jsonType<ChatAttachment[]>() },
+  },
+  indexes: [
+    // L'historique se lit salon par salon, du plus récent au plus ancien.
+    { name: "message_room_sent_idx", on: ["roomId", "sentAt"] },
+    { name: "message_author_idx", on: ["authorId"] },
+  ],
+});
+// #endregion
+
 /** Une salle telle que la base la rend. */
 export type RoomRow = RowOf<typeof roomTable.spec>;
 /** Un membre tel que la base le rend. */
@@ -130,15 +162,18 @@ export type RoomMemberRow = RowOf<typeof roomMemberTable.spec>;
 export type EventRow = RowOf<typeof eventTable.spec>;
 /** Un invité tel que la base le rend. */
 export type EventAttendeeRow = RowOf<typeof eventAttendeeTable.spec>;
+/** Un message tel que la base le rend. */
+export type MessageRow = RowOf<typeof messageTable.spec>;
 
 /** Les noms logiques des entités (clés de `getRepository`). */
 export const ROOM_ENTITY = "DemoRoom";
 export const ROOM_MEMBER_ENTITY = "DemoRoomMember";
 export const EVENT_ENTITY = "DemoEvent";
 export const EVENT_ATTENDEE_ENTITY = "DemoEventAttendee";
+export const MESSAGE_ENTITY = "DemoMessage";
 
 /**
- * Les quatre entités, SANS connecteur : `@entities(roomEntities, { connector:
+ * Les cinq entités, SANS connecteur : `@entities(roomEntities, { connector:
  * DEMO_CONNECTOR })` sur `DemoModule` les lie au connecteur `demo`.
  */
 export const roomEntities: IEntityDefinition[] = [
@@ -154,4 +189,5 @@ export const roomEntities: IEntityDefinition[] = [
     module: "demo",
     schema: eventAttendeeTable,
   }),
+  defineEntity({ name: MESSAGE_ENTITY, module: "demo", schema: messageTable }),
 ];

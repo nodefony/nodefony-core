@@ -11,14 +11,20 @@ import { DEMO_CONNECTOR } from "../config/config";
 import {
   EVENT_ATTENDEE_ENTITY,
   EVENT_ENTITY,
+  MESSAGE_ENTITY,
   ROOM_ENTITY,
   ROOM_MEMBER_ENTITY,
   type EventAttendeeRow,
   type EventRow,
+  type MessageRow,
   type RoomMemberRow,
   type RoomRow,
 } from "../entity/rooms";
-import type { ChatPerson } from "../../frontend/src/chat/chatContract";
+import type {
+  ChatMessage,
+  ChatPerson,
+} from "../../frontend/src/chat/chatContract";
+import type { IMessageArchive, IMessageDraft } from "./ChatService";
 import {
   LOBBY_ROOM_ID,
   headlineEvent,
@@ -35,13 +41,25 @@ const PUBLIC_ROOMS_MAX = 100;
 const TEAM_ROOM_ID = "equipe";
 const TEAM_EVENT_ID = "point-equipe";
 
-/** Les quatre dépôts des salons. */
+/** Les cinq dépôts des salons. */
 interface IRoomRepositories {
   orm: IOrm;
   rooms: IRepository<RoomRow>;
   members: IRepository<RoomMemberRow>;
   events: IRepository<EventRow>;
   attendees: IRepository<EventAttendeeRow>;
+  messages: IRepository<MessageRow>;
+}
+
+/** Un message tel que le salon le montre : ni l'identité du compte, ni le salon. */
+function toMessage(row: MessageRow): ChatMessage {
+  return {
+    id: row.id,
+    author: row.author,
+    text: row.text,
+    sentAt: row.sentAt,
+    ...(row.attachments ? { attachments: row.attachments } : {}),
+  };
 }
 
 /**
@@ -61,7 +79,7 @@ interface IRoomRepositories {
  * Doc : `@nodefony/realtime/docs/canaux-a-membres.md`.
  */
 @injectable()
-class RoomService extends Service {
+class RoomService extends Service implements IMessageArchive {
   #repositories: IRoomRepositories | null = null;
 
   /**
@@ -102,9 +120,45 @@ class RoomService extends Service {
       members: orm.getRepository<RoomMemberRow>(ROOM_MEMBER_ENTITY),
       events: orm.getRepository<EventRow>(EVENT_ENTITY),
       attendees: orm.getRepository<EventAttendeeRow>(EVENT_ATTENDEE_ENTITY),
+      messages: orm.getRepository<MessageRow>(MESSAGE_ENTITY),
     };
     return this.#repositories;
   }
+
+  // #region messages-archive
+  /**
+   * Archive un message : la base tire son `id` (XEP-0359), l'instant est
+   * celui du SERVEUR — jamais une horloge du client.
+   */
+  async archive(roomId: string, draft: IMessageDraft): Promise<ChatMessage> {
+    const row = await this.#repos().messages.create({
+      roomId,
+      authorId: draft.authorId,
+      author: draft.author,
+      text: draft.text,
+      sentAt: Date.now(),
+      attachments: draft.attachments ?? null,
+    });
+    return toMessage(row);
+  }
+
+  /**
+   * Les derniers messages d'un salon, dans l'ordre d'envoi : lus du plus
+   * récent au plus ancien (l'index `message_room_sent_idx` sert les deux
+   * critères), puis retournés.
+   */
+  async history(
+    roomId: string,
+    limit: number,
+    since?: number,
+  ): Promise<ChatMessage[]> {
+    const rows = await this.#repos().messages.find(
+      since === undefined ? { roomId } : { roomId, sentAt: { $gt: since } },
+      { limit, order: [["sentAt", "DESC"]] },
+    );
+    return rows.reverse().map(toMessage);
+  }
+  // #endregion
 
   // #region rooms-admission
   /**
@@ -260,15 +314,17 @@ class RoomService extends Service {
   // #endregion
 
   /**
-   * Un compte supprimé de l'application : ses appartenances et invitations
-   * disparaissent aussi de la base de la démo — l'intégrité qu'une clé
-   * étrangère ne peut pas porter d'une base à l'autre.
+   * Un compte supprimé de l'application : ses appartenances, invitations et
+   * messages disparaissent aussi de la base de la démo — l'intégrité qu'une
+   * clé étrangère ne peut pas porter d'une base à l'autre, et l'effacement
+   * qu'on doit à une personne qui part (RGPD, art. 17).
    */
   async forget(userId: string): Promise<void> {
     if (!this.isOpen()) return;
-    const { members, attendees } = this.#repos();
+    const { members, attendees, messages } = this.#repos();
     await members.delete({ userId });
     await attendees.delete({ userId });
+    await messages.delete({ authorId: userId });
   }
 
   /**

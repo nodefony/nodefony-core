@@ -1,5 +1,18 @@
 import { z } from "zod";
-import { PEOPLE_MAX } from "./chatContract";
+import { textProblem } from "./attachments";
+import { CHAT_HISTORY_LIMIT, PEOPLE_MAX } from "./chatContract";
+
+/**
+ * Un texte de message, borné par la règle partagée avec la page
+ * (`textProblem`, au plus `MESSAGE_MAX_BYTES` octets UTF-8).
+ */
+const messageText = z
+  .string()
+  .trim()
+  .superRefine((text, ctx) => {
+    const problem = textProblem(text);
+    if (problem !== null) ctx.addIssue({ code: "custom", message: problem });
+  });
 
 /**
  * Ce que le salon accepte — la SEULE définition du corps de l'envoi et de la
@@ -12,7 +25,7 @@ import { PEOPLE_MAX } from "./chatContract";
  * son paquet. Doc : `@nodefony/realtime/docs/cookbook-chat.md` (étape 5).
  */
 export const SendBody = z.strictObject({
-  text: z.string().trim().min(1).max(2000),
+  text: messageText.min(1),
 });
 
 /**
@@ -20,7 +33,7 @@ export const SendBody = z.strictObject({
  * pièces suffisent alors à faire un message.
  */
 export const AttachBody = z.strictObject({
-  text: z.string().trim().max(2000).default(""),
+  text: messageText.default(""),
 });
 
 /**
@@ -50,7 +63,7 @@ export const PeopleQuery = z.strictObject({
 
 /** La query de l'historique — elle arrive en texte, `coerce` la convertit. */
 export const HistoryQuery = z.strictObject({
-  limit: z.coerce.number().int().min(1).max(200).default(50),
+  limit: z.coerce.number().int().min(1).max(CHAT_HISTORY_LIMIT).default(50),
   /** Rattrapage après une coupure : les messages postérieurs à cet instant. */
   since: z.coerce.number().optional(),
 });

@@ -12,10 +12,42 @@ import type {
 } from "../../frontend/src/chat/chatContract";
 import { roomChannel } from "../../frontend/src/chat/rooms";
 import DemoPulseService, { DEMO_PULSE_SERVICE } from "./DemoPulseService";
+import RoomService from "./RoomService";
 import { describeFile, sniffImage } from "../../frontend/src/kit/preview";
 
-/** Messages gardés en mémoire : au-delà, les plus anciens sortent. */
-export const CHAT_HISTORY_LIMIT = 200;
+// La borne vit dans le contrat, lue par la page et le serveur : réexportée
+// pour qui la cherche ici.
+export { CHAT_HISTORY_LIMIT } from "../../frontend/src/chat/chatContract";
+
+/** Ce qu'un écrivain fournit : le reste (`id`, `sentAt`) est posé à l'archivage. */
+export interface IMessageDraft {
+  /** L'identité stable du compte (`this.user.id`), jamais montrée au salon. */
+  authorId: string;
+  /** Le nom affiché, tel qu'il est au moment de l'envoi. */
+  author: string;
+  text: string;
+  attachments?: ChatAttachment[];
+}
+
+/**
+ * Où vivent les messages. `RoomService` l'implémente sur la base de la démo ;
+ * un test en donne un en mémoire. Le service du salon ne sait rien de plus.
+ */
+export interface IMessageArchive {
+  /** Archive un message, et le rend avec son `id` et son instant. */
+  archive(roomId: string, draft: IMessageDraft): Promise<ChatMessage>;
+  /**
+   * Les derniers messages d'un salon, dans l'ordre d'envoi.
+   *
+   * @param limit - nombre maximal de messages rendus
+   * @param since - seulement ceux archivés APRÈS cet instant (rattrapage)
+   */
+  history(
+    roomId: string,
+    limit: number,
+    since?: number,
+  ): Promise<ChatMessage[]>;
+}
 
 /** Pièces gardées sur disque : au-delà, les plus anciennes sortent. */
 export const CHAT_ATTACHMENT_LIMIT = 50;
@@ -51,18 +83,17 @@ export function isUploadedFile(value: unknown): value is IUploadedFile {
  * contrôleur temps réel est instancié PAR CONNEXION : l'historique doit
  * survivre à chacune.
  *
- * Guide pour un agent : ici en MÉMOIRE et BORNÉ (une démo ne suppose pas ta
- * base, et un stock sans borne est une fuite). Le persister : une entité et
- * son repository derrière ces méthodes — `npx nodefony create entity
- * message`, doc `@nodefony/realtime/docs/cookbook-chat.md` (étape 4). Le
- * contrôleur n'en saura rien. Les pièces vivent sur le disque de CE serveur :
- * avec plusieurs pods, un stockage partagé (objet, base) les remplace derrière
+ * Guide pour un agent : les messages vivent EN BASE, derrière une archive
+ * (`IMessageArchive`) — `RoomService` sur la base SQLite de la démo, un
+ * double en mémoire dans un test. Le contrôleur n'en sait rien. Les pièces,
+ * elles, vivent sur le disque de CE serveur et repartent à zéro au
+ * démarrage : un message relu après coup annonce sa pièce `expired`. Avec
+ * plusieurs pods, un stockage partagé (objet, base) les remplace derrière
  * `saveAttachments` et `attachment`. Injecté par `@Inject("ChatService")`.
  */
 @injectable()
 class ChatService extends Service {
-  /** L'historique de chaque salon, borné salon par salon. */
-  readonly #messages = new Map<string, ChatMessage[]>();
+  #archive: IMessageArchive | null;
   readonly #attachments = new Map<string, IStoredAttachment>();
   readonly #dir: string | null;
   #ready: Promise<string> | null = null;
@@ -72,50 +103,70 @@ class ChatService extends Service {
    *   construit sans kernel
    * @param attachmentDir - le dossier des pièces ; par défaut
    *   `<tmp de l'application>/demo-chat`
+   * @param archive - où vivent les messages ; par défaut le service des
+   *   salons (`rooms`), résolu au premier usage
    */
-  constructor(module?: Module, attachmentDir?: string) {
+  constructor(
+    module?: Module,
+    attachmentDir?: string,
+    archive?: IMessageArchive,
+  ) {
     super("chat", module?.container ?? undefined, module?.notificationsCenter);
     this.#dir = attachmentDir ?? null;
+    this.#archive = archive ?? null;
+  }
+
+  /**
+   * L'archive des messages : celle reçue, sinon le service des salons.
+   *
+   * @throws Error si aucune n'est joignable (module mal câblé)
+   */
+  #messages(): IMessageArchive {
+    if (this.#archive !== null) return this.#archive;
+    const rooms = this.get<unknown>("rooms");
+    if (!(rooms instanceof RoomService))
+      throw new Error(
+        "ChatService : aucune archive de messages (service « rooms » absent)",
+      );
+    this.#archive = rooms;
+    return rooms;
   }
 
   // #region chat-store
-  /** Garde un message d'un salon ; le plus ancien sort au-delà de la borne. */
-  add(roomId: string, message: ChatMessage): void {
-    let kept = this.#messages.get(roomId);
-    if (kept === undefined) {
-      kept = [];
-      this.#messages.set(roomId, kept);
-    }
-    kept.push(message);
-    if (kept.length > CHAT_HISTORY_LIMIT) kept.shift();
-  }
-
   /**
-   * Publie un message au salon : gardé, diffusé à tous les abonnés de son
-   * canal `chat:room:<id>`, compté dans le pouls de l'accueil. SEULE voie d'écriture —
-   * la route d'envoi, l'envoi de pièces et l'outil MCP `demo_chat_post`
-   * l'appellent : trois copies de ces trois gestes divergeraient.
+   * Publie un message au salon : archivé (la base lui donne son `id`), diffusé
+   * à tous les abonnés de son canal `chat:room:<id>`, compté dans le pouls de
+   * l'accueil. SEULE voie d'écriture — la route d'envoi, l'envoi de pièces et
+   * l'outil MCP `demo_chat_post` l'appellent : trois copies de ces trois
+   * gestes divergeraient.
+   *
+   * @returns le message tel que le salon l'a reçu
    */
-  publish(roomId: string, message: ChatMessage): void {
-    this.add(roomId, message);
+  async publish(roomId: string, draft: IMessageDraft): Promise<ChatMessage> {
+    const message = await this.#messages().archive(roomId, draft);
     publishFrame(roomId, { kind: "message", message });
     const pulse = this.get<unknown>(DEMO_PULSE_SERVICE);
     if (pulse instanceof DemoPulseService) pulse.recordChatMessage();
+    return message;
   }
 
   /**
-   * Les derniers messages, dans l'ordre d'envoi.
+   * Les derniers messages, dans l'ordre d'envoi ; une pièce dont le fichier
+   * n'est plus là (redémarrage, borne) est annoncée `expired`.
    *
    * @param limit - nombre maximal de messages rendus
-   * @param since - seulement ceux envoyés après cet instant (rattrapage)
+   * @param since - seulement ceux archivés après cet instant (rattrapage)
    */
-  recent(roomId: string, limit: number, since?: number): ChatMessage[] {
-    const all = this.#messages.get(roomId) ?? [];
-    const kept =
-      since === undefined
-        ? all
-        : all.filter((message) => message.sentAt > since);
-    return kept.slice(-limit);
+  async recent(
+    roomId: string,
+    limit: number,
+    since?: number,
+  ): Promise<ChatMessage[]> {
+    const messages = await this.#messages().history(roomId, limit, since);
+    for (const message of messages)
+      for (const piece of message.attachments ?? [])
+        if (!this.#attachments.has(piece.id)) piece.expired = true;
+    return messages;
   }
 
   /**
@@ -169,13 +220,14 @@ class ChatService extends Service {
     }
   }
 
-  /** Au-delà de la borne, les plus anciennes pièces sortent : fichier effacé, annonce marquée. */
+  /**
+   * Au-delà de la borne, les plus anciennes pièces sortent : fichier effacé.
+   * L'historique relu les annonce alors `expired` (`recent`).
+   */
   async #evict(): Promise<void> {
     for (const [id, stored] of this.#attachments) {
       if (this.#attachments.size <= CHAT_ATTACHMENT_LIMIT) return;
       this.#attachments.delete(id);
-      // L'objet est celui que porte le message de l'historique : il le dit.
-      stored.meta.expired = true;
       await unlink(stored.file).catch(() => undefined);
     }
   }

@@ -57,12 +57,6 @@ export interface IChatRoom {
   notifyTyping: () => void;
 }
 
-/** Clé d'un message — l'historique et le salon peuvent livrer le même. */
-export function keyOf(message: ChatMessage): string {
-  const pieces = message.attachments?.map((piece) => piece.id).join(",") ?? "";
-  return `${message.sentAt}|${message.author}|${message.text}|${pieces}`;
-}
-
 /** Le motif d'un refus HTTP : le message du serveur, sinon le statut. */
 async function refusalOf(response: Response): Promise<string> {
   const body: unknown = await response.json().catch(() => null);
@@ -75,10 +69,13 @@ async function refusalOf(response: Response): Promise<string> {
   return `envoi refusé (${response.status})`;
 }
 
-/** Fusionne sans doublon, dans l'ordre d'envoi. */
+/**
+ * Fusionne sans doublon, dans l'ordre d'envoi. L'historique et le salon
+ * peuvent livrer le même message : son `id` stable (XEP-0359) le dit.
+ */
 function merge(known: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
-  const seen = new Set(known.map(keyOf));
-  const added = incoming.filter((message) => !seen.has(keyOf(message)));
+  const seen = new Set(known.map((message) => message.id));
+  const added = incoming.filter((message) => !seen.has(message.id));
   if (added.length === 0) return known;
   return [...known, ...added].toSorted((a, b) => a.sentAt - b.sentAt);
 }

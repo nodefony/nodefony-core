@@ -50,6 +50,18 @@ export const CHAT_ATTACH_PATH = "/demo/chat/rooms/{room}/attachments";
 /** Une pièce se lit à `${CHAT_FILE_PATH}/<id>`. */
 export const CHAT_FILE_PATH = "/demo/chat/files";
 
+/**
+ * Au plus 64 Kio de texte par message, comptés en octets UTF-8 — la borne
+ * d'un événement Matrix (65 536 octets). De quoi coller un fichier source ou
+ * une trace d'erreur entière (~1 650 lignes de TypeScript, ~650 lignes de
+ * journal). Le réseau et la base comptent des OCTETS, pas des caractères : un
+ * emoji en vaut quatre. Au-delà, c'est un fichier — une pièce jointe.
+ */
+export const MESSAGE_MAX_BYTES = 65_536;
+
+/** Au plus deux cents messages par lecture de l'historique. */
+export const CHAT_HISTORY_LIMIT = 200;
+
 /** Au plus cinq pièces par message… */
 export const ATTACHMENT_MAX_COUNT = 5;
 
@@ -72,6 +84,12 @@ export interface ChatAttachment extends IFilePreview {
 
 /** Un message du salon. L'auteur est posé par le SERVEUR, jamais par le client. */
 export interface ChatMessage {
+  /**
+   * Identifiant STABLE, tiré par le serveur à l'archivage (XEP-0359
+   * `stanza-id`) : la page dédoublonne dessus, une réponse ou une réaction le
+   * viseront.
+   */
+  id: string;
   author: string;
   text: string;
   sentAt: number;
@@ -104,6 +122,7 @@ export function isRoomFrame(value: unknown): value is RoomFrame {
   return (
     typeof message === "object" &&
     message !== null &&
+    typeof Reflect.get(message, "id") === "string" &&
     typeof Reflect.get(message, "author") === "string" &&
     typeof Reflect.get(message, "text") === "string" &&
     typeof Reflect.get(message, "sentAt") === "number"
@@ -129,7 +148,7 @@ export interface ChatContract extends IRealtimeContract {
     "POST /demo/chat/rooms/{room}/send": {
       params: typeof RoomParams;
       body: typeof SendBody;
-      result: { sentAt: number };
+      result: { id: string; sentAt: number };
     };
     "POST /demo/chat/rooms/{room}/typing": {
       params: typeof RoomParams;

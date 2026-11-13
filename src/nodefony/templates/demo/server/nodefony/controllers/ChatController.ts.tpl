@@ -193,17 +193,16 @@ class ChatController extends ContractRealtimeController<ChatContract> {
   @Idempotent()
   async send(
     input: RoomInput<{ body: typeof SendBody }>,
-  ): Promise<{ sentAt: number }> {
+  ): Promise<{ id: string; sentAt: number }> {
     const me = this.user;
     if (me === null) throw new HttpError("connexion requise", 401);
     await this.#admitted(input.params.room);
-    const message: ChatMessage = {
+    const { id, sentAt } = await this.chat.publish(input.params.room, {
+      authorId: me.id,
       author: me.identifier,
       text: input.body.text,
-      sentAt: Date.now(),
-    };
-    this.chat.publish(input.params.room, message);
-    return { sentAt: message.sentAt };
+    });
+    return { id, sentAt };
   }
   // #endregion
 
@@ -225,7 +224,7 @@ class ChatController extends ContractRealtimeController<ChatContract> {
   @Idempotent()
   async attach(
     input: RoomInput<{ body: typeof AttachBody }>,
-  ): Promise<{ sentAt: number }> {
+  ): Promise<{ id: string; sentAt: number }> {
     const me = this.user;
     if (me === null) throw new HttpError("connexion requise", 401);
     const files = this.files.filter(isUploadedFile);
@@ -244,14 +243,13 @@ class ChatController extends ContractRealtimeController<ChatContract> {
       await this.chat.discard(files);
       throw new HttpError(problem, files.length === 0 ? 400 : 413);
     }
-    const message: ChatMessage = {
+    const { id, sentAt } = await this.chat.publish(input.params.room, {
+      authorId: me.id,
       author: me.identifier,
       text: input.body.text,
-      sentAt: Date.now(),
       attachments: await this.chat.saveAttachments(files),
-    };
-    this.chat.publish(input.params.room, message);
-    return { sentAt: message.sentAt };
+    });
+    return { id, sentAt };
   }
   // #endregion
 

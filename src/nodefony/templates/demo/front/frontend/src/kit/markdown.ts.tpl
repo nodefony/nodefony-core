@@ -7,8 +7,8 @@
  * voyage BRUT (le serveur ne le transforme pas) ; chaque page l'analyse avec
  * ces fonctions pures, puis le rend en éléments React (`MarkdownText.tsx`) —
  * jamais en HTML injecté. Un lien ne s'ouvre que vers `http:` ou `https:` :
- * `javascript:` reste du texte. L'appelant borne le texte (le salon : 2 000
- * caractères, `SendBody`), donc l'analyse aussi. L'éditeur
+ * `javascript:` reste du texte. L'appelant borne le texte (le salon : 64 Kio,
+ * `MESSAGE_MAX_BYTES`), donc l'analyse aussi. L'éditeur
  * (`MarkdownEditor.tsx`) n'écrit qu'avec les fonctions de `chat-format`.
  */
 

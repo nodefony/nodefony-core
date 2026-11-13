@@ -9,12 +9,17 @@ import {
 import { FilePreview } from "../kit/FilePreview";
 import { MarkdownEditor, type IEditorHandle } from "../kit/MarkdownEditor";
 import { describeFile, type IFilePreview } from "../kit/preview";
-import { ATTACHMENT_MAX_BYTES, ATTACHMENT_MAX_COUNT } from "./chatContract";
+import {
+  ATTACHMENT_MAX_BYTES,
+  ATTACHMENT_MAX_COUNT,
+  MESSAGE_MAX_BYTES,
+} from "./chatContract";
 import {
   EMOJIS,
   attachmentProblem,
   isLargePaste,
   pastedFileName,
+  textProblem,
 } from "./attachments";
 
 /** Une pièce en attente d'envoi — locale à l'écrivain, rien n'est parti. */
@@ -131,8 +136,12 @@ export function ChatComposer({
     draft.trim(),
     pending.map((piece) => piece.file),
   );
+  // Une pièce en attente ou un texte trop lourd : le motif s'affiche tout de
+  // suite, sans attendre « Envoyer ».
   const blocked =
-    pending.length > 0 && problem !== null && problem !== "message vide";
+    problem !== null &&
+    problem !== "message vide" &&
+    (pending.length > 0 || textProblem(draft.trim()) !== null);
 
   // Ajoute les pièces, puis lit leur aperçu ; une pièce retirée entre-temps
   // ne revient pas (le `map` ne la trouve plus). Stable : rien que des setters.
@@ -252,7 +261,7 @@ export function ChatComposer({
       <MarkdownEditor
         label="Message"
         value={draft}
-        maxLength={2000}
+        maxLength={MESSAGE_MAX_BYTES}
         placeholder={`Écrire en tant que ${author}`}
         onChange={(value) => {
           setDraft(value);

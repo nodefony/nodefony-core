@@ -33,7 +33,10 @@ import ChatService, {
   CHAT_ATTACHMENT_LIMIT,
   CHAT_HISTORY_LIMIT,
   isUploadedFile,
+  type IMessageArchive,
 } from "../nodefony/service/ChatService";
+import { utf8ByteLength } from "../frontend/src/kit/utf8";
+import { SendBody } from "../frontend/src/chat/chatSchemas";
 import {
   INFLATE_LIMIT,
   PREVIEW_ENTRIES,
@@ -58,11 +61,14 @@ import {
   attachmentProblem,
   insertAt,
   isLargePaste,
+  textProblem,
 } from "../frontend/src/chat/attachments";
 import {
   ATTACHMENT_MAX_BYTES,
   ATTACHMENT_MAX_COUNT,
+  MESSAGE_MAX_BYTES,
   PEOPLE_MAX,
+  type ChatMessage,
 } from "../frontend/src/chat/chatContract";
 import {
   INVITE_EARLY_MS,
@@ -266,40 +272,93 @@ describe("demo", () => {
   });
 });
 
+/**
+ * Une archive en MÉMOIRE, le double de `RoomService` pour un test sans base :
+ * elle tire l'`id` et l'instant comme la base le ferait. Ce que la base fait
+ * vraiment (ordre, `since`, un historique par salon) se prouve de bout en bout
+ * (`chat.e2e.test.ts`) — l'éprouver ici ne prouverait que ce double.
+ */
+function memoryArchive(): IMessageArchive {
+  const rooms = new Map<string, ChatMessage[]>();
+  let clock = 0;
+  return {
+    archive: async (roomId, draft) => {
+      clock += 1;
+      const message: ChatMessage = {
+        id: `m${clock}`,
+        author: draft.author,
+        text: draft.text,
+        sentAt: clock,
+        ...(draft.attachments ? { attachments: draft.attachments } : {}),
+      };
+      rooms.set(roomId, [...(rooms.get(roomId) ?? []), message]);
+      return message;
+    },
+    history: async (roomId, limit, since) =>
+      (rooms.get(roomId) ?? [])
+        .filter((message) => since === undefined || message.sentAt > since)
+        .slice(-limit),
+  };
+}
+
 describe("demo — l'historique du chat", () => {
-  it("reste borné : au-delà de la limite, les plus anciens sortent", () => {
-    const chat = new ChatService();
-    for (let i = 0; i <= CHAT_HISTORY_LIMIT; i += 1) {
-      chat.add(LOBBY_ROOM_ID, { author: "a", text: String(i), sentAt: i });
-    }
-    const all = chat.recent(LOBBY_ROOM_ID, CHAT_HISTORY_LIMIT * 2);
-    expect(all).toHaveLength(CHAT_HISTORY_LIMIT);
-    expect(all[0]?.text).toBe("1");
-  });
-
-  it("rattrape une coupure : seulement les messages postérieurs à since", () => {
-    const chat = new ChatService();
-    for (let i = 1; i <= 5; i += 1)
-      chat.add(LOBBY_ROOM_ID, { author: "a", text: String(i), sentAt: i });
-    expect(chat.recent(LOBBY_ROOM_ID, 50, 3).map((m) => m.text)).toEqual([
-      "4",
-      "5",
-    ]);
-    expect(chat.recent(LOBBY_ROOM_ID, 2).map((m) => m.text)).toEqual([
-      "4",
-      "5",
+  it("écrire passe par l'archive : l'id et l'instant viennent d'elle, jamais de l'écrivain", async () => {
+    const chat = new ChatService(undefined, undefined, memoryArchive());
+    const sent = await chat.publish(LOBBY_ROOM_ID, {
+      authorId: "u1",
+      author: "alice",
+      text: "bonjour",
+    });
+    expect(sent).toEqual({
+      id: "m1",
+      author: "alice",
+      text: "bonjour",
+      sentAt: 1,
+    });
+    expect(await chat.recent(LOBBY_ROOM_ID, CHAT_HISTORY_LIMIT)).toEqual([
+      sent,
     ]);
   });
 
-  it("garde un historique PAR salon : un salon ne lit jamais les messages d'un autre", () => {
-    const chat = new ChatService();
-    chat.add(LOBBY_ROOM_ID, { author: "a", text: "public", sentAt: 1 });
-    chat.add("equipe", { author: "b", text: "privé", sentAt: 2 });
-    expect(chat.recent(LOBBY_ROOM_ID, 10).map((m) => m.text)).toEqual([
-      "public",
-    ]);
-    expect(chat.recent("equipe", 10).map((m) => m.text)).toEqual(["privé"]);
-    expect(chat.recent("inconnu", 10)).toEqual([]);
+  it("sans archive joignable, écrire échoue en le disant", async () => {
+    await expect(
+      new ChatService().publish(LOBBY_ROOM_ID, {
+        authorId: "u1",
+        author: "alice",
+        text: "x",
+      }),
+    ).rejects.toThrow(/aucune archive/u);
+  });
+});
+
+describe("demo — la borne d'un message, en OCTETS", () => {
+  it("le compteur rend ce que TextEncoder produirait, demi-caractère isolé compris", () => {
+    const encoder = new TextEncoder();
+    for (const text of [
+      "",
+      "abc",
+      "été",
+      "€",
+      "😀",
+      "a😀b",
+      "\uD83D", // demi-caractère seul : U+FFFD, trois octets
+      "\uDE00x",
+    ])
+      expect(utf8ByteLength(text), JSON.stringify(text)).toBe(
+        encoder.encode(text).byteLength,
+      );
+  });
+
+  it("64 Kio passent, un octet de plus non — un emoji compte quatre", () => {
+    const full = "a".repeat(MESSAGE_MAX_BYTES);
+    expect(textProblem(full)).toBeNull();
+    expect(SendBody.safeParse({ text: full }).success).toBe(true);
+    // Même nombre de CARACTÈRES moins trois, mais quatre octets pour l'emoji.
+    const over = `${"a".repeat(MESSAGE_MAX_BYTES - 3)}😀`;
+    expect(utf8ByteLength(over)).toBe(MESSAGE_MAX_BYTES + 1);
+    expect(textProblem(over)).toMatch(/joins-le en fichier/u);
+    expect(SendBody.safeParse({ text: over }).success).toBe(false);
+    expect(attachmentProblem(over, [])).toBe(textProblem(over));
   });
 });
 
@@ -606,13 +665,29 @@ describe("demo — les pièces du salon, classées d'après leurs OCTETS", () =>
     expect(piece).toMatchObject({ kind: "text", lines: 5, preview: "1\n2\n3" });
   });
 
-  it("le stock est BORNÉ : la plus ancienne sort, fichier effacé, annonce marquée", async () => {
-    const chat = store();
+  it("le stock est BORNÉ : la plus ancienne sort, fichier effacé, annonce marquée à la relecture", async () => {
+    seq += 1;
+    const chat = new ChatService(
+      undefined,
+      path.join(work, `s${seq}`),
+      memoryArchive(),
+    );
     const [first] = await chat.saveAttachments([upload("0.png", PNG)]);
+    await chat.publish(LOBBY_ROOM_ID, {
+      authorId: "u1",
+      author: "a",
+      text: "",
+      attachments: first ? [first] : [],
+    });
+    const [kept] = (await chat.recent(LOBBY_ROOM_ID, 1))[0]?.attachments ?? [];
+    expect(kept?.expired).toBeUndefined();
     for (let i = 1; i <= CHAT_ATTACHMENT_LIMIT; i += 1)
       await chat.saveAttachments([upload(`${i}.png`, PNG)]);
     expect(chat.attachment(first?.id ?? "")).toBeUndefined();
-    expect(first?.expired).toBe(true);
+    // L'historique vient de l'archive (la base) : la pièce partie s'y annonce
+    // à la LECTURE, rien n'a été réécrit.
+    const [gone] = (await chat.recent(LOBBY_ROOM_ID, 1))[0]?.attachments ?? [];
+    expect(gone?.expired).toBe(true);
     const dir = path.dirname(
       chat.attachment(
         (await chat.saveAttachments([upload("z.png", PNG)]))[0]?.id ?? "",
@@ -2037,14 +2112,26 @@ describe("demo — MCP", () => {
   });
 
   it("la lecture rend les derniers messages ; hors bornes, un échec MÉTIER que l'agent lit", async () => {
-    const chat = new ChatService();
-    chat.add(LOBBY_ROOM_ID, { author: "alice", text: "un", sentAt: 1 });
-    chat.add(LOBBY_ROOM_ID, { author: "bob", text: "deux", sentAt: 2 });
+    const chat = new ChatService(undefined, undefined, memoryArchive());
+    await chat.publish(LOBBY_ROOM_ID, {
+      authorId: "u1",
+      author: "alice",
+      text: "un",
+    });
+    await chat.publish(LOBBY_ROOM_ID, {
+      authorId: "u2",
+      author: "bob",
+      text: "deux",
+    });
     const read = toolsOn(chat)[MCP_TOOL_READ];
     const ok = await read?.handler({ limit: 1 }, anyCaller);
+    // L'`id` stable voyage aussi : l'agent peut viser CE message.
     expect(ok).toEqual({
       content: [
-        { type: "text", text: '[{"author":"bob","text":"deux","sentAt":2}]' },
+        {
+          type: "text",
+          text: '[{"id":"m2","author":"bob","text":"deux","sentAt":2}]',
+        },
       ],
     });
     const tooMany = await read?.handler(
@@ -2057,7 +2144,9 @@ describe("demo — MCP", () => {
   it("l'outil long s'arrête dès que l'agent a fermé le flux", async () => {
     const abort = new AbortController();
     abort.abort();
-    const digest = toolsOn(new ChatService())[MCP_TOOL_DIGEST];
+    const digest = toolsOn(
+      new ChatService(undefined, undefined, memoryArchive()),
+    )[MCP_TOOL_DIGEST];
     const reported: number[] = [];
     const result = await digest?.handler({}, anyCaller, {
       signal: abort.signal,
@@ -2071,11 +2160,11 @@ describe("demo — MCP", () => {
   });
 
   it("l'écriture signe au nom du compte du jeton, et refuse sans compte", async () => {
-    const chat = new ChatService();
+    const chat = new ChatService(undefined, undefined, memoryArchive());
     const post = toolsOn(chat)[MCP_TOOL_POST];
     const anonymous = await post?.handler({ text: "salut" }, anyCaller);
     expect(anonymous?.isError).toBe(true);
-    expect(chat.recent(LOBBY_ROOM_ID, 10)).toEqual([]);
+    expect(await chat.recent(LOBBY_ROOM_ID, 10)).toEqual([]);
     const signed = await RequestContext.run(
       {
         requestId: "mcp-test",
@@ -2086,9 +2175,10 @@ describe("demo — MCP", () => {
     );
     expect(signed?.isError).toBeUndefined();
     expect(
-      chat
-        .recent(LOBBY_ROOM_ID, 10)
-        .map(({ author, text }) => ({ author, text })),
+      (await chat.recent(LOBBY_ROOM_ID, 10)).map(({ author, text }) => ({
+        author,
+        text,
+      })),
     ).toEqual([{ author: "admin", text: "bonjour" }]);
     // La règle du salon, la même que la route d'envoi : un texte vide est refusé.
     const empty = await RequestContext.run(

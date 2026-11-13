@@ -6,7 +6,7 @@ import { CHAT_LESSON } from "./chatTabs";
 import { ChatAttachments } from "./ChatAttachments";
 import { ChatComposer } from "./ChatComposer";
 import { MarkdownText } from "../kit/MarkdownText";
-import { keyOf, useChat, type IChatRoom } from "./useChat";
+import { useChat, type IChatRoom } from "./useChat";
 import { ChatPeople } from "./ChatPeople";
 import type { IRoomEvent } from "./rooms";
 import { useRef } from "react";
@@ -246,7 +246,7 @@ function ChatRoom({
                 <li className="room-empty">Aucun message pour l'instant.</li>
               )}
               {room.messages.map((message) => (
-                <li key={keyOf(message)}>
+                <li key={message.id}>
                   <span className="room-meta">
                     <strong>{message.author}</strong> ·{" "}
                     {TIME.format(message.sentAt)}

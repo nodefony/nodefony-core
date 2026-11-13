@@ -5,6 +5,7 @@ import {
   CHAT_ATTACH_PATH,
   CHAT_FILE_PATH,
   CHAT_REALTIME_PATH,
+  MESSAGE_MAX_BYTES,
   isRoomFrame,
   type ChatContract,
   type ChatMessage,
@@ -106,6 +107,11 @@ demoDescribe("discussion — le salon public", () => {
     const text = unique("bonjour");
     const res = await send(text);
     expect(res.status).toBe(200);
+    const sent: unknown = await res.json();
+    const id =
+      typeof sent === "object" && sent !== null
+        ? Reflect.get(sent, "id")
+        : null;
 
     const seen = (who: { messages: ChatMessage[] }) =>
       who.messages.find((m) => m.text === text);
@@ -115,6 +121,10 @@ demoDescribe("discussion — le salon public", () => {
     );
     // L'auteur vient de la SESSION, jamais d'un champ du client.
     expect(seen(alice)?.author).toBe("admin");
+    // L'`id` stable tiré par la base : le MÊME pour l'écrivain et les abonnés.
+    expect(typeof id).toBe("string");
+    expect(seen(alice)?.id).toBe(id);
+    expect(seen(bob)?.id).toBe(id);
   });
   // #endregion
 
@@ -127,22 +137,45 @@ demoDescribe("discussion — le salon public", () => {
     await res.body?.cancel();
   });
 
-  it("l'historique rend le message à qui arrive APRÈS", async () => {
+  it("l'historique rend le message à qui arrive APRÈS, lu en base sous le même id", async () => {
     const text = unique("pour plus tard");
-    expect((await send(text)).status).toBe(200);
+    const res0 = await send(text);
+    expect(res0.status).toBe(200);
+    const sent: unknown = await res0.json();
+    const id =
+      typeof sent === "object" && sent !== null
+        ? Reflect.get(sent, "id")
+        : null;
     // Lecture libre, en HTTP : la même action que `socket.get(…)` de la page.
     const res = await fetch(roomPath(LOBBY_ROOM_ID, "history?limit=200"));
     expect(res.status).toBe(200);
     const history: unknown = await res.json();
-    expect(
-      Array.isArray(history) &&
-        history.some(
+    const found = Array.isArray(history)
+      ? history.find(
           (m: unknown) =>
             typeof m === "object" &&
             m !== null &&
             Reflect.get(m, "text") === text,
-        ),
-    ).toBe(true);
+        )
+      : undefined;
+    expect(found).toBeDefined();
+    expect(Reflect.get(found ?? {}, "id")).toBe(id);
+  });
+
+  it("un message de 64 Kio passe ; un octet de plus est refusé, rien n'est diffusé", async () => {
+    const watcher = await listener();
+    const full = unique("x").padEnd(MESSAGE_MAX_BYTES, "a");
+    expect((await send(full)).status).toBe(200);
+    const over = await send(`${full}a`);
+    expect(over.status).toBe(422);
+    await over.body?.cancel();
+    const witness = unique("témoin");
+    await send(witness);
+    await waitFor("le témoin", () =>
+      watcher.messages.some((m) => m.text === witness),
+    );
+    expect(watcher.messages.some((m) => m.text === full)).toBe(true);
+    expect(watcher.messages.some((m) => m.text === `${full}a`)).toBe(false);
   });
 
   it("écrire exige une session : un anonyme est refusé, et rien n'est diffusé", async () => {
@@ -200,13 +233,20 @@ demoDescribe("discussion — le salon public", () => {
   });
 
   it("la présence compte l'anonyme sans le nommer", async () => {
-    const who = await listener();
+    // L'écoute AVANT la demande, comme une page : la liste suit l'acquittement
+    // de près, et quand les deux trames arrivent dans le même paquet, un
+    // écouteur posé après `whenSubscribed` l'a déjà manquée — et un second
+    // `subscribe` ne repart pas au serveur (ref-compté). Le test qui faisait
+    // ainsi ne passait que si un départ voisin venait le réveiller.
+    const socket = await openSocket<ChatContract>(CHAT_REALTIME_PATH, {
+      cbor: false,
+    });
+    const channel = roomChannel(LOBBY_ROOM_ID);
     const seen: { count: number; unnamed: number }[] = [];
-    who.socket.onPresence(roomChannel(LOBBY_ROOM_ID), (view) => {
+    socket.onPresence(channel, (view) => {
       if (view.ready) seen.push({ count: view.count, unnamed: view.unnamed });
     });
-    // Un nouveau `subscribe` rend toujours la liste (XEP-0045 §17.3).
-    who.socket.subscribe(roomChannel(LOBBY_ROOM_ID));
+    socket.subscribe(channel);
     await waitFor("une vue de présence", () => seen.length > 0);
     expect(seen.at(-1)?.unnamed).toBeGreaterThanOrEqual(1);
   });

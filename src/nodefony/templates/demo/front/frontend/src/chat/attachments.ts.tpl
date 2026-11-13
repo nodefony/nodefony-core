@@ -1,5 +1,10 @@
 import { countLines, formatSize } from "../kit/preview";
-import { ATTACHMENT_MAX_BYTES, ATTACHMENT_MAX_COUNT } from "./chatContract";
+import { utf8ByteLength } from "../kit/utf8";
+import {
+  ATTACHMENT_MAX_BYTES,
+  ATTACHMENT_MAX_COUNT,
+  MESSAGE_MAX_BYTES,
+} from "./chatContract";
 
 /**
  * Les règles des pièces jointes du salon — pures, lues par la page ET par le
@@ -38,8 +43,22 @@ export function pastedFileName(index: number): string {
 
 // #region chat-attach-rules
 /**
- * Ce qui empêche un envoi : rien à envoyer, trop de pièces, une pièce trop
- * grosse ou vide. `null` quand l'envoi passe.
+ * Un texte trop lourd pour un message : plus de `MESSAGE_MAX_BYTES` octets
+ * UTF-8. La SEULE écriture de la règle — le schéma d'envoi (`SendBody`), le
+ * compositeur et le contrôleur l'appellent. `null` quand le texte passe.
+ *
+ * @param text - le texte du message
+ */
+export function textProblem(text: string): string | null {
+  const bytes = utf8ByteLength(text);
+  return bytes > MESSAGE_MAX_BYTES
+    ? `texte trop long (${formatSize(bytes)} pour ${formatSize(MESSAGE_MAX_BYTES)}) — joins-le en fichier`
+    : null;
+}
+
+/**
+ * Ce qui empêche un envoi : rien à envoyer, un texte trop lourd, trop de
+ * pièces, une pièce trop grosse ou vide. `null` quand l'envoi passe.
  *
  * @param text - le texte du message, déjà rogné
  * @param files - les pièces (nom et taille suffisent)
@@ -49,6 +68,8 @@ export function attachmentProblem(
   files: readonly { name: string; size: number }[],
 ): string | null {
   if (text === "" && files.length === 0) return "message vide";
+  const tooLong = textProblem(text);
+  if (tooLong !== null) return tooLong;
   if (files.length > ATTACHMENT_MAX_COUNT)
     return `au plus ${ATTACHMENT_MAX_COUNT} pièces par message`;
   for (const file of files) {
