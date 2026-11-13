@@ -10,7 +10,10 @@
  * fichier par fichier aux sorties commitées : manquant, en trop, différent.
  *
  * Aucun chemin n'est écrit en dur : les gabarits viennent de `git ls-files`,
- * les dossiers de sortie de leurs `plugins[].out`. `buf` et ses greffons sont ceux
+ * les dossiers de sortie de leurs `plugins[].out`. Un gabarit du SCAFFOLD
+ * (`buf.gen.yaml.tpl`, la démo de `create app --demo`) se régénère aussi : son
+ * dossier est recopié sans le suffixe `.tpl` que le moteur retire au rendu
+ * (`engine.ts#renderLayer`), et la sortie se compare aux `*.tpl` commités. `buf` et ses greffons sont ceux
  * du dépôt (`node_modules/.bin`), lancés par `process.execPath` — un script Node,
  * donc pareil sur les trois plateformes.
  *
@@ -46,6 +49,9 @@ export function generatedOutputs(source) {
   return [...new Set(outs)];
 }
 
+/** Suffixe des gabarits du scaffold, retiré au rendu (`engine.ts#renderLayer`). */
+export const TEMPLATE_SUFFIX = ".tpl";
+
 /** Fichiers d'un dossier, chemins POSIX relatifs ; vide s'il n'existe pas. */
 function listFiles(dir, base = dir, out = []) {
   if (!fs.existsSync(dir)) return out;
@@ -62,31 +68,82 @@ function listFiles(dir, base = dir, out = []) {
  *
  * @param {string} expectedDir - sortie régénérée.
  * @param {string} actualDir - sortie commitée.
+ * @param {string} [suffix] - suffixe que portent les fichiers commités
+ *   (`.tpl` pour un gabarit du scaffold) ; un fichier qui ne le porte pas est
+ *   en trop sous son nom réel.
  * @returns {{ missing: string[], extra: string[], changed: string[] }}
  */
-export function compareTrees(expectedDir, actualDir) {
+export function compareTrees(expectedDir, actualDir, suffix = "") {
   const expected = new Set(listFiles(expectedDir));
-  const actual = new Set(listFiles(actualDir));
+  // Nom attendu → fichier commité.
+  const actual = new Map(
+    listFiles(actualDir).map((f) => [
+      suffix !== "" && f.endsWith(suffix)
+        ? f.slice(0, -suffix.length)
+        : `${f}${suffix === "" ? "" : " (sans .tpl)"}`,
+      f,
+    ]),
+  );
   const missing = [...expected].filter((f) => !actual.has(f)).sort();
-  const extra = [...actual].filter((f) => !expected.has(f)).sort();
+  const extra = [...actual.keys()].filter((f) => !expected.has(f)).sort();
   const changed = [...expected]
     .filter((f) => actual.has(f))
     .filter(
       (f) =>
         !fs
           .readFileSync(path.join(expectedDir, ...f.split("/")))
-          .equals(fs.readFileSync(path.join(actualDir, ...f.split("/")))),
+          .equals(
+            fs.readFileSync(
+              path.join(actualDir, ...String(actual.get(f)).split("/")),
+            ),
+          ),
     )
     .sort();
   return { missing, extra, changed };
 }
 
-/** Gabarits `buf.gen.yaml` versionnés, chemins POSIX relatifs au dépôt. */
+/**
+ * Recopie ce que `buf` lit d'un gabarit du scaffold — `buf.yaml`,
+ * `buf.gen.yaml` et les contrats `.proto` — sans le suffixe `.tpl`.
+ *
+ * @param {string} dir - dossier du gabarit.
+ * @param {string} into - dossier jetable de destination.
+ */
+function copyScaffoldInputs(dir, into) {
+  for (const file of listFiles(dir)) {
+    const name = file.slice(0, -TEMPLATE_SUFFIX.length);
+    if (
+      !file.endsWith(TEMPLATE_SUFFIX) ||
+      !(
+        name === "buf.yaml" ||
+        name === "buf.gen.yaml" ||
+        name.endsWith(".proto")
+      )
+    ) {
+      continue;
+    }
+    const target = path.join(into, ...name.split("/"));
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.copyFileSync(path.join(dir, ...file.split("/")), target);
+  }
+}
+
+/** Gabarits `buf.gen.yaml` versionnés (scaffold compris), chemins POSIX relatifs au dépôt. */
 function templates() {
-  return execFileSync("git", ["ls-files", "-z", "--", "*buf.gen.yaml"], {
-    cwd: ROOT,
-    encoding: "utf8",
-  })
+  return execFileSync(
+    "git",
+    [
+      "ls-files",
+      "-z",
+      "--",
+      "*buf.gen.yaml",
+      `*buf.gen.yaml${TEMPLATE_SUFFIX}`,
+    ],
+    {
+      cwd: ROOT,
+      encoding: "utf8",
+    },
+  )
     .split("\0")
     .filter(Boolean);
 }
@@ -113,12 +170,25 @@ function main() {
     const outs = generatedOutputs(
       fs.readFileSync(path.join(ROOT, ...template.split("/")), "utf8"),
     );
+    const scaffold = template.endsWith(TEMPLATE_SUFFIX);
+    const suffix = scaffold ? TEMPLATE_SUFFIX : "";
     const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "nf-protobuf-"));
+    const inputs = scaffold
+      ? fs.mkdtempSync(path.join(os.tmpdir(), "nf-protobuf-in-"))
+      : dir;
     try {
+      if (scaffold) copyScaffoldInputs(dir, inputs);
       const run = spawnSync(
         process.execPath,
-        [buf, "generate", "--template", path.basename(template), "-o", scratch],
-        { cwd: dir, env, encoding: "utf8" },
+        [
+          buf,
+          "generate",
+          "--template",
+          path.basename(template, suffix),
+          "-o",
+          scratch,
+        ],
+        { cwd: inputs, env, encoding: "utf8" },
       );
       if (run.status !== 0) {
         console.error(
@@ -131,6 +201,7 @@ function main() {
         const { missing, extra, changed } = compareTrees(
           path.join(scratch, ...out.split("/")),
           path.join(dir, ...out.split("/")),
+          suffix,
         );
         const drift = [
           ...missing.map((f) => `manquant  ${f}`),
@@ -144,11 +215,14 @@ function main() {
         );
         for (const line of drift) console.error(`    ${line}`);
         console.error(
-          `  Régénérer : (cd ${path.posix.dirname(template)} && npx buf generate), puis commiter.`,
+          scaffold
+            ? `  Régénérer : buf generate sur une copie sans .tpl de ${path.posix.dirname(template)}, puis recopier ${out} en ajoutant .tpl à chaque fichier.`
+            : `  Régénérer : (cd ${path.posix.dirname(template)} && npx buf generate), puis commiter.`,
         );
       }
     } finally {
       fs.rmSync(scratch, { recursive: true, force: true });
+      if (scaffold) fs.rmSync(inputs, { recursive: true, force: true });
     }
   }
   if (failures > 0) return 1;

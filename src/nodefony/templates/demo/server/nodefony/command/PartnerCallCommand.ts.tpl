@@ -78,8 +78,11 @@ function isIssuer(value: string): value is TIssuer {
 /** Le client machine que le realm de développement déclare pour cette app. */
 const MACHINE_CLIENT_ID = "<%= it.appName %>-machine";
 
-/** Une panne dite à l'utilisateur : ce qui s'est passé, et le geste qui répare. */
-class CallFailure extends Error {
+/**
+ * Une panne dite à l'utilisateur : ce qui s'est passé, et le geste qui répare.
+ * Partagée avec `demo:sensor:push`.
+ */
+export class CallFailure extends Error {
   constructor(
     message: string,
     readonly remedy: string,
@@ -121,7 +124,7 @@ function systemCode(error: unknown): string | null {
  * Traduit une panne RÉSEAU en geste : un serveur éteint et un certificat
  * refusé produisent tous deux `fetch failed`, mais ne se réparent pas pareil.
  */
-function networkFailure(
+export function networkFailure(
   error: unknown,
   target: string,
   start: string,

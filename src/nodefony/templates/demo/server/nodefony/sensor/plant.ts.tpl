@@ -94,8 +94,13 @@ const CURRENT_NOISE = 0.4;
 /** Raideur du cycle de charge : plus c'est grand, plus le créneau est franc. */
 const LOAD_SHARPNESS = 3;
 
-/** Les quantités dans la trame : leur rang, lu une fois. */
-const temperatureSlot = QUANTITIES.findIndex((q) => q.id === "temperature");
+/**
+ * Les quantités dans la trame : leur rang, lu une fois. La série de la
+ * machine `m` pour une grandeur est `m * QUANTITIES.length + rang`.
+ */
+export const temperatureSlot = QUANTITIES.findIndex(
+  (q) => q.id === "temperature",
+);
 const vibrationSlot = QUANTITIES.findIndex((q) => q.id === "vibration");
 const currentSlot = QUANTITIES.findIndex((q) => q.id === "current");
 

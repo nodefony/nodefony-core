@@ -30,6 +30,9 @@ import PrismController from "./nodefony/controllers/PrismController";
 import PrismService from "./nodefony/service/PrismService";
 import SensorController from "./nodefony/controllers/SensorController";
 import SensorService from "./nodefony/service/SensorService";
+import TelemetryController from "./nodefony/controllers/TelemetryController";
+import TelemetryRelayService from "./nodefony/service/TelemetryRelayService";
+import SensorPushCommand from "./nodefony/command/SensorPushCommand";
 import { registerDemoEntry } from "./nodefony/frontend/registerDemoEntry";
 
 /**
@@ -65,6 +68,7 @@ declare module "nodefony" {
   MeteorController,
   PrismController,
   SensorController,
+  TelemetryController,
 ])
 @services([
   AppInfoService,
@@ -76,11 +80,13 @@ declare module "nodefony" {
   MeteorService,
   PrismService,
   SensorService,
+  TelemetryRelayService,
 ])
 class DemoModule extends Module {
   constructor(kernel: Kernel) {
     super("demo", kernel, import.meta.url, config);
     this.addCommand(PartnerCallCommand);
+    this.addCommand(SensorPushCommand);
   }
 
   /** Valide la config au boot — une clé inconnue arrête le démarrage, nommée. */

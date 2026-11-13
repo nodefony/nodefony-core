@@ -33,9 +33,11 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { globSync } from "node:fs";
 import path from "node:path";
+import { getFileInfo } from "prettier";
 import { REPO_ROOT as ROOT } from "../lib/repo-root.mjs";
 
 const PRETTIER = path.join(ROOT, "node_modules", ".bin", "prettier");
+const IGNORE_FILE = path.join(ROOT, ".prettierignore");
 const CHECK = process.argv.includes("--check");
 
 /**
@@ -77,7 +79,7 @@ let skipped = 0;
 // une dette grossir. Les gabarits à balises sont jugés sur leur RENDU — mais
 // seulement là où un gate les rend, et `format:scaffold` n'exerce que
 // `create app`. Ceux des autres générateurs ne sont vérifiés par personne.
-const ecartes = { extension: [], balises: [], refus: [] };
+const ecartes = { extension: [], balises: [], refus: [], ignores: [] };
 
 for (const rel of files) {
   const abs = path.join(ROOT, rel);
@@ -90,6 +92,18 @@ for (const rel of files) {
     continue;
   }
   const parser = entry;
+  // Ce que `.prettierignore` écarte pour le fichier RENDU l'est aussi pour son
+  // gabarit — la règle se lit là, jamais recopiée ici. Vécu : le code protobuf
+  // GÉNÉRÉ (`*_pb.ts`) que la démo livre ; reformaté, il ne serait plus ce que
+  // `buf generate` produit, et le gate `check-generated-protobuf` le refuserait.
+  const info = await getFileInfo(path.join(ROOT, rel.slice(0, -4)), {
+    ignorePath: IGNORE_FILE,
+  });
+  if (info.ignored) {
+    skipped++;
+    ecartes.ignores.push(rel);
+    continue;
+  }
   if (src.includes("<%")) {
     // 🔴 REFUS DÉLIBÉRÉ, payé une fois : formater un gabarit À BALISES ne rend
     // pas son RENDU conforme, et peut le DÉGRADER. Constaté au premier usage —
@@ -136,7 +150,8 @@ console.log(
 );
 console.log(
   `  ${ecartes.extension.length} d'une extension que CE script ne traite pas (markdown, html…)` +
-    ` · ${ecartes.refus.length} refusés par prettier`,
+    ` · ${ecartes.refus.length} refusés par prettier` +
+    ` · ${ecartes.ignores.length} écartés par .prettierignore (code généré)`,
 );
 // 🔴 Ce que RIEN ne vérifie, dit à voix haute. `format:scaffold` ne rend que
 // `create app` : un gabarit à balises appartenant à un AUTRE générateur n'est

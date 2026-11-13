@@ -1,5 +1,9 @@
 import type { ISecurityConfigInput } from "@nodefony/security";
 import { MCP_GATE_PATH, MCP_WRITE_SCOPE } from "../../frontend/src/mcp/mcpDemo";
+import {
+  TELEMETRY_PUSH_PATH,
+  TELEMETRY_PUSH_SCOPE,
+} from "../../frontend/src/grpc/grpcDemo";
 
 /**
  * Chemin de l'API partenaire de la démo. Une seule définition, lue par la zone
@@ -21,6 +25,14 @@ export const DEMO_AREA = "demo";
  * elle-même le jeton (`@nodefony/ai`).
  */
 export const MCP_AREA = "demo-mcp";
+
+/**
+ * Nom de la zone qui protège la méthode gRPC `Push` : une machine y présente
+ * un jeton émis pour CETTE méthode. Son chemin, imposé par le protocole
+ * (`/demo.telemetry.v1.TelemetryService/Push`), échappe à la zone `demo` —
+ * le caractère qui suit `/demo` est un point.
+ */
+export const TELEMETRY_AREA = "demo-telemetry";
 
 /**
  * Ce que la démo apporte à la configuration de `@nodefony/security`, sans
@@ -87,10 +99,31 @@ export const demoSecurity = {
       resource: MCP_GATE_PATH,
     },
     // #endregion
+    // #region telemetry-area
+    // La méthode gRPC qui ÉCRIT : un motif EXACT (le point échappé), pour ne
+    // couvrir qu'elle. `Latest`, en lecture seule, reste hors zone et publique.
+    // Un jeton seul ne suffit pas : la méthode exige aussi le scope
+    // `demo:telemetry:push` (`@RequireScope`), accordé ci-dessous.
+    // Essai : `npx nodefony demo:sensor:push`.
+    [TELEMETRY_AREA]: {
+      pattern: `^${TELEMETRY_PUSH_PATH.replaceAll(".", "\\.")}$`,
+      authenticators: ["jwt"],
+      stateless: true,
+      resource: TELEMETRY_PUSH_PATH,
+    },
+    // #endregion
   },
-  // #region mcp-grant
-  // Qui peut OBTENIR le scope de l'outil réservé : un administrateur. Un autre
-  // compte reçoit un jeton SANS lui — l'outil reste alors invisible.
-  grantableScopes: { [MCP_WRITE_SCOPE]: ["ROLE_ADMIN"] },
-  // #endregion
+  // Qui peut OBTENIR chaque scope, par rôle (`grantableScopes`).
+  grantableScopes: {
+    // #region mcp-grant
+    // Le scope de l'outil MCP réservé : un administrateur. Un autre compte
+    // reçoit un jeton SANS lui — l'outil reste alors invisible.
+    [MCP_WRITE_SCOPE]: ["ROLE_ADMIN"],
+    // #endregion
+    // #region telemetry-grant
+    // Pousser des mesures en gRPC : un administrateur. Un autre compte reçoit
+    // un jeton sans ce scope, et `Push` le refuse (7 PERMISSION_DENIED).
+    [TELEMETRY_PUSH_SCOPE]: ["ROLE_ADMIN"],
+    // #endregion
+  },
 } satisfies ISecurityConfigInput;

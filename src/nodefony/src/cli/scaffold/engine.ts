@@ -3547,6 +3547,23 @@ const DEMO_FRONTEND = "react" satisfies Exclude<TFrontendChoice, "none">;
 export const DEMO_FRONT_DEV_DEPS = ["three", "@types/three"] as const;
 
 /**
+ * Le runtime gRPC de la carte gRPC de la démo, versions lues dans
+ * `SCAFFOLD_VERSIONS`. Des dépendances de DÉVELOPPEMENT du module, comme
+ * Three.js : la démo est `policy: "dev"`, jamais chargée en production, et
+ * `npm ci --omit=dev` n'a pas à les installer. Déclarés AUSSI en pairs
+ * OPTIONNELS — le patron de `@nodefony/http` : le bundler du module externalise
+ * ses pairs (`externalDeps`), sans quoi il recopierait Connect dans le `dist`
+ * et la démo parlerait à une AUTRE copie que celle du framework ; « optionnel »,
+ * parce que npm installe un pair obligatoire d'office, production comprise. Le
+ * générateur `buf` n'y est pas : le code généré est livré avec le gabarit.
+ */
+export const DEMO_SERVER_DEV_DEPS = [
+  "@connectrpc/connect",
+  "@connectrpc/connect-node",
+  "@bufbuild/protobuf",
+] as const;
+
+/**
  * Rend le front React de la démo dans son module : coquille HTML, page
  * `/demo`, déclaration de l'entry Vite et point de montage — les MÊMES
  * gabarits que `create front`, jamais une copie —, puis la couche propre à la
@@ -3674,6 +3691,18 @@ function renderDemoLayer(
     { __KEBAB__: DEMO_MODULE },
   );
   files.push(...renderDemoFront(eta, packageRoot, dest, appName, writer));
+  const demoManifest = readPackageManifest(manifestFile, writer);
+  const demoDevDeps = ensureObjectField(demoManifest, "devDependencies");
+  const demoPeers = ensureObjectField(demoManifest, "peerDependencies");
+  const demoPeersMeta = ensureObjectField(demoManifest, "peerDependenciesMeta");
+  for (const name of DEMO_SERVER_DEV_DEPS) {
+    const range = SCAFFOLD_VERSIONS[name];
+    if (range === undefined) continue;
+    demoDevDeps[name] = range;
+    demoPeers[name] = range;
+    demoPeersMeta[name] = { optional: true };
+  }
+  writePackageManifest(demoManifest, writer);
   // COPIÉE du paquet, octet pour octet : un layer ne transporte que du texte
   // (même règle que les fichiers de marque, `writeBrandAssets`).
   writer.writeBinary(

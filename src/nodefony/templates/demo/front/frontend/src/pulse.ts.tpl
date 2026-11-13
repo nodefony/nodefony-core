@@ -1,5 +1,6 @@
 import type { IRealtimeContract } from "nodefony/client";
 import type { IMcpFeedEntry } from "./mcp/mcpDemo";
+import type { ITelemetryState, TelemetryEvent } from "./grpc/grpcDemo";
 
 /**
  * Le pouls de la démo : l'état VIVANT des cartes de l'accueil, poussé par le
@@ -35,8 +36,15 @@ export interface DemoContract extends IRealtimeContract {
     "demo:pulse": IDemoPulse;
     /** Le fil en direct de la porte MCP (`DEMO_MCP_CHANNEL`) : un appel par trame. */
     "demo:mcp": IMcpFeedEntry;
+    /** Les machines qui poussent en gRPC (`TELEMETRY_CHANNEL`) : une mesure, ou un flux qui s'ouvre ou se ferme. */
+    "demo:telemetry": TelemetryEvent;
   };
   serverMethods: {
     "demo:pulse:now": { in: Record<string, never>; out: IDemoPulse };
+    /** L'état des machines gRPC, pour une page qui arrive (`TELEMETRY_STATE`). */
+    "demo:telemetry:state": {
+      in: Record<string, never>;
+      out: ITelemetryState;
+    };
   };
 }

@@ -3075,6 +3075,45 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
     });
 
+    it("la carte gRPC : runtime en devDependencies ET pairs optionnels, aux versions EXACTES du dépôt", async () => {
+      const { DEMO_SERVER_DEV_DEPS } = await import("../cli/scaffold/engine");
+      const dest = path.join(tmp, "demo-grpc-deps");
+      scaffold(dest, {
+        name: "demo-grpc-deps",
+        preset: "complete",
+        demo: true,
+      });
+      const manifest = readJson(
+        path.join(dest, "modules", "demo", "package.json"),
+      );
+      // Le module de test du dépôt épingle la paire que la conformité éprouve :
+      // la démo porte la MÊME (connect-node exige connect à l'identique, le code
+      // généré exige protobuf à la version du greffon qui l'a produit).
+      const repo = readJson(
+        path.join(findPackageRoot(), "..", "modules", "test", "package.json"),
+      );
+      const pinned = repo["devDependencies"] ?? {};
+      for (const name of DEMO_SERVER_DEV_DEPS) {
+        assert.strictEqual(
+          manifest["devDependencies"]?.[name],
+          pinned[name],
+          name,
+        );
+        // Un pair, sinon le bundler du module recopie Connect dans son dist ;
+        // OPTIONNEL, sinon npm l'installe d'office, production comprise.
+        assert.strictEqual(
+          manifest["peerDependencies"]?.[name],
+          pinned[name],
+          name,
+        );
+        assert.deepEqual(manifest["peerDependenciesMeta"]?.[name], {
+          optional: true,
+        });
+      }
+      // Le générateur n'est jamais posé chez l'utilisateur : le code est livré.
+      assert.notProperty(manifest["devDependencies"] ?? {}, "@bufbuild/buf");
+    });
+
     it("le contenu de la démo vit DANS le module : routes sous /demo, zone par surcharge, rien dans l'application", () => {
       const dest = path.join(tmp, "demo-contenu");
       const result = scaffold(dest, {
@@ -3090,14 +3129,15 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const index = lireMod("index.ts");
       assert.include(
         index,
-        "@controllers([\n  PartnerController,\n  DemoPageController,\n  DemoController,\n  DemoRealtimeController,\n  ChatController,\n  FirstStepsController,\n  SseController,\n  VideoController,\n  BinaryController,\n  PartnerTokenController,\n  DemoMcpController,\n  McpTokenController,\n  MeteorController,\n  PrismController,\n  SensorController,\n])",
+        "@controllers([\n  PartnerController,\n  DemoPageController,\n  DemoController,\n  DemoRealtimeController,\n  ChatController,\n  FirstStepsController,\n  SseController,\n  VideoController,\n  BinaryController,\n  PartnerTokenController,\n  DemoMcpController,\n  McpTokenController,\n  MeteorController,\n  PrismController,\n  SensorController,\n  TelemetryController,\n])",
       );
       assert.include(index, "registerDemoEntry(this);");
       assert.include(
         index,
-        "@services([\n  AppInfoService,\n  AppBannerService,\n  DemoPulseService,\n  ChatService,\n  PartnerTokenService,\n  DemoMcpService,\n  MeteorService,\n  PrismService,\n  SensorService,\n])",
+        "@services([\n  AppInfoService,\n  AppBannerService,\n  DemoPulseService,\n  ChatService,\n  PartnerTokenService,\n  DemoMcpService,\n  MeteorService,\n  PrismService,\n  SensorService,\n  TelemetryRelayService,\n])",
       );
       assert.include(index, "this.addCommand(PartnerCallCommand);");
+      assert.include(index, "this.addCommand(SensorPushCommand);");
       assert.include(index, "override configSchema(): unknown");
       // La zone arrive par la surcharge `module-security`, avec une ressource
       // écrite en CHEMIN (security la rend absolue contre jwt.issuer).
@@ -11663,7 +11703,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
 
   describe("dépendances des GABARITS (anti-dépendance fantôme)", () => {
     it("aucun gabarit n'importe un paquet qu'aucun manifeste généré ne déclare", async () => {
-      const { DEMO_FRONT_DEV_DEPS, FRONTEND_PARAMS } =
+      const { DEMO_FRONT_DEV_DEPS, DEMO_SERVER_DEV_DEPS, FRONTEND_PARAMS } =
         await import("../cli/scaffold/engine");
       const templates = path.join(findPackageRoot(), "templates");
 
@@ -11694,6 +11734,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       }
       // Ce que le moteur ajoute au SEUL module de démo (Three.js de Prisme).
       for (const name of DEMO_FRONT_DEV_DEPS) declared.add(name);
+      // … et son runtime gRPC (la carte gRPC).
+      for (const name of DEMO_SERVER_DEV_DEPS) declared.add(name);
 
       // Ancré en début de ligne, comme la règle `undeclared-import` de
       // `nodefony doctor` : un gabarit MONTRE des imports dans son TSDoc (le

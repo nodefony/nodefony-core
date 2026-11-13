@@ -88,6 +88,18 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // restés à la demande — pèsent 5 et 21 Mo. Un installateur pour 60 Ko est une
   // entrée de plus dans un `package.json` que personne ne lit jusqu'au bout.
   "@vitest/coverage-v8": "^5.1.0",
+  // ── gRPC — la carte gRPC de la démo (`create app --demo`) ; le générateur
+  // `create controller --kind grpc` (#764) lira la même table ──
+  //
+  // Paires EXACTES, jamais des plages : `connect-node` exige `connect` à la
+  // même version, et le code GÉNÉRÉ commité exige `@bufbuild/protobuf` à la
+  // version du greffon qui l'a produit (`protoc-gen-es` 2.17.0). Une plage
+  // laisserait npm installer une paire qui ne se parle plus. Le générateur
+  // `buf` n'y figure pas : le code est généré dans le dépôt, jamais chez
+  // l'utilisateur.
+  "@connectrpc/connect": "2.3.0",
+  "@connectrpc/connect-node": "2.3.0",
+  "@bufbuild/protobuf": "2.17.0",
   // ── Frontend (consommées par FRONTEND_PARAMS) ──
   vite: "^8.3.8",
   react: "^19.3.1",

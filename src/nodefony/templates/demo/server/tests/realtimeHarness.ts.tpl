@@ -45,6 +45,16 @@ declare module "vitest" {
 
 let server: ISpareApp | null = null;
 
+/** Le port HTTPS de l'exemplaire démarré — HTTP/2, celui du gRPC natif. */
+let httpsPortOf: number | null = null;
+
+/**
+ * Les variables de l'exemplaire (sa base, le mot de passe `admin`, ses ports) :
+ * une commande `nodefony` lancée par un test doit lire la MÊME base pour
+ * signer un jeton que l'exemplaire acceptera.
+ */
+let serverEnv: Record<string, string> | null = null;
+
 /**
  * Vrai quand la suite vise une application servie ailleurs — la décision de
  * `tests/e2e.setup.ts`, transmise par `provide`, jamais recalculée ici.
@@ -120,25 +130,48 @@ export async function startDemoServer(): Promise<() => Promise<void>> {
       rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
     }
   };
+  const env = {
+    NF_DATABASE_URL: database,
+    NF_ADMIN_PASSWORD: E2E_ADMIN_PASSWORD,
+  };
   const spare = await startSpareApp({
     command: "development",
     port,
     httpsPort,
     timeoutMs: 120_000,
-    env: {
-      NF_DATABASE_URL: database,
-      NF_ADMIN_PASSWORD: E2E_ADMIN_PASSWORD,
-    },
+    env,
   }).catch((error: unknown) => {
     cleanup();
     throw error;
   });
   server = spare;
+  httpsPortOf = httpsPort;
+  // Les ports aussi : l'émetteur des jetons (`jwt.issuer`) en dépend, donc
+  // l'audience qu'un jeton doit porter pour que cet exemplaire l'accepte.
+  serverEnv = {
+    ...env,
+    NF_PORT: String(port),
+    NF_PORT_HTTPS: String(httpsPort),
+  };
   return async () => {
     server = null;
+    httpsPortOf = null;
+    serverEnv = null;
     await spare.stop();
     cleanup();
   };
+}
+
+/** L'origine `https://` de l'exemplaire démarré — HTTP/2, pour un client gRPC natif. */
+export function httpsOrigin(): string {
+  if (httpsPortOf === null) throw new Error("startDemoServer() d'abord");
+  return `https://localhost:${httpsPortOf}`;
+}
+
+/** Les variables de l'exemplaire démarré, à reprendre pour une commande `nodefony`. */
+export function serverEnvironment(): Record<string, string> {
+  if (serverEnv === null) throw new Error("startDemoServer() d'abord");
+  return serverEnv;
 }
 
 /** L'adresse `http://` d'un chemin, sur l'exemplaire démarré. */

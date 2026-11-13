@@ -14,10 +14,13 @@ import {
 import type DemoPulseService from "../service/DemoPulseService";
 import type DemoMcpService from "../service/DemoMcpService";
 import { DEMO_MCP_CHANNEL } from "../../frontend/src/mcp/mcpDemo";
+import { TELEMETRY_CHANNEL } from "../../frontend/src/grpc/grpcDemo";
+import type TelemetryRelayService from "../service/TelemetryRelayService";
 
 /**
- * La socket de la démo, `/demo/realtime` : le pouls de l'accueil (D4), et le
- * fil en direct de la porte MCP (`demo:mcp`).
+ * La socket de la démo, `/demo/realtime` : le pouls de l'accueil (D4), le
+ * fil en direct de la porte MCP (`demo:mcp`) et les machines qui poussent en
+ * gRPC (`demo:telemetry`).
  *
  * Guide pour un agent : une socket TYPÉE par un contrat partagé
  * (`frontend/src/pulse.ts`) — le serveur et la page lisent le même fichier, et
@@ -31,13 +34,18 @@ import { DEMO_MCP_CHANNEL } from "../../frontend/src/mcp/mcpDemo";
  * `@RealtimePolicy`, qui l'ouvre à la déclaration.
  */
 @controller("/demo")
-@RealtimePolicy({ "demo:pulse:now": { authenticated: false } })
+@RealtimePolicy({
+  "demo:pulse:now": { authenticated: false },
+  "demo:telemetry:state": { authenticated: false },
+})
 class DemoRealtimeController extends ContractRealtimeController<DemoContract> {
   // Instancié PAR CONNEXION : le pouls vit dans le service, le même pour tous.
   constructor(
     context: ContextType,
     @Inject("DemoPulseService") private readonly pulse: DemoPulseService,
     @Inject("DemoMcpService") private readonly demoMcp: DemoMcpService,
+    @Inject("TelemetryRelayService")
+    private readonly telemetry: TelemetryRelayService,
   ) {
     super("demo-realtime", context);
   }
@@ -53,7 +61,10 @@ class DemoRealtimeController extends ContractRealtimeController<DemoContract> {
 
   /** Les méthodes du contrat — toutes, par cette table seule. */
   protected realtimeActions() {
-    return { "demo:pulse:now": () => this.pulse.snapshot() };
+    return {
+      "demo:pulse:now": () => this.pulse.snapshot(),
+      "demo:telemetry:state": () => this.telemetry.snapshot(),
+    };
   }
 
   /**
@@ -80,6 +91,23 @@ class DemoRealtimeController extends ContractRealtimeController<DemoContract> {
   ): () => void {
     return this.demoMcp.attach((entry) => publish("demo:mcp", entry));
   }
+
+  // #region grpc-channel
+  /**
+   * Les machines qui poussent en gRPC : le relais reçoit chaque mesure par
+   * `Push` et la publie ICI, sur la même socket que le pouls. La page n'a
+   * aucune bibliothèque gRPC à charger, et la socket pousse les petits
+   * messages plus vite qu'un flux gRPC. Même cycle : rien ne part tant
+   * qu'aucune page ne regarde.
+   */
+  @RealtimeChannel(TELEMETRY_CHANNEL)
+  telemetryChannel(
+    _channel: string,
+    publish: ContractRealtimePublish<DemoContract>,
+  ): () => void {
+    return this.telemetry.attach((event) => publish("demo:telemetry", event));
+  }
+  // #endregion
 }
 
 export default DemoRealtimeController;

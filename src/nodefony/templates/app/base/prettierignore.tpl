@@ -35,6 +35,14 @@ bun.lock
 # `nodefony create app`. Ces fichiers ne se relisent pas : ils se régénèrent.
 **/migrations/**/meta/**
 
+# Code protobuf généré par `buf generate` (greffon `protoc-gen-es`).
+#
+# Il se commite et ne s'édite jamais : le contrat `.proto` est la source.
+# Reformaté, il ne correspondrait plus à ce que le générateur produit, et la
+# régénération suivante le réécrirait en entier. Le nom `*_pb.ts` est imposé
+# par le greffon, qui n'offre pas de suffixe à soi.
+**/*_pb.ts
+
 # Relevé de licences — ÉCRIT par `npx nodefony licenses --write`, jamais à la main.
 #
 # Même dispute que les métadonnées de migration ci-dessus : le générateur rend
