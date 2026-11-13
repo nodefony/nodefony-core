@@ -76,8 +76,14 @@ function policyList(): string[] {
     0,
     "section « Surfaces expérimentales » absente de la politique",
   );
-  const end = text.indexOf("\n## ", start + 1);
-  const section = text.slice(start, end === -1 ? undefined : end);
+  // Jusqu'au titre SUIVANT, de tout niveau : le sous-tableau « Symboles
+  // expérimentaux d'un paquet stable » (gardé par
+  // scripts/gates/check-symbol-stability.mjs) ne nomme pas des paquets.
+  const after = text.slice(start + 1).search(/\n#{1,6} /);
+  const section = text.slice(
+    start,
+    after === -1 ? undefined : start + 1 + after,
+  );
   const names: string[] = [];
   for (const line of section.split("\n")) {
     const match = /^\|\s*`([^`]+)`\s*\|/.exec(line);
@@ -130,7 +136,7 @@ describe("statut expérimental — une source, quatre copies fidèles", () => {
     );
   });
 
-  it("les pages d'un paquet expérimental le disent, celles d'un stable ne le disent pas", () => {
+  it("les pages d'un paquet expérimental le disent", () => {
     const faults: string[] = [];
     for (const pkg of packages) {
       for (const { page, status } of pageStatuses(pkg.dir)) {
@@ -142,11 +148,10 @@ describe("statut expérimental — une source, quatre copies fidèles", () => {
             `${page} : « ${status} » — attendu experimental (ou draft)`,
           );
         }
-        if (pkg.stability !== "experimental" && status === "experimental") {
-          faults.push(
-            `${page} : experimental, alors que ${pkg.name} est stable`,
-          );
-        }
+        // Une page d'un paquet STABLE peut porter `experimental` si elle
+        // documente un symbole expérimental de son paquet : cette règle lit
+        // le `.d.ts` bâti, elle vit donc dans le gate post-build
+        // scripts/gates/check-symbol-stability.mjs (ADR-0026 D11).
       }
     }
     assert.deepEqual(faults, []);

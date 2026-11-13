@@ -96,6 +96,44 @@ Deux règles encadrent le statut :
   une garantie déjà donnée. Une partie NOUVELLE peut en revanche naître expérimentale, dans
   n'importe quelle version mineure.
 
+### Symboles expérimentaux d'un paquet stable
+
+Un paquet stable peut porter une partie expérimentale : un symbole, ou un seul membre d'un type
+stable. La règle est celle d'un paquet expérimental — l'étiquette `@experimental` dans votre
+éditeur, un changement possible en version mineure, toujours annoncé au changelog —, mais elle ne
+vaut que pour ce qui est nommé ici. Tout le reste du paquet garde la garantie ordinaire.
+
+<!-- Liste tenue par l'étiquette @experimental des fichiers de types publiés : un contrôle
+     (scripts/gates/check-symbol-stability.mjs, après le build) refuse tout écart entre les deux. -->
+
+| Symbole                         | Paquet                | Pourquoi il est expérimental                                       |
+| ------------------------------- | --------------------- | ------------------------------------------------------------------ |
+| `GrpcController`                | `@nodefony/framework` | service gRPC, nouveau en 10.0 : sa forme peut encore changer       |
+| `GrpcService`                   | `@nodefony/framework` | service gRPC, nouveau en 10.0 : sa forme peut encore changer       |
+| `GrpcServiceClass`              | `@nodefony/framework` | service gRPC, nouveau en 10.0 : sa forme peut encore changer       |
+| `Route.grpc`                    | `@nodefony/framework` | service gRPC, nouveau en 10.0 : sa forme peut encore changer       |
+| `AuditLogEntry.rpc`             | `@nodefony/http`      | service gRPC, nouveau en 10.0 : sa forme peut encore changer       |
+| `DefaultErrorRenderer.describe` | `@nodefony/http`      | service gRPC, nouveau en 10.0 : sa forme peut encore changer       |
+| `GrpcCall`                      | `@nodefony/http`      | service gRPC, nouveau en 10.0 : sa forme peut encore changer       |
+| `GrpcEndpoint`                  | `@nodefony/http`      | service gRPC, nouveau en 10.0 : sa forme peut encore changer       |
+| `HttpContext.rpc`               | `@nodefony/http`      | service gRPC, nouveau en 10.0 : sa forme peut encore changer       |
+| `IAbortableHandlerContext`      | `@nodefony/http`      | service gRPC, nouveau en 10.0 : sa forme peut encore changer       |
+| `IErrorDescription`             | `@nodefony/http`      | service gRPC, nouveau en 10.0 : sa forme peut encore changer       |
+| `IGrpcEndpointOptions`          | `@nodefony/http`      | service gRPC, nouveau en 10.0 : sa forme peut encore changer       |
+| `IGrpcProtocols`                | `@nodefony/http`      | service gRPC, nouveau en 10.0 : sa forme peut encore changer       |
+| `IGrpcSettings`                 | `@nodefony/http`      | service gRPC, nouveau en 10.0 : sa forme peut encore changer       |
+| `IHttpContext.rpc`              | `@nodefony/http`      | service gRPC, nouveau en 10.0 : sa forme peut encore changer       |
+| `IRequestTrace.rpc`             | `@nodefony/http`      | service gRPC, nouveau en 10.0 : sa forme peut encore changer       |
+| `IResolvedRoute.grpc`           | `@nodefony/http`      | service gRPC, nouveau en 10.0 : sa forme peut encore changer       |
+| `IRpcCall`                      | `@nodefony/http`      | service gRPC, nouveau en 10.0 : sa forme peut encore changer       |
+| `IRpcCorsLists`                 | `@nodefony/http`      | service gRPC, nouveau en 10.0 : sa forme peut encore changer       |
+| `IRpcOutcome`                   | `@nodefony/http`      | service gRPC, nouveau en 10.0 : sa forme peut encore changer       |
+| `RpcSystem`                     | `@nodefony/http`      | service gRPC, nouveau en 10.0 : sa forme peut encore changer       |
+| `hasAbort`                      | `@nodefony/http`      | service gRPC, nouveau en 10.0 : sa forme peut encore changer       |
+| `markGrpcRoute`                 | `@nodefony/http`      | service gRPC, nouveau en 10.0 : sa forme peut encore changer       |
+| `rpcCorsLists`                  | `@nodefony/http`      | service gRPC, nouveau en 10.0 : sa forme peut encore changer       |
+| `buildReportDevtools`           | `nodefony`            | suit une option expérimentale de rolldown, l'outil de construction |
+
 ## Les versions vont par quinze
 
 Tous les paquets publiés partagent **la même version**, publiée d'un seul lot. Il n'existe pas de

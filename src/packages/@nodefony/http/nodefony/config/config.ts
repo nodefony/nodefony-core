@@ -1357,6 +1357,11 @@ export const httpConfigSchema = z
     rateLimit: rateLimitSchema.default(() => rateLimitSchema.parse({})),
     health: healthSchema.default(() => healthSchema.parse({})),
     proxy: proxySchema.default(() => proxySchema.parse({})),
+    /**
+     * Services gRPC servis par le pipeline (ADR-0026).
+     *
+     * @experimental Surface gRPC, ADR-0026 D11.
+     */
     grpc: grpcSchema.default(() => grpcSchema.parse({})),
     wsMaxConnectionsPerIp: z
       .number()

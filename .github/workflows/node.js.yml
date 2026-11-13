@@ -209,6 +209,13 @@ jobs:
       - name: Gate — import() reçoit une URL, jamais un chemin natif
         run: node scripts/gates/check-import-specifiers.mjs
 
+      # Un symbole `@experimental` d'un paquet STABLE peut changer en mineure :
+      # la politique de compatibilité doit le nommer, sinon l'utilisateur croit
+      # à une garantie que le framework ne donne pas (ADR-0026 D11). Lit le
+      # `.d.ts` BÂTI de chaque entrée d'`exports` — d'où sa place après le build.
+      - name: Gate — symboles expérimentaux d'un paquet stable ↔ politique
+        run: node scripts/gates/check-symbol-stability.mjs
+
       # `package.json` est du JSON : aucun commentaire n'y est possible, et le
       # seul indice de ce que fait un script y est son NOM. Sur un dépôt qui en
       # porte soixante, son auteur ne s'en souvient plus — et un agent qui
