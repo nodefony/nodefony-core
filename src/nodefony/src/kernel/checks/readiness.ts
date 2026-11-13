@@ -36,6 +36,11 @@
  */
 import path from "node:path";
 import { existsSync, readFileSync } from "node:fs";
+import { isModulePath, resolveModuleEntry } from "../resolveModuleEntry";
+import {
+  dependencyNames,
+  parsePackageManifest,
+} from "../../cli/scaffold/packageManifest";
 import { buildProjectEnvReport } from "../../cli/env";
 import {
   resolvePortPolicy,
@@ -319,12 +324,66 @@ export function declaredModules(source: string): string[] {
  * (`modules/<nom-court>` — ce que produit `nodefony create module`, avant même
  * que `npm install` n'ait posé le lien).
  */
-function isModuleResolvable(projectRoot: string, name: string): boolean {
+function isPackageResolvable(projectRoot: string, name: string): boolean {
   if (existsSync(path.join(projectRoot, "node_modules", name))) return true;
   const court = name.includes("/")
     ? name.slice(name.lastIndexOf("/") + 1)
     : name;
   return existsSync(path.join(projectRoot, "modules", court));
+}
+
+/**
+ * Conséquence commune à toute entrée du manifeste qui ne se charge pas.
+ *
+ * Ce message a dit le CONTRAIRE de ce que fait le framework, et c'est pire
+ * qu'un silence : il annonçait « le démarrage échouera à l'import », envoyant
+ * chercher un crash qui n'existe pas. Mesuré : le Kernel charge les modules en
+ * fail-soft, l'application démarre, et le bilan dit « BOOT dégradé — 1 en
+ * échec ». C'est exactement le cas que `check` est seul à savoir redire APRÈS
+ * coup — encore faut-il qu'il le décrive.
+ */
+const FAIL_SOFT_CONSEQUENCE =
+  "le boot ne s'arrêtera PAS : le module est écarté (fail-soft) et " +
+  "l'application démarre AMPUTÉE de ce qu'il apporte, sans erreur au point d'usage";
+
+/**
+ * Dit pourquoi une entrée du manifeste `modules` ne se chargera pas, ou `null`
+ * si elle se charge.
+ *
+ * Une entrée CHEMIN (`{ name: "./src/demo" }`) se juge par la règle du Kernel
+ * lui-même ({@link resolveModuleEntry}), jamais par une copie : le dossier se
+ * résout par le `main` de son `package.json`. La juger comme un nom de paquet
+ * la cherchait sous `node_modules/./src/demo` et l'accusait à tort, geste
+ * absurde compris (`npm install ./src/demo`).
+ *
+ * @param projectRoot - racine de l'application.
+ * @param name - l'entrée telle qu'écrite dans le manifeste.
+ * @param add - geste d'installation d'un paquet, dans la langue du gestionnaire.
+ * @returns le message du manquement, ou `null`.
+ */
+function unloadableModule(
+  projectRoot: string,
+  name: string,
+  add: (pkg: string) => string,
+): string | null {
+  if (isModulePath(name)) {
+    // Le Kernel rend le spécificateur NU quand la résolution échoue.
+    if (resolveModuleEntry(projectRoot, name) !== name) return null;
+    return existsSync(path.resolve(projectRoot, name))
+      ? `le manifeste charge "${name}" mais son point d'entrée est INTROUVABLE ` +
+          `(le champ main de son package.json ne mène à aucun fichier — module ` +
+          `pas encore bâti ?) — ${FAIL_SOFT_CONSEQUENCE} : bâtir le module, ou ` +
+          `corriger son main`
+      : `le manifeste charge "${name}" mais ce chemin n'EXISTE PAS (relatif à ` +
+          `la racine de l'application) — ${FAIL_SOFT_CONSEQUENCE} : corriger le ` +
+          `chemin, ou retirer la ligne du manifeste`;
+  }
+  if (isPackageResolvable(projectRoot, name)) return null;
+  return (
+    `le manifeste charge "${name}" mais le paquet est INTROUVABLE ` +
+    `(ni dans node_modules, ni dans modules/) — ${FAIL_SOFT_CONSEQUENCE} : ` +
+    `${add(name)}, ou retirer la ligne du manifeste`
+  );
 }
 
 /**
@@ -421,21 +480,11 @@ export async function checkReadiness(input: {
   );
   if (manifestCode !== "") {
     for (const name of declaredModules(manifestCode)) {
-      if (isModuleResolvable(projectRoot, name)) continue;
+      const problem = unloadableModule(projectRoot, name, commands.add);
+      if (problem === null) continue;
       findings.push({
         kind: "module-not-installed",
-        // Ce message a dit le CONTRAIRE de ce que fait le framework, et c'est
-        // pire qu'un silence : il annonçait « le démarrage échouera à l'import »,
-        // envoyant chercher un crash qui n'existe pas. Mesuré : le Kernel charge
-        // les modules en fail-soft, l'application démarre, et le bilan dit
-        // « BOOT dégradé — 1 en échec ». C'est exactement le cas que `check` est
-        // seul à savoir redire APRÈS coup — encore faut-il qu'il le décrive.
-        message:
-          `le manifeste charge "${name}" mais le paquet est INTROUVABLE ` +
-          `(ni dans node_modules, ni dans modules/) — le boot ne s'arrêtera PAS : ` +
-          `le module est écarté (fail-soft) et l'application démarre AMPUTÉE de ` +
-          `ce qu'il apporte, sans erreur au point d'usage : ` +
-          `${commands.add(name)}, ou retirer la ligne du manifeste`,
+        message: problem,
         file: "nodefony.config.ts",
       });
     }
@@ -443,22 +492,23 @@ export async function checkReadiness(input: {
 
   const pkgFile = path.join(projectRoot, "package.json");
   if (existsSync(pkgFile)) {
-    let pkg: {
-      dependencies?: Record<string, string>;
-      devDependencies?: Record<string, string>;
-    };
+    // Un manifeste illisible ne déclare rien : ce contrôle n'est pas celui qui
+    // le signale.
+    let declared: Set<string>;
     try {
-      pkg = JSON.parse(readFileSync(pkgFile, "utf8")) as typeof pkg;
+      declared = dependencyNames(
+        parsePackageManifest(readFileSync(pkgFile, "utf8"), pkgFile),
+        ["dependencies", "devDependencies"],
+      );
     } catch {
-      pkg = {};
+      declared = new Set<string>();
     }
     // Les `devDependencies` comptent AUSSI : une application qui ne démarre pas
     // en développement est très exactement le cas qu'on diagnostique. En
     // revanche l'absence totale de `node_modules` ne se rapporte pas paquet par
     // paquet — ce serait cent lignes pour dire « npm install ».
     if (existsSync(path.join(projectRoot, "node_modules"))) {
-      const declared = { ...pkg.dependencies, ...pkg.devDependencies };
-      for (const name of Object.keys(declared)) {
+      for (const name of declared) {
         // Une plage `file:`/`link:` non installée reste un défaut d'install,
         // mais le chemin de résolution est le même : présence du dossier.
         if (existsSync(path.join(projectRoot, "node_modules", name))) continue;

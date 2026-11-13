@@ -171,6 +171,50 @@ describe("check — état d'installation et environnement", () => {
     assert.deepEqual(kinds(r.findings), []);
   });
 
+  describe('entrée CHEMIN du manifeste (`{ name: "./src/demo" }`)', () => {
+    // Vécu : `doctor` sur l'application du dépôt accusait `./src/demo`
+    // d'être INTROUVABLE alors que le Kernel le chargeait — l'entrée était
+    // cherchée sous `node_modules/./src/demo`, et le geste proposé était
+    // `npm install ./src/demo`. Le jugement suit désormais la règle du Kernel.
+    const moduleLocal = (entree: string | null): void => {
+      const racine = path.join(dir, "src", "demo");
+      mkdirSync(racine, { recursive: true });
+      writeFileSync(
+        path.join(racine, "package.json"),
+        JSON.stringify({ name: "@app/demo", main: "dist/index.js" }),
+      );
+      if (entree !== null) {
+        mkdirSync(path.join(racine, "dist"), { recursive: true });
+        writeFileSync(path.join(racine, entree), "export {};\n");
+      }
+    };
+
+    it("🔴 un module BÂTI à ce chemin n'est PAS un manquement", async () => {
+      app({ name: "a" }, `modules: [{ name: "./src/demo", policy: "dev" }]`);
+      moduleLocal(path.join("dist", "index.js"));
+      const r = await checkReadiness({ projectRoot: dir });
+      assert.deepEqual(kinds(r.findings), []);
+    });
+
+    it("un module NON BÂTI est nommé, sans geste d'installation absurde", async () => {
+      app({ name: "a" }, `modules: [{ name: "./src/demo" }]`);
+      moduleLocal(null);
+      const r = await checkReadiness({ projectRoot: dir });
+      assert.deepEqual(kinds(r.findings), ["module-not-installed"]);
+      assert.include(r.findings[0]!.message, "point d'entrée");
+      assert.include(r.findings[0]!.message, "AMPUTÉE");
+      assert.notInclude(r.findings[0]!.message, "npm install");
+    });
+
+    it("un chemin qui n'existe pas le DIT", async () => {
+      app({ name: "a" }, `modules: [{ name: "./src/absent" }]`);
+      const r = await checkReadiness({ projectRoot: dir });
+      assert.deepEqual(kinds(r.findings), ["module-not-installed"]);
+      assert.include(r.findings[0]!.message, "n'EXISTE PAS");
+      assert.notInclude(r.findings[0]!.message, "npm install");
+    });
+  });
+
   it("NOMME la dépendance déclarée mais absente de node_modules", async () => {
     app({ name: "a", dependencies: { drizzle: "^1", presente: "^1" } });
     installe("presente");
