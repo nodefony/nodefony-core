@@ -589,7 +589,7 @@ const websocketSchema = z
           "non-navigateur) est toujours acceptée.",
       ),
     // ── Options natives `ws@8` (ServerOptions) — câblées dans new WebSocketServer ──
-    // Défauts alignés sur ceux de `ws@8.21` (sauf maxPayload, durci ci-dessus à 1 MiB).
+    // Défauts alignés sur ceux de `ws@8.23` (sauf maxPayload, durci ci-dessus à 1 MiB).
     perMessageDeflate: z
       .union([
         z.boolean(),
@@ -659,6 +659,18 @@ const websocketSchema = z
       .describe(
         "Répond automatiquement par un pong à chaque ping entrant (RFC 6455 §5.5.2-5.5.3). " +
           "Laisser true — requis par le protocole et par le heartbeat des pairs.",
+      ),
+    maxPendingAutoPongs: z
+      .number()
+      .int()
+      .nonnegative()
+      .default(60)
+      .describe(
+        "Pongs automatiques en attente d'écriture au-delà desquels la connexion est COUPÉE " +
+          "(ws@8.23+). Borne la mémoire face à un pair qui inonde de pings sans jamais lire : " +
+          "chaque ping met un pong en file, et la file d'un pair qui ne lit pas grossit " +
+          "jusqu'à l'épuisement du process. Un pair sain n'a jamais plus de quelques pongs en " +
+          "vol. 0 = sans borne (vulnérable). Défaut 60, celui de `ws`.",
       ),
     allowSynchronousEvents: z
       .boolean()

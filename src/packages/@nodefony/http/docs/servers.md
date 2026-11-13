@@ -552,22 +552,23 @@ Depuis `http2Schema` (`config.ts#http2Schema`), appliqué seulement si défini
 Depuis `websocketSchema` (`config.ts#websocketSchema`). Les deux sections partagent la forme et les défauts ; le WSS
 lit `websocketSecure` (`config.ts#httpConfigSchema`).
 
-| Option                        | Type                | Défaut  | Effet                                                                                    |
-| ----------------------------- | ------------------- | ------- | ---------------------------------------------------------------------------------------- |
-| `keepaliveInterval`           | ms                  | `20000` | Intervalle des pings — détecte les connexions zombies.                                   |
-| `keepaliveGracePeriod`        | ms                  | `10000` | Délai de grâce après un ping sans réponse avant fermeture.                               |
-| `closeTimeout`                | ms                  | `5000`  | Délai de fermeture propre avant destruction de la socket.                                |
-| `maxPayload`                  | octets              | `1 MiB` | Taille max d'un message entrant → au-delà, **close 1009** (`config.ts#websocketSchema`). |
-| `allowedOrigins`              | bool \| str \| list | `false` | Allowlist d'`Origin` au handshake — **anti-CSWSH** (`config.ts#websocketSchema`).        |
-| `perMessageDeflate`           | bool \| objet       | `false` | Compression RFC 7692. Désactivée par défaut : coût CPU/RAM + risque de _zip bomb_.       |
-| `skipUTF8Validation`          | bool                | `false` | Désactive la validation UTF-8 des frames texte (RFC 6455 §8.1). À laisser `false`.       |
-| `autoPong`                    | bool                | `true`  | Répond automatiquement aux pings entrants (RFC 6455 §5.5.2-3). À laisser `true`.         |
-| `allowSynchronousEvents`      | bool                | `true`  | Émet plusieurs frames d'un même chunk réseau de façon synchrone (débit vs équité).       |
-| `maxBackpressure`             | octets              | `4 MiB` | Seuil du tampon d'envoi par connexion (client lent à recevoir) — anti-OOM.               |
-| `backpressurePolicy`          | `drop` \| `close`   | `drop`  | Au-delà du seuil : sauter la frame, ou fermer le client (close 1013).                    |
-| `backpressureCloseAfterDrops` | frames              | `1000`  | Solde de frames refusées (+1 refus, −1 envoi) qui ferme en 1013 ; `0` = jamais.          |
-| `maxFramesPerSecond`          | trames / s          | `0`     | Trames REÇUES admises par connexion ; au-delà, écartées avant décodage. `0` = coupé.     |
-| `frameRateCloseAfterRejects`  | trames              | `1000`  | Solde de trames écartées (+1 écartée, −1 admise) qui ferme en 1008 ; `0` = jamais.       |
+| Option                        | Type                | Défaut  | Effet                                                                                           |
+| ----------------------------- | ------------------- | ------- | ----------------------------------------------------------------------------------------------- |
+| `keepaliveInterval`           | ms                  | `20000` | Intervalle des pings — détecte les connexions zombies.                                          |
+| `keepaliveGracePeriod`        | ms                  | `10000` | Délai de grâce après un ping sans réponse avant fermeture.                                      |
+| `closeTimeout`                | ms                  | `5000`  | Délai de fermeture propre avant destruction de la socket.                                       |
+| `maxPayload`                  | octets              | `1 MiB` | Taille max d'un message entrant → au-delà, **close 1009** (`config.ts#websocketSchema`).        |
+| `allowedOrigins`              | bool \| str \| list | `false` | Allowlist d'`Origin` au handshake — **anti-CSWSH** (`config.ts#websocketSchema`).               |
+| `perMessageDeflate`           | bool \| objet       | `false` | Compression RFC 7692. Désactivée par défaut : coût CPU/RAM + risque de _zip bomb_.              |
+| `skipUTF8Validation`          | bool                | `false` | Désactive la validation UTF-8 des frames texte (RFC 6455 §8.1). À laisser `false`.              |
+| `autoPong`                    | bool                | `true`  | Répond automatiquement aux pings entrants (RFC 6455 §5.5.2-3). À laisser `true`.                |
+| `maxPendingAutoPongs`         | entier ≥ 0          | `60`    | Pongs en attente au-delà desquels la connexion est coupée — anti-DoS mémoire. `0` = sans borne. |
+| `allowSynchronousEvents`      | bool                | `true`  | Émet plusieurs frames d'un même chunk réseau de façon synchrone (débit vs équité).              |
+| `maxBackpressure`             | octets              | `4 MiB` | Seuil du tampon d'envoi par connexion (client lent à recevoir) — anti-OOM.                      |
+| `backpressurePolicy`          | `drop` \| `close`   | `drop`  | Au-delà du seuil : sauter la frame, ou fermer le client (close 1013).                           |
+| `backpressureCloseAfterDrops` | frames              | `1000`  | Solde de frames refusées (+1 refus, −1 envoi) qui ferme en 1013 ; `0` = jamais.                 |
+| `maxFramesPerSecond`          | trames / s          | `0`     | Trames REÇUES admises par connexion ; au-delà, écartées avant décodage. `0` = coupé.            |
+| `frameRateCloseAfterRejects`  | trames              | `1000`  | Solde de trames écartées (+1 écartée, −1 admise) qui ferme en 1008 ; `0` = jamais.              |
 
 > [!WARNING]
 > `keepalive*`, `closeTimeout`, `maxBackpressure`, `backpressurePolicy`,
