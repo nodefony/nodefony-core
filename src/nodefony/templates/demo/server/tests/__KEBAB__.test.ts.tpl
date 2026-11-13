@@ -69,6 +69,7 @@ import {
   codeMark,
   collectLinks,
   continueList,
+  isBareLink,
   linkMark,
   parseInline,
   parseMarkdown,
@@ -1071,6 +1072,42 @@ describe("demo — le Markdown du salon, le même pour tous", () => {
         children: ["https://nodefony.net/doc"],
       },
       ".",
+    ]);
+  });
+
+  it("`www.` sans schéma devient un lien http (GFM), affiché tel qu'écrit", () => {
+    expect(parseInline("voir www.free.fr/aide, puis")).toEqual([
+      "voir ",
+      {
+        type: "link",
+        href: "http://www.free.fr/aide",
+        children: ["www.free.fr/aide"],
+      },
+      ", puis",
+    ]);
+    // Un `_` dans les deux derniers segments : pas un domaine.
+    expect(parseInline("www.mon_site.fr")).toEqual(["www.mon_site.fr"]);
+    // Collé à un mot, ou en majuscules : du texte.
+    expect(parseInline("awww.a.fr WWW.a.fr")).toEqual(["awww.a.fr WWW.a.fr"]);
+    // Rendu en pastille de domaine, comme une adresse https nue — pas un [texte](…).
+    const [www] = parseInline("www.a.dev");
+    const [labelled] = parseInline("[www.a.dev](https://www.a.dev)");
+    const [https] = parseInline("https://a.dev");
+    expect(
+      typeof www === "object" && www.type === "link" && isBareLink(www),
+    ).toBe(true);
+    expect(
+      typeof https === "object" && https.type === "link" && isBareLink(https),
+    ).toBe(true);
+    expect(
+      typeof labelled === "object" &&
+        labelled.type === "link" &&
+        isBareLink(labelled),
+    ).toBe(false);
+    // Le rang compte aussi ces liens, page ET serveur.
+    expect(messageLinks("www.a.dev et https://b.dev")).toEqual([
+      "http://www.a.dev",
+      "https://b.dev",
     ]);
   });
 

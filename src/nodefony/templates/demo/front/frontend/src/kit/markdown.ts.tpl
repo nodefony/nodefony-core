@@ -82,6 +82,56 @@ function matchIsoDate(
   return { iso: match[0], hasTime: match.at(4) !== undefined };
 }
 
+/**
+ * `www.` suivi d'un domaine : segments de lettres, chiffres, `_` et `-`
+ * séparés par des points (GFM, « extended www autolink »). Sensible à la
+ * casse, comme la norme.
+ */
+const WWW_DOMAIN = /www\.[\p{L}\p{N}_-]+(?:\.[\p{L}\p{N}_-]+)*/uy;
+
+/**
+ * La fin d'une adresse nue commencée en `from` : jusqu'au premier blanc,
+ * `<`, `>` ou `"`, sans la ponctuation finale, qui appartient à la phrase.
+ * Une seule règle pour `https://…` et `www.…`.
+ */
+function bareLinkEnd(src: string, from: number): number {
+  let end = from;
+  while (end < src.length && !/[\s<>"]/.test(src[end] ?? " ")) end += 1;
+  while (end > from && ".,;:!?)".includes(src[end - 1] ?? "")) end -= 1;
+  return end;
+}
+
+/**
+ * Un lien est-il une adresse NUE, écrite telle quelle (`https://…`, ou
+ * `www.…` dont la norme a complété le schéma) plutôt qu'un `[texte](…)` ? La
+ * page la rend en pastille de domaine.
+ */
+export function isBareLink(link: {
+  href: string;
+  children: readonly MdInline[];
+}): boolean {
+  const [only] = link.children;
+  return (
+    link.children.length === 1 &&
+    typeof only === "string" &&
+    (only === link.href || `http://${only}` === link.href)
+  );
+}
+
+/**
+ * Une adresse `www.…` lue à la position `at`, telle qu'écrite, ou `null` : le
+ * domaine ne porte pas de `_` dans ses deux derniers segments (GFM).
+ */
+function matchWwwLink(src: string, at: number): string | null {
+  WWW_DOMAIN.lastIndex = at;
+  const domain = WWW_DOMAIN.exec(src);
+  if (domain === null) return null;
+  const lastTwo = domain[0].split(".").slice(-2);
+  if (lastTwo.some((part) => part.includes("_"))) return null;
+  const shown = src.slice(at, bareLinkEnd(src, at));
+  return isSafeUrl(`http://${shown}`) ? shown : null;
+}
+
 /** Une lettre ou un chiffre : `_` collé à un mot (snake_case) reste du texte. */
 function isWordChar(char: string | undefined): boolean {
   return char !== undefined && /[\p{L}\p{N}]/u.test(char);
@@ -90,7 +140,7 @@ function isWordChar(char: string | undefined): boolean {
 // #region chat-markdown
 /**
  * Les morceaux d'une ligne : `**gras**`, `*italique*` ou `_italique_`,
- * `` `code` ``, `[texte](https://…)`, les adresses nues `https://…`, et les natures en ligne :
+ * `` `code` ``, `[texte](https://…)`, les adresses nues `https://…` et `www.…`, et les natures en ligne :
  * `@nom`, couleur `#rgb`/`#rrggbb`, date ISO 8601, formule `$tex$`.
  * Un marqueur sans fermeture reste du texte.
  *
@@ -169,15 +219,22 @@ export function parseInline(src: string, inLink = false): MdInline[] {
       !isWordChar(src[i - 1]) &&
       /^https?:\/\//i.test(src.slice(i, i + 8))
     ) {
-      let end = i;
-      while (end < src.length && !/[\s<>"]/.test(src[end] ?? " ")) end += 1;
-      // La ponctuation finale appartient à la phrase, pas à l'adresse.
-      while (end > i && ".,;:!?)".includes(src[end - 1] ?? "")) end -= 1;
+      const end = bareLinkEnd(src, i);
       const href = src.slice(i, end);
       if (isSafeUrl(href)) {
         flush();
         out.push({ type: "link", href, children: [href] });
         i = end;
+        continue;
+      }
+    }
+    // `www.exemple.fr` sans schéma : la norme GFM y pose `http://`.
+    if (char === "w" && !inLink && !isWordChar(src[i - 1])) {
+      const shown = matchWwwLink(src, i);
+      if (shown !== null) {
+        flush();
+        out.push({ type: "link", href: `http://${shown}`, children: [shown] });
+        i += shown.length;
         continue;
       }
     }

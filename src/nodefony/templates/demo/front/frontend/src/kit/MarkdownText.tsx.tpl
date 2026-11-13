@@ -1,5 +1,10 @@
 import { createElement, type ReactNode } from "react";
-import { parseMarkdown, type MdBlock, type MdInline } from "./markdown";
+import {
+  isBareLink,
+  parseMarkdown,
+  type MdBlock,
+  type MdInline,
+} from "./markdown";
 import { MathView } from "./MathView";
 import type { IBubbleAnchor } from "./HoverBubble";
 
@@ -197,7 +202,7 @@ function piece(node: MdInline, walk: IWalk): ReactNode {
         href: node.href,
         index: walk.next,
         host: hostOf(node.href),
-        bare: node.children.length === 1 && node.children[0] === node.href,
+        bare: isBareLink(node),
         label: inline(node.children, walk),
       };
       walk.next += 1;
