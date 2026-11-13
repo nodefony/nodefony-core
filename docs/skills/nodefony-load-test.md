@@ -146,7 +146,7 @@ script, donc toujours à jour après régénération.
 | `scripts/poc-bench.mjs` | POC bench — mesure la latence p50/p95/p99 du backend Nodefony pendant que Vite tourne / compile. | `--concurrency` `--duration` `--label` `--touch` `--touch-delay` `--url` | — |
 | `scripts/poc-hmr-perf.mjs` | POC HMR perf — mesure le délai end-to-end entre : 1. `fs.utimes()` (touch) sur un fichier source surveillé par Vite 2. réception du 1er message HMR ("update" ou "full-reload") côté client WS | `--file` `--gap-ms` `--iterations` `--vite-url` | — |
 | `scripts/prod-readiness-report.mjs` | prod-readiness-report.mjs — « Nodefony peut-il partir en production ? » | `--at` `--campaign` `--data` `--http-path` `--json` `--minutes` `--only` `--out` `--seconds` `--soak` `--window` | — |
-| `scripts/profile-analyze.mjs` | Relit un profil `--cpu-prof` pris par `profile-cpu.sh` : temps PROPRE agrégé par fonction et par origine (paquet, module node:, natif), FENÊTRÉ sur les 20 dernières secondes actives — le profil couvre aussi le démarrage — et rapporté en µs par requête servie. | `--cpu-prof` | — |
+| `scripts/profile-analyze.mjs` | Relit un profil `--cpu-prof` pris par `profile-cpu.sh` : temps PROPRE agrégé par fonction et par origine (paquet, module node:, natif), FENÊTRÉ sur les 20 dernières secondes actives — le profil couvre aussi le démarrage — et rapporté en µs par requête servie. | `--callers` `--cpu-prof` | — |
 | `scripts/profile-compare.mjs` | Compare DEUX profils pris par `profile-cpu.sh` dans le même décor, poste à poste, en µs par requête. C'est la question qu'un profil isolé ne pose jamais : « combien de trop, et OÙ, par rapport à ce qui est possible ? ». | — | — |
 | `scripts/profile-compare.sh` | « Comparé à QUOI ? » — profile Nodefony ET le camp témoin équitable dans le MÊME décor, puis rend l'écart poste par poste en µs par requête. | — | `NF_PROFILE_DIR` |
 | `scripts/profile-cpu.sh` | Profil CPU d'un serveur SOUS CHARGE — où part le temps d'une requête. Lance le serveur sous `node --cpu-prof`, le chauffe (wrk non compté), le charge 20 s, puis l'arrête GRACIEUSEMENT (SIGINT : V8 n'écrit le profil qu'à la sortie). Relire ensuite avec `profile-analyze.mjs`, qui fenêtre sur la charge. | `--cpu-prof` `--cpu-prof-dir` `--cpu-prof-interval` `--http2-prior-knowledge` `--max-time` | `BENCH_BODY` `BENCH_CONN` `BENCH_DUR` `BENCH_EXPECT_STATUS` `BENCH_LOGIN` `BENCH_METHOD` `BENCH_PATH` `BENCH_PROTO` `BENCH_STREAMS` `NF_PROFILE_APP_ROOT` `NF_PROFILE_DIR` `PORT` `XENV` |
@@ -220,7 +220,7 @@ Usage :  node .claude/skills/nodefony-load-test/scripts/perf-dossier-report.mjs 
 node scripts/poc-bench.mjs [--url http://127.0.0.1:5151/poc/api/data]
 node scripts/poc-hmr-perf.mjs --file /abs/path/to/App.tsx
 node .claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs
-Usage : node profile-analyze.mjs <dossier> [requêtes] [top=40]
+Usage : node profile-analyze.mjs <dossier> [requêtes] [top=40] [--callers <fonction>]
 Usage : node profile-compare.mjs <dossier A> <dossier B> [top=25]
 node promise-map.mjs [url] [--method POST] [--body '{"a":1}'] [KEY=VAL …]
 bash .claude/skills/nodefony-start-server/start.sh

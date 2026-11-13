@@ -3,8 +3,12 @@
 // 20 dernières secondes actives — le profil couvre aussi le démarrage — et
 // rapporté en µs par requête servie.
 //
-// Usage : node profile-analyze.mjs <dossier> [requêtes] [top=40]
+// Usage : node profile-analyze.mjs <dossier> [requêtes] [top=40] [--callers <fonction>]
 //   requêtes : défaut = `rps` écrit par profile-cpu.sh × 20 s de charge.
+//   --callers : au lieu du classement, QUI appelle cette fonction — ses chaînes
+//   d'appelants (8 trames), pondérées par son temps propre, sur la même fenêtre.
+//   Sert quand un poste coûteux est une primitive (`DOMException`, `emit`) :
+//   son temps propre ne dit pas qui le paie.
 // Importable : `analyzeProfile(dossier)` sert à `profile-compare.mjs`.
 
 import fs from "node:fs";
@@ -42,7 +46,7 @@ export function isFrameworkOrigin(origin) {
  *   keyOrigin: Map<clé, origine> }`,
  *   temps en microsecondes CUMULÉES sur la fenêtre (diviser par `req`).
  */
-export function analyzeProfile(dir, reqOverride) {
+function loadWindow(dir, reqOverride) {
   const file = fs.readdirSync(dir).find((x) => x.endsWith(".cpuprofile"));
   if (!file) throw new Error(`aucun .cpuprofile dans ${dir}`);
   const p = JSON.parse(fs.readFileSync(path.join(dir, file), "utf8"));
@@ -66,6 +70,16 @@ export function analyzeProfile(dir, reqOverride) {
     }
   }
   const from = lastBusy - LOAD_SECONDS * 1e6;
+  return { p, req, byId, ts, from };
+}
+
+/** Clé lisible d'une trame : `fonction chemin:ligne`. */
+function frameKey(cf) {
+  return `${cf.functionName || "(anon)"} ${(cf.url || "").replace(/.*\/(src|node_modules)\//, "$1/")}:${cf.lineNumber + 1}`;
+}
+
+export function analyzeProfile(dir, reqOverride) {
+  const { p, req, byId, ts, from } = loadWindow(dir, reqOverride);
   const self = new Map();
   const origin = new Map();
   const keyOrigin = new Map();
@@ -80,7 +94,7 @@ export function analyzeProfile(dir, reqOverride) {
       continue;
     }
     total += dt;
-    const key = `${cf.functionName || "(anon)"} ${(cf.url || "").replace(/.*\/(src|node_modules)\//, "$1/")}:${cf.lineNumber + 1}`;
+    const key = frameKey(cf);
     self.set(key, (self.get(key) ?? 0) + dt);
     const o = classify(cf);
     keyOrigin.set(key, o);
@@ -89,7 +103,52 @@ export function analyzeProfile(dir, reqOverride) {
   return { req, total, idle, self, origin, keyOrigin };
 }
 
+/**
+ * Chaînes d'appelants d'une fonction, pondérées par son temps propre sur la
+ * fenêtre de charge.
+ *
+ * @returns `{ req, chains: Array<[chaîne, µs cumulées]> }`, triées par coût.
+ */
+export function callersOf(dir, reqOverride, name, depth = 8) {
+  const { p, req, byId, ts, from } = loadWindow(dir, reqOverride);
+  const parent = new Map();
+  for (const n of p.nodes)
+    for (const c of n.children ?? []) parent.set(c, n.id);
+  const chains = new Map();
+  for (let i = 0; i < ts.length; i++) {
+    if (ts[i] < from) continue;
+    const node = byId.get(p.samples[i]);
+    if (node.callFrame.functionName !== name) continue;
+    const chain = [];
+    let up = parent.get(node.id);
+    while (up !== undefined && chain.length < depth) {
+      chain.push(frameKey(byId.get(up).callFrame));
+      up = parent.get(up);
+    }
+    const key = chain.join("\n      ← ");
+    chains.set(key, (chains.get(key) ?? 0) + (p.timeDeltas[i + 1] ?? 0));
+  }
+  return { req, chains: [...chains].sort((a, b) => b[1] - a[1]) };
+}
+
 function main() {
+  const at = process.argv.indexOf("--callers");
+  if (at !== -1) {
+    const [dir, reqStr] = process.argv
+      .slice(2)
+      .filter((_, i) => i + 2 !== at && i + 2 !== at + 1);
+    const { req, chains } = callersOf(dir, reqStr, process.argv[at + 1]);
+    if (chains.length === 0)
+      console.log(
+        `aucun échantillon de ${process.argv[at + 1]} dans la fenêtre`,
+      );
+    for (const [chain, us] of chains.slice(0, 6)) {
+      console.log(
+        `${(us / req).toFixed(2).padStart(7)} µs/req\n      ← ${chain}\n`,
+      );
+    }
+    return;
+  }
   const [dir, reqStr, top = "40"] = process.argv.slice(2);
   if (!dir) {
     console.error("usage : profile-analyze.mjs <dossier> [requêtes] [top]");

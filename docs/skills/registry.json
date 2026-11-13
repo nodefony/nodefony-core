@@ -8117,9 +8117,13 @@
             "path": "scripts/profile-analyze.mjs",
             "purpose": "Relit un profil `--cpu-prof` pris par `profile-cpu.sh` : temps PROPRE agrégé par fonction et par origine (paquet, module node:, natif), FENÊTRÉ sur les 20 dernières secondes actives — le profil couvre aussi le démarrage — et rapporté en µs par requête servie.",
             "usage": [
-              "Usage : node profile-analyze.mjs <dossier> [requêtes] [top=40]"
+              "Usage : node profile-analyze.mjs <dossier> [requêtes] [top=40] [--callers <fonction>]"
             ],
             "options": [
+              {
+                "flag": "--callers",
+                "help": ""
+              },
               {
                 "flag": "--cpu-prof",
                 "help": ""
