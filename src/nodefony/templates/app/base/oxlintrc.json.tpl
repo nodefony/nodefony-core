@@ -15,7 +15,18 @@
     "perf": "warn"
   },
   "env": { "node": true, "es2024": true },
-  "ignorePatterns": ["node_modules/**", "dist/**", "var/**", "*.log"],
+  "ignorePatterns": [
+    "node_modules/**",
+    "dist/**",
+    "var/**",
+    "*.log",
+    // Code protobuf généré par `buf generate` (greffon `protoc-gen-es`) : il se
+    // commite et ne s'édite jamais, le contrat `.proto` est la source. Il porte
+    // son propre `/* eslint-disable */`, que `reportUnusedDisableDirectives`
+    // signalerait comme inutile — et `--deny-warnings` en ferait une erreur.
+    // Même motif que `.prettierignore`.
+    "**/*_pb.ts"
+  ],
   "rules": {
     "no-unused-vars": [
       "error",

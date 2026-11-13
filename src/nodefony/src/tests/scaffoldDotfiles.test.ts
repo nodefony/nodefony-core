@@ -19,7 +19,7 @@
  *   silencieusement.
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, expect } from "vitest";
@@ -82,6 +82,55 @@ describe("application générée — les fichiers de RÈGLE", () => {
         contenu.includes(motif),
         `le .prettierignore généré doit écarter « ${motif} » — sinon ` +
           `« npm run format » reformate des artefacts de build.`,
+      ).toBe(true);
+    }
+  });
+
+  it("le .oxlintrc généré écarte tout fichier livré qui s'exempte de lint", () => {
+    // Un fichier GÉNÉRÉ (protobuf, …) arrive avec son `/* eslint-disable */`.
+    // Le gabarit allume `reportUnusedDisableDirectives` et `npm run lint` passe
+    // `--deny-warnings` : la directive devient une ERREUR dans l'application
+    // neuve. Vécu : `telemetry_pb.ts` de la démo, CI « Code généré » rouge.
+    // Le remède est de ne pas linter le code généré — même règle que
+    // `.prettierignore` —, jamais de retoucher la sortie du générateur.
+    const conf = readFileSync(path.join(BASE, "oxlintrc.json.tpl"), "utf8");
+    const bloc = conf.slice(conf.indexOf('"ignorePatterns"'));
+    const motifs = [
+      ...bloc
+        .slice(0, bloc.indexOf("]"))
+        .split("\n")
+        .filter((ligne) => !ligne.trim().startsWith("//"))
+        .join("\n")
+        .matchAll(/"([^"]+)"/gu),
+    ]
+      .map((m) => m[1])
+      .filter((m): m is string => m !== undefined && m !== "ignorePatterns");
+    expect(motifs.length).toBeGreaterThan(0);
+
+    const racine = path.join(CORE, "templates");
+    const exemptes = readdirSync(racine, { recursive: true, encoding: "utf8" })
+      .filter((rel) => rel.endsWith(".tpl"))
+      .filter((rel) =>
+        /^\s*\/\*\s*eslint-disable\s*\*\/\s*$/mu.test(
+          readFileSync(path.join(racine, rel), "utf8"),
+        ),
+      )
+      // Chemin qui VOYAGE (motif de glob) : normalisé en `/` avant de comparer.
+      .map((rel) =>
+        rel
+          .split(path.sep)
+          .join("/")
+          .replace(/\.tpl$/u, ""),
+      );
+    // Garde du décor : sans au moins un cas, ce test passerait à vide.
+    expect(exemptes.length).toBeGreaterThan(0);
+
+    for (const fichier of exemptes) {
+      expect(
+        motifs.some((motif) => path.posix.matchesGlob(fichier, motif)),
+        `« ${fichier} » porte un /* eslint-disable */ global mais aucun motif ` +
+          `de « ignorePatterns » (oxlintrc.json.tpl) ne l'écarte : ` +
+          `« npm run lint » de l'application générée sortira rouge.`,
       ).toBe(true);
     }
   });
