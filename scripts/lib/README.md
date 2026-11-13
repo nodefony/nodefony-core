@@ -82,7 +82,7 @@ Les workspaces du dépôt, résolus par npm — seule implémentation pour scrip
 
 - **Usage** : `import { publishableWorkspaces, listWorkspaces } from "../lib/workspaces.mjs"`
 - **Usage** : `import { releasableWorkspaces, readWorkspaceManifests } from "../lib/workspaces.mjs"`
-- **Appelé par** : `lib/symbols-publish.mjs` · `release/api-diff.mjs` · `release/dts-deps.mjs` · `release/pack-all.mjs` · `release/peers.mjs` · `release/readme-gate.mjs` · `release/release.mjs` · `release/types-rigor.mjs` · `site/lib/api-reference.mjs` · `test/coverage-all.ts`
+- **Appelé par** : `gates/check-symbol-stability.mjs` · `lib/symbols-publish.mjs` · `release/api-diff.mjs` · `release/dts-deps.mjs` · `release/pack-all.mjs` · `release/peers.mjs` · `release/readme-gate.mjs` · `release/release.mjs` · `release/types-rigor.mjs` · `site/lib/api-reference.mjs` · `test/coverage-all.ts`
 - **Testé par** : `lib/workspaces.test.mjs` · `release/release-core.test.mjs`
 
 ## [`workspaces.test.mjs`](workspaces.test.mjs)

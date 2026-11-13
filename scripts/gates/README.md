@@ -139,6 +139,22 @@ Suite du contrôle de syntaxe shell — écrite pour le faire ÉCHOUER.
 - **Lancé par** : `npm run test:tooling`
 - **Utilise** : `gates/check-shell-syntax.mjs`
 
+## [`check-symbol-stability.mjs`](check-symbol-stability.mjs)
+
+Gate — les symboles expérimentaux d'un paquet STABLE sont exactement ceux que la politique de compatibilité nomme (ADR-0026 D11, critère 43 de #695).
+
+- **Usage** : `node scripts/gates/check-symbol-stability.mjs [--list]`
+- **Appelé par** : `node.js.yml`
+- **Testé par** : `gates/check-symbol-stability.test.mjs`
+- **Utilise** : `lib/workspaces.mjs` · `release/api-diff-core.mjs`
+
+## [`check-symbol-stability.test.mjs`](check-symbol-stability.test.mjs)
+
+Le gate des symboles expérimentaux d'un paquet stable (ADR-0026 D11), éprouvé sur ses fonctions pures : lecture du tableau, comparaison dans les deux sens, page qui documente un symbole. /
+
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `gates/check-symbol-stability.mjs`
+
 ## [`check-type-assertions.mjs`](check-type-assertions.mjs)
 
 check-type-assertions — cliquet : le total des conversions de type qui RESSERRENT un type (`x as T` plus étroit que `x`, donc `as unknown as T`) ne monte jamais, paquet par paquet.

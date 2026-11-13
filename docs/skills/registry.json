@@ -179,6 +179,7 @@
       "env": [],
       "output": "",
       "calledBy": [
+        "scripts/gates/check-symbol-stability.mjs",
         "scripts/lib/symbols-publish.mjs",
         "scripts/release/api-diff.mjs",
         "scripts/release/dts-deps.mjs",
@@ -440,6 +441,36 @@
       "path": "scripts/gates/check-shell-syntax.test.mjs",
       "test": true,
       "purpose": "Suite du contrôle de syntaxe shell — écrite pour le faire ÉCHOUER.",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/gates/check-symbol-stability.mjs",
+      "test": false,
+      "purpose": "Gate — les symboles expérimentaux d'un paquet STABLE sont exactement ceux que la politique de compatibilité nomme (ADR-0026 D11, critère 43 de #695).",
+      "usage": [
+        "node scripts/gates/check-symbol-stability.mjs [--list]"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "node.js.yml"
+      ],
+      "testedBy": [
+        "scripts/gates/check-symbol-stability.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/gates/check-symbol-stability.test.mjs",
+      "test": true,
+      "purpose": "Le gate des symboles expérimentaux d'un paquet stable (ADR-0026 D11), éprouvé sur ses fonctions pures : lecture du tableau, comparaison dans les deux sens, page qui documente un symbole. /",
       "usage": [],
       "options": [],
       "env": [],
@@ -2099,6 +2130,7 @@
         "pages.yml",
         ".claude/skills/nodefony-release/scripts/compare-dts-exports.mjs",
         ".claude/skills/nodefony-release/scripts/compare-exports.mjs",
+        "scripts/gates/check-symbol-stability.mjs",
         "scripts/release/api-diff.mjs",
         "scripts/release/release.mjs",
         "scripts/release/types-rigor.mjs",
