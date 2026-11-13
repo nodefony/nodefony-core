@@ -30,15 +30,21 @@ coverageFiles: GrpcController.ts,GrpcService.ts,GrpcEndpoint.ts,GrpcCall.ts,refu
 
 ```mermaid
 flowchart LR
-  C["client<br/>3 protocoles"] --> P["Nodefony<br/>pare-feu · droits"]
-  P --> A["Connect<br/>décode"]
-  A --> M["ta méthode"]
+  G["gRPC<br/>service · grpcurl"] --> P
+  W["gRPC-Web<br/>navigateur"] --> P
+  C["Connect<br/>navigateur · curl"] --> P
+  P["Nodefony<br/>pare-feu · droits"] --> A["adaptateur Connect<br/>lit le content-type"]
+  A --> M["ta méthode<br/>une seule fois"]
 ```
+
+Trois protocoles arrivent sur la même route : **gRPC** (un autre service, `grpcurl`, HTTP/2
+obligatoire), **gRPC-Web** (un navigateur, qui n'a pas accès aux trailers) et **Connect** (un
+navigateur ou `curl`, en JSON ou en binaire). Tu écris ta méthode une fois, elle répond aux trois.
 
 Un appel gRPC traverse **le même pipeline** qu'une requête HTTP ordinaire : une méthode gRPC
 **est** une route. Seule la dernière étape change : au lieu d'appeler une action, le contrôleur
-remet la requête à l'adaptateur Connect, qui décode le message, appelle ta méthode et écrit la
-réponse au format du client.
+remet la requête à l'adaptateur Connect. Celui-ci reconnaît le protocole au `content-type`,
+décode le message, appelle ta méthode et écrit la réponse dans le format du client.
 
 ## 📖 Lexique
 
@@ -107,8 +113,10 @@ que sur toute route. Les décisions et leurs essais sont tracés dans
 Un service `Greet` dans une application générée par `nodefony create app`, appelé par `curl` et
 par `grpcurl`.
 
-**1. Les paquets.** Le runtime en dépendances (une installation de production doit l'avoir), le
-générateur en développement. Une application sans gRPC n'installe rien de tout cela.
+**1. Les paquets, seulement si tu sers un service gRPC.** Nodefony ne les installe pas et ne les
+exige pas : une application sans service gRPC n'en a besoin d'aucun, et rien ne se charge.
+Pour servir un service, ajoute le runtime en dépendances (l'installation de production doit
+l'avoir) et le générateur en développement :
 
 ```bash
 npm i @connectrpc/connect @connectrpc/connect-node @bufbuild/protobuf
