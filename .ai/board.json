@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-13T10:25:14.177Z",
+  "generatedAt": "2026-11-13T11:08:49.505Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -56,7 +56,7 @@
       "closed": 7,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 46,
+      "open": 47,
       "title": "10.1.0"
     }
   ],
@@ -10388,6 +10388,20 @@
       "milestone": "12.0.0",
       "priorite": "P2 — décision",
       "jours": 2,
+      "ordre": 175,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 772,
+      "title": "docs(docker): réécrire la fiche Docker Hub de l'image officielle",
+      "url": "https://github.com/nodefony/nodefony-core/issues/772",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1.0",
+      "priorite": "P2 — décision",
+      "jours": 1,
       "ordre": 175,
       "debut": null,
       "cible": null,
