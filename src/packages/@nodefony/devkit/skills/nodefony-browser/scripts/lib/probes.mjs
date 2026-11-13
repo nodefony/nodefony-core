@@ -145,7 +145,7 @@ export function parseProbes(raw) {
 }
 
 /** Verbes qui prennent une VALEUR après la cible. Les autres n'en ont aucune. */
-const VERBS_WITH_VALUE = new Set(["saisir", "choisir", "touche"]);
+const VERBS_WITH_VALUE = new Set(["saisir", "choisir", "touche", "deposer"]);
 
 /** Verbes reconnus d'une action, le premier étant celui par défaut. */
 export const ACTION_VERBS = [
@@ -155,6 +155,7 @@ export const ACTION_VERBS = [
   "survol",
   "saisir",
   "choisir",
+  "deposer",
   "touche",
   "voir",
   "defiler",
@@ -191,7 +192,8 @@ export function signsInMidway(actions) {
  * s'arrêtait en annonçant un élément introuvable, ce qui envoyait chercher un
  * défaut dans la page. D'où deux règles :
  *
- * 1. seuls les verbes qui PRENNENT une valeur (`saisir`, `choisir`, `touche`)
+ * 1. seuls les verbes qui PRENNENT une valeur (`saisir`, `choisir`, `touche`,
+ *    `deposer`)
  *    découpent sur `=` ;
  *    pour tous les autres, la cible est le reste entier ;
  * 2. même pour ceux-là, la coupure ignore les `=` situés à l'intérieur de

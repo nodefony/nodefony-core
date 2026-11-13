@@ -829,6 +829,16 @@ describe("parseActions — le « = » des sélecteurs CSS n'est pas un séparate
     ]);
   });
 
+  it("`deposer` porte un chemin de fichier, le `=` du sélecteur reste à la cible", () => {
+    expect(parseActions("deposer:input[type=file]=tmp/scratch/a.png")).toEqual([
+      {
+        verb: "deposer",
+        target: "input[type=file]",
+        value: "tmp/scratch/a.png",
+      },
+    ]);
+  });
+
   it("`touche` : seule, la touche part à l'élément focalisé ; avec `=`, à la cible", () => {
     // Vécu : `touche:End` cherchait un TEXTE « End » dans la page et
     // s'arrêtait sur « cible introuvable » — le verbe documenté n'avait jamais

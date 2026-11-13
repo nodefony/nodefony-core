@@ -220,7 +220,8 @@ panne » qui n'avait jamais été joué).
 
 Grammaire : `verbe:cible[=valeur]`, séquence séparée par `|`, verbe facultatif (`clic` par défaut),
 cible cherchée d'abord comme **texte visible** puis comme sélecteur CSS. Verbes : `clic` · `double`
-· `droit` (clic droit) · `survol` · `saisir:Nom=mon-app` · `touche:Enter` · `voir` · `defiler:600` · `molette:600`
+· `droit` (clic droit) · `survol` · `saisir:Nom=mon-app` · `deposer:input[type=file]=tmp/scratch/a.png`
+(joint un fichier, champ caché compris) · `touche:Enter` · `voir` · `defiler:600` · `molette:600`
 · `attendre` · `connecter:` (se connecte dans un AUTRE onglet, sans recharger la page — qui s'ouvre
 alors anonyme : c'est le passage « sans session » → « avec session » qu'on observe).
 

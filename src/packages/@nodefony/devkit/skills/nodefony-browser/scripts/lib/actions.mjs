@@ -124,7 +124,13 @@ export async function playActions(page, actions) {
         : candidates.first();
     }
     try {
-      await locator.waitFor({ timeout: 15000 });
+      // Un champ de fichier est presque toujours CACHÉ derrière un bouton
+      // (trombone, zone de dépôt) : l'attendre visible échouerait sur un champ
+      // pourtant présent. Il suffit qu'il soit attaché au document.
+      await locator.waitFor({
+        state: verb === "deposer" ? "attached" : "visible",
+        timeout: 15000,
+      });
       if (verb === "clic") await locator.click();
       else if (verb === "double") await locator.dblclick();
       else if (verb === "droit") await locator.click({ button: "right" });
@@ -138,6 +144,10 @@ export async function playActions(page, actions) {
         if (chosen.length === 0) throw new Error(`option « ${value} » absente`);
       } else if (verb === "touche") await locator.press(value || "Enter");
       else if (verb === "voir") await locator.scrollIntoViewIfNeeded();
+      // `deposer` : le fichier passe par le champ lui-même, comme un choix dans
+      // la boîte du système — la page reçoit le même `change` qu'à la main. Un
+      // chemin relatif part du répertoire courant.
+      else if (verb === "deposer") await locator.setInputFiles(value);
       // `attendre` : le `waitFor` ci-dessus EST l'action.
     } catch {
       return {
