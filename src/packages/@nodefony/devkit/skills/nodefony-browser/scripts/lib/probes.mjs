@@ -265,6 +265,28 @@ export function parseColorScheme(raw) {
 }
 
 /**
+ * Lit la préférence de mouvement à émuler (`NF_BROWSER_REDUCED_MOTION`) — les
+ * valeurs de la média query standard `prefers-reduced-motion`.
+ *
+ * Pourquoi : une page qui fait apparaître ses sections au défilement (fondu lié
+ * à `animation-timeline: view()`) laisse hors de la vue des textes à demi
+ * transparents. `axe` mesure alors un contraste que personne ne lira jamais à
+ * l'écran — des rouges qui envoient chercher un défaut de palette. `reduce`
+ * coupe ces animations quand la page respecte la préférence, et la mesure
+ * porte alors sur le texte au repos.
+ *
+ * @param {string|undefined} raw - la valeur brute de la variable.
+ * @returns {{ motion: "reduce"|"no-preference"|null, invalid: string|null }}
+ */
+export function parseReducedMotion(raw) {
+  const v = (raw ?? "").trim().toLowerCase();
+  if (!v) return { motion: null, invalid: null };
+  if (v === "reduce" || v === "no-preference")
+    return { motion: v, invalid: null };
+  return { motion: null, invalid: v };
+}
+
+/**
  * Rend une expression JS fournie par l'utilisateur ÉVALUABLE dans la page —
  * une forme fonction (`() => x`, `function`, `async`) y est APPELÉE.
  *

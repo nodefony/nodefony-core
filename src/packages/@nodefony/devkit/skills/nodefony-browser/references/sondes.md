@@ -79,6 +79,12 @@ le moteur qu'embarque Lighthouse pour son volet accessibilité.
   **41 faux positifs** masquant **7 défauts réels**, dont celui qu'on cherchait — à cause de trois
   cas particuliers (échelle des couleurs modernes, alpha non composé, emoji peints par une police en
   couleurs) qu'on ne devine pas avant de les avoir vus.
+- **Une page qui ANIME son contenu au défilement trompe le contraste.** Un fondu lié à
+  `animation-timeline: view()` laisse les sections hors de la vue à demi transparentes : `axe` y
+  mesure un texte que personne ne lit dans cet état, et rend des rouges identiques sur des éléments
+  sans rapport (même rapport partout, 2,67:1 par exemple). Rejouer avec
+  `NF_BROWSER_REDUCED_MOTION=reduce` : si la page respecte la préférence, la mesure porte sur le
+  texte au repos — et un rouge qui survit est un vrai défaut.
 - **Quand elle est indisponible** : `axe-core` vit dans les dépendances du projet. En conteneur, il
   faut le copier à part. La famille rend alors `verdict: "INDISPONIBLE"` et la commande à taper —
   jamais un `OK` qui n'a rien mesuré.

@@ -15,6 +15,7 @@
  * `@env` NF_BROWSER_WHOAMI chemin qui répond 2xx à une session authentifiée, et 401/403 ou un 2xx portant `{ user: null }` sinon — prouve une session reprise (défaut `/nodefony/security/api/auth/me` ; vide = aucune reprise)
  * `@env` NF_BROWSER_ENGINE navigateur imposé (chromium, chrome, msedge, firefox, webkit) ; sans lui, le premier qui répond
  * `@env` NF_BROWSER_COLOR_SCHEME schéma de couleurs émulé (light, dark, no-preference) ; sans lui, celui du navigateur
+ * `@env` NF_BROWSER_REDUCED_MOTION préférence de mouvement émulée (reduce, no-preference) — `reduce` mesure une page à fondus au repos
  * `@env` NF_BROWSER_STORAGE entrées de stockage local posées AVANT chargement (`clé=valeur`, séparées par des virgules)
  */
 import { existsSync, mkdirSync, rmSync } from "node:fs";
@@ -26,6 +27,7 @@ import {
   browserOrder,
   sessionVerdict,
   parseColorScheme,
+  parseReducedMotion,
   parseStorage,
   parseViewport,
 } from "./probes.mjs";
@@ -193,6 +195,16 @@ if (invalidScheme) {
   );
   process.exit(64); // EX_USAGE
 }
+const { motion: REDUCED_MOTION, invalid: invalidMotion } = parseReducedMotion(
+  process.env.NF_BROWSER_REDUCED_MOTION,
+);
+if (invalidMotion) {
+  console.error(
+    `NF_BROWSER_REDUCED_MOTION inconnu : « ${invalidMotion} ».\n` +
+      "Valeurs acceptées (celles de la média query standard) : reduce, no-preference.",
+  );
+  process.exit(64); // EX_USAGE
+}
 const { entries: STORAGE, rejected: storageRejected } = parseStorage(
   process.env.NF_BROWSER_STORAGE,
 );
@@ -261,6 +273,7 @@ export async function open({ anonymous = false } = {}) {
       ? { isMobile: true, hasTouch: true, deviceScaleFactor: 2 }
       : {}),
     ...(COLOR_SCHEME ? { colorScheme: COLOR_SCHEME } : {}),
+    ...(REDUCED_MOTION ? { reducedMotion: REDUCED_MOTION } : {}),
   };
   let reuse = !anonymous && Boolean(USER) && existsSync(STATE);
   let ctx = null;

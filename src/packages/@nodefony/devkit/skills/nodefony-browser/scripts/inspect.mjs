@@ -18,6 +18,7 @@
  * `@env` NF_BROWSER_FAMILIES familles de sondes à activer, séparées par des virgules (a11y, axe, rendu, reseau, perf, stockage, responsive — ou « toutes ») ; défaut : aucune, le socle seul
  * `@env` NF_BROWSER_ENGINE navigateur imposé (chromium, chrome, msedge, firefox, webkit) ; sans lui, le premier qui répond
  * `@env` NF_BROWSER_COLOR_SCHEME schéma de couleurs émulé (light, dark, no-preference) — un défaut peut n'exister que dans UN thème
+ * `@env` NF_BROWSER_REDUCED_MOTION préférence de mouvement émulée (reduce, no-preference) — `reduce` mesure au repos une page à fondus au défilement
  * `@env` NF_BROWSER_STORAGE entrées de stockage local posées AVANT chargement (`clé=valeur`) — pour une application qui MÉMORISE son thème
  * `@env` NF_BROWSER_LOGIN chemin du formulaire de connexion de TON application — requis dès qu'un identifiant est donné, aucun défaut n'est deviné
  * `@env` NF_BROWSER_USER identifiant de connexion ; si absent, aucune authentification n'est tentée

@@ -300,6 +300,9 @@ d'administration, dont le thème ne suit alors plus la média query. Toujours **
 Vécu ici : le libellé actif du menu de documentation était à **1,62:1** en clair et parfait en
 sombre — invisible tant qu'on ne demandait pas explicitement le thème clair.
 
+Une page à fondus au défilement (`/demo`) rend des contrastes FAUX hors de la vue (2,67:1 partout) :
+`NF_BROWSER_REDUCED_MOTION=reduce` la mesure au repos.
+
 **Avant de conclure sur un `ALERTE`, lis quand la famille se trompe** :
 `src/packages/@nodefony/devkit/skills/nodefony-browser/references/sondes.md`. En mode développement,
 `perf` et `reseau` mesurent Vite autant que l'application — un `ALERTE` y est attendu.

@@ -256,6 +256,10 @@ que soit ta trousse d'interface. Valeurs : `light`, `dark`, `no-preference` ; to
 Si ton application **mémorise** le choix de l'utilisateur, elle n'obéit plus à cette média query :
 donne alors la clé de stockage, qui t'appartient — le code ne la devine pas.
 
+`NF_BROWSER_REDUCED_MOTION=reduce` émule `prefers-reduced-motion` : une page dont les sections
+apparaissent en fondu au défilement se mesure alors au repos, au lieu de rendre des contrastes
+de textes à demi transparents (détail : `references/sondes.md`, famille `axe`).
+
 ```bash
 NF_BROWSER_STORAGE="ma-cle-de-theme=light" node .../scripts/inspect.mjs /
 ```

@@ -75,6 +75,12 @@ const parseColorScheme = fonctionDe<
     invalid: string | null;
   }
 >(probes, "parseColorScheme");
+const parseReducedMotion = fonctionDe<
+  (raw: string | undefined) => {
+    motion: string | null;
+    invalid: string | null;
+  }
+>(probes, "parseReducedMotion");
 const parseCut = fonctionDe<
   (raw: string | undefined) => {
     cut: { at: number; duration: number } | null;
@@ -954,5 +960,29 @@ describe("parseViewport — l'écran mesuré", () => {
 
   it("la famille `pli` est déclarée dans l'allowlist", () => {
     expect(Object.hasOwn(FAMILIES, "pli")).toBe(true);
+  });
+});
+
+/**
+ * Ce que ces tests prouvent : le mouvement réduit se DEMANDE, et une valeur
+ * inconnue est refusée — une page à fondus au défilement mesurée au milieu de
+ * son animation rend des contrastes que personne ne lit (vécu : 2,67:1 sur des
+ * sections hors de la vue, 0 défaut une fois au repos).
+ */
+describe("parseReducedMotion — mesurer une page au repos", () => {
+  it("rien de demandé ne force rien", () => {
+    expect(parseReducedMotion(undefined).motion).toBeNull();
+    expect(parseReducedMotion("").motion).toBeNull();
+  });
+
+  it("accepte les valeurs de la média query standard, casse comprise", () => {
+    expect(parseReducedMotion(" Reduce ").motion).toBe("reduce");
+    expect(parseReducedMotion("no-preference").motion).toBe("no-preference");
+  });
+
+  it("sens négatif : une valeur inconnue est RENDUE, jamais avalée", () => {
+    const r = parseReducedMotion("oui");
+    expect(r.motion).toBeNull();
+    expect(r.invalid).toBe("oui");
   });
 });
