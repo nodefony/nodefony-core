@@ -20,7 +20,7 @@ Types de deepmerge 4.3.1, inchangés — le shim ne modifie que le comportement 
 
 - **Usage** : `import deepmerge from "deepmerge"  // résolu vers ce shim par les overrides de la racine`
 - **Appelé par** : `release/dts-deps.mjs` · `release/fix-dts-extensions.mjs` · `.claude/skills/nodefony-release/scripts/compare-dts-exports.mjs`
-- **Testé par** : `release/dts-deps.test.mjs` · `release/fix-dts-extensions.test.mjs` · `release/release-core.test.mjs` · `release/tarball-types.test.mjs` · `site/api-reference.test.mjs` · `.claude/skills/nodefony-identifiers/scripts/check-identifier-language.test.mjs`
+- **Testé par** : `release/api-diff-core.test.mjs` · `release/dts-deps.test.mjs` · `release/fix-dts-extensions.test.mjs` · `release/release-core.test.mjs` · `release/tarball-types.test.mjs` · `site/api-reference.test.mjs` · `.claude/skills/nodefony-identifiers/scripts/check-identifier-language.test.mjs`
 
 ## [`index.js`](index.js)
 

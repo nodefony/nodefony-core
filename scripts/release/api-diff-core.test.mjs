@@ -3,9 +3,12 @@
  * écrites ici : chaque verdict qui ferait passer une rupture pour un ajout, ou
  * du bruit pour une rupture, a son cas.
  */
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import {
   apiDiffChangelogEntries,
+  EXPERIMENTAL_ENTRY_PREFIX,
+  packageStability,
+  readTypeSurface,
   classifyDeclaration,
   countTypeLooseness,
   diffNames,
@@ -14,6 +17,8 @@ import {
   resolveExportTarget,
   TYPES_CONDITIONS,
 } from "./api-diff-core.mjs";
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 describe("resolveExportTarget", () => {
@@ -120,6 +125,73 @@ describe("classifyDeclaration", () => {
   });
 });
 
+describe("readTypeSurface — l'étiquette @experimental lue sur le .d.ts (ADR-0026 D11)", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nf-api-diff-"));
+  afterAll(() => fs.rmSync(dir, { recursive: true, force: true }));
+  fs.writeFileSync(
+    path.join(dir, "other.d.ts"),
+    "/** Ailleurs. @experimental */\nexport declare class Moved {}\n",
+  );
+  fs.writeFileSync(
+    path.join(dir, "index.d.ts"),
+    [
+      "/** Neuve. @experimental */",
+      "export declare class Neuve { run(): void; }",
+      "export interface ITrace {",
+      "  id: string;",
+      "  /** Champ neuf. @experimental */",
+      "  rpc: string | null;",
+      "}",
+      "export declare class Stable {",
+      "  /** @experimental */",
+      "  static probe(): void;",
+      "  /** @experimental */",
+      "  private hidden;",
+      "  keep(): void;",
+      "}",
+      "/** Constante. @experimental */",
+      "export declare const flag: boolean;",
+      "/** Sans étiquette. */",
+      "export declare function plain(): void;",
+      'export { Moved } from "./other";',
+      "",
+    ].join("\n"),
+  );
+  const surface = readTypeSurface(path.join(dir, "index.d.ts"));
+
+  it("nomme le symbole, le membre (statique compris), la constante et l'alias suivi", () => {
+    expect(surface.experimental).toEqual([
+      "ITrace.rpc",
+      "Moved",
+      "Neuve",
+      "Stable.static probe",
+      "flag",
+    ]);
+  });
+
+  it("ignore un membre privé et ce qui n'est pas étiqueté ; garde le texte des déclarations", () => {
+    expect(surface.experimental).not.toContain("Stable.hidden");
+    expect(surface.experimental).not.toContain("plain");
+    expect(Object.keys(surface.declarations).sort()).toEqual([
+      "ITrace",
+      "Moved",
+      "Neuve",
+      "Stable",
+      "flag",
+      "plain",
+    ]);
+  });
+});
+
+describe("packageStability", () => {
+  it("lit nodefony.stability ; l'absence vaut stable", () => {
+    expect(packageStability({ nodefony: { stability: "experimental" } })).toBe(
+      "experimental",
+    );
+    expect(packageStability({ name: "x" })).toBe("stable");
+  });
+});
+
 describe("countTypeLooseness", () => {
   it("compte les any de l'arbre, pas ceux d'un commentaire", () => {
     const c = countTypeLooseness(
@@ -185,5 +257,92 @@ describe("apiDiffChangelogEntries", () => {
     expect(changed[0].texte).toContain(
       "`IScope` (`nodefony`) exige désormais `own`",
     );
+  });
+});
+
+describe("apiDiffChangelogEntries — la stabilité décide de la rupture (ADR-0026 D11, point 5)", () => {
+  const entry = (stability, experimental, declarations = []) => ({
+    stability,
+    subpaths: { removed: ["./old"], added: [] },
+    entries: {
+      ".": {
+        runtime: { removed: ["a"], added: [] },
+        types: { removed: ["a", "T"], added: [], experimental, declarations },
+      },
+    },
+  });
+
+  it("paquet expérimental : chaque retrait est annoncé, aucun n'est une rupture", () => {
+    const { removed, changed } = apiDiffChangelogEntries({
+      packages: {
+        "@nodefony/ai": entry(
+          "experimental",
+          [],
+          [
+            {
+              name: "IScope",
+              removed: [],
+              addedRequired: ["own"],
+              changed: [],
+            },
+          ],
+        ),
+      },
+    });
+    const all = [...removed, ...changed];
+    expect(all).toHaveLength(3);
+    expect(all.every((e) => !e.rupture)).toBe(true);
+    expect(
+      all.every((e) => e.texte.startsWith(EXPERIMENTAL_ENTRY_PREFIX)),
+    ).toBe(true);
+  });
+
+  it("paquet stable : un symbole étiqueté dans la référence n'est pas une rupture, son voisin l'est", () => {
+    const { removed } = apiDiffChangelogEntries({
+      packages: { "@nodefony/http": entry("stable", ["T"]) },
+    });
+    expect(removed.map((e) => [e.rupture, e.texte])).toEqual([
+      [
+        true,
+        "retirer le sous-chemin d'import `@nodefony/http/old` (mesuré par release:api-diff)",
+      ],
+      [true, "retirer `a` de `@nodefony/http` (mesuré par release:api-diff)"],
+      [
+        false,
+        "(expérimental) retirer `T` de `@nodefony/http` (mesuré par release:api-diff)",
+      ],
+    ]);
+  });
+
+  it("membre : étiqueté seul, ou par sa déclaration ; un membre stable reste une rupture", () => {
+    const { removed, changed } = apiDiffChangelogEntries({
+      packages: {
+        "@nodefony/http": entry(
+          "stable",
+          ["ITrace.rpc", "IRpc"],
+          [
+            {
+              name: "ITrace",
+              removed: ["rpc", "id"],
+              addedRequired: ["x"],
+              changed: [],
+            },
+            {
+              name: "IRpc",
+              removed: ["code"],
+              addedRequired: ["y"],
+              changed: [],
+            },
+          ],
+        ),
+      },
+    });
+    const members = removed.filter((e) => e.texte.includes("."));
+    expect(members.map((e) => [e.rupture, e.texte.split(" de ")[0]])).toEqual([
+      [true, "retirer `ITrace.id`"],
+      [false, "(expérimental) retirer `ITrace.rpc`"],
+      [false, "(expérimental) retirer `IRpc.code`"],
+    ]);
+    expect(changed.map((e) => e.rupture)).toEqual([true, false]);
   });
 });

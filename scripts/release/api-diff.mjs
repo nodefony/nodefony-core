@@ -41,7 +41,8 @@ import {
   diffNames,
   exportEntries,
   listRuntimeExports,
-  readTypeDeclarations,
+  packageStability,
+  readTypeSurface,
 } from "./api-diff-core.mjs";
 import { publishableWorkspaces as listPublishable } from "../lib/workspaces.mjs";
 
@@ -168,15 +169,16 @@ export function measureApiDiff({
       report.packages[workspace.name] = { absentFromReference: true };
       continue;
     }
-    const before = exportEntries(
-      readJson(path.join(publishedDir, "package.json")),
-      publishedDir,
-    );
+    // La stabilité et les étiquettes se lisent dans la RÉFÉRENCE : c'est la
+    // promesse faite à qui l'a installée (ADR-0026 D11, point 5).
+    const referencePkg = readJson(path.join(publishedDir, "package.json"));
+    const before = exportEntries(referencePkg, publishedDir);
     const after = exportEntries(
       readJson(path.join(localDir, "package.json")),
       localDir,
     );
     const entry = {
+      stability: packageStability(referencePkg),
       subpaths: diffNames(Object.keys(before), Object.keys(after)),
       entries: {},
     };
@@ -198,8 +200,9 @@ export function measureApiDiff({
         }
       }
       if (dtsA && dtsB) {
-        const a = readTypeDeclarations(dtsA);
-        const b = readTypeDeclarations(dtsB);
+        const surfaceA = readTypeSurface(dtsA);
+        const a = surfaceA.declarations;
+        const b = readTypeSurface(dtsB).declarations;
         const names = diffNames(Object.keys(a), Object.keys(b));
         const common = Object.keys(a).filter((k) => k in b);
         const declarations = [];
@@ -226,6 +229,7 @@ export function measureApiDiff({
         }
         result.types = {
           count: [Object.keys(a).length, Object.keys(b).length],
+          experimental: surfaceA.experimental,
           ...names,
           declarations,
         };

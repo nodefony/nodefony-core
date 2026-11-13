@@ -162,30 +162,87 @@ export function memberName(member, sf) {
 }
 
 /**
- * Lit les exports de types d'un fichier de déclarations, avec le texte de chaque déclaration.
+ * Étiquette TSDoc d'une surface expérimentale (`StandardTags.experimental`) :
+ * son API peut changer dans une version mineure (ADR-0026 D11).
+ */
+export const EXPERIMENTAL_TAG = "experimental";
+
+const hasExperimentalTag = (node) =>
+  ts.getJSDocTags(node).some((tag) => tag.tagName.text === EXPERIMENTAL_TAG);
+
+const memberKey = (member, sf) =>
+  `${
+    member.modifiers?.some((m) => m.kind === ts.SyntaxKind.StaticKeyword)
+      ? "static "
+      : ""
+  }${memberName(member, sf)}`;
+
+/**
+ * Lit la surface de types d'un fichier de déclarations : le texte de chaque
+ * déclaration exportée, et ce qui porte l'étiquette `@experimental`.
  *
  * Les alias (`export { X } from`) sont suivis jusqu'à leur déclaration réelle.
+ * L'étiquette se lit sur le symbole (`X`) ou sur un membre public d'une classe
+ * ou d'une interface (`X.membre`, `X.static membre` — la clé de
+ * {@link classifyDeclaration}) : un champ neuf d'une interface stable nomme son
+ * membre, jamais l'interface entière.
  *
- * @param file - chemin absolu du `.d.ts`.
- * @returns `{ [nom]: texte }` — plusieurs déclarations (fusion) jointes par ` || `.
+ * @param file - chemin absolu du `.d.ts` (l'artefact publié, pas la source).
+ * @returns `{ declarations, experimental }` — `{ [nom]: texte }` (plusieurs
+ *   déclarations fusionnées jointes par ` || `) et la liste triée des noms étiquetés.
  */
-export function readTypeDeclarations(file) {
+export function readTypeSurface(file) {
   const program = ts.createProgram([file], TYPES_PROGRAM_OPTIONS);
   const checker = program.getTypeChecker();
   const moduleSymbol = checker.getSymbolAtLocation(program.getSourceFile(file));
   const declarations = {};
-  if (!moduleSymbol) return declarations;
+  const experimental = new Set();
+  if (!moduleSymbol) return { declarations, experimental: [] };
   for (const exported of checker.getExportsOfModule(moduleSymbol)) {
     const symbol =
       exported.flags & ts.SymbolFlags.Alias
         ? checker.getAliasedSymbol(exported)
         : exported;
-    declarations[exported.name] = (symbol.declarations ?? [])
+    const nodes = symbol.declarations ?? [];
+    declarations[exported.name] = nodes
       .map((d) => stripComments(d.getText()).replace(/^export (declare )?/, ""))
       .sort()
       .join(" || ");
+    if (nodes.some(hasExperimentalTag)) experimental.add(exported.name);
+    for (const node of nodes) {
+      if (!ts.isClassDeclaration(node) && !ts.isInterfaceDeclaration(node))
+        continue;
+      const sf = node.getSourceFile();
+      for (const member of node.members) {
+        if (isPrivateMember(member, sf) || !hasExperimentalTag(member))
+          continue;
+        experimental.add(`${exported.name}.${memberKey(member, sf)}`);
+      }
+    }
   }
-  return declarations;
+  return { declarations, experimental: [...experimental].sort() };
+}
+
+/**
+ * Lit les exports de types d'un fichier de déclarations, avec le texte de chaque déclaration.
+ *
+ * @param file - chemin absolu du `.d.ts`.
+ * @returns `{ [nom]: texte }` — la part `declarations` de {@link readTypeSurface}.
+ */
+export function readTypeDeclarations(file) {
+  return readTypeSurface(file).declarations;
+}
+
+/**
+ * Stabilité déclarée d'un paquet : la clé `nodefony.stability` de son manifeste.
+ *
+ * @param pkg - le manifeste.
+ * @returns `"experimental"`, ou `"stable"` (l'absence vaut stable).
+ */
+export function packageStability(pkg) {
+  return pkg?.nodefony?.stability === "experimental"
+    ? "experimental"
+    : "stable";
 }
 
 const stripComments = (text) =>
@@ -377,6 +434,9 @@ export function countTypeLooseness(sourceText) {
 
 const quote = (names) => names.map((n) => `\`${n}\``).join(", ");
 
+/** Préfixe d'une entrée de changelog qui touche une surface expérimentale. */
+export const EXPERIMENTAL_ENTRY_PREFIX = "(expérimental) ";
+
 /**
  * Traduit un rapport de mesure en entrées de CHANGELOG, à la forme de celles
  * que `analyserCommits` rend (`{ portee, texte, sha, rupture }`).
@@ -386,8 +446,15 @@ const quote = (names) => names.map((n) => `\`${n}\``).join(", ");
  * interface (→ `Changed`). Les membres MODIFIÉS restent au rapport : leur
  * verdict demande un humain, et une entrée par signature noierait le reste.
  *
- * @param report - le rapport de `measureApiDiff`.
- * @returns `{ removed, changed }`, deux listes d'entrées marquées rupture.
+ * La stabilité décide de la rupture (ADR-0026 D11, point 5) : un changement
+ * dans un paquet `experimental`, ou sur un symbole ou un membre étiqueté
+ * `@experimental` DANS LA VERSION DE RÉFÉRENCE (celle qui le portait), est un
+ * changement expérimental — annoncé, préfixé {@link EXPERIMENTAL_ENTRY_PREFIX},
+ * jamais `rupture`. Une liste mêlée se scinde en deux entrées.
+ *
+ * @param report - le rapport de `measureApiDiff` (`stability` par paquet,
+ *   `types.experimental` par entrée, lus dans la référence).
+ * @returns `{ removed, changed }`, chaque entrée marquée `rupture` ou non.
  */
 export function apiDiffChangelogEntries(report) {
   const removed = [];
@@ -396,31 +463,60 @@ export function apiDiffChangelogEntries(report) {
   for (const [name, entry] of Object.entries(report.packages)) {
     if (entry.absentFromReference) continue;
     const portee = name.replace(/^@nodefony\//, "");
+    const wholePackage = entry.stability === "experimental";
     const spec = (subpath) =>
       subpath === "." ? name : `${name}${subpath.slice(1)}`;
-    const push = (list, texte) =>
-      list.push({ portee, texte: texte + suffix, sha: "", rupture: true });
+    const push = (list, texte, experimental) =>
+      list.push(
+        experimental
+          ? {
+              portee,
+              texte: EXPERIMENTAL_ENTRY_PREFIX + texte + suffix,
+              sha: "",
+              rupture: false,
+            }
+          : { portee, texte: texte + suffix, sha: "", rupture: true },
+      );
+    // Une liste de noms → une entrée stable et une expérimentale, selon `isTagged`.
+    const pushSplit = (list, names, isTagged, render) => {
+      const tagged = wholePackage ? names : names.filter(isTagged);
+      const stable = wholePackage ? [] : names.filter((n) => !isTagged(n));
+      if (stable.length) push(list, render(stable), false);
+      if (tagged.length) push(list, render(tagged), true);
+    };
     for (const subpath of entry.subpaths.removed)
-      push(removed, `retirer le sous-chemin d'import \`${spec(subpath)}\``);
+      push(
+        removed,
+        `retirer le sous-chemin d'import \`${spec(subpath)}\``,
+        wholePackage,
+      );
     for (const [subpath, r] of Object.entries(entry.entries)) {
+      const tagged = new Set(r.types?.experimental ?? []);
       const names = [
         ...new Set([
           ...(r.runtime?.removed ?? []),
           ...(r.types?.removed ?? []),
         ]),
       ].sort();
-      if (names.length)
-        push(removed, `retirer ${quote(names)} de \`${spec(subpath)}\``);
+      pushSplit(
+        removed,
+        names,
+        (n) => tagged.has(n),
+        (list) => `retirer ${quote(list)} de \`${spec(subpath)}\``,
+      );
       for (const d of r.types?.declarations ?? []) {
-        if (d.removed.length)
-          push(
-            removed,
-            `retirer ${quote(d.removed.map((m) => `${d.name}.${m}`))} de \`${spec(subpath)}\``,
-          );
+        const declarationTagged = tagged.has(d.name);
+        pushSplit(
+          removed,
+          d.removed.map((m) => `${d.name}.${m}`),
+          (m) => declarationTagged || tagged.has(m),
+          (list) => `retirer ${quote(list)} de \`${spec(subpath)}\``,
+        );
         if (d.addedRequired.length)
           push(
             changed,
             `\`${d.name}\` (\`${spec(subpath)}\`) exige désormais ${quote(d.addedRequired)} : un implémenteur doit les fournir`,
+            wholePackage || declarationTagged,
           );
       }
     }

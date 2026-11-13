@@ -450,8 +450,12 @@ au `dist` local (sous-chemins, exports d'exécution, exports de types, membre pa
 chaque déclaration : ajout, ou à relire (membre retiré/modifié, membre requis ajouté à une
 interface). `npm run release:types-rigor -- [--from <version>]` mesure la densité de `any`
 des `.d.ts` publiés contre NestJS et Fastify. À lancer AVANT d'écrire le changelog d'une release :
-chaque retrait qu'il nomme va sous `Removed`. Ce qu'ils ne voient pas : le COMPORTEMENT (code
-d'erreur, défaut inversé) — il se lit dans les commits `!`.
+chaque retrait qu'il nomme va sous `Removed`. **La stabilité décide de la rupture** : un retrait
+dans un paquet `nodefony.stability: experimental`, ou sur un symbole ou un membre étiqueté
+`@experimental` DANS LA VERSION DE RÉFÉRENCE, sort préfixé `(expérimental)`, annoncé mais jamais
+`**Breaking:**` ni compté en rupture (ADR-0026 D11 ; étiquette lue sur le `.d.ts` publié par
+`api-diff-core.mjs#readTypeSurface`, champ `types.experimental` du rapport). Ce qu'ils ne voient
+pas : le COMPORTEMENT (code d'erreur, défaut inversé) — il se lit dans les commits `!`.
 
 > Deux builds du même paquet chargés dans un seul process explosent sur les registres globaux
 > (« entity déjà enregistrée ») : d'où l'isolation.

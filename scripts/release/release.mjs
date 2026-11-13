@@ -1284,6 +1284,11 @@ if (!(PUBLIER && !ECRIRE)) {
     if (!reference) throw new Error(`aucune version publiée de ${coeur.nom}`);
     const mesure = measureApiDiff({ from: reference, root: ROOT });
     const entrees = apiDiffChangelogEntries(mesure.report);
+    // Un changement sur une surface expérimentale est ANNONCÉ, jamais une
+    // rupture (ADR-0026 D11, point 5) : il entre au changelog, pas au compte.
+    const toutes = [...entrees.removed, ...entrees.changed];
+    const nRuptures = toutes.filter((e) => e.rupture).length;
+    const nExperimentaux = toutes.length - nRuptures;
     for (const [rubrique, liste] of [
       ["Removed", entrees.removed],
       ["Changed", entrees.changed],
@@ -1291,19 +1296,19 @@ if (!(PUBLIER && !ECRIRE)) {
       if (!liste.length) continue;
       const cible = analyse.groupes.get(rubrique) ?? [];
       analyse.groupes.set(rubrique, cible.concat(liste));
-      ruptures = ruptures.concat(liste);
+      ruptures = ruptures.concat(liste.filter((e) => e.rupture));
     }
     const t = mesure.totals;
     noteSurface =
       `<!-- Surface publique mesurée depuis ${reference} (npm) : ` +
-      `${entrees.removed.length + entrees.changed.length} rupture(s) écrite(s) ci-dessus, ` +
+      `${nRuptures} rupture(s) et ${nExperimentaux} changement(s) expérimental(aux) écrits ci-dessus, ` +
       `${t.review} déclaration(s) de types à relire sur ${t.declarations}` +
       (t.unmeasured
         ? `, ${t.unmeasured} entrée(s) NON MESURÉE(S) à l'exécution`
         : "") +
       `. Détail : npm run release:api-diff -- --from ${reference} --details -->`;
     dire(
-      `✓ surface publique — ${entrees.removed.length + entrees.changed.length} rupture(s) mesurée(s) depuis ${reference}, ${t.review} déclaration(s) à relire`,
+      `✓ surface publique — ${nRuptures} rupture(s) et ${nExperimentaux} changement(s) expérimental(aux) mesurés depuis ${reference}, ${t.review} déclaration(s) à relire`,
     );
   } catch (erreur) {
     const raison = String(erreur?.message ?? erreur).split("\n")[0];

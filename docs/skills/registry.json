@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-11-12",
+  "generatedAt": "2026-11-13",
   "count": 41,
   "repoScripts": [
     {
@@ -771,6 +771,7 @@
         ".claude/skills/nodefony-release/scripts/compare-dts-exports.mjs"
       ],
       "testedBy": [
+        "scripts/release/api-diff-core.test.mjs",
         "scripts/release/dts-deps.test.mjs",
         "scripts/release/fix-dts-extensions.test.mjs",
         "scripts/release/release-core.test.mjs",
@@ -9444,8 +9445,8 @@
       ],
       "description": "Conduire une publication npm de Nodefony (N paquets verrouillés sur la même version) : quelle commande lancer, dans quel ordre, ce que chaque garde refuse, comment lire un échec. La chaîne appartient au PRODUIT (`npm run release`, `release:pack`, `release:smoke`) ; ce skill porte le raisonnement — une version publiée est BRÛLÉE, npm ne connaît pas la transaction, et ce qu'un dépôt voit de lui-même n'est pas ce qu'un installeur reçoit. À charger AVANT de publier ou de toucher à la surface publiée (`exports`, `files`, `peerDependencies`, gabarits d'application). Plan : `docs/release/nodefony-10.md`. Déclencheurs : \"publier sur npm\", \"faire une release\", \"préparer la publication\", \"puis-je publier ?\", \"estampiller la version\", \"changelog de la release\", \"ordre de publication\", \"packager les paquets\", \"smoke test release\", \"tester l'installation depuis les tarballs\", \"est-ce que le paquet publié marche ?\", \"surface npm\", \"types publiés\", \"tarball\", \"trusted publishing\", \"ENEEDAUTH\", \"avant de publier\".",
       "cost": {
-        "bodyLines": 441,
-        "approxTokens": 9154
+        "bodyLines": 445,
+        "approxTokens": 9256
       },
       "requires": [],
       "resources": {
@@ -9547,7 +9548,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "441",
+            "detail": "445",
             "advisory": true
           }
         ]

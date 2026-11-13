@@ -52,7 +52,7 @@ Noyau de la mesure de surface publique : ce qu'un paquet expose, et ce qui a cha
 Le noyau de la mesure de surface publique, éprouvé sur des déclarations écrites ici : chaque verdict qui ferait passer une rupture pour un ajout, ou du bruit pour une rupture, a son cas. /
 
 - **Lancé par** : `npm run test:release`
-- **Utilise** : `release/api-diff-core.mjs`
+- **Utilise** : `deps/shims/deepmerge/index.d.ts` · `release/api-diff-core.mjs`
 
 ## [`api-diff.mjs`](api-diff.mjs)
 
