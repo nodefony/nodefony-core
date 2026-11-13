@@ -3106,7 +3106,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           pinned[name],
           name,
         );
-        assert.deepEqual(manifest["peerDependenciesMeta"]?.[name], {
+        // `readJson` type ses valeurs en chaînes ; celles-ci sont des objets.
+        assert.deepEqual<unknown>(manifest["peerDependenciesMeta"]?.[name], {
           optional: true,
         });
       }
