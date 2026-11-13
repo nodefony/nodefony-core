@@ -18,7 +18,11 @@ export type MdInline =
   | { type: "strong" | "em"; children: MdInline[] }
   | { type: "code"; value: string }
   | { type: "link"; href: string; children: MdInline[] }
-  | { type: "br" };
+  | { type: "br" }
+  | { type: "mention"; name: string }
+  | { type: "color"; value: string }
+  | { type: "date"; iso: string; hasTime: boolean }
+  | { type: "math"; tex: string };
 
 /** Un bloc du message. */
 export type MdBlock =
@@ -36,7 +40,47 @@ const BULLET = /^\s*[-*+]\s+(.*)$/;
 const NUMBER = /^\s*\d{1,9}[.)]\s+(.*)$/;
 
 /** Caractères qu'une barre oblique inverse rend littéraux. */
-const ESCAPABLE = "\\`*_[]()>#+-.!~";
+const ESCAPABLE = "\\`*_[]()>#+-.!~$";
+
+/** Une formule en ligne tient en 200 caractères au plus. */
+export const INLINE_MATH_MAX = 200;
+
+/** `@nom` : lettres, chiffres, `_`, puis aussi `.` et `-` à l'intérieur. */
+const MENTION = /@[\p{L}\p{N}_][\p{L}\p{N}_.-]{0,63}/uy;
+
+/** `#rgb` ou `#rrggbb`, qui ne se prolonge pas en mot. */
+const COLOR = /#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})(?![\p{L}\p{N}_])/uy;
+
+/** Une date ISO 8601, complète (`2026-11-13`) ou avec heure (`…T14:30[:05][Z|+01:00]`). */
+const ISO_DATE =
+  /(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:?\d{2})?)?(?![\p{L}\p{N}_])/uy;
+
+/** Vrai si la date existe vraiment (31 février, 25 h : refusés). */
+function isRealDate(match: RegExpExecArray): boolean {
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (month < 1 || month > 12 || day < 1) return false;
+  if (day > new Date(Date.UTC(year, month, 0)).getUTCDate()) return false;
+  const hour = match.at(4);
+  if (hour === undefined) return true;
+  return (
+    Number(hour) < 24 &&
+    Number(match.at(5)) < 60 &&
+    Number(match.at(6) ?? 0) < 60
+  );
+}
+
+/** Une date ISO 8601 qui existe vraiment, lue à la position `at`, ou `null`. */
+function matchIsoDate(
+  src: string,
+  at: number,
+): { iso: string; hasTime: boolean } | null {
+  ISO_DATE.lastIndex = at;
+  const match = ISO_DATE.exec(src);
+  if (match === null || !isRealDate(match)) return null;
+  return { iso: match[0], hasTime: match.at(4) !== undefined };
+}
 
 /** Une lettre ou un chiffre : `_` collé à un mot (snake_case) reste du texte. */
 function isWordChar(char: string | undefined): boolean {
@@ -46,7 +90,8 @@ function isWordChar(char: string | undefined): boolean {
 // #region chat-markdown
 /**
  * Les morceaux d'une ligne : `**gras**`, `*italique*` ou `_italique_`,
- * `` `code` ``, `[texte](https://…)` et les adresses nues `https://…`.
+ * `` `code` ``, `[texte](https://…)`, les adresses nues `https://…`, et les natures en ligne :
+ * `@nom`, couleur `#rgb`/`#rrggbb`, date ISO 8601, formule `$tex$`.
  * Un marqueur sans fermeture reste du texte.
  *
  * @param inLink - déjà dans un lien : pas de lien imbriqué
@@ -136,6 +181,52 @@ export function parseInline(src: string, inLink = false): MdInline[] {
         continue;
       }
     }
+    if (!inLink && !isWordChar(src[i - 1])) {
+      if (char === "@") {
+        MENTION.lastIndex = i;
+        const match = MENTION.exec(src);
+        if (match !== null) {
+          const name = match[0].replace(/[.-]+$/, "").slice(1);
+          flush();
+          out.push({ type: "mention", name });
+          i += name.length + 1;
+          continue;
+        }
+      } else if (char === "#") {
+        COLOR.lastIndex = i;
+        const match = COLOR.exec(src);
+        if (match !== null) {
+          flush();
+          out.push({ type: "color", value: match[0] });
+          i += match[0].length;
+          continue;
+        }
+      } else if (char >= "0" && char <= "9") {
+        const date = matchIsoDate(src, i);
+        if (date !== null) {
+          flush();
+          out.push({ type: "date", iso: date.iso, hasTime: date.hasTime });
+          i += date.iso.length;
+          continue;
+        }
+      }
+    }
+    if (char === "$" && !inLink && next !== "$") {
+      const close = src.indexOf("$", i + 1);
+      const inner = close < 0 ? "" : src.slice(i + 1, close);
+      if (
+        inner !== "" &&
+        inner.length <= INLINE_MATH_MAX &&
+        inner.trim() === inner &&
+        !/\d/.test(src.charAt(close + 1)) &&
+        !/https?:\/\//i.test(inner)
+      ) {
+        flush();
+        out.push({ type: "math", tex: inner });
+        i = close + 1;
+        continue;
+      }
+    }
     text += char;
     i += 1;
   }
@@ -218,6 +309,31 @@ export function parseMarkdown(src: string): MdBlock[] {
   return blocks;
 }
 // #endregion
+
+/** Les adresses des liens d'un morceau de ligne, dans l'ordre (un lien n'en contient pas d'autre). */
+function linksOfInline(nodes: readonly MdInline[], into: string[]): void {
+  for (const node of nodes) {
+    if (typeof node === "string") continue;
+    if (node.type === "link") into.push(node.href);
+    else if (node.type === "strong" || node.type === "em")
+      linksOfInline(node.children, into);
+  }
+}
+
+/**
+ * Les adresses des liens de ces blocs, dans l'ordre où la page les rend : le
+ * rang d'un lien (`type: "link"`) est son indice d'aperçu.
+ */
+export function collectLinks(blocks: readonly MdBlock[]): string[] {
+  const links: string[] = [];
+  for (const block of blocks) {
+    if (block.type === "p" || block.type === "quote")
+      linksOfInline(block.children, links);
+    else if (block.type === "ul" || block.type === "ol")
+      for (const item of block.items) linksOfInline(item, links);
+  }
+  return links;
+}
 
 // #region chat-format
 /**

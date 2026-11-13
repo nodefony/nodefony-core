@@ -25,6 +25,7 @@ import SseController from "./nodefony/controllers/SseController";
 import VideoController from "./nodefony/controllers/VideoController";
 import BinaryController from "./nodefony/controllers/BinaryController";
 import ChatService from "./nodefony/service/ChatService";
+import LinkPreviewService from "./nodefony/service/LinkPreviewService";
 import RoomAdmission from "./nodefony/service/RoomAdmission";
 import RoomService from "./nodefony/service/RoomService";
 import PartnerTokenService from "./nodefony/service/PartnerTokenService";
@@ -83,6 +84,8 @@ declare module "nodefony" {
   AppBannerService,
   DemoPulseService,
   ChatService,
+  // L'aperçu d'un lien du chat : lit un site tiers par `fetchPublic`.
+  LinkPreviewService,
   RoomService,
   // La règle d'admission des salons, résolue au premier `subscribe` : déclarée
   // ici, elle entre dans l'ordre de démarrage et dans l'introspection.

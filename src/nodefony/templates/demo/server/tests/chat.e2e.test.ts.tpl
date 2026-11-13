@@ -578,3 +578,134 @@ demoDescribe("discussion — les pièces jointes", () => {
     await res.body?.cancel();
   });
 });
+
+/** Le lien d'un message : `GET …/messages/{message}/links/{index}`. */
+const linkPath = (roomId: string, messageId: string, index: number) =>
+  httpUrl(`/demo/chat/rooms/${roomId}/messages/${messageId}/links/${index}`);
+
+/** Envoie un message au nom de `admin` et rend son identifiant. */
+async function sendForId(text: string, roomId = LOBBY_ROOM_ID) {
+  const res = await send(text, randomUUID(), {}, roomId);
+  expect(res.status).toBe(200);
+  const sent: unknown = await res.json();
+  const id =
+    typeof sent === "object" && sent !== null ? Reflect.get(sent, "id") : null;
+  expect(typeof id).toBe("string");
+  return String(id);
+}
+
+demoDescribe("discussion — l'aperçu d'un lien", () => {
+  // Aucun test ne dépend d'Internet : la cible est le réseau du serveur
+  // lui-même, que la garde SSRF refuse avant toute connexion.
+  const INTERNAL = "http://127.0.0.1:9/interne";
+
+  it("un lien vers le réseau du serveur : 200 `internal`, jamais lu", async () => {
+    const id = await sendForId(unique(`voir ${INTERNAL}`));
+    const res = await fetch(linkPath(LOBBY_ROOM_ID, id, 0), { headers: admin });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      state: "internal",
+      url: INTERNAL,
+      site: "127.0.0.1",
+    });
+  });
+
+  it("le même aperçu se lit sans session dans un salon public", async () => {
+    const id = await sendForId(unique(`voir ${INTERNAL}`));
+    const res = await fetch(linkPath(LOBBY_ROOM_ID, id, 0));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ state: "internal" });
+  });
+
+  it("404 : un message d'un AUTRE salon, un lien qui n'existe pas, un message inconnu, un salon inconnu", async () => {
+    const inTeam = await sendForId(unique(`équipe ${INTERNAL}`), TEAM_ROOM_ID);
+    // Le message existe, mais pas dans ce salon : jamais lu de biais.
+    const other = await fetch(linkPath(LOBBY_ROOM_ID, inTeam, 0), {
+      headers: admin,
+    });
+    expect(other.status).toBe(404);
+    await other.body?.cancel();
+
+    const inLobby = await sendForId(unique(`voir ${INTERNAL}`));
+    const beyond = await fetch(linkPath(LOBBY_ROOM_ID, inLobby, 1), {
+      headers: admin,
+    });
+    expect(beyond.status).toBe(404);
+    await beyond.body?.cancel();
+
+    const noLink = await sendForId(unique("aucun lien ici"));
+    const bare = await fetch(linkPath(LOBBY_ROOM_ID, noLink, 0), {
+      headers: admin,
+    });
+    expect(bare.status).toBe(404);
+    await bare.body?.cancel();
+
+    const unknown = await fetch(linkPath(LOBBY_ROOM_ID, randomUUID(), 0), {
+      headers: admin,
+    });
+    expect(unknown.status).toBe(404);
+    await unknown.body?.cancel();
+
+    const nowhere = await fetch(linkPath("inexistant", inLobby, 0), {
+      headers: admin,
+    });
+    expect(nowhere.status).toBe(404);
+    await nowhere.body?.cancel();
+  });
+
+  it("l'indice est borné par le schéma : 100 et `1e2` ne passent pas jusqu'au service", async () => {
+    const id = await sendForId(unique(`voir ${INTERNAL}`));
+    for (const index of ["100", "1e2", "-1"]) {
+      const res = await fetch(
+        httpUrl(
+          `/demo/chat/rooms/${LOBBY_ROOM_ID}/messages/${id}/links/${index}`,
+        ),
+        { headers: admin },
+      );
+      // Refusé par le schéma des paramètres, avant tout service.
+      expect([400, 404, 422]).toContain(res.status);
+      await res.body?.cancel();
+    }
+  });
+
+  it("403 : le salon privé reste fermé à un anonyme, son message ne se lit pas de biais", async () => {
+    const id = await sendForId(unique(`équipe ${INTERNAL}`), TEAM_ROOM_ID);
+    const res = await fetch(linkPath(TEAM_ROOM_ID, id, 0));
+    expect(res.status).toBe(403);
+    await res.body?.cancel();
+    const member = await fetch(linkPath(TEAM_ROOM_ID, id, 0), {
+      headers: admin,
+    });
+    expect(member.status).toBe(200);
+    await member.body?.cancel();
+  });
+
+  it("429 au-delà de 30 aperçus par minute et par compte, avec `Retry-After` ; un autre compte n'est pas touché", async () => {
+    await ensureMember();
+    const base = httpUrl("");
+    const greedy = await csrfHeaders(base, await userLogin(base));
+    const id = await sendForId(unique(`voir ${INTERNAL}`));
+    for (let i = 0; i < 30; i++) {
+      const res = await fetch(linkPath(LOBBY_ROOM_ID, id, 0), {
+        headers: greedy,
+      });
+      expect(res.status).toBe(200);
+      await res.body?.cancel();
+    }
+    const refused = await fetch(linkPath(LOBBY_ROOM_ID, id, 0), {
+      headers: greedy,
+    });
+    expect(refused.status).toBe(429);
+    const wait = Number(refused.headers.get("retry-after"));
+    expect(Number.isInteger(wait)).toBe(true);
+    expect(wait).toBeGreaterThanOrEqual(1);
+    expect(wait).toBeLessThanOrEqual(60);
+    await refused.body?.cancel();
+
+    const other = await fetch(linkPath(LOBBY_ROOM_ID, id, 0), {
+      headers: admin,
+    });
+    expect(other.status).toBe(200);
+    await other.body?.cancel();
+  });
+});

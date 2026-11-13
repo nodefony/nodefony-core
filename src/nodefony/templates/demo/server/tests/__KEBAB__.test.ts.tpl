@@ -52,7 +52,19 @@ import {
   sniffImage,
 } from "../frontend/src/kit/preview";
 import {
+  CSV_MAX_ROWS,
+  GUESS_LANGUAGE_BYTES,
+  detectBlocks,
+} from "../frontend/src/kit/detect";
+import { messageLinks } from "../frontend/src/kit/messageLinks";
+import {
+  canonicalLanguage,
+  highlightCode,
+  tokensOfHtml,
+} from "../frontend/src/kit/codeHighlight";
+import {
   codeMark,
+  collectLinks,
   continueList,
   linkMark,
   parseInline,
@@ -1120,6 +1132,254 @@ describe("demo — le Markdown du salon, le même pour tous", () => {
       end: 5,
     });
     expect(continueList("pas une liste", 13)).toBeNull();
+  });
+});
+
+describe("demo — la nature de chaque bloc d'un message (règle pure)", () => {
+  it("un texte vide n'a aucun bloc ; un texte simple, un bloc text", () => {
+    expect(detectBlocks("  \n ")).toEqual([]);
+    expect(detectBlocks("bonjour **toi**")).toEqual([
+      { nature: "text", source: "bonjour **toi**" },
+    ]);
+  });
+
+  it("ordre D25 : étiquette explicite, puis JSON, tableau, diff, texte", () => {
+    expect(detectBlocks("```ts\nconst a = 1;\n```")).toEqual([
+      { nature: "code", source: "const a = 1;", language: "ts" },
+    ]);
+    // Une étiquette gagne sur le contenu : ce JSON est montré comme du code.
+    expect(detectBlocks('```json\n{"a":1}\n```')[0]?.nature).toBe("code");
+    // Sans étiquette, le corps est analysé avant de n'être que du code.
+    expect(detectBlocks('```\n{"a":[1,2]}\n```')).toEqual([
+      { nature: "json", source: '{"a":[1,2]}', value: { a: [1, 2] } },
+    ]);
+    expect(detectBlocks("```\nrien à reconnaître ici\n```")).toEqual([
+      { nature: "code", source: "rien à reconnaître ici", language: null },
+    ]);
+    expect(detectBlocks('[1, 2, {"x": null}]')[0]?.nature).toBe("json");
+    // Un nombre ou un mot JSON seul reste du texte.
+    expect(detectBlocks("42")[0]?.nature).toBe("text");
+    expect(detectBlocks("{pas du json")[0]?.nature).toBe("text");
+    expect(detectBlocks("@@ -1 +1 @@\n-a\n+b")[0]?.nature).toBe("diff");
+    // Des puces « - » sans en-tête ne font pas un diff.
+    expect(detectBlocks("- un\n- deux")[0]?.nature).toBe("text");
+  });
+
+  it("tableau : trois séparateurs, largeur égale exigée, lignes bornées et comptées", () => {
+    for (const sep of [",", ";", "\t"]) {
+      const block = detectBlocks(`a${sep}b\n1${sep}2\n3${sep}4`)[0];
+      expect(block).toMatchObject({
+        nature: "csv",
+        separator: sep,
+        header: ["a", "b"],
+        rows: [
+          ["1", "2"],
+          ["3", "4"],
+        ],
+        total: 2,
+      });
+    }
+    // Largeur inégale : ce n'est pas un tableau.
+    expect(detectBlocks("a,b\n1,2,3")[0]?.nature).toBe("text");
+    // Une seule ligne : pas un tableau.
+    expect(detectBlocks("a,b")[0]?.nature).toBe("text");
+    const many = ["x,y", ...Array.from({ length: 500 }, (_, i) => `${i},${i}`)];
+    const big = detectBlocks(many.join("\n"))[0];
+    expect(big?.nature === "csv" && big.rows.length).toBe(CSV_MAX_ROWS);
+    expect(big?.nature === "csv" && big.total).toBe(500);
+  });
+
+  it("formule : `$$` seul sur sa ligne, ou `$$ … $$` d'une ligne ; non fermée, du texte", () => {
+    expect(detectBlocks("avant\n$$\nx^2 + y^2\n$$\naprès")).toEqual([
+      { nature: "text", source: "avant\n" },
+      { nature: "math", source: "$$\nx^2 + y^2\n$$", tex: "x^2 + y^2" },
+      { nature: "text", source: "après" },
+    ]);
+    expect(detectBlocks("$$ a+b $$")).toEqual([
+      { nature: "math", source: "$$ a+b $$", tex: "a+b" },
+    ]);
+    expect(detectBlocks("$$\nx")[0]?.nature).toBe("text");
+  });
+
+  it("🔴 aucun caractère perdu : chaque source est une tranche du texte, dans l'ordre", () => {
+    const text = [
+      "intro avec https://x.dev",
+      "",
+      "```py",
+      "print(1)",
+      "```",
+      "$$",
+      "e=mc^2",
+      "$$",
+      "a;b",
+      "1;2",
+      "",
+      "```",
+      "[1,2]",
+      "```",
+      "fin",
+    ].join("\n");
+    const blocks = detectBlocks(text);
+    expect(blocks.map((b) => b.nature)).toEqual([
+      "text",
+      "code",
+      "math",
+      "csv",
+      "json",
+      "text",
+    ]);
+    let cursor = 0;
+    for (const block of blocks) {
+      const at = text.indexOf(block.source, cursor);
+      expect(at).toBeGreaterThanOrEqual(cursor);
+      cursor = at + block.source.length;
+    }
+    // Les caractères hors source sont des balises de bloc ou des blancs.
+    let rest = text;
+    for (const block of blocks) rest = rest.replace(block.source, "");
+    expect(rest.replace(/[`\s$]|py/g, "")).toBe("");
+  });
+
+  it("borné et linéaire : 64 Kio de lignes, de JSON ou de fences se lisent vite", () => {
+    const start = performance.now();
+    detectBlocks("a\n".repeat(32_000));
+    detectBlocks("```\nx\n".repeat(8_000));
+    detectBlocks("[" + "1,".repeat(32_000) + "1]");
+    expect(performance.now() - start).toBeLessThan(500);
+    expect(GUESS_LANGUAGE_BYTES).toBe(4096);
+  });
+});
+
+describe("demo — les natures en ligne du Markdown", () => {
+  it("@mention, couleur, date ISO, formule — et rien de plus", () => {
+    expect(
+      parseInline("salut @alice.d, #ff0 ou #A1B2C3 le 2026-11-13"),
+    ).toEqual([
+      "salut ",
+      { type: "mention", name: "alice.d" },
+      ", ",
+      { type: "color", value: "#ff0" },
+      " ou ",
+      { type: "color", value: "#A1B2C3" },
+      " le ",
+      { type: "date", iso: "2026-11-13", hasTime: false },
+    ]);
+    expect(parseInline("à 2026-11-13T14:30:05+01:00 pile")).toEqual([
+      "à ",
+      { type: "date", iso: "2026-11-13T14:30:05+01:00", hasTime: true },
+      " pile",
+    ]);
+    expect(parseInline("soit $x^2$ ici")).toEqual([
+      "soit ",
+      { type: "math", tex: "x^2" },
+      " ici",
+    ]);
+  });
+
+  it("les faux positifs restent du texte", () => {
+    // Courriel, mot collé, couleur trop longue, date impossible, prix.
+    expect(parseInline("a@b.net")).toEqual(["a@b.net"]);
+    expect(parseInline("#abcd #ggg #12345678")).toEqual([
+      "#abcd #ggg #12345678",
+    ]);
+    expect(parseInline("2026-02-31 et 2026-13-01 et 2026-11-13T25:00")).toEqual(
+      ["2026-02-31 et 2026-13-01 et 2026-11-13T25:00"],
+    );
+    expect(parseInline("5$ puis 6$ ou $5 et $6")).toEqual([
+      "5$ puis 6$ ou $5 et $6",
+    ]);
+    expect(parseInline("\\$5\\$")).toEqual(["$5$"]);
+  });
+
+  it("🔴 les liens gardent leur reconnaissance et leur ORDRE, natures présentes ou non", () => {
+    const text =
+      "voir [doc](https://a.dev/@bob) puis https://b.dev/#fff le 2026-11-13 et $[x](https://c.dev)$ enfin https://d.dev";
+    expect(collectLinks(parseMarkdown(text))).toEqual([
+      "https://a.dev/@bob",
+      "https://b.dev/#fff",
+      "https://c.dev",
+      "https://d.dev",
+    ]);
+  });
+
+  it("le rang d'un lien suit les blocs de texte seulement (page ET serveur)", () => {
+    const text = [
+      "un https://a.dev",
+      "```",
+      "https://dans-le-code.dev",
+      "```",
+      '{"u":"https://dans-un-json.dev"}',
+      "",
+      "deux [b](https://b.dev)",
+    ].join("\n");
+    expect(messageLinks(text)).toEqual(["https://a.dev", "https://b.dev"]);
+  });
+});
+
+describe("demo — la coloration du code", () => {
+  it("lit la sortie de highlight.js sans perte, entités rendues", () => {
+    const tokens = tokensOfHtml(
+      '<span class="hljs-keyword">if</span> (a &lt; b &amp;&amp; c) <span class="hljs-comment">// <span class="hljs-doctag">x</span> &gt;</span>',
+    );
+    expect(tokens.map((t) => t.text).join("")).toBe("if (a < b && c) // x >");
+    expect(tokens.map((t) => t.kind)).toEqual(["keyword", "plain", "comment"]);
+  });
+
+  it("langues permises seulement ; les étiquettes usuelles se ramènent", () => {
+    expect(canonicalLanguage("ts")).toBe("typescript");
+    expect(canonicalLanguage("html")).toBe("xml");
+    expect(canonicalLanguage("sh")).toBe("bash");
+    expect(canonicalLanguage("brainfuck")).toBeNull();
+    expect(canonicalLanguage("constructor")).toBeNull();
+  });
+
+  it("colore pour de vrai (import différé), sans perte ; langue inconnue : null", async () => {
+    const code = 'const a: number = 1; // note\nreturn "x";';
+    const tokens = await highlightCode(code, "ts");
+    expect(tokens?.map((t) => t.text).join("")).toBe(code);
+    expect(tokens?.some((t) => t.kind === "keyword")).toBe(true);
+    expect(tokens?.some((t) => t.kind === "string")).toBe(true);
+    expect(await highlightCode("x", "brainfuck")).toBeNull();
+    const diff = await highlightCode("@@ -1 +1 @@\n-a\n+b", "diff");
+    expect(diff?.some((t) => t.kind === "added")).toBe(true);
+    expect(diff?.some((t) => t.kind === "removed")).toBe(true);
+  });
+
+  it("devine la langue d'un bloc sans étiquette ; du texte ordinaire reste brut", async () => {
+    const guessed = await highlightCode(
+      'import fs from "node:fs";\nconst a = 1;\nfunction f() { return a; }',
+      null,
+    );
+    expect(guessed?.some((t) => t.kind !== "plain")).toBe(true);
+    expect(await highlightCode("bonjour tout le monde", null)).toBeNull();
+  });
+
+  it("🔴 les briques de rendu n'injectent jamais de HTML et nomment tous leurs renvois", () => {
+    const front = path.join(
+      path.dirname(path.dirname(fileURLToPath(import.meta.url))),
+      "frontend/src",
+    );
+    for (const file of [
+      "kit/NatureBlocks.tsx",
+      "kit/MathView.tsx",
+      "kit/MessageBody.tsx",
+      "kit/MarkdownText.tsx",
+      "kit/HoverBubble.tsx",
+      "kit/codeHighlight.ts",
+      "chat/ChatLinkPreview.tsx",
+      "chat/ChatAttachments.tsx",
+    ]) {
+      const source = readFileSync(path.join(front, file), "utf8");
+      expect(source, file).not.toMatch(/dangerouslySetInnerHTML|innerHTML/);
+      expect(source, file).not.toMatch(/\bas any\b|@ts-ignore/);
+    }
+    const math = readFileSync(path.join(front, "kit/MathView.tsx"), "utf8");
+    // KaTeX ne reçoit jamais de quoi sortir de la formule.
+    expect(math).toMatch(/^\s+trust: false,$/m);
+    expect(math).toMatch(/^\s+strict: "ignore",$/m);
+    expect(math).toMatch(/^\s+output: "mathml",$/m);
+    expect(math).toMatch(/^\s+maxExpand: MATH_MAX_EXPAND,$/m);
+    expect(math).toMatch(/^\s+maxSize: MATH_MAX_SIZE,$/m);
   });
 });
 

@@ -4688,3 +4688,226 @@ fieldset.form-field > label {
     grid-template-columns: 1fr;
   }
 }
+
+/* Lot 4 du chat — natures en ligne, blocs par nature, bulles, pastilles.
+   Les teintes du code reprennent `.tok-<kind>` (highlight.ts) ; les autres se
+   mêlent à `--fg` pour tenir le contraste dans les deux thèmes. Les effets
+   n'animent que `opacity` et `transform`. */
+.msg-body > * + * {
+  margin-top: 4px;
+}
+.md-mention {
+  padding: 0 4px;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--blue) 50%, var(--fg));
+  background: color-mix(in srgb, var(--blue) 14%, transparent);
+  border-radius: 4px;
+}
+.md-swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.88em;
+}
+.md-swatch-dot {
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  border: 1px solid color-mix(in srgb, var(--fg) 60%, transparent);
+  border-radius: 3px;
+}
+.md-date {
+  white-space: nowrap;
+  border-bottom: 1px dotted var(--muted);
+}
+.room-list a.md-domain {
+  padding: 0 8px;
+  text-decoration: none;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.math-raw {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.88em;
+}
+.math-block {
+  margin: 4px 0;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+pre.math-raw {
+  white-space: pre-wrap;
+}
+.nb {
+  margin: 4px 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.nb-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 8px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  background: var(--bg-soft);
+}
+.nb-copy {
+  min-height: 24px;
+  padding: 0 8px;
+  font: inherit;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.nb pre {
+  margin: 0;
+  padding: 8px 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85em;
+  color: var(--code-fg);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--code-bg);
+}
+.nb pre code {
+  padding: 0;
+  background: none;
+}
+.tok-added {
+  color: #b5e3a0;
+}
+.tok-removed {
+  color: #ffb3b3;
+}
+.diff-line {
+  display: block;
+  min-height: 1.4em;
+}
+.diff-add {
+  background: color-mix(in srgb, #3fb950 24%, transparent);
+}
+.diff-del {
+  background: color-mix(in srgb, #f85149 26%, transparent);
+}
+.diff-hunk {
+  color: #9fb0c8;
+}
+.diff-file {
+  font-weight: 700;
+}
+.json-tree {
+  padding: 8px 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85em;
+  overflow-wrap: anywhere;
+  background: var(--card);
+}
+.json-node > summary {
+  cursor: pointer;
+}
+.json-children {
+  margin-left: 0.4em;
+  padding-left: 1.1em;
+  border-left: 1px solid var(--border);
+}
+.json-key {
+  color: color-mix(in srgb, var(--blue) 50%, var(--fg));
+}
+.json-string {
+  color: color-mix(in srgb, var(--green) 50%, var(--fg));
+}
+.json-number {
+  color: color-mix(in srgb, var(--amber) 50%, var(--fg));
+}
+.json-literal {
+  color: var(--muted);
+}
+.nb-table {
+  width: 100%;
+  font-size: 0.85em;
+  border-collapse: collapse;
+}
+.nb-table th,
+.nb-table td {
+  padding: 3px 8px;
+  text-align: left;
+  overflow-wrap: anywhere;
+  border-top: 1px solid var(--border);
+}
+.nb-table th {
+  background: var(--bg-soft);
+}
+.nb-csv .att-note {
+  margin: 0;
+  padding: 4px 8px;
+}
+.nb-math {
+  padding: 4px 8px;
+  background: var(--card);
+}
+/* Bulles (D32) : couche supérieure, posée par `HoverBubble` ; jamais de
+   défilement, jamais le focus. */
+.bubble {
+  position: fixed;
+  inset: auto;
+  display: block;
+  box-sizing: border-box;
+  max-width: min(28rem, calc(100vw - 16px));
+  margin: 0;
+  padding: 8px 10px;
+  overflow: visible;
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--fg);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .bubble {
+    animation: bubble-in 120ms ease-out;
+  }
+}
+@keyframes bubble-in {
+  from {
+    opacity: 0;
+  }
+}
+.link-bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.link-url,
+.link-desc {
+  overflow-wrap: anywhere;
+}
+.link-url,
+.link-note {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.att-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  max-width: 100%;
+  padding: 2px 10px;
+  text-decoration: none;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.att-pill-name {
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}

@@ -66,6 +66,12 @@ let serverEnv: Record<string, string> | null = null;
  * `tests/e2e.setup.ts` a déjà peuplée. Décidé une fois, par `startDemoServer`.
  */
 let disposableBase = false;
+/**
+ * La création du compte sans privilège sur la base jetable de l'exemplaire en
+ * cours : faite UNE fois, rejouée par chaque appel — la commande refuse un
+ * compte qui existe déjà. Remise à `null` avec l'exemplaire.
+ */
+let memberReady: Promise<void> | null = null;
 
 /**
  * Vrai quand la suite vise une application servie ailleurs — la décision de
@@ -159,6 +165,7 @@ export async function startDemoServer(): Promise<() => Promise<void>> {
   server = spare;
   httpsPortOf = httpsPort;
   disposableBase = dir !== null;
+  memberReady = null;
   // Les ports aussi : l'émetteur des jetons (`jwt.issuer`) en dépend, donc
   // l'audience qu'un jeton doit porter pour que cet exemplaire l'accepte.
   serverEnv = {
@@ -171,6 +178,7 @@ export async function startDemoServer(): Promise<() => Promise<void>> {
     httpsPortOf = null;
     serverEnv = null;
     disposableBase = false;
+    memberReady = null;
     await spare.stop();
     cleanup();
   };
@@ -195,24 +203,33 @@ export function serverEnvironment(): Record<string, string> {
  * Une base PARTAGÉE (moteur serveur) l'a déjà : `tests/e2e.setup.ts` l'y sème,
  * et le recréer échouerait (« le compte existe déjà »). Une base JETABLE
  * (SQLite) ne porte que l'`admin` du démarrage : le compte y naît par la VRAIE
- * commande, sur la même base, avec le même `UserService` que l'application.
+ * commande, sur la même base, avec le même `UserService` que l'application —
+ * une fois par exemplaire : l'appeler de plusieurs tests est sûr.
  *
  * @throws Error si aucun exemplaire n'est démarré, ou si la commande échoue
  */
-export async function ensureMember(): Promise<void> {
+export function ensureMember(): Promise<void> {
   const env = serverEnvironment();
-  if (!disposableBase) return;
-  await promisify(execFile)(
-    process.execPath,
-    [
-      nodefonyBin(),
-      "security:user:add",
-      E2E_USER_IDENTIFIER,
-      "--password",
-      E2E_USER_PASSWORD,
-    ],
-    { env: { ...process.env, ...env, NODE_ENV: "development" } },
-  );
+  if (!disposableBase) return Promise.resolve();
+  if (memberReady === null) {
+    const created = promisify(execFile)(
+      process.execPath,
+      [
+        nodefonyBin(),
+        "security:user:add",
+        E2E_USER_IDENTIFIER,
+        "--password",
+        E2E_USER_PASSWORD,
+      ],
+      { env: { ...process.env, ...env, NODE_ENV: "development" } },
+    ).then(() => undefined);
+    // Un échec n'est pas retenu : l'appel suivant réessaie.
+    created.catch(() => {
+      if (memberReady === created) memberReady = null;
+    });
+    memberReady = created;
+  }
+  return memberReady;
 }
 
 /** L'adresse `http://` d'un chemin, sur l'exemplaire démarré. */

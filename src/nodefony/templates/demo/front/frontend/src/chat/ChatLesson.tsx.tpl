@@ -5,7 +5,7 @@ import { LessonCode } from "../lesson/LessonCode";
 import { CHAT_LESSON } from "./chatTabs";
 import { ChatAttachments } from "./ChatAttachments";
 import { ChatComposer } from "./ChatComposer";
-import { MarkdownText } from "../kit/MarkdownText";
+import { ChatMessageText } from "./ChatLinkPreview";
 import { useChat, type IChatRoom } from "./useChat";
 import { ChatPeople } from "./ChatPeople";
 import { canManage, type IRoomEvent, type IRoomView } from "./rooms";
@@ -120,6 +120,25 @@ export function ChatLesson({ about }: { about: IDemoAbout | null }) {
               </strong>{" "}
               Ici le texte devient des éléments React, et un lien{" "}
               <code>javascript:</code> reste du texte.
+            </li>
+            <li>
+              <strong>
+                Un aperçu de lien fait lire un site tiers PAR LE SERVEUR.
+              </strong>{" "}
+              Si la page envoyait l'adresse, le salon deviendrait un lecteur du
+              réseau interne : ici elle désigne le lien de rang{" "}
+              <code>index</code> d'un message que le serveur relit en base, et
+              la lecture du site (adresse vérifiée puis épinglée, redirections
+              revérifiées, aucun cookie) rend son issue comme une donnée —
+              jamais une image, qui espionnerait l'adresse des lecteurs.
+            </li>
+            <li>
+              <strong>La nature d'un bloc se calcule dans la page.</strong> Le
+              texte voyage brut : JSON, tableau, diff, code et formule sont
+              reconnus à la lecture, donc une règle améliorée vaut aussi pour
+              les anciens messages. Le code coloré et les formules arrivent par{" "}
+              <code>import()</code> au premier bloc, et une formule ne sort
+              jamais de sa boîte (<code>trust: false</code>, macros bornées).
             </li>
             <li>
               <strong>La taille annoncée par une archive ment.</strong> Quelques
@@ -373,7 +392,11 @@ function ChatRoom({
                     {TIME.format(message.sentAt)}
                   </span>
                   {message.text !== "" && (
-                    <MarkdownText className="room-text" text={message.text} />
+                    <ChatMessageText
+                      roomId={room.roomId}
+                      messageId={message.id}
+                      text={message.text}
+                    />
                   )}
                   {message.attachments !== undefined &&
                     message.attachments.length > 0 && (

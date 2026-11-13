@@ -18,6 +18,9 @@ const ADMISSION: LessonFile = "nodefony/service/RoomAdmission.ts";
 const ENTITIES: LessonFile = "nodefony/entity/rooms.ts";
 const RULE: LessonFile = "frontend/src/chat/rooms.ts";
 const ROSTER: LessonFile = "frontend/src/chat/roster.ts";
+const LINKS: LessonFile = "nodefony/service/LinkPreviewService.ts";
+const DETECT: LessonFile = "frontend/src/kit/detect.ts";
+const RANK: LessonFile = "frontend/src/kit/messageLinks.ts";
 
 export const CHAT_LESSON = {
   tabs: [
@@ -117,6 +120,10 @@ export const CHAT_LESSON = {
           excerpt: { file: CONTROLLER, region: "chat-people-route" },
         },
         {
+          text: "L'aperçu d'un lien : la route ne reçoit JAMAIS une adresse, seulement le rang d'un lien dans un message. Le serveur relit le message en base, dans un salon où l'on entre — sinon n'importe quel membre ferait lire au serveur une adresse de son choix, réseau interne compris. L'issue de la lecture est une donnée ; seuls un lien absent (404) et un quota épuisé (429) sont des refus.",
+          excerpt: { file: CONTROLLER, region: "chat-link-route" },
+        },
+        {
           text: "Tous les salons, déclarés UNE fois par un motif. Une classe d'admission tranche qui entre (lue en base, au `subscribe`) ; `presence` donne la liste des présents à qui est admis, et `grace` retient un départ cinq secondes — un rechargement de page ne fait pas « parti, revenu ». Un canal décoré n'est servi que sous son nom exact : la famille l'est par `createRealtimeChannel`.",
           excerpt: { file: CONTROLLER, region: "chat-room", step: 1 },
         },
@@ -172,6 +179,14 @@ export const CHAT_LESSON = {
         {
           text: "Le piège des archives : une « bombe » de quelques Ko qui se déplie en gigaoctets. La taille annoncée n'est jamais crue ; le flux est COUPÉ au premier mégaoctet décompressé.",
           excerpt: { file: PREVIEW, region: "chat-inflate-cap", step: 6 },
+        },
+        {
+          text: "Quel lien lire : le quota d'abord (30 aperçus par minute et par compte — par adresse pour un anonyme, jamais par session, qu'il change à volonté —, AVANT toute lecture), puis le message relu en base, puis le lien de rang demandé, compté par la MÊME fonction que la page.",
+          excerpt: { file: LINKS, region: "link-preview-pick" },
+        },
+        {
+          text: "La lecture du site tiers passe par `fetchPublic` de `@nodefony/security` : l'adresse IP est vérifiée PUIS épinglée à chaque saut (un DNS qui change d'avis entre la vérification et la connexion ne mène nulle part), trois redirections au plus, chacune revérifiée, 256 Kio et 4 s EN TOUT — un site qui goutte un octet par seconde est coupé. Une cible interne n'est jamais lue : elle devient l'issue `internal`.",
+          excerpt: { file: LINKS, region: "link-preview-read" },
         },
       ],
     },
@@ -246,6 +261,28 @@ export const CHAT_LESSON = {
         {
           text: "Les boutons G, I, </> et 🔗 (ou Ctrl/⌘ + B, I, E, K) n'écrivent que du texte : ils posent le marqueur autour de la sélection, ou l'ôtent s'il y est déjà.",
           excerpt: { file: MARKDOWN, region: "chat-format", step: 6 },
+        },
+        {
+          text: "La nature d'un message se calcule DANS LA PAGE, par une fonction pure : ni le serveur ni la base ne la connaissent, le texte voyage brut. L'ordre tranche les ambiguïtés — JSON, puis tableau, puis diff, sinon texte.",
+          excerpt: { file: DETECT, region: "chat-detect" },
+        },
+        {
+          text: "Le rang d'un lien : seuls les liens d'un bloc de TEXTE en ont un. Une adresse dans un JSON ou un tableau n'est pas cliquable, donc pas d'aperçu. La page et le serveur appellent cette fonction-là, jamais une copie : deux règles qui divergent feraient lire au serveur un autre lien que celui survolé.",
+          excerpt: { file: RANK, region: "chat-link-rank" },
+        },
+        {
+          text: "La coloration du code et les formules coûtent du poids : `highlight.js` et KaTeX s'importent par `import()` au PREMIER bloc qui en a besoin. Une page sans code ni formule n'en charge pas un octet.",
+          excerpt: {
+            file: "frontend/src/kit/codeHighlight.ts",
+            region: "chat-lazy-highlight",
+          },
+        },
+        {
+          text: "Une formule vient d'un autre utilisateur : KaTeX construit ses propres nœuds (jamais une chaîne HTML injectée), `trust: false` refuse liens, images et styles, et `maxExpand`/`maxSize` empêchent une macro de boucler. La sortie est du MathML, que le lecteur d'écran lit.",
+          excerpt: {
+            file: "frontend/src/kit/MathView.tsx",
+            region: "chat-katex",
+          },
         },
         {
           text: "Un grand collage ne remplit pas le champ : au-delà d'un seuil, il devient une pièce, une boîte « Texte collé » — comme un fichier.",

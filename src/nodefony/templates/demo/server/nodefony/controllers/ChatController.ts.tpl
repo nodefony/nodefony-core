@@ -47,6 +47,11 @@ import {
 import { isUploadedFile } from "../service/ChatService";
 import type ChatService from "../service/ChatService";
 import type RoomService from "../service/RoomService";
+import {
+  LinkPreviewRefusal,
+  type LinkPreviewRefusalReason,
+} from "../service/LinkPreviewService";
+import type LinkPreviewService from "../service/LinkPreviewService";
 import { RoomRefusal, type RoomRefusalReason } from "../service/RoomService";
 import RoomAdmission from "../service/RoomAdmission";
 
@@ -69,8 +74,9 @@ type RoomInput<S extends object = object> = RouteInput<
  *    client ;
  *  • corps, queries et paramètres sont VALIDÉS avant l'action (`schema`), par
  *    les schémas partagés de `frontend/src/chat/chatSchemas.ts` ;
- *  • l'historique vit dans `ChatService`, les salons dans `RoomService` (un
- *    contrôleur temps réel est instancié par connexion) ;
+ *  • l'historique vit dans `ChatService`, les salons dans `RoomService`, les
+ *    aperçus de lien dans `LinkPreviewService` (un contrôleur temps réel est
+ *    instancié par connexion) ;
  *  • `@RealtimeBroadcast("chat:")` fait traverser chaque salon d'un serveur à
  *    l'autre (plusieurs pods, `nodefony cluster`).
  * Doc : `@nodefony/realtime/docs/canaux-a-membres.md` ; générer l'équivalent :
@@ -137,6 +143,7 @@ class ChatController extends ContractRealtimeController<ChatContract> {
     context: ContextType,
     @Inject("ChatService") private readonly chat: ChatService,
     @Inject("RoomService") private readonly rooms: RoomService,
+    @Inject("LinkPreviewService") private readonly links: LinkPreviewService,
   ) {
     super("chat", context);
   }
@@ -330,10 +337,13 @@ class ChatController extends ContractRealtimeController<ChatContract> {
     );
   }
 
+  // #region chat-link-route
   /**
    * L'aperçu d'un lien d'un message — `GET …/messages/{message}/links/{index}`.
    * Jamais une adresse : le lien de rang `index` du message, relu en base,
-   * dans un salon où l'on entre.
+   * dans un salon où l'on entre (404 si le message n'est pas de ce salon ou
+   * n'a pas ce lien). L'issue de la lecture du site tiers est une DONNÉE (200) ;
+   * au-delà de 30 aperçus par minute et par compte (par adresse pour un anonyme) : 429 + `Retry-After`.
    */
   @route("demo-chat-link", {
     path: "/rooms/{room}/messages/{message}/links/{index}",
@@ -344,8 +354,24 @@ class ChatController extends ContractRealtimeController<ChatContract> {
     input: RouteInput<{ params: typeof LinkParams }>,
   ): Promise<ChatLinkPreview> {
     await this.#admitted(input.params.room);
-    throw new HttpError("aperçu de lien : pas encore servi", 501);
+    try {
+      // Le quota se tient sur le COMPTE, sinon sur l'adresse (proxy de
+      // confiance compris) — jamais sur la session : un anonyme en change en
+      // ne renvoyant pas son cookie.
+      return await this.links.preview(
+        this.user?.id ?? this.context?.remoteAddress ?? "anonymous",
+        input.params.room,
+        input.params.message,
+        input.params.index,
+      );
+    } catch (error) {
+      if (!(error instanceof LinkPreviewRefusal)) throw error;
+      if (error.reason === "rate-limited")
+        this.response?.setHeader("Retry-After", String(error.retryAfterS));
+      throw new HttpError(error.message, linkStatusOf(error.reason));
+    }
   }
+  // #endregion
   // #endregion
 
   // #region chat-send
@@ -546,6 +572,19 @@ function statusOf(reason: RoomRefusalReason): number {
       return 409;
     case "invalid":
       return 422;
+  }
+}
+
+/**
+ * Le statut HTTP d'un refus d'aperçu. Le `switch` est EXHAUSTIF : une raison
+ * ajoutée au service sans statut ne compile pas.
+ */
+function linkStatusOf(reason: LinkPreviewRefusalReason): number {
+  switch (reason) {
+    case "not-found":
+      return 404;
+    case "rate-limited":
+      return 429;
   }
 }
 

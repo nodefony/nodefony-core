@@ -70,6 +70,26 @@ export const PeopleQuery = z.strictObject({
 });
 
 /**
+ * Un entier DÉCIMAL arrivé en texte (chemin, query), borné : chiffres seuls —
+ * ni espace, ni signe, ni `0x`, ni exposant, ni zéro de tête. `z.coerce`
+ * laissait passer `" 1"`, `"0x10"` ou `"1e2"`, devenus des nombres : une même
+ * adresse s'écrivait de plusieurs façons, qu'un cache ou un journal tenus sur
+ * le texte ne reconnaissaient plus comme une seule.
+ */
+const decimal = (min: number, max: number) =>
+  z
+    .union([
+      // Un client typé l'envoie en nombre ; un chemin ou une query, en texte.
+      z.number().int(),
+      z
+        .string()
+        .max(16)
+        .regex(/^(?:0|[1-9][0-9]*)$/u)
+        .transform(Number),
+    ])
+    .pipe(z.number().min(min).max(max));
+
+/**
  * Un identifiant d'objet dans un chemin (`{event}`, `{user}`) : la même forme
  * que celle d'un salon — les identifiants tirés par la base y entrent.
  */
@@ -90,12 +110,12 @@ export const UserParams = z.strictObject({ user: PathId });
  * `/demo/chat/rooms/{room}/messages/{message}/links/{index}`. Jamais une
  * adresse — le serveur relit le message et y prend le lien de rang `index`,
  * sinon il deviendrait un lecteur du réseau interne offert à tout le salon.
- * L'indice arrive en texte, `coerce` le convertit.
+ * L'indice arrive en texte : décimal strict, puis borné.
  */
 export const LinkParams = z.strictObject({
   room: RoomParams.shape.room,
   message: PathId,
-  index: z.coerce.number().int().min(0).max(LINK_INDEX_MAX),
+  index: decimal(0, LINK_INDEX_MAX),
 });
 
 /** L'identifiant EXACT d'un compte, tel qu'on se connecte. */
@@ -160,9 +180,9 @@ function isTimeZone(zone: string): boolean {
   }
 }
 
-/** La query de l'historique — elle arrive en texte, `coerce` la convertit. */
+/** La query de l'historique — elle arrive en texte, en décimal strict. */
 export const HistoryQuery = z.strictObject({
-  limit: z.coerce.number().int().min(1).max(CHAT_HISTORY_LIMIT).default(50),
-  /** Rattrapage après une coupure : les messages postérieurs à cet instant. */
-  since: z.coerce.number().optional(),
+  limit: decimal(1, CHAT_HISTORY_LIMIT).default(50),
+  /** Rattrapage après une coupure : les messages postérieurs à cet instant (ms). */
+  since: decimal(0, Number.MAX_SAFE_INTEGER).optional(),
 });

@@ -48,12 +48,252 @@ export type NatureBlock =
   | { nature: "diff"; source: string }
   | { nature: "math"; source: string; tex: string };
 
+/** Le séparateur de colonnes d'un tableau, dans l'ordre d'essai. */
+const SEPARATORS = ["\t", ";", ","] as const;
+
+/** L'étiquette d'un bloc de code : un mot court, sinon aucune langue. */
+const LANGUAGE_LABEL = /^[\w+#.-]{1,20}$/;
+
+/** Une ligne du texte : ses bornes, sans la fin de ligne. */
+interface ILine {
+  start: number;
+  end: number;
+}
+
+/** Les lignes du texte, bornées par `\n` — un seul passage. */
+function splitLines(text: string): ILine[] {
+  const lines: ILine[] = [];
+  let start = 0;
+  while (start <= text.length) {
+    const stop = text.indexOf("\n", start);
+    const end = stop < 0 ? text.length : stop;
+    lines.push({ start, end });
+    if (stop < 0) break;
+    start = stop + 1;
+  }
+  return lines;
+}
+
+/** Un JSON qui est un objet ou une liste (jamais un nombre ou un mot seul). */
+function parseJsonContainer(source: string): { value: unknown } | null {
+  const first = source.trimStart().charAt(0);
+  if (first !== "{" && first !== "[") return null;
+  try {
+    const value: unknown = JSON.parse(source);
+    return { value };
+  } catch {
+    return null;
+  }
+}
+
+/** Un tableau : au moins deux lignes de même largeur (≥ 2 colonnes). */
+function parseTable(
+  source: string,
+): Extract<NatureBlock, { nature: "csv" }> | null {
+  const lines = source.split("\n");
+  if (lines.length < 2) return null;
+  for (const separator of SEPARATORS) {
+    const width = (lines.at(0) ?? "")
+      .replace(/\r$/, "")
+      .split(separator).length;
+    if (width < 2) continue;
+    const table: string[][] = [];
+    let regular = true;
+    for (const line of lines) {
+      const cells = line.replace(/\r$/, "").split(separator);
+      if (cells.length !== width) {
+        regular = false;
+        break;
+      }
+      table.push(cells.map((cell) => cell.trim()));
+    }
+    if (!regular) continue;
+    return {
+      nature: "csv",
+      source,
+      separator,
+      header: table[0] ?? [],
+      rows: table.slice(1, CSV_MAX_ROWS + 1),
+      total: table.length - 1,
+    };
+  }
+  return null;
+}
+
+/** Un diff : un en-tête (`@@`, ou `---` puis `+++`) et au moins une ligne `+` ou `-`. */
+function isDiff(source: string): boolean {
+  const lines = source.split("\n");
+  let header = false;
+  let change = false;
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines.at(i) ?? "";
+    if (line.startsWith("@@")) header = true;
+    else if (
+      line.startsWith("--- ") &&
+      (lines.at(i + 1) ?? "").startsWith("+++ ")
+    )
+      header = true;
+    else if (
+      (line.startsWith("+") && !line.startsWith("+++")) ||
+      (line.startsWith("-") && !line.startsWith("---"))
+    )
+      change = true;
+  }
+  return header && change;
+}
+
+// #region chat-detect
+/** La nature d'un texte entier : JSON, tableau, diff, sinon `fallback`. */
+function analyze(source: string, fallback: NatureBlock): NatureBlock {
+  const json = parseJsonContainer(source);
+  if (json !== null) return { nature: "json", source, value: json.value };
+  const table = parseTable(source);
+  if (table !== null) return table;
+  if (isDiff(source)) return { nature: "diff", source };
+  return fallback;
+}
+// #endregion
+
 /**
- * Les blocs d'un message, chacun avec sa nature.
+ * Les blocs d'un message, chacun avec sa nature. Un bloc ```langue donne du
+ * code (sa `source` est son CORPS) ; sans étiquette, le corps est d'abord
+ * analysé comme un texte (JSON, tableau, diff) avant de n'être que du code.
+ * `$$` seul sur sa ligne ouvre une formule, fermée par un `$$` seul (ou
+ * `$$ formule $$` sur une ligne). Le texte restant, entre deux de ces blocs,
+ * est analysé EN ENTIER : JSON, tableau, diff, sinon texte.
  *
  * @param text - le texte brut, déjà borné par l'appelant
  * @returns les blocs, dans l'ordre du texte ; aucun pour un texte vide
  */
 export function detectBlocks(text: string): NatureBlock[] {
-  return text.trim() === "" ? [] : [{ nature: "text", source: text }];
+  if (text.trim() === "") return [];
+  const lines = splitLines(text);
+  const blocks: NatureBlock[] = [];
+  // Le texte entre deux blocs, par paragraphes (séparés par une ligne vide) :
+  // un JSON, un tableau ou un diff suivi de prose se reconnaît quand même.
+  const paragraphs: ILine[] = [];
+  let runStart = -1;
+  let runEnd = -1;
+  const closeParagraph = () => {
+    if (runStart >= 0) paragraphs.push({ start: runStart, end: runEnd });
+    runStart = -1;
+  };
+  /** Début du texte qui suit le dernier bloc balisé (clôture, formule). */
+  let cursor = 0;
+  /**
+   * Rend les blocs du texte courant, `source` CONTIGUËS : un bloc garde les
+   * lignes vides qui le suivent, le premier celles qui le précèdent — sans
+   * clôture ni `$$`, les sources recollées redonnent le message exact.
+   *
+   * @param boundary - où s'arrête ce texte (la balise suivante, ou la fin)
+   */
+  const flushRun = (boundary: number) => {
+    closeParagraph();
+    const run: { block: NatureBlock; from: number }[] = [];
+    let textFrom = -1;
+    const flushText = () => {
+      if (textFrom >= 0)
+        run.push({
+          block: { nature: "text", source: "" },
+          from: textFrom,
+        });
+      textFrom = -1;
+    };
+    for (const paragraph of paragraphs) {
+      const source = text.slice(paragraph.start, paragraph.end);
+      const block = analyze(source, { nature: "text", source });
+      if (block.nature === "text") {
+        // Les paragraphes de texte voisins restent UN bloc.
+        if (textFrom < 0) textFrom = paragraph.start;
+      } else {
+        flushText();
+        run.push({ block, from: paragraph.start });
+      }
+    }
+    flushText();
+    paragraphs.length = 0;
+    for (const [index, item] of run.entries()) {
+      const from = index === 0 ? cursor : item.from;
+      item.block.source = text.slice(from, run[index + 1]?.from ?? boundary);
+      blocks.push(item.block);
+    }
+  };
+  /** Le texte de la ligne `index`. */
+  const lineText = (index: number): string => {
+    const line = lines.at(index);
+    return line === undefined ? "" : text.slice(line.start, line.end);
+  };
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines.at(i);
+    if (line === undefined) break;
+    const raw = lineText(i);
+    const trimmed = raw.trim();
+    if (trimmed.startsWith("```")) {
+      flushRun(line.start);
+      const label = trimmed.slice(3).trim();
+      let j = i + 1;
+      while (j < lines.length && !lineText(j).trimStart().startsWith("```"))
+        j += 1;
+      const first = lines.at(i + 1);
+      const last = lines.at(j - 1);
+      const body =
+        j - 1 >= i + 1 && first !== undefined && last !== undefined
+          ? text.slice(first.start, last.end)
+          : "";
+      const language = LANGUAGE_LABEL.test(label) ? label.toLowerCase() : null;
+      blocks.push(
+        label !== ""
+          ? { nature: "code", source: body, language }
+          : analyze(body, { nature: "code", source: body, language: null }),
+      );
+      i = j + 1;
+      cursor = lines.at(i)?.start ?? text.length;
+      continue;
+    }
+    if (
+      trimmed.length > 4 &&
+      trimmed.startsWith("$$") &&
+      trimmed.endsWith("$$")
+    ) {
+      flushRun(line.start);
+      blocks.push({
+        nature: "math",
+        source: raw,
+        tex: trimmed.slice(2, -2).trim(),
+      });
+      i += 1;
+      cursor = lines.at(i)?.start ?? text.length;
+      continue;
+    }
+    if (trimmed === "$$") {
+      let j = i + 1;
+      while (j < lines.length && lineText(j).trim() !== "$$") j += 1;
+      if (j < lines.length) {
+        flushRun(line.start);
+        const first = lines.at(i + 1);
+        const last = lines.at(j - 1);
+        const tex =
+          j - 1 >= i + 1 && first !== undefined && last !== undefined
+            ? text.slice(first.start, last.end).trim()
+            : "";
+        blocks.push({
+          nature: "math",
+          source: text.slice(line.start, lines.at(j)?.end ?? text.length),
+          tex,
+        });
+        i = j + 1;
+        cursor = lines.at(i)?.start ?? text.length;
+        continue;
+      }
+    }
+    if (trimmed === "") closeParagraph();
+    else {
+      if (runStart < 0) runStart = line.start;
+      runEnd = line.end;
+    }
+    i += 1;
+  }
+  flushRun(text.length);
+  return blocks;
 }
