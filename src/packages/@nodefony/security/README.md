@@ -148,6 +148,11 @@ le trafic courant ne passe pas par l'audit (cold-path)
 → aucun coût ajouté au hot-path nominal. Activé par défaut (`audit.enabled`, OWASP A09), coût nul si
 désactivé. Lecture : `GET /nodefony/security/api/audit/events` (RBAC `ROLE_NODEFONY_ADMIN`).
 
+Un **flot de refus** d'une même source (même IP, même motif) ne s'écrit pas ligne à ligne : les
+10 premiers refus par fenêtre de 60 s sont journalisés tels quels, les suivants comptés, puis une ligne
+de synthèse porte le total (`metadata.aggregated`). Les succès ne sont jamais agrégés. Réglage :
+`audit.aggregate` — détail dans [docs/audit.md](docs/audit.md).
+
 **Flux temps réel** (lot 4) : canal WS **`nodefony:audit`**, réservé `ROLE_NODEFONY_ADMIN`
 (plancher système, un cran au-dessus de l'observabilité générique `ROLE_ADMIN`). Enregistré comme
 **canal système** sur le hub realtime (servable par tout endpoint, sans couplage à Studio) ;

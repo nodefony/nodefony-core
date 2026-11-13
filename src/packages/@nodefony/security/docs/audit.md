@@ -21,7 +21,7 @@ tags:
   ]
 version: "doc"
 status: stable
-updated: 2026-07-19
+updated: 2026-11-13
 source: "src/packages/@nodefony/security/docs/audit.md"
 ---
 
@@ -87,6 +87,7 @@ webhooks, console — se branche autour de lui.
 | Append-only       | On n'ajoute que des lignes ; rien n'est modifié ni supprimé, sauf la purge de rétention.           |
 | Rétention         | Durée pendant laquelle un événement reste consultable avant purge (`retentionDays`).               |
 | GC                | _Garbage collection_ : la purge périodique des événements hors rétention.                          |
+| Agrégation        | Un flot de refus d'une même source s'écrit en quelques lignes, puis une ligne de **synthèse**.     |
 | Curseur           | Jeton opaque « donne-moi la suite après celui-ci » — la façon de paginer un flux qui grandit.      |
 | Cold-path         | Chemin d'exception (échec, refus). Par opposition au **hot-path** : le chemin nominal, à coût nul. |
 | Fire-and-forget   | On lance l'écriture sans l'attendre : le flux métier ne dépend pas de son succès.                  |
@@ -246,7 +247,7 @@ sans qu'on l'ait demandée (IP, User-Agent, `requestId`), et les `flags` disent 
 
 Le même journal est consultable dans **Studio → Sécurité → Journal d'audit**.
 
-## ⚙️ Quatre situations — du besoin à la config
+## ⚙️ Cinq situations — du besoin à la config
 
 ### Situation 1 — « Qui s'est connecté à ce compte cette nuit ? »
 
@@ -327,7 +328,70 @@ Le store mémoire porte une **seconde** protection, indépendante du temps : un 
 pas une politique de rétention, c'est un garde-fou anti-fuite : la mémoire d'un pod est bornée quoi
 qu'il arrive.
 
-### Situation 4 — « Ne rien perdre quand le store tombe »
+### Situation 4 — « Un flot de refus ne doit pas noyer la base »
+
+Un robot essaie des mots de passe à 1 000 requêtes par seconde. Une ligne par refus, c'est
+86 millions de lignes par jour, conservées toute la rétention — et l'OWASP Logging Cheat Sheet
+demande justement que la journalisation n'épuise ni les ressources ni la base.
+
+Rien à configurer : les **refus** (`failure` et `denied`) sont agrégés par défaut
+(`AuditRefusalAggregator.ts#AuditRefusalAggregator`). Pour une même **source** — même catégorie,
+action, issue, motif, ressource et **IP** — et par fenêtre de 60 secondes ouverte au premier refus :
+
+1. les **10 premiers** refus sont écrits tels quels, acteur compris : l'enquêteur voit les premiers
+   essais et les comptes visés ;
+2. les suivants sont **comptés**, ni écrits ni diffusés en direct
+   (`AuditRefusalAggregator.ts#AuditRefusalAggregator.admit`) ;
+3. la fenêtre close écrit **une** ligne de synthèse qui porte le compte.
+
+```json
+{
+  "category": "auth",
+  "action": "auth.failure",
+  "outcome": "failure",
+  "actor": null,
+  "resource": "api",
+  "reason": "invalid_credentials",
+  "ip": "203.0.113.7",
+  "metadata": {
+    "aggregated": {
+      "count": 59990,
+      "firstTs": 1763548800450,
+      "lastTs": 1763548859998,
+      "windowMs": 60000
+    }
+  }
+}
+```
+
+Trois choix à connaître :
+
+- **L'IP est celle du contexte**, résolue derrière un proxy de confiance (`trustProxy`), donc non
+  forgeable par le client (`readAuditContext.ts#readAuditContext`).
+- **L'acteur n'entre pas dans la clé.** Un bourrage d'identifiants change de compte à chaque essai :
+  c'est sa source qui le trahit. La synthèse porte `actor: null` plutôt qu'un acteur choisi au hasard.
+- **Les succès ne sont jamais agrégés** : un login réussi reste une ligne, toujours.
+
+La mémoire est bornée : au-delà de 10 000 sources suivies, les refus se regroupent sous l'IP `*`.
+Le balayage des fenêtres échues n'est armé qu'au premier refus et s'arrête quand la table est vide
+(`auditService.ts#AuditService.#startSweep`) ; à l'arrêt du serveur, les comptes en cours sont résumés
+avant que le store ne soit lâché (`auditService.ts#AuditService.#shutdown`).
+
+```typescript
+use("@nodefony/security", {
+  audit: {
+    // Plus de lignes détaillées par source, sur une fenêtre plus courte.
+    aggregate: { burst: 50, windowMs: 10_000 },
+    // Ou une ligne par refus, sans exception :
+    // aggregate: { enabled: false },
+  },
+});
+```
+
+Ce qu'on observe : pour lister les flots, filtrer sur l'issue et repérer les événements dont
+`metadata.aggregated` est présent ; leur `ip` désigne la source.
+
+### Situation 5 — « Ne rien perdre quand le store tombe »
 
 La base est indisponible pendant trente secondes. Que se passe-t-il ?
 
@@ -453,7 +517,7 @@ garantit un seul appel d'horloge, centralisé hors des points d'émission.
 | `userAgent` | `string \| null`           | contexte | provenance client                                                          |
 | `requestId` | `string \| null`           | contexte | corrélation log ↔ audit ↔ trace                                            |
 | `flags`     | `IAuditEventFlags`         | contexte | **présence** de matériel sensible, jamais la valeur                        |
-| `metadata`  | `Record<string, unknown>`  | émetteur | extras applicatifs libres, absents par défaut                              |
+| `metadata`  | `Record<string, unknown>`  | émetteur | extras applicatifs libres ; `aggregated` sur une ligne de synthèse         |
 
 Les quatre derniers champs de provenance sont remplis d'un coup par `readAuditContext()`
 (`readAuditContext.ts#readAuditContext`), qui lit un contexte HTTP ou WS de façon défensive — tous les champs sont
@@ -462,7 +526,7 @@ optionnels, un contexte partiel ne casse rien.
 ## ⚡ Performance & mémoire — pourquoi l'audit ne pèse pas sur la requête
 
 C'est un point d'honneur du framework : **l'audit ne se paie que quand il se passe quelque chose**.
-Quatre mécanismes, tous prouvés par les tests.
+Six mécanismes, tous prouvés par les tests.
 
 **1. Le chemin nominal n'émet rien.** Ce n'est pas une optimisation, c'est le modèle : le firewall
 n'appelle `#recordAuth()` que depuis ses quatre sorties d'échec, jamais depuis le succès
@@ -477,7 +541,17 @@ aucun appel d'horloge. Prouvé par le banc « audit désactivé → `issueTokens
 **3. L'écriture ne bloque pas.** `append()` part sans `await`, avec un `.catch()` qui logge
 (`auditService.ts#AuditService.record`). La latence du store n'entre jamais dans la latence de la requête.
 
-**4. Tout ce qui n'est pas utilisé n'est pas alloué.** La liste d'abonnés live reste `null` tant que
+**4. Les écritures SQL sont groupées.** Le store Drizzle accumule les événements d'un tour de boucle
+et les écrit en un seul `INSERT` multi-lignes au tour suivant (`DrizzleAuditStore.ts#DrizzleAuditStore.append`) ;
+une lecture ou une purge vide d'abord le lot en attente, donc on relit toujours ce qu'on vient
+d'écrire. Mesuré sur un serveur de production local : un refus coûtait plus cher qu'un appel réussi
+quand chaque événement avait son `INSERT` ; groupé, il revient au même ordre de grandeur.
+
+**5. Un flot de refus se résume.** Au-delà de quelques refus d'une même source par fenêtre, les
+suivants sont comptés au lieu d'être écrits (voir la situation 4). Le coût d'un refus compté se
+réduit à une recherche dans une table bornée.
+
+**6. Tout ce qui n'est pas utilisé n'est pas alloué.** La liste d'abonnés live reste `null` tant que
 personne n'écoute et **redevient** `null` au dernier désabonnement (`auditService.ts#AuditService.subscribe`). Le pont
 WS n'existe qu'entre le premier et le dernier auditeur connecté, et son tampon circulaire n'est
 alloué qu'au premier événement reçu (`auditBridge.ts#createAuditBridge`) ; son minuteur est armé à la demande et
@@ -494,13 +568,17 @@ jamais faire tomber ce qu'on supervise.
 Table dérivée du schéma Zod `auditSchema` (`config.ts#auditSchema`), rattaché à la racine sous la clé `audit`
 (`config.ts#securityConfigSchema`).
 
-| Option          | Type      | Défaut   | Effet                                                                                |
-| --------------- | --------- | -------- | ------------------------------------------------------------------------------------ |
-| `enabled`       | `boolean` | `true`   | `false` → `record()` no-op à coût nul, `listPage()` page vide, endpoint admin en 503 |
-| `store`         | `string`  | `"auto"` | nom résolu par le registre : `auto`, `memory`, `drizzle`, `mongoose`                 |
-| `retentionDays` | `number`  | `365`    | fenêtre de conservation ; au-delà, la purge horaire supprime                         |
-| `immutable`     | `boolean` | `true`   | déclaré au schéma — voir l'avertissement ci-dessous                                  |
-| `stream`        | `boolean` | `true`   | déclaré au schéma — voir l'avertissement ci-dessous                                  |
+| Option               | Type      | Défaut   | Effet                                                                                |
+| -------------------- | --------- | -------- | ------------------------------------------------------------------------------------ |
+| `enabled`            | `boolean` | `true`   | `false` → `record()` no-op à coût nul, `listPage()` page vide, endpoint admin en 503 |
+| `store`              | `string`  | `"auto"` | nom résolu par le registre : `auto`, `memory`, `drizzle`, `mongoose`                 |
+| `retentionDays`      | `number`  | `365`    | fenêtre de conservation ; au-delà, la purge horaire supprime                         |
+| `immutable`          | `boolean` | `true`   | déclaré au schéma — voir l'avertissement ci-dessous                                  |
+| `stream`             | `boolean` | `true`   | déclaré au schéma — voir l'avertissement ci-dessous                                  |
+| `aggregate.enabled`  | `boolean` | `true`   | agrège les refus d'une même source ; `false` → une ligne par refus                   |
+| `aggregate.windowMs` | `number`  | `60000`  | durée d'une fenêtre, ouverte au premier refus d'une source                           |
+| `aggregate.burst`    | `number`  | `10`     | refus écrits tels quels par source et par fenêtre, avant le simple comptage          |
+| `aggregate.maxKeys`  | `number`  | `10000`  | sources suivies au plus ; au-delà, regroupement sous l'IP `*`                        |
 
 > [!WARNING]
 > `immutable` et `stream` sont déclarés dans le schéma mais **ne sont lus par aucun code** aujourd'hui.
@@ -667,6 +745,7 @@ Deux autres propriétés de sécurité valent d'être connues :
 | ----------------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------- |
 | Journaliser les échecs d'authentification | OWASP Logging Cheat Sheet         | `auth.failure`/`auth.throttled`/`auth.denied` (`firewall.ts#Firewall.describeRoleHierarchy`) |
 | Journaliser les refus d'autorisation      | OWASP A09:2021                    | `access.denied` sur tout refus du jury (`authorization.ts#Authorization.#auditDeny`)         |
+| Ne pas épuiser les ressources ni la base  | OWASP Logging Cheat Sheet         | refus agrégés par source et par fenêtre (`AuditRefusalAggregator.ts#AuditRefusalAggregator`) |
 | Ne jamais journaliser de secret           | OWASP Logging Cheat Sheet         | flags de **présence** seuls (`IAuditEvent.ts#AuditOutcome`)                                  |
 | Traçabilité « qui, quoi, quand, d'où »    | ISO 27001 A.8.15 (journalisation) | acteur, action, horodatage et provenance dans `IAuditEvent` (`IAuditEvent.ts#IAuditEvent`)   |
 | Journal inaltérable                       | ISO 27001 A.8.15                  | contrat append-only, aucune mutation exposée (`IAuditStore.ts#IAuditStore`)                  |
@@ -699,19 +778,20 @@ webhook. Détail des souscriptions, de la signature et des relivraisons → [web
 
 ## ⚠️ Pièges
 
-| Symptôme                                            | Cause (dans le code)                                                                   | Correction                                                 |
-| --------------------------------------------------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Journal vide après un redémarrage                   | Store `memory` : volatile et per-pod (`MemoryAuditStore.ts#MemoryAuditStore`)          | `audit.store: "drizzle"` (ou déclarer `NF_DATABASE_URL`)   |
-| Un pod voit des événements, l'autre non             | Store `memory` non partagé                                                             | Store durable partagé                                      |
-| Le boot échoue en production sur l'audit            | Store **explicite** inconnu, fail-closed (`auditService.ts#AuditService.#build`)       | Corriger le nom, ou charger l'adapter qui l'enregistre     |
-| `limit=5000` ne rend que 200 événements             | Plafond de l'endpoint (`parsePageQuery`, `pageQuery.ts#toPageParams`)                  | Paginer avec `nextCursor`, jamais gonfler `limit`          |
-| La page 2 répète ou saute des événements            | Pagination réimplémentée en offset                                                     | Repasser le `nextCursor` reçu — le curseur est opaque      |
-| `?category=authen` renvoie 400                      | Valeur hors union refusée (`PageQueryError`)                                           | Utiliser une valeur de l'union (`auth`, `authz`, `token`…) |
-| Le paramètre `q` renvoie 400                        | Recherche plein texte non supportée sur ce journal                                     | Filtrer par `category`/`actor`/`action`/`requestId`        |
-| `stream: false` ne coupe pas le live                | Drapeau non lu ; le live suit `#listeners` (`auditService.ts#AuditService.#listeners`) | Retirer le rôle admin, ou ne pas exposer le canal          |
-| Trous dans le journal pendant une panne de base     | Écriture best-effort (`auditService.ts#AuditService.record`)                           | Store à haute disponibilité si la conformité l'exige       |
-| Aucun `login.success` alors que les logins marchent | Le succès du **firewall** est muet ; `login.success` vient du BFF                      | Filtrer `action=login.success`, pas `category=auth` seul   |
-| Endpoint d'audit en 503                             | `audit.enabled: false` (`SecurityAdminApi.ts#createSecurityAdminApi`)                  | Réactiver l'audit en configuration                         |
+| Symptôme                                            | Cause (dans le code)                                                                   | Correction                                                      |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Journal vide après un redémarrage                   | Store `memory` : volatile et per-pod (`MemoryAuditStore.ts#MemoryAuditStore`)          | `audit.store: "drizzle"` (ou déclarer `NF_DATABASE_URL`)        |
+| Un pod voit des événements, l'autre non             | Store `memory` non partagé                                                             | Store durable partagé                                           |
+| Le boot échoue en production sur l'audit            | Store **explicite** inconnu, fail-closed (`auditService.ts#AuditService.#build`)       | Corriger le nom, ou charger l'adapter qui l'enregistre          |
+| `limit=5000` ne rend que 200 événements             | Plafond de l'endpoint (`parsePageQuery`, `pageQuery.ts#toPageParams`)                  | Paginer avec `nextCursor`, jamais gonfler `limit`               |
+| La page 2 répète ou saute des événements            | Pagination réimplémentée en offset                                                     | Repasser le `nextCursor` reçu — le curseur est opaque           |
+| `?category=authen` renvoie 400                      | Valeur hors union refusée (`PageQueryError`)                                           | Utiliser une valeur de l'union (`auth`, `authz`, `token`…)      |
+| Le paramètre `q` renvoie 400                        | Recherche plein texte non supportée sur ce journal                                     | Filtrer par `category`/`actor`/`action`/`requestId`             |
+| `stream: false` ne coupe pas le live                | Drapeau non lu ; le live suit `#listeners` (`auditService.ts#AuditService.#listeners`) | Retirer le rôle admin, ou ne pas exposer le canal               |
+| Trous dans le journal pendant une panne de base     | Écriture best-effort (`auditService.ts#AuditService.record`)                           | Store à haute disponibilité si la conformité l'exige            |
+| Aucun `login.success` alors que les logins marchent | Le succès du **firewall** est muet ; `login.success` vient du BFF                      | Filtrer `action=login.success`, pas `category=auth` seul        |
+| 10 lignes pour 1 000 échecs d'une même IP           | Agrégation des refus (`AuditRefusalAggregator.ts#AuditRefusalAggregator`)              | Lire la synthèse (`metadata.aggregated`), ou régler `aggregate` |
+| Endpoint d'audit en 503                             | `audit.enabled: false` (`SecurityAdminApi.ts#createSecurityAdminApi`)                  | Réactiver l'audit en configuration                              |
 
 ## 🧪 Tests & couverture
 
@@ -723,6 +803,9 @@ Cinq familles couvrent la brique :
   isolation d'un abonné qui lève) ; `auditStoreRegistry` (builtin enregistré à l'import, fabrique
   défensive sur config partielle, backend inconnu) ; `auditBridge` (coalescing borné, nettoyage,
   plancher `ROLE_NODEFONY_ADMIN` du canal).
+- **unit — l'agrégation** : `auditRefusalAggregator` prouve qu'un flot d'une source s'écrit en
+  10 lignes plus une synthèse, que deux IP restent deux sources, que la mémoire est bornée, que
+  l'arrêt résume les comptes en cours et que les succès ne sont jamais agrégés.
 - **unit — l'émission** : `auditEmission` prouve que `AuthFlow` et `Authorization` journalisent
   **réellement** via le container partagé, exactement comme en production.
 - **unit — le hot-path** : `auditEmissionHotPath` est le banc le plus instructif de la brique. Il
