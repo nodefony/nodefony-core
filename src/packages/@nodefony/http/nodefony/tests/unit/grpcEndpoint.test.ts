@@ -45,7 +45,7 @@ import {
 import { GRPC_DEFAULT_MAX_MESSAGE_BYTES } from "../../src/grpc/limits";
 import type { IRpcCall } from "../../interfaces/IRpcCall";
 import zlib from "node:zlib";
-import { once } from "node:events";
+import { promisify } from "node:util";
 import HttpError from "../../src/errors/httpError";
 import type HttpContext from "../../src/context/http/HttpContext";
 import { responseEnded } from "../../src/context/responseEnded";
@@ -974,33 +974,30 @@ async function grpcWebCall(
   return reply;
 }
 
+const gzip = promisify(zlib.gzip);
+const BOMB_LEVEL = { level: zlib.constants.Z_BEST_COMPRESSION };
+
 /**
  * Bombe gzip : un `Msg` dont le texte décompressé fait `textLength` octets,
- * compressé en flux — le banc lui-même n'alloue jamais la taille décompressée.
+ * en membres gzip CONCATÉNÉS — l'en-tête du message, puis un même membre de
+ * 1 Mio répété (RFC 1952 §2.2 ; `zlib.gunzip` les enchaîne).
  *
- * Niveau le plus rapide : au niveau par défaut, compresser 256 Mio coûte
- * ~0,9 s en local et dépassait le délai de 5 s sur les machines Windows de
- * la CI — le banc mesurait sa propre fabrication. Le niveau 1 coûte 4 fois
- * moins pour un message de ~1,1 Mio, toujours sous la borne filaire : la
- * bombe atteint bien la décompression, seule mise à l'épreuve ici.
+ * Fabriquer la bombe ne coûte ainsi qu'UN mébioctet compressé (~5 ms) : la
+ * compresser en flux coûtait ~250 ms de CPU. Sous Windows, le paquet seul
+ * passe en ~300 ms ; dans le job `npm test` de la CI (tous les paquets en
+ * parallèle), la bombe de 16 Mio y prenait ~1 s au lieu de ~40 ms, et celle
+ * de 256 Mio dépassait le délai de 5 s.
+ * Sur le fil : ~263 Kio pour 256 Mio, sous la borne filaire de 4 Mio ; la
+ * décompression reste seule mise à l'épreuve.
  */
 async function gzipBomb(textLength: number): Promise<Uint8Array> {
-  const gzip = zlib.createGzip({ level: zlib.constants.Z_BEST_SPEED });
-  const chunks: Buffer[] = [];
-  gzip.on("data", (chunk: Buffer) => chunks.push(chunk));
-  const ended = once(gzip, "end");
-  gzip.write(msgHead(textLength, new Uint8Array(5)));
-  const block = Buffer.alloc(1 << 20, 0x61);
-  for (let written = 0; written < textLength; written += block.length) {
-    const piece =
-      textLength - written >= block.length
-        ? block
-        : block.subarray(0, textLength - written);
-    if (!gzip.write(piece)) await once(gzip, "drain");
-  }
-  gzip.end();
-  await ended;
-  return new Uint8Array(Buffer.concat(chunks));
+  const block = 1 << 20;
+  const parts: Buffer[] = [await gzip(msgHead(textLength, new Uint8Array(5)))];
+  const full = await gzip(Buffer.alloc(block, 0x61), BOMB_LEVEL);
+  for (let n = Math.floor(textLength / block); n > 0; n--) parts.push(full);
+  const rest = textLength % block;
+  if (rest > 0) parts.push(await gzip(Buffer.alloc(rest, 0x61), BOMB_LEVEL));
+  return new Uint8Array(Buffer.concat(parts));
 }
 
 const MIB = 1024 * 1024;
