@@ -425,6 +425,14 @@
     // déjà `tabIndex` et clavier, posé sur un conteneur qui RENFERME d'autres
     // commandes — or un `<button>` ne s'imbrique pas.
     "jsx-a11y/prefer-tag-over-role": "off",
+    // Une zone qui DÉFILE doit se joindre au clavier (WCAG 2.1.1 ; règle
+    // axe `scrollable-region-focusable`) : le patron WAI est `role="region"`,
+    // un nom accessible et `tabIndex`. Le défaut de la règle n'admet que
+    // `tabpanel` ; un autre rôle non interactif focalisable reste refusé.
+    "jsx-a11y/no-noninteractive-tabindex": [
+      "error",
+      { "roles": ["tabpanel", "region"] }
+    ],
     // Les diagnostics du REACT COMPILER — leurs messages sont ceux de ses
     // abandons (« Existing memoization could not be preserved », « Cannot access
     // refs during render »). Ils décrivent ce que le compilateur ne saurait pas

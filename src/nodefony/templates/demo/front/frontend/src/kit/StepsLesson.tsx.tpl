@@ -1,4 +1,10 @@
-import { useState, type KeyboardEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { Inline } from "../Catalogue";
 import { tabTargetIndex } from "../effects";
 import { Excerpt } from "../lesson/LessonCode";
@@ -95,6 +101,24 @@ export function StepsLesson<E extends ILessonExcerpt>({
   >({});
   const [live, setLive] = useState<ILive | null>(null);
   const step = steps.at(selected) ?? steps[0];
+  // La colonne de code défile quand un geste cite beaucoup : elle doit alors
+  // se joindre au clavier (WCAG 2.1.1), et seulement alors — focalisable
+  // sans rien à faire défiler, elle ajouterait un arrêt vide à la tabulation.
+  const code = useRef<HTMLDivElement | null>(null);
+  const [codeScrolls, setCodeScrolls] = useState(false);
+  useEffect(() => {
+    const element = code.current;
+    if (element === null) return undefined;
+    const measure = () => {
+      setCodeScrolls(element.scrollHeight > element.clientHeight);
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    measure();
+    return () => {
+      observer.disconnect();
+    };
+  }, [step.id]);
 
   const choose = (index: number) => {
     const next = steps.at(index);
@@ -161,7 +185,13 @@ export function StepsLesson<E extends ILessonExcerpt>({
         aria-labelledby={`steps-tab-${step.id}`}
         className="steps-stage"
       >
-        <div className="steps-code">
+        <div
+          ref={code}
+          className="steps-code"
+          role="region"
+          aria-label={`Code du geste ${selected + 1}`}
+          tabIndex={codeScrolls ? 0 : undefined}
+        >
           {step.excerpts.map((excerpt) => (
             <Excerpt
               key={`${excerpt.file}#${excerpt.region}`}
