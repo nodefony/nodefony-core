@@ -1029,10 +1029,15 @@ transports de connect-es.
        référence de la suite de conformité) lit ce `RST_STREAM` en erreur malgré §8.1
        (`stream error … NO_ERROR; received from peer`) : 4 cas `unexpected-uri` rouges, et 13
        cas du banc `grpc-refusal.test.ts` avec les clients Node et connect-es.
-     - Bornes : un `PING` par refus au corps inachevé, chemin d'erreur seul ; Node plafonne à 10
-       `PING` en vol par session (constaté), au-delà la coupe est immédiate — la règle des
-       autres. Un client muet ou qui émet sans fin est coupé en un aller-retour (banc #765
-       vert). `request.complete` ne sert pas : il ne passe à `true` qu'une fois le corps
+     - Bornes : un `PING` par aller-retour et PAR SESSION, quel que soit le nombre de refus
+       en attente (`http2StreamGrace.ts#closeStreamAfterGrace`), chemin d'erreur seul. Un
+       refus arrivé pendant un `PING` en vol attend le suivant ; jamais de coupe sans grâce :
+       un `RST_STREAM` soumis pendant que la réponse attend dans la file de nghttp2 la fait
+       jeter, ce que §8.1 exclut (« after sending a complete response »). La première version
+       coupait aussitôt au-delà des 10 `PING` en vol de Node : 22 réponses perdues sur 32
+       refus simultanés (banc du critère 27). Session en fermeture gracieuse : plus de `PING`
+       possible, coupe au tour de boucle suivant. Un client muet ou qui émet sans fin est
+       coupé en un aller-retour (banc #765 vert). `request.complete` ne sert pas : il ne passe à `true` qu'une fois le corps
        CONSOMMÉ ;
    - un 404 coûte moins qu'aujourd'hui.
 2. **Une requête `application/grpc` (gRPC natif) refusée avant l'adaptateur s'écrit en forme gRPC**
