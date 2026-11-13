@@ -1112,8 +1112,13 @@ transports de connect-es.
    - `grpcurl`, version figée, installé dans la CI Linux sur le patron de gitleaks
      (`.github/workflows/secrets.yml`), et déclaré dans `scripts/test/vitest/gates.ts` ;
    - le cas « `writeHead` puis `end` » est vu rouge une fois.
-5. **Signalement amont à connect-es** : le 404 nu par défaut que grpc-go lit `INTERNAL`. Envoyé :
-   connect-es#1882, remesuré sur le vrai `connectNodeAdapter` avant l'envoi.
+5. **Signalement amont** : le 404 nu par défaut que grpc-go lit `INTERNAL`. Envoyé à connect-es
+   (connect-es#1882), qui l'a refusé : le défaut est un bug de grpc-go introduit en 1.82.0 et
+   corrigé en 1.84.0 (grpc-go#9217), et le 404 nu reste le bon défaut d'un routeur qui partage
+   le serveur avec d'autres routes. La mise à jour de la dépendance est demandée à grpcurl
+   (fullstorydev/grpcurl#592) : sa v1.9.4, celle que la CI fige, embarque grpc-go 1.83.2. Ce
+   point 2 ne change pas : Nodefony possède tout le serveur, il écrit donc `UNIMPLEMENTED`
+   lui-même, comme la spécification le demande au serveur, quelle que soit la version du client.
 
 **Coût**
 
