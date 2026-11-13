@@ -1,7 +1,7 @@
 ---
 name: nodefony-framework-dev
 metadata:
-  version: 2.3.0
+  version: 2.4.0
 description: >
   Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs,
   WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services,
@@ -12,7 +12,7 @@ description: >
   dans le kernel", "toucher au cœur ou au pipeline", "créer un service injectable/module/controller", "commande CLI",
   "entité/repository/adapter ORM", "store et pagination", "listPage/contrat IPage", "endpoint
   HTTP/WS ou data plane admin", "décorateur route", "@IsGranted/@Idempotent", "realtime/WebSocket",
-  "firewall", "certificats TLS", "structure d'un module", "defineConfig",
+  "service gRPC", "firewall", "certificats TLS", "structure d'un module", "defineConfig",
   "où brancher ce comportement ?".
 ---
 
@@ -352,6 +352,7 @@ entre les deux voies → skill **`nodefony-inspect`**.
 | Entité `@entity`, Repository (contrat CRUD complet : `upsert`/`createMany`/`exists`/`increment`/`deleteOne`/`findOneAndDelete`…), Service CRUD, tx, data plane ORM, multi-dialecte                                     | `references/orm.md`                                  |
 | **Rendre une LISTE** : contrat `IPageQuery`/`IPage`, `parsePageQuery`, `parseFilters`/`IFilterSpec`, `countFacets`/`IFacetSpec`, `pickOrder`, publier la capacité (`IAdminEndpoint.page`) — **le défaut est le REFUS** | `references/pagination.md`                           |
 | Realtime : socket isomorphe, WS, hub, `RealtimeService`, Redis backplane, pont TCP/UDP/SIP                                                                                                                             | `references/realtime.md`                             |
+| **gRPC** : `@GrpcService` + `GrpcController`, contrat `buf`, transport Connect, refus 16/7, deux tables de codes, arrêt, preuves (conformité, interop)                                                                 | `references/grpc.md`                                 |
 | Coder AVEC la sécurité (sources normatives, `npm audit`)                                                                                                                                                               | `references/security.md`                             |
 | **Normes/RFC exactes** (HTTP/WS/cookies/CORS/auth/crypto) — bundle offline                                                                                                                                             | `references/rfc/` (index `references/rfc/README.md`) |
 | **Gotchas TRANSVERSES & diagnostic** (perf, ALS, boot, build ; reproduire un bug)                                                                                                                                      | `references/gotchas.md`                              |

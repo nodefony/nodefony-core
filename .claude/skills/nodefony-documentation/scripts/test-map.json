@@ -332,6 +332,25 @@
       "src/packages/@nodefony/frontend/nodefony/tests/integration/frontend-build.test.ts"
     ]
   },
+  "grpc": {
+    "unit": [
+      "src/packages/@nodefony/framework/nodefony/tests/unit/grpcService.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/grpcService.types.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/grpcQuickstart.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/unit/grpcEndpoint.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/unit/grpcRefusal.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/unit/grpcCors.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/framework/nodefony/tests/integration/grpc.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/integration/grpc-refusal.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/integration/grpc-streams.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/integration/grpc-context.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/integration/grpc-cors.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/integration/grpc-observability.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/integration/grpc-interop.test.ts"
+    ]
+  },
   "headers": {
     "unit": [
       "src/packages/@nodefony/security/tests/unit/securityHeaders.test.ts",

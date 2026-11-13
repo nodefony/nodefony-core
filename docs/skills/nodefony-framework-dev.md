@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-11-10
+updated: 2026-11-13
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-framework-dev/SKILL.md"
 ---
@@ -18,7 +18,7 @@ source: ".claude/skills/nodefony-framework-dev/SKILL.md"
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v2.3.0`.
+> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v2.4.0`.
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -26,13 +26,13 @@ source: ".claude/skills/nodefony-framework-dev/SKILL.md"
 
 | | |
 | --- | --- |
-| Version | `2.3.0` |
+| Version | `2.4.0` |
 | Famille | Développer le framework |
-| Corps | 411 lignes |
-| Coût d'activation | ~9 787 tokens (le corps est chargé à l'invocation) |
-| Description | 980 / 1024 caractères |
-| Déclencheurs | 17 |
-| Ressources `references/` | 11 page(s), 105 fichiers au total |
+| Corps | 412 lignes |
+| Coût d'activation | ~9 859 tokens (le corps est chargé à l'invocation) |
+| Description | 996 / 1024 caractères |
+| Déclencheurs | 18 |
+| Ressources `references/` | 12 page(s), 106 fichiers au total |
 | Scripts | 0 |
 | Conformité | ✅ conforme au standard |
 
@@ -50,7 +50,7 @@ Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pa
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
 
-`modifier du code backend` · `coder dans le kernel` · `toucher au cœur ou au pipeline` · `créer un service injectable/module/controller` · `commande CLI` · `entité/repository/adapter ORM` · `store et pagination` · `listPage/contrat IPage` · `endpoint HTTP/WS ou data plane admin` · `décorateur route` · `@IsGranted/@Idempotent` · `realtime/WebSocket` · `firewall` · `certificats TLS` · `structure d'un module` · `defineConfig` · `où brancher ce comportement ?`
+`modifier du code backend` · `coder dans le kernel` · `toucher au cœur ou au pipeline` · `créer un service injectable/module/controller` · `commande CLI` · `entité/repository/adapter ORM` · `store et pagination` · `listPage/contrat IPage` · `endpoint HTTP/WS ou data plane admin` · `décorateur route` · `@IsGranted/@Idempotent` · `realtime/WebSocket` · `service gRPC` · `firewall` · `certificats TLS` · `structure d'un module` · `defineConfig` · `où brancher ce comportement ?`
 
 ## Ce que contient le corps
 
@@ -72,6 +72,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/core.md` | Core (nodefony) — référence complète (recettes + API + internals + gotchas) | 761 |
 | `references/framework.md` | @nodefony/framework (Router/Controller/admin) — référence complète (recettes + API + internals + gotchas) | 617 |
 | `references/gotchas.md` | Gotchas & diagnostic — règles durables (vérité courante) | 95 |
+| `references/grpc.md` | gRPC — servir et faire évoluer un service déclaré par un module | 95 |
 | `references/http.md` | @nodefony/http (pipeline/serveurs/WS/TLS) — référence complète (recettes + API + internals + gotchas) | 618 |
 | `references/orm.md` | ORM (orm-core/drizzle/mongoose) — référence complète (recettes + API + internals + gotchas) | 697 |
 | `references/pagination.md` | Pagination, tri, filtres, facettes — le contrat de page | 468 |
@@ -94,14 +95,14 @@ _(+ 94 fichiers dans des sous-dossiers : specs et normes bundlées hors ligne.)_
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
 | en-tête analysable par un vrai parseur YAML | ℹ️ normatif | ✅ |  | spec § frontmatter : « YAML frontmatter » — un en-tête que YAML refuse n'est pas rendu par GitHub, alors que le parseur de l'agent, tolérant, l'accepte sans un mot |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 980 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 996 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 411 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 412 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

@@ -45,6 +45,35 @@ function inertDecorators(meta: RouteActionMeta): string[] {
  * Singleton par défaut : aucune instance par appel, l'adaptateur lie les
  * méthodes une fois. `@Scope("request")` donne une instance par appel.
  *
+ * Ce que le framework décide pour chaque méthode, sans code de ta part :
+ * - les gardes (`@IsGranted`, `@RequireAuthentication`…) posées sur la
+ *   méthode ou la classe s'appliquent ; un refus part en 16
+ *   `UNAUTHENTICATED` sans identité, en 7 `PERMISSION_DENIED` sinon ;
+ * - `this.user`, l'ALS et la portée `request` valent pendant tout l'appel,
+ *   flux compris ;
+ * - une `ConnectError` part telle quelle ; une `HttpError` est traduite par
+ *   la table de `google/rpc/code.proto` ; toute autre exception devient 13
+ *   `INTERNAL`. Dans un flux, la traduction ne vaut qu'avant le premier
+ *   message ;
+ * - un flux est interrompu en 14 `UNAVAILABLE` à l'arrêt du serveur et en 16
+ *   à la révocation de son identité : passer `ctx.signal` à ses sources ;
+ * - messages bornés à 4 Mio (section `grpc` de la configuration http).
+ *
+ * Un décorateur sans effet en gRPC (`@Body`, `@UseSession`, `@Csp`,
+ * `@Idempotent`…) sur une méthode du contrat interrompt le démarrage.
+ * Guide complet : `docs/grpc.md` du paquet.
+ *
+ * @example
+ * \@GrpcService(GreetService)
+ * export class GreetController extends GrpcController {
+ *   constructor(context: ContextType) {
+ *     super("GreetController", context);
+ *   }
+ *   greet(request: GreetRequest) {
+ *     return { greeting: `Bonjour, ${request.name} !` };
+ *   }
+ * }
+ *
  * @experimental Surface gRPC, ADR-0026 D11.
  */
 export abstract class GrpcController extends Controller {

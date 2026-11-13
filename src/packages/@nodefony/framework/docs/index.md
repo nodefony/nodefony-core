@@ -53,14 +53,15 @@ Trois parcours selon ce que tu viens faire. L'ordre compte : chaque étape suppo
 
 Le tableau pour choisir vite ; les cards en dessous pour savoir ce qu'on y trouve.
 
-| Brique                          | Ce qu'elle résout                                  | Tu en as besoin quand…                                    |
-| ------------------------------- | -------------------------------------------------- | --------------------------------------------------------- |
-| [Décorateurs](decorateurs.md)   | déclarer routes, paramètres, réponses, gardes      | toujours — c'est la surface d'écriture                    |
-| [Contrôleurs](controller.md)    | recevoir la requête, répondre, gérer l'erreur      | toujours                                                  |
-| [Routage](routing.md)           | apparier une URL à une action, arbitrer, expliquer | deux routes se disputent, ou un 404/405 surprend          |
-| [Idempotence](idempotence.md)   | empêcher le double effet d'une mutation rejouée    | paiement, commande, tout effet non rejouable              |
-| [Admin (data plane)](admin.md)  | monter les API d'admin `/nodefony/<ns>/api/*`      | ton module expose des stats ou actions à Studio et au CLI |
-| [Templates (Eta)](templates.md) | rendre des vues HTML côté serveur                  | tu renvoies des pages HTML plutôt que du JSON             |
+| Brique                          | Ce qu'elle résout                                  | Tu en as besoin quand…                                                                  |
+| ------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| [Décorateurs](decorateurs.md)   | déclarer routes, paramètres, réponses, gardes      | toujours — c'est la surface d'écriture                                                  |
+| [Contrôleurs](controller.md)    | recevoir la requête, répondre, gérer l'erreur      | toujours                                                                                |
+| [Routage](routing.md)           | apparier une URL à une action, arbitrer, expliquer | deux routes se disputent, ou un 404/405 surprend                                        |
+| [Idempotence](idempotence.md)   | empêcher le double effet d'une mutation rejouée    | paiement, commande, tout effet non rejouable                                            |
+| [gRPC](grpc.md)                 | servir un service gRPC, gRPC-Web et Connect        | des programmes d'autres langages, des sondes ou un navigateur appellent un contrat typé |
+| [Admin (data plane)](admin.md)  | monter les API d'admin `/nodefony/<ns>/api/*`      | ton module expose des stats ou actions à Studio et au CLI                               |
+| [Templates (Eta)](templates.md) | rendre des vues HTML côté serveur                  | tu renvoies des pages HTML plutôt que du JSON                                           |
 
 ```nodefony-cards
 [
@@ -76,6 +77,9 @@ Le tableau pour choisir vite ; les cards en dessous pour savoir ce qu'on y trouv
   { "icon": "🔁", "title": "idempotence", "href": "idempotence.md",
     "desc": "@Idempotent, la clé d'idempotence, les quatre stores (mémoire, Redis, SQL, MongoDB) et leurs capacités réelles, le GC des entrées expirées, et ce que le client observe quand il rejoue la même clé.",
     "meta": "paiement, commande, tout effet non rejouable" },
+  { "icon": "📡", "title": "grpc", "href": "grpc.md",
+    "desc": "Déclarer un service gRPC par un contrôleur : le contrat et sa génération, les trois protocoles et leurs ports, les limites, les refus 16/7, les erreurs, l'arrêt, CORS et le journal — avec le pourquoi de chaque choix. Surface expérimentale.",
+    "meta": "un contrat typé appelé par d'autres langages, des sondes ou un navigateur" },
   { "icon": "🛡️", "title": "admin", "href": "admin.md",
     "desc": "Le data plane d'administration : comment un module déclare son API d'admin via AdminBroker, la convention de route /nodefony/<ns>/api/*, le RBAC fail-closed (ROLE_NODEFONY_ADMIN), le duplex HTTP/WebSocket, le catalogue et le Playground.",
     "meta": "exposer une API d'admin cohérente CLI ↔ Web" },

@@ -36,6 +36,12 @@ export type GrpcServiceClass<S extends DescService> = new (
  * Les décorateurs de classe `@Domain` et `@BypassFirewall` se placent SOUS
  * `@GrpcService` (lus au montage des routes, comme sous `@controller`).
  *
+ * Le descripteur vient du code généré, jamais écrit à la main : contrat dans
+ * `proto/<paquet>/v1/*.proto`, `npx buf generate` vers `nodefony/gen/`, code
+ * commité. Les routes répondent sur 5152 (gRPC, gRPC-Web, Connect), 5151
+ * (gRPC-Web, Connect : HTTP/1.1, jamais le gRPC natif) et 5153 si h2c est
+ * activé. Guide complet : `docs/grpc.md` du paquet.
+ *
  * @param service - le descripteur du service.
  * @returns le décorateur de classe.
  * @throws BootConfigurationError quand une autre classe sert déjà ce contrat.
