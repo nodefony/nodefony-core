@@ -111,6 +111,10 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // demande sur sa seule page, jamais par le framework.
   three: "^0.187.0",
   "@types/three": "^0.187.0",
+  // Le chat de la démo : coloration du code (BSD-3) et formules (MIT), chargées
+  // par `import()` au premier bloc qui en a besoin.
+  "highlight.js": "^11.12.0",
+  katex: "^0.19.1",
   vue: "^3.5.45",
   "@vitejs/plugin-vue": "^6.0.11",
   svelte: "^5.57.3",

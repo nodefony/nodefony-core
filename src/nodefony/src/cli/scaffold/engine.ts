@@ -3544,7 +3544,12 @@ function renderModuleSkeleton(
 const DEMO_FRONTEND = "react" satisfies Exclude<TFrontendChoice, "none">;
 
 /** Dépendances de développement propres au front de la démo, versions lues dans `SCAFFOLD_VERSIONS`. */
-export const DEMO_FRONT_DEV_DEPS = ["three", "@types/three"] as const;
+export const DEMO_FRONT_DEV_DEPS = [
+  "three",
+  "@types/three",
+  "highlight.js",
+  "katex",
+] as const;
 
 /**
  * Le runtime gRPC de la carte gRPC de la démo, versions lues dans
