@@ -6,6 +6,7 @@ import type {
   EventParams,
   HistoryQuery,
   InviteBody,
+  LinkParams,
   PeopleQuery,
   ReplyBody,
   RoomParams,
@@ -73,6 +74,40 @@ export const ATTACHMENT_MAX_COUNT = 5;
 
 /** …de 2 Mio chacune (2 × 1024 × 1024 octets). */
 export const ATTACHMENT_MAX_BYTES = 2_097_152;
+
+/**
+ * Au plus cent liens d'un message ont un aperçu (indices 0 à 99) : le n-ième
+ * lien que `parseInline` (`kit/markdown.ts`) trouve dans le texte — la page
+ * et le serveur comptent avec la MÊME règle.
+ */
+export const LINK_INDEX_MAX = 99;
+
+/**
+ * Ce que le serveur a lu d'un lien d'un message, ou pourquoi il ne l'a pas
+ * lu. La route ne prend jamais une adresse : elle désigne un lien d'un
+ * message qu'on a le droit de lire. Les refus du SALON gardent leur statut
+ * (404, 403) et le quota rend 429 ; l'issue de la lecture du site tiers est
+ * une DONNÉE, que la page traite cas par cas.
+ *
+ * - `read` : titre et description de la page — jamais d'image ;
+ * - `internal` : l'adresse vise le réseau du serveur (garde SSRF) ;
+ * - `timeout` : pas de réponse complète dans le délai ;
+ * - `not-html` : le site ne rend pas une page web ;
+ * - `unreachable` : nom inconnu, connexion refusée, statut d'erreur.
+ */
+export type ChatLinkPreview =
+  | {
+      state: "read";
+      url: string;
+      site: string;
+      title: string;
+      description: string | null;
+    }
+  | {
+      state: "internal" | "timeout" | "not-html" | "unreachable";
+      url: string;
+      site: string;
+    };
 
 /**
  * Une pièce jointe, telle que le salon l'annonce à tous. Ce qu'elle montre
@@ -192,6 +227,10 @@ export interface ChatContract extends IRealtimeContract {
     "POST /demo/chat/direct/{user}": {
       params: typeof UserParams;
       result: IRoomView;
+    };
+    "GET /demo/chat/rooms/{room}/messages/{message}/links/{index}": {
+      params: typeof LinkParams;
+      result: ChatLinkPreview;
     };
   };
 }

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { textProblem } from "./attachments";
-import { CHAT_HISTORY_LIMIT, PEOPLE_MAX } from "./chatContract";
+import { CHAT_HISTORY_LIMIT, LINK_INDEX_MAX, PEOPLE_MAX } from "./chatContract";
 import {
   EVENT_ATTENDEES_MAX,
   EVENT_TITLE_MAX,
@@ -84,6 +84,19 @@ export const EventParams = z.strictObject({ event: PathId });
 
 /** La personne visée : `/demo/chat/direct/{user}`. */
 export const UserParams = z.strictObject({ user: PathId });
+
+/**
+ * Le lien visé par un aperçu :
+ * `/demo/chat/rooms/{room}/messages/{message}/links/{index}`. Jamais une
+ * adresse — le serveur relit le message et y prend le lien de rang `index`,
+ * sinon il deviendrait un lecteur du réseau interne offert à tout le salon.
+ * L'indice arrive en texte, `coerce` le convertit.
+ */
+export const LinkParams = z.strictObject({
+  room: RoomParams.shape.room,
+  message: PathId,
+  index: z.coerce.number().int().min(0).max(LINK_INDEX_MAX),
+});
 
 /** L'identifiant EXACT d'un compte, tel qu'on se connecte. */
 const AccountIdentifier = z.string().trim().min(1).max(128);

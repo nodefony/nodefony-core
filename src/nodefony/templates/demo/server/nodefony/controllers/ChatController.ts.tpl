@@ -22,6 +22,7 @@ import {
   EventParams,
   HistoryQuery,
   InviteBody,
+  LinkParams,
   PeopleQuery,
   ReplyBody,
   RoomParams,
@@ -32,6 +33,7 @@ import { attachmentProblem } from "../../frontend/src/chat/attachments";
 import {
   PRESENCE_GRACE_MS,
   type ChatContract,
+  type ChatLinkPreview,
   type ChatMessage,
   type ChatPerson,
 } from "../../frontend/src/chat/chatContract";
@@ -119,6 +121,9 @@ class ChatController extends ContractRealtimeController<ChatContract> {
       body: ReplyBody,
     },
     "POST /demo/chat/direct/{user}": { params: UserParams },
+    "GET /demo/chat/rooms/{room}/messages/{message}/links/{index}": {
+      params: LinkParams,
+    },
   } satisfies ContractRouteSchemas<ChatContract>;
   // #endregion
 
@@ -323,6 +328,23 @@ class ChatController extends ContractRealtimeController<ChatContract> {
       input.query.limit,
       input.query.since,
     );
+  }
+
+  /**
+   * L'aperçu d'un lien d'un message — `GET …/messages/{message}/links/{index}`.
+   * Jamais une adresse : le lien de rang `index` du message, relu en base,
+   * dans un salon où l'on entre.
+   */
+  @route("demo-chat-link", {
+    path: "/rooms/{room}/messages/{message}/links/{index}",
+    requirements: { methods: ["GET", "WEBSOCKET"] },
+    schema: { params: LinkParams },
+  })
+  async link(
+    input: RouteInput<{ params: typeof LinkParams }>,
+  ): Promise<ChatLinkPreview> {
+    await this.#admitted(input.params.room);
+    throw new HttpError("aperçu de lien : pas encore servi", 501);
   }
   // #endregion
 
