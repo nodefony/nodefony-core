@@ -187,8 +187,7 @@ async function main() {
       frontend,
       "--package-manager",
       pm,
-      // Explicite, bien que par défaut : le banc éprouve la démo, et doit en
-      // dire autant sur un commit où elle ne l'était pas encore.
+      // La démo n'est pas posée par défaut : le banc l'éprouve, il la demande.
       "--demo",
     ],
     { cwd: ROOT, env, encoding: "utf8" },

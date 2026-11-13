@@ -117,8 +117,8 @@ function Home({ about }: { about: IDemoAbout | null }) {
         <Agents />
         <footer>
           <span>
-            Démo livrée par <code>create app</code> (<code>--no-demo</code>
-            pour s’en passer) — la retirer : supprimer{" "}
+            Démo ajoutée par <code>create app --demo</code>, pour apprendre
+            dans une application jetable — la retirer : supprimer{" "}
             <code>modules/demo/</code>
             et sa ligne du manifeste.
           </span>

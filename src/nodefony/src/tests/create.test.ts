@@ -108,9 +108,9 @@ const scaffold = (
   // vitest efface les types, un `npm test` vert n'en dit rien.
   answers: TScaffoldAnswers,
   force = false,
-  // La démo naît par DÉFAUT ; ces tests portent sur l'application elle-même,
-  // donc ils s'en passent sauf à la demander (`demo: true`). Le défaut
-  // lui-même est éprouvé à part, par `runScaffold` sans réponse.
+  // Ces tests portent sur l'application elle-même : sans démo, sauf à la
+  // demander (`demo: true`). La réponse explicite les garde indépendants du
+  // défaut, éprouvé à part par `runScaffold` sans réponse.
 ) =>
   runScaffold(
     { type: "app", answers: { demo: false, ...answers }, dir, force },
@@ -2920,7 +2920,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.notInclude(manifesteComplet(dest), "@sans-demo/demo");
     });
 
-    it("par DÉFAUT, une application complete naît AVEC la démo", () => {
+    it("par DÉFAUT, une application complete naît SANS la démo : un projet propre, et l'image officielle aussi", () => {
       const dest = path.join(tmp, "demo-defaut");
       runScaffold(
         {
@@ -2931,13 +2931,14 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         },
         version,
       );
-      assert.isTrue(
-        existsSync(path.join(dest, "modules", "demo", "package.json")),
-      );
-      assert.include(manifesteComplet(dest), "@demo-defaut/demo");
+      // L'image Docker officielle est bâtie par `create app --yes` sans
+      // drapeau (`.github/workflows/release.yml`) : ce défaut décide aussi
+      // de ce qu'elle embarque.
+      assert.isFalse(existsSync(path.join(dest, "modules", "demo")));
+      assert.notInclude(manifesteComplet(dest), "@demo-defaut/demo");
     });
 
-    it("minimal : pas de démo, alors que la réponse retombe sur le défaut vrai", () => {
+    it("minimal : pas de démo", () => {
       const dest = path.join(tmp, "demo-minimal");
       runScaffold(
         {
@@ -3365,6 +3366,12 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         /--demo exige le préréglage complete/,
       );
       assert.isFalse(existsSync(dest));
+    });
+
+    it("--no-demo reste accepté, sans effet, pour les scripts écrits quand la démo était par défaut", () => {
+      const parsed = parseCreateArgv(argv("create", "app", "x", "--no-demo"));
+      assert.notProperty(parsed, "error");
+      assert.isFalse((parsed as ICreateRequest).answers.demo);
     });
 
     it("le drapeau --demo arrive jusqu'aux réponses", () => {

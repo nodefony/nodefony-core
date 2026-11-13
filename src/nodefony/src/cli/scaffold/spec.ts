@@ -416,19 +416,23 @@ const APP_SPEC: IScaffoldTypeSpec = {
     },
     {
       key: "demo",
-      flag: "--no-demo",
+      flag: "--demo",
       label: "Installer la démo ?",
       type: "boolean",
-      // true (décision de l'auteur) : une application fraîche MONTRE ce que le
-      // framework sait faire, au lieu d'une page vide. Elle exige `complete`
-      // (sécurité + temps réel) : sous `minimal` la question n'est pas posée,
-      // et le moteur n'écrit la démo que sous `complete` — la réponse retombe
-      // sinon sur ce défaut. Un `--demo` explicite sous `minimal` est REFUSÉ.
+      // false (décision de l'auteur, #747) : un projet naît PROPRE, sans rien
+      // de superflu. La démo sert à APPRENDRE, dans une application jetable
+      // (`create app essai --demo`) ; une fois l'apprentissage fait, elle
+      // n'a plus de raison d'être. Le défaut décide aussi de l'image Docker
+      // officielle, bâtie par `create app --yes` : c'est la base que d'autres
+      // étendent, elle ne porte pas la démo. `--no-demo` reste accepté (sans
+      // effet) pour les scripts écrits quand le défaut était l'inverse. La
+      // démo exige `complete` (sécurité + temps réel) : sous `minimal` la
+      // question n'est pas posée, et un `--demo` explicite est REFUSÉ.
       note:
         "Un module privé `modules/demo/` : chaque démo est une page qui montre " +
         "le code qui la fait tourner. La retirer = supprimer ce dossier et sa " +
         "ligne du manifeste.",
-      default: true,
+      default: false,
       askWhen: { key: "preset", equals: "complete" },
     },
     {
