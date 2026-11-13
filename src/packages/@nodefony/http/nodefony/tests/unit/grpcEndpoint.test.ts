@@ -2104,17 +2104,31 @@ describe("GrpcCall.settle — code de l'appel lu au close (critères 36 et 37, A
   });
 
   it("client parti pendant un appel unaire : 1 CANCELLED, réponse non finie", async () => {
+    // Le client part quand la méthode TIENT l'appel — un fait, jamais une
+    // durée : couper après 50 ms laissait parfois, sous Windows, la requête
+    // en route vers le serveur (« aucune requête servie »).
+    let entered: () => void = () => undefined;
+    const inMethod = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
     const { settled } = await settledWith(
-      { say: () => new Promise<never>(() => {}) },
+      {
+        say: () => {
+          entered();
+          return new Promise<never>(() => {});
+        },
+      },
       async (url, service) => {
         const abort = new AbortController();
-        setTimeout(() => abort.abort(), 50);
-        await fetch(url + path(service), {
+        const sent = fetch(url + path(service), {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: "{}",
           signal: abort.signal,
-        });
+        }).catch(() => undefined);
+        await inMethod;
+        abort.abort();
+        await sent;
       },
     );
     expect(settled?.ended).to.equal(false);
