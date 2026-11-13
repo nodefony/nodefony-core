@@ -25,20 +25,45 @@
  * Usage :
  *   node scripts/scaffold/format-templates.mjs           # écrit
  *   node scripts/scaffold/format-templates.mjs --check   # sort 1 si un gabarit changerait
+ *   node scripts/scaffold/format-templates.mjs --check <fichier…>   # ces gabarits seuls
+ *
+ * Des fichiers nommés restreignent le passage à eux : c'est ce que fait le
+ * hook de commit (les gabarits INDEXÉS), la CI juge le tout.
  *
  * @usage npm run format:templates
  * @usage npm run format:templates -- --check
  */
 import { readFileSync, writeFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
 import { globSync } from "node:fs";
 import path from "node:path";
-import { getFileInfo } from "prettier";
+import { format, getFileInfo, resolveConfig } from "prettier";
 import { REPO_ROOT as ROOT } from "../lib/repo-root.mjs";
 
-const PRETTIER = path.join(ROOT, "node_modules", ".bin", "prettier");
 const IGNORE_FILE = path.join(ROOT, ".prettierignore");
 const CHECK = process.argv.includes("--check");
+/**
+ * Les gabarits nommés en argument, chemins RELATIFS à la racine en `/` —
+ * normalisés AVANT d'être comparés à la liste du glob (un `\` de Windows ne
+ * correspondrait à rien). Vide = tous.
+ */
+const ONLY = new Set(
+  process.argv
+    .slice(2)
+    .filter((arg) => !arg.startsWith("--"))
+    .map((arg) =>
+      path.relative(ROOT, path.resolve(ROOT, arg)).split(path.sep).join("/"),
+    ),
+);
+/**
+ * La configuration que lirait la CLI lancée à la racine (`.prettierrc.json`,
+ * `.editorconfig`), résolue UNE fois. prettier tourne en mémoire : un
+ * processus par gabarit coûtait 48 s pour 186 fichiers, l'API 3 s, sortie
+ * identique octet pour octet (mesuré).
+ */
+const PRETTIER_CONFIG =
+  (await resolveConfig(path.join(ROOT, "package.json"), {
+    editorconfig: true,
+  })) ?? {};
 
 /**
  * Le parser prettier, par extension. RIEN d'autre.
@@ -71,7 +96,10 @@ const LANG = {
   ".yaml": "yaml",
 };
 
-const files = globSync("src/nodefony/templates/**/*.tpl", { cwd: ROOT }).sort();
+const files = globSync("src/nodefony/templates/**/*.tpl", { cwd: ROOT })
+  .map((rel) => rel.split(path.sep).join("/"))
+  .filter((rel) => ONLY.size === 0 || ONLY.has(rel))
+  .sort();
 let changed = 0;
 let skipped = 0;
 // Ce qui est écarté se COMPTE par motif : un total unique ne dit pas si un
@@ -119,17 +147,14 @@ for (const rel of files) {
     continue;
   }
 
-  const run = spawnSync(PRETTIER, ["--parser", parser], {
-    input: src,
-    encoding: "utf8",
-  });
-  if (run.status !== 0) {
+  let out;
+  try {
+    out = await format(src, { ...PRETTIER_CONFIG, parser });
+  } catch {
     skipped++;
     ecartes.refus.push(rel);
     continue; // prettier refuse la source telle quelle
   }
-
-  const out = run.stdout;
 
   if (out !== src) {
     changed++;

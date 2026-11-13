@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-11-12
+updated: 2026-11-13
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-devkit-bench/SKILL.md"
 ---
@@ -105,7 +105,7 @@ script, donc toujours à jour après régénération.
 | `scripts/mysql-ddl-to-specs.mjs` | Convertit un DDL MySQL réel (`*.sql` + `*.key.sql`) en descriptions d'entités NEUTRES — la grammaire du kit de colonnes (`colKit.spec.ts` de `@nodefony/drizzle`), sans un import d'ORM. | `--corpus` `--dir` `--out` `--ref` `--table-prefix` | — |
 | `scripts/mysql-ddl-to-specs.selftest.mjs` | Auto-contrôle du convertisseur DDL MySQL → descriptions neutres. | — | — |
 | `scripts/reinit-decor.selftest.mjs` | Auto-contrôle de la remise à zéro du décor — le mécanisme, AVANT de payer un agent pour s'en apercevoir. | `--allow-empty` `--format` | — |
-| `scripts/selftests.mjs` | Lance TOUS les contrôles internes du banc, et rend un verdict unique. | `--prove` `--sans` | — |
+| `scripts/selftests.mjs` | Lance TOUS les contrôles internes du banc, et rend un verdict unique. | `--prove` `--sans` `--staged` | — |
 | `scripts/suivre-run.mjs` | Suit un run du banc PENDANT qu'il se joue, au lieu d'attendre son rapport. | `--depuis` `--session` `--timeline` `--tout` | `NF_DEVKIT_BENCH_AGENT` |
 | `scripts/verify-generated.mjs` | Banc de VÉRITÉ du code généré — « ce que le scaffold produit tient-il debout ? » | `--admin` `--app` `--auth` `--ca` `--config` `--connector` `--controller` `--database` `--demo` `--deny-warnings` `--detach` `--dialect` `--drop-accounts` `--env` `--exact` `--force` `--format` `--from-database` `--frontend` `--index` `--inject` `--input-type` `--issuer` `--json` `--jwt-keyset` `--keep` `--kind` `--link` `--module` `--name` `--no` `--no-audit` `--no-controller` `--no-e2e` `--no-fund` `--no-ignore` `--no-install` `--no-tests` `--nom` `--out` `--password` `--preset` `--profile` `--repack` `--resource` `--role` `--scope` `--service` `--ttl` `--unique` `--use-system-ca` `--username` `--wait` `--workspace` `--workspaces` `--write` `--yes` | `NF_DEVKIT_REQUIRE_DOCKER` |
 | `scripts/verify-runtime.mjs` | Banc de CONFORMITÉ de l'application générée — « ce qui a été câblé tient-il les promesses du framework ? » | `--config` `--etage` `--keep` `--link` `--reporter` | — |
@@ -144,6 +144,19 @@ node keycloak-login-probe.mjs --app <origine https> --username <u> --password <p
 | `--username` | compte du realm |
 | `--password` | son mot de passe |
 | `--ca` | autorité qui signe les deux certificats (sinon : magasin |
+
+#### `scripts/selftests.mjs`
+
+
+```bash
+node .claude/skills/nodefony-devkit-bench/scripts/selftests.mjs
+```
+
+| Option | Rôle |
+| --- | --- |
+| `--prove` | ampute les contrôles qui savent se muter |
+| `--sans` | écarte des contrôles nommés (liste à virgules), en le disant |
+| `--staged` | seuls les contrôles que touchent les fichiers indexés (hook de commit) |
 
 ## Conformité au standard Agent Skills
 

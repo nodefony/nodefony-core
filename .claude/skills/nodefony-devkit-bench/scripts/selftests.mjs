@@ -25,6 +25,10 @@
  *
  * Sortie : `0` tout vert · `1` au moins un contrôle rouge · `2` un contrôle a
  * rendu 2 (abstention bruyante — par exemple une cause non classée).
+ *
+ * @option --prove   ampute les contrôles qui savent se muter
+ * @option --sans    écarte des contrôles nommés (liste à virgules), en le disant
+ * @option --staged  seuls les contrôles que touchent les fichiers indexés (hook de commit)
  */
 
 import { readdirSync, readFileSync } from "node:fs";
@@ -162,11 +166,72 @@ function saitSeMuter(chemin) {
   }
 }
 
+/**
+ * Les imports RELATIFS d'un fichier (`from "./x.mjs"`, `import("../y.mjs")`),
+ * en chemins absolus. Un fichier illisible (supprimé) n'importe rien.
+ *
+ * @param {string} fichier - chemin absolu.
+ * @returns {string[]} les fichiers importés.
+ */
+function importsRelatifs(fichier) {
+  let texte;
+  try {
+    texte = readFileSync(fichier, "utf8");
+  } catch {
+    return [];
+  }
+  const vus = [];
+  for (const m of texte.matchAll(
+    /(?:from\s+|import\s*\(\s*|import\s+)["'](\.{1,2}\/[^"']+)["']/gu,
+  )) {
+    vus.push(path.resolve(path.dirname(fichier), m[1]));
+  }
+  return vus;
+}
+
+/**
+ * Ce que COUVRE un contrôle : lui-même, son sujet (`x.mjs` pour
+ * `x.selftest.mjs`, que le contrôle lance souvent par son chemin, sans
+ * l'importer), et tout ce que l'un ou l'autre importe, de proche en proche.
+ *
+ * @param {string} chemin - le fichier du contrôle.
+ * @returns {Set<string>} les fichiers dont un changement le concerne.
+ */
+function couverture(chemin) {
+  const vus = new Set();
+  const pile = [chemin, chemin.replace(/\.selftest\.mjs$/u, ".mjs")];
+  while (pile.length > 0) {
+    const f = pile.pop();
+    if (f === undefined || vus.has(f)) continue;
+    vus.add(f);
+    pile.push(...importsRelatifs(f));
+  }
+  return vus;
+}
+
+/**
+ * Les fichiers INDEXÉS du dépôt (supprimés compris : un import qui disparaît
+ * casse qui l'importe), en chemins absolus.
+ *
+ * @returns {Set<string>}
+ */
+function fichiersIndexes() {
+  const git = (args) =>
+    spawnSync("git", args, { cwd: ICI, encoding: "utf8" }).stdout ?? "";
+  const racine = git(["rev-parse", "--show-toplevel"]).trim();
+  return new Set(
+    git(["diff", "--cached", "--name-only", "--diff-filter=ACMRD"])
+      .split("\n")
+      .filter(Boolean)
+      .map((rel) => path.join(racine, rel)),
+  );
+}
+
 function main() {
   const args = process.argv.slice(2);
   garderDrapeaux({
     args,
-    connus: ["--prove", "--sans"],
+    connus: ["--prove", "--sans", "--staged"],
     aValeur: ["--sans"],
     usage: [
       "Auto-contrôle des juges du banc devkit — le lot entier, d'une commande.",
@@ -174,6 +239,8 @@ function main() {
       "  node selftests.mjs              lance tout le lot",
       "  node selftests.mjs --prove      + ampute les contrôles qui savent se muter",
       "  node selftests.mjs --sans <a,b> écarte des contrôles, en le DISANT",
+      "  node selftests.mjs --staged     les seuls contrôles que touchent les fichiers",
+      "                                  indexés (hook de commit ; la forge joue le lot)",
       "",
       "Sorties : 0 tout vert · 1 un contrôle rouge ou DISPARU · 2 une abstention",
       "          64 usage",
@@ -189,10 +256,17 @@ function main() {
   const ecartes = new Set(
     iSans === -1 ? [] : (args[iSans + 1] ?? "").split(",").filter(Boolean),
   );
+  // `--staged` : un commit qui touche UN script du banc n'a pas à payer les
+  // juges qu'il ne concerne pas (55 contrôles, ~1 min 30). Le lanceur lui-même
+  // indexé → tout le lot : c'est lui qui dit ce qu'est le lot.
+  const indexes = args.includes("--staged") ? fichiersIndexes() : null;
+  const toutLeLot =
+    indexes === null || indexes.has(fileURLToPath(import.meta.url));
   const muets = [];
   const rouges = [];
   const abstentions = [];
   const sautes = [];
+  let nonTouches = 0;
   let verts = 0;
 
   const trouves = lot();
@@ -216,6 +290,14 @@ function main() {
       console.log(
         `  ⏭️  ${nom} — ÉCARTÉ par --sans, à la demande de l'appelant`,
       );
+      continue;
+    }
+    if (
+      !toutLeLot &&
+      indexes !== null &&
+      ![...couverture(chemin)].some((f) => indexes.has(f))
+    ) {
+      nonTouches += 1;
       continue;
     }
     const mutable = saitSeMuter(chemin);
@@ -253,8 +335,11 @@ function main() {
   console.log(
     `\n━━ ${verts} vert(s) · ${abstentions.length} abstention(s) · ` +
       `${rouges.length + disparus.length} rouge(s) · ${sautes.length} hors lot` +
+      (nonTouches > 0
+        ? ` · ${nonTouches} non touché(s) par l'index (--staged)`
+        : "") +
       (prove
-        ? ` — ${trouves.length - sautes.length - muets.length} muté(s), ${muets.length} non muté(s)`
+        ? ` — ${trouves.length - sautes.length - nonTouches - muets.length} muté(s), ${muets.length} non muté(s)`
         : " (sans --prove : les contrôles ne sont pas mutés)"),
   );
   if (muets.length > 0) {

@@ -4615,16 +4615,20 @@
             "options": [
               {
                 "flag": "--prove",
-                "help": ""
+                "help": "ampute les contrôles qui savent se muter"
               },
               {
                 "flag": "--sans",
-                "help": ""
+                "help": "écarte des contrôles nommés (liste à virgules), en le disant"
+              },
+              {
+                "flag": "--staged",
+                "help": "seuls les contrôles que touchent les fichiers indexés (hook de commit)"
               }
             ],
             "env": [],
             "output": "",
-            "selfDocumented": false
+            "selfDocumented": true
           },
           {
             "path": "scripts/suivre-run.mjs",

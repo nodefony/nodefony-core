@@ -84,9 +84,13 @@ fi
 #    forme rendue. Les variantes qui installent coûtent deux minutes et restent
 #    à la forge (`npm run format:scaffold`).
 #
-# ~5 s, et seulement quand un gabarit est staged.
-if git diff --cached --name-only --diff-filter=ACMR | grep -qE '^src/nodefony/templates/'; then
-  if ! npm run --silent format:templates -- --check; then
+# Seulement quand un gabarit est staged — et `format:templates` ne juge QUE
+# ceux-là : les autres ont été jugés à leur propre commit, la forge rejoue le
+# tout. Il en jugeait 281 à chaque commit (48 s, un processus prettier chacun).
+STAGED_TPL=$(git diff --cached --name-only --diff-filter=ACMR -- 'src/nodefony/templates/*')
+if [ -n "$STAGED_TPL" ]; then
+  # shellcheck disable=SC2086 # la liste se découpe en arguments, c'est voulu
+  if ! npm run --silent format:templates -- --check $STAGED_TPL; then
     echo "❌ un gabarit n'est pas au format — commit annulé"
     echo "   → npm run format:templates   puis  git add src/nodefony/templates"
     exit 1
@@ -117,9 +121,12 @@ fi
 # PostgreSQL : la forge `orm.yml` le joue, là où la base existe.
 if git diff --cached --name-only --diff-filter=ACMR \
    | grep -qE '^\.claude/skills/nodefony-devkit-bench/'; then
-  echo "🧪 banc devkit touché → auto-contrôle des juges (~1 min 30)..."
+  echo "🧪 banc devkit touché → auto-contrôle des juges que l'index concerne..."
   # Même raison que le rendu des gabarits ci-dessus : décors git temporaires.
-  if ! env -u GIT_INDEX_FILE npm run --silent devkit:selftest -- --prove --sans bench-schema.selftest.mjs; then
+  # `--staged` : seuls les contrôles dont le fichier, le sujet ou un import est
+  # indexé — le lot entier coûtait ~1 min 30 à chaque retouche d'un script du
+  # banc ; la forge (`node.js.yml`) le rejoue en entier.
+  if ! env -u GIT_INDEX_FILE npm run --silent devkit:selftest -- --prove --staged --sans bench-schema.selftest.mjs; then
     echo "❌ un juge du banc est cassé — commit annulé"
     echo "   → npm run devkit:selftest -- --prove   (rejouer et lire les causes)"
     exit 1
