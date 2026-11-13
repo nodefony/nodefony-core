@@ -191,6 +191,21 @@ import {
   typicalFrame,
 } from "../frontend/src/binary/wire";
 import { PARTNER_CALL_COMMAND } from "../nodefony/command/PartnerCallCommand";
+import { SENSOR_PUSH_COMMAND } from "../nodefony/command/SensorPushCommand";
+import { create, toBinary } from "@bufbuild/protobuf";
+import { timestampFromMs } from "@bufbuild/protobuf/wkt";
+import {
+  LatestRequestSchema,
+  LatestResponseSchema,
+} from "../nodefony/gen/demo/telemetry/v1/telemetry_pb";
+import { GRPC_LESSON } from "../frontend/src/grpc/grpcTabs";
+import {
+  encodeLatestRequest,
+  envelope,
+  GRPC_ENVELOPE_BYTES,
+} from "../frontend/src/grpc/grpcClient";
+import { readGrpcFrame } from "../frontend/src/grpc/grpcWire";
+import { DOCS_NEXT, docsVersionFor, repoFileUrl } from "../frontend/src/about";
 
 /**
  * Ce que ce test prouve, sans serveur :
@@ -710,6 +725,7 @@ const LESSONS: readonly { page: string; lesson: ILesson }[] = [
   { page: "meteor", lesson: METEOR_LESSON },
   { page: "prism", lesson: PRISM_LESSON },
   { page: "sensor", lesson: SENSOR_LESSON },
+  { page: "grpc", lesson: GRPC_LESSON },
 ];
 
 /** Chaque extrait cité, avec sa page et sa couche. */
@@ -747,7 +763,9 @@ describe("demo — les pages d'apprentissage suivent le modèle commun", () => {
     },
   );
 
-  it.each(CITED)(
+  // Un contrat `.proto` n'a pas de constantes TypeScript : ses capitales
+  // (`NO_SIDE_EFFECTS`) sont des valeurs d'énumération du protocole.
+  it.each(CITED.filter(({ file }) => !file.endsWith(".proto")))(
     "$page / $layer : chaque constante de $region a sa valeur",
     ({ file, region }) => {
       const code = extractRegion(LESSON_SOURCES[file], region) ?? "";
@@ -896,6 +914,12 @@ describe("demo — les leçons à gestes : la sonde et le contrôleur cité", ()
     ["nodefony/sensor/cryostat.ts", SENSOR_LESSON],
     ["nodefony/sensor/quantum.ts", SENSOR_LESSON],
     ["frontend/src/sensor/sensorStats.ts", SENSOR_LESSON],
+    ["proto/demo/telemetry/v1/telemetry.proto", GRPC_LESSON],
+    ["nodefony/controllers/TelemetryController.ts", GRPC_LESSON],
+    ["nodefony/service/TelemetryRelayService.ts", GRPC_LESSON],
+    ["nodefony/command/SensorPushCommand.ts", GRPC_LESSON],
+    ["frontend/src/grpc/grpcDemo.ts", GRPC_LESSON],
+    ["frontend/src/grpc/grpcClient.ts", GRPC_LESSON],
   ] as const)(
     "chaque région de %s est citée par la leçon : aucun geste oublié",
     (file, lesson) => {
@@ -1471,7 +1495,100 @@ describe("demo — les renvois de l'index des démos", () => {
       return;
     }
     // Une commande du module : son nom est celui qu'elle déclare.
-    expect([PARTNER_CALL_COMMAND]).toContain(verb);
+    expect([PARTNER_CALL_COMMAND, SENSOR_PUSH_COMMAND]).toContain(verb);
+  });
+});
+
+describe("demo — gRPC : la page écrit et lit le fil sans bibliothèque", () => {
+  it("la requête écrite à la main est celle de @bufbuild/protobuf, varint de longueur compris", () => {
+    for (const machine of ["Pompe P-101", "é".repeat(64)]) {
+      expect(encodeLatestRequest(machine)).toEqual(
+        toBinary(LatestRequestSchema, create(LatestRequestSchema, { machine })),
+      );
+    }
+  });
+
+  /** Le message de fin d'une réponse gRPC-Web : drapeau 0x80, longueur, statut en texte. */
+  const trailerFrame = (text: string): Uint8Array => {
+    const body = new TextEncoder().encode(text);
+    const out = envelope(body);
+    out[0] = 0x80;
+    return out;
+  };
+
+  it("la réponse gRPC-Web se lit en entier : mesure enveloppée, puis statut de fin, sans octet perdu", () => {
+    const message = toBinary(
+      LatestResponseSchema,
+      create(LatestResponseSchema, {
+        reading: {
+          machine: "Pompe P-101",
+          celsius: 61.37,
+          measuredAt: timestampFromMs(Date.UTC(2026, 10, 13, 14, 2, 17, 384)),
+        },
+      }),
+    );
+    const fin = trailerFrame("grpc-status: 0\r\n");
+    const frame = new Uint8Array(
+      GRPC_ENVELOPE_BYTES + message.byteLength + fin.byteLength,
+    );
+    frame.set(envelope(message));
+    frame.set(fin, GRPC_ENVELOPE_BYTES + message.byteLength);
+    const segments = readGrpcFrame(frame);
+    // Contigus, de 0 à la fin : chaque octet a sa légende.
+    expect(segments.at(0)?.start).toBe(0);
+    expect(segments.at(-1)?.end).toBe(frame.byteLength);
+    for (let i = 1; i < segments.length; i += 1) {
+      expect(segments[i]?.start).toBe(segments[i - 1]?.end);
+    }
+    expect(segments.some((s) => s.part === "rest")).toBe(false);
+    expect(segments.map((s) => s.label)).toEqual(
+      expect.arrayContaining([
+        "drapeau 0 : message, non compressé",
+        `longueur : ${message.byteLength} octets`,
+        "drapeau 0x80 : message de fin",
+        "statut : « grpc-status: 0 »",
+        "machine = « Pompe P-101 »",
+        "celsius = 61.37",
+        "nanos = 384000000",
+      ]),
+    );
+  });
+
+  it("une trame coupée finit en octets non lus, jamais en valeur inventée", () => {
+    const message = toBinary(
+      LatestResponseSchema,
+      create(LatestResponseSchema, {
+        reading: { machine: "Pompe P-101", celsius: 1 },
+      }),
+    );
+    const cut = envelope(message).subarray(0, GRPC_ENVELOPE_BYTES + 6);
+    const segments = readGrpcFrame(cut);
+    expect(segments.at(-1)?.part).toBe("rest");
+    expect(segments.at(-1)?.end).toBe(cut.byteLength);
+  });
+
+  it("la doc liée est celle de la version installée par npm, celle du développement sinon", () => {
+    const version = "10.0.0-beta.6";
+    for (const installed of [
+      "/app/node_modules/nodefony/dist/index.js",
+      "C:\\app\\node_modules\\nodefony\\dist\\index.js",
+    ]) {
+      expect(docsVersionFor(installed, version)).toBe(version);
+    }
+    for (const source of [
+      "/repo/src/nodefony/dist/index.js",
+      "D:\\repo\\src\\nodefony\\dist\\index.js",
+    ]) {
+      expect(docsVersionFor(source, version)).toBe(DOCS_NEXT);
+    }
+    expect(repoFileUrl(DOCS_NEXT, "LICENSE.txt")).toContain("/blob/dev/");
+    expect(repoFileUrl(version, "LICENSE.txt")).toContain(`/blob/v${version}/`);
+  });
+
+  it("un flux Connect ou gRPC se montre en octets : son enveloppe n'est pas du texte", () => {
+    expect(isTextual("application/connect+json")).toBe(false);
+    expect(isTextual("application/grpc-web+proto")).toBe(false);
+    expect(isTextual("application/json")).toBe(true);
   });
 });
 

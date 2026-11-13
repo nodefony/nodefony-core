@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { docUrl, type IDemoAbout } from "../about";
+import { docsVersion, docUrl, type IDemoAbout } from "../about";
 import { LEVELS } from "../Catalogue";
 import { LessonCode } from "../lesson/LessonCode";
 import type { LessonFile } from "../lesson/lesson";
@@ -571,7 +571,7 @@ function redact(body: string, secret: string): string {
  * `McpVisuals.tsx`.
  */
 export function McpLesson({ about }: { about: IDemoAbout | null }) {
-  const version = about?.nodefony.version ?? null;
+  const version = docsVersion(about);
   const feed = useMcpFeed();
   const [audience, setAudience] = useState<readonly IAudienceRow[]>([]);
   const [tools, setTools] = useState<readonly IToolCard[]>([]);

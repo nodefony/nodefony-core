@@ -50,7 +50,7 @@ demoDescribe("démo — gRPC", () => {
     );
   });
 
-  it("la machine pousse en gRPC ; la page voit le flux s'ouvrir, les mesures, la fermeture", async () => {
+  it("la machine pousse en gRPC ; la page voit le flux s'ouvrir, les mesures, la fermeture ; Latest la rend en GET", async () => {
     const socket = await openSocket<DemoContract>(DEMO_REALTIME_PATH);
     const events: TelemetryEvent[] = [];
     socket.on(TELEMETRY_CHANNEL, (event) => events.push(event));
@@ -68,7 +68,17 @@ demoDescribe("démo — gRPC", () => {
         "20",
         "--json",
       ],
-      { env: { ...process.env, ...serverEnvironment() }, timeout: 120_000 },
+      {
+        // Le terminal de l'utilisateur, pas celui de vitest : sous
+        // `NODE_ENV=test`, le noyau replie le runtime sur la production et
+        // écarte la démo (`policy: "dev"`), sa commande avec.
+        env: {
+          ...process.env,
+          ...serverEnvironment(),
+          NODE_ENV: "development",
+        },
+        timeout: 120_000,
+      },
     );
     const result: unknown = JSON.parse(stdout.trim().split("\n").at(-1) ?? "");
     expect(result).toMatchObject({
@@ -88,9 +98,10 @@ demoDescribe("démo — gRPC", () => {
       machine: DEFAULT_MACHINE,
       accepted: 5,
     });
-  });
 
-  it("Latest se lit en GET (Connect, JSON) : la dernière mesure, sans bibliothèque", async () => {
+    // La dernière mesure, lue en GET (Connect, JSON), sans bibliothèque. Dans
+    // le MÊME test : un test qui compterait sur la poussée d'un autre
+    // dépendrait de leur ordre.
     const message = encodeURIComponent(
       JSON.stringify({ machine: DEFAULT_MACHINE }),
     );

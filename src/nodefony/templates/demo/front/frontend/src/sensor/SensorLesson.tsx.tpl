@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { RealtimeIdentity } from "nodefony/client";
-import { docUrl, type IDemoAbout } from "../about";
+import { docsVersion, docUrl, type IDemoAbout } from "../about";
 import { LEVELS } from "../Catalogue";
 import { tabTargetIndex } from "../effects";
 import { LessonCode } from "../lesson/LessonCode";
@@ -370,7 +370,7 @@ function initialBench(steps: readonly ISensorStep[]): Bench {
  * onglet est affiché : côté serveur, ce que personne ne regarde ne tourne pas.
  */
 export function SensorLesson({ about }: { about: IDemoAbout | null }) {
-  const version = about?.nodefony.version ?? null;
+  const version = docsVersion(about);
   const [app] = useState(openSensor);
   const [identity, setIdentity] = useState<RealtimeIdentity | null>(null);
   const [board, setBoard] = useState<IAlarmBoard | null>(null);

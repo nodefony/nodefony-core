@@ -1,3 +1,5 @@
+import { realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { Nodefony } from "nodefony";
 import { route, controller, Controller } from "@nodefony/framework";
 import { HttpError } from "@nodefony/http";
@@ -5,7 +7,31 @@ import type { ContextType } from "@nodefony/http";
 import { FrontendService } from "@nodefony/frontend";
 import { AuthFlow } from "@nodefony/security";
 import { DEMOS } from "../../demos";
-import { DEMO_ABOUT_PATH, type IDemoAbout } from "../../frontend/src/about";
+import {
+  DEMO_ABOUT_PATH,
+  docsVersionFor,
+  type IDemoAbout,
+} from "../../frontend/src/about";
+
+/** La version de la doc à lier, constatée une fois par processus. */
+let installedDocs: string | null = null;
+
+/**
+ * La version de la doc qui décrit le Nodefony chargé : le chemin RÉEL du
+ * paquet dit s'il vient de npm ou des sources (`docsVersionFor`).
+ */
+function docsOfInstalled(): string {
+  if (installedDocs === null) {
+    try {
+      const entry = fileURLToPath(import.meta.resolve("nodefony"));
+      installedDocs = docsVersionFor(realpathSync(entry), Nodefony.version);
+    } catch {
+      // Paquet introuvable par ce chemin : la version qu'il annonce.
+      installedDocs = Nodefony.version;
+    }
+  }
+  return installedDocs;
+}
 
 /**
  * API de l'accueil de la démo, sous `/demo/api` — hors de toute zone de
@@ -42,6 +68,7 @@ class DemoController extends Controller {
         flow instanceof AuthFlow
           ? (flow.describeLoginPage()?.path ?? null)
           : null,
+      docs: docsOfInstalled(),
     };
     return this.renderJson(about);
   }

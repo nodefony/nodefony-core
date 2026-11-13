@@ -1,18 +1,13 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { NODEFONY_LOGO } from "./brand";
 import { DEMOS, type IDemoEntry } from "../../demos";
-import {
-  DEMO_ABOUT_PATH,
-  REPO_URL,
-  docUrl,
-  parseDemoAbout,
-  type IDemoAbout,
-} from "./about";
+import { DEMO_ABOUT_PATH, docsVersion, docUrl, type IDemoAbout, parseDemoAbout, REPO_URL } from "./about";
 import { Catalogue } from "./Catalogue";
 import { debugBarControl, type IDebugBarControl } from "./debugBar";
 import { useCurrentSection, usePointerLight } from "./effects";
 import { ChatLesson } from "./chat/ChatLesson";
 import { FirstStepsLesson } from "./first/FirstStepsLesson";
+import { GrpcLesson } from "./grpc/GrpcLesson";
 import { BinaryLesson } from "./binary/BinaryLesson";
 import { McpLesson } from "./mcp/McpLesson";
 import { MeteorLesson } from "./meteor/MeteorLesson";
@@ -66,7 +61,8 @@ export function App() {
     page === "/demo/mcp" ||
     page === "/demo/meteor" ||
     page === "/demo/prism" ||
-    page === "/demo/sensor";
+    page === "/demo/sensor" ||
+    page === "/demo/grpc";
   // Le logo vient du paquet (`brand.ts`) : la feuille le lit par variable.
   const logo: CSSProperties & Record<"--demo-logo", string> = {
     "--demo-logo": `url(${JSON.stringify(NODEFONY_LOGO)})`,
@@ -95,6 +91,8 @@ export function App() {
         <PrismLesson about={about} />
       ) : page === "/demo/sensor" ? (
         <SensorLesson about={about} />
+      ) : page === "/demo/grpc" ? (
+        <GrpcLesson about={about} />
       ) : (
         <Home about={about} />
       )}
@@ -104,7 +102,7 @@ export function App() {
 
 /** L'accueil : le haut de page, les métiers, le catalogue vivant, le socle. */
 function Home({ about }: { about: IDemoAbout | null }) {
-  const version = about?.nodefony.version ?? null;
+  const version = docsVersion(about);
   usePointerLight(".card");
   const pulse = usePulse();
   return (
@@ -195,7 +193,7 @@ function Topbar({ about, home }: { about: IDemoAbout | null; home: boolean }) {
           </a>
         ))}
         <span className="topnav-sep" aria-hidden="true" />
-        <a className="ext" href={docUrl(about?.nodefony.version ?? null)}>
+        <a className="ext" href={docUrl(docsVersion(about))}>
           Documentation
         </a>
         <a className="ext" href={REPO_URL}>

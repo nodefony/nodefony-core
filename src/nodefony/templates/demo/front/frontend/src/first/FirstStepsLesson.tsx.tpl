@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { loginPagePath } from "nodefony/client";
-import { docUrl, type IDemoAbout } from "../about";
+import { docsVersion, docUrl, type IDemoAbout } from "../about";
 import { LEVELS } from "../Catalogue";
 import { LessonCode } from "../lesson/LessonCode";
 import type { LessonFile } from "../lesson/lesson";
@@ -266,7 +266,7 @@ function buildSteps(form: IFormState): readonly [IFirstStep, ...IFirstStep[]] {
  * `FirstVisuals.tsx`.
  */
 export function FirstStepsLesson({ about }: { about: IDemoAbout | null }) {
-  const version = about?.nodefony.version ?? null;
+  const version = docsVersion(about);
   const [name, setName] = useState("Alice");
   const [age, setAge] = useState("30");
   // L'etag du dernier fichier lu : un 304 ne le renvoie pas, on le garde.

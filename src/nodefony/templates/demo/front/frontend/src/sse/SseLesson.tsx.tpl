@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { docUrl, type IDemoAbout } from "../about";
+import { docsVersion, docUrl, type IDemoAbout } from "../about";
 import { LEVELS } from "../Catalogue";
 import { LessonCode } from "../lesson/LessonCode";
 import type { LessonFile } from "../lesson/lesson";
@@ -328,7 +328,7 @@ function buildSteps(
  * (`probeSse` de `kit/probe.ts`) ; les visuels sont dans `SseVisuals.tsx`.
  */
 export function SseLesson({ about }: { about: IDemoAbout | null }) {
-  const version = about?.nodefony.version ?? null;
+  const version = docsVersion(about);
   const [question, setQuestion] = useState("Qu'est-ce qu'un flux SSE ?");
   // Le dernier résultat de chaque geste : la frise le redessine.
   const [last, setLast] = useState<Partial<Record<string, IProbeResult>>>({});

@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { docUrl, type IDemoAbout } from "../about";
+import { docsVersion, docUrl, type IDemoAbout } from "../about";
 import { LEVELS } from "../Catalogue";
 import { LessonCode } from "../lesson/LessonCode";
 import type { LessonFile } from "../lesson/lesson";
@@ -271,7 +271,7 @@ const STEPS: readonly [IVideoStep, ...IVideoStep[]] = [
  * en-têtes envoyés et un corps binaire en hexadécimal.
  */
 export function VideoLesson({ about }: { about: IDemoAbout | null }) {
-  const version = about?.nodefony.version ?? null;
+  const version = docsVersion(about);
   // La dernière réponse de CHAQUE geste : la carte du fichier la dessine.
   const [last, setLast] = useState<Record<string, IProbeResult>>({});
   const visuals = (step: IVideoStep): ReactNode => (

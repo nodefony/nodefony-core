@@ -1,5 +1,5 @@
 import type { IDemoAbout } from "../about";
-import { docUrl } from "../about";
+import { docsVersion, docUrl } from "../about";
 import { GamePage } from "../game/GamePage";
 import { MeteorGame } from "./MeteorGame";
 import { METEOR_HZ } from "./meteorDemo";
@@ -14,7 +14,7 @@ import { METEOR_LESSON } from "./meteorTabs";
  * `MeteorGame.tsx`, le dessin `meteorScene.ts`.
  */
 export function MeteorLesson({ about }: { about: IDemoAbout | null }) {
-  const version = about?.nodefony.version ?? null;
+  const version = docsVersion(about);
   return (
     <GamePage
       crumb="Météores"

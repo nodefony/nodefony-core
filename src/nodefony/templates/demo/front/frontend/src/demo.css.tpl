@@ -3658,7 +3658,8 @@ a.ritem:hover .ritem-go {
   flex-wrap: wrap;
   gap: 6px;
 }
-.mcp-frame {
+.mcp-frame,
+.copy-text {
   margin: 6px 0 0;
   padding: 8px 10px;
   max-height: 260px;
@@ -3839,7 +3840,7 @@ a.ritem:hover .ritem-go {
   color: var(--danger);
   font-weight: 600;
 }
-.mcp-copy {
+.copy-line {
   display: flex;
   gap: 8px;
   align-items: flex-start;
@@ -3854,7 +3855,7 @@ a.ritem:hover .ritem-go {
 .mcp-steps li {
   min-width: 0;
 }
-.mcp-steps .mcp-copy,
+.mcp-steps .copy-line,
 .mcp-steps .mcp-desc {
   margin-top: 6px;
 }
@@ -3864,7 +3865,7 @@ a.ritem:hover .ritem-go {
 .mcp-steps .mcp-desc code {
   white-space: nowrap;
 }
-.mcp-copy .mcp-frame {
+.copy-line .copy-text {
   flex: 1;
   min-width: 0;
   margin: 0;

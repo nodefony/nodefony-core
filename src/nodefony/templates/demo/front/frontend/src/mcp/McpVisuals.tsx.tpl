@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { CopyLine } from "../kit/CopyLine";
 import type { IMcpFeedRow } from "./useMcpFeed";
 import type { IProgress, IToolCard } from "./mcpClient";
 
@@ -403,33 +403,6 @@ export function AudienceTable({ rows }: { rows: readonly IAudienceRow[] }) {
   );
 }
 
-/** Une commande à copier, et son bouton. */
-function Copy({ text }: { text: string }) {
-  const [done, setDone] = useState(false);
-  return (
-    <div className="mcp-copy">
-      <pre className="mcp-frame">{text}</pre>
-      <button
-        type="button"
-        className="btn"
-        onClick={() => {
-          navigator.clipboard
-            .writeText(text)
-            .then(() => {
-              setDone(true);
-              setTimeout(() => setDone(false), 1500);
-            })
-            .catch(() => {
-              // Presse-papiers refusé : la commande reste sélectionnable.
-            });
-        }}
-      >
-        {done ? "Copié" : "Copier"}
-      </button>
-    </div>
-  );
-}
-
 /**
  * Brancher son agent : les deux portes, et les commandes à taper.
  *
@@ -467,7 +440,7 @@ export function ConnectPanel({ resource }: { resource: string }) {
         <li>
           <strong>Obtenir un jeton.</strong> L'application le signe elle-même
           avec sa clé : ni mot de passe, ni appel réseau.
-          <Copy
+          <CopyLine
             text={`npx nodefony security:mcp:token admin --resource ${resource} --scope demo:write --ttl 480`}
           />
           <span className="mcp-desc">
@@ -484,7 +457,7 @@ export function ConnectPanel({ resource }: { resource: string }) {
         <li>
           <strong>Le donner à Claude Code</strong>, qui le posera dans l'en-tête
           de chaque appel.
-          <Copy
+          <CopyLine
             text={`claude mcp add --transport http nodefony-demo ${resource} --header "Authorization: Bearer <colle le jeton ici>"`}
           />
           <span className="mcp-desc">
@@ -503,7 +476,7 @@ export function ConnectPanel({ resource }: { resource: string }) {
       <p className="mcp-label">
         Les étapes 1 et 2 d'une seule ligne (bash, zsh)
       </p>
-      <Copy
+      <CopyLine
         text={`claude mcp add --transport http nodefony-demo ${resource} --header "Authorization: Bearer $(npx nodefony security:mcp:token admin --resource ${resource} --scope demo:write --ttl 480 --json | node -p 'JSON.parse(fs.readFileSync(0, "utf8")).access_token')"`}
       />
       <p className="mcp-desc">

@@ -45,6 +45,11 @@ export interface IProbeResult {
   /** Adresse finale, quand une redirection a été suivie. */
   finalUrl: string | null;
   error: string | null;
+  /**
+   * Les premiers octets d'un corps BINAIRE (`PROBE_BINARY_BYTES` au plus),
+   * tels que reçus : une page qui les dessine lit la réponse, pas une copie.
+   */
+  bytes?: Uint8Array;
 }
 
 /** Les en-têtes qui apprennent quelque chose, dans cet ordre. */
@@ -97,6 +102,9 @@ export function formatBody(text: string, contentType: string | null): string {
  */
 export function isTextual(contentType: string | null): boolean {
   if (contentType === null) return true;
+  // Un flux gRPC ou Connect ENVELOPPE chaque message (5 octets devant, même
+  // en JSON) : le décoder en texte en ferait des caractères de contrôle.
+  if (/^application\/(?:grpc|connect\+)/u.test(contentType)) return false;
   return /^text\/|json|xml|javascript|x-www-form-urlencoded/u.test(contentType);
 }
 
@@ -173,11 +181,13 @@ export function probeHttp(
  *
  * @param request - méthode, adresse (même origine que la page), en-têtes, corps
  * @param onChunk - appelé à chaque morceau du corps
+ * @param keep - octets gardés d'un corps binaire (`bytes`, aperçu hexadécimal)
  * @returns ce que le navigateur a reçu ; ne rejette jamais
  */
 export async function probeRequest(
   request: Request,
   onChunk?: (chunks: readonly IProbeChunk[]) => void,
+  keep = PROBE_BINARY_BYTES,
 ): Promise<IProbeResult> {
   const address = new URL(request.url);
   const label = `${request.method} ${address.pathname}${address.search}`;
@@ -190,7 +200,7 @@ export async function probeRequest(
     // Un corps binaire décodé en texte n'apprend rien : on en garde les
     // premiers octets, et on compte le reste.
     const textual = isTextual(contentType);
-    const head = new Uint8Array(PROBE_BINARY_BYTES);
+    const head = new Uint8Array(keep);
     let received = 0;
     const chunks: IProbeChunk[] = [];
     const decoder = new TextDecoder();
@@ -199,8 +209,8 @@ export async function probeRequest(
       if (reader === undefined) break;
       const { done, value } = await reader.read();
       if (done) break;
-      if (received < PROBE_BINARY_BYTES) {
-        head.set(value.subarray(0, PROBE_BINARY_BYTES - received), received);
+      if (received < keep) {
+        head.set(value.subarray(0, keep - received), received);
       }
       received += value.byteLength;
       chunks.push({
@@ -212,6 +222,7 @@ export async function probeRequest(
       onChunk?.([...chunks]);
     }
     const text = chunks.map((chunk) => chunk.text).join("") + decoder.decode();
+    const kept = head.subarray(0, Math.min(received, keep));
     return {
       request: label,
       sent,
@@ -222,14 +233,12 @@ export async function probeRequest(
         ? formatBody(text, contentType)
         : received === 0
           ? ""
-          : hexPreview(
-              head.subarray(0, Math.min(received, PROBE_BINARY_BYTES)),
-              received,
-            ),
+          : hexPreview(kept, received),
       chunks: textual ? chunks : [],
       redirected: response.redirected,
       finalUrl: response.redirected ? new URL(response.url).pathname : null,
       error: null,
+      ...(textual ? {} : { bytes: kept }),
     };
   } catch (error) {
     return failed(label, since(), error, sent);

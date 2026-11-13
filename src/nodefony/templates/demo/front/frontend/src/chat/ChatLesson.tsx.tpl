@@ -1,5 +1,5 @@
 import { loginPagePath } from "nodefony/client";
-import { docUrl, type IDemoAbout } from "../about";
+import { docsVersion, docUrl, type IDemoAbout } from "../about";
 import { LEVELS } from "../Catalogue";
 import { LessonCode } from "../lesson/LessonCode";
 import { CHAT_LESSON } from "./chatTabs";
@@ -34,7 +34,7 @@ const STATE_LABEL = {
  */
 export function ChatLesson({ about }: { about: IDemoAbout | null }) {
   const room = useChat();
-  const version = about?.nodefony.version ?? null;
+  const version = docsVersion(about);
   return (
     <main className="lesson">
       <nav className="crumbs" aria-label="Fil d'Ariane">

@@ -82,7 +82,14 @@ export type LessonFile =
   | "frontend/src/sensor/sensorDemo.ts"
   | "frontend/src/sensor/sensorClient.ts"
   | "frontend/src/sensor/sensorStats.ts"
-  | "frontend/src/sensor/BlochView.tsx";
+  | "frontend/src/sensor/BlochView.tsx"
+  | "proto/demo/telemetry/v1/telemetry.proto"
+  | "nodefony/controllers/TelemetryController.ts"
+  | "nodefony/controllers/DemoRealtimeController.ts"
+  | "nodefony/service/TelemetryRelayService.ts"
+  | "nodefony/command/SensorPushCommand.ts"
+  | "frontend/src/grpc/grpcDemo.ts"
+  | "frontend/src/grpc/grpcClient.ts";
 
 /** Les couches, dans l'ordre où l'on construit une fonctionnalité. */
 export const LESSON_LAYERS = [

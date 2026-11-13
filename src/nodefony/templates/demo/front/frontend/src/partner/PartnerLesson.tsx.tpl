@@ -1,5 +1,5 @@
 import { loginPagePath } from "nodefony/client";
-import { docUrl, type IDemoAbout } from "../about";
+import { docsVersion, docUrl, type IDemoAbout } from "../about";
 import { Inline, LEVELS } from "../Catalogue";
 import { LessonCode } from "../lesson/LessonCode";
 import { decodeClaims } from "./partnerApi";
@@ -67,7 +67,7 @@ const TRIALS: readonly ITrialSpec[] = [
  */
 export function PartnerLesson({ about }: { about: IDemoAbout | null }) {
   const lab = usePartnerLab();
-  const version = about?.nodefony.version ?? null;
+  const version = docsVersion(about);
   return (
     <main className="lesson">
       <nav className="crumbs" aria-label="Fil d'Ariane">

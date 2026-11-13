@@ -4,6 +4,8 @@ package demo.telemetry.v1;
 
 import "google/protobuf/timestamp.proto";
 
+// #region proto-service
+
 // Une machine pousse ses mesures ; la page les suit par la socket de la démo.
 service TelemetryService {
   // Flux client : la machine envoie tant qu'elle mesure, une seule réponse à la fin.
@@ -14,12 +16,18 @@ service TelemetryService {
   }
 }
 
+// #endregion
+
+// #region proto-reading
+
 // Une mesure, datée par la machine qui l'a prise.
 message Reading {
   string machine = 1;
   double celsius = 2;
   google.protobuf.Timestamp measured_at = 3;
 }
+
+// #endregion
 
 message PushRequest {
   Reading reading = 1;

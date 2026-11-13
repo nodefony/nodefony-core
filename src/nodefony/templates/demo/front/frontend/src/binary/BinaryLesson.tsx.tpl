@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { docUrl, type IDemoAbout } from "../about";
+import { docsVersion, docUrl, type IDemoAbout } from "../about";
 import { LEVELS } from "../Catalogue";
 import { LessonCode } from "../lesson/LessonCode";
 import type { LessonFile } from "../lesson/lesson";
@@ -341,7 +341,7 @@ function buildSteps(
  * `BinaryVisuals.tsx`.
  */
 export function BinaryLesson({ about }: { about: IDemoAbout | null }) {
-  const version = about?.nodefony.version ?? null;
+  const version = docsVersion(about);
   const canvas = useRef<HTMLCanvasElement | null>(null);
   // UNE socket CBOR pour toute la page, ouverte à l'arrivée, fermée au
   // départ : les gestes la partagent, la barre de debug la montre.

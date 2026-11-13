@@ -1,5 +1,5 @@
 import type { IDemoAbout } from "../about";
-import { docUrl } from "../about";
+import { docsVersion, docUrl } from "../about";
 import { GamePage } from "../game/GamePage";
 import { PrismGame } from "./PrismGame";
 import { PRISM_HZ, prismTiles, ROUND_SECONDS } from "./prismDemo";
@@ -14,7 +14,7 @@ import { PRISM_LESSON } from "./prismTabs";
  * `PrismGame.tsx`, la scène 3D `prismScene.ts` (Three.js, chargée à la demande).
  */
 export function PrismLesson({ about }: { about: IDemoAbout | null }) {
-  const version = about?.nodefony.version ?? null;
+  const version = docsVersion(about);
   return (
     <GamePage
       crumb="Prisme"

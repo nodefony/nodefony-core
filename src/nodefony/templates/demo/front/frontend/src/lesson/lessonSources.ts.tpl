@@ -73,6 +73,13 @@ const RAW = import.meta.glob<string>(
     "../sensor/sensorClient.ts",
     "../sensor/sensorStats.ts",
     "../sensor/BlochView.tsx",
+    "../../../proto/demo/telemetry/v1/telemetry.proto",
+    "../../../nodefony/controllers/TelemetryController.ts",
+    "../../../nodefony/controllers/DemoRealtimeController.ts",
+    "../../../nodefony/service/TelemetryRelayService.ts",
+    "../../../nodefony/command/SensorPushCommand.ts",
+    "../grpc/grpcDemo.ts",
+    "../grpc/grpcClient.ts",
   ],
   { query: "?raw", import: "default", eager: true },
 );
@@ -199,4 +206,21 @@ export const LESSON_SOURCES = {
   "frontend/src/sensor/sensorClient.ts": read("../sensor/sensorClient.ts"),
   "frontend/src/sensor/sensorStats.ts": read("../sensor/sensorStats.ts"),
   "frontend/src/sensor/BlochView.tsx": read("../sensor/BlochView.tsx"),
+  "proto/demo/telemetry/v1/telemetry.proto": read(
+    "../../../proto/demo/telemetry/v1/telemetry.proto",
+  ),
+  "nodefony/controllers/TelemetryController.ts": read(
+    "../../../nodefony/controllers/TelemetryController.ts",
+  ),
+  "nodefony/controllers/DemoRealtimeController.ts": read(
+    "../../../nodefony/controllers/DemoRealtimeController.ts",
+  ),
+  "nodefony/service/TelemetryRelayService.ts": read(
+    "../../../nodefony/service/TelemetryRelayService.ts",
+  ),
+  "nodefony/command/SensorPushCommand.ts": read(
+    "../../../nodefony/command/SensorPushCommand.ts",
+  ),
+  "frontend/src/grpc/grpcDemo.ts": read("../grpc/grpcDemo.ts"),
+  "frontend/src/grpc/grpcClient.ts": read("../grpc/grpcClient.ts"),
 } satisfies Record<LessonFile, string>;
