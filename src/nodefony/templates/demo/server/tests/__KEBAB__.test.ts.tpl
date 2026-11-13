@@ -62,7 +62,21 @@ import {
 import {
   ATTACHMENT_MAX_BYTES,
   ATTACHMENT_MAX_COUNT,
+  PEOPLE_MAX,
 } from "../frontend/src/chat/chatContract";
+import {
+  INVITE_EARLY_MS,
+  LOBBY_ROOM_ID,
+  admissionOf,
+  headlineEvent,
+  roomChannel,
+  roomIdOf,
+} from "../frontend/src/chat/rooms";
+import {
+  ARRIVAL_MARK_MS,
+  DEPARTURE_MARK_MS,
+  RosterTracker,
+} from "../frontend/src/chat/roster";
 import {
   LESSON_LAYERS,
   extractRegion,
@@ -256,9 +270,9 @@ describe("demo — l'historique du chat", () => {
   it("reste borné : au-delà de la limite, les plus anciens sortent", () => {
     const chat = new ChatService();
     for (let i = 0; i <= CHAT_HISTORY_LIMIT; i += 1) {
-      chat.add({ author: "a", text: String(i), sentAt: i });
+      chat.add(LOBBY_ROOM_ID, { author: "a", text: String(i), sentAt: i });
     }
-    const all = chat.recent(CHAT_HISTORY_LIMIT * 2);
+    const all = chat.recent(LOBBY_ROOM_ID, CHAT_HISTORY_LIMIT * 2);
     expect(all).toHaveLength(CHAT_HISTORY_LIMIT);
     expect(all[0]?.text).toBe("1");
   });
@@ -266,9 +280,221 @@ describe("demo — l'historique du chat", () => {
   it("rattrape une coupure : seulement les messages postérieurs à since", () => {
     const chat = new ChatService();
     for (let i = 1; i <= 5; i += 1)
-      chat.add({ author: "a", text: String(i), sentAt: i });
-    expect(chat.recent(50, 3).map((m) => m.text)).toEqual(["4", "5"]);
-    expect(chat.recent(2).map((m) => m.text)).toEqual(["4", "5"]);
+      chat.add(LOBBY_ROOM_ID, { author: "a", text: String(i), sentAt: i });
+    expect(chat.recent(LOBBY_ROOM_ID, 50, 3).map((m) => m.text)).toEqual([
+      "4",
+      "5",
+    ]);
+    expect(chat.recent(LOBBY_ROOM_ID, 2).map((m) => m.text)).toEqual([
+      "4",
+      "5",
+    ]);
+  });
+
+  it("garde un historique PAR salon : un salon ne lit jamais les messages d'un autre", () => {
+    const chat = new ChatService();
+    chat.add(LOBBY_ROOM_ID, { author: "a", text: "public", sentAt: 1 });
+    chat.add("equipe", { author: "b", text: "privé", sentAt: 2 });
+    expect(chat.recent(LOBBY_ROOM_ID, 10).map((m) => m.text)).toEqual([
+      "public",
+    ]);
+    expect(chat.recent("equipe", 10).map((m) => m.text)).toEqual(["privé"]);
+    expect(chat.recent("inconnu", 10)).toEqual([]);
+  });
+});
+
+describe("demo — qui entre dans un salon (règle pure)", () => {
+  const NOW = 1_000_000_000;
+  const publicRoom = { access: "public" as const, locked: false };
+  const privateRoom = { access: "private" as const, locked: false };
+  const invite = (start: number, end: number, extra: object = {}) => ({
+    start,
+    end,
+    status: "confirmed" as const,
+    partstat: "accepted" as const,
+    ...extra,
+  });
+
+  it("un salon inconnu refuse", () => {
+    expect(
+      admissionOf({ room: null, member: true, invitations: [] }, NOW),
+    ).toBe("refused");
+  });
+
+  it("un salon public non verrouillé accueille tout le monde, un verrouillé seulement ses membres", () => {
+    expect(
+      admissionOf({ room: publicRoom, member: false, invitations: [] }, NOW),
+    ).toBe("public");
+    const locked = { access: "public" as const, locked: true };
+    expect(
+      admissionOf({ room: locked, member: false, invitations: [] }, NOW),
+    ).toBe("refused");
+    expect(
+      admissionOf({ room: locked, member: true, invitations: [] }, NOW),
+    ).toBe("member");
+  });
+
+  it("un salon privé : membre oui, inconnu non", () => {
+    expect(
+      admissionOf({ room: privateRoom, member: true, invitations: [] }, NOW),
+    ).toBe("member");
+    expect(
+      admissionOf({ room: privateRoom, member: false, invitations: [] }, NOW),
+    ).toBe("refused");
+  });
+
+  it("un invité entre quinze minutes avant le début, jusqu'à la fin, pas après", () => {
+    const facts = (start: number, end: number) => ({
+      room: privateRoom,
+      member: false,
+      invitations: [invite(start, end)],
+    });
+    expect(
+      admissionOf(facts(NOW + INVITE_EARLY_MS, NOW + 3_600_000), NOW),
+    ).toBe("invited");
+    expect(
+      admissionOf(facts(NOW + INVITE_EARLY_MS + 1, NOW + 3_600_000), NOW),
+    ).toBe("refused");
+    expect(admissionOf(facts(NOW - 3_600_000, NOW), NOW)).toBe("invited");
+    expect(admissionOf(facts(NOW - 3_600_000, NOW - 1), NOW)).toBe("refused");
+  });
+
+  it("une invitation déclinée, ou un événement annulé, n'ouvre rien", () => {
+    const live = [NOW - 60_000, NOW + 60_000] as const;
+    expect(
+      admissionOf(
+        {
+          room: privateRoom,
+          member: false,
+          invitations: [invite(...live, { partstat: "declined" })],
+        },
+        NOW,
+      ),
+    ).toBe("refused");
+    expect(
+      admissionOf(
+        {
+          room: privateRoom,
+          member: false,
+          invitations: [invite(...live, { status: "cancelled" })],
+        },
+        NOW,
+      ),
+    ).toBe("refused");
+  });
+
+  it("le canal d'un salon se lit dans les deux sens, et refuse ce qui n'en est pas un", () => {
+    expect(roomIdOf(roomChannel("equipe"))).toBe("equipe");
+    expect(roomIdOf("chat:room:")).toBeNull();
+    expect(roomIdOf("chat:room:a:b")).toBeNull();
+    expect(roomIdOf("user:42")).toBeNull();
+  });
+
+  it("l'en-tête montre l'événement en cours, sinon le prochain, jamais un annulé ou fini", () => {
+    const ev = (
+      id: string,
+      start: number,
+      end: number,
+      status = "confirmed" as const,
+    ) => ({ id, title: id, start, end, status });
+    expect(
+      headlineEvent(
+        [ev("fini", NOW - 20, NOW - 10), ev("demain", NOW + 100, NOW + 200)],
+        NOW,
+      )?.id,
+    ).toBe("demain");
+    expect(
+      headlineEvent(
+        [
+          ev("demain", NOW + 100, NOW + 200),
+          ev("maintenant", NOW - 5, NOW + 5),
+        ],
+        NOW,
+      )?.id,
+    ).toBe("maintenant");
+    expect(
+      headlineEvent(
+        [{ ...ev("annulé", NOW - 5, NOW + 5), status: "cancelled" as const }],
+        NOW,
+      ),
+    ).toBeNull();
+  });
+});
+
+describe("demo — le panneau des présents (règle pure)", () => {
+  /** Une vue de présence : identité → onglets. */
+  const view = (entries: Record<string, number>) =>
+    new Map(Object.entries(entries).map(([id, tabs]) => [id, { tabs }]));
+
+  it("la première vue ne marque personne : « vient d'arriver » est une nouvelle, pas un état initial", () => {
+    const roster = new RosterTracker();
+    roster.observe(view({ a: 1, b: 2 }), false, 0);
+    expect(roster.rows(null, 0).map((r) => r.state)).toEqual(["here", "here"]);
+  });
+
+  it("une arrivée est marquée deux secondes, un départ reste visible trois secondes", () => {
+    const roster = new RosterTracker();
+    roster.observe(view({ a: 1, b: 1 }), false, 0);
+    roster.observe(view({ a: 1, c: 1 }), false, 1000);
+    const states = (now: number) =>
+      Object.fromEntries(roster.rows(null, now).map((r) => [r.id, r.state]));
+    expect(states(1000)).toEqual({ a: "here", b: "left", c: "arrived" });
+    expect(roster.nextChange(1000)).toBe(ARRIVAL_MARK_MS);
+    expect(states(1000 + ARRIVAL_MARK_MS)).toEqual({
+      a: "here",
+      b: "left",
+      c: "here",
+    });
+    expect(states(1000 + DEPARTURE_MARK_MS)).toEqual({ a: "here", c: "here" });
+    expect(roster.nextChange(1000 + DEPARTURE_MARK_MS)).toBeNull();
+  });
+
+  it("une vue partielle (bus perdu, reconnexion) ne fabrique ni arrivée ni départ", () => {
+    const roster = new RosterTracker();
+    roster.observe(view({ a: 1, b: 1 }), false, 0);
+    roster.observe(view({ a: 1, c: 1 }), true, 10);
+    expect(roster.rows(null, 10).map((r) => [r.id, r.state])).toEqual([
+      ["a", "here"],
+      ["c", "here"],
+    ]);
+  });
+
+  it("trie : soi d'abord, puis l'alphabet français, les inconnus en dernier", () => {
+    const roster = new RosterTracker();
+    roster.observe(view({ u1: 1, u2: 1, u3: 1, u4: 1 }), false, 0);
+    roster.learn(
+      ["u1", "u2", "u3"],
+      [
+        { id: "u1", name: "Zoé" },
+        { id: "u2", name: "élodie" },
+        { id: "u3", name: "Bob" },
+      ],
+    );
+    expect(roster.rows("u1", 0).map((r) => r.name)).toEqual([
+      "Zoé",
+      "Bob",
+      "élodie",
+      null,
+    ]);
+  });
+
+  it("demande chaque nom UNE fois ; un nom non rendu redevient demandable", () => {
+    const roster = new RosterTracker();
+    roster.observe(view({ a: 1, b: 1 }), false, 0);
+    const asked = roster.missingNames();
+    expect(asked).toEqual(["a", "b"]);
+    expect(roster.missingNames()).toEqual([]);
+    roster.learn(asked, [{ id: "a", name: "Alice" }]);
+    expect(roster.missingNames()).toEqual(["b"]);
+  });
+
+  it("borne une demande à PEOPLE_MAX identités", () => {
+    const roster = new RosterTracker();
+    const many: Record<string, number> = {};
+    for (let i = 0; i < PEOPLE_MAX + 5; i += 1) many[`u${i}`] = 1;
+    roster.observe(view(many), false, 0);
+    expect(roster.missingNames()).toHaveLength(PEOPLE_MAX);
+    expect(roster.missingNames()).toHaveLength(5);
   });
 });
 
@@ -1812,8 +2038,8 @@ describe("demo — MCP", () => {
 
   it("la lecture rend les derniers messages ; hors bornes, un échec MÉTIER que l'agent lit", async () => {
     const chat = new ChatService();
-    chat.add({ author: "alice", text: "un", sentAt: 1 });
-    chat.add({ author: "bob", text: "deux", sentAt: 2 });
+    chat.add(LOBBY_ROOM_ID, { author: "alice", text: "un", sentAt: 1 });
+    chat.add(LOBBY_ROOM_ID, { author: "bob", text: "deux", sentAt: 2 });
     const read = toolsOn(chat)[MCP_TOOL_READ];
     const ok = await read?.handler({ limit: 1 }, anyCaller);
     expect(ok).toEqual({
@@ -1849,7 +2075,7 @@ describe("demo — MCP", () => {
     const post = toolsOn(chat)[MCP_TOOL_POST];
     const anonymous = await post?.handler({ text: "salut" }, anyCaller);
     expect(anonymous?.isError).toBe(true);
-    expect(chat.recent(10)).toEqual([]);
+    expect(chat.recent(LOBBY_ROOM_ID, 10)).toEqual([]);
     const signed = await RequestContext.run(
       {
         requestId: "mcp-test",
@@ -1860,7 +2086,9 @@ describe("demo — MCP", () => {
     );
     expect(signed?.isError).toBeUndefined();
     expect(
-      chat.recent(10).map(({ author, text }) => ({ author, text })),
+      chat
+        .recent(LOBBY_ROOM_ID, 10)
+        .map(({ author, text }) => ({ author, text })),
     ).toEqual([{ author: "admin", text: "bonjour" }]);
     // La règle du salon, la même que la route d'envoi : un texte vide est refusé.
     const empty = await RequestContext.run(

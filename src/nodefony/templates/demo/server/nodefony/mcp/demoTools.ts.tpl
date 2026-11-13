@@ -11,6 +11,7 @@ import {
   MCP_TOOL_READ,
   MCP_WRITE_SCOPE,
 } from "../../frontend/src/mcp/mcpDemo";
+import { LOBBY_ROOM_ID } from "../../frontend/src/chat/rooms";
 import { CHAT_HISTORY_LIMIT } from "../service/ChatService";
 import type ChatService from "../service/ChatService";
 
@@ -68,7 +69,7 @@ export function demoTools(chat: ChatService): IMcpTool[] {
           );
         }
         const messages = chat
-          .recent(limit)
+          .recent(LOBBY_ROOM_ID, limit)
           .map(({ author, text, sentAt }) => ({ author, text, sentAt }));
         return mcpText(JSON.stringify(messages));
       },
@@ -89,7 +90,7 @@ export function demoTools(chat: ChatService): IMcpTool[] {
       // `run` porte l'annulation (le client a fermé le flux) et la progression
       // (une notification au plus toutes les 100 ms, sur le flux SSE).
       handler: async (_args, _caller, run) => {
-        const history = chat.recent(CHAT_HISTORY_LIMIT);
+        const history = chat.recent(LOBBY_ROOM_ID, CHAT_HISTORY_LIMIT);
         const size = Math.ceil(history.length / DIGEST_BATCHES);
         const counts = new Map<string, number>();
         for (let batch = 1; batch <= DIGEST_BATCHES; batch += 1) {
@@ -154,7 +155,7 @@ export function demoTools(chat: ChatService): IMcpTool[] {
             true,
           );
         }
-        chat.publish({
+        chat.publish(LOBBY_ROOM_ID, {
           author: me.identifier,
           text: parsed.data.text,
           sentAt: Date.now(),

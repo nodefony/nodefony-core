@@ -4076,3 +4076,438 @@ a.ritem:hover .ritem-go {
     transition: none;
   }
 }
+
+/* ── Le panneau « Dans le salon » (chat/ChatPeople.tsx) ──────────────────
+   Tout effet est du CSS sur `opacity` ou `transform` : joué par le
+   compositeur, sans re-rendu React ni repeinture. Le mouvement est rare et
+   porteur de sens (arrivée, départ, frappe), et coupé sous
+   `prefers-reduced-motion`. `contain: content` isole le panneau : une
+   arrivée ne recalcule pas la mise en page du salon. */
+.people {
+  contain: content;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.875rem 0.75rem;
+  background: var(--bg-soft);
+  border-left: 1px solid var(--border);
+  min-width: 0;
+}
+.people-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.people-title {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.people-toggle {
+  display: none;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--fg);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.people-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.people-count {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0;
+}
+.people-total {
+  font-size: 1.9rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  min-width: 2ch;
+}
+.people-split {
+  display: grid;
+  font-size: 0.74rem;
+  line-height: 1.35;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.people-search input {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--fg);
+}
+.people-search input:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 0;
+}
+.people-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1px;
+}
+.person {
+  position: relative;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.35rem 0.4rem;
+  border-radius: 7px;
+}
+/* Le voile d'arrivée : un pseudo-élément dont seule l'OPACITÉ s'anime. */
+.person::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--wash-green);
+  opacity: 0;
+  pointer-events: none;
+}
+.person:hover,
+.person:focus-within {
+  background: var(--card);
+}
+.person.is-me {
+  background: var(--card);
+}
+.person-avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--muted);
+}
+/* La pastille « en ligne » : une forme EN PLUS de la couleur (WCAG 1.4.1). */
+.person-avatar::after {
+  content: "";
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--green);
+  border: 2px solid var(--bg-soft);
+}
+.person.is-anonymous .person-avatar {
+  background: transparent;
+  border: 1.5px dashed var(--muted);
+  color: var(--muted);
+}
+.person.is-anonymous .person-avatar::after {
+  display: none;
+}
+.person-who {
+  display: grid;
+  min-width: 0;
+  line-height: 1.25;
+}
+.person-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.person-sub {
+  font-size: 0.7rem;
+  color: var(--muted);
+  min-height: 1em;
+}
+.person.is-arrived .person-sub {
+  color: color-mix(in srgb, var(--green) 70%, var(--fg));
+}
+.person-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-variant-numeric: tabular-nums;
+}
+.person-tabs i {
+  display: block;
+  width: 6px;
+  height: 9px;
+  border-radius: 1.5px;
+  border: 1.5px solid currentColor;
+}
+.person-actions {
+  position: absolute;
+  right: 0.3rem;
+  top: 50%;
+  display: flex;
+  gap: 2px;
+  padding-left: 0.4rem;
+  background: var(--card);
+  opacity: 0;
+  transform: translate(4px, -50%);
+  pointer-events: none;
+}
+.person:hover .person-actions,
+.person:focus-within .person-actions {
+  opacity: 1;
+  transform: translate(0, -50%);
+  pointer-events: auto;
+}
+.person-actions button {
+  width: 26px;
+  height: 26px;
+  font: inherit;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--fg);
+  cursor: pointer;
+}
+.person-actions button:hover {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+.person-actions button:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
+}
+.person.is-left .person-name {
+  color: var(--muted);
+  font-weight: 500;
+}
+.people-note,
+.people-empty {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.people-state {
+  margin: 0;
+  font-size: 0.74rem;
+  color: var(--muted);
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+}
+.people-state.is-partial {
+  color: color-mix(in srgb, var(--amber) 60%, var(--fg));
+  background: color-mix(in srgb, var(--amber) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--amber) 35%, transparent);
+}
+.person-sub .typing-dots {
+  margin-right: 0.25rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .person::before {
+    transition: opacity 0.6s ease-out;
+  }
+  .person.is-arrived::before {
+    animation: person-arrive 2s ease-out both;
+    /* La durée vraie vient de la ligne (ARRIVAL_MARK_MS, style en ligne). */
+    animation-duration: inherit;
+  }
+  .person.is-left {
+    animation: person-leave 3s ease-in both;
+  }
+  .person-actions {
+    transition:
+      opacity 0.15s ease-out,
+      transform 0.15s ease-out;
+  }
+}
+@keyframes person-arrive {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes person-leave {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.35;
+  }
+}
+/* Sous `reduce` : pas d'animation, l'état reste lisible par le texte seul
+   (« vient d'arriver », « vient de partir »). */
+@media (prefers-reduced-motion: reduce) {
+  .person.is-left {
+    opacity: 0.6;
+  }
+}
+
+/* Écran étroit : le panneau se replie derrière le bouton « N présents ». */
+@media (max-width: 760px) {
+  .people {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+  .people-toggle {
+    display: inline-block;
+  }
+  .people-body {
+    display: none;
+  }
+  .people-body.is-open {
+    display: flex;
+  }
+}
+
+/* ── Le salon à trois colonnes : salons · flux · présents ──────────────── */
+.room.room-layout {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr) 240px;
+  align-items: stretch;
+}
+.room-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.room-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.875rem 0.6rem;
+  background: var(--bg-soft);
+  border-right: 1px solid var(--border);
+  min-width: 0;
+}
+.room-rail-title {
+  margin: 0 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.room-rail ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+.room-link {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  padding: 0.45rem 0.55rem;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+.room-link:hover {
+  background: var(--card);
+  color: var(--fg);
+}
+.room-link:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
+}
+.room-link.is-current {
+  background: var(--card);
+  color: var(--fg);
+  font-weight: 600;
+}
+.room-link-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.room-live {
+  flex: none;
+  font-size: 0.66rem;
+  font-weight: 600;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--green) 70%, var(--fg));
+  background: var(--wash-green);
+}
+.room-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.75rem;
+}
+.room-head-count {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.room-event {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.room-refusal {
+  margin: 1.5rem 1rem;
+  padding: 0.8rem 1rem;
+  border-radius: 8px;
+  color: color-mix(in srgb, var(--amber) 60%, var(--fg));
+  background: color-mix(in srgb, var(--amber) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--amber) 35%, transparent);
+}
+@media (max-width: 1020px) {
+  .room.room-layout {
+    grid-template-columns: minmax(0, 1fr) 220px;
+  }
+  .room-rail {
+    grid-column: 1 / -1;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .room-rail ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+  }
+  .room-link {
+    width: auto;
+  }
+}
+@media (max-width: 760px) {
+  .room.room-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

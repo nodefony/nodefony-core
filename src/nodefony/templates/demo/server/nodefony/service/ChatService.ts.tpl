@@ -4,15 +4,13 @@ import path from "node:path";
 import { Service, Module, injectable } from "nodefony";
 import type { IUploadedFile } from "@nodefony/http";
 import { getRealtimeHub } from "@nodefony/realtime";
-import {
-  ATTACHMENT_MAX_BYTES,
-  ROOM_CHANNEL,
-} from "../../frontend/src/chat/chatContract";
+import { ATTACHMENT_MAX_BYTES } from "../../frontend/src/chat/chatContract";
 import type {
   ChatAttachment,
-  ChatContract,
   ChatMessage,
+  RoomFrame,
 } from "../../frontend/src/chat/chatContract";
+import { roomChannel } from "../../frontend/src/chat/rooms";
 import DemoPulseService, { DEMO_PULSE_SERVICE } from "./DemoPulseService";
 import { describeFile, sniffImage } from "../../frontend/src/kit/preview";
 
@@ -63,7 +61,8 @@ export function isUploadedFile(value: unknown): value is IUploadedFile {
  */
 @injectable()
 class ChatService extends Service {
-  readonly #messages: ChatMessage[] = [];
+  /** L'historique de chaque salon, borné salon par salon. */
+  readonly #messages = new Map<string, ChatMessage[]>();
   readonly #attachments = new Map<string, IStoredAttachment>();
   readonly #dir: string | null;
   #ready: Promise<string> | null = null;
@@ -80,10 +79,15 @@ class ChatService extends Service {
   }
 
   // #region chat-store
-  /** Garde un message ; le plus ancien sort au-delà de la borne. */
-  add(message: ChatMessage): void {
-    this.#messages.push(message);
-    if (this.#messages.length > CHAT_HISTORY_LIMIT) this.#messages.shift();
+  /** Garde un message d'un salon ; le plus ancien sort au-delà de la borne. */
+  add(roomId: string, message: ChatMessage): void {
+    let kept = this.#messages.get(roomId);
+    if (kept === undefined) {
+      kept = [];
+      this.#messages.set(roomId, kept);
+    }
+    kept.push(message);
+    if (kept.length > CHAT_HISTORY_LIMIT) kept.shift();
   }
 
   /**
@@ -92,9 +96,9 @@ class ChatService extends Service {
    * la route d'envoi, l'envoi de pièces et l'outil MCP `demo_chat_post`
    * l'appellent : trois copies de ces trois gestes divergeraient.
    */
-  publish(message: ChatMessage): void {
-    this.add(message);
-    getRealtimeHub<ChatContract>().publish(ROOM_CHANNEL, message);
+  publish(roomId: string, message: ChatMessage): void {
+    this.add(roomId, message);
+    publishFrame(roomId, { kind: "message", message });
     const pulse = this.get<unknown>(DEMO_PULSE_SERVICE);
     if (pulse instanceof DemoPulseService) pulse.recordChatMessage();
   }
@@ -105,12 +109,22 @@ class ChatService extends Service {
    * @param limit - nombre maximal de messages rendus
    * @param since - seulement ceux envoyés après cet instant (rattrapage)
    */
-  recent(limit: number, since?: number): ChatMessage[] {
+  recent(roomId: string, limit: number, since?: number): ChatMessage[] {
+    const all = this.#messages.get(roomId) ?? [];
     const kept =
       since === undefined
-        ? this.#messages
-        : this.#messages.filter((message) => message.sentAt > since);
+        ? all
+        : all.filter((message) => message.sentAt > since);
     return kept.slice(-limit);
+  }
+
+  /**
+   * « Untel écrit… » dans un salon : un message ÉPHÉMÈRE du canal, ni gardé ni
+   * compté — il suit donc les droits du salon (un salon privé ne fuit pas sa
+   * frappe), ce qu'un canal de frappe commun à tous ne ferait pas.
+   */
+  typing(roomId: string, author: string): void {
+    publishFrame(roomId, { kind: "typing", author });
   }
   // #endregion
 
@@ -227,6 +241,16 @@ async function classify(
         mime: "application/octet-stream",
       }
     : { meta: { id, name, size, kind: "image" }, file, mime: image };
+}
+
+/**
+ * Publie une trame sur le canal d'un salon. Le hub type les canaux LITTÉRAUX
+ * de son contrat, pas encore une famille (`chat:room:<id>`) : la trame est
+ * donc typée ICI, à l'unique point d'émission, et la page la vérifie à la
+ * réception (`isRoomFrame`).
+ */
+function publishFrame(roomId: string, frame: RoomFrame): void {
+  getRealtimeHub().publish(roomChannel(roomId), frame);
 }
 
 export default ChatService;

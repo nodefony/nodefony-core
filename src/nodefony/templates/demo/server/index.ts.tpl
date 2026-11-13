@@ -1,6 +1,12 @@
 import { Kernel, Module, services } from "nodefony";
 import { controllers } from "@nodefony/framework";
-import config, { type IDemoConfigInput } from "./nodefony/config/config";
+import { entities } from "@nodefony/orm-core";
+import config, {
+  DEMO_CONNECTOR,
+  demoDrizzleOverride,
+  type IDemoConfigInput,
+} from "./nodefony/config/config";
+import { roomEntities } from "./nodefony/entity/rooms";
 import {
   defineDemoConfig,
   demoConfigJsonSchema,
@@ -19,6 +25,7 @@ import SseController from "./nodefony/controllers/SseController";
 import VideoController from "./nodefony/controllers/VideoController";
 import BinaryController from "./nodefony/controllers/BinaryController";
 import ChatService from "./nodefony/service/ChatService";
+import RoomService from "./nodefony/service/RoomService";
 import PartnerTokenService from "./nodefony/service/PartnerTokenService";
 import PartnerTokenController from "./nodefony/controllers/PartnerTokenController";
 import DemoMcpController from "./nodefony/controllers/DemoMcpController";
@@ -75,6 +82,7 @@ declare module "nodefony" {
   AppBannerService,
   DemoPulseService,
   ChatService,
+  RoomService,
   PartnerTokenService,
   DemoMcpService,
   MeteorService,
@@ -82,9 +90,19 @@ declare module "nodefony" {
   SensorService,
   TelemetryRelayService,
 ])
+// #region demo-entities
+// Les salons du chat : quatre tables sur la base SQLite de la démo.
+@entities(roomEntities, { connector: DEMO_CONNECTOR })
+// #endregion
 class DemoModule extends Module {
   constructor(kernel: Kernel) {
-    super("demo", kernel, import.meta.url, config);
+    // Le connecteur `demo` rejoint `@nodefony/drizzle` comme la zone de la
+    // démo rejoint le firewall : par une clé `module-drizzle`, lue à
+    // l'enregistrement des modules, avant toute connexion.
+    super("demo", kernel, import.meta.url, {
+      ...config,
+      ...demoDrizzleOverride(process.env),
+    });
     this.addCommand(PartnerCallCommand);
     this.addCommand(SensorPushCommand);
   }
@@ -101,6 +119,24 @@ class DemoModule extends Module {
    */
   override async onKernelBoot(): Promise<this> {
     registerDemoEntry(this);
+    return this;
+  }
+
+  /**
+   * Sème les salons de démonstration — la base est ouverte depuis `onBoot`.
+   * Un échec se DIT (le chat resterait vide sans explication), sans arrêter
+   * le reste de la démo.
+   */
+  override async onKernelReady(): Promise<this> {
+    const rooms = this.get<unknown>("rooms");
+    if (rooms instanceof RoomService) {
+      await rooms.seed().catch((error: unknown) => {
+        this.log(
+          `salons du chat : semis impossible — ${error instanceof Error ? error.message : String(error)}`,
+          "ERROR",
+        );
+      });
+    }
     return this;
   }
 

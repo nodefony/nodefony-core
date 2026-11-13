@@ -1,6 +1,12 @@
 import type { IRealtimeContract } from "nodefony/client";
 import type { IFilePreview } from "../kit/preview";
-import type { HistoryQuery, SendBody } from "./chatSchemas";
+import type {
+  HistoryQuery,
+  PeopleQuery,
+  RoomParams,
+  SendBody,
+} from "./chatSchemas";
+import type { IRoomView } from "./rooms";
 
 /**
  * Le contrat du salon — des TYPES seulement, lus par les deux côtés :
@@ -16,17 +22,30 @@ import type { HistoryQuery, SendBody } from "./chatSchemas";
 /** Adresse de la socket du salon. */
 export const CHAT_REALTIME_PATH = "/demo/chat/realtime";
 
-/** Le salon : chaque message envoyé. */
-export const ROOM_CHANNEL = "chat:room";
+/**
+ * Un départ attend cinq secondes avant d'être annoncé, et s'annule si la
+ * personne revient : un rechargement de page ne fait pas « parti, revenu ».
+ */
+export const PRESENCE_GRACE_MS = 5000;
 
-/** « Untel écrit… » : volatil, ni conservé ni compté. */
-export const TYPING_CHANNEL = "chat:typing";
+/** Au plus cinquante identités par demande de noms. */
+export const PEOPLE_MAX = 50;
+
+/**
+ * Une personne présente, telle que l'annuaire du salon la nomme. La présence
+ * ne porte qu'une identité OPAQUE (l'`id` stable du compte) : le nom, c'est
+ * l'application qui le donne, par sa route.
+ */
+export interface ChatPerson {
+  id: string;
+  name: string;
+}
 
 /**
  * Un message AVEC des pièces : un `POST` multipart, hors du pont socket — des
  * octets en volume voyagent en HTTP, en flux jusqu'au disque.
  */
-export const CHAT_ATTACH_PATH = "/demo/chat/attachments";
+export const CHAT_ATTACH_PATH = "/demo/chat/rooms/{room}/attachments";
 
 /** Une pièce se lit à `${CHAT_FILE_PATH}/<id>`. */
 export const CHAT_FILE_PATH = "/demo/chat/files";
@@ -60,23 +79,71 @@ export interface ChatMessage {
   attachments?: ChatAttachment[];
 }
 
+/**
+ * Ce que porte le canal d'un salon (`chat:room:<id>`) : un message, ou le
+ * signal « Untel écrit… » — éphémère, ni conservé ni compté. La frappe est un
+ * message du canal, jamais un état de la présence (RFC 6121 §4.4.1, ADR-0025
+ * P4) : elle suit les mêmes droits que le salon.
+ */
+export type RoomFrame =
+  | { kind: "message"; message: ChatMessage }
+  | { kind: "typing"; author: string };
+
+/**
+ * Une trame venue du réseau est-elle une `RoomFrame` ? La page le vérifie
+ * avant de l'afficher : le type d'un canal de famille n'est pas encore porté
+ * par le contrat jusqu'à `socket.on`.
+ */
+export function isRoomFrame(value: unknown): value is RoomFrame {
+  if (typeof value !== "object" || value === null) return false;
+  const kind: unknown = Reflect.get(value, "kind");
+  if (kind === "typing")
+    return typeof Reflect.get(value, "author") === "string";
+  if (kind !== "message") return false;
+  const message: unknown = Reflect.get(value, "message");
+  return (
+    typeof message === "object" &&
+    message !== null &&
+    typeof Reflect.get(message, "author") === "string" &&
+    typeof Reflect.get(message, "text") === "string" &&
+    typeof Reflect.get(message, "sentAt") === "number"
+  );
+}
+
+/** Ce que reçoit le canal personnel : « ta liste de salons a changé, relis-la ». */
+export interface RoomsNotice {
+  type: "rooms:changed";
+}
+
 // #region chat-contract
 export interface ChatContract extends IRealtimeContract {
   serverToClient: {
-    "chat:room": ChatMessage;
-    "chat:typing": { author: string };
+    /** Un canal par salon — admis par la règle des salons, présence comprise. */
+    [room: `chat:room:${string}`]: RoomFrame;
+    /** Le canal personnel (`publishToUser`), joint d'office à toute connexion authentifiée. */
+    [user: `user:${string}`]: RoomsNotice;
   };
-  /** Le signal de frappe : AUCUN champ — l'auteur vient de la connexion. */
-  clientToServer: { "chat:typing": Record<string, never> };
   /** Les routes, appelées en HTTP ou par la socket : "<VERBE> <chemin>". */
   serverRoutes: {
-    "POST /demo/chat/send": {
+    "GET /demo/chat/rooms": { result: IRoomView[] };
+    "POST /demo/chat/rooms/{room}/send": {
+      params: typeof RoomParams;
       body: typeof SendBody;
       result: { sentAt: number };
     };
-    "GET /demo/chat/history": {
+    "POST /demo/chat/rooms/{room}/typing": {
+      params: typeof RoomParams;
+      result: { ok: true };
+    };
+    "GET /demo/chat/rooms/{room}/history": {
+      params: typeof RoomParams;
       query: typeof HistoryQuery;
       result: ChatMessage[];
+    };
+    "GET /demo/chat/rooms/{room}/people": {
+      params: typeof RoomParams;
+      query: typeof PeopleQuery;
+      result: ChatPerson[];
     };
   };
 }

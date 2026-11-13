@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PEOPLE_MAX } from "./chatContract";
 
 /**
  * Ce que le salon accepte — la SEULE définition du corps de l'envoi et de la
@@ -20,6 +21,31 @@ export const SendBody = z.strictObject({
  */
 export const AttachBody = z.strictObject({
   text: z.string().trim().max(2000).default(""),
+});
+
+/**
+ * Le salon visé par une route (`/demo/chat/rooms/{room}/…`) : un identifiant
+ * court, sans `:` — il compose le nom du canal `chat:room:<id>`.
+ */
+export const RoomParams = z.strictObject({
+  room: z
+    .string()
+    .min(1)
+    .max(64)
+    .regex(/^[A-Za-z0-9_-]+$/u),
+});
+
+/**
+ * Les identités à nommer, séparées par des virgules : `?ids=a1,b2`. Bornée
+ * avant d'être découpée (au plus `PEOPLE_MAX` identités de 128 caractères).
+ */
+export const PeopleQuery = z.strictObject({
+  ids: z
+    .string()
+    .min(1)
+    .max(PEOPLE_MAX * 129)
+    .transform((list) => list.split(","))
+    .pipe(z.array(z.string().min(1).max(128)).max(PEOPLE_MAX)),
 });
 
 /** La query de l'historique — elle arrive en texte, `coerce` la convertit. */

@@ -13,6 +13,11 @@ const SERVICE: LessonFile = "nodefony/service/ChatService.ts";
 const RULES: LessonFile = "frontend/src/chat/attachments.ts";
 const PREVIEW: LessonFile = "frontend/src/kit/preview.ts";
 const MARKDOWN: LessonFile = "frontend/src/kit/markdown.ts";
+const ROOMS: LessonFile = "nodefony/service/RoomService.ts";
+const ADMISSION: LessonFile = "nodefony/service/RoomAdmission.ts";
+const ENTITIES: LessonFile = "nodefony/entity/rooms.ts";
+const RULE: LessonFile = "frontend/src/chat/rooms.ts";
+const ROSTER: LessonFile = "frontend/src/chat/roster.ts";
 
 export const CHAT_LESSON = {
   tabs: [
@@ -24,6 +29,13 @@ export const CHAT_LESSON = {
           excerpt: {
             file: "nodefony/config/config.ts",
             region: "demo-module-security",
+          },
+        },
+        {
+          text: "Les salons vivent dans une base SQLite À LA DÉMO, jamais celle de l'application : la démo ajoute un connecteur `demo` à `@nodefony/drizzle` par la même mécanique (`module-drizzle`). Un ORM porte plusieurs connecteurs, et deux ORM cohabitent : une application MongoDB charge Drizzle pour la seule démo. Pourquoi une base à part : la première migration de l'application créerait sinon les tables d'un module de développement EN PRODUCTION.",
+          excerpt: {
+            file: "nodefony/config/config.ts",
+            region: "demo-connector",
           },
         },
       ],
@@ -61,7 +73,15 @@ export const CHAT_LESSON = {
           excerpt: { file: CONTROLLER, region: "chat-door", step: 1 },
         },
         {
-          text: "Lire l'historique : une seule action pour `GET /demo/chat/history` et `socket.get(…)`. La requête est validée AVANT l'action, qui reçoit des valeurs typées.",
+          text: "La garde de chaque route d'un salon : la MÊME règle que le canal, lue en base. Un salon inconnu répond 404, un salon où l'on n'entre pas répond 403.",
+          excerpt: { file: CONTROLLER, region: "chat-admitted" },
+        },
+        {
+          text: "La liste des salons que je vois : les publics, ceux dont je suis membre, ceux où un événement m'invite.",
+          excerpt: { file: CONTROLLER, region: "chat-rooms" },
+        },
+        {
+          text: "Lire l'historique d'un salon : une seule action pour `GET …/rooms/{room}/history` et `socket.get(…)`. Le salon du chemin et la requête sont validés AVANT l'action, qui reçoit des valeurs typées.",
           excerpt: { file: CONTROLLER, region: "chat-history", step: 2 },
         },
         {
@@ -77,11 +97,15 @@ export const CHAT_LESSON = {
           excerpt: { file: CONTROLLER, region: "chat-file", step: 6 },
         },
         {
-          text: "Le salon : un canal auquel la page s'abonne. Il relaie ce que l'envoi publie, il n'émet rien de lui-même.",
+          text: "L'annuaire d'un salon : la présence ne porte qu'une identité opaque, le nom se demande ici — et seuls les présents de CE salon sont nommés, sans quoi la route deviendrait un annuaire de tous les comptes.",
+          excerpt: { file: CONTROLLER, region: "chat-people-route" },
+        },
+        {
+          text: "Tous les salons, déclarés UNE fois par un motif. Une classe d'admission tranche qui entre (lue en base, au `subscribe`) ; `presence` donne la liste des présents à qui est admis, et `grace` retient un départ cinq secondes — un rechargement de page ne fait pas « parti, revenu ». Un canal décoré n'est servi que sous son nom exact : la famille l'est par `createRealtimeChannel`.",
           excerpt: { file: CONTROLLER, region: "chat-room", step: 1 },
         },
         {
-          text: "La frappe en cours : un second canal sur la même connexion. Le signal « j'écris » ne porte aucun champ, et seuls les connectés peuvent l'envoyer : le serveur sait qui écrit.",
+          text: "La frappe en cours : une action sans corps, réservée aux connectés ADMIS. Le signal part sur le canal du salon, en message éphémère : il suit les droits du salon et ne fuit jamais hors de lui — ce qu'un canal de frappe commun à tous ne garantirait pas.",
           excerpt: { file: CONTROLLER, region: "chat-typing", step: 3 },
         },
       ],
@@ -90,7 +114,23 @@ export const CHAT_LESSON = {
       layer: "service",
       blocks: [
         {
-          text: "L'historique survit aux connexions parce qu'il vit dans un service, unique pour toute l'application. Ici un tampon BORNÉ en mémoire : au-delà de la limite, les plus anciens sortent. Le passer en base (cookbook, étape 4) ne change rien au contrôleur.",
+          text: "Qui entre : une classe, parce que la règle lit la base. Une seule instance sert tous les abonnés ; seul `true` admet, une exception vaut refus, et la réponse est RETENUE sur la connexion.",
+          excerpt: { file: ADMISSION, region: "rooms-admission-class" },
+        },
+        {
+          text: "Les faits que la règle demande, lus en base à chaque `subscribe` — jamais de cache : une admission doit voir la base du moment.",
+          excerpt: { file: ROOMS, region: "rooms-admission" },
+        },
+        {
+          text: "Changer d'appartenance, c'est écrire en base PUIS pousser : `publishToUser` prévient la personne (sa liste change, la page la relit), `evictUser` désabonne sur tous les serveurs qui la retire. Sans éjection, l'admission retenue la laisserait lire.",
+          excerpt: { file: ROOMS, region: "rooms-membership" },
+        },
+        {
+          text: "Nommer les présents : la présence du canal dit qui est là, les comptes de l'application disent son nom — une lecture `$in` par l'ORM de l'application, Drizzle ou Mongoose.",
+          excerpt: { file: ROOMS, region: "chat-people" },
+        },
+        {
+          text: "L'historique survit aux connexions parce qu'il vit dans un service, unique pour toute l'application. Ici un tampon BORNÉ en mémoire, salon par salon : au-delà de la limite, les plus anciens sortent.",
           excerpt: { file: SERVICE, region: "chat-store", step: 4 },
         },
         {
@@ -108,8 +148,33 @@ export const CHAT_LESSON = {
       ],
     },
     {
+      layer: "data",
+      blocks: [
+        {
+          text: "Les tables sont décrites UNE fois, de façon portable (`defineTable`) : la table de chaque moteur s'en déduit. Un membre est unique par salon (index composite). Les comptes vivent dans une AUTRE base : un salon ne garde que leur identifiant stable, sans clé étrangère — l'intégrité passe par l'événement `onUserRevoked`.",
+          excerpt: { file: ENTITIES, region: "rooms-tables" },
+        },
+      ],
+    },
+    {
       layer: "front",
       blocks: [
+        {
+          text: "La règle d'entrée, PURE et partagée : le serveur la tranche avec les faits de la base, la page s'en sert pour l'affichage. Membre, salon public non verrouillé, puis invité d'un événement en cours.",
+          excerpt: { file: RULE, region: "rooms-rule" },
+        },
+        {
+          text: "La liste des salons ne s'interroge pas : le serveur POUSSE sur le canal personnel quand elle change, et la page la relit.",
+          excerpt: { file: HOOK, region: "chat-rooms-client" },
+        },
+        {
+          text: "Qui est là : la vue de présence du salon, puis les noms demandés à l'annuaire.",
+          excerpt: { file: HOOK, region: "chat-presence-client" },
+        },
+        {
+          text: "« Vient d'arriver » et « vient de partir » se CALCULENT par différence entre deux vues : le serveur ne les envoie pas. Une vue partielle (bus perdu, reconnexion) ne marque personne.",
+          excerpt: { file: ROSTER, region: "roster-observe" },
+        },
         {
           text: "Le contrat, importé par le serveur ET par la page : les canaux, les routes et le type de chaque message. C'est lui qui rend la socket typée de bout en bout.",
           excerpt: {
@@ -253,16 +318,9 @@ export const CHAT_LESSON = {
     {
       name: "RealtimeChannel",
       from: "@nodefony/realtime",
-      role: "un canal auquel la page s'abonne ; la méthode rend son nettoyage.",
+      role: "un canal — ou une famille par motif — auquel la page s'abonne : qui entre (`allow`), lecture anonyme, présence ; la méthode rend son nettoyage.",
       file: CONTROLLER,
       region: "chat-room",
-    },
-    {
-      name: "RealtimeInbound",
-      from: "@nodefony/realtime",
-      role: "reçoit ce que la page envoie sur un canal, avec sa politique d'accès.",
-      file: CONTROLLER,
-      region: "chat-typing",
     },
     {
       name: "RealtimeBroadcast",

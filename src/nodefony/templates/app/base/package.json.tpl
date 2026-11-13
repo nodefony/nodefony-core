@@ -11,7 +11,7 @@
     "node": "^24.16.0 || >=26.0.0"
   },
 <% if (it.packageManager === "npm") { %>  "allowScripts": {
-<% if (it.complete && !it.mongo && it.dialect === "sqlite") { %>    "better-sqlite3": false,
+<% if (it.complete && ((!it.mongo && it.dialect === "sqlite") || it.demo)) { %>    "better-sqlite3": false,
 <% } %>    "esbuild": false,
     "fsevents": false
   },
@@ -104,6 +104,9 @@
     "@types/node": "<%= it.pkg["@types/node"] %>",
 <% if (it.mongo) { %>    "mongodb": "<%= it.pkg["mongodb"] %>",
 <% } else { %>    "drizzle-kit": "<%= it.pkg["drizzle-kit"] %>",
+<% } %><% if (it.complete && it.demo && it.mongo) { %>    "@nodefony/drizzle": "^<%= it.nodefonyVersion %>",
+    "drizzle-orm": "<%= it.pkg["drizzle-orm"] %>",
+<% } %><% if (it.complete && it.demo && (it.mongo || it.dialect !== "sqlite")) { %>    "better-sqlite3": "<%= it.pkg["better-sqlite3"] %>",
 <% } %>    "@typescript/native-preview": "<%= it.pkg["@typescript/native-preview"] %>",
     "oxlint": "<%= it.pkg["oxlint"] %>",
     "oxlint-tsgolint": "<%= it.pkg["oxlint-tsgolint"] %>",

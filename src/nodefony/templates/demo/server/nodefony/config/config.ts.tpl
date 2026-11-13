@@ -1,4 +1,6 @@
+import path from "node:path";
 import { z } from "zod";
+import { resolveInfra, sqliteFilenameFromUrl } from "nodefony";
 import { demoSecurity } from "./security";
 import { PAYLOAD_LIMIT } from "../../frontend/src/binary/binaryDemo";
 
@@ -75,4 +77,47 @@ export default {
   "module-security": demoSecurity,
   ...binaryOverrides,
 };
+// #endregion
+
+// #region demo-connector
+/** Le connecteur des salons du chat : une base SQLite à la démo, jamais celle de l'application. */
+export const DEMO_CONNECTOR = "demo";
+
+/**
+ * Le connecteur `demo` que la démo ajoute à `@nodefony/drizzle` : une base
+ * SQLite à elle, quelle que soit celle de l'application. Un ORM porte
+ * plusieurs connecteurs, et deux ORM cohabitent : une application MongoDB
+ * charge Drizzle pour la seule démo, sans connecteur `default` (Drizzle ne
+ * le crée pas quand la base déclarée est d'une autre famille).
+ *
+ * Où vit le fichier : à côté de la base de l'application quand elle est en
+ * SQLite — sous `var/databases/` en développement, à côté de la base jetable
+ * d'un test. Sinon `var/databases/nodefony-demo.db`, et en mémoire sous
+ * `NODE_ENV=test` : un test ne touche jamais la base du poste. `ddl: "auto"`
+ * est ÉCRIT : un module de développement n'a pas de migration, son schéma se
+ * dérive au démarrage (doc `@nodefony/drizzle/docs/migrations.md`).
+ *
+ * @param env - l'environnement du processus (`process.env`)
+ * @returns la clé `module-drizzle` à fusionner dans la config du module
+ */
+export function demoDrizzleOverride(
+  env: NodeJS.ProcessEnv,
+): Record<string, unknown> {
+  const database = resolveInfra(env).database;
+  const appFile =
+    database?.dialect === "sqlite" ? sqliteFilenameFromUrl(database.url) : null;
+  const filename =
+    appFile === ":memory:" || (appFile === null && env.NODE_ENV === "test")
+      ? { filename: ":memory:" }
+      : appFile === null
+        ? {}
+        : { filename: path.join(path.dirname(appFile), "nodefony-demo.db") };
+  return {
+    "module-drizzle": {
+      connectors: {
+        [DEMO_CONNECTOR]: { dialect: "sqlite", ddl: "auto", ...filename },
+      },
+    },
+  };
+}
 // #endregion

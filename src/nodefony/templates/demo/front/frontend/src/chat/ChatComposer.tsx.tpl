@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type ClipboardEvent,
+  type RefObject,
 } from "react";
 import { FilePreview } from "../kit/FilePreview";
 import { MarkdownEditor, type IEditorHandle } from "../kit/MarkdownEditor";
@@ -86,13 +87,25 @@ export function ChatComposer({
   author,
   send,
   notifyTyping,
+  insertRef,
 }: {
   author: string;
   send: (text: string, files: readonly File[]) => Promise<void>;
   notifyTyping: () => void;
+  /** Reçoit de quoi insérer un texte dans le champ (une `@mention` du panneau). */
+  insertRef?: RefObject<((text: string) => void) | null>;
 }) {
   const zone = useRef<HTMLFormElement>(null);
   const editor = useRef<IEditorHandle>(null);
+
+  // Le panneau des présents écrit `@nom` ici, sans tenir l'éditeur lui-même.
+  useEffect(() => {
+    if (insertRef === undefined) return;
+    insertRef.current = (text) => editor.current?.insert(text);
+    return () => {
+      insertRef.current = null;
+    };
+  }, [insertRef]);
   const picker = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState("");
   const [pending, setPending] = useState<IPending[]>([]);

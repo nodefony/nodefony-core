@@ -172,7 +172,16 @@ export default defineConfig<typeof env>((ctx) => ({
      */
     use("@nodefony/mongoose", mongooseConfig()),
 
-<% } else if (it.complete) { %>    /**
+<% if (it.demo) { %>    /**
+     * Drizzle, pour la SEULE démo : les salons du chat vivent dans une base
+     * SQLite à elle (connecteur `demo`, posé par `modules/demo`). Deux ORM
+     * cohabitent — la base de l'application reste MongoDB, ses données ne
+     * passent jamais ici (`frameworkEntities: false`). Chargé en
+     * développement seulement, comme la démo.
+     */
+    use("@nodefony/drizzle", { frameworkEntities: false }, { policy: "dev" }),
+
+<% } %><% } else if (it.complete) { %>    /**
      * ORM Drizzle (SQL). Sans `NF_DATABASE_URL` : sqlite LOCAL, et l'app
      * persiste out-of-the-box (users, sessions, jetons). Déclare
      * `NF_DATABASE_URL` (postgres://…) pour pointer une vraie base. Les

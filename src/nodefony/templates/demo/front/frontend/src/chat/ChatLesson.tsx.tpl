@@ -7,6 +7,9 @@ import { ChatAttachments } from "./ChatAttachments";
 import { ChatComposer } from "./ChatComposer";
 import { MarkdownText } from "../kit/MarkdownText";
 import { keyOf, useChat, type IChatRoom } from "./useChat";
+import { ChatPeople } from "./ChatPeople";
+import type { IRoomEvent } from "./rooms";
+import { useRef } from "react";
 
 /** Heure d'un message, à la minute. */
 const TIME = new Intl.DateTimeFormat("fr-FR", {
@@ -151,6 +154,51 @@ export function ChatLesson({ about }: { about: IDemoAbout | null }) {
   );
 }
 
+/** « 14:00 – 15:00 » : le créneau d'un événement, à la minute. */
+function slotOf(event: IRoomEvent): string {
+  return `${TIME.format(event.start)} – ${TIME.format(event.end)}`;
+}
+
+/** Le rail des salons : publics, les miens, ceux où l'on m'invite. */
+function RoomRail({ room }: { room: IChatRoom }) {
+  const now = Date.now();
+  return (
+    <nav className="room-rail" aria-label="Salons">
+      <h3 className="room-rail-title">Salons</h3>
+      <ul>
+        {room.rooms.map((item) => {
+          const current = item.id === room.roomId;
+          const live =
+            item.event !== null &&
+            item.event.start <= now &&
+            item.event.end >= now;
+          return (
+            <li key={item.id}>
+              <button
+                type="button"
+                className={current ? "room-link is-current" : "room-link"}
+                aria-current={current ? "page" : undefined}
+                onClick={() => room.openRoom(item.id)}
+              >
+                <span className="room-link-name">
+                  <span aria-hidden="true">
+                    {item.access === "private" ? "🔒" : "#"}
+                  </span>{" "}
+                  {item.name}
+                </span>
+                {item.access === "private" && (
+                  <span className="sr-only">(privé)</span>
+                )}
+                {live && <span className="room-live">en cours</span>}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
+
 /** Le salon : la liste, qui écrit, et l'envoi — ou l'invitation à se connecter. */
 function ChatRoom({
   room,
@@ -159,75 +207,108 @@ function ChatRoom({
   room: IChatRoom;
   loginPath: string | null;
 }) {
-  const canWrite = room.identity?.authenticated === true;
+  const canWrite =
+    room.identity?.authenticated === true && room.refusal === null;
+  const insert = useRef<((text: string) => void) | null>(null);
+  const current = room.rooms.find((item) => item.id === room.roomId) ?? null;
+  const total = room.presence.count + room.presence.unnamed;
 
   return (
-    <div className="room">
-      <div className="room-head">
-        <strong>#salon</strong>
-      </div>
-      {/* `role="log"` sur un conteneur : un `<ul>` garde son rôle de liste.
-          Les nouveaux messages sont annoncés, sans voler le focus. */}
-      <div role="log" aria-label="Messages du salon">
-        <ul className="room-list">
-          {room.messages.length === 0 && (
-            <li className="room-empty">Aucun message pour l'instant.</li>
+    <div className="room room-layout">
+      <RoomRail room={room} />
+      <div className="room-main">
+        <div className="room-head">
+          <strong>
+            {current?.access === "private" ? "🔒 " : "#"}
+            {current?.name ?? room.roomId}
+          </strong>
+          {room.presence.ready && (
+            <span className="room-head-count">
+              {total} présent{total > 1 ? "s" : ""}
+            </span>
           )}
-          {room.messages.map((message) => (
-            <li key={keyOf(message)}>
-              <span className="room-meta">
-                <strong>{message.author}</strong> ·{" "}
-                {TIME.format(message.sentAt)}
-              </span>
-              {message.text !== "" && (
-                <MarkdownText className="room-text" text={message.text} />
-              )}
-              {message.attachments !== undefined &&
-                message.attachments.length > 0 && (
-                  <ChatAttachments pieces={message.attachments} />
-                )}
-            </li>
-          ))}
-        </ul>
-      </div>
-      {/* Qui écrit : une pastille légère au-dessus du champ, là où le regard
-          est déjà. La zone garde sa hauteur — la liste ne saute pas. */}
-      <div className="room-typing" aria-live="polite">
-        {room.typing !== null && (
-          <span className="typing-pill">
-            <span className="typing-dots" aria-hidden="true">
-              <i />
-              <i />
-              <i />
+          {current?.event != null && (
+            <span className="room-event">
+              <strong>{current.event.title}</strong> · {slotOf(current.event)}
             </span>
-            <span>
-              <strong>{room.typing}</strong> écrit…
-            </span>
-          </span>
-        )}
-      </div>
-      {canWrite ? (
-        <ChatComposer
-          author={room.identity?.userIdentifier ?? ""}
-          send={room.send}
-          notifyTyping={room.notifyTyping}
-        />
-      ) : (
-        <div className="room-foot">
-          <p>
-            Lecture libre. Pour écrire, il faut une session : l'auteur d'un
-            message vient du serveur, jamais du navigateur.
-          </p>
-          {loginPath !== null && (
-            <a
-              className="btn primary"
-              href={loginPagePath("/demo/chat", loginPath)}
-            >
-              Se connecter pour écrire
-            </a>
           )}
         </div>
-      )}
+        {room.refusal !== null ? (
+          <p className="room-refusal" role="alert">
+            {room.refusal}
+          </p>
+        ) : (
+          /* `role="log"` sur un conteneur : un `<ul>` garde son rôle de liste.
+             Les nouveaux messages sont annoncés, sans voler le focus. */
+          <div role="log" aria-label="Messages du salon">
+            <ul className="room-list">
+              {room.messages.length === 0 && (
+                <li className="room-empty">Aucun message pour l'instant.</li>
+              )}
+              {room.messages.map((message) => (
+                <li key={keyOf(message)}>
+                  <span className="room-meta">
+                    <strong>{message.author}</strong> ·{" "}
+                    {TIME.format(message.sentAt)}
+                  </span>
+                  {message.text !== "" && (
+                    <MarkdownText className="room-text" text={message.text} />
+                  )}
+                  {message.attachments !== undefined &&
+                    message.attachments.length > 0 && (
+                      <ChatAttachments pieces={message.attachments} />
+                    )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {/* Qui écrit : une pastille légère au-dessus du champ, là où le regard
+            est déjà. La zone garde sa hauteur — la liste ne saute pas. */}
+        <div className="room-typing" aria-live="polite">
+          {room.typing !== null && (
+            <span className="typing-pill">
+              <span className="typing-dots" aria-hidden="true">
+                <i />
+                <i />
+                <i />
+              </span>
+              <span>
+                <strong>{room.typing}</strong> écrit…
+              </span>
+            </span>
+          )}
+        </div>
+        {canWrite ? (
+          <ChatComposer
+            author={room.identity?.userIdentifier ?? ""}
+            send={room.send}
+            notifyTyping={room.notifyTyping}
+            insertRef={insert}
+          />
+        ) : (
+          <div className="room-foot">
+            <p>
+              Lecture libre des salons publics. Pour écrire, il faut une session
+              : l'auteur d'un message vient du serveur, jamais du navigateur.
+            </p>
+            {loginPath !== null && room.identity?.authenticated !== true && (
+              <a
+                className="btn primary"
+                href={loginPagePath("/demo/chat", loginPath)}
+              >
+                Se connecter pour écrire
+              </a>
+            )}
+          </div>
+        )}
+      </div>
+      <ChatPeople
+        presence={room.presence}
+        rows={room.people}
+        typing={room.typing}
+        onMention={canWrite ? (name) => insert.current?.(`@${name} `) : null}
+      />
     </div>
   );
 }

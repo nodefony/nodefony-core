@@ -18,6 +18,9 @@ const RAW = import.meta.glob<string>(
     "../../../nodefony/controllers/SseController.ts",
     "../../../nodefony/controllers/VideoController.ts",
     "../../../nodefony/service/ChatService.ts",
+    "../../../nodefony/service/RoomService.ts",
+    "../../../nodefony/service/RoomAdmission.ts",
+    "../../../nodefony/entity/rooms.ts",
     "../../../nodefony/service/DemoMcpService.ts",
     "../../../nodefony/service/DemoPulseService.ts",
     "../../../nodefony/service/PartnerTokenService.ts",
@@ -28,6 +31,8 @@ const RAW = import.meta.glob<string>(
     "../chat/chatContract.ts",
     "../chat/attachments.ts",
     "../chat/useChat.ts",
+    "../chat/rooms.ts",
+    "../chat/roster.ts",
     "../first/firstClient.ts",
     "../first/firstSteps.ts",
     "../kit/markdown.ts",
@@ -131,6 +136,13 @@ export const LESSON_SOURCES = {
   "nodefony/service/ChatService.ts": read(
     "../../../nodefony/service/ChatService.ts",
   ),
+  "nodefony/service/RoomService.ts": read(
+    "../../../nodefony/service/RoomService.ts",
+  ),
+  "nodefony/service/RoomAdmission.ts": read(
+    "../../../nodefony/service/RoomAdmission.ts",
+  ),
+  "nodefony/entity/rooms.ts": read("../../../nodefony/entity/rooms.ts"),
   "nodefony/service/DemoMcpService.ts": read(
     "../../../nodefony/service/DemoMcpService.ts",
   ),
@@ -149,6 +161,8 @@ export const LESSON_SOURCES = {
   "frontend/src/chat/chatContract.ts": read("../chat/chatContract.ts"),
   "frontend/src/chat/attachments.ts": read("../chat/attachments.ts"),
   "frontend/src/chat/useChat.ts": read("../chat/useChat.ts"),
+  "frontend/src/chat/rooms.ts": read("../chat/rooms.ts"),
+  "frontend/src/chat/roster.ts": read("../chat/roster.ts"),
   "frontend/src/first/firstClient.ts": read("../first/firstClient.ts"),
   "frontend/src/first/firstSteps.ts": read("../first/firstSteps.ts"),
   "frontend/src/kit/markdown.ts": read("../kit/markdown.ts"),

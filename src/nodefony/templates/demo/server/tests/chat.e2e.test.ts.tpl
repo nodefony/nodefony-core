@@ -5,11 +5,15 @@ import {
   CHAT_ATTACH_PATH,
   CHAT_FILE_PATH,
   CHAT_REALTIME_PATH,
-  ROOM_CHANNEL,
-  TYPING_CHANNEL,
+  isRoomFrame,
   type ChatContract,
   type ChatMessage,
 } from "../frontend/src/chat/chatContract";
+import {
+  LOBBY_ROOM_ID,
+  roomChannel,
+  type IRoomView,
+} from "../frontend/src/chat/rooms";
 import {
   closeAll,
   demoDescribe,
@@ -20,18 +24,22 @@ import {
 } from "./realtimeHarness";
 
 /**
- * Le salon de bout en bout : des sockets ANONYMES qui écoutent, un compte
+ * Les salons de bout en bout : des sockets ANONYMES qui écoutent, un compte
  * connecté qui écrit en HTTP — la page fait de même, sa session suit par le
  * cookie.
  *
  * Ce que les tests unitaires ne voient pas : une écriture qui atteint TOUS
- * les abonnés, l'auteur posé par le serveur et non par le client, la garde
- * des écritures, l'idempotence d'un envoi rejoué, et une pièce jointe servie
- * désarmée quoi que prétende son nom. Une ABSENCE (rien n'a été diffusé) se
- * prouve toujours par un message témoin envoyé APRÈS, sur le même fil :
- * jamais par une attente, qu'un runner lent ferait mentir.
+ * les abonnés d'un salon, l'auteur posé par le serveur, la garde d'un salon
+ * privé (la MÊME règle sur la socket et sur les routes), la frappe qui ne
+ * quitte pas son salon, la présence, l'idempotence d'un envoi rejoué, et une
+ * pièce jointe servie désarmée quoi que prétende son nom. Une ABSENCE (rien
+ * n'a été diffusé) se prouve toujours par un message témoin envoyé APRÈS, sur
+ * le même fil : jamais par une attente, qu'un runner lent ferait mentir.
  * Lancement : `npm run test:e2e`.
  */
+
+/** Le salon privé que la démo sème : membre = `admin`, événement en cours. */
+const TEAM_ROOM_ID = "equipe";
 
 let stop: () => Promise<void> = async () => undefined;
 /** Les en-têtes d'une session `admin` : cookie et jeton anti-CSRF. */
@@ -46,29 +54,38 @@ afterAll(async () => {
   await stop();
 });
 
-/** Un abonné anonyme du salon, et ce qu'il a reçu. */
-async function listener() {
+/** Un abonné anonyme d'un salon, et ce qu'il a reçu. */
+async function listener(roomId = LOBBY_ROOM_ID) {
   const socket = await openSocket<ChatContract>(CHAT_REALTIME_PATH, {
     cbor: false,
   });
+  const channel = roomChannel(roomId);
   const messages: ChatMessage[] = [];
   const typing: string[] = [];
-  socket.on(ROOM_CHANNEL, (message) => messages.push(message));
-  socket.on(TYPING_CHANNEL, ({ author }) => typing.push(author));
-  socket.subscribe(ROOM_CHANNEL);
-  socket.subscribe(TYPING_CHANNEL);
+  socket.on(channel, (frame) => {
+    if (!isRoomFrame(frame)) return;
+    if (frame.kind === "message") messages.push(frame.message);
+    else typing.push(frame.author);
+  });
+  socket.subscribe(channel);
   // Le serveur ACQUITTE l'abonnement : sans cette attente, un message envoyé
   // aussitôt partirait avant que l'abonné soit inscrit.
-  await Promise.all([
-    socket.whenSubscribed(ROOM_CHANNEL),
-    socket.whenSubscribed(TYPING_CHANNEL),
-  ]);
+  await socket.whenSubscribed(channel);
   return { socket, messages, typing };
 }
 
+/** Une route d'un salon. */
+const roomPath = (roomId: string, tail: string) =>
+  httpUrl(`/demo/chat/rooms/${roomId}/${tail}`);
+
 /** Envoie un message en HTTP, au nom de la session `admin`. */
-function send(text: string, key = randomUUID(), extra: object = {}) {
-  return fetch(httpUrl("/demo/chat/send"), {
+function send(
+  text: string,
+  key = randomUUID(),
+  extra: object = {},
+  roomId = LOBBY_ROOM_ID,
+) {
+  return fetch(roomPath(roomId, "send"), {
     method: "POST",
     headers: {
       ...admin,
@@ -82,9 +99,9 @@ function send(text: string, key = randomUUID(), extra: object = {}) {
 /** Un texte unique : les cas partagent le salon, jamais leurs messages. */
 const unique = (label: string) => `${label} ${randomUUID()}`;
 
-demoDescribe("discussion — le salon", () => {
+demoDescribe("discussion — le salon public", () => {
   // #region chat-broadcast-e2e
-  it("un message écrit atteint TOUS les abonnés, signé par le serveur", async () => {
+  it("un message écrit atteint TOUS les abonnés du salon, signé par le serveur", async () => {
     const [alice, bob] = [await listener(), await listener()];
     const text = unique("bonjour");
     const res = await send(text);
@@ -114,18 +131,16 @@ demoDescribe("discussion — le salon", () => {
     const text = unique("pour plus tard");
     expect((await send(text)).status).toBe(200);
     // Lecture libre, en HTTP : la même action que `socket.get(…)` de la page.
-    const res = await fetch(httpUrl("/demo/chat/history?limit=200"));
+    const res = await fetch(roomPath(LOBBY_ROOM_ID, "history?limit=200"));
     expect(res.status).toBe(200);
-    const history = (await res.json()) as unknown;
-    expect(Array.isArray(history)).toBe(true);
+    const history: unknown = await res.json();
     expect(
       Array.isArray(history) &&
         history.some(
           (m: unknown) =>
             typeof m === "object" &&
             m !== null &&
-            "text" in m &&
-            m.text === text,
+            Reflect.get(m, "text") === text,
         ),
     ).toBe(true);
   });
@@ -134,7 +149,11 @@ demoDescribe("discussion — le salon", () => {
     const intruder = await listener();
     const text = unique("anonyme");
     await expect(
-      intruder.socket.post("/demo/chat/send", { text }),
+      intruder.socket.post(
+        "/demo/chat/rooms/{room}/send",
+        { text },
+        { params: { room: LOBBY_ROOM_ID } },
+      ),
     ).rejects.toThrow();
     // Témoin : quand ce message arrive, celui de l'anonyme l'aurait précédé.
     const witness = unique("témoin");
@@ -163,22 +182,100 @@ demoDescribe("discussion — le salon", () => {
     expect(watcher.messages.filter((m) => m.text === text)).toHaveLength(1);
   });
 
-  it("le signal de frappe est réservé aux connectés : un anonyme n'est pas diffusé", async () => {
-    const [writer, watcher] = [await listener(), await listener()];
-    // Le refus revient à l'émetteur (`realtime:denied`) : c'est la preuve
-    // que le serveur a TRAITÉ la frappe — une diffusion serait partie avant.
-    let denied = false;
-    writer.socket.onDenied(() => {
-      denied = true;
+  it("la frappe d'un connecté atteint le salon ; celle d'un anonyme est refusée", async () => {
+    const watcher = await listener();
+    const anonymous = await fetch(roomPath(LOBBY_ROOM_ID, "typing"), {
+      method: "POST",
     });
-    writer.socket.emit(TYPING_CHANNEL, {});
-    await waitFor("le refus de la frappe anonyme", () => denied);
+    expect(anonymous.status).toBe(403);
+    await anonymous.body?.cancel();
+    const res = await fetch(roomPath(LOBBY_ROOM_ID, "typing"), {
+      method: "POST",
+      headers: admin,
+    });
+    expect(res.status).toBe(200);
+    await res.body?.cancel();
+    await waitFor("la frappe d'admin", () => watcher.typing.includes("admin"));
+    expect(watcher.typing).toEqual(["admin"]);
+  });
+
+  it("la présence compte l'anonyme sans le nommer", async () => {
+    const who = await listener();
+    const seen: { count: number; unnamed: number }[] = [];
+    who.socket.onPresence(roomChannel(LOBBY_ROOM_ID), (view) => {
+      if (view.ready) seen.push({ count: view.count, unnamed: view.unnamed });
+    });
+    // Un nouveau `subscribe` rend toujours la liste (XEP-0045 §17.3).
+    who.socket.subscribe(roomChannel(LOBBY_ROOM_ID));
+    await waitFor("une vue de présence", () => seen.length > 0);
+    expect(seen.at(-1)?.unnamed).toBeGreaterThanOrEqual(1);
+  });
+
+  it("l'annuaire ne nomme jamais un compte absent du salon", async () => {
+    const res = await fetch(
+      roomPath(LOBBY_ROOM_ID, `people?ids=${randomUUID()},${randomUUID()}`),
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([]);
+  });
+});
+
+demoDescribe("discussion — le salon privé", () => {
+  it("un anonyme voit la liste publique, pas le salon privé ; son membre le voit, avec l'événement en cours", async () => {
+    const anonymous: IRoomView[] = await (
+      await fetch(httpUrl("/demo/chat/rooms"))
+    ).json();
+    expect(anonymous.some((room) => room.id === LOBBY_ROOM_ID)).toBe(true);
+    expect(anonymous.some((room) => room.id === TEAM_ROOM_ID)).toBe(false);
+
+    const mine: IRoomView[] = await (
+      await fetch(httpUrl("/demo/chat/rooms"), { headers: admin })
+    ).json();
+    const team = mine.find((room) => room.id === TEAM_ROOM_ID);
+    expect(team?.role).toBe("owner");
+    expect(team?.event?.title).toBe("Point d'équipe");
+  });
+
+  it("la socket refuse le salon privé à un anonyme", async () => {
+    const socket = await openSocket<ChatContract>(CHAT_REALTIME_PATH, {
+      cbor: false,
+    });
+    const refused: string[] = [];
+    socket.onDenied((denied) => {
+      if (denied.channel === roomChannel(TEAM_ROOM_ID))
+        refused.push(denied.reason);
+    });
+    socket.subscribe(roomChannel(TEAM_ROOM_ID));
+    await waitFor("le refus du salon privé", () => refused.length > 0);
+    expect(refused).toEqual(["forbidden"]);
+  });
+
+  it("les routes appliquent la MÊME règle : 403 à l'anonyme, 200 au membre, 404 au salon inconnu", async () => {
+    const outsider = await fetch(roomPath(TEAM_ROOM_ID, "history"));
+    expect(outsider.status).toBe(403);
+    await outsider.body?.cancel();
+    const member = await fetch(roomPath(TEAM_ROOM_ID, "history"), {
+      headers: admin,
+    });
+    expect(member.status).toBe(200);
+    await member.body?.cancel();
+    const nowhere = await fetch(roomPath("inexistant", "history"));
+    expect(nowhere.status).toBe(404);
+    await nowhere.body?.cancel();
+  });
+
+  it("un message du salon privé ne fuit pas dans le salon public", async () => {
+    const lobby = await listener();
+    const secret = unique("secret");
+    expect((await send(secret, randomUUID(), {}, TEAM_ROOM_ID)).status).toBe(
+      200,
+    );
     const witness = unique("témoin");
     await send(witness);
     await waitFor("le témoin", () =>
-      watcher.messages.some((m) => m.text === witness),
+      lobby.messages.some((m) => m.text === witness),
     );
-    expect(watcher.typing).toEqual([]);
+    expect(lobby.messages.some((m) => m.text === secret)).toBe(false);
   });
 });
 
@@ -194,11 +291,14 @@ demoDescribe("discussion — les pièces jointes", () => {
       new Blob(["<script>alert('piège')</script>"], { type: "image/png" }),
       "photo.png",
     );
-    const res = await fetch(httpUrl(CHAT_ATTACH_PATH), {
-      method: "POST",
-      headers: { ...admin, "idempotency-key": randomUUID() },
-      body: form,
-    });
+    const res = await fetch(
+      httpUrl(CHAT_ATTACH_PATH.replace("{room}", LOBBY_ROOM_ID)),
+      {
+        method: "POST",
+        headers: { ...admin, "idempotency-key": randomUUID() },
+        body: form,
+      },
+    );
     expect(res.status).toBe(200);
 
     await waitFor("le message et sa pièce", () =>
@@ -222,11 +322,10 @@ demoDescribe("discussion — les pièces jointes", () => {
   it("un envoi multipart sans clé d'idempotence est refusé (formulaire forgé)", async () => {
     const form = new FormData();
     form.append("text", unique("forgé"));
-    const res = await fetch(httpUrl(CHAT_ATTACH_PATH), {
-      method: "POST",
-      headers: admin,
-      body: form,
-    });
+    const res = await fetch(
+      httpUrl(CHAT_ATTACH_PATH.replace("{room}", LOBBY_ROOM_ID)),
+      { method: "POST", headers: admin, body: form },
+    );
     expect(res.status).toBeGreaterThanOrEqual(400);
     await res.body?.cancel();
   });
