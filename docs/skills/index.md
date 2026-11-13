@@ -20,7 +20,7 @@ source: "docs/skills/index.md"
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **Fiches des skills**
 
-**37 skills** · **37/37 conformes** au standard · régénérer : `node .claude/skills/nodefony-skill/scripts/skills-doc.mjs`
+**38 skills** · **38/38 conformes** au standard · régénérer : `node .claude/skills/nodefony-skill/scripts/skills-doc.mjs`
 
 ## 🧭 Par où commencer
 
@@ -61,7 +61,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v3.2.0 · ⚙️ 20 scripts · 📎 2 réf" },
   { "icon": "⚙️", "title": "framework-dev", "href": "nodefony-framework-dev.md",
     "desc": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM).",
-    "meta": "🟢 conforme v2.3.0 · 📎 11 réf" },
+    "meta": "🟢 conforme v2.4.0 · 📎 12 réf" },
   { "icon": "🎨", "title": "frontend-dev", "href": "nodefony-frontend-dev.md",
     "desc": "Kit de dev FRONT de Nodefony — full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`NodefonySocket`, hooks React), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), connexion sans interface…",
     "meta": "🟢 conforme v1.3.0 · 📎 6 réf" },
@@ -166,6 +166,9 @@ source: "docs/skills/index.md"
   { "icon": "🔧", "title": "add-crud", "href": "nodefony-add-crud.md",
     "desc": "Crée une ressource complète dans une application Nodefony — entité, schémas de validation, service CRUD, controller REST+WebSocket et tests — par le générateur `nodefony create entity`, sur SQL comme sur MongoDB.",
     "meta": "🟢 conforme" },
+  { "icon": "🔧", "title": "add-grpc-service", "href": "nodefony-add-grpc-service.md",
+    "desc": "Sert un service gRPC dans une application Nodefony — contrat `.proto`, code généré par `buf`, contrôleur `GrpcController` marqué `@GrpcService`, déclaré par `@controllers` — à charger AVANT d'écrire le contrat ou le contrôleur.",
+    "meta": "🟢 conforme v1.0.0 · ⚙️ 1 script" },
   { "icon": "🔧", "title": "add-realtime-channel", "href": "nodefony-add-realtime-channel.md",
     "desc": "Choisit et branche la brique temps réel que Nodefony fournit déjà — canal, entrée client, action, canal personnel, canal à membres, flux SSE, contrat typé, octets — au lieu d'un WebSocket, d'une liste noire ou d'un contrôle d'accès écrits à la main.",
     "meta": "🟢 conforme v2.1.1 · 📎 2 réf" },
@@ -204,7 +207,7 @@ source: "docs/skills/index.md"
 | [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.5.0 | 534 | 9 | 21 | ✅ |
 | [`nodefony-devops`](nodefony-devops.md) | 1.1.0 | 164 | 0 | 1 | ✅ |
 | [`nodefony-documentation`](nodefony-documentation.md) | 3.2.0 | 486 | 2 | 20 | ✅ |
-| [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.3.0 | 411 | 11 | 0 | ✅ |
+| [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.4.0 | 412 | 12 | 0 | ✅ |
 | [`nodefony-frontend-dev`](nodefony-frontend-dev.md) | 1.3.0 | 116 | 6 | 0 | ✅ |
 | [`nodefony-html-report`](nodefony-html-report.md) | — | 368 | 3 | 9 | ✅ |
 | [`nodefony-identifiers`](nodefony-identifiers.md) | 1.0.0 | 219 | 0 | 7 | ✅ |
@@ -224,6 +227,7 @@ source: "docs/skills/index.md"
 | [`nodefony-test-campaign`](nodefony-test-campaign.md) | 1.1.0 | 227 | 1 | 0 | ✅ |
 | [`nodefony-ticket`](nodefony-ticket.md) | 1.12.0 | 515 | 8 | 24 | ✅ |
 | [`nodefony-add-crud`](nodefony-add-crud.md) | — | 257 | 0 | 0 | ✅ |
+| [`nodefony-add-grpc-service`](nodefony-add-grpc-service.md) | 1.0.0 | 166 | 0 | 1 | ✅ |
 | [`nodefony-add-realtime-channel`](nodefony-add-realtime-channel.md) | 2.1.1 | 413 | 2 | 0 | ✅ |
 | [`nodefony-add-service`](nodefony-add-service.md) | — | 115 | 0 | 0 | ✅ |
 | [`nodefony-authentication`](nodefony-authentication.md) | 1.0.0 | 220 | 0 | 0 | ✅ |

@@ -3,7 +3,7 @@
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
   "generatedAt": "2026-11-13",
-  "count": 41,
+  "count": 42,
   "repoScripts": [
     {
       "path": "scripts/lib/redis-session-purge.mjs",
@@ -2699,7 +2699,7 @@
       "testedBy": []
     }
   ],
-  "conformant": 41,
+  "conformant": 42,
   "skills": [
     {
       "name": "nodefony-browser",
@@ -5688,7 +5688,7 @@
       "name": "nodefony-framework-dev",
       "summary": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM).",
       "family": "Développer le framework",
-      "version": "2.3.0",
+      "version": "2.4.0",
       "keywords": [
         "nodefony",
         "@nodefony/http",
@@ -5707,16 +5707,17 @@
         "décorateur route",
         "@IsGranted/@Idempotent",
         "realtime/WebSocket",
+        "service gRPC",
         "firewall",
         "certificats TLS",
         "structure d'un module",
         "defineConfig",
         "où brancher ce comportement ?"
       ],
-      "description": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM). À charger DÈS qu'une tâche va ÉDITER du code backend, avant la première modification : porte les règles absolues (perf-mémoire, TS strict, lazy alloc, cleanup listeners, ALS), les conventions de structure/config, les recettes vérifiées au source, les gotchas et les RFC hors ligne. Déclencheurs : toute édition de code back — \"modifier du code backend\", \"coder dans le kernel\", \"toucher au cœur ou au pipeline\", \"créer un service injectable/module/controller\", \"commande CLI\", \"entité/repository/adapter ORM\", \"store et pagination\", \"listPage/contrat IPage\", \"endpoint HTTP/WS ou data plane admin\", \"décorateur route\", \"@IsGranted/@Idempotent\", \"realtime/WebSocket\", \"firewall\", \"certificats TLS\", \"structure d'un module\", \"defineConfig\", \"où brancher ce comportement ?\".",
+      "description": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM). À charger DÈS qu'une tâche va ÉDITER du code backend, avant la première modification : porte les règles absolues (perf-mémoire, TS strict, lazy alloc, cleanup listeners, ALS), les conventions de structure/config, les recettes vérifiées au source, les gotchas et les RFC hors ligne. Déclencheurs : toute édition de code back — \"modifier du code backend\", \"coder dans le kernel\", \"toucher au cœur ou au pipeline\", \"créer un service injectable/module/controller\", \"commande CLI\", \"entité/repository/adapter ORM\", \"store et pagination\", \"listPage/contrat IPage\", \"endpoint HTTP/WS ou data plane admin\", \"décorateur route\", \"@IsGranted/@Idempotent\", \"realtime/WebSocket\", \"service gRPC\", \"firewall\", \"certificats TLS\", \"structure d'un module\", \"defineConfig\", \"où brancher ce comportement ?\".",
       "cost": {
-        "bodyLines": 411,
-        "approxTokens": 9787
+        "bodyLines": 412,
+        "approxTokens": 9859
       },
       "requires": [],
       "resources": {
@@ -5725,6 +5726,7 @@
           "core.md",
           "framework.md",
           "gotchas.md",
+          "grpc.md",
           "http.md",
           "orm.md",
           "pagination.md",
@@ -5733,7 +5735,7 @@
           "security.md",
           "typage-strict.md"
         ],
-        "referenceFilesTotal": 105,
+        "referenceFilesTotal": 106,
         "scripts": []
       },
       "related": [
@@ -5770,7 +5772,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "980",
+            "detail": "996",
             "advisory": false
           },
           {
@@ -5812,7 +5814,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "411",
+            "detail": "412",
             "advisory": true
           }
         ]
@@ -11795,6 +11797,147 @@
       "links": {
         "source": "src/packages/@nodefony/devkit/skills/nodefony-add-crud/SKILL.md",
         "doc": "docs/skills/nodefony-add-crud.md"
+      }
+    },
+    {
+      "name": "nodefony-add-grpc-service",
+      "summary": "Sert un service gRPC dans une application Nodefony — contrat `.proto`, code généré par `buf`, contrôleur `GrpcController` marqué `@GrpcService`, déclaré par `@controllers` — à charger AVANT d'écrire le contrat ou le contrôleur.",
+      "family": "Autres",
+      "version": "1.0.0",
+      "keywords": [
+        ".proto",
+        "buf",
+        "GrpcController",
+        "@GrpcService",
+        "@controllers"
+      ],
+      "triggers": [
+        "service gRPC",
+        "exposer un contrat protobuf",
+        "un client Go doit appeler l'application",
+        "gRPC-Web",
+        "Connect",
+        "buf generate",
+        "@GrpcService",
+        "GrpcController",
+        "appeler une méthode gRPC",
+        "UNAUTHENTICATED",
+        "UNIMPLEMENTED",
+        "flux gRPC"
+      ],
+      "description": "Sert un service gRPC dans une application Nodefony — contrat `.proto`, code généré par `buf`, contrôleur `GrpcController` marqué `@GrpcService`, déclaré par `@controllers` — à charger AVANT d'écrire le contrat ou le contrôleur. Porte les paquets à installer, les pièges de génération, ce que le framework décide à ta place (ports, refus 16/7, erreurs, arrêt, tailles) et un script qui appelle la méthode depuis n'importe quel système pour prouver qu'elle répond. Déclencheurs : \"service gRPC\", \"exposer un contrat protobuf\", \"un client Go doit appeler l'application\", \"gRPC-Web\", \"Connect\", \"buf generate\", \"@GrpcService\", \"GrpcController\", \"appeler une méthode gRPC\", \"UNAUTHENTICATED\", \"UNIMPLEMENTED\", \"flux gRPC\".",
+      "cost": {
+        "bodyLines": 166,
+        "approxTokens": 2186
+      },
+      "requires": [
+        "serveur UP"
+      ],
+      "resources": {
+        "references": [],
+        "referenceFilesTotal": 0,
+        "scripts": [
+          {
+            "path": "scripts/call.mjs",
+            "purpose": "Appelle une méthode gRPC d'une application Nodefony, en protocole Connect (JSON sur HTTP) — la preuve qu'un service répond, sans `curl` ni guillemets.",
+            "usage": [],
+            "options": [
+              {
+                "flag": "--field",
+                "help": ""
+              },
+              {
+                "flag": "--file",
+                "help": ""
+              },
+              {
+                "flag": "--header",
+                "help": ""
+              },
+              {
+                "flag": "--json",
+                "help": ""
+              },
+              {
+                "flag": "--url",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          }
+        ]
+      },
+      "related": [],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "en-tête analysable par un vrai parseur YAML",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "717",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun numéro de ticket dans la prose",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes",
+            "ok": true,
+            "detail": "166",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": "src/packages/@nodefony/devkit/skills/nodefony-add-grpc-service/SKILL.md",
+        "doc": "docs/skills/nodefony-add-grpc-service.md"
       }
     },
     {

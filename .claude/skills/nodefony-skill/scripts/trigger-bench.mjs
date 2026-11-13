@@ -244,6 +244,12 @@ const CASES = [
   ],
   ["ajoute un flux temps réel", "nodefony-add-realtime-channel"],
   ["mon canal websocket est public", "nodefony-add-realtime-channel"],
+  ["expose un service gRPC", "nodefony-add-grpc-service"],
+  [
+    "un client Go doit appeler l'application avec un contrat protobuf",
+    "nodefony-add-grpc-service",
+  ],
+  ["buf generate puis GrpcController", "nodefony-add-grpc-service"],
   // — observer un écran RÉEL (le décor navigateur, pas le dev front)
   ["regarde l'écran", "nodefony-browser"],
   ["lis la console du navigateur", "nodefony-browser"],
