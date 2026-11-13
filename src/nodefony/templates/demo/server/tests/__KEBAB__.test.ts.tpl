@@ -88,6 +88,7 @@ import {
   ATTACHMENT_MAX_COUNT,
   MESSAGE_MAX_BYTES,
   PEOPLE_MAX,
+  nextTyping,
   type ChatMessage,
 } from "../frontend/src/chat/chatContract";
 import {
@@ -2884,5 +2885,48 @@ describe("FilePreview — une bulle n'a aucune action (D31)", () => {
     );
     expect(full).toMatch(/<button\b/);
     expect(full).toMatch(/<a\b[^>]*download/);
+  });
+});
+
+describe("demo — qui « écrit… » (nextTyping)", () => {
+  const message = (author: string): ChatMessage => ({
+    id: "m1",
+    author,
+    text: "salut",
+    sentAt: 1,
+  });
+
+  it("montre la frappe d'un autre", () => {
+    expect(nextTyping(null, { kind: "typing", author: "bob" }, "alice")).toBe(
+      "bob",
+    );
+  });
+
+  it("ne montre jamais sa propre frappe, et garde celle d'un autre", () => {
+    expect(nextTyping(null, { kind: "typing", author: "alice" }, "alice")).toBe(
+      null,
+    );
+    expect(
+      nextTyping("bob", { kind: "typing", author: "alice" }, "alice"),
+    ).toBe("bob");
+  });
+
+  it("le message de l'auteur qui écrivait clôt sa frappe, pas celle d'un autre", () => {
+    expect(
+      nextTyping("bob", { kind: "message", message: message("bob") }, "alice"),
+    ).toBe(null);
+    expect(
+      nextTyping(
+        "bob",
+        { kind: "message", message: message("carol") },
+        "alice",
+      ),
+    ).toBe("bob");
+  });
+
+  it("un anonyme voit la frappe de tous", () => {
+    expect(nextTyping(null, { kind: "typing", author: "bob" }, null)).toBe(
+      "bob",
+    );
   });
 });

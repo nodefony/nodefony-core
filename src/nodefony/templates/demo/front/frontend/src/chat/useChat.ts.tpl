@@ -10,6 +10,7 @@ import {
   CHAT_ATTACH_PATH,
   CHAT_REALTIME_PATH,
   isRoomFrame,
+  nextTyping,
   type ChatContract,
   type ChatMessage,
 } from "./chatContract";
@@ -235,11 +236,14 @@ export function useChat(): IChatRoom {
       // Le canal du salon porte ses messages ET sa frappe, typés par le contrat.
       socket.on(channel, (frame) => {
         if (!isRoomFrame(frame)) return;
+        // Ni sa propre frappe, ni celle d'un auteur dont le message vient d'arriver.
+        const self = socket.identity?.userIdentifier ?? null;
+        setTyping((current) => nextTyping(current, frame, self));
         if (frame.kind === "message") {
           setMessages((known) => merge(known, [frame.message]));
           return;
         }
-        setTyping(frame.author);
+        if (frame.author === self) return;
         if (typingTimer !== null) clearTimeout(typingTimer);
         typingTimer = setTimeout(() => setTyping(null), TYPING_DISPLAY_MS);
       }),

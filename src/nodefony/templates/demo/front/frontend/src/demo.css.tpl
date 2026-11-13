@@ -4294,7 +4294,7 @@ a.ritem:hover .ritem-go {
 }
 .person-actions button:hover {
   border-color: var(--blue);
-  color: var(--blue);
+  color: color-mix(in srgb, var(--blue) 50%, var(--fg));
 }
 .person-actions button:focus-visible {
   outline: 2px solid var(--blue);
@@ -4549,7 +4549,9 @@ a.ritem:hover .ritem-go {
   border: 1px dashed var(--border);
   border-radius: 7px;
   background: none;
-  color: var(--blue);
+  /* Le bleu de remplissage (`--blue`) tombe à 3,35:1 sur le rail en sombre :
+     un TEXTE prend le mélange de ses voisins (`.room-list a`). */
+  color: color-mix(in srgb, var(--blue) 50%, var(--fg));
   cursor: pointer;
 }
 .room-rail-add:hover {

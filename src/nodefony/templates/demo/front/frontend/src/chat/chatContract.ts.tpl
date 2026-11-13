@@ -170,6 +170,31 @@ export function isRoomFrame(value: unknown): value is RoomFrame {
   );
 }
 
+/**
+ * Qui « écrit… » après une trame du salon, vu par `me` — la règle PURE que la
+ * page applique à chaque trame.
+ *
+ * Deux règles. On ne se voit jamais écrire soi-même : le canal renvoie la
+ * frappe à tous ses abonnés, l'auteur compris, et à ses autres onglets. Un
+ * message de l'auteur qui écrivait clôt sa frappe sans attendre l'échéance
+ * d'affichage — XEP-0085 (Chat State Notifications) : un message envoyé vaut
+ * état `active`.
+ *
+ * @param current - l'auteur affiché « écrit… », ou `null`.
+ * @param frame - la trame reçue sur le canal du salon.
+ * @param me - l'identifiant de qui regarde (`userIdentifier`), ou `null` en anonyme.
+ * @returns l'auteur à afficher désormais, ou `null`.
+ */
+export function nextTyping(
+  current: string | null,
+  frame: RoomFrame,
+  me: string | null,
+): string | null {
+  if (frame.kind === "message")
+    return current === frame.message.author ? null : current;
+  return frame.author === me ? current : frame.author;
+}
+
 /** Ce que reçoit le canal personnel : « ta liste de salons a changé, relis-la ». */
 export interface RoomsNotice {
   type: "rooms:changed";
