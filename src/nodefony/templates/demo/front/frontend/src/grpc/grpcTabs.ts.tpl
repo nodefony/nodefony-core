@@ -101,7 +101,7 @@ export const GRPC_LESSON = {
           excerpt: { file: CLIENT, region: "client-follow" },
         },
         {
-          text: "Lire `Latest` sans bibliothèque : un `GET` dont l'adresse porte le message en JSON.",
+          text: "Appeler `Latest` sans bibliothèque : un `POST` en JSON, ou un `GET` dont l'adresse porte le message — la variante qu'un cache sait garder.",
           excerpt: { file: CLIENT, region: "client-latest-json" },
         },
         {

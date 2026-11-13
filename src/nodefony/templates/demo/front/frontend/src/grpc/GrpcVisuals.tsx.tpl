@@ -26,6 +26,7 @@ const CURVE_MIN_SPAN = 0.2;
  */
 function curvePath(values: readonly number[]): {
   points: string;
+  area: string;
   min: number;
   max: number;
 } {
@@ -46,7 +47,13 @@ function curvePath(values: readonly number[]): {
       return `${x.toFixed(1)},${y.toFixed(1)}`;
     })
     .join(" ");
-  return { points, min, max };
+  // L'aire sous la courbe : la ligne, puis le bas du cadre, de droite à gauche.
+  const first = (CURVE_POINTS - values.length) * step;
+  const area =
+    values.length > 1
+      ? `${points} ${CURVE_W},${CURVE_H} ${first.toFixed(1)},${CURVE_H}`
+      : "";
+  return { points, area, min, max };
 }
 
 /**
@@ -56,7 +63,7 @@ function curvePath(values: readonly number[]): {
 export function LivePanel({ view }: { view: ITelemetryView }) {
   const machine = view.pushing.at(0) ?? view.last?.machine ?? DEFAULT_MACHINE;
   const connected = view.pushing.length > 0;
-  const { points, min, max } = curvePath(view.curve);
+  const { points, area, min, max } = curvePath(view.curve);
   return (
     <section className="grpc-live" aria-labelledby="grpc-live-title">
       <header className="grpc-live-head">
@@ -73,17 +80,17 @@ export function LivePanel({ view }: { view: ITelemetryView }) {
         </span>
       </header>
       <dl className="grpc-metrics">
-        <div>
+        <div className="is-last">
           <dt>dernière</dt>
           <dd>
             {view.last === null ? "—" : `${view.last.celsius.toFixed(2)} °C`}
           </dd>
         </div>
-        <div>
+        <div className="is-count">
           <dt>reçues</dt>
           <dd>{view.received}</dd>
         </div>
-        <div>
+        <div className="is-rate">
           <dt>cadence</dt>
           <dd>{view.rate} /s</dd>
         </div>
@@ -99,12 +106,21 @@ export function LivePanel({ view }: { view: ITelemetryView }) {
               : `Courbe des ${view.curve.length} dernières mesures, de ${min.toFixed(2)} à ${max.toFixed(2)} °C`
           }
         >
+          <defs>
+            <linearGradient id="grpc-curve-fill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" className="grpc-fill-top" />
+              <stop offset="100%" className="grpc-fill-bottom" />
+            </linearGradient>
+          </defs>
           {view.curve.length > 1 && (
-            <polyline
-              points={points}
-              fill="none"
-              vectorEffect="non-scaling-stroke"
-            />
+            <>
+              <polygon points={area} fill="url(#grpc-curve-fill)" />
+              <polyline
+                points={points}
+                fill="none"
+                vectorEffect="non-scaling-stroke"
+              />
+            </>
           )}
         </svg>
         <figcaption>
@@ -236,7 +252,7 @@ export function Refusals() {
           <tr>
             <td>une machine sans jeton</td>
             <td>
-              <code>16 UNAUTHENTICATED</code>
+              <code className="grpc-code is-deny">16 UNAUTHENTICATED</code>
             </td>
             <td>le pare-feu, avant le contrôleur</td>
           </tr>
@@ -245,7 +261,7 @@ export function Refusals() {
               un jeton sans le scope (<code>--as user</code>)
             </td>
             <td>
-              <code>7 PERMISSION_DENIED</code>
+              <code className="grpc-code is-deny">7 PERMISSION_DENIED</code>
             </td>
             <td>
               <code>@RequireScope</code>
@@ -256,14 +272,14 @@ export function Refusals() {
               <code>Push</code> en <code>GET</code>
             </td>
             <td>
-              <code>405</code>
+              <code className="grpc-code is-http">405</code>
             </td>
             <td>le service : une méthode qui écrit ne se lit pas</td>
           </tr>
           <tr>
             <td>une méthode hors du contrat</td>
             <td>
-              <code>unimplemented</code>
+              <code className="grpc-code is-absent">unimplemented</code>
             </td>
             <td>le service gRPC, qui ne la connaît pas</td>
           </tr>
@@ -272,7 +288,7 @@ export function Refusals() {
               la machine a fini (<code>--count</code>)
             </td>
             <td>
-              <code>{"{ accepted: N }"}</code>
+              <code className="grpc-code is-ok">{"{ accepted: N }"}</code>
             </td>
             <td>
               <code>Push</code>, à la fin du flux

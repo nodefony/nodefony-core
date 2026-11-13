@@ -15,6 +15,7 @@ import { StepsLesson, type ILessonStep } from "../kit/StepsLesson";
 import {
   latestGrpcWeb,
   latestJson,
+  latestPost,
   pushByGet,
   pushWithoutToken,
   unknownMethod,
@@ -60,12 +61,12 @@ function buildSteps(machine: string): readonly [IGrpcStep, ...IGrpcStep[]] {
       short: "Le contrat",
       gesture: "telemetry.proto",
       title: "Le contrat, avant le code",
-      text: "Un fichier `.proto` décrit le service : ses méthodes, leurs messages, le numéro de chaque champ. `buf generate` en tire le code typé, des deux côtés. Une méthode qui n'est pas au contrat n'existe pas, et le service le dit.",
+      text: "Un fichier `.proto` décrit le service : ses méthodes, leurs messages, le numéro de chaque champ. `buf generate` en tire le code typé, pour le serveur comme pour la machine. Le contrat déclare `Latest` : on l'appelle tel quel, en Connect — un `POST`, le message en JSON dans le corps.",
       excerpts: [
         { file: CONTRACT, region: "proto-service" },
         { file: CONTRACT, region: "proto-reading" },
       ],
-      expect: "une méthode hors contrat : unimplemented",
+      expect: "200, et la dernière mesure — {} avant la machine",
       docs: [
         [
           "Où vivent le contrat et le code généré",
@@ -75,10 +76,10 @@ function buildSteps(machine: string): readonly [IGrpcStep, ...IGrpcStep[]] {
       ],
       calls: [
         {
-          label: "Appeler une méthode absente du contrat",
+          label: "Appeler Latest",
           verb: "POST",
-          path: `/${TELEMETRY_SERVICE}/Reset`,
-          run: (live) => probeRequest(unknownMethod(), live),
+          path: TELEMETRY_LATEST_PATH,
+          run: (live) => probeRequest(latestPost(machine), live),
         },
       ],
     },
@@ -215,7 +216,7 @@ function buildSteps(machine: string): readonly [IGrpcStep, ...IGrpcStep[]] {
       short: "Refuser",
       gesture: "@RequireScope",
       title: "Refuser, et s'arrêter proprement",
-      text: "`Push` est sous une zone du pare-feu : sans jeton, refus avant le contrôleur (16 `UNAUTHENTICATED`). Un jeton sans le scope est refusé par `@RequireScope` (7 `PERMISSION_DENIED`). En Connect, un flux répond en 200 et porte son verdict dans le message de fin, après 5 octets d'enveloppe.",
+      text: "`Push` est sous une zone du pare-feu : sans jeton, refus avant le contrôleur (16 `UNAUTHENTICATED`). Un jeton sans le scope est refusé par `@RequireScope` (7 `PERMISSION_DENIED`). En Connect, un flux répond en 200 et porte son verdict dans le message de fin, après 5 octets d'enveloppe. Une méthode hors du contrat n'a pas de route : 404, que le corps traduit en `unimplemented` pour un client gRPC.",
       excerpts: [
         { file: SECURITY, region: "telemetry-area" },
         { file: SECURITY, region: "telemetry-grant" },
@@ -225,6 +226,10 @@ function buildSteps(machine: string): readonly [IGrpcStep, ...IGrpcStep[]] {
       shows: "refusals",
       docs: [
         ["Refus et codes", "-refus-et-codes"],
+        [
+          "Refus avant ta route",
+          "refus-avant-ta-route--chemin-inconnu-débit-hôte",
+        ],
         ["Protéger une méthode", "protéger-une-méthode"],
         ["Arrêt du serveur", "arrêt-du-serveur"],
       ],
@@ -234,6 +239,12 @@ function buildSteps(machine: string): readonly [IGrpcStep, ...IGrpcStep[]] {
           verb: "POST",
           path: TELEMETRY_PUSH_PATH,
           run: (live) => probeRequest(pushWithoutToken(), live),
+        },
+        {
+          label: "Une méthode hors du contrat",
+          verb: "POST",
+          path: `/${TELEMETRY_SERVICE}/Reset`,
+          run: (live) => probeRequest(unknownMethod(), live),
         },
       ],
     },
@@ -339,7 +350,7 @@ export function GrpcLesson({ about }: { about: IDemoAbout | null }) {
           La suite : deux normes qui parlent gRPC
         </h2>
         <div className="grpc-next-cols">
-          <article>
+          <article className="is-a2a">
             <h3>Un agent parle à un agent : A2A</h3>
             <p>
               A2A (<em>Agent2Agent</em>, projet de la Linux Foundation) est le
@@ -362,7 +373,7 @@ export function GrpcLesson({ about }: { about: IDemoAbout | null }) {
               écrire.
             </p>
           </article>
-          <article>
+          <article className="is-gnmi">
             <h3>Une machine pousse sa télémétrie : gNMI</h3>
             <p>
               gNMI (OpenConfig) est la norme par laquelle routeurs et

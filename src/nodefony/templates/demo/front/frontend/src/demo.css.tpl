@@ -3120,7 +3120,9 @@ a.ritem:hover .ritem-go {
   gap: 16px;
   align-items: start;
 }
-/* Le code tient dans l'écran : il défile DANS sa colonne, pas la page. */
+/* Le code tient dans l'écran : il défile DANS sa colonne. Arrivé en bout,
+   le défilement passe à la page (pas de `overscroll-behavior: contain`) :
+   sinon la molette posée sur le code ne mène plus jamais au bas de page. */
 .steps-code {
   position: sticky;
   top: 76px;
@@ -3128,7 +3130,6 @@ a.ritem:hover .ritem-go {
   gap: 12px;
   max-height: calc(100vh - 96px);
   overflow: auto;
-  overscroll-behavior: contain;
 }
 .steps-code .excerpt {
   margin: 0;
@@ -3288,17 +3289,35 @@ a.ritem:hover .ritem-go {
   color: color-mix(in srgb, var(--blue) 55%, var(--fg));
 }
 /* Les réponses défilent dans le panneau : le panneau garde sa place. */
-.steps-results {
+/* Un appel et SA réponse, d'un seul bloc. La réponse ne défile pas dans
+   une boîte : c'est la page qui défile (aucune zone où la molette s'accroche). */
+.call-block {
   display: grid;
-  gap: 10px;
-  max-height: 46vh;
-  overflow: auto;
+  gap: 6px;
 }
-.steps-results:empty {
+.call-result:empty {
   display: none;
 }
-.steps-results .trial-result {
-  margin: 0;
+.call-result .trial-result {
+  margin: 0 0 6px;
+}
+.call-close {
+  justify-self: end;
+  font: inherit;
+  font-size: 0.82rem;
+  color: var(--muted);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.call-close:hover {
+  color: var(--fg);
+  border-color: var(--fg);
+}
+.call-result {
+  display: grid;
 }
 .steps-nav {
   display: flex;

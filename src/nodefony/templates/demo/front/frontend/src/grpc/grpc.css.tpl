@@ -4,13 +4,28 @@
  * les deux thèmes suivent sans une ligne de plus.
  */
 
+/* Une page à plusieurs couleurs, chacune pour UNE nature de chose : cyan
+   pour le flux (courbe, socket), vert pour ce qui va bien, ambre pour la
+   mesure, violet pour le protocole. Toutes mêlées au texte : le contraste
+   tient dans les deux thèmes. */
 .grpc-live {
   display: grid;
   gap: 12px;
   margin: 8px 0 20px;
   padding: 16px;
-  background: var(--card);
-  border: 1px solid var(--border);
+  background:
+    radial-gradient(
+      120% 90% at 100% 0%,
+      color-mix(in srgb, var(--cyan) 12%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      90% 80% at 0% 100%,
+      color-mix(in srgb, var(--violet) 10%, transparent),
+      transparent 55%
+    ),
+    var(--card);
+  border: 1px solid color-mix(in srgb, var(--cyan) 30%, var(--border));
   border-radius: 12px;
   min-width: 0;
 }
@@ -26,8 +41,29 @@
   font-size: 1.05rem;
 }
 .grpc-state.is-on {
-  color: var(--green);
+  color: color-mix(in srgb, var(--green) 70%, var(--fg));
   border-color: var(--green);
+  background: color-mix(in srgb, var(--green) 14%, transparent);
+}
+.grpc-state.is-on::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: grpc-pulse 1.4s ease-in-out infinite;
+}
+@keyframes grpc-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .grpc-state.is-on::before {
+    animation: none;
+  }
 }
 .grpc-state.is-off {
   color: var(--muted);
@@ -48,8 +84,18 @@
 }
 .grpc-metrics dd {
   margin: 0;
+  font-size: 1.25rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+.grpc-metrics .is-last dd {
+  color: color-mix(in srgb, var(--amber) 70%, var(--fg));
+}
+.grpc-metrics .is-count dd {
+  color: color-mix(in srgb, var(--cyan) 70%, var(--fg));
+}
+.grpc-metrics .is-rate dd {
+  color: color-mix(in srgb, var(--green) 70%, var(--fg));
 }
 
 .grpc-curve {
@@ -60,11 +106,21 @@
   width: 100%;
   height: 150px;
   background: var(--bg-soft);
+  border: 1px solid color-mix(in srgb, var(--cyan) 20%, var(--border));
   border-radius: 8px;
 }
 .grpc-curve polyline {
-  stroke: var(--blue);
-  stroke-width: 2;
+  stroke: var(--cyan);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+.grpc-fill-top {
+  stop-color: var(--cyan);
+  stop-opacity: 0.35;
+}
+.grpc-fill-bottom {
+  stop-color: var(--cyan);
+  stop-opacity: 0;
 }
 .grpc-curve figcaption,
 .grpc-log figcaption,
@@ -97,6 +153,8 @@
   margin: 8px 0;
 }
 .grpc-log pre {
+  border-left: 3px solid var(--cyan);
+  color: color-mix(in srgb, var(--cyan) 45%, var(--fg));
   margin: 4px 0 0;
   padding: 8px 10px;
   max-height: 180px;
@@ -203,8 +261,39 @@
 }
 .grpc-next article {
   min-width: 0;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--accent-norm);
+  background: color-mix(in srgb, var(--accent-norm) 6%, var(--card));
+}
+.grpc-next .is-a2a {
+  --accent-norm: var(--violet);
+}
+.grpc-next .is-gnmi {
+  --accent-norm: var(--cyan);
+}
+.grpc-next h3 {
+  color: color-mix(in srgb, var(--accent-norm) 55%, var(--fg));
 }
 .grpc-next h3 {
   font-size: 1rem;
   margin: 0 0 6px;
+}
+
+/* Les codes des refus, chacun dans la couleur de sa nature. */
+.grpc-code {
+  font-weight: 600;
+}
+.grpc-code.is-deny {
+  color: color-mix(in srgb, var(--danger) 70%, var(--fg));
+}
+.grpc-code.is-http {
+  color: color-mix(in srgb, var(--amber) 70%, var(--fg));
+}
+.grpc-code.is-absent {
+  color: color-mix(in srgb, var(--violet) 60%, var(--fg));
+}
+.grpc-code.is-ok {
+  color: color-mix(in srgb, var(--green) 70%, var(--fg));
 }

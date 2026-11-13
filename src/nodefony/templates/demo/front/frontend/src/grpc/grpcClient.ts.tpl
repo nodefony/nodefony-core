@@ -70,6 +70,22 @@ export function followTelemetry(
 
 // #region client-latest-json
 /**
+ * `Latest` en Connect, la forme ordinaire d'un appel unaire : un `POST`,
+ * le message en JSON dans le corps, la réponse en JSON.
+ */
+export function latestPost(machine: string): Request {
+  return new Request(TELEMETRY_LATEST_PATH, {
+    method: "POST",
+    cache: "no-store",
+    headers: {
+      "content-type": "application/json",
+      "connect-protocol-version": "1",
+    },
+    body: JSON.stringify({ machine }),
+  });
+}
+
+/**
  * `Latest` en `GET`, en JSON : le message part dans l'adresse. C'est le
  * protocole Connect, que le serveur sert d'office à côté de gRPC, pour une
  * méthode déclarée `NO_SIDE_EFFECTS` — un cache et `curl` savent la lire.

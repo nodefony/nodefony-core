@@ -57,8 +57,8 @@ function initialStep(steps: readonly ILessonStep[]): number {
 
 /**
  * La mise en page des leçons « à gestes » : la CARTE des gestes en haut,
- * puis UN geste à l'écran — son code à gauche, ses appels et leurs réponses
- * à droite. Rien à faire défiler pour passer d'un geste à l'autre ; l'adresse
+ * puis UN geste à l'écran — son code à gauche, ses appels à droite, chaque
+ * réponse sous le bouton qui l'a produite. Rien à faire défiler pour passer d'un geste à l'autre ; l'adresse
  * garde le geste choisi (`#stream`).
  *
  * Guide pour un agent : brique du KIT, partagée par « Premiers pas » et
@@ -95,11 +95,14 @@ export function StepsLesson<E extends ILessonExcerpt>({
   onResult?: (result: IProbeResult, step: string) => void;
 }) {
   const [selected, setSelected] = useState(() => initialStep(steps));
-  // Par geste, le dernier résultat de CHAQUE bouton : ils se comparent.
+  // Par geste, le dernier résultat de CHAQUE bouton, affiché sous lui.
   const [results, setResults] = useState<
-    Record<string, Record<string, IProbeResult>>
+    Record<string, Partial<Record<string, IProbeResult>>>
   >({});
   const [live, setLive] = useState<ILive | null>(null);
+  // UNE réponse ouverte à la fois (`geste#bouton`) : lancer un autre appel
+  // referme la précédente ; « Fermer » la replie sans rien perdre.
+  const [open, setOpen] = useState<string | null>(null);
   const step = steps.at(selected) ?? steps[0];
   // La colonne de code défile quand un geste cite beaucoup : elle doit alors
   // se joindre au clavier (WCAG 2.1.1), et seulement alors — focalisable
@@ -135,6 +138,7 @@ export function StepsLesson<E extends ILessonExcerpt>({
   };
   const run = (call: IStepCall) => {
     const at = { step: step.id, call: call.label };
+    setOpen(`${at.step}#${at.call}`);
     setLive({ ...at, chunks: [] });
     void call
       .run((chunks) => setLive({ ...at, chunks }))
@@ -212,24 +216,46 @@ export function StepsLesson<E extends ILessonExcerpt>({
             <Inline text={step.text} />
           </p>
           {fields?.(step, live?.step === step.id ? live.chunks : null)}
+          {/* Chaque réponse sous SON bouton, une seule ouverte à la fois : on
+              sait toujours quel appel a produit ce qu'on lit. */}
           <div className="calls">
-            {step.calls.map((call) => (
-              <CallButton
-                key={call.label}
-                call={call}
-                prefix={prefix}
-                busy={live !== null}
-                running={live?.call === call.label}
-                onRun={run}
-              />
-            ))}
+            {step.calls.map((call) => {
+              const running =
+                live?.step === step.id && live.call === call.label;
+              const done = results[step.id]?.[call.label] ?? null;
+              const shown = running || open === `${step.id}#${call.label}`;
+              return (
+                <div key={call.label} className="call-block">
+                  <CallButton
+                    call={call}
+                    prefix={prefix}
+                    busy={live !== null}
+                    running={running}
+                    onRun={run}
+                  />
+                  <div className="call-result" aria-live="polite">
+                    {shown && (running || done !== null) && (
+                      <>
+                        <ProbeResult
+                          result={running ? null : done}
+                          live={running ? live.chunks : null}
+                        />
+                        {!running && (
+                          <button
+                            type="button"
+                            className="call-close"
+                            onClick={() => setOpen(null)}
+                          >
+                            Fermer la réponse
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
             {extra?.(step)}
-          </div>
-          <div className="steps-results" aria-live="polite">
-            <StepResults
-              done={results[step.id] ?? {}}
-              live={live?.step === step.id ? live : null}
-            />
           </div>
           <div className="steps-nav">
             <button
@@ -293,26 +319,4 @@ function CallButton({
       </span>
     </button>
   );
-}
-
-/**
- * Les résultats d'un geste, un par bouton, dans l'ordre des premiers clics ;
- * celui du bouton en cours montre ses morceaux en direct.
- */
-function StepResults({
-  done,
-  live,
-}: {
-  done: Readonly<Record<string, IProbeResult>>;
-  live: ILive | null;
-}): ReactNode {
-  const calls = Object.keys(done);
-  if (live !== null && !calls.includes(live.call)) calls.push(live.call);
-  return calls.map((call) => (
-    <ProbeResult
-      key={call}
-      result={live?.call === call ? null : (done[call] ?? null)}
-      live={live?.call === call ? live.chunks : null}
-    />
-  ));
 }
