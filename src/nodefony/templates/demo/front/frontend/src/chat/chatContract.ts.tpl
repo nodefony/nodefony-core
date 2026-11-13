@@ -1,12 +1,18 @@
 import type { IRealtimeContract } from "nodefony/client";
 import type { IFilePreview } from "../kit/preview";
 import type {
+  CreateRoomBody,
+  EventBody,
+  EventParams,
   HistoryQuery,
+  InviteBody,
   PeopleQuery,
+  ReplyBody,
   RoomParams,
   SendBody,
+  UserParams,
 } from "./chatSchemas";
-import type { IRoomView } from "./rooms";
+import type { IRoomEvent, IRoomView } from "./rooms";
 
 /**
  * Le contrat du salon — des TYPES seulement, lus par les deux côtés :
@@ -163,6 +169,29 @@ export interface ChatContract extends IRealtimeContract {
       params: typeof RoomParams;
       query: typeof PeopleQuery;
       result: ChatPerson[];
+    };
+    "POST /demo/chat/rooms": {
+      body: typeof CreateRoomBody;
+      result: IRoomView;
+    };
+    "POST /demo/chat/rooms/{room}/members": {
+      params: typeof RoomParams;
+      body: typeof InviteBody;
+      result: { ok: true };
+    };
+    "POST /demo/chat/rooms/{room}/events": {
+      params: typeof RoomParams;
+      body: typeof EventBody;
+      result: IRoomEvent;
+    };
+    "POST /demo/chat/events/{event}/reply": {
+      params: typeof EventParams;
+      body: typeof ReplyBody;
+      result: { ok: true };
+    };
+    "POST /demo/chat/direct/{user}": {
+      params: typeof UserParams;
+      result: IRoomView;
     };
   };
 }

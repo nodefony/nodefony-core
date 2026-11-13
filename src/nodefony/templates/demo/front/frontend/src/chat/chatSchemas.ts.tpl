@@ -1,6 +1,14 @@
 import { z } from "zod";
 import { textProblem } from "./attachments";
 import { CHAT_HISTORY_LIMIT, PEOPLE_MAX } from "./chatContract";
+import {
+  EVENT_ATTENDEES_MAX,
+  EVENT_TITLE_MAX,
+  ROOM_DESCRIPTION_MAX,
+  eventProblem,
+  normalizeRoomName,
+  roomNameProblem,
+} from "./rooms";
 
 /**
  * Un texte de message, borné par la règle partagée avec la page
@@ -60,6 +68,84 @@ export const PeopleQuery = z.strictObject({
     .transform((list) => list.split(","))
     .pipe(z.array(z.string().min(1).max(128)).max(PEOPLE_MAX)),
 });
+
+/**
+ * Un identifiant d'objet dans un chemin (`{event}`, `{user}`) : la même forme
+ * que celle d'un salon — les identifiants tirés par la base y entrent.
+ */
+const PathId = z
+  .string()
+  .min(1)
+  .max(64)
+  .regex(/^[A-Za-z0-9_-]+$/u);
+
+/** L'événement visé : `/demo/chat/events/{event}/…`. */
+export const EventParams = z.strictObject({ event: PathId });
+
+/** La personne visée : `/demo/chat/direct/{user}`. */
+export const UserParams = z.strictObject({ user: PathId });
+
+/** L'identifiant EXACT d'un compte, tel qu'on se connecte. */
+const AccountIdentifier = z.string().trim().min(1).max(128);
+
+/**
+ * Créer un salon. Le nom est NORMALISÉ par le schéma lui-même : ce que
+ * l'action reçoit est déjà le nom qui sera enregistré.
+ */
+export const CreateRoomBody = z.strictObject({
+  name: z
+    .string()
+    .transform(normalizeRoomName)
+    .superRefine((name, ctx) => {
+      const problem = roomNameProblem(name);
+      if (problem !== null) ctx.addIssue({ code: "custom", message: problem });
+    }),
+  access: z.enum(["public", "private"]),
+  description: z.string().trim().max(ROOM_DESCRIPTION_MAX).optional(),
+});
+
+/** Inviter une personne, désignée par son identifiant exact. */
+export const InviteBody = z.strictObject({
+  identifier: AccountIdentifier,
+  role: z.enum(["member", "moderator"]).default("member"),
+});
+
+/**
+ * Planifier un événement. Le créneau est jugé à l'instant où le SERVEUR lit
+ * le corps : l'horloge du navigateur ne décide pas.
+ */
+export const EventBody = z
+  .strictObject({
+    title: z.string().trim().min(1).max(EVENT_TITLE_MAX),
+    start: z.number().int().nonnegative(),
+    end: z.number().int().nonnegative(),
+    /** Le fuseau du navigateur (`Intl…timeZone`), gardé avec l'événement. */
+    timeZone: z.string().min(1).max(64).refine(isTimeZone, {
+      message: "fuseau horaire inconnu",
+    }),
+    attendees: z.array(AccountIdentifier).max(EVENT_ATTENDEES_MAX).default([]),
+  })
+  .superRefine((body, ctx) => {
+    const problem = eventProblem(body.start, body.end, Date.now());
+    if (problem !== null)
+      ctx.addIssue({ code: "custom", message: problem, path: ["end"] });
+  });
+
+/** Répondre à une invitation (iTIP `REPLY`). */
+export const ReplyBody = z.strictObject({
+  partstat: z.enum(["accepted", "declined"]),
+});
+
+/** Un fuseau IANA que le moteur JavaScript connaît (`Europe/Paris`). */
+function isTimeZone(zone: string): boolean {
+  try {
+    // Un fuseau inconnu lève une `RangeError` dès la construction.
+    const format = new Intl.DateTimeFormat("en", { timeZone: zone });
+    return format.resolvedOptions().timeZone !== "";
+  } catch {
+    return false;
+  }
+}
 
 /** La query de l'historique — elle arrive en texte, `coerce` la convertit. */
 export const HistoryQuery = z.strictObject({

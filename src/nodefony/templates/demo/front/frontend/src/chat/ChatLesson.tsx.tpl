@@ -8,8 +8,19 @@ import { ChatComposer } from "./ChatComposer";
 import { MarkdownText } from "../kit/MarkdownText";
 import { useChat, type IChatRoom } from "./useChat";
 import { ChatPeople } from "./ChatPeople";
-import type { IRoomEvent } from "./rooms";
-import { useRef } from "react";
+import { canManage, type IRoomEvent, type IRoomView } from "./rooms";
+import { CreateRoomDialog, EventDialog, InviteDialog } from "./RoomForms";
+import { useRef, useState } from "react";
+
+/** Le formulaire ouvert, s'il y en a un. */
+type OpenForm = "create" | "invite" | "event" | null;
+
+/** Le message d'un refus, quel que soit le chemin. */
+function refusalText(error: unknown): string {
+  return error instanceof Error && error.message !== ""
+    ? error.message
+    : "le serveur a refusé";
+}
 
 /** Heure d'un message, à la minute. */
 const TIME = new Intl.DateTimeFormat("fr-FR", {
@@ -159,42 +170,114 @@ function slotOf(event: IRoomEvent): string {
   return `${TIME.format(event.start)} – ${TIME.format(event.end)}`;
 }
 
-/** Le rail des salons : publics, les miens, ceux où l'on m'invite. */
-function RoomRail({ room }: { room: IChatRoom }) {
+/** Le nom d'un salon tel que la page l'affiche : l'autre personne d'un salon à deux. */
+function roomLabel(item: IRoomView): string {
+  return item.peer ?? item.name;
+}
+
+/** Le pictogramme d'un salon : # public, 🔒 privé, ✉ à deux. */
+function roomIcon(item: IRoomView): string {
+  if (item.peer !== null) return "✉";
+  return item.access === "private" ? "🔒" : "#";
+}
+
+/** Un salon du rail. */
+function RoomLink({ room, item }: { room: IChatRoom; item: IRoomView }) {
   const now = Date.now();
+  const current = item.id === room.roomId;
+  const live =
+    item.event !== null && item.event.start <= now && item.event.end >= now;
+  return (
+    <li>
+      <button
+        type="button"
+        className={current ? "room-link is-current" : "room-link"}
+        aria-current={current ? "page" : undefined}
+        onClick={() => room.openRoom(item.id)}
+      >
+        <span className="room-link-name">
+          <span aria-hidden="true">{roomIcon(item)}</span> {roomLabel(item)}
+        </span>
+        {item.peer !== null ? (
+          <span className="sr-only">(message privé)</span>
+        ) : (
+          item.access === "private" && <span className="sr-only">(privé)</span>
+        )}
+        {live && <span className="room-live">en cours</span>}
+      </button>
+    </li>
+  );
+}
+
+/**
+ * Le rail : les salons, les messages privés, puis les invitations qui
+ * attendent une réponse (iTIP `REPLY`). Créer un salon exige une session.
+ */
+function RoomRail({
+  room,
+  onCreate,
+  act,
+}: {
+  room: IChatRoom;
+  onCreate: (() => void) | null;
+  act: (work: Promise<void>) => void;
+}) {
+  const salons = room.rooms.filter((item) => item.peer === null);
+  const direct = room.rooms.filter((item) => item.peer !== null);
+  const pending = room.rooms.filter(
+    (item) => item.event?.partstat === "needs-action",
+  );
   return (
     <nav className="room-rail" aria-label="Salons">
       <h3 className="room-rail-title">Salons</h3>
       <ul>
-        {room.rooms.map((item) => {
-          const current = item.id === room.roomId;
-          const live =
-            item.event !== null &&
-            item.event.start <= now &&
-            item.event.end >= now;
-          return (
-            <li key={item.id}>
+        {salons.map((item) => (
+          <RoomLink key={item.id} room={room} item={item} />
+        ))}
+      </ul>
+      {onCreate !== null && (
+        <button type="button" className="room-rail-add" onClick={onCreate}>
+          + Nouveau salon
+        </button>
+      )}
+      {direct.length > 0 && (
+        <>
+          <h3 className="room-rail-title">Messages privés</h3>
+          <ul>
+            {direct.map((item) => (
+              <RoomLink key={item.id} room={room} item={item} />
+            ))}
+          </ul>
+        </>
+      )}
+      {pending.map((item) => {
+        const event = item.event;
+        if (event === null) return null;
+        return (
+          <div key={item.id} className="room-invite">
+            <strong>Invitation · {event.title}</strong>
+            <span>
+              {item.name} · {slotOf(event)}
+            </span>
+            <span className="room-invite-actions">
               <button
                 type="button"
-                className={current ? "room-link is-current" : "room-link"}
-                aria-current={current ? "page" : undefined}
-                onClick={() => room.openRoom(item.id)}
+                className="room-btn is-primary"
+                onClick={() => act(room.forms.reply(event.id, "accepted"))}
               >
-                <span className="room-link-name">
-                  <span aria-hidden="true">
-                    {item.access === "private" ? "🔒" : "#"}
-                  </span>{" "}
-                  {item.name}
-                </span>
-                {item.access === "private" && (
-                  <span className="sr-only">(privé)</span>
-                )}
-                {live && <span className="room-live">en cours</span>}
+                Accepter
               </button>
-            </li>
-          );
-        })}
-      </ul>
+              <button
+                type="button"
+                className="room-btn"
+                onClick={() => act(room.forms.reply(event.id, "declined"))}
+              >
+                Décliner
+              </button>
+            </span>
+          </div>
+        );
+      })}
     </nav>
   );
 }
@@ -210,17 +293,32 @@ function ChatRoom({
   const canWrite =
     room.identity?.authenticated === true && room.refusal === null;
   const insert = useRef<((text: string) => void) | null>(null);
+  const [form, setForm] = useState<OpenForm>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const current = room.rooms.find((item) => item.id === room.roomId) ?? null;
   const total = room.presence.count + room.presence.unnamed;
+  const signedIn = room.identity?.authenticated === true;
+  // La page CACHE ce que le serveur refuserait ; c'est lui qui décide (403).
+  const manages = current?.peer === null && canManage(current.role);
+  /** Un geste sans formulaire (répondre, écrire en privé) : son refus s'affiche. */
+  const act = (work: Promise<void>) => {
+    setNotice(null);
+    work.catch((error: unknown) => setNotice(refusalText(error)));
+  };
+  const name = current === null ? room.roomId : roomLabel(current);
 
   return (
     <div className="room room-layout">
-      <RoomRail room={room} />
+      <RoomRail
+        room={room}
+        onCreate={signedIn ? () => setForm("create") : null}
+        act={act}
+      />
       <div className="room-main">
         <div className="room-head">
           <strong>
-            {current?.access === "private" ? "🔒 " : "#"}
-            {current?.name ?? room.roomId}
+            {current === null ? "#" : `${roomIcon(current)} `}
+            {name}
           </strong>
           {room.presence.ready && (
             <span className="room-head-count">
@@ -232,7 +330,30 @@ function ChatRoom({
               <strong>{current.event.title}</strong> · {slotOf(current.event)}
             </span>
           )}
+          {manages && (
+            <span className="room-head-actions">
+              <button
+                type="button"
+                className="room-btn"
+                onClick={() => setForm("invite")}
+              >
+                Inviter
+              </button>
+              <button
+                type="button"
+                className="room-btn"
+                onClick={() => setForm("event")}
+              >
+                Planifier
+              </button>
+            </span>
+          )}
         </div>
+        {notice !== null && (
+          <p className="room-notice" role="alert">
+            {notice}
+          </p>
+        )}
         {room.refusal !== null ? (
           <p className="room-refusal" role="alert">
             {room.refusal}
@@ -307,7 +428,30 @@ function ChatRoom({
         presence={room.presence}
         rows={room.people}
         typing={room.typing}
-        onMention={canWrite ? (name) => insert.current?.(`@${name} `) : null}
+        onMention={canWrite ? (who) => insert.current?.(`@${who} `) : null}
+        onDirect={
+          signedIn && current?.peer === null
+            ? (userId) => act(room.forms.openDirect(userId))
+            : null
+        }
+      />
+      <CreateRoomDialog
+        open={form === "create"}
+        onClose={() => setForm(null)}
+        forms={room.forms}
+      />
+      <InviteDialog
+        open={form === "invite"}
+        onClose={() => setForm(null)}
+        forms={room.forms}
+        roomName={name}
+        myRole={current?.role ?? null}
+      />
+      <EventDialog
+        open={form === "event"}
+        onClose={() => setForm(null)}
+        forms={room.forms}
+        roomName={name}
       />
     </div>
   );

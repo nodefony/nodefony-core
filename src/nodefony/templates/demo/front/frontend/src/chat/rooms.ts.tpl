@@ -108,6 +108,11 @@ export interface IRoomEvent {
   start: number;
   end: number;
   status: EventStatus;
+  /**
+   * La réponse de la personne qui regarde ; `null` si elle n'est pas invitée.
+   * `"needs-action"` : la page lui propose d'accepter ou de décliner.
+   */
+  partstat: Partstat | null;
 }
 
 /** Un salon, tel qu'une personne le voit dans sa liste. */
@@ -122,7 +127,110 @@ export interface IRoomView {
   role: RoomRole | null;
   /** L'événement en cours ou le prochain, s'il y en a un. */
   event: IRoomEvent | null;
+  /**
+   * Un salon à deux : le nom de L'AUTRE personne, sous lequel la page
+   * l'affiche ; `null` pour un salon ordinaire.
+   */
+  peer: string | null;
 }
+
+// #region rooms-forms-rules
+/** Un nom de salon : 80 caractères au plus (la colonne `room.name`). */
+export const ROOM_NAME_MAX = 80;
+/** Une description : 280 caractères au plus. */
+export const ROOM_DESCRIPTION_MAX = 280;
+/** Une personne possède au plus dix salons : une boucle ne remplit pas la liste. */
+export const ROOMS_OWNED_MAX = 10;
+/** Le titre d'un événement : 120 caractères au plus. */
+export const EVENT_TITLE_MAX = 120;
+/** Un événement dure vingt-quatre heures au plus (24 × 3 600 000 ms). */
+export const EVENT_MAX_MS = 86_400_000;
+/**
+ * Un début « à l'instant » reste accepté cinq minutes (5 × 60 000 ms) : le
+ * formulaire a mis du temps.
+ */
+export const EVENT_PAST_TOLERANCE_MS = 300_000;
+/** Au plus vingt invités par événement. */
+export const EVENT_ATTENDEES_MAX = 20;
+
+/**
+ * Le nom d'un salon tel qu'il est enregistré : forme Unicode NFC (un « é »
+ * composé et un « e » + accent deviennent le même nom), espaces de bord
+ * retirés, suites d'espaces réduites à une seule.
+ */
+export function normalizeRoomName(raw: string): string {
+  return raw.normalize("NFC").trim().replace(/\s+/gu, " ");
+}
+
+/** Pourquoi ce nom (déjà normalisé) est refusé ; `null` s'il convient. */
+export function roomNameProblem(name: string): string | null {
+  if (name === "") return "Donne un nom au salon.";
+  if (name.length > ROOM_NAME_MAX)
+    return `${ROOM_NAME_MAX} caractères au plus.`;
+  if (name.toLowerCase().startsWith(DIRECT_PREFIX))
+    return `Le préfixe « ${DIRECT_PREFIX} » est réservé aux messages privés.`;
+  return null;
+}
+
+/**
+ * Pourquoi ce créneau est refusé ; `null` s'il convient. La fin vient après
+ * le début, l'événement dure 24 h au plus et ne commence pas dans le passé.
+ *
+ * @param start - le début, en ms
+ * @param end - la fin, en ms
+ * @param now - l'instant de la décision : celui du SERVEUR, qui décide
+ */
+export function eventProblem(
+  start: number,
+  end: number,
+  now: number,
+): string | null {
+  if (end <= start) return "La fin doit venir après le début.";
+  if (end - start > EVENT_MAX_MS) return "Un événement dure 24 h au plus.";
+  if (start < now - EVENT_PAST_TOLERANCE_MS) return "Le début est déjà passé.";
+  return null;
+}
+
+/** Inviter et planifier : le propriétaire et les modérateurs (XEP-0045). */
+export function canManage(role: RoomRole | null): boolean {
+  return role === "owner" || role === "moderator";
+}
+
+/** Seul le propriétaire nomme un modérateur. */
+export function canAppoint(role: RoomRole | null, wanted: RoomRole): boolean {
+  if (wanted === "owner") return false;
+  return wanted === "moderator" ? role === "owner" : canManage(role);
+}
+// #endregion
+
+// #region rooms-direct-key
+/** Le préfixe RÉSERVÉ des salons à deux. */
+export const DIRECT_PREFIX = "dm:";
+
+/**
+ * Le nom d'un salon à deux : les deux identités TRIÉES. La même paire donne
+ * toujours le même nom, et la colonne `room.name` est unique : deux clics
+ * simultanés ne créent qu'un salon (Matrix appelle ce marquage `is_direct`).
+ * Deux identifiants de 36 caractères font 76 caractères, sous la borne.
+ */
+export function directKey(a: string, b: string): string {
+  const [first, second] = a < b ? [a, b] : [b, a];
+  return `${DIRECT_PREFIX}${first}:${second}`;
+}
+
+/**
+ * L'autre personne d'un salon à deux, vue par `me` ; `null` si le nom n'est
+ * pas celui d'un salon à deux dont `me` fait partie. On retire SON identité
+ * plutôt que de couper au `:` : un identifiant peut en contenir.
+ */
+export function directPeer(name: string, me: string): string | null {
+  if (!name.startsWith(DIRECT_PREFIX)) return null;
+  const pair = name.slice(DIRECT_PREFIX.length);
+  if (pair.startsWith(`${me}:`)) return pair.slice(me.length + 1) || null;
+  if (pair.endsWith(`:${me}`)) return pair.slice(0, -me.length - 1) || null;
+  return null;
+}
+// #endregion
 
 /**
  * L'événement à montrer dans l'en-tête d'un salon : celui en cours, sinon le
@@ -131,7 +239,7 @@ export interface IRoomView {
  * @param events - les événements du salon
  * @param now - l'instant, en ms
  */
-export function headlineEvent<T extends IRoomEvent>(
+export function headlineEvent<T extends Omit<IRoomEvent, "partstat">>(
   events: readonly T[],
   now: number,
 ): T | null {

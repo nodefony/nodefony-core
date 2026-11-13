@@ -81,6 +81,22 @@ export const CHAT_LESSON = {
           excerpt: { file: CONTROLLER, region: "chat-rooms" },
         },
         {
+          text: "Créer un salon : le corps arrive validé ET normalisé par son schéma, la session en devient propriétaire, et `@Idempotent()` fait qu'un double clic ne crée qu'un salon. L'action ne fait qu'appeler le service.",
+          excerpt: { file: CONTROLLER, region: "rooms-create-route" },
+        },
+        {
+          text: "Le service dit POURQUOI il refuse (salon inconnu, geste interdit, nom pris), le contrôleur dit COMMENT : 404, 403, 409 ou 422, avec le message que la page affiche sous le champ fautif. La même règle sert la route, la socket et un test sans serveur.",
+          excerpt: { file: CONTROLLER, region: "rooms-refused" },
+        },
+        {
+          text: "Inviter : la page cache le bouton à qui ne gère pas le salon, mais ce n'est qu'un confort. Le rôle de qui invite est relu EN BASE à chaque geste.",
+          excerpt: { file: CONTROLLER, region: "rooms-invite-route" },
+        },
+        {
+          text: "Écrire en privé : une route sans corps, qui rend le salon à deux, qu'il existe déjà ou non. Pas besoin de `@Idempotent()` : l'opération l'est par construction.",
+          excerpt: { file: CONTROLLER, region: "rooms-direct-route" },
+        },
+        {
           text: "Lire l'historique d'un salon : une seule action pour `GET …/rooms/{room}/history` et `socket.get(…)`. Le salon du chemin et la requête sont validés AVANT l'action, qui reçoit des valeurs typées.",
           excerpt: { file: CONTROLLER, region: "chat-history", step: 2 },
         },
@@ -126,6 +142,18 @@ export const CHAT_LESSON = {
           excerpt: { file: ROOMS, region: "rooms-membership" },
         },
         {
+          text: "Créer un salon : deux bornes vérifiées en base, le quota et le nom. Deux créations simultanées du même nom passent toutes deux la vérification : c'est la contrainte `UNIQUE` de la colonne qui tranche, et son échec se relit en refus. Si le propriétaire ne peut pas être enregistré, le salon est retiré.",
+          excerpt: { file: ROOMS, region: "rooms-create" },
+        },
+        {
+          text: "Inviter par l'identifiant EXACT du compte : la démo ne liste jamais les comptes. Le prix est assumé et écrit : qui gère un salon peut savoir si un identifiant existe.",
+          excerpt: { file: ROOMS, region: "rooms-invite" },
+        },
+        {
+          text: "Le salon à deux se crée par un `upsert` sur le nom de la paire : une seule requête, pas de lecture suivie d'une écriture entre lesquelles un second clic pourrait se glisser.",
+          excerpt: { file: ROOMS, region: "rooms-direct" },
+        },
+        {
           text: "Nommer les présents : la présence du canal dit qui est là, les comptes de l'application disent son nom — une lecture `$in` par l'ORM de l'application, Drizzle ou Mongoose.",
           excerpt: { file: ROOMS, region: "chat-people" },
         },
@@ -162,6 +190,18 @@ export const CHAT_LESSON = {
         {
           text: "La règle d'entrée, PURE et partagée : le serveur la tranche avec les faits de la base, la page s'en sert pour l'affichage. Membre, salon public non verrouillé, puis invité d'un événement en cours.",
           excerpt: { file: RULE, region: "rooms-rule" },
+        },
+        {
+          text: "Les règles des formulaires, écrites UNE fois : bornes, créneau d'un événement, nom réservé, qui gère un salon. La page s'en sert pour prévenir et cacher les boutons ; le schéma du serveur et le service, pour décider.",
+          excerpt: { file: RULE, region: "rooms-forms-rules" },
+        },
+        {
+          text: "Un salon à deux porte le nom de sa paire, triée : la même paire donne toujours le même nom, et la colonne est unique. C'est le marquage `is_direct` de Matrix, sans colonne de plus.",
+          excerpt: { file: RULE, region: "rooms-direct-key" },
+        },
+        {
+          text: "Chaque formulaire appelle UNE route du contrat, par la socket déjà ouverte. Un refus rejette la promesse avec le message du serveur. Le reste arrive par le canal personnel, chez soi comme chez l'invité.",
+          excerpt: { file: HOOK, region: "rooms-forms-client" },
         },
         {
           text: "La liste des salons ne s'interroge pas : le serveur POUSSE sur le canal personnel quand elle change, et la page la relit.",

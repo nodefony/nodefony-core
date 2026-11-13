@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { z } from "zod";
 import { EMPTY_PRESENCE, NodefonySocket } from "nodefony/client";
 import type {
   IPresenceSnapshot,
@@ -12,6 +13,7 @@ import {
   type ChatContract,
   type ChatMessage,
 } from "./chatContract";
+import type { CreateRoomBody, EventBody, InviteBody } from "./chatSchemas";
 import { LOBBY_ROOM_ID, roomChannel, type IRoomView } from "./rooms";
 import { RosterTracker, type IRosterRow } from "./roster";
 
@@ -55,6 +57,28 @@ export interface IChatRoom {
   send: (text: string, files?: readonly File[]) => Promise<void>;
   /** Signale qu'on écrit (borné : au plus un signal par intervalle). */
   notifyTyping: () => void;
+  /**
+   * Les gestes des formulaires : chacun rejette avec le message du serveur
+   * (403, 404, 409, 422), que le formulaire affiche sous son champ.
+   */
+  forms: IRoomForms;
+}
+
+/** Ce que le corps d'une route accepte EN ENTRÉE (avant ses défauts). */
+type Draft<S extends z.ZodType> = z.input<S>;
+
+/** Les gestes des formulaires du chat — une route du contrat chacun. */
+export interface IRoomForms {
+  /** Crée un salon, puis l'ouvre. */
+  createRoom: (draft: Draft<typeof CreateRoomBody>) => Promise<void>;
+  /** Invite une personne dans le salon ouvert. */
+  invite: (draft: Draft<typeof InviteBody>) => Promise<void>;
+  /** Planifie un événement dans le salon ouvert. */
+  planEvent: (draft: Draft<typeof EventBody>) => Promise<void>;
+  /** Accepte ou décline une invitation. */
+  reply: (eventId: string, partstat: "accepted" | "declined") => Promise<void>;
+  /** Ouvre le salon à deux avec une personne présente — ou le crée. */
+  openDirect: (userId: string) => Promise<void>;
 }
 
 /** Le motif d'un refus HTTP : le message du serveur, sinon le statut. */
@@ -290,6 +314,51 @@ export function useChat(): IChatRoom {
   }, [socket, roomId]);
   // #endregion
 
+  // #region rooms-forms-client
+  // Un formulaire = une route du contrat, par la socket déjà ouverte. Un salon
+  // créé ou ouvert à deux entre AUSSITÔT dans la liste ; le reste arrive par
+  // le canal personnel (`onUser`), chez soi comme chez l'invité.
+  const forms = useMemo<IRoomForms>(() => {
+    const open = (room: IRoomView) => {
+      setRooms((known) =>
+        known.some((item) => item.id === room.id) ? known : [...known, room],
+      );
+      setRoomId(room.id);
+    };
+    const live = () => {
+      if (socket === null) throw new Error("socket fermée");
+      return socket;
+    };
+    return {
+      createRoom: async (draft) =>
+        open(await live().post("/demo/chat/rooms", draft)),
+      invite: async (draft) => {
+        await live().post("/demo/chat/rooms/{room}/members", draft, {
+          params: { room: roomId },
+        });
+      },
+      planEvent: async (draft) => {
+        await live().post("/demo/chat/rooms/{room}/events", draft, {
+          params: { room: roomId },
+        });
+      },
+      reply: async (eventId, partstat) => {
+        await live().post(
+          "/demo/chat/events/{event}/reply",
+          { partstat },
+          { params: { event: eventId } },
+        );
+      },
+      openDirect: async (userId) =>
+        open(
+          await live().post("/demo/chat/direct/{user}", undefined, {
+            params: { user: userId },
+          }),
+        ),
+    };
+  }, [socket, roomId]);
+  // #endregion
+
   return {
     rooms,
     roomId,
@@ -303,6 +372,7 @@ export function useChat(): IChatRoom {
     state,
     send,
     notifyTyping,
+    forms,
   };
 }
 

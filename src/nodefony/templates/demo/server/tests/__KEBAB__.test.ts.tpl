@@ -36,7 +36,12 @@ import ChatService, {
   type IMessageArchive,
 } from "../nodefony/service/ChatService";
 import { utf8ByteLength } from "../frontend/src/kit/utf8";
-import { SendBody } from "../frontend/src/chat/chatSchemas";
+import {
+  CreateRoomBody,
+  EventBody,
+  InviteBody,
+  SendBody,
+} from "../frontend/src/chat/chatSchemas";
 import {
   INFLATE_LIMIT,
   PREVIEW_ENTRIES,
@@ -71,12 +76,22 @@ import {
   type ChatMessage,
 } from "../frontend/src/chat/chatContract";
 import {
+  EVENT_MAX_MS,
+  EVENT_PAST_TOLERANCE_MS,
   INVITE_EARLY_MS,
   LOBBY_ROOM_ID,
+  ROOM_NAME_MAX,
   admissionOf,
+  canAppoint,
+  canManage,
+  directKey,
+  directPeer,
+  eventProblem,
   headlineEvent,
+  normalizeRoomName,
   roomChannel,
   roomIdOf,
+  roomNameProblem,
 } from "../frontend/src/chat/rooms";
 import {
   ARRIVAL_MARK_MS,
@@ -477,6 +492,100 @@ describe("demo — qui entre dans un salon (règle pure)", () => {
         NOW,
       ),
     ).toBeNull();
+  });
+});
+
+describe("demo — les formulaires des salons (règles pures)", () => {
+  it("un nom de salon est normalisé : NFC, bords retirés, espaces réduits", () => {
+    // « é » composé (U+00E9) et « e » + accent combinant (U+0301) : le même nom.
+    expect(normalizeRoomName("  Café   du   matin ")).toBe("Café du matin");
+  });
+
+  it("un nom vide, trop long ou au préfixe réservé est refusé, en le disant", () => {
+    expect(roomNameProblem("")).toMatch(/nom/u);
+    expect(roomNameProblem("a".repeat(ROOM_NAME_MAX))).toBeNull();
+    expect(roomNameProblem("a".repeat(ROOM_NAME_MAX + 1))).toMatch(/80/u);
+    // Le préfixe des salons à deux, quelle que soit la casse.
+    expect(roomNameProblem("DM:alice")).toMatch(/réservé/u);
+  });
+
+  it("le schéma rend le nom NORMALISÉ à l'action, et refuse un champ en trop", () => {
+    const parsed = CreateRoomBody.parse({
+      name: "  projet   atlas ",
+      access: "private",
+    });
+    expect(parsed.name).toBe("projet atlas");
+    expect(
+      CreateRoomBody.safeParse({ name: "x", access: "public", ownerId: "moi" })
+        .success,
+    ).toBe(false);
+  });
+
+  it("un créneau : la fin après le début, 24 h au plus, pas dans le passé", () => {
+    const now = 1_000_000_000_000;
+    const hour = 3_600_000;
+    expect(eventProblem(now, now + hour, now)).toBeNull();
+    expect(eventProblem(now + hour, now + hour, now)).toMatch(/après/u);
+    expect(eventProblem(now, now + EVENT_MAX_MS + 1, now)).toMatch(/24 h/u);
+    expect(
+      eventProblem(now - EVENT_PAST_TOLERANCE_MS, now + hour, now),
+    ).toBeNull();
+    expect(
+      eventProblem(now - EVENT_PAST_TOLERANCE_MS - 1, now + hour, now),
+    ).toMatch(/passé/u);
+  });
+
+  it("le schéma d'un événement refuse un fuseau inconnu et un créneau à l'envers", () => {
+    const start = Date.now() + 3_600_000;
+    const ok = {
+      title: "Revue",
+      start,
+      end: start + 1_800_000,
+      timeZone: "Europe/Paris",
+    };
+    expect(EventBody.parse(ok).attendees).toEqual([]);
+    expect(
+      EventBody.safeParse({ ...ok, timeZone: "Mars/Olympus" }).success,
+    ).toBe(false);
+    expect(EventBody.safeParse({ ...ok, end: start }).success).toBe(false);
+  });
+
+  it("inviter : membre par défaut", () => {
+    expect(InviteBody.parse({ identifier: " bob " })).toEqual({
+      identifier: "bob",
+      role: "member",
+    });
+  });
+
+  it("qui gère : le propriétaire et les modérateurs ; seul le propriétaire nomme un modérateur", () => {
+    expect([
+      canManage("owner"),
+      canManage("moderator"),
+      canManage("member"),
+      canManage(null),
+    ]).toEqual([true, true, false, false]);
+    expect(canAppoint("owner", "moderator")).toBe(true);
+    expect(canAppoint("moderator", "moderator")).toBe(false);
+    expect(canAppoint("moderator", "member")).toBe(true);
+    expect(canAppoint("member", "member")).toBe(false);
+    // Personne ne nomme un second propriétaire.
+    expect(canAppoint("owner", "owner")).toBe(false);
+  });
+
+  it("un salon à deux : le même nom dans les deux sens, et l'autre personne retrouvée", () => {
+    const [a, b] = [
+      "0f1e2d3c-aaaa-4bbb-8ccc-000000000001",
+      "9a8b7c6d-aaaa-4bbb-8ccc-000000000002",
+    ];
+    expect(directKey(a, b)).toBe(directKey(b, a));
+    expect(directKey(a, b).length).toBeLessThanOrEqual(ROOM_NAME_MAX);
+    expect(directPeer(directKey(a, b), a)).toBe(b);
+    expect(directPeer(directKey(a, b), b)).toBe(a);
+    // Une troisième personne n'y lit rien, ni un salon ordinaire.
+    expect(directPeer(directKey(a, b), "c")).toBeNull();
+    expect(directPeer("salon", a)).toBeNull();
+    // Un identifiant qui contient « : » ne trompe pas la lecture.
+    expect(directPeer(directKey("x:1", "y"), "y")).toBe("x:1");
   });
 });
 

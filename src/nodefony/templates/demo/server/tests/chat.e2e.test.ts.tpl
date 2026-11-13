@@ -1,5 +1,15 @@
+import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { adminLogin, csrfHeaders } from "nodefony/testing";
+import { promisify } from "node:util";
+import { AUTH_ME_PATH } from "nodefony";
+import {
+  E2E_USER_IDENTIFIER,
+  E2E_USER_PASSWORD,
+  adminLogin,
+  csrfHeaders,
+  nodefonyBin,
+  userLogin,
+} from "nodefony/testing";
 import { afterAll, afterEach, beforeAll, expect, it } from "vitest";
 import {
   CHAT_ATTACH_PATH,
@@ -20,9 +30,12 @@ import {
   demoDescribe,
   httpUrl,
   openSocket,
+  serverEnvironment,
   startDemoServer,
   waitFor,
 } from "./realtimeHarness";
+
+const run = promisify(execFile);
 
 /**
  * Les salons de bout en bout : des sockets ANONYMES qui écoutent, un compte
@@ -316,6 +329,224 @@ demoDescribe("discussion — le salon privé", () => {
       lobby.messages.some((m) => m.text === witness),
     );
     expect(lobby.messages.some((m) => m.text === secret)).toBe(false);
+  });
+});
+
+/** Un `POST` JSON d'une session, avec sa clé d'idempotence. */
+function post(
+  headers: Record<string, string>,
+  pathname: string,
+  body?: object,
+) {
+  return fetch(httpUrl(pathname), {
+    method: "POST",
+    headers: {
+      ...headers,
+      "content-type": "application/json",
+      "idempotency-key": randomUUID(),
+    },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+}
+
+/** Les salons qu'une session voit. */
+async function roomsOf(headers: Record<string, string>): Promise<IRoomView[]> {
+  const res = await fetch(httpUrl("/demo/chat/rooms"), { headers });
+  expect(res.status).toBe(200);
+  return res.json();
+}
+
+/** Un nom de salon neuf : les cas partagent la base. */
+const roomName = (label: string) => `${label} ${randomUUID().slice(0, 8)}`;
+
+/** L'identité stable d'une session, lue sur `/me` (`{ user: { id, … } }`). */
+async function idOf(headers: Record<string, string>): Promise<string> {
+  const body: unknown = await (
+    await fetch(httpUrl(AUTH_ME_PATH), { headers })
+  ).json();
+  const user: unknown =
+    typeof body === "object" && body !== null
+      ? Reflect.get(body, "user")
+      : null;
+  const id =
+    typeof user === "object" && user !== null ? Reflect.get(user, "id") : null;
+  expect(typeof id).toBe("string");
+  return String(id);
+}
+
+demoDescribe("discussion — les formulaires", () => {
+  /** La session du second compte, et son identité stable. */
+  let member: Record<string, string> = {};
+  let memberId = "";
+  beforeAll(async () => {
+    // Le serveur de démo ne sème qu'`admin` : le second compte se crée par la
+    // VRAIE commande, sur la même base.
+    await run(
+      process.execPath,
+      [
+        nodefonyBin(),
+        "security:user:add",
+        E2E_USER_IDENTIFIER,
+        "--password",
+        E2E_USER_PASSWORD,
+      ],
+      {
+        env: {
+          ...process.env,
+          ...serverEnvironment(),
+          NODE_ENV: "development",
+        },
+      },
+    );
+    const base = httpUrl("");
+    member = await csrfHeaders(base, await userLogin(base));
+    memberId = await idOf(member);
+  });
+
+  it("créer : la session devient propriétaire, le nom arrive normalisé ; le même nom est refusé (409)", async () => {
+    const name = roomName("projet");
+    const res = await post(admin, "/demo/chat/rooms", {
+      name: `  ${name.replace(" ", "   ")} `,
+      access: "private",
+    });
+    expect(res.status).toBe(200);
+    const room: IRoomView = await res.json();
+    expect(room.name).toBe(name);
+    expect(room.role).toBe("owner");
+    expect((await roomsOf(admin)).some((r) => r.id === room.id)).toBe(true);
+    // Privé : l'autre compte ne le voit pas.
+    expect((await roomsOf(member)).some((r) => r.id === room.id)).toBe(false);
+
+    const again = await post(admin, "/demo/chat/rooms", {
+      name,
+      access: "public",
+    });
+    expect(again.status).toBe(409);
+    await again.body?.cancel();
+    const reserved = await post(admin, "/demo/chat/rooms", {
+      name: "dm:moi",
+      access: "public",
+    });
+    expect(reserved.status).toBe(422);
+    await reserved.body?.cancel();
+  });
+
+  it("inviter : 403 à qui ne gère pas, 404 au compte inconnu, puis l'invité voit le salon ; 409 la seconde fois", async () => {
+    const created = await post(admin, "/demo/chat/rooms", {
+      name: roomName("équipe projet"),
+      access: "private",
+    });
+    const room: IRoomView = await created.json();
+    const members = `/demo/chat/rooms/${room.id}/members`;
+
+    // Le membre n'en est pas encore membre : il ne gère rien.
+    const intruder = await post(member, members, { identifier: "admin" });
+    expect(intruder.status).toBe(403);
+    await intruder.body?.cancel();
+    const unknown = await post(admin, members, {
+      identifier: `inconnu-${randomUUID()}`,
+    });
+    expect(unknown.status).toBe(404);
+    await unknown.body?.cancel();
+
+    const invited = await post(admin, members, {
+      identifier: E2E_USER_IDENTIFIER,
+    });
+    expect(invited.status).toBe(200);
+    await invited.body?.cancel();
+    const seen = (await roomsOf(member)).find((r) => r.id === room.id);
+    expect(seen?.role).toBe("member");
+    // Membre simple : toujours pas le droit d'inviter.
+    const again = await post(member, members, { identifier: "admin" });
+    expect(again.status).toBe(403);
+    await again.body?.cancel();
+    const twice = await post(admin, members, {
+      identifier: E2E_USER_IDENTIFIER,
+    });
+    expect(twice.status).toBe(409);
+    await twice.body?.cancel();
+  });
+
+  it("planifier : l'invité reçoit une invitation à accepter ; la décliner retire le salon de sa liste", async () => {
+    const created = await post(admin, "/demo/chat/rooms", {
+      name: roomName("revue"),
+      access: "private",
+    });
+    const room: IRoomView = await created.json();
+    const events = `/demo/chat/rooms/${room.id}/events`;
+    const start = Date.now() + 3_600_000;
+    const slot = {
+      title: "Revue du lot 3",
+      start,
+      end: start + 1_800_000,
+      timeZone: "Europe/Paris",
+    };
+
+    // Qui ne gère pas le salon ne planifie rien.
+    const intruder = await post(member, events, slot);
+    expect(intruder.status).toBe(403);
+    await intruder.body?.cancel();
+
+    // Un invité inconnu : tous sont nommés, et rien n'est créé.
+    const unknown = await post(admin, events, {
+      ...slot,
+      attendees: ["personne-ici"],
+    });
+    expect(unknown.status).toBe(404);
+    expect(await unknown.text()).toMatch(/personne-ici/u);
+
+    const planned = await post(admin, events, {
+      ...slot,
+      attendees: [E2E_USER_IDENTIFIER],
+    });
+    expect(planned.status).toBe(200);
+    const event: { id: string } = await planned.json();
+    const invitation = (await roomsOf(member)).find((r) => r.id === room.id);
+    expect(invitation?.event?.partstat).toBe("needs-action");
+    expect(invitation?.role).toBeNull();
+
+    const declined = await post(member, `/demo/chat/events/${event.id}/reply`, {
+      partstat: "declined",
+    });
+    expect(declined.status).toBe(200);
+    await declined.body?.cancel();
+    expect((await roomsOf(member)).some((r) => r.id === room.id)).toBe(false);
+    const nowhere = await post(
+      member,
+      `/demo/chat/events/${randomUUID()}/reply`,
+      {
+        partstat: "accepted",
+      },
+    );
+    expect(nowhere.status).toBe(404);
+    await nowhere.body?.cancel();
+  });
+
+  it("écrire en privé : deux clics, UN salon à deux, nommé chez l'autre d'après soi ; pas avec soi-même", async () => {
+    const adminId = await idOf(admin);
+    const [first, second] = await Promise.all([
+      post(member, `/demo/chat/direct/${adminId}`),
+      post(member, `/demo/chat/direct/${adminId}`),
+    ]);
+    expect([first.status, second.status]).toEqual([200, 200]);
+    const a: IRoomView = await first.json();
+    const b: IRoomView = await second.json();
+    expect(a.id).toBe(b.id);
+    expect(a.peer).toBe("admin");
+    expect(a.access).toBe("private");
+    // Chez l'autre, le même salon porte le nom de qui l'a ouvert.
+    const mirror = (await roomsOf(admin)).find((r) => r.id === a.id);
+    expect(mirror?.peer).toBe(E2E_USER_IDENTIFIER);
+    // On n'invite personne dans un salon à deux.
+    const third = await post(admin, `/demo/chat/rooms/${a.id}/members`, {
+      identifier: "admin",
+    });
+    expect(third.status).toBe(403);
+    await third.body?.cancel();
+
+    const self = await post(member, `/demo/chat/direct/${memberId}`);
+    expect(self.status).toBe(422);
+    await self.body?.cancel();
   });
 });
 

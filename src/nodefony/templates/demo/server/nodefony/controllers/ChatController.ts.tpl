@@ -17,10 +17,16 @@ import { HttpError } from "@nodefony/http";
 import type { ContextType } from "@nodefony/http";
 import {
   AttachBody,
+  CreateRoomBody,
+  EventBody,
+  EventParams,
   HistoryQuery,
+  InviteBody,
   PeopleQuery,
+  ReplyBody,
   RoomParams,
   SendBody,
+  UserParams,
 } from "../../frontend/src/chat/chatSchemas";
 import { attachmentProblem } from "../../frontend/src/chat/attachments";
 import {
@@ -33,11 +39,13 @@ import {
   ROOM_CHANNEL_PATTERN,
   admissionOf,
   roomIdOf,
+  type IRoomEvent,
   type IRoomView,
 } from "../../frontend/src/chat/rooms";
 import { isUploadedFile } from "../service/ChatService";
 import type ChatService from "../service/ChatService";
 import type RoomService from "../service/RoomService";
+import { RoomRefusal, type RoomRefusalReason } from "../service/RoomService";
 import RoomAdmission from "../service/RoomAdmission";
 
 /** Une route qui vise un salon : `/demo/chat/rooms/{room}/…`. */
@@ -97,6 +105,20 @@ class ChatController extends ContractRealtimeController<ChatContract> {
       params: RoomParams,
       query: PeopleQuery,
     },
+    "POST /demo/chat/rooms": { body: CreateRoomBody },
+    "POST /demo/chat/rooms/{room}/members": {
+      params: RoomParams,
+      body: InviteBody,
+    },
+    "POST /demo/chat/rooms/{room}/events": {
+      params: RoomParams,
+      body: EventBody,
+    },
+    "POST /demo/chat/events/{event}/reply": {
+      params: EventParams,
+      body: ReplyBody,
+    },
+    "POST /demo/chat/direct/{user}": { params: UserParams },
   } satisfies ContractRouteSchemas<ChatContract>;
   // #endregion
 
@@ -155,6 +177,133 @@ class ChatController extends ContractRealtimeController<ChatContract> {
   })
   roomList(): Promise<IRoomView[]> {
     return this.rooms.roomsFor(this.user?.id ?? null, Date.now());
+  }
+  // #endregion
+
+  /** La personne connectée — `@IsGranted` l'a déjà exigée. */
+  #me(): { id: string; identifier: string } {
+    const me = this.user;
+    if (me === null) throw new HttpError("connexion requise", 401);
+    return me;
+  }
+
+  // #region rooms-refused
+  /**
+   * Un geste du service, son refus traduit en statut, avec le message que la
+   * page affiche sous le champ fautif. La seule traduction : `RoomService`
+   * dit POURQUOI, le contrôleur dit COMMENT.
+   */
+  async #refused<T>(work: () => Promise<T>): Promise<T> {
+    try {
+      return await work();
+    } catch (error) {
+      if (error instanceof RoomRefusal)
+        throw new HttpError(error.message, statusOf(error.reason));
+      throw error;
+    }
+  }
+  // #endregion
+
+  // #region rooms-create-route
+  /**
+   * Créer un salon — `POST /demo/chat/rooms` ou `socket.post(…)`. Le nom
+   * arrive validé ET normalisé (`CreateRoomBody`) ; la session en devient
+   * propriétaire. `@Idempotent()` : un double clic ne crée qu'un salon.
+   */
+  @route("demo-chat-room-create", {
+    path: "/rooms",
+    requirements: { methods: ["POST", "WEBSOCKET"] },
+    schema: { body: CreateRoomBody },
+  })
+  @IsGranted(["ROLE_USER"])
+  @Idempotent()
+  createRoom(
+    input: RouteInput<{ body: typeof CreateRoomBody }>,
+  ): Promise<IRoomView> {
+    const me = this.#me();
+    return this.#refused(() => this.rooms.createRoom(me.id, input.body));
+  }
+  // #endregion
+
+  // #region rooms-invite-route
+  /**
+   * Inviter — `POST …/rooms/{room}/members`. Le rôle de qui invite est relu
+   * EN BASE (le bouton caché par la page ne protège rien) : 403 sinon.
+   */
+  @route("demo-chat-room-invite", {
+    path: "/rooms/{room}/members",
+    requirements: { methods: ["POST", "WEBSOCKET"] },
+    schema: { params: RoomParams, body: InviteBody },
+  })
+  @IsGranted(["ROLE_USER"])
+  async invite(
+    input: RoomInput<{ body: typeof InviteBody }>,
+  ): Promise<{ ok: true }> {
+    const me = this.#me();
+    await this.#refused(() =>
+      this.rooms.invite(
+        input.params.room,
+        me.id,
+        input.body.identifier,
+        input.body.role,
+      ),
+    );
+    return { ok: true };
+  }
+  // #endregion
+
+  /** Planifier un événement — `POST …/rooms/{room}/events`. */
+  @route("demo-chat-room-event", {
+    path: "/rooms/{room}/events",
+    requirements: { methods: ["POST", "WEBSOCKET"] },
+    schema: { params: RoomParams, body: EventBody },
+  })
+  @IsGranted(["ROLE_USER"])
+  @Idempotent()
+  planEvent(input: RoomInput<{ body: typeof EventBody }>): Promise<IRoomEvent> {
+    const me = this.#me();
+    return this.#refused(() =>
+      this.rooms.planEvent(input.params.room, me.id, input.body),
+    );
+  }
+
+  /** Accepter ou décliner une invitation — `POST /demo/chat/events/{event}/reply`. */
+  @route("demo-chat-event-reply", {
+    path: "/events/{event}/reply",
+    requirements: { methods: ["POST", "WEBSOCKET"] },
+    schema: { params: EventParams, body: ReplyBody },
+  })
+  @IsGranted(["ROLE_USER"])
+  async reply(
+    input: RouteInput<{
+      params: typeof EventParams;
+      body: typeof ReplyBody;
+    }>,
+  ): Promise<{ ok: true }> {
+    const me = this.#me();
+    await this.#refused(() =>
+      this.rooms.reply(input.params.event, me.id, input.body.partstat),
+    );
+    return { ok: true };
+  }
+
+  // #region rooms-direct-route
+  /**
+   * Écrire en privé — `POST /demo/chat/direct/{user}` : rend le salon à deux,
+   * existant ou neuf. Sans corps, et sans `@Idempotent()` : l'opération l'est
+   * par construction (un `upsert` sur le nom de la paire).
+   */
+  @route("demo-chat-direct", {
+    path: "/direct/{user}",
+    requirements: { methods: ["POST", "WEBSOCKET"] },
+    schema: { params: UserParams },
+  })
+  @IsGranted(["ROLE_USER"])
+  openDirect(
+    input: RouteInput<{ params: typeof UserParams }>,
+  ): Promise<IRoomView> {
+    const me = this.#me();
+    return this.#refused(() => this.rooms.openDirect(me, input.params.user));
   }
   // #endregion
 
@@ -359,6 +508,23 @@ class ChatController extends ContractRealtimeController<ChatContract> {
     return { ok: true };
   }
   // #endregion
+}
+
+/**
+ * Le statut HTTP d'une raison de refus. Le `switch` est EXHAUSTIF : une
+ * raison ajoutée au service sans statut ne compile pas.
+ */
+function statusOf(reason: RoomRefusalReason): number {
+  switch (reason) {
+    case "not-found":
+      return 404;
+    case "forbidden":
+      return 403;
+    case "conflict":
+      return 409;
+    case "invalid":
+      return 422;
+  }
 }
 
 /**

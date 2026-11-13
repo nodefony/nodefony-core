@@ -4511,3 +4511,180 @@ a.ritem:hover .ritem-go {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Les formulaires du chat : boutons compacts, rail, invitation, boîtes natives. */
+.room-btn {
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.3rem 0.7rem;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--fg);
+  cursor: pointer;
+}
+.room-btn:hover {
+  border-color: var(--blue);
+}
+.room-btn.is-primary {
+  color: #fff;
+  background: var(--blue);
+  border-color: var(--blue);
+}
+.room-btn:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+.room-btn:focus-visible,
+.room-rail-add:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.room-rail-add {
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  padding: 0.4rem 0.55rem;
+  border: 1px dashed var(--border);
+  border-radius: 7px;
+  background: none;
+  color: var(--blue);
+  cursor: pointer;
+}
+.room-rail-add:hover {
+  background: var(--card);
+}
+.room-invite {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.55rem 0.6rem;
+  font-size: 0.82rem;
+  border-radius: 8px;
+  border: 1px dashed color-mix(in srgb, var(--amber) 55%, transparent);
+  background: color-mix(in srgb, var(--amber) 10%, transparent);
+}
+.room-invite-actions,
+.room-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.room-head-actions {
+  margin-left: auto;
+}
+.room-notice {
+  margin: 0.5rem 1rem 0;
+  font-size: 0.85rem;
+  color: var(--danger);
+}
+.room-dialog {
+  width: min(28rem, calc(100vw - 2rem));
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--fg);
+  box-shadow: var(--shadow);
+}
+.room-dialog::backdrop {
+  background: rgb(10 36 64 / 0.45);
+}
+.room-dialog form {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1.1rem 1.2rem;
+}
+.room-dialog header {
+  display: grid;
+  gap: 0.25rem;
+}
+.room-dialog h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.room-dialog header p,
+.form-hint {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+.form-field {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.form-field > label,
+.form-field > legend {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+fieldset.form-field > label {
+  font-weight: 400;
+}
+.form-field input:not([type="radio"]),
+.form-field textarea {
+  font: inherit;
+  padding: 0.45rem 0.6rem;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+  min-width: 0;
+}
+.form-field input:focus-visible,
+.form-field textarea:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
+}
+.form-field [aria-invalid="true"] {
+  border-color: var(--danger);
+}
+.form-error {
+  min-height: 1em;
+  font-size: 0.8rem;
+  color: var(--danger);
+}
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+.form-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.form-chips li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.1rem 0.25rem 0.1rem 0.6rem;
+  font-size: 0.82rem;
+  border-radius: 999px;
+  background: var(--wash-blue);
+}
+.form-chips button {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+@media (max-width: 520px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+}

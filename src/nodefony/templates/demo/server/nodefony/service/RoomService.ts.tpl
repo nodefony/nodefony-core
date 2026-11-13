@@ -23,19 +23,121 @@ import {
 import type {
   ChatMessage,
   ChatPerson,
+  RoomsNotice,
 } from "../../frontend/src/chat/chatContract";
 import type { IMessageArchive, IMessageDraft } from "./ChatService";
 import {
+  DIRECT_PREFIX,
   LOBBY_ROOM_ID,
+  ROOM_NAME_MAX,
+  ROOMS_OWNED_MAX,
+  canAppoint,
+  canManage,
+  directKey,
+  directPeer,
   headlineEvent,
   roomChannel,
   type IAdmissionFacts,
+  type IRoomEvent,
   type IRoomView,
+  type RoomAccess,
   type RoomRole,
 } from "../../frontend/src/chat/rooms";
 
 /** Au plus cent salons publics listés. */
 const PUBLIC_ROOMS_MAX = 100;
+
+/** « Ta liste de salons a changé » : un seul objet, poussé tel quel. */
+const ROOMS_CHANGED: RoomsNotice = Object.freeze({ type: "rooms:changed" });
+
+/**
+ * Prévient une personne que sa liste de salons a changé : son canal
+ * personnel (`user:<id>`) la joint sur tous les serveurs, la page relit.
+ */
+function pushRoomsChanged(userId: string): void {
+  getRealtimeHub().publishToUser(userId, ROOMS_CHANGED);
+}
+
+/**
+ * Pourquoi un geste sur les salons est refusé. Le service dit la RAISON, le
+ * contrôleur en fait un statut HTTP (`ChatController`, `#refused`) : la même
+ * règle sert une route, la socket, ou un test sans serveur.
+ */
+export type RoomRefusalReason =
+  "not-found" | "forbidden" | "conflict" | "invalid";
+
+/** Un geste refusé, avec un message lisible par la personne. */
+export class RoomRefusal extends Error {
+  override readonly name = "RoomRefusal";
+
+  /**
+   * @param reason - la raison, que le contrôleur traduit en statut
+   * @param message - ce que la page affiche sous le champ fautif
+   */
+  constructor(
+    readonly reason: RoomRefusalReason,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+/** Ce que demande la création d'un salon — déjà validé par `CreateRoomBody`. */
+export interface IRoomDraft {
+  name: string;
+  access: RoomAccess;
+  description?: string | undefined;
+}
+
+/** Ce que demande un événement — déjà validé par `EventBody`. */
+export interface IEventDraft {
+  title: string;
+  start: number;
+  end: number;
+  timeZone: string;
+  attendees: readonly string[];
+}
+
+/** Un compte tel que les salons le connaissent : son identité et son nom. */
+export interface IAccount {
+  id: string;
+  identifier: string;
+}
+
+/** Un événement tel que la liste le montre — jamais l'organisateur ni la description. */
+function toRoomEvent(
+  event: EventRow,
+  partstat: IRoomEvent["partstat"],
+): IRoomEvent {
+  return {
+    id: event.id,
+    title: event.title,
+    start: event.start,
+    end: event.end,
+    status: event.status,
+    partstat,
+  };
+}
+
+/** Un salon tel qu'une personne le voit. */
+function toRoomView(
+  room: RoomRow,
+  role: RoomRole | null,
+  event: IRoomEvent | null,
+  peer: string | null,
+): IRoomView {
+  return {
+    id: room.id,
+    name: room.name,
+    kind: room.kind,
+    access: room.access,
+    locked: room.locked,
+    description: room.description ?? null,
+    role,
+    event,
+    peer,
+  };
+}
 
 /** Le salon privé et l'événement semés en développement. */
 const TEAM_ROOM_ID = "equipe";
@@ -218,16 +320,22 @@ class RoomService extends Service implements IMessageArchive {
     ))
       listed.set(room.id, room);
     const roles = new Map<string, RoomRole>();
+    /** Ma réponse à chaque événement où l'on m'invite. */
+    const answers = new Map<string, IRoomEvent["partstat"]>();
     if (userId !== null) {
       for (const member of await members.find({ userId }))
         roles.set(member.roomId, member.role);
-      const invited = await attendees.find({ userId });
       const wanted = new Set(roles.keys());
-      if (invited.length > 0) {
-        const ids = invited.map((row) => row.eventId);
-        for (const event of await events.find({ id: { $in: ids } }))
+      // Une invitation DÉCLINÉE n'ouvre plus rien : son salon quitte la liste.
+      const invited = (await attendees.find({ userId })).filter(
+        (row) => row.partstat !== "declined",
+      );
+      for (const row of invited) answers.set(row.eventId, row.partstat);
+      if (invited.length > 0)
+        for (const event of await events.find({
+          id: { $in: [...answers.keys()] },
+        }))
           wanted.add(event.roomId);
-      }
       const missing = [...wanted].filter((id) => !listed.has(id));
       if (missing.length > 0)
         for (const room of await rooms.find({ id: { $in: missing } }))
@@ -238,20 +346,333 @@ class RoomService extends Service implements IMessageArchive {
       roomId: { $in: [...listed.keys()] },
       end: { $gte: now },
     });
-    return [...listed.values()].map((room) => ({
-      id: room.id,
-      name: room.name,
-      kind: room.kind,
-      access: room.access,
-      locked: room.locked,
-      description: room.description ?? null,
-      role: roles.get(room.id) ?? null,
-      event: headlineEvent(
-        upcoming.filter((event) => event.roomId === room.id),
+    const peers = await this.#directPeers([...listed.values()], userId);
+    return [...listed.values()].map((room) => {
+      const event = headlineEvent(
+        upcoming.filter((row) => row.roomId === room.id),
         now,
-      ),
-    }));
+      );
+      return toRoomView(
+        room,
+        roles.get(room.id) ?? null,
+        event === null
+          ? null
+          : toRoomEvent(event, answers.get(event.id) ?? null),
+        peers.get(room.id) ?? null,
+      );
+    });
   }
+
+  /**
+   * Le nom de L'AUTRE personne de chaque salon à deux de la liste — une seule
+   * lecture `$in` des comptes, quel que soit le nombre de salons.
+   */
+  async #directPeers(
+    listed: readonly RoomRow[],
+    userId: string | null,
+  ): Promise<Map<string, string>> {
+    const names = new Map<string, string>();
+    if (userId === null) return names;
+    const peerOf = new Map<string, string>();
+    for (const room of listed) {
+      const peer = directPeer(room.name, userId);
+      if (peer !== null) peerOf.set(room.id, peer);
+    }
+    if (peerOf.size === 0) return names;
+    const accounts = await this.#accounts({ ids: [...peerOf.values()] });
+    for (const [roomId, peer] of peerOf)
+      names.set(
+        roomId,
+        accounts.find((a) => a.id === peer)?.identifier ?? "compte supprimé",
+      );
+    return names;
+  }
+
+  /**
+   * Des comptes de l'application, par identité stable ou par identifiant de
+   * connexion. Les comptes vivent dans la base de l'APPLICATION : la démo les
+   * lit par `UserService`, quel que soit l'ORM (Drizzle ou Mongoose).
+   */
+  async #accounts(
+    wanted: { ids: readonly string[] } | { identifiers: readonly string[] },
+  ): Promise<IAccount[]> {
+    const users = this.get<unknown>("users");
+    if (!(users instanceof UserService)) return [];
+    const found =
+      "ids" in wanted
+        ? await users.find({ id: { $in: [...wanted.ids] } })
+        : await users.find({ identifier: { $in: [...wanted.identifiers] } });
+    return found.map((user) => ({ id: user.id, identifier: user.identifier }));
+  }
+
+  /** Un salon par son identifiant, ou le refus qui le dit. */
+  async #room(roomId: string): Promise<RoomRow> {
+    const room = await this.#repos().rooms.findOne({ id: roomId });
+    if (room === null) throw new RoomRefusal("not-found", "salon introuvable");
+    return room;
+  }
+
+  /** Mon rôle dans un salon ; `null` si je n'en suis pas membre. */
+  async #roleOf(roomId: string, userId: string): Promise<RoomRole | null> {
+    const member = await this.#repos().members.findOne({ roomId, userId });
+    return member?.role ?? null;
+  }
+
+  /**
+   * La garde des formulaires d'un salon : il existe, ce n'est pas un salon à
+   * deux, et je peux le gérer — relu EN BASE à chaque geste ; la page, qui
+   * cache les boutons, ne décide jamais.
+   */
+  async #managed(roomId: string, userId: string): Promise<RoomRole> {
+    const room = await this.#room(roomId);
+    if (room.name.startsWith(DIRECT_PREFIX))
+      throw new RoomRefusal(
+        "forbidden",
+        "un salon à deux ne s'ouvre pas à une troisième personne",
+      );
+    const role = await this.#roleOf(roomId, userId);
+    if (role === null || !canManage(role))
+      throw new RoomRefusal(
+        "forbidden",
+        "réservé au propriétaire du salon et à ses modérateurs",
+      );
+    return role;
+  }
+
+  // #region rooms-create
+  /**
+   * Crée un salon : la personne qui le crée en devient propriétaire. Deux
+   * bornes, vérifiées en base : le nombre de salons qu'elle possède, et le
+   * nom, unique. Deux créations simultanées du même nom passent toutes deux
+   * la vérification : c'est la contrainte `UNIQUE` de la colonne qui tranche,
+   * et son échec se relit en refus.
+   *
+   * @param ownerId - l'identité de la session, jamais un champ du client
+   * @param draft - le salon demandé, déjà validé et normalisé
+   * @throws RoomRefusal `conflict` — nom pris, ou quota atteint
+   */
+  async createRoom(
+    ownerId: string,
+    draft: IRoomDraft,
+    now: number = Date.now(),
+  ): Promise<IRoomView> {
+    const { rooms, members } = this.#repos();
+    if (
+      (await members.count({ userId: ownerId, role: "owner" })) >=
+      ROOMS_OWNED_MAX
+    )
+      throw new RoomRefusal(
+        "conflict",
+        `tu possèdes déjà ${ROOMS_OWNED_MAX} salons, le maximum de la démo`,
+      );
+    const taken = new RoomRefusal(
+      "conflict",
+      `le salon « ${draft.name} » existe déjà`,
+    );
+    if (await rooms.exists({ name: draft.name })) throw taken;
+    let room: RoomRow;
+    try {
+      room = await rooms.create({
+        name: draft.name,
+        kind: "chat",
+        access: draft.access,
+        ownerId,
+        description: draft.description ?? null,
+        createdAt: now,
+      });
+    } catch (error) {
+      if (await rooms.exists({ name: draft.name })) throw taken;
+      throw error;
+    }
+    try {
+      await members.create({
+        roomId: room.id,
+        userId: ownerId,
+        role: "owner",
+        joinedAt: now,
+      });
+    } catch (error) {
+      // Un salon sans propriétaire ne se gère plus : on le retire.
+      await rooms.deleteOne({ id: room.id });
+      throw error;
+    }
+    pushRoomsChanged(ownerId);
+    return toRoomView(room, "owner", null, null);
+  }
+  // #endregion
+
+  // #region rooms-invite
+  /**
+   * Invite une personne, désignée par son identifiant EXACT : la démo ne
+   * liste jamais les comptes. Le prix, assumé : un membre qui gère un salon
+   * peut savoir si un identifiant existe.
+   *
+   * @param roomId - le salon
+   * @param by - l'identité de qui invite
+   * @param identifier - l'identifiant de connexion de l'invité
+   * @param role - `member`, ou `moderator` si `by` est propriétaire
+   * @throws RoomRefusal `forbidden`, `not-found` (salon, compte), `conflict` (déjà membre)
+   */
+  async invite(
+    roomId: string,
+    by: string,
+    identifier: string,
+    role: RoomRole,
+  ): Promise<void> {
+    if (!canAppoint(await this.#managed(roomId, by), role))
+      throw new RoomRefusal(
+        "forbidden",
+        "seul le propriétaire nomme un modérateur",
+      );
+    const account = (await this.#accounts({ identifiers: [identifier] })).at(0);
+    if (account === undefined)
+      throw new RoomRefusal("not-found", `aucun compte « ${identifier} »`);
+    if (await this.#repos().members.exists({ roomId, userId: account.id }))
+      throw new RoomRefusal(
+        "conflict",
+        `${identifier} est déjà membre de ce salon`,
+      );
+    await this.addMember(roomId, account.id, role);
+  }
+  // #endregion
+
+  /**
+   * Planifie un événement dans un salon (RFC 5545) : l'organisateur est
+   * `chair` et accepte d'office ; chaque invité reçoit une invitation
+   * `needs-action`, et sa liste de salons change. L'invitation ouvre le salon
+   * quinze minutes avant le début (`admissionOf`).
+   *
+   * @throws RoomRefusal `forbidden`, `not-found` (salon, comptes inconnus — tous nommés)
+   */
+  async planEvent(
+    roomId: string,
+    organizerId: string,
+    draft: IEventDraft,
+  ): Promise<IRoomEvent> {
+    await this.#managed(roomId, organizerId);
+    const { events, attendees } = this.#repos();
+    const identifiers = [...new Set(draft.attendees)];
+    const accounts =
+      identifiers.length === 0 ? [] : await this.#accounts({ identifiers });
+    const unknown = identifiers.filter(
+      (identifier) => !accounts.some((a) => a.identifier === identifier),
+    );
+    if (unknown.length > 0)
+      throw new RoomRefusal(
+        "not-found",
+        `aucun compte « ${unknown.join(" », « ")} »`,
+      );
+    const event = await events.create({
+      roomId,
+      organizerId,
+      title: draft.title,
+      start: draft.start,
+      end: draft.end,
+      timeZone: draft.timeZone,
+      status: "confirmed",
+    });
+    const invited = accounts.filter((a) => a.id !== organizerId);
+    try {
+      await attendees.createMany([
+        {
+          eventId: event.id,
+          userId: organizerId,
+          role: "chair",
+          partstat: "accepted",
+        },
+        ...invited.map((a) => ({
+          eventId: event.id,
+          userId: a.id,
+          role: "req-participant" as const,
+          partstat: "needs-action" as const,
+        })),
+      ]);
+    } catch (error) {
+      await events.deleteOne({ id: event.id });
+      throw error;
+    }
+    // Tous les participants, organisateur compris : chaque liste change.
+    pushRoomsChanged(organizerId);
+    for (const a of invited) pushRoomsChanged(a.id);
+    return toRoomEvent(event, "accepted");
+  }
+
+  /**
+   * Répond à une invitation (iTIP `REPLY`). Décliner FERME la porte : une
+   * admission acceptée est retenue sur la connexion, l'invité est donc
+   * éjecté du salon où seule l'invitation le faisait entrer.
+   *
+   * @throws RoomRefusal `not-found` — événement inconnu, ou pas d'invitation
+   */
+  async reply(
+    eventId: string,
+    userId: string,
+    partstat: "accepted" | "declined",
+  ): Promise<void> {
+    const { events, attendees, members } = this.#repos();
+    const event = await events.findOne({ id: eventId });
+    const answered =
+      event === null
+        ? null
+        : await attendees.updateOne({ eventId, userId }, { partstat });
+    if (event === null || answered === null)
+      throw new RoomRefusal("not-found", "aucune invitation à cet événement");
+    if (
+      partstat === "declined" &&
+      !(await members.exists({ roomId: event.roomId, userId }))
+    ) {
+      const room = await this.#repos().rooms.findOne({ id: event.roomId });
+      if (room !== null && (room.access === "private" || room.locked))
+        getRealtimeHub().evictUser(roomChannel(event.roomId), userId);
+    }
+    pushRoomsChanged(userId);
+  }
+
+  // #region rooms-direct
+  /**
+   * Ouvre le salon à deux de `me` et `peerId` — ou le CRÉE. Un `upsert` sur
+   * le nom de la paire (`directKey`, colonne unique) : une seule requête,
+   * pas de lecture puis d'écriture entre lesquelles un second clic se
+   * glisserait. Les deux personnes en sont membres, et leurs deux listes
+   * changent.
+   *
+   * @throws RoomRefusal `invalid` (soi-même), `not-found` (compte inconnu)
+   */
+  async openDirect(
+    me: IAccount,
+    peerId: string,
+    now: number = Date.now(),
+  ): Promise<IRoomView> {
+    if (peerId === me.id)
+      throw new RoomRefusal(
+        "invalid",
+        "un salon à deux se tient avec une autre personne",
+      );
+    const peer = (await this.#accounts({ ids: [peerId] })).at(0);
+    if (peer === undefined) throw new RoomRefusal("not-found", "aucun compte");
+    const name = directKey(me.id, peer.id);
+    if (name.length > ROOM_NAME_MAX)
+      throw new RoomRefusal(
+        "invalid",
+        "identifiants trop longs pour un salon à deux",
+      );
+    const { rooms, members } = this.#repos();
+    const room = await rooms.upsert(
+      { name },
+      { access: "private" },
+      { kind: "chat", ownerId: me.id, createdAt: now },
+    );
+    for (const userId of [me.id, peer.id]) {
+      await members.upsert(
+        { roomId: room.id, userId },
+        { role: "member" },
+        { joinedAt: now },
+      );
+      pushRoomsChanged(userId);
+    }
+    return toRoomView(room, "member", null, peer.identifier);
+  }
+  // #endregion
 
   // #region chat-people
   /**
@@ -294,7 +715,7 @@ class RoomService extends Service implements IMessageArchive {
       { role },
       { joinedAt: Date.now() },
     );
-    getRealtimeHub().publishToUser(userId, { type: "rooms:changed" });
+    pushRoomsChanged(userId);
   }
 
   /**
@@ -309,7 +730,7 @@ class RoomService extends Service implements IMessageArchive {
     const room = await rooms.findOne({ id: roomId });
     if (room !== null && (room.access === "private" || room.locked))
       getRealtimeHub().evictUser(roomChannel(roomId), userId);
-    getRealtimeHub().publishToUser(userId, { type: "rooms:changed" });
+    pushRoomsChanged(userId);
   }
   // #endregion
 

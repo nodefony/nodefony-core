@@ -98,6 +98,11 @@ export interface IChatPeopleProps {
   typing: string | null;
   /** Insère `@nom` dans le champ d'écriture ; absent pour un lecteur anonyme. */
   onMention: ((name: string) => void) | null;
+  /**
+   * Ouvre le salon à deux avec cette personne (son identité stable) ; absent
+   * pour un anonyme, et dans un salon déjà à deux.
+   */
+  onDirect: ((userId: string) => void) | null;
 }
 
 /**
@@ -116,6 +121,7 @@ export function ChatPeople({
   rows,
   typing,
   onMention,
+  onDirect,
 }: IChatPeopleProps) {
   const listId = useId();
   const [open, setOpen] = useState(false);
@@ -215,15 +221,27 @@ export function ChatPeople({
                 {!row.me &&
                   row.state !== "left" &&
                   row.name !== null &&
-                  onMention !== null && (
+                  (onMention !== null || onDirect !== null) && (
                     <span className="person-actions">
-                      <button
-                        type="button"
-                        onClick={() => onMention(row.name ?? "")}
-                        aria-label={`Mentionner ${row.name}`}
-                      >
-                        @
-                      </button>
+                      {onMention !== null && (
+                        <button
+                          type="button"
+                          onClick={() => onMention(row.name ?? "")}
+                          aria-label={`Mentionner ${row.name}`}
+                        >
+                          @
+                        </button>
+                      )}
+                      {onDirect !== null && (
+                        <button
+                          type="button"
+                          onClick={() => onDirect(row.id)}
+                          aria-label={`Écrire en privé à ${row.name}`}
+                          title="Message privé"
+                        >
+                          ✉
+                        </button>
+                      )}
                     </span>
                   )}
               </li>
