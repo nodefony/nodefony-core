@@ -64,6 +64,17 @@ describe("stopChildTree — arrêter l'exemplaire, et lui seul", () => {
     expect(proc.signalCode ?? proc.exitCode).to.not.equal(null);
   });
 
+  it("plateforme sans arrêt gracieux d'arbre (verdict `forced-tree`) : rendu `forced`, jamais `graceful`", async () => {
+    // Verdict Windows INJECTÉ : le programme de kill d'arbre force toujours.
+    const { proc, marker } = await child("windows", "onTerm");
+    const outcome = await stopChildTree(proc, { graceful: true }, (pid) => {
+      process.kill(pid, "SIGKILL");
+      return "forced-tree";
+    });
+    expect(outcome).to.equal("forced");
+    expect(fs.existsSync(marker)).to.equal(false);
+  });
+
   it("déjà sorti : constaté, sans attendre un `exit` passé", async () => {
     const { proc } = await child("gone", "onTerm");
     proc.kill("SIGKILL");

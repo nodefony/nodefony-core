@@ -48,23 +48,26 @@ function exited(child: ChildProcess): Promise<void> {
  *
  * @param child - process lancé `detached` (chef de groupe hors Windows).
  * @param options - arrêt gracieux ou non, délai de grâce.
+ * @param signal - envoi du signal à l'arbre ; injecté par les tests pour
+ * éprouver le verdict Windows (`forced-tree`) sans machine Windows.
  * @returns le verdict — `graceful` n'est rendu que si le process est sorti
  * de lui-même après `SIGTERM`.
  */
 export async function stopChildTree(
   child: ChildProcess,
   options: ISpareStopOptions = {},
+  signal: typeof signalProcessGroup = signalProcessGroup,
 ): Promise<SpareStopOutcome> {
   const pid = child.pid;
   if (hasExited(child) || pid === undefined) return "already-exited";
   if (options.graceful !== true) {
-    signalProcessGroup(pid, "SIGKILL");
+    signal(pid, "SIGKILL");
     await exited(child);
     return "forced";
   }
   // Windows : aucun arrêt gracieux d'arbre — le programme de kill d'arbre
   // force. Le verdict le DIT plutôt que de le masquer derrière un SIGTERM.
-  const reached = signalProcessGroup(pid, "SIGTERM");
+  const reached = signal(pid, "SIGTERM");
   if (reached === "forced-tree") {
     await exited(child);
     return "forced";
@@ -79,7 +82,7 @@ export async function stopChildTree(
   ]);
   grace.abort();
   if (!late) return "graceful";
-  signalProcessGroup(pid, "SIGKILL");
+  signal(pid, "SIGKILL");
   await exited(child);
   return "forced";
 }
