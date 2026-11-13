@@ -14,6 +14,34 @@ const ORM = "audit_test";
 let CLOCK = 1_000_000;
 const now = () => CLOCK;
 
+type DbResolver = ConstructorParameters<typeof DrizzleAuditStore>[0];
+
+/**
+ * Le handle réel de l'ORM, vu à travers un compteur d'`INSERT` — et, si
+ * `failFirst`, un premier `INSERT` qui échoue.
+ */
+function countingDb(
+  orm: DrizzleOrm,
+  failFirst = false,
+): { resolve: DbResolver; inserts: () => number } {
+  const real = orm.getNativeConnection() as NonNullable<ReturnType<DbResolver>>;
+  let inserts = 0;
+  const proxy = new Proxy(real, {
+    get(target, prop, receiver) {
+      if (prop === "insert") {
+        inserts += 1;
+        if (failFirst && inserts === 1) {
+          return () => {
+            throw new Error("panne d'écriture voulue");
+          };
+        }
+      }
+      return Reflect.get(target, prop, receiver) as unknown;
+    },
+  });
+  return { resolve: () => proxy, inserts: () => inserts };
+}
+
 /** Construit un `IAuditEvent` complet avec surcharges. */
 function makeEvent(
   over: Partial<IAuditEvent> & Pick<IAuditEvent, "id">,
@@ -126,6 +154,57 @@ describe("Drizzle DrizzleAuditStore — IAuditStore append-only (P6.14)", () => 
       nextCursor: null,
       total: 0,
     });
+  });
+
+  it("les append d'un même tour partent en UN INSERT, et se lisent avant même leur écriture", async () => {
+    const db = countingDb(orm);
+    const batched = new DrizzleAuditStore(db.resolve, now, 1000);
+    const writes: Promise<void>[] = [];
+    for (let i = 0; i < 50; i++) {
+      writes.push(batched.append(makeEvent({ id: `lot-${i}`, ts: 700 })));
+    }
+    // Aucun `await` des écritures : la lecture doit voir le lot reçu.
+    const page = await batched.listPage({ limit: 100, since: 700, until: 700 });
+    assert.equal(page.total, 50, "lecture après écriture rompue");
+    await Promise.all(writes);
+    assert.equal(db.inserts(), 1, `${db.inserts()} INSERT pour un seul tour`);
+  });
+
+  it("un INSERT en échec rejette les append de SON lot, pas ceux du suivant", async () => {
+    const db = countingDb(orm, true);
+    const batched = new DrizzleAuditStore(db.resolve, now, 1000);
+    const lost = [
+      batched.append(makeEvent({ id: "perdu-1", ts: 710 })),
+      batched.append(makeEvent({ id: "perdu-2", ts: 710 })),
+    ];
+    const outcomes = await Promise.allSettled(lost);
+    assert.deepEqual(
+      outcomes.map((o) => o.status),
+      ["rejected", "rejected"],
+    );
+    await batched.append(makeEvent({ id: "sauve", ts: 711 }));
+    const page = await batched.listPage({ limit: 100, since: 710, until: 711 });
+    assert.deepEqual(
+      page.items.map((e) => e.id),
+      ["sauve"],
+    );
+  });
+
+  it("un lot de plus de 200 lignes part en plusieurs INSERT, sans perte", async () => {
+    const db = countingDb(orm);
+    const batched = new DrizzleAuditStore(db.resolve, now, 1000);
+    await Promise.all(
+      Array.from({ length: 450 }, (_, i) =>
+        batched.append(makeEvent({ id: `gros-${i}`, ts: 720 })),
+      ),
+    );
+    assert.equal(db.inserts(), 3);
+    const page = await batched.listPage({
+      limit: 10,
+      since: 720,
+      until: 720,
+    });
+    assert.equal(page.total, 450);
   });
 
   it("gc purge les événements hors rétention et renvoie le compte", async () => {

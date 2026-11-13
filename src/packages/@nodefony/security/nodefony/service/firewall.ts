@@ -1084,11 +1084,7 @@ class Firewall extends Service implements IFirewall {
    * @returns la trace fraîche (posée sur le context), ou `null` hors profiling.
    */
   #startTrace(context: ContextType): ISecurityTrace | null {
-    const ctx = context as unknown as {
-      profiling?: boolean;
-      securityTrace?: ISecurityTrace | null;
-    };
-    if (!ctx.profiling) return null;
+    if (!context.profiling) return null;
     const trace: ISecurityTrace = {
       authenticator: null,
       // Défaut fail-closed : tant qu'aucune sortie n'a tranché, la requête est
@@ -1098,14 +1094,17 @@ class Firewall extends Service implements IFirewall {
       user: null,
       roles: null,
     };
-    ctx.securityTrace = trace;
+    context.securityTrace = trace;
     return trace;
   }
 
   // Journalise un refus d'authentification de zone (cold-path : 401/429 only) —
   // helper DRY des 4 sorties d'échec de `handleSecurity`. Jamais appelé sur le
   // chemin de succès → 0 allocation sur le hot-path nominal. `recordAudit` est
-  // no-op si l'audit est absent/désactivé (coût quasi nul même sous attaque).
+  // no-op si l'audit est absent/désactivé. Activé, chaque refus est UNE ligne
+  // d'audit : le store groupe ses écritures (un INSERT par tour de boucle), ce
+  // qui ramène un refus au coût d'un appel réussi — mais le VOLUME écrit croît
+  // avec le flot (une ligne par refus).
   #recordAuth(
     context: ContextType,
     area: ISecuredArea,
@@ -1117,9 +1116,7 @@ class Firewall extends Service implements IFirewall {
     // Radiographie : le refus porte son MOTIF (dev-only ; `securityTrace` est
     // null en prod). `throttled` est un 429, pas un échec de preuve → il garde
     // sa propre issue plutôt que d'être aplati en `failure`.
-    const trace = (
-      context as unknown as { securityTrace?: ISecurityTrace | null }
-    ).securityTrace;
+    const trace = context.securityTrace;
     if (trace) {
       trace.outcome = reason === "throttled" ? "throttled" : outcome;
       trace.reason = reason;

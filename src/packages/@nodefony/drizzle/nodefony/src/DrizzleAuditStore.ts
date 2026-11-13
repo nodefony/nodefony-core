@@ -31,6 +31,31 @@ const DEFAULT_RETENTION_MS = 365 * 24 * 3_600_000;
 const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 500;
 
+/**
+ * Lignes par `INSERT` groupé. 13 colonnes × 200 = 2 600 paramètres liés : sous
+ * les plafonds de SQLite (32 766), PostgreSQL et MySQL (65 535). Au-delà, le lot
+ * part en plusieurs instructions.
+ */
+const MAX_BATCH_ROWS = 200;
+
+/**
+ * Les événements reçus pendant un même tour de boucle, et la promesse que leur
+ * écriture tiendra. Une instance par lot, jamais par événement.
+ */
+class PendingBatch {
+  readonly events: IAuditEvent[] = [];
+  readonly done: Promise<void>;
+  readonly resolve: () => void;
+  readonly reject: (error: unknown) => void;
+
+  constructor() {
+    const { promise, resolve, reject } = Promise.withResolvers<void>();
+    this.done = promise;
+    this.resolve = resolve;
+    this.reject = reject;
+  }
+}
+
 /** Séparateur du curseur composite `<ts>:<id>` (cf `#parseCursor`). */
 const CURSOR_SEPARATOR = ":";
 
@@ -66,6 +91,15 @@ type AuditColumns = Record<
  * bloque ni ne fait échouer le flux métier — un événement au boot/shutdown est
  * perdu plutôt que de crasher un login), `listPage` rend une page vide et `gc` rend 0.
  *
+ * **Écritures GROUPÉES** : les `append` d'un même tour de boucle partent en UN
+ * `INSERT` multi-lignes, au tour suivant (`setImmediate`). Une écriture par
+ * événement coûtait ~270 µs de CPU sous SQLite (une transaction, donc une
+ * validation sur disque, et une instruction préparée, à chaque refus du pare-feu)
+ * — mesuré au profil du banc des refus gRPC (#695). Rien ne change pour le
+ * lecteur : `listPage` et `gc` vident d'abord ce qui attend, et chaque
+ * `append` rend une promesse tenue à l'écriture de SON lot. Les lots s'écrivent
+ * l'un après l'autre (ordre d'arrivée conservé).
+ *
  * Horloge injectable (`now`) pour des tests déterministes.
  */
 export class DrizzleAuditStore implements IAuditStore {
@@ -77,6 +111,14 @@ export class DrizzleAuditStore implements IAuditStore {
   readonly #now: () => number;
   readonly #retentionMs: number;
   readonly #location: string | undefined;
+  /** Le lot du tour de boucle courant — `null` hors rafale (lazy). */
+  #pending: PendingBatch | null = null;
+  /** Fin de la dernière écriture lancée : les lots se suivent, et un lecteur les attend. */
+  #writing: Promise<void> = Promise.resolve();
+  /** Planifié une fois par lot, lié une fois par store. */
+  readonly #flushSoon = (): void => {
+    void this.#flush();
+  };
 
   /**
    * @param resolveDb - résolveur **lazy** du handle Drizzle (`null` = ORM non
@@ -158,31 +200,76 @@ export class DrizzleAuditStore implements IAuditStore {
     return store;
   }
 
-  async append(event: IAuditEvent): Promise<void> {
+  /**
+   * Met l'événement dans le lot du tour de boucle ; le lot part en un `INSERT`
+   * au tour suivant.
+   *
+   * @returns tenue quand le lot est écrit ; rejetée si son écriture échoue.
+   */
+  append(event: IAuditEvent): Promise<void> {
+    let batch = this.#pending;
+    if (batch === null) {
+      batch = new PendingBatch();
+      this.#pending = batch;
+      setImmediate(this.#flushSoon);
+    }
+    batch.events.push(event);
+    return batch.done;
+  }
+
+  /**
+   * Lance l'écriture du lot en attente, à la suite des précédentes.
+   *
+   * @returns tenue quand TOUT ce qui a été reçu jusqu'ici est écrit (ou a échoué).
+   */
+  #flush(): Promise<void> {
+    const batch = this.#pending;
+    if (batch === null) return this.#writing;
+    this.#pending = null;
+    const written = this.#writing
+      .then(() => this.#insert(batch.events))
+      .then(batch.resolve, batch.reject);
+    this.#writing = written;
+    return written;
+  }
+
+  /** `INSERT` multi-lignes, par paquets de {@link MAX_BATCH_ROWS}. */
+  async #insert(events: readonly IAuditEvent[]): Promise<void> {
     const db = this.#resolveDb();
     if (!db) {
       return; // ORM non connecté (boot/shutdown) → best-effort no-op.
     }
-    // INSERT immuable : les champs optionnels d'IAuditEvent tombent sur NULL en SQL.
-    await db.insert(execTable(this.#table)).values({
-      id: event.id,
-      ts: event.ts,
-      category: event.category,
-      action: event.action,
-      outcome: event.outcome,
-      actor: event.actor ?? null,
-      resource: event.resource ?? null,
-      reason: event.reason ?? null,
-      ip: event.ip ?? null,
-      userAgent: event.userAgent ?? null,
-      requestId: event.requestId ?? null,
-      flags: event.flags ?? null,
-      metadata: event.metadata ?? null,
-    });
+    const table = execTable(this.#table);
+    let rows: Record<string, unknown>[] = [];
+    for (const event of events) {
+      // INSERT immuable : les champs optionnels d'IAuditEvent tombent sur NULL en SQL.
+      rows.push({
+        id: event.id,
+        ts: event.ts,
+        category: event.category,
+        action: event.action,
+        outcome: event.outcome,
+        actor: event.actor ?? null,
+        resource: event.resource ?? null,
+        reason: event.reason ?? null,
+        ip: event.ip ?? null,
+        userAgent: event.userAgent ?? null,
+        requestId: event.requestId ?? null,
+        flags: event.flags ?? null,
+        metadata: event.metadata ?? null,
+      });
+      if (rows.length === MAX_BATCH_ROWS) {
+        await db.insert(table).values(rows);
+        rows = [];
+      }
+    }
+    if (rows.length > 0) await db.insert(table).values(rows);
   }
 
   async listPage(query: IAuditListQuery): Promise<IPage<IAuditEvent>> {
     assertPageQuery(query, "cursor");
+    // Lecture après écriture : ce qui a été reçu se voit, même pas encore parti.
+    await this.#flush();
     const limit = Math.min(
       // `limit` est requis par le type, mais un appelant JavaScript l'omet :
       // sans défaut, `Math.max(1, undefined)` rend `NaN`.
@@ -263,6 +350,7 @@ export class DrizzleAuditStore implements IAuditStore {
   }
 
   async gc(now: number = this.#now()): Promise<number> {
+    await this.#flush();
     const db = this.#resolveDb();
     if (!db) {
       return 0; // ORM non connecté → rien à purger.
