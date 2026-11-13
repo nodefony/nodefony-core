@@ -262,9 +262,11 @@ let started = false;
 
 export async function setup(project: TestProject): Promise<void> {
   project.provide("e2eExternalTarget", isExternalTarget);
-<% if (it.mongo) { %>  project.provide("e2eDatabaseUrl", null);
-<% } else { %>  project.provide("e2eDatabaseUrl", EXTERNAL_BASE_URL ? null : E2E_BASE_URL);
-<% } %>  if (EXTERNAL_BASE_URL) {
+  // MongoDB compris : un exemplaire de la démo sur une autre base y semait
+  // un `admin` que la suite ne connaît pas (connexion refusée, 401), et le
+  // second compte n'y existait pas.
+  project.provide("e2eDatabaseUrl", EXTERNAL_BASE_URL ? null : E2E_BASE_URL);
+  if (EXTERNAL_BASE_URL) {
     process.stdout.write(
       `e2e : application visée à l'externe (${EXTERNAL_BASE_URL}) — ` +
         "aucun démarrage, aucune base touchée ici.\n",
