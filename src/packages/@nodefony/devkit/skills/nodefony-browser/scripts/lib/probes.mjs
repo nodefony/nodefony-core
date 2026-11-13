@@ -158,6 +158,7 @@ export const ACTION_VERBS = [
   "touche",
   "voir",
   "defiler",
+  "molette",
   "attendre",
   "connecter",
 ];

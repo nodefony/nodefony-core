@@ -845,6 +845,13 @@ describe("parseActions — le « = » des sélecteurs CSS n'est pas un séparate
     ]);
   });
 
+  it("`molette` est un verbe : la valeur est un nombre de pixels, pas une cible à cliquer", () => {
+    expect(parseActions("survol:.steps-code|molette:4000")).toEqual([
+      { verb: "survol", target: ".steps-code", value: "" },
+      { verb: "molette", target: "4000", value: "" },
+    ]);
+  });
+
   it("prend `clic` par défaut quand aucun verbe n'est écrit", () => {
     expect(parseActions("Se connecter")).toEqual([
       { verb: "clic", target: "Se connecter", value: "" },

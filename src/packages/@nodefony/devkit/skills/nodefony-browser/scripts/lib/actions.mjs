@@ -1,6 +1,32 @@
 import { USER, signInElsewhere } from "./browser.mjs";
 
 /**
+ * Attend que le défilement se pose : la position de la fenêtre ne bouge plus
+ * pendant trois images (une molette peut défiler en douceur). Borné à une
+ * seconde environ — jamais une attente aveugle.
+ *
+ * @param {import("playwright").Page} page - la page pilotée.
+ */
+async function settleScroll(page) {
+  await page.evaluate(
+    () =>
+      new Promise((resolve) => {
+        let last = window.scrollY;
+        let still = 0;
+        let frames = 0;
+        const tick = () => {
+          frames += 1;
+          still = window.scrollY === last ? still + 1 : 0;
+          last = window.scrollY;
+          if (still >= 3 || frames >= 60) resolve(undefined);
+          else requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }),
+  );
+}
+
+/**
  * Joue une séquence d'interactions (`NF_BROWSER_ACTIONS`, analysée par
  * `parseActions`) sur une page — la seule implémentation, partagée par
  * `inspect.mjs` (agir PUIS photographier) et `watch.mjs` (agir PENDANT qu'on
@@ -28,13 +54,22 @@ export async function playActions(page, actions) {
       await signInElsewhere(page.context());
       continue;
     }
-    if (verb === "defiler") {
+    if (verb === "defiler" || verb === "molette") {
       const pixels = Number.parseInt(target, 10);
       if (!Number.isFinite(pixels)) {
         return {
           code: 64, // EX_USAGE
-          message: `defiler attend un nombre de pixels, reçu « ${target} »`,
+          message: `${verb} attend un nombre de pixels, reçu « ${target} »`,
         };
+      }
+      if (verb === "molette") {
+        // Une VRAIE molette, là où est le pointeur (`survol:` avant) : c'est
+        // le navigateur qui choisit quoi faire défiler, et qui passe à la page
+        // quand le conteneur est en bout — ce que `defiler`, qui appelle
+        // `scrollBy` sur un élément choisi, ne peut pas montrer.
+        await page.mouse.wheel(0, pixels);
+        await settleScroll(page);
+        continue;
       }
       // Le conteneur qui défile RÉELLEMENT, pas la fenêtre : sur une console à
       // barre latérale fixe, `window.scrollBy` ne bouge rien du tout.

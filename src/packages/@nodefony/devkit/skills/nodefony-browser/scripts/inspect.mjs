@@ -24,7 +24,7 @@
  * `@env` NF_BROWSER_PASSWORD mot de passe associé
  * `@env` NF_BROWSER_ACTIONS séquence d'interactions AVANT mesure, séparées par `|` —
  *                        `verbe:cible[=valeur]` : clic (défaut), double, droit, survol,
- *                        saisir, choisir, touche, voir, defiler, attendre. Un écran qui se déplie
+ *                        saisir, choisir, touche, voir, defiler, molette, attendre. Un écran qui se déplie
  *                        au clic n'existe pas tant qu'on ne l'a pas ouvert.
  * `@env` NF_BROWSER_FULLPAGE 1 = capture la page ENTIÈRE (défaut : la fenêtre)
  * `@env` NF_BROWSER_PROBES sélecteurs CSS à sonder, séparés par des virgules (`libellé=sélecteur`) ;
@@ -86,6 +86,7 @@ const EVAL = pageExpression(process.env.NF_BROWSER_EVAL);
  * | `touche`   | frappe une touche sur le focus (`touche:Escape`), ou sur une cible (`touche:#onglet=End`) |
  * | `voir`     | amène dans la vue SANS cliquer                            |
  * | `defiler`  | fait défiler de N pixels (`defiler:600`), page ou conteneur |
+ * | `molette`  | une vraie molette de N pixels sous le pointeur (`survol:` avant) |
  * | `attendre` | attend qu'un texte APPARAISSE (après une action lente)    |
  * | `connecter` | se connecte dans un AUTRE onglet (`connecter:`), sans recharger |
  *

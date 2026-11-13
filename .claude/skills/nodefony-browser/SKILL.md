@@ -220,13 +220,18 @@ panne » qui n'avait jamais été joué).
 
 Grammaire : `verbe:cible[=valeur]`, séquence séparée par `|`, verbe facultatif (`clic` par défaut),
 cible cherchée d'abord comme **texte visible** puis comme sélecteur CSS. Verbes : `clic` · `double`
-· `droit` (clic droit) · `survol` · `saisir:Nom=mon-app` · `touche:Enter` · `voir` · `defiler:600`
+· `droit` (clic droit) · `survol` · `saisir:Nom=mon-app` · `touche:Enter` · `voir` · `defiler:600` · `molette:600`
 · `attendre` · `connecter:` (se connecte dans un AUTRE onglet, sans recharger la page — qui s'ouvre
 alors anonyme : c'est le passage « sans session » → « avec session » qu'on observe).
 
 - 🔴 **`voir` plutôt qu'un clic pour amener dans la vue** : sur un formulaire, le texte d'une
   question est un `label` — cliquer dessus COCHE la case qu'il décrit, et l'on observe un écran que
   l'observation a modifié.
+- **`molette` n'est pas `defiler`** : `defiler` appelle `scrollBy` sur un conteneur
+  choisi ; `molette:N` envoie une VRAIE molette là où est le pointeur (`survol:` avant).
+  C'est le navigateur qui décide alors quoi faire défiler — seule façon de constater
+  qu'une zone qui défile rend la main à la page une fois en bout. Un geste reste
+  « accroché » au conteneur où il a commencé : enchaîner plusieurs `survol|molette`.
 - ⚠️ **`defiler` n'est pas `NF_BROWSER_FULLPAGE=1`** : une application dont le contenu défile dans
   un conteneur interne (toute console à barre latérale fixe) ne GRANDIT pas — la capture « page
   entière » y rend exactement la fenêtre. Mesuré sur Studio.

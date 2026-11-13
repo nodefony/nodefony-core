@@ -208,13 +208,18 @@ Grammaire : `verbe:cible[=valeur]`, séquence séparée par `|`, verbe facultati
 cible cherchée d'abord comme **texte visible** puis comme sélecteur CSS. Verbes : `clic` · `double`
 · `droit` (clic droit) · `survol` · `saisir:Nom=valeur` · `choisir:Liste=valeur` (une option d'un
 `<select>`, par sa valeur ou son libellé ; la cible peut être le libellé qui l'enveloppe) ·
-`touche:Enter` · `voir` · `defiler:600` · `attendre` · `connecter:` (se connecte dans un
+`touche:Enter` · `voir` · `defiler:600` · `molette:600` · `attendre` · `connecter:` (se connecte dans un
 AUTRE onglet, sans recharger la page mesurée — qui s'ouvre alors anonyme : une page déjà
 ouverte voit-elle la session apparaître ?).
 
 - 🔴 **`voir` plutôt qu'un clic pour amener dans la vue** : sur un formulaire, le texte d'une
   question est un `label` — cliquer dessus coche la case qu'il décrit, et tu observes alors un écran
   que l'observation a modifié.
+- **`molette` n'est pas `defiler`** : `defiler` appelle `scrollBy` sur un conteneur
+  choisi ; `molette:N` envoie une VRAIE molette là où est le pointeur (`survol:` avant).
+  C'est le navigateur qui décide alors quoi faire défiler — seule façon de constater
+  qu'une zone qui défile rend la main à la page une fois en bout. Un geste reste
+  « accroché » au conteneur où il a commencé : enchaîner plusieurs `survol|molette`.
 - ⚠️ **`defiler` n'est pas `NF_BROWSER_FULLPAGE=1`** : une application dont le contenu défile dans
   un conteneur interne (toute interface à barre latérale fixe) ne grandit pas — la capture « page
   entière » y rend exactement la fenêtre, et l'on croit que ce qui est plus bas n'existe pas.
