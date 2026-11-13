@@ -1,5 +1,4 @@
 import { spawn } from "node:child_process";
-import { once } from "node:events";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import https from "node:https";
@@ -13,8 +12,12 @@ import {
   readRuntimeState,
   readinessStateFile,
   runtimeStateFile,
-  signalProcessGroup,
 } from "../service/dev/devProcess";
+import {
+  stopChildTree,
+  type ISpareStopOptions,
+  type SpareStopOutcome,
+} from "./stopChildTree";
 import { AUTH_LOGIN_PATH, AUTH_ME_PATH } from "../runtime/authRoutes";
 import { isSqliteUrl, testDatabaseUrl } from "../runtime/e2eDatabase";
 import { appEnvironment } from "../kernel/checks/projectScope";
@@ -67,6 +70,7 @@ import { appEnvironment } from "../kernel/checks/projectScope";
 // sous-chemin « testing », elle était inatteignable pour son usage principal.
 // Ré-exportée ici : les suites qui l'importent de `nodefony/testing` ne bougent pas.
 export { nodefonyBin } from "../cli/nodefonyBin";
+export type { ISpareStopOptions, SpareStopOutcome } from "./stopChildTree";
 
 /** Les bases du décor e2e d'une application — cf {@link e2eDatabases}. */
 export interface IE2eDatabases {
@@ -534,8 +538,19 @@ export interface ISpareApp {
   port: number;
   /** Tout ce qu'il a écrit sur ses deux flux jusqu'ici. */
   output(): string;
-  /** L'arrête et REND à l'application son état d'exécution. */
-  stop(): Promise<void>;
+  /**
+   * L'arrête et REND à l'application son état d'exécution.
+   *
+   * N'arrête QUE cet exemplaire — jamais `nodefony stop`, qui arrête TOUS
+   * les process du projet, serveur de développement compris. Pour que ses
+   * crochets de sortie tournent (profil `--cpu-prof` écrit), passer
+   * `{ graceful: true }` : `SIGTERM`, puis `SIGKILL` après le délai de grâce.
+   *
+   * @param options - arrêt gracieux ou non (défaut : `SIGKILL` d'emblée).
+   * @returns comment il s'est arrêté — `graceful` seulement s'il est sorti
+   * de lui-même ; Windows, sans arrêt gracieux d'arbre, rend `forced`.
+   */
+  stop(options?: ISpareStopOptions): Promise<SpareStopOutcome>;
 }
 
 /**
@@ -617,17 +632,14 @@ export async function startSpareApp(
   let exitCode = null as number | null;
   child.on("exit", (code: number | null) => (exitCode = code ?? -1));
 
-  const stop = async (): Promise<void> => {
-    // Déjà sorti (arrêt propre par `nodefony stop`, crash) : son `exit` est
-    // PASSÉ, l'attendre ne rendrait jamais la main — et l'état d'exécution ne
-    // serait jamais restauré.
-    if (exitCode === null) {
-      if (typeof child.pid === "number") {
-        signalProcessGroup(child.pid, "SIGKILL");
-      }
-      await once(child, "exit").catch(() => undefined);
-    }
+  const stop = async (
+    stopOptions?: ISpareStopOptions,
+  ): Promise<SpareStopOutcome> => {
+    // Déjà sorti (crash) : `stopChildTree` le constate sans attendre un
+    // `exit` PASSÉ — l'état d'exécution est restauré dans tous les cas.
+    const outcome = await stopChildTree(child, stopOptions);
     restoreStateFiles(state);
+    return outcome;
   };
 
   const deadline = Date.now() + timeoutMs;

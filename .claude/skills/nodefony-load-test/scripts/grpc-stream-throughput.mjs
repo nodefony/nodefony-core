@@ -435,16 +435,13 @@ async function profileGrpc(dir, bytes, seconds) {
       busy += r.last - r.first;
     }
   } finally {
-    // `stop()` tue d'un SIGKILL : Node n'écrit alors AUCUN profil. Arrêt
-    // propre d'abord, par la commande du produit — l'état d'exécution du dépôt
-    // désigne l'exemplaire jetable tant qu'il vit. `stop()` restaure ensuite.
-    const bin = path.join(repoRoot, "src", "nodefony", "bin", "nodefony");
-    const stopped = spawn(process.execPath, [bin, "stop"], {
-      cwd: repoRoot,
-      stdio: "ignore",
-    });
-    await once(stopped, "exit");
-    await app.stop();
+    // Arrêt GRACIEUX de l'exemplaire seul : un SIGKILL n'écrit AUCUN profil,
+    // et `nodefony stop` arrêterait TOUS les process du projet — serveur de
+    // développement de l'auteur compris.
+    const outcome = await app.stop({ graceful: true });
+    if (outcome !== "graceful") {
+      process.stdout.write(`arrêt ${outcome} : profil probablement absent\n`);
+    }
   }
   const written = fs.readdirSync(dir).filter((f) => f.endsWith(".cpuprofile"));
   if (written.length === 0) {

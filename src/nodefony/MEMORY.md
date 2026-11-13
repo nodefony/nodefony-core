@@ -411,7 +411,10 @@ Sous-chemin exporté, importé par les tests de **toute application générée**
   noyau attribue, port LU dans l'état publié dont `pid === child.pid` (jamais un port tiré d'avance : course,
   et deux tirages peuvent coïncider) ; la garde `assertNoConflictingRuntime` compte un `0` déclaré comme
   disjoint (`declaredPorts(env, { kernelAssigned: true })`). Attend `/livez`,
-  lève avec la sortie si le process meurt. Chef de groupe + `signalProcessGroup` à l'arrêt.
+  lève avec la sortie si le process meurt. Chef de groupe ; arrêt = `stopChildTree` (`testing/stopChildTree.ts`) :
+  `stop()` → SIGKILL ; `stop({ graceful: true, graceMs? })` → SIGTERM puis SIGKILL après grâce (10 s) — seul moyen
+  qu'un `--cpu-prof` s'écrive. Rend `graceful | forced | already-exited` (Windows → `forced`). 🔴 JAMAIS
+  `nodefony stop` pour arrêter un jetable : il arrête TOUS les process du projet, serveur de dev compris.
   🔴 **Sa raison d'être est `stop()`, pas le `spawn`** : un second exemplaire écrase
   `node_modules/.cache/nodefony/{runtime,readiness}.json`, et `runningAppPort()` désigne alors le
   jetable puis LÈVE — la panne tombe sur le cas SUIVANT. `stop()` restaure les deux fichiers, y
