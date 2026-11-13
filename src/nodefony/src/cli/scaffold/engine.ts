@@ -683,6 +683,31 @@ export function resolveEntityOrm(
 }
 
 /**
+ * Les paquets d'un manifeste qui comptent pour CHOISIR l'ORM d'une entité
+ * ({@link resolveEntityOrm}).
+ *
+ * Les blocs d'EXÉCUTION d'abord (`dependencies`, `peerDependencies`) : un ORM
+ * déclaré seulement en `devDependencies` sert un module de développement — le
+ * connecteur SQLite de la démo, dans une application MongoDB — et une entité
+ * de l'application, qui part en production, ne peut pas s'y appuyer. Vécu :
+ * « Drizzle d'abord » y écrivait une table SQL qui importait `userTable` d'un
+ * `User` Mongoose, et l'application ne se bâtissait plus. Aucun ORM
+ * d'exécution déclaré : tous les blocs, comme avant.
+ *
+ * @param manifest - manifeste relu (app ou module)
+ * @returns les noms à donner à {@link resolveEntityOrm}
+ */
+export function ormDependencyNames(manifest: IPackageManifest): Set<string> {
+  const runtime = dependencyNames(manifest, [
+    "dependencies",
+    "peerDependencies",
+  ]);
+  return Object.values(ORM_MODULE).some((name) => runtime.has(name))
+    ? runtime
+    : dependencyNames(manifest);
+}
+
+/**
  * Options de `create entity` qui n'ont de sens qu'en SQL — refusées sur une
  * entité document plutôt qu'ignorées.
  *
@@ -1518,8 +1543,15 @@ export function scaffoldCaps(dir: string = process.cwd()): IScaffoldCaps {
 function projectOrm(dir: string): TEntityOrm | null {
   const root = findProjectRoot(dir);
   if (!root) return null;
+  const file = path.join(root, "package.json");
   try {
-    return resolveEntityOrm(projectDependencies(root), new Set(), "");
+    return resolveEntityOrm(
+      ormDependencyNames(
+        parsePackageManifest(readFileSync(file, "utf8"), file),
+      ),
+      new Set(),
+      "",
+    );
   } catch {
     // Aucun ORM : on ne tait aucune question.
     return null;
@@ -1546,6 +1578,24 @@ function declaredDependencies(
   const file = path.join(dir, "package.json");
   if (!writer.exists(file)) return new Set();
   return dependencyNames(readPackageManifest(file, writer));
+}
+
+/**
+ * Comme {@link declaredDependencies}, restreint par {@link ormDependencyNames}
+ * — l'entrée de {@link resolveEntityOrm}.
+ *
+ * @param dir - dossier du `package.json` (app ou module).
+ * @param writer - transaction du scaffold.
+ * @returns les noms qui décident de l'ORM.
+ * @throws si le manifeste existe mais est illisible ou mal formé.
+ */
+function declaredOrmDependencies(
+  dir: string,
+  writer: ScaffoldWriter,
+): Set<string> {
+  const file = path.join(dir, "package.json");
+  if (!writer.exists(file)) return new Set();
+  return ormDependencyNames(readPackageManifest(file, writer));
 }
 
 function projectDependencies(root: string): Set<string> {
@@ -4768,8 +4818,8 @@ function runDataServiceScaffold(
   // qui déclare les paquets Nodefony en peerDependencies, c'est l'app qui les
   // installe.
   const orm = resolveEntityOrm(
-    declaredDependencies(target.dir, writer),
-    declaredDependencies(projectRoot, writer),
+    declaredOrmDependencies(target.dir, writer),
+    declaredOrmDependencies(projectRoot, writer),
     target.name,
     "--entity : ",
   );
@@ -5884,7 +5934,11 @@ function runEntityScaffold(
   );
   const targetDeps = dependencyNames(manifest);
   const projectDeps = declaredDependencies(projectRoot, writer);
-  const found = resolveEntityOrm(targetDeps, projectDeps, target.name);
+  const found = resolveEntityOrm(
+    ormDependencyNames(manifest),
+    declaredOrmDependencies(projectRoot, writer),
+    target.name,
+  );
   // Une application qui porte les DEUX ORM choisit par le CONNECTEUR : celui
   // de Mongoose (`nodefony`) désigne une entité document — sauf si la
   // configuration déclare elle-même un connecteur Drizzle de ce nom. Sans

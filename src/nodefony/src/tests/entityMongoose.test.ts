@@ -39,9 +39,11 @@ import {
   lastImportEnd,
   promotionKeyOf,
   MONGOOSE_CONNECTOR,
+  ormDependencyNames,
   resolveEntityOrm,
   scaffoldCaps,
 } from "../cli/scaffold/engine";
+import { parsePackageManifest } from "../cli/scaffold/packageManifest";
 import { capAllows, getScaffoldSpec } from "../cli/scaffold/spec";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -281,6 +283,38 @@ describe("create entity — choix de l'ORM et refus des options SQL", () => {
     );
   });
 
+  it("🔴 un ORM déclaré seulement en devDependencies ne décide pas : application MongoDB + démo → document", () => {
+    // La démo pose `@nodefony/drizzle` en devDependency pour SA base SQLite ;
+    // l'entité de l'application part en production, sur Mongoose.
+    const manifest = (data: object) =>
+      parsePackageManifest(JSON.stringify(data), "package.json");
+    const mongoWithDemo = manifest({
+      dependencies: { "@nodefony/mongoose": "*" },
+      devDependencies: { "@nodefony/drizzle": "*" },
+    });
+    assert.strictEqual(
+      resolveEntityOrm(ormDependencyNames(mongoWithDemo), set(), "app"),
+      "mongoose",
+    );
+    // Aucun ORM d'exécution : tous les blocs comptent, comme avant.
+    const devOnly = manifest({
+      devDependencies: { "@nodefony/drizzle": "*" },
+    });
+    assert.strictEqual(
+      resolveEntityOrm(ormDependencyNames(devOnly), set(), "app"),
+      "drizzle",
+    );
+    // Un module déclare ses briques en peer : elles comptent.
+    const module = manifest({
+      peerDependencies: { "@nodefony/mongoose": "*" },
+      devDependencies: { "@nodefony/drizzle": "*" },
+    });
+    assert.strictEqual(
+      resolveEntityOrm(ormDependencyNames(module), set(), "@app/blog"),
+      "mongoose",
+    );
+  });
+
   it("l'ORM déclaré par l'APP seule suffit à un module (peerDependencies)", () => {
     assert.strictEqual(
       resolveEntityOrm(set(), set("@nodefony/mongoose"), "@app/blog"),
@@ -364,6 +398,20 @@ describe("create entity — ce que le dialogue demande dépend du projet", () =>
       const caps = scaffoldCaps(dir);
       assert.strictEqual(caps.hasSqlOrm, false);
       assert.ok(idQuestion && !capAllows(idQuestion, caps));
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("application MongoDB AVEC la démo (Drizzle en devDependency) → la clé primaire n'est PAS demandée", () => {
+    const dir = app(
+      JSON.stringify({
+        dependencies: { "@nodefony/mongoose": "*" },
+        devDependencies: { "@nodefony/drizzle": "*" },
+      }),
+    );
+    try {
+      assert.strictEqual(scaffoldCaps(dir).hasSqlOrm, false);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
