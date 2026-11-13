@@ -108,9 +108,9 @@ export const WidgetGrid = observer(
         (e: ReactPointerEvent<HTMLDivElement>) => {
           if (e.button !== 0) return;
           const container = containerRef.current;
-          const el = (e.currentTarget as HTMLElement).closest(
+          const el = (e.currentTarget as HTMLElement).closest<HTMLElement>(
             "[data-window]",
-          ) as HTMLElement | null;
+          );
           if (!container || !el) return;
           e.preventDefault();
           try {
@@ -184,9 +184,9 @@ export const WidgetGrid = observer(
         (e: ReactPointerEvent<HTMLDivElement>) => {
           if (e.button !== 0) return;
           const container = containerRef.current;
-          const el = (e.currentTarget as HTMLElement).closest(
+          const el = (e.currentTarget as HTMLElement).closest<HTMLElement>(
             "[data-window]",
-          ) as HTMLElement | null;
+          );
           if (!container || !el) return;
           e.preventDefault();
           e.stopPropagation();

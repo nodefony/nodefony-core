@@ -92,14 +92,14 @@ export async function findUserIdBySocialProvider(
 ): Promise<string | null> {
   switch (dialect) {
     case "sqlite": {
-      const rows = db.all(
+      const rows = db.all<{ id: string }>(
         sql`SELECT "id" AS id FROM ${ident("sqlite", USER_TABLE_NAME)}
             WHERE EXISTS (
               SELECT 1 FROM json_each(${ident("sqlite", USER_TABLE_NAME)}."socialProviders")
               WHERE json_extract(value, '$.provider') = ${provider}
                 AND json_extract(value, '$.providerId') = ${providerId}
             ) LIMIT 1`,
-      ) as Array<{ id: string }>;
+      );
       return rows[0]?.id ?? null;
     }
     case "postgres": {

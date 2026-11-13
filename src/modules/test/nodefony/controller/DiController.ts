@@ -36,9 +36,9 @@ class DiController extends Controller {
   probe() {
     const kernel = Nodefony.getKernel() as Kernel;
     const httpKernel = kernel.get("HttpKernel");
-    const sessions = kernel.get("sessions") as { httpKernel?: unknown } | null;
-    const upload = kernel.get("upload") as { httpKernel?: unknown } | null;
-    const http = kernel.get("http") as { httpKernel?: unknown } | null;
+    const sessions = kernel.get<{ httpKernel?: unknown }>("sessions");
+    const upload = kernel.get<{ httpKernel?: unknown }>("upload");
+    const http = kernel.get<{ httpKernel?: unknown }>("http");
 
     // Un consommateur ABSENT ne prouve rien : on ne le compte pas comme partagé
     // (sinon un service disparu rendrait le test vert — un faux négatif).
