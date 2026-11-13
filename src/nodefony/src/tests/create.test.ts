@@ -3133,9 +3133,30 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "@controllers([\n  PartnerController,\n  DemoPageController,\n  DemoController,\n  DemoRealtimeController,\n  ChatController,\n  FirstStepsController,\n  SseController,\n  VideoController,\n  BinaryController,\n  PartnerTokenController,\n  DemoMcpController,\n  McpTokenController,\n  MeteorController,\n  PrismController,\n  SensorController,\n  TelemetryController,\n])",
       );
       assert.include(index, "registerDemoEntry(this);");
-      assert.include(
-        index,
-        "@services([\n  AppInfoService,\n  AppBannerService,\n  DemoPulseService,\n  ChatService,\n  PartnerTokenService,\n  DemoMcpService,\n  MeteorService,\n  PrismService,\n  SensorService,\n  TelemetryRelayService,\n])",
+      // Les NOMS, dans l'ordre — pas le texte : un commentaire qui explique
+      // une entrée ne change pas ce que le module déclare.
+      const declares = /^@services\(\[([\s\S]*?)\]\)/mu.exec(index)?.[1];
+      assert.isString(declares, "le module déclare ses services");
+      assert.deepEqual(
+        (declares ?? "")
+          .replace(/\/\/.*$/gmu, "")
+          .split(",")
+          .map((name) => name.trim())
+          .filter((name) => name !== ""),
+        [
+          "AppInfoService",
+          "AppBannerService",
+          "DemoPulseService",
+          "ChatService",
+          "RoomService",
+          "RoomAdmission",
+          "PartnerTokenService",
+          "DemoMcpService",
+          "MeteorService",
+          "PrismService",
+          "SensorService",
+          "TelemetryRelayService",
+        ],
       );
       assert.include(index, "this.addCommand(PartnerCallCommand);");
       assert.include(index, "this.addCommand(SensorPushCommand);");
@@ -3285,7 +3306,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.notInclude(chat, "params.author");
       assert.include(
         lireMod("frontend", "src", "chat", "chatContract.ts"),
-        '"POST /demo/chat/send"',
+        '"POST /demo/chat/rooms/{room}/send"',
       );
       assert.include(
         lireMod("nodefony", "config", "security.ts"),

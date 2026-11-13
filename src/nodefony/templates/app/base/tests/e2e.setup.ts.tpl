@@ -360,8 +360,8 @@ export async function setup(project: TestProject): Promise<void> {
       // ouvert dans un autre projet tient 5152, la production ne glisse pas
       // (`portPolicy` strict) et le démarrage de la suite échoue sur un port
       // pris dont elle ne parle même pas. Aucune valeur de production n'en
-      // dépend : l'émetteur des jetons s'y ÉCRIT (`NF_JWT_ISSUER`), il ne se
-      // dérive pas du port.
+      // dépend : en production, l'émetteur des jetons s'ÉCRIT dans sa propre
+      // variable, il ne se dérive jamais du port.
       NF_PORT: "0",
       NF_PORT_HTTPS: "0",
       ...PRODUCTION_SECRETS,
