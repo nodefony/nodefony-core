@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-12T19:32:23.497Z",
+  "generatedAt": "2026-11-13T10:25:14.177Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,10 +46,10 @@
       "title": "10.0.0"
     },
     {
-      "closed": 257,
+      "closed": 258,
       "dueOn": "2026-11-15T00:00:00Z",
       "number": 7,
-      "open": 16,
+      "open": 15,
       "title": "10.0.0-beta"
     },
     {
@@ -6485,8 +6485,8 @@
       "number": 695,
       "title": "feat(http): déclarer et servir un service gRPC depuis un module",
       "url": "https://github.com/nodefony/nodefony-core/issues/695",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 3,
