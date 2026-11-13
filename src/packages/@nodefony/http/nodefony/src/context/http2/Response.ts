@@ -4,6 +4,7 @@ import type { MaybePromise } from "nodefony";
 import http from "node:http";
 import HttpContext from "../http/HttpContext";
 import HttpResponse from "../http/Response";
+import { closeStreamAfterGrace } from "../../servers/http2StreamGrace";
 //import { httpResponse } from "../../../service/http-kernel";
 
 //const HTTP2_HEADER_PATH = http2.constants.HTTP2_HEADER_PATH;
@@ -284,21 +285,21 @@ class Http2Response extends HttpResponse {
    * client lent garderait sa place de flux sur la session. Attendre `finish`
    * (fin d'écriture) garantit que la réponse elle-même n'est pas tronquée.
    *
-   * « Émet encore » se décide après une GRÂCE d'un aller-retour : un `PING`
-   * (RFC 9113 §6.7), puis l'état du flux (`remoteClose`, tenu par nghttp2).
-   * Fini → le flux se ferme seul, sans `RST_STREAM` ; sinon — client qui
-   * émet encore, ou muet — fermé. Ce n'est pas une garantie : l'écho d'un
-   * `PING` passe avant les autres trames (§6.7), une trame DATA encore en
-   * file chez le client peut arriver après lui ; la coupe reste conforme
-   * (§8.1). grpc-go, Go `net/http2` et nginx coupent AUSSITÔT : Node, lui,
+   * « Émet encore » se décide après une GRÂCE d'un aller-retour
+   * ({@link closeStreamAfterGrace} : un `PING` par session pour tous les
+   * flux qui attendent, puis l'état du flux). Fini → le flux se ferme seul,
+   * sans `RST_STREAM` ; sinon — client qui émet encore, ou muet — fermé.
+   * Jamais de coupe avant la grâce : un `RST_STREAM` soumis pendant que la
+   * réponse attend dans la file de nghttp2 la fait jeter, et le client reçoit
+   * une fin de flux sans statut. grpc-go, Go `net/http2` et nginx coupent AUSSITÔT : Node, lui,
    * répond avant de lire les trames DATA déjà en route, et la coupe
    * immédiate frappait des clients qui finissaient d'émettre — le client
    * HTTP/2 de Go la lit en erreur (ADR-0026 D13 point 1, constaté par la
    * suite de conformité de Connect). `request.complete` ne dit rien ici : il
    * ne passe à `true` qu'une fois le corps CONSOMMÉ.
    *
-   * Chemin d'erreur seulement : un `PING` par refus au corps inachevé ; trop
-   * de `PING` en vol (`ping` rend `false`, 10 par session) → coupe immédiate.
+   * Chemin d'erreur seulement : un `PING` par aller-retour et par session,
+   * quel que soit le nombre de refus en attente.
    *
    * Sans effet si le corps est entièrement consommé, ou le flux déjà fermé.
    * Peut s'appeler avant comme après l'écriture de la réponse.
@@ -310,25 +311,8 @@ class Http2Response extends HttpResponse {
     if (request.complete) return;
     // Corps en tampon, jamais lu : jeté, le flux peut finir.
     request.resume();
-    const reset = (): void => {
-      if (!stream.closed && !stream.destroyed) {
-        stream.close(http2.constants.NGHTTP2_NO_ERROR);
-      }
-    };
-    const decide = (): void => {
-      if (stream.closed || stream.destroyed || stream.state.remoteClose) {
-        return;
-      }
-      reset();
-    };
-    const afterResponse = (): void => {
-      if (stream.closed || stream.destroyed || stream.state.remoteClose) {
-        return;
-      }
-      if (!stream.session?.ping(decide)) reset();
-    };
-    if (stream.writableFinished) afterResponse();
-    else stream.once("finish", afterResponse);
+    if (stream.writableFinished) closeStreamAfterGrace(stream);
+    else stream.once("finish", () => closeStreamAfterGrace(stream));
   }
 
   // push(ele, headers, options) {
