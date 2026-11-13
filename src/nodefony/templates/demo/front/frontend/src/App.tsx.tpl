@@ -450,13 +450,26 @@ function Agents() {
     <section id="agents">
       <div className="agents-panel">
         <p className="kicker">Pour les agents</p>
-        <h2 style={{ margin: "0 0 8px" }}>Une couche invisible à l'écran</h2>
-        <p style={{ margin: 0, color: "var(--muted)" }}>
-          L'<code>AGENTS.md</code> de l'application renvoie à l'index des démos
-          ; chaque fichier porte un TSDoc qui dit le type à utiliser, la doc, la
-          commande et le skill.
+        <h2 style={{ margin: "0 0 8px" }}>
+          Votre agent IA s'y retrouve aussi
+        </h2>
+        <p style={{ margin: "0 0 8px", color: "var(--muted)" }}>
+          Demandez à votre agent de code (Claude Code, Copilot…) « fais comme
+          la démo dans mon module » : il n'a pas à fouiller. Le fichier{" "}
+          <code>AGENTS.md</code> de l'application le mène à l'index des démos,{" "}
+          <code>demos.ts</code>, où chaque démo dit quels fichiers ouvrir,
+          quelle doc lire, quelle commande lancer et quel skill charger ; et
+          chaque fichier commence par un « Guide pour un agent ».
         </p>
-        {entry !== undefined && <pre>{formatEntry(entry)}</pre>}
+        {entry !== undefined && (
+          <>
+            <p style={{ margin: 0, color: "var(--muted)" }}>
+              Invisible à l'écran, le voici tel qu'il le lit — la fiche de la
+              démo « {entry.title} » :
+            </p>
+            <pre>{formatEntry(entry)}</pre>
+          </>
+        )}
       </div>
     </section>
   );
