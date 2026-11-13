@@ -22,6 +22,7 @@ import {
   getAuditStoreFactory,
   listAuditStores,
 } from "../src/audit/auditStoreRegistry";
+import { AuditRefusalAggregator } from "../src/audit/AuditRefusalAggregator";
 import type { IAuditEvent, IAuditEventDraft } from "../contracts/IAuditEvent";
 import type {
   IAuditListQuery,
@@ -56,6 +57,11 @@ class AuditService extends Service implements IAuditSink {
   #idPrefix = "";
   #seq = 0;
   #gc: GcScheduler | null = null;
+  /** Agrégation des refus — `null` si désactivée par la config. */
+  #aggregator: AuditRefusalAggregator | null = null;
+  /** Balayage des fenêtres échues — armé au premier refus suivi, coupé à vide. */
+  #sweep: NodeJS.Timeout | null = null;
+  #windowMs = 0;
 
   constructor(public module: Module) {
     super(
@@ -167,6 +173,13 @@ class AuditService extends Service implements IAuditSink {
       onError: (e) => this.log(e, "WARNING"),
     });
     this.#gc.start();
+    const aggregate = config.audit.aggregate;
+    if (aggregate.enabled) {
+      this.#windowMs = aggregate.windowMs;
+      this.#aggregator = new AuditRefusalAggregator(aggregate, (draft) =>
+        this.#write(draft, Date.now()),
+      );
+    }
     this.log(
       `audit service ready — store "${config.audit.store}", rétention ${config.audit.retentionDays}j`,
       "DEBUG",
@@ -174,6 +187,11 @@ class AuditService extends Service implements IAuditSink {
   }
 
   #shutdown(): void {
+    // Les refus comptés mais pas encore résumés partent AVANT que le store
+    // ne soit lâché : un arrêt ne doit pas effacer la trace d'un flot.
+    this.#stopSweep();
+    this.#aggregator?.flush();
+    this.#aggregator = null;
     this.#gc?.stop();
     this.#gc = null;
     this.#listeners = null;
@@ -188,10 +206,24 @@ class AuditService extends Service implements IAuditSink {
     if (!this.#enabled || this.#store === null) {
       return;
     }
+    const now = Date.now();
+    // Refus d'une source déjà bavarde : compté dans la synthèse de sa fenêtre,
+    // ni écrit ni diffusé. Les succès ne passent jamais par l'agrégateur.
+    if (draft.outcome !== "success" && this.#aggregator !== null) {
+      const written = this.#aggregator.admit(draft, now);
+      if (this.#sweep === null) this.#startSweep();
+      if (!written) return;
+    }
+    this.#write(draft, now);
+  }
+
+  /** Persiste (fire-and-forget) et diffuse un événement horodaté `ts`. */
+  #write(draft: IAuditEventDraft, ts: number): void {
+    if (this.#store === null) return;
     const event: IAuditEvent = {
       ...draft,
       id: `${this.#idPrefix}-${(this.#seq++).toString(36)}`,
-      ts: Date.now(),
+      ts,
     };
     // Persistance best-effort : l'audit ne bloque ni ne fait échouer le flux
     // métier (store en panne → log ERROR, pas un login KO).
@@ -208,6 +240,23 @@ class AuditService extends Service implements IAuditSink {
         }
       }
     }
+  }
+
+  /** Arme le balayage des fenêtres échues (une fois par fenêtre, `unref`). */
+  #startSweep(): void {
+    this.#sweep = setInterval(() => {
+      const aggregator = this.#aggregator;
+      if (aggregator === null) return this.#stopSweep();
+      aggregator.sweep(Date.now());
+      if (aggregator.size === 0) this.#stopSweep();
+    }, this.#windowMs);
+    this.#sweep.unref();
+  }
+
+  #stopSweep(): void {
+    if (this.#sweep === null) return;
+    clearInterval(this.#sweep);
+    this.#sweep = null;
   }
 
   subscribe(listener: (event: IAuditEvent) => void): () => void {

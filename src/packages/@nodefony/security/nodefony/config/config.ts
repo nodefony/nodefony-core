@@ -1043,6 +1043,45 @@ const auditSchema = z
           "dès qu'un client s'abonne.",
       }),
     retentionDays: z.number().int().default(365),
+    aggregate: z
+      .strictObject({
+        enabled: z
+          .boolean()
+          .default(true)
+          .describe(
+            "Agrège les REFUS (failure/denied) d'une même source : un flot ne s'écrit pas d'une ligne par requête. Les succès ne sont jamais agrégés.",
+          ),
+        windowMs: z
+          .number()
+          .int()
+          .positive()
+          .default(60_000)
+          .describe(
+            "Durée d'une fenêtre, en ms, ouverte au premier refus d'une clé (catégorie, action, issue, motif, ressource, IP).",
+          ),
+        burst: z
+          .number()
+          .int()
+          .nonnegative()
+          .default(10)
+          .describe(
+            "Refus d'une clé écrits TELS QUELS par fenêtre (acteur compris) ; les suivants sont comptés, puis UNE ligne de synthèse (`metadata.aggregated`) clôt la fenêtre.",
+          ),
+        maxKeys: z
+          .number()
+          .int()
+          .positive()
+          .default(10_000)
+          .describe(
+            "Clés suivies au plus (mémoire bornée) ; au-delà, les refus se regroupent sous l'IP `*`.",
+          ),
+      })
+      .default(() => ({
+        enabled: true,
+        windowMs: 60_000,
+        burst: 10,
+        maxKeys: 10_000,
+      })),
   })
   .describe("Journal d'audit sécurité (login, accès refusé, clés, webhooks).");
 

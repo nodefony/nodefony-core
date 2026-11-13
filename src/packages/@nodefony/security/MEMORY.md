@@ -363,7 +363,13 @@ apiKeys.enabled` (keystore JWT seulement si jwt) ; `isEnabled()`=capacité JWT (
   (`MemoryAuditStore` FIFO borné, `listPage` curseur récent→ancien) ; `drizzle` = `DrizzleAuditStore` persistant
   append-only (P6.18, auto-enregistré par le module drizzle — sélection `audit.store:"drizzle"` seule). **Secret jamais dans l'event** → presence-only `flags`. **Émission EXPLICITE par point** (pas EventEmitter firewall : Token/
   ApiKey/OAuth émettent hors chaîne). Helpers `recordAudit(container, draft)` (résout `auditService`, no-op si
-  absent) + `readAuditContext(ctx)` (ip/ua/requestId+flags). **Lot 2** (cold) : `AuthFlow` login.success/
+  absent) + `readAuditContext(ctx)` (ip/ua/requestId+flags). **Agrégation des REFUS** (`audit.aggregate`, ON par
+  défaut, `AuditRefusalAggregator` pur, horloge passée) : clé = catégorie+action+issue+motif+ressource+IP (IP
+  `trustProxy`, non forgeable ; acteur HORS clé → bourrage d'identifiants = 1 source). Par fenêtre (`windowMs` 60 s,
+  ouverte au 1er refus) : `burst` (10) écrits tels quels, la suite COMPTÉE (ni écrite ni diffusée), 1 ligne de
+  synthèse `metadata.aggregated {count,firstTs,lastTs,windowMs}`, `actor: null`. `maxKeys` (10 000) → repli IP `*`.
+  Balayage `setInterval` unref armé au 1er refus, coupé à vide ; `#shutdown` flush AVANT de lâcher le store.
+  Succès JAMAIS agrégés. **Lot 2** (cold) : `AuthFlow` login.success/
   failure/throttled/logout ; `Authorization` access.denied (`#auditDeny`). **Lot 2b** (HOT-PATH, succès MUET) :
   `Firewall.handleSecurity` auth.failure/throttled/denied (helper `#recordAuth`, 4 sorties d'échec seulement) ;
   verrou WS `frame.denied` (`buildFrameAuthorizer({onDeny})` tiré sur refus only → 0 alloc hot-path ; câblé
