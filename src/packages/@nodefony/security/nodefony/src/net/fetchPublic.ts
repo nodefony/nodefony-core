@@ -173,11 +173,11 @@ function hop(
       state.current = null;
       resolve(outcome);
     };
-    const fail = (error: NodeJS.ErrnoException): void => {
+    /** Un échec réseau ; `code` est celui d'une erreur système (`ECONNRESET`…). */
+    const fail = (error: Error, code?: string): void => {
       if (settled) return;
       settled = true;
       state.current = null;
-      const code = error.code;
       reject(
         state.expired ??
           new FetchPublicError(
@@ -197,7 +197,9 @@ function hop(
       ...(addresses.length > 0 ? { lookup: pinnedLookup(addresses) } : {}),
     });
     state.current = req;
-    req.on("error", fail);
+    const onError = (error: NodeJS.ErrnoException): void =>
+      fail(error, error.code);
+    req.on("error", onError);
     req.on("response", (res: IncomingMessage) => {
       const status = res.statusCode ?? 0;
       const location = res.headers.location;
@@ -237,7 +239,7 @@ function hop(
           truncated: false,
         }),
       );
-      res.on("error", fail);
+      res.on("error", onError);
       res.on("close", () => {
         if (!settled) fail(new Error("connexion fermée avant la fin du corps"));
       });
