@@ -1,11 +1,16 @@
+import { execFile } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { promisify } from "node:util";
 import * as nodefonyCbor from "nodefony/cbor";
 import { NodefonySocket, type IRealtimeContract } from "nodefony/client";
 import {
   E2E_ADMIN_PASSWORD,
+  E2E_USER_IDENTIFIER,
+  E2E_USER_PASSWORD,
+  nodefonyBin,
   startSpareApp,
   type ISpareApp,
 } from "nodefony/testing";
@@ -54,6 +59,13 @@ let httpsPortOf: number | null = null;
  * signer un jeton que l'exemplaire acceptera.
  */
 let serverEnv: Record<string, string> | null = null;
+
+/**
+ * Vrai quand l'exemplaire tourne sur une base JETABLE, propre à ce fichier
+ * (SQLite) ; faux sur la base `<base>_e2e` PARTAGÉE d'un moteur serveur, que
+ * `tests/e2e.setup.ts` a déjà peuplée. Décidé une fois, par `startDemoServer`.
+ */
+let disposableBase = false;
 
 /**
  * Vrai quand la suite vise une application servie ailleurs — la décision de
@@ -146,6 +158,7 @@ export async function startDemoServer(): Promise<() => Promise<void>> {
   });
   server = spare;
   httpsPortOf = httpsPort;
+  disposableBase = dir !== null;
   // Les ports aussi : l'émetteur des jetons (`jwt.issuer`) en dépend, donc
   // l'audience qu'un jeton doit porter pour que cet exemplaire l'accepte.
   serverEnv = {
@@ -157,6 +170,7 @@ export async function startDemoServer(): Promise<() => Promise<void>> {
     server = null;
     httpsPortOf = null;
     serverEnv = null;
+    disposableBase = false;
     await spare.stop();
     cleanup();
   };
@@ -172,6 +186,33 @@ export function httpsOrigin(): string {
 export function serverEnvironment(): Record<string, string> {
   if (serverEnv === null) throw new Error("startDemoServer() d'abord");
   return serverEnv;
+}
+
+/**
+ * Garantit le compte SANS privilège du décor e2e (`E2E_USER_IDENTIFIER`) sur
+ * la base de l'exemplaire démarré, pour un test qui joue un second utilisateur.
+ *
+ * Une base PARTAGÉE (moteur serveur) l'a déjà : `tests/e2e.setup.ts` l'y sème,
+ * et le recréer échouerait (« le compte existe déjà »). Une base JETABLE
+ * (SQLite) ne porte que l'`admin` du démarrage : le compte y naît par la VRAIE
+ * commande, sur la même base, avec le même `UserService` que l'application.
+ *
+ * @throws Error si aucun exemplaire n'est démarré, ou si la commande échoue
+ */
+export async function ensureMember(): Promise<void> {
+  const env = serverEnvironment();
+  if (!disposableBase) return;
+  await promisify(execFile)(
+    process.execPath,
+    [
+      nodefonyBin(),
+      "security:user:add",
+      E2E_USER_IDENTIFIER,
+      "--password",
+      E2E_USER_PASSWORD,
+    ],
+    { env: { ...process.env, ...env, NODE_ENV: "development" } },
+  );
 }
 
 /** L'adresse `http://` d'un chemin, sur l'exemplaire démarré. */

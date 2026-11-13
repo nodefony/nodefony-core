@@ -1,13 +1,9 @@
-import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { promisify } from "node:util";
 import { AUTH_ME_PATH } from "nodefony";
 import {
   E2E_USER_IDENTIFIER,
-  E2E_USER_PASSWORD,
   adminLogin,
   csrfHeaders,
-  nodefonyBin,
   userLogin,
 } from "nodefony/testing";
 import { afterAll, afterEach, beforeAll, expect, it } from "vitest";
@@ -28,14 +24,12 @@ import {
 import {
   closeAll,
   demoDescribe,
+  ensureMember,
   httpUrl,
   openSocket,
-  serverEnvironment,
   startDemoServer,
   waitFor,
 } from "./realtimeHarness";
-
-const run = promisify(execFile);
 
 /**
  * Les salons de bout en bout : des sockets ANONYMES qui écoutent, un compte
@@ -379,25 +373,8 @@ demoDescribe("discussion — les formulaires", () => {
   let member: Record<string, string> = {};
   let memberId = "";
   beforeAll(async () => {
-    // Le serveur de démo ne sème qu'`admin` : le second compte se crée par la
-    // VRAIE commande, sur la même base.
-    await run(
-      process.execPath,
-      [
-        nodefonyBin(),
-        "security:user:add",
-        E2E_USER_IDENTIFIER,
-        "--password",
-        E2E_USER_PASSWORD,
-      ],
-      {
-        env: {
-          ...process.env,
-          ...serverEnvironment(),
-          NODE_ENV: "development",
-        },
-      },
-    );
+    // Le second compte : déjà semé sur une base partagée, créé sinon.
+    await ensureMember();
     const base = httpUrl("");
     member = await csrfHeaders(base, await userLogin(base));
     memberId = await idOf(member);
