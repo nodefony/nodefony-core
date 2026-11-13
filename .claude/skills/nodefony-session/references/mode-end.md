@@ -41,6 +41,13 @@ projet + issue épinglée, dans le même run), et le chemin du `_state` à écri
 ## 2. Juger — ce que le script ne sait pas faire
 
 1. **Fermer ou commenter les tickets soldés.** Un ticket seulement AVANCÉ reçoit un commentaire.
+   🔴 **Un commentaire de ticket n'est PAS la mémoire de reprise.** Il dit au lecteur du TICKET
+   ce qui a bougé vers SON critère de fin : décision tranchée, livrable fait, preuve, ce qui reste
+   non fait. N'y vont PAS : une CI réparée en route (le message de commit la porte), le récit de
+   la session, « prochaine étape : lancer les agents » (le `_state`). Test : un lecteur qui ne
+   connaît que le ticket en a-t-il besoin pour juger où en est la fonctionnalité ? Non → `_state`.
+   Vécu (#747) : un commentaire « CI Code généré rouge — corrigé avant le lot 4 » au milieu des
+   décisions du chat.
    La fermeture porte un **compte rendu**, pas une ligne — sa forme et `ticket-close.mjs` vivent
    dans le skill **`nodefony-ticket`** (`references/fermeture.md`) : le charger AVANT de fermer.
    Relire d'abord les tickets que la préparation a listés (fichiers touchés, dépendants) : fermer,
