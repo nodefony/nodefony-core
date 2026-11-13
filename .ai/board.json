@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-13T11:08:49.505Z",
+  "generatedAt": "2026-11-13T11:12:57.362Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10398,7 +10398,7 @@
       "title": "docs(docker): réécrire la fiche Docker Hub de l'image officielle",
       "url": "https://github.com/nodefony/nodefony-core/issues/772",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 1,
