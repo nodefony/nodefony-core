@@ -1,4 +1,5 @@
 export { AuthenticationError } from "./AuthenticationError";
+export { StaleSessionError } from "./StaleSessionError";
 export { AccessDeniedError } from "./AccessDeniedError";
 export { ThrottledError } from "./ThrottledError";
 export { UnverifiableTokenError } from "./UnverifiableTokenError";

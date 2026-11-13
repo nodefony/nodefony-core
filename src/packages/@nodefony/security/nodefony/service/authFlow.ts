@@ -435,8 +435,8 @@ class AuthFlow extends Service {
    * (mêmes contrôles que le `SessionAuthenticator` — source unique).
    *
    * @returns la projection publique, ou `null` (pas de session, session
-   *   orpheline, compte verrouillé/désactivé) — le handler répond `200`
-   *   `{ user: null }`.
+   *   orpheline, compte verrouillé/désactivé — la session périmée est alors
+   *   détruite, cookie compris) — le handler répond `200` `{ user: null }`.
    */
   async me(context: ContextType): Promise<ISafeUser | null> {
     const identifier = context.session?.user;
@@ -458,7 +458,14 @@ class AuthFlow extends Service {
       );
       return toSafeUser(user);
     } catch (error) {
-      if (error instanceof AuthenticationError) return null;
+      if (error instanceof AuthenticationError) {
+        // Session PÉRIMÉE : détruite côté serveur ET navigateur, comme dans une
+        // zone (`SessionAuthenticator.onFailure`) — sinon elle revient à chaque
+        // requête. Une panne de la source d'identité n'est pas une
+        // `AuthenticationError` : elle remonte, et ne purge rien.
+        await context.session?.destroy(true);
+        return null;
+      }
       throw error;
     }
   }

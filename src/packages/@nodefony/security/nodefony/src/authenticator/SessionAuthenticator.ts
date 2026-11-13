@@ -4,6 +4,7 @@ import type { IAuthenticator } from "../../contracts/IAuthenticator";
 import type { ISecuredArea } from "../../contracts/ISecuredArea";
 import type { IToken } from "../../contracts/IToken";
 import { AuthenticationError } from "../../errors/AuthenticationError";
+import { StaleSessionError } from "../../errors/StaleSessionError";
 import { resolveBoundSessionIdentity } from "../sessionIdentity";
 import { ACCOUNT_ID_KEY, CREDENTIALS_VERSION_KEY } from "../accountBinding";
 import { UserToken } from "../token/UserToken";
@@ -99,22 +100,32 @@ export class SessionAuthenticator implements IAuthenticator {
    * token. Les contrôles d'état (existe, actif, non verrouillé) vivent dans
    * {@link resolveSessionIdentity} — partagés avec `AuthFlow.me()`.
    *
-   * @throws AuthenticationError (401, message uniforme) — session orpheline,
-   *   compte verrouillé ou désactivé.
+   * @throws StaleSessionError (401, message uniforme) — session orpheline,
+   *   compte verrouillé ou désactivé, liaison au compte rompue : un état à
+   *   purger ({@link onFailure}). Une PANNE de la source d'identité remonte
+   *   telle quelle, et ne purge rien.
    */
   async authenticate(token: IToken): Promise<IToken> {
     const credentials = token.getCredentials() as ISessionCredentials | null;
     if (!credentials?.identifier) {
-      throw new AuthenticationError("Invalid session");
+      throw new StaleSessionError();
     }
     const provider = (this.#provider ??= this.#resolveProvider());
-    const user = await resolveBoundSessionIdentity(
-      provider,
-      credentials.identifier,
-      credentials.accountId,
-      credentials.credentialsVersion,
-    );
-    return (token as UserToken).promote(user);
+    try {
+      const user = await resolveBoundSessionIdentity(
+        provider,
+        credentials.identifier,
+        credentials.accountId,
+        credentials.credentialsVersion,
+      );
+      return (token as UserToken).promote(user);
+    } catch (error) {
+      // Le refus d'IDENTITÉ seul devient « périmée » ; une panne (base
+      // injoignable) n'est pas une `AuthenticationError` et traverse intacte.
+      if (error instanceof AuthenticationError)
+        throw new StaleSessionError(error.message);
+      throw error;
+    }
   }
 
   /**
@@ -126,9 +137,15 @@ export class SessionAuthenticator implements IAuthenticator {
     return Promise.resolve();
   }
 
-  /** Slot audit (P6.14). Le 401 est posé par le firewall. */
-  onFailure(_context: ContextType, _error: Error): Promise<void> {
-    return Promise.resolve();
+  /**
+   * Une session périmée est DÉTRUITE, côté serveur (entrée du stockage) et
+   * côté navigateur (cookie expiré, RFC 6265 §5.3) — sans quoi le navigateur la
+   * renvoie à chaque requête et chaque page lui répond 401, sans issue pour
+   * l'utilisateur. Le firewall poursuit ensuite la chaîne de la zone.
+   */
+  async onFailure(context: ContextType, error: Error): Promise<void> {
+    if (error instanceof StaleSessionError)
+      await context.session?.destroy(true);
   }
 }
 

@@ -5,6 +5,7 @@ import type { ContextType } from "@nodefony/http";
 import { SessionAuthenticator } from "../../nodefony/src/authenticator/SessionAuthenticator";
 import type { IAuthenticator } from "../../nodefony/contracts/IAuthenticator";
 import { AuthenticationError } from "../../nodefony/errors/AuthenticationError";
+import { StaleSessionError } from "../../nodefony/errors/StaleSessionError";
 
 /**
  * SessionAuthenticator (J3 — session BFF) — gates :
@@ -132,6 +133,60 @@ describe("SessionAuthenticator (P6 J3)", () => {
     const token = await auth.authenticate(await auth.createToken(context));
     await auth.onSuccess(context, token);
     assert.equal((context as { user?: unknown }).user, "admin");
+  });
+
+  it("🔴 session périmée → StaleSessionError, et onFailure la DÉTRUIT, cookie compris (RFC 6265 §5.3)", async () => {
+    const auth = new SessionAuthenticator(() => providerOf({}));
+    const destroyed: boolean[] = [];
+    const context = {
+      session: {
+        user: "ghost",
+        getMetaBag: () => ACCOUNT_ID,
+        destroy: (cookieDelete?: boolean) => {
+          destroyed.push(cookieDelete === true);
+          return Promise.resolve(true);
+        },
+      },
+      user: null,
+    } as unknown as ContextType;
+    const error = await auth.authenticate(await auth.createToken(context)).then(
+      () => null,
+      (e: unknown) => e,
+    );
+    assert.ok(error instanceof StaleSessionError);
+    assert.ok(error instanceof AuthenticationError); // toujours un 401 là où il remonte
+    await auth.onFailure(context, error);
+    // Détruite UNE fois, et le cookie avec : sinon le navigateur la renvoie.
+    assert.deepEqual(destroyed, [true]);
+  });
+
+  it("🔴 une PANNE de la source d'identité ne purge rien : la session survit à l'incident", async () => {
+    const down = new Error("base injoignable");
+    const auth = new SessionAuthenticator(
+      () =>
+        ({
+          loadUserByIdentifier: () => Promise.reject(down),
+        }) as unknown as IUserProvider,
+    );
+    let destroyed = false;
+    const context = {
+      session: {
+        user: "admin",
+        getMetaBag: () => ACCOUNT_ID,
+        destroy: () => {
+          destroyed = true;
+          return Promise.resolve(true);
+        },
+      },
+      user: null,
+    } as unknown as ContextType;
+    const error = await auth.authenticate(await auth.createToken(context)).then(
+      () => null,
+      (e: unknown) => e,
+    );
+    assert.equal(error, down); // remonte telle quelle, jamais « périmée »
+    await auth.onFailure(context, down);
+    assert.equal(destroyed, false);
   });
 
   it("pas de challenge déclaré : le pare-feu pose son défi de repli (pas de popup Basic)", () => {

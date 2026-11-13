@@ -33,6 +33,12 @@ Consomme `@nodefony/user`. Coupling http→security = **type-only** (`Firewall`/
   projection {id, identifier, roles} — JAMAIS l'entité (hash).
 - `SessionAuthenticator` ("session", J3) : supports = `context.session?.user` non vide (session
   reprise par le pipeline AVANT firewall) ; pas de `challenge()` → le pare-feu pose `SESSION_AUTH_CHALLENGE` (`Session realm="nodefony"`, pas de popup).
+  🔴 Session PÉRIMÉE (compte absent/verrouillé/désactivé, liaison rompue, blob vide) = `StaleSessionError`
+  (⊂ `AuthenticationError`) → `onFailure` la DÉTRUIT serveur + cookie (`destroy(true)`, RFC 6265 §5.3)
+  → en mode `first` le firewall CONTINUE la chaîne (anonyme admis = page servie ; zone fermée = « aucune
+  preuve » → entryPoint/401). Seule exception à « credential présenté invalide = 401 sans repli » : une
+  session est un ÉTAT, pas une preuve forgée. Sans purge : 401 à CHAQUE requête, sans issue (vécu). PANNE
+  provider ≠ `AuthenticationError` → remonte, ne purge RIEN. `AuthFlow.me()` applique le même geste.
 - Endpoints HTTP : `SessionAuthController` (@nodefony/framework) `/nodefony/security/api/auth/
 {login,logout,me}` — montés à onKernelReady SI "authFlow" présent ; duck-typing code 401/429.
 - **JWT (J4)** — `JwtAuthenticator` ("jwt") : Bearer (RFC 6750), jose **lazy import**, `jwtVerify`

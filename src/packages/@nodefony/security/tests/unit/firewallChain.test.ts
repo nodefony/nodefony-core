@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { Container, Event, RequestContext } from "nodefony";
 import type { Module } from "nodefony";
-import type { IUser } from "@nodefony/user";
+import type { IUser, IUserProvider } from "@nodefony/user";
+import { UserNotFoundError } from "@nodefony/user";
 import type { ContextType } from "@nodefony/http";
 import { Firewall } from "../../nodefony/service/firewall";
 import { SecuredArea } from "../../nodefony/src/SecuredArea";
 import { AnonymousAuthenticator } from "../../nodefony/src/authenticator/AnonymousAuthenticator";
+import { SessionAuthenticator } from "../../nodefony/src/authenticator/SessionAuthenticator";
 import { UserToken } from "../../nodefony/src/token/UserToken";
 import { AuthenticationError } from "../../nodefony/errors/AuthenticationError";
 import { ThrottledError } from "../../nodefony/errors/ThrottledError";
@@ -161,6 +163,55 @@ describe("Firewall — mode first", () => {
       await firewall.handleSecurity(context); // ne throw PAS
       assert.equal((RequestContext.getUser() as IUser).identifier, "anon.");
     });
+  });
+
+  /** Une session reprise qui ne désigne plus personne (compte supprimé). */
+  function staleSession(context: ContextType): { destroyed: boolean[] } {
+    const spy = { destroyed: [] as boolean[] };
+    Object.assign(context, {
+      session: {
+        user: "ghost",
+        getMetaBag: () => undefined,
+        destroy: (cookieDelete?: boolean) => {
+          spy.destroyed.push(cookieDelete === true);
+          return Promise.resolve(true);
+        },
+      },
+    });
+    return spy;
+  }
+  const nobody = (): SessionAuthenticator =>
+    new SessionAuthenticator(
+      () =>
+        ({
+          loadUserByIdentifier: (identifier: string) =>
+            Promise.reject(new UserNotFoundError(identifier)),
+        }) as unknown as IUserProvider,
+    );
+
+  it("🔴 session PÉRIMÉE sur une zone qui admet l'anonyme : purgée, la page passe en anonyme", async () => {
+    const firewall = makeFirewall(nobody(), new AnonymousAuthenticator());
+    const { context } = makeContext(
+      area({ authenticators: ["session", "anonymous"] }),
+    );
+    const spy = staleSession(context);
+    await RequestContext.run({ requestId: "t-stale" }, async () => {
+      await firewall.handleSecurity(context); // ne throw PAS : plus de 401 sans issue
+      assert.equal((RequestContext.getUser() as IUser).identifier, "anon.");
+    });
+    // Détruite côté serveur ET navigateur, une seule fois.
+    assert.deepEqual(spy.destroyed, [true]);
+  });
+
+  it("🔴 session PÉRIMÉE sur une zone FERMÉE : purgée, puis « aucune preuve » → 401", async () => {
+    const firewall = makeFirewall(nobody());
+    const { context } = makeContext(area({ authenticators: ["session"] }));
+    const spy = staleSession(context);
+    await assert.rejects(
+      () => firewall.handleSecurity(context),
+      AuthenticationError,
+    );
+    assert.deepEqual(spy.destroyed, [true]); // le prochain essai repart propre
   });
 
   it("défense en profondeur : token NON promu hors anonymous → 401", async () => {

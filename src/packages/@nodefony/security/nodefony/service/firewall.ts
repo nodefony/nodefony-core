@@ -47,6 +47,7 @@ import { Csrf } from "./csrf";
 import { Cors } from "./cors";
 import { responseKindOf, SecurityHeaders } from "./securityHeaders";
 import { AuthenticationError } from "../errors/AuthenticationError";
+import { StaleSessionError } from "../errors/StaleSessionError";
 import { ThrottledError } from "../errors/ThrottledError";
 import { UnverifiableTokenError } from "../errors/UnverifiableTokenError";
 import { InsecureTransportError } from "../errors/InsecureTransportError";
@@ -1662,6 +1663,20 @@ class Firewall extends Service implements IFirewall {
         authenticated = await authenticator.authenticate(created);
       } catch (error) {
         await authenticator.onFailure(context, error as Error);
+        if (error instanceof StaleSessionError && area.mode === "first") {
+          // Une session PÉRIMÉE n'est pas une preuve fausse : c'est un état
+          // que `onFailure` vient de détruire (serveur + cookie). On poursuit
+          // comme si aucune session n'avait été présentée — l'anonyme passe
+          // sur une zone qui l'admet, une zone fermée retombe sur « aucune
+          // preuve » (page de connexion, ou 401 avec défi). Sans ce repli, le
+          // navigateur renvoyait la session morte à chaque requête et chaque
+          // page lui répondait 401, sans issue.
+          this.log(
+            `session périmée purgée (area "${area.name}", authenticator "${name}") — la requête continue sans elle`,
+            "WARNING",
+          );
+          continue;
+        }
         if (error instanceof AuthenticationError) {
           this.log(
             `authentication failed (area "${area.name}", authenticator "${name}")`,
