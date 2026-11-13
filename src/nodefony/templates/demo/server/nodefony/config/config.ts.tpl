@@ -1,6 +1,6 @@
 import path from "node:path";
 import { z } from "zod";
-import { resolveInfra, sqliteFilenameFromUrl } from "nodefony";
+import { sqliteFilenameFromUrl, type IInfra } from "nodefony";
 import { demoSecurity } from "./security";
 import { PAYLOAD_LIMIT } from "../../frontend/src/binary/binaryDemo";
 
@@ -90,24 +90,27 @@ export const DEMO_CONNECTOR = "demo";
  * charge Drizzle pour la seule démo, sans connecteur `default` (Drizzle ne
  * le crée pas quand la base déclarée est d'une autre famille).
  *
- * Où vit le fichier : à côté de la base de l'application quand elle est en
- * SQLite — sous `var/databases/` en développement, à côté de la base jetable
- * d'un test. Sinon `var/databases/nodefony-demo.db`, et en mémoire sous
- * `NODE_ENV=test` : un test ne touche jamais la base du poste. `ddl: "auto"`
+ * Où vit le fichier : il SUIT la base de l'application — à côté d'elle quand
+ * elle est en SQLite (sous `var/databases/` en développement, à côté de la
+ * base jetable d'un test qui pose `NF_DATABASE_URL`), en mémoire quand elle
+ * l'est, sinon `var/databases/nodefony-demo.db`. `ddl: "auto"`
  * est ÉCRIT : un module de développement n'a pas de migration, son schéma se
  * dérive au démarrage (doc `@nodefony/drizzle/docs/migrations.md`).
  *
- * @param env - l'environnement du processus (`process.env`)
+ * Guide pour un agent : la base arrive DÉJÀ résolue par le noyau
+ * (`kernel.infra`, la même lecture que celle de l'application) — un module ne
+ * lit jamais `process.env` lui-même, `env.ts` en est le seul lecteur.
+ *
+ * @param database - la base déclarée de l'application (`kernel.infra.database`)
  * @returns la clé `module-drizzle` à fusionner dans la config du module
  */
 export function demoDrizzleOverride(
-  env: NodeJS.ProcessEnv,
+  database: IInfra["database"],
 ): Record<string, unknown> {
-  const database = resolveInfra(env).database;
   const appFile =
     database?.dialect === "sqlite" ? sqliteFilenameFromUrl(database.url) : null;
   const filename =
-    appFile === ":memory:" || (appFile === null && env.NODE_ENV === "test")
+    appFile === ":memory:"
       ? { filename: ":memory:" }
       : appFile === null
         ? {}

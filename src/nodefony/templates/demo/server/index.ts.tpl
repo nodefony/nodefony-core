@@ -25,6 +25,7 @@ import SseController from "./nodefony/controllers/SseController";
 import VideoController from "./nodefony/controllers/VideoController";
 import BinaryController from "./nodefony/controllers/BinaryController";
 import ChatService from "./nodefony/service/ChatService";
+import RoomAdmission from "./nodefony/service/RoomAdmission";
 import RoomService from "./nodefony/service/RoomService";
 import PartnerTokenService from "./nodefony/service/PartnerTokenService";
 import PartnerTokenController from "./nodefony/controllers/PartnerTokenController";
@@ -83,6 +84,9 @@ declare module "nodefony" {
   DemoPulseService,
   ChatService,
   RoomService,
+  // La règle d'admission des salons, résolue au premier `subscribe` : déclarée
+  // ici, elle entre dans l'ordre de démarrage et dans l'introspection.
+  RoomAdmission,
   PartnerTokenService,
   DemoMcpService,
   MeteorService,
@@ -91,7 +95,7 @@ declare module "nodefony" {
   TelemetryRelayService,
 ])
 // #region demo-entities
-// Les salons du chat : quatre tables sur la base SQLite de la démo.
+// Les salons du chat et leurs messages : cinq tables sur la base SQLite de la démo.
 @entities(roomEntities, { connector: DEMO_CONNECTOR })
 // #endregion
 class DemoModule extends Module {
@@ -101,7 +105,7 @@ class DemoModule extends Module {
     // l'enregistrement des modules, avant toute connexion.
     super("demo", kernel, import.meta.url, {
       ...config,
-      ...demoDrizzleOverride(process.env),
+      ...demoDrizzleOverride(kernel.infra.database),
     });
     this.addCommand(PartnerCallCommand);
     this.addCommand(SensorPushCommand);
