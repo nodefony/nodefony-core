@@ -592,10 +592,27 @@ d'appels ouverts (mesure ci-dessous).
        CONNEXIONS, pas des flux.
    - Aucun ne liste tous les flux ouverts, et aucun flux long (SSE, octets) ne reçoit de fin à
      l'arrêt aujourd'hui : il est détruit à `shutdownTimeout`.
-   - Donc : le noyau gagne UN registre de tous les flux longs ouverts, rempli par
-     `StreamLifecycle` à l'endroit même où il appelle déjà `watchStream` / `unwatchStream`. À l'arrêt,
-     le noyau ferme chacun par `StreamLifecycle.close(cause)`. gRPC n'apporte que sa fermeture
-     (D6 point 3) ; SSE et les flux d'octets en profitent aussi.
+   - Donc : le noyau gagne UN registre de tous les flux longs ouverts
+     (`StreamLifecycle.ts#ShutdownRegistry`), rempli par `StreamLifecycle` à l'endroit même où il
+     appelle déjà `watchStream` / `unwatchStream`. À l'arrêt, le noyau termine chacun par
+     `StreamLifecycle.ts#StreamLifecycle.shutdown` : un appel RPC au format de son protocole (14,
+     point 2), un flux SSE ou d'octets par `close`. gRPC n'apporte que sa fermeture (D6 point 3) ;
+     SSE et les flux d'octets en profitent aussi.
+   - **Seules les sources VIVANTES s'y inscrivent.** Un flux d'octets à source finie
+     (`live: false`, une archive, un fichier) reste hors du registre et garde le drain pour finir :
+     le terminer proprement au début de l'arrêt ferait croire au client qu'il a reçu le tout
+     (`ByteStream.ts#openByteStream`, `endsAtShutdown`).
+   - **L'écouteur se pose à `init()`** du noyau HTTP (`http-kernel.ts#HttpKernel.shutdownStreams`),
+     pas à `onPostReady` : un `SIGTERM` reçu pendant le démarrage trouve déjà la fin des flux.
+     Ordre à `onTerminate` : readyz à 503, fermeture 1001 des WebSocket, fin des flux, drain HTTP.
+   - **L'arrêt attend la fin des flux, au plus 1 s** (`SHUTDOWN_STREAMS_WAIT_MS`, le plafond
+     d'annonce du GOAWAY), puis le drain commence. Il se termine plus tôt dès que le dernier flux
+     s'est retiré ; un flux ouvert pendant l'attente est terminé au tour suivant. Les restants
+     sont comptés dans la ligne d'arrêt (WARNING).
+   - Le flux garde le noyau pris à l'ouverture : le nettoyage du contexte (`Context.clean`, qui
+     remet `httpKernel` à `null`) passe AVANT la fin du flux, et un flux fermé restait sinon
+     inscrit, avec son contexte, à la révocation, au balayage et à l'arrêt (11 Ko par flux
+     abandonné, vu par le gate mémoire).
    - Le `RevocationWatch` reste réservé aux flux à identité : y mettre les anonymes ferait
      travailler chaque fenêtre de 30 s pour rien.
    - **Pour SSE, la fin à l'arrêt est une fermeture simple du flux** : `EventSource` se reconnecte,
@@ -613,9 +630,14 @@ d'appels ouverts (mesure ci-dessous).
    - Pour le gestionnaire sourd qui produit encore : l'itérateur de l'appel est enrobé. Après
      l'interruption, sa lecture et son écriture suivantes échouent avec ce statut, que Connect écrit
      en trailer. La révocation (D6) emprunte le même mécanisme.
-   - Filet : un gestionnaire bloqué qui n'écoute pas son signal tombe à `shutdownTimeout` (connexion
-     détruite, le client lit `UNAVAILABLE`) ; pour la révocation, à la fenêtre suivante (flux
-     détruit).
+   - **Le gestionnaire qui écoute son signal puis rend la main** termine la source de l'appel :
+     l'enrobage (`GrpcEndpoint.ts#FirstMessageTranslator`) relit alors l'interruption à la fin de
+     la source et la lève. Sans cela, l'appel finissait en **0 `OK`** et le client prenait un flux
+     tronqué pour complet — à l'arrêt (14) comme à la révocation (16).
+   - Filet : un gestionnaire bloqué qui n'écoute pas son signal tombe à `shutdownTimeout`, connexion
+     détruite ; pour la révocation, à la fenêtre suivante (flux détruit). Le statut lu vient alors
+     du CLIENT, pas de Nodefony : constaté, 13 `INTERNAL` chez `@connectrpc/connect-node` (point
+     3 pour les autres clients).
 
    **Constaté sur le fil** (Connect 2.3.0 réel, flux bidirectionnel, interruption en 14) :
 
@@ -631,8 +653,17 @@ d'appels ouverts (mesure ci-dessous).
 3. **Un appel unaire en vol n'est pas interrompu** : il finit pendant le drain, comme l'arrêt
    gracieux de gRPC. Un appel neuf après le GOAWAY est refusé par HTTP/2, et le client réessaie.
    - Le drain dure `shutdownTimeout` (5 s), l'échéance par défaut d'un unaire 30 s (D4) : un appel
-     plus long que le drain voit sa connexion détruite, et le client lit `UNAVAILABLE`, qu'il
-     rejoue ailleurs. Ce statut vient du transport, pas de Nodefony : à prouver par S-grpc-35.
+     plus long que le drain voit sa connexion détruite. Le serveur envoie la même chose à tous les
+     clients ; le statut lu vient du CLIENT. **Constaté sur le fil** (S-grpc-35) :
+
+     | Client                     | Statut lu                                          |
+     | -------------------------- | -------------------------------------------------- |
+     | `@grpc/grpc-js`            | 14 `UNAVAILABLE` (« Connection dropped »)          |
+     | `grpcurl` (grpc-go)        | `Unavailable`                                      |
+     | `@connectrpc/connect-node` | 1 `CANCELLED` (session détruite lue en annulation) |
+
+   - Forcer 14 chez tous les clients exigerait d'inscrire chaque appel unaire (≈ 50 ns par appel) :
+     écarté, l'unaire reste à 0. L'écart de connect-node appartient au client.
    - Une application aux appels longs règle `shutdownTimeout` au-dessus de son échéance.
 
 **Coût, mesuré** (médiane de 7 passes, Node du poste) :
@@ -640,9 +671,9 @@ d'appels ouverts (mesure ci-dessous).
 | Geste                               | Quand                                | Coût                                                                                                             |
 | ----------------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
 | Registre du noyau : ajout + retrait | chaque flux long (SSE, octets, gRPC) | 44 à 77 ns, constant de 0 à 10 000 flux ouverts                                                                  |
-| Enrobage de l'itérateur             | chaque message d'un flux             | +3 ns (123 → 126 ns), dans le bruit                                                                              |
-| Appel unaire                        | —                                    | 0                                                                                                                |
-| Interruption à l'arrêt              | une fois                             | proportionnel aux flux ouverts                                                                                   |
+| Enrobage de l'itérateur             | chaque message d'un flux             | +34 ns : la relecture de l'interruption à chaque message (`then`), qui ferme le 0 `OK` du point 2                |
+| Appel unaire                        | —                                    | 0 ; constaté sur serveur réel : 783 / 760 / 742 / 753 µs par appel à 0, 1 000, 10 000 puis 0 flux ouverts        |
+| Interruption à l'arrêt              | une fois                             | proportionnel aux flux ouverts ; attente bornée à 1 s avant le drain                                             |
 | **Écarté** : `shutdownSignal`       | CHAQUE appel, unaire compris         | mesuré sur `createHandlerContext` réel : +0,2 µs à vide, **+12 µs** à 1 000 appels ouverts, **+122 µs** à 10 000 |
 
 Relevé en passant, hors décision : le contexte que Connect crée par appel (`createHandlerContext`,
@@ -1124,7 +1155,7 @@ Les tickets qui bâtissent sur cet adaptateur ne doivent pas exiger de rupture.
   `@nodefony/http/grpc`. Connect et protobuf sont des pairs facultatifs des deux paquets (D12).
 - **Le noyau change pour toutes les routes, gRPC ou non** :
   - un 404 ou un 405 ne lit plus le corps (D13, point 1) ;
-  - un registre de tous les flux longs ferme SSE, octets et gRPC à l'arrêt (D8) ;
+  - un registre des flux longs vivants termine SSE, octets et gRPC à l'arrêt, avant le drain (D8) ;
   - `HttpContext.rpc` et `IRequestTrace.rpc` existent, `null` hors RPC (D10) ;
   - le relais ne recopie plus le statut de l'amont quand le client est parti (D10, point 2) ;
   - `bootRemediationHint` distingue un paquet absent d'un `dist` périmé (D12, point 5).
@@ -1183,8 +1214,8 @@ sur le papier, un test de #695 doit le montrer.
 | 32       | D6 point 2              | tient                                                                        |
 | 33       | D6 point 3, D8 point 2  | tient                                                                        |
 | 34       | D7                      | tient                                                                        |
-| 35       | D8                      | tient pour les flux ; unaire plus long que le drain : à prouver (D8 point 3) |
-| 36       | D8                      | tient ; mesure exigée                                                        |
+| 35       | D8                      | tient ; unaire plus long que le drain : statut lu par le client (D8 point 3) |
+| 36       | D8                      | tient, mesuré (D8, coût)                                                     |
 | 37       | D9                      | tient                                                                        |
 | 38       | D10                     | tient                                                                        |
 | 39       | D10 point 2             | tient                                                                        |
