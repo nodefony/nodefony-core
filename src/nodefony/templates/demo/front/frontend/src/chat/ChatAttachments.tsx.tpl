@@ -1,4 +1,10 @@
-import { createElement, type ReactNode } from "react";
+import {
+  createElement,
+  useId,
+  useState,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 import { FilePreview } from "../kit/FilePreview";
 import { HoverBubble, type IBubbleAnchor } from "../kit/HoverBubble";
 import { formatSize, type PreviewKind } from "../kit/preview";
@@ -13,10 +19,12 @@ import { CHAT_FILE_PATH, type ChatAttachment } from "./chatContract";
  * octets (`ChatService` → `describeFile` du kit), jamais le nom du fichier ;
  * chaque pièce est une boîte du kit (`FilePreview.tsx`), la même que celle
  * qui montre une pièce avant l'envoi. Une IMAGE s'affiche en vignette (la
- * boîte du kit) ; toute autre pièce tient en une PASTILLE — nom, taille, et le
- * téléchargement pour cible — dont la boîte du kit s'ouvre en bulle
- * (`kit/HoverBubble.tsx`) au survol ou au focus : une liste de pièces ne
- * prend pas la hauteur de leurs aperçus.
+ * boîte du kit) ; toute autre pièce tient en une PASTILLE — nom et taille —,
+ * un bouton qui DÉPLIE sous lui la boîte complète, actions comprises
+ * (`aria-expanded`). Au survol ou au focus, une bulle (`kit/HoverBubble.tsx`)
+ * en montre l'aperçu SANS action : une bulle ne prend jamais le focus, un
+ * bouton qu'elle porterait serait inatteignable au clavier. Une liste de
+ * pièces ne prend pas la hauteur de leurs aperçus.
  */
 export function ChatAttachments({
   pieces,
@@ -68,44 +76,84 @@ function iconOf(kind: PreviewKind): string {
 }
 
 /**
- * Une pastille : le nom et la taille, le téléchargement pour cible ; la boîte
- * d'aperçu s'ouvre en bulle, construite SEULEMENT bulle ouverte.
+ * Une pastille : le nom et la taille. Cliquée, elle déplie la boîte complète
+ * sous elle ; repliée, sa bulle montre l'aperçu sans action, construit
+ * SEULEMENT bulle ouverte.
  */
 function Pill({ piece }: { piece: ChatAttachment }) {
+  const [open, setOpen] = useState(false);
+  const id = useId();
+  const toggle = () => setOpen((was) => !was);
+  if (open)
+    return (
+      <>
+        <PillButton piece={piece} open controls={id} toggle={toggle} />
+        <div id={id} className="att-unfolded">
+          <FilePreview file={piece} url={urlOf(piece)} />
+        </div>
+      </>
+    );
   return (
     <HoverBubble
-      bubble={createElement(FilePreview, { file: piece, url: urlOf(piece) })}
-      trigger={pillTrigger(piece)}
+      bubble={createElement(FilePreview, {
+        file: piece,
+        url: urlOf(piece),
+        controls: false,
+      })}
+      trigger={pillTrigger(piece, id, toggle)}
     />
   );
 }
 
-/** Le déclencheur d'une pastille, défini hors du rendu. */
+/** Le déclencheur d'une pastille repliée, défini hors du rendu. */
 function pillTrigger(
   piece: ChatAttachment,
+  controls: string,
+  toggle: () => void,
 ): (anchor: IBubbleAnchor) => ReactNode {
-  return (anchor) => createElement(PillLink, { piece, anchor });
+  return (anchor) =>
+    createElement(PillButton, {
+      piece,
+      open: false,
+      controls,
+      toggle,
+      anchor,
+    });
 }
 
-/** Le lien de la pastille : le téléchargement, décrit par la bulle. */
-function PillLink({
+/**
+ * Le bouton de la pastille. Au toucher, le premier appui n'ouvre que la bulle
+ * (`anchor.onClick` annule le geste) ; le suivant déplie.
+ */
+function PillButton({
   piece,
+  open,
+  controls,
+  toggle,
   anchor,
 }: {
   piece: ChatAttachment;
-  anchor: IBubbleAnchor;
+  open: boolean;
+  controls: string;
+  toggle: () => void;
+  anchor?: IBubbleAnchor;
 }) {
+  const onClick = (event: MouseEvent<HTMLElement>) => {
+    anchor?.onClick(event);
+    if (!event.defaultPrevented) toggle();
+  };
   return (
-    <a
+    <button
+      type="button"
       className="att-pill"
-      href={urlOf(piece)}
-      download={piece.name}
-      aria-describedby={anchor["aria-describedby"]}
-      onClick={anchor.onClick}
+      aria-expanded={open}
+      aria-controls={controls}
+      aria-describedby={anchor?.["aria-describedby"]}
+      onClick={onClick}
     >
       <span aria-hidden="true">{iconOf(piece.kind)}</span>
       <span className="att-pill-name">{piece.name}</span>
       <span className="att-size">{formatSize(piece.size)}</span>
-    </a>
+    </button>
   );
 }

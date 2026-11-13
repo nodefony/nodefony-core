@@ -4902,10 +4902,19 @@ pre.math-raw {
   min-height: 28px;
   max-width: 100%;
   padding: 2px 10px;
+  font: inherit;
+  color: inherit;
   text-decoration: none;
+  cursor: pointer;
   background: var(--bg-soft);
   border: 1px solid var(--border);
   border-radius: 999px;
+}
+.att-pill[aria-expanded="true"] {
+  border-color: var(--accent, var(--border));
+}
+.att-unfolded {
+  margin-top: 6px;
 }
 .att-pill-name {
   overflow-wrap: anywhere;

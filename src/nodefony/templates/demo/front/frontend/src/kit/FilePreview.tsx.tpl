@@ -1,6 +1,8 @@
 import {
   Fragment,
+  createContext,
   createElement,
+  useContext,
   useRef,
   useState,
   type ReactNode,
@@ -22,19 +24,45 @@ import { formatSize, type IFilePreview, type PreviewFormat } from "./preview";
  * Une pièce LOCALE n'a rien à télécharger, et son PDF s'ouvre dans un nouvel
  * onglet : la politique de sécurité du framework n'autorise pas une page à
  * encadrer une adresse `blob:` (`frame-src`), et l'élargir pour un aperçu
- * serait un mauvais échange.
+ * serait un mauvais échange. `controls={false}` rend l'aperçu SANS aucune
+ * action (ni dépli, ni fenêtre, ni téléchargement) : ce qu'il faut dans une
+ * bulle de survol, qui ne prend jamais le focus.
  *
  * @param url - l'adresse du contenu ; `null` : aucun contenu à ouvrir
  * @param local - pièce encore dans le navigateur (`url` en `blob:`)
+ * @param controls - les actions de la boîte ; `false` : aperçu seul
  */
 export function FilePreview({
   file,
   url,
   local = false,
+  controls = true,
 }: {
   file: IPreviewedFile;
   url: string | null;
   local?: boolean;
+  controls?: boolean;
+}) {
+  if (controls) return <PieceBox file={file} url={url} local={local} />;
+  return (
+    <WithControls.Provider value={false}>
+      <PieceBox file={file} url={url} local={local} />
+    </WithControls.Provider>
+  );
+}
+
+/** Les actions de la boîte sont-elles montrées ? Faux dans une bulle. */
+const WithControls = createContext(true);
+
+/** La boîte selon le genre de la pièce. */
+function PieceBox({
+  file,
+  url,
+  local,
+}: {
+  file: IPreviewedFile;
+  url: string | null;
+  local: boolean;
 }) {
   if (url === null)
     return <Box icon="📄" piece={{ ...file, url: "", local: true }} />;
@@ -130,6 +158,7 @@ function Box({
   actions?: ReactNode;
   children?: ReactNode;
 }) {
+  const withControls = useContext(WithControls);
   return (
     <div
       className={className === undefined ? "att-box" : `att-box ${className}`}
@@ -143,10 +172,12 @@ function Box({
         </span>
       </div>
       {children}
-      <div className="att-actions">
-        {actions}
-        <Download piece={piece} />
-      </div>
+      {withControls && (
+        <div className="att-actions">
+          {actions}
+          <Download piece={piece} />
+        </div>
+      )}
     </div>
   );
 }

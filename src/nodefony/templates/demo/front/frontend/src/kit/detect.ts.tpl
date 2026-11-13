@@ -51,6 +51,13 @@ export type NatureBlock =
 /** Le séparateur de colonnes d'un tableau, dans l'ordre d'essai. */
 const SEPARATORS = ["\t", ";", ","] as const;
 
+/**
+ * Lignes ET colonnes qu'exige un tableau à VIRGULE : la prose en porte
+ * (« Bonjour, ça va » / « Oui, merci » ferait deux lignes de deux colonnes).
+ * Tabulation et point-virgule, rares dans une phrase, se contentent de deux.
+ */
+export const COMMA_TABLE_MIN = 3;
+
 /** L'étiquette d'un bloc de code : un mot court, sinon aucune langue. */
 const LANGUAGE_LABEL = /^[\w+#.-]{1,20}$/;
 
@@ -86,7 +93,10 @@ function parseJsonContainer(source: string): { value: unknown } | null {
   }
 }
 
-/** Un tableau : au moins deux lignes de même largeur (≥ 2 colonnes). */
+/**
+ * Un tableau : au moins deux lignes de même largeur (≥ 2 colonnes) ; à la
+ * virgule, `COMMA_TABLE_MIN` lignes et colonnes.
+ */
 function parseTable(
   source: string,
 ): Extract<NatureBlock, { nature: "csv" }> | null {
@@ -96,7 +106,8 @@ function parseTable(
     const width = (lines.at(0) ?? "")
       .replace(/\r$/, "")
       .split(separator).length;
-    if (width < 2) continue;
+    const least = separator === "," ? COMMA_TABLE_MIN : 2;
+    if (width < least || lines.length < least) continue;
     const table: string[][] = [];
     let regular = true;
     for (const line of lines) {

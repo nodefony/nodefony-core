@@ -57,6 +57,9 @@ import {
   detectBlocks,
 } from "../frontend/src/kit/detect";
 import { messageLinks } from "../frontend/src/kit/messageLinks";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { FilePreview } from "../frontend/src/kit/FilePreview";
 import {
   canonicalLanguage,
   highlightCode,
@@ -1166,7 +1169,7 @@ describe("demo — la nature de chaque bloc d'un message (règle pure)", () => {
   });
 
   it("tableau : trois séparateurs, largeur égale exigée, lignes bornées et comptées", () => {
-    for (const sep of [",", ";", "\t"]) {
+    for (const sep of [";", "\t"]) {
       const block = detectBlocks(`a${sep}b\n1${sep}2\n3${sep}4`)[0];
       expect(block).toMatchObject({
         nature: "csv",
@@ -1179,11 +1182,25 @@ describe("demo — la nature de chaque bloc d'un message (règle pure)", () => {
         total: 2,
       });
     }
+    // À la virgule : trois lignes de trois colonnes au moins.
+    expect(detectBlocks("a,b,c\n1,2,3\n4,5,6")[0]).toMatchObject({
+      nature: "csv",
+      separator: ",",
+      header: ["a", "b", "c"],
+      total: 2,
+    });
+    // La prose porte des virgules : deux lignes, ou deux colonnes, restent du texte.
+    expect(detectBlocks("Bonjour, ça va\nOui, merci")[0]?.nature).toBe("text");
+    expect(detectBlocks("a,b\n1,2\n3,4")[0]?.nature).toBe("text");
+    expect(detectBlocks("a,b,c\n1,2,3")[0]?.nature).toBe("text");
     // Largeur inégale : ce n'est pas un tableau.
-    expect(detectBlocks("a,b\n1,2,3")[0]?.nature).toBe("text");
+    expect(detectBlocks("a;b\n1;2;3")[0]?.nature).toBe("text");
     // Une seule ligne : pas un tableau.
-    expect(detectBlocks("a,b")[0]?.nature).toBe("text");
-    const many = ["x,y", ...Array.from({ length: 500 }, (_, i) => `${i},${i}`)];
+    expect(detectBlocks("a;b")[0]?.nature).toBe("text");
+    const many = [
+      "x,y,z",
+      ...Array.from({ length: 500 }, (_, i) => `${i},${i},${i}`),
+    ];
     const big = detectBlocks(many.join("\n"))[0];
     expect(big?.nature === "csv" && big.rows.length).toBe(CSV_MAX_ROWS);
     expect(big?.nature === "csv" && big.total).toBe(500);
@@ -2838,5 +2855,34 @@ describe("Sonde — le service d'acquisition", () => {
     expect(card !== undefined && "path" in card ? card.path : null).toBe(
       "/demo/sensor",
     );
+  });
+});
+
+describe("FilePreview — une bulle n'a aucune action (D31)", () => {
+  // Une bulle de survol ne prend jamais le focus : un bouton ou un lien qu'elle
+  // porterait serait inatteignable au clavier (WCAG 2.1.1).
+  const file = {
+    name: "notes.txt",
+    size: 12,
+    kind: "text" as const,
+    lines: 3,
+    preview: "a\nb\nc",
+  };
+
+  it("`controls={false}` : l'aperçu, sans bouton ni lien", () => {
+    const still = renderToStaticMarkup(
+      createElement(FilePreview, { file, url: "/f/1", controls: false }),
+    );
+    expect(still).toContain("notes.txt");
+    expect(still).toContain("a\nb\nc");
+    expect(still).not.toMatch(/<(button|a)\b/);
+  });
+
+  it("par défaut : le dépli et le téléchargement", () => {
+    const full = renderToStaticMarkup(
+      createElement(FilePreview, { file, url: "/f/1" }),
+    );
+    expect(full).toMatch(/<button\b/);
+    expect(full).toMatch(/<a\b[^>]*download/);
   });
 });
