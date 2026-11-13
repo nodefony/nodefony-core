@@ -7354,6 +7354,67 @@
             "selfDocumented": true
           },
           {
+            "path": "scripts/grpc-unary-overhead.mjs",
+            "purpose": "Surcoût du pipeline Nodefony par appel gRPC UNAIRE, et débit de ses refus (#695, critères 8 et 27 ; ADR-0026 D4 et D5).",
+            "usage": [
+              "node .claude/skills/nodefony-load-test/scripts/grpc-unary-overhead.mjs",
+              "node .claude/skills/nodefony-load-test/scripts/grpc-unary-overhead.mjs --runs 9 --sizes 16"
+            ],
+            "options": [
+              {
+                "flag": "--runs",
+                "help": "passes comptées par camp et par charge utile (défaut 7, plus une de chauffe)"
+              },
+              {
+                "flag": "--sizes",
+                "help": "longueurs de la phrase envoyée, en octets, séparées par des virgules (défaut 16,1024)"
+              },
+              {
+                "flag": "--calls",
+                "help": "appels chronométrés par passe série (défaut 2000)"
+              },
+              {
+                "flag": "--seconds",
+                "help": "durée d'une passe sous charge (défaut 3)"
+              },
+              {
+                "flag": "--workers",
+                "help": "processus clients sous charge (défaut 2)"
+              },
+              {
+                "flag": "--concurrency",
+                "help": "appels en vol par processus client (défaut 32)"
+              },
+              {
+                "flag": "--out",
+                "help": "données JSON (défaut tmp/bench/grpc-unary-overhead.json)"
+              },
+              {
+                "flag": "--profile",
+                "help": "dossier : profil CPU de l'exemplaire production sous le seul camp `--camp`, à lire par profile-analyze.mjs"
+              },
+              {
+                "flag": "--camp",
+                "help": "camp profilé (défaut nodefony ; refus-grpc, refus-json)"
+              },
+              {
+                "flag": "--profile-seconds",
+                "help": "durée de charge du profil (défaut 25, ≥ 20)"
+              },
+              {
+                "flag": "--serve-raw",
+                "help": "interne : démarre le serveur du camp adaptateur-nu"
+              },
+              {
+                "flag": "--load",
+                "help": "interne : processus client d'une passe sous charge"
+              }
+            ],
+            "env": [],
+            "output": "tableau série/charge par camp, surcoût du pipeline (8), rapport des refus (27) et verdict de séparation ; code 1 si une passe est invalide",
+            "selfDocumented": true
+          },
+          {
             "path": "scripts/grpc-unary-vs-open-streams.mjs",
             "purpose": "Banc #695 critère 34 (ADR-0026 D8) — le coût d'un appel gRPC UNAIRE ne doit pas dépendre du nombre de flux longs ouverts sur le serveur.",
             "usage": [

@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-11-12
+updated: 2026-11-13
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-load-test/SKILL.md"
 ---
@@ -33,7 +33,7 @@ source: ".claude/skills/nodefony-load-test/SKILL.md"
 | Description | 1023 / 1024 caractères |
 | Déclencheurs | 16 |
 | Ressources `references/` | 5 page(s) |
-| Scripts | 82 |
+| Scripts | 83 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -80,7 +80,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
 | `references/ab-perf-mono-prod.md` | Niveau 3 — A/B perf mono prod : détails | 148 |
-| `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 421 |
+| `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 422 |
 | `references/profil-compare.md` | Profil comparé — le coût d'une requête face à un témoin équitable | 88 |
 | `references/protocoles-bancs-charge.md` | Protocoles détaillés des bancs de charge les plus utilisés | 237 |
 | `references/reperes-empiriques.md` | Repères empiriques — pour situer un résultat | 30 |
@@ -122,6 +122,7 @@ script, donc toujours à jour après régénération.
 | `scripts/dev-restart-cycle.mjs` | dev-restart-cycle.mjs — simule un développeur sous le DevSupervisor : modifie un fichier backend, chronomètre jusqu'à la remise en écoute, N cycles, médiane. Le fichier est RESTAURÉ à la fin. Prérequis : serveur de dev lancé par start.sh (journal /tmp/nodefony-server.log). Usage : node dev-restart-cycle.mjs <fichier-backend> [cycles=5] | — | `NF_DEV_CYCLE_PORT` |
 | `scripts/graceful-shutdown-e2e.mjs` | Banc e2e du GRACEFUL SHUTDOWN (@nodefony/http, trous 1+3 revue 0.7) — sans navigateur. | `--detach` `--wait` | `H2C_URL` `HTTP_SLOW_URL` `PORT` `WS_URL` |
 | `scripts/grpc-stream-throughput.mjs` | Débit d'un flux serveur gRPC comparé à la socket binaire (#695, critère 22 ; ADR-0026 D4 « plancher par message de l'adaptateur »). | `--runs` `--sizes` `--out` `--profile` `--profile-seconds` `--serve-raw` | — |
+| `scripts/grpc-unary-overhead.mjs` | Surcoût du pipeline Nodefony par appel gRPC UNAIRE, et débit de ses refus (#695, critères 8 et 27 ; ADR-0026 D4 et D5). | `--runs` `--sizes` `--calls` `--seconds` `--workers` `--concurrency` `--out` `--profile` `--camp` `--profile-seconds` `--serve-raw` `--load` | — |
 | `scripts/grpc-unary-vs-open-streams.mjs` | Banc #695 critère 34 (ADR-0026 D8) — le coût d'un appel gRPC UNAIRE ne doit pas dépendre du nombre de flux longs ouverts sur le serveur. | `--detach` `--no-watch` `--wait` | `CALLS` `H2C_URL` `OUT` `PASSES` `SCOPES_URL` `STEPS` |
 | `scripts/h2c-vs-h1-bare.mjs` | Témoin du banc h2c-vs-h1.sh : Node NU, sans framework — le coût de HTTP/2 lui-même. HTTP/1.1 et h2c sur deux ports, même réponse triviale. | — | — |
 | `scripts/h2c-vs-h1.sh` | HTTP/1.1 contre HTTP/2 en clair (h2c) — « h2c est-il plus rapide derrière mon proxy ? », et surtout : le surcoût de h2c est-il celui de HTTP/2, ou le nôtre ? | `--h1` `--http2-prior-knowledge` | `BARE` `DUR` `PAIRS` `PROBE` `ROUTE` |
@@ -200,6 +201,7 @@ node .claude/skills/nodefony-load-test/scripts/debug-runtime-e2e.mjs
 Usage : node dev-restart-cycle.mjs <fichier-backend> [cycles=5]
 node .claude/skills/nodefony-load-test/scripts/graceful-shutdown-e2e.mjs
 node .claude/skills/nodefony-load-test/scripts/grpc-stream-throughput.mjs
+node .claude/skills/nodefony-load-test/scripts/grpc-unary-overhead.mjs
 node .claude/skills/nodefony-load-test/scripts/grpc-unary-vs-open-streams.mjs
 Usage : node h2c-vs-h1-bare.mjs [port HTTP/1.1=5161] [port h2c=5163] [plain|headers=plain]
 node .claude/skills/nodefony-load-test/scripts/header-snapshot.mjs avant
@@ -293,6 +295,30 @@ node .claude/skills/nodefony-load-test/scripts/grpc-stream-throughput.mjs --runs
 | `--profile` | dossier : profil CPU du serveur sous le seul camp grpc (première charge de --sizes), à lire par profile-analyze.mjs |
 | `--profile-seconds` | durée de charge du profil (défaut 25, ≥ 20) |
 | `--serve-raw` | interne : démarre le serveur `node:http2` des camps h2-nu et h2-écriture |
+
+#### `scripts/grpc-unary-overhead.mjs`
+
+Produit : tableau série/charge par camp, surcoût du pipeline (8), rapport des refus (27) et verdict de séparation ; code 1 si une passe est invalide
+
+```bash
+node .claude/skills/nodefony-load-test/scripts/grpc-unary-overhead.mjs
+node .claude/skills/nodefony-load-test/scripts/grpc-unary-overhead.mjs --runs 9 --sizes 16
+```
+
+| Option | Rôle |
+| --- | --- |
+| `--runs` | passes comptées par camp et par charge utile (défaut 7, plus une de chauffe) |
+| `--sizes` | longueurs de la phrase envoyée, en octets, séparées par des virgules (défaut 16,1024) |
+| `--calls` | appels chronométrés par passe série (défaut 2000) |
+| `--seconds` | durée d'une passe sous charge (défaut 3) |
+| `--workers` | processus clients sous charge (défaut 2) |
+| `--concurrency` | appels en vol par processus client (défaut 32) |
+| `--out` | données JSON (défaut tmp/bench/grpc-unary-overhead.json) |
+| `--profile` | dossier : profil CPU de l'exemplaire production sous le seul camp `--camp`, à lire par profile-analyze.mjs |
+| `--camp` | camp profilé (défaut nodefony ; refus-grpc, refus-json) |
+| `--profile-seconds` | durée de charge du profil (défaut 25, ≥ 20) |
+| `--serve-raw` | interne : démarre le serveur du camp adaptateur-nu |
+| `--load` | interne : processus client d'une passe sous charge |
 
 #### `scripts/server-boot-bench.mjs`
 
