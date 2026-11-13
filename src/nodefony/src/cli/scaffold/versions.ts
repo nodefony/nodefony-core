@@ -78,8 +78,8 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   oxlint: "^1.93.0",
   // Les règles TYPÉES d'oxlint (`typeAware` du gabarit `.oxlintrc.json`) :
   // sans ce paquet, `npm run lint` sort en erreur « Failed to find tsgolint ».
-  "oxlint-tsgolint": "^7.0.2006",
-  prettier: "^3.10.0",
+  "oxlint-tsgolint": "^7.0.2007",
+  prettier: "^3.10.1",
   rolldown: "^1.3.2",
   typescript: "^6.0.3",
   vitest: "^5.1.0",
@@ -100,7 +100,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   three: "^0.187.0",
   "@types/three": "^0.187.0",
   vue: "^3.5.45",
-  "@vitejs/plugin-vue": "^6.0.10",
+  "@vitejs/plugin-vue": "^6.0.11",
   svelte: "^5.57.3",
   "@sveltejs/vite-plugin-svelte": "^7.3.1",
   // Contrôle de l'INTÉRIEUR des composants, enchaîné par le script `typecheck`
@@ -117,12 +117,12 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // Un caret laisserait une application générée tirer la mineure suivante
   // avant qu'analogjs l'ait suivie. Monter les deux ENSEMBLE, et prouver par
   // `frontend-families.test.ts` sur le serveur de développement.
-  "@angular/core": "~22.2.5",
-  "@angular/common": "~22.2.5",
-  "@angular/platform-browser": "~22.2.5",
+  "@angular/core": "~22.2.6",
+  "@angular/common": "~22.2.6",
+  "@angular/platform-browser": "~22.2.6",
   "@analogjs/vite-plugin-angular": "^2.9.7",
-  "@angular/build": "~22.2.6",
-  "@angular/compiler-cli": "~22.2.5",
+  "@angular/build": "~22.2.7",
+  "@angular/compiler-cli": "~22.2.6",
 };
 
 /**

@@ -35,7 +35,7 @@
     "@nodefony/frontend": "*",
     "@nodefony/http": "*",
     "@types/node": "26.6.6",
-    "@vitejs/plugin-vue": "^6.0.10",
+    "@vitejs/plugin-vue": "^6.0.11",
     "nodefony": "*",
     "vue-tsc": "3.3.14"
   },
