@@ -783,3 +783,12 @@ timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `is
 - **Corps** = `IWebhookPayload<T>` (`contracts/IWebhookPayload.ts`, exporté `export type`) : `id` = `webhook-id` (stable entre réessais), `timestamp` = heure de la TENTATIVE (l'heure de l'événement est dans `data.ts`), `type` = action d'audit. `#process` le construit sous ce type.
 - **Sans `tenantId`** = périmètre PLATEFORME : reçoit tout, y compris ce qu'une version ultérieure rattachera à un locataire (W2). Noms de l'audit RÉSERVÉS pour l'émission applicative à venir (W3).
 - **Cause de la mort d'une identité realtime** : `FirewallRealtimeAuthenticator.#buildBearerStatus` rend `TokenStatus` (store interrogé AVANT `exp`, puis `tokenStatusOf` — révoqué l'emporte) ; `UserRealtimeToken.status()` le relaie (session : dérivé de `isValid`, `false` = `revoked`). `isValid` = `status === "active"` (`toValidity`). `TokenStatus` vit au CŒUR, réexporté par `contracts/ITokenStore.ts`.
+
+## Requêtes sortantes — `fetchPublic` (SSRF)
+
+- **Primitive unique** `net/fetchPublic.ts#fetchPublic(url, options)` → `{ status, headers, body: Uint8Array, truncated, url, redirects }`. Jamais `fetch(urlUtilisateur)`. La règle de CIBLE reste `ssrfGuard.ts#assertPublicUrl` (appelée à CHAQUE saut, jamais recopiée).
+- Connexion ÉPINGLÉE sur l'IP vérifiée (`lookup` ne propose que les IP jugées) ; un hôte déjà jugé dans l'appel n'est PAS re-résolu (même hôte en redirection = mêmes IP). `vettedAddresses` = IP déjà jugées par l'appelant pour l'adresse de DÉPART (webhooks) ; vide = ignorée.
+- `maxRedirects` défaut 0 (un 3xx est rendu tel quel) ; `Location` relative résolue, chaque cible revérifiée (`SsrfError`) ; `cookie`/`authorization`/`proxy-authorization`/`host` retirés à chaque saut ; 303 (et 301/302 sur POST) → GET sans corps.
+- `timeoutMs` = délai TOTAL (DNS + sauts + lecture), un seul minuteur ; `maxBytes` coupe la lecture ET détruit la connexion ; `accept-encoding: identity`, corps jamais décodé (pas de bombe).
+- Erreurs : `SsrfError` (422, cible interdite, redirection comprise) ; `FetchPublicError` (`reason` = `timeout` 504 · `too-many-redirects` · `network`, 502). Un 3xx/4xx/5xx n'est PAS une erreur : c'est `status`.
+- `webhookDelivery.ts#deliverWebhook` passe par elle (POST, `maxBytes` 2048, sans redirection). Banc d'attaque : `tests/unit/fetchPublic.attack.test.ts`.

@@ -6,5 +6,7 @@ export { UnverifiableTokenError } from "./UnverifiableTokenError";
 export { InvalidTargetError } from "./InvalidTargetError";
 export { CsrfError } from "./CsrfError";
 export { SsrfError } from "./SsrfError";
+export { FetchPublicError } from "./FetchPublicError";
+export type { FetchPublicFailure } from "./FetchPublicError";
 export { WebAuthnError } from "./WebAuthnError";
 export { InsecureTransportError } from "./InsecureTransportError";

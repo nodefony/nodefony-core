@@ -1,20 +1,10 @@
-import { request as httpsRequest } from "node:https";
-import { request as httpRequest } from "node:http";
-import { isIP, type LookupFunction } from "node:net";
-import { Buffer } from "node:buffer";
+import { fetchPublic } from "../net/fetchPublic";
+import { FetchPublicError } from "../../errors/FetchPublicError";
 
 /**
- * Émetteur HTTP d'une livraison webhook — `node:http(s)` natif (0 dép). Trois
- * propriétés de sécurité par rapport à `fetch` :
- *
- * 1. **Pas de suivi de redirection** : `node:http(s)` ne suit JAMAIS les 3xx
- *    (contrairement à `fetch`) → un `302 → 169.254.169.254` ne contourne pas le
- *    contrôle SSRF ; le 3xx est rendu tel quel (échec de config).
- * 2. **Pin de l'IP validée** (anti DNS-rebinding) : `lookup` force la connexion TCP
- *    vers l'IP déjà contrôlée par `assertPublicUrl`, tout en gardant le hostname
- *    pour le SNI/TLS et l'en-tête `Host` → pas de re-résolution entre contrôle et
- *    connexion.
- * 3. **Timeout dur** : la requête est détruite au-delà du délai.
+ * Émetteur HTTP d'une livraison webhook — délègue à {@link fetchPublic}, la
+ * primitive unique des requêtes sortantes : pas de suivi de redirection, IP
+ * vérifiée épinglée (anti DNS-rebinding), délai total, lecture bornée.
  */
 
 /** Taille max du corps de réponse capturé (observabilité, anti-mémoire). */
@@ -46,98 +36,48 @@ export interface IDeliveryOptions {
 }
 
 /**
- * POST le corps signé vers l'URL, en pinnant l'IP validée et sans suivre les
- * redirections. Ne lève jamais : tout échec est encodé dans {@link IDeliveryResult}.
+ * POST le corps signé vers l'URL, par {@link fetchPublic} : IP vérifiée épinglée,
+ * aucune redirection suivie, délai TOTAL (un destinataire qui goutte un octet
+ * ne retient pas la livraison) et lecture du corps coupée à
+ * {@link RESPONSE_BODY_CAP} (connexion détruite, pas drainée). Ne lève jamais :
+ * tout échec est encodé dans {@link IDeliveryResult}.
  */
-export function deliverWebhook(
+export async function deliverWebhook(
   url: string,
   body: string,
   headers: Record<string, string>,
   opts: IDeliveryOptions,
 ): Promise<IDeliveryResult> {
-  let u: URL;
   try {
-    u = new URL(url);
-  } catch {
-    return Promise.resolve({ ok: false, status: null, error: "URL invalide" });
-  }
-  const isHttps = u.protocol === "https:";
-  if (!isHttps && !(u.protocol === "http:" && opts.allowHttp)) {
-    return Promise.resolve({
+    const vetted = opts.addresses !== undefined && opts.addresses.length > 0;
+    const r = await fetchPublic(url, {
+      method: "POST",
+      headers,
+      body,
+      maxBytes: RESPONSE_BODY_CAP,
+      timeoutMs: opts.timeoutMs,
+      allowHttp: opts.allowHttp === true,
+      // Sans IP vérifiée, l'appelant a levé la garde (dev) : seul le protocole
+      // et les identifiants restent jugés.
+      allowPrivate: !vetted,
+      ...(vetted ? { vettedAddresses: opts.addresses } : {}),
+    });
+    const ok = r.status >= 200 && r.status < 300;
+    const text = r.body.length > 0 ? new TextDecoder().decode(r.body) : "";
+    return {
+      ok,
+      status: r.status,
+      error: ok ? null : `HTTP ${r.status}`,
+      responseBody: text.length > 0 ? text : null,
+    };
+  } catch (e) {
+    if (e instanceof FetchPublicError && e.reason === "timeout") {
+      return { ok: false, status: null, error: "timeout" };
+    }
+    return {
       ok: false,
       status: null,
-      error: `protocole ${u.protocol} non autorisé`,
-    });
-  }
-
-  const pinned =
-    opts.addresses && opts.addresses.length > 0 ? opts.addresses[0] : null;
-  const lookup: LookupFunction | undefined = pinned
-    ? (_hostname, options, callback) => {
-        const family = isIP(pinned) === 6 ? 6 : 4;
-        if ((options as { all?: boolean }).all) {
-          callback(null, [{ address: pinned, family }], family);
-        } else {
-          callback(null, pinned, family);
-        }
-      }
-    : undefined;
-
-  const payload = Buffer.from(body, "utf8");
-  const requestFn = isHttps ? httpsRequest : httpRequest;
-
-  return new Promise<IDeliveryResult>((resolve) => {
-    let settled = false;
-    const done = (r: IDeliveryResult): void => {
-      if (!settled) {
-        settled = true;
-        resolve(r);
-      }
+      error: e instanceof Error ? e.message : String(e),
     };
-    const req = requestFn(
-      url,
-      {
-        method: "POST",
-        headers: { ...headers, "content-length": String(payload.length) },
-        lookup,
-      },
-      (res) => {
-        const status = res.statusCode ?? 0;
-        const ok = status >= 200 && status < 300;
-        // Capture bornée du corps (debug) — le 'data' listener draine aussi le
-        // flux (pas de res.resume() : on ne suit jamais les 3xx, node non plus).
-        let resBody = "";
-        res.on("data", (c: Buffer) => {
-          if (resBody.length < RESPONSE_BODY_CAP) {
-            resBody += c.toString("utf8");
-            if (resBody.length > RESPONSE_BODY_CAP) {
-              resBody = resBody.slice(0, RESPONSE_BODY_CAP);
-            }
-          }
-        });
-        res.on("end", () =>
-          done({
-            ok,
-            status,
-            error: ok ? null : `HTTP ${status}`,
-            responseBody: resBody.length > 0 ? resBody : null,
-          }),
-        );
-        res.on("error", (e) =>
-          done({
-            ok: false,
-            status,
-            error: e.message,
-            responseBody: resBody.length > 0 ? resBody : null,
-          }),
-        );
-      },
-    );
-    req.setTimeout(opts.timeoutMs, () => req.destroy(new Error("timeout")));
-    req.on("error", (e: Error) =>
-      done({ ok: false, status: null, error: e.message }),
-    );
-    req.write(payload);
-    req.end();
-  });
+  }
 }

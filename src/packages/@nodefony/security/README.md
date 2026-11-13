@@ -183,6 +183,25 @@ Un **secret n'entre jamais** dans un événement — seule sa _présence_ est tr
 
 - `AuthenticationError` → `401` (non authentifié).
 - `AccessDeniedError` → `403` (authentifié mais non autorisé).
+- `SsrfError` → `422` (adresse sortante interdite, redirection comprise).
+- `FetchPublicError` → `504` (délai total) ou `502` (trop de redirections, réseau).
+
+## Requêtes sortantes sûres
+
+`fetchPublic(url, options)` lit une adresse fournie par un humain sans atteindre le réseau interne : IP vérifiée
+puis épinglée à chaque saut, redirections comptées et revérifiées (`maxRedirects`, 0 par défaut), délai TOTAL
+(`timeoutMs`), corps coupé à `maxBytes` et non décodé, ni cookie ni `Authorization`. Les webhooks passent par elle.
+
+```ts
+import { fetchPublic } from "@nodefony/security";
+
+const page = await fetchPublic(url, {
+  maxRedirects: 3,
+  maxBytes: 262_144,
+  timeoutMs: 4000,
+});
+console.log(page.status, new TextDecoder().decode(page.body));
+```
 
 ## Licence
 

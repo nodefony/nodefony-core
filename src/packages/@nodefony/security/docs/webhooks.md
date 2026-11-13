@@ -582,22 +582,30 @@ appliqué **deux fois** : à l'enregistrement, et **à nouveau juste avant chaqu
 | IPv4-mapped IPv6 sous toutes ses notations          | `::ffff:7f00:1`, `0:0:0:0:0:ffff:127.0.0.1` | rabattu nativement sur les règles IPv4 par `BlockList` (`isBlockedAddress()`, `ssrfGuard.ts#isBlockedAddress`) |
 | IP encodée en dword/hex/octal dans le nom d'hôte    | `http://2130706433/`                        | on passe l'IP **résolue** à `isBlockedAddress()`, jamais la chaîne d'hôte (`ssrfGuard.ts#isBlockedAddress`)    |
 | Nom DNS public qui **résout** vers du privé         | `hook.evil.com → 10.0.0.5`                  | toutes les IP résolues sont contrôlées, une seule interne = refus                                              |
-| **DNS rebinding** entre le contrôle et la connexion | —                                           | l'IP validée est **pinnée** à la connexion TCP (`webhookDelivery.ts#deliverWebhook`)                           |
-| **Redirection** `302 → 169.254.169.254`             | —                                           | `node:http(s)` ne suit **jamais** les 3xx ; le 3xx est rendu tel quel                                          |
+| **DNS rebinding** entre le contrôle et la connexion | —                                           | l'IP validée est **pinnée** à la connexion TCP (`fetchPublic.ts#fetchPublic`)                                  |
+| **Redirection** `302 → 169.254.169.254`             | —                                           | la livraison ne suit **aucune** redirection (`maxRedirects` à 0) ; le 3xx est rendu tel quel                   |
+| **Goutte-à-goutte** : un octet toutes les 3 s       | —                                           | délai **total** de la livraison, pas seulement d'inactivité (`fetchPublic.ts#IFetchPublicOptions.timeoutMs`)   |
+| **Corps de réponse infini**                         | —                                           | lecture coupée à 2 Kio et connexion détruite (`fetchPublic.ts#IFetchPublicOptions.maxBytes`)                   |
 
 ### Les deux subtilités qui font la différence
 
 **Le pin d'IP.** Valider puis se reconnecter, c'est laisser une fenêtre : le DNS peut répondre une IP
 publique au contrôle et une IP privée 50 ms plus tard. `deliverWebhook()` (`webhookDelivery.ts#deliverWebhook`)
-installe un `lookup` qui force la connexion vers l'IP **déjà validée**, tout en conservant le nom
+appelle `fetchPublic()` (`fetchPublic.ts#fetchPublic`), qui installe un `lookup` qui force la connexion vers l'IP **déjà validée**, tout en conservant le nom
 d'hôte pour le SNI/TLS et l'en-tête `Host`. Le second contrôle SSRF avant livraison —
 `resolveTarget()` (`WebhookDispatcher.ts#IWebhookDispatcherDeps.resolveTarget`) — sert exactement à produire ces adresses ; s'il échoue, la livraison est
 **abandonnée sans retry** (une cible devenue interne ne redeviendra pas légitime au réessai).
 
 **Le non-suivi des redirections.** `fetch()` suit les 3xx par défaut — ce qui annulerait tout le
-travail précédent. Le choix de `node:http(s)` natif n'est donc pas seulement une économie de
-dépendance : c'est une **propriété de sécurité**, couverte par un test dédié
-(`webhookDelivery.test.ts`, « 302 vers 169.254.169.254 → rendu tel quel, JAMAIS suivi »).
+travail précédent. `fetchPublic()` n'en suit aucune tant que `maxRedirects` reste à 0 (la livraison ne le change
+jamais), et quand un appelant en autorise, chaque cible est revérifiée comme la première. Couvert par
+`webhookDelivery.test.ts` (« 302 vers 169.254.169.254 → rendu tel quel, JAMAIS suivi ») et
+`fetchPublic.attack.test.ts`.
+
+**La même brique pour tout appel sortant.** `fetchPublic()` est exportée : tout code qui lit une adresse venue d'un
+humain (aperçu de lien, agent, RAG) l'appelle au lieu de `fetch()` — IP vérifiée puis épinglée à chaque saut,
+délai total, corps borné et non décodé. Refus de cible : `SsrfError` (422) ; site muet ou trop lent :
+`FetchPublicError` (`reason`).
 
 > [!CAUTION]
 > `assertPublicUrl()` fait un `Fail-closed` sur l'inconnu : une adresse syntaxiquement invalide est
@@ -1016,7 +1024,7 @@ secret, et sait **simuler des pannes** pour observer retries et auto-désactivat
 | Le récepteur voit deux fois le même événement                                  | Un retry rejoue le **même** `webhook-id`                                                                                             | Dédupliquer par `webhook-id` côté récepteur                            |
 | Endpoint passé `enabled: false` tout seul                                      | 20 échecs consécutifs → auto-désactivation (`webhooks.ts#WebhookService.rotateSecret`)                                               | Réparer la destination, puis `PATCH … {"enabled":true}`                |
 | Livraisons « abandonnées » dans les logs                                       | File pleine (`maxQueue`) — best-effort assumé                                                                                        | Augmenter `maxQueue`/`maxConcurrent`, ou réduire le volume souscrit    |
-| Un `302` vers l'interne n'est pas suivi                                        | **Voulu** : `node:http(s)` ne suit jamais les 3xx                                                                                    | Rien à corriger — configurer l'URL finale côté destinataire            |
+| Un `302` vers l'interne n'est pas suivi                                        | **Voulu** : la livraison ne suit aucune redirection                                                                                  | Rien à corriger — configurer l'URL finale côté destinataire            |
 | Le secret a été perdu                                                          | Il n'est montré qu'à la création/rotation                                                                                            | `POST …/reveal` (audité) ou rotation + redéploiement chez le tiers     |
 | Après un redémarrage, plus aucun endpoint                                      | `store: "memory"` — registre volatil et par pod                                                                                      | Déclarer une infra durable (`store: "auto"` suffit alors)              |
 | Multi-pod : un endpoint créé ne livre pas tout de suite depuis les autres pods | Le snapshot est relu après `webhooks.snapshotTtlS` (30 s par défaut, `webhooks.ts#WebhookService.#touchSnapshot`), pas immédiatement | Attendre au plus `snapshotTtlS`, ou le baisser                         |

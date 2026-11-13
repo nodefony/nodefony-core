@@ -493,6 +493,11 @@ export type {
   IPublicUrlResult,
   DnsResolver,
 } from "./nodefony/src/net/ssrfGuard";
+export { fetchPublic } from "./nodefony/src/net/fetchPublic";
+export type {
+  IFetchPublicOptions,
+  IFetchPublicResult,
+} from "./nodefony/src/net/fetchPublic";
 export {
   deriveKey,
   encryptSecret,
@@ -535,8 +540,10 @@ export {
   InvalidTargetError,
   CsrfError,
   SsrfError,
+  FetchPublicError,
   InsecureTransportError,
 } from "./nodefony/errors";
+export type { FetchPublicFailure } from "./nodefony/errors";
 
 // ─── Contrats ────────────────────────────────────────────────────────────────
 export { VoterVote } from "./nodefony/contracts";

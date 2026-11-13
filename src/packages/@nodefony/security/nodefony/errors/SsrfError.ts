@@ -9,8 +9,20 @@ import { nodefonyError } from "nodefony";
  * d'un webhook invalide).
  */
 export class SsrfError extends nodefonyError {
-  constructor(message: string | Error = "URL sortante interdite (SSRF)") {
+  /**
+   * `forbidden` : la cible est interdite (protocole, identifiants, IP non
+   * publique). `unresolvable` : l'hôte n'a aucune adresse — rien d'interne n'est
+   * visé, le site est simplement injoignable ; un appelant qui rend ces deux cas
+   * à l'utilisateur les distingue par ce champ, jamais par le texte du message.
+   */
+  readonly reason: "forbidden" | "unresolvable";
+
+  constructor(
+    message: string | Error = "URL sortante interdite (SSRF)",
+    reason: "forbidden" | "unresolvable" = "forbidden",
+  ) {
     super(message, 422);
+    this.reason = reason;
   }
 }
 

@@ -161,10 +161,10 @@ export async function assertPublicUrl(
     try {
       addresses = await resolver(host);
     } catch {
-      throw new SsrfError(`hôte non résolvable : « ${host} »`);
+      throw new SsrfError(`hôte non résolvable : « ${host} »`, "unresolvable");
     }
     if (addresses.length === 0) {
-      throw new SsrfError(`hôte sans adresse : « ${host} »`);
+      throw new SsrfError(`hôte sans adresse : « ${host} »`, "unresolvable");
     }
   }
 
