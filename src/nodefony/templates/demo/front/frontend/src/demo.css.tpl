@@ -2214,11 +2214,7 @@ button.msg-chip[aria-pressed="true"] {
 }
 /* Actif : un contour intérieur — il ne déborde pas d'un bord collé. */
 .composer .md-editor:focus-within {
-  /* Un contour, pas une ombre intérieure : il se peint AU-DESSUS des enfants,
-     le bandeau des onglets ne le coupe pas. */
-  box-shadow: none;
-  outline: 2px solid var(--cyan);
-  outline-offset: -2px;
+  border-top-color: color-mix(in srgb, var(--fg) 45%, var(--border));
 }
 .composer .room-error {
   padding: 0 16px 10px;
@@ -2238,11 +2234,11 @@ button.msg-chip[aria-pressed="true"] {
   border: 1px solid var(--border);
   border-radius: 12px;
 }
-/* Actif : UN trait, épaissi à 2 px (la bordure plus un filet collé de la
-   même couleur) — jamais un halo écarté qui dessinerait un second cadre. */
+/* Actif : le trait s'ASSOMBRIT, sobrement — ni couleur criarde ni halo ; le
+   curseur clignotant dit le reste. Les contours francs restent à la
+   navigation au CLAVIER (`:focus-visible` des boutons et des onglets). */
 .md-editor:focus-within {
-  border-color: var(--cyan);
-  box-shadow: 0 0 0 1px var(--cyan);
+  border-color: color-mix(in srgb, var(--fg) 45%, var(--border));
 }
 .md-editor textarea {
   min-height: 48px;
