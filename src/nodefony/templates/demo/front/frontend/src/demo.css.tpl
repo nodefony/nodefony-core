@@ -1758,9 +1758,44 @@ a.ritem:hover .ritem-go {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  /* Pas de défilement interne : une zone qui défile devrait être atteignable
-     au clavier. L'historique chargé est borné (50), la page défile. */
-  min-height: 240px;
+}
+/* La liste DÉFILE dans sa propre hauteur, le champ d'écriture reste visible.
+   Pas d'`overscroll-behavior: contain` : arrivée au bout, la molette rend la
+   main à la page — aucune zone ne la retient. Ses messages se joignent au
+   clavier (↑/↓), ce qui la rend atteignable (WCAG 2.1.1). */
+.room-log-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.room-log {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+.room-unseen {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.35rem 0.9rem;
+  color: #fff;
+  background: var(--blue);
+  border: none;
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+.room-unseen:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 2px;
 }
 /* Enfant DIRECT : les listes d'un message (Markdown, archive) gardent leur flux. */
 .room-list > li {
@@ -2265,21 +2300,49 @@ button.msg-chip[aria-pressed="true"] {
   color: var(--fg);
   background: color-mix(in srgb, var(--link) 18%, var(--card));
 }
-.md-mode {
-  min-height: 36px;
-  padding: 0 12px;
+/* Écrire / Aperçu : des onglets en tête du champ, comme un commentaire de
+   forge. L'onglet choisi se fond dans le champ ; l'autre reste en retrait. */
+.md-tabs {
+  display: flex;
+  gap: 2px;
+  margin: -8px -8px 0;
+  padding: 6px 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.md-tabs [role="tab"] {
+  min-height: 32px;
+  padding: 0 14px;
+  margin-bottom: -1px;
   font: inherit;
   font-size: 0.85rem;
   color: var(--muted);
   background: none;
-  border: 1px solid var(--border);
-  border-radius: 999px;
+  border: 1px solid transparent;
+  border-radius: 8px 8px 0 0;
   cursor: pointer;
 }
-.md-mode[aria-pressed="true"] {
+.md-tabs [role="tab"]:hover {
   color: var(--fg);
-  border-color: var(--cyan);
-  background: color-mix(in srgb, var(--cyan) 12%, transparent);
+}
+.md-tabs [role="tab"][aria-selected="true"] {
+  color: var(--fg);
+  font-weight: 600;
+  background: var(--card);
+  border-color: var(--border);
+  border-bottom-color: var(--card);
+}
+.md-tabs [role="tab"]:focus-visible,
+.md-preview:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.md-write {
+  display: flex;
+  flex-direction: column;
+}
+.md-write[hidden],
+.md-preview[hidden] {
+  display: none;
 }
 .md-send {
   margin-left: 6px;
@@ -4715,15 +4778,24 @@ button.msg-chip[aria-pressed="true"] {
 }
 
 /* ── Le salon à trois colonnes : salons · flux · présents ──────────────── */
+/* Le salon a SA hauteur, comme une messagerie : la liste défile dedans,
+   le rail et le panneau des présents aussi s'ils débordent. */
 .room.room-layout {
   display: grid;
   grid-template-columns: 190px minmax(0, 1fr) 240px;
+  grid-template-rows: clamp(460px, 74dvh, 860px);
   align-items: stretch;
+}
+.room-layout > .room-rail,
+.room-layout > .people {
+  min-height: 0;
+  overflow-y: auto;
 }
 .room-main {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
 }
 .room-rail {
   display: flex;
@@ -4820,6 +4892,7 @@ button.msg-chip[aria-pressed="true"] {
 @media (max-width: 1020px) {
   .room.room-layout {
     grid-template-columns: minmax(0, 1fr) 220px;
+    grid-template-rows: auto clamp(440px, 72dvh, 820px);
   }
   .room-rail {
     grid-column: 1 / -1;
@@ -4838,6 +4911,10 @@ button.msg-chip[aria-pressed="true"] {
 @media (max-width: 760px) {
   .room.room-layout {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+  }
+  .room-main {
+    height: clamp(420px, 78dvh, 760px);
   }
 }
 

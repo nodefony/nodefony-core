@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -33,6 +34,12 @@ const TIME = new Intl.DateTimeFormat("fr-FR", {
  * le second ne répète pas l'en-tête (nom, heure).
  */
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
+
+/**
+ * À moins de ce nombre de pixels du bas, on « est en bas » : la liste y
+ * reste collée quand un message arrive.
+ */
+const STICK_PX = 48;
 
 /** Le message cité où l'on saute reste surligné ce temps-là. */
 const FLASH_MS = 1600;
@@ -82,6 +89,10 @@ export function ChatMessageList({
   onReply: (target: ChatReplyRef) => void;
 }) {
   const list = useRef<HTMLUListElement>(null);
+  const scroller = useRef<HTMLDivElement>(null);
+  // Collé au bas tant qu'on y est : lu au défilement, jamais au rendu.
+  const atBottom = useRef(true);
+  const [unseen, setUnseen] = useState(0);
   const [activeId, setActiveId] = useState<string | null>(null);
   // Le message cité où l'on vient de sauter : surligné un instant.
   const [flashId, setFlashId] = useState<string | null>(null);
@@ -99,6 +110,58 @@ export function ChatMessageList({
     activeId !== null && loaded.has(activeId)
       ? activeId
       : (messages.at(-1)?.id ?? null);
+
+  // Tout ce qui fait GRANDIR la liste — un message, une réaction, un aperçu,
+  // une image chargée — la garde collée au bas si l'on y était.
+  useEffect(() => {
+    const el = scroller.current;
+    const inner = list.current;
+    if (el === null || inner === null) return;
+    const observer = new ResizeObserver(() => {
+      if (atBottom.current) el.scrollTop = el.scrollHeight;
+    });
+    observer.observe(inner);
+    return () => observer.disconnect();
+  }, []);
+
+  // Un salon qui s'ouvre se lit depuis son dernier message.
+  useLayoutEffect(() => {
+    atBottom.current = true;
+    setUnseen(0);
+  }, [roomId]);
+
+  // Un message neuf : collé au bas si l'on y était — ou si c'est le sien ;
+  // sinon compté, et la pastille le dit. Personne n'est tiré vers le bas
+  // en pleine lecture de l'historique.
+  const last = messages.at(-1);
+  const lastId = last?.id ?? null;
+  const lastIsMine = last !== undefined && me !== null && last.author === me;
+  useLayoutEffect(() => {
+    const el = scroller.current;
+    if (el === null || lastId === null) return;
+    if (atBottom.current || lastIsMine) {
+      atBottom.current = true;
+      el.scrollTop = el.scrollHeight;
+      setUnseen(0);
+    } else setUnseen((count) => count + 1);
+  }, [lastId, lastIsMine]);
+
+  const onScroll = () => {
+    const el = scroller.current;
+    if (el === null) return;
+    atBottom.current =
+      el.scrollHeight - el.scrollTop - el.clientHeight < STICK_PX;
+    if (atBottom.current) setUnseen(0);
+  };
+
+  const toBottom = () => {
+    const el = scroller.current;
+    if (el === null) return;
+    atBottom.current = true;
+    setUnseen(0);
+    const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollTo({ top: el.scrollHeight, behavior: calm ? "auto" : "smooth" });
+  };
 
   /** Donne le focus à un message de la liste. */
   const focus = (id: string) => {
@@ -122,45 +185,60 @@ export function ChatMessageList({
   };
 
   return (
-    /* `role="log"` sur un conteneur : un `<ul>` garde son rôle de liste.
-       Les nouveaux messages sont annoncés, sans voler le focus. */
-    <div role="log" aria-label="Messages du salon">
-      <ul ref={list} className="room-list">
-        {messages.length === 0 && (
-          <li className="room-empty">Aucun message pour l'instant.</li>
-        )}
-        {messages.map((message, index) => (
-          <ChatMessageItem
-            key={message.id}
-            continued={continues(
-              messages.find((_, i) => i === index - 1),
-              message,
-            )}
-            roomId={roomId}
-            message={message}
-            quote={
-              message.replyTo === undefined
-                ? null
-                : liveQuote(message.replyTo, loaded)
-            }
-            quoteLoaded={
-              message.replyTo !== undefined && loaded.has(message.replyTo.id)
-            }
-            me={me}
-            moderates={moderates}
-            active={message.id === active}
-            gestures={gestures}
-            onActivate={() => setActiveId(message.id)}
-            onMove={(where) => move(message.id, where)}
-            flash={message.id === flashId}
-            onJump={(id) => {
-              focus(id);
-              setFlashId(id);
-            }}
-            onReply={onReply}
-          />
-        ))}
-      </ul>
+    <div className="room-log-wrap">
+      {/* `role="log"` sur un conteneur : un `<ul>` garde son rôle de liste.
+        Les nouveaux messages sont annoncés, sans voler le focus. Il DÉFILE :
+        ses messages se joignent au clavier (↑/↓, le focus fait défiler). */}
+      <div
+        ref={scroller}
+        className="room-log"
+        role="log"
+        aria-label="Messages du salon"
+        onScroll={onScroll}
+      >
+        <ul ref={list} className="room-list">
+          {messages.length === 0 && (
+            <li className="room-empty">Aucun message pour l'instant.</li>
+          )}
+          {messages.map((message, index) => (
+            <ChatMessageItem
+              key={message.id}
+              continued={continues(
+                messages.find((_, i) => i === index - 1),
+                message,
+              )}
+              roomId={roomId}
+              message={message}
+              quote={
+                message.replyTo === undefined
+                  ? null
+                  : liveQuote(message.replyTo, loaded)
+              }
+              quoteLoaded={
+                message.replyTo !== undefined && loaded.has(message.replyTo.id)
+              }
+              me={me}
+              moderates={moderates}
+              active={message.id === active}
+              gestures={gestures}
+              onActivate={() => setActiveId(message.id)}
+              onMove={(where) => move(message.id, where)}
+              flash={message.id === flashId}
+              onJump={(id) => {
+                focus(id);
+                setFlashId(id);
+              }}
+              onReply={onReply}
+            />
+          ))}
+        </ul>
+      </div>
+      {unseen > 0 && (
+        <button type="button" className="room-unseen" onClick={toBottom}>
+          {unseen} nouveau{unseen > 1 ? "x" : ""} message{unseen > 1 ? "s" : ""}{" "}
+          <span aria-hidden="true">↓</span>
+        </button>
+      )}
     </div>
   );
 }

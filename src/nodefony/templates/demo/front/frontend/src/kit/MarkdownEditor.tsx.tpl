@@ -26,7 +26,7 @@ import { MessageBody } from "./MessageBody";
 const MENTION_LIMIT = 8;
 
 /** Les boutons de la barre d'outils, parcourus aux flèches (motif « Toolbar » de l'APG). */
-const BAR_ITEMS = ".md-tool, .md-mode";
+const BAR_ITEMS = ".md-tool";
 
 /** Un geste d'édition : rend le texte et la sélection à reposer. */
 type Edit = (
@@ -160,6 +160,7 @@ export function MarkdownEditor({
 }) {
   const inputId = useId();
   const listId = useId();
+  const tabsId = useId();
   const field = useRef<HTMLTextAreaElement>(null);
   const bar = useRef<HTMLDivElement>(null);
   const [previewing, setPreviewing] = useState(false);
@@ -254,6 +255,23 @@ export function MarkdownEditor({
     onChange(next.value);
   };
 
+  // Écrire / Aperçu : deux onglets (motif Tabs de l'APG, activation
+  // automatique) — ←/→ passent de l'un à l'autre, un seul arrêt de tabulation.
+  const writeTab = useRef<HTMLButtonElement>(null);
+  const previewTab = useRef<HTMLButtonElement>(null);
+  const showPreview = (next: boolean) => {
+    // Le focus RESTE sur l'onglet (APG) : le champ garde sa sélection.
+    if (next !== previewing) setPreviewing(next);
+  };
+  const tabKey = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const next =
+      event.key === "Home" ? false : event.key === "End" ? true : !previewing;
+    showPreview(next);
+    (next ? previewTab : writeTab).current?.focus();
+  };
+
   const accept = (name: string) => {
     if (mention !== null) apply((v) => applyMention(v, mention, name));
   };
@@ -334,81 +352,128 @@ export function MarkdownEditor({
   return (
     <div className="md-editor">
       {above}
-      <label htmlFor={inputId} className="sr-only">
-        {label}
-      </label>
-      <textarea
-        id={inputId}
-        ref={field}
-        rows={2}
-        value={value}
-        maxLength={maxLength}
-        autoComplete="off"
-        placeholder={placeholder}
-        hidden={previewing}
-        aria-autocomplete={mentions === undefined ? undefined : "list"}
-        aria-controls={open ? listId : undefined}
-        aria-activedescendant={open ? `${listId}-${chosen}` : undefined}
-        onPaste={onPaste}
-        onKeyDown={keyDown}
-        onSelect={(event) => track(event.currentTarget)}
-        onBlur={() => setCaret(null)}
-        onChange={(event) => {
-          track(event.target);
-          onChange(event.target.value);
-        }}
-      />
-      {open && (
-        <div
-          id={listId}
-          role="listbox"
-          className="md-mentions"
-          aria-label="Personnes à mentionner"
+      <div
+        className="md-tabs"
+        role="tablist"
+        // Hors de l'ordre de tabulation : ce sont ses onglets qu'on atteint.
+        tabIndex={-1}
+        aria-label={`Mode : ${label}`}
+        onKeyDown={tabKey}
+      >
+        <button
+          ref={writeTab}
+          type="button"
+          role="tab"
+          id={`${tabsId}-write`}
+          aria-controls={`${tabsId}-write-panel`}
+          aria-selected={!previewing}
+          tabIndex={previewing ? -1 : 0}
+          // Le nom porte le champ et COMMENCE par le libellé visible : deux
+          // éditeurs peuvent cohabiter (envoi, modification).
+          aria-label={`Écrire : ${label}`}
+          onClick={() => showPreview(false)}
         >
-          {options.map((name, index) => (
-            // Le clavier reste au CHAMP (`aria-activedescendant`) : un nom ne
-            // prend jamais le focus, d'où `tabIndex={-1}` et le `mousedown` retenu.
-            <div
-              key={name}
-              id={`${listId}-${index}`}
-              role="option"
-              tabIndex={-1}
-              aria-selected={index === chosen}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => accept(name)}
-              // Un nom focalisé autrement (lecteur d'écran) se valide aussi au clavier.
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  accept(name);
-                }
-              }}
-            >
-              @{name}
-            </div>
-          ))}
-        </div>
-      )}
-      {mentions !== undefined && (
-        <p className="sr-only" aria-live="polite">
-          {open
-            ? `${options.length} personne${options.length > 1 ? "s" : ""} à mentionner`
-            : ""}
-        </p>
-      )}
-      {previewing && (
-        <div
-          className="md-preview"
-          role="group"
+          Écrire
+        </button>
+        <button
+          ref={previewTab}
+          type="button"
+          role="tab"
+          id={`${tabsId}-preview`}
+          aria-controls={`${tabsId}-preview-panel`}
+          aria-selected={previewing}
+          tabIndex={previewing ? 0 : -1}
           aria-label={`Aperçu : ${label}`}
+          onClick={() => showPreview(true)}
         >
-          {value.trim() === "" ? (
+          Aperçu
+        </button>
+      </div>
+      <div
+        id={`${tabsId}-write-panel`}
+        role="tabpanel"
+        aria-labelledby={`${tabsId}-write`}
+        className="md-write"
+        hidden={previewing}
+      >
+        <label htmlFor={inputId} className="sr-only">
+          {label}
+        </label>
+        <textarea
+          id={inputId}
+          ref={field}
+          rows={2}
+          value={value}
+          maxLength={maxLength}
+          autoComplete="off"
+          placeholder={placeholder}
+          aria-autocomplete={mentions === undefined ? undefined : "list"}
+          aria-controls={open ? listId : undefined}
+          aria-activedescendant={open ? `${listId}-${chosen}` : undefined}
+          onPaste={onPaste}
+          onKeyDown={keyDown}
+          onSelect={(event) => track(event.currentTarget)}
+          onBlur={() => setCaret(null)}
+          onChange={(event) => {
+            track(event.target);
+            onChange(event.target.value);
+          }}
+        />
+        {open && (
+          <div
+            id={listId}
+            role="listbox"
+            className="md-mentions"
+            aria-label="Personnes à mentionner"
+          >
+            {options.map((name, index) => (
+              // Le clavier reste au CHAMP (`aria-activedescendant`) : un nom ne
+              // prend jamais le focus, d'où `tabIndex={-1}` et le `mousedown` retenu.
+              <div
+                key={name}
+                id={`${listId}-${index}`}
+                role="option"
+                tabIndex={-1}
+                aria-selected={index === chosen}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => accept(name)}
+                // Un nom focalisé autrement (lecteur d'écran) se valide aussi au clavier.
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    accept(name);
+                  }
+                }}
+              >
+                @{name}
+              </div>
+            ))}
+          </div>
+        )}
+        {mentions !== undefined && (
+          <p className="sr-only" aria-live="polite">
+            {open
+              ? `${options.length} personne${options.length > 1 ? "s" : ""} à mentionner`
+              : ""}
+          </p>
+        )}
+      </div>
+      <div
+        id={`${tabsId}-preview-panel`}
+        role="tabpanel"
+        aria-labelledby={`${tabsId}-preview`}
+        className="md-preview"
+        // Un panneau qui défile se joint au clavier (WCAG 2.1.1).
+        tabIndex={0}
+        hidden={!previewing}
+      >
+        {previewing &&
+          (value.trim() === "" ? (
             <p className="md-empty">Rien à prévisualiser.</p>
           ) : (
             <MessageBody text={value} />
-          )}
-        </div>
-      )}
+          ))}
+      </div>
       <div className="md-toolbar">
         <div
           ref={bar}
@@ -442,25 +507,6 @@ export function MarkdownEditor({
               </button>
             ))}
           </div>
-          <span className="md-spacer" />
-          <button
-            type="button"
-            className="md-mode"
-            // Le nom porte le champ : « Aperçu » seul se confond avec celui
-            // d'une pièce PDF voisine. Il COMMENCE par le libellé visible.
-            aria-label={`Aperçu : ${label}`}
-            aria-pressed={previewing}
-            onClick={() => {
-              if (previewing) {
-                // Retour au champ : le curseur revient à la fin du texte.
-                selection.current = { start: value.length, end: value.length };
-              }
-              setPreviewing((was) => !was);
-            }}
-          >
-            {/* Libellé FIXE : c'est `aria-pressed` qui dit l'état. */}
-            Aperçu
-          </button>
         </div>
         {actions}
       </div>
