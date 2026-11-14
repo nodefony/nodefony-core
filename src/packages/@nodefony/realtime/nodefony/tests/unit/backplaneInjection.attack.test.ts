@@ -84,6 +84,34 @@ describe("0.6 F83 (a) — hub : admission par canal à l'ingress backplane", () 
     expect(got).to.deep.equal([]);
   });
 
+  it("🔴 canal applicatif SERVI ici mais non diffusé : le message du bus est refusé ET compté, jamais livré", () => {
+    const hub = new RealtimeHub();
+    const bp = new PeerBackplane();
+    hub.setBackplane(bp);
+    const got: unknown[] = [];
+    hub.subscribe("lobby:1", (p) => got.push(p), factory);
+    bp.deliver({ channel: "lobby:1", payload: 1, originId: "x" });
+    expect(got).to.deep.equal([]);
+    expect(hub.probe().ingressRejectedTotal).to.equal(1);
+  });
+
+  it("🔴 préfixe diffusé très large (`n`) : un canal de PLATEFORME servi ici n'est jamais livré depuis le bus", () => {
+    const hub = new RealtimeHub();
+    const bp = new PeerBackplane();
+    hub.setBackplane(bp);
+    hub.markBroadcastChannel("n");
+    const got: unknown[] = [];
+    hub.subscribe("nodefony:socket:1000", (p) => got.push(p), factory);
+    hub.subscribe("news:1", (p) => got.push(p), factory);
+    bp.deliver({
+      channel: "nodefony:socket:1000",
+      payload: "x",
+      originId: "x",
+    });
+    bp.deliver({ channel: "news:1", payload: "ok", originId: "x" });
+    expect(got).to.deep.equal(["ok"]);
+  });
+
   it("les rejets d'ingress sont COMPTÉS dans la sonde (fail-loud, observable)", () => {
     const hub = new RealtimeHub();
     const bp = new PeerBackplane();

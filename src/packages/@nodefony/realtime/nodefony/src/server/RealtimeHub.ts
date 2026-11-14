@@ -404,11 +404,19 @@ function presenceKeyOf(member: RealtimeConnection): string | null {
   return member.account ? member.userId : null;
 }
 
+/** Ensemble vide partagé : la présence répartie sans canal servi n'alloue rien. */
+const EMPTY_PRESENCES: ReadonlySet<ChannelPresence> = new Set();
+
+/** Un ensemble d'abonnés à un seul membre, sans le tableau temporaire de `new Set([sink])`. */
+function singleSink(sink: ChannelSink): Set<ChannelSink> {
+  const sinks = new Set<ChannelSink>();
+  sinks.add(sink);
+  return sinks;
+}
+
 /**
  * Prochain instant où la présence d'un canal a quelque chose à faire : la fin de la fenêtre si des changements attendent, la prochaine fin de grâce — `Infinity` sinon. O(1).
  */
-const EMPTY_PRESENCES: ReadonlySet<ChannelPresence> = new Set();
-
 function presenceDue(presence: ChannelPresence): number {
   const deadline = presence.nextDeadline();
   return presence.dirty && presence.windowEnd < deadline
@@ -463,6 +471,14 @@ export class RealtimeHub {
    * (ADR-0025 P5). `null` tant qu'aucune n'attend — le cas de presque tous les pods.
    */
   #presenceLingering: Map<string, ChannelPresence> | null = null;
+  /** Publication remise aux fabriques de canal — UNE fermeture par hub, pas une par canal ouvert. */
+  readonly #publishFn = (ch: string, payload?: object): void => {
+    this.publish(ch, payload);
+  };
+  /** Rappel du tic de présence — UNE fermeture par hub, pas une par armement. */
+  readonly #presenceTickFn = (): void => {
+    this.#presenceTick();
+  };
   // Une politique déclare-t-elle la présence ? Sans elle, un message de présence
   // venu du bus est refusé sans rien allouer.
   #presenceDeclared = false;
@@ -938,7 +954,7 @@ export class RealtimeHub {
     st = {
       dispose: null,
       owned: false,
-      sinks: new Set([sink]),
+      sinks: singleSink(sink),
       members: null,
       presence: null,
       buildFrame: buildFrame ?? null,
@@ -980,7 +996,7 @@ export class RealtimeHub {
     channels.set(channel, {
       dispose: null,
       owned: false,
-      sinks: new Set([sink]),
+      sinks: singleSink(sink),
       members: null,
       presence: null,
       buildFrame: null,
@@ -1005,8 +1021,7 @@ export class RealtimeHub {
     channel: string,
     factory: ChannelFactory,
   ): (() => void) | null {
-    const publishFn = (ch: string, payload?: object): void =>
-      this.publish(ch, payload);
+    const publishFn = this.#publishFn;
     const dispose = factory(channel, publishFn);
     if (dispose !== null) return dispose;
     // Inconnu du controller → dernier recours : factory de canal SYSTÈME
@@ -1200,7 +1215,7 @@ export class RealtimeHub {
     if (this.#presenceTimer !== null) clearTimeout(this.#presenceTimer);
     this.#presenceTimerAt = next;
     this.#presenceTimer = setTimeout(
-      () => this.#presenceTick(),
+      this.#presenceTickFn,
       Math.max(0, Math.ceil(next - now)),
     );
     this.#presenceTimer.unref();
@@ -1717,6 +1732,16 @@ export class RealtimeHub {
    * ({@link #discardUnknownFromBus}), jamais comme une injection.
    */
   #admitFromBackplane(msg: IBackplaneMessage): void {
+    // Chemin du message ORDINAIRE, d'abord : un canal servi ici ET diffusé est
+    // livré sur une lecture de `Map`. `forward` n'est vrai que pour un canal
+    // diffusable HORS plateforme (`#isBroadcast`, `markBroadcastChannel`) : ni
+    // le contrôle ni la présence (`nodefony:`) n'y passent, et rien ne le remet
+    // à faux hors `clear()`. Le reste garde ses gardes, dans le même ordre.
+    const st = this.#channels?.get(msg.channel);
+    if (st?.forward === true) {
+      this.#fanout(st, msg.payload);
+      return;
+    }
     if (msg.channel === PLATFORM_BUS_CHANNELS.control) {
       this.#applyControl(msg.payload);
       return;

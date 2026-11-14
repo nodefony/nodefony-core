@@ -834,6 +834,7 @@
         ".claude/skills/nodefony-devkit-bench/scripts/lib/identites.selftest.mjs",
         ".claude/skills/nodefony-load-test/scripts/micro/micro-cbor-codec.mjs",
         ".claude/skills/nodefony-load-test/scripts/micro/micro-frame-authorizer.mjs",
+        ".claude/skills/nodefony-load-test/scripts/micro/micro-hub-ingress-ab.mjs",
         ".claude/skills/nodefony-load-test/scripts/micro/micro-orm-hot-path-ab.mjs",
         ".claude/skills/nodefony-load-test/scripts/micro/micro-realtime-frame-ab.mjs",
         ".claude/skills/nodefony-multipod-bench/scripts/presence-pods.mjs",

@@ -62,6 +62,7 @@
     ".claude/skills/nodefony-load-test/scripts/micro/micro-grpc-request-cost-ab.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-header-values.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-host.mjs",
+    ".claude/skills/nodefony-load-test/scripts/micro/micro-hub-ingress-ab.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-orm-hot-path-ab.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-presence.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-profiler-collect.mjs",
