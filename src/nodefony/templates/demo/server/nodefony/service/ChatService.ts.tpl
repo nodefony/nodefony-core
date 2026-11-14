@@ -154,20 +154,6 @@ export interface IStoredAttachment {
   mime: string;
 }
 
-/** Un fichier reçu en multipart : `this.files` est typé `unknown[]`. */
-export function isUploadedFile(value: unknown): value is IUploadedFile {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "moveAsync" in value &&
-    typeof value.moveAsync === "function" &&
-    "filename" in value &&
-    typeof value.filename === "string" &&
-    "size" in value &&
-    typeof value.size === "number"
-  );
-}
-
 /**
  * L'historique du salon et ses pièces jointes — un service, parce que le
  * contrôleur temps réel est instancié PAR CONNEXION : l'historique doit

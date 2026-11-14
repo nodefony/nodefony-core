@@ -1,5 +1,6 @@
 import type { URL } from "node:url";
 import type { ICookie } from "./ICookie";
+import type { IUploadedFile } from "./IUpload";
 
 export type HTTPMethodType =
   | "GET"
@@ -34,7 +35,7 @@ export interface IHttpRequest extends IRequest {
   url: URL;
   query: Record<string, unknown>;
   body: RequestBody;
-  files: readonly unknown[];
+  files: readonly IUploadedFile[];
   remoteAddress: string | null | undefined;
   acceptHtml: boolean;
 

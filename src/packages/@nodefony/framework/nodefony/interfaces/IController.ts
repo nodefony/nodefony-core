@@ -6,6 +6,7 @@ import type {
   WebsocketResponse,
   Session,
   ContextType,
+  IUploadedFile,
 } from "@nodefony/http";
 import type { Module, FileClass, MaybePromise } from "nodefony";
 import type { OutgoingHttpHeaders } from "node:http";
@@ -20,7 +21,7 @@ export interface IController {
   session?: Session | null;
   method?: HTTPMethod | undefined;
   query: Record<string, unknown>;
-  files: readonly unknown[];
+  files: readonly IUploadedFile[];
   body: Record<string, unknown>;
   module?: Module | undefined;
 

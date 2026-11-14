@@ -45,6 +45,7 @@ import type {
   IByteStreamOptions,
   IByteStreamResult,
   ISseStreamOptions,
+  IUploadedFile,
   SseStream,
 } from "@nodefony/http";
 
@@ -286,6 +287,9 @@ function encodeExtValue(value: string): string {
  * @param name - le nom du fichier, tel quel.
  * @returns la valeur de l'en-tête.
  */
+/** Aucun fichier reçu : une requête sans corps multipart, ou une socket. */
+const NO_FILES: readonly IUploadedFile[] = Object.freeze([]);
+
 export function contentDisposition(
   type: "attachment" | "inline",
   name: string,
@@ -340,7 +344,7 @@ class Controller extends Service implements IController {
   #response: HttpResponse | Http2Response | WebsocketResponse | null = null;
   #method: HTTPMethod | null = null;
   #query: Record<string, unknown> | null = null;
-  #files: readonly unknown[] | null = null;
+  #files: readonly IUploadedFile[] | null = null;
   #body: Record<string, unknown> | null = null;
   //metaData: Data;
   module?: Module | undefined;
@@ -490,12 +494,14 @@ class Controller extends Service implements IController {
    * texte du même corps sont dans {@link body}. Pour une action typée,
    * préférer `@UploadedFiles()`.
    */
-  get files(): readonly unknown[] {
-    return (this.#files ??
-      (this.context?.request as HttpRequest | Http2Request | null)
-        ?.files) as readonly unknown[];
+  get files(): readonly IUploadedFile[] {
+    return (
+      this.#files ??
+      (this.context?.request as HttpRequest | Http2Request | null)?.files ??
+      NO_FILES
+    );
   }
-  set files(value: readonly unknown[]) {
+  set files(value: readonly IUploadedFile[]) {
     this.#assertPerRequest("files");
     this.#files = value;
   }

@@ -51,7 +51,7 @@ import {
   type IRoomMember,
   type IRoomView,
 } from "../../frontend/src/chat/rooms";
-import { isUploadedFile, type ChatQuota } from "../service/ChatService";
+import type { ChatQuota } from "../service/ChatService";
 import type ChatService from "../service/ChatService";
 import type RoomService from "../service/RoomService";
 import {
@@ -618,7 +618,7 @@ class ChatController extends ContractRealtimeController<ChatContract> {
   async attach(
     input: RoomInput<{ body: typeof AttachBody }>,
   ): Promise<{ id: string; sentAt: number }> {
-    const files = this.files.filter(isUploadedFile);
+    const files = this.files;
     let me: { id: string; identifier: string };
     try {
       me = this.#writer();

@@ -6,6 +6,7 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import { afterAll, describe, expect, it } from "vitest";
 import type { IUploadedFile } from "@nodefony/http";
+import { FileClass } from "nodefony";
 import { decodeText } from "../frontend/src/kit/preview";
 import {
   kindOf,
@@ -79,11 +80,14 @@ describe("demo upload — le rangement des fichiers reçus", () => {
       hash,
       hashAlgorithm: hash === null ? false : "sha256",
       lastModifiedDate: null,
-      move: () => file,
+      // Le fichier de DESTINATION, comme le vrai : un `FileClass`.
+      move: () => {
+        throw new Error("move() synchrone : jamais appelé par la démo");
+      },
       moveAsync: async (target) => {
         await rename(at, target);
         at = target;
-        return file;
+        return FileClass.from(target);
       },
       getMimeType: () => file.mimeType,
       getSize: () => file.size,

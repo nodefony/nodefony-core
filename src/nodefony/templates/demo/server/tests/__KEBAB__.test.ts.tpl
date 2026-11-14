@@ -13,7 +13,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, expect, vi, afterEach, afterAll } from "vitest";
 import type { IUploadedFile } from "@nodefony/http";
-import { getScaffoldSpec, readSymbolsGraph, RequestContext } from "nodefony";
+import {
+  FileClass,
+  getScaffoldSpec,
+  readSymbolsGraph,
+  RequestContext,
+} from "nodefony";
 import { defineSecurityConfig } from "@nodefony/security";
 import {
   defineDemoConfig,
@@ -34,7 +39,6 @@ import ChatService, {
   CHAT_ATTACHMENT_PER_ACCOUNT,
   CHAT_WRITE_QUOTA,
   CHAT_HISTORY_LIMIT,
-  isUploadedFile,
 } from "../nodefony/service/ChatService";
 import { memoryArchive } from "./memoryArchive";
 import { utf8ByteLength } from "../frontend/src/kit/utf8";
@@ -918,11 +922,14 @@ describe("demo — les pièces du salon, classées d'après leurs OCTETS", () =>
       hash: null,
       hashAlgorithm: false,
       lastModifiedDate: null,
-      move: () => file,
+      // Le fichier de DESTINATION, comme le vrai : un `FileClass`.
+      move: () => {
+        throw new Error("move() synchrone : jamais appelé par la démo");
+      },
       moveAsync: async (target) => {
         await rename(at, target);
         at = target;
-        return file;
+        return FileClass.from(target);
       },
       getMimeType: () => file.mimeType,
       getSize: () => file.size,
@@ -1055,8 +1062,6 @@ describe("demo — les pièces du salon, classées d'après leurs OCTETS", () =>
     const chat = new ChatService(undefined, path.join(work, "refus"));
     await chat.discard([upload("x.bin", new Uint8Array([1, 2]))]);
     expect(readdirSync(path.join(work, "refus"))).toEqual([]);
-    expect(isUploadedFile({ filename: "x" })).toBe(false);
-    expect(isUploadedFile(upload("y", PNG))).toBe(true);
   });
 
   /** Un zip minimal : en-têtes locaux, index central, fin d'index. */

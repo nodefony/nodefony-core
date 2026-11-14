@@ -156,6 +156,15 @@ describe("Controller — setContext()", () => {
     expect(c.method).to.equal("GET");
   });
 
+  it("🔴 sans fichiers sur la requête (socket, corps non multipart) : files est un tableau vide, jamais undefined", () => {
+    const { c, ctx } = makeController();
+    Reflect.deleteProperty(ctx.request, "files");
+    // Typé `readonly IUploadedFile[]` : un `undefined` maquillé en tableau
+    // faisait tomber `this.files.map(…)` sur une requête sans corps.
+    expect(c.files).to.deep.equal([]);
+    expect(Object.isFrozen(c.files)).to.equal(true);
+  });
+
   it("hydrates the session when present on the context", () => {
     const session = { id: "s1" };
     const { c } = makeController({ session });

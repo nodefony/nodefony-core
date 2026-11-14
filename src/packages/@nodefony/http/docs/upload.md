@@ -366,15 +366,15 @@ Les décorateurs `@UploadedFile` / `@UploadedFiles` sont des fabriques de param�
 Chaque entrée de `files` est un `UploadedFile` (`service/upload/upload-service.ts#UploadedFile`), déjà écrit
 sur disque. Ses membres utiles :
 
-| Membre                   | Ce qu'il donne                                                          | Ancrage                                                                           |
-| ------------------------ | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `filename`               | Nom **d'origine** déclaré par le client (métadonnée, jamais le chemin). | `realName()` (`service/upload/upload-service.ts#UploadedFile.realName`)           |
-| `size`                   | Taille réellement écrite (octets).                                      | `getSize()` (`service/upload/upload-service.ts#UploadedFile.getSize`)             |
-| `prettySize`             | Taille lisible (`« 1.2 MB »`).                                          | `getPrettySize()` (`service/upload/upload-service.ts#UploadedFile.getPrettySize`) |
-| `mimeType`               | Type MIME déclaré (`image/png`…), sinon deviné de l'extension.          | `getMimeType()` (`service/upload/upload-service.ts#UploadedFile.getMimeType`)     |
-| `hash` / `hashAlgorithm` | Empreinte d'intégrité si `upload.hashAlgorithm` est réglé.              | `interfaces/IUpload.ts#IUploadedFile.hashAlgorithm`                               |
-| `moveAsync(target)`      | Déplace le temp — **non bloquant, recommandé** dans le pipeline.        | `moveAsync()` (`service/upload/upload-service.ts#UploadedFile.moveAsync`)         |
-| `move(target)`           | Variante **synchrone** (compat) — bloque l'event-loop.                  | `move()` (`service/upload/upload-service.ts#UploadedFile.move`)                   |
+| Membre                   | Ce qu'il donne                                                                                                                                                              | Ancrage                                                                           |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `filename`               | Nom **d'origine** déclaré par le client (métadonnée, jamais le chemin).                                                                                                     | `realName()` (`service/upload/upload-service.ts#UploadedFile.realName`)           |
+| `size`                   | Taille réellement écrite (octets).                                                                                                                                          | `getSize()` (`service/upload/upload-service.ts#UploadedFile.getSize`)             |
+| `prettySize`             | Taille lisible (`« 1.2 MB »`).                                                                                                                                              | `getPrettySize()` (`service/upload/upload-service.ts#UploadedFile.getPrettySize`) |
+| `mimeType`               | Type MIME déclaré (`image/png`…), sinon deviné de l'extension ; `false` si ni l'un ni l'autre. Déclaratif : jamais une preuve du contenu.                                   | `getMimeType()` (`service/upload/upload-service.ts#UploadedFile.getMimeType`)     |
+| `hash` / `hashAlgorithm` | Empreinte d'intégrité si `upload.hashAlgorithm` est réglé.                                                                                                                  | `interfaces/IUpload.ts#IUploadedFile.hashAlgorithm`                               |
+| `moveAsync(target)`      | Déplace le temp — **non bloquant, recommandé** dans le pipeline. Rend le `FileClass` de la destination (sans nom d'origine ni empreinte : ils restent sur le fichier reçu). | `moveAsync()` (`service/upload/upload-service.ts#UploadedFile.moveAsync`)         |
+| `move(target)`           | Variante **synchrone** (compat) — bloque l'event-loop.                                                                                                                      | `move()` (`service/upload/upload-service.ts#UploadedFile.move`)                   |
 
 `move`/`moveAsync` acceptent un **fichier cible** ou un **dossier existant** : sur un dossier, la
 destination est bâtie avec `filename` — d'où l'avertissement de sécurité ci-dessous.

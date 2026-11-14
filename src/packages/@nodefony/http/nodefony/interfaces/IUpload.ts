@@ -1,3 +1,4 @@
+import type { FileClass } from "nodefony";
 /**
  * Forme neutre d'un fichier multipart parsé (temp écrit sur disque), découplée
  * du parser sous-jacent. Remplace l'ex-couplage à `formidable.File` : le moteur
@@ -87,15 +88,25 @@ export interface IUploadedFile {
   filename: string;
   size: number;
   prettySize: string;
-  mimeType: string | null | undefined;
+  /**
+   * Le type DÉCLARÉ par le client, sinon deviné de l'extension ; `false`
+   * quand ni l'un ni l'autre ne le disent. Déclaratif : jamais une preuve du
+   * contenu.
+   */
+  mimeType: string | false;
   hash: string | null | undefined;
   hashAlgorithm: false | "sha1" | "md5" | "sha256";
   lastModifiedDate: Date | null | undefined;
 
-  move(target: string): IUploadedFile;
+  /**
+   * Déplace le fichier vers `target` (un fichier, ou un dossier existant) et
+   * rend le fichier de DESTINATION — un `FileClass`, pas un fichier reçu : le
+   * nom d'origine, la taille déclarée et l'empreinte restent sur celui-ci.
+   */
+  move(target: string): FileClass;
   /** Variante non bloquante de `move()` (recommandée dans le pipeline). */
-  moveAsync(target: string): Promise<IUploadedFile>;
-  getMimeType(): string | null | undefined;
+  moveAsync(target: string): Promise<FileClass>;
+  getMimeType(): string | false;
   getSize(): number;
   getPrettySize(): string;
 }
