@@ -3,7 +3,7 @@
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
   "generatedAt": "2026-11-14",
-  "count": 42,
+  "count": 44,
   "repoScripts": [
     {
       "path": "scripts/lib/redis-session-purge.mjs",
@@ -2702,7 +2702,7 @@
       "testedBy": []
     }
   ],
-  "conformant": 42,
+  "conformant": 44,
   "skills": [
     {
       "name": "nodefony-browser",
@@ -12014,44 +12014,43 @@
       }
     },
     {
-      "name": "nodefony-add-realtime-channel",
-      "summary": "Choisit et branche la brique temps réel que Nodefony fournit déjà — canal, entrée client, action, canal personnel, canal à membres, flux SSE, contrat typé, octets — au lieu d'un WebSocket, d'une liste noire ou d'un contrôle d'accès écrits à la main.",
+      "name": "nodefony-add-realtime-binary",
+      "summary": "Fait passer des octets sur la socket Nodefony — mesures de capteurs, image, audio, état de jeu compact, document partagé — par le codec CBOR négocié et un `Uint8Array` dans la charge d'un canal, sous les mêmes gardes que le texte, au lieu de base64, d'un en-tête binaire maison ou d'un WebSocket brut.",
       "family": "Autres",
-      "version": "2.1.1",
-      "keywords": [],
+      "version": "1.0.0",
+      "keywords": [
+        "Uint8Array",
+        "nodefony-add-realtime-channel"
+      ],
       "triggers": [
-        "temps réel",
-        "websocket",
-        "canal",
-        "push",
-        "notifications en direct",
-        "abonnement",
-        "salon privé",
-        "exclure un membre",
-        "réserver un canal à un rôle",
-        "mon canal est public",
-        "prévenir un utilisateur",
-        "progression d'une tâche",
-        "SSE",
-        "EventSource",
-        "réponse en streaming",
-        "contrat temps réel",
-        "-32601",
+        "envoyer des octets",
+        "binaire",
+        "données binaires",
         "CBOR",
         "Uint8Array",
-        "ça marche en local, plus en cluster",
-        "l'exclu revient"
+        "Float32Array",
+        "tableau typé",
+        "base64",
+        "envoyer une image",
+        "audio sur la socket",
+        "flux de capteurs",
+        "trames trop grosses",
+        "réduire la bande passante",
+        "mes octets arrivent en objet",
+        "$bytes",
+        "codec",
+        "onRealtimeBinary"
       ],
-      "description": "Choisit et branche la brique temps réel que Nodefony fournit déjà — canal, entrée client, action, canal personnel, canal à membres, flux SSE, contrat typé, octets — au lieu d'un WebSocket, d'une liste noire ou d'un contrôle d'accès écrits à la main. Part du besoin (salon privé avec exclusion, jeu, sondes, tableau de bord, notification à une personne, tâche longue) et mène à la ligne à écrire, à l'exemple installé et à son test. Porte ce qui ne se voit qu'en production : plusieurs serveurs, reconnexion, révocation, contre-pression. À charger AVANT d'écrire un canal, un abonnement client ou un flux. Déclencheurs : \"temps réel\", \"websocket\", \"canal\", \"push\", \"notifications en direct\", \"abonnement\", \"salon privé\", \"exclure un membre\", \"réserver un canal à un rôle\", \"mon canal est public\", \"prévenir un utilisateur\", \"progression d'une tâche\", \"SSE\", \"EventSource\", \"réponse en streaming\", \"contrat temps réel\", \"-32601\", \"CBOR\", \"Uint8Array\", \"ça marche en local, plus en cluster\", \"l'exclu revient\".",
+      "description": "Fait passer des octets sur la socket Nodefony — mesures de capteurs, image, audio, état de jeu compact, document partagé — par le codec CBOR négocié et un `Uint8Array` dans la charge d'un canal, sous les mêmes gardes que le texte, au lieu de base64, d'un en-tête binaire maison ou d'un WebSocket brut. Dit QUAND le binaire gagne et quand il perd, chiffres mesurés à l'appui, comment représenter la donnée (tableau typé, bits tassés, réduction côté serveur), et ce qui rate sans un message. À charger AVANT de mettre des octets, un tableau typé ou un flux audio/vidéo dans un canal, ou de choisir un codec. Le canal lui-même relève de `nodefony-add-realtime-channel`. Déclencheurs : \"envoyer des octets\", \"binaire\", \"données binaires\", \"CBOR\", \"Uint8Array\", \"Float32Array\", \"tableau typé\", \"base64\", \"envoyer une image\", \"audio sur la socket\", \"flux de capteurs\", \"trames trop grosses\", \"réduire la bande passante\", \"mes octets arrivent en objet\", \"$bytes\", \"codec\", \"onRealtimeBinary\".",
       "cost": {
-        "bodyLines": 413,
-        "approxTokens": 6487
+        "bodyLines": 257,
+        "approxTokens": 4029
       },
       "requires": [],
       "resources": {
         "references": [
-          "binaire.md",
-          "production.md"
+          "messages.md",
+          "mesures.md"
         ],
         "referenceFilesTotal": 2,
         "scripts": []
@@ -12077,7 +12076,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "1007",
+            "detail": "985",
             "advisory": false
           },
           {
@@ -12119,7 +12118,121 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "413",
+            "detail": "257",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": "src/packages/@nodefony/devkit/skills/nodefony-add-realtime-binary/SKILL.md",
+        "doc": "docs/skills/nodefony-add-realtime-binary.md"
+      }
+    },
+    {
+      "name": "nodefony-add-realtime-channel",
+      "summary": "Branche le temps réel d'une application Nodefony par ses briques — canal, route appelée par la socket, entrée client, action, canal personnel, flux SSE, contrat typé — au lieu d'un WebSocket ou d'un contrôle d'accès écrits à la main.",
+      "family": "Autres",
+      "version": "3.0.0",
+      "keywords": [
+        "nodefony-add-realtime-presence",
+        "nodefony-add-realtime-binary"
+      ],
+      "triggers": [
+        "temps réel",
+        "websocket",
+        "canal",
+        "push",
+        "chat",
+        "salon privé",
+        "exclure un membre",
+        "l'exclu revient",
+        "réserver un canal à un rôle",
+        "mon canal est public",
+        "prévenir un utilisateur",
+        "progression d'une tâche",
+        "SSE",
+        "contrat temps réel",
+        "-32601",
+        "ça marche en local, plus en cluster",
+        "le canal ne répond jamais"
+      ],
+      "description": "Branche le temps réel d'une application Nodefony par ses briques — canal, route appelée par la socket, entrée client, action, canal personnel, flux SSE, contrat typé — au lieu d'un WebSocket ou d'un contrôle d'accès écrits à la main. Part du besoin (chat, salon privé, jeu, sondes, notification, tâche longue), mène à la ligne, à l'exemple exécuté et à son test, dit qui a le droit de LIRE et d'ÉCRIRE, et porte la production : plusieurs serveurs, reconnexion, redéploiement, révocation. À charger AVANT d'écrire un canal, un abonnement ou un flux. Qui est en ligne → `nodefony-add-realtime-presence` ; des octets → `nodefony-add-realtime-binary`. Déclencheurs : \"temps réel\", \"websocket\", \"canal\", \"push\", \"chat\", \"salon privé\", \"exclure un membre\", \"l'exclu revient\", \"réserver un canal à un rôle\", \"mon canal est public\", \"prévenir un utilisateur\", \"progression d'une tâche\", \"SSE\", \"contrat temps réel\", \"-32601\", \"ça marche en local, plus en cluster\", \"le canal ne répond jamais\".",
+      "cost": {
+        "bodyLines": 473,
+        "approxTokens": 7808
+      },
+      "requires": [],
+      "resources": {
+        "references": [
+          "production.md"
+        ],
+        "referenceFilesTotal": 1,
+        "scripts": []
+      },
+      "related": [
+        "nodefony-browser"
+      ],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "en-tête analysable par un vrai parseur YAML",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "985",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun numéro de ticket dans la prose",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes",
+            "ok": true,
+            "detail": "473",
             "advisory": true
           }
         ]
@@ -12127,6 +12240,113 @@
       "links": {
         "source": "src/packages/@nodefony/devkit/skills/nodefony-add-realtime-channel/SKILL.md",
         "doc": "docs/skills/nodefony-add-realtime-channel.md"
+      }
+    },
+    {
+      "name": "nodefony-add-realtime-presence",
+      "summary": "Affiche qui est là sur un canal temps réel Nodefony — qui est en ligne dans un salon, combien de spectateurs, dans combien d'onglets — par l'option de présence que le framework tient lui-même, au lieu d'une liste de connectés écrite à la main qui ment dès deux serveurs.",
+      "family": "Autres",
+      "version": "1.0.0",
+      "keywords": [
+        "nodefony-add-realtime-channel"
+      ],
+      "triggers": [
+        "qui est en ligne ?",
+        "afficher les connectés",
+        "liste des présents",
+        "combien de spectateurs",
+        "indicateur en ligne",
+        "statut en ligne",
+        "Untel est en train d'écrire",
+        "la liste clignote quand je recharge",
+        "les présents ne sont pas les mêmes sur deux serveurs",
+        "présence",
+        "presence",
+        "onPresence",
+        "useNodefonyPresence"
+      ],
+      "description": "Affiche qui est là sur un canal temps réel Nodefony — qui est en ligne dans un salon, combien de spectateurs, dans combien d'onglets — par l'option de présence que le framework tient lui-même, au lieu d'une liste de connectés écrite à la main qui ment dès deux serveurs. Mène de la ligne à déclarer à l'écran (React, Vue, Angular, Svelte) et à son test, et porte ce qui ne se voit qu'en production : plusieurs serveurs, rechargement de page, redéploiement, salon de mille personnes. À charger AVANT d'écrire une liste de présents, un compteur de spectateurs ou un indicateur « en ligne ». Le canal lui-même (le créer, le protéger) relève de `nodefony-add-realtime-channel`. Déclencheurs : \"qui est en ligne ?\", \"afficher les connectés\", \"liste des présents\", \"combien de spectateurs\", \"indicateur en ligne\", \"statut en ligne\", \"Untel est en train d'écrire\", \"la liste clignote quand je recharge\", \"les présents ne sont pas les mêmes sur deux serveurs\", \"présence\", \"presence\", \"onPresence\", \"useNodefonyPresence\".",
+      "cost": {
+        "bodyLines": 292,
+        "approxTokens": 4699
+      },
+      "requires": [],
+      "resources": {
+        "references": [],
+        "referenceFilesTotal": 0,
+        "scripts": []
+      },
+      "related": [
+        "nodefony-browser"
+      ],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "en-tête analysable par un vrai parseur YAML",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "1013",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun numéro de ticket dans la prose",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes",
+            "ok": true,
+            "detail": "292",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": "src/packages/@nodefony/devkit/skills/nodefony-add-realtime-presence/SKILL.md",
+        "doc": "docs/skills/nodefony-add-realtime-presence.md"
       }
     },
     {
@@ -12654,8 +12874,8 @@
       ],
       "description": "Conduit une tâche de développement de bout en bout dans une application Nodefony — comprendre le code en place, choisir la bonne façade, générer plutôt qu'écrire à la main, retrouver la référence installée qu'une recherche ordinaire ne voit pas, puis prouver que c'est fait — et se charge AVANT la première modification, quelle que soit la tâche. Les gestes spécialisés ont leur propre skill (ressource REST, service, canal temps réel, garde de route, migration de schéma, écran vu au navigateur) ; celui-ci porte la conduite commune, les pièges du serveur et du front, et dit lequel prendre. Déclencheurs : \"je veux ajouter une fonctionnalité\", \"comment on code dans ce framework\", \"par où je commence\", \"où est la doc de ça\", \"comment ça marche ici\", \"avant de coder\", \"est-ce que j'écris ça à la main\", \"comment vérifier que c'est bon\", \"mon changement est-il fini\", \"je ne trouve rien sur ce sujet\", \"ce n'est pas documenté\", \"je touche au frontend\", \"mon composant charge des données\", \"mon écran n'affiche rien\".",
       "cost": {
-        "bodyLines": 497,
-        "approxTokens": 8706
+        "bodyLines": 501,
+        "approxTokens": 8837
       },
       "requires": [],
       "resources": {
@@ -12702,6 +12922,7 @@
       },
       "related": [
         "nodefony-browser",
+        "nodefony-devops",
         "nodefony-migrate-schema",
         "nodefony-security-review"
       ],
@@ -12764,8 +12985,8 @@
           },
           {
             "key": "corps < 500 lignes",
-            "ok": true,
-            "detail": "497",
+            "ok": false,
+            "detail": "501",
             "advisory": true
           }
         ]

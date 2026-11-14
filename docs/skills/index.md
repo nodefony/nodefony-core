@@ -20,7 +20,7 @@ source: "docs/skills/index.md"
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **Fiches des skills**
 
-**38 skills** · **38/38 conformes** au standard · régénérer : `node .claude/skills/nodefony-skill/scripts/skills-doc.mjs`
+**40 skills** · **40/40 conformes** au standard · régénérer : `node .claude/skills/nodefony-skill/scripts/skills-doc.mjs`
 
 ## 🧭 Par où commencer
 
@@ -169,9 +169,15 @@ source: "docs/skills/index.md"
   { "icon": "🔧", "title": "add-grpc-service", "href": "nodefony-add-grpc-service.md",
     "desc": "Sert un service gRPC dans une application Nodefony — contrat `.proto`, code généré par `buf`, contrôleur `GrpcController` marqué `@GrpcService`, déclaré par `@controllers` — à charger AVANT d'écrire le contrat ou le contrôleur.",
     "meta": "🟢 conforme v1.0.0 · ⚙️ 1 script" },
+  { "icon": "🔧", "title": "add-realtime-binary", "href": "nodefony-add-realtime-binary.md",
+    "desc": "Fait passer des octets sur la socket Nodefony — mesures de capteurs, image, audio, état de jeu compact, document partagé — par le codec CBOR négocié et un `Uint8Array` dans la charge d'un canal, sous les mêmes gardes que le texte, au lieu de base64, d'un en-tête binaire maison ou d'un WebSocket…",
+    "meta": "🟢 conforme v1.0.0 · 📎 2 réf" },
   { "icon": "🔧", "title": "add-realtime-channel", "href": "nodefony-add-realtime-channel.md",
-    "desc": "Choisit et branche la brique temps réel que Nodefony fournit déjà — canal, entrée client, action, canal personnel, canal à membres, flux SSE, contrat typé, octets — au lieu d'un WebSocket, d'une liste noire ou d'un contrôle d'accès écrits à la main.",
-    "meta": "🟢 conforme v2.1.1 · 📎 2 réf" },
+    "desc": "Branche le temps réel d'une application Nodefony par ses briques — canal, route appelée par la socket, entrée client, action, canal personnel, flux SSE, contrat typé — au lieu d'un WebSocket ou d'un contrôle d'accès écrits à la main.",
+    "meta": "🟢 conforme v3.0.0 · 📎 1 réf" },
+  { "icon": "🔧", "title": "add-realtime-presence", "href": "nodefony-add-realtime-presence.md",
+    "desc": "Affiche qui est là sur un canal temps réel Nodefony — qui est en ligne dans un salon, combien de spectateurs, dans combien d'onglets — par l'option de présence que le framework tient lui-même, au lieu d'une liste de connectés écrite à la main qui ment dès deux serveurs.",
+    "meta": "🟢 conforme v1.0.0" },
   { "icon": "🔧", "title": "add-service", "href": "nodefony-add-service.md",
     "desc": "Crée un service injectable dans une application Nodefony par `nodefony create service`, et le fait entrer dans le conteneur — la moitié qu'on oublie. Porte la distinction entre le nom de la CLASSE et le nom de l'INSTANCE, les deux façons d'obtenir un service depuis un autre (`@Inject` au…",
     "meta": "🟢 conforme" },
@@ -228,10 +234,12 @@ source: "docs/skills/index.md"
 | [`nodefony-ticket`](nodefony-ticket.md) | 1.12.0 | 515 | 8 | 24 | ✅ |
 | [`nodefony-add-crud`](nodefony-add-crud.md) | — | 257 | 0 | 0 | ✅ |
 | [`nodefony-add-grpc-service`](nodefony-add-grpc-service.md) | 1.0.0 | 166 | 0 | 1 | ✅ |
-| [`nodefony-add-realtime-channel`](nodefony-add-realtime-channel.md) | 2.1.1 | 413 | 2 | 0 | ✅ |
+| [`nodefony-add-realtime-binary`](nodefony-add-realtime-binary.md) | 1.0.0 | 257 | 2 | 0 | ✅ |
+| [`nodefony-add-realtime-channel`](nodefony-add-realtime-channel.md) | 3.0.0 | 473 | 1 | 0 | ✅ |
+| [`nodefony-add-realtime-presence`](nodefony-add-realtime-presence.md) | 1.0.0 | 292 | 0 | 0 | ✅ |
 | [`nodefony-add-service`](nodefony-add-service.md) | — | 115 | 0 | 0 | ✅ |
 | [`nodefony-authentication`](nodefony-authentication.md) | 1.0.0 | 220 | 0 | 0 | ✅ |
-| [`nodefony-dev`](nodefony-dev.md) | 1.3.0 | 497 | 1 | 1 | ✅ |
+| [`nodefony-dev`](nodefony-dev.md) | 1.3.0 | 501 | 1 | 1 | ✅ |
 | [`nodefony-protect-route`](nodefony-protect-route.md) | — | 357 | 0 | 0 | ✅ |
 | [`nodefony-troubleshoot`](nodefony-troubleshoot.md) | 1.1.0 | 208 | 0 | 1 | ✅ |
 | [`nodefony-upgrade`](nodefony-upgrade.md) | 1.0.0 | 116 | 0 | 0 | ✅ |

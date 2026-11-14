@@ -22,6 +22,12 @@ décrit SON serveur, il ne doit pas traverser. Le framework diffuse `user:` lui-
 
 - L'oubli se voit : `localOnlyTotal` monte sur la sonde dès qu'un bus est branché et qu'un canal
   non déclaré est publié ; les préfixes diffusés sont listés au démarrage.
+- **La présence d'un canal suit la même déclaration** : sans `@RealtimeBroadcast`, chaque serveur ne
+  voit que SES présents (skill `nodefony-add-realtime-presence`).
+- **Les noms de canaux sont un espace PLAT, partagé par tous les modules du processus** : préfixe
+  les tiens par ton module ou ton domaine (`chat:`, `billing:`). `nodefony:` est réservé au
+  framework, et les suffixes `:health` / `:stats` sont réservés à l'administration dans TOUT espace
+  de noms (refusés sans `ROLE_NODEFONY_ADMIN`).
 - Le bus est un transport, pas un journal : un serveur absent 30 s ne rattrape rien. Redis
   injoignable au démarrage : repli sur ce seul processus, WARNING, l'application démarre.
 - **Secret du bus** : `NF_REALTIME_BACKPLANE_SECRET` (≥ 32 caractères), le même partout ; un
@@ -73,6 +79,11 @@ registre, exporté par `nodefony` : **compare aux constantes, jamais aux nombres
 | `4006` | `TOKEN_EXPIRED_CLOSE_CODE`    | jeton PORTEUR expiré sur une socket ouverte                             | s'arrête : recrée la socket avec un jeton neuf AVANT `exp`    |
 | `4007` | `BACKPRESSURE_CLOSE_CODE`     | émis par le client : sa file d'envoi ne se vide plus                    | se reconnecte                                                 |
 | `1013` | `TRY_AGAIN_LATER_CLOSE_CODE`  | serveur : client qui ne lit plus, ou authentification trop lente (10 s) | revient, avec recul                                           |
+| `1001` | — (code WebSocket standard)   | le serveur s'arrête proprement (redéploiement, `SIGTERM`)               | se reconnecte seul, sans alerte, et rejoue ses abonnements    |
+
+- **Redéploiement** : l'arrêt se fait en deux temps — le trafic s'écoule, puis le temps réel se
+  libère (la présence annonce le départ du serveur) et les sockets ferment en `1001`. Rien à écrire
+  côté client ; un écran qui veut afficher « reconnexion… » lit `socket.onState`.
 
 - Un refus à la poignée de main est un **statut HTTP** (401/403) que le navigateur cache : la
   socket sonde l'adresse en HTTP et traite 401/403/404 comme définitifs. Jamais de `4006` avant
@@ -107,7 +118,15 @@ registre, exporté par `nodefony` : **compare aux constantes, jamais aux nombres
 - Un `allow` qui lève = `forbidden` pour tous, sans un mot en production : une règle en classe
   fait échouer le DÉMARRAGE si sa dépendance manque. Préfère-la dès qu'elle lit la base.
 
-## 7. Lire la sonde avant d'accuser le code
+## 7. Une socket sur une autre origine que la page
+
+La politique de sécurité de contenu par défaut n'autorise que la même origine (`connect-src 'self'`,
+qui couvre `wss:` sur la même machine). Socket servie ailleurs (sous-domaine, passerelle) : déclare
+`publicOrigin` dans la config de `@nodefony/realtime` — l'origine s'ajoute SEULE à `connect-src`.
+N'élargis jamais la politique à la main (`connect-src *`). Détail : `configuration.md`, clé
+`publicOrigin`.
+
+## 8. Lire la sonde avant d'accuser le code
 
 `GET /nodefony/realtime/api/health` (rôle d'administration) ou le canal `nodefony:socket`.
 

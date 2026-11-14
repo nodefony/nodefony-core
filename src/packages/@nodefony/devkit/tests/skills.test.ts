@@ -160,6 +160,25 @@ describe("skills publiés", () => {
     }
   });
 
+  it("chaque skill livré est cité dans la table d'aiguillage de nodefony-dev", () => {
+    // La chaîne de découverte d'un agent : AGENTS.md → nodefony-dev → la table
+    // « Passer la main » → le spécialiste. Un skill absent de la table n'est
+    // atteint que par qui connaît déjà son nom : livré, et introuvable — vécu
+    // pour gRPC et la mise en production, absents de la table sans un mot.
+    const dev = readFileSync(
+      path.join(SKILLS, "nodefony-dev", "SKILL.md"),
+      "utf8",
+    );
+    const table = dev
+      .split("\n")
+      .filter((ligne) => ligne.startsWith("| "))
+      .join("\n");
+    const absents = skills.filter(
+      (nom) => nom !== "nodefony-dev" && !table.includes(`\`${nom}\``),
+    );
+    expect(absents).toEqual([]);
+  });
+
   it("le nom du dossier est celui du frontmatter", () => {
     // Un écart fait ÉCARTER le skill par la découverte de `ai:sync` — en
     // silence : il ne serait tout simplement jamais posé dans l'application.

@@ -17,9 +17,9 @@ const REFERENCE = path.join(
   import.meta.dirname,
   "..",
   "skills",
-  "nodefony-add-realtime-channel",
+  "nodefony-add-realtime-binary",
   "references",
-  "binaire.md",
+  "messages.md",
 );
 const SOURCES = [
   path.join(RACINE, "src", "nodefony", "src", "realtime"),
@@ -42,9 +42,9 @@ function fichiersTs(dossier: string): string[] {
     .filter((f) => !f.split(path.sep).includes("tests"));
 }
 
-/** Les messages de la colonne « Message » du tableau du §7, sans les backticks. */
+/** Les messages de la colonne « Message » du tableau de la référence, sans les backticks. */
 function messagesCites(markdown: string): string[] {
-  const section = markdown.split(/^## 7\. /mu)[1]?.split(/^## /mu)[0] ?? "";
+  const section = markdown;
   const messages: string[] = [];
   for (const ligne of section.split("\n")) {
     if (!ligne.startsWith("| ") || ligne.startsWith("| ---")) continue;
@@ -55,7 +55,7 @@ function messagesCites(markdown: string): string[] {
   return messages;
 }
 
-describe("skill nodefony-add-realtime-channel — références binaires", () => {
+describe("skill nodefony-add-realtime-binary — messages des octets", () => {
   // Le marqueur d'octets est interpolé depuis sa constante : on le relit tel que
   // l'utilisateur le voit.
   const code = SOURCES.flatMap(fichiersTs)

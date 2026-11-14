@@ -9,6 +9,7 @@ import { getRealtimeHub } from "../../src/server/RealtimeHub";
 import { createRealtimeHarness } from "../../testing/index";
 import type { IRealtimeHarness } from "../../testing/index";
 import { createTestIdentity } from "@nodefony/security/testing";
+import { asShown, flatImports, lf } from "../helpers/exampleSource";
 
 /**
  * Les exemples de `docs/cas-d-usage.md` et du cookbook du chat
@@ -87,40 +88,7 @@ describe("#700 — un motif décoré pose la POLITIQUE, jamais la fabrique", () 
   });
 });
 
-/**
- * Ce qu'un import du dépôt devient dans la page : la forme qu'écrit une
- * application, qui pose le test à côté de son contrôleur.
- */
-function asShown(source: string): string {
-  return source
-    .replaceAll('"../../../../index"', '"@nodefony/realtime"')
-    .replaceAll('"../../../testing/index"', '"@nodefony/realtime/testing"')
-    .replaceAll(/"\.\.\/\.\.\/fixtures\/use-cases\/([\w-]+)"/g, '"./$1"')
-    .replaceAll(
-      /"\.\.\/\.\.\/fixtures\/(entity|service)\/([\w-]+)"/g,
-      '"../$1/$2"',
-    );
-}
-
-/**
- * Une liste d'import mise sur une ligne : le chemin réécrit est plus court, et le
- * formateur replie dans la page ce qu'il déplie dans le fichier.
- */
-function flatImports(source: string): string {
-  return source.replaceAll(
-    /import (type )?\{([^}]*)\}/g,
-    (_match, kind: string | undefined, names: string) =>
-      `import ${kind ?? ""}{ ${names
-        .split(",")
-        .map((n) => n.trim())
-        .filter((n) => n !== "")
-        .join(", ")} }`,
-  );
-}
-
 describe("#726 — les pages montrent exactement les exemples exécutés", () => {
-  // Fins de ligne normalisées : un poste Windows extrait la page en CRLF.
-  const lf = (text: string): string => text.replaceAll("\r\n", "\n");
   // Les pages mises bout à bout : un exemple montré dans deux pages y figure
   // deux fois, et « une fois » échoue.
   const page = pagePaths.map((p) => lf(readFileSync(p, "utf8"))).join("\n");

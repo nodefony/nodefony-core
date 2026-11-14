@@ -41,18 +41,22 @@ yeux. Ils ont simplement continué sans elle.
 Ces skills sont installés avec le framework et se chargent par leur nom. Chacun porte les pièges
 de son geste, et ceux-là ne se devinent pas — ils se paient.
 
-| Ce que tu t'apprêtes à faire                                         | Le skill                        |
-| -------------------------------------------------------------------- | ------------------------------- |
-| Une ressource : table, validation, service, REST et WebSocket        | `nodefony-add-crud`             |
-| Une logique métier réutilisable, hors de tout controller             | `nodefony-add-service`          |
-| Un flux temps réel (WebSocket ou SSE), un canal, un abonnement       | `nodefony-add-realtime-channel` |
-| Se connecter : /login, second facteur, retour après connexion, jeton | `nodefony-authentication`       |
-| Réserver une route ou une page à des rôles, ouvrir à un partenaire   | `nodefony-protect-route`        |
-| Changer une entité déjà en base, ou déployer un schéma changé        | `nodefony-migrate-schema`       |
-| Conclure quoi que ce soit d'un ÉCRAN — affichage, contraste, console | `nodefony-browser`              |
-| Quelque chose qui marchait ne marche plus : démarrage, 404, journal  | `nodefony-troubleshoot`         |
-| Relire la sécurité de ton diff AVANT de commiter                     | `nodefony-security-review`      |
-| Monter Nodefony de version, ou une montée qui a laissé des rouges    | `nodefony-upgrade`              |
+| Ce que tu t'apprêtes à faire                                              | Le skill                         |
+| ------------------------------------------------------------------------- | -------------------------------- |
+| Une ressource : table, validation, service, REST et WebSocket             | `nodefony-add-crud`              |
+| Une logique métier réutilisable, hors de tout controller                  | `nodefony-add-service`           |
+| Du temps réel : chat, canal, abonnement, notification, flux SSE           | `nodefony-add-realtime-channel`  |
+| Afficher qui est en ligne, combien de présents, « en train d'écrire »     | `nodefony-add-realtime-presence` |
+| Faire passer des octets en temps réel : image, audio, mesures, CBOR       | `nodefony-add-realtime-binary`   |
+| Exposer ou appeler un service gRPC                                        | `nodefony-add-grpc-service`      |
+| Se connecter : /login, second facteur, retour après connexion, jeton      | `nodefony-authentication`        |
+| Réserver une route ou une page à des rôles, ouvrir à un partenaire        | `nodefony-protect-route`         |
+| Changer une entité déjà en base, ou déployer un schéma changé             | `nodefony-migrate-schema`        |
+| Mettre en production : image, conteneur, variables, santé, plusieurs pods | `nodefony-devops`                |
+| Conclure quoi que ce soit d'un ÉCRAN — affichage, contraste, console      | `nodefony-browser`               |
+| Quelque chose qui marchait ne marche plus : démarrage, 404, journal       | `nodefony-troubleshoot`          |
+| Relire la sécurité de ton diff AVANT de commiter                          | `nodefony-security-review`       |
+| Monter Nodefony de version, ou une montée qui a laissé des rouges         | `nodefony-upgrade`               |
 
 Aucune ligne ne correspond ? Alors seulement, continue ici. Et si ta tâche est EXACTEMENT celle
 d'un spécialiste, va droit à lui : il n'y a pas à passer par cette page d'abord.

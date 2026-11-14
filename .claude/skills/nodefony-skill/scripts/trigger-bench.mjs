@@ -244,6 +244,28 @@ const CASES = [
   ],
   ["ajoute un flux temps réel", "nodefony-add-realtime-channel"],
   ["mon canal websocket est public", "nodefony-add-realtime-channel"],
+  ["afficher qui est en ligne dans le salon", "nodefony-add-realtime-presence"],
+  [
+    "combien de spectateurs regardent la partie",
+    "nodefony-add-realtime-presence",
+  ],
+  [
+    "la liste des connectés clignote quand je recharge",
+    "nodefony-add-realtime-presence",
+  ],
+  [
+    "envoyer des mesures de capteurs en binaire",
+    "nodefony-add-realtime-binary",
+  ],
+  [
+    "mes octets arrivent en objet côté navigateur",
+    "nodefony-add-realtime-binary",
+  ],
+  [
+    "faut-il passer en CBOR pour réduire la bande passante",
+    "nodefony-add-realtime-binary",
+  ],
+  ["envoyer un message dans un salon privé", "nodefony-add-realtime-channel"],
   ["expose un service gRPC", "nodefony-add-grpc-service"],
   [
     "un client Go doit appeler l'application avec un contrat protobuf",
@@ -299,6 +321,13 @@ const CASES = [
  * MORDRE le banc quand on élargit une description sans y penser.
  */
 const NEGATIVE_CASES = [
+  ["afficher qui est en ligne dans le salon", "nodefony-add-realtime-channel"],
+  [
+    "envoyer des mesures de capteurs en binaire",
+    "nodefony-add-realtime-channel",
+  ],
+  ["réserver un canal à un rôle", "nodefony-add-realtime-presence"],
+  ["réserver un canal à un rôle", "nodefony-add-realtime-binary"],
   ["crée un module @nodefony neuf", "nodefony-inspect"], // création ≠ inspection
   ["où est défini ce symbole ?", "nodefony-create-module"], // lookup ≠ scaffold
   ["lance un test de charge", "nodefony-check-memory-health"], // charge ≠ gate mémoire
