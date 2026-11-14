@@ -1180,11 +1180,12 @@ export const SendBody = z.object({
   to: z.string().optional(),
 });
 
-/** La query de l'historique — une query arrive en texte, `coerce` la convertit. */
+/**
+ * La query de l'historique — une query arrive en texte, `coerce` la convertit.
+ * Pas de `since` sur un instant : voir « La reconnexion », plus bas.
+ */
 export const HistoryQuery = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
-  /** Rattrapage après une coupure : les messages postérieurs à cet instant. */
-  since: z.coerce.number().optional(),
 });
 ```
 
@@ -1584,6 +1585,21 @@ use("@nodefony/realtime", {
 });
 ```
 
+### Ce que le relais ne partage pas : l'état
+
+Le backplane transporte des **trames**, rien d'autre. Ce que l'application **garde** — l'historique,
+les pièces jointes, la liste des salons — ne traverse pas avec lui : chaque pod lit et écrit le sien.
+Plusieurs pods exigent donc un état **partagé** :
+
+- **la base** : PostgreSQL ou MySQL, que tous les pods joignent. Un fichier SQLite vit sur le disque
+  d'UNE machine : c'est le mode d'un poste de développement ou d'une démo, pas d'une application
+  répartie ;
+- **les fichiers** : un stockage partagé (volume réseau, stockage objet), jamais le disque local
+  d'un pod — une pièce reçue par l'un serait introuvable depuis l'autre.
+
+La démo de `create app --demo` tient sur un seul pod, pour cette raison : sa base est un fichier
+SQLite et ses pièces restent sur le disque du serveur.
+
 ### Ce qui n'a pas bougé
 
 C'est l'argument, et il se vérifie fichier par fichier :
@@ -1736,10 +1752,7 @@ class ChatController extends ContractRealtimeController<ChatContract> {
   historyAction(
     input: RouteInput<{ query: typeof HistoryQuery }>,
   ): ChatMessage[] {
-    const { limit, since } = input.query;
-    return ChatController.history
-      .filter((m) => since === undefined || m.sentAt > since)
-      .slice(-limit);
+    return ChatController.history.slice(-input.query.limit);
   }
 
   /** Envoi — au salon, ou en privé à une personne ; l'auteur vient du serveur. */
@@ -1846,19 +1859,39 @@ hooks React ne se démontent pas ; tes composants ne voient rien passer. Côté 
 libère les abonnements et détruit les providers devenus inutiles.
 
 **Ce qui reste à ta charge** : **le trou**. Les messages publiés pendant la coupure ne sont pas
-rejoués — le hub distribue à qui est là, il ne conserve rien. À la reconnexion, redemande
-l'historique depuis le dernier message connu :
+rejoués — le hub distribue à qui est là, il ne conserve rien. À la reconnexion, attends que
+l'abonnement soit **effectif**, relis les derniers messages, et **recoupe-les par identifiant** :
 
 ```tsx ignore
 // Au retour de `reconnecting` vers `connected`, on comble le trou.
 useEffect(() => {
   if (state !== "connected") return;
-  const lastSeen = messages.at(-1)?.sentAt ?? 0;
   void socket
-    .get<ChatMessage[]>("/chat/history", { query: { since: lastSeen } })
-    .then((missed) => setMessages((previous) => [...previous, ...missed]));
+    // Lire AVANT l'abonnement effectif perdrait ce qui se publie entre les deux.
+    .whenSubscribed("chat:room")
+    .then(() =>
+      socket.get<ChatMessage[]>("/chat/history", { query: { limit: 50 } }),
+    )
+    .then((page) =>
+      setMessages((previous) => {
+        // Par `id` : un message arrivé par les DEUX chemins n'apparaît qu'une fois.
+        const byId = new Map(previous.map((m) => [m.id, m]));
+        for (const m of page) byId.set(m.id, m);
+        return [...byId.values()];
+      }),
+    );
 }, [state]);
 ```
+
+Deux pièges, que ce code évite :
+
+- **Un rattrapage borné par l'heure** (`since: dernierMessage.sentAt`) double ou perd des messages :
+  chaque pod a son horloge, et deux messages de la même milliseconde se départagent mal. L'heure
+  sert à afficher, jamais à rattraper.
+- **Une page qui ne recoupe rien** de ce que l'écran montrait signale un trou plus long qu'elle :
+  les messages plus anciens ne sont plus contigus. La démo de `create app --demo` les retire
+  plutôt que de les afficher de part et d'autre d'un silence qui n'a pas eu lieu
+  (`catchUpMessages`).
 
 ### Les messages en double
 
