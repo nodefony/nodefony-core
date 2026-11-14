@@ -47,6 +47,11 @@ export interface IChatRoom {
   people: IRosterRow[];
   /** Pourquoi le salon ouvert est fermé à cette page ; `null` s'il est ouvert. */
   refusal: string | null;
+  /**
+   * Ce qui a ramené la page à l'accueil — salon supprimé, ou plus membre ;
+   * `null` sinon. Effacé à l'ouverture d'un autre salon.
+   */
+  notice: string | null;
   /** L'identité annoncée par le serveur ; `null` avant l'accueil. */
   identity: RealtimeIdentity | null;
   state: RealtimeState;
@@ -101,6 +106,8 @@ export interface IRoomForms {
   openDirect: (userId: string) => Promise<void>;
   /** Supprime le salon ouvert (son propriétaire seul), puis ouvre l'accueil. */
   deleteRoom: () => Promise<void>;
+  /** Quitte le salon ouvert (pas son propriétaire), puis ouvre l'accueil. */
+  leaveRoom: () => Promise<void>;
 }
 
 /** Le motif d'un refus HTTP : le message du serveur, sinon le statut. */
@@ -146,6 +153,7 @@ export function useChat(): IChatRoom {
   const [presence, setPresence] = useState<IPresenceSnapshot>(EMPTY_PRESENCE);
   const [people, setPeople] = useState<IRosterRow[]>([]);
   const [refusal, setRefusal] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [identity, setIdentity] = useState<RealtimeIdentity | null>(null);
   const [state, setState] = useState<RealtimeState>("disconnected");
   const [socket, setSocket] = useState<ChatSocket | null>(null);
@@ -290,8 +298,12 @@ export function useChat(): IChatRoom {
           setRefusal(REFUSALS[denied.reason] ?? "Ce salon vous est fermé.");
       }),
       socket.onClosed((closed) => {
-        if (closed.channel === channel)
-          setRefusal(REFUSALS[closed.reason] ?? "Ce salon s'est fermé.");
+        if (closed.channel !== channel) return;
+        // Le salon a disparu (`ended`), ou l'on n'en est plus (`evicted`) :
+        // rien à y regarder. Retour à l'accueil, et le motif le dit.
+        setNotice(`${REFUSALS[closed.reason]} Retour à l'accueil.`);
+        setRooms((known) => known.filter((item) => item.id !== roomId));
+        setRoomId(LOBBY_ROOM_ID);
       }),
       socket.onState((next) => {
         if (next === "connected") loadHistory();
@@ -395,9 +407,32 @@ export function useChat(): IChatRoom {
         setRooms((known) => known.filter((item) => item.id !== gone));
         setRoomId(LOBBY_ROOM_ID);
       },
+      // #region rooms-leave-client
+      // Quitter = se retirer soi-même : la route d'exclusion, avec SON id.
+      leaveRoom: async () => {
+        const me = live().identity;
+        if (me?.authenticated !== true || me.id === null)
+          throw new Error("connexion requise");
+        const gone = roomId;
+        await live().delete(
+          "/demo/chat/rooms/{room}/members/{user}",
+          undefined,
+          {
+            params: { room: gone, user: me.id },
+          },
+        );
+        setRooms((known) => known.filter((item) => item.id !== gone));
+        setRoomId(LOBBY_ROOM_ID);
+      },
+      // #endregion
     };
   }, [socket, roomId]);
   // #endregion
+
+  const openRoom = useCallback((id: string) => {
+    setNotice(null);
+    setRoomId(id);
+  }, []);
 
   // #region chat-gestures-client
   // Modifier, retirer, réagir : une route chacun, par la socket déjà ouverte.
@@ -439,12 +474,13 @@ export function useChat(): IChatRoom {
   return {
     rooms,
     roomId,
-    openRoom: setRoomId,
+    openRoom,
     messages,
     typing,
     presence,
     people,
     refusal,
+    notice,
     identity,
     state,
     send,

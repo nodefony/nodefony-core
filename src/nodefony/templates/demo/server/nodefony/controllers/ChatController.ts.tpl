@@ -24,6 +24,7 @@ import {
   HistoryQuery,
   InviteBody,
   LinkParams,
+  MemberParams,
   MessageParams,
   PeopleQuery,
   ReactBody,
@@ -133,6 +134,7 @@ class ChatController extends ContractRealtimeController<ChatContract> {
       params: RoomParams,
       body: InviteBody,
     },
+    "DELETE /demo/chat/rooms/{room}/members/{user}": { params: MemberParams },
     "POST /demo/chat/rooms/{room}/events": {
       params: RoomParams,
       body: EventBody,
@@ -281,6 +283,31 @@ class ChatController extends ContractRealtimeController<ChatContract> {
       this.rooms.deleteRoom(input.params.room, me.id),
     );
     await this.chat.dropAttachments(attachments);
+    return { ok: true };
+  }
+  // #endregion
+
+  // #region rooms-remove-route
+  /**
+   * Quitter ou exclure — `DELETE …/rooms/{room}/members/{user}` ou
+   * `socket.delete(…)`. `{user}` est l'identifiant STABLE du compte : le
+   * sien pour quitter, celui d'un autre pour l'exclure. Les rôles sont relus
+   * EN BASE ; l'exclu est désabonné sur tous les serveurs, sa page reçoit
+   * `realtime:closed` (`evicted`) et un nouvel abonnement lui est refusé.
+   */
+  @route("demo-chat-room-member-remove", {
+    path: "/rooms/{room}/members/{user}",
+    requirements: { methods: ["DELETE", "WEBSOCKET"] },
+    schema: { params: MemberParams },
+  })
+  @IsGranted(["ROLE_USER"])
+  async removeMember(
+    input: RouteInput<{ params: typeof MemberParams }>,
+  ): Promise<{ ok: true }> {
+    const me = this.#me();
+    await this.#refused(() =>
+      this.rooms.removeMember(input.params.room, me.id, input.params.user),
+    );
     return { ok: true };
   }
   // #endregion

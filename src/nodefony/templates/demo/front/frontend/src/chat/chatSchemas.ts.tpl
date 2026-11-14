@@ -142,6 +142,12 @@ export const MessageParams = z.strictObject({
 /** L'événement visé : `/demo/chat/events/{event}/…`. */
 export const EventParams = z.strictObject({ event: PathId });
 
+/** Le membre visé : `/demo/chat/rooms/{room}/members/{user}`. */
+export const MemberParams = z.strictObject({
+  room: RoomParams.shape.room,
+  user: PathId,
+});
+
 /** La personne visée : `/demo/chat/direct/{user}`. */
 export const UserParams = z.strictObject({ user: PathId });
 

@@ -30,6 +30,7 @@ import {
 import {
   LOBBY_ROOM_ID,
   roomChannel,
+  memberRemovalProblem,
   roomDeletionProblem,
 } from "../frontend/src/chat/rooms";
 import ChatService from "../nodefony/service/ChatService";
@@ -345,5 +346,60 @@ describe("chat — supprimer un salon (XEP-0045 §10.9)", () => {
     expect(roomDeletionProblem({ id: "dm-x", direct: true }, "owner")).toMatch(
       /à deux/u,
     );
+  });
+});
+
+describe("chat — quitter, exclure (XEP-0045 §8.2, §9.4)", () => {
+  const room = { id: "projet", direct: false };
+
+  it("quitter : un membre ou un modérateur ; le propriétaire supprime, il ne quitte pas", () => {
+    expect(memberRemovalProblem(room, "member", "member", true)).toBeNull();
+    expect(
+      memberRemovalProblem(room, "moderator", "moderator", true),
+    ).toBeNull();
+    expect(memberRemovalProblem(room, "owner", "owner", true)).toMatch(
+      /supprime/u,
+    );
+    expect(memberRemovalProblem(room, null, null, true)).toMatch(/pas membre/u);
+  });
+
+  it("🔴 exclure : propriétaire ou modérateur ; seul le propriétaire retire un modérateur ; jamais le propriétaire", () => {
+    expect(memberRemovalProblem(room, "owner", "member", false)).toBeNull();
+    expect(memberRemovalProblem(room, "owner", "moderator", false)).toBeNull();
+    expect(memberRemovalProblem(room, "moderator", "member", false)).toBeNull();
+    expect(memberRemovalProblem(room, "moderator", "moderator", false)).toMatch(
+      /seul le propriétaire/u,
+    );
+    expect(memberRemovalProblem(room, "member", "member", false)).toMatch(
+      /réservé/u,
+    );
+    expect(memberRemovalProblem(room, null, "member", false)).toMatch(
+      /réservé/u,
+    );
+    expect(memberRemovalProblem(room, "moderator", "owner", false)).toMatch(
+      /propriétaire/u,
+    );
+    expect(memberRemovalProblem(room, "owner", null, false)).toMatch(
+      /pas membre/u,
+    );
+  });
+
+  it("ni l'accueil, ni un salon à deux", () => {
+    expect(
+      memberRemovalProblem(
+        { id: LOBBY_ROOM_ID, direct: false },
+        "owner",
+        "member",
+        false,
+      ),
+    ).toMatch(/accueil/u);
+    expect(
+      memberRemovalProblem(
+        { id: "dm-x", direct: true },
+        "member",
+        "member",
+        true,
+      ),
+    ).toMatch(/à deux/u);
   });
 });

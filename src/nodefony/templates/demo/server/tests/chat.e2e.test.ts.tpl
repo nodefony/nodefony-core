@@ -1007,6 +1007,88 @@ demoDescribe("discussion — supprimer un salon", () => {
     await again.body?.cancel();
   });
 
+  /** `DELETE …/members/{user}` : quitter (son id) ou exclure (celui d'un autre). */
+  const removeMember = (
+    headers: Record<string, string>,
+    roomId: string,
+    userId: string,
+  ) =>
+    fetch(httpUrl(`/demo/chat/rooms/${roomId}/members/${userId}`), {
+      method: "DELETE",
+      headers,
+    });
+
+  it("🔴 exclure : le membre perd le salon ; un modérateur n'exclut pas un modérateur ; le propriétaire ne quitte pas", async () => {
+    const created = await post(admin, "/demo/chat/rooms", {
+      name: roomName("exclusion"),
+      access: "private",
+    });
+    expect(created.status).toBe(200);
+    const room: IRoomView = await created.json();
+    const memberId = await idOf(member);
+    const adminId = await idOf(admin);
+    const invited = await post(admin, `/demo/chat/rooms/${room.id}/members`, {
+      identifier: E2E_USER_IDENTIFIER,
+      role: "moderator",
+    });
+    expect(invited.status).toBe(200);
+    await invited.body?.cancel();
+    const before = await fetch(roomPath(room.id, "history"), {
+      headers: member,
+    });
+    expect(before.status).toBe(200);
+    await before.body?.cancel();
+
+    // Un modérateur ne retire pas le propriétaire.
+    const upward = await removeMember(member, room.id, adminId);
+    expect(upward.status).toBe(403);
+    await upward.body?.cancel();
+    // Le propriétaire ne quitte pas : il supprime.
+    const ownerLeaves = await removeMember(admin, room.id, adminId);
+    expect(ownerLeaves.status).toBe(403);
+    await ownerLeaves.body?.cancel();
+
+    const kicked = await removeMember(admin, room.id, memberId);
+    expect(kicked.status).toBe(200);
+    await kicked.body?.cancel();
+    const after = await fetch(roomPath(room.id, "history"), {
+      headers: member,
+    });
+    expect(after.status).toBe(403);
+    await after.body?.cancel();
+    expect((await roomsOf(member)).some((item) => item.id === room.id)).toBe(
+      false,
+    );
+    const twice = await removeMember(admin, room.id, memberId);
+    expect(twice.status).toBe(404);
+    await twice.body?.cancel();
+    await (await destroy(admin, room.id)).body?.cancel();
+  });
+
+  it("quitter : un membre se retire lui-même, et le salon privé lui est fermé", async () => {
+    const created = await post(admin, "/demo/chat/rooms", {
+      name: roomName("départ"),
+      access: "private",
+    });
+    const room: IRoomView = await created.json();
+    const memberId = await idOf(member);
+    await (
+      await post(admin, `/demo/chat/rooms/${room.id}/members`, {
+        identifier: E2E_USER_IDENTIFIER,
+        role: "member",
+      })
+    ).body?.cancel();
+    const left = await removeMember(member, room.id, memberId);
+    expect(left.status).toBe(200);
+    await left.body?.cancel();
+    const after = await fetch(roomPath(room.id, "history"), {
+      headers: member,
+    });
+    expect(after.status).toBe(403);
+    await after.body?.cancel();
+    await (await destroy(admin, room.id)).body?.cancel();
+  });
+
   it("l'accueil ne se supprime pas, même par son propriétaire", async () => {
     const res = await destroy(admin, LOBBY_ROOM_ID);
     expect(res.status).toBe(403);

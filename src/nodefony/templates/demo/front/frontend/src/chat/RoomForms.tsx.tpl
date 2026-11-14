@@ -334,6 +334,60 @@ export function DeleteRoomDialog({
   );
 }
 
+/**
+ * Quitter le salon ouvert : un salon privé ne se rouvre que sur une nouvelle
+ * invitation, la boîte le dit avant. Le serveur rejoue la règle
+ * (`memberRemovalProblem`) : le propriétaire ne quitte pas, il supprime.
+ */
+export function LeaveRoomDialog({
+  open,
+  onClose,
+  forms,
+  roomName,
+  restricted,
+}: IDialogProps & {
+  forms: IRoomForms;
+  roomName: string;
+  /** Salon privé ou verrouillé : y revenir exige une invitation. */
+  restricted: boolean;
+}) {
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (open) setError(null);
+  }, [open]);
+  const submit = async (): Promise<string | null> => {
+    try {
+      await forms.leaveRoom();
+      return null;
+    } catch (refusal) {
+      const message = messageOf(refusal);
+      setError(message);
+      return message;
+    }
+  };
+  return (
+    <FormDialog
+      open={open}
+      onClose={onClose}
+      title={`Quitter « ${roomName} »`}
+      lead={
+        restricted
+          ? "Vous ne recevrez plus ses messages. Pour y revenir, il faudra qu'on vous réinvite."
+          : "Vous ne serez plus membre de ce salon ; il reste ouvert à tous, vous pourrez y revenir en visiteur."
+      }
+      submitLabel="Quitter le salon"
+      danger
+      submit={submit}
+    >
+      {error !== null && (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      )}
+    </FormDialog>
+  );
+}
+
 /** Inviter dans le salon ouvert, par identifiant exact. */
 export function InviteDialog({
   open,

@@ -216,6 +216,44 @@ export function roomDeletionProblem(
   return null;
 }
 
+/**
+ * Ce qui empêche de retirer quelqu'un d'un salon, ou `null` — QUITTER
+ * (soi-même) ou EXCLURE (un autre ; XEP-0045 §8.2 et §9.4). L'accueil n'a pas
+ * de membres ; un salon à deux appartient aux deux ; le propriétaire ne quitte
+ * pas son salon, il le supprime. Exclure : le propriétaire ou un modérateur,
+ * jamais le propriétaire ; seul le propriétaire retire un modérateur.
+ *
+ * @param room - le salon, et s'il est à deux
+ * @param actor - le rôle de qui demande
+ * @param target - le rôle de qui serait retiré ; `null` s'il n'est pas membre
+ * @param self - qui demande se retire lui-même
+ */
+export function memberRemovalProblem(
+  room: { id: string; direct: boolean },
+  actor: RoomRole | null,
+  target: RoomRole | null,
+  self: boolean,
+): string | null {
+  if (room.id === LOBBY_ROOM_ID)
+    return "l'accueil n'a pas de membres : on le quitte en changeant de salon";
+  if (room.direct)
+    return "un salon à deux appartient aux deux : on ne le quitte pas";
+  if (target === null)
+    return self
+      ? "vous n'êtes pas membre de ce salon"
+      : "cette personne n'est pas membre de ce salon";
+  if (target === "owner")
+    return self
+      ? "le propriétaire ne quitte pas son salon : il le supprime"
+      : "le propriétaire d'un salon ne s'en exclut pas";
+  if (self) return null;
+  if (!canManage(actor))
+    return "réservé au propriétaire du salon et à ses modérateurs";
+  if (target === "moderator" && actor !== "owner")
+    return "seul le propriétaire retire un modérateur";
+  return null;
+}
+
 /** Inviter et planifier : le propriétaire et les modérateurs (XEP-0045). */
 export function canManage(role: RoomRole | null): boolean {
   return role === "owner" || role === "moderator";

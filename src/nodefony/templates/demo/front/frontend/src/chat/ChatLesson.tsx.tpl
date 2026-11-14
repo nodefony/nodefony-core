@@ -11,6 +11,7 @@ import { useChat, type IChatRoom } from "./useChat";
 import { ChatPeople } from "./ChatPeople";
 import {
   canManage,
+  memberRemovalProblem,
   roomDeletionProblem,
   type IRoomEvent,
   type IRoomView,
@@ -18,13 +19,14 @@ import {
 import {
   CreateRoomDialog,
   DeleteRoomDialog,
+  LeaveRoomDialog,
   EventDialog,
   InviteDialog,
 } from "./RoomForms";
 import { useEffect, useRef, useState } from "react";
 
 /** Le formulaire ouvert, s'il y en a un. */
-type OpenForm = "create" | "invite" | "event" | "delete" | null;
+type OpenForm = "create" | "invite" | "event" | "delete" | "leave" | null;
 
 /**
  * Le salon en plein écran. L'API Fullscreen quand le navigateur l'offre
@@ -396,6 +398,15 @@ function ChatRoom({
       { id: current.id, direct: current.peer !== null },
       current.role,
     ) === null;
+  // Quitter : un membre ou un modérateur ; le propriétaire supprime.
+  const leavable =
+    current !== null &&
+    memberRemovalProblem(
+      { id: current.id, direct: current.peer !== null },
+      current.role,
+      current.role,
+      true,
+    ) === null;
   const layout = useRef<HTMLDivElement>(null);
   const screen = useFullscreen(layout);
 
@@ -446,6 +457,15 @@ function ChatRoom({
                 </button>
               </>
             )}
+            {leavable && (
+              <button
+                type="button"
+                className="room-btn"
+                onClick={() => setForm("leave")}
+              >
+                Quitter
+              </button>
+            )}
             {deletable && (
               <button
                 type="button"
@@ -468,9 +488,9 @@ function ChatRoom({
             </button>
           </span>
         </div>
-        {notice !== null && (
+        {(notice ?? room.notice) !== null && (
           <p className="room-notice" role="alert">
-            {notice}
+            {notice ?? room.notice}
           </p>
         )}
         {room.refusal !== null ? (
@@ -560,6 +580,13 @@ function ChatRoom({
         onClose={() => setForm(null)}
         forms={room.forms}
         roomName={name}
+      />
+      <LeaveRoomDialog
+        open={form === "leave"}
+        onClose={() => setForm(null)}
+        forms={room.forms}
+        roomName={name}
+        restricted={current?.access === "private" || current?.locked === true}
       />
       <EventDialog
         open={form === "event"}

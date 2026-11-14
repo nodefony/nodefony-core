@@ -14,6 +14,7 @@ import type {
   ReplyBody,
   RoomParams,
   SendBody,
+  MemberParams,
   UserParams,
 } from "./chatSchemas";
 import type { IRoomEvent, IRoomView } from "./rooms";
@@ -271,6 +272,10 @@ export interface ChatContract extends IRealtimeContract {
     "POST /demo/chat/rooms/{room}/members": {
       params: typeof RoomParams;
       body: typeof InviteBody;
+      result: { ok: true };
+    };
+    "DELETE /demo/chat/rooms/{room}/members/{user}": {
+      params: typeof MemberParams;
       result: { ok: true };
     };
     "POST /demo/chat/rooms/{room}/events": {

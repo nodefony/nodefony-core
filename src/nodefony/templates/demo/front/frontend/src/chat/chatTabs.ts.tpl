@@ -96,6 +96,10 @@ export const CHAT_LESSON = {
           excerpt: { file: CONTROLLER, region: "rooms-invite-route" },
         },
         {
+          text: "Quitter ou exclure : UNE route, `DELETE …/members/{user}`, avec son propre identifiant pour partir, celui d'un autre pour l'exclure. La règle est partagée avec la page : le propriétaire ne quitte pas (il supprime), seul lui retire un modérateur.",
+          excerpt: { file: CONTROLLER, region: "rooms-remove-route" },
+        },
+        {
           text: "Écrire en privé : une route sans corps, qui rend le salon à deux, qu'il existe déjà ou non. Pas besoin de `@Idempotent()` : l'opération l'est par construction.",
           excerpt: { file: CONTROLLER, region: "rooms-direct-route" },
         },
