@@ -70,8 +70,16 @@ class AuditService extends Service implements IAuditSink {
       module.notificationsCenter,
       module.options,
     );
-    this.kernel?.once("onBoot", () => this.#build());
-    this.kernel?.once("onTerminate", () => this.#shutdown());
+    this.kernel?.once("onBoot", () => {
+      try {
+        this.#build();
+      } finally {
+        // Libération inscrite APRÈS la résolution du store (ADR-0027 D3 point 4) :
+        // ce dont il dépend (le connecteur de base) a été inscrit avant, donc se
+        // libère après. Le vidage est attendu par le noyau.
+        this.kernel?.once("onTerminate", () => this.#shutdown());
+      }
+    });
   }
 
   // ── Cycle de vie ─────────────────────────────────────────────────────────────

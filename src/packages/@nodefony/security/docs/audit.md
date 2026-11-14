@@ -704,8 +704,9 @@ filtrage, jamais de sémantique.
 L'entité et la fabrique sont enregistrées automatiquement par l'adapter au démarrage
 (`registerStores.ts#registerMongooseFrameworkStores`, entité via `registerAuditEntities()`, `auditEventEntity.ts#registerAuditEntities`). Côté
 implémentation, `DrizzleAuditStore` (`DrizzleAuditStore.ts#DrizzleAuditStore`) résout son handle de base **à chaque
-appel**, pas à la construction : l'ordre de démarrage n'est pas garanti, et l'ORM se déconnecte au
-`onTerminate` avant le drain des serveurs.
+appel**, pas à la construction : l'ordre de démarrage n'est pas garanti. À l'arrêt, l'audit vide son
+agrégateur à `onTerminate`, après le drain des serveurs et avant la déconnexion de l'ORM : sa
+libération s'inscrit à la résolution du store, donc après celle du connecteur (ADR-0027).
 
 ## 🔐 Sécurité — ce qui n'entre JAMAIS dans le journal
 

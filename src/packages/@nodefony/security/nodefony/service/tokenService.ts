@@ -119,9 +119,17 @@ class TokenService extends Service {
     );
     // Écouteur NOMMÉ : un refus de démarrage désigne son auteur par le nom de
     // la fonction — une lambda anonyme s'y affichait « (anonyme) ».
-    const tokenServiceBoot = (): void => this.#build();
+    const tokenServiceBoot = (): void => {
+      try {
+        this.#build();
+      } finally {
+        // Libération inscrite APRÈS la résolution du store (ADR-0027 D3 point 4) :
+        // ce dont il dépend (le connecteur de base) a été inscrit avant, donc se
+        // libère après. Le vidage est attendu par le noyau.
+        this.kernel?.once("onTerminate", () => this.#shutdown());
+      }
+    };
     this.kernel?.once("onBoot", tokenServiceBoot);
-    this.kernel?.once("onTerminate", () => this.#shutdown());
   }
 
   // ── Cycle de vie ─────────────────────────────────────────────────────────────
