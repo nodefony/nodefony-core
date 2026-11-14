@@ -120,4 +120,49 @@ describe("#760 lot D3 — arrêt du noyau", () => {
 
     expect(steps).toEqual(["final", "stop", "stopped", "quit"]);
   });
+
+  it("🔴 un service inscrit AVANT le module ferme le bus à l'arrêt (connexions `@nodefony/redis`) : la fin part AVANT cette fermeture", async () => {
+    vi.spyOn(CliKernel, "quit").mockImplementation(() => {});
+    const steps: string[] = [];
+    let closed = false;
+    const bus: IBackplane = {
+      originId: "pod-a",
+      start: () => {},
+      stop: () => {},
+      publish: (channel, payload) => {
+        if (
+          channel === PLATFORM_BUS_CHANNELS.presenceAlive &&
+          (payload as { final?: boolean }).final === true
+        )
+          steps.push(closed ? "final-perdue" : "final");
+      },
+      onMessage: () => {},
+      describe: () => ({
+        driver: "test",
+        kind: "memory",
+        originId: "pod-a",
+        crossPod: true,
+      }),
+    };
+    const hub = getRealtimeHub();
+    hub.clear();
+    hub.declareChannelPolicy("room:*", { presence: true }, null);
+    hub.markBroadcastChannel("room:");
+    hub.setBackplane(bus);
+    const kernel = new Kernel("development", null, { log: { active: false } });
+    // Comme `RedisService` : son arrêt est inscrit dès sa construction, donc
+    // AVANT celui du module temps réel, posé à `onKernelBoot`.
+    kernel.once("onTerminate", async () => {
+      closed = true;
+      steps.push("connexions fermées");
+    });
+    const module = new Realtime(kernel);
+    await module.onKernelRegister();
+    await module.onKernelBoot();
+    presenceClient(hub, "room:1", "alice");
+
+    await kernel.terminate(0);
+
+    expect(steps).toEqual(["final", "connexions fermées"]);
+  });
 });

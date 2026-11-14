@@ -420,10 +420,15 @@ canaux, de membres ou d'abonnés.**
   parti — n'est publié qu'après ce délai, et s'annule si l'identité revient : un rechargement de
   page ou un déploiement ne fait plus clignoter la liste. Pour `unnamed`, la grâce retarde le
   décompte. Les délais vivent dans le tic unique du pod, aucun minuteur par présent.
-  Exception : quand le DERNIER client d'un pod quitte un canal, le canal se ferme sur ce pod et sa
-  part locale part à zéro au lot suivant, départs en grâce compris (`server/channelPresence.ts#ChannelPresence.release`) —
-  un canal fermé n'a plus de tic pour échoir une grâce, et un départ jamais publié resterait un
-  fantôme chez les pairs.
+  Le DERNIER client d'un pod n'y échappe pas : quand il quitte le canal pendant une grâce, le
+  canal se ferme sur ce pod mais sa présence reste servie au bus jusqu'à l'échéance
+  (`server/RealtimeHub.ts#RealtimeHub.#lingerPresence`) — le départ part alors, puis la présence
+  se libère (`server/channelPresence.ts#ChannelPresence.release`) ; si le canal se rouvre sur ce
+  pod entre-temps (page rechargée), la MÊME présence reprend et le départ s'annule. Le tic du pod
+  est unique : aucun minuteur de plus, un seul objet retenu au plus `grace` ms. Sans cela, sur
+  plusieurs pods, l'utilisateur seul sur le sien qui recharge sa page clignotait chez les autres —
+  le cas même que la grâce existe pour couvrir (vu au banc multi-pods réel, invisible au bus
+  mémoire où un test garde toujours un abonné).
 - **Défaut `0`** : un salon de jeu ou un poste de supervision veut un compte EXACT ; un chat
   règle sa grâce. Ably tient 15 s par défaut ; Phoenix Tracker garde les présents d'un nœud
   arrêté « to avoid overwhelming clients with notifications that many users left and immediately

@@ -146,10 +146,10 @@ processus qui tourne toujours — puis on diagnostique sur un serveur qui exécu
 
 ## Ce que ce banc a déjà trouvé
 
-- Présence : la grâce d'un départ saute quand c'est le DERNIER client du canal sur son pod
-  (exception écrite d'ADR-0025 P5, `ChannelPresence.release`) — sur deux pods, un utilisateur seul
-  sur le sien qui recharge sa page clignote chez les autres en ~250 ms. Invisible au bus mémoire,
-  où les tests gardent toujours un abonné.
+- Présence : la grâce d'un départ sautait quand c'était le DERNIER client du canal sur son pod —
+  sur deux pods, un utilisateur seul sur le sien qui rechargeait sa page clignotait chez les autres
+  en ~250 ms. Invisible au bus mémoire, où les tests gardent toujours un abonné. Corrigé
+  (`RealtimeHub.#lingerPresence`) ; `presence-pods.mjs` le garde.
 
 - Le backplane réinjectait tout message reçu sans vérifier ni le canal ni l'origine.
 - Les préfixes broadcast n'étaient déclarés qu'au handshake d'un client : un pod publiant

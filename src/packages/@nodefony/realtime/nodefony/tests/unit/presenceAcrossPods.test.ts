@@ -392,6 +392,79 @@ describe("#760 lot D2 — présence répartie entre deux pods (bus en mémoire)"
     expect(view(b, "wait:1")).to.deep.equal({ bob: 1 });
   });
 
+  it("🔴 dernier client de A parti pendant la grâce : B le garde jusqu'à l'échéance, puis le retire — et A libère le canal", async () => {
+    const net = network();
+    const a = pod(net, "A");
+    const b = pod(net, "B");
+    const alice = client(a, "wait:1", "alice");
+    client(b, "wait:1", "bob");
+    await tick(PRESENCE_WINDOW_MS * 2);
+    alice.leave(); // dernier client de A
+    await tick(PRESENCE_BATCH_MS * 4);
+    expect(view(b, "wait:1")).to.deep.equal({ alice: 1, bob: 1 });
+    expect(a.probe().presence?.distributedChannels).toBe(1); // encore servi au bus
+    await tick(1000 + PRESENCE_WINDOW_MS * 2); // grâce échue
+    expect(view(b, "wait:1")).to.deep.equal({ bob: 1 });
+    expect(a.probe().presence?.distributedChannels).toBe(0);
+  });
+
+  it("🔴 canal libéré par le TIC après une grâce, rouvert, puis pod arrêté proprement : la fin est annoncée, rien n'attend l'oubli", async () => {
+    const net = network();
+    const a = pod(net, "A");
+    const b = pod(net, "B");
+    const alice = client(a, "wait:1", "alice");
+    client(b, "wait:1", "bob");
+    await tick(PRESENCE_WINDOW_MS * 2);
+    alice.leave(); // dernier client de A : présence retenue la grâce
+    await tick(1000 + PRESENCE_WINDOW_MS * 2); // échue, libérée par le tic
+    expect(a.probe().presence?.distributedChannels).toBe(0);
+    client(a, "wait:1", "carol"); // le canal se rouvre sur A
+    await tick(PRESENCE_BATCH_MS * 4);
+    expect(view(b, "wait:1")).to.deep.equal({ bob: 1, carol: 1 });
+    a.endPresence();
+    await tick(1000 + PRESENCE_WINDOW_MS * 3); // grâce des départs de pod
+    expect(view(b, "wait:1")).to.deep.equal({ bob: 1 });
+    expect(b.probe().presence?.endedTotal).toBe(1);
+    expect(b.probe().presence?.forgottenTotal).toBe(0);
+  });
+
+  it("🔴 arrêt propre PUIS fermeture des connexions : la fin est annoncée, rien ne part ensuite — pas même la présence retenue par la grâce", async () => {
+    const net = network();
+    const a = pod(net, "A");
+    const b = pod(net, "B");
+    const carol = client(a, "wait:1", "carol");
+    client(b, "wait:1", "bob");
+    await tick(PRESENCE_WINDOW_MS * 2);
+    expect(view(b, "wait:1")).to.deep.equal({ bob: 1, carol: 1 });
+    a.endPresence(); // `onTerminate`…
+    const since = net.wire.length;
+    carol.leave(); // …puis les sockets se ferment
+    await tick(1000 + PRESENCE_WINDOW_MS * 3);
+    expect(presenceSince(net, "A", since)).toHaveLength(0); // rien après la fin
+    expect(view(b, "wait:1")).to.deep.equal({ bob: 1 });
+    expect(b.probe().presence?.endedTotal).toBe(1);
+    expect(b.probe().presence?.forgottenTotal).toBe(0);
+  });
+
+  it("🔴 dernier client de A revenu SUR A pendant la grâce (page rechargée) : jamais vu partir chez B", async () => {
+    const net = network();
+    const a = pod(net, "A");
+    const b = pod(net, "B");
+    const alice = client(a, "wait:1", "alice");
+    client(b, "wait:1", "bob");
+    await tick(PRESENCE_WINDOW_MS * 2);
+    const framesBefore = b.probe().presence?.frameTotal ?? 0;
+    alice.leave(); // dernier client de A : le canal ferme sur A
+    await tick(PRESENCE_BATCH_MS * 2);
+    client(a, "wait:1", "alice"); // la page rechargée retombe sur A
+    await tick(1000 + PRESENCE_WINDOW_MS * 4); // grâce échue
+    for (const hub of [a, b])
+      expect(view(hub, "wait:1")).to.deep.equal({ alice: 1, bob: 1 });
+    // Bob n'a reçu aucune trame : ni départ, ni retour.
+    expect((b.probe().presence?.frameTotal ?? 0) - framesBefore).toBe(0);
+    expect(a.probe().presence?.distributedChannels).toBe(1);
+  });
+
   it("une arrivée puis un départ dans la même fenêtre de 50 ms : aucun lot ne part (annulation à la source)", async () => {
     const net = network();
     const a = pod(net, "A");

@@ -533,6 +533,15 @@ export class ChannelPresence implements IPresenceAggregate {
     };
   }
 
+  /**
+   * Des départs LOCAUX attendent-ils la fin de leur grâce ? Le dernier client
+   * parti d'un pod n'y échappe pas : la présence reste servie au bus jusqu'à
+   * l'échéance (ADR-0025 P5), puis se libère.
+   */
+  get hasLocalGrace(): boolean {
+    return this.#leaving !== null || this.#unnamedLeaving !== null;
+  }
+
   /** La part locale compte-t-elle quelqu'un ? */
   get hasLocal(): boolean {
     return (this.#local?.size ?? 0) > 0 || this.#localUnnamed > 0;

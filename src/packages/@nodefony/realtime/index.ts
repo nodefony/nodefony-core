@@ -301,7 +301,11 @@ class Realtime extends Module<IRealtimeConfig> {
     // preuve de vie finale, ADR-0025 P5), puis le bus créé ici s'arrête en
     // laissant partir ce qui est émis — sinon chaque déploiement laisserait ses
     // présents chez les pairs jusqu'au délai d'oubli. Sans bus : no-op.
-    this.kernel?.once("onTerminate", async () => {
+    // EN TÊTE de l'arrêt : `emitAsync` enchaîne les écouteurs dans l'ordre
+    // d'inscription, et ce dont le bus dépend (les connexions de
+    // `@nodefony/redis`, inscrites dès la construction de son service) se
+    // fermerait AVANT — la fin partirait sur un bus coupé (vu au banc réel).
+    this.kernel?.prependOnceListener("onTerminate", async () => {
       const stopped = await shutdownRealtime(
         getRealtimeHub(),
         this.#ownedBackplane,

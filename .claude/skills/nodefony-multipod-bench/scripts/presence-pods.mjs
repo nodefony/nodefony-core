@@ -167,17 +167,38 @@ try {
     `onglet fermé sur A : parti de B à ${leftAt} ms (grâce ${GRACE_MS} ms)`,
   );
 
-  // Exception d'ADR-0025 P5 : le DERNIER client d'un pod ferme le canal sur ce
-  // pod, sa part locale part à zéro au lot suivant — grâce comprise. Mesurée,
-  // pas assertée comme un défaut : c'est la décision écrite.
-  const t0b = performance.now();
+  // Le DERNIER onglet de A recharge sa page, et retombe sur A pendant la grâce :
+  // B ne doit jamais le voir partir (ADR-0025 P5, `RealtimeHub.#lingerPresence`).
+  let dipped = false;
+  const sampler = setInterval(() => {
+    if (total(watcher) < 2) dipped = true;
+  }, 20);
   keeper.socket.disconnect();
+  await dormir(300);
+  const reloaded = tab(5191);
+  await dormir(GRACE_MS + 1500);
+  clearInterval(sampler);
+  r.dire(
+    !dipped && total(watcher) === 2,
+    "dernier onglet de A rechargé sur A pendant la grâce : jamais vu partir de B",
+  );
+
+  // Le dernier onglet de A s'en va pour de bon : retenu la grâce, puis retiré.
+  const t0b = performance.now();
+  reloaded.socket.disconnect();
+  await dormir(GRACE_MS - 500);
+  r.dire(
+    total(watcher) === 2,
+    `dernier onglet de A : départ retenu pendant la grâce (${GRACE_MS} ms)`,
+  );
   const lastLeft = await timeTo(watcher, 1, 10_000);
   const lastLeftAt =
     lastLeft === null ? null : Math.round(performance.now() - t0b);
   r.dire(
-    lastLeftAt !== null,
-    `dernier onglet de A fermé : parti de B à ${lastLeftAt} ms (exception P5 : sans grâce)`,
+    lastLeftAt !== null &&
+      lastLeftAt >= GRACE_MS &&
+      lastLeftAt <= GRACE_MS + 2000,
+    `dernier onglet de A parti pour de bon : retiré de B à ${lastLeftAt} ms`,
   );
 
   console.log(">>> (b) pod arrêté proprement en pleine conversation");
@@ -192,6 +213,23 @@ try {
   const goneCleanAt =
     goneClean === null ? null : Math.round(performance.now() - t1);
   r.dire(graceful, "A s'est arrêté sur SIGTERM");
+  const probeB = async () => {
+    const p = await (
+      await fetch("http://127.0.0.1:5193/api/chat/probe")
+    ).json();
+    const q = p.presenceProbe ?? {};
+    return `fins ${q.endedTotal}, oublis ${q.forgottenTotal}, refus ${q.presenceRejectedTotal}, rejeux ${q.presenceStaleDiscardedTotal}, pods ${q.pods}`;
+  };
+  console.log(`    sonde de B après l'arrêt de A : ${await probeB()}`);
+  if (goneCleanAt === null || goneCleanAt > GRACE_MS + 3000) {
+    // La fin n'est pas arrivée : ce que A a journalisé en s'arrêtant le dit.
+    const tail = podA.journal
+      .join("")
+      .replace(/\x1b\[[0-9;]*m/g, "")
+      .split("\n")
+      .slice(-25);
+    console.log(`    journal de A à l'arrêt :\n      ${tail.join("\n      ")}`);
+  }
   r.dire(
     goneCleanAt !== null && goneCleanAt <= GRACE_MS + 3000,
     `arrêt propre : ses présents partis de B à ${goneCleanAt} ms — annoncé, pas oublié`,

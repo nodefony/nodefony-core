@@ -29,7 +29,7 @@ source: ".claude/skills/nodefony-multipod-bench/SKILL.md"
 | Version | — (non versionné) |
 | Famille | Exécuter, diagnostiquer, mesurer |
 | Corps | 152 lignes |
-| Coût d'activation | ~3 860 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~3 865 tokens (le corps est chargé à l'invocation) |
 | Description | 988 / 1024 caractères |
 | Déclencheurs | 12 |
 | Ressources `references/` | 2 page(s) |

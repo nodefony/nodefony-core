@@ -457,6 +457,12 @@ export class RealtimeHub {
   #presenceBus: PresenceBus | null = null;
   // Présences servies ET diffusées ici (la part qui va sur le bus).
   #presenceServed: Set<ChannelPresence> | null = null;
+  /**
+   * Présences RÉPARTIES dont le dernier client local est parti pendant une grâce :
+   * encore servies au bus jusqu'à l'échéance, reprises si le canal se rouvre ici
+   * (ADR-0025 P5). `null` tant qu'aucune n'attend — le cas de presque tous les pods.
+   */
+  #presenceLingering: Map<string, ChannelPresence> | null = null;
   // Une politique déclare-t-elle la présence ? Sans elle, un message de présence
   // venu du bus est refusé sans rien allouer.
   #presenceDeclared = false;
@@ -770,6 +776,16 @@ export class RealtimeHub {
   ): void {
     const backplane = this.#backplane;
     const distributed = backplane !== null && st.forward;
+    // Rouvert pendant la grâce de son dernier départ : la MÊME présence reprend
+    // (le bus la sert encore), et le retour annule le départ retenu.
+    const lingering = this.#presenceLingering?.get(channel);
+    if (lingering !== undefined && distributed) {
+      this.#presenceLingering?.delete(channel);
+      if (this.#presenceLingering?.size === 0) this.#presenceLingering = null;
+      lingering.live = true;
+      st.presence = lingering;
+      return;
+    }
     const presence = new ChannelPresence(channel, settings, distributed);
     st.presence = presence;
     if (!distributed) {
@@ -1034,9 +1050,23 @@ export class RealtimeHub {
       channels.delete(channel);
       if (presence !== null) {
         presence.live = false;
-        if (presence.distributed) this.#releasePresence(presence);
+        if (!presence.distributed) {
+          /* présence locale : plus personne ici ne la lit */
+        } else if (presence.hasLocalGrace) this.#lingerPresence(presence);
+        else this.#releasePresence(presence);
       }
     }
+  }
+
+  /**
+   * Le dernier client local d'une présence répartie est parti pendant une grâce : elle reste servie au bus jusqu'à l'échéance (ADR-0025 P5) — le départ n'est publié qu'à ce moment, et un retour sur ce pod l'annule.
+   */
+  #lingerPresence(presence: ChannelPresence): void {
+    (this.#presenceLingering ??= new Map<string, ChannelPresence>()).set(
+      presence.channel,
+      presence,
+    );
+    this.#armPresenceAt(presence.nextDeadline(), performance.now());
   }
 
   /**
@@ -1209,6 +1239,21 @@ export class RealtimeHub {
         else if (due < next) next = due;
       }
       if (active.size === 0) this.#presenceActive = null;
+    }
+    const lingering = this.#presenceLingering;
+    if (lingering !== null) {
+      for (const presence of lingering.values()) {
+        presence.expire(now);
+        if (bus !== null && presence.busDirty) bus.changed(presence, now);
+        if (presence.hasLocalGrace) {
+          const due = presence.nextDeadline();
+          if (due < next) next = due;
+        } else {
+          lingering.delete(presence.channel);
+          this.#releasePresence(presence);
+        }
+      }
+      if (lingering.size === 0) this.#presenceLingering = null;
     }
     if (bus !== null) {
       const due = bus.due();
@@ -1620,6 +1665,7 @@ export class RealtimeHub {
     // Une autre identité sur le bus : la présence répartie repart de zéro.
     this.#presenceBus = null;
     this.#presenceServed = null;
+    this.#presenceLingering = null;
     // Le canal personnel doit atteindre l'identité sur TOUS les serveurs : son
     // préfixe est diffusé par le framework, sans déclaration de l'application.
     this.markBroadcastChannel(USER_CHANNEL_PREFIX);
@@ -2727,6 +2773,7 @@ export class RealtimeHub {
     this.#presenceActive = null;
     this.#presenceBus = null;
     this.#presenceServed = null;
+    this.#presenceLingering = null;
     this.#presenceDeclared = false;
     this.#presenceRejectedTotal = 0;
     this.#presenceListTotal = 0;
