@@ -3130,7 +3130,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const index = lireMod("index.ts");
       assert.include(
         index,
-        "@controllers([\n  PartnerController,\n  DemoPageController,\n  DemoController,\n  DemoRealtimeController,\n  ChatController,\n  FirstStepsController,\n  SseController,\n  VideoController,\n  BinaryController,\n  PartnerTokenController,\n  DemoMcpController,\n  McpTokenController,\n  MeteorController,\n  PrismController,\n  SensorController,\n  TelemetryController,\n])",
+        "@controllers([\n  PartnerController,\n  DemoPageController,\n  DemoController,\n  DemoRealtimeController,\n  ChatController,\n  FirstStepsController,\n  SseController,\n  VideoController,\n  UploadController,\n  BinaryController,\n  PartnerTokenController,\n  DemoMcpController,\n  McpTokenController,\n  MeteorController,\n  PrismController,\n  SensorController,\n  TelemetryController,\n])",
       );
       assert.include(index, "registerDemoEntry(this);");
       // Les NOMS, dans l'ordre — pas le texte : un commentaire qui explique
@@ -3148,6 +3148,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           "AppBannerService",
           "DemoPulseService",
           "ChatService",
+          "UploadService",
           "LinkPreviewService",
           "RoomService",
           "RoomAdmission",

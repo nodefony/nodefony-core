@@ -15,6 +15,7 @@ import { PrismLesson } from "./prism/PrismLesson";
 import { SensorLesson } from "./sensor/SensorLesson";
 import { SseLesson } from "./sse/SseLesson";
 import { VideoLesson } from "./video/VideoLesson";
+import { UploadLesson } from "./upload/UploadLesson";
 import { Account } from "./kit/Account";
 import { applyTheme, readTheme, type DemoTheme } from "./kit/theme";
 import { PartnerLesson } from "./partner/PartnerLesson";
@@ -57,6 +58,7 @@ export function App() {
     page === "/demo/first-steps" ||
     page === "/demo/sse" ||
     page === "/demo/video" ||
+    page === "/demo/upload" ||
     page === "/demo/binary" ||
     page === "/demo/mcp" ||
     page === "/demo/meteor" ||
@@ -81,6 +83,8 @@ export function App() {
         <SseLesson about={about} />
       ) : page === "/demo/video" ? (
         <VideoLesson about={about} />
+      ) : page === "/demo/upload" ? (
+        <UploadLesson about={about} />
       ) : page === "/demo/binary" ? (
         <BinaryLesson about={about} />
       ) : page === "/demo/mcp" ? (
@@ -450,7 +454,10 @@ function Foundation() {
  * l'index, imprimée depuis `demos.ts` — jamais un exemple recopié.
  */
 function Agents() {
-  const entry = DEMOS.find((demo) => demo.status === "ready");
+  // Élargi au type de l'index : la comparaison reste juste quand une démo
+  // redevient « à venir ».
+  const demos: readonly IDemoEntry[] = DEMOS;
+  const entry = demos.find((demo) => demo.status === "ready");
   return (
     <section id="agents">
       <div className="agents-panel">

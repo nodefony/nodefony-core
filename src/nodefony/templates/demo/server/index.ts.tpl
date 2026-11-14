@@ -23,8 +23,10 @@ import ChatController from "./nodefony/controllers/ChatController";
 import FirstStepsController from "./nodefony/controllers/FirstStepsController";
 import SseController from "./nodefony/controllers/SseController";
 import VideoController from "./nodefony/controllers/VideoController";
+import UploadController from "./nodefony/controllers/UploadController";
 import BinaryController from "./nodefony/controllers/BinaryController";
 import ChatService from "./nodefony/service/ChatService";
+import UploadService from "./nodefony/service/UploadService";
 import LinkPreviewService from "./nodefony/service/LinkPreviewService";
 import RoomAdmission from "./nodefony/service/RoomAdmission";
 import RoomService from "./nodefony/service/RoomService";
@@ -70,6 +72,7 @@ declare module "nodefony" {
   FirstStepsController,
   SseController,
   VideoController,
+  UploadController,
   BinaryController,
   PartnerTokenController,
   DemoMcpController,
@@ -84,6 +87,8 @@ declare module "nodefony" {
   AppBannerService,
   DemoPulseService,
   ChatService,
+  // Les fichiers de la démo « Envoi de fichiers », rangés sur leur compte.
+  UploadService,
   // L'aperçu d'un lien du chat : lit un site tiers par `fetchPublic`.
   LinkPreviewService,
   RoomService,

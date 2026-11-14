@@ -155,6 +155,7 @@ import { SSE_LESSON } from "../frontend/src/sse/sseTabs";
 import { answerWords, SSE_PATH } from "../frontend/src/sse/sseDemo";
 import { readTimeline } from "../frontend/src/sse/sseTimeline";
 import { VIDEO_LESSON } from "../frontend/src/video/videoTabs";
+import { UPLOAD_LESSON } from "../frontend/src/upload/uploadTabs";
 import { describeReceived, readBox } from "../frontend/src/video/fileMap";
 import {
   MediaParams,
@@ -1740,6 +1741,7 @@ const LESSONS: readonly { page: string; lesson: ILesson }[] = [
   { page: "first-steps", lesson: FIRST_LESSON },
   { page: "sse", lesson: SSE_LESSON },
   { page: "video", lesson: VIDEO_LESSON },
+  { page: "upload", lesson: UPLOAD_LESSON },
   { page: "binary", lesson: BINARY_LESSON },
   { page: "mcp", lesson: MCP_LESSON },
   { page: "meteor", lesson: METEOR_LESSON },
@@ -1913,6 +1915,12 @@ describe("demo — les leçons à gestes : la sonde et le contrôleur cité", ()
     ["nodefony/controllers/FirstStepsController.ts", FIRST_LESSON],
     ["nodefony/controllers/SseController.ts", SSE_LESSON],
     ["nodefony/controllers/VideoController.ts", VIDEO_LESSON],
+    ["nodefony/controllers/UploadController.ts", UPLOAD_LESSON],
+    ["nodefony/service/UploadService.ts", UPLOAD_LESSON],
+    ["frontend/src/upload/uploadDemo.ts", UPLOAD_LESSON],
+    ["frontend/src/upload/uploadClient.ts", UPLOAD_LESSON],
+    ["frontend/src/upload/UploadVisuals.tsx", UPLOAD_LESSON],
+    ["frontend/src/upload/UploadLesson.tsx", UPLOAD_LESSON],
     ["nodefony/controllers/BinaryController.ts", BINARY_LESSON],
     ["nodefony/controllers/DemoMcpController.ts", MCP_LESSON],
     ["nodefony/controllers/McpTokenController.ts", MCP_LESSON],

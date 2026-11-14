@@ -408,10 +408,28 @@ export const DEMOS = [
     title: "Envoi de fichiers",
     rubric: "programs",
     level: "beginner",
-    teaches: "Téléverser un fichier, suivre sa progression, le relire.",
-    status: "soon",
-    files: [],
-    types: [],
+    teaches:
+      "Téléverser un fichier en flux jusqu'au disque, suivre sa progression, le relire intact : bornes propres à la route (413 pendant le flux), plusieurs fichiers et un champ, corps brut, type reconnu aux octets, empreinte `Repr-Digest`.",
+    status: "ready",
+    tag: "7 gestes à essayer",
+    path: "/demo/upload",
+    files: [
+      "frontend/src/upload/uploadDemo.ts",
+      "nodefony/controllers/UploadController.ts",
+      "nodefony/service/UploadService.ts",
+      "frontend/src/upload/uploadClient.ts",
+      "frontend/src/upload/UploadLesson.tsx",
+      "frontend/src/upload/UploadVisuals.tsx",
+      "frontend/src/kit/preview.ts",
+      "frontend/src/kit/StepsLesson.tsx",
+    ],
+    types: [
+      "IUploadedFile (@nodefony/http)",
+      "IRouteUploadOptions (@nodefony/http)",
+    ],
+    doc: "@nodefony/http/docs/upload.md",
+    command: "npx nodefony create controller",
+    skill: "nodefony-dev",
   },
 ] as const satisfies readonly IDemoEntry[];
 

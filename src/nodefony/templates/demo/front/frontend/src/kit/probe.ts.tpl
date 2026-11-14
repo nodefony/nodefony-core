@@ -63,6 +63,8 @@ export const SHOWN_HEADERS = [
   "etag",
   "last-modified",
   "x-accel-buffering",
+  "x-content-type-options",
+  "repr-digest",
   "x-demo",
 ] as const;
 

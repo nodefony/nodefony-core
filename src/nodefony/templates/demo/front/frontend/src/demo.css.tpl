@@ -3772,6 +3772,23 @@ button.msg-chip[aria-pressed="true"] {
   border: 1px solid var(--border);
   border-radius: 8px;
 }
+/* Un champ fichier porte son bouton ET « Aucun fichier choisi » : la largeur
+   des champs texte le tronquait. */
+.steps-fields input[type="file"] {
+  width: auto;
+  max-width: 100%;
+}
+/* Le fichier choisi sur le poste, sous son champ. */
+.upload-chosen {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.upload-chosen strong {
+  color: var(--fg);
+}
 
 /* Un appel : la méthode en pastille, le libellé, le chemin visé. */
 .calls {

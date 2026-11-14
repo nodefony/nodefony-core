@@ -35,6 +35,9 @@ un renvoi mort le fait échouer.
   `VideoController` (`/demo/api/media`, les vidéos du dossier `media/` servies
   par plages : `Range`, 206, 416, `If-Range` — `sample.mp4` y est posée à la
   création, une vidéo qu'on y dépose est servie pareil),
+  `UploadController` (`/demo/api/upload`, les fichiers reçus en flux jusqu'au
+  disque : bornes propres à la route, empreinte `Repr-Digest`, type reconnu
+  aux octets, corps brut — rangés sur le compte par `UploadService`),
   `BinaryController` (`/demo/api/binary/realtime`, des octets sur une socket
   dédiée : vibrations Int16, positions Float32, empreinte d'un envoi — la
   config de la démo passe le serveur en `codec: "cbor"` et relève

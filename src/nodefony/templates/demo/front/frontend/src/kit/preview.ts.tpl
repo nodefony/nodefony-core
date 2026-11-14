@@ -216,12 +216,17 @@ export function sniffImage(head: Uint8Array): string | null {
 /**
  * Le texte d'un fichier, s'il en est un : UTF-8 valide, sans octet nul.
  *
+ * @param bytes - le fichier, ou ses premiers octets
+ * @param head - `true` quand `bytes` n'est que la TÊTE du fichier : un
+ *   caractère coupé à la fin n'est alors pas une faute d'encodage
  * @returns le texte, ou `null` pour un fichier binaire
  */
-export function decodeText(bytes: Uint8Array): string | null {
+export function decodeText(bytes: Uint8Array, head = false): string | null {
   if (bytes.includes(0)) return null;
   try {
-    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes, {
+      stream: head,
+    });
   } catch {
     return null;
   }

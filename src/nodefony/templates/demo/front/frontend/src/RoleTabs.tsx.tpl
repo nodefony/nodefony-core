@@ -1,6 +1,6 @@
 import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { flushSync } from "react-dom";
-import { DEMOS } from "../../demos";
+import { DEMOS, type IDemoEntry } from "../../demos";
 import { docUrl, repoFileUrl } from "./about";
 import { demoAnchor } from "./Catalogue";
 import { tabTargetIndex } from "./effects";
@@ -220,7 +220,8 @@ function panelMeta(role: Role): string {
 }
 
 function isReady(id: string): boolean {
-  return DEMOS.some((demo) => demo.id === id && demo.status === "ready");
+  const demos: readonly IDemoEntry[] = DEMOS;
+  return demos.some((demo) => demo.id === id && demo.status === "ready");
 }
 
 /** Une étape d'un parcours de développeur : sa carte au catalogue, ou grisée. */
@@ -233,7 +234,11 @@ function DemoStep({
   demo: string;
   description: string;
 }) {
-  const entry = DEMOS.find((candidate) => candidate.id === demo);
+  // Élargi au type de l'index : une démo peut redevenir « à venir », même
+  // quand aucune ne l'est aujourd'hui.
+  const entry: IDemoEntry | undefined = DEMOS.find(
+    (candidate) => candidate.id === demo,
+  );
   if (entry === undefined) return null;
   const content = (
     <>
