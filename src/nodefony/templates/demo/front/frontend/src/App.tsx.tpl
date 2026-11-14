@@ -205,7 +205,12 @@ function Topbar({ about, home }: { about: IDemoAbout | null; home: boolean }) {
           <ThemeButton />
           <DebugBarButtons />
         </div>
-        <Account loginPath={about?.loginPath ?? null} />
+        {/* Place RÉSERVÉE dès le premier rendu : la session se lit après, et
+            l'apparition du compte faisait passer l'en-tête sur deux lignes —
+            toute la page descendait de 55 px (CLS 0,66, Lighthouse). */}
+        <div className="account-slot">
+          <Account loginPath={about?.loginPath ?? null} />
+        </div>
       </div>
     </header>
   );

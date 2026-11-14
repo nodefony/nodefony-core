@@ -21,10 +21,11 @@ import { formatSize, type IFilePreview, type PreviewFormat } from "./preview";
  * encore partie. Une image s'ouvre en grand dans un `<dialog>` (Échap ou
  * « Fermer »), un PDF dans la visionneuse du navigateur, un texte se déplie
  * (borné) ; archive, document et tableur montrent ce que l'aperçu en a LU.
- * Une pièce LOCALE n'a rien à télécharger, et son PDF s'ouvre dans un nouvel
- * onglet : la politique de sécurité du framework n'autorise pas une page à
- * encadrer une adresse `blob:` (`frame-src`), et l'élargir pour un aperçu
- * serait un mauvais échange. `controls={false}` rend l'aperçu SANS aucune
+ * Une pièce LOCALE n'a rien à télécharger, et son PDF n'a pas d'aperçu : la
+ * politique de sécurité du framework n'autorise pas une page à encadrer une
+ * adresse `blob:` (`frame-src`), l'élargir serait un mauvais échange — et
+ * l'ouvrir dans un autre onglet PERDAIT la personne (vu par l'auteur). C'est
+ * son propre fichier : la boîte en dit le nom, la taille et la nature. `controls={false}` rend l'aperçu SANS aucune
  * action (ni dépli, ni fenêtre, ni téléchargement) : ce qu'il faut dans une
  * bulle de survol, qui ne prend jamais le focus.
  *
@@ -232,19 +233,7 @@ function ImagePiece({ piece }: { piece: IPiece }) {
 function PdfPiece({ piece }: { piece: IPiece }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [open, setOpen] = useState(false);
-  if (piece.local)
-    return (
-      <Box
-        icon="📕"
-        piece={piece}
-        meta="PDF"
-        actions={
-          <a href={urlOf(piece)} target="_blank" rel="noopener noreferrer">
-            Aperçu
-          </a>
-        }
-      />
-    );
+  if (piece.local) return <Box icon="📕" piece={piece} meta="PDF" />;
   return (
     <Box
       icon="📕"
@@ -268,18 +257,24 @@ function PdfPiece({ piece }: { piece: IPiece }) {
         aria-label={piece.name}
         onClose={() => setOpen(false)}
       >
+        {/* La barre EN HAUT, comme une visionneuse : ce qu'on regarde, et
+            comment en sortir — sans chercher sous le document. */}
+        <p className="att-dialog-bar">
+          <strong>{piece.name}</strong>
+          <span className="att-size">{formatSize(piece.size)}</span>
+          <a href={urlOf(piece)} download={piece.name}>
+            Télécharger
+          </a>
+          <button type="button" onClick={() => dialog.current?.close()}>
+            Fermer
+          </button>
+        </p>
         {open && (
           // Pas de `sandbox` : Chrome refuse d'afficher un PDF dans un cadre
           // isolé. Servi par le salon, il part sans script de la page, et seule
           // l'application peut l'encadrer (`ChatController.file`).
           <iframe src={urlOf(piece)} title={`Aperçu de ${piece.name}`} />
         )}
-        <p>
-          {piece.name} · {formatSize(piece.size)}{" "}
-          <button type="button" onClick={() => dialog.current?.close()}>
-            Fermer
-          </button>
-        </p>
       </dialog>
     </Box>
   );

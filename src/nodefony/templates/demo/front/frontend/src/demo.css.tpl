@@ -22,8 +22,8 @@
   --violet: #6b3fb0;
   /* Un refus, une erreur (leçon MCP) — jamais une série de graphe. */
   --danger: #a81e26;
-  /* Ma bulle du chat : pleine de l'accent, texte blanc. */
-  --accent-bubble: var(--blue);
+  /* Ma bulle du chat : un VOILE translucide de l'accent, le fond passe. */
+  --accent-bubble: color-mix(in srgb, var(--blue) 16%, transparent);
   /* Séries des graphes du fil (validées CVD) : CBOR, texte. */
   --wire-cbor: #0067ba;
   --wire-text: #8a5a10;
@@ -63,7 +63,7 @@
     --danger: #e0646a;
     /* Ma bulle en sombre : l'accent DÉSATURÉ par la surface (Material, thème
        sombre) — plein, il éblouissait. Le blanc y garde un contraste élevé. */
-    --accent-bubble: color-mix(in srgb, var(--blue) 50%, var(--card));
+    --accent-bubble: color-mix(in srgb, var(--blue) 30%, transparent);
     --bg: #0a0f1c;
     --bg-soft: #0e1524;
     --fg: #e8edf6;
@@ -94,9 +94,8 @@
   --wire-cbor: #3d9be6;
   --bg: #0a0f1c;
   --danger: #e0646a;
-  /* Ma bulle en sombre : l'accent DÉSATURÉ par la surface (Material, thème
-     sombre) — plein, il éblouissait. Le blanc y garde un contraste élevé. */
-  --accent-bubble: color-mix(in srgb, var(--blue) 50%, var(--card));
+  /* Ma bulle en sombre : un voile plus dense, toujours translucide. */
+  --accent-bubble: color-mix(in srgb, var(--blue) 30%, transparent);
   --bg-soft: #0e1524;
   --fg: #e8edf6;
   --muted: #93a1ba;
@@ -231,6 +230,22 @@ code {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+/* La largeur du compte connecté (« 👤 admin · Se déconnecter »), réservée
+   avant que la session soit lue : l'en-tête se met en page UNE fois. */
+.account-slot {
+  display: flex;
+  align-items: center;
+  min-inline-size: 210px;
+}
+/* Logo, menu et outils tiennent sur UNE ligne à 1 484 px près : la moindre
+   variation (badge de version lu après coup, nom du compte) faisait basculer
+   les outils sur une seconde ligne en plein chargement. Sous 1 700 px, ils
+   ont leur ligne d'emblée — la mise en page ne se décide plus au pixel. */
+@media (max-width: 1699px) {
+  .topbar-tools {
+    flex-basis: 100%;
+  }
 }
 .topbar-tools a.login {
   padding: 7px 14px;
@@ -1865,28 +1880,18 @@ a.ritem:hover .ritem-go {
   /* Celle des autres : une surface ÉLEVÉE, neutre et sans bordure — un
      voile du texte sur la carte (l'élévation du thème sombre de Material) ;
      en clair, le même calcul donne un gris léger. */
-  background: color-mix(in srgb, var(--fg) 8%, var(--card));
+  background: color-mix(in srgb, var(--fg) 7%, transparent);
   border: 1px solid transparent;
   border-radius: 14px 14px 14px 4px;
   overflow-wrap: anywhere;
 }
-/* La MIENNE : pleine de la couleur d'accent, texte blanc — la convention de
-   toutes les messageries. Les jetons sont redéfinis DANS la bulle : texte,
-   liens, citation et mentions suivent sans règle de plus. Une bulle retirée
-   ou en cours de modification garde les jetons de la page. */
+/* La MIENNE : un voile translucide de l'accent et un filet de la même
+   teinte — le fond passe, rien n'éblouit, en clair comme en sombre. Le texte
+   garde la couleur de la page (du blanc sur un voile clair ne se lirait
+   plus). Une bulle retirée ou en cours de modification reste neutre. */
 .is-mine:not(.is-retracted) .msg-bubble:not(.is-editing) {
-  --fg: #fff;
-  /* Blanc PLEIN : à 82 %, « Réponse à X » tombait à 3,87:1 sur la citation
-     en clair (mesuré, axe) ; la taille porte la hiérarchie. */
-  --muted: #fff;
-  --link: #fff;
-  --blue: #fff;
-  --cyan: #fff;
-  --border: rgb(255 255 255 / 0.4);
-  --card: color-mix(in srgb, #fff 14%, transparent);
-  --bg-soft: rgb(0 0 0 / 0.18);
-  color: var(--fg);
   background: var(--accent-bubble);
+  border-color: color-mix(in srgb, var(--blue) 28%, transparent);
 }
 .is-mine .msg-bubble {
   border-radius: 14px 14px 4px 14px;
@@ -1910,7 +1915,31 @@ a.ritem:hover .ritem-go {
 }
 .is-other:hover .msg-bubble,
 .is-other:focus-within .msg-bubble {
-  background: color-mix(in srgb, var(--fg) 12%, var(--card));
+  background: color-mix(in srgb, var(--fg) 10%, transparent);
+}
+/* Un bloc riche (JSON, tableau, code, diff, formule) DANS une bulle : la
+   bulle est déjà la boîte, le bloc perd seulement son CADRE — ses fonds
+   (code, JSON) restent les siens. */
+.msg-bubble .nb {
+  border: 0;
+}
+/* Une bulle qui porte un bloc riche s'ALLÈGE : un voile à peine marqué et
+   une marge fine — le fond du bloc reste le sien, la bulle ne fait plus
+   double cadre autour de lui. */
+.msg-bubble:has(.nb) {
+  padding: 4px;
+  background: color-mix(in srgb, var(--fg) 3%, transparent);
+}
+.is-mine:not(.is-retracted) .msg-bubble:not(.is-editing):has(.nb) {
+  background: color-mix(in srgb, var(--blue) 8%, transparent);
+  border-color: color-mix(in srgb, var(--blue) 18%, transparent);
+}
+.msg-bubble .nb-copy {
+  border-color: color-mix(in srgb, var(--border) 60%, transparent);
+}
+.msg-bubble .nb-table th,
+.msg-bubble .nb-table td {
+  border-color: color-mix(in srgb, var(--border) 55%, transparent);
 }
 .msg-actions {
   position: absolute;
@@ -2588,6 +2617,19 @@ button.msg-chip[aria-pressed="true"] {
   gap: 12px;
   margin: 8px 0 0;
   font-size: 0.85rem;
+}
+/* La barre d'une visionneuse : en haut, le nom à gauche, les gestes à droite. */
+.att-dialog .att-dialog-bar {
+  justify-content: flex-start;
+  align-items: center;
+  margin: 0 0 8px;
+}
+.att-dialog-bar strong {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 /* Les aperçus : PDF, archive, document, tableur. */
 .att-pdf iframe {
