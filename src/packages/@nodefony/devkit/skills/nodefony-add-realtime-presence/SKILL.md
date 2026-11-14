@@ -1,7 +1,7 @@
 ---
 name: nodefony-add-realtime-presence
 metadata:
-  version: 1.0.0
+  version: 1.1.0
 description: >
   Affiche qui est là sur un canal temps réel Nodefony — qui est en ligne dans un salon, combien de
   spectateurs, dans combien d'onglets — par l'option de présence que le framework tient lui-même,
@@ -52,6 +52,17 @@ les N secondes) : chaque serveur ne connaît que SES connexions — derrière `n
 ou deux pods, chacun publie sa liste et écrase celle de l'autre, et les départs arrivent avec N
 secondes de retard. Celle du framework est tenue entre les serveurs, groupée par fenêtre de 250 ms,
 sans minuteur par présent.
+
+🔴 **Le geste complet a TROIS morceaux — « afficher qui est en ligne » n'est pas fini sans le
+troisième :**
+
+1. **le canal déclare la présence** (§2) — côté serveur, une option ;
+2. **le canal est diffusé** (`@RealtimeBroadcast`, §7) dès qu'il y a plus d'un serveur ;
+3. **l'ÉCRAN lit la présence** (§3) — c'est lui que l'utilisateur voit. Un serveur qui tient la
+   liste sans page qui l'affiche ne montre rien à personne. L'application n'a pas encore de front ?
+   `npx nodefony create front <nom> --frontend react` (ou `vue`, `angular`, `svelte`) livre une page
+   déjà branchée au temps réel ; ajoute-y la liaison du §3. Le test (§10) lit ce que cet écran
+   afficherait.
 
 ## 2. La ligne — une option de la politique du canal
 
