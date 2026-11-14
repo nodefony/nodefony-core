@@ -668,11 +668,29 @@ class HttpRequest {
         aborted = true;
         this.request.unpipe(bb);
         this.request.resume(); // draine la source → libère le socket
+        // Effacer APRÈS la fermeture de chaque flux détruit : un flux dont
+        // l'ouverture court encore crée son fichier quand `fs.open` aboutit —
+        // effacé avant, il reviendrait orphelin. Vécu : un fichier de 2 Kio
+        // refusé à 1 Kio arrive d'un seul morceau, et la borne mord avant même
+        // que son temporaire soit ouvert.
+        const purge = (): void => {
+          // oxlint-disable-next-line no-promise-in-callback -- promesse DÉLIBÉRÉE dans un rappel : `abort` est appelée depuis les rappels de busboy, qui ne peuvent rien attendre ; le rejet est garanti par le `finally`, et s'en passer laisserait les fichiers temporaires sur le disque
+          void Promise.all(tempPaths.map(unlinkQuiet)).finally(() =>
+            reject(err),
+          );
+        };
+        let closing = openStreams.size;
+        if (closing === 0) {
+          purge();
+          return;
+        }
         for (const ws of openStreams) {
+          ws.once("close", () => {
+            closing -= 1;
+            if (closing === 0) purge();
+          });
           ws.destroy();
         }
-        // oxlint-disable-next-line no-promise-in-callback -- promesse DÉLIBÉRÉE dans un rappel : `abort` est appelée depuis les rappels de busboy, qui ne peuvent rien attendre ; le rejet est garanti par le `finally`, et s'en passer laisserait les fichiers temporaires sur le disque
-        void Promise.all(tempPaths.map(unlinkQuiet)).finally(() => reject(err));
       };
 
       bb.on("field", (name: string, value: string) => {
