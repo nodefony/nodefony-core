@@ -1,7 +1,7 @@
 ---
 name: nodefony-add-realtime-channel
 metadata:
-  version: 3.0.0
+  version: 3.0.1
 description: >
   Branche le temps réel d'une application Nodefony par ses briques — canal, route appelée par la
   socket, entrée client, action, canal personnel, flux SSE, contrat typé — au lieu d'un WebSocket
@@ -296,6 +296,10 @@ export class RoomAdmission extends Service implements IChannelAdmission {
 }
 ```
 
+- **Génère-la par `nodefony create service RoomAdmission`** : le générateur la déclare dans le
+  `@services([...])` du module. Écrite à la main, déclare-la toi-même — sinon `nodefony doctor`
+  la signale orpheline (`wiring/orphan-service`) : hors de l'ordre de démarrage et du rapport de
+  boot, construite à la première requête qui la réclame.
 - `who` est plat (`id`, `authenticated`, `roles`, `scopes`, `issuer`, `account`) : la règle ne lit
   que ses arguments — ni contexte de requête, ni session. Un salon PUBLIC lisible sans compte :
   `anonymous: true` à côté d'`allow` (la démo), la règle refusant les salons privés.
