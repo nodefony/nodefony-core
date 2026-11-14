@@ -579,6 +579,15 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
         run: node scripts/gates/check-generated-protobuf.mjs
 
+      # Budgets du bundle client (ADR-0007 D10) — le gate ne vivait que dans la
+      # chaîne de release : deux fois, un dépassement est resté invisible jusqu'à
+      # l'estampille (4 jours avant la révision du 2026-11-05, toute la fenêtre
+      # de la beta.7 ensuite). Ici, il tombe sur le commit qui le provoque.
+      # Mesure le `dist` bâti plus haut — l'artefact publié, pas les sources.
+      - name: Gate — budgets du bundle client (ADR-0007 D10)
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
+        run: npm run size:check
+
       # Les ancres `fichier:ligne` de la doc, résolues contre le code RÉEL.
       #
       # Le contrôle existait et personne ne le lançait — ni ici, ni dans un

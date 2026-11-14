@@ -506,6 +506,31 @@ tarball existe et la tentation de « voir plus tard » gagne.
 > utilisateur ne la télécharge en production, et le budget qui le protège, celui du client, n'a
 > pas bougé. Marge laissée : 1,5 KB — le prochain onglet repassera par une décision.
 >
+> **Révisé le 2026-11-15 — `nodefony/client` relevé à 40 KB, `nodefony/debugbar` à 64 KB**
+> (décision de l'auteur). Dépassement constaté à l'estampille de la `10.0.0-beta.7` : `client`
+> **36,5 KB**, `debugbar` **60,2 KB** sur le `dist` publié, contre **34,4** et **56,5** pour la
+> `10.0.0-beta.6` publiée (tarball npm, même bundler). Coût de chaque lot, mesuré sur les sources
+> à chaque commit qui touche le client (minifié, gzip 9) :
+>
+> | Lot                                                                               | `client`  | `debugbar` |
+> | --------------------------------------------------------------------------------- | --------- | ---------- |
+> | Départ (`v10.0.0-beta.6`)                                                         | 34,17     | 56,49      |
+> | La barre voit les sockets privées de la page et mesure celle qu'on choisit (#747) | +0,09     | +0,16      |
+> | Journal de socket de la barre : une phrase par trame, mis à jour en direct (#747) | +0,07     | +1,63      |
+> | Un transport remplacé ne touche plus à la socket (#747)                           | +0,06     | +0,06      |
+> | Présence d'un canal côté navigateur, lecteur et vue isomorphes (#760)             | +1,43     | +1,34      |
+> | Refus nommé d'un tableau typé autre que `Uint8Array` (#760)                       | +0,30     | +0,31      |
+> | Session portée sur la socket depuis Node par l'option `headers` (#747)            | +0,20     | +0,21      |
+> | **Arrivée** (`dist` publié : 36,5 et 60,2)                                        | **36,32** | **60,20**  |
+>
+> Toutes des capacités voulues, fermées par leur ticket. Les amaigrir n'était pas l'échange :
+> sortir la présence vers son propre sous-chemin toucherait la surface temps réel gelée (#702)
+> — une rupture, pour 1,4 KB. Marge laissée : 3,5 KB (`client`), 3,8 KB (`debugbar`).
+> **Le gate entre en intégration continue** (job `checks` de `node.js.yml`, après le build) : il ne
+> vivait que dans `release.mjs`, et c'est la deuxième fois qu'un dépassement n'est vu qu'à
+> l'estampille. Désormais il tombe sur le commit qui le provoque, quand la décision est encore
+> bon marché.
+>
 > Un dépassement de budget = blocker de release, pas un warning.
 > L'implémentation Phase 3.2 commence par un **prototype + mesure** avant tout engagement de code
 > définitif (garde-fou déjà acté dans la vision).
