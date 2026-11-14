@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { isDeepStrictEqual } from "node:util";
 import { Buffer } from "node:buffer";
 import { CborError, decodeCbor, encodeCbor } from "../realtime/codec/index";
+import {
+  fromLittleEndianBytes,
+  toLittleEndianBytes,
+} from "../realtime/typedArrayBytes";
 import { UNSUPPORTED_BINARY } from "./fixtures/unsupportedBinary";
 
 /**
@@ -390,26 +394,21 @@ describe("CBOR / l'exception octets (ADR-0021 S8)", () => {
 
   it.each(UNSUPPORTED_BINARY)(
     "refuse un %s — racine, objet, tableau — en nommant le type et le geste (#777)",
-    (kind, make) => {
+    (kind, make, gesture) => {
       for (const v of [make(), { samples: make() }, [make()]]) {
         expect(() => encodeCbor(v)).toThrow(CborError);
-        expect(() => encodeCbor(v)).toThrow(
-          new RegExp(`${kind}.*new Uint8Array\\(`, "u"),
-        );
+        expect(() => encodeCbor(v)).toThrow(`un ${kind} :`);
+        expect(() => encodeCbor(v)).toThrow(gesture);
       }
     },
   );
 
   it("le geste nommé par le refus fait voyager un Int16Array, reconstruit à l'arrivée", () => {
     const samples = new Int16Array([1, -2, 300, -32768]);
+    // Un champ d'un octet AVANT la série : la vue décodée commence à un décalage
+    // impair, que le constructeur d'un Int16Array refuserait — l'aide recopie.
     const back = decodeCbor(
-      encodeCbor({
-        samples: new Uint8Array(
-          samples.buffer,
-          samples.byteOffset,
-          samples.byteLength,
-        ),
-      }),
+      encodeCbor({ k: 1, samples: toLittleEndianBytes(samples) }),
     );
     if (
       typeof back !== "object" ||
@@ -419,11 +418,10 @@ describe("CBOR / l'exception octets (ADR-0021 S8)", () => {
     ) {
       throw new Error("octets attendus sous « samples »");
     }
-    // `slice()` recopie dans un tampon neuf, aligné : la vue reçue peut commencer
-    // à un décalage impair, que le constructeur d'un Int16Array refuserait.
-    expect(Array.from(new Int16Array(back.samples.slice().buffer))).toEqual([
-      1, -2, 300, -32768,
-    ]);
+    expect(back.samples.byteOffset % 2).toBe(1);
+    expect(Array.from(fromLittleEndianBytes(back.samples, Int16Array))).toEqual(
+      [1, -2, 300, -32768],
+    );
   });
 
   it("grands Uint8Array (copie directe différée) : 4 Ko, 64 Ko, 1 Mo, et plusieurs dans la même trame", () => {

@@ -143,24 +143,31 @@ Un `Buffer` Node est traité **avant** sa méthode `toJSON`, qui rendrait sinon
 `{ type: "Buffer", data: [...] }` — précisément la déformation qu'un octet ne doit pas subir.
 
 Un tableau typé autre que `Uint8Array` se publie par ses octets, et se reconstruit à l'arrivée.
-Le message du refus donne les deux gestes (règle unique, `codec/binaryView.ts#unsupportedBinaryMessage`,
-partagée avec le codec JSON à octets) :
+Le message du refus nomme le geste (règle unique, `codec/binaryView.ts#unsupportedBinaryMessage`,
+partagée avec le codec JSON à octets). Pour une série de 16 à 64 bits, ce sont deux aides
+exportées par `nodefony` et `nodefony/client` (`src/nodefony/src/realtime/typedArrayBytes.ts`) :
 
 ```ts
+import { decodeCbor, encodeCbor } from "nodefony/cbor";
+import { fromLittleEndianBytes, toLittleEndianBytes } from "nodefony/client";
+
 const samples = new Int16Array([1, -2, 300]);
-encodeCbor({
-  samples: new Uint8Array(
-    samples.buffer,
-    samples.byteOffset,
-    samples.byteLength,
-  ),
-});
-// à l'arrivée — `slice()` recopie la vue reçue dans un tampon neuf et ALIGNÉ :
-const back = new Int16Array(received.samples.slice().buffer);
+const frame = encodeCbor({ samples: toLittleEndianBytes(samples) });
+
+const received = decodeCbor(frame);
+if (
+  typeof received === "object" &&
+  received !== null &&
+  "samples" in received &&
+  received.samples instanceof Uint8Array
+) {
+  const back = fromLittleEndianBytes(received.samples, Int16Array);
+}
 ```
 
-Le tableau typé suit le boutisme de la machine ; pour un format qui doit tenir entre plateformes,
-écrire les octets par `DataView` avec un boutisme explicite.
+`toLittleEndianBytes` ÉCRIT le boutisme (vue sans copie sur une machine petit-boutiste, le cas
+courant) ; `fromLittleEndianBytes` vérifie la longueur et recopie une vue reçue mal alignée — un
+champ d'un octet avant la série suffit à la décaler.
 
 ## Ce que fait le décodeur — le profil JSON + octets
 

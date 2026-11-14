@@ -39,17 +39,46 @@ export function isUnsupportedBinary(value: object): boolean {
  */
 export function unsupportedBinaryMessage(value: object): string {
   const kind = Object.prototype.toString.call(value).slice(8, -1);
-  const buffer = kind.endsWith("Buffer");
-  const send = buffer
-    ? "new Uint8Array(x)"
-    : "new Uint8Array(x.buffer, x.byteOffset, x.byteLength)";
-  // `slice()` recopie la vue reçue dans un tampon neuf et aligné : elle peut
-  // commencer à un décalage que le constructeur d'un tableau typé refuserait.
-  const rebuild = buffer
-    ? "reçu.slice().buffer"
-    : `new ${kind}(reçu.slice().buffer)`;
   return (
     `Impossible d'encoder un ${kind} : seul un Uint8Array voyage en octets — ` +
-    `publier ${send}, puis reconstruire à l'arrivée : ${rebuild}`
+    gestureFor(kind)
   );
+}
+
+/**
+ * Le geste qui fait voyager les octets d'un `kind`, puis le reconstruit. Les séries
+ * de 16 à 64 bits passent par les aides du framework, qui ÉCRIVENT le boutisme et
+ * réalignent la vue reçue (`typedArrayBytes.ts`) ; le reste n'a ni boutisme ni
+ * alignement à tenir (8 bits, `DataView`, tampon), ou n'a pas d'aide (`BigInt64Array`).
+ */
+function gestureFor(kind: string): string {
+  switch (kind) {
+    case "Float64Array":
+    case "Float32Array":
+    case "Uint32Array":
+    case "Int32Array":
+    case "Uint16Array":
+    case "Int16Array":
+      return (
+        "publier toLittleEndianBytes(x), relire fromLittleEndianBytes(reçu, " +
+        `${kind}) — exportées par « nodefony » et « nodefony/client »`
+      );
+    case "ArrayBuffer":
+    case "SharedArrayBuffer":
+      return "publier new Uint8Array(x), relire reçu.slice().buffer";
+    case "DataView":
+    case "Int8Array":
+    case "Uint8ClampedArray":
+      return (
+        "publier new Uint8Array(x.buffer, x.byteOffset, x.byteLength), relire " +
+        `new ${kind}(reçu.buffer, reçu.byteOffset, reçu.byteLength)`
+      );
+    default:
+      // 64 bits entiers : pas d'aide — `slice()` recopie la vue reçue dans un
+      // tampon neuf et ALIGNÉ, que le constructeur exige.
+      return (
+        "publier new Uint8Array(x.buffer, x.byteOffset, x.byteLength), relire " +
+        `new ${kind}(reçu.slice().buffer)`
+      );
+  }
 }

@@ -143,7 +143,7 @@ describe("JSON_BYTES_FRAME_CODEC — octets (ADR-0021 S8, ADR-0022 §3)", () => 
 
   it.each(UNSUPPORTED_BINARY)(
     "refuse un %s au lieu de le déformer — seul, avant ou après des octets (#777)",
-    (kind, make) => {
+    (kind, make, gesture) => {
       const bytes = new Uint8Array([1]);
       for (const frame of [
         { v: make() },
@@ -153,8 +153,9 @@ describe("JSON_BYTES_FRAME_CODEC — octets (ADR-0021 S8, ADR-0022 §3)", () => 
       ]) {
         expect(() => JSON_BYTES_FRAME_CODEC.encode(frame)).toThrow(TypeError);
         expect(() => JSON_BYTES_FRAME_CODEC.encode(frame)).toThrow(
-          new RegExp(`${kind}.*new Uint8Array\\(`, "u"),
+          `un ${kind} :`,
         );
+        expect(() => JSON_BYTES_FRAME_CODEC.encode(frame)).toThrow(gesture);
       }
     },
   );

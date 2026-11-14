@@ -3,8 +3,8 @@
  * numérique voyage dans une trame.
  *
  * Les codecs du temps réel ne portent qu'UN type d'octets : le `Uint8Array`
- * (ADR-0021 S8, ADR-0022 §2). Un `Float64Array` passé tel quel serait lu comme
- * un objet — `{"0":…,"1":…}` en JSON, une table en CBOR —, énorme et faux. Une
+ * (ADR-0021 S8, ADR-0022 §2). Un `Float64Array` passé tel quel est REFUSÉ par le
+ * codec binaire, dont le message renvoie ici (`codec/binaryView.ts`, #777). Une
  * série se transmet donc par ses octets, et l'ordre des octets doit être
  * ÉCRIT, pas supposé : la mémoire d'un tableau typé suit celle de la machine.
  * Le contrat retenu est le petit-boutisme (celui de toutes les plateformes
@@ -72,17 +72,18 @@ export function toLittleEndianBytes(
  *
  * Les octets reçus d'un décodeur peuvent commencer à une adresse quelconque
  * du tampon de la trame ; un `Float64Array` exige, lui, un décalage multiple
- * de 8. Aligné et petit-boutiste : vue sans copie. Sinon : copie (retournée
- * sur une machine gros-boutiste).
+ * de 8. Aligné, petit-boutiste, sur un `ArrayBuffer` : vue sans copie. Sinon
+ * (décalage, `SharedArrayBuffer`, machine gros-boutiste) : copie.
  *
- * @param bytes - les octets reçus.
+ * @param bytes - les octets reçus — tel que rendu par un décodeur ou rétréci
+ *   par `instanceof Uint8Array`, sans conversion de type.
  * @param ctor - le type d'élément attendu (`Float64Array`, `Uint32Array`…).
  * @param littleEndian - ordre de la machine ; injectable pour éprouver l'autre.
  * @returns la série, dans le type demandé.
  * @throws RangeError si la longueur n'est pas un multiple de la taille d'un élément.
  */
 export function fromLittleEndianBytes<T extends NumericArray>(
-  bytes: Uint8Array<ArrayBuffer>,
+  bytes: Uint8Array,
   ctor: INumericArrayConstructor<T>,
   littleEndian: boolean = PLATFORM_LITTLE_ENDIAN,
 ): T {
@@ -93,8 +94,13 @@ export function fromLittleEndianBytes<T extends NumericArray>(
     );
   }
   const count = bytes.byteLength / width;
-  if (littleEndian && bytes.byteOffset % width === 0) {
-    return new ctor(bytes.buffer, bytes.byteOffset, count);
+  const buffer = bytes.buffer;
+  if (
+    littleEndian &&
+    bytes.byteOffset % width === 0 &&
+    buffer instanceof ArrayBuffer
+  ) {
+    return new ctor(buffer, bytes.byteOffset, count);
   }
   const copy = new Uint8Array(bytes);
   if (!littleEndian) swapBytes(copy, width);

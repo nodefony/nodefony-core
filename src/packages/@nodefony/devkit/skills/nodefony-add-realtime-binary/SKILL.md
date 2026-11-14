@@ -40,14 +40,14 @@ description: >
 
 ## 1. Quel besoin → quelle voie
 
-| Tu veux faire passer…                                      | La voie                                                                                           |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| des octets qui appartiennent à un canal (le cas normal)    | `codec: "cbor"` côté serveur + `Uint8Array` dans la charge + `publish` / `on(canal)` (§4, §5)     |
-| des séries numériques denses (mesures, positions, spectre) | les OCTETS de la série, écrits par `DataView` à boutisme explicite, dans un `Uint8Array` (§2, §5) |
-| beaucoup de petites valeurs booléennes ou bornées          | des bits tassés dans un `Uint8Array` (§2)                                                         |
-| un fichier, une image lourde, une pièce jointe             | une route HTTP (`POST` multipart, flux) — jamais la socket ; puis un message qui la cite          |
-| un protocole binaire entièrement à toi, sans canal         | le flux brut `onRealtimeBinary()` / `onBinary()` — HORS des gardes (§7)                           |
-| des objets ordinaires (texte, nombres, statuts)            | rien : reste en JSON, le défaut. CBOR y est plus lent (§2)                                        |
+| Tu veux faire passer…                                      | La voie                                                                                                  |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| des octets qui appartiennent à un canal (le cas normal)    | `codec: "cbor"` côté serveur + `Uint8Array` dans la charge + `publish` / `on(canal)` (§4, §5)            |
+| des séries numériques denses (mesures, positions, spectre) | `toLittleEndianBytes(série)` à l'envoi, `fromLittleEndianBytes(octets, Int16Array)` à l'arrivée (§2, §6) |
+| beaucoup de petites valeurs booléennes ou bornées          | des bits tassés dans un `Uint8Array` (§2)                                                                |
+| un fichier, une image lourde, une pièce jointe             | une route HTTP (`POST` multipart, flux) — jamais la socket ; puis un message qui la cite                 |
+| un protocole binaire entièrement à toi, sans canal         | le flux brut `onRealtimeBinary()` / `onBinary()` — HORS des gardes (§7)                                  |
+| des objets ordinaires (texte, nombres, statuts)            | rien : reste en JSON, le défaut. CBOR y est plus lent (§2)                                               |
 
 **N'invente jamais d'en-tête binaire maison** (`[n° de canal][charge]`), ni base64 dans une chaîne :
 le premier contourne toutes les gardes et se maintient des deux côtés ; le second coûte un tiers
@@ -77,10 +77,11 @@ D'où les règles :
 - 🔴 **Seul `Uint8Array` voyage en octets.** Un `Int16Array`, un `Float32Array`, une `DataView` ou
   un `ArrayBuffer` posé tel quel dans la charge est **refusé** par le codec binaire (`cbor`, ou
   `$bytes` côté texte) : le navigateur lève à `publish`, le serveur ne livre pas la trame et le
-  journalise une fois. Le message nomme le geste — `new Uint8Array(x.buffer, x.byteOffset,
-x.byteLength)` à l'envoi, `new Int16Array(reçu.slice().buffer)` à l'arrivée (`slice()` recopie
-  dans un tampon aligné). Pour une série numérique, préférer des octets écrits par `DataView` avec
-  un boutisme explicite (§5), relus de même (§6) : le tableau typé suit le boutisme de la machine.
+  journalise une fois. Le message nomme le geste. Une série de 16 à 64 bits (`Int16Array`,
+  `Float32Array`, `Float64Array`, `Uint32Array`…) passe par les aides du framework, exportées par
+  `nodefony` ET `nodefony/client` : `toLittleEndianBytes(série)` écrit le boutisme (vue sans
+  copie sur une machine petit-boutiste), `fromLittleEndianBytes(octets, Int16Array)` relit et
+  réaligne la vue reçue — qui peut commencer à un décalage impair. Ne recode pas ces deux boucles.
 - **Des octets ne gagnent pas par nature — mesure ta donnée.** 1 024 compteurs écrits en `u32`
   (4 096 octets) pèsent 4 114 o en CBOR contre 3 128 o en JSON, où de petits entiers s'écrivent
   court. Choisis la largeur la plus ÉTROITE qui tient la plage (16 bits plutôt que 32), ou garde des
@@ -188,6 +189,10 @@ reçoit le dessin de la page par l'action `binary:digest`, dont le schéma
 
 ## 6. Lire des octets sans se tromper
 
+- **Une série homogène se relit par `fromLittleEndianBytes(octets, Int16Array)`** (`nodefony/client`) :
+  elle vérifie la longueur, recopie si la vue est mal alignée, retourne les octets sur une machine
+  gros-boutiste. La boucle `DataView` ci-dessous ne sert qu'à un format MIXTE (champs de tailles
+  différentes dans les mêmes octets).
 - **`DataView` : passe la tranche entière.** Un `Buffer` de Node — et une vue décodée — ne commence
   pas à 0 dans son tampon : `new DataView(data.buffer)` lit des octets qui ne sont pas les tiens.
 

@@ -72,6 +72,14 @@ describe("tableaux typés ↔ octets petit-boutistes", () => {
       fromLittleEndianBytes(new Uint8Array(7), Float64Array),
     ).toThrow(RangeError);
   });
+
+  it("relit des octets posés sur un SharedArrayBuffer — par copie, le tableau rendu porte un ArrayBuffer", () => {
+    const shared = new Uint8Array(new SharedArrayBuffer(4));
+    shared.set(toLittleEndianBytes(new Int16Array([7, -9])));
+    const back = fromLittleEndianBytes(shared, Int16Array);
+    expect(Array.from(back)).toEqual([7, -9]);
+    expect(back.buffer).toBeInstanceOf(ArrayBuffer);
+  });
 });
 
 describe("retard de boucle lu sur un histogramme", () => {
