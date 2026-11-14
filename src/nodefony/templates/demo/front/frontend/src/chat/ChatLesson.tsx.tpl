@@ -27,13 +27,16 @@ import { useEffect, useRef, useState } from "react";
 type OpenForm = "create" | "invite" | "event" | "delete" | null;
 
 /**
- * Le salon en plein écran (API Fullscreen) : son état suit l'événement
- * `fullscreenchange` — Échap en sort sans passer par nous. La capacité se
- * CONSTATE (`document.fullscreenEnabled`) : un iPhone ne met en plein écran
- * que la vidéo, le bouton n'y est pas proposé.
+ * Le salon en plein écran. L'API Fullscreen quand le navigateur l'offre
+ * (`document.fullscreenEnabled`, capacité CONSTATÉE) — son état suit
+ * `fullscreenchange`, Échap en sort sans passer par nous. Sinon (un iPhone
+ * ne met en plein écran que la vidéo), un REPLI : le salon couvre la fenêtre
+ * (`is-expanded`), la page derrière ne défile plus, Échap en sort.
  */
 function useFullscreen(target: { current: HTMLElement | null }) {
+  const native = document.fullscreenEnabled;
   const [full, setFull] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   useEffect(() => {
     const sync = () =>
       setFull(
@@ -43,14 +46,36 @@ function useFullscreen(target: { current: HTMLElement | null }) {
     document.addEventListener("fullscreenchange", sync);
     return () => document.removeEventListener("fullscreenchange", sync);
   }, [target]);
+  useEffect(() => {
+    if (!expanded) return;
+    const root = document.documentElement;
+    const was = root.style.overflow;
+    root.style.overflow = "hidden";
+    // Échap sort du repli — sauf s'il a déjà servi (menu, mention, boîte).
+    const key = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (event.target instanceof Element && event.target.closest("dialog"))
+        return;
+      setExpanded(false);
+    };
+    document.addEventListener("keydown", key);
+    return () => {
+      root.style.overflow = was;
+      document.removeEventListener("keydown", key);
+    };
+  }, [expanded]);
   const toggle = () => {
+    if (!native) {
+      setExpanded((was) => !was);
+      return;
+    }
     const done = full
       ? document.exitFullscreen()
       : target.current?.requestFullscreen();
     // Refusé par le navigateur (geste non reconnu) : l'état ne change pas.
     done?.catch(() => undefined);
   };
-  return { supported: document.fullscreenEnabled, full, toggle };
+  return { full: full || expanded, expanded, toggle };
 }
 
 /** Le message d'un refus, quel que soit le chemin. */
@@ -375,7 +400,12 @@ function ChatRoom({
   const screen = useFullscreen(layout);
 
   return (
-    <div ref={layout} className="room room-layout">
+    <div
+      ref={layout}
+      className={
+        screen.expanded ? "room room-layout is-expanded" : "room room-layout"
+      }
+    >
       <RoomRail
         room={room}
         onCreate={signedIn ? () => setForm("create") : null}
@@ -425,19 +455,17 @@ function ChatRoom({
                 Supprimer
               </button>
             )}
-            {screen.supported && (
-              <button
-                type="button"
-                className="room-btn"
-                aria-pressed={screen.full}
-                title={
-                  screen.full ? "Quitter le plein écran (Échap)" : "Plein écran"
-                }
-                onClick={screen.toggle}
-              >
-                <span aria-hidden="true">⛶ </span>Plein écran
-              </button>
-            )}
+            <button
+              type="button"
+              className="room-btn"
+              aria-pressed={screen.full}
+              title={
+                screen.full ? "Quitter le plein écran (Échap)" : "Plein écran"
+              }
+              onClick={screen.toggle}
+            >
+              <span aria-hidden="true">⛶ </span>Plein écran
+            </button>
           </span>
         </div>
         {notice !== null && (

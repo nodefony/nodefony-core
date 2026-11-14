@@ -22,6 +22,8 @@
   --violet: #6b3fb0;
   /* Un refus, une erreur (leçon MCP) — jamais une série de graphe. */
   --danger: #a81e26;
+  /* Ma bulle du chat : pleine de l'accent, texte blanc. */
+  --accent-bubble: var(--blue);
   /* Séries des graphes du fil (validées CVD) : CBOR, texte. */
   --wire-cbor: #0067ba;
   --wire-text: #8a5a10;
@@ -59,6 +61,9 @@
     --footer-fg: #c9d6e8;
     --footer-link: #8fcdf7;
     --danger: #e0646a;
+    /* Ma bulle en sombre : l'accent DÉSATURÉ par la surface (Material, thème
+       sombre) — plein, il éblouissait. Le blanc y garde un contraste élevé. */
+    --accent-bubble: color-mix(in srgb, var(--blue) 50%, var(--card));
     --bg: #0a0f1c;
     --bg-soft: #0e1524;
     --fg: #e8edf6;
@@ -89,6 +94,9 @@
   --wire-cbor: #3d9be6;
   --bg: #0a0f1c;
   --danger: #e0646a;
+  /* Ma bulle en sombre : l'accent DÉSATURÉ par la surface (Material, thème
+     sombre) — plein, il éblouissait. Le blanc y garde un contraste élevé. */
+  --accent-bubble: color-mix(in srgb, var(--blue) 50%, var(--card));
   --bg-soft: #0e1524;
   --fg: #e8edf6;
   --muted: #93a1ba;
@@ -1883,9 +1891,6 @@ a.ritem:hover .ritem-go {
 .is-mine .msg-bubble {
   border-radius: 14px 14px 4px 14px;
 }
-:root {
-  --accent-bubble: var(--blue);
-}
 .is-continued.is-other .msg-bubble {
   border-top-left-radius: 4px;
 }
@@ -1916,10 +1921,6 @@ a.ritem:hover .ritem-go {
   right: auto;
   left: 4px;
 }
-.is-mine .msg-menu {
-  right: auto;
-  left: 0;
-}
 .msg-menu-btn {
   font: inherit;
   min-width: 28px;
@@ -1937,16 +1938,25 @@ a.ritem:hover .ritem-go {
 .msg-menu-btn[aria-expanded="true"] {
   opacity: 1;
 }
+/* Au doigt, pas de survol : le bouton n'existe que sur le message touché
+   (ou actif) — un ⋯ par message encombrait le petit écran, et un bouton
+   transparent restait touchable sans se voir. */
 @media (hover: none) {
   .msg-menu-btn {
     opacity: 1;
+    visibility: hidden;
+  }
+  .room-msg:focus-within .msg-menu-btn,
+  .room-msg.is-active .msg-menu-btn,
+  .msg-menu-btn[aria-expanded="true"] {
+    visibility: visible;
   }
 }
+/* Placé par rapport à l'ÉCRAN (le composant calcule `top`/`left`) : la
+   liste qui défile ne le coupe plus. */
 .msg-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
-  z-index: 6;
+  position: fixed;
+  z-index: 30;
   min-width: 200px;
   padding: 4px;
   background: var(--card);
@@ -4846,11 +4856,17 @@ button.msg-chip[aria-pressed="true"] {
   align-items: stretch;
 }
 /* Plein écran : le salon prend tout l'écran, ses colonnes la hauteur. */
-.room.room-layout:fullscreen {
+.room.room-layout:is(:fullscreen, .is-expanded) {
   grid-template-rows: minmax(0, 1fr);
   height: 100dvh;
   border: 0;
   border-radius: 0;
+}
+/* Le repli sans API Fullscreen : le salon couvre la fenêtre. */
+.room.room-layout.is-expanded {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
 }
 .room.room-layout::backdrop {
   background: var(--bg);
@@ -4963,7 +4979,7 @@ button.msg-chip[aria-pressed="true"] {
     grid-template-columns: minmax(0, 1fr) 220px;
     grid-template-rows: auto clamp(440px, 72dvh, 820px);
   }
-  .room.room-layout:fullscreen {
+  .room.room-layout:is(:fullscreen, .is-expanded) {
     grid-template-rows: auto minmax(0, 1fr);
   }
   .room-rail {
@@ -4988,11 +5004,11 @@ button.msg-chip[aria-pressed="true"] {
   .room-main {
     height: clamp(420px, 78dvh, 760px);
   }
-  .room.room-layout:fullscreen {
+  .room.room-layout:is(:fullscreen, .is-expanded) {
     grid-template-rows: none;
     overflow-y: auto;
   }
-  .room-layout:fullscreen .room-main {
+  .room-layout:is(:fullscreen, .is-expanded) .room-main {
     height: 100dvh;
   }
 }

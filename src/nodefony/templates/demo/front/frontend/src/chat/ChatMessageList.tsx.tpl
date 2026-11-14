@@ -41,6 +41,9 @@ const GROUP_WINDOW_MS = 5 * 60 * 1000;
  */
 const STICK_PX = 48;
 
+/** L'écart du menu d'un message à son bouton, et au bord de la fenêtre. */
+const MENU_GAP = 6;
+
 /** Le message cité où l'on saute reste surligné ce temps-là. */
 const FLASH_MS = 1600;
 
@@ -321,10 +324,53 @@ function ChatMessageItem({
   const myEmojis = me === null ? [] : myReactions(message.reactions, me);
   const stop = active ? 0 : -1;
 
-  // Le menu ouvert : focus sur sa première action ; un appui hors de lui le ferme.
+  // Le menu se place par rapport à l'ÉCRAN (`position: fixed`) : posé dans
+  // la liste qui défile, il était coupé par elle. Sous le bouton s'il y a la
+  // place, au-dessus sinon, toujours dans la fenêtre ; mesuré avant d'être
+  // peint (`useLayoutEffect`), donc jamais vu au mauvais endroit.
+  const [menuAt, setMenuAt] = useState<{ top: number; left: number } | null>(
+    null,
+  );
+  useLayoutEffect(() => {
+    const button = menuButton.current;
+    const box = menu.current;
+    if (!menuOpen || button === null || box === null) {
+      setMenuAt(null);
+      return;
+    }
+    const anchor = button.getBoundingClientRect();
+    const width = box.offsetWidth;
+    const height = box.offsetHeight;
+    const below = anchor.bottom + MENU_GAP;
+    const top =
+      below + height <= window.innerHeight - MENU_GAP
+        ? below
+        : Math.max(MENU_GAP, anchor.top - MENU_GAP - height);
+    // Le mien s'ouvre vers la droite de son bouton, celui des autres vers la gauche.
+    const wanted = mine ? anchor.left : anchor.right - width;
+    const left = Math.min(
+      Math.max(MENU_GAP, wanted),
+      window.innerWidth - width - MENU_GAP,
+    );
+    setMenuAt({ top, left });
+  }, [menuOpen, mine]);
+
+  // Le focus entre dans le menu une fois PLACÉ : masqué le temps de la
+  // mesure, il ne pouvait pas le recevoir.
+  const placed = menuAt !== null;
+  useEffect(() => {
+    if (placed)
+      menu.current?.querySelector<HTMLElement>("[role^='menuitem']")?.focus();
+  }, [placed]);
+
+  // Le menu ouvert : un appui hors de lui, un
+  // défilement ou un redimensionnement le ferment — il ne suivrait plus son
+  // bouton.
   useEffect(() => {
     if (!menuOpen) return;
-    menu.current?.querySelector<HTMLElement>("[role^='menuitem']")?.focus();
+    const close = () => setMenuOpen(false);
+    window.addEventListener("resize", close);
+    document.addEventListener("scroll", close, true);
     const outside = (event: PointerEvent) => {
       if (
         event.target instanceof Node &&
@@ -335,7 +381,11 @@ function ChatMessageItem({
       setMenuOpen(false);
     };
     document.addEventListener("pointerdown", outside);
-    return () => document.removeEventListener("pointerdown", outside);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      window.removeEventListener("resize", close);
+      document.removeEventListener("scroll", close, true);
+    };
   }, [menuOpen]);
 
   // Retrait demandé : le focus va sur « Annuler », le geste sans retour.
@@ -504,6 +554,11 @@ function ChatMessageItem({
               className="msg-menu"
               role="menu"
               tabIndex={-1}
+              style={
+                menuAt === null
+                  ? { visibility: "hidden" }
+                  : { top: menuAt.top, left: menuAt.left }
+              }
               aria-label={`Actions du message de ${message.author}`}
               onKeyDown={menuKey}
             >
