@@ -94,8 +94,7 @@ describe("LinkPreviewService — l'issue de la lecture est une donnée", () => {
       state: "read",
       url: "https://example.test/a",
       site: "Le Site",
-      // `&eacute;` n'est pas dans la table : laissé tel quel, jamais inventé.
-      title: "Caf&eacute; & Cie — l'accueil",
+      title: "Café & Cie — l'accueil",
       description: "Une description sur deux lignes",
     });
   });
@@ -317,6 +316,33 @@ describe("LinkPreviewService — 30 aperçus par minute et par appelant", () => 
 });
 
 describe("extractPageMeta — pure, bornée, sans analyseur DOM", () => {
+  it("un `og:` encodé DEUX fois cède à la balise ordinaire (vu chez GitHub)", () => {
+    // Recopié de la page de nodefony-core sur GitHub.
+    const meta = extractPageMeta(
+      `<meta name="description" content="console d&#39;administration. ESM">` +
+        `<meta property="og:description" content="console d&amp;#39;administration. ESM">` +
+        `<title>t</title><meta property="og:title" content="Un &amp;amp; deux">`,
+    );
+    expect(meta.description).toBe("console d'administration. ESM");
+    // Le titre ordinaire n'a rien de mieux à dire que `t` sans entité : il gagne.
+    expect(meta.title).toBe("t");
+  });
+
+  it("les entités françaises, la casse comptant ; un nom inconnu reste tel quel", () => {
+    expect(
+      extractPageMeta(
+        `<title>&Eacute;t&eacute; &OElig;uvre 10&nbsp;&euro; &AMP; &inconnue;</title>`,
+      ).title,
+    ).toBe("Été Œuvre 10 € & &inconnue;");
+  });
+
+  it("seul, un `og:` garde son unique décodage : `&amp;lt;` reste « &lt; »", () => {
+    const meta = extractPageMeta(
+      `<meta property="og:description" content="la balise &amp;lt;b&amp;gt;">`,
+    );
+    expect(meta.description).toBe("la balise &lt;b&gt;");
+  });
+
   it("lit les attributs entre guillemets, apostrophes ou nus, dans n'importe quel ordre", () => {
     const meta = extractPageMeta(
       `<META CONTENT='Titre A' PROPERTY=og:title><meta content=Desc name=description>`,

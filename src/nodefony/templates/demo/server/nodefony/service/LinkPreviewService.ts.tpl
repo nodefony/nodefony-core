@@ -106,29 +106,49 @@ export interface ILinkPreviewDeps {
 /** Un seul passage, jamais de récursion : `&amp;lt;` donne `&lt;`, pas `<`. */
 const ENTITY = /&(?:#x([0-9a-f]{1,6})|#(\d{1,7})|([a-z][a-z0-9]{1,9}));/gi;
 
-/** Les entités nommées qu'une page met couramment dans un titre. */
-const NAMED_ENTITIES: Readonly<Record<string, string>> = {
-  amp: "&",
-  lt: "<",
-  gt: ">",
-  quot: '"',
-  apos: "'",
-  nbsp: " ",
-  mdash: "—",
-  ndash: "–",
-  hellip: "…",
-  laquo: "«",
-  raquo: "»",
-  lsquo: "‘",
-  rsquo: "’",
-  ldquo: "“",
-  rdquo: "”",
-  copy: "©",
-  reg: "®",
-  trade: "™",
-  middot: "·",
-  bull: "•",
-};
+/**
+ * Les entités nommées décodées : les jeux de HTML 4.01 §24 — Latin-1 (96
+ * noms, tout le français), « spéciaux » (32 : Œ œ € guillemets tirets…) —,
+ * plus `hellip`, `trade`, `bull` et les capitales `AMP LT GT QUOT`. Les
+ * points de code sont relus dans la liste WHATWG
+ * (`html.spec.whatwg.org/entities.json`), jamais tapés à la main. La casse
+ * COMPTE : `&Eacute;` est É, `&eacute;` est é. Un nom hors table reste tel
+ * quel, jamais deviné.
+ */
+const NAMED_ENTITIES: ReadonlyMap<string, string> = pairsOf(
+  "nbsp a0 iexcl a1 cent a2 pound a3 curren a4 yen a5 brvbar a6 sect a7 " +
+    "uml a8 copy a9 ordf aa laquo ab not ac shy ad reg ae macr af deg b0 " +
+    "plusmn b1 sup2 b2 sup3 b3 acute b4 micro b5 para b6 middot b7 cedil b8 " +
+    "sup1 b9 ordm ba raquo bb frac14 bc frac12 bd frac34 be iquest bf " +
+    "Agrave c0 Aacute c1 Acirc c2 Atilde c3 Auml c4 Aring c5 AElig c6 " +
+    "Ccedil c7 Egrave c8 Eacute c9 Ecirc ca Euml cb Igrave cc Iacute cd " +
+    "Icirc ce Iuml cf ETH d0 Ntilde d1 Ograve d2 Oacute d3 Ocirc d4 " +
+    "Otilde d5 Ouml d6 times d7 Oslash d8 Ugrave d9 Uacute da Ucirc db " +
+    "Uuml dc Yacute dd THORN de szlig df agrave e0 aacute e1 acirc e2 " +
+    "atilde e3 auml e4 aring e5 aelig e6 ccedil e7 egrave e8 eacute e9 " +
+    "ecirc ea euml eb igrave ec iacute ed icirc ee iuml ef eth f0 ntilde f1 " +
+    "ograve f2 oacute f3 ocirc f4 otilde f5 ouml f6 divide f7 oslash f8 " +
+    "ugrave f9 uacute fa ucirc fb uuml fc yacute fd thorn fe yuml ff " +
+    "quot 22 amp 26 lt 3c gt 3e apos 27 OElig 152 oelig 153 Scaron 160 " +
+    "scaron 161 Yuml 178 circ 2c6 tilde 2dc ensp 2002 emsp 2003 thinsp 2009 " +
+    "zwnj 200c zwj 200d lrm 200e rlm 200f ndash 2013 mdash 2014 lsquo 2018 " +
+    "rsquo 2019 sbquo 201a ldquo 201c rdquo 201d bdquo 201e dagger 2020 " +
+    "Dagger 2021 permil 2030 lsaquo 2039 rsaquo 203a euro 20ac hellip 2026 " +
+    "trade 2122 bull 2022 AMP 26 LT 3c GT 3e QUOT 22",
+);
+
+/** « nom pointHexa nom pointHexa … » → la table des entités. */
+function pairsOf(list: string): Map<string, string> {
+  const words = list.split(" ");
+  const map = new Map<string, string>();
+  for (let i = 0; i + 1 < words.length; i += 2) {
+    const name = words.find((_, k) => k === i);
+    const point = words.find((_, k) => k === i + 1);
+    if (name !== undefined && point !== undefined)
+      map.set(name, String.fromCodePoint(parseInt(point, 16)));
+  }
+  return map;
+}
 
 /** Contrôles, barres de direction et séparateurs invisibles : un titre n'en porte pas. */
 const INVISIBLE = /[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁦-⁩﻿]+/g;
@@ -138,14 +158,37 @@ function decodeEntities(raw: string): string {
   return raw.replace(
     ENTITY,
     (whole: string, hex?: string, dec?: string, name?: string) => {
-      if (name !== undefined)
-        return NAMED_ENTITIES[name.toLowerCase()] ?? whole;
+      if (name !== undefined) return NAMED_ENTITIES.get(name) ?? whole;
       const point = hex !== undefined ? parseInt(hex, 16) : Number(dec);
       const valid =
         point > 0 && point <= 0x10ffff && !(point >= 0xd800 && point <= 0xdfff);
       return valid ? String.fromCodePoint(point) : "�";
     },
   );
+}
+
+/** Une référence de caractère restée APRÈS le décodage : un encodage double. */
+const LEFTOVER = new RegExp(ENTITY.source, "i");
+
+/**
+ * Le texte à montrer entre la balise Open Graph et la balise ordinaire :
+ * `og:` d'abord, SAUF s'il garde une entité après décodage alors que l'autre
+ * n'en garde pas. C'est l'encodage DOUBLE d'un éditeur — vu chez GitHub :
+ * `og:description` porte `d&amp;#39;administration` quand `description` porte
+ * `d&#39;administration`. Le décodage reste en UN passage : décoder deux
+ * fois corromprait une page qui écrit vraiment `&lt;` en toutes lettres.
+ */
+function readable(
+  og: string | null,
+  plain: string | null,
+  max: number,
+): string | null {
+  const first = og === null ? null : tidy(og, max);
+  const second = plain === null ? null : tidy(plain, max);
+  if (first === null) return second;
+  return LEFTOVER.test(first) && second !== null && !LEFTOVER.test(second)
+    ? second
+    : first;
 }
 
 /**
@@ -345,12 +388,9 @@ export function extractPageMeta(html: string): IPageMeta {
       pos = rawEnd(STYLE_END, html, pos, end);
     }
   }
-  const title = ogTitle !== null ? tidy(ogTitle, TITLE_MAX) : null;
-  const description = ogDescription ?? metaDescription;
   return {
-    title: title ?? (pageTitle !== null ? tidy(pageTitle, TITLE_MAX) : null),
-    description:
-      description !== null ? tidy(description, DESCRIPTION_MAX) : null,
+    title: readable(ogTitle, pageTitle, TITLE_MAX),
+    description: readable(ogDescription, metaDescription, DESCRIPTION_MAX),
     site: ogSite !== null ? tidy(ogSite, SITE_MAX) : null,
   };
 }
