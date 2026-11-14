@@ -283,13 +283,29 @@
       "test": false,
       "purpose": "Gate — le code protobuf VERSIONNÉ est-il celui que ses contrats produisent ?",
       "usage": [
-        "node scripts/gates/check-generated-protobuf.mjs"
+        "node scripts/gates/check-generated-protobuf.mjs [--write]"
       ],
       "options": [],
       "env": [],
       "output": "",
       "calledBy": [
-        "node.js.yml"
+        "node.js.yml",
+        ".githooks/_read-only-gates.sh"
+      ],
+      "testedBy": [
+        "scripts/gates/check-generated-protobuf.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/gates/check-generated-protobuf.test.mjs",
+      "test": true,
+      "purpose": "`syncTree` — la régénération EN PLACE (`--write`) du gate protobuf.",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
       ],
       "testedBy": []
     },

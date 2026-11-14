@@ -17,7 +17,16 @@
  * du dépôt (`node_modules/.bin`), lancés par `process.execPath` — un script Node,
  * donc pareil sur les trois plateformes.
  *
- * @usage node scripts/gates/check-generated-protobuf.mjs
+ * `--write` régénère EN PLACE : la même génération, recopiée sur les sorties
+ * commitées (suffixe `.tpl` compris). La régénération à la main — copier le
+ * gabarit sans `.tpl`, lancer `buf`, recopier en rajoutant `.tpl` — se ratait :
+ * un commentaire ajouté à `telemetry.proto.tpl` a laissé `telemetry_pb.ts.tpl`
+ * périmé, et seule la forge l'a vu. Un fichier EN TROP n'est jamais supprimé :
+ * il se nomme, et `git rm` reste un geste de l'auteur. Le hook `commit-msg`
+ * (`_read-only-gates.sh`) joue ce gate dès qu'un contrat, un gabarit `buf`, une
+ * sortie générée ou la version d'un greffon `@bufbuild` est indexé.
+ *
+ * @usage node scripts/gates/check-generated-protobuf.mjs [--write]
  */
 import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -103,6 +112,30 @@ export function compareTrees(expectedDir, actualDir, suffix = "") {
 }
 
 /**
+ * Recopie l'arbre régénéré sur l'arbre commité : chaque fichier manquant ou
+ * différent est écrit, sous son nom suffixé ; un fichier en trop est rendu, jamais supprimé.
+ *
+ * @param {string} expectedDir - sortie régénérée.
+ * @param {string} actualDir - sortie commitée.
+ * @param {string} [suffix] - suffixe que portent les fichiers commités (`.tpl`).
+ * @returns {{ written: string[], extra: string[] }} chemins POSIX relatifs, sans suffixe.
+ */
+export function syncTree(expectedDir, actualDir, suffix = "") {
+  const { missing, extra, changed } = compareTrees(
+    expectedDir,
+    actualDir,
+    suffix,
+  );
+  const written = [...missing, ...changed].sort();
+  for (const f of written) {
+    const target = path.join(actualDir, ...`${f}${suffix}`.split("/"));
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.copyFileSync(path.join(expectedDir, ...f.split("/")), target);
+  }
+  return { written, extra };
+}
+
+/**
  * Recopie ce que `buf` lit d'un gabarit du scaffold — `buf.yaml`,
  * `buf.gen.yaml` et les contrats `.proto` — sans le suffixe `.tpl`.
  *
@@ -148,7 +181,13 @@ function templates() {
     .filter(Boolean);
 }
 
-function main() {
+/**
+ * Régénère chaque gabarit `buf.gen.yaml` versionné et juge — ou recopie — ses sorties.
+ *
+ * @param {boolean} [write] - recopier la régénération au lieu de la comparer.
+ * @returns {number} code de sortie.
+ */
+function main(write = false) {
   const found = templates();
   if (found.length === 0) {
     console.log("✓ protobuf : aucun gabarit buf.gen.yaml versionné");
@@ -198,6 +237,24 @@ function main() {
         continue;
       }
       for (const out of outs) {
+        if (write) {
+          const { written, extra } = syncTree(
+            path.join(scratch, ...out.split("/")),
+            path.join(dir, ...out.split("/")),
+            suffix,
+          );
+          for (const f of written)
+            console.log(
+              `✎ ${path.posix.dirname(template)}/${out}/${f}${suffix}`,
+            );
+          if (extra.length === 0) continue;
+          failures += 1;
+          console.error(
+            `✗ ${template} → ${out} : fichier(s) que le contrat ne produit plus — à retirer par git rm`,
+          );
+          for (const f of extra) console.error(`    en trop   ${f}`);
+          continue;
+        }
         const { missing, extra, changed } = compareTrees(
           path.join(scratch, ...out.split("/")),
           path.join(dir, ...out.split("/")),
@@ -215,9 +272,7 @@ function main() {
         );
         for (const line of drift) console.error(`    ${line}`);
         console.error(
-          scaffold
-            ? `  Régénérer : buf generate sur une copie sans .tpl de ${path.posix.dirname(template)}, puis recopier ${out} en ajoutant .tpl à chaque fichier.`
-            : `  Régénérer : (cd ${path.posix.dirname(template)} && npx buf generate), puis commiter.`,
+          "  Régénérer : node scripts/gates/check-generated-protobuf.mjs --write, puis git add.",
         );
       }
     } finally {
@@ -227,11 +282,13 @@ function main() {
   }
   if (failures > 0) return 1;
   console.log(
-    `✓ protobuf : ${found.length} gabarit(s), code commité identique à la régénération`,
+    write
+      ? `✓ protobuf : ${found.length} gabarit(s) régénéré(s) en place`
+      : `✓ protobuf : ${found.length} gabarit(s), code commité identique à la régénération`,
   );
   return 0;
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  process.exitCode = main();
+  process.exitCode = main(process.argv.includes("--write"));
 }

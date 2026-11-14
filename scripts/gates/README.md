@@ -51,8 +51,16 @@ Suite de l'audit `external` — écrite pour le faire ÉCHOUER, pas pour l'accom
 
 Gate — le code protobuf VERSIONNÉ est-il celui que ses contrats produisent ?
 
-- **Usage** : `node scripts/gates/check-generated-protobuf.mjs`
-- **Appelé par** : `node.js.yml`
+- **Usage** : `node scripts/gates/check-generated-protobuf.mjs [--write]`
+- **Appelé par** : `node.js.yml` · `.githooks/_read-only-gates.sh`
+- **Testé par** : `gates/check-generated-protobuf.test.mjs`
+
+## [`check-generated-protobuf.test.mjs`](check-generated-protobuf.test.mjs)
+
+`syncTree` — la régénération EN PLACE (`--write`) du gate protobuf.
+
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `gates/check-generated-protobuf.mjs`
 
 ## [`check-import-specifiers.mjs`](check-import-specifiers.mjs)
 

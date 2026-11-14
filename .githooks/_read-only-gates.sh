@@ -107,6 +107,23 @@ if [ -n "$STAGED_TPL" ]; then
   fi
 fi
 
+# Le code protobuf COMMITÉ suit-il ses contrats ? Il ne se régénère jamais au
+# build (ADR-0026 D2) : un `.proto` retouché sans `buf generate` laisse le
+# `_pb.ts` périmé, et seule la forge le voyait. Vécu : un commentaire ajouté à
+# `telemetry.proto.tpl` (un « Guide pour un agent ») a rougi la forge, le
+# geste de régénération étant à refaire à la main. Déclencheurs : un contrat,
+# un gabarit `buf`, une sortie générée, ou un greffon `@bufbuild` monté de
+# version dans le verrou — les quatre façons de dériver. ~1,5 s, seulement là.
+if git diff --cached --name-only --diff-filter=ACMR \
+   | grep -qE '(\.proto|(^|/)buf(\.gen)?\.yaml|_pb\.ts)(\.tpl)?$' \
+   || git diff --cached -- package-lock.json | grep -q '@bufbuild/'; then
+  if ! node scripts/gates/check-generated-protobuf.mjs; then
+    echo "❌ code protobuf périmé — commit annulé"
+    echo "   → node scripts/gates/check-generated-protobuf.mjs --write   puis  git add"
+    exit 1
+  fi
+fi
+
 # Les JUGES du banc devkit, éprouvés — mais SEULEMENT quand on touche au banc.
 #
 # Le cas qui a fait écrire ces lignes : `6f2c2c53` a renommé la définition d'une
