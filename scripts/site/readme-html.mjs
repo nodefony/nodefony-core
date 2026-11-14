@@ -1125,6 +1125,12 @@ const html = doc({
    une carte ou une figure garde la largeur de la page. l'unité ch suit la police,
    donc la mesure reste juste si la taille du texte change. */
 .wrap p, .wrap li, .wrap blockquote { max-width:74ch; }
+/* Les encadrés (« > … » du README) prennent le style du site de documentation
+   (build-docs-site.mjs). Sans lui, le navigateur ne pose qu'un retrait de 40 px :
+   le texte courant voisin paraît alors décalé vers la gauche. */
+.wrap blockquote { margin:18px 0; padding:10px 16px; border-left:4px solid var(--accent);
+  background:var(--card); border-radius:0 8px 8px 0; }
+.wrap blockquote p { margin:4px 0; }
 /* Ce qui est DÉJÀ contraint par sa boîte s'en exempte : une cellule de tableau,
    une carte ou une légende de figure a sa propre largeur, et lui imposer la
    mesure de lecture la ferait se replier au milieu de sa colonne. */
