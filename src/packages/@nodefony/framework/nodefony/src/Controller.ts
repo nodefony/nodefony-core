@@ -277,11 +277,16 @@ function encodeExtValue(value: string): string {
  * hors ASCII imprimable, `"`, `\` et `%` — un nom accentué ne lève donc
  * jamais `ERR_INVALID_CHAR`, et un guillemet ne casse pas la valeur.
  *
+ * Exportée pour servir un fichier sous un AUTRE nom que celui du disque —
+ * un fichier reçu, rangé sous un identifiant tiré par le serveur, se rend
+ * sous le nom que le client lui a donné, passé en en-tête de
+ * `renderFileDownload()` ou de `streamFile()`.
+ *
  * @param type - `attachment` (téléchargement) ou `inline` (affiché).
  * @param name - le nom du fichier, tel quel.
  * @returns la valeur de l'en-tête.
  */
-function contentDisposition(
+export function contentDisposition(
   type: "attachment" | "inline",
   name: string,
 ): string {

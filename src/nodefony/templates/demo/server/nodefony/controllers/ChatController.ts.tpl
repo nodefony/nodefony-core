@@ -1,6 +1,7 @@
 import { Inject } from "nodefony";
 import type { ContractRouteSchemas } from "nodefony";
 import {
+  contentDisposition,
   controller,
   route,
   Idempotent,
@@ -832,23 +833,6 @@ function linkStatusOf(reason: LinkPreviewRefusalReason): number {
     case "rate-limited":
       return 429;
   }
-}
-
-/**
- * L'en-tête `Content-Disposition` d'une pièce (RFC 6266) : un nom ASCII de
- * repli, et le vrai nom en UTF-8 (`filename*`, RFC 8187) — le nom vient du
- * client, il est encodé, jamais recopié tel quel dans un en-tête.
- */
-function contentDisposition(
-  type: "inline" | "attachment",
-  name: string,
-): string {
-  const ascii = name.replace(/[^\x20-\x7e]|["\\%]/g, "_");
-  const utf8 = encodeURIComponent(name).replace(
-    /['()*]/g,
-    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
-  );
-  return `${type}; filename="${ascii}"; filename*=UTF-8''${utf8}`;
 }
 
 export default ChatController;

@@ -134,6 +134,7 @@ export type { IHttpMethodDecorator } from "./nodefony/decorators/routerDecorator
 // Routes typées et validées par un schéma (ADR-0018) : la validation est
 // publiée seule pour être rejouée hors du Resolver (actions temps réel).
 export { validateRouteInput } from "./nodefony/src/routeSchema";
+export { contentDisposition } from "./nodefony/src/Controller";
 export type {
   IRouteSchema,
   RouteInput,
