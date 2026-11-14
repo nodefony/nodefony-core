@@ -91,7 +91,8 @@ export class RoomRealtime extends RealtimeController {
     return () => {};
   }
 
-  // Un canal décoré n'est servi que sous son nom exact : la famille l'est ici.
+  // La surcharge FILTRE la famille : un nom qui n'est pas un salon est refusé
+  // (`null`). Sans elle, le motif servirait tout `room:*`, sous `allow`.
   override createRealtimeChannel(channel: string): (() => void) | null {
     return RoomService.roomOf(channel) === null ? null : () => {};
   }

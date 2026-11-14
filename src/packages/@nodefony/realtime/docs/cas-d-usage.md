@@ -517,8 +517,8 @@ export class MatchRealtime extends RealtimeController {
     return () => {};
   }
 
-  // Un canal décoré n'est servi que sous son nom exact : la famille l'est ici,
-  // et seulement pour une partie qui existe.
+  // Le motif servirait toute la famille : la surcharge la FILTRE — seule une
+  // partie qui existe est servie, tout autre nom est refusé (`null`).
   override createRealtimeChannel(channel: string): (() => void) | null {
     return this.matches.exists(channel) ? () => {} : null;
   }
@@ -758,7 +758,8 @@ export class RoomRealtime extends RealtimeController {
     return () => {};
   }
 
-  // Un canal décoré n'est servi que sous son nom exact : la famille l'est ici.
+  // La surcharge FILTRE la famille : un nom qui n'est pas un salon est refusé
+  // (`null`). Sans elle, le motif servirait tout `room:*`, sous `allow`.
   override createRealtimeChannel(channel: string): (() => void) | null {
     return RoomService.roomOf(channel) === null ? null : () => {};
   }

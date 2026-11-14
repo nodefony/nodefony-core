@@ -52,11 +52,12 @@ afterEach(() => {
   getRealtimeHub().clear();
 });
 
-describe("#700 — un motif décoré pose la POLITIQUE, jamais la fabrique", () => {
-  // Le skill livré montrait `@RealtimeChannel("room:*", { allow })` seul : la
-  // politique couvre toute la famille, mais une fabrique décorée n'est trouvée
-  // que par son nom EXACT — `room:42` n'en a pas. Sans `createRealtimeChannel`,
-  // l'abonnement est refusé, et un test qui ne s'abonne jamais reste vert.
+describe("#700 — un motif décoré sert sa famille ; une surcharge garde la main", () => {
+  // Le skill livré montrait `@RealtimeChannel("room:*", { allow })` seul, et
+  // `room:42` était refusé : la fabrique décorée ne se trouvait que par son nom
+  // EXACT. Le motif sert désormais les noms qu'il couvre — sous SA règle, que
+  // `allow` tranche toujours. Une classe qui surcharge `createRealtimeChannel`
+  // décide seule : son `null` reste un refus.
   class PolicyOnly extends RealtimeController {
     constructor(ctx: ConstructorParameters<typeof RealtimeController>[1]) {
       super("PolicyOnly", ctx);
@@ -66,25 +67,43 @@ describe("#700 — un motif décoré pose la POLITIQUE, jamais la fabrique", () 
       return () => {};
     }
   }
+  class Closed extends RealtimeController {
+    constructor(ctx: ConstructorParameters<typeof RealtimeController>[1]) {
+      super("Closed", ctx);
+    }
+    @RealtimeChannel("vault:*", { allow: () => false })
+    vault(): () => void {
+      return () => {};
+    }
+  }
   class WithFactory extends PolicyOnly {
     override createRealtimeChannel(channel: string): (() => void) | null {
-      return channel.startsWith("room:") ? () => {} : null;
+      return channel === "room:42" ? () => {} : null;
     }
   }
 
-  it("sans fabrique, `room:42` est refusé `unknown`", async () => {
+  it("sans surcharge, le motif sert `room:42` et `allow` tranche", async () => {
     const h = await connect((ctx) => new PolicyOnly(ctx), "alice");
     await h.subscribe("room:42");
     await flush();
-    expect(h.subscriptions()).to.deep.equal([]);
-    expect(h.denials().map((d) => d.reason)).to.deep.equal(["unknown"]);
+    expect(h.subscriptions()).to.deep.equal(["room:42"]);
   });
 
-  it("avec `createRealtimeChannel`, `room:42` est servi et `allow` tranche", async () => {
+  it("🔴 un nom servi par le motif reste GARDÉ : `allow` qui refuse → `forbidden`", async () => {
+    const h = await connect((ctx) => new Closed(ctx), "alice");
+    await h.subscribe("vault:1");
+    await flush();
+    expect(h.subscriptions()).to.deep.equal([]);
+    expect(h.denials().map((d) => d.reason)).to.deep.equal(["forbidden"]);
+  });
+
+  it("avec surcharge, elle seule décide : `room:42` servi, `room:7` refusé `unknown`", async () => {
     const h = await connect((ctx) => new WithFactory(ctx), "alice");
     await h.subscribe("room:42");
+    await h.subscribe("room:7");
     await flush();
     expect(h.subscriptions()).to.deep.equal(["room:42"]);
+    expect(h.denials().map((d) => d.reason)).to.deep.equal(["unknown"]);
   });
 });
 

@@ -1,7 +1,7 @@
 ---
 name: nodefony-add-realtime-channel
 metadata:
-  version: 3.0.2
+  version: 3.1.0
 description: >
   Branche le temps réel d'une application Nodefony par ses briques — canal, route appelée par la
   socket, entrée client, action, canal personnel, flux SSE, contrat typé — au lieu d'un WebSocket
@@ -49,7 +49,7 @@ description: >
 | un **chat** : des messages gardés, des salons, des droits   | lire par un **canal**, écrire par une **route** appelée par la socket (§3)                                           | `cookbook-chat.md`, le chat de la démo                                                   |
 | pousser un flux que des écrans lisent                       | `@RealtimeChannel("nom")` ; un producteur par canal et par serveur, créé au premier abonné                           | `cas-d-usage.md` (tableau de bord)                                                       |
 | le réserver à un rôle                                       | `@RealtimeChannel("nom", { roles: ["ROLE_X"] })`                                                                     | `securite.md`                                                                            |
-| une famille de canaux (`room:<id>`, `task:<id>`)            | motif `"room:*"` + `createRealtimeChannel()` qui sert (ou refuse, `null`) chaque nom                                 | §4                                                                                       |
+| une famille de canaux (`room:<id>`, `task:<id>`)            | motif `"room:*"` — il sert chaque nom ; `createRealtimeChannel()` seulement pour FILTRER (`null` = refus)            | §4                                                                                       |
 | **ce compte-là et lui seul** (salon privé, invitation)      | `allow` sur le motif, écrit en **classe d'admission** qui lit la base (§5)                                           | `cas-d-usage.md` (salon privé : son ADMISSION ; l'écriture suit §3, pas son `room:send`) |
 | exclure quelqu'un, pour de bon                              | retirer l'appartenance (`allow` dira non), PUIS `getRealtimeHub().evictUser(canal, id)` — jamais de liste noire      | `canaux-a-membres.md`                                                                    |
 | placer quelqu'un dans un canal sans qu'il s'abonne          | `getRealtimeHub().subscribeConnection(canal, connection)` depuis une entrée client, après avoir écrit l'appartenance | `cas-d-usage.md` (recherche de partie)                                                   |
@@ -238,8 +238,10 @@ charge)`. La charge est un objet, un tableau, des octets ou rien — **un scalai
   diffuse au rythme du serveur (`setInterval`, `unref()`) — un relais direct à chaque réception ne se
   tolère qu'à faible cadence (quelques trames par seconde). Un message de
   chat : chacun compte — persiste-le AVANT de le publier (§3).
-- **Une famille de canaux** (`room:*`) : le motif pose la POLITIQUE de toute la famille, pas la
-  FABRIQUE — sans `createRealtimeChannel`, `room:42` est refusé `unknown` :
+- **Une famille de canaux** (`room:*`) : le motif pose la POLITIQUE de toute la famille ET sert
+  ses noms — `room:42` est servi, la méthode reçoit le nom réel. Une surcharge de
+  `createRealtimeChannel` ne sert qu'à FILTRER : dès qu'elle existe, elle seule décide, et son
+  `null` est un refus `unknown` que le motif ne contourne pas :
 
 <!-- excerpt: privateRoom.ts -->
 
@@ -250,7 +252,8 @@ charge)`. La charge est un objet, un tableau, des octets ou rien — **un scalai
     return () => {};
   }
 
-  // Un canal décoré n'est servi que sous son nom exact : la famille l'est ici.
+  // La surcharge FILTRE la famille : un nom qui n'est pas un salon est refusé
+  // (`null`). Sans elle, le motif servirait tout `room:*`, sous `allow`.
   override createRealtimeChannel(channel: string): (() => void) | null {
     return RoomService.roomOf(channel) === null ? null : () => {};
   }

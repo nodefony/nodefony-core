@@ -19,7 +19,12 @@
  *  `undefined` (pas d'allocation), fallback sur les overrides classiques.
  */
 import "reflect-metadata";
-import { BootConfigurationError, Injector } from "nodefony";
+import {
+  BootConfigurationError,
+  Injector,
+  channelPatternWeight,
+  compileChannelPattern,
+} from "nodefony";
 import type {
   ChannelAdmissionClass,
   ChannelAllow,
@@ -386,7 +391,7 @@ export function RealtimeAction(
   return function (target, propertyKey) {
     // `target` = prototype de la classe instance. On stocke sur le constructor
     // (target.constructor) → la même clé qu'utilisera la base au handshake.
-    const ctor = (target as { constructor: object }).constructor;
+    const ctor = target.constructor;
     // Copie : sur une sous-classe, la lecture rend l'objet du PARENT.
     const map = { ...readMetadataMap(ACTIONS_KEY, ctor) };
     map[method] = propertyKey;
@@ -463,16 +468,18 @@ export function RealtimePolicy<
 }
 
 /**
- * Décorateur **méthode** — expose un **canal pub/sub** sous le nom `channel`
- * (match EXACT, sans préfixe `:<ms>` ni regex). La méthode décorée DOIT renvoyer
- * un `dispose: () => void` (la base le mémorise et l'appelle au dernier
+ * Décorateur **méthode** — expose un **canal pub/sub** sous le nom `channel`, ou
+ * une FAMILLE de canaux sous un motif (`chat:room:*`). La méthode décorée DOIT
+ * renvoyer un `dispose: () => void` (la base le mémorise et l'appelle au dernier
  * désabonné, comme avec l'override classique).
  *
- * v1 — match EXACT uniquement. Les canaux à pattern (`/^nodefony:orm:rich@(\d+)/`) ou à
- * suffixe de granularité (`nodefony:dashboard:1000`) restent dans l'override
- * `createRealtimeChannel()` (la base donne PRIORITÉ aux décorateurs, puis tombe
- * sur l'override en fallback — coexistence sans casse). Un mode `pattern: RegExp`
- * arrivera plus tard sans rompre cette API.
+ * Un motif (`*` = toute suite de caractères, la grammaire des politiques) sert
+ * chaque nom qu'il couvre : `@RealtimeChannel("chat:room:*", { allow })` déclare
+ * la règle ET la fabrique de tous les salons, et la méthode reçoit le nom réel
+ * (`chat:room:42`) en premier argument. Ordre de résolution au `subscribe` : le
+ * nom exact décoré, puis l'override `createRealtimeChannel()` (canaux à suffixe
+ * de granularité, regex — un contrôleur qui en a un garde son comportement),
+ * puis les motifs décorés, du plus spécifique au plus général.
  *
  * Le `this` est lié à l'instance ; le factory peut donc lire `this.kernel`, etc.
  * Mais ATTENTION : un provider est **partagé** entre toutes les connexions au
@@ -488,6 +495,12 @@ export function RealtimePolicy<
  *
  * @example
  *   class ChatController extends RealtimeController {
+ *     // Tous les salons : la règle et la fabrique, une seule fois.
+ *     @RealtimeChannel("chat:room:*", { allow: RoomAdmission })
+ *     room(_channel: string): () => void {
+ *       return () => {};
+ *     }
+ *
  *     @RealtimeChannel("chat:room42")
  *     room42(_channel: string, publish: RealtimePublish): () => void {
  *       const timer = setInterval(() => publish("chat:room42", { ts: Date.now() }), 1000);
@@ -500,7 +513,7 @@ export function RealtimeChannel(
   policy?: IChannelPolicy,
 ): MethodDecorator {
   return function (target, propertyKey) {
-    const ctor = (target as { constructor: object }).constructor;
+    const ctor = target.constructor;
     // Copie : sur une sous-classe, la lecture rend l'objet du PARENT.
     const map = { ...readMetadataMap(CHANNELS_KEY, ctor) };
     map[channel] = propertyKey;
@@ -552,7 +565,7 @@ export function RealtimeInbound(
   policy?: IChannelPolicy,
 ): MethodDecorator {
   return function (target, propertyKey) {
-    const ctor = (target as { constructor: object }).constructor;
+    const ctor = target.constructor;
     // Copie : sur une sous-classe, la lecture rend l'objet du PARENT.
     const map = { ...readMetadataMap(INBOUND_KEY, ctor) };
     map[method] = propertyKey;
@@ -622,6 +635,58 @@ export function getRealtimeChannels(
     };
   }
   return out;
+}
+
+/** Un motif décoré, compilé : sa source (clé du registre) et son expression. */
+interface IDecoratedPattern {
+  readonly source: string;
+  readonly re: RegExp;
+}
+
+/**
+ * Motifs décorés de chaque classe, compilés au premier besoin : du plus
+ * spécifique au plus général. Par CLASSE et non par instance — un contrôleur
+ * temps réel est instancié par connexion, ses motifs ne changent pas.
+ */
+const decoratedPatterns = new WeakMap<object, readonly IDecoratedPattern[]>();
+
+/**
+ * La fabrique décorée sous un MOTIF qui couvre `channel` — `@RealtimeChannel("chat:room:*")` sert `chat:room:42` —, ou `null` si aucun motif ne le couvre.
+ *
+ * Même grammaire que les politiques (`compileChannelPattern`) et même
+ * départage (`channelPatternWeight`, le plus spécifique d'abord) : un nom
+ * reçoit la fabrique du motif dont il reçoit la règle. Un motif refusé par la
+ * grammaire (trop d'étoiles) ne sert rien — le hub le dit déjà au démarrage.
+ * Cold path : appelé au premier abonné d'un canal qu'aucun nom exact ni
+ * `createRealtimeChannel` ne produit.
+ *
+ * @param instance - le contrôleur ; ses motifs se lisent sur sa classe.
+ * @param channels - le registre rendu par {@link getRealtimeChannels}.
+ * @param channel - le nom demandé.
+ */
+export function patternChannelFactory(
+  instance: object,
+  channels: Readonly<Record<string, RealtimeChannelFactory>> | null,
+  channel: string,
+): RealtimeChannelFactory | null {
+  if (channels === null) return null;
+  let patterns = decoratedPatterns.get(instance.constructor);
+  if (patterns === undefined) {
+    const compiled: (IDecoratedPattern & { weight: number })[] = [];
+    for (const source of Object.keys(channels)) {
+      if (!source.includes("*")) continue;
+      const re = compileChannelPattern(source);
+      if (re !== null)
+        compiled.push({ source, re, weight: channelPatternWeight(source) });
+    }
+    compiled.sort((a, b) => b.weight - a.weight);
+    patterns = compiled;
+    decoratedPatterns.set(instance.constructor, patterns);
+  }
+  for (const pattern of patterns) {
+    if (pattern.re.test(channel)) return channels[pattern.source] ?? null;
+  }
+  return null;
 }
 
 /** Lecture (lazy, au handshake) du registre des canaux inbound décorés. */

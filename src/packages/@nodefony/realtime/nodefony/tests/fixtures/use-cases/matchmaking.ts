@@ -99,8 +99,8 @@ export class MatchRealtime extends RealtimeController {
     return () => {};
   }
 
-  // Un canal décoré n'est servi que sous son nom exact : la famille l'est ici,
-  // et seulement pour une partie qui existe.
+  // Le motif servirait toute la famille : la surcharge la FILTRE — seule une
+  // partie qui existe est servie, tout autre nom est refusé (`null`).
   override createRealtimeChannel(channel: string): (() => void) | null {
     return this.matches.exists(channel) ? () => {} : null;
   }

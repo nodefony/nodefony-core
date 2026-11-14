@@ -44,3 +44,18 @@ export function compileChannelPattern(source: string): RegExp | null {
 export function countWildcards(source: string): number {
   return source.split("*").length - 1;
 }
+
+/**
+ * Poids d'un motif : la longueur de son littéral, `*` retirés — le plus spécifique d'abord.
+ *
+ * Entre `chat:*` (5) et `chat:room:*` (10), le second gagne : il en dit plus.
+ * La même mesure départage les POLITIQUES d'un canal et les FABRIQUES décorées
+ * sous un motif : un nom couvert par deux motifs reçoit la règle et la fabrique
+ * du même.
+ *
+ * @param source - le motif.
+ * @returns le nombre de caractères littéraux.
+ */
+export function channelPatternWeight(source: string): number {
+  return source.length - countWildcards(source);
+}

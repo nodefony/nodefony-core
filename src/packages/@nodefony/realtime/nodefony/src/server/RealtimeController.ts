@@ -75,6 +75,7 @@ import type { IRealtimeConnectionState } from "../../interfaces/IRealtimeConnect
 import {
   getRealtimeActions,
   getRealtimeChannels,
+  patternChannelFactory,
   getRealtimeInbound,
   type RealtimeChannelFactory,
   type RealtimeActionWrapper,
@@ -1511,8 +1512,10 @@ export abstract class RealtimeController<
     // (appelée au 1ᵉʳ abonné) doit capturer des deps long-lived — cf createRealtimeChannel.
     //
     // Ordre de résolution : décorateur `@RealtimeChannel` (match EXACT, O(1)) d'abord,
-    // sinon fallback sur l'override classique `createRealtimeChannel` (regex, suffixes,
-    // drill cluster). Coexistence sans casse pour les controllers historiques.
+    // puis l'override classique `createRealtimeChannel` (regex, suffixes, drill
+    // cluster) s'il existe, sinon les MOTIFS décorés (`patternChannelFactory`,
+    // compilés une fois par classe). Coexistence sans casse pour les controllers
+    // historiques : leur surcharge garde la main, refus compris.
     // `subscribeClient` et non `subscribe` : la demande vient du RÉSEAU. C'est
     // cette porte qui applique le plancher des canaux de plateforme ; un service
     // interne du serveur, lui, passe par `subscribe` et n'est pas concerné.
@@ -1530,6 +1533,19 @@ export abstract class RealtimeController<
       (ch, publish) => {
         const decFactory = this._decoratedChannels?.[ch];
         if (decFactory) return decFactory(ch, publish);
+        // Sans surcharge, un motif décoré (`chat:room:*`) sert les noms qu'il
+        // couvre. AVEC surcharge, elle seule décide : son `null` est un REFUS
+        // (contrat enseigné), qu'un motif ne doit jamais contourner.
+        if (this.createRealtimeChannel === BASE_CREATE_CHANNEL) {
+          const byPattern = patternChannelFactory(
+            this,
+            this._decoratedChannels,
+            ch,
+          );
+          if (byPattern === null) return null;
+          servedByPattern = true;
+          return byPattern(ch, publish);
+        }
         const dispose = this.createRealtimeChannel(ch, publish);
         if (dispose !== null) servedByPattern = true;
         return dispose;
@@ -1960,6 +1976,16 @@ export abstract class RealtimeController<
     state.connection?.settleImposed(channel, false);
   }
 }
+
+/**
+ * La fabrique par défaut de la base (`null` partout) : une classe qui la garde
+ * ne surcharge pas `createRealtimeChannel`, et ses motifs décorés servent alors
+ * les noms qu'ils couvrent. Lue une fois, comparée par référence au `subscribe`.
+ */
+const BASE_CREATE_CHANNEL: unknown = Reflect.get(
+  RealtimeController.prototype,
+  "createRealtimeChannel",
+);
 
 /**
  * Une frame JSON-RPC porte-t-elle un `id` — réponse ou requête, jamais une

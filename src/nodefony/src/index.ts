@@ -332,6 +332,7 @@ export {
 export type { IFrameCodecSet } from "./realtime/frameCodecNegotiation";
 export {
   MAX_CHANNEL_PATTERN_WILDCARDS,
+  channelPatternWeight,
   compileChannelPattern,
   countWildcards,
 } from "./realtime/channelPattern";

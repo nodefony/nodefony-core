@@ -1,6 +1,7 @@
 import { expect } from "vitest";
 import {
   MAX_CHANNEL_PATTERN_WILDCARDS,
+  channelPatternWeight,
   compileChannelPattern,
   countWildcards,
 } from "../realtime/channelPattern";
@@ -38,5 +39,11 @@ describe("realtime / compileChannelPattern (grammaire commune)", () => {
     expect(compileChannelPattern("*:*:*")).to.be.instanceOf(RegExp);
     expect(compileChannelPattern("*:*:*:*")).to.equal(null);
     expect(countWildcards("*:*:*:*")).to.equal(4);
+  });
+
+  it("le poids est la longueur du littéral : le plus spécifique pèse plus", () => {
+    expect(channelPatternWeight("chat:*")).to.equal(5);
+    expect(channelPatternWeight("chat:room:*")).to.equal(10);
+    expect(channelPatternWeight("*")).to.equal(0);
   });
 });

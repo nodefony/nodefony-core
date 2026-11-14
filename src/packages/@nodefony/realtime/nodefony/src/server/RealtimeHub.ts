@@ -11,6 +11,7 @@ import {
   isPlatformChannel,
   isRealtimePayload,
   realtimePayloadError,
+  channelPatternWeight,
   compileChannelPattern,
   countWildcards,
   MAX_CHANNEL_PATTERN_WILDCARDS,
@@ -2405,9 +2406,9 @@ export class RealtimeHub {
       );
       return;
     }
-    // Poids = longueur du LITTÉRAL, `*` retirés. Entre `chat:*` (5) et
-    // `chat:room:*` (10), le second gagne : il en dit plus.
-    const weight = name.split("*").join("").length;
+    // Poids = longueur du LITTÉRAL (`channelPatternWeight`) : la même mesure
+    // départage les fabriques décorées sous un motif.
+    const weight = channelPatternWeight(name);
     const entry: IPatternDeclaration = {
       ...declaration,
       source: name,

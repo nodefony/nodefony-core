@@ -422,7 +422,7 @@ Types : `ChannelSink = (payload: unknown) => void` · `ChannelFactory = (channel
 <!-- prettier-ignore -->
 | Hook | Signature | Rôle |
 | --- | --- | --- |
-| `createRealtimeChannel` | `(channel, publish: RealtimePublish): (() => void) \| null` | Provider d'un canal (pattern/regex/suffixe `:<ms>`). `null` = inconnu. **public** (sur `IRealtimeController`). |
+| `createRealtimeChannel` | `(channel, publish: RealtimePublish): (() => void) \| null` | Provider d'un canal (regex/suffixe `:<ms>`, ou FILTRE d'une famille décorée). `null` = inconnu — surchargée, elle seule décide, un motif décoré ne la contourne pas. **public** (sur `IRealtimeController`). |
 | `realtimeActions` | `(): Record<string, RpcActionHandler>` | Actions RPC requête→réponse. |
 | `realtimeChannels` | `(): string[]` | Canaux annoncés au welcome. |
 | `realtimeBroadcastChannels` | `(): string[]` | Préfixes cross-process de cet endpoint. |
@@ -551,7 +551,7 @@ Registre `rt/nodefony/src/backplane/backplaneRegistry.ts` (sélection ouverte, *
 `rt/nodefony/decorators/realtimeDecorators.ts` (style NestJS, posent des métadonnées `reflect-metadata` sur le constructeur, lues 1× au handshake). Coexistent avec les overrides (override gagne en conflit).
 
 - `@RealtimeAction(method: string, policy?: IChannelPolicy)` — méthode = action RPC (retour → `result`). `policy` = ÉCRITURE ; sans elle, hérite de la lecture déclarée sous le même nom, sinon défaut fermé `{ authenticated: true }`.
-- `@RealtimeChannel(channel: string, policy?: IChannelPolicy)` — méthode = provider de canal pub/sub (**match EXACT**, doit renvoyer `dispose`). `policy` (opt-in) = LECTURE, exigée au `subscribe` et EN PLUS de l'écriture sur toute trame entrante ; absente → héritée de l'écriture (ADR-0022 §6 1 quater).
+- `@RealtimeChannel(channel: string, policy?: IChannelPolicy)` — méthode = provider de canal pub/sub (nom EXACT, ou MOTIF `room:*` qui sert chaque nom couvert — la méthode reçoit le nom réel ; doit renvoyer `dispose`). Résolution au `subscribe` : nom exact décoré → `createRealtimeChannel` SI la classe la surcharge (elle seule décide, `null` = refus) → sinon motifs décorés, plus spécifique d'abord (`channelPatternWeight`, compilés une fois par classe, `realtimeDecorators.ts#patternChannelFactory`). `policy` (opt-in) = LECTURE, exigée au `subscribe` et EN PLUS de l'écriture sur toute trame entrante ; absente → héritée de l'écriture (ADR-0022 §6 1 quater).
 - `@RealtimeInbound(method: string, policy?: IChannelPolicy)` — méthode = handler full-duplex entrant (`(params, reply) => void`). `policy` = ÉCRITURE, jugée avec la lecture. Deux déclarations contradictoires d'une même sorte (classe ou entre classes) = refus au démarrage.
 
 Lecteurs internes : `getRealtimeActions`/`getRealtimeChannels`/`getRealtimeInbound`/`getRealtimeChannelPolicies` (, `null` si aucun décorateur → 0 alloc, `.bind(instance)`).
