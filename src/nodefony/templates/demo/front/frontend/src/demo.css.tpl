@@ -1854,16 +1854,35 @@ a.ritem:hover .ritem-go {
   min-width: 0;
   max-width: min(82vw, 720px);
   padding: 6px 12px;
-  /* Translucides : la bulle se pose sur la page sans l'écraser. */
-  background: color-mix(in srgb, var(--card) 45%, transparent);
-  border: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  /* Celle des autres : une surface ÉLEVÉE, neutre et sans bordure — un
+     voile du texte sur la carte (l'élévation du thème sombre de Material) ;
+     en clair, le même calcul donne un gris léger. */
+  background: color-mix(in srgb, var(--fg) 8%, var(--card));
+  border: 1px solid transparent;
   border-radius: 14px 14px 14px 4px;
   overflow-wrap: anywhere;
 }
+/* La MIENNE : pleine de la couleur d'accent, texte blanc — la convention de
+   toutes les messageries. Les jetons sont redéfinis DANS la bulle : texte,
+   liens, citation et mentions suivent sans règle de plus. Une bulle retirée
+   ou en cours de modification garde les jetons de la page. */
+.is-mine:not(.is-retracted) .msg-bubble:not(.is-editing) {
+  --fg: #fff;
+  --muted: rgb(255 255 255 / 0.82);
+  --link: #fff;
+  --blue: #fff;
+  --cyan: #fff;
+  --border: rgb(255 255 255 / 0.4);
+  --card: color-mix(in srgb, #fff 14%, transparent);
+  --bg-soft: rgb(0 0 0 / 0.18);
+  color: var(--fg);
+  background: var(--accent-bubble);
+}
 .is-mine .msg-bubble {
-  background: color-mix(in srgb, var(--blue) 11%, transparent);
-  border-color: color-mix(in srgb, var(--blue) 28%, transparent);
   border-radius: 14px 14px 4px 14px;
+}
+:root {
+  --accent-bubble: var(--blue);
 }
 .is-continued.is-other .msg-bubble {
   border-top-left-radius: 4px;
@@ -1880,11 +1899,11 @@ a.ritem:hover .ritem-go {
 }
 .is-retracted .msg-bubble {
   background: transparent;
-  border-style: dashed;
+  border: 1px dashed var(--border);
 }
-.room-msg:hover .msg-bubble,
-.room-msg:focus-within .msg-bubble {
-  border-color: color-mix(in srgb, var(--blue) 55%, var(--border));
+.is-other:hover .msg-bubble,
+.is-other:focus-within .msg-bubble {
+  background: color-mix(in srgb, var(--fg) 12%, var(--card));
 }
 .msg-actions {
   position: absolute;
@@ -2324,21 +2343,26 @@ button.msg-chip[aria-pressed="true"] {
    forge. L'onglet choisi se fond dans le champ ; l'autre reste en retrait. */
 .md-tabs {
   display: flex;
-  gap: 2px;
+  /* Collés au bord HAUT du champ : la marge du champ est annulée. */
   margin: -8px -8px 0;
-  padding: 6px 8px 0;
+  padding: 0 8px;
+  background: var(--bg-soft);
   border-bottom: 1px solid var(--border);
+  border-radius: inherit;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
 }
 .md-tabs [role="tab"] {
-  min-height: 32px;
+  min-height: 36px;
   padding: 0 14px;
   margin-bottom: -1px;
   font: inherit;
   font-size: 0.85rem;
   color: var(--muted);
   background: none;
+  /* Pas de bord haut : celui du champ en tient lieu. */
   border: 1px solid transparent;
-  border-radius: 8px 8px 0 0;
+  border-top: 0;
   cursor: pointer;
 }
 .md-tabs [role="tab"]:hover {
@@ -2347,9 +2371,16 @@ button.msg-chip[aria-pressed="true"] {
 .md-tabs [role="tab"][aria-selected="true"] {
   color: var(--fg);
   font-weight: 600;
+  /* Se fond dans le champ : même fond, aucun trait dessous. */
   background: var(--card);
-  border-color: var(--border);
+  border-left-color: var(--border);
+  border-right-color: var(--border);
   border-bottom-color: var(--card);
+}
+.md-tabs [role="tab"]:first-child[aria-selected="true"] {
+  margin-left: -8px;
+  padding-left: 22px;
+  border-left-color: transparent;
 }
 /* Le contour de focus se pose DEDANS : autour d'un onglet ou du panneau, il
    doublerait leur bord. */
