@@ -141,12 +141,13 @@ function httpStatusOfFrameError(e: unknown): number | null {
  * négatif). Une valeur illisible, ou absente, ne dit rien : `null`.
  *
  * @param value - l'en-tête posé par l'action, s'il l'a été
- * @param now - l'instant de référence d'une date HTTP, en ms
+ * @param now - l'instant de référence d'une date HTTP, en ms (défaut : l'horloge,
+ *   lue seulement pour une date)
  * @returns les secondes à attendre, ou `null`
  */
 export function retryAfterSeconds(
   value: string | undefined,
-  now: number = Date.now(),
+  now?: number,
 ): number | null {
   if (value === undefined) return null;
   const text = value.trim();
@@ -156,7 +157,11 @@ export function retryAfterSeconds(
   // l'an −5 et inventerait une attente nulle.
   if (!/[A-Za-z]/u.test(text)) return null;
   const at = Date.parse(text);
-  return Number.isNaN(at) ? null : Math.max(0, Math.ceil((at - now) / 1000));
+  // L'horloge n'est lue que pour une date : un refus sans en-tête, ou avec un
+  // délai, n'en paie pas l'appel.
+  return Number.isNaN(at)
+    ? null
+    : Math.max(0, Math.ceil((at - (now ?? Date.now())) / 1000));
 }
 
 /**
@@ -467,10 +472,7 @@ export abstract class RealtimeController<
           `${HANDSHAKE_FAILED_LOG}: ${e instanceof Error ? e.message : String(e)}`,
           "ERROR",
         );
-        (ctx.connection as RawWsConnection | null)?.close(
-          1011,
-          "internal error",
-        );
+        ctx.connection?.close(1011, "internal error");
       });
       return;
     }
@@ -668,7 +670,8 @@ export abstract class RealtimeController<
    */
   private async onHandshake(ctx: WebsocketContext): Promise<void> {
     if (ctx.__nfRealtime?.welcomed) return;
-    const conn = ctx.connection as RawWsConnection | null;
+    // La socket `ws` satisfait le contrat structurel du transport.
+    const conn: RawWsConnection | null = ctx.connection;
     if (!conn) return;
 
     const hub = getRealtimeHub();
@@ -927,8 +930,10 @@ export abstract class RealtimeController<
     // Pont socket `api.request` (opt-in) — enregistré APRÈS les actions custom : la
     // plateforme garde la main sur `api.request` quand le pont est activé.
     if (this.realtimeApiRequest()) {
+      // Le jeton de CETTE connexion, figé au handshake (le même que le hub
+      // retient pour le peer) : capturé ici, aucune lecture par appel.
       peer.register("api.request", (params) =>
-        this.invokeApiRequest(ctx, params, peer),
+        this.invokeApiRequest(ctx, params, token),
       );
     }
 
@@ -971,25 +976,8 @@ export abstract class RealtimeController<
       noticeSyslog?.log(message, severity, noticeName);
     });
 
-    // Sonde socket : la connexion (= ce transport) entre au registre du hub. La
-    // backpressure (`bufferedAmount`) vit sur la connexion brute → seul le transport
-    // l'expose. Retiré au close (onFinish, plus bas). `hub` réutilisé depuis le
-    // seam #2 plus haut (même scope) — pas de relookup.
-    hub.registerConnection(transport);
-
-    // F4 (revue 0.6) — révocation des sockets à identité RÉVOCABLE. Le verrou de frame
-    // est SYNC (identité figée au handshake, cf FrameAuthorizer) → il ne coupe pas un
-    // socket dont la session meurt (logout HTTP), là où `api.request` re-valide par
-    // requête (`isValid`). On inscrit CETTE connexion au tick de révalidation du hub,
-    // UNIQUEMENT si le token porte `isValid` : une identité révocable, quel que soit
-    // son mode — session BFF relue, ou jeton porteur dont on vérifie la borne `exp`
-    // et la révocation. Un anonyme, lui, n'a rien à révoquer → 0 coût. Retiré au
-    // close (onFinish, plus bas).
+    // Révocable de CETTE connexion, inscrit plus bas — APRÈS le nettoyage.
     let revocable: IRevocableConnection | null = null;
-    if (typeof token.isValid === "function") {
-      revocable = { token, close: (code, reason) => conn.close(code, reason) };
-      hub.registerRevocable(revocable);
-    }
 
     // Politique de forward : déclare les canaux broadcast (cross-process) de cet
     // endpoint au hub (idempotent, cold-path). Défaut = aucun → tout instance-local.
@@ -1083,6 +1071,28 @@ export abstract class RealtimeController<
       peer.dispose("ws closed");
       this.log("WS realtime client disconnected — cleanup done", "INFO");
     });
+
+    // Inscriptions au hub APRÈS le branchement du nettoyage : le code qui
+    // précède (déclarations de l'application) peut lever, et la connexion,
+    // fermée en 1011, resterait comptée et inscrite au tick de révocation.
+    // Sonde socket : la connexion (= ce transport) entre au registre du hub. La
+    // backpressure (`bufferedAmount`) vit sur la connexion brute → seul le transport
+    // l'expose. Retiré au close (onFinish, plus bas). `hub` réutilisé depuis le
+    // seam #2 plus haut (même scope) — pas de relookup.
+    hub.registerConnection(transport);
+
+    // F4 (revue 0.6) — révocation des sockets à identité RÉVOCABLE. Le verrou de frame
+    // est SYNC (identité figée au handshake, cf FrameAuthorizer) → il ne coupe pas un
+    // socket dont la session meurt (logout HTTP), là où `api.request` re-valide par
+    // requête (`isValid`). On inscrit CETTE connexion au tick de révalidation du hub,
+    // UNIQUEMENT si le token porte `isValid` : une identité révocable, quel que soit
+    // son mode — session BFF relue, ou jeton porteur dont on vérifie la borne `exp`
+    // et la révocation. Un anonyme, lui, n'a rien à révoquer → 0 coût. Retiré au
+    // close (onFinish, plus bas).
+    if (typeof token.isValid === "function") {
+      revocable = { token, close: (code, reason) => conn.close(code, reason) };
+      hub.registerRevocable(revocable);
+    }
 
     // `realtime:welcome` annonce canaux + actions découvrables (décorateurs +
     // override) — mais SEULEMENT ceux que CE visiteur pourrait obtenir.
@@ -1683,7 +1693,7 @@ export abstract class RealtimeController<
   private async invokeApiRequest(
     ctx: WebsocketContext,
     params: unknown,
-    peer: JsonRpcPeer,
+    token: IRealtimeToken,
   ): Promise<unknown> {
     const p = isRecord(params) ? params : undefined;
     const path = p?.path;
@@ -1770,7 +1780,6 @@ export abstract class RealtimeController<
       // cherche (#649). Coût : 1 `run` (~50-100 ns) + 1 objet littéral,
       // UNIQUEMENT sur api.request (jamais sur publish/subscribe/notify → le
       // hot-path temps réel reste intact).
-      const token = getRealtimeHub().getTokenForPeer(peer);
       const frameStore: RequestContextPayload = {
         // L'identifiant du PROFIL de cette frame (`<connexion>.<n>`) quand il
         // existe : c'est lui que les journaux de l'invocation portent, donc lui
@@ -1838,6 +1847,10 @@ export abstract class RealtimeController<
           const sp = new URLSearchParams(target.search.slice(1));
           const query: Record<string, string | string[]> = {};
           for (const [k, v] of sp) {
+            // Comme la porte HTTP (`qs`, `allowPrototypes: false`) : une clé du
+            // prototype (`constructor`, `__proto__`) est ignorée — sinon elle
+            // lirait `Object` et réécrirait le prototype de la query.
+            if (Object.hasOwn(Object.prototype, k)) continue;
             const prev = query[k];
             if (prev === undefined) query[k] = v;
             else if (Array.isArray(prev)) prev.push(v);
@@ -1892,8 +1905,9 @@ export abstract class RealtimeController<
             undefined,
             true,
           );
-          // L'action peut retourner un thenable — déballé avant l'enveloppe peer.
-          const raw = await Promise.resolve(actionResult);
+          // L'action peut retourner un thenable — `await` le déballe ; une valeur
+          // nue passe sans promesse de plus.
+          const raw: unknown = await actionResult;
           // L'action a RENDU (sink alimenté) → le rendu EST la réponse : on le
           // sert en `result` (re-parsé si JSON — `renderJson` a déjà stringifié,
           // le peer re-stringifie l'enveloppe). Le retour de `renderJson` (la
@@ -2028,17 +2042,12 @@ function offeredSubprotocols(raw: string | string[] | undefined): string[] {
 
 function buildHandshakeFromContext(ctx: WebsocketContext): IRealtimeHandshake {
   const req = ctx.request;
-  const headers = (req?.headers ?? {}) as Record<
-    string,
-    string | string[] | undefined
-  >;
+  const headers: Record<string, string | string[] | undefined> =
+    req?.headers ?? {};
 
   // Cookies → Map<string, string> (le Context expose un Record<name, Cookie>).
   const cookies = new Map<string, string>();
-  const rawCookies = ctx.cookies as Record<
-    string,
-    { value?: unknown } | undefined
-  >;
+  const rawCookies = ctx.cookies;
   for (const name in rawCookies) {
     const c = rawCookies[name];
     if (c && typeof c.value === "string") cookies.set(name, c.value);
@@ -2067,7 +2076,7 @@ function buildHandshakeFromContext(ctx: WebsocketContext): IRealtimeHandshake {
  * conservé tel quel. Jamais throw (cold path, 1× par upgrade).
  */
 function handshakePath(ctx: WebsocketContext): string {
-  const raw = (ctx as { url?: unknown }).url;
+  const raw: unknown = ctx.url;
   if (typeof raw !== "string" || raw.length === 0) return "/";
   try {
     const u = new URL(raw); // URL absolue → pathname + search

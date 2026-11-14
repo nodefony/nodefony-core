@@ -50,7 +50,8 @@ type RouterMode =
   | "actionOk"
   | "scopeProbe"
   | "sharedProbe"
-  | "detached";
+  | "detached"
+  | "queryProbe";
 let routerMode: RouterMode = "ok";
 
 /** Ce que lit l'ALS d'un travail détaché de l'appel : pendant, puis après la réponse. */
@@ -143,6 +144,16 @@ function makeRouter() {
           }
           if (routerMode === "actionOk") {
             return { result: { path: pathname, ok: true } };
+          }
+          if (routerMode === "queryProbe") {
+            const q: unknown = this.queryOverride;
+            if (typeof q !== "object" || q === null) return { result: null };
+            return {
+              result: {
+                own: Object.entries(q),
+                plainProto: Object.getPrototypeOf(q) === Object.prototype,
+              },
+            };
           }
           if (routerMode === "scopeProbe") {
             const scope = RequestContext.getScope();
@@ -834,6 +845,26 @@ describe("RealtimeController E2E — edge dégradés & parsing", () => {
   it("handshake : url absente/non-string → path '/' (pas de crash)", async () => {
     const client = await connectCtx({ url: undefined });
     expect(client.identity).to.not.equal(null);
+    client.disconnect();
+  });
+});
+
+describe("RealtimeController E2E — query du chemin invoqué", () => {
+  beforeEach(() => {
+    getRealtimeHub().clear();
+    routerMode = "queryProbe";
+  });
+
+  it("🔴 comme en HTTP (`qs`), une clé du prototype est IGNORÉE — le prototype n'est jamais réécrit", async () => {
+    const { client } = await connect();
+    const res = await client.request<
+      "api.request",
+      { own: [string, unknown][]; plainProto: boolean }
+    >("api.request", {
+      path: "/nodefony/kernel/api/x?__proto__=a&__proto__=b&constructor=c&a=1",
+    });
+    expect(res.plainProto).to.equal(true);
+    expect(res.own).to.deep.equal([["a", "1"]]);
     client.disconnect();
   });
 });
