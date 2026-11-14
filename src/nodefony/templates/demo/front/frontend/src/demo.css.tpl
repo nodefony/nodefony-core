@@ -22,6 +22,8 @@
   --violet: #6b3fb0;
   /* Un refus, une erreur (leçon MCP) — jamais une série de graphe. */
   --danger: #a81e26;
+  /* L'encre posée SUR un fond --danger (bouton plein) : 4,5:1 au moins. */
+  --on-danger: #fff;
   /* Ma bulle du chat : un VOILE translucide de l'accent, le fond passe. */
   --accent-bubble: color-mix(in srgb, var(--blue) 16%, transparent);
   /* Séries des graphes du fil (validées CVD) : CBOR, texte. */
@@ -61,6 +63,7 @@
     --footer-fg: #c9d6e8;
     --footer-link: #8fcdf7;
     --danger: #e0646a;
+    --on-danger: #1b0a0b;
     /* Ma bulle en sombre : l'accent DÉSATURÉ par la surface (Material, thème
        sombre) — plein, il éblouissait. Le blanc y garde un contraste élevé. */
     --accent-bubble: color-mix(in srgb, var(--blue) 30%, transparent);
@@ -94,6 +97,7 @@
   --wire-cbor: #3d9be6;
   --bg: #0a0f1c;
   --danger: #e0646a;
+  --on-danger: #1b0a0b;
   /* Ma bulle en sombre : un voile plus dense, toujours translucide. */
   --accent-bubble: color-mix(in srgb, var(--blue) 30%, transparent);
   --bg-soft: #0e1524;
@@ -2134,7 +2138,7 @@ button.msg-chip[aria-pressed="true"] {
   font-size: 0.88rem;
 }
 .room-btn.is-danger {
-  color: #fff;
+  color: var(--on-danger);
   background: var(--danger);
   border-color: var(--danger);
 }

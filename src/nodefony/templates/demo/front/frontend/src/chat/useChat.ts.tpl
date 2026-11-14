@@ -126,11 +126,8 @@ async function refusalOf(response: Response): Promise<string> {
 const REFUSALS: Record<string, string> = {
   forbidden:
     "Ce salon est réservé à ses membres et aux invités d'un événement en cours.",
-  evicted: "Vous n'êtes plus membre de ce salon.",
   unauthorized: "Connectez-vous pour entrer dans ce salon.",
   unavailable: "Le serveur n'a pas pu vérifier vos droits : réessayez.",
-  // `closeChannel` : le salon a été supprimé par son propriétaire.
-  ended: "Ce salon a été supprimé.",
 };
 
 /**
@@ -158,6 +155,13 @@ export function useChat(): IChatRoom {
   const [state, setState] = useState<RealtimeState>("disconnected");
   const [socket, setSocket] = useState<ChatSocket | null>(null);
   const lastTyping = useRef(0);
+  // Le nom d'un salon qui se ferme, pour le dire ; et le salon qu'on QUITTE
+  // soi-même, dont l'éjection n'a rien à annoncer.
+  const roomsSeen = useRef<IRoomView[]>([]);
+  const leaving = useRef<string | null>(null);
+  useEffect(() => {
+    roomsSeen.current = rooms;
+  }, [rooms]);
 
   // La socket et la liste des salons : une fois pour la page.
   useEffect(() => {
@@ -300,8 +304,19 @@ export function useChat(): IChatRoom {
       socket.onClosed((closed) => {
         if (closed.channel !== channel) return;
         // Le salon a disparu (`ended`), ou l'on n'en est plus (`evicted`) :
-        // rien à y regarder. Retour à l'accueil, et le motif le dit.
-        setNotice(`${REFUSALS[closed.reason]} Retour à l'accueil.`);
+        // rien à y regarder. Retour à l'accueil, et le motif le dit — en
+        // NOMMANT le salon, sinon « ce salon » se lit sous l'en-tête de l'accueil.
+        if (leaving.current === roomId) leaving.current = null;
+        else {
+          const name =
+            roomsSeen.current.find((item) => item.id === roomId)?.name ??
+            roomId;
+          setNotice(
+            closed.reason === "ended"
+              ? `Le salon « ${name} » a été supprimé. Retour à l'accueil.`
+              : `Vous n'êtes plus membre de « ${name} ». Retour à l'accueil.`,
+          );
+        }
         setRooms((known) => known.filter((item) => item.id !== roomId));
         setRoomId(LOBBY_ROOM_ID);
       }),
@@ -414,13 +429,17 @@ export function useChat(): IChatRoom {
         if (me?.authenticated !== true || me.id === null)
           throw new Error("connexion requise");
         const gone = roomId;
-        await live().delete(
-          "/demo/chat/rooms/{room}/members/{user}",
-          undefined,
-          {
-            params: { room: gone, user: me.id },
-          },
-        );
+        leaving.current = gone;
+        try {
+          await live().delete(
+            "/demo/chat/rooms/{room}/members/{user}",
+            undefined,
+            { params: { room: gone, user: me.id } },
+          );
+        } catch (error) {
+          leaving.current = null;
+          throw error;
+        }
         setRooms((known) => known.filter((item) => item.id !== gone));
         setRoomId(LOBBY_ROOM_ID);
       },
