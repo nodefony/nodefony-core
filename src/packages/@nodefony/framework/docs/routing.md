@@ -538,6 +538,27 @@ chemin ; pour un appel interne, utilise `forward()`.
 dans le **même** contexte de requête, sans repasser par le réseau (`Resolver.parsePathernController()`,
 `Resolver.ts#Resolver.parsePathernController`). Une vraie redirection HTTP passe par `this.redirect(url, 302)` ou `@Redirect`.
 
+## ⏱️ Délai de réponse — par route
+
+Une action muette au-delà du délai de réponse reçoit **503**, en HTTP/1.1 comme en HTTP/2, et son
+`ctx.signal` est annulé AVANT le rendu de l'erreur : une requête SQL ou un `fetch` qui l'honore
+s'arrête. Le délai est celui du serveur (`responseTimeout`, 30 s par défaut), sauf si la route
+déclare le sien (`Route.ts#RouteOptions.responseTimeout`) — dans les deux sens :
+
+```ts ignore
+@Get("/export", { responseTimeout: 120_000 }) // un export lent, sans relever les autres routes
+exportAll(): unknown {
+  return this.reports.buildAll();
+}
+```
+
+C'est un délai d'**inactivité** : une action qui envoie au fil de l'eau (flux, SSE) n'est pas
+coupée. Entier de `0` à 2³¹−1 ms, vérifié à la déclaration ; `0` désactive le délai pour la route.
+Le 408 reste réservé à une requête que le serveur n'a pas **reçue** à temps (`requestTimeout`,
+RFC 9110 §15.5.9) ; le 503 dit « traitement impossible dans le délai » (§15.6.4), sans inviter le
+client à rejouer un `POST`. Une route gRPC termine l'appel au format du protocole (4
+`DEADLINE_EXCEEDED`), jamais par ce 503.
+
 ## 🧰 API publique
 
 Le routage s'utilise **par décorateurs** ; l'API impérative sert l'outillage (introspection, tests,

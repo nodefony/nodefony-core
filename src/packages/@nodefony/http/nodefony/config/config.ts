@@ -320,7 +320,10 @@ const httpServerSchema = z
       .int()
       .nonnegative()
       .default(30_000)
-      .describe("Timeout d'envoi de la réponse complète (ms)."),
+      .describe(
+        "Délai d'inactivité d'une action (ms) : au-delà, 503 et `ctx.signal` " +
+          "annulé. Une route le règle pour elle-même (option `responseTimeout`).",
+      ),
     shutdownTimeout: z
       .number()
       .int()

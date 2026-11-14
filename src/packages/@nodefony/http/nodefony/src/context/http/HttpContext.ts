@@ -89,7 +89,7 @@ export type HttpRsponseType = Http2Response | HttpResponse;
 // requête un re-arm de timer + une closure `once` pour une valeur CONSTANTE
 // par serveur (`httpKernel.responseTimeout[type]`) — ~2,6 % du profil CPU
 // (`setStreamTimeout`). L'écouteur du SERVEUR (`routeSocketTimeout`) route vers
-// le context ACTIF via WeakMap → la sémantique 408/504 + abort PAR REQUÊTE est intacte.
+// le context ACTIF via WeakMap → la sémantique 503 + abort PAR REQUÊTE est intacte.
 // L'entrée est RETIRÉE au nettoyage du contexte (`clean`) : sans cela, une
 // connexion persistante INACTIVE gardait le contexte entier de sa dernière
 // requête jusqu'à sa fermeture — un contexte par connexion du pool d'un
@@ -99,7 +99,7 @@ const socketActiveContext = new WeakMap<object, HttpContext>();
 
 /**
  * Route le délai d'inactivité d'une socket HTTP/1.1 vers la requête qu'elle
- * porte : 408/504 si une requête est en cours, fermeture si la connexion
+ * porte : 503 si une requête est en cours, fermeture si la connexion
  * persistante est inactive. Écouteur `timeout` du SERVEUR — un seul pour
  * toutes ses connexions —, que Node appelle avec la socket en argument
  * (`socketOnTimeout` → `server.emit("timeout", socket)`).
@@ -170,7 +170,7 @@ class HttpContext extends Context implements IHttpContextInterface {
   // Champs privés TypeScript, pas `#` : des tests fabriquent un contexte sans
   // passer par le constructeur, et un champ `#` y refuse toute écriture.
   /** Socket h1 inscrite dans `socketActiveContext` — retirée par `clean()`. */
-  private activeSocket: object | null = null;
+  private activeSocket: net.Socket | null = null;
   isRedirect: boolean = false;
   sended: boolean = false;
   /**
@@ -182,7 +182,7 @@ class HttpContext extends Context implements IHttpContextInterface {
    * L'appel RPC servi sur cette requête (gRPC, gRPC-Web, Connect), `null`
    * hors appel RPC (ADR-0026 D10) : un champ, aucune allocation. Posé par le
    * point d'entrée gRPC ; à l'échéance du délai de réponse, {@link _onTimeout}
-   * le termine au lieu d'écrire un 408/504.
+   * le termine au lieu d'écrire un 503.
    *
    * @experimental Surface gRPC, ADR-0026 D11.
    */
@@ -331,25 +331,55 @@ class HttpContext extends Context implements IHttpContextInterface {
     // controller stops producing a response the client will never receive.
     // No-op if nobody read `signal` (cold path, zero overhead otherwise).
     this._abortIfPending("Request timeout");
-    // Appel RPC : la réponse appartient à l'adaptateur. Un 408/504 serait un
+    // Appel RPC : la réponse appartient à l'adaptateur. Un 503 serait un
     // second écrivain ; l'appel se termine au format de son protocole (gRPC :
     // 4 `DEADLINE_EXCEEDED`, ADR-0026 D4 point 3).
     if (this.rpc !== null) {
       this.rpc.expire();
       return;
     }
-    // L'action muette se signale ICI : une fois le 504/408 envoyé, `sended`
-    // est vrai et le démontage n'aurait plus rien à dire (vécu : un `null`
-    // rendu pour un id absent, 30 s de 504 sans un mot).
+    // L'action muette se signale ICI : une fois le 503 envoyé, `sended` est
+    // vrai et le démontage n'aurait plus rien à dire (vécu : un `null` rendu
+    // pour un id absent, 30 s d'attente sans un mot).
     this.httpKernel?.warnUnsentResponse(this);
-    let error;
-    if ((this.response as Http2Response).stream) {
-      // traff 408 reload page htpp2 loop
-      error = new HttpError("Gateway Timeout", 504, this);
-    } else {
-      error = new HttpError("Request Timeout", 408, this);
+    // 503, en HTTP/1.1 comme en HTTP/2 (RFC 9110 §15.6.4) : le serveur n'a pas
+    // pu traiter la requête à temps. Jamais 408 (§15.5.9, réservé à une
+    // requête non REÇUE à temps — le client « MAY repeat », un POST lent
+    // serait rejoué), ni 504 (§15.6.5, réservé à une passerelle dont l'amont
+    // n'a pas répondu). Pas de `Retry-After` : rien ne dit qu'un second essai
+    // tiendrait mieux le délai.
+    void this.httpKernel?.onError(
+      new HttpError("Service Unavailable", 503, this),
+      this,
+    );
+  }
+
+  /**
+   * Ré-arme le délai de réponse de la requête à la valeur propre de sa route
+   * (`responseTimeout` d'une option de route), une fois celle-ci résolue.
+   *
+   * Même mécanisme que {@link setTimeout} — délai d'inactivité de la socket
+   * (HTTP/1.1) ou du flux (HTTP/2) —, sans second écouteur : sous HTTP/2,
+   * `setTimeout(ms)` sans rappel remplace le minuteur et garde celui posé par
+   * {@link setTimeout}. `0` désactive le délai pour la requête.
+   *
+   * @param ms - délai de la route, en millisecondes.
+   */
+  rearmTimeout(ms: number): void {
+    this.response.setTimeout(ms);
+    const res = this.response.response;
+    if (!res) {
+      return;
     }
-    void this.httpKernel?.onError(error, this);
+    if ((this.response as Http2Response).stream) {
+      res.setTimeout(ms);
+      return;
+    }
+    // h1 : la socket que {@link setTimeout} vient d'inscrire pour la requête.
+    const socket = this.activeSocket;
+    if (socket && socket.timeout !== ms) {
+      socket.setTimeout(ms);
+    }
   }
 
   override setScheme(): SchemeType {
@@ -399,6 +429,10 @@ class HttpContext extends Context implements IHttpContextInterface {
       this.resolver = this.router.resolve(this);
     }
     if (this.resolver?.resolve) {
+      const routeTimeout = this.resolver.route?.responseTimeout;
+      if (routeTimeout !== undefined && routeTimeout !== null) {
+        this.rearmTimeout(routeTimeout);
+      }
       this.setMetaData();
       return this.resolver.callController() as MaybePromise<this>;
     }

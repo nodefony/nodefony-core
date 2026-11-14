@@ -119,7 +119,7 @@ export function resolveStreamTarget(context: HttpContext): StreamTarget | null {
  * (`HttpContext.setTimeout`) : celui du flux en HTTP/2, celui de la socket en
  * HTTP/1.1. Seule implémentation de cette règle — un flux long l'appelle, et
  * une réponse possédée par un tiers aussi, pour qu'à l'expiration Nodefony
- * n'écrive pas un 408/504 par-dessus (un seul écrivain).
+ * n'écrive pas un 503 par-dessus (un seul écrivain).
  *
  * En HTTP/1.1, la requête suivante de la même connexion réarme la socket
  * (`HttpContext.setTimeout` compare `socket.timeout` à son délai).

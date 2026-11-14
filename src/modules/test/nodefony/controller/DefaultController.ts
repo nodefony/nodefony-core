@@ -489,24 +489,15 @@ class DefaultController extends Controller {
     return this.renderJson({ ok: true });
   }
 
-  // ── P2.5 request-timeout → AbortSignal probes ───────────────────
-  // Re-arms a SHORT socket idle timeout for THIS request only (global
-  // responseTimeout is 30s — too long for a test), then hangs. When it fires
-  // → Nodefony onTimeout → _abortIfPending → this signal listener runs
-  // (proves the timeout aborts in-flight work) AND the kernel renders 408.
-  @route("timeout-probe", { path: "/timeout/probe" })
+  // ── Délai d'action → 503 + AbortSignal (#767) ───────────────────
+  // Délai PROPRE à la route (option `responseTimeout`, 250 ms au lieu des
+  // 30 s du serveur), puis l'action se tait. À l'échéance : `_onTimeout` →
+  // `ctx.signal` annulé (cet écouteur compte) → le noyau rend 503, en HTTP/1.1
+  // comme en HTTP/2.
+  @route("timeout-probe", { path: "/timeout/probe", responseTimeout: 250 })
   async timeoutProbe() {
     const ctx = this.context as HttpContext;
     const signal = ctx.signal;
-    const raw = (
-      ctx.response as unknown as {
-        response?: { setTimeout?: (ms: number, cb: () => void) => void };
-      }
-    ).response;
-    // Same mechanism as production HttpContext.setTimeout(), just faster.
-    raw?.setTimeout?.(250, () => {
-      ctx.fire("onTimeout", ctx);
-    });
     await new Promise<void>((resolve) => {
       if (signal.aborted) {
         timeoutState.signalAbortedCount++;
@@ -525,8 +516,8 @@ class DefaultController extends Controller {
         { once: true },
       );
     });
-    // The 408 was already rendered by onTimeout → onError. Return without
-    // sending again — onError guards on finished/sended.
+    // Le 503 est déjà rendu par `_onTimeout` → `onError` ; rien à renvoyer
+    // (`onError` se garde sur `sended`).
     return;
   }
 

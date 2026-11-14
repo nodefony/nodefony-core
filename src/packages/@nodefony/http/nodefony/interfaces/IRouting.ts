@@ -28,6 +28,11 @@ export interface IResolvedRoute {
    * @experimental Surface gRPC, ADR-0026 D11.
    */
   readonly grpc?: boolean | undefined;
+  /**
+   * Délai de réponse propre à la route (ms) ; `null` ou absent = celui du
+   * serveur. Ré-armé par `HttpContext.handle` une fois la route résolue.
+   */
+  readonly responseTimeout?: number | null | undefined;
 }
 
 /**

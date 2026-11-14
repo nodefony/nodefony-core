@@ -212,6 +212,17 @@ export interface RouteOptions {
    * aucun coût par requête. Défaut `false`.
    */
   fallback?: boolean;
+  /**
+   * Délai de réponse de CETTE route (ms), à la place du `responseTimeout` du
+   * serveur — dans les deux sens : un export lent le relève sans relever celui
+   * des autres routes, une route qui doit répondre vite l'abaisse.
+   *
+   * Même nature que celui du serveur : un délai d'INACTIVITÉ. Une action qui
+   * envoie au fil de l'eau (flux, SSE) n'est pas coupée ; une action muette au
+   * delà reçoit 503 et son `ctx.signal` est annulé. Entier de 0 à 2³¹−1 ;
+   * `0` désactive le délai pour la route. Absent = celui du serveur.
+   */
+  responseTimeout?: number;
 }
 
 export interface RouteRequirements {
@@ -304,6 +315,11 @@ class Route implements IRoute {
   /** Route de repli, résolue après toutes les autres. Cf {@link RouteOptions.fallback}. */
   fallback: boolean = false;
   /**
+   * Délai de réponse PROPRE à la route (ms), `null` = celui du serveur.
+   * Cf {@link RouteOptions.responseTimeout}.
+   */
+  responseTimeout: number | null = null;
+  /**
    * P2.9 — Cache mémoïsé : l'action attend-elle le **flux brut** du body
    * (`@Body({ stream:true })`) ? `undefined` = pas encore calculé (résolu au 1er
    * `routeExpectsBodyStream(route)` via lecture `Reflect` des `ParamMeta`, O(1)
@@ -347,6 +363,7 @@ class Route implements IRoute {
       this.bypassFirewall = obj.bypassFirewall ?? false;
       this.areaRoleExempt = obj.areaRoleExempt ?? false;
       this.fallback = obj.fallback ?? false;
+      this.responseTimeout = obj.responseTimeout ?? null;
       this.compile();
     }
     this.generateId();
@@ -704,6 +721,7 @@ class Route implements IRoute {
       bypassFirewall: this.bypassFirewall,
       areaRoleExempt: this.areaRoleExempt,
       fallback: this.fallback,
+      responseTimeout: this.responseTimeout,
     };
   }
   setDefaults(arg?: Record<string, unknown>) {

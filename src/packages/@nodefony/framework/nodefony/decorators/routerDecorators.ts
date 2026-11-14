@@ -355,6 +355,35 @@ type SchemaRouteMethodDecorator<
   descriptor: TypedPropertyDescriptor<T>,
 ) => TypedPropertyDescriptor<T>;
 
+/** Plus long délai qu'un minuteur Node honore : au-delà, il tombe à 1 ms. */
+const MAX_TIMER_MS = 2_147_483_647;
+
+/**
+ * Valide l'option de route `responseTimeout` À LA DÉCLARATION : un entier de
+ * 0 à 2³¹−1. Hors bornes, Node ramènerait le minuteur à 1 ms — chaque requête
+ * de la route expirerait aussitôt, sans que rien ne dise pourquoi.
+ *
+ * @param value - l'option telle que déclarée (absente = celle du serveur).
+ * @param className - classe du contrôleur, nommée dans l'erreur.
+ * @param method - action, nommée dans l'erreur.
+ * @returns la valeur validée, ou `undefined` si l'option est absente.
+ * @throws BootConfigurationError qui nomme l'action et la borne.
+ */
+function checkedResponseTimeout(
+  value: number | undefined,
+  className: string,
+  method: string,
+): number | undefined {
+  if (value === undefined) return undefined;
+  if (!Number.isInteger(value) || value < 0 || value > MAX_TIMER_MS) {
+    throw new BootConfigurationError(
+      `${className}.${method} : « responseTimeout » entier entre 0 et ` +
+        `${MAX_TIMER_MS} ms attendu (reçu ${String(value)}).`,
+    );
+  }
+  return value;
+}
+
 /** L'implémentation de {@link route}, sans les surcharges de typage. */
 function defineRoute(
   name: string,
@@ -438,6 +467,11 @@ function defineRoute(
       // Liste BLANCHE : une option de `RouteOptions` absente d'ici est jetée
       // sans un mot entre le décorateur et la route (vécu : `fallback`).
       fallback: options.fallback,
+      responseTimeout: checkedResponseTimeout(
+        options.responseTimeout,
+        className,
+        propertyKey,
+      ),
     };
     Reflect.defineMetadata(metadataKey, metadata, target.constructor); // Enregistrer les métadonnées mises à jour
     return descriptor;

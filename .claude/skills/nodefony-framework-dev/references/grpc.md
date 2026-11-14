@@ -46,7 +46,7 @@ fond de http = TS2307 chez une application sans gRPC ; deux gardes de publicatio
 ## 3. Règles qui ne se renégocient pas (ADR-0026)
 
 - **Un seul écrivain par réponse.** Connect possède la réponse d'un appel : Nodefony n'y écrit ni
-  408/504 (`_onTimeout` termine par la fiche), ni `context.close()` (la révocation passe par la
+  503 (`_onTimeout` termine par la fiche), ni `context.close()` (la révocation passe par la
   fermeture fournie). Les refus AVANT l'adaptateur sont écrits par le noyau seul
   (`prepareGrpcRefusal`) — pas de `requestGate` qui refuse (il ne sert que d'observateur).
 - **Code par identité** : refus sans identité → 16, identifié → 7. Jamais déduire du 401/403.

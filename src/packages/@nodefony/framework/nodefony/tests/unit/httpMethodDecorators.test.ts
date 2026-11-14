@@ -199,6 +199,42 @@ describe("HTTP method decorators — l'option `fallback` atteint la route", () =
     expect(byName("SpaCtrl::page")?.fallback).to.equal(true);
     expect(byName("SpaCtrl::home")?.fallback).to.equal(false);
   });
+
+  // #767 — même liste blanche : sans sa ligne, `responseTimeout` serait jeté
+  // et la route garderait le délai du serveur sans un mot.
+  it("@Get(path, { responseTimeout }) → Route.responseTimeout porte la valeur", () => {
+    @controller("/slow")
+    class SlowCtrl extends StubCtrl {
+      @Get("/export", { responseTimeout: 120_000 })
+      exportAll() {
+        return null;
+      }
+      @Get("/fast")
+      fast() {
+        return null;
+      }
+    }
+    void SlowCtrl;
+    const byName = (n: string) => Router.routes.find((r) => r.name === n);
+    expect(byName("SlowCtrl::exportAll")?.responseTimeout).to.equal(120_000);
+    expect(byName("SlowCtrl::fast")?.responseTimeout).to.equal(null);
+  });
+
+  it("responseTimeout hors bornes → refusé à la déclaration, l'action nommée", () => {
+    for (const bad of [-1, 1.5, 2 ** 31, Number.NaN]) {
+      expect(() => {
+        class BadCtrl extends StubCtrl {
+          @Get("/x", { responseTimeout: bad })
+          x() {
+            return null;
+          }
+        }
+        void BadCtrl;
+      }, String(bad)).toThrow(
+        /BadCtrl\.x : « responseTimeout » entier entre 0/,
+      );
+    }
+  });
 });
 
 describe("HTTP method decorators — @Options / @Head / @All (+ limites)", () => {

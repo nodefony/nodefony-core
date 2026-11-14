@@ -47,7 +47,7 @@ export interface IRpcCall extends IRpcOutcome {
   /**
    * Le délai de réponse du serveur est échu : termine l'appel au format de
    * son protocole (gRPC : 4 `DEADLINE_EXCEEDED`). Appelé par
-   * `HttpContext._onTimeout` À LA PLACE du 408/504, qui serait un second
+   * `HttpContext._onTimeout` À LA PLACE du 503, qui serait un second
    * écrivain sur une réponse que l'adaptateur possède (ADR-0026 D4, point 3).
    * Sans effet sur un appel déjà terminé.
    */

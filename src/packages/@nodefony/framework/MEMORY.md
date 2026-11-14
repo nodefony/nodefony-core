@@ -279,7 +279,7 @@ callController()
 **Retour `null`/`undefined` — 2 sens, tranchés par le STATUT** (`NO_BODY_STATUS`, RFC 9110) :
 statut 204/205/304 → réponse **vide envoyée** ; tout autre statut → `waitAsync` (l'action est
 censée envoyer plus tard). Sans cette distinction, un `@Delete @HttpCode(204) { …; return null; }`
-**pendait jusqu'au timeout (504)** alors que la suppression avait eu lieu — vécu sur une ressource
+**pendait jusqu'au délai de réponse** alors que la suppression avait eu lieu — vécu sur une ressource
 générée par `create entity`, invisible avant car aucun code du repo ne rendait un 204. 6 tests
 (`Resolver.test.ts` § statut sans corps), dont la non-régression du 200.
 

@@ -636,7 +636,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
    * Le message nomme l'action, ce qu'elle a rendu et le geste qui convient
    * (`unsentResponseWarning`).
    *
-   * Appelé au timeout, AVANT que le 504/408 parte — après, `sended` est vrai et
+   * Appelé au timeout, AVANT que le 503 parte — après, `sended` est vrai et
    * plus rien ne se signalerait — et au démontage, pour un client parti avant.
    * Gratuit en production : rien n'est lu au-delà de `waitAsync`.
    *

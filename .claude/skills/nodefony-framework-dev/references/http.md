@@ -517,7 +517,7 @@ header → corrélation cassée). wsId = `requestId` du `WebsocketContext`, stab
 attaché QUE sous pression (`once` + `removeListener` si erreur). `Content-Length` ⊥ `Transfer-Encoding`
 (skip Content-Length si chunked). Timeout 2 couches : **réseau** = `requestTimeout` natif Node (anti-slowloris,
 hors pipeline) ; **pipeline** = `responseTimeout` (armé `HttpContext.setTimeout()` → `onTimeout` →
-`_abortIfPending` → 408/504). Client part avant tout envoi → 499 interne (observabilité pure, jamais écrit).
+`_abortIfPending` → 503). Client part avant tout envoi → 499 interne (observabilité pure, jamais écrit).
 🔴 « Client parti » se constate par `responseEnded(response)` (`src/context/responseEnded.ts`), JAMAIS par
 un seul champ. Sous HTTP/2, la réponse Nodefony termine le **flux** (`stream.respond`/`stream.end`) : la
 réponse de compatibilité reste `writableEnded === false` (→ faux 499 sur preflight 204 / redirection). Mais un

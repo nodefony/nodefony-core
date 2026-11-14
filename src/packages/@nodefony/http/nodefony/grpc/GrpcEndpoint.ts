@@ -148,7 +148,7 @@ export class GrpcEndpoint<S extends DescService = DescService> {
   /**
    * Option `contextValues` : une fiche par appel, rien sur le chemin du 404.
    * Accrochée au contexte (`HttpContext.rpc`, ADR-0026 D10) : à l'échéance du
-   * délai de réponse, le noyau la termine au lieu d'écrire un 408/504.
+   * délai de réponse, le noyau la termine au lieu d'écrire un 503.
    */
   readonly #contextValues = (): GrpcCall => {
     const context = this.#pendingContext;
@@ -182,7 +182,7 @@ export class GrpcEndpoint<S extends DescService = DescService> {
    *   ADR-0026 D4 point 3).
    * - Flux : aucune échéance. Il s'ouvre par le cycle de vie d'un flux
    *   (`openStreamLifecycle`, D4 point 4) — délai de réponse désarmé (à
-   *   l'expiration il écrirait un 408/504 par-dessus l'adaptateur), place dans
+   *   l'expiration il écrirait un 503 par-dessus l'adaptateur), place dans
    *   le budget de connexions longues par IP, client qui ne lit plus coupé
    *   par le balayage de blocage. Synchrone, sauf quand une session est à
    *   sauver : l'appel n'est remis qu'après.
@@ -222,7 +222,7 @@ export class GrpcEndpoint<S extends DescService = DescService> {
       return undefined;
     }
     // Un flux n'a aucune échéance : le délai de Nodefony est désarmé (à
-    // l'expiration il écrirait un 408/504 par-dessus l'adaptateur), le cycle
+    // l'expiration il écrirait un 503 par-dessus l'adaptateur), le cycle
     // de vie prend la réponse (`sended`) et une place de connexion longue.
     disarmResponseTimeout(streamTarget);
     const opened = openStreamLifecycle(context, {

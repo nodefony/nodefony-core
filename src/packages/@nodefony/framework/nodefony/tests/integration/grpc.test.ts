@@ -426,7 +426,7 @@ describe("gRPC — échéance d'un appel unaire (critères 19 et 20, ADR-0026 D4
 
   // Tous les décors EN PARALLÈLE : un seul délai de réponse à attendre.
   it(
-    "client à 120 s, gestionnaire sourd : 4 au délai de réponse du serveur, jamais 504/408 (tous les décors)",
+    "client à 120 s, gestionnaire sourd : 4 au délai de réponse du serveur, jamais le 503 générique (tous les décors)",
     async () => {
       const results = await Promise.all(
         SERVED.map(async (c) => {
