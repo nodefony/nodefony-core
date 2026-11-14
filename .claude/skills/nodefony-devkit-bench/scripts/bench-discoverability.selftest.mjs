@@ -3594,6 +3594,197 @@ const SAMPLES = {
       added: `    use("@nodefony/security", { firewall: { enabled: false } }),`,
     },
   },
+
+  // ── T46 — présence : qui est en ligne ────────────────────────────────────
+  "46 :: a lu le skill ou la doc de la présence": {
+    pass: {
+      transcript: `{"file_path":"node_modules/@nodefony/devkit/skills/nodefony-add-realtime-presence/SKILL.md"}`,
+    },
+    fail: { transcript: `{"file_path":"/app/package.json"}` },
+  },
+  "46 :: la présence est déclarée sur le canal (`presence`)": {
+    pass: {
+      content: `  @RealtimeChannel("lobby", {\n    anonymous: true,\n    presence: { grace: 5000 },\n  })\n  lobby() {}`,
+    },
+    fail: {
+      content: `  @RealtimeChannel("lobby", { anonymous: true })\n  lobby() {}`,
+    },
+  },
+  "46 :: le canal est diffusé entre serveurs (`@RealtimeBroadcast`)": {
+    pass: {
+      content: `@RealtimeBroadcast("lobby")\nexport class LobbyController extends RealtimeController {}`,
+    },
+    // Le piège : présence locale à UN serveur — juste en local, fausse
+    // derrière un répartiteur.
+    fail: {
+      content: `export class LobbyController extends RealtimeController {}`,
+    },
+  },
+  "46 :: la présence est LUE par l'API du framework (navigateur ou serveur)": {
+    pass: {
+      addedCode: `  socket.onPresence("lobby", (snap) => setPeople([...snap.members.keys()]));`,
+    },
+    fail: {
+      addedCode: `  socket.on("lobby", (frame) => setPeople(frame.users));`,
+    },
+    extra: [
+      {
+        label: "accepte la lecture serveur par le hub",
+        matter: {
+          addedCode: `    const snap = getRealtimeHub().presence("lobby");`,
+        },
+        expect: true,
+      },
+      {
+        label: "accepte le hook React du framework",
+        matter: {
+          addedCode: `  const presence = useNodefonyPresence(socket, "lobby");`,
+        },
+        expect: true,
+      },
+    ],
+  },
+  "46 :: un test constate la présence": {
+    pass: {
+      addedTests: `    const snap = getRealtimeHub().presence("lobby");\n    expect(snap.count).toBe(2);`,
+    },
+    fail: { addedTests: `    expect(res.status).toBe(200);` },
+  },
+  "46 :: pas de registre de présence maison (connexions comptées à la main)": {
+    pass: {
+      addedTs: `  @RealtimeChannel("lobby", { presence: true })\n  lobby() {}`,
+    },
+    fail: {
+      addedTs: `const onlineUsers = new Map<string, number>();\n  onlineUsers.set(user.id, Date.now());`,
+    },
+    extra: [
+      {
+        label: "refuse un ensemble de connexions tenu à la main",
+        matter: { addedTs: `    connectedClients.add(ctx.id);` },
+        expect: false,
+      },
+      {
+        // Un MOT dans un message n'est pas un registre.
+        label: "accepte un libellé qui parle de personnes en ligne",
+        matter: { addedTs: `  title = "Personnes en ligne (onlineUsers)";` },
+        expect: true,
+      },
+    ],
+  },
+  "46 :: pas de WS bas-niveau bricolé (WebSocket/ws recomposés à la main)": {
+    pass: {
+      addedTs: `  @RealtimeChannel("lobby", { presence: true })\n  lobby() {}`,
+    },
+    fail: { addedTs: `const socket = new WebSocket("ws://localhost/lobby");` },
+  },
+  "46 :: aucune brique de sécurité éteinte en configuration": {
+    pass: { added: `  @RealtimeChannel("lobby", { presence: true })` },
+    fail: {
+      added: `    use("@nodefony/security", { firewall: { enabled: false } }),`,
+    },
+  },
+
+  // ── T47 — octets dans un canal (binaire) ─────────────────────────────────
+  "47 :: a lu le skill ou la doc du binaire (octets, codec CBOR)": {
+    pass: {
+      transcript: `{"file_path":"node_modules/@nodefony/devkit/skills/nodefony-add-realtime-binary/SKILL.md"}`,
+    },
+    fail: { transcript: `{"file_path":"/app/package.json"}` },
+  },
+  '47 :: le serveur passe en codec binaire (`codec: "cbor"`)': {
+    pass: {
+      content: `    use("@nodefony/realtime", { codec: "cbor", backplane: { driver: "cluster" } }),`,
+    },
+    fail: {
+      content: `    use("@nodefony/realtime", { backplane: { driver: "cluster" } }),`,
+    },
+  },
+  "47 :: la charge porte des OCTETS (aide du framework, Uint8Array ou DataView)":
+    {
+      pass: {
+        addedTs: `      publish({ seq, samples: toLittleEndianBytes(block) });`,
+      },
+      // Le piège : des nombres en JSON, ou le tableau typé tel quel (refusé, #777).
+      fail: { addedTs: `      publish({ seq, samples: Array.from(block) });` },
+      extra: [
+        {
+          label: "accepte des octets écrits par DataView",
+          matter: {
+            addedTs: `      const view = new DataView(bytes.buffer);\n      view.setInt16(i * 2, v, true);`,
+          },
+          expect: true,
+        },
+      ],
+    },
+  "47 :: relit/écrit par les aides du framework (toLittleEndianBytes / fromLittleEndianBytes)":
+    {
+      pass: {
+        addedCode: `  const samples = fromLittleEndianBytes(frame.samples, Int16Array);`,
+      },
+      fail: {
+        addedCode: `  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);`,
+      },
+    },
+  "47 :: le navigateur offre le codec CBOR": {
+    pass: {
+      addedCode: `  NodefonySocket.shared({ url, codec: nodefonyCbor.CBOR_FRAME_CODEC });`,
+    },
+    fail: { addedCode: `  NodefonySocket.shared({ url });` },
+  },
+  "47 :: pas de base64 (btoa/atob, Buffer base64)": {
+    pass: {
+      addedCode: `      publish({ samples: toLittleEndianBytes(block) });`,
+    },
+    fail: {
+      addedCode: `      publish({ samples: Buffer.from(block.buffer).toString("base64") });`,
+    },
+    extra: [
+      {
+        label: "refuse btoa côté navigateur",
+        matter: {
+          addedCode: `  const text = btoa(String.fromCharCode(...bytes));`,
+        },
+        expect: false,
+      },
+      {
+        label: 'refuse Buffer.from(…, "base64") à la lecture',
+        matter: {
+          addedCode: `  const raw = Buffer.from(frame.samples, "base64");`,
+        },
+        expect: false,
+      },
+    ],
+  },
+  "47 :: pas de flux binaire brut hors des gardes (onRealtimeBinary / sendBinary)":
+    {
+      pass: {
+        addedCode: `  @RealtimeChannel("sensors:vibration")\n  vibration() {}`,
+      },
+      fail: {
+        addedCode: `  override onRealtimeBinary(data: Uint8Array): void {}`,
+      },
+      extra: [
+        {
+          label: "refuse l'envoi brut côté navigateur",
+          matter: { addedCode: `  socket.sendBinary(bytes);` },
+          expect: false,
+        },
+      ],
+    },
+  "47 :: pas de WS bas-niveau bricolé (WebSocket/ws recomposés à la main)": {
+    pass: {
+      addedTs: `  @RealtimeChannel("sensors:vibration")\n  vibration() {}`,
+    },
+    fail: {
+      addedTs: `const socket = new WebSocket("ws://localhost/sensors");`,
+    },
+  },
+  "47 :: aucune brique de sécurité éteinte en configuration": {
+    pass: { added: `    use("@nodefony/realtime", { codec: "cbor" }),` },
+    fail: {
+      added: `    use("@nodefony/security", { firewall: { enabled: false } }),`,
+    },
+  },
 };
 
 const key = (task, probe) => `${task.id} :: ${probe.name}`;

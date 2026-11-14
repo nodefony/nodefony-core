@@ -5387,6 +5387,150 @@ export const TASKS = [
       { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
     ],
   },
+  {
+    // #776 — la PRÉSENCE (ADR-0025) : « qui est en ligne ». Le framework la
+    // porte d'une ligne (`presence` sur le canal) et la répartit entre serveurs
+    // si le canal est DIFFUSÉ (`@RealtimeBroadcast` : `RealtimeHub`,
+    // `distributed = backplane && forward`). Le risque mesuré : un registre
+    // maison des connexions, faux dès le deuxième serveur ou le deuxième onglet.
+    id: 46,
+    name: "présence : qui est en ligne",
+    prompt:
+      "Ajoute un salon de discussion temps réel public `lobby` qui affiche QUI est en ligne : " +
+      "chaque personne connectée voit la liste des présents se mettre à jour quand quelqu'un " +
+      "arrive ou part — y compris quand l'application tourne sur plusieurs serveurs derrière un " +
+      "répartiteur. Utilise ce que le framework offre de plus haut niveau. Termine en prouvant " +
+      "que les tests de l'app passent.",
+    probes: [
+      sondeLecture(
+        "a lu le skill ou la doc de la présence",
+        /realtime-presence|cookbook-chat|presence/u,
+      ),
+      {
+        kind: "code",
+        name: "la présence est déclarée sur le canal (`presence`)",
+        pattern: /@RealtimeChannel\([\s\S]{0,400}?\bpresence\s*:/u,
+        where: "content",
+      },
+      {
+        // Sans diffusion, chaque serveur ne voit que SES connexions : la
+        // liste est juste en local et fausse derrière un répartiteur.
+        kind: "code",
+        name: "le canal est diffusé entre serveurs (`@RealtimeBroadcast`)",
+        pattern: /@RealtimeBroadcast\(/u,
+        where: "content",
+      },
+      {
+        kind: "code",
+        name: "la présence est LUE par l'API du framework (navigateur ou serveur)",
+        pattern:
+          /\bonPresence\(|\buseNodefonyPresence\(|\binjectNodefonyPresence\(|\bnodefonyPresence\(|\bobservePresence\(|\.presence\(/u,
+        where: "addedCode",
+      },
+      {
+        // OBSERVÉ : l'énoncé demande que les tests passent, pas qu'un test
+        // constate la présence — signal de qualité.
+        kind: "code",
+        name: "un test constate la présence",
+        pattern: /\bonPresence\(|\.presence\(|\bunnamed\b|\bPresenceView\b/u,
+        where: "addedTests",
+        observe: true,
+      },
+      {
+        // Une STRUCTURE de connexions tenue à la main, jamais un mot.
+        kind: "code",
+        name: "pas de registre de présence maison (connexions comptées à la main)",
+        pattern:
+          /\b(?:online|connected|present|active)(?:Users|Members|Clients|Ids|Sessions|People|Peers)\b\s*(?:[:=]\s*new\s+(?:Map|Set)\b|\??\.(?:add|delete|set)\()/iu,
+        where: "addedTs",
+        invert: true,
+      },
+      {
+        kind: "code",
+        name: "pas de WS bas-niveau bricolé (WebSocket/ws recomposés à la main)",
+        pattern: /new\s+WebSocketServer|\bws\.on\(|new\s+WebSocket\(/u,
+        where: "addedTs",
+        invert: true,
+      },
+      INTERRUPTEUR_DE_SECURITE,
+      { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
+    ],
+  },
+  {
+    // #776/#777 — des OCTETS dans un canal (ADR-0022 §2). Un `Int16Array`
+    // publié tel quel est refusé par le codec binaire (#777) ; le framework
+    // offre `toLittleEndianBytes` / `fromLittleEndianBytes`. Le risque mesuré :
+    // base64, en-tête binaire maison, flux brut hors des gardes.
+    id: 47,
+    name: "octets dans un canal (binaire)",
+    prompt:
+      "Une sonde industrielle produit toutes les 100 ms un bloc de 256 mesures entières signées " +
+      "sur 16 bits. Ajoute un canal temps réel `sensors:vibration` qui pousse ces blocs aux " +
+      "navigateurs abonnés EN BINAIRE — ni JSON de nombres, ni base64 —, et le code navigateur " +
+      "qui les relit en nombres. Utilise ce que le framework offre de plus haut niveau. Termine " +
+      "en prouvant que les tests de l'app passent.",
+    probes: [
+      sondeLecture(
+        "a lu le skill ou la doc du binaire (octets, codec CBOR)",
+        /realtime-binary|cbor|protocole\.md/u,
+      ),
+      {
+        kind: "code",
+        name: 'le serveur passe en codec binaire (`codec: "cbor"`)',
+        pattern: /\bcodec\s*:\s*["']cbor["']/u,
+        where: "content",
+      },
+      {
+        kind: "code",
+        name: "la charge porte des OCTETS (aide du framework, Uint8Array ou DataView)",
+        pattern: /\btoLittleEndianBytes\(|new\s+Uint8Array\(|new\s+DataView\(/u,
+        where: "addedTs",
+      },
+      {
+        // OBSERVÉ : la voie la plus haute — les aides du framework plutôt que
+        // la boucle DataView recopiée. Le signal que le skill est lu.
+        kind: "code",
+        name: "relit/écrit par les aides du framework (toLittleEndianBytes / fromLittleEndianBytes)",
+        pattern: /\b(?:to|from)LittleEndianBytes\(/u,
+        where: "addedCode",
+        observe: true,
+      },
+      {
+        // OBSERVÉ : offrir le codec au navigateur est facultatif (sans lui,
+        // les octets arrivent quand même, par la convention `$bytes`).
+        kind: "code",
+        name: "le navigateur offre le codec CBOR",
+        pattern: /\bCBOR_FRAME_CODEC\b/u,
+        where: "addedCode",
+        observe: true,
+      },
+      {
+        kind: "code",
+        name: "pas de base64 (btoa/atob, Buffer base64)",
+        pattern:
+          /\b(?:btoa|atob)\(|\.toString\(\s*["']base64["']\s*\)|Buffer\.from\([^)\n]*["']base64["']/u,
+        where: "addedCode",
+        invert: true,
+      },
+      {
+        // Le flux brut contourne politique, rôles et audit du canal.
+        kind: "code",
+        name: "pas de flux binaire brut hors des gardes (onRealtimeBinary / sendBinary)",
+        pattern: /\bonRealtimeBinary\(|\bsendBinaryToClient\(|\.sendBinary\(/u,
+        where: "addedCode",
+        invert: true,
+      },
+      {
+        kind: "code",
+        name: "pas de WS bas-niveau bricolé (WebSocket/ws recomposés à la main)",
+        pattern: /new\s+WebSocketServer|\bws\.on\(|new\s+WebSocket\(/u,
+        where: "addedTs",
+        invert: true,
+      },
+      INTERRUPTEUR_DE_SECURITE,
+      { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
+    ],
+  },
 ];
 
 /**
