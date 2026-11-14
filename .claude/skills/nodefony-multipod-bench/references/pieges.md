@@ -30,6 +30,13 @@ Le repo auto-hébergé occupe 5151/5152, et un serveur Vite peut tenir 5173. Vé
 écoute (`ps -p <pid> -o command=`) avant de tuer : un `kill` à l'aveugle sur un port arrête le
 serveur de travail de quelqu'un. Réserver une plage au banc (517x / 527x).
 
+**Le banc est vert contre un process qui n'est pas le sien.**
+`demarrerPod` sondait « le port écoute-t-il » : un pod ORPHELIN d'un run planté (rejet non attrapé
+avant le `finally`), ou le Vite du serveur de dev (5173-5180 : `test-frontend-angular` tenait 5177),
+répondait à sa place. `demarrerPod` refuse désormais un port déjà à l'écoute — identifier le process
+(`lsof -nP -iTCP:<port>`, son `cwd`) avant tout geste ; ports des scénarios : 519x. Et tout
+`connect()` du client porte son `.catch` : un rejet non attrapé saute le `finally`.
+
 **Le `cd` d'une commande n'a pas eu lieu.**
 Le répertoire courant persiste entre les appels : un `cd tmp/bench/multipod/appalpha` depuis
 `tmp/bench/multipod` échoue, et la commande suivante s'exécute ailleurs que prévu — typiquement un

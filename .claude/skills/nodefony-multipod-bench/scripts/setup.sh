@@ -58,42 +58,11 @@ for APP in "${APPS[@]}"; do
   fi
   # Le controller du banc remplace celui du scaffold (canal diffusable + routes
   # de pilotage). Source unique : references/controller.md.
-  python3 - "$SKILL_DIR/references/controller.md" \
-            "$APP_DIR/modules/chat/nodefony/controllers/ChatController.ts" <<'PY'
-import re, sys, pathlib
-doc, cible = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
-bloc = re.search(r"```ts\n(.*?)```", doc.read_text(), re.S)
-if not bloc:
-    sys.exit("controller introuvable dans references/controller.md")
-cible.write_text(bloc.group(1))
-PY
+  node "$HERE/lib/bench-files.mjs" controller "$SKILL_DIR/references/controller.md" \
+       "$APP_DIR/modules/chat/nodefony/controllers/ChatController.ts"
 
   # ── 5. La configuration : redis PUIS realtime, avant le module applicatif ──
-  python3 - "$APP_DIR/nodefony.config.ts" "$APP" "$NAMESPACE" <<'PY'
-import sys, pathlib
-cfg, app, ns = pathlib.Path(sys.argv[1]), sys.argv[2], sys.argv[3]
-s = cfg.read_text()
-if "@nodefony/realtime" in s:
-    print(f"    config de {app} déjà en place")
-    raise SystemExit
-ancre = f'  use("@{app}/chat", {{}}),'
-if ancre not in s:
-    raise SystemExit(f"ancre introuvable dans {cfg} — le scaffold a-t-il changé ?")
-bloc = (
-    "  // Banc multi-pods : bus partagé par toutes les applications du banc.\n"
-    '  use("@nodefony/redis", {}),\n'
-    '  use("@nodefony/realtime", {\n'
-    "    backplane: {\n"
-    '      driver: "redis",\n'
-    "      // Cloison FORCÉE identique partout : on retire la séparation par nom\n"
-    "      // d'application pour ne tester que l'authenticité des messages.\n"
-    f'      namespace: "{ns}",\n'
-    "    },\n"
-    "  }),\n"
-)
-cfg.write_text(s.replace(ancre, bloc + ancre))
-print(f"    config de {app} écrite")
-PY
+  node "$HERE/lib/bench-files.mjs" config "$APP_DIR/nodefony.config.ts" "$APP" "$NAMESPACE"
 
   # ── 6. Build ──────────────────────────────────────────────────────────────
   echo ">>> build de ${APP}…"

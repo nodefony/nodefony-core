@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-11-13",
+  "generatedAt": "2026-11-14",
   "count": 42,
   "repoScripts": [
     {
@@ -836,6 +836,8 @@
         ".claude/skills/nodefony-load-test/scripts/micro/micro-frame-authorizer.mjs",
         ".claude/skills/nodefony-load-test/scripts/micro/micro-orm-hot-path-ab.mjs",
         ".claude/skills/nodefony-load-test/scripts/micro/micro-realtime-frame-ab.mjs",
+        ".claude/skills/nodefony-multipod-bench/scripts/presence-pods.mjs",
+        ".claude/skills/nodefony-multipod-bench/scripts/presence-soak.mjs",
         ".claude/skills/nodefony-session/scripts/session-resume.mjs"
       ],
       "testedBy": [
@@ -9110,8 +9112,8 @@
       ],
       "description": "Monte un banc MULTI-PODS réel — plusieurs applications partageant un bus Redis — pour prouver un comportement cluster invisible aux tests unitaires : fan-out cross-pod, cloisonnement entre applications, injection depuis le bus, latence et débit de bout en bout. Fournit le décor (Redis docker, apps liées au framework, ports dédiés), les scripts de mesure (latence, charge, coût de publication, forge d'enveloppe scellée), la matrice d'attaque du backplane et les pièges du lancement multi-instances. À charger AVANT de monter le décor ou de lancer un script : sans le protocole, un banc saturé mesure un backlog et non une latence, et une infra éteinte en route rend les tests silencieusement verts. Déclencheurs : \"banc multi-pods\", \"tester en cluster\", \"cross-pod\", \"deux apps\", \"plusieurs pods\", \"injection backplane\", \"bus Redis partagé\", \"fan-out cross-pod\", \"prouver en réel\", \"backplane secret\", \"est-ce que ça marche à plusieurs instances ?\", \"les apps sont-elles cloisonnées ?\".",
       "cost": {
-        "bodyLines": 145,
-        "approxTokens": 3168
+        "bodyLines": 152,
+        "approxTokens": 3860
       },
       "requires": [
         "serveur UP",
@@ -9349,6 +9351,72 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/presence-pods.mjs",
+            "purpose": "Preuve « le chat sur deux pods » (ADR-0025, #760 étape 5) : présence, frappe et départs vus d'un pod à l'autre, à travers un VRAI Redis, avec le VRAI client navigateur (`NodefonySocket` de `nodefony/client`, chargé depuis le `dist` de l'application comme le ferait une page).",
+            "usage": [
+              "node presence-pods.mjs [--app appalpha] [--other appbeta]"
+            ],
+            "options": [
+              {
+                "flag": "--app",
+                "help": ""
+              },
+              {
+                "flag": "--other",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "NF_REDIS_URL",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/presence-soak.mjs",
+            "purpose": "Soak de la PRÉSENCE répartie (ADR-0025, #760 étape 5) : des onglets RÉELS (`NodefonySocket` du `dist` de l'application) arrivent et repartent sans arrêt sur `nodefony cluster -w N` — les workers se partagent le port, donc chaque onglet tombe sur un worker que personne ne choisit. Toutes les `--every` secondes la charge se FIGE et le banc exige que TOUS les onglets s'accordent sur le compte exact, vue complète. […]",
+            "usage": [
+              "node presence-soak.mjs [--minutes 60] [--workers 2] [--driver cluster|redis]"
+            ],
+            "options": [
+              {
+                "flag": "--driver",
+                "help": ""
+              },
+              {
+                "flag": "--every",
+                "help": ""
+              },
+              {
+                "flag": "--max",
+                "help": ""
+              },
+              {
+                "flag": "--minutes",
+                "help": ""
+              },
+              {
+                "flag": "--port",
+                "help": ""
+              },
+              {
+                "flag": "--workers",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "NF_REDIS_URL",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/pubcost.mjs",
             "purpose": "",
             "usage": [],
@@ -9504,7 +9572,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "145",
+            "detail": "152",
             "advisory": true
           }
         ]

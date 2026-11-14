@@ -222,6 +222,14 @@ export async function demarrerPod({
   attenteMs = 90_000,
   racine = process.cwd(),
 } = {}) {
+  // Un port DÉJÀ à l'écoute ferait conclure « debout » sur l'écoute d'un AUTRE
+  // process (un pod orphelin d'un run planté, le Vite d'un serveur de dev) —
+  // vécu : un banc entier joué contre un orphelin. Refuser, jamais tuer.
+  if (await ecoute(port)) {
+    throw new BancInterrompu(
+      `port ${port} déjà à l'écoute avant le démarrage — identifier le process (lsof -nP -iTCP:${port}) avant tout geste`,
+    );
+  }
   const enfant = spawn(process.execPath, [nodefonyBin(racine), mode], {
     cwd: racine,
     stdio: ["ignore", "pipe", "pipe"],

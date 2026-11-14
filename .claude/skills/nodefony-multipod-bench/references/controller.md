@@ -14,6 +14,7 @@ import {
   RealtimeController,
   RealtimeBroadcast,
   RealtimeChannel,
+  RealtimeInbound,
   getRealtimeHub,
 } from "@nodefony/realtime";
 import type { RealtimePublish } from "@nodefony/realtime";
@@ -87,6 +88,7 @@ class ChatController extends RealtimeController {
   @route("chat-probe", { path: "/probe", requirements: { methods: ["GET"] } })
   async probe(): Promise<unknown> {
     const p = getRealtimeHub().probe();
+    const lobby = getRealtimeHub().presence("chat:lobby");
     return {
       pod: process.env.NF_POD_NAME ?? String(process.pid),
       ingressRejectedTotal: p.ingressRejectedTotal,
@@ -94,11 +96,43 @@ class ChatController extends RealtimeController {
       fanoutTotal: p.fanoutTotal,
       channels: p.channels,
       backplane: p.backplane,
+      // Présence du salon vue par CE pod (null tant qu'aucun client ne l'a ouvert).
+      lobby:
+        lobby === null
+          ? null
+          : {
+              count: lobby.count,
+              unnamed: lobby.unnamed,
+              partial: lobby.partial,
+            },
+      presenceProbe: p.presence ?? null,
     };
   }
 
   protected override realtimeChannels(): string[] {
-    return ["chat:room1"];
+    return ["chat:room1", "chat:lobby"];
+  }
+
+  /**
+   * Salon à PRÉSENCE (ADR-0025) : présents partagés entre les pods par le bus,
+   * départs retenus 2 s (grâce) — la preuve « deux pods, présence, frappe,
+   * départs » du chat (`presence-pods.mjs`).
+   */
+  @RealtimeChannel("chat:lobby", { presence: { grace: 2000 } })
+  lobby(_channel: string, _publish: RealtimePublish): () => void {
+    return () => {};
+  }
+
+  /** La frappe : un message ÉPHÉMÈRE du salon, jamais un état de présence. */
+  @RealtimeInbound("chat:typing")
+  onTyping(params: unknown): void {
+    if (typeof params !== "object" || params === null || !("author" in params))
+      return;
+    if (typeof params.author !== "string" || params.author === "") return;
+    getRealtimeHub().publish("chat:lobby", {
+      typing: params.author.slice(0, 40),
+      from: process.env.NF_POD_NAME ?? String(process.pid),
+    });
   }
 
   protected override realtimeActions(): Record<string, RpcActionHandler> {

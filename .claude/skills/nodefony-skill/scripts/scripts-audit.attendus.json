@@ -99,6 +99,8 @@
     ".claude/skills/nodefony-multipod-bench/scripts/ipc-bytes.mjs",
     ".claude/skills/nodefony-multipod-bench/scripts/latency.mjs",
     ".claude/skills/nodefony-multipod-bench/scripts/listen.mjs",
+    ".claude/skills/nodefony-multipod-bench/scripts/presence-pods.mjs",
+    ".claude/skills/nodefony-multipod-bench/scripts/presence-soak.mjs",
     ".claude/skills/nodefony-multipod-bench/scripts/pubcost.mjs",
     ".claude/skills/nodefony-multipod-bench/scripts/setup.sh",
     ".claude/skills/nodefony-release/scripts/compare-dts-exports.mjs",

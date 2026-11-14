@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-11-12
+updated: 2026-11-14
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-multipod-bench/SKILL.md"
 ---
@@ -28,12 +28,12 @@ source: ".claude/skills/nodefony-multipod-bench/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Exécuter, diagnostiquer, mesurer |
-| Corps | 145 lignes |
-| Coût d'activation | ~3 168 tokens (le corps est chargé à l'invocation) |
+| Corps | 152 lignes |
+| Coût d'activation | ~3 860 tokens (le corps est chargé à l'invocation) |
 | Description | 988 / 1024 caractères |
 | Déclencheurs | 12 |
 | Ressources `references/` | 2 page(s) |
-| Scripts | 14 |
+| Scripts | 16 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -73,8 +73,8 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
-| `references/controller.md` | Le controller du banc | 124 |
-| `references/pieges.md` | Pièges du banc multi-pods | 82 |
+| `references/controller.md` | Le controller du banc | 158 |
+| `references/pieges.md` | Pièges du banc multi-pods | 89 |
 
 
 ## Scripts embarqués
@@ -94,6 +94,8 @@ script, donc toujours à jour après régénération.
 | `scripts/latency.mjs` | Latence PURE du chemin cross-pod, hors saturation : 1 client, messages espacés (aucun backlog). Mesure : publish A1 → sceau → Redis → ingress A2 → fan-out → frame WS. node latency.mjs <portRx> <portTx> <nbMessages> <intervalleMs> / | — | — |
 | `scripts/listen.mjs` | Écouteur du banc F83 — WebSocket brut parlant le JSON-RPC 2.0 de la socket Nodefony. Se connecte au pod demandé, s'abonne à `chat:room1`, et rend en JSON tout ce qui est arrivé pendant la fenêtre d'écoute. | — | — |
 | `scripts/mempeak.sh` | Pic mémoire d'un pod pendant une rafale de publications. | — | — |
+| `scripts/presence-pods.mjs` | Preuve « le chat sur deux pods » (ADR-0025, #760 étape 5) : présence, frappe et départs vus d'un pod à l'autre, à travers un VRAI Redis, avec le VRAI client navigateur (`NodefonySocket` de `nodefony/client`, chargé depuis le `dist` de l'application comme le ferait une page). | `--app` `--other` | `NF_REDIS_URL` |
+| `scripts/presence-soak.mjs` | Soak de la PRÉSENCE répartie (ADR-0025, #760 étape 5) : des onglets RÉELS (`NodefonySocket` du `dist` de l'application) arrivent et repartent sans arrêt sur `nodefony cluster -w N` — les workers se partagent le port, donc chaque onglet tombe sur un worker que personne ne choisit. Toutes les `--every` secondes la charge se FIGE et le banc exige que TOUS les onglets s'accordent sur le compte exact, vue complète. […] | `--driver` `--every` `--max` `--minutes` `--port` `--workers` | `NF_REDIS_URL` |
 | `scripts/pubcost.mjs` | — | — | — |
 | `scripts/run.sh` | Démarre les pods du banc : deux instances de la première application (même secret = pairs légitimes) et une instance de la seconde SANS secret (le témoin non protégé, indispensable au contrôle négatif). | `--stop` | `NF_BENCH_SECRET` |
 | `scripts/setup.sh` | Monte le banc multi-pods : Redis + N applications générées, liées au framework local, configurées sur un bus commun. Idempotent : relancer ne casse rien. | `--controller` `--frontend` `--link` `--no-auth-warning` `--no-install` `--no-service` `--preset` `--yes` | `APP` |
@@ -110,12 +112,14 @@ node db-readiness-pod.mjs [--container NOM] [--port P] [--db NOM]
 Usage : node .claude/skills/nodefony-multipod-bench/scripts/ipc-bytes.mjs \
 node latency.mjs <portRx> <portTx> <nbMessages> <intervalleMs>
 node listen.mjs <port> <secondes>
+node presence-pods.mjs [--app appalpha] [--other appbeta]
+node presence-soak.mjs [--minutes 60] [--workers 2] [--driver cluster|redis]
 bash scripts/run.sh [dossier] [namespace]
 bash scripts/setup.sh [dossier] [namespace]
 node soak.mjs <portRx> <portTx> <paliers> <secondesParPalier>
 ```
 
-**Toutes les variables lues par ce skill** : `APP` · `NF_BENCH_SECRET` · `NF_DATABASE_URL` · `NF_REDIS_TEST_URL`
+**Toutes les variables lues par ce skill** : `APP` · `NF_BENCH_SECRET` · `NF_DATABASE_URL` · `NF_REDIS_TEST_URL` · `NF_REDIS_URL`
 
 ## Conformité au standard Agent Skills
 
@@ -136,7 +140,7 @@ node soak.mjs <portRx> <portTx> <paliers> <secondesParPalier>
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 145 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 152 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 
