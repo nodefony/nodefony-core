@@ -150,13 +150,29 @@ function httpStatus(c: ICase, connectStatus: number): number {
   return c.protocol === "connect" ? connectStatus : 200;
 }
 
+/** Nom de ce banc auprès de la sonde, qu'il partage avec ceux d'autres paquets. */
+const OWNER = "framework.grpc-observability";
+
 beforeAll(async () => {
-  const r = await fetch(`${PROBE}/arm`);
+  // La sonde est exclusive : un autre banc la tient peut-être (suites de
+  // paquets jouées en parallèle) — attendre qu'il la rende, borné à 2 min.
+  const deadline = Date.now() + 120_000;
+  for (;;) {
+    const lock = await fetch(`${PROBE}/lock?owner=${OWNER}`);
+    if (lock.status === 200) break;
+    if (lock.status !== 409 || Date.now() > deadline) {
+      throw new Error(
+        `sonde indisponible (${lock.status}) : ${await lock.text()}`,
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  const r = await fetch(`${PROBE}/arm?owner=${OWNER}`);
   expect(r.status).to.equal(200);
 });
 
 afterAll(async () => {
-  await fetch(`${PROBE}/disarm`);
+  await fetch(`${PROBE}/unlock?owner=${OWNER}`);
 });
 
 describe("gRPC — ligne d'accès et traçage d'un appel (critères 36 à 40, ADR-0026 D10)", () => {

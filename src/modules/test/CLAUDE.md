@@ -141,16 +141,26 @@ il empêcherait le serveur de DÉMARRER (refus au boot) — sa preuve vit dans
 
 Un abonné `diagnostics_channel` doit vivre dans le process du serveur : cette sonde s'abonne à la
 demande, garde au plus 128 requêtes (copies par événement + témoin « même objet qu'à `start` »).
-**Désarmée par défaut** — armée, chaque requête alloue un message : le banc DOIT désarmer (`afterAll`).
+**Désarmée par défaut** — armée, chaque requête alloue un message : le banc DOIT rendre la sonde (`afterAll` → `/unlock`).
 
-| Route     | Méthode | Description                                         |
-| --------- | ------- | --------------------------------------------------- |
-| `/arm`    | GET     | s'abonne (idempotent) et vide l'état                |
-| `/disarm` | GET     | se désabonne et vide l'état                         |
-| `/events` | GET     | événements vus, par `requestId` (sans réarmer)      |
-| `/ok`     | GET     | route servie sans erreur — gabarit et module connus |
+**EXCLUSIVE** : les suites de `http` et de `framework` tournent en parallèle contre le même
+serveur ; partagée, le désarmement de l'une coupait l'abonnement de l'autre (rouge intermittent
+macOS). Un banc RÉSERVE d'abord (`/lock`, réessai sur 409 jusqu'à libération, borné), PUIS s'abonne
+— la requête qui attend son tour peut être tracée par l'abonné d'un autre banc, elle ne doit pas
+être celle qui abonne. Un seul abonné à la fois est voulu : « une requête commencée avant
+l'abonnement n'émet rien » n'a de sens qu'ainsi.
 
-Banc : `http/tests/integration/request-trace-channel.test.ts`.
+| Route             | Méthode | Description                                                         |
+| ----------------- | ------- | ------------------------------------------------------------------- |
+| `/lock?owner=X`   | GET     | réserve la sonde (réentrant) ; tenue par un autre → 409 `{ owner }` |
+| `/arm?owner=X`    | GET     | s'abonne (idempotent) et vide l'état — détenteur seul, 409 sinon    |
+| `/disarm?owner=X` | GET     | se désabonne et vide l'état, GARDE le verrou — détenteur seul       |
+| `/unlock?owner=X` | GET     | se désabonne, vide l'état et rend le verrou — détenteur seul        |
+| `/events`         | GET     | événements vus, par `requestId` (sans réarmer)                      |
+| `/ok`             | GET     | route servie sans erreur — gabarit et module connus                 |
+
+Bancs : `http/tests/integration/request-trace-channel.test.ts`,
+`framework/tests/integration/grpc-observability.test.ts`.
 
 ### LifecycleController (`/nodefony/test/lifecycle`) — `initialize()` qui lève
 

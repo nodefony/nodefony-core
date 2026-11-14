@@ -57,6 +57,25 @@ const get = (
     r.end();
   });
 
+/** Nom de ce banc auprès de la sonde, qu'il partage avec ceux d'autres paquets. */
+const OWNER = "http.request-trace-channel";
+
+/**
+ * Réserve la sonde : un autre banc la tient peut-être (suites de paquets
+ * jouées en parallèle) — attendre qu'il la rende, un FAIT, borné à 2 min.
+ */
+const lockProbe = async (): Promise<void> => {
+  const deadline = Date.now() + 120_000;
+  for (;;) {
+    const res = await get(`${PROBE}/lock?owner=${OWNER}`);
+    if (res.status === 200) return;
+    if (res.status !== 409 || Date.now() > deadline) {
+      throw new Error(`sonde indisponible (${res.status}) : ${res.body}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+};
+
 const readEvents = async (): Promise<Record<string, ISnapshot[]>> => {
   const res = await get(`${PROBE}/events`);
   return JSON.parse(res.body) as Record<string, ISnapshot[]>;
@@ -84,13 +103,14 @@ describe("Canal diagnostics_channel nodefony.http.request (#663, requires server
   let armId = "";
 
   beforeAll(async () => {
+    await lockProbe();
     armId = randomUUID();
-    const res = await get(`${PROBE}/arm`, armId);
+    const res = await get(`${PROBE}/arm?owner=${OWNER}`, armId);
     expect(res.status).to.equal(200);
   });
 
   afterAll(async () => {
-    await get(`${PROBE}/disarm`);
+    await get(`${PROBE}/unlock?owner=${OWNER}`);
   });
 
   it("une requête commencée AVANT l'abonnement n'émet rien, pas même sa fin", async () => {
@@ -202,7 +222,7 @@ describe("Canal diagnostics_channel nodefony.http.request (#663, requires server
   it("désabonné : plus rien n'est publié", async () => {
     // `disarm` vide l'état et se désabonne ; la lecture ne réarme pas : si le
     // désabonnement ne mordait pas, l'abonné enregistrerait encore.
-    await get(`${PROBE}/disarm`);
+    await get(`${PROBE}/disarm?owner=${OWNER}`);
     const id = randomUUID();
     await get(`${PROBE}/ok`, id);
     await new Promise((r) => setTimeout(r, 100));

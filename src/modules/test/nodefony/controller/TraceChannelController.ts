@@ -1,6 +1,6 @@
 import diagnosticsChannel from "node:diagnostics_channel";
 import type { TracingChannelSubscribers } from "node:diagnostics_channel";
-import { Controller, controller, Get } from "@nodefony/framework";
+import { Controller, controller, Get, Query } from "@nodefony/framework";
 import { Context, REQUEST_TRACE_CHANNEL } from "@nodefony/http";
 import type { IRequestTrace, IRpcOutcome } from "@nodefony/http";
 
@@ -30,7 +30,18 @@ interface ITraceSnapshot {
 const KEPT_REQUESTS = 128;
 const seen = new Map<string, ITraceSnapshot[]>();
 const firstMessage = new Map<string, IRequestTrace>();
+/**
+ * Banc qui détient la sonde (`/lock`), `null` = libre. UN seul à la fois : les suites
+ * de deux paquets tournent en parallèle contre le même serveur, et le
+ * désarmement de l'une coupait l'abonnement de l'autre en plein cas.
+ * L'exclusion est voulue — « une requête commencée avant l'abonnement n'émet
+ * rien » n'a de sens qu'avec un SEUL abonné dans le process.
+ */
+let owner: string | null = null;
 let armed = false;
+
+/** Nom de banc lisible et borné : il revient dans le refus. */
+const OWNER_PATTERN = /^[\w:.-]{1,64}$/u;
 
 const record = (event: TraceEventName, message: IRequestTrace): void => {
   let events = seen.get(message.requestId);
@@ -93,28 +104,74 @@ class TraceChannelController extends Controller {
     super("TraceChannelController", context);
   }
 
-  /** S'abonne (idempotent) et vide ce qui a été vu. */
+  /**
+   * Réserve la sonde au banc `owner`, sans s'abonner : la requête qui attend
+   * son tour peut être tracée par l'abonné d'un AUTRE banc, elle ne doit donc
+   * pas être celle qui abonne. Réentrant pour le même banc (un run interrompu
+   * se reprend) ; tenue par un autre → 409 avec son nom, à réessayer.
+   */
+  @Get("/lock")
+  lock(@Query("owner") requested?: string) {
+    if (requested === undefined || !OWNER_PATTERN.test(requested)) {
+      return this.renderJson({ error: "owner requis" }, 400);
+    }
+    if (owner !== null && owner !== requested) {
+      return this.renderJson({ owner }, 409);
+    }
+    owner = requested;
+    return this.renderJson({ owner });
+  }
+
+  /**
+   * S'abonne (idempotent) et vide ce qui a été vu — réservé au détenteur du
+   * verrou (409 sinon, avec le détenteur).
+   */
   @Get("/arm")
-  arm() {
+  arm(@Query("owner") requested?: string) {
+    if (owner === null || owner !== requested) {
+      return this.renderJson({ armed: false, owner }, 409);
+    }
     if (!armed) {
       channel.subscribe(subscribers);
       armed = true;
     }
     seen.clear();
     firstMessage.clear();
-    return this.renderJson({ armed });
+    return this.renderJson({ armed, owner });
   }
 
-  /** Se désabonne et vide ce qui a été vu. */
+  /**
+   * Se désabonne et vide ce qui a été vu, en GARDANT le verrou : un banc qui
+   * prouve « désabonné, plus rien n'est publié » ne doit pas laisser un autre
+   * s'abonner entre-temps. Seul le détenteur le peut.
+   */
   @Get("/disarm")
-  disarm() {
+  disarm(@Query("owner") requested?: string) {
+    if (owner !== null && owner !== requested) {
+      return this.renderJson({ armed, owner }, 409);
+    }
+    this.#unsubscribe();
+    return this.renderJson({ armed, owner });
+  }
+
+  /** Se désabonne, vide l'état et rend le verrou — seul son détenteur le peut. */
+  @Get("/unlock")
+  unlock(@Query("owner") requested?: string) {
+    if (owner !== null && owner !== requested) {
+      return this.renderJson({ armed, owner }, 409);
+    }
+    this.#unsubscribe();
+    owner = null;
+    return this.renderJson({ armed, owner });
+  }
+
+  #unsubscribe(): void {
     if (armed) {
       channel.unsubscribe(subscribers);
       armed = false;
     }
     seen.clear();
     firstMessage.clear();
-    return this.renderJson({ armed });
   }
 
   /** Événements vus, par `requestId`. */
