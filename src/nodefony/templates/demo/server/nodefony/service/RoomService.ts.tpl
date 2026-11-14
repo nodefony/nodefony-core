@@ -2,11 +2,7 @@ import { Service, Module, injectable, runWorksOnSchema } from "nodefony";
 import type { IOrm, IRepository } from "@nodefony/orm-core";
 import { ormRegistry } from "@nodefony/orm-core";
 import { getRealtimeHub } from "@nodefony/realtime";
-import {
-  USER_REVOKED_EVENT,
-  UserService,
-  type IUserRevokedEvent,
-} from "@nodefony/user";
+import { UserService } from "@nodefony/user";
 import { DEMO_CONNECTOR } from "../config/config";
 import {
   EVENT_ATTENDEE_ENTITY,
@@ -29,6 +25,7 @@ import type {
   ChatMessage,
   ChatPerson,
   ChatReaction,
+  RoomFrame,
   RoomsNotice,
 } from "../../frontend/src/chat/chatContract";
 import {
@@ -38,7 +35,7 @@ import {
   retractRight,
   summarizeReactions,
 } from "../../frontend/src/chat/messages";
-import type { IMessageArchive, IMessageDraft } from "./ChatService";
+import type { IForgotten, IMessageArchive, IMessageDraft } from "./ChatService";
 import {
   DIRECT_PREFIX,
   LOBBY_ROOM_ID,
@@ -233,9 +230,6 @@ class RoomService extends Service implements IMessageArchive {
    */
   constructor(module?: Module) {
     super("rooms", module?.container ?? undefined, module?.notificationsCenter);
-    this.kernel?.on(USER_REVOKED_EVENT, (event: IUserRevokedEvent) =>
-      event.reason === "deleted" ? this.forget(event.id) : undefined,
-    );
   }
 
   /**
@@ -472,7 +466,11 @@ class RoomService extends Service implements IMessageArchive {
   /**
    * Ce que la base dit d'un salon et d'une personne — les faits que la règle
    * pure `admissionOf` tranche. Lu à chaque `subscribe` (et à chaque
-   * reconnexion) : jamais de cache, une admission doit voir la base du moment.
+   * reconnexion) et à chaque écriture : jamais de cache, une admission doit
+   * voir la base du moment. Mais rien de plus que ce que la règle consulte :
+   * un salon public non verrouillé admet tout le monde, donc ni l'appartenance
+   * ni les invitations ne sont lues — une requête au lieu de deux à quatre, à
+   * chaque envoi et à chaque « j'écris ».
    *
    * @param roomId - le salon demandé
    * @param userId - l'identité stable du compte ; `null` pour un anonyme
@@ -485,7 +483,8 @@ class RoomService extends Service implements IMessageArchive {
     const room = await rooms.findOne({ id: roomId });
     if (room === null) return { room: null, member: false, invitations: [] };
     const facts = { access: room.access, locked: room.locked };
-    if (userId === null) return { room: facts, member: false, invitations: [] };
+    if (userId === null || (room.access === "public" && !room.locked))
+      return { room: facts, member: false, invitations: [] };
     if (await members.exists({ roomId, userId }))
       return { room: facts, member: true, invitations: [] };
     const invited = await attendees.find({ userId });
@@ -1036,19 +1035,63 @@ class RoomService extends Service implements IMessageArchive {
    * Un compte supprimé de l'application : ses appartenances, invitations,
    * messages et réactions disparaissent aussi de la base de la démo — l'intégrité qu'une
    * clé étrangère ne peut pas porter d'une base à l'autre, et l'effacement
-   * qu'on doit à une personne qui part (RGPD, art. 17).
+   * qu'on doit à une personne qui part (RGPD, art. 17). Appelé par
+   * `ChatService.forget`, qui efface les pièces et publie les trames rendues.
+   *
+   * @returns les pièces de ses messages, et les trames qui mettent les écrans
+   *   ouverts à jour : ses messages retirés, les réactions qu'il avait posées
+   *   chez les autres recomptées
    */
-  async forget(userId: string): Promise<void> {
-    if (!this.isOpen()) return;
+  async forget(userId: string): Promise<IForgotten> {
+    if (!this.isOpen()) return { attachments: [], frames: [] };
     const { members, attendees, messages, reactions } = this.#repos();
     await members.delete({ userId });
     await attendees.delete({ userId });
     // Ses réactions, et celles posées sur ses messages, partent avec eux.
     const own = await messages.find({ authorId: userId });
+    const ownIds = new Set(own.map((row) => row.id));
+    const touched = [
+      ...new Set(
+        (await reactions.find({ userId })).map((row) => row.messageId),
+      ),
+    ].filter((id) => !ownIds.has(id));
     if (own.length > 0)
-      await reactions.delete({ messageId: { $in: own.map((row) => row.id) } });
+      await reactions.delete({ messageId: { $in: [...ownIds] } });
     await reactions.delete({ userId });
     await messages.delete({ authorId: userId });
+    const frames: IForgotten["frames"] = own.map((row) => ({
+      roomId: row.roomId,
+      frame: {
+        kind: "message",
+        message: {
+          id: row.id,
+          author: row.author,
+          text: "",
+          sentAt: row.sentAt,
+          retracted: "author",
+        },
+      },
+    }));
+    if (touched.length > 0) {
+      const left = await reactions.find(
+        { messageId: { $in: touched } },
+        { order: [["reactedAt", "ASC"]] },
+      );
+      for (const row of await messages.find({ id: { $in: touched } })) {
+        const frame: RoomFrame = {
+          kind: "reactions",
+          messageId: row.id,
+          reactions: summarizeReactions(
+            left.filter((item) => item.messageId === row.id),
+          ),
+        };
+        frames.push({ roomId: row.roomId, frame });
+      }
+    }
+    return {
+      attachments: own.flatMap((row) => row.attachments ?? []),
+      frames,
+    };
   }
 
   /**

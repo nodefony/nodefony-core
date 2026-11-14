@@ -4,6 +4,7 @@ import path from "node:path";
 import { Service, Module, injectable } from "nodefony";
 import type { IUploadedFile } from "@nodefony/http";
 import { getRealtimeHub } from "@nodefony/realtime";
+import { USER_REVOKED_EVENT, type IUserRevokedEvent } from "@nodefony/user";
 import { ATTACHMENT_MAX_BYTES } from "../../frontend/src/chat/chatContract";
 import type {
   ChatAttachment,
@@ -72,6 +73,22 @@ export interface IMessageArchive {
     who: { id: string; name: string },
     emojis: readonly string[],
   ): Promise<ChatReaction[]>;
+  /**
+   * Efface tout ce qu'un compte supprimé a laissé (RGPD, art. 17), et rend
+   * ce qui reste à faire hors de l'archive.
+   */
+  forget(userId: string): Promise<IForgotten>;
+}
+
+/** Ce qu'un compte effacé laisse à faire hors de l'archive. */
+export interface IForgotten {
+  /** Les pièces que portaient ses messages, à effacer du disque. */
+  attachments: ChatAttachment[];
+  /**
+   * Les trames qui mettent les écrans ouverts à jour : ses messages retirés,
+   * les réactions qu'il avait posées chez les autres recomptées.
+   */
+  frames: { roomId: string; frame: RoomFrame }[];
 }
 
 /** Pièces gardées sur disque : au-delà, les plus anciennes sortent. */
@@ -145,6 +162,29 @@ class ChatService extends Service {
     super("chat", module?.container ?? undefined, module?.notificationsCenter);
     this.#dir = attachmentDir ?? null;
     this.#archive = archive ?? null;
+    this.kernel?.on(USER_REVOKED_EVENT, (event: IUserRevokedEvent) => {
+      if (event.reason !== "deleted") return;
+      // Un écouteur d'événement ne rend rien à personne : une erreur non
+      // attrapée ici finirait en rejet orphelin, sans trace du compte visé.
+      this.forget(event.id).catch((error: unknown) =>
+        this.log(
+          `effacement du compte ${event.id} incomplet : ${error instanceof Error ? error.message : String(error)}`,
+          "ERROR",
+        ),
+      );
+    });
+  }
+
+  /**
+   * Un compte supprimé de l'application : l'archive efface ses messages,
+   * réactions et appartenances ; ici, les pièces de ses messages quittent le
+   * disque — plus servies à personne —, et chaque écran ouvert voit ses
+   * messages retirés et les réactions recomptées, sans recharger la page.
+   */
+  async forget(userId: string): Promise<void> {
+    const { attachments, frames } = await this.#messages().forget(userId);
+    await this.dropAttachments(attachments);
+    for (const { roomId, frame } of frames) publishFrame(roomId, frame);
   }
 
   /**

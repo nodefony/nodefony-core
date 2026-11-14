@@ -1,6 +1,8 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
+import { getRealtimeHub } from "@nodefony/realtime";
 import {
   nextTyping,
+  type ChatAttachment,
   type ChatMessage,
 } from "../frontend/src/chat/chatContract";
 import {
@@ -329,6 +331,66 @@ describe("chat — les gestes passent par l'archive, puis le salon", () => {
     expect(await chat.react(LOBBY_ROOM_ID, sent.id, admin, ["🎉"])).toEqual([
       { emoji: "👍", names: ["user"] },
       { emoji: "🎉", names: ["admin"] },
+    ]);
+  });
+
+  it("🔴 un compte effacé : ses pièces quittent le disque, chaque écran ouvert voit ses messages retirés et ses réactions recomptées", async () => {
+    const chat = new ChatService(undefined, undefined, memoryArchive());
+    const piece: ChatAttachment = {
+      id: "p1",
+      name: "a.txt",
+      size: 1,
+      kind: "file",
+    };
+    const kept = await chat.publish(LOBBY_ROOM_ID, {
+      ...author,
+      text: "reste",
+    });
+    const gone = await chat.publish("equipe", {
+      authorId: "u2",
+      author: "user",
+      text: "part",
+      attachments: [piece],
+    });
+    await chat.react(LOBBY_ROOM_ID, kept.id, { id: "u2", name: "user" }, [
+      "👍",
+    ]);
+    const seen: unknown[] = [];
+    const sink = (payload: unknown): void => {
+      seen.push(payload);
+    };
+    const hub = getRealtimeHub();
+    hub.listen(roomChannel(LOBBY_ROOM_ID), sink);
+    hub.listen(roomChannel("equipe"), sink);
+    const dropped: (readonly ChatAttachment[])[] = [];
+    chat.dropAttachments = async (pieces) => {
+      dropped.push(pieces);
+    };
+    try {
+      await chat.forget("u2");
+    } finally {
+      hub.unsubscribe(roomChannel(LOBBY_ROOM_ID), sink);
+      hub.unsubscribe(roomChannel("equipe"), sink);
+    }
+    expect(dropped).toEqual([[piece]]);
+    expect(seen).toContainEqual({
+      kind: "message",
+      message: {
+        id: gone.id,
+        author: "user",
+        text: "",
+        sentAt: gone.sentAt,
+        retracted: "author",
+      },
+    });
+    expect(seen).toContainEqual({
+      kind: "reactions",
+      messageId: kept.id,
+      reactions: [],
+    });
+    expect(await chat.recent("equipe", 10)).toEqual([]);
+    expect((await chat.recent(LOBBY_ROOM_ID, 10)).map((m) => m.id)).toEqual([
+      kept.id,
     ]);
   });
 });

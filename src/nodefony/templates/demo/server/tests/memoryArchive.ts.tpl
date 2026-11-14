@@ -9,7 +9,10 @@ import {
   summarizeReactions,
 } from "../frontend/src/chat/messages";
 import type { RoomRole } from "../frontend/src/chat/rooms";
-import type { IMessageArchive } from "../nodefony/service/ChatService";
+import type {
+  IForgotten,
+  IMessageArchive,
+} from "../nodefony/service/ChatService";
 import { RoomRefusal } from "../nodefony/service/RoomService";
 
 /**
@@ -120,6 +123,48 @@ export function memoryArchive(
       ];
       reactions.set(messageId, rows);
       return summarizeReactions(rows);
+    },
+    forget: async (userId) => {
+      const result: IForgotten = { attachments: [], frames: [] };
+      for (const [roomId, list] of rooms) {
+        const kept: ChatMessage[] = [];
+        for (const message of list) {
+          if (authors.get(message.id) !== userId) {
+            const had = reactions.get(message.id) ?? [];
+            const left = had.filter((row) => row.userId !== userId);
+            if (left.length !== had.length) {
+              reactions.set(message.id, left);
+              result.frames.push({
+                roomId,
+                frame: {
+                  kind: "reactions",
+                  messageId: message.id,
+                  reactions: summarizeReactions(left),
+                },
+              });
+            }
+            kept.push(message);
+            continue;
+          }
+          reactions.delete(message.id);
+          result.attachments.push(...(message.attachments ?? []));
+          result.frames.push({
+            roomId,
+            frame: {
+              kind: "message",
+              message: {
+                id: message.id,
+                author: message.author,
+                text: "",
+                sentAt: message.sentAt,
+                retracted: "author",
+              },
+            },
+          });
+        }
+        rooms.set(roomId, kept);
+      }
+      return result;
     },
   };
 }
