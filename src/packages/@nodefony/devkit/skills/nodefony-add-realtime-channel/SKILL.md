@@ -1,7 +1,7 @@
 ---
 name: nodefony-add-realtime-channel
 metadata:
-  version: 3.0.1
+  version: 3.0.2
 description: >
   Branche le temps réel d'une application Nodefony par ses briques — canal, route appelée par la
   socket, entrée client, action, canal personnel, flux SSE, contrat typé — au lieu d'un WebSocket
@@ -296,10 +296,8 @@ export class RoomAdmission extends Service implements IChannelAdmission {
 }
 ```
 
-- **Génère-la par `nodefony create service RoomAdmission`** : le générateur la déclare dans le
-  `@services([...])` du module. Écrite à la main, déclare-la toi-même — sinon `nodefony doctor`
-  la signale orpheline (`wiring/orphan-service`) : hors de l'ordre de démarrage et du rapport de
-  boot, construite à la première requête qui la réclame.
+- **Déclarée dans `@services([...])` du module** : `nodefony create service RoomAdmission` le fait ;
+  écrite à la main et oubliée, `nodefony doctor` la signale orpheline (`wiring/orphan-service`).
 - `who` est plat (`id`, `authenticated`, `roles`, `scopes`, `issuer`, `account`) : la règle ne lit
   que ses arguments — ni contexte de requête, ni session. Un salon PUBLIC lisible sans compte :
   `anonymous: true` à côté d'`allow` (la démo), la règle refusant les salons privés.
@@ -384,9 +382,8 @@ Lis [`references/production.md`](references/production.md) avant de dire « fait
 - **Le temps réel traverse les serveurs, l'ÉTAT non** : plusieurs serveurs exigent une base
   partagée (SQLite local = des salons et des appartenances différents par serveur, donc des `allow`
   différents) et un stockage de fichiers partagé.
-- Noms de canaux = espace PLAT partagé par tous les modules : préfixe-les par domaine.
-- Aucune garantie de livraison (au plus une fois) ; la reconnexion rejoue les abonnements, pas les
-  messages.
+- Noms de canaux = espace PLAT entre modules : préfixe-les par domaine. Livraison : au plus une
+  fois — la reconnexion rejoue les abonnements, pas les messages.
 - Révocation : `4001` session morte, `4005` droits changés (revient aussitôt), `4006` jeton porteur
   expiré ; `1013` client qui ne lit plus ; `1001` redéploiement (reconnexion silencieuse). Compare
   aux constantes de `nodefony`, jamais aux nombres.
@@ -460,21 +457,33 @@ it("exclu : `evicted` tout de suite, puis refusé à la page rechargée", async 
 });
 ```
 
-- Sans `identity` : connexion **anonyme**. Plusieurs harnais sur un hub : `resetHub` au premier
-  seulement. `subscriptions()` liste les acquittés, `denials()` les refus, `messages(canal)` ce
-  qui est reçu.
+- Sans `identity` : **anonyme**. `resetHub` au premier harnais seulement ; `subscriptions()`,
+  `denials()`, `messages(canal)` : acquittés, refus, reçus.
 - **`roles` / `authenticated` ne sont jugés qu'avec un verrou** : passe
   `frameAuthorizer: createTestFrameAuthorizer(getRealtimeHub())` au harnais, sinon la politique
   n'est appliquée par personne — et le test est vert pour la mauvaise raison.
-- `allow` lit la base ? Le test l'amorce sur le connecteur `default` (celui que lit
-  `getRoomMemberService()`), en semant les lignes PARENTES d'abord — `FOREIGN KEY constraint
-failed` = un parent non semé, jamais une raison de retirer le test. Recette complète : le test du
-  salon privé de `cas-d-usage.md`.
+- 🔴 **`allow` lit la base ? Le test MONTE la base**, sur le connecteur que lit le service
+  (`const CONNECTOR = "default"`) — sinon `aucun connecteur « default »`, et le harnais rend
+  `socket fermée (code 1011)` : ni l'Origin ni l'authentification, le service est sans base.
+  Dans le `beforeAll` :
+
+<!-- excerpt: privateRoom.test.ts -->
+
+```ts
+for (const entity of ENTITIES) {
+  entityRegistry.register({ ...entity, connector: CONNECTOR });
+}
+orm = new DrizzleOrm(CONNECTOR, { filename: ":memory:" }); // en mémoire, rien à installer
+await orm.connect();
+```
+
+Puis sème les PARENTS (`seedEntityRow`) : `FOREIGN KEY constraint failed` = un parent non
+semé, jamais une raison de retirer le test. Fichier complet : salon privé de `cas-d-usage.md`.
+
 - **Vois le test rouge une fois** : retire `allow` (ou `roles`), l'intrus doit entrer ; remets-le.
   L'exclusion se prouve par `evicted` PUIS un `subscribe` refusé — un refus opposé à qui n'a jamais
   été membre ne prouve rien.
-- Une route du pont se prouve aussi en HTTP simple (même route, `POST`) : le test d'intégration
-  de la démo envoie par la socket et vérifie la diffusion chez deux abonnés.
+- Une route du pont se prouve aussi en HTTP (même route, `POST`).
 - La santé en marche : `GET /nodefony/realtime/api/health` (rôle d'administration) —
   `publishTotal` qui monte sans `fanoutTotal` = tu publies dans le vide (nom mal orthographié).
 

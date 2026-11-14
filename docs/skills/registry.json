@@ -12132,7 +12132,7 @@
       "name": "nodefony-add-realtime-channel",
       "summary": "Branche le temps réel d'une application Nodefony par ses briques — canal, route appelée par la socket, entrée client, action, canal personnel, flux SSE, contrat typé — au lieu d'un WebSocket ou d'un contrôle d'accès écrits à la main.",
       "family": "Autres",
-      "version": "3.0.1",
+      "version": "3.0.2",
       "keywords": [
         "nodefony-add-realtime-presence",
         "nodefony-add-realtime-binary"
@@ -12158,8 +12158,8 @@
       ],
       "description": "Branche le temps réel d'une application Nodefony par ses briques — canal, route appelée par la socket, entrée client, action, canal personnel, flux SSE, contrat typé — au lieu d'un WebSocket ou d'un contrôle d'accès écrits à la main. Part du besoin (chat, salon privé, jeu, sondes, notification, tâche longue), mène à la ligne, à l'exemple exécuté et à son test, dit qui a le droit de LIRE et d'ÉCRIRE, et porte la production : plusieurs serveurs, reconnexion, redéploiement, révocation. À charger AVANT d'écrire un canal, un abonnement ou un flux. Qui est en ligne → `nodefony-add-realtime-presence` ; des octets → `nodefony-add-realtime-binary`. Déclencheurs : \"temps réel\", \"websocket\", \"canal\", \"push\", \"chat\", \"salon privé\", \"exclure un membre\", \"l'exclu revient\", \"réserver un canal à un rôle\", \"mon canal est public\", \"prévenir un utilisateur\", \"progression d'une tâche\", \"SSE\", \"tableau de bord en direct\", \"-32601\", \"ça marche en local, plus en cluster\", \"le canal ne répond jamais\".",
       "cost": {
-        "bodyLines": 475,
-        "approxTokens": 8009
+        "bodyLines": 484,
+        "approxTokens": 8033
       },
       "requires": [],
       "resources": {
@@ -12233,7 +12233,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "475",
+            "detail": "484",
             "advisory": true
           }
         ]
