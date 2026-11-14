@@ -8,6 +8,7 @@ import {
   type IFetchPublicResult,
 } from "@nodefony/security";
 import { DEMO_CONNECTOR } from "../config/config";
+import { RateLimiter } from "../kit/rateLimit";
 import { MESSAGE_ENTITY, type MessageRow } from "../entity/rooms";
 import type { ChatLinkPreview } from "../../frontend/src/chat/chatContract";
 import { messageLinks } from "../../frontend/src/kit/messageLinks";
@@ -38,9 +39,6 @@ export const LINK_PREVIEW_TIMEOUT_MS = 4000;
 
 /** Redirections suivies au plus. */
 export const LINK_PREVIEW_MAX_REDIRECTS = 3;
-
-/** Clés de quota gardées : au-delà, les fenêtres échues sortent, puis les plus anciennes. */
-const QUOTA_KEYS_MAX = 5000;
 
 /** Caractères d'une page analysés au plus. */
 const SCAN_MAX = 262_144;
@@ -405,12 +403,6 @@ class CacheEntry {
   ) {}
 }
 
-/** La fenêtre de quota d'une session : début et compte, mis à jour EN PLACE. */
-class QuotaWindow {
-  start = 0;
-  count = 0;
-}
-
 /** Le charset annoncé par `Content-Type`, ou `utf-8`. */
 function charsetOf(contentType: string): string {
   const at = contentType.toLowerCase().indexOf("charset=");
@@ -467,8 +459,7 @@ class LinkPreviewService extends Service {
   readonly #now: () => number;
   /** `Map` à ordre d'insertion : la première clé est la plus ancienne. */
   readonly #cache = new Map<string, CacheEntry>();
-  /** Alloué au premier aperçu demandé. */
-  #quotas: Map<string, QuotaWindow> | null = null;
+  readonly #quota: RateLimiter;
 
   /**
    * @param module - le module qui le déclare ; absent dans un test
@@ -483,6 +474,11 @@ class LinkPreviewService extends Service {
     this.#fetcher = deps.fetcher ?? fetchPublic;
     this.#messageText = deps.messageText ?? readMessageText;
     this.#now = deps.now ?? Date.now;
+    this.#quota = new RateLimiter(
+      LINK_PREVIEW_QUOTA,
+      LINK_PREVIEW_WINDOW_MS,
+      this.#now,
+    );
   }
 
   /**
@@ -537,45 +533,15 @@ class LinkPreviewService extends Service {
     return preview;
   }
 
-  /** Compte un aperçu pour cette session, ou refuse (429) quand la minute est épuisée. */
+  /** Compte un aperçu pour cet appelant, ou refuse (429) quand la minute est épuisée. */
   #spend(key: string): void {
-    const now = this.#now();
-    this.#quotas ??= new Map<string, QuotaWindow>();
-    let window = this.#quotas.get(key);
-    if (window === undefined) {
-      if (this.#quotas.size >= QUOTA_KEYS_MAX) this.#sweep(now);
-      window = new QuotaWindow();
-      this.#quotas.set(key, window);
-    }
-    if (window.count === 0 || now - window.start >= LINK_PREVIEW_WINDOW_MS) {
-      window.start = now;
-      window.count = 1;
-      return;
-    }
-    if (window.count >= LINK_PREVIEW_QUOTA) {
-      const wait = Math.ceil(
-        (window.start + LINK_PREVIEW_WINDOW_MS - now) / 1000,
-      );
+    const wait = this.#quota.take(key);
+    if (wait > 0)
       throw new LinkPreviewRefusal(
         "rate-limited",
         "trop d'aperçus de lien : réessaie dans un instant",
-        Math.max(1, wait),
+        wait,
       );
-    }
-    window.count++;
-  }
-
-  /** Libère de la place : les fenêtres échues, puis la plus ancienne si rien n'est échu. */
-  #sweep(now: number): void {
-    const quotas = this.#quotas;
-    if (quotas === null) return;
-    for (const [key, window] of quotas) {
-      if (now - window.start >= LINK_PREVIEW_WINDOW_MS) quotas.delete(key);
-    }
-    if (quotas.size >= QUOTA_KEYS_MAX) {
-      const oldest = quotas.keys().next();
-      if (oldest.done !== true) quotas.delete(oldest.value);
-    }
   }
 
   /** Lit le site tiers et dit ce qu'il en est — jamais une exception. */

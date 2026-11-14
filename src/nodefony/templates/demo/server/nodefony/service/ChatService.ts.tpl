@@ -16,6 +16,7 @@ import type {
 import { roomChannel } from "../../frontend/src/chat/rooms";
 import DemoPulseService, { DEMO_PULSE_SERVICE } from "./DemoPulseService";
 import RoomService from "./RoomService";
+import { RateLimiter } from "../kit/rateLimit";
 import { describeFile, sniffImage } from "../../frontend/src/kit/preview";
 
 // La borne vit dans le contrat, lue par la page et le serveur : réexportée
@@ -91,8 +92,39 @@ export interface IForgotten {
   frames: { roomId: string; frame: RoomFrame }[];
 }
 
-/** Pièces gardées sur disque : au-delà, les plus anciennes sortent. */
-export const CHAT_ATTACHMENT_LIMIT = 50;
+/**
+ * Pièces gardées sur disque, tous comptes confondus : au-delà, les plus
+ * anciennes sortent. Une borne de DISQUE ; celle d'un compte est plus basse.
+ */
+export const CHAT_ATTACHMENT_LIMIT = 200;
+
+/**
+ * Pièces gardées par compte : au-delà, SES plus anciennes sortent. Sans elle,
+ * un seul compte qui enchaîne les envois viderait les pièces de tous les salons.
+ */
+export const CHAT_ATTACHMENT_PER_ACCOUNT = 20;
+
+/**
+ * Écritures accordées par compte et par fenêtre de `CHAT_WRITE_WINDOW_MS` :
+ * envoyer, modifier, retirer, réagir, créer, inviter, exclure, planifier,
+ * répondre, ouvrir un salon à deux. Chacune écrit en base et pousse à tout un
+ * salon : sans borne, un compte sature la base et les écrans des autres.
+ * Trois par seconde en rafale : aucun humain ne les atteint, une boucle si.
+ */
+export const CHAT_WRITE_QUOTA = 30;
+
+/** Durée de la fenêtre des quotas d'écriture et de frappe, en ms. */
+export const CHAT_WRITE_WINDOW_MS = 10_000;
+
+/**
+ * Signaux « j'écris » accordés par compte et par fenêtre : la page en envoie un
+ * toutes les deux secondes au plus, soit cinq — le double laisse passer deux
+ * onglets ouverts.
+ */
+export const CHAT_TYPING_QUOTA = 10;
+
+/** Ce que compte un quota du chat : une écriture, ou un signal de frappe. */
+export type ChatQuota = "write" | "typing";
 
 /** Le dossier des pièces, sous le `tmp/` de l'application. */
 export const CHAT_ATTACHMENT_DIR = "demo-chat";
@@ -106,6 +138,8 @@ export interface IStoredAttachment {
    * recopié ailleurs, ouvrirait la pièce.
    */
   roomId: string;
+  /** Le compte qui l'a déposée : sa borne (`CHAT_ATTACHMENT_PER_ACCOUNT`) se compte sur lui. */
+  ownerId: string;
   /** Chemin du fichier, choisi par le serveur (l'id), jamais par le client. */
   file: string;
   /** Le type servi, tiré des octets. */
@@ -145,6 +179,9 @@ class ChatService extends Service {
   readonly #attachments = new Map<string, IStoredAttachment>();
   readonly #dir: string | null;
   #ready: Promise<string> | null = null;
+  /** Les quotas, alloués au premier geste compté. */
+  #writes: RateLimiter | null = null;
+  #typings: RateLimiter | null = null;
 
   /**
    * @param module - le module qui le déclare ; absent dans un test, qui le
@@ -201,6 +238,25 @@ class ChatService extends Service {
       );
     this.#archive = rooms;
     return rooms;
+  }
+
+  /**
+   * Compte un geste d'écriture du compte `userId`, ou le refuse quand sa
+   * fenêtre est épuisée. Le service dit COMBIEN attendre ; le contrôleur en fait
+   * un 429 avec `Retry-After`. Appelé AVANT toute lecture en base.
+   *
+   * @returns `0` si le geste est accordé ; sinon les secondes à attendre
+   */
+  spend(kind: ChatQuota, userId: string): number {
+    if (kind === "typing") {
+      this.#typings ??= new RateLimiter(
+        CHAT_TYPING_QUOTA,
+        CHAT_WRITE_WINDOW_MS,
+      );
+      return this.#typings.take(userId);
+    }
+    this.#writes ??= new RateLimiter(CHAT_WRITE_QUOTA, CHAT_WRITE_WINDOW_MS);
+    return this.#writes.take(userId);
   }
 
   // #region chat-store
@@ -314,10 +370,12 @@ class ChatService extends Service {
    * document, tableur, texte UTF-8, ou simple fichier.
    *
    * @param roomId - le salon du message : la pièce ne se sert qu'à ses admis
+   * @param ownerId - le compte qui les dépose : sa borne se compte sur lui
    * @returns ce que le salon annoncera de chaque pièce
    */
   async saveAttachments(
     roomId: string,
+    ownerId: string,
     files: readonly IUploadedFile[],
   ): Promise<ChatAttachment[]> {
     const dir = await this.#directory();
@@ -328,6 +386,7 @@ class ChatService extends Service {
       await upload.moveAsync(file);
       const stored = await classify(
         roomId,
+        ownerId,
         id,
         upload.filename,
         upload.size,
@@ -336,7 +395,7 @@ class ChatService extends Service {
       this.#attachments.set(id, stored);
       saved.push(stored.meta);
     }
-    await this.#evict();
+    await this.#evict(ownerId);
     return saved;
   }
 
@@ -369,10 +428,23 @@ class ChatService extends Service {
   }
 
   /**
-   * Au-delà de la borne, les plus anciennes pièces sortent : fichier effacé.
-   * L'historique relu les annonce alors `expired` (`recent`).
+   * Au-delà des bornes, les plus anciennes pièces sortent : fichier effacé.
+   * D'abord celles du compte qui vient de déposer, au-delà de SA borne — il ne
+   * pousse dehors que les siennes —, puis les plus anciennes de tous, au-delà
+   * de la borne du disque. L'historique relu les annonce alors `expired`
+   * (`recent`). L'ordre d'insertion de la `Map` est l'ordre d'âge.
    */
-  async #evict(): Promise<void> {
+  async #evict(ownerId: string): Promise<void> {
+    let owned = 0;
+    for (const stored of this.#attachments.values())
+      if (stored.ownerId === ownerId) owned++;
+    for (const [id, stored] of this.#attachments) {
+      if (owned <= CHAT_ATTACHMENT_PER_ACCOUNT) break;
+      if (stored.ownerId !== ownerId) continue;
+      owned--;
+      this.#attachments.delete(id);
+      await unlink(stored.file).catch(() => undefined);
+    }
     for (const [id, stored] of this.#attachments) {
       if (this.#attachments.size <= CHAT_ATTACHMENT_LIMIT) return;
       this.#attachments.delete(id);
@@ -413,6 +485,7 @@ class ChatService extends Service {
  */
 async function classify(
   roomId: string,
+  ownerId: string,
   id: string,
   name: string,
   size: number,
@@ -423,6 +496,7 @@ async function classify(
     return {
       meta: { id, name, size, ...described.fields },
       roomId,
+      ownerId,
       file,
       mime: described.mime,
     };
@@ -440,10 +514,17 @@ async function classify(
     ? {
         meta: { id, name, size, kind: "file" },
         roomId,
+        ownerId,
         file,
         mime: "application/octet-stream",
       }
-    : { meta: { id, name, size, kind: "image" }, roomId, file, mime: image };
+    : {
+        meta: { id, name, size, kind: "image" },
+        roomId,
+        ownerId,
+        file,
+        mime: image,
+      };
 }
 
 /**

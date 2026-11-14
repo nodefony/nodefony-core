@@ -49,7 +49,7 @@ import {
   type IRoomEvent,
   type IRoomView,
 } from "../../frontend/src/chat/rooms";
-import { isUploadedFile } from "../service/ChatService";
+import { isUploadedFile, type ChatQuota } from "../service/ChatService";
 import type ChatService from "../service/ChatService";
 import type RoomService from "../service/RoomService";
 import {
@@ -227,6 +227,22 @@ class ChatController extends ContractRealtimeController<ChatContract> {
     return me;
   }
 
+  // #region chat-quota
+  /**
+   * La personne connectée, son geste COMPTÉ : au-delà de son quota
+   * (`ChatService.spend`), 429 + `Retry-After` — avant toute lecture en base.
+   * Le quota se tient sur le COMPTE : une seconde socket, un second onglet ne
+   * le multiplient pas.
+   */
+  #writer(kind: ChatQuota = "write"): { id: string; identifier: string } {
+    const me = this.#me();
+    const wait = this.chat.spend(kind, me.id);
+    if (wait === 0) return me;
+    this.response?.setHeader("Retry-After", String(wait));
+    throw new HttpError(`trop d'écritures : réessaie dans ${wait} s`, 429);
+  }
+  // #endregion
+
   // #region rooms-refused
   /**
    * Un geste du service, son refus traduit en statut, avec le message que la
@@ -260,7 +276,7 @@ class ChatController extends ContractRealtimeController<ChatContract> {
   createRoom(
     input: RouteInput<{ body: typeof CreateRoomBody }>,
   ): Promise<IRoomView> {
-    const me = this.#me();
+    const me = this.#writer();
     return this.#refused(() => this.rooms.createRoom(me.id, input.body));
   }
   // #endregion
@@ -278,7 +294,7 @@ class ChatController extends ContractRealtimeController<ChatContract> {
   })
   @IsGranted(["ROLE_USER"])
   async deleteRoom(input: RoomInput): Promise<{ ok: true }> {
-    const me = this.#me();
+    const me = this.#writer();
     const attachments = await this.#refused(() =>
       this.rooms.deleteRoom(input.params.room, me.id),
     );
@@ -304,7 +320,7 @@ class ChatController extends ContractRealtimeController<ChatContract> {
   async removeMember(
     input: RouteInput<{ params: typeof MemberParams }>,
   ): Promise<{ ok: true }> {
-    const me = this.#me();
+    const me = this.#writer();
     await this.#refused(() =>
       this.rooms.removeMember(input.params.room, me.id, input.params.user),
     );
@@ -326,7 +342,7 @@ class ChatController extends ContractRealtimeController<ChatContract> {
   async invite(
     input: RoomInput<{ body: typeof InviteBody }>,
   ): Promise<{ ok: true }> {
-    const me = this.#me();
+    const me = this.#writer();
     await this.#refused(() =>
       this.rooms.invite(
         input.params.room,
@@ -348,7 +364,7 @@ class ChatController extends ContractRealtimeController<ChatContract> {
   @IsGranted(["ROLE_USER"])
   @Idempotent()
   planEvent(input: RoomInput<{ body: typeof EventBody }>): Promise<IRoomEvent> {
-    const me = this.#me();
+    const me = this.#writer();
     return this.#refused(() =>
       this.rooms.planEvent(input.params.room, me.id, input.body),
     );
@@ -367,7 +383,7 @@ class ChatController extends ContractRealtimeController<ChatContract> {
       body: typeof ReplyBody;
     }>,
   ): Promise<{ ok: true }> {
-    const me = this.#me();
+    const me = this.#writer();
     await this.#refused(() =>
       this.rooms.reply(input.params.event, me.id, input.body.partstat),
     );
@@ -389,7 +405,7 @@ class ChatController extends ContractRealtimeController<ChatContract> {
   openDirect(
     input: RouteInput<{ params: typeof UserParams }>,
   ): Promise<IRoomView> {
-    const me = this.#me();
+    const me = this.#writer();
     return this.#refused(() => this.rooms.openDirect(me, input.params.user));
   }
   // #endregion
@@ -462,8 +478,7 @@ class ChatController extends ContractRealtimeController<ChatContract> {
   async send(
     input: RoomInput<{ body: typeof SendBody }>,
   ): Promise<{ id: string; sentAt: number }> {
-    const me = this.user;
-    if (me === null) throw new HttpError("connexion requise", 401);
+    const me = this.#writer();
     await this.#admitted(input.params.room);
     const { id, sentAt } = await this.#refused(() =>
       this.chat.publish(input.params.room, {
@@ -494,7 +509,7 @@ class ChatController extends ContractRealtimeController<ChatContract> {
   async edit(
     input: MessageInput<{ body: typeof EditBody }>,
   ): Promise<{ editedAt: number }> {
-    const me = this.#me();
+    const me = this.#writer();
     await this.#admitted(input.params.room);
     const message = await this.#refused(() =>
       this.chat.edit(
@@ -519,7 +534,7 @@ class ChatController extends ContractRealtimeController<ChatContract> {
   })
   @IsGranted(["ROLE_USER"])
   async retract(input: MessageInput): Promise<{ ok: true }> {
-    const me = this.#me();
+    const me = this.#writer();
     await this.#admitted(input.params.room);
     await this.#refused(() =>
       this.chat.retract(input.params.room, input.params.message, me.id),
@@ -542,7 +557,7 @@ class ChatController extends ContractRealtimeController<ChatContract> {
   async react(
     input: MessageInput<{ body: typeof ReactBody }>,
   ): Promise<ChatReaction[]> {
-    const me = this.#me();
+    const me = this.#writer();
     await this.#admitted(input.params.room);
     return this.#refused(() =>
       this.chat.react(
@@ -574,10 +589,10 @@ class ChatController extends ContractRealtimeController<ChatContract> {
   async attach(
     input: RoomInput<{ body: typeof AttachBody }>,
   ): Promise<{ id: string; sentAt: number }> {
-    const me = this.user;
-    if (me === null) throw new HttpError("connexion requise", 401);
     const files = this.files.filter(isUploadedFile);
+    let me: { id: string; identifier: string };
     try {
+      me = this.#writer();
       await this.#admitted(input.params.room);
     } catch (refusal) {
       await this.chat.discard(files);
@@ -594,6 +609,7 @@ class ChatController extends ContractRealtimeController<ChatContract> {
     }
     const attachments = await this.chat.saveAttachments(
       input.params.room,
+      me.id,
       files,
     );
     try {
@@ -722,10 +738,9 @@ class ChatController extends ContractRealtimeController<ChatContract> {
   })
   @IsGranted(["ROLE_USER"])
   async typing(input: RoomInput): Promise<{ ok: true }> {
-    const author = this.user?.identifier;
-    if (author === undefined) throw new HttpError("connexion requise", 401);
+    const me = this.#writer("typing");
     await this.#admitted(input.params.room);
-    this.chat.typing(input.params.room, author);
+    this.chat.typing(input.params.room, me.identifier);
     return { ok: true };
   }
   // #endregion

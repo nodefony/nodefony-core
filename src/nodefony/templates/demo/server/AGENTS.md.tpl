@@ -55,6 +55,9 @@ un renvoi mort le fait échouer.
   session), les pages et l'accueil.
 - `nodefony/kit/fixedStep.ts` — la boucle à pas fixe sur `hrtime`, partagée par
   tout ce qui tourne à cadence régulière (les jeux, l'acquisition de la sonde).
+- `nodefony/kit/rateLimit.ts` — le quota par fenêtre fixe et par clé (compte,
+  sinon adresse) : `take` rend les secondes à attendre, le contrôleur en fait un
+  429 + `Retry-After`. Partagé par les aperçus de liens et les écritures du chat.
 - `frontend/src/kit/records.ts` — enregistrements binaires décrits par schéma
   (`u8`, `u16`, `u32`, `i16`, `f32`), ISOMORPHES : le serveur écrit, la page
   lit. Servent aux jeux et à la sonde.

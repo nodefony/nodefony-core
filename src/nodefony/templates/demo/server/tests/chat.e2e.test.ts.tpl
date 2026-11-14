@@ -22,6 +22,10 @@ import {
   type IRoomView,
 } from "../frontend/src/chat/rooms";
 import {
+  CHAT_TYPING_QUOTA,
+  CHAT_WRITE_WINDOW_MS,
+} from "../nodefony/service/ChatService";
+import {
   closeAll,
   demoDescribe,
   ensureMember,
@@ -624,6 +628,38 @@ async function sendForId(text: string, roomId = LOBBY_ROOM_ID) {
   expect(typeof id).toBe("string");
   return String(id);
 }
+
+demoDescribe("discussion — le débit d'écriture", () => {
+  it("🔴 429 au-delà du quota de frappe d'un compte, avec `Retry-After` et l'attente dans le message ; un autre compte n'est pas touché", async () => {
+    await ensureMember();
+    const base = httpUrl("");
+    const greedy = await csrfHeaders(base, await userLogin(base));
+    const typing = (headers: Record<string, string>) =>
+      fetch(roomPath(LOBBY_ROOM_ID, "typing"), { method: "POST", headers });
+    // Le quota de frappe, à part de celui des écritures : l'épuiser ne
+    // coupe aucun envoi d'un autre test.
+    let refused: Response | null = null;
+    for (let i = 0; i <= CHAT_TYPING_QUOTA && refused === null; i++) {
+      const res = await typing(greedy);
+      if (res.status === 429) refused = res;
+      else {
+        expect(res.status).toBe(200);
+        await res.body?.cancel();
+      }
+    }
+    expect(refused?.status).toBe(429);
+    const wait = Number(refused?.headers.get("retry-after"));
+    expect(Number.isInteger(wait)).toBe(true);
+    expect(wait).toBeGreaterThanOrEqual(1);
+    expect(wait).toBeLessThanOrEqual(CHAT_WRITE_WINDOW_MS / 1000);
+    // Une socket ne porte pas d'en-tête : l'attente est AUSSI dans le message.
+    expect(await refused?.text()).toContain(`${wait} s`);
+
+    const other = await typing(admin);
+    expect(other.status).toBe(200);
+    await other.body?.cancel();
+  });
+});
 
 demoDescribe("discussion — l'aperçu d'un lien", () => {
   // Aucun test ne dépend d'Internet : la cible est le réseau du serveur

@@ -35,7 +35,12 @@ import {
   memberRemovalProblem,
   roomDeletionProblem,
 } from "../frontend/src/chat/rooms";
-import ChatService from "../nodefony/service/ChatService";
+import ChatService, {
+  CHAT_TYPING_QUOTA,
+  CHAT_WRITE_QUOTA,
+  CHAT_WRITE_WINDOW_MS,
+} from "../nodefony/service/ChatService";
+import { RateLimiter } from "../nodefony/kit/rateLimit";
 import { RoomRefusal } from "../nodefony/service/RoomService";
 import { memoryArchive } from "./memoryArchive";
 
@@ -463,5 +468,50 @@ describe("chat — quitter, exclure (XEP-0045 §8.2, §9.4)", () => {
         true,
       ),
     ).toMatch(/à deux/u);
+  });
+});
+
+describe("chat — le débit d'écriture est borné par compte", () => {
+  it("🔴 au-delà du quota, le geste est refusé avec l'attente ; un autre compte n'est pas touché", () => {
+    const chat = new ChatService(undefined, undefined, memoryArchive());
+    for (let i = 0; i < CHAT_WRITE_QUOTA; i++)
+      expect(chat.spend("write", "vorace")).toBe(0);
+    const wait = chat.spend("write", "vorace");
+    expect(wait).toBeGreaterThanOrEqual(1);
+    expect(wait).toBeLessThanOrEqual(CHAT_WRITE_WINDOW_MS / 1000);
+    expect(chat.spend("write", "autre")).toBe(0);
+  });
+
+  it("la frappe a son PROPRE quota : épuiser l'un ne coupe pas l'autre", () => {
+    const chat = new ChatService(undefined, undefined, memoryArchive());
+    for (let i = 0; i < CHAT_WRITE_QUOTA; i++) chat.spend("write", "a");
+    expect(chat.spend("write", "a")).toBeGreaterThan(0);
+    for (let i = 0; i < CHAT_TYPING_QUOTA; i++)
+      expect(chat.spend("typing", "a")).toBe(0);
+    expect(chat.spend("typing", "a")).toBeGreaterThan(0);
+  });
+
+  it("la fenêtre échue rend le quota ; l'attente annoncée décroît avec le temps", () => {
+    let now = 1_000_000;
+    const quota = new RateLimiter(2, 10_000, () => now);
+    expect(quota.take("k")).toBe(0);
+    expect(quota.take("k")).toBe(0);
+    expect(quota.take("k")).toBe(10);
+    now += 7_500;
+    expect(quota.take("k")).toBe(3);
+    now += 2_500;
+    expect(quota.take("k")).toBe(0);
+  });
+
+  it("les clés gardées sont bornées : au-delà, la plus ancienne sort", () => {
+    const now = 1_000_000;
+    const quota = new RateLimiter(1, 10_000, () => now, 2);
+    expect(quota.take("a")).toBe(0);
+    expect(quota.take("b")).toBe(0);
+    expect(quota.take("a")).toBeGreaterThan(0);
+    // Une troisième clé : rien n'est échu, la plus ancienne (« a ») sort.
+    expect(quota.take("c")).toBe(0);
+    expect(quota.take("b")).toBeGreaterThan(0);
+    expect(quota.take("a")).toBe(0);
   });
 });
