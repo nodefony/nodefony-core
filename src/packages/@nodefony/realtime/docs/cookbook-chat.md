@@ -77,7 +77,7 @@ apporte.
 | --------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------- |
 | [1 — le chat minimal](#-démarrage-rapide--étape-1-le-chat-minimal-qui-marche)           | Un canal, un message qui traverse                              | Deux onglets qui se parlent              |
 | [2 — HTTP et WebSocket](#-étape-2--le-même-contrôleur-sert-http-et-websocket)           | L'historique en `GET` dans la **même classe**                  | Une action, deux transports              |
-| [3 — présence et frappe](#-étape-3--présence-et-frappe-en-cours)                        | Deux canaux de plus sur la **même** connexion                  | Multiplexage sans socket supplémentaire  |
+| [3 — présence et frappe](#-étape-3--présence-et-frappe-en-cours)                        | La présence en option du canal, la frappe en message           | Ni canal ni minuteur de plus             |
 | [4 — persister](#-étape-4--persister-lhistorique)                                       | Un repository derrière un service                              | L'historique survit au redémarrage       |
 | [5 — protéger](#-étape-5--protéger-le-salon)                                            | Zone firewall + politique de canal                             | L'intrus est refusé, et sait qu'il l'est |
 | [6 — la pièce jointe](#-étape-6--la-pièce-jointe-http-et-websocket-dans-la-même-classe) | `POST` multipart + annonce sur le canal                        | Le différenciateur devient **visible**   |
@@ -92,23 +92,23 @@ apporte.
 Tous les termes employés dans cette page. Le fond de chacun est dans
 [vocabulaire.md](./vocabulaire.md) — ici, la définition strictement suffisante pour suivre.
 
-| Terme              | Ce que c'est                                                                                                                                                  |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Socket**         | La connexion WebSocket unique entre un navigateur et le serveur. Une seule par onglet, quel que soit le nombre de canaux.                                     |
-| **Canal**          | Un flux nommé qui circule **dans** la socket (`chat:room`, `chat:presence`). Analogie : la socket est le câble, les canaux sont les fréquences qui y passent. |
-| **Frame**          | Un message du protocole sur le fil. Toutes les frames sont du JSON-RPC 2.0.                                                                                   |
-| **Hub**            | Le distributeur côté serveur : il tient la liste « qui écoute quel canal » et recopie chaque publication vers les abonnés du processus courant.               |
-| **Backplane**      | Le « fond de panier » : ce qui relaie les publications d'un processus à l'autre. Sans lui, chaque réplique est une île.                                       |
-| **Pod / réplique** | Un processus Node qui sert l'application. Un seul en développement, plusieurs en production.                                                                  |
-| **Fan-out**        | La recopie d'une publication vers N abonnés. Une publication, N livraisons.                                                                                   |
-| **Inbound**        | Un canal où le **client** pousse vers le serveur. Sens inverse du pub/sub habituel ; il faut le déclarer explicitement.                                       |
-| **RPC**            | _Remote Procedure Call_ : le client appelle une méthode serveur et attend une réponse (une `Promise`). Par opposition à une notification, qui ne répond pas.  |
-| **Provider**       | La fonction qui « alimente » un canal côté serveur. Créée au premier abonné, détruite au dernier.                                                             |
-| **Sink**           | Le point de sortie d'une connexion sur un canal. Un abonné = un sink.                                                                                         |
-| **BFF**            | _Backend For Frontend_ : le serveur porte la session dans un cookie, le navigateur ne manipule aucun jeton.                                                   |
-| **Zone / area**    | Un motif d'URL que le firewall protège, avec la liste des façons de prouver son identité.                                                                     |
-| **Politique**      | Les exigences attachées à un canal : authentifié, tel rôle, tel scope.                                                                                        |
-| **Multipart**      | L'encodage d'un formulaire HTTP qui transporte des fichiers (`multipart/form-data`).                                                                          |
+| Terme              | Ce que c'est                                                                                                                                                 |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Socket**         | La connexion WebSocket unique entre un navigateur et le serveur. Une seule par onglet, quel que soit le nombre de canaux.                                    |
+| **Canal**          | Un flux nommé qui circule **dans** la socket (`chat:room`, `room:42`). Analogie : la socket est le câble, les canaux sont les fréquences qui y passent.      |
+| **Frame**          | Un message du protocole sur le fil. Toutes les frames sont du JSON-RPC 2.0.                                                                                  |
+| **Hub**            | Le distributeur côté serveur : il tient la liste « qui écoute quel canal » et recopie chaque publication vers les abonnés du processus courant.              |
+| **Backplane**      | Le « fond de panier » : ce qui relaie les publications d'un processus à l'autre. Sans lui, chaque réplique est une île.                                      |
+| **Pod / réplique** | Un processus Node qui sert l'application. Un seul en développement, plusieurs en production.                                                                 |
+| **Fan-out**        | La recopie d'une publication vers N abonnés. Une publication, N livraisons.                                                                                  |
+| **Inbound**        | Un canal où le **client** pousse vers le serveur. Sens inverse du pub/sub habituel ; il faut le déclarer explicitement.                                      |
+| **RPC**            | _Remote Procedure Call_ : le client appelle une méthode serveur et attend une réponse (une `Promise`). Par opposition à une notification, qui ne répond pas. |
+| **Provider**       | La fonction qui « alimente » un canal côté serveur. Créée au premier abonné, détruite au dernier.                                                            |
+| **Sink**           | Le point de sortie d'une connexion sur un canal. Un abonné = un sink.                                                                                        |
+| **BFF**            | _Backend For Frontend_ : le serveur porte la session dans un cookie, le navigateur ne manipule aucun jeton.                                                  |
+| **Zone / area**    | Un motif d'URL que le firewall protège, avec la liste des façons de prouver son identité.                                                                    |
+| **Politique**      | Les exigences attachées à un canal : authentifié, tel rôle, tel scope.                                                                                       |
+| **Multipart**      | L'encodage d'un formulaire HTTP qui transporte des fichiers (`multipart/form-data`).                                                                         |
 
 ## 🧠 Le modèle mental en trois phrases
 
@@ -630,102 +630,317 @@ s'applique aux **deux** — c'est le même pipeline, pas deux implémentations �
 
 ## 🧩 Étape 3 : présence et frappe en cours
 
-On ajoute deux flux : qui est là, et qui est en train d'écrire. Le point de cette étape n'est pas
-la fonctionnalité — c'est **ce qu'elle ne coûte pas**.
+On ajoute deux choses : qui est là, et qui est en train d'écrire. Le point de cette étape n'est pas
+la fonctionnalité — c'est **ce qu'elle ne coûte pas** : pas un canal de plus, pas un minuteur, pas
+une ligne de code par pod.
 
-### Trois canaux, une seule connexion
+### La présence est une option du canal, pas un canal de plus
 
-Un salon complet a besoin d'au moins trois flux distincts. Dans beaucoup d'architectures, cela se
-traduit par plusieurs connexions, ou par un canal fourre-tout où chacun filtre ce qui le concerne.
-Ici, les trois canaux voyagent **dans la même socket**, chacun avec son nom, chacun avec son
-abonnement propre :
+Être abonné au salon, c'est y être présent. La présence se déclare donc **sur le canal lui-même**,
+par une option de sa politique — `presence: true` — et le framework fait le reste : il tient la liste
+des présents, l'envoie entière à chaque abonné qui arrive, puis n'envoie que les changements,
+regroupés par fenêtre de 250 ms. Une connexion qui se ferme s'en va aussitôt de la liste.
 
 ```mermaid
 flowchart LR
   N["Onglet du navigateur<br/>UNE connexion WebSocket"]
-  N -.->|"chat:room"| R[Messages]
-  N -.->|"chat:presence"| P[Qui est connecté]
-  N -.->|"chat:typing"| T[Qui écrit]
+  N -.->|"chat:room"| C["Le canal du salon"]
+  C --> M[Messages]
+  C --> T["« Untel écrit… »"]
+  C --> P["Qui est là<br/>(option presence)"]
 ```
 
-S'abonner à un quatrième canal n'ouvre pas de quatrième connexion : cela envoie une frame
-d'abonnement sur celle qui existe déjà. C'est ce que « multiplexer » veut dire ici, et c'est ce qui
-rend viable le fait d'avoir un canal par préoccupation plutôt qu'un canal fourre-tout.
+> [!WARNING]
+> **La recette « un `Set` des connectés publié toutes les cinq secondes » est fausse dès deux
+> processus.** Chaque processus ne connaît que les connexions qu'il tient : derrière
+> `nodefony cluster -w 2` ou deux pods, chacun publie SA liste et écrase celle de l'autre. Elle coûte
+> en plus un envoi permanent, et annonce les départs jusqu'à cinq secondes en retard. La présence du
+> framework est tenue **entre les pods** (étape 7) : rien à écrire de plus.
+
+### La frappe est un message, pas un état
+
+« Untel écrit » ne dit pas qui est là : c'est un message éphémère, publié sur le canal du salon,
+que chacun reçoit parce qu'il y est abonné et que l'écran efface seul. Il ne passe jamais par la
+présence — sinon chaque frappe ferait renvoyer la liste à tout le salon.
 
 ### Le contrôleur — fichier **modifié**
 
-```ts ignore
-// modules/chat/nodefony/controllers/ChatController.ts (ajouts de l'étape 3)
+Le contrôleur entier à cette étape ; l'envoi de l'étape 1 (`chat:send`) ne change pas et n'est pas
+répété.
 
-/** Les pseudos présents, par connexion. Statique : partagé par tout le processus. */
-static present = new Set<string>();
+<!-- example: chatPresence.ts -->
 
-/**
- * PRÉSENCE. Ce provider-là a quelque chose à démarrer : un rappel régulier de
- * l'état. La fonction de nettoyage rendue au hub arrête le minuteur — au dernier
- * désabonné, plus personne ne paie ce coût.
- */
-@RealtimeChannel("chat:presence")
-presence(channel: string, publish: RealtimePublish): () => void {
-  const timer = setInterval(() => {
-    publish(channel, { present: [...ChatController.present] });
-  }, 5000);
-  // `unref` : ce minuteur ne doit jamais retenir le processus à l'arrêt.
-  timer.unref();
-  return () => clearInterval(timer);
+```ts
+import { controller, route } from "@nodefony/framework";
+import type { ContextType } from "@nodefony/http";
+import {
+  RealtimeChannel,
+  RealtimeController,
+  RealtimeInbound,
+  getRealtimeHub,
+} from "@nodefony/realtime";
+
+/** Le canal du salon : il porte les messages, la frappe — et la présence. */
+export const ROOM_CHANNEL = "chat:room";
+
+/** « Untel écrit » : un message ÉPHÉMÈRE du canal, jamais gardé, jamais rejoué. */
+export interface ChatTyping {
+  typing: string;
 }
 
-/** FRAPPE EN COURS. Volatile par nature : rien à persister, rien à rejouer. */
-@RealtimeChannel("chat:typing")
-typing(_channel: string, _publish: RealtimePublish): () => void {
-  return () => {};
-}
+@controller("/chat")
+export class ChatController extends RealtimeController {
+  constructor(context: ContextType) {
+    super("chat", context);
+  }
 
-/** Le client signale qu'il écrit ; on le relaie tel quel au salon. */
-@RealtimeInbound("chat:typing")
-onTyping(params: unknown): void {
-  const author = (params as { author?: unknown } | null)?.author;
-  if (typeof author !== "string" || author.length === 0) return;
-  getRealtimeHub().publish("chat:typing", { author: author.slice(0, 40) });
+  @route("chat-realtime", {
+    path: "/realtime",
+    requirements: { methods: ["WEBSOCKET"] },
+  })
+  async realtime(message: string | Uint8Array | null): Promise<void> {
+    this.handleRealtime(message);
+  }
+
+  // La présence est portée PAR le canal : être abonné, c'est être présent. Ni
+  // minuteur, ni liste à tenir, ni second canal — et elle reste juste quand
+  // l'application tourne sur plusieurs pods (étape 7).
+  @RealtimeChannel(ROOM_CHANNEL, { presence: true })
+  room(): () => void {
+    return () => {};
+  }
+
+  // La frappe n'est PAS un état de présence : c'est un message du canal, que
+  // chacun reçoit parce qu'il y est abonné, et que l'écran efface seul.
+  @RealtimeInbound("chat:typing")
+  onTyping(params: unknown): void {
+    if (!ChatController.isTyping(params)) return;
+    const typing: ChatTyping = { typing: params.author.slice(0, 40) };
+    getRealtimeHub().publish(ROOM_CHANNEL, typing);
+  }
+
+  /** Ce qui arrive du réseau n'est pas fiable : un auteur non vide, ou rien. */
+  private static isTyping(value: unknown): value is { author: string } {
+    return (
+      typeof value === "object" &&
+      value !== null &&
+      "author" in value &&
+      typeof value.author === "string" &&
+      value.author.length > 0
+    );
+  }
 }
 ```
 
-> [!NOTE]
-> **Un canal peut porter les deux sens.** `chat:typing` est déclaré à la fois comme canal sortant
-> (`@RealtimeChannel`) et comme canal entrant (`@RealtimeInbound`). C'est ce qu'on appelle un canal
-> **duplex** : le client y pousse, et le reçoit en retour parce qu'il y est abonné.
-
 ### Côté client
 
-```tsx ignore
-// frontend/src/ChatRoom.tsx (ajouts de l'étape 3)
-import { useNodefonyChannelData } from "nodefony/react";
+`onPresence` rappelle l'écran avec **la vue entière** à chaque changement : il n'y a rien à
+fusionner soi-même. En React, `useNodefonyPresence(chatSocket, "chat:room")` rend le même
+instantané (Vue, Angular et Svelte ont leur équivalent).
 
-// La DERNIÈRE valeur reçue suffit pour un état : on ne veut pas l'historique
-// des présences, seulement l'état courant.
-const presence = useNodefonyChannelData<{ present: string[] }>("chat:presence");
+<!-- example: chatPresence.client.ts -->
 
-const [typingBy, setTypingBy] = useState<string | null>(null);
-useNodefonyChannel("chat:typing", (payload) => {
-  const author = (payload as { author: string }).author;
-  if (author === pseudo) return; // ne pas s'afficher soi-même
-  setTypingBy(author);
-  // L'indicateur s'efface tout seul : le serveur n'envoie jamais de « stop ».
-  window.setTimeout(() => setTypingBy(null), 2500);
+```ts
+import { NodefonySocket } from "nodefony/client";
+
+const ROOM = "chat:room";
+const socket = NodefonySocket.shared({ url: "/chat/realtime" });
+
+/** Qui est là : rappelé à chaque changement, la vue entière à chaque fois. */
+export function watchPresence(render: (line: string) => void): () => void {
+  const off = socket.onPresence(ROOM, (p) => {
+    if (!p.ready) return; // « pas encore reçu » n'est pas « vide »
+    const names = [...p.members.keys()].join(", ");
+    const total = p.count + p.unnamed; // nommés (comptes) + connexions anonymes
+    render(`${total} présent(s)${names === "" ? "" : ` : ${names}`}`);
+  });
+  socket.subscribe(ROOM);
+  return () => {
+    off();
+    socket.unsubscribe(ROOM);
+  };
+}
+
+/** Signaler qu'on écrit — au plus une fois toutes les deux secondes. */
+export function typingNotifier(author: string): () => void {
+  let last = 0;
+  return () => {
+    const now = Date.now();
+    if (now - last < 2000) return;
+    last = now;
+    socket.emit("chat:typing", { author });
+  };
+}
+
+/** « Untel écrit… » : affiché à réception, effacé seul trois secondes plus tard. */
+export function watchTyping(
+  self: string,
+  show: (author: string | null) => void,
+): () => void {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return socket.on(ROOM, (frame) => {
+    if (typeof frame !== "object" || frame === null || !("typing" in frame))
+      return;
+    if (typeof frame.typing !== "string" || frame.typing === self) return;
+    show(frame.typing);
+    clearTimeout(timer);
+    timer = setTimeout(() => show(null), 3000);
+  });
+}
+```
+
+| Champ de l'instantané | Ce qu'il dit                                                                                                  |
+| --------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `ready`               | `false` tant que la première liste n'est pas arrivée — « pas encore reçu » n'est pas « vide »                 |
+| `count`               | les présents **nommés** : un par compte, quel que soit son nombre d'onglets                                   |
+| `unnamed`             | les connexions comptées **sans nom** : anonymes, appelants machine sans compte                                |
+| `members`             | `Map` identité → `{ tabs }` : qui, et dans combien d'onglets                                                  |
+| `partial`             | `true` quand la vue est incomplète ou figée (connexion coupée, pod injoignable) — la liste suivante la répare |
+
+### À cette étape, personne n'est nommé
+
+Tout le monde est encore anonyme : la présence **compte** les connexions (`unnamed`), elle ne nomme
+personne. Et le pseudo que le client envoie avec son message n'y change rien — se déclarer « Alice »
+ne fait pas de toi une présente nommée. Les noms arrivent à l'[étape 5](#-étape-5--protéger-le-salon),
+avec les comptes : la présence nomme ce que le serveur a vérifié, jamais ce que le client affirme.
+
+### Le test — fichier **créé**
+
+Le test joue des connexions réelles contre le contrôleur, et lit ce que **l'écran** de chacune
+afficherait : les trames de présence reçues, appliquées par la même vue que le navigateur.
+
+<!-- example: chatPresence.test.ts -->
+
+```ts
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  PresenceView,
+  REALTIME_PRESENCE_METHOD,
+  isPresenceFrame,
+} from "nodefony";
+import type { IPresenceSnapshot } from "nodefony";
+import { getRealtimeHub } from "@nodefony/realtime";
+import { createRealtimeHarness } from "@nodefony/realtime/testing";
+import type { IRealtimeHarness } from "@nodefony/realtime/testing";
+import { createTestIdentity } from "@nodefony/security/testing";
+import { ChatController, ROOM_CHANNEL } from "./chatPresence";
+
+const open: IRealtimeHarness<ChatController>[] = [];
+const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
+
+/** Une connexion : un compte (`name`), ou un anonyme. */
+async function connect(
+  name?: string,
+): Promise<IRealtimeHarness<ChatController>> {
+  const h = createRealtimeHarness((ctx) => new ChatController(ctx), {
+    ...(name === undefined
+      ? {}
+      : { identity: createTestIdentity({ identifier: name }) }),
+    resetHub: open.length === 0,
+  });
+  await h.connect();
+  open.push(h);
+  return h;
+}
+
+/** Ce que l'écran de cette connexion affiche : ses trames de présence, appliquées comme le fait le navigateur. */
+function screenOf(h: IRealtimeHarness<ChatController>): IPresenceSnapshot {
+  const view = new PresenceView(ROOM_CHANNEL);
+  for (const frame of h.received) {
+    if (
+      frame.method === REALTIME_PRESENCE_METHOD &&
+      isPresenceFrame(frame.params)
+    )
+      view.apply(frame.params);
+  }
+  return view.snapshot();
+}
+
+/** Attendre un FAIT, borné : les changements partent groupés, par fenêtre de 250 ms. */
+async function until(fact: () => boolean): Promise<void> {
+  for (let i = 0; i < 100 && !fact(); i++)
+    await new Promise((r) => setTimeout(r, 25));
+  expect(fact()).toBe(true);
+}
+
+describe("salon — la présence portée par le canal, la frappe en message éphémère", () => {
+  afterEach(() => {
+    for (const h of open.splice(0)) h.close();
+    getRealtimeHub().clear();
+  });
+
+  it("être abonné, c'est être présent : un compte est nommé, un anonyme compté sans nom", async () => {
+    const alice = await connect("alice");
+    const guest = await connect();
+    await alice.subscribe(ROOM_CHANNEL);
+    await guest.subscribe(ROOM_CHANNEL);
+    await flush();
+    // Le dernier arrivé reçoit la liste complète dès son abonnement.
+    const seen = screenOf(guest);
+    expect(seen.ready).toBe(true);
+    expect([...seen.members.keys()]).toEqual(["alice"]);
+    expect([seen.count, seen.unnamed]).toEqual([1, 1]);
+  });
+
+  it("se déclarer « bob » ne nomme personne : seul un compte est nommé", async () => {
+    const guest = await connect();
+    await guest.subscribe(ROOM_CHANNEL);
+    await guest.notify("chat:typing", { author: "bob" });
+    await flush();
+    expect(getRealtimeHub().presence(ROOM_CHANNEL)).toMatchObject({
+      count: 0,
+      unnamed: 1,
+    });
+  });
+
+  it("la frappe arrive comme un message du canal, et ne touche pas la présence", async () => {
+    const alice = await connect("alice");
+    const bob = await connect("bob");
+    await alice.subscribe(ROOM_CHANNEL);
+    await bob.subscribe(ROOM_CHANNEL);
+    await bob.notify("chat:typing", { author: "bob" });
+    await flush();
+    expect(alice.messages(ROOM_CHANNEL)).toEqual([{ typing: "bob" }]);
+    expect(getRealtimeHub().presence(ROOM_CHANNEL)?.members.get("bob")).toEqual(
+      {
+        tabs: 1,
+      },
+    );
+  });
+
+  it("connexion fermée : le présent s'en va, chez le serveur PUIS sur l'écran des autres", async () => {
+    const alice = await connect("alice");
+    const bob = await connect("bob");
+    await alice.subscribe(ROOM_CHANNEL);
+    await bob.subscribe(ROOM_CHANNEL);
+    await until(() => screenOf(alice).members.has("bob"));
+    bob.close();
+    await flush();
+    expect(getRealtimeHub().presence(ROOM_CHANNEL)?.members.has("bob")).toBe(
+      false,
+    );
+    await until(() => !screenOf(alice).members.has("bob"));
+    expect(screenOf(alice).count).toBe(1);
+  });
 });
-
-// Dans le rendu :
-// <p>{presence?.present.length ?? 0} connecté(s)</p>
-// {typingBy && <p>{typingBy} est en train d'écrire…</p>}
 ```
 
 ### Ce qu'on observe
 
-| Tu fais                                 | Tu vois                                                                                                    |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Tu tapes dans l'onglet gauche           | « invité-412 est en train d'écrire… » apparaît dans l'onglet droit, puis disparaît seul.                   |
-| Tu ouvres l'onglet réseau du navigateur | **Une seule** entrée WebSocket, même avec trois canaux actifs. C'est le point de cette étape.              |
-| Tu quittes l'écran du salon             | Les trois abonnements sont relâchés. Au dernier abonné de `chat:presence`, le minuteur serveur est arrêté. |
+| Tu fais                                 | Tu vois                                                                                                                      |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Tu ouvres deux onglets                  | « 2 présent(s) » dans chacun, sans nom : ce sont deux anonymes.                                                              |
+| Tu tapes dans l'onglet gauche           | « invité-412 est en train d'écrire… » apparaît dans l'onglet droit, puis disparaît seul. La liste des présents ne bouge pas. |
+| Tu fermes l'onglet gauche               | L'onglet droit passe à « 1 présent(s) » dans le quart de seconde.                                                            |
+| Tu ouvres l'onglet réseau du navigateur | **Une seule** entrée WebSocket et **un seul** canal : messages, frappe et présence voyagent ensemble.                        |
+
+### Le même modèle que les normes
+
+La présence suit le modèle des protocoles de présence normalisés, pour qu'une passerelle reste
+possible : un **présent** est l'_occupant_ d'un salon de XEP-0045 ; la liste entière puis les
+changements sont la _full_ puis la _partial presence_ de RFC 5262 ; un abonnement répété redemande
+la liste entière, comme XEP-0045 §17.3 ; et « en train d'écrire » reste hors de la présence, comme
+le veut RFC 6121 §4.4.1. Le détail des choix est dans l'ADR-0025 (présence répartie d'un canal).
 
 ## 💾 Étape 4 : persister l'historique
 
@@ -830,25 +1045,24 @@ export const securityConfig = () =>
 
 Le décorateur de canal accepte un second argument : les exigences à satisfaire pour s'y abonner.
 
-Les deux méthodes concernées, complètes, avec leur politique :
+La déclaration du salon, complète, avec sa politique :
 
 ```ts ignore
 // modules/chat/nodefony/controllers/ChatController.ts
-// → remplace les déclarations de canal des étapes 1 et 3
-@RealtimeChannel(ROOM_CHANNEL, { authenticated: true, roles: ["ROLE_USER"] })
-room(_channel: string, _publish: RealtimePublish): () => void {
+// → remplace la déclaration de canal de l'étape 3
+@RealtimeChannel(ROOM_CHANNEL, {
+  authenticated: true,
+  roles: ["ROLE_USER"],
+  presence: true,
+})
+room(): () => void {
   return () => {};
 }
-
-@RealtimeChannel("chat:presence", { authenticated: true, roles: ["ROLE_USER"] })
-presence(channel: string, publish: RealtimePublish): () => void {
-  const timer = setInterval(() => {
-    publish(channel, { present: [...ChatController.present] });
-  }, 5000);
-  timer.unref();
-  return () => clearInterval(timer);
-}
 ```
+
+La présence suit la politique : n'est présent que celui qu'elle admet. Et puisque chacun est
+désormais connecté à son compte, la liste **nomme** les présents — par l'identité vérifiée à la
+poignée de main, jamais par un champ du client.
 
 Le module temps réel ne décide de rien : il **transporte la déclaration** jusqu'au firewall, seul à
 connaître la hiérarchie des rôles et l'identité réelle.
@@ -1382,6 +1596,10 @@ C'est l'argument, et il se vérifie fichier par fichier :
 | `ChatRoom.tsx`, `realtime.ts`     | **Non.** Le navigateur ne sait pas, et n'a pas à savoir, combien de pods existent. |
 | `nodefony.config.ts`              | Une chaîne de caractères.                                                          |
 
+La présence suit le même chemin : un canal diffusé partage ses présents entre les pods, sans une
+ligne de plus. Un canal à présence **non** diffusé reste juste, mais local à son processus — le
+journal le signale une fois, au premier abonné du canal, dès qu'un bus est configuré.
+
 Aucun appel de publication ne change, aucun abonnement ne change, aucune règle métier ne change. Ce
 qui change, c'est **par où** la publication repart après le fan-out local — et cela se décide dans la
 configuration, pas dans le code.
@@ -1411,11 +1629,14 @@ Au démarrage de chaque worker, la ligne d'identité du temps réel change de fo
 `kind=local cross-pod=no`, on lit maintenant un `kind` de transport et `cross-pod=yes` : c'est la
 confirmation, au boot, que le relais est en place.
 
-| Tu fais                     | Avant (étape 6)  | Maintenant                                             |
-| --------------------------- | ---------------- | ------------------------------------------------------ |
-| Alice envoie un fichier     | Bob ne voit rien | L'annonce apparaît chez Bob, sur l'autre processus     |
-| Alice tape un message       | Aléatoire        | Reçu par tous, quel que soit le worker                 |
-| Tu arrêtes le service Redis | —                | Le salon continue **dans chaque processus**, isolément |
+| Tu fais                         | Avant (étape 6)                | Maintenant                                                                                                            |
+| ------------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| Alice envoie un fichier         | Bob ne voit rien               | L'annonce apparaît chez Bob, sur l'autre processus                                                                    |
+| Alice tape un message           | Aléatoire                      | Reçu par tous, quel que soit le worker                                                                                |
+| Alice et Bob, un worker chacun  | Chacun ne voit que lui présent | Les deux se voient présents ; un onglet sur chaque worker compte pour un seul présent                                 |
+| Tu arrêtes un worker proprement | —                              | Ses présents disparaissent chez les autres aussitôt : il l'annonce en partant                                         |
+| Tu tues un worker (`kill -9`)   | —                              | Ses présents disparaissent chez les autres au délai d'oubli : trois preuves de vie manquées, 15 s par défaut          |
+| Tu arrêtes le service Redis     | —                              | Le salon continue **dans chaque processus**, isolément ; la présence venue des autres pods se fige, marquée `partial` |
 
 Cette dernière ligne mérite une explication : si le backplane est injoignable au démarrage, le
 framework **ne bloque pas le boot**. Il journalise un avertissement, garde un hub local et sert le
@@ -1456,7 +1677,6 @@ import {
   RealtimeInbound,
   getRealtimeHub,
 } from "@nodefony/realtime";
-import type { RealtimePublish } from "@nodefony/realtime";
 import { HttpError } from "@nodefony/http";
 import type { ContextType, IUploadedFile } from "@nodefony/http";
 import type { ContractRouteSchemas } from "nodefony";
@@ -1485,9 +1705,6 @@ class ChatController extends ContractRealtimeController<ChatContract> {
 
   /** Stock en mémoire — remplacé par un repository à l'étape 4. */
   static history: ChatMessage[] = [];
-
-  /** Les pseudos présents dans le salon, sur CE processus. */
-  static present = new Set<string>();
 
   constructor(context: ContextType) {
     super("chat", context);
@@ -1583,41 +1800,29 @@ class ChatController extends ContractRealtimeController<ChatContract> {
 
   // ── Les canaux ────────────────────────────────────────────────────────────
 
-  /** Le salon. Rien à démarrer : il relaie, il n'émet pas de lui-même. */
-  @RealtimeChannel(ROOM_CHANNEL, { authenticated: true, roles: ["ROLE_USER"] })
-  room(_channel: string, _publish: RealtimePublish): () => void {
-    return () => {};
-  }
-
-  /** Présence — un rappel régulier, arrêté au dernier désabonné. */
-  @RealtimeChannel("chat:presence", {
+  /**
+   * Le salon. Rien à démarrer : il relaie, il n'émet pas de lui-même. Sa
+   * présence est tenue par le framework, entre les pods compris.
+   */
+  @RealtimeChannel(ROOM_CHANNEL, {
     authenticated: true,
     roles: ["ROLE_USER"],
+    presence: true,
   })
-  presence(channel: string, publish: RealtimePublish): () => void {
-    const timer = setInterval(() => {
-      publish(channel, { present: [...ChatController.present] });
-    }, 5000);
-    timer.unref();
-    return () => clearInterval(timer);
-  }
-
-  /** Frappe en cours — volatile : ni attribué, ni conservé. */
-  @RealtimeChannel("chat:typing")
-  typing(_channel: string, _publish: RealtimePublish): () => void {
+  room(): () => void {
     return () => {};
   }
 
-  /** Le seul canal entrant restant : haute fréquence, sans enjeu d'identité. */
-  @RealtimeInbound("chat:typing")
-  onTyping(params: unknown): void {
-    // Une entrée réseau n'est pas fiable : on la RÉDUIT, on ne la convertit pas.
-    const author =
-      typeof params === "object" && params !== null && "author" in params
-        ? params.author
-        : undefined;
-    if (typeof author !== "string" || author.length === 0) return;
-    getRealtimeHub().publish("chat:typing", { author: author.slice(0, 40) });
+  /**
+   * Frappe en cours : un message ÉPHÉMÈRE du salon, ni conservé ni rejoué. Le
+   * seul canal entrant restant — l'auteur est celui de la connexion, pas un
+   * champ du client.
+   */
+  @RealtimeInbound("chat:typing", { authenticated: true })
+  onTyping(): void {
+    const author = this.user?.identifier;
+    if (author === undefined) return;
+    getRealtimeHub().publish(ROOM_CHANNEL, { typing: author });
   }
 }
 

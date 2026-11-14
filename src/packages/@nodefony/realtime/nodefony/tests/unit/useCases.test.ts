@@ -11,17 +11,22 @@ import type { IRealtimeHarness } from "../../testing/index";
 import { createTestIdentity } from "@nodefony/security/testing";
 
 /**
- * Les exemples de `docs/cas-d-usage.md` vivent une seule fois, en fichiers :
+ * Les exemples de `docs/cas-d-usage.md` et du cookbook du chat
+ * (`docs/cookbook-chat.md`) vivent une seule fois, en fichiers :
  * le serveur (`tests/fixtures/use-cases/<cas>.ts`, exécuté), le navigateur
  * (`<cas>.client.ts`, typé) et le test (`tests/unit/use-cases/<cas>.test.ts`,
- * exécuté). Ce fichier compare la page à ces fichiers, pour qu'un exemple
+ * exécuté). Ce fichier compare les pages à ces fichiers, pour qu'un exemple
  * corrigé d'un côté ne diverge pas de l'autre en silence.
  */
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const fixturesDir = path.join(here, "..", "fixtures", "use-cases");
 const testsDir = path.join(here, "use-cases");
-const pagePath = path.join(here, "..", "..", "..", "docs", "cas-d-usage.md");
+const docsDir = path.join(here, "..", "..", "..", "docs");
+/** Les pages qui montrent des exemples exécutés — chacun dans UNE seule. */
+const pagePaths = ["cas-d-usage.md", "cookbook-chat.md"].map((page) =>
+  path.join(docsDir, page),
+);
 
 let open: IRealtimeHarness<RealtimeController>[] = [];
 
@@ -113,10 +118,12 @@ function flatImports(source: string): string {
   );
 }
 
-describe("#726 — la page montre exactement les exemples exécutés", () => {
+describe("#726 — les pages montrent exactement les exemples exécutés", () => {
   // Fins de ligne normalisées : un poste Windows extrait la page en CRLF.
   const lf = (text: string): string => text.replaceAll("\r\n", "\n");
-  const page = lf(readFileSync(pagePath, "utf8"));
+  // Les pages mises bout à bout : un exemple montré dans deux pages y figure
+  // deux fois, et « une fois » échoue.
+  const page = pagePaths.map((p) => lf(readFileSync(p, "utf8"))).join("\n");
   const names: string[] = [];
   const shown = new Map<string, string>();
   // Le formateur pose une ligne vide entre le marqueur et le bloc.
@@ -138,7 +145,7 @@ describe("#726 — la page montre exactement les exemples exécutés", () => {
     (n) => !n.endsWith(".client.ts") && !n.endsWith(".test.ts"),
   );
 
-  it("chaque exemple figure une fois dans la page, et la page n'en montre pas d'autre", () => {
+  it("chaque exemple figure une fois dans les pages, et elles n'en montrent pas d'autre", () => {
     expect(names.sort()).to.deep.equal([...files.keys()].sort());
   });
 
