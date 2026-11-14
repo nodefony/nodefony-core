@@ -447,6 +447,9 @@ footer a {
   text-decoration: none;
   font-weight: 600;
   font-size: 0.95rem;
+  /* Un `<button>` porte une bordure native : remise à zéro, sinon un
+     liseré clair double le bouton plein. `.btn.ghost` pose la sienne. */
+  border: 0;
   border-radius: 10px;
   padding: 11px 22px;
 }
@@ -2184,9 +2187,11 @@ button.msg-chip[aria-pressed="true"] {
   border: 1px solid var(--border);
   border-radius: 12px;
 }
+/* Actif : UN trait, épaissi à 2 px (la bordure plus un filet collé de la
+   même couleur) — jamais un halo écarté qui dessinerait un second cadre. */
 .md-editor:focus-within {
   border-color: var(--cyan);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--cyan) 22%, transparent);
+  box-shadow: 0 0 0 1px var(--cyan);
 }
 .md-editor textarea {
   min-height: 48px;
@@ -2201,13 +2206,12 @@ button.msg-chip[aria-pressed="true"] {
   resize: none;
   field-sizing: content;
 }
+/* L'aperçu prend la place du champ, sans seconde boîte : même marge. */
 .md-preview {
   min-height: 48px;
   max-height: 240px;
   overflow: auto;
-  padding: 6px;
-  border-radius: 8px;
-  background: var(--bg-soft);
+  padding: 6px 6px 2px;
 }
 .md-empty {
   margin: 0;
@@ -2331,10 +2335,12 @@ button.msg-chip[aria-pressed="true"] {
   border-color: var(--border);
   border-bottom-color: var(--card);
 }
+/* Le contour de focus se pose DEDANS : autour d'un onglet ou du panneau, il
+   doublerait leur bord. */
 .md-tabs [role="tab"]:focus-visible,
 .md-preview:focus-visible {
   outline: 2px solid var(--blue);
-  outline-offset: 2px;
+  outline-offset: -3px;
 }
 .md-write {
   display: flex;
