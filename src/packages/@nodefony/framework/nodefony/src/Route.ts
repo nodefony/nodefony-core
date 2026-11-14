@@ -8,6 +8,7 @@ import {
   compileDomainPatterns,
   isDomainAllowed,
 } from "@nodefony/http";
+import type { IRouteUploadOptions } from "@nodefony/http";
 import type { IRoute } from "../interfaces/index.js";
 import type { RouteActionMeta } from "../decorators/routerDecorators.js";
 import { createHash } from "node:crypto";
@@ -228,6 +229,15 @@ export interface RouteOptions {
    * `0` désactive le délai pour la route. Absent = celui du serveur.
    */
   responseTimeout?: number;
+  /**
+   * Bornes d'envoi de CETTE route, à la place de celles de la configuration
+   * http (`upload.*`) — dans les deux sens, clé par clé : un dépôt de vidéos
+   * relève `maxFileSize`, un avatar l'abaisse, et le fichier trop gros reçoit
+   * 413 PENDANT son flux, avant d'avoir rempli le disque. `hashAlgorithm` y
+   * demande l'empreinte de chaque fichier reçu. Entiers ≥ 1 ; une clé absente
+   * garde la valeur de la configuration. Exclu avec `bodyStream: true`.
+   */
+  upload?: IRouteUploadOptions;
 }
 
 export interface RouteRequirements {
@@ -348,6 +358,8 @@ class Route implements IRoute {
    * Cf {@link RouteOptions.responseTimeout}.
    */
   responseTimeout: number | null = null;
+  /** Bornes d'envoi propres à la route. Cf {@link RouteOptions.upload}. */
+  upload: IRouteUploadOptions | null = null;
   /**
    * P2.9 — Cache mémoïsé : l'action attend-elle le **flux brut** du body
    * (`@Body({ stream:true })`) ? `undefined` = pas encore calculé (résolu au 1er
@@ -393,6 +405,7 @@ class Route implements IRoute {
       this.areaRoleExempt = obj.areaRoleExempt ?? false;
       this.fallback = obj.fallback ?? false;
       this.responseTimeout = obj.responseTimeout ?? null;
+      this.upload = obj.upload ?? null;
       this.compile();
     }
     this.generateId();
@@ -751,6 +764,7 @@ class Route implements IRoute {
       areaRoleExempt: this.areaRoleExempt,
       fallback: this.fallback,
       responseTimeout: this.responseTimeout,
+      upload: this.upload,
     };
   }
   setDefaults(arg?: Record<string, unknown>) {

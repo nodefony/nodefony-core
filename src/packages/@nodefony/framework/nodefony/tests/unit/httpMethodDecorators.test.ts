@@ -1,5 +1,6 @@
 import { expect } from "vitest";
 import "reflect-metadata";
+import { z } from "zod";
 import Router from "../../service/router.js";
 import Controller from "../../src/Controller.js";
 import {
@@ -234,6 +235,73 @@ describe("HTTP method decorators — l'option `fallback` atteint la route", () =
         /BadCtrl\.x : « responseTimeout » entier entre 0/,
       );
     }
+  });
+
+  // D55 — même liste blanche : sans sa ligne, `upload` serait jeté et la route
+  // garderait la borne de l'application (500 Mo) sans un mot.
+  it("@Post(path, { upload }) → Route.upload porte les bornes, figées", () => {
+    @controller("/avatars")
+    class AvatarCtrl extends StubCtrl {
+      @Post("/", { upload: { maxFileSize: 262_144, hashAlgorithm: "sha256" } })
+      send() {
+        return null;
+      }
+      @Post("/plain")
+      plain() {
+        return null;
+      }
+    }
+    void AvatarCtrl;
+    const byName = (n: string) => Router.routes.find((r) => r.name === n);
+    const upload = byName("AvatarCtrl::send")?.upload;
+    expect(upload).to.deep.equal({
+      maxFileSize: 262_144,
+      hashAlgorithm: "sha256",
+    });
+    expect(Object.isFrozen(upload)).to.equal(true);
+    expect(byName("AvatarCtrl::plain")?.upload).to.equal(null);
+  });
+
+  it("upload fautif → refusé à la déclaration, l'action et la clé nommées", () => {
+    const cases: Array<[Record<string, unknown>, RegExp]> = [
+      [{ maxFileSize: 0 }, /« maxFileSize » entier ≥ 1/],
+      [{ maxFiles: 1.5 }, /« maxFiles » entier ≥ 1/],
+      [{ maxTotalFileSize: "10" }, /« maxTotalFileSize » entier ≥ 1/],
+      [{ maxFilesize: 10 }, /clé inconnue « maxFilesize »/],
+      [{ uploadDir: "/tmp" }, /clé inconnue « uploadDir »/],
+      [{ hashAlgorithm: "sha512" }, /« hashAlgorithm » vaut false/],
+    ];
+    for (const [bad, message] of cases) {
+      expect(() => {
+        class BadUpload extends StubCtrl {
+          // Le type refuserait ces valeurs : on éprouve le garde d'exécution,
+          // celui d'un appelant JavaScript ou d'une option calculée.
+          @Post("/x", { upload: bad as never })
+          x() {
+            return null;
+          }
+        }
+        void BadUpload;
+      }, JSON.stringify(bad)).toThrow(message);
+    }
+  });
+
+  it("upload avec bodyStream: true → refusé, les deux options nommées", () => {
+    expect(() => {
+      class StreamUpload extends StubCtrl {
+        @Post("/x", {
+          schema: { query: z.object({}) },
+          bodyStream: true,
+          upload: { maxFileSize: 1024 },
+        })
+        x() {
+          return null;
+        }
+      }
+      void StreamUpload;
+    }).toThrow(
+      /StreamUpload\.x : « upload » et « bodyStream: true » s'excluent/,
+    );
   });
 });
 

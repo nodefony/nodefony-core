@@ -123,12 +123,31 @@ class HtmlController extends Controller {
     requirements: { methods: ["POST", "PUT"] },
   })
   upload2() {
-    // console.log(this.files);
-    // console.log({
-    //   result: this.files,
-    //   ...this.context?.metaData,
-    // });
     throw new HttpError(undefined, 400, this.context);
+  }
+
+  /**
+   * Bornes d'envoi PROPRES à la route (option `upload`) : 1 Kio par fichier,
+   * sous la borne de la fixture (1 Mo), et l'empreinte SHA-256 de chaque
+   * fichier — que la configuration ne demande pas.
+   */
+  @route("index-upload-limited", {
+    path: "/upload-limited",
+    requirements: { methods: ["POST"] },
+    upload: { maxFileSize: 1024, hashAlgorithm: "sha256" },
+  })
+  uploadLimited() {
+    return this.renderJson(this.files);
+  }
+
+  /** L'autre sens : 3 Mio par fichier et 4 Mio cumulés, AU-DESSUS de la fixture. */
+  @route("index-upload-raised", {
+    path: "/upload-raised",
+    requirements: { methods: ["POST"] },
+    upload: { maxFileSize: 3_145_728, maxTotalFileSize: 4_194_304 },
+  })
+  uploadRaised() {
+    return this.renderJson(this.files);
   }
 }
 

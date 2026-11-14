@@ -297,6 +297,30 @@ du calque de configuration — une application peut les changer pour une requêt
 sont lus au moment de lire le corps (`Request.readBodyLimits()`), donc un calque posé après ce moment
 (au pare-feu, dans un contrôleur) n'agit pas. Détail : [configuration](../../../../../docs/guides/configuration.md).
 
+### Par route — l'option `upload`
+
+Une route règle ses propres bornes d'envoi, sans toucher à celles des autres : un dépôt de vidéos
+relève `maxFileSize`, un avatar l'abaisse. Chaque clé déclarée remplace celle de la configuration,
+**dans les deux sens** ; une clé absente garde la valeur de la configuration
+(`framework/nodefony/src/Route.ts#RouteOptions.upload`).
+
+```ts ignore
+// un avatar : 256 Kio au plus, un seul fichier, son empreinte calculée pendant le flux
+@Post("/avatar", { upload: { maxFileSize: 262_144, maxFiles: 1, hashAlgorithm: "sha256" } })
+async avatar(@UploadedFile() file: IUploadedFile | undefined) {
+  return { size: file?.size ?? 0, sha256: file?.hash ?? null };
+}
+```
+
+- **Le fichier trop gros est coupé PENDANT son flux** (413) : la route est résolue avant la lecture
+  du corps, ses bornes s'appliquent donc à busboy comme celles de la configuration — jamais un
+  fichier écrit en entier puis refusé (`context/http/Request.ts#HttpRequest.readBodyLimits`).
+- **Une route sans l'option ne paie rien** : aucune fusion, aucune allocation.
+- **Validée à la déclaration** (`framework/nodefony/decorators/routerDecorators.ts#checkedUpload`) :
+  entiers ≥ 1, empreinte connue, aucune clé inconnue — une faute de frappe (`maxFilesize`) laisserait
+  sinon la route sur la borne de l'application. `uploadDir` et `encoding` restent ceux de la
+  configuration. Exclue avec `bodyStream: true`, dont le corps n'est jamais lu par le pipeline.
+
 ### Fichiers multipart — `upload.*`
 
 Table dérivée de `uploadSchema` (`config/config.ts#uploadSchema`). Toutes les bornes sont `runtimeMutable`.
@@ -429,6 +453,7 @@ pipeline : `npm run test:memory` (skill `nodefony-check-memory-health`).
 | `@Body()` est vide sur un upload de fichier             | Les fichiers vont dans `files`, **pas** dans `body`                               | Lire les fichiers avec `@UploadedFiles()` / `this.files` ; `@Body()` = champs texte                                         |
 | Un `POST` JSON de 1,5 Mo est refusé en `413`            | `maxBodySize` vaut **1 MiB** par défaut                                           | Augmenter `maxBodySize` (pas `upload.maxFileSize`)                                                                          |
 | Un gros fichier passe alors que `maxBodySize` est petit | Le multipart **n'écoute pas** `maxBodySize`                                       | Régler `upload.maxFileSize` / `maxTotalFileSize`                                                                            |
+| Un avatar de 2 Go remplit le disque avant d'être refusé | La borne de l'application (500 Mo) vaut pour toutes les routes                    | Option de route `upload: { maxFileSize }` — coupé pendant le flux                                                           |
 | `413` sur upload sans message clair                     | Une borne busboy atteinte en streaming (fichier, cumul, nombre)                   | Vérifier les bornes `upload.*` — 413 émis sur `stream.on("limit")` (`context/http/Request.ts#HttpRequest.enforceBodyLimit`) |
 | Un fichier écrit `../../etc/…` après un `move`          | `move(dossier)` utilise le nom **client** (`upload-service.ts#UploadedFile.move`) | Passer une cible complète, ou `path.basename(file.filename)`                                                                |
 | Des fichiers temporaires s'accumulent dans `uploadDir`  | Le contrôleur ne déplace jamais le temp                                           | Appeler `moveAsync()` (ou purger l'ancien temp par TTL)                                                                     |
@@ -441,14 +466,15 @@ pipeline : `npm run test:memory` (skill `nodefony-check-memory-health`).
 Les chiffres exacts vivent dans la carte de tests de cette page (régénérée depuis vitest, jamais figés
 dans le Markdown).
 
-| Type                        | Où                                                                                                                  |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Unitaires — `UploadedFile`  | `unit/UploadedFile.test.ts` — `create()` async, `move`/`moveAsync`, `mimeType`, `realName`                          |
-| Unitaires — `@Body` stream  | `framework` `unit/BodyStream.test.ts` — `@Body({ stream })`, `resolveParamArg`, `routeExpectsBodyStream`            |
-| Intégration — multipart     | `http/upload.test.ts` — upload simple, multi-fichiers, mime non-octet, champ + fichier, `413` par fichier et cumulé |
-| Intégration — content-types | `http/body-content-types.test.ts` — JSON, urlencoded, `@Body("champ")`, XML → `body`                                |
-| Intégration — bornes        | `http/body-limit.test.ts` — sous la limite `200`, `Content-Length` > 1 MiB → `413`, chunked > 1 MiB refusé          |
-| Intégration — flux brut     | `integration/bodyStream.test.ts` — `@Body({ stream })` bout-en-bout (TLS + clair), non-régression `@Body()`         |
+| Type                        | Où                                                                                                                                                                                                            |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unitaires — `UploadedFile`  | `unit/UploadedFile.test.ts` — `create()` async, `move`/`moveAsync`, `mimeType`, `realName`                                                                                                                    |
+| Unitaires — `@Body` stream  | `framework` `unit/BodyStream.test.ts` — `@Body({ stream })`, `resolveParamArg`, `routeExpectsBodyStream`                                                                                                      |
+| Intégration — multipart     | `http/upload.test.ts` — upload simple, multi-fichiers, mime non-octet, champ + fichier, `413` par fichier et cumulé ; bornes et empreinte PAR ROUTE (abaissée, relevée), aucun temporaire laissé par un refus |
+| Unitaires — option `upload` | `framework` `unit/httpMethodDecorators.test.ts` — portée jusqu'à la route, figée ; refus à la déclaration                                                                                                     |
+| Intégration — content-types | `http/body-content-types.test.ts` — JSON, urlencoded, `@Body("champ")`, XML → `body`                                                                                                                          |
+| Intégration — bornes        | `http/body-limit.test.ts` — sous la limite `200`, `Content-Length` > 1 MiB → `413`, chunked > 1 MiB refusé                                                                                                    |
+| Intégration — flux brut     | `integration/bodyStream.test.ts` — `@Body({ stream })` bout-en-bout (TLS + clair), non-régression `@Body()`                                                                                                   |
 
 Ce qui **manque** aujourd'hui : pas de banc de **charge** dédié à l'upload (le streaming multipart n'est
 exercé que fonctionnellement), pas de test **d'attaque** (`*.attack.test.ts`) sur le path traversal de

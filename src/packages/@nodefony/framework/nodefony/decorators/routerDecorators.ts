@@ -23,7 +23,11 @@ import type {
   RawRouteInput,
   RouteInput,
 } from "../src/routeSchema";
-import type { HTTPMethod, SessionIntent } from "@nodefony/http";
+import type {
+  HTTPMethod,
+  IRouteUploadOptions,
+  SessionIntent,
+} from "@nodefony/http";
 
 // Idiome TS officiel des mixins de constructeur — `any[]` requis (un `unknown[]`
 // casse l'`extends constructor` du mixin `controllers`). Pas de la dette.
@@ -384,6 +388,95 @@ function checkedResponseTimeout(
   return value;
 }
 
+/** Les bornes d'envoi chiffrées qu'une route peut régler pour elle-même. */
+const UPLOAD_LIMIT_KEYS: ReadonlySet<string> = new Set([
+  "maxFileSize",
+  "maxTotalFileSize",
+  "maxFiles",
+  "maxFields",
+  "maxFieldsSize",
+]);
+
+type UploadLimitKey = Exclude<keyof IRouteUploadOptions, "hashAlgorithm">;
+
+function isUploadLimitKey(key: string): key is UploadLimitKey {
+  return UPLOAD_LIMIT_KEYS.has(key);
+}
+
+/** Les empreintes que le flux d'envoi sait calculer. */
+function isUploadHash(
+  value: unknown,
+): value is IRouteUploadOptions["hashAlgorithm"] {
+  return (
+    value === false || value === "sha1" || value === "md5" || value === "sha256"
+  );
+}
+
+/**
+ * Valide l'option de route `upload` À LA DÉCLARATION : des entiers ≥ 1 pour
+ * les bornes, une empreinte connue, aucune clé inconnue. Une faute de frappe
+ * (`maxFilesize`) laisserait sinon la route sur la borne de l'application —
+ * 500 Mo par défaut — sans que rien ne le dise.
+ *
+ * @param value - l'option telle que déclarée (absente = celles de la config).
+ * @param bodyStream - la route laisse son corps en flux : ses bornes ne
+ *   s'appliqueraient jamais, la déclaration est contradictoire.
+ * @param className - classe du contrôleur, nommée dans l'erreur.
+ * @param method - action, nommée dans l'erreur.
+ * @returns les bornes validées, figées, sans clé `undefined` (la fusion sur
+ *   la configuration ne doit rien écraser par du vide), ou `undefined`.
+ * @throws BootConfigurationError qui nomme l'action et la clé fautive.
+ */
+function checkedUpload(
+  value: IRouteUploadOptions | undefined,
+  bodyStream: boolean,
+  className: string,
+  method: string,
+): IRouteUploadOptions | undefined {
+  if (value === undefined) return undefined;
+  const where = `${className}.${method} : « upload »`;
+  if (bodyStream) {
+    throw new BootConfigurationError(
+      `${where} et « bodyStream: true » s'excluent — un corps laissé en flux ` +
+        `n'est jamais lu par le pipeline, ses bornes ne s'appliqueraient pas.`,
+    );
+  }
+  const checked: {
+    -readonly [K in keyof IRouteUploadOptions]: IRouteUploadOptions[K];
+  } = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (entry === undefined) continue;
+    if (key === "hashAlgorithm") {
+      if (!isUploadHash(entry)) {
+        throw new BootConfigurationError(
+          `${where} : « hashAlgorithm » vaut false, "sha1", "md5" ou "sha256" ` +
+            `(reçu ${String(entry)}).`,
+        );
+      }
+      checked.hashAlgorithm = entry;
+      continue;
+    }
+    if (!isUploadLimitKey(key)) {
+      throw new BootConfigurationError(
+        `${where} : clé inconnue « ${key} » — une route règle ` +
+          `${[...UPLOAD_LIMIT_KEYS].join(", ")} et hashAlgorithm ; le dossier ` +
+          `et l'encodage restent ceux de la configuration.`,
+      );
+    }
+    if (
+      typeof entry !== "number" ||
+      !Number.isSafeInteger(entry) ||
+      entry < 1
+    ) {
+      throw new BootConfigurationError(
+        `${where} : « ${key} » entier ≥ 1 attendu (reçu ${String(entry)}).`,
+      );
+    }
+    checked[key] = entry;
+  }
+  return Object.freeze(checked);
+}
+
 /** L'implémentation de {@link route}, sans les surcharges de typage. */
 function defineRoute(
   name: string,
@@ -469,6 +562,12 @@ function defineRoute(
       fallback: options.fallback,
       responseTimeout: checkedResponseTimeout(
         options.responseTimeout,
+        className,
+        propertyKey,
+      ),
+      upload: checkedUpload(
+        options.upload,
+        options.bodyStream === true,
         className,
         propertyKey,
       ),

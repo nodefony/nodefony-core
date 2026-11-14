@@ -555,6 +555,10 @@ exportAll(): unknown {
 }
 ```
 
+Les bornes d'envoi suivent le même modèle : `upload: { maxFileSize, maxFiles, hashAlgorithm, … }`
+(`Route.ts#RouteOptions.upload`) remplace, pour la seule route, celles de la configuration http —
+le fichier trop gros reçoit 413 pendant son flux. Détail : [Upload](../../http/docs/upload.md#par-route--loption-upload).
+
 C'est un délai d'**inactivité** : une action qui envoie au fil de l'eau (flux, SSE) n'est pas
 coupée. Entier de `0` à 2³¹−1 ms, vérifié à la déclaration ; `0` désactive le délai pour la route.
 Le 408 reste réservé à une requête que le serveur n'a pas **reçue** à temps (`requestTimeout`,

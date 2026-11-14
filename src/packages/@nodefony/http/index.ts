@@ -474,6 +474,7 @@ export type {
   IUploadService,
   IParsedUploadFile,
   IUploadOptions,
+  IRouteUploadOptions,
 } from "./nodefony/interfaces/IUpload";
 export type {
   IErrorRenderer,

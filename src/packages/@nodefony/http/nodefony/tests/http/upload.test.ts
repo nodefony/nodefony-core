@@ -337,4 +337,61 @@ describe("File Upload Tests", () => {
     ]);
     expect(statusCode).to.equal(413);
   });
+
+  // ── D55 : bornes d'envoi PROPRES à une route (option de route `upload`) ─────
+
+  const file = (name: string, content: Buffer) => ({
+    field: "file",
+    filename: name,
+    contentType: "application/octet-stream",
+    content,
+  });
+
+  it("🔴 une route ABAISSE la borne : 2 Kio refusés en 413, sous celle de la fixture (1 Mo)", async () => {
+    const snap = await snapshotUploadDirs();
+    const { statusCode } = await postParts(
+      "/nodefony/test/html/upload-limited",
+      [file("deux-kio.bin", Buffer.alloc(2048, 0x63))],
+    );
+    expect(statusCode).to.equal(413);
+    // Témoin : les mêmes octets passent sur la route sans bornes propres.
+    const witness = await postParts("/nodefony/test/html/upload", [
+      file("deux-kio.bin", Buffer.alloc(2048, 0x63)),
+    ]);
+    expect(witness.statusCode).to.equal(200);
+    expect(await settled(snap)).to.deep.equal([]);
+  });
+
+  it("🔴 une route demande l'EMPREINTE que la configuration ne calcule pas", async () => {
+    const content = Buffer.from("bonjour nodefony\n");
+    const { statusCode, body } = await postParts(
+      "/nodefony/test/html/upload-limited",
+      [file("hello.txt", content)],
+    );
+    expect(statusCode).to.equal(200);
+    const [sent] = body as Array<Record<string, unknown>>;
+    const { createHash } = await import("node:crypto");
+    expect(sent).to.include({
+      hashAlgorithm: "sha256",
+      hash: createHash("sha256").update(content).digest("hex"),
+    });
+    // Témoin : sans l'option, aucune empreinte.
+    const witness = await postParts("/nodefony/test/html/upload", [
+      file("hello.txt", content),
+    ]);
+    const [plain] = witness.body as Array<Record<string, unknown>>;
+    expect(plain?.["hashAlgorithm"]).to.not.equal("sha256");
+  });
+
+  it("🔴 une route RELÈVE la borne : 2 Mo acceptés là où la fixture (1 Mo) refuse", async () => {
+    const big = Buffer.alloc(2 * 1024 * 1024, 0x64);
+    const { statusCode, body } = await postParts(
+      "/nodefony/test/html/upload-raised",
+      [file("deux-mo.bin", big)],
+    );
+    expect(statusCode).to.equal(200);
+    expect((body as Array<Record<string, unknown>>)[0]).to.include({
+      size: big.length,
+    });
+  });
 });

@@ -476,6 +476,27 @@ class HttpRequest {
   }
 
   /**
+   * Lit le plafond du corps et les limites d'envoi tels que les voit CETTE
+   * requête : la configuration http, surchargée par le calque que la requête a
+   * pu poser avant la lecture du corps (`overlayConfig`, #494), puis par les
+   * bornes que la route déclare pour elle-même (option de route `upload`). La
+   * route est déjà résolue à ce moment : une route sans bornes propres
+   * n'alloue rien. Hors pipeline (aucun scope ouvert), la configuration du
+   * module telle quelle.
+   */
+  private readBodyLimits(): void {
+    const options =
+      RequestContext.getScope() !== undefined
+        ? (useConfig("@nodefony/http") as IHttpBodyLimits)
+        : (this.context.httpKernel?.module.options as
+            IHttpBodyLimits | undefined);
+    const base = options?.upload ?? {};
+    const route = this.context.resolver?.route?.upload;
+    this.uploadOption = route ? { ...base, ...route } : base;
+    this.maxBodySize = options?.maxBodySize ?? 0;
+  }
+
+  /**
    * B1 — Pré-contrôle de taille du corps via l'en-tête `Content-Length` :
    * rejette en 413 (RFC 9110 §15.5.14 « Content Too Large ») AVANT toute lecture
    * quand le client annonce une taille supérieure à `maxBodySize`. Rideau de
@@ -484,22 +505,6 @@ class HttpRequest {
    *
    * @throws {HttpError} 413 si `Content-Length` dépasse `maxBodySize`.
    */
-  /**
-   * Lit le plafond du corps et les limites d'envoi tels que les voit CETTE
-   * requête : la configuration http, surchargée par le calque que la requête a
-   * pu poser avant la lecture du corps (`overlayConfig`, #494). Hors pipeline
-   * (aucun scope ouvert), la configuration du module telle quelle.
-   */
-  private readBodyLimits(): void {
-    const options =
-      RequestContext.getScope() !== undefined
-        ? (useConfig("@nodefony/http") as IHttpBodyLimits)
-        : (this.context.httpKernel?.module.options as
-            IHttpBodyLimits | undefined);
-    this.uploadOption = options?.upload ?? {};
-    this.maxBodySize = options?.maxBodySize ?? 0;
-  }
-
   private enforceBodyLimit(): void {
     const max = this.maxBodySize;
     if (max <= 0) {

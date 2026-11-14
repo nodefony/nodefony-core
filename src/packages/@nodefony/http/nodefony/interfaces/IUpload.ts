@@ -47,6 +47,34 @@ export interface IUploadOptions {
 }
 
 /**
+ * Les bornes d'envoi qu'une ROUTE règle pour elle-même (option de route
+ * `upload`). Chaque clé déclarée remplace celle de la configuration http,
+ * dans les deux sens : un dépôt de vidéos relève `maxFileSize` sans le
+ * relever pour les autres routes, un avatar l'abaisse à quelques centaines de
+ * kilo-octets — et le fichier trop gros est coupé PENDANT le flux, avant
+ * d'avoir rempli le disque. Une clé absente garde la valeur de la
+ * configuration.
+ *
+ * Lues au moment de lire le corps, quand la route est déjà résolue : une route
+ * qui ne déclare rien ne paie rien. Le dossier de dépôt et l'encodage restent
+ * ceux de la configuration.
+ */
+export interface IRouteUploadOptions {
+  /** Taille max d'UN fichier (octets). */
+  readonly maxFileSize?: number | undefined;
+  /** Taille max CUMULÉE des fichiers de la requête (octets). */
+  readonly maxTotalFileSize?: number | undefined;
+  /** Nombre max de fichiers. */
+  readonly maxFiles?: number | undefined;
+  /** Nombre max de champs texte. */
+  readonly maxFields?: number | undefined;
+  /** Taille max d'un champ texte (octets). */
+  readonly maxFieldsSize?: number | undefined;
+  /** Empreinte calculée pendant le flux (`false` = aucune). */
+  readonly hashAlgorithm?: false | "sha1" | "md5" | "sha256" | undefined;
+}
+
+/**
  * Un fichier reçu dans un corps multipart, déjà écrit dans le dossier
  * d'upload sous un nom temporaire.
  *

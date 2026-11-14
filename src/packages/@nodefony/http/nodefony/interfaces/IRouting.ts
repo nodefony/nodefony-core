@@ -1,5 +1,6 @@
 import type { MaybePromise } from "nodefony";
 import type { ContextType } from "../service/http-kernel";
+import type { IRouteUploadOptions } from "./IUpload";
 
 /**
  * Ce que le pipeline HTTP/WS lit d'une route résolue — et rien de plus.
@@ -33,6 +34,12 @@ export interface IResolvedRoute {
    * serveur. Ré-armé par `HttpContext.handle` une fois la route résolue.
    */
   readonly responseTimeout?: number | null | undefined;
+  /**
+   * Bornes d'envoi propres à la route (option `upload`), fusionnées sur celles
+   * de la configuration à la lecture du corps ; `null` ou absent = celles de
+   * la configuration.
+   */
+  readonly upload?: IRouteUploadOptions | null | undefined;
 }
 
 /**

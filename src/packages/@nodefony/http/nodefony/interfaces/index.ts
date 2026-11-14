@@ -22,6 +22,7 @@ export type {
   IUploadService,
   IParsedUploadFile,
   IUploadOptions,
+  IRouteUploadOptions,
 } from "./IUpload";
 
 export type {
