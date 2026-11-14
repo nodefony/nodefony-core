@@ -86,3 +86,26 @@ export function fillRoutePath(template: string, params: unknown): string {
     return encodeURIComponent(text);
   });
 }
+
+/**
+ * Une route sert-elle ce VERBE par le pont socket (`api.request`) ? La règle UNIQUE, lue par le routeur à chaque appel et par la vérification des contrats au démarrage.
+ *
+ * Le transport `WEBSOCKET` est exigé (une route HTTP seule ne se ponte pas),
+ * et le verbe LOGIQUE aussi : un `GET` par la socket n'atteint jamais une action
+ * `POST` du même chemin — sans quoi il en contournerait la porte `@Idempotent`,
+ * qui ne garde que les mutations. Seule tolérance : une route qui ne déclare
+ * QUE `WEBSOCKET` sert un `GET` (forme historique du pont, lecture d'état).
+ *
+ * @param methods - les méthodes déclarées par la route, en MAJUSCULES ;
+ *   `undefined` si elle n'en déclare aucune (tous les verbes HTTP, jamais la socket).
+ * @param verb - le verbe logique demandé (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`).
+ * @returns `true` si le pont peut servir ce verbe par cette route.
+ */
+export function bridgeServesVerb(
+  methods: ReadonlySet<string> | undefined,
+  verb: string,
+): boolean {
+  if (methods === undefined || !methods.has("WEBSOCKET")) return false;
+  if (methods.has(verb)) return true;
+  return verb === "GET" && methods.size === 1;
+}

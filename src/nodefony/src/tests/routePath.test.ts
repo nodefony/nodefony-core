@@ -5,6 +5,7 @@
  */
 import { describe, it, expect } from "vitest";
 import {
+  bridgeServesVerb,
   fillRoutePath,
   isSimpleRouteTemplate,
   routePathParams,
@@ -64,5 +65,22 @@ describe("routePath — gabarit d'un chemin de route", () => {
     expect(routePathParams(hostile)).toEqual([]);
     expect(fillRoutePath(hostile, {})).toBe(hostile);
     expect(performance.now() - start).toBeLessThan(100);
+  });
+
+  it("🔴 bridgeServesVerb : le pont exige le transport ET le verbe ; un GET n'emprunte jamais une route POST", () => {
+    const ws = (...m: string[]) => new Set(["WEBSOCKET", ...m]);
+    // Le verbe déclaré, avec le transport.
+    expect(bridgeServesVerb(ws("POST"), "POST")).toBe(true);
+    expect(bridgeServesVerb(ws("GET", "DELETE"), "DELETE")).toBe(true);
+    expect(bridgeServesVerb(ws("GET"), "GET")).toBe(true);
+    // Le bug : un GET par la socket atteignait l'action POST du même chemin.
+    expect(bridgeServesVerb(ws("POST"), "GET")).toBe(false);
+    expect(bridgeServesVerb(ws("GET"), "POST")).toBe(false);
+    // La forme historique : le transport seul sert une LECTURE, jamais une mutation.
+    expect(bridgeServesVerb(ws(), "GET")).toBe(true);
+    expect(bridgeServesVerb(ws(), "POST")).toBe(false);
+    // Sans transport, ou sans méthode déclarée : jamais par la socket.
+    expect(bridgeServesVerb(new Set(["GET", "POST"]), "GET")).toBe(false);
+    expect(bridgeServesVerb(undefined, "GET")).toBe(false);
   });
 });

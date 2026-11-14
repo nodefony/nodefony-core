@@ -39,7 +39,26 @@ const mounted: IMountedBridgeRoute[] = [
     methods: new Set(["GET", "WEBSOCKET"]),
     schema: { query: HistoryQuery },
   },
-  { path: "/chat/rooms", methods: undefined, schema: null },
+  {
+    path: "/chat/rooms",
+    methods: new Set(["GET", "DELETE", "WEBSOCKET"]),
+    schema: null,
+  },
+  // Deux routes sur UN chemin : l'invitation (POST, corps validé) puis la liste.
+  {
+    path: "/chat/members",
+    methods: new Set(["POST", "WEBSOCKET"]),
+    schema: { body: SendBody },
+  },
+  {
+    path: "/chat/members",
+    methods: new Set(["GET", "WEBSOCKET"]),
+    schema: null,
+  },
+  // La forme historique du pont : le transport seul.
+  { path: "/chat/state", methods: new Set(["WEBSOCKET"]), schema: null },
+  // Aucune méthode déclarée : tous les verbes HTTP, jamais la socket.
+  { path: "/chat/any", methods: undefined, schema: null },
   { path: "/chat/http-only", methods: new Set(["POST"]), schema: null },
   {
     path: "/chat/messages/{id}",
@@ -75,6 +94,26 @@ describe("contrat de routes — contrôle au démarrage", () => {
   it("refuse une entrée sans route, en nommant la classe et l'entrée", () => {
     expect(failure({ "POST /chat/absent": {} })).to.match(
       /ChatRt\.serverRoutes « POST \/chat\/absent ».*aucune route montée/,
+    );
+  });
+
+  it("🔴 GET et POST sur un même chemin : le GET trouve SA route, jamais celle du POST", () => {
+    expect(
+      failure({
+        "GET /chat/members": {},
+        "POST /chat/members": { body: SendBody },
+      }),
+    ).to.equal(null);
+  });
+
+  it("une route WEBSOCKET seule sert un GET (forme historique), pas une mutation", () => {
+    expect(failure({ "GET /chat/state": {} })).to.equal(null);
+    expect(failure({ "POST /chat/state": {} })).to.match(/ne sert pas POST/);
+  });
+
+  it("🔴 une route sans méthode déclarée ne sert PAS le pont — le routeur la refuse au WebSocket", () => {
+    expect(failure({ "GET /chat/any": {} })).to.match(
+      /ne sert pas GET par la socket.*"GET" et "WEBSOCKET".*WEBSOCKET » seul/,
     );
   });
 

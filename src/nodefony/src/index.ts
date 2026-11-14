@@ -889,6 +889,7 @@ export {
 // hors du routeur ; isomorphe (aussi dans `nodefony/client`).
 export {
   routePathParams,
+  bridgeServesVerb,
   isSimpleRouteTemplate,
   fillRoutePath,
 } from "./runtime/routePath";

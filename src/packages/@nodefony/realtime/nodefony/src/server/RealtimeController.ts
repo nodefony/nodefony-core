@@ -1821,13 +1821,10 @@ export abstract class RealtimeController<
         frame?.phaseStart("resolve");
         let resolver: ReturnType<typeof router.resolve>;
         try {
-          // GET → resolve historique (le transport WEBSOCKET matche `context.method`).
-          // Mutation → `methodOverride` (méthode logique) exigé en plus du transport.
-          resolver = router.resolve(
-            ctx,
-            pathname,
-            method === "GET" ? undefined : method,
-          );
+          // La méthode LOGIQUE est toujours transmise, GET compris : sans elle,
+          // un GET atteignait la première route WEBSOCKET du chemin — une
+          // action POST voisine aussi, porte `@Idempotent` contournée.
+          resolver = router.resolve(ctx, pathname, method);
         } finally {
           frame?.phaseEnd("resolve");
         }

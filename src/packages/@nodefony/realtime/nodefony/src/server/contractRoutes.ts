@@ -1,4 +1,8 @@
-import { BootConfigurationError, isSimpleRouteTemplate } from "nodefony";
+import {
+  BootConfigurationError,
+  bridgeServesVerb,
+  isSimpleRouteTemplate,
+} from "nodefony";
 import type { BridgeVerb } from "nodefony";
 import { isRecord } from "../guards";
 
@@ -9,7 +13,7 @@ import { isRecord } from "../guards";
 export interface IMountedBridgeRoute {
   /** Chemin complet, préfixe du contrôleur compris (`/chat/send`). */
   readonly path: string;
-  /** Méthodes acceptées, en capitales ; `undefined` = toutes. */
+  /** Méthodes acceptées, en capitales ; `undefined` = aucune déclarée (tous les verbes HTTP, jamais la socket). */
   readonly methods: ReadonlySet<string> | undefined;
   /** Schémas d'entrée de l'action (`schema` de la route), ou `null`. */
   readonly schema: {
@@ -33,20 +37,6 @@ function normalizePath(path: string): string {
   let end = path.length;
   while (end > 1 && path.charCodeAt(end - 1) === 47 /* "/" */) end--;
   return end === path.length ? path : path.slice(0, end);
-}
-
-/**
- * La route sert-elle CE verbe par le pont ? Le pont résout sur le transport
- * `WEBSOCKET` ; une écriture exige EN PLUS sa méthode logique
- * (`Router.resolve`, `methodOverride`).
- */
-function servesByBridge(
-  methods: ReadonlySet<string> | undefined,
-  verb: string,
-): boolean {
-  if (methods === undefined) return true;
-  if (!methods.has("WEBSOCKET")) return false;
-  return verb === "GET" || methods.has(verb);
 }
 
 /**
@@ -135,11 +125,14 @@ export function assertContractRoutes(
         `${where} : aucune route montée au chemin ${path}.`,
       );
     }
-    const route = atPath.find((r) => servesByBridge(r.methods, verb));
+    // La règle même du routeur (`bridgeServesVerb`, au cœur) : ce que le
+    // démarrage accepte, le pont le sert — jamais une seconde lecture.
+    const route = atPath.find((r) => bridgeServesVerb(r.methods, verb));
     if (route === undefined) {
       throw new BootConfigurationError(
         `${where} : la route ${path} ne sert pas ${verb} par la socket — ` +
-          `ses méthodes doivent inclure ${verb === "GET" ? "" : `"${verb}" et `}"WEBSOCKET".`,
+          `ses méthodes doivent inclure "${verb}" et "WEBSOCKET"` +
+          `${verb === "GET" ? " (ou « WEBSOCKET » seul)" : ""}.`,
       );
     }
     for (const part of ROUTE_PARTS) {

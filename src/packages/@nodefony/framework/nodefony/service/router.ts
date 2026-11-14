@@ -324,10 +324,11 @@ class Router extends Service implements IRequestRouter {
    *   lieu de `context.request.url` — permet de router un path **porté par un message**
    *   (WS-RPC `invoke`) vers une action, sans muter l'URL de la connexion (état partagé).
    *   `undefined` (cas hot path normal) → comportement inchangé.
-   * @param methodOverride - méthode HTTP **logique** à exiger en plus du transport
-   *   WEBSOCKET (pont WS-RPC `api.request` d'une MUTATION) : lève l'ambiguïté
-   *   GET-via-WS / POST-via-WS sur un même chemin (`context.method` = "WEBSOCKET").
-   *   `undefined` (GET/HTTP) → match historique sur `context.method`.
+   * @param methodOverride - méthode HTTP **logique** du pont WS-RPC `api.request`,
+   *   GET compris, exigée en plus du transport WEBSOCKET par la règle du cœur
+   *   `bridgeServesVerb` : un GET n'atteint jamais une action POST du même
+   *   chemin. `undefined` (requête HTTP, ouverture de socket) → match sur
+   *   `context.method`.
    * @returns un `Resolver` (`.resolve === true` si une route a matché) — ou,
    *   pour un chemin servi en WebSocket SEULEMENT et demandé en HTTP, un
    *   `Resolver` dont `exception` porte le `426` (en-têtes `Upgrade` posés) :
@@ -424,8 +425,17 @@ class Router extends Service implements IRequestRouter {
           return resolver;
         }
       } catch (e) {
-        this.log(`Match route exception : ${route.name} ${String(e)}`, "DEBUG");
-        resolver.exception = e as Error;
+        // Un refus (méthode d'une route voisine du même chemin…) est le cas
+        // COURANT d'une table REST : la chaîne du journal ne se construit pas
+        // en production — même garde que le journal de match ci-dessus.
+        routeMatchLogged ??= this.kernel?.environment !== "production";
+        if (routeMatchLogged) {
+          this.log(
+            `Match route exception : ${route.name} ${String(e)}`,
+            "DEBUG",
+          );
+        }
+        resolver.exception = e instanceof Error ? e : new Error(String(e));
         continue;
       }
     }

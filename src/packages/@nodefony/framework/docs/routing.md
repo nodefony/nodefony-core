@@ -457,11 +457,14 @@ que fait le data plane d'administration pour toutes ses lectures (`AdminBroker.m
   (RFC 9110 §10.2.1), elle est retirée de l'agrégat. Un chemin qui n'existe qu'en WebSocket, appelé
   en HTTP, répond `426 Upgrade Required` avec `Upgrade: websocket` plutôt qu'un 405
   (`routing-nonregression.test.ts`).
-- **Une invocation WS d'une mutation doit dire quelle méthode logique elle vise.** Sur une socket,
+- **Une invocation WS dit toujours quelle méthode logique elle vise, GET compris.** Sur une socket,
   `context.method` vaut toujours `WEBSOCKET` : insuffisant pour distinguer un GET d'un POST sur le même
   chemin. Le pont transporte donc une **méthode logique** (`methodOverride`, `Resolver.ts#Resolver.methodOverride`) que la
   route doit déclarer **en plus** du transport — une route `POST` qui n'annonce pas `WEBSOCKET` reste
-  **injoignable** par socket (zéro contournement, `Route.ts#Route.matchRequirements`).
+  **injoignable** par socket, et un GET n'atteint jamais l'action POST voisine (qui contournerait sa
+  porte `@Idempotent`). Seule tolérance : une route qui ne déclare QUE `WEBSOCKET` sert un GET. La
+  règle est UNIQUE, au cœur (`routePath.ts#bridgeServesVerb`) : le routeur
+  (`Route.ts#Route.matchRequirements`) et la vérification des contrats au démarrage l'appellent tous deux.
 
 Le routage par **message** (invoquer un chemin porté par une frame, sans toucher l'URL de la connexion)
 passe par le même `resolve()`, avec un chemin fourni en argument — l'état partagé de la socket n'est

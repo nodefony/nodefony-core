@@ -11,7 +11,12 @@ import {
 import type { IRoute } from "../interfaces/index.js";
 import type { RouteActionMeta } from "../decorators/routerDecorators.js";
 import { createHash } from "node:crypto";
-import { typeOf, stripTrailingSlashes, escapeRegExp } from "nodefony";
+import {
+  bridgeServesVerb,
+  typeOf,
+  stripTrailingSlashes,
+  escapeRegExp,
+} from "nodefony";
 import Controller from "./Controller";
 import type { ControllerScope } from "./Controller";
 
@@ -266,6 +271,30 @@ function withDeclaredMethod(
 /** Canal chiffré : `https` (HTTP) ou `wss` (WebSocket). */
 function isSecureScheme(scheme: SchemeType): boolean {
   return scheme === "https" || scheme === "wss";
+}
+
+/**
+ * Un refus de route (méthode, domaine, schéma, protocole) SANS pile : c'est un
+ * verdict que le routeur RATTRAPE pour essayer la route suivante — deux routes
+ * sur un même chemin (`GET` et `POST /x`) le lèvent à chaque requête qui
+ * croise la voisine. La pile, toujours la même, coûterait ~3,6 µs par refus
+ * (`micro-error-path.mjs`) pour ne rien dire de la requête.
+ *
+ * @param message - le motif lisible.
+ * @param code - statut HTTP (ou code de fermeture WebSocket).
+ * @param type - la famille du refus (`method`, `domain`, `scheme`, `protocol`).
+ * @param allow - les méthodes servies, pour l'en-tête `Allow` d'un 405.
+ */
+function routeRefusal(
+  message: string,
+  code: number,
+  type: string,
+  allow?: string,
+): HttpError {
+  const error = HttpError.withoutStack(message, code);
+  error.type = type;
+  if (allow !== undefined) error.allow = allow;
+  return error;
 }
 
 class Route implements IRoute {
@@ -786,12 +815,11 @@ class Route implements IRoute {
       }
       // Le serveur sert ce domaine (passé la barrière trustedHosts kernel), mais
       // cette route est restreinte à un autre vhost → 403 Forbidden (RFC 9110).
-      const error = new HttpError(
+      throw routeRefusal(
         `Domain ${context.domain} Forbidden for this route`,
+        403,
+        "domain",
       );
-      error.code = 403;
-      error.type = "domain";
-      throw error;
     }
     return true;
   }
@@ -850,13 +878,12 @@ class Route implements IRoute {
       this.requirements.methods === undefined &&
       (methodOverride !== undefined || context.method === "WEBSOCKET")
     ) {
-      const error = new HttpError(
+      throw routeRefusal(
         `Method ${methodOverride ?? "WEBSOCKET"} Not Allowed`,
+        405,
+        "method",
+        "",
       );
-      error.code = 405;
-      error.type = "method";
-      error.allow = "";
-      throw error;
     }
     if (this.hasRequirements()) {
       for (const i in this.requirements) {
@@ -870,36 +897,30 @@ class Route implements IRoute {
                 `Bad config route method : ${String(this.requirements.methods)}`,
               );
             }
-            // Pont WS-RPC `api.request` d'une MUTATION : `context.method` vaut
-            // toujours "WEBSOCKET" (le transport) → insuffisant pour distinguer
-            // GET-via-WS de POST-via-WS sur un MÊME chemin. `methodOverride` (la
-            // méthode HTTP LOGIQUE demandée par le pont) lève l'ambiguïté : la
-            // route doit déclarer À LA FOIS le transport WEBSOCKET (pontable,
-            // zéro bypass) ET la méthode logique voulue. Le chemin HTTP/GET
-            // normal (override absent) garde le comportement historique.
+            // Pont WS-RPC `api.request` : `context.method` vaut toujours
+            // "WEBSOCKET" (le transport) → insuffisant pour distinguer GET-via-WS
+            // de POST-via-WS sur un MÊME chemin. `methodOverride` (la méthode
+            // LOGIQUE, toujours posée par le pont, GET compris) lève l'ambiguïté
+            // par la règle UNIQUE du cœur (`bridgeServesVerb`), que la
+            // vérification des contrats applique aussi au démarrage.
             if (methodOverride !== undefined) {
-              if (
-                !this.methodsSet.has("WEBSOCKET") ||
-                !this.methodsSet.has(methodOverride)
-              ) {
-                const error = new HttpError(
+              if (!bridgeServesVerb(this.methodsSet, methodOverride)) {
+                throw routeRefusal(
                   `Method ${methodOverride} Not Allowed`,
+                  405,
+                  "method",
+                  this.methodsAllow ?? "",
                 );
-                error.code = 405;
-                error.type = "method";
-                error.allow = this.methodsAllow ?? "";
-                throw error;
               }
               break;
             }
             if (!this.methodsSet.has(context.method as string)) {
-              const error = new HttpError(
+              throw routeRefusal(
                 `Method ${context.method} Not Allowed`,
+                405,
+                "method",
+                this.methodsAllow ?? "",
               );
-              error.code = 405;
-              error.type = "method";
-              error.allow = this.methodsAllow ?? "";
-              throw error;
             }
             break;
           case "scheme": {
@@ -913,12 +934,11 @@ class Route implements IRoute {
               required !== undefined &&
               isSecureScheme(required) !== isSecureScheme(context.scheme)
             ) {
-              const error = new HttpError(
+              throw routeRefusal(
                 `Scheme ${context.scheme} Forbidden for this route : ${required} required`,
+                403,
+                "scheme",
               );
-              error.code = 403;
-              error.type = "scheme";
-              throw error;
             }
             break;
           }
@@ -938,20 +958,18 @@ class Route implements IRoute {
                 if (
                   (context as WebsocketContext).acceptedProtocol !== requirement
                 ) {
-                  const error = new HttpError(
+                  throw routeRefusal(
                     `Protocol ${(context as WebsocketContext).acceptedProtocol} Not Supported`,
+                    1002,
+                    "protocol",
                   );
-                  error.code = 1002;
-                  error.type = "protocol";
-                  throw error;
                 }
               } else {
-                const error = new HttpError(
+                throw routeRefusal(
                   `Protocol ${(context as WebsocketContext).acceptedProtocol} Not Supported`,
+                  1002,
+                  "protocol",
                 );
-                error.code = 1002;
-                error.type = "protocol";
-                throw error;
               }
             }
             break;

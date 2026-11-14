@@ -53,6 +53,8 @@ type RouterMode =
   | "detached"
   | "queryProbe";
 let routerMode: RouterMode = "ok";
+/** La méthode LOGIQUE que le pont a transmise au routeur au dernier appel. */
+let resolvedMethod: string | undefined;
 
 /** Ce que lit l'ALS d'un travail détaché de l'appel : pendant, puis après la réponse. */
 interface IAlsReading {
@@ -119,8 +121,9 @@ function makeRouter() {
   return {
     // Le pont n'accepte que le Router du framework : ce faux s'en réclame.
     [FRAMEWORK_ROUTER]: true,
-    resolve(_ctx: unknown, pathname: string) {
+    resolve(_ctx: unknown, pathname: string, method?: string) {
       resolvedUnder = RequestContext.getRequestId();
+      resolvedMethod = method;
       if (routerMode === "throw405") {
         throw Object.assign(new Error("method not allowed"), { code: 405 });
       }
@@ -845,6 +848,26 @@ describe("RealtimeController E2E — edge dégradés & parsing", () => {
   it("handshake : url absente/non-string → path '/' (pas de crash)", async () => {
     const client = await connectCtx({ url: undefined });
     expect(client.identity).to.not.equal(null);
+    client.disconnect();
+  });
+});
+
+describe("RealtimeController E2E — méthode logique transmise au routeur", () => {
+  beforeEach(() => {
+    getRealtimeHub().clear();
+    routerMode = "actionOk";
+    resolvedMethod = undefined;
+  });
+
+  it("🔴 un `api.request` sans méthode est un GET, et le routeur le REÇOIT (jamais « aucune méthode »)", async () => {
+    const { client } = await connect();
+    await client.request("api.request", { path: "/nodefony/kernel/api/x" });
+    expect(resolvedMethod).to.equal("GET");
+    await client.request("api.request", {
+      path: "/nodefony/kernel/api/x",
+      method: "post",
+    });
+    expect(resolvedMethod).to.equal("POST");
     client.disconnect();
   });
 });

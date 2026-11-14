@@ -610,6 +610,47 @@ describe("Routing NR — K. methodOverride (mutation WS)", () => {
     );
   });
 
+  it("🔴 override GET, seule une POST+WS sur le chemin → 405 : un GET n'atteint jamais l'action POST", () => {
+    Router.createRoute("only-post", {
+      path: "/only-post",
+      requirements: { methods: ["POST", "WEBSOCKET"] },
+    });
+    let err: unknown;
+    try {
+      makeRouter().resolve(WS("/only-post"), "/only-post", "GET");
+    } catch (e) {
+      err = e;
+    }
+    expect(err).to.be.instanceOf(HttpError);
+    expect(err instanceof HttpError ? err.code : null).to.equal(405);
+  });
+
+  it("override GET sur une route WEBSOCKET seule → matche (forme historique du pont)", () => {
+    Router.createRoute("ws-only", {
+      path: "/ws-only",
+      requirements: { methods: ["WEBSOCKET"] },
+    });
+    expect(
+      makeRouter().resolve(WS("/ws-only"), "/ws-only", "GET").route?.name,
+    ).to.equal("ws-only");
+  });
+
+  it("un refus de méthode est un verdict SANS pile (le routeur le rattrape à chaque route voisine)", () => {
+    Router.createRoute("get-ws", {
+      path: "/verdict",
+      requirements: { methods: ["GET", "WEBSOCKET"] },
+    });
+    let err: unknown;
+    try {
+      makeRouter().resolve(WS("/verdict"), "/verdict", "POST");
+    } catch (e) {
+      err = e;
+    }
+    expect(err).to.be.instanceOf(HttpError);
+    const stack = err instanceof Error ? (err.stack ?? "") : "";
+    expect(stack.includes("\n    at ")).toBe(false);
+  });
+
   it("override sur une route mono-méthode WS (POST+WS) → matche", () => {
     Router.createRoute("solo-post", {
       path: "/solo",
