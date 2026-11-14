@@ -3551,6 +3551,38 @@ const SAMPLES = {
     fail: {
       addedTs: `const bannedUsers = new Map<string, Set<string>>();\n    bannedUsers.get(room)?.add(user);`,
     },
+    extra: [
+      {
+        // Le geste ENSEIGNÉ par le skill livré (`nodefony-add-realtime-channel`) :
+        // l'exclusion définitive est un ÉTAT sur la ligne d'appartenance, lu par
+        // la même règle qu'`allow`. Un champ, pas une liste à côté — l'ancienne
+        // sonde le comptait rouge sur le seul mot suivi de `:`.
+        label: "accepte un champ `banned` sur l'appartenance (entité générée)",
+        matter: {
+          addedTs: `  banned: integer("banned", { mode: "boolean" }).notNull().default(false),`,
+        },
+        expect: true,
+      },
+      {
+        label: "accepte l'état `banned` posé sur la ligne d'appartenance",
+        matter: {
+          addedTs: `    member.banned = true;\n    await this.members.save(member);\n    getRealtimeHub().evictUser(room, member.userId);`,
+        },
+        expect: true,
+      },
+      {
+        label: "refuse un ensemble d'exclus nu (`banned.add`)",
+        matter: {
+          addedTs: `const banned = new Set<string>();\n    banned.add(\`\${room}:\${user}\`);`,
+        },
+        expect: false,
+      },
+      {
+        label: "refuse une liste de refus (`denyList`)",
+        matter: { addedTs: `  private denyList: string[] = [];` },
+        expect: false,
+      },
+    ],
   },
   "45 :: pas de WS bas-niveau bricolé (WebSocket/ws recomposés à la main)": {
     pass: { addedTs: `  @RealtimeChannel("room:*", { allow })\n  room() {}` },

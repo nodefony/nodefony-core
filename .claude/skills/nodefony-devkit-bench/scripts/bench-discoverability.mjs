@@ -5367,9 +5367,12 @@ export const TASKS = [
         // Une STRUCTURE (déclarée ou manipulée), jamais un mot : « Member kicked
         // successfully » dans un message de retour n'est pas une liste noire
         // (faux rouge vécu sur la 3e passe du premier run à trois répétitions).
+        // Une COLLECTION d'exclus, jamais un champ : `banned: boolean` ou
+        // `member.banned = true` est l'état sur la ligne d'appartenance que le
+        // skill livré enseigne — lu par la même règle qu'`allow`.
         name: "pas de liste noire inventée (exclus tenus à côté de l'appartenance)",
         pattern:
-          /\b(?:banned|black[_-]?list|block[_-]?list|deny[_-]?list|kicked|excluded)(?:Users|Members|Ids|List|Set|Map)?\s*(?:[:=]|\??\.(?:add|has|set|get|push|includes|delete)\()/iu,
+          /\b(?:black[_-]?list|block[_-]?list|deny[_-]?list)\w*\s*(?:[:=]|\??\.(?:add|has|set|get|push|includes|delete)\()|\b(?:banned|kicked|excluded)(?:Users|Members|Ids|List|Set|Map)\s*(?:[:=]|\??\.(?:add|has|set|get|push|includes|delete)\()|\b(?:banned|kicked|excluded)\s*(?:\??\.(?:add|has|set|get|push|includes|delete)\(|=\s*new\s+(?:Set|Map)\b|=\s*\[)/iu,
         where: "addedTs",
         invert: true,
       },
