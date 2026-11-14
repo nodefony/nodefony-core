@@ -41,4 +41,5 @@ status: stable
 | [0023](0023-webhooks-evenements-et-abonnements.md)            | Webhooks — la livraison hors connexion d'un événement générique                               | accepted | 2026-10-29 |
 | [0024](0024-politique-csp-par-defaut.md)                      | Politique de sécurité du contenu — stricte par défaut, jamais bloquante                       | accepted | 2026-11-04 |
 | [0025](0025-presence-repartie-d-un-canal.md)                  | Présence répartie d'un canal temps réel — portée par le canal lui-même                        | accepted | 2026-11-10 |
-| [0026](0026-service-grpc-declare-par-un-module.md)            | Service gRPC — un point d'entrée déclaré par un module, servi par le pipeline                 | proposed | 2026-11-11 |
+| [0026](0026-service-grpc-declare-par-un-module.md)            | Service gRPC — un point d'entrée déclaré par un module, servi par le pipeline                 | accepted | 2026-11-11 |
+| [0027](0027-arret-en-deux-phases.md)                          | Arrêt de l'application — cesser de servir, puis libérer dans l'ordre inverse                  | accepted | 2026-11-14 |
