@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-14T15:59:10.212Z",
+  "generatedAt": "2026-11-14T17:41:46.816Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,17 +46,17 @@
       "title": "10.0.0"
     },
     {
-      "closed": 261,
+      "closed": 263,
       "dueOn": "2026-11-15T00:00:00Z",
       "number": 7,
-      "open": 14,
+      "open": 6,
       "title": "10.0.0-beta"
     },
     {
       "closed": 7,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 47,
+      "open": 54,
       "title": "10.1.0"
     }
   ],
@@ -6469,12 +6469,28 @@
       "number": 776,
       "title": "docs(devkit): mettre à jour le skill temps réel livré et ajouter celui de la présence",
       "url": "https://github.com/nodefony/nodefony-core/issues/776",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 2,
       "ordre": 7.005,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-7"
+      ]
+    },
+    {
+      "number": 777,
+      "title": "fix(realtime): ne plus perdre en silence un tableau typé autre que Uint8Array",
+      "url": "https://github.com/nodefony/nodefony-core/issues/777",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 7.006,
       "debut": null,
       "cible": null,
       "labels": [
@@ -6617,15 +6633,13 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/621",
       "state": "OPEN",
       "status": "In Progress",
-      "milestone": "10.0.0-beta",
+      "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 11.25,
       "ordre": 7.08,
       "debut": "2026-11-10",
       "cible": "2026-11-16",
-      "labels": [
-        "beta-7"
-      ]
+      "labels": []
     },
     {
       "number": 445,
@@ -6633,15 +6647,14 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/445",
       "state": "OPEN",
       "status": "In Progress",
-      "milestone": "10.0.0-beta",
+      "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 3.25,
       "ordre": 7.09,
       "debut": "2026-11-10",
       "cible": "2026-11-16",
       "labels": [
-        "reportable",
-        "beta-7"
+        "reportable"
       ]
     },
     {
@@ -6666,15 +6679,14 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/446",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0-beta",
+      "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 0.25,
       "ordre": 7.091,
       "debut": "2026-11-10",
       "cible": "2026-11-10",
       "labels": [
-        "reportable",
-        "beta-7"
+        "reportable"
       ]
     },
     {
@@ -6683,15 +6695,14 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/447",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0-beta",
+      "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 7.092,
       "debut": "2026-11-11",
       "cible": "2026-11-11",
       "labels": [
-        "reportable",
-        "beta-7"
+        "reportable"
       ]
     },
     {
@@ -6700,15 +6711,14 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/448",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0-beta",
+      "milestone": "10.1.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 7.093,
       "debut": "2026-11-12",
       "cible": "2026-11-12",
       "labels": [
-        "reportable",
-        "beta-7"
+        "reportable"
       ]
     },
     {
@@ -6717,15 +6727,14 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/449",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0-beta",
+      "milestone": "10.1.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 7.094,
       "debut": "2026-11-13",
       "cible": "2026-11-13",
       "labels": [
-        "reportable",
-        "beta-7"
+        "reportable"
       ]
     },
     {
@@ -6734,15 +6743,14 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/450",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0-beta",
+      "milestone": "10.1.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 7.095,
       "debut": "2026-11-16",
       "cible": "2026-11-16",
       "labels": [
-        "reportable",
-        "beta-7"
+        "reportable"
       ]
     },
     {

@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-11-14 15:59** (UTC).
+> Empreinte prise le **2026-11-14 17:41** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -21,8 +21,8 @@
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 97% | 137 | 4 | 2026-11-15 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `██████████` 95% | 261 | 14 | 2026-11-15 |
-| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 13% | 7 | 47 | 2026-12-15 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `██████████` 98% | 263 | 6 | 2026-11-15 |
+| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 11% | 7 | 54 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 33 | — |
 | **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 8 | — |
 | **12.0.0** | ![12.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/5?style=flat-square&label=) `██░░░░░░░░` 15% | 2 | 11 | — |
@@ -31,16 +31,16 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#776 — docs(devkit): mettre à jour le skill temps réel livré et ajouter celui de la présence**
+**#694 — feat(http): servir des services gRPC dans le pipeline HTTP/2**
 
-Ordre 7.005 · P1 — figé à la création · 2 j · jalon 10.0.0-beta · frise —
+Ordre 7.01 · P2 — décision · 6.5 j · jalon 10.0.0-beta · frise —
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 14 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 6 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.1.0 — 47 ouverts
+## Jalon 10.1.0 — 54 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -51,6 +51,13 @@ Ordre 7.005 · P1 — figé à la création · 2 j · jalon 10.0.0-beta · frise
 | 3.95 | P2 — décision | 1 | — | #523 | feat(security): guider la connexion Keycloak et brancher plusieurs realms |
 | 3.955 | P2 — décision | 2 | — | #524 | feat(security): lier un compte existant à Keycloak et exporter les comptes |
 | 3.96 | P2 — décision | 1 | — | #725 | feat(realtime): empêcher le rejeu d'une éjection sur un canal durable |
+| 7.08 | P2 — décision | 11.25 | 2026-11-10 → 11-16 | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
+| 7.09 | P2 — décision | 3.25 | 2026-11-10 → 11-16 | #445 | test(ecosysteme): éprouver le framework par un module tiers temps réel |
+| 7.091 | P2 — décision | 0.25 | 2026-11-10 → 11-10 | #446 | test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation |
+| 7.092 | P2 — décision | 0.5 | 2026-11-11 → 11-11 | #447 | test(ecosysteme): journaliser pas à pas ce que fait l'agent |
+| 7.093 | P1 — figé à la création | 1 | 2026-11-12 → 11-12 | #448 | test(ecosysteme): jouer l'épreuve sans jamais guider l'agent |
+| 7.094 | P1 — figé à la création | 0.5 | 2026-11-13 → 11-13 | #449 | test(ecosysteme): trier ce qui remonte au cœur du framework |
+| 7.095 | P1 — figé à la création | 1 | 2026-11-16 → 11-16 | #450 | feat(ecosysteme): livrer le tableau blanc comme module installable |
 | 17 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #84 | feat(mail): créer le module et son service d'envoi |
 | 18 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #85 | feat(mail): composer un courriel depuis un gabarit |
 | 19 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #86 | feat(mail): envoyer un courriel en ligne de commande |
@@ -163,22 +170,14 @@ Ordre 7.005 · P1 — figé à la création · 2 j · jalon 10.0.0-beta · frise
 | 925.6 | P3 — fin de cycle | 1 | — | #768 | perf(http): mesurer le coût du journal d'accès par requête |
 | 926 | P1 — figé à la création | 0.5 | — | #541 | test(cli): valider le plein écran du serveur de dev sous Windows |
 
-## Jalon 10.0.0-beta — 14 ouverts
+## Jalon 10.0.0-beta — 6 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 7.005 | P1 — figé à la création | 2 | — | #776 | docs(devkit): mettre à jour le skill temps réel livré et ajouter celui de la présence |
 | 7.01 | P2 — décision | 6.5 | — | #694 | feat(http): servir des services gRPC dans le pipeline HTTP/2 |
 | 7.025 | P2 — décision | 2 | — | #764 | feat(cli): générer un service gRPC avec create controller --kind grpc |
 | 7.04 | P1 — figé à la création | 2 | — | #770 | feat(http): borner l'âge des connexions HTTP/2 et sonder les pairs muets |
 | 7.05 | P2 — décision | 0.5 | 2026-11-19 → 11-19 | #89 | docs(notification): faire la veille des canaux de communication attendus |
-| 7.08 | P2 — décision | 11.25 | 2026-11-10 → 11-16 | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
-| 7.09 | P2 — décision | 3.25 | 2026-11-10 → 11-16 | #445 | test(ecosysteme): éprouver le framework par un module tiers temps réel |
-| 7.091 | P2 — décision | 0.25 | 2026-11-10 → 11-10 | #446 | test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation |
-| 7.092 | P2 — décision | 0.5 | 2026-11-11 → 11-11 | #447 | test(ecosysteme): journaliser pas à pas ce que fait l'agent |
-| 7.093 | P1 — figé à la création | 1 | 2026-11-12 → 11-12 | #448 | test(ecosysteme): jouer l'épreuve sans jamais guider l'agent |
-| 7.094 | P1 — figé à la création | 0.5 | 2026-11-13 → 11-13 | #449 | test(ecosysteme): trier ce qui remonte au cœur du framework |
-| 7.095 | P1 — figé à la création | 1 | 2026-11-16 → 11-16 | #450 | feat(ecosysteme): livrer le tableau blanc comme module installable |
 | 7.1 | P1 — figé à la création | 1 | 2026-11-20 → 11-20 | #659 | docs(performance): remesurer les pages de performance avant la release |
 | 7.14 | P2 — décision | 3 | — | #747 | feat(scaffold): livrer une démo complète, copiée dans l'application |
 
