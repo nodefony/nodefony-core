@@ -5423,8 +5423,11 @@ export const TASKS = [
       {
         kind: "code",
         name: "la présence est LUE par l'API du framework (navigateur ou serveur)",
+        // La vue du cœur (`PresenceView` alimentée par `isPresenceFrame`) en
+        // fait partie : faux rouge vécu au premier run, l'agent l'avait prise
+        // au skill présence.
         pattern:
-          /\bonPresence\(|\buseNodefonyPresence\(|\binjectNodefonyPresence\(|\bnodefonyPresence\(|\bobservePresence\(|\.presence\(/u,
+          /\bonPresence\(|\buseNodefonyPresence\(|\binjectNodefonyPresence\(|\bnodefonyPresence\(|\bobservePresence\(|\.presence\(|\bnew\s+PresenceView\(|\bisPresenceFrame\(/u,
         where: "addedCode",
       },
       {

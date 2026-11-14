@@ -3642,6 +3642,15 @@ const SAMPLES = {
         },
         expect: true,
       },
+      {
+        // Vécu au premier run de la tâche 46 : la vue du cœur, alimentée par
+        // les trames reconnues — l'API du framework, comptée rouge à tort.
+        label: "accepte la vue du cœur (PresenceView + isPresenceFrame)",
+        matter: {
+          addedCode: `  const view = new PresenceView(ROOM_CHANNEL);\n  if (isPresenceFrame(frame.params)) view.apply(frame.params);`,
+        },
+        expect: true,
+      },
     ],
   },
   "46 :: un test constate la présence": {
