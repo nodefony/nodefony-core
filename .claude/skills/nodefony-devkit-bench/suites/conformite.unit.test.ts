@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { execFileSync } from "node:child_process";
 import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import path from "node:path";
+import ts from "typescript";
 
 /**
  * ÉTAGE 1 — UNITAIRE : ni serveur, ni base, ni port.
@@ -78,6 +79,51 @@ const relatif = (p: string): string => path.relative(APP, p);
  */
 const codeSeul = (src: string): string =>
   src.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/.*$/gm, "$1");
+
+/**
+ * Le source privé de ses littéraux d'expression régulière, remplacés par des
+ * blancs de même longueur (les positions et les lignes restent en place).
+ *
+ * Même faute que celle que `codeSeul` répare, sous une autre forme : un test
+ * qui VÉRIFIE la règle la nomme dans son motif — `/\bas any\b|@ts-ignore/` —
+ * et le contrôle le condamnait pour l'avoir vérifiée (vécu : le test de la
+ * démo du chat, #747, rouge sur les trois systèmes). Un littéral regex se
+ * reconnaît sans ambiguïté par l'arbre syntaxique, jamais par un motif : seul
+ * le contexte distingue `/` division de `/` ouvrant. `typescript` est dans les
+ * dépendances de développement de toute application générée.
+ */
+function sansRegex(src: string, p: string): string {
+  const kind = p.endsWith(".tsx")
+    ? ts.ScriptKind.TSX
+    : p.endsWith(".js")
+      ? ts.ScriptKind.JS
+      : ts.ScriptKind.TS;
+  const sf = ts.createSourceFile(p, src, ts.ScriptTarget.Latest, false, kind);
+  let out = "";
+  let pos = 0;
+  const visiter = (n: ts.Node): void => {
+    if (n.kind === ts.SyntaxKind.RegularExpressionLiteral) {
+      const debut = n.getStart(sf);
+      out += src.slice(pos, debut) + " ".repeat(n.end - debut);
+      pos = n.end;
+      return;
+    }
+    ts.forEachChild(n, visiter);
+  };
+  visiter(sf);
+  return out + src.slice(pos);
+}
+
+/** Ce qui s'exécute d'un fichier : ni commentaire, ni littéral regex. Mémoïsé. */
+const CODES = new Map<string, string>();
+const code = (p: string): string => {
+  let c = CODES.get(p);
+  if (c === undefined) {
+    c = codeSeul(sansRegex(lire(p), p));
+    CODES.set(p, c);
+  }
+  return c;
+};
 
 describe("unit — le diagnostic du framework, sur l'application produite", () => {
   it("l'application a des sources à examiner (garde anti-suite creuse)", () => {
@@ -156,21 +202,21 @@ describe("unit — les règles TypeScript du framework valent pour ce qu'il prod
     // Le framework s'interdit `any` ; ce qu'il écrit pour autrui doit tenir la
     // même règle, sinon le premier fichier d'une application neuve la viole.
     const coupables = SOURCES.filter((p) =>
-      /:\s*any\b|<any>|as\s+any\b/.test(codeSeul(lire(p))),
+      /:\s*any\b|<any>|as\s+any\b/.test(code(p)),
     ).map(relatif);
     expect(coupables).toEqual([]);
   });
 
   it("aucun `@ts-ignore` ni `@ts-nocheck`", () => {
     const coupables = SOURCES.filter((p) =>
-      /@ts-(ignore|nocheck)/.test(codeSeul(lire(p))),
+      /@ts-(ignore|nocheck)/.test(code(p)),
     ).map(relatif);
     expect(coupables).toEqual([]);
   });
 
   it("aucun `require(` — le framework est ESM seul", () => {
     const coupables = SOURCES.filter((p) =>
-      /(^|[^.\w])require\s*\(/m.test(codeSeul(lire(p))),
+      /(^|[^.\w])require\s*\(/m.test(code(p)),
     ).map(relatif);
     expect(coupables).toEqual([]);
   });
@@ -178,9 +224,7 @@ describe("unit — les règles TypeScript du framework valent pour ce qu'il prod
   it("tout import de la bibliothèque standard porte le préfixe `node:`", () => {
     const nus =
       /from\s+["'](fs|path|os|url|http|https|crypto|child_process|events|stream|util|zlib|net|tls|dns|assert)["']/;
-    const coupables = SOURCES.filter((p) => nus.test(codeSeul(lire(p)))).map(
-      relatif,
-    );
+    const coupables = SOURCES.filter((p) => nus.test(code(p))).map(relatif);
     expect(coupables).toEqual([]);
   });
 });
@@ -205,7 +249,7 @@ describe("unit — l'environnement passe par le catalogue, et par lui seul", () 
       if (p === ENV_TS) return false;
       if (/(^|[\\/])tests?[\\/]|\.test\.ts$|\.setup\.ts$/.test(relatif(p)))
         return false;
-      return /process\.env\b/.test(codeSeul(lire(p)));
+      return /process\.env\b/.test(code(p));
     }).map(relatif);
     expect(coupables).toEqual([]);
   });
@@ -218,7 +262,7 @@ describe("unit — l'environnement passe par le catalogue, et par lui seul", () 
       // Même exclusion que ci-dessus : un décor de test pose son environnement.
       if (/(^|[\\/])tests?[\\/]|\.test\.ts$|\.setup\.ts$/.test(relatif(p)))
         continue;
-      for (const m of codeSeul(lire(p)).matchAll(/\bNF_[A-Z0-9_]+\b/g)) {
+      for (const m of code(p).matchAll(/\bNF_[A-Z0-9_]+\b/g)) {
         // `NF__MODULE__CLE` n'est pas une variable du catalogue : c'est la
         // surcharge d'un CHEMIN de configuration par l'environnement. Le double
         // souligné est sa signature, et elle se lit sans ambiguïté.
@@ -246,7 +290,7 @@ describe("unit — l'environnement passe par le catalogue, et par lui seul", () 
           .filter((p) => existsSync(p))
       : [];
     for (const p of [...SOURCES, ...schemasInstalles]) {
-      for (const m of codeSeul(lire(p)).matchAll(schemaEnv)) {
+      for (const m of code(p).matchAll(schemaEnv)) {
         if (m[1] !== undefined) declarees.add(m[1]);
       }
     }
