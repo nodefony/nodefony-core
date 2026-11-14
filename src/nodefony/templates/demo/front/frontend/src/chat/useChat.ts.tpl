@@ -99,6 +99,8 @@ export interface IRoomForms {
   reply: (eventId: string, partstat: "accepted" | "declined") => Promise<void>;
   /** Ouvre le salon à deux avec une personne présente — ou le crée. */
   openDirect: (userId: string) => Promise<void>;
+  /** Supprime le salon ouvert (son propriétaire seul), puis ouvre l'accueil. */
+  deleteRoom: () => Promise<void>;
 }
 
 /** Le motif d'un refus HTTP : le message du serveur, sinon le statut. */
@@ -120,6 +122,8 @@ const REFUSALS: Record<string, string> = {
   evicted: "Vous n'êtes plus membre de ce salon.",
   unauthorized: "Connectez-vous pour entrer dans ce salon.",
   unavailable: "Le serveur n'a pas pu vérifier vos droits : réessayez.",
+  // `closeChannel` : le salon a été supprimé par son propriétaire.
+  ended: "Ce salon a été supprimé.",
 };
 
 /**
@@ -377,6 +381,14 @@ export function useChat(): IChatRoom {
             params: { user: userId },
           }),
         ),
+      deleteRoom: async () => {
+        const gone = roomId;
+        await live().delete("/demo/chat/rooms/{room}", undefined, {
+          params: { room: gone },
+        });
+        setRooms((known) => known.filter((item) => item.id !== gone));
+        setRoomId(LOBBY_ROOM_ID);
+      },
     };
   }, [socket, roomId]);
   // #endregion

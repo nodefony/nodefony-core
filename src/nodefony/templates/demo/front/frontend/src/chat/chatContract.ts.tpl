@@ -264,6 +264,10 @@ export interface ChatContract extends IRealtimeContract {
       body: typeof CreateRoomBody;
       result: IRoomView;
     };
+    "DELETE /demo/chat/rooms/{room}": {
+      params: typeof RoomParams;
+      result: { ok: true };
+    };
     "POST /demo/chat/rooms/{room}/members": {
       params: typeof RoomParams;
       body: typeof InviteBody;

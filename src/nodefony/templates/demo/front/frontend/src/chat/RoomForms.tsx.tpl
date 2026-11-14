@@ -99,11 +99,14 @@ function FormDialog({
   lead,
   submitLabel,
   submit,
+  danger = false,
   children,
 }: IDialogProps & {
   title: string;
   lead: string;
   submitLabel: string;
+  /** Un geste sans retour : le bouton le dit par sa couleur ET son libellé. */
+  danger?: boolean;
   /** Rend `null` en cas de succès, ou le motif d'un refus. */
   submit: () => Promise<string | null>;
   children: ReactNode;
@@ -154,7 +157,7 @@ function FormDialog({
           </button>
           <button
             type="submit"
-            className="room-btn is-primary"
+            className={danger ? "room-btn is-danger" : "room-btn is-primary"}
             disabled={busy}
             aria-busy={busy}
           >
@@ -259,6 +262,72 @@ export function CreateRoomDialog({
           maxLength={ROOM_DESCRIPTION_MAX}
           value={description}
           onChange={(event) => setDescription(event.target.value)}
+        />
+      </Field>
+    </FormDialog>
+  );
+}
+
+/**
+ * Supprimer le salon ouvert : on TAPE son nom pour confirmer — un geste sans
+ * retour ne se valide pas par réflexe (le patron d'une forge pour un dépôt).
+ * Le serveur rejoue la règle (`roomDeletionProblem`) : propriétaire seul.
+ */
+export function DeleteRoomDialog({
+  open,
+  onClose,
+  forms,
+  roomName,
+}: IDialogProps & { forms: IRoomForms; roomName: string }) {
+  const id = useId();
+  const [typed, setTyped] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    setTyped("");
+    setError(null);
+  }, [open]);
+  const submit = async (): Promise<string | null> => {
+    if (typed.trim() !== roomName) {
+      const problem = `tapez « ${roomName} » pour confirmer`;
+      setError(problem);
+      return problem;
+    }
+    try {
+      await forms.deleteRoom();
+      return null;
+    } catch (refusal) {
+      const message = messageOf(refusal);
+      setError(message);
+      return message;
+    }
+  };
+  return (
+    <FormDialog
+      open={open}
+      onClose={onClose}
+      title={`Supprimer « ${roomName} »`}
+      lead="Messages, pièces jointes, membres et événements seront effacés pour tout le monde. C'est définitif."
+      submitLabel="Supprimer définitivement"
+      danger
+      submit={submit}
+    >
+      <Field
+        id={`${id}-confirm`}
+        label={`Tapez « ${roomName} » pour confirmer`}
+        error={error}
+      >
+        <input
+          id={`${id}-confirm`}
+          value={typed}
+          autoComplete="off"
+          spellCheck={false}
+          aria-invalid={error !== null}
+          aria-describedby={`${id}-confirm-error`}
+          onChange={(event) => {
+            setTyped(event.target.value);
+            setError(null);
+          }}
         />
       </Field>
     </FormDialog>

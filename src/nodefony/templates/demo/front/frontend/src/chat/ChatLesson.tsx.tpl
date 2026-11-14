@@ -9,12 +9,49 @@ import { mentionOf } from "../kit/markdown";
 import { ChatMessageList } from "./ChatMessageList";
 import { useChat, type IChatRoom } from "./useChat";
 import { ChatPeople } from "./ChatPeople";
-import { canManage, type IRoomEvent, type IRoomView } from "./rooms";
-import { CreateRoomDialog, EventDialog, InviteDialog } from "./RoomForms";
-import { useRef, useState } from "react";
+import {
+  canManage,
+  roomDeletionProblem,
+  type IRoomEvent,
+  type IRoomView,
+} from "./rooms";
+import {
+  CreateRoomDialog,
+  DeleteRoomDialog,
+  EventDialog,
+  InviteDialog,
+} from "./RoomForms";
+import { useEffect, useRef, useState } from "react";
 
 /** Le formulaire ouvert, s'il y en a un. */
-type OpenForm = "create" | "invite" | "event" | null;
+type OpenForm = "create" | "invite" | "event" | "delete" | null;
+
+/**
+ * Le salon en plein écran (API Fullscreen) : son état suit l'événement
+ * `fullscreenchange` — Échap en sort sans passer par nous. La capacité se
+ * CONSTATE (`document.fullscreenEnabled`) : un iPhone ne met en plein écran
+ * que la vidéo, le bouton n'y est pas proposé.
+ */
+function useFullscreen(target: { current: HTMLElement | null }) {
+  const [full, setFull] = useState(false);
+  useEffect(() => {
+    const sync = () =>
+      setFull(
+        document.fullscreenElement !== null &&
+          document.fullscreenElement === target.current,
+      );
+    document.addEventListener("fullscreenchange", sync);
+    return () => document.removeEventListener("fullscreenchange", sync);
+  }, [target]);
+  const toggle = () => {
+    const done = full
+      ? document.exitFullscreen()
+      : target.current?.requestFullscreen();
+    // Refusé par le navigateur (geste non reconnu) : l'état ne change pas.
+    done?.catch(() => undefined);
+  };
+  return { supported: document.fullscreenEnabled, full, toggle };
+}
 
 /** Le message d'un refus, quel que soit le chemin. */
 function refusalText(error: unknown): string {
@@ -327,9 +364,18 @@ function ChatRoom({
     work.catch((error: unknown) => setNotice(refusalText(error)));
   };
   const name = current === null ? room.roomId : roomLabel(current);
+  // La page CACHE ce que le serveur refuserait : propriétaire seul.
+  const deletable =
+    current !== null &&
+    roomDeletionProblem(
+      { id: current.id, direct: current.peer !== null },
+      current.role,
+    ) === null;
+  const layout = useRef<HTMLDivElement>(null);
+  const screen = useFullscreen(layout);
 
   return (
-    <div className="room room-layout">
+    <div ref={layout} className="room room-layout">
       <RoomRail
         room={room}
         onCreate={signedIn ? () => setForm("create") : null}
@@ -351,24 +397,48 @@ function ChatRoom({
               <strong>{current.event.title}</strong> · {slotOf(current.event)}
             </span>
           )}
-          {manages && (
-            <span className="room-head-actions">
+          <span className="room-head-actions">
+            {manages && (
+              <>
+                <button
+                  type="button"
+                  className="room-btn"
+                  onClick={() => setForm("invite")}
+                >
+                  Inviter
+                </button>
+                <button
+                  type="button"
+                  className="room-btn"
+                  onClick={() => setForm("event")}
+                >
+                  Planifier
+                </button>
+              </>
+            )}
+            {deletable && (
               <button
                 type="button"
                 className="room-btn"
-                onClick={() => setForm("invite")}
+                onClick={() => setForm("delete")}
               >
-                Inviter
+                Supprimer
               </button>
+            )}
+            {screen.supported && (
               <button
                 type="button"
                 className="room-btn"
-                onClick={() => setForm("event")}
+                aria-pressed={screen.full}
+                title={
+                  screen.full ? "Quitter le plein écran (Échap)" : "Plein écran"
+                }
+                onClick={screen.toggle}
               >
-                Planifier
+                <span aria-hidden="true">⛶ </span>Plein écran
               </button>
-            </span>
-          )}
+            )}
+          </span>
         </div>
         {notice !== null && (
           <p className="room-notice" role="alert">
@@ -456,6 +526,12 @@ function ChatRoom({
         forms={room.forms}
         roomName={name}
         myRole={current?.role ?? null}
+      />
+      <DeleteRoomDialog
+        open={form === "delete"}
+        onClose={() => setForm(null)}
+        forms={room.forms}
+        roomName={name}
       />
       <EventDialog
         open={form === "event"}

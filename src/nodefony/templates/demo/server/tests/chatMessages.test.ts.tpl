@@ -26,7 +26,11 @@ import {
   toggleReaction,
   withReactions,
 } from "../frontend/src/chat/messages";
-import { LOBBY_ROOM_ID, roomChannel } from "../frontend/src/chat/rooms";
+import {
+  LOBBY_ROOM_ID,
+  roomChannel,
+  roomDeletionProblem,
+} from "../frontend/src/chat/rooms";
 import ChatService from "../nodefony/service/ChatService";
 import { RoomRefusal } from "../nodefony/service/RoomService";
 import { memoryArchive } from "./memoryArchive";
@@ -281,5 +285,21 @@ describe("chat — les gestes passent par l'archive, puis le salon", () => {
       { emoji: "👍", names: ["user"] },
       { emoji: "🎉", names: ["admin"] },
     ]);
+  });
+});
+
+describe("chat — supprimer un salon (XEP-0045 §10.9)", () => {
+  it("le propriétaire seul ; jamais l'accueil, jamais un salon à deux", () => {
+    const room = { id: "projet", direct: false };
+    expect(roomDeletionProblem(room, "owner")).toBeNull();
+    expect(roomDeletionProblem(room, "moderator")).toMatch(/propriétaire/u);
+    expect(roomDeletionProblem(room, "member")).toMatch(/propriétaire/u);
+    expect(roomDeletionProblem(room, null)).toMatch(/propriétaire/u);
+    expect(
+      roomDeletionProblem({ id: LOBBY_ROOM_ID, direct: false }, "owner"),
+    ).toMatch(/accueil/u);
+    expect(roomDeletionProblem({ id: "dm-x", direct: true }, "owner")).toMatch(
+      /à deux/u,
+    );
   });
 });

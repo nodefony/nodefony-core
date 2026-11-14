@@ -123,6 +123,7 @@ class ChatController extends ContractRealtimeController<ChatContract> {
       query: PeopleQuery,
     },
     "POST /demo/chat/rooms": { body: CreateRoomBody },
+    "DELETE /demo/chat/rooms/{room}": { params: RoomParams },
     "POST /demo/chat/rooms/{room}/members": {
       params: RoomParams,
       body: InviteBody,
@@ -254,6 +255,28 @@ class ChatController extends ContractRealtimeController<ChatContract> {
   ): Promise<IRoomView> {
     const me = this.#me();
     return this.#refused(() => this.rooms.createRoom(me.id, input.body));
+  }
+  // #endregion
+
+  // #region rooms-delete-route
+  /**
+   * Supprimer un salon — `DELETE /demo/chat/rooms/{room}` ou
+   * `socket.delete(…)` : son propriétaire seul. La base efface tout, ferme
+   * le canal pour ses présents ; les pièces quittent le disque ici.
+   */
+  @route("demo-chat-room-delete", {
+    path: "/rooms/{room}",
+    requirements: { methods: ["DELETE", "WEBSOCKET"] },
+    schema: { params: RoomParams },
+  })
+  @IsGranted(["ROLE_USER"])
+  async deleteRoom(input: RoomInput): Promise<{ ok: true }> {
+    const me = this.#me();
+    const attachments = await this.#refused(() =>
+      this.rooms.deleteRoom(input.params.room, me.id),
+    );
+    await this.chat.dropAttachments(attachments);
+    return { ok: true };
   }
   // #endregion
 

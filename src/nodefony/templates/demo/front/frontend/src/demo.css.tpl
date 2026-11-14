@@ -1868,7 +1868,9 @@ a.ritem:hover .ritem-go {
    ou en cours de modification garde les jetons de la page. */
 .is-mine:not(.is-retracted) .msg-bubble:not(.is-editing) {
   --fg: #fff;
-  --muted: rgb(255 255 255 / 0.82);
+  /* Blanc PLEIN : à 82 %, « Réponse à X » tombait à 3,87:1 sur la citation
+     en clair (mesuré, axe) ; la taille porte la hiérarchie. */
+  --muted: #fff;
   --link: #fff;
   --blue: #fff;
   --cyan: #fff;
@@ -2202,7 +2204,11 @@ button.msg-chip[aria-pressed="true"] {
 }
 /* Actif : un contour intérieur — il ne déborde pas d'un bord collé. */
 .composer .md-editor:focus-within {
-  box-shadow: inset 0 0 0 2px var(--cyan);
+  /* Un contour, pas une ombre intérieure : il se peint AU-DESSUS des enfants,
+     le bandeau des onglets ne le coupe pas. */
+  box-shadow: none;
+  outline: 2px solid var(--cyan);
+  outline-offset: -2px;
 }
 .composer .room-error {
   padding: 0 16px 10px;
@@ -4839,6 +4845,16 @@ button.msg-chip[aria-pressed="true"] {
   grid-template-rows: clamp(460px, 74dvh, 860px);
   align-items: stretch;
 }
+/* Plein écran : le salon prend tout l'écran, ses colonnes la hauteur. */
+.room.room-layout:fullscreen {
+  grid-template-rows: minmax(0, 1fr);
+  height: 100dvh;
+  border: 0;
+  border-radius: 0;
+}
+.room.room-layout::backdrop {
+  background: var(--bg);
+}
 .room-layout > .room-rail,
 .room-layout > .people {
   min-height: 0;
@@ -4947,6 +4963,9 @@ button.msg-chip[aria-pressed="true"] {
     grid-template-columns: minmax(0, 1fr) 220px;
     grid-template-rows: auto clamp(440px, 72dvh, 820px);
   }
+  .room.room-layout:fullscreen {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
   .room-rail {
     grid-column: 1 / -1;
     border-right: 0;
@@ -4969,6 +4988,13 @@ button.msg-chip[aria-pressed="true"] {
   .room-main {
     height: clamp(420px, 78dvh, 760px);
   }
+  .room.room-layout:fullscreen {
+    grid-template-rows: none;
+    overflow-y: auto;
+  }
+  .room-layout:fullscreen .room-main {
+    height: 100dvh;
+  }
 }
 
 /* Les formulaires du chat : boutons compacts, rail, invitation, boîtes natives. */
@@ -4985,6 +5011,10 @@ button.msg-chip[aria-pressed="true"] {
 }
 .room-btn:hover {
   border-color: var(--blue);
+}
+.room-btn[aria-pressed="true"] {
+  border-color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 14%, var(--card));
 }
 .room-btn.is-primary {
   color: #fff;

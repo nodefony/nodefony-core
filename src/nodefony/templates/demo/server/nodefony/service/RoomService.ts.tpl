@@ -48,6 +48,7 @@ import {
   canManage,
   directKey,
   directPeer,
+  roomDeletionProblem,
   headlineEvent,
   roomChannel,
   type IAdmissionFacts,
@@ -933,6 +934,57 @@ class RoomService extends Service implements IMessageArchive {
     if (room !== null && (room.access === "private" || room.locked))
       getRealtimeHub().evictUser(roomChannel(roomId), userId);
     pushRoomsChanged(userId);
+  }
+  // #endregion
+
+  // #region rooms-delete
+  /**
+   * Supprime un salon (XEP-0045 §10.9) : son propriétaire seul
+   * (`roomDeletionProblem`). Messages, réactions, événements, invitations et
+   * membres sont EFFACÉS ; le canal est fermé pour tous ses abonnés, sur tous
+   * les serveurs (`closeChannel` : `realtime:closed`, raison `ended`), et
+   * chaque membre ou invité relit sa liste. La ligne du salon part EN
+   * DERNIER : une suppression interrompue laisse le salon visible, et se
+   * rejoue jusqu'au bout.
+   *
+   * @returns les pièces que portaient ses messages, à effacer du disque
+   * @throws RoomRefusal `not-found`, ou `forbidden` pour qui n'en a pas le droit
+   */
+  async deleteRoom(roomId: string, userId: string): Promise<ChatAttachment[]> {
+    const { rooms, members, events, attendees, messages, reactions } =
+      this.#repos();
+    const room = await rooms.findOne({ id: roomId });
+    if (room === null) throw new RoomRefusal("not-found", "salon introuvable");
+    const member = await members.findOne({ roomId, userId });
+    const problem = roomDeletionProblem(
+      { id: room.id, direct: room.name.startsWith(DIRECT_PREFIX) },
+      member?.role ?? null,
+    );
+    if (problem !== null) throw new RoomRefusal("forbidden", problem);
+    const people = await members.find({ roomId });
+    const eventIds = (await events.find({ roomId })).map((event) => event.id);
+    const invited =
+      eventIds.length === 0
+        ? []
+        : await attendees.find({ eventId: { $in: eventIds } });
+    const roomMessages = await messages.find({ roomId });
+    if (roomMessages.length > 0)
+      await reactions.delete({
+        messageId: { $in: roomMessages.map((message) => message.id) },
+      });
+    await messages.delete({ roomId });
+    if (eventIds.length > 0)
+      await attendees.delete({ eventId: { $in: eventIds } });
+    await events.delete({ roomId });
+    await members.delete({ roomId });
+    await rooms.deleteOne({ id: roomId });
+    getRealtimeHub().closeChannel(roomChannel(roomId));
+    const told = new Set([
+      ...people.map((row) => row.userId),
+      ...invited.map((row) => row.userId),
+    ]);
+    for (const id of told) pushRoomsChanged(id);
+    return roomMessages.flatMap((message) => message.attachments ?? []);
   }
   // #endregion
 

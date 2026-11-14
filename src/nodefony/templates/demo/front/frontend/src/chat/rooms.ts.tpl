@@ -196,6 +196,26 @@ export function eventProblem(
   return null;
 }
 
+/**
+ * Ce qui empêche de supprimer un salon, ou `null` (XEP-0045 §10.9,
+ * « Destroying a Room ») : le PROPRIÉTAIRE seul — qui l'a créé. Le salon
+ * d'accueil reste : sans lui, la démo n'a plus de salon d'arrivée. Un salon à
+ * deux appartient aux deux personnes, pas à celle qui l'a ouvert.
+ *
+ * @param room - le salon, et s'il est à deux
+ * @param role - le rôle de qui demande dans ce salon
+ */
+export function roomDeletionProblem(
+  room: { id: string; direct: boolean },
+  role: RoomRole | null,
+): string | null {
+  if (room.id === LOBBY_ROOM_ID) return "le salon d'accueil ne se supprime pas";
+  if (room.direct)
+    return "un salon à deux appartient aux deux : il ne se supprime pas";
+  if (role !== "owner") return "seul son propriétaire supprime un salon";
+  return null;
+}
+
 /** Inviter et planifier : le propriétaire et les modérateurs (XEP-0045). */
 export function canManage(role: RoomRole | null): boolean {
   return role === "owner" || role === "moderator";

@@ -922,3 +922,64 @@ demoDescribe("discussion — répondre, réagir, modifier, retirer", () => {
     expect(past.find((m) => m.id === id)?.reactions).toEqual(expected);
   });
 });
+
+demoDescribe("discussion — supprimer un salon", () => {
+  let member: Record<string, string> = {};
+  beforeAll(async () => {
+    await ensureMember();
+    const base = httpUrl("");
+    member = await csrfHeaders(base, await userLogin(base));
+  });
+
+  /** `DELETE /demo/chat/rooms/{room}` au nom d'une session. */
+  const destroy = (headers: Record<string, string>, roomId: string) =>
+    fetch(httpUrl(`/demo/chat/rooms/${roomId}`), {
+      method: "DELETE",
+      headers,
+    });
+
+  it("403 au membre, 200 au propriétaire ; ensuite le salon et ses messages n'existent plus", async () => {
+    const created = await post(admin, "/demo/chat/rooms", {
+      name: roomName("éphémère"),
+      access: "private",
+    });
+    expect(created.status).toBe(200);
+    const room: IRoomView = await created.json();
+    const invited = await post(admin, `/demo/chat/rooms/${room.id}/members`, {
+      identifier: E2E_USER_IDENTIFIER,
+      role: "moderator",
+    });
+    expect(invited.status).toBe(200);
+    await invited.body?.cancel();
+    expect(
+      (await send(unique("dernier mot"), randomUUID(), {}, room.id)).status,
+    ).toBe(200);
+    // Modérateur, pas propriétaire : refusé.
+    const refused = await destroy(member, room.id);
+    expect(refused.status).toBe(403);
+    await refused.body?.cancel();
+    const done = await destroy(admin, room.id);
+    expect(done.status).toBe(200);
+    await done.body?.cancel();
+    expect((await roomsOf(admin)).some((item) => item.id === room.id)).toBe(
+      false,
+    );
+    expect((await roomsOf(member)).some((item) => item.id === room.id)).toBe(
+      false,
+    );
+    const history = await fetch(roomPath(room.id, "history?limit=10"), {
+      headers: admin,
+    });
+    expect(history.status).toBe(404);
+    await history.body?.cancel();
+    const again = await destroy(admin, room.id);
+    expect(again.status).toBe(404);
+    await again.body?.cancel();
+  });
+
+  it("l'accueil ne se supprime pas, même par son propriétaire", async () => {
+    const res = await destroy(admin, LOBBY_ROOM_ID);
+    expect(res.status).toBe(403);
+    await res.body?.cancel();
+  });
+});
