@@ -15,8 +15,19 @@ import {
 } from "./chatContract";
 import type { CreateRoomBody, EventBody, InviteBody } from "./chatSchemas";
 import { catchUpMessages, mergeMessages, withReactions } from "./messages";
-import { LOBBY_ROOM_ID, roomChannel, type IRoomView } from "./rooms";
-import { RosterTracker, type IRosterRow } from "./roster";
+import {
+  LOBBY_ROOM_ID,
+  ONLINE_CHANNEL,
+  roomChannel,
+  type IRoomMember,
+  type IRoomView,
+} from "./rooms";
+import {
+  RosterTracker,
+  memberRows,
+  type IMemberRow,
+  type IRosterRow,
+} from "./roster";
 
 /** Messages rechargés à l'ouverture d'un salon et à chaque reconnexion. */
 const HISTORY_SIZE = 50;
@@ -26,6 +37,12 @@ const TYPING_THROTTLE_MS = 2000;
 
 /** « Untel écrit… » s'efface sans nouveau signal. */
 const TYPING_DISPLAY_MS = 3000;
+
+/**
+ * Les membres se relisent au plus une fois par fenêtre : une rafale de
+ * présences (connexions, rechargements) ne fait qu'une requête.
+ */
+const MEMBERS_RELOAD_MS = 400;
 
 /** La socket typée par le contrat du chat. */
 type ChatSocket = ReturnType<typeof NodefonySocket.fromContract<ChatContract>>;
@@ -45,6 +62,11 @@ export interface IChatRoom {
   presence: IPresenceSnapshot;
   /** Les lignes du panneau des présents, triées. */
   people: IRosterRow[];
+  /**
+   * Les membres d'un salon PRIVÉ et leur état (D51) — dans le salon, en ligne
+   * ailleurs, absent ; `null` pour un salon public ou un visiteur anonyme.
+   */
+  members: IMemberRow[] | null;
   /** Pourquoi le salon ouvert est fermé à cette page ; `null` s'il est ouvert. */
   refusal: string | null;
   /**
@@ -108,6 +130,8 @@ export interface IRoomForms {
   deleteRoom: () => Promise<void>;
   /** Quitte le salon ouvert (pas son propriétaire), puis ouvre l'accueil. */
   leaveRoom: () => Promise<void>;
+  /** Exclut un membre du salon ouvert (propriétaire ou modérateur). */
+  removeMember: (userId: string) => Promise<void>;
 }
 
 /** Le motif d'un refus HTTP : le message du serveur, sinon le statut. */
@@ -149,6 +173,7 @@ export function useChat(): IChatRoom {
   const [typing, setTyping] = useState<string | null>(null);
   const [presence, setPresence] = useState<IPresenceSnapshot>(EMPTY_PRESENCE);
   const [people, setPeople] = useState<IRosterRow[]>([]);
+  const [roomMembers, setRoomMembers] = useState<IRoomMember[] | null>(null);
   const [refusal, setRefusal] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [identity, setIdentity] = useState<RealtimeIdentity | null>(null);
@@ -159,6 +184,8 @@ export function useChat(): IChatRoom {
   // soi-même, dont l'éjection n'a rien à annoncer.
   const roomsSeen = useRef<IRoomView[]>([]);
   const leaving = useRef<string | null>(null);
+  // Relit les membres du salon ouvert ; posé par l'effet du salon.
+  const reloadMembers = useRef<(() => void) | null>(null);
   useEffect(() => {
     roomsSeen.current = rooms;
   }, [rooms]);
@@ -198,6 +225,17 @@ export function useChat(): IChatRoom {
     };
   }, []);
 
+  // #region chat-online-client
+  // « En ligne » : une page CONNECTÉE s'y abonne, quel que soit le salon. La
+  // socket rejoue l'abonnement à chaque reconnexion ; un anonyme n'y va pas.
+  const signedIn = identity?.authenticated === true;
+  useEffect(() => {
+    if (socket === null || !signedIn) return;
+    socket.subscribe(ONLINE_CHANNEL);
+    return () => socket.unsubscribe(ONLINE_CHANNEL);
+  }, [socket, signedIn]);
+  // #endregion
+
   // Le salon ouvert : son canal, son historique, sa frappe, sa présence.
   useEffect(() => {
     if (socket === null) return;
@@ -205,6 +243,7 @@ export function useChat(): IChatRoom {
     const roster = new RosterTracker();
     let typingTimer: ReturnType<typeof setTimeout> | null = null;
     let markTimer: ReturnType<typeof setTimeout> | null = null;
+    let membersTimer: ReturnType<typeof setTimeout> | null = null;
     // Qui regarde : connu si la socket a déjà reçu son accueil.
     let me: string | null =
       socket.identity?.authenticated === true ? socket.identity.id : null;
@@ -214,6 +253,7 @@ export function useChat(): IChatRoom {
     setRefusal(null);
     setPresence(EMPTY_PRESENCE);
     setPeople([]);
+    setRoomMembers(null);
 
     /** Rend le panneau, et se rappelle à l'échéance de la prochaine marque. */
     const draw = () => {
@@ -239,6 +279,27 @@ export function useChat(): IChatRoom {
         })
         .catch(() => roster.forget(ids));
     };
+    // #region chat-members-client
+    // Les membres d'un salon privé : relus à l'ouverture, puis quand une
+    // présence bouge — celle du salon ou celle du canal « en ligne ». Une
+    // rafale ne fait qu'une requête. Un visiteur anonyme ne les demande pas.
+    const loadMembers = () => {
+      membersTimer = null;
+      if (socket.identity?.authenticated !== true) return;
+      socket
+        .get("/demo/chat/rooms/{room}/members", { params: { room: roomId } })
+        .then((found) => {
+          if (live) setRoomMembers(found);
+        })
+        .catch(() => {
+          // Refus ou coupure : la prochaine présence relira.
+        });
+    };
+    const scheduleMembers = () => {
+      membersTimer ??= setTimeout(loadMembers, MEMBERS_RELOAD_MS);
+    };
+    reloadMembers.current = loadMembers;
+    // #endregion
     // #region chat-history-client
     // Relu à chaque connexion, APRÈS l'abonnement effectif : un message publié
     // entre la lecture et l'abonnement serait perdu. La page relue se recoupe
@@ -291,8 +352,10 @@ export function useChat(): IChatRoom {
         roster.observe(snapshot.members, snapshot.partial, Date.now());
         draw();
         askNames();
+        scheduleMembers();
       }),
       // #endregion
+      socket.onPresence(ONLINE_CHANNEL, scheduleMembers),
       socket.onIdentity((who) => {
         me = who?.authenticated === true ? who.id : null;
         draw();
@@ -321,16 +384,23 @@ export function useChat(): IChatRoom {
         setRoomId(LOBBY_ROOM_ID);
       }),
       socket.onState((next) => {
-        if (next === "connected") loadHistory();
+        if (next !== "connected") return;
+        loadHistory();
+        loadMembers();
       }),
     ];
     socket.subscribe(channel);
-    if (socket.state === "connected") loadHistory();
+    if (socket.state === "connected") {
+      loadHistory();
+      loadMembers();
+    }
     return () => {
       live = false;
+      if (reloadMembers.current === loadMembers) reloadMembers.current = null;
       for (const off of offs) off();
       if (typingTimer !== null) clearTimeout(typingTimer);
       if (markTimer !== null) clearTimeout(markTimer);
+      if (membersTimer !== null) clearTimeout(membersTimer);
       socket.unsubscribe(channel);
     };
   }, [socket, roomId]);
@@ -395,6 +465,7 @@ export function useChat(): IChatRoom {
         await live().post("/demo/chat/rooms/{room}/members", draft, {
           params: { room: roomId },
         });
+        reloadMembers.current?.();
       },
       planEvent: async (draft) => {
         await live().post("/demo/chat/rooms/{room}/events", draft, {
@@ -444,6 +515,16 @@ export function useChat(): IChatRoom {
         setRoomId(LOBBY_ROOM_ID);
       },
       // #endregion
+      // Exclure : la MÊME route, avec l'identifiant d'un autre. Le serveur
+      // relit les rôles en base ; l'exclu reçoit `evicted` sur tous ses onglets.
+      removeMember: async (userId) => {
+        await live().delete(
+          "/demo/chat/rooms/{room}/members/{user}",
+          undefined,
+          { params: { room: roomId, user: userId } },
+        );
+        reloadMembers.current?.();
+      },
     };
   }, [socket, roomId]);
   // #endregion
@@ -490,6 +571,22 @@ export function useChat(): IChatRoom {
   }, [socket, roomId]);
   // #endregion
 
+  // Les lignes du panneau des membres : la règle pure (`memberRows`), avec la
+  // présence du salon poussée en direct — « dans le salon » sans requête.
+  const me = identity?.authenticated === true ? identity.id : null;
+  const current = rooms.find((item) => item.id === roomId) ?? null;
+  const members = useMemo(() => {
+    if (roomMembers === null || roomMembers.length === 0 || current === null)
+      return null;
+    return memberRows(
+      roomMembers,
+      presence.members,
+      me,
+      { id: current.id, direct: current.peer !== null },
+      current.role,
+    );
+  }, [roomMembers, presence.members, me, current]);
+
   return {
     rooms,
     roomId,
@@ -498,6 +595,7 @@ export function useChat(): IChatRoom {
     typing,
     presence,
     people,
+    members,
     refusal,
     notice,
     identity,

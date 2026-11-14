@@ -18,6 +18,15 @@ export const ROOM_CHANNEL_PREFIX = "chat:room:";
 /** Le motif déclaré une fois pour tous les salons. */
 export const ROOM_CHANNEL_PATTERN = "chat:room:*";
 
+/**
+ * Le canal « en ligne » (D51) : toute page CONNECTÉE le rejoint au chargement,
+ * quel que soit le salon ouvert. Il ne porte aucune trame, et sa présence ne
+ * publie que des NOMBRES (`maxNamed: 0`) : aucun abonné n'apprend qui est en
+ * ligne. Seul le serveur lit les identités (`hub.presence()`), pour dire
+ * l'état des membres d'un salon privé à qui y est admis.
+ */
+export const ONLINE_CHANNEL = "chat:online";
+
 /** Le salon public semé au premier démarrage, et son identifiant stable. */
 export const LOBBY_ROOM_ID = "salon";
 
@@ -314,3 +323,48 @@ export function headlineEvent<T extends Omit<IRoomEvent, "partstat">>(
   }
   return next;
 }
+
+// #region rooms-members
+/** Où se trouve un membre d'un salon privé, vu par les autres (D51). */
+export type MemberState = "here" | "online" | "away";
+
+/** Un membre d'un salon privé, tel que la route des membres le rend. */
+export interface IRoomMember {
+  id: string;
+  name: string;
+  role: RoomRole;
+  /** Une page connectée ouverte sur le chat — ce salon ou un autre. */
+  online: boolean;
+}
+
+/**
+ * L'état d'un membre : dans le salon (la présence du salon l'y montre), en
+ * ligne ailleurs (le serveur l'a vu sur le canal « en ligne »), sinon absent.
+ * La présence du salon ouvert est poussée en direct : elle prime sur
+ * `online`, lu à la dernière réponse de la route.
+ *
+ * @param member - l'identité du membre, et s'il était en ligne
+ * @param inRoom - les présents nommés du salon ouvert
+ */
+export function memberStateOf(
+  member: Pick<IRoomMember, "id" | "online">,
+  inRoom: ReadonlyMap<string, unknown>,
+): MemberState {
+  if (inRoom.has(member.id)) return "here";
+  return member.online ? "online" : "away";
+}
+
+/** L'ordre des rôles dans le panneau : propriétaire, modérateurs, membres. */
+export const ROLE_RANK: Readonly<Record<RoomRole, number>> = {
+  owner: 0,
+  moderator: 1,
+  member: 2,
+};
+
+/** L'ordre des états : dans le salon, en ligne ailleurs, absent. */
+export const MEMBER_STATE_RANK: Readonly<Record<MemberState, number>> = {
+  here: 0,
+  online: 1,
+  away: 2,
+};
+// #endregion

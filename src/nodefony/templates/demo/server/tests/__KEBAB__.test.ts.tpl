@@ -113,6 +113,7 @@ import {
   directPeer,
   eventProblem,
   headlineEvent,
+  memberStateOf,
   normalizeRoomName,
   roomChannel,
   roomIdOf,
@@ -122,6 +123,7 @@ import {
   ARRIVAL_MARK_MS,
   DEPARTURE_MARK_MS,
   RosterTracker,
+  memberRows,
 } from "../frontend/src/chat/roster";
 import {
   LESSON_LAYERS,
@@ -594,6 +596,67 @@ describe("demo — les formulaires des salons (règles pures)", () => {
     expect(directPeer("salon", a)).toBeNull();
     // Un identifiant qui contient « : » ne trompe pas la lecture.
     expect(directPeer(directKey("x:1", "y"), "y")).toBe("x:1");
+  });
+});
+
+describe("demo — les membres d'un salon privé (D51, règle pure)", () => {
+  const inRoom = new Map([["bob", { tabs: 1 }]]);
+  const members = [
+    { id: "zoe", name: "zoé", role: "member" as const, online: false },
+    { id: "bob", name: "bob", role: "member" as const, online: true },
+    { id: "ann", name: "ann", role: "owner" as const, online: true },
+    { id: "max", name: "max", role: "moderator" as const, online: true },
+  ];
+  const room = { id: "projet", direct: false };
+
+  it("dans le salon (présence du salon) prime sur « en ligne » ; sinon en ligne ailleurs ; sinon absent", () => {
+    expect(memberStateOf({ id: "bob", online: false }, inRoom)).toBe("here");
+    expect(memberStateOf({ id: "ann", online: true }, inRoom)).toBe("online");
+    expect(memberStateOf({ id: "zoe", online: false }, inRoom)).toBe("away");
+  });
+
+  it("ordre : soi, puis l'état, puis le rôle, puis le nom", () => {
+    const rows = memberRows(members, inRoom, "zoe", room, "member");
+    expect(rows.map((r) => [r.id, r.state])).toEqual([
+      ["zoe", "away"],
+      ["bob", "here"],
+      ["ann", "online"],
+      ["max", "online"],
+    ]);
+  });
+
+  it("🔴 « Exclure » suit la règle partagée : jamais soi, jamais le propriétaire, un modérateur par le propriétaire seul", () => {
+    const removable = (me: string, myRole: "owner" | "moderator" | "member") =>
+      Object.fromEntries(
+        memberRows(members, inRoom, me, room, myRole).map((r) => [
+          r.id,
+          r.removable,
+        ]),
+      );
+    expect(removable("ann", "owner")).toEqual({
+      ann: false,
+      bob: true,
+      max: true,
+      zoe: true,
+    });
+    expect(removable("max", "moderator")).toEqual({
+      max: false,
+      bob: true,
+      ann: false,
+      zoe: true,
+    });
+    expect(removable("bob", "member")).toEqual({
+      bob: false,
+      ann: false,
+      max: false,
+      zoe: false,
+    });
+    // Un salon à deux appartient aux deux : personne n'en exclut personne.
+    expect(
+      memberRows(members, inRoom, "ann", { id: "dm", direct: true }, "owner")
+        .map((r) => r.removable)
+        .some(Boolean),
+    ).toBe(false);
   });
 });
 

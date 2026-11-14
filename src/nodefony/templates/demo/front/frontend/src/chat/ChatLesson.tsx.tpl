@@ -22,6 +22,7 @@ import {
   LeaveRoomDialog,
   EventDialog,
   InviteDialog,
+  RemoveMemberDialog,
 } from "./RoomForms";
 import { useEffect, useRef, useState } from "react";
 
@@ -371,6 +372,10 @@ function ChatRoom({
   const replyTo = useRef<((target: ChatReplyRef) => void) | null>(null);
   const [form, setForm] = useState<OpenForm>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // La personne qu'on s'apprête à exclure (boîte de confirmation).
+  const [removing, setRemoving] = useState<{ id: string; name: string } | null>(
+    null,
+  );
   const current = room.rooms.find((item) => item.id === room.roomId) ?? null;
   const total = room.presence.count + room.presence.unnamed;
   const signedIn = room.identity?.authenticated === true;
@@ -555,6 +560,15 @@ function ChatRoom({
             ? (userId) => act(room.forms.openDirect(userId))
             : null
         }
+        members={room.members}
+        onRemove={manages ? (id, who) => setRemoving({ id, name: who }) : null}
+      />
+      <RemoveMemberDialog
+        open={removing !== null}
+        onClose={() => setRemoving(null)}
+        forms={room.forms}
+        roomName={name}
+        member={removing}
       />
       <CreateRoomDialog
         open={form === "create"}

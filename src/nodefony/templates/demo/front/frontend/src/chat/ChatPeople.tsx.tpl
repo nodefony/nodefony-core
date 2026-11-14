@@ -1,6 +1,12 @@
 import { useId, useMemo, useState, type CSSProperties } from "react";
 import type { IPresenceSnapshot } from "nodefony/client";
-import { ARRIVAL_MARK_MS, DEPARTURE_MARK_MS, type IRosterRow } from "./roster";
+import type { MemberState, RoomRole } from "./rooms";
+import {
+  ARRIVAL_MARK_MS,
+  DEPARTURE_MARK_MS,
+  type IMemberRow,
+  type IRosterRow,
+} from "./roster";
 
 /** Au-delà de ce nombre de présents, un champ de recherche apparaît. */
 const SEARCH_FROM = 12;
@@ -90,6 +96,108 @@ function PersonSub({
   return <span className="person-sub" />;
 }
 
+/** Ce que dit la ligne d'un membre sous son nom (D51). */
+const STATE_TEXT: Readonly<Record<MemberState, string>> = {
+  here: "dans le salon",
+  online: "en ligne ailleurs",
+  away: "absent·e",
+};
+
+/** Le rôle affiché à côté du nom ; un simple membre n'en porte pas. */
+const ROLE_TEXT: Readonly<Record<RoomRole, string | null>> = {
+  owner: "propriétaire",
+  moderator: "modérateur",
+  member: null,
+};
+
+/** Une ligne du panneau des membres : son état, son rôle, ses gestes. */
+function MemberItem({
+  row,
+  typing,
+  onMention,
+  onDirect,
+  onRemove,
+}: {
+  row: IMemberRow;
+  typing: string | null;
+  onMention: ((name: string) => void) | null;
+  onDirect: ((userId: string) => void) | null;
+  onRemove: ((userId: string, name: string) => void) | null;
+}) {
+  const role = ROLE_TEXT[row.role];
+  const mention = row.state === "here" ? onMention : null;
+  const remove = row.removable ? onRemove : null;
+  return (
+    <li className={`person is-${row.state}${row.me ? " is-me" : ""}`}>
+      <span
+        className="person-avatar"
+        aria-hidden="true"
+        style={{ backgroundColor: `hsl(${hueOf(row.id)} 45% 36%)` }}
+      >
+        {initialsOf(row.name)}
+      </span>
+      <span className="person-who">
+        <span className="person-name">
+          {row.name}
+          {role !== null && <span className="person-role">{role}</span>}
+        </span>
+        <span className="person-sub">
+          {row.me ? (
+            "vous"
+          ) : typing !== null && typing === row.name ? (
+            <>
+              <span className="typing-dots" aria-hidden="true">
+                <i />
+                <i />
+                <i />
+              </span>
+              écrit…
+            </>
+          ) : (
+            STATE_TEXT[row.state]
+          )}
+        </span>
+      </span>
+      <span />
+      {!row.me &&
+        (mention !== null || onDirect !== null || remove !== null) && (
+          <span className="person-actions">
+            {mention !== null && (
+              <button
+                type="button"
+                onClick={() => mention(row.name)}
+                aria-label={`Mentionner ${row.name}`}
+              >
+                @
+              </button>
+            )}
+            {onDirect !== null && (
+              <button
+                type="button"
+                onClick={() => onDirect(row.id)}
+                aria-label={`Écrire en privé à ${row.name}`}
+                title="Message privé"
+              >
+                ✉
+              </button>
+            )}
+            {remove !== null && (
+              <button
+                type="button"
+                className="is-danger"
+                onClick={() => remove(row.id, row.name)}
+                aria-label={`Exclure ${row.name} du salon`}
+                title="Exclure du salon"
+              >
+                ⨯
+              </button>
+            )}
+          </span>
+        )}
+    </li>
+  );
+}
+
 /** Ce que le panneau reçoit de l'écran du salon. */
 export interface IChatPeopleProps {
   presence: IPresenceSnapshot;
@@ -103,6 +211,13 @@ export interface IChatPeopleProps {
    * pour un anonyme, et dans un salon déjà à deux.
    */
   onDirect: ((userId: string) => void) | null;
+  /**
+   * Les membres d'un salon PRIVÉ et leur état (D51) ; `null` pour un salon
+   * public, où le panneau ne montre que les présents.
+   */
+  members: readonly IMemberRow[] | null;
+  /** Ouvre la confirmation d'exclusion ; absent si l'on ne modère pas. */
+  onRemove: ((userId: string, name: string) => void) | null;
 }
 
 /**
@@ -122,6 +237,8 @@ export function ChatPeople({
   typing,
   onMention,
   onDirect,
+  members,
+  onRemove,
 }: IChatPeopleProps) {
   const listId = useId();
   const [open, setOpen] = useState(false);
@@ -138,12 +255,19 @@ export function ChatPeople({
   // Au-delà du seuil de la trame, le serveur n'envoie que des nombres.
   const namesHidden =
     presence.ready && presence.count > 0 && presence.members.size === 0;
+  // Un salon privé : les présents qui ne sont pas membres (invités d'un
+  // événement) restent visibles, sous les membres.
+  const guests = useMemo(() => {
+    if (members === null) return null;
+    const ids = new Set(members.map((member) => member.id));
+    return rows.filter((row) => !ids.has(row.id));
+  }, [members, rows]);
 
   return (
     <aside className="people" aria-labelledby={`${listId}-title`}>
       <div className="people-head">
         <h3 id={`${listId}-title`} className="people-title">
-          Dans le salon
+          {members === null ? "Dans le salon" : "Membres"}
         </h3>
         <button
           type="button"
@@ -185,7 +309,50 @@ export function ChatPeople({
           </div>
         )}
 
-        {namesHidden ? (
+        {members !== null && guests !== null ? (
+          <>
+            <ul className="people-list">
+              {members.map((row) => (
+                <MemberItem
+                  key={row.id}
+                  row={row}
+                  typing={typing}
+                  onMention={onMention}
+                  onDirect={onDirect}
+                  onRemove={onRemove}
+                />
+              ))}
+            </ul>
+            {guests.length > 0 && (
+              <>
+                <p className="people-subtitle">Aussi dans le salon</p>
+                <ul className="people-list">
+                  {guests.map((row) => (
+                    <li
+                      key={row.id}
+                      className={`person is-${row.state}${row.me ? " is-me" : ""}`}
+                      style={styleOf(row)}
+                    >
+                      <span
+                        className="person-avatar"
+                        aria-hidden="true"
+                        style={{
+                          backgroundColor: `hsl(${hueOf(row.id)} 45% 36%)`,
+                        }}
+                      >
+                        {initialsOf(row.name)}
+                      </span>
+                      <span className="person-who">
+                        <span className="person-name">{row.name ?? "…"}</span>
+                        <PersonSub row={row} typing={typing} />
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </>
+        ) : namesHidden ? (
           <p className="people-note">
             Le salon est trop grand pour lister chacun : seuls les nombres sont
             envoyés.

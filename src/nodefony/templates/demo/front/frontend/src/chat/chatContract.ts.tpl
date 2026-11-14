@@ -17,7 +17,7 @@ import type {
   MemberParams,
   UserParams,
 } from "./chatSchemas";
-import type { IRoomEvent, IRoomView } from "./rooms";
+import type { IRoomEvent, IRoomMember, IRoomView } from "./rooms";
 
 /**
  * Le contrat du salon — des TYPES seulement, lus par les deux côtés :
@@ -268,6 +268,10 @@ export interface ChatContract extends IRealtimeContract {
     "DELETE /demo/chat/rooms/{room}": {
       params: typeof RoomParams;
       result: { ok: true };
+    };
+    "GET /demo/chat/rooms/{room}/members": {
+      params: typeof RoomParams;
+      result: IRoomMember[];
     };
     "POST /demo/chat/rooms/{room}/members": {
       params: typeof RoomParams;

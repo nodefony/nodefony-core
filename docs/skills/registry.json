@@ -12247,7 +12247,7 @@
       "name": "nodefony-add-realtime-presence",
       "summary": "Affiche qui est là sur un canal temps réel Nodefony — qui est en ligne dans un salon, combien de spectateurs, dans combien d'onglets — par l'option de présence que le framework tient lui-même, au lieu d'une liste de connectés écrite à la main qui ment dès deux serveurs.",
       "family": "Autres",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "keywords": [
         "nodefony-add-realtime-channel"
       ],
@@ -12268,8 +12268,8 @@
       ],
       "description": "Affiche qui est là sur un canal temps réel Nodefony — qui est en ligne dans un salon, combien de spectateurs, dans combien d'onglets — par l'option de présence que le framework tient lui-même, au lieu d'une liste de connectés écrite à la main qui ment dès deux serveurs. Mène de la ligne à déclarer à l'écran (React, Vue, Angular, Svelte) et à son test, et porte ce qui ne se voit qu'en production : plusieurs serveurs, rechargement de page, redéploiement, salon de mille personnes. À charger AVANT d'écrire une liste de présents, un compteur de spectateurs ou un indicateur « en ligne ». Le canal lui-même (le créer, le protéger) relève de `nodefony-add-realtime-channel`. Déclencheurs : \"qui est en ligne ?\", \"afficher les connectés\", \"liste des présents\", \"combien de spectateurs\", \"indicateur en ligne\", \"statut en ligne\", \"Untel est en train d'écrire\", \"la liste clignote quand je recharge\", \"les présents ne sont pas les mêmes sur deux serveurs\", \"présence\", \"presence\", \"onPresence\", \"useNodefonyPresence\".",
       "cost": {
-        "bodyLines": 305,
-        "approxTokens": 4886
+        "bodyLines": 311,
+        "approxTokens": 5002
       },
       "requires": [],
       "resources": {
@@ -12340,7 +12340,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "305",
+            "detail": "311",
             "advisory": true
           }
         ]

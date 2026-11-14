@@ -4872,6 +4872,42 @@ button.msg-chip[aria-pressed="true"] {
   color: var(--muted);
   font-weight: 500;
 }
+/* Membres d'un salon privé (D51) : la pastille dit l'état par sa FORME —
+   pleine dans le salon, en anneau en ligne ailleurs, absente pour un absent. */
+.person.is-online .person-avatar::after {
+  background: var(--bg-soft);
+  border-color: var(--green);
+}
+.person.is-away .person-avatar {
+  opacity: 0.55;
+}
+.person.is-away .person-avatar::after {
+  display: none;
+}
+.person.is-away .person-name {
+  color: var(--muted);
+  font-weight: 500;
+}
+.person-role {
+  margin-left: 0.35rem;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.people-subtitle {
+  margin: 0.6rem 0 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.person-actions button.is-danger:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
 .people-note,
 .people-empty {
   margin: 0;

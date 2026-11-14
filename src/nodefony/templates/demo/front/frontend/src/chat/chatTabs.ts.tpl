@@ -128,8 +128,16 @@ export const CHAT_LESSON = {
           excerpt: { file: CONTROLLER, region: "chat-link-route" },
         },
         {
-          text: "Tous les salons, déclarés UNE fois par un motif. Une classe d'admission tranche qui entre (lue en base, au `subscribe`) ; `presence` donne la liste des présents à qui est admis, et `grace` retient un départ cinq secondes — un rechargement de page ne fait pas « parti, revenu ». Un canal décoré n'est servi que sous son nom exact : la famille l'est par `createRealtimeChannel`.",
+          text: "Tous les salons, déclarés UNE fois par un motif. Une classe d'admission tranche qui entre (lue en base, au `subscribe`) ; `presence` donne la liste des présents à qui est admis, et `grace` retient un départ cinq secondes — un rechargement de page ne fait pas « parti, revenu ». Le motif pose la règle ET sert chaque salon : aucune surcharge à écrire.",
           excerpt: { file: CONTROLLER, region: "chat-room", step: 1 },
+        },
+        {
+          text: "« En ligne » : un canal sans trame, que toute page connectée rejoint. Sa présence ne publie que des NOMBRES (`maxNamed: 0`) : personne n'apprend qui est en ligne. Le serveur lit les identités pour dire, aux seuls membres d'un salon privé, qui est dans le salon, en ligne ailleurs ou absent.",
+          excerpt: { file: CONTROLLER, region: "chat-online" },
+        },
+        {
+          text: "Les membres d'un salon privé et leur état : une route réservée à qui y est admis. Un salon public rend une liste vide — y dire qui est en ligne renseignerait n'importe quel visiteur.",
+          excerpt: { file: CONTROLLER, region: "chat-members-route" },
         },
         {
           text: "La frappe en cours : une action sans corps, réservée aux connectés ADMIS. Le signal part sur le canal du salon, en message éphémère : il suit les droits du salon et ne fuit jamais hors de lui — ce qu'un canal de frappe commun à tous ne garantirait pas.",

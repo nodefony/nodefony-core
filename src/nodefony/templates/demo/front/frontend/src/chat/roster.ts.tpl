@@ -1,5 +1,14 @@
 import type { IPresenceEntry } from "nodefony/client";
 import { PEOPLE_MAX, type ChatPerson } from "./chatContract";
+import {
+  MEMBER_STATE_RANK,
+  ROLE_RANK,
+  memberRemovalProblem,
+  memberStateOf,
+  type IRoomMember,
+  type MemberState,
+  type RoomRole,
+} from "./rooms";
 
 /**
  * Le panneau des présents d'un salon — une règle PURE, sans React ni socket :
@@ -206,5 +215,64 @@ function compareRows(a: IRosterRow, b: IRosterRow): number {
     const byName = COLLATOR.compare(a.name, b.name);
     if (byName !== 0) return byName;
   }
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
+/** Une ligne du panneau des membres d'un salon privé (D51). */
+export interface IMemberRow {
+  readonly id: string;
+  readonly name: string;
+  readonly role: RoomRole;
+  readonly state: MemberState;
+  /** La ligne de la personne qui regarde. */
+  readonly me: boolean;
+  /**
+   * Qui regarde peut l'exclure (`memberRemovalProblem`) : la page CACHE ce
+   * que le serveur refuserait, c'est lui qui décide.
+   */
+  readonly removable: boolean;
+}
+
+/**
+ * Les lignes du panneau des membres : soi d'abord, puis dans le salon, en
+ * ligne ailleurs, absents ; à état égal, le rôle, puis le nom.
+ *
+ * @param members - ce que la route des membres a rendu
+ * @param inRoom - les présents nommés du salon ouvert, poussés en direct
+ * @param me - l'identité de qui regarde ; `null` pour un anonyme
+ * @param room - le salon, et s'il est à deux
+ * @param myRole - le rôle de qui regarde dans ce salon
+ */
+export function memberRows(
+  members: readonly IRoomMember[],
+  inRoom: ReadonlyMap<string, unknown>,
+  me: string | null,
+  room: { id: string; direct: boolean },
+  myRole: RoomRole | null,
+): IMemberRow[] {
+  const rows = members.map((member): IMemberRow => ({
+    id: member.id,
+    name: member.name,
+    role: member.role,
+    state: memberStateOf(member, inRoom),
+    me: member.id === me,
+    // La règle partagée suffit : elle refuse déjà soi-même (propriétaire,
+    // ou modérateur sans propriétaire), et tout geste à qui ne modère pas.
+    removable: memberRemovalProblem(room, myRole, member.role, false) === null,
+  }));
+  // Tri EN PLACE : `rows` est neuf.
+  rows.sort(compareMemberRows);
+  return rows;
+}
+
+/** Soi ; puis l'état ; puis le rôle ; puis le nom ; puis l'id. */
+function compareMemberRows(a: IMemberRow, b: IMemberRow): number {
+  if (a.me !== b.me) return a.me ? -1 : 1;
+  const byState = MEMBER_STATE_RANK[a.state] - MEMBER_STATE_RANK[b.state];
+  if (byState !== 0) return byState;
+  const byRole = ROLE_RANK[a.role] - ROLE_RANK[b.role];
+  if (byRole !== 0) return byRole;
+  const byName = COLLATOR.compare(a.name, b.name);
+  if (byName !== 0) return byName;
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }

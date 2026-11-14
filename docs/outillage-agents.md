@@ -217,7 +217,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme v3.1.0 · 📎 2 réf" },
   { "icon": "🔧", "title": "add-realtime-presence", "href": "skills/nodefony-add-realtime-presence.md",
     "desc": "Affiche qui est là sur un canal temps réel Nodefony — qui est en ligne dans un salon, combien de spectateurs, dans combien d'onglets — par l'option de présence que le framework tient lui-même, au lieu d'une liste de connectés écrite à la main qui ment dès deux serveurs.",
-    "meta": "🟢 conforme v1.1.0" },
+    "meta": "🟢 conforme v1.2.0" },
   { "icon": "🔧", "title": "add-service", "href": "skills/nodefony-add-service.md",
     "desc": "Crée un service injectable dans une application Nodefony par `nodefony create service`, et le fait entrer dans le conteneur — la moitié qu'on oublie. Porte la distinction entre le nom de la CLASSE et le nom de l'INSTANCE, les deux façons d'obtenir un service depuis un autre (`@Inject` au…",
     "meta": "🟢 conforme" },

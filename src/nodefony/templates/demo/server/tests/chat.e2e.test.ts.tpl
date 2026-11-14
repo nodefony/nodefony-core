@@ -18,7 +18,9 @@ import {
 } from "../frontend/src/chat/chatContract";
 import {
   LOBBY_ROOM_ID,
+  ONLINE_CHANNEL,
   roomChannel,
+  type IRoomMember,
   type IRoomView,
 } from "../frontend/src/chat/rooms";
 import {
@@ -574,6 +576,84 @@ demoDescribe("discussion — les formulaires", () => {
     });
     expect(after.status).toBe(403);
     await after.body?.cancel();
+  });
+
+  it("🔴 D51 — les membres d'un salon privé et leur état : « en ligne » sans que personne n'apprenne qui l'est", async () => {
+    const created = await post(admin, "/demo/chat/rooms", {
+      name: roomName("présence"),
+      access: "private",
+    });
+    const room: IRoomView = await created.json();
+    const invited = await post(admin, `/demo/chat/rooms/${room.id}/members`, {
+      identifier: E2E_USER_IDENTIFIER,
+    });
+    expect(invited.status).toBe(200);
+    await invited.body?.cancel();
+    const membersPath = roomPath(room.id, "members");
+    const read = async (): Promise<IRoomMember[]> => {
+      const res = await fetch(membersPath, { headers: admin });
+      expect(res.status).toBe(200);
+      return res.json();
+    };
+    /** Relit la route jusqu'à ce que le membre soit dans l'état attendu. */
+    const until = async (what: string, online: boolean): Promise<void> => {
+      const deadline = Date.now() + 15_000;
+      for (;;) {
+        const found = (await read()).find((m) => m.id === memberId);
+        if (found?.online === online) return;
+        if (Date.now() > deadline) throw new Error(`délai dépassé : ${what}`);
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+    };
+
+    // Les deux membres, nommés, avec leur rôle ; personne n'a de page ouverte.
+    const first = await read();
+    expect(first.map((m) => `${m.name}:${m.role}`).sort()).toEqual(
+      ["admin:owner", `${E2E_USER_IDENTIFIER}:member`].sort(),
+    );
+    expect(first.find((m) => m.id === memberId)?.online).toBe(false);
+
+    // Le membre ouvre une page AILLEURS : il rejoint seulement « en ligne ».
+    const page = await openSocket<ChatContract>(CHAT_REALTIME_PATH, {
+      cbor: false,
+      session: member,
+    });
+    const counts: Array<{ count: number; named: number }> = [];
+    page.onPresence(ONLINE_CHANNEL, (snapshot) =>
+      counts.push({ count: snapshot.count, named: snapshot.members.size }),
+    );
+    page.subscribe(ONLINE_CHANNEL);
+    await page.whenSubscribed(ONLINE_CHANNEL);
+    await until("le membre vu en ligne", true);
+    // Confidentialité : l'abonné reçoit des NOMBRES, jamais une identité.
+    await waitFor("une vue de « en ligne »", () =>
+      counts.some((c) => c.count > 0),
+    );
+    expect(counts.every((c) => c.named === 0)).toBe(true);
+
+    // Page fermée : absent, une fois la grâce écoulée (on attend le FAIT).
+    page.disconnect();
+    await until("le membre redevenu absent", false);
+
+    // Un salon public ne dit rien de personne ; un non-membre n'entre pas ;
+    // un anonyme non plus.
+    const lobby = await fetch(roomPath(LOBBY_ROOM_ID, "members"), {
+      headers: admin,
+    });
+    expect(await lobby.json()).toEqual([]);
+    const other = await post(admin, "/demo/chat/rooms", {
+      name: roomName("fermé"),
+      access: "private",
+    });
+    const closed: IRoomView = await other.json();
+    const stranger = await fetch(roomPath(closed.id, "members"), {
+      headers: member,
+    });
+    expect(stranger.status).toBe(403);
+    await stranger.body?.cancel();
+    const anonymous = await fetch(membersPath);
+    expect(anonymous.status).toBe(403);
+    await anonymous.body?.cancel();
   });
 
   it("écrire en privé : deux clics, UN salon à deux, nommé chez l'autre d'après soi ; pas avec soi-même", async () => {

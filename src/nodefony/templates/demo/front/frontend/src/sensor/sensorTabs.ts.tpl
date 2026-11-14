@@ -31,7 +31,7 @@ export const SENSOR_LESSON = {
           excerpt: { file: CONTROLLER, region: "sensor-controller" },
         },
         {
-          text: "L'usine est un canal CADENCÉ : `sensor:plant:<ms>`. Un décorateur ne reconnaît qu'un nom exact, une famille passe par `createRealtimeChannel`. Une cadence, un canal, une réduction partagée.",
+          text: "L'usine est un canal CADENCÉ : `sensor:plant:<ms>`. La cadence se lit DANS le nom : c'est `createRealtimeChannel` qui la décode — un motif décoré sert une famille, il ne lit pas un nombre. Une cadence, un canal, une réduction partagée.",
           excerpt: { file: CONTROLLER, region: "sensor-rate-channel" },
         },
         {

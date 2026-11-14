@@ -335,6 +335,57 @@ export function DeleteRoomDialog({
 }
 
 /**
+ * Exclure un membre du salon ouvert (XEP-0045 §9.4) : ses onglets quittent le
+ * salon aussitôt, sur tous les serveurs. Le serveur relit les rôles en base
+ * (`memberRemovalProblem`) : seul le propriétaire retire un modérateur.
+ */
+export function RemoveMemberDialog({
+  open,
+  onClose,
+  forms,
+  roomName,
+  member,
+}: IDialogProps & {
+  forms: IRoomForms;
+  roomName: string;
+  /** La personne à exclure ; `null` quand la boîte est fermée. */
+  member: { id: string; name: string } | null;
+}) {
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (open) setError(null);
+  }, [open]);
+  const submit = async (): Promise<string | null> => {
+    if (member === null) return "aucun membre choisi";
+    try {
+      await forms.removeMember(member.id);
+      return null;
+    } catch (refusal) {
+      const message = messageOf(refusal);
+      setError(message);
+      return message;
+    }
+  };
+  return (
+    <FormDialog
+      open={open}
+      onClose={onClose}
+      title={`Exclure ${member?.name ?? ""} de « ${roomName} »`}
+      lead="Ses onglets ouverts quittent le salon aussitôt. Pour y revenir, il lui faudra une nouvelle invitation."
+      submitLabel="Exclure du salon"
+      danger
+      submit={submit}
+    >
+      {error !== null && (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      )}
+    </FormDialog>
+  );
+}
+
+/**
  * Quitter le salon ouvert : un salon privé ne se rouvre que sur une nouvelle
  * invitation, la boîte le dit avant. Le serveur rejoue la règle
  * (`memberRemovalProblem`) : le propriétaire ne quitte pas, il supprime.

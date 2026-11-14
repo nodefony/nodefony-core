@@ -43,10 +43,11 @@ import {
   type ChatReaction,
 } from "../../frontend/src/chat/chatContract";
 import {
+  ONLINE_CHANNEL,
   ROOM_CHANNEL_PATTERN,
   admissionOf,
-  roomIdOf,
   type IRoomEvent,
+  type IRoomMember,
   type IRoomView,
 } from "../../frontend/src/chat/rooms";
 import { isUploadedFile, type ChatQuota } from "../service/ChatService";
@@ -130,6 +131,7 @@ class ChatController extends ContractRealtimeController<ChatContract> {
     },
     "POST /demo/chat/rooms": { body: CreateRoomBody },
     "DELETE /demo/chat/rooms/{room}": { params: RoomParams },
+    "GET /demo/chat/rooms/{room}/members": { params: RoomParams },
     "POST /demo/chat/rooms/{room}/members": {
       params: RoomParams,
       body: InviteBody,
@@ -696,14 +698,35 @@ class ChatController extends ContractRealtimeController<ChatContract> {
   }
   // #endregion
 
+  // #region chat-members-route
+  /**
+   * Les membres d'un salon PRIVÉ, avec leur rôle et s'ils sont en ligne —
+   * `GET …/members` (D51), le même chemin que l'invitation (`POST`) : par la
+   * socket aussi, chaque verbe trouve SA route (méthode logique du pont).
+   * Réservé à qui est admis dans ce salon : membres et invités d'un événement
+   * en cours. Un salon public rend une liste vide.
+   */
+  @route("demo-chat-room-members", {
+    path: "/rooms/{room}/members",
+    requirements: { methods: ["GET", "WEBSOCKET"] },
+    schema: { params: RoomParams },
+  })
+  @IsGranted(["ROLE_USER"])
+  async members(input: RoomInput): Promise<IRoomMember[]> {
+    await this.#admitted(input.params.room);
+    return this.rooms.members(input.params.room);
+  }
+  // #endregion
+
   // #region chat-room
   /**
-   * Tous les salons, déclarés UNE fois par un motif. `RoomAdmission` tranche
-   * qui entre (lu en base, au `subscribe`) ; `anonymous: true` laisse un
-   * visiteur lire un salon PUBLIC — la règle le refuse ailleurs. La présence
-   * suit l'abonnement : qui est admis figure dans la liste, nommé s'il a un
-   * compte, compté sinon ; un départ attend `grace` avant d'être annoncé
-   * (ADR-0025 P5).
+   * Tous les salons, déclarés UNE fois par un motif : il pose la règle ET sert
+   * chaque salon (`chat:room:42`). `RoomAdmission` tranche qui entre (lu en
+   * base, au `subscribe` ; un nom qui n'est pas un salon est refusé) ;
+   * `anonymous: true` laisse un visiteur lire un salon PUBLIC — la règle le
+   * refuse ailleurs. La présence suit l'abonnement : qui est admis figure dans
+   * la liste, nommé s'il a un compte, compté sinon ; un départ attend `grace`
+   * avant d'être annoncé (ADR-0025 P5).
    */
   @RealtimeChannel(ROOM_CHANNEL_PATTERN, {
     allow: RoomAdmission,
@@ -713,14 +736,23 @@ class ChatController extends ContractRealtimeController<ChatContract> {
   room(): () => void {
     return () => {};
   }
+  // #endregion
 
+  // #region chat-online
   /**
-   * Un canal décoré n'est servi que sous son nom exact : chaque salon de la
-   * famille l'est ici. Synchrone et sans lecture — c'est `RoomAdmission` qui
-   * lit la base.
+   * « En ligne » (D51) : toute page connectée s'y abonne au chargement, quel
+   * que soit le salon ouvert. Aucune trame ; la présence ne publie que des
+   * NOMBRES (`maxNamed: 0`) — aucun abonné n'apprend qui est là. Le serveur,
+   * lui, lit les identités (`hub.presence()`) pour dire aux membres d'un
+   * salon privé où sont les autres (`RoomService.members`). Réservé aux
+   * comptes : un anonyme n'a rien à y annoncer.
    */
-  override createRealtimeChannel(channel: string): (() => void) | null {
-    return roomIdOf(channel) === null ? null : () => {};
+  @RealtimeChannel(ONLINE_CHANNEL, {
+    authenticated: true,
+    presence: { grace: PRESENCE_GRACE_MS, maxNamed: 0 },
+  })
+  online(): () => void {
+    return () => {};
   }
   // #endregion
 

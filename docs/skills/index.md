@@ -177,7 +177,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v3.1.0 · 📎 2 réf" },
   { "icon": "🔧", "title": "add-realtime-presence", "href": "nodefony-add-realtime-presence.md",
     "desc": "Affiche qui est là sur un canal temps réel Nodefony — qui est en ligne dans un salon, combien de spectateurs, dans combien d'onglets — par l'option de présence que le framework tient lui-même, au lieu d'une liste de connectés écrite à la main qui ment dès deux serveurs.",
-    "meta": "🟢 conforme v1.1.0" },
+    "meta": "🟢 conforme v1.2.0" },
   { "icon": "🔧", "title": "add-service", "href": "nodefony-add-service.md",
     "desc": "Crée un service injectable dans une application Nodefony par `nodefony create service`, et le fait entrer dans le conteneur — la moitié qu'on oublie. Porte la distinction entre le nom de la CLASSE et le nom de l'INSTANCE, les deux façons d'obtenir un service depuis un autre (`@Inject` au…",
     "meta": "🟢 conforme" },
@@ -236,7 +236,7 @@ source: "docs/skills/index.md"
 | [`nodefony-add-grpc-service`](nodefony-add-grpc-service.md) | 1.0.0 | 166 | 0 | 1 | ✅ |
 | [`nodefony-add-realtime-binary`](nodefony-add-realtime-binary.md) | 1.1.0 | 284 | 2 | 0 | ✅ |
 | [`nodefony-add-realtime-channel`](nodefony-add-realtime-channel.md) | 3.1.0 | 492 | 2 | 0 | ✅ |
-| [`nodefony-add-realtime-presence`](nodefony-add-realtime-presence.md) | 1.1.0 | 305 | 0 | 0 | ✅ |
+| [`nodefony-add-realtime-presence`](nodefony-add-realtime-presence.md) | 1.2.0 | 311 | 0 | 0 | ✅ |
 | [`nodefony-add-service`](nodefony-add-service.md) | — | 115 | 0 | 0 | ✅ |
 | [`nodefony-authentication`](nodefony-authentication.md) | 1.0.0 | 220 | 0 | 0 | ✅ |
 | [`nodefony-dev`](nodefony-dev.md) | 1.3.0 | 502 | 1 | 1 | ✅ |

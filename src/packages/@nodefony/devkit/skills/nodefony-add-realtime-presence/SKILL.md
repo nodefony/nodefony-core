@@ -1,7 +1,7 @@
 ---
 name: nodefony-add-realtime-presence
 metadata:
-  version: 1.1.0
+  version: 1.2.0
 description: >
   Affiche qui est là sur un canal temps réel Nodefony — qui est en ligne dans un salon, combien de
   spectateurs, dans combien d'onglets — par l'option de présence que le framework tient lui-même,
@@ -167,6 +167,7 @@ une route de l'application. Le chat de la démo appelle son annuaire à chaque c
         roster.observe(snapshot.members, snapshot.partial, Date.now());
         draw();
         askNames();
+        scheduleMembers();
       }),
 ```
 
@@ -184,6 +185,11 @@ Se retirer soi-même de la liste : filtrer sur l'identité de l'onglet (`socket.
   salon public : l'identifiant d'un compte ne doit donc jamais être une donnée personnelle (adresse
   électronique, login réattribuable). Reconnais « soi » par cet identifiant (`socket.onIdentity`),
   pas par un nom affiché.
+- **Savoir qui est en ligne SANS le publier** : `presence: { maxNamed: 0 }`. Les abonnés ne
+  reçoivent que des NOMBRES ; le serveur lit toujours les identités
+  (`getRealtimeHub().presence(canal)?.members`) et n'en rend que ce qu'une route autorise. La démo
+  s'en sert pour son canal `chat:online` : seuls les membres d'un salon privé apprennent si les
+  autres sont dans le salon, en ligne ailleurs ou absents (`RoomService.members`).
 
 Le test qui le prouve lit la présence côté serveur :
 

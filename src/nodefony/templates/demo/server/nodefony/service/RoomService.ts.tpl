@@ -49,9 +49,11 @@ import {
   roomDeletionProblem,
   admissionOf,
   headlineEvent,
+  ONLINE_CHANNEL,
   roomChannel,
   type IAdmissionFacts,
   type IRoomEvent,
+  type IRoomMember,
   type IRoomView,
   type RoomAccess,
   type RoomRole,
@@ -994,6 +996,46 @@ class RoomService extends Service implements IMessageArchive {
     if (wanted.length === 0 || !(users instanceof UserService)) return [];
     const found = await users.find({ id: { $in: wanted } });
     return found.map((user) => ({ id: user.id, name: user.identifier }));
+  }
+
+  /**
+   * Les membres d'un salon PRIVÉ, nommés, avec leur rôle et s'ils sont en
+   * ligne (D51). « En ligne » se lit sur DEUX présences, côté serveur : le
+   * canal « en ligne » (que ses abonnés ne voient qu'en nombres) et le salon
+   * lui-même. Un salon public rend une liste vide : y dire qui est en ligne
+   * renseignerait n'importe quel visiteur.
+   *
+   * @param roomId - le salon ; la route a déjà vérifié l'admission
+   * @returns les membres, sans ordre — la page les trie
+   */
+  async members(roomId: string): Promise<IRoomMember[]> {
+    const room = await this.#room(roomId);
+    if (room.access === "public") return [];
+    const rows = await this.#repos().members.find({ roomId });
+    if (rows.length === 0) return [];
+    const names = new Map<string, string>();
+    for (const account of await this.#accounts({
+      ids: rows.map((row) => row.userId),
+    }))
+      names.set(account.id, account.identifier);
+    const hub = getRealtimeHub();
+    const online = hub.presence(ONLINE_CHANNEL)?.members;
+    const here = hub.presence(roomChannel(roomId))?.members;
+    const members: IRoomMember[] = [];
+    for (const row of rows) {
+      const name = names.get(row.userId);
+      // Un compte effacé entre-temps : sa ligne de membre part avec `forget`.
+      if (name === undefined) continue;
+      members.push({
+        id: row.userId,
+        name,
+        role: row.role,
+        online:
+          (online?.has(row.userId) ?? false) ||
+          (here?.has(row.userId) ?? false),
+      });
+    }
+    return members;
   }
   // #endregion
 
