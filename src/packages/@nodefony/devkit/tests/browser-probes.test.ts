@@ -140,6 +140,13 @@ describe("parseFamilies — l'allowlist", () => {
     expect(parseFamilies("toString").unknown).toEqual(["toString"]);
   });
 
+  it("notifications est une famille : la permission et le relevé s’activent par elle", () => {
+    expect(parseFamilies("notifications")).toEqual({
+      kept: ["notifications"],
+      unknown: [],
+    });
+  });
+
   it("dédoublonne", () => {
     expect(parseFamilies("perf,perf").kept).toEqual(["perf"]);
   });

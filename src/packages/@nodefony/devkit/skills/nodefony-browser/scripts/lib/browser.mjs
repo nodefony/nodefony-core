@@ -221,10 +221,13 @@ if (storageRejected.length > 0) {
  *
  * @param options.anonymous - ne reprendre AUCUN état d'authentification : la
  *   séquence se connecte elle-même en route (`connecter:`).
+ * @param options.permissions - permissions accordées d'avance à toutes les
+ *   origines (`notifications`…) : une page qui les DEMANDE les reçoit sans
+ *   boîte de dialogue — un navigateur piloté n'en montre aucune.
  * @returns `{ browser, ctx, page, reuse }` — `reuse` dit si un état
  *   d'authentification a été repris, ce qui décide s'il faut se connecter.
  */
-export async function open({ anonymous = false } = {}) {
+export async function open({ anonymous = false, permissions = [] } = {}) {
   // On CONSTATE quel navigateur répond, au lieu de supposer lequel est là.
   //
   // `channel` demande un navigateur COMPLET plutôt que le
@@ -274,6 +277,7 @@ export async function open({ anonymous = false } = {}) {
       : {}),
     ...(COLOR_SCHEME ? { colorScheme: COLOR_SCHEME } : {}),
     ...(REDUCED_MOTION ? { reducedMotion: REDUCED_MOTION } : {}),
+    ...(permissions.length > 0 ? { permissions } : {}),
   };
   let reuse = !anonymous && Boolean(USER) && existsSync(STATE);
   let ctx = null;

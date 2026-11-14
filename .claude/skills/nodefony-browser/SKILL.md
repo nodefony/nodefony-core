@@ -257,7 +257,7 @@ texte visible) · `a11y` (étiquettes, noms accessibles, hiérarchie des titres,
 d'accessibilité) · `rendu` (débordement, hors-viewport, polices réellement chargées) · `reseau`
 (échecs, ressources lourdes et lentes, octets transférés) · `perf` (TTFB, FCP, LCP, CLS, tâches
 longues) · `stockage` (attributs des cookies, inventaire du Web Storage — **jamais les valeurs**) ·
-`responsive` (le débordement rejoué à plusieurs largeurs). `toutes` active tout ; un nom inconnu est
+`responsive` (le débordement rejoué à plusieurs largeurs) · `notifications` (`src/packages/@nodefony/devkit/skills/nodefony-browser/references/sondes.md`). `toutes` active tout ; un nom inconnu est
 **refusé** (code 64), jamais ignoré.
 
 > 🔴 **Accessibilité : `axe`, et jamais un calcul maison.** Écrire soi-même une mesure de contraste

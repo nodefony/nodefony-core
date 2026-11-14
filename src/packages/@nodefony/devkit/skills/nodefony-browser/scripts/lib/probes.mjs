@@ -27,6 +27,8 @@ export const FAMILIES = Object.freeze({
   stockage: "cookies (attributs, jamais les valeurs) et Web Storage",
   responsive: "débordement horizontal à plusieurs largeurs d'écran",
   pli: "proportions — l'action principale visible sans défiler, la place du bloc principal dans l'écran",
+  notifications:
+    "notifications du navigateur — permission accordée, chaque `new Notification()` relevée (titre, corps, étiquette)",
 });
 
 /**

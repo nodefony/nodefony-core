@@ -15,7 +15,8 @@
  * `@env` NF_BROWSER_OUT dossier des captures et de l'état d'authentification (défaut constaté de la même façon)
  * `@env` NF_BROWSER_PAGE chemin de la page à ouvrir (défaut /)
  * `@env` NF_BROWSER_EXPECT texte DISCRIMINANT attendu avant de mesurer (défaut : aucun, on mesure après domcontentloaded)
- * `@env` NF_BROWSER_FAMILIES familles de sondes à activer, séparées par des virgules (a11y, axe, rendu, reseau, perf, stockage, responsive — ou « toutes ») ; défaut : aucune, le socle seul
+ * `@env` NF_BROWSER_FAMILIES familles de sondes à activer, séparées par des virgules (a11y, axe, rendu, reseau, perf, stockage, responsive, pli, notifications — ou « toutes ») ; défaut : aucune, le socle seul
+ * `@env` NF_BROWSER_AWAY `1` : la page se croit AILLEURS (onglet caché, autre application au premier plan) — pour mesurer ce qu'elle ne fait qu'en l'absence de la personne
  * `@env` NF_BROWSER_ENGINE navigateur imposé (chromium, chrome, msedge, firefox, webkit) ; sans lui, le premier qui répond
  * `@env` NF_BROWSER_COLOR_SCHEME schéma de couleurs émulé (light, dark, no-preference) — un défaut peut n'exister que dans UN thème
  * `@env` NF_BROWSER_REDUCED_MOTION préférence de mouvement émulée (reduce, no-preference) — `reduce` mesure au repos une page à fondus au défilement
@@ -118,6 +119,8 @@ if (unknown.length > 0) {
   process.exit(64); // EX_USAGE
 }
 const active = new Set(kept);
+/** `NF_BROWSER_AWAY=1` : la page se croit cachée et sans le focus. */
+const AWAY = process.env.NF_BROWSER_AWAY === "1";
 
 /**
  * Sondes de style par défaut — surchargées par NF_BROWSER_PROBES.
@@ -159,7 +162,10 @@ async function axeSource() {
 
 // `connecter:` dans la séquence ⇒ la page s'ouvre ANONYME (cf signsInMidway).
 const ANONYMOUS = signsInMidway(ACTIONS);
-const { browser, ctx, page, reuse } = await open({ anonymous: ANONYMOUS });
+const { browser, ctx, page, reuse } = await open({
+  anonymous: ANONYMOUS,
+  permissions: active.has("notifications") ? ["notifications"] : [],
+});
 
 // ── Collecteurs — posés AVANT toute navigation ──────────────────────────────
 const consoleErrors = [];
@@ -177,6 +183,39 @@ page.on("pageerror", (e) => {
 // Les violations CSP ne sont visibles QUE depuis la page : le réseau montre la
 // requête absente, jamais la raison. L'init script est réinjecté à chaque
 // navigation — c'est l'état de la DERNIÈRE page qu'on lit, celle qu'on mesure.
+// Famille notifications : chaque `new Notification()` est RELEVÉE, puis
+// créée pour de vrai — la page garde son comportement, on lit ce qu'elle a
+// levé. Le pilote n'affiche aucune notification : sans ce relevé, une
+// notification réussie et une notification jamais levée se ressemblent.
+if (active.has("notifications")) {
+  await page.addInitScript(() => {
+    window.__nfNotifications = [];
+    const Native = window.Notification;
+    if (typeof Native !== "function") return;
+    class Recorded extends Native {
+      constructor(title, options) {
+        super(title, options);
+        if (window.__nfNotifications.length < 20)
+          window.__nfNotifications.push({
+            title: String(title).slice(0, 140),
+            body: String(options?.body ?? "").slice(0, 140),
+            tag: options?.tag ?? null,
+          });
+      }
+    }
+    window.Notification = Recorded;
+  });
+}
+// `NF_BROWSER_AWAY=1` : la personne est AILLEURS — onglet caché, autre
+// application au premier plan. Une page qui ne notifie qu'en son absence ne
+// se mesure pas autrement : la fenêtre pilotée est toujours au premier plan.
+if (AWAY) {
+  await page.addInitScript(() => {
+    Object.defineProperty(document, "visibilityState", { get: () => "hidden" });
+    Object.defineProperty(document, "hidden", { get: () => true });
+    document.hasFocus = () => false;
+  });
+}
 await page.addInitScript(() => {
   window.__nfCsp = [];
   document.addEventListener("securitypolicyviolation", (e) => {
@@ -826,6 +865,24 @@ if (active.has("reseau")) {
     failures: networkFailures,
     heavy: { bytesThreshold: heavyThreshold, resources: heavy },
     slow: { msThreshold: slowThreshold, resources: slow },
+  };
+}
+
+// ── Famille notifications — ce que la page a levé ──────────────────────────
+if (active.has("notifications")) {
+  const raised = await page.evaluate(() => ({
+    permission:
+      typeof Notification === "function" ? Notification.permission : "absente",
+    list: window.__nfNotifications ?? [],
+  }));
+  measured.notifications = {
+    // Une DONNÉE, pas un jugement : aucune notification peut être le bon
+    // résultat (la personne était là).
+    verdict: raised.list.length > 0 ? "LEVÉES" : "AUCUNE",
+    permission: raised.permission,
+    away: AWAY,
+    count: raised.list.length,
+    list: raised.list.slice(0, 3),
   };
 }
 

@@ -172,6 +172,19 @@ jeton de session imprimé dans une sortie de sonde finit dans un terminal, un lo
 l'empreinte mémoire, pas la taille « à l'écran » ; et un cookie `httpOnly: false` n'est pas signalé
 comme alerte alors qu'il mérite un regard si sa valeur est sensible.
 
+## `notifications` — ce que la page a levé
+
+Le navigateur piloté n'affiche aucune notification : une notification réussie et une notification
+jamais levée s'y ressemblent. La famille accorde la permission `notifications` d'avance (aucune
+boîte de dialogue) et relève chaque `new Notification(titre, options)` — titre, corps, étiquette —
+puis la crée pour de vrai. `LEVÉES` / `AUCUNE` est une **donnée** : aucune notification peut être
+le bon résultat, si la personne était là.
+
+Une page qui ne notifie qu'en l'**absence** de la personne (onglet caché, autre application au
+premier plan) se mesure avec `NF_BROWSER_AWAY=1` : la fenêtre pilotée, elle, est toujours au
+premier plan. Le message déclencheur part d'un AUTRE client pendant que la sonde attend
+(`attendre:<texte>`).
+
 ## `responsive` — la même page à plusieurs largeurs
 
 Rejoue la mesure de débordement horizontal à chaque largeur de `NF_BROWSER_WIDTHS` (défaut
