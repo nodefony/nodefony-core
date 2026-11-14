@@ -152,6 +152,16 @@ export interface IRoomForms {
 }
 
 // #region chat-notify-client
+/**
+ * La personne n'est pas sur la page : onglet caché, ou une autre
+ * application (une autre fenêtre) au premier plan. Le seul « visible » ne
+ * suffit pas — passer sur une autre application laisse souvent la page
+ * visible pour le navigateur, sans personne devant.
+ */
+function isAway(): boolean {
+  return document.visibilityState === "hidden" || !document.hasFocus();
+}
+
 /** La permission de notifier ; `unsupported` sans l'API (ou hors navigateur). */
 function readPermission(): AlertPermission {
   return typeof Notification === "undefined"
@@ -173,7 +183,7 @@ function raiseNotification(
 ): void {
   const alert = {
     direct: room.peer !== null,
-    hidden: document.visibilityState === "hidden",
+    away: isAway(),
     permission: readPermission(),
   };
   if (!shouldNotify(alert)) return;
@@ -412,11 +422,11 @@ export function useChat(): IChatRoom {
           const message = frame.message;
           // Neuf, modifié ou retiré : la version reçue remplace la nôtre.
           setMessages((known) => mergeMessages(known, [message]));
-          // Onglet caché, compte connecté : un message NEUF d'un autre attend
-          // d'être lu (D53) — le serveur ne l'alerte pas, on est abonné.
+          // Personne devant, compte connecté : un message NEUF d'un autre
+          // attend d'être lu (D53) — le serveur ne l'alerte pas, on est abonné.
           if (
             me !== null &&
-            document.visibilityState === "hidden" &&
+            isAway() &&
             message.editedAt === undefined &&
             message.retracted === undefined &&
             message.author !== self
@@ -505,8 +515,8 @@ export function useChat(): IChatRoom {
   }, [socket, roomId, openRoom]);
 
   // #region chat-read-client
-  // Lu (D52) : le dernier message du salon ouvert, resté affiché page VISIBLE,
-  // pour un compte connecté. Le serveur ne recule jamais le marqueur ; la
+  // Lu (D52) : le dernier message du salon ouvert, resté affiché page VISIBLE
+  // ET au premier plan, pour un compte connecté. Le serveur ne recule jamais le marqueur ; la
   // pastille du salon tombe à zéro tout de suite.
   const newest = messages.at(-1)?.id ?? null;
   useEffect(() => {
@@ -515,9 +525,11 @@ export function useChat(): IChatRoom {
     let timer: ReturnType<typeof setTimeout> | null = null;
     const markLater = () => {
       if (timer !== null || marked.current === key) return;
-      if (document.visibilityState !== "visible") return;
+      if (isAway()) return;
       timer = setTimeout(() => {
         timer = null;
+        // Partie entre-temps : le retour au premier plan réarmera.
+        if (isAway()) return;
         marked.current = key;
         setRooms((known) => withUnread(known, roomId, 0));
         socket
@@ -532,8 +544,10 @@ export function useChat(): IChatRoom {
     };
     markLater();
     document.addEventListener("visibilitychange", markLater);
+    window.addEventListener("focus", markLater);
     return () => {
       document.removeEventListener("visibilitychange", markLater);
+      window.removeEventListener("focus", markLater);
       if (timer !== null) clearTimeout(timer);
     };
   }, [socket, signedIn, roomId, newest]);

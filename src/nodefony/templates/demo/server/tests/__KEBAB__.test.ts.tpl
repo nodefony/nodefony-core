@@ -652,11 +652,11 @@ describe("demo — les non-lus (D52, règles pures)", () => {
     expect(titleWithUnread("Démo", 250)).toBe("(99+) Démo");
   });
 
-  it("🔴 D54 — notifier : une conversation à deux, onglet caché, permission accordée — et rien d'autre", () => {
-    const yes = { direct: true, hidden: true, permission: "granted" as const };
+  it("🔴 D54 — notifier : une conversation à deux, la personne ailleurs, permission accordée — et rien d'autre", () => {
+    const yes = { direct: true, away: true, permission: "granted" as const };
     expect(shouldNotify(yes)).toBe(true);
     expect(shouldNotify({ ...yes, direct: false })).toBe(false);
-    expect(shouldNotify({ ...yes, hidden: false })).toBe(false);
+    expect(shouldNotify({ ...yes, away: false })).toBe(false);
     for (const permission of ["default", "denied", "unsupported"] as const)
       expect(shouldNotify({ ...yes, permission })).toBe(false);
   });

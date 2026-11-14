@@ -260,7 +260,7 @@ export const CHAT_LESSON = {
           excerpt: { file: HOOK, region: "chat-rooms-client" },
         },
         {
-          text: "Notifier : une conversation à deux, onglet caché, permission accordée par un CLIC — trois règles dans une fonction pure. Une étiquette par salon remplace la notification précédente au lieu d'en empiler.",
+          text: "Notifier : une conversation à deux, la personne ailleurs (onglet caché, ou une autre application au premier plan — la page reste alors souvent « visible »), permission accordée par un CLIC — trois règles dans une fonction pure. Une étiquette par salon remplace la notification précédente au lieu d'en empiler.",
           excerpt: { file: HOOK, region: "chat-notify-client" },
         },
         {

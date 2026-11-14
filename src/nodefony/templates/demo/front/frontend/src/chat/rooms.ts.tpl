@@ -185,7 +185,7 @@ export function withUnread(
 // #region rooms-alerts
 /**
  * Un non-lu de plus dans un salon (D53) — l'alerte du canal personnel, ou un
- * message arrivé dans le salon ouvert pendant que l'onglet est caché.
+ * message arrivé dans le salon ouvert pendant qu'on n'y est pas.
  *
  * @returns la liste neuve, ou la MÊME si le salon n'y est pas
  */
@@ -223,15 +223,19 @@ export type AlertPermission = "default" | "denied" | "granted" | "unsupported";
 
 /**
  * Faut-il lever une notification du navigateur (D54) ? Une conversation à
- * deux seulement — un salon à plusieurs bavarde trop —, onglet caché (visible,
- * la pastille suffit), et la permission accordée par un GESTE de la personne.
+ * deux seulement — un salon à plusieurs bavarde trop —, la personne AILLEURS
+ * (onglet caché, ou une autre application au premier plan : sous les yeux,
+ * la pastille suffit), et la permission accordée par un GESTE de sa part.
+ *
+ * @param alert.away - onglet caché OU fenêtre sans le focus : passer sur une
+ *   autre application laisse souvent la page « visible » pour le navigateur
  */
 export function shouldNotify(alert: {
   direct: boolean;
-  hidden: boolean;
+  away: boolean;
   permission: AlertPermission;
 }): boolean {
-  return alert.direct && alert.hidden && alert.permission === "granted";
+  return alert.direct && alert.away && alert.permission === "granted";
 }
 // #endregion
 
