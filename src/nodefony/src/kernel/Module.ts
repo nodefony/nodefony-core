@@ -447,12 +447,16 @@ class Module<TConfig = Record<string, unknown>>
    * Instancie un service via l'{@link Injector} et l'enregistre dans le container du module.
    *
    * Si le service expose une méthode `init(module)`, elle est appelée après
-   * instanciation (équivalent constructeur async). Warn si un service du même nom existe
-   * déjà (override).
+   * instanciation (équivalent constructeur async). Le même service ajouté deux
+   * fois est remplacé, avec un avertissement.
    *
    * @param service - constructeur du service (typiquement décoré `@injectable`).
    * @param args - arguments additionnels passés au constructeur (après les `@Inject` resolved).
    * @returns instance du service prête à l'usage.
+   * @throws BootConfigurationError quand le nom du service (`super(nom, …)`)
+   *   est déjà porté par un service d'une AUTRE classe : le remplacer
+   *   changerait le service de tous ceux qui le lisent par ce nom — le
+   *   framework compris —, et la panne tomberait plus loin, sans rapport.
    */
   async addService(
     service: ServiceConstructor,
@@ -471,7 +475,24 @@ class Module<TConfig = Record<string, unknown>>
       );
     }
     const inst = Injector.instantiate(service, this, ...args);
-    if (this.get(inst.name)) {
+    const existing: unknown = this.get(inst.name);
+    if (
+      typeof existing === "object" &&
+      existing !== null &&
+      existing.constructor !== inst.constructor
+    ) {
+      // Vécu : un service de démo nommé « upload » remplaçait celui du
+      // framework, que chaque requête relit sous ce nom — tout envoi de
+      // fichier répondait 500 (« createUploadFile is not a function »), et
+      // l'avertissement d'écrasement se noyait dans le journal du démarrage.
+      throw new BootConfigurationError(
+        `Service « ${service.name} » du module "${this.name}" : son nom « ${inst.name} » ` +
+          `est déjà celui de « ${existing.constructor.name} ». Le remplacer changerait le ` +
+          `service de tous ceux qui le lisent sous ce nom, le framework compris. ` +
+          `Donner un autre nom à son \`super("…")\` (préfixé par le module, par exemple).`,
+      );
+    }
+    if (existing) {
       this.log(
         `SERVICE ALREADY EXIST  override old service  : ${inst.name}`,
         "WARNING",

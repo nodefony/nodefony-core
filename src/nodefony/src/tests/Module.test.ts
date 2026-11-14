@@ -451,6 +451,27 @@ describe("Module — addService()", () => {
     );
     assert.ok(warn, "un WARNING doit être logué lors du double ajout");
   });
+
+  it("🔴 un service qui prend le nom d'un service d'une AUTRE classe → refusé au démarrage, rien n'est remplacé", async () => {
+    // Même nom que `SimpleService`, autre classe : le cas d'un service
+    // applicatif nommé comme un service du framework (« upload », « router »).
+    class Impostor extends Service {
+      constructor(module: Module) {
+        super("SimpleService", module.container ?? undefined, undefined, {});
+      }
+    }
+    const { mod } = makeModuleWithKernel("clash-svc-mod");
+    const original = await mod.addService(SimpleService);
+    await assert.rejects(
+      mod.addService(Impostor),
+      (error: unknown) =>
+        error instanceof Error &&
+        error.name === "BootConfigurationError" &&
+        error.message.includes("« Impostor »") &&
+        error.message.includes("« SimpleService »"),
+    );
+    assert.strictEqual(mod.get("SimpleService"), original);
+  });
 });
 
 // ─── 6. getPackageJson() ─────────────────────────────────────────────────────
