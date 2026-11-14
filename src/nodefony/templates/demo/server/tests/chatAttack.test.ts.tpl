@@ -128,7 +128,7 @@ describe("detectBlocks — aucun caractère du message n'est perdu", () => {
     ["CSV tabulation", "a\tb\n1\t2\n3\t4"],
     ["diff", "@@ -1 +1 @@\n-a\n+b"],
     ["fins de ligne mêlées", "un\r\ndeux\rtrois\n"],
-    ["Unicode", "é 😀 ‮ rtl \u0000 nul"],
+    ["Unicode", "é 😀 \u202E rtl \u0000 nul"],
   ];
   for (const [label, text] of plain) {
     it(`${label} : les sources recollées redonnent le message`, () => {

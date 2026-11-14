@@ -151,7 +151,8 @@ function pairsOf(list: string): Map<string, string> {
 }
 
 /** Contrôles, barres de direction et séparateurs invisibles : un titre n'en porte pas. */
-const INVISIBLE = /[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁦-⁩﻿]+/g;
+const INVISIBLE =
+  /[\u0000-\u001f\u007f-\u009f\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]+/g;
 
 /** Décode les entités HTML d'un texte, en un passage. */
 function decodeEntities(raw: string): string {

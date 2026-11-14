@@ -3148,6 +3148,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           "AppBannerService",
           "DemoPulseService",
           "ChatService",
+          "LinkPreviewService",
           "RoomService",
           "RoomAdmission",
           "PartnerTokenService",

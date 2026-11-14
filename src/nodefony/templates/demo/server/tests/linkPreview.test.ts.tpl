@@ -372,7 +372,7 @@ describe("extractPageMeta — pure, bornée, sans analyseur DOM", () => {
   });
 
   it("contrôles, barres de direction et blancs : ramenés à une espace, rien d'invisible ne reste", () => {
-    const meta = extractPageMeta(`<title>a\u0000b‮c​d\n\t e</title>`);
+    const meta = extractPageMeta(`<title>a\u0000b\u202Ec\u200Bd\n\t e</title>`);
     expect(meta.title).toBe("a b c d e");
   });
 
