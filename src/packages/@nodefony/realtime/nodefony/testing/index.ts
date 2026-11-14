@@ -30,7 +30,10 @@
  * @packageDocumentation
  */
 import {
+  IDENTITY_DEAD_CLOSE_CODE,
+  ORIGIN_REFUSED_CLOSE_CODE,
   RequestContext,
+  type Pdu,
   type IChannelAdmission,
   type IRealtimeDenied,
 } from "nodefony";
@@ -38,7 +41,10 @@ import {
 /** Motif d'un refus, lu sur le contrat du protocole lui-même. */
 type DeniedReason = IRealtimeDenied["reason"];
 import type { ContextType } from "@nodefony/http";
-import type { RealtimeController } from "../src/server/RealtimeController";
+import {
+  HANDSHAKE_FAILED_LOG,
+  type RealtimeController,
+} from "../src/server/RealtimeController";
 import { isRecord } from "../src/guards";
 import {
   createAdmissionResolver,
@@ -440,27 +446,59 @@ export function createRealtimeHarness<C extends RealtimeController>(
     notices,
 
     async connect(): Promise<IRealtimeFrame> {
-      await feed(null);
-      // Le controller pose SON journal sur le hub pendant le handshake : le
-      // nôtre vient donc après, sinon il serait écrasé. Les avertissements qui
-      // comptent pour un test (canal dynamique sans politique) naissent de
-      // toute façon plus tard, au premier abonnement.
-      hub.onPlatformNotice((message: string): void => {
-        notices.push(message);
-      });
-      await waitFor(
-        () => received.some((f) => f.method === "realtime:welcome"),
-        10,
-      );
+      // Une poignée de main qui LÈVE ferme en 1011 avec « internal error » —
+      // rien d'interne ne sort par la socket. La cause n'est que dans le
+      // journal du controller : on l'écoute le temps de la poignée de main,
+      // pour la citer au lieu d'envoyer chercher l'Origin.
+      const failures: string[] = [];
+      const syslog = controller.syslog;
+      const onLog = (pdu: Pdu): void => {
+        const payload: unknown = pdu.payload;
+        if (
+          pdu.severityName === "ERROR" &&
+          typeof payload === "string" &&
+          payload.startsWith(HANDSHAKE_FAILED_LOG)
+        )
+          failures.push(payload);
+      };
+      syslog?.on("onLog", onLog);
+      try {
+        await feed(null);
+        // Le controller pose SON journal sur le hub pendant le handshake : le
+        // nôtre vient donc après, sinon il serait écrasé. Les avertissements qui
+        // comptent pour un test (canal dynamique sans politique) naissent de
+        // toute façon plus tard, au premier abonnement.
+        hub.onPlatformNotice((message: string): void => {
+          notices.push(message);
+        });
+        await waitFor(
+          () =>
+            received.some((f) => f.method === "realtime:welcome") ||
+            failures.length > 0,
+          10,
+        );
+      } finally {
+        syslog?.removeListener("onLog", onLog);
+      }
       const welcome = received.find((f) => f.method === "realtime:welcome");
       if (!welcome) {
+        const code = closes[0]?.code;
         const cause =
           closes.length > 0
-            ? `socket fermée (code ${String(closes[0]?.code)})`
+            ? `socket fermée (code ${String(code)})`
             : "aucune frame émise";
+        // Les refus ATTENDUS ont leur code (Origin, identité).
+        // Un 1011 est une exception du serveur — on la cite.
+        const hint =
+          failures.length > 0
+            ? `le serveur a levé pendant la poignée de main : ${failures[0] ?? ""}`
+            : code === ORIGIN_REFUSED_CLOSE_CODE
+              ? "Origin refusée (option `origin` du harnais)"
+              : code === IDENTITY_DEAD_CLOSE_CODE
+                ? "identité refusée (option `identity` du harnais)"
+                : "vérifier ce que le controller construit à la connexion (services, admissions, base)";
         throw new Error(
-          `createRealtimeHarness: pas de realtime:welcome — ${cause}. ` +
-            `Vérifier l'Origin (seam #4) et l'authenticator (seam #2).`,
+          `createRealtimeHarness: pas de realtime:welcome — ${cause}. ${hint}.`,
         );
       }
       return welcome;

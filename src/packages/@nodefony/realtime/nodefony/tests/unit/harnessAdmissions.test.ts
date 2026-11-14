@@ -77,4 +77,18 @@ describe("harnais — les classes d'admission fournies par le test", () => {
   it("sans `admissions`, la classe n'est résolue par personne : la connexion est refusée (1011)", async () => {
     await expect(connect("alice")).rejects.toThrow(/code 1011/u);
   });
+
+  // Vécu au banc d'agent (#776) : un service sans base faisait lever la poignée
+  // de main, et le harnais accusait l'Origin et l'authentification — deux agents
+  // sont partis sur cette fausse piste. Le message cite l'exception du serveur.
+  it("un 1011 cite l'exception levée côté serveur, et n'accuse ni l'Origin ni l'authentification", async () => {
+    const failure = connect("alice").then(
+      () => "",
+      (e: unknown) => (e instanceof Error ? e.message : String(e)),
+    );
+    const message = await failure;
+    expect(message).toMatch(/code 1011/u);
+    expect(message).toMatch(/GuestList/u);
+    expect(message).not.toMatch(/Origin/u);
+  });
 });

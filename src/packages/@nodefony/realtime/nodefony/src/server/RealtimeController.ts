@@ -103,6 +103,13 @@ import {
 const NO_ROUTE_PARAMS: Record<string, unknown> = Object.freeze({});
 
 /**
+ * Préfixe de la ligne `ERROR` écrite quand la poignée de main lève (socket fermée
+ * en 1011). Le harnais de test la relit pour citer l'exception : le client, lui,
+ * ne reçoit que « internal error » — rien d'interne ne sort par la socket.
+ */
+export const HANDSHAKE_FAILED_LOG = "WS realtime handshake failed";
+
+/**
  * Statut HTTP-équivalent d'une erreur survenue pendant une invocation du pont.
  *
  * UNE seule lecture pour les trois sources possibles — la `RpcError` déjà mappée
@@ -426,7 +433,7 @@ export abstract class RealtimeController<
       // se lit dans le journal ERROR, pas dans une socket silencieuse.
       this.onHandshake(ctx).catch((e: unknown) => {
         this.log(
-          `WS realtime handshake failed: ${e instanceof Error ? e.message : String(e)}`,
+          `${HANDSHAKE_FAILED_LOG}: ${e instanceof Error ? e.message : String(e)}`,
           "ERROR",
         );
         (ctx.connection as RawWsConnection | null)?.close(
