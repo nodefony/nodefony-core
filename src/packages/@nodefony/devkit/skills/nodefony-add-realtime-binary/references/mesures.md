@@ -25,13 +25,15 @@ n'apportait rien face à `JSON.parse` natif sur les objets, et CBOR pur suffit s
 
 ## 2. Représentation de la donnée — la forme compte plus que le codec
 
+🔴 Le codec ne reconnaît que `Uint8Array` : un `Int16Array` ou un `Float32Array` posé tel quel part
+en objet `{"0":…}`. Toutes les lignes ci-dessous publient des OCTETS (écrits par `DataView`).
+
 | Donnée                                         | Comparaison                          | Lecture                                                                      |
 | ---------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------------------- |
-| spectre de compteurs en `Uint32Array`          | 4 114 o (CBOR) contre 3 128 o (JSON) | **le binaire PERD** : petits entiers courts en texte, `u32` = 4 octets fixes |
+| 1 024 compteurs écrits en `u32` (octets)       | 4 114 o (CBOR) contre 3 128 o (JSON) | **le binaire PERD** : petits entiers courts en texte, `u32` = 4 octets fixes |
 | 1 000 tirs d'une mesure, bits tassés           | 142 o contre 2 025 o (JSON)          | tasser gagne d'un ordre de grandeur                                          |
 | comptes agrégés d'une mesure                   | 30 o                                 | publier l'agrégat, pas la matière brute                                      |
 | fenêtre de capteur réduite (min, max, moyenne) | 176 o (CBOR) contre 307 o (JSON)     | réduire côté serveur, publier à la cadence du serveur                        |
-| historique de 600 points en `Float64Array`     | 28,9 Ko (CBOR) contre 38,6 Ko (JSON) | colonnes typées : gain de taille ET de décodage                              |
 
 ## 3. Le bus entre serveurs
 

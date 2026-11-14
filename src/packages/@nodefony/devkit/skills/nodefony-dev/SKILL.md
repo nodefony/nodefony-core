@@ -20,8 +20,8 @@ metadata:
 # nodefony-dev — développer dans cette application sans rien inventer
 
 > **Maintenance** : vérité courante, jamais un journal. Éditer en place ; l'historique vit dans
-> `git log`. Ce fichier n'a **pas** de `references/` — et c'est une décision mesurée, pas un
-> oubli : sur 1020 transcripts d'agents lâchés dans une application générée, une page de
+> `git log`. Ce fichier n'a qu'UNE page en `references/` (`rapport-de-build.md`, un rapport qu'on
+> lit quand le build le désigne) — et c'est une décision mesurée : sur 1020 transcripts d'agents lâchés dans une application générée, une page de
 > `references/` a été ouverte **0 fois**, quand un script cité comme commande l'a été dans 80 %
 > des cas. Ce qui doit atteindre un agent s'EXÉCUTE ou vit dans ce corps ; ce qu'on déporterait
 > « pour alléger » n'atteindrait plus personne.
@@ -45,9 +45,9 @@ de son geste, et ceux-là ne se devinent pas — ils se paient.
 | ------------------------------------------------------------------------- | -------------------------------- |
 | Une ressource : table, validation, service, REST et WebSocket             | `nodefony-add-crud`              |
 | Une logique métier réutilisable, hors de tout controller                  | `nodefony-add-service`           |
-| Du temps réel : chat, canal, abonnement, notification, flux SSE           | `nodefony-add-realtime-channel`  |
+| Du temps réel : chat, canal, notification, jeu, sondes, tableau de bord   | `nodefony-add-realtime-channel`  |
 | Afficher qui est en ligne, combien de présents, « en train d'écrire »     | `nodefony-add-realtime-presence` |
-| Faire passer des octets en temps réel : image, audio, mesures, CBOR       | `nodefony-add-realtime-binary`   |
+| Des octets en temps réel : image, audio, mesures binaires, CBOR           | `nodefony-add-realtime-binary`   |
 | Exposer ou appeler un service gRPC                                        | `nodefony-add-grpc-service`      |
 | Se connecter : /login, second facteur, retour après connexion, jeton      | `nodefony-authentication`        |
 | Réserver une route ou une page à des rôles, ouvrir à un partenaire        | `nodefony-protect-route`         |
@@ -348,7 +348,8 @@ ont leur skill, qui part du symptôme : **`nodefony-troubleshoot`**.
   par requête = `overlayConfig()` (clés de la liste blanche du module), lue par `useConfig()`.
 - **Tu lis une liste sans la BORNER.** Un `find` sans limite matérialise la table entière —
   indolore sur les quelques lignes du poste de développement, fatal sur les dizaines de milliers
-  de la production. Le service d'une entité hérite `findPage({ limit: 25 })`.
+  de la production. Le service d'une entité hérite `findPage({ limit })` — `limit` est OBLIGATOIRE,
+  aucun défaut ne le pose pour toi : écris-le (`findPage({ limit: 25 })`).
 
 ### Ce qui tue le processus, pas la requête
 

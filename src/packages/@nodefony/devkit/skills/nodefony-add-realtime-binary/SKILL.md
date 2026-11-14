@@ -40,14 +40,14 @@ description: >
 
 ## 1. Quel besoin → quelle voie
 
-| Tu veux faire passer…                                      | La voie                                                                                             |
-| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| des octets qui appartiennent à un canal (le cas normal)    | `codec: "cbor"` côté serveur + `Uint8Array` dans la charge + `publish` / `on(canal)` (§3)           |
-| des séries numériques denses (mesures, positions, spectre) | un tableau typé (`Float32Array`, `Int16Array`…) dans la charge — SI la mesure le donne gagnant (§2) |
-| beaucoup de petites valeurs booléennes ou bornées          | des bits tassés dans un `Uint8Array` (§2)                                                           |
-| un fichier, une image lourde, une pièce jointe             | une route HTTP (`POST` multipart, flux) — jamais la socket ; puis un message qui la cite            |
-| un protocole binaire entièrement à toi, sans canal         | le flux brut `onRealtimeBinary()` / `onBinary()` — HORS des gardes (§6)                             |
-| des objets ordinaires (texte, nombres, statuts)            | rien : reste en JSON, le défaut. CBOR y est plus lent (§2)                                          |
+| Tu veux faire passer…                                      | La voie                                                                                           |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| des octets qui appartiennent à un canal (le cas normal)    | `codec: "cbor"` côté serveur + `Uint8Array` dans la charge + `publish` / `on(canal)` (§4, §5)     |
+| des séries numériques denses (mesures, positions, spectre) | les OCTETS de la série, écrits par `DataView` à boutisme explicite, dans un `Uint8Array` (§2, §5) |
+| beaucoup de petites valeurs booléennes ou bornées          | des bits tassés dans un `Uint8Array` (§2)                                                         |
+| un fichier, une image lourde, une pièce jointe             | une route HTTP (`POST` multipart, flux) — jamais la socket ; puis un message qui la cite          |
+| un protocole binaire entièrement à toi, sans canal         | le flux brut `onRealtimeBinary()` / `onBinary()` — HORS des gardes (§7)                           |
+| des objets ordinaires (texte, nombres, statuts)            | rien : reste en JSON, le défaut. CBOR y est plus lent (§2)                                        |
 
 **N'invente jamais d'en-tête binaire maison** (`[n° de canal][charge]`), ni base64 dans une chaîne :
 le premier contourne toutes les gardes et se maintient des deux côtés ; le second coûte un tiers
@@ -74,15 +74,21 @@ D'où les règles :
 - **N'offre le codec que si des octets circulent** : sur des objets ordinaires, `JSON.parse` est
   natif au moteur et plus rapide ; le codec pèse ~5,5 Ko compressés à télécharger. CBOR n'est
   jamais le défaut.
-- **Un tableau typé n'est pas gagnant par nature — mesure ta donnée.** Un spectre de 1 024 compteurs
-  en `Uint32Array` pèse 4 114 o en CBOR contre 3 128 o en JSON : de petits entiers s'écrivent court
-  en texte, alors qu'un `u32` prend toujours 4 octets. Choisis le type le plus ÉTROIT qui tient
-  la plage (`Uint16Array`, `Int16Array`), ou garde des nombres.
+- 🔴 **Seul `Uint8Array` est reconnu comme des octets.** Un `Int16Array`, un `Float32Array` posé tel
+  quel dans la charge part en objet `{"0":…,"1":…}`, sans un message. Une série numérique se publie
+  donc en OCTETS : écrits par `DataView` avec un boutisme explicite (§5), relus de même (§6).
+- **Des octets ne gagnent pas par nature — mesure ta donnée.** 1 024 compteurs écrits en `u32`
+  (4 096 octets) pèsent 4 114 o en CBOR contre 3 128 o en JSON, où de petits entiers s'écrivent
+  court. Choisis la largeur la plus ÉTROITE qui tient la plage (16 bits plutôt que 32), ou garde des
+  nombres.
 - **Tasse les booléens et les petites valeurs** : 1 000 tirs d'une mesure en bits tassés = 142 o,
   contre 2 025 o en JSON.
 - **Réduis côté serveur avant de publier** : une fenêtre de capteur résumée (min, max, moyenne)
   par période = 176 o en CBOR contre 307 o en JSON — et c'est la cadence du serveur, pas celle du
   capteur, qui fixe le débit (`nodefony-add-realtime-channel`, « état ou événement »).
+- **La bande passante d'un écran JSON se gagne par la donnée, pas par le codec** : réduction côté
+  serveur et cadence adaptative (skill `nodefony-add-realtime-channel`, sa page « production », §5). CBOR y gagnerait
+  ~20 % d'octets et y perdrait en temps de lecture.
 
 ## 3. Le modèle — une trame comme les autres
 
@@ -168,6 +174,14 @@ reçue porte un `Uint8Array`.
 - **Écris l'ordre des octets EXPLICITEMENT** (`setInt16(i, v, true)` : petit-boutiste) : la page
   doit lire de même, quelle que soit la machine.
 
+**Le client pousse des octets** — même règle dans l'autre sens : un `Uint8Array` dans les paramètres
+(`socket.request(action, { bytes })` vers une action, `socket.emit(nom, { samples })` vers une
+entrée `@RealtimeInbound`). Côté serveur, **valide la forme avant d'y toucher** : la démo binaire
+reçoit le dessin de la page par l'action `binary:digest`, dont le schéma
+`z.strictObject({ bytes: z.instanceof(Uint8Array) })` refuse tout ce qui n'est pas un `Uint8Array`
+— un objet forgé ne passe pas pour des octets. Borne la longueur avant d'allouer. Un script Node
+(passerelle de sonde) offre le codec comme le navigateur, à la création de sa socket.
+
 ## 6. Lire des octets sans se tromper
 
 - **`DataView` : passe la tranche entière.** Un `Buffer` de Node — et une vue décodée — ne commence
@@ -199,7 +213,7 @@ l'origine, l'authentification et le pare-feu. Si tu l'emploies, **toute décisio
 — lis l'identité par `RequestContext.getAuthenticatedUser()` et refuse explicitement.
 
 🔴 **Le flux brut n'existe pas sur une connexion CBOR** : toute trame binaire y est une frame du
-codec. `onRealtimeBinary()` n'y est jamais appelée, `sendBinaryToClient()` et `sendBinary()` rendent
+codec. `onRealtimeBinary()` n'y est jamais appelée ; `sendBinaryToClient()` (serveur) et `socket.sendBinary()` (navigateur) rendent
 `false`.
 
 Il n'a plus de raison de performance : un canal CBOR décode 1 Mo en ~1 µs. **Préfère un canal +
@@ -230,6 +244,10 @@ await socket.request("binary:digest", { bytes: forged });
 
 ## 9. Plusieurs serveurs, bornes, et ce qui arrive SANS message
 
+- **Plusieurs serveurs** : deux conditions, sinon une partie des écrans reçoit autre chose — le
+  canal est DIFFUSÉ (`@RealtimeBroadcast`, skill `nodefony-add-realtime-channel`), et `codec:
+"cbor"` est réglé À L'IDENTIQUE sur chaque serveur (un serveur resté en JSON déforme en
+  silence les octets qu'il sert).
 - **Bus** : les octets traversent `redis` et `cluster` **intacts**, scellés comme le texte si
   `backplane.secret` est posé. Mesuré sur Redis, charge de 16 Ko : −25 % d'octets, +30 % de débit,
   −11 % de latence médiane — pour +15 à 30 % de CPU par message. Le bus IPC de `nodefony cluster`

@@ -2,6 +2,13 @@
 
 > Chargé à la demande par `SKILL.md`. **1 concern = 1 fichier** : recettes copier-coller PUIS API publique + internals + gotchas du module. Vérité courante (édition en place, git = historique).
 
+> 🔴 **Ce qu'on ENSEIGNE à une application vit dans les skills LIVRÉS, pas ici** :
+> `src/packages/@nodefony/devkit/skills/nodefony-add-realtime-channel/` (canal, route sur la socket,
+> lecture/écriture, production), `nodefony-add-realtime-presence/` (présence), `nodefony-add-realtime-binary/`
+> (octets, CBOR, mesures). Leurs blocs de code sont des extraits d'exemples EXÉCUTÉS, gardés par
+> `realtime/nodefony/tests/unit/skillExcerpts.test.ts`. Cette page porte l'interne du framework ;
+> une règle d'usage écrite ici ET dans un skill livré divergerait — la mettre dans le skill livré.
+
 ## ▸ Partie A — Recettes (copier-coller, usage)
 
 > Chargé à la demande par `SKILL.md`. LE différenciateur Nodefony. Détail-journal = `git log`.

@@ -1,6 +1,6 @@
 # Ce qui ne se voit qu'en production — plusieurs serveurs, réseau, révocation, charge
 
-> Chargé depuis `SKILL.md` §8. Tout se vérifie dans la documentation installée :
+> Chargé depuis `SKILL.md` §7. Tout se vérifie dans la documentation installée :
 > `node_modules/@nodefony/realtime/docs/configuration.md` (drivers, clés, variables),
 > `node_modules/@nodefony/realtime/docs/securite.md` (codes de fermeture, `allow` lent),
 > `node_modules/@nodefony/realtime/docs/cadence-et-contre-pression.md`,

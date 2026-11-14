@@ -174,6 +174,23 @@ Se retirer soi-même de la liste : filtrer sur l'identité de l'onglet (`socket.
   électronique, login réattribuable). Reconnais « soi » par cet identifiant (`socket.onIdentity`),
   pas par un nom affiché.
 
+Le test qui le prouve lit la présence côté serveur :
+
+<!-- excerpt: chatPresence.test.ts -->
+
+```ts
+it("se déclarer « bob » ne nomme personne : seul un compte est nommé", async () => {
+  const guest = await connect();
+  await guest.subscribe(ROOM_CHANNEL);
+  await guest.notify("chat:typing", { author: "bob" });
+  await flush();
+  expect(getRealtimeHub().presence(ROOM_CHANNEL)).toMatchObject({
+    count: 0,
+    unnamed: 1,
+  });
+});
+```
+
 ## 5. « En train d'écrire » n'est PAS de la présence
 
 Un état de présence DURE ; la frappe est un **message éphémère du canal**, que chacun reçoit parce
@@ -204,22 +221,7 @@ cookbook) — se choisit par la règle « route ou entrée ? » de `nodefony-add
 `getRealtimeHub().presence(canal)` rend `{ count, unnamed, members, partial }` telle que CE serveur
 la connaît (présents des autres serveurs compris), ou `null` si la politique du canal ne déclare pas
 la présence. Une copie à chaque appel : chemin froid, pas une boucle de jeu. C'est la voie d'un
-modérateur ou d'un tableau de bord qui lit sans apparaître dans la liste — et celle d'un test :
-
-<!-- excerpt: chatPresence.test.ts -->
-
-```ts
-it("se déclarer « bob » ne nomme personne : seul un compte est nommé", async () => {
-  const guest = await connect();
-  await guest.subscribe(ROOM_CHANNEL);
-  await guest.notify("chat:typing", { author: "bob" });
-  await flush();
-  expect(getRealtimeHub().presence(ROOM_CHANNEL)).toMatchObject({
-    count: 0,
-    unnamed: 1,
-  });
-});
-```
+modérateur ou d'un tableau de bord qui lit sans apparaître dans la liste, et celle d'un test (§4 en montre un).
 
 ## 7. Plusieurs serveurs — UNE condition, puis rien à écrire
 

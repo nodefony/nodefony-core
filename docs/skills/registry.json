@@ -12043,8 +12043,8 @@
       ],
       "description": "Fait passer des octets sur la socket Nodefony — mesures de capteurs, image, audio, état de jeu compact, document partagé — par le codec CBOR négocié et un `Uint8Array` dans la charge d'un canal, sous les mêmes gardes que le texte, au lieu de base64, d'un en-tête binaire maison ou d'un WebSocket brut. Dit QUAND le binaire gagne et quand il perd, chiffres mesurés à l'appui, comment représenter la donnée (tableau typé, bits tassés, réduction côté serveur), et ce qui rate sans un message. À charger AVANT de mettre des octets, un tableau typé ou un flux audio/vidéo dans un canal, ou de choisir un codec. Le canal lui-même relève de `nodefony-add-realtime-channel`. Déclencheurs : \"envoyer des octets\", \"binaire\", \"données binaires\", \"CBOR\", \"Uint8Array\", \"Float32Array\", \"tableau typé\", \"base64\", \"envoyer une image\", \"audio sur la socket\", \"flux de capteurs\", \"trames trop grosses\", \"réduire la bande passante\", \"mes octets arrivent en objet\", \"$bytes\", \"codec\", \"onRealtimeBinary\".",
       "cost": {
-        "bodyLines": 257,
-        "approxTokens": 4029
+        "bodyLines": 275,
+        "approxTokens": 4400
       },
       "requires": [],
       "resources": {
@@ -12118,7 +12118,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "257",
+            "detail": "275",
             "advisory": true
           }
         ]
@@ -12151,22 +12151,23 @@
         "prévenir un utilisateur",
         "progression d'une tâche",
         "SSE",
-        "contrat temps réel",
+        "tableau de bord en direct",
         "-32601",
         "ça marche en local, plus en cluster",
         "le canal ne répond jamais"
       ],
-      "description": "Branche le temps réel d'une application Nodefony par ses briques — canal, route appelée par la socket, entrée client, action, canal personnel, flux SSE, contrat typé — au lieu d'un WebSocket ou d'un contrôle d'accès écrits à la main. Part du besoin (chat, salon privé, jeu, sondes, notification, tâche longue), mène à la ligne, à l'exemple exécuté et à son test, dit qui a le droit de LIRE et d'ÉCRIRE, et porte la production : plusieurs serveurs, reconnexion, redéploiement, révocation. À charger AVANT d'écrire un canal, un abonnement ou un flux. Qui est en ligne → `nodefony-add-realtime-presence` ; des octets → `nodefony-add-realtime-binary`. Déclencheurs : \"temps réel\", \"websocket\", \"canal\", \"push\", \"chat\", \"salon privé\", \"exclure un membre\", \"l'exclu revient\", \"réserver un canal à un rôle\", \"mon canal est public\", \"prévenir un utilisateur\", \"progression d'une tâche\", \"SSE\", \"contrat temps réel\", \"-32601\", \"ça marche en local, plus en cluster\", \"le canal ne répond jamais\".",
+      "description": "Branche le temps réel d'une application Nodefony par ses briques — canal, route appelée par la socket, entrée client, action, canal personnel, flux SSE, contrat typé — au lieu d'un WebSocket ou d'un contrôle d'accès écrits à la main. Part du besoin (chat, salon privé, jeu, sondes, notification, tâche longue), mène à la ligne, à l'exemple exécuté et à son test, dit qui a le droit de LIRE et d'ÉCRIRE, et porte la production : plusieurs serveurs, reconnexion, redéploiement, révocation. À charger AVANT d'écrire un canal, un abonnement ou un flux. Qui est en ligne → `nodefony-add-realtime-presence` ; des octets → `nodefony-add-realtime-binary`. Déclencheurs : \"temps réel\", \"websocket\", \"canal\", \"push\", \"chat\", \"salon privé\", \"exclure un membre\", \"l'exclu revient\", \"réserver un canal à un rôle\", \"mon canal est public\", \"prévenir un utilisateur\", \"progression d'une tâche\", \"SSE\", \"tableau de bord en direct\", \"-32601\", \"ça marche en local, plus en cluster\", \"le canal ne répond jamais\".",
       "cost": {
-        "bodyLines": 473,
-        "approxTokens": 7808
+        "bodyLines": 471,
+        "approxTokens": 7923
       },
       "requires": [],
       "resources": {
         "references": [
+          "contrat.md",
           "production.md"
         ],
-        "referenceFilesTotal": 1,
+        "referenceFilesTotal": 2,
         "scripts": []
       },
       "related": [
@@ -12190,7 +12191,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "985",
+            "detail": "992",
             "advisory": false
           },
           {
@@ -12232,7 +12233,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "473",
+            "detail": "471",
             "advisory": true
           }
         ]
@@ -12267,8 +12268,8 @@
       ],
       "description": "Affiche qui est là sur un canal temps réel Nodefony — qui est en ligne dans un salon, combien de spectateurs, dans combien d'onglets — par l'option de présence que le framework tient lui-même, au lieu d'une liste de connectés écrite à la main qui ment dès deux serveurs. Mène de la ligne à déclarer à l'écran (React, Vue, Angular, Svelte) et à son test, et porte ce qui ne se voit qu'en production : plusieurs serveurs, rechargement de page, redéploiement, salon de mille personnes. À charger AVANT d'écrire une liste de présents, un compteur de spectateurs ou un indicateur « en ligne ». Le canal lui-même (le créer, le protéger) relève de `nodefony-add-realtime-channel`. Déclencheurs : \"qui est en ligne ?\", \"afficher les connectés\", \"liste des présents\", \"combien de spectateurs\", \"indicateur en ligne\", \"statut en ligne\", \"Untel est en train d'écrire\", \"la liste clignote quand je recharge\", \"les présents ne sont pas les mêmes sur deux serveurs\", \"présence\", \"presence\", \"onPresence\", \"useNodefonyPresence\".",
       "cost": {
-        "bodyLines": 292,
-        "approxTokens": 4699
+        "bodyLines": 294,
+        "approxTokens": 4717
       },
       "requires": [],
       "resources": {
@@ -12339,7 +12340,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "292",
+            "detail": "294",
             "advisory": true
           }
         ]
@@ -12874,8 +12875,8 @@
       ],
       "description": "Conduit une tâche de développement de bout en bout dans une application Nodefony — comprendre le code en place, choisir la bonne façade, générer plutôt qu'écrire à la main, retrouver la référence installée qu'une recherche ordinaire ne voit pas, puis prouver que c'est fait — et se charge AVANT la première modification, quelle que soit la tâche. Les gestes spécialisés ont leur propre skill (ressource REST, service, canal temps réel, garde de route, migration de schéma, écran vu au navigateur) ; celui-ci porte la conduite commune, les pièges du serveur et du front, et dit lequel prendre. Déclencheurs : \"je veux ajouter une fonctionnalité\", \"comment on code dans ce framework\", \"par où je commence\", \"où est la doc de ça\", \"comment ça marche ici\", \"avant de coder\", \"est-ce que j'écris ça à la main\", \"comment vérifier que c'est bon\", \"mon changement est-il fini\", \"je ne trouve rien sur ce sujet\", \"ce n'est pas documenté\", \"je touche au frontend\", \"mon composant charge des données\", \"mon écran n'affiche rien\".",
       "cost": {
-        "bodyLines": 501,
-        "approxTokens": 8837
+        "bodyLines": 502,
+        "approxTokens": 8877
       },
       "requires": [],
       "resources": {
@@ -12986,7 +12987,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": false,
-            "detail": "501",
+            "detail": "502",
             "advisory": true
           }
         ]

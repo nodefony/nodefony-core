@@ -28,11 +28,11 @@ source: "src/packages/@nodefony/devkit/skills/nodefony-add-realtime-channel/SKIL
 | --- | --- |
 | Version | `3.0.0` |
 | Famille | Autres |
-| Corps | 473 lignes |
-| Coût d'activation | ~7 808 tokens (le corps est chargé à l'invocation) |
-| Description | 985 / 1024 caractères |
+| Corps | 471 lignes |
+| Coût d'activation | ~7 923 tokens (le corps est chargé à l'invocation) |
+| Description | 992 / 1024 caractères |
 | Déclencheurs | 17 |
-| Ressources `references/` | 1 page(s) |
+| Ressources `references/` | 2 page(s) |
 | Scripts | 0 |
 | Conformité | ✅ conforme au standard |
 
@@ -50,7 +50,7 @@ Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pa
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
 
-`temps réel` · `websocket` · `canal` · `push` · `chat` · `salon privé` · `exclure un membre` · `l'exclu revient` · `réserver un canal à un rôle` · `mon canal est public` · `prévenir un utilisateur` · `progression d'une tâche` · `SSE` · `contrat temps réel` · `-32601` · `ça marche en local, plus en cluster` · `le canal ne répond jamais`
+`temps réel` · `websocket` · `canal` · `push` · `chat` · `salon privé` · `exclure un membre` · `l'exclu revient` · `réserver un canal à un rôle` · `mon canal est public` · `prévenir un utilisateur` · `progression d'une tâche` · `SSE` · `tableau de bord en direct` · `-32601` · `ça marche en local, plus en cluster` · `le canal ne répond jamais`
 
 ## Ce que contient le corps
 
@@ -72,6 +72,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
+| `references/contrat.md` | Un contrat, déclaré UNE fois — typer les deux bouts | 23 |
 | `references/production.md` | Ce qui ne se voit qu'en production — plusieurs serveurs, réseau, révocation, charge | 141 |
 
 
@@ -87,14 +88,14 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
 | en-tête analysable par un vrai parseur YAML | ℹ️ normatif | ✅ |  | spec § frontmatter : « YAML frontmatter » — un en-tête que YAML refuse n'est pas rendu par GitHub, alors que le parseur de l'agent, tolérant, l'accepte sans un mot |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 985 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 992 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 473 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 471 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

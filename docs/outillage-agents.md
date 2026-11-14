@@ -214,7 +214,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme v1.0.0 · 📎 2 réf" },
   { "icon": "🔧", "title": "add-realtime-channel", "href": "skills/nodefony-add-realtime-channel.md",
     "desc": "Branche le temps réel d'une application Nodefony par ses briques — canal, route appelée par la socket, entrée client, action, canal personnel, flux SSE, contrat typé — au lieu d'un WebSocket ou d'un contrôle d'accès écrits à la main.",
-    "meta": "🟢 conforme v3.0.0 · 📎 1 réf" },
+    "meta": "🟢 conforme v3.0.0 · 📎 2 réf" },
   { "icon": "🔧", "title": "add-realtime-presence", "href": "skills/nodefony-add-realtime-presence.md",
     "desc": "Affiche qui est là sur un canal temps réel Nodefony — qui est en ligne dans un salon, combien de spectateurs, dans combien d'onglets — par l'option de présence que le framework tient lui-même, au lieu d'une liste de connectés écrite à la main qui ment dès deux serveurs.",
     "meta": "🟢 conforme v1.0.0" },

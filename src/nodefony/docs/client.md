@@ -627,11 +627,14 @@ dans [Protocole](../../packages/@nodefony/realtime/docs/protocole.md#des-octets-
 Côté serveur, le codec s'active par la clé
 [`codec`](../../packages/@nodefony/realtime/docs/configuration.md#codec--la-forme-des-frames-sur-le-fil).
 
-| Charge                   | Texte JSON           | CBOR                  | Sur le fil         |
-| ------------------------ | -------------------- | --------------------- | ------------------ |
-| Petit objet, réception   | ≈ au même niveau     | ≈ au même niveau      | **−30 %** d'octets |
-| Petit objet, émission    | plus rapide          | plus lent             | **−30 %** d'octets |
-| 4 Ko d'octets, réception | base64 + réanimation | **≈ 33× plus rapide** | **−25 %** d'octets |
+| Charge                   | Texte JSON           | CBOR                  | Sur le fil               |
+| ------------------------ | -------------------- | --------------------- | ------------------------ |
+| Petit objet, réception   | plus rapide (natif)  | ×1,4 à ×1,9 plus lent | **−18 à −24 %** d'octets |
+| Petit objet, émission    | plus rapide          | plus lent             | **−18 à −24 %** d'octets |
+| 4 Ko d'octets, réception | base64 + réanimation | **≈ 33× plus rapide** | **−25 %** d'octets       |
+
+Mesures sur trames réelles (Node 26, médiane de 7 séries) : un objet de supervision se décode en
+7,9 µs en JSON contre 11,1 µs en CBOR ; 64 Ko d'octets en 541 µs contre 0,9 µs.
 
 D'où la règle : **CBOR n'est jamais le défaut**. Sur des messages ordinaires, JSON est natif et ne
 coûte rien à télécharger ; dès que des octets circulent, CBOR les porte sans base64 ni copie. Le

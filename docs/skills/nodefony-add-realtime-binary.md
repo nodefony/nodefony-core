@@ -28,8 +28,8 @@ source: "src/packages/@nodefony/devkit/skills/nodefony-add-realtime-binary/SKILL
 | --- | --- |
 | Version | `1.0.0` |
 | Famille | Autres |
-| Corps | 257 lignes |
-| Coût d'activation | ~4 029 tokens (le corps est chargé à l'invocation) |
+| Corps | 275 lignes |
+| Coût d'activation | ~4 400 tokens (le corps est chargé à l'invocation) |
 | Description | 985 / 1024 caractères |
 | Déclencheurs | 17 |
 | Ressources `references/` | 2 page(s) |
@@ -73,7 +73,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
 | `references/messages.md` | Chaque message, sa cause, ton geste — des octets qui ne passent pas | 21 |
-| `references/mesures.md` | Les mesures du binaire — de quoi décider, avec leurs conditions | 58 |
+| `references/mesures.md` | Les mesures du binaire — de quoi décider, avec leurs conditions | 60 |
 
 
 ## Conformité au standard Agent Skills
@@ -95,7 +95,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 257 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 275 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

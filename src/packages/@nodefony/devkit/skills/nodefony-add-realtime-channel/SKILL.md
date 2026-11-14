@@ -12,7 +12,7 @@ description: >
   en ligne → `nodefony-add-realtime-presence` ; des octets → `nodefony-add-realtime-binary`.
   Déclencheurs : "temps réel", "websocket", "canal", "push", "chat", "salon privé", "exclure un
   membre", "l'exclu revient", "réserver un canal à un rôle", "mon canal est public", "prévenir un
-  utilisateur", "progression d'une tâche", "SSE", "contrat temps réel", "-32601", "ça marche en
+  utilisateur", "progression d'une tâche", "SSE", "tableau de bord en direct", "-32601", "ça marche en
   local, plus en cluster", "le canal ne répond jamais".
 ---
 
@@ -37,27 +37,31 @@ description: >
 > **Maintenance** : vérité courante, jamais un journal. Éditer en place ; historique = `git log`.
 > Chaque bloc de code est un EXTRAIT d'un fichier exécuté par la suite du framework (marqueur
 > `excerpt`) : un test refuse qu'il en diverge. Une page installée en montre le fichier entier.
+>
+> **La démo** (première implémentation complète, chat compris) : dans ton application si elle a été
+> créée avec la démo, sinon ses gabarits sous `node_modules/nodefony/templates/demo/` (fichiers
+> `.tpl`, lisibles tels quels) — le chat : `server/nodefony/controllers/ChatController.ts.tpl`.
 
 ## 1. Quel besoin → quelle brique
 
-| Je veux…                                                    | La brique (et rien d'autre)                                                                                          | Où le voir                             |
-| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| un **chat** : des messages gardés, des salons, des droits   | lire par un **canal**, écrire par une **route** appelée par la socket (§3)                                           | `cookbook-chat.md`, le chat de la démo |
-| pousser un flux que des écrans lisent                       | `@RealtimeChannel("nom")` ; un producteur par canal et par serveur, créé au premier abonné                           | `cas-d-usage.md` (tableau de bord)     |
-| le réserver à un rôle                                       | `@RealtimeChannel("nom", { roles: ["ROLE_X"] })`                                                                     | `securite.md`                          |
-| une famille de canaux (`room:<id>`, `task:<id>`)            | motif `"room:*"` + `createRealtimeChannel()` qui sert (ou refuse, `null`) chaque nom                                 | §4                                     |
-| **ce compte-là et lui seul** (salon privé, invitation)      | `allow` sur le motif, écrit en **classe d'admission** qui lit la base (§5)                                           | `cas-d-usage.md` (salon privé)         |
-| exclure quelqu'un, pour de bon                              | retirer l'appartenance (`allow` dira non), PUIS `getRealtimeHub().evictUser(canal, id)` — jamais de liste noire      | `canaux-a-membres.md`                  |
-| placer quelqu'un dans un canal sans qu'il s'abonne          | `getRealtimeHub().subscribeConnection(canal, connection)` depuis une entrée client, après avoir écrit l'appartenance | `cas-d-usage.md` (recherche de partie) |
-| **qui est en ligne**, combien, « en train d'écrire »        | l'option `presence` du canal                                                                                         | skill `nodefony-add-realtime-presence` |
-| prévenir UNE personne, tous ses onglets, tous les serveurs  | `getRealtimeHub().publishToUser(id, charge)` / `socket.onUser(h)` — rien à déclarer                                  | `cas-d-usage.md` (notification)        |
-| suivre une tâche longue (agent, export)                     | le serveur nomme `task:<uuid>`, impose l'abonnement, publie, puis `closeChannel()` → `ended`                         | `cas-d-usage.md` (tâche d'agent)       |
-| recevoir un flux FRÉQUENT du client (coups de jeu, mesures) | `@RealtimeInbound("game:steer", politique)` — sans réponse ; seule la dernière valeur compte (§4)                    | `cas-d-usage.md` (jeu, sondes)         |
-| un appel avec réponse qui ne change rien (un devis)         | `@RealtimeAction("x:y")` (fermée par défaut) — ou une route `GET`                                                    | `actions.md`                           |
-| le serveur pousse, le client écoute, sur UNE requête        | `this.renderSse()` dans une action ordinaire ; `new NodefonySse(url)` côté client (§8)                               | `http/docs/sse.md`                     |
-| typer les deux bouts une fois                               | `interface C extends IRealtimeContract` + `NodefonySocket.fromContract<C>()` + `ContractRealtimeController<C>` (§9)  | `actions.md` (contrat)                 |
-| des **octets** (image, audio, mesures binaires, document)   | le codec CBOR et un `Uint8Array` dans la charge                                                                      | skill `nodefony-add-realtime-binary`   |
-| ça marche avec deux onglets, plus en cluster                | `@RealtimeBroadcast("prefix:")` sur la classe (défaut : un canal reste sur son serveur)                              | `references/production.md`             |
+| Je veux…                                                    | La brique (et rien d'autre)                                                                                          | Où le voir                                                                               |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| un **chat** : des messages gardés, des salons, des droits   | lire par un **canal**, écrire par une **route** appelée par la socket (§3)                                           | `cookbook-chat.md`, le chat de la démo                                                   |
+| pousser un flux que des écrans lisent                       | `@RealtimeChannel("nom")` ; un producteur par canal et par serveur, créé au premier abonné                           | `cas-d-usage.md` (tableau de bord)                                                       |
+| le réserver à un rôle                                       | `@RealtimeChannel("nom", { roles: ["ROLE_X"] })`                                                                     | `securite.md`                                                                            |
+| une famille de canaux (`room:<id>`, `task:<id>`)            | motif `"room:*"` + `createRealtimeChannel()` qui sert (ou refuse, `null`) chaque nom                                 | §4                                                                                       |
+| **ce compte-là et lui seul** (salon privé, invitation)      | `allow` sur le motif, écrit en **classe d'admission** qui lit la base (§5)                                           | `cas-d-usage.md` (salon privé : son ADMISSION ; l'écriture suit §3, pas son `room:send`) |
+| exclure quelqu'un, pour de bon                              | retirer l'appartenance (`allow` dira non), PUIS `getRealtimeHub().evictUser(canal, id)` — jamais de liste noire      | `canaux-a-membres.md`                                                                    |
+| placer quelqu'un dans un canal sans qu'il s'abonne          | `getRealtimeHub().subscribeConnection(canal, connection)` depuis une entrée client, après avoir écrit l'appartenance | `cas-d-usage.md` (recherche de partie)                                                   |
+| **qui est en ligne**, combien, « en train d'écrire »        | l'option `presence` du canal                                                                                         | skill `nodefony-add-realtime-presence`                                                   |
+| prévenir UNE personne, tous ses onglets, tous les serveurs  | `getRealtimeHub().publishToUser(id, charge)` / `socket.onUser(h)` — rien à déclarer                                  | `cas-d-usage.md` (notification)                                                          |
+| suivre une tâche longue (agent, export)                     | le serveur nomme `task:<uuid>`, impose l'abonnement, publie, puis `closeChannel()` → `ended`                         | `cas-d-usage.md` (tâche d'agent)                                                         |
+| recevoir un flux FRÉQUENT du client (coups de jeu, mesures) | `@RealtimeInbound("game:steer", politique)` — sans réponse ; seule la dernière valeur compte (§4)                    | `cas-d-usage.md` (jeu, sondes)                                                           |
+| un appel avec réponse qui ne change rien (un devis)         | `@RealtimeAction("x:y")` (fermée par défaut) — ou une route `GET`                                                    | `actions.md`                                                                             |
+| le serveur pousse, le client écoute, sur UNE requête        | `this.renderSse()` dans une action ordinaire ; `new NodefonySse(url)` côté client (§8)                               | `http/docs/sse.md`                                                                       |
+| typer les deux bouts une fois                               | `interface C extends IRealtimeContract` + `NodefonySocket.fromContract<C>()` + `ContractRealtimeController<C>` (§9)  | `actions.md` (contrat)                                                                   |
+| des **octets** (image, audio, mesures binaires, document)   | le codec CBOR et un `Uint8Array` dans la charge                                                                      | skill `nodefony-add-realtime-binary`                                                     |
+| ça marche avec deux onglets, plus en cluster                | `@RealtimeBroadcast("prefix:")` sur la classe (défaut : un canal reste sur son serveur)                              | `references/production.md`                                                               |
 
 Chemins complets : `node_modules/@nodefony/realtime/docs/<page>.md`,
 `node_modules/@nodefony/http/docs/sse.md`, `node_modules/nodefony/docs/client.md`.
@@ -226,7 +230,8 @@ charge)`. La charge est un objet, un tableau, des octets ou rien — **un scalai
   (`publish("c", 42)` → `TypeError`) : écris `{ value: 42 }`. Un canal au nom calculé se publie par
   son nom (``getRealtimeHub().publish(`room:${id}`, charge)``).
 - **État ou événement ?** Une position, une jauge : seule la dernière valeur compte — garde-la et
-  diffuse au rythme du serveur (`setInterval`, `unref()`), jamais à chaque réception. Un message de
+  diffuse au rythme du serveur (`setInterval`, `unref()`) — un relais direct à chaque réception ne se
+  tolère qu'à faible cadence (quelques trames par seconde). Un message de
   chat : chacun compte — persiste-le AVANT de le publier (§3).
 - **Une famille de canaux** (`room:*`) : le motif pose la POLITIQUE de toute la famille, pas la
   FABRIQUE — sans `createRealtimeChannel`, `room:42` est refusé `unknown` :
@@ -301,9 +306,14 @@ export class RoomAdmission extends Service implements IChannelAdmission {
 - **Exclure** = retirer l'appartenance, PUIS `getRealtimeHub().evictUser(canal, id)` (tous ses
   onglets, tous les serveurs ; `realtime:closed { reason: "evicted" }`). L'éjection seule ne suffit
   pas : son navigateur rejoue `subscribe` au rechargement, et `allow` tranche alors. Une liste
-  noire à côté d'`allow` diverge en silence : interdit. Le modérateur est un attribut
+  noire à côté d'`allow` diverge en silence : interdit. **Exclusion DÉFINITIVE** (pas de
+  réinvitation) = un ÉTAT sur la ligne d'appartenance (`banned`), lu par la MÊME règle qu'`allow` et
+  par la route d'invitation — jamais une seconde table. Le modérateur est un attribut
   d'appartenance, pas un rôle global ; l'entité d'appartenance se génère **sans ressource REST**
   (`--no-controller`) — un CRUD ouvert laisserait chacun s'inviter.
+- **Inviter** = une route (`@IsGranted` + contrôle « est modérateur ») qui écrit l'appartenance PUIS
+  prévient l'invité : `getRealtimeHub().publishToUser(invité, { kind: "invited", room })`. Son
+  écran s'abonne au salon, `allow` dit oui.
 - **Nom exact contre motif** : le nom exact l'emporte et REMPLACE le motif en entier ; entre
   motifs, le littéral le plus long gagne. Un canal servi par la fabrique sans aucune politique qui
   le couvre est signalé une fois au journal (`… n'a aucune règle d'accès …`) : pose le motif.
@@ -397,22 +407,10 @@ est gardé par la zone et `@IsGranted` de sa route, pas par une politique de can
 ## 9. Un contrat, déclaré UNE fois
 
 Dès que navigateur et serveur échangent plus qu'un canal : sans contrat, une méthode oubliée
-compile puis rend `-32601`. Le contrat est une **interface de types seuls** (0 octet compilé),
-dans un fichier partagé que les deux côtés importent :
-
-| Clé de `IRealtimeContract` | Ce qu'elle type                                       | Servie côté serveur par                                                |
-| -------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------------- |
-| `serverToClient`           | ce que les canaux publient (gabarit `user:${string}`) | `getRealtimeHub<C>().publish`, `publishToUser`                         |
-| `clientToServer`           | ce que le client pousse (`emit`)                      | les entrées                                                            |
-| `serverMethods`            | les actions `{ in, out }`                             | la table `realtimeActions()` (une oubliée ne compile pas)              |
-| `serverRoutes`             | les routes du pont `"VERBE /chemin"`                  | `static readonly serverRoutes = {…} satisfies ContractRouteSchemas<C>` |
-
-- Navigateur : `NodefonySocket.fromContract<C>({ url })` ; serveur :
-  `extends ContractRealtimeController<C>` ; politiques par `@RealtimePolicy` sur la classe (un nom
-  hors contrat ne compile pas) — n'ajoute pas `@RealtimeAction` à une méthode de la table.
-- Une `Date` arrive en `string` : le contrat lit le type à travers JSON.
-- **Le type n'est pas une validation** : la politique et le schéma de route restent les gardes.
-- Le contrat complet du chat : `chatContract.ts` de la démo ; la règle : `actions.md` (contrat).
+compile puis rend `-32601`. Une interface de types seuls (`extends IRealtimeContract`), partagée
+par les deux côtés : `NodefonySocket.fromContract<C>()` au navigateur, `ContractRealtimeController<C>`
+au serveur, `@RealtimePolicy` sur la classe. Les quatre clés, leurs pièges et le contrat du chat :
+[`references/contrat.md`](references/contrat.md). **Le type n'est pas une validation.**
 
 ## 10. Prouver
 
