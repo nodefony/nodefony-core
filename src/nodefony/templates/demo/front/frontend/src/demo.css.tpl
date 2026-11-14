@@ -1917,29 +1917,34 @@ a.ritem:hover .ritem-go {
 .is-other:focus-within .msg-bubble {
   background: color-mix(in srgb, var(--fg) 10%, transparent);
 }
-/* Un bloc riche (JSON, tableau, code, diff, formule) DANS une bulle : la
-   bulle est déjà la boîte, le bloc perd seulement son CADRE — ses fonds
-   (code, JSON) restent les siens. */
-.msg-bubble .nb {
-  border: 0;
+/* UNE règle pour toute boîte dans une boîte. Une SURFACE déjà encadrée —
+   bulle de message, aperçu de l'éditeur, bulle de survol — ne double pas le
+   cadre de ce qu'elle porte : un bloc (JSON, tableau, code, diff, formule)
+   y perd son cadre, une pièce son cadre et son fond. Les fonds propres d'un
+   bloc (le code sombre, le JSON) restent les siens. */
+:is(.msg-bubble, .md-preview, .bubble) :is(.nb, .att-box) {
+  border-color: transparent;
 }
-/* Une bulle qui porte un bloc riche s'ALLÈGE : un voile à peine marqué et
-   une marge fine — le fond du bloc reste le sien, la bulle ne fait plus
-   double cadre autour de lui. */
-.msg-bubble:has(.nb) {
+:is(.msg-bubble, .md-preview, .bubble) :is(.att-box, .att-pill) {
+  background: transparent;
+}
+:is(.msg-bubble, .md-preview, .bubble) .att-pill,
+:is(.msg-bubble, .md-preview, .bubble) .nb-copy {
+  border-color: color-mix(in srgb, var(--border) 60%, transparent);
+}
+:is(.msg-bubble, .md-preview, .bubble) .nb-table :is(th, td) {
+  border-color: color-mix(in srgb, var(--border) 55%, transparent);
+}
+/* Une bulle de message qui porte un bloc ou une pièce s'ALLÈGE : un voile à
+   peine marqué et une marge fine. */
+.msg-bubble:has(:is(.nb, .att-box)) {
   padding: 4px;
   background: color-mix(in srgb, var(--fg) 3%, transparent);
 }
-.is-mine:not(.is-retracted) .msg-bubble:not(.is-editing):has(.nb) {
+.is-mine:not(.is-retracted)
+  .msg-bubble:not(.is-editing):has(:is(.nb, .att-box)) {
   background: color-mix(in srgb, var(--blue) 8%, transparent);
   border-color: color-mix(in srgb, var(--blue) 18%, transparent);
-}
-.msg-bubble .nb-copy {
-  border-color: color-mix(in srgb, var(--border) 60%, transparent);
-}
-.msg-bubble .nb-table th,
-.msg-bubble .nb-table td {
-  border-color: color-mix(in srgb, var(--border) 55%, transparent);
 }
 .msg-actions {
   position: absolute;
@@ -2053,12 +2058,6 @@ button.room-quote {
 }
 button.room-quote:hover {
   background: color-mix(in srgb, var(--blue) 15%, transparent);
-}
-/* Une pièce DANS une bulle : pas de seconde boîte pleine par-dessus. */
-.msg-bubble .att-box,
-.msg-bubble .att-pill {
-  background: transparent;
-  border-color: color-mix(in srgb, var(--border) 55%, transparent);
 }
 button.room-quote:focus-visible {
   outline: 2px solid var(--blue);
