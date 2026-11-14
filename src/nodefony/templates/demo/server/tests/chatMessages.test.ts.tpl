@@ -16,6 +16,7 @@ import {
   editProblem,
   isReaction,
   liveQuote,
+  catchUpMessages,
   mergeMessages,
   myReactions,
   reactionSetProblem,
@@ -161,6 +162,49 @@ describe("chat — la page remplace un message par sa version reçue", () => {
       ["a", "texte a"],
       ["b", "corrigé"],
       ["c", "texte c"],
+    ]);
+  });
+
+  it("une trame neuve, la plus récente, s'ajoute en fin ; une trame déjà vue ne double pas", () => {
+    const known = [msg("a", 1), msg("b", 2)];
+    expect(mergeMessages(known, [msg("c", 3)]).map((m) => m.id)).toEqual([
+      "a",
+      "b",
+      "c",
+    ]);
+    expect(mergeMessages(known, [msg("b", 2)]).map((m) => m.id)).toEqual([
+      "a",
+      "b",
+    ]);
+  });
+
+  it("🔴 rattrapage : une page relue qui RECOUPE la nôtre fusionne, les anciens restent", () => {
+    const known = [msg("a", 1), msg("b", 2), msg("c", 3)];
+    const page = [msg("c", 3), msg("d", 4)];
+    expect(catchUpMessages(known, page, 2).map((m) => m.id)).toEqual([
+      "a",
+      "b",
+      "c",
+      "d",
+    ]);
+  });
+
+  it("🔴 rattrapage : sans recoupement, un TROU — les plus anciens partent, les trames plus récentes restent", () => {
+    // « z » est arrivé par le canal pendant la relecture : plus récent qu'elle.
+    const known = [msg("a", 1), msg("b", 2), msg("z", 9)];
+    const page = [msg("e", 5), msg("f", 6)];
+    expect(catchUpMessages(known, page, 2).map((m) => m.id)).toEqual([
+      "e",
+      "f",
+      "z",
+    ]);
+  });
+
+  it("rattrapage : une page incomplète est TOUT le salon — rien à couper", () => {
+    const known = [msg("a", 1)];
+    expect(catchUpMessages(known, [msg("e", 5)], 50).map((m) => m.id)).toEqual([
+      "a",
+      "e",
     ]);
   });
 

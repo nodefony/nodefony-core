@@ -309,13 +309,9 @@ class RoomService extends Service implements IMessageArchive {
    * récent au plus ancien (l'index `message_room_sent_idx` sert les deux
    * critères), puis retournés.
    */
-  async history(
-    roomId: string,
-    limit: number,
-    since?: number,
-  ): Promise<ChatMessage[]> {
+  async history(roomId: string, limit: number): Promise<ChatMessage[]> {
     const rows = await this.#repos().messages.find(
-      since === undefined ? { roomId } : { roomId, sentAt: { $gt: since } },
+      { roomId },
       { limit, order: [["sentAt", "DESC"]], relations: MESSAGE_RELATIONS },
     );
     return rows.reverse().map(toView);

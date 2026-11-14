@@ -87,7 +87,12 @@ type RoomInput<S extends object = object> = RouteInput<
  *    aperçus de lien dans `LinkPreviewService` (un contrôleur temps réel est
  *    instancié par connexion) ;
  *  • `@RealtimeBroadcast("chat:")` fait traverser chaque salon d'un serveur à
- *    l'autre (plusieurs pods, `nodefony cluster`).
+ *    l'autre (plusieurs pods, `nodefony cluster`) — les TRAMES, pas l'état ;
+ *  • la démo tient sur UN pod : sa base est un fichier SQLite local
+ *    (`demoDrizzleOverride`), ses pièces vivent sur le disque et dans la
+ *    mémoire du processus qui les a reçues (`ChatService`). SQLite n'est pas
+ *    le bon mode pour plusieurs pods : une base partagée (PostgreSQL, MySQL)
+ *    et un stockage de fichiers partagé le sont.
  * Doc : `@nodefony/realtime/docs/canaux-a-membres.md` ; générer l'équivalent :
  * `npx nodefony create controller chat --kind realtime` ; skill livré :
  * `nodefony-add-realtime-channel`.
@@ -373,11 +378,7 @@ class ChatController extends ContractRealtimeController<ChatContract> {
     input: RoomInput<{ query: typeof HistoryQuery }>,
   ): Promise<ChatMessage[]> {
     await this.#admitted(input.params.room);
-    return this.chat.recent(
-      input.params.room,
-      input.query.limit,
-      input.query.since,
-    );
+    return this.chat.recent(input.params.room, input.query.limit);
   }
 
   // #region chat-link-route

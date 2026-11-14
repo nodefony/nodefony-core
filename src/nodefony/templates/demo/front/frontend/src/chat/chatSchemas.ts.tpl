@@ -220,9 +220,12 @@ function isTimeZone(zone: string): boolean {
   }
 }
 
-/** La query de l'historique — elle arrive en texte, en décimal strict. */
+/**
+ * La query de l'historique — elle arrive en texte, en décimal strict. Pas de
+ * `since` sur un instant : chaque pod a son horloge, et un rattrapage borné
+ * par l'heure double ou perd des messages. La page relit les derniers, et les
+ * recoupe par `id` (`catchUpMessages`).
+ */
 export const HistoryQuery = z.strictObject({
   limit: decimal(1, CHAT_HISTORY_LIMIT).default(50),
-  /** Rattrapage après une coupure : les messages postérieurs à cet instant (ms). */
-  since: decimal(0, Number.MAX_SAFE_INTEGER).optional(),
 });

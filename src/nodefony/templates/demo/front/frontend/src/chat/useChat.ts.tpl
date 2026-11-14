@@ -14,7 +14,7 @@ import {
   type ChatMessage,
 } from "./chatContract";
 import type { CreateRoomBody, EventBody, InviteBody } from "./chatSchemas";
-import { mergeMessages, withReactions } from "./messages";
+import { catchUpMessages, mergeMessages, withReactions } from "./messages";
 import { LOBBY_ROOM_ID, roomChannel, type IRoomView } from "./rooms";
 import { RosterTracker, type IRosterRow } from "./roster";
 
@@ -228,18 +228,24 @@ export function useChat(): IChatRoom {
         .catch(() => roster.forget(ids));
     };
     // #region chat-history-client
-    // Relu à chaque connexion : les messages manqués pendant une coupure reviennent.
+    // Relu à chaque connexion, APRÈS l'abonnement effectif : un message publié
+    // entre la lecture et l'abonnement serait perdu. La page relue se recoupe
+    // par `id` avec ce qu'on montrait ; un trou remplace au lieu de fusionner.
     const loadHistory = () => {
       socket
-        .get("/demo/chat/rooms/{room}/history", {
-          params: { room: roomId },
-          query: { limit: HISTORY_SIZE },
-        })
+        .whenSubscribed(channel)
+        .then(() =>
+          socket.get("/demo/chat/rooms/{room}/history", {
+            params: { room: roomId },
+            query: { limit: HISTORY_SIZE },
+          }),
+        )
         .then((past) => {
-          if (live) setMessages((known) => mergeMessages(known, past));
+          if (live)
+            setMessages((known) => catchUpMessages(known, past, HISTORY_SIZE));
         })
         .catch(() => {
-          // Refus ou coupure : le refus du canal le dira.
+          // Refus, salon quitté ou coupure : le refus du canal le dira.
         });
     };
     // #endregion

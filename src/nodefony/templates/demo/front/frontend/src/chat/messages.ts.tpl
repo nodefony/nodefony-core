@@ -183,6 +183,37 @@ function versionOf(message: ChatMessage): number {
 }
 
 /**
+ * Rattrape la page sur l'historique relu après une (re)connexion — les
+ * `limit` derniers messages du salon. La page n'a pas vu ce qui s'est dit
+ * pendant la coupure : si la page relue RECOUPE ce qu'elle montrait (un `id`
+ * commun), ou si le salon n'a rien de plus ancien (page incomplète), on
+ * fusionne. Sinon il y a un TROU entre les deux : les messages plus anciens
+ * que la page relue sont retirés, plutôt que montrés de part et d'autre d'un
+ * silence qui n'a pas eu lieu. Ceux arrivés par le canal APRÈS la relecture
+ * (plus récents qu'elle) restent.
+ *
+ * @param known - les messages de la page
+ * @param page - l'historique relu, dans l'ordre d'envoi
+ * @param limit - la taille demandée pour cette relecture
+ */
+export function catchUpMessages(
+  known: readonly ChatMessage[],
+  page: readonly ChatMessage[],
+  limit: number,
+): ChatMessage[] {
+  const oldest = page.at(0);
+  if (oldest === undefined || page.length < limit)
+    return mergeMessages(known, page);
+  const reread = new Set(page.map((message) => message.id));
+  if (known.some((message) => reread.has(message.id)))
+    return mergeMessages(known, page);
+  return mergeMessages(
+    known.filter((message) => message.sentAt >= oldest.sentAt),
+    page,
+  );
+}
+
+/**
  * Fusionne des messages reçus dans ceux de la page, dans l'ordre d'envoi :
  * un message connu est REMPLACÉ par sa version reçue (modifié, retiré,
  * réactions relues), sauf si elle est plus ancienne. L'historique relu à la
@@ -192,6 +223,17 @@ export function mergeMessages(
   known: readonly ChatMessage[],
   incoming: readonly ChatMessage[],
 ): ChatMessage[] {
+  // Le cas de chaque trame : un message NEUF, le plus récent — ajouté en fin,
+  // sans rebâtir ni retrier toute la liste.
+  const single = incoming.at(0);
+  const last = known.at(-1);
+  if (
+    incoming.length === 1 &&
+    single !== undefined &&
+    (last === undefined || single.sentAt >= last.sentAt) &&
+    !known.some((message) => message.id === single.id)
+  )
+    return [...known, single];
   const byId = new Map(known.map((message) => [message.id, message]));
   for (const message of incoming) {
     const was = byId.get(message.id);

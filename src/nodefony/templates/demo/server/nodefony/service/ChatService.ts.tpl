@@ -44,13 +44,8 @@ export interface IMessageArchive {
    * Les derniers messages d'un salon, dans l'ordre d'envoi.
    *
    * @param limit - nombre maximal de messages rendus
-   * @param since - seulement ceux archivés APRÈS cet instant (rattrapage)
    */
-  history(
-    roomId: string,
-    limit: number,
-    since?: number,
-  ): Promise<ChatMessage[]>;
+  history(roomId: string, limit: number): Promise<ChatMessage[]>;
   /** Remplace le texte d'un message de son auteur (XEP-0308), et le rend. */
   edit(
     roomId: string,
@@ -191,14 +186,9 @@ class ChatService extends Service {
    * n'est plus là (redémarrage, borne) est annoncée `expired`.
    *
    * @param limit - nombre maximal de messages rendus
-   * @param since - seulement ceux archivés après cet instant (rattrapage)
    */
-  async recent(
-    roomId: string,
-    limit: number,
-    since?: number,
-  ): Promise<ChatMessage[]> {
-    const messages = await this.#messages().history(roomId, limit, since);
+  async recent(roomId: string, limit: number): Promise<ChatMessage[]> {
+    const messages = await this.#messages().history(roomId, limit);
     for (const message of messages)
       for (const piece of message.attachments ?? [])
         if (!this.#attachments.has(piece.id)) piece.expired = true;

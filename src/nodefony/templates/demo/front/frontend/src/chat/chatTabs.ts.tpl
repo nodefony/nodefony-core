@@ -319,6 +319,9 @@ export const CHAT_LESSON = {
           snippet: { label: "Terminal", lines: ["npx nodefony cluster -w 2"] },
         },
         {
+          text: "⚠️ La démo, elle, tient sur UN pod. Le temps réel traverse les serveurs, l'ÉTAT non : la base de la démo est un fichier SQLite sur le disque de la machine, et une pièce jointe reste sur le disque du serveur, connue du seul processus qui l'a reçue — en deux workers, l'autre la répond introuvable. SQLite n'est pas le bon mode pour plusieurs pods. Une application répartie garde ses messages dans une base partagée (PostgreSQL, MySQL) et ses fichiers dans un stockage partagé ; le relais ne fait que transporter.",
+        },
+        {
           text: "Plusieurs machines (des pods Kubernetes, par exemple) : le relais passe par Redis, en pub/sub. Aucun changement de code, tout passe par l'environnement. `NF_REDIS_URL` donne l'adresse de Redis, et sa seule présence charge `@nodefony/redis`, qui ouvre les connexions `publish` et `subscribe` du relais. `NF_REALTIME_DRIVER` choisit le driver : il l'emporte sur la valeur écrite dans `nodefony.config.ts`. `NF_REALTIME_BACKPLANE_NAMESPACE` est la cloison, obligatoire dès que deux déploiements partagent un Redis : le numéro de base ne cloisonne pas le pub/sub, et préproduction et production échangeraient leurs messages. `NF_REALTIME_BACKPLANE_SECRET`, facultatif, scelle chaque message.",
           snippet: {
             label: ".env, ou variables d'environnement du pod",

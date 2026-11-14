@@ -97,6 +97,11 @@ export const DEMO_CONNECTOR = "demo";
  * est ÉCRIT : un module de développement n'a pas de migration, son schéma se
  * dérive au démarrage (doc `@nodefony/drizzle/docs/migrations.md`).
  *
+ * UN pod : un fichier SQLite vit sur le disque d'une machine, il ne se
+ * partage pas entre pods. C'est le mode d'une démo et d'un poste de
+ * développement, pas d'une application répartie — elle garde ses salons dans
+ * une base partagée (PostgreSQL, MySQL).
+ *
  * Guide pour un agent : la base arrive DÉJÀ résolue par le noyau
  * (`kernel.infra`, la même lecture que celle de l'application) — un module ne
  * lit jamais `process.env` lui-même, `env.ts` en est le seul lecteur.

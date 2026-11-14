@@ -67,10 +67,7 @@ export function memoryArchive(
       rooms.set(roomId, [...(rooms.get(roomId) ?? []), message]);
       return message;
     },
-    history: async (roomId, limit, since) =>
-      (rooms.get(roomId) ?? [])
-        .filter((message) => since === undefined || message.sentAt > since)
-        .slice(-limit),
+    history: async (roomId, limit) => (rooms.get(roomId) ?? []).slice(-limit),
     edit: async (roomId, messageId, authorId, text) => {
       const message = find(roomId, messageId);
       if (authors.get(messageId) !== authorId)

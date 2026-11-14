@@ -310,7 +310,7 @@ describe("demo", () => {
 });
 
 // L'archive en mémoire (`memoryArchive.ts`) tire l'`id` et l'instant comme la
-// base le ferait. Ce que la base fait vraiment (ordre, `since`, un historique
+// base le ferait. Ce que la base fait vraiment (ordre, un historique
 // par salon) se prouve de bout en bout (`chat.e2e.test.ts`).
 describe("demo — l'historique du chat", () => {
   it("écrire passe par l'archive : l'id et l'instant viennent d'elle, jamais de l'écrivain", async () => {
