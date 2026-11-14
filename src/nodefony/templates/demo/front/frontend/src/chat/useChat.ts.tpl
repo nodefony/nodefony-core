@@ -19,6 +19,7 @@ import {
   LOBBY_ROOM_ID,
   ONLINE_CHANNEL,
   roomChannel,
+  withUnread,
   type IRoomMember,
   type IRoomView,
 } from "./rooms";
@@ -43,6 +44,13 @@ const TYPING_DISPLAY_MS = 3000;
  * présences (connexions, rechargements) ne fait qu'une requête.
  */
 const MEMBERS_RELOAD_MS = 400;
+
+/**
+ * Un message se dit lu après être resté affiché ce délai, page visible : une
+ * rafale ne fait qu'un envoi, et l'historique d'un salon qu'on ne fait que
+ * traverser ne compte pas pour lu.
+ */
+const READ_DELAY_MS = 600;
 
 /** La socket typée par le contrat du chat. */
 type ChatSocket = ReturnType<typeof NodefonySocket.fromContract<ChatContract>>;
@@ -186,6 +194,8 @@ export function useChat(): IChatRoom {
   const leaving = useRef<string | null>(null);
   // Relit les membres du salon ouvert ; posé par l'effet du salon.
   const reloadMembers = useRef<(() => void) | null>(null);
+  // Le dernier marqueur ENVOYÉ, `<salon>:<message>` : jamais deux fois le même.
+  const marked = useRef<string | null>(null);
   useEffect(() => {
     roomsSeen.current = rooms;
   }, [rooms]);
@@ -404,6 +414,41 @@ export function useChat(): IChatRoom {
       socket.unsubscribe(channel);
     };
   }, [socket, roomId]);
+
+  // #region chat-read-client
+  // Lu (D52) : le dernier message du salon ouvert, resté affiché page VISIBLE,
+  // pour un compte connecté. Le serveur ne recule jamais le marqueur ; la
+  // pastille du salon tombe à zéro tout de suite.
+  const newest = messages.at(-1)?.id ?? null;
+  useEffect(() => {
+    if (socket === null || !signedIn || newest === null) return;
+    const key = `${roomId}:${newest}`;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const markLater = () => {
+      if (timer !== null || marked.current === key) return;
+      if (document.visibilityState !== "visible") return;
+      timer = setTimeout(() => {
+        timer = null;
+        marked.current = key;
+        setRooms((known) => withUnread(known, roomId, 0));
+        socket
+          .put("/demo/chat/rooms/{room}/messages/{message}/read", undefined, {
+            params: { room: roomId, message: newest },
+          })
+          .catch(() => {
+            // Coupure ou salon quitté : le prochain message redira où on en est.
+            if (marked.current === key) marked.current = null;
+          });
+      }, READ_DELAY_MS);
+    };
+    markLater();
+    document.addEventListener("visibilitychange", markLater);
+    return () => {
+      document.removeEventListener("visibilitychange", markLater);
+      if (timer !== null) clearTimeout(timer);
+    };
+  }, [socket, signedIn, roomId, newest]);
+  // #endregion
 
   const send = useCallback(
     async (

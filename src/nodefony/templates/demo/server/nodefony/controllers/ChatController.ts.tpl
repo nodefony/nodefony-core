@@ -153,6 +153,9 @@ class ChatController extends ContractRealtimeController<ChatContract> {
     "DELETE /demo/chat/rooms/{room}/messages/{message}": {
       params: MessageParams,
     },
+    "PUT /demo/chat/rooms/{room}/messages/{message}/read": {
+      params: MessageParams,
+    },
     "PUT /demo/chat/rooms/{room}/messages/{message}/reactions": {
       params: MessageParams,
       body: ReactBody,
@@ -543,6 +546,29 @@ class ChatController extends ContractRealtimeController<ChatContract> {
     );
     return { ok: true };
   }
+
+  // #region chat-read
+  /**
+   * Lu — `PUT …/messages/{message}/read` (D52) : mon marqueur de lecture
+   * avance jusqu'à ce message. Rejoué, ou en retard sur un autre onglet, il
+   * ne change rien : le marqueur ne recule jamais, d'où le `PUT`. Réservé
+   * aux connectés admis dans le salon.
+   */
+  @route("demo-chat-read", {
+    path: "/rooms/{room}/messages/{message}/read",
+    requirements: { methods: ["PUT", "WEBSOCKET"] },
+    schema: { params: MessageParams },
+  })
+  @IsGranted(["ROLE_USER"])
+  async markRead(input: MessageInput): Promise<{ ok: true }> {
+    const me = this.#me();
+    await this.#admitted(input.params.room);
+    await this.#refused(() =>
+      this.rooms.markRead(input.params.room, me.id, input.params.message),
+    );
+    return { ok: true };
+  }
+  // #endregion
 
   /**
    * Réagir — `PUT …/messages/{message}/reactions` (XEP-0444) : le corps est

@@ -1715,6 +1715,18 @@ a.ritem:hover .ritem-go {
   border-radius: 12px;
   overflow: hidden;
 }
+.room-unread {
+  flex: none;
+  min-width: 1.35rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-align: center;
+  /* Blanc sur le bleu de la page : ≥ 5:1 dans les deux thèmes. */
+  color: #fff;
+  background: var(--blue);
+}
 .room-head {
   display: flex;
   justify-content: space-between;

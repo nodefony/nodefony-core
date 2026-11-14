@@ -13,6 +13,7 @@ import {
   canManage,
   memberRemovalProblem,
   roomDeletionProblem,
+  unreadLabel,
   type IRoomEvent,
   type IRoomView,
 } from "./rooms";
@@ -263,6 +264,8 @@ function RoomLink({ room, item }: { room: IChatRoom; item: IRoomView }) {
   const current = item.id === room.roomId;
   const live =
     item.event !== null && item.event.start <= now && item.event.end >= now;
+  // Le salon ouvert n'affiche jamais de pastille : on y lit déjà.
+  const unread = current ? null : unreadLabel(item.unread);
   return (
     <li>
       <button
@@ -280,6 +283,12 @@ function RoomLink({ room, item }: { room: IChatRoom; item: IRoomView }) {
           item.access === "private" && <span className="sr-only">(privé)</span>
         )}
         {live && <span className="room-live">en cours</span>}
+        {unread !== null && (
+          <span className="room-unread">
+            {unread}
+            <span className="sr-only"> non lu{item.unread > 1 ? "s" : ""}</span>
+          </span>
+        )}
       </button>
     </li>
   );

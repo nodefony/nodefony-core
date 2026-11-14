@@ -191,6 +191,32 @@ export const reactionTable = defineTable({
 });
 // #endregion
 
+// #region reads-table
+/**
+ * Où une personne en est de sa lecture d'un salon (D52) : UNE ligne par
+ * salon et compte. `readUpTo` est l'instant d'envoi (`sentAt`) du dernier
+ * message lu — l'ordre de l'historique, donc une borne que l'index
+ * `message_room_sent_idx` sert pour compter les non-lus. Il n'avance
+ * jamais à reculons : posé par `upsert` avec `$max`, une seule instruction,
+ * qu'un ancien onglet en retard ne fait pas reculer. Une TABLE neuve plutôt
+ * qu'une colonne : une colonne ajoutée ne serait pas créée sur une base déjà
+ * en place.
+ */
+export const roomReadTable = defineTable({
+  name: "room_read",
+  columns: {
+    id: { kind: "text", primaryKey: true, defaultFn: () => randomUUID() },
+    roomId: { kind: "text", notNull: true },
+    userId: { kind: "text", notNull: true },
+    readUpTo: { kind: "int64", notNull: true },
+  },
+  indexes: [
+    { name: "room_read_room_user_uq", on: ["roomId", "userId"], unique: true },
+    { name: "room_read_user_idx", on: ["userId"] },
+  ],
+});
+// #endregion
+
 /** Une salle telle que la base la rend. */
 export type RoomRow = RowOf<typeof roomTable.spec>;
 /** Un membre tel que la base le rend. */
@@ -203,6 +229,8 @@ export type EventAttendeeRow = RowOf<typeof eventAttendeeTable.spec>;
 export type MessageRow = RowOf<typeof messageTable.spec>;
 /** Une réaction telle que la base la rend. */
 export type ReactionRow = RowOf<typeof reactionTable.spec>;
+/** Un marqueur de lecture tel que la base le rend. */
+export type RoomReadRow = RowOf<typeof roomReadTable.spec>;
 /**
  * Un message lu AVEC ses relations déclarées (`relations: [...]` d'un
  * `find`) : ses réactions, et le message auquel il répond.
@@ -222,9 +250,10 @@ export const EVENT_ENTITY = "DemoEvent";
 export const EVENT_ATTENDEE_ENTITY = "DemoEventAttendee";
 export const MESSAGE_ENTITY = "DemoMessage";
 export const REACTION_ENTITY = "DemoMessageReaction";
+export const ROOM_READ_ENTITY = "DemoRoomRead";
 
 /**
- * Les six entités, SANS connecteur : `@entities(roomEntities, { connector:
+ * Les sept entités, SANS connecteur : `@entities(roomEntities, { connector:
  * DEMO_CONNECTOR })` sur `DemoModule` les lie au connecteur `demo`.
  */
 export const roomEntities: IEntityDefinition[] = [
@@ -265,5 +294,10 @@ export const roomEntities: IEntityDefinition[] = [
     name: REACTION_ENTITY,
     module: "demo",
     schema: reactionTable,
+  }),
+  defineEntity({
+    name: ROOM_READ_ENTITY,
+    module: "demo",
+    schema: roomReadTable,
   }),
 ];

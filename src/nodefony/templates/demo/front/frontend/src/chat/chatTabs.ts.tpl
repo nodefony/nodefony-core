@@ -140,6 +140,10 @@ export const CHAT_LESSON = {
           excerpt: { file: CONTROLLER, region: "chat-members-route" },
         },
         {
+          text: "Lu : un `PUT` sur le dernier message affiché. Rejoué, ou envoyé en retard par un autre onglet, il ne change rien — le marqueur ne recule jamais.",
+          excerpt: { file: CONTROLLER, region: "chat-read" },
+        },
+        {
           text: "La frappe en cours : une action sans corps, réservée aux connectés ADMIS. Le signal part sur le canal du salon, en message éphémère : il suit les droits du salon et ne fuit jamais hors de lui — ce qu'un canal de frappe commun à tous ne garantirait pas.",
           excerpt: { file: CONTROLLER, region: "chat-typing", step: 3 },
         },
@@ -177,6 +181,10 @@ export const CHAT_LESSON = {
           excerpt: { file: ROOMS, region: "chat-people" },
         },
         {
+          text: "Les non-lus se COMPTENT, ils ne se stockent pas : un `COUNT` des messages des autres envoyés après le marqueur, servi par l'index de l'historique. Le marqueur avance par `upsert` avec `$max` — une seule instruction, qu'aucune course entre deux onglets ne fait reculer.",
+          excerpt: { file: ROOMS, region: "rooms-unread-server" },
+        },
+        {
           text: "L'historique survit aux connexions parce qu'il vit dans un service, unique pour toute l'application. Ici un tampon BORNÉ en mémoire, salon par salon : au-delà de la limite, les plus anciens sortent.",
           excerpt: { file: SERVICE, region: "chat-store", step: 4 },
         },
@@ -208,6 +216,10 @@ export const CHAT_LESSON = {
         {
           text: "Les tables sont décrites UNE fois, de façon portable (`defineTable`) : la table de chaque moteur s'en déduit. Un membre est unique par salon (index composite). Les comptes vivent dans une AUTRE base : un salon ne garde que leur identifiant stable, sans clé étrangère — l'intégrité passe par l'événement `onUserRevoked`.",
           excerpt: { file: ENTITIES, region: "rooms-tables" },
+        },
+        {
+          text: "Où chacun en est de sa lecture : une table NEUVE plutôt qu'une colonne de plus — une colonne ajoutée ne serait pas créée sur une base déjà en place. La borne est l'instant d'envoi du dernier message lu, pas son identifiant : un identifiant tiré au hasard ne s'ordonne pas.",
+          excerpt: { file: ENTITIES, region: "reads-table" },
         },
       ],
     },
@@ -257,6 +269,10 @@ export const CHAT_LESSON = {
         {
           text: "À chaque connexion, la page relit l'historique par la socket déjà ouverte : les messages manqués pendant une coupure reviennent.",
           excerpt: { file: HOOK, region: "chat-history-client", step: 2 },
+        },
+        {
+          text: "Lu : le dernier message resté affiché, page VISIBLE, part au serveur — une rafale ne fait qu'un envoi. La pastille du salon tombe à zéro tout de suite.",
+          excerpt: { file: HOOK, region: "chat-read-client" },
         },
         {
           text: "Le signal « j'écris » : vide, et au plus toutes les deux secondes.",

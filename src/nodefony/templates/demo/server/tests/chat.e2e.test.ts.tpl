@@ -357,8 +357,35 @@ async function roomsOf(headers: Record<string, string>): Promise<IRoomView[]> {
   return res.json();
 }
 
+/** Les noms tirés par le cas en cours, rendus à la fin du cas. */
+const namedRooms = new Set<string>();
+
 /** Un nom de salon neuf : les cas partagent la base. */
-const roomName = (label: string) => `${label} ${randomUUID().slice(0, 8)}`;
+const roomName = (label: string): string => {
+  const name = `${label} ${randomUUID().slice(0, 8)}`;
+  namedRooms.add(name);
+  return name;
+};
+
+// Un compte possède au plus `ROOMS_OWNED_MAX` salons : chaque cas supprime
+// ceux qu'il a créés, sinon le onzième salon de la suite répond 409 et c'est
+// l'ORDRE des cas qui décide de qui échoue.
+afterEach(async () => {
+  if (namedRooms.size === 0) return;
+  const owned = (await roomsOf(admin)).filter(
+    (room) => room.role === "owner" && namedRooms.has(room.name),
+  );
+  namedRooms.clear();
+  await Promise.all(
+    owned.map(async (room) => {
+      const res = await fetch(httpUrl(`/demo/chat/rooms/${room.id}`), {
+        method: "DELETE",
+        headers: admin,
+      });
+      await res.body?.cancel();
+    }),
+  );
+});
 
 /** L'identité stable d'une session, lue sur `/me` (`{ user: { id, … } }`). */
 async function idOf(headers: Record<string, string>): Promise<string> {
@@ -654,6 +681,90 @@ demoDescribe("discussion — les formulaires", () => {
     const anonymous = await fetch(membersPath);
     expect(anonymous.status).toBe(403);
     await anonymous.body?.cancel();
+  });
+
+  it("🔴 D52 — les non-lus en base : depuis le dernier lu, jamais ses propres messages, et le marqueur ne recule pas", async () => {
+    const created = await post(admin, "/demo/chat/rooms", {
+      name: roomName("non-lus"),
+      access: "private",
+    });
+    const room: IRoomView = await created.json();
+    expect(room.unread).toBe(0);
+    const invited = await post(admin, `/demo/chat/rooms/${room.id}/members`, {
+      identifier: E2E_USER_IDENTIFIER,
+    });
+    expect(invited.status).toBe(200);
+    await invited.body?.cancel();
+    const unreadOf = async (
+      headers: Record<string, string>,
+      roomId = room.id,
+    ): Promise<number | undefined> =>
+      (await roomsOf(headers)).find((r) => r.id === roomId)?.unread;
+    const write = async (
+      headers: Record<string, string>,
+      roomId = room.id,
+    ): Promise<string> => {
+      const res = await post(headers, `/demo/chat/rooms/${roomId}/send`, {
+        text: unique("non-lu"),
+      });
+      expect(res.status).toBe(200);
+      const sent: { id: string } = await res.json();
+      return sent.id;
+    };
+    const markRead = async (
+      headers: Record<string, string>,
+      messageId: string,
+      roomId = room.id,
+    ): Promise<number> => {
+      const res = await gesture(headers, "PUT", roomId, messageId, {
+        tail: "/read",
+      });
+      await res.body?.cancel();
+      return res.status;
+    };
+
+    // Trois messages du membre, un de soi : le sien ne compte pas pour soi.
+    const ids = [await write(member), await write(member), await write(member)];
+    await write(admin);
+    expect(await unreadOf(admin)).toBe(3);
+    expect(await unreadOf(member)).toBe(1);
+
+    // Lu jusqu'au deuxième : il en reste un.
+    expect(await markRead(admin, ids[1] ?? "")).toBe(200);
+    expect(await unreadOf(admin)).toBe(1);
+    // Un onglet en retard redit le premier : le marqueur ne recule pas.
+    expect(await markRead(admin, ids[0] ?? "")).toBe(200);
+    expect(await unreadOf(admin)).toBe(1);
+    // Un message retiré n'est plus à lire.
+    const retracted = await gesture(member, "DELETE", room.id, ids[2] ?? "");
+    expect(retracted.status).toBe(200);
+    await retracted.body?.cancel();
+    expect(await unreadOf(admin)).toBe(0);
+
+    // Un salon public jamais ouvert ne compte rien ; ouvert, il compte.
+    const open = await post(admin, "/demo/chat/rooms", {
+      name: roomName("place"),
+      access: "public",
+    });
+    const square: IRoomView = await open.json();
+    const first = await write(admin, square.id);
+    expect(await unreadOf(member, square.id)).toBe(0);
+    expect(await markRead(member, first, square.id)).toBe(200);
+    await write(admin, square.id);
+    expect(await unreadOf(member, square.id)).toBe(1);
+
+    // Le message d'un AUTRE salon ne marque rien ici ; un étranger, un
+    // anonyme n'y marquent rien.
+    expect(await markRead(admin, ids[0] ?? "", square.id)).toBe(404);
+    const other = await post(admin, "/demo/chat/rooms", {
+      name: roomName("à part"),
+      access: "private",
+    });
+    const apart: IRoomView = await other.json();
+    expect(await markRead(member, ids[0] ?? "", apart.id)).toBe(403);
+    const anonymous = await markRead({}, ids[0] ?? "");
+    expect(anonymous).toBeGreaterThanOrEqual(401);
+    expect(anonymous).toBeLessThanOrEqual(403);
   });
 
   it("écrire en privé : deux clics, UN salon à deux, nommé chez l'autre d'après soi ; pas avec soi-même", async () => {

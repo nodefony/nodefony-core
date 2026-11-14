@@ -11,6 +11,7 @@ import {
   REACTION_ENTITY,
   ROOM_ENTITY,
   ROOM_MEMBER_ENTITY,
+  ROOM_READ_ENTITY,
   type EventAttendeeRow,
   type EventRow,
   MESSAGE_RELATIONS,
@@ -18,6 +19,7 @@ import {
   type MessageWithRelations,
   type ReactionRow,
   type RoomMemberRow,
+  type RoomReadRow,
   type RoomRow,
 } from "../entity/rooms";
 import type {
@@ -143,6 +145,7 @@ function toRoomView(
   role: RoomRole | null,
   event: IRoomEvent | null,
   peer: string | null,
+  unread: number,
 ): IRoomView {
   return {
     id: room.id,
@@ -154,6 +157,7 @@ function toRoomView(
     role,
     event,
     peer,
+    unread,
   };
 }
 
@@ -161,7 +165,7 @@ function toRoomView(
 const TEAM_ROOM_ID = "equipe";
 const TEAM_EVENT_ID = "point-equipe";
 
-/** Les six dépôts des salons. */
+/** Les sept dépôts des salons. */
 interface IRoomRepositories {
   orm: IOrm;
   rooms: IRepository<RoomRow>;
@@ -170,6 +174,7 @@ interface IRoomRepositories {
   attendees: IRepository<EventAttendeeRow>;
   messages: IRepository<MessageWithRelations>;
   reactions: IRepository<ReactionRow>;
+  reads: IRepository<RoomReadRow>;
 }
 
 /** Un message tel que le salon le montre : ni l'identité du compte, ni le salon. */
@@ -279,6 +284,7 @@ class RoomService extends Service implements IMessageArchive {
       attendees: orm.getRepository<EventAttendeeRow>(EVENT_ATTENDEE_ENTITY),
       messages: orm.getRepository<MessageWithRelations>(MESSAGE_ENTITY),
       reactions: orm.getRepository<ReactionRow>(REACTION_ENTITY),
+      reads: orm.getRepository<RoomReadRow>(ROOM_READ_ENTITY),
     };
     return this.#repositories;
   }
@@ -537,11 +543,15 @@ class RoomService extends Service implements IMessageArchive {
     ))
       listed.set(room.id, room);
     const roles = new Map<string, RoomRole>();
+    /** Depuis quand je suis membre : le départ de mes non-lus sans marqueur. */
+    const joined = new Map<string, number>();
     /** Ma réponse à chaque événement où l'on m'invite. */
     const answers = new Map<string, IRoomEvent["partstat"]>();
     if (userId !== null) {
-      for (const member of await members.find({ userId }))
+      for (const member of await members.find({ userId })) {
         roles.set(member.roomId, member.role);
+        joined.set(member.roomId, member.joinedAt);
+      }
       const wanted = new Set(roles.keys());
       // Une invitation DÉCLINÉE n'ouvre plus rien : son salon quitte la liste.
       const invited = (await attendees.find({ userId })).filter(
@@ -564,6 +574,10 @@ class RoomService extends Service implements IMessageArchive {
       end: { $gte: now },
     });
     const peers = await this.#directPeers([...listed.values()], userId);
+    const unread =
+      userId === null
+        ? null
+        : await this.#unread(userId, [...listed.keys()], joined);
     return [...listed.values()].map((room) => {
       const event = headlineEvent(
         upcoming.filter((row) => row.roomId === room.id),
@@ -576,9 +590,67 @@ class RoomService extends Service implements IMessageArchive {
           ? null
           : toRoomEvent(event, answers.get(event.id) ?? null),
         peers.get(room.id) ?? null,
+        unread?.get(room.id) ?? 0,
       );
     });
   }
+
+  // #region rooms-unread-server
+  /**
+   * Les non-lus d'une personne, salon par salon (D52) : les messages des
+   * AUTRES, encore là, envoyés après son marqueur de lecture — ou, sans
+   * marqueur, après son entrée comme membre. Un salon public jamais ouvert
+   * n'a pas de départ : il ne compte rien. Un `COUNT` par salon qui a un
+   * départ, servi par l'index `message_room_sent_idx`.
+   *
+   * @param joined - salon → instant d'entrée, pour les salons dont elle est membre
+   * @returns salon → non-lus, pour les seuls salons qui en ont
+   */
+  async #unread(
+    userId: string,
+    roomIds: string[],
+    joined: ReadonlyMap<string, number>,
+  ): Promise<Map<string, number>> {
+    const { reads, messages } = this.#repos();
+    const since = new Map(joined);
+    for (const row of await reads.find({ userId, roomId: { $in: roomIds } }))
+      since.set(row.roomId, row.readUpTo);
+    const counts = new Map<string, number>();
+    await Promise.all(
+      [...since].map(async ([roomId, from]) => {
+        const count = await messages.count({
+          roomId,
+          sentAt: { $gt: from },
+          authorId: { $ne: userId },
+          retracted: null,
+        });
+        if (count > 0) counts.set(roomId, count);
+      }),
+    );
+    return counts;
+  }
+
+  /**
+   * « J'ai lu jusqu'à ce message » (D52, le marqueur `displayed` de
+   * XEP-0333) : le marqueur avance jusqu'à son instant d'envoi, jamais en
+   * arrière — `$max` dans l'`upsert`, une seule instruction, qu'un onglet
+   * en retard ne fait pas reculer. Un message retiré se lit aussi : sa ligne
+   * reste à sa place dans l'historique.
+   *
+   * @throws RoomRefusal `not-found` si le message n'est pas de ce salon
+   */
+  async markRead(
+    roomId: string,
+    userId: string,
+    messageId: string,
+  ): Promise<void> {
+    const { messages, reads } = this.#repos();
+    const row = await messages.findOne({ id: messageId, roomId });
+    if (row === null)
+      throw new RoomRefusal("not-found", "message introuvable dans ce salon");
+    await reads.upsert({ roomId, userId }, { readUpTo: { $max: row.sentAt } });
+  }
+  // #endregion
 
   /**
    * Le nom de L'AUTRE personne de chaque salon à deux de la liste — une seule
@@ -714,7 +786,7 @@ class RoomService extends Service implements IMessageArchive {
       throw error;
     }
     pushRoomsChanged(ownerId);
-    return toRoomView(room, "owner", null, null);
+    return toRoomView(room, "owner", null, null, 0);
   }
   // #endregion
 
@@ -970,7 +1042,7 @@ class RoomService extends Service implements IMessageArchive {
       );
       pushRoomsChanged(userId);
     }
-    return toRoomView(room, "member", null, peer.identifier);
+    return toRoomView(room, "member", null, peer.identifier, 0);
   }
   // #endregion
 
@@ -1094,7 +1166,9 @@ class RoomService extends Service implements IMessageArchive {
           : "forbidden",
         problem,
       );
-    await this.#repos().members.deleteOne({ roomId, userId });
+    const { members, reads } = this.#repos();
+    await members.deleteOne({ roomId, userId });
+    await reads.delete({ roomId, userId });
     if (room.access === "private" || room.locked)
       getRealtimeHub().evictUser(roomChannel(roomId), userId);
     pushRoomsChanged(userId);
@@ -1104,8 +1178,8 @@ class RoomService extends Service implements IMessageArchive {
   // #region rooms-delete
   /**
    * Supprime un salon (XEP-0045 §10.9) : son propriétaire seul
-   * (`roomDeletionProblem`). Messages, réactions, événements, invitations et
-   * membres sont EFFACÉS ; le canal est fermé pour tous ses abonnés, sur tous
+   * (`roomDeletionProblem`). Messages, réactions, événements, invitations,
+   * membres et marqueurs de lecture sont EFFACÉS ; le canal est fermé pour tous ses abonnés, sur tous
    * les serveurs (`closeChannel` : `realtime:closed`, raison `ended`), et
    * chaque membre ou invité relit sa liste. La ligne du salon part EN
    * DERNIER : une suppression interrompue laisse le salon visible, et se
@@ -1117,7 +1191,7 @@ class RoomService extends Service implements IMessageArchive {
    * @throws RoomRefusal `not-found`, ou `forbidden` pour qui n'en a pas le droit
    */
   async deleteRoom(roomId: string, userId: string): Promise<ChatAttachment[]> {
-    const { rooms, members, events, attendees, messages, reactions } =
+    const { rooms, members, events, attendees, messages, reactions, reads } =
       this.#repos();
     const room = await rooms.findOne({ id: roomId });
     if (room === null) throw new RoomRefusal("not-found", "salon introuvable");
@@ -1143,6 +1217,7 @@ class RoomService extends Service implements IMessageArchive {
       await attendees.delete({ eventId: { $in: eventIds } });
     await events.delete({ roomId });
     await members.delete({ roomId });
+    await reads.delete({ roomId });
     await rooms.deleteOne({ id: roomId });
     // Seconde passe : un message admis AVANT la suppression et archivé pendant
     // a échappé à la première. Après elle, `archive` ne trouve plus le salon
@@ -1168,7 +1243,7 @@ class RoomService extends Service implements IMessageArchive {
 
   /**
    * Un compte supprimé de l'application : ses appartenances, invitations,
-   * messages et réactions disparaissent aussi de la base de la démo — l'intégrité qu'une
+   * marqueurs de lecture, messages et réactions disparaissent aussi de la base de la démo — l'intégrité qu'une
    * clé étrangère ne peut pas porter d'une base à l'autre, et l'effacement
    * qu'on doit à une personne qui part (RGPD, art. 17). Appelé par
    * `ChatService.forget`, qui efface les pièces et publie les trames rendues.
@@ -1179,8 +1254,9 @@ class RoomService extends Service implements IMessageArchive {
    */
   async forget(userId: string): Promise<IForgotten> {
     if (!this.isOpen()) return { attachments: [], frames: [] };
-    const { members, attendees, messages, reactions } = this.#repos();
+    const { members, attendees, messages, reactions, reads } = this.#repos();
     await members.delete({ userId });
+    await reads.delete({ userId });
     await attendees.delete({ userId });
     // Ses réactions, et celles posées sur ses messages, partent avec eux.
     const own = await messages.find({ authorId: userId });

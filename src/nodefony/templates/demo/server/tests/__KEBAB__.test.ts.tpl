@@ -118,6 +118,9 @@ import {
   roomChannel,
   roomIdOf,
   roomNameProblem,
+  unreadLabel,
+  withUnread,
+  type IRoomView,
 } from "../frontend/src/chat/rooms";
 import {
   ARRIVAL_MARK_MS,
@@ -596,6 +599,38 @@ describe("demo — les formulaires des salons (règles pures)", () => {
     expect(directPeer("salon", a)).toBeNull();
     // Un identifiant qui contient « : » ne trompe pas la lecture.
     expect(directPeer(directKey("x:1", "y"), "y")).toBe("x:1");
+  });
+});
+
+describe("demo — les non-lus (D52, règles pures)", () => {
+  const room = (id: string, unread: number): IRoomView => ({
+    id,
+    name: id,
+    kind: "chat",
+    access: "private",
+    locked: false,
+    description: null,
+    role: "member",
+    event: null,
+    peer: null,
+    unread,
+  });
+
+  it("la pastille : rien à zéro, le nombre jusqu'à 99, « 99+ » au-delà", () => {
+    expect(unreadLabel(0)).toBeNull();
+    expect(unreadLabel(1)).toBe("1");
+    expect(unreadLabel(99)).toBe("99");
+    expect(unreadLabel(100)).toBe("99+");
+  });
+
+  it("🔴 ramener un salon à zéro ne touche que lui — et rend la MÊME liste si rien ne change", () => {
+    const rooms = [room("a", 3), room("b", 2)];
+    const next = withUnread(rooms, "a", 0);
+    expect(next.map((r) => r.unread)).toEqual([0, 2]);
+    expect(rooms[0]?.unread).toBe(3); // l'ancienne liste reste intacte
+    expect(next[1]).toBe(rooms[1]);
+    expect(withUnread(next, "a", 0)).toBe(next);
+    expect(withUnread(next, "inconnu", 0)).toBe(next);
   });
 });
 

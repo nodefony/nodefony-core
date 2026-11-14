@@ -146,7 +146,41 @@ export interface IRoomView {
    * l'affiche ; `null` pour un salon ordinaire.
    */
   peer: string | null;
+  /**
+   * Les messages des AUTRES arrivés après le dernier lu (D52) : depuis le
+   * marqueur de lecture en base, sinon depuis l'entrée d'un membre ; `0` pour
+   * un anonyme, ou un salon public jamais ouvert.
+   */
+  unread: number;
 }
+
+// #region rooms-unread
+/** Au-delà, la pastille dit « 99+ » : un nombre exact n'y apprend plus rien. */
+export const UNREAD_DISPLAY_MAX = 99;
+
+/** Le texte de la pastille des non-lus ; `null` quand il n'y a rien à lire. */
+export function unreadLabel(count: number): string | null {
+  if (count <= 0) return null;
+  return count > UNREAD_DISPLAY_MAX ? `${UNREAD_DISPLAY_MAX}+` : String(count);
+}
+
+/**
+ * La liste des salons, celui-ci ramené à `count` non-lus — la MÊME liste si
+ * rien ne change (React n'a alors rien à redessiner).
+ */
+export function withUnread(
+  rooms: IRoomView[],
+  roomId: string,
+  count: number,
+): IRoomView[] {
+  const index = rooms.findIndex((item) => item.id === roomId);
+  const room = index < 0 ? undefined : rooms[index];
+  if (room === undefined || room.unread === count) return rooms;
+  const next = rooms.slice();
+  next[index] = { ...room, unread: count };
+  return next;
+}
+// #endregion
 
 // #region rooms-forms-rules
 /** Un nom de salon : 80 caractères au plus (la colonne `room.name`). */

@@ -305,6 +305,10 @@ export interface ChatContract extends IRealtimeContract {
       params: typeof MessageParams;
       result: { ok: true };
     };
+    "PUT /demo/chat/rooms/{room}/messages/{message}/read": {
+      params: typeof MessageParams;
+      result: { ok: true };
+    };
     "PUT /demo/chat/rooms/{room}/messages/{message}/reactions": {
       params: typeof MessageParams;
       body: typeof ReactBody;
