@@ -2171,6 +2171,22 @@ button.msg-chip[aria-pressed="true"] {
 .composer {
   flex-direction: column;
   align-items: stretch;
+  /* Le champ est COLLÉ au salon : pas de bande autour, un seul trait en haut. */
+  padding: 0;
+  gap: 0;
+  border-top: 0;
+  background: none;
+}
+.composer .md-editor {
+  border-width: 1px 0 0;
+  border-radius: 0;
+}
+/* Actif : un contour intérieur — il ne déborde pas d'un bord collé. */
+.composer .md-editor:focus-within {
+  box-shadow: inset 0 0 0 2px var(--cyan);
+}
+.composer .room-error {
+  padding: 0 16px 10px;
 }
 .composer.dragging {
   outline: 2px dashed var(--cyan);
