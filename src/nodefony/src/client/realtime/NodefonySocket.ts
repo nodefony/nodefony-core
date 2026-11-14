@@ -169,6 +169,26 @@ export type RealtimeState =
 export interface NodefonySocketOptions {
   url?: string | undefined;
   token?: string | null | undefined;
+  /**
+   * En-têtes joints à la poignée de main — **sous Node seulement**. Un
+   * navigateur joint lui-même les cookies et l'`Origin` du site, et son
+   * `WebSocket` n'accepte aucun en-tête : une socket qui en reçoit y échoue à
+   * l'ouverture, en le disant, plutôt que de partir sans. Sous Node (Node 22+,
+   * `WebSocket` d'undici), c'est ce qui porte une session :
+   * `{ cookie: "nodefony-session=…" }`, ou un jeton sans le mettre dans
+   * l'adresse : `{ authorization: "Bearer …" }`. La sonde d'échec par défaut
+   * envoie les mêmes en-têtes. Sans effet avec une fabrique de transport
+   * passée au constructeur : c'est alors elle qui ouvre.
+   *
+   * @example
+   * ```ts
+   * const socket = new NodefonySocket({
+   *   url: "https://127.0.0.1:5152/realtime",
+   *   headers: { cookie: sessionCookie, origin: "https://127.0.0.1:5152" },
+   * });
+   * ```
+   */
+  headers?: Readonly<Record<string, string>> | undefined;
   /** Reconnexion auto. Défaut: true. */
   autoReconnect?: boolean | undefined;
   /**
@@ -543,6 +563,7 @@ function toProbeUrl(url: URL): string {
 async function fetchProbe(
   url: string,
   token: string | null,
+  headers?: Readonly<Record<string, string>>,
 ): Promise<number | null> {
   if (typeof fetch !== "function") return null;
   const controller = new AbortController();
@@ -554,7 +575,14 @@ async function fetchProbe(
       cache: "no-store",
       redirect: "manual",
       signal: controller.signal,
-      ...(token ? { headers: { authorization: `Bearer ${token}` } } : {}),
+      ...(token || headers
+        ? {
+            headers: {
+              ...headers,
+              ...(token ? { authorization: `Bearer ${token}` } : {}),
+            },
+          }
+        : {}),
     });
     return res.status;
   } catch {
@@ -1029,7 +1057,7 @@ export class NodefonySocket<
     this.transportFactory =
       transportFactory ??
       ((url: string, protocols?: readonly string[]) =>
-        new BrowserWsTransport(url, protocols));
+        new BrowserWsTransport(url, protocols, opts.headers));
     // Une fois par socket, jamais par trame : qui est le texte, qui est offert.
     this.codecs = frameCodecSet(opts.codec);
     this.peer.codec = this.codecs.text;
@@ -2864,7 +2892,16 @@ export class NodefonySocket<
           Math.min(timeout, TIMER_MAX),
         );
       }
-      transport.connect();
+      try {
+        transport.connect();
+      } catch (e) {
+        // Le transport refuse d'ouvrir (des en-têtes dans un navigateur) :
+        // c'est définitif, retenter rendrait le même refus.
+        this.clearTimers();
+        this.transport = null;
+        this.setState("error");
+        reject(e instanceof Error ? e : new Error(String(e), { cause: e }));
+      }
     });
   }
 
@@ -2916,10 +2953,15 @@ export class NodefonySocket<
     code: number,
     reason: string,
   ): Promise<void> {
-    const probe = this.opts.probe || fetchProbe;
+    const probe = this.opts.probe;
+    const token = this.opts.token ?? null;
     let status: number | null;
     try {
-      status = await probe(toProbeUrl(url), this.opts.token ?? null);
+      // La sonde par défaut présente les MÊMES en-têtes que la poignée de main :
+      // sans eux, une session portée par cookie (Node) passerait pour un refus.
+      status = probe
+        ? await probe(toProbeUrl(url), token)
+        : await fetchProbe(toProbeUrl(url), token, this.opts.headers);
     } catch {
       status = null;
     }

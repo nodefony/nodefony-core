@@ -64,13 +64,23 @@ constructor(opts?: NodefonySocketOptions, transportFactory?: RealtimeTransportFa
 ```ts
 interface NodefonySocketOptions {
   url?: string; // défaut : wss?://<host>/nodefony/api/realtime (resolveUrl, :249)
-  token?: string | null; // ajouté en ?token=… à l'URL (openSocket, :918)
+  token?: string | null; // ajouté en ?token=… à l'URL (NodefonySocket.openSocket)
+  headers?: Record<string, string>; // en-têtes de la poignée de main — NODE seulement (voir ci-dessous)
   autoReconnect?: boolean; // défaut true
   reconnectDelay?: number; // backoff initial ms — défaut 1000
   reconnectDelayMax?: number; // backoff max ms — défaut 30000
   heartbeatInterval?: number; // ping ms — défaut 30000
 }
 ```
+
+**Une socket de session hors navigateur — `headers`.** Dans une page, le navigateur joint lui-même
+le cookie et l'`Origin` du site à la poignée de main : rien à écrire. Sous Node (test de bout en
+bout, outil en ligne de commande, agent), personne ne le fait — la socket porte ses en-têtes :
+`new NodefonySocket({ url, headers: { cookie, origin } })`, ou `{ authorization: "Bearer …" }`
+pour un jeton hors de l'adresse. Le `WebSocket` de Node (undici) accepte cette extension
+documentée ; celui d'un navigateur la refuse — l'ouverture échoue alors en `error`, avec un
+message qui le dit, jamais en partant sans. La sonde d'échec par défaut envoie les mêmes en-têtes.
+Sans effet avec une fabrique de transport : c'est elle qui ouvre (`BrowserWsTransport.ts#withHeaders`).
 
 Cycle de connexion (l'**app** en est maîtresse — connecter une fois au shell) :
 
