@@ -5,6 +5,15 @@ import { demoSecurity } from "./security";
 import { PAYLOAD_LIMIT } from "../../frontend/src/binary/binaryDemo";
 
 /**
+ * Écritures accordées par compte et par fenêtre de dix secondes, par défaut :
+ * envoyer, modifier, retirer, réagir, créer, inviter, exclure, planifier,
+ * répondre, ouvrir un salon à deux. Chacune écrit en base et pousse à tout un
+ * salon : sans borne, un compte sature la base et les écrans des autres.
+ * Trois par seconde en rafale : aucun humain ne les atteint, une boucle si.
+ */
+export const CHAT_WRITE_QUOTA = 30;
+
+/**
  * <%= it.pkgName %> — CONFIGURATION DE LA DÉMO (schéma Zod = source unique).
  *
  * Même règle que tout module : chaque `.default(...)` est la valeur d'usine,
@@ -34,6 +43,21 @@ export const demoConfigSchema = z.strictObject({
     )
     .meta({ env: "NF_KEYCLOAK_MACHINE_SECRET", secret: true }),
   // #endregion
+  /**
+   * Écritures du chat accordées par compte et par fenêtre de dix secondes
+   * (`CHAT_WRITE_QUOTA` par défaut) ; au-delà, 429 avec `Retry-After`. Une
+   * suite de bout en bout ou un banc qui écrit en rafale avec UN compte la
+   * relève ; une démo exposée la garde basse.
+   */
+  chatWriteQuota: z
+    .number()
+    .int()
+    .positive()
+    .default(CHAT_WRITE_QUOTA)
+    .describe(
+      "Écritures du chat accordées par compte et par fenêtre de 10 s (au-delà : 429)",
+    )
+    .meta({ env: "NF_DEMO_CHAT_WRITE_QUOTA" }),
 });
 
 /** Config telle que l'APP l'écrit dans `use()` — tous les champs optionnels. */

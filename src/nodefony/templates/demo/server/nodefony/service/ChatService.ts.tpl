@@ -17,6 +17,8 @@ import { roomChannel } from "../../frontend/src/chat/rooms";
 import DemoPulseService, { DEMO_PULSE_SERVICE } from "./DemoPulseService";
 import RoomService from "./RoomService";
 import { RateLimiter } from "../kit/rateLimit";
+import { CHAT_WRITE_QUOTA } from "../config/config";
+import { defineDemoConfig } from "../config/defineModuleConfig";
 import { describeFile, sniffImage } from "../../frontend/src/kit/preview";
 
 // La borne vit dans le contrat, lue par la page et le serveur : réexportée
@@ -104,14 +106,8 @@ export const CHAT_ATTACHMENT_LIMIT = 200;
  */
 export const CHAT_ATTACHMENT_PER_ACCOUNT = 20;
 
-/**
- * Écritures accordées par compte et par fenêtre de `CHAT_WRITE_WINDOW_MS` :
- * envoyer, modifier, retirer, réagir, créer, inviter, exclure, planifier,
- * répondre, ouvrir un salon à deux. Chacune écrit en base et pousse à tout un
- * salon : sans borne, un compte sature la base et les écrans des autres.
- * Trois par seconde en rafale : aucun humain ne les atteint, une boucle si.
- */
-export const CHAT_WRITE_QUOTA = 30;
+/** Écritures accordées par défaut — réglables par `chatWriteQuota` (config de la démo). */
+export { CHAT_WRITE_QUOTA };
 
 /** Durée de la fenêtre des quotas d'écriture et de frappe, en ms. */
 export const CHAT_WRITE_WINDOW_MS = 10_000;
@@ -180,6 +176,8 @@ class ChatService extends Service {
   readonly #dir: string | null;
   #ready: Promise<string> | null = null;
   /** Les quotas, alloués au premier geste compté. */
+  /** Le module qui le déclare : sa config règle le quota d'écriture. */
+  readonly #module: Module | null;
   #writes: RateLimiter | null = null;
   #typings: RateLimiter | null = null;
 
@@ -197,6 +195,7 @@ class ChatService extends Service {
     archive?: IMessageArchive,
   ) {
     super("chat", module?.container ?? undefined, module?.notificationsCenter);
+    this.#module = module ?? null;
     this.#dir = attachmentDir ?? null;
     this.#archive = archive ?? null;
     this.kernel?.on(USER_REVOKED_EVENT, (event: IUserRevokedEvent) => {
@@ -255,7 +254,11 @@ class ChatService extends Service {
       );
       return this.#typings.take(userId);
     }
-    this.#writes ??= new RateLimiter(CHAT_WRITE_QUOTA, CHAT_WRITE_WINDOW_MS);
+    // Le réglage se lit au premier geste : la config est validée depuis le boot.
+    this.#writes ??= new RateLimiter(
+      defineDemoConfig(this.#module?.options).chatWriteQuota,
+      CHAT_WRITE_WINDOW_MS,
+    );
     return this.#writes.take(userId);
   }
 

@@ -47,6 +47,7 @@ import {
   directPeer,
   memberRemovalProblem,
   roomDeletionProblem,
+  admissionOf,
   headlineEvent,
   roomChannel,
   type IAdmissionFacts,
@@ -58,6 +59,9 @@ import {
 
 /** Au plus cent salons publics listés. */
 const PUBLIC_ROOMS_MAX = 100;
+
+/** Le plus long délai qu'un minuteur Node accepte (2³¹ − 1 ms, ≈ 24,8 jours). */
+const TIMER_DELAY_MAX = 2_147_483_647;
 
 /** « Ta liste de salons a changé » : un seul objet, poussé tel quel. */
 const ROOMS_CHANGED: RoomsNotice = Object.freeze({ type: "rooms:changed" });
@@ -223,6 +227,12 @@ function toView(row: MessageWithRelations): ChatMessage {
 @injectable()
 class RoomService extends Service implements IMessageArchive {
   #repositories: IRoomRepositories | null = null;
+  /** Le minuteur de la PROCHAINE fin d'événement ; `null` quand rien n'est attendu. */
+  #closing: ReturnType<typeof setTimeout> | null = null;
+  /** L'instant que vise `#closing`. */
+  #closingAt = Number.POSITIVE_INFINITY;
+  /** Les fins d'événement antérieures à cet instant sont déjà traitées. */
+  #closedUntil = Date.now();
 
   /**
    * @param module - le module qui le déclare ; absent dans un test, qui le
@@ -799,6 +809,8 @@ class RoomService extends Service implements IMessageArchive {
     // Tous les participants, organisateur compris : chaque liste change.
     pushRoomsChanged(organizerId);
     for (const a of invited) pushRoomsChanged(a.id);
+    // À sa fin, l'invitation ne fait plus entrer : la porte se referme.
+    this.#armClosing(event.end);
     return toRoomEvent(event, "accepted");
   }
 
@@ -832,6 +844,87 @@ class RoomService extends Service implements IMessageArchive {
     }
     pushRoomsChanged(userId);
   }
+
+  // #region rooms-closing
+  /**
+   * Ferme la porte aux invités des événements FINIS depuis le dernier passage,
+   * puis vise la prochaine fin. Une admission est retenue sur la connexion :
+   * sans ce geste, un invité garderait la lecture d'un salon privé après la fin
+   * de son événement. Chaque invité est rejugé par la règle `admissionOf` — un
+   * membre, ou l'invité d'un autre événement en cours, reste ; les autres sont
+   * éjectés sur tous les serveurs (`evictUser`), et la liste de chacun change.
+   *
+   * Guide pour un agent : UN minuteur pour tout le service, qui vise la fin la
+   * plus proche — jamais un par événement, ni un balayage périodique qui lirait
+   * la base pour rien. Appelé au démarrage (`DemoModule.onKernelReady`), réarmé
+   * par `planEvent`.
+   *
+   * @param now - l'instant du passage, en ms
+   * @returns le nombre d'invités éjectés
+   */
+  async closeEnded(now: number = Date.now()): Promise<number> {
+    if (!this.isOpen()) return 0;
+    const { events, attendees } = this.#repos();
+    const since = this.#closedUntil;
+    this.#closedUntil = now;
+    // La règle admet jusqu'à `end` inclus : un événement est fini quand `end < now`.
+    const ended = await events.find({ end: { $gte: since, $lt: now } });
+    let evicted = 0;
+    if (ended.length > 0) {
+      const roomOf = new Map(ended.map((event) => [event.id, event.roomId]));
+      const seen = new Set<string>();
+      for (const row of await attendees.find({
+        eventId: { $in: [...roomOf.keys()] },
+      })) {
+        const roomId = roomOf.get(row.eventId);
+        if (roomId === undefined || seen.has(`${roomId}\n${row.userId}`))
+          continue;
+        seen.add(`${roomId}\n${row.userId}`);
+        const facts = await this.admissionFacts(roomId, row.userId);
+        if (admissionOf(facts, now) === "refused") {
+          getRealtimeHub().evictUser(roomChannel(roomId), row.userId);
+          evicted++;
+        }
+        // L'événement quitte la liste de chacun, admis ou non.
+        pushRoomsChanged(row.userId);
+      }
+    }
+    const next = (
+      await events.find(
+        { end: { $gte: now } },
+        { limit: 1, order: [["end", "ASC"]] },
+      )
+    ).at(0);
+    if (next !== undefined) this.#armClosing(next.end, now);
+    return evicted;
+  }
+
+  /**
+   * Vise la fin `end`, sauf si le minuteur vise déjà plus tôt. Un délai
+   * au-delà de ce qu'un minuteur accepte se découpe : le réveil anticipé ne
+   * trouve rien de fini, et réarme. `unref` : il ne retient pas l'arrêt.
+   */
+  #armClosing(end: number, now: number = Date.now()): void {
+    const at = end + 1;
+    if (this.#closing !== null && at >= this.#closingAt) return;
+    if (this.#closing !== null) clearTimeout(this.#closing);
+    this.#closingAt = at;
+    this.#closing = setTimeout(
+      () => {
+        this.#closing = null;
+        this.#closingAt = Number.POSITIVE_INFINITY;
+        this.closeEnded().catch((error: unknown) => {
+          this.log(
+            `fin d'événement : éjection impossible — ${error instanceof Error ? error.message : String(error)}`,
+            "ERROR",
+          );
+        });
+      },
+      Math.min(Math.max(0, at - now), TIMER_DELAY_MAX),
+    );
+    this.#closing.unref();
+  }
+  // #endregion
 
   // #region rooms-direct
   /**

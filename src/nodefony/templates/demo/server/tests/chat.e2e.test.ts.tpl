@@ -504,6 +504,78 @@ demoDescribe("discussion — les formulaires", () => {
     await nowhere.body?.cancel();
   });
 
+  it("🔴 à la fin de son événement, l'invité est éjecté du salon privé ; le membre y reste", async () => {
+    const created = await post(admin, "/demo/chat/rooms", {
+      name: roomName("point éclair"),
+      access: "private",
+    });
+    const room: IRoomView = await created.json();
+    // Une fenêtre courte, mais assez large pour s'abonner avant la fin.
+    const start = Date.now();
+    const planned = await post(admin, `/demo/chat/rooms/${room.id}/events`, {
+      title: "Point éclair",
+      start,
+      end: start + 5_000,
+      timeZone: "Europe/Paris",
+      attendees: [E2E_USER_IDENTIFIER],
+    });
+    expect(planned.status).toBe(200);
+    const event: { id: string } = await planned.json();
+    const accepted = await post(member, `/demo/chat/events/${event.id}/reply`, {
+      partstat: "accepted",
+    });
+    expect(accepted.status).toBe(200);
+    await accepted.body?.cancel();
+
+    const channel = roomChannel(room.id);
+    const [guest, owner] = [
+      await openSocket<ChatContract>(CHAT_REALTIME_PATH, {
+        cbor: false,
+        session: member,
+      }),
+      await openSocket<ChatContract>(CHAT_REALTIME_PATH, {
+        cbor: false,
+        session: admin,
+      }),
+    ];
+    const guestClosed: string[] = [];
+    const ownerClosed: string[] = [];
+    guest.onClosed((closed) => {
+      if (closed.channel === channel) guestClosed.push(closed.reason);
+    });
+    owner.onClosed((closed) => {
+      if (closed.channel === channel) ownerClosed.push(closed.reason);
+    });
+    const ownerSeen: string[] = [];
+    owner.on(channel, (frame) => {
+      if (frame.kind === "message") ownerSeen.push(frame.message.text);
+    });
+    guest.subscribe(channel);
+    owner.subscribe(channel);
+    await Promise.all([
+      guest.whenSubscribed(channel),
+      owner.whenSubscribed(channel),
+    ]);
+
+    // Aucune durée assertée : on attend le FAIT, l'éjection.
+    await waitFor("l'éjection de l'invité", () => guestClosed.length > 0);
+    expect(guestClosed).toEqual(["evicted"]);
+    // Le membre reste : un message écrit APRÈS lui parvient encore (témoin).
+    const witness = unique("après la fin");
+    const sent = await send(witness, randomUUID(), {}, room.id);
+    expect(sent.status).toBe(200);
+    await waitFor("le témoin chez le propriétaire", () =>
+      ownerSeen.includes(witness),
+    );
+    expect(ownerClosed).toEqual([]);
+    // Et la porte HTTP dit la même chose : l'invité n'entre plus.
+    const after = await fetch(roomPath(room.id, "history"), {
+      headers: member,
+    });
+    expect(after.status).toBe(403);
+    await after.body?.cancel();
+  });
+
   it("écrire en privé : deux clics, UN salon à deux, nommé chez l'autre d'après soi ; pas avec soi-même", async () => {
     const adminId = await idOf(admin);
     const [first, second] = await Promise.all([
@@ -652,7 +724,7 @@ demoDescribe("discussion — le débit d'écriture", () => {
     expect(Number.isInteger(wait)).toBe(true);
     expect(wait).toBeGreaterThanOrEqual(1);
     expect(wait).toBeLessThanOrEqual(CHAT_WRITE_WINDOW_MS / 1000);
-    // Une socket ne porte pas d'en-tête : l'attente est AUSSI dans le message.
+    // Le message le dit aussi, pour qui le lit (la socket le porte en `error.data.retryAfter`).
     expect(await refused?.text()).toContain(`${wait} s`);
 
     const other = await typing(admin);

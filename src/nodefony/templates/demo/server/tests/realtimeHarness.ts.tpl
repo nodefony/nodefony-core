@@ -151,6 +151,9 @@ export async function startDemoServer(): Promise<() => Promise<void>> {
   const env = {
     NF_DATABASE_URL: database,
     NF_ADMIN_PASSWORD: E2E_ADMIN_PASSWORD,
+    // La suite écrit en rafale avec UN compte : le quota d'écriture se relève.
+    // Le 429 reste prouvé par la frappe, dont le quota est fixe.
+    NF_DEMO_CHAT_WRITE_QUOTA: "100000",
   };
   const spare = await startSpareApp({
     command: "development",
@@ -256,17 +259,25 @@ const opened = new Set<{ disconnect(): void }>();
  * relative ; Node n'a pas de page, l'adresse est donc absolue.
  *
  * @param pathname - le chemin de la socket, celui que la page emploie
- * @param options - `cbor: false` pour une socket texte
+ * @param options - `cbor: false` pour une socket texte ; `session` : les
+ *   en-têtes d'une session (leur cookie part avec la poignée de main), sinon
+ *   la socket est anonyme
  */
 export async function openSocket<C extends IRealtimeContract>(
   pathname: string,
-  options: { cbor?: boolean } = {},
+  options: { cbor?: boolean; session?: Record<string, string> } = {},
 ): Promise<ContractSocket<C>> {
+  const cookie = options.session?.cookie;
   const socket = NodefonySocket.fromContract<C>({
     url: socketUrl(pathname),
     // Un test qui perd sa socket doit ÉCHOUER, pas se reconnecter en silence.
     autoReconnect: false,
     ...(options.cbor === false ? {} : { codec: nodefonyCbor.CBOR_FRAME_CODEC }),
+    // Une session : Node n'a pas de navigateur pour joindre le cookie, la
+    // socket le porte elle-même — avec l'origine du site, comme une page.
+    ...(cookie === undefined
+      ? {}
+      : { headers: { cookie, origin: httpsOrigin() } }),
   });
   opened.add(socket);
   await socket.connect();

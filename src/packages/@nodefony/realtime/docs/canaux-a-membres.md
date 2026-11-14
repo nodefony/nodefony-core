@@ -173,6 +173,12 @@ du canal — ses onglets, quel que soit l'exemplaire qui les sert. Il rend le no
 éjectées **ici** ; les autres exemplaires l'appliquent sans compte rendu. Un compte vide n'éjecte
 rien. La même règle vaut : retirer l'appartenance là où `allow` la lit, **puis** éjecter.
 
+**Un accès borné dans le temps** (l'invité d'un événement, un abonnement qui expire) ne se périme
+pas seul : le verdict d'`allow` est retenu sur la connexion, et le hub ne relit rien. À l'échéance,
+l'application rejoue sa règle et éjecte qui n'y a plus droit. Un seul minuteur suffit, visé sur
+la prochaine échéance — ni un par accès, ni un balayage périodique qui lirait la base pour rien. La
+démo le fait pour ses salons (`RoomService.closeEnded`, gabarit `create app --demo`).
+
 **`closeChannel(canal)`** envoie `realtime:closed { reason: "ended" }` à chaque membre, sur tous les
 exemplaires, puis libère le producteur. Les écouteurs du serveur (`listen`) restent inscrits, sur un canal redevenu passif. Le
 hub ne garde **aucune marque « fermé »** : le `subscribe` suivant rejoue la fabrique, qui rend `null`

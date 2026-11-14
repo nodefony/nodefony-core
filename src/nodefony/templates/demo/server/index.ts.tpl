@@ -143,6 +143,13 @@ class DemoModule extends Module {
           "ERROR",
         );
       });
+      // Les invités sortent à la fin de leur événement : vise la prochaine fin.
+      await rooms.closeEnded().catch((error: unknown) => {
+        this.log(
+          `salons du chat : fin d'événement non suivie — ${error instanceof Error ? error.message : String(error)}`,
+          "ERROR",
+        );
+      });
     }
     return this;
   }

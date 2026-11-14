@@ -32,6 +32,7 @@ import type { IDemoPulse } from "../frontend/src/pulse";
 import ChatService, {
   CHAT_ATTACHMENT_LIMIT,
   CHAT_ATTACHMENT_PER_ACCOUNT,
+  CHAT_WRITE_QUOTA,
   CHAT_HISTORY_LIMIT,
   isUploadedFile,
 } from "../nodefony/service/ChatService";
@@ -292,6 +293,15 @@ describe("demo", () => {
     const schema = JSON.stringify(demoConfigJsonSchema());
     expect(schema).toContain('"env":"NF_KEYCLOAK_MACHINE_SECRET"');
     expect(schema).toContain('"secret":true');
+  });
+
+  it("le quota d'écriture du chat vaut CHAT_WRITE_QUOTA, se règle par NF_DEMO_CHAT_WRITE_QUOTA, et refuse zéro", () => {
+    expect(defineDemoConfig({}).chatWriteQuota).toBe(CHAT_WRITE_QUOTA);
+    expect(defineDemoConfig({ chatWriteQuota: 500 }).chatWriteQuota).toBe(500);
+    expect(JSON.stringify(demoConfigJsonSchema())).toContain(
+      '"env":"NF_DEMO_CHAT_WRITE_QUOTA"',
+    );
+    expect(() => defineDemoConfig({ chatWriteQuota: 0 })).toThrow();
   });
 
   it("refuse une clé INCONNUE plutôt que de l'ignorer", () => {
