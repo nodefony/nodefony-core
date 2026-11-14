@@ -23,9 +23,42 @@ import {
   FROZEN_CONTRACT_VALUES,
   FROZEN_DENIED_REASONS,
   FROZEN_PERSONAL_CHANNEL,
+  FROZEN_PRESENCE_API,
+  FROZEN_PRESENCE_BUS_CHANNELS,
+  FROZEN_PRESENCE_BUS_FIELDS,
+  FROZEN_PRESENCE_COUNTERS,
+  FROZEN_PRESENCE_FRAME,
+  FROZEN_PRESENCE_METHODS,
+  FROZEN_PRESENCE_POLICY,
   FROZEN_PRESENCE_VALUES,
   FROZEN_REFUSAL_COUNTERS,
 } from "./frozenSurface.fixture";
+import type {
+  IPresenceAlive,
+  IPresenceBatch,
+  IPresenceChannelDelta,
+  IPresenceChannelState,
+  IPresenceRequest,
+  IPresenceStatePart,
+} from "../../src/backplane/presenceMessage";
+import type {
+  IPresenceEntry,
+  IRealtimePresenceChanges,
+  IRealtimePresenceHead,
+  IRealtimePresenceList,
+} from "../../../../../../nodefony/src/realtime/RealtimeEventMap.js";
+import type {
+  IChannelPolicy,
+  IChannelPresenceOptions,
+} from "../../../../../../nodefony/src/realtime/channelAdmission.js";
+import type { IPresenceProbe } from "../../../../../../nodefony/src/realtime/platformHealth.js";
+import type * as reactBinding from "../../../../../../nodefony/src/client/react/index.js";
+import type * as vueBinding from "../../../../../../nodefony/src/client/vue/index.js";
+import type * as angularBinding from "../../../../../../nodefony/src/client/angular/index.js";
+import type * as svelteBinding from "../../../../../../nodefony/src/client/svelte/index.js";
+// Les index PUBLICS du cœur, par la source (même raison que `closeCodes`).
+import * as core from "../../../../../../nodefony/src/index.js";
+import * as coreClient from "../../../../../../nodefony/src/client/index.js";
 import { NodefonySocket } from "../../../../../../nodefony/src/client/realtime/NodefonySocket.js";
 
 /**
@@ -125,6 +158,84 @@ export type PersonalPublished = Assert<
   [PersonalOk<Personal>] extends [true] ? true : false
 >;
 
+// ── Présence (ADR-0025, #760 étape 6) : ensembles FERMÉS, jugés à la compilation ──
+type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+type Fields = typeof FROZEN_PRESENCE_BUS_FIELDS;
+type Frame = typeof FROZEN_PRESENCE_FRAME;
+type Of<T extends readonly string[]> = T[number];
+export type BusBatchFrozen = Assert<
+  Same<keyof IPresenceBatch, Of<Fields["batch"]>>
+>;
+export type BusRequestFrozen = Assert<
+  Same<keyof IPresenceRequest, Of<Fields["request"]>>
+>;
+export type BusStateFrozen = Assert<
+  Same<keyof IPresenceStatePart, Of<Fields["state"]>>
+>;
+export type BusAliveFrozen = Assert<
+  Same<keyof IPresenceAlive, Of<Fields["alive"]>>
+>;
+export type BusDeltaFrozen = Assert<
+  Same<keyof IPresenceChannelDelta, Of<Fields["channelDelta"]>>
+>;
+export type BusStateChannelFrozen = Assert<
+  Same<keyof IPresenceChannelState, Of<Fields["channelState"]>>
+>;
+export type FrameHeadFrozen = Assert<
+  Same<keyof IRealtimePresenceHead, Of<Frame["head"]>>
+>;
+export type FrameListFrozen = Assert<
+  Same<
+    Exclude<keyof IRealtimePresenceList, keyof IRealtimePresenceHead>,
+    Of<Frame["list"]>
+  >
+>;
+export type FrameChangesFrozen = Assert<
+  Same<keyof IRealtimePresenceChanges, Of<Frame["changes"]>>
+>;
+export type FrameEntryFrozen = Assert<
+  Same<keyof IPresenceEntry, Of<Frame["entry"]>>
+>;
+export type PolicyKeyFrozen = Assert<
+  (typeof FROZEN_PRESENCE_POLICY)["key"] extends keyof IChannelPolicy
+    ? true
+    : false
+>;
+export type PolicyOptionsFrozen = Assert<
+  Same<
+    keyof IChannelPresenceOptions,
+    Of<(typeof FROZEN_PRESENCE_POLICY)["options"]>
+  >
+>;
+type PresenceRefusals = Extract<
+  keyof IPresenceProbe,
+  `${string}${"Rejected" | "Denied" | "TimedOut" | "Saturated" | "Discarded"}Total`
+>;
+export type PresenceCountersFrozen = Assert<
+  Same<PresenceRefusals, (typeof FROZEN_PRESENCE_COUNTERS)[number]["name"]>
+>;
+// Méthodes : chaque nom figé existe sur le type ou la liaison qui le porte.
+interface IPresenceOwners {
+  RealtimeHub: keyof RealtimeHub;
+  NodefonySocket: keyof NodefonySocket;
+  react: keyof typeof reactBinding;
+  vue: keyof typeof vueBinding;
+  angular: keyof typeof angularBinding;
+  svelte: keyof typeof svelteBinding;
+}
+type PresenceMethod = (typeof FROZEN_PRESENCE_METHODS)[number];
+type MethodOk<E> = E extends {
+  name: infer N;
+  on: infer O extends keyof IPresenceOwners;
+}
+  ? N extends IPresenceOwners[O]
+    ? true
+    : false
+  : false;
+export type PresenceMethodsPublished = Assert<
+  [MethodOk<PresenceMethod>] extends [true] ? true : false
+>;
+
 const pending = (e: Entry): string =>
   e.ticket === undefined ? "" : ` (attendu de #${e.ticket})`;
 
@@ -180,6 +291,42 @@ describe("surface temps réel figée par 10.0", () => {
     const values: Record<string, unknown> = realtime;
     for (const e of FROZEN_PRESENCE_VALUES) {
       expect(typeof values[e.name], e.name).toBe(e.kind);
+    }
+  });
+
+  it("présence : canaux du bus et méthode de la trame, à leur valeur exacte", () => {
+    for (const e of FROZEN_PRESENCE_BUS_CHANNELS)
+      expect(core.PLATFORM_BUS_CHANNELS[e.key], e.key).toBe(e.value);
+    expect(core.REALTIME_PRESENCE_METHOD).toBe(FROZEN_PRESENCE_FRAME.method);
+  });
+
+  it("présence : chaque valeur figée s'exporte depuis l'index public de son paquet", () => {
+    const from: Record<string, Record<string, unknown>> = {
+      nodefony: core,
+      "nodefony/client": coreClient,
+      "@nodefony/realtime": realtime,
+    };
+    for (const e of FROZEN_PRESENCE_API) {
+      expect(typeof from[e.from]?.[e.name], `${e.from} → ${e.name}`).toBe(
+        e.kind,
+      );
+    }
+  });
+
+  it("présence : le hub et la socket portent leurs méthodes figées à l'exécution", () => {
+    const hub = new RealtimeHub();
+    const owners: Record<string, Record<string, unknown>> = {
+      RealtimeHub: { presence: hub.presence, endPresence: hub.endPresence },
+      NodefonySocket: {
+        onPresence: NodefonySocket.prototype.onPresence,
+        presence: NodefonySocket.prototype.presence,
+      },
+    };
+    for (const e of FROZEN_PRESENCE_METHODS) {
+      if (!(e.on in owners)) continue; // liaisons : jugées par le type
+      expect(typeof owners[e.on]?.[e.name], `${e.on}.${e.name}`).toBe(
+        "function",
+      );
     }
   });
 

@@ -60,8 +60,7 @@ export const FROZEN_CONTRACT_VALUES = [
 
 /**
  * Arrêt propre de la présence répartie (ADR-0025 P5) — ce qu'une application qui
- * fournit son propre bus appelle à l'arrêt. Le reste de la surface de présence
- * entre à l'étape 6 de #760.
+ * fournit son propre bus appelle à l'arrêt.
  */
 export const FROZEN_PRESENCE_VALUES = [
   { name: "shutdownRealtime", kind: "function" },
@@ -85,4 +84,78 @@ export const FROZEN_PERSONAL_CHANNEL = [
   { name: "publishToUser", on: "RealtimeHub" },
   { name: "onUser", on: "NodefonySocket" },
   { name: "localOnlyTotal", on: "IRealtimeProbe" },
+] as const;
+
+/**
+ * PRÉSENCE répartie d'un canal (ADR-0025, #760 étape 6) — tout ce qu'un pod d'une
+ * AUTRE version lit sur le bus, ce qu'un navigateur lit dans la trame, ce qu'une
+ * application écrit dans sa politique et appelle. Deux pods de versions voisines
+ * coexistent pendant un déploiement progressif : un champ renommé ici casse la
+ * présence entre eux, sans une erreur.
+ */
+
+/** Canaux du bus entre pods (`PLATFORM_BUS_CHANNELS`, cœur). */
+export const FROZEN_PRESENCE_BUS_CHANNELS = [
+  { key: "presence", value: "nodefony:bus:presence" },
+  { key: "presenceAlive", value: "nodefony:bus:presence:alive" },
+] as const;
+
+/** Champs des messages entre pods (`backplane/presenceMessage.ts`), par message — ensembles FERMÉS. */
+export const FROZEN_PRESENCE_BUS_FIELDS = {
+  batch: ["op", "incarnation", "seq", "prev", "channels"],
+  request: ["op", "incarnation", "seq", "channels", "to"],
+  state: ["op", "incarnation", "seq", "last", "i", "n", "channels"],
+  alive: ["incarnation", "seq", "last", "interval", "final"],
+  channelDelta: ["channel", "set", "gone", "unnamed"],
+  channelState: ["channel", "members", "unnamed"],
+} as const;
+
+/** Trame navigateur `realtime:presence` (`RealtimeEventMap.ts`, cœur) — ensembles FERMÉS. */
+export const FROZEN_PRESENCE_FRAME = {
+  method: "realtime:presence",
+  head: ["channel", "version", "count", "unnamed", "partial"],
+  list: ["members", "states", "changes"],
+  changes: ["set", "states", "gone"],
+  entry: ["tabs", "states"],
+} as const;
+
+/** Clé de politique et ses options (`IChannelPolicy.presence`, `IChannelPresenceOptions`) — options FERMÉES. */
+export const FROZEN_PRESENCE_POLICY = {
+  key: "presence",
+  options: ["grace", "maxNamed"],
+} as const;
+
+/** API : valeurs exportées, par paquet. */
+export const FROZEN_PRESENCE_API = [
+  { name: "PresenceView", from: "nodefony", kind: "function" },
+  { name: "isPresenceFrame", from: "nodefony", kind: "function" },
+  { name: "EMPTY_PRESENCE", from: "nodefony", kind: "object" },
+  { name: "PRESENCE_RESYNC_MS", from: "nodefony", kind: "number" },
+  { name: "PRESENCE_RESYNC_JITTER", from: "nodefony", kind: "number" },
+  { name: "REALTIME_PRESENCE_METHOD", from: "nodefony", kind: "string" },
+  { name: "observePresence", from: "nodefony/client", kind: "function" },
+  { name: "PRESENCE_WINDOW_MS", from: "@nodefony/realtime", kind: "number" },
+  {
+    name: "DEFAULT_PRESENCE_MAX_NAMED",
+    from: "@nodefony/realtime",
+    kind: "number",
+  },
+] as const;
+
+/** Méthodes, par type qui les porte (dont les quatre liaisons de vue). */
+export const FROZEN_PRESENCE_METHODS = [
+  { name: "presence", on: "RealtimeHub" },
+  { name: "endPresence", on: "RealtimeHub" },
+  { name: "onPresence", on: "NodefonySocket" },
+  { name: "presence", on: "NodefonySocket" },
+  { name: "useNodefonyPresence", on: "react" },
+  { name: "useNodefonyPresence", on: "vue" },
+  { name: "injectNodefonyPresence", on: "angular" },
+  { name: "nodefonyPresence", on: "svelte" },
+] as const;
+
+/** Compteurs de REFUS de la présence (`IPresenceProbe`), un par cause — ensemble FERMÉ. */
+export const FROZEN_PRESENCE_COUNTERS = [
+  { name: "presenceRejectedTotal" },
+  { name: "presenceStaleDiscardedTotal" },
 ] as const;
