@@ -84,6 +84,22 @@ describe("HttpKernel.drainTraffic — ordre de l'arrêt du trafic", () => {
     expect(ran).toEqual(["wss", "https"]);
   });
 
+  it("les flux longs reçoivent leur fin AVANT le drain, et le drain attend cette fin (ADR-0026 D8)", async () => {
+    const k = makeKernel();
+    const order: string[] = [];
+    k.shutdownStreams = (): Promise<void> => {
+      order.push("flux:début");
+      return tick(15).then(() => {
+        order.push("flux:fin");
+      });
+    };
+    k.addShutdownStep("drain", () => {
+      order.push("drain");
+    });
+    await k.drainTraffic();
+    expect(order).toEqual(["flux:début", "flux:fin", "drain"]);
+  });
+
   it("sans serveur inscrit (commande console), l'arrêt du trafic ne fait rien", async () => {
     const k = makeKernel();
     await expect(k.drainTraffic()).resolves.toBeUndefined();

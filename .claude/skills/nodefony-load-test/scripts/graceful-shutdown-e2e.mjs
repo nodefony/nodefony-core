@@ -87,6 +87,26 @@ if (!runtime.ports.includes(PORT)) {
     `⚠ le runtime écoute sur [${runtime.ports.join(", ")}], le banc vise :${PORT}`,
   );
 }
+
+// 1b) Le serveur doit être PRÊT avant le SIGTERM : `/readyz` à 200. Sans ce
+// préalable, la bascule à 503 se « prouvait » à vide — vécu (#775) : le banc,
+// lancé juste après `start.sh` (qui rend la main dès que les ports écoutent),
+// signalait un serveur dont `onPostReady` n'était pas fini ; `/readyz` valait
+// 503 avant comme après, et une sonde qui ne basculait plus du tout passait
+// verte. Attendre un FAIT (200), jamais une durée ; borne large, échec nommé.
+let pretAvant = 0;
+const pretDepuis = performance.now();
+while (performance.now() - pretDepuis < 120_000) {
+  pretAvant = await fetch(`http://127.0.0.1:${PORT}/readyz`)
+    .then((r) => r.status)
+    .catch(() => 0);
+  if (pretAvant === 200) break;
+  await sleep(200);
+}
+ok(
+  pretAvant === 200,
+  `readyz rend 200 AVANT le SIGTERM (dernier code : ${pretAvant}) — sinon la bascule ne prouve rien`,
+);
 console.log(`— serveur PID=${pid} sur :${PORT}`);
 
 // 2) Le STIMULUS existe-t-il sur cette plateforme ?
