@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-14T14:59:32.063Z",
+  "generatedAt": "2026-11-14T15:59:10.212Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -49,7 +49,7 @@
       "closed": 261,
       "dueOn": "2026-11-15T00:00:00Z",
       "number": 7,
-      "open": 13,
+      "open": 14,
       "title": "10.0.0-beta"
     },
     {
@@ -6455,6 +6455,22 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/775",
       "state": "CLOSED",
       "status": "Done",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 7.005,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-7"
+      ]
+    },
+    {
+      "number": 776,
+      "title": "docs(devkit): mettre à jour le skill temps réel livré et ajouter celui de la présence",
+      "url": "https://github.com/nodefony/nodefony-core/issues/776",
+      "state": "OPEN",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 2,
