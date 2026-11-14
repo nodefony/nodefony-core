@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-14T17:41:46.816Z",
+  "generatedAt": "2026-11-14T23:33:46.689Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,24 +39,24 @@
       "title": "13.0.0"
     },
     {
-      "closed": 137,
+      "closed": 138,
       "dueOn": "2026-11-15T00:00:00Z",
       "number": 1,
-      "open": 4,
+      "open": 1,
       "title": "10.0.0"
     },
     {
-      "closed": 263,
+      "closed": 264,
       "dueOn": "2026-11-15T00:00:00Z",
       "number": 7,
-      "open": 6,
+      "open": 5,
       "title": "10.0.0-beta"
     },
     {
       "closed": 7,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 54,
+      "open": 56,
       "title": "10.1.0"
     }
   ],
@@ -6498,22 +6498,6 @@
       ]
     },
     {
-      "number": 694,
-      "title": "feat(http): servir des services gRPC dans le pipeline HTTP/2",
-      "url": "https://github.com/nodefony/nodefony-core/issues/694",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 6.5,
-      "ordre": 7.01,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-7"
-      ]
-    },
-    {
       "number": 765,
       "title": "fix(http): borner la réception du corps d'une requête HTTP/2",
       "url": "https://github.com/nodefony/nodefony-core/issues/765",
@@ -6539,22 +6523,6 @@
       "priorite": "P2 — décision",
       "jours": 3,
       "ordre": 7.02,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-7"
-      ]
-    },
-    {
-      "number": 764,
-      "title": "feat(cli): générer un service gRPC avec create controller --kind grpc",
-      "url": "https://github.com/nodefony/nodefony-core/issues/764",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 2,
-      "ordre": 7.025,
       "debut": null,
       "cible": null,
       "labels": [
@@ -6591,39 +6559,6 @@
       "cible": null,
       "labels": [
         "irrattrapable",
-        "beta-7"
-      ]
-    },
-    {
-      "number": 770,
-      "title": "feat(http): borner l'âge des connexions HTTP/2 et sonder les pairs muets",
-      "url": "https://github.com/nodefony/nodefony-core/issues/770",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 2,
-      "ordre": 7.04,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-7"
-      ]
-    },
-    {
-      "number": 89,
-      "title": "docs(notification): faire la veille des canaux de communication attendus",
-      "url": "https://github.com/nodefony/nodefony-core/issues/89",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 0.5,
-      "ordre": 7.05,
-      "debut": "2026-11-19",
-      "cible": "2026-11-19",
-      "labels": [
-        "arbitrage",
         "beta-7"
       ]
     },
@@ -6768,22 +6703,6 @@
       "labels": []
     },
     {
-      "number": 659,
-      "title": "docs(performance): remesurer les pages de performance avant la release",
-      "url": "https://github.com/nodefony/nodefony-core/issues/659",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 7.1,
-      "debut": "2026-11-20",
-      "cible": "2026-11-20",
-      "labels": [
-        "beta-7"
-      ]
-    },
-    {
       "number": 754,
       "title": "fix(cli): faire démarrer une app pnpm avec sa démo, désormais par défaut",
       "url": "https://github.com/nodefony/nodefony-core/issues/754",
@@ -6915,8 +6834,8 @@
       "number": 747,
       "title": "feat(scaffold): livrer une démo complète, copiée dans l'application",
       "url": "https://github.com/nodefony/nodefony-core/issues/747",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 3,
@@ -7048,6 +6967,87 @@
       "debut": "2026-09-16",
       "cible": "2026-09-18",
       "labels": []
+    },
+    {
+      "number": 694,
+      "title": "feat(http): servir des services gRPC dans le pipeline HTTP/2",
+      "url": "https://github.com/nodefony/nodefony-core/issues/694",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 7,
+      "ordre": 8.005,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-8"
+      ]
+    },
+    {
+      "number": 770,
+      "title": "feat(http): borner l'âge des connexions HTTP/2 et sonder les pairs muets",
+      "url": "https://github.com/nodefony/nodefony-core/issues/770",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 8.01,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-8"
+      ]
+    },
+    {
+      "number": 89,
+      "title": "docs(notification): faire la veille des canaux de communication attendus",
+      "url": "https://github.com/nodefony/nodefony-core/issues/89",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 8.02,
+      "debut": "2026-11-19",
+      "cible": "2026-11-19",
+      "labels": [
+        "arbitrage",
+        "beta-8"
+      ]
+    },
+    {
+      "number": 47,
+      "title": "docs(release): faire suivre à l'accueil ce qui est réellement publié",
+      "url": "https://github.com/nodefony/nodefony-core/issues/47",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 8.03,
+      "debut": "2026-11-24",
+      "cible": "2026-11-24",
+      "labels": [
+        "beta-8"
+      ]
+    },
+    {
+      "number": 659,
+      "title": "docs(performance): remesurer les pages de performance avant la release",
+      "url": "https://github.com/nodefony/nodefony-core/issues/659",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 8.04,
+      "debut": "2026-11-20",
+      "cible": "2026-11-20",
+      "labels": [
+        "beta-8"
+      ]
     },
     {
       "number": 255,
@@ -8955,42 +8955,14 @@
       "number": 744,
       "title": "build(scaffold): choisir l'image de base des applications générées",
       "url": "https://github.com/nodefony/nodefony-core/issues/744",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 58.3,
       "debut": null,
       "cible": null,
-      "labels": []
-    },
-    {
-      "number": 658,
-      "title": "test(devkit-bench): réenregistrer la référence du banc sur le modèle courant",
-      "url": "https://github.com/nodefony/nodefony-core/issues/658",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 58.5,
-      "debut": "2026-11-23",
-      "cible": "2026-11-23",
-      "labels": []
-    },
-    {
-      "number": 47,
-      "title": "docs(release): faire suivre à l'accueil ce qui est réellement publié",
-      "url": "https://github.com/nodefony/nodefony-core/issues/47",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 59,
-      "debut": "2026-11-24",
-      "cible": "2026-11-24",
       "labels": []
     },
     {
@@ -9012,7 +8984,7 @@
       "title": "chore(release): publier les paquets de la version 10 sur npm",
       "url": "https://github.com/nodefony/nodefony-core/issues/27",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P3 — fin de cycle",
       "jours": 1,
@@ -9193,6 +9165,20 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 105.2,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 764,
+      "title": "feat(cli): générer un service gRPC avec create controller --kind grpc",
+      "url": "https://github.com/nodefony/nodefony-core/issues/764",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1.0",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 105.3,
       "debut": null,
       "cible": null,
       "labels": []
@@ -9904,6 +9890,20 @@
       ]
     },
     {
+      "number": 658,
+      "title": "test(devkit-bench): réenregistrer la référence du banc sur le modèle courant",
+      "url": "https://github.com/nodefony/nodefony-core/issues/658",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 157.5,
+      "debut": "2026-11-23",
+      "cible": "2026-11-23",
+      "labels": []
+    },
+    {
       "number": 238,
       "title": "test(orm): prouver la parite de contrat entre Mongoose et Drizzle",
       "url": "https://github.com/nodefony/nodefony-core/issues/238",
@@ -10324,7 +10324,7 @@
       "title": "feat(realtime): rejouer les messages manqués à la reconnexion",
       "url": "https://github.com/nodefony/nodefony-core/issues/717",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 2,

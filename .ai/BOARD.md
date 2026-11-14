@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-11-14 17:41** (UTC).
+> Empreinte prise le **2026-11-14 23:33** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,9 +20,9 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 97% | 137 | 4 | 2026-11-15 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `██████████` 98% | 263 | 6 | 2026-11-15 |
-| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 11% | 7 | 54 | 2026-12-15 |
+| **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 138 | 1 | 2026-11-15 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `██████████` 98% | 264 | 5 | 2026-11-15 |
+| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 11% | 7 | 56 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 33 | — |
 | **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 8 | — |
 | **12.0.0** | ![12.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/5?style=flat-square&label=) `██░░░░░░░░` 15% | 2 | 11 | — |
@@ -33,14 +33,14 @@
 
 **#694 — feat(http): servir des services gRPC dans le pipeline HTTP/2**
 
-Ordre 7.01 · P2 — décision · 6.5 j · jalon 10.0.0-beta · frise —
+Ordre 8.005 · P2 — décision · 7 j · jalon 10.0.0-beta · frise —
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 6 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 5 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.1.0 — 54 ouverts
+## Jalon 10.1.0 — 56 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -67,6 +67,7 @@ Ordre 7.01 · P2 — décision · 6.5 j · jalon 10.0.0-beta · frise —
 | 100 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #28 | feat(config): surcharger la config d'application par l'environnement |
 | 105.1 | P2 — décision | 2 | — | #745 | feat(realtime): s'abonner et publier sur un canal depuis un client gRPC |
 | 105.2 | P3 — fin de cycle | 1 | — | #697 | feat(http): exposer la réflexion et la santé gRPC standard |
+| 105.3 | P2 — décision | 2 | — | #764 | feat(cli): générer un service gRPC avec create controller --kind grpc |
 | 110 | P2 — décision | 3 | 2026-11-16 → 12-15 | #63 | test(bancs): rendre chaque banc indépendant du décor partagé |
 | 113 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #78 | test(core): remplacer les seuils absolus des tests de performance |
 | 115 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #66 | feat(orm): exposer et borner la taille du pool de connexions |
@@ -90,6 +91,7 @@ Ordre 7.01 · P2 — décision · 6.5 j · jalon 10.0.0-beta · frise —
 | 155 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #235 | feat(security): journaliser les evenements d'authentification |
 | 156 | P2 — décision | 1 | 2026-11-16 → 12-15 | #511 | perf(orm): préparer une fois les écritures du repository Drizzle |
 | 157 | P2 — décision | 0.5 | 2026-11-27 → 11-27 | #412 | fix(devkit-bench): faire entrer le motif d'une sonde dans son empreinte |
+| 157.5 | P1 — figé à la création | 1 | 2026-11-23 → 11-23 | #658 | test(devkit-bench): réenregistrer la référence du banc sur le modèle courant |
 | 158 | P1 — figé à la création | 1 | 2026-11-30 → 11-30 | #371 | test(devkit-bench): constater qu'un agent écrit hors de son décor |
 | 164 | P2 — décision | 1 | — | #557 | feat(studio): simuler les écrans de l'atelier IA d'après le livre blanc |
 | 171 | P2 — décision | 3 | — | #712 | perf(http): ne payer par requête que le travail que la route consomme |
@@ -170,16 +172,15 @@ Ordre 7.01 · P2 — décision · 6.5 j · jalon 10.0.0-beta · frise —
 | 925.6 | P3 — fin de cycle | 1 | — | #768 | perf(http): mesurer le coût du journal d'accès par requête |
 | 926 | P1 — figé à la création | 0.5 | — | #541 | test(cli): valider le plein écran du serveur de dev sous Windows |
 
-## Jalon 10.0.0-beta — 6 ouverts
+## Jalon 10.0.0-beta — 5 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 7.01 | P2 — décision | 6.5 | — | #694 | feat(http): servir des services gRPC dans le pipeline HTTP/2 |
-| 7.025 | P2 — décision | 2 | — | #764 | feat(cli): générer un service gRPC avec create controller --kind grpc |
-| 7.04 | P1 — figé à la création | 2 | — | #770 | feat(http): borner l'âge des connexions HTTP/2 et sonder les pairs muets |
-| 7.05 | P2 — décision | 0.5 | 2026-11-19 → 11-19 | #89 | docs(notification): faire la veille des canaux de communication attendus |
-| 7.1 | P1 — figé à la création | 1 | 2026-11-20 → 11-20 | #659 | docs(performance): remesurer les pages de performance avant la release |
-| 7.14 | P2 — décision | 3 | — | #747 | feat(scaffold): livrer une démo complète, copiée dans l'application |
+| 8.005 | P2 — décision | 7 | — | #694 | feat(http): servir des services gRPC dans le pipeline HTTP/2 |
+| 8.01 | P1 — figé à la création | 2 | — | #770 | feat(http): borner l'âge des connexions HTTP/2 et sonder les pairs muets |
+| 8.02 | P2 — décision | 0.5 | 2026-11-19 → 11-19 | #89 | docs(notification): faire la veille des canaux de communication attendus |
+| 8.03 | P1 — figé à la création | 1 | 2026-11-24 → 11-24 | #47 | docs(release): faire suivre à l'accueil ce qui est réellement publié |
+| 8.04 | P1 — figé à la création | 1 | 2026-11-20 → 11-20 | #659 | docs(performance): remesurer les pages de performance avant la release |
 
 ## Jalon 10.2.0 — 33 ouverts
 
@@ -219,13 +220,10 @@ Ordre 7.01 · P2 — décision · 6.5 j · jalon 10.0.0-beta · frise —
 | 163.71 | P3 — fin de cycle | 2 | — | #715 | feat(realtime): reprendre un abonnement depuis un curseur |
 | 163.72 | P3 — fin de cycle | 1 | — | #716 | feat(realtime): signaler la fin d'un canal par realtime:closed |
 
-## Jalon 10.0.0 — 4 ouverts
+## Jalon 10.0.0 — 1 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 58.3 | P1 — figé à la création | 0.5 | — | #744 | build(scaffold): choisir l'image de base des applications générées |
-| 58.5 | P1 — figé à la création | 1 | 2026-11-23 → 11-23 | #658 | test(devkit-bench): réenregistrer la référence du banc sur le modèle courant |
-| 59 | P1 — figé à la création | 1 | 2026-11-24 → 11-24 | #47 | docs(release): faire suivre à l'accueil ce qui est réellement publié |
 | 60 | P3 — fin de cycle | 1 | 2026-11-25 → 11-25 | #27 | chore(release): publier les paquets de la version 10 sur npm |
 
 ## Jalon 12.0.0 — 11 ouverts
