@@ -683,9 +683,11 @@ jobs:
           #
           # 🔴 `RUN` en forme EXEC : l'image est distroless (gabarit), sans shell —
           # la forme texte passerait par `/bin/sh -c` et casserait la release.
+          # Le script du PAQUET, jamais `node_modules/.bin/nodefony` : sous pnpm c'est
+          # un script shell que node lit comme du JS (`nodefonyBin.ts#IMAGE_NODEFONY_BIN`).
           docker build -t "nodefony/nodefony:${V}" - <<EOF
           FROM nf-demo-app:${V}
-          RUN ["/nodejs/bin/node", "node_modules/.bin/nodefony", "orm:migrate"]
+          RUN ["/nodejs/bin/node", "node_modules/nodefony/bin/nodefony", "orm:migrate"]
           ENV NF__SECURITY__ALLOWINSECURECREDENTIALS=true
           EOF
 
