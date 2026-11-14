@@ -182,6 +182,59 @@ export function withUnread(
 }
 // #endregion
 
+// #region rooms-alerts
+/**
+ * Un non-lu de plus dans un salon (D53) — l'alerte du canal personnel, ou un
+ * message arrivé dans le salon ouvert pendant que l'onglet est caché.
+ *
+ * @returns la liste neuve, ou la MÊME si le salon n'y est pas
+ */
+export function addUnread(rooms: IRoomView[], roomId: string): IRoomView[] {
+  const room = rooms.find((item) => item.id === roomId);
+  return room === undefined
+    ? rooms
+    : withUnread(rooms, roomId, room.unread + 1);
+}
+
+/** Le total des non-lus de la liste, pour le titre de l'onglet. */
+export function totalUnread(rooms: readonly IRoomView[]): number {
+  let total = 0;
+  for (const room of rooms) total += room.unread;
+  return total;
+}
+
+/**
+ * Le titre de l'onglet avec ses non-lus devant — « (3) Démo » —, lisible
+ * dans une barre d'onglets réduite. Zéro rend le titre tel quel.
+ *
+ * @param base - le titre de la page, sans compteur
+ */
+export function titleWithUnread(base: string, total: number): string {
+  const label = unreadLabel(total);
+  return label === null ? base : `(${label}) ${base}`;
+}
+
+/**
+ * La permission de notifier, telle que `Notification.permission` la rend —
+ * écrite ici en clair : ce fichier est lu aussi par le serveur, sans les
+ * types du DOM. `unsupported` : le navigateur n'a pas l'API.
+ */
+export type AlertPermission = "default" | "denied" | "granted" | "unsupported";
+
+/**
+ * Faut-il lever une notification du navigateur (D54) ? Une conversation à
+ * deux seulement — un salon à plusieurs bavarde trop —, onglet caché (visible,
+ * la pastille suffit), et la permission accordée par un GESTE de la personne.
+ */
+export function shouldNotify(alert: {
+  direct: boolean;
+  hidden: boolean;
+  permission: AlertPermission;
+}): boolean {
+  return alert.direct && alert.hidden && alert.permission === "granted";
+}
+// #endregion
+
 // #region rooms-forms-rules
 /** Un nom de salon : 80 caractères au plus (la colonne `room.name`). */
 export const ROOM_NAME_MAX = 80;

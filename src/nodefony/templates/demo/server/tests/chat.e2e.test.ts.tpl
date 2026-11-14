@@ -15,6 +15,7 @@ import {
   type ChatContract,
   type ChatMessage,
   type ChatReaction,
+  type MessageNotice,
 } from "../frontend/src/chat/chatContract";
 import {
   LOBBY_ROOM_ID,
@@ -765,6 +766,105 @@ demoDescribe("discussion — les formulaires", () => {
     const anonymous = await markRead({}, ids[0] ?? "");
     expect(anonymous).toBeGreaterThanOrEqual(401);
     expect(anonymous).toBeLessThanOrEqual(403);
+  });
+
+  it("🔴 D53 — un message alerte le membre ABSENT d'un salon privé : jamais le présent, jamais l'auteur, jamais un salon public", async () => {
+    const create = async (
+      label: string,
+      access: "private" | "public",
+    ): Promise<IRoomView> => {
+      const res = await post(admin, "/demo/chat/rooms", {
+        name: roomName(label),
+        access,
+      });
+      expect(res.status).toBe(200);
+      return res.json();
+    };
+    const invite = async (roomId: string): Promise<void> => {
+      const res = await post(admin, `/demo/chat/rooms/${roomId}/members`, {
+        identifier: E2E_USER_IDENTIFIER,
+      });
+      expect(res.status).toBe(200);
+      await res.body?.cancel();
+    };
+    const say = async (
+      headers: Record<string, string>,
+      roomId: string,
+      text: string,
+    ): Promise<void> => {
+      const res = await post(headers, `/demo/chat/rooms/${roomId}/send`, {
+        text,
+      });
+      expect(res.status).toBe(200);
+      await res.body?.cancel();
+    };
+    const room = await create("alertes", "private");
+    await invite(room.id);
+
+    // Deux pages ouvertes AILLEURS : le membre, et l'auteur.
+    const [page, own] = [
+      await openSocket<ChatContract>(CHAT_REALTIME_PATH, {
+        cbor: false,
+        session: member,
+      }),
+      await openSocket<ChatContract>(CHAT_REALTIME_PATH, {
+        cbor: false,
+        session: admin,
+      }),
+    ];
+    const memberAlerts: MessageNotice[] = [];
+    const ownAlerts: MessageNotice[] = [];
+    page.onUser((notice) => {
+      if (notice.type === "room:message") memberAlerts.push(notice);
+    });
+    own.onUser((notice) => {
+      if (notice.type === "room:message") ownAlerts.push(notice);
+    });
+
+    // Absent : l'alerte arrive, avec l'auteur posé par le serveur.
+    const first = unique("alerte");
+    await say(admin, room.id, first);
+    await waitFor("l'alerte du membre absent", () => memberAlerts.length > 0);
+    expect(memberAlerts).toEqual([
+      {
+        type: "room:message",
+        roomId: room.id,
+        author: "admin",
+        preview: first,
+      },
+    ]);
+
+    // Présent : abonné au salon, il lit le message — sans alerte.
+    const channel = roomChannel(room.id);
+    const seen: string[] = [];
+    page.on(channel, (frame) => {
+      if (frame.kind === "message") seen.push(frame.message.text);
+    });
+    page.subscribe(channel);
+    await page.whenSubscribed(channel);
+    const second = unique("présent");
+    await say(admin, room.id, second);
+    await waitFor("le message chez le présent", () => seen.includes(second));
+
+    // Un salon public n'alerte personne, même un membre absent.
+    const square = await create("place", "public");
+    await invite(square.id);
+    await say(admin, square.id, unique("public"));
+
+    // Témoins : un autre salon privé, où chacun est absent à son tour.
+    const apart = await create("à part", "private");
+    await invite(apart.id);
+    const witness = unique("témoin");
+    await say(admin, apart.id, witness);
+    await waitFor("le témoin du membre", () =>
+      memberAlerts.some((n) => n.preview === witness),
+    );
+    expect(memberAlerts.map((n) => n.roomId)).toEqual([room.id, apart.id]);
+    const reply = unique("réponse");
+    await say(member, apart.id, reply);
+    await waitFor("le témoin de l'auteur", () => ownAlerts.length > 0);
+    // L'auteur n'a jamais été alerté de ses propres messages.
+    expect(ownAlerts.map((n) => n.preview)).toEqual([reply]);
   });
 
   it("écrire en privé : deux clics, UN salon à deux, nommé chez l'autre d'après soi ; pas avec soi-même", async () => {

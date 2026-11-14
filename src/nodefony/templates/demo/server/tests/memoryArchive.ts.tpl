@@ -71,6 +71,8 @@ export function memoryArchive(
       return message;
     },
     history: async (roomId, limit) => (rooms.get(roomId) ?? []).slice(-limit),
+    // Pas de présence en mémoire : personne n'est jamais absent.
+    absentMembers: async () => [],
     edit: async (roomId, messageId, authorId, text) => {
       const message = find(roomId, messageId);
       if (authors.get(messageId) !== authorId)

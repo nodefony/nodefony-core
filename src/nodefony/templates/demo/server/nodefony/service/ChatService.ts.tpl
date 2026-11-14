@@ -5,12 +5,16 @@ import { Service, Module, injectable } from "nodefony";
 import type { IUploadedFile } from "@nodefony/http";
 import { getRealtimeHub } from "@nodefony/realtime";
 import { USER_REVOKED_EVENT, type IUserRevokedEvent } from "@nodefony/user";
-import { ATTACHMENT_MAX_BYTES } from "../../frontend/src/chat/chatContract";
+import {
+  ATTACHMENT_MAX_BYTES,
+  messagePreview,
+} from "../../frontend/src/chat/chatContract";
 import type {
   ChatAttachment,
   ChatMessage,
   ChatContract,
   ChatReaction,
+  MessageNotice,
   RoomFrame,
 } from "../../frontend/src/chat/chatContract";
 import { roomChannel } from "../../frontend/src/chat/rooms";
@@ -81,6 +85,14 @@ export interface IMessageArchive {
    * ce qui reste à faire hors de l'archive.
    */
   forget(userId: string): Promise<IForgotten>;
+  /**
+   * Les membres d'un salon privé ou à deux qui ne le regardent pas (D53) :
+   * ni l'auteur, ni qui est abonné au canal du salon. Un salon public rend
+   * une liste vide — on n'alerte pas cent membres d'un salon ouvert.
+   *
+   * @param authorId - l'auteur du message, jamais alerté de son propre envoi
+   */
+  absentMembers(roomId: string, authorId: string): Promise<string[]>;
 }
 
 /** Ce qu'un compte effacé laisse à faire hors de l'archive. */
@@ -277,8 +289,40 @@ class ChatService extends Service {
     publishFrame(roomId, { kind: "message", message });
     const pulse = this.get<unknown>(DEMO_PULSE_SERVICE);
     if (pulse instanceof DemoPulseService) pulse.recordChatMessage();
+    // L'alerte ne retarde pas l'envoi, et son échec ne le défait pas : le
+    // message est archivé et diffusé, seule la pastille d'un absent manquera.
+    this.#alertAbsent(roomId, draft.authorId, message).catch((error: unknown) =>
+      this.log(
+        `alerte du salon ${roomId} non envoyée : ${error instanceof Error ? error.message : String(error)}`,
+        "WARNING",
+      ),
+    );
     return message;
   }
+
+  // #region chat-alerts-server
+  /**
+   * Prévient les membres absents d'un salon privé ou à deux (D53) : UNE
+   * alerte, construite une fois, poussée sur le canal personnel de chacun —
+   * il les joint sur tous les serveurs, sur tous leurs onglets.
+   */
+  async #alertAbsent(
+    roomId: string,
+    authorId: string,
+    message: ChatMessage,
+  ): Promise<void> {
+    const absent = await this.#messages().absentMembers(roomId, authorId);
+    if (absent.length === 0) return;
+    const notice: MessageNotice = {
+      type: "room:message",
+      roomId,
+      author: message.author,
+      preview: messagePreview(message),
+    };
+    const hub = getRealtimeHub<ChatContract>();
+    for (const userId of absent) hub.publishToUser(userId, notice);
+  }
+  // #endregion
 
   /**
    * Les derniers messages, dans l'ordre d'envoi ; une pièce dont le fichier

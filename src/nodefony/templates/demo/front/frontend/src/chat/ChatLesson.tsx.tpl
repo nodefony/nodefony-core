@@ -13,6 +13,8 @@ import {
   canManage,
   memberRemovalProblem,
   roomDeletionProblem,
+  titleWithUnread,
+  totalUnread,
   unreadLabel,
   type IRoomEvent,
   type IRoomView,
@@ -26,6 +28,26 @@ import {
   RemoveMemberDialog,
 } from "./RoomForms";
 import { useEffect, useRef, useState } from "react";
+
+/**
+ * Les non-lus devant le titre de l'onglet (D53) — « (3) Démo » se lit dans
+ * une barre d'onglets réduite. Le titre d'origine revient quand on quitte la
+ * page du chat.
+ */
+function useUnreadTitle(rooms: readonly IRoomView[]): void {
+  const base = useRef<string | null>(null);
+  const total = totalUnread(rooms);
+  useEffect(() => {
+    base.current ??= document.title;
+    document.title = titleWithUnread(base.current, total);
+  }, [total]);
+  useEffect(
+    () => () => {
+      if (base.current !== null) document.title = base.current;
+    },
+    [],
+  );
+}
 
 /** Le formulaire ouvert, s'il y en a un. */
 type OpenForm = "create" | "invite" | "event" | "delete" | "leave" | null;
@@ -106,6 +128,7 @@ const STATE_LABEL = {
  */
 export function ChatLesson({ about }: { about: IDemoAbout | null }) {
   const room = useChat();
+  useUnreadTitle(room.rooms);
   const version = docsVersion(about);
   return (
     <main className="lesson">
@@ -334,6 +357,16 @@ function RoomRail({
             ))}
           </ul>
         </>
+      )}
+      {/* D54 : la permission se demande par un CLIC, jamais au chargement. */}
+      {onCreate !== null && room.alerts.permission === "default" && (
+        <button
+          type="button"
+          className="room-rail-add"
+          onClick={() => act(room.alerts.enable())}
+        >
+          🔔 Notifier mes messages privés
+        </button>
       )}
       {pending.map((item) => {
         const event = item.event;

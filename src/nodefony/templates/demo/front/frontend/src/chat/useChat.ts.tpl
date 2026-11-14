@@ -9,6 +9,7 @@ import type {
 import {
   CHAT_ATTACH_PATH,
   CHAT_REALTIME_PATH,
+  messagePreview,
   nextTyping,
   type ChatContract,
   type ChatMessage,
@@ -18,8 +19,11 @@ import { catchUpMessages, mergeMessages, withReactions } from "./messages";
 import {
   LOBBY_ROOM_ID,
   ONLINE_CHANNEL,
+  addUnread,
   roomChannel,
+  shouldNotify,
   withUnread,
+  type AlertPermission,
   type IRoomMember,
   type IRoomView,
 } from "./rooms";
@@ -107,6 +111,11 @@ export interface IChatRoom {
    * (403, 404, 409, 422), que le formulaire affiche sous son champ.
    */
   forms: IRoomForms;
+  /**
+   * Les notifications du navigateur (D54) : la permission telle qu'elle est,
+   * et le geste qui la demande — la demande n'est permise qu'après un clic.
+   */
+  alerts: { permission: AlertPermission; enable: () => Promise<void> };
 }
 
 /** Modifier, retirer, réagir — une route du contrat chacun (XEP-0308, 0424, 0444). */
@@ -141,6 +150,49 @@ export interface IRoomForms {
   /** Exclut un membre du salon ouvert (propriétaire ou modérateur). */
   removeMember: (userId: string) => Promise<void>;
 }
+
+// #region chat-notify-client
+/** La permission de notifier ; `unsupported` sans l'API (ou hors navigateur). */
+function readPermission(): AlertPermission {
+  return typeof Notification === "undefined"
+    ? "unsupported"
+    : Notification.permission;
+}
+
+/**
+ * Lève une notification du navigateur pour un message (D54), si la règle
+ * pure le permet. Une étiquette par salon : trois messages d'affilée
+ * REMPLACENT la notification au lieu d'en empiler trois. Un clic ramène à
+ * l'onglet, salon ouvert.
+ */
+function raiseNotification(
+  room: IRoomView,
+  author: string,
+  preview: string,
+  open: (roomId: string) => void,
+): void {
+  const alert = {
+    direct: room.peer !== null,
+    hidden: document.visibilityState === "hidden",
+    permission: readPermission(),
+  };
+  if (!shouldNotify(alert)) return;
+  const note = new Notification(author, {
+    body: preview,
+    tag: `chat:${room.id}`,
+  });
+  // L'objet vit le temps de la notification : son écouteur part avec lui.
+  note.addEventListener(
+    "click",
+    () => {
+      window.focus();
+      open(room.id);
+      note.close();
+    },
+    { once: true },
+  );
+}
+// #endregion
 
 /** Le motif d'un refus HTTP : le message du serveur, sinon le statut. */
 async function refusalOf(response: Response): Promise<string> {
@@ -196,9 +248,15 @@ export function useChat(): IChatRoom {
   const reloadMembers = useRef<(() => void) | null>(null);
   // Le dernier marqueur ENVOYÉ, `<salon>:<message>` : jamais deux fois le même.
   const marked = useRef<string | null>(null);
+  const [permission, setPermission] = useState<AlertPermission>(readPermission);
   useEffect(() => {
     roomsSeen.current = rooms;
   }, [rooms]);
+
+  const openRoom = useCallback((id: string) => {
+    setNotice(null);
+    setRoomId(id);
+  }, []);
 
   // La socket et la liste des salons : une fois pour la page.
   useEffect(() => {
@@ -222,7 +280,18 @@ export function useChat(): IChatRoom {
       }),
       // #region chat-rooms-client
       // Ajouté à un salon, retiré, invité : le serveur le POUSSE, on relit.
-      created.onUser(() => loadRooms()),
+      // Un message d'un salon qu'on ne regarde pas (D53) : un non-lu de plus,
+      // sans requête ; un salon pas encore listé, on relit la liste — elle
+      // porte déjà son compte.
+      created.onUser((pushed) => {
+        if (pushed.type === "rooms:changed") return loadRooms();
+        const room = roomsSeen.current.find(
+          (item) => item.id === pushed.roomId,
+        );
+        if (room === undefined) return loadRooms();
+        setRooms((known) => addUnread(known, pushed.roomId));
+        raiseNotification(room, pushed.author, pushed.preview, openRoom);
+      }),
       // #endregion
     ];
     created.connect().catch(() => {
@@ -233,7 +302,7 @@ export function useChat(): IChatRoom {
       created.disconnect();
       setSocket(null);
     };
-  }, []);
+  }, [openRoom]);
 
   // #region chat-online-client
   // « En ligne » : une page CONNECTÉE s'y abonne, quel que soit le salon. La
@@ -340,8 +409,28 @@ export function useChat(): IChatRoom {
         const self = socket.identity?.userIdentifier ?? null;
         setTyping((current) => nextTyping(current, frame, self));
         if (frame.kind === "message") {
+          const message = frame.message;
           // Neuf, modifié ou retiré : la version reçue remplace la nôtre.
-          setMessages((known) => mergeMessages(known, [frame.message]));
+          setMessages((known) => mergeMessages(known, [message]));
+          // Onglet caché, compte connecté : un message NEUF d'un autre attend
+          // d'être lu (D53) — le serveur ne l'alerte pas, on est abonné.
+          if (
+            me !== null &&
+            document.visibilityState === "hidden" &&
+            message.editedAt === undefined &&
+            message.retracted === undefined &&
+            message.author !== self
+          ) {
+            setRooms((known) => addUnread(known, roomId));
+            const room = roomsSeen.current.find((item) => item.id === roomId);
+            if (room !== undefined)
+              raiseNotification(
+                room,
+                message.author,
+                messagePreview(message),
+                openRoom,
+              );
+          }
           return;
         }
         if (frame.kind === "reactions") {
@@ -413,7 +502,7 @@ export function useChat(): IChatRoom {
       if (membersTimer !== null) clearTimeout(membersTimer);
       socket.unsubscribe(channel);
     };
-  }, [socket, roomId]);
+  }, [socket, roomId, openRoom]);
 
   // #region chat-read-client
   // Lu (D52) : le dernier message du salon ouvert, resté affiché page VISIBLE,
@@ -574,10 +663,16 @@ export function useChat(): IChatRoom {
   }, [socket, roomId]);
   // #endregion
 
-  const openRoom = useCallback((id: string) => {
-    setNotice(null);
-    setRoomId(id);
+  // La permission ne se demande qu'après un GESTE : les navigateurs ignorent,
+  // ou bloquent pour de bon, une demande faite au chargement de la page.
+  const enableAlerts = useCallback(async () => {
+    if (typeof Notification === "undefined") return;
+    setPermission(await Notification.requestPermission());
   }, []);
+  const alerts = useMemo(
+    () => ({ permission, enable: enableAlerts }),
+    [permission, enableAlerts],
+  );
 
   // #region chat-gestures-client
   // Modifier, retirer, réagir : une route chacun, par la socket déjà ouverte.
@@ -649,6 +744,7 @@ export function useChat(): IChatRoom {
     gestures,
     notifyTyping,
     forms,
+    alerts,
   };
 }
 

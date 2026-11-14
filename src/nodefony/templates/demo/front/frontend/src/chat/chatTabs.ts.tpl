@@ -17,6 +17,7 @@ const ROOMS: LessonFile = "nodefony/service/RoomService.ts";
 const ADMISSION: LessonFile = "nodefony/service/RoomAdmission.ts";
 const ENTITIES: LessonFile = "nodefony/entity/rooms.ts";
 const RULE: LessonFile = "frontend/src/chat/rooms.ts";
+const CONTRACT: LessonFile = "frontend/src/chat/chatContract.ts";
 const ROSTER: LessonFile = "frontend/src/chat/roster.ts";
 const LINKS: LessonFile = "nodefony/service/LinkPreviewService.ts";
 const DETECT: LessonFile = "frontend/src/kit/detect.ts";
@@ -185,6 +186,18 @@ export const CHAT_LESSON = {
           excerpt: { file: ROOMS, region: "rooms-unread-server" },
         },
         {
+          text: "Qui alerter d'un message : les membres d'un salon privé ou à deux qui ne le REGARDENT pas — pas abonnés à son canal, sur aucun serveur. La présence le dit ; l'auteur et les salons publics ne sont jamais alertés.",
+          excerpt: { file: ROOMS, region: "rooms-alerts-server" },
+        },
+        {
+          text: "L'alerte part APRÈS l'envoi, sans le retarder : une seule charge, poussée sur le canal personnel de chaque absent. Son échec se journalise ; le message, lui, est déjà archivé et diffusé.",
+          excerpt: { file: SERVICE, region: "chat-alerts-server" },
+        },
+        {
+          text: "La forme de l'alerte est déclarée au contrat : le canal personnel porte une union, la page et le serveur la lisent typée. L'extrait se borne sans couper un emoji.",
+          excerpt: { file: CONTRACT, region: "chat-alerts-contract" },
+        },
+        {
           text: "L'historique survit aux connexions parce qu'il vit dans un service, unique pour toute l'application. Ici un tampon BORNÉ en mémoire, salon par salon : au-delà de la limite, les plus anciens sortent.",
           excerpt: { file: SERVICE, region: "chat-store", step: 4 },
         },
@@ -243,8 +256,16 @@ export const CHAT_LESSON = {
           excerpt: { file: HOOK, region: "rooms-forms-client" },
         },
         {
-          text: "La liste des salons ne s'interroge pas : le serveur POUSSE sur le canal personnel quand elle change, et la page la relit.",
+          text: "La liste des salons ne s'interroge pas : le serveur POUSSE sur le canal personnel quand elle change, et la page la relit. Un message d'un salon qu'on ne regarde pas ajoute un non-lu à sa pastille, sans requête.",
           excerpt: { file: HOOK, region: "chat-rooms-client" },
+        },
+        {
+          text: "Notifier : une conversation à deux, onglet caché, permission accordée par un CLIC — trois règles dans une fonction pure. Une étiquette par salon remplace la notification précédente au lieu d'en empiler.",
+          excerpt: { file: HOOK, region: "chat-notify-client" },
+        },
+        {
+          text: "Les règles des alertes, pures et partagées : un non-lu de plus, le total pour le titre de l'onglet, et quand notifier.",
+          excerpt: { file: RULE, region: "rooms-alerts" },
         },
         {
           text: "Qui est là : la vue de présence du salon, puis les noms demandés à l'annuaire.",

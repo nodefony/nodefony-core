@@ -96,7 +96,9 @@ import {
   ATTACHMENT_MAX_BYTES,
   ATTACHMENT_MAX_COUNT,
   MESSAGE_MAX_BYTES,
+  MESSAGE_PREVIEW_MAX,
   PEOPLE_MAX,
+  messagePreview,
   nextTyping,
   type ChatMessage,
 } from "../frontend/src/chat/chatContract";
@@ -106,6 +108,7 @@ import {
   INVITE_EARLY_MS,
   LOBBY_ROOM_ID,
   ROOM_NAME_MAX,
+  addUnread,
   admissionOf,
   canAppoint,
   canManage,
@@ -118,6 +121,9 @@ import {
   roomChannel,
   roomIdOf,
   roomNameProblem,
+  shouldNotify,
+  titleWithUnread,
+  totalUnread,
   unreadLabel,
   withUnread,
   type IRoomView,
@@ -631,6 +637,66 @@ describe("demo — les non-lus (D52, règles pures)", () => {
     expect(next[1]).toBe(rooms[1]);
     expect(withUnread(next, "a", 0)).toBe(next);
     expect(withUnread(next, "inconnu", 0)).toBe(next);
+  });
+
+  it("D53 — un non-lu de plus : le salon visé seul ; un salon inconnu rend la MÊME liste", () => {
+    const rooms = [room("a", 0), room("b", 98)];
+    expect(addUnread(rooms, "b").map((r) => r.unread)).toEqual([0, 99]);
+    expect(addUnread(rooms, "inconnu")).toBe(rooms);
+  });
+
+  it("D53 — le titre de l'onglet : le total devant, plafonné ; rien à zéro", () => {
+    expect(totalUnread([room("a", 2), room("b", 3)])).toBe(5);
+    expect(titleWithUnread("Démo", 0)).toBe("Démo");
+    expect(titleWithUnread("Démo", 5)).toBe("(5) Démo");
+    expect(titleWithUnread("Démo", 250)).toBe("(99+) Démo");
+  });
+
+  it("🔴 D54 — notifier : une conversation à deux, onglet caché, permission accordée — et rien d'autre", () => {
+    const yes = { direct: true, hidden: true, permission: "granted" as const };
+    expect(shouldNotify(yes)).toBe(true);
+    expect(shouldNotify({ ...yes, direct: false })).toBe(false);
+    expect(shouldNotify({ ...yes, hidden: false })).toBe(false);
+    for (const permission of ["default", "denied", "unsupported"] as const)
+      expect(shouldNotify({ ...yes, permission })).toBe(false);
+  });
+});
+
+describe("demo — l'extrait d'une alerte (D53, règle pure)", () => {
+  const message = (text: string, pieces = 0): ChatMessage => ({
+    id: "m1",
+    author: "zoé",
+    text,
+    sentAt: 1,
+    ...(pieces === 0
+      ? {}
+      : {
+          attachments: Array.from({ length: pieces }, (_, i) => ({
+            id: `p${i}`,
+            name: "a.png",
+            size: 1,
+            kind: "image" as const,
+          })),
+        }),
+  });
+
+  it("le texte sur une ligne ; un message de pièces seules dit combien", () => {
+    expect(messagePreview(message("  bonjour\n\n  à tous  "))).toBe(
+      "bonjour à tous",
+    );
+    expect(messagePreview(message("", 2))).toBe("📎 2 pièce(s) jointe(s)");
+    expect(messagePreview(message(""))).toBe("(message vide)");
+  });
+
+  it("🔴 borné à MESSAGE_PREVIEW_MAX sans couper un emoji, même au bout d'un texte de 64 Kio", () => {
+    const long = messagePreview(message("x".repeat(65_536)));
+    expect(long).toHaveLength(MESSAGE_PREVIEW_MAX);
+    expect(long.endsWith("…")).toBe(true);
+    // L'emoji (deux unités UTF-16) chevauche la coupe : il part entier.
+    const emoji = "a".repeat(MESSAGE_PREVIEW_MAX - 2) + "😀" + "b".repeat(10);
+    const cut = messagePreview(message(emoji));
+    expect(cut).toBe(`${"a".repeat(MESSAGE_PREVIEW_MAX - 2)}…`);
+    expect(cut.isWellFormed()).toBe(true);
   });
 });
 

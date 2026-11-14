@@ -231,13 +231,63 @@ export interface RoomsNotice {
   type: "rooms:changed";
 }
 
+// #region chat-alerts-contract
+/** Au plus 140 caractères d'extrait dans une alerte. */
+export const MESSAGE_PREVIEW_MAX = 140;
+
+/**
+ * « Un message t'attend » (D53) : poussé par le canal personnel au membre
+ * ABSENT d'un salon privé ou à deux — absent = pas abonné au canal du salon,
+ * sur aucun serveur. La page ajoute un non-lu à la pastille du salon ; une
+ * conversation à deux peut lever une notification du navigateur (D54).
+ * L'extrait n'apprend rien de plus qu'un membre ne lirait en ouvrant le salon.
+ */
+export interface MessageNotice {
+  type: "room:message";
+  roomId: string;
+  author: string;
+  preview: string;
+}
+
+/** Tout ce que porte le canal personnel `user:<id>`. */
+export type UserNotice = RoomsNotice | MessageNotice;
+
+/**
+ * L'extrait d'un message pour une alerte : le texte sur une ligne, borné à
+ * `MESSAGE_PREVIEW_MAX` caractères sans couper un emoji en deux ; un message
+ * de pièces seules dit combien il en porte. La règle PURE, lue par le serveur
+ * qui alerte et par la page qui notifie.
+ *
+ * @param message - le message reçu ou archivé
+ * @returns l'extrait, jamais vide
+ */
+export function messagePreview(message: ChatMessage): string {
+  // Au plus le double de la borne est relu : un texte de 64 Kio ne se
+  // parcourt pas en entier pour en garder 140 caractères.
+  const line = message.text
+    .slice(0, MESSAGE_PREVIEW_MAX * 2)
+    .replace(/\s+/gu, " ")
+    .trim();
+  if (line === "") {
+    const count = message.attachments?.length ?? 0;
+    return count === 0 ? "(message vide)" : `📎 ${count} pièce(s) jointe(s)`;
+  }
+  if (line.length <= MESSAGE_PREVIEW_MAX) return line;
+  let end = MESSAGE_PREVIEW_MAX - 1;
+  // Une moitié de paire de substitution ne s'affiche pas : on recule d'un cran.
+  const code = line.charCodeAt(end - 1);
+  if (code >= 0xd800 && code <= 0xdbff) end -= 1;
+  return `${line.slice(0, end)}…`;
+}
+// #endregion
+
 // #region chat-contract
 export interface ChatContract extends IRealtimeContract {
   serverToClient: {
     /** Un canal par salon — admis par la règle des salons, présence comprise. */
     [room: `chat:room:${string}`]: RoomFrame;
     /** Le canal personnel (`publishToUser`), joint d'office à toute connexion authentifiée. */
-    [user: `user:${string}`]: RoomsNotice;
+    [user: `user:${string}`]: UserNotice;
   };
   /** Les routes, appelées en HTTP ou par la socket : "<VERBE> <chemin>". */
   serverRoutes: {

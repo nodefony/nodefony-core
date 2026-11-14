@@ -1109,6 +1109,33 @@ class RoomService extends Service implements IMessageArchive {
     }
     return members;
   }
+
+  // #region rooms-alerts-server
+  /**
+   * Qui alerter d'un message (D53) : les membres d'un salon privé ou à deux
+   * qui ne le regardent pas. « Regarder », c'est être abonné au canal du
+   * salon — la présence le dit, sur tous les serveurs. L'auteur n'est jamais
+   * alerté ; un salon public ne l'est jamais non plus.
+   *
+   * @param roomId - le salon où le message vient d'être archivé
+   * @param authorId - l'auteur, exclu
+   * @returns les identités à prévenir, sans ordre
+   */
+  async absentMembers(roomId: string, authorId: string): Promise<string[]> {
+    const { rooms, members } = this.#repos();
+    const room = await rooms.findOne({ id: roomId });
+    if (room === null || room.access === "public") return [];
+    const rows = await members.find({ roomId });
+    // Seul dans son salon : personne à prévenir, la présence n'est pas lue.
+    if (rows.length < 2) return [];
+    const here = getRealtimeHub().presence(roomChannel(roomId))?.members;
+    const absent: string[] = [];
+    for (const row of rows)
+      if (row.userId !== authorId && !(here?.has(row.userId) ?? false))
+        absent.push(row.userId);
+    return absent;
+  }
+  // #endregion
   // #endregion
 
   // #region rooms-membership
