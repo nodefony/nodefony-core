@@ -636,8 +636,8 @@ demoDescribe("discussion — les formulaires", () => {
 
     // Les deux membres, nommés, avec leur rôle ; personne n'a de page ouverte.
     const first = await read();
-    expect(first.map((m) => `${m.name}:${m.role}`).sort()).toEqual(
-      ["admin:owner", `${E2E_USER_IDENTIFIER}:member`].sort(),
+    expect(first.map((m) => `${m.name}:${m.role}`).toSorted()).toEqual(
+      ["admin:owner", `${E2E_USER_IDENTIFIER}:member`].toSorted(),
     );
     expect(first.find((m) => m.id === memberId)?.online).toBe(false);
 
