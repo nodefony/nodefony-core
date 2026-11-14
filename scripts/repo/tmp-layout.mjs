@@ -108,12 +108,15 @@ export const TMP_LAYOUT = Object.freeze([
  *   relu par les bancs de résidus d'upload ;
  * - `long-run.lock` : le verrou d'un run long (`scripts/repo/long-run-lock.mjs`) ;
  * - `demo-chat` : les pièces jointes du salon de la démo (`ChatService`),
- *   bornées, et vidées à chaque démarrage.
+ *   bornées, et vidées à chaque démarrage ;
+ * - `demo-upload` : les fichiers de la démo « Envoi de fichiers »
+ *   (`UploadService`), bornés, et vidés à chaque démarrage.
  */
 export const RUNTIME_ENTRIES = Object.freeze([
   "upload",
   "long-run.lock",
   "demo-chat",
+  "demo-upload",
 ]);
 
 /** Le README régénéré : présent dans `tmp/`, donc jamais égaré ni purgé. */
