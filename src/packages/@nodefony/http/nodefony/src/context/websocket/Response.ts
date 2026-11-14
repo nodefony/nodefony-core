@@ -320,13 +320,24 @@ class WebsocketResponse {
 
   /**
    * Retient un en-tête du handshake (cf {@link handshakeHeaders}) ; sans effet
-   * une fois la socket ouverte, où il n'y a plus de réponse HTTP.
+   * une fois la socket ouverte, où il n'y a plus de réponse HTTP — sauf
+   * `Retry-After` posé par une action invoquée par le pont `api.request` : il
+   * va au puits de CETTE invocation, et le pont le sert avec le refus. Le même
+   * code de contrôleur dit donc « réessaie dans N s » sur les deux transports.
+   * Seul cet en-tête passe : un `Set-Cookie` ou un `WWW-Authenticate` n'a
+   * aucun sens sur une trame, et rien d'autre ne doit fuir par là.
    *
    * @param name - nom de l'en-tête
    * @param value - valeur
    * @returns toujours `true`
    */
   setHeader(name: string, value: number | string | readonly string[]) {
+    const sink = RequestContext.get()?.renderSink;
+    if (sink) {
+      if (name.toLowerCase() === "retry-after" && typeof value !== "object")
+        sink.retryAfter = String(value);
+      return true;
+    }
     if (this.connection !== null) return true;
     this.handshakeHeaders ??= {};
     this.handshakeHeaders[name] =

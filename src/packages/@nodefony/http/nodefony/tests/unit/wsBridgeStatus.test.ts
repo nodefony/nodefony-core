@@ -20,7 +20,7 @@ function makeResponse(): WebsocketResponse {
   return new WebsocketResponse(null, {} as unknown as WebsocketContext);
 }
 
-function bridgePayload(sink: { body?: string | Buffer; status?: number }) {
+function bridgePayload(sink: object) {
   return {
     requestId: "t",
     renderSink: sink,
@@ -51,5 +51,34 @@ describe("WebsocketResponse.setStatusCode — statut d'une invocation du pont", 
     const response = makeResponse();
     response.setStatusCode(1008);
     expect(response.statusCode).toBe(1008);
+  });
+});
+
+describe("WebsocketResponse.setHeader — `Retry-After` d'une invocation du pont", () => {
+  it("sous le pont, `Retry-After` va au puits de l'invocation, quelle que soit sa casse", () => {
+    const response = makeResponse();
+    const sink: { retryAfter?: string } = {};
+    RequestContext.run(bridgePayload(sink), () => {
+      response.setHeader("retry-after", 7);
+    });
+    expect(sink.retryAfter).toBe("7");
+    expect(response.handshakeHeaders).toBeNull();
+  });
+
+  it("🔴 aucun autre en-tête ne passe par le puits : rien ne fuit sur une trame", () => {
+    const response = makeResponse();
+    const sink: Record<string, unknown> = {};
+    RequestContext.run(bridgePayload(sink), () => {
+      response.setHeader("Set-Cookie", "sid=secret");
+      response.setHeader("WWW-Authenticate", "Basic");
+    });
+    expect(sink).toEqual({});
+    expect(response.handshakeHeaders).toBeNull();
+  });
+
+  it("hors pont, l'en-tête reste celui du handshake", () => {
+    const response = makeResponse();
+    response.setHeader("Retry-After", "3");
+    expect(response.handshakeHeaders).toEqual({ "Retry-After": "3" });
   });
 });

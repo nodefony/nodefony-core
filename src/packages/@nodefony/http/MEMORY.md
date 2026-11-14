@@ -625,6 +625,8 @@ Extension de l'`AuditErrorEntry` :
 7. `trackPong(ws)` → `context.acceptConnection(ws)` → `connect()` (écouteurs close/error/message, `AsyncResource.bind`) → `handle()` = `Controller.execute(null)` (verdict repris)
 8. `ws "message"` → `handleMessage` → `Controller.execute(message)` (gardes rejugées par message)
 
+`WebsocketResponse.setHeader` APRÈS acceptation : sans effet, SAUF sous une invocation du pont (`RequestContext.renderSink`) où `Retry-After` seul va au puits de l'invocation (servi en `error.data.retryAfter` par realtime) — jamais à la connexion, jamais un autre en-tête. Banc `unit/wsBridgeStatus.test.ts`, bout en bout `websockets/ws-bridge-rendered-action.test.ts`.
+
 Toute erreur de 3 → 5 : `onError` → `context.refuseHandshake(toHandshakeStatus(code))` → statut HTTP + `handshakeHeaders`, scope libéré. Jamais de 101 avant le verdict (#596).
 
 ## Durcissement WS — heartbeat (G2) + backpressure (G1) + fragmentation/latence (G3)

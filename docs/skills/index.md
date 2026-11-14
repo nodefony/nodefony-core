@@ -235,7 +235,7 @@ source: "docs/skills/index.md"
 | [`nodefony-add-crud`](nodefony-add-crud.md) | — | 257 | 0 | 0 | ✅ |
 | [`nodefony-add-grpc-service`](nodefony-add-grpc-service.md) | 1.0.0 | 166 | 0 | 1 | ✅ |
 | [`nodefony-add-realtime-binary`](nodefony-add-realtime-binary.md) | 1.1.0 | 284 | 2 | 0 | ✅ |
-| [`nodefony-add-realtime-channel`](nodefony-add-realtime-channel.md) | 3.0.2 | 484 | 2 | 0 | ✅ |
+| [`nodefony-add-realtime-channel`](nodefony-add-realtime-channel.md) | 3.0.2 | 489 | 2 | 0 | ✅ |
 | [`nodefony-add-realtime-presence`](nodefony-add-realtime-presence.md) | 1.1.0 | 305 | 0 | 0 | ✅ |
 | [`nodefony-add-service`](nodefony-add-service.md) | — | 115 | 0 | 0 | ✅ |
 | [`nodefony-authentication`](nodefony-authentication.md) | 1.0.0 | 220 | 0 | 0 | ✅ |

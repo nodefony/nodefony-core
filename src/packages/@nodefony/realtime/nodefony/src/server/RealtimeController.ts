@@ -135,6 +135,30 @@ function httpStatusOfFrameError(e: unknown): number | null {
 }
 
 /**
+ * L'attente d'un `Retry-After` (RFC 9110 §10.2.3), en secondes : un délai
+ * (`120`) tel quel, une date HTTP ramenée à l'écart avec `now` (jamais
+ * négatif). Une valeur illisible, ou absente, ne dit rien : `null`.
+ *
+ * @param value - l'en-tête posé par l'action, s'il l'a été
+ * @param now - l'instant de référence d'une date HTTP, en ms
+ * @returns les secondes à attendre, ou `null`
+ */
+export function retryAfterSeconds(
+  value: string | undefined,
+  now: number = Date.now(),
+): number | null {
+  if (value === undefined) return null;
+  const text = value.trim();
+  if (/^\d+$/u.test(text)) return Number(text);
+  // Les trois formes de date HTTP (RFC 9110 §5.6.7) nomment le jour ou le
+  // mois : sans lettre, ce n'est pas une date — `Date.parse("-5")` lirait
+  // l'an −5 et inventerait une attente nulle.
+  if (!/[A-Za-z]/u.test(text)) return null;
+  const at = Date.parse(text);
+  return Number.isNaN(at) ? null : Math.max(0, Math.ceil((at - now) / 1000));
+}
+
+/**
  * Erreur renvoyée au pair pour une invocation en échec.
  *
  * Un refus est une RÉPONSE (statut exposé, symétrie d'un `fetch`) ; une panne
@@ -146,15 +170,21 @@ function toFrameRpcError(
   e: unknown,
   status: number | null,
   requestId?: string,
+  retryAfter: number | null = null,
 ): unknown {
   if (e instanceof RpcError) {
-    if (!requestId) return e;
-    const data = isRecord(e.data) ? { ...e.data, requestId } : { requestId };
+    if (!requestId && retryAfter === null) return e;
+    const data: Record<string, unknown> = isRecord(e.data) ? { ...e.data } : {};
+    if (requestId) data.requestId = requestId;
+    if (retryAfter !== null) data.retryAfter = retryAfter;
     return new RpcError(e.message, e.code, data);
   }
   if (status !== null) {
     const data: Record<string, unknown> = { status };
     if (requestId) data.requestId = requestId;
+    // L'attente que l'action a posée (`Retry-After`), en secondes : la
+    // socket n'a pas d'en-tête, le refus la porte.
+    if (retryAfter !== null) data.retryAfter = retryAfter;
     // Les champs fautifs voyagent comme sur HTTP (`error.fields`) : un client
     // du pont sait QUEL champ corriger, pas seulement que l'appel a échoué.
     if (status === 422 && e instanceof Error) {
@@ -1630,7 +1660,8 @@ export abstract class RealtimeController<
    * mutualisé tant que Ph.6 n'a pas tranché).
    *
    * Erreurs → {@link RpcError} (`data.status` = statut HTTP équivalent) :
-   * `-32602` params invalides, 404 path inconnu, 408 timeout d'action…
+   * `-32602` params invalides, 404 path inconnu, 408 timeout d'action… Un
+   * `Retry-After` posé par l'action part en `data.retryAfter` (secondes).
    * Tout autre throw de l'action reste opaque (`-32603`, Zero Trust).
    */
   private async invokeApiRequest(
@@ -1701,6 +1732,15 @@ export abstract class RealtimeController<
     const frame = ctx.beginFrame(method, path);
     // Le magasin de CETTE invocation, relâché à la sortie quelle qu'elle soit.
     let store: RequestContextPayload | null = null;
+    // Capture de rendu per-invocation : une action user peut répondre par un
+    // RENDU (`renderJson`/`renderView`) au lieu d'une valeur nue. Sans le sink,
+    // `context.send()` écrirait une frame NUE hors protocole ET le retour
+    // (`WebsocketResponse`, circulaire via `context`) casserait le stringify de
+    // l'enveloppe peer (unhandledRejection + timeout client silencieux — bug
+    // vécu au Playground). Le sink vit dans l'ALS → zéro bleed entre frames
+    // concurrentes de la même socket. Déclaré HORS du `try` : le refus y lit
+    // l'attente (`Retry-After`) que l'action a posée.
+    const renderSink: NonNullable<RequestContextPayload["renderSink"]> = {};
     try {
       // J8 — le contexte de requête (ALS) de l'invocation. Le peer reçoit ses
       // frames via le transport (HORS de la bulle ALS du handshake), donc SANS
@@ -1715,14 +1755,6 @@ export abstract class RealtimeController<
       // UNIQUEMENT sur api.request (jamais sur publish/subscribe/notify → le
       // hot-path temps réel reste intact).
       const token = getRealtimeHub().getTokenForPeer(peer);
-      // Capture de rendu per-invocation : une action user peut répondre par un
-      // RENDU (`renderJson`/`renderView`) au lieu d'une valeur nue. Sans le sink,
-      // `context.send()` écrirait une frame NUE hors protocole ET le retour
-      // (`WebsocketResponse`, circulaire via `context`) casserait le stringify de
-      // l'enveloppe peer (unhandledRejection + timeout client silencieux — bug
-      // vécu au Playground). Le sink vit dans l'ALS → zéro bleed entre frames
-      // concurrentes de la même socket.
-      const renderSink: { body?: string | Buffer; status?: number } = {};
       const frameStore: RequestContextPayload = {
         // L'identifiant du PROFIL de cette frame (`<connexion>.<n>`) quand il
         // existe : c'est lui que les journaux de l'invocation portent, donc lui
@@ -1903,6 +1935,7 @@ export abstract class RealtimeController<
         e,
         status,
         frame?.profiled ? frame.requestId : undefined,
+        status === null ? null : retryAfterSeconds(renderSink.retryAfter),
       );
     } finally {
       // L'appel est fini : son magasin porte encore le jeton, l'identité et

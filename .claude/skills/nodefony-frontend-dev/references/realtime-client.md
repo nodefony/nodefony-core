@@ -213,7 +213,9 @@ await socket.post("/orders", panier, { idempotencyKey: panier.id }); // dédoubl
   (`"<VERBE> <chemin>": { body?: typeof S; query?: typeof S; params?: typeof S; result }`) type le
   corps, la query, les params et le résultat (`Jsonify`) ; hors contrat, tout reste libre (`get<T>(…)`).
 - Échec → `RpcError` dont `data.status` porte le statut HTTP équivalent (400/422 corps refusé, 403
-  refus, 404 chemin inconnu, 405 route sans transport `WEBSOCKET`, 409 rejeu concurrent).
+  refus, 404 chemin inconnu, 405 route sans transport `WEBSOCKET`, 409 rejeu concurrent, 429 débit).
+  Un refus passager dont la route a posé `Retry-After` porte l'attente dans `data.retryAfter`
+  (secondes) : la socket n'a pas d'en-tête, le refus la porte.
 - Le serveur route le chemin dans la forme que HTTP lui donne (WHATWG + barres finales retirées) :
   `/x/` et `/x` atteignent la même route par les deux portes.
 
@@ -238,7 +240,11 @@ Helper réutilisable (topbar, debug bar) : mesure le round-trip via la méthode 
 
 ```ts
 try { await socket.get("/nodefony/x"); }
-catch (e) { if (e instanceof RpcError && (e.data as any)?.status === 404) … }
+catch (e) {
+  const data = e instanceof RpcError && typeof e.data === "object" ? e.data : null;
+  if (data !== null && Reflect.get(data, "status") === 404) …
+  const wait = data === null ? undefined : Reflect.get(data, "retryAfter"); // 429 : secondes
+}
 ```
 
 ---

@@ -58,6 +58,21 @@ class PocBookResourceController extends ResourceController<PocBook> {
   }
 
   /**
+   * Un refus PASSAGER — 429 et `Retry-After: 7` (RFC 6585 §4, RFC 9110
+   * §10.2.3). Sonde du pont `api.request` : le MÊME code de contrôleur dit
+   * l'attente sur les deux transports — en-tête en HTTP, `error.data.retryAfter`
+   * sur la socket, qui n'a pas d'en-tête.
+   */
+  @route("poc-rbooks-throttled", {
+    path: "/meta/throttled",
+    requirements: { methods: ["GET", "WEBSOCKET"] },
+  })
+  throttled(): never {
+    this.response?.setHeader("Retry-After", "7");
+    throw new HttpError("trop de requêtes", 429);
+  }
+
+  /**
    * Même snapshot que `list`, mais RENDU (`renderJson`) au lieu de la valeur
    * nue — la 2ᵉ forme de retour d'action, duplex. Sonde du pont `api.request` :
    * via la socket, le rendu doit être CAPTURÉ (pas écrit en frame nue) et le

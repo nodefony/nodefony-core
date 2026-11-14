@@ -135,8 +135,7 @@ réponse à l'expéditeur :
   async send(
     input: RoomInput<{ body: typeof SendBody }>,
   ): Promise<{ id: string; sentAt: number }> {
-    const me = this.user;
-    if (me === null) throw new HttpError("connexion requise", 401);
+    const me = this.#writer();
     await this.#admitted(input.params.room);
 ```
 
@@ -186,8 +185,14 @@ route dans la démo, parce qu'elle doit vérifier l'admission au salon.
 - **Rattrape sur l'identifiant croissant de la base, jamais sur un horodatage** : deux serveurs ont
   deux horloges, et un curseur `sentAt > x` perd les messages de la même milliseconde. Une page
   relue qui ne recoupe aucun identifiant connu REMPLACE la liste (trou) au lieu de la fusionner.
-- **Borne le débit d'écriture par compte** (429 + `Retry-After`, comme toute route) : le transport
-  ne le fait pas par défaut, et un compte connecté peut sinon boucler l'envoi.
+- **Borne le débit d'écriture par compte** : le transport ne le fait pas par défaut, et un compte
+  connecté peut sinon boucler l'envoi. `#writer()` ci-dessus compte le geste AVANT toute lecture
+  en base ; au-delà, l'action pose `this.response?.setHeader("Retry-After", n)` puis lève un
+  `HttpError` 429. Le MÊME code dit l'attente sur les deux transports : l'en-tête en HTTP,
+  `error.data.retryAfter` (secondes, RFC 9110 §10.2.3) sur la socket, qui n'a pas d'en-tête — et
+  seul cet en-tête-là passe sur une trame. La démo tient une fenêtre fixe par compte
+  (`nodefony/kit/rateLimit.ts`, `take(clé)` rend les secondes à attendre), un quota séparé pour la
+  frappe (épuiser l'un ne coupe pas l'autre).
 - **Les fichiers ne passent pas par la socket** : la démo envoie ses pièces jointes en `POST`
   multipart (avec `Idempotency-Key`), puis publie le message qui les cite. La route qui SERT une
   pièce d'un salon privé vérifie l'admission au salon comme les autres — un identifiant

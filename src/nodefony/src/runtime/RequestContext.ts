@@ -137,9 +137,13 @@ export interface RequestContextPayload {
    * pont le sert ensuite en `result` RPC. Per-invocation via
    * `RequestContext.run` → zéro bleed entre frames concurrentes d'une socket.
    * `status` reçoit le statut HTTP posé par le rendu (`renderJson(corps, 404)`) :
-   * il appartient à l'invocation, jamais à la connexion.
+   * il appartient à l'invocation, jamais à la connexion. `retryAfter` reçoit
+   * l'en-tête `Retry-After` (RFC 9110 §10.2.3) posé par l'action : une socket
+   * ouverte n'a plus de réponse HTTP, le pont le sert dans `error.data`.
    */
-  renderSink?: { body?: string | Buffer; status?: number } | undefined;
+  renderSink?:
+    | { body?: string | Buffer; status?: number; retryAfter?: string }
+    | undefined;
   /**
    * Profil de l'**invocation** en cours (`FrameProfile` de `@nodefony/http`),
    * posé par le pont WS-RPC. Porte les phases et le buffer ORM de CETTE frame :

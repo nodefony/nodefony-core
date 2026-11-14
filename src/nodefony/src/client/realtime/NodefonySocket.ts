@@ -2044,7 +2044,9 @@ export class NodefonySocket<
    * @param options - `query` (sérialisée dans le chemin), `timeoutMs` (30 s).
    * @returns la valeur que rend l'action.
    * @throws {@link RpcError} — `data.status` = statut HTTP équivalent (404
-   *   chemin inconnu, 403 refus, 405 route sans transport WEBSOCKET…).
+   *   chemin inconnu, 403 refus, 405 route sans transport WEBSOCKET…) ;
+   *   `data.retryAfter` = secondes à attendre quand la route a posé
+   *   `Retry-After` (429, 503).
    */
   get<T = unknown, P extends `/${string}` = `/${string}`>(
     path: P,

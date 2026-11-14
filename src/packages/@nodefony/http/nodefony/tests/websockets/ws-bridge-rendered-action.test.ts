@@ -26,6 +26,7 @@ const BASE = { hostname: "127.0.0.1", port: 5152, rejectUnauthorized: false };
 const AUTH = "/nodefony/security/api/auth";
 const HUB_URL = "wss://127.0.0.1:5152/nodefony/studio/api/realtime";
 const RENDERED_PATH = "/poc/r-books/meta/rendered";
+const THROTTLED_PATH = "/poc/r-books/meta/throttled";
 const TIMEOUT = 10_000;
 
 type Res = { status: number; headers: Record<string, unknown>; body: unknown };
@@ -110,7 +111,11 @@ async function loginCookie(
 type JsonRpcReply = {
   id: number;
   result?: unknown;
-  error?: { code: number; message: string; data?: { status?: number } };
+  error?: {
+    code: number;
+    message: string;
+    data?: { status?: number; retryAfter?: number };
+  };
 };
 
 /**
@@ -228,6 +233,26 @@ describe("Pont api.request — action RENDUE (renderJson) (requires server)", ()
       const second = await hub.request("/poc/r-books");
       expect(second.error, "2e appel (valeur nue)").to.equal(undefined);
       expect(second.result, "books nus").to.be.an("array");
+    } finally {
+      hub.close();
+    }
+  });
+
+  it("🔴 un refus passager dit son attente sur les DEUX transports : `Retry-After` en HTTP, `error.data.retryAfter` sur la socket", async () => {
+    const cookie = await loginCookie("admin", "secret-de-dev-42");
+    const rest = await request(THROTTLED_PATH, "GET", { cookie });
+    expect(rest.status, "GET REST").to.equal(429);
+    expect(rest.headers["retry-after"], "en-tête HTTP").to.equal("7");
+
+    const hub = await hubConnect(cookie);
+    try {
+      const reply = await hub.request(THROTTLED_PATH);
+      const data = reply.error?.data;
+      expect(data?.status, "statut du refus").to.equal(429);
+      expect(data?.retryAfter, "attente, en secondes").to.equal(7);
+      // La connexion n'a pas retenu l'en-tête : l'appel suivant n'en porte pas.
+      const next = await hub.request(RENDERED_PATH);
+      expect(next.error, "appel suivant").to.equal(undefined);
     } finally {
       hub.close();
     }
