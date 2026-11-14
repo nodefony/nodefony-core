@@ -39,6 +39,8 @@ type Edit = (
 export interface IEditorHandle {
   /** Insère un texte à la place de la sélection. */
   insert: (text: string) => void;
+  /** Donne le focus au champ. */
+  focus: () => void;
 }
 
 /** Les boutons de mise en forme, et leur raccourci (Ctrl ou ⌘), s'il y en a. */
@@ -263,6 +265,7 @@ export function MarkdownEditor({
         start: s + text.length,
         end: s + text.length,
       })),
+    focus: () => field.current?.focus(),
   }));
 
   const keyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {

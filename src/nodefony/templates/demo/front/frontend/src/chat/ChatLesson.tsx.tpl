@@ -3,10 +3,10 @@ import { docsVersion, docUrl, type IDemoAbout } from "../about";
 import { LEVELS } from "../Catalogue";
 import { LessonCode } from "../lesson/LessonCode";
 import { CHAT_LESSON } from "./chatTabs";
-import { ChatAttachments } from "./ChatAttachments";
 import { ChatComposer } from "./ChatComposer";
+import type { ChatReplyRef } from "./chatContract";
 import { mentionOf } from "../kit/markdown";
-import { ChatMessageText } from "./ChatLinkPreview";
+import { ChatMessageList } from "./ChatMessageList";
 import { useChat, type IChatRoom } from "./useChat";
 import { ChatPeople } from "./ChatPeople";
 import { canManage, type IRoomEvent, type IRoomView } from "./rooms";
@@ -313,6 +313,7 @@ function ChatRoom({
   const canWrite =
     room.identity?.authenticated === true && room.refusal === null;
   const insert = useRef<((text: string) => void) | null>(null);
+  const replyTo = useRef<((target: ChatReplyRef) => void) | null>(null);
   const [form, setForm] = useState<OpenForm>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const current = room.rooms.find((item) => item.id === room.roomId) ?? null;
@@ -379,34 +380,14 @@ function ChatRoom({
             {room.refusal}
           </p>
         ) : (
-          /* `role="log"` sur un conteneur : un `<ul>` garde son rôle de liste.
-             Les nouveaux messages sont annoncés, sans voler le focus. */
-          <div role="log" aria-label="Messages du salon">
-            <ul className="room-list">
-              {room.messages.length === 0 && (
-                <li className="room-empty">Aucun message pour l'instant.</li>
-              )}
-              {room.messages.map((message) => (
-                <li key={message.id}>
-                  <span className="room-meta">
-                    <strong>{message.author}</strong> ·{" "}
-                    {TIME.format(message.sentAt)}
-                  </span>
-                  {message.text !== "" && (
-                    <ChatMessageText
-                      roomId={room.roomId}
-                      messageId={message.id}
-                      text={message.text}
-                    />
-                  )}
-                  {message.attachments !== undefined &&
-                    message.attachments.length > 0 && (
-                      <ChatAttachments pieces={message.attachments} />
-                    )}
-                </li>
-              ))}
-            </ul>
-          </div>
+          <ChatMessageList
+            roomId={room.roomId}
+            messages={room.messages}
+            me={canWrite ? (room.identity?.userIdentifier ?? null) : null}
+            moderates={canManage(current?.role ?? null)}
+            gestures={room.gestures}
+            onReply={(target) => replyTo.current?.(target)}
+          />
         )}
         {/* Qui écrit : une pastille légère au-dessus du champ, là où le regard
             est déjà. La zone garde sa hauteur — la liste ne saute pas. */}
@@ -434,6 +415,7 @@ function ChatRoom({
             send={room.send}
             notifyTyping={room.notifyTyping}
             insertRef={insert}
+            replyRef={replyTo}
           />
         ) : (
           <div className="room-foot">

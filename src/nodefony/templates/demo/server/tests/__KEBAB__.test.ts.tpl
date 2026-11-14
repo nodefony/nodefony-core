@@ -33,8 +33,8 @@ import ChatService, {
   CHAT_ATTACHMENT_LIMIT,
   CHAT_HISTORY_LIMIT,
   isUploadedFile,
-  type IMessageArchive,
 } from "../nodefony/service/ChatService";
+import { memoryArchive } from "./memoryArchive";
 import { utf8ByteLength } from "../frontend/src/kit/utf8";
 import {
   CreateRoomBody,
@@ -309,35 +309,9 @@ describe("demo", () => {
   });
 });
 
-/**
- * Une archive en MÉMOIRE, le double de `RoomService` pour un test sans base :
- * elle tire l'`id` et l'instant comme la base le ferait. Ce que la base fait
- * vraiment (ordre, `since`, un historique par salon) se prouve de bout en bout
- * (`chat.e2e.test.ts`) — l'éprouver ici ne prouverait que ce double.
- */
-function memoryArchive(): IMessageArchive {
-  const rooms = new Map<string, ChatMessage[]>();
-  let clock = 0;
-  return {
-    archive: async (roomId, draft) => {
-      clock += 1;
-      const message: ChatMessage = {
-        id: `m${clock}`,
-        author: draft.author,
-        text: draft.text,
-        sentAt: clock,
-        ...(draft.attachments ? { attachments: draft.attachments } : {}),
-      };
-      rooms.set(roomId, [...(rooms.get(roomId) ?? []), message]);
-      return message;
-    },
-    history: async (roomId, limit, since) =>
-      (rooms.get(roomId) ?? [])
-        .filter((message) => since === undefined || message.sentAt > since)
-        .slice(-limit),
-  };
-}
-
+// L'archive en mémoire (`memoryArchive.ts`) tire l'`id` et l'instant comme la
+// base le ferait. Ce que la base fait vraiment (ordre, `since`, un historique
+// par salon) se prouve de bout en bout (`chat.e2e.test.ts`).
 describe("demo — l'historique du chat", () => {
   it("écrire passe par l'archive : l'id et l'instant viennent d'elle, jamais de l'écrivain", async () => {
     const chat = new ChatService(undefined, undefined, memoryArchive());

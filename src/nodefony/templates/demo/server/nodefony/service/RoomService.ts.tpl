@@ -12,19 +12,32 @@ import {
   EVENT_ATTENDEE_ENTITY,
   EVENT_ENTITY,
   MESSAGE_ENTITY,
+  REACTION_ENTITY,
   ROOM_ENTITY,
   ROOM_MEMBER_ENTITY,
   type EventAttendeeRow,
   type EventRow,
+  MESSAGE_RELATIONS,
   type MessageRow,
+  type MessageWithRelations,
+  type ReactionRow,
   type RoomMemberRow,
   type RoomRow,
 } from "../entity/rooms";
 import type {
+  ChatAttachment,
   ChatMessage,
   ChatPerson,
+  ChatReaction,
   RoomsNotice,
 } from "../../frontend/src/chat/chatContract";
+import {
+  REACTIONS_PER_MESSAGE_MAX,
+  editProblem,
+  replyRefOf,
+  retractRight,
+  summarizeReactions,
+} from "../../frontend/src/chat/messages";
 import type { IMessageArchive, IMessageDraft } from "./ChatService";
 import {
   DIRECT_PREFIX,
@@ -143,14 +156,15 @@ function toRoomView(
 const TEAM_ROOM_ID = "equipe";
 const TEAM_EVENT_ID = "point-equipe";
 
-/** Les cinq dépôts des salons. */
+/** Les six dépôts des salons. */
 interface IRoomRepositories {
   orm: IOrm;
   rooms: IRepository<RoomRow>;
   members: IRepository<RoomMemberRow>;
   events: IRepository<EventRow>;
   attendees: IRepository<EventAttendeeRow>;
-  messages: IRepository<MessageRow>;
+  messages: IRepository<MessageWithRelations>;
+  reactions: IRepository<ReactionRow>;
 }
 
 /** Un message tel que le salon le montre : ni l'identité du compte, ni le salon. */
@@ -161,6 +175,33 @@ function toMessage(row: MessageRow): ChatMessage {
     text: row.text,
     sentAt: row.sentAt,
     ...(row.attachments ? { attachments: row.attachments } : {}),
+    ...(row.editedAt === null ? {} : { editedAt: row.editedAt }),
+    ...(row.retracted === null ? {} : { retracted: row.retracted }),
+  };
+}
+
+/**
+ * Un message lu avec ses relations, tel que le salon le montre : la citation
+ * du message auquel il répond — seulement s'il est du MÊME salon — et ses
+ * réactions dans l'ordre d'arrivée.
+ */
+function toView(row: MessageWithRelations): ChatMessage {
+  const message = toMessage(row);
+  const target =
+    row.replyTarget != null && row.replyTarget.roomId === row.roomId
+      ? toMessage(row.replyTarget)
+      : null;
+  const reactions = (row.reactions ?? []).toSorted(
+    (a, b) => a.reactedAt - b.reactedAt,
+  );
+  return {
+    ...message,
+    ...(row.replyTo === null
+      ? {}
+      : { replyTo: replyRefOf(row.replyTo, target) }),
+    ...(reactions.length === 0
+      ? {}
+      : { reactions: summarizeReactions(reactions) }),
   };
 }
 
@@ -228,7 +269,8 @@ class RoomService extends Service implements IMessageArchive {
       members: orm.getRepository<RoomMemberRow>(ROOM_MEMBER_ENTITY),
       events: orm.getRepository<EventRow>(EVENT_ENTITY),
       attendees: orm.getRepository<EventAttendeeRow>(EVENT_ATTENDEE_ENTITY),
-      messages: orm.getRepository<MessageRow>(MESSAGE_ENTITY),
+      messages: orm.getRepository<MessageWithRelations>(MESSAGE_ENTITY),
+      reactions: orm.getRepository<ReactionRow>(REACTION_ENTITY),
     };
     return this.#repositories;
   }
@@ -239,15 +281,26 @@ class RoomService extends Service implements IMessageArchive {
    * celui du SERVEUR — jamais une horloge du client.
    */
   async archive(roomId: string, draft: IMessageDraft): Promise<ChatMessage> {
-    const row = await this.#repos().messages.create({
+    const { messages } = this.#repos();
+    // Une réponse vise un message du MÊME salon : sinon citer un `id`
+    // suffirait à lire l'extrait d'un salon privé.
+    const target =
+      draft.replyTo === undefined
+        ? null
+        : await this.#message(roomId, draft.replyTo);
+    const row = await messages.create({
       roomId,
       authorId: draft.authorId,
       author: draft.author,
       text: draft.text,
       sentAt: Date.now(),
       attachments: draft.attachments ?? null,
+      replyTo: target?.id ?? null,
     });
-    return toMessage(row);
+    const message = toMessage(row);
+    return target === null
+      ? message
+      : { ...message, replyTo: replyRefOf(target.id, toMessage(target)) };
   }
 
   /**
@@ -262,9 +315,152 @@ class RoomService extends Service implements IMessageArchive {
   ): Promise<ChatMessage[]> {
     const rows = await this.#repos().messages.find(
       since === undefined ? { roomId } : { roomId, sentAt: { $gt: since } },
-      { limit, order: [["sentAt", "DESC"]] },
+      { limit, order: [["sentAt", "DESC"]], relations: MESSAGE_RELATIONS },
     );
-    return rows.reverse().map(toMessage);
+    return rows.reverse().map(toView);
+  }
+
+  /**
+   * Un message de CE salon, encore là — la garde de chaque geste sur un
+   * message : un `id` d'un autre salon est introuvable ici, jamais lu.
+   *
+   * @throws RoomRefusal `not-found` s'il n'est pas de ce salon, ou s'il est retiré
+   */
+  async #message(roomId: string, messageId: string): Promise<MessageRow> {
+    const row = await this.#repos().messages.findOne({ id: messageId, roomId });
+    if (row === null)
+      throw new RoomRefusal("not-found", "message introuvable dans ce salon");
+    if (row.retracted !== null)
+      throw new RoomRefusal("not-found", "ce message a été retiré");
+    return row;
+  }
+  // #endregion
+
+  // #region messages-gestures
+  /**
+   * Remplace le texte d'un message (XEP-0308, Matrix `m.replace`) : son
+   * auteur seul, sur n'importe lequel de ses messages. Aucune version
+   * gardée : ce qu'on corrige ne doit pas rester lisible.
+   *
+   * @throws RoomRefusal `forbidden` pour un autre que l'auteur, `invalid` pour un texte refusé
+   */
+  async edit(
+    roomId: string,
+    messageId: string,
+    authorId: string,
+    text: string,
+  ): Promise<ChatMessage> {
+    const row = await this.#message(roomId, messageId);
+    if (row.authorId !== authorId)
+      throw new RoomRefusal("forbidden", "seul son auteur modifie un message");
+    const problem = editProblem(text, (row.attachments?.length ?? 0) > 0);
+    if (problem !== null) throw new RoomRefusal("invalid", problem);
+    const updated = await this.#repos().messages.updateOne(
+      { id: row.id },
+      { text, editedAt: Date.now() },
+    );
+    return this.#one(updated ?? row);
+  }
+
+  /**
+   * Retire un message (XEP-0424 ; XEP-0425 pour la modération) : son auteur,
+   * ou le propriétaire ou un modérateur du salon. Texte, pièces, réactions
+   * et citation sont EFFACÉS ; la ligne reste, pour que les réponses disent « retiré ».
+   *
+   * @returns le message retiré, et les pièces à effacer du disque
+   * @throws RoomRefusal `forbidden` pour qui n'en a pas le droit
+   */
+  async retract(
+    roomId: string,
+    messageId: string,
+    userId: string,
+  ): Promise<{ message: ChatMessage; attachments: ChatAttachment[] }> {
+    const { members, messages, reactions } = this.#repos();
+    const row = await this.#message(roomId, messageId);
+    const member = await members.findOne({ roomId, userId });
+    const right = retractRight(row.authorId === userId, member?.role ?? null);
+    if (right === null)
+      throw new RoomRefusal(
+        "forbidden",
+        "seuls son auteur et la modération du salon retirent un message",
+      );
+    await reactions.delete({ messageId: row.id });
+    const updated = await messages.updateOne(
+      { id: row.id },
+      {
+        text: "",
+        attachments: null,
+        editedAt: null,
+        replyTo: null,
+        retracted: right,
+      },
+    );
+    return {
+      message: await this.#one(updated ?? row),
+      attachments: row.attachments ?? [],
+    };
+  }
+
+  /**
+   * Remplace l'ensemble des réactions d'une personne sur un message
+   * (XEP-0444 : on envoie son ensemble entier) — sous son nom du moment.
+   *
+   * @returns toutes les réactions du message, dans l'ordre d'arrivée
+   * @throws RoomRefusal `invalid` au-delà de `REACTIONS_PER_MESSAGE_MAX` emojis différents
+   */
+  async react(
+    roomId: string,
+    messageId: string,
+    who: { id: string; name: string },
+    emojis: readonly string[],
+  ): Promise<ChatReaction[]> {
+    const { reactions } = this.#repos();
+    const row = await this.#message(roomId, messageId);
+    const existing = await reactions.find(
+      { messageId: row.id },
+      { order: [["reactedAt", "ASC"]] },
+    );
+    const wanted = new Set(emojis);
+    const others = existing.filter((item) => item.userId !== who.id);
+    const distinct = new Set(others.map((item) => item.emoji));
+    for (const emoji of wanted) distinct.add(emoji);
+    if (distinct.size > REACTIONS_PER_MESSAGE_MAX)
+      throw new RoomRefusal(
+        "invalid",
+        `au plus ${REACTIONS_PER_MESSAGE_MAX} emojis différents par message`,
+      );
+    const mine = existing.filter((item) => item.userId === who.id);
+    const dropped = mine.filter((item) => !wanted.has(item.emoji));
+    if (dropped.length > 0)
+      await reactions.delete({ id: { $in: dropped.map((item) => item.id) } });
+    const kept = new Set(mine.map((item) => item.emoji));
+    const now = Date.now();
+    // Un `upsert` par emoji neuf, sur l'index unique : deux requêtes
+    // simultanées de la même personne ne butent jamais sur la contrainte.
+    const added: ReactionRow[] = [];
+    for (const emoji of emojis)
+      if (!kept.has(emoji))
+        added.push(
+          await reactions.upsert(
+            { messageId: row.id, userId: who.id, emoji },
+            { name: who.name },
+            { reactedAt: now },
+          ),
+        );
+    const gone = new Set(dropped.map((item) => item.id));
+    return summarizeReactions([
+      ...existing.filter((item) => !gone.has(item.id)),
+      ...added,
+    ]);
+  }
+
+  /** Un message relu avec ses relations, tel que le salon le montre. */
+  async #one(row: MessageRow): Promise<ChatMessage> {
+    const fresh = await this.#repos().messages.findOne(
+      { id: row.id },
+      { relations: MESSAGE_RELATIONS },
+    );
+    return toView(fresh ?? row);
   }
   // #endregion
 
@@ -741,16 +937,21 @@ class RoomService extends Service implements IMessageArchive {
   // #endregion
 
   /**
-   * Un compte supprimé de l'application : ses appartenances, invitations et
-   * messages disparaissent aussi de la base de la démo — l'intégrité qu'une
+   * Un compte supprimé de l'application : ses appartenances, invitations,
+   * messages et réactions disparaissent aussi de la base de la démo — l'intégrité qu'une
    * clé étrangère ne peut pas porter d'une base à l'autre, et l'effacement
    * qu'on doit à une personne qui part (RGPD, art. 17).
    */
   async forget(userId: string): Promise<void> {
     if (!this.isOpen()) return;
-    const { members, attendees, messages } = this.#repos();
+    const { members, attendees, messages, reactions } = this.#repos();
     await members.delete({ userId });
     await attendees.delete({ userId });
+    // Ses réactions, et celles posées sur ses messages, partent avec eux.
+    const own = await messages.find({ authorId: userId });
+    if (own.length > 0)
+      await reactions.delete({ messageId: { $in: own.map((row) => row.id) } });
+    await reactions.delete({ userId });
     await messages.delete({ authorId: userId });
   }
 

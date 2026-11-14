@@ -145,11 +145,48 @@ export const messageTable = defineTable({
     sentAt: { kind: "int64", notNull: true },
     /** Ce que le salon annonce des pièces ; absent d'un message de texte seul. */
     attachments: { kind: "json", type: jsonType<ChatAttachment[]>() },
+    /** Le message auquel il répond (XEP-0461), du MÊME salon. */
+    replyTo: { kind: "text" },
+    /** Dernière modification par l'auteur (XEP-0308), en ms UTC. */
+    editedAt: { kind: "int64" },
+    /**
+     * Retiré (XEP-0424/0425) : par qui. Texte, pièces et citation effacés —
+     * la ligne reste pour que les réponses disent « retiré ».
+     */
+    retracted: { kind: "enum", values: ["author", "moderation"] },
   },
   indexes: [
     // L'historique se lit salon par salon, du plus récent au plus ancien.
     { name: "message_room_sent_idx", on: ["roomId", "sentAt"] },
     { name: "message_author_idx", on: ["authorId"] },
+  ],
+});
+// #endregion
+
+// #region reactions-table
+/**
+ * Une réaction (XEP-0444) : UNE ligne par message, personne et emoji — l'index
+ * unique en fait un ensemble. `name` est le nom AU MOMENT de la réaction,
+ * comme l'auteur d'un message ; `userId` n'est jamais montré au salon.
+ * `reactedAt` garde l'ordre d'arrivée, celui de l'affichage.
+ */
+export const reactionTable = defineTable({
+  name: "message_reaction",
+  columns: {
+    id: { kind: "text", primaryKey: true, defaultFn: () => randomUUID() },
+    messageId: { kind: "text", notNull: true },
+    userId: { kind: "text", notNull: true },
+    name: { kind: "string", length: 128, notNull: true },
+    emoji: { kind: "string", length: 32, notNull: true },
+    reactedAt: { kind: "int64", notNull: true },
+  },
+  indexes: [
+    {
+      name: "message_reaction_uq",
+      on: ["messageId", "userId", "emoji"],
+      unique: true,
+    },
+    { name: "message_reaction_user_idx", on: ["userId"] },
   ],
 });
 // #endregion
@@ -164,6 +201,19 @@ export type EventRow = RowOf<typeof eventTable.spec>;
 export type EventAttendeeRow = RowOf<typeof eventAttendeeTable.spec>;
 /** Un message tel que la base le rend. */
 export type MessageRow = RowOf<typeof messageTable.spec>;
+/** Une réaction telle que la base la rend. */
+export type ReactionRow = RowOf<typeof reactionTable.spec>;
+/**
+ * Un message lu AVEC ses relations déclarées (`relations: [...]` d'un
+ * `find`) : ses réactions, et le message auquel il répond.
+ */
+export type MessageWithRelations = MessageRow & {
+  reactions?: ReactionRow[];
+  replyTarget?: MessageRow | null;
+};
+
+/** Les relations qu'une lecture de messages charge (eager-load). */
+export const MESSAGE_RELATIONS = ["reactions", "replyTarget"];
 
 /** Les noms logiques des entités (clés de `getRepository`). */
 export const ROOM_ENTITY = "DemoRoom";
@@ -171,9 +221,10 @@ export const ROOM_MEMBER_ENTITY = "DemoRoomMember";
 export const EVENT_ENTITY = "DemoEvent";
 export const EVENT_ATTENDEE_ENTITY = "DemoEventAttendee";
 export const MESSAGE_ENTITY = "DemoMessage";
+export const REACTION_ENTITY = "DemoMessageReaction";
 
 /**
- * Les cinq entités, SANS connecteur : `@entities(roomEntities, { connector:
+ * Les six entités, SANS connecteur : `@entities(roomEntities, { connector:
  * DEMO_CONNECTOR })` sur `DemoModule` les lie au connecteur `demo`.
  */
 export const roomEntities: IEntityDefinition[] = [
@@ -189,5 +240,30 @@ export const roomEntities: IEntityDefinition[] = [
     module: "demo",
     schema: eventAttendeeTable,
   }),
-  defineEntity({ name: MESSAGE_ENTITY, module: "demo", schema: messageTable }),
+  defineEntity({
+    name: MESSAGE_ENTITY,
+    module: "demo",
+    schema: messageTable,
+    // Chargées à la demande (`find(…, { relations })`) : une lecture `IN (…)`
+    // par relation pour toute la page, jamais une par message.
+    relations: [
+      {
+        type: "one-to-many",
+        target: REACTION_ENTITY,
+        field: "reactions",
+        foreignKey: "messageId",
+      },
+      {
+        type: "many-to-one",
+        target: MESSAGE_ENTITY,
+        field: "replyTarget",
+        foreignKey: "replyTo",
+      },
+    ],
+  }),
+  defineEntity({
+    name: REACTION_ENTITY,
+    module: "demo",
+    schema: reactionTable,
+  }),
 ];

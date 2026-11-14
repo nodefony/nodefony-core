@@ -14,6 +14,7 @@ import {
   ATTACHMENT_MAX_BYTES,
   ATTACHMENT_MAX_COUNT,
   MESSAGE_MAX_BYTES,
+  type ChatReplyRef,
 } from "./chatContract";
 import {
   EMOJIS,
@@ -33,14 +34,18 @@ interface IPending {
   preview: IFilePreview | null;
 }
 
-/** Le brouillon d'UN salon : son texte et ses pièces — rien n'est parti. */
+/**
+ * Le brouillon d'UN salon : son texte, ses pièces, et le message auquel il
+ * répond — rien n'est parti.
+ */
 interface IDraft {
   readonly text: string;
   readonly pending: readonly IPending[];
+  readonly replyTo: ChatReplyRef | null;
 }
 
 /** Le brouillon d'un salon où rien n'est écrit. */
-const EMPTY_DRAFT: IDraft = { text: "", pending: [] };
+const EMPTY_DRAFT: IDraft = { text: "", pending: [], replyTo: null };
 
 /** Une pièce en attente, née d'un fichier choisi, déposé ou collé. */
 function pendingFile(file: File): IPending {
@@ -106,6 +111,8 @@ async function previewOf(file: File): Promise<IFilePreview> {
  *
  * @param roomId - le salon où l'on écrit
  * @param mentions - noms proposés après `@` (les présents, sans soi)
+ * @param replyRef - reçoit de quoi répondre à un message (XEP-0461) : la
+ *   citation s'affiche au-dessus du champ, Échap ou ✕ l'annule
  */
 export function ChatComposer({
   author,
@@ -114,14 +121,21 @@ export function ChatComposer({
   send,
   notifyTyping,
   insertRef,
+  replyRef,
 }: {
   author: string;
   roomId: string;
   mentions: readonly string[];
-  send: (text: string, files: readonly File[]) => Promise<void>;
+  send: (
+    text: string,
+    files: readonly File[],
+    replyTo: string | null,
+  ) => Promise<void>;
   notifyTyping: () => void;
   /** Reçoit de quoi insérer un texte dans le champ (une `@mention` du panneau). */
   insertRef?: RefObject<((text: string) => void) | null>;
+  /** Reçoit de quoi répondre à un message de la liste. */
+  replyRef?: RefObject<((target: ChatReplyRef) => void) | null>;
 }) {
   const zone = useRef<HTMLFormElement>(null);
   const editor = useRef<IEditorHandle>(null);
@@ -142,7 +156,7 @@ export function ChatComposer({
   const [drafts, setDrafts] = useState<ReadonlyMap<string, IDraft>>(
     () => new Map(),
   );
-  const { text: draft, pending } = drafts.get(roomId) ?? EMPTY_DRAFT;
+  const { text: draft, pending, replyTo } = drafts.get(roomId) ?? EMPTY_DRAFT;
   // Une erreur appartient au salon où elle est née.
   const [failure, setFailure] = useState<{
     room: string;
@@ -159,11 +173,29 @@ export function ChatComposer({
     setDrafts((map) => {
       const next = change(map.get(room) ?? EMPTY_DRAFT);
       const copy = new Map(map);
-      if (next.text === "" && next.pending.length === 0) copy.delete(room);
+      if (
+        next.text === "" &&
+        next.pending.length === 0 &&
+        next.replyTo === null
+      )
+        copy.delete(room);
       else copy.set(room, next);
       return copy;
     });
   }, []);
+
+  // « Répondre » dans la liste : la citation entre dans le brouillon du
+  // salon, et le focus dans le champ.
+  useEffect(() => {
+    if (replyRef === undefined) return;
+    replyRef.current = (target) => {
+      patch(roomId, (was) => ({ ...was, replyTo: target }));
+      editor.current?.focus();
+    };
+    return () => {
+      replyRef.current = null;
+    };
+  }, [replyRef, roomId, patch]);
 
   // Les adresses locales de TOUS les brouillons sont rendues au démontage.
   const known = useRef(drafts);
@@ -312,6 +344,7 @@ export function ChatComposer({
     send(
       text,
       sent.map((piece) => piece.file),
+      replyTo?.id ?? null,
     )
       .then(() => {
         for (const piece of sent) release(piece);
@@ -357,38 +390,68 @@ export function ChatComposer({
           if (event.key === "Escape" && emojiOpen) {
             event.preventDefault();
             setEmojiOpen(false);
+          } else if (event.key === "Escape" && replyTo !== null) {
+            event.preventDefault();
+            patch(roomId, (was) => ({ ...was, replyTo: null }));
           }
         }}
         above={
-          pending.length > 0 && (
-            <ul className="pending" aria-label="Pièces à envoyer">
-              {pending.map((piece) => (
-                <li key={piece.key} className="pending-piece">
-                  <FilePreview
-                    file={{
-                      name: piece.file.name,
-                      size: piece.file.size,
-                      ...(piece.preview ?? { kind: "file" }),
-                    }}
-                    url={piece.url}
-                    local
-                  />
-                  {piece.preview === null && (
-                    <span className="pending-reading">lecture…</span>
+          <>
+            {replyTo !== null && (
+              <p className="composer-reply">
+                <span className="composer-reply-body">
+                  <span className="quote-head">
+                    <span aria-hidden="true">↩ </span>
+                    Réponse à <strong>{replyTo.author}</strong>
+                  </span>
+                  {replyTo.excerpt !== "" && (
+                    <span className="quote-text">{replyTo.excerpt}</span>
                   )}
-                  <button
-                    type="button"
-                    className="pending-remove"
-                    aria-label={`Retirer ${piece.file.name}`}
-                    title={`Retirer ${piece.file.name}`}
-                    onClick={() => remove(piece.key)}
-                  >
-                    ✕
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )
+                </span>
+                <button
+                  type="button"
+                  className="pending-remove"
+                  aria-label="Annuler la réponse"
+                  title="Annuler la réponse"
+                  onClick={() => {
+                    patch(roomId, (was) => ({ ...was, replyTo: null }));
+                    editor.current?.focus();
+                  }}
+                >
+                  ✕
+                </button>
+              </p>
+            )}
+            {pending.length > 0 && (
+              <ul className="pending" aria-label="Pièces à envoyer">
+                {pending.map((piece) => (
+                  <li key={piece.key} className="pending-piece">
+                    <FilePreview
+                      file={{
+                        name: piece.file.name,
+                        size: piece.file.size,
+                        ...(piece.preview ?? { kind: "file" }),
+                      }}
+                      url={piece.url}
+                      local
+                    />
+                    {piece.preview === null && (
+                      <span className="pending-reading">lecture…</span>
+                    )}
+                    <button
+                      type="button"
+                      className="pending-remove"
+                      aria-label={`Retirer ${piece.file.name}`}
+                      title={`Retirer ${piece.file.name}`}
+                      onClick={() => remove(piece.key)}
+                    >
+                      ✕
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
         }
         editor={editor}
         tools={

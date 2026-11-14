@@ -9,12 +9,12 @@ import type {
 import {
   CHAT_ATTACH_PATH,
   CHAT_REALTIME_PATH,
-  isRoomFrame,
   nextTyping,
   type ChatContract,
   type ChatMessage,
 } from "./chatContract";
 import type { CreateRoomBody, EventBody, InviteBody } from "./chatSchemas";
+import { mergeMessages, withReactions } from "./messages";
 import { LOBBY_ROOM_ID, roomChannel, type IRoomView } from "./rooms";
 import { RosterTracker, type IRosterRow } from "./roster";
 
@@ -55,7 +55,16 @@ export interface IChatRoom {
    * avec le motif du serveur (403, 413, 422…). Rien ne s'affiche avant
    * l'annonce du salon.
    */
-  send: (text: string, files?: readonly File[]) => Promise<void>;
+  send: (
+    text: string,
+    files?: readonly File[],
+    replyTo?: string | null,
+  ) => Promise<void>;
+  /**
+   * Les gestes sur un message du salon ouvert : chacun rejette avec le motif
+   * du serveur. Rien ne change à l'écran avant que le salon ne l'annonce.
+   */
+  gestures: IMessageGestures;
   /** Signale qu'on écrit (borné : au plus un signal par intervalle). */
   notifyTyping: () => void;
   /**
@@ -63,6 +72,16 @@ export interface IChatRoom {
    * (403, 404, 409, 422), que le formulaire affiche sous son champ.
    */
   forms: IRoomForms;
+}
+
+/** Modifier, retirer, réagir — une route du contrat chacun (XEP-0308, 0424, 0444). */
+export interface IMessageGestures {
+  /** Remplace le texte d'un de ses messages. */
+  edit: (messageId: string, text: string) => Promise<void>;
+  /** Retire un message — le sien, ou en modérateur. */
+  retract: (messageId: string) => Promise<void>;
+  /** Envoie l'ensemble ENTIER de ses réactions sur un message. */
+  react: (messageId: string, emojis: readonly string[]) => Promise<void>;
 }
 
 /** Ce que le corps d'une route accepte EN ENTRÉE (avant ses défauts). */
@@ -92,17 +111,6 @@ async function refusalOf(response: Response): Promise<string> {
     }
   }
   return `envoi refusé (${response.status})`;
-}
-
-/**
- * Fusionne sans doublon, dans l'ordre d'envoi. L'historique et le salon
- * peuvent livrer le même message : son `id` stable (XEP-0359) le dit.
- */
-function merge(known: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
-  const seen = new Set(known.map((message) => message.id));
-  const added = incoming.filter((message) => !seen.has(message.id));
-  if (added.length === 0) return known;
-  return [...known, ...added].toSorted((a, b) => a.sentAt - b.sentAt);
 }
 
 /** Ce que la page dit d'un refus du serveur. */
@@ -224,7 +232,7 @@ export function useChat(): IChatRoom {
           query: { limit: HISTORY_SIZE },
         })
         .then((past) => {
-          if (live) setMessages((known) => merge(known, past));
+          if (live) setMessages((known) => mergeMessages(known, past));
         })
         .catch(() => {
           // Refus ou coupure : le refus du canal le dira.
@@ -235,12 +243,18 @@ export function useChat(): IChatRoom {
       // #region chat-room-client
       // Le canal du salon porte ses messages ET sa frappe, typés par le contrat.
       socket.on(channel, (frame) => {
-        if (!isRoomFrame(frame)) return;
         // Ni sa propre frappe, ni celle d'un auteur dont le message vient d'arriver.
         const self = socket.identity?.userIdentifier ?? null;
         setTyping((current) => nextTyping(current, frame, self));
         if (frame.kind === "message") {
-          setMessages((known) => merge(known, [frame.message]));
+          // Neuf, modifié ou retiré : la version reçue remplace la nôtre.
+          setMessages((known) => mergeMessages(known, [frame.message]));
+          return;
+        }
+        if (frame.kind === "reactions") {
+          setMessages((known) =>
+            withReactions(known, frame.messageId, frame.reactions),
+          );
           return;
         }
         if (frame.author === self) return;
@@ -285,14 +299,18 @@ export function useChat(): IChatRoom {
   }, [socket, roomId]);
 
   const send = useCallback(
-    async (text: string, files: readonly File[] = []) => {
-      if (files.length > 0) return sendWithFiles(roomId, text, files);
+    async (
+      text: string,
+      files: readonly File[] = [],
+      replyTo: string | null = null,
+    ) => {
+      if (files.length > 0) return sendWithFiles(roomId, text, files, replyTo);
       // #region chat-send-client
       // Le texte seul : l'auteur, c'est le serveur qui le pose d'après la session.
       if (socket === null) throw new Error("socket fermée");
       await socket.post(
         "/demo/chat/rooms/{room}/send",
-        { text },
+        replyTo === null ? { text } : { text, replyTo },
         { params: { room: roomId } },
       );
       // #endregion
@@ -363,6 +381,43 @@ export function useChat(): IChatRoom {
   }, [socket, roomId]);
   // #endregion
 
+  // #region chat-gestures-client
+  // Modifier, retirer, réagir : une route chacun, par la socket déjà ouverte.
+  // L'écran ne bouge qu'à l'annonce du salon — chez soi comme chez les autres.
+  const gestures = useMemo<IMessageGestures>(() => {
+    const live = () => {
+      if (socket === null) throw new Error("socket fermée");
+      return socket;
+    };
+    const params = (messageId: string) => ({
+      params: { room: roomId, message: messageId },
+    });
+    return {
+      edit: async (messageId, text) => {
+        await live().patch(
+          "/demo/chat/rooms/{room}/messages/{message}",
+          { text },
+          params(messageId),
+        );
+      },
+      retract: async (messageId) => {
+        await live().delete(
+          "/demo/chat/rooms/{room}/messages/{message}",
+          undefined,
+          params(messageId),
+        );
+      },
+      react: async (messageId, emojis) => {
+        await live().put(
+          "/demo/chat/rooms/{room}/messages/{message}/reactions",
+          { emojis: [...emojis] },
+          params(messageId),
+        );
+      },
+    };
+  }, [socket, roomId]);
+  // #endregion
+
   return {
     rooms,
     roomId,
@@ -375,6 +430,7 @@ export function useChat(): IChatRoom {
     identity,
     state,
     send,
+    gestures,
     notifyTyping,
     forms,
   };
@@ -391,9 +447,11 @@ async function sendWithFiles(
   roomId: string,
   text: string,
   files: readonly File[],
+  replyTo: string | null,
 ): Promise<void> {
   const form = new FormData();
   form.append("text", text);
+  if (replyTo !== null) form.append("replyTo", replyTo);
   for (const file of files) form.append("file", file, file.name);
   const response = await fetch(
     CHAT_ATTACH_PATH.replace("{room}", encodeURIComponent(roomId)),

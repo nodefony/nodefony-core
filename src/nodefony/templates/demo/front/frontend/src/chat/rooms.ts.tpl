@@ -35,8 +35,13 @@ export type EventStatus = "tentative" | "confirmed" | "cancelled";
 /** La réponse d'un invité (iCalendar `PARTSTAT`). */
 export type Partstat = "needs-action" | "accepted" | "declined" | "tentative";
 
-/** Le canal d'un salon. */
-export function roomChannel(roomId: string): string {
+/**
+ * Le canal d'un salon — typé `chat:room:${string}` : le contrat déclare
+ * cette FAMILLE (`ChatContract.serverToClient`), et ce type suffit pour que
+ * `socket.on(canal, …)` reçoive une `RoomFrame` et que le hub typé refuse
+ * toute autre trame. Rendu en simple `string`, il perdait les deux.
+ */
+export function roomChannel(roomId: string): `chat:room:${string}` {
   return `${ROOM_CHANNEL_PREFIX}${roomId}`;
 }
 

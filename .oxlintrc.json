@@ -433,6 +433,25 @@
       "error",
       { "roles": ["tabpanel", "region"] }
     ],
+    // Une liste à FOCUS ITINÉRANT (APG, « roving tabindex ») : les messages du
+    // chat ne font qu'UN arrêt de tabulation, ↑/↓ passent de l'un à l'autre.
+    // L'élément qui porte le focus reste un `<li>` — un lecteur d'écran
+    // attend des éléments de liste dans un journal, pas des `option` (qui ne
+    // peuvent contenir aucun bouton). Seul `onKeyDown` lui est ouvert.
+    "jsx-a11y/no-noninteractive-element-interactions": [
+      "error",
+      {
+        "handlers": [
+          "onClick",
+          "onMouseDown",
+          "onMouseUp",
+          "onKeyPress",
+          "onKeyDown",
+          "onKeyUp"
+        ],
+        "li": ["onKeyDown"]
+      }
+    ],
     // Les diagnostics du REACT COMPILER — leurs messages sont ceux de ses
     // abandons (« Existing memoization could not be preserved », « Cannot access
     // refs during render »). Ils décrivent ce que le compilateur ne saurait pas

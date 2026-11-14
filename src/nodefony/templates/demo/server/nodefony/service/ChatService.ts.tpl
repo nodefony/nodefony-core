@@ -8,6 +8,8 @@ import { ATTACHMENT_MAX_BYTES } from "../../frontend/src/chat/chatContract";
 import type {
   ChatAttachment,
   ChatMessage,
+  ChatContract,
+  ChatReaction,
   RoomFrame,
 } from "../../frontend/src/chat/chatContract";
 import { roomChannel } from "../../frontend/src/chat/rooms";
@@ -27,6 +29,8 @@ export interface IMessageDraft {
   author: string;
   text: string;
   attachments?: ChatAttachment[];
+  /** Le message auquel il répond (XEP-0461) — l'archive vérifie qu'il est du salon. */
+  replyTo?: string;
 }
 
 /**
@@ -47,6 +51,32 @@ export interface IMessageArchive {
     limit: number,
     since?: number,
   ): Promise<ChatMessage[]>;
+  /** Remplace le texte d'un message de son auteur (XEP-0308), et le rend. */
+  edit(
+    roomId: string,
+    messageId: string,
+    authorId: string,
+    text: string,
+  ): Promise<ChatMessage>;
+  /**
+   * Retire un message (XEP-0424/0425), et rend le message retiré avec les
+   * pièces qu'il portait — à effacer du disque.
+   */
+  retract(
+    roomId: string,
+    messageId: string,
+    userId: string,
+  ): Promise<{ message: ChatMessage; attachments: ChatAttachment[] }>;
+  /**
+   * Remplace l'ensemble des réactions d'une personne sur un message
+   * (XEP-0444), et rend toutes celles du message.
+   */
+  react(
+    roomId: string,
+    messageId: string,
+    who: { id: string; name: string },
+    emojis: readonly string[],
+  ): Promise<ChatReaction[]>;
 }
 
 /** Pièces gardées sur disque : au-delà, les plus anciennes sortent. */
@@ -179,6 +209,67 @@ class ChatService extends Service {
   }
   // #endregion
 
+  // #region chat-gestures
+  /**
+   * Modifie un message : l'archive vérifie l'auteur, puis le message ENTIER
+   * repart sur le salon — chaque page remplace le sien par son `id`.
+   */
+  async edit(
+    roomId: string,
+    messageId: string,
+    authorId: string,
+    text: string,
+  ): Promise<ChatMessage> {
+    const message = await this.#messages().edit(
+      roomId,
+      messageId,
+      authorId,
+      text,
+    );
+    publishFrame(roomId, { kind: "message", message });
+    return message;
+  }
+
+  /**
+   * Retire un message : effacé en base par l'archive, ses pièces effacées du
+   * disque ici, puis annoncé retiré au salon.
+   */
+  async retract(
+    roomId: string,
+    messageId: string,
+    userId: string,
+  ): Promise<ChatMessage> {
+    const { message, attachments } = await this.#messages().retract(
+      roomId,
+      messageId,
+      userId,
+    );
+    await this.dropAttachments(attachments);
+    publishFrame(roomId, { kind: "message", message });
+    return message;
+  }
+
+  /**
+   * Réagit à un message : l'ensemble de la personne remplace le précédent,
+   * et TOUTES les réactions du message repartent — jamais un delta.
+   */
+  async react(
+    roomId: string,
+    messageId: string,
+    who: { id: string; name: string },
+    emojis: readonly string[],
+  ): Promise<ChatReaction[]> {
+    const reactions = await this.#messages().react(
+      roomId,
+      messageId,
+      who,
+      emojis,
+    );
+    publishFrame(roomId, { kind: "reactions", messageId, reactions });
+    return reactions;
+  }
+  // #endregion
+
   // #region chat-attachments
   /**
    * Garde les pièces d'un message : chaque fichier est DÉPLACÉ (jamais lu en
@@ -203,6 +294,19 @@ class ChatService extends Service {
     }
     await this.#evict();
     return saved;
+  }
+
+  /**
+   * Efface des pièces gardées — d'un message retiré, ou d'un envoi refusé
+   * après leur réception : rien ne reste sur le disque.
+   */
+  async dropAttachments(pieces: readonly ChatAttachment[]): Promise<void> {
+    for (const piece of pieces) {
+      const stored = this.#attachments.get(piece.id);
+      if (stored === undefined) continue;
+      this.#attachments.delete(piece.id);
+      await unlink(stored.file).catch(() => undefined);
+    }
   }
 
   /** Une pièce gardée, par son id ; `undefined` si inconnue ou sortie. */
@@ -296,13 +400,12 @@ async function classify(
 }
 
 /**
- * Publie une trame sur le canal d'un salon. Le hub type les canaux LITTÉRAUX
- * de son contrat, pas encore une famille (`chat:room:<id>`) : la trame est
- * donc typée ICI, à l'unique point d'émission, et la page la vérifie à la
- * réception (`isRoomFrame`).
+ * Publie une trame sur le canal d'un salon, par le hub lu à travers le
+ * contrat : la famille `chat:room:<id>` y est déclarée, une trame qui n'est
+ * pas une `RoomFrame` ne compile pas — ici comme dans la page.
  */
 function publishFrame(roomId: string, frame: RoomFrame): void {
-  getRealtimeHub().publish(roomChannel(roomId), frame);
+  getRealtimeHub<ChatContract>().publish(roomChannel(roomId), frame);
 }
 
 export default ChatService;

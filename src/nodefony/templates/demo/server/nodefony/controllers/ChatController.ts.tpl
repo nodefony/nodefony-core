@@ -18,12 +18,15 @@ import type { ContextType } from "@nodefony/http";
 import {
   AttachBody,
   CreateRoomBody,
+  EditBody,
   EventBody,
   EventParams,
   HistoryQuery,
   InviteBody,
   LinkParams,
+  MessageParams,
   PeopleQuery,
+  ReactBody,
   ReplyBody,
   RoomParams,
   SendBody,
@@ -36,6 +39,7 @@ import {
   type ChatLinkPreview,
   type ChatMessage,
   type ChatPerson,
+  type ChatReaction,
 } from "../../frontend/src/chat/chatContract";
 import {
   ROOM_CHANNEL_PATTERN,
@@ -54,6 +58,11 @@ import {
 import type LinkPreviewService from "../service/LinkPreviewService";
 import { RoomRefusal, type RoomRefusalReason } from "../service/RoomService";
 import RoomAdmission from "../service/RoomAdmission";
+
+/** Une route qui vise un message : `/demo/chat/rooms/{room}/messages/{message}`. */
+type MessageInput<S extends object = object> = RouteInput<
+  { params: typeof MessageParams } & S
+>;
 
 /** Une route qui vise un salon : `/demo/chat/rooms/{room}/…`. */
 type RoomInput<S extends object = object> = RouteInput<
@@ -127,6 +136,17 @@ class ChatController extends ContractRealtimeController<ChatContract> {
       body: ReplyBody,
     },
     "POST /demo/chat/direct/{user}": { params: UserParams },
+    "PATCH /demo/chat/rooms/{room}/messages/{message}": {
+      params: MessageParams,
+      body: EditBody,
+    },
+    "DELETE /demo/chat/rooms/{room}/messages/{message}": {
+      params: MessageParams,
+    },
+    "PUT /demo/chat/rooms/{room}/messages/{message}/reactions": {
+      params: MessageParams,
+      body: ReactBody,
+    },
     "GET /demo/chat/rooms/{room}/messages/{message}/links/{index}": {
       params: LinkParams,
     },
@@ -394,12 +414,93 @@ class ChatController extends ContractRealtimeController<ChatContract> {
     const me = this.user;
     if (me === null) throw new HttpError("connexion requise", 401);
     await this.#admitted(input.params.room);
-    const { id, sentAt } = await this.chat.publish(input.params.room, {
-      authorId: me.id,
-      author: me.identifier,
-      text: input.body.text,
-    });
+    const { id, sentAt } = await this.#refused(() =>
+      this.chat.publish(input.params.room, {
+        authorId: me.id,
+        author: me.identifier,
+        text: input.body.text,
+        ...(input.body.replyTo === undefined
+          ? {}
+          : { replyTo: input.body.replyTo }),
+      }),
+    );
     return { id, sentAt };
+  }
+  // #endregion
+
+  // #region chat-message-gestures
+  /**
+   * Modifier un message — `PATCH …/messages/{message}` (XEP-0308). Son auteur
+   * seul : l'identité vient de la session, la règle de `RoomService`. Le
+   * message ENTIER repart sur le salon.
+   */
+  @route("demo-chat-edit", {
+    path: "/rooms/{room}/messages/{message}",
+    requirements: { methods: ["PATCH", "WEBSOCKET"] },
+    schema: { params: MessageParams, body: EditBody },
+  })
+  @IsGranted(["ROLE_USER"])
+  async edit(
+    input: MessageInput<{ body: typeof EditBody }>,
+  ): Promise<{ editedAt: number }> {
+    const me = this.#me();
+    await this.#admitted(input.params.room);
+    const message = await this.#refused(() =>
+      this.chat.edit(
+        input.params.room,
+        input.params.message,
+        me.id,
+        input.body.text,
+      ),
+    );
+    return { editedAt: message.editedAt ?? Date.now() };
+  }
+
+  /**
+   * Retirer un message — `DELETE …/messages/{message}` (XEP-0424) : son
+   * auteur, ou le propriétaire ou un modérateur du salon (XEP-0425). Rejoué,
+   * il répond 404 : le message est déjà retiré.
+   */
+  @route("demo-chat-retract", {
+    path: "/rooms/{room}/messages/{message}",
+    requirements: { methods: ["DELETE", "WEBSOCKET"] },
+    schema: { params: MessageParams },
+  })
+  @IsGranted(["ROLE_USER"])
+  async retract(input: MessageInput): Promise<{ ok: true }> {
+    const me = this.#me();
+    await this.#admitted(input.params.room);
+    await this.#refused(() =>
+      this.chat.retract(input.params.room, input.params.message, me.id),
+    );
+    return { ok: true };
+  }
+
+  /**
+   * Réagir — `PUT …/messages/{message}/reactions` (XEP-0444) : le corps est
+   * l'ensemble ENTIER de mes réactions sur ce message, qui remplace le
+   * précédent. Rejoué, il rend le même état : un `PUT` est idempotent par
+   * nature.
+   */
+  @route("demo-chat-react", {
+    path: "/rooms/{room}/messages/{message}/reactions",
+    requirements: { methods: ["PUT", "WEBSOCKET"] },
+    schema: { params: MessageParams, body: ReactBody },
+  })
+  @IsGranted(["ROLE_USER"])
+  async react(
+    input: MessageInput<{ body: typeof ReactBody }>,
+  ): Promise<ChatReaction[]> {
+    const me = this.#me();
+    await this.#admitted(input.params.room);
+    return this.#refused(() =>
+      this.chat.react(
+        input.params.room,
+        input.params.message,
+        { id: me.id, name: me.identifier },
+        input.body.emojis,
+      ),
+    );
   }
   // #endregion
 
@@ -440,13 +541,25 @@ class ChatController extends ContractRealtimeController<ChatContract> {
       await this.chat.discard(files);
       throw new HttpError(problem, files.length === 0 ? 400 : 413);
     }
-    const { id, sentAt } = await this.chat.publish(input.params.room, {
-      authorId: me.id,
-      author: me.identifier,
-      text: input.body.text,
-      attachments: await this.chat.saveAttachments(files),
-    });
-    return { id, sentAt };
+    const attachments = await this.chat.saveAttachments(files);
+    try {
+      const { id, sentAt } = await this.#refused(() =>
+        this.chat.publish(input.params.room, {
+          authorId: me.id,
+          author: me.identifier,
+          text: input.body.text,
+          attachments,
+          ...(input.body.replyTo === undefined
+            ? {}
+            : { replyTo: input.body.replyTo }),
+        }),
+      );
+      return { id, sentAt };
+    } catch (refusal) {
+      // Réponse à un message d'ailleurs : les pièces reçues ne restent pas.
+      await this.chat.dropAttachments(attachments);
+      throw refusal;
+    }
   }
   // #endregion
 

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { textProblem } from "./attachments";
 import { CHAT_HISTORY_LIMIT, LINK_INDEX_MAX, PEOPLE_MAX } from "./chatContract";
+import { reactionSetProblem } from "./messages";
 import {
   EVENT_ATTENDEES_MAX,
   EVENT_TITLE_MAX,
@@ -32,8 +33,19 @@ const messageText = z
  * Le navigateur n'importe que des TYPES de ce fichier : zod n'entre pas dans
  * son paquet. Doc : `@nodefony/realtime/docs/cookbook-chat.md` (étape 5).
  */
+/**
+ * Le message auquel on répond (XEP-0461) : un identifiant tiré par la base.
+ * Le serveur vérifie qu'il est du MÊME salon avant d'archiver.
+ */
+const ReplyTo = z
+  .string()
+  .min(1)
+  .max(64)
+  .regex(/^[A-Za-z0-9_-]+$/u);
+
 export const SendBody = z.strictObject({
   text: messageText.min(1),
+  replyTo: ReplyTo.optional(),
 });
 
 /**
@@ -42,6 +54,28 @@ export const SendBody = z.strictObject({
  */
 export const AttachBody = z.strictObject({
   text: messageText.default(""),
+  replyTo: ReplyTo.optional(),
+});
+
+/**
+ * Le nouveau texte d'un message (XEP-0308) : la borne de l'envoi. Vide, il
+ * n'est accepté que d'un message à pièces — le service le vérifie, lui seul
+ * voit le message (`editProblem`).
+ */
+export const EditBody = z.strictObject({
+  text: messageText,
+});
+
+/**
+ * L'ensemble ENTIER des réactions d'une personne sur un message (XEP-0444) :
+ * il remplace le précédent — `[]` les retire toutes. Rejouer la même
+ * requête rend le même état : la route est un `PUT`.
+ */
+export const ReactBody = z.strictObject({
+  emojis: z.array(z.string()).superRefine((emojis, ctx) => {
+    const problem = reactionSetProblem(emojis);
+    if (problem !== null) ctx.addIssue({ code: "custom", message: problem });
+  }),
 });
 
 /**
@@ -98,6 +132,12 @@ const PathId = z
   .min(1)
   .max(64)
   .regex(/^[A-Za-z0-9_-]+$/u);
+
+/** Le message visé : `/demo/chat/rooms/{room}/messages/{message}`. */
+export const MessageParams = z.strictObject({
+  room: RoomParams.shape.room,
+  message: PathId,
+});
 
 /** L'événement visé : `/demo/chat/events/{event}/…`. */
 export const EventParams = z.strictObject({ event: PathId });

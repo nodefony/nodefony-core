@@ -1778,6 +1778,291 @@ a.ritem:hover .ritem-go {
 .room-text {
   overflow-wrap: anywhere;
 }
+/* Un message : un seul arrêt de tabulation pour la liste (↑/↓), le menu
+   d'actions en haut à droite, visible au survol, au focus, et toujours sur
+   un écran sans survol (tactile). */
+.room-msg {
+  position: relative;
+  /* Ajusté à sa bulle : le bouton d'actions se pose juste à côté d'elle. */
+  align-self: flex-start;
+  width: fit-content;
+  max-width: 100%;
+  /* Enfant direct de la liste : la règle `.room-list > li` le met en colonne. */
+  align-items: flex-start;
+  padding: 2px 44px 2px 8px;
+  margin: 0 -8px;
+  border-radius: 10px;
+}
+/* MES messages à droite, ceux des autres à gauche : la position, la forme de
+   la bulle et « Vous » portent la différence — jamais la couleur seule
+   (WCAG 1.4.1). */
+.room-msg.is-mine {
+  align-self: flex-end;
+  align-items: flex-end;
+  padding: 2px 8px 2px 44px;
+}
+/* Un groupe du même auteur : serré sous le message précédent. */
+.room-list > li.room-msg.is-continued {
+  margin-top: -9px;
+}
+.room-msg:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
+}
+.msg-bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  max-width: min(82vw, 720px);
+  padding: 6px 12px;
+  /* Translucides : la bulle se pose sur la page sans l'écraser. */
+  background: color-mix(in srgb, var(--card) 45%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  border-radius: 14px 14px 14px 4px;
+  overflow-wrap: anywhere;
+}
+.is-mine .msg-bubble {
+  background: color-mix(in srgb, var(--blue) 11%, transparent);
+  border-color: color-mix(in srgb, var(--blue) 28%, transparent);
+  border-radius: 14px 14px 4px 14px;
+}
+.is-continued.is-other .msg-bubble {
+  border-top-left-radius: 4px;
+}
+.is-continued.is-mine .msg-bubble {
+  border-top-right-radius: 4px;
+}
+.msg-bubble.is-editing {
+  width: 100%;
+  max-width: 100%;
+}
+.room-msg:has(.is-editing) {
+  width: 100%;
+}
+.is-retracted .msg-bubble {
+  background: transparent;
+  border-style: dashed;
+}
+.room-msg:hover .msg-bubble,
+.room-msg:focus-within .msg-bubble {
+  border-color: color-mix(in srgb, var(--blue) 55%, var(--border));
+}
+.msg-actions {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+}
+.is-mine .msg-actions {
+  right: auto;
+  left: 4px;
+}
+.is-mine .msg-menu {
+  right: auto;
+  left: 0;
+}
+.msg-menu-btn {
+  font: inherit;
+  min-width: 28px;
+  min-height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--card);
+  color: var(--fg);
+  cursor: pointer;
+  opacity: 0;
+}
+.room-msg:hover .msg-menu-btn,
+.room-msg:focus-within .msg-menu-btn,
+.room-msg.is-active .msg-menu-btn,
+.msg-menu-btn[aria-expanded="true"] {
+  opacity: 1;
+}
+@media (hover: none) {
+  .msg-menu-btn {
+    opacity: 1;
+  }
+}
+.msg-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 6;
+  min-width: 200px;
+  padding: 4px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+.msg-menu-react {
+  display: flex;
+  gap: 2px;
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.msg-menu-react [role="menuitemcheckbox"] {
+  display: grid;
+  place-items: center;
+  min-width: 30px;
+  min-height: 30px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 1.05rem;
+}
+.msg-menu-react [aria-checked="true"] {
+  background: color-mix(in srgb, var(--link) 22%, var(--card));
+}
+.msg-menu-item {
+  padding: 6px 10px;
+  min-height: 30px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.msg-menu [role^="menuitem"]:hover,
+.msg-menu [role^="menuitem"]:focus {
+  outline: none;
+  background: color-mix(in srgb, var(--link) 18%, var(--card));
+}
+.room-edited {
+  font-style: italic;
+}
+/* La citation d'un message auquel on répond : un bloc qui se voit — fond
+   teinté, barre bleue, « Réponse à X » puis l'extrait. Le même dans la liste
+   et au-dessus du champ. */
+.room-quote,
+.composer-reply-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.room-quote {
+  font: inherit;
+  text-align: left;
+  color: var(--fg);
+  background: color-mix(in srgb, var(--blue) 8%, transparent);
+  border: none;
+  border-left: 3px solid var(--blue);
+  border-radius: 0 7px 7px 0;
+  padding: 4px 10px;
+  margin: 3px 0 4px;
+  max-width: min(100%, 560px);
+}
+button.room-quote {
+  cursor: pointer;
+}
+button.room-quote:hover {
+  background: color-mix(in srgb, var(--blue) 15%, transparent);
+}
+/* Une pièce DANS une bulle : pas de seconde boîte pleine par-dessus. */
+.msg-bubble .att-box,
+.msg-bubble .att-pill {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--border) 55%, transparent);
+}
+button.room-quote:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.quote-head {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.quote-head strong {
+  color: color-mix(in srgb, var(--blue) 50%, var(--fg));
+}
+.quote-text {
+  font-size: 0.88rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Le message cité où l'on vient de sauter : surligné un instant. */
+.room-msg.is-flash {
+  animation: msg-flash 1.6s ease-out;
+}
+@keyframes msg-flash {
+  from {
+    background: color-mix(in srgb, var(--blue) 28%, transparent);
+  }
+  to {
+    background: transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .room-msg.is-flash {
+    animation: none;
+    background: color-mix(in srgb, var(--blue) 18%, transparent);
+  }
+}
+.room-retracted {
+  margin: 0;
+  font-style: italic;
+  color: var(--muted);
+}
+.msg-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+.msg-chip {
+  font: inherit;
+  font-size: 0.82rem;
+  min-height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--card);
+  color: var(--fg);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+button.msg-chip {
+  cursor: pointer;
+}
+button.msg-chip[aria-pressed="true"] {
+  border-color: var(--link);
+  background: color-mix(in srgb, var(--link) 18%, var(--card));
+}
+.msg-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 0.88rem;
+}
+.room-btn.is-danger {
+  color: #fff;
+  background: var(--danger);
+  border-color: var(--danger);
+}
+.msg-edit-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+.room-msg .room-error {
+  margin: 2px 0 0;
+  font-size: 0.85rem;
+  color: var(--danger);
+}
+.composer-reply {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 6px;
+  padding: 4px 4px 4px 10px;
+  background: color-mix(in srgb, var(--blue) 9%, var(--card));
+  border-left: 3px solid var(--blue);
+  border-radius: 0 7px 7px 0;
+}
+.composer-reply-body {
+  flex: 1;
+}
 /* Les liens du salon (message, téléchargement) : le bleu mêlé au texte, lisible
    dans les deux thèmes — le bleu seul tombe à 3,3:1 sur le fond sombre. */
 .room-list a {

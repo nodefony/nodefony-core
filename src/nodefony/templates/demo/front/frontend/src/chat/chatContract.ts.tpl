@@ -2,12 +2,15 @@ import type { IRealtimeContract } from "nodefony/client";
 import type { IFilePreview } from "../kit/preview";
 import type {
   CreateRoomBody,
+  EditBody,
   EventBody,
   EventParams,
   HistoryQuery,
   InviteBody,
   LinkParams,
+  MessageParams,
   PeopleQuery,
+  ReactBody,
   ReplyBody,
   RoomParams,
   SendBody,
@@ -123,6 +126,38 @@ export interface ChatAttachment extends IFilePreview {
   expired?: boolean;
 }
 
+/**
+ * Le message auquel un message répond (XEP-0461, Matrix `m.in_reply_to`),
+ * tel que le SERVEUR le cite à la lecture : un extrait en texte brut, jamais
+ * le message entier. Toujours un message du MÊME salon — le serveur refuse
+ * une réponse à un message d'ailleurs, sinon citer un `id` suffirait à lire
+ * un salon privé.
+ *
+ * - `present` : le message cité est là, `author` et `excerpt` le disent ;
+ * - `retracted` : il a été retiré — rien de lui n'est cité ;
+ * - `missing` : il n'existe plus (compte supprimé, RGPD art. 17).
+ */
+export interface ChatReplyRef {
+  id: string;
+  state: "present" | "retracted" | "missing";
+  author: string | null;
+  excerpt: string;
+}
+
+/**
+ * Une réaction d'un message (XEP-0444, Matrix `m.annotation`) : un emoji et
+ * qui l'a posé, dans l'ordre d'arrivée. Des NOMS seulement — l'identité
+ * stable d'un compte n'est jamais montrée au salon ; la page reconnaît la
+ * sienne à son nom, comme pour la frappe.
+ */
+export interface ChatReaction {
+  emoji: string;
+  names: string[];
+}
+
+/** Qui a retiré un message : son auteur, ou la modération du salon (XEP-0425). */
+export type RetractedBy = "author" | "moderation";
+
 /** Un message du salon. L'auteur est posé par le SERVEUR, jamais par le client. */
 export interface ChatMessage {
   /**
@@ -136,39 +171,33 @@ export interface ChatMessage {
   sentAt: number;
   /** Les pièces du message, absentes d'un message de texte seul. */
   attachments?: ChatAttachment[];
+  /** Le message auquel il répond (XEP-0461). */
+  replyTo?: ChatReplyRef;
+  /** Instant de la dernière modification par son auteur (ms UTC). */
+  editedAt?: number;
+  /**
+   * Retiré (XEP-0424) : texte, pièces, réactions et citation sont EFFACÉS en
+   * base, la ligne reste pour que les réponses disent « retiré ».
+   */
+  retracted?: RetractedBy;
+  /** Ses réactions, absentes d'un message sans réaction. */
+  reactions?: ChatReaction[];
 }
 
 /**
- * Ce que porte le canal d'un salon (`chat:room:<id>`) : un message, ou le
- * signal « Untel écrit… » — éphémère, ni conservé ni compté. La frappe est un
+ * Ce que porte le canal d'un salon (`chat:room:<id>`) : un message — neuf,
+ * modifié ou retiré, toujours ENTIER : la page remplace celui qu'elle a par
+ * son `id` —, les réactions d'un message, ou le signal « Untel écrit… » —
+ * éphémère, ni conservé ni compté. Les réactions voyagent ENTIÈRES pour le
+ * message (XEP-0444 envoie l'ensemble, pas un delta) : l'ordre d'arrivée de
+ * deux trames ne fausse jamais le compte. La frappe est un
  * message du canal, jamais un état de la présence (RFC 6121 §4.4.1, ADR-0025
  * P4) : elle suit les mêmes droits que le salon.
  */
 export type RoomFrame =
   | { kind: "message"; message: ChatMessage }
+  | { kind: "reactions"; messageId: string; reactions: ChatReaction[] }
   | { kind: "typing"; author: string };
-
-/**
- * Une trame venue du réseau est-elle une `RoomFrame` ? La page le vérifie
- * avant de l'afficher : le type d'un canal de famille n'est pas encore porté
- * par le contrat jusqu'à `socket.on`.
- */
-export function isRoomFrame(value: unknown): value is RoomFrame {
-  if (typeof value !== "object" || value === null) return false;
-  const kind: unknown = Reflect.get(value, "kind");
-  if (kind === "typing")
-    return typeof Reflect.get(value, "author") === "string";
-  if (kind !== "message") return false;
-  const message: unknown = Reflect.get(value, "message");
-  return (
-    typeof message === "object" &&
-    message !== null &&
-    typeof Reflect.get(message, "id") === "string" &&
-    typeof Reflect.get(message, "author") === "string" &&
-    typeof Reflect.get(message, "text") === "string" &&
-    typeof Reflect.get(message, "sentAt") === "number"
-  );
-}
 
 /**
  * Qui « écrit… » après une trame du salon, vu par `me` — la règle PURE que la
@@ -192,6 +221,7 @@ export function nextTyping(
 ): string | null {
   if (frame.kind === "message")
     return current === frame.message.author ? null : current;
+  if (frame.kind === "reactions") return current;
   return frame.author === me ? current : frame.author;
 }
 
@@ -252,6 +282,20 @@ export interface ChatContract extends IRealtimeContract {
     "POST /demo/chat/direct/{user}": {
       params: typeof UserParams;
       result: IRoomView;
+    };
+    "PATCH /demo/chat/rooms/{room}/messages/{message}": {
+      params: typeof MessageParams;
+      body: typeof EditBody;
+      result: { editedAt: number };
+    };
+    "DELETE /demo/chat/rooms/{room}/messages/{message}": {
+      params: typeof MessageParams;
+      result: { ok: true };
+    };
+    "PUT /demo/chat/rooms/{room}/messages/{message}/reactions": {
+      params: typeof MessageParams;
+      body: typeof ReactBody;
+      result: ChatReaction[];
     };
     "GET /demo/chat/rooms/{room}/messages/{message}/links/{index}": {
       params: typeof LinkParams;

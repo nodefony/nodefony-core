@@ -12,9 +12,9 @@ import {
   CHAT_FILE_PATH,
   CHAT_REALTIME_PATH,
   MESSAGE_MAX_BYTES,
-  isRoomFrame,
   type ChatContract,
   type ChatMessage,
+  type ChatReaction,
 } from "../frontend/src/chat/chatContract";
 import {
   LOBBY_ROOM_ID,
@@ -70,16 +70,17 @@ async function listener(roomId = LOBBY_ROOM_ID) {
   const channel = roomChannel(roomId);
   const messages: ChatMessage[] = [];
   const typing: string[] = [];
+  const reactions: { messageId: string; reactions: ChatReaction[] }[] = [];
   socket.on(channel, (frame) => {
-    if (!isRoomFrame(frame)) return;
     if (frame.kind === "message") messages.push(frame.message);
+    else if (frame.kind === "reactions") reactions.push(frame);
     else typing.push(frame.author);
   });
   socket.subscribe(channel);
   // Le serveur ACQUITTE l'abonnement : sans cette attente, un message envoyé
   // aussitôt partirait avant que l'abonné soit inscrit.
   await socket.whenSubscribed(channel);
-  return { socket, messages, typing };
+  return { socket, messages, typing, reactions };
 }
 
 /** Une route d'un salon. */
@@ -707,5 +708,217 @@ demoDescribe("discussion — l'aperçu d'un lien", () => {
     });
     expect(other.status).toBe(200);
     await other.body?.cancel();
+  });
+});
+
+/** L'`id` que le serveur rend d'un envoi. */
+async function sentId(res: Response): Promise<string> {
+  expect(res.status).toBe(200);
+  const body: unknown = await res.json();
+  const id =
+    typeof body === "object" && body !== null ? Reflect.get(body, "id") : null;
+  expect(typeof id).toBe("string");
+  return String(id);
+}
+
+/** Un geste sur un message : modifier, retirer, réagir. */
+function gesture(
+  headers: Record<string, string>,
+  method: "PATCH" | "DELETE" | "PUT",
+  roomId: string,
+  messageId: string,
+  options: { tail?: string; body?: object } = {},
+) {
+  return fetch(roomPath(roomId, `messages/${messageId}${options.tail ?? ""}`), {
+    method,
+    headers: { ...headers, "content-type": "application/json" },
+    ...(options.body === undefined
+      ? {}
+      : { body: JSON.stringify(options.body) }),
+  });
+}
+
+/** Le dernier état d'un message reçu sur le salon. */
+const lastOf = (who: { messages: ChatMessage[] }, id: string) =>
+  who.messages.findLast((m) => m.id === id);
+
+demoDescribe("discussion — répondre, réagir, modifier, retirer", () => {
+  let member: Record<string, string> = {};
+  beforeAll(async () => {
+    await ensureMember();
+    const base = httpUrl("");
+    member = await csrfHeaders(base, await userLogin(base));
+  });
+
+  it("une réponse arrive avec la citation de son message, et l'historique la relit", async () => {
+    const lobby = await listener();
+    const first = unique("question");
+    const firstId = await sentId(await send(first));
+    const answer = unique("réponse");
+    const answerId = await sentId(
+      await send(answer, randomUUID(), { replyTo: firstId }),
+    );
+    await waitFor("la réponse", () => lastOf(lobby, answerId) !== undefined);
+    const expected = {
+      id: firstId,
+      state: "present",
+      author: "admin",
+      excerpt: first,
+    };
+    expect(lastOf(lobby, answerId)?.replyTo).toEqual(expected);
+    const res = await fetch(roomPath(LOBBY_ROOM_ID, "history?limit=200"));
+    const past: ChatMessage[] = await res.json();
+    expect(past.find((m) => m.id === answerId)?.replyTo).toEqual(expected);
+    // Retirée, la réponse perd aussi sa citation : rien du message cité ne reste.
+    expect(
+      (await gesture(admin, "DELETE", LOBBY_ROOM_ID, answerId)).status,
+    ).toBe(200);
+    const after: ChatMessage[] = await (
+      await fetch(roomPath(LOBBY_ROOM_ID, "history?limit=200"))
+    ).json();
+    expect(after.find((m) => m.id === answerId)).not.toHaveProperty("replyTo");
+  });
+
+  it("répondre à un message d'un AUTRE salon : 404, et l'extrait ne fuit pas", async () => {
+    const lobby = await listener();
+    const secret = unique("secret");
+    const secretId = await sentId(
+      await send(secret, randomUUID(), {}, TEAM_ROOM_ID),
+    );
+    const res = await send(unique("curieux"), randomUUID(), {
+      replyTo: secretId,
+    });
+    expect(res.status).toBe(404);
+    await res.body?.cancel();
+    const witness = unique("témoin");
+    await send(witness);
+    await waitFor("le témoin", () =>
+      lobby.messages.some((m) => m.text === witness),
+    );
+    expect(JSON.stringify(lobby.messages)).not.toContain(secret);
+  });
+
+  it("modifier : l'auteur seul ; le message ENTIER repart, même id, marqué modifié", async () => {
+    const lobby = await listener();
+    const id = await sentId(await send(unique("brouillon")));
+    const fixed = unique("corrigé");
+    const other = await gesture(member, "PATCH", LOBBY_ROOM_ID, id, {
+      body: { text: "usurpé" },
+    });
+    expect(other.status).toBe(403);
+    await other.body?.cancel();
+    const empty = await gesture(admin, "PATCH", LOBBY_ROOM_ID, id, {
+      body: { text: "" },
+    });
+    expect(empty.status).toBe(422);
+    await empty.body?.cancel();
+    const res = await gesture(admin, "PATCH", LOBBY_ROOM_ID, id, {
+      body: { text: fixed },
+    });
+    expect(res.status).toBe(200);
+    await waitFor(
+      "la version corrigée",
+      () => lastOf(lobby, id)?.text === fixed,
+    );
+    expect(typeof lastOf(lobby, id)?.editedAt).toBe("number");
+  });
+
+  it("retirer : 403 à qui n'est ni l'auteur ni modérateur ; retiré, il ne garde rien et ne se retire pas deux fois", async () => {
+    const lobby = await listener();
+    const text = unique("à retirer");
+    const id = await sentId(await send(text));
+    const other = await gesture(member, "DELETE", LOBBY_ROOM_ID, id);
+    expect(other.status).toBe(403);
+    await other.body?.cancel();
+    expect((await gesture(admin, "DELETE", LOBBY_ROOM_ID, id)).status).toBe(
+      200,
+    );
+    await waitFor(
+      "le retrait",
+      () => lastOf(lobby, id)?.retracted === "author",
+    );
+    expect(lastOf(lobby, id)?.text).toBe("");
+    const again = await gesture(admin, "DELETE", LOBBY_ROOM_ID, id);
+    expect(again.status).toBe(404);
+    await again.body?.cancel();
+    const res = await fetch(roomPath(LOBBY_ROOM_ID, "history?limit=200"));
+    const past: ChatMessage[] = await res.json();
+    expect(past.find((m) => m.id === id)).toMatchObject({
+      text: "",
+      retracted: "author",
+    });
+    expect(JSON.stringify(past)).not.toContain(text);
+  });
+
+  it("la modération retire le message d'un membre (XEP-0425)", async () => {
+    const created = await post(admin, "/demo/chat/rooms", {
+      name: roomName("modéré"),
+      access: "private",
+    });
+    expect(created.status).toBe(200);
+    const room: IRoomView = await created.json();
+    const invited = await post(admin, `/demo/chat/rooms/${room.id}/members`, {
+      identifier: E2E_USER_IDENTIFIER,
+    });
+    expect(invited.status).toBe(200);
+    await invited.body?.cancel();
+    const res = await fetch(roomPath(room.id, "send"), {
+      method: "POST",
+      headers: {
+        ...member,
+        "content-type": "application/json",
+        "idempotency-key": randomUUID(),
+      },
+      body: JSON.stringify({ text: unique("hors sujet") }),
+    });
+    const id = await sentId(res);
+    expect((await gesture(admin, "DELETE", room.id, id)).status).toBe(200);
+    const past: ChatMessage[] = await (
+      await fetch(roomPath(room.id, "history?limit=10"), { headers: admin })
+    ).json();
+    expect(past.find((m) => m.id === id)?.retracted).toBe("moderation");
+  });
+
+  it("réagir : l'ensemble de chacun remplace le sien, le salon reçoit TOUTES les réactions ; rejoué, rien ne change", async () => {
+    const lobby = await listener();
+    const id = await sentId(await send(unique("vote")));
+    const put = (headers: Record<string, string>, emojis: string[]) =>
+      gesture(headers, "PUT", LOBBY_ROOM_ID, id, {
+        tail: "/reactions",
+        body: { emojis },
+      });
+    expect((await put(member, ["👍"])).status).toBe(200);
+    const both = await put(admin, ["👍", "🎉"]);
+    const expected = [
+      { emoji: "👍", names: [E2E_USER_IDENTIFIER, "admin"] },
+      { emoji: "🎉", names: ["admin"] },
+    ];
+    expect(await both.json()).toEqual(expected);
+    expect(await (await put(admin, ["👍", "🎉"])).json()).toEqual(expected);
+    await waitFor("les réactions sur le salon", () =>
+      lobby.reactions.some(
+        (frame) =>
+          frame.messageId === id &&
+          JSON.stringify(frame.reactions) === JSON.stringify(expected),
+      ),
+    );
+    const word = await put(admin, ["bravo"]);
+    expect(word.status).toBe(422);
+    await word.body?.cancel();
+    const anonymous = await fetch(
+      roomPath(LOBBY_ROOM_ID, `messages/${id}/reactions`),
+      {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ emojis: ["👍"] }),
+      },
+    );
+    expect(anonymous.status).toBeGreaterThanOrEqual(401);
+    expect(anonymous.status).toBeLessThanOrEqual(403);
+    await anonymous.body?.cancel();
+    const past: ChatMessage[] = await (
+      await fetch(roomPath(LOBBY_ROOM_ID, "history?limit=200"))
+    ).json();
+    expect(past.find((m) => m.id === id)?.reactions).toEqual(expected);
   });
 });
