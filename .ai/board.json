@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-14T10:59:00.537Z",
+  "generatedAt": "2026-11-14T13:08:10.305Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,7 +46,7 @@
       "title": "10.0.0"
     },
     {
-      "closed": 258,
+      "closed": 259,
       "dueOn": "2026-11-15T00:00:00Z",
       "number": 7,
       "open": 15,
@@ -6450,6 +6450,22 @@
       ]
     },
     {
+      "number": 775,
+      "title": "fix(kernel): arrêter les modules dans l'ordre inverse de leur démarrage",
+      "url": "https://github.com/nodefony/nodefony-core/issues/775",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 7.005,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-7"
+      ]
+    },
+    {
       "number": 694,
       "title": "feat(http): servir des services gRPC dans le pipeline HTTP/2",
       "url": "https://github.com/nodefony/nodefony-core/issues/694",
@@ -6843,8 +6859,8 @@
       "number": 760,
       "title": "feat(realtime): connaître les présents d'un canal sur tous les pods",
       "url": "https://github.com/nodefony/nodefony-core/issues/760",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 2,
