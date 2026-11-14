@@ -663,6 +663,13 @@ flowchart LR
 que chacun reçoit parce qu'il y est abonné et que l'écran efface seul. Il ne passe jamais par la
 présence — sinon chaque frappe ferait renvoyer la liste à tout le salon.
 
+> [!IMPORTANT]
+> **À cette étape, l'auteur de la frappe vient du client** — comme le pseudo du message de l'étape 1,
+> et pour la même raison : il n'y a encore ni comptes ni salons, un seul salon ouvert à tous. Ce
+> n'est pas la forme finale. Dès l'[étape 5](#-étape-5--protéger-le-salon), l'auteur vient de la
+> **connexion** (`this.user`), jamais d'un champ : un « Untel écrit » forgé usurpe aussi bien qu'un
+> message (voir le [contrôleur complet](#-le-contrôleur-complet)).
+
 ### Le contrôleur — fichier **modifié**
 
 Le contrôleur entier à cette étape ; l'envoi de l'étape 1 (`chat:send`) ne change pas et n'est pas
@@ -1140,8 +1147,11 @@ await socket.post("/chat/send", { text });
 > **La règle à retenir.** Canal inbound = flux volatil, à haute fréquence, dont l'expéditeur importe
 > peu (« untel écrit »). Action de contrôleur = tout ce qui doit être **attribué, autorisé ou
 > conservé**. Le chat de l'étape 1 utilisait un canal inbound par simplicité ; dès qu'il y a des
-> comptes, l'envoi devient une action. La frappe en cours, elle, reste un canal inbound — son auteur
-> n'a pas besoin d'être prouvé.
+> comptes, l'envoi devient une action. La frappe en cours, elle, reste un canal inbound : rien n'y
+> est conservé. Mais son auteur se lit sur la **connexion** (`this.user`), plus dans les paramètres
+> — sinon n'importe qui ferait écrire « Alice ». Avec **plusieurs salons à admission**, un canal
+> inbound ne sait pas dans quel salon la connexion est admise : la frappe devient alors une route,
+> qui relit l'admission du salon comme l'envoi (c'est ce que fait la démo de `create app`).
 
 Côté navigateur, l'identité annoncée par le serveur se lit sans appeler la moindre route :
 
