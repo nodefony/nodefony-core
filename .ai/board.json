@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-14T13:08:10.305Z",
+  "generatedAt": "2026-11-14T14:18:35.633Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,10 +46,10 @@
       "title": "10.0.0"
     },
     {
-      "closed": 259,
+      "closed": 260,
       "dueOn": "2026-11-15T00:00:00Z",
       "number": 7,
-      "open": 15,
+      "open": 14,
       "title": "10.0.0-beta"
     },
     {
@@ -6453,8 +6453,8 @@
       "number": 775,
       "title": "fix(kernel): arrêter les modules dans l'ordre inverse de leur démarrage",
       "url": "https://github.com/nodefony/nodefony-core/issues/775",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 2,
