@@ -39,13 +39,6 @@ export interface IPresenceAggregate {
    * @param now - instant monotone local (ms).
    */
   remoteLeave(key: string, tabs: number, now: number): void;
-  /**
-   * Un pair part avec `count` connexions non nommées — décompte retardé par la grâce du canal.
-   *
-   * @param count - entier > 0.
-   * @param now - instant monotone local (ms).
-   */
-  remoteUnnamedLeave(count: number, now: number): void;
 }
 
 /**
@@ -130,7 +123,7 @@ class RemotePod {
   }
 }
 
-/** Entrées d'une table, retirées de l'agrégat quand le pod PART (grâce du canal comprise). */
+/** Entrées d'une table, retirées de l'agrégat quand le pod PART (grâce du canal pour les identités nommées). */
 function withdraw(
   table: RemoteChannel,
   aggregate: IPresenceAggregate,
@@ -138,7 +131,8 @@ function withdraw(
 ): void {
   for (const [key, tabs] of table.members)
     aggregate.remoteLeave(key, tabs, now);
-  if (table.unnamed !== 0) aggregate.remoteUnnamedLeave(table.unnamed, now);
+  // Non nommés : sans grâce — rien ne reconnaîtrait leur retour sur un autre pod.
+  if (table.unnamed !== 0) aggregate.remoteUnnamed(-table.unnamed);
 }
 
 /** Un canal nommé par une réponse d'état, pendant son application. */

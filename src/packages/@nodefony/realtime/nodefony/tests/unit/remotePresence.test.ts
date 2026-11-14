@@ -43,10 +43,6 @@ class Agg implements IPresenceAggregate {
       throw new Error(`départ de ${String(tabs)} onglet(s) pour ${key}`);
     this.remoteTabs(key, -tabs);
   }
-  remoteUnnamedLeave(count: number): void {
-    if (count <= 0) throw new Error(`départ de ${String(count)} non nommé(s)`);
-    this.remoteUnnamed(-count);
-  }
   snapshot(): Record<string, number> {
     return Object.fromEntries([...this.tabs].sort());
   }

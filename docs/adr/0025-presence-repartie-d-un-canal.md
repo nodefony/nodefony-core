@@ -418,8 +418,12 @@ canaux, de membres ou d'abonnés.**
   (service `realtimeBackplane`) reçoit la fin, mais c'est à l'application de l'arrêter.
 - **Grâce** : option `presence: { grace: <ms> }`. Un départ — connexion fermée, pod oublié ou
   parti — n'est publié qu'après ce délai, et s'annule si l'identité revient : un rechargement de
-  page ou un déploiement ne fait plus clignoter la liste. Pour `unnamed`, la grâce retarde le
-  décompte. Les délais vivent dans le tic unique du pod, aucun minuteur par présent.
+  page ou un déploiement ne fait plus clignoter la liste. La grâce ne vaut que pour une identité
+  NOMMÉE : un départ `unnamed` (local ou d'un pod parti) est décompté tout de suite, car rien ne
+  reconnaît un anonyme à son retour — il compterait une connexion de plus, et la grâce
+  n'ajouterait qu'un fantôme le temps du délai (vu sur la démo : l'anonyme d'avant la connexion
+  ou d'avant un rechargement restait affiché). Les délais vivent dans le tic unique du pod, aucun
+  minuteur par présent.
   Le DERNIER client d'un pod n'y échappe pas : quand il quitte le canal pendant une grâce, le
   canal se ferme sur ce pod mais sa présence reste servie au bus jusqu'à l'échéance
   (`server/RealtimeHub.ts#RealtimeHub.#lingerPresence`) — le départ part alors, puis la présence

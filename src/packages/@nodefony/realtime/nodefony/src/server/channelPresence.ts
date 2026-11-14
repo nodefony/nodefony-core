@@ -174,20 +174,17 @@ export class ChannelPresence implements IPresenceAggregate {
   // autour de `maxNamed` renverrait sinon la liste complète à tous à chaque retour.
   // La bande est proportionnelle au coût qu'elle évite (la liste) : nulle sous 10.
   readonly #resumeNamed: number;
-  // Départs retenus par la grâce — `null` tant qu'aucun. UNE grâce par canal
-  // et une horloge monotone : l'ordre d'insertion EST l'ordre des échéances,
-  // donc la première entrée est la prochaine (O(1), jamais un parcours par
-  // départ — un pod qui redémarre en fait mille d'un coup).
+  // Départs NOMMÉS retenus par la grâce — `null` tant qu'aucun. UNE grâce par
+  // canal et une horloge monotone : l'ordre d'insertion EST l'ordre des
+  // échéances, donc la première entrée est la prochaine (O(1), jamais un
+  // parcours par départ — un pod qui redémarre en fait mille d'un coup).
+  // Un NON NOMMÉ n'a pas de grâce : rien ne le reconnaît à son retour, qui
+  // compte une connexion de plus — la grâce n'y gagnerait qu'un fantôme.
   #leaving: Map<string, number> | null = null;
-  #unnamedLeaving: number[] | null = null;
-  #unnamedHead = 0;
   // Départs d'un PAIR retenus par la grâce — même ordre (une grâce par canal,
   // horloge monotone) ; tenus à part des départs locaux : ils ne touchent pas la
   // part locale et peuvent porter plusieurs onglets.
   #remoteLeaving: Map<string, RemoteDeparture> | null = null;
-  // Non nommés d'un pair parti, en paires à plat `[échéance, nombre, …]`.
-  #remoteUnnamedLeaving: number[] | null = null;
-  #remoteUnnamedHead = 0;
 
   /**
    * @param distributed - le canal est diffusé entre pods (bus branché, préfixe
@@ -253,21 +250,21 @@ export class ChannelPresence implements IPresenceAggregate {
   /**
    * Une connexion sort.
    *
+   * Un départ nommé attend la grâce du canal ; un départ non nommé est décompté
+   * tout de suite (rien ne reconnaîtrait son retour).
+   *
    * @param key - même valeur qu'à {@link ChannelPresence.join}.
    * @param now - instant monotone (ms), pour la grâce.
    */
   leave(key: string | null, now: number): void {
-    const grace = this.settings.grace;
     const local = this.#local;
     if (key === null) {
-      if (grace > 0) (this.#unnamedLeaving ??= []).push(now + grace);
-      else {
-        this.#unnamed -= 1;
-        this.#countsDirty = true;
-        if (local !== null) this.#addLocalUnnamed(-1);
-      }
+      this.#unnamed -= 1;
+      this.#countsDirty = true;
+      if (local !== null) this.#addLocalUnnamed(-1);
       return;
     }
+    const grace = this.settings.grace;
     const tabs = this.#named.get(key);
     if (tabs === undefined) return;
     if (tabs > 1) {
@@ -294,38 +291,17 @@ export class ChannelPresence implements IPresenceAggregate {
   expire(now: number): void {
     const leaving = this.#leaving;
     const local = this.#local;
-    if (this.#remoteLeaving !== null || this.#remoteUnnamedLeaving !== null)
-      this.#expireRemote(now);
-    if (leaving !== null) {
-      // Échéances croissantes : on s'arrête à la première non échue.
-      for (const [key, deadline] of leaving) {
-        if (deadline > now) break;
-        leaving.delete(key);
-        this.#named.delete(key);
-        this.#markDirty(key);
-        if (local !== null) this.#setLocal(local, key, 0);
-      }
-      if (leaving.size === 0) this.#leaving = null;
+    if (this.#remoteLeaving !== null) this.#expireRemote(now);
+    if (leaving === null) return;
+    // Échéances croissantes : on s'arrête à la première non échue.
+    for (const [key, deadline] of leaving) {
+      if (deadline > now) break;
+      leaving.delete(key);
+      this.#named.delete(key);
+      this.#markDirty(key);
+      if (local !== null) this.#setLocal(local, key, 0);
     }
-    const queue = this.#unnamedLeaving;
-    if (queue !== null) {
-      let head = this.#unnamedHead;
-      const from = head;
-      while (head < queue.length && (queue[head] ?? 0) <= now) head += 1;
-      if (head > from) {
-        this.#unnamed -= head - from;
-        this.#countsDirty = true;
-        if (local !== null) this.#addLocalUnnamed(from - head);
-      }
-      if (head === queue.length) {
-        this.#unnamedLeaving = null;
-        this.#unnamedHead = 0;
-      } else if (head > 1024 && head * 2 > queue.length) {
-        // Compactage amorti : la tête consommée ne grossit pas sans fin.
-        queue.splice(0, head);
-        this.#unnamedHead = 0;
-      } else this.#unnamedHead = head;
-    }
+    if (leaving.size === 0) this.#leaving = null;
   }
 
   /** Prochaine échéance de grâce (ms monotone), `Infinity` sans départ retenu — O(1). */
@@ -337,16 +313,12 @@ export class ChannelPresence implements IPresenceAggregate {
         break;
       }
     }
-    const first = this.#unnamedLeaving?.[this.#unnamedHead];
-    if (first !== undefined && first < next) next = first;
     if (this.#remoteLeaving !== null) {
       for (const departure of this.#remoteLeaving.values()) {
         if (departure.deadline < next) next = departure.deadline;
         break;
       }
     }
-    const remote = this.#remoteUnnamedLeaving?.[this.#remoteUnnamedHead];
-    if (remote !== undefined && remote < next) next = remote;
     return next;
   }
 
@@ -486,13 +458,6 @@ export class ChannelPresence implements IPresenceAggregate {
     else leaving.set(key, new RemoteDeparture(now + grace, tabs));
   }
 
-  /** {@inheritDoc IPresenceAggregate.remoteUnnamedLeave} */
-  remoteUnnamedLeave(count: number, now: number): void {
-    const grace = this.settings.grace;
-    if (grace === 0) this.remoteUnnamed(-count);
-    else (this.#remoteUnnamedLeaving ??= []).push(now + grace, count);
-  }
-
   /**
    * Consomme les changements de la part locale depuis le dernier lot et rend l'entrée du lot, en valeurs absolues — `null` s'ils s'annulent tous.
    */
@@ -539,7 +504,7 @@ export class ChannelPresence implements IPresenceAggregate {
    * l'échéance (ADR-0025 P5), puis se libère.
    */
   get hasLocalGrace(): boolean {
-    return this.#leaving !== null || this.#unnamedLeaving !== null;
+    return this.#leaving !== null;
   }
 
   /** La part locale compte-t-elle quelqu'un ? */
@@ -557,11 +522,7 @@ export class ChannelPresence implements IPresenceAggregate {
     for (const key of local.keys()) this.#setLocal(local, key, 0);
     this.#leaving = null;
     if (this.#localUnnamed !== 0) this.#addLocalUnnamed(-this.#localUnnamed);
-    this.#unnamedLeaving = null;
-    this.#unnamedHead = 0;
     this.#remoteLeaving = null;
-    this.#remoteUnnamedLeaving = null;
-    this.#remoteUnnamedHead = 0;
   }
 
   /** Annule le départ en grâce d'un pair pour `key` ; rend les onglets qu'il retenait (`0` sans départ). */
@@ -578,34 +539,17 @@ export class ChannelPresence implements IPresenceAggregate {
   /** Départs de pairs dont la grâce est écoulée — échéances croissantes, arrêt à la première non échue. */
   #expireRemote(now: number): void {
     const leaving = this.#remoteLeaving;
-    if (leaving !== null) {
-      const named = this.#named;
-      for (const [key, departure] of leaving) {
-        if (departure.deadline > now) break;
-        leaving.delete(key);
-        const total = (named.get(key) ?? 0) - departure.tabs;
-        if (total > 0) named.set(key, total);
-        else named.delete(key);
-        this.#markDirty(key);
-      }
-      if (leaving.size === 0) this.#remoteLeaving = null;
+    if (leaving === null) return;
+    const named = this.#named;
+    for (const [key, departure] of leaving) {
+      if (departure.deadline > now) break;
+      leaving.delete(key);
+      const total = (named.get(key) ?? 0) - departure.tabs;
+      if (total > 0) named.set(key, total);
+      else named.delete(key);
+      this.#markDirty(key);
     }
-    const queue = this.#remoteUnnamedLeaving;
-    if (queue === null) return;
-    let head = this.#remoteUnnamedHead;
-    let gone = 0;
-    while (head < queue.length && (queue[head] ?? 0) <= now) {
-      gone += queue[head + 1] ?? 0;
-      head += 2;
-    }
-    if (gone !== 0) {
-      this.#unnamed -= gone;
-      this.#countsDirty = true;
-    }
-    if (head >= queue.length) {
-      this.#remoteUnnamedLeaving = null;
-      this.#remoteUnnamedHead = 0;
-    } else this.#remoteUnnamedHead = head;
+    if (leaving.size === 0) this.#remoteLeaving = null;
   }
 
   /**

@@ -636,9 +636,11 @@ describe("#760 lot D3 — pannes : arrêt propre, grâce des pods, écho, gel", 
     expect(b.probe().presence?.endedTotal).toBe(1);
     client(b, "wait:1", "alice"); // reconnectée ailleurs (déploiement)
     await tick(500);
-    // Grâce de 1 000 ms en cours : personne n'est encore parti.
+    // Grâce de 1 000 ms en cours : aucune identité nommée n'est encore partie.
+    // L'anonyme de A, lui, est déjà décompté : rien ne le reconnaîtrait s'il
+    // revenait sur B, où il compterait une connexion de plus (fantôme).
     expect(view(b, "wait:1")).to.deep.equal({ alice: 1, bob: 1, carol: 1 });
-    expect(b.presence("wait:1")?.unnamed).toBe(1);
+    expect(b.presence("wait:1")?.unnamed).toBe(0);
     await tick(500 + PRESENCE_WINDOW_MS);
     expect(view(b, "wait:1")).to.deep.equal({ alice: 1, bob: 1 });
     expect(b.presence("wait:1")?.unnamed).toBe(0);

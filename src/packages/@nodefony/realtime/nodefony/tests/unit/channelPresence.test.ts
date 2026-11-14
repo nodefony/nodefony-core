@@ -457,25 +457,35 @@ describe("#760 lot C — fenêtre et grâce (horloge simulée)", () => {
 });
 
 describe("#760 lot C — état pur `ChannelPresence` (départs en masse)", () => {
-  it("🔴 2 000 départs en grâce : échéance lue en tête, UNE trame qui les nomme tous à l'échéance", () => {
+  it("🔴 2 000 départs nommés en grâce : échéance lue en tête, UNE trame qui les nomme tous à l'échéance", () => {
     const p = new ChannelPresence("room:mass", { grace: 1000, maxNamed: 5000 });
     for (let i = 0; i < 2000; i++) p.join(`u${i}`);
-    for (let i = 0; i < 3000; i++) p.join(null);
     p.takeChanges();
     for (let i = 0; i < 2000; i++) p.leave(`u${i}`, i); // échéances 1000…2999
-    for (let i = 0; i < 3000; i++) p.leave(null, i);
     expect(p.nextDeadline()).toBe(1000);
     expect(p.dirty).toBe(false); // rien de publié pendant la grâce
     p.expire(1499);
     expect(p.nextDeadline()).toBe(1500);
-    expect(p.view().unnamed).toBe(3000 - 500);
+    expect(p.view().count).toBe(2000 - 500);
     p.expire(10_000);
     expect(p.nextDeadline()).toBe(Infinity);
     const frame = p.takeChanges();
     expect(frame?.changes?.gone?.length).toBe(2000); // aucun envoi entre les deux échéances
     expect(frame?.count).toBe(0);
-    expect(frame?.unnamed).toBe(0);
     expect(p.takeChanges()).toBe(null);
+  });
+
+  it("🔴 un départ NON NOMMÉ n'a pas de grâce : décompté tout de suite, aucune échéance retenue", () => {
+    // Rien ne reconnaît un anonyme qui revient (F5, connexion) : la grâce ne
+    // ferait que le compter deux fois pendant son délai.
+    const p = new ChannelPresence("room:anon", { grace: 5000, maxNamed: 100 });
+    for (let i = 0; i < 3000; i++) p.join(null);
+    p.takeChanges();
+    for (let i = 0; i < 3000; i++) p.leave(null, i);
+    expect(p.nextDeadline()).toBe(Infinity);
+    expect(p.hasLocalGrace).toBe(false);
+    expect(p.view().unnamed).toBe(0);
+    expect(p.takeChanges()?.unnamed).toBe(0);
   });
 
   it("🔴 salon AU seuil (S-rt-87) : osciller autour de `maxNamed` n'envoie pas la liste à chaque retour — elle revient sous `maxNamed − ⌊maxNamed / 10⌋` seulement", () => {
