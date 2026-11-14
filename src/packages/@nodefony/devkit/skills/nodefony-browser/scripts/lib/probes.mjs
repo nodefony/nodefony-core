@@ -795,3 +795,20 @@ export function browserEngine(name) {
     return { engine: v, channel: undefined };
   return { engine: "chromium", channel: name.trim() };
 }
+
+/**
+ * Le nom d'un fichier produit par une sonde : préfixe, instant à la seconde,
+ * puis le numéro du processus — deux sondes lancées dans la même seconde
+ * (mesures en parallèle) écrivaient le MÊME fichier, et la seconde capture
+ * effaçait la première sans un mot.
+ *
+ * @param {string} prefix - ce que montre le fichier (`demo-chat`, `lighthouse-…`)
+ * @param {Date} at - l'instant de la mesure
+ * @param {number} pid - le processus qui écrit
+ * @param {string} ext - l'extension, sans point
+ * @returns {string}
+ */
+export function stampedName(prefix, at, pid, ext) {
+  const stamp = at.toISOString().replace(/[:.]/gu, "-").slice(0, 19);
+  return `${prefix}-${stamp}-${pid}.${ext}`;
+}

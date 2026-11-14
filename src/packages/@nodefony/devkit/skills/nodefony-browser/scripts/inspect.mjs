@@ -54,6 +54,7 @@ import {
   parseFamilies,
   signsInMidway,
   parseProbes,
+  stampedName,
   parseWidths,
   pageExpression,
   summarizeAxe,
@@ -155,8 +156,6 @@ async function axeSource() {
   const { default: axe } = await import("axe-core");
   return axe.source;
 }
-
-const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
 
 // `connecter:` dans la séquence ⇒ la page s'ouvre ANONYME (cf signsInMidway).
 const ANONYMOUS = signsInMidway(ACTIONS);
@@ -954,7 +953,10 @@ if (EVAL) {
 
 // ── Capture — AVANT la famille responsive, qui déforme le viewport ──────────
 const slug = captureSlug(PAGE);
-const shot = path.join(OUTPUT, `${slug}-${stamp}.png`);
+const shot = path.join(
+  OUTPUT,
+  stampedName(slug, new Date(), process.pid, "png"),
+);
 // `NF_BROWSER_FULLPAGE=1` : la page ENTIÈRE, pas la fenêtre. Un formulaire long
 // (ou une page qu'on vient de déplier) a l'essentiel SOUS la ligne de flottaison
 // — la capture par défaut laisse alors conclure « ce n'est pas là ».

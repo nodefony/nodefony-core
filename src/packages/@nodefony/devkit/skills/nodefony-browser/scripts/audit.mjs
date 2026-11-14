@@ -45,6 +45,7 @@ import {
   browserOrder,
   captureSlug,
   colorSchemeLaunchArgs,
+  stampedName,
   summarizeLighthouse,
 } from "./lib/probes.mjs";
 
@@ -206,9 +207,11 @@ try {
   // Le rapport COMPLET est conservé : le résumé sert à décider, l'original à
   // vérifier — et à comparer dans le temps.
   mkdirSync(OUTPUT, { recursive: true });
-  const stamp = new Date().toISOString().replace(/[:.]/gu, "-").slice(0, 19);
   const slug = captureSlug(PAGE);
-  const fullPath = path.join(OUTPUT, `lighthouse-${slug}-${stamp}.json`);
+  const fullPath = path.join(
+    OUTPUT,
+    stampedName(`lighthouse-${slug}`, new Date(), process.pid, "json"),
+  );
   writeFileSync(fullPath, JSON.stringify(lhr), "utf8");
 
   console.log(

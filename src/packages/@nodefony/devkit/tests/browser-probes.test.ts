@@ -81,6 +81,9 @@ const parseReducedMotion = fonctionDe<
     invalid: string | null;
   }
 >(probes, "parseReducedMotion");
+const stampedName = fonctionDe<
+  (prefix: string, at: Date, pid: number, ext: string) => string
+>(probes, "stampedName");
 const parseCut = fonctionDe<
   (raw: string | undefined) => {
     cut: { at: number; duration: number } | null;
@@ -984,5 +987,24 @@ describe("parseReducedMotion — mesurer une page au repos", () => {
     const r = parseReducedMotion("oui");
     expect(r.motion).toBeNull();
     expect(r.invalid).toBe("oui");
+  });
+});
+
+/**
+ * Ce que ces tests prouvent : deux sondes lancées dans la même seconde
+ * n'écrivent jamais le même fichier (vécu : une capture téléphone effacée
+ * par la capture bureau mesurée en parallèle).
+ */
+describe("stampedName — un fichier par mesure", () => {
+  const at = new Date("2026-11-14T03:28:13.456Z");
+  it("préfixe, instant à la seconde, processus, extension", () => {
+    expect(stampedName("demo-chat", at, 4242, "png")).toBe(
+      "demo-chat-2026-11-14T03-28-13-4242.png",
+    );
+  });
+  it("même seconde, deux processus : deux fichiers", () => {
+    expect(stampedName("demo-chat", at, 1, "png")).not.toBe(
+      stampedName("demo-chat", at, 2, "png"),
+    );
   });
 });
