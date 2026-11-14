@@ -8,6 +8,10 @@
  * binaire — ADR-0022 §2, ADR-0021 S8).
  */
 import { fromBase64Url, toBase64Url } from "./base64url";
+import {
+  isUnsupportedBinary,
+  unsupportedBinaryMessage,
+} from "./codec/binaryView";
 import { JSON_PROTOCOL, type IFrameCodec } from "./IFrameCodec";
 
 /** Clé réservée du marqueur d'octets dans le codec JSON. */
@@ -33,7 +37,7 @@ const MAX_WALK_DEPTH = 64;
  * @returns `true` dès qu'un `Uint8Array` est rencontré.
  */
 export function containsBytes(value: unknown): boolean {
-  return walk(value, 0);
+  return walk(value, 0, false);
 }
 
 /** Objet indexable par clé — garde de type, sans conversion. */
@@ -41,21 +45,40 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object";
 }
 
-function walk(value: unknown, depth: number): boolean {
+/**
+ * Parcours de {@link containsBytes}. En mode `strict` (l'émission), un conteneur
+ * d'octets autre que `Uint8Array` rencontré AVANT le premier octet lève — le
+ * replacer couvre ceux qui suivent (#777).
+ */
+function walk(value: unknown, depth: number, strict: boolean): boolean {
   if (value instanceof Uint8Array) return true;
   if (depth >= MAX_WALK_DEPTH) return false;
   if (Array.isArray(value)) {
     for (let i = 0; i < value.length; i++) {
       const item: unknown = value[i];
-      if (item !== null && typeof item === "object" && walk(item, depth + 1))
+      if (
+        item !== null &&
+        typeof item === "object" &&
+        walk(item, depth + 1, strict)
+      )
         return true;
     }
     return false;
   }
   if (!isRecord(value)) return false;
+  // Autre conteneur d'octets : rien d'imbriqué à y chercher — et le parcourir clé
+  // par clé coûterait un tour par élément d'un tableau typé.
+  if (isUnsupportedBinary(value)) {
+    if (strict) throw new TypeError(unsupportedBinaryMessage(value));
+    return false;
+  }
   for (const key in value) {
     const item = value[key];
-    if (item !== null && typeof item === "object" && walk(item, depth + 1))
+    if (
+      item !== null &&
+      typeof item === "object" &&
+      walk(item, depth + 1, strict)
+    )
       return true;
   }
   return false;
@@ -71,6 +94,8 @@ function bytesReplacer(this: unknown, key: string, value: unknown): unknown {
   const original = isRecord(this) ? this[key] : value;
   if (original instanceof Uint8Array)
     return { [BYTES_MARKER]: toBase64Url(original) };
+  if (isRecord(original) && isUnsupportedBinary(original))
+    throw new TypeError(unsupportedBinaryMessage(original));
   if (isLoneMarker(value)) throw forgedMarkerError(key);
   return value;
 }
@@ -164,7 +189,9 @@ export const JSON_FRAME_CODEC = {
  *
  * Un objet applicatif qui a la forme EXACTE du marqueur (seule clé, valeur chaîne) est
  * refusé à l'émission : relu en octets d'un côté, en objet de l'autre, il changerait de
- * nature selon le codec du récepteur (ADR-0022 §2).
+ * nature selon le codec du récepteur (ADR-0022 §2). Un conteneur d'octets autre que
+ * `Uint8Array` (tableau typé, `DataView`, `ArrayBuffer`) l'est aussi, comme par le codec
+ * CBOR : JSON le déformerait ou le viderait en silence (#777).
  *
  * Un client ne l'arme pas de lui-même : il le prend quand l'accueil du serveur annonce
  * la convention (champ `bytes`, `adoptFrameCodec`). Sur le fil d'un serveur sans codec,
@@ -175,7 +202,7 @@ export const JSON_BYTES_FRAME_CODEC = {
   // Annoncé par le serveur dans l'accueil : un client resté en texte s'y accorde.
   bytesMarker: BYTES_MARKER,
   encode(frame: unknown): string {
-    if (containsBytes(frame)) return JSON.stringify(frame, bytesReplacer);
+    if (walk(frame, 0, true)) return JSON.stringify(frame, bytesReplacer);
     const text = JSON.stringify(frame);
     // Sans octets, le marqueur n'a rien à faire dans le texte produit : présent,
     // c'est un objet applicatif qui en a la forme, ou une simple chaîne qui le

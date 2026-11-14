@@ -25,8 +25,8 @@ n'apportait rien face à `JSON.parse` natif sur les objets, et CBOR pur suffit s
 
 ## 2. Représentation de la donnée — la forme compte plus que le codec
 
-🔴 Le codec ne reconnaît que `Uint8Array` : un `Int16Array` ou un `Float32Array` posé tel quel part
-en objet `{"0":…}`. Toutes les lignes ci-dessous publient des OCTETS (écrits par `DataView`).
+🔴 Seul `Uint8Array` voyage en octets : un `Int16Array` ou un `Float32Array` posé tel quel est
+refusé par le codec binaire. Toutes les lignes ci-dessous publient des OCTETS (écrits par `DataView`).
 
 | Donnée                                         | Comparaison                          | Lecture                                                                      |
 | ---------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------------------- |

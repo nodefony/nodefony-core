@@ -6,7 +6,9 @@
  * `undefined`/fonction/symbole → `null` dans un tableau et clé omise dans un objet,
  * `Map`/`Set` → `{}`, clés dans l'ordre d'`Object.keys`, `bigint` et cycle refusés.
  * Une seule exception, les octets : un `Uint8Array` devient une chaîne d'octets
- * (type majeur 2) au lieu de l'objet `{"0":…}` que JSON en ferait.
+ * (type majeur 2) au lieu de l'objet `{"0":…}` que JSON en ferait. Tout autre
+ * conteneur d'octets (tableau typé, `DataView`, `ArrayBuffer`) est REFUSÉ : JSON le
+ * déformerait ou le viderait en silence (`binaryView.ts`).
  *
  * Sérialisation préférée (§4.1) : arguments les plus courts, flottants en 16, 32
  * puis 64 bits selon ce qui conserve la valeur ; un entier sûr part en entier, un
@@ -15,6 +17,7 @@
  *
  * Code isomorphe (navigateur + Node) : rien de Node, pas de `Buffer`, pas d'`eval`.
  */
+import { isUnsupportedBinary, unsupportedBinaryMessage } from "./binaryView";
 import { CborError } from "./errors";
 import { float16Bits } from "./float16";
 
@@ -78,15 +81,17 @@ function isKeyed(_v: object): _v is Record<string, unknown> {
  * Encode une valeur en CBOR, exactement ce que `JSON.stringify` puis `JSON.parse` en rendraient.
  *
  * `decodeCbor(encodeCbor(v))` est profondément égal à `JSON.parse(JSON.stringify(v))`
- * pour toute valeur `v`, à une exception près : un `Uint8Array` voyage en octets et
- * revient en `Uint8Array`. Le résultat est un tampon neuf, que l'appelant garde
+ * pour toute valeur `v`, à deux exceptions près : un `Uint8Array` voyage en octets et
+ * revient en `Uint8Array` ; tout autre conteneur d'octets est refusé, là où JSON le
+ * déformerait. Le résultat est un tampon neuf, que l'appelant garde
  * aussi longtemps qu'il veut.
  *
  * @param value - la valeur à encoder (une enveloppe JSON-RPC, le plus souvent)
  * @returns les octets CBOR, sérialisation préférée (RFC 8949 §4.1)
- * @throws {CborError} `bigint` (comme JSON), structure circulaire (comme JSON), ou
+ * @throws {CborError} `bigint` (comme JSON), structure circulaire (comme JSON),
  *   racine `undefined`/fonction/symbole — `JSON.stringify` ne rendrait aucun texte,
- *   un codec doit rendre une trame.
+ *   un codec doit rendre une trame —, ou conteneur d'octets autre que `Uint8Array`
+ *   (JSON le déformerait en silence ; le message nomme le geste qui le fait voyager).
  */
 export function encodeCbor(value: unknown): Uint8Array<ArrayBuffer> {
   if (active) return encodeReentrant(value);
@@ -224,6 +229,10 @@ function prepare(v: unknown, key: string | number): unknown {
       v = toJSON.call(v, typeof key === "number" ? String(key) : key);
     } else {
       if (v instanceof Uint8Array) return v;
+      // Les autres conteneurs d'octets partiraient en `{"0":…}` ou `{}` : refusés (#777).
+      if (isUnsupportedBinary(v)) {
+        throw new CborError(unsupportedBinaryMessage(v));
+      }
       if (typeof toJSON === "function") {
         v = toJSON.call(v, typeof key === "number" ? String(key) : key);
       }

@@ -13,6 +13,7 @@ import { JSON_PROTOCOL } from "../realtime/IFrameCodec";
 import { fromBase64Url, toBase64Url } from "../realtime/base64url";
 import { decodeCbor, encodeCbor } from "../realtime/codec/index";
 import { CBOR_FRAME_CODEC } from "../realtime/codec/frameCodec";
+import { UNSUPPORTED_BINARY } from "./fixtures/unsupportedBinary";
 
 /**
  * Codec JSON de la socket (ADR-0022 §2) : une trame sans octets sort EXACTEMENT comme
@@ -139,6 +140,24 @@ describe("JSON_BYTES_FRAME_CODEC — octets (ADR-0021 S8, ADR-0022 §3)", () => 
     const got = roundTrip({ b: Buffer.from([9, 8]) });
     expect(isDeepStrictEqual(got, { b: new Uint8Array([9, 8]) })).toBe(true);
   });
+
+  it.each(UNSUPPORTED_BINARY)(
+    "refuse un %s au lieu de le déformer — seul, avant ou après des octets (#777)",
+    (kind, make) => {
+      const bytes = new Uint8Array([1]);
+      for (const frame of [
+        { v: make() },
+        { a: bytes, v: make() },
+        { v: make(), a: bytes },
+        [make()],
+      ]) {
+        expect(() => JSON_BYTES_FRAME_CODEC.encode(frame)).toThrow(TypeError);
+        expect(() => JSON_BYTES_FRAME_CODEC.encode(frame)).toThrow(
+          new RegExp(`${kind}.*new Uint8Array\\(`, "u"),
+        );
+      }
+    },
+  );
 
   it("rend la MÊME valeur qu'un client CBOR qui reçoit le même envoi", () => {
     const sent = {

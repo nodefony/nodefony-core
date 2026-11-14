@@ -139,6 +139,16 @@ dans l'écho du handshake, et le défaut d'écho de `ws` ne change pas en 10.x (
   `Uint8Array` (S8 ; base64 sous convention dans le codec JSON). Ainsi une connexion se rejoue en
   texte sans qu'une ligne métier bouge, et un client CBOR et un client JSON abonnés au même canal
   reçoivent la même chose — le relais entre exemplaires, en JSON (S6), l'imposait déjà.
+  - **Les autres conteneurs d'octets sont REFUSÉS** (décision de l'auteur, #777) : un tableau
+    typé autre que `Uint8Array`, une `DataView` ou un `ArrayBuffer` partirait en `{"0":…}` ou en
+    `{}` — contenu perdu sans un mot. Le codec CBOR et le codec JSON à octets lèvent à l'émission,
+    avec un message qui nomme le geste (`codec/binaryView.ts#unsupportedBinaryMessage`, règle
+    unique) ; côté serveur la trame n'est pas livrée et le pair le journalise une fois. Aucun
+    format neuf : le profil reste « JSON + octets ». Le codec JSON par défaut, qui ne parcourt
+    rien, reste tel que `JSON.stringify` le rend — comme pour un `Uint8Array`. **Normes et
+    antériorités** : la RFC 8746 définit des étiquettes CBOR pour les tableaux typés (64 à 87) ;
+    les transporter étendrait le profil gelé — amendement à écrire s'il est demandé, pas un
+    correctif.
   - **Le type le montre** : le contrat type la valeur REÇUE par un `Jsonify<T>` (à écrire, absent
     du dépôt) — `debut: Date` à l'émission devient `debut: string` à la réception, visible dans
     l'éditeur, sans coût d'exécution. Précédents : tRPC (sans transformateur), Hono

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { isDeepStrictEqual } from "node:util";
 import { Buffer } from "node:buffer";
 import { CborError, decodeCbor, encodeCbor } from "../realtime/codec/index";
+import { UNSUPPORTED_BINARY } from "./fixtures/unsupportedBinary";
 
 /**
  * Codec CBOR face à sa référence : JSON (ADR-0022 §2). Pour toute valeur `v`,
@@ -107,15 +108,9 @@ describe("CBOR / référence JSON — table de valeurs piégées", () => {
     ],
     ["clé vide", { "": 1 }],
     ["clé numérique négative (texte)", { "-1": 1, "1.5": 2 }],
-    ["Int8Array → objet indexé", new Int8Array([1, -2])],
-    ["Float64Array → objet indexé", new Float64Array([0.5, 1e300])],
-    [
-      "Uint8ClampedArray → objet indexé (pas un Uint8Array)",
-      new Uint8ClampedArray([1, 2]),
-    ],
-    ["Uint16Array vide → {}", new Uint16Array(0)],
-    ["ArrayBuffer → {}", new ArrayBuffer(8)],
-    ["DataView → {}", new DataView(new ArrayBuffer(8))],
+    // Tableaux typés autres que Uint8Array, ArrayBuffer, DataView : HORS de cette
+    // table — JSON les déforme en `{"0":…}` ou `{}`, le codec les REFUSE (#777) ;
+    // cf « l'exception octets » et `fixtures/unsupportedBinary.ts`.
     ["toJSON rendant une primitive", { toJSON: () => 7 }],
     ["toJSON rendant une chaîne", { toJSON: () => "sept" }],
     ["toJSON rendant un objet", { toJSON: () => ({ a: [1, 2] }) }],
@@ -391,6 +386,44 @@ describe("CBOR / l'exception octets (ADR-0021 S8)", () => {
     const big = new Uint8Array(64).map((_, i) => i);
     const slice = big.subarray(10, 14);
     expect(Array.from(encodeCbor(slice))).toEqual([0x44, 10, 11, 12, 13]);
+  });
+
+  it.each(UNSUPPORTED_BINARY)(
+    "refuse un %s — racine, objet, tableau — en nommant le type et le geste (#777)",
+    (kind, make) => {
+      for (const v of [make(), { samples: make() }, [make()]]) {
+        expect(() => encodeCbor(v)).toThrow(CborError);
+        expect(() => encodeCbor(v)).toThrow(
+          new RegExp(`${kind}.*new Uint8Array\\(`, "u"),
+        );
+      }
+    },
+  );
+
+  it("le geste nommé par le refus fait voyager un Int16Array, reconstruit à l'arrivée", () => {
+    const samples = new Int16Array([1, -2, 300, -32768]);
+    const back = decodeCbor(
+      encodeCbor({
+        samples: new Uint8Array(
+          samples.buffer,
+          samples.byteOffset,
+          samples.byteLength,
+        ),
+      }),
+    );
+    if (
+      typeof back !== "object" ||
+      back === null ||
+      !("samples" in back) ||
+      !(back.samples instanceof Uint8Array)
+    ) {
+      throw new Error("octets attendus sous « samples »");
+    }
+    // `slice()` recopie dans un tampon neuf, aligné : la vue reçue peut commencer
+    // à un décalage impair, que le constructeur d'un Int16Array refuserait.
+    expect(Array.from(new Int16Array(back.samples.slice().buffer))).toEqual([
+      1, -2, 300, -32768,
+    ]);
   });
 
   it("grands Uint8Array (copie directe différée) : 4 Ko, 64 Ko, 1 Mo, et plusieurs dans la même trame", () => {

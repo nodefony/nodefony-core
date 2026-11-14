@@ -40,8 +40,10 @@ decodeCbor(encodeCbor(v))   ≡   JSON.parse(JSON.stringify(v))
 ```
 
 Une `Date` devient sa chaîne ISO, `NaN` devient `null`, une `Map` devient `{}` — **comme en
-JSON**. Une seule exception : un `Uint8Array` voyage en octets et revient en `Uint8Array`, là où
-JSON ne sait pas le porter.
+JSON**. Deux exceptions, toutes deux sur les octets : un `Uint8Array` voyage en octets et revient
+en `Uint8Array`, là où JSON ne sait pas le porter ; tout autre conteneur d'octets (`Int16Array`,
+`Float32Array`, `DataView`, `ArrayBuffer`…) est **refusé**, là où JSON le déformerait en
+`{"0":…}` ou le viderait en `{}` sans un mot.
 
 ## 📖 Lexique
 
@@ -119,25 +121,46 @@ serveur et côté navigateur.
 `encodeCbor()` (`src/nodefony/src/realtime/codec/encode.ts#encodeCbor`) suit l'algorithme
 `SerializeJSONProperty` d'ECMA-262, valeur par valeur :
 
-| Valeur JavaScript                                | Ce qui est encodé                                 |
-| ------------------------------------------------ | ------------------------------------------------- |
-| objet avec une méthode `toJSON` (dont `Date`)    | le résultat de `toJSON()`                         |
-| `Number`, `String`, `Boolean` en enveloppe       | la primitive                                      |
-| `NaN`, `Infinity`, `-Infinity`                   | `null`                                            |
-| `-0`                                             | `0`                                               |
-| `undefined`, fonction, symbole dans un tableau   | `null`                                            |
-| `undefined`, fonction, symbole dans un objet     | la clé est omise                                  |
-| `Map`, `Set`, objet sans propriété énumérable    | `{}`                                              |
-| `bigint`, structure circulaire                   | refus (`CborError`), comme JSON                   |
-| `Uint8Array` (et `Buffer` sous Node)             | **chaîne d'octets** — la seule exception à JSON   |
-| racine `undefined`, fonction ou symbole          | refus : un codec doit rendre une trame            |
-| caractère UTF-16 isolé (substitut sans sa paire) | U+FFFD, comme un `TextEncoder` ou une trame texte |
+| Valeur JavaScript                                | Ce qui est encodé                                         |
+| ------------------------------------------------ | --------------------------------------------------------- |
+| objet avec une méthode `toJSON` (dont `Date`)    | le résultat de `toJSON()`                                 |
+| `Number`, `String`, `Boolean` en enveloppe       | la primitive                                              |
+| `NaN`, `Infinity`, `-Infinity`                   | `null`                                                    |
+| `-0`                                             | `0`                                                       |
+| `undefined`, fonction, symbole dans un tableau   | `null`                                                    |
+| `undefined`, fonction, symbole dans un objet     | la clé est omise                                          |
+| `Map`, `Set`, objet sans propriété énumérable    | `{}`                                                      |
+| `bigint`, structure circulaire                   | refus (`CborError`), comme JSON                           |
+| `Uint8Array` (et `Buffer` sous Node)             | **chaîne d'octets** — exception à JSON                    |
+| autre tableau typé, `DataView`, `ArrayBuffer`    | refus (`CborError`) qui nomme le geste — exception à JSON |
+| racine `undefined`, fonction ou symbole          | refus : un codec doit rendre une trame                    |
+| caractère UTF-16 isolé (substitut sans sa paire) | U+FFFD, comme un `TextEncoder` ou une trame texte         |
 
 L'ordre des clés est celui de `Object.keys`, jamais trié. Les nombres prennent la forme la plus
 courte qui les conserve : entier sur 1 à 9 octets, flottant sur 16, 32 ou 64 bits.
 
 Un `Buffer` Node est traité **avant** sa méthode `toJSON`, qui rendrait sinon
 `{ type: "Buffer", data: [...] }` — précisément la déformation qu'un octet ne doit pas subir.
+
+Un tableau typé autre que `Uint8Array` se publie par ses octets, et se reconstruit à l'arrivée.
+Le message du refus donne les deux gestes (règle unique, `codec/binaryView.ts#unsupportedBinaryMessage`,
+partagée avec le codec JSON à octets) :
+
+```ts
+const samples = new Int16Array([1, -2, 300]);
+encodeCbor({
+  samples: new Uint8Array(
+    samples.buffer,
+    samples.byteOffset,
+    samples.byteLength,
+  ),
+});
+// à l'arrivée — `slice()` recopie la vue reçue dans un tampon neuf et ALIGNÉ :
+const back = new Int16Array(received.samples.slice().buffer);
+```
+
+Le tableau typé suit le boutisme de la machine ; pour un format qui doit tenir entre plateformes,
+écrire les octets par `DataView` avec un boutisme explicite.
 
 ## Ce que fait le décodeur — le profil JSON + octets
 

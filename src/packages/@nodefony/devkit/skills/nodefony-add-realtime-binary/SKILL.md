@@ -1,7 +1,7 @@
 ---
 name: nodefony-add-realtime-binary
 metadata:
-  version: 1.0.0
+  version: 1.1.0
 description: >
   Fait passer des octets sur la socket Nodefony — mesures de capteurs, image, audio, état de
   jeu compact, document partagé — par le codec CBOR négocié et un `Uint8Array` dans la charge
@@ -74,9 +74,13 @@ D'où les règles :
 - **N'offre le codec que si des octets circulent** : sur des objets ordinaires, `JSON.parse` est
   natif au moteur et plus rapide ; le codec pèse ~5,5 Ko compressés à télécharger. CBOR n'est
   jamais le défaut.
-- 🔴 **Seul `Uint8Array` est reconnu comme des octets.** Un `Int16Array`, un `Float32Array` posé tel
-  quel dans la charge part en objet `{"0":…,"1":…}`, sans un message. Une série numérique se publie
-  donc en OCTETS : écrits par `DataView` avec un boutisme explicite (§5), relus de même (§6).
+- 🔴 **Seul `Uint8Array` voyage en octets.** Un `Int16Array`, un `Float32Array`, une `DataView` ou
+  un `ArrayBuffer` posé tel quel dans la charge est **refusé** par le codec binaire (`cbor`, ou
+  `$bytes` côté texte) : le navigateur lève à `publish`, le serveur ne livre pas la trame et le
+  journalise une fois. Le message nomme le geste — `new Uint8Array(x.buffer, x.byteOffset,
+x.byteLength)` à l'envoi, `new Int16Array(reçu.slice().buffer)` à l'arrivée (`slice()` recopie
+  dans un tampon aligné). Pour une série numérique, préférer des octets écrits par `DataView` avec
+  un boutisme explicite (§5), relus de même (§6) : le tableau typé suit le boutisme de la machine.
 - **Des octets ne gagnent pas par nature — mesure ta donnée.** 1 024 compteurs écrits en `u32`
   (4 096 octets) pèsent 4 114 o en CBOR contre 3 128 o en JSON, où de petits entiers s'écrivent
   court. Choisis la largeur la plus ÉTROITE qui tient la plage (16 bits plutôt que 32), ou garde des

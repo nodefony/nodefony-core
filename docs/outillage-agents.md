@@ -211,7 +211,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme v1.0.0 · ⚙️ 1 script" },
   { "icon": "🔧", "title": "add-realtime-binary", "href": "skills/nodefony-add-realtime-binary.md",
     "desc": "Fait passer des octets sur la socket Nodefony — mesures de capteurs, image, audio, état de jeu compact, document partagé — par le codec CBOR négocié et un `Uint8Array` dans la charge d'un canal, sous les mêmes gardes que le texte, au lieu de base64, d'un en-tête binaire maison ou d'un WebSocket…",
-    "meta": "🟢 conforme v1.0.0 · 📎 2 réf" },
+    "meta": "🟢 conforme v1.1.0 · 📎 2 réf" },
   { "icon": "🔧", "title": "add-realtime-channel", "href": "skills/nodefony-add-realtime-channel.md",
     "desc": "Branche le temps réel d'une application Nodefony par ses briques — canal, route appelée par la socket, entrée client, action, canal personnel, flux SSE, contrat typé — au lieu d'un WebSocket ou d'un contrôle d'accès écrits à la main.",
     "meta": "🟢 conforme v3.0.0 · 📎 2 réf" },
