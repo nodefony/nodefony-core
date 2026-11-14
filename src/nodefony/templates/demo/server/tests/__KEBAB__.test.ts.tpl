@@ -2443,16 +2443,32 @@ describe("demo — les renvois de l'index des démos", () => {
     demo.types.map((type) => ({ id: demo.id, type })),
   );
 
-  it("une démo prête cite au moins un fichier et une page de doc", () => {
+  // L'accueil le promet à l'agent : pour chaque démo, les fichiers à ouvrir,
+  // la doc à lire, la commande à lancer et le skill à charger.
+  it("une démo prête cite des fichiers, une doc, une commande et un skill", () => {
     for (const demo of ready) {
       expect(demo.files.length, demo.id).toBeGreaterThan(0);
-      expect("doc" in demo, demo.id).toBe(true);
+      expect("doc" in demo, `${demo.id} : doc`).toBe(true);
+      expect("command" in demo, `${demo.id} : command`).toBe(true);
+      expect("skill" in demo, `${demo.id} : skill`).toBe(true);
     }
   });
 
   it.each(files)("$id : le fichier $file existe dans le module", ({ file }) => {
     expect(existsSync(path.join(moduleDir, ...file.split("/")))).toBe(true);
   });
+
+  // « Chaque fichier porte un Guide pour un agent » : l'accueil l'affirme.
+  it.each(files)(
+    "$id : le fichier $file porte un « Guide pour un agent »",
+    ({ file }) => {
+      const source = readFileSync(
+        path.join(moduleDir, ...file.split("/")),
+        "utf8",
+      );
+      expect(source).toContain("Guide pour un agent");
+    },
+  );
 
   it.each(docs)("$id : la page $doc est installée", ({ doc }) => {
     expect(

@@ -1,3 +1,11 @@
+// Le contrat gRPC de la démo « Machines en gRPC » : ce que pousse une machine.
+//
+// Guide pour un agent : la source UNIQUE du service — le code TypeScript en
+// est GÉNÉRÉ dans `nodefony/gen/` (ne jamais l'éditer), servi par
+// `nodefony/controllers/TelemetryController.ts` et appelé par
+// `nodefony/command/SensorPushCommand.ts`. Changer un message = changer ce
+// fichier puis régénérer. Skill : `nodefony-add-grpc-service`.
+
 edition = "2024";
 
 package demo.telemetry.v1;

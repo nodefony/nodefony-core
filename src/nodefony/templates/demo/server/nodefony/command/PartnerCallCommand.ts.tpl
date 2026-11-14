@@ -176,6 +176,12 @@ export const PARTNER_CALL_COMMAND = "demo:partner:call";
  * `jwt.issuer`) : c'est l'audience que la zone exige, et un jeton délivré pour
  * une autre est refusé. La commande ne lit aucune variable d'environnement :
  * tout ce qu'elle sait vient de la configuration des modules.
+ *
+ * Guide pour un agent : le modèle d'une commande de module, enregistrée par
+ * `this.addCommand(PartnerCallCommand)` dans `index.ts`. Elle appelle
+ * `nodefony/controllers/PartnerController.ts` ; la page `/demo/partner` fait
+ * les mêmes essais depuis le navigateur (`frontend/src/partner/usePartnerLab.ts`).
+ * Le jeton signé par l'application vient de `service/PartnerTokenService.ts`.
  */
 class PartnerCallCommand extends Command {
   constructor(cli: CliKernel) {

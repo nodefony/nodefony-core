@@ -100,6 +100,14 @@ export const DEMOS = [
       "frontend/src/kit/markdown.ts",
       "frontend/src/kit/MarkdownText.tsx",
       "frontend/src/kit/MarkdownEditor.tsx",
+      "frontend/src/chat/useChat.ts",
+      "frontend/src/chat/messages.ts",
+      "frontend/src/chat/roster.ts",
+      "frontend/src/chat/ChatMessageList.tsx",
+      "frontend/src/chat/ChatPeople.tsx",
+      "frontend/src/chat/ChatLinkPreview.tsx",
+      "nodefony/service/RoomAdmission.ts",
+      "nodefony/service/LinkPreviewService.ts",
     ],
     types: [
       "ContractRealtimeController (@nodefony/realtime)",
@@ -362,6 +370,7 @@ export const DEMOS = [
     ],
     doc: "@nodefony/security/docs/obtenir-un-jeton.md",
     command: "npx nodefony demo:partner:call",
+    skill: "nodefony-authentication",
   },
   {
     id: "mcp",

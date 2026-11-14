@@ -31,6 +31,13 @@ function readIssuer(token: unknown): string | null {
  *
  * Essai de bout en bout, jeton compris : `npx nodefony demo:partner:call`
  * (`nodefony/command/PartnerCallCommand.ts`).
+ *
+ * Guide pour un agent : la zone `demo-partner` se déclare dans
+ * `nodefony/config/security.ts` (motif, authentificateurs, `resource`) ;
+ * l'identité vérifiée se lit par `this.user`, posée par le firewall. Pour
+ * réserver une action à un rôle : `@IsGranted` (skill
+ * `nodefony-protect-route`) ; pour obtenir un jeton : skill
+ * `nodefony-authentication`.
  */
 // #region partner-class
 // Toute la classe sous `/demo/api/partner` : la zone `demo-partner` du firewall la couvre.

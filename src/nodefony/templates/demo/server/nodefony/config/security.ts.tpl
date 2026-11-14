@@ -47,6 +47,13 @@ export const TELEMETRY_AREA = "demo-telemetry";
  * publique de l'application, et security la rend absolue contre `jwt.issuer`
  * (`NF_JWT_ISSUER` en production). Elle devient aussi une audience que
  * l'application peut émettre, sans être recopiée dans `jwt.audiences`.
+ *
+ * Guide pour un agent : une zone par porte — `demo` (session ou anonyme,
+ * les pages), `demo-partner` (jeton d'un programme), `demo-mcp` (la
+ * porte MCP), `demo-telemetry` (le flux gRPC des machines). Le motif le
+ * plus LONG l'emporte. Ajouter une porte protégée = une entrée ici, jamais un
+ * contrôle écrit dans l'action. Skills : `nodefony-protect-route`,
+ * `nodefony-authentication`.
  */
 export const demoSecurity = {
   areas: {

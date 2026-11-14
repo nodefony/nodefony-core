@@ -464,7 +464,7 @@ function Agents() {
           <code>AGENTS.md</code> de l'application le mène à l'index des démos,{" "}
           <code>demos.ts</code>, où chaque démo dit quels fichiers ouvrir,
           quelle doc lire, quelle commande lancer et quel skill charger ; et
-          chaque fichier commence par un « Guide pour un agent ».
+          chaque fichier porte un « Guide pour un agent ».
         </p>
         {entry !== undefined && (
           <>

@@ -121,6 +121,13 @@ async function obtainToken(): Promise<{
 /**
  * Les quatre essais de la page partenaire : sans jeton, obtenir un jeton,
  * avec le jeton, avec un jeton altéré.
+ *
+ * Guide pour un agent : utilisé par `PartnerLesson.tsx`. Le jeton vient de
+ * `POST PARTNER_TOKEN_PATH` (`partnerApi.ts`, servi par
+ * `PartnerTokenController.ts`, session requise) ; il est ensuite présenté en `Authorization: Bearer` à
+ * `GET /demo/api/partner/whoami` (`PartnerController.ts`), jamais par un
+ * cookie. Un refus rend 401 et l'en-tête `WWW-Authenticate`, lu dans
+ * `challenge`.
  */
 export function usePartnerLab(): IPartnerLab {
   const [token, setToken] = useState<IPartnerTokenResponse | null>(null);
