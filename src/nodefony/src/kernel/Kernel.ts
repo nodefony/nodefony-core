@@ -13,6 +13,7 @@ import {
   engineModeOf,
 } from "../runtime/engineEnvironment";
 import Service, { DefaultOptionsService } from "../Service";
+import type { EventListener } from "../types/IService";
 import { extend, isSubclassOf } from "../Tools";
 import Command, { CommandArgs } from "../command/Command";
 import { Severity } from "../syslog/Pdu";
@@ -229,7 +230,18 @@ const DEFAULT_SHUTDOWN_DEADLINE = 15_000;
 // Sentinelles du Promise.race de terminate() (identité stricte, jamais égales
 // à une valeur de listener).
 const SHUTDOWN_DEADLINE = Symbol("shutdown-deadline");
-const SHUTDOWN_DRAIN_ERROR = Symbol("shutdown-drain-error");
+
+/** Phase d'arrêt en cours (ADR-0027) — nommée par la ligne de dépassement. */
+type ShutdownPhase = "onDrain" | "onTerminate";
+
+/**
+ * Suivi d'un arrêt : la phase en cours et l'échec d'un écouteur. Forme fixe,
+ * une instance par arrêt.
+ */
+class ShutdownRun {
+  phase: ShutdownPhase = "onDrain";
+  failed = false;
+}
 /**
  * Dérogation au gating `policy:"dev"` en production — posée à `1`, les modules de
  * développement sont chargés malgré le mode.
@@ -301,6 +313,8 @@ const Events = Object.freeze({
   onReady: 1 << 7,
   onServersReady: 1 << 8,
   onPostReady: 1 << 9,
+  // Insérée AVANT `onTerminate` : `lastReachedPhase` lit l'ordre des clés.
+  onDrain: 1 << 11,
   onTerminate: 1 << 10,
 });
 
@@ -559,6 +573,8 @@ class Kernel extends Service implements IKernel {
    * termine pas, et un kernel ne termine qu'une fois.
    */
   private terminating: Promise<this> | null = null;
+  /** Vrai dès le premier `terminate()` — lu par {@link Kernel.isTerminating}. */
+  private terminationRequested = false;
   /** Minuterie d'auto-arrêt d'un runtime en dérogation de modules dev (`null` = aucune). */
   private devModulesStopTimer: NodeJS.Timeout | null = null;
   // Valeur d'environnement NON validée : elle est reprise telle quelle.
@@ -4047,6 +4063,17 @@ class Kernel extends Service implements IKernel {
    *   ressembler à un événement système.
    * @returns Promise résolue avec `this` (ou rejected si `quit()` throw).
    */
+  /**
+   * Vrai dès le premier {@link terminate} : l'application s'arrête.
+   *
+   * Posé AVANT la moindre phase d'arrêt (ADR-0027 D2), donc avant `onDrain` :
+   * la sonde de disponibilité y lit qu'elle doit répondre 503, y compris pour
+   * un arrêt reçu pendant le démarrage.
+   */
+  get isTerminating(): boolean {
+    return this.terminationRequested;
+  }
+
   async terminate(code?: number, quiet?: boolean): Promise<this> {
     // Aucun code demandé : on prend celui que le process porte DÉJÀ.
     // `process.exitCode` est la façon normale, en Node, de signaler un échec
@@ -4069,8 +4096,87 @@ class Kernel extends Service implements IKernel {
     if (this.terminating) {
       return this.terminating;
     }
+    // AVANT l'appel : `doTerminate` lance les écouteurs `onDrain` sans attendre,
+    // avant même que `this.terminating` ne reçoive sa promesse.
+    this.terminationRequested = true;
     this.terminating = this.doTerminate(code, quiet);
     return this.terminating;
+  }
+
+  /**
+   * Les deux phases de l'arrêt (ADR-0027), dans l'ordre : `onDrain` puis
+   * `onTerminate`.
+   *
+   * - `onDrain` — cesser de servir : écouteurs lancés ENSEMBLE, le noyau attend
+   *   le dernier. Chaque module draine son propre trafic ; un ordre interne
+   *   (1001 avant le drain HTTP) appartient au module qui le porte.
+   * - `onTerminate` — libérer : du DERNIER inscrit au premier, un à la fois.
+   *   Ce dont un écouteur dépend a été mis en place avant lui, donc s'arrête
+   *   après lui (systemd, POSIX `exit()`). Une inscription faite pendant la
+   *   phase est appelée avant celles qui restent ; un écouteur retiré pendant
+   *   la phase ne l'est pas.
+   *
+   * Un écouteur qui lève ou rejette est journalisé, marque l'arrêt en échec et
+   * n'interrompt pas sa phase.
+   *
+   * @param run - suivi de l'arrêt (phase en cours, échec)
+   * @param code - code de sortie demandé, transmis aux écouteurs
+   */
+  private async runShutdown(run: ShutdownRun, code: number): Promise<void> {
+    if (this.listenerCount("onDrain") > 0) {
+      this.log(`${colorLogEvent()} onDrain`, "DEBUG");
+      const settled = await Promise.allSettled(
+        this.rawListeners("onDrain").map((listener) =>
+          this.callShutdownListener(listener, code),
+        ),
+      );
+      for (const outcome of settled) {
+        if (outcome.status === "rejected") {
+          this.failShutdownListener(run, outcome.reason);
+        }
+      }
+    }
+    run.phase = "onTerminate";
+    this.log(`${colorLogEvent()} onTerminate`, "DEBUG");
+    // Relu à chaque tour : c'est ce qui honore une inscription ou un retrait
+    // faits pendant la phase. Une trentaine d'écouteurs, une fois par arrêt.
+    const called = new Set<EventListener>();
+    for (;;) {
+      const listeners = this.rawListeners("onTerminate");
+      let next: EventListener | null = null;
+      for (let i = listeners.length - 1; i >= 0; i--) {
+        const candidate = listeners[i];
+        if (candidate !== undefined && !called.has(candidate)) {
+          next = candidate;
+          break;
+        }
+      }
+      if (next === null) return;
+      called.add(next);
+      try {
+        await this.callShutdownListener(next, code);
+      } catch (e) {
+        this.failShutdownListener(run, e);
+      }
+    }
+  }
+
+  /**
+   * Appelle un écouteur d'arrêt comme le ferait le bus (`this` = le bus,
+   * arguments `(kernel, code)`) ; une exception synchrone devient un rejet.
+   */
+  private async callShutdownListener(
+    listener: EventListener,
+    code: number,
+  ): Promise<unknown> {
+    return Reflect.apply(listener, this.notificationsCenter, [this, code]);
+  }
+
+  /** Journalise l'échec d'un écouteur d'arrêt, avec sa phase. */
+  private failShutdownListener(run: ShutdownRun, error: unknown): void {
+    run.failed = true;
+    this.log(`${run.phase} listener failed`, "ERROR");
+    this.log(error, "ERROR");
   }
 
   /** Le shutdown lui-même — protégé de la ré-entrance par {@link terminate}. */
@@ -4084,17 +4190,17 @@ class Kernel extends Service implements IKernel {
     if (!quiet) {
       this.log(`terminate : ${code}`);
     }
-    // Rejet du drain capturé ICI (pas dans un try du race) : si la deadline
-    // gagne, un rejet ultérieur du drain serait un unhandledRejection.
-    const drain = this.fireAsync("onTerminate", this, code).catch(
-      (e: unknown) => {
-        this.log(e, "ERROR");
-        return SHUTDOWN_DRAIN_ERROR;
-      },
-    );
+    // Les deux phases d'ADR-0027 sous UNE échéance. Chaque écouteur est isolé
+    // (D4), donc `runShutdown` ne rejette pas ; le `catch` reste un filet : si
+    // la deadline gagne, un rejet ultérieur serait un unhandledRejection.
+    const run = new ShutdownRun();
+    const drain = this.runShutdown(run, code).catch((e: unknown) => {
+      this.log(e, "ERROR");
+      run.failed = true;
+    });
     const deadlineMs =
       this.options.shutdownDeadline ?? DEFAULT_SHUTDOWN_DEADLINE;
-    let raced: unknown;
+    let raced: unknown = null;
     if (deadlineMs > 0) {
       let deadlineTimer = null as NodeJS.Timeout | null;
       raced = await Promise.race([
@@ -4113,15 +4219,15 @@ class Kernel extends Service implements IKernel {
         clearTimeout(deadlineTimer);
       }
     } else {
-      raced = await drain;
+      await drain;
     }
     if (raced === SHUTDOWN_DEADLINE) {
       this.log(
-        `shutdown deadline exceeded (${deadlineMs} ms) — forcing exit, onTerminate listeners still pending`,
+        `shutdown deadline exceeded (${deadlineMs} ms) — forcing exit, ${run.phase} listeners still pending`,
         "CRITIC",
       );
       code = 1;
-    } else if (raced === SHUTDOWN_DRAIN_ERROR) {
+    } else if (run.failed) {
       code = 1;
     }
     return new Promise((resolve, reject) => {
