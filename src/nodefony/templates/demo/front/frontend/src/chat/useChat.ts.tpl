@@ -274,33 +274,49 @@ export function useChat(): IChatRoom {
       url: CHAT_REALTIME_PATH,
     });
     setSocket(created);
-    const loadRooms = () => {
+    /** Relit la liste ; rend la liste relue, ou `null` sur une coupure. */
+    const loadRooms = (): Promise<IRoomView[] | null> =>
       created
         .get("/demo/chat/rooms")
-        .then(setRooms)
+        .then((list) => {
+          setRooms(list);
+          return list;
+        })
         .catch(() => {
           // Coupure entre-temps : la reconnexion relira la liste.
+          return null;
         });
-    };
     const offs = [
       created.onIdentity(setIdentity),
       created.onState((next) => {
         setState(next);
-        if (next === "connected") loadRooms();
+        if (next === "connected") void loadRooms();
       }),
       // #region chat-rooms-client
       // Ajouté à un salon, retiré, invité : le serveur le POUSSE, on relit.
       // Un message d'un salon qu'on ne regarde pas (D53) : un non-lu de plus,
       // sans requête ; un salon pas encore listé, on relit la liste — elle
-      // porte déjà son compte.
+      // porte déjà son compte —, PUIS on notifie : le premier message d'une
+      // conversation à deux neuve arrive avant qu'elle soit listée, et la
+      // notification se perdait (vu au navigateur piloté).
       created.onUser((pushed) => {
-        if (pushed.type === "rooms:changed") return loadRooms();
+        if (pushed.type === "rooms:changed") {
+          void loadRooms();
+          return;
+        }
         const room = roomsSeen.current.find(
           (item) => item.id === pushed.roomId,
         );
-        if (room === undefined) return loadRooms();
-        setRooms((known) => addUnread(known, pushed.roomId));
-        raiseNotification(room, pushed.author, pushed.preview, openRoom);
+        if (room !== undefined) {
+          setRooms((known) => addUnread(known, pushed.roomId));
+          raiseNotification(room, pushed.author, pushed.preview, openRoom);
+          return;
+        }
+        void loadRooms().then((list) => {
+          const fresh = list?.find((item) => item.id === pushed.roomId);
+          if (fresh !== undefined)
+            raiseNotification(fresh, pushed.author, pushed.preview, openRoom);
+        });
       }),
       // #endregion
     ];
