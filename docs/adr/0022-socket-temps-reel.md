@@ -1080,6 +1080,24 @@ frappe en cours, coups d'un joueur, mesures d'une sonde — passe ainsi par le c
 au serveur et non déclaré par le client. Limite écrite : identité figée au handshake, coupée au
 tick de révocation ; un geste qui change un état passe par une route. Porté par #622.
 
+**Précision (validée par l'auteur le 2026-11-14) : la frappe d'un salon PRIVÉ parmi plusieurs passe
+par une route.** Une entrée de canal est appelée par son nom EXACT (`chat:typing`), jamais par la
+famille de salons (`chat:room:*`) : elle reçoit le salon visé en paramètre, et rien ne prouve que
+l'émetteur y est admis — sans contrôle, n'importe quel connecté injecte « Untel écrit » dans un
+salon privé. Le contrôle d'appartenance coûte alors autant dans l'entrée que dans une route, sans
+les garanties de la route (identité revérifiée, schéma, `@IsGranted`). D'où la règle :
+
+| Cas                                            | Le signal de frappe passe par                                            |
+| ---------------------------------------------- | ------------------------------------------------------------------------ |
+| un salon UNIQUE, ou un canal sans appartenance | une entrée de canal (`@RealtimeInbound`, auteur pris au serveur)         |
+| plusieurs salons dont certains PRIVÉS          | une route appelée sur la socket (`socket.post`), qui vérifie l'admission |
+
+C'est la forme du chat de la démo (`ChatController.ts.tpl`, route `demo-chat-typing`) et la règle
+enseignée par le skill livré `nodefony-add-realtime-channel` (« Route ou entrée de canal ? »). Écarté
+pour l'instant : exposer au gestionnaire d'entrée « cette connexion est-elle admise sur ce canal ? »
+(la marque existe par connexion) — cela rendrait l'entrée par salon sûre et gratuite, mais aucun
+besoin mesuré ne le justifie aujourd'hui ; un ajout additif reste possible.
+
 ### 7. La reprise côté socket
 
 **Décision (acceptée le 2026-10-29, par délégation de l’auteur) :** aujourd'hui, la reconnexion **rejoue** chaque abonnement au `welcome`
