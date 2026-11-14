@@ -473,9 +473,9 @@ automatiquement un éventuel décalage de port.
   le battement de cœur (`server-websocket.ts#Websocket.createServer`).
 - **Keep-alive** armé à la création (`startHeartbeat()`, `server-websocket.ts#Websocket.createServer`) et par connexion
   (`trackPong()`, `http-kernel.ts#HttpKernel.handleWebsocket`, juste après l'acceptation du handshake).
-- **Arrêt** : il s'inscrit en tête des écouteurs de terminaison
-  (`prependOnceListener`, `server-websocket.ts#Websocket.createServer`) — l'ordre
-  compte, voir la section Arrêt gracieux.
+- **Arrêt** : il s'inscrit à l'étape « congé » de l'arrêt du trafic
+  (`addShutdownStep("dismiss")`, `server-websocket.ts#Websocket.createServer`), attendue avant le
+  drain HTTP — voir la section Arrêt gracieux.
 
 ### `server-websocket-secure` — WebSocket sur TLS
 
@@ -856,7 +856,9 @@ serveurs (HTTP et HTTPS) servent ces chemins — un kubelet configuré en `schem
 ## Arrêt gracieux — la séquence du SIGTERM
 
 Un arrêt brutal coupe les requêtes en vol : à chaque mise à jour progressive, des utilisateurs voient
-une erreur. L'arrêt de Nodefony est une **séquence ordonnée**, et l'ordre est le cœur du sujet.
+une erreur. L'arrêt de Nodefony est une **séquence ordonnée**, et l'ordre est le cœur du sujet. Il
+est écrit dans **une seule fonction**, `http-kernel.ts#HttpKernel.drainTraffic`, l'écouteur `onDrain` du
+module (ADR-0027) : les serveurs s'y inscrivent à leur création, ils n'écoutent pas le noyau.
 
 ```mermaid
 sequenceDiagram
@@ -865,21 +867,22 @@ sequenceDiagram
   participant W as server-websocket
   participant H as server-http / https
   O->>K: SIGTERM
-  K->>K: readyz → 503 (+ shutdownDelay)
+  K->>K: isTerminating → readyz 503 (+ shutdownDelay)
   Note over K: le load balancer retire le pod
-  K->>W: onTerminate (prepend)
+  K->>W: onDrain — étape « congé »
   W->>W: close 1001 « Going Away » à chaque client
-  Note over W: fenêtre ~300 ms
-  K->>H: onTerminate (once)
+  Note over W: fenêtre ~300 ms, fin des flux longs en même temps
+  K->>H: onDrain — étape « drain », serveurs ensemble
   H->>H: drain — in-flight terminées, sockets idle fermées
   Note over H: destruction forcée après shutdownTimeout
+  K->>K: onTerminate — sessions, base, Redis (dernier inscrit d'abord)
   K->>O: exit 0
 ```
 
-**Étape 1 — la disponibilité bascule en premier.** L'écouteur est posé à `onPostReady` pour être
-inséré **en tête** et donc s'exécuter **en premier** (`http-kernel.ts#HttpKernel.init`). `readyz` répond `503`, le
-load balancer cesse d'envoyer du trafic, et `shutdownDelay` laisse à cette information le temps de se
-propager.
+**Étape 1 — la disponibilité bascule en premier.** Le noyau pose `kernel.isTerminating` avant toute
+phase d'arrêt (`Kernel.ts#Kernel.isTerminating`), y compris pour un arrêt reçu pendant le démarrage :
+`readyz` répond `503`, le load balancer cesse d'envoyer du trafic, et `shutdownDelay` (attendu si le
+pod a été annoncé disponible) laisse à cette information le temps de se propager.
 
 **Étape 2 — les clients WebSocket sont prévenus.** `Websocket.terminate()` (`server-websocket.ts#Websocket.terminate`)
 envoie un message applicatif puis une **frame Close 1001 « Going Away »** (`server-websocket.ts#Websocket.terminate`).
@@ -896,11 +899,16 @@ indiscernable d'une panne réseau. Avec 1001, le client sait qu'il doit simpleme
   fermées.
 
 Ce qui reste au-delà de `shutdownTimeout` (défaut `5000` ms, `serverShutdown.ts#DEFAULT_SHUTDOWN_TIMEOUT`)
-est détruit.
+est détruit. Les serveurs (HTTP, HTTPS, h2c) se drainent **ensemble** : ports distincts, aucune
+dépendance — l'arrêt dure un `shutdownTimeout`, pas un par serveur.
+
+**Étape 4 — les ressources sont libérées.** Une fois plus aucune requête en vol, `onTerminate` ferme
+le stockage des sessions, les pools du proxy inverse, les connexions aux bases et à Redis — du
+dernier inscrit au premier.
 
 > [!IMPORTANT]
-> L'ordre WS-avant-HTTP n'est pas cosmétique. Les serveurs WebSocket s'inscrivent en
-> `prependOnceListener` (`server-websocket.ts#Websocket.createServer`), les serveurs HTTP en `once`
+> L'ordre WS-avant-HTTP n'est pas cosmétique. `drainTraffic` attend la fin de l'étape « congé »
+> (`server-websocket.ts#Websocket.createServer`) avant de lancer l'étape « drain »
 > (`server-http.ts#ServerHttp.createServer`). Inversé, le drain détruirait les sockets déjà upgradées **sans** frame
 > Close : retour du 1006 pour tous les clients temps réel.
 

@@ -244,12 +244,6 @@ class SessionsService extends Service {
     this.module = module;
     this.certificates = this.get<Certificate>("certificates");
     this.defaultSessionName = this.options.name;
-    this.once("onTerminate", () => {
-      this.gcScheduler?.stop();
-      if (this.storage) {
-        this.storage.close();
-      }
-    });
   }
 
   async init(): Promise<this> {
@@ -351,6 +345,12 @@ class SessionsService extends Service {
         onError: (e) => this.log(e, "WARNING", "SESSION-GC"),
       });
       this.gcScheduler.start();
+      // Libération inscrite à l'OUVERTURE du store (ADR-0027 D3 point 4) : un
+      // store adossé à l'ORM se ferme donc avant la connexion dont il dépend.
+      this.kernel?.once("onTerminate", () => {
+        this.gcScheduler?.stop();
+        this.storage?.close();
+      });
     });
     return this.storage;
   }

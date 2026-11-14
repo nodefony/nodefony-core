@@ -200,9 +200,9 @@ Deux usages :
   `vitest` vient de la **racine** ; tests en `globals:true` + `node:assert` (aucun import
   vitest ni chai). Ne pas réintroduire mocha/`.mocharc`.
 - **`SessionStorage` tolère le shutdown** (commit `ce181ba`) : `#repo()`
-  renvoie `null` si `!orm.isConnected()` (l'ORM se déconnecte au `onTerminate` avant le
-  drain des serveurs http → requête Twig en vol qui retouchait l'ORM mort = `unhandledRejection`
-  « no entity table registered under session »). read→session vide, write/gc/destroy/open→no-op.
+  renvoie `null` si `!orm.isConnected()` (l'ORM se déconnecte au `onTerminate`, après le drain
+  des serveurs (ADR-0027) ; une requête qui survit à l'échéance retouchait l'ORM mort =
+  `unhandledRejection` « no entity table registered under session »). read→session vide, write/gc/destroy/open→no-op.
   NE PAS « simplifier » en rappelant `getRepository` direct. Cf RETEX skill `nodefony-framework-dev` §11.
 
 ## Build / types / test

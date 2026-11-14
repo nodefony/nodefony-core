@@ -150,8 +150,8 @@ class ServerHttp extends Service {
         // terminent, destruction forcée après `shutdownTimeout` ms. Remplace
         // `closeAllConnections()` qui coupait les requêtes en cours. Le
         // terminator appelle `server.close()` lui-même. Les WS upgradées sont
-        // fermées AVANT (listeners prepend) — cf serverShutdown.ts.
-        this.kernel?.once("onTerminate", async () => {
+        // fermées AVANT (étape `dismiss` de `HttpKernel.drainTraffic`).
+        this.httpKernel.addShutdownStep("drain", async () => {
           if (!this.server) {
             return;
           }

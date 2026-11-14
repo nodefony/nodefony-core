@@ -198,14 +198,13 @@ class DevkitService extends Service implements IDevkitService {
       // Le profil du RUN, pas l'environnement : en développement aussi, la
       // porte stdio boote en console et ne sert aucune requête.
       servesTraffic: () => kernel?.runProfile.servers === true,
-      // En TÊTE de la file d'arrêt : l'arrêt est séquentiel (`fireAsync`),
-      // les serveurs ne ferment leurs connexions qu'après que le rapport
-      // partiel est parti.
+      // Arrêt du TRAFIC (`onDrain`, ADR-0027) : le rapport partiel part pendant
+      // que les serveurs attendent encore la fin des réponses en vol.
       onShutdown: (listener) => {
         if (kernel === null) return () => {};
-        kernel.prependOnceListener("onTerminate", listener);
+        kernel.once("onDrain", listener);
         return () => {
-          kernel.removeListener("onTerminate", listener);
+          kernel.removeListener("onDrain", listener);
         };
       },
       profileRoute: {

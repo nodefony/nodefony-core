@@ -100,10 +100,7 @@ class Websocket extends Service {
         );
         // G2 — heartbeat keep-alive : UN seul interval/serveur, détecte les zombies.
         this.heartbeatTimer = startHeartbeat(this.server, this.options);
-        this.kernel?.prependOnceListener(
-          "onTerminate",
-          this.terminate.bind(this),
-        );
+        this.httpKernel.addShutdownStep("dismiss", () => this.terminate());
         this.ready = true;
         this.module.fire("onServersReady", this.type, this);
         return resolve(this.server);
@@ -150,7 +147,7 @@ class Websocket extends Service {
           }
         }, 300);
         // La résolution appartient au setTimeout : sans ce return, la Promise
-        // résolvait immédiatement → fireAsync("onTerminate") enchaînait sur le
+        // résolvait immédiatement → `drainTraffic` enchaînait sur le
         // drain HTTP sans attendre la fenêtre de close des clients WS (et la
         // fenêtre readiness 503 post-SIGTERM disparaissait).
         return;

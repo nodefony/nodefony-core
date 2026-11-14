@@ -683,9 +683,13 @@ les finders natifs `sql\`…\``(ex.`findBySocialProvider`, `db.all`brut) ne pass
   `BEGIN/COMMIT/ROLLBACK` manuels, connexion unique. Mongoose tx → **replica set obligatoire**.
 - **`Orm.connect()` = template method** : surcharger `onConnect()`, **pas** `connect()` (sinon
   `onOrmReady` n'est plus émis → l'ORM ne signale jamais sa disponibilité). (`Orm.ts#Orm.#lostPending`/`Orm.ts#Orm.#lostPending`/`Orm.ts#Orm.liveness`)
-- **`SessionStorage` tolère le shutdown** : `#repo()` renvoie `null` si `!orm.isConnected()` (l'ORM ferme
-  au `onTerminate` **avant** le drain des serveurs http → une requête en vol qui retouche l'ORM mort =
-  `unhandledRejection`). NE PAS « simplifier » en rappelant `getRepository` direct.
+- **`SessionStorage` tolère le shutdown** : `#repo()` renvoie `null` si `!orm.isConnected()`. L'ORM ferme
+  au `onTerminate`, APRÈS le drain des serveurs (`onDrain`, ADR-0027) — mais une requête qui survit à
+  l'échéance, ou un arrêt reçu pendant le démarrage, peut encore retoucher l'ORM fermé =
+  `unhandledRejection`. Garde = filet, NE PAS « simplifier » en rappelant `getRepository` direct.
+- **Libérer dans le bon ordre** : un store qui ne prend son connecteur qu'à `onBoot` inscrit son
+  `once("onTerminate")` à `onBoot`, pas dans son constructeur — l'arrêt libère du dernier inscrit au
+  premier, donc l'inscription doit suivre l'acquisition (ADR-0027 D3 point 4).
 - **GC orphelin (stores à TTL applicatif)** : pas de TTL natif SQL → `gc(now)` = `DELETE expiresAt<=now`
   **applicatif**, à brancher sur le scheduler GC mutualisé. Un store dont le `gc()` n'est jamais appelé
   laisse grossir la table (dette mémoire/disque silencieuse) — vérifier le câblage du GC.

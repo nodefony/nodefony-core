@@ -437,9 +437,13 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   // 1 null-check + 2 comparaisons de string par requête quand actif).
   #healthPaths: { liveness: string; readiness: string } | null = null;
   #healthShutdownDelay: number = 0;
-  // Bascule readiness : true dès le début du shutdown (readyz → 503 AVANT le
-  // drain, le LB retire le pod). Posée par le prepend `onTerminate` de init().
-  #terminating: boolean = false;
+  // Étapes de l'arrêt du trafic (ADR-0027 D2), remplies par les serveurs à leur
+  // création : congé des connexions longues, puis drain. `null` tant qu'aucun
+  // serveur ne s'est inscrit (commande console : aucun serveur).
+  #shutdownSteps: {
+    dismiss: Array<() => unknown>;
+    drain: Array<() => unknown>;
+  } | null = null;
   constructor(module: Module) {
     super(
       serviceName,
@@ -760,29 +764,10 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       this.#h2Receive.http?.close();
       this.#h2Receive.https?.close();
     });
-    // Bascule readiness au shutdown. Posé à `onPostReady` (= APRÈS les prepends
-    // des serveurs WS créés à initServers) pour prepend EN DERNIER → passer EN
-    // PREMIER au fireAsync("onTerminate") séquentiel. Séquence obtenue :
-    // readyz→503 (+ shutdownDelay : le LB retire le pod) → close 1001 WS →
-    // drain HTTP → exit. Jamais posé si le boot échoue avant onPostReady
-    // (terminate(1) au boot = rien à drainer).
-    // Les flux longs reçoivent leur fin (gRPC : 14) AVANT le drain HTTP
-    // (ADR-0026 D8). Posé dès init, et non à `onPostReady` : le serveur sert
-    // déjà pendant la fin du boot (frontends), et un flux ouvert dans cette
-    // fenêtre doit l'avoir aussi. Prepend le plus ancien : il passe après la
-    // bascule readiness et les 1001 (prepends plus récents), avant les drains
-    // des serveurs (`once`, ajoutés en fin).
-    this.kernel?.prependOnceListener("onTerminate", () =>
-      this.shutdownStreams(),
-    );
-    this.kernel?.once("onPostReady", () => {
-      this.kernel?.prependOnceListener("onTerminate", async () => {
-        this.#terminating = true;
-        if (this.#healthShutdownDelay > 0) {
-          await new Promise((r) => setTimeout(r, this.#healthShutdownDelay));
-        }
-      });
-    });
+    // Arrêt du trafic : UN écouteur, l'ordre écrit dans `drainTraffic`
+    // (ADR-0027 D2). Posé dès init : un `SIGTERM` reçu pendant le démarrage
+    // trouve déjà la fin des flux, et la sonde lit `kernel.isTerminating`.
+    this.kernel?.once("onDrain", () => this.drainTraffic());
     this.kernel?.prependOnceListener("onBoot", () => {
       this.router = this.get<IRequestRouter>("router");
       this.firewall = this.get<IFirewallGate>("firewall");
@@ -1388,7 +1373,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         // pendant que les requêtes en vol se terminent.
         this.#respondHealth(
           response,
-          !this.#terminating && this.kernel?.servable === true,
+          this.kernel?.isTerminating !== true && this.kernel?.servable === true,
           type,
         );
         return;
@@ -2897,6 +2882,62 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   }
 
   /**
+   * Inscrit une étape de l'arrêt du trafic, appelée par {@link drainTraffic}.
+   *
+   * Un serveur s'inscrit à sa création au lieu d'écouter le noyau : l'ordre
+   * (congé des connexions longues AVANT le drain, ADR-0026 D8) vit alors dans
+   * une seule fonction, plus dans des moments d'inscription.
+   *
+   * @param step - `dismiss` : congédier les connexions longues (WebSocket
+   *   1001) ; `drain` : cesser d'accepter et laisser finir les requêtes.
+   * @param action - l'étape ; une promesse rendue est attendue.
+   *
+   * @internal
+   */
+  addShutdownStep(step: "dismiss" | "drain", action: () => unknown): void {
+    this.#shutdownSteps ??= { dismiss: [], drain: [] };
+    this.#shutdownSteps[step].push(action);
+  }
+
+  /**
+   * L'arrêt du trafic (ADR-0027 D2), écouteur unique d'`onDrain` :
+   *
+   * 1. si le pod a été annoncé disponible, attendre `health.shutdownDelay` —
+   *    la sonde répond déjà 503 (`kernel.isTerminating`), la répartition
+   *    retire le pod ;
+   * 2. congédier ensemble les connexions longues : WebSocket (1001) et flux
+   *    longs (fin au format de leur protocole, {@link shutdownStreams}) ;
+   * 3. drainer ensemble les serveurs HTTP, HTTPS et h2c (ports distincts).
+   *
+   * Une étape qui échoue est journalisée sans arrêter les autres.
+   *
+   * @internal
+   */
+  async drainTraffic(): Promise<void> {
+    if (this.kernel?.postReady === true && this.#healthShutdownDelay > 0) {
+      await new Promise((r) => setTimeout(r, this.#healthShutdownDelay));
+    }
+    const steps = this.#shutdownSteps;
+    await this.#runShutdownSteps([
+      ...(steps?.dismiss ?? []),
+      () => this.shutdownStreams(),
+    ]);
+    if (steps !== null) await this.#runShutdownSteps(steps.drain);
+  }
+
+  /** Lance des étapes d'arrêt ensemble, attend la dernière, journalise les échecs. */
+  async #runShutdownSteps(actions: Array<() => unknown>): Promise<void> {
+    const settled = await Promise.allSettled(
+      actions.map(async (action) => action()),
+    );
+    for (const outcome of settled) {
+      if (outcome.status === "rejected") {
+        this.log(outcome.reason, "ERROR", "TERMINATE");
+      }
+    }
+  }
+
+  /**
    * L'arrêt du serveur : termine chaque flux long ouvert, puis attend leur
    * fermeture, au plus `waitMs` (ADR-0026 D8).
    *
@@ -2906,9 +2947,8 @@ class HttpKernel extends Service implements IHttpKernelInterface {
    * qui n'entend rien laisse l'attente aller à son terme : sa connexion tombe
    * ensuite au drain, à `shutdownTimeout`.
    *
-   * Appelé à `onTerminate`, après la bascule de la sonde de disponibilité et
-   * les fermetures 1001, avant le drain : le client lit la fin du flux AVANT
-   * le GOAWAY définitif. Un appel unaire en vol n'est pas touché — il finit
+   * Appelé par {@link drainTraffic}, avec les fermetures 1001, avant le
+   * drain : le client lit la fin du flux AVANT le GOAWAY définitif. Un appel unaire en vol n'est pas touché — il finit
    * pendant le drain.
    *
    * @param waitMs - attente maximale des fermetures.

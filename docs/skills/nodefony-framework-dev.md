@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-11-13
+updated: 2026-11-14
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-framework-dev/SKILL.md"
 ---
@@ -74,7 +74,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/gotchas.md` | Gotchas & diagnostic — règles durables (vérité courante) | 95 |
 | `references/grpc.md` | gRPC — servir et faire évoluer un service déclaré par un module | 95 |
 | `references/http.md` | @nodefony/http (pipeline/serveurs/WS/TLS) — référence complète (recettes + API + internals + gotchas) | 618 |
-| `references/orm.md` | ORM (orm-core/drizzle/mongoose) — référence complète (recettes + API + internals + gotchas) | 697 |
+| `references/orm.md` | ORM (orm-core/drizzle/mongoose) — référence complète (recettes + API + internals + gotchas) | 701 |
 | `references/pagination.md` | Pagination, tri, filtres, facettes — le contrat de page | 468 |
 | `references/portabilite.md` | Portabilité — écrire du code qui tourne sur les 3 plateformes | 147 |
 | `references/realtime.md` | Realtime (WS/hub/RealtimeService) — référence complète (recettes + API + internals + gotchas) | 640 |

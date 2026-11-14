@@ -153,7 +153,7 @@ class ServerHttps extends Service {
         // Drain graceful (SIGTERM/docker stop) : in-flight terminées, destroy
         // forcé après `shutdownTimeout` ms. Remplace `closeAllConnections()`
         // qui coupait les requêtes en cours. Le terminator close() le serveur.
-        this.kernel?.once("onTerminate", async () => {
+        this.httpKernel.addShutdownStep("drain", async () => {
           if (!this.server) {
             return;
           }
@@ -239,7 +239,7 @@ class ServerHttps extends Service {
         // P7 — handler async direct (plus de `new Promise(async …)`) : un rejet
         // de `terminate()` remontait en unhandledRejection au shutdown.
         // Le terminator draine puis close() le serveur lui-même.
-        this.kernel?.once("onTerminate", async () => {
+        this.httpKernel.addShutdownStep("drain", async () => {
           if (!this.server) {
             return;
           }

@@ -116,6 +116,11 @@ export interface IKernel extends IService {
   start(): Promise<this>;
   /** `quiet` muselle l'affichage (log « terminate : N ») — jamais le drain. */
   terminate(code?: number, quiet?: boolean): Promise<this>;
+  /**
+   * Vrai dès le premier `terminate()`, avant toute phase d'arrêt (ADR-0027) :
+   * la sonde de disponibilité y lit qu'elle doit répondre 503.
+   */
+  readonly isTerminating: boolean;
   isTrunk(): Promise<TrunkType>;
   isModule(subclass: unknown): boolean;
   addModule(Mod: unknown, ...args: unknown[]): Promise<IModule>;

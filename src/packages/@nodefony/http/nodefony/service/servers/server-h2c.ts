@@ -188,7 +188,7 @@ class ServerH2c extends Service {
             reject(error);
           });
         // Drain par GOAWAY (cf serverShutdown.ts) ; les WS n'existent pas ici.
-        this.kernel?.once("onTerminate", async () => {
+        this.httpKernel.addShutdownStep("drain", async () => {
           if (!this.server) return;
           try {
             await this.httpTerminator?.terminate();

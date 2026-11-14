@@ -55,8 +55,8 @@ type Http1Socket = Socket & { _httpMessage?: ServerResponse | null };
  *
  * ⚠️ Les sockets WebSocket upgradées (sans réponse HTTP en cours) sont détruites
  * SANS frame Close → les serveurs WS doivent fermer leurs clients (close 1001)
- * AVANT ce drain. Garanti par l'ordre des listeners `onTerminate` : WS/WSS
- * s'attachent en `prependOnceListener`, les serveurs HTTP en `once`.
+ * AVANT ce drain. Garanti par `HttpKernel.drainTraffic` (ADR-0027 D2) : l'étape
+ * `dismiss` (1001) est attendue avant l'étape `drain`.
  *
  * @param server - serveur Node à drainer, créé AVANT son `listen` (le suivi des
  *   connexions commence ici)

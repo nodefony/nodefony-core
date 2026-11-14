@@ -69,7 +69,9 @@ détruits au lieu de recevoir leur fin. La première phase est donc tout ce qui 
 TRAFIC, pas la seule disponibilité.
 
 1. **`onDrain` — cesser de servir.** Le pod sort de la répartition, congédie ses connexions longues
-   (WebSocket 1001, flux longs, sockets proxifiées) et draine ses serveurs. Rien n'y est libéré.
+   (WebSocket 1001, flux longs) et draine ses serveurs. Rien n'y est libéré : les pools du proxy
+   inverse vers l'amont, par exemple, se détruisent en phase 2 — les relais en vol finissent pendant
+   le drain.
 2. **`onTerminate` — libérer.** Connexions aux bases et à Redis, minuteurs, vidage des agrégateurs,
    fichiers. À ce moment plus aucune requête n'est en vol : un écouteur peut écrire dans un store
    sans craindre une requête concurrente.
@@ -95,7 +97,7 @@ de vie, documenté avec les autres.
    `@nodefony/http`, `HttpKernel` inscrit un seul écouteur `onDrain` qui enchaîne, explicitement :
    1. attendre `health.shutdownDelay` (le temps que la répartition retire le pod) ;
    2. congédier les connexions longues, ensemble : 1001 des serveurs WebSocket, fin des flux
-      (`shutdownStreams`, ADR-0026 D8), fermeture des sockets proxifiées ;
+      (`shutdownStreams`, ADR-0026 D8) ;
    3. drainer les serveurs HTTP, HTTPS et h2c, ensemble (ports distincts, aucune dépendance).
       Les serveurs n'inscrivent plus rien sur le noyau : ils exposent leur drain, `HttpKernel` les
       appelle. La règle d'ADR-0026 D8 vit en un endroit au lieu de six moments d'inscription.
@@ -154,7 +156,6 @@ d'inscription lu au code.
 | `http-kernel.ts#HttpKernel.init` — bascule de disponibilité + `shutdownDelay` | `prepend` à `onPostReady`                            | `kernel.isTerminating` + étape 1 de D2 |
 | `http-kernel.ts#HttpKernel.init` — `shutdownStreams`                          | `prepend` à `init()`                                 | étape 2 de D2                          |
 | `server-websocket.ts`, `server-websocket-secure.ts` — `terminate` (1001)      | `prepend` à `createServer`                           | étape 2 de D2                          |
-| `reverse-proxy.ts` — `closeAll` (sockets proxifiées)                          | `prepend` au constructeur                            | étape 2 de D2                          |
 | `server-http.ts`, `server-https.ts` (×2), `server-h2c.ts` — drain             | `once` à `createServer`, attendus l'un après l'autre | étape 3 de D2, ensemble                |
 
 **Phase 1 — trafic, hors `@nodefony/http` : passe sur `onDrain`**
@@ -165,20 +166,21 @@ d'inscription lu au code.
 
 **Phase 2 — ressources : restent sur `onTerminate`, placés par D3**
 
-| Site                                                                                     | Moment d'inscription                | Geste                                                   |
-| ---------------------------------------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------- |
-| `realtime/index.ts#Realtime.onKernelBoot` — dernier lot de présence, arrêt du bus        | `onKernelBoot`                      | `prepend` → `once`                                      |
-| `redis.ts#RedisService.constructor` — `closeConnections`                                 | constructeur                        | inchangé                                                |
-| `DrizzleService.ts`, `MongooseService.ts` — fermeture des connexions                     | constructeur                        | inchangé                                                |
-| `auditService.ts`, `totp.ts`, `webAuthn.ts`, `tokenService.ts` — vidage / arrêt du store | constructeur, store pris à `onBoot` | **déplacer** à la résolution du store (D3 point 4)      |
-| `webhooks.ts` — désabonnement de l'audit, arrêt du répartiteur                           | constructeur                        | inchangé (A10)                                          |
-| `sessions-service.ts#SessionsService.constructor` — GC, fermeture du stockage            | constructeur                        | vérifier le moment d'ouverture du stockage (D3 point 4) |
-| `http-kernel.ts#HttpKernel.init` — GC du rate-limit, récepteurs h2                       | `init()`                            | inchangé                                                |
-| `framework/index.ts` — GC d'idempotence                                                  | `onKernelBoot`                      | inchangé                                                |
-| `periodicTask.ts` — `schedulePeriodic`, `runOnceAtStartup`                               | à l'appel                           | inchangé                                                |
-| `FrontendService.ts` — superviseurs Vite                                                 | `init()`                            | inchangé                                                |
-| `BootReporter.ts` (×3) — affichage, échantillonneur                                      | `onPreStart` / fin du boot          | inchangé                                                |
-| `Command.ts#Command.setEvents` — hook `onKernelTerminate` d'une commande                 | `setEvents`                         | inchangé                                                |
+| Site                                                                                     | Moment d'inscription                      | Geste                                                                            |
+| ---------------------------------------------------------------------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------- |
+| `realtime/index.ts#Realtime.onKernelBoot` — dernier lot de présence, arrêt du bus        | `onKernelBoot`                            | `prepend` → `once`                                                               |
+| `redis.ts#RedisService.constructor` — `closeConnections`                                 | constructeur                              | inchangé                                                                         |
+| `DrizzleService.ts`, `MongooseService.ts` — fermeture des connexions                     | constructeur                              | inchangé                                                                         |
+| `auditService.ts`, `totp.ts`, `webAuthn.ts`, `tokenService.ts` — vidage / arrêt du store | constructeur, store pris à `onBoot`       | **déplacer** à la résolution du store (D3 point 4)                               |
+| `webhooks.ts` — désabonnement de l'audit, arrêt du répartiteur                           | constructeur                              | inchangé (A10)                                                                   |
+| `sessions-service.ts#SessionsService.initializeStorage` — GC, fermeture du stockage      | constructeur, stockage ouvert à `onReady` | **déplacer** à l'ouverture du stockage (D3 point 4)                              |
+| `http-kernel.ts#HttpKernel.init` — GC du rate-limit, récepteurs h2                       | `init()`                                  | inchangé                                                                         |
+| `reverse-proxy.ts#ReverseProxy.closeAll` — destruction des pools vers l'amont            | constructeur                              | `prepend` → `once` : les relais en vol finissent pendant le drain, sur leur pool |
+| `framework/index.ts` — GC d'idempotence                                                  | `onKernelBoot`                            | inchangé                                                                         |
+| `periodicTask.ts` — `schedulePeriodic`, `runOnceAtStartup`                               | à l'appel                                 | inchangé                                                                         |
+| `FrontendService.ts` — superviseurs Vite                                                 | `init()`                                  | inchangé                                                                         |
+| `BootReporter.ts` (×3) — affichage, échantillonneur                                      | `onPreStart` / fin du boot                | inchangé                                                                         |
+| `Command.ts#Command.setEvents` — hook `onKernelTerminate` d'une commande                 | `setEvents`                               | inchangé                                                                         |
 
 ## Scénarios jugés
 

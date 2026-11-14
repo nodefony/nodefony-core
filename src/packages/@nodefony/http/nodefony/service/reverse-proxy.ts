@@ -122,7 +122,9 @@ class ReverseProxy extends Service {
     this.connectTimeoutMs =
       section?.connectTimeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS;
     this.maxSockets = section?.maxSockets ?? DEFAULT_MAX_SOCKETS;
-    this.kernel?.prependOnceListener("onTerminate", () => this.closeAll());
+    // Libération (phase 2, ADR-0027) : les relais en vol finissent pendant le
+    // drain sur leur pool, détruit ensuite.
+    this.kernel?.once("onTerminate", () => this.closeAll());
     for (const [prefix, mount] of Object.entries(section?.mounts ?? {})) {
       this.#add(prefix, mount, "config");
     }

@@ -239,7 +239,8 @@ Choisir en cinq secondes :
 | `onKernelBoot()`     | `onBoot`     | les services `@services([…])` sont **construits**              | ouvrir ses connexions, armer ses timers       |
 | `onKernelReady()`    | `onReady`    | **tous** les modules sont bootés ; serveurs pas encore ouverts | se câbler aux autres modules                  |
 | `init()` (service)   | `onPreBoot`  | le service est construit, ses `@Inject` résolus                | connexion, chargement de clés, warm-up        |
-| `onTerminate`        | arrêt        | le drain commence                                              | fermer proprement, stopper ses timers         |
+| `onDrain`            | arrêt        | `kernel.isTerminating` vrai ; le pod cesse de servir           | congédier ses clients, drainer son serveur    |
+| `onTerminate`        | arrêt        | plus aucune requête en vol                                     | fermer ses connexions, stopper ses timers     |
 
 ### `init(kernel?)` — le constructeur asynchrone d'un module
 
@@ -441,7 +442,8 @@ affiche les valeurs par défaut du framework et suggère exactement ce cas. Avec
 | 8   | `onReady`        | `Kernel.onReady()`                    | `Kernel.ts#Kernel.onReady`                    | câblage inter-modules terminé             |
 | 9   | `onServersReady` | `Kernel.initServers()`                | `Kernel.ts#Kernel.initServers`                | **les ports écoutent**                    |
 | 10  | `onPostReady`    | `Kernel.onReady()`                    | `Kernel.ts#Kernel.onReady`                    | verdict de boot figé et logué             |
-| 11  | `onTerminate`    | `Kernel.terminate()`                  | `Kernel.ts#Kernel.terminate`                  | le drain commence                         |
+| 11  | `onDrain`        | `Kernel.terminate()`                  | `Kernel.ts#Kernel.terminate`                  | le trafic s'arrête (écouteurs ensemble)   |
+| 12  | `onTerminate`    | `Kernel.terminate()`                  | `Kernel.ts#Kernel.terminate`                  | ressources libérées (ordre inverse)       |
 
 Une commande peut s'arrêter à n'importe laquelle de ces phases : `Kernel.setCommandComplete()`
 (`Kernel.ts#Kernel.setCommandComplete`) compare la phase atteinte à la phase cible déclarée par la commande et coupe la
@@ -582,27 +584,54 @@ Le garde-fou zéro-serveur va jusqu'au code de sortie : un profil serveur qui fi
 `EX_UNAVAILABLE`, pas en `0` trompeur (`Kernel.ts#Kernel.onReady`). L'orchestrateur voit un pod en échec, le
 superviseur de développement un message honnête.
 
-## Arrêt propre — le drain borné
+## Arrêt propre — deux phases, une échéance
 
-Symétrique du boot. `Kernel.terminate()` (`Kernel.ts#Kernel.terminate`) émet `onTerminate`, ce qui déclenche un
-drain **ordonné** — l'ordre vient de l'ordre d'attachement des écouteurs, pas d'un orchestrateur
-central.
+Symétrique du boot, et décidé par l'ADR-0027. `Kernel.terminate()` (`Kernel.ts#Kernel.terminate`) pose
+`kernel.isTerminating`, puis enchaîne deux événements :
+
+1. **`onDrain` — cesser de servir.** Les écouteurs tournent **ensemble** ; le noyau attend le
+   dernier. Pour `@nodefony/http`, un seul écouteur (`http-kernel.ts#HttpKernel.drainTraffic`)
+   enchaîne explicitement : délai `health.shutdownDelay` (la sonde répond déjà 503), congé des
+   connexions longues (WebSocket en 1001, fin des flux), puis drain des serveurs.
+2. **`onTerminate` — libérer.** Du **dernier inscrit au premier**, un à la fois. Ce dont un écouteur
+   dépend a été mis en place avant lui, donc s'arrête après lui — la règle de systemd et de
+   `exit()` POSIX.
 
 ```mermaid
 flowchart TD
-  T["terminate(code) — SIGTERM, fin de commande"] --> R["readyz → 503 (+ délai)<br/>le répartiteur retire le pod"]
-  R --> W["WebSockets fermées proprement (close 1001)"]
-  W --> H["drain HTTP : les requêtes en vol finissent"]
-  H --> S["nettoyage des services (timers, stores)"]
-  S --> Q["sortie, code d'origine"]
-  T -.->|"deadline 15 s dépassée"| F["CRITIC + sortie FORCÉE code 1"]
+  T["terminate(code) — SIGTERM, fin de commande"] --> I["kernel.isTerminating = true<br/>readyz → 503"]
+  I --> D["onDrain (ensemble) : délai, WebSocket 1001 et fin des flux,<br/>puis drain HTTP — les requêtes en vol finissent"]
+  D --> L["onTerminate (dernier inscrit d'abord) :<br/>temps réel → Redis, audit → base, timers"]
+  L --> Q["sortie, code d'origine (1 si un écouteur a échoué)"]
+  T -.->|"échéance 15 s dépassée"| F["CRITIC nommant la phase + sortie FORCÉE code 1"]
 ```
 
-L'ordre est obtenu par construction : la bascule de disponibilité est attachée **en tête**
-(`prependOnceListener("onTerminate")`, `http-kernel.ts#HttpKernel.init`), les serveurs WebSocket aussi, et les
-serveurs HTTP en écouteur normal — donc en dernier. C'est nécessaire : le drain HTTP détruit les
-sockets promues en WebSocket **sans** trame de fermeture, il faut donc que les WS aient déjà dit au
-revoir (`createDrainTerminator()`, `serverShutdown.ts#createDrainTerminator`).
+Les deux phases se choisissent par la **nature** de l'écouteur, jamais par son moment
+d'inscription :
+
+| Mon écouteur…                                                     | Événement     |
+| ----------------------------------------------------------------- | ------------- |
+| ferme des connexions de clients, draine un serveur, finit un flux | `onDrain`     |
+| ferme une connexion à une base, à Redis, vide un tampon, un timer | `onTerminate` |
+
+**La règle d'écriture qui rend l'ordre juste : inscrire sa libération au moment où l'on PREND ce
+dont elle dépend.** Un service qui ne résout son store qu'à `onBoot` inscrit sa fermeture à
+`onBoot`, pas dans son constructeur :
+
+```typescript
+constructor(module: Module) {
+  super("audit", module.container, module.notificationsCenter, module.options);
+  this.kernel?.once("onBoot", () => {
+    this.#store = openStore(); // dépend du connecteur de base, inscrit avant
+    // Inscrite APRÈS : l'arrêt la passe AVANT la fermeture du connecteur.
+    this.kernel?.once("onTerminate", () => this.#flush());
+  });
+}
+```
+
+Un écouteur qui lève ou rejette est journalisé avec sa phase et n'interrompt pas les autres : une
+ressource ne reste pas ouverte parce qu'une autre a échoué à se fermer. Une inscription faite pendant
+`onTerminate` (un service construit à la volée) est appelée avant celles qui restent.
 
 Le tout est borné par une **échéance globale** : `DEFAULT_SHUTDOWN_DEADLINE` (`Kernel.ts#DEFAULT_SHUTDOWN_DEADLINE`), 15 s
 par défaut, choisi inférieur au délai de grâce d'un orchestrateur. Si un écouteur pend — flux SSE
@@ -668,21 +697,21 @@ Voir [Docker & cloud-native](../guides/docker-cloud-native.md).
 
 ## ⚠️ Pièges
 
-| Symptôme                                     | Cause                                                                | Correction                                                          |
-| -------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `Cannot read properties of null` à l'import  | Déréférencement du kernel au premier niveau d'un fichier de config   | Getter paresseux, ou passer par `ctx` de `defineConfig`             |
-| Mon hook n'est jamais appelé                 | Propriété fléchée au lieu d'une méthode de prototype                 | `async onKernelBoot(): Promise<this> { … }`                         |
-| Mon hook n'est jamais appelé (bis)           | Nom approximatif (`onBoot`, `onKernelBooted`…)                       | Exactement `onKernelRegister` / `onKernelBoot` / `onKernelReady`    |
-| Un module n'est pas chargé                   | `policy: "dev"` hors dev, ou `when(config)` faux                     | Lire la ligne « ignoré(s) (policy/when) » du verdict de boot        |
-| `Cannot find package` sur un module          | `dist/` périmé après un `git pull`                                   | `npm run clean && npm run build` (la remédiation le dit déjà)       |
-| Ordre de service inattendu                   | On croyait que l'ordre de `@services([…])` décidait                  | Il est recalculé depuis les `@Inject` — déclarer la dépendance      |
-| Service d'un autre module introuvable        | Récupéré dans le constructeur, trop tôt                              | Le prendre à `onKernelBoot` / `onKernelReady`                       |
-| Boot figé, puis `SIGKILL` de l'orchestrateur | Un `init` qui pend au-delà du timeout                                | Vérifier l'infra ; ajuster `NF_BOOT_TIMEOUT_MS` si justifié         |
-| Pod qui redémarre en boucle en production    | Module **critique** en échec → boot fatal (voulu)                    | Corriger la cause ; en dernier recours revoir `static critical`     |
-| `BOOT ÉCHEC — aucun serveur en écoute`       | Profil serveur attendu, 0 serveur (port pris ? module http absent ?) | Lire les modules en échec listés + la remédiation                   |
-| Une surcharge de config semble ignorée       | Elle vise un module absent du manifeste                              | Charger le module, ou retirer la clé (un `WARNING` le signale déjà) |
-| `shutdown deadline exceeded — forcing exit`  | Un écouteur `onTerminate` pend au-delà de l'échéance                 | Fermer proprement flux et connexions ; ajuster `shutdownDeadline`   |
-| Une migration tourne N fois                  | En cluster, chaque travailleur boote le cycle complet                | Garder l'unicité explicitement, ou sortir la tâche du process       |
+| Symptôme                                     | Cause                                                                     | Correction                                                          |
+| -------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `Cannot read properties of null` à l'import  | Déréférencement du kernel au premier niveau d'un fichier de config        | Getter paresseux, ou passer par `ctx` de `defineConfig`             |
+| Mon hook n'est jamais appelé                 | Propriété fléchée au lieu d'une méthode de prototype                      | `async onKernelBoot(): Promise<this> { … }`                         |
+| Mon hook n'est jamais appelé (bis)           | Nom approximatif (`onBoot`, `onKernelBooted`…)                            | Exactement `onKernelRegister` / `onKernelBoot` / `onKernelReady`    |
+| Un module n'est pas chargé                   | `policy: "dev"` hors dev, ou `when(config)` faux                          | Lire la ligne « ignoré(s) (policy/when) » du verdict de boot        |
+| `Cannot find package` sur un module          | `dist/` périmé après un `git pull`                                        | `npm run clean && npm run build` (la remédiation le dit déjà)       |
+| Ordre de service inattendu                   | On croyait que l'ordre de `@services([…])` décidait                       | Il est recalculé depuis les `@Inject` — déclarer la dépendance      |
+| Service d'un autre module introuvable        | Récupéré dans le constructeur, trop tôt                                   | Le prendre à `onKernelBoot` / `onKernelReady`                       |
+| Boot figé, puis `SIGKILL` de l'orchestrateur | Un `init` qui pend au-delà du timeout                                     | Vérifier l'infra ; ajuster `NF_BOOT_TIMEOUT_MS` si justifié         |
+| Pod qui redémarre en boucle en production    | Module **critique** en échec → boot fatal (voulu)                         | Corriger la cause ; en dernier recours revoir `static critical`     |
+| `BOOT ÉCHEC — aucun serveur en écoute`       | Profil serveur attendu, 0 serveur (port pris ? module http absent ?)      | Lire les modules en échec listés + la remédiation                   |
+| Une surcharge de config semble ignorée       | Elle vise un module absent du manifeste                                   | Charger le module, ou retirer la clé (un `WARNING` le signale déjà) |
+| `shutdown deadline exceeded — forcing exit`  | Un écouteur `onDrain` ou `onTerminate` (nommé) pend au-delà de l'échéance | Fermer proprement flux et connexions ; ajuster `shutdownDeadline`   |
+| Une migration tourne N fois                  | En cluster, chaque travailleur boote le cycle complet                     | Garder l'unicité explicitement, ou sortir la tâche du process       |
 
 ## 🧪 Tests & couverture
 

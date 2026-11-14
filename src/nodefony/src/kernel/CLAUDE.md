@@ -48,7 +48,9 @@ src/nodefony/src/kernel/
 ```
 Events bitmask (frozen):
   onInit=1  onPreStart=2  onStart=4  onPreRegister=8  onRegister=16
-  onPreBoot=32  onBoot=64  onReady=128  onServersReady=256  onPostReady=512  onTerminate=1024
+  onPreBoot=32  onBoot=64  onReady=128  onServersReady=256  onPostReady=512  onTerminate=1024  onDrain=2048
+
+Arrêt (ADR-0027) : isTerminating → onDrain (trafic, ensemble) → onTerminate (ressources, dernier inscrit d'abord)
 
 Flags chronologiques:
   started → preRegistered → registered → booted → ready → postReady

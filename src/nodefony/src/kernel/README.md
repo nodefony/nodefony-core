@@ -23,7 +23,7 @@ Le kernel suit une chaîne d'événements stricte. Chaque étape appelle la suiv
 ```
 onInit → onPreStart → onStart → onPreRegister → onRegister
        → onPreBoot → onBoot → onReady → onServersReady → onPostReady
-       → onTerminate
+       → onDrain (trafic) → onTerminate (ressources, dernier inscrit d'abord)
 ```
 
 **Flags de progression** (booléens, jamais régressifs) :
@@ -37,7 +37,7 @@ onInit → onPreStart → onStart → onPreRegister → onRegister
 
 ```typescript
 // bitmask lu via kernel.Events (non exporté par l'index de "nodefony")
-// onInit=1, onPreStart=2, onStart=4, ..., onTerminate=1024
+// onInit=1, onPreStart=2, onStart=4, ..., onTerminate=1024, onDrain=2048
 ```
 
 ### Instanciation
@@ -151,7 +151,7 @@ kernel.logEnv(); // string coloré type/cluster/env/debug
 ### Terminate
 
 ```typescript
-await kernel.terminate(0); // fire onTerminate → process.nextTick → CliKernel.quit(code)
+await kernel.terminate(0); // isTerminating → onDrain (trafic) → onTerminate (ressources, ordre inverse) → CliKernel.quit(code)
 ```
 
 ---
