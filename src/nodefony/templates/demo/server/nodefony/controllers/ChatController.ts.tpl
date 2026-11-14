@@ -564,7 +564,10 @@ class ChatController extends ContractRealtimeController<ChatContract> {
       await this.chat.discard(files);
       throw new HttpError(problem, files.length === 0 ? 400 : 413);
     }
-    const attachments = await this.chat.saveAttachments(files);
+    const attachments = await this.chat.saveAttachments(
+      input.params.room,
+      files,
+    );
     try {
       const { id, sentAt } = await this.#refused(() =>
         this.chat.publish(input.params.room, {
@@ -596,6 +599,11 @@ class ChatController extends ContractRealtimeController<ChatContract> {
    * exception à `sandbox` : Chrome refuse d'afficher un PDF sous `sandbox`.
    * Sa visionneuse est isolée de la page, et il ne s'encadre que par une page
    * de l'application (`frame-ancestors 'self'`).
+   *
+   * L'identifiant ne suffit pas : la pièce appartient à un salon, et la servir
+   * passe par la MÊME garde que lire son historique. Un éjecté, ou un lien
+   * recopié hors d'un salon privé, reçoit 403 ; un salon supprimé a déjà
+   * effacé ses pièces (404).
    */
   @route("demo-chat-file", {
     path: "/files/{id}",
@@ -605,6 +613,7 @@ class ChatController extends ContractRealtimeController<ChatContract> {
     const stored = this.chat.attachment(id);
     if (stored === undefined)
       throw new HttpError("pièce introuvable, ou sortie du stockage", 404);
+    await this.#admitted(stored.roomId);
     const pdf = stored.meta.kind === "pdf";
     const inline = pdf || stored.meta.kind === "image";
     await this.streamFile(stored.file, {

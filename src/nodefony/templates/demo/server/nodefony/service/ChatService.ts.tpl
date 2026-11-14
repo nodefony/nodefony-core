@@ -88,6 +88,12 @@ export const CHAT_ATTACHMENT_DIR = "demo-chat";
 /** Une pièce gardée : ce que le salon annonce, et de quoi la servir. */
 export interface IStoredAttachment {
   meta: ChatAttachment;
+  /**
+   * Le salon du message qui l'a portée : la servir exige d'y être admis. Sans
+   * lui, l'identifiant suffirait — un éjecté, ou le lien d'un salon privé
+   * recopié ailleurs, ouvrirait la pièce.
+   */
+  roomId: string;
   /** Chemin du fichier, choisi par le serveur (l'id), jamais par le client. */
   file: string;
   /** Le type servi, tiré des octets. */
@@ -277,9 +283,11 @@ class ChatService extends Service {
    * par le serveur, puis classé d'après ses octets — image, PDF, archive,
    * document, tableur, texte UTF-8, ou simple fichier.
    *
+   * @param roomId - le salon du message : la pièce ne se sert qu'à ses admis
    * @returns ce que le salon annoncera de chaque pièce
    */
   async saveAttachments(
+    roomId: string,
     files: readonly IUploadedFile[],
   ): Promise<ChatAttachment[]> {
     const dir = await this.#directory();
@@ -288,7 +296,13 @@ class ChatService extends Service {
       const id = randomUUID();
       const file = path.join(dir, id);
       await upload.moveAsync(file);
-      const stored = await classify(id, upload.filename, upload.size, file);
+      const stored = await classify(
+        roomId,
+        id,
+        upload.filename,
+        upload.size,
+        file,
+      );
       this.#attachments.set(id, stored);
       saved.push(stored.meta);
     }
@@ -368,6 +382,7 @@ class ChatService extends Service {
  * rejoue : l'aperçu annoncé à tous ne vient jamais du navigateur.
  */
 async function classify(
+  roomId: string,
   id: string,
   name: string,
   size: number,
@@ -377,6 +392,7 @@ async function classify(
     const described = await describeFile(await readFile(file));
     return {
       meta: { id, name, size, ...described.fields },
+      roomId,
       file,
       mime: described.mime,
     };
@@ -393,10 +409,11 @@ async function classify(
   return image === null
     ? {
         meta: { id, name, size, kind: "file" },
+        roomId,
         file,
         mime: "application/octet-stream",
       }
-    : { meta: { id, name, size, kind: "image" }, file, mime: image };
+    : { meta: { id, name, size, kind: "image" }, roomId, file, mime: image };
 }
 
 /**

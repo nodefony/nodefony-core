@@ -736,7 +736,7 @@ describe("demo — les pièces du salon, classées d'après leurs OCTETS", () =>
 
   it("🔴 une page HTML déclarée image/png n'est PAS une image : texte, téléchargée", async () => {
     const chat = store();
-    const [piece] = await chat.saveAttachments([
+    const [piece] = await chat.saveAttachments(LOBBY_ROOM_ID, [
       upload("photo.png", new TextEncoder().encode("<script>x</script>\n")),
     ]);
     expect(piece?.kind).toBe("text");
@@ -745,13 +745,21 @@ describe("demo — les pièces du salon, classées d'après leurs OCTETS", () =>
     );
   });
 
+  it("🔴 une pièce retient le salon de son message : la servir exigera d'y être admis", async () => {
+    const chat = store();
+    const [piece] = await chat.saveAttachments("equipe", [
+      upload("note.txt", new TextEncoder().encode("privé\n")),
+    ]);
+    expect(chat.attachment(piece?.id ?? "")?.roomId).toBe("equipe");
+  });
+
   it("une vraie image est reconnue à sa signature ; un binaire reste un fichier", async () => {
     expect(sniffImage(PNG)).toBe("image/png");
     expect(sniffImage(new Uint8Array([0x3c, 0x73, 0x76, 0x67]))).toBeNull();
     expect(decodeText(new Uint8Array([0x61, 0x00, 0x62]))).toBeNull();
     expect(decodeText(new Uint8Array([0xff, 0xfe]))).toBeNull();
     const chat = store();
-    const [image, binary] = await chat.saveAttachments([
+    const [image, binary] = await chat.saveAttachments(LOBBY_ROOM_ID, [
       upload("a.png", PNG),
       upload("b.bin", new Uint8Array([1, 0, 2, 3])),
     ]);
@@ -764,7 +772,7 @@ describe("demo — les pièces du salon, classées d'après leurs OCTETS", () =>
 
   it("un texte annonce ses lignes et ses trois premières", async () => {
     const chat = store();
-    const [piece] = await chat.saveAttachments([
+    const [piece] = await chat.saveAttachments(LOBBY_ROOM_ID, [
       upload("collé.txt", new TextEncoder().encode("1\n2\n3\n4\n5\n")),
     ]);
     expect(piece).toMatchObject({ kind: "text", lines: 5, preview: "1\n2\n3" });
@@ -777,7 +785,9 @@ describe("demo — les pièces du salon, classées d'après leurs OCTETS", () =>
       path.join(work, `s${seq}`),
       memoryArchive(),
     );
-    const [first] = await chat.saveAttachments([upload("0.png", PNG)]);
+    const [first] = await chat.saveAttachments(LOBBY_ROOM_ID, [
+      upload("0.png", PNG),
+    ]);
     await chat.publish(LOBBY_ROOM_ID, {
       authorId: "u1",
       author: "a",
@@ -787,7 +797,7 @@ describe("demo — les pièces du salon, classées d'après leurs OCTETS", () =>
     const [kept] = (await chat.recent(LOBBY_ROOM_ID, 1))[0]?.attachments ?? [];
     expect(kept?.expired).toBeUndefined();
     for (let i = 1; i <= CHAT_ATTACHMENT_LIMIT; i += 1)
-      await chat.saveAttachments([upload(`${i}.png`, PNG)]);
+      await chat.saveAttachments(LOBBY_ROOM_ID, [upload(`${i}.png`, PNG)]);
     expect(chat.attachment(first?.id ?? "")).toBeUndefined();
     // L'historique vient de l'archive (la base) : la pièce partie s'y annonce
     // à la LECTURE, rien n'a été réécrit.
@@ -795,7 +805,8 @@ describe("demo — les pièces du salon, classées d'après leurs OCTETS", () =>
     expect(gone?.expired).toBe(true);
     const dir = path.dirname(
       chat.attachment(
-        (await chat.saveAttachments([upload("z.png", PNG)]))[0]?.id ?? "",
+        (await chat.saveAttachments(LOBBY_ROOM_ID, [upload("z.png", PNG)]))[0]
+          ?.id ?? "",
       )?.file ?? "",
     );
     expect(readdirSync(dir)).toHaveLength(CHAT_ATTACHMENT_LIMIT);
@@ -865,7 +876,7 @@ describe("demo — les pièces du salon, classées d'après leurs OCTETS", () =>
   it("🔴 un zip annonce son INDEX : 20 entrées au plus, sur le total", async () => {
     const files: Record<string, string> = {};
     for (let i = 1; i <= 25; i += 1) files[`src/f${i}.txt`] = "x".repeat(i);
-    const [piece] = await store().saveAttachments([
+    const [piece] = await store().saveAttachments(LOBBY_ROOM_ID, [
       upload("code.zip", zip(files)),
     ]);
     expect(piece).toMatchObject({ kind: "archive", format: "zip", total: 25 });
@@ -879,7 +890,7 @@ describe("demo — les pièces du salon, classées d'après leurs OCTETS", () =>
       "app/a.txt": "abc",
       "app/b.txt": "x".repeat(700),
     });
-    const [plain, packed] = await store().saveAttachments([
+    const [plain, packed] = await store().saveAttachments(LOBBY_ROOM_ID, [
       upload("a.tar", archive),
       upload("a.tar.gz", gzipSync(archive)),
     ]);
@@ -908,7 +919,7 @@ describe("demo — les pièces du salon, classées d'après leurs OCTETS", () =>
     const out = await inflateHead(bomb, "raw", INFLATE_LIMIT);
     expect(out).toMatchObject({ truncated: true });
     expect(out.bytes.length).toBe(INFLATE_LIMIT);
-    const [piece] = await store().saveAttachments([
+    const [piece] = await store().saveAttachments(LOBBY_ROOM_ID, [
       upload(
         "bombe.tar.gz",
         gzipSync(tar({ "zero.bin": "\u0000".repeat(3 * INFLATE_LIMIT) })),
@@ -931,7 +942,7 @@ describe("demo — les pièces du salon, classées d'après leurs OCTETS", () =>
       },
       false,
     );
-    const [word, odf] = await store().saveAttachments([
+    const [word, odf] = await store().saveAttachments(LOBBY_ROOM_ID, [
       upload("lettre.docx", docx),
       upload("note.odt", odt),
     ]);
@@ -960,7 +971,7 @@ describe("demo — les pièces du salon, classées d'après leurs OCTETS", () =>
       "content.xml":
         '<office:spreadsheet><table:table table:name="F1"><table:table-row><table:table-cell><text:p>a</text:p></table:table-cell><table:table-cell table:number-columns-repeated="2"/><table:table-cell><text:p>d</text:p></table:table-cell></table:table-row><table:table-row table:number-rows-repeated="1048575"><table:table-cell table:number-columns-repeated="16384"/></table:table-row></table:table><table:table table:name="F2"><table:table-row><table:table-cell><text:p>autre</text:p></table:table-cell></table:table-row></table:table></office:spreadsheet>',
     });
-    const [excel, calc] = await store().saveAttachments([
+    const [excel, calc] = await store().saveAttachments(LOBBY_ROOM_ID, [
       upload("t.xlsx", xlsx),
       upload("t.ods", ods),
     ]);
@@ -981,7 +992,7 @@ describe("demo — les pièces du salon, classées d'après leurs OCTETS", () =>
 
   it("un PDF s'affiche, d'après %PDF- ; un zip illisible reste un fichier", async () => {
     const chat = store();
-    const [pdf, broken] = await chat.saveAttachments([
+    const [pdf, broken] = await chat.saveAttachments(LOBBY_ROOM_ID, [
       upload("doc.bin", new TextEncoder().encode("%PDF-1.7\n%âãÏÓ\n")),
       upload("casse.zip", new Uint8Array([0x50, 0x4b, 0x03, 0x04, 0, 0, 0])),
     ]);
@@ -999,6 +1010,7 @@ describe("demo — les pièces du salon, classées d'après leurs OCTETS", () =>
       ["b.bin", new Uint8Array([1, 0, 2, 3])],
     ];
     const pieces = await store().saveAttachments(
+      LOBBY_ROOM_ID,
       samples.map(([name, bytes]) => upload(name, bytes)),
     );
     for (const [i, [, bytes]] of samples.entries()) {

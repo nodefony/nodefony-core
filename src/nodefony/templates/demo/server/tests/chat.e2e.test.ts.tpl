@@ -568,6 +568,36 @@ demoDescribe("discussion — les pièces jointes", () => {
   });
   // #endregion
 
+  it("🔴 la pièce d'un salon privé ne se sert qu'à ses admis : l'identifiant ne suffit pas", async () => {
+    const form = new FormData();
+    form.append("text", unique("pièce privée"));
+    form.append("file", new Blob(["privé\n"], { type: "text/plain" }), "a.txt");
+    const res = await fetch(
+      httpUrl(CHAT_ATTACH_PATH.replace("{room}", TEAM_ROOM_ID)),
+      {
+        method: "POST",
+        headers: { ...admin, "idempotency-key": randomUUID() },
+        body: form,
+      },
+    );
+    expect(res.status).toBe(200);
+    const { id }: { id: string } = await res.json();
+    const history = await fetch(roomPath(TEAM_ROOM_ID, "history"), {
+      headers: admin,
+    });
+    const messages: ChatMessage[] = await history.json();
+    const piece = messages.find((m) => m.id === id)?.attachments?.[0];
+    expect(piece).toBeDefined();
+    const url = httpUrl(`${CHAT_FILE_PATH}/${piece?.id ?? ""}`);
+
+    const outsider = await fetch(url);
+    expect(outsider.status).toBe(403);
+    await outsider.body?.cancel();
+    const member = await fetch(url, { headers: admin });
+    expect(member.status).toBe(200);
+    await member.body?.cancel();
+  });
+
   it("un envoi multipart sans clé d'idempotence est refusé (formulaire forgé)", async () => {
     const form = new FormData();
     form.append("text", unique("forgé"));
