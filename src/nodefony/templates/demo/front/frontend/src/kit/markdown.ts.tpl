@@ -425,6 +425,28 @@ export function toggleMark(
 }
 
 /**
+ * Un marqueur en ligne autour d'une sélection d'une ligne ; un bloc clôturé
+ * (`fence` sur sa propre ligne, avant et après) si elle en tient plusieurs.
+ */
+function fencedMark(
+  value: string,
+  start: number,
+  end: number,
+  inline: string,
+  fence: string,
+): { value: string; start: number; end: number } {
+  const selected = value.slice(start, end);
+  if (!selected.includes("\n")) return toggleMark(value, start, end, inline);
+  const open =
+    start === 0 || value[start - 1] === "\n" ? `${fence}\n` : `\n${fence}\n`;
+  return {
+    value: `${value.slice(0, start)}${open}${selected}\n${fence}${value.slice(end)}`,
+    start: start + open.length,
+    end: end + open.length,
+  };
+}
+
+/**
  * Du code : un bloc ``` si la sélection tient sur plusieurs lignes, sinon des
  * accents graves autour.
  */
@@ -433,14 +455,19 @@ export function codeMark(
   start: number,
   end: number,
 ): { value: string; start: number; end: number } {
-  const selected = value.slice(start, end);
-  if (!selected.includes("\n")) return toggleMark(value, start, end, "`");
-  const open = start === 0 || value[start - 1] === "\n" ? "```\n" : "\n```\n";
-  return {
-    value: `${value.slice(0, start)}${open}${selected}\n\`\`\`${value.slice(end)}`,
-    start: start + open.length,
-    end: end + open.length,
-  };
+  return fencedMark(value, start, end, "`", "```");
+}
+
+/**
+ * Une formule : un bloc `$$` si la sélection tient sur plusieurs lignes,
+ * sinon `$…$` autour — les deux formes que le salon rend par KaTeX.
+ */
+export function mathMark(
+  value: string,
+  start: number,
+  end: number,
+): { value: string; start: number; end: number } {
+  return fencedMark(value, start, end, "$", "$$");
 }
 
 /**
@@ -465,6 +492,89 @@ export function linkMark(
   };
 }
 // #endregion
+
+/** Un caractère d'un nom mentionné — celui que `MENTION` accepte après `@`. */
+const MENTION_CHAR = /[\p{L}\p{N}_.-]/u;
+
+/** Une mention en cours de frappe : où commence `@`, où finit le nom, ce qui est tapé. */
+export interface IMentionAt {
+  /** Rang du `@`. */
+  start: number;
+  /** Fin du nom sous le curseur (le nom peut se poursuivre après lui). */
+  end: number;
+  /** Ce qui est tapé entre `@` et le curseur. */
+  query: string;
+}
+
+/**
+ * La mention que le curseur est en train d'écrire, ou `null` : un `@` en
+ * début de mot (la même condition que l'analyse, `parseInline`), suivi de
+ * caractères de nom jusqu'au curseur. `a@b` n'en est pas une — une adresse.
+ *
+ * @param caret - position du curseur (sélection vide)
+ */
+export function mentionAt(value: string, caret: number): IMentionAt | null {
+  let at = caret;
+  while (at > 0 && MENTION_CHAR.test(value.charAt(at - 1))) at -= 1;
+  const start = at - 1;
+  if (start < 0 || value[start] !== "@" || isWordChar(value[start - 1]))
+    return null;
+  const query = value.slice(at, caret);
+  // Le premier caractère d'un nom n'est ni `.` ni `-` (`MENTION`).
+  if (query.length > 64 || /^[.-]/.test(query)) return null;
+  let end = caret;
+  while (end < value.length && MENTION_CHAR.test(value.charAt(end))) end += 1;
+  return { start, end, query };
+}
+
+/** Un nom sans accents ni majuscules, pour comparer ce qui est tapé. */
+function foldName(name: string): string {
+  return name.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+}
+
+/**
+ * Les noms qui COMMENCENT par ce qui est tapé — accents et majuscules
+ * ignorés, l'ordre reçu gardé (celui du panneau des présents), sans doublon.
+ *
+ * @param limit - au plus ce nombre de noms
+ */
+export function suggestMentions(
+  names: readonly string[],
+  query: string,
+  limit: number,
+): string[] {
+  const typed = foldName(query);
+  const out: string[] = [];
+  for (const name of names) {
+    if (out.length === limit) break;
+    if (foldName(name).startsWith(typed) && !out.includes(name)) out.push(name);
+  }
+  return out;
+}
+
+/** Le texte qu'insère une mention : `@nom` suivi d'une espace — panneau et suggestions. */
+export function mentionOf(name: string): string {
+  return `@${name} `;
+}
+
+/**
+ * Remplace la mention en cours par le nom choisi, curseur après l'espace —
+ * sans doubler l'espace qui suivait déjà.
+ */
+export function applyMention(
+  value: string,
+  at: IMentionAt,
+  name: string,
+): { value: string; start: number; end: number } {
+  const spaced = value.charAt(at.end) === " ";
+  const text = spaced ? mentionOf(name).trimEnd() : mentionOf(name);
+  const caret = at.start + text.length + (spaced ? 1 : 0);
+  return {
+    value: value.slice(0, at.start) + text + value.slice(at.end),
+    start: caret,
+    end: caret,
+  };
+}
 
 /** Une ligne de liste : son retrait, sa puce ou son numéro, son texte. */
 const LIST_ITEM = /^(\s*)(?:([-*+])|(\d{1,9})([.)]))\s+(.*)$/;

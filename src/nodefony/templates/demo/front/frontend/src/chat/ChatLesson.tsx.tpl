@@ -5,6 +5,7 @@ import { LessonCode } from "../lesson/LessonCode";
 import { CHAT_LESSON } from "./chatTabs";
 import { ChatAttachments } from "./ChatAttachments";
 import { ChatComposer } from "./ChatComposer";
+import { mentionOf } from "../kit/markdown";
 import { ChatMessageText } from "./ChatLinkPreview";
 import { useChat, type IChatRoom } from "./useChat";
 import { ChatPeople } from "./ChatPeople";
@@ -426,6 +427,10 @@ function ChatRoom({
         {canWrite ? (
           <ChatComposer
             author={room.identity?.userIdentifier ?? ""}
+            roomId={room.roomId}
+            mentions={room.people.flatMap((row) =>
+              row.me || row.name === null ? [] : [row.name],
+            )}
             send={room.send}
             notifyTyping={room.notifyTyping}
             insertRef={insert}
@@ -451,7 +456,7 @@ function ChatRoom({
         presence={room.presence}
         rows={room.people}
         typing={room.typing}
-        onMention={canWrite ? (who) => insert.current?.(`@${who} `) : null}
+        onMention={canWrite ? (who) => insert.current?.(mentionOf(who)) : null}
         onDirect={
           signedIn && current?.peer === null
             ? (userId) => act(room.forms.openDirect(userId))

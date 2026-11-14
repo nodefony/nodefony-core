@@ -66,14 +66,19 @@ import {
   tokensOfHtml,
 } from "../frontend/src/kit/codeHighlight";
 import {
+  applyMention,
   codeMark,
   collectLinks,
   continueList,
   isBareLink,
   linkMark,
+  mathMark,
+  mentionAt,
+  mentionOf,
   parseInline,
   parseMarkdown,
   prefixLines,
+  suggestMentions,
   toggleMark,
 } from "../frontend/src/kit/markdown";
 import {
@@ -1144,6 +1149,71 @@ describe("demo — le Markdown du salon, le même pour tous", () => {
       value: "voir [doc](https://)",
       start: 11,
       end: 19,
+    });
+  });
+
+  it("le bouton formule pose `$…$` sur une ligne, un bloc `$$` sur plusieurs", () => {
+    expect(mathMark("aire x^2 ici", 5, 8)).toEqual({
+      value: "aire $x^2$ ici",
+      start: 6,
+      end: 9,
+    });
+    expect(mathMark("aire $x^2$ ici", 6, 9).value).toBe("aire x^2 ici");
+    expect(mathMark("a\nb", 0, 3).value).toBe("$$\na\nb\n$$");
+    expect(mathMark("vu : a\nb", 5, 8).value).toBe("vu : \n$$\na\nb\n$$");
+    // Ce que pose le bouton, le salon le lit comme une formule.
+    expect(parseInline("aire $x^2$ ici")).toContainEqual({
+      type: "math",
+      tex: "x^2",
+    });
+  });
+
+  it("une @mention en cours : un arobase en début de mot, jusqu’au curseur", () => {
+    expect(mentionAt("salut @ad", 9)).toEqual({
+      start: 6,
+      end: 9,
+      query: "ad",
+    });
+    expect(mentionAt("@", 1)).toEqual({ start: 0, end: 1, query: "" });
+    // Le nom se poursuit après le curseur : il est remplacé en entier.
+    expect(mentionAt("@admin ok", 3)).toEqual({
+      start: 0,
+      end: 6,
+      query: "ad",
+    });
+    expect(mentionAt("mail a@b", 8)).toBeNull();
+    expect(mentionAt("salut ad", 8)).toBeNull();
+    expect(mentionAt("@-x", 3)).toBeNull();
+    expect(mentionAt("@ad mot", 7)).toBeNull();
+  });
+
+  it("les noms proposés commencent par ce qui est tapé, accents ignorés", () => {
+    const names = ["Élodie", "admin", "Émile", "user", "admin"];
+    expect(suggestMentions(names, "e", 8)).toEqual(["Élodie", "Émile"]);
+    expect(suggestMentions(names, "AD", 8)).toEqual(["admin"]);
+    expect(suggestMentions(names, "", 2)).toEqual(["Élodie", "admin"]);
+    expect(suggestMentions(names, "zz", 8)).toEqual([]);
+  });
+
+  it("valider une mention écrit ce qu’écrit le panneau, sans doubler l’espace", () => {
+    expect(mentionOf("user")).toBe("@user ");
+    const typed = mentionAt("salut @u", 8);
+    if (typed === null) throw new Error("mention attendue");
+    expect(applyMention("salut @u", typed, "user")).toEqual({
+      value: "salut @user ",
+      start: 12,
+      end: 12,
+    });
+    const middle = mentionAt("@us vu", 3);
+    if (middle === null) throw new Error("mention attendue");
+    expect(applyMention("@us vu", middle, "user")).toEqual({
+      value: "@user vu",
+      start: 6,
+      end: 6,
+    });
+    expect(parseInline(mentionOf("user"))).toContainEqual({
+      type: "mention",
+      name: "user",
     });
   });
 

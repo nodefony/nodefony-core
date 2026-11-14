@@ -10,13 +10,23 @@ import {
   type Ref,
 } from "react";
 import {
+  applyMention,
   codeMark,
   continueList,
   linkMark,
+  mathMark,
+  mentionAt,
   prefixLines,
+  suggestMentions,
   toggleMark,
 } from "./markdown";
-import { MarkdownText } from "./MarkdownText";
+import { MessageBody } from "./MessageBody";
+
+/** Au plus ce nombre de noms proposés sous une `@mention` en cours. */
+const MENTION_LIMIT = 8;
+
+/** Les boutons de la barre d'outils, parcourus aux flèches (motif « Toolbar » de l'APG). */
+const BAR_ITEMS = ".md-tool, .md-mode";
 
 /** Un geste d'édition : rend le texte et la sélection à reposer. */
 type Edit = (
@@ -55,6 +65,7 @@ const FORMATS: readonly {
   },
   { id: "e", label: "Code", glyph: "</>", key: "e", apply: codeMark },
   { id: "k", label: "Lien", glyph: "🔗", key: "k", apply: linkMark },
+  { id: "m", label: "Formule", glyph: "∑", key: null, apply: mathMark },
   {
     id: "ul",
     label: "Liste à puces",
@@ -89,20 +100,31 @@ function titleOf(item: (typeof FORMATS)[number]): string {
 /**
  * Un éditeur de texte Markdown d'une seule boîte : le champ, puis une barre
  * qui porte les outils de l'appelant, la mise en forme (gras, italique, code,
- * lien, listes, citation), l'onglet « Aperçu » et les actions.
+ * lien, formule, listes, citation), l'onglet « Aperçu » et les actions.
  *
  * Guide pour un agent : brique du KIT, partagée par les démos — le salon
  * l'habille de pièces jointes et d'émoticônes (`ChatComposer.tsx`). Le texte
  * reste du Markdown BRUT (`markdown.ts`) ; « Aperçu » le montre avec le rendu
- * que verront les autres (`MarkdownText.tsx`). Chaque geste passe par une
- * fonction pure de `markdown.ts`, puis la sélection est reposée AVANT toute
- * frappe suivante (`useLayoutEffect`). Entrée sur une ligne de liste ouvre
- * l'élément suivant ; ailleurs, elle appelle `onEnter` s'il est fourni
+ * EXACT du salon, natures comprises (`MessageBody.tsx`). Chaque geste passe
+ * par une fonction pure de `markdown.ts`, puis la sélection est reposée AVANT
+ * toute frappe suivante (`useLayoutEffect`). Entrée sur une ligne de liste
+ * ouvre l'élément suivant ; ailleurs, elle appelle `onEnter` s'il est fourni
  * (envoyer), sinon va à la ligne. Maj+Entrée va toujours à la ligne.
  *
+ * `@` en début de mot propose les `mentions` qui commencent par ce qui est
+ * tapé. Le champ garde son rôle `textbox` (ARIA in HTML n'en permet pas
+ * d'autre) : `aria-autocomplete="list"`, `aria-controls` vers la liste et
+ * `aria-activedescendant` vers le nom choisi ; clavier du motif « Combobox »
+ * de l'APG — ↑↓ choisit, Entrée ou Tab valide, Échap ferme. Liste ouverte,
+ * Entrée valide le nom et n'envoie pas.
+ *
+ * La barre est un `toolbar` (APG) : UN arrêt de tabulation, les flèches ←→,
+ * Début et Fin s'y déplacent ; les actions restent hors de la barre.
+ *
+ * @param mentions - noms proposés après `@` (absent : aucune suggestion)
  * @param editor - reçoit la poignée d'édition (`insert`), pour les outils
- * @param tools - outils de l'appelant, en tête de barre
- * @param actions - en fin de barre (« Envoyer »…)
+ * @param tools - outils de l'appelant, en tête de barre (classe `md-tool`)
+ * @param actions - en fin de boîte, hors de la barre (« Envoyer »…)
  * @param above - au-dessus du champ, dans la boîte (pièces en attente…)
  */
 export function MarkdownEditor({
@@ -114,6 +136,7 @@ export function MarkdownEditor({
   maxLength,
   onPaste,
   onKeyDown,
+  mentions,
   editor,
   tools,
   actions,
@@ -127,14 +150,83 @@ export function MarkdownEditor({
   maxLength?: number;
   onPaste?: (event: ClipboardEvent<HTMLTextAreaElement>) => void;
   onKeyDown?: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
+  mentions?: readonly string[];
   editor?: Ref<IEditorHandle>;
   tools?: ReactNode;
   actions?: ReactNode;
   above?: ReactNode;
 }) {
   const inputId = useId();
+  const listId = useId();
   const field = useRef<HTMLTextAreaElement>(null);
+  const bar = useRef<HTMLDivElement>(null);
   const [previewing, setPreviewing] = useState(false);
+
+  // La mention en cours : recalculée du texte et du curseur à chaque rendu.
+  // `pick` retient le nom choisi POUR une frappe donnée (sa clé) : une lettre
+  // de plus ramène le choix en tête ; Échap ferme la liste de CE `@`.
+  const [caret, setCaret] = useState<number | null>(null);
+  const [pick, setPick] = useState({ key: "", index: 0 });
+  const [dismissed, setDismissed] = useState<number | null>(null);
+  const mention =
+    mentions === undefined || caret === null || previewing
+      ? null
+      : mentionAt(value, caret);
+  const options =
+    mention === null || mentions === undefined
+      ? []
+      : suggestMentions(mentions, mention.query, MENTION_LIMIT);
+  const open =
+    mention !== null && options.length > 0 && dismissed !== mention.start;
+  const pickKey = mention === null ? "" : `${mention.start}:${mention.query}`;
+  const chosen =
+    pick.key === pickKey ? Math.min(pick.index, options.length - 1) : 0;
+  const track = (el: HTMLTextAreaElement) => {
+    const at = el.selectionStart === el.selectionEnd ? el.selectionStart : null;
+    setCaret(at);
+    if (at === null || mentionAt(el.value, at) === null) setDismissed(null);
+  };
+
+  // Barre d'outils : un seul bouton atteint par Tab (`tabIndex` 0), le
+  // dernier visité. Posé au DOM à chaque rendu : les outils de l'appelant
+  // n'appartiennent pas à ce composant, et ils sont une dizaine.
+  const rove = useRef(0);
+  const barItems = (): HTMLButtonElement[] =>
+    bar.current === null
+      ? []
+      : [...bar.current.querySelectorAll<HTMLButtonElement>(BAR_ITEMS)].filter(
+          (item) => !item.disabled,
+        );
+  const roveTo = (items: readonly HTMLButtonElement[], index: number) => {
+    rove.current = index;
+    items.forEach((item, at) => {
+      item.tabIndex = at === index ? 0 : -1;
+    });
+  };
+  useLayoutEffect(() => {
+    const items = barItems();
+    roveTo(items, Math.min(rove.current, items.length - 1));
+  });
+  const barKey = (event: KeyboardEvent<HTMLDivElement>) => {
+    const items = barItems();
+    const from = items.findIndex((item) => item === event.target);
+    if (from < 0) return;
+    const to =
+      event.key === "ArrowRight"
+        ? from + 1
+        : event.key === "ArrowLeft"
+          ? from - 1
+          : event.key === "Home"
+            ? 0
+            : event.key === "End"
+              ? items.length - 1
+              : null;
+    if (to === null) return;
+    event.preventDefault();
+    const index = (to + items.length) % items.length;
+    roveTo(items, index);
+    items[index]?.focus();
+  };
   // La sélection à reposer après le rendu du nouveau texte : en
   // `useLayoutEffect`, AVANT toute frappe suivante (un `requestAnimationFrame`
   // arrivait après une frappe rapide, qui remplaçait alors la sélection).
@@ -156,7 +248,12 @@ export function MarkdownEditor({
       el?.selectionEnd ?? value.length,
     );
     selection.current = { start: next.start, end: next.end };
+    setCaret(next.start === next.end ? next.start : null);
     onChange(next.value);
+  };
+
+  const accept = (name: string) => {
+    if (mention !== null) apply((v) => applyMention(v, mention, name));
   };
 
   useImperativeHandle(editor, () => ({
@@ -171,6 +268,33 @@ export function MarkdownEditor({
   const keyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     onKeyDown?.(event);
     if (event.defaultPrevented) return;
+    // `open` garantit une mention et au moins un nom (`chosen` y est borné).
+    if (open && !event.nativeEvent.isComposing) {
+      const name = options.find((_, index) => index === chosen);
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        const step = event.key === "ArrowDown" ? 1 : -1;
+        setPick({
+          key: pickKey,
+          index: (chosen + step + options.length) % options.length,
+        });
+        return;
+      }
+      if (
+        (event.key === "Enter" || event.key === "Tab") &&
+        !event.shiftKey &&
+        name !== undefined
+      ) {
+        event.preventDefault();
+        accept(name);
+        return;
+      }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setDismissed(mention.start);
+        return;
+      }
+    }
     if ((event.ctrlKey || event.metaKey) && !event.altKey) {
       const shortcut = FORMATS.find(
         (item) => item.key === event.key.toLowerCase(),
@@ -219,10 +343,56 @@ export function MarkdownEditor({
         autoComplete="off"
         placeholder={placeholder}
         hidden={previewing}
+        aria-autocomplete={mentions === undefined ? undefined : "list"}
+        aria-controls={open ? listId : undefined}
+        aria-activedescendant={open ? `${listId}-${chosen}` : undefined}
         onPaste={onPaste}
         onKeyDown={keyDown}
-        onChange={(event) => onChange(event.target.value)}
+        onSelect={(event) => track(event.currentTarget)}
+        onBlur={() => setCaret(null)}
+        onChange={(event) => {
+          track(event.target);
+          onChange(event.target.value);
+        }}
       />
+      {open && (
+        <div
+          id={listId}
+          role="listbox"
+          className="md-mentions"
+          aria-label="Personnes à mentionner"
+        >
+          {options.map((name, index) => (
+            // Le clavier reste au CHAMP (`aria-activedescendant`) : un nom ne
+            // prend jamais le focus, d'où `tabIndex={-1}` et le `mousedown` retenu.
+            <div
+              key={name}
+              id={`${listId}-${index}`}
+              role="option"
+              tabIndex={-1}
+              aria-selected={index === chosen}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => accept(name)}
+              // Un nom focalisé autrement (lecteur d'écran) se valide aussi au clavier.
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  accept(name);
+                }
+              }}
+            >
+              @{name}
+            </div>
+          ))}
+        </div>
+      )}
+      {mentions !== undefined && (
+        <p className="sr-only" aria-live="polite">
+          {open
+            ? `${options.length} personne${options.length > 1 ? "s" : ""} à mentionner`
+            : ""}
+        </p>
+      )}
       {previewing && (
         <div
           className="md-preview"
@@ -232,46 +402,63 @@ export function MarkdownEditor({
           {value.trim() === "" ? (
             <p className="md-empty">Rien à prévisualiser.</p>
           ) : (
-            <MarkdownText text={value} />
+            <MessageBody text={value} />
           )}
         </div>
       )}
       <div className="md-toolbar">
-        {tools}
-        <div className="md-formats" role="group" aria-label="Mise en forme">
-          {FORMATS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={`md-tool md-tool-${item.id}`}
-              aria-label={titleOf(item)}
-              title={titleOf(item)}
-              disabled={previewing}
-              onClick={() => apply(item.apply)}
-            >
-              {item.glyph}
-            </button>
-          ))}
-        </div>
-        <span className="md-spacer" />
-        <button
-          type="button"
-          className="md-mode"
-          // Le nom porte le champ : « Aperçu » seul se confond avec celui
-          // d'une pièce PDF voisine. Il COMMENCE par le libellé visible.
-          aria-label={`Aperçu : ${label}`}
-          aria-pressed={previewing}
-          onClick={() => {
-            if (previewing) {
-              // Retour au champ : le curseur revient à la fin du texte.
-              selection.current = { start: value.length, end: value.length };
-            }
-            setPreviewing((was) => !was);
+        <div
+          ref={bar}
+          className="md-bar"
+          role="toolbar"
+          // Hors de l'ordre de tabulation : ce sont ses boutons qu'on atteint.
+          tabIndex={-1}
+          aria-label={`Outils : ${label}`}
+          onKeyDown={barKey}
+          onFocus={(event) => {
+            // Le focus arrive sur un BOUTON de la barre : la cible n'est pas la barre.
+            const focused: EventTarget = event.target;
+            const items = barItems();
+            const index = items.findIndex((item) => item === focused);
+            if (index >= 0) roveTo(items, index);
           }}
         >
-          {/* Libellé FIXE : c'est `aria-pressed` qui dit l'état. */}
-          Aperçu
-        </button>
+          {tools}
+          <div className="md-formats" role="group" aria-label="Mise en forme">
+            {FORMATS.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={`md-tool md-tool-${item.id}`}
+                aria-label={titleOf(item)}
+                title={titleOf(item)}
+                disabled={previewing}
+                onClick={() => apply(item.apply)}
+              >
+                {item.glyph}
+              </button>
+            ))}
+          </div>
+          <span className="md-spacer" />
+          <button
+            type="button"
+            className="md-mode"
+            // Le nom porte le champ : « Aperçu » seul se confond avec celui
+            // d'une pièce PDF voisine. Il COMMENCE par le libellé visible.
+            aria-label={`Aperçu : ${label}`}
+            aria-pressed={previewing}
+            onClick={() => {
+              if (previewing) {
+                // Retour au champ : le curseur revient à la fin du texte.
+                selection.current = { start: value.length, end: value.length };
+              }
+              setPreviewing((was) => !was);
+            }}
+          >
+            {/* Libellé FIXE : c'est `aria-pressed` qui dit l'état. */}
+            Aperçu
+          </button>
+        </div>
         {actions}
       </div>
     </div>

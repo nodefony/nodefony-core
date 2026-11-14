@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type ClipboardEvent,
+  type KeyboardEvent,
   type RefObject,
 } from "react";
 import { FilePreview } from "../kit/FilePreview";
@@ -31,6 +32,15 @@ interface IPending {
   /** L'aperçu lu dans le navigateur ; `null` pendant la lecture. */
   preview: IFilePreview | null;
 }
+
+/** Le brouillon d'UN salon : son texte et ses pièces — rien n'est parti. */
+interface IDraft {
+  readonly text: string;
+  readonly pending: readonly IPending[];
+}
+
+/** Le brouillon d'un salon où rien n'est écrit. */
+const EMPTY_DRAFT: IDraft = { text: "", pending: [] };
 
 /** Une pièce en attente, née d'un fichier choisi, déposé ou collé. */
 function pendingFile(file: File): IPending {
@@ -85,16 +95,29 @@ async function previewOf(file: File): Promise<IFilePreview> {
  * (`FilePreview.tsx`), calculées dans le navigateur par `describeFile` ; le
  * serveur refait le sien à la réception et ne croit jamais celui-ci. Les
  * règles (nombre, taille, grand collage) viennent de `attachments.ts`, que le
- * serveur rejoue. L'édition (mise en forme, listes, aperçu) est celle du kit
- * (`MarkdownEditor.tsx`).
+ * serveur rejoue. L'édition (mise en forme, listes, aperçu, `@mention`) est
+ * celle du kit (`MarkdownEditor.tsx`).
+ *
+ * Un brouillon par salon (`roomId`) : changer de salon range le texte et les
+ * pièces de celui qu'on quitte et ressort ceux de l'autre — jamais un
+ * brouillon d'un salon privé envoyé dans un public. Gardés en mémoire tant
+ * que la page vit (pas de stockage : les pièces n'y survivraient pas, et un
+ * brouillon à moitié revenu trompe).
+ *
+ * @param roomId - le salon où l'on écrit
+ * @param mentions - noms proposés après `@` (les présents, sans soi)
  */
 export function ChatComposer({
   author,
+  roomId,
+  mentions,
   send,
   notifyTyping,
   insertRef,
 }: {
   author: string;
+  roomId: string;
+  mentions: readonly string[];
   send: (text: string, files: readonly File[]) => Promise<void>;
   notifyTyping: () => void;
   /** Reçoit de quoi insérer un texte dans le champ (une `@mention` du panneau). */
@@ -102,6 +125,8 @@ export function ChatComposer({
 }) {
   const zone = useRef<HTMLFormElement>(null);
   const editor = useRef<IEditorHandle>(null);
+  const emojiButton = useRef<HTMLButtonElement>(null);
+  const emojiWrap = useRef<HTMLDivElement>(null);
 
   // Le panneau des présents écrit `@nom` ici, sans tenir l'éditeur lui-même.
   useEffect(() => {
@@ -112,25 +137,69 @@ export function ChatComposer({
     };
   }, [insertRef]);
   const picker = useRef<HTMLInputElement>(null);
-  const [draft, setDraft] = useState("");
-  const [pending, setPending] = useState<IPending[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  // Clé texte, quelques salons, accès à chaque frappe : une `Map`, recopiée
+  // à chaque changement (état React immuable) — une poignée d'entrées.
+  const [drafts, setDrafts] = useState<ReadonlyMap<string, IDraft>>(
+    () => new Map(),
+  );
+  const { text: draft, pending } = drafts.get(roomId) ?? EMPTY_DRAFT;
+  // Une erreur appartient au salon où elle est née.
+  const [failure, setFailure] = useState<{
+    room: string;
+    message: string;
+  } | null>(null);
+  const error = failure?.room === roomId ? failure.message : null;
   const [sending, setSending] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
   const pasteCount = useRef(0);
 
-  // Les adresses locales sont rendues au démontage.
-  const known = useRef(pending);
+  // Change le brouillon d'un salon ; un brouillon vide est oublié.
+  const patch = useCallback((room: string, change: (was: IDraft) => IDraft) => {
+    setDrafts((map) => {
+      const next = change(map.get(room) ?? EMPTY_DRAFT);
+      const copy = new Map(map);
+      if (next.text === "" && next.pending.length === 0) copy.delete(room);
+      else copy.set(room, next);
+      return copy;
+    });
+  }, []);
+
+  // Les adresses locales de TOUS les brouillons sont rendues au démontage.
+  const known = useRef(drafts);
   useEffect(() => {
-    known.current = pending;
-  }, [pending]);
+    known.current = drafts;
+  }, [drafts]);
   useEffect(
     () => () => {
-      for (const piece of known.current) release(piece);
+      for (const kept of known.current.values())
+        for (const piece of kept.pending) release(piece);
     },
     [],
   );
+
+  // La grille d'émoticônes se ferme d'un appui hors d'elle.
+  useEffect(() => {
+    if (!emojiOpen) return;
+    const outside = (event: PointerEvent) => {
+      if (
+        event.target instanceof Node &&
+        emojiWrap.current?.contains(event.target) === true
+      )
+        return;
+      setEmojiOpen(false);
+    };
+    document.addEventListener("pointerdown", outside);
+    return () => document.removeEventListener("pointerdown", outside);
+  }, [emojiOpen]);
+
+  // Échap, depuis la grille ou son bouton : fermer, et rendre le focus au bouton.
+  const closeEmojiOnEscape = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key !== "Escape" || !emojiOpen) return;
+    event.preventDefault();
+    setEmojiOpen(false);
+    emojiButton.current?.focus();
+  };
 
   const problem = attachmentProblem(
     draft.trim(),
@@ -143,35 +212,44 @@ export function ChatComposer({
     problem !== "message vide" &&
     (pending.length > 0 || textProblem(draft.trim()) !== null);
 
-  // Ajoute les pièces, puis lit leur aperçu ; une pièce retirée entre-temps
-  // ne revient pas (le `map` ne la trouve plus). Stable : rien que des setters.
-  const add = useCallback((files: readonly File[]) => {
-    if (files.length === 0) return;
-    const pieces = files.map(pendingFile);
-    setPending((list) => [...list, ...pieces]);
-    setError(null);
-    for (const piece of pieces)
-      void previewOf(piece.file).then((preview) => {
-        const url = localUrl(piece.file, preview);
-        setPending((list) => {
-          // Retirée pendant la lecture : son adresse est rendue aussitôt.
-          if (!list.some((item) => item.key === piece.key))
-            URL.revokeObjectURL(url);
-          return list.map((item) =>
-            item.key === piece.key ? { ...item, preview, url } : item,
-          );
+  // Ajoute les pièces au brouillon du salon courant, puis lit leur aperçu —
+  // rangé dans CE salon même si l'on en a changé entre-temps ; une pièce
+  // retirée ou envoyée pendant la lecture ne revient pas.
+  const add = useCallback(
+    (files: readonly File[]) => {
+      if (files.length === 0) return;
+      const room = roomId;
+      const pieces = files.map(pendingFile);
+      patch(room, (was) => ({ ...was, pending: [...was.pending, ...pieces] }));
+      setFailure(null);
+      for (const piece of pieces)
+        void previewOf(piece.file).then((preview) => {
+          const url = localUrl(piece.file, preview);
+          patch(room, (was) => {
+            // Retirée pendant la lecture : son adresse est rendue aussitôt.
+            if (!was.pending.some((item) => item.key === piece.key))
+              URL.revokeObjectURL(url);
+            return {
+              ...was,
+              pending: was.pending.map((item) =>
+                item.key === piece.key ? { ...item, preview, url } : item,
+              ),
+            };
+          });
         });
-      });
-  }, []);
+    },
+    [roomId, patch],
+  );
 
   const remove = (key: string) => {
-    setPending((list) =>
-      list.filter((piece) => {
+    patch(roomId, (was) => ({
+      ...was,
+      pending: was.pending.filter((piece) => {
         if (piece.key !== key) return true;
         release(piece);
         return false;
       }),
-    );
+    }));
   };
 
   const onPaste = (event: ClipboardEvent<HTMLTextAreaElement>) => {
@@ -223,26 +301,31 @@ export function ChatComposer({
   const submit = () => {
     const text = draft.trim();
     if (problem !== null || sending) {
-      if (problem !== null && problem !== "message vide") setError(problem);
+      if (problem !== null && problem !== "message vide")
+        setFailure({ room: roomId, message: problem });
       return;
     }
+    // Le salon et les pièces de CET envoi : on peut changer de salon avant la réponse.
+    const room = roomId;
+    const sent = pending;
     setSending(true);
     send(
       text,
-      pending.map((piece) => piece.file),
+      sent.map((piece) => piece.file),
     )
       .then(() => {
-        for (const piece of pending) release(piece);
-        setDraft("");
-        setPending([]);
-        setError(null);
+        for (const piece of sent) release(piece);
+        patch(room, () => EMPTY_DRAFT);
+        setFailure(null);
       })
       .catch((reason: unknown) => {
-        setError(
-          reason instanceof Error
-            ? reason.message
-            : "envoi refusé par le serveur",
-        );
+        setFailure({
+          room,
+          message:
+            reason instanceof Error
+              ? reason.message
+              : "envoi refusé par le serveur",
+        });
       })
       .finally(() => setSending(false));
   };
@@ -263,8 +346,9 @@ export function ChatComposer({
         value={draft}
         maxLength={MESSAGE_MAX_BYTES}
         placeholder={`Écrire en tant que ${author}`}
+        mentions={mentions}
         onChange={(value) => {
-          setDraft(value);
+          patch(roomId, (was) => ({ ...was, text: value }));
           notifyTyping();
         }}
         onEnter={submit}
@@ -328,14 +412,16 @@ export function ChatComposer({
                 event.target.value = "";
               }}
             />
-            <div className="emoji-wrap">
+            <div className="emoji-wrap" ref={emojiWrap}>
               <button
+                ref={emojiButton}
                 type="button"
                 className="md-tool"
                 aria-label="Émoticônes"
                 title="Émoticônes"
                 aria-expanded={emojiOpen}
                 onClick={() => setEmojiOpen((open) => !open)}
+                onKeyDown={closeEmojiOnEscape}
               >
                 🙂
               </button>
@@ -351,6 +437,7 @@ export function ChatComposer({
                       type="button"
                       aria-label={emoji.label}
                       title={emoji.label}
+                      onKeyDown={closeEmojiOnEscape}
                       onClick={() => {
                         editor.current?.insert(emoji.char);
                         setEmojiOpen(false);

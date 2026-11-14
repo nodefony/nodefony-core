@@ -1855,6 +1855,7 @@ a.ritem:hover .ritem-go {
 }
 /* L'éditeur Markdown du kit : UNE boîte — pièces, champ, puis la barre. */
 .md-editor {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -1940,6 +1941,44 @@ a.ritem:hover .ritem-go {
 }
 .md-spacer {
   flex: 1 1 auto;
+}
+.md-bar {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+/* Les noms proposés sous une @mention en cours, au-dessus de la boîte. */
+.md-mentions {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 8px;
+  z-index: 5;
+  min-width: 180px;
+  max-width: calc(100% - 16px);
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+.md-mentions [role="option"] {
+  min-height: 32px;
+  padding: 6px 10px;
+  overflow: hidden;
+  border-radius: 6px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.md-mentions [role="option"]:hover,
+.md-mentions [aria-selected="true"] {
+  color: var(--fg);
+  background: color-mix(in srgb, var(--link) 18%, var(--card));
 }
 .md-mode {
   min-height: 36px;
