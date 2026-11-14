@@ -1879,7 +1879,9 @@ a.ritem:hover .ritem-go {
   flex-direction: column;
   gap: 2px;
   min-width: 0;
-  max-width: min(82vw, 720px);
+  /* Une bulle de texte garde une ligne lisible (~80 caractères) ; une bulle
+     qui porte du code ou une pièce prend TOUT le fil (plus bas). */
+  max-width: min(100%, 80ch);
   padding: 6px 12px;
   /* Celle des autres : une surface ÉLEVÉE, neutre et sans bordure — un
      voile du texte sur la carte (l'élévation du thème sombre de Material) ;
@@ -1940,13 +1942,24 @@ a.ritem:hover .ritem-go {
   border-color: color-mix(in srgb, var(--border) 55%, transparent);
 }
 /* Une bulle de message qui porte un bloc ou une pièce s'ALLÈGE : un voile à
-   peine marqué et une marge fine. */
-.msg-bubble:has(:is(.nb, .att-box)) {
+   peine marqué et une marge fine. `:not(.bubble *)` : ce que montre une
+   bulle de SURVOL ne compte pas — sinon l'ouvrir changerait la forme du
+   message, la pastille quitterait le pointeur, la bulle se fermerait, et
+   tout recommencerait (clignotement). */
+.msg-bubble:has(:is(.nb, .att-box):not(.bubble *)) {
   padding: 4px;
   background: color-mix(in srgb, var(--fg) 3%, transparent);
 }
+/* Du code, un tableau, une pièce : la bulle prend toute la largeur du fil. */
+.room-msg:has(.msg-bubble :is(.nb, .att-box):not(.bubble *)) {
+  width: 100%;
+}
+.msg-bubble:has(:is(.nb, .att-box):not(.bubble *)) {
+  width: 100%;
+  max-width: 100%;
+}
 .is-mine:not(.is-retracted)
-  .msg-bubble:not(.is-editing):has(:is(.nb, .att-box)) {
+  .msg-bubble:not(.is-editing):has(:is(.nb, .att-box):not(.bubble *)) {
   background: color-mix(in srgb, var(--blue) 8%, transparent);
   border-color: color-mix(in srgb, var(--blue) 18%, transparent);
 }
@@ -2633,6 +2646,59 @@ button.msg-chip[aria-pressed="true"] {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* La visionneuse d'un texte : la fenêtre a la taille de l'écran, la barre
+   reste en haut, seul le texte défile — numéros et code côte à côte, sans
+   retour à la ligne (une ligne de code coupée ne se lit plus). */
+.att-dialog.att-viewer {
+  width: min(96vw, 1400px);
+  max-width: none;
+  height: 90dvh;
+  padding: 0;
+  overflow: hidden;
+}
+.att-dialog.att-viewer[open] {
+  display: flex;
+  flex-direction: column;
+}
+.att-viewer .att-dialog-bar {
+  flex: none;
+  margin: 0;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.att-viewer > .att-note {
+  margin: 16px;
+}
+.att-viewer-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: flex-start;
+  overflow: auto;
+  background: var(--code-bg);
+}
+.att-viewer-body pre {
+  margin: 0;
+  padding: 12px 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  white-space: pre;
+}
+.att-gutter {
+  position: sticky;
+  left: 0;
+  flex: none;
+  text-align: right;
+  color: var(--muted);
+  background: var(--code-bg);
+  border-right: 1px solid var(--border);
+  user-select: none;
+}
+.att-code {
+  flex: 1;
+  color: var(--code-fg);
 }
 /* Les aperçus : PDF, archive, document, tableur. */
 .att-pdf iframe {
@@ -4896,21 +4962,35 @@ button.msg-chip[aria-pressed="true"] {
   grid-template-rows: clamp(460px, 74dvh, 860px);
   align-items: stretch;
 }
-/* Plein écran : le salon prend tout l'écran, ses colonnes la hauteur. */
-.room.room-layout:is(:fullscreen, .is-expanded) {
+/* Sur un grand écran, le salon SORT de la colonne de la leçon : il prend la
+   largeur de la fenêtre (jusqu'à 1600 px), centré — un chat a besoin de la
+   place que la prose n'a pas. 48 px de marge absorbent la barre de
+   défilement que `100vw` compte. */
+@media (min-width: 1180px) {
+  .room.room-layout:not(.is-expanded) {
+    --room-width: min(calc(100vw - 48px), 1600px);
+    width: var(--room-width);
+    max-width: none;
+    margin-inline: calc((100% - var(--room-width)) / 2);
+  }
+}
+/* Agrandi : ses colonnes prennent la hauteur. */
+.room.room-layout.is-expanded {
   grid-template-rows: minmax(0, 1fr);
   height: 100dvh;
   border: 0;
   border-radius: 0;
 }
-/* Le repli sans API Fullscreen : le salon couvre la fenêtre. */
+/* Agrandi : le salon couvre la fenêtre SOUS l'en-tête du site (son `top`,
+   mesuré, est posé par la page) — le menu reste visible. */
 .room.room-layout.is-expanded {
   position: fixed;
   inset: 0;
+  /* La barre de debug (développement) publie sa hauteur : le salon s'arrête
+     au-dessus, « Envoyer » n'est jamais caché. 0 sans barre. */
+  bottom: var(--nodefony-debugbar-height, 0px);
+  height: auto;
   z-index: 60;
-}
-.room.room-layout::backdrop {
-  background: var(--bg);
 }
 .room-layout > .room-rail,
 .room-layout > .people {
@@ -5020,7 +5100,7 @@ button.msg-chip[aria-pressed="true"] {
     grid-template-columns: minmax(0, 1fr) 220px;
     grid-template-rows: auto clamp(440px, 72dvh, 820px);
   }
-  .room.room-layout:is(:fullscreen, .is-expanded) {
+  .room.room-layout.is-expanded {
     grid-template-rows: auto minmax(0, 1fr);
   }
   .room-rail {
@@ -5045,11 +5125,11 @@ button.msg-chip[aria-pressed="true"] {
   .room-main {
     height: clamp(420px, 78dvh, 760px);
   }
-  .room.room-layout:is(:fullscreen, .is-expanded) {
+  .room.room-layout.is-expanded {
     grid-template-rows: none;
     overflow-y: auto;
   }
-  .room-layout:is(:fullscreen, .is-expanded) .room-main {
+  .room-layout.is-expanded .room-main {
     height: 100dvh;
   }
 }
@@ -5326,6 +5406,39 @@ pre.math-raw {
   padding: 0;
   background: none;
 }
+/* Du code se lit sans retour à la ligne : une ligne trop longue défile
+   SUR LE CÔTÉ dans son bloc (le défilement vertical reste celui du fil). */
+.nb-code pre {
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
+  line-height: 1.5;
+}
+/* Replié : les premières lignes, qui s'effacent vers le bouton. */
+.nb-code.is-folded pre {
+  overflow-y: hidden;
+  mask-image: linear-gradient(to bottom, #000 70%, transparent);
+}
+.nb-fold {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--fg);
+  background: var(--bg-soft);
+  border: 0;
+  border-top: 1px solid var(--border);
+  cursor: pointer;
+}
+.nb-fold:hover {
+  background: var(--card);
+}
+.nb-fold:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: -2px;
+}
 .tok-added {
   color: #b5e3a0;
 }
@@ -5416,6 +5529,31 @@ pre.math-raw {
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: var(--shadow);
+}
+/* Les lignes d'un texte joint ne se coupent pas : du code coupé ne se lit
+   plus. Trop longues, elles défilent sur le côté. */
+.att-text .att-pre {
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
+}
+/* L'aperçu d'une pièce au survol : assez large pour LIRE ses lignes, et
+   aucune n'est coupée en deux — une ligne trop longue s'arrête au bord. */
+.bubble:has(.att-box) {
+  width: min(44rem, calc(100vw - 16px));
+  max-width: none;
+}
+.bubble .att-box,
+.att-box.att-text {
+  width: 100%;
+  max-width: none;
+}
+.bubble .att-pre {
+  max-height: none;
+  white-space: pre;
+  overflow: hidden;
+  font-size: 0.78rem;
+  line-height: 1.5;
 }
 @media (prefers-reduced-motion: no-preference) {
   .bubble {

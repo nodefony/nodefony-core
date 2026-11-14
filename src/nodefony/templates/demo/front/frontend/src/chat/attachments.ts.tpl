@@ -1,4 +1,4 @@
-import { countLines, formatSize } from "../kit/preview";
+import { formatSize } from "../kit/preview";
 import { utf8ByteLength } from "../kit/utf8";
 import {
   ATTACHMENT_MAX_BYTES,
@@ -9,7 +9,7 @@ import {
 /**
  * Les règles des pièces jointes du salon — pures, lues par la page ET par le
  * serveur : une seule définition de « trop gros », « trop de pièces » et
- * « grand collage ».
+ * « ce que devient un collage ».
  *
  * Guide pour un agent : la page s'en sert pour PRÉVENIR (chip refusée avant
  * l'envoi), le serveur pour DÉCIDER (`ChatController.attach` les rejoue) — le
@@ -18,23 +18,66 @@ import {
  */
 
 // #region chat-paste
-/** Au-delà de ce nombre de caractères, un collage devient une pièce… */
-export const LARGE_PASTE_CHARS = 1500;
+/**
+ * Ce que devient un texte collé dans le champ :
+ * - `text` — collé tel quel, comme partout ;
+ * - `code` — du code (un fichier copié depuis l'éditeur) : entouré d'un bloc
+ *   ```` ``` ````, pour que le salon le montre en code, à la largeur du fil,
+ *   au lieu de l'interpréter en Markdown ;
+ * - `piece` — plus lourd qu'un message (`MESSAGE_MAX_BYTES`), ou impossible à
+ *   entourer (il contient lui-même une clôture) : une pièce « texte collé ».
+ *
+ * Un collage reste un MESSAGE tant qu'il en a la taille : c'est ce qu'on
+ * attend d'un chat, et ce que l'autre lit sans ouvrir de fichier.
+ *
+ * @param text - le texte du presse-papiers
+ */
+export function pasteRoute(text: string): "text" | "code" | "piece" {
+  if (utf8ByteLength(text) + PASTE_FENCE_BYTES > MESSAGE_MAX_BYTES)
+    return "piece";
+  if (!looksLikeCode(text)) return "text";
+  return /^\s*```/mu.test(text) ? "piece" : "code";
+}
 
-/** …ou au-delà de ce nombre de lignes. */
-export const LARGE_PASTE_LINES = 20;
+/** Les octets qu'ajoute la clôture : deux lignes ```` ``` ```` et leurs sauts. */
+const PASTE_FENCE_BYTES = 10;
+// #endregion
+
+/** Un mot qui ouvre une ligne de code dans la plupart des langages. */
+const CODE_LEAD =
+  /^\s*(import|export|const|let|var|function|class|interface|type|return|if|for|while|def|package|public|private|#include|use|fn|async|await)\b/u;
 
 /**
- * Un collage trop long pour le champ : il part en pièce jointe (une boîte
- * « Texte collé »), comme un fichier — le champ reste lisible, et le salon
- * montre ses premières lignes au lieu d'un mur de texte.
+ * Ce texte est-il du code ? Au moins trois lignes non vides, dont deux sur
+ * cinq indentées, terminées par `;` `{` `}` `,` `(` `)`, ou ouvertes par un
+ * mot de code. Une prose de plusieurs paragraphes n'y ressemble pas : ses
+ * lignes ne s'indentent pas et finissent par un point.
  */
-export function isLargePaste(text: string): boolean {
-  return (
-    text.length > LARGE_PASTE_CHARS || countLines(text) > LARGE_PASTE_LINES
-  );
+export function looksLikeCode(text: string): boolean {
+  let lines = 0;
+  let coded = 0;
+  for (const line of text.split("\n")) {
+    if (line.trim() === "") continue;
+    lines += 1;
+    if (
+      /^(\t| {2,})\S/u.test(line) ||
+      /[;{}(),[\]]\s*$/u.test(line) ||
+      CODE_LEAD.test(line)
+    )
+      coded += 1;
+  }
+  return lines >= 3 && coded * 5 >= lines * 2;
 }
-// #endregion
+
+/**
+ * Entoure un collage de code d'un bloc ```` ``` ```` sur ses propres lignes,
+ * sans ses sauts de ligne finaux.
+ *
+ * @param text - le code collé (`pasteRoute` a rendu `code`)
+ */
+export function fencePaste(text: string): string {
+  return `\`\`\`\n${text.replace(/\r\n?/gu, "\n").replace(/\n+$/u, "")}\n\`\`\`\n`;
+}
 
 /** Le nom du fichier né d'un collage. */
 export function pastedFileName(index: number): string {

@@ -7,6 +7,7 @@ import {
 } from "./detect";
 import { highlightCode, type ICodeToken } from "./codeHighlight";
 import { MarkdownText } from "./MarkdownText";
+import { countLines } from "./preview";
 import { MathView } from "./MathView";
 
 /**
@@ -58,7 +59,7 @@ function exhaustive(block: never): never {
 }
 
 /** Le bouton qui copie la SOURCE entière d'un bloc. */
-function CopyButton({ text }: { text: string }) {
+export function CopyButton({ text }: { text: string }) {
   const [done, setDone] = useState(false);
   useEffect(() => {
     if (!done) return;
@@ -104,14 +105,20 @@ function Frame({
   );
 }
 
-/** Du code : en texte tout de suite, coloré dès que `highlight.js` est là. */
-function CodeBlock({
-  source,
-  language,
-}: {
-  source: string;
-  language: string | null;
-}) {
+/** Au-delà de ce nombre de lignes, un bloc de code s'ouvre replié. */
+export const CODE_FOLD_LINES = 16;
+
+/**
+ * Les jetons colorés d'un code — `null` tant que `highlight.js` n'est pas là,
+ * ou si la langue reste inconnue (le code s'affiche alors en texte brut).
+ *
+ * @param source - le code
+ * @param language - sa langue, ou `null` pour la deviner
+ */
+export function useCodeTokens(
+  source: string,
+  language: string | null,
+): ICodeToken[] | null {
   const [tokens, setTokens] = useState<ICodeToken[] | null>(null);
   useEffect(() => {
     let alive = true;
@@ -126,26 +133,70 @@ function CodeBlock({
       alive = false;
     };
   }, [source, language]);
+  return tokens;
+}
+
+/** Un `<code>` : le texte brut, ou ses jetons colorés. */
+export function CodeTokens({
+  source,
+  tokens,
+}: {
+  source: string;
+  tokens: readonly ICodeToken[] | null;
+}): ReactNode {
+  return tokens === null
+    ? createElement("code", null, source)
+    : createElement(
+        "code",
+        null,
+        ...tokens.map((token) =>
+          createElement(
+            "span",
+            {
+              className:
+                token.kind === "plain" ? undefined : `tok-${token.kind}`,
+            },
+            token.text,
+          ),
+        ),
+      );
+}
+
+/** Du code : en texte tout de suite, coloré dès que `highlight.js` est là. */
+function CodeBlock({
+  source,
+  language,
+}: {
+  source: string;
+  language: string | null;
+}) {
+  const tokens = useCodeTokens(source, language);
+  // Un long bloc (un fichier collé) s'ouvre REPLIÉ sur ses premières lignes :
+  // le fil reste lisible, et rien n'y défile dans le défilement — le bouton
+  // déplie le bloc entier dans le fil.
+  const lines = countLines(source);
+  const foldable = lines > CODE_FOLD_LINES;
+  const [unfolded, setUnfolded] = useState(false);
+  const folded = foldable && !unfolded;
   return (
-    <Frame label={language ?? "code"} source={source} className="nb-code">
-      <pre>
-        {tokens === null
-          ? createElement("code", null, source)
-          : createElement(
-              "code",
-              null,
-              ...tokens.map((token) =>
-                createElement(
-                  "span",
-                  {
-                    className:
-                      token.kind === "plain" ? undefined : `tok-${token.kind}`,
-                  },
-                  token.text,
-                ),
-              ),
-            )}
+    <Frame
+      label={language ?? "code"}
+      source={source}
+      className={folded ? "nb-code is-folded" : "nb-code"}
+    >
+      <pre style={folded ? { maxHeight: `${CODE_FOLD_LINES}lh` } : undefined}>
+        <CodeTokens source={source} tokens={tokens} />
       </pre>
+      {foldable && (
+        <button
+          type="button"
+          className="nb-fold"
+          aria-expanded={unfolded}
+          onClick={() => setUnfolded(!unfolded)}
+        >
+          {unfolded ? "Replier" : `Tout afficher — ${lines} lignes`}
+        </button>
+      )}
     </Frame>
   );
 }

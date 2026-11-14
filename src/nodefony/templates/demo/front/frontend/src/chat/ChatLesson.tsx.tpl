@@ -29,30 +29,30 @@ import { useEffect, useRef, useState } from "react";
 type OpenForm = "create" | "invite" | "event" | "delete" | "leave" | null;
 
 /**
- * Le salon en plein écran. L'API Fullscreen quand le navigateur l'offre
- * (`document.fullscreenEnabled`, capacité CONSTATÉE) — son état suit
- * `fullscreenchange`, Échap en sort sans passer par nous. Sinon (un iPhone
- * ne met en plein écran que la vidéo), un REPLI : le salon couvre la fenêtre
- * (`is-expanded`), la page derrière ne défile plus, Échap en sort.
+ * Le salon AGRANDI : il couvre la fenêtre SOUS l'en-tête du site
+ * (`.topbar`) — le menu reste là, comme dans une messagerie, au lieu d'un
+ * plein écran du navigateur qui le cachait. La page derrière ne défile plus,
+ * Échap en sort. Le haut suit la hauteur RÉELLE de l'en-tête, remesurée quand
+ * la fenêtre change (l'en-tête passe sur deux lignes au téléphone).
  */
-function useFullscreen(target: { current: HTMLElement | null }) {
-  const native = document.fullscreenEnabled;
-  const [full, setFull] = useState(false);
+function useExpanded() {
   const [expanded, setExpanded] = useState(false);
-  useEffect(() => {
-    const sync = () =>
-      setFull(
-        document.fullscreenElement !== null &&
-          document.fullscreenElement === target.current,
-      );
-    document.addEventListener("fullscreenchange", sync);
-    return () => document.removeEventListener("fullscreenchange", sync);
-  }, [target]);
+  const [top, setTop] = useState(0);
   useEffect(() => {
     if (!expanded) return;
     const root = document.documentElement;
     const was = root.style.overflow;
     root.style.overflow = "hidden";
+    const measure = () =>
+      setTop(
+        Math.max(
+          0,
+          document.querySelector(".topbar")?.getBoundingClientRect().bottom ??
+            0,
+        ),
+      );
+    measure();
+    window.addEventListener("resize", measure);
     // Échap sort du repli — sauf s'il a déjà servi (menu, mention, boîte).
     const key = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented) return;
@@ -63,21 +63,12 @@ function useFullscreen(target: { current: HTMLElement | null }) {
     document.addEventListener("keydown", key);
     return () => {
       root.style.overflow = was;
+      window.removeEventListener("resize", measure);
       document.removeEventListener("keydown", key);
     };
   }, [expanded]);
-  const toggle = () => {
-    if (!native) {
-      setExpanded((was) => !was);
-      return;
-    }
-    const done = full
-      ? document.exitFullscreen()
-      : target.current?.requestFullscreen();
-    // Refusé par le navigateur (geste non reconnu) : l'état ne change pas.
-    done?.catch(() => undefined);
-  };
-  return { full: full || expanded, expanded, toggle };
+  const toggle = () => setExpanded((was) => !was);
+  return { expanded, top, toggle };
 }
 
 /** Le message d'un refus, quel que soit le chemin. */
@@ -407,15 +398,14 @@ function ChatRoom({
       current.role,
       true,
     ) === null;
-  const layout = useRef<HTMLDivElement>(null);
-  const screen = useFullscreen(layout);
+  const screen = useExpanded();
 
   return (
     <div
-      ref={layout}
       className={
         screen.expanded ? "room room-layout is-expanded" : "room room-layout"
       }
+      style={screen.expanded ? { top: `${screen.top}px` } : undefined}
     >
       <RoomRail
         room={room}
@@ -478,13 +468,16 @@ function ChatRoom({
             <button
               type="button"
               className="room-btn"
-              aria-pressed={screen.full}
+              aria-pressed={screen.expanded}
               title={
-                screen.full ? "Quitter le plein écran (Échap)" : "Plein écran"
+                screen.expanded
+                  ? "Revenir à la page (Échap)"
+                  : "Agrandir le salon sous le menu"
               }
               onClick={screen.toggle}
             >
-              <span aria-hidden="true">⛶ </span>Plein écran
+              <span aria-hidden="true">⛶ </span>
+              {screen.expanded ? "Réduire" : "Plein écran"}
             </button>
           </span>
         </div>

@@ -234,8 +234,11 @@ export function countLines(text: string): number {
   return body.split("\n").length;
 }
 
+/** Lignes d'un texte annoncées avec la pièce : de quoi le reconnaître au survol. */
+export const PREVIEW_LINES = 10;
+
 /** Les premières lignes d'un texte, chacune bornée. */
-export function previewLines(text: string, count = 3): string {
+export function previewLines(text: string, count = PREVIEW_LINES): string {
   return text
     .replace(/\r\n?/g, "\n")
     .split("\n")

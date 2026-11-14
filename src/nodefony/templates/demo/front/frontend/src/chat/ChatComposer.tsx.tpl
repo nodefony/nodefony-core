@@ -19,7 +19,8 @@ import {
 import {
   EMOJIS,
   attachmentProblem,
-  isLargePaste,
+  fencePaste,
+  pasteRoute,
   pastedFileName,
   textProblem,
 } from "./attachments";
@@ -91,8 +92,8 @@ async function previewOf(file: File): Promise<IFilePreview> {
 /**
  * La zone d'écriture du salon : l'éditeur Markdown du kit, habillé des
  * pièces jointes (trombone, glisser-déposer, image collée) et des
- * émoticônes — et un grand collage devient une pièce au lieu d'envahir le
- * champ.
+ * émoticônes. Un collage reste un message : du code collé entre dans un bloc
+ * de code, seul un collage plus lourd qu'un message devient une pièce.
  *
  * Guide pour un agent : tout ici reste LOCAL jusqu'à « Envoyer » ; ensuite le
  * message n'apparaît que lorsque le serveur l'annonce sur le salon. Une pièce
@@ -292,9 +293,17 @@ export function ChatComposer({
       return;
     }
     const text = event.clipboardData.getData("text/plain");
-    if (!isLargePaste(text)) return;
-    // Trop long pour le champ : une pièce, comme un fichier.
+    const route = pasteRoute(text);
+    if (route === "text") return;
     event.preventDefault();
+    if (route === "code") {
+      // Du code : un bloc, que le salon montre en code sur toute la largeur.
+      // La clôture ouvre sa propre ligne, même collée après du texte.
+      const lead = draft === "" || draft.endsWith("\n") ? "" : "\n";
+      editor.current?.insert(lead + fencePaste(text));
+      return;
+    }
+    // Plus lourd qu'un message : une pièce, comme un fichier.
     pasteCount.current += 1;
     add([
       new File([text], pastedFileName(pasteCount.current), {

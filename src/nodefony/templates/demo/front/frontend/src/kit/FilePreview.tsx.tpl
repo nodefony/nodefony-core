@@ -3,11 +3,19 @@ import {
   createContext,
   createElement,
   useContext,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
 } from "react";
-import { formatSize, type IFilePreview, type PreviewFormat } from "./preview";
+import { canonicalLanguage } from "./codeHighlight";
+import { CodeTokens, CopyButton, useCodeTokens } from "./NatureBlocks";
+import {
+  countLines,
+  formatSize,
+  type IFilePreview,
+  type PreviewFormat,
+} from "./preview";
 
 /**
  * La boîte d'un fichier, selon son genre : image, PDF, texte, archive,
@@ -280,30 +288,34 @@ function PdfPiece({ piece }: { piece: IPiece }) {
   );
 }
 
-/** Lignes dépliées au plus : au-delà, le téléchargement. */
-const FULL_VIEW_LINES = 200;
+/**
+ * Au-delà de ce poids, le texte entier se montre SANS coloration : colorer
+ * deux mégaoctets figerait la page plusieurs secondes.
+ */
+export const VIEWER_HIGHLIGHT_BYTES = 262_144;
 
-/** Le texte déplié, borné, avec ce qu'il en reste. */
-function shown(full: string | null, lines: number): string {
-  if (full === null) return "chargement…";
-  const head = full.split("\n").slice(0, FULL_VIEW_LINES).join("\n");
-  const rest = lines - FULL_VIEW_LINES;
-  return rest > 0
-    ? `${head}\n… ${rest} lignes de plus : télécharger pour tout lire`
-    : head;
+/** La langue d'un fichier d'après son extension, ou `null` (devinée). */
+export function languageOfFile(name: string): string | null {
+  const dot = name.lastIndexOf(".");
+  return dot <= 0 ? null : canonicalLanguage(name.slice(dot + 1).toLowerCase());
 }
 
-/** Un texte : nom, lignes, les premières lignes — puis tout, à la demande. */
+/**
+ * Un texte : nom, lignes, ses premières lignes colorées — puis « Voir tout »
+ * l'ouvre dans une VISIONNEUSE, comme un PDF : le texte entier, coloré selon
+ * son extension, numéroté, avec Copier, Télécharger et Fermer en haut. La
+ * fenêtre est la seule zone qui défile, et le fil ne bouge pas.
+ */
 function TextPiece({ piece }: { piece: IPiece }) {
-  const [full, setFull] = useState<string | null>(null);
+  const withControls = useContext(WithControls);
+  const dialog = useRef<HTMLDialogElement>(null);
   const [open, setOpen] = useState(false);
+  const [full, setFull] = useState<string | null>(null);
   const lines = piece.lines ?? 0;
-  const toggle = () => {
-    if (open) {
-      setOpen(false);
-      return;
-    }
+  const language = languageOfFile(piece.name);
+  const show = () => {
     setOpen(true);
+    dialog.current?.showModal();
     if (full !== null) return;
     fetch(urlOf(piece))
       .then((response) =>
@@ -320,13 +332,100 @@ function TextPiece({ piece }: { piece: IPiece }) {
       piece={piece}
       className="att-text"
       meta={`${lines} ligne${lines > 1 ? "s" : ""}`}
-      actions={<More open={open} toggle={toggle} label="Voir tout" />}
+      actions={
+        <button type="button" onClick={show}>
+          Voir tout
+        </button>
+      }
     >
-      {/* Aucune zone qui défile (le clavier ne l'atteindrait pas) : le texte
-          se déplie dans la page, borné ; la suite se télécharge. */}
-      <pre className="att-pre">{open ? shown(full, lines) : piece.preview}</pre>
+      <TextExcerpt source={piece.preview ?? ""} language={language} />
+      {/* Dans une bulle de survol : l'aperçu seul, aucune fenêtre ni action. */}
+      {withControls && (
+        <dialog
+          ref={dialog}
+          className="att-dialog att-viewer"
+          aria-label={piece.name}
+          onClose={() => setOpen(false)}
+        >
+          <p className="att-dialog-bar">
+            <strong>{piece.name}</strong>
+            <span className="att-size">
+              {lines} ligne{lines > 1 ? "s" : ""} · {formatSize(piece.size)}
+            </span>
+            {full !== null && <CopyButton text={full} />}
+            <Download piece={piece} />
+            <button type="button" onClick={() => dialog.current?.close()}>
+              Fermer
+            </button>
+          </p>
+          {open &&
+            (full === null ? (
+              <p className="att-note">Chargement…</p>
+            ) : (
+              <TextViewer source={full} language={language} />
+            ))}
+        </dialog>
+      )}
     </Box>
   );
+}
+
+/** Les premières lignes d'un texte, colorées comme dans la visionneuse. */
+function TextExcerpt({
+  source,
+  language,
+}: {
+  source: string;
+  language: string | null;
+}) {
+  const tokens = useCodeTokens(source, language);
+  return (
+    <pre className="att-pre">
+      <CodeTokens source={source} tokens={tokens} />
+    </pre>
+  );
+}
+
+/** Le texte entier, numéroté ; coloré s'il n'est pas trop lourd. */
+function TextViewer({
+  source,
+  language,
+}: {
+  source: string;
+  language: string | null;
+}) {
+  const numbers = useMemo(() => {
+    const count = Math.max(1, countLines(source));
+    let out = "1";
+    for (let line = 2; line <= count; line += 1) out += `\n${line}`;
+    return out;
+  }, [source]);
+  return (
+    <div className="att-viewer-body">
+      <pre className="att-gutter" aria-hidden="true">
+        {numbers}
+      </pre>
+      <pre className="att-code">
+        {source.length > VIEWER_HIGHLIGHT_BYTES ? (
+          <code>{source}</code>
+        ) : (
+          <HighlightedText source={source} language={language} />
+        )}
+      </pre>
+    </div>
+  );
+}
+
+/** Un texte coloré — un composant à part : son hook ne court que s'il est montré. */
+function HighlightedText({
+  source,
+  language,
+}: {
+  source: string;
+  language: string | null;
+}) {
+  const tokens = useCodeTokens(source, language);
+  return <CodeTokens source={source} tokens={tokens} />;
 }
 
 /** Entrées d'archive montrées avant dépli. */

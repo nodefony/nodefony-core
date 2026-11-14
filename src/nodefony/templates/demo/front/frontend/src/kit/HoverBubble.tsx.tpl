@@ -79,6 +79,9 @@ export function HoverBubble({
 
   // La bulle va en couche supérieure et se place sous (ou sur) le déclencheur ;
   // son contenu peut grandir (un aperçu qui arrive) : on la replace alors.
+  // Couche supérieure = coordonnées de la FENÊTRE : quand un conteneur défile
+  // (le fil du salon, la page), le déclencheur bouge et la bulle non — elle
+  // le suit donc à chaque défilement, et se ferme quand il sort de la vue.
   useLayoutEffect(() => {
     const bubbleEl = pop.current;
     const anchorEl = host.current;
@@ -86,6 +89,10 @@ export function HoverBubble({
     if (typeof bubbleEl.showPopover === "function") bubbleEl.showPopover();
     const place = () => {
       const anchor = anchorEl.getBoundingClientRect();
+      if (!inView(anchorEl, anchor)) {
+        setOpen(false);
+        return;
+      }
       const width = bubbleEl.offsetWidth;
       const height = bubbleEl.offsetHeight;
       const left = Math.max(
@@ -104,7 +111,15 @@ export function HoverBubble({
     place();
     const watcher = new ResizeObserver(place);
     watcher.observe(bubbleEl);
-    return () => watcher.disconnect();
+    // Capture : le défilement d'un conteneur ne remonte pas jusqu'au document.
+    const options: AddEventListenerOptions = { capture: true, passive: true };
+    document.addEventListener("scroll", place, options);
+    window.addEventListener("resize", place, options);
+    return () => {
+      watcher.disconnect();
+      document.removeEventListener("scroll", place, options);
+      window.removeEventListener("resize", place, options);
+    };
   }, [open]);
 
   return (
@@ -156,6 +171,24 @@ export function HoverBubble({
       )}
     </span>
   );
+}
+
+/**
+ * Le déclencheur est-il encore visible ? Dans la fenêtre, et dans chaque
+ * conteneur qui le coupe (`overflow` autre que `visible`) — le fil d'un salon
+ * qui défile le cache sans qu'il quitte la fenêtre.
+ *
+ * @param el - le déclencheur
+ * @param box - sa boîte, déjà mesurée
+ */
+export function inView(el: Element, box: DOMRect): boolean {
+  if (box.bottom <= 0 || box.top >= window.innerHeight) return false;
+  for (let up = el.parentElement; up !== null; up = up.parentElement) {
+    if (getComputedStyle(up).overflowY === "visible") continue;
+    const clip = up.getBoundingClientRect();
+    if (box.bottom <= clip.top || box.top >= clip.bottom) return false;
+  }
+  return true;
 }
 
 /** Ce que le déclencheur d'une bulle doit porter. */

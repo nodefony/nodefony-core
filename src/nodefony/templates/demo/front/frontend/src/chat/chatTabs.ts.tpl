@@ -289,7 +289,7 @@ export const CHAT_LESSON = {
           },
         },
         {
-          text: "Un grand collage ne remplit pas le champ : au-delà d'un seuil, il devient une pièce, une boîte « Texte collé » — comme un fichier.",
+          text: "Un collage reste un message : du code collé (un fichier copié depuis l'éditeur) entre dans un bloc de code, que le salon montre en code sur toute la largeur du fil. Seul un collage plus lourd qu'un message devient une pièce « texte collé ».",
           excerpt: { file: RULES, region: "chat-paste", step: 6 },
         },
         {

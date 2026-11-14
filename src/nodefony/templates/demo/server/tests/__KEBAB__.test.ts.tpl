@@ -45,6 +45,7 @@ import {
 import {
   INFLATE_LIMIT,
   PREVIEW_ENTRIES,
+  PREVIEW_LINES,
   countLines,
   decodeText,
   describeFile,
@@ -82,11 +83,11 @@ import {
   toggleMark,
 } from "../frontend/src/kit/markdown";
 import {
-  LARGE_PASTE_CHARS,
-  LARGE_PASTE_LINES,
   attachmentProblem,
+  fencePaste,
   insertAt,
-  isLargePaste,
+  looksLikeCode,
+  pasteRoute,
   textProblem,
 } from "../frontend/src/chat/attachments";
 import {
@@ -663,11 +664,33 @@ describe("demo — le panneau des présents (règle pure)", () => {
 });
 
 describe("demo — les règles des pièces jointes (page ET serveur)", () => {
-  it("un grand collage devient une pièce : trop de caractères OU trop de lignes", () => {
-    expect(isLargePaste("x".repeat(LARGE_PASTE_CHARS))).toBe(false);
-    expect(isLargePaste("x".repeat(LARGE_PASTE_CHARS + 1))).toBe(true);
-    expect(isLargePaste("a\n".repeat(LARGE_PASTE_LINES))).toBe(false);
-    expect(isLargePaste("a\n".repeat(LARGE_PASTE_LINES + 1))).toBe(true);
+  it("🔴 un collage reste un MESSAGE : du code entre dans un bloc, seul plus lourd qu'un message devient une pièce", () => {
+    const code = [
+      'import { defineConfig } from "nodefony";',
+      "",
+      "export default defineConfig({",
+      '  name: "app",',
+      "  modules: [],",
+      "});",
+    ].join("\n");
+    const prose =
+      "Bonjour à tous.\nLa réunion est déplacée à jeudi.\nMerci de prévenir l'équipe.";
+    expect(looksLikeCode(code)).toBe(true);
+    expect(looksLikeCode(prose)).toBe(false);
+    expect(looksLikeCode("a;\nb;")).toBe(false); // deux lignes : trop peu pour juger
+    expect(pasteRoute(prose)).toBe("text");
+    expect(pasteRoute(code)).toBe("code");
+    expect(pasteRoute(`${code}\n\`\`\`\nx;`)).toBe("piece");
+    // Un gros fichier de code qui tient dans un message reste un message.
+    const big = `${code}\n`.repeat(200);
+    expect(utf8ByteLength(big)).toBeGreaterThan(1500);
+    expect(pasteRoute(big)).toBe("code");
+    expect(pasteRoute("x".repeat(MESSAGE_MAX_BYTES))).toBe("piece");
+    expect(fencePaste(`${code}\r\n\r\n`)).toBe(`\`\`\`\n${code}\n\`\`\`\n`);
+    // Le bloc collé se relit comme UN bloc de code, lignes vides comprises.
+    expect(parseMarkdown(fencePaste(code))).toEqual([
+      { type: "pre", value: code },
+    ]);
     expect(countLines("")).toBe(0);
     expect(countLines("un\ndeux\n")).toBe(2);
   });
@@ -770,12 +793,23 @@ describe("demo — les pièces du salon, classées d'après leurs OCTETS", () =>
     );
   });
 
-  it("un texte annonce ses lignes et ses trois premières", async () => {
+  it("un texte annonce ses lignes et ses PREVIEW_LINES premières", async () => {
     const chat = store();
     const [piece] = await chat.saveAttachments(LOBBY_ROOM_ID, [
-      upload("collé.txt", new TextEncoder().encode("1\n2\n3\n4\n5\n")),
+      upload(
+        "collé.txt",
+        new TextEncoder().encode(
+          Array.from({ length: PREVIEW_LINES + 2 }, (_, i) => i + 1).join("\n"),
+        ),
+      ),
     ]);
-    expect(piece).toMatchObject({ kind: "text", lines: 5, preview: "1\n2\n3" });
+    expect(piece).toMatchObject({
+      kind: "text",
+      lines: PREVIEW_LINES + 2,
+      preview: Array.from({ length: PREVIEW_LINES }, (_, i) => i + 1).join(
+        "\n",
+      ),
+    });
   });
 
   it("le stock est BORNÉ : la plus ancienne sort, fichier effacé, annonce marquée à la relecture", async () => {
