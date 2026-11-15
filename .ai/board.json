@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-14T23:33:46.689Z",
+  "generatedAt": "2026-11-15T15:18:30.203Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,17 +46,17 @@
       "title": "10.0.0"
     },
     {
-      "closed": 264,
+      "closed": 265,
       "dueOn": "2026-11-15T00:00:00Z",
       "number": 7,
-      "open": 5,
+      "open": 4,
       "title": "10.0.0-beta"
     },
     {
       "closed": 7,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 56,
+      "open": 57,
       "title": "10.1.0"
     }
   ],
@@ -6974,22 +6974,20 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/694",
       "state": "OPEN",
       "status": "In Progress",
-      "milestone": "10.0.0-beta",
+      "milestone": "10.1.0",
       "priorite": "P2 — décision",
-      "jours": 7,
+      "jours": 5,
       "ordre": 8.005,
       "debut": null,
       "cible": null,
-      "labels": [
-        "beta-8"
-      ]
+      "labels": []
     },
     {
       "number": 770,
       "title": "feat(http): borner l'âge des connexions HTTP/2 et sonder les pairs muets",
       "url": "https://github.com/nodefony/nodefony-core/issues/770",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 2,
@@ -7029,6 +7027,22 @@
       "ordre": 8.03,
       "debut": "2026-11-24",
       "cible": "2026-11-24",
+      "labels": [
+        "beta-8"
+      ]
+    },
+    {
+      "number": 778,
+      "title": "test(http): éprouver HTTP/2 avec h2spec, binaire officiel figé",
+      "url": "https://github.com/nodefony/nodefony-core/issues/778",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 8.035,
+      "debut": "2026-11-23",
+      "cible": "2026-11-23",
       "labels": [
         "beta-8"
       ]
