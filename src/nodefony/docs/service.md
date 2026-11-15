@@ -423,7 +423,9 @@ spec:
           containers:
             - name: purge
               image: mon-app:1.4.0
-              command: ["npx", "nodefony", "app:purge"]
+              # `args:`, jamais `command:` : l'ENTRYPOINT de l'image générée est node
+              # (distroless — ni npx, ni shell), et `command:` le remplacerait.
+              args: ["node_modules/nodefony/bin/nodefony", "app:purge"]
 ```
 
 La commande démarre le noyau en mode console : `schedulePeriodic()` et `runOnceAtStartup()` n'y

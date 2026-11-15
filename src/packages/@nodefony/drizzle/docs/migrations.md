@@ -470,7 +470,9 @@ spec:
       containers:
         - name: migrate
           image: mon-application:1.4.0
-          command: ["npx", "nodefony", "orm:migrate", "--json"]
+          # `args:`, jamais `command:` : l'ENTRYPOINT de l'image générée est node
+          # (distroless — ni npx, ni shell), et `command:` le remplacerait.
+          args: ["node_modules/nodefony/bin/nodefony", "orm:migrate", "--json"]
           env:
             - name: NF_MIGRATE_DATABASE_URL
               valueFrom:

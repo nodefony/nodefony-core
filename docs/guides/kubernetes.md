@@ -258,7 +258,9 @@ spec:
       containers:
         - name: migrate
           image: registry.example.com/mon-app:10.0.0
-          command: ["npx", "nodefony", "orm:migrate"]
+          # `args:`, jamais `command:` : l'ENTRYPOINT de l'image générée est node
+          # (distroless — ni npx, ni shell), et `command:` le remplacerait.
+          args: ["node_modules/nodefony/bin/nodefony", "orm:migrate"]
           envFrom:
             - secretRef: { name: mon-app-secrets }
 ```
