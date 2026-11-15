@@ -253,9 +253,11 @@ describe("archive de release", () => {
     const fin = yml.indexOf("- name:", debut + 1);
     const pas = yml.slice(debut, fin === -1 ? undefined : fin);
     // La COMMANDE, pas le nom du script : un commentaire qui le cite avant la
-    // bascule faisait conclure à un ordre inversé.
-    const bascule = pas.indexOf(
-      "node scripts/release/accueil-gate.mjs --basculer",
+    // bascule faisait conclure à un ordre inversé. Motif sur la LIGNE de
+    // commande, pas une chaîne littérale : une option glissée avant
+    // `--basculer` (`--en-cours "$V"`, #47) ne doit pas la rendre invisible.
+    const bascule = pas.search(
+      /node scripts\/release\/accueil-gate\.mjs\b[^\n]*--basculer/,
     );
     const rendu = pas.indexOf("node scripts/site/build-site.mjs");
     expect(bascule).toBeGreaterThan(-1);
