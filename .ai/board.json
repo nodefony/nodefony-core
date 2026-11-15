@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-15T16:07:29.546Z",
+  "generatedAt": "2026-11-15T16:30:22.762Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -49,14 +49,14 @@
       "closed": 265,
       "dueOn": "2026-11-15T00:00:00Z",
       "number": 7,
-      "open": 3,
+      "open": 4,
       "title": "10.0.0-beta"
     },
     {
       "closed": 7,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 58,
+      "open": 57,
       "title": "10.1.0"
     }
   ],
@@ -7003,7 +7003,7 @@
       "title": "docs(release): faire suivre à l'accueil ce qui est réellement publié",
       "url": "https://github.com/nodefony/nodefony-core/issues/47",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -7026,6 +7026,22 @@
       "ordre": 8.035,
       "debut": "2026-11-23",
       "cible": "2026-11-23",
+      "labels": [
+        "beta-8"
+      ]
+    },
+    {
+      "number": 772,
+      "title": "docs(docker): réécrire la fiche Docker Hub de l'image officielle",
+      "url": "https://github.com/nodefony/nodefony-core/issues/772",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 8.038,
+      "debut": null,
+      "cible": null,
       "labels": [
         "beta-8"
       ]
@@ -10441,20 +10457,6 @@
       "milestone": "12.0.0",
       "priorite": "P2 — décision",
       "jours": 2,
-      "ordre": 175,
-      "debut": null,
-      "cible": null,
-      "labels": []
-    },
-    {
-      "number": 772,
-      "title": "docs(docker): réécrire la fiche Docker Hub de l'image officielle",
-      "url": "https://github.com/nodefony/nodefony-core/issues/772",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.1.0",
-      "priorite": "P2 — décision",
-      "jours": 1,
       "ordre": 175,
       "debut": null,
       "cible": null,

@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-11-15 16:07** (UTC).
+> Empreinte prise le **2026-11-15 16:30** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -21,8 +21,8 @@
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 138 | 1 | 2026-11-15 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `██████████` 99% | 265 | 3 | 2026-11-15 |
-| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 11% | 7 | 58 | 2026-12-15 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `██████████` 99% | 265 | 4 | 2026-11-15 |
+| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 11% | 7 | 57 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 33 | — |
 | **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 8 | — |
 | **12.0.0** | ![12.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/5?style=flat-square&label=) `██░░░░░░░░` 15% | 2 | 11 | — |
@@ -35,12 +35,12 @@
 
 Ordre 8.03 · P1 — figé à la création · 1 j · jalon 10.0.0-beta · frise 2026-11-24 → 11-24
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 3 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 4 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.1.0 — 58 ouverts
+## Jalon 10.1.0 — 57 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -100,7 +100,6 @@ Ordre 8.03 · P1 — figé à la création · 1 j · jalon 10.0.0-beta · frise 
 | 172 | P2 — décision | 2 | — | #717 | feat(realtime): rejouer les messages manqués à la reconnexion |
 | 172.5 | P2 — décision | 2 | — | #751 | feat(http): mesurer l'aller-retour de chaque WebSocket au ping/pong |
 | 174 | P2 — décision | 2 | — | #743 | feat(http): compter les requêtes par route dans la supervision |
-| 175 | P2 — décision | 1 | — | #772 | docs(docker): réécrire la fiche Docker Hub de l'image officielle |
 | 913.6 | P2 — décision | 5 | — | #692 | perf(cli): faire porter Vite par le superviseur de développement |
 
 ## Jalon 13.0.0 — 1 ouverts
@@ -174,12 +173,13 @@ Ordre 8.03 · P1 — figé à la création · 1 j · jalon 10.0.0-beta · frise 
 | 925.6 | P3 — fin de cycle | 1 | — | #768 | perf(http): mesurer le coût du journal d'accès par requête |
 | 926 | P1 — figé à la création | 0.5 | — | #541 | test(cli): valider le plein écran du serveur de dev sous Windows |
 
-## Jalon 10.0.0-beta — 3 ouverts
+## Jalon 10.0.0-beta — 4 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
 | 8.03 | P1 — figé à la création | 1 | 2026-11-24 → 11-24 | #47 | docs(release): faire suivre à l'accueil ce qui est réellement publié |
 | 8.035 | P2 — décision | 1 | 2026-11-23 → 11-23 | #778 | test(http): éprouver HTTP/2 avec h2spec, binaire officiel figé |
+| 8.038 | P2 — décision | 1 | — | #772 | docs(docker): réécrire la fiche Docker Hub de l'image officielle |
 | 8.04 | P1 — figé à la création | 1 | 2026-11-20 → 11-20 | #659 | docs(performance): remesurer les pages de performance avant la release |
 
 ## Jalon 10.2.0 — 33 ouverts
