@@ -496,16 +496,29 @@ export function alignerReferencesInternes(brut, noms, version) {
   const introuvables = [];
   let contenu = brut;
 
-  for (const champ of CHAMPS_DEPENDANCES) {
-    // Un pair exprime une COMPATIBILITÉ, une dépendance une version du lot.
-    const cible = champ === "peerDependencies" ? `^${version}` : version;
+  // Les champs de l'installeur, PLUS les dépendances de dev : elles ne partent
+  // pas chez l'utilisateur, mais un remplacement global les alignait par
+  // ACCIDENT — seulement quand le même paquet figurait aussi en pair avec la
+  // même plage. Vécu : `realtime` gardait drizzle, orm-core et security en
+  // `^beta.6` à la beta.7, quand ses framework et http montaient.
+  for (const champ of [...CHAMPS_DEPENDANCES, "devDependencies"]) {
+    // Une dépendance est une version du LOT ; un pair, et une dépendance de dev
+    // (l'espace de travail la résout), expriment une compatibilité.
+    const cible = champ === "dependencies" ? version : `^${version}`;
     for (const [dep, plage] of Object.entries(pkg[champ] ?? {})) {
       if (!internes.has(dep) || plage === cible) continue;
+      // Le remplacement reste DANS le bloc du champ : un paquet déclaré dans deux
+      // champs reçoit la cible de chacun, pas celle du premier traité. Un bloc de
+      // dépendances est plat (aucune accolade dedans), d'où `[^}]*`.
+      const bloc = new RegExp(`("${champ}"\\s*:\\s*\\{)([^}]*)(\\})`);
       const motif = new RegExp(
         `("${echapperRegex(dep)}"\\s*:\\s*")${echapperRegex(plage)}(")`,
-        "g",
       );
-      const remplace = contenu.replace(motif, `$1${cible}$2`);
+      const remplace = contenu.replace(
+        bloc,
+        (_, debut, corps, fin) =>
+          `${debut}${corps.replace(motif, `$1${cible}$2`)}${fin}`,
+      );
       if (remplace === contenu) {
         if (!introuvables.includes(`${dep}@${plage}`)) {
           introuvables.push(`${dep}@${plage}`);

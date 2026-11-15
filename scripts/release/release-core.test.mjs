@@ -566,7 +566,9 @@ describe("alignerReferencesInternes — le lockstep, APPLIQUÉ", () => {
     );
   });
 
-  it("aligne aussi une référence déclarée dans DEUX champs à la fois", () => {
+  // Ce test attendait le pair en version EXACTE : il encodait l'accident d'un
+  // remplacement global, où le premier champ traité imposait sa cible au second.
+  it("aligne une référence déclarée dans DEUX champs, chacun sur SA cible", () => {
     const brut = JSON.stringify(
       {
         dependencies: { "@nodefony/http": "9.0.0" },
@@ -578,7 +580,32 @@ describe("alignerReferencesInternes — le lockstep, APPLIQUÉ", () => {
     const r = alignerReferencesInternes(brut, noms, "10.0.0-alpha.1");
     const pkg = JSON.parse(r.contenu);
     expect(pkg.dependencies["@nodefony/http"]).toBe("10.0.0-alpha.1");
-    expect(pkg.peerDependencies["@nodefony/http"]).toBe("10.0.0-alpha.1");
+    expect(pkg.peerDependencies["@nodefony/http"]).toBe("^10.0.0-alpha.1");
+  });
+
+  it("aligne une dépendance de dev interne même absente des pairs", () => {
+    // Vécu : `realtime` gardait drizzle, orm-core et security en `^beta.6` à la
+    // beta.7 — seules les dépendances de dev doublées d'un pair montaient.
+    const brut = JSON.stringify(
+      {
+        name: "@nodefony/realtime",
+        peerDependencies: { nodefony: "^10.0.0-beta.6" },
+        devDependencies: {
+          nodefony: "^10.0.0-beta.6",
+          "@nodefony/http": "^10.0.0-beta.6",
+          vitest: "^4.0.0",
+        },
+      },
+      null,
+      2,
+    );
+    const r = alignerReferencesInternes(brut, noms, "10.0.0-beta.7");
+    const pkg = JSON.parse(r.contenu);
+    expect(pkg.peerDependencies.nodefony).toBe("^10.0.0-beta.7");
+    expect(pkg.devDependencies.nodefony).toBe("^10.0.0-beta.7");
+    expect(pkg.devDependencies["@nodefony/http"]).toBe("^10.0.0-beta.7");
+    expect(pkg.devDependencies.vitest).toBe("^4.0.0");
+    expect(r.introuvables).toEqual([]);
   });
 
   it("SIGNALE la plage qu'il n'a pas su retrouver dans le TEXTE, au lieu de la taire", () => {
