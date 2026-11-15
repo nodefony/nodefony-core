@@ -143,6 +143,15 @@ const VERSION = /\b(10\.\d+\.\d+)-(alpha|beta|rc)\.(\d+)\b/g;
 const VERSION_STABLE = /\b10\.\d+\.\d+\b(?![-.\d])/g;
 
 /**
+ * Une version EXACTE, rien autour : `10.0.0`, `10.0.0-beta.7`. Seule forme
+ * que ce contrôle sait comparer, projeter — et ÉCRIRE dans un accueil.
+ */
+const VERSION_EXACTE = /^(\d+)\.(\d+)\.(\d+)(?:-([a-z]+)\.(\d+))?$/;
+
+/** Un nom d'étiquette npm tel que le registre en sert (`latest`, `beta.0`). */
+const ETIQUETTE = /^[A-Za-z][\w.-]*$/;
+
+/**
  * Formules qui nient toute publication. Écrites au pluriel des tournures
  * réellement employées, pas d'une supposition : ce sont celles que l'accueil
  * portait avant la première alpha.
@@ -175,7 +184,7 @@ const COMMANDE =
  */
 function comparer(a, b) {
   const decouper = (v) => {
-    const m = /^(\d+)\.(\d+)\.(\d+)(?:-([a-z]+)\.(\d+))?$/.exec(v);
+    const m = VERSION_EXACTE.exec(v);
     return m
       ? [
           Number(m[1]),
@@ -291,9 +300,9 @@ const dansUneZone = (zones, index) =>
  */
 function projeter(distTags, enCours) {
   if (!enCours) return distTags;
-  const m = /^\d+\.\d+\.\d+(?:-([a-z]+)\.\d+)?$/.exec(enCours);
+  const m = VERSION_EXACTE.exec(enCours);
   if (!m) return distTags;
-  const canal = m[1] ?? "latest";
+  const canal = m[4] ?? "latest";
   const servie = distTags[canal];
   if (typeof servie === "string" && comparer(enCours, servie) <= 0)
     return distTags;
@@ -473,11 +482,39 @@ function basculerVersions(contenu, distTags) {
 }
 
 /**
+ * Ne garde que les étiquettes dont la valeur est une version exacte.
+ *
+ * Ce qui vient du registre finit ÉCRIT dans l'accueil sous `--basculer`, donc
+ * dans le README d'un tarball publié : une réponse altérée (miroir, proxy,
+ * registre injecté par `NF_ACCUEIL_REGISTRY`) y déposerait n'importe quel
+ * texte. Une étiquette écartée n'ouvre aucun faux vert : le canal manque, et
+ * le contrôle le refuse.
+ *
+ * @param tags - les `dist-tags` reçus, de forme inconnue.
+ * @returns les seules paires `étiquette → version exacte`, ou `null` quand il
+ *   n'en reste aucune — un « je n'ai pas pu regarder », pas un verdict.
+ */
+function garderVersions(tags) {
+  if (!tags || typeof tags !== "object") return null;
+  const gardees = {};
+  for (const [canal, version] of Object.entries(tags)) {
+    if (
+      ETIQUETTE.test(canal) &&
+      typeof version === "string" &&
+      VERSION_EXACTE.test(version)
+    )
+      gardees[canal] = version;
+  }
+  return Object.keys(gardees).length > 0 ? gardees : null;
+}
+
+/**
  * Lit les `dist-tags` d'un paquet sur le registre.
  *
  * @param paquet - nom du paquet.
- * @returns les étiquettes, ou `null` quand le registre n'a rien rendu
- *   d'exploitable — c'est un « je n'ai pas pu regarder », pas un verdict.
+ * @returns les étiquettes à version exacte ({@link garderVersions}), ou `null`
+ *   quand le registre n'a rien rendu d'exploitable — c'est un « je n'ai pas pu
+ *   regarder », pas un verdict.
  */
 async function lireDistTags(paquet = PAQUET) {
   const url = `${REGISTRY}/${paquet.replaceAll("/", "%2F")}`;
@@ -487,8 +524,7 @@ async function lireDistTags(paquet = PAQUET) {
     });
     if (!res.ok) return null;
     const body = await res.json();
-    const tags = body?.["dist-tags"];
-    return tags && typeof tags === "object" ? tags : null;
+    return garderVersions(body?.["dist-tags"]);
   } catch {
     return null;
   }
@@ -539,9 +575,13 @@ async function principal(argv) {
   let distTags;
   if (iTags !== -1) {
     try {
-      distTags = JSON.parse(argv[iTags + 1] ?? "");
+      distTags = garderVersions(JSON.parse(argv[iTags + 1] ?? ""));
     } catch {
       console.error("✗ --dist-tags : JSON illisible");
+      return 2;
+    }
+    if (!distTags) {
+      console.error("✗ --dist-tags : aucune étiquette à version exacte");
       return 2;
     }
   } else {
@@ -654,6 +694,7 @@ export {
   confronterAccueil,
   basculerVersions,
   comparer,
+  garderVersions,
   projeter,
   pointeDeLaLigne,
   zonesDeCode,

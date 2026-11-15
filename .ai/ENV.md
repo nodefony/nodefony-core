@@ -179,9 +179,9 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | Variable | Premier site |
 | --- | --- |
 | `NF__DEBUG` | `src/nodefony/src/kernel/kernelLog.ts:276` |
-| `NF_ACCUEIL_PAQUET` | `scripts/release/accueil-gate.mjs:91` |
-| `NF_ACCUEIL_REGISTRY` | `scripts/release/accueil-gate.mjs:87` |
-| `NF_ACCUEIL_ROOT` | `scripts/release/accueil-gate.mjs:84` |
+| `NF_ACCUEIL_PAQUET` | `scripts/release/accueil-gate.mjs:107` |
+| `NF_ACCUEIL_REGISTRY` | `scripts/release/accueil-gate.mjs:103` |
+| `NF_ACCUEIL_ROOT` | `scripts/release/accueil-gate.mjs:100` |
 | `NF_ADMIN_PASSWORD` | `src/packages/@nodefony/http/nodefony/tests/websockets/presence-e2e.test.ts:49` |
 | `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:977` |
 | `NF_BENCH_ROUTE` | `src/modules/test/index.ts:122` |

@@ -12,6 +12,7 @@ import {
   basculerVersions,
   comparer,
   confronterAccueil,
+  garderVersions,
   pointeDeLaLigne,
   projeter,
   zonesDeCode,
@@ -595,5 +596,35 @@ describe("confronterAccueil — la page du cran STABLE n'est pas muette", () => 
       distTags: { latest: "7.0.2", beta: "10.0.0-beta.7" },
     });
     expect(genres(ecarts)).toEqual(["SURFACE-MUETTE"]);
+  });
+});
+
+describe("garderVersions — ce que le registre peut faire écrire dans l'accueil", () => {
+  it("garde les étiquettes réelles, `beta.0` comprise", () => {
+    expect(garderVersions(TAGS)).toEqual(TAGS);
+  });
+
+  it("🔴 écarte une valeur qui porterait du texte jusqu'au README publié", () => {
+    const recu = {
+      ...TAGS,
+      beta: "10.0.0-beta.7\n\n[installer ici](https://exemple.invalid)",
+    };
+    const gardees = garderVersions(recu);
+    expect(gardees).not.toHaveProperty("beta");
+    // La bascule ne peut donc plus rien en écrire : sans canal, la page reste.
+    const page = "Préversion `10.0.0-beta.6` en ligne.";
+    expect(basculerVersions(page, gardees).contenu).toBe(page);
+  });
+
+  it("écarte une valeur non textuelle et une étiquette malformée", () => {
+    expect(
+      garderVersions({ latest: "7.0.2", alpha: 10, "<b>": "10.0.0" }),
+    ).toEqual({ latest: "7.0.2" });
+  });
+
+  it("rend null quand il ne reste rien — un contrôle aveugle, pas un vert", () => {
+    expect(garderVersions({ beta: "pas une version" })).toBeNull();
+    expect(garderVersions(null)).toBeNull();
+    expect(garderVersions("10.0.0")).toBeNull();
   });
 });
