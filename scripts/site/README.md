@@ -133,4 +133,4 @@ Les diagrammes de séquence du site tiennent leurs libellés — sur le CORPUS r
 Éprouve l'agencement des versions du site et le dossier de sortie neuf.
 
 - **Lancé par** : `npm run test:tooling`
-- **Utilise** : `lib/repo-root.mjs` · `site/assemble-site.mjs` · `site/build-site.mjs` · `site/check-site-links.mjs` · `site/lib/out-dir.mjs` · `site/lib/site-versions.mjs` · `release/accueil-gate.mjs`
+- **Utilise** : `lib/repo-root.mjs` · `site/assemble-site.mjs` · `site/build-site.mjs` · `site/check-site-links.mjs` · `site/lib/out-dir.mjs` · `site/lib/site-versions.mjs`

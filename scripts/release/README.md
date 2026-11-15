@@ -24,7 +24,7 @@ Index de tout l'outillage : [`scripts/`](../README.md).
 - **Variable** `NF_ACCUEIL_REGISTRY`
 - **Variable** `NF_ACCUEIL_ROOT`
 - **Appelé par** : `release-preflight.yml` · `release.yml` · `release/readme-gate.mjs` · `release/release.mjs`
-- **Testé par** : `release/accueil-gate.test.mjs` · `site/site-versions.test.mjs`
+- **Testé par** : `release/accueil-gate.test.mjs`
 
 ## [`accueil-gate.test.mjs`](accueil-gate.test.mjs)
 
