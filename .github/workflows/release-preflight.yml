@@ -98,6 +98,15 @@ on:
         type: boolean
         required: false
         default: false
+      # La version que l'appelant PUBLIE (tag `v…` accepté). Son accueil l'annonce
+      # déjà — la bascule se fait à l'estampille, avant l'empaquetage (#47) — alors
+      # que npm sert encore la précédente : sans elle, la garde refuserait toute
+      # publication. Absente (calendrier, déclenchement manuel) : l'accueil est
+      # jugé contre ce que npm sert.
+      version:
+        type: string
+        required: false
+        default: ""
 
 concurrency:
   # Le groupe porte le contexte appelant : sans cela, l'appel depuis une release
@@ -221,7 +230,9 @@ jobs:
         shell: bash
         run: |
           set +e
-          node scripts/release/accueil-gate.mjs
+          V="${{ inputs.version }}"
+          V="${V#v}"
+          node scripts/release/accueil-gate.mjs ${V:+--en-cours "$V"}
           code=$?
           set -e
           if [ "$code" = "1" ]; then

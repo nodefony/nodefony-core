@@ -215,7 +215,7 @@ constante, lui, se retrouve au `grep`.
 <!-- prettier-ignore -->
 | Garde | Ce qu'elle évite |
 | --- | --- |
-| **L'accueil annonce ce que npm SERT** (`accueil-gate.mjs`, 1ʳᵉ ligne de la sortie) | publier un cran de plus sur une page restée au cran précédent. Vécu : README et AGENTS.md ont annoncé l'`alpha.4` pendant que le registre servait l'`alpha.5` — l'accueil était la SEULE surface en retard, les quinze manifestes étant déjà à jour. L'étape 6 du « RESTE À FAIRE » le demandait pourtant : un rappel imprimé ne mord pas. **Et une capacité que rien n'appelle n'existe pas** : `--basculer` savait réécrire ces versions, mais aucun workflow ne le lançait — il n'était CITÉ que dans un message d'erreur, et la même dette est revenue à l'`alpha.8`. Le job `accueil` de `release.yml` l'appelle désormais, après le `publish` (la règle est d'annoncer ce que npm SERT, donc jamais avant), et pousse sur `main` s'il a changé quelque chose. Ce qui reste refusé est ce qui demande une main — une commande sans `@canal`, une surface devenue muette, la PROSE d'un passage au cran beta ou stable |
+| **L'accueil annonce ce que npm SERT** (`accueil-gate.mjs`, 1ʳᵉ ligne de la sortie) | publier un cran de plus sur une page restée au cran précédent. Vécu : README et AGENTS.md ont annoncé l'`alpha.4` pendant que le registre servait l'`alpha.5` — l'accueil était la SEULE surface en retard, les quinze manifestes étant déjà à jour. L'étape 6 du « RESTE À FAIRE » le demandait pourtant : un rappel imprimé ne mord pas. **Et une capacité que rien n'appelle n'existe pas** : `--basculer` savait réécrire ces versions, mais aucun workflow ne le lançait — il n'était CITÉ que dans un message d'erreur, et la même dette est revenue à l'`alpha.8`. La bascule se fait désormais à l'**estampille**, AVANT l'empaquetage (`--en-cours <v> --basculer`) : le README d'un paquet part dans SON tarball, et basculer après publier a figé sur npm le README de la beta.7 annonçant la beta.6. La garde juge l'accueil contre l'état d'APRÈS publication (`--en-cours`) ; le commit tagué doit donc déjà annoncer la version. Ce qui reste refusé est ce qui demande une main — une commande sans `@canal`, une surface devenue muette, la PROSE d'un passage au cran beta ou stable |
 | Version semver 2.0.0 valide | `01.2.3` accepté par une regex naïve, refusé par le registre au milieu du lot |
 | **Préversion sans `--npm-tag`** | npm la publierait sous `latest` : tout `npm i` recevrait une bêta, et redéplacer le tag ne rattrape pas les installations parties |
 | Arbre propre + branche attendue | du code en ligne qui n'existe dans AUCUN commit — plus personne ne peut auditer ce qui a été publié |
@@ -268,10 +268,13 @@ Payé à la `10.0.0-beta.1`, chaque ligne une fois :
 - **Avant d'estampiller : `git fetch` puis `origin/main` DANS `dev`.** Le job `accueil` pousse sur
   `main` après chaque publication, sans redescendre dans `dev` : `--promouvoir` échoue alors sur un
   push refusé (non-fast-forward). Fusionner `origin/main` dans `dev` d'abord.
-- **Changement de CANAL (alpha → beta → stable) : prose à la main.** `accueil-gate --basculer`
-  porte les versions d'un cran à l'autre, jamais le canal : il reste vert tant que l'ancien canal
-  sert encore sa version. README, `AGENTS.md`, `SECURITY.md`, `docker/hub-overview.md`, README de
-  `nodefony` et `create-nodefony` — sur `main`, puis `main` dans `dev` (#47).
+- **Changement de CANAL (alpha → beta → stable) : prose à la main, AVANT d'estampiller** — la
+  répétition (`--anticiper`) la refuse, et une page restée sur `@beta` partirait dans le tarball
+  de la stable. `accueil-gate --basculer`
+  porte les versions d'un cran à l'autre, jamais la phrase. README, `AGENTS.md`, `SECURITY.md`,
+  `docker/hub-overview.md`, README de `nodefony` et `create-nodefony` — dans `dev`, commités
+  avant `--write` (#47). Simuler le jour J sans réseau :
+  `node scripts/release/accueil-gate.mjs --dist-tags '<tags du jour>' --en-cours 10.0.0 --anticiper`.
 - **Après le tag : `npm run release -- --dist-tags --publish`** depuis le poste (2FA) — le
   `latest` d'un paquet né en préversion reste sur son premier cran.
 - **`docs/performance/data/<version>.json` n'est jamais remesuré par la forge** : vérifier que sa

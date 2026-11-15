@@ -493,16 +493,22 @@ Un message de dépréciation dit **où aller**, pas seulement que c'est fini. Po
 
 ### 7.3quater L'accueil — basculer ce qu'il AFFIRME de la publication
 
-Trois endroits affirment un état de publication, et cet état change à chaque cran :
-
-| Fichier     | Où                                              |
-| ----------- | ----------------------------------------------- |
-| `README.md` | le bloc « État », puis la section « Démarrage » |
-| `AGENTS.md` | la ligne « Publication npm » de la table d'état |
+L'accueil affirme un état de publication, et cet état change à chaque cran. Les surfaces sont
+listées dans `scripts/release/accueil-gate.mjs#SURFACES` (seule source) : `README.md`,
+`AGENTS.md`, la page Docker Hub, et le README du paquet `nodefony` avec ses sources générées.
 
 C'est la **première impression du jour de l'annonce**, et elle ne se rattrape pas : qui vient ce
-jour-là ne revient pas. Aucun automate ne surveille ces phrases — `release.mjs` les nomme donc dans
-son « RESTE À FAIRE », à l'étape 6, pour que l'oubli soit impossible plutôt que rare.
+jour-là ne revient pas. Et le README d'un paquet part dans **son tarball** : la page npm d'une
+version est figée pour toujours. D'où l'ordre :
+
+1. **à l'estampille** (`release.mjs --write`), AVANT l'empaquetage, `accueil-gate --en-cours <v>
+--basculer` réécrit les versions vers celle qu'on publie ;
+2. la garde préalable juge la page telle que cette bascule la laissera (`--anticiper`) : ce qui
+   reste refusé est la **prose** d'un changement de canal, à écrire et relire AVANT d'estampiller ;
+3. le commit tagué doit déjà annoncer la version (`--publish`, et le job `accueil` du préflight).
+
+L'ordre inverse — basculer après publier — a publié le README de la `10.0.0-beta.7` annonçant la
+beta.6 (#47).
 
 Deux règles tant que `latest` n'est pas la version stable :
 

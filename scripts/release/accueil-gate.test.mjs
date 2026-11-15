@@ -13,6 +13,7 @@ import {
   comparer,
   confronterAccueil,
   pointeDeLaLigne,
+  projeter,
   zonesDeCode,
 } from "./accueil-gate.mjs";
 
@@ -58,13 +59,13 @@ describe("confronterAccueil — les versions citées", () => {
     expect(ecarts[0].ligne).toBe(1);
   });
 
-  it("🔴 laisse passer une REPRISE : le canal sert déjà la version qu'on publie", () => {
-    // Vécu (10.0.0-beta.4) : trois paquets en ligne, la suite refusée ; le
-    // canal servait la beta.4, l'accueil la beta.3 — et la relance était
-    // refusée ici, alors que la bascule suit la publication COMPLÈTE.
+  it("🔴 laisse passer une REPRISE : la page du commit tagué annonce déjà la version reprise", () => {
+    // Vécu (10.0.0-beta.4) : trois paquets en ligne, la suite refusée. La
+    // bascule se fait désormais à l'estampille : la relance trouve une page
+    // qui annonce la version en cours, que le canal sert déjà.
     const ecarts = confronterAccueil({
       surfaces: [
-        surface("préversion `10.0.0-alpha.4` en ligne, canal `alpha`"),
+        surface("préversion `10.0.0-alpha.5` en ligne, canal `alpha`"),
       ],
       distTags: TAGS,
       enCours: "10.0.0-alpha.5",
@@ -72,7 +73,18 @@ describe("confronterAccueil — les versions citées", () => {
     expect(ecarts).toEqual([]);
   });
 
-  it("…mais pas une bascule OUBLIÉE : le canal sert une version qu'on ne publie pas", () => {
+  it("…mais refuse une page NON basculée, même en reprise : son tarball porterait l'ancienne", () => {
+    const ecarts = confronterAccueil({
+      surfaces: [
+        surface("préversion `10.0.0-alpha.4` en ligne, canal `alpha`"),
+      ],
+      distTags: TAGS,
+      enCours: "10.0.0-alpha.5",
+    });
+    expect(genres(ecarts)).toEqual(["VERSION-PERIMEE"]);
+  });
+
+  it("…et une bascule OUBLIÉE : la correction vise la version qu'on publie", () => {
     const ecarts = confronterAccueil({
       surfaces: [
         surface("préversion `10.0.0-alpha.4` en ligne, canal `alpha`"),
@@ -81,6 +93,9 @@ describe("confronterAccueil — les versions citées", () => {
       enCours: "10.0.0-alpha.6",
     });
     expect(genres(ecarts)).toEqual(["VERSION-PERIMEE"]);
+    expect(ecarts[0].correction).toBe(
+      "remplacer 10.0.0-alpha.4 par 10.0.0-alpha.6",
+    );
   });
 
   it("refuse une version que le canal NE SERT PAS — annoncer avant de publier", () => {
@@ -433,13 +448,108 @@ describe("confronterAccueil — le changement de CANAL (CANAL-DEPASSE)", () => {
     expect(ecarts).toEqual([]);
   });
 
-  it("tolère une REPRISE de la stable : la pointe est la version qu'on publie", () => {
+  it("🔴 refuse une REPRISE de la stable dont la page est restée sur `@beta`", () => {
+    // L'ancienne tolérance laissait passer ce cas — c'est-à-dire publier un
+    // tarball 10.0.0 dont le README prescrit encore la bêta.
     const ecarts = confronterAccueil({
       surfaces: [surface(ACCUEIL_BETA)],
       distTags: STABLE,
       enCours: "10.0.0",
     });
-    expect(ecarts).toEqual([]);
+    expect(genres(ecarts)).toEqual(["CANAL-DEPASSE"]);
+  });
+});
+
+describe("--en-cours — la page du TARBALL annonce la version qu'il accompagne (#47)", () => {
+  /** Ce que npm sert la veille de la beta.8, et la page d'accueil de ce jour. */
+  const VEILLE = {
+    latest: "7.0.2",
+    alpha: "10.0.0-alpha.9",
+    beta: "10.0.0-beta.7",
+  };
+  const ACCUEIL =
+    "préversion `10.0.0-beta.7` en ligne, canal `beta`\n\n" +
+    "```bash\nnpm create nodefony@beta mon-app\n```\n";
+
+  it("projette le canal de la préversion, et `latest` pour une stable", () => {
+    expect(projeter(VEILLE, "10.0.0-beta.8").beta).toBe("10.0.0-beta.8");
+    expect(projeter(VEILLE, "10.0.0").latest).toBe("10.0.0");
+    expect(projeter(VEILLE, "10.0.0-rc.1").rc).toBe("10.0.0-rc.1");
+    expect(projeter(VEILLE, null)).toBe(VEILLE);
+    expect(VEILLE.beta).toBe("10.0.0-beta.7"); // entrée intacte
+  });
+
+  it("ne RECULE jamais un canal", () => {
+    expect(projeter(VEILLE, "10.0.0-beta.6")).toBe(VEILLE);
+    expect(projeter(VEILLE, "10.0.0-beta.7")).toBe(VEILLE);
+  });
+
+  it("🔴 refuse d'empaqueter la page de la VEILLE — le défaut constaté sur la beta.7", () => {
+    // Le README de `nodefony@10.0.0-beta.7`, lu au registre, annonçait la beta.6.
+    const ecarts = confronterAccueil({
+      surfaces: [surface(ACCUEIL)],
+      distTags: VEILLE,
+      enCours: "10.0.0-beta.8",
+    });
+    expect(genres(ecarts)).toEqual(["VERSION-PERIMEE"]);
+    expect(ecarts[0].correction).toBe(
+      "remplacer 10.0.0-beta.7 par 10.0.0-beta.8",
+    );
+  });
+
+  it("bascule vers la version EN COURS, puis passe — la page annonce ce que le canal ne sert pas encore", () => {
+    const { contenu, remplacements } = basculerVersions(
+      ACCUEIL,
+      projeter(VEILLE, "10.0.0-beta.8"),
+    );
+    expect(remplacements).toEqual([
+      { de: "10.0.0-beta.7", vers: "10.0.0-beta.8" },
+    ]);
+    expect(
+      confronterAccueil({
+        surfaces: [surface(contenu)],
+        distTags: VEILLE,
+        enCours: "10.0.0-beta.8",
+      }),
+    ).toEqual([]);
+    // Sans la version en cours, la même page est une annonce prématurée.
+    expect(
+      genres(
+        confronterAccueil({ surfaces: [surface(contenu)], distTags: VEILLE }),
+      ),
+    ).toEqual(["VERSION-FANTOME"]);
+  });
+
+  it("🔴 STABLE : la bascule seule ne suffit pas — la prose `@beta` est refusée avant l'estampille", () => {
+    const { contenu } = basculerVersions(ACCUEIL, projeter(VEILLE, "10.0.0"));
+    expect(
+      genres(
+        confronterAccueil({
+          surfaces: [surface(contenu)],
+          distTags: VEILLE,
+          enCours: "10.0.0",
+        }),
+      ),
+    ).toEqual(["CANAL-DEPASSE"]);
+  });
+
+  it("STABLE : accepte la prose de la stable alors que `latest` sert encore la 7", () => {
+    const stable =
+      "Version `10.0.0` en ligne.\n\n" +
+      "```bash\nnpm create nodefony@latest mon-app\nnpm install nodefony\n```\n";
+    expect(
+      confronterAccueil({
+        surfaces: [surface(stable)],
+        distTags: { ...VEILLE, next: "10.0.0" },
+        enCours: "10.0.0",
+      }),
+    ).toEqual([]);
+    // Hors de la passe qui la publie, la même page est fausse : `latest` sert la 7.
+    expect(
+      genres(
+        confronterAccueil({ surfaces: [surface(stable)], distTags: VEILLE }),
+      ),
+    ).toEqual(["SURFACE-MUETTE", "COMMANDE-SANS-CANAL"]);
   });
 });
 

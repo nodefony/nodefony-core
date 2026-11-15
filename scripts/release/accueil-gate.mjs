@@ -47,9 +47,14 @@
  * ## Ce qu'il BASCULE, et ce qu'il refuse
  *
  * Sous `--basculer`, il réécrit les versions périmées — c'est mécanique, donc
- * automatisable, et la release l'appelle juste après avoir publié. Un gate qui
- * se contenterait de refuser ne ferait que DÉPLACER la dette d'un cran : la page
- * resterait fausse entre deux publications.
+ * automatisable. Un gate qui se contenterait de refuser ne ferait que DÉPLACER
+ * la dette d'un cran : la page resterait fausse entre deux publications.
+ *
+ * Avec `--en-cours <version>`, la page est jugée — et basculée — contre l'état
+ * d'APRÈS la publication de cette version. C'est le mode de la release :
+ * `release.mjs` bascule à l'ESTAMPILLE, avant l'empaquetage, parce que le
+ * README d'un paquet part dans son tarball. Basculer après publier (l'ancien
+ * ordre) a publié le README de la `10.0.0-beta.7` annonçant la beta.6.
  *
  * Tout le reste demeure un refus, parce que c'est de la PROSE : nommer le canal
  * dans une commande, requalifier le `git clone` au cran stable, dire ce qu'une
@@ -72,11 +77,13 @@
  * node scripts/release/accueil-gate.mjs --json              # sortie machine
  * node scripts/release/accueil-gate.mjs --dist-tags '{"alpha":"10.0.0-alpha.6"}'
  * node scripts/release/accueil-gate.mjs --basculer          # réécrit les versions, puis contrôle
- * node scripts/release/accueil-gate.mjs --en-cours 10.0.0-beta.4  # tolère la reprise de CETTE version
+ * node scripts/release/accueil-gate.mjs --en-cours 10.0.0-beta.8             # page du tarball à publier
+ * node scripts/release/accueil-gate.mjs --en-cours 10.0.0-beta.8 --anticiper # telle que l'estampille la laissera
+ * node scripts/release/accueil-gate.mjs --en-cours 10.0.0-beta.8 --basculer  # l'estampille
  * ```
  *
  * @usage node scripts/release/accueil-gate.mjs [--json] [--dist-tags <json>] [--en-cours <version>]
- * @usage node scripts/release/accueil-gate.mjs --basculer
+ * @usage node scripts/release/accueil-gate.mjs [--en-cours <version>] --basculer|--anticiper
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -263,6 +270,37 @@ const dansUneZone = (zones, index) =>
   zones.some(([d, f]) => index >= d && index < f);
 
 /**
+ * Les `dist-tags` tels que npm les servira une fois `enCours` publiée.
+ *
+ * Le README d'un paquet part dans SON tarball : il doit donc annoncer la
+ * version qu'il accompagne, pas celle d'avant. Constaté au registre : le
+ * README de `nodefony@10.0.0-beta.7` annonçait la beta.6, parce que la bascule
+ * suivait la publication. Pour la 10.0.0, la page npm aurait dit « préversion
+ * bêta » pour toujours. Juger l'accueil contre cet état PROJETÉ est ce qui
+ * oblige la bascule à précéder l'empaquetage.
+ *
+ * Le canal d'une préversion est son étiquette (`beta`) ; celui d'une stable est
+ * `latest` — même quand elle part d'abord sous `next` (#27) : c'est `latest`
+ * que la page de la stable annonce, et la répétition ne s'annonce jamais.
+ * Un canal n'est jamais RECULÉ : une version plus ancienne que ce qu'il sert
+ * laisse les étiquettes intactes.
+ *
+ * @param distTags - les étiquettes servies aujourd'hui.
+ * @param enCours - la version que la passe publie, ou `null`.
+ * @returns de nouvelles étiquettes ; celles d'entrée ne sont pas modifiées.
+ */
+function projeter(distTags, enCours) {
+  if (!enCours) return distTags;
+  const m = /^\d+\.\d+\.\d+(?:-([a-z]+)\.\d+)?$/.exec(enCours);
+  if (!m) return distTags;
+  const canal = m[1] ?? "latest";
+  const servie = distTags[canal];
+  if (typeof servie === "string" && comparer(enCours, servie) <= 0)
+    return distTags;
+  return { ...distTags, [canal]: enCours };
+}
+
+/**
  * Confronte les surfaces d'accueil aux étiquettes que le registre sert.
  *
  * Fonction PURE — c'est ce qui permet de l'éprouver sans réseau et sans dépôt,
@@ -270,14 +308,16 @@ const dansUneZone = (zones, index) =>
  *
  * @param options.surfaces - `[{ chemin, contenu, exigeVersion }]`.
  * @param options.distTags - `{ alpha, beta, latest, … }` tels que npm les sert.
- * @param options.enCours - la version que la passe PUBLIE. Un canal qui la sert
- *   déjà est une REPRISE (lot coupé en route, premiers paquets en ligne) : la
- *   bascule n'a pas été oubliée, elle n'a simplement pas encore eu lieu — elle
- *   suit la publication complète. Sans cette tolérance, aucune reprise ne passait.
+ * @param options.enCours - la version que la passe PUBLIE. L'accueil est alors
+ *   jugé contre l'état d'APRÈS sa publication ({@link projeter}) : il doit
+ *   l'annoncer, puisque son README part dans le tarball. Une reprise (canal
+ *   servant déjà `enCours`) n'a besoin d'aucune tolérance : la page du commit
+ *   tagué annonce déjà la version reprise.
  * @returns la liste des écarts, vide quand l'accueil dit vrai.
  */
-function confronterAccueil({ surfaces, distTags, enCours = null }) {
+function confronterAccueil({ surfaces, distTags: servis, enCours = null }) {
   const ecarts = [];
+  const distTags = projeter(servis, enCours);
   const latestEstLa10 = (distTags.latest ?? "").startsWith("10.");
   const pointe = pointeDeLaLigne(distTags);
 
@@ -303,7 +343,6 @@ function confronterAccueil({ surfaces, distTags, enCours = null }) {
         continue;
       }
       const ordre = comparer(citee, servie);
-      if (ordre < 0 && servie === enCours) continue;
       if (ordre < 0) {
         ecarts.push({
           genre: "VERSION-PERIMEE",
@@ -367,8 +406,7 @@ function confronterAccueil({ surfaces, distTags, enCours = null }) {
         pointe !== null &&
         typeof servieParLui === "string" &&
         servieParLui.startsWith("10.") &&
-        comparer(servieParLui, pointe.version) < 0 &&
-        pointe.version !== enCours
+        comparer(servieParLui, pointe.version) < 0
       ) {
         ecarts.push({
           genre: "CANAL-DEPASSE",
@@ -517,21 +555,35 @@ async function principal(argv) {
     }
   }
 
+  const iEnCours = argv.indexOf("--en-cours");
+  const enCours = iEnCours === -1 ? null : (argv[iEnCours + 1] ?? null);
+  if (iEnCours !== -1 && !enCours) {
+    console.error("✗ --en-cours : version manquante");
+    return 2;
+  }
+  const cible = projeter(distTags, enCours);
+
   // ── Mode BASCULE — ce qui rend la dette impossible, et non seulement visible
   //
   // Le gate seul DÉPLACE la dette d'un cran : il refuse la publication suivante,
-  // donc la page reste fausse entre les deux. Appelé après une publication, ce
-  // mode la met à jour sur l'instant, et le contrôle qui suit le PROUVE.
-  if (argv.includes("--basculer")) {
+  // donc la page reste fausse entre les deux. Avec `--en-cours`, la bascule vise
+  // l'état d'APRÈS la publication : c'est ainsi que `release.mjs` la fait à
+  // l'estampille, AVANT l'empaquetage, pour que le README du tarball annonce la
+  // version qu'il accompagne. `--anticiper` calcule la même bascule sans rien
+  // écrire : c'est la répétition, qui juge la page telle que l'estampille la
+  // laissera. Dans les deux cas, le contrôle qui suit le PROUVE.
+  const basculer = argv.includes("--basculer");
+  if (basculer || argv.includes("--anticiper")) {
     const faits = [];
     for (const s of surfaces) {
-      const { contenu, remplacements } = basculerVersions(s.contenu, distTags);
+      const { contenu, remplacements } = basculerVersions(s.contenu, cible);
       if (remplacements.length === 0) continue;
-      fs.writeFileSync(
-        path.join(ROOT, ...s.chemin.split("/")),
-        contenu,
-        "utf8",
-      );
+      if (basculer)
+        fs.writeFileSync(
+          path.join(ROOT, ...s.chemin.split("/")),
+          contenu,
+          "utf8",
+        );
       s.contenu = contenu;
       for (const r of remplacements)
         faits.push(`${s.chemin} : ${r.de} → ${r.vers}`);
@@ -539,7 +591,10 @@ async function principal(argv) {
     if (faits.length === 0) {
       console.log("· accueil déjà à jour — rien à basculer");
     } else {
-      console.log(`✎ accueil basculé (${faits.length} remplacement(s)) :`);
+      console.log(
+        `${basculer ? "✎ accueil basculé" : "· bascule ANTICIPÉE, rien d'écrit"} ` +
+          `(${faits.length} remplacement(s)) :`,
+      );
       for (const f of faits) console.log(`   · ${f}`);
     }
     // On ne s'arrête pas là : ce qui vient d'être écrit se CONTRÔLE, et ce qui
@@ -547,8 +602,6 @@ async function principal(argv) {
     // n'est pas basculable — il doit rester un refus.
   }
 
-  const iEnCours = argv.indexOf("--en-cours");
-  const enCours = iEnCours === -1 ? null : (argv[iEnCours + 1] ?? null);
   const ecarts = confronterAccueil({ surfaces, distTags, enCours });
 
   if (asJson) {
@@ -556,9 +609,11 @@ async function principal(argv) {
     return ecarts.length > 0 ? 1 : 0;
   }
 
-  const canaux = Object.entries(distTags)
-    .map(([t, v]) => `${t}=${v}`)
-    .join(" · ");
+  const canaux =
+    Object.entries(distTags)
+      .map(([t, v]) => `${t}=${v}`)
+      .join(" · ") +
+    (cible === distTags ? "" : ` — jugé APRÈS publication de ${enCours}`);
 
   if (ecarts.length === 0) {
     console.log(`✓ l'accueil annonce ce que npm sert — ${canaux}`);
@@ -599,6 +654,7 @@ export {
   confronterAccueil,
   basculerVersions,
   comparer,
+  projeter,
   pointeDeLaLigne,
   zonesDeCode,
   ligneDe,

@@ -185,6 +185,9 @@ jobs:
     with:
       exiger_vitrine: ${{ vars.NF_RELEASE_ARMED == 'true' && vars.NF_RELEASE_VITRINE == 'true' }}
       exiger_image: ${{ vars.NF_RELEASE_ARMED == 'true' && vars.NF_RELEASE_IMAGE == 'true' }}
+      # La version du TAG : l'accueil du commit tagué l'annonce déjà (bascule à
+      # l'estampille, #47), alors que npm sert encore la précédente.
+      version: ${{ github.ref_name }}
 
   # 🔴 LA GARDE QUI MANQUAIT — le tag et le push de la branche déclenchent des
   # workflows SÉPARÉS, qui courent en parallèle et s'ignorent. Ce fichier
@@ -912,7 +915,7 @@ jobs:
           # « préversion 10.0.0-beta.3 en ligne » pour toujours. Même commande
           # que le job `accueil` — une seule implémentation de la bascule. Un
           # refus de PROSE n'arrête pas l'archive : le job `accueil` le porte.
-          node scripts/release/accueil-gate.mjs --basculer \
+          node scripts/release/accueil-gate.mjs --en-cours "$V" --basculer \
             || echo "::warning::accueil-gate refuse la prose de l'accueil — l'archive porte les versions basculées, le job « accueil » dira le reste"
           # Un tag se bâtit en HEAD détaché : le canal se DIT, il ne se déduit
           # d'aucune branche.
@@ -1005,7 +1008,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          node scripts/release/accueil-gate.mjs --basculer
+          # `--en-cours` : sous `next` (répétition de la stable, #27), `latest`
+          # sert encore la 7 — la page de la stable doit être jugée contre l'état
+          # projeté, sinon ce job la déclarerait fausse.
+          node scripts/release/accueil-gate.mjs --en-cours "${GITHUB_REF_NAME#v}" --basculer
           if [ -z "$(git status --porcelain)" ]; then
             echo "· accueil déjà au bon cran — rien à commiter"
             exit 0

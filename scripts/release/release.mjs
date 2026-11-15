@@ -836,16 +836,33 @@ if (!prerelease && TAG_NPM && TAG_NPM !== "latest") {
 // l'alpha.5 et oubliée, si bien que la page annonçait l'alpha.4 pendant que le
 // registre servait l'alpha.5. Un rappel imprimé ne mord pas — ce refus, oui.
 //
-// Le contrôle vit ICI, avant l'estampillage : à ce moment l'accueil doit encore
-// dire ce que npm SERT. Après, les manifestes portent la version SUIVANTE et la
-// confrontation n'aurait plus de sens.
+// L'accueil est jugé contre l'état d'APRÈS la publication de VERSION (`--en-cours`) :
+// le README d'un paquet part dans SON tarball, il doit donc annoncer la version
+// qu'il accompagne. L'ancien ordre — basculer après publier — a publié le README
+// de la `10.0.0-beta.7` annonçant la beta.6 (#47).
 //
-// Hors publication, un registre muet n'est qu'un avertissement : bloquer une
-// répétition parce que le réseau manque ferait crier la garde sur ce qui va bien.
+// - Répétition et estampille : `--anticiper` juge la page telle que la bascule de
+//   l'estampille la laissera. Les VERSIONS se basculent seules ; ce qui reste
+//   refusé est la PROSE — au passage de canal (bêta → stable), elle s'écrit
+//   AVANT d'estampiller, sans quoi le tarball de la 10.0.0 prescrirait `@beta`.
+// - Publication seule (`--publish`, le commit tagué) : la page doit DÉJÀ annoncer
+//   VERSION, car on empaquette l'arbre tel quel.
+//
+// Hors publication et hors estampille, un registre muet n'est qu'un
+// avertissement : bloquer une répétition parce que le réseau manque ferait crier
+// la garde sur ce qui va bien. L'estampille, elle, refuse ICI, avant d'avoir
+// écrit le moindre fichier : un refus après l'écriture laisserait un arbre sale
+// que la garde « arbre propre » interdit de relancer.
+const PUBLICATION_SEULE = PHASES.publier && !PHASES.estampiller;
 {
   const r = spawnSync(
     "node",
-    ["scripts/release/accueil-gate.mjs", "--en-cours", VERSION],
+    [
+      "scripts/release/accueil-gate.mjs",
+      "--en-cours",
+      VERSION,
+      ...(PUBLICATION_SEULE ? [] : ["--anticiper"]),
+    ],
     {
       cwd: ROOT,
       stdio: "inherit",
@@ -853,14 +870,18 @@ if (!prerelease && TAG_NPM && TAG_NPM !== "latest") {
   );
   if (r.status === 1) {
     echouer(
-      "l'accueil du dépôt n'annonce pas ce que npm sert — voir les écarts ci-dessus.\n" +
-        "  C'est la bascule du cran PRÉCÉDENT qui n'a pas été faite. La refaire, puis relancer.",
+      `l'accueil du dépôt n'annonce pas ${VERSION} — voir les écarts ci-dessus.\n` +
+        (PUBLICATION_SEULE
+          ? "  Le commit tagué n'a pas été estampillé par `--write` : son README publierait\n" +
+            "  la version précédente. Estampiller, puis reposer le tag."
+          : "  Les versions se basculent seules à l'estampille ; ce qui reste est de la PROSE\n" +
+            "  (canal d'une commande, cran stable). L'écrire, la relire, puis relancer."),
     );
   } else if (r.status !== 0) {
     const msg =
       "accueil NON vérifié — registre injoignable ou surface absente (code " +
       `${r.status ?? "?"}).`;
-    if (PHASES.publier) {
+    if (PHASES.publier || PHASES.estampiller) {
       echouer(
         `${msg}\n  Avant un geste irréversible, ne pas savoir regarder n'est pas un verdict favorable.`,
       );
@@ -1559,6 +1580,26 @@ if (PHASES.estampiller) {
     );
   }
   dire(`✓ artefacts générés — page de manuel à ${VERSION}`);
+
+  // ── L'accueil, basculé AVANT l'empaquetage (#47) ─────────────────────────
+  // Le README de chaque paquet part dans son tarball : il doit annoncer VERSION,
+  // pas la précédente. La garde préalable a jugé la même bascule par
+  // `--anticiper` ; un écart ici veut dire que le registre a bougé entre les
+  // deux — on s'arrête plutôt que d'empaqueter une page non constatée.
+  etape = "bascule de l'accueil (avant empaquetage)";
+  {
+    const r = spawnSync(
+      "node",
+      ["scripts/release/accueil-gate.mjs", "--en-cours", VERSION, "--basculer"],
+      { cwd: ROOT, stdio: "inherit" },
+    );
+    if (r.status !== 0) {
+      echouer(
+        `l'accueil n'annonce pas ${VERSION} après bascule (code ${r.status ?? "?"}) — ` +
+          "voir les écarts ci-dessus.",
+      );
+    }
+  }
   if (alignees.length) {
     dire(
       `✓ lockstep — ${alignees.length} référence(s) interne(s) alignée(s) :\n` +
@@ -1886,9 +1927,11 @@ if (PHASES.publier) {
   // n'est pas fait : rien n'est déclaré bon sans avoir été constaté.
   etape = "bascule de l'accueil";
   {
+    // `--en-cours` : sous `next` (répétition de la stable, #27), `latest` sert
+    // encore la 7 ; sans lui, la page de la stable serait jugée fausse.
     const r = spawnSync(
       "node",
-      ["scripts/release/accueil-gate.mjs", "--basculer"],
+      ["scripts/release/accueil-gate.mjs", "--en-cours", VERSION, "--basculer"],
       { cwd: ROOT, stdio: "inherit" },
     );
     if (r.status !== 0) {
@@ -1919,9 +1962,11 @@ dire(
     "  4. poser le tag — c'est LUI qui déclenche la publication, et il reste à l'auteur :\n" +
     "     le dernier point où l'on relit ce qui sortira sous son nom. La commande exacte,\n" +
     "     avec le sha constaté, est rendue par l'étape précédente.\n" +
-    "  6. RELIRE la bascule d'accueil — les VERSIONS ont déjà été réécrites par\n" +
-    "     `accueil-gate.mjs --basculer`, et le contrôle est passé derrière. Ce qui\n" +
-    "     n'est PAS automatisable, parce que c'est de la prose à décider :\n" +
+    "  6. RELIRE la bascule d'accueil — les VERSIONS ont été réécrites vers\n" +
+    `     ${VERSION} à l'estampille, AVANT l'empaquetage : le README de chaque\n` +
+    "     tarball annonce la version qu'il accompagne. Ce qui n'est PAS\n" +
+    "     automatisable — de la prose à décider, à écrire AVANT d'estampiller\n" +
+    "     (la garde refuse sinon) :\n" +
     "       · au cran beta   — dire ce que la préversion ne promet pas\n" +
     "       · au cran stable — `npm create nodefony@latest` en tête, et le\n" +
     "         `git clone` REQUALIFIÉ « contribuer au framework » (jamais supprimé :\n" +
