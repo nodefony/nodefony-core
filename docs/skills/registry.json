@@ -6,6 +6,64 @@
   "count": 44,
   "repoScripts": [
     {
+      "path": "scripts/lib/conformance-verdict.mjs",
+      "test": false,
+      "purpose": "Verdict d'une suite de conformité BOÎTE NOIRE confrontée à sa liste d'échecs CONNUS. Pur : ni processus, ni fichier — le banc lit, cette règle juge.",
+      "usage": [
+        "import { judge, parseJUnit, parseKnownFailing } from \"../lib/conformance-verdict.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [],
+      "testedBy": [
+        "scripts/lib/conformance-verdict.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/lib/conformance-verdict.test.mjs",
+      "test": true,
+      "purpose": "Forme exacte du rapport d'h2spec v2.6.0 (`reporter/junit_report.go`) : cas vides en balise ouvrante + fermante, contenu d'échec brut.",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/lib/pinned-binary.mjs",
+      "test": false,
+      "purpose": "Binaire tiers ÉPINGLÉ : téléchargé une fois, refusé si sa somme diffère de celle FIGÉE par l'appelant, extrait à chaque usage depuis l'archive vérifiée.",
+      "usage": [
+        "import { ensurePinnedBinary, probeExecutable } from \"../lib/pinned-binary.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "src/modules/test/conformance/run.mjs"
+      ],
+      "testedBy": [
+        "scripts/lib/pinned-binary.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/lib/pinned-binary.test.mjs",
+      "test": true,
+      "purpose": "",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
+    {
       "path": "scripts/lib/redis-session-purge.mjs",
       "test": false,
       "purpose": "Purge les sessions qu'un serveur de test laisse dans SA base Redis — seule implémentation.",
@@ -2105,8 +2163,7 @@
         "scripts/release/release.mjs"
       ],
       "testedBy": [
-        "scripts/release/accueil-gate.test.mjs",
-        "scripts/site/site-versions.test.mjs"
+        "scripts/release/accueil-gate.test.mjs"
       ]
     },
     {

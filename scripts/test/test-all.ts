@@ -737,6 +737,14 @@ async function main(): Promise<void> {
         "npm run test:grpc-conformance",
         phases,
       );
+      // Conformité HTTP/2 (#778) : h2spec, 146 cas boîte noire, en clair (5153)
+      // puis en TLS (5152). Un cas déclaré qui se met à passer la fait échouer ;
+      // binaire non exécutable ici = sortie 78, jamais un vert.
+      await phase(
+        "Conformité HTTP/2 (h2spec)",
+        "npm run test:http2-conformance",
+        phases,
+      );
     }
   }
 

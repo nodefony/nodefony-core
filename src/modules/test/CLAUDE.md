@@ -344,6 +344,29 @@ grpcurl -plaintext -import-path proto -proto nodefony/test/v1/echo.proto \
   -d '{"sentence":"bonjour"}' localhost:5153 nodefony.test.v1.EchoService/Say
 ```
 
+**Suite de conformité HTTP/2** — `conformance/http2.mjs` (h2spec, 146 cas boîte noire) :
+
+```bash
+npm run test:http2-conformance                                   # serveur de dev démarré
+node src/modules/test/conformance/http2.mjs --target tls http2/6.1   # une porte, une SECTION
+```
+
+- Joue 5153 (h2c) puis 5152 (TLS). Sortie 0 = conforme · 1 = écart · 78 = décor absent ou
+  binaire non exécutable ICI (dit, jamais vert). Rapports et journaux : `tmp/runs/http2-conformance-*`.
+- Binaire OFFICIEL amd64 (release GitHub v2.6.0), sommes FIGÉES dans `http2.mjs` (la release n'en
+  publie aucune : calculées après contrôle de provenance). Téléchargement, somme, extraction et
+  constat d'exécution : `scripts/lib/pinned-binary.mjs`, partagé avec `run.mjs`.
+- Filtre par CAS refusé : le rapport JUnit ne numérote pas les cas, le numéro est la position dans
+  la section — filtrer par section (`http2/6.1`).
+- h2spec est écrit pour RFC 7540 : un échec se juge sur RFC 9113 avant de se déclarer.
+  `http2-known-failing.txt` porte les 9 échecs de Node (nghttp2, identiques sur un serveur nu ;
+  7 conformes à RFC 9113, 2 vrais écarts amont `5.1.1/2` `6.3/1`, hors d'atteinte du JS) et les
+  INDÉTERMINÉS `~` : deux issues conformes, h2spec n'en voit qu'une selon une course — réponse
+  partie avant la trame fautive (§5.1), PING de grâce de `closeStreamAfterGrace` (§6.7, §8.1).
+  Échec toléré, succès non signalé ; verdict pur dans `scripts/lib/conformance-verdict.mjs`.
+- Jouée par `npm run test:all` et par la CI sur LINUX seulement (pile identique ailleurs ; macOS
+  arm64 = binaire par Rosetta non garanti) — une notice le dit sur les autres runners.
+
 ### RestController (`/nodefony/test/rest`)
 
 | Route                          | Méthode | Description                               |

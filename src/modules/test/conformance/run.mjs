@@ -20,12 +20,13 @@
 // Le binaire `connectconformance` (version ÉPINGLÉE, celle du contrat généré)
 // est téléchargé une fois dans `node_modules/.cache/`, et refusé si sa somme
 // SHA-256 diffère de celle que publie la release.
-import { spawn, spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { ensurePinnedBinary } from "../../../../scripts/lib/pinned-binary.mjs";
+import { assertDevServer } from "./devServer.mjs";
 
 const VERSION = "v1.0.7";
 /**
@@ -78,44 +79,20 @@ function artifact() {
   };
 }
 
-async function download(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`${url} : HTTP ${res.status}`);
-  return new Uint8Array(await res.arrayBuffer());
-}
-
-/** Le binaire, téléchargé et vérifié au premier appel. */
+/** Le binaire, téléchargé au premier appel, vérifié et extrait à chaque appel. */
 async function ensureRunner() {
   const { archive, bin } = artifact();
-  const binPath = path.join(cacheDir, bin);
-  if (existsSync(binPath)) return binPath;
-  mkdirSync(cacheDir, { recursive: true });
-  const base = `https://github.com/connectrpc/conformance/releases/download/${VERSION}`;
   const expected = SHA256[archive];
   if (expected === undefined) {
     throw new Error(`${archive} : aucune somme SHA-256 figée pour ${VERSION}`);
   }
-  const bytes = await download(`${base}/${archive}`);
-  const actual = createHash("sha256").update(bytes).digest("hex");
-  if (actual !== expected) {
-    throw new Error(
-      `${archive} : SHA-256 ${actual} ≠ ${expected} figé — téléchargement refusé`,
-    );
-  }
-  const archivePath = path.join(cacheDir, archive);
-  writeFileSync(archivePath, bytes);
-  // `tar` sait lire .tar.gz ET .zip sur les trois plateformes (bsdtar sous
-  // Windows 10+) : la capacité se CONSTATE.
-  const tar = spawnSync("tar", ["-xf", archivePath, "-C", cacheDir], {
-    stdio: "inherit",
+  return ensurePinnedBinary({
+    url: `https://github.com/connectrpc/conformance/releases/download/${VERSION}/${archive}`,
+    archive,
+    sha256: expected,
+    bin,
+    cacheDir,
   });
-  if (tar.error !== undefined || tar.status !== 0 || !existsSync(binPath)) {
-    throw new Error(
-      `extraction de ${archive} impossible (tar absent ou en échec) — ` +
-        `l'extraire à la main dans ${cacheDir}`,
-    );
-  }
-  return binPath;
 }
 
 /** Le décor : serveur de dev qui répond, module `test` bâti. */
@@ -135,16 +112,7 @@ async function assertEnvironment() {
       "module test non bâti (code généré absent de dist/) — `npm run build`",
     );
   }
-  try {
-    const res = await fetch("http://127.0.0.1:5151/livez");
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  } catch (e) {
-    throw new Error(
-      `serveur de dev injoignable sur 5151 (${e instanceof Error ? e.message : String(e)}) — ` +
-        "bash .claude/skills/nodefony-start-server/start.sh",
-      { cause: e },
-    );
-  }
+  await assertDevServer();
 }
 
 try {

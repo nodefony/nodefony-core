@@ -1,0 +1,54 @@
+# Cas DÉCLARÉS de la suite de conformité HTTP/2 (h2spec v2.6.0, écrite pour
+# RFC 7540 + RFC 7541 ; chaque cas confronté au texte de RFC 9113).
+#
+# Un identifiant par ligne, son MOTIF après « # ». Préfixe « h2c: » ou « tls: »
+# = ce transport seulement ; sans préfixe = les deux.
+# CONNU (sans « ~ ») : échoue toujours ; s'il se met à PASSER, la passe échoue —
+# le retirer d'ici.
+# INDÉTERMINÉ (« ~ » en tête) : les DEUX issues sont conformes, h2spec n'en
+# reconnaît qu'une et laquelle il voit dépend d'une course. Échec toléré,
+# succès non signalé. Réservé à ce cas : un échec instable qui serait une
+# faute se corrige, il ne se déclare pas ici.
+#
+# Les neuf ci-dessous viennent de Node (nghttp2) : un serveur `node:http2` NU,
+# sans Nodefony, échoue exactement sur les mêmes, en clair comme en TLS (#778,
+# suite complète rejouée contre lui). Chaque motif dit le verdict au regard de
+# RFC 9113 : sept sont CONFORMES (h2spec exige une règle de RFC 7540 que
+# RFC 9113 a relâchée ou retirée), deux sont de vrais écarts — dans nghttp2,
+# qui consomme la trame en C avant tout code JavaScript : rien à corriger côté
+# Nodefony, la correction ne peut venir que de l'amont.
+
+http2/5.1/8     # conforme — DATA après RST_STREAM ignoré : RFC 7540 §5.1 MUST STREAM_CLOSED, RFC 9113 §5.1 MAY
+http2/5.1/9     # conforme — HEADERS après RST_STREAM ignoré : RFC 7540 §5.1 MUST STREAM_CLOSED, RFC 9113 §5.1 MAY
+http2/5.1/11    # conforme — DATA sur flux fermé ignoré : RFC 7540 §5.1 MUST STREAM_CLOSED, RFC 9113 §5.1 MAY
+http2/5.1/12    # conforme — HEADERS sur flux fermé ignoré : RFC 7540 §5.1 MUST STREAM_CLOSED, RFC 9113 §5.1 MAY
+http2/5.1.1/2   # ÉCART nghttp2 — identifiant de flux décroissant servi au lieu de PROTOCOL_ERROR (RFC 9113 §5.1.1 MUST)
+http2/5.3.1/2   # conforme — PRIORITY auto-dépendant ignoré : règle de RFC 7540 §5.3.1 retirée de RFC 9113 (priorités dépréciées, §5.3.2)
+http2/6.3/1     # ÉCART nghttp2 — PRIORITY sur le flux 0 ignoré au lieu de PROTOCOL_ERROR (RFC 9113 §6.3 MUST)
+http2/6.7/2     # conforme — PING ACK non sollicité : Node ferme la connexion PAR CHOIX (node_http2.cc), permis par RFC 9113 §5.4.1
+http2/6.9.1/3   # conforme — fenêtre d'un flux au-delà de 2^31-1 : connexion fermée au lieu du seul flux, permis par RFC 9113 §6.9.1 et §5.4.1
+
+# Indéterminés propres à un serveur qui répond VITE (#778, mesurés contre un
+# serveur node:http2 nu, h2c et TLS, 8 passes chacun, et sur la suite complète).
+#
+# Famille « réponse partie avant la trame fautive » : le client envoie une
+# requête puis, aussitôt, une trame interdite sur le même flux. Lue pendant que
+# la requête est encore ouverte → l'erreur attendue est due ; lue APRÈS une
+# réponse partie avec END_STREAM, le flux est « closed » et la trame peut être
+# jetée (RFC 9113 §5.1). h2spec ne reconnaît que la première issue. Le serveur
+# nu qui répond dans le même tour rate de même (6.1/2 : 1/8 en h2c, 8/8 en
+# TLS, deux enregistrements TLS = deux lectures ; les quatre autres au gré des
+# passes) ; il passe 8/8 dès que sa réponse attend un tour de boucle.
+# Nodefony les rejoint au gré de la machine : déclarés AVANT de rougir une CI.
+~http2/5.1/5      # réponse partie avant la lecture du DATA (half-closed remote) : flux « closed », trame jetée (RFC 9113 §5.1) — conforme
+~http2/5.1/6      # réponse partie avant la lecture du second HEADERS : flux « closed », trame jetée (RFC 9113 §5.1) — conforme
+~http2/6.1/2      # réponse partie avant la lecture du DATA : flux « closed », trame jetée (RFC 9113 §5.1) — conforme
+~http2/8.1/1      # réponse partie avant la lecture du second HEADERS : flux « closed », trame jetée (RFC 9113 §5.1) — conforme
+~http2/8.1.2.6/1  # réponse partie avant la lecture du DATA de longueur fausse : flux « closed », trame jetée (RFC 9113 §5.1) — conforme
+
+# RST_STREAM puis PING, h2spec attend l'ACK de SON PING. Une réponse finie
+# avant que le client ferme son côté déclenche le PING de grâce du serveur
+# (`http2StreamGrace.ts#closeStreamAfterGrace`, RFC 9113 §8.1) ; h2spec prend
+# le premier PING reçu pour l'accusé du sien. Tout pair peut émettre un PING
+# à tout moment (§6.7). Serveur nu (aucun PING) : 8/8.
+~http2/7/2      # PING de grâce du serveur reçu avant l'ACK attendu (RFC 9113 §6.7, §8.1) — conforme

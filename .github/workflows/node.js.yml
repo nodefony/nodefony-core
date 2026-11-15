@@ -1150,6 +1150,22 @@ jobs:
         if: matrix.mode == 'development'
         run: node scripts/ci/run-watched.mjs npm run test:grpc-conformance
 
+      # Conformité HTTP/2 (#778) : h2spec, 146 cas boîte noire tirés des RFC, en
+      # clair (5153) puis en TLS (5152), contre le même serveur. Binaire officiel
+      # amd64 épinglé (somme figée). LINUX SEULEMENT : la pile éprouvée (nghttp2
+      # + le pipeline de Nodefony) est la même sur les trois plateformes, une
+      # autre plateforme n'ajouterait presque rien à la détection et un risque
+      # de rouge de décor (macOS arm64 : binaire par Rosetta non garantie ;
+      # Windows : délais de course non mesurés). L'absence est DITE ailleurs.
+      - name: Conformité HTTP/2 (h2spec)
+        if: matrix.mode == 'development' && matrix.os == 'ubuntu-latest'
+        run: node scripts/ci/run-watched.mjs npm run test:http2-conformance
+
+      - name: Conformité HTTP/2 — non jouée ici
+        if: matrix.mode == 'development' && matrix.os != 'ubuntu-latest'
+        shell: bash
+        run: echo "::notice title=Conformité HTTP/2::non jouée sur ${{ matrix.os }} — pile HTTP/2 identique, couverte par Linux (npm run test:http2-conformance en local)"
+
       - name: Stop Nodefony server
         if: always()
         uses: ./.github/actions/nodefony-server

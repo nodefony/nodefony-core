@@ -10,7 +10,7 @@ de forge, autre script). Tout est extrait du source — l'en-tête du script (`@
 
 | Dossier | Contenu | Scripts |
 | --- | --- | --- |
-| [`lib/`](lib/README.md) | Helpers transverses, importés par les scripts des autres dossiers. | 10 |
+| [`lib/`](lib/README.md) | Helpers transverses, importés par les scripts des autres dossiers. | 14 |
 | [`gates/`](gates/README.md) | Gardes de commit et de forge : chacune refuse un état précis du dépôt. | 22 |
 | [`scaffold/`](scaffold/README.md) | Contrôles et mise en forme des gabarits d'application. | 4 |
 | [`deps/`](deps/README.md) | Inventaire et garde des dépendances, gabarits compris. | 6 |

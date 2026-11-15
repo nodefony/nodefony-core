@@ -14,6 +14,34 @@ _Rien de noté : ce qui se découvre en travaillant ici s'écrit dans ce bloc._
 
 Index de tout l'outillage : [`scripts/`](../README.md).
 
+## [`conformance-verdict.mjs`](conformance-verdict.mjs)
+
+Verdict d'une suite de conformité BOÎTE NOIRE confrontée à sa liste d'échecs CONNUS. Pur : ni processus, ni fichier — le banc lit, cette règle juge.
+
+- **Usage** : `import { judge, parseJUnit, parseKnownFailing } from "../lib/conformance-verdict.mjs"`
+- **Appelé par** : aucun automate
+- **Testé par** : `lib/conformance-verdict.test.mjs`
+
+## [`conformance-verdict.test.mjs`](conformance-verdict.test.mjs)
+
+Forme exacte du rapport d'h2spec v2.6.0 (`reporter/junit_report.go`) : cas vides en balise ouvrante + fermante, contenu d'échec brut.
+
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `lib/conformance-verdict.mjs`
+
+## [`pinned-binary.mjs`](pinned-binary.mjs)
+
+Binaire tiers ÉPINGLÉ : téléchargé une fois, refusé si sa somme diffère de celle FIGÉE par l'appelant, extrait à chaque usage depuis l'archive vérifiée.
+
+- **Usage** : `import { ensurePinnedBinary, probeExecutable } from "../lib/pinned-binary.mjs"`
+- **Appelé par** : `src/modules/test/conformance/run.mjs`
+- **Testé par** : `lib/pinned-binary.test.mjs`
+
+## [`pinned-binary.test.mjs`](pinned-binary.test.mjs)
+
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `lib/pinned-binary.mjs`
+
 ## [`redis-session-purge.mjs`](redis-session-purge.mjs)
 
 Purge les sessions qu'un serveur de test laisse dans SA base Redis — seule implémentation.
