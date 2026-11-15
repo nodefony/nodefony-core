@@ -8,10 +8,10 @@
   "sieges": {
     "contradicteur": {
       "modele": "fable",
-      "raison": "prouvé (3 tables) : en #702, chaque passe a fait tomber la forme proposée ; au tour « quand allow », 8 constats sur 8 retenus, dont une décision acceptée que le dossier du principal avait ratée (ADR-0022 §6) — le siège le plus cher ET celui dont les constats changent la décision. Faux : deux ABSENCES affirmées à tort (tables précédentes) ; table du gel (2026-10-30) : 10 constats au tour 1, tous vérifiés au code, dont l’option E de R1 et la prémisse fausse « limit réessayé » ; environ 6 retenus au tour 2 ; #695 D1 (seul, pré-mortem, ~78 k tokens) : a fait tomber la forme « contrôleur seul » ET la forme « service hors Router », trouvé l’option manquante (service publié dans le Router) et une erreur du dossier (GET Connect = NO_SIDE_EFFECTS) ; 1 faux (v1/v2 « impossible » : liste conditionnelle existante)",
-      "tables": 7,
-      "constatsRendus": 85,
-      "constatsRetenus": 82,
+      "raison": "prouvé (3 tables) : en #702, chaque passe a fait tomber la forme proposée ; au tour « quand allow », 8 constats sur 8 retenus, dont une décision acceptée que le dossier du principal avait ratée (ADR-0022 §6) — le siège le plus cher ET celui dont les constats changent la décision. Faux : deux ABSENCES affirmées à tort (tables précédentes) ; table du gel (2026-10-30) : 10 constats au tour 1, tous vérifiés au code, dont l’option E de R1 et la prémisse fausse « limit réessayé » ; environ 6 retenus au tour 2 ; #695 D1 (seul, pré-mortem, ~78 k tokens) : a fait tomber la forme « contrôleur seul » ET la forme « service hors Router », trouvé l’option manquante (service publié dans le Router) et une erreur du dossier (GET Connect = NO_SIDE_EFFECTS) ; 1 faux (v1/v2 « impossible » : liste conditionnelle existante) ; #772 (image Docker, ~2 $) : 5 scénarios manquants tous vérifiés au code (publication couplée, héritage licence/ENV, base nue, Node 26, pièges de construction non rafraîchis) et l’option absente A’ que les 5 autres sièges ont choisie à l’unanimité",
+      "tables": 8,
+      "constatsRendus": 96,
+      "constatsRetenus": 93,
       "constatsFaux": 3,
       "essais": [
         {
@@ -22,14 +22,14 @@
           "verdict": "NON concordant — sonnet ~4 constats retenus, fable ~12 (sonnet a raté l'identité gelée par ADR-0021 §S10, le schéma de route IRouteSchema déjà validant, la question oubliée Q6 des hooks, les verbes du pont limités à GET/POST) ; fable reste"
         }
       ],
-      "coutUsd": 24.31
+      "coutUsd": 26.38
     },
     "attaquant": {
       "modele": "fable",
       "raison": "remonté à fable après la table #622 (règle : premier constat faux) — a affirmé qu'une famille `user:*` servie par la fabrique dynamique est toujours sans garde, FAUX (une politique par motif la couvre, RealtimeHub.noticeUnguardedDynamicChannel) ; induit par un commentaire PÉRIMÉ de RealtimeController.startChannel (correction portée par #707). Retenus : oracle unknown/forbidden, usurpation par la trame entrante, égalité de chaîne contre découpage. Un essai sonnet contrôlé à la prochaine table peut le faire redescendre ; #760 : essai CONTRÔLÉ non concordant, fable reste",
-      "tables": 6,
-      "constatsRendus": 42,
-      "constatsRetenus": 32,
+      "tables": 7,
+      "constatsRendus": 52,
+      "constatsRetenus": 41,
       "constatsFaux": 1,
       "essais": [
         {
@@ -61,17 +61,17 @@
           "verdict": "NON concordant — sonnet 3 attaques retenues sur 6, fable 5 sur 6 ; sonnet a raté le rejeu ADDITIF (le sceau ne couvre pas le rejeu, envelope.ts#seal), l’anti-écho qui aveugle le pod usurpé, maxFramesPerSecond à 0 par défaut, et la fuite de l’id machine <émetteur>#<sujet> ; fable reste"
         }
       ],
-      "coutUsd": 8.53
+      "coutUsd": 10.34
     },
     "gardien-compatibilite": {
       "modele": "sonnet",
       "raison": "point de départ : appliquer une politique écrite à un cas",
-      "tables": 4,
-      "constatsRendus": 44,
-      "constatsRetenus": 34,
+      "tables": 5,
+      "constatsRendus": 48,
+      "constatsRetenus": 37,
       "constatsFaux": 0,
       "essais": [],
-      "coutUsd": 2.44
+      "coutUsd": 2.72
     },
     "specialiste-perf": {
       "modele": "fable",
@@ -86,9 +86,9 @@
     "exploitant": {
       "modele": "sonnet",
       "raison": "point de départ : repérer ce qui casse en silence en production",
-      "tables": 5,
-      "constatsRendus": 40,
-      "constatsRetenus": 28,
+      "tables": 6,
+      "constatsRendus": 43,
+      "constatsRetenus": 31,
       "constatsFaux": 1,
       "essais": [
         {
@@ -99,14 +99,14 @@
           "verdict": "concordant — haiku a rendu les mêmes constats (oubli de diffusion invisible côté émetteur, S-rt-61, déploiement progressif, coupure Redis) plus la rotation du secret ; 1er essai concordant sur 2"
         }
       ],
-      "coutUsd": 1.67
+      "coutUsd": 1.89
     },
     "developpeur-application": {
       "modele": "sonnet",
       "raison": "vue = kit d’une application générée seul (skill livré nodefony-dev, doc publique) : a montré que « arguments seuls » était inécrivable sans accès aux services — constat qui a changé la signature (troisième argument)",
-      "tables": 5,
-      "constatsRendus": 40,
-      "constatsRetenus": 26,
+      "tables": 6,
+      "constatsRendus": 45,
+      "constatsRetenus": 29,
       "constatsFaux": 0,
       "essais": [
         {
@@ -117,7 +117,7 @@
           "verdict": "NON concordant — haiku recommandait de faire de `send` une méthode du contrat sans voir la perte d'identité revérifiée (que sonnet a trouvée dans actions.md), et a lu realtime/CLAUDE.md, hors du kit d'une application générée ; sonnet reste"
         }
       ],
-      "coutUsd": 2.2
+      "coutUsd": 2.64
     },
     "auteur-extension": {
       "modele": "sonnet",
@@ -131,13 +131,13 @@
     },
     "mainteneur-solo": {
       "modele": "sonnet",
-      "raison": "point de départ : compter le coût de maintenance, repérer les doublons",
-      "tables": 0,
-      "constatsRendus": 0,
-      "constatsRetenus": 0,
+      "raison": "point de départ : compter le coût de maintenance, repérer les doublons ; #772 : 0 image / 0 étiquette de plus pour A’, D chiffré comme la pire option, réserve « A’ n’existe pas tant que contributions.ts ne porte pas le Dockerfile » retenue",
+      "tables": 1,
+      "constatsRendus": 3,
+      "constatsRetenus": 2,
       "constatsFaux": 0,
       "essais": [],
-      "coutUsd": 0
+      "coutUsd": 0.27
     },
     "responsable-version": {
       "modele": "haiku",
