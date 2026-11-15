@@ -19,7 +19,7 @@ Index de tout l'outillage : [`scripts/`](../README.md).
 Verdict d'une suite de conformité BOÎTE NOIRE confrontée à sa liste d'échecs CONNUS. Pur : ni processus, ni fichier — le banc lit, cette règle juge.
 
 - **Usage** : `import { judge, parseJUnit, parseKnownFailing } from "../lib/conformance-verdict.mjs"`
-- **Appelé par** : aucun automate
+- **Appelé par** : `src/modules/test/conformance/http2.mjs`
 - **Testé par** : `lib/conformance-verdict.test.mjs`
 
 ## [`conformance-verdict.test.mjs`](conformance-verdict.test.mjs)
@@ -34,7 +34,7 @@ Forme exacte du rapport d'h2spec v2.6.0 (`reporter/junit_report.go`) : cas vides
 Binaire tiers ÉPINGLÉ : téléchargé une fois, refusé si sa somme diffère de celle FIGÉE par l'appelant, extrait à chaque usage depuis l'archive vérifiée.
 
 - **Usage** : `import { ensurePinnedBinary, probeExecutable } from "../lib/pinned-binary.mjs"`
-- **Appelé par** : `src/modules/test/conformance/run.mjs`
+- **Appelé par** : `src/modules/test/conformance/http2.mjs` · `src/modules/test/conformance/run.mjs`
 - **Testé par** : `lib/pinned-binary.test.mjs`
 
 ## [`pinned-binary.test.mjs`](pinned-binary.test.mjs)
@@ -63,7 +63,7 @@ Port fermé : une connexion tentée échouerait autrement qu'avec ce message.
 Racine du dépôt — seule implémentation pour les scripts de `scripts/`.
 
 - **Usage** : `import { REPO_ROOT } from "../lib/repo-root.mjs"`
-- **Appelé par** : `.claude/skills/nodefony-documentation/scripts/mermaid-check.mjs` · `deps/check-deps-latest.mjs` · `gates/check-licenses.mjs` · `gates/check-package-deps.mjs` · `gates/size-check.mjs` · `generate/brand-assets.mjs` · `generate/env-reference.ts` · `generate/env-snapshot.ts` · `generate/generate-man.mjs` · `generate/generate-symbols.ts` · `generate/readmes.mjs` · `repo/long-run-lock.mjs` · `repo/tmp-layout.mjs` · `scaffold/check-scaffold-boot.mjs` · `scaffold/check-scaffold-format.mjs` · `scaffold/check-scaffold-frontends.mjs` · `scaffold/format-templates.mjs` · `site/assemble-site.mjs` · `site/build-docs-site.mjs` · `site/build-perf-site.mjs` · `site/build-qualite-site.mjs` · `site/build-site-plan.mjs` · `site/build-site.mjs` · `site/readme-html.mjs` · `test/test-all.ts` · `test/testbed-report.ts`
+- **Appelé par** : `.claude/skills/nodefony-documentation/scripts/mermaid-check.mjs` · `src/modules/test/conformance/http2.mjs` · `deps/check-deps-latest.mjs` · `gates/check-licenses.mjs` · `gates/check-package-deps.mjs` · `gates/size-check.mjs` · `generate/brand-assets.mjs` · `generate/env-reference.ts` · `generate/env-snapshot.ts` · `generate/generate-man.mjs` · `generate/generate-symbols.ts` · `generate/readmes.mjs` · `repo/long-run-lock.mjs` · `repo/tmp-layout.mjs` · `scaffold/check-scaffold-boot.mjs` · `scaffold/check-scaffold-format.mjs` · `scaffold/check-scaffold-frontends.mjs` · `scaffold/format-templates.mjs` · `site/assemble-site.mjs` · `site/build-docs-site.mjs` · `site/build-perf-site.mjs` · `site/build-qualite-site.mjs` · `site/build-site-plan.mjs` · `site/build-site.mjs` · `site/readme-html.mjs` · `test/test-all.ts` · `test/testbed-report.ts`
 - **Testé par** : `gates/dev-credentials.test.mjs` · `gates/vitest-tmp-guard.test.mjs` · `lib/redis-session-purge.test.mjs` · `site/schemas-organigramme.test.mjs` · `site/schemas-sequence.test.mjs` · `site/site-plan.test.mjs` · `site/site-versions.test.mjs`
 
 ## [`symbols-publish.mjs`](symbols-publish.mjs)

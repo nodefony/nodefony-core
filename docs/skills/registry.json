@@ -15,7 +15,9 @@
       "options": [],
       "env": [],
       "output": "",
-      "calledBy": [],
+      "calledBy": [
+        "src/modules/test/conformance/http2.mjs"
+      ],
       "testedBy": [
         "scripts/lib/conformance-verdict.test.mjs"
       ]
@@ -44,6 +46,7 @@
       "env": [],
       "output": "",
       "calledBy": [
+        "src/modules/test/conformance/http2.mjs",
         "src/modules/test/conformance/run.mjs"
       ],
       "testedBy": [
@@ -110,6 +113,7 @@
       "output": "",
       "calledBy": [
         ".claude/skills/nodefony-documentation/scripts/mermaid-check.mjs",
+        "src/modules/test/conformance/http2.mjs",
         "scripts/deps/check-deps-latest.mjs",
         "scripts/gates/check-licenses.mjs",
         "scripts/gates/check-package-deps.mjs",
