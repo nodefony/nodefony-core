@@ -8,6 +8,105 @@ Les sections naissent d'un BROUILLON rendu par `npm run release` depuis les mess
 de commit, puis sont RÉÉCRITES à la main : un journal git est écrit pour l'auteur,
 un changelog pour celui qui met à jour.
 
+## 10.0.0-beta.7 - 2026-11-15
+
+_Une bêta qui ouvre deux portes : servir des services gRPC dans le pipeline HTTP/2, et publier la présence d'un canal temps réel, répartie entre exemplaires. L'arrêt passe en deux phases, et `create app --demo` livre une démo complète à essayer et à lire. Huit ruptures, chacune avec son geste de migration._
+
+### Changed
+
+- **engines (breaking):** Exiger Node `^24.16.0 || >=26.0.0` sur tous les paquets et l'application générée — Node 24.14, 24.15 et 25 ne sont plus acceptés : monter Node avant d'installer (478dc788b)
+- **kernel (breaking):** Arrêter en deux phases — `onDrain` ferme le trafic, puis `onTerminate` libère les ressources du dernier inscrit au premier : un écouteur qui ferme des clients ou draine un serveur passe sur `onDrain`, un écouteur qui libère une ressource reste sur `onTerminate` (#775) (3fc32e15e)
+- **http (breaking):** Porter l'arrêt du trafic par `HttpKernel.drainTraffic` et exposer l'état d'arrêt par `kernel.isTerminating` — un serveur ou un module qui fermait ses clients dans `onTerminate` passe sur `onDrain` (#775) (4fcb47d69)
+- **http (breaking):** Répondre 503 à une action qui dépasse son délai de réponse, au lieu de 408 (HTTP/1.1) ou 504 (HTTP/2), délai réglable par route — un client ou une sonde qui lisait 408/504 doit lire 503 (#767) (a00e0cc28)
+- **cli (breaking):** Créer une application sans la démo par défaut — `create app --demo` l'ajoute ; `--no-demo` reste accepté, sans effet (#747) (66e0854ea)
+- **scaffold (breaking):** Bâtir l'image de production générée sur distroless Debian 13, sans shell — le conteneur lance le script du paquet en forme exec, et le Job de migration généré passe la commande par `args:` au lieu de `command:` (b34ec2637, a239e46bd)
+- **nodefony, http (breaking):** Ajouter des champs requis aux objets que le framework fabrique — `IHttpContext.rpc`, `IRequestTrace.rpc`, `IKernel.isTerminating`, `IRealtimeProbe.ingressUnknownDiscardedTotal` (`nodefony` et `nodefony/client`), `IPackageManagerToolchain.packageManagerField` : seul un code qui en construit un lui-même (doublure de test, sonde maison) doit les fournir (mesuré par `release:api-diff`)
+- **http, framework:** Rendre les réponses d'erreur et les refus de protocole sans capturer ni formater de pile — une seule écriture, 404 sans lire le corps de la requête, 405 et 426 du routeur compris (3d8dfe1c1, 95671b225, e7cbed052, e94c01cb2, 9a4cb4515)
+- **http:** Désarmer l'interception du statique sans supprimer de propriété, pour garder la forme de l'objet stable (7f722114d)
+- **realtime:** Admettre un message du bus en une lecture de `Map`, sans reconvertir sa charge (#760) (a6c8dd821, 7aec46ee7)
+- **security:** Juger le plancher `:health` / `:stats` d'un canal de deux-points en deux-points (#758) (21dad39ee)
+- **drizzle:** Grouper les écritures de l'audit, pour qu'un refus coûte autant qu'un appel réussi (#695) (59c18ed55)
+- **cli:** Réduire à l'essentiel le commentaire des services générés (c2b4089d5)
+
+### Added
+
+- **http:** Servir des services gRPC dans le pipeline HTTP/2 par le sous-chemin `@nodefony/http/grpc` — en-têtes du pipeline (corrélation, CORS, sécurité), refus au format du protocole, bornes des messages, délai d'un appel unaire, flux coupés à l'arrêt, code gRPC à la ligne d'accès, à l'audit et au traçage (#695) (842bca0e5, 7707c9a4c, 1a723d18b, f790463aa, 876414dc3, 75979ed11, 131713bb7)
+- **http:** Traduire en code gRPC les erreurs levées par l'application, et terminer en 16 un appel dont l'identité est révoquée (#695) (f598cfd56, 1f749f9be)
+- **framework:** Déclarer un service gRPC dans un module par `@GrpcService` et `GrpcController`, Connect et protobuf en dépendances de pair facultatives (#695) (9cbb6db4b, 6b365a2dc)
+- **security:** Laisser un navigateur d'une autre origine appeler un service gRPC (#695) (c7138c17a)
+- **devkit:** Ajouter le skill `nodefony-add-grpc-service` — servir un service gRPC, et le prouver (#695) (0cc772f7f)
+- **cli:** Router gRPC vers h2c dans la configuration nginx générée (#696) (1ac81a9be)
+- **realtime:** Publier la présence d'un canal — locale par la clé `presence` de la politique, répartie entre exemplaires sur le bus, résistante aux pannes, seuil de présence nommée avec hystérésis, arrêt propre public (#760) (15e6c54e9, 163f3836d, 62474ba71, 4fca57ba7, 5ec57cf6b, 29f30e939, 154894356, 721fed5f5)
+- **client:** Lire la présence d'un canal côté navigateur, par le même lecteur et la même vue que le serveur (#760) (2ad17dcba)
+- **realtime:** Annoncer sur la socket l'attente d'un refus passager, comme `Retry-After` en HTTP (#747) (2000cb450)
+- **realtime:** Servir une famille de canaux par un motif décoré, sans surcharge (#747) (058914931)
+- **client:** Porter une session sur la socket depuis Node par l'option `headers` (#747) (8ed317552)
+- **debugbar:** Tenir un journal par socket — une phrase par trame, chaque réponse reliée à sa demande, mis à jour en direct, format de trame en tête (#747) (05a13d834, 22c6c8218)
+- **http:** Régler les bornes d'envoi de fichiers d'une route par l'option de route `upload` (6bfe92441)
+- **framework:** Exporter `contentDisposition`, l'en-tête d'un fichier servi sous un autre nom (e0520a612)
+- **core:** Planifier une tâche périodique qui tourne une seule fois quand l'application sert, et une tâche unique au démarrage dans le worker de tête (922bd1024, 359a5c3e2)
+- **kernel:** Accepter le chemin d'un module comme entrée du manifeste `modules` (161b877e6)
+- **security:** Ajouter `fetchPublic`, la requête sortante sûre par construction (#747) (b2d508578)
+- **security:** Agréger dans l'audit les refus d'une même source au lieu d'écrire une ligne par refus (#695) (edca8592e)
+- **security:** Convertir en punycode le RP ID et les origines d'un domaine international pour les passkeys (d8a6254bb)
+- **security:** Rendre la ressource d'une zone émettable sans la recopier dans `jwt.audiences`, et faire suivre `jwt.issuer` à une ressource écrite comme un chemin (c133fc957, 124836360)
+- **scaffold:** Livrer par `create app --demo` une démo dans un module privé `policy: "dev"`, qui ne part jamais en production — accueil React sous `/demo`, catalogue lu dans `demos.ts`, code cité des vrais fichiers, guide pour les agents dans chaque fichier, pouls de l'accueil sur la socket (#747) (827c67cd3, 3e85db403, 41dc03c08, 68ef41742, c1be9fd60, 7c80298f6, 3f416dc28, e2b9d4876, 981a83f25, c5ba18449)
+- **scaffold:** Ajouter à la démo des leçons à gestes — Premiers pas, Flux SSE, Vidéo par plages, Temps réel binaire (CBOR), MCP, API entre programmes, gRPC, Envoi de fichiers, Sonde, deux jeux temps réel (#747) (a538f27e2, 7b86494f7, f60c84ece, 574cbbbce, 3f043db71, fa5996cb4, 33a2e7271, 117b3cda5, 6f98dfa18, 7c1943904, 336b83967)
+- **scaffold:** Ajouter à la démo un chat en base — salons publics et privés, admission et présence par salon, membres et leur état, non-lus, alertes et notifications, réponses, réactions, pièces jointes, aperçus de lien, Markdown ; lecture libre, écriture sous session (#747, #760) (fed29aa37, f5ddd599b, 423979065, 8489f9eb7, bc9954884, fa24d6f41, c61e1dd2e, 7c2d704b0, 1249671c5, 511dbbfce)
+- **cli:** Mener à la démo l'accueil d'une application sans front qui l'a installée (50af0e035)
+- **devkit:** Enrichir la sonde navigateur — vraie molette sous le pointeur, dépôt de fichier, mesure d'une page au repos, relevé des notifications et absence simulée (8f248cd1b, 306e7256f, 30a05472e, 6a2adad8b)
+
+### Removed
+
+- **http (breaking):** Retirer `HttpError.context`, `HttpError.response` et `HttpError.request` — une erreur ne retient plus la requête qui l'a vue naître : lire ces informations là où l'erreur est levée (#695) (9cd84c6cf)
+- **scaffold:** Retirer les exemples de l'application générée, remplacés par la démo optionnelle (#746) (e659a4eb1)
+
+### Fixed
+
+- **http:** Ne plus laisser de fichier temporaire après un envoi refusé, effacer en fin de requête les fichiers que l'action n'a pas déplacés, et rendre les fichiers d'un envoi multipart dans l'ordre d'envoi (#750) (21fcd38f6, 10c1b605b, 584e13c5c)
+- **http:** Ignorer un cookie sans nom au lieu de répondre 500 sur toutes les pages (2fdfcc9fa)
+- **http:** Ne plus laisser un pair qui inonde de pings sans lire épuiser la mémoire (ws 8.23.0) (20c81b606)
+- **http:** Borner la réception du corps d'une requête HTTP/2, et fermer les connexions HTTP/2 inactives au-delà du délai (#765, #763) (1f42be0c7, df64ef163)
+- **http:** Rendre encore sa réponse à chaque client au-delà de 10 refus simultanés en HTTP/2 (#695) (55821fc48)
+- **http:** Répondre à une erreur client HTTP/1.1 par le statut de Node — 408, 413 — et se taire si une réponse est déjà en vol (#695) (80717d686)
+- **http:** Libérer la trame reçue par une connexion WebSocket inactive (#753) (d24fff80e)
+- **http:** Empêcher un flux en échec d'arrêter le serveur (#739) (97b031509)
+- **framework:** Juger `@IsGranted` avant la porte `@Idempotent`, pour répondre 403 sans révéler le contrat (#747) (52067ccd4)
+- **framework:** Répondre quand une action renvoie une `Response` Web ou un flux (#749) (c0fc95f1d)
+- **framework:** Typer `this.files` en `IUploadedFile` — `mimeType: string | false`, `move()` rend un `FileClass` (63a5fa96c)
+- **framework:** Publier un seul document, scopes compris, pour une ressource protégée déclarée deux fois (c55933c66)
+- **router:** Ne plus faire atteindre à un `api.request` GET l'action POST voisine du même chemin (#747) (a6d03ba87)
+- **core:** Refuser au démarrage un service qui prend le nom d'un service d'une autre classe, au lieu de l'écraser (eb622fc77)
+- **kernel:** Nommer le paquet absent au démarrage au lieu d'accuser le `dist` (#695) (fb821d0ea)
+- **realtime:** Séparer lecture et écriture d'un canal, sans que l'écriture d'une famille de canaux ni le défaut des actions ne s'effacent (#758) (09b74d337, c9d2f6be3)
+- **realtime:** Refuser un tableau typé autre que `Uint8Array` en nommant les aides du framework, au lieu de le perdre en silence (#777) (b13bc2912, a1eb3301e)
+- **realtime:** Encoder l'accusé d'abonnement par le codec négocié (#741) (da8d76e30)
+- **realtime:** Ne jamais jeter un ordre d'éjection quand la file Redis sature, et compter à part un message de bus inconnu au lieu de le traiter en injection (#762, #761) (0275c6df4, c2fa3f292)
+- **realtime:** Ne plus ouvrir les canaux de plateforme au bus par un préfixe de diffusion large (825d43e0e)
+- **realtime:** Ne rien laisser au hub après une poignée de main en échec, et lire la query du pont comme en HTTP (#747) (42fc9b8b6)
+- **client:** Laisser une requête en vol mourir avec un transport remplacé, sans qu'il touche plus à la socket (fde8cf48a)
+- **debugbar:** Voir les sockets privées de la page, et mesurer dans l'onglet Realtime la socket choisie (#747) (03ee7eb46, be284ac4a)
+- **security:** Purger une session périmée au lieu de répondre 401 sans issue (5caf11cb2)
+- **security:** N'accepter dans une zone jwt que l'audience qui la désigne (#748) (2e737b6e9)
+- **security:** Retirer les barres finales d'un chemin sans expression régulière quadratique (028687b63)
+- **security:** Dire pourquoi un canal en `:health` ou `:stats` est refusé (713f65218)
+- **security:** Ne plus proposer `NF_MCP_TOKEN` dans `security:mcp:token` pour une autre porte que celle du devkit (e5a85d173)
+- **orm:** Garder les tables d'un module de dev hors des migrations et de l'adoption d'une base (#687) (c3ee218b2, d091e247b)
+- **frontend:** Relayer l'avertissement « wildcard » de Vite en WARNING, et taire sa trace quand un conflit de port est rattrapé (6116f4112, 4374c498e)
+- **cli:** Garder chaque `--inject` de `create service`, pas seulement le dernier (29754e3eb)
+- **cli:** Régénérer `.env.example` dans `nodefony upgrade`, et y distinguer les fichiers posés des fichiers rafraîchis (794ee5d06, bb9213403)
+- **doctor:** Juger une entrée chemin du manifeste par la règle du Kernel (e4168a745)
+- **scaffold:** Servir les portes MCP générées sous `/mcp/<nom>`, hors pare-feu (#746) (c89bf4254, 8c46a85bb)
+- **scaffold:** Publier le schéma d'un module généré et lire ses noms courts de variables d'environnement au démarrage (31967bba8)
+- **scaffold:** Ne plus laisser un ORM déclaré seulement en `devDependencies` choisir l'ORM d'une entité (#747) (8ac01b621)
+- **scaffold:** Lister les modules dans un ordre stable, pour qu'`AGENTS.md` ne se périme plus après `create module` (8bdaecea7)
+- **scaffold:** Épingler la version exacte de pnpm d'une application générée, et refuser explicitement les scripts d'esbuild et fsevents sous npm (244769903, c89f04ee8)
+- **testing:** Arrêter seul et en douceur un exemplaire jetable sur des ports attribués par le noyau, et rendre la main de `startSpareApp().stop()` sur un exemplaire déjà sorti (#695) (31d907357, 6bfa025b7, 9c448363f)
+- **testing:** Faire citer au harnais l'exception d'une poignée de main fermée en 1011 (e93ae25ae)
+- **devkit:** Frapper vraiment une touche par le verbe `touche` de la sonde navigateur, et ne plus faire écrire le même fichier à deux sondes lancées dans la même seconde (5c734e791, 797f8580b)
+
+<!-- Surface publique mesurée depuis 10.0.0-beta.6 (npm) : 7 rupture(s) et 0 changement(s) expérimental(aux) écrits ci-dessus, 30 déclaration(s) de types à relire sur 2809. Détail : npm run release:api-diff -- --from 10.0.0-beta.6 --details -->
+
 ## 10.0.0-beta.6 - 2026-11-06
 
 _Une bêta tournée vers le temps réel : trames binaires (CBOR), admission par canal, contrats typés aux deux bouts. La politique de sécurité de contenu devient stricte par défaut, et le serveur HTTP s'aligne sur les exigences des normes. Quinze ruptures, chacune avec son geste de migration._

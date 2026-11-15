@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/realtime",
-  "version": "10.0.0-beta.6",
+  "version": "10.0.0-beta.7",
   "nodefony": {
     "configSchema": "./dist/nodefony/config/configSchema.js"
   },
@@ -44,21 +44,21 @@
     "esm"
   ],
   "peerDependencies": {
-    "@nodefony/framework": "^10.0.0-beta.6",
-    "@nodefony/http": "^10.0.0-beta.6",
-    "nodefony": "^10.0.0-beta.6",
+    "@nodefony/framework": "^10.0.0-beta.7",
+    "@nodefony/http": "^10.0.0-beta.7",
+    "nodefony": "^10.0.0-beta.7",
     "reflect-metadata": "0.2.2",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@nodefony/drizzle": "^10.0.0-beta.6",
-    "@nodefony/framework": "^10.0.0-beta.6",
-    "@nodefony/http": "^10.0.0-beta.6",
+    "@nodefony/framework": "^10.0.0-beta.7",
+    "@nodefony/http": "^10.0.0-beta.7",
     "@nodefony/orm-core": "^10.0.0-beta.6",
     "@nodefony/security": "^10.0.0-beta.6",
     "@types/node": "26.6.6",
     "@vitest/coverage-v8": "5.1.0",
-    "nodefony": "^10.0.0-beta.6",
+    "nodefony": "^10.0.0-beta.7",
     "reflect-metadata": "0.2.2",
     "vitest": "5.1.0"
   },
