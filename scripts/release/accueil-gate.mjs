@@ -20,7 +20,7 @@
  * remplace le rappel par un refus : au moment de publier le cran suivant, la
  * dette du cran précédent bloque.
  *
- * ## Les cinq familles d'écart, et pourquoi chacune
+ * ## Les six familles d'écart, et pourquoi chacune
  *
  * - `VERSION-PERIMEE` — l'accueil nomme une version plus ANCIENNE que celle du
  *   canal. C'est la dette de report, le cas constaté.
@@ -30,6 +30,15 @@
  * - `COMMANDE-SANS-CANAL` — une commande d'un bloc de code omet `@<canal>` alors
  *   que `latest` n'est pas encore la 10 : elle servirait la `7.0.2`, une version
  *   JavaScript sans rapport avec ce que la page décrit.
+ * - `CANAL-DEPASSE` — une commande nomme un canal qui sert une version plus
+ *   ANCIENNE que la plus avancée de la ligne 10. C'est le changement de CANAL,
+ *   que `VERSION-PERIMEE` ne voit pas : le jour de la stable, `@beta` sert
+ *   toujours la dernière bêta, donc une page restée sur `npm create
+ *   nodefony@beta` est « à jour » de son canal — et fait installer une
+ *   préversion à tous les visiteurs du jour de l'annonce. Constaté au passage
+ *   alpha → beta, rattrapé à la main (8cc845550). Elle vise les COMMANDES, pas
+ *   la prose : une ligne qui dit « l'ancien canal `alpha`, figé » informe, elle
+ *   ne prescrit rien.
  * - `RIEN-PUBLIE` — la page affirme encore que rien n'est publié.
  * - `SURFACE-MUETTE` — une surface déclarée ne cite AUCUNE version. Sans cette
  *   famille, retirer la phrase rendrait le contrôle vert : le faux vert le plus
@@ -119,6 +128,14 @@ const SURFACES = [
 const VERSION = /\b(10\.\d+\.\d+)-(alpha|beta|rc)\.(\d+)\b/g;
 
 /**
+ * Une version STABLE de la ligne 10 (`10.0.0`), jamais le début d'une
+ * préversion. Elle ne compte comme annonce de publication qu'une fois `latest`
+ * sur la 10 : avant, `10.0.0` n'est que le numéro du `package.json` que
+ * l'accueil affiche.
+ */
+const VERSION_STABLE = /\b10\.\d+\.\d+\b(?![-.\d])/g;
+
+/**
  * Formules qui nient toute publication. Écrites au pluriel des tournures
  * réellement employées, pas d'une supposition : ce sont celles que l'accueil
  * portait avant la première alpha.
@@ -137,11 +154,13 @@ const COMMANDE =
   /\b(?:npm|pnpm|yarn|bun)\s+(?:create|install|add|i)\s+(?:create-)?(nodefony|@nodefony\/[a-z0-9-]+)(@[a-z0-9.-]+)?/g;
 
 /**
- * Compare deux versions de la ligne 10 portant un canal.
+ * Compare deux versions de la ligne 10, préversion (`10.0.0-alpha.5`) ou
+ * stable (`10.0.0`).
  *
- * Suffisant ici, et volontairement local : les deux opérandes viennent du même
- * motif {@link VERSION}, donc `10.0.0-alpha.5` contre `10.0.0-alpha.12` — un
- * tri lexical rendrait 12 < 5, d'où la comparaison NUMÉRIQUE du cran.
+ * Suffisant ici, et volontairement local : `10.0.0-alpha.5` contre
+ * `10.0.0-alpha.12` — un tri lexical rendrait 12 < 5, d'où la comparaison
+ * NUMÉRIQUE du cran ; et une stable vient après toutes les préversions de sa
+ * base (SemVer §11), ce qu'aucun tri lexical ne rend non plus.
  *
  * @param a - version citée par l'accueil.
  * @param b - version servie par le canal.
@@ -149,17 +168,54 @@ const COMMANDE =
  */
 function comparer(a, b) {
   const decouper = (v) => {
-    const m = /^(\d+)\.(\d+)\.(\d+)-([a-z]+)\.(\d+)$/.exec(v);
+    const m = /^(\d+)\.(\d+)\.(\d+)(?:-([a-z]+)\.(\d+))?$/.exec(v);
     return m
-      ? [Number(m[1]), Number(m[2]), Number(m[3]), m[4], Number(m[5])]
+      ? [
+          Number(m[1]),
+          Number(m[2]),
+          Number(m[3]),
+          m[4] ?? null,
+          m[5] === undefined ? null : Number(m[5]),
+        ]
       : null;
   };
   const x = decouper(a);
   const y = decouper(b);
   if (!x || !y) return a === b ? 0 : a < b ? -1 : 1;
   for (const i of [0, 1, 2]) if (x[i] !== y[i]) return x[i] - y[i];
+  if (x[3] === null || y[3] === null) {
+    if (x[3] === y[3]) return 0;
+    return x[3] === null ? 1 : -1; // la stable vient après ses préversions
+  }
   if (x[3] !== y[3]) return x[3] < y[3] ? -1 : 1;
   return x[4] - y[4];
+}
+
+/**
+ * Les canaux qu'une page d'accueil a le droit d'annoncer. `next` n'y est PAS :
+ * c'est le canal de RÉPÉTITION de la stable (#27 — la 10.0.0 part sous `next`,
+ * s'installe depuis le registre, puis seulement passe en `latest`). Le compter
+ * ferait réclamer `npm create nodefony@next` à l'accueil pendant la répétition,
+ * c'est-à-dire annoncer au public une version que personne n'a encore promue.
+ */
+const CANAUX_ANNONCABLES = new Set(["latest", "rc", "beta", "alpha"]);
+
+/**
+ * La version la plus avancée de la ligne 10, parmi les canaux qu'une page
+ * peut annoncer ({@link CANAUX_ANNONCABLES}).
+ *
+ * @param distTags - les étiquettes servies par npm.
+ * @returns `{ canal, version }`, ou `null` quand aucun canal ne sert la 10.
+ */
+function pointeDeLaLigne(distTags) {
+  let pointe = null;
+  for (const [canal, version] of Object.entries(distTags)) {
+    if (!CANAUX_ANNONCABLES.has(canal)) continue;
+    if (typeof version !== "string" || !version.startsWith("10.")) continue;
+    if (pointe === null || comparer(version, pointe.version) > 0)
+      pointe = { canal, version };
+  }
+  return pointe;
 }
 
 /** Le numéro de ligne d'un décalage dans un texte — pour que l'écart soit ancré. */
@@ -223,6 +279,7 @@ const dansUneZone = (zones, index) =>
 function confronterAccueil({ surfaces, distTags, enCours = null }) {
   const ecarts = [];
   const latestEstLa10 = (distTags.latest ?? "").startsWith("10.");
+  const pointe = pointeDeLaLigne(distTags);
 
   for (const surface of surfaces) {
     const { chemin, contenu, exigeVersion } = surface;
@@ -268,6 +325,11 @@ function confronterAccueil({ surfaces, distTags, enCours = null }) {
       }
     }
 
+    // Au cran stable, la page annonce `10.0.0` et plus aucune préversion.
+    if (latestEstLa10 && versionsVues === 0) {
+      versionsVues = (contenu.match(VERSION_STABLE) ?? []).length;
+    }
+
     if (exigeVersion && versionsVues === 0) {
       ecarts.push({
         genre: "SURFACE-MUETTE",
@@ -293,9 +355,34 @@ function confronterAccueil({ surfaces, distTags, enCours = null }) {
       });
     }
 
-    // ── Les commandes des blocs de code ───────────────────────────────────
+    // ── Les commandes ─────────────────────────────────────────────────────
     const zones = zonesDeCode(contenu);
     for (const m of contenu.matchAll(COMMANDE)) {
+      // Un canal NOMMÉ dépassé se refuse partout, prose comprise : une
+      // commande citée en ligne (`npm create nodefony@beta <app>`) prescrit
+      // autant qu'un bloc de code.
+      const canalNomme = m[2]?.slice(1);
+      const servieParLui = canalNomme ? distTags[canalNomme] : undefined;
+      if (
+        pointe !== null &&
+        typeof servieParLui === "string" &&
+        servieParLui.startsWith("10.") &&
+        comparer(servieParLui, pointe.version) < 0 &&
+        pointe.version !== enCours
+      ) {
+        ecarts.push({
+          genre: "CANAL-DEPASSE",
+          chemin,
+          ligne: ligneDe(contenu, m.index),
+          message:
+            `« ${m[0]} » fait installer « ${servieParLui} », alors que le canal ` +
+            `« ${pointe.canal} » sert « ${pointe.version} » — la page prescrit un canal dépassé`,
+          correction:
+            pointe.canal === "latest"
+              ? `écrire la commande sans canal (latest EST la 10), et requalifier la prose du cran`
+              : `écrire ${m[0].replace(m[2], `@${pointe.canal}`)}`,
+        });
+      }
       if (!dansUneZone(zones, m.index)) continue;
       if (m[2]) continue; // le canal est nommé
       if (latestEstLa10) continue; // `latest` EST la 10 : la forme nue est juste
@@ -512,6 +599,7 @@ export {
   confronterAccueil,
   basculerVersions,
   comparer,
+  pointeDeLaLigne,
   zonesDeCode,
   ligneDe,
   lireDistTags,

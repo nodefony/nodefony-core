@@ -12,6 +12,7 @@ import {
   basculerVersions,
   comparer,
   confronterAccueil,
+  pointeDeLaLigne,
   zonesDeCode,
 } from "./accueil-gate.mjs";
 
@@ -336,5 +337,153 @@ describe("zonesDeCode", () => {
     const zones = zonesDeCode(contenu);
     expect(zones).toHaveLength(1);
     expect(contenu.slice(zones[0][0], zones[0][1])).toBe("X\n");
+  });
+});
+
+describe("confronterAccueil — le changement de CANAL (CANAL-DEPASSE)", () => {
+  /** Le jour de la stable : `latest` sert la 10, `beta` sert encore la dernière bêta. */
+  const STABLE = {
+    latest: "10.0.0",
+    beta: "10.0.0-beta.7",
+    alpha: "10.0.0-alpha.9",
+  };
+  /** L'accueil tel qu'il est AUJOURD'HUI, resté en l'état le jour de la stable. */
+  const ACCUEIL_BETA =
+    "préversion `10.0.0-beta.7` en ligne, canal `beta`\n\n" +
+    "```bash\nnpm create nodefony@beta mon-app\n```\n";
+
+  it("🔴 refuse une page restée sur `@beta` le jour où `latest` sert la 10 — que VERSION-PERIMEE juge à jour", () => {
+    // Le trou constaté au passage alpha → beta : chaque version est comparée à
+    // SON canal, et `beta` sert toujours la beta.7 — la page paraissait juste.
+    const ecarts = confronterAccueil({
+      surfaces: [surface(ACCUEIL_BETA)],
+      distTags: STABLE,
+    });
+    expect(genres(ecarts)).toEqual(["CANAL-DEPASSE"]);
+    expect(ecarts[0].ligne).toBe(4);
+    expect(ecarts[0].correction).toMatch(/sans canal/);
+  });
+
+  it("refuse aussi une commande citée en PROSE — elle prescrit autant qu'un bloc", () => {
+    const ecarts = confronterAccueil({
+      surfaces: [
+        surface(
+          "`10.0.0` en ligne. Générer : `npm create nodefony@beta <app>`.",
+        ),
+      ],
+      distTags: STABLE,
+    });
+    expect(genres(ecarts)).toEqual(["CANAL-DEPASSE"]);
+  });
+
+  it("refuse `@alpha` quand la bêta l'a dépassé, et propose le canal qui mène", () => {
+    const ecarts = confronterAccueil({
+      surfaces: [
+        surface(
+          "préversion `10.0.0-beta.7`\n\n```bash\nnpm create nodefony@alpha x\n```\n",
+        ),
+      ],
+      distTags: {
+        latest: "7.0.2",
+        alpha: "10.0.0-alpha.9",
+        beta: "10.0.0-beta.7",
+      },
+    });
+    expect(genres(ecarts)).toEqual(["CANAL-DEPASSE"]);
+    expect(ecarts[0].correction).toBe("écrire npm create nodefony@beta");
+  });
+
+  it("laisse passer l'accueil d'AUJOURD'HUI — `@beta` mène tant que `latest` n'est pas la 10", () => {
+    const ecarts = confronterAccueil({
+      surfaces: [surface(ACCUEIL_BETA)],
+      distTags: {
+        "beta.0": "4.0.0-beta.0",
+        latest: "7.0.2",
+        alpha: "10.0.0-alpha.9",
+        beta: "10.0.0-beta.7",
+      },
+    });
+    expect(ecarts).toEqual([]);
+  });
+
+  it("ne voit pas une MENTION de l'ancien canal — elle informe, elle ne prescrit rien", () => {
+    // La page Docker Hub : « `alpha` — l'ancien canal, figé sur 10.0.0-alpha.9 ».
+    const ecarts = confronterAccueil({
+      surfaces: [
+        surface(
+          "| `10.0.0-beta.7` | précise |\n| `alpha` | l'ancien canal, figé sur `10.0.0-alpha.9` |\n",
+        ),
+      ],
+      distTags: {
+        latest: "7.0.2",
+        alpha: "10.0.0-alpha.9",
+        beta: "10.0.0-beta.7",
+      },
+    });
+    expect(ecarts).toEqual([]);
+  });
+
+  it("🔴 ignore `next` — la répétition de la stable ne s'annonce jamais au public", () => {
+    // #27 : la 10.0.0 part sous `next`, s'installe depuis le registre, puis passe
+    // en `latest`. Pendant ce temps, l'accueil reste sur `@beta`.
+    const ecarts = confronterAccueil({
+      surfaces: [surface(ACCUEIL_BETA)],
+      distTags: { latest: "7.0.2", next: "10.0.0", beta: "10.0.0-beta.7" },
+    });
+    expect(ecarts).toEqual([]);
+  });
+
+  it("tolère une REPRISE de la stable : la pointe est la version qu'on publie", () => {
+    const ecarts = confronterAccueil({
+      surfaces: [surface(ACCUEIL_BETA)],
+      distTags: STABLE,
+      enCours: "10.0.0",
+    });
+    expect(ecarts).toEqual([]);
+  });
+});
+
+describe("comparer / pointeDeLaLigne — la stable vient après ses préversions", () => {
+  it("place 10.0.0 après 10.0.0-rc.3 et 10.0.0-beta.7 (SemVer §11)", () => {
+    expect(comparer("10.0.0", "10.0.0-rc.3")).toBeGreaterThan(0);
+    expect(comparer("10.0.0-beta.7", "10.0.0")).toBeLessThan(0);
+    expect(comparer("10.0.0", "10.0.0")).toBe(0);
+    expect(comparer("10.0.1-alpha.1", "10.0.0")).toBeGreaterThan(0);
+  });
+
+  it("rend le canal qui mène la ligne 10, et ignore la ligne 7", () => {
+    expect(
+      pointeDeLaLigne({
+        latest: "7.0.2",
+        beta: "10.0.0-beta.7",
+        alpha: "10.0.0-alpha.9",
+      }),
+    ).toEqual({ canal: "beta", version: "10.0.0-beta.7" });
+    expect(
+      pointeDeLaLigne({ latest: "10.0.0", beta: "10.0.0-beta.7" }),
+    ).toEqual({ canal: "latest", version: "10.0.0" });
+    expect(pointeDeLaLigne({ latest: "7.0.2" })).toBeNull();
+  });
+});
+
+describe("confronterAccueil — la page du cran STABLE n'est pas muette", () => {
+  it("compte `10.0.0` comme annonce une fois `latest` sur la 10", () => {
+    const ecarts = confronterAccueil({
+      surfaces: [
+        surface(
+          "Version `10.0.0` en ligne.\n\n```bash\nnpm create nodefony mon-app\n```\n",
+        ),
+      ],
+      distTags: { latest: "10.0.0", beta: "10.0.0-beta.7" },
+    });
+    expect(ecarts).toEqual([]);
+  });
+
+  it("…mais pas avant : `10.0.0` n'est alors que le numéro du package.json", () => {
+    const ecarts = confronterAccueil({
+      surfaces: [surface("version `10.0.0` (package.json)")],
+      distTags: { latest: "7.0.2", beta: "10.0.0-beta.7" },
+    });
+    expect(genres(ecarts)).toEqual(["SURFACE-MUETTE"]);
   });
 });

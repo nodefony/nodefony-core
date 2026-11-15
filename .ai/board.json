@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-15T15:23:20.517Z",
+  "generatedAt": "2026-11-15T16:07:29.546Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -49,14 +49,14 @@
       "closed": 265,
       "dueOn": "2026-11-15T00:00:00Z",
       "number": 7,
-      "open": 4,
+      "open": 3,
       "title": "10.0.0-beta"
     },
     {
       "closed": 7,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 57,
+      "open": 58,
       "title": "10.1.0"
     }
   ],
@@ -6999,23 +6999,6 @@
       ]
     },
     {
-      "number": 89,
-      "title": "docs(notification): faire la veille des canaux de communication attendus",
-      "url": "https://github.com/nodefony/nodefony-core/issues/89",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 0.5,
-      "ordre": 8.02,
-      "debut": "2026-11-19",
-      "cible": "2026-11-19",
-      "labels": [
-        "arbitrage",
-        "beta-8"
-      ]
-    },
-    {
       "number": 47,
       "title": "docs(release): faire suivre à l'accueil ce qui est réellement publié",
       "url": "https://github.com/nodefony/nodefony-core/issues/47",
@@ -8444,6 +8427,22 @@
       "debut": null,
       "cible": null,
       "labels": []
+    },
+    {
+      "number": 89,
+      "title": "docs(notification): faire la veille des canaux de communication attendus",
+      "url": "https://github.com/nodefony/nodefony-core/issues/89",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.1.0",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 16.5,
+      "debut": "2026-11-19",
+      "cible": "2026-11-19",
+      "labels": [
+        "arbitrage"
+      ]
     },
     {
       "number": 44,
