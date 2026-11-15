@@ -126,4 +126,15 @@ export const httpConfig = (ctx: ConfigContext<typeof env>) =>
     // Upload multipart (moteur busboy). `uploadDir` = dossier de dépôt ;
     // vide → résolu sur `kernel.tmpDir`. (Ex-clé `formidable` = moteur retiré.)
     upload: { uploadDir: "./tmp/upload" },
+    // Connexions HTTP/2 (5152, h2c) — absentes par défaut, armées ici pour que
+    // le banc les exerce sur un vrai serveur : le gate mémoire ferme des
+    // sessions pour PING abusifs, l'intégration y constate le GOAWAY sur les
+    // deux ports. Keepalive sous le `timeout` du serveur (30 s) : après son
+    // GOAWAY d'inactivité, Node ne pingue plus. Pas d'âge maximal : il
+    // couperait les sessions partagées de toutes les suites — prouvé en
+    // process (`tests/unit/http2Connections.test.ts`).
+    http2: {
+      keepaliveInterval: 20_000,
+      minPingInterval: 10_000,
+    },
   }) satisfies IHttpConfigInput;

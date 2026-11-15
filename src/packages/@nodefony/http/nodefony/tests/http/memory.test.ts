@@ -430,6 +430,27 @@ async function h2SessionGet(path: string): Promise<void> {
   }
 }
 
+/**
+ * Session NEUVE fermée par le SERVEUR pour PING abusifs (#770, gRPC A8) : le
+ * gestionnaire des connexions HTTP/2 la suit (état, écouteurs, minuteur du
+ * keepalive), puis la détruit après GOAWAY `ENHANCE_YOUR_CALM` — délai
+ * d'inactivité désarmé d'abord (nodejs/node#66885). Tout doit être réclamé.
+ * L'app de banc arme `http2.minPingInterval` (`nodefony/config/http.ts`).
+ */
+async function pingAbuseSession(url: string): Promise<void> {
+  const session = http2.connect(url, url === H2 ? H2_TLS : {});
+  session.on("error", () => {});
+  await new Promise<void>((r) => session.once("remoteSettings", () => r()));
+  let code = -1;
+  session.once("goaway", (c: number) => (code = c));
+  const closed = new Promise<void>((r) => session.once("close", () => r()));
+  for (let i = 0; i < 4; i++) session.ping(() => {});
+  await closed;
+  if (code !== http2.constants.NGHTTP2_ENHANCE_YOUR_CALM) {
+    throw new Error(`GOAWAY ${code} sur ${url}, ENHANCE_YOUR_CALM attendu`);
+  }
+}
+
 let h2Shared: http2.ClientHttp2Session | null = null;
 function h2SharedGet(path: string): Promise<void> {
   if (h2Shared === null || h2Shared.destroyed)
@@ -537,6 +558,8 @@ const ACTIONS = {
   h2cSession: () => h2cSessionGet("/nodefony/test/index"),
   h2cStream: () => h2cSharedGet("/nodefony/test/index"),
   h2Session: () => h2SessionGet("/nodefony/test/index"),
+  h2cPingAbuse: () => pingAbuseSession(H2C),
+  h2PingAbuse: () => pingAbuseSession(H2),
   h2Stream: () => h2SharedGet("/nodefony/test/index"),
   h2StreamPost: () =>
     h2SharedPost("/nodefony/test/decorators/body", '{"n":1,"ok":true}'),
@@ -683,6 +706,8 @@ const WARMUP = {
   h2cSession: 0,
   h2cStream: 1500,
   h2Session: 0,
+  h2cPingAbuse: 0,
+  h2PingAbuse: 0,
   h2Stream: 1500,
   h2StreamPost: 1500,
   unroutedPost: 1500,
@@ -919,6 +944,24 @@ describe("Memory leaks — HTTP (requires server)", function () {
       "HTTP/2 TLS GET on a fresh session",
       plan("h2Session", 150, 6, SESSION_WARMUP),
       THRESHOLDS.h2Session,
+    );
+  });
+
+  it("h2c session closed for too many pings — retains nothing per session", async () => {
+    // Le serveur ferme lui-même (#770) : état du gestionnaire, écouteurs de
+    // la session et minuteur d'inactivité doivent tous être libérés.
+    await httpLoop(
+      "h2c session closed for too many pings",
+      plan("h2cPingAbuse", 150, 6, SESSION_WARMUP),
+      THRESHOLDS.h2cPingAbuse,
+    );
+  });
+
+  it("HTTP/2 TLS session closed for too many pings — retains nothing per session", async () => {
+    await httpLoop(
+      "HTTP/2 TLS session closed for too many pings",
+      plan("h2PingAbuse", 150, 6, SESSION_WARMUP),
+      THRESHOLDS.h2PingAbuse,
     );
   });
 

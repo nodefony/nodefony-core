@@ -160,6 +160,15 @@ export const THRESHOLDS = {
   h2cStream: 1024,
   /** GET HTTP/2 TLS sur une session NEUVE : poignée de main + ALPN par itération — (0,12 Ko) */
   h2Session: 1024,
+  // Gestion des connexions HTTP/2 (#770) : session neuve fermée PAR LE SERVEUR
+  // pour PING abusifs. 1 passage sur serveur neuf : le seuil commun s'y
+  // applique, il ne s'y resserre pas. Fuite témoin : sans le désarmement du
+  // délai d'inactivité avant la destruction (nodejs/node#66885), 2,21 à
+  // 2,88 Ko retenus par session sur les deux ports.
+  /** session h2c fermée pour PING abusifs (gRPC A8) — (−0,00 Ko) */
+  h2cPingAbuse: 1024,
+  /** session HTTP/2 TLS fermée pour PING abusifs (gRPC A8) — (−0,03 Ko) */
+  h2PingAbuse: 1024,
   /** GET HTTP/2 TLS sur une session PARTAGÉE — (0,08 Ko) */
   h2Stream: 1024,
   /** GET relayé vers Vite par le proxy interne, reçu en h2c — (0,08 Ko) */
