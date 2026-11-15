@@ -7938,7 +7938,19 @@
                 "help": ""
               },
               {
+                "flag": "--capacity",
+                "help": ""
+              },
+              {
                 "flag": "--conn",
+                "help": ""
+              },
+              {
+                "flag": "--http-path",
+                "help": ""
+              },
+              {
+                "flag": "--json",
                 "help": ""
               },
               {
@@ -7955,6 +7967,10 @@
               },
               {
                 "flag": "--porcelain",
+                "help": ""
+              },
+              {
+                "flag": "--seconds",
                 "help": ""
               },
               {

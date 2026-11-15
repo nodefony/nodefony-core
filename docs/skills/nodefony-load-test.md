@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-11-14
+updated: 2026-11-15
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-load-test/SKILL.md"
 ---
@@ -140,7 +140,7 @@ script, donc toujours à jour après régénération.
 | `scripts/machine-regime.sh` | RÉGIME MACHINE — l'état du processeur au moment d'une mesure. | `--format` | — |
 | `scripts/native-sample.mjs` | Lit une capture `sample <pid> <s> -file <f>` (macOS) et rend le temps PROPRE du fil principal, par famille et par frame, en µs par requête — et, quand la table `perf.map` du process est posée à côté de la capture, QUI l'a payé : chaque échantillon natif est imputé à son premier ancêtre JavaScript. | `--accept-noise` `--cpu-prof` `--dir` `--perf-basic-prof` `--prof` | — |
 | `scripts/native-sample.test.mjs` | Éprouve le lecteur de captures `sample` (native-sample.mjs) sur une capture miniature écrite à la main : temps propre, nommage par perf.map, imputation au premier ancêtre JS, moyenne par camp. Un changement du format de `sample` ou de la table perf doit faire tomber ce test, pas fausser un banc en silence. npx vitest run .claude/skills/nodefony-load-test/scripts/native-sample.test.mjs | — | — |
-| `scripts/perf-campaign.sh` | Campagne de mesure PUBLIABLE, sans surveillance — la matière de `docs/performance/data/<version>.json`, rejouée au protocole de la dernière publication : trois paires de débit, le cas applicatif, et une tenue longue. | `--at` `--conn` `--minutes` `--only` `--out` `--porcelain` `--short` `--soak-min` `--tries` `--window` | `NF_PARITY_CAMPS` `ONLY` `SOAK_MIN` `TRIES` |
+| `scripts/perf-campaign.sh` | Campagne de mesure PUBLIABLE, sans surveillance — la matière de `docs/performance/data/<version>.json`, rejouée au protocole de la dernière publication : trois paires de débit, le cas applicatif, et une tenue longue. | `--at` `--capacity` `--conn` `--http-path` `--json` `--minutes` `--only` `--out` `--porcelain` `--seconds` `--short` `--soak-min` `--tries` `--window` | `NF_PARITY_CAMPS` `ONLY` `SOAK_MIN` `TRIES` |
 | `scripts/perf-compose.mjs` | Compose `docs/performance/data/<version>.json` depuis le dossier d'une campagne (`perf-campaign.sh`) — les CHIFFRES, jamais le récit. | `--absent` `--allow-missing` `--campaign` `--capacity` `--data` `--format` `--json` `--only` `--quiet` `--reuse` `--soak` `--version` `--write` | — |
 | `scripts/perf-dossier-report.mjs` | Rapport HTML de synthèse — dossier Performance de Nodefony. | `--data` `--prove` | — |
 | `scripts/poc-bench.mjs` | POC bench — mesure la latence p50/p95/p99 du backend Nodefony pendant que Vite tourne / compile. | `--concurrency` `--duration` `--label` `--touch` `--touch-delay` `--url` | — |

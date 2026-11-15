@@ -19,9 +19,12 @@
 #                         [--only "étape étape…"]
 #   caffeinate -dims bash perf-campaign.sh --at 01:30     # la nuit, poste éveillé
 #
-# Étapes (dans l'ordre joué) : parite · paire1 paire2 paire3 nest-fair nul ·
-#   applicatif applicatif-nest post-express post-nest err-express err-nest
-#   nul-orm · cpu-fil · soak. `--only` en rejoue un sous-ensemble dans un
+# Étapes (dans l'ordre joué) : parite · paire1 paire2 paire3 nest-fair
+#   nest-fair-node nul · applicatif applicatif-nest post-express post-nest
+#   err-express err-nest nul-orm · etages profil cpu-fil · capacite binaire ·
+#   soak. Ordre voulu : ce que la chaleur fausse (paires à 3 % de dispersion,
+#   garde thermique à 20 pour l'ORM) passe d'abord, machine froide ; le soak,
+#   qui mesure une PENTE, ferme la nuit. `--only` en rejoue un sous-ensemble dans un
 #   NOUVEAU dossier : une pièce manquante se refait sans payer cinq heures.
 #   ⚠️ Une pièce rejouée seule porte SON commit — le noter dans la provenance.
 #
@@ -30,7 +33,10 @@
 # un écart mesuré contre un témoin non équivalent n'est pas publiable.
 #
 # Sortie : DIR/campaign.log (le déroulé), DIR/<paire>-try<N>.log (verdict de
-# bench-pairs), DIR/<paire>-try<N>/ (les séries brutes), DIR/soak.json.
+# bench-pairs), DIR/<paire>-try<N>/ (les séries brutes), DIR/etages/ (le
+# budget d'une requête par étage), DIR/profil/, DIR/capacity.json,
+# DIR/binaire.json, DIR/soak.json. Défaut : tmp/bench/perf-campaign-<date>
+# (catégorie `bench` de scripts/repo/tmp-layout.mjs — rien à la racine de tmp/).
 # ─────────────────────────────────────────────────────────────────────────────
 set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
@@ -39,7 +45,7 @@ PAIRS="$ROOT/.claude/skills/nodefony-load-test/bench-frameworks/bench-pairs.sh"
 SOAK="$ROOT/.claude/skills/nodefony-load-test/scripts/soak.mjs"
 cd "$ROOT" || exit 1
 
-AT=""; OUT="$ROOT/tmp/perf-campaign-$(date +%F)"; SOAK_MIN=90; TRIES=3; ONLY=""
+AT=""; OUT="$ROOT/tmp/bench/perf-campaign-$(date +%F)"; SOAK_MIN=90; TRIES=3; ONLY=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --at) AT="$2"; shift 2 ;;
@@ -109,7 +115,7 @@ parite() {
   local nf=$! ok=0 camp
   for _ in $(seq 1 150); do curl -s -o /dev/null http://127.0.0.1:5151/nodefony/test/als-test/state && break; sleep 0.2; done
   # NF_PARITY_CAMPS : rejouer la garde sur d'autres camps (et la voir mordre).
-  for camp in ${NF_PARITY_CAMPS:-express-fair nest-fair express-fair-sqlite nest-fair-sqlite}; do
+  for camp in ${NF_PARITY_CAMPS:-express-fair nest-fair nest-fair-node express-fair-sqlite nest-fair-sqlite}; do
     local routes="" db="/tmp/nf-parite-$camp.db"
     case "$camp" in *-sqlite) routes=orm; cp "$SEED" "$db" ;; esac
     NODE_ENV=production PORT=5170 NF_BENCH_SQLITE_DB="$db" node "$BF/$camp.mjs" >"$OUT/parite-$camp-serveur.log" 2>&1 &
@@ -137,6 +143,9 @@ pair paire2 bare express-fair
 pair paire3 express express-fair
 # Le témoin NestJS équitable, face auquel #505 et #508 ont été jugés.
 pair nest-fair nest-fair nodefony
+# Le même travail sur le serveur `node:http` natif : les deux camps sur le MÊME
+# serveur HTTP — le témoin le plus proche de Nodefony.
+pair nest-fair-node nest-fair-node nodefony
 # Test NUL : le banc ne voit-il pas d'écart entre un camp et lui-même ? Sans lui,
 # aucune séparation de la nuit ne se distingue d'un biais de position.
 pair nul nodefony nodefony
@@ -175,12 +184,55 @@ if want nul-orm; then
     bash -c "$(declare -f log want pair); OUT='$OUT' LOG='$LOG' TRIES='$TRIES' PAIRS='$PAIRS' ONLY=''; pair nul-orm nodefony-orm nodefony-orm"
 fi
 
+# ── où part le temps : le budget d'une requête, étage par étage (#659) ──
+# Bissection par COURT-CIRCUIT (cut-probe.mjs) : chaque manche sert aussi
+# Nodefony coupé à chaque étage ; cut-analyze.mjs rend le coût de chacun.
+if want etages; then
+  log "budget par étage — wait-compare nest-fair-node 3, coupes entry → action"
+  NF_WAIT_DIR="$OUT/etages" NF_WAIT_CUTS="entry context pipeline route action" BENCH_CONN=64 \
+    bash "$ROOT/.claude/skills/nodefony-load-test/scripts/wait-compare.sh" nest-fair-node 3 \
+    >"$OUT/etages.log" 2>&1
+  log "  → code $?"
+fi
+# Le profil CPU comparé, poste par poste (règle n°0 du skill) : ce qu'il y a
+# DANS chaque étage, en µs par requête.
+if want profil; then
+  log "profil comparé — profile-compare nest-fair-node"
+  NF_PROFILE_DIR="$OUT/profil" bash "$ROOT/.claude/skills/nodefony-load-test/scripts/profile-compare.sh" nest-fair-node \
+    >"$OUT/profil.log" 2>&1
+  log "  → code $?"
+fi
+
 # ── l'arbitre des écarts fins : CPU du fil principal par requête (#508) ──
 # Le débit rend un rapport ; ce banc dit où il se joue, à ±1 %.
 if want cpu-fil; then
   log "CPU du fil principal — wait-compare nest-fair 3"
   NF_WAIT_DIR="$OUT/cpu-fil" BENCH_CONN=64 bash "$ROOT/.claude/skills/nodefony-load-test/scripts/wait-compare.sh" nest-fair 3 \
     >"$OUT/cpu-fil.log" 2>&1
+  log "  → code $?"
+fi
+
+# ── les constantes d'un pod, sur un serveur de PRODUCTION (perf-compose --capacity) ──
+if want capacite; then
+  log "capacité d'un pod — production, route de banc"
+  . "$ROOT/.claude/skills/nodefony-load-test/scripts/kill-guard.sh"
+  node src/nodefony/bin/nodefony stop >/dev/null 2>&1; kill_listeners 5151; kill_listeners 5152
+  NODE_ENV=production NF_BENCH_ROUTE=1 NF_ADMIN_PASSWORD=secret-de-dev-42 \
+    NF_WITH_DEV_MODULES=1 NF_WITH_DEV_MODULES_TTL_MIN=60 NODE_OPTIONS=--expose-gc \
+    node src/nodefony/bin/nodefony production >"$OUT/capacite-serveur.log" 2>&1 &
+  cap_pid=$!
+  for _ in $(seq 1 150); do curl -s -o /dev/null http://127.0.0.1:5151/nodefony/kernel/bench && break; sleep 0.2; done
+  node "$ROOT/.claude/skills/nodefony-load-test/scripts/capacity.mjs" --http-path /nodefony/kernel/bench \
+    --seconds 8 --json "$OUT/capacity.json" >"$OUT/capacite.log" 2>&1
+  log "  → code $?"
+  kill -INT $cap_pid 2>/dev/null; wait $cap_pid 2>/dev/null; kill_listeners 5151; kill_listeners 5152
+fi
+# ── temps réel binaire : un flux serveur gRPC contre la socket binaire (#695) ──
+# Exemplaire de production JETABLE, ports attribués par le banc lui-même.
+if want binaire; then
+  log "débit binaire — grpc-stream-throughput"
+  node "$ROOT/.claude/skills/nodefony-load-test/scripts/grpc-stream-throughput.mjs" --out "$OUT/binaire.json" \
+    >"$OUT/binaire.log" 2>&1
   log "  → code $?"
 fi
 
