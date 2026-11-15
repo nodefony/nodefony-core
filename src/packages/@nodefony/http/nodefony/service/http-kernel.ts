@@ -2876,6 +2876,20 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     (this.#openStreams ??= new ShutdownRegistry()).add(stream);
   }
 
+  /**
+   * Termine les flux longs d'UNE session HTTP/2, à la fin du délai de grâce de
+   * son âge maximal (`http2.maxConnectionAgeGrace`, gRPC A9) — même fin qu'à
+   * l'arrêt du serveur (ADR-0026 D8), pour une seule connexion.
+   *
+   * @param session - la session HTTP/2 qui ferme.
+   * @returns le nombre de flux terminés.
+   *
+   * @internal — appelé par la gestion des connexions HTTP/2 des serveurs.
+   */
+  endSessionStreams(session: object): number {
+    return this.#openStreams?.endSession(session) ?? 0;
+  }
+
   /** Retire un flux du registre de l'arrêt (à sa fermeture). @internal */
   untrackStream(stream: StreamLifecycle): void {
     this.#openStreams?.delete(stream);

@@ -90,6 +90,7 @@ function open(options: {
 function fakeStream(
   registry: ShutdownRegistry,
   mode: "sync" | "later" | "deaf",
+  session: object | null = null,
 ): IShutdownStream & { calls: number; end(): void } {
   const stream = {
     calls: 0,
@@ -98,6 +99,7 @@ function fakeStream(
       stream.calls += 1;
       if (mode === "sync") stream.end();
     },
+    belongsTo: (s: object) => s === session,
   };
   registry.add(stream);
   return stream;
@@ -236,6 +238,26 @@ describe("ShutdownRegistry — l'arrêt attend la fin des flux, borné", () => {
 
   it("aucun flux : rien à attendre", () => {
     expect(new ShutdownRegistry().shutdown(1000)).to.equal(0);
+  });
+
+  it("âge d'une connexion (#770) : seuls les flux de CETTE session prennent fin, sans arrêt du registre", () => {
+    const registry = new ShutdownRegistry();
+    const aged = {};
+    const other = {};
+    const a = fakeStream(registry, "sync", aged);
+    const b = fakeStream(registry, "sync", other);
+    const http1 = fakeStream(registry, "sync");
+    expect(registry.endSession(aged)).to.equal(1);
+    expect([a.calls, b.calls, http1.calls]).to.deep.equal([1, 0, 0]);
+    expect(registry.size).to.equal(2);
+    // Le registre n'est pas « en arrêt » : un flux neuf n'est pas terminé.
+    const late = fakeStream(registry, "sync", aged);
+    expect(late.calls).to.equal(0);
+  });
+
+  it("flux HTTP/1.1 réel : n'appartient à aucune session HTTP/2", () => {
+    const { lifecycle } = open({ foreignWriter: false, rpc: null });
+    expect(lifecycle.belongsTo({})).to.equal(false);
   });
 
   it("chaque flux est terminé une fois ; fermés sur le coup : rien à attendre", () => {

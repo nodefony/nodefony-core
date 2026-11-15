@@ -364,7 +364,7 @@ const httpsServerSchema = httpServerSchema
 // ───────────────────────── http2 / http3 (loose) ────────────────────────────
 
 const http2Schema = z
-  .looseObject({
+  .strictObject({
     maxConcurrentStreams: z
       .number()
       .int()
@@ -382,10 +382,74 @@ const http2Schema = z
       .describe(
         "Mémoire max (Mo) par session HTTP/2 — borne l'amplification mémoire.",
       ),
+    maxConnectionAge: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe(
+        "Âge maximal (ms) d'une connexion HTTP/2, ± 10 % d'aléa par connexion : " +
+          "GOAWAY `NO_ERROR` « max_age » en deux temps, les flux en cours vont à " +
+          "leur terme, les suivants partent sur une connexion neuve (gRPC A9). " +
+          "Absent : jamais. Derrière un répartiteur L4 ou un autoscaler, l'armer " +
+          "— sans lui, un client déjà connecté ne voit jamais un pod ajouté.",
+      ),
+    maxConnectionAgeGrace: z
+      .number()
+      .int()
+      .nonnegative()
+      .optional()
+      .describe(
+        "Délai (ms) accordé aux flux en cours après le GOAWAY d'âge : à son terme, " +
+          "les flux longs reçoivent leur fin (gRPC 14, SSE fermé), puis la " +
+          "connexion est détruite. Absent : sans borne (gRPC A9) — un abonnement " +
+          "long garde alors la connexion à son pod.",
+      ),
+    keepaliveInterval: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe(
+        "Silence (ms) du pair après lequel le serveur envoie un PING HTTP/2 " +
+          "(RFC 9113 §6.7) — avec ou sans flux ouvert (gRPC A9). Absent : aucun " +
+          "PING. Détecte le pair mort derrière un abonnement muet, que le délai " +
+          "d'inactivité ne voit pas. Le choisir sous `timeout` du serveur : " +
+          "après le GOAWAY d'une session (inactivité ou âge), Node refuse tout " +
+          "PING, et seul `maxConnectionAgeGrace` borne alors la connexion.",
+      ),
+    keepaliveTimeout: z
+      .number()
+      .int()
+      .positive()
+      .default(20_000)
+      .describe(
+        "Attente (ms) d'un octet du pair après un PING de keepalive ; au-delà, la " +
+          "connexion est détruite. Lu seulement si `keepaliveInterval` est posé.",
+      ),
+    minPingInterval: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe(
+        "Écart minimal (ms) toléré entre deux PING reçus sans réponse du serveur " +
+          "entre eux ; plus serré, c'est une faute (gRPC A8 « ping strike »). " +
+          "Absent : aucune police des PING reçus (nghttp2 garde sa borne de file).",
+      ),
+    maxPingStrikes: z
+      .number()
+      .int()
+      .nonnegative()
+      .default(2)
+      .describe(
+        "Fautes tolérées avant GOAWAY `ENHANCE_YOUR_CALM` « too_many_pings » et " +
+          "fermeture immédiate (gRPC A8). Lu seulement si `minPingInterval` est posé.",
+      ),
   })
   .describe(
-    "Serveur HTTP/2 (sur le port HTTPS, allowHTTP1). Loose : options " +
-      "`http2.SecureServerOptions` transmises.",
+    "Serveur HTTP/2 (TLS sur le port HTTPS avec allowHTTP1, et h2c). Strict : " +
+      "chaque clé est lue par Nodefony, aucune n'est transmise telle quelle à Node.",
   );
 
 const http3Schema = z.looseObject({});

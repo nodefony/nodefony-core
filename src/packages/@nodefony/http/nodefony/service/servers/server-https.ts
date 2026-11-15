@@ -2,11 +2,8 @@ import {
   extend,
   nodefonyError,
   Service,
-  //Kernel,
-  Container,
   type Module,
   FamilyType,
-  //DefaultOptionsService,
   Inject,
 } from "nodefony";
 import HttpKernel, {
@@ -23,6 +20,7 @@ import {
   http2ServerLimits,
   setHttp2SessionTimeout,
 } from "../../src/servers/http2Limits";
+import { manageHttp2Connections } from "../../src/servers/http2Connections";
 //import net from "node:net";
 import { AddressInfo } from "node:net";
 import type { Duplex } from "node:stream";
@@ -41,7 +39,7 @@ class ServerHttps extends Service {
   declare public options: IHttpConfig["https"] & DefaultOptionsService;
   //httpKernel: HttpKernel | null = null;
   httpTerminator: IDrainTerminator | null = null;
-  module: Module;
+  module: Module<IHttpConfig>;
   server: https.Server | http2.Http2SecureServer | null = null;
   port: number;
   protocol: ProtocolType = "1.1";
@@ -55,14 +53,14 @@ class ServerHttps extends Service {
   infos: AddressInfo | null = null;
 
   constructor(
-    module: Module,
+    module: Module<IHttpConfig>,
     @Inject("HttpKernel") private readonly httpKernel: HttpKernel,
   ) {
     super(
       "server-https",
-      module.container as Container,
+      module.container ?? undefined,
       module.notificationsCenter,
-      module.options.https as IHttpConfig["https"],
+      module.config.https,
     );
     this.module = module;
     this.active = !!asServersConfig(this.kernel?.options.servers)?.https;
@@ -194,10 +192,7 @@ class ServerHttps extends Service {
             : undefined,
         }) as http2.SecureServerOptions;
         // Limites anti-DoS HTTP/2 (cf config http2), règle partagée avec h2c.
-        Object.assign(
-          opt,
-          http2ServerLimits((this.module.options as IHttpConfig).http2),
-        );
+        Object.assign(opt, http2ServerLimits(this.module.config.http2));
         this.server = http2.createSecureServer(opt);
         this.httpTerminator = this.terminator();
         // HTTP/1.1 par `allowHTTP1` : ses sockets émettent leur délai sur CE
@@ -209,6 +204,18 @@ class ServerHttps extends Service {
         setHttp2SessionTimeout(this.server, this.options.timeout, () => {
           this.fire("onTimeout", this);
         });
+        // Âge, keepalive et police des PING (`http2.*`) : rien sans clé posée.
+        const connections = manageHttp2Connections(
+          this.server,
+          this.module.config.http2,
+          (session) => this.httpKernel.endSessionStreams(session),
+          (remote) => {
+            this.log(
+              `HTTP/2 : ${remote ?? "pair"} pingue trop — GOAWAY too_many_pings`,
+              "WARNING",
+            );
+          },
+        );
         // const buf = http2.getPackedSettings(this.options);
         // const defaultSetting2 = extend(
         //   {},
@@ -240,6 +247,7 @@ class ServerHttps extends Service {
         // de `terminate()` remontait en unhandledRejection au shutdown.
         // Le terminator draine puis close() le serveur lui-même.
         this.httpKernel.addShutdownStep("drain", async () => {
+          connections?.stop();
           if (!this.server) {
             return;
           }

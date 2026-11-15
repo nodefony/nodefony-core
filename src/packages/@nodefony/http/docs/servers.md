@@ -189,6 +189,9 @@ export const httpConfig = () =>
     http2: {
       maxConcurrentStreams: 100, // défense CVE-2023-44487 (Rapid Reset)
       maxSessionMemory: 10, // Mo par session h2
+      // Absents par défaut — cf « Connexions HTTP/2 longues » plus bas :
+      // maxConnectionAge: 30 * 60_000, maxConnectionAgeGrace: 60_000,
+      // keepaliveInterval: 20_000, minPingInterval: 60_000,
     },
     websocket: {
       maxPayload: 1024 * 1024, // 1 MiB → au-delà, close 1009
@@ -461,6 +464,45 @@ curl --http2-prior-knowledge http://127.0.0.1:5153/readyz
 h2load --h1 -n 100000 -c 64 http://127.0.0.1:5151/readyz   # HTTP/1.1
 h2load      -n 100000 -c 64 http://127.0.0.1:5153/readyz   # h2c
 ```
+
+### Connexions HTTP/2 longues — âge maximal, keepalive, police des PING
+
+Une connexion HTTP/2 porte toutes les requêtes d'un client, et elle peut vivre des heures. Trois
+réglages de la section `http2` encadrent cette vie, pour le port TLS comme pour h2c
+(`http2Connections.ts#manageHttp2Connections`). **Aucun n'est actif par défaut** : sans clé posée,
+rien n'est armé — ni écouteur, ni minuteur.
+
+| Clé                                     | Ce qu'elle règle                                                                                                                                                                                          | Norme                   |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| `maxConnectionAge`                      | Âge maximal (ms), ± 10 % d'aléa par connexion. À l'échéance : GOAWAY `NO_ERROR` « max_age » en deux temps ; les flux en cours vont à leur terme, les suivants partent ailleurs.                           | gRPC A9, RFC 9113 §6.8  |
+| `maxConnectionAgeGrace`                 | Délai (ms) laissé aux flux après ce GOAWAY. À son terme, les flux longs reçoivent leur fin — 14 `UNAVAILABLE` en gRPC, fermeture simple en SSE — puis la connexion tombe. Absent : sans borne.            | gRPC A9, ADR-0026 D8    |
+| `keepaliveInterval`, `keepaliveTimeout` | PING après `keepaliveInterval` ms de silence du pair, avec ou sans flux ouvert ; aucun octet reçu pendant `keepaliveTimeout` (20 s par défaut) → connexion détruite.                                      | gRPC A9, RFC 9113 §6.7  |
+| `minPingInterval`, `maxPingStrikes`     | Écart minimal entre deux PING reçus quand le serveur n'a rien écrit entre eux ; au-delà de `maxPingStrikes` fautes (2 par défaut) : GOAWAY `ENHANCE_YOUR_CALM` « too_many_pings » et fermeture immédiate. | gRPC A8, RFC 9113 §10.5 |
+
+**Quand les poser.**
+
+- **Derrière un répartiteur L4 ou un autoscaler** : `maxConnectionAge`. Un répartiteur de niveau 4
+  répartit des connexions, pas des requêtes : sans âge maximal, un client déjà connecté ne voit jamais un
+  pod ajouté, et la charge reste sur les anciens. L'aléa évite que tous les clients d'un même démarrage
+  reconnectent ensemble.
+- **Avec des abonnements longs** (gRPC en flux, SSE) : `maxConnectionAgeGrace`, sinon un abonnement garde
+  sa connexion — et son pod — indéfiniment ; et `keepaliveInterval`, seul moyen de voir un pair mort
+  derrière un flux muet. Le délai de blocage d'écriture ne voit rien tant qu'on n'écrit rien.
+- **Face à des clients qu'on ne maîtrise pas** : `minPingInterval`. Il ne punit jamais un client conforme.
+  Toute trame écrite par le serveur entre deux PING remet le compte à zéro, et le jugement penche vers
+  l'indulgence.
+
+**Deux limites à connaître.**
+
+- Après son propre GOAWAY (âge ou inactivité), Node refuse d'émettre un PING. Le keepalive s'arrête donc à
+  l'annonce, et seul `maxConnectionAgeGrace` borne ensuite la connexion. Choisir `keepaliveInterval`
+  sous le `timeout` du serveur (30 s par défaut).
+- La grâce compte depuis l'annonce, pas depuis le second GOAWAY, qui la suit d'un aller-retour au plus
+  (1 s). Chaque échéance est tenue à une seconde près.
+
+**Coût.** Par connexion : un état de dix nombres et un ou deux écouteurs, libérés avec elle. Par serveur :
+un seul minuteur, armé à la première connexion et arrêté à la dernière (la police des PING seule n'en arme
+aucun). Rien par requête.
 
 ### `server-websocket` — WebSocket en clair
 

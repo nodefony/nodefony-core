@@ -8,6 +8,18 @@ export const ANNOUNCE_CAP_MS = 1000;
 const LAST_POSSIBLE_STREAM = 2 ** 31 - 1;
 
 /**
+ * Données de débogage du GOAWAY d'une session fermée pour inactivité (gRPC A9,
+ * `MAX_CONNECTION_IDLE`) — allouées une fois, partagées par toutes les sessions.
+ */
+export const GOAWAY_MAX_IDLE: Uint8Array = new TextEncoder().encode("max_idle");
+
+/**
+ * Données de débogage du GOAWAY d'une session qui a atteint son âge maximal
+ * (gRPC A9, `MAX_CONNECTION_AGE`).
+ */
+export const GOAWAY_MAX_AGE: Uint8Array = new TextEncoder().encode("max_age");
+
+/**
  * Annonce à UNE session HTTP/2 qu'elle va fermer, SANS écarter un flux déjà en route.
  *
  * Un PING mesure l'aller-retour, puis GOAWAY à `2^31-1`, puis l'attente de cet
@@ -25,10 +37,13 @@ const LAST_POSSIBLE_STREAM = 2 ** 31 - 1;
  * @param settle - appelé UNE fois : après l'attente, à la fermeture de la
  *   session, ou aussitôt si le PING ne part pas. Un pair muet ne l'appelle
  *   jamais — le délai maximal appartient à l'appelant.
+ * @param debugData - données de débogage du GOAWAY (RFC 9113 §6.8 : « opaque
+ *   data », diagnostic seulement), ex. {@link GOAWAY_MAX_AGE}
  */
 export function announceSessionClose(
   session: ServerHttp2Session,
   settle: () => void,
+  debugData?: Uint8Array,
 ): void {
   let settled = false;
   let wait: ReturnType<typeof setTimeout> | null = null;
@@ -42,11 +57,19 @@ export function announceSessionClose(
   session.once("close", done);
   const sent = session.ping((error, rttMs) => {
     if (error !== null || settled || session.closed) return done();
-    session.goaway(http2constants.NGHTTP2_NO_ERROR, LAST_POSSIBLE_STREAM);
+    session.goaway(
+      http2constants.NGHTTP2_NO_ERROR,
+      LAST_POSSIBLE_STREAM,
+      debugData,
+    );
     wait = setTimeout(done, Math.max(1, Math.ceil(rttMs)));
   });
   if (!sent) {
-    session.goaway(http2constants.NGHTTP2_NO_ERROR, LAST_POSSIBLE_STREAM);
+    session.goaway(
+      http2constants.NGHTTP2_NO_ERROR,
+      LAST_POSSIBLE_STREAM,
+      debugData,
+    );
     done();
   }
 }
@@ -67,10 +90,13 @@ export function announceSessionClose(
  *
  * @param session - la session inactive
  * @param capMs - délai maximal d'attente de l'écho du PING (ms)
+ * @param debugData - données de débogage du GOAWAY : la raison de la
+ *   fermeture, {@link GOAWAY_MAX_IDLE} par défaut (gRPC A9)
  */
 export function closeIdleSession(
   session: ServerHttp2Session,
   capMs: number = ANNOUNCE_CAP_MS,
+  debugData: Uint8Array = GOAWAY_MAX_IDLE,
 ): void {
   if (session.closed || session.destroyed) return;
   session.setTimeout(0);
@@ -82,5 +108,5 @@ export function closeIdleSession(
     if (!session.closed && !session.destroyed) session.close();
   };
   const timer = setTimeout(finish, capMs);
-  announceSessionClose(session, finish);
+  announceSessionClose(session, finish, debugData);
 }

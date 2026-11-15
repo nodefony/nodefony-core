@@ -20,6 +20,7 @@ import {
   http2ServerLimits,
   setHttp2SessionTimeout,
 } from "../../src/servers/http2Limits";
+import { manageHttp2Connections } from "../../src/servers/http2Connections";
 import {
   bindWithFallback,
   buildBindPlan,
@@ -141,6 +142,18 @@ class ServerH2c extends Service {
         setHttp2SessionTimeout(server, this.options.timeout, () => {
           this.fire("onTimeout", this);
         });
+        // Âge, keepalive et police des PING (`http2.*`) : rien sans clé posée.
+        const connections = manageHttp2Connections(
+          server,
+          this.module.config.http2,
+          (session) => this.httpKernel.endSessionStreams(session),
+          (remote) => {
+            this.log(
+              `h2c : ${remote ?? "pair"} pingue trop — GOAWAY too_many_pings`,
+              "WARNING",
+            );
+          },
+        );
         // `onHttpRequest` ne lève ni ne rejette jamais : rien à rattraper ici.
         server.on("request", (request, response) => {
           void this.httpKernel.onHttpRequest(request, response, this.type);
@@ -189,6 +202,7 @@ class ServerH2c extends Service {
           });
         // Drain par GOAWAY (cf serverShutdown.ts) ; les WS n'existent pas ici.
         this.httpKernel.addShutdownStep("drain", async () => {
+          connections?.stop();
           if (!this.server) return;
           try {
             await this.httpTerminator?.terminate();

@@ -470,6 +470,18 @@ export class StreamLifecycle implements IWatchedStream {
     return undefined;
   }
 
+  /**
+   * Le flux passe-t-il par cette session HTTP/2 ? Lu sur la réponse, pas sur
+   * le contexte, que `Context.clean` peut avoir vidé avant la fin du flux. Un
+   * flux HTTP/1.1 n'appartient à aucune session.
+   *
+   * @param session - la session HTTP/2 à comparer.
+   */
+  belongsTo(session: object): boolean {
+    const response = this.#response;
+    return "stream" in response && response.stream.session === session;
+  }
+
   /** Fenêtre écoulée : l'appel révoqué n'a pas fini, le transport est détruit. */
   static #destroyRevoked(this: void, lifecycle: StreamLifecycle): void {
     lifecycle.#revokeGrace = null;
@@ -609,6 +621,8 @@ export class StallSweep {
 export interface IShutdownStream {
   /** Le serveur s'arrête : le flux prend fin (cf {@link StreamLifecycle.shutdown}). */
   shutdown(): unknown;
+  /** Le flux passe-t-il par cette session HTTP/2 (cf {@link StreamLifecycle.belongsTo}) ? */
+  belongsTo(session: object): boolean;
 }
 
 /**
@@ -680,6 +694,29 @@ export class ShutdownRegistry {
         resolve(0);
       };
     });
+  }
+
+  /**
+   * Termine les flux longs d'UNE session HTTP/2 — la connexion a atteint son
+   * âge maximal et son délai de grâce est écoulé (gRPC A9). Même fin qu'à
+   * l'arrêt ({@link StreamLifecycle.shutdown}) : gRPC 14 `UNAVAILABLE`, SSE
+   * fermé — le client rejoue sur une autre connexion. Rien n'est attendu ici :
+   * l'appelant borne la suite.
+   *
+   * Parcourt tout le registre : l'échéance est rare (une par connexion et par
+   * âge), un index par session coûterait à CHAQUE flux ouvert.
+   *
+   * @param session - la session dont les flux prennent fin.
+   * @returns le nombre de flux terminés.
+   */
+  endSession(session: object): number {
+    let ended = 0;
+    for (const stream of this.#entries) {
+      if (!stream.belongsTo(session)) continue;
+      stream.shutdown();
+      ended += 1;
+    }
+    return ended;
   }
 }
 
