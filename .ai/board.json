@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-15T18:04:06.338Z",
+  "generatedAt": "2026-11-15T18:26:29.834Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -7015,70 +7015,6 @@
       ]
     },
     {
-      "number": 779,
-      "title": "feat(cli): ouvrir l'image générée aux paquets système, sans retouche",
-      "url": "https://github.com/nodefony/nodefony-core/issues/779",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 8.0361,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-8"
-      ]
-    },
-    {
-      "number": 780,
-      "title": "feat(cli): mettre à jour le Dockerfile d'une app par nodefony upgrade",
-      "url": "https://github.com/nodefony/nodefony-core/issues/780",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 8.0362,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-8"
-      ]
-    },
-    {
-      "number": 781,
-      "title": "ci(release): publier l'image de démonstration aussi pour arm64",
-      "url": "https://github.com/nodefony/nodefony-core/issues/781",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 0.5,
-      "ordre": 8.0363,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-8"
-      ]
-    },
-    {
-      "number": 772,
-      "title": "docs(docker): réécrire la fiche Docker Hub de l'image officielle",
-      "url": "https://github.com/nodefony/nodefony-core/issues/772",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 8.038,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-8"
-      ]
-    },
-    {
       "number": 659,
       "title": "docs(performance): remesurer les pages de performance avant la release",
       "url": "https://github.com/nodefony/nodefony-core/issues/659",
@@ -7177,6 +7113,70 @@
       "debut": "2026-09-15",
       "cible": "2026-09-30",
       "labels": []
+    },
+    {
+      "number": 779,
+      "title": "feat(cli): ouvrir l'image générée aux paquets système, sans retouche",
+      "url": "https://github.com/nodefony/nodefony-core/issues/779",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 9.01,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-9"
+      ]
+    },
+    {
+      "number": 780,
+      "title": "feat(cli): mettre à jour le Dockerfile d'une app par nodefony upgrade",
+      "url": "https://github.com/nodefony/nodefony-core/issues/780",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 9.02,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-9"
+      ]
+    },
+    {
+      "number": 781,
+      "title": "ci(release): publier l'image de démonstration aussi pour arm64",
+      "url": "https://github.com/nodefony/nodefony-core/issues/781",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 9.03,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-9"
+      ]
+    },
+    {
+      "number": 772,
+      "title": "docs(docker): réécrire la fiche Docker Hub de l'image officielle",
+      "url": "https://github.com/nodefony/nodefony-core/issues/772",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 9.04,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-9"
+      ]
     },
     {
       "number": 429,
@@ -9061,7 +9061,7 @@
       "title": "chore(release): faire le point d'aptitude avant de publier la 10.0.0",
       "url": "https://github.com/nodefony/nodefony-core/issues/782",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
