@@ -11,6 +11,8 @@
 //   - `Http2ConnectionManager.add` : l'armement du minuteur ;
 //   - `http2ConnectionTick` : la branche d'âge, de grâce, ou le keepalive ;
 //   - `judgeReceivedPing` : la remise à zéro sur trame écrite, ou le seuil ;
+//   - `Http2ConnectionManager.#calm` : une destruction dans le rappel du PING
+//     (0 ACK reçu), le filet, ou la garde « déjà puni » ;
 //   - `ShutdownRegistry.endSession` / `StreamLifecycle.belongsTo`.
 //
 import { once } from "node:events";
@@ -35,6 +37,7 @@ import {
   type IHttp2ConnectionPolicy,
   type IHttp2SessionActions,
 } from "../../src/servers/http2Connections";
+import { ANNOUNCE_CAP_MS } from "../../src/servers/http2Goaway";
 
 const LAST_POSSIBLE_STREAM = 2 ** 31 - 1;
 
@@ -318,6 +321,48 @@ function get(
   });
 }
 
+/** Trame PING (RFC 9113 §6.7) : 8 octets de charge, flux 0. */
+function pingFrame(n: number): Buffer {
+  const frame = Buffer.alloc(17);
+  frame.writeUIntBE(8, 0, 3);
+  frame[3] = 0x6;
+  frame.writeUInt32BE(n, 13);
+  return frame;
+}
+
+/**
+ * Lit les trames qu'un serveur écrit sur une socket brute : compte les ACK de
+ * PING, rend le premier GOAWAY (RFC 9113 §6.8 : dernier flux, code, données).
+ */
+function readFrames(socket: net.Socket) {
+  let buffer = Buffer.alloc(0);
+  let acks = 0;
+  let resolveGoaway: (g: { code: number; data: string; at: number }) => void;
+  const goaway = new Promise<{ code: number; data: string; at: number }>(
+    (r) => (resolveGoaway = r),
+  );
+  socket.on("data", (chunk: Buffer) => {
+    buffer = Buffer.concat([buffer, chunk]);
+    while (buffer.length >= 9) {
+      const length = buffer.readUIntBE(0, 3);
+      if (buffer.length < 9 + length) break;
+      const type = buffer.readUInt8(3);
+      const flags = buffer.readUInt8(4);
+      const payload = buffer.subarray(9, 9 + length);
+      if (type === 0x6 && (flags & 0x1) === 0x1) acks += 1;
+      if (type === 0x7) {
+        resolveGoaway({
+          code: payload.readUInt32BE(4),
+          data: payload.subarray(8).toString(),
+          at: performance.now(),
+        });
+      }
+      buffer = buffer.subarray(9 + length);
+    }
+  });
+  return { goaway, pingAcks: () => acks };
+}
+
 function goaway(client: http2.ClientHttp2Session) {
   return new Promise<{ code: number; last: number; data: string; at: number }>(
     (r) =>
@@ -518,7 +563,7 @@ describe("http2 — keepalive sur de vraies connexions", () => {
 });
 
 describe("http2 — police des PING sur de vraies connexions (gRPC A8)", () => {
-  it("rafale : GOAWAY ENHANCE_YOUR_CALM « too_many_pings », fermeture immédiate, signalée", async () => {
+  it("rafale : GOAWAY ENHANCE_YOUR_CALM « too_many_pings », le client ferme, signalée", async () => {
     const server = http2.createServer();
     const abuses: (string | undefined)[] = [];
     manageHttp2Connections(
@@ -536,6 +581,44 @@ describe("http2 — police des PING sur de vraies connexions (gRPC A8)", () => {
     expect(g.code).to.equal(http2.constants.NGHTTP2_ENHANCE_YOUR_CALM);
     expect(g.data).to.equal("too_many_pings");
     await closed;
+    expect(abuses).to.deep.equal(["127.0.0.1"]);
+  });
+
+  it("pair qui ne ferme pas : ACK et GOAWAY reçus, puni UNE fois, détruit au filet — jamais dans le rappel du PING", async () => {
+    // La destruction dans le rappel `ping` jetait les trames en file (ACK et
+    // GOAWAY) quand une écriture était en cours — sous TLS, le client voyait
+    // une fin de connexion nue. Ici le pair ne ferme jamais : la connexion
+    // doit rester ouverte jusqu'au filet, et ses PING suivants ne le punissent
+    // pas une seconde fois.
+    const server = http2.createServer();
+    const abuses: (string | undefined)[] = [];
+    manageHttp2Connections(
+      server,
+      config({ minPingInterval: 1000 }),
+      () => 0,
+      (r) => abuses.push(r),
+    );
+    const port = await listen(server);
+    const socket = net.connect(port, "127.0.0.1");
+    sockets.push(socket);
+    socket.on("error", () => {});
+    await once(socket, "connect");
+    const frames = readFrames(socket);
+    socket.write("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n");
+    socket.write(Buffer.from([0, 0, 0, 4, 0, 0, 0, 0, 0])); // SETTINGS vide
+    socket.write(Buffer.from([0, 0, 0, 4, 1, 0, 0, 0, 0])); // ACK des SETTINGS
+    // Huit PING d'une seule écriture : lus d'un trait, ceux qui suivent la
+    // punition arrivent encore au rappel — ils ne doivent pas punir de nouveau.
+    socket.write(
+      Buffer.concat(Array.from({ length: 8 }, (_, i) => pingFrame(i))),
+    );
+    const g = await frames.goaway;
+    expect(g.code).to.equal(http2.constants.NGHTTP2_ENHANCE_YOUR_CALM);
+    expect(g.data).to.equal("too_many_pings");
+    // L'ACK du 4ᵉ PING est mis en file AVANT le GOAWAY : rien n'a été jeté.
+    expect(frames.pingAcks()).to.be.at.least(4);
+    await once(socket, "close");
+    expect(performance.now() - g.at).to.be.at.least(ANNOUNCE_CAP_MS - 50);
     expect(abuses).to.deep.equal(["127.0.0.1"]);
   });
 

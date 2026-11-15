@@ -433,7 +433,7 @@ async function h2SessionGet(path: string): Promise<void> {
 /**
  * Session NEUVE fermée par le SERVEUR pour PING abusifs (#770, gRPC A8) : le
  * gestionnaire des connexions HTTP/2 la suit (état, écouteurs, minuteur du
- * keepalive), puis la détruit après GOAWAY `ENHANCE_YOUR_CALM` — délai
+ * keepalive), envoie le GOAWAY `ENHANCE_YOUR_CALM` que le client ferme — délai
  * d'inactivité désarmé d'abord (nodejs/node#66885). Tout doit être réclamé.
  * L'app de banc arme `http2.minPingInterval` (`nodefony/config/http.ts`).
  */

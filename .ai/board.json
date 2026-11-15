@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-15T15:18:30.203Z",
+  "generatedAt": "2026-11-15T15:23:20.517Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -7036,7 +7036,7 @@
       "title": "test(http): éprouver HTTP/2 avec h2spec, binaire officiel figé",
       "url": "https://github.com/nodefony/nodefony-core/issues/778",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,

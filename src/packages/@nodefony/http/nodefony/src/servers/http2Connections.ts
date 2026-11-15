@@ -141,6 +141,8 @@ export class Http2SessionState<S = ServerHttp2Session> {
   writtenRef: number;
   /** Octets de trames PING (ACK et keepalive) écrits depuis `writtenRef`. */
   pingBytes: number;
+  /** Punie pour PING abusifs : GOAWAY parti, destruction en attente. */
+  calmed: boolean;
 
   /**
    * @param session - la session suivie
@@ -167,6 +169,7 @@ export class Http2SessionState<S = ServerHttp2Session> {
     this.strikes = 0;
     this.writtenRef = bytesWritten;
     this.pingBytes = 0;
+    this.calmed = false;
   }
 }
 
@@ -347,7 +350,7 @@ function sessionActions(
  * keepalive (gRPC A9, RFC 9113 §6.7), police des PING reçus (gRPC A8,
  * RFC 9113 §10.5).
  *
- * Coût : par CONNEXION, un état de dix nombres et un ou deux écouteurs sur la
+ * Coût : par CONNEXION, un état de dix nombres et un drapeau, et un ou deux écouteurs sur la
  * session (libérés avec elle) ; par SERVEUR, un seul minuteur `unref`, armé
  * à la première session et arrêté à la dernière. Rien par requête ni par
  * trame, hors un jugement de quelques additions par PING reçu.
@@ -423,7 +426,7 @@ export class Http2ConnectionManager {
             this.policy,
           )
         )
-          this.#calm(session);
+          this.#calm(state);
       });
     }
     if (this.#tickMs > 0 && this.#timer === null) {
@@ -460,20 +463,40 @@ export class Http2ConnectionManager {
   }
 
   /**
-   * GOAWAY `ENHANCE_YOUR_CALM` « too_many_pings », puis fermeture immédiate
-   * (gRPC A8 : elle fait échouer les appels en cours, ce qui rend la
-   * mauvaise configuration visible au client).
+   * GOAWAY `ENHANCE_YOUR_CALM` « too_many_pings », puis fermeture (gRPC A8 :
+   * elle fait échouer les appels en cours, ce qui rend la mauvaise
+   * configuration visible au client).
+   *
+   * La session n'est PAS détruite dans ce rappel : il tourne pendant que
+   * nghttp2 lit la trame PING, et une destruction à cet instant jette les
+   * trames encore en file quand une écriture est en cours — les ACK et le
+   * GOAWAY lui-même. Sous TLS, dont les écritures s'achèvent hors de l'appel,
+   * le client recevait alors la fin de connexion sans un octet de plus
+   * (constaté sur le serveur réel : 10 sessions sur 1 600 à 16 en parallèle,
+   * 0 en h2c). Le client ferme de lui-même à la réception d'un GOAWAY
+   * d'erreur (Node, gRPC) ; un pair qui ne le fait pas est détruit au plus
+   * {@link ANNOUNCE_CAP_MS} plus tard — un minuteur par pair puni, chemin
+   * froid (le tour de surveillance n'existe pas quand seule la police est
+   * armée).
+   *
+   * @param state - l'état de la session punie
    */
-  #calm(session: ServerHttp2Session): void {
-    if (session.destroyed) return;
-    const remoteAddress = session.socket.remoteAddress;
+  #calm(state: Http2SessionState): void {
+    const session = state.session;
+    if (state.calmed || session.destroyed) return;
+    state.calmed = true;
     session.goaway(
       http2constants.NGHTTP2_ENHANCE_YOUR_CALM,
       session.state.lastProcStreamID ?? 0,
       GOAWAY_TOO_MANY_PINGS,
     );
-    destroySession(session);
-    this.#onAbuse(remoteAddress);
+    // Condamnée : c'est la fermeture du CLIENT qui la détruira, et Node
+    // désarme alors le délai d'inactivité trop tard (nodejs/node#66885).
+    session.setTimeout(0);
+    const backstop = setTimeout(destroySession, ANNOUNCE_CAP_MS, session);
+    backstop.unref();
+    session.once("close", () => clearTimeout(backstop));
+    this.#onAbuse(session.socket.remoteAddress);
   }
 }
 
