@@ -1,41 +1,3 @@
-# Repères
-
-- **Maintenue par** — Christophe Camensuli, auteur de Nodefony
-  ([`nodefony/nodefony-core`](https://github.com/nodefony/nodefony-core))
-- **Où trouver de l'aide** — [la documentation](https://nodefony.net/docs/),
-  en commençant par [Par où commencer](https://nodefony.net/docs/demarrer/)
-
-# Étiquettes disponibles
-
-| Étiquette       | Ce qu'elle désigne                                             |
-| --------------- | -------------------------------------------------------------- |
-| `10.0.0-beta.7` | une publication précise — c'est celle à figer en CI            |
-| `beta`          | la dernière préversion du canal `beta` (mobile)                |
-| `alpha`         | l'ancien canal, figé sur `10.0.0-alpha.9` — ne plus l'employer |
-
-**`latest` n'existe pas, et c'est délibéré** : la ligne 10 est en préversion.
-Tirer une étiquette mobile sans le savoir est la façon la plus simple de voir une
-image changer sous ses pieds.
-
-# Repères (suite)
-
-- **Signaler un problème** — <https://github.com/nodefony/nodefony-core/issues>
-- **Architectures** — `linux/amd64`
-- **Mises à jour de l'image** — régénérée et republiée à **chaque publication** du
-  framework, par la chaîne de publication du dépôt
-- **Remonter d'une image à son commit** — chaque image porte les étiquettes OCI
-  normées (`org.opencontainers.image.*`), et un contrôle refuse la publication si
-  l'une d'elles est vide ou fausse :
-
-  ```bash
-  docker inspect nodefony/nodefony:beta \
-    --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
-  ```
-
-- **Source de cette page** —
-  [`docker/hub-overview.md`](https://github.com/nodefony/nodefony-core/blob/main/docker/hub-overview.md),
-  publiée par la chaîne de publication ; la page affichée ici en est le rendu
-
 # Qu'est-ce que Nodefony ?
 
 Nodefony est un framework Node.js fullstack, écrit en TypeScript strict et bâti
@@ -321,6 +283,41 @@ FROM node:24-alpine            # étage d'exécution — celui qu'on déploie
 
 > **Après tout changement de base : reconstruire, puis DÉMARRER.** « Ça
 > construit » ne prouve rien — `debian12` se construit, et meurt au démarrage.
+
+# Étiquettes disponibles
+
+| Étiquette       | Ce qu'elle désigne                                             |
+| --------------- | -------------------------------------------------------------- |
+| `10.0.0-beta.7` | une publication précise — c'est celle à figer en CI            |
+| `beta`          | la dernière préversion du canal `beta` (mobile)                |
+| `alpha`         | l'ancien canal, figé sur `10.0.0-alpha.9` — ne plus l'employer |
+
+**`latest` n'existe pas, et c'est délibéré** : la ligne 10 est en préversion.
+Tirer une étiquette mobile sans le savoir est la façon la plus simple de voir une
+image changer sous ses pieds.
+
+# Repères
+
+- **Signaler un problème** — <https://github.com/nodefony/nodefony-core/issues>
+- **Architectures** — `linux/amd64`
+- **Mises à jour de l'image** — régénérée et republiée à **chaque publication** du
+  framework, par la chaîne de publication du dépôt
+- **Remonter d'une image à son commit** — chaque image porte les étiquettes OCI
+  normées (`org.opencontainers.image.*`), et un contrôle refuse la publication si
+  l'une d'elles est vide ou fausse :
+
+  ```bash
+  docker inspect nodefony/nodefony:beta \
+    --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
+  ```
+
+- **Source de cette page** —
+  [`docker/hub-overview.md`](https://github.com/nodefony/nodefony-core/blob/main/docker/hub-overview.md),
+  publiée par la chaîne de publication ; la page affichée ici en est le rendu
+- **Maintenue par** — Christophe Camensuli, auteur de Nodefony
+  ([`nodefony/nodefony-core`](https://github.com/nodefony/nodefony-core))
+- **Où trouver de l'aide** — [la documentation](https://nodefony.net/docs/),
+  en commençant par [Par où commencer](https://nodefony.net/docs/demarrer/)
 
 # Licence
 
