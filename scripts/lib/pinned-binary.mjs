@@ -99,9 +99,17 @@ export async function ensurePinnedBinary({
 }) {
   const archivePath = path.join(cacheDir, archive);
   const binPath = path.join(cacheDir, bin);
-  if (existsSync(archivePath)) {
+  // Lire PUIS constater l'absence (ENOENT), jamais tester puis lire : entre le
+  // test et la lecture, un autre processus peut poser ou retirer l'archive.
+  let cached = null;
+  try {
+    cached = readFileSync(archivePath);
+  } catch (e) {
+    if (!(e instanceof Error && "code" in e && e.code === "ENOENT")) throw e;
+  }
+  if (cached !== null) {
     try {
-      assertSha256(archive, readFileSync(archivePath), sha256);
+      assertSha256(archive, cached, sha256);
     } catch (e) {
       throw new Error(
         `${e instanceof Error ? e.message : String(e)} (archive du cache ${cacheDir} : la supprimer pour la retélécharger)`,

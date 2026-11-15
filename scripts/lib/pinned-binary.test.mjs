@@ -112,6 +112,14 @@ describe("ensurePinnedBinary — téléchargé, vérifié, extrait", () => {
     expect(readFileSync(bin, "utf8")).toBe("outil d'origine\n");
   });
 
+  it("un cache illisible (autre chose qu'une absence) est une faute, jamais un téléchargement", async () => {
+    const { spec, calls, cacheDir } = fixture();
+    // Un dossier à la place de l'archive : la lecture échoue sans ENOENT.
+    mkdirSync(path.join(cacheDir, "tool.tar.gz"), { recursive: true });
+    await expect(ensurePinnedBinary(spec)).rejects.toThrow();
+    expect(calls.count).toBe(0);
+  });
+
   it("une archive qui ne contient pas le binaire attendu est une faute nommée", async () => {
     const { spec } = fixture();
     await expect(
