@@ -469,15 +469,19 @@ export class Http2ConnectionManager {
    *
    * La session n'est PAS détruite dans ce rappel : il tourne pendant que
    * nghttp2 lit la trame PING, et une destruction à cet instant jette les
-   * trames encore en file quand une écriture est en cours — les ACK et le
-   * GOAWAY lui-même. Sous TLS, dont les écritures s'achèvent hors de l'appel,
-   * le client recevait alors la fin de connexion sans un octet de plus
-   * (constaté sur le serveur réel : 10 sessions sur 1 600 à 16 en parallèle,
-   * 0 en h2c). Le client ferme de lui-même à la réception d'un GOAWAY
-   * d'erreur (Node, gRPC) ; un pair qui ne le fait pas est détruit au plus
-   * {@link ANNOUNCE_CAP_MS} plus tard — un minuteur par pair puni, chemin
-   * froid (le tour de surveillance n'existe pas quand seule la police est
-   * armée).
+   * trames pas encore remises à la socket — les ACK et le GOAWAY lui-même
+   * (0 ACK reçu sur 4, constaté en h2c). Sous TLS, le client recevait alors la
+   * fin de connexion sans un octet de plus (serveur réel : 10 sessions sur
+   * 1 600 à 16 en parallèle). Elle l'est au tour suivant (`setImmediate`) :
+   * l'écriture des trames reçues est programmée par Node en tâche NATIVE
+   * pendant la lecture, et ces tâches passent avant les `setImmediate` de
+   * JavaScript (constaté : 0 perte sur 4 000 sessions, h2c et TLS).
+   *
+   * Attendre que le client ferme ne marche PAS : après son propre GOAWAY sans
+   * flux ouvert, nghttp2 ne veut plus rien lire, Node cesse de lire la socket,
+   * et la fermeture du pair n'est jamais vue — chaque session punie vivait
+   * jusqu'à un filet (mesuré : 50 sur 50 encore suivies 50 ms après la
+   * fermeture du client).
    *
    * @param state - l'état de la session punie
    */
@@ -493,9 +497,7 @@ export class Http2ConnectionManager {
     // Condamnée : c'est la fermeture du CLIENT qui la détruira, et Node
     // désarme alors le délai d'inactivité trop tard (nodejs/node#66885).
     session.setTimeout(0);
-    const backstop = setTimeout(destroySession, ANNOUNCE_CAP_MS, session);
-    backstop.unref();
-    session.once("close", () => clearTimeout(backstop));
+    setImmediate(destroySession, session);
     this.#onAbuse(session.socket.remoteAddress);
   }
 }

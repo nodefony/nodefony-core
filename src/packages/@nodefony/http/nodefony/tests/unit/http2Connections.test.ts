@@ -37,7 +37,6 @@ import {
   type IHttp2ConnectionPolicy,
   type IHttp2SessionActions,
 } from "../../src/servers/http2Connections";
-import { ANNOUNCE_CAP_MS } from "../../src/servers/http2Goaway";
 
 const LAST_POSSIBLE_STREAM = 2 ** 31 - 1;
 
@@ -584,12 +583,12 @@ describe("http2 — police des PING sur de vraies connexions (gRPC A8)", () => {
     expect(abuses).to.deep.equal(["127.0.0.1"]);
   });
 
-  it("pair qui ne ferme pas : ACK et GOAWAY reçus, puni UNE fois, détruit au filet — jamais dans le rappel du PING", async () => {
+  it("pair qui ne ferme pas : ACK et GOAWAY reçus, puni UNE fois, coupé par le serveur — jamais dans le rappel du PING", async () => {
     // La destruction dans le rappel `ping` jetait les trames en file (ACK et
     // GOAWAY) quand une écriture était en cours — sous TLS, le client voyait
-    // une fin de connexion nue. Ici le pair ne ferme jamais : la connexion
-    // doit rester ouverte jusqu'au filet, et ses PING suivants ne le punissent
-    // pas une seconde fois.
+    // une fin de connexion nue. Ici le pair ne ferme jamais : c'est le SERVEUR
+    // qui doit couper (sans quoi la session vivrait — nghttp2 ne lit plus rien
+    // après son GOAWAY), et les PING suivants ne punissent pas une seconde fois.
     const server = http2.createServer();
     const abuses: (string | undefined)[] = [];
     manageHttp2Connections(
@@ -618,7 +617,6 @@ describe("http2 — police des PING sur de vraies connexions (gRPC A8)", () => {
     // L'ACK du 4ᵉ PING est mis en file AVANT le GOAWAY : rien n'a été jeté.
     expect(frames.pingAcks()).to.be.at.least(4);
     await once(socket, "close");
-    expect(performance.now() - g.at).to.be.at.least(ANNOUNCE_CAP_MS - 50);
     expect(abuses).to.deep.equal(["127.0.0.1"]);
   });
 
