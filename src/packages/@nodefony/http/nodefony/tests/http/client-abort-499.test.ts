@@ -364,8 +364,16 @@ describe.skipIf(IS_PROD_TARGET)(
         );
         req.on("error", () => resolve());
         req.on("close", () => resolve());
+        // Le délai court depuis la session TLS ÉTABLIE, pas depuis `end()` :
+        // armé avant la poignée de main, il la comptait — le serveur, qui ne
+        // voit la requête qu'après, mesurait 150 ms moins le handshake (vécu
+        // en CI macOS : 124,9 ms). Socket réutilisée par l'agent : déjà prête.
+        const arm = () => setTimeout(() => req.destroy(), 150);
+        req.on("socket", (socket) => {
+          if (socket.connecting) socket.once("secureConnect", arm);
+          else arm();
+        });
         req.end();
-        setTimeout(() => req.destroy(), 150);
       });
       const profil = await profilDe(id, await loginAsAdmin());
       expect(profil.status).to.equal(499);
