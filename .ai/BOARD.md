@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-11-15 18:29** (UTC).
+> Empreinte prise le **2026-11-15 18:31** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -33,7 +33,7 @@
 
 **#778 — test(http): éprouver HTTP/2 avec h2spec, binaire officiel figé**
 
-Ordre 8.035 · P2 — décision · 1 j · jalon 10.0.0-beta · frise 2026-11-23 → 11-23
+Ordre 8.035 · P2 — décision · 1 j · jalon 10.0.0-beta · frise 2026-11-18 → 11-18
 
 > Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 7 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
@@ -177,13 +177,13 @@ Ordre 8.035 · P2 — décision · 1 j · jalon 10.0.0-beta · frise 2026-11-23 
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 8.035 | P2 — décision | 1 | 2026-11-23 → 11-23 | #778 | test(http): éprouver HTTP/2 avec h2spec, binaire officiel figé |
-| 8.04 | P1 — figé à la création | 1 | 2026-11-20 → 11-20 | #659 | docs(performance): remesurer les pages de performance avant la release |
-| 9.005 | P1 — figé à la création | 1 | 2026-11-24 → 11-24 | #47 | docs(release): faire suivre à l'accueil ce qui est réellement publié |
-| 9.01 | P1 — figé à la création | 1 | — | #779 | feat(cli): ouvrir l'image générée aux paquets système, sans retouche |
-| 9.02 | P1 — figé à la création | 1 | — | #780 | feat(cli): mettre à jour le Dockerfile d'une app par nodefony upgrade |
-| 9.03 | P1 — figé à la création | 0.5 | — | #781 | ci(release): publier l'image de démonstration aussi pour arm64 |
-| 9.04 | P2 — décision | 1 | — | #772 | docs(docker): réécrire la fiche Docker Hub de l'image officielle |
+| 8.035 | P2 — décision | 1 | 2026-11-18 → 11-18 | #778 | test(http): éprouver HTTP/2 avec h2spec, binaire officiel figé |
+| 8.04 | P1 — figé à la création | 1 | 2026-11-19 → 11-19 | #659 | docs(performance): remesurer les pages de performance avant la release |
+| 9.005 | P1 — figé à la création | 1 | 2026-11-21 → 11-21 | #47 | docs(release): faire suivre à l'accueil ce qui est réellement publié |
+| 9.01 | P1 — figé à la création | 1 | 2026-11-21 → 11-21 | #779 | feat(cli): ouvrir l'image générée aux paquets système, sans retouche |
+| 9.02 | P1 — figé à la création | 1 | 2026-11-23 → 11-23 | #780 | feat(cli): mettre à jour le Dockerfile d'une app par nodefony upgrade |
+| 9.03 | P1 — figé à la création | 0.5 | 2026-11-24 → 11-24 | #781 | ci(release): publier l'image de démonstration aussi pour arm64 |
+| 9.04 | P2 — décision | 1 | 2026-11-25 → 11-25 | #772 | docs(docker): réécrire la fiche Docker Hub de l'image officielle |
 
 ## Jalon 10.2.0 — 33 ouverts
 

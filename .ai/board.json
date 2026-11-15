@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-15T18:29:38.885Z",
+  "generatedAt": "2026-11-15T18:31:35.033Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -7008,8 +7008,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 8.035,
-      "debut": "2026-11-23",
-      "cible": "2026-11-23",
+      "debut": "2026-11-18",
+      "cible": "2026-11-18",
       "labels": [
         "beta-8"
       ]
@@ -7024,8 +7024,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 8.04,
-      "debut": "2026-11-20",
-      "cible": "2026-11-20",
+      "debut": "2026-11-19",
+      "cible": "2026-11-19",
       "labels": [
         "beta-8"
       ]
@@ -7124,8 +7124,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 9.005,
-      "debut": "2026-11-24",
-      "cible": "2026-11-24",
+      "debut": "2026-11-21",
+      "cible": "2026-11-21",
       "labels": [
         "post-publication",
         "beta-9"
@@ -7141,8 +7141,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 9.01,
-      "debut": null,
-      "cible": null,
+      "debut": "2026-11-21",
+      "cible": "2026-11-21",
       "labels": [
         "beta-9"
       ]
@@ -7157,8 +7157,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 9.02,
-      "debut": null,
-      "cible": null,
+      "debut": "2026-11-23",
+      "cible": "2026-11-23",
       "labels": [
         "beta-9"
       ]
@@ -7173,8 +7173,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 9.03,
-      "debut": null,
-      "cible": null,
+      "debut": "2026-11-24",
+      "cible": "2026-11-24",
       "labels": [
         "beta-9"
       ]
@@ -7189,8 +7189,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 9.04,
-      "debut": null,
-      "cible": null,
+      "debut": "2026-11-25",
+      "cible": "2026-11-25",
       "labels": [
         "beta-9"
       ]
