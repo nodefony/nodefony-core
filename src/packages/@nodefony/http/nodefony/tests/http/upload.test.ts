@@ -159,6 +159,12 @@ describe("File Upload Tests", () => {
     // Le SERVEUR efface les temporaires que l'action n'a pas déplacés : la
     // suite ne doit plus rien trouver. Que ce dossier soit bien celui où il
     // écrit, le test « lu sans être déplacé » le prouve par le chemin rendu.
+    // Ce ménage part APRÈS la réponse (`Request.ts#HttpRequest.#purgeUploads`) :
+    // compter sans l'attendre jugeait la course avec le dernier cas, pas le
+    // serveur — vécu sur la forge macOS, « expected 1 to equal 0 » deux fois.
+    // On attend le FAIT (dossier revenu à la photo) ; une vraie fuite, elle,
+    // ne s'efface pas et reste rouge.
+    await settled(snapshot);
     const removed = await purgeUploadResidue(snapshot);
     expect(removed, "le serveur a laissé des temporaires d'upload").to.equal(0);
   });
