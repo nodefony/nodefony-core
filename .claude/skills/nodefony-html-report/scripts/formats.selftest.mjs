@@ -14,7 +14,7 @@
  * node .claude/skills/nodefony-html-report/scripts/formats.selftest.mjs
  * ```
  */
-import { fmt, nombreDepuisTexte } from "../lib/report.mjs";
+import { doc, fmt, nombreDepuisTexte } from "../lib/report.mjs";
 
 let rouges = 0;
 const cas = (nom, obtenu, attendu) => {
@@ -67,6 +67,31 @@ const detecte = ancienRes !== 4.66;
 if (!detecte) rouges += 1;
 console.log(
   `  ${detecte ? "✅" : "❌"} l'ancienne lecture rend ${ancienRes} sur « 4,66 » — c'est le défaut que ce fichier garde fermé`,
+);
+
+console.log("━━ une page publiée a sa description et son icône");
+// Sans elles, Lighthouse rend SEO 92 (pas de description) et bonnes pratiques
+// 96 (404 de /favicon.ico dans la console) — sur chaque page du site.
+const page = doc({ title: "T", subtitle: "Ce que la <em>page</em> dit." });
+cas(
+  "la description vient du sous-titre, sans balises",
+  page.includes('<meta name="description" content="Ce que la page dit.">'),
+  true,
+);
+cas(
+  "l'icône vient du logo de la marque",
+  page.includes('<link rel="icon" href="data:'),
+  true,
+);
+const posee = doc({
+  title: "T",
+  subtitle: "x",
+  head: '<meta name="description" content="à moi">',
+});
+cas(
+  "une description posée par la page n'est jamais doublée",
+  posee.match(/name="description"/g).length,
+  1,
 );
 
 console.log(

@@ -1158,6 +1158,9 @@ const html = doc({
 .wrap .profil p.profil-c { color:var(--dim); font-size:13px; line-height:1.45; margin:.6rem 0 0; max-width:none; }
 .profil ul { margin:.55rem 0 .6rem; padding-left:1.05rem; font-size:14px; line-height:1.45; }
 .wrap .profil li { margin:.2rem 0; max-width:none; }
+/* Cible de 24 px au moins (WCAG 2.5.8) : à 14 px × 1,45, un lien de liste en
+   faisait 20 et Lighthouse rendait l'accessibilité de l'accueil à 96. */
+.profil li a { display:inline-block; padding:2px 0; }
 .profil-p { font-size:13.5px; font-weight:600; }
 .wrap p.profils-plus { color:var(--dim); font-size:14px; margin:0; }
 @media (min-width:761px) { .profil summary { pointer-events:none; } }

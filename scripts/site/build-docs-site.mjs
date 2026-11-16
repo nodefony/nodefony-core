@@ -874,8 +874,20 @@ function buildNav(pages, current) {
   );
 
   const flat = ["demarrer.md", "lexique.md"].map(rootPage).filter(Boolean);
-  if (flat.length)
-    parts.push(`<ul class="nav-flat">${flat.map(li).join("")}</ul>`);
+  // Les mesures et les campagnes de test sont publiées par leurs propres
+  // générateurs, à côté de la documentation : sans entrée ici, le lecteur de
+  // la doc n'a aucun chemin vers elles (le dossier `performance/` est écarté
+  // du corpus, donc d'aucun groupe).
+  const siblings = [
+    ["/performance/", "📊 Performance"],
+    ["/qualite/", "🧪 Qualité"],
+  ]
+    .map(
+      ([url, label]) =>
+        `<li data-t="${esc4(label.toLowerCase())}"><a href="${rel(current.url, url)}">${esc4(label)}</a></li>`,
+    )
+    .join("");
+  parts.push(`<ul class="nav-flat">${flat.map(li).join("")}${siblings}</ul>`);
 
   for (const sec of PUBLIC_DIRS) {
     const items = pages.filter(

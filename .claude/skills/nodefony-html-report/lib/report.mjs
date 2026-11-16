@@ -892,6 +892,38 @@ body.deck .foot, body.deck .topbar, body.deck .sub { display:none; }
 /* ── document ───────────────────────────────────────────────────────────── */
 
 /**
+ * Complète le `<head>` d'une page par ce qu'elle a oublié de déclarer.
+ *
+ * Sans description, un moteur de recherche invente son extrait (Lighthouse :
+ * SEO 92) ; sans icône, le navigateur demande `/favicon.ico` et chaque visiteur
+ * récolte un 404 dans sa console (Lighthouse : bonnes pratiques 96). Les deux
+ * se déduisent de ce que la page a déjà — son sous-titre, le logo de sa marque,
+ * embarqué en data-URI — donc aucun générateur n'a plus à y penser. Ce que
+ * l'appelant pose lui-même n'est jamais doublé.
+ *
+ * @param {string} head - balises déjà fournies par l'appelant.
+ * @param {string} subtitle - le sous-titre (HTML possible).
+ * @param {{logo?: string} | null} brand - la marque de la page.
+ * @returns {string} le `<head>` complété.
+ */
+export function completeHead(head, subtitle, brand) {
+  const extra = [];
+  if (!/name=["']description["']/i.test(head)) {
+    const text = (subtitle ?? "")
+      .replace(/<[^>]*>/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (text) {
+      const cut = text.length > 160 ? `${text.slice(0, 157).trimEnd()}…` : text;
+      extra.push(`<meta name="description" content="${esc(cut)}">`);
+    }
+  }
+  if (!/rel=["'](?:shortcut )?icon["']/i.test(head) && brand?.logo)
+    extra.push(`<link rel="icon" href="${brand.logo}">`);
+  return [head, ...extra].filter(Boolean).join("\n");
+}
+
+/**
  * Assemble le document HTML complet (autonome).
  *
  * @param title - titre (onglet + en-tête)
@@ -946,7 +978,7 @@ export const doc = ({
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)}</title>
-${head}
+${completeHead(head, subtitle, brand)}
 <style>${CSS}</style>
 ${style ? `<style>${style}</style>` : ""}
 </head>
