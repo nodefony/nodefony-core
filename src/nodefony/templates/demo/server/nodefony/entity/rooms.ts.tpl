@@ -16,7 +16,9 @@ import type { ChatAttachment } from "../../frontend/src/chat/chatContract";
  * `demoDrizzleOverride`), jamais la base de l'application. Les comptes, eux,
  * vivent dans la base de l'application : `ownerId`, `userId`, `organizerId`
  * sont des identifiants STABLES de compte (`this.user.id`), sans clé
- * étrangère — une base ne peut pas en viser une autre. Les noms d'entité
+ * étrangère — une base ne peut pas en viser une autre. Entre tables de la
+ * démo, en revanche, chaque lien est une vraie clé étrangère (`kind: "ref"`) :
+ * la base refuse un membre sans salle, et le schéma de la console les dessine. Les noms d'entité
  * sont préfixés `Demo` : une autre partie de l'application peut avoir sa
  * propre `Room`. Les champs d'événement suivent iCalendar (RFC 5545 :
  * `VEVENT`, `STATUS`, `ATTENDEE` avec son `ROLE` et son `PARTSTAT`).
@@ -48,7 +50,7 @@ export const roomMemberTable = defineTable({
   name: "room_member",
   columns: {
     id: { kind: "text", primaryKey: true, defaultFn: () => randomUUID() },
-    roomId: { kind: "text", notNull: true },
+    roomId: { kind: "ref", target: () => roomTable, notNull: true },
     userId: { kind: "text", notNull: true },
     role: {
       kind: "enum",
@@ -75,7 +77,7 @@ export const eventTable = defineTable({
   columns: {
     /** L'UID iCalendar : stable, exportable en `.ics`. */
     id: { kind: "text", primaryKey: true, defaultFn: () => randomUUID() },
-    roomId: { kind: "text", notNull: true },
+    roomId: { kind: "ref", target: () => roomTable, notNull: true },
     organizerId: { kind: "text", notNull: true },
     title: { kind: "string", length: 120, notNull: true },
     description: { kind: "string", length: 1000 },
@@ -100,7 +102,7 @@ export const eventAttendeeTable = defineTable({
   name: "event_attendee",
   columns: {
     id: { kind: "text", primaryKey: true, defaultFn: () => randomUUID() },
-    eventId: { kind: "text", notNull: true },
+    eventId: { kind: "ref", target: () => eventTable, notNull: true },
     userId: { kind: "text", notNull: true },
     role: {
       kind: "enum",
@@ -136,7 +138,7 @@ export const messageTable = defineTable({
   name: "message",
   columns: {
     id: { kind: "text", primaryKey: true, defaultFn: () => randomUUID() },
-    roomId: { kind: "text", notNull: true },
+    roomId: { kind: "ref", target: () => roomTable, notNull: true },
     authorId: { kind: "text", notNull: true },
     author: { kind: "string", length: 128, notNull: true },
     /** Jusqu'à `MESSAGE_MAX_BYTES` (64 Kio) : un `text`, pas une chaîne bornée. */
@@ -146,7 +148,7 @@ export const messageTable = defineTable({
     /** Ce que le salon annonce des pièces ; absent d'un message de texte seul. */
     attachments: { kind: "json", type: jsonType<ChatAttachment[]>() },
     /** Le message auquel il répond (XEP-0461), du MÊME salon. */
-    replyTo: { kind: "text" },
+    replyTo: { kind: "ref", target: "self", onDelete: "set null" },
     /** Dernière modification par l'auteur (XEP-0308), en ms UTC. */
     editedAt: { kind: "int64" },
     /**
@@ -174,7 +176,7 @@ export const reactionTable = defineTable({
   name: "message_reaction",
   columns: {
     id: { kind: "text", primaryKey: true, defaultFn: () => randomUUID() },
-    messageId: { kind: "text", notNull: true },
+    messageId: { kind: "ref", target: () => messageTable, notNull: true },
     userId: { kind: "text", notNull: true },
     name: { kind: "string", length: 128, notNull: true },
     emoji: { kind: "string", length: 32, notNull: true },
@@ -206,7 +208,7 @@ export const roomReadTable = defineTable({
   name: "room_read",
   columns: {
     id: { kind: "text", primaryKey: true, defaultFn: () => randomUUID() },
-    roomId: { kind: "text", notNull: true },
+    roomId: { kind: "ref", target: () => roomTable, notNull: true },
     userId: { kind: "text", notNull: true },
     readUpTo: { kind: "int64", notNull: true },
   },
