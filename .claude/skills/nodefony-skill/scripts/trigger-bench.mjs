@@ -620,8 +620,16 @@ const uncovered = skills.map((s) => s.name).filter((n) => !tested.has(n));
 let tPass = 0;
 const tArbitrated = []; // recouvrement documenté dans ACCEPTED_OVERLAPS
 const tOpen = []; // recouvrement NON tranché — le vrai signal
+// Déclencheur fait de mots vides seuls (« c'est sûr ? » → « est », « sur ») :
+// un banc LEXICAL n'a rien à apparier, l'élu serait le premier venu. Ce n'est
+// pas un recouvrement — le dire, plutôt que de l'imputer à un skill au hasard.
+const tUnmeasurable = [];
 for (const s of skills) {
   for (const t of s.triggers) {
+    if (words(t).length === 0) {
+      tUnmeasurable.push({ trigger: t, owner: s.name });
+      continue;
+    }
     const got = rank(t, s.scope)[0];
     if (got.sc > 0 && got.name === s.name) {
       tPass++;
@@ -635,7 +643,8 @@ for (const s of skills) {
   }
 }
 
-const totalTriggers = tPass + tArbitrated.length + tOpen.length;
+const totalTriggers =
+  tPass + tArbitrated.length + tOpen.length + tUnmeasurable.length;
 console.log("\n=== banc de déclenchement ===");
 console.log(
   `Phrases réelles      : ${pass}/${CASES.length}` +
@@ -650,7 +659,10 @@ console.log(
   `Couverture           : ${skills.length - uncovered.length}/${skills.length} skills ont ≥1 cas`,
 );
 console.log(
-  `Déclencheurs déclarés: ${tPass}/${totalTriggers} → leur skill · ${tArbitrated.length} arbitrés · ${tOpen.length} à arbitrer`,
+  `Déclencheurs déclarés: ${tPass}/${totalTriggers} → leur skill · ${tArbitrated.length} arbitrés · ${tOpen.length} à arbitrer` +
+    (tUnmeasurable.length
+      ? ` · ${tUnmeasurable.length} hors banc lexical (${tUnmeasurable.map((t) => `« ${t.trigger} »`).join(", ")})`
+      : ""),
 );
 
 if (failures.length) {
