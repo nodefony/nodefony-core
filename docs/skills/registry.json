@@ -1150,7 +1150,8 @@
         "scripts/generate/env-snapshot.ts",
         "scripts/test/coverage-all.ts",
         "scripts/test/lib/testbed.ts",
-        "scripts/test/testbed-report.ts"
+        "scripts/test/testbed-report.ts",
+        ".claude/skills/nodefony-test-campaign/scripts/test-campaign.sh"
       ],
       "testedBy": [
         "src/modules/test/nodefony/tests/testbed.test.ts",
@@ -11256,16 +11257,73 @@
       ],
       "description": "Conduit une passe de test COMPLÈTE du dépôt Nodefony — toutes les suites, tous les interrupteurs, tous les bancs — dans l'ordre où chacune ne fausse pas la suivante, et rend un verdict qui distingue une régression du produit d'un artefact de décor. Porte la matrice des étages, le décor de chacun, ce qu'un run vert ne prouve PAS, l'arbre de décision qui instruit un rouge avant de l'imputer au code, et le rapport HTML qui clôt la campagne. À charger AVANT la première commande : l'ordre des étages EST le protocole, et un lot joué à l'envers fabrique des rouges qui n'appartiennent à personne. Déclencheurs : \"campagne de test\", \"passe de test complète\", \"lance tous les tests\", \"tous les bancs\", \"on teste tout\", \"qu'est-ce qui n'a pas été testé ?\", \"ce rouge est-il une régression ?\", \"tests verts en isolé rouges en suite\", \"combien de tests sont sautés\", \"rapport de la campagne de test\".",
       "cost": {
-        "bodyLines": 227,
-        "approxTokens": 4331
+        "bodyLines": 235,
+        "approxTokens": 4433
       },
-      "requires": [],
+      "requires": [
+        "docker",
+        "redis"
+      ],
       "resources": {
         "references": [
           "pieges-de-session.md"
         ],
         "referenceFilesTotal": 1,
-        "scripts": []
+        "scripts": [
+          {
+            "path": "scripts/test-campaign.sh",
+            "purpose": "Campagne de test SANS SURVEILLANCE — la matière de `docs/qualite/data/<version>.json`, pour les étages qui se jouent sans jugement, dans l'ordre du protocole (SKILL.md § « La matrice ») :",
+            "usage": [
+              "bash test-campaign.sh [--at HH:MM] [--out DIR] [--only \"A B …\"]"
+            ],
+            "options": [
+              {
+                "flag": "--at",
+                "help": ""
+              },
+              {
+                "flag": "--dialects",
+                "help": ""
+              },
+              {
+                "flag": "--keep",
+                "help": ""
+              },
+              {
+                "flag": "--load",
+                "help": ""
+              },
+              {
+                "flag": "--only",
+                "help": ""
+              },
+              {
+                "flag": "--out",
+                "help": ""
+              },
+              {
+                "flag": "--porcelain",
+                "help": ""
+              },
+              {
+                "flag": "--rupture",
+                "help": ""
+              },
+              {
+                "flag": "--short",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "ONLY",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          }
+        ]
       },
       "related": [
         "nodefony-check-memory-health",
@@ -11335,7 +11393,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "227",
+            "detail": "235",
             "advisory": true
           }
         ]

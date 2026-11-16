@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-20
+updated: 2026-11-16
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-test-campaign/SKILL.md"
 ---
@@ -28,17 +28,21 @@ source: ".claude/skills/nodefony-test-campaign/SKILL.md"
 | --- | --- |
 | Version | `1.1.0` |
 | Famille | Autres |
-| Corps | 227 lignes |
-| Coût d'activation | ~4 331 tokens (le corps est chargé à l'invocation) |
+| Corps | 235 lignes |
+| Coût d'activation | ~4 433 tokens (le corps est chargé à l'invocation) |
 | Description | 894 / 1024 caractères |
 | Déclencheurs | 10 |
 | Ressources `references/` | 1 page(s) |
-| Scripts | 0 |
+| Scripts | 1 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
 Conduit une passe de test COMPLÈTE du dépôt Nodefony — toutes les suites, tous les interrupteurs, tous les bancs — dans l'ordre où chacune ne fausse pas la suivante, et rend un verdict qui distingue une régression du produit d'un artefact de décor. Porte la matrice des étages, le décor de chacun, ce qu'un run vert ne prouve PAS, l'arbre de décision qui instruit un rouge avant de l'imputer au code, et le rapport HTML qui clôt la campagne. À charger AVANT la première commande : l'ordre des étages EST le protocole, et un lot joué à l'envers fabrique des rouges qui n'appartiennent à personne.
+
+## Prérequis
+
+Ce que le décor doit fournir pour que ses scripts disent quelque chose : **docker** · **redis**.
 
 ## Skills voisins
 
@@ -73,6 +77,23 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/pieges-de-session.md` | Les pièges d'une passe complète — symptôme, cause, geste | 172 |
 
 
+## Scripts embarqués
+
+Rôle, invocation, options et variables d'environnement — **extraits du source** de chaque
+script, donc toujours à jour après régénération.
+
+| Script | Rôle | Options | Variables d'environnement |
+| --- | --- | --- | --- |
+| `scripts/test-campaign.sh` | Campagne de test SANS SURVEILLANCE — la matière de `docs/qualite/data/<version>.json`, pour les étages qui se jouent sans jugement, dans l'ordre du protocole (SKILL.md § « La matrice ») : | `--at` `--dialects` `--keep` `--load` `--only` `--out` `--porcelain` `--rupture` `--short` | `ONLY` |
+
+**Invocation telle que documentée dans chaque script :**
+
+```bash
+bash test-campaign.sh [--at HH:MM] [--out DIR] [--only "A B …"]
+```
+
+**Toutes les variables lues par ce skill** : `ONLY`
+
 ## Conformité au standard Agent Skills
 
 > [!NOTE]
@@ -92,7 +113,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 227 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 235 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

@@ -199,7 +199,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme v1.0.0 · ⚙️ 7 scripts" },
   { "icon": "🔧", "title": "test-campaign", "href": "skills/nodefony-test-campaign.md",
     "desc": "Conduit une passe de test COMPLÈTE du dépôt Nodefony — toutes les suites, tous les interrupteurs, tous les bancs — dans l'ordre où chacune ne fausse pas la suivante, et rend un verdict qui distingue une régression du produit d'un artefact de décor.",
-    "meta": "🟢 conforme v1.1.0 · 📎 1 réf" },
+    "meta": "🟢 conforme v1.1.0 · ⚙️ 1 script · 📎 1 réf" },
   { "icon": "🔧", "title": "ticket", "href": "skills/nodefony-ticket.md",
     "desc": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre Conventional Commits compréhensible sans connaître le dépôt, lexique, corps en quatre blocs avec preuve `<fichier>.ts#<Symbole>` et critère de fin observable, gravité normée d'un défaut (CVSS 3.1 calculé, échelle IEEE 1044), parents…",
     "meta": "🟢 conforme v1.12.0 · ⚙️ 24 scripts · 📎 8 réf" },

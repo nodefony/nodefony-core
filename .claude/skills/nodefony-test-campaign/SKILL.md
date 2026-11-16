@@ -51,6 +51,14 @@ parallèle, ce sont deux mesures fausses et des rouges de saturation à instruir
 | **E** | Ce que le scaffold produit | `verify-generated.mjs` puis `verify-runtime.mjs` | indifférent (ports dédiés) | l'application d'un utilisateur                       |
 | **F** | Multi-pods                 | `setup.sh` puis `run.sh`                         | **arrêté**                 | ce qui n'existe qu'à plusieurs process               |
 
+**Sans surveillance, la nuit** : `scripts/test-campaign.sh` enchaîne A (micro-bancs ouverts),
+B, C1c, C1b, C2, E puis la chaîne de publication, une sortie entière par étage, et un rouge
+n'arrête pas la suite. Il ne joue ni C3, ni D, ni F, qui demandent un jugement en route.
+
+```bash
+nohup caffeinate -dims bash .claude/skills/nodefony-test-campaign/scripts/test-campaign.sh --at 01:30 >/dev/null 2>&1 &
+```
+
 > 🔴 **Arrêter le serveur de développement avant A, B, C et F.** Deux applications Nodefony
 > peuvent écouter le MÊME port sur macOS et les BSD (`127.0.0.1:5151` et `*:5151` sont deux
 > liaisons distinctes) : le noyau ne lève jamais, la seconde se dit prête, et tout le trafic va à
