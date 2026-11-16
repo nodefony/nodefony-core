@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-11-15",
+  "generatedAt": "2026-11-16",
   "count": 44,
   "repoScripts": [
     {
@@ -144,6 +144,7 @@
         "scripts/gates/dev-credentials.test.mjs",
         "scripts/gates/vitest-tmp-guard.test.mjs",
         "scripts/lib/redis-session-purge.test.mjs",
+        "scripts/site/perf-figures.test.mjs",
         "scripts/site/schemas-organigramme.test.mjs",
         "scripts/site/schemas-sequence.test.mjs",
         "scripts/site/site-plan.test.mjs",
@@ -1790,6 +1791,19 @@
       "path": "scripts/site/markdown-source.test.mjs",
       "test": true,
       "purpose": "",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/site/perf-figures.test.mjs",
+      "test": true,
+      "purpose": "Le registre des figures du dossier de performance : chaque nombre dessiné doit se retrouver dans le jeu publié, et une figure appelée sans données doit faire échouer la page au lieu d'y laisser un trou.",
       "usage": [],
       "options": [],
       "env": [],
@@ -7248,9 +7262,13 @@
             "path": "scripts/cut-analyze.mjs",
             "purpose": "Relit une bissection par court-circuit (`NF_WAIT_CUTS` de `wait-compare.sh`) et rend le COÛT DE CHAQUE ÉTAGE en µs de CPU du fil principal par requête.",
             "usage": [
-              "Usage : node cut-analyze.mjs <dossier> <témoin> <coupe…> [--partial]"
+              "Usage : node cut-analyze.mjs <dossier> <témoin> <coupe…> [--partial] [--json <fichier>]"
             ],
             "options": [
+              {
+                "flag": "--json",
+                "help": ""
+              },
               {
                 "flag": "--partial",
                 "help": ""
@@ -8027,6 +8045,10 @@
                 "help": ""
               },
               {
+                "flag": "--binary",
+                "help": ""
+              },
+              {
                 "flag": "--campaign",
                 "help": ""
               },
@@ -8040,6 +8062,10 @@
               },
               {
                 "flag": "--format",
+                "help": ""
+              },
+              {
+                "flag": "--from",
                 "help": ""
               },
               {
@@ -8091,6 +8117,15 @@
                 "help": ""
               }
             ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/perf-figures.mjs",
+            "purpose": "Les FIGURES du dossier de performance, calculées depuis le jeu publié (`docs/performance/data/<version>.json`) — jamais saisies à la main.",
+            "usage": [],
+            "options": [],
             "env": [],
             "output": "",
             "selfDocumented": false
@@ -8239,9 +8274,14 @@
             "path": "scripts/profile-compare.mjs",
             "purpose": "Compare DEUX profils pris par `profile-cpu.sh` dans le même décor, poste à poste, en µs par requête. C'est la question qu'un profil isolé ne pose jamais : « combien de trop, et OÙ, par rapport à ce qui est possible ? ».",
             "usage": [
-              "Usage : node profile-compare.mjs <dossier A> <dossier B> [top=25]"
+              "Usage : node profile-compare.mjs <dossier A> <dossier B> [top=25] [--json <fichier>]"
             ],
-            "options": [],
+            "options": [
+              {
+                "flag": "--json",
+                "help": ""
+              }
+            ],
             "env": [],
             "output": "",
             "selfDocumented": false

@@ -187,12 +187,19 @@ fi
 # ── où part le temps : le budget d'une requête, étage par étage (#659) ──
 # Bissection par COURT-CIRCUIT (cut-probe.mjs) : chaque manche sert aussi
 # Nodefony coupé à chaque étage ; cut-analyze.mjs rend le coût de chacun.
+# Les coupes dans l'ordre du pipeline : UNE liste, servie au banc ET à l'analyse
+# en données (`etages.json`, lu par perf-compose.mjs).
+ETAGES_CUTS="entry context pipeline route action"
 if want etages; then
   log "budget par étage — wait-compare nest-fair-node 3, coupes entry → action"
-  NF_WAIT_DIR="$OUT/etages" NF_WAIT_CUTS="entry context pipeline route action" BENCH_CONN=64 \
+  NF_WAIT_DIR="$OUT/etages" NF_WAIT_CUTS="$ETAGES_CUTS" BENCH_CONN=64 \
     bash "$ROOT/.claude/skills/nodefony-load-test/scripts/wait-compare.sh" nest-fair-node 3 \
     >"$OUT/etages.log" 2>&1
-  log "  → code $?"
+  code=$?
+  # shellcheck disable=SC2086 # la liste des coupes se découpe exprès
+  node "$ROOT/.claude/skills/nodefony-load-test/scripts/cut-analyze.mjs" "$OUT/etages" nest-fair-node $ETAGES_CUTS \
+    --json "$OUT/etages.json" >/dev/null 2>&1
+  log "  → code $code"
 fi
 # Le profil CPU comparé, poste par poste (règle n°0 du skill) : ce qu'il y a
 # DANS chaque étage, en µs par requête.
@@ -200,7 +207,10 @@ if want profil; then
   log "profil comparé — profile-compare nest-fair-node"
   NF_PROFILE_DIR="$OUT/profil" bash "$ROOT/.claude/skills/nodefony-load-test/scripts/profile-compare.sh" nest-fair-node \
     >"$OUT/profil.log" 2>&1
-  log "  → code $?"
+  code=$?
+  node "$ROOT/.claude/skills/nodefony-load-test/scripts/profile-compare.mjs" "$OUT/profil/nodefony" "$OUT/profil/nest-fair-node" \
+    --json "$OUT/profil.json" >/dev/null 2>&1
+  log "  → code $code"
 fi
 
 # ── l'arbitre des écarts fins : CPU du fil principal par requête (#508) ──

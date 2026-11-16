@@ -11,12 +11,18 @@
 //   3. le code propre de chaque framework, par origine puis ses fonctions les
 //      plus chères — non comparables nom à nom, lus côte à côte.
 //
-// Usage : node profile-compare.mjs <dossier A> <dossier B> [top=25]
+// Usage : node profile-compare.mjs <dossier A> <dossier B> [top=25] [--json <fichier>]
+//   `--json` écrit les trois tableaux en données (composeur du dossier de performance).
 
+import { writeFileSync } from "node:fs";
 import path from "node:path";
 import { analyzeProfile, isFrameworkOrigin } from "./profile-analyze.mjs";
 
-const [dirA, dirB, top = "25"] = process.argv.slice(2);
+const jsonIdx = process.argv.indexOf("--json");
+const jsonOut = jsonIdx > 0 ? process.argv[jsonIdx + 1] : null;
+const [dirA, dirB, top = "25"] = process.argv
+  .slice(2)
+  .filter((a, i, all) => a !== "--json" && all[i - 1] !== "--json");
 if (!dirA || !dirB) {
   console.error("usage : profile-compare.mjs <dossier A> <dossier B> [top]");
   process.exit(2);
@@ -61,13 +67,16 @@ for (const r of rows) {
 }
 
 function frameworkSide(R, label) {
+  const side = { label, totalUs: 0, origins: [], functions: [] };
   let sum = 0;
   const origins = [...R.origin].filter(([o]) => isFrameworkOrigin(o));
   for (const [, v] of origins) sum += v;
+  side.totalUs = us(sum, R);
   console.log(
     `\n== code propre — ${label} : ${us(sum, R).toFixed(1)} µs/req ==`,
   );
   for (const [o, v] of origins.sort((x, y) => y[1] - x[1]).slice(0, 10)) {
+    side.origins.push({ origin: o, us: us(v, R) });
     console.log(`${cell(us(v, R))}  ${o}`);
   }
   console.log("  — fonctions les plus chères :");
@@ -75,7 +84,32 @@ function frameworkSide(R, label) {
     .filter(([k]) => isFrameworkOrigin(originOfKey(k)))
     .sort((x, y) => y[1] - x[1])
     .slice(0, Number(top));
-  for (const [k, v] of fns) console.log(`${cell(us(v, R))}  ${k}`);
+  for (const [k, v] of fns) {
+    side.functions.push({ fn: k, us: us(v, R) });
+    console.log(`${cell(us(v, R))}  ${k}`);
+  }
+  return side;
 }
-frameworkSide(A, nameA);
-frameworkSide(B, nameB);
+const sideA = frameworkSide(A, nameA);
+const sideB = frameworkSide(B, nameB);
+if (jsonOut)
+  writeFileSync(
+    jsonOut,
+    `${JSON.stringify(
+      {
+        a: nameA,
+        b: nameB,
+        requests: { [nameA]: A.req, [nameB]: B.req },
+        totalUs: { [nameA]: tA, [nameB]: tB },
+        node: rows.map((r) => ({
+          fn: r.k,
+          [nameA]: r.a,
+          [nameB]: r.b,
+          gap: r.d,
+        })),
+        own: { [nameA]: sideA, [nameB]: sideB },
+      },
+      null,
+      2,
+    )}\n`,
+  );

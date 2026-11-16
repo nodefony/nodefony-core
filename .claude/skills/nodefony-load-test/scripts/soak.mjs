@@ -649,7 +649,14 @@ for (let w = 1; w <= WINDOWS; w++) {
     : p99raw.endsWith("ms")
       ? parseFloat(p99raw)
       : parseFloat(p99raw) * 1000;
-  const bad = /Non-2xx or 3xx responses|Socket errors/.test(txt);
+  // La LIGNE de wrk, pas seulement le drapeau : « ⚠ erreurs » ne dit pas si
+  // le serveur a rendu un non-2xx (défaut du produit) ou si une socket a expiré
+  // (machine saturée) — et le texte de wrk n'est gardé nulle part ailleurs.
+  const errorLines = txt
+    .split("\n")
+    .filter((l) => /Non-2xx or 3xx responses|Socket errors/.test(l))
+    .map((l) => l.trim());
+  const bad = errorLines.length > 0;
 
   const { mem, erreur: erreurSonde } = await sonder();
   if (!mem) {
@@ -712,10 +719,11 @@ for (let w = 1; w <= WINDOWS; w++) {
     charge: +os.loadavg()[0].toFixed(2),
     sockets: mem.activeResources?.TCPSocketWrap ?? null,
     errors: bad,
+    errorLines: bad ? errorLines : null,
   };
   samples.push(s);
   console.log(
-    `  fenêtre ${String(w).padStart(2)}/${WINDOWS} · ${String(Math.round(rps)).padStart(6)} rps · p99 ${s.p99Ms.toFixed(2)}ms · heap ${s.heapUsedMb} MB · rss ${s.rssMb} MB · ext ${s.externalMb} MB${bad ? "  ⚠ erreurs" : ""}`,
+    `  fenêtre ${String(w).padStart(2)}/${WINDOWS} · ${String(Math.round(rps)).padStart(6)} rps · p99 ${s.p99Ms.toFixed(2)}ms · heap ${s.heapUsedMb} MB · rss ${s.rssMb} MB · ext ${s.externalMb} MB${bad ? `  ⚠ ${errorLines.join(" · ")}` : ""}`,
   );
 }
 

@@ -40,6 +40,13 @@ import {
   fmt,
   COLORS,
 } from "../../.claude/skills/nodefony-html-report/lib/report.mjs";
+import {
+  bars,
+  pie,
+  couple,
+  figure,
+  STYLE_GRAPHES,
+} from "../../.claude/skills/nodefony-html-report/lib/echarts.mjs";
 import { REPO_ROOT as ROOT } from "../lib/repo-root.mjs";
 
 function arg(nom, defaut) {
@@ -136,27 +143,54 @@ function rendre(d) {
   sections.push(
     section(
       "Ce qui a été joué, étage par étage",
-      table(
-        [
-          { label: "Étage", strong: true },
-          { label: "Ce qu'il ajoute" },
-          { label: "Passés", align: "right" },
-          { label: "Rouges", align: "right" },
-          { label: "Sautés", align: "right" },
-          { label: "Durée", align: "right", dim: true },
-          { label: "Verdict" },
-        ],
-        d.etages.map((e) => [
-          `${esc(e.id)} — ${esc(e.nom)}<br><code style="font-size:.85em;opacity:.7">${esc(e.commande)}</code>`,
-          esc(e.note),
-          fmt.int(e.passes),
-          e.echecs ? `<strong>${e.echecs}</strong>` : "—",
-          e.sautes ? fmt.int(e.sautes) : "—",
-          esc(e.duree),
-          PASTILLE[e.verdict] ?? esc(e.verdict),
-        ]),
-        { sortable: true, id: "etages" },
-      ),
+      figure(
+        couple(bars, {
+          horizontal: true,
+          empile: true,
+          etiquettes: false,
+          axeValeur: "cas",
+          largeur: 900,
+          series: [
+            {
+              nom: "passés",
+              data: d.etages.map((e) => [`${e.id} — ${e.nom}`, e.passes]),
+            },
+            {
+              nom: "sautés",
+              data: d.etages.map((e) => [`${e.id} — ${e.nom}`, e.sautes ?? 0]),
+            },
+            {
+              nom: "rouges",
+              data: d.etages.map((e) => [`${e.id} — ${e.nom}`, e.echecs ?? 0]),
+            },
+          ],
+        }),
+        {
+          titre: "Cas joués par étage",
+          desc: "les étages se recouvrent : ne pas additionner les barres. Un cas sauté compte comme vert pour l'outil, pas ici.",
+        },
+      ) +
+        table(
+          [
+            { label: "Étage", strong: true },
+            { label: "Ce qu'il ajoute" },
+            { label: "Passés", align: "right" },
+            { label: "Rouges", align: "right" },
+            { label: "Sautés", align: "right" },
+            { label: "Durée", align: "right", dim: true },
+            { label: "Verdict" },
+          ],
+          d.etages.map((e) => [
+            `${esc(e.id)} — ${esc(e.nom)}<br><code style="font-size:.85em;opacity:.7">${esc(e.commande)}</code>`,
+            esc(e.note),
+            fmt.int(e.passes),
+            e.echecs ? `<strong>${e.echecs}</strong>` : "—",
+            e.sautes ? fmt.int(e.sautes) : "—",
+            esc(e.duree),
+            PASTILLE[e.verdict] ?? esc(e.verdict),
+          ]),
+          { sortable: true, id: "etages" },
+        ),
     ),
   );
 
@@ -169,6 +203,22 @@ function rendre(d) {
           "Chaque rouge est instruit avant d'être imputé : le même cas passe-t-il isolé (saturation) ? " +
           "le décor est-il celui que le banc suppose ? un état partagé s'est-il accumulé ? l'instrument dit-il vrai ?",
       ) +
+        figure(
+          couple(pie, {
+            largeur: 640,
+            hauteur: 300,
+            parts: Object.entries(
+              d.rouges.reduce(
+                (m, r) => ((m[r.cause] = (m[r.cause] ?? 0) + r.n), m),
+                {},
+              ),
+            ).map(([nom, valeur]) => ({ nom, valeur })),
+          }),
+          {
+            titre: "Rouges par cause instruite",
+            desc: "nombre de cas rouges, par cause établie",
+          },
+        ) +
         table(
           [
             { label: "Cause", strong: true },
@@ -193,23 +243,39 @@ function rendre(d) {
   sections.push(
     section(
       "Seuils mémoire",
-      table(
-        [
-          { label: "Cas", strong: true },
-          { label: "Mesuré (MB)", align: "right" },
-          { label: "Seuil (MB)", align: "right" },
-          { label: "Marge", align: "right" },
-        ],
-        d.memoire.map((m) => [
-          esc(m.cas),
-          fmt.dec(m.mesure, 2),
-          String(m.seuil),
-          m.mesure <= 0
-            ? "∞"
-            : `×${fmt.dec(m.seuil / Math.max(m.mesure, 0.001), 1)}`,
-        ]),
-        { sortable: true, id: "memoire" },
-      ),
+      figure(
+        couple(bars, {
+          horizontal: true,
+          axeValeur: "MB retenus",
+          decimales: true,
+          largeur: 900,
+          series: [
+            { nom: "mesuré", data: d.memoire.map((m) => [m.cas, m.mesure]) },
+            { nom: "seuil", data: d.memoire.map((m) => [m.cas, m.seuil]) },
+          ],
+        }),
+        {
+          titre: "Mémoire retenue face au seuil bloquant",
+          desc: "MB retenus après la charge ; un dépassement bloque le commit",
+        },
+      ) +
+        table(
+          [
+            { label: "Cas", strong: true },
+            { label: "Mesuré (MB)", align: "right" },
+            { label: "Seuil (MB)", align: "right" },
+            { label: "Marge", align: "right" },
+          ],
+          d.memoire.map((m) => [
+            esc(m.cas),
+            fmt.dec(m.mesure, 2),
+            String(m.seuil),
+            m.mesure <= 0
+              ? "∞"
+              : `×${fmt.dec(m.seuil / Math.max(m.mesure, 0.001), 1)}`,
+          ]),
+          { sortable: true, id: "memoire" },
+        ),
     ),
   );
 
@@ -367,6 +433,7 @@ function rendre(d) {
         ? "Aucune régression du produit. Tous les rouges sont instruits et imputés au décor ou à l'instrument."
         : `${rougesProduit} régression(s) du produit à instruire avant publication.`,
     sections,
+    style: STYLE_GRAPHES,
     data: d,
     footer:
       `Campagne du ${esc(d.campagne)} — ${esc(d.decor.machine)}, ${esc(d.decor.ram)}, ${esc(d.decor.os)}, Node ${esc(d.decor.node)}.<br>` +

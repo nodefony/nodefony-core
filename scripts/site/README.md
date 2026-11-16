@@ -99,6 +99,13 @@ markdown-highlight.mjs — coloration syntaxique des blocs de code du site publi
 - **Lancé par** : `npm run test:tooling`
 - **Utilise** : `site/lib/markdown-source.mjs`
 
+## [`perf-figures.test.mjs`](perf-figures.test.mjs)
+
+Le registre des figures du dossier de performance : chaque nombre dessiné doit se retrouver dans le jeu publié, et une figure appelée sans données doit faire échouer la page au lieu d'y laisser un trou.
+
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `lib/repo-root.mjs`
+
 ## [`readme-html.mjs`](readme-html.mjs)
 
 readme-html.mjs — Nodefony, matrice de présentation (10 minutes).

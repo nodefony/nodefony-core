@@ -56,6 +56,7 @@ import {
   couple,
   figure,
 } from "../../nodefony-html-report/lib/echarts.mjs";
+import { renderFigures } from "./perf-figures.mjs";
 
 const arg = (n, d) => {
   const i = process.argv.indexOf(`--${n}`);
@@ -103,8 +104,14 @@ const FRAMEWORKS = [
     // Facultatif : un jeu versionné antérieur à son entrée ne le porte pas, et
     // l'absence se DIT dans la page au lieu de faire tomber le rendu.
     id: "nest-fair",
-    label: "NestJS équipé",
-    note: "Fastify + les mêmes garanties, décorateurs et injection NestJS",
+    label: "NestJS équipé (Fastify)",
+    note: "adaptateur Fastify + les mêmes garanties, décorateurs et injection NestJS",
+    optional: true,
+  },
+  {
+    id: "nest-fair-node",
+    label: "NestJS équipé (node:http)",
+    note: "adaptateur node:http natif — le même serveur HTTP que Nodefony",
     optional: true,
   },
   {
@@ -137,6 +144,14 @@ const nest = bench.find((b) => b.id === "nest-fair") ?? null;
 const pairs = dataset?.comparison?.pairs ?? [];
 const pairOf = (a, b) => pairs.find((p) => p.paire === `${a} ↔ ${b}`) ?? null;
 const nestPair = pairOf("nest-fair", "nodefony");
+const nestNodePair = pairOf("nest-fair-node", "nodefony");
+const nestNode = bench.find((b) => b.id === "nest-fair-node") ?? null;
+// Les figures calculées depuis le jeu (registre partagé avec la prose du site).
+const figures = dataset ? renderFigures(dataset) : new Map();
+const witnesses = prov0()?.witnesses ?? {};
+function prov0() {
+  return dataset?.provenance ?? null;
+}
 const nullPair = pairs.find((p) => p.role === "test nul") ?? null;
 /** Part de Nodefony dans une paire où il est le camp B (rapport imprimé = A/B). */
 const shareOfB = (p) => (p ? 10000 / p.rapportPct : null);
@@ -150,14 +165,9 @@ const nf = bench.find((b) => b.id === "nodefony");
 const paire1 = pairOf("express-fair", "nodefony");
 // Le rapport publié est celui de la PAIRE (mêmes fenêtres alternées) ; à défaut
 // d'une paire nommée, celui des médianes.
-const ratioRps = paire1 ? shareOfB(paire1) : (nf.med / ref.med) * 100;
-const deltaP99 = nf.medP99Ms - ref.medP99Ms;
-/**
- * Un écart SIGNÉ, lisible : « +0,20 » ou « −0,20 ». Préfixer un `+` à la main
- * rendait « +-0,20 » dès que Nodefony passait devant.
- */
-const signed = (v, digits) =>
-  `${v < 0 ? "−" : "+"}${fmt.dec(Math.abs(v), digits)}`;
+// Le rapport face à Express équipé n'existe que si SA paire a conclu : deux
+// médianes de fenêtres distinctes ne font pas un rapport.
+const ratioRps = paire1 ? shareOfB(paire1) : null;
 
 // ── 2. soak ────────────────────────────────────────────────────────────────
 // Le soak est l'un des TROIS piliers de la question posée par cette page : sans lui,
@@ -309,32 +319,40 @@ const cpus =
 const cpuModel = prov?.machine?.cpu ?? null;
 
 // ── Rendu ──────────────────────────────────────────────────────────────────
+const shareCards = [
+  {
+    k: "Face à Express équipé",
+    v: ratioRps != null ? `${fmt.dec(ratioRps, 1)} %` : "même zone",
+    sub:
+      ratioRps != null
+        ? `du débit d'un Express ${witnesses.express ?? ""} qui rend le même résultat`
+        : "paire non séparée : séries du témoin refusées pour dispersion — aucun rapport publié",
+  },
+  nestPair && {
+    k: "Face à NestJS équipé (Fastify)",
+    v: `${fmt.dec(shareOfB(nestPair), 1)} %`,
+    sub: `NestJS ${witnesses["@nestjs/core"] ?? ""} sur Fastify ${witnesses.fastify ?? ""}${
+      cpuRow ? ` · CPU du fil ×${fmt.dec(cpuRow.ratio, 2)}` : ""
+    }`,
+  },
+  nestNodePair && {
+    k: "Face à NestJS équipé (node:http)",
+    v: `${fmt.dec(shareOfB(nestNodePair), 1)} %`,
+    sub: "le même serveur HTTP que Nodefony — écart décomposé dans « Où part le temps »",
+  },
+].filter(Boolean);
+
 const verdict = section(
   "Le verdict",
   cards([
-    {
-      k: "Débit, à travail égal",
-      v: `${fmt.dec(ratioRps, 1)} %`,
-      sub: "du débit d'Express équipé des mêmes middlewares",
-    },
-    ...(nestPair
-      ? [
-          {
-            k: "Face à NestJS équipé",
-            v: `${fmt.dec(shareOfB(nestPair), 1)} %`,
-            sub: `du débit d'un NestJS qui fait le même travail${
-              cpuRow
-                ? ` · CPU du fil par requête ×${fmt.dec(cpuRow.ratio, 3)}`
-                : ""
-            }`,
-          },
-        ]
-      : []),
+    ...shareCards,
     {
       k: "Latence p99",
       v: fmt.dec(nf.medP99Ms, 2),
       unit: "ms",
-      sub: `soit ${signed(deltaP99, 2)} ms face à cette même référence`,
+      sub: nest
+        ? `${fmt.dec(nest.medP99Ms, 2)} ms pour NestJS équipé (Fastify), même paire`
+        : "route triviale, 64 connexions",
     },
     {
       k: "Fuite mémoire",
@@ -342,9 +360,6 @@ const verdict = section(
       sub: fuiteSub,
     },
     {
-      // L'empreinte est ce qu'un orchestrateur regarde pour évincer. Quand elle
-      // a été relevée, c'est ELLE qu'on affiche ; `rss` reste en sous-titre,
-      // parce que l'écart entre les deux est lui-même l'information.
       k: aEmpreinte ? "Empreinte d'un pod en régime" : "RSS en fin de run",
       v: fmt.dec(
         aEmpreinte
@@ -354,65 +369,36 @@ const verdict = section(
       ),
       unit: "MB",
       sub: aEmpreinte
-        ? `parti de ${fmt.dec(kept[0].footprintMb, 0)} MB${
-            artefact
-              ? ` · le <code>rss</code> affiche ${fmt.dec(kept[kept.length - 1].rssMb, 0)} MB, pages réutilisables comprises`
-              : ""
-          }`
+        ? `parti de ${fmt.dec(kept[0].footprintMb, 0)} MB · ${fmt.dec(soak.footprintMbPerMillionReq ?? 0, 2)} MB par million de requêtes`
         : `parti de ${fmt.dec(kept[0].rssMb, 0)} MB — empreinte système non relevée sur ce run`,
     },
   ]) +
-    `<p><strong>La performance n'est pas le point faible de Nodefony.</strong> À travail égal — c'est-à-dire
-     face à un Express muni des mêmes middlewares (scope ALS, CORS, en-têtes de sécurité, contrôle CSRF,
-     corrélation <code>traceparent</code>, zones de pare-feu) — le framework rend
-     <strong>${fmt.dec(ratioRps, 1)} %</strong> du débit pour <strong>${signed(deltaP99, 2)} ms</strong>
-     de p99${
-       nestPair
-         ? `, et <strong>${fmt.dec(shareOfB(nestPair), 1)} %</strong> de celui d'un NestJS qui fait le
-     même travail : la même zone, pour une résolution de banc de ${
-       nullPair ? fmt.dec(Math.abs(nullPair.rapportPct - 100), 0) : "3"
-     } %`
-         : ""
-     }. L'écart avec un serveur nu ne mesure pas une lenteur : il mesure le travail que le serveur nu
-     ne fait pas.</p>
+    (figures.get("parts") ?? "") +
+    `<p>À <strong>résultat observable égal</strong> — même statut, mêmes en-têtes de sécurité,
+     identifiant de requête, <code>traceparent</code>, CORS, contrôle anti-CSRF, zones du pare-feu,
+     vérifiés par un contrôle de parité avant chaque campagne —, chaque barre dit quelle part du
+     débit d'un témoin Nodefony rend. Sur la route triviale, où le framework est tout le budget, la
+     part va de ${
+       nestNodePair ? fmt.dec(shareOfB(nestNodePair), 0) : "?"
+     } à ${nestPair ? fmt.dec(shareOfB(nestPair), 0) : "?"} % selon le témoin ; dès qu'une base entre
+     dans la boucle, les camps se tiennent à quelques pourcents, le refus de validation face à
+     Express mis à part. La résolution du banc, mesurée par le test nul, est de ${
+       nullPair ? fmt.dec(Math.abs(nullPair.rapportPct - 100), 1) : "3"
+     } %.</p>
      <p>Sur ${Math.round(soak.observedMinutes ?? soak.minutes)} minutes de charge continue, ${
        tasMonte
          ? `le tas monte de ${fmt.dec(soak.heapSlopeMbPerHour, 1)} MB/h`
          : "le tas ne monte pas"
      }${
        empreinteMonte
-         ? ` — mais l'<strong>empreinte système</strong> du processus, elle, monte de
-     <strong>${fmt.dec(soak.footprintSlopeMbPerHour, 1)} MB/h</strong> de façon régulière
-     (R² ${fmt.dec(soak.footprintR2, 2)}) : c'est ce qu'un orchestrateur compte pour évincer un pod`
-         : artefact
-           ? ` — et l'<strong>empreinte système</strong> non plus (${fmt.dec(soak.footprintSlopeMbPerHour, 1)} MB/h,
-     R² ${fmt.dec(soak.footprintR2, 2)}). Le <code>rss</code> affiché, lui, monte de
-     ${fmt.dec(soak.rssSlopeMbPerHour, 1)} MB/h, mais
-     <strong>${fmt.dec((soak.reclaimableSlopeMbPerHour / soak.rssSlopeMbPerHour) * 100, 0)} %</strong>
-     de cette hausse est du résident que l'allocateur a déjà rendu au noyau — sous macOS, ce compteur
-     les inclut, et <code>phys_footprint</code> les exclut`
-           : !aEmpreinte && rssMonte
-             ? ` — le <code>rss</code> monte de <strong>${fmt.dec(soak.rssSlopeMbPerHour, 1)} MB/h</strong>,
-     mais ce run n'a pas relevé l'empreinte système : <strong>il ne permet pas de conclure</strong>,
-     car sous macOS <code>rss</code> compte aussi les pages déjà rendues au noyau`
-             : ""
+         ? ` — mais l'<strong>empreinte système</strong> monte de
+     <strong>${fmt.dec(soak.footprintSlopeMbPerHour, 1)} MB/h</strong> (R² ${fmt.dec(soak.footprintR2, 2)})`
+         : ""
      }${
        debitErode
          ? `, et le débit s'érode de ${fmt.dec(Math.abs(soak.rpsDriftPct), 1)} %`
-         : " et le débit ne s'érode pas"
-     }.
-     ${
-       empreinteMonte
-         ? `<strong>C'est un point ouvert, pas un acquis</strong> — rapporté à la charge servie, cela fait
-     ${fmt.dec(soak.footprintMbPerMillionReq ?? 0, 2)} MB par million de requêtes, soit une projection de
-     ${fmt.dec(((soak.footprintSlopeMbPerHour ?? 0) * 72) / 1024, 1)} Go sur trois jours.`
-         : !aEmpreinte && rssMonte
-           ? `<strong>Ce point reste à trancher sur ce run</strong> : il faut le rejouer avec un banc qui
-     relève l'empreinte du noyau, faute de quoi on ne sait pas distinguer une mémoire consommée d'un
-     résident déjà rendu.`
-           : `Le risque résiduel d'un passage en production n'est donc pas la performance —
-     <a href="#limites">il est nommé plus bas</a>.`
-     }</p>`,
+         : ", et le débit ne s'érode pas"
+     }. <a href="#limites">Ce que ces chiffres ne disent pas</a> est nommé plus bas.</p>`,
   { break: "avoid" },
 );
 
@@ -507,7 +493,7 @@ const comparatif = section(
       : "") +
     note(
       `La ligne qui compte est <strong>Express équipé</strong>, pas Express nu : comparer un pipeline
-       complet à un <code>res.json()</code> revient à comparer une berline équipée à un kart. L'écart
+       complet à un <code>res.json()</code> ne compare pas le même travail. L'écart
        entre les deux lignes Express (${fmt.int(bench.find((b) => b.id === "express").med)} →
        ${fmt.int(ref.med)} req/s) chiffre le prix de ces fonctionnalités, indépendamment de Nodefony.`,
     ),
@@ -538,11 +524,23 @@ const orm = applicative
         "post-valid": "POST validé (200)",
         "post-422": "POST invalide (422)",
       };
-      for (const c of nestOrm) {
-        const w = c.frameworks?.["nest-fair-sqlite"];
+      const cas = [
+        ...(applicative.cases ?? []).map((c) => ({
+          c,
+          ref: "express-fair-sqlite",
+          nom: "Express équipé + drizzle",
+        })),
+        ...nestOrm.map((c) => ({
+          c,
+          ref: "nest-fair-sqlite",
+          nom: "NestJS équipé + drizzle",
+        })),
+      ];
+      for (const { c, ref, nom } of cas) {
+        const w = c.frameworks?.[ref];
         const n = c.frameworks?.["nodefony-orm"];
         rows.push([
-          "NestJS équipé + drizzle",
+          nom,
           LABEL[c.id] ?? c.id,
           w && n
             ? `${fmt.int(w.med)} · ${fmt.int(n.med)}`
@@ -563,6 +561,7 @@ const orm = applicative
    <strong>même ORM, le même pilote, le même schéma</strong> et chacun sa copie de la même base.
    25 connexions (le pilote est synchrone : au-delà, on mesure une file), tirs de
    ${applicative.frameworks?.["nodefony-orm"]?.durSec ?? 60} s.</p>` +
+          (figures.get("parts-applicatif") ?? "") +
           table(
             [
               { label: "Témoin" },
@@ -585,7 +584,7 @@ const orm = applicative
             `Le budget d'une requête passe de quelques dizaines de microsecondes (route triviale) à près
        d'une milliseconde : <strong>la base domine</strong>, et l'écart entre frameworks devient une
        fraction de ce budget.${
-         nestOrm.some((c) => c.id === "post-422")
+         cas.some((x) => x.c.id === "post-422")
            ? ` Sur le POST invalide, aucune base n'est touchée — c'est la validation et
        la sérialisation de l'erreur qui sont comparées.`
            : ""
@@ -1003,6 +1002,10 @@ const limites = section(
            ${cpus} cœurs logiques, base SQLite dans le processus. Les comparaisons
            <em>à l'intérieur</em> de cette page sont valides (même décor des deux côtés) ; les chiffres
            bruts, non.</li>
+       <li><strong>La parité prouve le résultat, pas le travail.</strong> Nodefony tient en plus,
+           sur chaque requête, une portée d'injection, un contexte commun à HTTP et WebSocket, un
+           délai de réponse armé : ce travail invisible est décomposé, et ses pistes de gain
+           nommées, dans <a href="../analyses/">Où part le temps</a>.</li>
        <li><strong>Le multi-pod sous trafic réel n'est pas couvert ici</strong> — fan-out entre pods,
            backplane Redis, cohérence des sessions. D'autres bancs le font, pas celui-ci.</li>
        <li><strong>Le démarrage à froid coûte.</strong> Un pipeline riche présente plus de fonctions
@@ -1024,6 +1027,17 @@ const decor = section(
       ["Node.js", node],
       ["Cœurs logiques", cpus],
       ...(cpuModel ? [["Processeur", cpuModel]] : []),
+      ...(Object.keys(witnesses).length
+        ? [
+            [
+              "Témoins",
+              Object.entries(witnesses)
+                .filter(([, v]) => v)
+                .map(([k, v]) => `${k} ${v}`)
+                .join(" · "),
+            ],
+          ]
+        : []),
       [
         "Concurrence (wrk)",
         `c${nf.conn} · ${nf.threads} fils · ${nf.durSec}s par tir`,
@@ -1158,7 +1172,12 @@ const corps = {
   ...(orm ? { applicatif: [orm] } : {}),
   duree: [tenue],
   dimensionner: [capacite],
-  methode: [decor],
+  methode: [
+    decor,
+    ...(figures.has("qualite")
+      ? [section("La qualité des séries publiées", figures.get("qualite"))]
+      : []),
+  ],
 };
 
 const titres = {
@@ -1205,6 +1224,10 @@ for (const page of PAGES) {
             cpuFil: cpuThread?.rows ?? null,
             soak,
             capacite: capacity,
+            etages: dataset?.stages ?? null,
+            profil: dataset?.profile ?? null,
+            binaire: dataset?.binary ?? null,
+            temoins: witnesses,
           },
         }
       : {}),

@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-11-15
+updated: 2026-11-16
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-load-test/SKILL.md"
 ---
@@ -33,7 +33,7 @@ source: ".claude/skills/nodefony-load-test/SKILL.md"
 | Description | 1023 / 1024 caractères |
 | Déclencheurs | 16 |
 | Ressources `references/` | 5 page(s) |
-| Scripts | 83 |
+| Scripts | 84 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -80,7 +80,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
 | `references/ab-perf-mono-prod.md` | Niveau 3 — A/B perf mono prod : détails | 148 |
-| `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 423 |
+| `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 428 |
 | `references/profil-compare.md` | Profil comparé — le coût d'une requête face à un témoin équitable | 88 |
 | `references/protocoles-bancs-charge.md` | Protocoles détaillés des bancs de charge les plus utilisés | 237 |
 | `references/reperes-empiriques.md` | Repères empiriques — pour situer un résultat | 30 |
@@ -114,7 +114,7 @@ script, donc toujours à jour après régénération.
 | `scripts/cluster-realtime-e2e.mjs` | Preuve BOUT-EN-BOUT du realtime cross-process Nodefony (cluster sans PM2) — Phase 4b. | — | `E2E_ROLE` `SETTLE` |
 | `scripts/config-env-override-e2e.mjs` | Banc e2e TERRAIN — override de config par variable d'environnement (ADR-0006) — sans navigateur. | — | — |
 | `scripts/console-boot-bench.mjs` | Banc — boot CONSOLE du noyau, N runs, médiane. | `--json` | — |
-| `scripts/cut-analyze.mjs` | Relit une bissection par court-circuit (`NF_WAIT_CUTS` de `wait-compare.sh`) et rend le COÛT DE CHAQUE ÉTAGE en µs de CPU du fil principal par requête. | `--partial` | — |
+| `scripts/cut-analyze.mjs` | Relit une bissection par court-circuit (`NF_WAIT_CUTS` de `wait-compare.sh`) et rend le COÛT DE CHAQUE ÉTAGE en µs de CPU du fil principal par requête. | `--json` `--partial` | — |
 | `scripts/cut-probe.mjs` | Bissection par COURT-CIRCUIT du pipeline HTTP — préchargée dans le serveur (`NODE_OPTIONS=--import=…/cut-probe.mjs`), jamais dans le produit. | — | `NF_BENCH_CUT` |
 | `scripts/db-backend-cost.mjs` | db-backend-cost — ce qu'un backend de base de données coûte AU SERVEUR, et non ce qu'il coûte en lui-même. | `--ceiling` `--prove` | `CONC` `JSON_OUT` `NF_DATABASE_URL` `NF_PG_URL` `PG_CONTAINER` `REPS` `ROWS` `SEC` `SERIES` |
 | `scripts/debug-runtime-e2e.mjs` | Banc e2e TERRAIN — debug runtime par-module à chaud — sans navigateur. | — | — |
@@ -141,13 +141,14 @@ script, donc toujours à jour après régénération.
 | `scripts/native-sample.mjs` | Lit une capture `sample <pid> <s> -file <f>` (macOS) et rend le temps PROPRE du fil principal, par famille et par frame, en µs par requête — et, quand la table `perf.map` du process est posée à côté de la capture, QUI l'a payé : chaque échantillon natif est imputé à son premier ancêtre JavaScript. | `--accept-noise` `--cpu-prof` `--dir` `--perf-basic-prof` `--prof` | — |
 | `scripts/native-sample.test.mjs` | Éprouve le lecteur de captures `sample` (native-sample.mjs) sur une capture miniature écrite à la main : temps propre, nommage par perf.map, imputation au premier ancêtre JS, moyenne par camp. Un changement du format de `sample` ou de la table perf doit faire tomber ce test, pas fausser un banc en silence. npx vitest run .claude/skills/nodefony-load-test/scripts/native-sample.test.mjs | — | — |
 | `scripts/perf-campaign.sh` | Campagne de mesure PUBLIABLE, sans surveillance — la matière de `docs/performance/data/<version>.json`, rejouée au protocole de la dernière publication : trois paires de débit, le cas applicatif, et une tenue longue. | `--at` `--capacity` `--conn` `--http-path` `--json` `--minutes` `--only` `--out` `--porcelain` `--seconds` `--short` `--soak-min` `--tries` `--window` | `NF_PARITY_CAMPS` `ONLY` `SOAK_MIN` `TRIES` |
-| `scripts/perf-compose.mjs` | Compose `docs/performance/data/<version>.json` depuis le dossier d'une campagne (`perf-campaign.sh`) — les CHIFFRES, jamais le récit. | `--absent` `--allow-missing` `--campaign` `--capacity` `--data` `--format` `--json` `--only` `--quiet` `--reuse` `--soak` `--version` `--write` | — |
+| `scripts/perf-compose.mjs` | Compose `docs/performance/data/<version>.json` depuis le dossier d'une campagne (`perf-campaign.sh`) — les CHIFFRES, jamais le récit. | `--absent` `--allow-missing` `--binary` `--campaign` `--capacity` `--data` `--format` `--from` `--json` `--only` `--quiet` `--reuse` `--soak` `--version` `--write` | — |
 | `scripts/perf-dossier-report.mjs` | Rapport HTML de synthèse — dossier Performance de Nodefony. | `--data` `--prove` | — |
+| `scripts/perf-figures.mjs` | Les FIGURES du dossier de performance, calculées depuis le jeu publié (`docs/performance/data/<version>.json`) — jamais saisies à la main. | — | — |
 | `scripts/poc-bench.mjs` | POC bench — mesure la latence p50/p95/p99 du backend Nodefony pendant que Vite tourne / compile. | `--concurrency` `--duration` `--label` `--touch` `--touch-delay` `--url` | — |
 | `scripts/poc-hmr-perf.mjs` | POC HMR perf — mesure le délai end-to-end entre : 1. `fs.utimes()` (touch) sur un fichier source surveillé par Vite 2. réception du 1er message HMR ("update" ou "full-reload") côté client WS | `--file` `--gap-ms` `--iterations` `--vite-url` | — |
 | `scripts/prod-readiness-report.mjs` | prod-readiness-report.mjs — « Nodefony peut-il partir en production ? » | `--at` `--campaign` `--data` `--http-path` `--json` `--minutes` `--only` `--out` `--seconds` `--soak` `--window` | — |
 | `scripts/profile-analyze.mjs` | Relit un profil `--cpu-prof` pris par `profile-cpu.sh` : temps PROPRE agrégé par fonction et par origine (paquet, module node:, natif), FENÊTRÉ sur les 20 dernières secondes actives — le profil couvre aussi le démarrage — et rapporté en µs par requête servie. | `--callers` `--cpu-prof` | — |
-| `scripts/profile-compare.mjs` | Compare DEUX profils pris par `profile-cpu.sh` dans le même décor, poste à poste, en µs par requête. C'est la question qu'un profil isolé ne pose jamais : « combien de trop, et OÙ, par rapport à ce qui est possible ? ». | — | — |
+| `scripts/profile-compare.mjs` | Compare DEUX profils pris par `profile-cpu.sh` dans le même décor, poste à poste, en µs par requête. C'est la question qu'un profil isolé ne pose jamais : « combien de trop, et OÙ, par rapport à ce qui est possible ? ». | `--json` | — |
 | `scripts/profile-compare.sh` | « Comparé à QUOI ? » — profile Nodefony ET le camp témoin équitable dans le MÊME décor, puis rend l'écart poste par poste en µs par requête. | — | `NF_PROFILE_DIR` |
 | `scripts/profile-cpu.sh` | Profil CPU d'un serveur SOUS CHARGE — où part le temps d'une requête. Lance le serveur sous `node --cpu-prof`, le chauffe (wrk non compté), le charge 20 s, puis l'arrête GRACIEUSEMENT (SIGINT : V8 n'écrit le profil qu'à la sortie). Relire ensuite avec `profile-analyze.mjs`, qui fenêtre sur la charge. | `--cpu-prof` `--cpu-prof-dir` `--cpu-prof-interval` `--http2-prior-knowledge` `--max-time` | `BENCH_BODY` `BENCH_CONN` `BENCH_DUR` `BENCH_EXPECT_STATUS` `BENCH_LOGIN` `BENCH_METHOD` `BENCH_PATH` `BENCH_PROTO` `BENCH_STREAMS` `NF_PROFILE_APP_ROOT` `NF_PROFILE_DIR` `PORT` `XENV` |
 | `scripts/promise-map.mjs` | Carte des Promises d'UNE requête — OÙ chacune naît, pile par pile. | `--body` `--method` | — |
@@ -196,7 +197,7 @@ node .claude/skills/nodefony-load-test/scripts/cluster-probe-e2e.mjs
 node .claude/skills/nodefony-load-test/scripts/cluster-realtime-e2e.mjs
 node .claude/skills/nodefony-load-test/scripts/config-env-override-e2e.mjs
 node .claude/skills/nodefony-load-test/scripts/console-boot-bench.mjs 7 tmp/bench/<sujet>-console-boot-before.json
-Usage : node cut-analyze.mjs <dossier> <témoin> <coupe…> [--partial]
+Usage : node cut-analyze.mjs <dossier> <témoin> <coupe…> [--partial] [--json <fichier>]
 node .claude/skills/nodefony-load-test/scripts/debug-runtime-e2e.mjs
 Usage : node dev-restart-cycle.mjs <fichier-backend> [cycles=5]
 node .claude/skills/nodefony-load-test/scripts/graceful-shutdown-e2e.mjs
@@ -221,7 +222,7 @@ node scripts/poc-bench.mjs [--url http://127.0.0.1:5151/poc/api/data]
 node scripts/poc-hmr-perf.mjs --file /abs/path/to/App.tsx
 node .claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs
 Usage : node profile-analyze.mjs <dossier> [requêtes] [top=40] [--callers <fonction>]
-Usage : node profile-compare.mjs <dossier A> <dossier B> [top=25]
+Usage : node profile-compare.mjs <dossier A> <dossier B> [top=25] [--json <fichier>]
 node promise-map.mjs [url] [--method POST] [--body '{"a":1}'] [KEY=VAL …]
 bash .claude/skills/nodefony-start-server/start.sh
 node .claude/skills/nodefony-load-test/scripts/route-scan-cost.mjs

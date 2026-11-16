@@ -9,18 +9,24 @@
 // Refus : une coupe dont les manches dispersent au-delà de 3 % rend le tableau
 // indicatif (code 3) — un étage de 1 à 2 µs sur ~50 ne se lit pas sous ce bruit.
 //
-// Usage : node cut-analyze.mjs <dossier> <témoin> <coupe…> [--partial]
+// Usage : node cut-analyze.mjs <dossier> <témoin> <coupe…> [--partial] [--json <fichier>]
 //   (coupes dans l'ordre du pipeline). `--partial` : campagne EN COURS — les
-//   étages sans run sont sautés, et le tableau se dit provisoire.
+//   étages sans run sont sautés, et le tableau se dit provisoire. `--json` écrit
+//   le même tableau en données (composeur du dossier de performance), refus compris.
 // ─────────────────────────────────────────────────────────────────────────────
 import fs from "node:fs";
 import path from "node:path";
 import { loadRuns, median, preemptedRuns } from "./wait-lib.mjs";
 
 const partial = process.argv.includes("--partial");
+const jsonIdx = process.argv.indexOf("--json");
+const jsonOut = jsonIdx > 0 ? process.argv[jsonIdx + 1] : null;
 const [base, witness, ...cuts] = process.argv
   .slice(2)
-  .filter((a) => a !== "--partial");
+  .filter(
+    (a, i, all) =>
+      a !== "--partial" && a !== "--json" && all[i - 1] !== "--json",
+  );
 if (!base || !witness || cuts.length === 0) {
   console.error("usage : cut-analyze.mjs <dossier> <témoin> <coupe…>");
   process.exit(2);
@@ -85,8 +91,22 @@ console.log(
 );
 let refused = false;
 let prev = null;
+const rows = [];
 for (const s of stages) {
   let step = "";
+  const row = {
+    stage: s.name,
+    cumulUs: s.med,
+    spreadPct: +(s.spread * 100).toFixed(1),
+    rps: Math.round(s.rps),
+    headers: Number.isFinite(s.headers) ? s.headers : null,
+    stepUs: null,
+    stepMinUs: null,
+    stepMaxUs: null,
+    held: null,
+    since: null,
+  };
+  rows.push(row);
   if (prev) {
     const deltas = [...s.runs.keys()]
       .filter((i) => prev.runs.has(i))
@@ -96,6 +116,11 @@ for (const s of stages) {
     // « tenu » : toutes les manches donnent le même signe — sinon l'étage est
     // dans le bruit, quelle que soit sa médiane.
     const held = lo > 0 || hi < 0;
+    row.stepUs = median(deltas);
+    row.stepMinUs = lo;
+    row.stepMaxUs = hi;
+    row.held = deltas.length < 2 ? null : held;
+    if (s.index - prev.index > 1) row.since = prev.name;
     step = `${fmt(median(deltas)).padStart(10)} ${`[${fmt(lo)} ; ${fmt(hi)}]`.padStart(17)}  ${deltas.length < 2 ? "1 manche" : held ? "tenu" : "BRUIT"}${
       // Étages intermédiaires pas encore mesurés : la différence les englobe.
       s.index - prev.index > 1 ? `  (depuis ${prev.name})` : ""
@@ -117,6 +142,27 @@ for (const p of preempted)
     `❌ ${p.run} PRÉEMPTÉ — ${p.value.toFixed(1)} chgts de contexte invol./1000 req contre ${p.calm.toFixed(1)} au plus calme de son camp : rejouer`,
   );
 refused ||= preempted.length > 0;
+if (jsonOut)
+  fs.writeFileSync(
+    jsonOut,
+    `${JSON.stringify(
+      {
+        metric: KEY,
+        witness,
+        witnessUs: wMed,
+        rounds,
+        stages: rows,
+        gapUs: full - wMed,
+        ratio: full / wMed,
+        maxSpreadPct: MAX_SPREAD * 100,
+        preempted: preempted.map((p) => p.run),
+        indicative: refused,
+        partial,
+      },
+      null,
+      2,
+    )}\n`,
+  );
 if (refused && !partial) {
   console.log(
     `❌ au moins une coupe disperse au-delà de ${MAX_SPREAD * 100} % — tableau INDICATIF, ne pas conclure`,
