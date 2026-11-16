@@ -75,6 +75,15 @@ for (const name of ["lighthouse", "playwright"]) {
 }
 const lighthouse = tools.lighthouse.default;
 const { chromium } = tools.playwright;
+// Le préréglage BUREAU officiel de Lighthouse : appareil, écran, agent ET bridage
+// réseau/processeur (`desktopDense4G`, sans ralentissement du processeur).
+// Demander `formFactor: "desktop"` seul gardait le bridage d'un téléphone (RTT
+// 150 ms, 1,6 Mbit/s, processeur ×4) sous les courbes de score du bureau, plus
+// sévères : le pire des deux. Une page à 100 sur mobile y tombait à 96.
+const desktopConfig =
+  FORMFACTOR === "desktop"
+    ? (await import("lighthouse/core/config/desktop-config.js")).default
+    : undefined;
 
 /**
  * Un port libre, demandé au système plutôt que choisi au hasard.
@@ -179,24 +188,21 @@ try {
     .map((c) => c.trim())
     .filter(Boolean);
 
-  const runnerResult = await lighthouse(target, {
-    port,
-    output: "json",
-    logLevel: "error",
-    formFactor: FORMFACTOR,
-    // Le bridage d'écran par défaut simule un téléphone : le laisser en place
-    // pendant qu'on demande `desktop` produirait un décor incohérent, et des
-    // chiffres qu'on ne saurait rattacher à aucun appareil réel.
-    screenEmulation:
-      FORMFACTOR === "desktop"
-        ? { mobile: false, width: 1440, height: 900, deviceScaleFactor: 1 }
-        : undefined,
-    // 🔴 Sans ceci, Lighthouse VIDE le stockage avant de mesurer — donc les
-    // témoins de session — et audite l'écran de connexion en silence. C'est le
-    // piège central d'un audit derrière authentification.
-    disableStorageReset: true,
-    ...(categories.length > 0 ? { onlyCategories: categories } : {}),
-  });
+  const runnerResult = await lighthouse(
+    target,
+    {
+      port,
+      output: "json",
+      logLevel: "error",
+      // 🔴 Sans ceci, Lighthouse VIDE le stockage avant de mesurer — donc les
+      // témoins de session — et audite l'écran de connexion en silence. C'est le
+      // piège central d'un audit derrière authentification.
+      disableStorageReset: true,
+      ...(categories.length > 0 ? { onlyCategories: categories } : {}),
+    },
+    // Mobile : le défaut de Lighthouse (téléphone de milieu de gamme, 4G lente).
+    desktopConfig,
+  );
 
   const lhr = runnerResult?.lhr;
   if (!lhr) {
