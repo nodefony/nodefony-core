@@ -93,6 +93,16 @@ Une sonde d'OBSERVATION signale en plus la **suppression d'un fichier généré*
 n'a pas servi. Vue rouge sur Copilot (#785) et sur Codex et Vibe (tâche 45) : tous trois
 ont jeté le contrôleur temps réel généré.
 
+Quand « a lu AGENTS.md » tombe, le rapport dit **quel canal a manqué**
+(`scripts/lib/canaux-agents-md.mjs`) : la consigne de `create app` est-elle parvenue à l'agent
+(remède : le produit), et combien de skills `nodefony-*` lui ont été annoncés au démarrage
+(remède : la découverte des skills par le harness) ? Run de #785 : consigne jamais reçue,
+aucun skill annoncé.
+
+⚠️ Sur un journal Copilot, les sondes de transcript ne lisent que les GESTES de l'agent
+(`tool.execution_start`, `assistant.message`) — avant, elles jugeaient le journal entier, et
+« a lu AGENTS.md » sortait vert sur six mentions reçues dans des sorties d'outils.
+
 ## Ce qu'elle révèle et qu'aucune autre ne voit : la porte MACHINE
 
 Le CLI a `--describe-json`, `--answers-json <fichier|->`, `-y/--yes` et `--dry-run`, et

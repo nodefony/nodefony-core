@@ -78,6 +78,7 @@ const LOT_ATTENDU = new Set([
   "reinit-decor.selftest.mjs",
   "lib/agents-formats.selftest.mjs",
   "lib/argv.selftest.mjs",
+  "lib/canaux-agents-md.selftest.mjs",
   "lib/transcript-dialectes.selftest.mjs",
   "lib/journal-source.selftest.mjs",
   "lib/decor-root.selftest.mjs",

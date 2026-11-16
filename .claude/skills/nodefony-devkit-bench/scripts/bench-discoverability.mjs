@@ -212,6 +212,7 @@ import {
   registreLocalRequis,
   canalEnRetard,
 } from "./lib/decor-source.mjs";
+import { canauxAgentsMd } from "./lib/canaux-agents-md.mjs";
 import { lireDistTags } from "../../../../scripts/release/release-core.mjs";
 import {
   commandeCreation,
@@ -1274,6 +1275,31 @@ const paroleDeLAgent = (transcript) => {
         // jugement ni servir de preuve : on l'écarte.
         return null;
       }
+      // 🔴 Copilot (`events.jsonl`) : ses GESTES sont les `tool.execution_start`
+      // (outil + arguments) et sa parole les `assistant.message` (texte et
+      // appels demandés, raisonnement retiré). Les résultats d'outils, les
+      // crochets et le message système sont ce qu'il a REÇU. Sans cette
+      // branche, la grammaire n'était pas reconnue et l'on jugeait le journal
+      // ENTIER : « a lu AGENTS.md » sortait VERT sur le run de #785 — six
+      // mentions, toutes dans des sorties d'outils, zéro appel qui l'ouvre.
+      if (event?.type === "tool.execution_start") {
+        return JSON.stringify({
+          type: event.type,
+          data: {
+            toolName: event.data?.toolName,
+            arguments: event.data?.arguments,
+          },
+        });
+      }
+      if (event?.type === "assistant.message") {
+        return JSON.stringify({
+          type: event.type,
+          data: {
+            content: event.data?.content,
+            toolRequests: event.data?.toolRequests,
+          },
+        });
+      }
       if (event?.type !== "assistant") {
         return null;
       }
@@ -1813,7 +1839,13 @@ export const TASKS = [
         pattern: /--describe-json|--answers-json|\s-y\b|--yes\b/u,
         observe: true,
       },
-      sondeLecture("a lu AGENTS.md", /AGENTS\.md/u),
+      {
+        ...sondeLecture("a lu AGENTS.md", /AGENTS\.md/u),
+        // Un échec ne dit rien de sa cause : lequel des deux canaux a manqué —
+        // la sortie de `create app` (le produit) ou les skills annoncés au
+        // démarrage (le harness) ? Le rapport le dit (#785).
+        diagnostic: canauxAgentsMd,
+      },
       {
         // Le générateur, pas la recomposition à la main. Observation aussi :
         // c'est l'énoncé qui donne la commande de création, le reste est à lui.
@@ -1840,6 +1872,9 @@ export const TASKS = [
         kind: "transcript",
         name: "n'a pas modifié le module de démonstration livré (modules/demo)",
         pattern: gesteSous(`modules${SEP}demo`),
+        // Les `fileEdits` sont CONSTATÉS par le harness à la fin de l'appel :
+        // la matière reçue, que `gesteSous` ne lit que sous forme de geste.
+        matiere: "recu",
         invert: true,
       },
       {
@@ -1853,6 +1888,7 @@ export const TASKS = [
           `(?:nodefony${SEP}(?:controllers|entity|service|command)|tests)`,
           { suppression: true },
         ),
+        matiere: "recu",
         invert: true,
         observe: true,
       },
@@ -5685,13 +5721,19 @@ export function evaluateProbe(probe, matter) {
     // geste. La matière est ici le transcript, forcément : c'est la seule.
     const waived =
       probe.invert && probe.unless ? probe.unless.test(matiere) : false;
+    const pass = waived ? true : probe.invert ? !hit : hit;
+    // `diagnostic` — ce qu'un échec doit dire de sa CAUSE, lu sur le
+    // transcript entier (ce que l'agent a REÇU) : sans lui, « absent » ne dit
+    // pas quel remède appliquer.
+    const pourquoi =
+      !pass && typeof probe.diagnostic === "function"
+        ? ` — ${probe.diagnostic(transcript)}`
+        : "";
     return {
-      pass: waived ? true : probe.invert ? !hit : hit,
+      pass,
       evidence: waived
         ? "sans objet : la voie correcte a abouti"
-        : hit
-          ? "vu dans le transcript"
-          : "absent du transcript",
+        : `${hit ? "vu dans le transcript" : "absent du transcript"}${pourquoi}`,
     };
   }
   // `deleted` / `deletedFiles` — la moitié du diff que le banc ne regardait PAS.
