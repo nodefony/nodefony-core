@@ -93,6 +93,13 @@ async function httpPing(host: string, port: number): Promise<number> {
 const STARTUP_DEADLINE_MS = 30_000;
 
 /**
+ * Échéance de chaque arrêt du même cas. L'arrêt envoie SIGINT puis SIGKILL au
+ * bout de 3 s : 10 s laissent la marge d'un agent lent, et `30 + 2 × 10` reste
+ * sous les 60 s de vitest — le verdict vient donc toujours du cas.
+ */
+const STOP_DEADLINE_MS = 10_000;
+
+/**
  * Attend `promise`, mais rend la main AVANT l'échéance du harnais, en
  * remplaçant un timeout muet par le diagnostic que `buildDiagnostic` compose au
  * moment du dépassement.
@@ -365,8 +372,23 @@ describe("ViteProcessSupervisor — intégration (real spawn)", () => {
       // Les deux répondent : la 1ʳᵉ app n'a pas été délogée au passage.
       expect(await httpPing("127.0.0.1", port)).to.be.greaterThan(0);
     } finally {
-      await second.stop();
-      await first.stop();
+      // Bornés eux aussi : un arrêt qui pend ici mange le budget de vitest et
+      // EFFACE le diagnostic composé plus haut — vécu sur la forge Windows,
+      // `60010ms` et pas un mot, l'arrêt attendant l'`exit` d'un process déjà
+      // sorti. Mieux vaut un verdict qui nomme l'arrêt qu'un timeout muet.
+      const stopDiagnostic = (who: string, sup: ViteProcessSupervisor) => () =>
+        `${who}.stop() n'a pas rendu la main en ${STOP_DEADLINE_MS} ms — ` +
+        `état=${sup.status().state} pid=${sup.status().pid ?? "aucun"}`;
+      await withDeadline(
+        second.stop(),
+        STOP_DEADLINE_MS,
+        stopDiagnostic("second", second),
+      );
+      await withDeadline(
+        first.stop(),
+        STOP_DEADLINE_MS,
+        stopDiagnostic("first", first),
+      );
     }
   });
 

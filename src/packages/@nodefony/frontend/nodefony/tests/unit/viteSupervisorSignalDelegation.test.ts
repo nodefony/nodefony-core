@@ -116,6 +116,36 @@ describe("ViteProcessSupervisor — délégation du kill d'arbre à signalProces
     expect(spy.calls).to.have.lengthOf(1);
   });
 
+  it("child DÉJÀ sorti (démarrage en échec) : l'arrêt conclut sans signaler un PID mort", async () => {
+    // Le décor vécu sur la forge Windows : un démarrage en échec laisse `state`
+    // à `errored` et `child` sur un process qui a DÉJÀ émis `exit`. `taskkill`
+    // y rend 128 (« introuvable »), traduit en `forced-tree` — l'arrêt attendait
+    // alors un `exit` qui ne viendrait plus, et le minuteur de secours, voyant
+    // `exitCode` posé, ne faisait rien : `stop()` pendait pour toujours.
+    // Le verdict se CONSTATE sur le process, pas sur ce que rend `taskkill`.
+    spy.outcome = "forced-tree";
+    const child = new FakeChild();
+    child.exitCode = 1;
+    const sup = makeSupervisor(child);
+    (sup as unknown as SupervisorInternals).state = "errored";
+
+    let settled = false;
+    const stopPromise = sup.stop().then(() => {
+      settled = true;
+    });
+    // `doStop()` est synchrone jusqu'à sa promesse : deux tours de microtâches
+    // suffisent à la voir résolue — une attente bornée par une DURÉE ne
+    // prouverait rien de plus, et rendrait le cas lent quand il échoue.
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(settled, "stop() attend un exit déjà émis").to.equal(true);
+    await stopPromise;
+    expect(sup.status().state).to.equal("stopped");
+    // Un PID mort peut être RECYCLÉ : `taskkill /T /F` emporterait l'arbre
+    // d'un process étranger. Rien ne doit partir.
+    expect(spy.calls).to.have.lengthOf(0);
+  });
+
   it("le SIGKILL de secours (child survivant au SIGINT) délègue aussi à signalProcessGroup", async () => {
     vi.useFakeTimers();
     try {

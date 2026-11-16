@@ -940,6 +940,17 @@ export class ViteProcessSupervisor implements IViteSupervisor {
       this.state = "stopped";
       return;
     }
+    // Process DÉJÀ sorti — un démarrage en échec laisse `child` sur lui : son
+    // `exit` est émis, aucun autre ne viendra. Le constater sur le process, pas
+    // sur le verdict du signal : sous Windows, `taskkill` rend 128 sur un PID
+    // mort, lu comme « arbre traité », et l'arrêt attendait sans fin. Et ne
+    // rien signaler : un PID mort peut être recyclé par un process étranger.
+    if (child.exitCode !== null || child.signalCode !== null) {
+      this.cleanupChildListeners();
+      this.child = null;
+      this.state = "stopped";
+      return;
+    }
     return new Promise<void>((resolve) => {
       // `sigKillTimer` est déclaré AVANT `done` : le `catch` du kill appelle
       // `done()` avant l'affectation, et un `const` posé plus bas serait alors
