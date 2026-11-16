@@ -298,6 +298,18 @@ de `git log` : `git log -1 --format=%b <sha>` sur chaque commit `!` (le geste de
 correctifs d'une capacité NÉE dans la même fenêtre : jamais publiée, rien à corriger pour
 l'utilisateur. Contrôle final : tout sha cité appartient à `v<précédente>..HEAD`.
 
+Deux lectures que le brouillon ne fait pas à ta place :
+
+- **Une rupture de COMPORTEMENT peut voyager dans un `feat` sans `!`.** Le cas type : une
+  section de config qui passe de `$loose` à `$strict` (une clé inconnue arrête désormais le
+  boot). `api-diff` la montre comme « déclaration à relire » sur le schéma, et le CORPS du
+  commit l'écrit (« Changement de comportement : … ») — lire le corps de chaque commit qui
+  touche un `config.ts`, et l'écrire en `**Breaking:**` sous `Changed`.
+- **`api-diff` lit le `dist` BRUT, pas le tarball** : des `import("…")` sans `.js` dans un
+  `.d.ts` y apparaissent « modifiés » alors que le pack les rétablit (`fix-dts-extensions`).
+  Trancher sur l'artefact reçu : `npm run release:pack`, puis lire le `.d.ts` dépaqueté —
+  avec `rg --no-ignore`, car `tmp/` est ignoré par git et un `rg` nu n'y lit RIEN, sans erreur.
+
 ## 4. ÉPROUVER — l'installation vierge
 
 ```bash
@@ -429,6 +441,16 @@ par un sous-shell.
   par l'agent (`! npm dist-tag …`) : npm y affiche l'URL de validation puis sort en `EOTP`, sans
   attendre le navigateur. `--deprecate` et `--dist-tags --publish` constatent d'abord la session
   (`npm whoami`) ; une session expirée se rouvre par `npm login`.
+- **Un 404 sur une ARCHIVE juste après `publier` est un cache NÉGATIF du CDN**, pas un
+  paquet absent : `npm view` voit la version, l'URL nue du `.tgz` répond 404
+  (`cache-control: max-age=300`), la même URL avec un paramètre de requête répond 200. Le
+  404 a été posé par le premier `npm install` venu trop tôt. Conduite : attendre que l'URL
+  nue réponde 200 (≤ 5 min), puis `gh run rerun <id> --failed` — `publier`, vert, ne repart
+  pas. L'attente du workflow sonde désormais aussi les archives, sans URL nue.
+- **Une estampille rouge en forge : le job s'est ARRÊTÉ au premier échec.** Les étapes
+  suivantes du même job n'ont jamais tourné sur ce commit : les rejouer en local, commandes
+  lues dans le workflow, AVANT de relancer `--promouvoir` — sinon chaque gate muet coûte
+  un cycle de forge de plus.
 - **`attendre-ci.mjs --sha` exige le sha COMPLET** : l'API ne filtre `head_sha` que sur 40
   caractères, et un sha court ne trouvait « aucune exécution » sur un commit qui tournait. Le
   script le refuse désormais ; lui passer `$(git rev-parse <sha>)`.
