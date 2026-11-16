@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/framework",
-  "version": "10.0.0-beta.7",
+  "version": "10.0.0-beta.8",
   "description": "Le modèle de programmation Nodefony : routeur, contrôleurs, décorateurs et vues — HTTP et WebSocket dans le même contexte",
   "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",
   "main": "./dist/index.js",
@@ -55,11 +55,11 @@
     "tslib": "2.9.1"
   },
   "devDependencies": {
-    "@nodefony/http": "^10.0.0-beta.7",
+    "@nodefony/http": "^10.0.0-beta.8",
     "@types/chai": "5.2.3",
     "@types/node": "26.6.6",
     "@vitest/coverage-v8": "5.1.0",
-    "nodefony": "^10.0.0-beta.7",
+    "nodefony": "^10.0.0-beta.8",
     "tsx": "4.23.15",
     "vitest": "5.1.0",
     "ws": "8.23.0"
@@ -70,8 +70,8 @@
   "peerDependencies": {
     "@bufbuild/protobuf": "^2.7.0",
     "@connectrpc/connect": "^2.3.0",
-    "@nodefony/http": "^10.0.0-beta.7",
-    "nodefony": "^10.0.0-beta.7",
+    "@nodefony/http": "^10.0.0-beta.8",
+    "nodefony": "^10.0.0-beta.8",
     "zod": "^4.6.7"
   },
   "peerDependenciesMeta": {

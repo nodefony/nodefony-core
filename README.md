@@ -379,7 +379,7 @@ appeler.
 
 ## Démarrage
 
-Une préversion `10.0.0-beta.7` est en ligne sous le canal `beta`. Une bêta n'est pas une version
+Une préversion `10.0.0-beta.8` est en ligne sous le canal `beta`. Une bêta n'est pas une version
 stable : une rupture reste possible d'une bêta à la suivante — chacune est alors annoncée en tête
 du [CHANGELOG](CHANGELOG.md) — et elle n'est pas destinée à la production. Elle s'installe en
 nommant ce canal :

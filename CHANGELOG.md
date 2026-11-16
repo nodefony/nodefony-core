@@ -8,6 +8,25 @@ Les sections naissent d'un BROUILLON rendu par `npm run release` depuis les mess
 de commit, puis sont RÉÉCRITES à la main : un journal git est écrit pour l'auteur,
 un changelog pour celui qui met à jour.
 
+## 10.0.0-beta.8 - 2026-11-16
+
+_Une bêta de durcissement HTTP/2 : l'âge des connexions se borne, un pair muet se sonde, un pair qui pingue trop se ferme — tout inactif par défaut. Une rupture : la section `http2` refuse désormais une clé qu'elle ne lit pas._
+
+### Changed
+
+- **http (breaking):** Refuser au démarrage une clé inconnue dans la section `http2` de la configuration — elle se disait transmise à Node, mais seules `maxConcurrentStreams` et `maxSessionMemory` étaient lues et toute autre clé restait sans effet : retirer la clé que le démarrage nomme (68d74ed3b)
+
+### Added
+
+- **http:** Borner l'âge des connexions HTTP/2 (`maxConnectionAge`, `maxConnectionAgeGrace`), sonder les pairs muets par PING (`keepaliveInterval`, `keepaliveTimeout`) et fermer un pair qui pingue trop (`minPingInterval`, `maxPingStrikes`), sur le port TLS comme en h2c — rien n'est armé sans clé posée (68d74ed3b)
+
+### Fixed
+
+- **devkit:** Mesurer l'audit `desktop` de la sonde navigateur (`nodefony see --audit`) dans les conditions d'un poste de bureau, et non sous le bridage d'un téléphone (827899fbb)
+- **devkit:** Nommer, quand l'écran de connexion n'apparaît pas, les requêtes restées sans réponse, celles en échec avec leur motif et les erreurs de la page (6967b65a6)
+
+<!-- Surface publique mesurée depuis 10.0.0-beta.7 (npm) : 0 retrait ; 2 déclarations à relire, relues — `httpConfigSchema` (la rupture ci-dessus) et `NODEFONY_CLIENT` (extensions des import() du .d.ts, rétablies au pack : tarball identique à la beta.7). Détail : npm run release:api-diff -- --from 10.0.0-beta.7 --details -->
+
 ## 10.0.0-beta.7 - 2026-11-15
 
 _Une bêta qui ouvre deux portes : servir des services gRPC dans le pipeline HTTP/2, et publier la présence d'un canal temps réel, répartie entre exemplaires. L'arrêt passe en deux phases, et `create app --demo` livre une démo complète à essayer et à lire. Huit ruptures, chacune avec son geste de migration._
