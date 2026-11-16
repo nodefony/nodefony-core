@@ -369,7 +369,11 @@ describe("Flux d'octets — renderStream (requires server)", () => {
     const res = await fetch(`${H1}${BASE}/limits?silent=1&idle=300`);
     expect(res.status).to.equal(504);
     await res.text();
-    expect(Date.now() - started).to.be.lessThan(2500);
+    // La durée ne sert qu'à dire QUEL minuteur a coupé : celui armé (300 ms)
+    // ou le défaut d'`idleTimeout` (le `responseTimeout`, 30 s). La moitié du
+    // défaut les sépare d'un facteur 50 — une borne serrée (2,5 s) mesurait la
+    // charge du runner macOS (2 947 ms vus), pas le produit.
+    expect(Date.now() - started).to.be.lessThan(15_000);
     expect(await lastResult()).to.deep.equal({ reason: "timeout", bytes: 0 });
   });
 

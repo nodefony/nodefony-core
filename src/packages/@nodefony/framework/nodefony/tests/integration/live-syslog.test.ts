@@ -41,11 +41,24 @@ function login(username: string): Promise<string> {
         },
       },
       (res) => {
-        res.resume();
-        const setCookie = res.headers["set-cookie"]?.[0] ?? "";
-        const cookie = setCookie.split(";")[0] ?? "";
-        if (!cookie) reject(new Error(`login ${username} : ${res.statusCode}`));
-        else resolve(cookie);
+        // Le STATUT d'abord : un refus (429, 401) peut poser un cookie de
+        // session ANONYME, et le banc lisait alors un 401 sur le flux suivant
+        // sans rien dire de la connexion (rouge Windows, run 43605247089).
+        let body = "";
+        res.setEncoding("utf8");
+        res.on("data", (c: string) => (body += c));
+        res.on("end", () => {
+          const cookies = res.headers["set-cookie"] ?? [];
+          const cookie = cookies[0]?.split(";")[0] ?? "";
+          if (res.statusCode !== 200 || !cookie) {
+            const names = cookies.map((c) => c.split("=")[0]).join(", ");
+            reject(
+              new Error(
+                `login ${username} : ${res.statusCode} [cookies : ${names}] ${body.slice(0, 300)}`,
+              ),
+            );
+          } else resolve(cookie);
+        });
       },
     );
     r.on("error", reject);
