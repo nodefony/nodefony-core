@@ -206,6 +206,8 @@ facteur 5 et accusé le ramasse-miettes, qui pèse moins de 1 %.
 
 - **La fin de flux** (~6 µs au profil) : à chiffrer par une expérience, comme les minuteurs, avant
   d'y voir un gain — ceux-ci, comptés 8 µs au profil, pèsent moins de 1,3 µs réels.
+- **L'URL analysée à la demande** : ~1,6 µs par requête à la sonde, quand le routeur ne lit que
+  le chemin. Gain attendu de l'ordre de 1 µs ; à prouver par A/B avant d'y toucher.
 - **L'audit d'un refus quand le journal est coupé** : sous `NF_LOG_DRIVER=null`, l'entrée d'un
   4xx se construit encore ; reste à établir si un consommateur la lit, ou si elle se perd.
 - **La pente mémoire du soak** : 0,06 Mo d'empreinte par million de requêtes sur 90 min, sans
