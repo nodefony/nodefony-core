@@ -80,7 +80,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v2.0.1" },
   { "icon": "🩺", "title": "debug", "href": "nodefony-debug.md",
     "desc": "Kit debug runtime de Nodefony — à charger quand quelque chose vient de casser, pas pour concevoir. Codifie les recettes de diagnostic éprouvées : flake mémoire (l'isolation dit la vérité), vert en isolation et rouge en suite (ressource partagée, pas régression), qualifier une régression par une…",
-    "meta": "🟢 conforme v1.1.0" },
+    "meta": "🟢 conforme v1.2.0" },
   { "icon": "📈", "title": "load-test", "href": "nodefony-load-test.md",
     "desc": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond WS, débit, RPS, percentiles, capacité d'un pod, cluster).",
     "meta": "🟢 conforme · ⚙️ 83 scripts · 📎 5 réf" },
@@ -208,7 +208,7 @@ source: "docs/skills/index.md"
 | [`nodefony-check-memory-health`](nodefony-check-memory-health.md) | 2.0.1 | 114 | 0 | 0 | ✅ |
 | [`nodefony-create-frontend-module`](nodefony-create-frontend-module.md) | — | 262 | 1 | 0 | ✅ |
 | [`nodefony-create-module`](nodefony-create-module.md) | — | 291 | 1 | 0 | ✅ |
-| [`nodefony-debug`](nodefony-debug.md) | 1.1.0 | 256 | 0 | 0 | ✅ |
+| [`nodefony-debug`](nodefony-debug.md) | 1.2.0 | 255 | 0 | 0 | ✅ |
 | [`nodefony-decision-making`](nodefony-decision-making.md) | 3.5.0 | 130 | 7 | 0 | ✅ |
 | [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.5.0 | 534 | 9 | 21 | ✅ |
 | [`nodefony-devops`](nodefony-devops.md) | 1.1.0 | 164 | 0 | 1 | ✅ |

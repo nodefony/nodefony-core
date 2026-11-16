@@ -3370,7 +3370,7 @@
       "name": "nodefony-debug",
       "summary": "Kit debug runtime de Nodefony — à charger quand quelque chose vient de casser, pas pour concevoir.",
       "family": "Exécuter, diagnostiquer, mesurer",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "keywords": [
         "delete",
         "nodefony-tail-error-logs",
@@ -3401,8 +3401,8 @@
       ],
       "description": "Kit debug runtime de Nodefony — à charger quand quelque chose vient de casser, pas pour concevoir. Codifie les recettes de diagnostic éprouvées : flake mémoire (l'isolation dit la vérité), vert en isolation et rouge en suite (ressource partagée, pas régression), qualifier une régression par une baseline stashée, échec d'intégration dont la première hypothèse est un serveur éteint, dépendance implicite à `delete`, faux ENOSPC du harnais. Délègue à `nodefony-tail-error-logs`, `nodefony-check-memory-health`, `nodefony-load-test`, `nodefony-frontend-dev` ; la doctrine préventive vit dans `nodefony-framework-dev`. Déclencheurs : \"ça crash\", \"stack trace\", \"unhandledRejection\", \"fuite mémoire\", \"memory leak\", \"race condition\", \"reproduire\", \"ne démarre plus\", \"test rouge inexpliqué\", \"test flake\", \"vert isolé rouge en suite\", \"ce test passe seul mais pas en suite\", \"diagnostic régression\", \"baseline stash\", \"est-ce ma régression ?\", \"404 inexpliqué\", \"ECONNREFUSED tests\", \"ENOSPC\".",
       "cost": {
-        "bodyLines": 256,
-        "approxTokens": 4090
+        "bodyLines": 255,
+        "approxTokens": 4113
       },
       "requires": [],
       "resources": {
@@ -3480,7 +3480,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "256",
+            "detail": "255",
             "advisory": true
           }
         ]

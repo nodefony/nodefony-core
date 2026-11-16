@@ -117,7 +117,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme v2.0.1" },
   { "icon": "🩺", "title": "debug", "href": "skills/nodefony-debug.md",
     "desc": "Kit debug runtime de Nodefony — à charger quand quelque chose vient de casser, pas pour concevoir. Codifie les recettes de diagnostic éprouvées : flake mémoire (l'isolation dit la vérité), vert en isolation et rouge en suite (ressource partagée, pas régression), qualifier une régression par une…",
-    "meta": "🟢 conforme v1.1.0" },
+    "meta": "🟢 conforme v1.2.0" },
   { "icon": "📈", "title": "load-test", "href": "skills/nodefony-load-test.md",
     "desc": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond WS, débit, RPS, percentiles, capacité d'un pod, cluster).",
     "meta": "🟢 conforme · ⚙️ 83 scripts · 📎 5 réf" },

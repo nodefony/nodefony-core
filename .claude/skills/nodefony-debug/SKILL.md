@@ -1,7 +1,7 @@
 ---
 name: nodefony-debug
 metadata:
-  version: 1.1.0
+  version: 1.2.0
 description: >
   Kit debug runtime de Nodefony — à charger quand quelque chose vient de casser, pas pour concevoir.
   Codifie les recettes de diagnostic éprouvées : flake mémoire (l'isolation dit la vérité), vert en
@@ -101,7 +101,7 @@ Si la suite passe à baseline mais échoue avec tes changes → **vraie régress
 
 ### Recette C — Fail intégration framework → 1ʳᵉ hypothèse : serveur down
 
-**Symptôme** : `npm run test:integration` à la racine (turbo) sort `code 59` sur `@nodefony/framework` avec 59 tests rouges (`ECONNREFUSED`, `404`, ou exit code = nb de fails).
+**Symptôme** : `npm run test:integration` à la racine (turbo) sort un code non nul sur `@nodefony/framework`, des dizaines de tests rouges (`ECONNREFUSED`, `404`, ou exit code = nb de fails).
 
 **Cause** : les tests d'intégration HTTP framework (`/nodefony/kernel/api/*`, `/fw/*`, etc.) requièrent un **serveur Nodefony actif** sur 5151/5152. Turbo ne le démarre PAS. Sans serveur → tous les tests HTTP plantent.
 
@@ -113,7 +113,7 @@ npm run test:integration                              # 2. lancer la suite
 bash .claude/skills/nodefony-start-server/stop.sh    # 3. couper
 ```
 
-Avec serveur up → 59/59 verts.
+Avec serveur up → tout vert.
 
 ### Recette C-bis — LIRE LE BILAN DU DERNIER BOOT avant de reproduire quoi que ce soit
 
@@ -149,24 +149,10 @@ défaut déjà réparé.
 de serveur : elle n'écrase PAS le bilan. C'est voulu — sinon l'outil de
 diagnostic détruirait la preuve qu'il vient chercher.
 
-### Recette D — `vi.useFakeTimers()` plante en mocha (mélange runners) — ⚠️ HISTORIQUE (mocha SUPPRIMÉ 2026-06-05, runner unique = vitest ; gardé comme leçon)
+### Recette D — `Vitest failed to access its internal state`
 
-**Symptôme** : `Error: Vitest failed to access its internal state` lors de `npm run test:integration`. Stack trace pointe `getWorkerState()` → `useFakeTimers()`.
-
-**Cause** : un fichier de test importe `import { vi } from "vitest"` mais la suite tourne en **mocha**. Vitest cherche son worker state (inexistant hors runner vitest) → plante.
-
-**Pattern repo** : `tests/unit/**` = vitest (`npm test`), `tests/{integration,http,websockets,routing}/**` = mocha (`npm run test:integration`). Si `.mocharc.integration.json` a `"spec": "nodefony/tests/**/*.test.ts"` SANS `ignore`, mocha ramasse aussi `tests/unit/` → conflit.
-
-**Fix** :
-
-```json
-{
-  "spec": "nodefony/tests/**/*.test.ts",
-  "ignore": "nodefony/tests/unit/**"
-}
-```
-
-Vérif : `npm test` (vitest) doit passer 166/166, `npm run test:integration` (mocha) ne doit plus ramasser les `*.test.ts` de `tests/unit/`.
+Un fichier qui importe `vi` exécuté HORS de vitest (script, `node` direct) n'a pas d'état de
+worker. Le dépôt n'a qu'un runner : chercher qui lance ce fichier sans vitest.
 
 ### Recette E — `for...in` consommateurs ↔ `delete` vs `undefined`
 
@@ -233,6 +219,19 @@ en `WARNING` et **minute le runtime** (30 min, réglable jusqu'à 4 h par
 ⚠️ **Corollaire de lecture** : un `CRITIC` « arrêt automatique … dérogation » dans le journal
 d'un banc n'est pas une panne du framework — c'est cette garde qui a tiré. Régler le TTL et
 relancer, plutôt que chercher une fuite.
+
+### Recette H — sonde navigateur rouge en CI (job « Décor (browser) »)
+
+**Symptôme** : `browser-fonctionnel.test.ts` rouge en CI, vert ailleurs, souvent « Aucun champ de
+connexion trouvé » (65) sur une page pourtant ouverte.
+
+**Ordre** : (1) la fréquence — le verdict du job sur 30 à 60 runs (`gh run view <id> --json
+jobs`) ; un rouge isolé n'accuse pas le diff. (2) L'artefact du journal serveur que le job
+publie en échec (`gh run download <id>`) : toute requête entrée dans le pipeline y laisse une ligne `req` à
+sa FERMETURE, 499 compris quand le client meurt — une requête ABSENTE n'a jamais atteint
+`onHttpRequest` (Chromium, ou refus muet de la couche HTTP/2 de Node). (3) Le relevé réseau que
+la sonde imprime avec le 65 (`watchNetwork`, `probes.mjs`) : requêtes jamais abouties, échecs et
+leur motif, erreurs de la page — c'est lui qui tranche entre les deux.
 
 ## 4. Orchestration des skills voisins
 
