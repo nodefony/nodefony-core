@@ -375,8 +375,8 @@ Consommateurs réels :
 - `.claude/skills/nodefony-load-test/scripts/capacity.mjs` — banc de capacité, rapport de
   dimensionnement avec calculateur ;
 - `.claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs` et
-  `perf-dossier-report.mjs` — les deux pages de mesures publiées sous `/performance/`, rendues par
-  le moteur ECharts et bâties par `scripts/site/build-perf-site.mjs` depuis
-  `docs/performance/data/<version>.json` ;
+  `perf-figures.mjs` — la page de mesures d'une version et le registre des figures que la prose
+  de `/performance/` appelle, rendus par le moteur ECharts et bâtis par
+  `scripts/site/build-perf-site.mjs` depuis `docs/performance/data/<version>.json` ;
 - `scripts/site/build-docs-site.mjs` — le site de documentation (84 pages, 114 diagrammes), qui utilise
   `doc()` avec ses slots de site et `lib/schemas.mjs` pour les schémas.

@@ -40,6 +40,7 @@
     ".claude/skills/nodefony-load-test/scripts/byte-stream-overhead.mjs",
     ".claude/skills/nodefony-load-test/scripts/cluster-orm-rich-e2e.mjs",
     ".claude/skills/nodefony-load-test/scripts/console-boot-bench.mjs",
+    ".claude/skills/nodefony-load-test/scripts/db-backend-cost.mjs",
     ".claude/skills/nodefony-load-test/scripts/debug-runtime-e2e.mjs",
     ".claude/skills/nodefony-load-test/scripts/dev-restart-cycle.mjs",
     ".claude/skills/nodefony-load-test/scripts/grpc-unary-overhead.mjs",

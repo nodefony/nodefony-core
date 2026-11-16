@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-11-12
+updated: 2026-11-16
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-html-report/SKILL.md"
 ---
@@ -29,7 +29,7 @@ source: ".claude/skills/nodefony-html-report/SKILL.md"
 | Version | — (non versionné) |
 | Famille | Références et livrables |
 | Corps | 368 lignes |
-| Coût d'activation | ~5 613 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~5 622 tokens (le corps est chargé à l'invocation) |
 | Description | 999 / 1024 caractères |
 | Déclencheurs | 13 |
 | Ressources `references/` | 3 page(s), 13 fichiers au total |

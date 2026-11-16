@@ -92,7 +92,7 @@ on:
       - ".claude/skills/nodefony-html-report/lib/**"
       - ".claude/skills/nodefony-documentation/lib/**"
       - ".claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs"
-      - ".claude/skills/nodefony-load-test/scripts/perf-dossier-report.mjs"
+      - ".claude/skills/nodefony-load-test/scripts/perf-figures.mjs"
       - ".github/workflows/pages.yml"
   # Le point d'entrée de la republication : appelé par `release.yml` (voir
   # ci-dessus), et disponible à la main quand le site doit repartir sans commit.

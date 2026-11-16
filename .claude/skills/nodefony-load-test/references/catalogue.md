@@ -388,8 +388,6 @@ publiées — parts de Nodefony face à chaque témoin (barres + étendue), budg
 (carte de chaleur). Chaque figure est une FONCTION du jeu `docs/performance/data/<version>.json` ;
 la prose l'appelle par `<!-- figure: <id> -->` et `build-perf-site.mjs` refuse un identifiant
 inconnu. Test : `scripts/site/perf-figures.test.mjs` (chaque nombre dessiné retrouvé dans le jeu).
-`scripts/perf-dossier-report.mjs` (ancien dossier, constantes en dur) n'est plus rendu sur le
-site : son récit est fondu dans `analyses.md` et `methode.md`.
 
 🔴 **Un instrument ne vit jamais dans `tmp/`.** Le rapport est une photo — il s'écrit dans `tmp/`
 et se refabrique ; le script qui le produit est du CODE, et un ménage de `tmp/` emporterait la

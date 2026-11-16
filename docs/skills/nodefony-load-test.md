@@ -33,7 +33,7 @@ source: ".claude/skills/nodefony-load-test/SKILL.md"
 | Description | 1023 / 1024 caractères |
 | Déclencheurs | 16 |
 | Ressources `references/` | 5 page(s) |
-| Scripts | 84 |
+| Scripts | 83 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -80,7 +80,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
 | `references/ab-perf-mono-prod.md` | Niveau 3 — A/B perf mono prod : détails | 148 |
-| `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 428 |
+| `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 426 |
 | `references/profil-compare.md` | Profil comparé — le coût d'une requête face à un témoin équitable | 88 |
 | `references/protocoles-bancs-charge.md` | Protocoles détaillés des bancs de charge les plus utilisés | 237 |
 | `references/reperes-empiriques.md` | Repères empiriques — pour situer un résultat | 30 |
@@ -142,7 +142,6 @@ script, donc toujours à jour après régénération.
 | `scripts/native-sample.test.mjs` | Éprouve le lecteur de captures `sample` (native-sample.mjs) sur une capture miniature écrite à la main : temps propre, nommage par perf.map, imputation au premier ancêtre JS, moyenne par camp. Un changement du format de `sample` ou de la table perf doit faire tomber ce test, pas fausser un banc en silence. npx vitest run .claude/skills/nodefony-load-test/scripts/native-sample.test.mjs | — | — |
 | `scripts/perf-campaign.sh` | Campagne de mesure PUBLIABLE, sans surveillance — la matière de `docs/performance/data/<version>.json`, rejouée au protocole de la dernière publication : trois paires de débit, le cas applicatif, et une tenue longue. | `--at` `--capacity` `--conn` `--http-path` `--json` `--minutes` `--only` `--out` `--porcelain` `--seconds` `--short` `--soak-min` `--tries` `--window` | `NF_PARITY_CAMPS` `ONLY` `SOAK_MIN` `TRIES` |
 | `scripts/perf-compose.mjs` | Compose `docs/performance/data/<version>.json` depuis le dossier d'une campagne (`perf-campaign.sh`) — les CHIFFRES, jamais le récit. | `--absent` `--allow-missing` `--binary` `--campaign` `--capacity` `--data` `--format` `--from` `--json` `--only` `--quiet` `--reuse` `--soak` `--version` `--write` | — |
-| `scripts/perf-dossier-report.mjs` | Rapport HTML de synthèse — dossier Performance de Nodefony. | `--data` `--prove` | — |
 | `scripts/perf-figures.mjs` | Les FIGURES du dossier de performance, calculées depuis le jeu publié (`docs/performance/data/<version>.json`) — jamais saisies à la main. | — | — |
 | `scripts/poc-bench.mjs` | POC bench — mesure la latence p50/p95/p99 du backend Nodefony pendant que Vite tourne / compile. | `--concurrency` `--duration` `--label` `--touch` `--touch-delay` `--url` | — |
 | `scripts/poc-hmr-perf.mjs` | POC HMR perf — mesure le délai end-to-end entre : 1. `fs.utimes()` (touch) sur un fichier source surveillé par Vite 2. réception du 1er message HMR ("update" ou "full-reload") côté client WS | `--file` `--gap-ms` `--iterations` `--vite-url` | — |
@@ -217,7 +216,6 @@ node .claude/skills/nodefony-load-test/scripts/log-sink-contention.mjs
 node native-sample.mjs <capture> <rps>                      # un camp
 bash perf-campaign.sh [--at HH:MM] [--out DIR] [--soak-min 90] [--tries 3]
 node perf-compose.mjs --campaign tmp/perf-campaign-<date> \
-Usage :  node .claude/skills/nodefony-load-test/scripts/perf-dossier-report.mjs [sortie.html]
 node scripts/poc-bench.mjs [--url http://127.0.0.1:5151/poc/api/data]
 node scripts/poc-hmr-perf.mjs --file /abs/path/to/App.tsx
 node .claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs
