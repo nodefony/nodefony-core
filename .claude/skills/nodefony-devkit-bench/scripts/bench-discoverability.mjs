@@ -1002,6 +1002,55 @@ function interrupteurPattern() {
 const commandeQuiContient = (motif) =>
   new RegExp(`"command"\\s*:\\s*"(?:[^"\\\\]|\\\\.)*?(?:${motif})`, "u");
 
+/** Un séparateur de chemin, quel que soit le système — et échappé en JSON. */
+const SEP = String.raw`[/\\]+`;
+
+/**
+ * Un GESTE d'écriture — ou de suppression — sous un dossier, lu dans le
+ * transcript quel que soit l'agent.
+ *
+ * 🔴 Pourquoi pas le diff git : un agent qui crée l'application avec
+ * `--no-git` n'a pas de premier commit, et toute frontière livré/ajouté
+ * tombe (vécu, tâche 0 de #785). Le transcript, lui, porte toujours le geste.
+ * Et pourquoi pas le chemin nu : il apparaît aussi dans ce que l'agent LIT
+ * (un `AGENTS.md` qui cite `modules/demo`). Seules quatre formes ÉCRIVENT :
+ *
+ * - `*** Update|Add|Delete File: <chemin>` — l'`apply_patch` de Copilot et Codex ;
+ * - `"path": "<chemin>", "kind": "edit|create|delete"` — les `fileEdits` que
+ *   Copilot joint à la fin d'un appel ;
+ * - un outil `Edit`/`Write`/`MultiEdit` et son `file_path` — Claude ;
+ * - `rm`, `mv`, `sed -i` ou une redirection dans une COMMANDE exécutée.
+ *
+ * @param {string} dossier - le dossier, en source d'expression régulière, sans
+ *   séparateur final (`modules${SEP}demo`).
+ * @param {{suppression?: boolean}} [options] - `suppression` : ne retenir que
+ *   les gestes qui SUPPRIMENT.
+ * @returns {RegExp}
+ */
+const gesteSous = (dossier, { suppression = false } = {}) => {
+  const d = `${dossier}${SEP}`;
+  const formes = suppression
+    ? [
+        String.raw`\*\*\* Delete File: [^\n]*?` + d,
+        String.raw`"path"\s*:\s*"[^"]*?` +
+          d +
+          String.raw`[^"]*"\s*,\s*"kind"\s*:\s*"delete"`,
+        commandeQuiContient(String.raw`\brm\b[^"\n]*?` + d).source,
+      ]
+    : [
+        String.raw`\*\*\* (?:Update|Add|Delete) File: [^\n]*?` + d,
+        String.raw`"path"\s*:\s*"[^"]*?` +
+          d +
+          String.raw`[^"]*"\s*,\s*"kind"\s*:\s*"(?:edit|create|delete)"`,
+        String.raw`"name"\s*:\s*"(?:Edit|Write|MultiEdit|NotebookEdit)"[^\n]*?"file_path"\s*:\s*"[^"]*?` +
+          d,
+        commandeQuiContient(
+          String.raw`(?:\brm\b|\bmv\b|\bsed\s+-i|>)[^"\n]*?` + d,
+        ).source,
+      ];
+  return new RegExp(formes.join("|"), "u");
+};
+
 /**
  * Le GESTE, quelle que soit la VOIE — ligne de commande **ou** outil MCP.
  *
@@ -1742,7 +1791,9 @@ export const TASKS = [
       `avec \`${commandeCreation(CANAL)}\`. Elle doit exposer une ressource REST ` +
       "« message », un canal temps réel pour recevoir les messages en direct, et la " +
       "ressource ne doit être accessible qu'à un utilisateur authentifié. Ajoute " +
-      "aussi une page de démonstration. Termine en " +
+      "aussi une page de démonstration — à toi : le module de démonstration " +
+      "livré (`modules/demo`) ne se modifie pas. Garde le dépôt git que la " +
+      "commande crée. Termine en " +
       "prouvant que l'application démarre et que ses tests passent — montre les " +
       "commandes et leurs réponses, pas une description.",
     probes: [
@@ -1779,6 +1830,31 @@ export const TASKS = [
         pattern: /new\s+WebSocket\(/u,
         where: "added",
         invert: true,
+      },
+      {
+        // L'énoncé l'interdit : le module de démonstration est une VITRINE
+        // livrée, et la régénérer effacerait ce qu'on y aurait greffé. Vécu
+        // (#785) : la page de l'agent ajoutée DANS `modules/demo`, et deux de
+        // ses fichiers retouchés. Lu au transcript : la frontière git manque
+        // dès que l'agent crée l'application avec `--no-git`.
+        kind: "transcript",
+        name: "n'a pas modifié le module de démonstration livré (modules/demo)",
+        pattern: gesteSous(`modules${SEP}demo`),
+        invert: true,
+      },
+      {
+        // Le signe le plus net qu'un générateur n'a pas servi : l'agent jette
+        // ce qu'il a produit (vécu, #785 : contrôleur et test temps réel
+        // générés, SUPPRIMÉS puis réécrits). OBSERVATION : régénérer avec
+        // d'autres options peut passer par une suppression légitime.
+        kind: "transcript",
+        name: "n'a supprimé aucun fichier produit par un générateur",
+        pattern: gesteSous(
+          `(?:nodefony${SEP}(?:controllers|entity|service|command)|tests)`,
+          { suppression: true },
+        ),
+        invert: true,
+        observe: true,
       },
       {
         // L'énoncé demande « une page de démonstration » et RIEN d'autre : ni

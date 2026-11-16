@@ -3889,6 +3889,10 @@
                 "help": ""
               },
               {
+                "flag": "--no-git",
+                "help": ""
+              },
+              {
                 "flag": "--no-install",
                 "help": ""
               },

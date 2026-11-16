@@ -215,6 +215,9 @@ export const IMPUTATIONS = Object.freeze({
   "ressource-inappelable": AGENT,
   // Rien ne protège la ressource que l'énoncé demandait de protéger.
   "ressource-ouverte-a-l-anonyme": AGENT,
+  // Créée sans git alors que l'énoncé demande de le garder : la frontière
+  // livré/ajouté est perdue par SON geste, et l'issue C avec elle (#785).
+  "creee-sans-git": AGENT,
   "page-absente": AGENT,
   "repere-de-zone-absent": AGENT,
   // Le repère du préfixe est posé par le générateur AVANT l'agent et commité à

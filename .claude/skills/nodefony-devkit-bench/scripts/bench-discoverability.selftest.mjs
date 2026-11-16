@@ -515,6 +515,85 @@ const SAMPLES = {
       transcript: `{"text":"j'écris frontend/src/App.vue à la main"}`,
     },
   },
+  // Le GESTE d'écriture, sous les quatre formes des agents — jamais la simple
+  // mention du chemin, que l'agent LIT (l'`AGENTS.md` cite `modules/demo`).
+  // Formes recopiées du run Copilot de #785 (session a2a914bd).
+  "0 :: n'a pas modifié le module de démonstration livré (modules/demo)": {
+    pass: {
+      transcript:
+        '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"/app/modules/demo/demos.ts"}}]}}',
+    },
+    fail: {
+      transcript:
+        '{"type":"tool.execution_start","data":{"toolName":"apply_patch","arguments":"*** Begin Patch\\n*** Add File: /Users/x/copilot-chat/modules/demo/frontend/src/chat/MessageResourceDemo.tsx\\n+import"}}',
+    },
+    extra: [
+      {
+        label: "refuse les fileEdits de Copilot (kind edit)",
+        matter: {
+          transcript:
+            '{"type":"tool.execution_complete","data":{"fileEdits":[{"path":"/Users/x/app/modules/demo/frontend/src/demo.css","kind":"edit"}]}}',
+        },
+        expect: false,
+      },
+      {
+        label: "refuse un Edit de Claude",
+        matter: {
+          transcript:
+            '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Edit","input":{"file_path":"/app/modules/demo/frontend/src/App.tsx","old_string":"a"}}]}}',
+        },
+        expect: false,
+      },
+      {
+        label: "refuse un chemin Windows (séparateur échappé)",
+        matter: {
+          transcript:
+            '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Write","input":{"file_path":"C:\\\\app\\\\modules\\\\demo\\\\x.ts"}}]}}',
+        },
+        expect: false,
+      },
+      {
+        label: "accepte une commande qui ne fait que LIRE le module",
+        matter: { transcript: '{"command":"cat modules/demo/demos.ts"}' },
+        expect: true,
+      },
+    ],
+  },
+  // Vécu sur DEUX agents : Copilot (#785) et Codex/Vibe (tâche 45, runs du
+  // 2026-11-03) ont jeté le contrôleur temps réel généré et son test.
+  "0 :: n'a supprimé aucun fichier produit par un générateur": {
+    pass: {
+      transcript:
+        '{"type":"tool.execution_complete","data":{"fileEdits":[{"path":"/app/nodefony/controllers/MessageController.ts","kind":"edit"}]}}',
+    },
+    fail: {
+      transcript:
+        '{"type":"tool.execution_complete","data":{"fileEdits":[{"path":"/Users/x/copilot-chat/nodefony/controllers/MessageStreamController.ts","kind":"delete"}]}}',
+    },
+    extra: [
+      {
+        label: "refuse un apply_patch qui supprime un test livré",
+        matter: {
+          transcript:
+            "*** Begin Patch\n*** Delete File: /app/tests/message-stream-realtime.test.ts\n*** End Patch",
+        },
+        expect: false,
+      },
+      {
+        label: "refuse un rm dans une commande",
+        matter: {
+          transcript:
+            '{"command": "cd /app && rm tests/room-realtime-realtime.test.ts"}',
+        },
+        expect: false,
+      },
+      {
+        label: "accepte la suppression d'un fichier hors des dossiers générés",
+        matter: { transcript: '{"command":"rm /app/tmp/brouillon.txt"}' },
+        expect: true,
+      },
+    ],
+  },
 
   // ── T1 ────────────────────────────────────────────────────────────────────
   "1 :: a lancé create entity": {

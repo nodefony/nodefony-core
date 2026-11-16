@@ -177,12 +177,26 @@ situation(
   { code: 2, cause: "application-ambigue", issue: "instrument" },
 );
 
-// Frontière livré/ajouté illisible : on ne compte PAS l'issue C, on ne l'invente
-// pas non plus — le juge poursuit sur ce qu'il peut mesurer.
+// Frontière livré/ajouté illisible pour une raison qui n'est pas un geste de
+// l'agent : on ne compte PAS l'issue C, on ne l'invente pas non plus.
 situation(
   "tests livrés non mesurables ⇒ ne fabrique pas un rouge",
   { testsLivres: { lances: false, verts: true, nb: 0, sortie: "pas de git" } },
   { code: 0, cause: "conforme", issue: "A" },
+);
+// Créée SANS git, contre l'énoncé : refus NOMMÉ, jamais un vert (#785).
+situation(
+  "application créée sans git ⇒ frontière illisible, opposable",
+  {
+    testsLivres: {
+      lances: false,
+      verts: true,
+      nb: 0,
+      sortie: "pas de git",
+      sansGit: true,
+    },
+  },
+  { code: 11, cause: "creee-sans-git", issue: "D" },
 );
 
 // ── --prove : muter le vrai module, exiger que ce contrôle TOMBE ─────────────
@@ -209,6 +223,13 @@ if (PROVE) {
       de: " * @module",
       vers: " * @module (témoin)",
       temoin: true,
+    },
+    {
+      // Sans ce refus, une application créée en `--no-git` sort « conforme »
+      // sans que ses tests livrés aient été vérifiés.
+      regle: "une application sans git est refusée en le nommant",
+      de: "  if (testsLivres && !testsLivres.lances && testsLivres.sansGit) {",
+      vers: "  if (false) {",
     },
     {
       // Sans cette priorité, une application amputée de ses tests livrés sort

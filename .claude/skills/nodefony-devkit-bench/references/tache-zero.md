@@ -75,6 +75,24 @@ restée derrière une plus mûre — vécu, `alpha` en `10.0.0-alpha.9` sous `be
 utilisateur. La règle est celle de la chaîne de publication (`canauxEnArriere`), pas une
 copie. Une version EXACTE n'est jamais jugée : la demander est un choix.
 
+## Ce que l'énoncé interdit, et comment c'est constaté
+
+L'énoncé fixe deux limites, toutes deux nées du run Copilot de #785 :
+
+- **`modules/demo` ne se modifie pas** — c'est une vitrine livrée, la page demandée est
+  à l'agent, ailleurs. Sonde de transcript, sur les GESTES d'écriture (`apply_patch`,
+  `fileEdits`, `Edit`/`Write`, `rm`/`mv`/`sed -i`), jamais sur la simple mention
+  du chemin, que l'agent lit dans `AGENTS.md`.
+- **Le dépôt git que la commande crée se garde.** Sans premier commit, plus rien ne
+  distingue le livré de l'ajouté : le juge refuse en le nommant (`creee-sans-git`,
+  code 11, imputé à l'agent) au lieu de rendre « conforme » sans avoir vérifié les tests
+  livrés.
+
+Une sonde d'OBSERVATION signale en plus la **suppression d'un fichier généré**
+(contrôleur, entité, service, commande, test) — le signe le plus net qu'un générateur
+n'a pas servi. Vue rouge sur Copilot (#785) et sur Codex et Vibe (tâche 45) : tous trois
+ont jeté le contrôleur temps réel généré.
+
 ## Ce qu'elle révèle et qu'aucune autre ne voit : la porte MACHINE
 
 Le CLI a `--describe-json`, `--answers-json <fichier|->`, `-y/--yes` et `--dry-run`, et
