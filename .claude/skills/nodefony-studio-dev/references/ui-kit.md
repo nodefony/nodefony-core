@@ -37,7 +37,12 @@ useResource<T>(fetcher: () => Promise<T>): { data: T|null; loading: boolean; err
 <LinkHint  title links={[{label,href}]} summary? />        // 🔗 lien externe  — RFC, doc tierce (rel=noreferrer)
 <TipHint   title summary? sections? />                     // 💡 astuce        — conseil d'usage, raccourci
 <WarnHint  title summary? sections? />                     // ⚠ attention     — limite, piège, prérequis
-<Hint kind="doc|graph|link|tip|warning" title … />         // forme générique (les 5 ci-dessus en sont les presets)
+<Hint kind="doc|graph|link|tip|warning|relation" title … />// forme générique (les 5 ci-dessus en sont les presets)
+<HintSheet kind title badge? accent? summary? sections?>{chips}</HintSheet>
+//   le CORPS de fiche seul — SEUL dessin de la norme ⓘ. Une carte posée ailleurs que dans la bulle
+//   (survol d'une arête du schéma ORM : routes/orm/LinkCard.tsx) le réutilise, jamais un dessin à
+//   côté. `children` = contenu libre entre résumé et sections (bloc OK) ; une section `body` est un
+//   <Text> (<p>) → jamais un Badge/div dedans (hydratation).
 //   sections = [{ label:"Technique"|"Si vide"|…, body }] ; KpiCard/StatCard/MiniStat/Panel acceptent
 //   `info={<DocHint/>}` (rendu À LA PLACE du `hint` texte). DocHint = ex-InfoHint « riche ».
 <KeyValue k v mono? />                                     // ligne label→valeur ; mono=monospace

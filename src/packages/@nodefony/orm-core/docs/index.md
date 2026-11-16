@@ -486,6 +486,66 @@ relation « plusieurs vers un » quand aucune déclaration ne couvre déjà la c
 index COMPOSITES qu'un adaptateur ne sait pas exprimer dans son schéma : Mongoose les applique
 (`schema.index()`), Drizzle les ignore, puisqu'il les déclare dans sa table.
 
+#### Les références logiques — un lien que la base ne porte pas, exprès
+
+Une colonne peut contenir l'identifiant d'une ligne d'une autre table SANS clé étrangère, par
+choix : le porteur d'une passkey peut être un compte Keycloak absent de la table locale, la table
+des clients peut vivre dans une autre base, un jeton peut appartenir à un utilisateur OU à un
+client machine. Une contrainte casserait ces cas. `logicalReferences`
+(`IEntity.ts#IEntityLogicalReference`) les DIT, sans rien imposer :
+
+```ts
+export const InvoiceEntity = defineEntity({
+  name: "Invoice",
+  module: "billing",
+  schema: invoiceTable,
+  logicalReferences: [
+    // Cible unique : une arête dans le graphe, en pointillé.
+    {
+      column: "customerId",
+      target: "Customer",
+      reason: "Le client est tenu par le CRM, dans une autre base.",
+    },
+    // Cible POLYMORPHE : pas d'arête, la colonne est annoncée.
+    {
+      column: "ownerId",
+      discriminator: "ownerType",
+      reason: "Un client OU un fournisseur.",
+    },
+  ],
+});
+```
+
+| Champ           | Rôle                                                               |
+| --------------- | ------------------------------------------------------------------ |
+| `column`        | la colonne qui porte l'identifiant                                 |
+| `target`        | l'entité visée ; absente = référence polymorphe                    |
+| `targetColumn`  | la colonne visée (`id` par défaut — `identifier` pour une session) |
+| `discriminator` | la colonne qui dit, ligne par ligne, quel genre de cible est visé  |
+| `reason`        | pourquoi aucune contrainte — affiché tel quel dans la console      |
+
+Ce que le champ fait, et ce qu'il ne fait PAS :
+
+- **Purement descriptif.** Jamais chargé — à la différence de `relations`, dont une cible absente
+  fait échouer la connexion —, jamais émis en DDL, aucune requête n'en dépend.
+- **Le graphe le projette** sur la colonne (`IOrmGraph.ts#IColumnLogicalReference`) et, quand la
+  cible est unique et décrite sur le même connecteur, en tire une relation marquée `logical`
+  (`OrmAdminApi.ts#nodeRelations`). Une vraie clé étrangère ou une relation déclarée sur la même
+  colonne l'emporte.
+- **Les exports ne la changent pas en contrainte** : le DBML l'écrit en commentaire
+  (`// référence logique …`), jamais en `Ref` ; le JSON Schema garde la colonne pour ce qu'elle est,
+  un identifiant (`OrmAdminApi.ts#toDbml`, `OrmAdminApi.ts#toJsonSchema`).
+- **La console** la marque `REF` sur la colonne, la trace en pointillé, et sa carte de survol dit
+  la raison (`routes/orm/erdModel.ts#describeLink`).
+- Une référence vers une colonne que l'adaptateur ne **décrit** pas (sous MongoDB, `subjectId`
+  porté par `_id`) est ignorée.
+
+Les trois voies d'inscription la transmettent : `defineEntity` puis `@entities([...])`,
+`@entity({ … })`, ou un `IEntity` passé à `entityRegistry.register`. Les tables du framework
+déclarent les leurs dans `@nodefony/security` (`logicalReferences.ts#SECURITY_LOGICAL_REFERENCES` :
+passkeys, second facteur, jetons, session) — une seule déclaration, jointe par les deux
+adaptateurs à l'enregistrement (`logicalReferences.ts#withSecurityReferences`).
+
 Dans une application, on ne construit pas un `IEntity` à la main : on écrit un `IEntityDefinition`
 (`defineEntity.ts#IEntityDefinition`) — le même objet **sans** `connector`, justement parce que le connecteur est
 une donnée de configuration, résolue au boot.

@@ -93,6 +93,36 @@ déduit de la nullabilité : `article:ref:Article` (obligatoire) → `restrict`,
 partir ; `article:ref:Article?` → `set null`. `cascade` n'est jamais un défaut : il s'écrit à la
 main dans la table générée.
 
+**Une référence SANS clé étrangère, voulue** — la cible vit dans une autre base, chez un
+fournisseur d'identité, ou dépend de la ligne (un client OU un fournisseur) : la colonne reste un
+identifiant simple, et l'entité le DÉCLARE dans `logicalReferences`, avec sa raison. Rien n'est
+chargé ni contraint ; le schéma de la console la dessine en pointillé (`REF`), et le DBML exporté
+l'écrit en commentaire, jamais en clé étrangère.
+
+```ts
+defineEntity({
+  name: "Invoice",
+  module: "billing",
+  schema: invoiceTable,
+  logicalReferences: [
+    {
+      column: "customerId",
+      target: "Customer",
+      reason: "Client tenu par le CRM, autre base.",
+    },
+    {
+      column: "ownerId",
+      discriminator: "ownerType",
+      reason: "Un client OU un fournisseur.",
+    },
+  ],
+});
+```
+
+Pas `relations` pour ce cas : une relation déclarée dont la cible n'est pas enregistrée fait
+échouer la connexion. Sans `target`, la référence est polymorphe : annoncée sur sa colonne, sans
+arête.
+
 **Un index de table** porte plusieurs colonnes, et c'est le seul à le pouvoir :
 
 ```bash

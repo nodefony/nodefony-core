@@ -232,7 +232,7 @@ source: "docs/skills/index.md"
 | [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md) | — | 84 | 0 | 0 | ✅ |
 | [`nodefony-test-campaign`](nodefony-test-campaign.md) | 1.1.0 | 235 | 1 | 1 | ✅ |
 | [`nodefony-ticket`](nodefony-ticket.md) | 1.12.0 | 515 | 8 | 24 | ✅ |
-| [`nodefony-add-crud`](nodefony-add-crud.md) | — | 257 | 0 | 0 | ✅ |
+| [`nodefony-add-crud`](nodefony-add-crud.md) | — | 287 | 0 | 0 | ✅ |
 | [`nodefony-add-grpc-service`](nodefony-add-grpc-service.md) | 1.0.0 | 166 | 0 | 1 | ✅ |
 | [`nodefony-add-realtime-binary`](nodefony-add-realtime-binary.md) | 1.1.0 | 284 | 2 | 0 | ✅ |
 | [`nodefony-add-realtime-channel`](nodefony-add-realtime-channel.md) | 3.1.0 | 492 | 2 | 0 | ✅ |
