@@ -15,6 +15,10 @@ import {
   canonicalLinks,
   describeLink,
   keyColumns,
+  keyMark,
+  isDenseSchema,
+  DENSE_COLUMNS,
+  targetedColumns,
   domainMap,
   domainScope,
 } from "../../../frontend/src/routes/orm/erdModel";
@@ -171,6 +175,50 @@ describe("describeLink — la carte de survol d'un lien", () => {
     expect(d.optional).toBe(false);
   });
 
+  it("une référence LOGIQUE : pas de garantie, la raison déclarée, la colonne visée déclarée", () => {
+    const passkey: EntityNode = entity("passkey", "sec", [
+      { ...n1("account", "userId"), logical: true },
+    ]);
+    passkey.columns = passkey.columns.map((c) =>
+      c.name === "userId"
+        ? {
+            ...c,
+            logical: {
+              target: "account",
+              column: "uid",
+              reason: "compte externe",
+            },
+          }
+        : c,
+    );
+    const pair = [passkey, entity("account", "sec")];
+    const [link] = canonicalLinks(pair);
+    if (!link) throw new Error("lien absent");
+    expect(describeLink(link, pair)).toMatchObject({
+      enforced: false,
+      reason: "compte externe",
+      to: { table: "account", column: "uid" },
+    });
+  });
+
+  it("une colonne de clé unique ou primaire fait un lien 1—1, pas N—1", () => {
+    const secret: EntityNode = entity("secret", "sec", [
+      n1("account", "userId"),
+    ]);
+    secret.columns = secret.columns.map((c) =>
+      c.name === "userId" ? { ...c, primaryKey: true } : c,
+    );
+    const pair = [secret, entity("account", "sec")];
+    const [link] = canonicalLinks(pair);
+    if (!link) throw new Error("lien absent");
+    expect(describeLink(link, pair).kind).toBe("one-to-one");
+  });
+
+  it("une contrainte réelle n'a pas de raison, même si l'entité déclare aussi la référence", () => {
+    const d = describeLink(byId("ligne.fk_facture>facture"), schema);
+    expect(d.reason).toBeNull();
+  });
+
   it("un plusieurs-à-plusieurs n'a ni colonne ni caractère facultatif connu", () => {
     const m2m = (target: string): RelationInfo => ({
       type: "many-to-many",
@@ -198,6 +246,75 @@ describe("keyColumns — la boîte compacte ne garde que les clés", () => {
       "fk_soc",
       "fk_user",
     ]);
+  });
+});
+
+describe("keyMark — la marque d'une colonne dans sa boîte", () => {
+  const fk = new Set(["fk_soc"]);
+  it("clé primaire, puis FK seulement si la base porte la contrainte", () => {
+    expect(keyMark(col("rowid", true), fk)).toBe("pk");
+    expect(
+      keyMark(
+        { ...col("fk_soc"), references: { entity: "tiers", column: "rowid" } },
+        fk,
+      ),
+    ).toBe("fk");
+  });
+  it("relation déclarée sans contrainte, ou référence logique (polymorphe comprise) : REF", () => {
+    expect(keyMark(col("fk_soc"), fk)).toBe("ref");
+    expect(
+      keyMark({ ...col("subjectId"), logical: { reason: "polymorphe" } }, fk),
+    ).toBe("ref");
+    expect(keyMark(col("total"), fk)).toBeNull();
+  });
+  it("une référence polymorphe reste dans la boîte compacte", () => {
+    const token: EntityNode = {
+      ...entity("token", "sec", [], ["subjectId", "label"]),
+    };
+    token.columns = token.columns.map((c) =>
+      c.name === "subjectId" ? { ...c, logical: { reason: "polymorphe" } } : c,
+    );
+    expect(keyColumns(token).map((c) => c.name)).toEqual([
+      "rowid",
+      "subjectId",
+    ]);
+  });
+});
+
+describe("targetedColumns — une colonne visée reste visible en compact", () => {
+  it("la colonne non clé visée par une référence logique entre dans la boîte compacte", () => {
+    const account = entity("account", "app", [], ["identifier", "bio"]);
+    const session: EntityNode = entity("session", "http", [], ["user"]);
+    session.columns = session.columns.map((c) =>
+      c.name === "user"
+        ? {
+            ...c,
+            logical: { target: "account", column: "identifier", reason: "x" },
+          }
+        : c,
+    );
+    const targeted = targetedColumns([account, session]);
+    expect([...(targeted.get("account") ?? [])]).toEqual(["identifier"]);
+    expect(
+      keyColumns(account, targeted.get("account")).map((c) => c.name),
+    ).toEqual(["rowid", "identifier"]);
+    expect(keyColumns(account).map((c) => c.name)).toEqual(["rowid"]);
+  });
+});
+
+describe("isDenseSchema — quand le dessin complet devient illisible", () => {
+  it("un petit schéma aux tables courtes reste complet", () => {
+    expect(isDenseSchema(schema)).toBe(false);
+  });
+  it("une seule table au-delà de DENSE_COLUMNS colonnes suffit", () => {
+    const wide = entity(
+      "access_token",
+      "sec",
+      [],
+      Array.from({ length: DENSE_COLUMNS }, (_, i) => `c${i}`),
+    );
+    expect(wide.columns.length).toBeGreaterThan(DENSE_COLUMNS);
+    expect(isDenseSchema([...schema, wide])).toBe(true);
   });
 });
 

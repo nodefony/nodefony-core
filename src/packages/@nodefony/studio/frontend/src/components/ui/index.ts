@@ -8,12 +8,14 @@ export { DataState, type DataStateProps } from "./DataState";
 export { StatCard, InfoHint, type StatCardProps } from "./StatCard";
 export {
   Hint,
+  HintSheet,
   DocHint,
   GraphHint,
   LinkHint,
   TipHint,
   WarnHint,
   type HintProps,
+  type HintSheetProps,
   type HintKind,
   type HintLink,
   type DocHintProps,

@@ -19,6 +19,7 @@ import {
   IconExternalLink,
   IconBulb,
   IconAlertTriangle,
+  IconLink,
 } from "@tabler/icons-react";
 import type { FC, ReactNode } from "react";
 
@@ -37,7 +38,8 @@ export interface HintLink {
 }
 
 /** Type de bulle d'aide — pilote l'icône, l'accent et le badge. */
-export type HintKind = "doc" | "graph" | "link" | "tip" | "warning";
+export type HintKind =
+  "doc" | "graph" | "link" | "tip" | "warning" | "relation";
 
 /** Config visuelle par type (icône déclencheur + en-tête, accent, libellé badge). */
 const HINT_KINDS: Record<
@@ -73,6 +75,12 @@ const HINT_KINDS: Record<
     header: IconAlertTriangle,
     accent: "yellow",
     badge: "attention",
+  },
+  relation: {
+    trigger: IconLink,
+    header: IconLink,
+    accent: "blue",
+    badge: "relation",
   },
 };
 
@@ -146,7 +154,6 @@ export function Hint({
 }: HintProps) {
   const cfg = HINT_KINDS[kind];
   const Trigger = cfg.trigger;
-  const Header = cfg.header;
   return (
     <HoverCard
       width={width}
@@ -215,82 +222,137 @@ export function Hint({
         )}
       </HoverCard.Target>
       <HoverCard.Dropdown p={0}>
-        {/* En-tête : impression de fiche (icône typée + titre + badge). */}
-        <Box
-          p="xs"
-          style={{
-            borderBottom: "1px solid var(--mantine-color-default-border)",
-            background: "var(--mantine-color-default-hover)",
-            borderTopLeftRadius: "var(--mantine-radius-md)",
-            borderTopRightRadius: "var(--mantine-radius-md)",
-          }}
-        >
-          <Group gap={8} wrap="nowrap" justify="space-between">
-            <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
-              <ThemeIcon
-                variant="light"
-                color={cfg.accent}
-                size="sm"
-                radius="sm"
-              >
-                <Header size={14} />
-              </ThemeIcon>
-              <Text fw={700} size="sm" truncate>
-                {title}
-              </Text>
-            </Group>
-            <Badge size="xs" variant="light" color={cfg.accent} tt="none">
-              {cfg.badge}
-              {version ? ` ${version}` : ""}
-            </Badge>
-          </Group>
-        </Box>
-        {/* Corps : résumé + paragraphes + liens. */}
-        <Stack gap="sm" p="sm">
-          {summary ? (
-            <Text size="sm" c="dimmed">
-              {summary}
-            </Text>
-          ) : null}
-          {sections.map((s, i) => (
-            // oxlint-disable-next-line react/no-array-index-key -- sections statiques de la fiche, jamais réordonnées
-            <Box key={`${s.label}-${i}`}>
-              <Text
-                size="xs"
-                fw={700}
-                tt="uppercase"
-                c={cfg.accent}
-                style={{ letterSpacing: 0.4 }}
-                mb={2}
-              >
-                {s.label}
-              </Text>
-              <Text size="xs" c="dimmed">
-                {s.body}
-              </Text>
-            </Box>
-          ))}
-          {links.length > 0 ? (
-            <Stack gap={4}>
-              {links.map((l) => (
-                <Anchor
-                  key={l.href}
-                  href={l.href}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  size="xs"
-                >
-                  <Group gap={4} wrap="nowrap" component="span">
-                    <IconExternalLink size={12} />
-                    {l.label}
-                  </Group>
-                </Anchor>
-              ))}
-            </Stack>
-          ) : null}
-        </Stack>
+        <HintSheet
+          kind={kind}
+          title={title}
+          version={version}
+          summary={summary}
+          sections={sections}
+          links={links}
+        />
       </HoverCard.Dropdown>
     </HoverCard>
+  );
+}
+
+/** Props du corps d'une fiche — {@link HintSheet}. */
+export interface HintSheetProps {
+  kind?: HintKind;
+  title: string;
+  version?: string | undefined;
+  /** Libellé du badge d'en-tête, à la place de celui du genre. */
+  badge?: string | undefined;
+  /** Accent (icône, badge, intitulés), à la place de celui du genre. */
+  accent?: MantineColor | undefined;
+  summary?: ReactNode;
+  sections?: DocSection[];
+  links?: HintLink[];
+  /** Contenu libre, rendu entre le résumé et les sections (chips, schéma…). */
+  children?: ReactNode;
+}
+
+/**
+ * **HintSheet** — le corps d'une fiche d'aide, SEUL dessin de la norme ⓘ :
+ * en-tête typé (icône, titre, badge), résumé, contenu libre, paragraphes
+ * structurés, liens. `Hint` le pose dans sa bulle de survol ; une carte
+ * posée ailleurs (le survol d'une arête du schéma ORM) le réutilise au lieu de
+ * redessiner une fiche à côté.
+ */
+export function HintSheet({
+  kind = "doc",
+  title,
+  version,
+  badge,
+  accent: accentOverride,
+  summary,
+  sections = NO_SECTIONS,
+  links = NO_LINKS,
+  children,
+}: HintSheetProps) {
+  const cfg = HINT_KINDS[kind];
+  const Header = cfg.header;
+  const accent = accentOverride ?? cfg.accent;
+  return (
+    <>
+      {/* En-tête : impression de fiche (icône typée + titre + badge). */}
+      <Box
+        p="xs"
+        style={{
+          borderBottom: "1px solid var(--mantine-color-default-border)",
+          background: "var(--mantine-color-default-hover)",
+          borderTopLeftRadius: "var(--mantine-radius-md)",
+          borderTopRightRadius: "var(--mantine-radius-md)",
+        }}
+      >
+        <Group gap={8} wrap="nowrap" justify="space-between">
+          <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
+            <ThemeIcon variant="light" color={accent} size="sm" radius="sm">
+              <Header size={14} />
+            </ThemeIcon>
+            {/* Deux lignes plutôt qu'une coupée : un titre tronqué cache
+                précisément ce qu'il nomme (« webauthn_credential → … »). */}
+            <Text fw={700} size="sm" lineClamp={2}>
+              {title}
+            </Text>
+          </Group>
+          <Badge
+            size="xs"
+            variant="light"
+            color={accent}
+            tt="none"
+            style={{ flexShrink: 0 }}
+          >
+            {badge ?? cfg.badge}
+            {version ? ` ${version}` : ""}
+          </Badge>
+        </Group>
+      </Box>
+      {/* Corps : résumé + paragraphes + liens. */}
+      <Stack gap="sm" p="sm">
+        {summary ? (
+          <Text size="sm" c="dimmed">
+            {summary}
+          </Text>
+        ) : null}
+        {children}
+        {sections.map((s, i) => (
+          // oxlint-disable-next-line react/no-array-index-key -- sections statiques de la fiche, jamais réordonnées
+          <Box key={`${s.label}-${i}`}>
+            <Text
+              size="xs"
+              fw={700}
+              tt="uppercase"
+              c={accent}
+              style={{ letterSpacing: 0.4 }}
+              mb={2}
+            >
+              {s.label}
+            </Text>
+            <Text size="xs" c="dimmed">
+              {s.body}
+            </Text>
+          </Box>
+        ))}
+        {links.length > 0 ? (
+          <Stack gap={4}>
+            {links.map((l) => (
+              <Anchor
+                key={l.href}
+                href={l.href}
+                target="_blank"
+                rel="noreferrer noopener"
+                size="xs"
+              >
+                <Group gap={4} wrap="nowrap" component="span">
+                  <IconExternalLink size={12} />
+                  {l.label}
+                </Group>
+              </Anchor>
+            ))}
+          </Stack>
+        ) : null}
+      </Stack>
+    </>
   );
 }
 

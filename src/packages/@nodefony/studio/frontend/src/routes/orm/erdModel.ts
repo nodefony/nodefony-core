@@ -14,6 +14,19 @@ export interface ColumnInfo {
   unique: boolean;
   /** Contrainte de clé étrangère que la base porte sur cette colonne. */
   references?: { entity: string; column: string };
+  /** Référence LOGIQUE déclarée par l'entité : aucune contrainte en base. */
+  logical?: LogicalReferenceInfo;
+}
+/** Une colonne qui désigne une autre ligne sans clé étrangère (`IColumnLogicalReference`). */
+export interface LogicalReferenceInfo {
+  /** Entité visée ; absente = référence polymorphe. */
+  target?: string;
+  /** Colonne visée sur la cible. */
+  column?: string;
+  /** Colonne qui dit quel genre de cible chaque ligne vise. */
+  discriminator?: string;
+  /** Pourquoi la base ne porte pas de contrainte. */
+  reason: string;
 }
 export interface RelationInfo {
   type: "one-to-one" | "one-to-many" | "many-to-one" | "many-to-many";
@@ -22,6 +35,8 @@ export interface RelationInfo {
   foreignKey?: string;
   /** Colonne visée sur la cible (relation tirée d'une clé étrangère). */
   targetKey?: string;
+  /** Tirée d'une référence logique (aucune contrainte en base). */
+  logical?: boolean;
 }
 export interface EntityNode {
   name: string;
@@ -40,6 +55,27 @@ export interface EntityNode {
  * pastilles. En deçà, l'écran reste celui d'une petite base.
  */
 export const LARGE_GRAPH = 60;
+
+/**
+ * Au-delà de ce nombre de colonnes dans une seule table, le dessin complet la
+ * rend si haute que le cadrage dézoome tout le schéma jusqu'à l'illisible
+ * (`access_token` : 24 colonnes, et la table `User` réduite à un point).
+ */
+export const DENSE_COLUMNS = 16;
+
+/**
+ * Le schéma se dessine-t-il en mode DENSE — boîtes réduites à leurs clés,
+ * tables sans lien en pastilles hors du dessin ? Oui pour un grand schéma,
+ * et pour un petit dont une table dépasse {@link DENSE_COLUMNS} colonnes.
+ *
+ * @param entities - le schéma du connecteur.
+ */
+export function isDenseSchema(entities: readonly EntityNode[]): boolean {
+  return (
+    entities.length > LARGE_GRAPH ||
+    entities.some((e) => e.columns.length > DENSE_COLUMNS)
+  );
+}
 
 /** Valeur de filtre du groupe « non rattaché » (domaine et module vides). */
 export const NONE = "·none·";
@@ -147,6 +183,12 @@ export interface LinkDetail {
   optional: boolean | null;
   /** La base porte une contrainte de clé étrangère — sinon le lien n'est que logique. */
   enforced: boolean;
+  /**
+   * Pourquoi la base n'en porte pas, quand l'entité l'a DÉCLARÉ (référence
+   * logique). `null` : contrainte réelle, ou lien seulement déclaré comme
+   * relation (aucune raison écrite).
+   */
+  reason: string | null;
   /** Champs de relation nommés (`reactions`, `replyTarget`), hors la colonne elle-même. */
   fields: { entity: string; field: string; type: RelationInfo["type"] }[];
 }
@@ -178,10 +220,18 @@ export function describeLink(
   )?.targetKey;
   const targetColumn =
     column?.references?.column ??
+    column?.logical?.column ??
     declaredKey ??
     target?.columns.find((c) => c.primaryKey)?.name;
+  // Une colonne de clé UNIQUE (ou clé primaire) ne vise qu'une ligne, et une
+  // ligne n'est visée qu'une fois : le lien est un 1—1, quoi qu'en dise la
+  // relation déclarée (un secret TOTP par compte, clé primaire = `userId`).
+  const kind =
+    link.kind === "many-to-one" && (column?.unique || column?.primaryKey)
+      ? "one-to-one"
+      : link.kind;
   return {
-    kind: link.kind,
+    kind,
     self: link.source === link.target,
     from: { table: link.source, column: link.column },
     to: {
@@ -190,6 +240,10 @@ export function describeLink(
     },
     optional: column ? column.nullable : null,
     enforced: column?.references !== undefined,
+    reason:
+      column?.references === undefined
+        ? (column?.logical?.reason ?? null)
+        : null,
     fields: link.declaredBy.filter((d) => d.field !== link.column),
   };
 }
@@ -213,12 +267,74 @@ export function foreignKeyColumns(entity: EntityNode): Set<string> {
 }
 
 /**
- * Colonnes d'une boîte compacte : clé primaire et clés étrangères, dans l'ordre
- * de la table. Ce sont elles qui portent les liens dessinés.
+ * Colonnes VISÉES par un lien, par table : celles qu'une contrainte ou une
+ * référence logique désigne. La plupart sont des clés primaires ; celles qui
+ * ne le sont pas (`session.user` → `User.identifier`) disparaîtraient d'une
+ * boîte compacte, et la flèche viserait une colonne qu'on ne voit pas.
+ *
+ * @param entities - le périmètre.
+ * @returns pour chaque table visée, les noms de ses colonnes visées.
  */
-export function keyColumns(entity: EntityNode): ColumnInfo[] {
+export function targetedColumns(
+  entities: readonly EntityNode[],
+): Map<string, Set<string>> {
+  const out = new Map<string, Set<string>>();
+  const add = (table: string | undefined, column: string | undefined) => {
+    if (table === undefined || column === undefined) return;
+    let set = out.get(table);
+    if (set === undefined) {
+      set = new Set();
+      out.set(table, set);
+    }
+    set.add(column);
+  };
+  for (const e of entities) {
+    for (const c of e.columns) {
+      add(c.references?.entity, c.references?.column);
+      add(c.logical?.target, c.logical?.column);
+    }
+  }
+  return out;
+}
+
+/**
+ * Colonnes d'une boîte compacte : clé primaire, clés étrangères, références
+ * logiques (polymorphes comprises) et colonnes visées par un lien, dans l'ordre
+ * de la table. Ce sont elles qui portent les liens — dessinés ou annoncés.
+ *
+ * @param entity - la table.
+ * @param targeted - ses colonnes visées par un lien (`targetedColumns`).
+ */
+export function keyColumns(
+  entity: EntityNode,
+  targeted?: ReadonlySet<string>,
+): ColumnInfo[] {
   const fk = foreignKeyColumns(entity);
-  return entity.columns.filter((c) => c.primaryKey || fk.has(c.name));
+  return entity.columns.filter(
+    (c) =>
+      c.primaryKey ||
+      fk.has(c.name) ||
+      c.logical !== undefined ||
+      targeted?.has(c.name) === true,
+  );
+}
+
+/** Marque d'une colonne dans sa boîte : la nature du lien qu'elle porte. */
+export type KeyMark = "pk" | "fk" | "ref" | null;
+
+/**
+ * Nature de la colonne dans le dessin : clé primaire, clé étrangère que la
+ * base PORTE, ou référence sans contrainte (logique déclarée, relation
+ * déclarée sans contrainte connue, polymorphe).
+ *
+ * @param column - la colonne.
+ * @param fk - colonnes de clé étrangère portées par l'entité (`foreignKeyColumns`).
+ */
+export function keyMark(column: ColumnInfo, fk: ReadonlySet<string>): KeyMark {
+  if (column.primaryKey) return "pk";
+  if (column.references !== undefined) return "fk";
+  if (column.logical !== undefined || fk.has(column.name)) return "ref";
+  return null;
 }
 
 /** Un domaine (ou module) sur la carte. */

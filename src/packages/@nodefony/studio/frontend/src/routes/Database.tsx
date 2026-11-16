@@ -34,6 +34,7 @@ import {
   Menu,
   Button,
   SegmentedControl,
+  ThemeIcon,
   useComputedColorScheme,
 } from "@mantine/core";
 import {
@@ -69,6 +70,10 @@ import {
   filterKey,
   canonicalLinks,
   describeLink,
+  isDenseSchema,
+  DENSE_COLUMNS,
+  keyMark,
+  targetedColumns,
   linkedNames,
   foreignKeyColumns,
   keyColumns,
@@ -76,6 +81,7 @@ import {
   domainScope,
 } from "./orm/erdModel";
 import { LinkCard } from "./orm/LinkCard";
+import { GROUP_HEADER, layoutGroups } from "./orm/groupLayout";
 
 /** Version de la doc des fiches d'aide (`DocHint`) de la vue base de données. */
 const DB_DOC = "v1.1";
@@ -95,13 +101,25 @@ interface OrmGraph {
  * Données d'un nœud table. `compact` = grand schéma : la boîte ne montre que ses
  * clés. `ghost` = voisine d'un autre domaine, dessinée en retrait.
  */
-type TableNodeData = { entity: EntityNode; compact: boolean; ghost: boolean };
+type TableNodeData = {
+  entity: EntityNode;
+  compact: boolean;
+  ghost: boolean;
+  /** Colonnes visées par un lien, gardées en compact (`targetedColumns`). */
+  targeted?: ReadonlySet<string> | undefined;
+};
 /** Nœud table typé : `NodeProps` rend `data` sans conversion. */
 type TableFlowNode = Node<TableNodeData, "table">;
 /** Données d'un nœud de la carte des domaines. */
 type DomainNodeData = { domain: DomainSummary };
 /** Nœud domaine typé. */
 type DomainFlowNode = Node<DomainNodeData, "domain">;
+
+/**
+ * Zoom en deçà duquel le texte d'une boîte (11 px) n'est plus lisible : le
+ * cadrage automatique ne descend pas plus bas.
+ */
+const READABLE_ZOOM = 0.7;
 
 const NODE_W = 250;
 const HEADER_H = 40;
@@ -168,15 +186,18 @@ const RF_THEME = {
 } as unknown as CSSProperties;
 
 /** Colonnes rendues dans une boîte : toutes, ou les seules clés en compact. */
-const shownColumns = (e: EntityNode, compact: boolean) =>
-  compact ? keyColumns(e) : e.columns;
+const shownColumns = (
+  e: EntityNode,
+  compact: boolean,
+  targeted?: ReadonlySet<string>,
+) => (compact ? keyColumns(e, targeted) : e.columns);
 
 /** Nœud « table » de l'ERD : nom d'entité + colonnes (PK/FK/unique typées). */
 function TableNode({ data }: NodeProps<TableFlowNode>) {
-  const { entity, compact, ghost } = data;
+  const { entity, compact, ghost, targeted } = data;
   const fk = foreignKeyColumns(entity);
   const color = moduleColor(groupKey(entity));
-  const columns = ghost ? [] : shownColumns(entity, compact);
+  const columns = ghost ? [] : shownColumns(entity, compact, targeted);
   const hidden = ghost ? 0 : entity.columns.length - columns.length;
   return (
     <div
@@ -257,21 +278,7 @@ function TableNode({ data }: NodeProps<TableFlowNode>) {
                 borderTop: "1px solid var(--mantine-color-default-border)",
               }}
             >
-              {c.primaryKey ? (
-                <IconKey size={11} color="var(--mantine-color-yellow-6)" />
-              ) : fk.has(c.name) ? (
-                <span
-                  style={{
-                    fontSize: 9,
-                    color: "var(--mantine-color-blue-5)",
-                    fontWeight: 700,
-                  }}
-                >
-                  FK
-                </span>
-              ) : (
-                <span style={{ width: 11 }} />
-              )}
+              <ColumnMark column={c} fk={fk} />
               <span
                 style={{
                   flex: 1,
@@ -339,7 +346,138 @@ function DomainNode({ data }: NodeProps<DomainFlowNode>) {
   );
 }
 
-const nodeTypes = { table: TableNode, domain: DomainNode };
+type GroupBoxFlowNode = Node<
+  {
+    label: string;
+    tables: number;
+    kind: "domain" | "module" | "none";
+    also: string[];
+  },
+  "groupBox"
+>;
+
+/** Libellé de la nature d'une boîte, et de l'autre axe qu'elle contient. */
+const GROUP_KIND: Record<
+  GroupBoxFlowNode["data"]["kind"],
+  { self: string; other: string }
+> = {
+  domain: { self: "domaine", other: "module" },
+  module: { self: "module", other: "domaine" },
+  none: { self: "non rattaché", other: "" },
+};
+
+/**
+ * Grande boîte d'un module dans le schéma complet : un fond translucide de la
+ * couleur du module, son nom et son nombre de tables. Les tables y gardent leur
+ * propre fond ; la boîte ne capte pas le clic (on ouvre une table, pas un module).
+ */
+function GroupBoxNode({ data }: NodeProps<GroupBoxFlowNode>) {
+  const color = moduleColor(data.label === "—" ? "" : data.label);
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        boxSizing: "border-box",
+        borderRadius: 12,
+        // Très transparente : la boîte SITUE les tables, elle ne les recouvre pas.
+        border: `1px solid color-mix(in srgb, var(--mantine-color-${color}-light-color) 35%, transparent)`,
+        background: `color-mix(in srgb, var(--mantine-color-${color}-filled) 3%, transparent)`,
+        pointerEvents: "none",
+      }}
+    >
+      {/* En-tête à la manière d'une fiche ⓘ : icône du genre, titre, badge. */}
+      <div
+        style={{
+          height: GROUP_HEADER - 8,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+          padding: "0 10px",
+          borderBottom: `1px solid color-mix(in srgb, var(--mantine-color-${color}-light-color) 25%, transparent)`,
+          background: `color-mix(in srgb, var(--mantine-color-${color}-light) 45%, transparent)`,
+          borderTopLeftRadius: 12,
+          borderTopRightRadius: 12,
+        }}
+      >
+        <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
+          <ThemeIcon variant="light" color={color} size="sm" radius="sm">
+            <IconDatabase size={14} />
+          </ThemeIcon>
+          <Text fw={700} size="sm" truncate>
+            {data.label}
+          </Text>
+          {/* L'autre axe : les modules d'un domaine, les domaines d'un module. */}
+          {data.also.length > 0 && (
+            <Text size="xs" c="dimmed" truncate>
+              {GROUP_KIND[data.kind].other}
+              {data.also.length > 1 ? "s" : ""} : {data.also.join(", ")}
+            </Text>
+          )}
+        </Group>
+        <Badge
+          size="xs"
+          variant="light"
+          color={color}
+          tt="none"
+          style={{ flexShrink: 0 }}
+        >
+          {GROUP_KIND[data.kind].self} · {data.tables} table
+          {data.tables > 1 ? "s" : ""}
+        </Badge>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Marque d'une colonne : clé (jaune), clé étrangère que la base porte (FK,
+ * bleu), référence SANS contrainte (REF, violet — logique, ou polymorphe). Le
+ * libellé de survol dit la nature en toutes lettres ; c'est ce qui distingue
+ * `REF` d'une `FK` quand la couleur ne se voit pas.
+ */
+function ColumnMark({
+  column,
+  fk,
+}: {
+  column: EntityNode["columns"][number];
+  fk: ReadonlySet<string>;
+}) {
+  const mark = keyMark(column, fk);
+  if (mark === "pk")
+    return <IconKey size={11} color="var(--mantine-color-yellow-6)" />;
+  if (mark === null) return <span style={{ width: 11 }} />;
+  const logical = column.logical;
+  const label =
+    mark === "fk"
+      ? `Clé étrangère vers ${column.references?.entity ?? "?"} : la base refuse une valeur orpheline.`
+      : logical
+        ? `Référence logique${logical.target ? ` vers ${logical.target}` : " polymorphe"} — ${logical.reason}`
+        : "Relation déclarée, sans contrainte en base.";
+  return (
+    <span
+      title={label}
+      aria-label={label}
+      style={{
+        fontSize: 9,
+        fontWeight: 700,
+        color:
+          mark === "fk"
+            ? "var(--mantine-color-blue-5)"
+            : "var(--mantine-color-grape-5)",
+      }}
+    >
+      {mark === "fk" ? "FK" : "REF"}
+    </span>
+  );
+}
+
+const nodeTypes = {
+  table: TableNode,
+  domain: DomainNode,
+  groupBox: GroupBoxNode,
+};
 
 /** Arête d'une table vers ELLE-MÊME : `lift` = hauteur à franchir au-dessus du point d'attache. */
 type SelfLoopFlowEdge = Edge<{ lift: number }, "selfLoop">;
@@ -390,9 +528,14 @@ function SelfLoopEdge({
 const edgeTypes = { selfLoop: SelfLoopEdge };
 
 /** Hauteur d'une boîte — la MÊME règle que son rendu (`shownColumns`). */
-const nodeHeight = (e: EntityNode, compact: boolean, ghost = false) => {
+const nodeHeight = (
+  e: EntityNode,
+  compact: boolean,
+  ghost = false,
+  targeted?: ReadonlySet<string>,
+) => {
   if (ghost) return HEADER_H + 2;
-  const shown = shownColumns(e, compact).length;
+  const shown = shownColumns(e, compact, targeted).length;
   const more = compact && shown < e.columns.length ? 1 : 0;
   return HEADER_H + (Math.max(1, shown) + more) * ROW_H + 2;
 };
@@ -431,6 +574,8 @@ interface ILayoutOptions {
   ghosts: ReadonlySet<string>;
   /** Grand schéma : les tables sans lien ne sont pas dessinées, elles sont rendues à part. */
   isolatedApart: boolean;
+  /** Schéma complet multi-modules : une grande boîte par module, ses tables dedans. */
+  grouped?: boolean;
 }
 
 /** Place les entités via dagre (gauche→droite) et construit nœuds + arêtes. */
@@ -443,7 +588,9 @@ function layoutGraph(
   g.setGraph({ rankdir: "LR", nodesep: 45, ranksep: 90 });
   g.setDefaultEdgeLabel(() => ({}));
   const byName = new Map(entities.map((e) => [e.name, e]));
-  const height = (e: EntityNode) => nodeHeight(e, compact, ghosts.has(e.name));
+  const targeted = compact ? targetedColumns(entities) : null;
+  const height = (e: EntityNode) =>
+    nodeHeight(e, compact, ghosts.has(e.name), targeted?.get(e.name));
   const links = canonicalLinks(entities);
   const linked = linkedNames(links);
   for (const e of entities) {
@@ -457,6 +604,10 @@ function layoutGraph(
     if (!self) g.setEdge(l.source, l.target);
     const incident = rootName === l.source || rootName === l.target;
     const m2m = l.kind === "many-to-many";
+    // Sans contrainte en base (référence logique, relation seulement déclarée) :
+    // pointillé violet, la couleur de la marque REF de la colonne.
+    const detail = describeLink(l, entities);
+    const loose = !m2m && !detail.enforced;
     const owner = self ? byName.get(l.source) : undefined;
     const edge: Edge = {
       id: l.id,
@@ -464,22 +615,60 @@ function layoutGraph(
       target: l.target,
       type: self ? "selfLoop" : "smoothstep",
       animated: m2m || incident,
-      label: REL_LABEL[l.kind],
+      label: REL_LABEL[detail.kind],
       markerEnd: { type: MarkerType.ArrowClosed },
       style: {
         stroke: incident
           ? "var(--mantine-primary-color-filled)"
-          : m2m
+          : m2m || loose
             ? "var(--mantine-color-grape-5)"
             : "var(--mantine-color-blue-5)",
         strokeWidth: incident ? 2 : 1,
         ...(m2m ? { strokeDasharray: "5 5" } : {}),
+        ...(loose ? { strokeDasharray: "2 4" } : {}),
       },
     };
     // La boucle doit franchir la boîte : sa hauteur, vue depuis la poignée.
     if (owner) edge.data = { lift: height(owner) / 2 + 20 };
     return edge;
   });
+  if (opts.grouped) {
+    const laid = layoutGroups(entities, links, (e) => ({
+      w: NODE_W,
+      h: height(e),
+    }));
+    // Les boîtes AVANT leurs tables : React Flow exige qu'un parent précède
+    // ses enfants dans la liste des nœuds.
+    const nodes: Node[] = laid.boxes.map((b) => ({
+      id: `group:${b.key}`,
+      type: "groupBox",
+      position: { x: b.x, y: b.y },
+      data: {
+        label: b.label,
+        tables: b.members.length,
+        kind: b.kind,
+        also: b.also,
+      },
+      style: { width: b.width, height: b.height },
+      selectable: false,
+      zIndex: -1,
+    }));
+    for (const e of entities) {
+      nodes.push({
+        id: e.name,
+        type: "table",
+        parentId: `group:${laid.boxOf.get(e.name) ?? NONE}`,
+        position: laid.positions.get(e.name) ?? { x: 0, y: 0 },
+        data: {
+          entity: e,
+          compact,
+          ghost: ghosts.has(e.name),
+          targeted: targeted?.get(e.name),
+        },
+      });
+    }
+    return { nodes, edges, isolated: [] };
+  }
   dagre.layout(g);
   const position = new Map<string, { x: number; y: number }>();
   let bottom = 0;
@@ -509,7 +698,12 @@ function layoutGraph(
     id: e.name,
     type: "table",
     position: position.get(e.name) ?? { x: 0, y: 0 },
-    data: { entity: e, compact, ghost: ghosts.has(e.name) },
+    data: {
+      entity: e,
+      compact,
+      ghost: ghosts.has(e.name),
+      targeted: targeted?.get(e.name),
+    },
     style:
       e.name === rootName
         ? {
@@ -684,6 +878,11 @@ export const Database = observer(() => {
 
   // Grand schéma : boîtes compactes, carte des domaines, tables sans lien à part.
   const large = allEntities.length > LARGE_GRAPH;
+  // Dense : boîtes réduites aux clés, tables sans lien en pastilles
+  // (`isDenseSchema`) — sauf si l'on demande le schéma COMPLET.
+  const denseSchema = useMemo(() => isDenseSchema(allEntities), [allEntities]);
+  const [complete, setComplete] = useState(false);
+  const dense = denseSchema && !complete;
   // Liens du schéma ENTIER — le compteur de l'en-tête compte ce qui existe, pas
   // ce qui est dessiné (il annonçait « 0 relations » tant que rien ne l'était).
   const schemaLinks = useMemo(() => canonicalLinks(allEntities), [allEntities]);
@@ -704,13 +903,9 @@ export const Database = observer(() => {
       };
     }
     if (moduleFilter) {
-      if (!large) {
-        return {
-          visible: allEntities.filter((e) => filterKey(e) === moduleFilter),
-          ghosts: none,
-          mapMode: false,
-        };
-      }
+      // Le module ET ses voisines des autres modules, en retrait : sans elles,
+      // un module dont les liens partent ailleurs (`app` : la seule table
+      // `User`, visée par la sécurité) se dessinait sans un lien.
       const scope = domainScope(allEntities, moduleFilter);
       return {
         visible: [...scope.members, ...scope.ghosts],
@@ -734,8 +929,8 @@ export const Database = observer(() => {
   const [hovered, setHovered] = useState<{
     link: ErdLink;
     x: number;
-    y: number;
     width: number;
+    height: number;
   } | null>(null);
   const showLink = useCallback(
     (event: MouseEvent, edge: Edge) => {
@@ -745,8 +940,8 @@ export const Database = observer(() => {
       setHovered({
         link,
         x: event.clientX - box.left,
-        y: event.clientY - box.top,
         width: box.width,
+        height: box.height,
       });
     },
     [drawnLinks],
@@ -928,18 +1123,39 @@ export const Database = observer(() => {
       setEdges(laid.edges);
       setApart([]);
     } else {
+      // Dessin COMPLET de plusieurs modules : une grande boîte par module. Le
+      // focus (une table et ses voisines) et le mode dense gardent le dessin à plat.
+      const grouped =
+        !dense &&
+        !focus &&
+        !large &&
+        new Set(visible.map((e) => groupKey(e) || NONE)).size > 1;
       const laid = layoutGraph(visible, {
         ...(focus ? { rootName: focus } : {}),
-        compact: large,
+        compact: dense,
         ghosts,
-        isolatedApart: large,
+        // Un module filtré se dessine EN ENTIER : ses tables sans lien
+        // partiraient sinon en pastilles, et le graphe resterait vide.
+        isolatedApart: dense && !moduleFilter,
+        grouped,
       });
       setNodes(laid.nodes);
       setEdges(laid.edges);
       setApart(laid.isolated);
     }
     setLayoutRun((n) => n + 1);
-  }, [visible, ghosts, mapMode, map, focus, large, setNodes, setEdges]);
+  }, [
+    visible,
+    ghosts,
+    mapMode,
+    map,
+    focus,
+    dense,
+    large,
+    moduleFilter,
+    setNodes,
+    setEdges,
+  ]);
 
   // Cadrer le périmètre une fois les nœuds committés — à CHAQUE changement
   // (focus, filtre de domaine, « afficher tout »). La prop `fitView` de React
@@ -948,11 +1164,24 @@ export const Database = observer(() => {
   useEffect(() => {
     if (layoutRun === 0 || (visible.length === 0 && !mapMode)) return;
     const id = requestAnimationFrame(() => {
-      void rfRef.current?.fitView(
-        focus
-          ? { padding: 0.25, duration: 400, maxZoom: 1.3 }
-          : { padding: 0.1, maxZoom: 1 },
-      );
+      const rf = rfRef.current;
+      if (!rf) return;
+      if (focus) {
+        void rf.fitView({ padding: 0.25, duration: 400, maxZoom: 1.3 });
+        return;
+      }
+      // Tout cadrer, sauf si le texte en devient illisible : on s'arrête alors
+      // au zoom lisible, ancré en HAUT À GAUCHE (là où commencent les en-têtes),
+      // et le reste se parcourt. Cadrer à 45 % rendait un schéma complet muet.
+      void rf.fitView({ padding: 0.1, maxZoom: 1 }).then(() => {
+        if (rf.getZoom() >= READABLE_ZOOM) return;
+        const b = rf.getNodesBounds(rf.getNodes());
+        void rf.setViewport({
+          x: 24 - b.x * READABLE_ZOOM,
+          y: 24 - b.y * READABLE_ZOOM,
+          zoom: READABLE_ZOOM,
+        });
+      });
     });
     return () => cancelAnimationFrame(id);
   }, [layoutRun, visible.length, mapMode, focus]);
@@ -1008,7 +1237,7 @@ export const Database = observer(() => {
             {mapMode
               ? ` · carte de ${map?.domains.length ?? 0} domaines`
               : shownTables < allEntities.length
-                ? ` · ${shownTables} affichées`
+                ? ` · ${shownTables} affichée${shownTables > 1 ? "s" : ""}`
                 : ""}
           </Text>
           <Badge variant="light" color="brand">
@@ -1065,6 +1294,35 @@ export const Database = observer(() => {
               ]}
             />
           </Group>
+          {view === "graph" && denseSchema && !large && (
+            <Group gap={4} wrap="nowrap">
+              <SegmentedControl
+                size="xs"
+                value={complete ? "complete" : "links"}
+                onChange={(v) => setComplete(v === "complete")}
+                data={[
+                  { value: "links", label: "Liens" },
+                  { value: "complete", label: "Complet" },
+                ]}
+                aria-label="étendue du schéma"
+              />
+              <DocHint
+                title="Liens / Complet"
+                version={DB_DOC}
+                summary={`Une table de ce schéma dépasse ${DENSE_COLUMNS} colonnes : dessinée en entier, elle forcerait un zoom où plus rien ne se lit.`}
+                sections={[
+                  {
+                    label: "Liens",
+                    body: `Les ${schemaLinks.length} lien${schemaLinks.length > 1 ? "s" : ""} et leurs tables, réduites à leurs clés (PK, FK, REF). Les ${allEntities.length - linkedNames(schemaLinks).size} tables sans lien sont listées sous le graphe.`,
+                  },
+                  {
+                    label: "Complet",
+                    body: `Les ${allEntities.length} tables, toutes leurs colonnes.`,
+                  },
+                ]}
+              />
+            </Group>
+          )}
           {view === "graph" && (
             <>
               <Group gap={4} wrap="nowrap">
@@ -1422,8 +1680,8 @@ export const Database = observer(() => {
                 <LinkCard
                   detail={describeLink(hovered.link, allEntities)}
                   x={hovered.x}
-                  y={hovered.y}
                   width={hovered.width}
+                  height={hovered.height}
                 />
               )}
             </div>
