@@ -586,8 +586,8 @@ const orm = applicative
        fraction de ce budget.${
          cas.some((x) => x.c.id === "post-422")
            ? ` Sur le POST invalide, aucune base n'est touchée : il reste un POST nu, et
-       l'écart face à Express y est suspecté dans la réception du corps, pas dans la validation
-       (même code des deux côtés).`
+       l'écart face à Express vient de l'entrée d'audit que Nodefony écrit pour chaque refus, et que
+       le témoin n'écrit pas (profil comparé).`
            : ""
        } À débit égal le p99 suit le débit : à
        25 connexions fixes, la latence est inversement proportionnelle au débit.`,
