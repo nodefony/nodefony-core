@@ -1750,6 +1750,25 @@
       ]
     },
     {
+      "path": "scripts/site/lib/site-nav.mjs",
+      "test": false,
+      "purpose": "Le menu commun des sites VOISINS de la documentation — performance et qualité — rendu par chacun de leurs générateurs.",
+      "usage": [
+        "import { siteNav, relativeUrl } from \"./lib/site-nav.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/site/build-perf-site.mjs",
+        "scripts/site/build-qualite-site.mjs",
+        ".claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs"
+      ],
+      "testedBy": [
+        "scripts/site/site-nav.test.mjs"
+      ]
+    },
+    {
       "path": "scripts/site/lib/site-versions.mjs",
       "test": false,
       "purpose": "Versions du site publié — qui vit où, et comment passer de l'une à l'autre.",
@@ -1847,6 +1866,19 @@
       "path": "scripts/site/schemas-sequence.test.mjs",
       "test": true,
       "purpose": "Les diagrammes de séquence du site tiennent leurs libellés — sur le CORPUS réel.",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/site/site-nav.test.mjs",
+      "test": true,
+      "purpose": "Le menu des sites voisins (performance, qualité) : des liens RELATIFS justes depuis chaque profondeur, et la bonne entrée allumée.",
       "usage": [],
       "options": [],
       "env": [],
@@ -8216,6 +8248,10 @@
               },
               {
                 "flag": "--seconds",
+                "help": ""
+              },
+              {
+                "flag": "--site-path",
                 "help": ""
               },
               {

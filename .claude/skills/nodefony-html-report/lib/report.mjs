@@ -676,6 +676,18 @@ a.brand:focus-visible { outline:2px solid var(--accent); outline-offset:3px; bor
 .wrap.has-nav > main { grid-area:main; min-width:0; }
 .site-nav { grid-area:nav; position:sticky; top:76px; align-self:start;
   max-height:calc(100vh - 150px); overflow-y:auto; font-size:13.5px; padding-right:6px; }
+/* Les liens du menu : partagés par TOUT site qui pose un menu, jamais recopiés. */
+.site-nav a { display:block; color:var(--fg); text-decoration:none; padding:3px 8px;
+  border-radius:5px; line-height:1.4; }
+.site-nav a:hover { background:var(--card); color:var(--accent); }
+.site-nav a[aria-current="page"] { background:var(--card); color:var(--accent); font-weight:650; }
+.site-nav ul { list-style:none; margin:2px 0 8px; padding-left:10px;
+  border-left:1px solid var(--line); }
+.site-nav .nav-up { color:var(--dim); font-size:12.5px; padding-left:0; margin-bottom:10px; }
+.site-nav .nav-up:hover { color:var(--accent); background:none; }
+.site-nav .nav-home { font-weight:700; margin-bottom:8px; padding-left:0; }
+.site-nav .nav-home.on { color:var(--accent); }
+.site-nav .nav-flat { border:0; padding-left:0; margin-bottom:12px; }
 .site-toc { grid-area:toc; position:sticky; top:76px; align-self:start;
   max-height:calc(100vh - 150px); overflow-y:auto; font-size:12.5px; }
 /* Pied COLLANT sur un site : la provenance de la page (source, version, commit)

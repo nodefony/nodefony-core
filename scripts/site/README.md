@@ -45,7 +45,7 @@ Construit le site « Performance » publié — une page par version, plus `late
 
 - **Usage** : `node scripts/site/build-perf-site.mjs [--out tmp/sites/perf] [--data docs/performance/data]`
 - **Appelé par** : `site/build-site.mjs`
-- **Utilise** : `lib/repo-root.mjs` · `site/lib/html-text.mjs` · `site/markdown-highlight.mjs`
+- **Utilise** : `lib/repo-root.mjs` · `site/lib/html-text.mjs` · `site/lib/site-nav.mjs` · `site/markdown-highlight.mjs`
 
 ## [`build-qualite-site.mjs`](build-qualite-site.mjs)
 
@@ -53,7 +53,7 @@ Construit le site « Qualité » publié — le verdict d'une CAMPAGNE DE TEST p
 
 - **Usage** : `node scripts/site/build-qualite-site.mjs [--out tmp/sites/quality] [--data docs/qualite/data]`
 - **Appelé par** : `site/build-site.mjs`
-- **Utilise** : `lib/repo-root.mjs`
+- **Utilise** : `lib/repo-root.mjs` · `site/lib/site-nav.mjs`
 
 ## [`build-site-plan.mjs`](build-site-plan.mjs)
 
@@ -127,6 +127,13 @@ Les diagrammes de séquence du site tiennent leurs libellés — sur le CORPUS r
 
 - **Lancé par** : `npm run test:tooling`
 - **Utilise** : `lib/repo-root.mjs`
+
+## [`site-nav.test.mjs`](site-nav.test.mjs)
+
+Le menu des sites voisins (performance, qualité) : des liens RELATIFS justes depuis chaque profondeur, et la bonne entrée allumée.
+
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `site/lib/site-nav.mjs`
 
 ## [`site-plan.test.mjs`](site-plan.test.mjs)
 

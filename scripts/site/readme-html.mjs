@@ -167,7 +167,10 @@ const embedPng = (name, alt) => {
   return `<figure style="margin:1.2rem 0"><img src="data:image/png;base64,${b64}" alt="${alt}" style="width:100%;height:auto;border-radius:8px;border:1px solid rgba(128,128,128,.35)"><figcaption class="u" style="margin-top:.4rem">${alt}</figcaption></figure>`;
 };
 
-const pkgRoot = readJson(join(ROOT, "package.json")) ?? {};
+// Le paquet PUBLIÉ : sa version porte le canal (`10.0.0-beta.7` → `@beta`),
+// que la racine du monodépôt (`10.0.0`) n'a pas. Lire la racine faisait
+// écrire `npm create nodefony@latest` — qui installe l'ancienne 7.
+const pkgCore = readJson(join(ROOT, "src", "nodefony", "package.json")) ?? {};
 
 /** Un paquet publiable = un domaine du framework. */
 const collect = (dir, key) => {
@@ -427,13 +430,11 @@ ${cards([
 ])}
 
 <p>Le même serveur sert aussi des services gRPC, encore expérimentaux en 10.0. Pour essayer, comptez
-deux minutes : <code>npm create nodefony@${
-    /^\d+\.\d+\.\d+-([a-z]+)/i.exec(pkgRoot.version ?? "")?.[1] ?? "latest"
-  } mon-app</code> pose une application complète — comptes, sécurité, temps réel, console
+deux minutes : <code>npm create nodefony@${/^\d+\.\d+\.\d+-([a-z]+)/i.exec(pkgCore.version ?? "")?.[1] ?? "latest"} mon-app</code> pose une application complète — comptes, sécurité, temps réel, console
 d'administration — sur SQLite. Ensuite, <a href="./docs/demarrer/">Par où commencer</a> vous
 guide.</p>
-<p class="dim">Version ${esc(pkgRoot.version ?? "—")} · Node ${esc(
-    (pkgRoot.engines?.node ?? "—").replace(">=", "≥ ").replace("||", "ou"),
+<p class="dim">Version ${esc(pkgCore.version ?? "—")} · Node ${esc(
+    (pkgCore.engines?.node ?? "—").replace(">=", "≥ ").replace("||", "ou"),
   )} · ESM, TypeScript strict</p>`,
   { break: "avoid" },
 );
@@ -945,14 +946,14 @@ approuver sans être lu. Ce que vous lisez est produit par ce principe.`)}`,
 // mentirait le jour de la version stable — comme la ligne « pas de migration de
 // schéma » l'a fait des mois après la livraison de `orm:migrate`.
 const REPO = "https://github.com/nodefony/nodefony-core";
-const PRERELEASE = /^\d+\.\d+\.\d+-([a-z]+)/i.exec(pkgRoot.version ?? "")?.[1];
+const PRERELEASE = /^\d+\.\d+\.\d+-([a-z]+)/i.exec(pkgCore.version ?? "")?.[1];
 
 const manques = section(
   "Ce qui manque — dit avant qu'on le demande",
   `
 ${
   PRERELEASE
-    ? warn(`<strong>Une préversion, pas une version stable.</strong> La ${pkgRoot.version.split(".")[0]}
+    ? warn(`<strong>Une préversion, pas une version stable.</strong> La ${pkgCore.version.split(".")[0]}
 est publiée sur npm sous le canal <code>${PRERELEASE}</code> seulement : sans canal,
 <code>npm install nodefony</code> sert encore l'ancienne génération. La
 <a href="./docs/guides/compatibilite/">politique de compatibilité</a> s'applique à partir de la
@@ -1181,6 +1182,9 @@ const html = doc({
    téléphone : le critère est que les cinq profils se voient SANS DÉFILER. */
 .profils { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; margin:12px 0 10px; }
 .profil { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
+/* Le README centre un bloc de code (div align=center) pour GitHub :
+   la page en héritait un code centré, ligne par ligne. */
+.wrap div[align="center"] pre { text-align:left; }
 .profil summary { list-style:none; display:flex; flex-direction:column; gap:3px; }
 .profil summary::-webkit-details-marker { display:none; }
 .profil-t { font-weight:650; }
@@ -1253,7 +1257,7 @@ ${STYLE_CODE}
     manques,
     direction,
   ],
-  footer: `Généré par <code>node scripts/site/readme-html.mjs</code> — ${new Date().toISOString().slice(0, 10)} · dépôt <code>nodefony-core</code> ${pkgRoot.version ?? ""} · les mesures de dimensionnement proviennent des rapports de capacité du dépôt.`,
+  footer: `Généré par <code>node scripts/site/readme-html.mjs</code> — ${new Date().toISOString().slice(0, 10)} · dépôt <code>nodefony-core</code> ${pkgCore.version ?? ""} · les mesures de dimensionnement proviennent des rapports de capacité du dépôt.`,
 });
 
 // Le dossier de sortie peut ne pas exister : cette page est la PREMIÈRE écrite

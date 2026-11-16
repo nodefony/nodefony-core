@@ -57,6 +57,20 @@ import {
   figure,
 } from "../../nodefony-html-report/lib/echarts.mjs";
 import { renderFigures } from "./perf-figures.mjs";
+// Rendue DANS le site publié (`--site-path /performance/<version>/`), la page
+// pose le menu des sites voisins — sa seule implémentation vit avec le site.
+const SITE_PATH = (() => {
+  const i = process.argv.indexOf("--site-path");
+  return i >= 0 ? (process.argv[i + 1] ?? "") : "";
+})();
+const siteNav = SITE_PATH
+  ? (
+      await import(
+        new URL("../../../../scripts/site/lib/site-nav.mjs", import.meta.url)
+          .href
+      )
+    ).siteNav
+  : null;
 
 const arg = (n, d) => {
   const i = process.argv.indexOf(`--${n}`);
@@ -1218,6 +1232,9 @@ const dossierOut = path.dirname(OUT);
 let ecrites = 0;
 for (const page of PAGES) {
   const html = doc({
+    nav: siteNav
+      ? siteNav(`${SITE_PATH}${page.slug ? `${page.slug}/` : ""}`)
+      : "",
     style: STYLE_GRAPHES + STYLE_NAV,
     title: titres[page.slug],
     subtitle: soustitres[page.slug],

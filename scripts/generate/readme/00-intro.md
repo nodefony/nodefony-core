@@ -35,10 +35,10 @@ _Une action de contrôleur. Deux transports. La même session, la même sécurit
 > générateurs pilotables, catalogue, `AGENTS.md` dérivé du projet. Deux frameworks, deux accents :
 > le bon choix dépend de ce que ton projet met en avant.
 
-**État** — version `10.0.0` · **préversion `10.0.0-beta.7` en ligne**, sous le canal `beta`
-uniquement : `npm install nodefony` sert toujours la `7.0.2` (JavaScript), et le fera jusqu'à la
-sortie stable · branche par défaut `main` (dernière publication), développement sur `dev` · ~7 700 tests quand toute
-l'infrastructure répond (`npm run test:all`).
+**État** — Nodefony 10 est en **préversion** : `npm create nodefony@beta mon-app` l'installe.
+Sans `@beta`, npm sert encore l'ancienne version 7, en JavaScript, jusqu'à la sortie stable. Le
+développement se fait sur `dev` ; `main` porte la dernière publication. Toute la batterie
+(`npm run test:all`) compte environ 7 700 tests quand l'infrastructure répond.
 
 > ⚠️ **Ce dépôt est l'atelier du framework, pas ce qu'une application installe** — agent : [`AGENTS.md`](AGENTS.md).
 > Pour juger le produit, lire une application générée ([`github.com/nodefony/nodefony`](https://github.com/nodefony/nodefony),

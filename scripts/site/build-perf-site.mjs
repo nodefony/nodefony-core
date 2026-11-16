@@ -50,6 +50,7 @@ import MarkdownIt from "markdown-it";
 import { highlight, STYLE_CODE } from "./markdown-highlight.mjs";
 import { anchorHeadings } from "./lib/html-text.mjs";
 import { REPO_ROOT as ROOT } from "../lib/repo-root.mjs";
+import { siteNav } from "./lib/site-nav.mjs";
 
 const arg = (n, d) => {
   const i = process.argv.indexOf(`--${n}`);
@@ -106,7 +107,16 @@ for (const version of versions) {
   try {
     execFileSync(
       process.execPath,
-      [GENERATOR, "--data", dataFile, "--out", path.join(dir, "index.html")],
+      [
+        GENERATOR,
+        "--data",
+        dataFile,
+        "--out",
+        path.join(dir, "index.html"),
+        // Rendue DANS le site : la page pose le menu des sites voisins.
+        "--site-path",
+        `/performance/${version}/`,
+      ],
       { stdio: ["ignore", "pipe", "pipe"] },
     );
     const meta = JSON.parse(readFileSync(dataFile, "utf8"));
@@ -232,11 +242,12 @@ for (const page of PROSE) {
   writeFileSync(
     path.join(dir, "index.html"),
     doc({
+      nav: siteNav(`/performance/${page.slug}/`),
       style: STYLE_CODE + STYLE_GRAPHES,
       title: page.titre,
       subtitle: page.sous,
       sections: [rendreMarkdown(src)],
-      footer: `<a href="../">← Performance</a> · <a href="../../">Documentation</a> — source <code>docs/performance/${page.source}</code>`,
+      footer: `<a href="../">← Performance</a> · <a href="../../docs/">Documentation</a> — source <code>docs/performance/${page.source}</code>`,
     }),
   );
   prose.push(page);
@@ -407,6 +418,7 @@ grave, ce serait de le taire.</p><ul>${skipped
 writeFileSync(
   path.join(OUT, "index.html"),
   doc({
+    nav: siteNav("/performance/"),
     title: "Performance de Nodefony",
     subtitle:
       "Les chiffres sont mesurés à la main, sur une machine nommée, puis versionnés dans le dépôt — cette page ne fait que les rendre.",
@@ -433,7 +445,7 @@ writeFileSync(
 .badge-latest { font-size:11.5px; padding:2px 9px; border-radius:20px; margin-left:8px;
   border:1px solid var(--accent); color:var(--accent); }`,
     footer:
-      `<a href="../">← Documentation Nodefony</a> — les données brutes sont versionnées dans ` +
+      `<a href="../docs/">← Documentation Nodefony</a> — les données brutes sont versionnées dans ` +
       `<a href="https://github.com/nodefony/nodefony-core/tree/main/docs/performance"><code>docs/performance/</code></a>, ` +
       `cette page les rend.`,
   }),

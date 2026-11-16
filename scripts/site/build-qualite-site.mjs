@@ -48,6 +48,7 @@ import {
   STYLE_GRAPHES,
 } from "../../.claude/skills/nodefony-html-report/lib/echarts.mjs";
 import { REPO_ROOT as ROOT } from "../lib/repo-root.mjs";
+import { siteNav } from "./lib/site-nav.mjs";
 
 function arg(nom, defaut) {
   const i = process.argv.indexOf(`--${nom}`);
@@ -427,6 +428,7 @@ function rendre(d) {
   );
 
   return doc({
+    nav: siteNav(`/qualite/${d.version}/`),
     title: `Campagne de test — Nodefony ${d.version}`,
     subtitle:
       rougesProduit === 0
@@ -482,6 +484,7 @@ writeFileSync(path.join(OUT, "latest", "index.html"), derniere);
 writeFileSync(
   path.join(OUT, "index.html"),
   doc({
+    nav: siteNav("/qualite/"),
     title: "Campagnes de test — Nodefony",
     subtitle:
       "Un verdict par version publiée, avec son décor et ce qu'il n'a pas éprouvé.",

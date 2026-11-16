@@ -55,6 +55,14 @@ Dossier de sortie d'un générateur du site : neuf à chaque rendu, ou refusé.
 - **Appelé par** : `site/assemble-site.mjs` · `site/build-docs-site.mjs` · `site/build-site.mjs`
 - **Testé par** : `site/site-versions.test.mjs`
 
+## [`site-nav.mjs`](site-nav.mjs)
+
+Le menu commun des sites VOISINS de la documentation — performance et qualité — rendu par chacun de leurs générateurs.
+
+- **Usage** : `import { siteNav, relativeUrl } from "./lib/site-nav.mjs"`
+- **Appelé par** : `site/build-perf-site.mjs` · `site/build-qualite-site.mjs` · `.claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs`
+- **Testé par** : `site/site-nav.test.mjs`
+
 ## [`site-versions.mjs`](site-versions.mjs)
 
 Versions du site publié — qui vit où, et comment passer de l'une à l'autre.

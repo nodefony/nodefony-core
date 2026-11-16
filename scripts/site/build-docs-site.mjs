@@ -1143,17 +1143,6 @@ const SITE_CSS = `
 .nf-next-banner { margin:0 0 22px; padding:10px 14px; border:1px solid var(--warn-fg);
   border-left-width:4px; border-radius:6px; background:var(--warn-bg); color:var(--warn-fg); font-size:14px; }
 .nf-next-banner a { color:inherit; text-decoration:underline; }
-.site-nav a { display:block; color:var(--fg); text-decoration:none; padding:3px 8px;
-  border-radius:5px; line-height:1.4; }
-.site-nav a:hover { background:var(--card); color:var(--accent); }
-.site-nav a[aria-current="page"] { background:var(--card); color:var(--accent); font-weight:650; }
-.site-nav ul { list-style:none; margin:2px 0 8px; padding-left:10px;
-  border-left:1px solid var(--line); }
-.site-nav .nav-up { color:var(--dim); font-size:12.5px; padding-left:0; margin-bottom:10px; }
-.site-nav .nav-up:hover { color:var(--accent); background:none; }
-.site-nav .nav-home { font-weight:700; margin-bottom:8px; padding-left:0; }
-.site-nav .nav-home.on { color:var(--accent); }
-.site-nav .nav-flat { border:0; padding-left:0; margin-bottom:12px; }
 .site-nav summary { cursor:pointer; padding:4px 0; font-weight:600; color:var(--fg);
   list-style:none; }
 .site-nav summary::-webkit-details-marker { display:none; }
