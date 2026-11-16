@@ -488,6 +488,58 @@ const PORTABLE_ENTITIES = [
  * plutôt que de comprendre. Les tests générés ne le voyaient pas : ils ouvrent
  * leur propre connecteur, jamais `default`.
  */
+/**
+ * Sonde #785 — une écriture REST arrive aux abonnés de la socket générée par
+ * `create controller NoteLive --kind realtime --entity Note`, sur le serveur
+ * RÉEL. Le test unitaire généré prouve le relais ; lui seul ne voit pas qu'il
+ * est BRANCHÉ au démarrage (`onPostReady`) dans un worker de production —
+ * un relais jamais construit laisse la socket muette, tests unitaires verts.
+ */
+const NOTE_LIVE_PROBE = `import { describe, it, expect } from "vitest";
+import { csrfHeaders, runningAppPort } from "nodefony/testing";
+import { NodefonySocket } from "nodefony/client";
+import { adminLogin } from "./e2e.setup";
+import { noteSample } from "../nodefony/entity/Note";
+
+describe("sonde #785 — POST /api/notes arrive sur note:events", () => {
+  it("un abonné reçoit la création, sans la redemander", async () => {
+    const base = \`http://127.0.0.1:\${runningAppPort()}\`;
+    const auth = await csrfHeaders(base, await adminLogin());
+    const res = await fetch(\`\${base}/nodefony/user/api/me\`, {
+      headers: auth,
+    });
+    const me: unknown = await res.json();
+    const owner =
+      typeof me === "object" && me !== null && "id" in me ? me.id : undefined;
+    if (typeof owner !== "string" && typeof owner !== "number") {
+      throw new Error("identité illisible sur /nodefony/user/api/me");
+    }
+
+    const socket = new NodefonySocket({
+      url: \`\${base.replace(/^http/u, "ws")}/api/note-live/realtime\`,
+      headers: { cookie: auth["cookie"] ?? "", origin: base },
+    });
+    const received = new Promise<unknown>((resolve) => {
+      socket.on("note:events", resolve);
+    });
+    await socket.connect();
+    socket.subscribe("note:events");
+    // L'accusé d'abonnement, pas un délai : sans lui, la création pourrait
+    // partir avant que le serveur ait inscrit l'abonné.
+    await socket.whenSubscribed("note:events");
+
+    const created = await fetch(\`\${base}/api/notes\`, {
+      method: "POST",
+      headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify(noteSample(785, { User: owner })),
+    });
+    expect(created.status).toBe(201);
+    expect(await received).toMatchObject({ type: "created" });
+    socket.disconnect();
+  });
+});
+`;
+
 const SERVICE_REBIND_PROBE = `import { describe, it, expect } from "vitest";
 import { DrizzleOrm } from "@nodefony/drizzle";
 import { entityRegistry, ormRegistry } from "@nodefony/orm-core";
@@ -1334,6 +1386,37 @@ step(
     if (/OutilsGateService/u.test(index))
       throw new Error(
         "la porte LOCALE a reçu un service de publication — elle ne protège rien",
+      );
+  },
+);
+
+step(
+  "génération : la socket des écritures d'une ENTITÉ (#785)",
+  "`--kind realtime --entity` : la socket, le relais déclaré dans @services et leur test — compilés, joués et démarrés par les étapes suivantes.",
+  () => {
+    run(process.execPath, [
+      BIN,
+      "create",
+      "controller",
+      "NoteLive",
+      "--kind",
+      "realtime",
+      "--entity",
+      "Note",
+      "--yes",
+    ]);
+    // Un relais non déclaré n'est jamais construit : la socket compile,
+    // s'abonne, et ne reçoit jamais rien.
+    // La preuve sur le serveur réel est jouée par l'étape e2e (serveur démarré).
+    writeFileSync(
+      path.join(APP, "tests", "note-live.probe.e2e.test.ts"),
+      NOTE_LIVE_PROBE,
+      "utf8",
+    );
+    const index = readFileSync(path.join(APP, "index.ts"), "utf8");
+    if (!/@services\(\[[^\]]*NoteEventsRelay/u.test(index))
+      throw new Error(
+        "NoteEventsRelay absent de @services([…]) — le canal note:events resterait muet",
       );
   },
 );

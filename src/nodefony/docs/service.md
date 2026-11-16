@@ -379,6 +379,16 @@ worker de tête — et lance la tâche **une** fois, sur `onPostReady`. Trois co
 Ce qui doit être prêt **avant** le premier trafic, dans chaque worker — une connexion, un cache
 local — reste dans `init()` : c'est son rôle, et il est attendu.
 
+Un geste à faire après le démarrage dans **chaque** worker — brancher un écouteur propre au
+processus, comme le relais des écritures d'une entité vers la socket
+(`nodefony create controller <Nom> --kind realtime --entity <Entité>`) — passe
+`{ allWorkers: true }` : il garde les deux autres règles, après `onPostReady` et jamais dans une
+commande CLI.
+
+```ts
+runOnceAtStartup(this, () => this.attachListeners(), { allWorkers: true });
+```
+
 Pour garder un geste à la main, `isLeadWorker()` répond seul à « ce processus porte-t-il les
 tâches uniques ? » — sans rien dire du mode CLI, que lit `this.kernel?.runProfile.servers`.
 

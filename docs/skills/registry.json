@@ -4869,6 +4869,10 @@
                 "help": ""
               },
               {
+                "flag": "--entity",
+                "help": ""
+              },
+              {
                 "flag": "--env",
                 "help": ""
               },

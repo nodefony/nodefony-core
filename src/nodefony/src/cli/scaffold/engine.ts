@@ -4407,6 +4407,20 @@ function runControllerScaffold(
         `  → l'ajouter : npm install @nodefony/security, puis use("@nodefony/security", {}) au manifeste`,
     );
   }
+  // #785 — la socket d'une ENTITÉ : ses écritures, en direct. Mesuré sur un run
+  // d'agent : la saveur realtime seule rendait un canal générique, sans lien avec
+  // la ressource ; l'agent a supprimé les fichiers générés et écrit la
+  // publication à la main dans une seule action d'écriture.
+  const entityName = String(answers.entity ?? "").trim();
+  if (entityName !== "" && kind !== "realtime") {
+    throw new Error(
+      `--entity ne vaut que pour --kind realtime (la socket qui diffuse les ` +
+        `écritures d'une entité) — un service qui LIT l'entité : ` +
+        `nodefony create service <Nom> --entity ${entityName}`,
+    );
+  }
+  const stream =
+    entityName === "" ? null : resolveEntityStream(target, entityName, writer);
   const eta = new Eta(ETA_OPTIONS);
   const written: string[] = [];
   const pascal = toPascalCase(base);
@@ -4439,10 +4453,17 @@ function runControllerScaffold(
     // `@IsGranted("")` le jour où la valeur arrive vide.
     roleGuard: role.length > 0,
     role,
+    // La socket d'entité : `channel` y devient le nom COMPLET du canal.
+    ...stream,
   };
   renderLayer(
     eta,
-    path.join(packageRoot, "templates", "controller", kind),
+    path.join(
+      packageRoot,
+      "templates",
+      "controller",
+      stream === null ? kind : "realtime-entity",
+    ),
     target.dir,
     data,
     written,
@@ -4450,8 +4471,24 @@ function runControllerScaffold(
     // `__KEBAB__` sert au test généré (`tests/<kebab>-realtime.test.ts`) : un
     // fichier de test se nomme d'après la ROUTE qu'il éprouve, pas d'après la
     // classe — c'est ainsi qu'on le retrouve depuis un journal ou une URL.
-    { __NAME__: nameClass, __KEBAB__: kebab, __PASCAL__: pascal },
+    {
+      __NAME__: nameClass,
+      __KEBAB__: kebab,
+      __PASCAL__: pascal,
+      __ENTITY__: stream?.entityPascal ?? "",
+    },
   );
+  // Le relais n'existe que déclaré : sans `@services`, il n'est jamais
+  // construit et le canal reste muet — sans une erreur.
+  if (stream !== null) {
+    wireDecoratorList(
+      path.join(target.dir, "index.ts"),
+      "services",
+      stream.relayClass,
+      `./nodefony/service/${stream.relayClass}`,
+      writer,
+    );
+  }
   // La porte protégée publie son document RFC 9728 par un service : sans lui,
   // le défi du 401 désignerait une adresse qui répond 404.
   if (mcp?.oauth === true) {
@@ -4515,10 +4552,22 @@ function runControllerScaffold(
       `REST ${route} (GET/POST) · ${route}/{id} (GET/DELETE)`,
       `WS   ${route}/realtime (socket Nodefony — mêmes actions via socket.get/post/delete)`,
     ],
-    realtime: [
-      `WS   ${route}/realtime (socket Nodefony — canal ${kebab}:events, action ${kebab}:ping)`,
-      `TEST tests/${kebab}-realtime.test.ts — \`npx vitest run\` (harnais @nodefony/realtime/testing, ni serveur ni navigateur)`,
-    ],
+    realtime:
+      stream === null
+        ? [
+            `WS   ${route}/realtime (socket Nodefony — canal ${kebab}:events, action ${kebab}:ping)`,
+            `TEST tests/${kebab}-realtime.test.ts — \`npx vitest run\` (harnais @nodefony/realtime/testing, ni serveur ni navigateur)`,
+          ]
+        : [
+            `WS   ${route}/realtime (socket Nodefony — canal ${stream.channel} : chaque création, retouche ou suppression de ${stream.entityPascal}, quelle que soit la porte)`,
+            `SERVICE ${stream.relayClass} déclaré dans @services — il branche les événements de ${stream.entityPascal}Service au démarrage, dans chaque worker`,
+            `TEST tests/${kebab}-realtime.test.ts — \`npx vitest run\` (harnais @nodefony/realtime/testing, ni serveur ni base)`,
+            ...(role.length > 0
+              ? []
+              : [
+                  `⚠ le canal diffuse les lignes ENTIÈRES de ${stream.entityPascal} : la socket doit être au moins aussi fermée que leur lecture — --role si la liste est réservée à un rôle`,
+                ]),
+          ],
     example: [
       `REST ${route} (vitrine décorateurs — voir les curl du TSDoc généré)`,
       `WS   ${route}/echo`,
@@ -4785,6 +4834,126 @@ function runServiceScaffold(
  * @param source - le contenu du fichier.
  * @returns la même source, commentaires blanchis.
  */
+/** Le nom d'entité tapé, normalisé : PascalCase, suffixe `Entity` retiré. */
+function entityPascalOf(entityName: string): string {
+  return toPascalCase(entityName.replace(/[-_]?[Ee]ntity$/u, ""));
+}
+
+/**
+ * Le fichier d'une entité de la cible — ou un refus qui NOMME celles qui
+ * existent, avant toute écriture.
+ *
+ * Un import vers une entité absente laisserait un projet qui ne compile plus,
+ * sur une erreur qui ne parle pas du scaffold. Partagé par les deux options
+ * `--entity` (`create service`, `create controller --kind realtime`) : une
+ * seule règle, un seul message.
+ *
+ * @param target - la cible résolue (app racine ou module).
+ * @param entityPascal - le nom d'entité normalisé ({@link entityPascalOf}).
+ * @param writer - l'écrivain (réel ou simulé).
+ * @returns le chemin du fichier d'entité.
+ * @throws Error Quand l'entité n'existe pas dans la cible.
+ */
+function requireTargetEntity(
+  target: { dir: string; name: string },
+  entityPascal: string,
+  writer: ScaffoldWriter,
+): string {
+  const entityDir = path.join(target.dir, "nodefony", "entity");
+  const entityFile = path.join(entityDir, `${entityPascal}.ts`);
+  if (writer.exists(entityFile)) return entityFile;
+  const known = writer.exists(entityDir)
+    ? readdirSync(entityDir)
+        .filter((f) => f.endsWith(".ts") && !f.endsWith(".schema.ts"))
+        .map((f) => f.replace(/\.ts$/u, ""))
+        .join(" · ")
+    : "";
+  throw new Error(
+    `--entity : « ${entityPascal} » introuvable dans ${target.name} ` +
+      `(entités de la cible : ${known || "aucune"})\n` +
+      `  → nodefony create entity ${entityPascal} <champs…>`,
+  );
+}
+
+/** Ce que `create controller --kind realtime --entity <E>` a résolu de l'entité. */
+interface IEntityStream {
+  /** Nom de l'entité (`Message`). */
+  entityPascal: string;
+  /** Préfixe du canal (`message`). */
+  entityKebab: string;
+  /** Nom d'instance du relais (`message` → `messageEventsRelay`). */
+  entityCamel: string;
+  /** Le canal (`message:events`). */
+  channel: string;
+  /** La constante qui le porte (`MESSAGE_EVENTS`). */
+  channelConst: string;
+  /** La classe du relais (`MessageEventsRelay`). */
+  relayClass: string;
+  /** Un identifiant d'exemple, écrit comme la clé l'attend (`42` ou `"42"`). */
+  sampleId: string;
+}
+
+/**
+ * Résout l'entité d'une socket `--entity` : l'entité, son service CRUD (dont le
+ * relais écoute les événements), et le nom du relais à poser.
+ *
+ * Refuse AVANT écriture : entité absente, service absent (entité générée avec
+ * `--no-service`), relais déjà posé — une seconde socket sur la même entité
+ * s'abonne au même canal, elle n'a pas besoin d'un second relais, qui
+ * publierait chaque écriture deux fois.
+ *
+ * @param target - la cible résolue (app racine ou module).
+ * @param entityName - le nom d'entité tapé.
+ * @param writer - l'écrivain (réel ou simulé).
+ * @returns les noms que les gabarits `realtime-entity` consomment.
+ * @throws Error Sur l'un des trois refus, avec le geste qui le lève.
+ */
+function resolveEntityStream(
+  target: { dir: string; name: string },
+  entityName: string,
+  writer: ScaffoldWriter,
+): IEntityStream {
+  const entityPascal = entityPascalOf(entityName);
+  const entityFile = requireTargetEntity(target, entityPascal, writer);
+  const serviceDir = path.join(target.dir, "nodefony", "service");
+  const serviceFile = path.join(serviceDir, `${entityPascal}Service.ts`);
+  const getter = `get${entityPascal}Service`;
+  if (
+    !writer.exists(serviceFile) ||
+    !new RegExp(`export\\s+function\\s+${getter}\\b`, "u").test(
+      writer.read(serviceFile),
+    )
+  ) {
+    throw new Error(
+      `--entity : ${entityPascal}Service introuvable dans ${target.name} ` +
+        `(nodefony/service/${entityPascal}Service.ts, avec ${getter}()) — ` +
+        `la socket relaie les écritures de CE service.\n` +
+        `  → nodefony create service ${entityPascal} --entity ${entityPascal}`,
+    );
+  }
+  const relayClass = `${entityPascal}EventsRelay`;
+  const entityKebab = toKebabCase(entityPascal);
+  const channel = `${entityKebab}:events`;
+  if (writer.exists(path.join(serviceDir, `${relayClass}.ts`))) {
+    throw new Error(
+      `${relayClass} existe déjà dans ${target.name} — les écritures de ` +
+        `${entityPascal} sont déjà relayées sur ${channel}. Une seconde socket ` +
+        `n'a pas besoin d'un second relais (il publierait tout deux fois) : ` +
+        `déclare le canal sur ton controller avec @RealtimeChannel(${channel}).`,
+    );
+  }
+  return {
+    entityPascal,
+    entityKebab,
+    entityCamel: entityPascal.charAt(0).toLowerCase() + entityPascal.slice(1),
+    channel,
+    channelConst: `${entityKebab.replaceAll("-", "_").toUpperCase()}_EVENTS`,
+    relayClass,
+    sampleId:
+      entityKeyIsSerial(writer.read(entityFile)) === true ? "42" : '"42"',
+  };
+}
+
 /**
  * `create service <Nom> --entity <Entité>` — le service qui ACCÈDE aux données.
  *
@@ -4832,25 +5001,9 @@ function runDataServiceScaffold(
     "--entity : ",
   );
 
-  const entityPascal = toPascalCase(entityName.replace(/[-_]?[Ee]ntity$/u, ""));
-  const entityDir = path.join(target.dir, "nodefony", "entity");
-  const entityFile = path.join(entityDir, `${entityPascal}.ts`);
-  if (!writer.exists(entityFile)) {
-    // Refus AVANT écriture, en NOMMANT ce qui existe : un import vers une
-    // entité absente laisserait un projet qui ne compile plus, sur une erreur
-    // qui ne parle pas du scaffold.
-    const known = writer.exists(entityDir)
-      ? readdirSync(entityDir)
-          .filter((f) => f.endsWith(".ts") && !f.endsWith(".schema.ts"))
-          .map((f) => f.replace(/\.ts$/u, ""))
-          .join(" · ")
-      : "";
-    throw new Error(
-      `--entity : « ${entityPascal} » introuvable dans ${target.name} ` +
-        `(entités de la cible : ${known || "aucune"})\n` +
-        `  → nodefony create entity ${entityPascal} <champs…>`,
-    );
-  }
+  const entityPascal = entityPascalOf(entityName);
+  const entityFile = requireTargetEntity(target, entityPascal, writer);
+  const entityDir = path.dirname(entityFile);
   const schemaFile = path.join(entityDir, `${entityPascal}.schema.ts`);
   if (!writer.exists(schemaFile)) {
     // Le service valide ses entrées contre les schémas Zod de l'entité — c'est
@@ -7009,6 +7162,18 @@ function runEntityScaffold(
   if (controller) {
     notes.push(
       `REST ${route} (GET liste paginée/POST) · ${route}/{id} (GET/PUT/PATCH/DELETE) — les lectures répondent AUSSI par la socket`,
+    );
+  }
+  // #785 — la diffusion des écritures n'est PAS dans ce controller ; un agent
+  // qui veut « les messages en direct » doit voir le geste ici, au moment où
+  // il vient de créer la ressource, sinon il l'écrit à la main.
+  if (
+    service &&
+    (targetDeps.has("@nodefony/realtime") ||
+      projectDeps.has("@nodefony/realtime"))
+  ) {
+    notes.push(
+      `LIVE écritures en direct (canal ${toKebabCase(pascal)}:events) : nodefony create controller ${pascal}Live --kind realtime --entity ${pascal}`,
     );
   }
   if (!service) {

@@ -676,6 +676,24 @@ const CONTROLLER_SPEC: IScaffoldTypeSpec = {
       patternHint:
         "un rôle en capitales préfixé ROLE_ (ex : ROLE_BILLING) ou vide",
     },
+    {
+      // #785 — « les messages en direct d'une ressource » : sans cette option,
+      // la saveur realtime rendait un canal générique, sans lien avec l'entité,
+      // et un agent a jeté les fichiers générés pour écrire la publication à la
+      // main. Avec elle, la socket diffuse les écritures du service de
+      // l'entité, et un relais déclaré au module les branche au démarrage.
+      // Le même nom d'option que `create service --entity` : relier à une
+      // entité EXISTANTE, qui marche donc aussi après coup.
+      key: "entity",
+      label:
+        "Relier la socket à une entité existante : ses écritures partent sur le canal <entité>:events (saveur realtime)",
+      type: "string",
+      default: "",
+      advanced: true,
+      pattern: "^$|^[A-Za-z][A-Za-z0-9-]*$",
+      patternHint:
+        "nom d'une entité de la cible (nodefony/entity/<Nom>.ts) ou vide",
+    },
   ],
 };
 

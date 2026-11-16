@@ -131,21 +131,18 @@ function parseInclude(include?: string): string[] {
  * la réponse ne revient qu'au client qui l'a posée. Il n'y a rien à réécrire pour LIRE
  * par la socket, et les deux chemins ne peuvent pas diverger.
  *
- * ⚠️ **Aucune écriture n'est DIFFUSÉE.** Une création, un remplacement, une retouche
- * ou une suppression ne sont poussés à aucun client abonné : un écran qui doit voir
- * arriver les nouveautés sans relire la liste attend une PUBLICATION, et elle s'écrit
- * à la main dans l'action d'écriture, après le succès — module `@nodefony/realtime`
- * requis :
+ * ⚠️ **Aucune écriture n'est DIFFUSÉE par cette classe.** Un écran qui doit voir
+ * arriver les nouveautés sans relire la liste s'abonne à une socket qui les publie —
+ * elle se GÉNÈRE, ne l'écris pas ici (module `@nodefony/realtime` requis) :
  *
- * ```ts
- * import { getRealtimeHub } from "@nodefony/realtime";
- *
- * const created = await this.createResource(payload);
- * getRealtimeHub().publish("<%= it.kebab %>:created", created);
+ * ```bash
+ * npx nodefony create controller <%= it.pascal %>Live --kind realtime --entity <%= it.pascal %>
  * ```
  *
- * Le client s'abonne au canal `<%= it.kebab %>:created`. Recette complète, règles
- * d'abonnement comprises : `node_modules/@nodefony/realtime/docs/cookbook-chat.md`.
+ * Elle diffuse sur le canal `<%= it.kebab %>:events` chaque création, retouche ou
+ * suppression faite par `<%= it.pascal %>Service` — y compris celles de cette classe,
+ * sans y toucher. Une ligne `publish` écrite ici ne couvrirait que ces routes : une
+ * écriture venue d'une commande ou d'un autre service resterait muette.
  *
  * Le controller ne contient **aucune logique** : il traduit une requête en appel de
  * service, et une erreur en statut. Tout le métier (validation comprise) vit dans

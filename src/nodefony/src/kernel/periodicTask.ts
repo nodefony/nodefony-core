@@ -75,11 +75,12 @@ function reportFailure(
   );
 }
 
-/** Réglages de {@link schedulePeriodic}. */
+/** Réglages de {@link schedulePeriodic} et de {@link runOnceAtStartup}. */
 export interface IPeriodicTaskOptions {
   /**
    * `true` : chaque worker de la grappe lance la tâche (un cache local à
-   * rafraîchir). Défaut : le seul worker de tête ({@link isLeadWorker}).
+   * rafraîchir, un écouteur à brancher dans chaque processus). Défaut : le seul
+   * worker de tête ({@link isLeadWorker}).
    */
   allWorkers?: boolean;
 }
@@ -186,15 +187,21 @@ export function schedulePeriodic(
  * }
  * ```
  *
+ * Un geste à faire dans CHAQUE worker (brancher un écouteur local au
+ * processus) passe `{ allWorkers: true }` : il garde les deux autres gardes —
+ * après le démarrage, jamais dans une commande CLI.
+ *
  * @param service - le service qui porte la tâche (son noyau, son journal).
  * @param task - le travail ; une promesse rendue est suivie pour journaliser son échec.
+ * @param options - {@link IPeriodicTaskOptions}.
  * @returns de quoi annuler la tâche si elle n'est pas encore partie.
  */
 export function runOnceAtStartup(
   service: IPeriodicHost,
   task: () => unknown,
+  options: IPeriodicTaskOptions = {},
 ): () => void {
-  const kernel = eligibleKernel(service, false);
+  const kernel = eligibleKernel(service, options.allWorkers === true);
   if (kernel === null) return () => undefined;
   const fail = (error: unknown): void => {
     reportFailure(service, "tâche de démarrage", error);

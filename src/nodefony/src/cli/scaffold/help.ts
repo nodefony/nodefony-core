@@ -188,6 +188,10 @@ const TYPE_DOC: Record<TScaffoldType, ITypeDoc> = {
         "exigé), `mixte` sert ses outils publics sans jeton et réserve les " +
         "autres à un jeton qui porte leurs scopes, `local` (défaut) la " +
         "réserve à la machine.",
+      "avec `--kind realtime --entity <Entité>` : la socket des écritures " +
+        "de cette entité — chaque création, retouche ou suppression faite par " +
+        "son service part sur le canal `<entité>:events`, quelle que soit la " +
+        "porte ; un relais déclaré dans `@services` les branche au démarrage.",
     ],
     before: "À lancer DANS une application Nodefony.",
     examples: [
@@ -198,6 +202,10 @@ const TYPE_DOC: Record<TScaffoldType, ITypeDoc> = {
       {
         term: "nodefony create controller Admin --role ROLE_COMPTA",
         text: "tout le controller réservé à cette habilitation",
+      },
+      {
+        term: "nodefony create controller MessageLive --kind realtime --entity Message",
+        text: "les messages en direct : chaque écriture de Message diffusée sur message:events",
       },
       {
         term: "nodefony create controller mcp --kind mcp --expose oauth",

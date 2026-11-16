@@ -209,6 +209,24 @@ describe("runOnceAtStartup", () => {
     expect(task).toHaveBeenCalledTimes(1);
   });
 
+  it("worker 1 d'une grappe, allWorkers : tourne quand même", () => {
+    process.env.NF_WORKER_SLOT = "1";
+    const kernel = new FakeKernel();
+    kernel.postReady = true;
+    const task = vi.fn();
+    runOnceAtStartup(host(kernel), task, { allWorkers: true });
+    expect(task).toHaveBeenCalledTimes(1);
+  });
+
+  it("commande CLI, allWorkers : ne tourne JAMAIS", () => {
+    const kernel = new FakeKernel();
+    kernel.runProfile = { servers: false };
+    kernel.postReady = true;
+    const task = vi.fn();
+    runOnceAtStartup(host(kernel), task, { allWorkers: true });
+    expect(task).not.toHaveBeenCalled();
+  });
+
   it("une erreur, synchrone ou asynchrone, est journalisée sur le service", async () => {
     const kernel = new FakeKernel();
     kernel.postReady = true;

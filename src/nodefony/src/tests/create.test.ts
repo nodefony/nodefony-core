@@ -8540,7 +8540,6 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       it("🔴 le controller ne promet aucune DIFFUSION : seules les lectures passent par la socket (#599)", () => {
         // Vécu (tâche 0, beta.3) : « exposée en HTTP ET par la socket » a fait
         // croire à un agent que les créations étaient poussées en direct.
-        const repoRoot = path.resolve(findPackageRoot(), "..", "..");
         const dest = app("audit-broadcast");
         entity(dest, { name: "BlogPost", fields: "title:string" });
         const controller = read(
@@ -8551,39 +8550,21 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         );
         assert.notInclude(controller, "exposée en HTTP **et** par la socket");
         assert.include(controller, "Aucune écriture n'est DIFFUSÉE");
+        // #785 : la diffusion se GÉNÈRE — l'ancienne consigne « publie à la
+        // main dans l'action » ne couvrait que les routes de cette classe, et un
+        // agent l'a suivie en jetant la socket générée.
         assert.include(
           controller,
-          'getRealtimeHub().publish("blog-post:created", created);',
+          "npx nodefony create controller BlogPostLive --kind realtime --entity BlogPost",
         );
-        // Le geste prescrit doit exister là où il envoie : un nom d'import
-        // renommé côté realtime laisserait le gabarit enseigner du code mort.
-        assert.match(
-          read(
-            repoRoot,
-            "src",
-            "packages",
-            "@nodefony",
-            "realtime",
-            "index.ts",
-          ),
-          /^\s+getRealtimeHub,$/mu,
-        );
-        assert.match(
-          controller,
-          /node_modules\/@nodefony\/realtime\/docs\/cookbook-chat\.md/u,
-        );
+        assert.include(controller, "`blog-post:events`");
+        assert.notInclude(controller, "getRealtimeHub().publish(");
+        // Le geste prescrit doit exister là où il envoie : une option retirée
+        // laisserait le gabarit enseigner une commande refusée.
+        const spec = getScaffoldSpec("controller").at(0);
         assert.isTrue(
-          existsSync(
-            path.join(
-              repoRoot,
-              "src",
-              "packages",
-              "@nodefony",
-              "realtime",
-              "docs",
-              "cookbook-chat.md",
-            ),
-          ),
+          spec?.questions.some((q) => q.key === "entity") === true,
+          "create controller n'a plus d'option --entity",
         );
       });
 
@@ -8865,6 +8846,176 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
             }),
           /ne se combinent pas/u,
         );
+      });
+    });
+
+    describe("create controller --kind realtime --entity — les écritures en direct (#785)", () => {
+      /** Scaffold controller depuis `from`, avec les réponses données. */
+      const ctl = (from: string, answers: Record<string, string | boolean>) =>
+        runScaffold(
+          { type: "controller", answers, dir: from, force: false },
+          version,
+        );
+      const read = (dest: string, ...parts: string[]): string =>
+        readFileSync(path.join(dest, ...parts), "utf8");
+
+      it("rend la socket, le relais déclaré dans @services, et leur test", () => {
+        // Mesuré sur un run d'agent : la saveur realtime seule rendait un canal
+        // sans lien avec la ressource — l'agent a SUPPRIMÉ les fichiers générés
+        // et publié à la main dans une seule action d'écriture.
+        const dest = app("rtentity");
+        const born = entity(dest, { name: "Message", fields: "body:text" });
+        // Le geste est NOMMÉ au moment où la ressource naît : sans lui, l'agent
+        // qui veut « les messages en direct » l'écrit à la main.
+        assert.include(
+          born.notes ?? [],
+          "LIVE écritures en direct (canal message:events) : nodefony create controller MessageLive --kind realtime --entity Message",
+        );
+        const r = ctl(dest, {
+          name: "MessageStream",
+          kind: "realtime",
+          entity: "Message",
+        });
+
+        const ctrl = read(
+          dest,
+          "nodefony",
+          "controllers",
+          "MessageStreamController.ts",
+        );
+        // Canal nommé d'après l'ENTITÉ, diffusable d'un pod à l'autre.
+        assert.include(ctrl, '@RealtimeBroadcast("message:")');
+        assert.include(ctrl, "@RealtimeChannel(MESSAGE_EVENTS)");
+        assert.include(
+          ctrl,
+          'import { MESSAGE_EVENTS } from "../service/MessageEventsRelay"',
+        );
+
+        const relay = read(
+          dest,
+          "nodefony",
+          "service",
+          "MessageEventsRelay.ts",
+        );
+        assert.include(relay, 'export const MESSAGE_EVENTS = "message:events"');
+        // Branché sur le service de l'entité, dans CHAQUE worker, après le
+        // démarrage — jamais au premier abonné (perdrait les écritures des
+        // autres pods), jamais dans une commande CLI.
+        assert.include(relay, "relayMessageEvents(getMessageService())");
+        assert.include(relay, "{ allWorkers: true }");
+        for (const event of ["onCreated", "onUpdated", "onDeleted"]) {
+          assert.include(relay, `service.on("${event}"`);
+          assert.include(relay, `service.removeListener("${event}"`);
+        }
+
+        // Sans déclaration, le relais n'est jamais construit : canal muet.
+        const index = read(dest, "index.ts");
+        assert.match(index, /@services\(\[[^\]]*\bMessageEventsRelay\b/u);
+        assert.match(
+          index,
+          /@controllers\(\[[^\]]*\bMessageStreamController\b/u,
+        );
+
+        const test = read(dest, "tests", "message-stream-realtime.test.ts");
+        // Clé UUID : l'identifiant d'exemple s'écrit en texte.
+        assert.include(test, 'await service.delete({ id: "42" })');
+        assert.includeMembers(r.files, [
+          path.join("nodefony", "controllers", "MessageStreamController.ts"),
+          path.join("nodefony", "service", "MessageEventsRelay.ts"),
+          path.join("tests", "message-stream-realtime.test.ts"),
+        ]);
+        // Le canal livre des lignes entières : la commande le DIT.
+        assert.isTrue(
+          (r.notes ?? []).some((n) => n.includes("lignes ENTIÈRES de Message")),
+          (r.notes ?? []).join("\n"),
+        );
+        assertNoEtaResidue(dest);
+      });
+
+      it("clé auto-incrémentée : l'identifiant d'exemple s'écrit en nombre", () => {
+        const dest = app("rtentityserial");
+        entity(dest, { name: "Ticket", fields: "title:string", id: "serial" });
+        ctl(dest, { name: "TicketLive", kind: "realtime", entity: "Ticket" });
+        const test = read(dest, "tests", "ticket-live-realtime.test.ts");
+        assert.include(test, "await service.delete({ id: 42 })");
+      });
+
+      it("--role ferme la socket, et l'avertissement se tait", () => {
+        const dest = app("rtentityrole");
+        entity(dest, { name: "Message", fields: "body:text" });
+        const r = ctl(dest, {
+          name: "MessageStream",
+          kind: "realtime",
+          entity: "Message",
+          role: "ROLE_CHAT",
+        });
+        const ctrl = read(
+          dest,
+          "nodefony",
+          "controllers",
+          "MessageStreamController.ts",
+        );
+        assert.include(ctrl, '@IsGranted("ROLE_CHAT")');
+        assert.isFalse(
+          (r.notes ?? []).some((n) => n.includes("lignes ENTIÈRES")),
+          (r.notes ?? []).join("\n"),
+        );
+      });
+
+      it("REFUSE avant d'écrire : autre saveur, entité ou service absents, relais en double", () => {
+        const dest = app("rtentityrefus");
+        entity(dest, { name: "Message", fields: "body:text" });
+        entity(dest, { name: "Draft", fields: "body:text", service: false });
+        const nothingWritten = (name: string): void =>
+          assert.isFalse(
+            existsSync(
+              path.join(
+                dest,
+                "nodefony",
+                "controllers",
+                `${name}Controller.ts`,
+              ),
+            ),
+            `${name}Controller écrit malgré le refus`,
+          );
+
+        // `--entity` sur une autre saveur : on renvoie vers le bon geste.
+        assert.throws(
+          () => ctl(dest, { name: "Hello", kind: "hello", entity: "Message" }),
+          /ne vaut que pour --kind realtime.*create service/su,
+        );
+        nothingWritten("Hello");
+        // Entité inconnue : le refus NOMME ce qui existe (même règle que
+        // `create service --entity`).
+        assert.throws(
+          () =>
+            ctl(dest, { name: "Ghost", kind: "realtime", entity: "Inconnue" }),
+          /introuvable.*Message/su,
+        );
+        nothingWritten("Ghost");
+        // Entité née sans service : rien à écouter.
+        assert.throws(
+          () =>
+            ctl(dest, { name: "DraftLive", kind: "realtime", entity: "Draft" }),
+          /DraftService introuvable.*create service Draft --entity Draft/su,
+        );
+        nothingWritten("DraftLive");
+        // Un second relais publierait chaque écriture deux fois.
+        ctl(dest, {
+          name: "MessageStream",
+          kind: "realtime",
+          entity: "Message",
+        });
+        assert.throws(
+          () =>
+            ctl(dest, {
+              name: "MessageFeed",
+              kind: "realtime",
+              entity: "Message",
+            }),
+          /MessageEventsRelay existe déjà/u,
+        );
+        nothingWritten("MessageFeed");
       });
     });
 
