@@ -1,5 +1,11 @@
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { isPlainObject } from "../runtime/isPlainObject";
+import {
+  manifestString,
+  parsePackageManifest,
+  type IPackageManifest,
+} from "./scaffold/packageManifest";
 
 /**
  * Les paquets que CE projet produit lui-même — ses espaces de travail.
@@ -21,19 +27,15 @@ import path from "node:path";
  */
 function packagesBuiltByThisProject(projectRoot: string): Set<string> {
   const produced = new Set<string>();
-  let patterns: unknown;
-  try {
-    const manifeste = JSON.parse(
-      readFileSync(path.join(projectRoot, "package.json"), "utf8"),
-    ) as { workspaces?: unknown };
-    patterns = manifeste.workspaces;
-  } catch {
-    return produced;
-  }
-  const list = Array.isArray(patterns)
+  const root = readManifest(projectRoot);
+  if (root === null) return produced;
+  const patterns = root.data["workspaces"];
+  // Forme yarn classique : `{ packages: [...] }`.
+  const nested = isPlainObject(patterns) ? patterns["packages"] : undefined;
+  const list: unknown[] = Array.isArray(patterns)
     ? patterns
-    : Array.isArray((patterns as { packages?: unknown } | null)?.packages)
-      ? (patterns as { packages: unknown[] }).packages
+    : Array.isArray(nested)
+      ? nested
       : [];
   for (const pattern of list) {
     if (typeof pattern !== "string") continue;
@@ -48,28 +50,42 @@ function packagesBuiltByThisProject(projectRoot: string): Set<string> {
     );
     for (const folder of etoile ? listDir(base) : [""]) {
       const dir = etoile ? path.join(base, folder) : base;
-      try {
-        const name = (
-          JSON.parse(readFileSync(path.join(dir, "package.json"), "utf8")) as {
-            name?: unknown;
-          }
-        ).name;
-        if (typeof name === "string") produced.add(name);
-      } catch {
-        // Un dossier sans manifeste n'est pas un espace de travail : on passe.
-      }
+      // Un dossier sans manifeste n'est pas un espace de travail : on passe.
+      const workspace = readManifest(dir);
+      const name =
+        workspace === null ? undefined : manifestString(workspace, "name");
+      if (name !== undefined) produced.add(name);
     }
   }
   return produced;
 }
 
 /**
+ * Le `package.json` d'un dossier, ou `null` s'il est absent ou illisible —
+ * deux cas NORMAUX ici (un dossier quelconque sous un motif d'espace de travail).
+ *
+ * @param dir - dossier du paquet.
+ * @returns le manifeste relu, racine vérifiée.
+ */
+function readManifest(dir: string): IPackageManifest | null {
+  const file = path.join(dir, "package.json");
+  try {
+    return parsePackageManifest(readFileSync(file, "utf8"), file);
+  } catch {
+    return null;
+  }
+}
+
+/** Le paquet du cœur — il livre lui aussi (le `Dockerfile` de l'application). */
+const CORE_PACKAGE = "nodefony";
+
+/**
  * Les paquets installés qu'une application peut interroger : ce qu'ils livrent
  * (skills d'agent, contributions au squelette) se découvre ici, en un seul
  * exemplaire.
  *
- * On scanne `node_modules/@nodefony/*` ET les modules LOCAUX de l'application
- * (`modules/<nom>`) : rien dans la mécanique n'est propre à un paquet, et un
+ * On scanne `node_modules/nodefony` (le cœur), `node_modules/@nodefony/*` ET les
+ * modules LOCAUX de l'application (`modules/<nom>`) : rien dans la mécanique n'est propre à un paquet, et un
  * module tiers qui livre quelque chose doit être servi par le même geste. Coder
  * un paquet en dur aurait fait de cette généralité un cas particulier, et
  * obligé à toucher au cœur le jour où quelqu'un d'autre en livre.
@@ -86,6 +102,11 @@ export function installedPackageRoots(
   const roots: { dir: string; name: string }[] = [];
   const scope = path.join(projectRoot, "node_modules", "@nodefony");
   const producedHere = packagesBuiltByThisProject(projectRoot);
+  // Le cœur d'abord : ce qu'il livre est le socle que les autres complètent.
+  const core = path.join(projectRoot, "node_modules", CORE_PACKAGE);
+  if (!producedHere.has(CORE_PACKAGE) && readManifest(core) !== null) {
+    roots.push({ dir: core, name: CORE_PACKAGE });
+  }
   for (const name of listDir(scope)) {
     if (name.startsWith(".")) continue;
     // 🔴 Un paquet que CE dépôt PRODUIT ne livre rien : sa source est déjà là.

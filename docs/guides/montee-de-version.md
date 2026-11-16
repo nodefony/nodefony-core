@@ -123,7 +123,7 @@ corrige sans décision humaine, et une vérification qui rougirait pour eux ne p
 | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | **Bloc framework**            | La partie d'`AGENTS.md` entre `<!-- nodefony:start -->` et `<!-- nodefony:end -->`, rendue par le framework. Le reste vous appartient.   |
 | **Pointeur de skill**         | Un court fichier sous `.agents/skills/` qui renvoie au skill livré dans `node_modules` : le contenu suit `npm install`, le pointeur non. |
-| **Copie livrée**              | Un fichier qu'un paquet dépose dans l'application (thème Keycloak, realm d'import), suivi par empreinte dans `scaffold.lock.json`.       |
+| **Copie livrée**              | Un fichier qu'un paquet dépose dans l'application (`Dockerfile`, thème Keycloak), suivi par empreinte dans `scaffold.lock.json`.         |
 | **Intacte / retouchée**       | Une copie dont l'empreinte est celle de la livraison précédente est intacte, donc remplaçable ; sinon elle est à vous, et gardée.        |
 | **Verrouillage** (_lockstep_) | Tous les paquets Nodefony sortent sur la même version : on les monte ensemble.                                                           |
 
@@ -139,6 +139,15 @@ corrige sans décision humaine, et une vérification qui rougirait pour eux ne p
   et passe.
 - **Dans un monorepo de paquets** (workspaces `packages/@scope/*`), l'`AGENTS.md` racine décrit le
   dépôt et s'écrit à la main : `upgrade` n'y touche pas.
+- **Le `Dockerfile` est une copie livrée par le paquet `nodefony`** (`contribute()`,
+  `contribute.ts#contribute`) : il est rafraîchi tant qu'il est intact. Une base, des paquets
+  système ou une cible se règlent sans le retoucher (`--build-arg`, `NF_IMAGE_TARGET`,
+  `NF_IMAGE_PACKAGES`, `NF_IMAGE_NODE`, `NF_IMAGE_RUNTIME`). Le gestionnaire se relit dans
+  l'application — champ `packageManager`, sinon le verrou ; sans l'un ni l'autre, rien n'est posé.
+- **Une application créée pendant la bêta, avant ce suivi** : son `Dockerfile` n'est pas encore au
+  registre. S'il est identique à la livraison, la première montée l'y inscrit d'elle-même ; s'il
+  diffère (retouché, ou rendu par une bêta plus ancienne), il est rapporté `modified` et reste à
+  vous. Pour le remettre sous suivi : supprimez-le, puis `npx nodefony scaffold:sync` le repose.
 
 ## 🧪 Tests & couverture
 
@@ -146,6 +155,7 @@ corrige sans décision humaine, et une vérification qui rougirait pour eux ne p
 | Type | Où | Ce qui est prouvé |
 | --- | --- | --- |
 | Unitaires | `nodefony` `upgradeCommand.test.ts` | le bloc périmé est réécrit et lui seul, la simulation n'écrit rien, une absence n'est pas comblée, un monorepo n'est pas touché, `doctor` nomme `nodefony upgrade`, `--check` ne compte ni copie retouchée ni absence |
+| Unitaires | `nodefony` `appDockerfile.test.ts` | `create app` et la contribution rendent le même `Dockerfile` pour npm, pnpm, yarn et bun ; une copie intacte est remplacée par `--update`, une retouchée gardée `modified` ; gestionnaire introuvable = rien posé ; le paquet `nodefony` est découvert, sauf dans le dépôt qui le produit |
 | Unitaires (CLI) | `nodefony` `standaloneHelp.test.ts`, `manPage.test.ts` | `upgrade` répond à `--help` sans démarrer l'application ; la page de manuel décrit le CLI réel |
 | Bout en bout | application créée par `nodefony@10.0.0-beta.2` publiée, montée sur les tarballs de la version suivante | avant : `--check` sort en 1 et `doctor` signale ; après : `--check` sort en 0, le texte hors marqueurs est identique octet pour octet |
 

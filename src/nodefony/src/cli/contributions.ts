@@ -19,6 +19,10 @@ import {
   declaredPackageEntry,
   resolveInside,
 } from "./packageManifest";
+import {
+  manifestString,
+  parsePackageManifest,
+} from "./scaffold/packageManifest";
 
 export { CONTRIBUTE_FIELD };
 
@@ -159,13 +163,13 @@ const SCAFFOLD_LOCK_DESCRIPTION =
 
 /** Le nom de l'application, lu dans son `package.json` ; repli : son dossier. */
 function readAppName(appRoot: string): string {
+  const file = path.join(appRoot, "package.json");
   try {
-    const name = (
-      JSON.parse(readFileSync(path.join(appRoot, "package.json"), "utf8")) as {
-        name?: unknown;
-      }
-    ).name;
-    if (typeof name === "string" && name.length > 0) return name;
+    const name = manifestString(
+      parsePackageManifest(readFileSync(file, "utf8"), file),
+      "name",
+    );
+    if (name !== undefined && name.length > 0) return name;
   } catch {
     // Pas de manifeste lisible : le nom du dossier fait foi.
   }

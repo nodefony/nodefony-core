@@ -531,10 +531,19 @@ paquet installé qui la déclare (`package.json` → `nodefony.contribute`, modu
 `contribute(ctx: IAppContributionContext)`). Découverte = `installedPackageRoots`
 (`cli/installedPackages.ts`), la MÊME que `ai:sync` : une règle, une implémentation.
 
-**Le cœur ne connaît aucun contributeur.** C'est la raison d'être du mécanisme : le décor Keycloak
+**Le moteur ne connaît aucun contributeur.** C'est la raison d'être du mécanisme : le décor Keycloak
 (realm d'import + thème) vivait dans le cœur parce que `create app` tourne avant l'installation ;
 il est désormais livré par `@nodefony/security`, et le cœur ne nomme plus Keycloak que dans les
 GABARITS du preset `complete` (compose, `.env`), contenu de l'application générée.
+
+**Le paquet `nodefony` est un contributeur comme les autres** : `scaffold/contribute.ts#contribute`
+(déclaré `nodefony.contribute`, ENTRÉE de `rolldown.config.ts` — que rien n'importe, le treeshake la
+retirerait) pose le `Dockerfile` en copie suivie. `installedPackageRoots` découvre donc
+`node_modules/nodefony` en premier (sauf dans le dépôt qui le produit). Rendu UNIQUE :
+`renderAppDockerfile` / `appDockerfileData` (`scaffold/engine.ts`), que le contexte de `create app`
+étale — égalité éprouvée par gestionnaire (`appDockerfile.test.ts`). Gestionnaire = champ
+`packageManager` (`packageManagerFromField`), sinon le verrou ; jamais l'agent de l'invocation, et
+rien n'est posé si rien ne le dit (`appPackageManager`).
 
 - **Copie, pas pointeur** (≠ `ai:sync`) : ces fichiers doivent exister EN VRAI (montés par Docker,
   retouchés par l'app). Le contexte n'écrit qu'un fichier ABSENT ; un présent est rapporté `kept`.

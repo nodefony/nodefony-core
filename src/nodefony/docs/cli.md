@@ -298,8 +298,12 @@ Les fins de ligne d'un texte sont ramenées à `\n` avant l'empreinte : un dép�
 avec `core.autocrlf` ne fait pas passer chaque fichier intact pour retouché. Le registre n'est
 réécrit que s'il change, et une contribution en échec garde son entrée.
 
-Le cœur ne connaît aucun contributeur : c'est ce qui permet à `@nodefony/security` de livrer son
-décor Keycloak sans que le cœur en sache rien. `create app` joue les contributions après
+Le moteur ne connaît aucun contributeur : c'est ce qui permet à `@nodefony/security` de livrer son
+décor Keycloak sans que le cœur en sache rien. Le paquet `nodefony` passe par le même geste pour le
+**`Dockerfile`** de l'application, en copie suivie (`contribute.ts#contribute`) : les correctifs de
+l'image atteignent ainsi les applications existantes, tant que leur `Dockerfile` est intact. Le
+gestionnaire de paquets se relit dans l'application (champ `packageManager`, sinon le verrou) ;
+sans l'un ni l'autre, rien n'est posé. `create app` joue les contributions après
 l'installation, avant le premier commit (le registre entre donc dans ce commit) ; la commande les
 rejoue après un `--no-install`, et `--update` après un `npm update`. Elle sort en 1 si une
 contribution échoue. Le même geste existe dans le plan d'administration, en développement

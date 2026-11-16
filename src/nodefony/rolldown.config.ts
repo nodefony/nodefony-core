@@ -54,6 +54,10 @@ const nodeConfig: RolldownOptions = defineConfig({
     "src/bundler/index.ts",
     "src/testing/index.ts",
     "src/client/cbor/index.ts",
+    // Contribution du paquet (`package.json` → `nodefony.contribute`) : chargée
+    // par `scaffold:sync`/`upgrade` d'après le manifeste, jamais importée —
+    // sans entrée, le treeshake la retirerait du paquet publié.
+    "src/cli/scaffold/contribute.ts",
   ],
   platform: "node",
   tsconfig: "tsconfig.json",

@@ -94,6 +94,7 @@ import {
   packageManagerToolchain,
   packageManagerWorkspaceRun,
   resolvePackageManager,
+  type IPackageManagerToolchain,
 } from "../packageManager";
 import type { PackageManagerName } from "../../Cli";
 // L'infra déclarée et l'ordre de la cascade `.env` ont chacun UNE
@@ -787,6 +788,84 @@ export function findPackageRoot(): string {
     dir = parent;
   }
   throw new Error("paquet nodefony introuvable (templates/)");
+}
+
+/** Gabarit du `Dockerfile` d'une application, relatif à la racine du paquet. */
+const APP_DOCKERFILE_TEMPLATE = ["templates", "app", "base", "Dockerfile.tpl"];
+
+/** Ce que le gabarit `Dockerfile.tpl` lit — cf {@link appDockerfileData}. */
+export interface IAppDockerfileData {
+  /** Nom de l'application : titre et étiquettes OCI de l'image. */
+  appName: string;
+  /** Gestionnaire choisi à la création, nommé dans les commentaires. */
+  packageManager: PackageManagerName;
+  /**
+   * Les scripts qui en appellent d'autres passent par le MÊME gestionnaire :
+   * bun réécrit `npm run` à sa façon.
+   */
+  pmRun: string;
+  /**
+   * Binaire `nodefony` lancé par l'image — même chemin sous les quatre
+   * gestionnaires, jamais `node_modules/.bin/` (shell sous pnpm).
+   */
+  imageCli: string;
+  /**
+   * Installation, cache et élagage de l'image : `npm ci` exige
+   * `package-lock.json`, et `npm prune` refuse `workspace:*`.
+   */
+  toolchain: IPackageManagerToolchain;
+}
+
+/**
+ * Les valeurs que lit le `Dockerfile` d'une application — UNE source pour
+ * `create app` (qui les étale dans le contexte de son layer) et pour la
+ * contribution du paquet (`scaffold:sync --update`, `nodefony upgrade`) : une
+ * valeur calculée deux fois finirait par différer, et la copie suivie de
+ * l'application serait alors « retouchée » sans que personne n'y ait touché.
+ *
+ * @param appName - nom de l'application
+ * @param packageManager - son gestionnaire de paquets
+ * @returns le contexte du gabarit
+ */
+export function appDockerfileData(
+  appName: string,
+  packageManager: PackageManagerName,
+): IAppDockerfileData {
+  return {
+    appName,
+    packageManager,
+    pmRun: `${packageManager} run`,
+    imageCli: IMAGE_NODEFONY_BIN,
+    toolchain: packageManagerToolchain(packageManager),
+  };
+}
+
+/**
+ * Rend le `Dockerfile` d'une application, tel que `create app` l'écrit.
+ *
+ * Même gabarit, mêmes options du moteur, même contexte
+ * ({@link appDockerfileData}) que le layer `base` de `create app` — l'égalité
+ * des deux rendus est éprouvée par gestionnaire (`appDockerfile.test.ts`).
+ *
+ * @param appName - nom de l'application
+ * @param packageManager - son gestionnaire de paquets
+ * @param packageRoot - racine du paquet `nodefony` (défaut : celle de ce fichier)
+ * @returns le texte du `Dockerfile`
+ * @throws si le gabarit laisse une balise non rendue
+ */
+export function renderAppDockerfile(
+  appName: string,
+  packageManager: PackageManagerName,
+  packageRoot: string = findPackageRoot(),
+): string {
+  const rendered = new Eta(ETA_OPTIONS).renderString(
+    readFileSync(path.join(packageRoot, ...APP_DOCKERFILE_TEMPLATE), "utf8"),
+    appDockerfileData(appName, packageManager),
+  );
+  if (rendered.includes("<%")) {
+    throw new Error("tag eta résiduel dans Dockerfile");
+  }
+  return rendered;
 }
 
 /**
@@ -2284,7 +2363,12 @@ function dispatchScaffold(
     ? answers.packageManager
     : "npm";
   const data = {
-    appName: answers.name,
+    // `appName`, `packageManager`, `pmRun`, `imageCli`, `toolchain` : ce que lit
+    // le `Dockerfile`, pris à la source que partage la contribution du paquet
+    // (`renderAppDockerfile`). Le gestionnaire décide aussi du fichier de
+    // workspace et du champ qui porte les overrides — chaque outil ne lit que
+    // le sien, et un override ignoré ne prévient pas.
+    ...appDockerfileData(String(answers.name), packageManager),
     // Identifiant SPDX rendu dans le manifeste ET choix du gabarit de LICENSE :
     // les deux doivent dire la même chose, le champ étant ce que lisent les
     // outils et le fichier ce que lisent les humains. Une seule source ici.
@@ -2316,21 +2400,9 @@ function dispatchScaffold(
     pascal: toPascalCase(String(answers.name)),
     entryName: answers.name,
     nodefonyVersion: version,
-    // Gestionnaire de paquets choisi : il décide du fichier de workspace
-    // (`pnpm-workspace.yaml`) et du champ qui porte les overrides — chaque
-    // outil ne lit que le sien, et un override ignoré ne prévient pas.
-    packageManager,
-    // Les scripts qui en appellent d'autres passent par le MÊME gestionnaire :
-    // bun réécrit `npm run` à sa façon, et un audit a une syntaxe par outil.
-    pmRun: `${packageManager} run`,
+    // Un audit et un exec ont une syntaxe par outil.
     pmAudit: packageManagerCommandLines(packageManager).audit,
     pmExec: packageManagerCommandLines(packageManager).exec,
-    // Le lanceur DANS l'image (sans shell) : le script du paquet, le même sous
-    // les quatre gestionnaires — jamais `node_modules/.bin/`, shell sous pnpm.
-    imageCli: IMAGE_NODEFONY_BIN,
-    // Installation, cache et élagage de la forge et de l'image : `npm ci`
-    // exige `package-lock.json`, et `npm prune` refuse `workspace:*`.
-    toolchain: packageManagerToolchain(packageManager),
     // Catalogue de versions tierces (source unique — cf versions.ts).
     pkg: SCAFFOLD_VERSIONS,
     preset,

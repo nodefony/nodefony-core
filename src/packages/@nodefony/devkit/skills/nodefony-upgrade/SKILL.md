@@ -11,7 +11,7 @@ description: >
   beta", "upgrade nodefony", "npm update nodefony", "une nouvelle version est sortie", "mes paquets
   nodefony sont en retard", "après la mise à jour plus rien ne compile", "AGENTS.md est périmé".
 metadata:
-  version: 1.0.0
+  version: 1.1.0
 ---
 
 # nodefony-upgrade — les paquets, puis l'application, puis la preuve
@@ -35,7 +35,8 @@ Une montée de version touche trois couches, et `npm install` n'en fait qu'une :
 
 1. **Les paquets** (`node_modules`) — `npm install`.
 2. **Ce que les paquets ont déposé dans l'application** à sa création : le bloc framework
-   d'`AGENTS.md`, les pointeurs de `.agents/skills/`, les copies livrées (décor Keycloak…). Ils
+   d'`AGENTS.md`, les pointeurs de `.agents/skills/`, les copies livrées (`Dockerfile`, décor
+   Keycloak…). Ils
    restent sur l'ancienne version sans que rien ne casse — `nodefony upgrade`.
 3. **Ton code**, quand la version annonce une rupture — toi, guidé par le changelog et le
    compilateur.
@@ -115,6 +116,12 @@ puis la procédure de `nodefony-migrate-schema`.
 - **Ne corrige pas une copie livrée « en retard » à la main** : si elle est intacte, `upgrade` la
   remplace ; si tu l'as retouchée, reporte tes retouches sur la nouvelle version du paquet, à la
   main et en connaissance de cause.
+- **Le `Dockerfile` est une copie livrée** : les correctifs de l'image (étage de construction,
+  sécurité) ne t'atteignent que s'il est resté intact. Une base, des paquets système ou une cible
+  se règlent SANS le retoucher — `--build-arg` ou `NF_IMAGE_TARGET`, `NF_IMAGE_PACKAGES`,
+  `NF_IMAGE_NODE`, `NF_IMAGE_RUNTIME`, que compose et la CI relaient. Retouché, il est rapporté
+  `modified` et ne suit plus. Le gestionnaire se relit dans l'application (champ
+  `packageManager`, sinon le verrou) : sans l'un ni l'autre, `upgrade` n'y touche pas.
 
 ## 4. Gate — la montée est faite quand
 

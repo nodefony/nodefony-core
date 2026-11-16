@@ -77,6 +77,21 @@ export function packageManagerFromUserAgent(
 }
 
 /**
+ * Lit le gestionnaire dans le champ `packageManager` d'un `package.json`
+ * (format Corepack : `pnpm@12.18.0`, éventuellement suivi de `+sha512.…`).
+ *
+ * @param field - valeur du champ, telle que relue (absente, ou d'un autre type)
+ * @returns le gestionnaire nommé avant `@`, ou `null` s'il n'est pas reconnu
+ */
+export function packageManagerFromField(
+  field: unknown,
+): PackageManagerName | null {
+  if (typeof field !== "string") return null;
+  const name = field.trim().split("@", 1)[0];
+  return isPackageManagerName(name) ? name : null;
+}
+
+/**
  * Désigne le gestionnaire de paquets d'un projet (cf l'ordre des sources en
  * tête de fichier).
  *
