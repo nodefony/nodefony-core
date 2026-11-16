@@ -11,18 +11,16 @@ import {
   getTotpStoreFactory,
   registerWebhookStore,
   getWebhookStoreFactory,
+  withSecurityReferences,
 } from "@nodefony/security";
 import {
   registerIdempotencyStore,
   getIdempotencyStoreFactory,
 } from "@nodefony/framework";
 import { MongooseOrm } from "./src/orm-core/index";
+import { createTokenEntities, TOKEN_ENTITY_NAMES } from "./entity/tokenEntity";
 import {
-  registerTokenEntities,
-  TOKEN_ENTITY_NAMES,
-} from "./entity/tokenEntity";
-import {
-  registerWebAuthnCredentialEntity,
+  createWebAuthnCredentialEntity,
   WEBAUTHN_CREDENTIAL_ENTITY,
 } from "./entity/webAuthnCredentialEntity";
 import {
@@ -34,7 +32,7 @@ import {
   AUDIT_ENTITY_NAMES,
 } from "./entity/auditEventEntity";
 import {
-  registerTotpSecretEntity,
+  createTotpSecretEntity,
   TOTP_SECRET_ENTITY,
 } from "./entity/totpSecretEntity";
 import {
@@ -163,7 +161,13 @@ export function registerMongooseFrameworkStores(): IFrameworkStoresReport {
   // ── Tokens (PAT + denylist JWT) — registre @nodefony/security ──────────────
   wire(
     TOKEN_ENTITY_NAMES.records,
-    () => registerTokenEntities(FRAMEWORK_CONNECTOR),
+    () => {
+      // Références logiques (porteur sans clé étrangère) : une seule
+      // déclaration, celle de `@nodefony/security`, jointe à l'enregistrement.
+      for (const entity of createTokenEntities(FRAMEWORK_CONNECTOR)) {
+        entityRegistry.register(withSecurityReferences(entity));
+      }
+    },
     () => {
       if (getTokenStoreFactory("mongoose")) {
         return;
@@ -183,7 +187,12 @@ export function registerMongooseFrameworkStores(): IFrameworkStoresReport {
   // ── Credentials WebAuthn (passkeys) — registre @nodefony/security ───────────
   wire(
     WEBAUTHN_CREDENTIAL_ENTITY,
-    () => registerWebAuthnCredentialEntity(FRAMEWORK_CONNECTOR),
+    () =>
+      entityRegistry.register(
+        withSecurityReferences(
+          createWebAuthnCredentialEntity(FRAMEWORK_CONNECTOR),
+        ),
+      ),
     () => {
       if (getWebAuthnStoreFactory("mongoose")) {
         return;
@@ -235,7 +244,10 @@ export function registerMongooseFrameworkStores(): IFrameworkStoresReport {
   // ── Secrets TOTP (2FA) — registre @nodefony/security ────────────────────────
   wire(
     TOTP_SECRET_ENTITY,
-    () => registerTotpSecretEntity(FRAMEWORK_CONNECTOR),
+    () =>
+      entityRegistry.register(
+        withSecurityReferences(createTotpSecretEntity(FRAMEWORK_CONNECTOR)),
+      ),
     () => {
       if (getTotpStoreFactory("mongoose")) {
         return;

@@ -10,6 +10,7 @@ import {
   getTotpStoreFactory,
   registerWebhookStore,
   getWebhookStoreFactory,
+  withSecurityReferences,
 } from "@nodefony/security";
 import {
   registerIdempotencyStore,
@@ -19,20 +20,17 @@ import { DrizzleOrm } from "./src/orm-core/index";
 import { FRAMEWORK_CONNECTOR } from "./src/frameworkConnector";
 import type { DrizzleDb } from "./src/orm-core/index";
 import type { SqlDialect } from "./config/config";
-import {
-  registerTokenEntities,
-  TOKEN_ENTITY_NAMES,
-} from "./entity/tokenEntity";
+import { createTokenEntities, TOKEN_ENTITY_NAMES } from "./entity/tokenEntity";
 import {
   registerAuditEntities,
   AUDIT_ENTITY_NAMES,
 } from "./entity/auditEventEntity";
 import {
-  registerWebAuthnCredentialEntity,
+  createWebAuthnCredentialEntity,
   WEBAUTHN_CREDENTIAL_ENTITY,
 } from "./entity/webAuthnCredentialEntity";
 import {
-  registerTotpSecretEntity,
+  createTotpSecretEntity,
   TOTP_SECRET_ENTITY,
 } from "./entity/totpSecretEntity";
 import {
@@ -45,7 +43,7 @@ import {
   IDEMPOTENCY_ENTITY_NAME,
 } from "./entity/idempotencyEntity";
 import {
-  registerSessionEntity,
+  createSessionEntity,
   SESSION_ENTITY_NAME,
   SESSION_CONNECTOR,
 } from "./entity/sessionEntity";
@@ -227,7 +225,11 @@ export function registerDrizzleFrameworkStores(
     SESSION_PORTED,
     // `wire` filtre les dialectes non portés AVANT d'appeler la closure → le
     // dialecte passe tel quel (la factory colKit connaît sqlite et postgres).
-    () => registerSessionEntity(SESSION_CONNECTOR, dialect),
+    () => {
+      for (const entity of createSessionEntity(SESSION_CONNECTOR, dialect)) {
+        entityRegistry.register(withSecurityReferences(entity));
+      }
+    },
     () => {
       /* storage déjà enregistré à l'import de SessionStorage (registre http). */
     },
@@ -253,7 +255,14 @@ export function registerDrizzleFrameworkStores(
   wire(
     TOKEN_ENTITY_NAMES.records,
     TOKEN_PORTED,
-    () => registerTokenEntities(FRAMEWORK_CONNECTOR, dialect),
+    () => {
+      // Les références logiques (porteur sans clé étrangère) sont jointes ICI,
+      // pas dans `entity/` : drizzle-kit relit ces fichiers en CommonJS, et
+      // `@nodefony/security` n'y a pas sa place.
+      for (const entity of createTokenEntities(FRAMEWORK_CONNECTOR, dialect)) {
+        entityRegistry.register(withSecurityReferences(entity));
+      }
+    },
     () => {
       if (getTokenStoreFactory("drizzle")) {
         return;
@@ -295,7 +304,12 @@ export function registerDrizzleFrameworkStores(
   wire(
     WEBAUTHN_CREDENTIAL_ENTITY,
     WEBAUTHN_PORTED,
-    () => registerWebAuthnCredentialEntity(FRAMEWORK_CONNECTOR, dialect),
+    () =>
+      entityRegistry.register(
+        withSecurityReferences(
+          createWebAuthnCredentialEntity(FRAMEWORK_CONNECTOR, dialect),
+        ),
+      ),
     () => {
       if (getWebAuthnStoreFactory("drizzle")) {
         return;
@@ -312,7 +326,12 @@ export function registerDrizzleFrameworkStores(
   wire(
     TOTP_SECRET_ENTITY,
     TOTP_PORTED,
-    () => registerTotpSecretEntity(FRAMEWORK_CONNECTOR, dialect),
+    () =>
+      entityRegistry.register(
+        withSecurityReferences(
+          createTotpSecretEntity(FRAMEWORK_CONNECTOR, dialect),
+        ),
+      ),
     () => {
       if (getTotpStoreFactory("drizzle")) {
         return;

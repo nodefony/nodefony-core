@@ -17,7 +17,10 @@ import type {
   IOrmSummary,
   IRelationInfo,
 } from "../interfaces/IOrmGraph";
-import type { IEntityRelation } from "../interfaces/IEntity";
+import type {
+  IEntityLogicalReference,
+  IEntityRelation,
+} from "../interfaces/IEntity";
 import type { IOrmFlowReport } from "../interfaces/IOrmFlow";
 import type {
   IOrmMigrationApplyReply,
@@ -247,7 +250,61 @@ function nodeRelations(
       targetKey: col.references.column,
     });
   }
+  // Puis une par référence LOGIQUE à cible unique : la base ne la porte pas,
+  // l'entité la déclare. Une contrainte réelle ou une relation déclarée sur la
+  // même colonne l'emporte ; une référence polymorphe n'a pas d'arête.
+  for (const col of columns) {
+    const target = col.logical?.target;
+    if (target === undefined || col.references !== undefined) continue;
+    covered ??= new Set(
+      declared
+        .filter((r) => r.type === "many-to-one" || r.type === "one-to-one")
+        .map((r) => r.foreignKey ?? conventionalForeignKey(r.target)),
+    );
+    if (covered.has(col.name)) continue;
+    relations.push({
+      type: "many-to-one",
+      target,
+      field: col.name,
+      foreignKey: col.name,
+      targetKey: col.logical?.column ?? "id",
+      logical: true,
+    });
+  }
   return relations;
+}
+
+/**
+ * Projette les références logiques de l'entité sur ses colonnes décrites.
+ * Une référence dont la colonne n'est pas décrite est ignorée : le graphe ne
+ * dessine que ce que la base porte.
+ */
+function withLogicalReferences(
+  columns: IColumnInfo[],
+  logical: ReadonlyArray<IEntityLogicalReference> | undefined,
+): IColumnInfo[] {
+  if (logical === undefined || logical.length === 0) return columns;
+  const byColumn = new Map(logical.map((l) => [l.column, l]));
+  return columns.map((col) => {
+    const ref = byColumn.get(col.name);
+    if (ref === undefined) return col;
+    const projected: IColumnInfo = {
+      name: col.name,
+      type: col.type,
+      primaryKey: col.primaryKey,
+      nullable: col.nullable,
+      unique: col.unique,
+      references: col.references,
+      logical: {
+        target: ref.target,
+        column:
+          ref.target === undefined ? undefined : (ref.targetColumn ?? "id"),
+        discriminator: ref.discriminator,
+        reason: ref.reason,
+      },
+    };
+    return projected;
+  });
 }
 
 /**
@@ -260,7 +317,10 @@ function buildEntityNode(connector: string, name: string): IEntityGraphNode {
   let columns: IEntityGraphNode["columns"];
   try {
     const ormInstance = ormRegistry.get(connector);
-    columns = ormInstance.describeEntity?.(name) ?? [];
+    columns = withLogicalReferences(
+      ormInstance.describeEntity?.(name) ?? [],
+      entity.logicalReferences,
+    );
   } catch {
     columns = [];
   }
@@ -466,6 +526,14 @@ export function toDbml(graph: IOrmGraph): string {
   const refs = new Set<string>();
   for (const node of graph.entities) {
     for (const rel of node.relations) {
+      if (rel.logical === true) {
+        // Une référence LOGIQUE n'est pas un `Ref` : un outil qui lit le DBML
+        // en tirerait une clé étrangère que la base, exprès, ne porte pas.
+        refs.add(
+          `// référence logique ${node.name}.${rel.foreignKey ?? rel.field} > ${rel.target}.${rel.targetKey ?? "id"} (aucune contrainte en base)`,
+        );
+        continue;
+      }
       if (rel.type === "many-to-many") {
         refs.add(
           `// many-to-many ${node.name}.${rel.field} <> ${rel.target} (table de jonction)`,
@@ -560,6 +628,9 @@ export function toJsonSchema(graph: IOrmGraph): {
       }
     }
     for (const rel of node.relations) {
+      // La colonne d'une référence logique est déjà une propriété (l'identifiant) ;
+      // elle ne désigne pas un objet imbriqué.
+      if (rel.logical === true) continue;
       const ref = `#/$defs/${rel.target}`;
       properties[rel.field] =
         rel.type === "one-to-many" || rel.type === "many-to-many"

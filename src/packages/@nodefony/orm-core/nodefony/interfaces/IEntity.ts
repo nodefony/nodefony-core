@@ -20,6 +20,33 @@ export interface IEntityRelation {
 }
 
 /**
+ * Référence LOGIQUE : une colonne qui contient l'identifiant d'une ligne d'une
+ * autre entité, SANS clé étrangère en base.
+ *
+ * C'est un choix, pas un oubli : le porteur d'une passkey peut être un compte
+ * Keycloak absent de la table locale, la table des comptes peut vivre dans une
+ * autre base, un jeton peut appartenir à un utilisateur OU à un client machine.
+ * Une contrainte casserait ces cas ; la référence logique les DIT. Purement
+ * descriptive : jamais chargée (≠ `relations`, dont une cible absente fait
+ * échouer la connexion), jamais émise en DDL. Le graphe canonique la lit.
+ */
+export interface IEntityLogicalReference {
+  /** Colonne de l'entité qui porte l'identifiant. */
+  readonly column: string;
+  /**
+   * Entité visée (nom logique). Absente = référence POLYMORPHE : la cible
+   * dépend de la ligne (cf `discriminator`).
+   */
+  readonly target?: string | undefined;
+  /** Colonne visée sur la cible (`id` par défaut). */
+  readonly targetColumn?: string | undefined;
+  /** Colonne qui dit, ligne par ligne, quel genre de cible est visé. */
+  readonly discriminator?: string | undefined;
+  /** Pourquoi la base ne porte pas de contrainte — affiché tel quel. */
+  readonly reason: string;
+}
+
+/**
  * Description d'une entité enregistrée dans le registre cross-ORM.
  *
  * Une même entité logique (ex. `User`) peut exister sur plusieurs connecteurs :
@@ -87,6 +114,13 @@ export interface IEntity<S = unknown, M = unknown> {
 
   /** Relations déclarées vers d'autres entités (par nom logique). */
   readonly relations?: ReadonlyArray<IEntityRelation> | undefined;
+
+  /**
+   * Colonnes qui désignent une autre entité SANS contrainte en base — cf
+   * {@link IEntityLogicalReference}. Descriptives seulement. **Optionnel**.
+   */
+  readonly logicalReferences?:
+    ReadonlyArray<IEntityLogicalReference> | undefined;
 
   /**
    * Index composites, appliqués par l'adapter qui les exprime hors schéma

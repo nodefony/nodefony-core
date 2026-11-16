@@ -12,6 +12,7 @@ export type {
   IEntity,
   IEntityIndex,
   IEntityRelation,
+  IEntityLogicalReference,
   IRepository,
   OrmCriteria,
   Criteria,
@@ -127,6 +128,7 @@ export type {
 export type {
   IColumnInfo,
   IColumnReference,
+  IColumnLogicalReference,
   IConnectionInfo,
   IRelationInfo,
   IEntityGraphNode,

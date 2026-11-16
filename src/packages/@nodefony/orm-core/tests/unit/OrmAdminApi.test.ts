@@ -180,6 +180,84 @@ describe("OrmAdminApi — graphe canonique + DBML", () => {
     }
   });
 
+  it("graphe : une référence LOGIQUE devient une arête marquée, jamais un Ref DBML ni un $ref", () => {
+    // `reviewerId` désigne un Author sans contrainte ; `ownerId` est
+    // polymorphe (pas de cible) ; une référence sur une colonne non décrite
+    // est ignorée.
+    const saved = cols.Article;
+    cols.Article = [
+      ...(saved ?? []),
+      {
+        name: "reviewerId",
+        type: "text",
+        primaryKey: false,
+        nullable: false,
+        unique: false,
+      },
+      {
+        name: "ownerId",
+        type: "text",
+        primaryKey: false,
+        nullable: false,
+        unique: false,
+      },
+    ];
+    const withLogical = {
+      ...article,
+      logicalReferences: [
+        { column: "reviewerId", target: "Author", reason: "compte externe" },
+        {
+          column: "ownerId",
+          discriminator: "ownerType",
+          reason: "utilisateur ou client",
+        },
+        { column: "ghost", target: "Author", reason: "colonne absente" },
+      ],
+    };
+    entityRegistry.unregister("Article", ORM);
+    entityRegistry.register(withLogical);
+    try {
+      const g = buildOrmGraph(ORM);
+      const node = g.entities.find((e) => e.name === "Article");
+      assert.deepEqual(
+        node?.relations.filter((r) => r.logical === true),
+        [
+          {
+            type: "many-to-one",
+            target: "Author",
+            field: "reviewerId",
+            foreignKey: "reviewerId",
+            targetKey: "id",
+            logical: true,
+          },
+        ],
+      );
+      const owner = node?.columns.find((c) => c.name === "ownerId");
+      assert.deepEqual(owner?.logical, {
+        target: undefined,
+        column: undefined,
+        discriminator: "ownerType",
+        reason: "utilisateur ou client",
+      });
+      assert.equal(
+        node?.columns.some((c) => c.name === "ghost"),
+        false,
+      );
+      const dbml = toDbml(g);
+      assert.doesNotMatch(dbml, /Ref: Article\.reviewerId/u);
+      assert.match(
+        dbml,
+        /\/\/ référence logique Article\.reviewerId > Author\.id/u,
+      );
+      const schema = toJsonSchema(g);
+      assert.equal(schema.$defs.Article?.properties.reviewerId?.type, "string");
+    } finally {
+      cols.Article = saved ?? [];
+      entityRegistry.unregister("Article", ORM);
+      entityRegistry.register(article);
+    }
+  });
+
   it('graphe : module propagé par entité (regroupement ERD) ; défaut ""', () => {
     // Une entité sans module → groupe « — » (chaîne vide), jamais undefined.
     entityRegistry.register({ name: "Orphan", connector: ORM, schema: {} });

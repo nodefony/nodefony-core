@@ -35,6 +35,23 @@ export interface IColumnInfo {
    * ne couvre déjà la colonne.
    */
   references?: IColumnReference | undefined;
+  /**
+   * Référence LOGIQUE que l'entité déclare sur cette colonne (aucune contrainte
+   * en base) — `IEntity.logicalReferences`. Absente sinon.
+   */
+  logical?: IColumnLogicalReference | undefined;
+}
+
+/** Référence logique projetée sur une colonne du graphe. */
+export interface IColumnLogicalReference {
+  /** Entité visée ; absente = référence polymorphe. */
+  target?: string | undefined;
+  /** Colonne visée sur la cible. */
+  column?: string | undefined;
+  /** Colonne qui dit quel genre de cible chaque ligne vise. */
+  discriminator?: string | undefined;
+  /** Pourquoi la base ne porte pas de contrainte. */
+  reason: string;
 }
 
 /** Cible d'une clé étrangère : l'entité visée et la colonne qu'elle y désigne. */
@@ -57,6 +74,8 @@ export interface IRelationInfo {
   foreignKey?: string | undefined;
   /** Colonne visée sur la cible — `id` par convention quand elle est absente. */
   targetKey?: string | undefined;
+  /** Tirée d'une référence LOGIQUE : la base ne garantit rien. */
+  logical?: boolean | undefined;
 }
 
 /** Nœud du graphe : une entité avec ses colonnes et ses relations. */

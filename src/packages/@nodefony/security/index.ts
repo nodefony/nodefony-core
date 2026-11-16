@@ -463,6 +463,13 @@ export {
   WEBHOOK_SORTABLE_FIELDS,
   WEBHOOK_DEFAULT_ORDER,
 } from "./nodefony/src/webhook/webhookSort";
+// Références LOGIQUES des tables de sécurité (porteur sans clé étrangère) —
+// jointes par les adapters à l'enregistrement, lues par le graphe ORM.
+export {
+  SECURITY_LOGICAL_REFERENCES,
+  withSecurityReferences,
+} from "./nodefony/contracts/logicalReferences";
+export type { ISecurityLogicalReference } from "./nodefony/contracts/logicalReferences";
 export {
   registerWebhookStore,
   getWebhookStoreFactory,

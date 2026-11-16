@@ -1,4 +1,8 @@
-import type { IEntity, IEntityRelation } from "../../interfaces/index";
+import type {
+  IEntity,
+  IEntityLogicalReference,
+  IEntityRelation,
+} from "../../interfaces/index";
 import { entityRegistry } from "../EntityRegistry";
 import {
   type DecoratedClass,
@@ -35,6 +39,12 @@ export interface EntityOptions<S = unknown> {
 
   /** Relations déclaratives vers d'autres entités. */
   relations?: ReadonlyArray<IEntityRelation>;
+
+  /**
+   * Colonnes qui désignent une autre entité SANS contrainte en base. Voir
+   * {@link IEntity.logicalReferences}.
+   */
+  logicalReferences?: ReadonlyArray<IEntityLogicalReference>;
 }
 
 /**
@@ -79,6 +89,7 @@ export function entity<S = unknown>(options: EntityOptions<S>) {
       domain: options.domain,
       schema: options.schema as S,
       relations: options.relations,
+      logicalReferences: options.logicalReferences,
     };
     entityRegistry.register(descriptor);
 

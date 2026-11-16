@@ -1,5 +1,6 @@
 import type { SchemaDefinition } from "mongoose";
 import { entity } from "@nodefony/orm-core";
+import { SECURITY_LOGICAL_REFERENCES } from "@nodefony/security";
 
 /** ORM cible du stockage de session (connecteur par défaut du module). */
 export const SESSION_CONNECTOR = "nodefony";
@@ -49,7 +50,13 @@ export interface SessionRow {
  * faut ne pas router le store session vers mongoose (`session.store`), pas
  * baisser ce drapeau.
  */
-@entity({ connector: SESSION_CONNECTOR, name: "session", schema })
+@entity({
+  connector: SESSION_CONNECTOR,
+  name: "session",
+  schema,
+  // Le principal (`user`) désigne un compte par son identifiant, sans contrainte.
+  logicalReferences: SECURITY_LOGICAL_REFERENCES.session,
+})
 class SessionEntity {}
 
 export default SessionEntity;

@@ -1,5 +1,10 @@
 export type { IOrm } from "./IOrm";
-export type { IEntity, IEntityIndex, IEntityRelation } from "./IEntity";
+export type {
+  IEntity,
+  IEntityIndex,
+  IEntityLogicalReference,
+  IEntityRelation,
+} from "./IEntity";
 export type {
   IRepository,
   OrmCriteria,
@@ -15,6 +20,7 @@ export type { IPage, IPageQuery, PageQuery } from "./IPage";
 export type {
   IColumnInfo,
   IColumnReference,
+  IColumnLogicalReference,
   IConnectionInfo,
   IRelationInfo,
   IEntityGraphNode,
