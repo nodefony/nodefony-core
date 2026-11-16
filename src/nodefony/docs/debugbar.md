@@ -69,7 +69,7 @@ démarré.
 
 Le **bandeau** porte l'essentiel en une ligne : le logo, l'environnement du
 serveur (connu dès le rendu de la page), la branche git (une fois connue), le
-contrôle « Temps réel », puis le débit, la charge processeur et la mémoire, enfin
+contrôle « Mesures », puis le débit, la charge processeur et la mémoire, enfin
 les compteurs réseau, rechargements à chaud (`hmr`, avec un front Vite), journaux
 et erreurs. Ce qui n'est pas encore connu ne s'affiche pas : un badge vide se
 lirait comme une valeur.
@@ -82,18 +82,22 @@ le bouton « Ouvrir / Fermer » basculent le panneau.
 | Contrôle                     | Ce qu'il fait                                                                                   |
 | ---------------------------- | ----------------------------------------------------------------------------------------------- |
 | logo `◆ nodefony`            | Ouvre ou ferme le panneau.                                                                      |
-| `Temps réel · <état>`        | Démarre ou arrête les mesures et journaux en direct. **Arrêté par défaut** (voir ci-dessous).   |
+| `Mesures · <état>`           | Démarre ou arrête les mesures et journaux en direct. **Arrêté par défaut** (voir ci-dessous).   |
 | `Réduire`                    | Réduit la barre en pastille, dans un coin de l'écran ; la pastille la rouvre.                   |
 | `Ouvrir` / `Fermer`          | Ouvre ou ferme le panneau.                                                                      |
 | réglages : `À gauche/droite` | Coin où se pose la pastille réduite (onglet Runtime, carte « Barre de debug · ce navigateur »). |
 
-Le contrôle « Temps réel » dit son état en toutes lettres : `arrêté`, `connexion…`,
+Le contrôle « Mesures » dit son état en toutes lettres : `arrêté`, `connexion…`,
 `en direct`, `en pause` (la socket est ouverte par l'application, mais la barre ne
 reçoit rien), ou `accès refusé` — la barre lit les données d'administration, et
 sans session administrateur le serveur refuse le handshake (401/403, avant toute ouverture). Le
 refus se lit, il ne se confond pas avec une panne.
 
-> **Pourquoi le temps réel est arrêté par défaut** : l'abonnement fait tourner des
+Ce contrôle règle le flux de la **barre** (ses mesures et ses journaux), pas le temps réel de
+l'application : une page dont la socket est connectée peut afficher « Mesures · accès refusé » si l'on n'est pas administrateur. Les sockets de la page, leur état, leurs canaux et la
+**présence** de chacun (qui est là) se lisent dans l'onglet Socket.
+
+> **Pourquoi les mesures en direct sont arrêtées par défaut** : l'abonnement fait tourner des
 > compteurs et un émetteur de journaux côté serveur. En développement on ouvre
 > beaucoup d'onglets ; les laisser tous branchés en permanence ferait payer à
 > l'application un travail que personne ne regarde. C'est un choix d'adhésion,

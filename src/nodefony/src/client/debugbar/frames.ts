@@ -80,19 +80,20 @@ function lengthOf(value: unknown): number {
 function presenceMeaning(params: unknown): string {
   const channel = short(ownField(params, "channel")) ?? "?";
   const version = short(ownField(params, "version")) ?? "?";
+  // Les NOMBRES voyagent dans chaque trame, changement compris : un
+  // changement sans arrivée ni départ peut porter un anonyme de plus.
+  const numbers = `${short(ownField(params, "count")) ?? "?"} compte(s), ${short(ownField(params, "unnamed")) ?? "?"} anonyme(s)`;
   const changes = ownField(params, "changes");
   if (changes !== undefined) {
     const came = lengthOf(ownField(changes, "set")) / 2;
     const left = lengthOf(ownField(changes, "gone"));
-    return `présence de « ${channel} » : changement v${version} — ${came} arrivée(s) ou mise(s) à jour, ${left} départ(s)`;
+    return `présence de « ${channel} » : changement v${version} — ${numbers} (${came} arrivée(s) ou mise(s) à jour, ${left} départ(s))`;
   }
-  const count = short(ownField(params, "count")) ?? "?";
-  const unnamed = short(ownField(params, "unnamed")) ?? "?";
   const kind =
     ownField(params, "members") === undefined
       ? "nombres seuls"
       : "liste complète";
-  return `présence de « ${channel} » : ${kind} v${version} — ${count} compte(s), ${unnamed} anonyme(s)`;
+  return `présence de « ${channel} » : ${kind} v${version} — ${numbers}`;
 }
 
 /**

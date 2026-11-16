@@ -83,6 +83,40 @@ describe("frameMeaning — une phrase par trame", () => {
     );
   });
 
+  it("présence : liste complète, nombres seuls, et un changement qui porte ses NOMBRES", () => {
+    const presence = (params: Record<string, unknown>) =>
+      frameMeaning(frame("in", 0, "realtime:presence", { params }));
+    expect(
+      presence({
+        channel: "chat:room:salon",
+        version: 0,
+        count: 0,
+        unnamed: 1,
+        members: [],
+      }),
+    ).toBe(
+      "présence de « chat:room:salon » : liste complète v0 — 0 compte(s), 1 anonyme(s)",
+    );
+    expect(
+      presence({ channel: "chat:online", version: 3, count: 2, unnamed: 0 }),
+    ).toBe(
+      "présence de « chat:online » : nombres seuls v3 — 2 compte(s), 0 anonyme(s)",
+    );
+    // Vu au navigateur : un changement sans arrivée ni départ — ce sont ses
+    // nombres qui disent ce qui a bougé.
+    expect(
+      presence({
+        channel: "chat:room:salon",
+        version: 1,
+        count: 1,
+        unnamed: 1,
+        changes: { set: ["u1", 1] },
+      }),
+    ).toBe(
+      "présence de « chat:room:salon » : changement v1 — 1 compte(s), 1 anonyme(s) (1 arrivée(s) ou mise(s) à jour, 0 départ(s))",
+    );
+  });
+
   it("résumé borné : trois champs, puis le compte des autres", () => {
     expect(summarizeParams({ a: 1, b: "x", c: true, d: 2, e: 3 })).toBe(
       "a: 1, b: x, c: true +2",

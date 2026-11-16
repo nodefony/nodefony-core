@@ -336,7 +336,7 @@ const KERNEL_HELP: ReadonlyMap<string, string> = new Map([
   ["services", "Services composés par le noyau — kernel.get(nom)."],
   [
     "socket",
-    "État de la socket du noyau. Le bouton « Temps réel » de la barre règle le FLUX, pas la connexion.",
+    "État de la socket du noyau. Le bouton « Mesures » de la barre règle le FLUX, pas la connexion.",
   ],
   [
     "s'ouvre",
@@ -1186,7 +1186,7 @@ export const STYLES =
 .toggle .chev { transition: transform .2s ease; }
 .bar.open .toggle .chev { transform: rotate(180deg); }
 ` +
-  // « Temps réel » : UN contrôle, qui dit l'état ET le bascule. Il y en avait
+  // « Mesures » : UN contrôle, qui dit l'état ET le bascule. Il y en avait
   // deux — une pastille « REALTIME » (la connexion) et un interrupteur « Direct »
   // (l'abonnement) — et personne ne savait lequel lire. L'état est écrit en
   // toutes lettres à côté du nom ; la couleur ne fait que le confirmer.
@@ -1304,7 +1304,7 @@ const LS = {
   open: "nf.debugbar.open",
   tab: "nf.debugbar.tab",
   h: "nf.debugbar.h",
-  // Temps réel OFF par défaut (perf) : opt-in via le bouton de la barre — sinon
+  // Mesures en direct OFF par défaut (perf) : opt-in via le bouton de la barre — sinon
   // la barre maintiendrait les tickers (stats + syslog) en permanence en dev.
   live: "nf.debugbar.live",
 } as const;
@@ -1396,7 +1396,7 @@ export class DebugBar {
   private side: "left" | "right";
   private activeTab: TabId;
   private panelH: number;
-  // Temps réel (abonnements stats+syslog) — OFF par défaut (perf), opt-in bouton.
+  // Mesures en direct (abonnements stats+syslog) — OFF par défaut (perf), opt-in bouton.
   private live: boolean;
   /** dispose des abonnements realtime (null quand OFF). */
   private liveOff: (() => void) | null = null;
@@ -2510,7 +2510,7 @@ export class DebugBar {
         <button type="button" class="brand" data-el="btnBrand" aria-controls="nf-db-panel" aria-expanded="${this.startOpen}" data-tip="Barre de débogage Nodefony (développement uniquement) — cliquer pour ouvrir ou fermer le panneau"><span class="logo">${NODEFONY_LOGO}</span><span class="name">nodefony</span></button>
         <span class="env-badge" data-el="envBadge" data-tip="Environnement dans lequel tourne l'application">env</span>
         <span class="branch" data-el="branch" data-tip="Branche git de la copie de travail" hidden><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 2.5v11M5 13.5a1.5 1.5 0 1 0 0-.01M11 5.5a1.5 1.5 0 1 0 0-.01M11 7c0 3.5-6 2.5-6 5"/></svg><span data-el="branchName"></span></span>
-        <button type="button" class="rt ui" data-el="btnLive" aria-pressed="false" data-tip="Temps réel"><span class="rt-dot" aria-hidden="true"></span><span class="rt-name">Temps réel</span><span class="rt-state" data-el="rtCtlState">arrêté</span></button>
+        <button type="button" class="rt ui" data-el="btnLive" aria-pressed="false" data-tip="Mesures"><span class="rt-dot" aria-hidden="true"></span><span class="rt-name">Mesures</span><span class="rt-state" data-el="rtCtlState">arrêté</span></button>
         ${this.miniMetric("rt", "rt", "rtMini", "0/s", "realtime", "Messages temps réel reçus par seconde — cliquer pour ouvrir l'onglet Realtime")}
         ${this.miniMetric("cpu", "cpu", "cpuMini", "0%", "perf", "Charge processeur du serveur — cliquer pour ouvrir l'onglet Perf")}
         ${this.miniMetric("mem", "mem", "memMini", "0%", "perf", "Mémoire utilisée par le serveur — cliquer pour ouvrir l'onglet Perf")}
@@ -2623,13 +2623,13 @@ export class DebugBar {
 
   /**
    * L'onglet Perf — une carte par mesure du process serveur (60 dernières
-   * secondes, « Temps réel » allumé), et ce que le navigateur sait du
+   * secondes, « Mesures » allumé), et ce que le navigateur sait du
    * chargement de cette page.
    */
   private perfPane(): string {
     return `<div class="pane pfp" data-pane="perf">
-      <div class="pfstate" data-el="pfOff">Les courbes avancent avec « Temps réel », éteint : les dernières valeurs restent affichées. <button type="button" class="toolbtn" data-el="btnPfLive">Allumer</button></div>
-      <p class="pfstate" data-el="pfOn" hidden><span class="dot ok" aria-hidden="true"></span>Temps réel en direct · 60 dernières secondes</p>
+      <div class="pfstate" data-el="pfOff">Les courbes avancent avec « Mesures », éteint : les dernières valeurs restent affichées. <button type="button" class="toolbtn" data-el="btnPfLive">Allumer</button></div>
+      <p class="pfstate" data-el="pfOn" hidden><span class="dot ok" aria-hidden="true"></span>Mesures en direct · 60 dernières secondes</p>
       <div class="pgrid" data-el="pGrid">
         <div class="card">${this.chart(helpLabel("CPU", "Temps CPU du process serveur, en % d'un cœur."), "cpuVal", "cpuPeak", "cpuLine", "cpuArea")}<div data-el="cpuRows"></div></div>
         <div class="card">${this.chart(helpLabel("Mémoire (heap)", "Tas JavaScript utilisé, en % de sa limite."), "heapVal", "heapPeak", "heapLine", "heapArea")}<div data-el="heapRows"></div></div>
@@ -2925,7 +2925,7 @@ export class DebugBar {
     this.disposers.push(offState, offTick, offStats, offSyslog, () => {
       this.stopLive();
     });
-    // Abonnements (tickers serveur) gérés par le bouton « Temps réel » — OFF par
+    // Abonnements (tickers serveur) gérés par le bouton « Mesures » — OFF par
     // défaut (perf). Si la préférence persistée est ON, on démarre au montage.
     if (this.live) this.startLive();
   }
@@ -3079,13 +3079,13 @@ export class DebugBar {
     this.scheduleRender();
   }
 
-  /** Met à jour l'aspect du bouton « Temps réel » selon l'état. */
+  /** Met à jour l'aspect du bouton « Mesures » selon l'état. */
   private updateLiveBtn(): void {
     this.renderRealtimeControl(this.model.view.state);
   }
 
   /**
-   * Le contrôle « Temps réel » — UN état lisible, tiré de deux faits : la
+   * Le contrôle « Mesures » — UN état lisible, tiré de deux faits : la
    * connexion (partagée avec l'hôte) et l'abonnement de la barre (le direct).
    *
    * | direct | connexion          | affiché            |
@@ -3097,8 +3097,8 @@ export class DebugBar {
    * | non    | fermée             | arrêté             |
    */
   private renderRealtimeControl(state: string): void {
-    const btn = this.el["btnLive"] as HTMLElement | undefined;
-    if (!btn) return;
+    const btn = this.el.btnLive;
+    if (!(btn instanceof HTMLElement)) return;
     const connected = state === "connected";
     let mode: "refused" | "live" | "wait" | "paused" | "off";
     if (this.refused && !connected) mode = "refused";
@@ -3128,7 +3128,7 @@ export class DebugBar {
     btn.setAttribute("class", `rt ui ${mode}`);
     btn.setAttribute("data-tip", tip);
     btn.setAttribute("aria-pressed", this.live ? "true" : "false");
-    // Pas d'`aria-label` : le texte VISIBLE (« Temps réel arrêté ») est le nom.
+    // Pas d'`aria-label` : le texte VISIBLE (« Mesures arrêté ») est le nom.
     // Un nom réécrit qui ne le reprend pas mot pour mot viole WCAG 2.5.3 — et
     // trompe qui pilote à la voix en lisant l'écran.
   }
@@ -4527,7 +4527,7 @@ export class DebugBar {
         : [];
     this.text("rViteN", bundles.length > 0 ? String(bundles.length) : "");
     this.setHtml("rVite", viteHtml(s.vite, bundles));
-    // Temps réel allumé : la charge suit le flux. Éteint : le relevé de
+    // Mesures en direct allumées : la charge suit le flux. Éteint : le relevé de
     // l'ouverture, daté — jamais un « 0 » qui passerait pour une mesure.
     const p = ownField(health, "process");
     const live = this.live && v.pid > 0;
@@ -4565,8 +4565,8 @@ export class DebugBar {
             ),
             `<div class="tag">${
               live
-                ? "Suivie en continu (Temps réel)."
-                : `Relevée à ${new Date(s.at).toLocaleTimeString("fr-FR")} — « Temps réel » la suit en continu.`
+                ? "Suivie en continu (Mesures en direct)."
+                : `Relevée à ${new Date(s.at).toLocaleTimeString("fr-FR")} — « Mesures » la suit en continu.`
             }</div>`,
           ].join(""),
     );

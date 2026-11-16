@@ -135,12 +135,12 @@ describe("contrôles — de vrais boutons, avec leur état", () => {
         `${key} sans libellé visible`,
       ).toBeGreaterThan(2);
     }
-    // « Temps réel » : UN contrôle qui dit son état EN TOUTES LETTRES et le
+    // « Mesures » : UN contrôle qui dit son état EN TOUTES LETTRES et le
     // bascule. Demander le direct sans socket ouverte, c'est une attente —
     // jamais « arrêté », qui démentirait le clic.
     const rt = q("[data-el='btnLive']");
     expect(rt.tagName).toBe("BUTTON");
-    expect(rt.textContent).toContain("Temps réel");
+    expect(rt.textContent).toContain("Mesures");
     expect(q("[data-el='rtCtlState']").textContent).toBe("arrêté");
     expect(rt.getAttribute("aria-pressed")).toBe("false");
     rt.click();
