@@ -340,6 +340,53 @@ export function resolveLocalBin(
 const SPIN = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const;
 
 /**
+ * Racine des sources NAVIGATEUR du cœur, relative au paquet `nodefony` — la
+ * même que l'`include` de `src/nodefony/tsconfigClient.json` (un test compare
+ * les deux). Ce code part dans `dist/client`, que Vite sert à la page ; le
+ * serveur ne le charge jamais (un test le garde : aucun import serveur n'y
+ * entre, sauf de type).
+ */
+export const CORE_BROWSER_SOURCE_ROOT = "src/client";
+
+/** Un chemin NORMALISÉ (`/`) qui passe par la racine navigateur du paquet `nodefony`. */
+const CORE_BROWSER_SOURCE = new RegExp(
+  `(^|/)nodefony/${CORE_BROWSER_SOURCE_ROOT}/`,
+  "u",
+);
+
+/**
+ * Ce fichier est-il du code navigateur SEUL du cœur (`nodefony/src/client/…`) ?
+ *
+ * Normalisé AVANT de filtrer (les deux séparateurs) : un chemin Windows
+ * `src\nodefony\src\client\x.ts` est reconnu comme son équivalent POSIX.
+ *
+ * @param p - chemin du fichier modifié, relatif ou absolu.
+ * @returns `true` si le serveur n'en charge rien.
+ */
+export function isBrowserOnlySource(p: string): boolean {
+  const n = p.replaceAll("\\", "/");
+  return CORE_BROWSER_SOURCE.test(n) && !n.includes("/tests/");
+}
+
+/**
+ * Faut-il REMPLACER le serveur après le build de ces fichiers ?
+ *
+ * Non quand ils sont TOUS du code navigateur du cœur : le build régénère
+ * `dist/client`, Vite recharge la page, le serveur et ses sockets restent
+ * debout — un redémarrage coupait la connexion de chaque page ouverte et
+ * remettait à zéro la présence de ses canaux, pour rien. Oui dans tous les
+ * autres cas, et sur une liste vide (le geste historique).
+ *
+ * @param files - fichiers modifiés depuis le cycle précédent.
+ * @returns `true` si le serveur doit être relancé.
+ */
+export function needsServerRestart(files: readonly string[]): boolean {
+  if (files.length === 0) return true;
+  for (const f of files) if (!isBrowserOnlySource(f)) return true;
+  return false;
+}
+
+/**
  * Ce chemin doit-il être IGNORÉ par le watch des sources backend ?
  *
  * Le superviseur ne surveille que le **serveur** : les sources client ont leur
@@ -1134,6 +1181,7 @@ export class DevSupervisor {
         isStopping: () => this.#isStopping(),
         isSuspended: () => this.#isSuspended(),
         build: (files) => this.#buildStep(files),
+        needsSwap: (files) => needsServerRestart(files),
         swap: () => this.#swapChild(),
         onReplay: (count) =>
           this.#log(
@@ -2382,11 +2430,21 @@ export class DevSupervisor {
       );
       return false;
     }
+    this.#terminal?.setIssue(null);
+    if (!needsServerRestart(files)) {
+      // Code navigateur seul : Vite recharge la page, le serveur et ses
+      // sockets restent debout (présence des canaux comprise).
+      this.#log(
+        `✓ build OK (${Date.now() - t0}ms) — code navigateur seul, serveur conservé`,
+        "green",
+      );
+      if (before !== null) this.#terminal?.setPhase(before);
+      return true;
+    }
     this.#log(
       `✓ build OK (${Date.now() - t0}ms) — rechargement backend…`,
       "green",
     );
-    this.#terminal?.setIssue(null);
     this.#terminal?.setPhase("restarting");
     return true;
   }

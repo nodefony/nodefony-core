@@ -163,6 +163,26 @@ describe("RestartCycle — cycle de rechargement du superviseur", () => {
     assert.strictEqual(fake.swaps.length, 1);
   });
 
+  it("🔴 un build qui ne touche rien du serveur (needsSwap → false) le CONSERVE", async () => {
+    const fake = fakeSteps();
+    const seen: string[][] = [];
+    fake.steps.needsSwap = (files) => {
+      seen.push([...files]);
+      return false;
+    };
+    const cycle = new RestartCycle(fake.steps, {
+      debounceMs: DEBOUNCE,
+      recheckMs: RECHECK,
+    });
+    cycle.mark("src/nodefony/src/client/x.ts");
+    await vi.advanceTimersByTimeAsync(DEBOUNCE);
+    fake.builds[0]?.done.resolve(true);
+    await vi.advanceTimersByTimeAsync(0);
+    assert.strictEqual(fake.swaps.length, 0, "le serveur a été remplacé");
+    assert.deepStrictEqual(seen, [["src/nodefony/src/client/x.ts"]]);
+    assert.strictEqual(cycle.busy, false);
+  });
+
   it("ne relance jamais le serveur pour rien après un rejeu", async () => {
     const fake = fakeSteps();
     const cycle = new RestartCycle(fake.steps, {

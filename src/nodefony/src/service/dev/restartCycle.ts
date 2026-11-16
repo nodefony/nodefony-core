@@ -17,6 +17,14 @@ export interface IRestartSteps {
    * @returns `false` quand le build échoue : le serveur courant est conservé.
    */
   build(files: readonly string[]): Promise<boolean>;
+  /**
+   * Faut-il remplacer le serveur après le build de ces fichiers ? Absent :
+   * toujours (le geste historique).
+   *
+   * @param files - fichiers du cycle.
+   * @returns `false` quand le serveur courant n'a rien chargé de ce qui change.
+   */
+  needsSwap?(files: readonly string[]): boolean;
   /** Remplace le serveur : arrêt de l'ancien, attente des ports, relance. */
   swap(): Promise<void>;
   /**
@@ -99,7 +107,12 @@ export class RestartCycle {
     this.#busy = true;
     try {
       const built = await this.#steps.build(files);
-      if (built && !this.#steps.isStopping()) await this.#steps.swap();
+      if (
+        built &&
+        !this.#steps.isStopping() &&
+        (this.#steps.needsSwap?.(files) ?? true)
+      )
+        await this.#steps.swap();
     } finally {
       this.#busy = false;
     }

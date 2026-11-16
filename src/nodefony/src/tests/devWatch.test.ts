@@ -16,6 +16,8 @@ import { EventEmitter } from "node:events";
 import {
   mkdirSync,
   mkdtempSync,
+  readdirSync,
+  readFileSync,
   renameSync,
   rmSync,
   utimesSync,
@@ -29,8 +31,11 @@ import {
   type ISourceWatcher,
   type IWatchHandle,
   type WatchFunction,
+  CORE_BROWSER_SOURCE_ROOT,
   DEV_WATCH_PATHS,
+  isBrowserOnlySource,
   isIgnoredWatchPath,
+  needsServerRestart,
   localModuleDirOf,
   planStandaloneRebuild,
   shouldIgnoreWatchEntry,
@@ -803,5 +808,84 @@ describe("DevSupervisor — watchSources (contrat, watcher SIMULÉ)", () => {
       opened.map((o) => o.closed),
       [1, 1, 1, 1],
     );
+  });
+});
+
+// #783 — éditer la barre de debug ou la socket du navigateur redémarrait le
+// serveur de développement : chaque page ouverte perdait sa connexion, et la
+// présence de ses canaux repartait de zéro. Le build reste (Vite sert
+// `dist/client`), le redémarrage non.
+describe("DevSupervisor — code navigateur du cœur : rebâti, serveur CONSERVÉ", () => {
+  const CORE = path.resolve(import.meta.dirname, "../..");
+
+  it("🔴 ne redémarre pas pour des fichiers TOUS navigateur, quel que soit le séparateur", () => {
+    assert.strictEqual(
+      needsServerRestart([
+        "src/nodefony/src/client/debugbar/DebugBar.ts",
+        "src\\nodefony\\src\\client\\realtime\\snapshot.ts",
+        "/abs/repo/src/nodefony/src/client/index.ts",
+      ]),
+      false,
+    );
+  });
+
+  it("redémarre dès qu'un seul fichier n'est pas du code navigateur", () => {
+    assert.strictEqual(
+      needsServerRestart([
+        "src/nodefony/src/client/debugbar/DebugBar.ts",
+        "src/nodefony/src/realtime/presenceView.ts",
+      ]),
+      true,
+    );
+    // Liste vide : le geste historique.
+    assert.strictEqual(needsServerRestart([]), true);
+    // Un dossier `client` hors du cœur n'est pas reconnu.
+    assert.strictEqual(
+      isBrowserOnlySource("src/packages/@nodefony/x/client/a.ts"),
+      false,
+    );
+    assert.strictEqual(
+      isBrowserOnlySource("src/nodefony/src/clientele/a.ts"),
+      false,
+    );
+  });
+
+  it("la racine reconnue est CELLE du build navigateur (tsconfigClient.json)", () => {
+    const raw: unknown = JSON.parse(
+      readFileSync(path.join(CORE, "tsconfigClient.json"), "utf8"),
+    );
+    const include =
+      raw !== null && typeof raw === "object"
+        ? Reflect.get(raw, "include")
+        : null;
+    assert.deepStrictEqual(include, [`./${CORE_BROWSER_SOURCE_ROOT}`]);
+  });
+
+  it("🔴 l'invariant qui rend ce saut sûr : aucun code SERVEUR du cœur n'importe le code navigateur", () => {
+    const srcDir = path.join(CORE, "src");
+    const browserDir = path.join(CORE, CORE_BROWSER_SOURCE_ROOT);
+    const offenders: string[] = [];
+    // Un import ou une ré-exportation de VALEUR (pas `import type`/`export type`),
+    // statique, à effet de bord (`import "x"`) ou dynamique.
+    const statement =
+      /(?:^|\n)\s*(?:import|export)\s+(?!type\b)[^;]*?\bfrom\s*["']([^"']+)["']|(?:^|\n)\s*import\s*["']([^"']+)["']|\bimport\(\s*["']([^"']+)["']\s*\)/gu;
+    for (const entry of readdirSync(srcDir, {
+      recursive: true,
+      withFileTypes: true,
+    })) {
+      if (!entry.isFile() || !entry.name.endsWith(".ts")) continue;
+      const file = path.join(entry.parentPath, entry.name);
+      if (file.startsWith(browserDir + path.sep)) continue;
+      if (file.split(path.sep).includes("tests")) continue;
+      const text = readFileSync(file, "utf8");
+      for (const m of text.matchAll(statement)) {
+        const spec = m[1] ?? m[2] ?? m[3];
+        if (spec === undefined || !spec.startsWith(".")) continue;
+        const target = path.resolve(path.dirname(file), spec);
+        if (target === browserDir || target.startsWith(browserDir + path.sep))
+          offenders.push(`${path.relative(CORE, file)} → ${spec}`);
+      }
+    }
+    assert.deepStrictEqual(offenders, []);
   });
 });
