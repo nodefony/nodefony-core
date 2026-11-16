@@ -91,11 +91,8 @@ Un `enum` rend la MÊME colonne sur les trois moteurs (pas de type SQL nommé, q
 exigerait une migration) : c'est le type TypeScript et le schéma Zod qui la
 bornent — donc sur TOUS les transports, REST comme socket.
 
-Si la table EXISTE DÉJÀ en base, trois options lui font épouser ses noms sans
-rien renommer à la main : `--table <nom_sql>` (au lieu du pluriel),
-`--column-case snake` (colonne `site_id`, propriété toujours `siteId`) et
-`--id-name <colonne>` (clé primaire `website_id`, propriété toujours `id`). Le
-code TypeScript ne change dans aucun des trois cas — seul le SQL suit.
+Table DÉJÀ en base : `--table`, `--column-case snake`, `--id-name` font suivre le
+SQL seul, le TypeScript garde `id` — skill `nodefony-add-crud`.
 <% if (it.hasOrm && !it.hasMigrations) { %>
 **Sur CETTE application (MongoDB), la même commande écrit une entité DOCUMENT** :
 schéma Mongoose, service CRUD, controller REST + socket et tests — sans table ni
@@ -304,7 +301,8 @@ d'un script → skill `nodefony-authentication`.
 🔴 **La PROVENANCE n'est pas une PREUVE D'INTENTION — une mutation exige `@CsrfProtect`.**
 « Le firewall vérifie déjà `Sec-Fetch-Site` » est faux pour un programme : il n'envoie pas ces
 en-têtes. Mesuré : un `POST` sans jeton rend `201`. Le jeton : `GET …/auth/me` sème le cookie
-`csrf-token`, la mutation le rejoue dans `x-csrf-token`, sinon `403`. Une origine tierce
+`csrf-token`, la mutation le rejoue dans `x-csrf-token`, sinon `403` — dans un test,
+`csrfHeaders(base, cookie)` de `nodefony/testing` rend les deux. Une origine tierce
 se DÉCLARE (`csrf.trustedOrigins`) ; `@CsrfExempt` ouvrirait à **n'importe quel** site.
 🔴 **Et une URL DÉJÀ PUBLIÉE ne se déplace pas — c'est un contrat.** Quand on te demande
 de protéger une adresse existante, la déménager sous la zone déjà réglée la fait répondre

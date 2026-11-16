@@ -1319,6 +1319,12 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // client non-navigateur postait sans jeton et recevait 201.
       assert.include(agents, "PREUVE D'INTENTION");
       assert.include(agents, "x-csrf-token");
+      // #785 — l'agent a retrouvé l'aide de test en lisant `dist/node/testing/index.js` :
+      // le geste se nomme là où il écrit ses tests de mutation.
+      assert.include(
+        agents,
+        "`csrfHeaders(base, cookie)` de `nodefony/testing`",
+      );
 
       // T26 — le fichier CONSEILLAIT de déplacer la route sous `/api/machine` ;
       // l'agent a obéi, et l'adresse publiée a rendu 404 au partenaire.
