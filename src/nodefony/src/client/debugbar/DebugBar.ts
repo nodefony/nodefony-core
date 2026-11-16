@@ -31,11 +31,19 @@ import { NodefonySocket } from "../realtime/NodefonySocket";
 import {
   codecBadges,
   describeCodec,
+  describeLosses,
+  describePresence,
+  describePresenceVersion,
   describeSocket,
+  describeState,
+  PRESENCE_NONE,
+  shortenIds,
   socketSnapshot,
+  type SocketSnapshot,
 } from "../realtime/snapshot";
 import { pageSockets, type InspectableSocket } from "../announce";
 import { RpcError } from "../../realtime/JsonRpcPeer";
+import { REALTIME_PRESENCE_METHOD } from "../../realtime/RealtimeEventMap";
 import { frameLinks, frameMeaning } from "./frames";
 import type { NodefonyNotice } from "../realtime/notice";
 import type { RealtimeFrame } from "../realtime/NodefonySocket";
@@ -361,6 +369,22 @@ function helpLabel(label: string, help?: string): string {
     ? `<span class="k help" tabindex="0" data-tip="${escapeHtml(help)}">${escapeHtml(label)}</span>`
     : `<span class="k">${escapeHtml(label)}</span>`;
 }
+
+/** `n` suivi du mot, au pluriel au-delà de 1 (0 et 1 au singulier, en français). */
+function counted(n: number, word: string): string {
+  return `${n} ${word}${n > 1 ? "s" : ""}`;
+}
+
+/**
+ * Lignes de `describeSocket` que la carte Socket montre AILLEURS : l'adresse,
+ * l'état et le format dans son en-tête, les canaux dans leur tableau.
+ */
+const SOCKET_ROWS_SHOWN_ELSEWHERE: ReadonlySet<string> = new Set([
+  "adresse",
+  "état",
+  "format",
+  "canaux tenus",
+]);
 
 /** Une ligne clé/valeur échappée — la même mise en forme dans chaque onglet. */
 function kvHtml(
@@ -768,10 +792,22 @@ export const STYLES =
 .spacer { flex: 1 1 auto; min-width: 8px; }
 .card > .ttl.sk-head { font-size:12px; color:#e6e9ee; margin-bottom:11px; padding-bottom:8px; border-bottom:1px solid var(--line); }
 .fmts { display:inline-flex; gap:6px; }
+.sk-head { gap:8px; } .sk-url { font-weight:700; text-transform:none; letter-spacing:0; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sk-state { text-transform:none; letter-spacing:0; font-weight:700; white-space:nowrap; }
+.sk-ch { width:100%; table-layout:fixed; border-collapse:collapse; margin-top:8px; }
+.sk-ch th { text-align:left; font-weight:400; color:var(--muted); padding:4px 6px 4px 0; border-bottom:1px solid var(--line); }
+.sk-ch th:first-child { width:38%; } .sk-ch th:last-child { width:5.5em; text-align:right; padding-right:0; }
+.sk-ch th .k { color:inherit; } .sk-ch th .muted { margin-left:4px; }
+.sk-ch td { padding:3px 6px 3px 0; vertical-align:baseline; border-bottom:1px solid color-mix(in srgb, var(--line) 55%, transparent); }
+.sk-ch td.c { font:11px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sk-ch td.p { font-weight:600; overflow-wrap:anywhere; } .sk-ch td.p.muted { font-weight:400; }
+.sk-ch td.ver { color:var(--muted); text-align:right; white-space:nowrap; padding-right:0; font-size:.92em; }
+.sk-ch tr:last-child td { border-bottom:0; }
 .fmt { display:inline-flex; align-items:center; padding:.15em .65em; border-radius:9px; border:1px solid; font-size:10.5px; font-weight:800; letter-spacing:.4px; text-transform:lowercase; }
 .fmt.bin { color:var(--blue2); border-color:rgba(58,160,255,.5); background:rgba(58,160,255,.12); }
 .fmt.txt { color:#c9ced6; border-color:var(--line); background:#22262e; }
 .fmt.codec { color:#c4b5fd; border-color:rgba(167,139,250,.5); background:rgba(167,139,250,.12); }
+.fmt.pres { color:var(--ok); border-color:color-mix(in srgb, var(--ok) 50%, transparent); background:color-mix(in srgb, var(--ok) 12%, transparent); padding:0 .5em; font-size:9.5px; }
 .ok{color:var(--ok)} .warn{color:var(--warn)} .crit{color:var(--crit)} .info{color:var(--info)} .muted{color:var(--muted)} .blue{color:var(--blue2)}
 .spark.ok{stroke:var(--ok)} .spark.warn{stroke:var(--warn)} .spark.crit{stroke:var(--crit)} .spark.rt{stroke:var(--blue2)}
 .area.ok{fill:rgba(54,179,126,.12)} .area.warn{fill:rgba(255,171,0,.14)} .area.crit{fill:rgba(255,86,48,.16)} .area.rt{fill:rgba(58,160,255,.16)}
@@ -2550,9 +2586,13 @@ export class DebugBar {
       <div class="ctabs" data-el="connTabs" role="group" aria-label="Socket affichée"></div>
       <div class="sgrid" data-el="wsView">
       <div class="card hero sk-id">
-        <div class="ttl sk-head">Socket<span class="spacer"></span><span class="fmts" data-el="rtFormat"></span></div>
+        <div class="ttl sk-head">Socket <span class="sk-url" data-el="skUrl"></span><span class="sk-state" data-el="skState"></span><span class="spacer"></span><span class="fmts" data-el="rtFormat"></span></div>
+        <div data-el="skRows"></div>
         <div class="kv">${helpLabel("aller-retour", "Mesuré par nodefony:kernel:ping à l'ouverture de l'onglet et au bouton, jamais en boucle : chaque mesure écrit deux trames dans le journal qu'on lit pour diagnostiquer.")}<span class="v"><span data-el="rtRtt">—</span> <button type="button" class="toolbtn" data-el="btnRtt" aria-label="Mesurer l'aller-retour">mesurer</button></span></div>
-        <div data-el="rtRows"></div>
+        <table class="sk-ch" aria-label="Canaux tenus et leur présence">
+          <thead><tr><th scope="col">${helpLabel("canal", "Abonnements comptés par référence : dix composants sur le même canal, un seul abonnement réseau.")}<span class="muted" data-el="skChN"></span></th><th scope="col">${helpLabel("présence", "Qui est là sur le canal (ADR-0025) : les comptes nommés, sinon leur nombre, puis les anonymes. « non suivie par la page » : le serveur en envoie, mais aucun écran ne la lit.")}</th><th scope="col">vue</th></tr></thead>
+          <tbody data-el="skChannels"></tbody>
+        </table>
       </div>
       <div class="card sk-st"><div class="ttl">Notifications par méthode</div><div data-el="rtStats"></div></div>
       <div class="card sk-inc"><div class="ttl">Incidents</div><div data-el="rtInc"></div></div>
@@ -3906,8 +3946,7 @@ export class DebugBar {
     this.rtRttTone = "muted";
     if (c.state !== "connected") this.rtRtt = "socket non connectée";
     else if (methods !== null && !methods.includes(PLATFORM_METHODS.ping))
-      this.rtRtt =
-        "pas de mesure : ce serveur n'offre pas nodefony:kernel:ping";
+      this.rtRtt = "non offert par ce serveur";
     else {
       this.rtRtt = "mesure…";
       this.scheduleRender();
@@ -3919,7 +3958,7 @@ export class DebugBar {
         // Refus de la politique de la méthode (-32001) : réservée à un autre
         // rôle — la connexion va bien, c'est la mesure qui n'est pas permise.
         if (e instanceof RpcError && e.code === -32001) {
-          this.rtRtt = "pas de mesure : réservée à un autre rôle que le vôtre";
+          this.rtRtt = "non permis pour ce rôle";
         } else {
           this.rtRtt = `échec — ${e instanceof Error ? e.message : String(e)}`;
           this.rtRttTone = "warn";
@@ -4052,6 +4091,78 @@ export class DebugBar {
     if (inc.length > 20) inc.pop();
   }
 
+  /**
+   * La carte d'identité de la socket montrée : en-tête (adresse, état, format),
+   * lignes clé/valeur du cœur, puis le tableau des canaux tenus et de leur
+   * présence — serrée pour la hauteur bornée du panneau.
+   */
+  private renderSocketCard(snap: SocketSnapshot): void {
+    const url = snap.url ?? "—";
+    this.setHtml(
+      "skUrl",
+      `<span title="${escapeHtml(url)}">${escapeHtml(socketPath(snap.url))}</span>`,
+    );
+    const tone =
+      snap.state === "connected"
+        ? "ok"
+        : snap.state === "connecting" || snap.state === "reconnecting"
+          ? "warn"
+          : "crit";
+    this.setHtml(
+      "skState",
+      `<span class="${tone}">● ${escapeHtml(describeState(snap))}</span>`,
+    );
+    // Les lignes du CŒUR (celles de la console) : la barre ne retire que ce que
+    // son en-tête et son tableau des canaux montrent déjà, et serre l'identité.
+    const id = snap.identity;
+    this.setHtml(
+      "skRows",
+      describeSocket(snap)
+        .filter((r) => !SOCKET_ROWS_SHOWN_ELSEWHERE.has(r.label))
+        .map((r) => {
+          if (r.label === "identité" && id?.authenticated === true) {
+            const who = [id.userIdentifier || "authentifié", id.type]
+              .filter(Boolean)
+              .join(" · ");
+            return id.roles.length === 0
+              ? kvHtml(r.label, who, r.hint)
+              : kvHtml(
+                  r.label,
+                  `${who} · ${counted(id.roles.length, "rôle")}`,
+                  `Rôles : ${id.roles.join(", ")}. ${r.hint}`,
+                );
+          }
+          if (r.label === "trames perdues")
+            return kvHtml(
+              r.label,
+              r.value,
+              r.hint,
+              describeLosses(snap).lost ? "warn" : "",
+            );
+          return kvHtml(r.label, r.value, r.hint);
+        })
+        .join(""),
+    );
+    this.text("skChN", `(${snap.channels.length})`);
+    // Le lecteur se reconnaît dans la liste : son identifiant devient son nom.
+    const reader =
+      id?.authenticated === true && id.id
+        ? { id: id.id, name: id.userIdentifier || id.id }
+        : undefined;
+    this.setHtml(
+      "skChannels",
+      snap.channels.length === 0
+        ? `<tr><td class="c muted" colspan="3">aucun</td></tr>`
+        : snap.channels
+            .map((ch, i) => {
+              const status = snap.presence[i] ?? PRESENCE_NONE;
+              const quiet = status.kind !== "followed";
+              return `<tr><td class="c" title="${escapeHtml(ch)}">${escapeHtml(shortenIds(ch))}</td><td class="p${quiet ? " muted" : ""}">${escapeHtml(describePresence(status, reader))}</td><td class="ver">${escapeHtml(describePresenceVersion(status))}</td></tr>`;
+            })
+            .join(""),
+    );
+  }
+
   private renderSocketPane(): void {
     const list = this.pageSockets();
     const c = this.shownSocket();
@@ -4104,6 +4215,12 @@ export class DebugBar {
     }
     this.text("rtRtt", this.rtRtt);
     this.cls("rtRtt", this.rtRttTone);
+    // Rien à mesurer chez un serveur qui n'offre pas le ping : pas de bouton.
+    const btnRtt = this.el.btnRtt;
+    if (btnRtt instanceof HTMLElement)
+      btnRtt.hidden =
+        c.serverMethods !== null &&
+        !c.serverMethods.includes(PLATFORM_METHODS.ping);
     // En tête du panneau, le format en deux pastilles : ce que l'on cherche
     // d'abord sur une socket binaire, sans lire la ligne « format ».
     const fmt = codecBadges(c.codec);
@@ -4111,14 +4228,9 @@ export class DebugBar {
       "rtFormat",
       `<span class="fmt ${fmt.nature === "binaire" ? "bin" : "txt"}">${fmt.nature}</span><span class="fmt codec">${escapeHtml(fmt.codec)}</span>`,
     );
-    // La même description que la console et les vitrines : le CŒUR la met en
-    // mots, la barre ne fait que l'afficher.
-    this.setHtml(
-      "rtRows",
-      describeSocket(socketSnapshot(c))
-        .map((r) => kvHtml(r.label, r.value, r.hint))
-        .join(""),
-    );
+    // Les MÊMES règles que la console et les vitrines (le cœur met en mots) ;
+    // la barre n'en fait que la mise en page, serrée pour sa hauteur bornée.
+    this.renderSocketCard(socketSnapshot(c));
     const stats = c.getStats();
     this.setHtml(
       "rtStats",
@@ -4270,7 +4382,7 @@ export class DebugBar {
                 const k = frameKey(fr);
                 const isOpen = open?.has(k) === true;
                 const link = links.get(picked.at(n) ?? -1);
-                return `<details data-k="${escapeHtml(k)}"${isOpen ? " open" : ""}><summary><span class="${fr.dir}">${fr.dir === "in" ? "↓" : "↑"}</span> ${fmtClock(fr.ts)} <b>${escapeHtml(fr.kind)}</b>${fr.id === undefined ? "" : ` #${fr.id}`}${fr.channel ? ` · ${escapeHtml(fr.channel)}` : ""} · ${fr.size === 0 ? "taille inconnue" : `${fr.size} ${fr.binary ? "octets" : "car."}`} · ${fr.binary ? "binaire" : "texte"}<span class="fmean">${escapeHtml(frameMeaning(fr))}</span>${link === undefined ? "" : `<span class="flink">↳ ${escapeHtml(link)}</span>`}</summary><pre>${isOpen ? escapeHtml(payloadText(fr)) : ""}</pre></details>`;
+                return `<details data-k="${escapeHtml(k)}"${isOpen ? " open" : ""}><summary><span class="${fr.dir}">${fr.dir === "in" ? "↓" : "↑"}</span> ${fmtClock(fr.ts)} <b>${escapeHtml(fr.kind)}</b>${fr.kind === REALTIME_PRESENCE_METHOD ? ` <span class="fmt pres">présence</span>` : ""}${fr.id === undefined ? "" : ` #${fr.id}`}${fr.channel ? ` · ${escapeHtml(fr.channel)}` : ""} · ${fr.size === 0 ? "taille inconnue" : `${fr.size} ${fr.binary ? "octets" : "car."}`} · ${fr.binary ? "binaire" : "texte"}<span class="fmean">${escapeHtml(frameMeaning(fr))}</span>${link === undefined ? "" : `<span class="flink">↳ ${escapeHtml(link)}</span>`}</summary><pre>${isOpen ? escapeHtml(payloadText(fr)) : ""}</pre></details>`;
               })
               .join("")),
     );

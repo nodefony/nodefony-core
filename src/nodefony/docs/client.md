@@ -469,8 +469,8 @@ adresser une requête et attendre son résultat. C'est le duplex réel, pas seul
 ### Ce que la socket dit d'elle-même — instantané et description
 
 `socketSnapshot()` (`client/realtime/snapshot.ts#socketSnapshot`) lit l'état de la socket sans émettre une
-trame : adresse, état, identité, canaux tenus, canaux et actions annoncés à l'accueil, trames
-reçues. `observeSnapshot()` (`client/realtime/observe.ts#observeSnapshot`) le pousse à chaque échantillon, à
+trame : adresse, état, identité, canaux tenus et la **présence** de chacun, canaux et actions
+annoncés à l'accueil, trames reçues. `observeSnapshot()` (`client/realtime/observe.ts#observeSnapshot`) le pousse à chaque échantillon, à
 chaque changement d'état et à chaque accueil — c'est ce dernier qui apporte l'identité, après le
 passage à « connecté ».
 
@@ -488,11 +488,23 @@ Trois lignes disent ce qu'un écran « qui ne reçoit rien » doit savoir :
 
 - **« notifications reçues »** compte ce que le serveur POUSSE, accueil compris — les réponses aux
   appels (`request`, `api.request`) n'y entrent pas, elles se lisent au journal ;
-- **« trames perdues »** — non envoyées (transport fermé à l'émission), jetées (contre-pression du
-  client), illisibles (binaire sans lecteur, texte non JSON) ;
+- **« trames perdues »** — « aucune perte », ou le détail : non envoyées (transport fermé à
+  l'émission), jetées (contre-pression du client), illisibles (binaire sans lecteur, texte non
+  JSON) — `describeLosses()` (`client/realtime/snapshot.ts#describeLosses`) ;
 - **« journal »** dit depuis quand le journal des trames retient (`frameLogSince`,
   `client/realtime/NodefonySocket.ts#NodefonySocket.frameLogSince`). Hors développement il est
   éteint, sans coût par trame, jusqu'à sa première lecture : ce qui précède n'y est pas.
+
+La **présence** de chaque canal tenu (`SocketSnapshot.presence`, même ordre que `channels`) dit
+ce que la socket en sait : une vue SUIVIE par un écran de la page (`onPresence`), des trames
+reçues sans que rien ne les suive, ou rien. `describePresence()`
+(`client/realtime/snapshot.ts#describePresence`) la met en mots — « admin (vous) · 0 anonyme »,
+« 3 comptes · 1 anonyme », « présence non suivie par la page », « sans présence » — et
+`describePresenceVersion()` dit la version de la vue (« v12 », « non synchronisée »). La présence
+nomme les comptes par leur identifiant : celui du lecteur devient son nom, les autres UUID sont
+raccourcis (`shortenIds()`). La console du navigateur, les vitrines et la barre de debug lisent ces
+mêmes règles ; un écran de la console d'administration qui montrerait une socket les lirait aussi,
+jamais une copie.
 
 ### Identité et refus — l'interface sait sans demander
 

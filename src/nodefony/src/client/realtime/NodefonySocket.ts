@@ -91,7 +91,13 @@ import { unrefTimer } from "../../runtime/unrefTimer";
 import { ownField } from "../../runtime/ownField";
 import { CircularBuffer } from "../../runtime/CircularBuffer";
 import { BrowserWsTransport } from "./BrowserWsTransport";
-import { describeSocket, socketSnapshot } from "./snapshot";
+import {
+  describeSocket,
+  socketSnapshot,
+  PRESENCE_NONE,
+  PRESENCE_UNFOLLOWED,
+  type SocketPresenceStatus,
+} from "./snapshot";
 import {
   announceRealtime,
   hasKernel,
@@ -417,14 +423,6 @@ interface IAdmissionRetry {
 }
 
 /**
- * Délai du réessai `attempt` (0 = le premier) d'un abonnement `unavailable` : gigue complète sur la fenêtre, APRÈS le délai que le serveur impose s'il en pose un.
- *
- * @param attempt - réessais déjà faits pour ce canal.
- * @param retryAfterMs - délai minimal annoncé par le serveur (coupe-circuit),
- *   déjà validé fini et positif par l'appelant.
- * @returns un délai entier dans `[0, TIMER_MAX]`.
- */
-/**
  * Présence suivie d'un canal sur cette socket : la vue pure du cœur, ses écouteurs, et
  * la limite de resynchronisation (ADR-0025 P2 bis). Forme stable, champs déclarés.
  */
@@ -459,6 +457,14 @@ class PresenceSlot {
   }
 }
 
+/**
+ * Délai du réessai `attempt` (0 = le premier) d'un abonnement `unavailable` : gigue complète sur la fenêtre, APRÈS le délai que le serveur impose s'il en pose un.
+ *
+ * @param attempt - réessais déjà faits pour ce canal.
+ * @param retryAfterMs - délai minimal annoncé par le serveur (coupe-circuit),
+ *   déjà validé fini et positif par l'appelant.
+ * @returns un délai entier dans `[0, TIMER_MAX]`.
+ */
 function admissionRetryDelay(
   attempt: number,
   retryAfterMs: number | undefined,
@@ -978,6 +984,10 @@ export class NodefonySocket<
   // Présence suivie, par canal — lazy (`null` tant qu'aucun `onPresence` n'est posé :
   // une application sans présence ne paie ni `Map`, ni lecture de trame).
   private _presence: Map<string, PresenceSlot> | null = null;
+  // Canaux tenus dont des trames de présence arrivent SANS que la page les suive —
+  // le nom seul, rien de la trame : un écran de diagnostic peut dire « présence non
+  // suivie par la page » au lieu de « sans présence ». Lazy : alloué à la première.
+  private _presenceUnfollowed: Set<string> | null = null;
   private reconnectAttempt = 0;
   private _nextRetryAt: number | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1528,6 +1538,27 @@ export class NodefonySocket<
   }
 
   /**
+   * Ce que cette socket sait de la présence d'un canal, pour un écran de diagnostic :
+   * vue suivie (instantané + version de référence), trames reçues sans que la page
+   * suive le canal, ou rien. Purement local, aucune trame émise.
+   *
+   * @param channel - nom EXACT du canal.
+   * @returns l'état de présence du canal sur cette socket.
+   */
+  presenceStatus(channel: string): SocketPresenceStatus {
+    const slot = this._presence?.get(channel);
+    if (slot !== undefined)
+      return {
+        kind: "followed",
+        view: slot.view.snapshot(),
+        version: slot.view.reference,
+      };
+    return this._presenceUnfollowed?.has(channel) === true
+      ? PRESENCE_UNFOLLOWED
+      : PRESENCE_NONE;
+  }
+
+  /**
    * Attend que l'abonnement à `channel` soit EFFECTIF côté serveur — le signal
    * qui manquait au patron « je recharge l'état, puis je suis le flux ».
    *
@@ -1705,6 +1736,7 @@ export class NodefonySocket<
       this._acked?.delete(c);
       if (this._admissionRetries !== null) this.dropAdmissionRetry(c);
       if (this._presence !== null) this.unsyncPresence(c);
+      this._presenceUnfollowed?.delete(c);
       this.rejectAckWaiters(c, unsubscribedBeforeAck);
       // Avant le welcome, le serveur n'a rien enregistré : retirer l'entrée suffit.
       if (this._welcomed) this._emitRaw("unsubscribe", { channel: c });
@@ -2529,6 +2561,7 @@ export class NodefonySocket<
     this._acked?.delete(channel);
     if (this._admissionRetries !== null) this.dropAdmissionRetry(channel);
     if (this._presence !== null) this.unsyncPresence(channel);
+    this._presenceUnfollowed?.delete(channel);
     // Charge relue champ par champ : rien d'autre que le contrat n'atteint l'écran.
     const closed: IRealtimeClosed = { channel, reason };
     this.rejectAckWaiters(channel, closedBeforeAck, closed);
@@ -3045,17 +3078,22 @@ export class NodefonySocket<
 
   /**
    * Ingère une trame `realtime:presence` : seulement pour un canal suivi par
-   * {@link onPresence} — sinon elle n'est même pas lue. Lecteur et vue sont ceux du
-   * cœur ; `applied` annonce la vue, `gap` la fige et demande la liste, `stale` est
-   * jetée. Une trame mal formée est jetée sans un mot (comme `realtime:closed`).
+   * {@link onPresence} — sinon seul son canal est lu, pour retenir que la page tient
+   * un canal à présence sans le suivre (le nom, rien d'autre). Lecteur et vue sont
+   * ceux du cœur ; `applied` annonce la vue, `gap` la fige et demande la liste,
+   * `stale` est jetée. Une trame mal formée est jetée sans un mot (comme
+   * `realtime:closed`).
    */
   private ingestPresence(params: unknown): void {
-    const slots = this._presence;
-    if (slots === null) return;
     const channel = ownField(params, "channel");
     if (typeof channel !== "string") return;
-    const slot = slots.get(channel);
-    if (slot === undefined || !isPresenceFrame(params)) return;
+    const slot = this._presence?.get(channel);
+    if (slot === undefined) {
+      if (this._subscriptions.has(channel))
+        (this._presenceUnfollowed ??= new Set<string>()).add(channel);
+      return;
+    }
+    if (!isPresenceFrame(params)) return;
     const wasSynced = slot.view.synced;
     const outcome = slot.view.apply(params);
     if (outcome === "applied") slot.notify();

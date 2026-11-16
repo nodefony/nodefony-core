@@ -446,9 +446,10 @@ describe("onglet Sockets — le détail de la socket, à part du Realtime", () =
     monterSocket({});
     q(".tab[data-tab='socket']").click();
     await tick();
-    const rows = q("[data-el='rtRows']").textContent ?? "";
+    const rows = q("[data-el='skRows']").textContent ?? "";
     expect(rows).toContain("notifications reçues");
-    expect(rows).toContain("admin · session · ROLE_ADMIN");
+    // Les rôles passent dans la bulle du libellé : la ligne en dit le NOMBRE.
+    expect(rows).toMatch(/admin · session · \d+ rôles?/u);
     const log = shadow().querySelectorAll("[data-el='rtLog'] details");
     expect(log).toHaveLength(2);
     expect(log[0]!.textContent).toContain("response");
@@ -464,9 +465,11 @@ describe("onglet Sockets — le détail de la socket, à part du Realtime", () =
     await tick();
     // Une ABSENCE de mesure, pas une panne : grisée, jamais « échec ».
     expect(q("[data-el='rtRtt']").textContent).toBe(
-      "pas de mesure : ce serveur n'offre pas nodefony:kernel:ping",
+      "non offert par ce serveur",
     );
     expect(q("[data-el='rtRtt']").className).toBe("muted");
+    // Rien à mesurer : pas de bouton.
+    expect(q("[data-el='btnRtt']").hidden).toBe(true);
     // Offerte mais réservée (-32001) : toujours une absence, pas une panne.
     monterSocket({
       serverMethods: ["nodefony:kernel:ping"],
@@ -474,9 +477,9 @@ describe("onglet Sockets — le détail de la socket, à part du Realtime", () =
     });
     q(".tab[data-tab='socket']").click();
     await tick();
-    expect(q("[data-el='rtRtt']").textContent).toBe(
-      "pas de mesure : réservée à un autre rôle que le vôtre",
-    );
+    expect(q("[data-el='rtRtt']").textContent).toBe("non permis pour ce rôle");
+    // Offerte : le bouton reste, la mesure se redemande.
+    expect(q("[data-el='btnRtt']").hidden).toBe(false);
     expect(q("[data-el='rtRtt']").className).toBe("muted");
     monterSocket({
       serverMethods: ["nodefony:kernel:ping"],

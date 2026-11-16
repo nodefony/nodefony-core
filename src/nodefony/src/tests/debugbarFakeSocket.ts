@@ -31,6 +31,7 @@ export function fakeSocket(over: Record<string, unknown> = {}): NodefonySocket {
     nextRetryAt: null,
     frameLogSince: null,
     frameLog: [],
+    presenceStatus: () => ({ kind: "none" }),
     on: () => () => {},
     off: () => {},
     onState: () => () => {},

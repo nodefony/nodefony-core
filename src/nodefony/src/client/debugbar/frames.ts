@@ -17,6 +17,8 @@
  */
 import type { RealtimeFrame } from "../realtime/NodefonySocket";
 import { fmtClock } from "./format";
+import { ownField } from "../../runtime/ownField";
+import { REALTIME_PRESENCE_METHOD } from "../../realtime/RealtimeEventMap";
 
 /** Au-delà de ce délai, une poussée n'est plus rapprochée d'une émission. */
 export const ECHO_WINDOW_MS = 2000;
@@ -27,18 +29,9 @@ const UNSUBSCRIBE = "unsubscribe";
 const PING = "ping";
 const API_REQUEST = "api.request";
 
-/** Un champ propre d'un objet inconnu, sans traverser le prototype. */
-function own(value: unknown, key: string): unknown {
-  return value !== null &&
-    typeof value === "object" &&
-    Object.prototype.hasOwnProperty.call(value, key)
-    ? Reflect.get(value, key)
-    : undefined;
-}
-
 /** Les `params` de la trame (la charge journalisée EST la trame JSON-RPC). */
 function paramsOf(fr: RealtimeFrame): unknown {
-  return own(fr.payload, "params");
+  return ownField(fr.payload, "params");
 }
 
 /** Une valeur scalaire courte, pour un résumé d'une ligne. */
@@ -72,6 +65,36 @@ export function summarizeParams(params: unknown): string {
   return rest > 0 ? `${shown.join(", ")} +${rest}` : shown.join(", ");
 }
 
+/** Longueur d'un champ tableau, `0` s'il est absent ou d'une autre forme. */
+function lengthOf(value: unknown): number {
+  return Array.isArray(value) ? value.length : 0;
+}
+
+/**
+ * Le sens d'une trame `realtime:presence` (ADR-0025) : liste complète ou
+ * changement numéroté, avec ses nombres — la trame se lit sans l'ouvrir.
+ *
+ * @param params - les `params` de la trame
+ * @returns la phrase
+ */
+function presenceMeaning(params: unknown): string {
+  const channel = short(ownField(params, "channel")) ?? "?";
+  const version = short(ownField(params, "version")) ?? "?";
+  const changes = ownField(params, "changes");
+  if (changes !== undefined) {
+    const came = lengthOf(ownField(changes, "set")) / 2;
+    const left = lengthOf(ownField(changes, "gone"));
+    return `présence de « ${channel} » : changement v${version} — ${came} arrivée(s) ou mise(s) à jour, ${left} départ(s)`;
+  }
+  const count = short(ownField(params, "count")) ?? "?";
+  const unnamed = short(ownField(params, "unnamed")) ?? "?";
+  const kind =
+    ownField(params, "members") === undefined
+      ? "nombres seuls"
+      : "liste complète";
+  return `présence de « ${channel} » : ${kind} v${version} — ${count} compte(s), ${unnamed} anonyme(s)`;
+}
+
 /**
  * Le sens d'une trame, en une phrase.
  *
@@ -80,7 +103,7 @@ export function summarizeParams(params: unknown): string {
  */
 export function frameMeaning(fr: RealtimeFrame): string {
   const params = paramsOf(fr);
-  const channel = fr.channel ?? short(own(params, "channel")) ?? "?";
+  const channel = fr.channel ?? short(ownField(params, "channel")) ?? "?";
   if (fr.dir === "out") {
     if (fr.kind === SUBSCRIBE)
       return `la page s'abonne au canal « ${channel} »`;
@@ -89,8 +112,8 @@ export function frameMeaning(fr: RealtimeFrame): string {
     if (fr.kind === PING && fr.id === undefined)
       return "battement de cœur — garde la connexion ouverte, sans réponse";
     if (fr.kind === API_REQUEST) {
-      const verb = short(own(params, "method")) ?? "GET";
-      const path = short(own(params, "path")) ?? "?";
+      const verb = short(ownField(params, "method")) ?? "GET";
+      const path = short(ownField(params, "path")) ?? "?";
       return `la page appelle ${verb} ${path} par la socket — réponse attendue (#${fr.id ?? "?"})`;
     }
     if (fr.id !== undefined)
@@ -102,9 +125,10 @@ export function frameMeaning(fr: RealtimeFrame): string {
   if (fr.kind === "realtime:subscribed")
     return `le serveur confirme l'abonnement au canal « ${channel} »`;
   if (fr.kind === "realtime:denied") {
-    const reason = short(own(params, "reason"));
+    const reason = short(ownField(params, "reason"));
     return `le serveur refuse « ${channel} »${reason === null ? "" : ` (${reason})`}`;
   }
+  if (fr.kind === REALTIME_PRESENCE_METHOD) return presenceMeaning(params);
   if (fr.kind === "response") return `le serveur répond à #${fr.id ?? "?"}`;
   if (fr.kind === "error")
     return `le serveur répond à #${fr.id ?? "?"} par une erreur`;

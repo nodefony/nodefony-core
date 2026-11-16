@@ -386,6 +386,11 @@ export {
   socketSnapshot,
   describeSocket,
   describeCodec,
+  describePresence,
+  describePresenceVersion,
+  describeLosses,
+  describeState,
+  shortenIds,
   adaptiveRebindKey,
 } from "./realtime/observe";
 export type {
@@ -399,6 +404,8 @@ export type {
   ObserveNoticeLogOptions,
   SocketSnapshot,
   SocketDetailRow,
+  SocketPresenceStatus,
+  IPresenceReader,
   ChannelSocket,
   ChannelPayload,
   ChannelHandler,

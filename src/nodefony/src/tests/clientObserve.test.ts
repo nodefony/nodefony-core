@@ -40,12 +40,23 @@ import {
   observeSyslog,
   socketSnapshot,
   describeSocket,
+  describePresence,
+  describePresenceVersion,
+  describeLosses,
+  observePresence,
   adaptiveRebindKey,
   type ConnectSharedOptions,
   type SharedConnection,
 } from "../client/realtime/observe";
 import type { NodefonyNotice } from "../client/realtime/notice";
-import type { SocketSnapshot } from "../client/realtime/snapshot";
+import type {
+  SocketPresenceStatus,
+  SocketSnapshot,
+} from "../client/realtime/snapshot";
+import {
+  EMPTY_PRESENCE,
+  type IPresenceSnapshot,
+} from "../realtime/presenceView";
 
 class MockTransport implements IRealtimeTransport {
   readyState: number = TransportState.CONNECTING;
@@ -462,6 +473,7 @@ describe("socketSnapshot — ce que le client sait de sa PROPRE socket", () => {
     state: "connected",
     codec: "nodefony.jsonrpc.v1",
     channels: [],
+    presence: [],
     frames: 0,
     unsent: 0,
     dropped: 0,
@@ -524,6 +536,90 @@ describe("socketSnapshot — ce que le client sait de sa PROPRE socket", () => {
     expect(ligne(vue({ frameLogSince: at }), "journal")).toBe(
       `tenu depuis ${new Date(at).toLocaleTimeString()}`,
     );
+  });
+
+  // #783 — la présence de chaque canal tenu, lue par la barre de debug, la
+  // console et les vitrines : suivie, reçue sans être suivie, ou absente.
+  it("🔴 présence : canal suivi, canal reçu SANS suivi, canal sans présence", async () => {
+    const client = newClient();
+    const t = await connected(client);
+    observePresence(client, "room:a", () => {});
+    observeChannel(client, "room:b", () => {});
+    observeChannel(client, "user:1", () => {});
+    t.push("realtime:presence", {
+      channel: "room:a",
+      version: 3,
+      count: 1,
+      unnamed: 0,
+      members: ["admin", 1],
+    });
+    t.push("realtime:presence", {
+      channel: "room:b",
+      version: 1,
+      count: 0,
+      unnamed: 2,
+    });
+    const vu = socketSnapshot(client);
+    const de = (c: string) => vu.presence[vu.channels.indexOf(c)];
+    const a = de("room:a");
+    expect(a?.kind).toBe("followed");
+    expect(a && describePresence(a)).toBe("admin · 0 anonyme");
+    expect(a && describePresenceVersion(a)).toBe("v3");
+    const b = de("room:b");
+    expect(b && describePresence(b)).toBe("présence non suivie par la page");
+    expect(b && describePresenceVersion(b)).toBe("");
+    const u = de("user:1");
+    expect(u && describePresence(u)).toBe("sans présence");
+    // La console lit la MÊME règle, entre parenthèses derrière chaque canal.
+    expect(ligne(vu, "canaux tenus")).toContain("room:a (admin · 0 anonyme)");
+    expect(ligne(vu, "canaux tenus")).toContain(
+      "room:b (présence non suivie par la page)",
+    );
+    // Rendu, le canal n'est plus « non suivi » : son nom est oublié.
+    client.unsubscribe("room:b");
+    expect(client.presenceStatus("room:b").kind).toBe("none");
+  });
+
+  it("présence : nombres seuls, liste longue, onglets, vue partielle, trou de version", () => {
+    const vueDe = (
+      view: Partial<IPresenceSnapshot>,
+      version: number | null = 7,
+    ): SocketPresenceStatus => ({
+      kind: "followed",
+      view: { ...EMPTY_PRESENCE, ready: true, ...view },
+      version,
+    });
+    expect(describePresence(vueDe({ count: 3, unnamed: 1 }))).toBe(
+      "3 comptes · 1 anonyme",
+    );
+    const members = new Map([
+      ["a", { tabs: 2 }],
+      ["b", { tabs: 1 }],
+      ["c", { tabs: 1 }],
+      ["d", { tabs: 1 }],
+    ]);
+    expect(describePresence(vueDe({ count: 4, members }))).toBe(
+      "a (2 onglets), b, c +1 · 0 anonyme",
+    );
+    expect(describePresence(vueDe({ count: 0, partial: true }))).toBe(
+      "0 compte · 0 anonyme · partielle",
+    );
+    expect(describePresenceVersion(vueDe({}, null))).toBe("non synchronisée");
+    expect(
+      describePresence({
+        kind: "followed",
+        view: EMPTY_PRESENCE,
+        version: null,
+      }),
+    ).toBe("en attente de la liste");
+  });
+
+  it("pertes : « aucune perte » à zéro, le détail sinon", () => {
+    expect(describeLosses(vue())).toEqual({
+      text: "aucune perte",
+      lost: false,
+    });
+    expect(describeLosses(vue({ dropped: 1 })).lost).toBe(true);
   });
 
   it("observeSnapshot réémet quand l'ACCUEIL apporte l'identité", async () => {

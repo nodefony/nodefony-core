@@ -14,6 +14,34 @@ import type {
   RealtimeState,
 } from "./NodefonySocket";
 import { JSON_PROTOCOL } from "../../realtime/IFrameCodec";
+import type { IPresenceSnapshot } from "../../realtime/presenceView";
+
+/**
+ * Ce qu'une socket sait de la présence d'un canal (ADR-0025) — pour un écran de
+ * diagnostic, jamais pour une décision :
+ * - `followed` : un écran de la page suit la présence (`onPresence`) ; la vue et sa
+ *   version de référence (`null` hors synchronisation) ;
+ * - `unfollowed` : des trames de présence arrivent, mais rien ne les suit ;
+ * - `none` : aucune trame de présence n'est arrivée sur ce canal.
+ */
+export type SocketPresenceStatus =
+  | {
+      readonly kind: "followed";
+      readonly view: IPresenceSnapshot;
+      readonly version: number | null;
+    }
+  | { readonly kind: "unfollowed" }
+  | { readonly kind: "none" };
+
+/** État `unfollowed` — partagé, jamais modifié. */
+export const PRESENCE_UNFOLLOWED: SocketPresenceStatus = Object.freeze({
+  kind: "unfollowed",
+});
+
+/** État `none` — partagé, jamais modifié. */
+export const PRESENCE_NONE: SocketPresenceStatus = Object.freeze({
+  kind: "none",
+});
 
 /**
  * Ce qu'une socket doit savoir dire d'elle-même pour être photographiée — la
@@ -39,6 +67,7 @@ export type SnapshotSource = Pick<
   | "identity"
   | "serverChannels"
   | "serverMethods"
+  | "presenceStatus"
 >;
 
 /**
@@ -63,6 +92,8 @@ export interface SocketSnapshot {
   codec: string;
   /** Canaux effectivement tenus par cette connexion. */
   channels: readonly string[];
+  /** La présence de chaque canal tenu, dans l'ordre de {@link SocketSnapshot.channels}. */
+  presence: readonly SocketPresenceStatus[];
   /** Notifications reçues depuis l'ouverture (accueil compris) — les réponses aux appels n'y entrent pas. */
   frames: number;
   /** Trames perdues faute de transport ouvert — un silence qui se compte. */
@@ -94,11 +125,13 @@ export interface SocketSnapshot {
  * n'est demandé au serveur — afficher cet état ne coûte donc rien au réseau.
  */
 export function socketSnapshot(client: SnapshotSource): SocketSnapshot {
+  const channels = client.subscribedChannels;
   return {
     url: client.url,
     state: client.state,
     codec: client.codec,
-    channels: client.subscribedChannels,
+    channels,
+    presence: channels.map((c) => client.presenceStatus(c)),
     frames: client.framesReceived,
     unsent: client.framesUnsent,
     dropped: client.framesDropped,
@@ -158,6 +191,121 @@ export function codecBadges(protocol: string): ICodecBadges {
   return { nature: "binaire", codec: codec === "" ? protocol : codec };
 }
 
+/** `n` suivi du mot, au pluriel au-delà de 1 (0 et 1 au singulier, en français). */
+function counted(n: number, word: string): string {
+  return `${n} ${word}${n > 1 ? "s" : ""}`;
+}
+
+/** Présents nommés montrés avant « +N » : la ligne tient dans une boîte étroite. */
+const NAMED_SHOWN = 3;
+
+/** Forme d'un UUID dans un nom (identité, canal `user:<uuid>`). */
+const UUID_IN_TEXT =
+  /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/giu;
+
+/**
+ * Raccourcit chaque UUID d'un texte (`cc64…c7a`) pour une colonne étroite —
+ * le texte entier se garde au survol, côté écran.
+ *
+ * @param text - un nom de canal, une identité.
+ * @returns le texte, UUID raccourcis.
+ */
+export function shortenIds(text: string): string {
+  return text.replace(
+    UUID_IN_TEXT,
+    (id) => `${id.slice(0, 4)}…${id.slice(-3)}`,
+  );
+}
+
+/** Qui lit : son identifiant de présence et le nom à montrer à sa place. */
+export interface IPresenceReader {
+  /** Identifiant tel que la présence le nomme (`RealtimeIdentity.id`). */
+  readonly id: string;
+  /** Nom lisible (`userIdentifier`). */
+  readonly name: string;
+}
+
+/**
+ * La présence d'un canal tenu, mise en mots — la même phrase dans la barre de
+ * debug, la console du navigateur et les vitrines.
+ *
+ * Nommés d'abord (liste de la trame), sinon compte des comptes (au-delà du seuil
+ * de membres nommés, la trame ne porte que des nombres), puis les anonymes.
+ *
+ * La présence nomme les comptes par leur IDENTIFIANT (souvent un UUID) : celui
+ * du lecteur devient son nom suivi de « (vous) », les autres sont raccourcis.
+ *
+ * @param status - l'état de présence du canal (`SocketPresenceStatus`).
+ * @param reader - qui lit, pour se reconnaître dans la liste (facultatif).
+ * @returns par exemple « admin (vous) · 0 anonyme », « 3 comptes · 1 anonyme »,
+ *   « présence non suivie par la page », « sans présence ».
+ */
+export function describePresence(
+  status: SocketPresenceStatus,
+  reader?: IPresenceReader,
+): string {
+  if (status.kind === "none") return "sans présence";
+  if (status.kind === "unfollowed") return "présence non suivie par la page";
+  const view = status.view;
+  if (!view.ready) return "en attente de la liste";
+  const named = view.members;
+  let who: string;
+  if (named.size > 0) {
+    const shown: string[] = [];
+    for (const [id, entry] of named) {
+      if (shown.length === NAMED_SHOWN) break;
+      const notes: string[] = [];
+      let name: string;
+      if (reader?.id === id) {
+        notes.push("vous");
+        name = reader.name;
+      } else name = shortenIds(id);
+      if (entry.tabs > 1) notes.push(`${entry.tabs} onglets`);
+      shown.push(notes.length === 0 ? name : `${name} (${notes.join(", ")})`);
+    }
+    who =
+      named.size > NAMED_SHOWN
+        ? `${shown.join(", ")} +${named.size - NAMED_SHOWN}`
+        : shown.join(", ");
+  } else {
+    who = counted(view.count, "compte");
+  }
+  const text = `${who} · ${counted(view.unnamed, "anonyme")}`;
+  return view.partial ? `${text} · partielle` : text;
+}
+
+/**
+ * La version de la vue de présence d'un canal : `v12`, « non synchronisée » (trou
+ * de version, socket fermée, resynchronisation), ou `""` sans vue suivie.
+ *
+ * @param status - l'état de présence du canal (`SocketSnapshot.presence`).
+ * @returns le texte de la version, vide quand il n'y a rien à versionner.
+ */
+export function describePresenceVersion(status: SocketPresenceStatus): string {
+  if (status.kind !== "followed" || !status.view.ready) return "";
+  return status.version === null ? "non synchronisée" : `v${status.version}`;
+}
+
+/**
+ * Les trames perdues, mises en mots : « aucune perte » quand rien n'est perdu,
+ * le détail par sorte sinon.
+ *
+ * @param snapshot - l'instantané de la socket.
+ * @returns la phrase, et `lost` pour qu'un écran la signale.
+ */
+export function describeLosses(snapshot: SocketSnapshot): {
+  text: string;
+  lost: boolean;
+} {
+  const unreadable = snapshot.binaryDiscarded + snapshot.malformedDiscarded;
+  if (snapshot.unsent + snapshot.dropped + unreadable === 0)
+    return { text: "aucune perte", lost: false };
+  return {
+    text: `${snapshot.unsent} non envoyées · ${snapshot.dropped} jetées · ${unreadable} illisibles`,
+    lost: true,
+  };
+}
+
 /** L'état de la connexion, dit en français — un écran ne parle pas machine. */
 const STATE_WORDS: Record<RealtimeState, string> = {
   connected: "connecté",
@@ -166,6 +314,23 @@ const STATE_WORDS: Record<RealtimeState, string> = {
   disconnected: "coupé",
   error: "erreur",
 };
+
+/**
+ * L'état de la connexion, mis en mots — avec le compte à rebours d'une reconnexion.
+ *
+ * @param snapshot - l'instantané de la socket.
+ * @param now - l'instant de lecture (ms epoch).
+ * @returns par exemple « connecté », « reconnexion automatique… (tentative 2, dans 3 s) ».
+ */
+export function describeState(
+  snapshot: SocketSnapshot,
+  now: number = Date.now(),
+): string {
+  const retry = snapshot.nextRetryAt;
+  return retry === null
+    ? STATE_WORDS[snapshot.state]
+    : `${STATE_WORDS[snapshot.state]} (tentative ${snapshot.reconnectAttempts}, dans ${Math.max(0, Math.ceil((retry - now) / 1000))} s)`;
+}
 
 /**
  * Ce que le client sait de SA socket, mis en mots — la même description pour
@@ -189,8 +354,16 @@ export function describeSocket(
   const list = (v: readonly string[] | null, none: string): string =>
     v === null ? "— (avant l'accueil)" : v.join(", ") || none;
   const clock = (at: number): string => new Date(at).toLocaleTimeString();
-  const retry = snapshot.nextRetryAt;
-  const unreadable = snapshot.binaryDiscarded + snapshot.malformedDiscarded;
+  const reader =
+    id?.authenticated === true && id.id
+      ? { id: id.id, name: id.userIdentifier || id.id }
+      : undefined;
+  const held = snapshot.channels.map((c, i) => {
+    const status = snapshot.presence[i] ?? PRESENCE_NONE;
+    return status.kind === "none"
+      ? c
+      : `${c} (${describePresence(status, reader)})`;
+  });
   return [
     {
       label: "adresse",
@@ -199,10 +372,7 @@ export function describeSocket(
     },
     {
       label: "état",
-      value:
-        retry === null
-          ? STATE_WORDS[snapshot.state]
-          : `${STATE_WORDS[snapshot.state]} (tentative ${snapshot.reconnectAttempts}, dans ${Math.max(0, Math.ceil((retry - now) / 1000))} s)`,
+      value: describeState(snapshot, now),
       hint: "Coupée, la socket se reconnecte seule et rejoue ses abonnements : la page n'a rien à écrire pour ça.",
     },
     {
@@ -223,8 +393,8 @@ export function describeSocket(
     },
     {
       label: "canaux tenus",
-      value: snapshot.channels.join(", ") || "aucun",
-      hint: "Abonnements comptés par référence : dix composants sur le même canal, un seul abonnement réseau.",
+      value: held.join(", ") || "aucun",
+      hint: "Abonnements comptés par référence : dix composants sur le même canal, un seul abonnement réseau. Entre parenthèses, la présence du canal (qui est là) quand il en porte une.",
     },
     {
       label: "canaux offerts",
@@ -243,7 +413,7 @@ export function describeSocket(
     },
     {
       label: "trames perdues",
-      value: `${snapshot.unsent} non envoyées · ${snapshot.dropped} jetées · ${unreadable} illisibles`,
+      value: describeLosses(snapshot).text,
       hint: "Non envoyées : transport fermé à l'émission. Jetées : contre-pression du client (maxBufferedAmount). Illisibles : binaire sans lecteur ou texte non JSON — la première de chaque sorte lève un incident.",
     },
     {
