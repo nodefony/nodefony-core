@@ -155,14 +155,18 @@ export const pageBreak = () => `<div class="page-break"></div>`;
 export const warn = (html) => `<div class="warn">${html}</div>`;
 export const note = (html) => `<div class="note">${html}</div>`;
 
-/** Rangée de cartes de chiffres-clés. */
+/**
+ * Rangée de cartes de chiffres-clés. `href` rend le sous-texte cliquable : un
+ * chiffre de vitrine mène à la page qui le prouve, sinon on le croit sur
+ * parole.
+ */
 export const cards = (items) => `
 <div class="cards">${items
   .map(
     (c) => `<div class="card">
     <div class="k">${esc(c.k)}</div>
     <div class="v">${c.v}${c.unit ? ` <span class="u">${esc(c.unit)}</span>` : ""}</div>
-    ${c.sub ? `<div class="u">${esc(c.sub)}</div>` : ""}
+    ${c.sub ? `<div class="u">${c.href ? `<a href="${esc(c.href)}">${esc(c.sub)}</a>` : esc(c.sub)}</div>` : ""}
   </div>`,
   )
   .join("")}</div>`;

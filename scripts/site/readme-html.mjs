@@ -27,6 +27,7 @@ import {
   printButton,
   deckControls,
   fmt,
+  esc,
 } from "../../.claude/skills/nodefony-html-report/lib/report.mjs";
 import {
   readFileSync,
@@ -167,7 +168,6 @@ const embedPng = (name, alt) => {
 };
 
 const pkgRoot = readJson(join(ROOT, "package.json")) ?? {};
-const symbols = readJson(join(ROOT, ".ai", "symbols.json"));
 
 /** Un paquet publiable = un domaine du framework. */
 const collect = (dir, key) => {
@@ -371,40 +371,70 @@ const mark = (v) => (v ? B("✓", OK) : B("—", KO));
 
 /* ── 1 · Ce que c'est ─────────────────────────────────────────────────────── */
 
+/**
+ * Le coût d'un petit message sur la socket binaire face à gRPC, LU dans le
+ * dernier jeu de performance publié — jamais recopié : la vitrine change avec
+ * la mesure, ou se tait si la pièce manque.
+ */
+const binaryRatio = (() => {
+  const dir = join(ROOT, "docs/performance/data");
+  const files = existsSync(dir)
+    ? readdirSync(dir)
+        .filter((n) => /^\d+\.\d+\.\d+\.json$/.test(n))
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+    : [];
+  const data = files.length ? readJson(join(dir, files.at(-1))) : null;
+  const at16 = (camp) =>
+    data?.binary?.results?.find((r) => r.camp === camp && r.bytes === 16)
+      ?.usPerMsg;
+  const grpc = at16("grpc");
+  const socket = at16("socket");
+  return grpc && socket ? grpc / socket : null;
+})();
+
 const intro = section(
-  "L'essentiel en trente secondes",
+  "Un événement, livré partout",
   `
-<p class="lead">Un framework Node.js <strong>fullstack</strong>, en TypeScript strict, bâti
-directement sur les modules natifs de la plateforme. Pensé pour le <strong>temps réel</strong> :
-le serveur HTTP et le serveur WebSocket partagent le même contexte de contrôleur.</p>
+<p class="lead">Publiez un événement une fois. Il arrive au navigateur par WebSocket, à un client
+léger en SSE, à un système tiers par webhook, et aux autres exemplaires de l'application par un
+bus. Nodefony est un framework Node.js <strong>fullstack</strong>, en TypeScript, construit pour ce
+<strong>temps réel</strong> : le contrôleur qui sert vos routes HTTP sert aussi vos canaux, sous la
+même sécurité.</p>
 
 ${cards([
+  ...(binaryRatio
+    ? [
+        {
+          k: "Socket binaire",
+          v: `≈ ${fmt.dec(binaryRatio, 1)} fois`,
+          sub: "moins coûteuse que gRPC par message de 16 octets, même serveur",
+          href: "./performance/analyses/#le-binaire-temps-réel",
+        },
+      ]
+    : []),
   {
-    k: "Version",
-    v: pkgRoot.version ?? "—",
-    sub: "monodépôt, paquets verrouillés",
+    k: "Plusieurs pods",
+    v: "un seul canal",
+    sub: "présence comprise, relayée par un bus Redis",
+    href: "./docs/modules/realtime/",
   },
   {
-    k: "Node",
-    v: (pkgRoot.engines?.node ?? "—").replace(">=", "≥ "),
-    sub: "ESM uniquement",
-  },
-  {
-    k: "Domaines",
-    v: fmt.int(modules.length),
-    sub: "cœur + paquets publiables",
-  },
-  {
-    k: "Symboles",
-    v: symbols ? fmt.int(Object.keys(symbols.symbols).length) : "—",
-    sub: "graphe relationnel indexé",
+    k: "À travail égal",
+    v: "même zone",
+    sub: "de performance que NestJS et Express équipés",
+    href: "./performance/",
   },
 ])}
 
-<p>Trois propriétés le définissent, et chacune se vérifie dans le code plutôt qu'elle ne se
-raconte : le <strong>temps réel de première classe</strong>, l'<strong>isomorphisme</strong>
-serveur/navigateur, et une application qui <strong>sait se décrire</strong> à un outil comme à
-une personne.</p>`,
+<p>Le même serveur sert aussi des services gRPC, encore expérimentaux en 10.0. Pour essayer, comptez
+deux minutes : <code>npm create nodefony@${
+    /^\d+\.\d+\.\d+-([a-z]+)/i.exec(pkgRoot.version ?? "")?.[1] ?? "latest"
+  } mon-app</code> pose une application complète — comptes, sécurité, temps réel, console
+d'administration — sur SQLite. Ensuite, <a href="./docs/demarrer/">Par où commencer</a> vous
+guide.</p>
+<p class="dim">Version ${esc(pkgRoot.version ?? "—")} · Node ${esc(
+    (pkgRoot.engines?.node ?? "—").replace(">=", "≥ ").replace("||", "ou"),
+  )} · ESM, TypeScript strict</p>`,
   { break: "avoid" },
 );
 
