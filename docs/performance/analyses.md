@@ -57,7 +57,10 @@ successives est le coût de l'étage. Trois manches alternées, le témoin mesur
 | _NestJS équipé, adaptateur `node:http` natif_ |         _36,0_ | _le même résultat, mesuré dans les mêmes manches_                 |
 
 L'écart avec le témoin est de **~10 µs par requête (×1,28)**. Il n'a pas de foyer unique : chaque
-étage porte un à sept microsecondes, et tous gardent le même signe d'une manche à l'autre. Une
+étage porte un à sept microsecondes, et tous gardent le même signe d'une manche à l'autre. Dans
+le contexte, la sonde chronométrée dans le serveur (`NF_PERF_PROBE`) désigne la construction de la
+requête et de la réponse enveloppées, puis l'objet de base dont hérite le contexte ; la portée
+d'injection n'en pèse qu'≈ 1,4 µs. Une
 coupe (`action`) disperse à 4,1 % pour un seuil de 3 % : le tableau se lit en ordre de grandeur,
 pas au dixième.
 
@@ -103,8 +106,8 @@ fonctionnalité pour gagner un banc.
 
 | Travail par requête                    | Service rendu                                                    | Coût                          | Statut                           |
 | -------------------------------------- | ---------------------------------------------------------------- | ----------------------------- | -------------------------------- |
-| portée d'injection ouverte puis fermée | services `@Scope("request")`, isolation de l'état entre requêtes | dans les ~6,6 µs du contexte  | assumé                           |
-| contexte unifié HTTP/WebSocket         | même contrôleur, même sécurité pour les deux protocoles          | dans les ~6,6 µs du contexte  | assumé                           |
+| portée d'injection ouverte puis fermée | services `@Scope("request")`, isolation de l'état entre requêtes | ≈ 1,4 µs (ADR-0011)           | assumé                           |
+| contexte unifié HTTP/WebSocket         | même contrôleur, même sécurité pour les deux protocoles          | l'essentiel des ~7 µs         | **à instruire**                  |
 | délai de réponse armé                  | 504 sur action bloquée, plutôt qu'une connexion pendue           | < 1,3 µs (A/B, délais à zéro) | assumé — le profil en comptait 8 |
 | fin de flux                            | libération de la requête entrante                                | ≈ 6 µs au profil (famille)    | **à instruire**                  |
 | zones du pare-feu, gardes              | sécurité par défaut, sur toutes les requêtes                     | ~2 µs                         | assumé                           |
