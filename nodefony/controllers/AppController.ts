@@ -10,7 +10,7 @@ import {
 } from "@nodefony/framework";
 import { HttpError } from "@nodefony/http";
 import type { ContextType } from "@nodefony/http";
-import { isLoginPageSkin, loginPagePath } from "nodefony";
+import { createAppCommand, isLoginPageSkin, loginPagePath } from "nodefony";
 import {
   KeycloakAdminError,
   type AuthFlow,
@@ -55,6 +55,8 @@ class AppController extends Controller {
     const url = context.request?.url;
     return this.renderView(view, {
       ...context.metaData,
+      // Canal nommé tant que le framework est en préversion (#784).
+      installCommand: createAppCommand("mon-app"),
       session: {
         user: this.user?.identifier ?? null,
         loginHref: loginPagePath(

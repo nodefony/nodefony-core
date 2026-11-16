@@ -83,6 +83,7 @@ const DEMO_VIDEO_FILE = path.join("media", "sample.mp4");
  * contient l'identifiant.
  */
 export const DEV_ADMIN_PASSWORD = "nodefony-dev-42";
+import { createAppCommand, NODE_ENGINE_LABEL } from "../installCommand";
 import { IMAGE_NODEFONY_BIN } from "../nodefonyBin";
 import { findProjectRoot } from "../projectRoot";
 import {
@@ -3636,10 +3637,15 @@ function renderDemoFront(
   packageRoot: string,
   dest: string,
   appName: string,
+  version: string,
   writer: ScaffoldWriter,
 ): string[] {
   const front = FRONTEND_PARAMS[DEMO_FRONTEND];
   const data = {
+    // Ce que l'accueil de la démo affiche pour installer : la commande, canal
+    // nommé tant que c’est une préversion, et la plage d'engines (#784).
+    installCommand: createAppCommand("", version),
+    nodeRange: NODE_ENGINE_LABEL,
     nameClass: "DemoPageController",
     pascal: "Demo",
     kebab: DEMO_MODULE,
@@ -3745,7 +3751,9 @@ function renderDemoLayer(
     writer,
     { __KEBAB__: DEMO_MODULE },
   );
-  files.push(...renderDemoFront(eta, packageRoot, dest, appName, writer));
+  files.push(
+    ...renderDemoFront(eta, packageRoot, dest, appName, version, writer),
+  );
   const demoManifest = readPackageManifest(manifestFile, writer);
   const demoDevDeps = ensureObjectField(demoManifest, "devDependencies");
   const demoPeers = ensureObjectField(demoManifest, "peerDependencies");

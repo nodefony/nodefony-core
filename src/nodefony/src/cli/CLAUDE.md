@@ -644,7 +644,9 @@ qui sort du dépôt : les hooks ne s'exécutent alors jamais.
 
 `nodefony create app [name] [--dir <path>] [--force] [--yes] [--preset <complete|minimal>]
 [--frontend <none|react|vue|angular>] [--link|--no-link] [--git-hooks] [--demo]` — **standalone 0-boot**
-(fast-path `CliKernel.start`, cas nominal HORS projet : `npx nodefony create app`).
+(fast-path `CliKernel.start`, cas nominal HORS projet : `npm create nodefony@<canal>` — jamais
+`npx nodefony create app`, qui hors d'une app installe le `latest` de npm ; la commande affichée
+par une page se calcule par `cli/installCommand.ts#createAppCommand`).
 L'app naît **agent-ready** : `AGENTS.md` racine — la **PORTE**, budget **20 Ko**
 (devise + générateurs + vérités universelles + gates + renvoi aux skills), dans un
 bloc `<!-- nodefony:start/end -->` ; **tout ce qui est hors marqueurs appartient à

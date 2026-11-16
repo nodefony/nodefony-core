@@ -112,7 +112,7 @@ readme-html.mjs — Nodefony, matrice de présentation (10 minutes).
 
 - **Usage** : `node scripts/site/readme-html.mjs [fichier-de-sortie.html] [--channel published|next]`
 - **Appelé par** : `site/build-site.mjs` · `.claude/skills/nodefony-devkit-bench/scripts/bench-first-impression.mjs`
-- **Utilise** : `lib/repo-root.mjs` · `site/lib/admonitions.mjs` · `site/lib/html-text.mjs` · `site/lib/site-versions.mjs` · `site/markdown-highlight.mjs`
+- **Utilise** : `lib/repo-root.mjs` · `site/lib/admonitions.mjs` · `site/lib/html-text.mjs` · `site/lib/site-versions.mjs` · `site/markdown-highlight.mjs` · `release/release-core.mjs`
 
 ## [`schemas-organigramme.test.mjs`](schemas-organigramme.test.mjs)
 

@@ -1,5 +1,7 @@
 import {
   CSP_NONCE_META_PROPERTY,
+  createAppCommand,
+  NODE_ENGINE_LABEL,
   LOGIN_PAGE_ASSETS_BASE,
   LOGIN_PAGE_LAYOUTS,
   LOGIN_PAGE_SKINS,
@@ -297,6 +299,14 @@ export function buildLoginPageView(
 }
 
 /**
+ * Commande d'installation montrée par la vitrine, canal nommé tant que le
+ * framework est en préversion : la forme `npx`, lancée hors d'une application,
+ * installait le `latest` de npm, l'ancien Nodefony 7 (#784).
+ * Constante du processus : elle ne dépend que de la version installée.
+ */
+const INSTALL_COMMAND = createAppCommand("mon-app");
+
+/**
  * Gabarit Eta de la page de connexion par défaut (balisage F03, feuille
  * `nodefony/login.css`, script `nodefony/login.js`).
  *
@@ -366,7 +376,7 @@ export const LOGIN_PAGE_TEMPLATE = `<!doctype html>
           </p>
           <ul class="badges">
             <li class="agentic">Agentic ready</li>
-            <li>Node.js 24.16+ ou 26+</li>
+            <li>Node.js ${NODE_ENGINE_LABEL}</li>
             <li>TypeScript strict</li>
             <li>ESM only</li>
             <li>Licence Apache 2.0</li>
@@ -374,9 +384,9 @@ export const LOGIN_PAGE_TEMPLATE = `<!doctype html>
           <div
             class="install"
             role="img"
-            aria-label="Commande d'installation : npx nodefony create app"
+            aria-label="Commande d'installation : ${INSTALL_COMMAND}"
           >
-            <span class="p">$</span><span>npx nodefony create app</span>
+            <span class="p">$</span><span>${INSTALL_COMMAND}</span>
           </div>
           <div class="features">
             <div class="feature">

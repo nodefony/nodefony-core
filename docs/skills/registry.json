@@ -144,6 +144,7 @@
         "scripts/gates/dev-credentials.test.mjs",
         "scripts/gates/vitest-tmp-guard.test.mjs",
         "scripts/lib/redis-session-purge.test.mjs",
+        "scripts/release/accueil-gate.test.mjs",
         "scripts/site/perf-figures.test.mjs",
         "scripts/site/schemas-organigramme.test.mjs",
         "scripts/site/schemas-sequence.test.mjs",
@@ -2718,7 +2719,8 @@
         "scripts/release/attendre-ci.mjs",
         "scripts/release/compat.mjs",
         "scripts/release/pack-all.mjs",
-        "scripts/release/release.mjs"
+        "scripts/release/release.mjs",
+        "scripts/site/readme-html.mjs"
       ],
       "testedBy": [
         "scripts/release/release-core.test.mjs"

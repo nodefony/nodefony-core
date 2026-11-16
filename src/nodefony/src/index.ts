@@ -102,6 +102,15 @@ export type {
 // `create-*`, un banc ou un script de déploiement ne doivent jamais deviner
 // `node_modules/.bin/nodefony`, qui n'existe pas sous Windows.
 export { nodefonyBin } from "./cli/nodefonyBin";
+// Ce qu'une page AFFICHE pour installer : la commande, canal nommé, et la
+// plage de Node.js — déduites du paquet, jamais écrites en dur (#784).
+export {
+  createAppCommand,
+  describeNodeRange,
+  npmChannelOf,
+  NODE_ENGINE_LABEL,
+  NODE_ENGINE_RANGE,
+} from "./cli/installCommand";
 // Rendu de la page de manuel, publié parce qu'une APPLICATION en a l'usage :
 // ses commandes de module ne peuvent figurer dans la page du framework, et
 // elle seule peut donc rendre la sienne. Publier la fonction évite qu'un

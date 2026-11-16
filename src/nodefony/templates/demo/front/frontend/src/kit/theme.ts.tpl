@@ -1,6 +1,6 @@
 /**
- * Le thème de la démo : SOMBRE par défaut, clair au choix du visiteur, et
- * ce choix retenu par le navigateur (`localStorage`) — un réglage
+ * Le thème de la démo : celui du SYSTÈME par défaut, l'autre au choix du
+ * visiteur, et ce choix retenu par le navigateur (`localStorage`) — un réglage
  * d'affichage n'a rien à faire en session serveur, et un visiteur n'en a pas
  * toujours une.
  *
@@ -16,15 +16,22 @@ export type DemoTheme = "dark" | "light";
 /** La clé du choix dans `localStorage`. */
 export const THEME_KEY = "nodefony-demo-theme";
 
-/** Le thème retenu, sinon le sombre. */
+/** Le thème retenu par le visiteur, sinon celui du système. */
 export function readTheme(): DemoTheme {
   try {
-    return window.localStorage.getItem(THEME_KEY) === "light"
-      ? "light"
-      : "dark";
+    const stored = window.localStorage.getItem(THEME_KEY);
+    if (stored === "light" || stored === "dark") return stored;
   } catch {
-    return "dark";
+    // Stockage indisponible : on suit le système.
   }
+  return systemTheme();
+}
+
+/** Le thème que demande le système (`prefers-color-scheme`). */
+function systemTheme(): DemoTheme {
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
 }
 
 /**

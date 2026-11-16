@@ -31,7 +31,7 @@ Index de tout l'outillage : [`scripts/`](../README.md).
 La confrontation de l'accueil aux `dist-tags`, éprouvée SANS réseau.
 
 - **Lancé par** : `npm run test:release`
-- **Utilise** : `release/accueil-gate.mjs`
+- **Utilise** : `lib/repo-root.mjs` · `release/accueil-gate.mjs`
 
 ## [`accueil-liens.test.mjs`](accueil-liens.test.mjs)
 
@@ -249,7 +249,7 @@ La confrontation des README publiés, éprouvée SANS npm ni réseau.
 release-core.mjs — le RAISONNEMENT d'une release, sans aucune entrée/sortie.
 
 - **Usage** : `import { validerVersion, comparerVersions, SEMVER } from "./release-core.mjs"`
-- **Appelé par** : `release/attendre-ci.mjs` · `release/compat.mjs` · `release/pack-all.mjs` · `release/release.mjs`
+- **Appelé par** : `release/attendre-ci.mjs` · `release/compat.mjs` · `release/pack-all.mjs` · `release/release.mjs` · `site/readme-html.mjs`
 - **Testé par** : `release/release-core.test.mjs`
 
 ## [`release-core.test.mjs`](release-core.test.mjs)

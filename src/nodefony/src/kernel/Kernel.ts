@@ -74,6 +74,7 @@ import { CONSOLE_RUN_PROFILE, runWillServeTraffic } from "./runProfile";
 import { findSetReservedKeys } from "../config/configProvenance";
 import nodefonyError from "../Error";
 import { SysExit } from "../cli/sysexits";
+import { createAppCommand } from "../cli/installCommand";
 import type { IGuardedEmitResult, IGuardedListenerInfo } from "../Event";
 import { isTerminal } from "../runtime/isTerminal";
 import { redactUrlCredentials } from "../runtime/redact";
@@ -999,7 +1000,7 @@ class Kernel extends Service implements IKernel {
             `résolue (package.json \`main\`, dist/index.js ou index.js).\n` +
             `Trois causes possibles :\n` +
             `  · ce dossier n'est pas une application Nodefony — vérifie le ` +
-            `répertoire de travail, ou crée-en une : npx nodefony create app <nom>\n` +
+            `répertoire de travail, ou crée-en une : ${createAppCommand("<nom>")}\n` +
             `  · c'est une application, mais son package.json ne déclare pas ` +
             `la dépendance \`nodefony\`\n` +
             `  · elle n'est pas CONSTRUITE : npm install puis npm run build`,

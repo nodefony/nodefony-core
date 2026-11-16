@@ -374,7 +374,7 @@ function Hero() {
       </p>
       <div className="badges">
         <span className="badge agentic">Agentic ready</span>
-        <span className="badge">Node.js ≥ 24</span>
+        <span className="badge">Node.js {"<%= it.nodeRange %>"}</span>
         <span className="badge">TypeScript strict</span>
         <span className="badge">ESM only</span>
         <span className="badge">Licence Apache 2.0</span>
@@ -382,11 +382,11 @@ function Hero() {
       <div
         className="install"
         role="img"
-        aria-label="Commande : npx nodefony create app mon-app"
+        aria-label="Commande : <%= it.installCommand %> mon-app"
       >
         <span className="p">$</span>
         <span>
-          npx nodefony create app <b>mon-app</b>
+          <%= it.installCommand %> <b>mon-app</b>
         </span>
       </div>
       <div className="cta">

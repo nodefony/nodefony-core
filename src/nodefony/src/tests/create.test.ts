@@ -35,6 +35,7 @@ import {
 } from "../cli/create";
 import { AGENT_TARGETS, pointeursInstructions } from "../cli/agentTargets";
 import { IMAGE_NODEFONY_BIN } from "../cli/nodefonyBin";
+import { createAppCommand, NODE_ENGINE_LABEL } from "../cli/installCommand";
 import {
   DATABASE_CHOICES,
   FRONTEND_CHOICES,
@@ -3265,6 +3266,18 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const css = lireMod("frontend", "src", "demo.css");
       assert.include(css, "var(--demo-logo)");
       assert.notInclude(css, "data:image");
+      // #784 : la commande affichée nomme son canal (sans lui, `latest` sert
+      // la 7), le badge cite la plage d'`engines`, jamais une recopie.
+      assert.include(app, `${createAppCommand("", version)} <b>mon-app</b>`);
+      // En expression chaîne : une plage non reconnue garderait son `>`,
+      // refusé en texte JSX.
+      assert.include(app, `Node.js {"${NODE_ENGINE_LABEL}"}`);
+      assert.notInclude(app, "npx nodefony create app");
+      // Sans choix mémorisé, la démo suit le thème du système.
+      assert.include(
+        lireMod("frontend", "src", "kit", "theme.ts"),
+        'matchMedia("(prefers-color-scheme: dark)")',
+      );
       // Type PARTAGÉ entre le contrôleur et la page.
       assert.include(
         lireMod("nodefony", "controllers", "DemoController.ts"),

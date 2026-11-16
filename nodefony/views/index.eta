@@ -278,8 +278,8 @@
           <span class="badge">ESM only</span>
           <span class="badge">Licence Apache 2.0</span>
         </div>
-        <div class="install" role="img" aria-label="Commande d'installation : npx nodefony create app">
-          <span class="p">$</span><span>npx nodefony create app</span>
+        <div class="install" role="img" aria-label="Commande d'installation : <%= it.installCommand %>">
+          <span class="p">$</span><span><%= it.installCommand %></span>
         </div>
         <div class="cta">
           <a class="btn primary" href="/nodefony">Ouvrir Studio</a>

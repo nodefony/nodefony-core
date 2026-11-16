@@ -129,6 +129,21 @@ const SURFACES = [
   { chemin: "scripts/generate/readme/08-demarrage.md", exigeVersion: false },
   { chemin: "AGENTS.md", exigeVersion: true },
   { chemin: "docker/hub-overview.md", exigeVersion: true, facultatif: true },
+  // Ce que l'APPLICATION GÉNÉRÉE affiche à son utilisateur (#784) : l'écran
+  // de connexion de toute application, et l'accueil de la démo. Du CODE, pas
+  // du markdown — `code` y fait juger chaque commande, sans bloc clôturé. La
+  // commande y est CALCULÉE (`createAppCommand` du cœur) : une commande
+  // littérale qui y reparaît est le défaut lui-même.
+  {
+    chemin: "src/packages/@nodefony/framework/nodefony/src/loginPage.ts",
+    exigeVersion: false,
+    code: true,
+  },
+  {
+    chemin: "src/nodefony/templates/demo/front/frontend/src/App.tsx.tpl",
+    exigeVersion: false,
+    code: true,
+  },
 ];
 
 /** Une version de préversion de la ligne 10, telle qu'elle s'écrit dans la prose. */
@@ -168,6 +183,17 @@ const NIE_LA_PUBLICATION =
  */
 const COMMANDE =
   /\b(?:npm|pnpm|yarn|bun)\s+(?:create|install|add|i)\s+(?:create-)?(nodefony|@nodefony\/[a-z0-9-]+)(@[a-z0-9.-]+)?/g;
+
+/**
+ * La création d'application par `npx` — mêmes groupes que {@link COMMANDE}.
+ *
+ * `create app` se lance HORS d'une application par définition : `npx` n'y
+ * trouve aucun `nodefony` local et va chercher le `latest` du registre. C'est
+ * la forme qu'affichaient l'écran de connexion et la démo générée (#784). Les
+ * autres `npx nodefony …` se lancent DANS une application, où le binaire local
+ * répond : ils ne sont pas visés.
+ */
+const NPX_CREATE_APP = /\bnpx\s+(nodefony)(@[a-z0-9.-]+)?\s+create\s+app\b/g;
 
 /**
  * Compare deux versions de la ligne 10, préversion (`10.0.0-alpha.5`) ou
@@ -315,7 +341,8 @@ function projeter(distTags, enCours) {
  * Fonction PURE — c'est ce qui permet de l'éprouver sans réseau et sans dépôt,
  * sur les états réels qu'on a vus passer.
  *
- * @param options.surfaces - `[{ chemin, contenu, exigeVersion }]`.
+ * @param options.surfaces - `[{ chemin, contenu, exigeVersion, code? }]` ; `code`
+ *   juge chaque commande, hors de tout bloc clôturé (une source, un gabarit).
  * @param options.distTags - `{ alpha, beta, latest, … }` tels que npm les sert.
  * @param options.enCours - la version que la passe PUBLIE. L'accueil est alors
  *   jugé contre l'état d'APRÈS sa publication ({@link projeter}) : il doit
@@ -405,7 +432,11 @@ function confronterAccueil({ surfaces, distTags: servis, enCours = null }) {
 
     // ── Les commandes ─────────────────────────────────────────────────────
     const zones = zonesDeCode(contenu);
-    for (const m of contenu.matchAll(COMMANDE)) {
+    const commandes = [
+      ...contenu.matchAll(COMMANDE),
+      ...contenu.matchAll(NPX_CREATE_APP),
+    ];
+    for (const m of commandes) {
       // Un canal NOMMÉ dépassé se refuse partout, prose comprise : une
       // commande citée en ligne (`npm create nodefony@beta <app>`) prescrit
       // autant qu'un bloc de code.
@@ -430,7 +461,9 @@ function confronterAccueil({ surfaces, distTags: servis, enCours = null }) {
               : `écrire ${m[0].replace(m[2], `@${pointe.canal}`)}`,
         });
       }
-      if (!dansUneZone(zones, m.index)) continue;
+      // Dans du CODE, tout ce qui s'affiche est prescrit ; dans du markdown,
+      // seul un bloc clôturé l'est ({@link zonesDeCode}).
+      if (!surface.code && !dansUneZone(zones, m.index)) continue;
       if (m[2]) continue; // le canal est nommé
       if (latestEstLa10) continue; // `latest` EST la 10 : la forme nue est juste
       ecarts.push({
@@ -440,7 +473,9 @@ function confronterAccueil({ surfaces, distTags: servis, enCours = null }) {
         message:
           `« ${m[0]} » ne nomme aucun canal, et « latest » sert encore ` +
           `« ${distTags.latest ?? "?"} » — cette commande n'installe pas la 10`,
-        correction: `écrire ${m[0]}@<canal>`,
+        correction: m[0].startsWith("npx")
+          ? "écrire `npm create nodefony@<canal> <app>` — hors d'une application, `npx` installe le `latest`"
+          : `écrire ${m[0]}@<canal>`,
       });
     }
   }
@@ -549,6 +584,7 @@ function lireSurfaces() {
       chemin: decl.chemin,
       contenu: fs.readFileSync(abs, "utf8"),
       exigeVersion: decl.exigeVersion,
+      code: decl.code === true,
     });
   }
   return { surfaces, manquantes };
@@ -701,5 +737,6 @@ export {
   ligneDe,
   lireDistTags,
   COMMANDE,
+  NPX_CREATE_APP,
   SURFACES,
 };

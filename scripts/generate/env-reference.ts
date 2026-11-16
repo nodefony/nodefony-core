@@ -307,7 +307,7 @@ export async function renderEnvReference(generatedBy: string): Promise<string> {
     "## La commande qui fait foi pour TON application",
     "",
     "Les variables d'une application vivent dans son `env.ts`. Cette page montre",
-    `celles d'une application tout juste générée (\`npx nodefony create app ${SAMPLE_APP}\`,`,
+    `celles d'une application tout juste générée (\`create app ${SAMPLE_APP}\`,`,
     "préréglage complet) : la tienne en a peut-être ajouté, ou retiré, et un",
     "préréglage minimal en déclare moins. Pour savoir exactement ce qu'elle lit,",
     "demande-le-lui :",

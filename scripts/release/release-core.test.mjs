@@ -17,6 +17,7 @@ import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { npmChannelOf } from "../../src/nodefony/src/cli/installCommand.ts";
 import {
   readWorkspaceManifests,
   releasableWorkspaces,
@@ -2288,6 +2289,19 @@ describe("canalDeVersion", () => {
 
   it("une version invalide rend null", () => {
     expect(canalDeVersion("10.0")).toBeNull();
+  });
+
+  it("🔴 rend le MÊME canal que la règle du cœur (`npmChannelOf`) — deux copies, une frontière de paquet", () => {
+    for (const v of [
+      "10.0.0-beta.8",
+      "10.0.0-alpha.12",
+      "10.0.0-rc",
+      "10.0.0-rc.1+build.7",
+      "10.1.0",
+      "10.0",
+      "v10.0.0",
+    ])
+      expect(canalDeVersion(v), v).toBe(npmChannelOf(v));
   });
 });
 

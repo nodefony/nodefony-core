@@ -44,6 +44,7 @@ import { ADMONITION_CSS, decorateAdmonitions } from "./lib/admonitions.mjs";
 import { join, resolve, dirname } from "node:path";
 import { REPO_ROOT as ROOT } from "../lib/repo-root.mjs";
 import { versionSwitchScript } from "./lib/site-versions.mjs";
+import { canalDeVersion } from "../release/release-core.mjs";
 
 const ARGS = process.argv.slice(2);
 const channelAt = ARGS.indexOf("--channel");
@@ -506,7 +507,7 @@ ${cards([
 ])}
 
 <p>Le même serveur sert aussi des services gRPC, encore expérimentaux en 10.0. Pour essayer, comptez
-deux minutes : <code>npm create nodefony@${/^\d+\.\d+\.\d+-([a-z]+)/i.exec(pkgCore.version ?? "")?.[1] ?? "latest"} mon-app</code> pose une application complète — comptes, sécurité, temps réel, console
+deux minutes : <code>npm create nodefony@${canalDeVersion(pkgCore.version ?? "") ?? "latest"} mon-app</code> pose une application complète — comptes, sécurité, temps réel, console
 d'administration — sur SQLite. Ensuite, <a href="./docs/demarrer/">Par où commencer</a> vous
 guide.</p>
 <p class="dim">Version ${esc(pkgCore.version ?? "—")} · Node ${esc(
@@ -1022,7 +1023,9 @@ approuver sans être lu. Ce que vous lisez est produit par ce principe.`)}`,
 // mentirait le jour de la version stable — comme la ligne « pas de migration de
 // schéma » l'a fait des mois après la livraison de `orm:migrate`.
 const REPO = "https://github.com/nodefony/nodefony-core";
-const PRERELEASE = /^\d+\.\d+\.\d+-([a-z]+)/i.exec(pkgCore.version ?? "")?.[1];
+// Le canal d'une préversion — règle de `canalDeVersion`, jamais une regex recopiée.
+const CANAL = canalDeVersion(pkgCore.version ?? "");
+const PRERELEASE = CANAL === null || CANAL === "latest" ? undefined : CANAL;
 
 const manques = section(
   "Ce qui manque — dit avant qu'on le demande",

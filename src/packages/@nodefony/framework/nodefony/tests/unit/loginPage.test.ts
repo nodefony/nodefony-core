@@ -9,7 +9,11 @@
  */
 import { expect, vi } from "vitest";
 import { Eta } from "eta";
-import type { ILoginPageDescription } from "nodefony";
+import {
+  createAppCommand,
+  NODE_ENGINE_LABEL,
+  type ILoginPageDescription,
+} from "nodefony";
 import {
   LOGIN_PAGE_TEMPLATE,
   buildLoginPageView,
@@ -424,6 +428,18 @@ describe("page de connexion — gabarit rendu", () => {
     );
     expect(doc.querySelector(".nf-foot")).not.toBeNull();
     expect(doc.querySelectorAll('link[rel="stylesheet"]')).toHaveLength(1);
+  });
+
+  it("🔴 la commande d'installation nomme son canal — la forme `npx` installait la 7 (#784)", () => {
+    const install = render().querySelector(".install");
+    const command = createAppCommand("mon-app");
+    expect(install?.textContent).toContain(command);
+    expect(install?.getAttribute("aria-label")).toBe(
+      `Commande d'installation : ${command}`,
+    );
+    expect(LOGIN_PAGE_TEMPLATE).not.toContain("npx nodefony");
+    // Le badge cite la plage d'`engines`, jamais une recopie.
+    expect(render().body.textContent).toContain(`Node.js ${NODE_ENGINE_LABEL}`);
   });
 
   it("titre, sous-titre et feuille de l'application (chargée APRÈS celle du framework)", () => {

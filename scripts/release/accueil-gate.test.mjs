@@ -6,7 +6,10 @@
  * le cran précédent. Chaque cas ci-dessous est un état RÉEL — celui du dépôt au
  * moment où ce contrôle a été écrit, ou celui qu'un oubli de bascule produirait.
  */
+import fs from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { REPO_ROOT } from "../lib/repo-root.mjs";
 
 import {
   basculerVersions,
@@ -15,6 +18,7 @@ import {
   garderVersions,
   pointeDeLaLigne,
   projeter,
+  SURFACES,
   zonesDeCode,
 } from "./accueil-gate.mjs";
 
@@ -257,6 +261,96 @@ describe("confronterAccueil — le canal nommé dans les commandes", () => {
     expect(
       confronterAccueil({ surfaces: [surface(contenu)], distTags: TAGS }),
     ).toEqual([]);
+  });
+});
+
+describe("confronterAccueil — ce que l'APPLICATION GÉNÉRÉE affiche (#784)", () => {
+  /** Une source ou un gabarit : pas de bloc clôturé, tout ce qui s'affiche est prescrit. */
+  const code = (contenu, chemin = "loginPage.ts") => ({
+    chemin,
+    contenu,
+    exigeVersion: false,
+    code: true,
+  });
+
+  it("🔴 refuse la commande `npx` de l'écran de connexion d'avant la correction", () => {
+    const contenu =
+      '<div class="install"><span class="p">$</span><span>npx nodefony create app</span></div>';
+    const ecarts = confronterAccueil({
+      surfaces: [code(contenu)],
+      distTags: TAGS,
+    });
+    expect(genres(ecarts)).toEqual(["COMMANDE-SANS-CANAL"]);
+    expect(ecarts[0].correction).toContain("npm create nodefony@<canal>");
+  });
+
+  it("refuse aussi une commande `npm create` sans canal, hors de tout bloc", () => {
+    const ecarts = confronterAccueil({
+      surfaces: [
+        code("<span>npm create nodefony mon-app</span>", "App.tsx.tpl"),
+      ],
+      distTags: TAGS,
+    });
+    expect(genres(ecarts)).toEqual(["COMMANDE-SANS-CANAL"]);
+  });
+
+  it("laisse passer la commande CALCULÉE — aucun littéral à juger", () => {
+    const ecarts = confronterAccueil({
+      surfaces: [
+        code("<span>${INSTALL_COMMAND}</span>"),
+        code(
+          "<span><%= it.installCommand %> <b>mon-app</b></span>",
+          "App.tsx.tpl",
+        ),
+      ],
+      distTags: TAGS,
+    });
+    expect(ecarts).toEqual([]);
+  });
+
+  it("ne vise pas les `npx nodefony …` lancés DANS une application", () => {
+    const ecarts = confronterAccueil({
+      surfaces: [
+        code("npx nodefony development && npx nodefony create module blog"),
+      ],
+      distTags: TAGS,
+    });
+    expect(ecarts).toEqual([]);
+  });
+
+  it("cesse d'exiger le canal le jour où `latest` EST la ligne 10", () => {
+    const ecarts = confronterAccueil({
+      surfaces: [code("<span>npx nodefony create app</span>")],
+      distTags: { latest: "10.0.0" },
+    });
+    expect(ecarts).toEqual([]);
+  });
+
+  it("en markdown, la forme `npx` citée en PROSE reste une mise en garde, pas une commande", () => {
+    const ecarts = confronterAccueil({
+      surfaces: [
+        surface(
+          "`10.0.0-alpha.5` — et `npx nodefony create app` hors d'une app sert la 7.\n",
+        ),
+      ],
+      distTags: TAGS,
+    });
+    expect(ecarts).toEqual([]);
+  });
+
+  it("déclare les deux surfaces de l'application, et elles disent vrai aujourd'hui", () => {
+    const declarees = SURFACES.filter((s) => s.code === true);
+    expect(declarees.map((s) => s.chemin)).toEqual([
+      "src/packages/@nodefony/framework/nodefony/src/loginPage.ts",
+      "src/nodefony/templates/demo/front/frontend/src/App.tsx.tpl",
+    ]);
+    const surfaces = declarees.map((s) =>
+      code(
+        fs.readFileSync(path.join(REPO_ROOT, ...s.chemin.split("/")), "utf8"),
+        s.chemin,
+      ),
+    );
+    expect(confronterAccueil({ surfaces, distTags: TAGS })).toEqual([]);
   });
 });
 
