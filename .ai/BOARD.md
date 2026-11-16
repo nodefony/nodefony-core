@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-11-16 09:39** (UTC).
+> Empreinte prise le **2026-11-16 13:17** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,7 +20,7 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `██████████` 98% | 266 | 6 | 2026-11-29 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `██████████` 97% | 267 | 7 | 2026-11-29 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 138 | 2 | 2026-12-06 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 11% | 7 | 57 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 33 | — |
@@ -31,11 +31,11 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#47 — docs(release): faire suivre à l'accueil ce qui est réellement publié**
+**#783 — feat(debugbar): montrer la présence et l'état réel du temps réel**
 
-Ordre 9.005 · P1 — figé à la création · 1 j · jalon 10.0.0-beta · frise 2026-11-21 → 11-21
+Ordre 9.006 · P1 — figé à la création · 2 j · jalon 10.0.0-beta · frise —
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 6 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 7 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -173,11 +173,12 @@ Ordre 9.005 · P1 — figé à la création · 1 j · jalon 10.0.0-beta · frise
 | 925.6 | P3 — fin de cycle | 1 | — | #768 | perf(http): mesurer le coût du journal d'accès par requête |
 | 926 | P1 — figé à la création | 0.5 | — | #541 | test(cli): valider le plein écran du serveur de dev sous Windows |
 
-## Jalon 10.0.0-beta — 6 ouverts
+## Jalon 10.0.0-beta — 7 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 9.005 | P1 — figé à la création | 1 | 2026-11-21 → 11-21 | #47 | docs(release): faire suivre à l'accueil ce qui est réellement publié |
+| 9.006 | P1 — figé à la création | 2 | — | #783 | feat(debugbar): montrer la présence et l'état réel du temps réel |
+| 9.007 | P1 — figé à la création | 1 | — | #784 | fix(scaffold): afficher la commande d'installation avec son canal |
 | 9.01 | P1 — figé à la création | 1 | 2026-11-21 → 11-21 | #779 | feat(cli): ouvrir l'image générée aux paquets système, sans retouche |
 | 9.02 | P1 — figé à la création | 1 | 2026-11-23 → 11-23 | #780 | feat(cli): mettre à jour le Dockerfile d'une app par nodefony upgrade |
 | 9.03 | P1 — figé à la création | 0.5 | 2026-11-24 → 11-24 | #781 | ci(release): publier l'image de démonstration aussi pour arm64 |

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-16T09:39:55.204Z",
+  "generatedAt": "2026-11-16T13:17:31.709Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 266,
+      "closed": 267,
       "dueOn": "2026-11-29T00:00:00Z",
       "number": 7,
-      "open": 6,
+      "open": 7,
       "title": "10.0.0-beta"
     },
     {
@@ -7102,8 +7102,8 @@
       "number": 47,
       "title": "docs(release): faire suivre à l'accueil ce qui est réellement publié",
       "url": "https://github.com/nodefony/nodefony-core/issues/47",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -7112,6 +7112,38 @@
       "cible": "2026-11-21",
       "labels": [
         "post-publication",
+        "beta-9"
+      ]
+    },
+    {
+      "number": 783,
+      "title": "feat(debugbar): montrer la présence et l'état réel du temps réel",
+      "url": "https://github.com/nodefony/nodefony-core/issues/783",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 9.006,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-9"
+      ]
+    },
+    {
+      "number": 784,
+      "title": "fix(scaffold): afficher la commande d'installation avec son canal",
+      "url": "https://github.com/nodefony/nodefony-core/issues/784",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 9.007,
+      "debut": null,
+      "cible": null,
+      "labels": [
         "beta-9"
       ]
     },
