@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-11-15 19:19** (UTC).
+> Empreinte prise le **2026-11-16 09:39** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -31,9 +31,9 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#659 — docs(performance): remesurer les pages de performance avant la release**
+**#47 — docs(release): faire suivre à l'accueil ce qui est réellement publié**
 
-Ordre 8.04 · P1 — figé à la création · 1 j · jalon 10.0.0-beta · frise 2026-11-19 → 11-19
+Ordre 9.005 · P1 — figé à la création · 1 j · jalon 10.0.0-beta · frise 2026-11-21 → 11-21
 
 > Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 6 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
@@ -51,13 +51,13 @@ Ordre 8.04 · P1 — figé à la création · 1 j · jalon 10.0.0-beta · frise 
 | 3.95 | P2 — décision | 1 | — | #523 | feat(security): guider la connexion Keycloak et brancher plusieurs realms |
 | 3.955 | P2 — décision | 2 | — | #524 | feat(security): lier un compte existant à Keycloak et exporter les comptes |
 | 3.96 | P2 — décision | 1 | — | #725 | feat(realtime): empêcher le rejeu d'une éjection sur un canal durable |
-| 7.08 | P2 — décision | 11.25 | 2026-11-10 → 11-16 | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
-| 7.09 | P2 — décision | 3.25 | 2026-11-10 → 11-16 | #445 | test(ecosysteme): éprouver le framework par un module tiers temps réel |
-| 7.091 | P2 — décision | 0.25 | 2026-11-10 → 11-10 | #446 | test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation |
-| 7.092 | P2 — décision | 0.5 | 2026-11-11 → 11-11 | #447 | test(ecosysteme): journaliser pas à pas ce que fait l'agent |
-| 7.093 | P1 — figé à la création | 1 | 2026-11-12 → 11-12 | #448 | test(ecosysteme): jouer l'épreuve sans jamais guider l'agent |
-| 7.094 | P1 — figé à la création | 0.5 | 2026-11-13 → 11-13 | #449 | test(ecosysteme): trier ce qui remonte au cœur du framework |
-| 7.095 | P1 — figé à la création | 1 | 2026-11-16 → 11-16 | #450 | feat(ecosysteme): livrer le tableau blanc comme module installable |
+| 7.08 | P2 — décision | 11.25 | 2026-11-16 → 12-06 | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
+| 7.09 | P2 — décision | 3.25 | 2026-12-07 → 12-15 | #445 | test(ecosysteme): éprouver le framework par un module tiers temps réel |
+| 7.091 | P2 — décision | 0.25 | 2026-12-07 → 12-07 | #446 | test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation |
+| 7.092 | P2 — décision | 0.5 | 2026-12-08 → 12-08 | #447 | test(ecosysteme): journaliser pas à pas ce que fait l'agent |
+| 7.093 | P1 — figé à la création | 1 | 2026-12-09 → 12-09 | #448 | test(ecosysteme): jouer l'épreuve sans jamais guider l'agent |
+| 7.094 | P1 — figé à la création | 0.5 | 2026-12-10 → 12-10 | #449 | test(ecosysteme): trier ce qui remonte au cœur du framework |
+| 7.095 | P1 — figé à la création | 1 | 2026-12-11 → 12-11 | #450 | feat(ecosysteme): livrer le tableau blanc comme module installable |
 | 8.005 | P2 — décision | 5 | — | #694 | feat(http): servir des services gRPC dans le pipeline HTTP/2 |
 | 16.5 | P2 — décision | 0.5 | 2026-11-19 → 11-19 | #89 | docs(notification): faire la veille des canaux de communication attendus |
 | 17 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #84 | feat(mail): créer le module et son service d'envoi |
@@ -177,12 +177,12 @@ Ordre 8.04 · P1 — figé à la création · 1 j · jalon 10.0.0-beta · frise 
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 8.04 | P1 — figé à la création | 1 | 2026-11-19 → 11-19 | #659 | docs(performance): remesurer les pages de performance avant la release |
 | 9.005 | P1 — figé à la création | 1 | 2026-11-21 → 11-21 | #47 | docs(release): faire suivre à l'accueil ce qui est réellement publié |
 | 9.01 | P1 — figé à la création | 1 | 2026-11-21 → 11-21 | #779 | feat(cli): ouvrir l'image générée aux paquets système, sans retouche |
 | 9.02 | P1 — figé à la création | 1 | 2026-11-23 → 11-23 | #780 | feat(cli): mettre à jour le Dockerfile d'une app par nodefony upgrade |
 | 9.03 | P1 — figé à la création | 0.5 | 2026-11-24 → 11-24 | #781 | ci(release): publier l'image de démonstration aussi pour arm64 |
 | 9.04 | P2 — décision | 1 | 2026-11-25 → 11-25 | #772 | docs(docker): réécrire la fiche Docker Hub de l'image officielle |
+| 9.06 | P1 — figé à la création | 1 | 2026-11-19 → 11-19 | #659 | docs(performance): remesurer les pages de performance avant la release |
 
 ## Jalon 10.2.0 — 33 ouverts
 

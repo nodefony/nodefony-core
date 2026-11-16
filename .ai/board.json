@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-15T19:19:42.773Z",
+  "generatedAt": "2026-11-16T09:39:55.204Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -6572,8 +6572,8 @@
       "priorite": "P2 — décision",
       "jours": 11.25,
       "ordre": 7.08,
-      "debut": "2026-11-10",
-      "cible": "2026-11-16",
+      "debut": "2026-11-16",
+      "cible": "2026-12-06",
       "labels": []
     },
     {
@@ -6586,8 +6586,8 @@
       "priorite": "P2 — décision",
       "jours": 3.25,
       "ordre": 7.09,
-      "debut": "2026-11-10",
-      "cible": "2026-11-16",
+      "debut": "2026-12-07",
+      "cible": "2026-12-15",
       "labels": [
         "reportable"
       ]
@@ -6618,8 +6618,8 @@
       "priorite": "P2 — décision",
       "jours": 0.25,
       "ordre": 7.091,
-      "debut": "2026-11-10",
-      "cible": "2026-11-10",
+      "debut": "2026-12-07",
+      "cible": "2026-12-07",
       "labels": [
         "reportable"
       ]
@@ -6634,8 +6634,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 7.092,
-      "debut": "2026-11-11",
-      "cible": "2026-11-11",
+      "debut": "2026-12-08",
+      "cible": "2026-12-08",
       "labels": [
         "reportable"
       ]
@@ -6650,8 +6650,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 7.093,
-      "debut": "2026-11-12",
-      "cible": "2026-11-12",
+      "debut": "2026-12-09",
+      "cible": "2026-12-09",
       "labels": [
         "reportable"
       ]
@@ -6666,8 +6666,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 7.094,
-      "debut": "2026-11-13",
-      "cible": "2026-11-13",
+      "debut": "2026-12-10",
+      "cible": "2026-12-10",
       "labels": [
         "reportable"
       ]
@@ -6682,8 +6682,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 7.095,
-      "debut": "2026-11-16",
-      "cible": "2026-11-16",
+      "debut": "2026-12-11",
+      "cible": "2026-12-11",
       "labels": [
         "reportable"
       ]
@@ -7015,22 +7015,6 @@
       ]
     },
     {
-      "number": 659,
-      "title": "docs(performance): remesurer les pages de performance avant la release",
-      "url": "https://github.com/nodefony/nodefony-core/issues/659",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 8.04,
-      "debut": "2026-11-19",
-      "cible": "2026-11-19",
-      "labels": [
-        "beta-8"
-      ]
-    },
-    {
       "number": 255,
       "title": "test(release): contrôler les README publiés avant chaque publication",
       "url": "https://github.com/nodefony/nodefony-core/issues/255",
@@ -7191,6 +7175,22 @@
       "ordre": 9.04,
       "debut": "2026-11-25",
       "cible": "2026-11-25",
+      "labels": [
+        "beta-9"
+      ]
+    },
+    {
+      "number": 659,
+      "title": "docs(performance): remesurer les pages de performance avant la release",
+      "url": "https://github.com/nodefony/nodefony-core/issues/659",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 9.06,
+      "debut": "2026-11-19",
+      "cible": "2026-11-19",
       "labels": [
         "beta-9"
       ]
@@ -10174,7 +10174,7 @@
       "title": "feat(realtime): livrer les ajouts différés des ADR temps réel",
       "url": "https://github.com/nodefony/nodefony-core/issues/714",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.2.0",
       "priorite": "P3 — fin de cycle",
       "jours": null,
@@ -10188,7 +10188,7 @@
       "title": "feat(realtime): reprendre un abonnement depuis un curseur",
       "url": "https://github.com/nodefony/nodefony-core/issues/715",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.2.0",
       "priorite": "P3 — fin de cycle",
       "jours": 2,
@@ -10202,7 +10202,7 @@
       "title": "feat(realtime): signaler la fin d'un canal par realtime:closed",
       "url": "https://github.com/nodefony/nodefony-core/issues/716",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.2.0",
       "priorite": "P3 — fin de cycle",
       "jours": 1,
