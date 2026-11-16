@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-16T13:17:31.709Z",
+  "generatedAt": "2026-11-16T15:17:50.211Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 267,
+      "closed": 268,
       "dueOn": "2026-11-29T00:00:00Z",
       "number": 7,
-      "open": 7,
+      "open": 6,
       "title": "10.0.0-beta"
     },
     {
@@ -7119,8 +7119,8 @@
       "number": 783,
       "title": "feat(debugbar): montrer la présence et l'état réel du temps réel",
       "url": "https://github.com/nodefony/nodefony-core/issues/783",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 2,
