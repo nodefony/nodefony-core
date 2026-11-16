@@ -6,6 +6,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   figureSpecs,
+  gapWithRange,
   insertFigures,
   renderFigures,
   shareWithRange,
@@ -68,6 +69,13 @@ describe("perf-figures — registre", () => {
     expect(r.max).toBe(Math.round((19400 / 20000) * 1000) / 10);
   });
 
+  it("l'écart signé vaut la part moins cent, bornes comprises", () => {
+    const fw = decor().comparison.frameworks;
+    const g = gapWithRange(fw["express-fair"], fw.nodefony, 104.5);
+    expect(g.med).toBe(-4.3);
+    expect(g.min).toBeCloseTo(Math.round((19000 / 20200) * 1000) / 10 - 100, 1);
+  });
+
   it("la figure des parts reprend chaque paire face à Nodefony, sans le test nul", () => {
     const parts = figureSpecs(decor()).get("parts");
     const labels = parts.options.data.map((d) => d.label);
@@ -75,8 +83,9 @@ describe("perf-figures — registre", () => {
       "Express équipé — route triviale",
       "Express équipé + Drizzle — lecture + écriture",
     ]);
-    // Le cas ORM publie Nodefony / témoin : 105 % reste 105 %.
-    expect(parts.options.data[1].med).toBe(105);
+    // Le cas ORM publie Nodefony / témoin : 105 % devient un écart de +5.
+    expect(parts.options.data[1].med).toBe(5);
+    expect(parts.options.signe).toBe(true);
   });
 
   it("la cascade part du premier étage puis empile l'écart entre cumuls", () => {
@@ -120,7 +129,7 @@ describe("perf-figures — jeu publié", () => {
     ),
   );
 
-  it("chaque part dessinée se retrouve dans une paire ou un cas publié", () => {
+  it("chaque écart dessiné se retrouve dans une paire ou un cas publié", () => {
     const parts = figureSpecs(data).get("parts");
     if (!parts) return;
     const publies = [
@@ -128,7 +137,7 @@ describe("perf-figures — jeu publié", () => {
       data.applicative?.rapportPct,
       ...(data.applicative?.cases ?? []).map((c) => c.rapportPct),
       ...(data.applicativeNest?.cases ?? []).map((c) => c.rapportPct),
-    ].map((v) => Math.round(v * 10) / 10);
+    ].map((v) => Math.round((Math.round(v * 10) / 10 - 100) * 10) / 10);
     for (const d of parts.options.data) expect(publies).toContain(d.med);
   });
 
@@ -147,7 +156,14 @@ describe("perf — chiffres écrits dans la prose", () => {
       "utf8",
     ),
   );
-  /** Les rapports publiés, au format où la prose les écrit (« 96,2 »). */
+  /**
+   * Les écarts publiés, au format où la prose les écrit (« −3,8 », « +5,7 ») :
+   * part de Nodefony arrondie au dixième, moins cent, vrai signe moins.
+   */
+  const signe = (part) => {
+    const g = Math.round((Math.round(part * 10) / 10 - 100) * 10) / 10;
+    return `${g > 0 ? "+" : g < 0 ? "−" : ""}${Math.abs(g).toFixed(1).replace(".", ",")}`;
+  };
   const publies = new Set(
     [
       ...data.comparison.pairs.map((p) =>
@@ -161,7 +177,7 @@ describe("perf — chiffres écrits dans la prose", () => {
       ...(data.applicativeNest?.cases ?? []).map((c) => c.rapportPct),
     ]
       .filter((v) => typeof v === "number")
-      .map((v) => v.toFixed(1).replace(".", ",")),
+      .map(signe),
   );
   /**
    * Les pourcentages des tableaux de RÉSULTATS d'une page — reconnus à leur
@@ -181,7 +197,7 @@ describe("perf — chiffres écrits dans la prose", () => {
     return blocs
       .filter((b) => b.length && /témoin|Résultat/i.test(b[0]))
       .flat()
-      .flatMap((l) => [...l.matchAll(/(\d+,\d) %/g)].map((m) => m[1]));
+      .flatMap((l) => [...l.matchAll(/([+−]?\d+,\d) %/g)].map((m) => m[1]));
   };
 
   for (const page of ["index.md", "analyses.md"])

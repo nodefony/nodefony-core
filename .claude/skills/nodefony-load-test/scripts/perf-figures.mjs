@@ -71,7 +71,22 @@ export function shareWithRange(witness, subject, rapportPct) {
   };
 }
 
-/** Les parts de Nodefony face à chaque témoin publié, route triviale puis base. */
+/**
+ * L'ÉCART de débit de Nodefony face à un témoin, en points : la part moins
+ * 100, bornes comprises. « +5,7 % » dit le sens d'emblée ; « 105,7 % » le
+ * laisse à deviner (retour de lecteur). Calculé sur la part ARRONDIE, pour que
+ * la figure, le tableau et la prose écrivent le même nombre.
+ */
+export function gapWithRange(witness, subject, rapportPct) {
+  const r = shareWithRange(witness, subject, rapportPct);
+  return {
+    med: round(r.med - 100, 1),
+    min: round(r.min - 100, 1),
+    max: round(r.max - 100, 1),
+  };
+}
+
+/** L'écart de Nodefony face à chaque témoin publié, route triviale puis base. */
 function sharesSpec(d) {
   const rows = [];
   const fw = d.comparison?.frameworks ?? {};
@@ -80,7 +95,7 @@ function sharesSpec(d) {
     if (b !== "nodefony" || a === b || !fw[a] || !fw[b]) continue;
     rows.push({
       label: `${CAMP_LABELS[a] ?? a} — route triviale${p.separation === "nette" ? "" : " (dans le bruit)"}`,
-      ...shareWithRange(fw[a], fw[b], p.rapportPct),
+      ...gapWithRange(fw[a], fw[b], p.rapportPct),
     });
   }
   const app = d.applicative;
@@ -116,17 +131,18 @@ function sharesSpec(d) {
     // Ici le rapport publié est Nodefony / témoin (et non témoin / Nodefony).
     rows.push({
       label: `${CAMP_LABELS[ref]} — ${LABEL[c.id] ?? c.id}`,
-      ...shareWithRange(w, n, 10000 / c.rapportPct),
+      ...gapWithRange(w, n, 10000 / c.rapportPct),
     });
   }
   if (rows.length === 0) return null;
   return {
     id: "parts",
     famille: "barsEtendue",
-    titre: "Débit de Nodefony, en % de chaque témoin",
-    desc: "barre = rapport de la paire alternée ; trait = étendue entre séries. 100 % = même débit.",
+    titre: "Débit de Nodefony face à chaque témoin",
+    desc: "à droite de zéro, Nodefony sert plus de requêtes que le témoin ; à gauche, moins. Barre = écart de la paire alternée ; trait = étendue entre séries.",
     options: {
-      axeValeur: "% du témoin",
+      axeValeur: "écart de débit (%)",
+      signe: true,
       accent: -1,
       largeur: 900,
       hauteur: 66 + rows.length * 30,
@@ -144,8 +160,8 @@ function ormSharesSpec(d) {
   return {
     ...all,
     id: "parts-applicatif",
-    titre: "Avec une base : débit de Nodefony, en % de chaque témoin",
-    desc: "même ORM, même pilote, même schéma ; barre = rapport de la paire, trait = étendue entre séries. 100 % = même débit.",
+    titre: "Avec une base : débit de Nodefony face à chaque témoin",
+    desc: "même ORM, même pilote, même schéma. À droite de zéro, Nodefony sert plus de requêtes ; à gauche, moins. Trait = étendue entre séries.",
     options: { ...all.options, hauteur: 66 + rows.length * 30, data: rows },
   };
 }

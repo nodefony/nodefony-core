@@ -91,8 +91,8 @@ plus bruyante que lui.
 | inconclusif      | une série refusée pour dispersion, après trois essais          | **rien n'est publié**               |
 
 **Le test nul.** Le même camp contre lui-même, dans le même protocole, doit rendre « dans le
-bruit ». Il a rendu 97,7 % sur la route triviale — séparé, mais sous la résolution que le banc
-se donne, donc sans rien classer — et 100 % avec la base : un écart de 2 à 3 % entre deux camps
+bruit ». Il a rendu un écart de −2,3 % sur la route triviale — séparé, mais sous la résolution que le banc
+se donne, donc sans rien classer — et aucun avec la base : un écart de 2 à 3 % entre deux camps
 ne se lit pas sur cette machine.
 
 **Les versions.** Le banc refuse de mesurer si les paquets installés ne sont pas ceux que le
@@ -146,7 +146,7 @@ durée de la requête ; PostgreSQL ne le retarde pas.
 > Une paire refusée ne se rattrape pas. Sur la route triviale face à Express équipé, machine
 > froide, trois essais ont été nécessaires : un tir isolé décroché a fait refuser une série
 > d'Express au premier, une série de Nodefony au deuxième ; le troisième a conclu « dans le
-> bruit » (100,3 %). Garder les séries survivantes aurait publié un écart de quelques pourcents
+> bruit » (écart −0,3 %). Garder les séries survivantes aurait publié un écart de quelques pourcents
 > dans un sens ou dans l'autre — selon l'essai.
 
 ## Rejouer

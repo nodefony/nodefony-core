@@ -814,11 +814,11 @@ opposables à chaque exécution.
 
 **Ce que ça donne en charge.** À résultat observable égal — mêmes en-têtes de sécurité, même
 identifiant de requête, même corrélation `traceparent`, même protection CSRF, vérifiés par un
-contrôle de parité —, Nodefony rend entre 83 et 96 % du débit de NestJS 12 équipé (sur
-`node:http` et sur Fastify) et se tient dans la même zone qu'Express 5 équipé, sur une route qui
+contrôle de parité —, Nodefony sert de 4 à 17 % de requêtes en moins que NestJS 12 équipé (sur
+Fastify et sur `node:http`) et se tient dans la même zone qu'Express 5 équipé, sur une route qui
 ne fait rien — le cas où le framework est tout le budget. Dès qu'une base entre dans la boucle, les
-camps se tiennent à quelques pourcents, sauf sur le refus de validation face à Express (79 %),
-nommé comme piste ouverte. Quatre-vingt-dix minutes de charge continue et 110 millions de requêtes
+camps se tiennent à quelques pourcents, sauf sur le refus de validation face à Express (−21 %),
+où Nodefony audite chaque refus quand le témoin n'en garde aucune trace. Quatre-vingt-dix minutes de charge continue et 110 millions de requêtes
 laissent le tas plat et aucune ressource accumulée. Mesuré sur un portable de 2018 : seuls les
 rapports entre camps valent, pas les absolus. La page de la version courante —
 **[peut-on partir en production ?](https://nodefony.net/performance/latest/)** — porte le comparatif,

@@ -121,17 +121,17 @@ option. Il n'est pas pris.
 ## Face à Express et à NestJS
 
 Face à **Express équipé**, la paire alternée conclut « dans le bruit » : ~22 200 req/s de part et
-d'autre, rapport 100,3 %. Il a fallu trois essais — un tir décroché a fait refuser une série de
+d'autre, écart de débit −0,3 %. Il a fallu trois essais — un tir décroché a fait refuser une série de
 chaque camp tour à tour — et aucune série survivante n'a été gardée.
 
 ### NestJS, sur deux adaptateurs
 
 NestJS se mesure ici sur ses deux adaptateurs HTTP, chacun avec le même travail équipé :
 
-| Témoin                        | req/s (séries)  | Nodefony (séries) | Nodefony / témoin |
+| Témoin                        | req/s (séries)  | Nodefony (séries) | Débit de Nodefony |
 | ----------------------------- | --------------- | ----------------- | ----------------: |
-| NestJS équipé sur Fastify     | 23 424 · 23 052 | 22 515 · 22 228   |            96,2 % |
-| NestJS équipé sur `node:http` | 27 145 · 27 857 | 23 059 · 22 453   |            82,8 % |
+| NestJS équipé sur Fastify     | 23 424 · 23 052 | 22 515 · 22 228   |            −3,8 % |
+| NestJS équipé sur `node:http` | 27 145 · 27 857 | 23 059 · 22 453   |           −17,2 % |
 
 Le même NestJS va ~18 % plus vite sur `node:http` que sur Fastify : l'adaptateur Fastify ajoute
 sa propre couche (routage, hooks, réponse) par-dessus le travail équipé. Face à lui, Nodefony est
@@ -146,18 +146,20 @@ applicatif lit vingt lignes avec leurs clés étrangères puis met à jour la li
 SQLite de 10 000 factures — même ORM (Drizzle), même pilote, même schéma, chaque camp sa copie de
 la base. 25 connexions (le pilote est synchrone : au-delà, on mesure une file), tirs de 60 s.
 
-| Cas                    | Témoin         | Nodefony / témoin | Lecture                                            |
+<!-- figure: parts-applicatif -->
+
+| Cas                    | Témoin         | Débit de Nodefony | Lecture                                            |
 | ---------------------- | -------------- | ----------------: | -------------------------------------------------- |
-| GET lecture + écriture | Express équipé |           105,7 % | même zone ; la requête préparée mémoïsée joue      |
-| GET lecture + écriture | NestJS équipé  |           106,3 % | idem                                               |
-| POST validé            | Express équipé |           103,3 % | lecture du corps, validation, écriture             |
-| POST validé            | NestJS équipé  |           106,6 % | NestJS valide par `class-validator`                |
-| POST refusé (422)      | Express équipé |            79,2 % | l'audit de chaque refus, que le témoin n'écrit pas |
-| POST refusé (422)      | NestJS équipé  |           120,4 % | `ValidationPipe` et sa sérialisation d'erreur      |
+| GET lecture + écriture | Express équipé |            +5,7 % | même zone ; la requête préparée mémoïsée joue      |
+| GET lecture + écriture | NestJS équipé  |            +6,3 % | idem                                               |
+| POST validé            | Express équipé |            +3,3 % | lecture du corps, validation, écriture             |
+| POST validé            | NestJS équipé  |            +6,6 % | NestJS valide par `class-validator`                |
+| POST refusé (422)      | Express équipé |           −20,8 % | l'audit de chaque refus, que le témoin n'écrit pas |
+| POST refusé (422)      | NestJS équipé  |           +20,4 % | `ValidationPipe` et sa sérialisation d'erreur      |
 
 Le cycle complet coûte près d'une milliseconde, dont ~800 µs pour Drizzle et `better-sqlite3`
-dans tous les camps. Le chemin 422 ne touche aucune base, et c'est là que Nodefony rend 79 %
-d'Express : ~81 µs par requête contre ~65, soit ~17 µs d'écart. Ce n'est pas un chemin d'erreur :
+dans tous les camps. Le chemin 422 ne touche aucune base, et c'est là que Nodefony sert 20,8 % de
+requêtes en moins qu'Express : ~81 µs par requête contre ~65, soit ~17 µs d'écart. Ce n'est pas un chemin d'erreur :
 la route valide le corps par le même code que le témoin et rend son 422 par la même réponse JSON
 que le cas valide, sans exception levée. Le profil comparé de ce POST désigne le poste : la
 construction de l'**entrée d'audit** (`audit-logger.ts#JsonAuditLogger.renderHttp`, ~20 µs au

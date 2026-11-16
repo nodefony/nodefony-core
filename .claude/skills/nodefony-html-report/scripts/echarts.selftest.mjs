@@ -359,6 +359,22 @@ cas(
   "graduation 0,1 écrite « 0 »",
 );
 
+// Un ÉCART signé : « +5,7 » et « −20,8 », jamais « 6 » et « -21 » — le signe
+// dit le sens d'emblée, un rapport à 105,7 % le laisse à deviner.
+const ecart = barsEtendue({
+  titre: "Écart",
+  signe: true,
+  data: [
+    { label: "a", med: -20.8, min: -22.1, max: -19.4 },
+    { label: "b", med: 5.7, min: 5.1, max: 6.2 },
+  ],
+});
+cas(
+  "barres signées : chaque étiquette porte son signe et sa décimale",
+  ecart.includes(">−20,8<") && ecart.includes(">+5,7<"),
+  "écart écrit sans signe ou arrondi à l'entier",
+);
+
 // Légende en BAS d'une figure à axe de catégories : les étiquettes de l'axe
 // doivent rester AU-DESSUS de la légende (vu : « 1024 » écrit sur un nom de série).
 const basDeTexte = (svg, motif) =>

@@ -37,16 +37,16 @@ un contrôle de parité avant chaque campagne : Express 5.3.0 équipé, NestJS 1
 Fastify 5.12.8 et sur `node:http`, et pour la base Drizzle 0.45.4 avec better-sqlite3 13.1.1 des
 deux côtés.
 
-| Mesure                                      | Résultat                                                           |
-| ------------------------------------------- | ------------------------------------------------------------------ |
-| route triviale, face à NestJS (Fastify)     | Nodefony à 96,2 % — CPU du fil principal ×1,04                     |
-| route triviale, face à NestJS (node:http)   | Nodefony à 82,8 % — ~10 µs par requête, décomposés étage par étage |
-| route triviale, face à Express équipé       | Nodefony à 99,7 % — dans le bruit, ~22 200 req/s chacun            |
-| lecture + écriture SQLite, Express / NestJS | 105,7 % / 106,3 %                                                  |
-| POST validé, Express / NestJS               | 103,3 % / 106,6 %                                                  |
-| POST refusé (422), Express / NestJS         | **79,2 %** / 120,4 % — Nodefony audite chaque refus, le témoin non |
-| tenue, 90 min sous charge                   | aucune fuite (tas plat, ressources stables), débit −1 %            |
-| résolution du banc (test nul)               | 97,7 % et 100 %                                                    |
+| Mesure                                      | Résultat                                                                  |
+| ------------------------------------------- | ------------------------------------------------------------------------- |
+| route triviale, face à NestJS (Fastify)     | débit −3,8 % — CPU du fil principal ×1,04                                 |
+| route triviale, face à NestJS (node:http)   | débit −17,2 % — ~10 µs par requête, décomposés étage par étage            |
+| route triviale, face à Express équipé       | débit −0,3 % — dans le bruit, ~22 200 req/s chacun                        |
+| lecture + écriture SQLite, Express / NestJS | débit +5,7 % / +6,3 %                                                     |
+| POST validé, Express / NestJS               | débit +3,3 % / +6,6 %                                                     |
+| POST refusé (422), Express / NestJS         | débit **−20,8 %** / +20,4 % — Nodefony audite chaque refus, le témoin non |
+| tenue, 90 min sous charge                   | aucune fuite (tas plat, ressources stables), débit −1 %                   |
+| résolution du banc (test nul)               | écart −2,3 % et 0,0 % d'un camp à lui-même                                |
 
 La route triviale ne fait rien : le framework y est 100 % du budget, c'est le cas où il pèse le
 plus. Dès qu'une base entre dans la boucle, le cycle approche la milliseconde et l'écart entre

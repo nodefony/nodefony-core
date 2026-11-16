@@ -215,6 +215,8 @@ export function echelle(valeurs, o = {}) {
 
   // De la place au bout des barres pour leur étiquette, sans figer le maximum.
   if (placePourEtiquettes && max > 0) frag.dataMax = max * 1.12;
+  // …et sous zéro : l'étiquette d'une barre négative se pose à sa GAUCHE.
+  if (placePourEtiquettes && min < 0) frag.dataMin = min * 1.12;
 
   // Un axe dont toutes les valeurs sont égales n'a pas d'étendue : ECharts
   // rendrait une graduation unique et une barre pleine largeur. On lui donne
@@ -549,7 +551,13 @@ export function bars(o) {
  * Une barre seule cache la dispersion : deux campagnes de médianes identiques
  * peuvent recouvrir des mesures qui ne se ressemblent pas. La moustache le dit.
  *
+ * Un ÉCART se lit mieux qu'un rapport : « +5,7 % » dit d'emblée le sens que
+ * « 105,7 % » laisse à deviner. `signe: true` écrit le signe de chaque valeur
+ * (une décimale, vrai signe moins) ; une barre négative porte alors son
+ * étiquette et son arrondi du côté gauche, zéro restant le repère.
+ *
  * @param {Array<{label: string, med: number, min: number, max: number}>} o.data
+ * @param {boolean} [o.signe] - écrire le signe (écart autour de zéro).
  * @returns {string} SVG.
  */
 export function barsEtendue(o) {
@@ -563,6 +571,7 @@ export function barsEtendue(o) {
     sousTitre,
     desc,
     accent = 0,
+    signe = false,
   } = o;
   const s = socle({
     titre,
@@ -573,6 +582,12 @@ export function barsEtendue(o) {
     axeX: axeValeur,
   });
   const grille = { ...s.grid, right: 74 };
+  const valeurs = data.flatMap((d) => [d.min, d.med, d.max]);
+  const signer = (v) =>
+    `${v > 0 ? "+" : ""}${nombre(v, true)}`.replace("-", "−");
+  const axeFormat = signe
+    ? (v) => `${v > 0 ? "+" : ""}${nombre(v)}`.replace("-", "−")
+    : formateur(valeurs);
   return rendre(
     {
       title: s.title,
@@ -583,15 +598,15 @@ export function barsEtendue(o) {
           type: "value",
           // L'axe doit contenir les MOUSTACHES, pas seulement les médianes :
           // un maximum tronqué couperait la mesure qu'on prétend montrer.
-          ...echelle(
-            data.flatMap((d) => [d.min, d.med, d.max]),
-            { compareDesLongueurs: true, placePourEtiquettes: true },
-          ),
+          ...echelle(valeurs, {
+            compareDesLongueurs: true,
+            placePourEtiquettes: true,
+          }),
           axisLabel: {
             color: s.T.muet,
             fontSize: 11,
             hideOverlap: true,
-            formatter: formateur(data.flatMap((d) => [d.min, d.med, d.max])),
+            formatter: axeFormat,
           },
         },
         "x",
@@ -612,19 +627,10 @@ export function barsEtendue(o) {
             value: d.med,
             itemStyle: {
               color: i === accent ? PALETTE[0] : s.T.neutre,
-              borderRadius: [0, 3, 3, 0],
+              borderRadius: d.med < 0 ? [3, 0, 0, 3] : [0, 3, 3, 0],
             },
           })),
           barMaxWidth: 20,
-          label: {
-            show: true,
-            position: "right",
-            distance: 14,
-            formatter: (p) => nombre(p.value),
-            fontSize: 11,
-            color: s.T.encre,
-            fontFamily: POLICE,
-          },
           z: 1,
         },
         {
@@ -637,9 +643,27 @@ export function barsEtendue(o) {
             const lo = api.coord([d.min, i])[0];
             const hi = api.coord([d.max, i])[0];
             const style = { stroke: THEMES[theme].encre, lineWidth: 1 };
+            // L'étiquette se pose APRÈS l'extrémité de la moustache, pas à une
+            // distance fixe du bout de la barre : une moustache plus longue que
+            // cette distance passait sur le nombre (vu : « −20,8 » barré).
+            const negatif = d.med < 0;
             return {
               type: "group",
               children: [
+                {
+                  type: "text",
+                  style: {
+                    text: signe ? signer(d.med) : nombre(d.med),
+                    x: negatif
+                      ? Math.min(lo, api.coord([0, i])[0]) - 6
+                      : Math.max(hi, api.coord([0, i])[0]) + 6,
+                    y,
+                    align: negatif ? "right" : "left",
+                    verticalAlign: "middle",
+                    fill: THEMES[theme].encre,
+                    font: `11px ${POLICE}`,
+                  },
+                },
                 {
                   type: "line",
                   shape: { x1: lo, y1: y, x2: hi, y2: y },

@@ -155,6 +155,16 @@ function prov0() {
 const nullPair = pairs.find((p) => p.role === "test nul") ?? null;
 /** Part de Nodefony dans une paire où il est le camp B (rapport imprimé = A/B). */
 const shareOfB = (p) => (p ? 10000 / p.rapportPct : null);
+/**
+ * Une part de Nodefony écrite en ÉCART signé : « +5,7 % » (plus de requêtes
+ * servies que le témoin), « −3,8 % » (moins). Un rapport à 105,7 % laisse le
+ * sens à deviner. Calculé sur la part arrondie — le même nombre que la figure.
+ */
+const signedGap = (share) => {
+  if (share == null) return "—";
+  const g = Math.round((Math.round(share * 10) / 10 - 100) * 10) / 10;
+  return `${g > 0 ? "+" : g < 0 ? "−" : ""}${fmt.dec(Math.abs(g), 1)} %`;
+};
 const applicative = dataset?.applicative ?? null;
 const nestOrm = dataset?.applicativeNest?.cases ?? [];
 const cpuThread = dataset?.cpuThread ?? null;
@@ -322,22 +332,22 @@ const cpuModel = prov?.machine?.cpu ?? null;
 const shareCards = [
   {
     k: "Face à Express équipé",
-    v: ratioRps != null ? `${fmt.dec(ratioRps, 1)} %` : "même zone",
+    v: ratioRps != null ? signedGap(ratioRps) : "même zone",
     sub:
       ratioRps != null
-        ? `du débit d'un Express ${witnesses.express ?? ""} qui rend le même résultat`
+        ? `de débit face à un Express ${witnesses.express ?? ""} qui rend le même résultat`
         : "paire non séparée : séries du témoin refusées pour dispersion — aucun rapport publié",
   },
   nestPair && {
     k: "Face à NestJS équipé (Fastify)",
-    v: `${fmt.dec(shareOfB(nestPair), 1)} %`,
+    v: signedGap(shareOfB(nestPair)),
     sub: `NestJS ${witnesses["@nestjs/core"] ?? ""} sur Fastify ${witnesses.fastify ?? ""}${
       cpuRow ? ` · CPU du fil ×${fmt.dec(cpuRow.ratio, 2)}` : ""
     }`,
   },
   nestNodePair && {
     k: "Face à NestJS équipé (node:http)",
-    v: `${fmt.dec(shareOfB(nestNodePair), 1)} %`,
+    v: signedGap(shareOfB(nestNodePair)),
     sub: "le même serveur HTTP que Nodefony — écart décomposé dans « Où part le temps »",
   },
 ].filter(Boolean);
@@ -376,11 +386,11 @@ const verdict = section(
     (figures.get("parts") ?? "") +
     `<p>À <strong>résultat observable égal</strong> — même statut, mêmes en-têtes de sécurité,
      identifiant de requête, <code>traceparent</code>, CORS, contrôle anti-CSRF, zones du pare-feu,
-     vérifiés par un contrôle de parité avant chaque campagne —, chaque barre dit quelle part du
-     débit d'un témoin Nodefony rend. Sur la route triviale, où le framework est tout le budget, la
-     part va de ${
-       nestNodePair ? fmt.dec(shareOfB(nestNodePair), 0) : "?"
-     } à ${nestPair ? fmt.dec(shareOfB(nestPair), 0) : "?"} % selon le témoin ; dès qu'une base entre
+     vérifiés par un contrôle de parité avant chaque campagne —, chaque barre dit combien de
+     requêtes Nodefony sert en plus (à droite de zéro) ou en moins (à gauche) qu'un témoin. Sur la
+     route triviale, où le framework est tout le budget, l'écart va de ${
+       nestNodePair ? signedGap(shareOfB(nestNodePair)) : "?"
+     } à ${nestPair ? signedGap(shareOfB(nestPair)) : "?"} selon le témoin NestJS ; dès qu'une base entre
      dans la boucle, les camps se tiennent à quelques pourcents, le refus de validation face à
      Express mis à part. La résolution du banc, mesurée par le test nul, est de ${
        nullPair ? fmt.dec(Math.abs(nullPair.rapportPct - 100), 1) : "3"
@@ -469,7 +479,7 @@ const comparatif = section(
             p.role === "test nul"
               ? "test nul — le banc ne doit voir AUCUN écart entre un camp et lui-même"
               : p.paire.endsWith("↔ nodefony")
-                ? `Nodefony à ${fmt.dec(shareOfB(p), 1)} % de ce camp`
+                ? `débit de Nodefony ${signedGap(shareOfB(p))} face à ce camp`
                 : "prix du service rendu, hors Nodefony",
           ]),
           { id: "tbl-pairs" },
@@ -514,7 +524,7 @@ const orm = applicative
           "Express équipé + drizzle",
           "GET lecture + écriture",
           `${fmt.int(exp.med)} · ${fmt.int(nfo.med)}`,
-          `<strong>${fmt.dec(applicative.rapportPct, 1)} %</strong>`,
+          `<strong>${signedGap(applicative.rapportPct)}</strong>`,
           applicative.separation,
           `${fmt.dec(exp.medP99Ms, 1)} · ${fmt.dec(nfo.medP99Ms, 1)}`,
           `<code>${prov?.headCommit ?? "?"}</code>`,
@@ -545,7 +555,7 @@ const orm = applicative
           w && n
             ? `${fmt.int(w.med)} · ${fmt.int(n.med)}`
             : (c.rpsRanges ?? "—"),
-          `<strong>${fmt.dec(c.rapportPct, 1)} %</strong>`,
+          `<strong>${signedGap(c.rapportPct)}</strong>`,
           c.separation,
           w && n
             ? `${fmt.dec(w.medP99Ms, 1)} · ${fmt.dec(n.medP99Ms, 1)}`
@@ -567,7 +577,7 @@ const orm = applicative
               { label: "Témoin" },
               { label: "Requête" },
               { label: "req/s (témoin · Nodefony)", align: "right" },
-              { label: "Nodefony / témoin", align: "right" },
+              { label: "Débit de Nodefony", align: "right" },
               { label: "Séparation" },
               {
                 label: "p99 ms (témoin · Nodefony)",
