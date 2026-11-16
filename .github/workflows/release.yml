@@ -332,7 +332,13 @@ jobs:
       # fait (métadonnées ABRÉGÉES, `application/vnd.npm.install-v1+json`, dont le
       # cache se rafraîchit à part de `npm view`), et on exige DEUX lectures
       # complètes consécutives : les nœuds du CDN ne se mettent pas à jour ensemble.
-      - name: Attendre que le registre SERVE les 15 paquets
+      # Des MÉTADONNÉES servies ne sont pas une ARCHIVE servie — vécu à la
+      # 10.0.0-beta.8 : `versions[v]` lisible, mais `nodefony-…tgz` encore en 404,
+      # et ce 404 MIS EN CACHE par le CDN (`max-age=300`) au premier `npm install`
+      # de la vitrine et de l'image, rouges toutes deux. On attend donc aussi
+      # l'archive, sondée avec un paramètre de requête UNIQUE : une sonde sur l'URL
+      # nue planterait elle-même le 404 en cache qu'on cherche à éviter.
+      - name: Attendre que le registre SERVE les paquets publiés
         if: steps.v.outputs.publier == 'oui' && vars.NF_RELEASE_ARMED == 'true'
         timeout-minutes: 15
         env:
@@ -350,7 +356,11 @@ jobs:
                 const r = await fetch("https://registry.npmjs.org/" + n.replace("/", "%2f"),
                   { headers: { accept: "application/vnd.npm.install-v1+json" } });
                 const doc = r.ok ? await r.json() : {};
-                return doc.versions?.[v] ? null : n;
+                const tarball = doc.versions?.[v]?.dist?.tarball;
+                if (!tarball) return n;
+                const t = await fetch(tarball + "?nf-probe=" + Date.now() + "-" + Math.random(),
+                  { method: "HEAD" });
+                return t.ok ? null : n + " (archive " + t.status + ")";
               })).then((m) => console.log(m.filter(Boolean).join(" ")));
             ' "$VERSION" $NOMS)"
             if [ -z "$manquants" ]; then
