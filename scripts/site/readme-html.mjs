@@ -40,6 +40,7 @@ import {
 import MarkdownIt from "markdown-it";
 import { highlight, STYLE_CODE } from "./markdown-highlight.mjs";
 import { sansBalises } from "./lib/html-text.mjs";
+import { ADMONITION_CSS, decorateAdmonitions } from "./lib/admonitions.mjs";
 import { join, resolve, dirname } from "node:path";
 import { REPO_ROOT as ROOT } from "../lib/repo-root.mjs";
 import { versionSwitchScript } from "./lib/site-versions.mjs";
@@ -285,7 +286,9 @@ function readmeEnHtml() {
     typographer: true,
     highlight,
   });
-  let html = md.render(sansEntete);
+  // Les encarts `> [!IMPORTANT]` du README se lisent ici comme sur GitHub — même
+  // règle que la documentation.
+  let html = decorateAdmonitions(md.render(sansEntete));
   if (/<h1[\s>]/.test(html))
     throw new Error(
       "README : l'en-tête centré (logo, titre, badges) n'a pas été retiré — la page aurait deux h1.",
@@ -1260,11 +1263,50 @@ main div[align="center"] { text-align:left; }
    qu'on y mette. Trois colonnes, les mêmes que les cartes de chiffres : les
    deux grilles tombent sur les mêmes verticales. Même plancher 16:9 que le
    socle (cqi), même hauteur par rangée, « Le parcours complet » calé en bas. */
+/* Cartes de VERRE : la translucidité n'existe que s'il y a quelque chose
+   derrière — un halo diffus aux deux teintes du logo, posé SOUS la grille
+   (isolation : il ne passe jamais devant le texte). Chaque carte garde son fond
+   propre, assez opaque pour que le contraste ne dépende pas du halo ; un filet de
+   lumière en haut, une ombre qui monte au survol. Repli : sans color-mix ni
+   backdrop-filter, la carte reprend le fond plein d'avant. */
+:root { --glass:color-mix(in oklab, var(--bg) 72%, transparent);
+  --glass-hi:rgb(255 255 255 / .75); --glass-shadow:rgb(16 24 40 / .10); --halo-2:#0f9f8f; }
+:root[data-theme="dark"] { --glass:color-mix(in oklab, var(--bg) 58%, transparent);
+  --glass-hi:rgb(255 255 255 / .07); --glass-shadow:rgb(0 0 0 / .45); --halo-2:#2dd4bf; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --glass:color-mix(in oklab, var(--bg) 58%, transparent);
+    --glass-hi:rgb(255 255 255 / .07); --glass-shadow:rgb(0 0 0 / .45); --halo-2:#2dd4bf; }
+}
 .profils { --cols:3; container-type:inline-size; display:grid; gap:16px; margin:1.25rem 0;
-  grid-template-columns:repeat(6, minmax(0, 1fr)); grid-auto-rows:1fr; }
-.profil { grid-column:span 2; min-width:0; display:flex; flex-direction:column;
-  background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px 20px;
+  grid-template-columns:repeat(6, minmax(0, 1fr)); grid-auto-rows:1fr;
+  position:relative; isolation:isolate; }
+.profils::before { content:""; position:absolute; inset:-6% -3%; z-index:-1; pointer-events:none;
+  background:
+    radial-gradient(38% 60% at 18% 28%, color-mix(in oklab, var(--accent) 26%, transparent), transparent 72%),
+    radial-gradient(34% 55% at 82% 72%, color-mix(in oklab, var(--halo-2) 22%, transparent), transparent 72%);
+  filter:blur(28px); }
+.profil { grid-column:span 2; min-width:0; display:flex; flex-direction:column; position:relative;
+  background:var(--card); background:var(--glass);
+  -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6);
+  border:1px solid color-mix(in oklab, var(--line) 80%, transparent); border-radius:14px; padding:18px 20px;
+  box-shadow:inset 0 1px 0 var(--glass-hi), 0 1px 2px var(--glass-shadow), 0 10px 28px -18px var(--glass-shadow);
+  transition:transform .22s cubic-bezier(.2,.7,.2,1), box-shadow .22s ease, border-color .22s ease;
   min-height:calc((100cqi - (var(--cols) - 1) * 16px) / var(--cols) * 9 / 16); }
+/* Le filet d'accent du haut ne s'allume qu'au survol : au repos, cinq cartes
+   identiques et calmes ; la carte visée se détache sans changer de couleur. */
+.profil::before { content:""; position:absolute; inset:-1px -1px auto; height:2px; border-radius:14px 14px 0 0;
+  background:linear-gradient(90deg, transparent, var(--accent), var(--halo-2), transparent);
+  opacity:0; transition:opacity .22s ease; pointer-events:none; }
+@media (hover:hover) {
+  .profil:hover { transform:translateY(-3px);
+    border-color:color-mix(in oklab, var(--accent) 40%, var(--line));
+    box-shadow:inset 0 1px 0 var(--glass-hi), 0 2px 4px var(--glass-shadow), 0 22px 40px -20px var(--glass-shadow); }
+  .profil:hover::before { opacity:1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .profil, .profil::before { transition:none; }
+  .profil:hover { transform:none; }
+}
 .profil::details-content { flex:1; display:flex; flex-direction:column; }
 .profil-b { flex:1; display:flex; flex-direction:column; }
 .profil summary { list-style:none; display:flex; flex-direction:column; gap:2px; }
@@ -1326,6 +1368,7 @@ main details.fold { max-width:none; margin:2.5rem 0 1rem; padding:0; }
 .shot img { display:block; width:100%; height:auto; border-radius:10px; border:1px solid var(--line); }
 .shot figcaption { margin-top:.5rem; color:var(--dim); font-size:.875rem; }
 ${STYLE_CODE}
+${ADMONITION_CSS}
 @media print { pre { width:auto; white-space:pre-wrap; word-break:break-word; } }`,
   subtitle:
     "Publiez un événement une fois : Nodefony le livre au navigateur, au client léger, au système tiers et aux autres pods.",

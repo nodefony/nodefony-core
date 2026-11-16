@@ -21,6 +21,17 @@ _Une action de contrôleur. Deux transports. La même session, la même sécurit
 
 ---
 
+> [!IMPORTANT]
+> **Nodefony 10 est en préversion.** Sans `@beta`, npm sert encore l'ancienne version 7, en
+> JavaScript, jusqu'à la sortie stable :
+>
+> ```bash
+> npm create nodefony@beta mon-app
+> ```
+>
+> Développement sur `dev`, dernière publication sur `main` — environ 7 700 tests quand toute
+> l'infrastructure répond (`npm run test:all`).
+
 > **A note on language.** Nodefony is written by a French-speaking author. The **code** —
 > identifiers, public API, types — is in English, because it travels: npm, editor autocompletion,
 > search. The **prose** — documentation, agent skills, messages — is in French, the language in
@@ -33,11 +44,6 @@ _Une action de contrôleur. Deux transports. La même session, la même sécurit
 > session et le même pare-feu ; et l'application est pensée pour être lue par un agent de code —
 > générateurs pilotables, catalogue, `AGENTS.md` dérivé du projet. Deux frameworks, deux accents :
 > le bon choix dépend de ce que ton projet met en avant.
-
-**État** — Nodefony 10 est en **préversion** : `npm create nodefony@beta mon-app` l'installe.
-Sans `@beta`, npm sert encore l'ancienne version 7, en JavaScript, jusqu'à la sortie stable. Le
-développement se fait sur `dev` ; `main` porte la dernière publication. Toute la batterie
-(`npm run test:all`) compte environ 7 700 tests quand l'infrastructure répond.
 
 > ⚠️ **Ce dépôt est l'atelier du framework, pas ce qu'une application installe** — agent : [`AGENTS.md`](AGENTS.md).
 > Pour juger le produit, lire une application générée ([`github.com/nodefony/nodefony`](https://github.com/nodefony/nodefony),

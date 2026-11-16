@@ -112,6 +112,7 @@ import { anchorHeadings } from "./lib/html-text.mjs";
 import { sansCommentaires } from "./lib/markdown-source.mjs";
 import { prepareOutDir } from "./lib/out-dir.mjs";
 import { versionSwitchScript } from "./lib/site-versions.mjs";
+import { ADMONITION_CSS, decorateAdmonitions } from "./lib/admonitions.mjs";
 import { extractApiModel, renderApiPages } from "./lib/api-reference.mjs";
 
 const arg = (n, d) => {
@@ -637,22 +638,10 @@ md.renderer.rules.fence = (tokens, idx, opts, env, self) => {
   return baseFence(tokens, idx, opts, env, self);
 };
 
-const ADM = {
-  NOTE: ["note", "ℹ️ Note"],
-  TIP: ["tip", "💡 Astuce"],
-  IMPORTANT: ["important", "❗ Important"],
-  WARNING: ["warning", "⚠️ Attention"],
-  CAUTION: ["caution", "🛑 Prudence"],
-};
-
 /** Enrichissements que markdown-it ne fait pas — tous purement visuels. */
 function decorate(html) {
-  // Admonitions GitHub (`> [!NOTE]`).
-  let out = html.replace(
-    /<blockquote>\s*<p>\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]/g,
-    (_, t) =>
-      `<blockquote class="adm adm-${ADM[t][0]}"><p class="adm-title">${ADM[t][1]}</p><p>`,
-  );
+  // Admonitions GitHub (`> [!NOTE]`) — règle partagée avec l'accueil.
+  let out = decorateAdmonitions(html);
   // Cards de catalogue : `### \`nom\` — titre` devient une brique visuelle. L'`id`
   // du titre passe à la brique : le jeter rendait mortes toutes les ancres qui
   // visaient ces sections — sommaire de la page compris.
@@ -1263,30 +1252,7 @@ a.nf-card:hover .card-t { color:var(--accent); }
 .brick-name { font:650 13px ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--accent); }
 .brick-t { font-weight:600; }
 .brick-b { padding:2px 15px 10px; }
-/* Admonitions. Les couleurs sont des VARIABLES parce qu'elles doivent tenir
-   4,5:1 dans les DEUX thèmes : la teinte qui porte un titre sur blanc est trop
-   sombre sur fond noir, et l'inverse. Chaque valeur ci-dessous a été mesurée par
-   axe-core, jamais choisie à l'œil. */
-:root { --adm-note:#1c62c4; --adm-tip:#1a7040; --adm-important:#6a3bbf;
-  --adm-warning:#7a5800; --adm-caution:#c0322a; }
-:root[data-theme="dark"] { --adm-note:#78b6ff; --adm-tip:#4fc07d; --adm-important:#c7a4ff;
-  --adm-warning:#e0ab3a; --adm-caution:#ff8a80; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { --adm-note:#78b6ff; --adm-tip:#4fc07d;
-    --adm-important:#c7a4ff; --adm-warning:#e0ab3a; --adm-caution:#ff8a80; }
-}
-.adm { border-left:4px solid var(--line); background:var(--card); border-radius:0 8px 8px 0;
-  padding:9px 14px; margin:16px 0; }
-.adm .adm-title { margin:0 0 3px; font-weight:700; font-size:12px; text-transform:uppercase;
-  letter-spacing:.04em; }
-.adm-note { border-left-color:var(--adm-note); } .adm-note .adm-title { color:var(--adm-note); }
-.adm-tip { border-left-color:var(--adm-tip); } .adm-tip .adm-title { color:var(--adm-tip); }
-.adm-important { border-left-color:var(--adm-important); }
-.adm-important .adm-title { color:var(--adm-important); }
-.adm-warning { border-left-color:var(--adm-warning); }
-.adm-warning .adm-title { color:var(--adm-warning); }
-.adm-caution { border-left-color:var(--adm-caution); }
-.adm-caution .adm-title { color:var(--adm-caution); }
+${ADMONITION_CSS}
 .srcref { font-size:.8em; vertical-align:super; line-height:0; }
 .srcref code { background:transparent; border:0; padding:0; color:var(--dim); }
 .d-dark { display:none; }
