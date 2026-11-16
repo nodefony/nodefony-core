@@ -59,6 +59,11 @@
 #   NODE_IMAGE     image Node AVEC shell — construction, et fin `with-packages`
 #   RUNTIME_IMAGE  image d'exécution de la fin par défaut (distroless)
 #
+# Leur DÉFAUT est écrit dans le `FROM` (`${NODE_IMAGE:-…}`), pas dans l'`ARG` :
+# compose et la CI relaient toujours la variable, souvent VIDE, et un `ARG`
+# vide écraserait son défaut — `FROM ""` ne construit rien. Compose et la CI
+# les lisent dans `NF_IMAGE_NODE` et `NF_IMAGE_RUNTIME`.
+#
 #   # un registre interne, qui sert les mêmes images sous son propre nom
 #   docker build --build-arg NODE_IMAGE=registre.interne/node:24-slim \
 #                --build-arg RUNTIME_IMAGE=registre.interne/distroless/nodejs24-debian13 .
@@ -76,11 +81,11 @@
 # l'application répond — « ça construit » ne prouve rien (vécu : `debian12` se
 # construisait, et mourait au démarrage sur un Node sous le plancher `engines`).
 # ─────────────────────────────────────────────────────────────────────────────
-ARG NODE_IMAGE=node:24-slim
-ARG RUNTIME_IMAGE=gcr.io/distroless/nodejs24-debian13
+ARG NODE_IMAGE
+ARG RUNTIME_IMAGE
 
 # ── Étape de construction : la chaîne de compilation ne descend PAS en prod ───
-FROM ${NODE_IMAGE} AS build
+FROM ${NODE_IMAGE:-node:24-slim} AS build
 WORKDIR /app
 
 # Les sources d'ABORD, en un seul geste — et non le manifeste seul comme le
@@ -284,8 +289,17 @@ HEALTHCHECK --interval=10s --timeout=2s --start-period=5s --retries=3 \
 # ── Points de montage : distroless n'a pas de shell pour les créer ───────────
 # Un `RUN mkdir` est impossible dans l'image finale. Les deux dossiers naissent
 # donc ici, VIDES, et descendent par un `COPY --chown` (plus bas).
-FROM ${NODE_IMAGE} AS nf-dirs
-RUN mkdir -p /out/tmp /out/var
+FROM ${NODE_IMAGE:-node:24-slim} AS nf-dirs
+# 🔴 Des paquets demandés sans la fin qui les installe seraient IGNORÉS sans un
+# mot : l'image distroless se construirait, et l'outil manquerait à la première
+# requête qui l'appelle. Cet étage n'est construit QUE pour la fin par défaut —
+# c'est donc ici que la demande incohérente s'arrête, en la nommant.
+ARG PACKAGES=""
+RUN if [ -n "$PACKAGES" ]; then \
+      echo "PACKAGES=\"$PACKAGES\" exige la fin with-packages : docker build --target with-packages (compose et CI : NF_IMAGE_TARGET=with-packages)" >&2; \
+      exit 1; \
+    fi \
+ && mkdir -p /out/tmp /out/var
 
 # ── Fin `with-packages` : la même application, AVEC des paquets système ──────
 #
@@ -303,18 +317,40 @@ RUN mkdir -p /out/tmp /out/var
 #
 # Le CONTRAT est celui de la fin par défaut, à l'identique — utilisateur 1000
 # numérique, `var/` et `tmp/` à lui et vides, code à root, port 5151, sonde
-# `/readyz`, forme exec. Les raisons sont écrites à l'étage d'exécution plus
-# bas ; seules diffèrent les lignes qu'une base À SHELL permet d'écrire plus
-# simplement (le `mkdir`, `node` sur le PATH).
-FROM ${NODE_IMAGE} AS with-packages
+# `/readyz`, forme exec, et `node` à `/nodejs/bin/node`. Les raisons sont
+# écrites à l'étage d'exécution plus bas ; seule diffère la façon de créer les
+# dossiers, qu'une base À SHELL permet d'écrire en un `RUN`.
+#
+# ⚠️ Deux différences ASSUMÉES, à connaître avant de valider sur une fin et de
+# déployer l'autre :
+#   - l'utilisateur 1000 a ici un nom (`node`) et un `HOME` inscriptible
+#     (`/home/node`) ; sur distroless il n'a ni l'un ni l'autre (`HOME=/`). Un
+#     outil qui écrit son cache sous `$HOME` (fontconfig, ImageMagick) doit
+#     recevoir un dossier explicite, sous `/app/tmp` — sinon il échouera sous
+#     `readOnlyRootFilesystem` ;
+#   - `node` est PID 1 et ne récolte pas les processus qu'il n'a pas lancés : un
+#     outil qui se dédouble laisse des zombies. Lancer le conteneur avec
+#     `--init` (compose : `init: true`), et arrêter ses enfants pendant le drain
+#     — un ffmpeg encore en vol à la fin de la grâce est tué par SIGKILL.
+#
+# Compose et la CI générés choisissent la fin par `NF_IMAGE_TARGET`
+# (`with-packages`) et les paquets par `NF_IMAGE_PACKAGES` — sans retouche
+# d'aucun fichier, eux non plus.
+FROM ${NODE_IMAGE:-node:24-slim} AS with-packages
+# Root le temps d'installer : une base durcie (`USER` non-root) le refuserait
+# sinon, sur un « Permission denied » qui ne parle pas d'utilisateur.
+USER 0
 ARG PACKAGES=""
 RUN if [ -n "$PACKAGES" ]; then \
       if command -v apk >/dev/null 2>&1; then \
         apk add --no-cache $PACKAGES; \
-      else \
+      elif command -v apt-get >/dev/null 2>&1; then \
         apt-get update \
         && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends $PACKAGES \
         && rm -rf /var/lib/apt/lists/*; \
+      else \
+        echo "NODE_IMAGE n'a ni apk ni apt-get : PACKAGES ne peut pas s'installer" >&2; \
+        exit 1; \
       fi; \
     fi
 ENV NODE_ENV=production
@@ -328,22 +364,30 @@ LABEL org.opencontainers.image.title="<%= it.appName %>" \
       org.opencontainers.image.revision="$VCS_REF" \
       org.opencontainers.image.created="$BUILD_DATE"
 COPY --from=build /app ./
-RUN mkdir -p /app/tmp /app/var && chown 1000:1000 /app/tmp /app/var
+# 🔴 `node` au MÊME chemin que sur distroless. Tout ce qui lance Node dans
+# l'image le nomme `/nodejs/bin/node` — la sonde ci-dessous, l'`ENTRYPOINT`, le
+# `docker exec` de la CI de production et du README. Sans ce lien, ces
+# commandes échoueraient sur cette fin seulement, sur un « no such file » qui
+# ne parle pas de la base.
+RUN mkdir -p /app/tmp /app/var /nodejs/bin \
+ && chown 1000:1000 /app/tmp /app/var \
+ && ln -s "$(command -v node)" /nodejs/bin/node
 USER 1000:1000
 EXPOSE 5151
 HEALTHCHECK --interval=10s --timeout=2s --start-period=20s --retries=3 \
-  CMD ["node", "-e", "fetch('http://127.0.0.1:5151/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
-# `node` en ENTRYPOINT, comme sur distroless : le MÊME `CMD`, et un lanceur qui
-# change la commande (`args:` Kubernetes, `command:` compose) passe d'une fin à
+  CMD ["/nodejs/bin/node", "-e", "fetch('http://127.0.0.1:5151/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+# Le MÊME `ENTRYPOINT` que distroless : le même `CMD`, et un lanceur qui change
+# la commande (`args:` Kubernetes, `command:` compose) passe d'une fin à
 # l'autre sans retouche. Sans lui, c'est le `docker-entrypoint.sh` de l'image
 # Node qui déciderait, selon que le script est exécutable ou non.
-ENTRYPOINT ["node"]
+ENTRYPOINT ["/nodejs/bin/node"]
 CMD ["<%= it.imageCli %>", "production"]
 
 # ── Étape d'exécution : minimale, non-root — la fin PAR DÉFAUT ───────────────
 # 🔴 Elle reste la DERNIÈRE du fichier : c'est ce qui fait d'elle l'image que
-# rend un `docker build .` sans `--target`.
-FROM ${RUNTIME_IMAGE}
+# rend un `docker build .` sans `--target`. Son nom, `runtime`, ne sert qu'à la
+# DÉSIGNER (`--target runtime`, `NF_IMAGE_TARGET`) : il ne change rien au défaut.
+FROM ${RUNTIME_IMAGE:-gcr.io/distroless/nodejs24-debian13} AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 

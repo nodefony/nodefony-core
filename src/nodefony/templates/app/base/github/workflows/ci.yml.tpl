@@ -166,8 +166,25 @@ jobs:
       # La construire ICI est ce qui rend le contrôle possible : sans image, il
       # n'y a rien à regarder. Elle n'est pas poussée — c'est une image de
       # contrôle, et son tag le dit.
+      #
+      # La fin et ses paquets viennent des variables du DÉPÔT (Settings →
+      # Variables) : `NF_IMAGE_TARGET=with-packages` et `NF_IMAGE_PACKAGES` pour
+      # une image à paquets système, `NF_IMAGE_NODE` / `NF_IMAGE_RUNTIME` pour
+      # changer de base. Le contrôle porte alors sur l'image qu'on
+      # déploie. Passées par `env:`, jamais interpolées dans le script : une
+      # valeur n'y devient jamais du code.
       - name: Construire l'image
-        run: docker build -t <%= it.appName %>:ci .
+        env:
+          NF_IMAGE_TARGET: ${{ vars.NF_IMAGE_TARGET || 'runtime' }}
+          NF_IMAGE_PACKAGES: ${{ vars.NF_IMAGE_PACKAGES }}
+          NF_IMAGE_NODE: ${{ vars.NF_IMAGE_NODE }}
+          NF_IMAGE_RUNTIME: ${{ vars.NF_IMAGE_RUNTIME }}
+        run: >-
+          docker build --target "$NF_IMAGE_TARGET"
+          --build-arg PACKAGES="$NF_IMAGE_PACKAGES"
+          --build-arg NODE_IMAGE="$NF_IMAGE_NODE"
+          --build-arg RUNTIME_IMAGE="$NF_IMAGE_RUNTIME"
+          -t <%= it.appName %>:ci .
 
       # `nodefony image:check` lit les COUCHES et refuse par un code non nul.
       # Un contrôle qui n'a pas PU regarder (démon injoignable, couche illisible)

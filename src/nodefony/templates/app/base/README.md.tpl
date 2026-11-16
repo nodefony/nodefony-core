@@ -492,8 +492,13 @@ docker build --target with-packages --build-arg PACKAGES="ffmpeg" -t mon-app .
 docker build --target with-packages --build-arg NODE_IMAGE=node:24-alpine -t mon-app .   # Alpine
 ```
 
-Même contrat que la fin par défaut — utilisateur 1000, `/readyz`, même `CMD` —, mais `node` est sur
-le `PATH` : `docker exec <conteneur> node …`.
+Même contrat que la fin par défaut — utilisateur 1000, `/readyz`, même `CMD`, et `node` au même
+chemin `/nodejs/bin/node` : toutes les commandes de cette page servent les deux fins. Compose et la
+CI générés y conduisent sans retouche, par des variables : `NF_IMAGE_TARGET=with-packages` et
+`NF_IMAGE_PACKAGES`, plus `NF_IMAGE_NODE` / `NF_IMAGE_RUNTIME` pour changer de base (l'environnement
+ou le `.env` pour compose, les variables du dépôt pour la CI — à poser AUX DEUX endroits, sinon la CI
+éprouve une autre image que la tienne). Des paquets demandés sans `with-packages` arrêtent la
+construction en le disant, au lieu d'être ignorés.
 
 #### Si tu PUBLIES cette image
 

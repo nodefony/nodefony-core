@@ -143,7 +143,16 @@ image-check:
   script:
 <% if (it.toolchain.bootstrap) { %>    - <%= it.toolchain.bootstrap %>
 <% } %>    - <%= it.toolchain.projectCachedInstall %>
-    - docker build -t <%= it.appName %>:ci .
+    # La fin, ses paquets et ses bases : variables CI/CD du projet
+    # (`NF_IMAGE_TARGET`, `NF_IMAGE_PACKAGES`, `NF_IMAGE_NODE`,
+    # `NF_IMAGE_RUNTIME`) ; `runtime`, aucun paquet et les bases du Dockerfile
+    # par défaut.
+    - >-
+      docker build --target "${NF_IMAGE_TARGET:-runtime}"
+      --build-arg PACKAGES="${NF_IMAGE_PACKAGES:-}"
+      --build-arg NODE_IMAGE="${NF_IMAGE_NODE:-}"
+      --build-arg RUNTIME_IMAGE="${NF_IMAGE_RUNTIME:-}"
+      -t <%= it.appName %>:ci .
     # `nodefony image:check` lit les COUCHES et refuse par un code non nul. Un
     # contrôle qui n'a pas PU regarder (démon injoignable, couche illisible)
     # sort en 69, pas en 0 : ce job échoue alors, ce qui est voulu.

@@ -1448,7 +1448,18 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // couche déjà écrite. Les deux étapes se tiennent : garder la seule
       // construction rendrait le contrôle muet, garder le seul contrôle le
       // ferait échouer sur une image absente.
-      assert.include(ci, "docker build -t cisqlite:ci .");
+      // La fin construite suit les variables du DÉPÔT (#779) : l'image
+      // contrôlée est celle qu'on déploie, même à paquets système. Passées par
+      // `env:`, jamais interpolées dans le script.
+      assert.include(
+        ci,
+        `docker build --target "$NF_IMAGE_TARGET"\n          --build-arg PACKAGES="$NF_IMAGE_PACKAGES"\n          --build-arg NODE_IMAGE="$NF_IMAGE_NODE"\n          --build-arg RUNTIME_IMAGE="$NF_IMAGE_RUNTIME"\n          -t cisqlite:ci .`,
+      );
+      assert.include(
+        ci,
+        "NF_IMAGE_TARGET: ${{ vars.NF_IMAGE_TARGET || 'runtime' }}",
+      );
+      assert.notMatch(ci, /run:[^\n]*\$\{\{ vars\./u);
       assert.include(ci, "npm exec -- nodefony image:check cisqlite:ci");
       // Le pendant GitLab : même filet, et pas d'exécution sur étiquette.
       assert.match(
@@ -1481,7 +1492,16 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(gitlab, "image-check:");
       assert.match(gitlab, /image-check:[\s\S]*?\n {2}image: node:24\n/u);
       assert.include(gitlab, "docker:28-dind");
-      assert.include(gitlab, "docker build -t cisqlite:ci .");
+      assert.include(
+        gitlab,
+        [
+          'docker build --target "${NF_IMAGE_TARGET:-runtime}"',
+          '      --build-arg PACKAGES="${NF_IMAGE_PACKAGES:-}"',
+          '      --build-arg NODE_IMAGE="${NF_IMAGE_NODE:-}"',
+          '      --build-arg RUNTIME_IMAGE="${NF_IMAGE_RUNTIME:-}"',
+          "      -t cisqlite:ci .",
+        ].join("\n"),
+      );
       assert.include(gitlab, "npm exec -- nodefony image:check cisqlite:ci");
       assertNoEtaResidue(dest);
     });
@@ -1564,20 +1584,72 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       ];
       assert.isAtLeast(etages.length, 4, "les étages du frontal ont disparu");
       const dernier = etages[etages.length - 1];
-      assert.isUndefined(
+      // Nommé `runtime` pour être DÉSIGNABLE (`NF_IMAGE_TARGET`, #779) — le nom
+      // ne change rien : c'est sa POSITION qui en fait la cible par défaut.
+      assert.equal(
         dernier![2],
-        `le dernier étage est nommé « ${dernier![2]} » : "docker build ." ne produirait plus l'image de l'application`,
+        "runtime",
+        `le dernier étage est « ${dernier![2] ?? "anonyme"} » : "docker build ." ne produirait plus l'image de l'application`,
       );
       // La base est un argument de construction (#779) : c'est son DÉFAUT qui
       // dit ce que `docker build .` produit.
-      assert.equal(dernier![1], "${RUNTIME_IMAGE}");
       assert.match(
-        dockerfile.match(/^ARG RUNTIME_IMAGE=(\S+)$/mu)?.[1] ?? "",
+        dernier![1]!.match(/^\$\{RUNTIME_IMAGE:-(\S+)\}$/u)?.[1] ?? "",
         /^gcr\.io\/distroless\/nodejs\d+-debian13$/u,
         "le dernier étage n'est plus Node",
       );
       assert.include(dockerfile, "AS proxyconf");
       assert.include(dockerfile, "AS edge");
+    });
+
+    it("le compose choisit la FIN du Dockerfile par l'environnement, sans retouche", () => {
+      const dest = dossierEdge();
+      // 🔴 Une image à paquets système (ffmpeg & co) est la fin `with-packages`
+      // du Dockerfile (#779). Le compose doit y conduire par l'environnement :
+      // un compose retouché à la main ne serait plus mis à jour par le
+      // framework, et une cible écrite en dur ferait éprouver une image que
+      // l'on ne déploie pas.
+      const compose = readFileSync(path.join(dest, "compose.yaml"), "utf8");
+      const ancre = compose.slice(
+        compose.indexOf("x-app-service: &app-service"),
+        compose.indexOf("\n  image: "),
+      );
+      assert.match(ancre, /^ {4}target: \$\{NF_IMAGE_TARGET:-runtime\}$/mu);
+      assert.match(ancre, /^ {6}PACKAGES: \$\{NF_IMAGE_PACKAGES:-\}$/mu);
+      // Les bases aussi (registre interne, autre ligne de Node) — vides par
+      // défaut : c'est le `FROM` qui porte le défaut.
+      assert.match(ancre, /^ {6}NODE_IMAGE: \$\{NF_IMAGE_NODE:-\}$/mu);
+      assert.match(ancre, /^ {6}RUNTIME_IMAGE: \$\{NF_IMAGE_RUNTIME:-\}$/mu);
+      // 🔴 La CI de production construit par ce compose dans DEUX jobs : les
+      // variables vivent au niveau du WORKFLOW. Posées sur un seul job, l'autre
+      // éprouverait une autre image que celle qu'on déploie, en restant vert.
+      const production = readFileSync(
+        path.join(dest, ".github", "workflows", "production.yml"),
+        "utf8",
+      );
+      const enTete = production.slice(0, production.indexOf("\njobs:"));
+      for (const nom of [
+        "NF_IMAGE_TARGET",
+        "NF_IMAGE_PACKAGES",
+        "NF_IMAGE_NODE",
+        "NF_IMAGE_RUNTIME",
+      ]) {
+        assert.match(
+          enTete,
+          new RegExp(`^  ${nom}: \\$\\{\\{ vars\\.${nom}`, "mu"),
+          nom,
+        );
+        assert.equal(
+          production.split(`${nom}:`).length - 1,
+          1,
+          `${nom} posé ailleurs qu'au workflow`,
+        );
+      }
+      // Le défaut nomme un étage qui EXISTE — sinon `up --build` échouerait
+      // sur une cible inconnue, sans variable posée.
+      const dockerfile = readFileSync(path.join(dest, "Dockerfile"), "utf8");
+      assert.match(dockerfile, /^FROM \S+ AS runtime$/mu);
+      assert.match(dockerfile, /^FROM \S+ AS with-packages$/mu);
     });
 
     it("aucun certificat n'entre dans l'image du frontal — il se MONTE", () => {
@@ -3567,40 +3639,33 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         // Multi-stage : la chaîne de compilation ne descend pas en production.
         assert.match(dockerfile, /^FROM \S+ AS build$/mu);
         // Le FAIT à tenir n'est pas un COMPTE d'étages — le fichier en porte
-        // d'autres, nommés, que BuildKit ne bâtit que sur demande (`--target`,
-        // le frontal). C'est qu'il existe exactement UN étage ANONYME : celui
-        // que `docker build .` produit, l'image de l'application. Deux
-        // anonymes, et la cible par défaut deviendrait le dernier écrit.
+        // d'autres, que BuildKit ne bâtit que sur demande (`--target` : le
+        // frontal, la fin `with-packages`). C'est que le DERNIER soit `runtime` :
+        // Docker construit le dernier étage quand aucune cible n'est demandée,
+        // et c'est lui l'image de l'application. Son nom ne sert qu'à le
+        // désigner (`NF_IMAGE_TARGET`), il ne change rien au défaut.
         const etages = [
           ...dockerfile.matchAll(/^FROM\s+(\S+)(?:\s+AS\s+(\S+))?/gmu),
         ];
-        const anonymes = etages.filter((e) => !e[2]);
+        const derniere = etages.at(-1)!;
         assert.equal(
-          anonymes.length,
-          1,
-          `${anonymes.length} étages sans nom — "docker build ." ne produirait plus l'image attendue`,
+          derniere[2],
+          "runtime",
+          `le dernier étage est « ${derniere[2] ?? "anonyme"} » — "docker build ." ne produirait plus l'image attendue`,
         );
         // 🔴 Les bases sont des ARGUMENTS de construction, pas des littéraux :
         // un registre interne ou une autre ligne de Node passent par
         // `--build-arg`, sans retoucher un fichier que le framework doit
         // pouvoir mettre à jour (#779). Un `FROM` littéral revenu ici
         // recréerait la retouche obligatoire — et rien d'autre ne le dirait.
-        const defauts = new Map(
-          [...dockerfile.matchAll(/^ARG (\w+)=(\S+)$/gmu)].map((m) => [
-            m[1]!,
-            m[2]!,
-          ]),
-        );
+        // Le DÉFAUT vit dans le `FROM` (`${NODE_IMAGE:-…}`), jamais dans l'`ARG` :
+        // compose et la CI relaient la variable, souvent VIDE, et un `ARG` vide
+        // écraserait son défaut — `FROM ""` ne construit rien.
         const resoudre = (base: string | undefined): string | undefined =>
-          base?.replace(
-            /^\$\{(\w+)\}$/u,
-            (brut, nom: string) => defauts.get(nom) ?? brut,
-          );
-        assert.equal(anonymes[0]![1], "${RUNTIME_IMAGE}");
-        assert.match(
-          resoudre(anonymes[0]![1])!,
-          /^gcr\.io\/distroless\/nodejs/u,
-        );
+          base?.replace(/^\$\{\w+:-(\S+)\}$/u, "$1");
+        assert.match(derniere[1]!, /^\$\{RUNTIME_IMAGE:-\S+\}$/u);
+        assert.notMatch(dockerfile, /^ARG (NODE|RUNTIME)_IMAGE=/mu);
+        assert.match(resoudre(derniere[1])!, /^gcr\.io\/distroless\/nodejs/u);
 
         // 🔴 La BASE elle-même, et pas seulement sa forme. C'est un choix
         // MESURÉ sur les images FINALES (application comprise) : distroless
@@ -3622,7 +3687,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           "l'étage de construction a changé de base — si c'est voulu, la mesure qui le justifie doit être refaite (docker scout sur l'image FINALE) et ce test mis à jour avec elle",
         );
         assert.equal(
-          resoudre(anonymes[0]![1]),
+          resoudre(derniere[1]),
           "gcr.io/distroless/nodejs24-debian13",
           "l'étage d'exécution a changé de base — c'est LUI qu'on déploie",
         );
@@ -3635,7 +3700,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           const suivant = etages.find((e) => e.index! > debut);
           return dockerfile.slice(debut, suivant?.index ?? dockerfile.length);
         };
-        const finale = texteEtage(anonymes[0]!);
+        const finale = texteEtage(derniere);
 
         // 🔴 La SECONDE fin, `with-packages` (#779) : la même application avec
         // un gestionnaire de paquets, pour ffmpeg & co. Elle part de la base de
@@ -3647,7 +3712,27 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           "la fin with-packages a disparu — ajouter un outil système redevient une retouche du Dockerfile",
         );
         assert.equal(etageAvecPaquets[1], etageBuild?.[1]);
+        assert.match(etageBuild![1]!, /^\$\{NODE_IMAGE:-\S+\}$/u);
+        // Les TROIS étages Node écrivent le même `FROM` — le défaut n'existe
+        // qu'à l'identique, ou il dérive.
+        assert.equal(
+          etages.find((e) => e[2] === "nf-dirs")?.[1],
+          etageBuild?.[1],
+        );
         const avecPaquets = texteEtage(etageAvecPaquets);
+        // 🔴 Des paquets demandés SANS la fin qui les installe s'arrêtent en le
+        // nommant — dans `nf-dirs`, que seule la fin par défaut construit. Sans
+        // cette garde, la distroless se construirait et l'outil manquerait à
+        // la première requête.
+        const nfDirs = texteEtage(etages.find((e) => e[2] === "nf-dirs")!);
+        assert.match(nfDirs, /^ARG PACKAGES=""$/mu);
+        assert.match(nfDirs, /exige la fin with-packages/u);
+        assert.match(nfDirs, /exit 1/u);
+        // Root le temps d'installer, quelle que soit la base.
+        assert.match(
+          avecPaquets,
+          /^FROM \S+ AS with-packages\n(?:#.*\n)*USER 0$/mu,
+        );
         assert.match(avecPaquets, /^ARG PACKAGES=""$/mu);
         assert.include(avecPaquets, "--no-install-recommends $PACKAGES");
 
@@ -3679,9 +3764,32 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           // Le code appartient à root (voir plus bas, le `--chown` absent).
           assert.match(texte, /^COPY --from=build \/app \.\/$/mu, nom);
         }
-        // `node` en ENTRYPOINT sur la fin à shell, comme distroless l'a déjà :
-        // sans lui, le CMD partagé serait interprété par `docker-entrypoint.sh`.
-        assert.match(avecPaquets, /^ENTRYPOINT \["node"\]$/mu);
+        // Les blocs DUPLIQUÉS entre les deux fins (étiquettes OCI, environnement,
+        // dossier de travail) restent égaux : une étiquette ajoutée à une seule
+        // fin dériverait sans un mot.
+        const blocsCommuns = (texte: string): string[] =>
+          texte
+            .split("\n")
+            .filter(
+              (l) =>
+                !l.startsWith("#") &&
+                /^(ENV |WORKDIR |ARG (VCS_REF|BUILD_DATE|VERSION)=)|org\.opencontainers\.image\./u.test(
+                  l,
+                ),
+            )
+            .map((l) => l.trim());
+        assert.deepEqual(blocsCommuns(avecPaquets), blocsCommuns(finale));
+        assert.isAtLeast(blocsCommuns(finale).length, 8);
+        // Le MÊME `ENTRYPOINT` que distroless (`/nodejs/bin/node`) : sans lui,
+        // le CMD partagé serait interprété par `docker-entrypoint.sh`.
+        assert.match(avecPaquets, /^ENTRYPOINT \["\/nodejs\/bin\/node"\]$/mu);
+        // 🔴 Et `node` au MÊME chemin : la CI de production et le README font
+        // `docker exec … /nodejs/bin/node …`. Sans ce lien, ils échoueraient
+        // sur cette fin seulement.
+        assert.include(
+          avecPaquets,
+          `ln -s "$(command -v node)" /nodejs/bin/node`,
+        );
 
         // Ces deux dossiers doivent EXISTER et appartenir au processus AVANT
         // tout montage : un volume nommé neuf hérite du propriétaire du dossier
@@ -3690,10 +3798,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         // sur un message qui ne parle ni de volume ni de droits.
         // Distroless n'a pas de shell : ils naissent dans l'étage `nf-dirs`
         // et descendent par un COPY qui les donne à 1000.
-        assert.match(
-          dockerfile,
-          /^FROM \S+ AS nf-dirs\nRUN mkdir -p \/out\/tmp \/out\/var$/mu,
-        );
+        assert.match(nfDirs, /^ && mkdir -p \/out\/tmp \/out\/var$/mu);
         assert.match(
           finale,
           /^COPY --from=nf-dirs --chown=1000:1000 \/out\/ \/app\/$/mu,
@@ -3701,12 +3806,12 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         // La fin à shell les crée elle-même, et les donne à 1000.
         assert.match(
           avecPaquets,
-          /^RUN mkdir -p \/app\/tmp \/app\/var && chown 1000:1000 \/app\/tmp \/app\/var$/mu,
+          /^RUN mkdir -p \/app\/tmp \/app\/var \/nodejs\/bin \\\n && chown 1000:1000 \/app\/tmp \/app\/var \\$/mu,
         );
-        // Et la sonde appelle Node par son chemin sur distroless (il n'est pas
-        // sur le PATH), par son nom sur la fin à shell.
+        // Et la sonde appelle Node par son chemin, le même sur les deux fins
+        // (distroless ne le met pas sur le PATH).
         assert.include(finale, 'CMD ["/nodejs/bin/node", "-e",');
-        assert.include(avecPaquets, 'CMD ["node", "-e",');
+        assert.include(avecPaquets, 'CMD ["/nodejs/bin/node", "-e",');
 
         // 🔴 Et ils naissent VIDES. L'étage de construction tourne en `root` et
         // BOOTE l'application (`npm run build`) : l'ORM y crée `var/databases/`

@@ -141,8 +141,15 @@ docker build --target with-packages --build-arg NODE_IMAGE=node:24-alpine .
 
 La fin `with-packages` part de `NODE_IMAGE`, la base de construction : même libc
 par construction. Elle tient le même contrat que la fin distroless — utilisateur
-1000 numérique, `var/` et `tmp/` à lui, sonde `/readyz`, même `CMD` derrière un
-`ENTRYPOINT` `node` —, donc un manifeste écrit pour l'une sert l'autre. Elle se
+1000 numérique, `var/` et `tmp/` à lui, sonde `/readyz`, même `CMD` derrière le
+même `ENTRYPOINT`, et `node` au même chemin `/nodejs/bin/node` —, donc un
+manifeste ou une commande écrits pour l'une servent l'autre. Compose et la CI
+générés choisissent la fin par `NF_IMAGE_TARGET` (`runtime` par défaut,
+`with-packages`), les paquets par `NF_IMAGE_PACKAGES` et les bases par
+`NF_IMAGE_NODE` / `NF_IMAGE_RUNTIME` : l'environnement ou le `.env` pour compose,
+les variables du dépôt pour GitHub Actions et GitLab CI — aux deux endroits, sinon
+la CI éprouve une autre image que celle qu'on déploie. Des paquets demandés sans
+`with-packages` arrêtent la construction en le nommant, au lieu d'être ignorés. Elle se
 paie en surface d'attaque (les failles de la base, plus celles des paquets) : ne
 la prendre que pour un outil que l'application appelle. La fin par défaut reste
 la DERNIÈRE du fichier, c'est ce qui fait d'elle l'image d'un `docker build .`.
@@ -152,9 +159,9 @@ la DERNIÈRE du fichier, c'est ce qui fait d'elle l'image d'un `docker build .`.
 > - les deux étages doivent partager la même **libc** — un binaire natif installé
 >   à la construction ne se charge pas sinon, sur un message qui ne parle pas de
 >   libc ;
-> - sur distroless, `node` n'est pas sur le `PATH` : un diagnostic passe par
->   `docker exec <conteneur> /nodejs/bin/node …`, et la sonde de santé aussi
->   (sur `with-packages`, c'est `node` tout court) ;
+> - `node` n'est pas sur le `PATH` de distroless : un diagnostic passe par
+>   `docker exec <conteneur> /nodejs/bin/node …`, et la sonde de santé aussi —
+>   le même chemin sur `with-packages`, qui y pose un lien ;
 > - le Node d'entrée de l'image est son `ENTRYPOINT` : une commande se change par
 >   ses **arguments** (`args:` en Kubernetes, jamais `command:`, qui le
 >   remplacerait — et le script lancé n'aurait plus personne pour lire son

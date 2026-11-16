@@ -33,6 +33,17 @@ concurrency:
 permissions:
   contents: read
 
+# L'image que les DEUX jobs construisent par compose : sa fin (`runtime` par
+# défaut, `with-packages` pour des paquets système), ses paquets et ses bases.
+# Variables du DÉPÔT (Settings → Variables), jamais une retouche de ce fichier.
+# Posées ICI, pour tout le workflow : un job qui ne les aurait pas éprouverait
+# une autre image que celle qu'on déploie, en restant vert.
+env:
+  NF_IMAGE_TARGET: ${{ vars.NF_IMAGE_TARGET || 'runtime' }}
+  NF_IMAGE_PACKAGES: ${{ vars.NF_IMAGE_PACKAGES }}
+  NF_IMAGE_NODE: ${{ vars.NF_IMAGE_NODE }}
+  NF_IMAGE_RUNTIME: ${{ vars.NF_IMAGE_RUNTIME }}
+
 jobs:
   # ═══════════════════════════════════════════════════════════════════════════
   # L'IMAGE démarre, sert, et s'arrête PROPREMENT

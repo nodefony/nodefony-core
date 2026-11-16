@@ -1463,6 +1463,10 @@ YML
     # d'employer.
     BUILD_BASE=$(sed -n 's/^FROM \([^ ]*\) AS build$/\1/p' "$QAPP/Dockerfile" | head -1)
     case "$BUILD_BASE" in
+      '${'*':-'*'}')
+        # Le défaut écrit dans le FROM lui-même : `${NODE_IMAGE:-node:24-slim}`.
+        BUILD_BASE=${BUILD_BASE#*:-}; BUILD_BASE=${BUILD_BASE%'}'}
+        ;;
       '${'*'}')
         BUILD_ARG=${BUILD_BASE#'${'}; BUILD_ARG=${BUILD_ARG%'}'}
         BUILD_BASE=$(sed -n "s/^ARG $BUILD_ARG=\([^ ]*\)\$/\1/p" "$QAPP/Dockerfile" | head -1)

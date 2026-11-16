@@ -2783,6 +2783,10 @@
           "help": ""
         },
         {
+          "name": "NODE_IMAGE",
+          "help": ""
+        },
+        {
           "name": "QAPP_NAME",
           "help": ""
         },

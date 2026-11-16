@@ -53,9 +53,20 @@ x-app-env: &app-env
 x-app-service: &app-service
   build:
     context: .
+    # La fin du Dockerfile : `runtime` (distroless, le défaut) ou
+    # `with-packages` (gestionnaire de paquets, pour ffmpeg & co), ses paquets
+    # et ses bases — posés dans l'environnement ou le `.env`, jamais ici :
+    #   NF_IMAGE_TARGET=with-packages NF_IMAGE_PACKAGES="ffmpeg" docker compose --profile app up -d --build
+    # ⚠️ Les deux fins portent la MÊME étiquette d'image : changer de fin exige
+    # `--build`, sinon `up` relance l'image déjà construite.
+    target: ${NF_IMAGE_TARGET:-runtime}
     args:
       VCS_REF: ${VCS_REF:-}
       BUILD_DATE: ${BUILD_DATE:-}
+      PACKAGES: ${NF_IMAGE_PACKAGES:-}
+      # Vides par défaut : le Dockerfile porte le défaut dans ses `FROM`.
+      NODE_IMAGE: ${NF_IMAGE_NODE:-}
+      RUNTIME_IMAGE: ${NF_IMAGE_RUNTIME:-}
   image: <%= it.appName %>:local
   restart: unless-stopped
   networks: [<%= it.appName %>]

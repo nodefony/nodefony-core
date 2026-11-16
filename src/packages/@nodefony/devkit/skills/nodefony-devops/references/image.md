@@ -7,14 +7,14 @@ système) et le frontal ne sortent que si tu les demandes explicitement (`--targ
 
 ## 1. La carte
 
-| Étage           | Base                                    | Ce qu'il fait                                                           | Descend dans l'image finale ? |
-| --------------- | --------------------------------------- | ----------------------------------------------------------------------- | ----------------------------- |
-| `build`         | `NODE_IMAGE` (`node:24-slim`)           | Installe, compile, élague les dépendances de développement              | seulement son `/app`          |
-| `proxyconf`     | hérite de `build`                       | **Dérive** la configuration nginx et rassemble les fichiers statiques   | non — étage intermédiaire     |
-| `edge`          | `nginx:1.30-alpine`                     | Le frontal, avec la configuration dérivée ci-dessus                     | non — cible séparée           |
-| `nf-dirs`       | `NODE_IMAGE` (`node:24-slim`)           | Crée `tmp/` et `var/` vides — distroless n'a pas de shell pour le faire | seulement ces deux dossiers   |
-| `with-packages` | `NODE_IMAGE` (`node:24-slim`)           | L'application AVEC un gestionnaire de paquets (`PACKAGES`)              | **oui**, si tu la demandes    |
-| _(final)_       | `RUNTIME_IMAGE` (distroless `debian13`) | L'application en production — ni shell, ni npm, `node` hors du `PATH`   | **oui**, par défaut           |
+| Étage               | Base                                    | Ce qu'il fait                                                           | Descend dans l'image finale ? |
+| ------------------- | --------------------------------------- | ----------------------------------------------------------------------- | ----------------------------- |
+| `build`             | `NODE_IMAGE` (`node:24-slim`)           | Installe, compile, élague les dépendances de développement              | seulement son `/app`          |
+| `proxyconf`         | hérite de `build`                       | **Dérive** la configuration nginx et rassemble les fichiers statiques   | non — étage intermédiaire     |
+| `edge`              | `nginx:1.30-alpine`                     | Le frontal, avec la configuration dérivée ci-dessus                     | non — cible séparée           |
+| `nf-dirs`           | `NODE_IMAGE` (`node:24-slim`)           | Crée `tmp/` et `var/` vides — distroless n'a pas de shell pour le faire | seulement ces deux dossiers   |
+| `with-packages`     | `NODE_IMAGE` (`node:24-slim`)           | L'application AVEC un gestionnaire de paquets (`PACKAGES`)              | **oui**, si tu la demandes    |
+| `runtime` (dernier) | `RUNTIME_IMAGE` (distroless `debian13`) | L'application en production — ni shell, ni npm, `node` hors du `PATH`   | **oui**, par défaut           |
 
 ```bash
 docker build -t <app> .                      # l'application
@@ -98,9 +98,27 @@ binaires natifs qui ne se chargeront pas.
 La fin `with-packages` part de `NODE_IMAGE` — même base que la construction, donc même libc **par
 construction**. Elle installe `PACKAGES` par `apt-get` (Debian) ou `apk` (Alpine), et tient le même
 contrat que la fin par défaut : utilisateur `1000:1000`, `tmp/` et `var/` à lui, code à `root`,
-port 5151, sonde `/readyz`, même `CMD` derrière un `ENTRYPOINT` `node`. Un manifeste écrit pour
-l'une sert donc l'autre. Son prix : la surface d'attaque de la base, plus celle des paquets —
-la réserver à un outil que l'application appelle vraiment. Sur cette fin, `node` est sur le `PATH`.
+port 5151, sonde `/readyz`, même `CMD` derrière le même `ENTRYPOINT`, et `node` au même chemin
+`/nodejs/bin/node` (un lien). Un manifeste ou une commande écrits pour l'une servent donc l'autre.
+Son prix : la surface d'attaque de la base, plus celle des paquets — la réserver à un outil que
+l'application appelle vraiment.
+
+**Compose et la CI générés y conduisent sans retouche**, par deux variables :
+
+| Variable            | Défaut    | Où la poser                                                                                         |
+| ------------------- | --------- | --------------------------------------------------------------------------------------------------- |
+| `NF_IMAGE_TARGET`   | `runtime` | `with-packages` — environnement ou `.env` (compose), variables du dépôt (CI)                        |
+| `NF_IMAGE_PACKAGES` | _(vide)_  | les paquets, ex. `ffmpeg imagemagick` — sans `with-packages`, la construction s'arrête en le disant |
+| `NF_IMAGE_NODE`     | _(vide)_  | base de construction et de `with-packages` (registre interne, Alpine, autre Node)                   |
+| `NF_IMAGE_RUNTIME`  | _(vide)_  | base de `runtime`                                                                                   |
+
+Vides, elles laissent le défaut du `Dockerfile`, écrit dans ses `FROM`. À poser dans le `.env` ET
+dans les variables du dépôt : sinon la CI éprouve une autre image que la tienne. Les deux fins
+portent la même étiquette d'image — changer de fin exige `--build`.
+
+```bash
+NF_IMAGE_TARGET=with-packages NF_IMAGE_PACKAGES="ffmpeg" docker compose --profile app up -d --build
+```
 
 Sous distroless, rien ne lit un shebang : `node` n'est pas sur le `PATH` et il n'y a pas de
 `/usr/bin/env`. L'`ENTRYPOINT` de l'image est `/nodejs/bin/node`, donc une commande se change par ses
