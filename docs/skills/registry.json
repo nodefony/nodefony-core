@@ -2553,6 +2553,21 @@
       "testedBy": []
     },
     {
+      "path": "scripts/release/image-demo.sh",
+      "test": false,
+      "purpose": "Construit, ÉPROUVE puis (option) publie l'image de démonstration `nodefony/nodefony` pour CHAQUE plateforme demandée.",
+      "usage": [
+        "bash scripts/release/image-demo.sh --version <v> --revision <sha> [--platforms <liste>] [--push --canal <canal>]"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "release.yml"
+      ],
+      "testedBy": []
+    },
+    {
       "path": "scripts/release/image-gate.mjs",
       "test": false,
       "purpose": "**Refuse de publier une image de conteneur qui embarque un secret.**",
@@ -2566,7 +2581,7 @@
       "output": "",
       "calledBy": [
         "npm run release:image-gate",
-        "release.yml",
+        "scripts/release/image-demo.sh",
         "scripts/release/smoke-docker.sh"
       ],
       "testedBy": [
@@ -2597,7 +2612,7 @@
       "env": [],
       "output": "",
       "calledBy": [
-        "release.yml"
+        "scripts/release/image-demo.sh"
       ],
       "testedBy": [
         "scripts/release/image-labels-gate.test.mjs"

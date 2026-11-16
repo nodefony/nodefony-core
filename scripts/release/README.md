@@ -169,6 +169,14 @@ Le contrôle de la page Docker Hub, éprouvé SANS réseau.
 - **Lancé par** : `npm run test:release`
 - **Utilise** : `release/hub-description.mjs`
 
+## [`image-demo.sh`](image-demo.sh)
+
+Construit, ÉPROUVE puis (option) publie l'image de démonstration `nodefony/nodefony` pour CHAQUE plateforme demandée.
+
+- **Usage** : `bash scripts/release/image-demo.sh --version <v> --revision <sha> [--platforms <liste>] [--push --canal <canal>]`
+- **Appelé par** : `release.yml`
+- **Utilise** : `release/image-gate.mjs` · `release/image-labels-gate.mjs`
+
 ## [`image-gate.mjs`](image-gate.mjs)
 
 **Refuse de publier une image de conteneur qui embarque un secret.**
@@ -176,7 +184,7 @@ Le contrôle de la page Docker Hub, éprouvé SANS réseau.
 - **Usage** : `npm run release:image-gate`
 - **Usage** : `node scripts/release/image-gate.mjs <image>`
 - **Usage** : `node scripts/release/image-gate.mjs --files <inventaire.txt>`
-- **Appelé par** : `npm run release:image-gate` · `release.yml` · `release/smoke-docker.sh`
+- **Appelé par** : `npm run release:image-gate` · `release/image-demo.sh` · `release/smoke-docker.sh`
 - **Testé par** : `release/image-gate.test.mjs`
 - **Utilise** : `deps/shims/deepmerge/index.js`
 
@@ -192,7 +200,7 @@ Le contrôle qui refuse une image porteuse d'un secret, éprouvé SANS docker.
 **Refuse de publier une image dont les étiquettes OCI ne disent pas d'où elle vient.**
 
 - **Usage** : `node scripts/release/image-labels-gate.mjs <image> --version <v> --revision <sha>`
-- **Appelé par** : `release.yml`
+- **Appelé par** : `release/image-demo.sh`
 - **Testé par** : `release/image-labels-gate.test.mjs`
 
 ## [`image-labels-gate.test.mjs`](image-labels-gate.test.mjs)

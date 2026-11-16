@@ -599,7 +599,11 @@ jobs:
     needs: publier
     if: vars.NF_RELEASE_ARMED == 'true' && vars.NF_RELEASE_IMAGE == 'true' && startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 45 et non plus 30 : la variante étrangère se construit ET démarre sous
+    # QEMU (sur le poste : build 114 s au lieu de ~40, `/readyz` 27 s au lieu
+    # de 5). Un job tué par son plafond APRÈS le premier push laisserait des
+    # étiquettes d'architecture sans index — publication à moitié faite.
+    timeout-minutes: 45
     # `packages: write` — c'est TOUT ce que GHCR demande : le `GITHUB_TOKEN` du
     # run suffit, éphémère, borné au dépôt. Aucun secret stocké, donc rien à
     # faire fuiter par une action tierce (#259). `contents: read` se redit :
@@ -647,165 +651,41 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Construire et pousser
+      # QEMU pour bâtir ET démarrer la variante ÉTRANGÈRE au runner (doc Docker
+      # « Multi-platform builds », § Install QEMU manually). Aucune architecture
+      # n'est supposée : l'émulateur posé est celui de la plateforme que l'HÔTE
+      # n'exécute pas nativement — amd64 sur un runner arm64, arm64 sur un amd64.
+      # Le script constate ensuite, sur chaque variante bâtie, que son `node`
+      # s'exécute ici dans l'architecture annoncée — une émulation absente y
+      # est nommée, pas devinée.
+      # Le conteneur tourne en `--privileged` dans un job qui détient les jetons
+      # des deux registres : il s'ÉPINGLE par digest, jamais par une étiquette
+      # mobile. Pas d'action tierce de plus (`setup-qemu-action` lance ce même
+      # conteneur).
+      - name: Enregistrer l'émulation des plateformes étrangères
+        run: |
+          set -euo pipefail
+          hote="$(docker version --format '{{.Server.Arch}}')"
+          etrangeres="$(printf 'amd64\narm64\n' | grep -vx "$hote" | paste -sd, -)"
+          echo "hôte ${hote} — émulation posée pour : ${etrangeres}"
+          docker run --privileged --rm \
+            tonistiigi/binfmt:qemu-v10.2.3@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0 \
+            --install "${etrangeres}"
+
+      # Construire, éprouver CHAQUE plateforme, puis pousser et assembler
+      # l'index : `scripts/release/image-demo.sh`, le MÊME code que la preuve
+      # locale avant le tag. Le pourquoi de chaque garde vit dans le script.
+      - name: Construire, éprouver et pousser (amd64 + arm64)
         env:
           VERSION: ${{ github.ref_name }}
           CANAL: ${{ needs.publier.outputs.canal }}
         run: |
           set -euo pipefail
-          cd /tmp/image/demo
-          V="${VERSION#v}"
-
-          # Les `ARG` du gabarit existaient déjà, mais RIEN ne les passait : la
-          # `10.0.0-alpha.4` est partie avec `version="0.1.0"`, `revision=""` et
-          # `created=""`. Une étiquette FAUSSE est pire qu'absente — une
-          # supervision affiche la mauvaise version et personne ne cherche plus
-          # loin.
-          #
-          # `--label` (et non un `ARG` de plus) pour le titre et la source :
-          # l'application témoin s'appelle « demo », et c'est juste pour ELLE.
-          # C'est l'IMAGE PUBLIÉE qui ne doit pas porter ce nom, donc la
-          # décision appartient à la forge, pas au gabarit distribué.
-          docker build \
-            --build-arg VERSION="${V}" \
-            --build-arg VCS_REF="${GITHUB_SHA}" \
-            --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            --label org.opencontainers.image.title="Nodefony" \
-            --label org.opencontainers.image.description="Application Nodefony de démonstration, générée par « nodefony create app --preset complete » au tag ${V}" \
-            --label org.opencontainers.image.source="https://github.com/nodefony/nodefony-core" \
-            --label org.opencontainers.image.licenses="Apache-2.0" \
-            -t "nf-demo-app:${V}" .
-
-          # 🔴 LA BASE DE LA DÉMO NAÎT MIGRÉE. L'image embarque sa base SQLite :
-          # sans migration, elle démarrait sur une base vierge et `/readyz`
-          # restait à 503 — « 2 migrations à appliquer » — pendant que la page
-          # de l'image promettait un `docker run` qui sert (vu à la beta.1, sur
-          # Docker Hub comme sur GHCR). Migrer au BUILD, pas au démarrage : la
-          # doctrine du framework veut les migrations AVANT les exemplaires,
-          # jamais au boot d'un process, et ici la base vit DANS l'image. Le
-          # gabarit, lui, ne change pas : une application réelle garde sa base
-          # hors de l'image et son job de migration (`deploy/migrate-job.yaml`).
-          # Les étiquettes OCI de la couche précédente sont héritées.
-          #
-          # 🔓 LE CLAIR EST DÉCLARÉ, ICI SEULEMENT. La production refuse un mot de
-          # passe reçu en HTTP ; la page de l'image promet pourtant une console
-          # sur http://127.0.0.1:5151, pour un essai sur le poste. L'échappement
-          # vit dans CETTE couche de démonstration, jamais dans le gabarit : une
-          # application générée reste stricte. La page Hub le dit, et dit comment
-          # le retirer derrière un frontal TLS.
-          #
-          # 🔴 `RUN` en forme EXEC : l'image est distroless (gabarit), sans shell —
-          # la forme texte passerait par `/bin/sh -c` et casserait la release.
-          # Le script du PAQUET, jamais `node_modules/.bin/nodefony` : sous pnpm c'est
-          # un script shell que node lit comme du JS (`nodefonyBin.ts#IMAGE_NODEFONY_BIN`).
-          docker build -t "nodefony/nodefony:${V}" - <<EOF
-          FROM nf-demo-app:${V}
-          RUN ["/nodejs/bin/node", "node_modules/nodefony/bin/nodefony", "orm:migrate"]
-          ENV NF__SECURITY__ALLOWINSECURECREDENTIALS=true
-          EOF
-
-          # AVANT le push, comme le contrôle de matière sensible : une image
-          # poussée est publique, et ses étiquettes voyagent avec elle.
-          node "$GITHUB_WORKSPACE/scripts/release/image-labels-gate.mjs" \
-            "nodefony/nodefony:${V}" \
-            --version "${V}" --revision "${GITHUB_SHA}" --titre-interdit demo || {
-            echo "::error::étiquettes OCI fausses — publication refusée"
-            exit 1
-          }
-
-          # 🔴 ENTRE le build et le push, et jamais après : une image poussée
-          # est publique, et une couche reste lisible même effacée par une
-          # couche suivante. La `10.0.0-alpha.4` est partie avec la clé privée
-          # TLS du poste de construction — `.dockerignore` amputé, `COPY . ./`
-          # qui emporte tout — sans qu'aucune étape ne regarde ce qui sortait.
-          # Le contrôle sort en 2 s'il n'a PAS PU regarder : `!= 0` refuse dans
-          # les deux cas, ce qui est le comportement voulu.
-          node "$GITHUB_WORKSPACE/scripts/release/image-gate.mjs" \
-            "nodefony/nodefony:${V}" || {
-            echo "::error::l'image embarque de la matière sensible — publication refusée"
-            exit 1
-          }
-
-          # L'image SERT-elle ? Le job la construisait, contrôlait ses couches
-          # et ses étiquettes — et ne la démarrait jamais : une image à 503
-          # permanent est partie de l'alpha.6 à la beta.1 sans qu'une étape le
-          # voie. On la lance EXACTEMENT comme la page de l'image le dit
-          # (`docker/hub-overview.md`, « Lancer ») : secrets fabriqués par
-          # l'image elle-même, mot de passe admin, puis `--env-file` — et on
-          # exige `/readyz` à 200 dans un délai borné.
-          #
-          # 🔴 Depuis l'ADR-0014 et #478, une application en production REFUSE
-          # de démarrer sans NF_CSRF_SECRET ni NF_JWT_KEYSET. Lancer l'image
-          # « sans rien » ne sert donc plus : c'est ce que la page promettait
-          # jusqu'à la beta.2, et cette étape aurait bloqué la beta.3.
-          envfile="$(mktemp)"
-          docker run --rm "nodefony/nodefony:${V}" \
-            node_modules/.bin/nodefony security:secrets --env > "$envfile" \
-            || { echo "::error::l'image ne sait pas produire ses secrets (security:secrets --env) — la ligne 1 de la page échoue"; exit 1; }
-          for k in NF_CSRF_SECRET NF_JWT_KEYSET NF_TOTP_KEY NF_WEBHOOK_KEY; do
-            grep -q "^${k}=" "$envfile" \
-              || { echo "::error::security:secrets --env n'a pas rendu ${k} — la ligne 1 de la page ment"; exit 1; }
-          done
-          echo "NF_ADMIN_PASSWORD=$(openssl rand -hex 16)" >> "$envfile"
-
-          # Et la garde de la page MORD : sans rien, l'image refuse (78) en
-          # nommant la variable — sinon la page décrirait un refus qui n'a pas lieu.
-          # Borné : une image qui NE refuse PAS resterait au premier plan et
-          # tiendrait le job jusqu'à sa limite — `timeout` rend alors 124.
-          refus=0
-          refuslog="$(timeout 90 docker run --rm --name nf-demo-refus "nodefony/nodefony:${V}" 2>&1)" || refus=$?
-          docker rm -f nf-demo-refus >/dev/null 2>&1 || true
-          if [ "$refus" != "78" ] || [[ "$refuslog" != *NF_CSRF_SECRET* ]]; then
-            printf '%s\n' "$refuslog" | tail -20
-            echo "::error::lancée sans secrets, l'image devait refuser en 78 en nommant NF_CSRF_SECRET (code ${refus})"
-            exit 1
-          fi
-
-          docker run -d --name nf-demo-readyz -p 5151:5151 --env-file "$envfile" "nodefony/nodefony:${V}"
-          rm -f "$envfile"
-          code=000
-          for _ in $(seq 1 45); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:5151/readyz || true)
-            [ "$code" = "200" ] && break
-            sleep 2
-          done
-          if [ "$code" != "200" ]; then
-            docker logs nf-demo-readyz 2>&1 | tail -40
-            docker rm -f nf-demo-readyz >/dev/null
-            echo "::error::l'image ne sert pas — /readyz répond ${code} après 90 s. Publication refusée."
-            exit 1
-          fi
-          docker rm -f nf-demo-readyz >/dev/null
-          echo "::notice::l'image sert — /readyz 200"
-
-          docker push "nodefony/nodefony:${V}"
-
-          # L'ÉTIQUETTE MOBILE se dérive du canal, exactement comme le dist-tag
-          # npm : `latest` n'appartient qu'aux versions finales. Poussé sans
-          # condition, il servirait une préversion à tout `docker pull
-          # nodefony/nodefony` — le pendant exact du défaut déjà corrigé côté
-          # npm, et qu'aucune erreur ne signale : l'image se télécharge très
-          # bien, elle n'est simplement pas celle qu'on croit.
-          MOBILE="${CANAL:-latest}"
-          docker tag "nodefony/nodefony:${V}" "nodefony/nodefony:${MOBILE}"
-          docker push "nodefony/nodefony:${MOBILE}"
-
-          # GHCR : la MÊME image, re-étiquetée — pas de second build. Un second
-          # build rendrait un autre digest, que ni le contrôle d'étiquettes ni
-          # celui de matière sensible n'auraient regardé. Même règle de canal.
-          #
-          # ⚠️ VISIBILITÉ À CONSTATER au premier push : la doc GitHub se
-          # contredit (« hérite la visibilité du dépôt » pour un paquet créé par
-          # GITHUB_TOKEN, « pas la visibilité » ailleurs ; privé par défaut sinon).
-          # S'il naît privé, le passer public UNE fois (Package settings), sinon
-          # le `docker pull` d'un inconnu répond `denied`. L'étiquette
-          # `org.opencontainers.image.source` le rattache à ce dépôt.
-          GHCR="ghcr.io/nodefony/nodefony"
-          docker tag "nodefony/nodefony:${V}" "${GHCR}:${V}"
-          docker tag "nodefony/nodefony:${V}" "${GHCR}:${MOBILE}"
-          docker push "${GHCR}:${V}"
-          docker push "${GHCR}:${MOBILE}"
-          echo "::notice::image poussée — ${V} et ${MOBILE}, Docker Hub et GHCR"
+          bash "$GITHUB_WORKSPACE/scripts/release/image-demo.sh" \
+            --app /tmp/image/demo \
+            --version "${VERSION}" --revision "${GITHUB_SHA}" \
+            --platforms linux/amd64,linux/arm64 \
+            --push --canal "${CANAL}"
 
       # LA PAGE DE L'IMAGE — Docker Hub affichait « Repository overview:
       # INCOMPLETE », c'est-à-dire rien : ni ce que l'image contient, ni comment
