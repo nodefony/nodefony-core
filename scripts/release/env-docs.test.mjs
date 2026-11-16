@@ -54,6 +54,19 @@ function catalogueFramework() {
   return new Set(variables.map((v) => v.name));
 }
 
+/**
+ * Les variables que le DÉPLOIEMENT généré lit à la construction de l'image —
+ * interpolées par le `compose.yaml` de l'application (`${NF_IMAGE_TARGET:-…}`).
+ * Ni l'application ni le framework ne les lisent : elles choisissent la fin et
+ * les bases de l'image, avant que le moindre code tourne.
+ */
+function catalogueConstruction() {
+  const source = lire("src/nodefony/templates/app/complete/compose.yaml.tpl");
+  return new Set(
+    [...source.matchAll(/\$\{(NF_[A-Z0-9_]+)/gu)].map((m) => m[1]),
+  );
+}
+
 /** Les variables `NF_X` citées (les surcharges `NF__MODULE__…` sont un mécanisme, pas un nom). */
 function citees(texte) {
   return new Set(
@@ -64,6 +77,7 @@ function citees(texte) {
 describe("pages de déploiement — confrontées aux catalogues de variables", () => {
   const appli = catalogueApplication();
   const framework = catalogueFramework();
+  const construction = catalogueConstruction();
 
   it("le catalogue de l'application se lit (garde du lecteur lui-même)", () => {
     // Sans ce contrôle, un gabarit réécrit autrement rendrait un catalogue VIDE
@@ -71,11 +85,12 @@ describe("pages de déploiement — confrontées aux catalogues de variables", (
     expect(appli.size).toBeGreaterThan(10);
     expect(appli.has("NF_CSRF_SECRET")).toBe(true);
     expect(framework.size).toBeGreaterThan(50);
+    expect(construction.has("NF_IMAGE_TARGET")).toBe(true);
   });
 
   it.each(PAGES)("%s ne cite que des variables qui existent", (page) => {
     const inconnues = [...citees(lire(page))].filter(
-      (v) => !appli.has(v) && !framework.has(v),
+      (v) => !appli.has(v) && !framework.has(v) && !construction.has(v),
     );
     expect(
       inconnues,
