@@ -13,6 +13,7 @@ import {
   type RelationInfo,
   NONE,
   canonicalLinks,
+  describeLink,
   keyColumns,
   domainMap,
   domainScope,
@@ -106,6 +107,86 @@ describe("canonicalLinks — une arête par clé étrangère physique", () => {
     ]);
     expect(links).toHaveLength(1);
     expect(links[0]?.kind).toBe("many-to-many");
+  });
+});
+
+describe("describeLink — la carte de survol d'un lien", () => {
+  const byId = (id: string) => {
+    const link = canonicalLinks(schema).find((l) => l.id === id);
+    if (!link) throw new Error(`lien ${id} absent`);
+    return link;
+  };
+
+  it("nomme les deux colonnes ; la colonne visée par défaut est la clé primaire", () => {
+    const d = describeLink(byId("ligne.fk_facture>facture"), schema);
+    expect(d.from).toEqual({ table: "ligne", column: "fk_facture" });
+    expect(d.to).toEqual({ table: "facture", column: "rowid" });
+    expect(d.self).toBe(false);
+  });
+
+  it("un lien déclaré des deux côtés garde le champ nommé de l'autre côté, pas la colonne", () => {
+    const d = describeLink(byId("facture.fk_soc>tiers"), schema);
+    expect(d.fields).toEqual([
+      { entity: "tiers", field: "factures", type: "one-to-many" },
+    ]);
+  });
+
+  it("contrainte en base, colonne visée et caractère facultatif lus sur la colonne", () => {
+    const message: EntityNode = {
+      ...entity("message", "chat", [
+        {
+          type: "many-to-one",
+          target: "message",
+          field: "replyTarget",
+          foreignKey: "replyTo",
+        },
+      ]),
+    };
+    message.columns = message.columns.map((c) =>
+      c.name === "replyTo"
+        ? {
+            ...c,
+            nullable: true,
+            references: { entity: "message", column: "uid" },
+          }
+        : c,
+    );
+    const [link] = canonicalLinks([message]);
+    if (!link) throw new Error("auto-référence absente");
+    const d = describeLink(link, [message]);
+    expect(d).toMatchObject({
+      self: true,
+      optional: true,
+      enforced: true,
+      to: { table: "message", column: "uid" },
+      fields: [
+        { entity: "message", field: "replyTarget", type: "many-to-one" },
+      ],
+    });
+  });
+
+  it("sans contrainte en base, le lien n'est que logique ; une colonne NOT NULL l'oblige", () => {
+    const d = describeLink(byId("facture.fk_user>user"), schema);
+    expect(d.enforced).toBe(false);
+    expect(d.optional).toBe(false);
+  });
+
+  it("un plusieurs-à-plusieurs n'a ni colonne ni caractère facultatif connu", () => {
+    const m2m = (target: string): RelationInfo => ({
+      type: "many-to-many",
+      target,
+      field: `${target}s`,
+    });
+    const pair = [entity("a", "x", [m2m("b")]), entity("b", "x", [m2m("a")])];
+    const [link] = canonicalLinks(pair);
+    if (!link) throw new Error("lien absent");
+    const d = describeLink(link, pair);
+    expect(d.optional).toBeNull();
+    expect(d.to.column).toBeUndefined();
+    expect(d.fields.map((f) => `${f.entity}.${f.field}`)).toEqual([
+      "a.bs",
+      "b.as",
+    ]);
   });
 });
 

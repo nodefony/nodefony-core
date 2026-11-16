@@ -10,14 +10,16 @@ import {
   MarkerType,
   useNodesState,
   useEdgesState,
+  BaseEdge,
   type Node,
   type Edge,
+  type EdgeProps,
   type NodeProps,
   type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import dagre from "dagre";
-import { type CSSProperties } from "react";
+import { type CSSProperties, type MouseEvent } from "react";
 import {
   Group,
   Select,
@@ -66,12 +68,14 @@ import {
   groupKey,
   filterKey,
   canonicalLinks,
+  describeLink,
   linkedNames,
   foreignKeyColumns,
   keyColumns,
   domainMap,
   domainScope,
 } from "./orm/erdModel";
+import { LinkCard } from "./orm/LinkCard";
 
 /** Version de la doc des fiches d'aide (`DocHint`) de la vue base de données. */
 const DB_DOC = "v1.1";
@@ -337,6 +341,54 @@ function DomainNode({ data }: NodeProps<DomainFlowNode>) {
 
 const nodeTypes = { table: TableNode, domain: DomainNode };
 
+/** Arête d'une table vers ELLE-MÊME : `lift` = hauteur à franchir au-dessus du point d'attache. */
+type SelfLoopFlowEdge = Edge<{ lift: number }, "selfLoop">;
+
+/** Écart horizontal de la boucle hors de la boîte, et rayon de ses coins. */
+const LOOP_OUT = 14;
+const LOOP_R = 8;
+
+/**
+ * Auto-référence (`replyTo` → la même table) : une boucle qui sort à droite,
+ * passe AU-DESSUS de la boîte et rentre à gauche. Un tracé `smoothstep` entre
+ * deux poignées du même nœud n'aboutit nulle part — il se dessinait comme un
+ * trait coupé à droite de la table.
+ */
+function SelfLoopEdge({
+  id,
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  data,
+  label,
+  markerEnd,
+  style,
+}: EdgeProps<SelfLoopFlowEdge>) {
+  const top = sourceY - (data?.lift ?? HEADER_H);
+  const right = sourceX + LOOP_OUT;
+  const left = targetX - LOOP_OUT;
+  const path =
+    `M ${sourceX} ${sourceY} H ${right - LOOP_R}` +
+    ` Q ${right} ${sourceY} ${right} ${sourceY - LOOP_R} V ${top + LOOP_R}` +
+    ` Q ${right} ${top} ${right - LOOP_R} ${top} H ${left + LOOP_R}` +
+    ` Q ${left} ${top} ${left} ${top + LOOP_R} V ${targetY - LOOP_R}` +
+    ` Q ${left} ${targetY} ${left + LOOP_R} ${targetY} H ${targetX}`;
+  return (
+    <BaseEdge
+      id={id}
+      path={path}
+      label={label}
+      labelX={(right + left) / 2}
+      labelY={top}
+      markerEnd={markerEnd}
+      style={style}
+    />
+  );
+}
+
+const edgeTypes = { selfLoop: SelfLoopEdge };
+
 /** Hauteur d'une boîte — la MÊME règle que son rendu (`shownColumns`). */
 const nodeHeight = (e: EntityNode, compact: boolean, ghost = false) => {
   if (ghost) return HEADER_H + 2;
@@ -400,14 +452,17 @@ function layoutGraph(
     }
   }
   const edges: Edge[] = links.map((l) => {
-    g.setEdge(l.source, l.target);
+    const self = l.source === l.target;
+    // Une boucle ne pèse rien dans le placement : dagre ne la voit pas.
+    if (!self) g.setEdge(l.source, l.target);
     const incident = rootName === l.source || rootName === l.target;
     const m2m = l.kind === "many-to-many";
-    return {
+    const owner = self ? byName.get(l.source) : undefined;
+    const edge: Edge = {
       id: l.id,
       source: l.source,
       target: l.target,
-      type: "smoothstep",
+      type: self ? "selfLoop" : "smoothstep",
       animated: m2m || incident,
       label: REL_LABEL[l.kind],
       markerEnd: { type: MarkerType.ArrowClosed },
@@ -421,6 +476,9 @@ function layoutGraph(
         ...(m2m ? { strokeDasharray: "5 5" } : {}),
       },
     };
+    // La boucle doit franchir la boîte : sa hauteur, vue depuis la poignée.
+    if (owner) edge.data = { lift: height(owner) / 2 + 20 };
+    return edge;
   });
   dagre.layout(g);
   const position = new Map<string, { x: number; y: number }>();
@@ -665,6 +723,35 @@ export const Database = observer(() => {
     }
     return { visible: allEntities, ghosts: none, mapMode: false };
   }, [allEntities, moduleFilter, focus, depth, showAll, large]);
+
+  // Carte de survol d'une arête : liens du périmètre DESSINÉ, par identifiant
+  // d'arête. Une arête de la carte des domaines n'y figure pas — pas de carte.
+  const drawnLinks = useMemo(
+    () => new Map(canonicalLinks(visible).map((l) => [l.id, l])),
+    [visible],
+  );
+  const graphBox = useRef<HTMLDivElement | null>(null);
+  const [hovered, setHovered] = useState<{
+    link: ErdLink;
+    x: number;
+    y: number;
+    width: number;
+  } | null>(null);
+  const showLink = useCallback(
+    (event: MouseEvent, edge: Edge) => {
+      const link = drawnLinks.get(edge.id);
+      const box = graphBox.current?.getBoundingClientRect();
+      if (!link || !box) return;
+      setHovered({
+        link,
+        x: event.clientX - box.left,
+        y: event.clientY - box.top,
+        width: box.width,
+      });
+    },
+    [drawnLinks],
+  );
+  const hideLink = useCallback(() => setHovered(null), []);
 
   // Inventaire (vue Liste) — filtré par groupe, indépendant du focus graphe.
   // Le tri + la pagination sont délégués au composant <DataGrid> (mode client).
@@ -1300,17 +1387,26 @@ export const Database = observer(() => {
                 )}
               </Group>
             )}
-            <div style={{ flex: 1, minHeight: 0 }}>
+            <div
+              ref={graphBox}
+              style={{ flex: 1, minHeight: 0, position: "relative" }}
+            >
               <ReactFlow
                 nodes={nodes}
                 edges={edges}
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
                 onNodeClick={(_, node) => onNodeClick(node)}
+                onEdgeMouseEnter={showLink}
+                onEdgeMouseMove={showLink}
+                onEdgeMouseLeave={hideLink}
+                onEdgeClick={showLink}
+                onPaneClick={hideLink}
                 onInit={(inst) => {
                   rfRef.current = inst;
                 }}
                 nodeTypes={nodeTypes}
+                edgeTypes={edgeTypes}
                 colorMode={scheme}
                 style={RF_THEME}
                 fitView
@@ -1322,6 +1418,14 @@ export const Database = observer(() => {
                 <Controls />
                 <MiniMap pannable zoomable />
               </ReactFlow>
+              {hovered && (
+                <LinkCard
+                  detail={describeLink(hovered.link, allEntities)}
+                  x={hovered.x}
+                  y={hovered.y}
+                  width={hovered.width}
+                />
+              )}
             </div>
             {apart.length > 0 && (
               <div

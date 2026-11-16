@@ -12,12 +12,16 @@ export interface ColumnInfo {
   primaryKey: boolean;
   nullable: boolean;
   unique: boolean;
+  /** Contrainte de clé étrangère que la base porte sur cette colonne. */
+  references?: { entity: string; column: string };
 }
 export interface RelationInfo {
   type: "one-to-one" | "one-to-many" | "many-to-one" | "many-to-many";
   target: string;
   field: string;
   foreignKey?: string;
+  /** Colonne visée sur la cible (relation tirée d'une clé étrangère). */
+  targetKey?: string;
 }
 export interface EntityNode {
   name: string;
@@ -64,6 +68,10 @@ export interface ErdLink {
   source: string;
   target: string;
   kind: "many-to-one" | "one-to-one" | "many-to-many";
+  /** Colonne de clé étrangère portée par `source` (absente d'un plusieurs-à-plusieurs). */
+  column?: string;
+  /** Les relations qui ont produit ce lien, des deux côtés. */
+  declaredBy: { entity: string; field: string; type: RelationInfo["type"] }[];
 }
 
 /**
@@ -80,20 +88,27 @@ export interface ErdLink {
 export function canonicalLinks(entities: readonly EntityNode[]): ErdLink[] {
   const names = new Set(entities.map((e) => e.name));
   const links: ErdLink[] = [];
-  const seen = new Set<string>();
+  const seen = new Map<string, ErdLink>();
   for (const e of entities) {
     for (const r of e.relations) {
       if (!names.has(r.target)) continue;
+      const by = { entity: e.name, field: r.field, type: r.type };
       if (r.type === "many-to-many") {
         const key = [e.name, r.target].sort().join("<>");
-        if (seen.has(key)) continue;
-        seen.add(key);
-        links.push({
+        const known = seen.get(key);
+        if (known) {
+          known.declaredBy.push(by);
+          continue;
+        }
+        const link: ErdLink = {
           id: `m2m-${key}`,
           source: e.name,
           target: r.target,
           kind: "many-to-many",
-        });
+          declaredBy: [by],
+        };
+        seen.set(key, link);
+        links.push(link);
         continue;
       }
       const fkTable = r.type === "one-to-many" ? r.target : e.name;
@@ -101,17 +116,82 @@ export function canonicalLinks(entities: readonly EntityNode[]): ErdLink[] {
       const fk =
         r.foreignKey ?? camelFk(r.type === "one-to-many" ? e.name : r.target);
       const id = `${fkTable}.${fk}>${pkTable}`;
-      if (seen.has(id)) continue;
-      seen.add(id);
-      links.push({
+      const known = seen.get(id);
+      if (known) {
+        known.declaredBy.push(by);
+        continue;
+      }
+      const link: ErdLink = {
         id,
         source: fkTable,
         target: pkTable,
         kind: r.type === "one-to-one" ? "one-to-one" : "many-to-one",
-      });
+        column: fk,
+        declaredBy: [by],
+      };
+      seen.set(id, link);
+      links.push(link);
     }
   }
   return links;
+}
+
+/** Ce qu'une carte de lien affiche : les deux bouts, et ce que la base en garantit. */
+export interface LinkDetail {
+  kind: ErdLink["kind"];
+  /** La table se vise elle-même (`replyTo` → la même table). */
+  self: boolean;
+  from: { table: string; column?: string | undefined };
+  to: { table: string; column?: string | undefined };
+  /** La colonne admet NULL : le lien est facultatif. `null` = inconnu (plusieurs-à-plusieurs). */
+  optional: boolean | null;
+  /** La base porte une contrainte de clé étrangère — sinon le lien n'est que logique. */
+  enforced: boolean;
+  /** Champs de relation nommés (`reactions`, `replyTarget`), hors la colonne elle-même. */
+  fields: { entity: string; field: string; type: RelationInfo["type"] }[];
+}
+
+/**
+ * Décrit un lien du schéma pour la carte de survol : de quelle colonne vers
+ * quelle colonne, s'il est obligatoire, et si la base le garantit.
+ *
+ * La colonne visée se lit dans la contrainte, sinon dans la relation, sinon
+ * c'est la clé primaire de la cible. Un champ de relation dont le nom EST la
+ * colonne (relation tirée de la contrainte) n'est pas répété.
+ *
+ * @param link - un lien rendu par `canonicalLinks`.
+ * @param entities - le périmètre où chercher les deux tables.
+ * @returns le détail affichable.
+ */
+export function describeLink(
+  link: ErdLink,
+  entities: readonly EntityNode[],
+): LinkDetail {
+  const source = entities.find((e) => e.name === link.source);
+  const target = entities.find((e) => e.name === link.target);
+  const column =
+    link.column === undefined
+      ? undefined
+      : source?.columns.find((c) => c.name === link.column);
+  const declaredKey = source?.relations.find(
+    (r) => r.target === link.target && r.foreignKey === link.column,
+  )?.targetKey;
+  const targetColumn =
+    column?.references?.column ??
+    declaredKey ??
+    target?.columns.find((c) => c.primaryKey)?.name;
+  return {
+    kind: link.kind,
+    self: link.source === link.target,
+    from: { table: link.source, column: link.column },
+    to: {
+      table: link.target,
+      column: link.kind === "many-to-many" ? undefined : targetColumn,
+    },
+    optional: column ? column.nullable : null,
+    enforced: column?.references !== undefined,
+    fields: link.declaredBy.filter((d) => d.field !== link.column),
+  };
 }
 
 /** Noms des entités touchées par au moins un lien. */
