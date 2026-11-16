@@ -585,8 +585,9 @@ const orm = applicative
        d'une milliseconde : <strong>la base domine</strong>, et l'écart entre frameworks devient une
        fraction de ce budget.${
          cas.some((x) => x.c.id === "post-422")
-           ? ` Sur le POST invalide, aucune base n'est touchée — c'est la validation et
-       la sérialisation de l'erreur qui sont comparées.`
+           ? ` Sur le POST invalide, aucune base n'est touchée : il reste un POST nu, et
+       l'écart face à Express y est suspecté dans la réception du corps, pas dans la validation
+       (même code des deux côtés).`
            : ""
        } À débit égal le p99 suit le débit : à
        25 connexions fixes, la latence est inversement proportionnelle au débit.`,

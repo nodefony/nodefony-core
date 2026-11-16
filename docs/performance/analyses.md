@@ -142,19 +142,23 @@ applicatif lit vingt lignes avec leurs clés étrangères puis met à jour la li
 SQLite de 10 000 factures — même ORM (Drizzle), même pilote, même schéma, chaque camp sa copie de
 la base. 25 connexions (le pilote est synchrone : au-delà, on mesure une file), tirs de 60 s.
 
-| Cas                    | Témoin         | Nodefony / témoin | Lecture                                                      |
-| ---------------------- | -------------- | ----------------: | ------------------------------------------------------------ |
-| GET lecture + écriture | Express équipé |           105,7 % | même zone ; la requête préparée mémoïsée joue                |
-| GET lecture + écriture | NestJS équipé  |           106,3 % | idem                                                         |
-| POST validé            | Express équipé |           103,3 % | lecture du corps, validation, écriture                       |
-| POST validé            | NestJS équipé  |           106,6 % | NestJS valide par `class-validator`                          |
-| POST refusé (422)      | Express équipé |            79,2 % | **écart ouvert** : le chemin d'erreur de Nodefony coûte plus |
-| POST refusé (422)      | NestJS équipé  |           120,4 % | `ValidationPipe` et sa sérialisation d'erreur                |
+| Cas                    | Témoin         | Nodefony / témoin | Lecture                                                  |
+| ---------------------- | -------------- | ----------------: | -------------------------------------------------------- |
+| GET lecture + écriture | Express équipé |           105,7 % | même zone ; la requête préparée mémoïsée joue            |
+| GET lecture + écriture | NestJS équipé  |           106,3 % | idem                                                     |
+| POST validé            | Express équipé |           103,3 % | lecture du corps, validation, écriture                   |
+| POST validé            | NestJS équipé  |           106,6 % | NestJS valide par `class-validator`                      |
+| POST refusé (422)      | Express équipé |            79,2 % | **écart ouvert** : sans base, la réception du corps pèse |
+| POST refusé (422)      | NestJS équipé  |           120,4 % | `ValidationPipe` et sa sérialisation d'erreur            |
 
 Le cycle complet coûte près d'une milliseconde, dont ~800 µs pour Drizzle et `better-sqlite3`
-dans tous les camps. Le chemin 422 ne touche aucune base : il compare la validation et la
-sérialisation de l'erreur, et c'est là que Nodefony rend 79 % d'Express — la seule mesure de ce
-dossier où l'écart dépasse la zone, et elle est nommée dans [ce qui reste ouvert](#ce-qui-reste-ouvert).
+dans tous les camps. Le chemin 422 ne touche aucune base, et c'est là que Nodefony rend 79 %
+d'Express : ~81 µs par requête contre ~65, soit ~17 µs d'écart. Ce n'est pas un chemin d'erreur :
+la route valide le corps par le même code que le témoin et rend son 422 par la même réponse JSON
+que le cas valide, sans exception levée. Sans base pour diluer, ce qui reste est un POST nu ; or le
+GET trivial, lui, est dans le bruit face à Express. L'hypothèse la plus probable est donc la
+réception du corps (lecture du flux, analyse, injection par `@Body`) — une hypothèse, pas une
+mesure : elle est nommée dans [ce qui reste ouvert](#ce-qui-reste-ouvert).
 
 > SQLite est ici un pilote de démonstration, pas une cible de performance : il borne le débit par
 > son exécution synchrone. Le duel sur PostgreSQL attend un camp Nodefony dédié (#403) ; aucun
@@ -197,7 +201,9 @@ facteur 5 et accusé le ramasse-miettes, qui pèse moins de 1 %.
 
 - **La fin de flux** (~6 µs au profil) : à chiffrer par une expérience, comme les minuteurs, avant
   d'y voir un gain — ceux-ci, comptés 8 µs au profil, pèsent moins de 1,3 µs réels.
-- **Le 422 face à Express** (79 %) : le chemin d'erreur de validation est à profiler.
+- **Le POST sans base face à Express** (79 %, ~17 µs) : la réception du corps est suspectée, pas
+  prouvée. La preuve tient en une paire alternée sur un POST trivial des deux côtés, puis un
+  profil comparé de ce POST.
 - **La pente mémoire du soak** : 0,06 Mo d'empreinte par million de requêtes sur 90 min, sans
   fuite au tas ni accumulation de ressources, mais trois fois la valeur d'octobre. Un soak plus
   long dira si elle se stabilise.
