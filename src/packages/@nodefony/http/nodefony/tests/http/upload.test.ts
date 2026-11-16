@@ -127,6 +127,37 @@ function postParts(
   });
 }
 
+/** POST `application/json` : le témoin du corps multipart. */
+function postJson(
+  urlPath: string,
+  form: string,
+): Promise<{ statusCode: number; body: unknown }> {
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      {
+        hostname: "localhost",
+        port: 5152,
+        path: urlPath,
+        method: "POST",
+        rejectUnauthorized: false,
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(form),
+        },
+      },
+      (res) => {
+        let data = "";
+        res.on("data", (c) => (data += c));
+        res.on("end", () =>
+          resolve({ statusCode: res.statusCode!, body: JSON.parse(data) }),
+        );
+      },
+    );
+    req.on("error", reject);
+    req.end(form);
+  });
+}
+
 function postEmpty(urlPath: string): Promise<{ statusCode: number }> {
   return new Promise((resolve, reject) => {
     const req = https.request(
@@ -232,6 +263,34 @@ describe("File Upload Tests", () => {
   it("should return an error if no file is uploaded", async () => {
     const { statusCode } = await postEmpty("/nodefony/test/html/uploaderror");
     expect(statusCode).to.equal(400);
+  });
+
+  it("🔴 un champ texte nommé comme une propriété d'Object.prototype est GARDÉ, en propriété propre — la règle du corps JSON", async () => {
+    // `toString`, `constructor`… étaient pris pour des champs DÉJÀ reçus : le
+    // corps rendait `[fonction, "x"]`, et `__proto__` remplaçait son
+    // prototype. Un nom de champ est libre (RFC 7578) : le corps multipart
+    // suit `JSON.parse`, que le framework livre déjà pour le corps JSON —
+    // propriétés propres, prototype intact.
+    const names = [
+      "toString",
+      "constructor",
+      "hasOwnProperty",
+      "__proto__",
+      "title",
+    ];
+    const json = `{${names.map((n) => `"${n}":"x"`).join(",")}}`;
+    const multipart = await postParts(
+      "/nodefony/test/decorators/body",
+      names.map((field) => ({ field, value: "x" })),
+    );
+    const witness = await postJson("/nodefony/test/decorators/body", json);
+    expect(multipart.statusCode).to.equal(200);
+    expect(witness.statusCode).to.equal(200);
+    // `JSON.parse`, jamais un littéral : `{ __proto__: "x" }` écrit dans le
+    // test poserait le prototype au lieu de la clé.
+    const expected: unknown = JSON.parse(json);
+    expect(witness.body, "témoin JSON").to.deep.equal(expected);
+    expect(multipart.body).to.deep.equal(expected);
   });
 
   // ── busboy : multi-fichiers, mime non-octet, champs texte, limites 413 ──────

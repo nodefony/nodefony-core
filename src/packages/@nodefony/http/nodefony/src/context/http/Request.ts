@@ -107,6 +107,35 @@ const QUOTE_TRIM = /^["']|["']$/gu;
 // Gelé, il ne peut pas porter le fichier d'une requête vers la suivante.
 const NO_FILES: readonly UploadedFile[] = Object.freeze([]);
 
+/** Des en-têtes que busboy accepte : un `Content-Type` présent, sans conversion. */
+function hasBusboyHeaders(
+  headers: http.IncomingHttpHeaders,
+): headers is BusboyHeaders {
+  return typeof headers["content-type"] === "string";
+}
+
+/**
+ * Pose un champ texte multipart en propriété PROPRE, comme `JSON.parse` le fait
+ * du corps JSON : un nom de champ est libre (RFC 7578), et `__proto__` y est
+ * une clé, jamais le prototype — affecté, il remplaçait celui du corps.
+ */
+function setOwnField(
+  fields: Record<string, unknown>,
+  key: string,
+  value: unknown,
+): void {
+  if (key === "__proto__") {
+    Object.defineProperty(fields, key, {
+      value,
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    });
+  } else {
+    fields[key] = value;
+  }
+}
+
 // Méthodes dont le corps est parsé (→ `body`, lu par `@Body`). PATCH (RFC
 // 5789) porte un corps comme POST/PUT → il DOIT y figurer ; son absence laissait
 // `request.body` vide sur tout PATCH (data plane admin → UPDATE vide = 500).
@@ -602,10 +631,14 @@ class HttpRequest {
    * @throws {HttpError} 413 si une limite de taille/quantité est dépassée.
    */
   async parseMultipart(): Promise<ParserType> {
+    const headers = this.request.headers;
+    if (!hasBusboyHeaders(headers)) {
+      return this.fallbackParser("multipart sans Content-Type");
+    }
     let bb: BusboyInstance;
     try {
       bb = new Busboy({
-        headers: this.request.headers as BusboyHeaders,
+        headers,
         defCharset: this.uploadOption.encoding || "utf8",
         limits: {
           fileSize: this.uploadOption.maxFileSize,
@@ -617,21 +650,49 @@ class HttpRequest {
     } catch (e) {
       // multipart sans boundary exploitable → parser de secours (flux non
       // consommé par busboy). initialize() fera parse() + onRequestEnd.
-      this.log(`${(e as Error).message} : fallback simple parser`, "WARNING");
-      this.parser = new Parser(this);
-      return this.parser;
+      return this.fallbackParser(e instanceof Error ? e.message : String(e));
     }
 
     const { fields, files } = await this.streamMultipart(bb);
     // Reçu : plus rien à interrompre, la prise posée par `streamMultipart` part.
     this.parser = null;
     this.body = fields;
-    for (const pf of files) {
-      await this.createFileUpload(pf.field, pf.file);
+    // Les `lstat` partent ENSEMBLE (pool de libuv) au lieu d'un aller-retour
+    // par fichier ; l'ordre d'envoi est gardé par l'index de `files`. Un
+    // temporaire que rien ne retient (échec, pas de service d'upload) est
+    // effacé ici : le ménage de fin de requête ne connaît que les retenus.
+    const service = this.context.uploadService;
+    const created = service
+      ? await Promise.allSettled(
+          files.map((pf) => service.createUploadFile(pf.file, pf.field)),
+        )
+      : [];
+    let failure: Error | null = null;
+    for (const [i, pf] of files.entries()) {
+      const outcome = created[i];
+      if (outcome?.status === "fulfilled") {
+        this.#keepUpload(outcome.value);
+        continue;
+      }
+      if (outcome?.status === "rejected" && failure === null) {
+        failure =
+          outcome.reason instanceof Error
+            ? outcome.reason
+            : new Error("fichier reçu illisible", { cause: outcome.reason });
+      }
+      void unlinkQuiet(pf.file.filepath);
     }
+    if (failure !== null) throw failure;
     this.context.requestEnded = true;
     await this.fireRequestEnd();
     return BODY_DONE;
+  }
+
+  /** Corps annoncé multipart mais illisible comme tel : parser de secours. */
+  private fallbackParser(reason: string): ParserType {
+    this.log(`${reason} : fallback simple parser`, "WARNING");
+    this.parser = new Parser(this);
+    return this.parser;
   }
 
   /**
@@ -645,7 +706,7 @@ class HttpRequest {
     files: { field: string; file: IParsedUploadFile }[];
   }> {
     const dir =
-      (this.context.uploadService?.path as string) ||
+      this.context.uploadService?.path ||
       this.uploadOption.uploadDir ||
       os.tmpdir();
     const maxTotal = this.uploadOption.maxTotalFileSize;
@@ -860,15 +921,17 @@ class HttpRequest {
   ): void {
     const match = reg.exec(name);
     const key = match?.[1] ?? name;
-    if (key in fields) {
+    // `Object.hasOwn`, jamais `in` : `toString`, `constructor`… sont hérités,
+    // et `in` les prenait pour des champs déjà reçus (`[fonction, "x"]`).
+    if (Object.hasOwn(fields, key)) {
       const cur = fields[key];
       if (Array.isArray(cur)) {
         cur.push(value);
       } else {
-        fields[key] = [cur, value];
+        setOwnField(fields, key, [cur, value]);
       }
     } else {
-      fields[key] = match ? [value] : value;
+      setOwnField(fields, key, match ? [value] : value);
     }
   }
 
@@ -915,18 +978,21 @@ class HttpRequest {
       file,
       name,
     );
-    if (fileUpload) {
-      if (this.#uploads === null) {
-        this.#uploads = [];
-        // Posé au PREMIER fichier seulement : une requête sans upload ne paie
-        // rien. Le corps est écrit AVANT que la requête ne soit jugée (pare-feu,
-        // gardes, action) : sans ce ménage, un refus (403, 405, 413) laissait
-        // ses fichiers sur le disque, et n'importe qui pouvait le remplir.
-        this.context.onAfterResponse(() => this.#purgeUploads());
-      }
-      this.#uploads.push(fileUpload);
-    }
+    if (fileUpload) this.#keepUpload(fileUpload);
     return fileUpload;
+  }
+
+  /** Retient un fichier reçu : rendu par {@link files}, effacé en fin de requête. */
+  #keepUpload(upload: UploadedFile): void {
+    if (this.#uploads === null) {
+      this.#uploads = [];
+      // Posé au PREMIER fichier seulement : une requête sans upload ne paie
+      // rien. Le corps est écrit AVANT que la requête ne soit jugée (pare-feu,
+      // gardes, action) : sans ce ménage, un refus (403, 405, 413) laissait
+      // ses fichiers sur le disque, et n'importe qui pouvait le remplir.
+      this.context.onAfterResponse(() => this.#purgeUploads());
+    }
+    this.#uploads.push(upload);
   }
 
   /**

@@ -14,6 +14,7 @@ import {
 import HttpKernel from "../http-kernel";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import type { IParsedUploadFile } from "../../interfaces/IUpload";
 
@@ -28,7 +29,7 @@ const existsAsync = async (p: string): Promise<boolean> => {
 };
 
 export class upload extends Service {
-  path?: string | fs.PathLike | undefined;
+  path?: string | undefined;
   module: Module;
   constructor(
     module: Module,
@@ -44,20 +45,27 @@ export class upload extends Service {
       this.options = this.httpKernel.options;
       // Même objet que `this.options.upload` (typé côté HttpKernel).
       const uploadCfg = this.httpKernel.options.upload;
-      const abs = path.isAbsolute(uploadCfg.uploadDir);
-      if (abs) {
-        this.path = uploadCfg.uploadDir;
-      } else {
-        this.path = path.resolve(`${this.kernel?.path}/${uploadCfg.uploadDir}`);
-      }
+      // Chemin qu'on OUVRE : composé par `path.resolve`, jamais concaténé en
+      // `/` (sans noyau, la concaténation rendait `undefined/…`). Un dossier
+      // absolu y est rendu tel quel.
+      this.path = path.resolve(
+        this.kernel?.path ?? process.cwd(),
+        uploadCfg.uploadDir,
+      );
       // mkdir recursive idempotent (async, non bloquant) — plus de existsSync
-      // préalable ni de mkdirSync. Fallback /tmp si la création échoue.
+      // préalable ni de mkdirSync. Repli : le dossier temporaire du SYSTÈME
+      // (`/tmp` n'existe pas sous Windows), annoncé — un envoi qui atterrit
+      // ailleurs que là où la configuration le dit ne se découvre pas seul.
       try {
         await fsp.mkdir(this.path, { recursive: true });
       } catch (e) {
-        this.path = "/tmp";
+        const wanted = this.path;
+        this.path = os.tmpdir();
         uploadCfg.uploadDir = this.path;
-        this.log(e, "DEBUG");
+        this.log(
+          `dossier d'upload ${wanted} impossible à créer (${e instanceof Error ? e.message : String(e)}) — repli sur ${this.path}`,
+          "WARNING",
+        );
       }
     });
   }
