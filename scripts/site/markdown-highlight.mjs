@@ -113,16 +113,6 @@ export const STYLE_CODE = `
   :root:not([data-theme="light"]) .shiki,
   :root:not([data-theme="light"]) .shiki span { color: var(--shiki-dark); background-color: var(--shiki-dark-bg); }
 }
-/* Le bloc lui-même : c'est la page qui décide de sa boîte, pas le thème Shiki —
-   sinon deux blocs voisins, l'un colorié l'autre non, n'auraient pas la même. */
-pre.shiki {
-  padding: 14px 16px;
-  border-radius: 8px;
-  overflow-x: auto;
-  font-size: 13.5px;
-  line-height: 1.6;
-  border: 1px solid rgba(128,128,128,.28);
-  max-width: none;
-}
-pre.shiki code { background: none; padding: 0; font-size: inherit; }
+/* La BOÎTE du bloc vient du socle du moteur (report.mjs#CSS) : un pre colorié et
+   un pre nu y ont la même. Ce fichier ne porte que les couleurs. */
 @media print { pre.shiki { white-space: pre-wrap; word-break: break-word; } }`;

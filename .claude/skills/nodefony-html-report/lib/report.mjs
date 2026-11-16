@@ -655,7 +655,7 @@ a { color: var(--accent); }
 a:hover { text-decoration: underline; }
 a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
 body { margin:0; background:var(--bg); color:var(--fg);
-  font:15px/1.62 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   -webkit-font-smoothing:antialiased; }
 .wrap { max-width:900px; margin:0 auto; padding:40px 20px 90px; }
 /* Site de documentation — la grille ne s'active QUE si la page fournit une
@@ -711,23 +711,15 @@ a.brand:focus-visible { outline:2px solid var(--accent); outline-offset:3px; bor
 @media print { .site-nav, .site-toc { display:none; }
   .wrap.has-nav { display:block; max-width:none; padding:0; }
   .wrap.has-nav > .foot { position:static; max-height:none; overflow:visible; } }
-h1 { font-size:28px; line-height:1.22; margin:0 0 8px; letter-spacing:-.021em; }
-h2 { font-size:20px; margin:0 0 10px; letter-spacing:-.012em; }
-h3 { font-size:15px; margin:22px 0 6px; }
-.sub { color:var(--dim); margin:0 0 8px; font-size:16px; }
-.lead { color:var(--dim); margin:0 0 14px; }
-.sec { margin-top:46px; }
 .warn, .note { border-radius:8px; padding:12px 16px; margin:16px 0; font-size:14px; }
 .warn { background:var(--warn-bg); color:var(--warn-fg); }
 .note { background:var(--note-bg); color:var(--note-fg); }
-.cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin:16px 0; }
 .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 14px; }
 .card .k { color:var(--dim); font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
-.card .v { font-size:22px; font-weight:650; margin-top:2px; letter-spacing:-.02em; }
 .card .u { color:var(--dim); font-size:12px; font-weight:400; }
 .scroll { overflow-x:auto; }
-table { border-collapse:collapse; width:100%; font-size:14px; min-width:520px; }
-th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); }
+table { border-collapse:collapse; }
+th, td { text-align:left; border-bottom:1px solid var(--line); }
 th { color:var(--dim); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
 table.sortable th[data-sort] { cursor:pointer; user-select:none; }
 table.sortable th.asc .sort::after { content:" ▲"; }
@@ -753,7 +745,7 @@ input[type=number] { width:100%; padding:7px 9px; font-size:14px; border:1px sol
 .out { margin-top:18px; padding-top:16px; border-top:1px solid var(--line); }
 .alerts { margin-top:14px; font-size:13px; }
 .alerts div { padding:6px 10px; border-radius:6px; margin-bottom:5px; background:var(--warn-bg); color:var(--warn-fg); }
-code { background:var(--card); border:1px solid var(--line); border-radius:4px; padding:1px 5px; font-size:13px; }
+code { background:var(--card); border:1px solid var(--line); }
 .foot { margin-top:56px; padding-top:14px; border-top:1px solid var(--line); color:var(--dim); font-size:12px; }
 .topbar { display:flex; justify-content:space-between; align-items:center; gap:12px; }
 button.ghost { background:none; border:1px solid var(--line); color:var(--dim); border-radius:7px;
@@ -846,6 +838,123 @@ body.deck .foot, body.deck .topbar, body.deck .sub { display:none; }
 .deck-nav { display:flex; align-items:center; justify-content:center; gap:14px; padding:10px;
   background:var(--bg); border-top:1px solid var(--line); }
 .deck-count { color:var(--dim); font-size:13px; font-variant-numeric:tabular-nums; }
+
+/* ══ SOCLE TYPOGRAPHIQUE — commun à tout ce que rend doc() ═══════════════════
+   Sélecteurs volontairement NUS (faible spécificité) : une page de site peut
+   s'en écarter par une règle simple, sans !important.
+   Deux largeurs seulement : --measure (ce qui se LIT) et la boîte de la page. */
+:root {
+  --measure:44rem; --wide:56rem;
+  --mono:ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+/* ── En-tête de page : la marque reste discrète, le titre porte ───────────── */
+.rep-head { padding:12px 0 10px; align-items:center; }
+.brand-logo { height:30px; }
+#theme-toggle { min-width:36px; min-height:36px; font-size:15px; }
+@media (max-width:600px) { .brand-tag { display:none; } }
+
+/* ── Échelle des titres : 38 · 28 · 21 · 17 · 15 px, un seul rapport (≈ 1,3) ─ */
+h1, h2, h3, h4, h5, h6 { text-wrap:balance; max-width:var(--measure); }
+h1 { font-size:clamp(1.75rem, 1.4rem + 1.5vw, 2.375rem); line-height:1.12; font-weight:750;
+  letter-spacing:-.028em; margin:0 0 .6rem; }
+h2 { font-size:clamp(1.375rem, 1.2rem + .8vw, 1.75rem); line-height:1.2; font-weight:700;
+  letter-spacing:-.02em; margin:0 0 1rem; }
+h3 { font-size:1.3125rem; line-height:1.3; font-weight:680; letter-spacing:-.014em; margin:2.5rem 0 .65rem; }
+h4 { font-size:1.0625rem; line-height:1.4; font-weight:680; margin:2rem 0 .45rem; }
+h5, h6 { font-size:.9375rem; line-height:1.4; font-weight:650; color:var(--dim); margin:1.6rem 0 .35rem; }
+:is(h2,h3,h4,h5) + :is(h3,h4,h5,h6) { margin-top:.9rem; }
+:is(h1,h2,h3,h4,h5) code { font-size:.88em; }
+.sub { font-size:clamp(1.0625rem, 1rem + .4vw, 1.25rem); line-height:1.5; color:var(--fg);
+  max-width:52ch; margin:0 0 1.25rem; text-wrap:pretty; }
+.lead { font-size:1.125rem; line-height:1.6; color:var(--fg); margin:0 0 1.5rem; }
+.sec { margin-top:clamp(2.5rem, 5vw, 3.5rem); }
+
+/* ── Texte courant : une mesure, un rythme vertical ───────────────────────── */
+/* Une page de SITE a déjà sa colonne, bornée par la navigation et le sommaire :
+   tout s’y aligne sur UN bord droit, et c’est la colonne elle-même qui est bornée
+   (≈ 95 caractères), sinon un paragraphe faisait 180 caractères à 1920 px. */
+.wrap.has-nav > main { --measure:100%; max-width:52rem; }
+/* Et la grille entière se centre au-delà de sa largeur utile : sur un écran de
+   2 560 px, le sommaire flottait à 900 px du texte qu’il résume. */
+.wrap.has-nav { max-width:1480px; margin-inline:auto; }
+main :is(p, ul, ol, blockquote, hr, .warn, .note, .det) { max-width:var(--measure); }
+main p { margin:0 0 1rem; text-wrap:pretty; }
+main :is(ul, ol) { margin:0 0 1rem; padding-left:1.35rem; }
+main li { margin:.35rem 0; }
+main li > :is(ul, ol) { margin:.35rem 0 0; }
+main strong { font-weight:650; }
+main hr { border:0; border-top:1px solid var(--line); margin:2.25rem 0; margin-inline:0 auto; }
+main img { max-width:100%; height:auto; }
+main blockquote { margin:1.25rem 0; padding:.8rem 1.1rem; border-left:3px solid var(--accent);
+  background:var(--card); border-radius:0 8px 8px 0; font-size:.9375rem; line-height:1.6; }
+main blockquote p { margin:0 0 .6rem; }
+main :is(blockquote, .det, .warn, .note) > :last-child { margin-bottom:0; }
+.warn, .note { font-size:.9375rem; line-height:1.55; margin:1.25rem 0; padding:.8rem 1.1rem; }
+/* Ce qui est déjà contraint par sa boîte s'exempte de la mesure. */
+main :is(td, th, figure, .card, summary, .calc) :is(p, ul, ol, li), main figcaption { max-width:none; }
+
+/* ── Code ─────────────────────────────────────────────────────────────────── */
+code { font-family:var(--mono); font-size:.86em; padding:.1em .38em; border-radius:5px; }
+/* Tout pre a la même boîte, colorié ou non. Elle fait AU MOINS la colonne de
+   lecture et ne s'élargit que si une ligne l'exige. */
+pre, pre.shiki { font-family:var(--mono); font-size:13.5px; line-height:1.6; tab-size:2;
+  margin:1.25rem 0; padding:14px 16px; border:1px solid var(--line); border-radius:10px;
+  overflow-x:auto; text-align:left;
+  width:fit-content; min-width:min(100%, var(--measure)); max-width:100%; }
+pre:not(.shiki) { background:var(--card); }
+/* Le filet du code en ligne était hérité par le code DANS le pre : étant en
+   ligne, il se dessinait sous chaque ligne du bloc. */
+pre code { font-size:inherit; padding:0; border:0; border-radius:0; background:none; }
+@media (max-width:600px) { pre, pre.shiki { font-size:12.5px; padding:12px 14px; } }
+
+/* ── Tableaux : aussi larges que leur contenu, pas davantage ──────────────── */
+.scroll { margin:1.25rem 0; max-width:100%; }
+/* Deux ou trois colonnes se replient dans l'écran ; à partir de quatre, le
+   tableau garde 520 px et c'est son enveloppe qui défile. */
+table { width:auto; min-width:min(var(--measure), 100%); max-width:var(--wide);
+  font-size:.90625rem; line-height:1.5; }
+table:has(:is(th, td):nth-child(4)) { min-width:min(var(--measure), max(100%, 520px)); }
+table:has(:is(th, td):nth-child(5)) { width:100%; max-width:none; }
+th, td { padding:.6rem .9rem .6rem 0; vertical-align:top; }
+:is(th, td):last-child { padding-right:0; }
+th { font-size:.75rem; vertical-align:bottom; }
+
+/* ── Cartes de chiffres : proportion 16:9, même hauteur par rangée ─────────
+   aspect-ratio est écarté : une boîte à ratio imposé ne s'étire plus à la
+   hauteur de sa rangée. Le 16:9 est un PLANCHER calculé sur la largeur de la
+   grille (unité cqi) : une carte au contenu plus long grandit, sa rangée suit.
+   Trois de front ; quatre cartes exactement tiennent sur une rangée ; au-delà,
+   la carte ou la paire qui reste se centre. */
+.cards { --cols:3; container-type:inline-size; display:grid; gap:16px; margin:1.25rem 0;
+  grid-template-columns:repeat(6, minmax(0, 1fr)); grid-auto-rows:1fr; }
+.cards > .card { grid-column:span 2; min-width:0; display:flex; flex-direction:column;
+  border-radius:12px; padding:18px 20px;
+  min-height:calc((100cqi - (var(--cols) - 1) * 16px) / var(--cols) * 9 / 16); }
+.card .k { font-size:.75rem; }
+.card .v { font-size:clamp(1.5rem, 1.1rem + 1.4vw, 2.125rem); line-height:1.15; font-weight:720;
+  letter-spacing:-.025em; margin:auto 0; padding:.4rem 0; }
+.card .v ~ * { font-size:.875rem; line-height:1.4; }
+/* Une valeur qui est un LIEN est un titre de destination, pas un chiffre : à la
+   taille d’un chiffre d’affiche, « Toutes les mesures » tenait sur deux lignes. */
+.card .v:has(> a) { font-size:1.1875rem; line-height:1.3; letter-spacing:-.01em; margin:.5rem 0 .35rem; }
+.card a { text-decoration:none; display:inline-block; padding:3px 0; min-height:24px; }
+.scroll:focus-visible, pre:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.card a:hover { text-decoration:underline; }
+@media (min-width:761px) {
+  .cards:has(> .card:nth-child(4):last-child) { --cols:4; grid-template-columns:repeat(4, minmax(0, 1fr)); }
+  .cards:has(> .card:nth-child(4):last-child) > .card { grid-column:auto; padding:16px 18px; }
+  .cards > .card:nth-child(3n + 1):nth-child(n + 5):last-child { grid-column:3 / span 2; }
+  .cards > .card:nth-child(3n + 1):nth-last-child(2) { grid-column:2 / span 2; }
+}
+@media (max-width:760px) {
+  /* Téléphone : une ligne par chiffre — libellé à gauche, valeur à droite. */
+  .cards { grid-template-columns:1fr; grid-auto-rows:auto; gap:8px; }
+  .cards > .card { grid-column:auto; min-height:0; padding:12px 14px;
+    display:grid; grid-template-columns:1fr auto; align-items:baseline; gap:2px 12px; }
+  .card .v { margin:0; padding:0; grid-column:2; grid-row:1; font-size:1.375rem; }
+  .card .v ~ * { grid-column:1 / -1; }
+}
 
 /* ── IMPRESSION / PDF ─────────────────────────────────────────────────────
    Un rapport qui s'imprime mal n'est pas un rapport : il sera relu en PDF, en
@@ -1009,7 +1118,9 @@ try{var t=localStorage.getItem("nf-theme");if(t==="dark"||t==="light")document.d
     ${
       brand
         ? `<${brand.href ? "a" : "div"} class="brand"${brand.href ? ` href="${esc(brand.href)}"` : ""}>
-      <img src="${brand.logo}" alt="${esc(brand.name)}" class="brand-logo">
+      <!-- Logo décoratif : le nom est écrit juste à côté. Un alt qui le répète le
+           ferait annoncer deux fois (axe : image-redundant-alt). -->
+      <img src="${brand.logo}" alt="" class="brand-logo">
       <div>
         <div class="brand-name">${esc(brand.name)}${brand.version ? ` <span class="brand-version">${esc(brand.version)}</span>` : ""}</div>
         ${brand.tagline ? `<div class="brand-tag">${esc(brand.tagline)}</div>` : ""}

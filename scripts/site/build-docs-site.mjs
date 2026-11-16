@@ -1205,36 +1205,29 @@ const SITE_CSS = `
 .h-anchor { opacity:0; margin-left:8px; color:var(--dim); text-decoration:none; font-weight:400; }
 :is(h2,h3,h4,h5,h6):hover .h-anchor { opacity:.6; }
 .h-anchor:focus { opacity:1; }
-/* Une page de documentation n'est pas un rapport : elle se PARCOURT. Sans
-   repères colorés, 300 lignes de gris se ressemblent toutes et le lecteur perd
-   sa place. Les titres portent donc une barre d'accent, et les repères de
-   lecture (code, tableaux, citations) se détachent du fond. */
+/* Typographie, code, citations et rythme viennent du SOCLE du moteur
+   (report.mjs#CSS), comme pour l'accueil et les mesures. Une page de
+   documentation s'en écarte sur trois points, parce qu'elle se PARCOURT :
+   - le h2 souligné, repère de section quand on fait défiler 300 lignes ;
+   - les tableaux bordés, zébrés et pleine largeur (souvent trois colonnes de
+     phrases, denses) ;
+   - le code en ligne teinté d'accent.
+   Les titres partent du même bord que le texte : l'ancienne barre gauche les
+   décalait de 16 px par rapport au paragraphe qu'ils coiffent. */
 main :is(h2,h3) { margin-top:38px; }
-main h2 { font-size:21px; border-bottom:1px solid var(--line); padding:0 0 8px 12px;
-  border-left:4px solid var(--accent); border-radius:2px 0 0 2px; }
-main h3 { font-size:16px; padding-left:12px; border-left:3px solid var(--line); }
-main h3:hover { border-left-color:var(--accent); }
-main > p:first-of-type { font-size:15.5px; color:var(--fg); }
-main blockquote { margin:18px 0; padding:10px 16px; border-left:4px solid var(--accent);
-  background:var(--card); border-radius:0 8px 8px 0; }
-main blockquote p { margin:4px 0; }
+main h1, main h2 { max-width:none; }
+main h2 { border-bottom:1px solid var(--line); padding-bottom:.45rem; }
+main table { width:100%; max-width:none; }
+.nf-card .card-d { font-size:.8125rem; }
 main thead th { background:var(--card); font-weight:650; }
 main tbody tr:nth-child(even) { background:color-mix(in srgb, var(--card) 55%, transparent); }
 main :not(pre) > code { color:var(--accent); }
-main strong { font-weight:650; }
-main hr { border:0; border-top:1px solid var(--line); margin:34px 0; }
-main p, main li { font-size:14.5px; }
 /* Sans cette règle, les liens du corps gardent le bleu par défaut du navigateur
    (#0000ee) : correct sur blanc, à 1,98:1 sur fond sombre — mesuré sur 16 liens
    d'une seule page. Un lien du contenu porte la couleur d'accent, comme partout. */
 main a, .foot a { color:var(--accent); }
 main a:hover { text-decoration:underline; }
 main a.ext::after { content:"↗"; font-size:.8em; margin-left:2px; opacity:.7; }
-main pre { background:var(--card); border:1px solid var(--line); border-radius:8px;
-  padding:14px; overflow-x:auto; }
-main pre code { font:12.7px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace; }
-main :not(pre) > code { background:var(--card); border:1px solid var(--line);
-  border-radius:4px; padding:.08em .34em; font-size:.88em; }
 main table { border-collapse:collapse; width:100%; margin:16px 0; font-size:13.5px; }
 /* Le défilement est porté par l'enveloppe, pas par la table : une zone qui
    défile doit pouvoir être atteinte au clavier (axe : scrollable-region-focusable),
@@ -1244,7 +1237,6 @@ main table { border-collapse:collapse; width:100%; margin:16px 0; font-size:13.5
   outline-offset:2px; }
 main th, main td { border:1px solid var(--line); padding:7px 11px; text-align:left; }
 main th { background:var(--card); }
-main img { max-width:100%; height:auto; }
 .badges { display:flex; gap:7px; flex-wrap:wrap; margin:0 0 22px; }
 .badge { font-size:11.5px; padding:3px 10px; border-radius:20px; border:1px solid var(--line);
   color:var(--dim); background:var(--card); }

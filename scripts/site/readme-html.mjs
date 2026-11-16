@@ -303,6 +303,12 @@ function readmeEnHtml() {
   // c'est une grille de définition, une mise en page courante en Markdown. Lui
   // laisser un `thead` vide fait annoncer deux colonnes sans nom par un lecteur
   // d'écran ; en inventer les titres serait pire, car ce serait faux.
+  // Un tableau large défile dans son enveloppe ; elle doit être atteignable au
+  // clavier, sinon son contenu masqué l'est aussi (axe : scrollable-region-focusable).
+  html = html.replace(
+    /<table>[\s\S]*?<\/table>/g,
+    (t) => `<div class="scroll" tabindex="0">${t}</div>`,
+  );
   html = html.replace(
     /<thead>\s*<tr>(?:\s*<th[^>]*>\s*<\/th>)+\s*<\/tr>\s*<\/thead>/g,
     "",
@@ -352,6 +358,12 @@ const README_GARDES = new Set([
   "État du projet",
 ]);
 
+/** Gardées, mais REPLIÉES : c'est de la documentation, pas de la présentation. */
+const README_REPLIES = new Set([
+  "L'application générée, de la machine à la production",
+  "Développer le framework lui-même",
+]);
+
 /** Découpe le README rendu sur ses `h2`, et ne garde que ce qui n'est pas dit ailleurs. */
 function readmeSansDoublons() {
   const html = readmeEnHtml();
@@ -391,6 +403,27 @@ function readmeSansDoublons() {
     kept = kept
       .replace(new RegExp(`<h${n}(\\s|>)`, "g"), `<h${n + 1}$1`)
       .replace(new RegExp(`</h${n}>`, "g"), `</h${n + 1}>`);
+  // Les parties qui relèvent de la DOCUMENTATION restent dans la page, repliées
+  // sous leur titre : un lecteur qui découvre le projet n'a pas à défiler 15 000 px
+  // de déploiement et de poste de travail pour atteindre la suite. Un bloc fermé
+  // n'est pas mis en page — c'était l'essentiel du travail du premier affichage
+  // sur téléphone. Le titre reste un vrai `h3`, dans le `summary`.
+  const replies = [];
+  kept = kept
+    .split(/(?=<h3)/)
+    .map((bloc) => {
+      const m = /^<h3[^>]*>([\s\S]*?)<\/h3>/.exec(bloc);
+      if (!m || !README_REPLIES.has(norme(sansBalises(m[1])))) return bloc;
+      replies.push(norme(sansBalises(m[1])));
+      return `<details class="det fold"><summary>${m[0]}</summary><div class="det-body">${bloc.slice(m[0].length)}</div></details>`;
+    })
+    .join("");
+  const absents = [...README_REPLIES].filter((t) => !replies.includes(t));
+  if (absents.length)
+    throw new Error(
+      `README : section(s) à replier introuvable(s) — ${absents.map((t) => `« ${t} »`).join(", ")}.\n` +
+        `  Retirer le titre de README_REPLIES, ou le rétablir dans le README.`,
+    );
   return kept;
 }
 
@@ -532,7 +565,7 @@ const pari = section(
 seconde pile d'authentification, une passerelle entre les deux. Nodefony refuse cette séparation.
 La pseudo-méthode <code>WEBSOCKET</code> est un verbe comme <code>GET</code> :</p>
 
-<pre><code>@controller("/api/blog")
+<pre tabindex="0"><code>@controller("/api/blog")
 class BlogController extends Controller {
   @route("blog-index", { path: "", method: "GET" })
   async index(@CurrentUser() user?: { identifier?: string }) {
@@ -1187,82 +1220,113 @@ const html = doc({
   // centrée, et dedans une COLONNE DE LECTURE plus étroite dont seul le texte
   // courant hérite. Tout ce qui n'est pas de la prose s'en échappe de lui-même.
   style: `
-.wrap {
-  max-width:1240px;
-  margin-inline:auto;
-  padding:34px 36px 96px;
-}
-/* La mesure de lecture. Elle ne s'applique qu'au texte COURANT : un tableau,
-   une carte ou une figure garde la largeur de la page. l'unité ch suit la police,
-   donc la mesure reste juste si la taille du texte change. */
-.wrap p, .wrap li, .wrap blockquote { max-width:74ch; }
-/* Les encadrés (« > … » du README) prennent le style du site de documentation
-   (build-docs-site.mjs). Sans lui, le navigateur ne pose qu'un retrait de 40 px :
-   le texte courant voisin paraît alors décalé vers la gauche. */
-.wrap blockquote { margin:18px 0; padding:10px 16px; border-left:4px solid var(--accent);
-  background:var(--card); border-radius:0 8px 8px 0; }
-.wrap blockquote p { margin:4px 0; }
-/* Ce qui est DÉJÀ contraint par sa boîte s'en exempte : une cellule de tableau,
-   une carte ou une légende de figure a sa propre largeur, et lui imposer la
-   mesure de lecture la ferait se replier au milieu de sa colonne. */
-.wrap td p, .wrap th p, .wrap td li, .wrap th li,
-.wrap figure p, .wrap figcaption, .wrap .card p, .wrap .card li,
-.wrap summary p { max-width:none; }
-/* Un titre plus court que sa colonne se casse mieux en fin de ligne qu'au
-   milieu d'un mot-clé ; text-wrap:pretty évite aussi le mot orphelin sur la dernière. */
-.wrap h1, .wrap h2, .wrap h3 { text-wrap:pretty; max-width:34ch; }
-.wrap h1 { max-width:24ch; }
-/* Le souffle vertical : sans lui, une page de 16 500 px se lit comme un mur.
-   Les sections se séparent à l'œil, pas au trait. */
-.wrap > section { margin-block:2.6rem; }
-.wrap > section > h2 { margin-block:0 .9rem; }
-.wrap > section > p { line-height:1.68; }
-@media (min-width:1500px) { .wrap { max-width:1320px; } }
-/* « Vous êtes… » — cinq colonnes au large, une liste de cinq lignes fermées sur
-   téléphone : le critère est que les cinq profils se voient SANS DÉFILER. */
-.profils { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; margin:12px 0 10px; }
-.profil { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
-/* Le README centre un bloc de code (div align=center) pour GitHub :
-   la page en héritait un code centré, ligne par ligne. */
-.wrap div[align="center"] pre { text-align:left; }
-.profil summary { list-style:none; display:flex; flex-direction:column; gap:3px; }
-.profil summary::-webkit-details-marker { display:none; }
-.profil-t { font-weight:650; }
-.profil-q { color:var(--dim); font-size:13.5px; line-height:1.4; }
-.wrap .profil p.profil-c { color:var(--dim); font-size:13px; line-height:1.45; margin:.6rem 0 0; max-width:none; }
-.profil ul { margin:.55rem 0 .6rem; padding-left:1.05rem; font-size:14px; line-height:1.45; }
-.wrap .profil li { margin:.2rem 0; max-width:none; }
-/* Cible de 24 px au moins (WCAG 2.5.8) : à 14 px × 1,45, un lien de liste en
-   faisait 20 et Lighthouse rendait l'accessibilité de l'accueil à 96. */
-.profil li a { display:inline-block; padding:2px 0; }
-.profil-p { font-size:13.5px; font-weight:600; }
-.wrap p.profils-plus { color:var(--dim); font-size:14px; margin:0; }
-@media (min-width:761px) { .profil summary { pointer-events:none; } }
-@media (max-width:1100px) and (min-width:761px) { .profils { grid-template-columns:repeat(3,minmax(0,1fr)); } }
-@media (max-width:760px) {
-  /* Le mode présentation n'a pas de sens sur un téléphone, et ses deux boutons
-     coûtaient la dernière carte du premier écran. */
-  .page-actions { display:none !important; }
-  .wrap > section#vous-etes { margin-top:1.4rem; }
-  .profils { grid-template-columns:1fr; gap:6px; margin-top:8px; }
-  .profil { padding:8px 12px; }
-  .profil summary { cursor:pointer; position:relative; padding-right:1.4rem; }
-  .profil summary::after { content:"▸"; position:absolute; right:0; top:.1rem; color:var(--dim); }
-  .profil[open] summary::after { content:"▾"; }
-  .profil-q { font-size:13px; line-height:1.3; }
-}
-.shot { margin:1.2rem 0; }
-.shot img { display:block; width:100%; height:auto; border-radius:8px; border:1px solid var(--line); }
-.shot figcaption { margin-top:.4rem; color:var(--dim); font-size:13.5px; }
-${STYLE_CODE}
-/* Verdicts du tableau de couverture. Une teinte qui tient 4,5:1 sur blanc est
-   trop sombre sur fond noir — d'où deux jeux, jamais une couleur unique. */
-:root { --ok:#0a7a52; --mid:#8a6200; --ko:#c0322a; }
+/* ══ PROPRE À L'ACCUEIL — tout le reste vient du socle de doc() ══════════════
+   Une page bornée et centrée ; dedans, la prose tient la mesure du socle et
+   seuls les cartes, les images et les grands tableaux prennent la largeur. */
+:root { --gap:clamp(18px, 4vw, 36px); --ok:#0a7a52; --mid:#8a6200; --ko:#c0322a; }
 :root[data-theme="dark"] { --ok:#4fc07d; --mid:#e0ab3a; --ko:#ff8a80; }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) { --ok:#4fc07d; --mid:#e0ab3a; --ko:#ff8a80; }
 }
-@media (max-width:820px) { .wrap { padding:20px 18px 60px; } }`,
+.wrap { max-width:calc(68rem + 2 * var(--gap)); margin-inline:auto; padding:0 var(--gap) 96px; }
+
+/* ── L'entrée : un titre d'affiche, la promesse, puis l'action ────────────── */
+.rep-head { margin-bottom:0; }
+/* L'accroche de la marque redit le h1 situé 40 px plus bas. */
+.rep-head .brand-tag { display:none; }
+main > h1 { font-size:clamp(2rem, 1.15rem + 3.4vw, 3.25rem); line-height:1.08; letter-spacing:-.032em;
+  max-width:17ch; margin:clamp(28px, 6vw, 64px) 0 .9rem; }
+main > p.sub { font-size:clamp(1.0625rem, .98rem + .5vw, 1.3rem); max-width:50ch; margin-bottom:1.5rem; }
+.hero-cta { display:flex; flex-wrap:wrap; align-items:center; gap:.75rem 1.25rem; margin:0 0 .5rem; }
+code.hero-cmd { font-size:.9375rem; padding:.6rem .9rem; border-radius:8px; white-space:nowrap;
+  max-width:100%; overflow-x:auto; }
+.hero-cmd::before { content:"$ "; color:var(--dim); }
+.hero-link { font-weight:650; display:inline-block; padding:.35rem 0; }
+/* Présentation / impression : des outils, rangés en fin de page. */
+.page-actions { margin:3rem 0 0 !important; }
+
+/* ── Les sections se séparent d'un filet et d'un vrai blanc ───────────────── */
+main > section.sec { margin:0; padding-top:clamp(2.5rem, 6vw, 4rem); }
+/* Une section hors de l’écran n’est ni mise en page ni peinte avant d’en approcher :
+   sur 30 000 px de page, c’était l’essentiel du travail du premier affichage. La
+   taille réservée évite que la barre de défilement ne saute. */
+main > section.sec:nth-of-type(n+3) { content-visibility:auto; contain-intrinsic-size:auto 1200px; }
+main > section.sec + section.sec { margin-top:clamp(2.5rem, 6vw, 4rem); border-top:1px solid var(--line); }
+/* Le README centre des blocs pour GitHub : ici tout part du même bord gauche. */
+main div[align="center"] { text-align:left; }
+
+/* ── « Vous êtes… » — cinq cartes 16:9, 3 + 2 centrées ────────────────────
+   À cinq de front une carte fait 200 px de large : haute et étroite, quoi
+   qu'on y mette. Trois colonnes, les mêmes que les cartes de chiffres : les
+   deux grilles tombent sur les mêmes verticales. Même plancher 16:9 que le
+   socle (cqi), même hauteur par rangée, « Le parcours complet » calé en bas. */
+.profils { --cols:3; container-type:inline-size; display:grid; gap:16px; margin:1.25rem 0;
+  grid-template-columns:repeat(6, minmax(0, 1fr)); grid-auto-rows:1fr; }
+.profil { grid-column:span 2; min-width:0; display:flex; flex-direction:column;
+  background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px 20px;
+  min-height:calc((100cqi - (var(--cols) - 1) * 16px) / var(--cols) * 9 / 16); }
+.profil::details-content { flex:1; display:flex; flex-direction:column; }
+.profil-b { flex:1; display:flex; flex-direction:column; }
+.profil summary { list-style:none; display:flex; flex-direction:column; gap:2px; }
+.profil summary::-webkit-details-marker { display:none; }
+.profil-t { font-size:1.0625rem; font-weight:680; letter-spacing:-.01em; }
+.profil-q { color:var(--dim); font-size:.875rem; line-height:1.4; }
+.profil p.profil-c { color:var(--dim); font-size:.8125rem; line-height:1.4; margin:.5rem 0 0; max-width:none; }
+/* Les liens sur deux colonnes : c'est ce qui rend le 16:9 tenable. */
+.profil ul { list-style:none; margin:.7rem 0 .6rem; padding:0; max-width:none; font-size:.875rem; line-height:1.35;
+  display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:0 14px; }
+.profil li { margin:0; max-width:none; }
+/* Cible de 24 px au moins (WCAG 2.5.8). */
+.profil li a { display:block; padding:4px 0; text-decoration:none; }
+.profil li a:hover, .profil-p:hover { text-decoration:underline; }
+.profil-p { margin-top:auto; padding-top:.5rem; border-top:1px solid var(--line);
+  font-size:.875rem; font-weight:650; text-decoration:none; display:block; min-height:24px; }
+main p.profils-plus { color:var(--dim); font-size:.9375rem; margin:0; max-width:none; }
+@media (min-width:761px) { .profil summary { pointer-events:none; } }
+@media (min-width:1041px) { .profil:nth-child(4):nth-last-child(2) { grid-column:2 / span 2; } }
+@media (max-width:1040px) and (min-width:761px) {
+  /* 768 : deux de front, la cinquième centrée. */
+  .profils { --cols:2; grid-template-columns:repeat(4, minmax(0, 1fr)); }
+  .profil:nth-child(5):last-child { grid-column:2 / span 2; }
+}
+@media (max-width:760px) {
+  .page-actions { display:none !important; }
+  /* Le critère tient : les cinq profils se voient sans défiler (375 × 812). */
+  main > h1 { font-size:1.75rem; max-width:none; margin:18px 0 .5rem; }
+  main > p.sub { font-size:1rem; margin-bottom:.6rem; }
+  code.hero-cmd { display:none; }
+  .hero-cta { margin:0; }
+  main > section#vous-etes { padding-top:1.1rem; }
+  main > section#vous-etes > h2 { font-size:1.25rem; margin-bottom:.5rem; }
+  /* Une liste de lignes fermées ; le toucher déplie. */
+  .profils { grid-template-columns:1fr; grid-auto-rows:auto; gap:8px; }
+  .profil { grid-column:auto; min-height:0; padding:9px 14px; }
+  .profil summary { cursor:pointer; position:relative; padding-right:1.6rem; min-height:24px; }
+  .profil summary::after { content:"▸"; position:absolute; right:0; top:.1rem; color:var(--dim); }
+  .profil[open] summary::after { content:"▾"; }
+  .profil-q { font-size:.8125rem; line-height:1.3; }
+  .profil ul { grid-template-columns:1fr; }
+  .profil-p { margin-top:.2rem; }
+  /* Le code va d'un bord à l'autre de l'écran : 36 px de colonnes gagnées. */
+  main pre, main pre.shiki { margin-inline:calc(-1 * var(--gap)); padding-inline:var(--gap);
+    width:auto; min-width:0; max-width:none; border-inline:0; border-radius:0; }
+  main blockquote pre { margin-inline:0; }
+}
+/* Les parties de documentation du README, repliées sous leur titre. */
+main details.fold { max-width:none; margin:2.5rem 0 1rem; padding:0; }
+.fold > summary { list-style:none; cursor:pointer; display:flex; align-items:center;
+  justify-content:space-between; gap:1rem; padding:14px 18px; min-height:24px; }
+.fold > summary::-webkit-details-marker { display:none; }
+.fold > summary h3 { margin:0; }
+.fold > summary::after { content:"Afficher"; color:var(--accent); font-size:.875rem; font-weight:650; white-space:nowrap; }
+.fold[open] > summary::after { content:"Masquer"; }
+.fold > .det-body { margin:0; padding:0 18px 6px; }
+@media print { .fold::details-content { content-visibility:visible; display:block; } .fold > summary::after { content:none; } }
+.shot { margin:1.5rem 0; }
+.shot img { display:block; width:100%; height:auto; border-radius:10px; border:1px solid var(--line); }
+.shot figcaption { margin-top:.5rem; color:var(--dim); font-size:.875rem; }
+${STYLE_CODE}
+@media print { pre { width:auto; white-space:pre-wrap; word-break:break-word; } }`,
   subtitle:
     "Publiez un événement une fois : Nodefony le livre au navigateur, au client léger, au système tiers et aux autres pods.",
   sections: [
@@ -1274,7 +1338,9 @@ ${STYLE_CODE}
             `<code>dev</code>. <a href="../">Lire le site de la version publiée</a>.`,
         )
       : "",
-    `<div class="noprint page-actions" style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem">${deckControls()}${printButton()}</div>`,
+    // L'ACTION d'entrée vient sous la promesse : installer, ou se laisser guider.
+    // Les outils de lecture (présentation, impression) sont rangés en fin de page.
+    `<div class="hero-cta"><code class="hero-cmd">npm create nodefony@${PRERELEASE ?? "latest"} mon-app</code><a class="hero-link" href="./docs/demarrer/">Par où commencer →</a></div>`,
     // Cette page est la PORTE D'ENTRÉE du site publié : le lecteur doit y trouver
     // SA question avant la nôtre. Les cibles sont relatives — une archive vit dans un
     // sous-chemin (`next/`, `<version>/`) — et restent justes quand la page est aussi
@@ -1299,6 +1365,7 @@ ${STYLE_CODE}
     preuves,
     manques,
     direction,
+    `<div class="noprint page-actions" style="display:flex;gap:.5rem;flex-wrap:wrap">${deckControls()}${printButton()}</div>`,
   ],
   footer: `Généré par <code>node scripts/site/readme-html.mjs</code> — ${new Date().toISOString().slice(0, 10)} · dépôt <code>nodefony-core</code> ${pkgCore.version ?? ""} · les mesures de dimensionnement proviennent des rapports de capacité du dépôt.`,
 });
