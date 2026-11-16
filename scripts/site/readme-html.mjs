@@ -395,7 +395,7 @@ const binaryRatio = (() => {
 const intro = section(
   "Un événement, livré partout",
   `
-<p class="lead">Publiez un événement une fois. Il arrive au navigateur par WebSocket, à un client
+<p class="lead">Le même événement arrive au navigateur par WebSocket, à un client
 léger en SSE, à un système tiers par webhook, et aux autres exemplaires de l'application par un
 bus. Nodefony est un framework Node.js <strong>fullstack</strong>, en TypeScript, construit pour ce
 <strong>temps réel</strong> : le contrôleur qui sert vos routes HTTP sert aussi vos canaux, sous la
@@ -1217,7 +1217,7 @@ ${STYLE_CODE}
 }
 @media (max-width:820px) { .wrap { padding:20px 18px 60px; } }`,
   subtitle:
-    "Temps réel natif, développement agentic-ready, sur un socle TypeScript isomorphe. Dix minutes pour comprendre ce que le framework couvre, ce qu'il coûte et ce qui lui manque.",
+    "Publiez un événement une fois : Nodefony le livre au navigateur, au client léger, au système tiers et aux autres pods.",
   sections: [
     // `/next/` décrit la branche de développement : le dire AVANT tout le reste,
     // le lecteur venu d'un moteur de recherche croirait lire la version installable.
