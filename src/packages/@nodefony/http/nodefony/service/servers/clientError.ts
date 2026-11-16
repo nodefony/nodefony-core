@@ -1,4 +1,4 @@
-import { STATUS_CODES } from "node:http";
+import { METHODS, STATUS_CODES } from "node:http";
 import type { Duplex } from "node:stream";
 import { isPeerGoneError } from "../../src/context/websocket/Response";
 
@@ -69,18 +69,35 @@ export function handleClientError(error: Error, socket: Duplex): void {
   );
 }
 
+/** Méthodes reconnues en tête d'un paquet : il COMMENCE alors une requête. */
+const REQUEST_METHODS: ReadonlySet<string> = new Set(METHODS);
+
+/** Plus longue méthode connue, espace comprise : borne la recherche du jeton. */
+const METHOD_PREFIX_MAX =
+  METHODS.reduce((n, m) => Math.max(n, m.length), 0) + 1;
+
+/** `HTTP/`, début de la version qui suit la cible sur la ligne de requête. */
+const VERSION_PREFIX = Buffer.from("HTTP/", "latin1");
+
 /**
  * Le statut d'un `HPE_HEADER_OVERFLOW` : Node lève la même erreur pour une
  * cible trop longue et pour des en-têtes trop longs, alors que la norme les
- * distingue — 414 pour la cible (RFC 9112 §3), 431 pour les en-têtes
- * (RFC 6585 §5).
+ * distingue — 414 pour la cible (RFC 9112 §3, MUST), 431 pour les en-têtes
+ * (RFC 6585 §5, MAY).
  *
- * Le parseur ne constate le débordement qu'à la FIN d'un élément (la cible,
- * une valeur d'en-tête), au point `bytesParsed` du paquet reçu (`rawPacket`).
- * Si la ligne de requête était finie, son `CRLF` — ou celui d'un en-tête —
- * précède ce point : ce sont les en-têtes qui débordent. Sinon, c'est la cible.
- * Constaté sur Node 26, en un paquet comme en plusieurs. Faute de ces deux
- * champs, 431 : le statut d'avant.
+ * Seul le paquet COURANT est connu (`rawPacket`, débordement constaté au point
+ * `bytesParsed`) ; le parseur n'expose ni la cible ni les en-têtes déjà lus.
+ * Dans l'ordre :
+ * - un `CRLF` précède ce point → la ligne de requête est finie : 431 ;
+ * - sinon, des octets qu'une cible ne peut pas porter (espace hors de celle
+ *   qui précède `HTTP/`, tabulation) → c'est une valeur d'en-tête : 431 ;
+ * - sinon le paquet ne permet pas de trancher — une valeur d'en-tête sans
+ *   espace, arrivée en plusieurs paquets, ressemble octet pour octet à la
+ *   suite d'une cible. On répond 414 : c'est le côté où la norme OBLIGE.
+ *
+ * Sur un vrai réseau (paquets ~1,4 Ko) le dernier cas est la règle pour une
+ * cible, et le deuxième pour les gros en-têtes réels (`Cookie: a=1; b=2`,
+ * `User-Agent`). Faute de ces deux champs, 431 : le statut de Node.
  */
 function overflowStatusLine(error: Error): string {
   const raw: unknown = "rawPacket" in error ? error.rawPacket : undefined;
@@ -88,9 +105,52 @@ function overflowStatusLine(error: Error): string {
     "bytesParsed" in error ? error.bytesParsed : undefined;
   if (Buffer.isBuffer(raw) && typeof parsed === "number") {
     const eol = raw.indexOf("\r\n");
-    if (eol === -1 || eol >= parsed) return "414 URI Too Long";
+    if (eol !== -1 && eol < parsed) {
+      return "431 Request Header Fields Too Large";
+    }
+    return carriesHeaderValue(raw, parsed)
+      ? "431 Request Header Fields Too Large"
+      : "414 URI Too Long";
   }
   return "431 Request Header Fields Too Large";
+}
+
+/**
+ * Les octets lus de ce paquet (jusqu'à `end`) excluent-ils une cible ?
+ *
+ * Une cible ne porte ni espace ni tabulation (RFC 9112 §3.2) : l'espace qui la
+ * TERMINE est suivie de la version (`HTTP/`), et celle qui suit la méthode est
+ * sautée quand le paquet commence une requête.
+ *
+ * @param raw - paquet reçu
+ * @param end - octets lus par le parseur dans ce paquet
+ * @returns `true` si ces octets ne peuvent appartenir qu'à un en-tête
+ */
+function carriesHeaderValue(raw: Buffer, end: number): boolean {
+  let from = 0;
+  const methodEnd = raw.subarray(0, METHOD_PREFIX_MAX).indexOf(0x20);
+  if (
+    methodEnd > 0 &&
+    REQUEST_METHODS.has(raw.toString("latin1", 0, methodEnd))
+  ) {
+    from = methodEnd + 1;
+  }
+  const stop = Math.min(end, raw.length);
+  for (let i = from; i < stop; i++) {
+    const byte = raw[i];
+    if (byte === 0x09) return true;
+    if (byte === 0x20) return !startsVersion(raw, i + 1);
+  }
+  return false;
+}
+
+/** Ce qui suit `at` est-il le début de `HTTP/` (paquet tronqué compris) ? */
+function startsVersion(raw: Buffer, at: number): boolean {
+  const n = Math.min(VERSION_PREFIX.length, raw.length - at);
+  for (let k = 0; k < n; k++) {
+    if (raw[at + k] !== VERSION_PREFIX[k]) return false;
+  }
+  return true;
 }
 
 /**

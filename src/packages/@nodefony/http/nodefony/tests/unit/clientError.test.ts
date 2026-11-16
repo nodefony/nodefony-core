@@ -168,18 +168,35 @@ describe("handleClientError — 414 pour la cible, 431 pour les en-têtes", () =
   const longTarget = `GET /${"a".repeat(20_000)} HTTP/1.1\r\nHost: x\r\n\r\n`;
   const longHeader = `GET / HTTP/1.1\r\nHost: x\r\nX-Big: ${"b".repeat(20_000)}\r\n\r\n`;
 
-  for (const chunks of [1, 5]) {
+  // Un gros en-tête RÉEL porte des espaces (`Cookie: a=1; b=2`, User-Agent).
+  const spacedHeader = `GET / HTTP/1.1\r\nHost: x\r\nCookie: ${"k=v; ".repeat(4_000)}\r\n\r\n`;
+
+  // 20 paquets ≈ un vrai réseau (~1,4 Ko par paquet) : le débordement est
+  // constaté dans un paquet de CONTINUATION, sans ligne de requête ni CRLF.
+  for (const chunks of [1, 5, 20]) {
     it(`cible trop longue (${chunks} paquet(s)) → 414`, async () => {
       const reply = await statusFor(longTarget, chunks);
       expect(reply).to.match(/^HTTP\/1\.1 414 URI Too Long\r\n/);
       expect(reply).to.include("Content-Length: 0\r\n");
     });
 
-    it(`en-tête trop long (${chunks} paquet(s)) → 431`, async () => {
-      const reply = await statusFor(longHeader, chunks);
+    it(`en-tête trop long, avec espaces (${chunks} paquet(s)) → 431`, async () => {
+      const reply = await statusFor(spacedHeader, chunks);
       expect(reply).to.match(/^HTTP\/1\.1 431 /);
     });
   }
+
+  it("en-tête trop long (1 paquet) → 431", async () => {
+    const reply = await statusFor(longHeader, 1);
+    expect(reply).to.match(/^HTTP\/1\.1 431 /);
+  });
+
+  it("valeur sans espace en 20 paquets : indécidable → 414, le côté où la norme OBLIGE", async () => {
+    // Octet pour octet, ce paquet de continuation pourrait être la suite d'une
+    // cible : RFC 9112 §3 impose 414 pour une cible, 431 n'est qu'un MAY.
+    const reply = await statusFor(longHeader, 20);
+    expect(reply).to.match(/^HTTP\/1\.1 414 /);
+  });
 });
 
 // handleSessionError : une sonde de port (status, doctor, superviseur, sonde

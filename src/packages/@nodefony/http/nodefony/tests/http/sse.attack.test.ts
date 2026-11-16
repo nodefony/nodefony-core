@@ -144,7 +144,11 @@ describe("RED-TEAM SSE — API serveur (requires server)", () => {
     const status = await new Promise<number>((resolve, reject) => {
       const req = http.request(
         `${H1}${SSE}/three`,
-        { headers: { "Last-Event-ID": "x".repeat(100_000) } },
+        // Des ESPACES dans la valeur : sans elles, une valeur arrivée en
+        // plusieurs paquets ressemble octet pour octet à la suite d'une cible,
+        // et le serveur répond 414 (côté MUST, `clientError.ts#overflowStatusLine`)
+        // — rouge intermittent de la forge macOS, selon le découpage TCP.
+        { headers: { "Last-Event-ID": "x y ".repeat(25_000) } },
         (res) => {
           res.resume();
           resolve(res.statusCode ?? 0);
