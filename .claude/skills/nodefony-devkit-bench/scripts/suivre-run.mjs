@@ -31,11 +31,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import {
-  ATTENTE,
-  PAR_NOM,
-  exitDansTexte,
-} from "./lib/transcript-dialectes.mjs";
+import { lecteurDeGestes } from "./lib/suivi-direct.mjs";
 
 const ARGV = process.argv.slice(2);
 const TOUT = ARGV.includes("--tout");
@@ -176,61 +172,6 @@ function journalCourant(dossier, spec) {
 }
 
 /**
- * Ce qui mérite une ligne à l'écran.
- *
- * Le filtre par défaut est SERRÉ, et c'est le sujet : une tâche fait 50 à 80
- * tours, trois répétitions en font deux cents. Tout afficher, c'est ne rien
- * lire. Ne passent que les gestes qui décident d'un verdict — un skill chargé,
- * une commande du framework, tout ce qui touche à une base.
- *
- * ⚠️ Viser `nodefony` tout court ne marche PAS : le décor VIT dans un chemin
- * qui porte ce mot (`…/nodefony-devkit-bench/…`), donc chaque lecture de
- * fichier le contient et tout passe. Le filtre vise la COMMANDE (`npx nodefony`,
- * `orm:<verbe>`), jamais le nom du projet — mesuré au premier essai, où il a
- * rendu le déluge qu’il existe pour éviter.
- */
-const INTERESSANT =
-  /\bnpx\s+nodefony\b|\borm:[a-z]|\brm\b|\bcp\b|sqlite3|var[/\\]databases|\.db\b|skills[/\\]nodefony-/i;
-
-/**
- * Les lignes à afficher pour UNE ligne de journal.
- *
- * La lecture passe par la grammaire commune (`transcript-dialectes.mjs`) : ce
- * qu'un appel affiche de lui-même — commande, fichier, skill — est choisi là,
- * une seule fois pour ce lecteur et pour `analyse-transcript.mjs`. Une
- * attente (Codex) n'est pas un geste : elle ne s'affiche qu'en `--tout`, mais
- * l'échec qu'elle constate s'affiche toujours.
- *
- * @param {string} ligne
- * @param {string} dialecte - nom de la grammaire du journal suivi.
- */
-function gestes(ligne, dialecte) {
-  let evenement;
-  try {
-    evenement = JSON.parse(ligne);
-  } catch {
-    return [];
-  }
-  const out = [];
-  for (const g of PAR_NOM[dialecte].gestes(evenement, 0)) {
-    if (g.nature === "retour") {
-      // Structuré quand le harness le publie (Codex), sinon écrit dans la
-      // sortie (Copilot : `completed with exit code 127`) — la règle de
-      // `lireTimeline`, appelée et non recopiée.
-      const exit = g.exit ?? exitDansTexte(g.texte);
-      if (exit !== null && exit !== 0) out.push(`    ✗ exit ${exit}`);
-      continue;
-    }
-    if (g.nature !== "appel") continue;
-    if (g.outil === ATTENTE && !TOUT) continue;
-    const quoi = g.arg;
-    if (!TOUT && g.outil !== "Skill" && !INTERESSANT.test(quoi)) continue;
-    out.push(`  ${g.outil} · ${quoi.replace(/\s+/g, " ").slice(0, 130)}`);
-  }
-  return out;
-}
-
-/**
  * Suit UN journal à mesure qu'il s'écrit.
  *
  * La dernière ligne peut être un JSON À MOITIÉ ÉCRIT — l'agent écrit pendant
@@ -238,6 +179,8 @@ function gestes(ligne, dialecte) {
  */
 function suivre(journal, dialecte) {
   let position = 0;
+  // Un lecteur PAR journal : il relie chaque échec à son appel (`lib/suivi-direct.mjs`).
+  const gestes = lecteurDeGestes(dialecte, { tout: TOUT });
   return () => {
     let lignes;
     try {
@@ -247,12 +190,25 @@ function suivre(journal, dialecte) {
     }
     const sures = lignes.length - 1;
     for (let i = position; i < sures; i += 1)
-      for (const l of gestes(lignes[i] ?? "", dialecte))
-        process.stdout.write(`${l}\n`);
+      for (const l of gestes(lignes[i] ?? "")) process.stdout.write(`${l}\n`);
     position = Math.max(position, sures);
   };
 }
 
+// 🔴 Un dossier de session INEXISTANT se refuse : l'attente qui suit ne
+// finirait jamais — aucun agent ne déclarera un dossier qui n'existe pas — et
+// rien ne le disait (vécu, #785). `--session` sans dossier, de même.
+if (iSession !== -1 && (SESSION === null || SESSION.startsWith("--"))) {
+  process.stdout.write("--session attend un dossier : --session <dossier>\n");
+  process.exit(64);
+}
+if (SESSION !== null && !fs.existsSync(path.resolve(SESSION))) {
+  process.stdout.write(
+    `Dossier de session introuvable : ${path.resolve(SESSION)}\n` +
+      "Le suivi attendrait sans fin — le créer (ou corriger le chemin), puis relancer.\n",
+  );
+  process.exit(64);
+}
 if (SESSION !== null) {
   const agent = process.env.NF_DEVKIT_BENCH_AGENT ?? "codex";
   const spec = SESSIONS_INTERACTIVES[agent];

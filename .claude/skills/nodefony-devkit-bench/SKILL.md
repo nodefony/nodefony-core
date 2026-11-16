@@ -115,7 +115,9 @@ qu'un run part de travers avant d'en payer trois.
 > `NF_DEVKIT_BENCH_AGENT=copilot` pour le compagnon VS Code ; `--depuis <min>`
 > si l'agent est déjà ouvert) — reconnue au `cwd` ET à l'heure de démarrage
 > qu'elle déclare : plusieurs sessions partagent souvent le même dossier. Ses
-> attentes (`write_stdin` vide, `read_bash`) sont comptées à part. ⚠️ Le
+> attentes (`write_stdin` vide, `read_bash`) sont comptées à part. Un échec
+> s'affiche AVEC sa commande, même filtrée (relié par identifiant d'appel), et
+> un dossier inexistant est refusé (64) au lieu d'attendre sans fin. ⚠️ Le
 > compagnon VS Code lancé depuis le Dock n'a pas le PATH de nvm (`npm: command
 not found`) : l'ouvrir par `code <dossier>` depuis un terminal ; et il injecte
 > `~/.claude/CLAUDE.md` — un run qui le porte est « assisté par le profil ». C'est le matériau le plus

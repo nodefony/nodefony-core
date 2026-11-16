@@ -210,7 +210,7 @@ source: "docs/skills/index.md"
 | [`nodefony-create-module`](nodefony-create-module.md) | — | 291 | 1 | 0 | ✅ |
 | [`nodefony-debug`](nodefony-debug.md) | 1.2.0 | 255 | 0 | 0 | ✅ |
 | [`nodefony-decision-making`](nodefony-decision-making.md) | 3.5.0 | 130 | 7 | 0 | ✅ |
-| [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.5.0 | 451 | 10 | 21 | ✅ |
+| [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.5.0 | 453 | 10 | 21 | ✅ |
 | [`nodefony-devops`](nodefony-devops.md) | 1.1.0 | 164 | 0 | 1 | ✅ |
 | [`nodefony-documentation`](nodefony-documentation.md) | 3.2.0 | 486 | 2 | 20 | ✅ |
 | [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.4.0 | 412 | 12 | 0 | ✅ |
