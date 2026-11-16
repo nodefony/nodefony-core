@@ -643,10 +643,13 @@ qui sort du dépôt : les hooks ne s'exécutent alors jamais.
 ## Scaffold — `cli/scaffold/` + `cli/create.ts` (3 fronts, UN moteur)
 
 `nodefony create app [name] [--dir <path>] [--force] [--yes] [--preset <complete|minimal>]
-[--frontend <none|react|vue|angular>] [--link|--no-link] [--git-hooks] [--demo]` — **standalone 0-boot**
+[--frontend <none|react|vue|angular>] [--link|--no-link] [--git-hooks] [--demo] [--verbose]` — **standalone 0-boot**
 (fast-path `CliKernel.start`, cas nominal HORS projet : `npm create nodefony@<canal>` — jamais
 `npx nodefony create app`, qui hors d'une app installe le `latest` de npm ; la commande affichée
 par une page se calcule par `cli/installCommand.ts#createAppCommand`).
+
+**Sortie COURTE hors dialogue** (`--yes` ou hors terminal, sauf `--verbose` — `isCompactCreateOutput`) : la consigne « lis AGENTS.md » sort JUSTE après l'annonce (`renderAgentBrief`), la liste des fichiers se résume par dossier (`summarizeWrittenFiles`), le journal d'install/build n'est rendu qu'en cas d'échec (`runPostStep`), `doctor` sain = une ligne. Mesuré : 24,5 Ko → 1,6 Ko, consigne de l'octet 20 776 à 61 — à la fin d'une sortie longue, un agent ne la lit jamais (il range la sortie dans un fichier). En dialogue, sortie complète, consigne en fin.
+
 L'app naît **agent-ready** : `AGENTS.md` racine — la **PORTE**, budget **20 Ko**
 (devise + générateurs + vérités universelles + gates + renvoi aux skills), dans un
 bloc `<!-- nodefony:start/end -->` ; **tout ce qui est hors marqueurs appartient à

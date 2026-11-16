@@ -55,6 +55,7 @@ import {
   collectDoctorReport,
   renderDoctorReport,
 } from "../kernel/checks/runDoctor";
+import { reportIsClear } from "../kernel/checks/renderReport";
 import { isTerminal } from "../runtime/isTerminal";
 import { spawnedOutput } from "../runtime/spawnedOutput";
 import { isolatedGitEnv } from "./gitEnv";
@@ -132,6 +133,13 @@ export interface ICreateRequest {
   git: boolean;
   /** `--dry-run` : montrer ce qui serait écrit, ne rien écrire. */
   dryRun: boolean;
+  /**
+   * `--verbose` : sortie COMPLÈTE de `create app` hors dialogue — liste des
+   * fichiers, journal de l'installation et du build, rapport `doctor` entier.
+   * Sans lui, le mode non interactif rend une sortie courte (cf
+   * {@link isCompactCreateOutput}).
+   */
+  verbose: boolean;
   /** `--describe-json` : décrire le scaffold en JSON et sortir (mode machine). */
   describeJson: boolean;
   /** `--answers-json <fichier|->` : source des réponses (fichier, ou `-` = stdin). */
@@ -161,6 +169,7 @@ export function parseCreateArgv(
   let migrate = true;
   let git = true;
   let dryRun = false;
+  let verbose = false;
   let describeJson = false;
   let answersJson: string | undefined;
   let help = false;
@@ -177,6 +186,8 @@ export function parseCreateArgv(
       yes = true;
     } else if (word === "--dry-run" || word === "-n") {
       dryRun = true;
+    } else if (word === "--verbose") {
+      verbose = true;
     } else if (word === "--describe-json") {
       describeJson = true;
     } else if (word === "--answers-json") {
@@ -377,6 +388,7 @@ export function parseCreateArgv(
       migrate,
       git,
       dryRun,
+      verbose,
       describeJson,
     };
   }
@@ -418,6 +430,7 @@ export function parseCreateArgv(
     migrate,
     git,
     dryRun,
+    verbose,
     describeJson,
     answersJson,
   };
@@ -670,21 +683,67 @@ function poseThirdPartyNotices(
  * @param pm - gestionnaire retenu : un projet n'en a qu'un, en mélanger deux
  *   corrompt `node_modules`
  */
-function runInstall(dest: string, pm: PackageManagerName): boolean {
+function runInstall(
+  dest: string,
+  pm: PackageManagerName,
+  quiet = false,
+): boolean {
   process.stdout.write(`\n⏳ ${pm} install (${path.basename(dest)})…\n`);
   // Sous Windows, `npm` est un `.cmd` que Node refuse de lancer nu — et le
   // lancer par `shell: true` avec des arguments imprime une dépréciation
   // (DEP0190) avec sa pile dans le transcript. `portableSpawn` compose la
   // ligne pour `cmd.exe` lui-même ; sans lui, le workspace n'est jamais lié et
   // le module devient introuvable au boot — visible seulement en 404.
-  const cmd = portableSpawn(pm, packageManagerUpdateInstallArgs(pm));
+  return runPostStep(
+    dest,
+    portableSpawn(pm, packageManagerUpdateInstallArgs(pm)),
+    quiet,
+  );
+}
+
+/**
+ * Plafond de la sortie RETENUE d'une étape silencieuse — au-delà, Node tue
+ * l'enfant (`ENOBUFS`) et l'étape passerait pour ratée. Un journal
+ * d'installation ou de build se compte en dizaines de Ko : la borne n'est là
+ * que pour qu'une sortie folle ne gonfle pas le processus sans limite.
+ */
+const POST_STEP_OUTPUT_LIMIT = 64 * 1024 * 1024;
+
+/**
+ * Lance une étape post-génération (install, build) dans l'application neuve.
+ *
+ * Silencieuse (`quiet`), elle retient le journal de l'outil et ne le rend
+ * QU'EN CAS D'ÉCHEC : une installation réussie n'apprend rien à personne, et
+ * son journal repoussait la consigne qui compte hors de ce qu'un agent lit
+ * (mesuré : 9 Ko de build sur 25 Ko de sortie, cf
+ * {@link isCompactCreateOutput}). Sinon, l'outil écrit directement dans le
+ * terminal — l'humain le voit travailler, pas un silence d'une minute.
+ *
+ * @param dest - racine de l'application.
+ * @param cmd - la ligne composée par `portableSpawn`.
+ * @param quiet - retenir le journal, ne le rendre qu'en cas d'échec.
+ * @returns `true` si l'outil a réussi.
+ */
+export function runPostStep(
+  dest: string,
+  cmd: ReturnType<typeof portableSpawn>,
+  quiet: boolean,
+): boolean {
   const r = spawnSync(cmd.file, cmd.args, {
     cwd: dest,
-    stdio: "inherit",
+    stdio: quiet ? ["ignore", "pipe", "pipe"] : "inherit",
     env: envForOtherProject(),
     windowsVerbatimArguments: cmd.windowsVerbatimArguments,
+    maxBuffer: POST_STEP_OUTPUT_LIMIT,
   });
-  return r.status === 0;
+  const ok = r.status === 0;
+  if (quiet && !ok) {
+    // Le journal entier, tel que l'outil l'a écrit : l'erreur utile est
+    // souvent loin de la dernière ligne (npm la suit d'un pavé de chemins).
+    if (r.stdout.length > 0) process.stdout.write(r.stdout);
+    if (r.stderr.length > 0) process.stderr.write(r.stderr);
+  }
+  return ok;
 }
 
 /**
@@ -776,16 +835,13 @@ export type CreateStepOutcome = "skipped" | "succeeded" | "failed" | "blocked";
  * `npm run dev` échoue. Suit l'install (pas de node_modules = pas de build) ;
  * `dist/` est gitignoré → n'entre pas dans le premier commit.
  */
-function runBuild(dest: string, pm: PackageManagerName): boolean {
+function runBuild(
+  dest: string,
+  pm: PackageManagerName,
+  quiet = false,
+): boolean {
   process.stdout.write(`\n⏳ ${pm} run build (${path.basename(dest)})…\n`);
-  const cmd = portableSpawn(pm, ["run", "build"]);
-  const r = spawnSync(cmd.file, cmd.args, {
-    cwd: dest,
-    stdio: "inherit",
-    env: envForOtherProject(),
-    windowsVerbatimArguments: cmd.windowsVerbatimArguments,
-  });
-  return r.status === 0;
+  return runPostStep(dest, portableSpawn(pm, ["run", "build"]), quiet);
 }
 
 /**
@@ -2124,10 +2180,19 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     ? `\n🔗 link : ${result.linked.length} paquets nodefony câblés en file: sur le checkout local ` +
       `(dev framework — ne pas publier ce package.json tel quel)\n`
     : "";
+  // Sortie COURTE hors dialogue : la consigne de l'agent passe EN TÊTE, juste
+  // après l'annonce, et la liste des fichiers se résume (cf
+  // {@link isCompactCreateOutput}).
+  const compact = isCompactCreateOutput({
+    interactive,
+    verbose: parsed.verbose,
+  });
   process.stdout.write(
-    `✔ ${type} « ${String(answers.name)} » généré dans ${relDest}/\n\n` +
-      result.files.map((f) => `  ${f}`).join("\n") +
-      `\n${linkNote}`,
+    `✔ ${type} « ${String(answers.name)} » généré dans ${relDest}/\n` +
+      (compact
+        ? renderAgentBrief(relDest) + `\n` + summarizeWrittenFiles(result.files)
+        : `\n` + result.files.map((f) => `  ${f}`).join("\n") + `\n`) +
+      linkNote,
   );
   // ── Post-génération : install PUIS build PUIS git (lockfile dans le 1er
   //    commit, dist/ gitignoré). Opt-out : --no-install (saute aussi le build,
@@ -2138,7 +2203,9 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     ? answers.packageManager
     : launchedBy;
   const cmd = packageManagerCommandLines(pm);
-  const installed = parsed.install ? runInstall(result.dest, pm) : false;
+  const installed = parsed.install
+    ? runInstall(result.dest, pm, compact)
+    : false;
   if (parsed.install && !installed) {
     process.stdout.write(
       `⚠ ${cmd.install} a échoué — relance-le à la main dans ${relDest}/\n`,
@@ -2150,7 +2217,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   if (installed) {
     runFormat(result.dest, result.files);
   }
-  const built = installed ? runBuild(result.dest, pm) : false;
+  const built = installed ? runBuild(result.dest, pm, compact) : false;
   if (installed && !built) {
     process.stdout.write(
       `⚠ ${cmd.run("build")} a échoué — relance-le à la main dans ${relDest}/\n`,
@@ -2255,7 +2322,9 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     answers.database !== "sqlite";
   process.stdout.write(
     `\nProchaines étapes :\n` +
-      `  cd ${relDest}\n` +
+      // Créée sur place (`create app .`), l'application EST le dossier
+      // courant : « cd . » est une étape qui n'en est pas une.
+      (relDest === "." ? "" : `  cd ${relDest}\n`) +
       (installed ? "" : `  ${cmd.install}\n`) +
       (built ? "" : `  ${cmd.run("build")}\n`) +
       (needsInfra
@@ -2327,18 +2396,16 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   // `doctor` les nommait, sans que son fichier d'instructions les connaisse.
   // Ce qui est rangé ailleurs — même écrit, même juste — n'agit pas.
   //
-  // TROIS lignes, et pas une de plus : un pavé en fin de génération se saute
-  // comme une bannière. Chacune répond à une question distincte — ce que le
-  // générateur produit déjà (donc ce qu'il ne faut pas écrire), où le demander
-  // en JSON, et où lire l'état RÉEL plutôt que de déduire des sources.
-  process.stdout.write(
-    `\nPour ton agent :\n` +
-      `  AGENTS.md            à lire AVANT d'écrire le moindre fichier — il dit\n` +
-      `                       ce que le générateur pose déjà (entité, service,\n` +
-      `                       controller, front, commande)\n` +
-      `  nodefony create --describe-json   les générateurs de CETTE version, en JSON\n` +
-      `  nodefony inspect routes --json    l'état RÉEL de l'app, jamais ses sources\n`,
-  );
+  // Peu de lignes : un pavé en fin de génération se saute comme une bannière.
+  // Chacune répond à une question distincte — ce que le générateur produit
+  // déjà (donc ce qu'il ne faut pas écrire), où le demander en JSON, et où
+  // lire l'état RÉEL plutôt que de déduire des sources.
+  //
+  // 🔴 Mais la FIN d'une sortie longue n'est pas un endroit où l'on passe :
+  // un agent range une sortie de 25 Ko dans un fichier et n'en lit que le
+  // début (#785). En sortie courte, le bloc est donc déjà sorti EN TÊTE ; il
+  // ne reste ici que pour l'humain, devant son terminal.
+  if (!compact) process.stdout.write(renderAgentBrief(relDest));
   // L'ÉTAT de ce qui vient d'être écrit, montré pendant que l'utilisateur
   // regarde encore l'écran. Le framework porte déjà l'outil, il lit des
   // fichiers sans rien démarrer — donc il répond même quand la base est
@@ -2354,7 +2421,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   // réussie, et confondre les deux ferait échouer toute chaîne qui appelle ce
   // générateur.
   if (installed) {
-    await showAppState(result.dest);
+    await showAppState(result.dest, compact);
   }
   const staleNotice = await freshness;
   if (staleNotice !== null) process.stderr.write(staleNotice);
@@ -2364,6 +2431,83 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   return createExitCode(
     parsed.install ? (installed ? "succeeded" : "failed") : "skipped",
     installed ? (built ? "succeeded" : "failed") : "skipped",
+  );
+}
+
+/**
+ * `create app` rend-il une sortie COURTE ?
+ *
+ * Oui hors dialogue (`--yes`, hors terminal) — c'est la porte des agents et
+ * des scripts —, sauf `--verbose`. Mesuré sur un vrai `create app --yes
+ * --demo` : 24,5 Ko, dont 10,5 de liste de fichiers, 9 de journal de build et
+ * 3,4 de rapport `doctor` ; la consigne « lis AGENTS.md » tombait à l'octet
+ * 20 776. Un agent qui reçoit une sortie aussi longue la range dans un fichier
+ * et n'en lit que le début : la consigne ne lui parvenait jamais (#785).
+ *
+ * En dialogue, la sortie reste complète : l'humain la regarde défiler.
+ *
+ * @param mode.interactive - les questions sont-elles posées ?
+ * @param mode.verbose - `--verbose` a-t-il été demandé ?
+ * @returns `true` pour la sortie courte.
+ */
+export function isCompactCreateOutput(mode: {
+  interactive: boolean;
+  verbose: boolean;
+}): boolean {
+  return !mode.interactive && !mode.verbose;
+}
+
+/**
+ * Le bloc qu'un AGENT emporte de `create app` — où lire avant d'écrire.
+ *
+ * Sa PREMIÈRE ligne porte la consigne entière, chemin compris : en sortie
+ * courte le bloc suit immédiatement l'annonce de la génération, et c'est
+ * souvent tout ce qu'un agent lit d'une sortie qu'il a rangée dans un fichier.
+ *
+ * @param relDest - dossier de l'application, relatif au dossier courant
+ *   (`.` quand l'application est créée sur place).
+ * @returns le bloc, terminé par un saut de ligne.
+ */
+export function renderAgentBrief(relDest: string): string {
+  // Un chemin AFFICHÉ voyage : il s'écrit en `/` sur toutes les plateformes.
+  const dir = relDest.split(path.sep).join("/");
+  const agents = dir === "." ? "AGENTS.md" : `${dir}/AGENTS.md`;
+  return (
+    `\nPour ton agent — lis ${agents} AVANT d'écrire le moindre fichier :\n` +
+    `  il dit ce que le générateur pose déjà (entité, service, controller, front, commande)\n` +
+    `  nodefony create --describe-json   les générateurs de CETTE version, en JSON\n` +
+    `  nodefony inspect routes --json    l'état RÉEL de l'app, jamais ses sources\n`
+  );
+}
+
+/**
+ * Résume les fichiers écrits par dossier de premier niveau, du plus fourni au
+ * moins fourni — la forme de l'application sans sa liste.
+ *
+ * @param files - chemins RELATIFS rendus par le scaffold (`/` ou `\`).
+ * @returns une ligne, terminée par un saut de ligne.
+ */
+export function summarizeWrittenFiles(files: readonly string[]): string {
+  // Normaliser AVANT de découper : sous Windows le moteur peut rendre `\`.
+  const counts = new Map<string, number>();
+  let atRoot = 0;
+  for (const file of files) {
+    const cut = file.search(/[\\/]/u);
+    if (cut === -1) {
+      atRoot++;
+      continue;
+    }
+    const top = `${file.slice(0, cut)}/`;
+    counts.set(top, (counts.get(top) ?? 0) + 1);
+  }
+  const groups = [...counts].sort(
+    (a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1),
+  );
+  const parts = groups.map(([dir, n]) => `${dir} ${n}`);
+  if (atRoot > 0) parts.push(`racine ${atRoot}`);
+  return (
+    `  ${files.length} fichiers — ${parts.join(" · ")}\n` +
+    `  (liste complète à la création : --verbose)\n`
   );
 }
 
@@ -2379,11 +2523,22 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
  * avalées (un diagnostic qui casse ce qu'il diagnostique serait pire que son
  * absence) et son code de sortie est ignoré par l'appelant.
  *
+ * En sortie courte, un rapport SAIN tient en une ligne ; un rapport qui
+ * signale quelque chose — ou qui n'a rien pu contrôler — sort en entier,
+ * parce que c'est alors lui que l'on doit lire.
+ *
  * @param dest - racine de l'application générée.
+ * @param compact - sortie courte (cf {@link isCompactCreateOutput}).
  */
-async function showAppState(dest: string): Promise<void> {
+async function showAppState(dest: string, compact: boolean): Promise<void> {
   try {
     const report = await collectDoctorReport(dest);
+    if (compact && reportIsClear(report)) {
+      process.stdout.write(
+        `\n🩺 état : rien à signaler — détail : nodefony doctor\n`,
+      );
+      return;
+    }
     process.stdout.write("\n");
     renderDoctorReport(report, {
       json: false,

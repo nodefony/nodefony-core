@@ -347,6 +347,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         migrate: true,
         git: true,
         dryRun: false,
+        verbose: false,
         describeJson: false,
         answersJson: undefined,
       });
@@ -387,6 +388,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         migrate: true,
         git: false,
         dryRun: false,
+        verbose: false,
         describeJson: false,
         answersJson: undefined,
       });

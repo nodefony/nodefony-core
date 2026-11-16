@@ -427,8 +427,15 @@ const INSTALL_OPTION: IUsageEntry = {
 // ⚠️ PAS `--git-hooks` : la spec le porte déjà (question `advanced`, jamais
 // posée en dialogue mais pilotée par ce drapeau). Le redire ici l'affichait
 // DEUX FOIS — le doublon exact que la dérivation existe pour empêcher.
-const GIT_OPTIONS: readonly IUsageEntry[] = [
+const APP_OPTIONS: readonly IUsageEntry[] = [
   { term: "--no-git", text: "ne crée pas de dépôt git ni de premier commit" },
+  {
+    term: "--verbose",
+    text:
+      "sortie complète hors dialogue (fichiers écrits, journal de " +
+      "l'installation et du build, rapport doctor) — sans lui, `--yes` " +
+      "rend une sortie courte, consigne de l'agent en tête",
+  },
 ];
 
 /**
@@ -504,7 +511,7 @@ export function usagePageFor(type: TScaffoldType): IUsagePage {
       ...optionsFor(type),
       ...(INSTALLS.has(type) ? [INSTALL_OPTION] : []),
       ...(type === "entity" ? [MIGRATE_OPTION] : []),
-      ...(type === "app" ? GIT_OPTIONS : []),
+      ...(type === "app" ? APP_OPTIONS : []),
       ...SHARED_OPTIONS,
     ],
     examples: doc.examples,
