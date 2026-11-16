@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-16T18:32:23.552Z",
+  "generatedAt": "2026-11-16T18:36:43.427Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 269,
+      "closed": 270,
       "dueOn": "2026-11-29T00:00:00Z",
       "number": 7,
-      "open": 6,
+      "open": 5,
       "title": "10.0.0-beta"
     },
     {
@@ -7151,7 +7151,7 @@
       "number": 779,
       "title": "feat(cli): ouvrir l'image générée aux paquets système, sans retouche",
       "url": "https://github.com/nodefony/nodefony-core/issues/779",
-      "state": "OPEN",
+      "state": "CLOSED",
       "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
@@ -7232,7 +7232,7 @@
       "title": "fix(devkit): qu'un agent lâché dans une application neuve lise AGENTS.md et se serve des générateurs — et que le banc le mesure juste",
       "url": "https://github.com/nodefony/nodefony-core/issues/785",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 2,
