@@ -337,6 +337,64 @@ cas(
 );
 
 console.log("━━ courbes multiples et HÉTÉROGÈNES");
+// Échelle LOGARITHMIQUE sous 1 : la graduation 0,1 doit s'écrire « 0,1 ». Un
+// formateur entier l'écrivait « 0 », une valeur qu'un logarithme ne porte pas.
+const logBas = lines({
+  titre: "Log",
+  log: true,
+  series: [
+    {
+      nom: "µs",
+      points: [
+        ["16", 0.19],
+        ["1024", 1.6],
+        ["65536", 277],
+      ],
+    },
+  ],
+});
+cas(
+  "échelle log : une graduation sous 1 garde sa décimale",
+  logBas.includes(">0,1<") && !logBas.includes(">0<"),
+  "graduation 0,1 écrite « 0 »",
+);
+
+// Légende en BAS d'une figure à axe de catégories : les étiquettes de l'axe
+// doivent rester AU-DESSUS de la légende (vu : « 1024 » écrit sur un nom de série).
+const basDeTexte = (svg, motif) =>
+  [
+    ...svg.matchAll(
+      /<text[^>]*?y="([\d.-]+)"[^>]*?translate\([\d.-]+ ([\d.-]+)\)[^>]*>([^<]*)<\/text>/g,
+    ),
+  ]
+    .filter((m) => motif.test(m[3]))
+    .map((m) => Number(m[2]) + Number(m[1]));
+const avecLegende = lines({
+  largeur: 900,
+  series: [
+    {
+      nom: "socket Nodefony (CBOR)",
+      points: [
+        ["16", 1.5],
+        ["1024", 5.5],
+      ],
+    },
+    {
+      nom: "gRPC (Connect)",
+      points: [
+        ["16", 6.8],
+        ["1024", 12],
+      ],
+    },
+  ],
+});
+cas(
+  "légende en bas : les étiquettes de l'axe X restent au-dessus d'elle",
+  Math.max(...basDeTexte(avecLegende, /^1024$/)) + 8 <
+    Math.min(...basDeTexte(avecLegende, /socket Nodefony|gRPC/)),
+  "étiquette d'axe posée sur la légende",
+);
+
 const deuxUnites = lines({
   titre: "Deux unités",
   axeX: "temps",

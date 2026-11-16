@@ -379,7 +379,19 @@ function socle({
     // des marges à la main ne faisaient que déplacer. Le défaut de la v6
     // (`outerBoundsMode: 'auto'`, `outerBoundsContain: 'all'`) contraint la
     // grille, les étiquettes ET les noms. Doc : `references/echarts/grid.md`.
-    grid: { left: 10, right: 20, top: m.haut, bottom: m.bas },
+    // La légende est posée en BAS du canevas ; les « outer bounds » ne gardent
+    // les étiquettes d'axe que dans le canevas, donc PAR-DESSUS elle — vu sur un
+    // axe de catégories, « 1024 » écrit sur « socket Nodefony ». Les borner
+    // au-dessus de la légende remonte la grille d'autant.
+    grid: {
+      left: 10,
+      right: 20,
+      top: m.haut,
+      bottom: m.bas,
+      ...(legende?.length
+        ? { outerBounds: { left: 0, right: 0, top: 0, bottom: m.bas } }
+        : {}),
+    },
     // `sens` décide OÙ le nom se pose : en tête pour un axe vertical (au-dessus
     // des graduations, aligné à gauche), au milieu et bas pour un axe horizontal.
     axe: (nom, extra = {}, sens = "y") => ({
@@ -746,7 +758,10 @@ export function lines(o) {
               color: s.T.muet,
               fontSize: 11,
               hideOverlap: true,
-              formatter: unite(""),
+              // Une échelle logarithmique gradue en puissances de dix : 0,1 y
+              // est une graduation, pas un arrondi — l'écrire « 0 » place sur
+              // l'axe une valeur qu'un logarithme ne peut pas porter.
+              formatter: log ? (v) => nombre(v, v < 1) : unite(""),
             },
           },
           "y",
@@ -1584,7 +1599,7 @@ export const couple = (famille, o) => ({
 export const STYLE_GRAPHES = `
 .graphe{margin:0 0 18px;padding:0}
 .graphe figcaption{font-size:13px;font-weight:600;margin:0 0 6px}
-.graphe-desc{font-size:12px;color:var(--muted,#6b7280);margin:6px 0 0}
+.graphe-desc{font-size:12px;color:var(--dim,#667085);margin:6px 0 0}
 .graphe-zone{overflow-x:auto}
 .graphe-zone svg{display:block;margin:0 auto;max-width:100%;height:auto}
 /* Un SCHÉMA porte une taille intrinsèque et beaucoup de texte : le réduire à la
