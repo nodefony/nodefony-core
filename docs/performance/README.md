@@ -13,8 +13,8 @@ updated: 2026-10-02
 
 # Performance — mesures et rapports
 
-> **Vous cherchez à lire le dossier ? Commencez par [`index.md`](index.md)** — c'est le hub, avec
-> trois parcours de lecture selon ce que vous cherchez. Cette page-ci est la pancarte du
+> **Vous cherchez à lire le dossier ? Commencez par [`index.md`](index.md)** — c'est le hub.
+> Cette page-ci est la pancarte du
 > répertoire : elle dit ce qu'il contient et sous quelles règles un rapport y entre.
 
 Ce dossier conserve les **mesures de performance** du framework : où part le temps, ce qu'une
@@ -22,11 +22,11 @@ optimisation a rendu, ce qu'un choix d'architecture coûte — et ce qui n'a pas
 
 ## Le dossier
 
-| Page                         | Sujet                                                                                                         |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| [`index.md`](index.md)       | **Hub** — les chiffres, leur décor, les réserves qui les bornent, comment rejouer                             |
-| [`methode.md`](methode.md)   | Protocole, décor, contrôles de validité, les instruments qui ont menti, lexique                               |
-| [`analyses.md`](analyses.md) | Où part le temps — pipeline HTTP, comparaisons à trois niveaux d'équité, escalier ORM, et ce qui reste ouvert |
+| Page                         | Sujet                                                                                                              |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| [`index.md`](index.md)       | **Hub** — les chiffres, leurs témoins, les réserves qui les bornent, comment rejouer                               |
+| [`methode.md`](methode.md)   | Protocole, décor, contrôles de validité, qualité des séries, les instruments qui ont menti                         |
+| [`analyses.md`](analyses.md) | Où part le temps — budget par étage, ce que Node fait faire, travail invisible, base, binaire, ce qui reste ouvert |
 
 Le dossier tenait autrefois en onze pages. Il en tient trois : les chiffres vivent dans
 [`data/`](data/) et les pages les racontent, au lieu que chaque page porte sa propre génération de

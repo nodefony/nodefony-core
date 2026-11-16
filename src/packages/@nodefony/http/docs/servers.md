@@ -1036,9 +1036,12 @@ par seconde. Les choix visibles dans le code :
   production mono-processus).
 - **Aucune génération en production** avec un certificat fourni (`certificates.ts#trustOutboundAuthorities`).
 
-Ordre de grandeur mesuré : un processus Node saturé sur un cœur tient environ 400 requêtes/s en
-boucle locale avec dégradation gracieuse (1600 connexions concurrentes, aucun crash) ; côté WebSocket,
-plus de 750 connexions simultanées et 33 000 à 38 000 messages/s soutenus. Rejouer ces mesures : skill
+Ordre de grandeur, mesuré en production sur UN processus (portable de 2018, campagne du
+15 novembre 2026) : ~22 000 requêtes/s sur une route triviale sous `wrk`, ~11 000 depuis un client
+Node en HTTP/1.1, HTTPS ou HTTP/2 ; côté WebSocket, ~40 000 messages/s en écho en clair, ~56 000 en
+TLS, une diffusion 1 → 100 à ~307 000 livraisons/s, et ~10 Ko de tas par socket (TLS terminé en
+amont). Ces absolus ne se transposent pas : constantes complètes et calculateur de pods sur
+[la page de la version courante](https://nodefony.net/performance/latest/dimensionner/). Rejouer : skill
 `nodefony-load-test`. Gate mémoire avant tout commit touchant le pipeline : `npm run test:memory`
 (skill `nodefony-check-memory-health`).
 

@@ -19,19 +19,20 @@ file, et la latence monte.
 
 ## 2. Les constantes mesurées — un ordre de grandeur, pas ta capacité
 
-Mesurées sur Nodefony **10.0.0**, en **production**, Node 26.10, **un** process, route de banc
+Mesurées sur Nodefony **10.0.0**, en **production**, Node 26.13 (campagne du 15 novembre 2026, portable
+de 2018), **un** process, route de banc
 **triviale**, charge de 1 Ko. Chaque débit est ramené à ELU 1 (débit observé ÷ ELU), donc c'est un
 **plafond**. Source et calculateur :
 [peut-on partir en production ?](https://nodefony.net/performance/latest/).
 
-| Constante                                         | Valeur                        | Ce qu'elle dit                                                                        |
-| ------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------- |
-| Tas par socket WebSocket — TLS terminé au frontal | **≈ 10 Ko**                   | le coût d'une connexion **ouverte et muette** ; pente linéaire sur 0 → 800 sockets    |
-| Tas par socket — TLS terminé par Node (`wss`)     | ≈ 12 à 14 Ko                  | mesure non concordante d'un run à l'autre : retenir le haut de la fourchette          |
-| Écho WebSocket 1:1                                | ≈ 35 000 à 46 000 msg/s       | messages reçus **et** renvoyés par seconde, à ELU 1                                   |
-| Diffusion à 100 abonnés                           | ≈ 197 000 livraisons/s        | une livraison = un message remis à un abonné ; c'est elle qui coûte, pas l'émission   |
-| HTTP/1.1, route triviale                          | ≈ 15 000 req/s (TLS ≈ 12 000) | p99 ≈ 0,3 ms à vide — **ton** contrôleur, ta base et tes services dominent ce chiffre |
-| Mémoire au repos (RSS)                            | **à mesurer chez toi**        | dépend des modules chargés ; `docker stats` sur un conteneur prêt et sans trafic      |
+| Constante                                         | Valeur                                | Ce qu'elle dit                                                                        |
+| ------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------- |
+| Tas par socket WebSocket — TLS terminé au frontal | **≈ 10 Ko**                           | le coût d'une connexion **ouverte et muette** ; pente linéaire sur 0 → 800 sockets    |
+| Tas par socket — TLS terminé par Node (`wss`)     | ≈ 14 Ko                               | mesure non concordante d'un run à l'autre : un ordre de grandeur, pas une constante   |
+| Écho WebSocket 1:1                                | ≈ 40 000 (clair) à 56 000 (TLS) msg/s | messages reçus **et** renvoyés par seconde, à ELU 1                                   |
+| Diffusion à 100 abonnés                           | ≈ 307 000 livraisons/s                | une livraison = un message remis à un abonné ; c'est elle qui coûte, pas l'émission   |
+| HTTP/1.1, route triviale                          | ≈ 22 000 req/s (`wrk`, 64 connexions) | p99 ≈ 0,2 ms à vide — **ton** contrôleur, ta base et tes services dominent ce chiffre |
+| Mémoire au repos (RSS)                            | **à mesurer chez toi**                | dépend des modules chargés ; `docker stats` sur un conteneur prêt et sans trafic      |
 
 🔴 **Ce que ces constantes ne disent pas.** Une route réelle lit une base, signe un jeton, rend une
 vue : elle coûte dix à cent fois la route de banc. Le coût d'un **flux SSE** ouvert n'est pas

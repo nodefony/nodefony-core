@@ -43,3 +43,4 @@ status: stable
 | [0025](0025-presence-repartie-d-un-canal.md)                  | Présence répartie d'un canal temps réel — portée par le canal lui-même                        | accepted | 2026-11-10 |
 | [0026](0026-service-grpc-declare-par-un-module.md)            | Service gRPC — un point d'entrée déclaré par un module, servi par le pipeline                 | accepted | 2026-11-11 |
 | [0027](0027-arret-en-deux-phases.md)                          | Arrêt de l'application — cesser de servir, puis libérer dans l'ordre inverse                  | accepted | 2026-11-14 |
+| [0028](0028-temoins-nommes-pages-performance.md)              | Pages de performance — les témoins sont nommés, dans le décor                                 | accepted | 2026-11-16 |

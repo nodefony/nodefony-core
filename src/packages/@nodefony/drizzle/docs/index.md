@@ -1067,9 +1067,10 @@ La sérialisation du SQL n'est faite que sur le **chemin lent** (au-delà du seu
 jamais au cas nominal — et le SQL journalisé est la forme **paramétrée** (`?`), jamais les valeurs.
 
 **Le plafond de SQLite est structurel, pas un défaut.** `better-sqlite3` est synchrone et
-mono-connexion : les écritures sont sérialisées. Sur un banc de session en HTTP/2, cela donne un
-plafond stable autour de **400 requêtes/s** avec 100 % de réponses correctes et zéro session perdue ;
-augmenter la concurrence augmente la latence, pas le débit. PostgreSQL ou MySQL paralléliseraient. Si
+mono-connexion : les écritures sont sérialisées, et chaque requête occupe le fil pendant toute la
+durée de son SQL. Le débit plafonne donc à ce qu'un fil sérialise — augmenter la concurrence
+augmente la latence, pas le débit. Ordre de grandeur sur un portable : ~1 200 requêtes/s pour vingt
+lectures et une écriture par requête ([banc applicatif](https://nodefony.net/performance/latest/applicatif/)). PostgreSQL ou MySQL paralléliseraient. Si
 tu vises plus haut, ce n'est pas le module qu'il faut changer, c'est le dialecte.
 
 Les bancs de charge du module (`npm run test:load`) mesurent l'insertion, le balayage, les gros `$in`,
@@ -1088,7 +1089,7 @@ connexions. Les chiffres vivent dans la sortie du banc, pas ici — ils dépende
 | Une entité fonctionne en SQLite, échoue en PostgreSQL                | table Drizzle **figée** sur un dialecte, posée sur le connecteur `default` | fixer l'entité sur son propre connecteur SQLite, ou la porter au dialecte |
 | `store inconnu` au démarrage                                         | brique non portée sur le dialecte, ou `frameworkEntities: false`           | vérifier le dialecte configuré et le bilan journalisé de l'auto-register  |
 | La session repart vide à chaque redémarrage                          | store résolu en `memory` (aucun backend persistant chargé)                 | charger `@nodefony/drizzle` ; le journal dit toujours le store retenu     |
-| Débit bloqué autour de 400 req/s en écriture                         | SQLite est synchrone et mono-connexion — pas un bug                        | passer en `postgres`/`mysql` via `NF_DATABASE_URL`                        |
+| Débit plafonné en écriture                                           | SQLite est synchrone et mono-connexion — pas un bug                        | passer en `postgres`/`mysql` via `NF_DATABASE_URL`                        |
 | Le SQL brut n'apparaît pas dans le profileur                         | les requêtes de la trappe native ne passent pas par le point de mesure     | attendu ; utiliser le repository si la mesure compte                      |
 
 ## 🧪 Tests & couverture
