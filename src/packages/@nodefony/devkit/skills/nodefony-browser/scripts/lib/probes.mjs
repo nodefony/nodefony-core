@@ -814,3 +814,77 @@ export function stampedName(prefix, at, pid, ext) {
   const stamp = at.toISOString().replace(/[:.]/gu, "-").slice(0, 19);
   return `${prefix}-${stamp}-${pid}.${ext}`;
 }
+
+/**
+ * Témoin réseau d'une page : requêtes restées EN VOL, requêtes en échec avec
+ * leur motif, erreurs de console et de page — de quoi dire pourquoi une
+ * application n'a jamais démarré quand le serveur, lui, n'en sait rien (une
+ * requête refusée avant d'atteindre l'application n'y laisse aucune trace).
+ *
+ * Une `Map` keyée par la requête : l'entrée part dès qu'elle aboutit, il ne
+ * reste à la fin que ce qui n'a jamais abouti. Les échecs et erreurs ne
+ * s'allouent qu'au premier.
+ *
+ * @param page - la page à observer.
+ * @returns `report()` (texte à joindre au diagnostic, vide si rien à dire) et
+ *   `stop()` (retire les écouteurs, à appeler dès que le parcours a réussi).
+ */
+export function watchNetwork(page) {
+  /** @type {Map<{ method(): string, url(): string }, number>} */
+  const inFlight = new Map();
+  /** @type {string[] | null} */
+  let failed = null;
+  /** @type {string[] | null} */
+  let errors = null;
+  const t0 = Date.now();
+  const onRequest = (r) => inFlight.set(r, Date.now() - t0);
+  const onDone = (r) => inFlight.delete(r);
+  const onFailed = (r) => {
+    inFlight.delete(r);
+    failed ??= [];
+    failed.push(`${r.url()} — ${r.failure()?.errorText ?? "échec sans motif"}`);
+  };
+  const onConsole = (m) => {
+    if (m.type() !== "error") return;
+    errors ??= [];
+    errors.push(`console : ${m.text().slice(0, 300)}`);
+  };
+  const onPageError = (e) => {
+    errors ??= [];
+    errors.push(`page : ${String(e).slice(0, 300)}`);
+  };
+  page.on("request", onRequest);
+  page.on("requestfinished", onDone);
+  page.on("requestfailed", onFailed);
+  page.on("console", onConsole);
+  page.on("pageerror", onPageError);
+  const stop = () => {
+    page.off("request", onRequest);
+    page.off("requestfinished", onDone);
+    page.off("requestfailed", onFailed);
+    page.off("console", onConsole);
+    page.off("pageerror", onPageError);
+  };
+  const report = () => {
+    stop();
+    const lines = [];
+    if (inFlight.size > 0) {
+      lines.push(
+        `\n\nRequêtes émises par le navigateur, JAMAIS abouties (${inFlight.size}) :`,
+      );
+      for (const [r, at] of inFlight) {
+        lines.push(`  +${at} ms  ${r.method()} ${r.url()}`);
+      }
+    }
+    if (failed !== null) {
+      lines.push(`\n\nRequêtes en échec (${failed.length}) :`);
+      for (const f of failed) lines.push(`  ${f}`);
+    }
+    if (errors !== null) {
+      lines.push(`\n\nErreurs de la page (${errors.length}) :`);
+      for (const e of errors) lines.push(`  ${e}`);
+    }
+    return lines.join("\n");
+  };
+  return { report, stop };
+}

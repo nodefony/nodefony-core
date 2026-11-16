@@ -11,7 +11,10 @@ Chaque famille rend un **`verdict`** (`OK` / `ALERTE`) et des données bornées 
 exemples, jamais l'inventaire). Le champ `verdict` de fin de sortie agrège les familles actives —
 `OK` seulement si tout est OK. **Le code de retour reste 0** : le verdict est une donnée, pas une
 panne de la sonde. Les codes non nuls disent autre chose — 64 : usage (famille inconnue,
-identifiant sans chemin de connexion) ; 65 : le texte attendu n'est jamais apparu.
+identifiant sans chemin de connexion) ; 65 : le texte attendu n'est jamais apparu. Quand c'est
+l'écran de connexion qui manque, la sortie liste aussi les requêtes **jamais abouties**, celles en
+échec avec leur motif et les erreurs de la page : un module jamais servi laisse une page vide sans
+que le serveur en garde la moindre trace, et seul le navigateur sait ce qui est resté en vol.
 
 ## Le socle — toujours rendu
 

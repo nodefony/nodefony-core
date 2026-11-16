@@ -1,3 +1,4 @@
+import { EventEmitter } from "node:events";
 import { describe, it, expect } from "vitest";
 import { chargerModule, fonctionDe } from "./browser-outils";
 
@@ -1013,5 +1014,71 @@ describe("stampedName — un fichier par mesure", () => {
     expect(stampedName("demo-chat", at, 1, "png")).not.toBe(
       stampedName("demo-chat", at, 2, "png"),
     );
+  });
+});
+
+describe("watchNetwork — pourquoi une application n'a jamais démarré", () => {
+  // Page factice : la forme exacte que le témoin consomme (`on`/`off` d'un
+  // émetteur, requêtes à `url()`/`method()`/`failure()`, messages à `type()`).
+  const requete = (url: string, motif?: string) => ({
+    url: () => url,
+    method: () => "GET",
+    failure: () => (motif === undefined ? null : { errorText: motif }),
+  });
+  interface ITemoin {
+    report(): string;
+    stop(): void;
+  }
+  const watchNetwork = fonctionDe<(page: EventEmitter) => ITemoin>(
+    probes,
+    "watchNetwork",
+  );
+
+  it("nomme les requêtes JAMAIS abouties, les échecs et les erreurs — pas celles servies", () => {
+    const page = new EventEmitter();
+    const temoin = watchNetwork(page);
+    const servie = requete("https://h/_assets/a.js");
+    const bloquee = requete("https://h/_assets/rolldown-runtime.js");
+    const ratee = requete(
+      "https://h/_assets/b.js",
+      "net::ERR_HTTP2_PROTOCOL_ERROR",
+    );
+    page.emit("request", servie);
+    page.emit("request", bloquee);
+    page.emit("request", ratee);
+    page.emit("requestfinished", servie);
+    page.emit("requestfailed", ratee);
+    page.emit("console", { type: () => "log", text: () => "bavard" });
+    page.emit("console", {
+      type: () => "error",
+      text: () => "module introuvable",
+    });
+    page.emit("pageerror", new Error("boum"));
+    const rapport = temoin.report();
+    expect(rapport).toContain("JAMAIS abouties (1)");
+    expect(rapport).toContain("GET https://h/_assets/rolldown-runtime.js");
+    expect(rapport).not.toContain("_assets/a.js");
+    expect(rapport).toContain("b.js — net::ERR_HTTP2_PROTOCOL_ERROR");
+    expect(rapport).toContain("console : module introuvable");
+    expect(rapport).not.toContain("bavard");
+    expect(rapport).toContain("page : Error: boum");
+  });
+
+  it("ne dit rien quand tout a abouti, et retire ses écouteurs", () => {
+    const page = new EventEmitter();
+    const temoin = watchNetwork(page);
+    const r = requete("https://h/x");
+    page.emit("request", r);
+    page.emit("requestfinished", r);
+    expect(temoin.report()).toBe("");
+    for (const e of [
+      "request",
+      "requestfinished",
+      "requestfailed",
+      "console",
+      "pageerror",
+    ]) {
+      expect(page.listenerCount(e)).toBe(0);
+    }
   });
 });

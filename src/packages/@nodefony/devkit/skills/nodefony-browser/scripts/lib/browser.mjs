@@ -26,6 +26,7 @@ import {
   browserEngine,
   browserOrder,
   sessionVerdict,
+  watchNetwork,
   parseColorScheme,
   parseReducedMotion,
   parseStorage,
@@ -383,6 +384,12 @@ async function staleSessionReason(ctx) {
  * @param ctx - son contexte, dont l'état est sauvegardé après succès.
  */
 export async function signIn(page, ctx) {
+  // Témoin réseau du parcours de connexion, relevé SEULEMENT si l'écran
+  // n'apparaît pas. Sans lui, « aucun champ » ne distingue pas un mauvais
+  // chemin d'une application qui n'a jamais démarré : vécu en CI, onze modules
+  // préchargés jamais servis, page vide, et le journal du serveur muet — seul
+  // le navigateur savait quelles requêtes restaient en vol.
+  const witness = watchNetwork(page);
   await page.goto(`${BASE}${LOGIN}`, { waitUntil: "domcontentloaded" });
   const id = page.getByRole("textbox", {
     name: /identifiant|utilisateur|username|e-?mail/i,
@@ -414,10 +421,12 @@ export async function signIn(page, ctx) {
         "  2. tes champs ne portent pas les libellés reconnus (identifiant,\n" +
         "     utilisateur, e-mail / mot de passe) — la sonde vise le LIBELLÉ\n" +
         "     visible, pas un sélecteur, parce que c'est lui le contrat avec\n" +
-        "     l'utilisateur. Ajoute un `aria-label` si ton champ n'en a pas.",
+        "     l'utilisateur. Ajoute un `aria-label` si ton champ n'en a pas." +
+        witness.report(),
     );
     process.exit(65); // EX_DATAERR — l'écran attendu n'est jamais apparu
   }
+  witness.stop();
   if ((await id.count()) > 0) {
     await id.fill(USER);
     await id.press("Enter");
