@@ -35,6 +35,7 @@ import {
   existsSync,
   readdirSync,
   mkdirSync,
+  copyFileSync,
 } from "node:fs";
 import MarkdownIt from "markdown-it";
 import { highlight, STYLE_CODE } from "./markdown-highlight.mjs";
@@ -152,19 +153,41 @@ const countFiles = (dir, re) => {
 };
 
 /**
- * Une capture EMBARQUÉE en data-URI — le rapport doit survivre à une clé USB et
- * à un mode avion. Rend une chaîne vide si le fichier manque : une présentation
- * sans capture reste lisible, une présentation avec une image cassée ne l'est
- * pas.
+ * Une capture servie en FICHIER, à côté de la page, en deux largeurs WebP.
+ *
+ * Embarquées en base64, les deux captures pesaient 879 Ko sur un document de
+ * 1 Mo : tout le texte attendait des images situées 20 000 px plus bas, et
+ * Lighthouse mesurait un premier affichage à 4,4 s. Copiées dans `assets/`,
+ * déclarées avec leurs dimensions (aucun décalage de mise en page) et chargées
+ * à l'approche (`loading="lazy"`), elles ne coûtent plus rien au premier écran.
+ * `srcset` laisse le navigateur prendre 800 px sur un téléphone, 1 600 ailleurs.
+ *
+ * Rend une chaîne vide si une variante manque : une présentation sans capture
+ * reste lisible, une présentation avec une image cassée ne l'est pas.
  */
-const embedPng = (name, alt) => {
-  const p = join(ROOT, "docs", "assets", name);
-  if (!existsSync(p)) {
-    console.warn(`⚠️  capture absente, section rendue sans image : ${name}`);
+const SHOT = { w: 1600, h: 905 };
+const figureShot = (name, alt) => {
+  const variants = [800, 1600].map((w) => ({
+    w,
+    file: `${name}-${w}.webp`,
+    src: join(ROOT, "docs", "assets", `${name}-${w}.webp`),
+  }));
+  const missing = variants.find((v) => !existsSync(v.src));
+  if (missing) {
+    console.warn(
+      `⚠️  capture absente, section rendue sans image : ${missing.file}`,
+    );
     return "";
   }
-  const b64 = readFileSync(p).toString("base64");
-  return `<figure style="margin:1.2rem 0"><img src="data:image/png;base64,${b64}" alt="${alt}" style="width:100%;height:auto;border-radius:8px;border:1px solid rgba(128,128,128,.35)"><figcaption class="u" style="margin-top:.4rem">${alt}</figcaption></figure>`;
+  const dir = join(dirname(resolve(OUT)), "assets");
+  mkdirSync(dir, { recursive: true });
+  for (const v of variants) copyFileSync(v.src, join(dir, v.file));
+  const srcset = variants.map((v) => `./assets/${v.file} ${v.w}w`).join(", ");
+  return (
+    `<figure class="shot"><img src="./assets/${variants[1].file}" srcset="${srcset}" ` +
+    `sizes="(max-width: 1240px) 100vw, 1168px" width="${SHOT.w}" height="${SHOT.h}" ` +
+    `loading="lazy" decoding="async" alt="${alt}"><figcaption>${alt}</figcaption></figure>`
+  );
 };
 
 // Le paquet PUBLIÉ : sa version porte le canal (`10.0.0-beta.7` → `@beta`),
@@ -249,7 +272,11 @@ const suites = inventaireTests();
  */
 function readmeEnHtml() {
   const brut = readFileSync(join(ROOT, "README.md"), "utf8");
+  // Le README est GÉNÉRÉ et s'ouvre sur un commentaire « ne pas éditer ici » :
+  // ancrée en tête de fichier, l'expression de l'en-tête ne mordait plus, et la
+  // page portait un second `h1`, le logo servi par GitHub et quatre badges tiers.
   const sansEntete = brut
+    .replace(/^(\s*<!--[\s\S]*?-->)+\s*/, "")
     .replace(/^<div align="center">[\s\S]*?<\/div>\s*\n(-{3,}\s*\n)?/, "")
     .trim();
   const md = new MarkdownIt({
@@ -259,6 +286,10 @@ function readmeEnHtml() {
     highlight,
   });
   let html = md.render(sansEntete);
+  if (/<h1[\s>]/.test(html))
+    throw new Error(
+      "README : l'en-tête centré (logo, titre, badges) n'a pas été retiré — la page aurait deux h1.",
+    );
   const BLOB = "https://github.com/nodefony/nodefony-core/blob/main/";
   const RAW = "https://raw.githubusercontent.com/nodefony/nodefony-core/main/";
   html = html
@@ -351,7 +382,16 @@ function readmeSansDoublons() {
         `  Cette page écrit ses propres sections calculées : dire si chacune fait DOUBLON\n` +
         `  (README_DOUBLONS) ou doit être GARDÉE (README_GARDES) dans scripts/site/readme-html.mjs.`,
     );
-  return gardes.join("");
+  // Le README vit SOUS la section « Ce qu'est Nodefony » (un `h2`) : ses `##`
+  // en étaient les frères, et la hiérarchie annoncée aux lecteurs d'écran comme
+  // aux yeux mettait « Démarrage » au rang de la page entière. Un niveau de moins,
+  // de h4 vers h5 d'abord pour ne jamais rétrograder deux fois le même titre.
+  let kept = gardes.join("");
+  for (const n of [4, 3, 2])
+    kept = kept
+      .replace(new RegExp(`<h${n}(\\s|>)`, "g"), `<h${n + 1}$1`)
+      .replace(new RegExp(`</h${n}>`, "g"), `</h${n + 1}>`);
+  return kept;
 }
 
 const readme = section("Ce qu'est Nodefony", readmeSansDoublons());
@@ -807,12 +847,12 @@ direct avec rejeu, suivi d'une requête de bout en bout par son identifiant, sch
 graphe des classes par module, gouvernance de la sécurité, et les générateurs de code pilotables à
 la souris — la sortie diffusée comme un terminal.</p>
 
-${embedPng("studio-supervision.png", "Supervision du runtime — topologie, ressources, journaux en direct")}
+${figureShot("studio-supervision", "Supervision du runtime — topologie, ressources, journaux en direct")}
 
 <p>Chaque requête porte un identifiant propagé dans tout le pipeline : la console rejoue son trajet
 complet — phases, requêtes de base de données, décisions du pare-feu.</p>
 
-${embedPng("studio-request.png", "Suivi d'une requête de bout en bout par son identifiant")}
+${figureShot("studio-request", "Suivi d'une requête de bout en bout par son identifiant")}
 
 ${note(`<strong>Sa force est en dessous.</strong> Elle ne consomme aucune API privée : tout vient
 d'un plan de données JSON protégé par les mêmes règles d'accès que le reste, <strong>auto-décrit</strong>
@@ -1211,6 +1251,9 @@ const html = doc({
   .profil[open] summary::after { content:"▾"; }
   .profil-q { font-size:13px; line-height:1.3; }
 }
+.shot { margin:1.2rem 0; }
+.shot img { display:block; width:100%; height:auto; border-radius:8px; border:1px solid var(--line); }
+.shot figcaption { margin-top:.4rem; color:var(--dim); font-size:13.5px; }
 ${STYLE_CODE}
 /* Verdicts du tableau de couverture. Une teinte qui tient 4,5:1 sur blanc est
    trop sombre sur fond noir — d'où deux jeux, jamais une couleur unique. */
