@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-16T17:15:04.505Z",
+  "generatedAt": "2026-11-16T18:32:23.552Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 269,
       "dueOn": "2026-11-29T00:00:00Z",
       "number": 7,
-      "open": 5,
+      "open": 6,
       "title": "10.0.0-beta"
     },
     {
@@ -2720,7 +2720,7 @@
       "title": "feat(realtime): empêcher le rejeu d'une éjection sur un canal durable",
       "url": "https://github.com/nodefony/nodefony-core/issues/725",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -7152,7 +7152,7 @@
       "title": "feat(cli): ouvrir l'image générée aux paquets système, sans retouche",
       "url": "https://github.com/nodefony/nodefony-core/issues/779",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -7223,6 +7223,22 @@
       "ordre": 9.06,
       "debut": "2026-11-19",
       "cible": "2026-11-19",
+      "labels": [
+        "beta-9"
+      ]
+    },
+    {
+      "number": 785,
+      "title": "fix(devkit): qu'un agent lâché dans une application neuve lise AGENTS.md et se serve des générateurs — et que le banc le mesure juste",
+      "url": "https://github.com/nodefony/nodefony-core/issues/785",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 9.07,
+      "debut": "2026-11-26",
+      "cible": "2026-11-27",
       "labels": [
         "beta-9"
       ]
