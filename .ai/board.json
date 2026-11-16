@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-16T16:00:32.299Z",
+  "generatedAt": "2026-11-16T17:15:04.505Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -2720,7 +2720,7 @@
       "title": "feat(realtime): empêcher le rejeu d'une éjection sur un canal durable",
       "url": "https://github.com/nodefony/nodefony-core/issues/725",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 1,
