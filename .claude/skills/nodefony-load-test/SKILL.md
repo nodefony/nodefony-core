@@ -281,7 +281,7 @@ Tout banc, ancien ou nouveau, doit :
    à un banc réussi. (⚠️ vérifier l'exit **sans pipe** : en zsh `$?` après un pipe est
    celui du dernier maillon.)
 
-Contrôles en place : `http-load.mjs` (RPS servi + exit 1) · `bench-ab-mono.sh` et
+Contrôles en place : `supervision-stress.mjs` (cibles prouvées, statut attendu par cible, refus déclarés) · `http-load.mjs` (RPS servi + exit 1) · `bench-ab-mono.sh` et
 `bench-frameworks/bench.sh` (cible 200 + non-2xx sous charge) · `log-sink-contention.mjs`
 (octets écrits vs attendus) · `capacity.mjs` (statut vérifié en HTTP/1.1 ET HTTP/2 — ses
 chiffres deviennent des constantes de dimensionnement de pod).
@@ -293,7 +293,7 @@ Studio était passée en zone d'administration (1008) et son canal par défaut a
 renommé (« aucun producteur »).
 
 Reste à durcir (chiffres publiés, contrôle partiel ou absent) :
-`supervision-stress.mjs`, `cluster-ipc.mjs`, `aimd-demo.mjs`, `ws-connections.mjs`.
+`cluster-ipc.mjs`, `aimd-demo.mjs`, `ws-connections.mjs`.
 
 ## 🚨 RÈGLE N°1 bis — LATENCE et BLOCAGE sont deux grandeurs ; une seule plafonne un process
 

@@ -135,8 +135,16 @@ STAGES=10 WS_STEP=400 HTTP_STEP=80 ORM_STEP=8 run.sh stress   # plus agressif �
 ```
 
 ENV : `STAGES`(6) `STAGE_MS`(10000) `WS_STEP`(200) `HTTP_STEP`(40) `ORM_STEP`(4)
-`MSG_HZ`(4) `BATCH`(50) `ERR_RUPTURE`(0.30) `HTTP_PATH`(/nodefony/test/index)
-`ORM_PATH`(/nodefony/orm/api/orms) `WS_PATH`(/nodefony/test/ws/echo) `HOST` `PORT`.
+`REFUSAL_STEP`(6) `MSG_HZ`(4) `BATCH`(50) `ERR_RUPTURE`(0.30) `HTTP_PATHS` (7 routes 2xx en
+rotation : JSON, contexte async, vue, SSE, statique, page, santé) `REFUSAL_PATHS`
+(`<statut>[~]:<route>`, `~` = sans session ; défaut 400, 401, 404, 500 sync/async)
+`ORM_PATH`(/nodefony/orm/api/orms) `WS_PATH`(/nodefony/test/ws/echo) `NF_BENCH_USER`/`NF_BENCH_PASSWORD`
+(session d'administration, exigée par le data-plane ORM) `HOST` `PORT`.
+
+> **Validité** : chaque cible est PROUVÉE avant la mesure (2xx, ou le statut annoncé d'un
+> refus) — sinon code 2, aucun chiffre. Sous charge, seul le statut attendu est un succès ;
+> le résumé liste les échecs par statut et route. Vécu : la lane ORM comptait comme succès
+> des 401 servis vite (aucune session), tout statut < 500 passait.
 
 > Lanes : HTTP = workers concurrents sur une route test ; WS = connexions persistantes
 > (handles ↑) + echo à `MSG_HZ` (CPU/event-loop ↑) ; ORM = workers sur le data-plane
