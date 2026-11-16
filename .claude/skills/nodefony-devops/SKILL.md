@@ -131,7 +131,7 @@ prouve pas doit être dit, pas supposé prouvé.
 ## 5bis. Choisir l'image de base — un banc, pas un avis
 
 `scripts/bench-bases.mjs` génère une application `complete` (installation réelle depuis npm),
-remplace les deux lignes `FROM` de son `Dockerfile` pour chaque candidate — `node:24-alpine`,
+pose les deux bases de son `Dockerfile` (`NODE_IMAGE`, `RUNTIME_IMAGE`) pour chaque candidate — `node:24-alpine`,
 `node:24-slim`, `gcr.io/distroless/nodejs24-debian12` et `-debian13` (retenue) —, construit en
 tirant les bases fraîches, scanne (`docker scout quickview`), puis **démarre** : `/livez`,
 `GET /`, arrêt en code 0. Tableau en sortie, données dans `tmp/bench/bench-bases-<date>.json`.
@@ -142,10 +142,10 @@ node .claude/skills/nodefony-devops/scripts/bench-bases.mjs
 node .claude/skills/nodefony-devops/scripts/bench-bases.mjs --bases alpine,distroless13 --keep
 ```
 
-- Le gabarit sert distroless `debian13`. Une base À SHELL (alpine, slim) s'en écarte en trois
-  points, et le banc VÉRIFIE chaque substitution : l'étage `nf-dirs` disparaît et le
-  `RUN mkdir … && chown` revient, la sonde appelle `node` au lieu de `/nodejs/bin/node`, `CMD`
-  inchangé.
+- Le banc ne RÉÉCRIT jamais le `Dockerfile`. Une distroless garde la fin par défaut et
+  reçoit ses deux images en `--build-arg` ; une base À SHELL (alpine, slim) devient l'image
+  finale par `--target with-packages`, construction et exécution sur la même base. Chaque run
+  prouve donc aussi la promesse du gabarit : changer de base sans retouche.
 - ⚠️ Le banc installe nodefony DEPUIS NPM : une base dont le Node est sous le plancher
   `engines` du code EN COURS (debian12, 24.14) peut y démarrer sur la version publiée et mourir
   sur la suivante. Juger une base sur sa colonne Node face au plancher, pas sur le seul `200`.

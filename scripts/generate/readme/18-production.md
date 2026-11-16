@@ -97,11 +97,23 @@ Pour la même raison, un lanceur qui change la commande la passe en **arguments*
 Kubernetes (jamais `command:`, qui remplacerait le Node d'entrée de l'image), `command:` dans
 compose, qui ne touche que les arguments.
 
-**Pour en changer** — vers Alpine (`apk add` possible) ou `node:24-slim` (glibc, avec `bash`) —,
-le `Dockerfile` le dit en tête, en quatre gestes : l'étage de construction et l'étage d'exécution
-changent **ensemble** (les modules natifs sont compilés pour la libc de l'étage de construction, et
-le symptôme d'un mélange est au DÉMARRAGE, pas à l'installation), le `RUN mkdir` des dossiers de
-données revient, et la sonde appelle `node`.
+**Pour en changer — sans retoucher le `Dockerfile`**, qui reste ainsi celui que le framework
+sait mettre à jour. Les deux bases sont des arguments de construction : `NODE_IMAGE` (construction)
+et `RUNTIME_IMAGE` (exécution). Un registre interne ou une autre ligne de Node passent par
+`--build-arg` ; les deux bases bougent **ensemble**, sur la même libc (les modules natifs sont
+compilés pour celle de l'étage de construction, et le symptôme d'un mélange est au DÉMARRAGE, pas
+à l'installation).
+
+Pour un **outil système** (ffmpeg, ImageMagick…), une seconde fin du même fichier part de
+`NODE_IMAGE`, avec un gestionnaire de paquets — au prix de la surface d'attaque mesurée plus haut :
+
+```bash
+docker build --target with-packages --build-arg PACKAGES="ffmpeg" -t mon-app .
+docker build --target with-packages --build-arg NODE_IMAGE=node:24-alpine -t mon-app .   # Alpine
+```
+
+Même contrat que la fin par défaut — utilisateur 1000, `/readyz`, même `CMD` —, mais `node` est sur
+le `PATH` : `docker exec <conteneur> node …`.
 
 #### Si tu PUBLIES cette image
 

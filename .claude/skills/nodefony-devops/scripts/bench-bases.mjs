@@ -2,8 +2,9 @@
 /**
  * bench-bases.mjs — compare les images de base d'une application Nodefony : poids, failles, Node embarqué, démarrage.
  *
- * Le `Dockerfile` que `create app` rend tient sa base en deux lignes `FROM`.
- * Ce banc les remplace pour chaque candidate, CONSTRUIT l'image d'une vraie
+ * Le `Dockerfile` que `create app` rend tient sa base en deux arguments de
+ * construction, `NODE_IMAGE` et `RUNTIME_IMAGE`. Ce banc les pose pour chaque
+ * candidate — SANS réécrire le fichier —, CONSTRUIT l'image d'une vraie
  * application `complete`, la scanne (`docker scout quickview`), puis la
  * DÉMARRE : `GET /livez`, `GET /`, et un arrêt dont le code doit valoir 0.
  * « Ça construit » ne prouve rien — c'est le démarrage qui a trouvé #419.
@@ -11,12 +12,10 @@
  * Les bases sont tirées fraîches (`--pull`) : la version de Node relevée dit
  * aussi si une distribution s'est mise à jour depuis le dernier banc.
  *
- * Le gabarit sert distroless `debian13`. Une base À SHELL (alpine, slim)
- * s'en écarte en trois points, et seulement trois : l'étage `nf-dirs` disparaît
- * et le `RUN mkdir … && chown` revient ; la sonde appelle `node` (sur le PATH)
- * au lieu de `/nodejs/bin/node` ; le `CMD` reste tel quel. Chaque
- * substitution est VÉRIFIÉE : un gabarit qui a bougé arrête le banc au lieu de
- * mesurer l'image d'origine sous un autre nom.
+ * Le gabarit sert distroless `debian13` par défaut. Une base À SHELL (alpine,
+ * slim) devient l'image finale par la fin `with-packages` du même fichier, qui
+ * part de `NODE_IMAGE` : construction et exécution sur la même base. Chaque run
+ * prouve donc aussi ce que le gabarit promet — changer de base sans retouche.
  *
  *   node .claude/skills/nodefony-devops/scripts/bench-bases.mjs
  *   node .claude/skills/nodefony-devops/scripts/bench-bases.mjs --bases alpine,distroless13 --keep
@@ -24,7 +23,7 @@
  * @usage node .claude/skills/nodefony-devops/scripts/bench-bases.mjs [--app <dossier>] [--bases <liste>] [--keep] [--json <fichier>]
  */
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -85,68 +84,22 @@ function run(cmd, args, options = {}) {
 }
 
 /**
- * Remplace une occurrence UNIQUE, ou lève : une substitution qui ne mord pas
- * ferait mesurer l'image d'origine sous le nom d'une autre.
- */
-function swap(text, from, to, label) {
-  const count = text.split(from).length - 1;
-  if (count !== 1)
-    throw new Error(
-      `Dockerfile : « ${label} » trouvé ${count} fois (attendu 1) — le gabarit a bougé`,
-    );
-  return text.replace(from, to);
-}
-
-/**
- * Rend le Dockerfile d'une candidate depuis celui de l'application.
+ * Les arguments `docker build` d'une candidate — le `Dockerfile` n'est jamais
+ * réécrit.
  *
- * @param source - Dockerfile rendu par `create app`.
  * @param base - candidate de {@link BASES}.
- * @returns le Dockerfile de la candidate.
+ * @returns distroless : la fin par défaut et ses deux images ; base à shell :
+ *   la fin `with-packages`, bâtie et exécutée sur cette base.
  */
-export function variantDockerfile(source, base) {
-  // Le gabarit sert distroless `debian13` : construction en `node:24-slim`,
-  // étage `nf-dirs` pour les points de montage, sonde en `/nodejs/bin/node`.
-  let out = swap(
-    source,
-    "\nFROM node:24-slim AS build\n",
-    `\nFROM ${base.build} AS build\n`,
-    "FROM … AS build",
-  );
-  if (base.distroless) {
-    return swap(
-      out,
-      "\nFROM gcr.io/distroless/nodejs24-debian13\n",
-      `\nFROM ${base.run}\n`,
-      "FROM d'exécution",
-    );
-  }
-  // Base À SHELL : l'étage `nf-dirs` disparaît, le `RUN mkdir` revient, et
-  // `node` est sur le PATH.
-  out = swap(
-    out,
-    "\nFROM node:24-slim AS nf-dirs\nRUN mkdir -p /out/tmp /out/var\n",
-    "\n",
-    "étage nf-dirs",
-  );
-  out = swap(
-    out,
-    "\nFROM gcr.io/distroless/nodejs24-debian13\n",
-    `\nFROM ${base.run}\n`,
-    "FROM d'exécution",
-  );
-  out = swap(
-    out,
-    "COPY --from=nf-dirs --chown=1000:1000 /out/ /app/\n",
-    "RUN mkdir -p /app/tmp /app/var \\\n && chown 1000:1000 /app/tmp /app/var\n",
-    "COPY nf-dirs",
-  );
-  return swap(
-    out,
-    'CMD ["/nodejs/bin/node", "-e",',
-    'CMD ["node", "-e",',
-    "HEALTHCHECK node",
-  );
+export function buildArgs(base) {
+  return base.distroless
+    ? [
+        "--build-arg",
+        `NODE_IMAGE=${base.build}`,
+        "--build-arg",
+        `RUNTIME_IMAGE=${base.run}`,
+      ]
+    : ["--target", "with-packages", "--build-arg", `NODE_IMAGE=${base.run}`];
 }
 
 /** Compte des failles par sévérité, lu sur la ligne « Target » de `docker scout quickview`. */
@@ -258,19 +211,16 @@ async function main() {
     );
     created = true;
   }
-  const source = readFileSync(path.join(app, "Dockerfile"), "utf8");
   const results = [];
   let envFile = null;
   for (const [index, key] of opts.bases.entries()) {
     const base = BASES[key];
     const image = `nf-bench-${key}`;
-    const file = path.join(app, `Dockerfile.bench-${key}`);
-    writeFileSync(file, variantDockerfile(source, base));
     console.log(`▸ ${key} — construction (${base.run})`);
     const tb = Date.now();
     const built = spawnSync(
       "docker",
-      ["build", "--pull", "-q", "-f", file, "-t", image, app],
+      ["build", "--pull", "-q", ...buildArgs(base), "-t", image, app],
       { encoding: "utf8" },
     );
     if (built.status !== 0) {

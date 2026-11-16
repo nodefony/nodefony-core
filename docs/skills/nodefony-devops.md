@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-11-11
+updated: 2026-11-16
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-devops/SKILL.md"
 ---
@@ -29,7 +29,7 @@ source: ".claude/skills/nodefony-devops/SKILL.md"
 | Version | `1.1.0` |
 | Famille | Autres |
 | Corps | 164 lignes |
-| Coût d'activation | ~3 523 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~3 543 tokens (le corps est chargé à l'invocation) |
 | Description | 906 / 1024 caractères |
 | Déclencheurs | 13 |
 | Ressources `references/` | 0 page(s), 24 fichiers au total |
@@ -74,7 +74,7 @@ script, donc toujours à jour après régénération.
 
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
-| `scripts/bench-bases.mjs` | bench-bases.mjs — compare les images de base d'une application Nodefony : poids, failles, Node embarqué, démarrage. | `--app` `--bases` `--chown` `--entrypoint` `--env` `--env-file` `--from` `--frontend` `--json` `--keep` `--license` `--name` `--no-git` `--preset` `--pull` `--rm` `--tail` `--version` `--yes` | — |
+| `scripts/bench-bases.mjs` | bench-bases.mjs — compare les images de base d'une application Nodefony : poids, failles, Node embarqué, démarrage. | `--app` `--bases` `--build-arg` `--entrypoint` `--env` `--env-file` `--frontend` `--json` `--keep` `--license` `--name` `--no-git` `--preset` `--pull` `--rm` `--tail` `--target` `--version` `--yes` | — |
 
 **Invocation telle que documentée dans chaque script :**
 

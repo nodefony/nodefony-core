@@ -117,18 +117,44 @@ npm. Sa construction se fait en `node:24-slim`, même libc (glibc) que l'image
 finale. `nodejs24-debian12`, restée en Node 24.14.0, est sous le plancher du
 framework et ne démarre pas.
 
-Les candidates, leurs chiffres et **les quatre gestes pour en changer** (vers
-Alpine pour un `apk add`, vers `node:24-slim` pour un shell) sont en tête du
-`Dockerfile` généré, et sur la page publique de l'image
-(`docker/hub-overview.md` dans le dépôt).
+Les candidates et leurs chiffres sont en tête du `Dockerfile` généré. **On en
+change sans le retoucher** — un fichier retouché ne peut plus être mis à jour par
+le framework : les deux bases sont des arguments de construction.
+
+| Argument        | Défaut                                | Sert à                                    |
+| --------------- | ------------------------------------- | ----------------------------------------- |
+| `NODE_IMAGE`    | `node:24-slim`                        | construire, et fin `with-packages`        |
+| `RUNTIME_IMAGE` | `gcr.io/distroless/nodejs24-debian13` | exécuter, fin par défaut                  |
+| `PACKAGES`      | _(vide)_                              | paquets système de la fin `with-packages` |
+
+```bash
+# un registre interne : les mêmes images, sous son nom
+docker build --build-arg NODE_IMAGE=registre.interne/node:24-slim \
+             --build-arg RUNTIME_IMAGE=registre.interne/distroless/nodejs24-debian13 .
+
+# un outil système : la seconde fin, avec un gestionnaire de paquets
+docker build --target with-packages --build-arg PACKAGES="ffmpeg imagemagick" .
+
+# Alpine (ou slim) comme image FINALE : construction et exécution sur la même base
+docker build --target with-packages --build-arg NODE_IMAGE=node:24-alpine .
+```
+
+La fin `with-packages` part de `NODE_IMAGE`, la base de construction : même libc
+par construction. Elle tient le même contrat que la fin distroless — utilisateur
+1000 numérique, `var/` et `tmp/` à lui, sonde `/readyz`, même `CMD` derrière un
+`ENTRYPOINT` `node` —, donc un manifeste écrit pour l'une sert l'autre. Elle se
+paie en surface d'attaque (les failles de la base, plus celles des paquets) : ne
+la prendre que pour un outil que l'application appelle. La fin par défaut reste
+la DERNIÈRE du fichier, c'est ce qui fait d'elle l'image d'un `docker build .`.
 
 > Trois points qui ne se devinent pas :
 >
 > - les deux étages doivent partager la même **libc** — un binaire natif installé
 >   à la construction ne se charge pas sinon, sur un message qui ne parle pas de
 >   libc ;
-> - `node` n'est pas sur le `PATH` : un diagnostic passe par
->   `docker exec <conteneur> /nodejs/bin/node …`, et la sonde de santé aussi ;
+> - sur distroless, `node` n'est pas sur le `PATH` : un diagnostic passe par
+>   `docker exec <conteneur> /nodejs/bin/node …`, et la sonde de santé aussi
+>   (sur `with-packages`, c'est `node` tout court) ;
 > - le Node d'entrée de l'image est son `ENTRYPOINT` : une commande se change par
 >   ses **arguments** (`args:` en Kubernetes, jamais `command:`, qui le
 >   remplacerait — et le script lancé n'aurait plus personne pour lire son

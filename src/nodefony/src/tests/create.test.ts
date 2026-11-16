@@ -1568,8 +1568,11 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         dernier![2],
         `le dernier étage est nommé « ${dernier![2]} » : "docker build ." ne produirait plus l'image de l'application`,
       );
+      // La base est un argument de construction (#779) : c'est son DÉFAUT qui
+      // dit ce que `docker build .` produit.
+      assert.equal(dernier![1], "${RUNTIME_IMAGE}");
       assert.match(
-        dernier![1]!,
+        dockerfile.match(/^ARG RUNTIME_IMAGE=(\S+)$/mu)?.[1] ?? "",
         /^gcr\.io\/distroless\/nodejs\d+-debian13$/u,
         "le dernier étage n'est plus Node",
       );
@@ -3577,7 +3580,27 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           1,
           `${anonymes.length} étages sans nom — "docker build ." ne produirait plus l'image attendue`,
         );
-        assert.match(anonymes[0]![1]!, /^gcr\.io\/distroless\/nodejs/u);
+        // 🔴 Les bases sont des ARGUMENTS de construction, pas des littéraux :
+        // un registre interne ou une autre ligne de Node passent par
+        // `--build-arg`, sans retoucher un fichier que le framework doit
+        // pouvoir mettre à jour (#779). Un `FROM` littéral revenu ici
+        // recréerait la retouche obligatoire — et rien d'autre ne le dirait.
+        const defauts = new Map(
+          [...dockerfile.matchAll(/^ARG (\w+)=(\S+)$/gmu)].map((m) => [
+            m[1]!,
+            m[2]!,
+          ]),
+        );
+        const resoudre = (base: string | undefined): string | undefined =>
+          base?.replace(
+            /^\$\{(\w+)\}$/u,
+            (brut, nom: string) => defauts.get(nom) ?? brut,
+          );
+        assert.equal(anonymes[0]![1], "${RUNTIME_IMAGE}");
+        assert.match(
+          resoudre(anonymes[0]![1])!,
+          /^gcr\.io\/distroless\/nodejs/u,
+        );
 
         // 🔴 La BASE elle-même, et pas seulement sa forme. C'est un choix
         // MESURÉ sur les images FINALES (application comprise) : distroless
@@ -3594,26 +3617,71 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         // de la version de Node, jamais de l'image.
         const etageBuild = etages.find((e) => e[2] === "build");
         assert.equal(
-          etageBuild?.[1],
+          resoudre(etageBuild?.[1]),
           "node:24-slim",
           "l'étage de construction a changé de base — si c'est voulu, la mesure qui le justifie doit être refaite (docker scout sur l'image FINALE) et ce test mis à jour avec elle",
         );
         assert.equal(
-          anonymes[0]![1],
+          resoudre(anonymes[0]![1]),
           "gcr.io/distroless/nodejs24-debian13",
           "l'étage d'exécution a changé de base — c'est LUI qu'on déploie",
         );
 
-        // Forme EXEC obligatoire. En forme shell, /bin/sh devient PID 1 et ne
-        // transmet PAS le SIGTERM de `docker stop` : plus jamais de drain,
-        // SIGKILL à chaque déploiement — et l'image marche parfaitement.
-        assert.match(dockerfile, /^CMD \["/mu);
-        assert.notMatch(dockerfile, /^CMD [^[]/mu);
+        // Le TEXTE d'un étage, de son `FROM` au suivant — les contrats se
+        // tiennent PAR FIN : une ligne présente dans l'une ne prouve rien de
+        // l'autre.
+        const texteEtage = (from: RegExpMatchArray): string => {
+          const debut = from.index!;
+          const suivant = etages.find((e) => e.index! > debut);
+          return dockerfile.slice(debut, suivant?.index ?? dockerfile.length);
+        };
+        const finale = texteEtage(anonymes[0]!);
 
-        // Jamais root — les ports Nodefony n'exigent aucun privilège. Et
-        // NUMÉRIQUE, pas `node` : le kubelet refuse `runAsNonRoot: true` quand
-        // l'image ne déclare qu'un nom d'utilisateur, qu'il ne sait pas résoudre.
-        assert.match(dockerfile, /^USER 1000:1000$/mu);
+        // 🔴 La SECONDE fin, `with-packages` (#779) : la même application avec
+        // un gestionnaire de paquets, pour ffmpeg & co. Elle part de la base de
+        // CONSTRUCTION — la même variable, donc la même libc par construction :
+        // un module natif bâti d'un côté se charge de l'autre.
+        const etageAvecPaquets = etages.find((e) => e[2] === "with-packages");
+        assert.ok(
+          etageAvecPaquets,
+          "la fin with-packages a disparu — ajouter un outil système redevient une retouche du Dockerfile",
+        );
+        assert.equal(etageAvecPaquets[1], etageBuild?.[1]);
+        const avecPaquets = texteEtage(etageAvecPaquets);
+        assert.match(avecPaquets, /^ARG PACKAGES=""$/mu);
+        assert.include(avecPaquets, "--no-install-recommends $PACKAGES");
+
+        // Le MÊME contrat sur les deux fins — chaque ligne, sur chacune.
+        const cmdFinale = finale.match(/^CMD \[.*\]$/mu)?.[0];
+        assert.ok(cmdFinale, "CMD de la fin par défaut introuvable");
+        for (const [nom, texte] of [
+          ["fin par défaut", finale],
+          ["with-packages", avecPaquets],
+        ] as const) {
+          // Forme EXEC obligatoire. En forme shell, /bin/sh devient PID 1 et ne
+          // transmet PAS le SIGTERM de `docker stop` : plus jamais de drain,
+          // SIGKILL à chaque déploiement — et l'image marche parfaitement.
+          assert.notMatch(texte, /^CMD [^[]/mu, nom);
+          // Le même CMD sur les deux fins : un lanceur qui change la commande
+          // passe d'une fin à l'autre sans retouche.
+          assert.include(texte, `\n${cmdFinale}`, nom);
+          // Jamais root — les ports Nodefony n'exigent aucun privilège. Et
+          // NUMÉRIQUE, pas `node` : le kubelet refuse `runAsNonRoot: true` quand
+          // l'image ne déclare qu'un nom d'utilisateur, qu'il ne sait pas résoudre.
+          assert.match(texte, /^USER 1000:1000$/mu, nom);
+          assert.match(texte, /^EXPOSE 5151$/mu, nom);
+          // La sonde passe par la route NATIVE du framework.
+          assert.match(
+            texte,
+            /^HEALTHCHECK [^\n]*\\\n\s+CMD \[[^\n]*\/readyz/mu,
+            nom,
+          );
+          // Le code appartient à root (voir plus bas, le `--chown` absent).
+          assert.match(texte, /^COPY --from=build \/app \.\/$/mu, nom);
+        }
+        // `node` en ENTRYPOINT sur la fin à shell, comme distroless l'a déjà :
+        // sans lui, le CMD partagé serait interprété par `docker-entrypoint.sh`.
+        assert.match(avecPaquets, /^ENTRYPOINT \["node"\]$/mu);
 
         // Ces deux dossiers doivent EXISTER et appartenir au processus AVANT
         // tout montage : un volume nommé neuf hérite du propriétaire du dossier
@@ -3627,11 +3695,18 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           /^FROM \S+ AS nf-dirs\nRUN mkdir -p \/out\/tmp \/out\/var$/mu,
         );
         assert.match(
-          dockerfile,
+          finale,
           /^COPY --from=nf-dirs --chown=1000:1000 \/out\/ \/app\/$/mu,
         );
-        // Et la sonde appelle Node par son chemin : il n'est pas sur le PATH.
-        assert.include(dockerfile, 'CMD ["/nodejs/bin/node", "-e",');
+        // La fin à shell les crée elle-même, et les donne à 1000.
+        assert.match(
+          avecPaquets,
+          /^RUN mkdir -p \/app\/tmp \/app\/var && chown 1000:1000 \/app\/tmp \/app\/var$/mu,
+        );
+        // Et la sonde appelle Node par son chemin sur distroless (il n'est pas
+        // sur le PATH), par son nom sur la fin à shell.
+        assert.include(finale, 'CMD ["/nodejs/bin/node", "-e",');
+        assert.include(avecPaquets, 'CMD ["node", "-e",');
 
         // 🔴 Et ils naissent VIDES. L'étage de construction tourne en `root` et
         // BOOTE l'application (`npm run build`) : l'ORM y crée `var/databases/`

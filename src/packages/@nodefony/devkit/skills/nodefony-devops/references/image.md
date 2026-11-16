@@ -2,22 +2,24 @@
 
 > **Maintenance** : vérité courante. Éditer en place.
 
-Quatre étages, deux images finales possibles. Tu ne construis normalement que la dernière ; l'étage
-du frontal ne sort que si tu le demandes explicitement.
+Cinq étages, trois cibles. Tu ne construis normalement que la dernière ; `with-packages` (paquets
+système) et le frontal ne sortent que si tu les demandes explicitement (`--target`).
 
 ## 1. La carte
 
-| Étage       | Base                                  | Ce qu'il fait                                                           | Descend dans l'image finale ? |
-| ----------- | ------------------------------------- | ----------------------------------------------------------------------- | ----------------------------- |
-| `build`     | `node:24-slim`                        | Installe, compile, élague les dépendances de développement              | seulement son `/app`          |
-| `proxyconf` | hérite de `build`                     | **Dérive** la configuration nginx et rassemble les fichiers statiques   | non — étage intermédiaire     |
-| `edge`      | `nginx:1.30-alpine`                   | Le frontal, avec la configuration dérivée ci-dessus                     | non — cible séparée           |
-| `nf-dirs`   | `node:24-slim`                        | Crée `tmp/` et `var/` vides — distroless n'a pas de shell pour le faire | seulement ces deux dossiers   |
-| _(final)_   | `gcr.io/distroless/nodejs24-debian13` | L'application en production — ni shell, ni npm, `node` hors du `PATH`   | **oui**                       |
+| Étage           | Base                                    | Ce qu'il fait                                                           | Descend dans l'image finale ? |
+| --------------- | --------------------------------------- | ----------------------------------------------------------------------- | ----------------------------- |
+| `build`         | `NODE_IMAGE` (`node:24-slim`)           | Installe, compile, élague les dépendances de développement              | seulement son `/app`          |
+| `proxyconf`     | hérite de `build`                       | **Dérive** la configuration nginx et rassemble les fichiers statiques   | non — étage intermédiaire     |
+| `edge`          | `nginx:1.30-alpine`                     | Le frontal, avec la configuration dérivée ci-dessus                     | non — cible séparée           |
+| `nf-dirs`       | `NODE_IMAGE` (`node:24-slim`)           | Crée `tmp/` et `var/` vides — distroless n'a pas de shell pour le faire | seulement ces deux dossiers   |
+| `with-packages` | `NODE_IMAGE` (`node:24-slim`)           | L'application AVEC un gestionnaire de paquets (`PACKAGES`)              | **oui**, si tu la demandes    |
+| _(final)_       | `RUNTIME_IMAGE` (distroless `debian13`) | L'application en production — ni shell, ni npm, `node` hors du `PATH`   | **oui**, par défaut           |
 
 ```bash
 docker build -t <app> .                      # l'application
 docker build -t <app>-edge --target edge .   # le frontal, seulement si tu le veux
+docker build -t <app> --target with-packages --build-arg PACKAGES="ffmpeg" .   # avec des paquets système
 ```
 
 ## 2. L'image finale — ce qui te concerne
@@ -58,6 +60,14 @@ dès que ces deux dossiers sont montés.
 | `VCS_REF`    | `""`      | Étiquette OCI `image.revision` — le commit |
 | `BUILD_DATE` | `""`      | Étiquette OCI `image.created`              |
 
+Et trois qui changent l'image elle-même, sans retoucher le fichier (§3) :
+
+| `ARG`           | Défaut                                | À quoi il sert                                     |
+| --------------- | ------------------------------------- | -------------------------------------------------- |
+| `NODE_IMAGE`    | `node:24-slim`                        | Base de construction, et de la fin `with-packages` |
+| `RUNTIME_IMAGE` | `gcr.io/distroless/nodejs24-debian13` | Base de la fin par défaut                          |
+| `PACKAGES`      | `""`                                  | Paquets système de la fin `with-packages`          |
+
 Les trois valeurs se relèvent d'abord — `git describe --tags --always` pour l'étiquette,
 `git rev-parse --short HEAD` pour la révision, et l'horodatage UTC au format ISO 8601 — puis se
 recopient dans la commande. Les poser ainsi plutôt que par substitution garde la ligne exécutable
@@ -70,17 +80,27 @@ docker build -t <app>:<version> --build-arg VERSION=<version> --build-arg VCS_RE
 Sans eux l'image se construit quand même — avec des étiquettes vides. Une image de production sans
 `revision` est une image dont personne ne saura dire de quel code elle vient.
 
-## 3. Changer la base — c'est prévu, et c'est écrit dans le fichier
+## 3. Changer la base — par des arguments, JAMAIS en retouchant le fichier
 
-L'image finale est distroless `debian13` : aucune vulnérabilité critique ni haute, Node à jour. Le
-gabarit porte en commentaire comment passer à une base À SHELL, avec son mode d'emploi. La règle
-commune : **l'étage de construction et l'étage final partagent la même libc** — une compilation
-`alpine` (musl) et une exécution glibc produisent des binaires natifs qui ne se chargeront pas.
+L'image finale est distroless `debian13` : aucune vulnérabilité critique ni haute, Node à jour. 🔴 Ne
+retouche pas les `FROM` : un `Dockerfile` retouché ne peut plus être mis à jour par le framework.
+Tout passe par `--build-arg` et `--target`. La règle commune : **la construction et l'exécution
+partagent la même libc** — une compilation `alpine` (musl) et une exécution glibc produisent des
+binaires natifs qui ne se chargeront pas.
 
-| Tu veux…                           | Bascule                              | Ce qu'il faut aussi changer                                                    |
-| ---------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------ |
-| Un `apk add` dans l'image finale   | `node:24-alpine` sur les deux `FROM` | retirer l'étage `nf-dirs`, remettre le `RUN mkdir … && chown`, sonde en `node` |
-| Un shell glibc (`bash`, `apt-get`) | `node:24-slim` sur les deux `FROM`   | idem                                                                           |
+| Tu veux…                          | La commande                                                                                        |
+| --------------------------------- | -------------------------------------------------------------------------------------------------- |
+| ffmpeg, ImageMagick… dans l'image | `docker build --target with-packages --build-arg PACKAGES="ffmpeg" .`                              |
+| Alpine comme image finale (`apk`) | `docker build --target with-packages --build-arg NODE_IMAGE=node:24-alpine .`                      |
+| Un registre interne               | `--build-arg NODE_IMAGE=<registre>/node:24-slim --build-arg RUNTIME_IMAGE=<registre>/distroless/…` |
+| Une autre ligne de Node           | les DEUX arguments ensemble, `node:<N>-slim` et `gcr.io/distroless/nodejs<N>-debian13`             |
+
+La fin `with-packages` part de `NODE_IMAGE` — même base que la construction, donc même libc **par
+construction**. Elle installe `PACKAGES` par `apt-get` (Debian) ou `apk` (Alpine), et tient le même
+contrat que la fin par défaut : utilisateur `1000:1000`, `tmp/` et `var/` à lui, code à `root`,
+port 5151, sonde `/readyz`, même `CMD` derrière un `ENTRYPOINT` `node`. Un manifeste écrit pour
+l'une sert donc l'autre. Son prix : la surface d'attaque de la base, plus celle des paquets —
+la réserver à un outil que l'application appelle vraiment. Sur cette fin, `node` est sur le `PATH`.
 
 Sous distroless, rien ne lit un shebang : `node` n'est pas sur le `PATH` et il n'y a pas de
 `/usr/bin/env`. L'`ENTRYPOINT` de l'image est `/nodejs/bin/node`, donc une commande se change par ses

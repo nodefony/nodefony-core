@@ -43,29 +43,44 @@
 #
 # CE QU'ON Y PERD, et c'est le prix de ce zéro : pas de `docker exec … sh` pour
 # diagnostiquer (l'étiquette `:debug` de distroless ajoute un shell busybox, le
-# temps d'un diagnostic seulement), et pas de `RUN apk add` / `apt-get` dans
-# l'image finale — un outil système se COPIE depuis un étage de construction.
+# temps d'un diagnostic seulement), et pas de gestionnaire de paquets dans
+# l'image finale. Un outil système (ffmpeg, ImageMagick…) passe par l'AUTRE
+# fin de ce fichier, `with-packages`, décrite plus bas.
 #
 # Les modules natifs (`better-sqlite3`, `@node-rs/argon2`) sont compilés pour la
 # libc de l'étage de construction : il est donc en `node:24-slim` (glibc), comme
 # l'image finale. Un étage Alpine (musl) produirait des `.node` qui ne se
 # chargent pas — au DÉMARRAGE, jamais à l'installation.
 #
-# COMMENT EN CHANGER — Alpine (shell `sh`, `apk add` possible) ou
-# `node:24-slim` (glibc, shell `bash`) ; quatre gestes, jamais un seul :
-#   1. l'étage de construction : `FROM node:24-alpine AS build` ;
-#   2. l'étage `nf-dirs` et le `FROM` distroless deviennent `FROM node:24-alpine` ;
-#   3. le `COPY --from=nf-dirs …` devient
-#        RUN mkdir -p /app/tmp /app/var && chown 1000:1000 /app/tmp /app/var
-#   4. la sonde appelle `node` (sur le PATH) au lieu de `/nodejs/bin/node`.
+# COMMENT EN CHANGER — SANS toucher à ce fichier. Les deux bases sont des
+# arguments de construction, et ce fichier reste ainsi celui que le framework
+# sait mettre à jour (une copie retouchée ne se met plus à jour) :
+#
+#   NODE_IMAGE     image Node AVEC shell — construction, et fin `with-packages`
+#   RUNTIME_IMAGE  image d'exécution de la fin par défaut (distroless)
+#
+#   # un registre interne, qui sert les mêmes images sous son propre nom
+#   docker build --build-arg NODE_IMAGE=registre.interne/node:24-slim \
+#                --build-arg RUNTIME_IMAGE=registre.interne/distroless/nodejs24-debian13 .
+#
+#   # une autre ligne de Node : les DEUX bases bougent ensemble, et la libc
+#   # reste la même des deux côtés (glibc : `-slim` et distroless)
+#   docker build --build-arg NODE_IMAGE=node:26-slim \
+#                --build-arg RUNTIME_IMAGE=gcr.io/distroless/nodejs26-debian13 .
+#
+#   # Alpine, ou slim, comme image FINALE : c'est la fin `with-packages`, qui
+#   # part de `NODE_IMAGE` — construction et exécution sur la MÊME base
+#   docker build --target with-packages --build-arg NODE_IMAGE=node:24-alpine .
 #
 # Après tout changement de base : reconstruire, DÉMARRER, et vérifier que
 # l'application répond — « ça construit » ne prouve rien (vécu : `debian12` se
-# construisait, et mourait au démarrage).
+# construisait, et mourait au démarrage sur un Node sous le plancher `engines`).
 # ─────────────────────────────────────────────────────────────────────────────
+ARG NODE_IMAGE=node:24-slim
+ARG RUNTIME_IMAGE=gcr.io/distroless/nodejs24-debian13
 
 # ── Étape de construction : la chaîne de compilation ne descend PAS en prod ───
-FROM node:24-slim AS build
+FROM ${NODE_IMAGE} AS build
 WORKDIR /app
 
 # Les sources d'ABORD, en un seul geste — et non le manifeste seul comme le
@@ -269,11 +284,66 @@ HEALTHCHECK --interval=10s --timeout=2s --start-period=5s --retries=3 \
 # ── Points de montage : distroless n'a pas de shell pour les créer ───────────
 # Un `RUN mkdir` est impossible dans l'image finale. Les deux dossiers naissent
 # donc ici, VIDES, et descendent par un `COPY --chown` (plus bas).
-FROM node:24-slim AS nf-dirs
+FROM ${NODE_IMAGE} AS nf-dirs
 RUN mkdir -p /out/tmp /out/var
 
-# ── Étape d'exécution : minimale, non-root ───────────────────────────────────
-FROM gcr.io/distroless/nodejs24-debian13
+# ── Fin `with-packages` : la même application, AVEC des paquets système ──────
+#
+#   docker build --target with-packages --build-arg PACKAGES="ffmpeg" -t <%= it.appName %> .
+#
+# Pour l'application qui APPELLE un outil système — ffmpeg, ImageMagick,
+# Ghostscript : distroless n'a pas de gestionnaire de paquets, cette fin-ci en
+# a un (`apt-get` sur Debian, `apk` si `NODE_IMAGE` est Alpine). Le prix se
+# paie en surface d'attaque : `node:24-slim` porte à lui seul les failles
+# hautes mesurées en tête de ce fichier, plus celles des paquets ajoutés. Ne
+# la prendre que pour un outil réellement appelé.
+#
+# Elle part de `NODE_IMAGE`, la base de l'étage de construction : même libc
+# PAR CONSTRUCTION, les modules natifs s'y chargent sans qu'on y pense.
+#
+# Le CONTRAT est celui de la fin par défaut, à l'identique — utilisateur 1000
+# numérique, `var/` et `tmp/` à lui et vides, code à root, port 5151, sonde
+# `/readyz`, forme exec. Les raisons sont écrites à l'étage d'exécution plus
+# bas ; seules diffèrent les lignes qu'une base À SHELL permet d'écrire plus
+# simplement (le `mkdir`, `node` sur le PATH).
+FROM ${NODE_IMAGE} AS with-packages
+ARG PACKAGES=""
+RUN if [ -n "$PACKAGES" ]; then \
+      if command -v apk >/dev/null 2>&1; then \
+        apk add --no-cache $PACKAGES; \
+      else \
+        apt-get update \
+        && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends $PACKAGES \
+        && rm -rf /var/lib/apt/lists/*; \
+      fi; \
+    fi
+ENV NODE_ENV=production
+WORKDIR /app
+ARG VCS_REF=""
+ARG BUILD_DATE=""
+ARG VERSION="0.1.0"
+LABEL org.opencontainers.image.title="<%= it.appName %>" \
+      org.opencontainers.image.description="<%= it.appName %> — application Nodefony" \
+      org.opencontainers.image.version="$VERSION" \
+      org.opencontainers.image.revision="$VCS_REF" \
+      org.opencontainers.image.created="$BUILD_DATE"
+COPY --from=build /app ./
+RUN mkdir -p /app/tmp /app/var && chown 1000:1000 /app/tmp /app/var
+USER 1000:1000
+EXPOSE 5151
+HEALTHCHECK --interval=10s --timeout=2s --start-period=20s --retries=3 \
+  CMD ["node", "-e", "fetch('http://127.0.0.1:5151/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+# `node` en ENTRYPOINT, comme sur distroless : le MÊME `CMD`, et un lanceur qui
+# change la commande (`args:` Kubernetes, `command:` compose) passe d'une fin à
+# l'autre sans retouche. Sans lui, c'est le `docker-entrypoint.sh` de l'image
+# Node qui déciderait, selon que le script est exécutable ou non.
+ENTRYPOINT ["node"]
+CMD ["<%= it.imageCli %>", "production"]
+
+# ── Étape d'exécution : minimale, non-root — la fin PAR DÉFAUT ───────────────
+# 🔴 Elle reste la DERNIÈRE du fichier : c'est ce qui fait d'elle l'image que
+# rend un `docker build .` sans `--target`.
+FROM ${RUNTIME_IMAGE}
 ENV NODE_ENV=production
 WORKDIR /app
 

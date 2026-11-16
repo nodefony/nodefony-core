@@ -1458,7 +1458,17 @@ YML
     # ne connaît pas ces deux fichiers, et ils entreraient dans l'image qu'on
     # vient de faire contrôler.
     step "[sql:$MOTEUR] image sœur de test (base de l'étage de construction, AVEC les devDeps)"
-    BUILD_BASE=$(sed -n 's/^FROM \(node:[^ ]*\) AS build$/\1/p' "$QAPP/Dockerfile" | head -1)
+    # La base est un ARGUMENT de construction (le `FROM` de l'étage `build` nomme
+    # une variable `ARG`) : on lit son DÉFAUT, celui que le `up --build` vient
+    # d'employer.
+    BUILD_BASE=$(sed -n 's/^FROM \([^ ]*\) AS build$/\1/p' "$QAPP/Dockerfile" | head -1)
+    case "$BUILD_BASE" in
+      '${'*'}')
+        BUILD_ARG=${BUILD_BASE#'${'}; BUILD_ARG=${BUILD_ARG%'}'}
+        BUILD_BASE=$(sed -n "s/^ARG $BUILD_ARG=\([^ ]*\)\$/\1/p" "$QAPP/Dockerfile" | head -1)
+        ;;
+    esac
+    case "$BUILD_BASE" in node:*|*/node:*) ;; *) BUILD_BASE="" ;; esac
     [ -n "$BUILD_BASE" ] \
       || { grep -n "^FROM" "$QAPP/Dockerfile"; fail "étage de construction introuvable dans le Dockerfile généré — l'image sœur dériverait de l'image mesurée"; }
     cat > "$QAPP/Dockerfile.e2e" <<DOCKERFILE
