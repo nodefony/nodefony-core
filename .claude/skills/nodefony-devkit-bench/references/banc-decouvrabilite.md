@@ -67,7 +67,7 @@ le fait partir d'un dossier VIDE, avec la commande de création dans l'énoncé 
 d'autre — c'est le premier contact d'un découvreur.
 
 ```bash
-node $B --task 0                                 # canal par défaut : alpha
+node $B --task 0                                 # canal par défaut : beta
 NF_DEVKIT_BENCH_CANAL=latest node $B --task 0    # après la 10.0.0
 ```
 

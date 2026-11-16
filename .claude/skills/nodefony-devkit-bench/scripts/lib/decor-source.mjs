@@ -25,6 +25,9 @@
  * @module
  */
 
+import semver from "semver";
+import { canauxEnArriere } from "../../../../../scripts/release/release-core.mjs";
+
 /**
  * Ce que le décor installe.
  *
@@ -53,8 +56,7 @@ export const ETIQUETTES = ["alpha", "beta", "latest", "local"];
  *
  * Acceptée partout où une étiquette l'est : c'est ce qui rend une campagne
  * rejouable à l'identique. On ne valide pas toute la grammaire SemVer, seulement
- * de quoi écarter une faute de frappe — le registre tranchera le reste, et son
- * refus est LISIBLE, là où un canal inconnu sert la version 7 en silence.
+ * de quoi écarter une faute de frappe — le registre tranchera le reste.
  */
 export const VERSION_EXACTE = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u;
 
@@ -80,18 +82,21 @@ export function sourceDe(env = process.env) {
 /**
  * Le canal effectif — étiquette npm ou version exacte.
  *
- * Le défaut suit la phase du projet : `alpha` tant que la 10.0.0 n'est pas
+ * Le défaut suit la phase du projet : `beta` tant que la 10.0.0 n'est pas
  * publiée. Le jour de la bascule, c'est un défaut qui change, pas une tâche à
  * réécrire — réécrire un énoncé ferait refuser la comparaison avec toute la
- * référence (`empreinteTache` couvre le `prompt`).
+ * référence (`empreinteTache` couvre le `prompt`). Un défaut PÉRIMÉ — une
+ * étiquette restée derrière une plus mûre — se constate au lancement
+ * ({@link canalEnRetard}), il ne se découvre pas dans le run de l'agent.
  *
  * @param {Record<string, string|undefined>} env - l'environnement.
- * @returns {string} l'étiquette ou la version, `alpha` par défaut.
+ * @returns {string} l'étiquette ou la version, `beta` par défaut.
  * @throws {Error} si la valeur n'est ni une étiquette connue ni une version —
- *   `aplha` servirait silencieusement la version 7 depuis npm.
+ *   `aplha` ferait échouer `npm create` (aucune version ne correspond) au
+ *   milieu du run, et l'échec serait imputé à l'agent.
  */
 export function canalDe(env = process.env) {
-  const brut = env.NF_DEVKIT_BENCH_CANAL || "alpha";
+  const brut = env.NF_DEVKIT_BENCH_CANAL || "beta";
   if (!ETIQUETTES.includes(brut) && !VERSION_EXACTE.test(brut)) {
     throw new Error(
       `NF_DEVKIT_BENCH_CANAL="${brut}" inconnu — attendus : ` +
@@ -99,6 +104,42 @@ export function canalDe(env = process.env) {
     );
   }
   return brut;
+}
+
+/**
+ * Le canal demandé sert-il une version PÉRIMÉE ?
+ *
+ * 🔴 Vécu (#785) : le défaut `alpha` installait `10.0.0-alpha.9` pendant que
+ * `beta` servait `10.0.0-beta.8` — l'agent travaillait sur une version plus
+ * vieille que celle qu'un utilisateur reçoit, et le run jugeait l'instrument.
+ * La règle « un canal moins mûr ne reste pas derrière un plus mûr » n'est pas
+ * recopiée : c'est celle de la chaîne de publication (`canauxEnArriere`).
+ *
+ * Une version EXACTE n'est jamais jugée : la demander est un choix, pas un
+ * oubli. `local` non plus, il ne vise pas le registre public.
+ *
+ * @param {Record<string, string>|null} distTags - les étiquettes du générateur
+ *   publié (`npm view create-nodefony dist-tags`) ; `null` = non lues.
+ * @param {string} canal - le canal demandé (voir {@link canalDe}).
+ * @returns {string|null} le motif du refus, ou `null` si le canal est sain.
+ */
+export function canalEnRetard(distTags, canal) {
+  if (distTags === null || !ETIQUETTES.includes(canal) || canal === "local")
+    return null;
+  if (!distTags[canal]) {
+    return (
+      `l'étiquette « ${canal} » n'existe pas sur le registre — ` +
+      `étiquettes servies : ${Object.keys(distTags).join(", ")}`
+    );
+  }
+  const retard = canauxEnArriere(
+    [{ nom: "create-nodefony", distTags }],
+    (a, b) => semver.gt(a, b),
+  ).find((r) => r.tag === canal);
+  return retard
+    ? `« ${canal} » sert ${retard.de}, plus ancienne que « ${retard.devant} » ` +
+        `(${retard.vers})`
+    : null;
 }
 
 /**

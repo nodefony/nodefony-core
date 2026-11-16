@@ -210,7 +210,9 @@ import {
   libelleDecor,
   specifieur,
   registreLocalRequis,
+  canalEnRetard,
 } from "./lib/decor-source.mjs";
+import { lireDistTags } from "../../../../scripts/release/release-core.mjs";
 import {
   commandeCreation,
   entreesQuiFournissentNodefony,
@@ -8671,6 +8673,36 @@ function main() {
           "registre public, cela mesurerait autre chose en silence.",
       );
       process.exit(78);
+    }
+    // 🔴 Un canal PÉRIMÉ se refuse avant le premier agent (#785). Le défaut
+    // `alpha` a servi `10.0.0-alpha.9` pendant que `beta` était à la beta.8 :
+    // l'agent a travaillé sur une version plus vieille que celle d'un
+    // utilisateur, et le run a jugé l'instrument. Ne s'applique qu'aux runs qui
+    // installent depuis le registre — source `registre`, ou une tâche en décor
+    // vide, dont l'agent tape lui-même `npm create nodefony@<canal>`.
+    if (SOURCE === "registre" || tasks.some((t) => t.decor === "vide")) {
+      const vue = spawnSync(
+        "npm",
+        ["view", "create-nodefony", "dist-tags", "--json"],
+        { encoding: "utf8", shell: process.platform === "win32" },
+      );
+      const distTags = vue.status === 0 ? lireDistTags(vue.stdout) : null;
+      if (distTags === null) {
+        console.error(
+          "⚠️ étiquettes de create-nodefony illisibles (registre injoignable ?) — " +
+            `le canal « ${CANAL} » n'a PAS été vérifié`,
+        );
+      } else {
+        const motif = canalEnRetard(distTags, CANAL);
+        if (motif !== null) {
+          console.error(
+            `NF_DEVKIT_BENCH_CANAL : ${motif}. Rien n'a été lancé — l'agent ` +
+              "aurait travaillé sur une autre version que celle d'un utilisateur. " +
+              "Choisir le canal à jour, ou une version EXACTE si c'est voulu.",
+          );
+          process.exit(78);
+        }
+      }
     }
     const toutEnDecorVide = tasks.every((t) => t.decor === "vide");
     if (toutEnDecorVide) {

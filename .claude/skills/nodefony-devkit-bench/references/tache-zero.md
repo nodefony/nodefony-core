@@ -10,13 +10,13 @@ au questionnaire, n'installait rien — or c'est le premier contact d'un découv
 c'est là que l'essai réel du 2026-09-10 a cassé.
 
 ```bash
-node $B --task 0                       # le canal par défaut : alpha
+node $B --task 0                       # le canal par défaut : beta
 NF_DEVKIT_BENCH_CANAL=latest node $B --task 0   # après la 10.0.0
 ```
 
 ## 🔴 Elle ne mesure PAS la même chose que les autres — le registre
 
-`npm create nodefony@alpha` installe depuis le **registre public**. Tout le reste du
+`npm create nodefony@beta` installe depuis le **registre public**. Tout le reste du
 banc est monté en décor ISOLÉ, depuis les tarballs du dépôt, et c'est délibéré
 (le lanceur le dit en toutes lettres là où il écarte ce cas : « ses deps
 `@nodefony/*` ne sont publiées nulle part et son `npm install` part sur le
@@ -34,8 +34,8 @@ version figée il y a trois jours.
 
 | `NF_DEVKIT_BENCH_CANAL` | Ce que l'agent tape                  | Ce qu'on mesure          |
 | ----------------------- | ------------------------------------ | ------------------------ |
-| `alpha` (défaut)        | `npm create nodefony@alpha`          | la préversion PUBLIÉE    |
-| `beta`                  | `npm create nodefony@beta`           | la beta PUBLIÉE          |
+| `alpha`                 | `npm create nodefony@alpha`          | la préversion PUBLIÉE    |
+| `beta` (défaut)         | `npm create nodefony@beta`           | la beta PUBLIÉE          |
 | `latest`                | `npm create nodefony@latest`         | la stable PUBLIÉE        |
 | `10.0.0-alpha.5`        | `npm create nodefony@10.0.0-alpha.5` | **cette version-là**     |
 | `local`                 | idem, **registre interposé**         | **le dépôt** (non câblé) |
@@ -60,13 +60,20 @@ invisible puisque le dépôt, lui, n'aurait pas bougé d'une ligne.
 ## L'énoncé donne la commande, et rien d'autre
 
 Un agent dans un dossier vide ne peut pas deviner le canal : aucun fichier ne le porte,
-et `npm create nodefony` nu sert la **version 7**. La commande fait donc partie de
+et `npm create nodefony` nu sert l'étiquette `latest` du générateur — pas forcément le
+canal mesuré (`npm i nodefony` nu, lui, sert encore la **version 7**). La commande fait donc partie de
 l'énoncé. Ce qu'on mesure n'est pas sa capacité à deviner un canal npm, c'est ce qu'il
 fait ENSUITE : quel contenu, quel moteur front, quelle base, et où il trouve une
 identité pour appeler sa propre route protégée.
 
 `canalDe` **LÈVE** sur un canal inconnu, plutôt que de replier sur un défaut : `aplha`
-servirait la version 7 sans un mot.
+ferait échouer `npm create` au milieu du run, et l'échec serait imputé à l'agent.
+
+🔴 **Un canal PÉRIMÉ se refuse au lancement** (`canalEnRetard`, code 78) : une étiquette
+restée derrière une plus mûre — vécu, `alpha` en `10.0.0-alpha.9` sous `beta` en
+`10.0.0-beta.8` — ferait travailler l'agent sur une version plus vieille que celle d'un
+utilisateur. La règle est celle de la chaîne de publication (`canauxEnArriere`), pas une
+copie. Une version EXACTE n'est jamais jugée : la demander est un choix.
 
 ## Ce qu'elle révèle et qu'aucune autre ne voit : la porte MACHINE
 

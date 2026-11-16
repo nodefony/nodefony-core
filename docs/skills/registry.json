@@ -2716,6 +2716,8 @@
       "env": [],
       "output": "",
       "calledBy": [
+        ".claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs",
+        ".claude/skills/nodefony-devkit-bench/scripts/lib/decor-source.mjs",
         "scripts/release/attendre-ci.mjs",
         "scripts/release/compat.mjs",
         "scripts/release/pack-all.mjs",

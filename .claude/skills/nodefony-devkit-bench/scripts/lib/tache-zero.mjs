@@ -35,8 +35,9 @@ import { specifieur as specifieurInterne } from "./decor-source.mjs";
  *
  * Elle fait partie de l'énoncé parce qu'un agent dans un dossier vide ne peut
  * pas la deviner : aucun fichier ne porte le canal, et `npm create nodefony` nu
- * sert la **version 7**. Ce qu'on mesure n'est pas sa capacité à deviner un
- * canal npm, c'est ce qu'il fait ENSUITE.
+ * sert l'étiquette `latest` du générateur, qui n'est pas forcément le canal
+ * mesuré. Ce qu'on mesure n'est pas sa capacité à deviner un canal npm, c'est
+ * ce qu'il fait ENSUITE.
  *
  * @param {string} canal - le canal (voir `canalDe`).
  * @returns {string} la commande, telle qu'elle apparaît dans l'énoncé.

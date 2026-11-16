@@ -29,6 +29,7 @@ const {
   ETIQUETTES,
   sourceDe,
   canalDe,
+  canalEnRetard,
   registreLocalRequis,
   specifieur,
   libelleDecor,
@@ -76,7 +77,7 @@ leve("une source inconnue LÈVE", () =>
 );
 
 // ── Le CANAL — quelle version publiée ────────────────────────────────────────
-cas("canal par défaut = alpha", canalDe({}) === "alpha");
+cas("canal par défaut = beta", canalDe({}) === "beta");
 for (const e of ETIQUETTES) {
   cas(
     `étiquette « ${e} » acceptée`,
@@ -91,11 +92,38 @@ for (const v of ["10.0.0", "10.0.0-alpha.5", "10.1.0-beta.2", "9.9.9-rc.1"]) {
     canalDe({ NF_DEVKIT_BENCH_CANAL: v }) === v,
   );
 }
-leve("un canal mal orthographié LÈVE (sinon npm sert la version 7)", () =>
+leve("un canal mal orthographié LÈVE (sinon npm échoue au milieu du run)", () =>
   canalDe({ NF_DEVKIT_BENCH_CANAL: "aplha" }),
 );
 leve("une version tronquée LÈVE", () =>
   canalDe({ NF_DEVKIT_BENCH_CANAL: "10.0" }),
+);
+
+// ── Un canal PÉRIMÉ — l'étiquette restée derrière une plus mûre (#785) ────────
+// Les étiquettes RÉELLES de create-nodefony au moment du constat.
+const PERIMEES = {
+  alpha: "10.0.0-alpha.9",
+  beta: "10.0.0-beta.8",
+  latest: "10.0.0-beta.8",
+};
+cas(
+  "alpha derrière beta est REFUSÉ, en nommant les deux versions",
+  /10\.0\.0-alpha\.9.*beta.*10\.0\.0-beta\.8/u.test(
+    canalEnRetard(PERIMEES, "alpha") ?? "",
+  ),
+);
+cas("beta à jour passe", canalEnRetard(PERIMEES, "beta") === null);
+cas(
+  "une étiquette absente du registre est refusée",
+  canalEnRetard({ latest: "10.0.0" }, "beta") !== null,
+);
+cas(
+  "une version EXACTE n'est jamais jugée (c'est un choix)",
+  canalEnRetard(PERIMEES, "10.0.0-alpha.9") === null,
+);
+cas(
+  "étiquettes illisibles = pas de verdict (le lanceur le dit)",
+  canalEnRetard(null, "alpha") === null,
 );
 
 // ── Le régime local ──────────────────────────────────────────────────────────
@@ -183,6 +211,13 @@ if (PROVE) {
       regle: "les versions exactes sont acceptées",
       de: "export const VERSION_EXACTE = /^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$/u;",
       vers: "export const VERSION_EXACTE = /^$/u;",
+    },
+    {
+      // Sans ce constat, le défaut `alpha` a servi une version plus vieille
+      // que la beta, et le run a jugé l'instrument (#785).
+      regle: "un canal périmé est refusé",
+      de: ".find((r) => r.tag === canal);",
+      vers: ".find(() => false);",
     },
     {
       // Si le libellé de `depot` change, TOUTES les références payées deviennent

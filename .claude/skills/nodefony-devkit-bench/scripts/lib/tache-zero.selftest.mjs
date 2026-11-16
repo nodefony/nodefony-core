@@ -66,7 +66,7 @@ function io(paquets, dossiers = {}) {
 }
 
 // ── canalDe ──────────────────────────────────────────────────────────────────
-cas("canal par défaut = alpha", canalDe({}) === "alpha");
+cas("canal par défaut = beta", canalDe({}) === "beta");
 cas(
   "canal explicite respecté",
   canalDe({ NF_DEVKIT_BENCH_CANAL: "latest" }) === "latest",
@@ -108,14 +108,14 @@ cas(
   cas("une version tronquée LÈVE", leve);
 }
 {
-  // Un canal mal orthographié servirait la version 7 depuis npm, en silence.
+  // Un canal mal orthographié ferait échouer `npm create` au milieu du run.
   let leve = false;
   try {
     canalDe({ NF_DEVKIT_BENCH_CANAL: "aplha" });
   } catch {
     leve = true;
   }
-  cas("un canal inconnu LÈVE (sinon npm sert la version 7)", leve);
+  cas("un canal inconnu LÈVE (sinon npm échoue au milieu du run)", leve);
 }
 
 // ── commandeCreation ─────────────────────────────────────────────────────────

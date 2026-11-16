@@ -79,7 +79,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/banc-verite.md` | Banc de vérité — le code généré tient-il debout ? | 230 |
 | `references/formateurs.md` | Les formateurs — un gabarit rendu doit sortir déjà formaté | 94 |
 | `references/methode-de-mesure.md` | Méthode de mesure — ce que le banc devkit a appris sur lui-même | 87 |
-| `references/tache-zero.md` | La TÂCHE 0 du banc de découvrabilité — l'agent crée l'application | 226 |
+| `references/tache-zero.md` | La TÂCHE 0 du banc de découvrabilité — l'agent crée l'application | 233 |
 
 
 ## Scripts embarqués
