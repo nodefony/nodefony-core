@@ -14,6 +14,13 @@ _Rien de noté : ce qui se découvre en travaillant ici s'écrit dans ce bloc._
 
 Index de tout l'outillage : [`scripts/`](../../README.md).
 
+## [`admonitions.mjs`](admonitions.mjs)
+
+Les encarts GitHub (`> [!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, `[!CAUTION]`) rendus en HTML, et leur style.
+
+- **Usage** : `import { ADMONITION_CSS, decorateAdmonitions } from "./lib/admonitions.mjs"`
+- **Appelé par** : `site/build-docs-site.mjs` · `site/readme-html.mjs`
+
 ## [`api-reference.mjs`](api-reference.mjs)
 
 Référence d'API du site : ce que chaque paquet publié EXPOSE, rendu en pages Markdown que le générateur de documentation publie sous `api/`.

@@ -1661,6 +1661,22 @@
       "testedBy": []
     },
     {
+      "path": "scripts/site/lib/admonitions.mjs",
+      "test": false,
+      "purpose": "Les encarts GitHub (`> [!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, `[!CAUTION]`) rendus en HTML, et leur style.",
+      "usage": [
+        "import { ADMONITION_CSS, decorateAdmonitions } from \"./lib/admonitions.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/site/build-docs-site.mjs",
+        "scripts/site/readme-html.mjs"
+      ],
+      "testedBy": []
+    },
+    {
       "path": "scripts/site/lib/api-reference.mjs",
       "test": false,
       "purpose": "Référence d'API du site : ce que chaque paquet publié EXPOSE, rendu en pages Markdown que le générateur de documentation publie sous `api/`.",

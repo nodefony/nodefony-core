@@ -6,6 +6,9 @@
  * Markdown, et un encart écrit dans le README doit se lire sur la page publiée
  * comme sur GitHub. Deux copies divergeraient — l'accueil n'en avait aucune, et
  * affichait `[!IMPORTANT]` en clair dans une citation ordinaire.
+ *
+ * @usage import { ADMONITION_CSS, decorateAdmonitions } from "./lib/admonitions.mjs"
+ * @module
  */
 
 /** Type d'encart → [suffixe de classe, titre affiché]. */

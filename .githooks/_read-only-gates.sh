@@ -57,14 +57,27 @@ fi
 # scripts) et le hook n'en lançait qu'UNE : un script de skill que personne
 # n'appelle passait donc ici pour se faire refuser vingt minutes plus tard en
 # forge. Une règle appliquée à un seul de ses frères n'est pas appliquée — et
-# l'ensemble coûte UNE seconde, ce qui ne laisse aucun argument à l'asymétrie.
-# Les DEUX racines que lit `skills-doc.mjs` : les skills du dépôt ET ceux que
-# devkit PUBLIE — surveiller la première seule a laissé partir une fiche
-# périmée de `nodefony-dev` jusqu'en CI.
-if git diff --cached --name-only --diff-filter=ACMR | grep -qE '^(\.claude/skills/|src/packages/@nodefony/devkit/skills/)'; then
+# l'ensemble coûte quelques secondes (8 s mesurées), contre un cycle de forge.
+# Les TROIS racines que lit `skills-doc.mjs` : les skills du dépôt, ceux que
+# devkit PUBLIE, et `scripts/` — dont chaque README est généré depuis l'en-tête
+# `@usage` des scripts. Surveiller les deux premières seules laissait partir un
+# script sans `@usage` ou une fiche de `scripts/` périmée : seize commits de
+# rattrapage en trois mois, et une estampille de release rougie en forge.
+# Une suppression périme aussi la fiche qui listait le fichier (filtre D).
+# Coût borné à ce que le commit touche : un skill → la garde complète ; `scripts/`
+# seul → la fraîcheur des fiches et le `@usage` (`skills-doc --check`, ~2 s),
+# sans le banc de déclenchement ni l'audit de placement qu'il ne peut pas changer.
+STAGED_ALL=$(git diff --cached --name-only --diff-filter=ACMRD)
+if printf '%s\n' "$STAGED_ALL" | grep -qE '^(\.claude/skills/|src/packages/@nodefony/devkit/skills/)'; then
   if ! npm run --silent skills:check; then
     echo "❌ pre-commit REFUSÉ : contrôle des skills — chaque écart ci-dessus porte son Pourquoi et son Faire." >&2
     echo "   Rejouer seul : npm run skills:check" >&2
+    exit 1
+  fi
+elif printf '%s\n' "$STAGED_ALL" | grep -qE '^scripts/'; then
+  if ! node .claude/skills/nodefony-skill/scripts/skills-doc.mjs --check; then
+    echo "❌ pre-commit REFUSÉ : un script de scripts/ sans \`@usage\`, ou une fiche générée périmée." >&2
+    echo "   Rejouer seul : node .claude/skills/nodefony-skill/scripts/skills-doc.mjs --check" >&2
     exit 1
   fi
 fi
