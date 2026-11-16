@@ -68,7 +68,7 @@
     "@types/better-sqlite3": "9.6.0",
     "@types/node": "26.6.6",
     "@types/pg": "8.23.1",
-    "better-sqlite3": "13.1.1",
+    "better-sqlite3": "13.2.0",
     "drizzle-kit": "0.31.11",
     "mysql2": "3.24.6",
     "nodefony": "^10.0.0-beta.8",

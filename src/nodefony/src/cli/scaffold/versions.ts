@@ -36,7 +36,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // OUVRE une base, et une seule. Le scaffold pose donc le pilote du dialecte
   // CHOISI, et lui seul. Sans cette déclaration, npm n'avertit personne de son
   // absence et l'application meurt au premier accès.
-  "better-sqlite3": "13.1.1",
+  "better-sqlite3": "13.2.0",
   pg: "8.23.1",
   mysql2: "3.24.6",
   // Pilote MongoDB, en dépendance de DÉVELOPPEMENT d'une application MongoDB :

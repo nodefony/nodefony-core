@@ -57,7 +57,7 @@
     "test": "./nodefony/tests"
   },
   "dependencies": {
-    "@fastify/busboy": "3.2.5",
+    "@fastify/busboy": "3.2.6",
     "@types/ms": "2.1.0",
     "@types/qs": "6.15.1",
     "@types/serve-static": "2.2.0",
