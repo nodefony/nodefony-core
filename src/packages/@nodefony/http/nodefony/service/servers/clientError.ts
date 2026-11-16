@@ -19,16 +19,24 @@ function statusLineOf(status: number): string {
 }
 
 /**
- * La réponse en vol sur cette socket a-t-elle déjà écrit ses en-têtes ? La
- * garde même de Node (`socketOnError` : `_httpMessage._headerSent`), lue par
- * réflexion — deux champs internes, sans équivalent public sur la socket.
+ * Une réponse est-elle à MI-CHEMIN sur cette socket — en-têtes partis, corps
+ * pas fini ? La garde de Node (`socketOnError` : `_httpMessage._headerSent`),
+ * lue par réflexion, plus une condition : la réponse n'est pas TERMINÉE
+ * (`writableEnded`, public sur `OutgoingMessage`).
+ *
+ * Une réponse terminée reste désignée par `_httpMessage` jusqu'à son `finish`,
+ * qui attend l'acquittement de l'écriture — sous Windows (écritures
+ * asynchrones), la requête suivante d'une socket keep-alive arrive souvent
+ * avant. Ses octets sont déjà tous dans la file : un statut écrit derrière ne
+ * corrompt rien, il répond à la requête suivante.
  */
 function inFlightHeaderSent(socket: Duplex): boolean {
   const message: unknown = Reflect.get(socket, "_httpMessage");
   return (
     message !== null &&
     typeof message === "object" &&
-    Reflect.get(message, "_headerSent") === true
+    Reflect.get(message, "_headerSent") === true &&
+    Reflect.get(message, "writableEnded") !== true
   );
 }
 

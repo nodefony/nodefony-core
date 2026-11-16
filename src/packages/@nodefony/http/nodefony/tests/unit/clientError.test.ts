@@ -1,6 +1,7 @@
 /// <reference types="node" />
 import { expect } from "vitest";
 import type { Socket } from "node:net";
+import http from "node:http";
 import http2 from "node:http2";
 import net from "node:net";
 import { Duplex } from "node:stream";
@@ -107,6 +108,43 @@ describe("handleClientError — fermeture du socket malformé", () => {
     handleClientError(timeout, socket);
     await new Promise((resolve) => setImmediate(resolve));
     expect(written.join("")).to.match(/^HTTP\/1\.1 408 Request Timeout\r\n/);
+  });
+
+  // La réponse précédente est FINIE mais son `finish` n'est pas encore passé :
+  // `_httpMessage` la désigne toujours. Sous Windows (écritures asynchrones),
+  // c'est le cas ordinaire d'une socket keep-alive réutilisée — la requête
+  // suivante, malformée, était coupée sans réponse (« socket hang up » en CI).
+  // Ici, sans Windows : deux requêtes dans le MÊME paquet, la première finie
+  // de façon synchrone, la seconde rejetée par le parseur.
+  it("réponse précédente FINIE, `finish` pas encore passé → le 400 part après elle", async () => {
+    const server = http.createServer((_req, res) => res.end("ok"));
+    server.on("clientError", handleClientError);
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", resolve),
+    );
+    const { port } = server.address() as AddressInfo;
+    try {
+      const raw = await new Promise<string>((resolve, reject) => {
+        const socket = net.connect(port, "127.0.0.1", () => {
+          socket.write(
+            "GET / HTTP/1.1\r\nHost: x\r\n\r\nFAKEMETHOD / HTTP/1.1\r\nHost: x\r\n\r\n",
+          );
+        });
+        let out = "";
+        socket.setEncoding("latin1");
+        socket.on("data", (c: string) => (out += c));
+        socket.on("close", () => resolve(out));
+        socket.on("error", reject);
+      });
+      // Sans ancre : le corps `ok` précède la ligne de statut suivante.
+      expect(raw.match(/HTTP\/1\.1 \d{3}/g)).to.deep.equal([
+        "HTTP/1.1 200",
+        "HTTP/1.1 400",
+      ]);
+    } finally {
+      server.closeAllConnections();
+      await new Promise((resolve) => server.close(resolve));
+    }
   });
 
   it("refus délimité : Content-Length: 0 (RFC 9112 §6.3)", () => {
