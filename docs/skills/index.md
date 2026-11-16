@@ -150,7 +150,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v3.5.0 · 📎 7 réf" },
   { "icon": "🔧", "title": "devkit-bench", "href": "nodefony-devkit-bench.md",
     "desc": "Éprouve ce que Nodefony PRODUIT et ce qu'il fait CROIRE, par quatre mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage, le modèle de données d'un vrai logiciel libre est-il exprimable, et que conclut un…",
-    "meta": "🟢 conforme v1.5.0 · ⚙️ 21 scripts · 📎 9 réf" },
+    "meta": "🟢 conforme v1.5.0 · ⚙️ 21 scripts · 📎 10 réf" },
   { "icon": "🔧", "title": "devops", "href": "nodefony-devops.md",
     "desc": "Porte le déploiement d'une application Nodefony côté FRAMEWORK : les gabarits qui rendent son image, son compose, sa topologie, ses manifestes Kubernetes et sa chaîne d'intégration.",
     "meta": "🟢 conforme v1.1.0 · ⚙️ 1 script" },
@@ -162,7 +162,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v1.1.0 · ⚙️ 1 script · 📎 1 réf" },
   { "icon": "🔧", "title": "ticket", "href": "nodefony-ticket.md",
     "desc": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre Conventional Commits compréhensible sans connaître le dépôt, lexique, corps en quatre blocs avec preuve `<fichier>.ts#<Symbole>` et critère de fin observable, gravité normée d'un défaut (CVSS 3.1 calculé, échelle IEEE 1044), parents…",
-    "meta": "🟢 conforme v1.12.0 · ⚙️ 24 scripts · 📎 8 réf" },
+    "meta": "🟢 conforme v1.12.0 · ⚙️ 24 scripts · 📎 9 réf" },
   { "icon": "🔧", "title": "add-crud", "href": "nodefony-add-crud.md",
     "desc": "Crée une ressource complète dans une application Nodefony — entité, schémas de validation, service CRUD, controller REST+WebSocket et tests — par le générateur `nodefony create entity`, sur SQL comme sur MongoDB.",
     "meta": "🟢 conforme" },
@@ -186,7 +186,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v1.0.0" },
   { "icon": "🔧", "title": "dev", "href": "nodefony-dev.md",
     "desc": "Conduit une tâche de développement de bout en bout dans une application Nodefony — comprendre le code en place, choisir la bonne façade, générer plutôt qu'écrire à la main, retrouver la référence installée qu'une recherche ordinaire ne voit pas, puis prouver que c'est fait — et se charge AVANT…",
-    "meta": "🟢 conforme v1.3.0 · ⚙️ 1 script · 📎 1 réf" },
+    "meta": "🟢 conforme v1.3.0 · ⚙️ 1 script · 📎 2 réf" },
   { "icon": "🔧", "title": "protect-route", "href": "nodefony-protect-route.md",
     "desc": "Réserve une route ou une page d'une application Nodefony aux personnes habilitées, par les briques du framework plutôt que par un contrôle écrit dans l'action. Porte les deux étages (zone du pare-feu et garde par route), la hiérarchie de rôles, le renvoi de l'anonyme vers la page de connexion,…",
     "meta": "🟢 conforme" },
@@ -210,7 +210,7 @@ source: "docs/skills/index.md"
 | [`nodefony-create-module`](nodefony-create-module.md) | — | 291 | 1 | 0 | ✅ |
 | [`nodefony-debug`](nodefony-debug.md) | 1.2.0 | 255 | 0 | 0 | ✅ |
 | [`nodefony-decision-making`](nodefony-decision-making.md) | 3.5.0 | 130 | 7 | 0 | ✅ |
-| [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.5.0 | 534 | 9 | 21 | ✅ |
+| [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.5.0 | 451 | 10 | 21 | ✅ |
 | [`nodefony-devops`](nodefony-devops.md) | 1.1.0 | 164 | 0 | 1 | ✅ |
 | [`nodefony-documentation`](nodefony-documentation.md) | 3.2.0 | 486 | 2 | 20 | ✅ |
 | [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.4.0 | 412 | 12 | 0 | ✅ |
@@ -231,7 +231,7 @@ source: "docs/skills/index.md"
 | [`nodefony-studio-dev`](nodefony-studio-dev.md) | 2.1.0 | 145 | 6 | 0 | ✅ |
 | [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md) | — | 84 | 0 | 0 | ✅ |
 | [`nodefony-test-campaign`](nodefony-test-campaign.md) | 1.1.0 | 235 | 1 | 1 | ✅ |
-| [`nodefony-ticket`](nodefony-ticket.md) | 1.12.0 | 515 | 8 | 24 | ✅ |
+| [`nodefony-ticket`](nodefony-ticket.md) | 1.12.0 | 481 | 9 | 24 | ✅ |
 | [`nodefony-add-crud`](nodefony-add-crud.md) | — | 287 | 0 | 0 | ✅ |
 | [`nodefony-add-grpc-service`](nodefony-add-grpc-service.md) | 1.0.0 | 166 | 0 | 1 | ✅ |
 | [`nodefony-add-realtime-binary`](nodefony-add-realtime-binary.md) | 1.1.0 | 284 | 2 | 0 | ✅ |
@@ -239,7 +239,7 @@ source: "docs/skills/index.md"
 | [`nodefony-add-realtime-presence`](nodefony-add-realtime-presence.md) | 1.2.0 | 311 | 0 | 0 | ✅ |
 | [`nodefony-add-service`](nodefony-add-service.md) | — | 115 | 0 | 0 | ✅ |
 | [`nodefony-authentication`](nodefony-authentication.md) | 1.0.0 | 220 | 0 | 0 | ✅ |
-| [`nodefony-dev`](nodefony-dev.md) | 1.3.0 | 502 | 1 | 1 | ✅ |
+| [`nodefony-dev`](nodefony-dev.md) | 1.3.0 | 468 | 2 | 1 | ✅ |
 | [`nodefony-protect-route`](nodefony-protect-route.md) | — | 357 | 0 | 0 | ✅ |
 | [`nodefony-troubleshoot`](nodefony-troubleshoot.md) | 1.1.0 | 208 | 0 | 1 | ✅ |
 | [`nodefony-upgrade`](nodefony-upgrade.md) | 1.0.0 | 116 | 0 | 0 | ✅ |

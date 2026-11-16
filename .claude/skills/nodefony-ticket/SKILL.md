@@ -187,56 +187,22 @@ négative — débrancher, constater que quelque chose tombe.
 
 ### Ces quatre blocs sont rendus DEUX fois — ici, et dans les formulaires GitHub
 
-Depuis que le dépôt sert des gabarits d'issue, le protocole ci-dessus existe aussi sous une forme
-que GitHub sait lire : **`.github/ISSUE_TEMPLATE/defaut.yml` et `evolution.yml`**, dont les champs
-SONT les blocs. C'est une duplication, et le dépôt s'interdit les duplications — mais celle-ci est
-imposée par une frontière : GitHub ne sait pas lire cette page, il veut ses propres fichiers.
+Le protocole existe aussi sous une forme que GitHub sait lire : **`.github/ISSUE_TEMPLATE/defaut.yml`
+et `evolution.yml`**, dont les champs SONT ces blocs, gardés par
+[`scripts/github-templates.test.mjs`](scripts/github-templates.test.mjs) — **renommer un bloc ici fait
+tomber le gate** tant que les formulaires n'ont pas suivi. Pourquoi cette copie, les gardes qu'elle ne
+doit pas perdre et ce que le formulaire ne pose pas (jalon, ordre, priorité) →
+[`references/formulaires-github.md`](references/formulaires-github.md).
 
-Quand une frontière impose la copie, la règle du dépôt est d'y poser un test qui compare les deux
-sorties. C'est [`scripts/github-templates.test.mjs`](scripts/github-templates.test.mjs)
-(`npm run test:pilotage`) : il LIT les blocs dans cette page — jamais une liste à lui, qui serait
-une troisième copie — et exige de les retrouver en `label:` des deux formulaires, obligatoires.
-**Renommer un bloc ici fait donc tomber le gate** tant que les formulaires n'ont pas suivi.
-
-Il tient aussi les deux gardes que ces fichiers ne doivent pas perdre par distraction :
-l'issue vierge reste fermée (sinon la page blanche revient, et le protocole redevient invisible de
-l'extérieur), et le **canal de sécurité est le premier lien proposé**, vers la politique et jamais
-vers un formulaire d'issue — une faille publiée est indexée en quelques minutes.
-
-⚠️ **Ce que le formulaire ne peut PAS faire, et que la commande fait** : poser jalon, ordre et
-priorité. Une issue ouverte depuis l'interface naît donc HORS du tableau de bord ; `ticket:lint` la
-signale (`NI-JALON-NI-BACKLOG`), mais après coup. Les deux formulaires le disent en toutes lettres
-aux mainteneurs — la voie normale reste `npm run ticket:open` (§6).
+### Estimer — en jours-homme, le cycle complet
 
 Une estimation en **jours-homme** — `0,5 · 1 · 2 · 3 · 5` — jamais en points : l'auteur travaille
 seul et pense en jours.
 
-> ⚠️ **L'estimation en jours ne prédit RIEN — c'est mesuré, pas supposé.** Sur 97 tickets fermés,
-> le travail constaté est de **une séance, quelle que soit la taille estimée** : 0,5 j → 1 séance ·
-> 1 j → 1 séance · 2 j → 1 séance. Une « séance » est une journée qui porte des commits citant le
-> ticket. Autrement dit, le champ `Jours` classe des tickets qui coûtent tous à peu près pareil.
-> La cause n'est pas de la négligence : l'unité est calibrée sur quelqu'un qui code à la main,
-> alors que lire, chercher, éditer et vérifier tiennent en minutes. Ce qui coûte aujourd'hui, c'est
-> le **contexte à charger** et les **décisions à rendre** — et ça ne dépend pas de la taille du diff.
->
-> **Conséquence pratique, et elle est contre-intuitive : ce qui prédit le reste-à-faire, c'est le
-> NOMBRE de tickets ouverts, pas la somme de leurs jours.** 106 tickets ouverts ≈ 106 séances ;
-> les « 121 j » affichés ne veulent rien dire. Corollaire : **découper un ticket en trois le rend
-> trois fois plus cher**, parce que chacun paiera son chargement de contexte. Ne découper que
-> lorsque les morceaux se font dans des sessions différentes (§4).
->
-> Le chiffre ne se recopie pas d'ici : `ticket-effort.mjs` fait foi, il se relance.
->
-> Le coût de l'erreur n'est pas cosmétique : un ticket affiché « 3 j » se **reporte**, alors qu'il se
-> ferait dans la foulée — et le report fait repayer tout son contexte plus tard (§ « Quand le prendre »).
->
-> ```bash
-> node scripts/ticket-effort.mjs          # estimé vs constaté sur les tickets fermés, et le biais médian
-> node scripts/ticket-effort.mjs 41 56    # ceux-là seulement
-> ```
->
-> Le constaté est une **borne basse** — la fenêtre de commits ignore l'exploration, les décisions et
-> les essais abandonnés. À lire comme un ordre de grandeur qui recale, jamais comme une durée.
+> ⚠️ **L'estimation ne prédit RIEN — c'est mesuré** : une séance par ticket, quelle que soit la
+> taille estimée. Le reste-à-faire se lit au NOMBRE de tickets ouverts, pas à la somme des jours, et
+> découper en trois rend trois fois plus cher. Mesure, cause et `ticket-effort.mjs` →
+> [`references/dates.md`](references/dates.md).
 
 **La règle d'estimation : le CYCLE COMPLET, × 2, arrondi vers le haut** sur `0,25 · 0,5 · 1 · 2`.
 Le cycle va de la reprise à la CI verte : expliquer le ticket, coder, lancer les suites et les

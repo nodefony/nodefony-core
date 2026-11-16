@@ -88,6 +88,35 @@ gh api graphql -f query='mutation($p:ID!,$i:ID!,$f:ID!,$d:Date!){
 
 L'item se retrouve par `issue(number:){projectItems}` — jamais en listant le tableau, qui tronque.
 
+## L'estimation en jours ne prédit rien — la mesure
+
+⚠️ **L'estimation en jours ne prédit RIEN — c'est mesuré, pas supposé.** Sur 97 tickets fermés,
+le travail constaté est de **une séance, quelle que soit la taille estimée** : 0,5 j → 1 séance ·
+1 j → 1 séance · 2 j → 1 séance. Une « séance » est une journée qui porte des commits citant le
+ticket. Autrement dit, le champ `Jours` classe des tickets qui coûtent tous à peu près pareil.
+La cause n'est pas de la négligence : l'unité est calibrée sur quelqu'un qui code à la main,
+alors que lire, chercher, éditer et vérifier tiennent en minutes. Ce qui coûte aujourd'hui, c'est
+le **contexte à charger** et les **décisions à rendre** — et ça ne dépend pas de la taille du diff.
+
+**Conséquence pratique, et elle est contre-intuitive : ce qui prédit le reste-à-faire, c'est le
+NOMBRE de tickets ouverts, pas la somme de leurs jours.** 106 tickets ouverts ≈ 106 séances ;
+les « 121 j » affichés ne veulent rien dire. Corollaire : **découper un ticket en trois le rend
+trois fois plus cher**, parce que chacun paiera son chargement de contexte. Ne découper que
+lorsque les morceaux se font dans des sessions différentes (§4 du `SKILL.md`).
+
+Le chiffre ne se recopie pas d'ici : `ticket-effort.mjs` fait foi, il se relance.
+
+Le coût de l'erreur n'est pas cosmétique : un ticket affiché « 3 j » se **reporte**, alors qu'il se
+ferait dans la foulée — et le report fait repayer tout son contexte plus tard (§5 du `SKILL.md`, « quand prendre un ticket »).
+
+```bash
+node scripts/ticket-effort.mjs          # estimé vs constaté sur les tickets fermés, et le biais médian
+node scripts/ticket-effort.mjs 41 56    # ceux-là seulement
+```
+
+Le constaté est une **borne basse** — la fenêtre de commits ignore l'exploration, les décisions et
+les essais abandonnés. À lire comme un ordre de grandeur qui recale, jamais comme une durée.
+
 ## Ce que `ticket-effort.mjs` en tire
 
 Il rend, par ticket fermé : le **travail constaté** en séances (journées distinctes portant des
