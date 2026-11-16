@@ -50,7 +50,7 @@ derrière les commandes npm qui font autorité :
 | `npm run release:compat` | `scripts/release/compat.mjs` | Client publié ↔ serveur courant, et l'inverse (socket). Job `compat`, dont `publier` dépend. Rupture face à une PRÉ-VERSION : acceptée et annoncée (à écrire au changelog) ; face à une STABLE : bloque. Sortie 2 = n'a pas pu installer la référence |
 | `npm run release -- --version <v> --promouvoir` | `scripts/release/release.mjs` | Les gestes mécaniques entre l'estampille et le tag (un seul push). Ne tague jamais |
 | `npm run release -- --deprecate [--publish]` | `scripts/release/release.mjs` | Les paquets historiques, APRÈS la publication |
-| `npm run release -- --dist-tags [--publish]` | `scripts/release/release.mjs` | Le `latest` resté sur la préversion précédente |
+| `npm run release -- --dist-tags [--publish]` | `scripts/release/release.mjs` | Le `latest` resté sur la préversion précédente, un canal (`alpha`) resté derrière un plus mûr (`beta`) |
 
 Ce skill donne la méthode À UN AGENT : quoi lancer, ce que chaque refus signifie, où chercher
 quand ça casse. Ce n'est pas la documentation du projet — celle-ci vit dans
@@ -276,7 +276,8 @@ Payé à la `10.0.0-beta.1`, chaque ligne une fois :
   avant `--write` (#47). Simuler le jour J sans réseau :
   `node scripts/release/accueil-gate.mjs --dist-tags '<tags du jour>' --en-cours 10.0.0 --anticiper`.
 - **Après le tag : `npm run release -- --dist-tags --publish`** depuis le poste (2FA) — le
-  `latest` d'un paquet né en préversion reste sur son premier cran.
+  `latest` d'un paquet né en préversion reste sur son premier cran, et un canal moins mûr
+  (`alpha`) reste derrière celui qu'on vient de publier.
 - **`docs/performance/data/<version>.json` n'est jamais remesuré par la forge** : vérifier que sa
   `provenance.headCommit` décrit encore le code publié, sinon campagne de nuit
   (`nodefony-load-test`, `perf-campaign.sh`).
@@ -423,7 +424,9 @@ par un sous-shell.
   paquet né en préversion sert sa toute première alpha à qui écrit `npm i <paquet>`. Le symptôme
   n'est pas une erreur : c'est `npm outdated` qui annonce les paquets « en retard » APRÈS une
   publication réussie. `--dist-tags` le constate et le corrige ; il ne touche JAMAIS un `latest`
-  stable. La passe de publication fait le même constat, mais **à chaud seulement** — un constat qui
+  stable. Même mode, même cause : `--tag beta` laisse `alpha` en place, et `@alpha` sert alors
+  une version plus VIEILLE que `@beta` (vécu : alpha.9 sous beta.8) — le mode recale aussi un
+  canal de préversion dépassé par un plus mûr (`canauxEnArriere`, précédence semver). La passe de publication fait le même constat, mais **à chaud seulement** — un constat qui
   ne se rejoue pas est un constat perdu, et c'est pourquoi le mode existe séparément.
 - **`npm view <nom> --json` ENVELOPPE sa réponse dans un tableau** dès que le spécificateur peut
   correspondre à plusieurs versions. Lire `doc["dist-tags"]` dessus rend `undefined` en silence :

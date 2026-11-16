@@ -1526,6 +1526,61 @@ export function trierPourRecalage(etats, estPreversion) {
 }
 
 /**
+ * Canaux de préversion, du moins mûr au plus mûr. `latest` vient après eux.
+ */
+export const CANAUX_DE_PREVERSION = ["alpha", "beta", "rc"];
+
+/**
+ * Les canaux de préversion restés DERRIÈRE un canal plus mûr.
+ *
+ * 🔴 Le piège qu'elle nomme, constaté au banc devkit (#785) : la publication
+ * pose UN canal (`--tag beta`) et laisse les autres où ils étaient. `alpha` est
+ * resté sur `10.0.0-alpha.9` pendant que `beta` avançait jusqu'à la `beta.8` —
+ * `npx nodefony@alpha new` créait donc une application sur une version plus
+ * VIEILLE que la beta. Un canal moins mûr promet d'être au moins aussi récent
+ * qu'un canal plus mûr ; dès qu'un plus mûr le dépasse, il ment.
+ *
+ * Seuls les canaux de {@link CANAUX_DE_PREVERSION} sont jugés. Une étiquette
+ * hors de cette liste (`beta.0` en `4.0.0-beta.0` sur `nodefony`, héritée) n'est
+ * ni recalée ni prise pour référence, et `latest` n'est jamais déplacé ici —
+ * c'est le rôle de {@link latestsRestesEnArriere}, qui le protège.
+ *
+ * La comparaison est INJECTÉE (`semver.gt` en production) : la précédence des
+ * préversions (semver, clause 11.4) ne se réimplémente pas à moitié.
+ *
+ * @param etats - un état par paquet : `{ nom, distTags }`
+ * @param estPlusRecente - `(a, b) => a > b` selon semver
+ * @returns `{ nom, tag, de, vers, devant }` par canal à recaler — `devant`
+ *   nomme le canal plus mûr qui l'a dépassé
+ */
+export function canauxEnArriere(etats, estPlusRecente) {
+  const aRecaler = [];
+  for (const { nom, distTags } of etats) {
+    if (!distTags) continue;
+    CANAUX_DE_PREVERSION.forEach((canal, rang) => {
+      const actuelle = distTags[canal];
+      if (!actuelle) return;
+      let vers = actuelle;
+      let devant = null;
+      for (const plusMur of [
+        ...CANAUX_DE_PREVERSION.slice(rang + 1),
+        "latest",
+      ]) {
+        const candidate = distTags[plusMur];
+        if (candidate && estPlusRecente(candidate, vers)) {
+          vers = candidate;
+          devant = plusMur;
+        }
+      }
+      if (devant !== null) {
+        aRecaler.push({ nom, tag: canal, de: actuelle, vers, devant });
+      }
+    });
+  }
+  return aRecaler;
+}
+
+/**
  * Déplie la sortie JSON de `npm view` : l'enveloppe éventuelle (cf
  * {@link lireVueNpm}) aplatie en une liste.
  *
@@ -1625,6 +1680,23 @@ export function canalDeVersion(version) {
 }
 
 /**
+ * Lit la sortie de `npm view <nom> dist-tags --json` : les étiquettes du paquet.
+ *
+ * 🔴 Même enveloppe que {@link lireVueNpm} : sur un nom nu, npm rend
+ * `[{ alpha, beta, latest }]`, pas l'objet. Lire `.latest` sur ce tableau rend
+ * `undefined` en silence — le constat d'après publication du `latest` resté en
+ * arrière n'a ainsi JAMAIS pu se déclencher (constaté pendant #785).
+ *
+ * @param brut - la sortie standard de npm, telle quelle
+ * @returns les étiquettes `{ canal: version }`, ou `null` si illisibles
+ */
+export function lireDistTags(brut) {
+  const plat = deplierVueNpm(brut);
+  const tags = plat?.find((v) => v && typeof v === "object") ?? null;
+  return tags;
+}
+
+/**
  * Lit la sortie de `npm view <nom> dist-tags versions --json`.
  *
  * 🔴 Le piège, vécu : npm ENVELOPPE sa réponse dans un tableau dès que le
@@ -1638,7 +1710,7 @@ export function canalDeVersion(version) {
  * concatènent sans dommage — on ne fait qu'y chercher une appartenance.
  *
  * @param brut - la sortie standard de npm, telle quelle
- * @returns `{ latest, versions }`, ou `null` si la sortie est illisible
+ * @returns `{ latest, distTags, versions }`, ou `null` si la sortie est illisible
  */
 export function lireVueNpm(brut) {
   const plat = deplierVueNpm(brut);
@@ -1655,6 +1727,7 @@ export function lireVueNpm(brut) {
   if (vues.length === 0 && versionsNues.length === 0) return null;
   return {
     latest: vues[0]?.["dist-tags"]?.latest ?? null,
+    distTags: vues[0]?.["dist-tags"] ?? null,
     versions: [
       ...versionsNues,
       ...vues.flatMap((v) => [v.versions ?? []].flat()),

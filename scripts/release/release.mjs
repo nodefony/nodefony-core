@@ -35,7 +35,7 @@
  *   npm run release -- --version 10.0.0 --publish            # MANUEL
  *   npm run release -- --deprecate                           # les paquets historiques
  *   npm run release -- --deprecate --publish                 # …et les déprécier
- *   npm run release -- --dist-tags                           # `latest` restés en arrière
+ *   npm run release -- --dist-tags                           # `latest` et canaux restés en arrière
  *   npm run release -- --dist-tags --publish                 # …et les recaler
  *
  * Le second facteur, sur `--deprecate --publish` et `--dist-tags --publish` —
@@ -96,6 +96,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import semver from "semver";
 import {
   planDeReprise,
   verdictPaquetsNeufs,
@@ -113,7 +114,9 @@ import {
   paquetsNonEstampilles,
   pairsTropLarges,
   depreciationsAFaire,
+  canauxEnArriere,
   latestsRestesEnArriere,
+  lireDistTags,
   lireVueNpm,
   paquetsNonServis,
   validerOtp,
@@ -448,7 +451,7 @@ if (drapeau("deprecate")) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// --dist-tags — le `latest` resté en arrière, APRÈS la publication
+// --dist-tags — le `latest` ou un canal (`alpha`) resté en arrière, APRÈS la publication
 // ═══════════════════════════════════════════════════════════════════════════
 //
 // 🔴 Pourquoi ce mode existe SÉPARÉMENT de la passe de publication, qui fait
@@ -484,22 +487,48 @@ if (drapeau("dist-tags")) {
     etats.push({
       nom: p.nom,
       latest: vue.latest,
+      distTags: vue.distTags,
       publiee: p.pkg.version,
       versions: vue.versions,
     });
   }
 
-  const { aRecaler, absentes } = trierPourRecalage(etats, (v) =>
-    v.includes("-"),
+  const { aRecaler: latestsARecaler, absentes } = trierPourRecalage(
+    etats,
+    (v) => v.includes("-"),
   );
+  // Les canaux de préversion se jugent sur les étiquettes TELLES QU'ELLES
+  // SERONT après le recalage de `latest` : sinon `alpha` serait recalé sur
+  // l'ancien `latest`, puis laissé derrière le nouveau.
+  const latestApres = new Map(latestsARecaler.map((r) => [r.nom, r.vers]));
+  const canaux = canauxEnArriere(
+    etats.map((e) => ({
+      nom: e.nom,
+      distTags: e.distTags && {
+        ...e.distTags,
+        ...(latestApres.has(e.nom) ? { latest: latestApres.get(e.nom) } : {}),
+      },
+    })),
+    (a, b) => semver.gt(a, b),
+  );
+  const aRecaler = [
+    ...latestsARecaler.map((r) => ({ ...r, tag: "latest" })),
+    ...canaux,
+  ];
   const marqueDe = new Map([
-    ...aRecaler.map((r) => [r.nom, "← À RECALER"]),
+    ...latestsARecaler.map((r) => [r.nom, "← À RECALER"]),
     ...absentes.map((r) => [r.nom, "⊘ version ABSENTE du registre"]),
   ]);
   for (const e of etats) {
     dire(
       `  ${e.nom.padEnd(26)} latest=${(e.latest ?? "—").padEnd(16)}` +
         `dépôt=${e.publiee.padEnd(16)}${marqueDe.get(e.nom) ?? "·"}`,
+    );
+  }
+  for (const c of canaux) {
+    dire(
+      `  ${c.nom.padEnd(26)} ${c.tag}=${c.de.padEnd(16)}` +
+        `derrière ${c.devant}=${c.vers}  ← À RECALER`,
     );
   }
   for (const nom of illisibles) {
@@ -517,11 +546,11 @@ if (drapeau("dist-tags")) {
 
   if (!PUBLIER) {
     dire(
-      `\n  ${aRecaler.length} paquet(s) à recaler. Appliquer, depuis le poste\n` +
+      `\n  ${aRecaler.length} étiquette(s) à recaler. Appliquer, depuis le poste\n` +
         "  (npm demandera le code 2FA) : --dist-tags --publish\n" +
         "  Ou, un par un :\n" +
         aRecaler
-          .map((r) => `    npm dist-tag add ${r.nom}@${r.vers} latest`)
+          .map((r) => `    npm dist-tag add ${r.nom}@${r.vers} ${r.tag}`)
           .join("\n"),
     );
     process.exit(0);
@@ -556,14 +585,16 @@ if (drapeau("dist-tags")) {
   }
 
   /**
-   * Pose un `latest`, en capturant la sortie SEULEMENT si l'on a un code.
+   * Pose une étiquette (`latest` ou un canal de préversion), en capturant la
+   * sortie SEULEMENT si l'on a un code.
    *
-   * @param {{nom: string, vers: string}} r - le paquet et la version visée.
+   * @param {{nom: string, vers: string, tag: string}} r - le paquet, la
+   *   version visée et l'étiquette à y poser.
    * @returns {{status: number, sortie: string}} le verdict et ce que npm a dit.
    */
   const poserDistTag = (r) => {
     const code = otpCourant();
-    const args = avecOtp(["dist-tag", "add", `${r.nom}@${r.vers}`, "latest"]);
+    const args = avecOtp(["dist-tag", "add", `${r.nom}@${r.vers}`, r.tag]);
     if (!code) {
       // Sans code, npm doit pouvoir RÉCLAMER sur le terminal : on ne capture
       // rien, et il n'y a alors pas d'expiration à rattraper.
@@ -578,7 +609,7 @@ if (drapeau("dist-tags")) {
 
   const echecs = [];
   for (const r of aRecaler) {
-    dire(`  → ${r.nom} : ${r.de} ⇒ ${r.vers}`);
+    dire(`  → ${r.nom} ${r.tag} : ${r.de} ⇒ ${r.vers}`);
     // 🔴 Un code TOTP vit une trentaine de secondes ; ce lot en dure autant.
     // Le refus tombe donc au milieu, sur un paquet quelconque, et rien ne le
     // distingue d'un vrai échec de paquet. On le reconnaît, on redemande un
@@ -606,7 +637,7 @@ if (drapeau("dist-tags")) {
     // est indépendant des autres et se repose autant de fois qu'on veut.
     // S'arrêter au premier raté laisserait treize paquets périmés pour un seul
     // qui résiste — et l'on ne saurait pas lesquels ont abouti.
-    if (res.status !== 0) echecs.push(r.nom);
+    if (res.status !== 0) echecs.push(`${r.nom} (${r.tag})`);
   }
   if (echecs.length) {
     echouer(
@@ -615,7 +646,7 @@ if (drapeau("dist-tags")) {
         "  il n'y a rien à défaire.",
     );
   }
-  dire(`\n✓ dist-tags — ${aRecaler.length} paquets recalés`);
+  dire(`\n✓ dist-tags — ${aRecaler.length} étiquette(s) recalée(s)`);
   process.exit(0);
 }
 /**
@@ -1887,15 +1918,17 @@ if (PHASES.publier) {
   for (const nom of publies) {
     const r = npm(["view", nom, "dist-tags", "--json"]);
     if (r.status !== 0) continue;
-    try {
-      etats.push({
-        nom,
-        latest: JSON.parse(r.stdout ?? "{}").latest ?? null,
-        publiee: VERSION,
-      });
-    } catch {
-      /* un paquet illisible ne doit pas faire tomber le bilan */
-    }
+    // `lireDistTags` déplie l'enveloppe de npm : lire `.latest` sur la sortie
+    // brute rendait `undefined`, et ce constat ne se déclenchait jamais.
+    const distTags = lireDistTags(r.stdout);
+    // Un paquet illisible ne doit pas faire tomber le bilan.
+    if (!distTags) continue;
+    etats.push({
+      nom,
+      latest: distTags.latest ?? null,
+      distTags,
+      publiee: VERSION,
+    });
   }
   const aRecaler = latestsRestesEnArriere(etats, (v) => v.includes("-"));
   if (aRecaler.length) {
@@ -1909,6 +1942,19 @@ if (PHASES.publier) {
         aRecaler
           .map((r) => `    npm dist-tag add ${r.nom}@${r.vers} latest`)
           .join("\n"),
+    );
+  }
+  // ── un canal de préversion laissé derrière ─────────────────────────────
+  // `--tag beta` pose `beta` et laisse `alpha` où il était : `@alpha` sert
+  // alors une version plus VIEILLE que `@beta` (vécu : alpha.9 sous beta.8).
+  const canaux = canauxEnArriere(etats, (a, b) => semver.gt(a, b));
+  if (canaux.length) {
+    alerter(
+      `${canaux.length} canal(aux) de préversion resté(s) DERRIÈRE un canal plus mûr :\n` +
+        canaux
+          .map((c) => `    ${c.nom} : ${c.tag}=${c.de} < ${c.devant}=${c.vers}`)
+          .join("\n") +
+        "\n  Recaler, depuis le poste : npm run release -- --dist-tags --publish",
     );
   }
 

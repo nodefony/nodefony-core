@@ -17,6 +17,7 @@ import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import semver from "semver";
 import { npmChannelOf } from "../../src/nodefony/src/cli/installCommand.ts";
 import {
   readWorkspaceManifests,
@@ -26,7 +27,9 @@ import {
   EXCLUS_DE_LA_DEPRECIATION,
   PAQUETS_HISTORIQUES,
   depreciationsAFaire,
+  canauxEnArriere,
   latestsRestesEnArriere,
+  lireDistTags,
   lireVueNpm,
   referenceDeCompat,
   canalDeVersion,
@@ -1791,6 +1794,118 @@ describe("verdict de la CI du commit — on ne publie pas sur un rouge", () => {
 // retrait ne rattrape des installations déjà parties.
 const estPreversion = (v) => v.includes("-");
 
+describe("lireDistTags", () => {
+  it("🔴 PIÈGE — déplie l'enveloppe RÉELLE de `npm view <nom> dist-tags --json`", () => {
+    // Forme recopiée du registre : un TABLEAU. `.latest` dessus vaut undefined,
+    // et le constat d'après publication restait muet.
+    const brut = JSON.stringify([
+      {
+        alpha: "10.0.0-alpha.9",
+        latest: "10.0.0-beta.8",
+        beta: "10.0.0-beta.8",
+      },
+    ]);
+    expect(JSON.parse(brut).latest).toBeUndefined();
+    expect(lireDistTags(brut)).toEqual({
+      alpha: "10.0.0-alpha.9",
+      latest: "10.0.0-beta.8",
+      beta: "10.0.0-beta.8",
+    });
+  });
+
+  it("lit aussi la forme nue, et rend null sur une sortie illisible", () => {
+    expect(lireDistTags(JSON.stringify({ latest: "7.0.2" }))).toEqual({
+      latest: "7.0.2",
+    });
+    expect(lireDistTags("npm ERR! E404")).toBeNull();
+    expect(lireDistTags("")).toBeNull();
+  });
+});
+
+describe("canauxEnArriere", () => {
+  const plusRecente = (a, b) => semver.gt(a, b);
+
+  it("🔴 recale `alpha` resté derrière `beta` — le cas réel du banc #785", () => {
+    // `npx nodefony@alpha new` créait une app en alpha.9 pendant que la beta
+    // était à la beta.8 : la précédence semver met beta.8 AU-DESSUS d'alpha.9.
+    expect(
+      canauxEnArriere(
+        [
+          {
+            nom: "@nodefony/devkit",
+            distTags: {
+              alpha: "10.0.0-alpha.9",
+              beta: "10.0.0-beta.8",
+              latest: "10.0.0-beta.8",
+            },
+          },
+        ],
+        plusRecente,
+      ),
+    ).toEqual([
+      {
+        nom: "@nodefony/devkit",
+        tag: "alpha",
+        de: "10.0.0-alpha.9",
+        vers: "10.0.0-beta.8",
+        devant: "beta",
+      },
+    ]);
+  });
+
+  it("une étiquette hors des canaux et un `latest` stable plus VIEUX ne jouent pas", () => {
+    // `nodefony` réel : `beta.0` hérité en 4.0.0-beta.0, `latest` en 7.0.2.
+    // Seul `alpha` est en retard, et il se recale sur `beta`, pas sur `latest`.
+    expect(
+      canauxEnArriere(
+        [
+          {
+            nom: "nodefony",
+            distTags: {
+              "beta.0": "4.0.0-beta.0",
+              latest: "7.0.2",
+              alpha: "10.0.0-alpha.9",
+              beta: "10.0.0-beta.8",
+            },
+          },
+        ],
+        plusRecente,
+      ),
+    ).toEqual([
+      {
+        nom: "nodefony",
+        tag: "alpha",
+        de: "10.0.0-alpha.9",
+        vers: "10.0.0-beta.8",
+        devant: "beta",
+      },
+    ]);
+  });
+
+  it("la stable sortie, les préversions la rejoignent ; à jour, rien à faire", () => {
+    expect(
+      canauxEnArriere(
+        [
+          {
+            nom: "a",
+            distTags: {
+              alpha: "10.0.0-alpha.9",
+              beta: "10.0.0-beta.8",
+              latest: "10.0.0",
+            },
+          },
+          {
+            nom: "b",
+            distTags: { alpha: "10.1.0-alpha.1", beta: "10.0.0-beta.8" },
+          },
+          { nom: "c", distTags: null },
+        ],
+        plusRecente,
+      ).map((r) => `${r.nom}:${r.tag}→${r.vers}`),
+    ).toEqual(["a:alpha→10.0.0", "a:beta→10.0.0"]);
+  });
+});
+
 describe("latestsRestesEnArriere", () => {
   it("recale un latest resté sur une préversion périmée", () => {
     expect(
@@ -2161,6 +2276,7 @@ describe("lireVueNpm", () => {
       ),
     ).toEqual({
       latest: "10.0.0-alpha.1",
+      distTags: { alpha: "10.0.0-alpha.2", latest: "10.0.0-alpha.1" },
       versions: ["10.0.0-alpha.1", "10.0.0-alpha.2"],
     });
   });
@@ -2173,7 +2289,11 @@ describe("lireVueNpm", () => {
           versions: ["7.0.2"],
         }),
       ),
-    ).toEqual({ latest: "7.0.2", versions: ["7.0.2"] });
+    ).toEqual({
+      latest: "7.0.2",
+      distTags: { latest: "7.0.2" },
+      versions: ["7.0.2"],
+    });
   });
 
   it("une version UNIQUE arrive en chaîne, pas en tableau", () => {
