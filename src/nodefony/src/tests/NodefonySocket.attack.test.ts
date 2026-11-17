@@ -1093,8 +1093,18 @@ describe("RED-TEAM NodefonySocket — serveur WebSocket hostile", () => {
     expect(c.identity?.authenticated ?? false).to.equal(false);
   });
 
-  it("V8 · flood de pings WebSocket et de notifications : la boucle d'événements reste réactive", async () => {
+  it("V8 · flood de pings WebSocket et de notifications : tout est traité, chaque ping a son pong, la connexion tient", async () => {
+    // Des FAITS, pas une durée : une durée assertée rougit sous la contention
+    // d'une suite chargée (vécu : 1 731 ms sous 353 workers), et se tait sur une
+    // machine rapide. Un client qui se bloquerait ou décrocherait sous le flot
+    // n'atteindrait pas ces comptes : le test tomberait en délai, en le nommant.
+    let pongs = 0;
+    let allPongs!: () => void;
+    const pongsDone = new Promise<void>((r) => (allPongs = r));
     const decor = await serve((ws) => {
+      ws.on("pong", () => {
+        if (++pongs === 3000) allPongs();
+      });
       ws.send(WELCOME);
       for (let i = 0; i < 3000; i++) ws.ping();
       for (let i = 0; i < 20_000; i++)
@@ -1102,13 +1112,16 @@ describe("RED-TEAM NodefonySocket — serveur WebSocket hostile", () => {
     });
     const c = make({ url: decor.url, autoReconnect: false });
     let seen = 0;
-    c.on("evt", () => seen++);
+    let allEvents!: () => void;
+    const eventsDone = new Promise<void>((r) => (allEvents = r));
+    c.on("evt", () => {
+      if (++seen === 20_000) allEvents();
+    });
     await c.connect();
-    const t0 = Date.now();
-    await wait(50);
-    expect(Date.now() - t0, "boucle d'événements bloquée").to.be.below(1500);
+    await Promise.all([eventsDone, pongsDone]);
+    expect(seen, "chaque notification délivrée une fois").to.equal(20_000);
+    expect(pongs, "chaque ping a reçu son pong").to.equal(3000);
     expect(c.state).to.equal("connected");
-    expect(seen).to.be.at.most(20_000);
   });
 
   it("V8 · flood de requêtes serveur : le client répond à chacune sans gonfler ni planter", async () => {
