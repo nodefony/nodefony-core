@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-11-17 14:06** (UTC).
+> Empreinte prise le **2026-11-17 18:26** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,7 +20,7 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `██████████` 99% | 273 | 3 | 2026-11-29 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `██████████` 99% | 274 | 4 | 2026-11-29 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 98% | 138 | 3 | 2026-12-06 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 11% | 7 | 57 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 33 | — |
@@ -35,7 +35,7 @@
 
 Ordre 9.03 · P1 — figé à la création · 0.5 j · jalon 10.0.0-beta · frise 2026-11-24 → 11-24
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 3 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 4 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -128,7 +128,7 @@ Ordre 9.03 · P1 — figé à la création · 0.5 j · jalon 10.0.0-beta · fris
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Backlog — aucune date promise · 40 ouverts
+## Backlog — aucune date promise · 41 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -172,14 +172,16 @@ Ordre 9.03 · P1 — figé à la création · 0.5 j · jalon 10.0.0-beta · fris
 | 925.5 | P3 — fin de cycle | 1 | — | #728 | feat(client): signer les styles créés à l'exécution sous CSP stricte |
 | 925.6 | P3 — fin de cycle | 1 | — | #768 | perf(http): mesurer le coût du journal d'accès par requête |
 | 926 | P1 — figé à la création | 0.5 | — | #541 | test(cli): valider le plein écran du serveur de dev sous Windows |
+| 927 | P3 — fin de cycle | 1 | — | #788 | ci(cli): éprouver sur GitLab l'image arm64 de la CI générée |
 
-## Jalon 10.0.0-beta — 3 ouverts
+## Jalon 10.0.0-beta — 4 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
 | 9.03 | P1 — figé à la création | 0.5 | 2026-11-24 → 11-24 | #781 | ci(release): publier l'image de démonstration aussi pour arm64 |
 | 9.04 | P2 — décision | 1 | 2026-11-25 → 11-25 | #772 | docs(docker): réécrire la fiche Docker Hub de l'image officielle |
-| 9.09 | P3 — fin de cycle | 2 | — | #787 | feat(cli): éprouver aussi en arm64 l'image de la CI générée |
+| 9.1 | P1 — figé à la création | 1 | — | #789 | fix(redis): ne plus perdre de clés en reprenant un lot SCAN |
+| 9.2 | P2 — décision | 1 | — | #790 | test(drizzle): expliquer un drop-table intermittent sur MySQL |
 
 ## Jalon 10.2.0 — 33 ouverts
 

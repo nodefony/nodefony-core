@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-17T14:06:28.274Z",
+  "generatedAt": "2026-11-17T18:26:16.179Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 273,
+      "closed": 274,
       "dueOn": "2026-11-29T00:00:00Z",
       "number": 7,
-      "open": 3,
+      "open": 4,
       "title": "10.0.0-beta"
     },
     {
@@ -5802,7 +5802,7 @@
       "title": "feat(studio): montrer en direct la contre-pression du temps réel",
       "url": "https://github.com/nodefony/nodefony-core/issues/555",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": null,
       "priorite": "P2 — décision",
       "jours": 1,
@@ -7247,8 +7247,8 @@
       "number": 787,
       "title": "feat(cli): éprouver aussi en arm64 l'image de la CI générée",
       "url": "https://github.com/nodefony/nodefony-core/issues/787",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P3 — fin de cycle",
       "jours": 2,
@@ -7272,6 +7272,22 @@
       "debut": null,
       "cible": null,
       "labels": []
+    },
+    {
+      "number": 789,
+      "title": "fix(redis): ne plus perdre de clés en reprenant un lot SCAN",
+      "url": "https://github.com/nodefony/nodefony-core/issues/789",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 9.1,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-9"
+      ]
     },
     {
       "number": 432,
@@ -7314,6 +7330,22 @@
       "debut": "2026-09-19",
       "cible": "2026-09-22",
       "labels": []
+    },
+    {
+      "number": 790,
+      "title": "test(drizzle): expliquer un drop-table intermittent sur MySQL",
+      "url": "https://github.com/nodefony/nodefony-core/issues/790",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 9.2,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-9"
+      ]
     },
     {
       "number": 404,
@@ -11332,6 +11364,22 @@
       "labels": [
         "good first issue",
         "help wanted",
+        "backlog"
+      ]
+    },
+    {
+      "number": 788,
+      "title": "ci(cli): éprouver sur GitLab l'image arm64 de la CI générée",
+      "url": "https://github.com/nodefony/nodefony-core/issues/788",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P3 — fin de cycle",
+      "jours": 1,
+      "ordre": 927,
+      "debut": null,
+      "cible": null,
+      "labels": [
         "backlog"
       ]
     },
