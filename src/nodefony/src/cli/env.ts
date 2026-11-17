@@ -27,6 +27,7 @@ import {
 import { frameworkEnvCatalog } from "../config/reservedEnv";
 import { stripGlobalCliFlags } from "./globalFlags";
 import { collectEnvShortcuts } from "../config/envShortcuts";
+import { isModulePath } from "../kernel/resolveModuleEntry";
 import {
   CONFIG_SCHEMA_EXPORT,
   CONFIG_SCHEMA_FIELD,
@@ -290,7 +291,21 @@ export async function readModuleShortcuts(
   const shortcuts: IModuleShortcut[] = [];
   const unreadable: IUnreadableModule[] = [];
   for (const { name, condition } of readManifestEntries(projectRoot) ?? []) {
-    const dir = path.join(projectRoot, "node_modules", ...name.split("/"));
+    // Une entrée CHEMIN (`{ name: "./src/demo" }`) se lit là où le Kernel la
+    // charge — depuis la racine de l'application, par la même règle
+    // (`isModulePath`) —, jamais sous `node_modules/./src/demo`, où elle était
+    // tue et ses variables ressortaient « lues par personne ».
+    const byPath = isModulePath(name);
+    const dir = byPath
+      ? path.resolve(projectRoot, name)
+      : path.join(projectRoot, "node_modules", ...name.split("/"));
+    if (byPath && !existsSync(dir)) {
+      unreadable.push({
+        module: name,
+        reason: `ce chemin n'existe pas (relatif à la racine de l'application)`,
+      });
+      continue;
+    }
     const declared = declaredPackageEntry(dir, CONFIG_SCHEMA_FIELD);
     if (declared === null) continue;
     let file: string;

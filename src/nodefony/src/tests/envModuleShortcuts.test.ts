@@ -20,7 +20,25 @@ describe("nodefony env — découverte des réglages de modules", () => {
 
   writeFileSync(
     path.join(root, "nodefony.config.ts"),
-    `export default defineConfig({ modules: [use("@x/built"), use("@x/unbuilt"), use("@x/noexport"), use("@x/silent")] });\n`,
+    `export default defineConfig({ modules: [use("@x/built"), use("@x/unbuilt"), use("@x/noexport"), use("@x/silent"), { name: "./modules/local", policy: "dev" }, { name: "./modules/absent" }] });\n`,
+  );
+  // Un module chargé par son CHEMIN (`{ name: "./src/demo" }`) n'habite pas
+  // `node_modules` : le chercher là le taisait, et sa variable ressortait
+  // « lue par personne » (vécu sur NF_KEYCLOAK_MACHINE_SECRET de la démo).
+  const local = path.join(root, "modules", "local");
+  mkdirSync(path.join(local, "dist"), { recursive: true });
+  writeFileSync(
+    path.join(local, "package.json"),
+    JSON.stringify({
+      name: "@app/local",
+      nodefony: { configSchema: "./dist/configSchema.js" },
+    }),
+  );
+  writeFileSync(
+    path.join(local, "dist", "configSchema.js"),
+    `export function configJsonSchema() {
+      return { type: "object", properties: { secret: { type: "string", env: "NF_LOCAL_SECRET" } } };
+    }\n`,
   );
   const pkg = (
     name: string,
@@ -52,8 +70,21 @@ describe("nodefony env — découverte des réglages de modules", () => {
     const { shortcuts } = await readModuleShortcuts(root);
     assert.deepEqual(
       shortcuts.map((s) => [s.env, s.module, s.path.join(".")]),
-      [["NF_BUILT_HOST", "@x/built", "host"]],
+      [
+        ["NF_BUILT_HOST", "@x/built", "host"],
+        ["NF_LOCAL_SECRET", "./modules/local", "secret"],
+      ],
     );
+  });
+
+  it("un module chargé par CHEMIN se lit depuis la racine de l'application, et son chemin absent est NOMMÉ", async () => {
+    const { shortcuts, unreadable } = await readModuleShortcuts(root);
+    const localShortcut = shortcuts.find((s) => s.env === "NF_LOCAL_SECRET");
+    assert.isDefined(localShortcut);
+    // La politique de chargement suit le module : la notice dit qu'il est de dev.
+    assert.isDefined(localShortcut?.condition);
+    const absent = unreadable.find((u) => u.module === "./modules/absent");
+    assert.match(absent?.reason ?? "", /n'existe pas/u);
   });
 
   it("NOMME le module non construit et celui sans export — jamais un silence", async () => {
