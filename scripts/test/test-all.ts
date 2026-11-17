@@ -210,9 +210,6 @@ async function prepare(
     return { gate, ready: true, used };
   }
 
-  if (!useDocker) {
-    return { gate, ready: false, reason: "infra désactivée (--no-infra)" };
-  }
   if (!gate.service) {
     return { gate, ready: false, reason: "aucun service docker déclaré" };
   }
@@ -225,6 +222,16 @@ async function prepare(
   // pas de serveur, et le banc échouerait sur un refus loin de sa cause.
   const services = [gate.service.name, ...(gate.service.companions ?? [])];
   const allHealthy = (): boolean => services.every((s) => containerHealthy(s));
+  // `--no-infra` ne DÉMARRE rien, mais utilise ce qui tourne déjà sain : c'est
+  // ce que promet son aide. Il refusait auparavant toute cible dont les
+  // variables n'étaient pas exportées à la main, conteneurs sains compris.
+  if (!useDocker && !allHealthy()) {
+    return {
+      gate,
+      ready: false,
+      reason: "éteinte — --no-infra n'en démarre aucune",
+    };
+  }
   if (!allHealthy()) {
     const up = gateUpCommand(gate)!;
     process.stdout.write(`  ${C.dim("→")} démarrage ${gate.label}… `);
