@@ -888,6 +888,8 @@ export {
   CursorOrderError,
 } from "./runtime/pageGuard";
 export type { PaginationMode } from "./runtime/pageGuard";
+export { scanPage, MAX_SCAN } from "./runtime/scanPage";
+export type { IScanBatch } from "./runtime/scanPage";
 export {
   isStandardSchema,
   standardJsonSchemaOf,

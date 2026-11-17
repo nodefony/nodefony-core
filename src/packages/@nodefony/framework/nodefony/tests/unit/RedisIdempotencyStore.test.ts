@@ -414,3 +414,35 @@ describe("Cloison des clés d'idempotence par application", () => {
     );
   });
 });
+
+describe("listPage — un lot recomposé entre deux pages (règle `scanPage` du cœur)", () => {
+  it("🔴 lot RÉORDONNÉ au rejeu : chaque clé une fois, aucune perdue", async () => {
+    // Redis ne rend pas deux fois le même lot pour un même curseur (rehash).
+    // L'ancienne reprise « sauter les N premières » perdait des clés ici.
+    const now = 3_000_000;
+    const fake = new FakeRedis(() => now);
+    const store = new RedisIdempotencyStore(() => fake, 60_000, 600_000);
+    for (const k of ["a", "b", "c", "d", "e"]) await store.begin(k, FP);
+    let calls = 0;
+    const scan = fake.scan.bind(fake);
+    fake.scan = async (cursor, options) => {
+      const res = await scan(cursor, options);
+      calls += 1;
+      return calls === 1 ? res : { ...res, keys: [...res.keys].reverse() };
+    };
+    const keys: string[] = [];
+    let cursor: string | null | undefined;
+    let pages = 0;
+    do {
+      const page = await store.listPage({
+        limit: 2,
+        cursor: cursor ?? undefined,
+      });
+      for (const item of page.items) keys.push(item.key);
+      cursor = page.nextCursor;
+      pages += 1;
+      assert.ok(pages < 10, "la pagination doit CONVERGER");
+    } while (cursor);
+    assert.deepEqual([...keys].sort(), ["a", "b", "c", "d", "e"]);
+  });
+});

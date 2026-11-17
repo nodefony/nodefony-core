@@ -575,7 +575,7 @@ que le code fait, store par store — à lire avant d'écrire un client :
 | Mode | **offset** | **offset** | **curseur** |
 | `offset` | ✅ | ✅ | ❌ **ignoré** |
 | `total` (`withTotal`) | ✅ (refusable) | ✅ (refusable, `COUNT`) | ❌ **jamais** rendu |
-| `cursor` / `nextCursor` | ❌ **ignoré** | ❌ **ignoré** | ✅ curseur composite |
+| `cursor` / `nextCursor` | ❌ **ignoré** | ❌ **ignoré** | ✅ curseur `SCAN`    |
 | Ordre | `expiresAtMs` ASC | `expiresAtMs` ASC, `key` ASC | ❌ **aucun ordre garanti** |
 | `order` (tri demandé) | ❌ ignoré | ❌ ignoré | ❌ ignoré |
 | `q` (préfixe de clé) | ✅ `startsWith` | ✅ `LIKE` ancré, `%`/`_` échappés | ✅ descendu dans `MATCH` |
@@ -587,9 +587,10 @@ que le code fait, store par store — à lire avant d'écrire un client :
 Le mode **curseur** de Redis mérite une explication, parce qu'il piège : `SCAN COUNT` **n'est pas un
 plafond** mais un indice d'effort — Redis peut rendre plus de clés que demandé. Sans précaution, la
 page dépasserait `limit` et violerait le contrat `IPage` (`src/nodefony/src/types/IPage.ts#IPage`). D'où
-le **curseur composite** `"<consommé>:<curseurRedis>"` (`encodeCursor()`,
-`RedisIdempotencyStore.ts#encodeCursor`) : on ne rend que `limit` éléments et on mémorise combien de clés du
-lot ont été consommées ; la page suivante rejoue le **même** `SCAN` et reprend là.
+la règle unique des stores Redis, `scanPage` (`scanPage.ts#scanPage`, cœur) : on ne rend que `limit`
+éléments, et la page suivante rejoue le **même** `SCAN` en sautant les clés déjà parcourues — par
+empreinte, jamais par position, Redis pouvant recomposer un lot entre deux pages. Les lots
+s'enchaînent jusqu'à remplir la page.
 
 > [!IMPORTANT]
 > **Une clé rendue par `listPage` ne contient JAMAIS la réponse mémorisée ni l'empreinte.**
@@ -754,8 +755,8 @@ Ce qui **manque**, dit franchement :
 
 - Aucun **test de charge** dédié à la porte d'idempotence.
 - Le mode **curseur** de Redis n'est prouvé que contre un **double déterministe** (`FakeRedis`), pas
-  contre un serveur Redis réel — alors que le curseur composite existe justement à cause d'un
-  comportement (`SCAN COUNT` n'est pas un plafond) observé sur un serveur réel.
+  contre un serveur Redis réel ; la règle de reprise qu'il partage (`scanPage`) est, elle, éprouvée
+  sur serveur réel par le banc des sessions (`@nodefony/redis`).
 - L'atomicité **cross-pod** est prouvée sur PostgreSQL et MySQL/MariaDB ; SQLite ne valide que la
   sémantique séquentielle (mono-fichier).
 

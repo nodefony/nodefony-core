@@ -7,9 +7,8 @@ import type {
   ISessionListQuery,
 } from "@nodefony/http";
 import type { IPage } from "nodefony";
-import { assertPageQuery } from "nodefony";
+import { assertPageQuery, MAX_SCAN, scanPage } from "nodefony";
 import type RedisService from "../service/redis";
-import { MAX_SCAN, scanPage } from "./scanCursor";
 import { SessionIndex, supportsScripts } from "./sessionIndex";
 import type { IScriptClient } from "./sessionIndex";
 
@@ -341,12 +340,13 @@ class RedisSessionStorage implements ISessionStorage {
    * ⚠️ **`COUNT` n'est PAS un plafond** — c'est un indice d'effort par itération.
    * Redis peut rendre plus de clés que demandé (typiquement un petit keyspace
    * encodé en listpack : tout arrive en une fois). Sans précaution, la page
-   * dépasserait `limit` et violerait le contrat `IPage`. D'où le **curseur
-   * composite** `"<consommé>:<curseurRedis>"` : quand un batch contient plus que
-   * la page, on ne rend que `limit` éléments et on mémorise combien de clés du
-   * batch ont été consommées — la page suivante rejoue le MÊME `SCAN` et reprend
-   * là où on s'était arrêté. Coût : un re-scan du batch courant, payé uniquement
-   * sur un cold-path d'administration. Rien n'est perdu, rien ne déborde.
+   * dépasserait `limit` et violerait le contrat `IPage`. Une page pleine au
+   * milieu d'un lot rend un curseur qui REJOUE ce lot en sautant, par
+   * empreinte, les clés déjà parcourues (`scanPage`, cœur) — jamais par
+   * position : Redis peut recomposer le lot entre deux pages, et un parcours
+   * qui supprime (`destroyByUser`) le recompose à coup sûr. Coût : un re-scan du
+   * lot courant, payé sur un cold-path d'administration. Rien n'est perdu,
+   * rien ne déborde, et le curseur ne transporte aucun identifiant de session.
    */
   async listPage(query: ISessionListQuery): Promise<IPage<ISessionRecord>> {
     assertPageQuery(query, "cursor");

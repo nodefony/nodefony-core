@@ -540,7 +540,7 @@ même capacité réduite.
 
 | Attente du contrat   | État réel sur Redis                                                                 |
 | -------------------- | ----------------------------------------------------------------------------------- |
-| `limit` respectée    | ✅ garantie par le curseur composite (voir plus bas)                                |
+| `limit` respectée    | ✅ garantie par la reprise au milieu d'un lot (voir plus bas)                       |
 | `cursor` / `hasNext` | ✅ le client boucle tant que `hasNext`, en repassant `nextCursor`                   |
 | `offset`             | ❌ **refusé** au-delà de 0 — `400 PaginationModeError` ; la console suit le curseur |
 | `total`              | ❌ jamais rendu par la LISTE — mais les sessions se COMPTENT (voir ci-dessous)      |
@@ -563,33 +563,46 @@ Un mot sur ce que `SCAN` garantit vraiment : une clé présente du début à la 
 détruites pendant l'itération. L'invariant « toutes les pages, sans trou ni doublon » ne tient donc
 que sur un parc figé.
 
-### Le curseur composite, et pourquoi il existe
+### Reprendre au milieu d'un lot, sans rien perdre
 
 `COUNT` n'est pas un plafond. C'est un indice d'effort : sur un petit keyspace encodé en listpack,
 Redis rend **toutes** les clés d'un coup, quel que soit le `COUNT` demandé. Une page nue déborderait
 alors la `limit` et violerait le contrat.
 
-D'où un curseur de la forme `"<déjà consommé>:<curseur Redis>"`, encodé par `encodeCursor()`
-(`scanCursor.ts`). Quand un lot contient plus d'éléments que la page, le store n'en rend que
-`limit`, mémorise combien de clés du lot ont été consommées, et la page suivante **rejoue le même
-`SCAN`** pour reprendre à la bonne position. Le coût est un re-parcours du lot courant, payé
-uniquement sur un chemin d'administration. Les trois stores partagent ce mécanisme, à l'identique.
+Quand un lot contient plus d'éléments que la page, le store n'en rend que `limit`, et la page
+suivante **rejoue le même `SCAN`** en sautant les clés déjà parcourues. Elle les désigne **par
+empreinte** (53 bits par clé), jamais par position : Redis ne rend pas forcément deux fois le même
+lot pour un même curseur — une insertion, une suppression ou un rehash le recompose. Sauter « les N
+premières » clés sautait alors des clés jamais rendues, et un parcours qui supprime ce qu'il lit
+(« déconnecter partout ») pouvait laisser vivre une session. Le curseur a la forme
+`"<curseur Redis>.<empreintes>"` — 7 octets par empreinte, en base64url : rien à échapper dans
+une URL.
+
+Le curseur ne transporte **aucune clé** : une clé de session est l'identifiant de session, et un
+curseur voyage dans une URL, donc dans les journaux d'accès. Le coût est un re-parcours du lot
+courant, payé uniquement sur un chemin d'administration. La règle est unique — `scanPage`
+(`scanPage.ts#scanPage`), portée par le cœur `nodefony` — et partagée par les trois stores de
+ce module et par le store d'idempotence de `@nodefony/framework`.
 
 > [!IMPORTANT]
-> **Ce mécanisme n'est pas exercé sans serveur Redis réel.** Le double utilisé par défaut,
-> `FakePaginatingRedis` (`session-pagination.test.ts#FakePaginatingRedis`), découpe ses lots à exactement `COUNT`
-> clés — il ne déborde jamais, donc la branche de reprise n'est jamais atteinte. Or c'est un vrai
-> serveur qui a révélé le débordement. Sans `NF_REDIS_TEST_URL`, les bancs de pagination passent au vert
-> **sans avoir testé la seule chose que ce code résout**.
+> **Les doubles prouvent la règle, pas Redis.** La règle elle-même est éprouvée sans serveur : lot qui
+> déborde la page, lot réordonné ou amputé entre deux pages (`scanPage.test.ts` au cœur,
+> `scanCursor.test.ts` ici). Mais seul un vrai serveur **recompose** ses lots de lui-même : le
+> parcours qui détruit ce qu'il lit, sur un keyspace qui bouge, ne se joue qu'avec
+> `NF_REDIS_TEST_URL` (`session-pagination.test.ts`). Sans lui, ce banc se **skippe** — et l'ancienne
+> reprise par position y sautait des dizaines de sessions sur six cents.
 
 ### Les curseurs hostiles
 
 Le curseur arrive de l'extérieur (chaîne de requête d'un écran d'administration, client qui rejoue une
 page) : il n'est pas digne de confiance. Un curseur `SCAN` valide est toujours une suite de chiffres.
 
-Les trois stores s'en protègent par la même règle : `decodeCursor()` puis `scanOrZero()`
-(`scanCursor.ts#scanOrZero`) imposent le format et retombent sur `"0"` sinon — repartir du début est faux au
-pire d'une page, transmettre une valeur arbitraire échouerait à coup sûr.
+Les stores s'en protègent par la même règle (`scanPage.ts#decodeCursor`) : au moindre écart de
+format, le curseur **entier** est jeté et le balayage repart de `"0"` — repartir du début est faux
+au pire d'une page, transmettre une valeur arbitraire échouerait à coup sûr, et appliquer des
+empreintes à un autre lot que le leur sauterait des clés au hasard. Un curseur forgé ne peut rien
+faire lire que `SCAN` n'ait rendu ; des empreintes forgées ne masquent que les clés de celui qui
+les forge.
 
 ### Les vidages complets
 
@@ -681,13 +694,13 @@ cette prose. Ce qui doit être dit ici, c'est **ce qui est prouvé, et par quoi*
 - **La perte de connexion en cours de vie n'est exercée que par son effet sur `getClient`**
   (`client-availability.test.ts`) : une coupure réelle d'un serveur Redis pendant le trafic n'a pas
   de banc dédié.
-- **La branche de reprise du curseur composite n'est atteinte qu'avec un serveur réel** (voir plus
-  haut) : le double ne déborde jamais.
+- **La recomposition d'un lot par Redis lui-même n'est exercée qu'avec un serveur réel** (voir plus
+  haut) : les doubles rejouent des lots écrits à la main.
 - **Pas de banc de charge ni de test de mémoire dédiés** dans ce module — voir le skill
   `nodefony-load-test` pour dimensionner, et `nodefony-check-memory-health` pour la mémoire du
   pipeline.
-- **Pas de test d'attaque** (`*.attack.test.ts`) : les curseurs hostiles sont couverts côté session
-  uniquement, et par le banc de robustesse.
+- **Pas de test d'attaque** (`*.attack.test.ts`) : les curseurs hostiles et forgés sont couverts
+  sur les trois stores (`scanCursor.test.ts`) et par le banc de robustesse.
 - Le cross-pod du backplane est prouvé **ailleurs** (bancs de `@nodefony/realtime`), pas ici.
 
 > [!IMPORTANT]

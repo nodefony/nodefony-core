@@ -220,6 +220,7 @@ nodefonyError; // ← anciennement exporté comme "Error" (cassant)
   ownField,
   isFunction,
   isContainer);
+// scanPage(scan, cursor, limit, accept) + MAX_SCAN (runtime/scanPage.ts) = LA pagination SCAN de TOUS les stores Redis (redis ×3 + RedisIdempotencyStore) — reprise d’un lot par EMPREINTE (cyrb53, 7 o/empreinte base64url), jamais par position (Redis recompose un lot rejoué → perte = faille #789) ; curseur sans clé (id de session ⇒ URL ⇒ journaux) ; malformé ⇒ jeté entier. Ne jamais recopier dans un store.
 // ownField(v, k) = LA lecture d'un champ PROPRE d'une charge `unknown` (runtime/ownField.ts, feuille isomorphe) — jamais `(v as {k?})` ni getOwnPropertyDescriptor recopié
 // Types (import type)
 (IKernel, IService, IContainer, IScope, IModule, ISyslog);

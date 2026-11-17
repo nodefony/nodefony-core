@@ -200,9 +200,9 @@ describe.skipIf(!REAL_URL)(
       );
     });
 
-    // Le curseur du contrat est composite (`skip:scanCursor`). Un client qui
-    // repasse un curseur Redis NU (ancien format, outil externe) doit être
-    // honoré plutôt que rejeté — la pagination reste utilisable.
+    // Le curseur du contrat porte des empreintes après le curseur Redis
+    // (`scanPage`, cœur). Un client qui repasse un curseur Redis NU (outil
+    // externe) doit être honoré plutôt que rejeté — la pagination reste utilisable.
     it("un curseur Redis NU (sans séparateur) est honoré, pas rejeté", async () => {
       for (let i = 0; i < 5; i += 1) {
         await storage.write(`s-${i}`, body("alice"));

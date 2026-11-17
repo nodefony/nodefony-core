@@ -2,7 +2,7 @@
 // dépendance runtime de l'infra Redis vers `@nodefony/security`. L'application
 // câble le store via `registerWebAuthnStore("redis", …)`.
 import type { IPage } from "nodefony";
-import { assertPageQuery } from "nodefony";
+import { assertPageQuery, scanPage } from "nodefony";
 import type {
   IWebAuthnCredential,
   IWebAuthnCredentialStore,
@@ -11,7 +11,6 @@ import type {
   WebAuthnAuthUpdate,
 } from "@nodefony/security";
 import type RedisService from "../service/redis";
-import { scanPage } from "./scanCursor";
 
 /** Préfixe namespacé des clés de credentials WebAuthn dans Redis. */
 /**
@@ -275,11 +274,11 @@ export class RedisWebAuthnCredentialStore implements IWebAuthnCredentialStore {
   /**
    * {@inheritDoc IWebAuthnCredentialStore.listPage}
    *
-   * **Curseur SCAN pur** : UN passage `SCAN` par appel (cold-path admin). Capacité
+   * **Curseur SCAN** (`scanPage`, cœur — cold-path admin) : les lots s'enchaînent
+   * jusqu'à remplir la page, finir le balayage ou épuiser l'effort borné. Capacité
    * réduite ASSUMÉE et annoncée — pas de `total`, pas d'ordre global sur
-   * `createdAt` (Redis n'a pas d'index secondaire ici), la page peut compter moins
-   * d'éléments que `limit` (le filtre s'applique au batch). Le client boucle tant
-   * que `hasNext` en repassant `nextCursor`.
+   * `createdAt` (Redis n'a pas d'index secondaire ici). Le client boucle tant que
+   * `hasNext` en repassant `nextCursor`.
    *
    * ⚠️ On SCANne les HASH de credentials, pas les Set par utilisateur : le filtre
    * `userId` reste un filtre de page. Passer par `sMembers` serait plus direct

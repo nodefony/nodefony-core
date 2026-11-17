@@ -574,7 +574,7 @@ Studio (`webAuthn.ts#WebAuthnService.#build`). Deux garde-fous de production :
   `RedisWebAuthnCredentialStore` (`RedisWebAuthnCredentialStore.ts#RedisWebAuthnCredentialStore.#resolvePrefix`) stocke un **HASH** par
   credential + un **SET** d'ids par porteur — `update` réécrit 1 à 4 champs sans relire
   l'enregistrement (`RedisWebAuthnCredentialStore.ts#RedisWebAuthnCredentialStore.update`).
-- Listing par `SCAN`, curseur composite `skip:scanCursor` (`RedisWebAuthnCredentialStore.ts#RedisWebAuthnCredentialStore.listPage`) :
+- Listing par `SCAN`, curseur opaque de la règle unique `scanPage` (`RedisWebAuthnCredentialStore.ts#RedisWebAuthnCredentialStore.listPage`) :
   **ni ordre global ni total**, pages de taille variable — capacité réduite **déclarée**, pas un
   défaut. `countCredentials()` renvoie `-1` (`RedisWebAuthnCredentialStore.ts#RedisWebAuthnCredentialStore.countCredentials`).
 

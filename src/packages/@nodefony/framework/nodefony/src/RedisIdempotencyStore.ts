@@ -6,7 +6,7 @@ import type {
   IdempotentResponse,
   IPage,
 } from "nodefony";
-import { assertPageQuery } from "nodefony";
+import { assertPageQuery, scanPage } from "nodefony";
 
 /** Préfixe namespacé des clés d'idempotence dans Redis. */
 /**
@@ -54,29 +54,6 @@ export interface RedisIdempotencyClientLike {
   ): Promise<{ cursor: string | number; keys: string[] }>;
   /** TTL résiduel en millisecondes (`-1` = sans expiration, `-2` = absente). */
   pTTL(key: string): Promise<number>;
-}
-
-/**
- * Encode le curseur composite `"<consommé>:<curseurRedis>"` — cf
- * {@link RedisIdempotencyStore.listPage} pour le pourquoi.
- */
-function encodeCursor(scanCursor: string, skip: number): string {
-  return `${skip}:${scanCursor}`;
-}
-
-/** Inverse d'{@link encodeCursor} — tolère un curseur absent, vide ou malformé. */
-function decodeCursor(cursor?: string): { scanCursor: string; skip: number } {
-  if (!cursor) return { scanCursor: "0", skip: 0 };
-  const sep = cursor.indexOf(":");
-  if (sep === -1) {
-    // Curseur Redis nu (client externe) → on l'honore tel quel.
-    return { scanCursor: cursor, skip: 0 };
-  }
-  const skip = Number.parseInt(cursor.slice(0, sep), 10);
-  return {
-    scanCursor: cursor.slice(sep + 1) || "0",
-    skip: Number.isFinite(skip) && skip > 0 ? skip : 0,
-  };
 }
 
 /** État sérialisé d'une entrée d'idempotence (string JSON, valeur d'une clé). */
@@ -214,19 +191,17 @@ export class RedisIdempotencyStore implements IIdempotencyStore {
   /**
    * {@inheritDoc IIdempotencyStore.listPage}
    *
-   * **Curseur SCAN** : au plus UN passage par appel (cold-path admin). Capacité
-   * réduite ASSUMÉE — pas de `total` (compter exigerait un SCAN complet du
-   * keyspace, précisément ce qu'on refuse), pas d'ordre global, et la page peut
-   * compter moins que `limit` (le filtre s'applique au batch scanné). Le client
-   * boucle tant que `hasNext` en repassant `nextCursor`.
+   * **Curseur SCAN** (`scanPage`, cœur — règle unique des stores Redis,
+   * cold-path admin) : les lots s'enchaînent jusqu'à remplir la page, finir le
+   * balayage ou épuiser l'effort borné. Capacité réduite ASSUMÉE — pas de
+   * `total` (compter exigerait un SCAN complet du keyspace, précisément ce
+   * qu'on refuse), pas d'ordre global. Le client boucle tant que `hasNext` en
+   * repassant `nextCursor`.
    *
-   * ⚠️ **`COUNT` n'est PAS un plafond** mais un indice d'effort : Redis peut
-   * rendre plus de clés que demandé (petit keyspace en listpack → tout arrive
-   * d'un coup). Sans précaution la page dépasserait `limit` et violerait
-   * `IPage`. D'où le **curseur composite** `"<consommé>:<curseurRedis>"` : on ne
-   * rend que `limit` éléments et on mémorise combien de clés du batch ont été
-   * consommées ; la page suivante rejoue le MÊME `SCAN` et reprend là. Bug
-   * réel, invisible contre un double — trouvé sur serveur Redis réel.
+   * ⚠️ **`COUNT` n'est PAS un plafond** : un lot peut déborder la page. La page
+   * suivante rejoue alors le lot en sautant, PAR EMPREINTE, les clés déjà
+   * parcourues — jamais par position, Redis pouvant recomposer le lot entre
+   * deux pages.
    */
   async listPage(
     query: IIdempotencyListQuery,
@@ -237,45 +212,38 @@ export class RedisIdempotencyStore implements IIdempotencyStore {
     if (!client) {
       return { items: [], limit, hasNext: false, nextCursor: null };
     }
-    const { scanCursor, skip } = decodeCursor(query.cursor);
     // Le filtre de préfixe descend dans le MATCH : Redis écarte les clés hors
     // scope côté serveur, on ne rapatrie pas ce qu'on jetterait ensuite.
     const match =
       query.q !== undefined && query.q.length > 0
         ? `${this.#prefix()}:${query.q}*`
         : `${this.#prefix()}:*`;
-    const res = await client.scan(scanCursor, { MATCH: match, COUNT: limit });
-    const next = String(res.cursor);
     const prefixLen = this.#prefix().length + 1;
-    const items: IIdempotencyKeyEntry[] = [];
-    // `consumed` compte les CLÉS parcourues (pas les items rendus) : c'est la
-    // position de reprise, et le filtre d'état en écarte une partie.
-    let consumed = 0;
-    for (const key of res.keys.slice(skip)) {
-      if (items.length >= limit) break; // page pleine → le reste attend
-      consumed += 1;
-      const entry = this.#parse(await client.get(key));
-      if (entry === null) continue; // expirée entre le SCAN et le GET, ou corrompue
-      const state = entry.s === "if" ? "in-flight" : "done";
-      if (query.state !== undefined && state !== query.state) continue;
-      // TTL natif → échéance absolue. `-1`/`-2` (sans expiration / disparue)
-      // deviennent 0 : on n'invente pas une date qui n'existe pas.
-      const ttl = await client.pTTL(key);
-      items.push({
-        key: key.slice(prefixLen),
-        state,
-        expiresAtMs: ttl > 0 ? Date.now() + ttl : 0,
-        // La réponse mémorisée existe (`entry.r`) mais NE SORT PAS : seul le
-        // fait qu'elle existe est exposé (garantie du contrat).
-        hasResponse: entry.s === "d",
-      });
-    }
-    const restInBatch = skip + consumed < res.keys.length;
-    const nextCursor = restInBatch
-      ? encodeCursor(scanCursor, skip + consumed) // on reste sur ce batch
-      : next === "0"
-        ? null // batch épuisé ET scan terminé
-        : encodeCursor(next, 0); // batch épuisé, on avance
+    const { items, nextCursor } = await scanPage(
+      async (cursor) => {
+        const res = await client.scan(cursor, { MATCH: match, COUNT: limit });
+        return { cursor: String(res.cursor), keys: res.keys };
+      },
+      query.cursor,
+      limit,
+      async (key): Promise<IIdempotencyKeyEntry | null> => {
+        const entry = this.#parse(await client.get(key));
+        if (entry === null) return null; // expirée entre le SCAN et le GET, ou corrompue
+        const state = entry.s === "if" ? "in-flight" : "done";
+        if (query.state !== undefined && state !== query.state) return null;
+        // TTL natif → échéance absolue. `-1`/`-2` (sans expiration / disparue)
+        // deviennent 0 : on n'invente pas une date qui n'existe pas.
+        const ttl = await client.pTTL(key);
+        return {
+          key: key.slice(prefixLen),
+          state,
+          expiresAtMs: ttl > 0 ? Date.now() + ttl : 0,
+          // La réponse mémorisée existe (`entry.r`) mais NE SORT PAS : seul le
+          // fait qu'elle existe est exposé (garantie du contrat).
+          hasResponse: entry.s === "d",
+        };
+      },
+    );
     return { items, limit, hasNext: nextCursor !== null, nextCursor };
   }
 

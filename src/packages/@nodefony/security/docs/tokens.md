@@ -417,8 +417,9 @@ La décision (configuré → résolu, raison) est publiée au kernel par `regist
 - Enregistré par le module redis (`redis/nodefony/registerStores.ts#registerRedisFrameworkStores`).
 - TTL natif : `expire()` posé à l'écriture du record (`RedisTokenStore.ts#RedisClientLike.expire`) — l'expiration ne
   dépend pas du gc.
-- Listing par `SCAN` : curseur opaque `skip:scanCursor`, `decodeCursor()`
-  (`RedisTokenStore.ts#RedisTokenStore.listAll`) — sans ordre global ni total, capacité réduite **assumée**.
+- Listing par `SCAN` : curseur opaque, règle unique `scanPage` (`scanPage.ts#scanPage`, cœur) — une page
+  pleine au milieu d'un lot reprend ce lot en sautant les clés déjà vues par empreinte, jamais par
+  position ; sans ordre global ni total, capacité réduite **assumée**.
 - `countTokens()` renvoie `-1` : un comptage exact exigerait un SCAN complet O(N), refusé
   (`RedisTokenStore.ts#RedisTokenStore.countTokens`).
 

@@ -2,7 +2,7 @@
 // dépendance runtime de l'infra Redis vers `@nodefony/security`. L'application
 // câble le store via `registerTokenStore("redis", …)`.
 import type { IPage } from "nodefony";
-import { assertPageQuery } from "nodefony";
+import { assertPageQuery, MAX_SCAN, scanPage } from "nodefony";
 import type {
   IAccessTokenRecord,
   IResourcePermission,
@@ -12,7 +12,6 @@ import type {
   TokenRevokeReason,
 } from "@nodefony/security";
 import type RedisService from "../service/redis";
-import { MAX_SCAN, scanPage } from "./scanCursor";
 
 /**
  * Champ d'un jeton relu dont la forme n'est pas celle que ce store écrit : on
@@ -467,11 +466,11 @@ export class RedisTokenStore implements ITokenStore {
   /**
    * {@inheritDoc ITokenStore.listPage}
    *
-   * **Curseur SCAN pur** : UN passage `SCAN` par appel (cold-path admin). Capacité
+   * **Curseur SCAN** (`scanPage`, cœur — cold-path admin) : les lots s'enchaînent
+   * jusqu'à remplir la page, finir le balayage ou épuiser l'effort borné. Capacité
    * réduite ASSUMÉE et annoncée — pas de `total`, pas d'ordre global sur `createdAt`
-   * (Redis n'a pas d'index secondaire ici), la page peut compter moins d'éléments
-   * que `limit` (le filtre s'applique au batch). Le client boucle tant que
-   * `hasNext` en repassant `nextCursor`. Renvoie les records BRUTS.
+   * (Redis n'a pas d'index secondaire ici). Le client boucle tant que `hasNext`
+   * en repassant `nextCursor`. Renvoie les records BRUTS.
    */
   async listPage(query: ITokenListQuery): Promise<IPage<IAccessTokenRecord>> {
     assertPageQuery(query, "cursor");

@@ -25,7 +25,7 @@ import {
  * (node-redis v6 exige une string en argument de commande) — un double doit
  * imiter les contraintes du réel, pas les assouplir.
  */
-const REAL_URL = redisTestUrl(14);
+const REAL_URL = redisTestUrl(5);
 
 function globToRegExp(glob: string | undefined): RegExp | null {
   if (!glob) return null;
@@ -174,3 +174,113 @@ describe("keyspace chargé d'autres clés — la page se REMPLIT", () => {
     expect(page.hasNext).toBe(true);
   });
 });
+
+// ════════════════════════════════════════════════════════════════════════════
+// 🔴 Révocation sur un keyspace qui BOUGE — serveur Redis réel seulement
+// ════════════════════════════════════════════════════════════════════════════
+/**
+ * Le parcours destructeur de « déconnecter partout » supprime ce qu'il vient de
+ * lire : Redis recompose alors le lot du curseur qu'on rejoue. Une reprise par
+ * POSITION y sautait des sessions encore vivantes — une session survivait à la
+ * révocation d'un compte. Seul un vrai serveur recompose ses lots ; le double,
+ * lui, ne recompose rien.
+ */
+describe.skipIf(!REAL_URL)(
+  "révocation sur un keyspace qui bouge (Redis réel)",
+  () => {
+    const blank = (user: string) => ({
+      Attributes: {},
+      flashBag: {},
+      metaBag: {},
+      user,
+    });
+
+    /**
+     * Sessions créées et détruites en continu jusqu'à `stop()` — de quoi
+     * recomposer les lots. Fenêtre BORNÉE (100 vivantes) : un keyspace qui
+     * grossit sans fin ralentirait chaque `SCAN`, donc le parcours, donc
+     * grossirait encore — le banc mesurerait sa propre dérive.
+     */
+    function churn(): { stop: () => Promise<void> } {
+      // Un objet, pas un `let` : la boucle lit un drapeau que `stop()` lève
+      // depuis une autre tâche.
+      const flag = { running: true };
+      const loop = (async () => {
+        let n = 0;
+        while (flag.running) {
+          await storage.write(`churn-${n}`, blank("voisin"));
+          if (n >= 100) await storage.destroy(`churn-${n - 100}`);
+          n += 1;
+        }
+      })();
+      return {
+        stop: async () => {
+          flag.running = false;
+          await loop;
+        },
+      };
+    }
+
+    async function seed(n: number): Promise<void> {
+      await realClient?.flushDb();
+      for (let i = 0; i < n; i += 1) {
+        await storage.write(`cible-${i}`, blank("cible"));
+        await storage.write(`voisin-${i}`, blank("voisin"));
+      }
+    }
+
+    it("UN SEUL parcours qui détruit ce qu'il lit visite TOUTES les sessions présentes au départ", async () => {
+      await seed(600);
+      const background = churn();
+      const visited = new Set<string>();
+      let cursor: string | null | undefined;
+      let pages = 0;
+      try {
+        do {
+          const page = await storage.listPage({
+            user: "cible",
+            limit: 50,
+            cursor: cursor ?? undefined,
+          });
+          for (const rec of page.items) {
+            visited.add(rec.id);
+            await storage.destroy(rec.id);
+          }
+          cursor = page.nextCursor;
+          pages += 1;
+          expect(pages, "la pagination doit CONVERGER").toBeLessThan(5_000);
+        } while (cursor);
+      } finally {
+        await background.stop();
+      }
+      const missed = Array.from({ length: 600 }, (_, i) => `cible-${i}`).filter(
+        (id) => !visited.has(id),
+      );
+      expect(missed, "sessions sautées par le parcours").toEqual([]);
+    }, 60_000);
+
+    it("destroyByUser : aucune session de l'utilisateur ne survit", async () => {
+      await seed(600);
+      const svc = Object.create(SessionsService.prototype) as Record<
+        string,
+        unknown
+      >;
+      svc.storage = storage;
+      svc.log = () => {};
+      svc.get = () => null;
+      const background = churn();
+      let destroyed: number;
+      try {
+        destroyed = await (svc as unknown as SessionsService).destroyByUser(
+          "cible",
+        );
+      } finally {
+        await background.stop();
+      }
+      expect(destroyed).toBe(600);
+      const left = await storage.listPage({ user: "cible", limit: 10 });
+      expect(left.items).toEqual([]);
+      expect(left.total ?? 0).toBe(0);
+    }, 60_000);
+  },
+);
