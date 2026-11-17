@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/devkit",
-  "version": "10.0.0-beta.8",
+  "version": "10.0.0-beta.9",
   "type": "module",
   "description": "Outillage de développement d'une application Nodefony : carte de visite du projet, serveur MCP de développement et skills d'agent livrés avec le paquet",
   "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",
@@ -27,20 +27,20 @@
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "peerDependencies": {
-    "@nodefony/ai": "^10.0.0-beta.8",
-    "@nodefony/framework": "^10.0.0-beta.8",
-    "@nodefony/http": "^10.0.0-beta.8",
+    "@nodefony/ai": "^10.0.0-beta.9",
+    "@nodefony/framework": "^10.0.0-beta.9",
+    "@nodefony/http": "^10.0.0-beta.9",
     "lighthouse": "^13.6.0",
-    "nodefony": "^10.0.0-beta.8",
+    "nodefony": "^10.0.0-beta.9",
     "playwright": "^1.50.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",
-    "@nodefony/ai": "^10.0.0-beta.8",
-    "@nodefony/framework": "^10.0.0-beta.8",
-    "@nodefony/http": "^10.0.0-beta.8",
-    "nodefony": "^10.0.0-beta.8"
+    "@nodefony/ai": "^10.0.0-beta.9",
+    "@nodefony/framework": "^10.0.0-beta.9",
+    "@nodefony/http": "^10.0.0-beta.9",
+    "nodefony": "^10.0.0-beta.9"
   },
   "dependencies": {
     "axe-core": "4.14.1",

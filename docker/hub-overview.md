@@ -403,12 +403,12 @@ CI générée éprouve `linux/amd64`, et `linux/arm64` sur un runner ARM natif s
 
 | Étiquette                            | Ce qu'elle désigne                                                                   |
 | ------------------------------------ | ------------------------------------------------------------------------------------ |
-| `10.0.0-beta.8`                      | une publication précise, toutes architectures — c'est celle à figer en CI            |
+| `10.0.0-beta.9`                      | une publication précise, toutes architectures — c'est celle à figer en CI            |
 | `beta`                               | la dernière préversion du canal `beta` (mobile)                                      |
 | `<version>-amd64`, `<version>-arm64` | une seule architecture d'une publication, pour qui doit la désigner explicitement    |
 | `alpha`                              | l'ancien canal, arrêté sur la dernière alpha, antérieure à toute bêta — à abandonner |
 
-`10.0.0-beta.8` et `beta` sont des **index multi-plateformes** : `docker pull`
+`10.0.0-beta.9` et `beta` sont des **index multi-plateformes** : `docker pull`
 choisit seul la variante de la machine. Chaque variante est démarrée et contrôlée
 (refus sans secrets, `/readyz`, arrêt en `0`) avant que l'index ne soit publié, et
 l'étiquette mobile ne bouge qu'en dernier, vers un index déjà relu dans le registre.

@@ -1,6 +1,6 @@
 {
   "name": "nodefony",
-  "version": "10.0.0-beta.8",
+  "version": "10.0.0-beta.9",
   "description": "Noyau du framework Nodefony : modules, injection de dépendances, configuration validée au démarrage, journalisation structurée corrélée, CLI — et le client temps réel partagé avec le navigateur, avec ses hooks React, Vue, Svelte et Angular",
   "type": "module",
   "nodefony": {

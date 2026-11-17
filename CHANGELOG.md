@@ -8,6 +8,45 @@ Les sections naissent d'un BROUILLON rendu par `npm run release` depuis les mess
 de commit, puis sont RÉÉCRITES à la main : un journal git est écrit pour l'auteur,
 un changelog pour celui qui met à jour.
 
+## 10.0.0-beta.9 - 2026-11-18
+
+_Une bêta de correctifs avant la stable : une faille de révocation de sessions sur Redis corrigée, une image d'application qui s'ouvre aux paquets système et se met à jour avec le framework, et une CI générée qui éprouve aussi l'arm64. Aucune rupture d'API mesurée._
+
+### Changed
+
+- **session:** Rendre `true` depuis `ISessionStorage.destroy` seulement si une session de cet identifiant existait et a été retirée, `false` sinon (absente, déjà détruite, store injoignable) — les stores Redis, Mongo et Drizzle rendaient `true` à chaque appel, et une révocation sans effet était auditée comme faite ; un store maison doit suivre ce contrat (2b3b44dd9)
+
+### Added
+
+- **cli:** Livrer le `Dockerfile` d'une application en copie suivie par le paquet `nodefony` : `nodefony upgrade` le remplace tant que l'application n'y a pas touché, et le garde en le signalant sinon (#780) (4be3579b7)
+- **cli:** Ouvrir l'image générée aux paquets système par une seconde fin `with-packages` et choisir l'image Node ou d'exécution par `--build-arg` (`NODE_IMAGE`, `RUNTIME_IMAGE`), sans retoucher le `Dockerfile` (#779) (2741bab87)
+- **cli:** Éprouver aussi l'image en arm64 dans la CI générée par `create app` (#787) (8ef04499d)
+- **cli:** Générer avec `create controller --kind realtime --entity` un contrôleur qui diffuse en direct les écritures d'une entité (#785) (345674cc6)
+- **nodefony:** Accepter une option `allWorkers` dans `runOnceAtStartup` pour lancer la tâche dans chaque worker de la grappe, et plus seulement dans le worker de tête (345674cc6)
+- **nodefony:** Exposer la présence de chaque canal tenu dans `SocketSnapshot` (champ `presence`, lu sur `nodefony/client`, `react`, `vue`, `svelte` et `angular`), et l'afficher dans la carte Socket de la barre de debug (#783) (65596590f)
+- **orm:** Déclarer des références logiques (`IEntity.logicalReferences`) — une colonne qui désigne une ligne d'une autre table sans clé étrangère, exprès (compte dans une autre base, porteur polymorphe) (94da28c60)
+- **studio:** Dessiner les références logiques dans le schéma ORM, avec un mode dense, des boîtes par module, la boucle d'auto-référence et une carte du lien au survol (830c80408, 5b1bef944)
+
+### Fixed
+
+- **redis:** Ne plus perdre de clés en reprenant une page au milieu d'un lot `SCAN` : « déconnecter partout » pouvait laisser vivre une session (faille présente depuis la 10.0.0-beta.3, sessions, jetons d'accès, passkeys et idempotence) (#789) (4c49c91a7)
+- **redis:** Lister les sessions d'un compte par son index au lieu de lire tout le parc — 48 s → 3 ms pour un compte parmi 20 000 sessions, sur la création de compte, le changement de mot de passe, la désactivation et « déconnecter partout » (e51be8b6a)
+- **http:** Répondre 400 à une requête malformée arrivée sur une socket keep-alive réutilisée, au lieu de détruire la socket sans réponse (c11032c54)
+- **http:** Répondre 431, et non 414, à un en-tête trop long arrivé en plusieurs paquets (0dfc09d93)
+- **http:** Garder tel quel un champ multipart nommé comme une propriété d'`Object.prototype` (857a5e711)
+- **cli:** Donner aux deux fins de l'image générée le même contrat (`/nodejs/bin/node`, point d'entrée, sonde) et les rendre atteignables par compose et la CI sans retouche ; refuser en le nommant un paquet demandé sans la fin `with-packages` (#779) (badfc4951)
+- **cli:** Ne plus construire la demande de fusion d'un fork sur un runner arm64 auto-hébergé, dans la CI générée (#787) (2705e8bbb)
+- **cli:** Raccourcir la sortie de `create app` hors dialogue et mettre la consigne « lis AGENTS.md » en tête, là où un agent la lit (#785) (1d7db9c65)
+- **cli:** Nommer `csrfHeaders` dans l'`AGENTS.md` généré, là où l'agent écrit ses tests (#785) (0c85a5e07)
+- **scaffold:** Nommer le canal dans la commande d'installation affichée par l'écran de connexion et la démo — la forme nue servait `nodefony@7.0.2` (#784) (e4633df1b)
+- **env:** Lire les variables déclarées par un module chargé par son chemin (`{ name: "./src/demo" }`) dans `nodefony env` et `env --example`, au lieu de les annoncer lues par personne (55da2d328)
+- **security:** Ne plus alerter en CRITIC sur l'absence des clés `totp` et `webhooks` pendant `security:secrets --env`, qui démarre l'application justement pour les fabriquer (#786) (4ae03c93e)
+- **frontend:** Ne plus pendre 60 s à l'arrêt du superviseur Vite quand son process est déjà sorti (e9cbf27db)
+- **debugbar:** Nommer « Mesures », et non « Temps réel », le contrôle du flux de la barre de debug (#783) (98b7517a0)
+- **demo:** Porter de vraies clés étrangères entre les tables de la démo (salles, invités, réactions, réponses) (5d156a95a)
+
+<!-- Surface publique mesurée depuis 10.0.0-beta.8 (npm) : 0 retrait sur 2 913 déclarations ; 7 à relire, relues — `SocketSnapshot.presence` ×5 (champ d'un objet PRODUIT par le framework : ajout, pas rupture), `runOnceAtStartup` (option facultative ajoutée), `NODEFONY_CLIENT` (extensions des import() du .d.ts brut, rétablies au pack). Détail : npm run release:api-diff -- --from 10.0.0-beta.8 --details -->
+
 ## 10.0.0-beta.8 - 2026-11-16
 
 _Une bêta de durcissement HTTP/2 : l'âge des connexions se borne, un pair muet se sonde, un pair qui pingue trop se ferme — tout inactif par défaut. Une rupture : la section `http2` refuse désormais une clé qu'elle ne lit pas._
