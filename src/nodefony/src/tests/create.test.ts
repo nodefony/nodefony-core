@@ -1891,7 +1891,19 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // un job vert qui n'a rien construit —, sur un runner ARM NATIF.
       const arm64 = ci.slice(ci.indexOf("\n  image-arm64:\n"));
       assert.isAbove(arm64.length, 0, "job image-arm64 absent de ci.yml");
-      assert.include(arm64, `\n    if: ${SI_ARM64}\n`);
+      // Le job ne naît que si la variable nomme arm64 — et un runner
+      // auto-hébergé ne construit JAMAIS la demande de fusion d’un fork : il
+      // exécuterait le Dockerfile d’un inconnu sur la machine de l’exploitant.
+      const garde = arm64.slice(
+        arm64.indexOf("\n    if: >-\n"),
+        arm64.indexOf("\n    runs-on:"),
+      );
+      assert.include(garde, SI_ARM64);
+      assert.include(garde, "vars.NF_IMAGE_ARM64_RUNNER == ''");
+      assert.include(
+        garde,
+        "github.event.pull_request.head.repo.full_name == github.repository",
+      );
       assert.include(arm64, `\n    runs-on: \${{ ${RUNNER_ARM} }}\n`);
       // Même construction que `verify`, mot pour mot : l'image éprouvée en
       // arm64 est celle qu'on déploie, à paquets système compris.

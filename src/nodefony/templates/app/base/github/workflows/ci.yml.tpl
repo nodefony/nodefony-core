@@ -233,11 +233,21 @@ jobs:
   # privés compris. Un runner auto-hébergé se désigne par la variable du dépôt
   # `NF_IMAGE_ARM64_RUNNER`.
   #
+  # 🔴 Runner auto-hébergé ⇒ JAMAIS la demande de fusion d'un FORK. Ce job
+  # construit le Dockerfile de la branche : sur la machine de l'exploitant, un
+  # inconnu y ferait exécuter ce qu'il veut (persistance, réseau interne).
+  # GitHub déconseille un runner auto-hébergé sur un dépôt public pour cette
+  # raison. Le runner hébergé par GitHub, jetable, reste ouvert aux forks.
+  #
   # Même construction, mêmes variables et même contrôle des couches que
   # `verify` : seule l'architecture change. Les modules natifs s'y installent
   # pour arm64 — c'est ce qui casse sur un serveur ARM, et jamais ailleurs.
   image-arm64:
-    if: contains(vars.NF_IMAGE_PLATFORMS, 'linux/arm64')
+    if: >-
+      contains(vars.NF_IMAGE_PLATFORMS, 'linux/arm64') &&
+      (vars.NF_IMAGE_ARM64_RUNNER == '' ||
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ${{ vars.NF_IMAGE_ARM64_RUNNER || 'ubuntu-24.04-arm' }}
     timeout-minutes: 20
     steps:
