@@ -28,6 +28,7 @@ import {
   listTotpStores,
 } from "../src/totp/totpSecretStoreRegistry";
 import { deriveTotpKey, generateEphemeralKey } from "../src/totp/totpCipher";
+import { missingKeySeverity } from "../src/crypto/secretCipher";
 import { recordAudit } from "../src/audit/recordAudit";
 import { readAuditContext } from "../src/audit/readAuditContext";
 import {
@@ -222,15 +223,12 @@ class TotpService extends Service {
     if (material && material.length > 0) {
       return deriveTotpKey(material);
     }
-    const isProd =
-      (this.kernel as { environment?: string } | null)?.environment ===
-      "production";
-    if (isProd) {
+    if (this.kernel?.environment === "production") {
       this.log(
         "totp: AUCUNE clé de chiffrement (`security.totp.encryptionKey`) en PRODUCTION — " +
           "2FA désactivé (un secret chiffré par une clé éphémère serait illisible après " +
           "redémarrage / sur les autres pods). Fournir une clé ≥ 32 octets depuis l'environnement.",
-        "CRITIC",
+        missingKeySeverity(this.kernel, "CRITIC"),
       );
       return null;
     }
@@ -238,7 +236,7 @@ class TotpService extends Service {
       "totp: aucune clé de chiffrement configurée — clé ÉPHÉMÈRE générée (dev). Les secrets " +
         "2FA ne survivront pas au redémarrage. Définir `totp.encryptionKey` — générer la clé " +
         "et le câblage : `npx nodefony security:secrets`.",
-      "WARNING",
+      missingKeySeverity(this.kernel, "WARNING"),
     );
     return generateEphemeralKey();
   }

@@ -977,7 +977,9 @@ export {
   CONSOLE_RUN_PROFILE,
   CONSOLE_DATA_RUN_PROFILE,
   CONSOLE_SCHEMA_RUN_PROFILE,
+  runIsLongLived,
   runNeedsExternalServices,
+  runWillServeTraffic,
   runWorksOnSchema,
   storeConnectivity,
 } from "./kernel/runProfile";

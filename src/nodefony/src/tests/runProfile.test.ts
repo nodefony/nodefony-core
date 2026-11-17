@@ -3,6 +3,7 @@ import {
   CONSOLE_RUN_PROFILE,
   CONSOLE_DATA_RUN_PROFILE,
   CONSOLE_SCHEMA_RUN_PROFILE,
+  runIsLongLived,
   runNeedsExternalServices,
   runWorksOnSchema,
   storeConnectivity,
@@ -78,6 +79,36 @@ describe("IRunProfile — les profils déclarés", () => {
     assert.ok(Object.isFrozen(CONSOLE_RUN_PROFILE));
     assert.ok(Object.isFrozen(CONSOLE_DATA_RUN_PROFILE));
     assert.ok(Object.isFrozen(CONSOLE_SCHEMA_RUN_PROFILE));
+  });
+});
+
+describe("runIsLongLived — la durée déclarée par la commande prime", () => {
+  it("lit la commande d'abord, le profil ensuite", () => {
+    assert.equal(
+      runIsLongLived(CONSOLE_RUN_PROFILE, { lifetime: "longrunning" }),
+      true,
+    );
+    assert.equal(
+      runIsLongLived(
+        { ...CONSOLE_RUN_PROFILE, lifetime: "longrunning" },
+        { lifetime: "oneshot" },
+      ),
+      false,
+    );
+    assert.equal(
+      runIsLongLived({ ...CONSOLE_RUN_PROFILE, lifetime: "longrunning" }, null),
+      true,
+    );
+  });
+
+  it("répond `false` sur un run ponctuel, et sans rien de connu", () => {
+    assert.equal(runIsLongLived(CONSOLE_RUN_PROFILE, null), false);
+    assert.equal(runIsLongLived(undefined, undefined), false);
+  });
+
+  it("est publié par le barrel, comme les autres questions du run", () => {
+    assert.equal(fromBarrel.runIsLongLived, runIsLongLived);
+    assert.equal(fromBarrel.runWillServeTraffic, runWillServeTraffic);
   });
 });
 

@@ -4,6 +4,8 @@ import {
   hkdfSync,
   randomBytes,
 } from "node:crypto";
+import { runIsLongLived, runWillServeTraffic } from "nodefony";
+import type { IKernel } from "nodefony";
 import { Buffer } from "node:buffer";
 
 /**
@@ -71,6 +73,34 @@ export function deriveKey(
 /** Génère une clé éphémère 32 octets (dev sans clé configurée — non persistée). */
 export function generateEphemeralKey(): Buffer {
   return randomBytes(KEY_BYTES);
+}
+
+/**
+ * Sévérité de l'alerte « clé de chiffrement au repos absente » — selon que le run SERT.
+ *
+ * L'alerte protège un run qui TRAVAILLE dans la durée : un serveur, ou un démon
+ * console (consommateur de file qui envoie des webhooks) — sans clé, un secret
+ * écrit en base serait illisible au redémarrage suivant ou sur un autre
+ * exemplaire, et en production la brique est coupée. Un run PONCTUEL — une
+ * commande console, et d'abord `security:secrets`, qui fabrique justement ces
+ * clés — n'emploie pas la brique : l'alerte y serait fausse, et apprendrait à
+ * ignorer `CRITIC`. Elle descend alors en `DEBUG`, sans rien changer à la clé
+ * rendue — le démarrage ne dépend jamais de ce choix.
+ *
+ * @param kernel - le kernel courant (son profil d'exécution et sa commande).
+ * @param severity - la sévérité due quand le run sert ou dure.
+ * @returns `severity` si le run sert du trafic ou reste vivant, `DEBUG` sinon.
+ */
+export function missingKeySeverity(
+  kernel: Pick<IKernel, "runProfile" | "command"> | null,
+  severity: "CRITIC" | "WARNING",
+): "CRITIC" | "WARNING" | "DEBUG" {
+  const profile = kernel?.runProfile;
+  const command = kernel?.command;
+  return runWillServeTraffic(profile, command) ||
+    runIsLongLived(profile, command)
+    ? severity
+    : "DEBUG";
 }
 
 /** Chiffre un secret en clair → blob opaque versionné (IV aléatoire à chaque appel). */

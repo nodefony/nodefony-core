@@ -161,6 +161,26 @@ export function runNeedsExternalServices(
 }
 
 /**
+ * Ce run reste-t-il VIVANT jusqu'à un signal ? — serveur, ou démon console
+ * (consommateur de file, agent, tâche planifiée).
+ *
+ * La durée déclarée par la COMMANDE l'emporte sur celle du profil : c'est elle
+ * que `Kernel.finishOrPark` lit pour garer le process plutôt que de le terminer.
+ * Un démon console ne sert aucun trafic HTTP, mais il travaille dans la durée
+ * — et peut avoir besoin de ce qu'un run ponctuel n'emploie jamais.
+ *
+ * @param profile - le profil d'exécution courant, s'il est déjà connu.
+ * @param command - la commande résolue, s'il y en a une.
+ * @returns `true` si le run est déclaré `longrunning`.
+ */
+export function runIsLongLived(
+  profile: Pick<IRunProfile, "lifetime"> | null | undefined,
+  command: { lifetime?: RunLifetime } | null | undefined,
+): boolean {
+  return (command?.lifetime ?? profile?.lifetime) === "longrunning";
+}
+
+/**
  * Ce run SERVIRA-t-il du trafic ? — le fait que la garde `requiredIn` de
  * `env.ts` lit à l'import de l'application.
  *

@@ -548,6 +548,10 @@ timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `is
   manquantes seules). `--write` = append des clés ABSENTES dans `.env` (`ENV_FILE`
   du cœur ; refus si `.env` tracké git).
   Référencée par les 3 warnings « clé ÉPHÉMÈRE » (totp/webhooks/csrf).
+  Alerte « clé au repos absente » (totp/webhooks `#resolveKey`) : sévérité par
+  `missingKeySeverity` (`src/crypto/secretCipher.ts`) — CRITIC/WARNING si le run SERT
+  (`runWillServeTraffic`), DEBUG sinon ; la clé rendue ne dépend PAS du run (dev =
+  éphémère, prod = null). Sans elle, la commande qui fabrique les clés criait CRITIC.
   JWT hors scope (keystore.dir/keySetJson = persistance, pas un secret à coller).
   ⚠️ commande SANS arg positionnel → `generate(opts)` : les options commander arrivent
   en PREMIER argument (pas `(arg, opts)`).

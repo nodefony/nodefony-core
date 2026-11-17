@@ -28,5 +28,11 @@ export interface ICommand {
    * lieu de terminer, cf `Kernel.finishOrPark`). Capability déclarative, lue par le Kernel.
    */
   lifetime: RunLifetime;
+  /**
+   * La commande, une fois lancée, SERT du trafic (cf `OptionsCommandInterface.servesTraffic`).
+   * Lue par `runWillServeTraffic`, qui la croise avec le profil d'exécution : le profil
+   * serveur d'une commande de lancement n'est posé qu'à `onKernelStart`.
+   */
+  servesTraffic?: boolean;
   action(...args: unknown[]): Promise<unknown>;
 }

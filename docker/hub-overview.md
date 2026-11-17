@@ -49,10 +49,6 @@ L'application répond sur <http://127.0.0.1:5151>. La console d'administration e
 sous <http://127.0.0.1:5151/nodefony> : identifiant `admin`, le mot de passe de la
 ligne 2.
 
-La ligne 1 affiche deux avertissements `CRITIC` (`totp`, `webhooks`) : la commande
-démarre l'application, qui constate l'absence des deux clés qu'elle s'apprête à
-écrire. Ils partent sur la sortie d'erreur, pas dans le fichier.
-
 ### Pourquoi pas une seule ligne ?
 
 Parce que cette image tourne **comme en production**, et qu'une application

@@ -38,6 +38,7 @@ import {
   getWebhookStoreFactory,
   listWebhookStores,
 } from "../src/webhook/webhookStoreRegistry";
+import { missingKeySeverity } from "../src/crypto/secretCipher";
 import {
   decryptSecret,
   deriveWebhookKey,
@@ -323,15 +324,12 @@ class WebhookService extends Service {
     if (material && material.length > 0) {
       return deriveWebhookKey(material);
     }
-    const isProd =
-      (this.kernel as { environment?: string } | null)?.environment ===
-      "production";
-    if (isProd) {
+    if (this.kernel?.environment === "production") {
       this.log(
         "webhooks: AUCUNE clé de chiffrement (`security.webhooks.encryptionKey`) en " +
           "PRODUCTION — webhooks désactivés (un secret chiffré par une clé éphémère serait " +
           "illisible après redémarrage / sur les autres pods). Fournir une clé depuis l'environnement.",
-        "CRITIC",
+        missingKeySeverity(this.kernel, "CRITIC"),
       );
       return null;
     }
@@ -339,7 +337,7 @@ class WebhookService extends Service {
       "webhooks: aucune clé de chiffrement configurée — clé ÉPHÉMÈRE générée (dev). Les " +
         "secrets de signature ne survivront pas au redémarrage. Définir `webhooks.encryptionKey` " +
         "— générer la clé et le câblage : `npx nodefony security:secrets`.",
-      "WARNING",
+      missingKeySeverity(this.kernel, "WARNING"),
     );
     return generateEphemeralKey();
   }

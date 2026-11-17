@@ -70,7 +70,11 @@ import type {
 } from "./kernelNetwork";
 import { KernelStores } from "./kernelStores";
 import type { IRunProfile } from "./runProfile";
-import { CONSOLE_RUN_PROFILE, runWillServeTraffic } from "./runProfile";
+import {
+  CONSOLE_RUN_PROFILE,
+  runIsLongLived,
+  runWillServeTraffic,
+} from "./runProfile";
 import { findSetReservedKeys } from "../config/configProvenance";
 import nodefonyError from "../Error";
 import { SysExit } from "../cli/sysexits";
@@ -1445,8 +1449,7 @@ class Kernel extends Service implements IKernel {
    * @returns Promise du terminate (one-shot) ou park (daemon, jamais résolue).
    */
   private finishOrPark(code: number): Promise<this> {
-    const longrunning =
-      (this.command?.lifetime ?? this.runProfile.lifetime) === "longrunning";
+    const longrunning = runIsLongLived(this.runProfile, this.command);
     if (longrunning && !this.runProfile.servers) {
       this.log(
         "CONSOLE long-running — park (no server, until signal)",
