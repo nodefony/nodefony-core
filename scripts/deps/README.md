@@ -16,6 +16,22 @@ Index de tout l'outillage : [`scripts/`](../README.md).
 
 - [`lib/`](lib/README.md) — Helpers propres à l'inventaire des dépendances.
 
+## [`audit-gate.mjs`](audit-gate.mjs)
+
+Garde d'audit de la forge : échoue sur toute vulnérabilité de gravité haute ou critique, sauf un avis inscrit dans `ACCEPTED_ADVISORIES` tant qu'aucune version corrigée n'est publiée.
+
+- **Usage** : `node scripts/deps/audit-gate.mjs`
+- **Variable** `GITHUB_STEP_SUMMARY`
+- **Appelé par** : `node.js.yml`
+- **Utilise** : `deps/lib/audit.mjs`
+
+## [`audit.test.mjs`](audit.test.mjs)
+
+`advisoriesOf` / `auditVerdicts` — la garde d'audit de la forge. Vécu : l'avis picomatch GHSA-fc5q-39xc-vjpf élargi à `<= 4.0.7`, dernière version publiée, a rougi la forge sans qu'aucun `overrides` puisse rien y faire. L'exception nommée le tolère tant qu'aucun correctif n'existe, et seulement jusque-là. /
+
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `deps/lib/audit.mjs`
+
 ## [`check-deps-latest.mjs`](check-deps-latest.mjs)
 
 Inventaire EXHAUSTIF des dépendances en retard — remplaçant de `npm outdated`.

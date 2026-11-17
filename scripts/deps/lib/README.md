@@ -14,6 +14,14 @@ _Rien de noté : ce qui se découvre en travaillant ici s'écrit dans ce bloc._
 
 Index de tout l'outillage : [`scripts/`](../../README.md).
 
+## [`audit.mjs`](audit.mjs)
+
+Verdict de l'audit npm : quelles vulnérabilités de gravité haute ou critique bloquent, et lesquelles sont tolérées faute de correctif publié.
+
+- **Usage** : `import { auditVerdicts, advisoriesOf } from "./lib/audit.mjs"`
+- **Appelé par** : `node.js.yml` · `deps/audit-gate.mjs`
+- **Testé par** : `deps/audit.test.mjs`
+
 ## [`deprecations.mjs`](deprecations.mjs)
 
 Dépendances DÉCLARÉES dont la version au verrou est dépréciée en amont.

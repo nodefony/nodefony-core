@@ -686,6 +686,39 @@
       "testedBy": []
     },
     {
+      "path": "scripts/deps/audit-gate.mjs",
+      "test": false,
+      "purpose": "Garde d'audit de la forge : échoue sur toute vulnérabilité de gravité haute ou critique, sauf un avis inscrit dans `ACCEPTED_ADVISORIES` tant qu'aucune version corrigée n'est publiée.",
+      "usage": [
+        "node scripts/deps/audit-gate.mjs"
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "GITHUB_STEP_SUMMARY",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        "node.js.yml"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/deps/audit.test.mjs",
+      "test": true,
+      "purpose": "`advisoriesOf` / `auditVerdicts` — la garde d'audit de la forge. Vécu : l'avis picomatch GHSA-fc5q-39xc-vjpf élargi à `<= 4.0.7`, dernière version publiée, a rougi la forge sans qu'aucun `overrides` puisse rien y faire. L'exception nommée le tolère tant qu'aucun correctif n'existe, et seulement jusque-là. /",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
+    {
       "path": "scripts/deps/check-deps-latest.mjs",
       "test": false,
       "purpose": "Inventaire EXHAUSTIF des dépendances en retard — remplaçant de `npm outdated`.",
@@ -770,6 +803,24 @@
         "npm run test:tooling"
       ],
       "testedBy": []
+    },
+    {
+      "path": "scripts/deps/lib/audit.mjs",
+      "test": false,
+      "purpose": "Verdict de l'audit npm : quelles vulnérabilités de gravité haute ou critique bloquent, et lesquelles sont tolérées faute de correctif publié.",
+      "usage": [
+        "import { auditVerdicts, advisoriesOf } from \"./lib/audit.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "node.js.yml",
+        "scripts/deps/audit-gate.mjs"
+      ],
+      "testedBy": [
+        "scripts/deps/audit.test.mjs"
+      ]
     },
     {
       "path": "scripts/deps/lib/deprecations.mjs",
