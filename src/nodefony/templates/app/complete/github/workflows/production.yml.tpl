@@ -53,9 +53,22 @@ jobs:
   # en étant incapable de démarrer (base changée, droits d'un dossier, migration
   # absente). Ce job la met en service, l'interroge, puis l'arrête comme un
   # orchestrateur le fait : par SIGTERM, en attendant le drain.
+  #
+  # Une fois par ARCHITECTURE : `linux/amd64` toujours, `linux/arm64` en plus
+  # quand la variable du dépôt `NF_IMAGE_PLATFORMS` la nomme. Chacune sur un
+  # runner NATIF de son architecture, pas sous émulation : sous QEMU, le
+  # démarrage se compte en minutes, et l'émulateur peut masquer ce qui casse
+  # sur le vrai matériel — les modules natifs au premier chef. Un runner ARM
+  # auto-hébergé se désigne par `NF_IMAGE_ARM64_RUNNER`. La topologie, plus
+  # bas, reste en amd64 : ce qu'elle éprouve ne dépend pas de l'architecture.
   image:
-    name: L'image démarre, sert et draine
-    runs-on: ubuntu-latest
+    name: L'image démarre, sert et draine (${{ matrix.platform }})
+    strategy:
+      # Une architecture qui échoue n'annule pas l'autre : deux verdicts.
+      fail-fast: false
+      matrix:
+        platform: ${{ fromJSON(contains(vars.NF_IMAGE_PLATFORMS, 'linux/arm64') && '["linux/amd64","linux/arm64"]' || '["linux/amd64"]') }}
+    runs-on: ${{ matrix.platform == 'linux/arm64' && (vars.NF_IMAGE_ARM64_RUNNER || 'ubuntu-24.04-arm') || 'ubuntu-latest' }}
     timeout-minutes: 25
     # Le port publié sur l'hôte, posé UNE fois : le compose l'interpole
     # (`${APP_PORT:-5251}`) et les étapes ci-dessous le lisent. Écrit aux deux
@@ -65,6 +78,22 @@ jobs:
       APP_PORT: "5251"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Une valeur inconnue ARRÊTE la chaîne en la nommant : mal orthographiée,
+      # elle ferait sauter l'architecture sans un mot, et la chaîne resterait
+      # verte sur une image jamais démarrée.
+      - name: Architectures de l'image (NF_IMAGE_PLATFORMS)
+        shell: bash
+        env:
+          NF_IMAGE_PLATFORMS: ${{ vars.NF_IMAGE_PLATFORMS }}
+        run: |
+          set -f
+          for platform in ${NF_IMAGE_PLATFORMS//,/ }; do
+            case "$platform" in
+              linux/amd64|linux/arm64) ;;
+              *) echo "::error::NF_IMAGE_PLATFORMS : « $platform » n'est pas servie (linux/amd64, linux/arm64)"; exit 1 ;;
+            esac
+          done
 
       # Les secrets que la PRODUCTION exige, posés comme un exploitant le fait :
       # par l'environnement du service, jamais dans l'image (`.dockerignore`
@@ -114,6 +143,19 @@ jobs:
         run: |
           set -euo pipefail
           docker compose -f compose.yaml -f compose.ci.yaml --profile app up -d --build
+
+      # L'architecture se CONSTATE sur l'image construite, elle ne se déduit
+      # pas du nom du runner : une étiquette mal posée rendrait le job arm64
+      # vert sur une image amd64.
+      - name: L'image a l'architecture attendue
+        shell: bash
+        env:
+          EXPECTED: ${{ matrix.platform }}
+        run: |
+          set -euo pipefail
+          ARCH=$(docker image inspect -f '{{.Architecture}}' <%= it.appName %>:local)
+          [ "linux/$ARCH" = "$EXPECTED" ] || { echo "::error::image construite en « $ARCH », $EXPECTED attendue — le runner n'a pas cette architecture"; exit 1; }
+          echo "✓ image $EXPECTED"
 
       # `up -d` rend la main quand les conteneurs sont CRÉÉS, pas quand ils
       # servent. `/readyz` est la seule réponse qui engage l'application : elle

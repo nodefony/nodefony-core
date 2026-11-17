@@ -396,7 +396,8 @@ L'architecture étrangère se construit sous émulation (QEMU, fourni par Docker
 Desktop), plus lentement, et les modules natifs s'y installent pour elle. Charger
 localement (`--load`) une image multi-plateforme exige le magasin d'images
 containerd ; avec le magasin classique, une plateforme à la fois, ou `--push`. La
-CI générée bâtit l'architecture de son runner, `linux/amd64` sur `ubuntu-latest`.
+CI générée éprouve `linux/amd64`, et `linux/arm64` sur un runner ARM natif si
+`NF_IMAGE_PLATFORMS=linux/amd64,linux/arm64`.
 
 # Étiquettes disponibles
 

@@ -79,6 +79,24 @@ jobs:
 <% } %><% } %>    steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Les architectures de l'image, variable du DÉPÔT `NF_IMAGE_PLATFORMS`
+      # (ex. `linux/amd64,linux/arm64`). `linux/amd64` est toujours éprouvée :
+      # c'est celle de ce runner. Une valeur inconnue ARRÊTE la chaîne en la
+      # nommant — mal orthographiée, elle ferait sauter le job arm64 sans un
+      # mot, et la CI resterait verte sur une architecture jamais construite.
+      - name: Architectures de l'image (NF_IMAGE_PLATFORMS)
+        shell: bash
+        env:
+          NF_IMAGE_PLATFORMS: ${{ vars.NF_IMAGE_PLATFORMS }}
+        run: |
+          set -f
+          for platform in ${NF_IMAGE_PLATFORMS//,/ }; do
+            case "$platform" in
+              linux/amd64|linux/arm64) ;;
+              *) echo "::error::NF_IMAGE_PLATFORMS : « $platform » n'est pas servie (linux/amd64, linux/arm64)"; exit 1 ;;
+            esac
+          done
+
 <% if (it.toolchain.githubSetup) { %>      # <%= it.packageManager %> n'est pas sur l'exécuteur : il se pose AVANT `setup-node`,
       # dont le cache le suppose installé.
       - uses: <%= it.toolchain.githubSetup.uses %>
@@ -203,3 +221,60 @@ jobs:
           path: var/
           if-no-files-found: ignore
           retention-days: 7
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # L'IMAGE en arm64 — seulement si `NF_IMAGE_PLATFORMS` nomme `linux/arm64`
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Sans la variable, ce job est SAUTÉ (gris), jamais vert pour rien.
+  #
+  # Un runner ARM NATIF, pas une émulation : sous QEMU, la construction et le
+  # démarrage se comptent en minutes, et l'émulateur peut masquer ce qui casse
+  # sur le vrai matériel. `ubuntu-24.04-arm` est un runner standard, dépôts
+  # privés compris. Un runner auto-hébergé se désigne par la variable du dépôt
+  # `NF_IMAGE_ARM64_RUNNER`.
+  #
+  # Même construction, mêmes variables et même contrôle des couches que
+  # `verify` : seule l'architecture change. Les modules natifs s'y installent
+  # pour arm64 — c'est ce qui casse sur un serveur ARM, et jamais ailleurs.
+  image-arm64:
+    if: contains(vars.NF_IMAGE_PLATFORMS, 'linux/arm64')
+    runs-on: ${{ vars.NF_IMAGE_ARM64_RUNNER || 'ubuntu-24.04-arm' }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+<% if (it.toolchain.githubSetup) { %>      - uses: <%= it.toolchain.githubSetup.uses %>
+<% if (it.toolchain.githubSetup.version) { %>        with:
+          <%= it.toolchain.githubSetup.versionInput %>: "<%= it.toolchain.githubSetup.version %>"
+<% } %>
+<% } %>      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+<% if (it.toolchain.setupNodeCache) { %>          cache: <%= it.toolchain.setupNodeCache %>
+<% } %>
+      - run: <%= it.toolchain.frozenInstall %>
+
+      - name: Construire l'image (arm64)
+        env:
+          NF_IMAGE_TARGET: ${{ vars.NF_IMAGE_TARGET || 'runtime' }}
+          NF_IMAGE_PACKAGES: ${{ vars.NF_IMAGE_PACKAGES }}
+          NF_IMAGE_NODE: ${{ vars.NF_IMAGE_NODE }}
+          NF_IMAGE_RUNTIME: ${{ vars.NF_IMAGE_RUNTIME }}
+        run: >-
+          docker build --target "$NF_IMAGE_TARGET"
+          --build-arg PACKAGES="$NF_IMAGE_PACKAGES"
+          --build-arg NODE_IMAGE="$NF_IMAGE_NODE"
+          --build-arg RUNTIME_IMAGE="$NF_IMAGE_RUNTIME"
+          -t <%= it.appName %>:ci .
+
+      # L'architecture se CONSTATE sur l'image, elle ne se déduit pas du nom du
+      # runner : une étiquette mal posée rendrait ce job vert sur une image amd64.
+      - name: L'image est bien arm64
+        shell: bash
+        run: |
+          ARCH=$(docker image inspect -f '{{.Architecture}}' <%= it.appName %>:ci)
+          [ "$ARCH" = "arm64" ] || { echo "::error::image construite en « $ARCH », arm64 attendue — le runner n'est pas ARM"; exit 1; }
+          echo "✓ image arm64"
+
+      - name: Contrôler l'image (aucun secret embarqué)
+        run: <%= it.pmExec("nodefony") %> image:check <%= it.appName %>:ci

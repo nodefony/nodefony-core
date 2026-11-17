@@ -1871,6 +1871,190 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.notInclude(ci, "--profile edge");
     });
 
+    it("🔴 l'image s'éprouve AUSSI en arm64 quand `NF_IMAGE_PLATFORMS` la nomme (#787)", () => {
+      // Une application destinée à un serveur ARM n'avait aucune preuve que
+      // son image arm64 se construit et démarre — modules natifs compris, ce
+      // qui casse au démarrage et jamais à l'installation. Réglé par une
+      // VARIABLE, jamais par une retouche du fichier : sinon `nodefony
+      // upgrade` cesserait de tenir la copie à jour (#780).
+      const dest = dossierEdge();
+      const lire = (...p: string[]) =>
+        readFileSync(path.join(dest, ...p), "utf8");
+      const ci = lire(".github", "workflows", "ci.yml");
+      const prod = lire(".github", "workflows", "production.yml");
+      const gitlab = lire(".gitlab-ci.yml");
+      const SI_ARM64 = "contains(vars.NF_IMAGE_PLATFORMS, 'linux/arm64')";
+      const RUNNER_ARM = "vars.NF_IMAGE_ARM64_RUNNER || 'ubuntu-24.04-arm'";
+      const GARDE_ARCH = "docker image inspect -f '{{.Architecture}}'";
+
+      // GitHub, filet de base : un job arm64 SAUTÉ sans la variable — jamais
+      // un job vert qui n'a rien construit —, sur un runner ARM NATIF.
+      const arm64 = ci.slice(ci.indexOf("\n  image-arm64:\n"));
+      assert.isAbove(arm64.length, 0, "job image-arm64 absent de ci.yml");
+      assert.include(arm64, `\n    if: ${SI_ARM64}\n`);
+      assert.include(arm64, `\n    runs-on: \${{ ${RUNNER_ARM} }}\n`);
+      // Même construction que `verify`, mot pour mot : l'image éprouvée en
+      // arm64 est celle qu'on déploie, à paquets système compris.
+      const construction = `docker build --target "$NF_IMAGE_TARGET"\n          --build-arg PACKAGES="$NF_IMAGE_PACKAGES"`;
+      assert.equal(
+        ci.split(construction).length - 1,
+        2,
+        "construction arm64 ≠ verify",
+      );
+      // L'architecture se CONSTATE sur l'image, avant le contrôle des couches.
+      assert.isBelow(
+        arm64.indexOf(GARDE_ARCH),
+        arm64.indexOf("image:check edge:ci"),
+      );
+      assert.isAbove(
+        arm64.indexOf(GARDE_ARCH),
+        -1,
+        "garde d'architecture absente",
+      );
+      // Le job amd64 historique ne change pas de runner.
+      assert.match(ci, /\n {2}verify:\n {4}runs-on: ubuntu-latest\n/u);
+
+      // GitHub, production : une exécution PAR architecture, chacune native,
+      // et la garde lit l'architecture de la matrice.
+      const image = prod.slice(
+        prod.indexOf("\n  image:\n"),
+        prod.indexOf("\n  topologie:\n"),
+      );
+      assert.include(
+        image,
+        `platform: \${{ fromJSON(${SI_ARM64} && '["linux/amd64","linux/arm64"]' || '["linux/amd64"]') }}`,
+      );
+      assert.include(image, "fail-fast: false");
+      assert.include(
+        image,
+        `runs-on: \${{ matrix.platform == 'linux/arm64' && (${RUNNER_ARM}) || 'ubuntu-latest' }}`,
+      );
+      assert.include(image, "EXPECTED: ${{ matrix.platform }}");
+      assert.include(image, `${GARDE_ARCH} edge:local`);
+      // La garde vient APRÈS la construction et AVANT la sonde.
+      assert.isBelow(image.indexOf("up -d --build"), image.indexOf(GARDE_ARCH));
+      assert.isBelow(image.indexOf(GARDE_ARCH), image.indexOf("/readyz"));
+
+      // GitLab : le job arm64 HÉRITE du contrôle d'image — une seule recette —
+      // et n'est créé que si la variable nomme arm64.
+      const glArm64 = gitlab.slice(gitlab.indexOf("\nimage-check-arm64:\n"));
+      assert.isAbove(glArm64.length, 0, "job image-check-arm64 absent");
+      assert.include(glArm64, "\n  extends: image-check\n");
+      assert.include(glArm64, "\n    - $NF_IMAGE_ARM64_RUNNER_TAG\n");
+      assert.include(glArm64, "\n    NF_IMAGE_ARCH: arm64\n");
+      assert.include(
+        glArm64,
+        "\n    - if: $NF_IMAGE_PLATFORMS =~ /linux\\/arm64/\n",
+      );
+      assert.include(gitlab, `${GARDE_ARCH} edge:ci`);
+
+      // 🔴 La liste des architectures servies est écrite trois fois (une par
+      // fichier, que l'utilisateur peut retirer séparément) : elles doivent
+      // dire la MÊME chose.
+      const servies = (texte: string) =>
+        [...texte.matchAll(/^\s+(linux\/[^)]+)\) ;;$/gmu)].map((m) => m[1]);
+      for (const [nom, texte] of [
+        ["ci.yml", ci],
+        ["production.yml", prod],
+        [".gitlab-ci.yml", gitlab],
+      ] as const) {
+        assert.deepEqual(servies(texte), ["linux/amd64|linux/arm64"], nom);
+      }
+      assertNoEtaResidue(dest);
+    });
+
+    it("`NF_IMAGE_PLATFORMS` inconnue ARRÊTE la chaîne en la nommant — exécuté", async (ctx) => {
+      // Mal orthographiée, la valeur ferait sauter le job arm64 sans un mot :
+      // la CI resterait verte sur une architecture jamais construite. On
+      // EXÉCUTE la garde rendue, pas sa présence — un `case` mal écrit parse.
+      const shells = ["bash", "sh"].filter(
+        (sh) => spawnSync("command", ["-v", sh], { shell: true }).status === 0,
+      );
+      if (shells.length < 2) return ctx.skip();
+      const dest = dossierEdge();
+      const lire = (...p: string[]) =>
+        readFileSync(path.join(dest, ...p), "utf8");
+      // Le bloc `run: |` (GitHub) ou `- |` (GitLab) qui suit l'ancre, désindenté.
+      const bloc = (texte: string, ancre: string, debut: string) => {
+        const apres = texte.slice(texte.indexOf(ancre));
+        const corps = apres.slice(apres.indexOf(debut) + debut.length);
+        const lignes = corps.split("\n");
+        const marge = /^ */u.exec(lignes[0]!)![0];
+        const fin = lignes.findIndex(
+          (l) => l.length > 0 && !l.startsWith(marge),
+        );
+        return lignes
+          .slice(0, fin)
+          .map((l) => l.slice(marge.length))
+          .join("\n");
+      };
+      const gardes = [
+        {
+          nom: "ci.yml",
+          sh: "bash",
+          script: bloc(
+            lire(".github", "workflows", "ci.yml"),
+            "Architectures de l'image",
+            "run: |\n",
+          ),
+        },
+        {
+          nom: "production.yml",
+          sh: "bash",
+          script: bloc(
+            lire(".github", "workflows", "production.yml"),
+            "Architectures de l'image",
+            "run: |\n",
+          ),
+        },
+        {
+          nom: ".gitlab-ci.yml",
+          sh: "sh",
+          script: bloc(
+            lire(".gitlab-ci.yml"),
+            "`NF_IMAGE_PLATFORMS` (ex.",
+            "- |\n",
+          ),
+        },
+      ];
+      const cas: ReadonlyArray<[string | undefined, number]> = [
+        [undefined, 0],
+        ["", 0],
+        ["linux/amd64", 0],
+        ["linux/amd64,linux/arm64", 0],
+        ["linux/amd64, linux/arm64", 0],
+        ["linux/arm/v7", 1],
+        ["linux/arm46", 1],
+        ["linux/amd64,arm64", 1],
+        // Un motif de fichiers ne s'étend pas en noms du dépôt.
+        ["*", 1],
+      ];
+      for (const { nom, sh, script } of gardes) {
+        assert.include(script, "for platform in", `${nom} : bloc introuvable`);
+        for (const [valeur, attendu] of cas) {
+          const env: NodeJS.ProcessEnv = { ...process.env };
+          delete env.NF_IMAGE_PLATFORMS;
+          if (valeur !== undefined) env.NF_IMAGE_PLATFORMS = valeur;
+          const r = spawnSync(sh, ["-c", script], {
+            cwd: dest,
+            env,
+            encoding: "utf8",
+          });
+          assert.equal(
+            r.status,
+            attendu,
+            `${nom} « ${valeur ?? "(absente)"} » : ${r.stdout}${r.stderr}`,
+          );
+          if (attendu !== 0)
+            assert.include(
+              r.stdout,
+              `« ${valeur!.split(",").at(-1)!.trim()} »`,
+              nom,
+            );
+        }
+      }
+    }, 60_000);
+
     it("preset minimal : pas de compose, donc pas de chaîne de production", () => {
       // Le fichier vit dans la couche `complete`, et c'est la seule réponse
       // juste : ses deux jobs lèvent la topologie par le compose. Le rendre

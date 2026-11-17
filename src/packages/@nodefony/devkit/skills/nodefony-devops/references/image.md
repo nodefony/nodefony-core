@@ -116,6 +116,14 @@ Vides, elles laissent le défaut du `Dockerfile`, écrit dans ses `FROM`. À pos
 dans les variables du dépôt : sinon la CI éprouve une autre image que la tienne. Les deux fins
 portent la même étiquette d'image — changer de fin exige `--build`.
 
+**Serveur ARM** : la variable du dépôt `NF_IMAGE_PLATFORMS=linux/amd64,linux/arm64` (défaut :
+`linux/amd64` seule) fait éprouver aussi l'image arm64 par la CI générée, sur un runner ARM
+**natif** — `ubuntu-24.04-arm` (GitHub, surcharge `NF_IMAGE_ARM64_RUNNER`),
+`saas-linux-small-arm64` (GitLab.com, surcharge `NF_IMAGE_ARM64_RUNNER_TAG`). `ci.yml` et
+`.gitlab-ci.yml` la construisent et en contrôlent les couches ; `production.yml` la démarre,
+sonde `/readyz` et l'arrête en `0`. L'architecture est CONSTATÉE sur l'image construite, et une
+valeur inconnue arrête la CI en la nommant. `linux/arm/v7` (Pi 32 bits) n'est pas servie.
+
 ```bash
 NF_IMAGE_TARGET=with-packages NF_IMAGE_PACKAGES="ffmpeg" docker compose --profile app up -d --build
 ```

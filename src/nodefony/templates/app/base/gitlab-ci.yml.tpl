@@ -141,6 +141,19 @@ image-check:
       apt-get install -y -qq --no-install-recommends docker-cli
       || apt-get install -y -qq --no-install-recommends docker.io
   script:
+    # Les architectures de l'image, variable CI/CD du projet
+    # `NF_IMAGE_PLATFORMS` (ex. `linux/amd64,linux/arm64`) ; `linux/amd64` est
+    # toujours éprouvée. Une valeur inconnue ARRÊTE le job en la nommant — mal
+    # orthographiée, elle ferait sauter le job arm64 sans un mot.
+    - |
+      set -f
+      for platform in $(printf '%s' "${NF_IMAGE_PLATFORMS:-}" | tr ',' ' '); do
+        case "$platform" in
+          linux/amd64|linux/arm64) ;;
+          *) echo "NF_IMAGE_PLATFORMS : « $platform » n'est pas servie (linux/amd64, linux/arm64)"; exit 1 ;;
+        esac
+      done
+      set +f
 <% if (it.toolchain.bootstrap) { %>    - <%= it.toolchain.bootstrap %>
 <% } %>    - <%= it.toolchain.projectCachedInstall %>
     # La fin, ses paquets et ses bases : variables CI/CD du projet
@@ -153,7 +166,38 @@ image-check:
       --build-arg NODE_IMAGE="${NF_IMAGE_NODE:-}"
       --build-arg RUNTIME_IMAGE="${NF_IMAGE_RUNTIME:-}"
       -t <%= it.appName %>:ci .
+    # Job arm64 (`NF_IMAGE_ARCH` posée) : l'architecture se CONSTATE sur
+    # l'image, elle ne se déduit pas de l'étiquette du runner — une étiquette
+    # mal posée rendrait ce job vert sur une image amd64.
+    - |
+      ARCH=$(docker image inspect -f '{{.Architecture}}' <%= it.appName %>:ci)
+      if [ -n "${NF_IMAGE_ARCH:-}" ] && [ "$ARCH" != "$NF_IMAGE_ARCH" ]; then
+        echo "image construite en « $ARCH », $NF_IMAGE_ARCH attendue — le runner n'a pas cette architecture"
+        exit 1
+      fi
     # `nodefony image:check` lit les COUCHES et refuse par un code non nul. Un
     # contrôle qui n'a pas PU regarder (démon injoignable, couche illisible)
     # sort en 69, pas en 0 : ce job échoue alors, ce qui est voulu.
     - <%= it.pmExec("nodefony") %> image:check <%= it.appName %>:ci
+
+# L'IMAGE en arm64 — seulement si `NF_IMAGE_PLATFORMS` nomme `linux/arm64`.
+# Sans la variable, le job n'est pas créé.
+#
+# Un runner ARM NATIF, pas une émulation : sous QEMU, la construction et le
+# démarrage se comptent en minutes, et l'émulateur peut masquer ce qui casse
+# sur le vrai matériel. `saas-linux-small-arm64` est le runner arm64 de
+# GitLab.com ; une instance auto-hébergée désigne le sien par la variable
+# CI/CD `NF_IMAGE_ARM64_RUNNER_TAG`, qui l'emporte sur la valeur ci-dessous.
+# Même construction et même contrôle que `image-check` : seule l'architecture
+# change — les modules natifs s'y installent pour arm64.
+image-check-arm64:
+  extends: image-check
+  tags:
+    - $NF_IMAGE_ARM64_RUNNER_TAG
+  variables:
+    NF_IMAGE_ARCH: arm64
+    NF_IMAGE_ARM64_RUNNER_TAG: saas-linux-small-arm64
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $NF_IMAGE_PLATFORMS =~ /linux\/arm64/

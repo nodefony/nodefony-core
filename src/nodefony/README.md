@@ -724,6 +724,14 @@ ou le `.env` pour compose, les variables du dépôt pour la CI — à poser AUX 
 éprouve une autre image que la tienne). Des paquets demandés sans `with-packages` arrêtent la
 construction en le disant, au lieu d'être ignorés.
 
+Un serveur ARM (AWS Graviton, Raspberry Pi 4/5 en 64 bits, nœuds Kubernetes ARM) ? Pose la
+variable du dépôt `NF_IMAGE_PLATFORMS=linux/amd64,linux/arm64` : la CI construit et contrôle
+aussi l'image arm64, et la chaîne de production la démarre et l'arrête — chacune sur un runner
+ARM **natif** (`ubuntu-24.04-arm` sur GitHub, `saas-linux-small-arm64` sur GitLab.com ; un
+runner auto-hébergé se désigne par `NF_IMAGE_ARM64_RUNNER` ou `NF_IMAGE_ARM64_RUNNER_TAG`).
+C'est là que cassent les modules natifs, au démarrage et jamais à l'installation. Sans la
+variable, rien ne change ; une valeur inconnue arrête la CI en la nommant.
+
 ##### Si tu PUBLIES cette image
 
 L'image emporte `node_modules` élagué : la **publier** — sur un registre public,

@@ -67,6 +67,27 @@ function catalogueConstruction() {
   );
 }
 
+/**
+ * Les variables que la CI GÉNÉRÉE lit — variables du dépôt GitHub
+ * (`vars.NF_IMAGE_PLATFORMS`) et variables CI/CD GitLab (`$NF_IMAGE_PLATFORMS`).
+ * Ni l'application ni le framework ne les lisent : elles règlent ce que la
+ * forge construit et sur quel runner (#787), sans retoucher le fichier.
+ */
+function catalogueCi() {
+  const github = [
+    "src/nodefony/templates/app/base/github/workflows/ci.yml.tpl",
+    "src/nodefony/templates/app/complete/github/workflows/production.yml.tpl",
+  ].flatMap((f) =>
+    [...lire(f).matchAll(/\bvars\.(NF_[A-Z0-9_]+)/gu)].map((m) => m[1]),
+  );
+  const gitlab = [
+    ...lire("src/nodefony/templates/app/base/gitlab-ci.yml.tpl").matchAll(
+      /\$\{?(NF_[A-Z0-9_]+)/gu,
+    ),
+  ].map((m) => m[1]);
+  return new Set([...github, ...gitlab]);
+}
+
 /** Les variables `NF_X` citées (les surcharges `NF__MODULE__…` sont un mécanisme, pas un nom). */
 function citees(texte) {
   return new Set(
@@ -78,6 +99,7 @@ describe("pages de déploiement — confrontées aux catalogues de variables", (
   const appli = catalogueApplication();
   const framework = catalogueFramework();
   const construction = catalogueConstruction();
+  const ci = catalogueCi();
 
   it("le catalogue de l'application se lit (garde du lecteur lui-même)", () => {
     // Sans ce contrôle, un gabarit réécrit autrement rendrait un catalogue VIDE
@@ -86,11 +108,22 @@ describe("pages de déploiement — confrontées aux catalogues de variables", (
     expect(appli.has("NF_CSRF_SECRET")).toBe(true);
     expect(framework.size).toBeGreaterThan(50);
     expect(construction.has("NF_IMAGE_TARGET")).toBe(true);
+    for (const v of [
+      "NF_IMAGE_PLATFORMS",
+      "NF_IMAGE_ARM64_RUNNER",
+      "NF_IMAGE_ARM64_RUNNER_TAG",
+    ]) {
+      expect(ci.has(v), v).toBe(true);
+    }
   });
 
   it.each(PAGES)("%s ne cite que des variables qui existent", (page) => {
     const inconnues = [...citees(lire(page))].filter(
-      (v) => !appli.has(v) && !framework.has(v) && !construction.has(v),
+      (v) =>
+        !appli.has(v) &&
+        !framework.has(v) &&
+        !construction.has(v) &&
+        !ci.has(v),
     );
     expect(
       inconnues,

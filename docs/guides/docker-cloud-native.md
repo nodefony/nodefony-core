@@ -167,6 +167,18 @@ la DERNIÈRE du fichier, c'est ce qui fait d'elle l'image d'un `docker build .`.
 >   remplacerait — et le script lancé n'aurait plus personne pour lire son
 >   shebang).
 
+L'image se déploie aussi sur un serveur ARM (AWS Graviton, Raspberry Pi 4/5 en
+64 bits, nœuds Kubernetes ARM). La CI générée l'éprouve en `linux/amd64` ; la
+variable du dépôt `NF_IMAGE_PLATFORMS=linux/amd64,linux/arm64` y ajoute
+l'arm64 — construction et contrôle des couches, et dans la chaîne de production
+démarrage, `/readyz` et arrêt en `0` —, sur un runner ARM **natif** plutôt que
+sous émulation : `ubuntu-24.04-arm` sur GitHub, `saas-linux-small-arm64` sur
+GitLab.com, un runner auto-hébergé par `NF_IMAGE_ARM64_RUNNER` (GitHub) ou
+`NF_IMAGE_ARM64_RUNNER_TAG` (GitLab). C'est là que cassent les modules natifs,
+au démarrage et jamais à l'installation. Une valeur inconnue arrête la CI en la
+nommant ; `linux/arm/v7` (Pi en 32 bits) n'est pas servie, aucune des bases ne
+la publie.
+
 ### Les deux règles qui survivent à tout changement de base
 
 - **Forme exec** `CMD ["…", "…"]`, jamais `CMD npx nodefony production` : en
