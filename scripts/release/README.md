@@ -174,7 +174,7 @@ Le contrôle de la page Docker Hub, éprouvé SANS réseau.
 Construit, ÉPROUVE puis (option) publie l'image de démonstration `nodefony/nodefony` pour CHAQUE plateforme demandée.
 
 - **Usage** : `bash scripts/release/image-demo.sh --version <v> --revision <sha> [--platforms <liste>] [--push --canal <canal>]`
-- **Appelé par** : `release.yml`
+- **Appelé par** : `npm run release:image` · `release.yml`
 - **Utilise** : `release/image-gate.mjs` · `release/image-labels-gate.mjs`
 
 ## [`image-gate.mjs`](image-gate.mjs)

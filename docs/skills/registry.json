@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-11-16",
+  "generatedAt": "2026-11-17",
   "count": 44,
   "repoScripts": [
     {
@@ -2563,6 +2563,7 @@
       "env": [],
       "output": "",
       "calledBy": [
+        "npm run release:image",
         "release.yml"
       ],
       "testedBy": []
