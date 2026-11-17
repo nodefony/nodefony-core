@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-17T14:02:39.112Z",
+  "generatedAt": "2026-11-17T14:06:28.274Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -7248,7 +7248,7 @@
       "title": "feat(cli): éprouver aussi en arm64 l'image de la CI générée",
       "url": "https://github.com/nodefony/nodefony-core/issues/787",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P3 — fin de cycle",
       "jours": 2,
