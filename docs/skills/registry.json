@@ -1047,6 +1047,22 @@
       "testedBy": []
     },
     {
+      "path": "scripts/test/lib/provision.ts",
+      "test": false,
+      "purpose": "Joue la mise en état d'une cible d'infra dans son conteneur (`EnvGate.provision`).",
+      "usage": [
+        "import { provisionGate } from \"./lib/provision.ts\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/test/provision-gate.ts",
+        "scripts/test/test-all.ts"
+      ],
+      "testedBy": []
+    },
+    {
       "path": "scripts/test/lib/testbed.ts",
       "test": false,
       "purpose": "Producteur PUR de l'onglet Décors de la console (`/nodefony/config?tab=testbed`).",
@@ -1062,6 +1078,21 @@
       "testedBy": [
         "src/modules/test/nodefony/tests/testbed.test.ts"
       ]
+    },
+    {
+      "path": "scripts/test/provision-gate.ts",
+      "test": false,
+      "purpose": "Met en état le conteneur de service d'une cible d'infra — la porte de la forge.",
+      "usage": [
+        "tsx scripts/test/provision-gate.ts <service> [conteneur]"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "orm.yml"
+      ],
+      "testedBy": []
     },
     {
       "path": "scripts/test/realtime-coverage-map.mjs",
@@ -1201,7 +1232,9 @@
         "src/packages/@nodefony/redis/vitest.config.ts",
         "scripts/generate/env-snapshot.ts",
         "scripts/test/coverage-all.ts",
+        "scripts/test/lib/provision.ts",
         "scripts/test/lib/testbed.ts",
+        "scripts/test/provision-gate.ts",
         "scripts/test/testbed-report.ts",
         ".claude/skills/nodefony-test-campaign/scripts/test-campaign.sh"
       ],

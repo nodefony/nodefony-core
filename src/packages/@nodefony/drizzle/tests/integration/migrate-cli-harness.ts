@@ -5,10 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import type { SqlDialect } from "../../nodefony/config/config";
-import {
-  HISTORY_TABLE,
-  openMigrationDriver,
-} from "../../nodefony/src/migrator/index";
+import { openMigrationDriver } from "../../nodefony/src/migrator/index";
 
 const run = promisify(execFile);
 
@@ -263,15 +260,30 @@ export function urlSchema(base: string, schema: string): string {
 }
 
 /**
+ * URL MySQL pointée sur une autre base du même serveur.
+ *
+ * @param base - URL du serveur (sa base de travail)
+ * @param database - base à viser
+ * @returns la même URL, chemin remplacé
+ */
+export function urlDatabase(base: string, database: string): string {
+  const url = new URL(base);
+  url.pathname = `/${database}`;
+  return url.toString();
+}
+
+/**
  * Les trois dialectes, chacun avec sa façon de rendre une base VIERGE.
  *
- * @param schemaPg - schéma PostgreSQL dédié à l'appelant. Jamais `public` : les
- *   autres suites y travaillent, et ce décor applique TOUT le jeu de migrations
- *   du framework — il écraserait leurs tables. Deux bancs qui partageraient le
- *   même schéma rendraient un verdict qui dépend de leur ordre d'exécution.
+ * @param isolatedName - nom de l'espace dédié à l'appelant : schéma PostgreSQL,
+ *   BASE MySQL (préfixe `nf_` obligatoire, le seul que le décor accorde —
+ *   `scripts/test/vitest/gates.ts#BENCH_DATABASE_PREFIX`). Jamais l'espace de
+ *   travail partagé : les autres suites y écrivent, et ce décor applique TOUT
+ *   le jeu de migrations du framework. Deux bancs qui partageraient le même
+ *   espace rendraient un verdict qui dépend de leur ordre d'exécution.
  * @returns les cibles, celles sans serveur déclaré étant marquées inactives.
  */
-export function ciblesPour(schemaPg: string): ICible[] {
+export function ciblesPour(isolatedName: string): ICible[] {
   return [
     {
       dialect: "sqlite",
@@ -297,18 +309,18 @@ export function ciblesPour(schemaPg: string): ICible[] {
       neuve: async () => {
         const serveur = PG_URL as string;
         const recreer = [
-          `DROP SCHEMA IF EXISTS ${schemaPg} CASCADE`,
-          `CREATE SCHEMA ${schemaPg}`,
+          `DROP SCHEMA IF EXISTS ${isolatedName} CASCADE`,
+          `CREATE SCHEMA ${isolatedName}`,
         ];
         await execSur({ dialect: "postgres", url: serveur }, recreer);
-        const url = urlSchema(serveur, schemaPg);
+        const url = urlSchema(serveur, isolatedName);
         return {
           url,
           sql: (statements) =>
             execSur({ dialect: "postgres", url }, statements),
           liberer: () =>
             execSur({ dialect: "postgres", url: serveur }, [
-              `DROP SCHEMA IF EXISTS ${schemaPg} CASCADE`,
+              `DROP SCHEMA IF EXISTS ${isolatedName} CASCADE`,
             ]),
         };
       },
@@ -317,32 +329,37 @@ export function ciblesPour(schemaPg: string): ICible[] {
       dialect: "mysql",
       label: "(mysql)",
       actif: Boolean(MYSQL_URL),
-      // 🔴 Pas de schéma dédié ici, et ce n'est PAS un choix : l'utilisateur
-      // applicatif du décor n'a pas le droit de créer une base (`ERROR 1044`,
-      // constaté). L'isolation se fait donc par SUPPRESSION des tables que les
-      // migrations livrées créent — la même règle, une autre implémentation,
-      // imposée par ce que le serveur permet.
+      // Une BASE dédiée, détruite et recréée : MySQL ne distingue pas le schéma
+      // de la base, c'est donc l'équivalent exact du schéma PostgreSQL. Vécu
+      // (#790) : quand ce banc travaillait dans la base partagée, une table
+      // laissée par un voisin entrait dans la référence lue par
+      // `--from-database`, le diff suivant proposait de la SUPPRIMER, et le
+      // nettoyage du cas emportait ensuite les tables des autres suites.
       neuve: async () => {
-        const url = MYSQL_URL as string;
-        // Les DEUX jeux : celui du paquet, et celui de l'application témoin —
-        // dont l'entité `User`, qui n'appartient plus au framework.
-        const tables = [
-          ...(await tablesDeMigrations([
-            path.join(MIGRATIONS, "mysql"),
-            dossierMigrations("mysql"),
-          ])),
-          HISTORY_TABLE,
+        const serveur = MYSQL_URL as string;
+        const recreer = [
+          `DROP DATABASE IF EXISTS \`${isolatedName}\``,
+          `CREATE DATABASE \`${isolatedName}\``,
         ];
-        const vider = [
-          "SET FOREIGN_KEY_CHECKS = 0",
-          ...tables.map((t) => `DROP TABLE IF EXISTS \`${t}\``),
-          "SET FOREIGN_KEY_CHECKS = 1",
-        ];
-        await execSur({ dialect: "mysql", url }, vider);
+        try {
+          await execSur({ dialect: "mysql", url: serveur }, recreer);
+        } catch (cause) {
+          throw new Error(
+            `le décor MySQL n'accorde pas la base jetable « ${isolatedName} » ` +
+              "à l'utilisateur du banc. Le droit se pose en administrateur : " +
+              "`npm run test:all -- --infra` (ou `npx tsx scripts/test/provision-gate.ts " +
+              "<mariadb|mysql>`). Seules les bases préfixées « nf_ » sont accordées.",
+            { cause },
+          );
+        }
+        const url = urlDatabase(serveur, isolatedName);
         return {
           url,
           sql: (statements) => execSur({ dialect: "mysql", url }, statements),
-          liberer: () => execSur({ dialect: "mysql", url }, vider),
+          liberer: () =>
+            execSur({ dialect: "mysql", url: serveur }, [
+              `DROP DATABASE IF EXISTS \`${isolatedName}\``,
+            ]),
         };
       },
     },

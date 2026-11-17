@@ -212,36 +212,6 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
         }
       });
 
-      /**
-       * Tables que les migrations écrites par ce cas créeraient.
-       *
-       * DÉRIVÉE des fichiers, jamais écrite à la main : le dépôt déclare des
-       * entités de démonstration dont la liste changera, et une liste figée
-       * laisserait derrière elle des tables qui fausseraient le voisin — sans
-       * que rien ne le signale. MySQL en a besoin : son décor n'a pas de
-       * schéma à détruire, l'isolation s'y fait table par table.
-       */
-      const tablesEcrites = async (): Promise<string[]> => {
-        const noms = new Set<string>();
-        let fichiers: string[];
-        try {
-          fichiers = (await fs.readdir(outDir)).filter((f) =>
-            f.endsWith(".sql"),
-          );
-        } catch {
-          return [];
-        }
-        for (const fichier of fichiers) {
-          const sql = await fs.readFile(path.join(outDir, fichier), "utf8");
-          for (const m of sql.matchAll(
-            /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?[`"]?([A-Za-z0-9_]+)[`"]?/gi,
-          )) {
-            noms.add(m[1]!);
-          }
-        }
-        return [...noms];
-      };
-
       it("🔴 la base en place s'adopte, puis le champ ajouté produit un ALTER", async (ctx) => {
         if (mariadb) {
           // 🔴 `ctx.skip()`, JAMAIS un `return` : un cas qui se retourne au
@@ -261,240 +231,210 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
             NF_ADOPT_FIXTURE: `${cible.dialect}+slug`,
           };
 
-          try {
-            // ── 1. Le framework est migré, comme sur n'importe quel exemplaire.
-            const migre = await cli(["orm:migrate", "--json"], env);
-            assert.equal(migre.code, 0, diagnostic(migre));
-            assert.equal(parse(migre.stdout).verdict, "up-to-date");
+          // ── 1. Le framework est migré, comme sur n'importe quel exemplaire.
+          const migre = await cli(["orm:migrate", "--json"], env);
+          assert.equal(migre.code, 0, diagnostic(migre));
+          assert.equal(parse(migre.stdout).verdict, "up-to-date");
 
-            // Le décor part d'une base sans la table du banc. MySQL n'a pas de
-            // schéma jetable : un cas interrompu la laisse derrière lui, et le
-            // suivant refuserait — pour une raison JUSTE, sur un décor FAUX.
-            await base.sql([
-              `DROP TABLE IF EXISTS ${citer(cible.dialect, TABLE)}`,
-            ]);
+          // ── 2. On amène la base dans l'état d'une application qui a
+          //       longtemps laissé le démarrage fabriquer son schéma. Le DDL
+          //       est posé par le PRODUIT, jamais écrit à la main : une table
+          //       transcrite à la main ne serait pas celle que le générateur
+          //       compare ensuite, et le banc mesurerait sa propre
+          //       transcription.
+          const initiale = await cli(
+            ["orm:generate", "--json", "--name", "heritage"],
+            avecTable,
+          );
+          assert.equal(initiale.code, 0, diagnostic(initiale));
+          const pose = await cli(["orm:migrate", "--json"], avecTable);
+          assert.equal(pose.code, 0, diagnostic(pose));
+          await base.sql([
+            `INSERT INTO ${citer(cible.dialect, TABLE)} ` +
+              `(${citer(cible.dialect, "id")}, ${citer(cible.dialect, "title")}) ` +
+              `VALUES ('1', '${TEMOIN}')`,
+          ]);
 
-            // ── 2. On amène la base dans l'état d'une application qui a
-            //       longtemps laissé le démarrage fabriquer son schéma. Le DDL
-            //       est posé par le PRODUIT, jamais écrit à la main : une table
-            //       transcrite à la main ne serait pas celle que le générateur
-            //       compare ensuite, et le banc mesurerait sa propre
-            //       transcription.
-            const initiale = await cli(
-              ["orm:generate", "--json", "--name", "heritage"],
-              avecTable,
-            );
-            assert.equal(initiale.code, 0, diagnostic(initiale));
-            const pose = await cli(["orm:migrate", "--json"], avecTable);
-            assert.equal(pose.code, 0, diagnostic(pose));
-            await base.sql([
-              `INSERT INTO ${citer(cible.dialect, TABLE)} ` +
-                `(${citer(cible.dialect, "id")}, ${citer(cible.dialect, "title")}) ` +
-                `VALUES ('1', '${TEMOIN}')`,
-            ]);
+          // ── 3. L'HISTOIRE disparaît, les tables restent. C'est exactement
+          //       l'état d'une base héritée : personne n'a jamais migré, et
+          //       pourtant tout est là.
+          await fs.rm(outDir, { recursive: true, force: true });
+          await base.sql([
+            `DELETE FROM ${citer(cible.dialect, HISTORY_TABLE)} ` +
+              `WHERE ${citer(cible.dialect, "source")} = '${APP_SOURCE}'`,
+          ]);
 
-            // ── 3. L'HISTOIRE disparaît, les tables restent. C'est exactement
-            //       l'état d'une base héritée : personne n'a jamais migré, et
-            //       pourtant tout est là.
-            await fs.rm(outDir, { recursive: true, force: true });
-            await base.sql([
-              `DELETE FROM ${citer(cible.dialect, HISTORY_TABLE)} ` +
-                `WHERE ${citer(cible.dialect, "source")} = '${APP_SOURCE}'`,
-            ]);
+          // ── 4. Le trou de #118 : écrire le schéma initial ici produirait
+          //       un « CREATE TABLE » inapplicable. La commande doit REFUSER,
+          //       et son refus doit laisser un geste — c'est ce qui manquait.
+          const refus = await cli(
+            ["orm:generate", "--json", "--name", "initial"],
+            avecTable,
+          );
+          const docRefus = parse(refus.stdout);
+          const erreur = docRefus.error as
+            | {
+                code: string;
+                summary: string;
+                nextActions: { command: string }[];
+              }
+            | undefined;
+          assert.equal(
+            erreur?.code,
+            "NF_GENERATE_DATABASE_NOT_ADOPTED",
+            `refus attendu : ${diagnostic(refus)}`,
+          );
+          assert.notEqual(
+            refus.code,
+            0,
+            "un refus qui rend 0 se perd dans un `&&` de déploiement",
+          );
+          assert.equal(refus.code, docRefus.exitCode);
+          assert.match(
+            erreur?.summary,
+            new RegExp(TABLE),
+            "le refus doit NOMMER la table qui bloque",
+          );
+          // 🔴 Le geste proposé doit être ACCEPTÉ par la commande visée dans
+          // l'état où l'on se trouve : c'est la vérification qui manquait le
+          // jour où deux commandes se sont prescrites l'une l'autre en se
+          // refusant.
+          const gestes = (erreur?.nextActions ?? []).map((a) => a.command);
+          assert.ok(
+            gestes.some((c) => c.includes("orm:migrate:baseline")),
+            `aucun geste vers l'adoption : ${gestes.join(" | ")}`,
+          );
+          assert.equal(
+            await fs
+              .readdir(outDir)
+              .then((f) => f.length)
+              .catch(() => 0),
+            0,
+            "un refus n'écrit RIEN",
+          );
 
-            // ── 4. Le trou de #118 : écrire le schéma initial ici produirait
-            //       un « CREATE TABLE » inapplicable. La commande doit REFUSER,
-            //       et son refus doit laisser un geste — c'est ce qui manquait.
-            const refus = await cli(
-              ["orm:generate", "--json", "--name", "initial"],
-              avecTable,
-            );
-            const docRefus = parse(refus.stdout);
-            const erreur = docRefus.error as
-              | {
-                  code: string;
-                  summary: string;
-                  nextActions: { command: string }[];
-                }
-              | undefined;
-            assert.equal(
-              erreur?.code,
-              "NF_GENERATE_DATABASE_NOT_ADOPTED",
-              `refus attendu : ${diagnostic(refus)}`,
-            );
-            assert.notEqual(
-              refus.code,
-              0,
-              "un refus qui rend 0 se perd dans un `&&` de déploiement",
-            );
-            assert.equal(refus.code, docRefus.exitCode);
-            assert.match(
-              erreur?.summary,
-              new RegExp(TABLE),
-              "le refus doit NOMMER la table qui bloque",
-            );
-            // 🔴 Le geste proposé doit être ACCEPTÉ par la commande visée dans
-            // l'état où l'on se trouve : c'est la vérification qui manquait le
-            // jour où deux commandes se sont prescrites l'une l'autre en se
-            // refusant.
-            const gestes = (erreur?.nextActions ?? []).map((a) => a.command);
-            assert.ok(
-              gestes.some((c) => c.includes("orm:migrate:baseline")),
-              `aucun geste vers l'adoption : ${gestes.join(" | ")}`,
-            );
-            assert.equal(
-              await fs
-                .readdir(outDir)
-                .then((f) => f.length)
-                .catch(() => 0),
-              0,
-              "un refus n'écrit RIEN",
-            );
+          // ── 5. L'adoption : la référence est LUE sur la base, et aucune
+          //       instruction n'est exécutée dessus.
+          const adopt = await cli(
+            ["orm:migrate:baseline", "--from-database", "--json"],
+            avecTable,
+          );
+          assert.equal(adopt.code, 0, diagnostic(adopt));
+          const docAdopt = parse(adopt.stdout);
+          assertDialecte(docAdopt, cible.dialect);
 
-            // ── 5. L'adoption : la référence est LUE sur la base, et aucune
-            //       instruction n'est exécutée dessus.
-            const adopt = await cli(
-              ["orm:migrate:baseline", "--from-database", "--json"],
-              avecTable,
-            );
-            assert.equal(adopt.code, 0, diagnostic(adopt));
-            const docAdopt = parse(adopt.stdout);
-            assertDialecte(docAdopt, cible.dialect);
+          const reference = path.join(outDir, "0000_base_existante.sql");
+          const ecrit = await fs.readFile(reference, "utf8");
+          assert.match(
+            ecrit,
+            new RegExp(`CREATE TABLE[\\s\\S]*${TABLE}`, "i"),
+            "la référence doit décrire la table que la base porte",
+          );
+          assert.doesNotMatch(
+            ecrit,
+            /\/\*/,
+            "un corps commenté ne recréerait rien sur un environnement neuf",
+          );
+          assert.equal(
+            await fs
+              .access(path.join(outDir, "schema.ts"))
+              .then(() => true)
+              .catch(() => false),
+            false,
+            "les modules TypeScript déposés par l'outil décrivent un schéma que personne ne maintiendrait",
+          );
 
-            const reference = path.join(outDir, "0000_base_existante.sql");
-            const ecrit = await fs.readFile(reference, "utf8");
-            assert.match(
-              ecrit,
-              new RegExp(`CREATE TABLE[\\s\\S]*${TABLE}`, "i"),
-              "la référence doit décrire la table que la base porte",
-            );
-            assert.doesNotMatch(
-              ecrit,
-              /\/\*/,
-              "un corps commenté ne recréerait rien sur un environnement neuf",
-            );
-            assert.equal(
-              await fs
-                .access(path.join(outDir, "schema.ts"))
-                .then(() => true)
-                .catch(() => false),
-              false,
-              "les modules TypeScript déposés par l'outil décrivent un schéma que personne ne maintiendrait",
-            );
+          // ── 6. Adopter ne touche pas aux données. Relu EN BASE, jamais
+          //       déduit d'une valeur de retour.
+          assert.deepEqual(
+            await lireTemoin(base, cible.dialect),
+            [TEMOIN],
+            "l'adoption a perdu, dupliqué ou réécrit la donnée",
+          );
 
-            // ── 6. Adopter ne touche pas aux données. Relu EN BASE, jamais
-            //       déduit d'une valeur de retour.
-            assert.deepEqual(
-              await lireTemoin(base, cible.dialect),
-              [TEMOIN],
-              "l'adoption a perdu, dupliqué ou réécrit la donnée",
-            );
+          // ── 7. L'état redevient ordinaire : plus rien en attente.
+          const apres = await cli(["orm:migrate:status", "--json"], avecTable);
+          const docApres = parse(apres.stdout);
+          assertDialecte(docApres, cible.dialect);
+          assert.equal(
+            docApres.verdict,
+            "up-to-date",
+            `après adoption l'état doit être à jour : ${diagnostic(apres)}`,
+          );
+          assert.equal(apres.code, 0);
 
-            // ── 7. L'état redevient ordinaire : plus rien en attente.
-            const apres = await cli(
-              ["orm:migrate:status", "--json"],
-              avecTable,
-            );
-            const docApres = parse(apres.stdout);
-            assertDialecte(docApres, cible.dialect);
-            assert.equal(
-              docApres.verdict,
-              "up-to-date",
-              `après adoption l'état doit être à jour : ${diagnostic(apres)}`,
-            );
-            assert.equal(apres.code, 0);
+          // ── 8. Adopter une seconde fois est REFUSÉ : deux références
+          //       tirées de la base seraient deux récits du même schéma.
+          const encore = await cli(
+            ["orm:migrate:baseline", "--from-database", "--json"],
+            avecTable,
+          );
+          const docEncore = parse(encore.stdout);
+          assert.equal(
+            (docEncore.error as { code?: string } | undefined)?.code,
+            "NF_MIGRATE_BASELINE_NOT_EMPTY",
+            `seconde adoption : ${diagnostic(encore)}`,
+          );
+          assert.notEqual(encore.code, 0);
+          assert.equal(
+            (await fs.readdir(outDir)).filter((f) => f.endsWith(".sql")).length,
+            1,
+            "un refus n'écrit RIEN",
+          );
 
-            // ── 8. Adopter une seconde fois est REFUSÉ : deux références
-            //       tirées de la base seraient deux récits du même schéma.
-            const encore = await cli(
-              ["orm:migrate:baseline", "--from-database", "--json"],
-              avecTable,
-            );
-            const docEncore = parse(encore.stdout);
-            assert.equal(
-              (docEncore.error as { code?: string } | undefined)?.code,
-              "NF_MIGRATE_BASELINE_NOT_EMPTY",
-              `seconde adoption : ${diagnostic(encore)}`,
-            );
-            assert.notEqual(encore.code, 0);
-            assert.equal(
-              (await fs.readdir(outDir)).filter((f) => f.endsWith(".sql"))
-                .length,
-              1,
-              "un refus n'écrit RIEN",
-            );
+          // ── 9. Le champ ajouté produit un ALTER — c'est LE critère de #118.
+          const suivant = await cli(
+            ["orm:generate", "--json", "--name", "add_slug"],
+            avecSlug,
+          );
+          assert.equal(suivant.code, 0, diagnostic(suivant));
+          const genere = await fs.readFile(
+            path.join(outDir, "0001_add_slug.sql"),
+            "utf8",
+          );
+          assert.match(
+            genere,
+            /ALTER TABLE[\s\S]*slug/i,
+            "après adoption, le diff part de la BASE : le champ ajouté est un ALTER",
+          );
+          assert.doesNotMatch(
+            genere,
+            /CREATE TABLE/i,
+            "c'est le trou de #118 : sans référence lue sur la base, le générateur repart de rien",
+          );
 
-            // ── 9. Le champ ajouté produit un ALTER — c'est LE critère de #118.
-            const suivant = await cli(
-              ["orm:generate", "--json", "--name", "add_slug"],
-              avecSlug,
-            );
-            assert.equal(suivant.code, 0, diagnostic(suivant));
-            const genere = await fs.readFile(
-              path.join(outDir, "0001_add_slug.sql"),
-              "utf8",
-            );
-            assert.match(
-              genere,
-              /ALTER TABLE[\s\S]*slug/i,
-              "après adoption, le diff part de la BASE : le champ ajouté est un ALTER",
-            );
-            assert.doesNotMatch(
-              genere,
-              /CREATE TABLE/i,
-              "c'est le trou de #118 : sans référence lue sur la base, le générateur repart de rien",
-            );
+          // ── 10. Et cette migration s'applique VRAIMENT sur la base en
+          //        place — une migration qui ne s'applique pas est le défaut
+          //        d'origine.
+          const applique = await cli(["orm:migrate", "--json"], avecSlug);
+          assert.equal(applique.code, 0, diagnostic(applique));
+          assert.equal(parse(applique.stdout).verdict, "up-to-date");
+          assert.deepEqual(
+            await lireTemoin(base, cible.dialect),
+            [TEMOIN],
+            "la migration a perdu la donnée qu'elle devait préserver",
+          );
 
-            // ── 10. Et cette migration s'applique VRAIMENT sur la base en
-            //        place — une migration qui ne s'applique pas est le défaut
-            //        d'origine.
-            const applique = await cli(["orm:migrate", "--json"], avecSlug);
-            assert.equal(applique.code, 0, diagnostic(applique));
-            assert.equal(parse(applique.stdout).verdict, "up-to-date");
-            assert.deepEqual(
-              await lireTemoin(base, cible.dialect),
-              [TEMOIN],
-              "la migration a perdu la donnée qu'elle devait préserver",
-            );
-
-            // ── 11. Et la sortie DIT comment vérifier que les données ont
-            //        suivi. C'est l'instant exact où un agent du banc de
-            //        découvrabilité a écrit « montrons-le en réinitialisant la
-            //        base » : il venait de réussir, on lui demandait de
-            //        prouver, et le produit ne lui offrait aucun moyen. En
-            //        « --json » le conseil part sur la sortie d'ERREUR, libre
-            //        par contrat — la sortie standard reste un flux pur.
-            assert.match(
-              applique.stderr,
-              /ne repars pas d'une base\s+vide/,
-              `la sortie de succès n'offre aucun moyen de vérifier : ${applique.stderr.slice(-600)}`,
-            );
-            assert.match(applique.stderr, /NF_MIGRATE_DATABASE_URL/);
-            assert.doesNotMatch(
-              applique.stderr,
-              /orm:reset/,
-              "un conseil de vérification ne nomme jamais le geste qui détruit",
-            );
-            // Le flux machine reste PUR : le conseil n'y entre pas.
-            parse(applique.stdout);
-          } finally {
-            // MySQL n'a pas de schéma jetable : les tables applicatives que ce
-            // cas vient de créer resteraient derrière lui, et le voisin
-            // trouverait une base qu'il croit vierge. Le nettoyage a lieu même
-            // quand le cas échoue — sinon un premier échec en contamine dix.
-            if (cible.dialect === "mysql") {
-              const noms = await tablesEcrites();
-              await base
-                .sql([
-                  "SET FOREIGN_KEY_CHECKS = 0",
-                  ...noms.map(
-                    (n) => `DROP TABLE IF EXISTS ${citer("mysql", n)}`,
-                  ),
-                  "SET FOREIGN_KEY_CHECKS = 1",
-                ])
-                .catch(() => undefined);
-            }
-          }
+          // ── 11. Et la sortie DIT comment vérifier que les données ont
+          //        suivi. C'est l'instant exact où un agent du banc de
+          //        découvrabilité a écrit « montrons-le en réinitialisant la
+          //        base » : il venait de réussir, on lui demandait de
+          //        prouver, et le produit ne lui offrait aucun moyen. En
+          //        « --json » le conseil part sur la sortie d'ERREUR, libre
+          //        par contrat — la sortie standard reste un flux pur.
+          assert.match(
+            applique.stderr,
+            /ne repars pas d'une base\s+vide/,
+            `la sortie de succès n'offre aucun moyen de vérifier : ${applique.stderr.slice(-600)}`,
+          );
+          assert.match(applique.stderr, /NF_MIGRATE_DATABASE_URL/);
+          assert.doesNotMatch(
+            applique.stderr,
+            /orm:reset/,
+            "un conseil de vérification ne nomme jamais le geste qui détruit",
+          );
+          // Le flux machine reste PUR : le conseil n'y entre pas.
+          parse(applique.stdout);
         });
       }, 600_000);
 
@@ -576,57 +516,47 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
           return;
         }
         await surBase(async (base, env) => {
-          try {
-            // 1. La base reçoit tout ce que le framework déclare.
-            const migre = await cli(["orm:migrate", "--json"], env);
-            assert.equal(migre.code, 0, diagnostic(migre));
+          // 1. La base reçoit tout ce que le framework déclare.
+          const migre = await cli(["orm:migrate", "--json"], env);
+          assert.equal(migre.code, 0, diagnostic(migre));
 
-            // 2. L'écart : une table déclarée que la base n'a plus. C'est
-            //    exactement l'état d'une base qu'on croit à niveau et qui ne
-            //    l'est pas — celui que l'adoption ne doit JAMAIS graver.
-            await base.sql([
-              `DROP TABLE IF EXISTS ${citer(cible.dialect, TABLE_FRAMEWORK)}`,
-            ]);
+          // 2. L'écart : une table déclarée que la base n'a plus. C'est
+          //    exactement l'état d'une base qu'on croit à niveau et qui ne
+          //    l'est pas — celui que l'adoption ne doit JAMAIS graver.
+          await base.sql([
+            `DROP TABLE IF EXISTS ${citer(cible.dialect, TABLE_FRAMEWORK)}`,
+          ]);
 
-            // 3. L'historique disparaît : il y a de nouveau quelque chose à
-            //    adopter, et c'est là que la garde doit parler.
-            await base.sql([
-              `DELETE FROM ${citer(cible.dialect, HISTORY_TABLE)}`,
-            ]);
+          // 3. L'historique disparaît : il y a de nouveau quelque chose à
+          //    adopter, et c'est là que la garde doit parler.
+          await base.sql([
+            `DELETE FROM ${citer(cible.dialect, HISTORY_TABLE)}`,
+          ]);
 
-            const refus = await cli(["orm:migrate:baseline", "--json"], env);
-            const erreur = (parse(refus.stdout).error ?? {}) as {
-              code?: string;
-              nextActions?: { command: string }[];
-            };
-            assert.equal(
-              erreur.code,
-              "NF_MIGRATE_BASELINE_AMBIGUOUS",
-              `le MONTAGE de la garde n'a pas mordu : ${diagnostic(refus)}`,
-            );
-            assert.notEqual(refus.code, 0, "un refus ne rend jamais 0");
-            // Un refus laisse un GESTE, et celui-là est l'exemption même.
-            assert.ok(
-              (erreur.nextActions ?? []).some((a) =>
-                a.command.includes("--up-to"),
-              ),
-              `aucun geste vers l'exemption : ${JSON.stringify(erreur.nextActions)}`,
-            );
-            // Et il n'a RIEN inscrit : c'est l'autre moitié du contrat.
-            assert.equal(
-              await lireHistoire(base, cible.dialect),
-              0,
-              "un refus d'adoption a tout de même écrit dans l'historique",
-            );
-          } finally {
-            if (cible.dialect === "mysql") {
-              await base
-                .sql([
-                  `DROP TABLE IF EXISTS ${citer("mysql", TABLE_FRAMEWORK)}`,
-                ])
-                .catch(() => undefined);
-            }
-          }
+          const refus = await cli(["orm:migrate:baseline", "--json"], env);
+          const erreur = (parse(refus.stdout).error ?? {}) as {
+            code?: string;
+            nextActions?: { command: string }[];
+          };
+          assert.equal(
+            erreur.code,
+            "NF_MIGRATE_BASELINE_AMBIGUOUS",
+            `le MONTAGE de la garde n'a pas mordu : ${diagnostic(refus)}`,
+          );
+          assert.notEqual(refus.code, 0, "un refus ne rend jamais 0");
+          // Un refus laisse un GESTE, et celui-là est l'exemption même.
+          assert.ok(
+            (erreur.nextActions ?? []).some((a) =>
+              a.command.includes("--up-to"),
+            ),
+            `aucun geste vers l'exemption : ${JSON.stringify(erreur.nextActions)}`,
+          );
+          // Et il n'a RIEN inscrit : c'est l'autre moitié du contrat.
+          assert.equal(
+            await lireHistoire(base, cible.dialect),
+            0,
+            "un refus d'adoption a tout de même écrit dans l'historique",
+          );
         });
       }, 600_000);
 
@@ -641,59 +571,44 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
             ...env,
             NF_ADOPT_FIXTURE: `${cible.dialect}+slug`,
           };
-          try {
-            const tag = await baseHeritee(base, avecTable);
+          const tag = await baseHeritee(base, avecTable);
 
-            // MÊME décor divergent que le cas précédent — seule l'option
-            // change. Borner l'adoption, c'est dire soi-même jusqu'où la base
-            // suit : la garde se tait, et l'adoption a lieu.
-            const adopte = await cli(
-              ["orm:migrate:baseline", "--up-to", tag, "--json"],
-              avecSlug,
-            );
-            assert.equal(adopte.code, 0, diagnostic(adopte));
-            const doc = parse(adopte.stdout);
-            assert.notEqual(
-              (doc.error as { code?: string } | undefined)?.code,
-              "NF_MIGRATE_BASELINE_AMBIGUOUS",
-              "l'exemption ne tient plus : la garde mord malgré --up-to",
-            );
-            // Borner, c'est inscrire TOUT jusqu'au tag nommé, celui-ci
-            // compris — pas seulement lui. L'application témoin porte ses
-            // propres migrations avant celle du décor ; n'en inscrire qu'une
-            // laisserait les précédentes en attente sur une base qui les
-            // applique déjà. La liste attendue est DÉRIVÉE du dossier : écrite
-            // à la main, elle serait fausse à la migration suivante.
-            const tous = (await migrationsPresentes()).map((n) =>
-              n.replace(/\.sql$/, ""),
-            );
-            const borne = tous.indexOf(tag);
-            assert.notEqual(
-              borne,
-              -1,
-              `le tag borné n'est pas dans le dossier : ${tous.join(", ")}`,
-            );
-            assert.deepEqual(
-              (doc.adopted as { tag: string }[]).map((a) => a.tag),
-              tous.slice(0, borne + 1),
-              "l'adoption bornée n'a pas inscrit les migrations jusqu'au tag nommé",
-            );
-            // Le témoin n'a pas bougé : adopter n'exécute aucun SQL.
-            assert.deepEqual(await lireTemoin(base, cible.dialect), [TEMOIN]);
-          } finally {
-            if (cible.dialect === "mysql") {
-              const noms = await tablesEcrites();
-              await base
-                .sql([
-                  "SET FOREIGN_KEY_CHECKS = 0",
-                  ...noms.map(
-                    (n) => `DROP TABLE IF EXISTS ${citer("mysql", n)}`,
-                  ),
-                  "SET FOREIGN_KEY_CHECKS = 1",
-                ])
-                .catch(() => undefined);
-            }
-          }
+          // MÊME décor divergent que le cas précédent — seule l'option
+          // change. Borner l'adoption, c'est dire soi-même jusqu'où la base
+          // suit : la garde se tait, et l'adoption a lieu.
+          const adopte = await cli(
+            ["orm:migrate:baseline", "--up-to", tag, "--json"],
+            avecSlug,
+          );
+          assert.equal(adopte.code, 0, diagnostic(adopte));
+          const doc = parse(adopte.stdout);
+          assert.notEqual(
+            (doc.error as { code?: string } | undefined)?.code,
+            "NF_MIGRATE_BASELINE_AMBIGUOUS",
+            "l'exemption ne tient plus : la garde mord malgré --up-to",
+          );
+          // Borner, c'est inscrire TOUT jusqu'au tag nommé, celui-ci
+          // compris — pas seulement lui. L'application témoin porte ses
+          // propres migrations avant celle du décor ; n'en inscrire qu'une
+          // laisserait les précédentes en attente sur une base qui les
+          // applique déjà. La liste attendue est DÉRIVÉE du dossier : écrite
+          // à la main, elle serait fausse à la migration suivante.
+          const tous = (await migrationsPresentes()).map((n) =>
+            n.replace(/\.sql$/, ""),
+          );
+          const borne = tous.indexOf(tag);
+          assert.notEqual(
+            borne,
+            -1,
+            `le tag borné n'est pas dans le dossier : ${tous.join(", ")}`,
+          );
+          assert.deepEqual(
+            (doc.adopted as { tag: string }[]).map((a) => a.tag),
+            tous.slice(0, borne + 1),
+            "l'adoption bornée n'a pas inscrit les migrations jusqu'au tag nommé",
+          );
+          // Le témoin n'a pas bougé : adopter n'exécute aucun SQL.
+          assert.deepEqual(await lireTemoin(base, cible.dialect), [TEMOIN]);
         });
       }, 600_000);
 
@@ -710,51 +625,36 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
             ...env,
             NF_ADOPT_FIXTURE: `${cible.dialect}+usurpe`,
           };
-          try {
-            const migre = await cli(["orm:migrate", "--json"], env);
-            assert.equal(migre.code, 0, diagnostic(migre));
+          const migre = await cli(["orm:migrate", "--json"], env);
+          assert.equal(migre.code, 0, diagnostic(migre));
 
-            const refus = await cli(
-              ["orm:generate", "--json", "--name", "usurpation"],
-              usurpe,
-            );
-            const erreur = (parse(refus.stdout).error ?? {}) as {
-              code?: string;
-              summary?: string;
-            };
-            assert.equal(
-              erreur.code,
-              "NF_GENERATE_FRAMEWORK_TABLE",
-              `le MONTAGE du refus n'a pas mordu : ${diagnostic(refus)}`,
-            );
-            assert.notEqual(refus.code, 0, "un refus ne rend jamais 0");
-            // Le refus NOMME la table et le fichier : sans eux, l'utilisateur
-            // sait qu'il a tort et pas où.
-            assert.match(
-              String(erreur.summary),
-              new RegExp(USURPED_FRAMEWORK_TABLE, "u"),
-            );
-            // Et il n'a RIEN écrit — un refus qui laisse un fichier derrière
-            // lui fait appliquer le lendemain ce qu'il refusait la veille.
-            assert.deepEqual(
-              await migrationsPresentes(),
-              auDepart,
-              "un refus a tout de même écrit",
-            );
-          } finally {
-            if (cible.dialect === "mysql") {
-              const noms = await tablesEcrites();
-              await base
-                .sql([
-                  "SET FOREIGN_KEY_CHECKS = 0",
-                  ...noms.map(
-                    (n) => `DROP TABLE IF EXISTS ${citer("mysql", n)}`,
-                  ),
-                  "SET FOREIGN_KEY_CHECKS = 1",
-                ])
-                .catch(() => undefined);
-            }
-          }
+          const refus = await cli(
+            ["orm:generate", "--json", "--name", "usurpation"],
+            usurpe,
+          );
+          const erreur = (parse(refus.stdout).error ?? {}) as {
+            code?: string;
+            summary?: string;
+          };
+          assert.equal(
+            erreur.code,
+            "NF_GENERATE_FRAMEWORK_TABLE",
+            `le MONTAGE du refus n'a pas mordu : ${diagnostic(refus)}`,
+          );
+          assert.notEqual(refus.code, 0, "un refus ne rend jamais 0");
+          // Le refus NOMME la table et le fichier : sans eux, l'utilisateur
+          // sait qu'il a tort et pas où.
+          assert.match(
+            String(erreur.summary),
+            new RegExp(USURPED_FRAMEWORK_TABLE, "u"),
+          );
+          // Et il n'a RIEN écrit — un refus qui laisse un fichier derrière
+          // lui fait appliquer le lendemain ce qu'il refusait la veille.
+          assert.deepEqual(
+            await migrationsPresentes(),
+            auDepart,
+            "un refus a tout de même écrit",
+          );
         });
       }, 600_000);
 
@@ -853,72 +753,57 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
           // découverte, la correction naturelle détruit des données pour un
           // défaut qui est dans le dossier d'entités.
           const avecTable = { ...env, NF_ADOPT_FIXTURE: cible.dialect };
-          try {
-            const migre = await cli(["orm:migrate", "--json"], env);
-            assert.equal(migre.code, 0, diagnostic(migre));
+          const migre = await cli(["orm:migrate", "--json"], env);
+          assert.equal(migre.code, 0, diagnostic(migre));
 
-            const initiale = await cli(
-              ["orm:generate", "--json", "--name", "heritage"],
-              avecTable,
-            );
-            assert.equal(initiale.code, 0, diagnostic(initiale));
+          const initiale = await cli(
+            ["orm:generate", "--json", "--name", "heritage"],
+            avecTable,
+          );
+          assert.equal(initiale.code, 0, diagnostic(initiale));
 
-            // La MÊME commande, sans la consigne : le fichier d'entité
-            // s'importe toujours, il n'exporte plus rien.
-            const refus = await cli(
-              ["orm:generate", "--json", "--name", "disparition"],
-              env,
-            );
-            const erreur = (parse(refus.stdout).error ?? {}) as {
-              code?: string;
-              discovery?: {
-                filesScanned?: number;
-                tables?: string[];
-                otherDialect?: unknown[];
-                unreadable?: unknown[];
-              };
+          // La MÊME commande, sans la consigne : le fichier d'entité
+          // s'importe toujours, il n'exporte plus rien.
+          const refus = await cli(
+            ["orm:generate", "--json", "--name", "disparition"],
+            env,
+          );
+          const erreur = (parse(refus.stdout).error ?? {}) as {
+            code?: string;
+            discovery?: {
+              filesScanned?: number;
+              tables?: string[];
+              otherDialect?: unknown[];
+              unreadable?: unknown[];
             };
-            assert.equal(
-              erreur.code,
-              "NF_GENERATE_DESTRUCTIVE",
-              `le MONTAGE du décor n'a pas produit de destruction : ${diagnostic(refus)}`,
-            );
-            assert.notEqual(refus.code, 0, "un refus ne rend jamais 0");
+          };
+          assert.equal(
+            erreur.code,
+            "NF_GENERATE_DESTRUCTIVE",
+            `le MONTAGE du décor n'a pas produit de destruction : ${diagnostic(refus)}`,
+          );
+          assert.notEqual(refus.code, 0, "un refus ne rend jamais 0");
 
-            // 🔴 Le refus porte le relevé — c'est LUI qui désigne la vraie
-            // cause. Un « drop table » sans ce bloc envoie chercher du côté de
-            // la base.
-            const vu = erreur.discovery;
-            assert.ok(
-              vu,
-              `le refus destructif ne dit pas ce que la découverte a vu : ${diagnostic(refus)}`,
-            );
-            assert.ok(
-              (vu.filesScanned ?? 0) > 0,
-              "la découverte n'annonce aucun fichier examiné",
-            );
-            // Le relevé montre l'ABSENCE de la table que la migration décrit :
-            // c'est exactement l'écart que l'outil de diff a pris pour une
-            // suppression. Les autres entités de l'application y sont, et
-            // c'est ce qui rend l'absence lisible.
-            assert.ok(
-              Array.isArray(vu.tables) && !vu.tables.includes(TABLE),
-              `le relevé doit montrer que « ${TABLE} » a quitté la découverte : ${JSON.stringify(vu.tables)}`,
-            );
-          } finally {
-            if (cible.dialect === "mysql") {
-              const noms = await tablesEcrites();
-              await base
-                .sql([
-                  "SET FOREIGN_KEY_CHECKS = 0",
-                  ...noms.map(
-                    (n) => `DROP TABLE IF EXISTS ${citer("mysql", n)}`,
-                  ),
-                  "SET FOREIGN_KEY_CHECKS = 1",
-                ])
-                .catch(() => undefined);
-            }
-          }
+          // 🔴 Le refus porte le relevé — c'est LUI qui désigne la vraie
+          // cause. Un « drop table » sans ce bloc envoie chercher du côté de
+          // la base.
+          const vu = erreur.discovery;
+          assert.ok(
+            vu,
+            `le refus destructif ne dit pas ce que la découverte a vu : ${diagnostic(refus)}`,
+          );
+          assert.ok(
+            (vu.filesScanned ?? 0) > 0,
+            "la découverte n'annonce aucun fichier examiné",
+          );
+          // Le relevé montre l'ABSENCE de la table que la migration décrit :
+          // c'est exactement l'écart que l'outil de diff a pris pour une
+          // suppression. Les autres entités de l'application y sont, et
+          // c'est ce qui rend l'absence lisible.
+          assert.ok(
+            Array.isArray(vu.tables) && !vu.tables.includes(TABLE),
+            `le relevé doit montrer que « ${TABLE} » a quitté la découverte : ${JSON.stringify(vu.tables)}`,
+          );
         });
       }, 600_000);
 
@@ -937,57 +822,42 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
             ...env,
             NF_ADOPT_FIXTURE: `${cible.dialect}+orphelin`,
           };
-          try {
-            const migre = await cli(["orm:migrate", "--json"], env);
-            assert.equal(migre.code, 0, diagnostic(migre));
+          const migre = await cli(["orm:migrate", "--json"], env);
+          assert.equal(migre.code, 0, diagnostic(migre));
 
-            const refus = await cli(
-              ["orm:generate", "--json", "--name", "orpheline"],
-              orphelin,
-            );
-            const erreur = (parse(refus.stdout).error ?? {}) as {
-              code?: string;
-              summary?: string;
-            };
-            assert.equal(
-              erreur.code,
-              "NF_GENERATE_MISSING_ENTITY",
-              `le MONTAGE du refus n'a pas mordu : ${diagnostic(refus)}`,
-            );
-            assert.notEqual(refus.code, 0, "un refus ne rend jamais 0");
-            // Le refus NOMME l'entité ET sa table : sans elles, on sait qu'il
-            // manque un fichier, et pas lequel écrire.
-            assert.match(
-              String(erreur.summary),
-              new RegExp(ORPHAN_FIXTURE_ENTITY, "u"),
-              "le refus doit NOMMER l'entité sans fournisseur",
-            );
-            assert.match(
-              String(erreur.summary),
-              new RegExp(ORPHAN_FIXTURE_TABLE, "u"),
-              "le refus doit NOMMER la table attendue",
-            );
-            // Et il n'a RIEN écrit : une migration amputée d'une table ne se
-            // corrige pas, elle se remplace sur toutes les bases déjà servies.
-            assert.deepEqual(
-              await migrationsPresentes(),
-              auDepart,
-              "un refus a tout de même écrit",
-            );
-          } finally {
-            if (cible.dialect === "mysql") {
-              const noms = await tablesEcrites();
-              await base
-                .sql([
-                  "SET FOREIGN_KEY_CHECKS = 0",
-                  ...noms.map(
-                    (n) => `DROP TABLE IF EXISTS ${citer("mysql", n)}`,
-                  ),
-                  "SET FOREIGN_KEY_CHECKS = 1",
-                ])
-                .catch(() => undefined);
-            }
-          }
+          const refus = await cli(
+            ["orm:generate", "--json", "--name", "orpheline"],
+            orphelin,
+          );
+          const erreur = (parse(refus.stdout).error ?? {}) as {
+            code?: string;
+            summary?: string;
+          };
+          assert.equal(
+            erreur.code,
+            "NF_GENERATE_MISSING_ENTITY",
+            `le MONTAGE du refus n'a pas mordu : ${diagnostic(refus)}`,
+          );
+          assert.notEqual(refus.code, 0, "un refus ne rend jamais 0");
+          // Le refus NOMME l'entité ET sa table : sans elles, on sait qu'il
+          // manque un fichier, et pas lequel écrire.
+          assert.match(
+            String(erreur.summary),
+            new RegExp(ORPHAN_FIXTURE_ENTITY, "u"),
+            "le refus doit NOMMER l'entité sans fournisseur",
+          );
+          assert.match(
+            String(erreur.summary),
+            new RegExp(ORPHAN_FIXTURE_TABLE, "u"),
+            "le refus doit NOMMER la table attendue",
+          );
+          // Et il n'a RIEN écrit : une migration amputée d'une table ne se
+          // corrige pas, elle se remplace sur toutes les bases déjà servies.
+          assert.deepEqual(
+            await migrationsPresentes(),
+            auDepart,
+            "un refus a tout de même écrit",
+          );
         });
       }, 600_000);
 
@@ -1005,36 +875,21 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
           // un module de développement chargé sur SON connecteur ne fait pas
           // refuser la génération de `default`.
           const sansConsigne = { ...env, NF_WITH_DEV_MODULES: "1" };
-          try {
-            const migre = await cli(["orm:migrate", "--json"], env);
-            assert.equal(migre.code, 0, diagnostic(migre));
+          const migre = await cli(["orm:migrate", "--json"], env);
+          assert.equal(migre.code, 0, diagnostic(migre));
 
-            const gen = await cli(
-              ["orm:generate", "--json", "--name", "inerte"],
-              sansConsigne,
-            );
-            const erreur = (parse(gen.stdout).error ?? {}) as {
-              code?: string;
-            };
-            assert.notEqual(
-              erreur.code,
-              "NF_GENERATE_MISSING_ENTITY",
-              `le décor s'est inscrit sans qu'on le lui demande : ${diagnostic(gen)}`,
-            );
-          } finally {
-            if (cible.dialect === "mysql") {
-              const noms = await tablesEcrites();
-              await base
-                .sql([
-                  "SET FOREIGN_KEY_CHECKS = 0",
-                  ...noms.map(
-                    (n) => `DROP TABLE IF EXISTS ${citer("mysql", n)}`,
-                  ),
-                  "SET FOREIGN_KEY_CHECKS = 1",
-                ])
-                .catch(() => undefined);
-            }
-          }
+          const gen = await cli(
+            ["orm:generate", "--json", "--name", "inerte"],
+            sansConsigne,
+          );
+          const erreur = (parse(gen.stdout).error ?? {}) as {
+            code?: string;
+          };
+          assert.notEqual(
+            erreur.code,
+            "NF_GENERATE_MISSING_ENTITY",
+            `le décor s'est inscrit sans qu'on le lui demande : ${diagnostic(gen)}`,
+          );
         });
       }, 600_000);
 
@@ -1115,94 +970,75 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
         }
         await surBase(async (base, env) => {
           const avecTable = { ...env, NF_ADOPT_FIXTURE: cible.dialect };
-          try {
-            // Le décor d'une application qui a laissé le démarrage fabriquer
-            // son schéma : la base porte ses tables, et aucune migration
-            // d'application n'existe. C'est l'état de quiconque a lancé une
-            // seule commande en développement.
-            await baseHeritee(base, avecTable);
-            await fs.rm(outDir, { recursive: true, force: true });
+          // Le décor d'une application qui a laissé le démarrage fabriquer
+          // son schéma : la base porte ses tables, et aucune migration
+          // d'application n'existe. C'est l'état de quiconque a lancé une
+          // seule commande en développement.
+          await baseHeritee(base, avecTable);
+          await fs.rm(outDir, { recursive: true, force: true });
 
-            const refus = await cli(
-              ["orm:generate", "--json", "--name", "premiere"],
-              avecTable,
-            );
-            const erreur = (parse(refus.stdout).error ?? {}) as {
-              code?: string;
-              summary?: string;
-              nextActions?: { command: string }[];
-            };
-            assert.equal(
-              erreur.code,
-              "NF_GENERATE_DATABASE_NOT_ADOPTED",
-              `le refus attendu n'est pas venu : ${diagnostic(refus)}`,
-            );
-            assert.notEqual(refus.code, 0, "un refus ne rend jamais 0");
-            // 🔴 LE point du ticket : un seul geste. Le second — regénérer —
-            // ne produirait rien, et « il n'y avait rien à écrire » ressemble
-            // à un échec quand on demandait sa première migration.
-            assert.equal(
-              erreur.nextActions?.length,
-              1,
-              `un seul geste attendu, reçu : ${JSON.stringify(erreur.nextActions)}`,
-            );
-            assert.match(
-              erreur.nextActions?.[0]?.command ?? "",
-              /orm:migrate:baseline/u,
-              "le geste nommé doit être l'adoption",
-            );
+          const refus = await cli(
+            ["orm:generate", "--json", "--name", "premiere"],
+            avecTable,
+          );
+          const erreur = (parse(refus.stdout).error ?? {}) as {
+            code?: string;
+            summary?: string;
+            nextActions?: { command: string }[];
+          };
+          assert.equal(
+            erreur.code,
+            "NF_GENERATE_DATABASE_NOT_ADOPTED",
+            `le refus attendu n'est pas venu : ${diagnostic(refus)}`,
+          );
+          assert.notEqual(refus.code, 0, "un refus ne rend jamais 0");
+          // 🔴 LE point du ticket : un seul geste. Le second — regénérer —
+          // ne produirait rien, et « il n'y avait rien à écrire » ressemble
+          // à un échec quand on demandait sa première migration.
+          assert.equal(
+            erreur.nextActions?.length,
+            1,
+            `un seul geste attendu, reçu : ${JSON.stringify(erreur.nextActions)}`,
+          );
+          assert.match(
+            erreur.nextActions?.[0]?.command ?? "",
+            /orm:migrate:baseline/u,
+            "le geste nommé doit être l'adoption",
+          );
 
-            // Et ce geste, à lui seul, DONNE la première migration.
-            const adopte = await cli(
-              ["orm:migrate:baseline", "--from-database", "--json"],
-              avecTable,
-            );
-            assert.equal(adopte.code, 0, diagnostic(adopte));
-            const ecrits = (await fs.readdir(outDir)).filter((n) =>
-              n.endsWith(".sql"),
-            );
-            assert.equal(
-              ecrits.length,
-              1,
-              `l'adoption devait écrire UNE migration : ${ecrits.join(", ")}`,
-            );
-            const sql = await fs.readFile(
-              path.join(outDir, ecrits[0]!),
-              "utf8",
-            );
-            assert.match(
-              sql,
-              new RegExp(TABLE, "u"),
-              "la migration de référence doit décrire la table de l'application",
-            );
+          // Et ce geste, à lui seul, DONNE la première migration.
+          const adopte = await cli(
+            ["orm:migrate:baseline", "--from-database", "--json"],
+            avecTable,
+          );
+          assert.equal(adopte.code, 0, diagnostic(adopte));
+          const ecrits = (await fs.readdir(outDir)).filter((n) =>
+            n.endsWith(".sql"),
+          );
+          assert.equal(
+            ecrits.length,
+            1,
+            `l'adoption devait écrire UNE migration : ${ecrits.join(", ")}`,
+          );
+          const sql = await fs.readFile(path.join(outDir, ecrits[0]!), "utf8");
+          assert.match(
+            sql,
+            new RegExp(TABLE, "u"),
+            "la migration de référence doit décrire la table de l'application",
+          );
 
-            // La preuve que le second geste n'avait rien à donner : joué
-            // maintenant, il ne produit aucun fichier de plus.
-            const apres = await cli(
-              ["orm:generate", "--json", "--name", "premiere"],
-              avecTable,
-            );
-            assert.equal(apres.code, 0, diagnostic(apres));
-            assert.deepEqual(
-              (await fs.readdir(outDir)).filter((n) => n.endsWith(".sql")),
-              ecrits,
-              "regénérer après l'adoption a écrit quelque chose — le second geste aurait donc eu un sens",
-            );
-          } finally {
-            if (cible.dialect === "mysql") {
-              const noms = await tablesEcrites();
-              await base
-                .sql([
-                  "SET FOREIGN_KEY_CHECKS = 0",
-                  ...noms.map(
-                    (n) => `DROP TABLE IF EXISTS ${citer("mysql", n)}`,
-                  ),
-                  `DROP TABLE IF EXISTS ${citer("mysql", TABLE)}`,
-                  "SET FOREIGN_KEY_CHECKS = 1",
-                ])
-                .catch(() => undefined);
-            }
-          }
+          // La preuve que le second geste n'avait rien à donner : joué
+          // maintenant, il ne produit aucun fichier de plus.
+          const apres = await cli(
+            ["orm:generate", "--json", "--name", "premiere"],
+            avecTable,
+          );
+          assert.equal(apres.code, 0, diagnostic(apres));
+          assert.deepEqual(
+            (await fs.readdir(outDir)).filter((n) => n.endsWith(".sql")),
+            ecrits,
+            "regénérer après l'adoption a écrit quelque chose — le second geste aurait donc eu un sens",
+          );
         });
       }, 600_000);
 
@@ -1220,43 +1056,27 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
             ...env,
             NF_ADOPT_FIXTURE: `${cible.dialect}+paire`,
           };
-          try {
-            await baseHeritee(base, avecTable);
-            await fs.rm(outDir, { recursive: true, force: true });
+          await baseHeritee(base, avecTable);
+          await fs.rm(outDir, { recursive: true, force: true });
 
-            const refus = await cli(
-              ["orm:generate", "--json", "--name", "premiere"],
-              avecPaire,
-            );
-            const erreur = (parse(refus.stdout).error ?? {}) as {
-              code?: string;
-              nextActions?: { command: string }[];
-            };
-            assert.equal(
-              erreur.code,
-              "NF_GENERATE_DATABASE_NOT_ADOPTED",
-              `le refus attendu n'est pas venu : ${diagnostic(refus)}`,
-            );
-            assert.equal(
-              erreur.nextActions?.length,
-              2,
-              `deux gestes attendus, reçu : ${JSON.stringify(erreur.nextActions)}`,
-            );
-          } finally {
-            if (cible.dialect === "mysql") {
-              const noms = await tablesEcrites();
-              await base
-                .sql([
-                  "SET FOREIGN_KEY_CHECKS = 0",
-                  ...noms.map(
-                    (n) => `DROP TABLE IF EXISTS ${citer("mysql", n)}`,
-                  ),
-                  `DROP TABLE IF EXISTS ${citer("mysql", TABLE)}`,
-                  "SET FOREIGN_KEY_CHECKS = 1",
-                ])
-                .catch(() => undefined);
-            }
-          }
+          const refus = await cli(
+            ["orm:generate", "--json", "--name", "premiere"],
+            avecPaire,
+          );
+          const erreur = (parse(refus.stdout).error ?? {}) as {
+            code?: string;
+            nextActions?: { command: string }[];
+          };
+          assert.equal(
+            erreur.code,
+            "NF_GENERATE_DATABASE_NOT_ADOPTED",
+            `le refus attendu n'est pas venu : ${diagnostic(refus)}`,
+          );
+          assert.equal(
+            erreur.nextActions?.length,
+            2,
+            `deux gestes attendus, reçu : ${JSON.stringify(erreur.nextActions)}`,
+          );
         });
       }, 600_000);
 
@@ -1269,76 +1089,64 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
         }
         await surBase(async (base, env) => {
           const avecTable = { ...env, NF_ADOPT_FIXTURE: cible.dialect };
-          try {
-            await base.sql([
-              `DROP TABLE IF EXISTS ${citer(cible.dialect, TABLE)}`,
-            ]);
-            const migre = await cli(["orm:migrate", "--json"], env);
-            assert.equal(migre.code, 0, diagnostic(migre));
-            const initiale = await cli(
-              ["orm:generate", "--json", "--name", "heritage"],
-              avecTable,
-            );
-            assert.equal(initiale.code, 0, diagnostic(initiale));
-            const pose = await cli(["orm:migrate", "--json"], avecTable);
-            assert.equal(pose.code, 0, diagnostic(pose));
-            await fs.rm(outDir, { recursive: true, force: true });
-            await base.sql([
-              `DELETE FROM ${citer(cible.dialect, HISTORY_TABLE)} ` +
-                `WHERE ${citer(cible.dialect, "source")} = '${APP_SOURCE}'`,
-            ]);
+          await base.sql([
+            `DROP TABLE IF EXISTS ${citer(cible.dialect, TABLE)}`,
+          ]);
+          const migre = await cli(["orm:migrate", "--json"], env);
+          assert.equal(migre.code, 0, diagnostic(migre));
+          const initiale = await cli(
+            ["orm:generate", "--json", "--name", "heritage"],
+            avecTable,
+          );
+          assert.equal(initiale.code, 0, diagnostic(initiale));
+          const pose = await cli(["orm:migrate", "--json"], avecTable);
+          assert.equal(pose.code, 0, diagnostic(pose));
+          await fs.rm(outDir, { recursive: true, force: true });
+          await base.sql([
+            `DELETE FROM ${citer(cible.dialect, HISTORY_TABLE)} ` +
+              `WHERE ${citer(cible.dialect, "source")} = '${APP_SOURCE}'`,
+          ]);
 
-            const adopt = await cli(
-              ["orm:migrate:baseline", "--from-database", "--json"],
-              avecTable,
-            );
-            assert.notEqual(
-              adopt.code,
-              0,
-              "une adoption impossible ne doit pas rendre le code du succès",
-            );
-            const erreur = (
-              parse(adopt.stdout) as {
-                error?: { summary?: string };
-              }
-            ).error;
-            // 🔴 Le refus doit NOMMER la cause ET le repli. Une mort muette —
-            // code non nul, sortie d'erreur vide, ce que l'outil produit seul —
-            // enverrait chercher du côté des identifiants, là où il n'y a rien.
-            assert.match(
-              String(erreur?.summary),
-              /MariaDB/u,
-              "le refus doit nommer le SERVEUR constaté",
-            );
-            assert.match(
-              String(erreur?.summary),
-              /json_valid/u,
-              "le refus doit nommer la cause technique, pas seulement échouer",
-            );
-            assert.match(
-              String(erreur?.summary),
-              /--custom/u,
-              "un refus sans repli est une impasse : c'est ce qu'on interdit",
-            );
-            assert.equal(
-              await fs
-                .readdir(outDir)
-                .then((f) => f.length)
-                .catch(() => 0),
-              0,
-              "un refus n'écrit RIEN",
-            );
-          } finally {
-            const noms = await tablesEcrites();
-            await base
-              .sql([
-                "SET FOREIGN_KEY_CHECKS = 0",
-                ...noms.map((n) => `DROP TABLE IF EXISTS ${citer("mysql", n)}`),
-                `DROP TABLE IF EXISTS ${citer("mysql", TABLE)}`,
-                "SET FOREIGN_KEY_CHECKS = 1",
-              ])
-              .catch(() => undefined);
-          }
+          const adopt = await cli(
+            ["orm:migrate:baseline", "--from-database", "--json"],
+            avecTable,
+          );
+          assert.notEqual(
+            adopt.code,
+            0,
+            "une adoption impossible ne doit pas rendre le code du succès",
+          );
+          const erreur = (
+            parse(adopt.stdout) as {
+              error?: { summary?: string };
+            }
+          ).error;
+          // 🔴 Le refus doit NOMMER la cause ET le repli. Une mort muette —
+          // code non nul, sortie d'erreur vide, ce que l'outil produit seul —
+          // enverrait chercher du côté des identifiants, là où il n'y a rien.
+          assert.match(
+            String(erreur?.summary),
+            /MariaDB/u,
+            "le refus doit nommer le SERVEUR constaté",
+          );
+          assert.match(
+            String(erreur?.summary),
+            /json_valid/u,
+            "le refus doit nommer la cause technique, pas seulement échouer",
+          );
+          assert.match(
+            String(erreur?.summary),
+            /--custom/u,
+            "un refus sans repli est une impasse : c'est ce qu'on interdit",
+          );
+          assert.equal(
+            await fs
+              .readdir(outDir)
+              .then((f) => f.length)
+              .catch(() => 0),
+            0,
+            "un refus n'écrit RIEN",
+          );
         });
       }, 600_000);
     });

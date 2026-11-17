@@ -28,6 +28,14 @@ Remise à zéro de la base d'un banc MongoDB — le décor repart VIERGE.
 - **Usage** : `import { resetMongoDatabase } from "./lib/mongoReset.ts"`
 - **Appelé par** : `test/test-all.ts`
 
+## [`provision.ts`](provision.ts)
+
+Joue la mise en état d'une cible d'infra dans son conteneur (`EnvGate.provision`).
+
+- **Usage** : `import { provisionGate } from "./lib/provision.ts"`
+- **Appelé par** : `test/provision-gate.ts` · `test/test-all.ts`
+- **Utilise** : `test/vitest/gates.ts`
+
 ## [`testbed.ts`](testbed.ts)
 
 Producteur PUR de l'onglet Décors de la console (`/nodefony/config?tab=testbed`).

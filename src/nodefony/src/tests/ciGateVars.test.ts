@@ -27,6 +27,7 @@ import { DATABASE_PARAMS } from "../cli/scaffold/engine";
 import {
   PG_GATE,
   MYSQL_GATE,
+  MYSQL_COMMUNITY_GATE,
   REDIS_GATE,
   MONGO_GATE,
   LOKI_GATE,
@@ -308,5 +309,47 @@ describe("scaffold.yml — les images des dialectes viennent du catalogue", () =
           `son service tournerait sans qu'aucune application ne le vise`,
       );
     });
+  }
+});
+
+/**
+ * **Un service de la forge reçoit la mise en état que son décor déclare.**
+ *
+ * `test:all` joue `EnvGate.provision` sur les conteneurs du compose ; la forge,
+ * elle, monte ses serveurs en `services:`, que rien ne prépare. Sans l'étape
+ * `provision-gate.ts`, un banc qui en dépend échoue sur un refus de droit — ou
+ * pire, retombe sur l'espace partagé. Vécu (#790) : les bancs d'adoption MySQL
+ * travaillaient dans la base commune faute du droit de créer la leur.
+ */
+describe("Services de la forge — la mise en état du décor est jouée", () => {
+  const PROVISIONED = [MYSQL_GATE, MYSQL_COMMUNITY_GATE].filter(
+    (g) => g.provision !== undefined && g.service !== undefined,
+  );
+
+  it("des décors déclarent une mise en état (sinon ce test ne garde rien)", () => {
+    assert.isAbove(PROVISIONED.length, 0);
+  });
+
+  for (const file of workflows) {
+    const yaml = readFileSync(path.join(WORKFLOWS, file), "utf8");
+    const posed = varNames(yaml);
+    for (const gate of PROVISIONED) {
+      const name = gate.service?.name ?? "";
+      // Un service monté sans sa variable ne sert aucun banc (le générateur
+      // d'applications en démarre pour lui seul) : rien à préparer.
+      if (!gateEnv(gate).some((v) => posed.has(v))) continue;
+      // Une entrée `services:` : le nom du service suivi de son image.
+      const declared = new RegExp(`^\\s+${name}:\\s*\\n\\s+image:`, "m");
+      if (!declared.test(yaml)) continue;
+      it(`${file} — service « ${name} » mis en état`, () => {
+        assert.include(
+          yaml,
+          `provision-gate.ts ${name} \${{ job.services.${name}.id }}`,
+          `${file} monte le service « ${name} » sans jouer sa mise en état ` +
+            `(${gate.provision?.().what}). Ajouter l'étape ` +
+            `\`npx tsx scripts/test/provision-gate.ts ${name} \${{ job.services.${name}.id }}\`.`,
+        );
+      });
+    }
   }
 });

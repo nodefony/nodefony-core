@@ -27,6 +27,14 @@ Rejoue la couverture de CHAQUE module qui en déclare une, avec le DÉCOR d'infr
 - **Appelé par** : `npm run coverage`
 - **Utilise** : `lib/workspaces.mjs` · `test/lib/docker.ts` · `test/vitest/gates.ts`
 
+## [`provision-gate.ts`](provision-gate.ts)
+
+Met en état le conteneur de service d'une cible d'infra — la porte de la forge.
+
+- **Usage** : `tsx scripts/test/provision-gate.ts <service> [conteneur]`
+- **Appelé par** : `orm.yml`
+- **Utilise** : `test/lib/provision.ts` · `test/vitest/gates.ts`
+
 ## [`realtime-coverage-map.mjs`](realtime-coverage-map.mjs)
 
 Carte de couverture du temps réel — quel étage de test EXERCE quel fichier source.
@@ -56,7 +64,7 @@ Carte de couverture du temps réel — quel étage de test EXERCE quel fichier s
 - **Variable** `NF_MYSQL_URL`
 - **Variable** `NF_RUN_CLUSTER_E2E`
 - **Appelé par** : `npm run test:all`
-- **Utilise** : `lib/redis-session-purge.mjs` · `lib/repo-root.mjs` · `lib/turbo-replay.mjs` · `test/lib/docker.ts` · `test/lib/mongoReset.ts` · `repo/long-run-lock.mjs`
+- **Utilise** : `lib/redis-session-purge.mjs` · `lib/repo-root.mjs` · `lib/turbo-replay.mjs` · `test/lib/docker.ts` · `test/lib/mongoReset.ts` · `test/lib/provision.ts` · `repo/long-run-lock.mjs`
 
 ## [`testbed-report.ts`](testbed-report.ts)
 

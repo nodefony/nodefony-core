@@ -104,7 +104,8 @@ Purpose: 3e adapter orm-core + module bootable. Drizzle + better-sqlite3. Type-s
 - **Un refus porte SON remède, il ne se devine pas au message.** `failFrom` (`migrateShared.ts`) est un fourre-tout : toute exception non typée devient `NF_MIGRATE_UNAVAILABLE` avec le `meaning` de la base injoignable — faux, et trompeur, dès que l'arrêt vient d'ailleurs. Une cause qui a son remède lève un `MigrationToolError` portant un `IResolutionRefusal` complet (`refusals.ts`), rendu tel quel. Premier cas : `NF_GENERATE_TOOL_MISSING` (drizzle-kit absent → geste `npm install`, jamais « vérifie que la base est démarrée »). Reconnaître une cause au TEXTE de son message serait une garde cassée au premier reformulage.
 - **La cible publiée s'écrit en `/`, sur les trois systèmes** (`safeTarget.ts`) : elle part dans le rapport ET dans `--json`, donc elle VOYAGE — `path.relative` rend `var\db.sqlite` sous Windows, et deux plateformes désignaient la MÊME base autrement. La grammaire de chemins est INJECTÉE (`typeof path`, défaut `path`) pour que le cas Windows se joue partout (`path.win32` au test).
 - **`check:migrations`** (CI + local) rejoue la génération depuis les instantanés et refuse qu'un fichier apparaisse — juste quel que soit le nombre de migrations, contrairement à « régénérer 0000 et comparer ».
-- **Banc de parité migré ≡ dérivé**, 3 dialectes (`tests/integration/migrations-parity*.ts`) : colonnes/types/nullabilité/PK/index. Les index se comparent par COLONNES COUVERTES, jamais par nom (une contrainte `UNIQUE` = index nommé côté migration, auto-index côté dérivé). PG : deux SCHÉMAS dédiés ; MySQL : les deux phases se succèdent dans la base partagée — l'utilisateur applicatif ne peut pas créer de base (`ERROR 1044`), d'où `fileParallelism: false`.
+- **Banc de parité migré ≡ dérivé**, 3 dialectes (`tests/integration/migrations-parity*.ts`) : colonnes/types/nullabilité/PK/index. Les index se comparent par COLONNES COUVERTES, jamais par nom (une contrainte `UNIQUE` = index nommé côté migration, auto-index côté dérivé). PG : deux SCHÉMAS dédiés ; MySQL : les deux phases se succèdent dans la base partagée, d'où `fileParallelism: false`.
+- **Bancs CLI de migration MySQL** (`migrate-cli-harness.ts#ciblesPour`) : une BASE `nf_…` par banc, détruite et recréée à chaque cas — l'équivalent du schéma PG. L'utilisateur applicatif n'a ce droit que parce que le décor l'accorde en root (`scripts/test/vitest/gates.ts#BENCH_DATABASE_PREFIX`, `EnvGate.provision` : `test:all` et l'étape `provision-gate.ts` de `orm.yml`) ; sans lui, `neuve()` lève un refus qui nomme le geste. 🔴 Jamais la base partagée pour un banc d'adoption : `--from-database` adopte TOUTE table non déclarée (`extraTables`), et le diff suivant propose de la SUPPRIMER — une table laissée par un voisin suffit à rougir le cas.
 - **Le DDL dérivé CRÉE les index** (`#createIndexSQL`) — contrairement à ce que disaient 4 en-têtes d'entités, corrigés. Ce qu'il n'émet pas : les `DEFAULT` SQL.
 - **Le DDL dérivé RÉCONCILIE** (mode `auto` seul) : connexion en TROIS temps — tables, puis
   `#reconcileSchema()`, puis `#createIndexes()`. Une colonne manquante NULLABLE est posée
@@ -344,9 +345,9 @@ introspect` → renomme le tag (l'outil le tire au hasard, `--name` ignoré) →
   derrière, sur les 3 moteurs ; le verdict MySQL dépend du serveur CONSTATÉ, pas du port) ·
   `tests/unit/migratorContracts.test.ts` (9). **12 des 14 cas sqlite ont été vus ROUGES** par
   débranchement ciblé de leur garde ; les deux verrous idem.
-- ⚠️ Ce qui n'est PAS prouvé : deux bases RÉELLES sur le même serveur mysql (l'utilisateur
-  applicatif n'a pas le droit de `CREATE DATABASE`, `ERROR 1044`) — la qualification est prouvée
-  par le nom composé côté serveur et par deux noms distincts obtenus simultanément.
+- ⚠️ Ce qui n'est PAS prouvé : deux bases RÉELLES sur le même serveur mysql (ce banc n'exerce pas
+  les bases `nf_…` que le décor accorde) — la qualification est prouvée par le nom composé côté
+  serveur et par deux noms distincts obtenus simultanément.
 
 ## Core Components
 

@@ -149,6 +149,88 @@ export interface EnvGate {
   readyUrl?: string;
   /** Note libre affichée sous le mode d'emploi (variante, piège connu). */
   note?: string;
+  /**
+   * Mise en état du serveur, jouée en ADMINISTRATEUR dans le conteneur une fois
+   * la sonde de santé verte — ce que l'image ne pose pas d'elle-même.
+   *
+   * Rejouée à CHAQUE préparation, donc idempotente : c'est ce qui la fait
+   * porter aussi sur un volume créé avant elle, qu'un script d'initialisation
+   * de l'image ne revisite jamais. La forge l'applique par
+   * `scripts/test/provision-gate.ts` — la même source, jamais une recopie.
+   */
+  provision?: () => IGateProvision;
+}
+
+/** Commande d'administration à jouer dans le conteneur d'une cible. */
+export interface IGateProvision {
+  /** Ce que la commande accorde, en clair (affiché par `test:all` et la forge). */
+  what: string;
+  /** Variables passées à `docker exec -e` — le secret n'entre jamais dans l'argv. */
+  env: Record<string, string>;
+  /** Commande jouée dans le conteneur. */
+  argv: readonly string[];
+}
+
+/**
+ * Préfixe des bases que les bancs MySQL créent et détruisent pour eux seuls.
+ *
+ * MySQL n'a pas de schéma distinct de la base : là où un banc PostgreSQL
+ * s'isole dans un schéma jetable, un banc MySQL a besoin d'une BASE jetable.
+ * L'utilisateur applicatif n'a de droits que sur la base de travail ; le décor
+ * lui accorde en plus les bases `nf_…`, et aucune autre.
+ */
+export const BENCH_DATABASE_PREFIX = "nf_";
+
+/**
+ * Accorde à l'utilisateur applicatif les bases jetables des bancs.
+ *
+ * Vécu (#790) : faute de ce droit, les bancs d'adoption partageaient la base
+ * de travail ; une table laissée par un voisin entrait dans la référence lue
+ * sur la base, et le diff suivant proposait de la SUPPRIMER — un rouge
+ * intermittent qui accusait le produit.
+ *
+ * @param client - client SQL de l'image (`mysql`, ou `mariadb` qui n'a plus l'autre)
+ * @param user - utilisateur applicatif à qui accorder le droit
+ * @param rootPassword - mot de passe administrateur du conteneur
+ */
+function benchDatabasesGrant(
+  client: string,
+  user: string,
+  rootPassword: string,
+): IGateProvision {
+  const pattern = `${BENCH_DATABASE_PREFIX.replaceAll("_", "\\_")}%`;
+  return {
+    what: `bases ${BENCH_DATABASE_PREFIX}… accordées à ${user}`,
+    env: { MYSQL_PWD: rootPassword },
+    argv: [
+      client,
+      "-uroot",
+      "-e",
+      `GRANT ALL PRIVILEGES ON \`${pattern}\`.* TO '${user}'@'%'`,
+    ],
+  };
+}
+
+/**
+ * Appel de `docker` qui joue la mise en état d'une cible dans un conteneur, ou
+ * `null` si la cible n'en déclare pas.
+ *
+ * Les variables passent par l'ENVIRONNEMENT du client docker (`-e NOM` sans
+ * valeur) : un `-e NOM=secret` se lirait dans la liste des processus de l'hôte.
+ *
+ * @param gate - la cible
+ * @param container - nom ou identifiant du conteneur (`nodefony-<service>` en
+ *   local, l'identifiant du service sous la forge)
+ * @returns les arguments de `docker` et les variables à lui transmettre
+ */
+export function provisionArgs(
+  gate: EnvGate,
+  container: string,
+): { args: string[]; env: Record<string, string> } | null {
+  if (!gate.provision) return null;
+  const { env, argv } = gate.provision();
+  const names = Object.keys(env).flatMap((k) => ["-e", k]);
+  return { args: ["exec", ...names, container, ...argv], env };
 }
 
 /**
@@ -369,6 +451,12 @@ export const MYSQL_GATE: EnvGate = {
       `@127.0.0.1:${fromCompose("MARIADB_PORT", "3306")}` +
       `/${fromCompose("MARIADB_DATABASE", "nodefony")}`,
   }),
+  provision: () =>
+    benchDatabasesGrant(
+      "mariadb",
+      fromCompose("MARIADB_USER", "nodefony"),
+      fromCompose("MARIADB_ROOT_PASSWORD", "nodefony-dev"),
+    ),
   note: `MySQL Community est un AUTRE serveur (profil "mysql", port ${fromCompose("MYSQL_PORT", "3307")}) — cf MYSQL_COMMUNITY_GATE`,
 };
 
@@ -394,6 +482,12 @@ export const MYSQL_COMMUNITY_GATE: EnvGate = {
       `@127.0.0.1:${fromCompose("MYSQL_PORT", "3307")}` +
       `/${fromCompose("MYSQL_DATABASE", "nodefony")}`,
   }),
+  provision: () =>
+    benchDatabasesGrant(
+      "mysql",
+      fromCompose("MYSQL_USER", "nodefony"),
+      fromCompose("MYSQL_ROOT_PASSWORD", "nodefony-dev"),
+    ),
   note: "partage NF_MYSQL_URL avec MariaDB — se joue dans une passe séparée",
 };
 

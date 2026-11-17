@@ -68,6 +68,7 @@ import { needsShell } from "nodefony";
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { containerHealthy } from "./lib/docker.ts";
+import { provisionGate } from "./lib/provision.ts";
 import { resetMongoDatabase } from "./lib/mongoReset.ts";
 import { acquire, holder, refusal, release } from "../repo/long-run-lock.mjs";
 import { guardCli } from "../../.claude/skills/nodefony-session/scripts/cli-guard.mjs";
@@ -253,6 +254,22 @@ async function prepare(
       return { gate, ready: false, reason: "conteneur jamais devenu sain" };
     }
     process.stdout.write(`${C.green("prêt")}\n`);
+  }
+
+  // Mise en état d'administration (`EnvGate.provision`), rejouée à chaque
+  // préparation : un volume créé avant elle ne repasse jamais par les scripts
+  // d'initialisation de l'image. Un échec rend la cible NON prête — le banc qui
+  // en dépend tomberait sinon sur un refus de droit qui parle d'autre chose.
+  const provisioned = provisionGate(gate);
+  if (!provisioned.ok) {
+    process.stdout.write(
+      `  ${C.dim("→")} mise en état ${gate.label} : ${C.red("échec")}\n`,
+    );
+    return {
+      gate,
+      ready: false,
+      reason: `mise en état refusée — ${provisioned.error}`,
+    };
   }
 
   // Sonde côté HÔTE, quand l'image ne peut pas en porter (cf `EnvGate.readyUrl`).

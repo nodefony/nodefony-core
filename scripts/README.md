@@ -16,8 +16,8 @@ de forge, autre script). Tout est extrait du source — l'en-tête du script (`@
 | [`deps/`](deps/README.md) | Inventaire et garde des dépendances, gabarits compris. | 8 |
 | [`deps/lib/`](deps/lib/README.md) | Helpers propres à l'inventaire des dépendances. | 5 |
 | [`deps/shims/deepmerge/`](deps/shims/deepmerge/README.md) | Remplaçant interne de `deepmerge` (aucune version amont saine, GHSA-gcqx-w48m-w2h4), branché par les `overrides` de la racine. À retirer quand `npm run deps:gate` signale une version amont au-dessus de sa base. | 3 |
-| [`test/`](test/README.md) | Orchestration des suites de test et de la couverture. | 4 |
-| [`test/lib/`](test/lib/README.md) | Helpers de l'orchestrateur de tests : verdicts sur les conteneurs d'infra, remise à zéro de MongoDB. | 3 |
+| [`test/`](test/README.md) | Orchestration des suites de test et de la couverture. | 5 |
+| [`test/lib/`](test/lib/README.md) | Helpers de l'orchestrateur de tests : verdicts sur les conteneurs d'infra, remise à zéro de MongoDB. | 4 |
 | [`test/vitest/`](test/vitest/README.md) | Socles partagés par TOUTES les configs vitest du dépôt — garde des dossiers temporaires, gates d'infrastructure, décorateurs oxc, cache de transformation — et la config des suites lancées depuis la racine. Importés par les configs, jamais lancés à la main. | 5 |
 | [`generate/`](generate/README.md) | Génération d'artefacts : graphe symbolique, page de manuel, catalogue d'environnement, logo. | 13 |
 | [`site/`](site/README.md) | Rendu du site de documentation publié et de ses pages annexes. | 18 |

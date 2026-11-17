@@ -282,6 +282,18 @@ jobs:
       - name: Build workspaces
         run: npm run build
 
+      # MySQL ne distingue pas le schéma de la base : un banc s'y isole donc dans
+      # une BASE jetable `nf_…`, que l'utilisateur applicatif n'a pas le droit de
+      # créer. Le droit s'accorde ici en administrateur, par la même mise en état
+      # que `test:all` (`EnvGate.provision`, `scripts/test/vitest/gates.ts`) —
+      # jamais une recopie du GRANT. Vécu (#790) : faute de base à lui, le banc
+      # d'adoption lisait les tables d'un voisin et rougissait par intermittence.
+      - name: Bases jetables des bancs MySQL (droit accordé en administrateur)
+        shell: bash
+        run: |
+          npx tsx scripts/test/provision-gate.ts mariadb ${{ job.services.mariadb.id }}
+          npx tsx scripts/test/provision-gate.ts mysql ${{ job.services.mysql.id }}
+
       # Le filet est DANS la suite, plus dans ce fichier.
       #
       # Il y a eu ici une étape `jq` qui comptait les cas passés par dialecte,
