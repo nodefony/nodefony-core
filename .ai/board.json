@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-16T22:56:20.014Z",
+  "generatedAt": "2026-11-17T14:02:39.112Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,7 +39,7 @@
       "title": "13.0.0"
     },
     {
-      "closed": 272,
+      "closed": 273,
       "dueOn": "2026-11-29T00:00:00Z",
       "number": 7,
       "open": 3,
@@ -49,7 +49,7 @@
       "closed": 138,
       "dueOn": "2026-12-06T00:00:00Z",
       "number": 1,
-      "open": 2,
+      "open": 3,
       "title": "10.0.0"
     },
     {
@@ -7212,22 +7212,6 @@
       ]
     },
     {
-      "number": 659,
-      "title": "docs(performance): remesurer les pages de performance avant la release",
-      "url": "https://github.com/nodefony/nodefony-core/issues/659",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 9.06,
-      "debut": "2026-11-19",
-      "cible": "2026-11-19",
-      "labels": [
-        "beta-9"
-      ]
-    },
-    {
       "number": 785,
       "title": "fix(devkit): qu'un agent lâché dans une application neuve lise AGENTS.md et se serve des générateurs — et que le banc le mesure juste",
       "url": "https://github.com/nodefony/nodefony-core/issues/785",
@@ -7239,6 +7223,38 @@
       "ordre": 9.07,
       "debut": "2026-11-26",
       "cible": "2026-11-27",
+      "labels": [
+        "beta-9"
+      ]
+    },
+    {
+      "number": 786,
+      "title": "fix(security): taire deux fausses alertes de security:secrets",
+      "url": "https://github.com/nodefony/nodefony-core/issues/786",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 9.08,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-9"
+      ]
+    },
+    {
+      "number": 787,
+      "title": "feat(cli): éprouver aussi en arm64 l'image de la CI générée",
+      "url": "https://github.com/nodefony/nodefony-core/issues/787",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P3 — fin de cycle",
+      "jours": 2,
+      "ordre": 9.09,
+      "debut": null,
+      "cible": null,
       "labels": [
         "beta-9"
       ]
@@ -9062,6 +9078,20 @@
       "labels": [
         "alpha-9"
       ]
+    },
+    {
+      "number": 659,
+      "title": "docs(performance): remesurer les pages de performance avant la release",
+      "url": "https://github.com/nodefony/nodefony-core/issues/659",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 58,
+      "debut": "2026-11-19",
+      "cible": "2026-11-19",
+      "labels": []
     },
     {
       "number": 740,
