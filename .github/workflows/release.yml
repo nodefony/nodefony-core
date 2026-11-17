@@ -651,30 +651,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # QEMU pour bâtir ET démarrer la variante ÉTRANGÈRE au runner (doc Docker
-      # « Multi-platform builds », § Install QEMU manually). Aucune architecture
-      # n'est supposée : l'émulateur posé est celui de la plateforme que l'HÔTE
-      # n'exécute pas nativement — amd64 sur un runner arm64, arm64 sur un amd64.
-      # Le script constate ensuite, sur chaque variante bâtie, que son `node`
-      # s'exécute ici dans l'architecture annoncée — une émulation absente y
-      # est nommée, pas devinée.
-      # Le conteneur tourne en `--privileged` dans un job qui détient les jetons
-      # des deux registres : il s'ÉPINGLE par digest, jamais par une étiquette
-      # mobile. Pas d'action tierce de plus (`setup-qemu-action` lance ce même
-      # conteneur).
-      - name: Enregistrer l'émulation des plateformes étrangères
-        run: |
-          set -euo pipefail
-          hote="$(docker version --format '{{.Server.Arch}}')"
-          etrangeres="$(printf 'amd64\narm64\n' | grep -vx "$hote" | paste -sd, -)"
-          echo "hôte ${hote} — émulation posée pour : ${etrangeres}"
-          docker run --privileged --rm \
-            tonistiigi/binfmt:qemu-v10.2.3@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0 \
-            --install "${etrangeres}"
-
       # Construire, éprouver CHAQUE plateforme, puis pousser et assembler
       # l'index : `scripts/release/image-demo.sh`, le MÊME code que la preuve
       # locale avant le tag. Le pourquoi de chaque garde vit dans le script.
+      # `--poser-emulation` : QEMU (épinglé par digest) est enregistré pour les
+      # plateformes de `--platforms` que le runner n'exécute pas — la liste n'a
+      # qu'une source, et aucune architecture de runner n'est supposée.
       - name: Construire, éprouver et pousser (amd64 + arm64)
         env:
           VERSION: ${{ github.ref_name }}
@@ -685,6 +667,7 @@ jobs:
             --app /tmp/image/demo \
             --version "${VERSION}" --revision "${GITHUB_SHA}" \
             --platforms linux/amd64,linux/arm64 \
+            --poser-emulation \
             --push --canal "${CANAL}"
 
       # LA PAGE DE L'IMAGE — Docker Hub affichait « Repository overview:

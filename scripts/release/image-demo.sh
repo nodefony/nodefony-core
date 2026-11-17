@@ -29,14 +29,16 @@
 # ## Émulation
 #
 # Une plateforme étrangère à l'hôte se construit ET s'exécute sous QEMU : la
-# forge enregistre l'émulateur avant d'appeler ce script ; Docker Desktop
-# l'embarque. Les délais d'attente sont alors élargis (`--budget-emule`) — un
-# démarrage émulé est plusieurs fois plus lent, pas en panne.
+# forge le fait enregistrer par ce script (`--poser-emulation`), depuis la même
+# liste `--platforms` ; Docker Desktop l'embarque déjà. Aucune architecture
+# d'hôte n'est supposée. Les délais d'attente sont élargis (`--budget-emule`) :
+# un démarrage émulé est plusieurs fois plus lent, pas en panne.
 #
 # Usage :
 #   bash scripts/release/image-demo.sh --version 10.0.0-beta.9 --revision <sha40> \
 #     [--platforms linux/amd64,linux/arm64] [--app <dossier>] \
-#     [--budget-natif 90] [--budget-emule 300] [--push --canal beta] \
+#     [--budget-natif 90] [--budget-emule 300] [--poser-emulation] \
+#     [--push --canal beta] \
 #     [--depots localhost:5000/nodefony/nodefony]   # registre jetable
 #
 # @usage bash scripts/release/image-demo.sh --version <v> --revision <sha> [--platforms <liste>] [--push --canal <canal>]
@@ -48,10 +50,15 @@ test -f "$root/scripts/release/image-gate.mjs" || {
   exit 64
 }
 
-version="" revision="" app="." canal="" push=0 depots_liste=""
+version="" revision="" app="." canal="" push=0 depots_liste="" poser_emulation=0
 platforms="linux/amd64,linux/arm64"
 budget_natif=90 budget_emule=300
 while [[ $# -gt 0 ]]; do
+  # Une option à valeur placée en dernier ferait échouer `shift 2` en silence.
+  case "$1" in
+    --version|--revision|--platforms|--app|--canal|--budget-natif|--budget-emule|--depots)
+      [[ $# -ge 2 ]] || { echo "option $1 : valeur manquante" >&2; exit 64; } ;;
+  esac
   case "$1" in
     --version) version="${2:-}"; shift 2 ;;
     --revision) revision="${2:-}"; shift 2 ;;
@@ -62,16 +69,35 @@ while [[ $# -gt 0 ]]; do
     --budget-emule) budget_emule="${2:-}"; shift 2 ;;
     --depots) depots_liste="${2:-}"; shift 2 ;;
     --push) push=1; shift ;;
-    -h|--help) sed -n '2,40p' "$0"; exit 0 ;;
+    --poser-emulation) poser_emulation=1; shift ;;
+    -h|--help) sed -n '2,46p' "$0"; exit 0 ;;
     *) echo "option inconnue : $1" >&2; exit 64 ;;
   esac
 done
-[[ -n "$version" && -n "$revision" ]] || {
+[[ -n "$version" && -n "$revision" && -n "$platforms" ]] || {
   echo "usage : image-demo.sh --version <v> --revision <sha40> [--platforms …] [--push --canal …]" >&2
   exit 64
 }
 cd "$app"
 test -f Dockerfile || { echo "::error::pas de Dockerfile dans $(pwd)"; exit 1; }
+docker version >/dev/null 2>&1 || {
+  echo "::error::démon docker injoignable — rien ne peut être construit ni contrôlé"
+  exit 69
+}
+
+# NETTOYAGE GARANTI, quelle que soit la sortie (refus, `set -e`, interruption) :
+# le fichier d'environnement contient les secrets fabriqués par l'image, et un
+# conteneur de contrôle oublié tiendrait un port du poste.
+env_courant=""
+conteneurs=()
+nettoyer() {
+  [[ -z "$env_courant" ]] || rm -f "$env_courant"
+  local c
+  for c in "${conteneurs[@]+"${conteneurs[@]}"}"; do
+    docker rm -f "$c" >/dev/null 2>&1 || true
+  done
+}
+trap nettoyer EXIT
 
 v="${version#v}"
 image="nodefony/nodefony"
@@ -81,6 +107,30 @@ image="nodefony/nodefony"
 depots_liste="${depots_liste:-${image},ghcr.io/nodefony/nodefony}"
 hote="$(docker version --format '{{.Server.Os}}/{{.Server.Arch}}')"
 IFS=',' read -r -a plats <<< "$platforms"
+
+# `--poser-emulation` (la forge) : enregistre QEMU pour les plateformes de la
+# liste que l'HÔTE n'exécute pas — amd64 sur un hôte arm64, arm64 sur un amd64.
+# La liste vient de `--platforms` et de nulle part ailleurs : une plateforme
+# ajoutée reçoit son émulateur sans second endroit à tenir. Absent sur le poste
+# (Docker Desktop embarque déjà l'émulation) : le conteneur est `--privileged`.
+# Épinglé par DIGEST, jamais par une étiquette mobile : il tourne dans un job
+# qui détient les jetons des registres. (Doc Docker « Multi-platform builds »,
+# § Install QEMU manually ; `setup-qemu-action` lance ce même conteneur.)
+if [[ "$poser_emulation" == 1 ]]; then
+  etrangeres=""
+  for p in "${plats[@]}"; do
+    a="${p#*/}"; a="${a%%/*}"
+    [[ "$a" == "${hote#*/}" ]] || etrangeres="${etrangeres:+${etrangeres},}${a}"
+  done
+  if [[ -n "$etrangeres" ]]; then
+    echo "hôte ${hote} — émulation posée pour : ${etrangeres}"
+    docker run --privileged --rm \
+      tonistiigi/binfmt:qemu-v10.2.3@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0 \
+      --install "$etrangeres"
+  else
+    echo "hôte ${hote} — aucune plateforme étrangère, pas d'émulation"
+  fi
+fi
 
 # `linux/arm64` → `arm64` ; `linux/arm/v7` → `arm-v7` : une étiquette docker
 # n'admet pas `/`.
@@ -208,36 +258,33 @@ EOF
   # elle-même, mot de passe admin, `--env-file` — et `/readyz` à 200 dans un
   # délai borné. Depuis l'ADR-0014 et #478, une application en production
   # REFUSE de démarrer sans NF_CSRF_SECRET ni NF_JWT_KEYSET.
-  local envfile
-  envfile="$(mktemp)"
+  env_courant="$(mktemp)"
   docker run --rm --platform "$plat" "$img" \
-    node_modules/nodefony/bin/nodefony security:secrets --env > "$envfile" || {
-    rm -f "$envfile"
+    node_modules/nodefony/bin/nodefony security:secrets --env > "$env_courant" || {
     echo "::error::${plat} : l'image ne sait pas produire ses secrets (security:secrets --env) — la ligne 1 de la page échoue"
     return 1
   }
   local k
   for k in NF_CSRF_SECRET NF_JWT_KEYSET NF_TOTP_KEY NF_WEBHOOK_KEY; do
-    grep -q "^${k}=" "$envfile" || {
-      rm -f "$envfile"
+    grep -q "^${k}=" "$env_courant" || {
       echo "::error::${plat} : security:secrets --env n'a pas rendu ${k} — la ligne 1 de la page ment"
       return 1
     }
   done
-  echo "NF_ADMIN_PASSWORD=$(openssl rand -hex 16)" >> "$envfile"
+  echo "NF_ADMIN_PASSWORD=$(openssl rand -hex 16)" >> "$env_courant"
 
   # Et la garde de la page MORD : sans rien, l'image refuse (78) en nommant la
   # variable — sinon la page décrirait un refus qui n'a pas lieu. Borné : une
   # image qui NE refuse PAS resterait au premier plan (124).
   local refus refuslog
   docker rm -f "nf-demo-refus-${arch}" >/dev/null 2>&1 || true
+  conteneurs+=("nf-demo-refus-${arch}")
   docker run -d --platform "$plat" --name "nf-demo-refus-${arch}" "$img" >/dev/null
   refus="$(attendre_sortie "nf-demo-refus-${arch}" "$budget")"
   refuslog="$(docker logs "nf-demo-refus-${arch}" 2>&1 || true)"
   docker rm -f "nf-demo-refus-${arch}" >/dev/null 2>&1 || true
   if [[ "$refus" != "78" || "$refuslog" != *NF_CSRF_SECRET* ]]; then
     printf '%s\n' "$refuslog" | tail -20
-    rm -f "$envfile"
     echo "::error::${plat} : lancée sans secrets, l'image devait refuser en 78 en nommant NF_CSRF_SECRET (code ${refus})"
     return 1
   fi
@@ -248,13 +295,23 @@ EOF
   # pour le même port.
   local nom="nf-demo-readyz-${arch}" port code=000 t=0 debut
   docker rm -f "$nom" >/dev/null 2>&1 || true
+  conteneurs+=("$nom")
   debut="$(date +%s)"
   docker run -d --platform "$plat" --name "$nom" -p 127.0.0.1::5151 \
-    --env-file "$envfile" "$img" >/dev/null
-  rm -f "$envfile"
-  port="$(docker port "$nom" 5151/tcp | head -1 | sed 's/.*://')"
+    --env-file "$env_courant" "$img" >/dev/null
+  rm -f "$env_courant"; env_courant=""
+  # Un conteneur mort dès le départ (« exec format error », crash au boot) n'a
+  # plus de port : le dire, journal à l'appui, au lieu de sortir muet.
+  port="$(docker port "$nom" 5151/tcp 2>/dev/null | head -1 | sed 's/.*://' || true)"
+  if [[ -z "$port" ]]; then
+    docker logs "$nom" 2>&1 | tail -40
+    echo "::error::${plat} : le conteneur n'a pas tenu jusqu'à la publication de son port — publication refusée"
+    return 1
+  fi
   while (( t < budget )); do
-    code="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:${port}/readyz" || true)"
+    # `--max-time` : sous émulation, une connexion acceptée sans réponse
+    # bloquerait `curl` au-delà du budget, que la boucle ne borne qu'en tours.
+    code="$(curl -s --max-time 5 -o /dev/null -w '%{http_code}' "http://127.0.0.1:${port}/readyz" || true)"
     [[ "$code" == "200" ]] && break
     sleep 2; t=$(( t + 2 ))
   done
@@ -301,26 +358,55 @@ mobile="${canal:-latest}"
 # ⚠️ VISIBILITÉ GHCR À CONSTATER au premier push : s'il naît privé, le passer
 # public UNE fois (Package settings), sinon le `docker pull` d'un inconnu
 # répond `denied`. `org.opencontainers.image.source` le rattache au dépôt.
+#
+# ORDRE DE PUBLICATION — du moins visible au plus visible, pour qu'un échec en
+# route (registre qui refuse, plafond du job) laisse le moins possible exposé :
+#   1. les variantes `<v>-<arch>`, sur TOUS les dépôts — personne ne les tire
+#      sans les nommer ;
+#   2. l'index `<v>` de chaque dépôt, RELU dans le registre ;
+#   3. seulement alors l'étiquette mobile, copie conforme de `<v>` (même
+#      digest, constaté) — c'est elle que tire un `docker pull` sans version,
+#      elle ne bouge jamais vers un index non vérifié.
 IFS=',' read -r -a depots <<< "$depots_liste"
+
 for depot in "${depots[@]}"; do
-  sources=()
   for p in "${plats[@]}"; do
     a="$(suffixe "$p")"
     [[ "$depot" == "$image" ]] || docker tag "${image}:${v}-${a}" "${depot}:${v}-${a}"
     docker push "${depot}:${v}-${a}"
-    sources+=("${depot}:${v}-${a}")
   done
-  docker buildx imagetools create -t "${depot}:${v}" -t "${depot}:${mobile}" "${sources[@]}"
+done
+
+# Empreinte d'une référence telle que le registre la sert.
+empreinte() { docker buildx imagetools inspect "$1" | awk '/^Digest:/ { print $2; exit }'; }
+
+for depot in "${depots[@]}"; do
+  sources=()
+  for p in "${plats[@]}"; do sources+=("${depot}:${v}-$(suffixe "$p")"); done
+  docker buildx imagetools create -t "${depot}:${v}" "${sources[@]}"
 
   # Le critère de fin, CONSTATÉ dans le registre : l'index publié liste chaque
-  # plateforme demandée. Un index amputé passerait tous les contrôles locaux.
+  # plateforme demandée. La variante éventuelle (`linux/arm64/v8`, que rend
+  # une construction native arm64) est admise : la garde ne dépend pas de
+  # l'architecture de l'hôte qui a construit.
   index="$(docker buildx imagetools inspect "${depot}:${v}")"
   for p in "${plats[@]}"; do
-    grep -q "Platform:[[:space:]]*${p}\$" <<< "$index" || {
+    grep -Eq "Platform:[[:space:]]+${p}(/[^[:space:]]+)?\$" <<< "$index" || {
       printf '%s\n' "$index"
-      echo "::error::${depot}:${v} ne liste pas ${p} — index incomplet"
+      echo "::error::${depot}:${v} ne liste pas ${p} — index incomplet, étiquette mobile NON déplacée"
       exit 1
     }
   done
-  echo "::notice::${depot}:${v} et :${mobile} — ${platforms}"
+  echo "✓ ${depot}:${v} — ${platforms}"
+done
+
+for depot in "${depots[@]}"; do
+  docker buildx imagetools create -t "${depot}:${mobile}" "${depot}:${v}"
+  attendu="$(empreinte "${depot}:${v}")"
+  obtenu="$(empreinte "${depot}:${mobile}")"
+  if [[ -z "$attendu" || "$obtenu" != "$attendu" ]]; then
+    echo "::error::${depot}:${mobile} (${obtenu:-?}) n'est pas ${depot}:${v} (${attendu:-?})"
+    exit 1
+  fi
+  echo "::notice::${depot}:${v} et :${mobile} (${attendu}) — ${platforms}"
 done
