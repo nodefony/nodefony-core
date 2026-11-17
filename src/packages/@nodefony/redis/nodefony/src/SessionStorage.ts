@@ -27,6 +27,14 @@ type IndexClient = NonNullable<ReturnType<RedisService["getClient"]>> &
 const KEY_BASE = "nf:sess";
 
 /**
+ * Marque d'un curseur de page lu dans l'INDEX d'un compte (`ZSCAN`), par
+ * opposition au balayage du parc (`SCAN`). Les deux curseurs ne désignent pas
+ * le même espace : un curseur de l'autre mode repart du début — au pire un
+ * doublon, jamais une perte.
+ */
+const INDEX_CURSOR = "u";
+
+/**
  * Relit une session stockée : `null` si la valeur n'est pas du JSON, ou pas un
  * objet. La forme des sacs se contrôle ensuite au seul consommateur
  * (`Session.deSerialize`, @nodefony/http) — pour tous les stores à la fois.
@@ -305,9 +313,12 @@ class RedisSessionStorage implements ISessionStorage {
     do {
       const res = await client.scan(cursor, { MATCH: match, COUNT: 200 });
       cursor = res.cursor;
-      for (const key of res.keys) {
+      // Le lot se lit d'un bloc (un aller-retour), pas clé par clé.
+      const raws = await Promise.all(res.keys.map((key) => client.get(key)));
+      for (let i = 0; i < res.keys.length; i += 1) {
         scanned++;
-        const raw = await client.get(key);
+        const key = res.keys[i] ?? "";
+        const raw = raws[i];
         if (!raw) continue;
         const data = parseSession(raw);
         if (!data) continue; // valeur corrompue → ignorée
@@ -347,6 +358,16 @@ class RedisSessionStorage implements ISessionStorage {
    * qui supprime (`destroyByUser`) le recompose à coup sûr. Coût : un re-scan du
    * lot courant, payé sur un cold-path d'administration. Rien n'est perdu,
    * rien ne déborde, et le curseur ne transporte aucun identifiant de session.
+   *
+   * **Les sessions d'UN compte** (`user` nommé) se lisent dans l'INDEX du compte
+   * (`ZSCAN <base>:u:<user>`), pas dans le parc : ce chemin porte la création de
+   * compte, le changement de mot de passe et « déconnecter partout », et le
+   * parcours du parc coûtait une lecture par session existante (48 s pour un
+   * compte parmi 20 000). `ZSCAN` a les garanties de `SCAN` — tout élément
+   * présent du début à la fin du parcours est rendu — et passe par la MÊME règle
+   * de reprise ({@link scanPage}). L'index n'est cru que s'il est COMPLET (marqué
+   * construit) ; en reconstruction sur un autre pod, ou sans scripts, le parc
+   * reste la vérité de repli.
    */
   async listPage(query: ISessionListQuery): Promise<IPage<ISessionRecord>> {
     assertPageQuery(query, "cursor");
@@ -355,38 +376,91 @@ class RedisSessionStorage implements ISessionStorage {
     if (!client) {
       return { items: [], limit, hasNext: false, nextCursor: null };
     }
-    const prefixLen = this.#prefix().length + 1;
-    const match = `${this.#prefix()}:*`;
-    const { items, nextCursor } = await scanPage(
-      (cursor) => client.scan(cursor, { MATCH: match, COUNT: limit }),
-      query.cursor,
-      limit,
-      async (key): Promise<ISessionRecord | null> => {
-        const raw = await client.get(key);
-        if (!raw) return null;
-        const data = parseSession(raw);
-        if (!data) return null; // valeur corrompue → ignorée
-        if (query.user !== undefined && data.user !== query.user) return null;
-        if (
-          query.authenticated !== undefined &&
-          !!data.user !== query.authenticated
-        ) {
-          return null;
-        }
-        // Redaction par construction (garantie du contrat) : le blob Redis porte
-        // tout, mais un record d'énumération admin ne sort jamais avec les
-        // données métier. Ici la vidange est explicite — un `GET` ne sait pas
-        // projeter.
-        return {
-          id: key.slice(prefixLen),
-          data: { ...data, Attributes: {}, flashBag: {} },
-        };
-      },
-    );
+    // Les valeurs d'un LOT se lisent ensemble (une `Map` par appel, vidée en
+    // place à chaque lot) : node-redis enchaîne les `GET` concurrents sur la
+    // connexion, un aller-retour par lot au lieu d'un par session. Pas de
+    // `MGET` : les clés de session tombent dans des slots différents, il
+    // casserait sous Redis Cluster.
+    const values = new Map<string, string | null>();
+    const prefetch = async (
+      items: readonly string[],
+      keyOf: (item: string) => string,
+    ): Promise<void> => {
+      values.clear();
+      const raws = await Promise.all(items.map((i) => client.get(keyOf(i))));
+      for (let i = 0; i < items.length; i += 1) {
+        values.set(items[i] ?? "", raws[i] ?? null);
+      }
+    };
+    const record = (id: string, raw: string | null | undefined) => {
+      if (!raw) return null;
+      const data = parseSession(raw);
+      if (!data) return null; // valeur corrompue → ignorée
+      // Le filtre se REVÉRIFIE sur la valeur, index ou pas : une entrée d'index
+      // en retard sur un changement de propriétaire ne fait rien lire de plus.
+      if (query.user !== undefined && data.user !== query.user) return null;
+      if (
+        query.authenticated !== undefined &&
+        !!data.user !== query.authenticated
+      ) {
+        return null;
+      }
+      // Redaction par construction (garantie du contrat) : le blob Redis porte
+      // tout, mais un record d'énumération admin ne sort jamais avec les
+      // données métier. Ici la vidange est explicite — un `GET` ne sait pas
+      // projeter.
+      const rec: ISessionRecord = {
+        id,
+        data: { ...data, Attributes: {}, flashBag: {} },
+      };
+      return rec;
+    };
+    const fromIndex = query.cursor?.startsWith(INDEX_CURSOR) === true;
+    const indexed = await this.#accountIndex(query.user);
+    let items: ISessionRecord[];
+    let nextCursor: string | null;
+    if (indexed !== null) {
+      // L'élément du lot EST l'identifiant de session : la clé ne se reconstruit
+      // que pour la lecture.
+      const userKey = `${this.#index().base}:u:${indexed.user}`;
+      const keyOf = (id: string) => this.#key(id);
+      const page = await scanPage(
+        async (cursor) => {
+          const res = await indexed.client.zScan(userKey, cursor, {
+            COUNT: limit,
+          });
+          const ids = res.members.map((m) => m.value);
+          await prefetch(ids, keyOf);
+          return { cursor: res.cursor, keys: ids };
+        },
+        fromIndex ? query.cursor?.slice(INDEX_CURSOR.length) : undefined,
+        limit,
+        (id) => Promise.resolve(record(id, values.get(id))),
+      );
+      items = page.items;
+      nextCursor =
+        page.nextCursor === null ? null : INDEX_CURSOR + page.nextCursor;
+    } else {
+      const match = `${this.#prefix()}:*`;
+      const prefixLen = this.#prefix().length + 1;
+      const same = (key: string) => key;
+      ({ items, nextCursor } = await scanPage(
+        async (cursor) => {
+          const res = await client.scan(cursor, { MATCH: match, COUNT: limit });
+          await prefetch(res.keys, same);
+          return res;
+        },
+        fromIndex ? undefined : query.cursor,
+        limit,
+        (key) => Promise.resolve(record(key.slice(prefixLen), values.get(key))),
+      ));
+    }
     // Le TOTAL, quand l'index sait compter : la même requête de filtre, un
     // `ZCOUNT`. Sans lui, la console ne connaît qu'un minorant, et « dernière
-    // page » mène à une fausse fin. Inconnu (-1) → absent, jamais inventé.
-    const total = await this.countSessions(query);
+    // page » mène à une fausse fin. Inconnu (-1) → absent, jamais inventé. Un
+    // parcours (`withTotal: false`) ne le demande pas : il ne le paie pas.
+    const total =
+      query.withTotal === false ? -1 : await this.countSessions(query);
     return {
       items,
       limit,
@@ -429,21 +503,33 @@ class RedisSessionStorage implements ISessionStorage {
           COUNT: 500,
         });
         cursor = res.cursor;
-        for (const key of res.keys) {
-          const [raw, ttl] = await Promise.all([
-            client.get(key),
-            client.pTTL(key),
-          ]);
+        // Un LOT à la fois, lu puis inscrit en parallèle : node-redis enchaîne
+        // les commandes concurrentes, trois allers-retours par lot au lieu de
+        // trois par session (37 s pour 20 000 sessions, mesuré). Une horloge
+        // par lot : le TTL restant est relatif à la lecture.
+        const keys = res.keys;
+        const [raws, ttls] = await Promise.all([
+          Promise.all(keys.map((key) => client.get(key))),
+          Promise.all(keys.map((key) => client.pTTL(key))),
+        ]);
+        const now = Date.now();
+        const adds: Promise<void>[] = [];
+        for (let i = 0; i < keys.length; i += 1) {
+          const raw = raws[i];
+          const ttl = ttls[i] ?? 0;
           if (!raw || ttl <= 0) continue;
           const data = parseSession(raw);
           if (!data) continue;
-          await index.add(client, {
-            id: key.slice(prefixLen),
-            user: ownerOf(data),
-            expiresAt: Date.now() + ttl,
-          });
-          indexed += 1;
+          adds.push(
+            index.add(client, {
+              id: (keys[i] ?? "").slice(prefixLen),
+              user: ownerOf(data),
+              expiresAt: now + ttl,
+            }),
+          );
         }
+        await Promise.all(adds);
+        indexed += adds.length;
       } while (cursor !== "0");
       await client.set(index.builtKey, String(Date.now()));
       this.manager.log(
@@ -454,6 +540,21 @@ class RedisSessionStorage implements ISessionStorage {
     } finally {
       await client.del(index.lockKey);
     }
+  }
+
+  /**
+   * L'index d'un compte, s'il peut être CRU : un compte nommé (l'anonyme n'a pas
+   * d'ensemble à lui), un client qui exécute les scripts, et un index marqué
+   * construit — il couvre alors les sessions antérieures à lui, et chaque
+   * écriture l'alimente dans le même aller-retour. Sinon `null` : le parc fait foi.
+   */
+  async #accountIndex(
+    user: string | undefined,
+  ): Promise<{ client: IndexClient; user: string } | null> {
+    if (user === undefined || user === "") return null;
+    const client = this.#clientForIndex();
+    if (!client || !(await this.#ensureIndexBuilt(client))) return null;
+    return { client, user };
   }
 
   /** Le client `main`, s'il sait exécuter les scripts de l'index. */

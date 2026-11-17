@@ -181,6 +181,102 @@ describe("keyspace chargé d'autres clés — la page se REMPLIT", () => {
 });
 
 // ════════════════════════════════════════════════════════════════════════════
+// 🔴 Les sessions d'UN compte : un coût qui ne dépend pas du parc entier
+// ════════════════════════════════════════════════════════════════════════════
+/**
+ * Lister les sessions d'un compte est sur le chemin de la création de compte
+ * (`purgeInheritedAccess`), du changement de mot de passe et de « déconnecter
+ * partout ». Le store balayait tout le parc et lisait chaque session une à une :
+ * 48 s pour un compte parmi 20 000 sessions, mesuré sur Redis réel. Le coût se
+ * prouve en COMPTANT les lectures envoyées à Redis — jamais par une durée.
+ */
+describe.skipIf(!REAL_URL)(
+  "les sessions d'UN compte se lisent par l'index (Redis réel)",
+  () => {
+    const blank = (user: string) => ({
+      Attributes: {},
+      flashBag: {},
+      metaBag: {},
+      user,
+    });
+    let gets = 0;
+    let counted: RedisSessionStorage;
+
+    beforeAll(async () => {
+      const client = realClient;
+      if (client === null) return;
+      await client.flushDb();
+      await Promise.all(
+        Array.from({ length: 2000 }, (_, i) =>
+          storage.write(`autre-${i}`, blank(`u${i % 500}`)),
+        ),
+      );
+      for (let i = 0; i < 3; i += 1) {
+        await storage.write(`cible-${i}`, blank("cible"));
+      }
+      // Un client qui COMPTE ses `GET` — le seul appel qui lit une session.
+      const counting = new Proxy(client, {
+        get(target, prop, receiver) {
+          const value: unknown = Reflect.get(target, prop, receiver);
+          if (typeof value !== "function") return value;
+          if (prop === "get") {
+            return (...args: unknown[]) => {
+              gets += 1;
+              return Reflect.apply(value, target, args);
+            };
+          }
+          return value.bind(target);
+        },
+      });
+      counted = new RedisSessionStorage(makeManager(counting));
+    });
+
+    it("3 sessions parmi 2 000 autres : lire le compte ne lit PAS le parc", async () => {
+      // L'index se reconstruit une fois par déploiement (balayage unique) :
+      // c'est le PREMIER comptage qui le paie, pas chaque liste.
+      await counted.countSessions();
+      gets = 0;
+      const page = await counted.listPage({
+        limit: 200,
+        user: "cible",
+        withTotal: false,
+      });
+      expect(page.items.map((r) => r.id).sort()).toEqual([
+        "cible-0",
+        "cible-1",
+        "cible-2",
+      ]);
+      expect(
+        gets,
+        "sessions lues pour lister les 3 du compte",
+      ).toBeLessThanOrEqual(10);
+      // Délai LARGE : il ne mesure rien, il laisse l'ancien parcours aller au
+      // bout pour que l'échec dise le COMPTE de lectures, pas un délai dépassé.
+    }, 60_000);
+
+    it("index en reconstruction sur un autre pod : repli sur le parc, aucune session perdue", async () => {
+      const client = realClient;
+      if (client === null) return;
+      const base = "nf:sess~{idx}";
+      await client.del(`${base}:built`);
+      await client.set(`${base}:building`, "autre-pod", {
+        expiration: { type: "EX", value: 60 },
+      });
+      try {
+        const page = await counted.listPage({ limit: 200, user: "cible" });
+        expect(page.items.map((r) => r.id).sort()).toEqual([
+          "cible-0",
+          "cible-1",
+          "cible-2",
+        ]);
+      } finally {
+        await client.del(`${base}:building`);
+      }
+    });
+  },
+);
+
+// ════════════════════════════════════════════════════════════════════════════
 // 🔴 Révocation sur un keyspace qui BOUGE — serveur Redis réel seulement
 // ════════════════════════════════════════════════════════════════════════════
 /**
