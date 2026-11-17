@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-17T19:24:02.551Z",
+  "generatedAt": "2026-11-17T22:05:59.761Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "13.0.0"
     },
     {
-      "closed": 274,
+      "closed": 275,
       "dueOn": "2026-11-29T00:00:00Z",
       "number": 7,
-      "open": 4,
+      "open": 3,
       "title": "10.0.0-beta"
     },
     {
@@ -7277,8 +7277,8 @@
       "number": 789,
       "title": "fix(redis): ne plus perdre de clés en reprenant un lot SCAN",
       "url": "https://github.com/nodefony/nodefony-core/issues/789",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
