@@ -140,7 +140,12 @@ describe("keyspace chargé d'autres clés — la page se REMPLIT", () => {
   beforeAll(async () => {
     if (realClient) await realClient.flushDb();
     else fake.flush();
-    for (let i = 0; i < 2000; i += 1) await set(`autre-app:cle:${i}`, "x");
+    // Les 2 000 écritures partent ENSEMBLE : le client les enchaîne sur la
+    // connexion sans attendre chaque réponse. Une à une, c'était 2 000
+    // allers-retours — le hook passait 10 s dès que la suite chargeait Redis.
+    await Promise.all(
+      Array.from({ length: 2000 }, (_, i) => set(`autre-app:cle:${i}`, "x")),
+    );
     for (let i = 0; i < 30; i += 1) {
       await storage.write(`voisin-${i}`, {
         Attributes: {},
