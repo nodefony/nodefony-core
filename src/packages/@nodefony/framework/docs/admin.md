@@ -457,7 +457,7 @@ recopiées ici (elles s'y périmeraient).
 - **Catalogue / discovery** : `GET /nodefony/framework/api/admin` (`FrameworkAdminApi.ts#createFrameworkAdminApi`) —
   producteurs + descriptors + endpoints. C'est ce que Studio lit pour générer sa navigation admin.
 - **Routes** : `GET /nodefony/framework/api/routes` (`FrameworkAdminApi.ts#createFrameworkAdminApi`) — l'équivalent web
-  de `nodefony router:dump` ; une variante paginée serveur `routes/page` (`FrameworkAdminApi.ts#createFrameworkAdminApi`).
+  de `nodefony inspect routes` ; une variante paginée serveur `routes/page` (`FrameworkAdminApi.ts#createFrameworkAdminApi`).
 - **Playground** (`/nodefony/playground`, **dev only**) : `buildPlaygroundSnapshot()`
   (`PlaygroundAdminApi.ts#buildPlaygroundSnapshot`) sérialise controllers + actions + transports + params + gardes — la
   page Studio bâtit ses formulaires depuis ces métadonnées, **sans code généré**. Le montage est

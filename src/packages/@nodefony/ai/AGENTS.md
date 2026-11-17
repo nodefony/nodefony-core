@@ -7,7 +7,7 @@
 
 ## Rôle
 
-La boîte à outils IA de Nodefony : serveur MCP, puis les services de la couche agentique
+Le protocole MCP de Nodefony : serveur MCP, collecte des outils que déclarent les modules et contrôle d'accès — le socle de la couche agentique.
 
 ## Composants
 

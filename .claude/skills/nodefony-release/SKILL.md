@@ -75,7 +75,7 @@ l'outillage d'agent, qui se réorganise pour d'autres raisons qu'elle. Le cycle 
 Elle est **irréversible**. `npm unpublish` n'est ouvert que **72 heures**, et seulement si personne
 n'en dépend — politique adoptée après `left-pad` (2016). Une version publiée par erreur est brûlée.
 
-En lockstep, c'est pire : les quinze paquets partent en séquence et **npm ne connaît pas la
+En lockstep, c'est pire : tous les paquets partent en séquence et **npm ne connaît pas la
 transaction**. Un échec au huitième laisse sept paquets en ligne qui référencent sept absents.
 **Le lot se reprend à la MÊME version** : relancer la même commande (ou le job de la forge) compare,
 avant le premier `publish`, l'empreinte `dist.integrity` de chaque paquet en ligne à celle du tarball
@@ -91,7 +91,7 @@ en ligne restent identiques à l'octet et sont sautés — le constater avant de
 vérifié l'est AVANT le premier `publish`, jamais entre deux._
 
 **La mise en attente npm (_staged publishing_) est ÉCARTÉE** (#312) — ne pas la reproposer sans fait
-nouveau. Elle coûte quinze approbations à deux facteurs par publication (aucune approbation groupée),
+nouveau. Elle coûte une approbation à deux facteurs PAR PAQUET par publication (aucune approbation groupée),
 déplace le geste irréversible de la forge vers le poste, fige le dist-tag au moment de la mise en
 attente, et couvre un risque — le lot coupé en route — que la reprise à version égale couvre déjà.
 Le fait qui rouvrirait la question : une approbation GROUPÉE côté npm.
@@ -103,7 +103,7 @@ c'est le tag `v10.*` poussé à la main qui déclenche la publication. Inverser 
 l'auteur le seul point où il relit ce qui sortira sous son nom.
 
 **Ce que le tag déclenche, dans l'ordre** (`release.yml`) : `epreuve` (les scénarios de smoke
-en matrice), `compat` (socket publiée ↔ courante) **et** `garde-main` en parallèle → `publier` (les 15 paquets par OIDC) → `vitrine` · `image` → `annonce`, qui crée la
+en matrice), `compat` (socket publiée ↔ courante) **et** `garde-main` en parallèle → `publier` (tous les paquets, par OIDC) → `vitrine` · `image` → `annonce`, qui crée la
 Release GitHub — `--prerelease` déduit de semver —, y **joint le site de la version**
 (`site-<v>.tar.gz`, rendu UNE fois depuis le tag : c'est lui que `/<v>/` servira pour toujours) **et
 republie le site public** en appelant `pages.yml` sur `main`. Puis `bilan`, qui dit ce qui a été SAUTÉ. Compter une bonne dizaine de
@@ -170,8 +170,8 @@ un `Removed` qui intéresse l'utilisateur, quel que soit le type du commit qui l
 ### Pourquoi un mode `--publish` manuel, alors que la cible est l'OIDC
 
 Le publieur de confiance se déclare dans les réglages d'un paquet **qui existe déjà**, et npm n'a
-pas de « publieur en attente ». Les treize `@nodefony/*` n'ont jamais été publiés : ils ne peuvent
-pas naître par ce chemin. Ce mode sert cette première fois, depuis le poste du mainteneur, avec le
+pas de « publieur en attente ». Un paquet jamais publié — un `@nodefony/*` NEUF ajouté au lot — ne
+peut donc pas naître par ce chemin. Ce mode sert cette première fois, depuis le poste du mainteneur, avec le
 code à deux facteurs et **sans qu'aucun jeton n'existe** — le vol de jeton de publication est le
 vecteur d'`eslint-scope` (2018), d'`ua-parser-js` (2021) et du ver `Shai-Hulud` (2025), qui
 moissonnait les jetons npm sur les exécuteurs d'intégration. Ordre complet et réglages npmjs.com :
@@ -203,7 +203,7 @@ est donc le cas normal, publier depuis `dev` ne l'est pas.
 publication, elle rend l'avis avant tout geste — « HEAD « dev » n'appartient PAS à « main »
 (N commits d'avance) » — avec la commande exacte (`git checkout main && git merge --ff-only dev`).
 C'est un avis, pas un refus : préparer d'ici est légitime, le découvrir après avoir estampillé
-quinze manifestes ne l'est pas. Auparavant les deux gardes ne parlaient qu'au moment d'AGIR, si
+tous les manifestes ne l'est pas. Auparavant les deux gardes ne parlaient qu'au moment d'AGIR, si
 bien qu'une répétition sur `dev` rendait un rapport tout vert et laissait croire la publication
 prête (`avisDeBranche`, éprouvée dans `release-core.test.mjs`).
 

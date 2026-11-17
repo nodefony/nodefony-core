@@ -61,7 +61,7 @@ Le socle : présent dans toute application, quelle que soit sa forme.
   { "icon": "🔌", "title": "@nodefony/http", "href": "../src/packages/@nodefony/http/docs/index.md",
     "desc": "Serveurs HTTP/HTTP2/WebSocket, contextes de requête, sessions, TLS.", "meta": "le transport" },
   { "icon": "🧭", "title": "@nodefony/framework", "href": "../src/packages/@nodefony/framework/docs/index.md",
-    "desc": "Routeur, contrôleurs, décorateurs, idempotence.", "meta": "tu écris des routes" }
+    "desc": "Routeur, contrôleurs, décorateurs, services gRPC, idempotence.", "meta": "tu écris des routes" }
 ]
 ```
 

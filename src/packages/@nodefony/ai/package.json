@@ -1,7 +1,7 @@
 {
   "name": "@nodefony/ai",
   "version": "10.0.0-beta.8",
-  "description": "La boîte à outils IA de Nodefony : serveur MCP, puis les services de la couche agentique",
+  "description": "Le protocole MCP de Nodefony : serveur MCP, collecte des outils que déclarent les modules et contrôle d'accès — le socle de la couche agentique",
   "contributors": [],
   "type": "module",
   "main": "./dist/index.js",

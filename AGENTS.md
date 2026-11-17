@@ -39,7 +39,7 @@ d'expérience. **Rien de tout cela n'entre dans une application.**
 |                                      |                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Une application minimale générée** | **cinq dépendances déclarées** — `nodefony`, `@nodefony/http`, `@nodefony/framework`, `@nodefony/ai`, `zod`. Se constate : `src/nodefony/templates/app/base/package.json.tpl`. C'est ce que l'application ÉCRIT ; l'arbre installé en compte une centaine, comme tout projet Node — ce qui se vérifie, et ce qui compte, c'est qu'aucun n'est un paquet maison doublant l'écosystème (serveurs `node:http`/`node:http2`, ORM Drizzle, front Vite, validation Zod) |
-| **Ce dépôt**                         | 20 paquets, 5 modules d'épreuve, ~7 700 tests, les bancs de charge et la chaîne de publication — aucun n'est une dépendance d'application                                                                                                                                                                                                                                                                                                                         |
+| **Ce dépôt**                         | 16 paquets publiés, 6 modules d'épreuve, plus de 19 000 tests, les bancs de charge et la chaîne de publication — aucun n'est une dépendance d'application                                                                                                                                                                                                                                                                                                         |
 
 > ⚠️ **Ne pas juger le produit sur ce dépôt.** Lire `src/` donne l'implémentation du
 > framework, jamais la surface qu'une application utilise. Le monorepo, la branche de
@@ -71,7 +71,7 @@ projet — pas sur le poids d'une application, mesuré ci-dessus.
 | **Publication npm**       | **préversion `10.0.0-beta.8`**, tous les paquets du framework, sous le canal `beta` SEULEMENT — `npm install nodefony` sert toujours `nodefony@7.0.2` (JavaScript). Les `@nodefony/*-bundle` de l'ère 7 sont dépréciés                                                                                                                     |
 | **Branche par défaut**    | `main` — elle porte la **dernière publication** et n'avance qu'aux releases                                                                                                                                                                                                                                                                |
 | **Branche de travail**    | `dev` — **c'est là que vit le code courant** ; `main` ne le reçoit qu'à la publication suivante                                                                                                                                                                                                                                            |
-| **Tests**                 | ~7 700 quand toute l'infrastructure répond (`npm run test:all`)                                                                                                                                                                                                                                                                            |
+| **Tests**                 | plus de 19 000 quand toute l'infrastructure répond (`npm run test:all`)                                                                                                                                                                                                                                                                    |
 | **Licence**               | Apache 2.0 — projet libre, développé bénévolement par une seule personne                                                                                                                                                                                                                                                                   |
 | **Reste avant la stable** | les [jalons](https://github.com/nodefony/nodefony-core/milestones) portent le compte exact des tickets ouverts par version, et une échéance qui **glisse** — le compte fait foi, pas la date. Ce qui peut casser d'une version à l'autre, et ce qui reçoit des correctifs : [`docs/guides/compatibilite.md`](docs/guides/compatibilite.md) |
 
@@ -85,16 +85,16 @@ projet — pas sur le poids d'une application, mesuré ci-dessus.
 Le dépôt est **self-hosted** : la racine se comporte comme une application utilisateur
 qui consomme le framework, ce qui permet de l'éprouver en marchant.
 
-| Chemin                          | Ce qu'on y trouve                                                                                                       |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `src/nodefony/`                 | le cœur — `Kernel`, conteneur d'injection, services, journalisation, CLI                                                |
-| `src/packages/@nodefony/`       | les 20 paquets du framework — `http`, `framework`, `security`, `frontend`, `studio`, `orm-core`, `drizzle`, `realtime`… |
-| `src/packages/create-nodefony/` | la porte d'entrée : `npm create nodefony@beta <app>`                                                                    |
-| `src/modules/`                  | les modules d'épreuve montés par l'application racine (`test`, quatre bancs de frontends, `mediasoup`)                  |
-| `scripts/`                      | les automates du dépôt — contrôles, bancs, chaîne de publication (`scripts/release/`)                                   |
-| `docs/`                         | la documentation humaine : guides, décisions d'architecture (`adr/`), performance, `index.md`                           |
-| `.ai/`                          | ce qui est **généré** pour les agents — jamais édité à la main                                                          |
-| `.claude/skills/`               | les procédures outillées du dépôt (publication, tickets, bancs, documentation)                                          |
+| Chemin                          | Ce qu'on y trouve                                                                                                    |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `src/nodefony/`                 | le cœur — `Kernel`, conteneur d'injection, services, journalisation, CLI                                             |
+| `src/packages/@nodefony/`       | les paquets du framework — `http`, `framework`, `security`, `frontend`, `studio`, `orm-core`, `drizzle`, `realtime`… |
+| `src/packages/create-nodefony/` | la porte d'entrée : `npm create nodefony@beta <app>`                                                                 |
+| `src/modules/`                  | les modules d'épreuve montés par l'application racine (`test`, quatre bancs de frontends, `mediasoup`)               |
+| `scripts/`                      | les automates du dépôt — contrôles, bancs, chaîne de publication (`scripts/release/`)                                |
+| `docs/`                         | la documentation humaine : guides, décisions d'architecture (`adr/`), performance, `index.md`                        |
+| `.ai/`                          | ce qui est **généré** pour les agents — jamais édité à la main                                                       |
+| `.claude/skills/`               | les procédures outillées du dépôt (publication, tickets, bancs, documentation)                                       |
 
 Quinze de ces paquets sont publiables ; les autres portent `private: true`. La liste
 ne se devine pas, elle se demande : `npm query .workspace`.

@@ -30,7 +30,7 @@ _Une action de contrôleur. Deux transports. La même session, la même sécurit
 > npm create nodefony@beta mon-app
 > ```
 >
-> Développement sur `dev`, dernière publication sur `main` — environ 7 700 tests quand toute
+> Développement sur `dev`, dernière publication sur `main` — plus de 19 000 tests quand toute
 > l'infrastructure répond (`npm run test:all`).
 <!-- @end -->
 

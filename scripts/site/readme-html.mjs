@@ -526,9 +526,10 @@ des applications réelles tournent encore dessus. Fin 2023, plutôt qu'une migra
 le choix a été fait d'une <strong>réécriture complète en TypeScript</strong> — en gardant les
 concepts, en jetant tout le reste.</p>
 
-<p>Pourquoi ? Parce qu'un framework ne se contente pas d'exécuter du code : il <strong>contraint</strong>
-celui qu'on écrit contre lui. Une couche de types posée après coup décrit ce que le code fait ; elle
-ne garantit rien. Chaque parti pris de la réécriture ferme une porte :</p>
+<p>Pourquoi tout réécrire ? Parce que ton code s'appuie sur le framework : si ses types sont
+justes, le compilateur trouve tes erreurs avant l'exécution. Ajouter des types à du vieux
+JavaScript ne les rend pas justes. Chaque choix de cette réécriture supprime donc une source
+d'erreur :</p>
 
 ${table(
   [{ label: "Décision" }, { label: "Ce qu'elle rend impossible" }],

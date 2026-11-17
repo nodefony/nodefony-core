@@ -5,7 +5,7 @@ import { defineAiConfig } from "./nodefony/config/defineModuleConfig";
 import StdioCommand from "./nodefony/command/StdioCommand";
 
 /**
- * @nodefony/ai — La boîte à outils IA de Nodefony : serveur MCP, puis les services de la couche agentique.
+ * @nodefony/ai — Le protocole MCP de Nodefony : serveur MCP, collecte des outils que déclarent les modules et contrôle d'accès — le socle de la couche agentique.
  *
  * Module applicatif : un workspace npm à part entière
  * (`src/packages/@nodefony/ai/`), chargé par le manifeste `modules` de
@@ -27,7 +27,7 @@ declare module "nodefony" {
 // Les controllers du module se déclarent ici — `nodefony create controller <nom>
 // --module ai` les ajoute à cette liste (et à ce dossier) tout seul.
 /**
- * Module `@nodefony/ai` : le serveur MCP du framework et les services de la couche agentique.
+ * Module `@nodefony/ai` : le serveur MCP du framework, socle de la couche agentique.
  *
  * @experimental Paquet EXPÉRIMENTAL : il suit la spécification MCP, qui change
  * de forme à chaque révision. Son API peut donc changer dans une version

@@ -4,7 +4,7 @@
   "nodefony": {
     "configSchema": "./dist/nodefony/config/configSchema.js"
   },
-  "description": "Couche temps réel serveur de Nodefony : canaux, appels bidirectionnels JSON-RPC 2.0, contre-pression, et diffusion entre plusieurs instances (boucle locale, IPC de grappe, Redis)",
+  "description": "Couche temps réel serveur de Nodefony : canaux, présence, appels bidirectionnels JSON-RPC 2.0 en JSON ou en binaire CBOR, contre-pression, et diffusion entre plusieurs instances (boucle locale, IPC de grappe, Redis)",
   "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",
   "type": "module",
   "main": "./dist/index.js",
@@ -41,7 +41,9 @@
     "cluster",
     "backpressure",
     "typescript",
-    "esm"
+    "esm",
+    "cbor",
+    "presence"
   ],
   "peerDependencies": {
     "@nodefony/framework": "^10.0.0-beta.8",

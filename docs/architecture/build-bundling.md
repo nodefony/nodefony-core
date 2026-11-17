@@ -181,7 +181,7 @@ export default defineNodefonyRolldownConfig({
 npm run build
 #   → dist/index.js + dist/nodefony/**/*.js, arborescence source préservée
 
-# 2) Build du dépôt entier : turbo ordonne les 19 paquets, puis l'app racine.
+# 2) Build du dépôt entier : turbo ordonne les workspaces, puis l'app racine.
 npm run build
 
 # 3) Build d'un seul paquet (turbo saute tout ce qui n'a pas bougé).

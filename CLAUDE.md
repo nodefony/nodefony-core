@@ -158,7 +158,7 @@ Avant de commencer une nouvelle phase / tâche :
    `test:all` (`scripts/test/test-all.ts`) démarre les conteneurs manquants, pose les variables
    d'infra à ta place (source unique : `scripts/test/vitest/gates.ts`), enchaîne les phases dans le bon
    ordre — et surtout **dit ce qu'il n'a PAS testé**. Aucune variable à retenir, aucun
-   conteneur à lancer à la main. Repère : ~7 700 tests quand toute l'infra répond.
+   conteneur à lancer à la main. Repère : plus de 19 000 tests (~23 000 exécutions : des suites sont rejouées sur plusieurs bases) quand toute l'infra répond.
 
    Pour une boucle courte sur un module : `cd src/packages/@nodefony/<m> && npx vitest run`.
    Le journal peut être périmé même de quelques jours.

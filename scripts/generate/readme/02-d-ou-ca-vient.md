@@ -5,10 +5,10 @@ applications réelles tournent encore dessus. Fin 2023, plutôt que de le migrer
 choix a été fait d'une **réécriture complète en TypeScript**, fichier par fichier, en gardant les
 concepts et en jetant tout le reste.
 
-Pourquoi une réécriture et pas une migration progressive ? Parce qu'un framework ne se contente pas
-d'exécuter du code : il **contraint** celui qu'on écrit contre lui. Une couche de types posée après
-coup sur du JavaScript décrit ce que le code fait ; elle ne garantit rien. Les partis pris de cette
-réécriture sont donc structurels, et chacun ferme une porte :
+Pourquoi tout réécrire plutôt que migrer petit à petit ? Parce que ton code s'appuie sur le
+framework : si ses types sont justes, le compilateur trouve tes erreurs avant l'exécution. Ajouter
+des types à du vieux JavaScript ne les rend pas justes. Chaque choix de cette réécriture supprime
+donc une source d'erreur :
 
 | Décision                                 | Ce qu'elle rend impossible                                    |
 | ---------------------------------------- | ------------------------------------------------------------- |

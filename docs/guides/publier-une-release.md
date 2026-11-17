@@ -18,7 +18,7 @@ publish: core
 
 📍 [Documentation](../index.md) › [Guides](README.md) › **Publier une release**
 
-> Ce que le dépôt exécute pour publier ses quinze paquets, dans quel ordre, ce que chaque garde
+> Ce que le dépôt exécute pour publier ses paquets, dans quel ordre, ce que chaque garde
 > refuse — et le geste qui reste humain. Le **plan de version** (quoi publier, décisions, état
 > d'avancement) vit à part, dans [`docs/release/nodefony-10.md`](../release/nodefony-10.md).
 
@@ -47,7 +47,7 @@ Elle est **irréversible**. `npm unpublish` n'est ouvert que **72 heures**, et s
 ne dépend de la version — politique adoptée après l'affaire `left-pad` en 2016. Une version publiée
 par erreur est **brûlée** : ce numéro ne sera plus jamais réutilisable.
 
-En **lockstep** (les quinze paquets portent la même version), c'est pire : ils partent en séquence,
+En **lockstep** (tous les paquets portent la même version), c'est pire : ils partent en séquence,
 et **npm ne connaît pas la transaction**. Un échec au huitième laisse sept paquets en ligne qui
 référencent sept absents — sept versions brûlées, et la reprise se fait en `10.0.1` **pour tout le
 lot**.
@@ -105,7 +105,7 @@ L'inventaire des publiables vient de `npm query .workspace` filtré sur `private
 liste écrite à la main, dont l'oubli serait **silencieux**.
 
 > **Préparer et publier sont deux gestes séparés.** `--publish` **n'écrit rien** : il exige au
-> contraire que les quinze manifestes portent déjà la version du tag. C'est le commit de release,
+> contraire que tous les manifestes portent déjà la version du tag. C'est le commit de release,
 > relu avant le tag, qui estampille.
 
 ---
@@ -138,7 +138,7 @@ npm run release:smoke                       # tous les scénarios
 npm run release:smoke -- --scenario base    # un seul (docker build se paie en minutes)
 ```
 
-1. **Empaquette** les quinze paquets, en refusant un type déclaré absent du disque et en
+1. **Empaquette** tous les paquets, en refusant un type déclaré absent du disque et en
    extensionnant les specifiers des déclarations (`node16`/`nodenext` l'exige).
 2. **Installe le scaffolder depuis son tarball**, dans un dossier jetable.
 3. **Génère** une application avec ce binaire-là (`create app`, puis `create controller`).
@@ -238,7 +238,7 @@ Trois contraintes, chacune payée d'un `ENEEDAUTH` qui n'en dit pas la cause :
 - `permissions: id-token: write` dans le job — sans elle, aucune assertion n'est délivrée ;
 - npm ≥ 11.5.1, Node ≥ 22.14.0, sur un runner **hébergé** (pas d'auto-hébergé) ;
 - **le nom du fichier `release.yml` est un identifiant**, saisi tel quel sur npmjs.com, extension
-  comprise et **sensible à la casse**. Le renommer casse la publication des quinze paquets d'un
+  comprise et **sensible à la casse**. Le renommer casse la publication de tous les paquets d'un
   coup. Et **ne jamais appeler ce workflow depuis un autre** : npm valide le nom du workflow
   **appelant**.
 
@@ -298,7 +298,7 @@ un mauvais changelog. La réécriture est le geste humain de la release, et le s
 
 ## Après la première publication
 
-1. **Déclarer un publieur de confiance** sur chacun des quinze paquets (npmjs.com → Settings du
+1. **Déclarer un publieur de confiance** sur chacun des paquets publiés (npmjs.com → Settings du
    paquet) : même dépôt, même **nom de fichier** de workflow. Tous les champs sont sensibles à la
    casse, et npm **ne valide rien** à l'enregistrement — une erreur ne se voit qu'à la publication
    suivante. Un seul publieur par paquet.
@@ -349,7 +349,7 @@ npm le réclamer une fois par paquet. `--otp <code>` reste accepté sans termina
 | **Tarball**                   | L'archive que npm publie et qu'un utilisateur reçoit à l'installation. Elle ne contient pas forcément ce que le dépôt montre.            |
 | **Smoke test**                | Une installation réelle depuis les archives, dans un environnement neuf. C'est la seule preuve qui porte sur l'artefact **reçu**.        |
 | **OIDC**                      | L'authentification de la forge auprès de npm sans jeton stocké : la forge prouve son identité, npm lui répond. Rien à faire fuiter.      |
-| **Verrouillage** (_lockstep_) | Les quinze paquets partent sur la même version, dans un ordre topologique — un paquet ne peut pas sortir avant ce dont il dépend.        |
+| **Verrouillage** (_lockstep_) | Tous les paquets partent sur la même version, dans un ordre topologique — un paquet ne peut pas sortir avant ce dont il dépend.          |
 | **Cran d'armement**           | Le geste explicite qui autorise la publication. Il existe parce qu'une version publiée est **brûlée** : npm ne connaît pas l'annulation. |
 
 ## ⚠️ Pièges
@@ -359,7 +359,7 @@ npm le réclamer une fois par paquet. `--otp <code>` reste accepté sans termina
 - **Ce que le dépôt montre n'est pas ce que l'utilisateur reçoit.** Le champ `files`, le `exports`
   et le build décident du contenu réel de l'archive — d'où le smoke test sur les archives, jamais
   sur l'arbre de travail.
-- **Il n'y a pas de transaction.** Si la publication s'arrête au huitième paquet sur quinze, les
+- **Il n'y a pas de transaction.** Si la publication s'arrête au huitième paquet, les
   sept premiers sont en ligne. L'ordre topologique limite les dégâts, il ne les annule pas.
 - **`npm whoami` ne montre rien en publication OIDC**, et c'est normal : aucun jeton n'existe. Le
   lire comme un échec envoie chercher une panne inexistante.

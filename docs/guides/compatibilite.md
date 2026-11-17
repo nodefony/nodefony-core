@@ -134,7 +134,7 @@ vaut que pour ce qui est nommé ici. Tout le reste du paquet garde la garantie o
 | `rpcCorsLists`                  | `@nodefony/http`      | service gRPC, nouveau en 10.0 : sa forme peut encore changer       |
 | `buildReportDevtools`           | `nodefony`            | suit une option expérimentale de rolldown, l'outil de construction |
 
-## Les versions vont par quinze
+## Les paquets partagent une seule version
 
 Tous les paquets publiés partagent **la même version**, publiée d'un seul lot. Il n'existe pas de
 `@nodefony/http@10.1` compatible avec `@nodefony/framework@10.0` : les combinaisons croisées ne sont
@@ -246,7 +246,7 @@ plus utile que puisse recevoir ce projet.
 | **Surface publique**          | Ce que le champ `exports` d'un paquet déclare. La garantie porte là-dessus, et sur rien d'autre : un chemin atteint en biais n'est pas public. |
 | **Rupture**                   | Un changement qui casse du code qui marchait. Elle n'est pas que de signature : un code d'erreur qui change ou un défaut inversé en est une.   |
 | **Dépréciation**              | L'annonce qu'une chose disparaîtra. Elle continue de fonctionner à l'identique pendant toute la série majeure.                                 |
-| **Verrouillage** (_lockstep_) | Les quinze paquets sortent ensemble, sur la même version. Vous n'avez donc jamais à croiser deux versions entre elles.                         |
+| **Verrouillage** (_lockstep_) | Tous les paquets sortent ensemble, sur la même version. Vous n'avez donc jamais à croiser deux versions entre elles.                           |
 | **Plancher Node**             | La version minimale de Node exigée (`engines`). La relever casse l'installation de qui n'a pas migré : c'est une majeure.                      |
 | **Cible navigateur**          | La version du langage que le code client exige (ES2022). La relever laisse des navigateurs de côté : c'est une majeure.                        |
 
@@ -263,7 +263,7 @@ plus utile que puisse recevoir ce projet.
   TSDoc, qui traverse le build jusqu'aux types publiés — d'où le nom barré dans l'autocomplétion.
 - **Un vieux navigateur n'est pas un défaut de Nodefony.** En deçà d'ES2022, l'application s'adapte
   par `@vitejs/plugin-legacy` au build ; le framework ne transpile pas son code client pour vous.
-- **Rien ne vous oblige à monter les quinze paquets en même temps**, mais rien ne garantit qu'un
+- **Rien ne vous oblige à monter tous les paquets en même temps**, mais rien ne garantit qu'un
   mélange fonctionne : les versions sont conçues, testées et publiées ensemble.
 
 ## 🧪 Tests & couverture

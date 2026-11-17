@@ -116,7 +116,7 @@ function parseRouteFilters(raw: string | undefined): IRouteFilter[] {
  * `/nodefony/framework/api/*`.
  *
  * 3ᵉ producteur du data plane admin (kernel, http, puis framework). Introspecte
- * le **Router** : c'est l'équivalent web de `nodefony router:dump` et la source
+ * le **Router** : c'est l'équivalent web de `nodefony inspect routes` et la source
  * de la future vue « Routes » de Studio (P10.8).
  *
  * Le framework héberge le broker → il s'enregistre directement (pas besoin de

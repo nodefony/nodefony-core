@@ -29,7 +29,7 @@ _Une action de contrôleur. Deux transports. La même session, la même sécurit
 > npm create nodefony@beta mon-app
 > ```
 >
-> Développement sur `dev`, dernière publication sur `main` — environ 7 700 tests quand toute
+> Développement sur `dev`, dernière publication sur `main` — plus de 19 000 tests quand toute
 > l'infrastructure répond (`npm run test:all`).
 
 > **A note on language.** Nodefony is written by a French-speaking author. The **code** —
@@ -150,10 +150,10 @@ applications réelles tournent encore dessus. Fin 2023, plutôt que de le migrer
 choix a été fait d'une **réécriture complète en TypeScript**, fichier par fichier, en gardant les
 concepts et en jetant tout le reste.
 
-Pourquoi une réécriture et pas une migration progressive ? Parce qu'un framework ne se contente pas
-d'exécuter du code : il **contraint** celui qu'on écrit contre lui. Une couche de types posée après
-coup sur du JavaScript décrit ce que le code fait ; elle ne garantit rien. Les partis pris de cette
-réécriture sont donc structurels, et chacun ferme une porte :
+Pourquoi tout réécrire plutôt que migrer petit à petit ? Parce que ton code s'appuie sur le
+framework : si ses types sont justes, le compilateur trouve tes erreurs avant l'exécution. Ajouter
+des types à du vieux JavaScript ne les rend pas justes. Chaque choix de cette réécriture supprime
+donc une source d'erreur :
 
 | Décision                                 | Ce qu'elle rend impossible                                    |
 | ---------------------------------------- | ------------------------------------------------------------- |
@@ -773,12 +773,12 @@ dans `nodefony.config.ts`).
 | --- | --- |
 | [`nodefony`](https://nodefony.net/docs/modules/core/) | Noyau : modules, injection de dépendances, configuration validée au démarrage, journalisation structurée corrélée, CLI — et le client temps réel partagé avec le navigateur |
 | [`@nodefony/http`](https://nodefony.net/docs/modules/http/) | Serveurs HTTP, HTTPS, HTTP/2 et WebSocket natifs, flux SSE, sessions, contextes de requête, certificats TLS |
-| [`@nodefony/framework`](https://nodefony.net/docs/modules/framework/) | Routeur, contrôleurs, décorateurs, vues — le modèle de programmation |
+| [`@nodefony/framework`](https://nodefony.net/docs/modules/framework/) | Routeur, contrôleurs, décorateurs, vues, services gRPC (gRPC, gRPC-Web et Connect sur la même route) — le modèle de programmation |
 | [`@nodefony/security`](https://nodefony.net/docs/modules/security/) · [`@nodefony/user`](https://nodefony.net/docs/modules/user/) | Pare-feu par zones, authentification, autorisation par rôles, CSRF, audit |
 | [`@nodefony/realtime`](https://nodefony.net/docs/modules/realtime/) | Socket à canaux, salons et leurs membres, admission par canal, binaire CBOR, contre-pression, diffusion entre plusieurs instances |
 | [`@nodefony/ai`](https://nodefony.net/docs/modules/ai/) | Porte MCP : les outils de l'application offerts aux agents d'IA, en HTTP avec flux SSE ou en stdio |
 | [`@nodefony/orm-core`](https://nodefony.net/docs/modules/orm-core/) | Un contrat de dépôt de données, plusieurs moteurs : [Drizzle](https://nodefony.net/docs/modules/drizzle/) (SQLite, PostgreSQL, MySQL), [Mongoose](https://nodefony.net/docs/modules/mongoose/), [Redis](https://nodefony.net/docs/modules/redis/) |
-| [`@nodefony/frontend`](https://nodefony.net/docs/modules/frontend/) | Construction et rechargement à chaud des frontends de chaque module |
+| [`@nodefony/frontend`](https://nodefony.net/docs/modules/frontend/) | Vite intégré : construction et rechargement à chaud des frontends de chaque module, en **React, Vue, Angular ou Svelte** — page, connexion et temps réel livrés par `nodefony create front` |
 | [`@nodefony/studio`](https://nodefony.net/docs/modules/studio/) | Console d'administration |
 
 Par défaut, un processus Node égale une instance : le passage à l'échelle revient à l'orchestrateur,
