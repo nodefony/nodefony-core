@@ -17,6 +17,13 @@ HTTP/HTTP2 avec WebSocket dans le même contexte de contrôleur, l'injection de
 dépendances, le pare-feu applicatif et les sessions, l'ORM avec ses migrations, un
 frontend bâti par Vite, et la console d'administration.
 
+**Ce n'est pas non plus une image de base.** Une application Nodefony ne
+commence pas par `FROM nodefony/nodefony` : `nodefony create app` lui donne son
+propre `Dockerfile`, autonome — une image Node officielle pour construire, une
+image distroless pour s'exécuter — qui lui appartient. Ainsi, un correctif de
+sécurité de la base arrive par une simple reconstruction, sans attendre une
+nouvelle publication de Nodefony (voir « Bâtir l'image de son application »).
+
 Le framework, lui, s'installe depuis npm ; le code vit sur GitHub.
 
 - **Framework** — <https://www.npmjs.com/package/nodefony>
@@ -41,6 +48,10 @@ docker run --rm -p 5151:5151 --env-file nodefony.env nodefony/nodefony:beta
 L'application répond sur <http://127.0.0.1:5151>. La console d'administration est
 sous <http://127.0.0.1:5151/nodefony> : identifiant `admin`, le mot de passe de la
 ligne 2.
+
+La ligne 1 affiche deux avertissements `CRITIC` (`totp`, `webhooks`) : la commande
+démarre l'application, qui constate l'absence des deux clés qu'elle s'apprête à
+écrire. Ils partent sur la sortie d'erreur, pas dans le fichier.
 
 ### Pourquoi pas une seule ligne ?
 
@@ -74,15 +85,76 @@ Ligne par ligne :
    Compose) avec ses secrets : tu fais, en trois lignes, le geste d'un vrai
    déploiement.
 
-`--rm` supprime le conteneur à l'arrêt, **et la base SQLite avec lui** : chaque
-lancement repart d'une base neuve. Pour garder les données, retire `--rm` et
-relance le même conteneur (`docker start -a <nom>`), ou donne une base externe
-(voir « Déclarer l'infrastructure » plus bas).
+## Garder ses données
 
-Elle embarque SQLite, déjà migrée à la construction de l'image : aucun service
-externe n'est requis pour ce premier essai. Une application réelle garde, elle, sa
-base hors de l'image, et applique ses migrations par un job AVANT de démarrer ses
+L'image embarque une base SQLite, déjà migrée à la construction : aucun service
+externe n'est requis pour ce premier essai. Elle vit sous `/app/var` — le seul
+dossier où l'application écrit, avec `/app/tmp`.
+
+`--rm` supprime le conteneur à l'arrêt, **et la base avec lui** : chaque lancement
+repart d'une base neuve. Pour la garder, monte un volume nommé sur `/app/var` :
+
+```bash
+docker run --rm -p 5151:5151 --env-file nodefony.env \
+           -v nodefony-data:/app/var nodefony/nodefony:beta
+```
+
+Au premier montage, Docker recopie dans le volume vide la base migrée de l'image,
+avec son propriétaire ; les lancements suivants la retrouvent. Une application
+réelle garde, elle, sa base hors du conteneur (voir « Déclarer l'infrastructure »
+plus bas), et applique ses migrations par un job AVANT de démarrer ses
 exemplaires.
+
+## Avec Docker Compose
+
+Le même lancement, déclaré — `nodefony.env` est le fichier des lignes 1 et 2 :
+
+```yaml
+# compose.yaml
+services:
+  nodefony:
+    image: nodefony/nodefony:beta
+    ports:
+      - "5151:5151"
+    env_file: nodefony.env
+    volumes:
+      - nodefony-data:/app/var
+    stop_grace_period: 20s
+    restart: unless-stopped
+
+volumes:
+  nodefony-data:
+```
+
+```bash
+docker compose up -d
+docker compose ps        # « healthy » quand l'application sert
+```
+
+`docker compose down` garde le volume ; `docker compose down -v` le supprime.
+
+## Santé et arrêt
+
+L'image déclare sa sonde (`HEALTHCHECK`) : `docker ps` affiche `healthy` dès que
+l'application répond 200 sur `/readyz`. Deux routes, deux questions :
+
+| Route     | Répond 200…                                              | Pendant l'arrêt |
+| --------- | -------------------------------------------------------- | --------------- |
+| `/livez`  | tant que le processus sert                               | **200**         |
+| `/readyz` | quand l'application peut recevoir du trafic (base prête) | **503**         |
+
+À l'arrêt (`SIGTERM`), Nodefony **draine** : `/readyz` passe à 503 pour que
+l'équilibreur cesse d'envoyer du trafic, les connexions WebSocket se ferment
+proprement (code `1001`), les requêtes en vol vont à leur terme, puis le processus
+sort en **0** — en 15 secondes au plus. Or `docker stop` n'accorde que **10
+secondes** avant de tuer le processus : donne-lui de la marge.
+
+```bash
+docker stop -t 20 <conteneur>      # compose : stop_grace_period: 20s
+```
+
+Un code de sortie `137` veut dire que le conteneur a été tué, donc que l'arrêt
+n'a pas été gracieux. Le seul verdict qui compte est `0`.
 
 ## Ce que cette image ne promet pas
 
@@ -107,6 +179,9 @@ npm create nodefony@beta mon-app
 cd mon-app
 npm run dev
 ```
+
+L'application générée porte son propre `Dockerfile` — voir « Bâtir l'image de son
+application ».
 
 ## Configuration — deux mécanismes, et un seul à retenir
 
@@ -223,12 +298,25 @@ l'ingress qui joue ce rôle.
 
 ## `nodefony/nodefony:<version>`
 
-Une seule variante, bâtie sur **`gcr.io/distroless/nodejs24-debian13`**. Ce n'est
-pas une habitude reprise d'un gabarit trouvé ailleurs : quatre candidates ont été
-construites avec un contenu identique, scannées et **démarrées**, et c'est la
-mesure qui a tranché.
+Une seule variante, bâtie sur **`gcr.io/distroless/nodejs24-debian13`**, pour
+`linux/amd64` et `linux/arm64` (voir « Étiquettes disponibles »). Elle tourne sous
+l'utilisateur numérique `1000`, jamais `root`, et n'écrit que sous `/app/var` et
+`/app/tmp` — elle tourne donc avec une racine en lecture seule, pourvu que ces
+deux dossiers soient montés :
 
-| Base                                                       | Image finale | Critiques | Hautes | Node embarqué             | libc  | Shell dedans |
+```bash
+docker run --rm --read-only --tmpfs /app/tmp -v nodefony-data:/app/var \
+           -p 5151:5151 --env-file nodefony.env nodefony/nodefony:beta
+```
+
+Cette base n'est pas une habitude reprise d'un gabarit trouvé ailleurs : quatre
+candidates ont été construites avec un contenu identique, scannées et
+**démarrées**, et c'est la mesure qui a tranché. Le banc porte sur une application
+`complete`, en `linux/amd64`, avec `docker scout quickview` ; il se rejoue à chaque
+changement de base, pas à chaque publication — la colonne Node donne la version
+relevée ce jour-là.
+
+| Base                                                       | Image finale | Critiques | Hautes | Node au banc              | libc  | Shell dedans |
 | ---------------------------------------------------------- | -----------: | --------: | -----: | ------------------------- | ----- | ------------ |
 | **`gcr.io/distroless/nodejs24-debian13`**                  |   **416 Mo** |     **0** |  **0** | 24.22.2                   | glibc | **non**      |
 | `node:24-alpine`                                           |       444 Mo |         1 |      7 | 24.22.2                   | musl  | oui (`sh`)   |
@@ -261,45 +349,89 @@ Le Node d'entrée de l'image est son `ENTRYPOINT` : une commande se change par s
 **arguments** — `docker run <image> node_modules/nodefony/bin/nodefony …`, `args:` en
 Kubernetes (jamais `command:`, qui le remplacerait), `command:` dans compose.
 
-## En changer dans ton application
+## Bâtir l'image de son application
 
 Cette image est construite avec le `Dockerfile` que `nodefony create app`
-produit — le même que tu reçois. En tête, il dit comment passer à
-**Alpine** (`apk add` possible) ou à **`node:24-slim`** (glibc, avec `bash`) :
+produit — le même que reçoit chaque application. Il se règle **sans être
+retouché**, par des arguments de construction :
 
-1. l'étage de construction et l'étage d'exécution changent **ensemble** — les
-   modules natifs sont compilés pour la libc de l'étage de construction, et un
-   mélange casse au **démarrage** (`.node` introuvable, « Error relocating »),
-   jamais à l'installation ;
-2. l'étage `nf-dirs` disparaît, et le `RUN mkdir` des dossiers de données revient
-   (une base à shell sait le faire elle-même) ;
-3. la sonde de santé appelle `node` au lieu de `/nodejs/bin/node`.
+```bash
+# Défaut : distroless, l'image décrite ci-dessus
+docker build -t mon-app .
 
-```dockerfile
-FROM node:24-alpine AS build   # étage de construction
-…
-FROM node:24-alpine            # étage d'exécution — celui qu'on déploie
+# Une application qui appelle un outil système (ffmpeg, ImageMagick…) :
+# image finale node:24-slim, avec les paquets demandés
+docker build --target with-packages --build-arg PACKAGES="ffmpeg" -t mon-app .
+
+# Un registre interne, qui sert les mêmes images sous son propre nom
+docker build --build-arg NODE_IMAGE=registre.interne/node:24-slim \
+             --build-arg RUNTIME_IMAGE=registre.interne/distroless/nodejs24-debian13 .
+
+# Une autre ligne de Node : les deux bases bougent ensemble
+docker build --build-arg NODE_IMAGE=node:26-slim \
+             --build-arg RUNTIME_IMAGE=gcr.io/distroless/nodejs26-debian13 .
 ```
 
-> **Après tout changement de base : reconstruire, puis DÉMARRER.** « Ça
-> construit » ne prouve rien — `debian12` se construit, et meurt au démarrage.
+Trois règles, chacune payée une fois :
+
+1. **Les deux bases partagent la même libc.** Les modules natifs (`better-sqlite3`,
+   `@node-rs/argon2`) sont compilés pour celle de l'étage de construction ; un
+   mélange glibc / musl casse au **démarrage**, jamais à l'installation. Pour
+   Alpine, c'est la fin `with-packages`, qui construit et exécute sur la même
+   base : `--target with-packages --build-arg NODE_IMAGE=node:24-alpine`.
+2. **Ne pas retoucher le fichier.** `nodefony upgrade` met le `Dockerfile` à jour
+   tant qu'il est intact, et épargne une copie retouchée — qui ne reçoit alors plus
+   les correctifs. Les arguments ci-dessus existent pour cela.
+3. **Après tout changement de base : reconstruire, puis DÉMARRER.** « Ça
+   construit » ne prouve rien — `debian12` se construit, et meurt au démarrage.
+
+**L'architecture se choisit au build.** Le `Dockerfile` n'en fixe aucune :
+`docker build` produit celle de la machine qui construit. Une image bâtie sur un
+Mac à puce Apple sort donc en `linux/arm64`, et un serveur `linux/amd64` refuse de
+la lancer (`exec format error`). Viser la cible :
+
+```bash
+docker build --platform linux/amd64 -t mon-app .        # celle du serveur
+docker buildx build --platform linux/amd64,linux/arm64 \
+                    -t registre/mon-app:1.0 --push .    # les deux, une étiquette
+```
+
+L'architecture étrangère se construit sous émulation (QEMU, fourni par Docker
+Desktop), plus lentement, et les modules natifs s'y installent pour elle. Charger
+localement (`--load`) une image multi-plateforme exige le magasin d'images
+containerd ; avec le magasin classique, une plateforme à la fois, ou `--push`. La
+CI générée bâtit l'architecture de son runner, `linux/amd64` sur `ubuntu-latest`.
 
 # Étiquettes disponibles
 
-| Étiquette       | Ce qu'elle désigne                                             |
-| --------------- | -------------------------------------------------------------- |
-| `10.0.0-beta.8` | une publication précise — c'est celle à figer en CI            |
-| `beta`          | la dernière préversion du canal `beta` (mobile)                |
-| `alpha`         | l'ancien canal, figé sur `10.0.0-alpha.9` — ne plus l'employer |
+| Étiquette                            | Ce qu'elle désigne                                                                   |
+| ------------------------------------ | ------------------------------------------------------------------------------------ |
+| `10.0.0-beta.8`                      | une publication précise, toutes architectures — c'est celle à figer en CI            |
+| `beta`                               | la dernière préversion du canal `beta` (mobile)                                      |
+| `<version>-amd64`, `<version>-arm64` | une seule architecture d'une publication, pour qui doit la désigner explicitement    |
+| `alpha`                              | l'ancien canal, arrêté sur la dernière alpha, antérieure à toute bêta — à abandonner |
 
-**`latest` n'existe pas, et c'est délibéré** : la ligne 10 est en préversion.
-Tirer une étiquette mobile sans le savoir est la façon la plus simple de voir une
-image changer sous ses pieds.
+`10.0.0-beta.8` et `beta` sont des **index multi-plateformes** : `docker pull`
+choisit seul la variante de la machine. Chaque variante est démarrée et contrôlée
+(refus sans secrets, `/readyz`, arrêt en `0`) avant que l'index ne soit publié, et
+l'étiquette mobile ne bouge qu'en dernier, vers un index déjà relu dans le registre.
+
+**`latest` n'apparaîtra qu'avec la 10.0.0** : il n'appartient qu'aux versions
+finales, comme sur npm. Tirer une étiquette mobile sans le savoir est la façon la
+plus simple de voir une image changer sous ses pieds.
+
+Les mêmes images — mêmes digests, pas une seconde construction — sont publiées
+sur GitHub Container Registry : `ghcr.io/nodefony/nodefony`.
 
 # Repères
 
 - **Signaler un problème** — <https://github.com/nodefony/nodefony-core/issues>
-- **Architectures** — `linux/amd64`
+- **Architectures** — `linux/amd64` et `linux/arm64` (Raspberry Pi 4 ou 5 en 64
+  bits, Mac à puce Apple, serveurs ARM). Un Raspberry Pi en **32 bits**
+  (`linux/arm/v7`) n'est pas servi : ni `node:24-slim` ni la base distroless
+  n'existent pour lui
+- **Registres** — Docker Hub (`nodefony/nodefony`) et GitHub Container Registry
+  (`ghcr.io/nodefony/nodefony`), mêmes digests
 - **Mises à jour de l'image** — régénérée et republiée à **chaque publication** du
   framework, par la chaîne de publication du dépôt
 - **Remonter d'une image à son commit** — chaque image porte les étiquettes OCI

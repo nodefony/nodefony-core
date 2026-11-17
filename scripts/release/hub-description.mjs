@@ -5,8 +5,11 @@
  * Docker Hub affiche « Repository overview — INCOMPLETE » tant que le champ
  * `full_description` du dépôt est vide. C'était le cas : l'image publiée ne
  * disait ni ce qu'elle contient, ni comment la lancer, ni qu'elle n'est PAS le
- * framework mais une application de démonstration générée. Une image sans page
- * est une image qu'on ne tire pas.
+ * framework — c'est une application complète, générée par `nodefony create app`
+ * à chaque publication, pour essayer le framework en une commande. Elle n'est
+ * pas non plus une base à étendre : une application bâtit son image avec le
+ * `Dockerfile` que le générateur lui donne. Une image sans page est une image
+ * qu'on ne tire pas.
  *
  * ## Pourquoi un script maison plutôt qu'une action du marché
  *
@@ -15,19 +18,20 @@
  * chaque action tierce du workflow » est le vecteur des attaques de chaîne
  * d'approvisionnement). Deux appels HTTP ne justifient pas d'y déroger.
  *
- * ## La source est un FICHIER du dépôt, jamais la page
+ * ## Les sources sont des FICHIERS du dépôt, jamais la page
  *
- * `docker/hub-overview.md` est la vérité ; la page en est le rendu. C'est ce qui
- * permet de la relire en diff, et à `accueil-gate.mjs` d'y maintenir la version
- * annoncée — cette page est déclarée parmi ses surfaces, donc elle bascule avec
- * les autres et un écart y est refusé comme ailleurs.
+ * `docker/hub-overview.md` est la vérité de la page ; la page en est le rendu.
+ * C'est ce qui permet de la relire en diff, et à `accueil-gate.mjs` d'y maintenir
+ * la version annoncée — cette page est déclarée parmi ses surfaces, donc elle
+ * bascule avec les autres et un écart y est refusé comme ailleurs.
  *
- * ## Ce qu'il ne fait pas
- *
- * Il n'écrase PAS la description COURTE si elle existe déjà : cent caractères
- * choisis à la main valent mieux qu'un remplacement automatique, et rien dans un
- * fichier de page ne dit lequel des paragraphes devrait la devenir. Il la POSE
- * quand elle est vide, et le dit.
+ * La description COURTE — la ligne que montrent la recherche et la carte du
+ * dépôt — vit dans `docker/hub-short-description.txt`, et elle est alignée à
+ * chaque publication comme la page. Elle n'était autrefois posée que si le champ
+ * était vide, pour ne pas écraser un texte choisi à la main ; le résultat fut une
+ * ligne restée fausse après que l'image eut changé, que seul un geste manuel sur
+ * Docker Hub pouvait corriger. Le texte choisi à la main est désormais CE fichier :
+ * relu en diff, il ne peut plus diverger de la page.
  *
  * ## Codes de sortie
  *
@@ -64,6 +68,10 @@ const DEPOT = process.env.NF_HUB_DEPOT ?? "nodefony/nodefony";
 /** La source versionnée de la page. */
 const SOURCE = process.env.NF_HUB_SOURCE ?? "docker/hub-overview.md";
 
+/** La source versionnée de la description courte — une seule ligne. */
+const SOURCE_COURTE =
+  process.env.NF_HUB_SHORT_SOURCE ?? "docker/hub-short-description.txt";
+
 /**
  * Limites imposées par Docker Hub. Elles ne sont pas documentées comme des
  * erreurs explicites : au-delà, l'API tronque ou refuse selon le champ — donc on
@@ -92,6 +100,49 @@ function controlerPage(page) {
     );
   }
   return refus;
+}
+
+/**
+ * Confronte la description courte à ce que Docker Hub accepte.
+ *
+ * Fonction pure. Le texte arrive déjà débarrassé de son saut de ligne final :
+ * un fichier texte en porte un, la description publiée n'en a pas.
+ *
+ * @param courte - la ligne à publier.
+ * @returns la liste des refus, vide quand la ligne est publiable.
+ */
+function controlerCourte(courte) {
+  const refus = [];
+  if (courte.length === 0) {
+    refus.push(
+      "la description courte est vide — la recherche Docker Hub n'afficherait rien",
+    );
+  }
+  if (/[\r\n]/.test(courte)) {
+    refus.push(
+      "la description courte tient sur plusieurs lignes — Docker Hub n'en affiche qu'une",
+    );
+  }
+  // En POINTS DE CODE, pas en unités UTF-16 : « — » compte pour un, comme
+  // dans la limite de l'API ; un emoji compterait pour deux en `.length`.
+  const longueur = [...courte].length;
+  if (longueur > MAX_COURTE) {
+    refus.push(
+      `description courte de ${longueur} caractères, au-delà des ${MAX_COURTE} acceptés`,
+    );
+  }
+  return refus;
+}
+
+/**
+ * Lit une source versionnée.
+ *
+ * @param relatif - chemin depuis la racine, écrit en `/`.
+ * @returns le contenu, ou `null` si le fichier n'existe pas.
+ */
+function lireSource(relatif) {
+  const abs = path.join(ROOT, ...relatif.split("/"));
+  return fs.existsSync(abs) ? fs.readFileSync(abs, "utf8") : null;
 }
 
 /**
@@ -185,16 +236,25 @@ async function ecrireDepot(jeton, champs) {
 async function principal(argv) {
   const repetition = argv.includes("--dry-run");
 
-  const abs = path.join(ROOT, ...SOURCE.split("/"));
-  if (!fs.existsSync(abs)) {
-    console.error(`✗ CONTRÔLE AVEUGLE — source introuvable : ${SOURCE}`);
-    return 2;
+  const page = lireSource(SOURCE);
+  const brute = lireSource(SOURCE_COURTE);
+  for (const [nom, contenu] of [
+    [SOURCE, page],
+    [SOURCE_COURTE, brute],
+  ]) {
+    if (contenu === null) {
+      console.error(`✗ CONTRÔLE AVEUGLE — source introuvable : ${nom}`);
+      return 2;
+    }
   }
-  const page = fs.readFileSync(abs, "utf8");
+  const courte = brute.replace(/\r?\n$/, "");
 
-  const refus = controlerPage(page);
+  const refus = [
+    ...controlerPage(page).map((r) => `${SOURCE} : ${r}`),
+    ...controlerCourte(courte).map((r) => `${SOURCE_COURTE} : ${r}`),
+  ];
   if (refus.length > 0) {
-    console.error(`✗ ${SOURCE} n'est pas publiable :`);
+    console.error("✗ la description n'est pas publiable :");
     for (const r of refus) console.error(`   · ${r}`);
     return 1;
   }
@@ -202,7 +262,8 @@ async function principal(argv) {
   if (repetition) {
     console.log(
       `· répétition — ${page.length} caractères partiraient vers ${DEPOT}\n` +
-        `  premier titre : ${page.split("\n")[0]}`,
+        `  premier titre : ${page.split("\n")[0]}\n` +
+        `  description courte : ${courte}`,
     );
     return 0;
   }
@@ -234,17 +295,11 @@ async function principal(argv) {
     return 2;
   }
 
-  const champs = { full_description: page };
-  const courteVide = !String(avant.description ?? "").trim();
-  if (courteVide) {
-    champs.description =
-      "Application Nodefony de démonstration, générée par le scaffold du framework".slice(
-        0,
-        MAX_COURTE,
-      );
-  }
-
-  const ecrit = await ecrireDepot(jeton, champs);
+  const courteChangee = avant.description !== courte;
+  const ecrit = await ecrireDepot(jeton, {
+    full_description: page,
+    description: courte,
+  });
   if (!ecrit.ok) {
     console.error(
       `✗ Docker Hub a refusé l'écriture (HTTP ${ecrit.statut}) : ${ecrit.corps.slice(0, 400)}`,
@@ -288,9 +343,20 @@ async function principal(argv) {
     return 1;
   }
 
+  // La ligne courte se relit aussi : c'est elle que la recherche affiche, et la
+  // lecture anonyme l'expose — une ligne restée ancienne se verrait de partout.
+  if (apres.description !== courte) {
+    console.error(
+      `✗ la description courte servie n'est pas celle envoyée : « ${String(apres.description ?? "")} »`,
+    );
+    return 1;
+  }
+
   console.log(
     `✓ overview de ${DEPOT} publiée et RELUE — ${page.length} caractères` +
-      (courteVide ? " · description courte posée (elle était vide)" : ""),
+      (courteChangee
+        ? ` · description courte remplacée : « ${courte} »`
+        : " · description courte inchangée"),
   );
   return 0;
 }
@@ -308,4 +374,12 @@ if (lanceDirectement) {
   }
 }
 
-export { controlerPage, MAX_LONGUE, MAX_COURTE, SOURCE, DEPOT };
+export {
+  controlerCourte,
+  controlerPage,
+  MAX_LONGUE,
+  MAX_COURTE,
+  SOURCE,
+  SOURCE_COURTE,
+  DEPOT,
+};

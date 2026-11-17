@@ -2527,6 +2527,10 @@
           "help": ""
         },
         {
+          "name": "NF_HUB_SHORT_SOURCE",
+          "help": ""
+        },
+        {
           "name": "NF_HUB_SOURCE",
           "help": ""
         }

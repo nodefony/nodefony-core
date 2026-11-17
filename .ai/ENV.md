@@ -15,7 +15,7 @@
 | Infrastructure | 14 |
 | Interrupteur de coût | 8 |
 | Décor de banc | 42 |
-| Runtime produit | 92 |
+| Runtime produit | 93 |
 
 ## Décor de banc
 
@@ -170,7 +170,7 @@ déclarée n'a pas été exercée.
 | `NF_RUN_PERF` | micro-bancs de performance (seuils non déterministes) |
 | `NF_RUN_WS_RUPTURE` | sondes de rupture WebSocket (épuisent les ports) |
 
-## Runtime produit (92)
+## Runtime produit (93)
 
 Lues par le produit : leur vérité est le TSDoc de leur site de lecture, et
 c'est là qu'elle doit rester — la recopier ici en ferait une seconde vérité.
@@ -232,15 +232,16 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_DEPS_ROOT` | `scripts/deps/check-deps-latest.mjs:84` |
 | `NF_DEV_CHILD` | `src/nodefony/src/kernel/supervisorLink.ts:130` |
 | `NF_DEV_PORTS` | `src/nodefony/src/tests/devProcess.test.ts:377` |
-| `NF_DOCKERHUB_TOKEN` | `scripts/release/hub-description.mjs:211` |
-| `NF_DOCKERHUB_USER` | `scripts/release/hub-description.mjs:210` |
+| `NF_DOCKERHUB_TOKEN` | `scripts/release/hub-description.mjs:272` |
+| `NF_DOCKERHUB_USER` | `scripts/release/hub-description.mjs:271` |
 | `NF_ENV` | `src/nodefony/src/bin/nodefony.ts:104` |
 | `NF_GATES_ALLOW` | `scripts/test/vitest/gates.ts:912` |
 | `NF_GATES_EXPECT` | `scripts/test/vitest/gates.ts:931` |
-| `NF_HUB_API` | `scripts/release/hub-description.mjs:56` |
-| `NF_HUB_DEPOT` | `scripts/release/hub-description.mjs:62` |
-| `NF_HUB_ROOT` | `scripts/release/hub-description.mjs:52` |
-| `NF_HUB_SOURCE` | `scripts/release/hub-description.mjs:65` |
+| `NF_HUB_API` | `scripts/release/hub-description.mjs:60` |
+| `NF_HUB_DEPOT` | `scripts/release/hub-description.mjs:66` |
+| `NF_HUB_ROOT` | `scripts/release/hub-description.mjs:56` |
+| `NF_HUB_SHORT_SOURCE` | `scripts/release/hub-description.mjs:73` |
+| `NF_HUB_SOURCE` | `scripts/release/hub-description.mjs:69` |
 | `NF_INSTANCE_ID` | `src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts:105` |
 | `NF_JWT_KEYSET` | `src/packages/@nodefony/security/tests/support/keystoreProcess.ts:18` |
 | `NF_KERNEL_TRACE_FILE` | `src/nodefony/src/kernel/Kernel.ts:756` |

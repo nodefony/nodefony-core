@@ -15,10 +15,12 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import {
+  controlerCourte,
   controlerPage,
   MAX_COURTE,
   MAX_LONGUE,
   SOURCE,
+  SOURCE_COURTE,
 } from "./hub-description.mjs";
 
 const ROOT = path.resolve(
@@ -53,6 +55,46 @@ describe("controlerPage", () => {
   });
 });
 
+describe("controlerCourte", () => {
+  it("accepte une ligne ordinaire", () => {
+    expect(controlerCourte("Une ligne.")).toEqual([]);
+  });
+
+  it("refuse une ligne vide", () => {
+    expect(controlerCourte("")).toHaveLength(1);
+  });
+
+  it("refuse plusieurs lignes — la recherche n'en affiche qu'une", () => {
+    expect(controlerCourte("un\ndeux")[0]).toContain("plusieurs lignes");
+  });
+
+  it("compte en caractères, pas en unités UTF-16", () => {
+    // 100 tirets cadratins : 100 caractères, et 100 unités UTF-16 aussi —
+    // c'est l'emoji qui départage, deux unités pour un caractère.
+    expect(controlerCourte("—".repeat(MAX_COURTE))).toEqual([]);
+    expect(controlerCourte("🐳".repeat(MAX_COURTE))).toEqual([]);
+    expect(controlerCourte("x".repeat(MAX_COURTE + 1))).toHaveLength(1);
+  });
+});
+
+describe("la description courte versionnée", () => {
+  const lire = () =>
+    fs
+      .readFileSync(path.join(ROOT, ...SOURCE_COURTE.split("/")), "utf8")
+      .replace(/\r?\n$/, "");
+
+  it("existe et passe son propre contrôle", () => {
+    expect(controlerCourte(lire())).toEqual([]);
+  });
+
+  it("dit ce qu'est Nodefony — la recherche n'affiche que cette ligne", () => {
+    // L'ancienne ligne, « Application Nodefony de démonstration, générée par
+    // le scaffold du framework », ne disait pas ce qu'est Nodefony à qui le
+    // découvre dans une liste de résultats.
+    expect(lire()).toMatch(/framework Node\.js/);
+  });
+});
+
 describe("la page versionnée du dépôt", () => {
   it("existe et passe son propre contrôle", () => {
     // Un contrôle qui ne s'applique pas à la page RÉELLE ne garde rien : c'est
@@ -76,5 +118,17 @@ describe("la page versionnée du dépôt", () => {
     const page = fs.readFileSync(path.join(ROOT, ...SOURCE.split("/")), "utf8");
     expect(page).toContain("NF__");
     expect(page).toContain("NF_DATABASE_URL");
+  });
+
+  it("ne date pas une étiquette d'IMAGE d'une version de canal npm", () => {
+    // `accueil-gate.mjs` juge chaque version citée contre le canal npm de même
+    // nom. Les étiquettes d'image et les canaux npm ont divergé : l'image
+    // `alpha` est restée sur la dernière alpha, quand le canal npm `alpha` sert
+    // une bêta. Une version littérale sur cette ligne serait donc refusée — et
+    // `--basculer` la réécrirait en mensonge.
+    const page = fs.readFileSync(path.join(ROOT, ...SOURCE.split("/")), "utf8");
+    const ligneAlpha = page.split("\n").find((l) => l.startsWith("| `alpha`"));
+    expect(ligneAlpha, "la ligne de l'étiquette `alpha`").toBeDefined();
+    expect(ligneAlpha).not.toMatch(/\d+\.\d+\.\d+-/);
   });
 });

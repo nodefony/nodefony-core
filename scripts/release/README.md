@@ -158,6 +158,7 @@ Réécriture des specifiers relatifs des `.d.ts` publiés : un import que node16
 - **Variable** `NF_HUB_API`
 - **Variable** `NF_HUB_DEPOT`
 - **Variable** `NF_HUB_ROOT`
+- **Variable** `NF_HUB_SHORT_SOURCE`
 - **Variable** `NF_HUB_SOURCE`
 - **Appelé par** : `release.yml`
 - **Testé par** : `release/hub-description.test.mjs`
