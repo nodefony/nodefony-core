@@ -839,9 +839,8 @@ export const Database = observer(() => {
   const [orms, setOrms] = useState<OrmSummary[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
-  // `<Edge>` égale le défaut du paramètre, mais l'inférence depuis `[]` le
-  // remplace par `never` : sans lui, `setEdges` refuse toute arête.
-  // oxlint-disable-next-line typescript/no-unnecessary-type-arguments
+  // `<Edge>` explicite : l'inférence depuis `[]` rendrait `never`, et
+  // `setEdges` refuserait alors toute arête.
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1167,13 +1166,13 @@ export const Database = observer(() => {
       const rf = rfRef.current;
       if (!rf) return;
       if (focus) {
-        void rf.fitView({ padding: 0.25, duration: 400, maxZoom: 1.3 });
+        void rf.fitView({ padding: "10%", duration: 400, maxZoom: 1.3 });
         return;
       }
       // Tout cadrer, sauf si le texte en devient illisible : on s'arrête alors
       // au zoom lisible, ancré en HAUT À GAUCHE (là où commencent les en-têtes),
       // et le reste se parcourt. Cadrer à 45 % rendait un schéma complet muet.
-      void rf.fitView({ padding: 0.1, maxZoom: 1 }).then(() => {
+      void rf.fitView({ padding: "4.5%", maxZoom: 1 }).then(() => {
         if (rf.getZoom() >= READABLE_ZOOM) return;
         const b = rf.getNodesBounds(rf.getNodes());
         void rf.setViewport({
@@ -1665,10 +1664,10 @@ export const Database = observer(() => {
                 }}
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}
-                colorMode={scheme}
+                forceColorMode={scheme}
                 style={RF_THEME}
                 fitView
-                fitViewOptions={{ maxZoom: 1, padding: 0.3 }}
+                fitViewOptions={{ maxZoom: 1, padding: "11.5%" }}
                 minZoom={0.05}
                 proOptions={{ hideAttribution: true }}
               >

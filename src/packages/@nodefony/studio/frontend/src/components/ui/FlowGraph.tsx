@@ -367,9 +367,9 @@ export function FlowGraph({
         nodes={laid.nodes}
         edges={laid.edges}
         nodeTypes={nodeTypes}
-        colorMode={colorScheme}
+        forceColorMode={colorScheme}
         fitView
-        fitViewOptions={{ padding: 0.18 }}
+        fitViewOptions={{ padding: "7.6%" }}
         proOptions={{ hideAttribution: true }}
         nodesConnectable={false}
         elementsSelectable={false}
