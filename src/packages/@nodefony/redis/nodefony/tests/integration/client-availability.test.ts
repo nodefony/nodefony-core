@@ -178,10 +178,10 @@ describe("RedisSessionStorage sur une connexion en échec — dégrade, ne jette
     assert.deepEqual(await storage.read("s1"), {});
   });
 
-  it("destroy reste idempotent", async () => {
+  it("destroy ne lève pas, et ne prétend pas avoir retiré ce qu'il n'a pas pu atteindre", async () => {
     const service = deadService();
     await service.init();
     const storage = new RedisSessionStorage(managerOn(service));
-    assert.equal(await storage.destroy("s1"), true);
+    assert.equal(await storage.destroy("s1"), false);
   });
 });

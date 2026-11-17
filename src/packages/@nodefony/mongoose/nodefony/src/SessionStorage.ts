@@ -189,11 +189,11 @@ class SessionStorage implements ISessionStorage {
     const criteria: Partial<SessionRow> = { session_id: id };
     const repo = this.#repo();
     if (!repo) {
-      return true;
+      return false; // déconnecté : rien n'a été retiré
     }
-    await repo.delete(criteria);
+    const removed = await repo.delete(criteria);
     this.manager.log(`MONGOOSE DESTROY SESSION ID : ${id}`, "DEBUG");
-    return true;
+    return removed > 0;
   }
 
   async gc(idleSeconds?: number, absoluteSeconds?: number): Promise<void> {

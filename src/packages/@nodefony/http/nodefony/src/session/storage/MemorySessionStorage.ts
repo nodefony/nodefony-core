@@ -85,8 +85,7 @@ class MemorySessionStorage implements ISessionStorage {
   }
 
   destroy(id: string): Promise<boolean> {
-    this.#sessions.delete(id);
-    return Promise.resolve(true);
+    return Promise.resolve(this.#sessions.delete(id));
   }
 
   /**

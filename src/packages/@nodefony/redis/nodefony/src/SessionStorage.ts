@@ -222,18 +222,19 @@ class RedisSessionStorage implements ISessionStorage {
 
   async destroy(id: string): Promise<boolean> {
     const client = this.#client();
-    if (client) {
-      const deleted = client.del(this.#key(id));
-      if (supportsScripts(client)) {
-        const dropped = this.#index()
+    if (!client) return false; // indisponible : rien n'a été retiré
+    const deleted = client.del(this.#key(id));
+    if (supportsScripts(client)) {
+      // L'index se retire dans le même aller-retour que la session.
+      const [count] = await Promise.all([
+        deleted,
+        this.#index()
           .drop(client, id)
-          .catch((e: unknown) => this.#indexFailed(client, e));
-        await Promise.all([deleted, dropped]);
-      } else {
-        await deleted;
-      }
+          .catch((e: unknown) => this.#indexFailed(client, e)),
+      ]);
+      return count > 0;
     }
-    return true;
+    return (await deleted) > 0;
   }
 
   async gc(): Promise<void> {

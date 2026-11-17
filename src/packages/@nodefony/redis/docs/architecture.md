@@ -525,9 +525,11 @@ L'ordre compte : les écouteurs sont retirés même si la fermeture échoue.
 Les deux lignes rouges sont un **écart réel au principe** du framework : `RedisSessionStorage.write()`
 (`SessionStorage.ts#RedisSessionStorage.write`) rend la charge utile sans la persister et sans un mot. Sur la fenêtre
 étroite qu'il couvre — avant l'ouverture, après la fermeture — l'impact est faible ; le principe, lui,
-voudrait une trace. À l'inverse, `RedisSessionStorage.destroy()` (`SessionStorage.ts#RedisSessionStorage.destroy`) rend `true`
-sans connexion **délibérément** : l'appelant est une déconnexion, et lui répondre « échec » laisserait
-l'utilisateur croire qu'il est resté connecté.
+voudrait une trace. `RedisSessionStorage.destroy()` (`SessionStorage.ts#RedisSessionStorage.destroy`), lui, ne
+lève pas sans connexion et rend `false` : rien n'a été retiré, la session est peut-être toujours dans
+Redis. La déconnexion d'un utilisateur ne dépend pas de ce booléen — `Session.destroy` l'ignore et efface
+le cookie ; ceux qui le lisent sont les révocations, qui l'auditent, et un `true` y ferait journaliser une
+révocation qui n'a pas eu lieu. Le contrat est le même sur tous les stores (`ISessionStorage.destroy`).
 
 ## L'énumération d'administration — ce que la pagination sait et ne sait pas
 

@@ -74,12 +74,13 @@ describe("Redis SessionStorage — connexion absente (dégradation gracieuse)", 
     await storage().touch("s1");
   });
 
-  // `destroy` rend `true` même sans connexion : le contrat le veut IDEMPOTENT
-  // (« la session n'est plus là » est vrai dans les deux cas), et l'appelant est
-  // un logout — le faire échouer laisserait l'utilisateur croire qu'il est resté
-  // connecté. Vérifié ici pour que ce choix reste explicite, pas accidentel.
-  it("destroy reste idempotent (true) même sans connexion", async () => {
-    assert.equal(await storage().destroy("s1"), true);
+  // Sans connexion, `destroy` ne LÈVE pas — mais rend `false` : rien n'a été
+  // retiré, la session est peut-être toujours dans Redis. Le déconnecter d'un
+  // utilisateur ne dépend pas de ce booléen (`Session.destroy` l'ignore et efface
+  // le cookie) ; ceux qui le lisent sont les révocations, qui l'auditent — un
+  // `true` y ferait journaliser une révocation qui n'a pas eu lieu.
+  it("sans connexion, destroy ne lève pas et ne prétend rien avoir retiré", async () => {
+    assert.equal(await storage().destroy("s1"), false);
   });
 
   it("close rend true (la connexion appartient au RedisService, pas au store)", async () => {

@@ -148,6 +148,16 @@ export interface ISessionStorage extends ISortableSource {
   start(id: string): Promise<ISerializedSession>;
   open(): Promise<number>;
   close(): boolean;
+  /**
+   * Retire une session.
+   *
+   * @param id - identifiant de la session
+   * @returns `true` si une session de cet identifiant existait et a été
+   *   retirée ; `false` s'il n'y avait rien à retirer (absente, déjà détruite,
+   *   store indisponible). Les révocations comptent ce retour — journal, audit,
+   *   passage suivant de « déconnecter partout » : un `true` inventé fait
+   *   auditer une révocation qui n'a pas eu lieu.
+   */
   destroy(id: string): Promise<boolean>;
   /**
    * Purge les sessions expirées sur les **deux bornes** NIST/OWASP : idle

@@ -584,5 +584,24 @@ export function runSessionPaginationContract(
         assert.equal(await storage().countSessions(), 11);
       }
     });
+
+    // `destroy` dit ce qu'il a FAIT : les révocations en comptent le retour
+    // (journal, audit « session révoquée », passage suivant de « déconnecter
+    // partout »). Un `true` rendu sans rien retirer fait auditer une
+    // révocation qui n'a pas eu lieu — vécu sur chaque store sauf la mémoire.
+    it("destroy rend false quand il n'y avait rien à retirer (jamais un succès inventé)", async () => {
+      const victim = orderedIds[1];
+      assert.equal(await storage().destroy(victim!), true, "session présente");
+      assert.equal(
+        await storage().destroy(victim!),
+        false,
+        "déjà détruite : rien n'a été retiré",
+      );
+      assert.equal(
+        await storage().destroy("jamais-ecrite"),
+        false,
+        "identifiant inconnu : rien n'a été retiré",
+      );
+    });
   });
 }

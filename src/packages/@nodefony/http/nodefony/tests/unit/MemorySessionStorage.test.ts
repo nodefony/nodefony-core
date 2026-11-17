@@ -94,12 +94,12 @@ describe("MemorySessionStorage — CRUD + horodatages", () => {
     expect(await s.start("ghost")).to.deep.equal({});
   });
 
-  it("destroy retire la session (idempotent)", async () => {
+  it("destroy retire la session ; un second destroy ne lève pas et dit qu'il n'a rien retiré", async () => {
     const s = makeStorage();
     await s.write("sid", blob("alice"));
     expect(await s.destroy("sid")).to.equal(true);
     expect(await s.start("sid")).to.deep.equal({});
-    expect(await s.destroy("sid"), "2e destroy ne throw pas").to.equal(true);
+    expect(await s.destroy("sid"), "rien à retirer").to.equal(false);
   });
 
   it("open compte les sessions présentes ; close → true", async () => {
