@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/drizzle",
-  "version": "10.0.0-beta.9",
+  "version": "10.0.0",
   "description": "Moteur SQL de Nodefony sur Drizzle ORM (SQLite, PostgreSQL, MySQL, MariaDB) : dépôts typés, migrations de schéma et adoption d'une base existante",
   "nodefony": {
     "storeKind": "durable",
@@ -61,29 +61,29 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@nodefony/framework": "^10.0.0-beta.9",
-    "@nodefony/http": "^10.0.0-beta.9",
-    "@nodefony/orm-core": "^10.0.0-beta.9",
-    "@nodefony/security": "^10.0.0-beta.9",
-    "@nodefony/user": "^10.0.0-beta.9",
+    "@nodefony/framework": "^10.0.0",
+    "@nodefony/http": "^10.0.0",
+    "@nodefony/orm-core": "^10.0.0",
+    "@nodefony/security": "^10.0.0",
+    "@nodefony/user": "^10.0.0",
     "@types/better-sqlite3": "9.6.0",
     "@types/node": "26.6.6",
     "@types/pg": "8.23.1",
     "better-sqlite3": "13.2.0",
     "drizzle-kit": "0.31.11",
     "mysql2": "3.24.6",
-    "nodefony": "^10.0.0-beta.9",
+    "nodefony": "^10.0.0",
     "pg": "8.23.1"
   },
   "peerDependencies": {
-    "@nodefony/framework": "^10.0.0-beta.9",
-    "@nodefony/http": "^10.0.0-beta.9",
-    "@nodefony/orm-core": "^10.0.0-beta.9",
-    "@nodefony/security": "^10.0.0-beta.9",
-    "@nodefony/user": "^10.0.0-beta.9",
+    "@nodefony/framework": "^10.0.0",
+    "@nodefony/http": "^10.0.0",
+    "@nodefony/orm-core": "^10.0.0",
+    "@nodefony/security": "^10.0.0",
+    "@nodefony/user": "^10.0.0",
     "better-sqlite3": "^13.0.0",
     "mysql2": "^3.24.0",
-    "nodefony": "^10.0.0-beta.9",
+    "nodefony": "^10.0.0",
     "pg": "^8.23.0"
   },
   "repository": {

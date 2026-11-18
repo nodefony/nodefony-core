@@ -8,6 +8,21 @@ Les sections naissent d'un BROUILLON rendu par `npm run release` depuis les mess
 de commit, puis sont RÉÉCRITES à la main : un journal git est écrit pour l'auteur,
 un changelog pour celui qui met à jour.
 
+## 10.0.0 - 2026-11-18
+
+_La première version stable de Nodefony 10 : le framework réécrit en TypeScript strict sur les serveurs natifs de Node (`node:http`, `node:http2`, WebSocket), où le WebSocket partage le pipeline, les routes et la sécurité du HTTP, et où chaque requête reçoit son propre conteneur de services. Seize paquets à la même version, sous le canal `latest` : `npm create nodefony mon-app` suffit, sans nommer de canal. Elle reprend la beta.9 sans rupture d'API mesurée ; les ruptures de la ligne 10 sont annoncées bêta par bêta ci-dessous, chacune avec son geste de migration. Une application de la série 7 (JavaScript, dépréciée) ne se monte pas : les deux API n'ont rien de commun._
+
+### Changed
+
+- **cli:** Générer les applications avec rolldown `^1.3.3`, vitest `^5.1.1` et svelte `^5.58.0` (26477502d)
+- **devkit:** Ne plus faire nommer le canal `beta` par le skill `nodefony-upgrade` livré aux applications : `npm install nodefony` suit `latest`, et une version précise s'écrit la même sur tous les paquets (f9dacd969)
+
+### Fixed
+
+- **cli:** Calculer le canal dans l'aide de `nodefony upgrade`, qui affirmait en dur que `latest` servait la série 7 (#782) (840b49447)
+
+<!-- Surface publique mesurée depuis 10.0.0-beta.9 (npm) : 0 retrait sur 2 935 déclarations ; 1 à relire, relue — `NODEFONY_CLIENT` de ./angular (extensions des import() du .d.ts brut, rétablies au pack). Détail : npm run release:api-diff -- --from 10.0.0-beta.9 --details -->
+
 ## 10.0.0-beta.9 - 2026-11-18
 
 _Une bêta de correctifs avant la stable : une faille de révocation de sessions sur Redis corrigée, une image d'application qui s'ouvre aux paquets système et se met à jour avec le framework, et une CI générée qui éprouve aussi l'arm64. Aucune rupture d'API mesurée._
