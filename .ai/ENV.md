@@ -232,8 +232,8 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_DEPS_ROOT` | `scripts/deps/check-deps-latest.mjs:84` |
 | `NF_DEV_CHILD` | `src/nodefony/src/kernel/supervisorLink.ts:130` |
 | `NF_DEV_PORTS` | `src/nodefony/src/tests/devProcess.test.ts:377` |
-| `NF_DOCKERHUB_TOKEN` | `scripts/release/hub-description.mjs:272` |
-| `NF_DOCKERHUB_USER` | `scripts/release/hub-description.mjs:271` |
+| `NF_DOCKERHUB_TOKEN` | `scripts/release/hub-description.mjs:277` |
+| `NF_DOCKERHUB_USER` | `scripts/release/hub-description.mjs:276` |
 | `NF_ENV` | `src/nodefony/src/bin/nodefony.ts:104` |
 | `NF_GATES_ALLOW` | `scripts/test/vitest/gates.ts:1006` |
 | `NF_GATES_EXPECT` | `scripts/test/vitest/gates.ts:1025` |
@@ -256,7 +256,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_POD_NAME` | `src/packages/@nodefony/realtime/nodefony/src/backplane/originId.ts:25` |
 | `NF_PORT` | `src/nodefony/src/tests/devProcess.test.ts:441` |
 | `NF_PORT_HTTPS` | `src/nodefony/src/tests/devProcess.test.ts:442` |
-| `NF_README_ROOT` | `scripts/release/readme-gate.mjs:100` |
+| `NF_README_ROOT` | `scripts/release/readme-gate.mjs:101` |
 | `NF_REALTIME_BACKPLANE_NAMESPACE` | `src/packages/@nodefony/realtime/nodefony/tests/unit/defineRealtimeConfig.test.ts:166` |
 | `NF_REALTIME_BACKPLANE_SECRET` | `src/packages/@nodefony/realtime/nodefony/tests/unit/defineRealtimeConfig.test.ts:167` |
 | `NF_REALTIME_DRIVER` | `src/packages/@nodefony/realtime/nodefony/tests/unit/defineRealtimeConfig.test.ts:165` |

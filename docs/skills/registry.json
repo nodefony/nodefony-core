@@ -1043,7 +1043,8 @@
       "usage": [
         "npm run coverage",
         "npm run coverage -- --only <module>",
-        "npm run coverage -- --json"
+        "npm run coverage -- --json",
+        "npm run coverage -- --publish <version>"
       ],
       "options": [],
       "env": [],

@@ -18,10 +18,16 @@
  *   npm run coverage                    # tous les modules qui en déclarent une
  *   npm run coverage -- --only http     # un seul (filtre sur le nom du paquet)
  *   npm run coverage -- --json          # le tableau seul, pour un rapport
+ *   npm run coverage -- --publish 10.0.0  # + écrit les taux dans docs/qualite/data/10.0.0.json
+ *
+ * `--publish` verse les taux dans les données VERSIONNÉES de la campagne : c'est
+ * là que les lit la matrice de l'accueil du site, qui ne mesure rien elle-même.
+ * Refusé avec `--only` : une publication partielle effacerait les autres modules.
  *
  * @usage npm run coverage
  * @usage npm run coverage -- --only <module>
  * @usage npm run coverage -- --json
+ * @usage npm run coverage -- --publish <version>
  */
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -38,6 +44,21 @@ const arg = (nom: string): string | undefined => {
 };
 const ONLY = arg("only");
 const JSON_SEUL = process.argv.includes("--json");
+const PUBLIER = arg("publish");
+if (PUBLIER !== undefined) {
+  if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(PUBLIER)) {
+    console.error(
+      `--publish attend une version (\`10.0.0\`), reçu « ${PUBLIER} ».`,
+    );
+    process.exit(64);
+  }
+  if (ONLY !== undefined) {
+    console.error(
+      "--publish refuse --only : la page lirait une couverture amputée.",
+    );
+    process.exit(64);
+  }
+}
 
 const log = (s: string) => {
   if (!JSON_SEUL) process.stdout.write(s);
@@ -49,18 +70,23 @@ interface Gate {
   values?: () => Record<string, string>;
 }
 // Spécificateur RELATIF au module, pas un chemin : `import("C:\\…")` lève sous Windows.
-const gates: Record<string, unknown> = await import("./vitest/gates.ts");
+//
+// 🔴 La passe par défaut de `test:all` (`TEST_ALL_GATES`), et rien d'autre. Poser
+// les valeurs de TOUS les exports de `gates.ts` posait aussi `MONGO_BOOT_GATE`,
+// dont le `NF_DATABASE_URL` fait démarrer l'APPLICATION sur Mongo : `test:all` ne
+// le pose que le temps de sa passe `--mongo`. Huit cas purs du cœur et de drizzle,
+// verts sous `npm test`, tombaient ici — et deux modules sortaient « en échec »,
+// sans taux, pour un décor que personne ne joue.
+const { TEST_ALL_GATES } = await import("./vitest/gates.ts");
 // ⚠️ Surtout PAS `test-all.ts` : c'est un SCRIPT, son corps s'exécute à l'import
 // — en importer une fonction relançait l'infra, le build et la batterie entière.
 import { containerHealthy } from "./lib/docker.ts";
 
 const posees: Record<string, string> = {};
 const absents: string[] = [];
-for (const [nom, g] of Object.entries(gates)) {
-  const gate = g as Gate | null;
-  if (!gate || typeof gate !== "object" || typeof gate.values !== "function") {
-    continue;
-  }
+for (const gate of TEST_ALL_GATES as readonly (Gate & { label: string })[]) {
+  const nom = gate.label;
+  if (typeof gate.values !== "function") continue;
   // 🔴 Poser la variable d'un service ABSENT ne rend pas les tests skippés : il
   // les fait ÉCHOUER. Un banc qui n'a personne au bout de son URL ne se tait
   // pas, il tombe — et le rouge est alors imputé au produit. Vécu ici même :
@@ -310,12 +336,52 @@ for (const [i, w] of cibles.entries()) {
   );
 }
 
-mkdirSync(path.join(ROOT, "tmp"), { recursive: true });
-const OUT = path.join(ROOT, "tmp", "coverage-all.json");
+// `tmp/` n'accepte rien à sa racine : un rapport va sous `tmp/reports/`.
+mkdirSync(path.join(ROOT, "tmp", "reports"), { recursive: true });
+const OUT = path.join(ROOT, "tmp", "reports", "coverage-all.json");
 writeFileSync(
   OUT,
   JSON.stringify({ decor: posees, modules: resultats, journaux }, null, 2),
 );
+
+if (PUBLIER !== undefined) {
+  const cible = path.join(ROOT, "docs", "qualite", "data", `${PUBLIER}.json`);
+  if (!existsSync(cible)) {
+    console.error(
+      `--publish : ${path.relative(ROOT, cible)} n'existe pas — une couverture se publie DANS une campagne.`,
+    );
+    process.exit(66);
+  }
+  const campagne: Record<string, unknown> = JSON.parse(
+    readFileSync(cible, "utf8"),
+  );
+  campagne.couverture = {
+    date: new Date().toISOString().slice(0, 10),
+    commit: execFileSync("git", ["rev-parse", "--short=9", "HEAD"], {
+      cwd: ROOT,
+      encoding: "utf8",
+    }).trim(),
+    commande: "npm run coverage",
+    decor: Object.keys(posees),
+    absents: [...new Set(absents)],
+    modules: resultats.map((r) => ({
+      module: r.module,
+      statut:
+        r.code === 0
+          ? r.lignes === null
+            ? "sans-rapport"
+            : "mesure"
+          : "echec",
+      lignes: r.lignes,
+      branches: r.branches,
+      fonctions: r.fonctions,
+      sautes: r.skipped,
+      natures: r.natures,
+    })),
+  };
+  writeFileSync(cible, `${JSON.stringify(campagne, null, 2)}\n`);
+  log(`\n  ✎ couverture publiée dans ${path.relative(ROOT, cible)}\n`);
+}
 
 if (JSON_SEUL) {
   console.log(JSON.stringify(resultats, null, 2));

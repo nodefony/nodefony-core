@@ -24,6 +24,7 @@ Rejoue la couverture de CHAQUE module qui en déclare une, avec le DÉCOR d'infr
 - **Usage** : `npm run coverage`
 - **Usage** : `npm run coverage -- --only <module>`
 - **Usage** : `npm run coverage -- --json`
+- **Usage** : `npm run coverage -- --publish <version>`
 - **Appelé par** : `npm run coverage`
 - **Utilise** : `lib/workspaces.mjs` · `test/lib/docker.ts` · `test/vitest/gates.ts`
 
