@@ -1,7 +1,7 @@
 <!-- @if core,npm -->
 ## Démarrage
 
-La version `10.0.0` est en ligne. Ses ruptures n'arrivent qu'aux versions majeures, annoncées en
+La version `10.0.0` est en ligne. Les ruptures n'arrivent qu'aux versions majeures, annoncées en
 tête du [CHANGELOG](CHANGELOG.md). Une application se crée en une commande :
 
 ```bash

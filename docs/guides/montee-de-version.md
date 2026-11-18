@@ -42,7 +42,7 @@ npm run build                              # 4. reconstruire…
 npx nodefony doctor                        #    …puis vérifier
 ```
 
-Ce qu'on observe à l'étape 3, sur une application née en `10.0.0-beta.2` et montée ensuite :
+Ce qu'on observe à l'étape 3, sur une application née en `10.0.0-beta.2` et montée sur la `10.0.0-beta.3` :
 
 ```text
 Nodefony 10.0.0-beta.3 installé.

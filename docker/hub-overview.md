@@ -400,12 +400,12 @@ CI générée éprouve `linux/amd64`, et `linux/arm64` sur un runner ARM natif s
 
 # Étiquettes disponibles
 
-| Étiquette                            | Ce qu'elle désigne                                                                |
-| ------------------------------------ | --------------------------------------------------------------------------------- |
-| `10.0.0`                             | une publication précise, toutes architectures — c'est celle à figer en CI         |
-| `latest`                             | la dernière version finale (mobile)                                               |
-| `<version>-amd64`, `<version>-arm64` | une seule architecture d'une publication, pour qui doit la désigner explicitement |
-| `beta`, `alpha`                      | les canaux de préversion, restés sur la dernière bêta — préférer `latest`         |
+| Étiquette                            | Ce qu'elle désigne                                                                           |
+| ------------------------------------ | -------------------------------------------------------------------------------------------- |
+| `10.0.0`                             | une publication précise, toutes architectures — c'est celle à figer en CI                    |
+| `latest`                             | la dernière version finale (mobile)                                                          |
+| `<version>-amd64`, `<version>-arm64` | une seule architecture d'une publication, pour qui doit la désigner explicitement            |
+| `beta`, `alpha`                      | les canaux de préversion — une publication plus mûre les recale sur elle ; préférer `latest` |
 
 `10.0.0` et `latest` sont des **index multi-plateformes** : `docker pull`
 choisit seul la variante de la machine. Chaque variante est démarrée et contrôlée
