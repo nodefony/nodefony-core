@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-18T01:23:25.832Z",
+  "generatedAt": "2026-11-18T11:08:09.924Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,17 +46,17 @@
       "title": "10.0.0-beta"
     },
     {
-      "closed": 138,
+      "closed": 139,
       "dueOn": "2026-12-06T00:00:00Z",
       "number": 1,
-      "open": 3,
+      "open": 2,
       "title": "10.0.0"
     },
     {
       "closed": 7,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 57,
+      "open": 59,
       "title": "10.1.0"
     }
   ],
@@ -9115,8 +9115,8 @@
       "number": 659,
       "title": "docs(performance): remesurer les pages de performance avant la release",
       "url": "https://github.com/nodefony/nodefony-core/issues/659",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -9849,6 +9849,34 @@
       "ordre": 142,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
+      "labels": []
+    },
+    {
+      "number": 791,
+      "title": "test(realtime): mesurer la grâce de présence sur des comptes connectés",
+      "url": "https://github.com/nodefony/nodefony-core/issues/791",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.1.0",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 142.5,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 792,
+      "title": "chore(test): préfixer NF_ les variables lues par les bancs",
+      "url": "https://github.com/nodefony/nodefony-core/issues/792",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.1.0",
+      "priorite": "P3 — fin de cycle",
+      "jours": 1,
+      "ordre": 142.7,
+      "debut": null,
+      "cible": null,
       "labels": []
     },
     {
