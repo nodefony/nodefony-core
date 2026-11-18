@@ -142,8 +142,16 @@ console.log(
     `${verdicts.length - fatal} avis toléré(s), ${fatal} bloquant(s)`,
 );
 if (fatal > 0) {
+  // Le titre dit la VRAIE cause : une exception devenue sans objet n'est pas
+  // une faille — « vulnérabilités trouvées » a fait chercher une alerte qui
+  // n'existait pas (avis retiré par GitHub, exception restée en place).
+  const vulnerable = verdicts.some(
+    (v) => v.verdict !== "toléré" && v.verdict !== "EXCEPTION-SANS-OBJET",
+  );
   console.log(
-    "::error::npm audit a TROUVÉ des vulnérabilités de niveau high ou plus",
+    vulnerable
+      ? "::error::npm audit a TROUVÉ des vulnérabilités de niveau high ou plus"
+      : "::error::aucune vulnérabilité — une exception d'audit est devenue sans objet, la retirer",
   );
   process.exit(1);
 }

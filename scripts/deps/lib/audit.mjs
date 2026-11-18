@@ -23,11 +23,7 @@ import semver from "semver";
  * Avis tolérés tant qu'aucune version corrigée n'est publiée — clé : identifiant
  * GHSA, valeur : le motif. Tout autre avis de gravité haute ou critique bloque.
  */
-export const ACCEPTED_ADVISORIES = {
-  "GHSA-fc5q-39xc-vjpf":
-    "picomatch : ReDoS sur extglob répété, aucune version corrigée publiée — " +
-    "tiré par l'outillage de build et de test (vite, vitest, lint-staged, fdir)",
-};
+export const ACCEPTED_ADVISORIES = {};
 
 /** Gravités qui bloquent. */
 const BLOCKING = new Set(["high", "critical"]);
