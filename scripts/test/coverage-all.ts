@@ -346,15 +346,21 @@ writeFileSync(
 
 if (PUBLIER !== undefined) {
   const cible = path.join(ROOT, "docs", "qualite", "data", `${PUBLIER}.json`);
-  if (!existsSync(cible)) {
+  // Lire directement, sans `existsSync` préalable : tester puis écrire le même
+  // chemin ouvre une course (TOCTOU, CodeQL js/file-system-race). L'absence se
+  // constate à la lecture même.
+  let source: string;
+  try {
+    source = readFileSync(cible, "utf8");
+  } catch (error) {
+    if (!(error instanceof Error && "code" in error && error.code === "ENOENT"))
+      throw error;
     console.error(
       `--publish : ${path.relative(ROOT, cible)} n'existe pas — une couverture se publie DANS une campagne.`,
     );
     process.exit(66);
   }
-  const campagne: Record<string, unknown> = JSON.parse(
-    readFileSync(cible, "utf8"),
-  );
+  const campagne: Record<string, unknown> = JSON.parse(source);
   campagne.couverture = {
     date: new Date().toISOString().slice(0, 10),
     commit: execFileSync("git", ["rev-parse", "--short=9", "HEAD"], {
