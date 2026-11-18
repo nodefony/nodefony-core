@@ -212,8 +212,12 @@ const figureShot = (name, alt) => {
 
 // Le paquet PUBLIÉ : sa version porte le canal (`10.0.0-beta.7` → `@beta`),
 // que la racine du monodépôt (`10.0.0`) n'a pas. Lire la racine faisait
-// écrire `npm create nodefony@latest` — qui installe l'ancienne 7.
+// écrire `npm create nodefony@latest` — qui installait alors l'ancienne 7.
 const pkgCore = readJson(join(ROOT, "src", "nodefony", "package.json")) ?? {};
+
+// Le canal d'une préversion — règle de `canalDeVersion`, jamais une regex recopiée.
+const CANAL = canalDeVersion(pkgCore.version ?? "");
+const PRERELEASE = CANAL === null || CANAL === "latest" ? undefined : CANAL;
 
 /** Un paquet publiable = un domaine du framework. */
 const collect = (dir, key) => {
@@ -530,10 +534,7 @@ const tauxDe = (nom, cle) => {
 // Une stable s'installe par la forme NUE (`npm create nodefony`) : npm revérifie
 // le registre pour un nom seul ; `@latest` ne sert qu'au dépannage d'un
 // create-nodefony installé en global. Une préversion nomme son canal.
-const CANAL_SUFFIXE = (() => {
-  const canal = canalDeVersion(pkgCore.version ?? "");
-  return canal ? `@${canal}` : "";
-})();
+const CANAL_SUFFIXE = PRERELEASE ? `@${PRERELEASE}` : "";
 
 /**
  * Les constantes d'un exemplaire, LUES dans la mesure de capacité publiée —
@@ -1163,9 +1164,6 @@ approuver sans être lu. Ce que vous lisez est produit par ce principe.`)}`,
 // mentirait le jour de la version stable — comme la ligne « pas de migration de
 // schéma » l'a fait des mois après la livraison de `orm:migrate`.
 const REPO = "https://github.com/nodefony/nodefony-core";
-// Le canal d'une préversion — règle de `canalDeVersion`, jamais une regex recopiée.
-const CANAL = canalDeVersion(pkgCore.version ?? "");
-const PRERELEASE = CANAL === null || CANAL === "latest" ? undefined : CANAL;
 
 const manques = section(
   "Ce qui manque — dit avant qu'on le demande",
@@ -1526,7 +1524,7 @@ ${ADMONITION_CSS}
       : "",
     // L'ACTION d'entrée vient sous la promesse : installer, ou se laisser guider.
     // Les outils de lecture (présentation, impression) sont rangés en fin de page.
-    `<div class="hero-cta"><code class="hero-cmd">npm create nodefony@${PRERELEASE ?? "latest"} mon-app</code><a class="hero-link" href="./docs/demarrer/">Par où commencer →</a></div>`,
+    `<div class="hero-cta"><code class="hero-cmd">npm create nodefony${CANAL_SUFFIXE} mon-app</code><a class="hero-link" href="./docs/demarrer/">Par où commencer →</a></div>`,
     // Cette page est la PORTE D'ENTRÉE du site publié : le lecteur doit y trouver
     // SA question avant la nôtre. Les cibles sont relatives — une archive vit dans un
     // sous-chemin (`next/`, `<version>/`) — et restent justes quand la page est aussi
