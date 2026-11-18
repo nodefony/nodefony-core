@@ -20,6 +20,14 @@
  * suites des paquets en parallèle, et une photo verrait les dossiers de la
  * voisine comme des fuites.
  *
+ * Une passe qui sélectionne ses cas par NOM (`-t`) ne lève pas : vitest y
+ * collecte chaque fichier — le corps des `describe` tourne, `mkdtemp` compris —
+ * mais ne joue aucun hook d'une suite dont aucun cas n'est retenu, donc pas son
+ * `afterAll`. Un reste n'y est pas imputable au test ; il est nommé, supprimé,
+ * et c'est la passe sans sélection qui le juge. Même règle que le rapporteur
+ * des cibles (`gates.ts#gateReporter`), qui écarte les attentes du paquet sous
+ * `-t` et le dit.
+ *
  * @usage globalSetup: tmpGuard()                 // dans test: { … } d'une config vitest
  * @usage globalSetup: tmpGuard(r("./autre.ts"))  // avec un globalSetup propre au paquet
  */
@@ -27,6 +35,7 @@ import { mkdtempSync, readdirSync, rmSync, statSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import type { TestProject } from "vitest/node";
 
 const SELF = fileURLToPath(import.meta.url);
 const VARS = ["TMPDIR", "TMP", "TEMP"] as const;
@@ -83,12 +92,29 @@ export function tmpGuard(...others: string[]): string[] {
 }
 
 /**
+ * Vrai quand la passe sélectionne ses cas par nom (`-t`).
+ *
+ * Lu au teardown, pas au setup : en mode surveillance, le motif change entre
+ * deux passes.
+ *
+ * @param project - le projet vitest qui a appelé le `globalSetup`.
+ * @returns vrai si un motif de nom est posé.
+ */
+function selectsByName(project: TestProject | undefined): boolean {
+  const pattern =
+    project?.vitest.config.testNamePattern ?? project?.config.testNamePattern;
+  return pattern !== undefined && pattern !== null;
+}
+
+/**
  * Pose le dossier temporaire de la passe et rend le teardown qui le contrôle.
  *
- * @returns le teardown : nomme les restes, supprime le dossier, lève s'il en restait.
+ * @param project - le projet vitest (vitest le passe à tout `globalSetup`).
+ * @returns le teardown : nomme les restes, supprime le dossier, lève s'il en
+ *   restait — sauf sous `-t`, où il avertit.
  * @throws Error au teardown, quand un test a laissé quelque chose derrière lui.
  */
-export default function setup(): () => void {
+export default function setup(project?: TestProject): () => void {
   sweepStaleRunDirs(os.tmpdir());
   const runDir = mkdtempSync(path.join(os.tmpdir(), "nf-vitest-"));
   const saved = VARS.map((v) => [v, process.env[v]] as const);
@@ -114,16 +140,25 @@ export default function setup(): () => void {
       maxRetries: 5,
       retryDelay: 200,
     });
-    if (left.length > 0) {
-      throw new Error(
-        `${left.length} entrée(s) laissée(s) dans le dossier temporaire par la passe — ` +
-          `un test crée sans supprimer (afterAll → rmSync) :\n` +
-          left
-            .slice(0, 20)
-            .map((e) => `  - ${e}`)
-            .join("\n") +
-          (left.length > 20 ? `\n  … et ${left.length - 20} autre(s)` : ""),
+    if (left.length === 0) return;
+    const listing =
+      left
+        .slice(0, 20)
+        .map((e) => `  - ${e}`)
+        .join("\n") +
+      (left.length > 20 ? `\n  … et ${left.length - 20} autre(s)` : "");
+    if (selectsByName(project)) {
+      console.warn(
+        `\n\x1b[33m○ Sélection par nom (-t) : ${left.length} entrée(s) laissée(s) ` +
+          `dans le dossier temporaire, supprimées sans être imputées — vitest ne ` +
+          `joue pas l'afterAll d'une suite dont aucun cas n'est retenu. Une passe ` +
+          `sans -t les juge :\n${listing}\x1b[0m`,
       );
+      return;
     }
+    throw new Error(
+      `${left.length} entrée(s) laissée(s) dans le dossier temporaire par la passe — ` +
+        `un test crée sans supprimer (afterAll → rmSync) :\n${listing}`,
+    );
   };
 }

@@ -1356,7 +1356,9 @@
         "src/packages/@nodefony/user/vitest.config.ts",
         "scripts/test/vitest/vitest.tooling.config.ts"
       ],
-      "testedBy": []
+      "testedBy": [
+        "scripts/gates/vitest-tmp-guard.test.mjs"
+      ]
     },
     {
       "path": "scripts/test/vitest/vitest.tooling.config.ts",
