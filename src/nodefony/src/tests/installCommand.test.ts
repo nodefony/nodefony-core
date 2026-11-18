@@ -11,6 +11,7 @@ import {
   NODE_ENGINE_LABEL,
   NODE_ENGINE_RANGE,
   npmChannelOf,
+  packageSpec,
 } from "../cli/installCommand";
 import * as barrel from "../index";
 
@@ -78,5 +79,25 @@ describe("index public", () => {
     expect(barrel.NODE_ENGINE_RANGE).toBe(NODE_ENGINE_RANGE);
     expect(barrel.NODE_ENGINE_LABEL).toBe(NODE_ENGINE_LABEL);
     expect(barrel.describeNodeRange).toBe(describeNodeRange);
+  });
+});
+
+describe("packageSpec", () => {
+  it("nomme le canal d'une préversion, pour tout paquet du framework", () => {
+    expect(packageSpec("@nodefony/http", "10.1.0-beta.2")).toBe(
+      "@nodefony/http@beta",
+    );
+    expect(packageSpec("nodefony", "10.0.0-rc.1")).toBe("nodefony@rc");
+  });
+
+  it("écrit une stable sans canal — `latest` EST sa ligne", () => {
+    expect(packageSpec("@nodefony/http", "10.0.0")).toBe("@nodefony/http");
+  });
+
+  it("est la règle de createAppCommand — une seule implémentation", () => {
+    for (const v of ["10.0.0", "10.0.0-beta.9", "10.2.0-alpha.1"])
+      expect(createAppCommand("x", v)).toBe(
+        `npm create ${packageSpec("nodefony", v)} x`,
+      );
   });
 });

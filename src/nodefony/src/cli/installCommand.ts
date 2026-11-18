@@ -71,6 +71,23 @@ export function npmChannelOf(version: string): string | null {
 }
 
 /**
+ * Spécificateur npm d'un paquet du framework pour la version donnée, canal
+ * NOMMÉ tant que c'est une préversion (`@nodefony/http@beta`), nu pour une
+ * stable — `latest` est alors la ligne de cette version.
+ *
+ * @param name - nom npm du paquet (`nodefony`, `@nodefony/http`…)
+ * @param version - version du framework ; défaut : celle du paquet qui tourne
+ * @returns le spécificateur, prêt à écrire dans une commande
+ */
+export function packageSpec(
+  name: string,
+  version: string = frameworkVersion,
+): string {
+  const channel = npmChannelOf(version);
+  return channel === null || channel === "latest" ? name : `${name}@${channel}`;
+}
+
+/**
  * Commande qui crée une application de la version donnée, canal NOMMÉ tant que
  * c'est une préversion : `npm create nodefony@beta mon-app`. Une stable
  * s'écrit sans canal, `latest` étant alors la ligne de cette version.
@@ -83,11 +100,7 @@ export function createAppCommand(
   appName: string,
   version: string = frameworkVersion,
 ): string {
-  const channel = npmChannelOf(version);
-  const spec =
-    channel === null || channel === "latest"
-      ? "nodefony"
-      : `nodefony@${channel}`;
+  const spec = packageSpec("nodefony", version);
   return appName === ""
     ? `npm create ${spec}`
     : `npm create ${spec} ${appName}`;

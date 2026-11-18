@@ -3,6 +3,7 @@ import { version } from "../../package.json";
 import { printUsage, printUsageError, type IUsagePage } from "./usageReport";
 import { SysExit } from "./sysexits";
 import { findProjectRoot } from "./projectRoot";
+import { npmChannelOf, packageSpec } from "./installCommand";
 import { stripGlobalCliFlags } from "./globalFlags";
 import { syncSkillPointers } from "./aiSync";
 import { syncEnvExample, type IEnvExampleSync } from "./env";
@@ -16,71 +17,87 @@ import {
   type IAgentsGuideRefresh,
 } from "./scaffold/engine";
 
+/**
+ * La page d'aide de `nodefony upgrade` pour une version du framework.
+ *
+ * Le canal s'y CALCULE (`packageSpec`) : écrit en dur, il affirmait encore
+ * « `latest` sert la 7 » dans l'aide de la stable.
+ *
+ * @param frameworkVersion - version du framework qui affiche l'aide
+ * @returns la page d'aide
+ */
+export function upgradeUsage(frameworkVersion: string): IUsagePage {
+  const channel = npmChannelOf(frameworkVersion);
+  const prerelease = channel !== null && channel !== "latest";
+  return {
+    command: "nodefony upgrade",
+    tagline:
+      "remet l'application au niveau de la version de Nodefony installée, " +
+      "après une montée de version",
+    sections: [
+      {
+        title: "AVANT",
+        paragraph:
+          "Monter d'abord les paquets, TOUS à la même version — ils sont " +
+          "verrouillés ensemble : `npm install nodefony@<version> " +
+          "@nodefony/<paquet>@<version>…`." +
+          (prerelease
+            ? ` Pour une préversion, le canal \`${channel}\` désigne la dernière publiée.`
+            : ""),
+      },
+      {
+        title: "CE QU'ELLE REJOUE",
+        paragraph:
+          "Quatre gestes que `npm install` ne fait pas : le bloc framework " +
+          "d'`AGENTS.md` (entre ses marqueurs — le texte autour n'est pas " +
+          "touché), les pointeurs des skills d'agent (`ai:sync`, nouveaux " +
+          "skills compris), les copies livrées par les paquets restées " +
+          "intactes (`scaffold:sync --update` ; une copie retouchée est gardée " +
+          "et nommée), et `.env.example` (`env --example`). Elle ne démarre " +
+          "pas l'application et n'installe rien.",
+      },
+      {
+        title: "FICHIERS POSÉS",
+        paragraph:
+          "Un paquet ne pose ses fichiers que si l'application en déclare " +
+          "l'usage : `@nodefony/security` pose le décor Keycloak " +
+          "(`docker/keycloak/`) parce que le `compose.yaml` le monte — y compris " +
+          "sous un profil jamais démarré. Retirer le service du compose suffit " +
+          "à ne plus le recevoir ; le rapport range chaque fichier sous son " +
+          "paquet, `+` créé, `~` rafraîchi.",
+      },
+    ],
+    options: [
+      {
+        term: "--check",
+        text: "dit ce qui est en retard sans rien écrire ; sort en 1 si quelque chose l'est",
+      },
+      { term: "--dry-run", text: "le plan, sans rien écrire (sort en 0)" },
+      { term: "--json", text: "le même rapport, exploitable par un script" },
+      {
+        term: "--cwd <chemin>",
+        text: "point de départ (la racine de l'app est résolue en remontant)",
+      },
+    ],
+    examples: [
+      {
+        term: `npm install ${packageSpec("nodefony", frameworkVersion)} ${packageSpec("@nodefony/http", frameworkVersion)} … && nodefony upgrade`,
+        text: "monter de version, puis remettre l'application au niveau",
+      },
+      {
+        term: "nodefony upgrade --check",
+        text: "en intégration continue : refuser une app en retard sur ses paquets",
+      },
+    ],
+    exitCodes: [
+      { term: "1", text: "en retard (--check), ou une contribution a échoué" },
+      { term: "66", text: "aucune application ici (EX_NOINPUT)" },
+    ],
+  };
+}
+
 /** La page d'aide — `nodefony upgrade --help`, et le rappel après un refus. */
-export const UPGRADE_USAGE: IUsagePage = {
-  command: "nodefony upgrade",
-  tagline:
-    "remet l'application au niveau de la version de Nodefony installée, " +
-    "après une montée de version",
-  sections: [
-    {
-      title: "AVANT",
-      paragraph:
-        "Monter d'abord les paquets, TOUS à la même version — ils sont " +
-        "verrouillés ensemble : `npm install nodefony@<version> " +
-        "@nodefony/<paquet>@<version>…`. Pendant la série 10, le tag `beta` " +
-        "désigne la dernière préversion ; `latest` sert encore l'ancienne " +
-        "lignée 7.",
-    },
-    {
-      title: "CE QU'ELLE REJOUE",
-      paragraph:
-        "Quatre gestes que `npm install` ne fait pas : le bloc framework " +
-        "d'`AGENTS.md` (entre ses marqueurs — le texte autour n'est pas " +
-        "touché), les pointeurs des skills d'agent (`ai:sync`, nouveaux " +
-        "skills compris), les copies livrées par les paquets restées " +
-        "intactes (`scaffold:sync --update` ; une copie retouchée est gardée " +
-        "et nommée), et `.env.example` (`env --example`). Elle ne démarre " +
-        "pas l'application et n'installe rien.",
-    },
-    {
-      title: "FICHIERS POSÉS",
-      paragraph:
-        "Un paquet ne pose ses fichiers que si l'application en déclare " +
-        "l'usage : `@nodefony/security` pose le décor Keycloak " +
-        "(`docker/keycloak/`) parce que le `compose.yaml` le monte — y compris " +
-        "sous un profil jamais démarré. Retirer le service du compose suffit " +
-        "à ne plus le recevoir ; le rapport range chaque fichier sous son " +
-        "paquet, `+` créé, `~` rafraîchi.",
-    },
-  ],
-  options: [
-    {
-      term: "--check",
-      text: "dit ce qui est en retard sans rien écrire ; sort en 1 si quelque chose l'est",
-    },
-    { term: "--dry-run", text: "le plan, sans rien écrire (sort en 0)" },
-    { term: "--json", text: "le même rapport, exploitable par un script" },
-    {
-      term: "--cwd <chemin>",
-      text: "point de départ (la racine de l'app est résolue en remontant)",
-    },
-  ],
-  examples: [
-    {
-      term: "npm install nodefony@beta @nodefony/http@beta … && nodefony upgrade",
-      text: "monter de version, puis remettre l'application au niveau",
-    },
-    {
-      term: "nodefony upgrade --check",
-      text: "en intégration continue : refuser une app en retard sur ses paquets",
-    },
-  ],
-  exitCodes: [
-    { term: "1", text: "en retard (--check), ou une contribution a échoué" },
-    { term: "66", text: "aucune application ici (EX_NOINPUT)" },
-  ],
-};
+export const UPGRADE_USAGE: IUsagePage = upgradeUsage(version);
 
 /** Fichiers livrés listés à l'écran avant de résumer le reste. */
 const SHOWN_FILES = 8;

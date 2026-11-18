@@ -26,6 +26,7 @@ import {
   isUpgradePending,
   parseUpgradeArgv,
   renderUpgrade,
+  upgradeUsage,
   type IUpgradeReport,
 } from "../cli/upgrade";
 import { checkAgentsGuide } from "../kernel/checks/freshness";
@@ -319,5 +320,25 @@ describe("lignes de commande", () => {
     assert.ok(!("error" in opts) && opts.path);
     assert.ok(existsSync(manPagePath()), manPagePath());
     assert.ok("error" in parseManArgv(["node", "nodefony", "man", "--bogus"]));
+  });
+});
+
+describe("upgradeUsage — l'aide se calcule depuis la version", () => {
+  const texte = (v: string): string => JSON.stringify(upgradeUsage(v));
+
+  it("🔴 n'affirme rien d'un canal pour une stable — ni `@beta`, ni « latest sert la 7 »", () => {
+    const aide = texte("10.0.0");
+    assert.ok(!aide.includes("@beta"), aide);
+    assert.ok(!aide.includes("latest"), aide);
+    assert.ok(aide.includes("npm install nodefony @nodefony/http"), aide);
+  });
+
+  it("nomme le canal d'une préversion, dans l'exemple comme dans le texte", () => {
+    const aide = texte("10.1.0-beta.2");
+    assert.ok(
+      aide.includes("npm install nodefony@beta @nodefony/http@beta"),
+      aide,
+    );
+    assert.ok(aide.includes("le canal `beta`"), aide);
   });
 });
