@@ -1581,6 +1581,38 @@ export function canauxEnArriere(etats, estPlusRecente) {
 }
 
 /**
+ * La version que porte une image publiée, lue sur son étiquette OCI
+ * `org.opencontainers.image.version`.
+ *
+ * Prend la sortie de `docker buildx imagetools inspect <ref> --format
+ * "{{json .Image}}"` : un index multi-plateforme y rend une table plateforme →
+ * configuration, une image seule rend sa configuration. C'est ce qui permet de
+ * traiter une étiquette d'image (`:beta`) comme un dist-tag npm : on y lit la
+ * version qu'elle sert, puis {@link canauxEnArriere} tranche, la même règle
+ * pour les deux registres.
+ *
+ * @param image - la configuration rendue par `imagetools inspect`
+ * @returns la version, ou `null` si aucune variante ne la porte
+ * @throws Si deux variantes d'un même index portent des versions différentes —
+ *   un index incohérent ne se recale pas au hasard de l'ordre des plateformes.
+ */
+export function imageVersionFromInspect(image) {
+  if (image === null || typeof image !== "object") return null;
+  const configs = "config" in image ? [image] : Object.values(image);
+  const versions = new Set();
+  for (const c of configs) {
+    const v = c?.config?.Labels?.["org.opencontainers.image.version"];
+    if (typeof v === "string" && v !== "") versions.add(v);
+  }
+  if (versions.size > 1) {
+    throw new Error(
+      `index incohérent : ses variantes portent ${[...versions].join(", ")}`,
+    );
+  }
+  return versions.size === 1 ? [...versions][0] : null;
+}
+
+/**
  * Déplie la sortie JSON de `npm view` : l'enveloppe éventuelle (cf
  * {@link lireVueNpm}) aplatie en une liste.
  *

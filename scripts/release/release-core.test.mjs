@@ -28,6 +28,7 @@ import {
   PAQUETS_HISTORIQUES,
   depreciationsAFaire,
   canauxEnArriere,
+  imageVersionFromInspect,
   latestsRestesEnArriere,
   lireDistTags,
   lireVueNpm,
@@ -1819,6 +1820,61 @@ describe("lireDistTags", () => {
     });
     expect(lireDistTags("npm ERR! E404")).toBeNull();
     expect(lireDistTags("")).toBeNull();
+  });
+});
+
+describe("imageVersionFromInspect", () => {
+  const config = (version) => ({
+    architecture: "amd64",
+    os: "linux",
+    config: {
+      Labels:
+        version === undefined
+          ? {}
+          : { "org.opencontainers.image.version": version },
+    },
+  });
+
+  it("lit la version d'un index multi-plateforme (table plateforme → configuration)", () => {
+    expect(
+      imageVersionFromInspect({
+        "linux/amd64": config("10.0.0-beta.9"),
+        "linux/arm64": config("10.0.0-beta.9"),
+      }),
+    ).toBe("10.0.0-beta.9");
+  });
+
+  it("lit la version d'une image seule", () => {
+    expect(imageVersionFromInspect(config("10.0.0"))).toBe("10.0.0");
+  });
+
+  it("rend null quand aucune variante ne porte l'étiquette", () => {
+    expect(imageVersionFromInspect({ "linux/amd64": config() })).toBeNull();
+    expect(imageVersionFromInspect(null)).toBeNull();
+  });
+
+  it("refuse un index dont les variantes divergent, plutôt que trancher au hasard", () => {
+    expect(() =>
+      imageVersionFromInspect({
+        "linux/amd64": config("10.0.0"),
+        "linux/arm64": config("10.0.0-beta.9"),
+      }),
+    ).toThrow(/incohérent/);
+  });
+
+  it("à la stable, ses canaux de préversion lus dans le registre sont recalés sur elle", () => {
+    const distTags = {
+      latest: "10.0.0",
+      beta: imageVersionFromInspect({ "linux/amd64": config("10.0.0-beta.9") }),
+      alpha: imageVersionFromInspect({
+        "linux/amd64": config("10.0.0-beta.9"),
+      }),
+    };
+    expect(
+      canauxEnArriere([{ nom: "nodefony/nodefony", distTags }], (a, b) =>
+        semver.gt(a, b),
+      ).map((c) => `${c.tag}→${c.vers}`),
+    ).toEqual(["alpha→10.0.0", "beta→10.0.0"]);
   });
 });
 

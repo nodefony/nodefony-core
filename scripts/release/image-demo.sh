@@ -416,3 +416,11 @@ for depot in "${depots[@]}"; do
   fi
   echo "::notice::${depot}:${v} et :${mobile} (${attendu}) — ${platforms}"
 done
+
+# LES CANAUX DE PRÉVERSION SUIVENT, en dernier : la même règle que les
+# dist-tags npm (`canauxEnArriere`), lue dans le registre, pas recopiée ici.
+# Sans elle, la 10.0.0 laissait `:beta` sur la `10.0.0-beta.9`.
+for depot in "${depots[@]}"; do
+  node "$root/scripts/release/image-channels.mjs" \
+    --depot "$depot" --version "$v" --mobile "$mobile"
+done

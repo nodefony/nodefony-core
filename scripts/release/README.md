@@ -170,13 +170,21 @@ Le contrôle de la page Docker Hub, éprouvé SANS réseau.
 - **Lancé par** : `npm run test:release`
 - **Utilise** : `release/hub-description.mjs`
 
+## [`image-channels.mjs`](image-channels.mjs)
+
+Recale les étiquettes de préversion d'une image (`alpha`, `beta`, `rc`) restées DERRIÈRE la version qui vient d'être publiée.
+
+- **Usage** : `node scripts/release/image-channels.mjs --depot <dépôt> --version <v> --mobile <étiquette> [--dry-run]`
+- **Appelé par** : `release/image-demo.sh`
+- **Utilise** : `release/release-core.mjs`
+
 ## [`image-demo.sh`](image-demo.sh)
 
 Construit, ÉPROUVE puis (option) publie l'image de démonstration `nodefony/nodefony` pour CHAQUE plateforme demandée.
 
 - **Usage** : `bash scripts/release/image-demo.sh --version <v> --revision <sha> [--platforms <liste>] [--push --canal <canal>]`
 - **Appelé par** : `npm run release:image` · `release.yml`
-- **Utilise** : `release/image-gate.mjs` · `release/image-labels-gate.mjs`
+- **Utilise** : `release/image-channels.mjs` · `release/image-gate.mjs` · `release/image-labels-gate.mjs`
 
 ## [`image-gate.mjs`](image-gate.mjs)
 
@@ -258,7 +266,7 @@ La confrontation des README publiés, éprouvée SANS npm ni réseau.
 release-core.mjs — le RAISONNEMENT d'une release, sans aucune entrée/sortie.
 
 - **Usage** : `import { validerVersion, comparerVersions, SEMVER } from "./release-core.mjs"`
-- **Appelé par** : `.claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs` · `.claude/skills/nodefony-devkit-bench/scripts/lib/decor-source.mjs` · `release/attendre-ci.mjs` · `release/compat.mjs` · `release/pack-all.mjs` · `release/release.mjs` · `site/readme-html.mjs`
+- **Appelé par** : `.claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs` · `.claude/skills/nodefony-devkit-bench/scripts/lib/decor-source.mjs` · `release/attendre-ci.mjs` · `release/compat.mjs` · `release/image-channels.mjs` · `release/pack-all.mjs` · `release/release.mjs` · `site/readme-html.mjs`
 - **Testé par** : `release/release-core.test.mjs`
 
 ## [`release-core.test.mjs`](release-core.test.mjs)

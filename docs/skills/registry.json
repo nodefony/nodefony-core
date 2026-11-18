@@ -2683,6 +2683,21 @@
       "testedBy": []
     },
     {
+      "path": "scripts/release/image-channels.mjs",
+      "test": false,
+      "purpose": "Recale les étiquettes de préversion d'une image (`alpha`, `beta`, `rc`) restées DERRIÈRE la version qui vient d'être publiée.",
+      "usage": [
+        "node scripts/release/image-channels.mjs --depot <dépôt> --version <v> --mobile <étiquette> [--dry-run]"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/release/image-demo.sh"
+      ],
+      "testedBy": []
+    },
+    {
       "path": "scripts/release/image-demo.sh",
       "test": false,
       "purpose": "Construit, ÉPROUVE puis (option) publie l'image de démonstration `nodefony/nodefony` pour CHAQUE plateforme demandée.",
@@ -2866,6 +2881,7 @@
         ".claude/skills/nodefony-devkit-bench/scripts/lib/decor-source.mjs",
         "scripts/release/attendre-ci.mjs",
         "scripts/release/compat.mjs",
+        "scripts/release/image-channels.mjs",
         "scripts/release/pack-all.mjs",
         "scripts/release/release.mjs",
         "scripts/site/readme-html.mjs"
