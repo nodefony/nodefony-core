@@ -1,1 +1,1 @@
-Nodefony, framework Node.js fullstack HTTP + WebSocket — une application complète, prête à essayer
+Nodefony, framework Node.js fullstack HTTP + WebSocket — application complète, prête à essayer

@@ -42,11 +42,18 @@ describe("controlerPage", () => {
   it("refuse au-delà de la limite de la spec, plutôt que de laisser tronquer", () => {
     const refus = controlerPage("x".repeat(MAX_LONGUE + 1));
     expect(refus).toHaveLength(1);
-    expect(refus[0]).toContain("tronquée");
+    expect(refus[0]).toContain("refusée");
   });
 
   it("accepte tout juste la limite", () => {
     expect(controlerPage("x".repeat(MAX_LONGUE))).toEqual([]);
+  });
+
+  it("compte la page en OCTETS UTF-8 — une page française dépasse avant ses caractères", () => {
+    // 12 500 « é » : 12 500 caractères, 25 000 octets — accepté tout juste ;
+    // un de plus, et l'API refuse, alors qu'un compte en caractères le laisserait partir.
+    expect(controlerPage("é".repeat(MAX_LONGUE / 2))).toEqual([]);
+    expect(controlerPage("é".repeat(MAX_LONGUE / 2) + "x")).toHaveLength(1);
   });
 
   it("porte les bornes de la spec officielle, pas des valeurs devinées", () => {
@@ -68,12 +75,15 @@ describe("controlerCourte", () => {
     expect(controlerCourte("un\ndeux")[0]).toContain("plusieurs lignes");
   });
 
-  it("compte en caractères, pas en unités UTF-16", () => {
-    // 100 tirets cadratins : 100 caractères, et 100 unités UTF-16 aussi —
-    // c'est l'emoji qui départage, deux unités pour un caractère.
-    expect(controlerCourte("—".repeat(MAX_COURTE))).toEqual([]);
-    expect(controlerCourte("🐳".repeat(MAX_COURTE))).toEqual([]);
+  it("compte en OCTETS UTF-8, comme l'API — pas en caractères", () => {
+    // Constaté à la 10.0.0-beta.9 : 98 caractères refusés par Docker Hub,
+    // « Exceeded max number of bytes 100 - actual 103 ». `—` pèse 3 octets.
+    expect(controlerCourte("x".repeat(MAX_COURTE))).toEqual([]);
     expect(controlerCourte("x".repeat(MAX_COURTE + 1))).toHaveLength(1);
+    expect(controlerCourte("—".repeat(34))).toHaveLength(1); // 34 car., 102 octets
+    expect(controlerCourte("—".repeat(33) + "x")).toEqual([]); // 100 octets
+    expect(controlerCourte("🐳".repeat(25))).toEqual([]); // 25 car., 100 octets
+    expect(controlerCourte("🐳".repeat(26))[0]).toContain("104 octets");
   });
 });
 

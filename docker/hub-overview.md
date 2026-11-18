@@ -401,12 +401,12 @@ CI générée éprouve `linux/amd64`, et `linux/arm64` sur un runner ARM natif s
 
 # Étiquettes disponibles
 
-| Étiquette                            | Ce qu'elle désigne                                                                   |
-| ------------------------------------ | ------------------------------------------------------------------------------------ |
-| `10.0.0-beta.9`                      | une publication précise, toutes architectures — c'est celle à figer en CI            |
-| `beta`                               | la dernière préversion du canal `beta` (mobile)                                      |
-| `<version>-amd64`, `<version>-arm64` | une seule architecture d'une publication, pour qui doit la désigner explicitement    |
-| `alpha`                              | l'ancien canal, arrêté sur la dernière alpha, antérieure à toute bêta — à abandonner |
+| Étiquette                            | Ce qu'elle désigne                                                                |
+| ------------------------------------ | --------------------------------------------------------------------------------- |
+| `10.0.0-beta.9`                      | une publication précise, toutes architectures — c'est celle à figer en CI         |
+| `beta`                               | la dernière préversion du canal `beta` (mobile)                                   |
+| `<version>-amd64`, `<version>-arm64` | une seule architecture d'une publication, pour qui doit la désigner explicitement |
+| `alpha`                              | l'ancien canal, recalé sur la même image que `beta` — préférer `beta`             |
 
 `10.0.0-beta.9` et `beta` sont des **index multi-plateformes** : `docker pull`
 choisit seul la variante de la machine. Chaque variante est démarrée et contrôlée

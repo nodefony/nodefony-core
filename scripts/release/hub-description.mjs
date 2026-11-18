@@ -77,6 +77,11 @@ const SOURCE_COURTE =
  * erreurs explicites : au-delà, l'API tronque ou refuse selon le champ — donc on
  * refuse AVANT d'envoyer, pour que l'échec nomme sa cause au lieu de produire une
  * page coupée au milieu d'une phrase.
+ *
+ * 🔴 En OCTETS UTF-8, jamais en caractères : l'API compte des octets — constaté à
+ * la 10.0.0-beta.9, « Exceeded max number of bytes 100 - actual 103 » sur une
+ * ligne de 98 caractères (`—` pèse 3 octets, `è` et `ê` 2). La page longue se
+ * compte de même : plus strict que des caractères, jamais plus laxiste.
  */
 const MAX_LONGUE = 25_000;
 const MAX_COURTE = 100;
@@ -94,9 +99,10 @@ function controlerPage(page) {
   if (page.trim().length === 0) {
     refus.push("la page est vide — Docker Hub afficherait « INCOMPLETE »");
   }
-  if (page.length > MAX_LONGUE) {
+  const octets = Buffer.byteLength(page, "utf8");
+  if (octets > MAX_LONGUE) {
     refus.push(
-      `${page.length} caractères, au-delà des ${MAX_LONGUE} acceptés : la page serait tronquée`,
+      `${octets} octets, au-delà des ${MAX_LONGUE} acceptés : la page serait refusée`,
     );
   }
   return refus;
@@ -123,12 +129,11 @@ function controlerCourte(courte) {
       "la description courte tient sur plusieurs lignes — Docker Hub n'en affiche qu'une",
     );
   }
-  // En POINTS DE CODE, pas en unités UTF-16 : « — » compte pour un, comme
-  // dans la limite de l'API ; un emoji compterait pour deux en `.length`.
-  const longueur = [...courte].length;
-  if (longueur > MAX_COURTE) {
+  // En OCTETS UTF-8, comme l'API (cf. MAX_COURTE) : « — » en pèse trois.
+  const octets = Buffer.byteLength(courte, "utf8");
+  if (octets > MAX_COURTE) {
     refus.push(
-      `description courte de ${longueur} caractères, au-delà des ${MAX_COURTE} acceptés`,
+      `description courte de ${octets} octets, au-delà des ${MAX_COURTE} acceptés`,
     );
   }
   return refus;
