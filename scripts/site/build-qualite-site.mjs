@@ -131,7 +131,7 @@ function rendre(d) {
         },
       ]) +
         note(
-          `Les étages se <strong>recouvrent</strong> — C1 rejoue le socle avec des interrupteurs ouverts. ` +
+          `Les étages se <strong>recouvrent</strong> — plusieurs rejouent tout ou partie du socle. ` +
             `Ces chiffres sont donc ceux du passage le plus large, jamais une somme : additionner compterait trois fois la même suite. ` +
             `Et un total ne dit rien seul — <strong>${fmt.int(totalSautes)} cas n'ont pas tourné</strong> sur ce seul passage, ` +
             `un cas sauté comptant comme vert. Ce que la campagne n'a pas éprouvé est en bas de page, au même rang que le reste.`,
@@ -241,13 +241,16 @@ function rendre(d) {
   );
 
   // ── Mémoire : le gate qui bloque un commit ───────────────────────────────
+  // L'unité appartient à la campagne : le gate a changé de grandeur (MB retenus
+  // après la charge, puis octets retenus PAR UNITÉ de travail).
+  const unite = d.memoireUnite ?? "MB";
   sections.push(
     section(
       "Seuils mémoire",
       figure(
         couple(bars, {
           horizontal: true,
-          axeValeur: "MB retenus",
+          axeValeur: `${unite} retenus`,
           decimales: true,
           largeur: 900,
           series: [
@@ -257,14 +260,14 @@ function rendre(d) {
         }),
         {
           titre: "Mémoire retenue face au seuil bloquant",
-          desc: "MB retenus après la charge ; un dépassement bloque le commit",
+          desc: `${unite} retenus ; un dépassement bloque le commit`,
         },
       ) +
         table(
           [
             { label: "Cas", strong: true },
-            { label: "Mesuré (MB)", align: "right" },
-            { label: "Seuil (MB)", align: "right" },
+            { label: `Mesuré (${unite})`, align: "right" },
+            { label: `Seuil (${unite})`, align: "right" },
             { label: "Marge", align: "right" },
           ],
           d.memoire.map((m) => [
@@ -333,65 +336,59 @@ function rendre(d) {
     ),
   );
 
-  // ── Le soak : la seule chose qu'une pente montre et qu'un nombre cache ───
-  const couleurs = [COLORS.blue, COLORS.amber, COLORS.green];
-  const sRss = Object.entries(d.soak).map(([k, v], i) => ({
-    label: `${k} — RSS`,
-    color: couleurs[i % couleurs.length],
-    points: v.map((p) => ({ x: p.w, y: p.rss })),
-  }));
-  const sHeap = Object.entries(d.soak).map(([k, v], i) => ({
-    label: `${k} — tas V8`,
-    color: couleurs[i % couleurs.length],
-    points: v.map((p) => ({ x: p.w, y: p.heap })),
-  }));
-
-  sections.push(
-    section(
-      "Tenue dans la durée — la pente que le nombre cache",
-      note(
-        "Trois runs, trois décors. Le <strong>tas V8 reste plat</strong> et les handles ne bougent pas : " +
-          "ce n'est pas une fuite d'objets. Le <strong>RSS</strong> monte, mais ce compteur est trompeur sous macOS — " +
-          "il inclut les pages que l'allocateur a déjà rendues au noyau. Mesurée à part, " +
-          "l'<strong>empreinte système</strong> reste plate (164 → 164 MB sur 29 fenêtres), et " +
-          "<code>leaks</code> ne trouve que 3 Ko sur 20,7 millions de requêtes.",
-      ) +
-        lineChart(sRss, {
-          xLabel: "fenêtre",
-          yLabel: "mémoire résidente `rss` (MB)",
-        }) +
-        lineChart(sHeap, { xLabel: "fenêtre", yLabel: "tas V8 (MB)" }) +
-        table(
-          [
-            { label: "Run", strong: true },
-            { label: "Durée retenue" },
-            { label: "Décor" },
-            { label: "Tas" },
-            { label: "Handles" },
-            { label: "Verdict du banc" },
-          ],
-          d.soakVerdicts.map((v) => [
-            esc(v.run),
-            esc(v.duree),
-            esc(v.decor),
-            esc(v.tas),
-            esc(v.handles),
-            esc(v.verdict),
-          ]),
-          { id: "soak" },
-        ) +
-        warn(
-          "Deux réserves, et la seconde annule la conclusion que ces courbes semblaient porter. " +
-            "<strong>(1)</strong> La chute finale du troisième run n'est PAS une mesure : le serveur s'est arrêté à " +
-            "l'échéance de sa dérogation aux modules de développement, et le banc a moyenné cette mort dans sa " +
-            "régression — d'où un « plateau » qui n'existe pas. " +
-            "<strong>(2)</strong> Ces trois runs n'ont relevé que <code>rss</code>. Sous macOS, ce compteur inclut " +
-            "les pages que l'allocateur a déjà rendues au noyau ; mesuré depuis sur le même décor, il s'agit de " +
-            "<strong>93 % de la hausse</strong>. L'empreinte réelle du processus, elle, ne bouge pas. " +
-            "Ces courbes montrent donc un compteur qui monte, pas une mémoire qui se consomme.",
-        ),
-    ),
-  );
+  // ── La tenue : la seule chose qu'une pente montre et qu'un nombre cache ──
+  // Les séries quand la campagne a joué son soak ; sinon le renvoi à celle qui
+  // l'a fait, écrit dans les données. La lecture des courbes appartient à SES
+  // runs : elle vit dans les données (`soakNote`, `soakReserve`), jamais ici —
+  // écrite dans le code, elle décrirait les runs d'une autre campagne.
+  if (d.soak) {
+    const couleurs = [COLORS.blue, COLORS.amber, COLORS.green];
+    const sRss = Object.entries(d.soak).map(([k, v], i) => ({
+      label: `${k} — RSS`,
+      color: couleurs[i % couleurs.length],
+      points: v.map((p) => ({ x: p.w, y: p.rss })),
+    }));
+    const sHeap = Object.entries(d.soak).map(([k, v], i) => ({
+      label: `${k} — tas V8`,
+      color: couleurs[i % couleurs.length],
+      points: v.map((p) => ({ x: p.w, y: p.heap })),
+    }));
+    sections.push(
+      section(
+        "Tenue dans la durée — la pente que le nombre cache",
+        (d.soakNote ? note(d.soakNote) : "") +
+          lineChart(sRss, {
+            xLabel: "fenêtre",
+            yLabel: "mémoire résidente `rss` (MB)",
+          }) +
+          lineChart(sHeap, { xLabel: "fenêtre", yLabel: "tas V8 (MB)" }) +
+          table(
+            [
+              { label: "Run", strong: true },
+              { label: "Durée retenue" },
+              { label: "Décor" },
+              { label: "Tas" },
+              { label: "Handles" },
+              { label: "Verdict du banc" },
+            ],
+            (d.soakVerdicts ?? []).map((v) => [
+              esc(v.run),
+              esc(v.duree),
+              esc(v.decor),
+              esc(v.tas),
+              esc(v.handles),
+              esc(v.verdict),
+            ]),
+            { id: "soak" },
+          ) +
+          (d.soakReserve ? warn(d.soakReserve) : ""),
+      ),
+    );
+  } else if (d.tenue) {
+    sections.push(
+      section("Tenue dans la durée", note(d.tenue), { break: "avoid" }),
+    );
+  }
 
   // ── Ce qui n'a PAS été éprouvé — au même rang que le reste ───────────────
   sections.push(
@@ -439,6 +436,7 @@ function rendre(d) {
     data: d,
     footer:
       `Campagne du ${esc(d.campagne)} — ${esc(d.decor.machine)}, ${esc(d.decor.ram)}, ${esc(d.decor.os)}, Node ${esc(d.decor.node)}.<br>` +
+      (d.commit ? `Code éprouvé : ${esc(d.commit)}.<br>` : "") +
       `Infrastructure exercée : ${d.decor.infra.map(esc).join(" · ")}.<br>` +
       `Protocole : skill <code>nodefony-test-campaign</code>. Page rendue par <code>node scripts/site/build-qualite-site.mjs</code>.` +
       printButton(),

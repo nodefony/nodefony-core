@@ -1,18 +1,22 @@
 {
   "version": "10.0.0",
-  "campagne": "2026-09-06",
+  "campagne": "2026-11-18",
+  "commit": "code produit du tag 10.0.0-beta.9 (f4f418143), inchangé jusqu'au dernier étage — A, B, C1b, C1c, C2, E, G sur 1ce03550 ; C1, C3, D, F sur c73fef94c → 3b771e248 (outillage de test seul)",
   "decor": {
     "machine": "Intel(R) Core(TM) i9-8950HK CPU @ 2.90GHz — 12 cœurs logiques",
     "ram": "32 Go",
     "os": "Darwin 24.6.0",
-    "node": "v26.8.1",
+    "node": "v26.13.1",
     "note": "Hyperviseur actif pendant la campagne (Docker Desktop, 8 vCPU réservés sur 12) — les ABSOLUS ne sont pas transposables, les comparaisons intra-fenêtre le sont.",
     "infra": [
       "PostgreSQL",
       "MySQL/MariaDB",
       "MySQL Community",
       "Redis",
-      "MongoDB (replica set)"
+      "MongoDB (replica set)",
+      "Loki",
+      "OpenSearch",
+      "Keycloak"
     ]
   },
   "etages": [
@@ -20,45 +24,67 @@
       "id": "A",
       "nom": "Non-régression + dialectes",
       "commande": "npm run test:all -- --dialects",
-      "passes": 11701,
-      "echecs": 1,
-      "sautes": 249,
-      "duree": "9,8 min",
+      "passes": 21347,
+      "echecs": 0,
+      "sautes": 320,
+      "duree": "16 min",
       "verdict": "vert",
-      "note": "L unique rouge est un flake de saturation : 15/15 en 2,4 s isolé."
+      "note": "8/8 cibles d'infrastructure exercées. Unitaire 17 452, intégration 1 570, ORM rejoué sur MySQL Community 2 325 ; gRPC Connect et h2spec verts."
     },
     {
       "id": "B",
       "nom": "Charge + mémoire",
       "commande": "npm run test:all -- --load",
-      "passes": 10147,
+      "passes": 19107,
       "echecs": 0,
-      "sautes": 177,
-      "duree": "3,4 min",
+      "sautes": 207,
+      "duree": "8 min",
       "verdict": "vert",
-      "note": "Gate mémoire 9/9, marges ×10 à ∞."
+      "note": "Gate mémoire 36/36 sous le seuil. Charge 62, cluster e2e 23, intégration 1 570 (l'unitaire, déjà exécutée par A sur le même commit, est rejouée du cache)."
     },
     {
       "id": "C1",
-      "nom": "Interrupteurs perf / boots CLI / cluster",
-      "commande": "NF_RUN_PERF=1 NF_RUN_CLI_BOOT=1 NF_RUN_CLUSTER_E2E=1 npm run test:all",
-      "passes": 10217,
-      "echecs": 9,
-      "sautes": 61,
-      "duree": "13,8 min",
+      "nom": "Micro-bancs de performance",
+      "commande": "NF_RUN_PERF=1 vitest run, paquet par paquet",
+      "passes": 6895,
+      "echecs": 1,
+      "sautes": 38,
+      "duree": "2 min",
       "verdict": "instruit",
-      "note": "114 tests de plus exercés. Les 9 rouges sont tous du décor, verts en isolé."
+      "note": "Joué seul, machine au repos. L'unique rouge est de saturation (vitest parallélise 354 fichiers) : 3/3 vert isolé, et les 24 micro-bancs du cœur verts seuls sur un worker."
+    },
+    {
+      "id": "C1b",
+      "nom": "Cluster e2e",
+      "commande": "NF_RUN_CLUSTER_E2E=1 npm run test:cluster",
+      "passes": 23,
+      "echecs": 0,
+      "sautes": 1,
+      "duree": "1 min",
+      "verdict": "vert",
+      "note": "Cluster sur Redis (Hub + RedisBackplane) et codec CBOR sur un vrai serveur WebSocket."
+    },
+    {
+      "id": "C1c",
+      "nom": "Boot réel de la CLI",
+      "commande": "npm run test:boot",
+      "passes": 6877,
+      "echecs": 0,
+      "sautes": 26,
+      "duree": "4 min",
+      "verdict": "vert",
+      "note": "354 fichiers, Loki et OpenSearch compris ; serveur de développement éteint."
     },
     {
       "id": "C2",
       "nom": "Sondes de rupture WebSocket",
       "commande": "run.sh load --rupture",
-      "passes": 7,
+      "passes": 8,
       "echecs": 0,
-      "sautes": 22,
-      "duree": "2,1 min",
+      "sautes": 0,
+      "duree": "~3 min",
       "verdict": "vert",
-      "note": "Plafond 8 000 sockets ; 100 000 frames sans perte."
+      "note": "Plafond de connexions et rafales de trames, serveur de développement démarré."
     },
     {
       "id": "C3",
@@ -67,895 +93,349 @@
       "passes": 15,
       "echecs": 0,
       "sautes": 0,
-      "duree": "1,8 min",
+      "duree": "~2 min",
       "verdict": "vert",
-      "note": "PostgreSQL, MariaDB, MongoDB arrêtés et relancés ; bascule de primaire comprise."
+      "note": "PostgreSQL et MariaDB (drizzle, 7), MongoDB en replica set (mongoose, 8) arrêtés puis relancés ; conteneurs rendus sains."
     },
     {
       "id": "D",
       "nom": "Bancs e2e et de mesure",
       "commande": "par lots (catalogue nodefony-load-test)",
-      "passes": 33,
+      "passes": 29,
       "echecs": 0,
       "sautes": 0,
-      "duree": "~25 min",
-      "verdict": "vert",
-      "note": "20 bancs e2e + 13 bancs de mesure, après correction de 4 décors mal classés."
+      "duree": "~30 min",
+      "verdict": "instruit",
+      "note": "29 bancs en 4 lots, destructeurs en dernier. 5 rouges, tous d'instrument, corrigés en route et rejoués verts."
     },
     {
       "id": "E",
       "nom": "Ce que le scaffold produit",
       "commande": "verify-generated.mjs --keep puis verify-runtime.mjs",
       "passes": 2,
-      "echecs": 1,
+      "echecs": 0,
       "sautes": 0,
-      "duree": "~12 min",
-      "verdict": "instruit",
-      "note": "Vérité et conformité (3 étages) vertes. Le contrôle de FORMAT est cassé et orphelin → #215."
+      "duree": "5 min",
+      "verdict": "vert",
+      "note": "Code généré conforme, application générée démarrée : /livez et /readyz en 200."
     },
     {
       "id": "F",
       "nom": "Multi-pods",
       "commande": "setup.sh puis run.sh + matrice d attaque",
-      "passes": 9,
-      "echecs": 3,
+      "passes": 8,
+      "echecs": 1,
       "sautes": 0,
       "duree": "~15 min",
       "verdict": "instruit",
-      "note": "Attaque du bus 5/5 et 4 mesures vertes. Les 3 bancs de pod face à leur base exigent une base adoptée → #216."
+      "note": "Attaque du bus 5/5 (refus constatés aux compteurs) et 3 mesures vertes. Le banc de présence rougit sur une attente périmée → #791."
     },
     {
       "id": "G",
       "nom": "Chaîne de publication",
       "commande": "npm run release:pack puis release:smoke",
-      "passes": 3,
+      "passes": 13,
       "echecs": 0,
       "sautes": 0,
-      "duree": "~8 min",
+      "duree": "39 min",
       "verdict": "vert",
-      "note": "15 tarballs ; 3 scénarios (base, front, studio) prouvés depuis une image vierge."
+      "note": "16 tarballs, types 16/16 ; 13 scénarios depuis une image vierge (base, cluster, edge, front, global, bun, pnpm, yarn, MariaDB, MySQL, PostgreSQL, studio)."
     }
   ],
   "rouges": [
     {
-      "n": 7,
-      "ou": "@nodefony/realtime — clusterIpc.e2e ×5, redisCluster.e2e ×2",
-      "symptome": "worker fork: ready timeout (5 s / 6 s)",
+      "n": 1,
+      "ou": "nodefony (cœur) — Injector, micro-banc de performance",
+      "symptome": "10 000 instantiations sans DI < 200ms — 299 ms",
       "cause": "saturation",
-      "preuve": "5/5 puis 2/2 verts en isolé ; fan-out Redis mesuré p50 53 ms / p99 60 ms."
+      "preuve": "3/3 vert isolé ; les 24 micro-bancs du cœur verts seuls sur un worker."
     },
     {
-      "n": 1,
-      "ou": "@nodefony/drizzle — migrate-adopt",
-      "symptome": "timeout 20 s puis ENOTEMPTY au retry",
-      "cause": "saturation",
-      "preuve": "vert isolé en 1 054 ms."
-    },
-    {
-      "n": 1,
-      "ou": "@nodefony/http — session-revocation",
-      "symptome": "garde-fou de pagination : expected 60 to be below 60",
-      "cause": "état partagé",
-      "preuve": "5 816 sessions résiduelles dans Redis ; après purge, 7/7 en 571 ms contre 48 539 ms."
-    },
-    {
-      "n": 1,
-      "ou": "racine — format:scaffold",
-      "symptome": "npm error 404 sur @nodefony/devkit",
-      "cause": "instrument",
-      "preuve": "génère sans installer depuis les tarballs ; branché dans aucun workflow. → #215"
-    },
-    {
-      "n": 3,
-      "ou": "multi-pods — db-outage / db-readiness / db-persistance",
-      "symptome": "NF_MIGRATE_BASELINE_REQUIRED",
+      "n": 2,
+      "ou": "campagne de nuit — étages C1b et G",
+      "symptome": "rouges de décor ; A et B creux (cibles non exercées)",
       "cause": "décor",
-      "preuve": "exigent une base adoptée, que rien ne documente. → #216"
+      "preuve": "Docker fermé après le contrôle de départ. Rejoués verts ; le lanceur constate Docker avant chaque étage et nomme un vert creux (51d5d3948)."
     },
     {
-      "n": 3,
-      "ou": "bancs de charge — scaffold-ws-probe, app-download-probe, poc-hmr-perf",
-      "symptome": "method not found: scaffold:run ; ws error",
+      "n": 1,
+      "ou": "garde des dossiers temporaires de vitest",
+      "symptome": "13 entrée(s) laissée(s) dans le dossier temporaire — passe -t sortie 1",
       "cause": "instrument",
-      "preuve": "deux bancs périmés, un défaut d URL en clair face à un Vite en TLS. → #217"
+      "preuve": "vitest ne joue pas l'afterAll d'une suite sans cas retenu ; la garde avertit sous -t (c73fef94c), test vu rouge."
+    },
+    {
+      "n": 2,
+      "ou": "bancs totp-mfa et totp-mfa-attack",
+      "symptome": "défi MFA perdu après GET /me (10/15, 9/11)",
+      "cause": "instrument",
+      "preuve": "le pot à cookies du banc remplaçait la session par le jeton CSRF ; pot commun (4f2b030ba) → 15/15 et 11/11."
+    },
+    {
+      "n": 2,
+      "ou": "bancs ws-handshake-ratelimit et ws-conn-cap",
+      "symptome": "0 refus compté (close 1013 attendu)",
+      "cause": "instrument",
+      "preuve": "le produit refuse en 429 avant le 101, comme sa documentation ; bancs alignés (73851ef09) → 32 et 5 refus."
+    },
+    {
+      "n": 1,
+      "ou": "banc boot-profile",
+      "symptome": "total 0 ms · 0 log lines, sortie 0",
+      "cause": "instrument",
+      "preuve": "racine du dépôt fausse depuis le déplacement du banc ; corrigé et refus sans ligne d'écoute (3b771e248) → 1 851 ms."
+    },
+    {
+      "n": 1,
+      "ou": "banc presence-pods (multi-pods)",
+      "symptome": "départ vu à 1 501 ms pour une grâce de 2 000 ms",
+      "cause": "instrument",
+      "preuve": "onglets anonymes ; la grâce ne vaut plus que pour une identité nommée (ADR-0025, 2c71a7ca0). Rejoué : identique → #791."
     }
   ],
+  "memoireUnite": "Ko par unité",
   "memoire": [
     {
-      "cas": "1 000 GET séquentiels",
-      "mesure": -0.44,
-      "seuil": 35
+      "cas": "BUG-001 — WS connections × 10 messages",
+      "mesure": -0.46,
+      "seuil": 1
     },
     {
-      "cas": "100 crashs synchrones",
-      "mesure": 0.09,
-      "seuil": 10
+      "cas": "byte streams ended by their source",
+      "mesure": 0.03,
+      "seuil": 1
     },
     {
-      "cas": "100 crashs asynchrones",
+      "cas": "byte streams left by the client",
+      "mesure": -0.02,
+      "seuil": 1
+    },
+    {
+      "cas": "Connect JSON unary calls on a shared HTTP/2 TLS session",
+      "mesure": 0.03,
+      "seuil": 1
+    },
+    {
+      "cas": "consecutive async crashes",
+      "mesure": 0.12,
+      "seuil": 1
+    },
+    {
+      "cas": "consecutive native TypeError crashes",
+      "mesure": 0.06,
+      "seuil": 1
+    },
+    {
+      "cas": "consecutive sync crashes",
       "mesure": 0.07,
-      "seuil": 10
+      "seuil": 1
     },
     {
-      "cas": "100 TypeError natifs",
-      "mesure": 0.1,
-      "seuil": 15
+      "cas": "GET relayed by the reverse proxy",
+      "mesure": 0.04,
+      "seuil": 1
     },
     {
-      "cas": "500 requêtes mixtes",
-      "mesure": 1.88,
-      "seuil": 20
+      "cas": "GET resolving request-scoped services",
+      "mesure": 0.03,
+      "seuil": 1
     },
     {
-      "cas": "200 envois multipart",
-      "mesure": 0.92,
-      "seuil": 30
-    },
-    {
-      "cas": "100 connexions WS",
-      "mesure": 0,
-      "seuil": 30
-    },
-    {
-      "cas": "50 allers-retours WS",
+      "cas": "gRPC unary calls on a shared h2c session",
       "mesure": 0.02,
-      "seuil": 25
+      "seuil": 1
+    },
+    {
+      "cas": "h2c GET on a fresh session",
+      "mesure": 0.04,
+      "seuil": 1
+    },
+    {
+      "cas": "h2c GET relayed by the reverse proxy",
+      "mesure": 0.03,
+      "seuil": 1
+    },
+    {
+      "cas": "h2c GET streams on a shared session",
+      "mesure": 0.03,
+      "seuil": 1
+    },
+    {
+      "cas": "h2c session closed for too many pings",
+      "mesure": 0,
+      "seuil": 1
+    },
+    {
+      "cas": "HTTP/2 TLS GET on a fresh session",
+      "mesure": 0.05,
+      "seuil": 1
+    },
+    {
+      "cas": "HTTP/2 TLS GET streams on a shared session",
+      "mesure": 0.06,
+      "seuil": 1
+    },
+    {
+      "cas": "HTTP/2 TLS POST bodies on a shared session",
+      "mesure": 0.04,
+      "seuil": 1
+    },
+    {
+      "cas": "HTTP/2 TLS POST to an unknown route on a shared session",
+      "mesure": 0.09,
+      "seuil": 1
+    },
+    {
+      "cas": "HTTP/2 TLS session closed for too many pings",
+      "mesure": -0.02,
+      "seuil": 1
+    },
+    {
+      "cas": "lifecycle — WS connections open/msg/close",
+      "mesure": 0.11,
+      "seuil": 1
+    },
+    {
+      "cas": "mixed requests (index + context + session)",
+      "mesure": 0.04,
+      "seuil": 1
+    },
+    {
+      "cas": "POST over 256 KiB to an unknown route",
+      "mesure": -0.03,
+      "seuil": 1
+    },
+    {
+      "cas": "POST to an unknown route",
+      "mesure": 0.03,
+      "seuil": 1
+    },
+    {
+      "cas": "probe of a refused handshake",
+      "mesure": 0.03,
+      "seuil": 1
+    },
+    {
+      "cas": "sequential GET requests",
+      "mesure": -0.44,
+      "seuil": 1
+    },
+    {
+      "cas": "sequential multipart uploads",
+      "mesure": 0.16,
+      "seuil": 1
+    },
+    {
+      "cas": "SSE streams closed by the server",
+      "mesure": 0.02,
+      "seuil": 1
+    },
+    {
+      "cas": "SSE streams left by the client",
+      "mesure": 0.05,
+      "seuil": 1
+    },
+    {
+      "cas": "streams servis (streamFile + download)",
+      "mesure": -0.34,
+      "seuil": 1
+    },
+    {
+      "cas": "sustained — 10 sockets echoing frames",
+      "mesure": 0.01,
+      "seuil": 1
+    },
+    {
+      "cas": "WS connections open/close",
+      "mesure": 0.07,
+      "seuil": 1
+    },
+    {
+      "cas": "WS connections resolving a request-scoped service",
+      "mesure": 0.06,
+      "seuil": 1
+    },
+    {
+      "cas": "WS echo round-trips open/send/close",
+      "mesure": 0.08,
+      "seuil": 1
+    },
+    {
+      "cas": "WS handshakes refused before the 101",
+      "mesure": 0,
+      "seuil": 1
+    },
+    {
+      "cas": "WS JSON-RPC peer round-trips",
+      "mesure": 0.36,
+      "seuil": 1
+    },
+    {
+      "cas": "WS upgrade relayed by the reverse proxy",
+      "mesure": 0.16,
+      "seuil": 1
     }
   ],
   "capacite": [
     {
       "transport": "http/1.1 (clair)",
-      "rps": 2409,
-      "ecart": "±19 %",
-      "p99": 0.62,
-      "elu": 0.99
+      "rps": 9484,
+      "ecart": "±4 %",
+      "p99": 0.42,
+      "elu": 1
     },
     {
       "transport": "https/1.1 (TLS)",
-      "rps": 2911,
-      "ecart": "±3 %",
-      "p99": 2.46,
-      "elu": 0.93
+      "rps": 8777,
+      "ecart": "±1 %",
+      "p99": 0.34,
+      "elu": 1
     },
     {
-      "transport": "h2 (multiplexé)",
-      "rps": 3229,
-      "ecart": "±3 %",
-      "p99": 0.75,
-      "elu": 0.9
+      "transport": "h2 (multiplexé, 1 connexion)",
+      "rps": 8418,
+      "ecart": "±4 %",
+      "p99": 0.45,
+      "elu": 0.84
     }
   ],
   "websocket": {
     "plafond": 8000,
-    "coutParConnexion": 13.33,
-    "debitEcho": 10303,
-    "fanout": 381578,
-    "dernierDebitPropre": 5355,
-    "ruptureAuPalier": 200000
+    "coutParConnexion": 13.31,
+    "debitEcho": 22240,
+    "fanout": 241834,
+    "dernierDebitPropre": 52070
   },
   "multipod": {
     "latenceP50": 3,
     "latenceP95": 4,
     "livraisons": 50000,
     "pertePct": 0,
-    "debitLivraisons": 531915,
+    "debitLivraisons": 746269,
     "coutPublication": 2
   },
-  "soak": {
-    "run1": [
-      {
-        "w": 1,
-        "rps": 11130,
-        "p99": 9.37,
-        "heap": 43.3,
-        "rss": 246
-      },
-      {
-        "w": 2,
-        "rps": 10547,
-        "p99": 10.77,
-        "heap": 43.7,
-        "rss": 252.6
-      },
-      {
-        "w": 3,
-        "rps": 10345,
-        "p99": 9.87,
-        "heap": 43.7,
-        "rss": 254.8
-      },
-      {
-        "w": 4,
-        "rps": 10464,
-        "p99": 9.58,
-        "heap": 43.7,
-        "rss": 258.5
-      },
-      {
-        "w": 5,
-        "rps": 9638,
-        "p99": 12.94,
-        "heap": 43.8,
-        "rss": 264.6
-      },
-      {
-        "w": 6,
-        "rps": 10215,
-        "p99": 9.27,
-        "heap": 43.8,
-        "rss": 266.4
-      },
-      {
-        "w": 7,
-        "rps": 9549,
-        "p99": 38.16,
-        "heap": 43.8,
-        "rss": 268.6
-      },
-      {
-        "w": 8,
-        "rps": 9296,
-        "p99": 19.74,
-        "heap": 43.9,
-        "rss": 270.7
-      },
-      {
-        "w": 9,
-        "rps": 9790,
-        "p99": 13.2,
-        "heap": 44,
-        "rss": 272.5
-      },
-      {
-        "w": 10,
-        "rps": 9800,
-        "p99": 17.2,
-        "heap": 44,
-        "rss": 273.9
-      },
-      {
-        "w": 11,
-        "rps": 8542,
-        "p99": 83.63,
-        "heap": 44,
-        "rss": 276
-      },
-      {
-        "w": 12,
-        "rps": 9830,
-        "p99": 14.72,
-        "heap": 44,
-        "rss": 275.1
-      }
-    ],
-    "run2": [
-      {
-        "w": 1,
-        "rps": 10556,
-        "p99": 20.3,
-        "heap": 43.4,
-        "rss": 245.4
-      },
-      {
-        "w": 2,
-        "rps": 11318,
-        "p99": 8.25,
-        "heap": 43.8,
-        "rss": 250
-      },
-      {
-        "w": 3,
-        "rps": 11230,
-        "p99": 8.73,
-        "heap": 43.8,
-        "rss": 251
-      },
-      {
-        "w": 4,
-        "rps": 10149,
-        "p99": 225.38,
-        "heap": 43.8,
-        "rss": 252.3
-      },
-      {
-        "w": 5,
-        "rps": 11206,
-        "p99": 8.27,
-        "heap": 43.9,
-        "rss": 253.9
-      },
-      {
-        "w": 6,
-        "rps": 11135,
-        "p99": 9.58,
-        "heap": 43.9,
-        "rss": 256.5
-      },
-      {
-        "w": 7,
-        "rps": 11205,
-        "p99": 8.66,
-        "heap": 43.9,
-        "rss": 261.8
-      },
-      {
-        "w": 8,
-        "rps": 11208,
-        "p99": 8.51,
-        "heap": 44,
-        "rss": 263.2
-      },
-      {
-        "w": 9,
-        "rps": 11212,
-        "p99": 8.66,
-        "heap": 44.1,
-        "rss": 266.3
-      },
-      {
-        "w": 10,
-        "rps": 11174,
-        "p99": 8.33,
-        "heap": 44.1,
-        "rss": 267.2
-      },
-      {
-        "w": 11,
-        "rps": 11149,
-        "p99": 8.56,
-        "heap": 44.1,
-        "rss": 269.2
-      },
-      {
-        "w": 12,
-        "rps": 11378,
-        "p99": 8.26,
-        "heap": 44.1,
-        "rss": 273.8
-      },
-      {
-        "w": 13,
-        "rps": 11388,
-        "p99": 8.38,
-        "heap": 44.1,
-        "rss": 277.6
-      },
-      {
-        "w": 14,
-        "rps": 11182,
-        "p99": 8.79,
-        "heap": 44.1,
-        "rss": 277.2
-      },
-      {
-        "w": 15,
-        "rps": 11145,
-        "p99": 9.16,
-        "heap": 44.1,
-        "rss": 276.7
-      },
-      {
-        "w": 16,
-        "rps": 11280,
-        "p99": 8.61,
-        "heap": 44.2,
-        "rss": 279.3
-      },
-      {
-        "w": 17,
-        "rps": 11158,
-        "p99": 8.5,
-        "heap": 44.1,
-        "rss": 279.9
-      },
-      {
-        "w": 18,
-        "rps": 10988,
-        "p99": 10.37,
-        "heap": 44.2,
-        "rss": 283.5
-      },
-      {
-        "w": 19,
-        "rps": 11311,
-        "p99": 8.28,
-        "heap": 44.2,
-        "rss": 285.3
-      },
-      {
-        "w": 20,
-        "rps": 11324,
-        "p99": 8.51,
-        "heap": 44.2,
-        "rss": 288.6
-      },
-      {
-        "w": 21,
-        "rps": 11268,
-        "p99": 8.35,
-        "heap": 44.2,
-        "rss": 290.9
-      },
-      {
-        "w": 22,
-        "rps": 11267,
-        "p99": 8.35,
-        "heap": 44.2,
-        "rss": 295.1
-      },
-      {
-        "w": 23,
-        "rps": 11278,
-        "p99": 8.53,
-        "heap": 44.2,
-        "rss": 296.4
-      },
-      {
-        "w": 24,
-        "rps": 11316,
-        "p99": 8.82,
-        "heap": 44.2,
-        "rss": 297.6
-      },
-      {
-        "w": 25,
-        "rps": 11337,
-        "p99": 8.44,
-        "heap": 44.2,
-        "rss": 297.9
-      },
-      {
-        "w": 26,
-        "rps": 11255,
-        "p99": 8.36,
-        "heap": 44.2,
-        "rss": 299.7
-      },
-      {
-        "w": 27,
-        "rps": 11241,
-        "p99": 8.38,
-        "heap": 44.2,
-        "rss": 303.3
-      },
-      {
-        "w": 28,
-        "rps": 11128,
-        "p99": 9.86,
-        "heap": 44.2,
-        "rss": 302.8
-      },
-      {
-        "w": 29,
-        "rps": 11153,
-        "p99": 8.45,
-        "heap": 44.2,
-        "rss": 305.8
-      },
-      {
-        "w": 30,
-        "rps": 11126,
-        "p99": 8.74,
-        "heap": 44.2,
-        "rss": 307.9
-      },
-      {
-        "w": 31,
-        "rps": 11132,
-        "p99": 8.46,
-        "heap": 44.2,
-        "rss": 310.1
-      },
-      {
-        "w": 32,
-        "rps": 11173,
-        "p99": 8.69,
-        "heap": 44.2,
-        "rss": 315.4
-      },
-      {
-        "w": 33,
-        "rps": 11079,
-        "p99": 8.72,
-        "heap": 44.2,
-        "rss": 314.5
-      },
-      {
-        "w": 34,
-        "rps": 9663,
-        "p99": 198.86,
-        "heap": 44.2,
-        "rss": 315.1
-      },
-      {
-        "w": 35,
-        "rps": 11376,
-        "p99": 8.17,
-        "heap": 44.2,
-        "rss": 320.3
-      },
-      {
-        "w": 36,
-        "rps": 11342,
-        "p99": 8.33,
-        "heap": 44.2,
-        "rss": 322.7
-      },
-      {
-        "w": 37,
-        "rps": 11182,
-        "p99": 8.19,
-        "heap": 44.2,
-        "rss": 324.4
-      },
-      {
-        "w": 38,
-        "rps": 11256,
-        "p99": 8.3,
-        "heap": 44.3,
-        "rss": 329.9
-      },
-      {
-        "w": 39,
-        "rps": 11221,
-        "p99": 8.25,
-        "heap": 44.3,
-        "rss": 333.6
-      },
-      {
-        "w": 40,
-        "rps": 11264,
-        "p99": 8.57,
-        "heap": 44.2,
-        "rss": 334.1
-      },
-      {
-        "w": 41,
-        "rps": 10230,
-        "p99": 99.02,
-        "heap": 44.3,
-        "rss": 335.9
-      },
-      {
-        "w": 42,
-        "rps": 10350,
-        "p99": 8.66,
-        "heap": 44.3,
-        "rss": 335.7
-      },
-      {
-        "w": 43,
-        "rps": 11124,
-        "p99": 8.32,
-        "heap": 44.3,
-        "rss": 340.4
-      },
-      {
-        "w": 44,
-        "rps": 11113,
-        "p99": 8.3,
-        "heap": 44.3,
-        "rss": 342.2
-      },
-      {
-        "w": 45,
-        "rps": 11002,
-        "p99": 8.07,
-        "heap": 44.3,
-        "rss": 344
-      }
-    ],
-    "run3": [
-      {
-        "w": 1,
-        "rps": 11257,
-        "p99": 8.81,
-        "heap": 43.4,
-        "rss": 245.2
-      },
-      {
-        "w": 2,
-        "rps": 11032,
-        "p99": 8.19,
-        "heap": 43.7,
-        "rss": 253.3
-      },
-      {
-        "w": 3,
-        "rps": 11034,
-        "p99": 9.08,
-        "heap": 43.8,
-        "rss": 255.1
-      },
-      {
-        "w": 4,
-        "rps": 11019,
-        "p99": 7.89,
-        "heap": 43.8,
-        "rss": 260.4
-      },
-      {
-        "w": 5,
-        "rps": 11031,
-        "p99": 8.94,
-        "heap": 43.9,
-        "rss": 267.5
-      },
-      {
-        "w": 6,
-        "rps": 10976,
-        "p99": 8.57,
-        "heap": 43.9,
-        "rss": 271.9
-      },
-      {
-        "w": 7,
-        "rps": 11263,
-        "p99": 8.54,
-        "heap": 43.9,
-        "rss": 274.8
-      },
-      {
-        "w": 8,
-        "rps": 11100,
-        "p99": 8.39,
-        "heap": 44,
-        "rss": 272.6
-      },
-      {
-        "w": 9,
-        "rps": 11204,
-        "p99": 8.26,
-        "heap": 44.1,
-        "rss": 279.8
-      },
-      {
-        "w": 10,
-        "rps": 11239,
-        "p99": 8.15,
-        "heap": 44.1,
-        "rss": 282
-      },
-      {
-        "w": 11,
-        "rps": 11164,
-        "p99": 8.35,
-        "heap": 44,
-        "rss": 285.3
-      },
-      {
-        "w": 12,
-        "rps": 11218,
-        "p99": 8.21,
-        "heap": 44.1,
-        "rss": 290.6
-      },
-      {
-        "w": 13,
-        "rps": 11066,
-        "p99": 8.43,
-        "heap": 44.1,
-        "rss": 293.5
-      },
-      {
-        "w": 14,
-        "rps": 11002,
-        "p99": 8.77,
-        "heap": 44.1,
-        "rss": 299.2
-      },
-      {
-        "w": 15,
-        "rps": 11077,
-        "p99": 9.8,
-        "heap": 44.1,
-        "rss": 300.3
-      },
-      {
-        "w": 16,
-        "rps": 11243,
-        "p99": 8.07,
-        "heap": 44.1,
-        "rss": 303.8
-      },
-      {
-        "w": 17,
-        "rps": 11298,
-        "p99": 7.99,
-        "heap": 44.1,
-        "rss": 311.3
-      },
-      {
-        "w": 18,
-        "rps": 10582,
-        "p99": 41.57,
-        "heap": 44.1,
-        "rss": 313.3
-      },
-      {
-        "w": 19,
-        "rps": 10579,
-        "p99": 26.92,
-        "heap": 44.1,
-        "rss": 320.1
-      },
-      {
-        "w": 20,
-        "rps": 11280,
-        "p99": 8.26,
-        "heap": 44.1,
-        "rss": 325.3
-      },
-      {
-        "w": 21,
-        "rps": 11172,
-        "p99": 8.45,
-        "heap": 44.2,
-        "rss": 330.2
-      },
-      {
-        "w": 22,
-        "rps": 11057,
-        "p99": 8.39,
-        "heap": 44.2,
-        "rss": 334.4
-      },
-      {
-        "w": 23,
-        "rps": 11183,
-        "p99": 8.53,
-        "heap": 44.2,
-        "rss": 339.7
-      },
-      {
-        "w": 24,
-        "rps": 11170,
-        "p99": 8.45,
-        "heap": 44.2,
-        "rss": 341
-      },
-      {
-        "w": 25,
-        "rps": 11208,
-        "p99": 8.31,
-        "heap": 44.2,
-        "rss": 344.5
-      },
-      {
-        "w": 26,
-        "rps": 11135,
-        "p99": 8.1,
-        "heap": 44.2,
-        "rss": 349.6
-      },
-      {
-        "w": 27,
-        "rps": 11184,
-        "p99": 7.94,
-        "heap": 44.2,
-        "rss": 350.7
-      },
-      {
-        "w": 28,
-        "rps": 11246,
-        "p99": 8.17,
-        "heap": 44.2,
-        "rss": 354.2
-      },
-      {
-        "w": 29,
-        "rps": 11238,
-        "p99": 7.94,
-        "heap": 44.2,
-        "rss": 357.6
-      },
-      {
-        "w": 30,
-        "rps": 11128,
-        "p99": 8.01,
-        "heap": 44.2,
-        "rss": 358.6
-      },
-      {
-        "w": 31,
-        "rps": 11196,
-        "p99": 8.1,
-        "heap": 44.2,
-        "rss": 360.1
-      },
-      {
-        "w": 32,
-        "rps": 11224,
-        "p99": 7.89,
-        "heap": 44.2,
-        "rss": 366.2
-      },
-      {
-        "w": 33,
-        "rps": 11317,
-        "p99": 7.78,
-        "heap": 44.2,
-        "rss": 367.5
-      },
-      {
-        "w": 34,
-        "rps": 11300,
-        "p99": 7.83,
-        "heap": 44.2,
-        "rss": 370.8
-      },
-      {
-        "w": 35,
-        "rps": 447,
-        "p99": 37.12,
-        "heap": 44.2,
-        "rss": 210.4
-      }
-    ]
-  },
-  "soakVerdicts": [
-    {
-      "run": "run1",
-      "duree": "13 min retenues",
-      "decor": "machine chargée",
-      "rssPente": 77.9,
-      "r2": 0.99,
-      "tas": "plat (+0,4 MB)",
-      "handles": "stables",
-      "verdict": "INDÉTERMINÉ (< 10 min) — et empreinte système non mesurée"
-    },
-    {
-      "run": "run2",
-      "duree": "84 min retenues",
-      "decor": "décor NON tenu (charge montée à 10,89)",
-      "rssPente": 65.3,
-      "r2": 1,
-      "tas": "plat (+0,5 MB)",
-      "handles": "stables",
-      "verdict": "hausse du `rss` seul — NON CONCLUSIF : l'empreinte système n'a pas été relevée"
-    },
-    {
-      "run": "run3",
-      "duree": "~68 min utiles",
-      "decor": "machine libre",
-      "rssPente": null,
-      "r2": null,
-      "tas": "plat (44,2 MB constant)",
-      "handles": "stables",
-      "verdict": "`rss` 255 → 371 MB ; serveur arrêté à la fenêtre 35 (échéance de dérogation) — NON CONCLUSIF, et le « plateau » annoncé est un artefact"
-    }
-  ],
+  "tenue": "Cette campagne n'a pas rejoué de soak. La tenue publiée est celle de la campagne de performance (90 min, page « Performance ») : tas plat, ressources stables, débit −1 %, empreinte 0,06 Mo par million de requêtes.",
   "nonEprouve": [
-    "Le front d une application générée (le banc de vérité ne monte pas Vite).",
-    "Les dialectes PostgreSQL et MySQL du code généré (seul sqlite a été joué).",
-    "Le comparatif de frameworks et l A/B de production mono — écartés pour ne pas fausser les mesures en cours.",
-    "La tenue au-delà de 90 minutes : aucun run ne prouve trois jours.",
-    "Les bancs de découvrabilité et de schéma du devkit (agents réels, coût dédié)."
+    "La tenue dans la durée : aucun soak dans cette campagne, et aucun run ne prouve trois jours.",
+    "Les trois bancs de pod face à leur base (chute de la base, schéma non conforme, persistance au redémarrage) : base adoptée manquante, #216.",
+    "La grâce de présence d'une identité NOMMÉE sur deux pods réels : le banc n'ouvre que des onglets anonymes, #791.",
+    "Hors de l'étage D : les bancs gRPC (débit, surcoût), h2c contre HTTP/1.1, le flux d'octets, les micro-bancs isolés, et scaffold-ws-probe / app-download-probe (#217).",
+    "server-boot-bench et console-boot-bench : seule leur racine a changé, non rejoués.",
+    "Les bancs de découvrabilité et de schéma du devkit (agents réels, coût dédié).",
+    "Linux et Windows : cette campagne a tourné sous macOS ; les trois systèmes sont couverts par l'intégration continue, pas par elle."
   ],
   "tickets": [
     {
-      "n": 215,
-      "titre": "réparer le contrôle de format du code généré",
-      "jalon": "10.0.0",
-      "prio": "P1"
-    },
-    {
-      "n": 216,
-      "titre": "poser la base que trois bancs multi-pods exigent",
-      "jalon": "backlog",
-      "prio": "P3"
-    },
-    {
-      "n": 217,
-      "titre": "réparer trois bancs de charge hors service",
-      "jalon": "backlog",
-      "prio": "P3"
-    },
-    {
-      "n": 218,
-      "titre": "caractériser la hausse du RSS d un pod sous charge",
-      "jalon": "backlog",
+      "n": 791,
+      "titre": "mesurer la grâce de présence sur des comptes connectés",
+      "jalon": "10.1.0",
       "prio": "P2"
+    },
+    {
+      "n": 792,
+      "titre": "préfixer NF_ les variables lues par les bancs",
+      "jalon": "10.1.0",
+      "prio": "P3"
     }
   ]
 }
