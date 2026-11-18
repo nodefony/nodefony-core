@@ -75,44 +75,75 @@ stop_dev() {
   fi
 }
 
-stage() { # id commande… — sortie entière dans DIR/<id>.log, code lu sans pipe
+# Les étages A, B, C1b et G parlent à des conteneurs. Le démon se constate
+# AVANT CHAQUE étage qui en dépend, pas une fois au départ : fermé à 03:02 la
+# nuit du 2026-11-18, juste après le contrôle initial, il a rendu A et B verts
+# CREUX (8 cibles « docker indisponible ») et C1b, G rouges de décor.
+ensure_docker() {
+  docker info >/dev/null 2>&1 && return 0
+  log "démon Docker absent — démarrage de Docker Desktop"
+  open -a Docker 2>/dev/null
+  for _ in $(seq 1 60); do docker info >/dev/null 2>&1 && { log "  démon Docker prêt"; return 0; }; sleep 5; done
+  return 1
+}
+
+# Un vert dont des cibles n'ont pas tourné ne prouve rien d'elles : `test:all`
+# sort en 0 en local (la CI, elle, refuse). On lit son rapport, et le bloc
+# `gateReporter` des suites lancées seules, pour le DIRE dans campaign.log.
+creux() { # fichier → nombre de cibles non exercées (0 = vert plein)
+  local clean n
+  clean=$(sed 's/\x1b\[[0-9;]*m//g' "$1")
+  n=$(grep -aoE '[0-9]+ cible\(s\) non exercée\(s\)' <<<"$clean" | tail -1 | grep -oE '^[0-9]+')
+  [ -n "$n" ] || n=$(grep -ac 'COUVERTURE PARTIELLE' <<<"$clean")
+  echo "${n:-0}"
+}
+
+stage() { # [--docker] id commande… — sortie entière dans DIR/<id>.log, code lu sans pipe
+  local docker=0
+  [ "$1" = "--docker" ] && { docker=1; shift; }
   local id="$1"; shift
   want "$id" || return 0
+  if [ "$docker" = 1 ] && ! ensure_docker; then
+    log "$id ✗ SAUTÉ — démon Docker injoignable après 5 min (étage NON joué, rien n'est prouvé)"
+    return 0
+  fi
   stop_dev || { log "$id ✗ SAUTÉ — ports du serveur de dev occupés"; return 0; }
   log "$id — $*"
   local t0=$(date +%s)
   "$@" >"$OUT/$id.log" 2>&1
   local rc=$?
   echo "EXIT=$rc" >>"$OUT/$id.log"
-  log "  → $id code $rc en $(( ($(date +%s) - t0) / 60 )) min"
+  local n
+  n=$(creux "$OUT/$id.log")
+  if [ "$rc" = 0 ] && [ "$n" != 0 ]; then
+    log "  → $id ⚠ VERT CREUX en $(( ($(date +%s) - t0) / 60 )) min — $n cible(s) non exercée(s), voir le rapport de $id.log"
+  else
+    log "  → $id code $rc en $(( ($(date +%s) - t0) / 60 )) min"
+  fi
 }
 
-# Les étages A, B, C1b et G parlent à des conteneurs : un démon absent les
-# ferait tous tomber, et un étage qui tombe sur son décor n'a rien prouvé.
-if ! docker info >/dev/null 2>&1; then
-  log "démon Docker absent — démarrage de Docker Desktop"
-  open -a Docker 2>/dev/null
-  for _ in $(seq 1 60); do docker info >/dev/null 2>&1 && break; sleep 5; done
-  docker info >/dev/null 2>&1 || { log "❌ démon Docker injoignable après 5 min — campagne abandonnée"; exit 1; }
-  log "  démon Docker prêt"
-fi
+ensure_docker || { log "❌ démon Docker injoignable après 5 min — campagne abandonnée"; exit 1; }
 
 log "build complet"
 if ! npm run build >"$OUT/build.log" 2>&1; then
   log "❌ build en échec — campagne abandonnée (voir build.log)"; exit 1
 fi
 
-stage A npm run test:all -- --dialects
-stage B npm run test:all -- --load
-stage C1c npm run test:boot
-
-# Les URL Redis viennent de la SEULE source des variables d'infra.
-REDIS_ENV=$(npx tsx -e 'import { REDIS_GATE } from "./scripts/test/vitest/gates.ts"; for (const [k, v] of Object.entries(REDIS_GATE.values())) console.log(`${k}=${v}`);' 2>/dev/null)
-if [ -n "$REDIS_ENV" ]; then
+stage --docker A npm run test:all -- --dialects
+stage --docker B npm run test:all -- --load
+# Le décor d'infra de C1c et C1b vient de la SEULE source des variables
+# (`TEST_ALL_GATES` de gates.ts) — celui que `test:all` pose pour A et B, dont
+# les conteneurs restent levés. Sans lui, `test:boot` sautait Loki et OpenSearch
+# à CHAQUE campagne (vert creux constant) ; C1b n'en recevait que Redis.
+INFRA_ENV=$(npx tsx -e 'import { TEST_ALL_GATES } from "./scripts/test/vitest/gates.ts"; for (const g of TEST_ALL_GATES) for (const [k, v] of Object.entries(g.values())) console.log(`${k}=${v}`);' 2>/dev/null)
+if [ -n "$INFRA_ENV" ]; then
   # shellcheck disable=SC2086 # une affectation par ligne, découpées exprès
-  stage C1b env NF_RUN_CLUSTER_E2E=1 $REDIS_ENV npm run test:cluster
+  stage --docker C1c env $INFRA_ENV npm run test:boot
+  # shellcheck disable=SC2086
+  stage --docker C1b env NF_RUN_CLUSTER_E2E=1 $INFRA_ENV npm run test:cluster
 else
-  want C1b && log "C1b ✗ SAUTÉ — variables Redis introuvables dans gates.ts"
+  want C1c && log "C1c ✗ SAUTÉ — variables d'infra introuvables dans gates.ts"
+  want C1b && log "C1b ✗ SAUTÉ — variables d'infra introuvables dans gates.ts"
 fi
 
 # C2 frappe le serveur de dev (`run.sh` : « Prérequis : serveur Nodefony dev
@@ -124,7 +155,7 @@ stage C2 bash -c 'bash .claude/skills/nodefony-start-server/start.sh || { echo "
 # E : l'application témoin est GARDÉE par la première commande pour la seconde.
 stage E bash -c 'node .claude/skills/nodefony-devkit-bench/scripts/verify-generated.mjs --keep; g=$?; node .claude/skills/nodefony-devkit-bench/scripts/verify-runtime.mjs; r=$?; echo "verify-generated=$g verify-runtime=$r"; [ $g -eq 0 ] && [ $r -eq 0 ]'
 
-stage G bash -c 'npm run release:pack && npm run release:smoke'
+stage --docker G bash -c 'npm run release:pack && npm run release:smoke'
 
 # Un commit pendant la nuit, et le code testé n'est plus celui noté au départ.
 log "HEAD en fin de campagne : $(git rev-parse --short=8 HEAD)"

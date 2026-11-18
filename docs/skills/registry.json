@@ -11477,6 +11477,10 @@
                 "help": ""
               },
               {
+                "flag": "--docker",
+                "help": ""
+              },
+              {
                 "flag": "--keep",
                 "help": ""
               },

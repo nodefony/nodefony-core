@@ -84,7 +84,7 @@ script, donc toujours à jour après régénération.
 
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
-| `scripts/test-campaign.sh` | Campagne de test SANS SURVEILLANCE — la matière de `docs/qualite/data/<version>.json`, pour les étages qui se jouent sans jugement, dans l'ordre du protocole (SKILL.md § « La matrice ») : | `--at` `--dialects` `--keep` `--load` `--only` `--out` `--porcelain` `--rupture` `--short` | `ONLY` |
+| `scripts/test-campaign.sh` | Campagne de test SANS SURVEILLANCE — la matière de `docs/qualite/data/<version>.json`, pour les étages qui se jouent sans jugement, dans l'ordre du protocole (SKILL.md § « La matrice ») : | `--at` `--dialects` `--docker` `--keep` `--load` `--only` `--out` `--porcelain` `--rupture` `--short` | `ONLY` |
 
 **Invocation telle que documentée dans chaque script :**
 
