@@ -14,6 +14,7 @@
 //
 // Prérequis : serveur dev booté (2FA activé) sur https://localhost:5152.
 // Lancement : node .claude/skills/nodefony-load-test/scripts/totp-mfa-attack-e2e.mjs
+import { mergeSetCookie } from "../../../../scripts/lib/cookie-jar.mjs";
 import https from "node:https";
 import crypto from "node:crypto";
 
@@ -40,7 +41,7 @@ function req(agent, method, path, body) {
         res.on("data", (c) => (buf += c));
         res.on("end", () => {
           const sc = res.headers["set-cookie"];
-          if (sc) agent.cookie = sc.map((c) => c.split(";")[0]).join("; ");
+          if (sc) agent.cookie = mergeSetCookie(agent.cookie, sc);
           resolve({
             status: res.statusCode,
             body: buf && /^[[{]/.test(buf.trim()) ? JSON.parse(buf) : buf,
@@ -128,7 +129,11 @@ blue(
 );
 
 r = await req(p, "GET", `${A}/me`);
-blue("A1.1 PENDING → GET me → 401 (identité pas établie)", r.status === 401, r);
+blue(
+  "A1.1 PENDING → GET me → { user: null } (identité pas établie, docs/totp.md)",
+  r.status === 200 && r.body?.user === null,
+  r,
+);
 
 r = await req(p, "GET", `${T}/status`);
 blue(
@@ -162,7 +167,7 @@ await req(v1, "POST", `${A}/login`, { username: USER, password: PW });
 r = await req(v1, "POST", `${A}/login/totp`, { code });
 blue(
   "A2.0 1ᵉʳ usage du code TOTP → 200 (consommé)",
-  r.status === 200 && r.body?.user?.username === USER,
+  r.status === 200 && r.body?.user?.identifier === USER,
   r,
 );
 await req(v1, "POST", `${A}/logout`);

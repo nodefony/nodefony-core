@@ -29,6 +29,21 @@ Forme exacte du rapport d'h2spec v2.6.0 (`reporter/junit_report.go`) : cas vides
 - **Lancé par** : `npm run test:tooling`
 - **Utilise** : `lib/conformance-verdict.mjs`
 
+## [`cookie-jar.mjs`](cookie-jar.mjs)
+
+Pot à cookies des bancs e2e — fusionne une réponse dans l'en-tête `Cookie` déjà tenu, comme le fait un navigateur (RFC 6265 §5.3).
+
+- **Usage** : `import { mergeSetCookie } from "../../../../scripts/lib/cookie-jar.mjs"`
+- **Appelé par** : `.claude/skills/nodefony-load-test/scripts/debug-runtime-e2e.mjs` · `.claude/skills/nodefony-load-test/scripts/totp-mfa-attack-e2e.mjs` · `.claude/skills/nodefony-load-test/scripts/totp-mfa-e2e.mjs` · `.claude/skills/nodefony-load-test/scripts/users-admin-factors-e2e.mjs` · `.claude/skills/nodefony-load-test/scripts/webhooks-dataplane-e2e.mjs`
+- **Testé par** : `lib/cookie-jar.test.mjs`
+
+## [`cookie-jar.test.mjs`](cookie-jar.test.mjs)
+
+Le pot à cookies des bancs e2e se comporte comme un navigateur : une réponse qui ne porte qu'un cookie ne fait pas tomber les autres.
+
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `lib/cookie-jar.mjs`
+
 ## [`pinned-binary.mjs`](pinned-binary.mjs)
 
 Binaire tiers ÉPINGLÉ : téléchargé une fois, refusé si sa somme diffère de celle FIGÉE par l'appelant, extrait à chaque usage depuis l'archive vérifiée.

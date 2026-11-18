@@ -11,6 +11,7 @@
 //
 // Prérequis : serveur dev UP (https://localhost:5152) + fixtures admin/user.
 //   node .claude/skills/nodefony-load-test/scripts/webhooks-dataplane-e2e.mjs
+import { mergeSetCookie } from "../../../../scripts/lib/cookie-jar.mjs";
 import https from "node:https";
 
 const BASE = "https://localhost:5152";
@@ -43,7 +44,7 @@ function req(agent, method, path, body) {
         res.on("data", (c) => (buf += c));
         res.on("end", () => {
           const sc = res.headers["set-cookie"];
-          if (sc) agent.cookie = sc.map((c) => c.split(";")[0]).join("; ");
+          if (sc) agent.cookie = mergeSetCookie(agent.cookie, sc);
           resolve({
             status: res.statusCode,
             body: buf && /^[[{]/.test(buf.trim()) ? JSON.parse(buf) : buf,

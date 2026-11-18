@@ -36,6 +36,40 @@
       "testedBy": []
     },
     {
+      "path": "scripts/lib/cookie-jar.mjs",
+      "test": false,
+      "purpose": "Pot à cookies des bancs e2e — fusionne une réponse dans l'en-tête `Cookie` déjà tenu, comme le fait un navigateur (RFC 6265 §5.3).",
+      "usage": [
+        "import { mergeSetCookie } from \"../../../../scripts/lib/cookie-jar.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        ".claude/skills/nodefony-load-test/scripts/debug-runtime-e2e.mjs",
+        ".claude/skills/nodefony-load-test/scripts/totp-mfa-attack-e2e.mjs",
+        ".claude/skills/nodefony-load-test/scripts/totp-mfa-e2e.mjs",
+        ".claude/skills/nodefony-load-test/scripts/users-admin-factors-e2e.mjs",
+        ".claude/skills/nodefony-load-test/scripts/webhooks-dataplane-e2e.mjs"
+      ],
+      "testedBy": [
+        "scripts/lib/cookie-jar.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/lib/cookie-jar.test.mjs",
+      "test": true,
+      "purpose": "Le pot à cookies des bancs e2e se comporte comme un navigateur : une réponse qui ne porte qu'un cookie ne fait pas tomber les autres.",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
+      ],
+      "testedBy": []
+    },
+    {
       "path": "scripts/lib/pinned-binary.mjs",
       "test": false,
       "purpose": "Binaire tiers ÉPINGLÉ : téléchargé une fois, refusé si sa somme diffère de celle FIGÉE par l'appelant, extrait à chaque usage depuis l'archive vérifiée.",

@@ -15,6 +15,7 @@
 //   /start-server start   (ou skill nodefony-start-server)
 // Lancement (racine repo) :
 //   node .claude/skills/nodefony-load-test/scripts/totp-mfa-e2e.mjs
+import { mergeSetCookie } from "../../../../scripts/lib/cookie-jar.mjs";
 import https from "node:https";
 import crypto from "node:crypto";
 
@@ -42,7 +43,7 @@ function req(agent, method, path, body) {
         res.on("data", (c) => (buf += c));
         res.on("end", () => {
           const sc = res.headers["set-cookie"];
-          if (sc) agent.cookie = sc.map((c) => c.split(";")[0]).join("; ");
+          if (sc) agent.cookie = mergeSetCookie(agent.cookie, sc);
           resolve({
             status: res.statusCode,
             body: buf && /^[[{]/.test(buf.trim()) ? JSON.parse(buf) : buf,
@@ -108,7 +109,7 @@ const a = agent();
 let r = await req(a, "POST", `${A}/login`, { username: USER, password: PW });
 check(
   "login (pas encore de 2FA) → 200 + user",
-  r.status === 200 && r.body?.user?.username === USER,
+  r.status === 200 && r.body?.user?.identifier === USER,
   r,
 );
 
@@ -164,11 +165,13 @@ check(
   r,
 );
 
-// 7. me pendant le défi → 401 (identité PAS établie → Zero Trust)
+// 7. me pendant le défi → { user: null } : identité PAS établie (Zero Trust).
+// Contrat : docs/totp.md ; `/me` sème aussi le jeton CSRF (docs/csrf.md), et
+// ce cookie ne doit pas faire tomber celui de session (pot `mergeSetCookie`).
 r = await req(b, "GET", `${A}/me`);
 check(
-  "me pendant le défi MFA → 401 (identité pas établie)",
-  r.status === 401,
+  "me pendant le défi MFA → { user: null } (identité pas établie)",
+  r.status === 200 && r.body?.user === null,
   r,
 );
 
@@ -182,7 +185,7 @@ r = await req(b, "POST", `${A}/login/totp`, {
 });
 check(
   "login/totp code TOTP valide → 200 + user",
-  r.status === 200 && r.body?.user?.username === USER,
+  r.status === 200 && r.body?.user?.identifier === USER,
   r,
 );
 
@@ -190,7 +193,7 @@ check(
 r = await req(b, "GET", `${A}/me`);
 check(
   "me après 2ᵉ facteur → 200 user",
-  r.status === 200 && r.body?.user?.username === USER,
+  r.status === 200 && r.body?.user?.identifier === USER,
   r,
 );
 await req(b, "POST", `${A}/logout`);
@@ -201,7 +204,7 @@ await req(c, "POST", `${A}/login`, { username: USER, password: PW });
 r = await req(c, "POST", `${A}/login/totp`, { code: recovery[0] });
 check(
   "login/totp via code de récupération → 200",
-  r.status === 200 && r.body?.user?.username === USER,
+  r.status === 200 && r.body?.user?.identifier === USER,
   r,
 );
 await req(c, "POST", `${A}/logout`);
