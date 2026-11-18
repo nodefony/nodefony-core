@@ -52,15 +52,13 @@ publier, prévenez — un accord vaut mieux qu'une surprise de part et d'autre.
 
 ## Versions concernées
 
-| Version                                              | État                                                                                              |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `10.x` (branche TypeScript)                          | **en préversion**, publiée sur npm sous le canal `beta` — les rapports sont bienvenus             |
-| `nodefony` ≤ `7.x` (framework JavaScript historique) | **dépréciée** — plus aucun correctif, de sécurité ou autre ; la réécriture TypeScript la remplace |
+| Version                                              | État                                                                                                     |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `10.x` (branche TypeScript)                          | **supportée** — publiée sur npm sous le canal `latest` ; seule la dernière majeure reçoit des correctifs |
+| `nodefony` ≤ `7.x` (framework JavaScript historique) | **dépréciée** — plus aucun correctif, de sécurité ou autre ; la réécriture TypeScript la remplace        |
 
-⚠️ Une préversion n'est pas un jouet : `npm i nodefony@beta` installe du code qui tourne. Les
-rapports la concernant sont traités comme les autres — c'est même le moment où ils coûtent le moins
-cher à corriger. En revanche, **le canal `latest` sert encore la série 7**, dépréciée : si vous
-auditez « nodefony » sans préciser de canal, vérifiez d'abord quelle version vous avez en main
+⚠️ **Le nom « nodefony » couvre deux frameworks** : la série 10, en TypeScript, et la série 7, en
+JavaScript, dépréciée. Avant d'auditer « nodefony », vérifiez quelle version vous avez en main
 (`npm ls nodefony`).
 
 Les paquets couverts sont **tous ceux que ce dépôt publie**, et eux seuls : `nodefony`,

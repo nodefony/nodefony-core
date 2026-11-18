@@ -8,10 +8,10 @@ description: >
   lancer la montée de version, pas après un premier rouge. Une panne sans rapport avec une montée →
   `nodefony-troubleshoot`.
   Déclencheurs : "monter nodefony de version", "mettre à jour nodefony", "passer à la nouvelle
-  beta", "upgrade nodefony", "npm update nodefony", "une nouvelle version est sortie", "mes paquets
+  version", "upgrade nodefony", "npm update nodefony", "une nouvelle version est sortie", "mes paquets
   nodefony sont en retard", "après la mise à jour plus rien ne compile", "AGENTS.md est périmé".
 metadata:
-  version: 1.1.0
+  version: 1.2.0
 ---
 
 # nodefony-upgrade — les paquets, puis l'application, puis la preuve
@@ -61,12 +61,12 @@ version pour `nodefony` et chaque `@nodefony/*`, devDependencies comprises (`@no
 porte les skills). Nomme chacun de ceux que ton `package.json` déclare :
 
 ```bash
-npm install nodefony@beta @nodefony/http@beta @nodefony/framework@beta @nodefony/security@beta
-npm install -D @nodefony/devkit@beta
+npm install nodefony @nodefony/http @nodefony/framework @nodefony/security
+npm install -D @nodefony/devkit
 ```
 
-⚠️ Pendant la série 10, **`beta` est le canal de la préversion** ; `latest` sert encore l'ancienne
-lignée 7 en JavaScript. Un `npm install nodefony` sans canal fait REDESCENDRE l'application.
+⚠️ `npm install nodefony` suit le canal `latest`. Pour viser une version précise, l'écrire
+(`nodefony@<version>`) — la même sur TOUS les paquets de l'application.
 
 **Remettre l'application au niveau des paquets** :
 
@@ -109,7 +109,8 @@ puis la procédure de `nodefony-migrate-schema`.
 - **Monter un paquet seul n'est pas monter Nodefony.** Deux versions différentes de `nodefony`
   dans `node_modules` se voient comme deux copies du cœur : l'application démarre amputée, ou pas
   du tout. `npm ls nodefony` doit rendre une seule version.
-- **Le canal par défaut ment pendant la série 10** : sans `@beta`, npm installe la 7.
+- **Une application de la série 7 ne se monte pas** : la 10 est une réécriture en TypeScript,
+  leurs API n'ont rien de commun.
 - **Un vert ne prouve pas que la documentation des agents a suivi.** Seuls `doctor` ou
   `npx nodefony upgrade --check` le voient.
 - **`upgrade` ne recrée pas un `AGENTS.md` supprimé** : l'absence peut être un choix. Elle le dit.

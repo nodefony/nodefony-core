@@ -4,12 +4,8 @@ Créer une application [Nodefony](https://github.com/nodefony/nodefony-core) san
 globalement.
 
 ```bash
-npm create nodefony@beta mon-app
+npm create nodefony mon-app
 ```
-
-> **Le suffixe `@beta` n'est pas optionnel** tant que Nodefony 10 est en préversion : sans lui,
-> npm sert l'étiquette `latest`, qui pointe encore la lignée 7 en JavaScript — sans rapport avec ce
-> que cette page décrit.
 
 Puis :
 
@@ -23,7 +19,7 @@ Pour créer l'application dans le dossier où l'on se trouve, `.` remplace le no
 prend le nom du dossier, qui doit être vide, et il n'y a pas de `cd` à faire.
 
 ```bash
-npm create nodefony@beta .
+npm create nodefony .
 ```
 
 ## Ce que fait ce paquet
@@ -32,14 +28,14 @@ Rien, ou presque — et c'est voulu. Il **délègue** à `nodefony create app`, 
 lui passant vos arguments tels quels. Il n'existe donc qu'UN générateur : celui du framework.
 
 ```bash
-npm create nodefony@beta mon-app -- --preset minimal --frontend react --database postgres
+npm create nodefony mon-app -- --preset minimal --frontend react --database postgres
 ```
 
 Toutes les options de `nodefony create app` sont acceptées (`--preset`, `--frontend`, `--database`,
 `--agents`, `--no-install`, `--no-git`, `--dry-run`…). La liste complète :
 
 ```bash
-npm create nodefony@beta -- --help
+npm create nodefony -- --help
 ```
 
 ## Pourquoi passer par là plutôt que `npm i -g nodefony`

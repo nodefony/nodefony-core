@@ -1,20 +1,14 @@
 <!-- @if core,npm -->
 ## Démarrage
 
-Une préversion `10.0.0-beta.9` est en ligne sous le canal `beta`. Une bêta n'est pas une version
-stable : une rupture reste possible d'une bêta à la suivante — chacune est alors annoncée en tête
-du [CHANGELOG](CHANGELOG.md) — et elle n'est pas destinée à la production. Elle s'installe en
-nommant ce canal :
+La version `10.0.0` est en ligne. Ses ruptures n'arrivent qu'aux versions majeures, annoncées en
+tête du [CHANGELOG](CHANGELOG.md). Une application se crée en une commande :
 
 ```bash
-npm create nodefony@beta mon-app
+npm create nodefony mon-app
 cd mon-app
 npm run dev
 ```
-
-Le canal se nomme tant que la 10 n'est pas stable : c'est lui qui garantit de recevoir la
-préversion, et non la `7.0.2` que `npm install nodefony` sert encore — la version JavaScript
-d'avant, sans rapport avec ce que cette page décrit.
 
 L'application répond sur `http://127.0.0.1:5151` — ou le premier port libre, annoncé au
 démarrage — et la console d'administration sur `/nodefony`.

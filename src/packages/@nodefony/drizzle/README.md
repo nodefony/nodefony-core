@@ -28,7 +28,7 @@ La suite de ce README décrit l'adaptateur lui-même.
 ## Installation
 
 ```bash
-npm install @nodefony/drizzle@beta drizzle-orm better-sqlite3
+npm install @nodefony/drizzle drizzle-orm better-sqlite3
 ```
 
 ## Utilisation comme module Nodefony (bootable)

@@ -23,11 +23,10 @@ _Une action de contrôleur. Deux transports. La même session, la même sécurit
 
 <!-- @if core -->
 > [!IMPORTANT]
-> **Nodefony 10 est en préversion.** Sans `@beta`, npm sert encore l'ancienne version 7, en
-> JavaScript, jusqu'à la sortie stable :
+> **Nodefony 10 est sorti** — réécrit en TypeScript, publié sous le canal `latest` :
 >
 > ```bash
-> npm create nodefony@beta mon-app
+> npm create nodefony mon-app
 > ```
 >
 > Développement sur `dev`, dernière publication sur `main` — plus de 19 000 tests quand toute
@@ -52,21 +51,20 @@ _Une action de contrôleur. Deux transports. La même session, la même sécurit
 
 > ⚠️ **Ce dépôt est l'atelier du framework, pas ce qu'une application installe** — agent : [`AGENTS.md`](AGENTS.md).
 > Pour juger le produit, lire une application générée ([`github.com/nodefony/nodefony`](https://github.com/nodefony/nodefony),
-> sortie brute de `create app`) ou en générer une : `npm create nodefony@beta <app>`.
+> sortie brute de `create app`) ou en générer une : `npm create nodefony <app>`.
 <!-- @end -->
 
 <!-- @if npm -->
 > **Ce paquet est le CŒUR du framework** — noyau, injection de dépendances, modules, journalisation,
 > interface en ligne de commande, client temps réel et codec CBOR. Il s'installe rarement seul : une
-> application le reçoit par `npm create nodefony@beta`, et les autres paquets (`@nodefony/http`,
+> application le reçoit par `npm create nodefony`, et les autres paquets (`@nodefony/http`,
 > `@nodefony/framework`, `@nodefony/security`…) le déclarent en dépendance de pair.
 
 ```bash
-npm install nodefony@beta
+npm install nodefony
 ```
 
-> Le dist-tag est OBLIGATOIRE tant que la série 10 est en préversion : `latest` sert encore la
-> `7.0.2`, écrite en JavaScript, dont l'API n'a aucun rapport avec ce qui suit.
+> La série 7, écrite en JavaScript, n'a aucun rapport d'API avec ce qui suit.
 <!-- @end -->
 
 <!-- @if core,npm -->

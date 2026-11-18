@@ -56,13 +56,9 @@ Les mots qui reviennent (le vocabulaire complet est dans le [lexique général](
 Depuis un dossier vide :
 
 ```bash
-npm create nodefony@beta mon-app
+npm create nodefony mon-app
 cd mon-app
 ```
-
-> ⚠️ **Le `@beta` n'est pas décoratif.** Tant que Nodefony 10 n'est pas sorti en version stable, c'est
-> lui qui te donne la 10. Sans lui — et de même avec `npx nodefony create app` lancé hors d'un
-> projet — npm sert l'ancienne version 7, écrite en JavaScript, qui n'a rien à voir avec cette page.
 
 La commande pose l'application, installe ses dépendances et la construit : compte une à deux
 minutes. Sans question posée, elle prend la vitrine **complète** (comptes, sécurité, temps réel,
@@ -258,7 +254,7 @@ Le même contrôleur sert aussi ces lectures en **WebSocket** (les méthodes de 
 
 | Symptôme                                                 | Cause                                                                                          | Correction                                                                                             |
 | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| L'application créée ne ressemble en rien à cette page    | Créée sans `@beta` : npm a servi Nodefony 7                                                    | Repars d'un dossier vide avec `npm create nodefony@beta mon-app`.                                      |
+| L'application créée ne ressemble en rien à cette page    | npm a pris un `create-nodefony` d'une autre version, installé en global ou dans le dossier     | Repars d'un dossier vide avec `npm create nodefony@latest mon-app`, qui force la dernière version.     |
 | Une route ajoutée répond `404`                           | La reconstruction n'est pas finie                                                              | Attends `BOOT ok` dans le journal du serveur (quelques secondes après la sauvegarde).                  |
 | `/api/articles` répond `500` : `no such table: articles` | L'entité est écrite, mais pas sa migration (base injoignable à la création, ou `--no-migrate`) | `npx nodefony orm:generate --name articles --apply`. Le journal du démarrage le dit aussi.             |
 | `500` : `Cannot resolve service "RequestStampService"`   | Classe écrite à la main, jamais déclarée                                                       | Passe par `npx nodefony create service <Nom>`, ou ajoute la classe à `@services([…])` dans `index.ts`. |

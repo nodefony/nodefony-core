@@ -36,13 +36,13 @@ Le framework, lui, s'installe depuis npm ; le code vit sur GitHub.
 
 ```bash
 # 1. L'image fabrique ses propres secrets — une seule fois, gardés dans un fichier
-docker run --rm nodefony/nodefony:beta node_modules/nodefony/bin/nodefony security:secrets --env > nodefony.env
+docker run --rm nodefony/nodefony:latest node_modules/nodefony/bin/nodefony security:secrets --env > nodefony.env
 
 # 2. Le mot de passe du compte « admin » de la console — choisis-le
 echo "NF_ADMIN_PASSWORD=choisis-un-mot-de-passe" >> nodefony.env
 
 # 3. Lancer, avec ce fichier
-docker run --rm -p 5151:5151 --env-file nodefony.env nodefony/nodefony:beta
+docker run --rm -p 5151:5151 --env-file nodefony.env nodefony/nodefony:latest
 ```
 
 L'application répond sur <http://127.0.0.1:5151>. La console d'administration est
@@ -92,7 +92,7 @@ repart d'une base neuve. Pour la garder, monte un volume nommé sur `/app/var` :
 
 ```bash
 docker run --rm -p 5151:5151 --env-file nodefony.env \
-           -v nodefony-data:/app/var nodefony/nodefony:beta
+           -v nodefony-data:/app/var nodefony/nodefony:latest
 ```
 
 Au premier montage, Docker recopie dans le volume vide la base migrée de l'image,
@@ -109,7 +109,7 @@ Le même lancement, déclaré — `nodefony.env` est le fichier des lignes 1 et 
 # compose.yaml
 services:
   nodefony:
-    image: nodefony/nodefony:beta
+    image: nodefony/nodefony:latest
     ports:
       - "5151:5151"
     env_file: nodefony.env
@@ -154,10 +154,9 @@ n'a pas été gracieux. Le seul verdict qui compte est `0`.
 
 ## Ce que cette image ne promet pas
 
-C'est une **préversion** : ni la stabilité des interfaces, ni la compatibilité
-entre deux bêtas — une rupture y reste possible, et chacune est annoncée en tête du
-CHANGELOG. Elle n'est pas destinée à porter une charge de production —
-elle montre une topologie qui fonctionne, et sert de point de départ.
+C'est une **démonstration** : elle suit la version publiée du framework, mais
+elle n'est pas destinée à porter une charge de production — elle montre une
+topologie qui fonctionne, et sert de point de départ.
 
 **Elle accepte un mot de passe envoyé en clair (HTTP)**, et c'est la seule entorse
 qu'elle fait à la production : sans elle, la connexion à la console sur
@@ -171,7 +170,7 @@ variable à `false` et déclare le frontal (`NF__HTTP__TRUSTPROXY`).
 Pour une application à soi, le chemin est le générateur, pas cette image :
 
 ```bash
-npm create nodefony@beta mon-app
+npm create nodefony mon-app
 cd mon-app
 npm run dev
 ```
@@ -219,10 +218,10 @@ d'orthographier en casse mixte dans un fichier d'environnement.
 
 ```bash
 # Le module « http », clé « trustProxy »
-docker run --env-file nodefony.env -e NF__HTTP__TRUSTPROXY=true -p 5151:5151 nodefony/nodefony:beta
+docker run --env-file nodefony.env -e NF__HTTP__TRUSTPROXY=true -p 5151:5151 nodefony/nodefony:latest
 
 # Un chemin imbriqué : module « security », section « jwt », clé « accessTtls »
-docker run --env-file nodefony.env -e NF__SECURITY__JWT__ACCESSTTLS=900 -p 5151:5151 nodefony/nodefony:beta
+docker run --env-file nodefony.env -e NF__SECURITY__JWT__ACCESSTTLS=900 -p 5151:5151 nodefony/nodefony:latest
 ```
 
 Trois propriétés qui comptent, et qui distinguent ce mécanisme d'un simple
@@ -255,7 +254,7 @@ forme `NF_` gagne quand les deux sont présentes.
 docker run --env-file nodefony.env \
            -e NF_DATABASE_URL="postgres://user:mdp@hote:5432/base" \
            -e NF_REDIS_URL="redis://hote:6379" \
-           -p 5151:5151 nodefony/nodefony:beta
+           -p 5151:5151 nodefony/nodefony:latest
 ```
 
 **Sans aucune de ces variables**, l'application tourne sur SQLite, en un seul
@@ -302,7 +301,7 @@ deux dossiers soient montés :
 
 ```bash
 docker run --rm --read-only --tmpfs /app/tmp -v nodefony-data:/app/var \
-           -p 5151:5151 --env-file nodefony.env nodefony/nodefony:beta
+           -p 5151:5151 --env-file nodefony.env nodefony/nodefony:latest
 ```
 
 Cette base n'est pas une habitude reprise d'un gabarit trouvé ailleurs : quatre
@@ -403,19 +402,19 @@ CI générée éprouve `linux/amd64`, et `linux/arm64` sur un runner ARM natif s
 
 | Étiquette                            | Ce qu'elle désigne                                                                |
 | ------------------------------------ | --------------------------------------------------------------------------------- |
-| `10.0.0-beta.9`                      | une publication précise, toutes architectures — c'est celle à figer en CI         |
-| `beta`                               | la dernière préversion du canal `beta` (mobile)                                   |
+| `10.0.0`                             | une publication précise, toutes architectures — c'est celle à figer en CI         |
+| `latest`                             | la dernière version finale (mobile)                                               |
 | `<version>-amd64`, `<version>-arm64` | une seule architecture d'une publication, pour qui doit la désigner explicitement |
-| `alpha`                              | l'ancien canal, recalé sur la même image que `beta` — préférer `beta`             |
+| `beta`, `alpha`                      | les canaux de préversion, restés sur la dernière bêta — préférer `latest`         |
 
-`10.0.0-beta.9` et `beta` sont des **index multi-plateformes** : `docker pull`
+`10.0.0` et `latest` sont des **index multi-plateformes** : `docker pull`
 choisit seul la variante de la machine. Chaque variante est démarrée et contrôlée
 (refus sans secrets, `/readyz`, arrêt en `0`) avant que l'index ne soit publié, et
 l'étiquette mobile ne bouge qu'en dernier, vers un index déjà relu dans le registre.
 
-**`latest` n'apparaîtra qu'avec la 10.0.0** : il n'appartient qu'aux versions
-finales, comme sur npm. Tirer une étiquette mobile sans le savoir est la façon la
-plus simple de voir une image changer sous ses pieds.
+**`latest` n'appartient qu'aux versions finales**, comme sur npm. Tirer une
+étiquette mobile sans le savoir est la façon la plus simple de voir une image
+changer sous ses pieds : en CI, figer la version.
 
 Les mêmes images — mêmes digests, pas une seconde construction — sont publiées
 sur GitHub Container Registry : `ghcr.io/nodefony/nodefony`.
@@ -436,7 +435,7 @@ sur GitHub Container Registry : `ghcr.io/nodefony/nodefony`.
   l'une d'elles est vide ou fausse :
 
   ```bash
-  docker inspect nodefony/nodefony:beta \
+  docker inspect nodefony/nodefony:latest \
     --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
   ```
 

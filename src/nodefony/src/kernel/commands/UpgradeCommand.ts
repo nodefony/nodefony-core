@@ -27,7 +27,7 @@ const options: OptionsCommandInterface = {
  *
  * @example
  * ```bash
- * npm install nodefony@beta @nodefony/http@beta …   # monter les paquets
+ * npm install nodefony @nodefony/http …             # monter les paquets
  * nodefony upgrade                                  # puis l'application
  * nodefony upgrade --check                          # en CI : 1 si en retard
  * ```

@@ -87,9 +87,8 @@ les écritures passent donc par une transaction (`ScaffoldWriter`,
 ## Démarrage rapide
 
 ```bash
-# Une application neuve, hors de tout projet. Le canal `@beta` se nomme tant que
-# la 10 n'est pas stable : sans lui, npm sert l'ancienne version 7.
-npm create nodefony@beta mon-app -- --preset minimal
+# Une application neuve, hors de tout projet.
+npm create nodefony mon-app -- --preset minimal
 cd mon-app && npm run dev
 ```
 

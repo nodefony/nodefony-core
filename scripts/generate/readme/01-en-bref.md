@@ -31,7 +31,7 @@ documentés, pas encore générés — [Docker et cloud](https://nodefony.net/do
 <div align="center">
 
 ```bash
-npm create nodefony@beta mon-app
+npm create nodefony mon-app
 ```
 
 </div>

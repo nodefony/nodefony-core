@@ -32,11 +32,11 @@ l'ordre, et ce que chacun prouve.
 
 ## Démarrage rapide
 
-Depuis la racine d'une application créée par `npm create nodefony@beta` :
+Depuis la racine d'une application créée par `npm create nodefony` :
 
 ```bash
 npx nodefony outdated                      # 1. voir le retard, groupé par paquet
-npm install nodefony@beta @nodefony/http@beta @nodefony/framework@beta   # 2. TOUS les paquets nodefony de l'app, même version
+npm install nodefony @nodefony/http @nodefony/framework   # 2. TOUS les paquets nodefony de l'app, même version
 npx nodefony upgrade                       # 3. remettre l'application au niveau
 npm run build                              # 4. reconstruire…
 npx nodefony doctor                        #    …puis vérifier
@@ -59,8 +59,8 @@ Nodefony 10.0.0-beta.3 installé.
 ```
 
 > [!IMPORTANT]
-> Pendant la série 10, **le tag `beta` désigne la dernière préversion** ; `latest` sert encore
-> l'ancienne lignée 7, en JavaScript. Un `npm install nodefony` sans tag installe donc la 7.
+> La série 10 est une réécriture en TypeScript : une application de la série 7, en JavaScript, ne
+> se monte pas par ce guide — leurs API n'ont rien de commun.
 
 ## Étape par étape
 
@@ -129,8 +129,8 @@ corrige sans décision humaine, et une vérification qui rougirait pour eux ne p
 
 ## ⚠️ Pièges
 
-- **`npm install nodefony` sans tag installe la 7.** Pendant la série 10, écrivez toujours
-  `@beta` (ou la version exacte).
+- **`npm install nodefony` suit le canal `latest`.** Pour viser une version précise, l'écrire
+  (`nodefony@<version>`) — la même sur TOUS les paquets de l'application.
 - **Monter un seul paquet n'est pas monter Nodefony.** `@nodefony/devkit`, en `devDependencies`,
   s'oublie facilement — c'est lui qui livre les skills d'agent.
 - **Un vert ne prouve pas qu'un agent lit la bonne porte.** Le bloc périmé ne fait échouer aucun

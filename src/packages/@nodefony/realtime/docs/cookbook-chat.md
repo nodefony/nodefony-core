@@ -153,7 +153,7 @@ le moment venu.
 
 ```bash
 # 1. Créer l'application (profil complet : http, framework, realtime, sécurité, frontend)
-npm create nodefony@beta mon-chat -- --preset complete
+npm create nodefony mon-chat -- --preset complete
 cd mon-chat
 
 # 2. Créer le module qui portera le salon
