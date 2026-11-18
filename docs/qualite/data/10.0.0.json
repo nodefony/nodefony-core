@@ -437,5 +437,223 @@
       "jalon": "10.1.0",
       "prio": "P3"
     }
-  ]
+  ],
+  "couverture": {
+    "date": "2026-11-18",
+    "commit": "840b49447",
+    "commande": "npm run coverage",
+    "decor": [
+      "NF_PG_URL",
+      "NF_MYSQL_URL",
+      "NF_REDIS_URL",
+      "NF_REDIS_TEST_URL",
+      "NF_MONGO_TEST_URI",
+      "NF_LOKI_TEST_URL",
+      "NF_OPENSEARCH_TEST_URL",
+      "NF_KEYCLOAK_ISSUER",
+      "NF_KEYCLOAK_CLIENT_ID",
+      "NF_KEYCLOAK_CLIENT_SECRET"
+    ],
+    "absents": [],
+    "modules": [
+      {
+        "module": "@nodefony/ai",
+        "statut": "mesure",
+        "lignes": 84.29,
+        "branches": 77.21,
+        "fonctions": 80.13,
+        "sautes": 0,
+        "natures": {
+          "unitaire": 10,
+          "intégration": 3,
+          "attaque": 1
+        }
+      },
+      {
+        "module": "@nodefony/devkit",
+        "statut": "mesure",
+        "lignes": 81.96,
+        "branches": 76.46,
+        "fonctions": 75.64,
+        "sautes": 0,
+        "natures": {
+          "unitaire": 20,
+          "intégration": 1,
+          "attaque": 1
+        }
+      },
+      {
+        "module": "@nodefony/documentation",
+        "statut": "mesure",
+        "lignes": 46.59,
+        "branches": 50,
+        "fonctions": 41,
+        "sautes": 0,
+        "natures": {
+          "unitaire": 8
+        }
+      },
+      {
+        "module": "@nodefony/drizzle",
+        "statut": "mesure",
+        "lignes": 80.32,
+        "branches": 73.32,
+        "fonctions": 82.45,
+        "sautes": 2,
+        "natures": {
+          "intégration": 101,
+          "attaque": 1,
+          "charge": 1,
+          "unitaire": 38
+        }
+      },
+      {
+        "module": "@nodefony/framework",
+        "statut": "mesure",
+        "lignes": 64.43,
+        "branches": 57.46,
+        "fonctions": 66.25,
+        "sautes": 2,
+        "natures": {
+          "intégration": 20,
+          "attaque": 2,
+          "unitaire": 67
+        }
+      },
+      {
+        "module": "@nodefony/frontend",
+        "statut": "mesure",
+        "lignes": 36.8,
+        "branches": 30.82,
+        "fonctions": 37.12,
+        "sautes": 0,
+        "natures": {
+          "intégration": 4,
+          "unitaire": 14
+        }
+      },
+      {
+        "module": "@nodefony/http",
+        "statut": "mesure",
+        "lignes": 65.96,
+        "branches": 62.7,
+        "fonctions": 65.31,
+        "sautes": 0,
+        "natures": {
+          "unitaire": 172,
+          "intégration": 35,
+          "mémoire": 1,
+          "attaque": 9,
+          "charge": 7
+        }
+      },
+      {
+        "module": "@nodefony/mediasoup",
+        "statut": "mesure",
+        "lignes": 80,
+        "branches": 0,
+        "fonctions": 91.66,
+        "sautes": 0,
+        "natures": {
+          "intégration": 1
+        }
+      },
+      {
+        "module": "@nodefony/mongoose",
+        "statut": "mesure",
+        "lignes": 87.93,
+        "branches": 80.05,
+        "fonctions": 82.11,
+        "sautes": 1,
+        "natures": {
+          "intégration": 27,
+          "unitaire": 6
+        }
+      },
+      {
+        "module": "@nodefony/orm-core",
+        "statut": "mesure",
+        "lignes": 83.42,
+        "branches": 80.66,
+        "fonctions": 84.75,
+        "sautes": 0,
+        "natures": {
+          "unitaire": 21
+        }
+      },
+      {
+        "module": "@nodefony/realtime",
+        "statut": "mesure",
+        "lignes": 88.99,
+        "branches": 84.08,
+        "fonctions": 83.25,
+        "sautes": 2,
+        "natures": {
+          "unitaire": 68,
+          "intégration": 18,
+          "attaque": 6
+        }
+      },
+      {
+        "module": "@nodefony/redis",
+        "statut": "mesure",
+        "lignes": 90.52,
+        "branches": 79.04,
+        "fonctions": 87.3,
+        "sautes": 7,
+        "natures": {
+          "intégration": 14,
+          "unitaire": 5
+        }
+      },
+      {
+        "module": "@nodefony/security",
+        "statut": "mesure",
+        "lignes": 85.93,
+        "branches": 80.5,
+        "fonctions": 85.65,
+        "sautes": 2,
+        "natures": {
+          "attaque": 17,
+          "unitaire": 111
+        }
+      },
+      {
+        "module": "@nodefony/studio",
+        "statut": "mesure",
+        "lignes": 69.2,
+        "branches": 67.4,
+        "fonctions": 56.09,
+        "sautes": 0,
+        "natures": {
+          "unitaire": 37
+        }
+      },
+      {
+        "module": "@nodefony/user",
+        "statut": "mesure",
+        "lignes": 91.02,
+        "branches": 83.93,
+        "fonctions": 86.95,
+        "sautes": 0,
+        "natures": {
+          "unitaire": 22,
+          "attaque": 2
+        }
+      },
+      {
+        "module": "nodefony",
+        "statut": "mesure",
+        "lignes": 83.61,
+        "branches": 75.22,
+        "fonctions": 81.55,
+        "sautes": 1,
+        "natures": {
+          "unitaire": 348,
+          "intégration": 2,
+          "attaque": 4
+        }
+      }
+    ]
+  }
 }

@@ -29,16 +29,17 @@ skill `nodefony-test-campaign`.
 
 ## Ce qu'un fichier doit porter
 
-| Clé          | Ce qu'elle garde                                                                     |
-| ------------ | ------------------------------------------------------------------------------------ |
-| `decor`      | machine, mémoire, système, Node, cibles d'infrastructure exercées, hyperviseur actif |
-| `etages`     | ce qui a été joué, avec la commande exacte et le verdict de chacun                   |
-| `rouges`     | chaque rouge avec sa **cause instruite** et ce qui l'établit                         |
-| `memoire`    | les seuils du gate mémoire, mesure et marge                                          |
-| `capacite`   | les constantes d'un pod — transport par transport                                    |
-| `soak`       | les **séries** fenêtre par fenêtre, pas seulement la pente                           |
-| `nonEprouve` | ce que la campagne n'a pas couvert — la moitié du verdict                            |
-| `tickets`    | ce que la campagne a ouvert                                                          |
+| Clé          | Ce qu'elle garde                                                                                                                                       |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `decor`      | machine, mémoire, système, Node, cibles d'infrastructure exercées, hyperviseur actif                                                                   |
+| `etages`     | ce qui a été joué, avec la commande exacte et le verdict de chacun                                                                                     |
+| `rouges`     | chaque rouge avec sa **cause instruite** et ce qui l'établit                                                                                           |
+| `memoire`    | les seuils du gate mémoire, mesure et marge                                                                                                            |
+| `capacite`   | les constantes d'un pod — transport par transport                                                                                                      |
+| `soak`       | les **séries** fenêtre par fenêtre, pas seulement la pente                                                                                             |
+| `nonEprouve` | ce que la campagne n'a pas couvert — la moitié du verdict                                                                                              |
+| `couverture` | taux v8 par module, avec date, commit, décor et services absents — écrit par `npm run coverage -- --publish <version>`, lu par la matrice de l'accueil |
+| `tickets`    | ce que la campagne a ouvert                                                                                                                            |
 
 ## Trois règles, chacune payée
 

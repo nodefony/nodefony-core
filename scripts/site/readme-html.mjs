@@ -92,23 +92,10 @@ const readJson = (p) => {
  * moment de la génération de la page.
  */
 const inventaireTests = () => {
-  const fichiers = [];
-  const walk = (d) => {
-    if (!existsSync(d)) return;
-    for (const e of readdirSync(d, { withFileTypes: true })) {
-      if (
-        e.name === "node_modules" ||
-        e.name === "dist" ||
-        e.name.startsWith(".")
-      )
-        continue;
-      const p = join(d, e.name);
-      if (e.isDirectory()) walk(p);
-      else if (/\.(test|spec)\.ts$/.test(e.name)) fichiers.push(p);
-    }
-  };
-  walk(join(ROOT, "src"));
-  const CAS = /^[ \t]*(it|test)(\.\w+)?\s*\(/gm;
+  const fichiers = fichiersSous(join(ROOT, "src"), (n) =>
+    FICHIER_DE_TEST.test(n),
+  );
+  const CAS = CAS_DE_TEST;
   const natures = {
     attaque: { fichiers: 0, cas: 0, re: /\.attack\.|red-?team/i },
     integration: {
@@ -134,9 +121,13 @@ const inventaireTests = () => {
   return { fichiers: fichiers.length, cas, natures };
 };
 
-const countFiles = (dir, re) => {
-  if (!existsSync(dir)) return 0;
-  let n = 0;
+/**
+ * Les fichiers d'un arbre que `garder(nom, cheminRelatif)` retient — hors
+ * dépendances, sorties de build et dossiers cachés.
+ */
+const fichiersSous = (dir, garder) => {
+  const out = [];
+  if (!existsSync(dir)) return out;
   const walk = (d) => {
     for (const e of readdirSync(d, { withFileTypes: true })) {
       if (
@@ -147,12 +138,39 @@ const countFiles = (dir, re) => {
         continue;
       const p = join(d, e.name);
       if (e.isDirectory()) walk(p);
-      else if (re.test(e.name)) n++;
+      else if (garder(e.name, p.slice(dir.length))) out.push(p);
     }
   };
   walk(dir);
-  return n;
+  return out;
 };
+
+const countFiles = (dir, re) => fichiersSous(dir, (nom) => re.test(nom)).length;
+
+/** Un fichier de suite vitest. */
+const FICHIER_DE_TEST = /\.(test|spec)\.tsx?$/;
+
+/** Une déclaration de cas — la MÊME règle pour l'inventaire et la matrice. */
+const CAS_DE_TEST = /^[ \t]*(it|test)(\.\w+)?\s*\(/gm;
+
+/**
+ * Cas de test ÉCRITS sous un dossier : les déclarations `it`/`test` de ses
+ * suites, où qu'elles soient rangées (`tests/`, `nodefony/tests/`, `src/tests/`).
+ * Ce n'est pas ce qui s'EXÉCUTE — un cas paramétré en joue plusieurs, un cas
+ * privé de son infrastructure aucun : le compte exécuté se LIT dans la campagne.
+ */
+const casEcrits = (dir) =>
+  fichiersSous(dir, (nom) => FICHIER_DE_TEST.test(nom)).reduce(
+    (n, f) => n + (readFileSync(f, "utf8").match(CAS_DE_TEST) ?? []).length,
+    0,
+  );
+
+/** Un fichier de SOURCE : du TypeScript qui n'est ni une suite, ni un utilitaire de test, ni une déclaration. */
+const estSource = (nom, relatif) =>
+  /\.tsx?$/.test(nom) &&
+  !nom.endsWith(".d.ts") &&
+  !FICHIER_DE_TEST.test(nom) &&
+  !/[/\\](?:tests?|__tests__)[/\\]/.test(relatif);
 
 /**
  * Une capture servie en FICHIER, à côté de la page, en deux largeurs WebP.
@@ -207,10 +225,12 @@ const collect = (dir, key) => {
     version: pj.version ?? "—",
     readme: existsSync(join(dir, "README.md")),
     docs: countFiles(join(dir, "docs"), /\.md$/),
-    tests: countFiles(join(dir, "tests"), /\.(test|spec)\.ts$/),
-    sources:
-      countFiles(join(dir, "nodefony"), /\.ts$/) +
-      countFiles(join(dir, "src"), /\.ts$/),
+    tests: casEcrits(dir),
+    // `frontend/` : l'interface d'un paquet (Studio) est du code qu'il publie.
+    sources: ["nodefony", "src", "frontend"].reduce(
+      (n, sous) => n + fichiersSous(join(dir, sous), estSource).length,
+      0,
+    ),
   };
 };
 
@@ -452,18 +472,63 @@ const mark = (v) => (v ? B("✓", OK) : B("—", KO));
 /* ── 1 · Ce que c'est ─────────────────────────────────────────────────────── */
 
 /**
+ * Le dernier jeu de données publié dans un dossier de `<version>.json` —
+ * `docs/performance/data`, `docs/qualite/data`. La page LIT les mesures, elle
+ * n'en recopie aucune : elle change avec la mesure, ou se tait si la pièce manque.
+ *
+ * @returns `{ version, data }`, ou `null` si le dossier est vide
+ */
+const dernierJeu = (relatif) => {
+  const dir = join(ROOT, relatif);
+  const files = existsSync(dir)
+    ? readdirSync(dir)
+        .filter((n) => /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?\.json$/.test(n))
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+    : [];
+  if (!files.length) return null;
+  const data = readJson(join(dir, files.at(-1)));
+  return data ? { version: files.at(-1).replace(/\.json$/, ""), data } : null;
+};
+
+/**
+ * Ce que la dernière campagne de test publiée a MESURÉ : le passage le plus
+ * large (jamais une somme d'étages — ils se recouvrent) et la couverture par
+ * module (`npm run coverage -- --publish <version>`).
+ */
+const campagne = (() => {
+  const jeu = dernierJeu("docs/qualite/data");
+  const etages = Array.isArray(jeu?.data?.etages) ? jeu.data.etages : [];
+  const large = etages.reduce(
+    (m, e) =>
+      typeof e?.passes === "number" && e.passes > (m?.passes ?? -1) ? e : m,
+    null,
+  );
+  const couverture = jeu?.data?.couverture ?? null;
+  return {
+    version: jeu?.version ?? null,
+    date: jeu?.data?.campagne ?? null,
+    large,
+    couverture,
+    parModule: new Map((couverture?.modules ?? []).map((m) => [m.module, m])),
+  };
+})();
+
+/** Taux de couverture d'un module, ou ce qui manque à sa place. */
+const tauxDe = (nom, cle) => {
+  const m = campagne.parModule.get(nom);
+  if (!m) return B("non mesuré", MID);
+  if (m.statut !== "mesure" || typeof m[cle] !== "number")
+    return B(m.statut === "echec" ? "échec" : "sans rapport", KO);
+  return fmt.pct(m[cle] / 100);
+};
+
+/**
  * Le coût d'un petit message sur la socket binaire face à gRPC, LU dans le
  * dernier jeu de performance publié — jamais recopié : la vitrine change avec
  * la mesure, ou se tait si la pièce manque.
  */
 const binaryRatio = (() => {
-  const dir = join(ROOT, "docs/performance/data");
-  const files = existsSync(dir)
-    ? readdirSync(dir)
-        .filter((n) => /^\d+\.\d+\.\d+\.json$/.test(n))
-        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-    : [];
-  const data = files.length ? readJson(join(dir, files.at(-1))) : null;
+  const data = dernierJeu("docs/performance/data")?.data ?? null;
   const at16 = (camp) =>
     data?.binary?.results?.find((r) => r.camp === camp && r.bytes === 16)
       ?.usPerMsg;
@@ -757,15 +822,23 @@ pas été exercée — une absence voulue s'énonce, elle ne s'oublie pas.`,
 const matrice = section(
   "La matrice — ce qui est couvert, domaine par domaine",
   `
-<p>Calculé depuis le dépôt au moment de la génération de cette page : pour chaque domaine, le code,
-les suites de tests, la documentation destinée aux humains, et la fiche d'entrée du paquet.</p>
+<p>Pour chaque domaine : le code, les cas de test, la couverture, la documentation destinée aux
+humains et la fiche d'entrée du paquet. Sources, cas écrits et pages sont comptés dans le dépôt à la
+génération de cette page ; ce qui s'EXÉCUTE et ce qui est COUVERT ne se compte pas, il se mesure —
+ces chiffres sont lus dans la campagne de test publiée${campagne.version ? ` (<a href="./qualite/">${campagne.version}</a>)` : ""}.</p>
 
 ${cards([
-  {
-    k: "Cas de test",
-    v: fmt.int(suites.cas),
-    sub: `exécutés, répartis sur ${fmt.int(suites.fichiers)} fichiers`,
-  },
+  campagne.large
+    ? {
+        k: "Cas de test exécutés",
+        v: fmt.int(campagne.large.passes),
+        sub: `« ${campagne.large.nom} », campagne du ${campagne.date ?? "?"} — ${fmt.int(campagne.large.sautes ?? 0)} sautés, ${fmt.int(suites.cas)} écrits`,
+      }
+    : {
+        k: "Cas de test écrits",
+        v: fmt.int(suites.cas),
+        sub: `dans ${fmt.int(suites.fichiers)} fichiers — aucune campagne publiée ne dit combien s'exécutent`,
+      },
   {
     k: "Pages de doc",
     v: fmt.int(totals.docs + guides),
@@ -788,7 +861,9 @@ ${table(
     { label: "Domaine" },
     { label: "Paquet" },
     { label: "Sources", align: "right" },
-    { label: "Tests", align: "right" },
+    { label: "Cas écrits", align: "right" },
+    { label: "Couverture", align: "right" },
+    { label: "Branches", align: "right" },
     { label: "Doc", align: "right" },
     { label: "Fiche", align: "center" },
   ],
@@ -796,16 +871,21 @@ ${table(
     DOMAINS[m.key] ?? m.key,
     `<code>${m.name}</code>`,
     fmt.int(m.sources),
-    m.tests ? fmt.int(m.tests) : B("couvert ailleurs", MID),
+    fmt.int(m.tests),
+    tauxDe(m.name, "lignes"),
+    tauxDe(m.name, "branches"),
     m.docs ? fmt.int(m.docs) : "—",
     mark(m.readme),
   ]),
   { sortable: true, id: "matrice" },
 )}
 
-${note(`Un zéro dans la colonne <em>Tests</em> désigne un paquet dont la couverture vient d'ailleurs
-(ses consommateurs, ou les suites d'intégration à la racine) — pas une zone non éprouvée. La colonne
-se trie : c'est fait pour être regardé, pas pour être cru.`)}`,
+${note(`<em>Couverture</em> = lignes exécutées par les suites du paquet${campagne.couverture ? `, mesurées le ${campagne.couverture.date} sur ${campagne.couverture.commit}` : ""}
+(${campagne.couverture?.commande ? `<code>${campagne.couverture.commande}</code>, ` : ""}v8, avec l'infrastructure de test). Un taux
+dit ce qui a été EXÉCUTÉ, pas ce qui a été vérifié : les suites d'attaque le font monter sans éprouver
+le chemin nominal, et les bancs de charge, multi-pods et du code généré éprouvent le produit sans y
+compter. <em>Cas écrits</em> = déclarations lues dans les sources, pas exécutions. La colonne se trie :
+c'est fait pour être regardé, pas pour être cru.`)}`,
 );
 
 /* ── 5 · Sécurité ─────────────────────────────────────────────────────────── */
