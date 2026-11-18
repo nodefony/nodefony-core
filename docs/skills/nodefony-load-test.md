@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-11-16
+updated: 2026-11-18
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-load-test/SKILL.md"
 ---
@@ -171,7 +171,7 @@ script, donc toujours à jour après régénération.
 | `scripts/wait-probe.mjs` | Sonde « où part le temps HORS du JavaScript » — préchargée dans un serveur (`node --import …/wait-probe.mjs`), identique pour tous les camps. | — | `NF_WAIT_PROBE_OUT` |
 | `scripts/webhooks-dataplane-e2e.mjs` | Banc e2e — Data plane WEBHOOKS (P6.13 Slice C) — VRAI serveur, session BFF, sans navigateur. […] | — | `NF_ADMIN_PASSWORD` `NF_USER_PASSWORD` |
 | `scripts/ws-backpressure-e2e.mjs` | Contre-pression WebSocket SORTANTE (serveur → client) sur une VRAIE socket. | — | `HOST` `NODE_TLS_REJECT_UNAUTHORIZED` `PORT` `WS_URL` |
-| `scripts/ws-conn-cap-e2e.mjs` | Banc e2e du BACKSTOP de connexions WS concurrentes par IP (@nodefony/http, F6c revue 0.6) — sans navigateur. Prouve le CÂBLAGE bout-en-bout du plafond OPT-IN : au-delà de `wsMaxConnectionsPerIp` sockets simultanément ouvertes depuis une même IP, l'upgrade est fermé (RFC 6455 close 1013). Distinct du rate-limit (débit) : ici ce sont des sockets HELD open EN MÊME TEMPS (pas une rafale séquentielle). | — | `NODE_TLS_REJECT_UNAUTHORIZED` `WS_URL` |
+| `scripts/ws-conn-cap-e2e.mjs` | Banc e2e du BACKSTOP de connexions WS concurrentes par IP (@nodefony/http, F6c revue 0.6) — sans navigateur. Prouve le CÂBLAGE bout-en-bout du plafond OPT-IN : au-delà de `wsMaxConnectionsPerIp` sockets simultanément ouvertes depuis une même IP, l'upgrade est refusé en `429` avant le `101` (contrat : src/packages/@nodefony/http/docs/rate-limit.md). Distinct du rate-limit (débit) : ici ce sont des sockets HELD open EN MÊME TEMPS (pas une rafale séquentielle). | — | `NODE_TLS_REJECT_UNAUTHORIZED` `WS_URL` |
 | `scripts/ws-connections.mjs` | Stress WS — AXE 1 : nombre de connexions simultanées (combien de sockets un process tient), distinct du débit messages (axe 2 → ws-messages.mjs). | `--pending` | `BATCH` `CAP` `HEAP_URL` `HOLD_MS` `STEP` `WS_URL` |
 | `scripts/ws-handshake-ratelimit-e2e.mjs` | Banc e2e du RATE-LIMIT du HANDSHAKE WebSocket (@nodefony/http, F5 revue 0.6) — sans navigateur. | — | `HTTP_URL` `NODE_TLS_REJECT_UNAUTHORIZED` `WS_URL` |
 | `scripts/ws-messages.mjs` | Stress WS — AXE 2 : débit de messages / fan-out broadcast (combien de frames le pipeline encaisse), distinct du nombre de connexions (axe 1 → ws-connections.mjs). | — | `BURST` `BURSTS` `CLIENTS` `HOST` `MODE` `TIMEOUT_MS` `WS_URL` |

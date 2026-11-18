@@ -1,8 +1,9 @@
 // Banc e2e du BACKSTOP de connexions WS concurrentes par IP (@nodefony/http, F6c
 // revue 0.6) — sans navigateur. Prouve le CÂBLAGE bout-en-bout du plafond OPT-IN :
 // au-delà de `wsMaxConnectionsPerIp` sockets simultanément ouvertes depuis une même
-// IP, l'upgrade est fermé (RFC 6455 close 1013). Distinct du rate-limit (débit) : ici
-// ce sont des sockets HELD open EN MÊME TEMPS (pas une rafale séquentielle).
+// IP, l'upgrade est refusé en `429` avant le `101` (contrat :
+// src/packages/@nodefony/http/docs/rate-limit.md). Distinct du rate-limit (débit) :
+// ici ce sont des sockets HELD open EN MÊME TEMPS (pas une rafale séquentielle).
 //
 // ⚠️ Backstop PAR PROCESS (le vrai plafond global/IP = ingress). Ce banc valide juste
 // que le knob n'est pas mort (cf F9 : une clé de config qui ne pilote rien).
@@ -20,9 +21,10 @@ const WS_URL =
   process.env.WS_URL ?? "wss://127.0.0.1:5152/nodefony/test/ws/echo";
 const N = Number(process.env.N ?? 8);
 
-// Ouvre une socket et la TIENT ouverte ; résout { open, closeCode }. On garde toutes
-// les sockets vivantes jusqu'à la fin (le cap CONCURRENT n'a de sens que si elles se
-// chevauchent) → les excédentaires reçoivent 1013 pendant que les autres tiennent.
+// Ouvre une socket et la TIENT ouverte ; résout { open, closeCode, status }. On garde
+// toutes les sockets vivantes jusqu'à la fin (le cap CONCURRENT n'a de sens que si
+// elles se chevauchent) → les excédentaires reçoivent 429 pendant que les autres
+// tiennent. Écouter `unexpected-response` oblige à abandonner la requête soi-même.
 const held = [];
 function openHeld() {
   return new Promise((res) => {
@@ -38,13 +40,21 @@ function openHeld() {
     let opened = false;
     ws.on("open", () => {
       opened = true;
-      // reste ouvert : on ne resout PAS tout de suite, on laisse une chance à un
-      // éventuel close 1013 tardif — mais en pratique le cap ferme AVANT/juste après
-      // l'open. On résout après un court délai si pas de close.
-      setTimeout(() => done({ open: true, closeCode: null }), 300);
+      // reste ouvert : on laisse une chance à une fermeture tardive, puis on résout.
+      setTimeout(
+        () => done({ open: true, closeCode: null, status: null }),
+        300,
+      );
     });
-    ws.on("close", (code) => done({ open: opened, closeCode: code }));
-    ws.on("error", () => done({ open: false, closeCode: null }));
+    ws.on("unexpected-response", (req, response) => {
+      done({ open: false, closeCode: null, status: response.statusCode });
+      response.resume();
+      req.destroy();
+    });
+    ws.on("close", (code) =>
+      done({ open: opened, closeCode: code, status: null }),
+    );
+    ws.on("error", () => done({ open: false, closeCode: null, status: null }));
   });
 }
 
@@ -56,10 +66,11 @@ const ok = (cond, msg) => {
 // Ouvre N sockets EN PARALLÈLE (elles se chevauchent → teste le cap concurrent).
 const results = await Promise.all(Array.from({ length: N }, openHeld));
 const alive = held.filter((w) => w.readyState === WebSocket.OPEN).length;
-const rejected1013 = results.filter((r) => r.closeCode === 1013).length;
+const rejected429 = results.filter((r) => r.status === 429).length;
+const other = N - rejected429 - alive;
 
-// Sonde : si AUCUN 1013 et TOUTES vivantes, soit le cap est désactivé, soit ≥ N.
-if (rejected1013 === 0 && alive === N) {
+// Sonde : si AUCUN refus et TOUTES vivantes, soit le cap est désactivé, soit ≥ N.
+if (rejected429 === 0 && alive === N) {
   console.error(
     `✗ Aucune connexion refusée (${alive}/${N} vivantes). Le cap est-il activé et < ${N} ?\n` +
       "  Relance le serveur avec :\n" +
@@ -73,17 +84,22 @@ if (rejected1013 === 0 && alive === N) {
 }
 
 ok(
-  rejected1013 >= 1,
-  `≥ 1 connexion au-delà du plafond refusée (close 1013) — obtenu ${rejected1013}`,
+  rejected429 >= 1,
+  `≥ 1 connexion au-delà du plafond refusée (429 avant le 101) — obtenu ${rejected429}`,
 );
 ok(
   alive >= 1,
   `≥ 1 connexion sous le plafond reste OUVERTE (obtenu ${alive} vivantes)`,
 );
+ok(
+  other === 0,
+  `aucune autre issue que « vivante » ou « 429 » — obtenu ${other}`,
+);
 
 console.log(`\nOuverture de ${N} sockets concurrentes depuis une même IP :`);
-console.log(`  vivantes (sous le plafond)          : ${alive}`);
-console.log(`  refusées (close 1013 « too many »)  : ${rejected1013}`);
+console.log(`  vivantes (sous le plafond)   : ${alive}`);
+console.log(`  refusées (429 avant le 101)  : ${rejected429}`);
+console.log(`  autre issue                  : ${other}`);
 
 for (const w of held)
   try {
@@ -96,6 +112,6 @@ if (fails.length) {
   process.exit(1);
 }
 console.log(
-  "\n✓ Cap connexions WS concurrentes/IP e2e — le backstop opt-in est câblé (close 1013 au-delà du plafond).",
+  "\n✓ Cap connexions WS concurrentes/IP e2e — le backstop opt-in est câblé (429 avant le 101 au-delà du plafond).",
 );
 setTimeout(() => process.exit(0), 300);

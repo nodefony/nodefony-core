@@ -9108,7 +9108,7 @@
           },
           {
             "path": "scripts/ws-conn-cap-e2e.mjs",
-            "purpose": "Banc e2e du BACKSTOP de connexions WS concurrentes par IP (@nodefony/http, F6c revue 0.6) — sans navigateur. Prouve le CÂBLAGE bout-en-bout du plafond OPT-IN : au-delà de `wsMaxConnectionsPerIp` sockets simultanément ouvertes depuis une même IP, l'upgrade est fermé (RFC 6455 close 1013). Distinct du rate-limit (débit) : ici ce sont des sockets HELD open EN MÊME TEMPS (pas une rafale séquentielle).",
+            "purpose": "Banc e2e du BACKSTOP de connexions WS concurrentes par IP (@nodefony/http, F6c revue 0.6) — sans navigateur. Prouve le CÂBLAGE bout-en-bout du plafond OPT-IN : au-delà de `wsMaxConnectionsPerIp` sockets simultanément ouvertes depuis une même IP, l'upgrade est refusé en `429` avant le `101` (contrat : src/packages/@nodefony/http/docs/rate-limit.md). Distinct du rate-limit (débit) : ici ce sont des sockets HELD open EN MÊME TEMPS (pas une rafale séquentielle).",
             "usage": [
               "NF__HTTP__WSMAXCONNECTIONSPERIP=3 bash .claude/skills/nodefony-start-server/start.sh"
             ],

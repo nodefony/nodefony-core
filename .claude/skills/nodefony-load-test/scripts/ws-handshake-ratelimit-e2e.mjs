@@ -3,12 +3,12 @@
 // Prouve le CÂBLAGE bout-en-bout : l'upgrade WS EST une requête HTTP (GET + Upgrade)
 // → il compte dans le MÊME compteur « rate-limit général par IP » que les requêtes
 // HTTP (`HttpKernel.onWebsocketRequest` → résolution IP forwarded-aware → MemoryRateLimitStore).
-// Au-delà du plafond IP : le handshake ne peut plus répondre un 429 (le 101 est déjà
-// émis par `ws`) → close RFC 6455 1013 « Try Again Later » (le client back-off + reconnecte).
+// Au-delà du plafond IP : le handshake est refusé en `429` AVANT le `101` — la socket
+// ne s'ouvre jamais (contrat : src/packages/@nodefony/http/docs/rate-limit.md).
 //
 // AVANT le fix : l'upgrade échappait au compteur → flood de handshakes illimité
 // (200/200 sockets ouvertes, 0 rejet) = accumulation de sockets → flood de frames
-// → famine event-loop. APRÈS : le flood est rejeté à la porte (close 1013).
+// → famine event-loop. APRÈS : le flood est rejeté à la porte (429).
 //
 // Prérequis : serveur dev booté AVEC le rate-limit activé (seuil COURT pour un run net) :
 //   NF__HTTP__RATELIMIT__ENABLED=true NF__HTTP__RATELIMIT__MAX=15 NF__HTTP__RATELIMIT__WINDOWS=30 \
@@ -39,8 +39,10 @@ async function httpHit() {
   };
 }
 
-// Un handshake WS : résout à { open, closeCode } — on ferme dès que possible pour
-// ne pas garder de sockets ouvertes (le banc mesure le REJET, pas la charge).
+// Un handshake WS : résout à { open, closeCode, status } — on ferme dès que possible
+// pour ne pas garder de sockets ouvertes (le banc mesure le REJET, pas la charge).
+// `status` = code HTTP d'un upgrade REFUSÉ (`unexpected-response`, la socket ne
+// s'ouvre pas) ; écouter cet événement oblige à abandonner la requête soi-même.
 function handshake() {
   return new Promise((res) => {
     const ws = new WebSocket(WS_URL, { rejectUnauthorized: false });
@@ -58,8 +60,17 @@ function handshake() {
         } catch {}
       }, 50);
     });
-    ws.on("close", (code) => settle({ open: true, closeCode: code }));
-    ws.on("error", () => settle({ open: false, closeCode: null }));
+    ws.on("unexpected-response", (req, response) => {
+      settle({ open: false, closeCode: null, status: response.statusCode });
+      response.resume();
+      req.destroy();
+    });
+    ws.on("close", (code) =>
+      settle({ open: true, closeCode: code, status: null }),
+    );
+    ws.on("error", () =>
+      settle({ open: false, closeCode: null, status: null }),
+    );
   });
 }
 
@@ -98,24 +109,30 @@ if (a !== null && b !== null) {
   );
 }
 
-// 3) FLOOD de N handshakes (une même IP) → au-delà du plafond, close 1013.
+// 3) FLOOD de N handshakes (une même IP) → au-delà du plafond, 429 avant le 101.
 const results = [];
 for (let i = 0; i < N; i += 1) results.push(await handshake());
-const rejected1013 = results.filter((r) => r.closeCode === 1013).length;
-const normalClose = results.filter(
-  (r) => r.closeCode !== null && r.closeCode !== 1013,
-).length;
+const rejected429 = results.filter((r) => r.status === 429).length;
+const opened = results.filter((r) => r.open).length;
+const other = N - rejected429 - opened;
 
-// 4) Assertions.
+// 4) Assertions — chaque handshake a une issue NOMMÉE : ouvert sous le plafond,
+//    ou refusé en 429. Une autre issue (erreur réseau, autre statut) n'est ni l'un
+//    ni l'autre, et ne doit pas passer inaperçue.
 ok(
-  rejected1013 >= 1,
-  `≥ 1 handshake WS rejeté par le rate-limit IP (close 1013) — obtenu ${rejected1013}`,
+  rejected429 >= 1,
+  `≥ 1 handshake WS refusé par le rate-limit IP (429 avant le 101) — obtenu ${rejected429}`,
+);
+ok(
+  other === 0,
+  `aucune autre issue que « ouvert » ou « 429 » — obtenu ${other}`,
 );
 
 // 5) Rapport.
 console.log(`\nFlood ${N} handshakes WS depuis une même IP :`);
-console.log(`  rejetés (close 1013 « Try Again Later ») : ${rejected1013}`);
-console.log(`  fermés normalement (sous le plafond)     : ${normalClose}`);
+console.log(`  refusés (429 avant le 101)       : ${rejected429}`);
+console.log(`  ouverts (sous le plafond)        : ${opened}`);
+console.log(`  autre issue                      : ${other}`);
 
 if (fails.length) {
   console.error(`\n✗ ÉCHEC (${fails.length}) :`);
@@ -123,5 +140,5 @@ if (fails.length) {
   process.exit(1);
 }
 console.log(
-  "\n✓ Handshake WS e2e — le rate-limit IP couvre l'upgrade (compteur partagé HTTP+WS + close 1013).",
+  "\n✓ Handshake WS e2e — le rate-limit IP couvre l'upgrade (compteur partagé HTTP+WS + 429 avant le 101).",
 );
