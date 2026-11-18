@@ -20,9 +20,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { REPO_ROOT } from "../../../../scripts/lib/repo-root.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(HERE, "..", "..", "..", "..");
 const BIN = path.join(REPO_ROOT, "src", "nodefony", "bin", "nodefony");
 const HOOK = path.join(HERE, "heap-at-exit.mjs");
 

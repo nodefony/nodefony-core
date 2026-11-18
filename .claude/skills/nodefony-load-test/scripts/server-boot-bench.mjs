@@ -14,10 +14,8 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { REPO_ROOT } from "../../../../scripts/lib/repo-root.mjs";
 
-const HERE = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(HERE, "..", "..", "..", "..");
 const START = path.join(
   REPO_ROOT,
   ".claude",

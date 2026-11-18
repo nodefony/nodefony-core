@@ -7,13 +7,14 @@
  *
  * Usage : node scripts/boot-profile.mjs -- production --workers 1
  * Prérequis : dist à jour, ports libres.
+ *
+ * Sort en 1 si la ligne d'écoute n'a jamais paru : un boot qui n'a pas eu lieu
+ * ne se publie pas en « 0 ms » (RÈGLE N°1 du skill).
  */
 import { spawn } from "node:child_process";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { REPO_ROOT } from "../../../../scripts/lib/repo-root.mjs";
 
-const HERE = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(HERE, "..");
 const BIN = path.join(REPO_ROOT, "src", "nodefony", "bin", "nodefony");
 const READY_RE = /Server Listen on http/i;
 const sep = process.argv.indexOf("--");
@@ -49,10 +50,13 @@ const child = spawn(process.execPath, [BIN, ...cmdArgs], {
   env: { ...process.env, FORCE_COLOR: "0" },
 });
 const lines = [];
+/** Dernières lignes NON horodatées — la cause d'un boot avorté s'y lit. */
+const untimed = [];
 let buf = "";
 let t0 = null;
 const seenPhase = new Map();
 let done = false;
+let ready = false;
 
 function record(chunk) {
   buf += chunk.toString();
@@ -62,7 +66,11 @@ function record(chunk) {
     buf = buf.slice(i + 1);
     const clean = raw.replace(/\x1b\[[0-9;]*m/g, "");
     const ts = parseTs(clean);
-    if (ts == null) continue;
+    if (ts == null) {
+      if (clean.trim()) untimed.push(clean.trim());
+      if (untimed.length > 10) untimed.shift();
+      continue;
+    }
     t0 ??= ts;
     let rel = ts - t0;
     if (rel < 0) rel += 86400000;
@@ -70,7 +78,10 @@ function record(chunk) {
     for (const [name, re] of PHASES) {
       if (!seenPhase.has(name) && re.test(clean)) seenPhase.set(name, rel);
     }
-    if (READY_RE.test(clean)) finish();
+    if (READY_RE.test(clean)) {
+      ready = true;
+      finish();
+    }
   }
 }
 function finish() {
@@ -96,6 +107,15 @@ child.once("exit", () => finish());
 setTimeout(() => finish(), 60000);
 
 function report() {
+  if (!ready) {
+    console.error(
+      `✗ BOOT PROFILE [${cmdArgs.join(" ")}] : la ligne d'écoute n'a jamais paru ` +
+        `(${lines.length} ligne(s) horodatée(s)) — rien n'est mesuré.\n` +
+        untimed.map((l) => `  | ${l}`).join("\n"),
+    );
+    process.exitCode = 1;
+    return;
+  }
   const total = lines.length ? lines[lines.length - 1].rel : 0;
   console.log(
     `\n=== BOOT PROFILE [${cmdArgs.join(" ")}] — total ${total} ms · ${lines.length} log lines ===\n`,

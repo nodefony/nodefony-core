@@ -147,6 +147,10 @@
       "output": "",
       "calledBy": [
         ".claude/skills/nodefony-documentation/scripts/mermaid-check.mjs",
+        ".claude/skills/nodefony-load-test/scripts/boot-bench.mjs",
+        ".claude/skills/nodefony-load-test/scripts/boot-profile.mjs",
+        ".claude/skills/nodefony-load-test/scripts/console-boot-bench.mjs",
+        ".claude/skills/nodefony-load-test/scripts/server-boot-bench.mjs",
         "src/modules/test/conformance/http2.mjs",
         "scripts/deps/check-deps-latest.mjs",
         "scripts/gates/check-licenses.mjs",
