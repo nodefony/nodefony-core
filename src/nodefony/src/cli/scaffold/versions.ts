@@ -80,14 +80,14 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // sans ce paquet, `npm run lint` sort en erreur « Failed to find tsgolint ».
   "oxlint-tsgolint": "^7.0.2007",
   prettier: "^3.10.1",
-  rolldown: "^1.3.2",
+  rolldown: "^1.3.3",
   typescript: "^6.0.3",
-  vitest: "^5.1.0",
+  vitest: "^5.1.1",
   // Mesure de couverture. DÉCLARÉE, et non installée à la demande par un script
   // `coverage:setup` : elle pèse 60 Ko, quand playwright et lighthouse — eux
   // restés à la demande — pèsent 5 et 21 Mo. Un installateur pour 60 Ko est une
   // entrée de plus dans un `package.json` que personne ne lit jusqu'au bout.
-  "@vitest/coverage-v8": "^5.1.0",
+  "@vitest/coverage-v8": "^5.1.1",
   // ── gRPC — la carte gRPC de la démo (`create app --demo`) ; le générateur
   // `create controller --kind grpc` (#764) lira la même table ──
   //
@@ -117,7 +117,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   katex: "^0.19.1",
   vue: "^3.5.45",
   "@vitejs/plugin-vue": "^6.0.11",
-  svelte: "^5.57.3",
+  svelte: "^5.58.0",
   "@sveltejs/vite-plugin-svelte": "^7.3.1",
   // Contrôle de l'INTÉRIEUR des composants, enchaîné par le script `typecheck`
   // (`FRONTEND_PARAMS.componentTypecheck`) : `tsgo` ne lit ni un `.vue` ni un

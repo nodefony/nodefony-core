@@ -79,10 +79,10 @@
     "@types/mime-types": "3.0.1",
     "@types/node": "26.6.6",
     "@types/websocket": "1.0.10",
-    "@vitest/coverage-v8": "5.1.0",
+    "@vitest/coverage-v8": "5.1.1",
     "nodefony": "^10.0.0-beta.9",
     "tsx": "4.23.15",
-    "vitest": "5.1.0"
+    "vitest": "5.1.1"
   },
   "license": "Apache-2.0",
   "readmeFilename": "README.md",
