@@ -460,6 +460,17 @@ par un sous-shell.
   nue réponde 200 (≤ 5 min), puis `gh run rerun <id> --failed` — `publier`, vert, ne repart
   pas. L'attente du workflow sonde l'archive À L'ORIGINE (paramètre unique), PUIS l'URL nue :
   sonder l'origine seule laissait passer le 404 en cache.
+- **`TLOG_CREATE_ENTRY_ERROR (409) an equivalent entry already exists` est un incident Sigstore,
+  pas un défaut du lot.** Le journal de transparence a enregistré l'attestation trop lentement, le
+  client npm a réessayé et s'est vu refuser son propre doublon. Le paquet qui tombe est quelconque
+  (`framework`, puis `drizzle` à la passe suivante). Conduite : attendre que les paquets DÉJÀ
+  publiés soient **visibles** (`npm view <p>@<v> version --prefer-online`, plusieurs minutes un
+  soir chargé), puis `gh run rerun <id> --failed` — relancer pendant la propagation ferait
+  republier ce qui est en ligne (refus npm). Chaque passe avance ; la 10.0.0 en a pris trois.
+- **Un rendu de contrôle de l'accueil se fait sur les manifestes ESTAMPILLÉS**, jamais avant :
+  `canalDeVersion` rend `"latest"` pour une stable (jamais `null`), et un rendu fait en
+  préversion montre `@beta` sans pouvoir voir le cas stable. La règle unique est `PRERELEASE`
+  (`readme-html.mjs`), qui exclut `latest`.
 - **Ne JAMAIS relancer le job `image` après un push partiel** : il REBÂTIT, et un nouveau
   digest viendrait remplacer `<v>`, déjà tiré. Une étiquette manquante (`:beta` d'un dépôt) se
   pose par COPIE de l'index vérifié, depuis le poste :
