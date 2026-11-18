@@ -1895,6 +1895,29 @@ export function planDeReprise(ordre, locales, enLigne) {
 export const AUTEUR_FORGE = /npm-oidc-no-reply@github\.com/;
 
 /**
+ * La version dont l'auteur témoigne du publieur de confiance : la plus récente
+ * de TOUS les canaux d'un paquet, pas celle du canal visé.
+ *
+ * Lire le seul canal visé trompait au passage à la stable : `latest` servait
+ * encore `nodefony@7.0.2`, publiée à la main des années plus tôt, et l'alerte
+ * accusait un paquet que la forge publiait depuis toute la ligne 10 (vécu à la
+ * 10.0.0, fausse alerte levée à la main avant le tag).
+ *
+ * @param distTags - `{ canal: version }` lus sur npm
+ * @param estPlusRecente - `(a, b) => a > b` selon semver (injectée : la
+ *   précédence des préversions ne se réimplémente pas)
+ * @returns la version la plus récente, ou `null` si le paquet n'en a aucune
+ */
+export function versionDeReference(distTags, estPlusRecente) {
+  let reference = null;
+  for (const v of Object.values(distTags ?? {})) {
+    if (typeof v !== "string") continue;
+    if (reference === null || estPlusRecente(v, reference)) reference = v;
+  }
+  return reference;
+}
+
+/**
  * Le verdict sur les paquets que la forge n'a JAMAIS publiés sur ce canal.
  *
  * Le publieur de confiance se déclare à la main, paquet par paquet, sur

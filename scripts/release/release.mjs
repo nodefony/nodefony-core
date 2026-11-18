@@ -102,6 +102,7 @@ import {
   verdictPaquetsNeufs,
   verdictVersionsOccupees,
   verdictPublieurDeConfiance,
+  versionDeReference,
   alignerReferencesInternes,
   analyserCommits,
   perimetrePublie,
@@ -1186,9 +1187,18 @@ if (HORS_LIGNE) {
   const auteurs = paquets
     .filter((p) => !inconnus.has(p.nom))
     .map((p) => {
+      // La DERNIÈRE version publiée, tous canaux confondus — jamais le seul
+      // canal visé (cf `versionDeReference`).
+      const tags = npm(["view", p.nom, "dist-tags", "--json"]);
+      const reference =
+        tags.status === 0
+          ? versionDeReference(lireDistTags(tags.stdout), (a, b) =>
+              semver.gt(a, b),
+            )
+          : null;
       const r = npm([
         "view",
-        `${p.nom}@${TAG_NPM ?? "latest"}`,
+        `${p.nom}@${reference ?? TAG_NPM ?? "latest"}`,
         "_npmUser",
         "--json",
       ]);

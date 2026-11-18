@@ -28,6 +28,7 @@ import {
   PAQUETS_HISTORIQUES,
   depreciationsAFaire,
   canauxEnArriere,
+  versionDeReference,
   imageVersionFromInspect,
   latestsRestesEnArriere,
   lireDistTags,
@@ -1875,6 +1876,31 @@ describe("imageVersionFromInspect", () => {
         semver.gt(a, b),
       ).map((c) => `${c.tag}→${c.vers}`),
     ).toEqual(["alpha→10.0.0", "beta→10.0.0"]);
+  });
+});
+
+describe("versionDeReference", () => {
+  const gt = (a, b) => semver.gt(a, b);
+
+  it("au passage à la stable, prend la dernière préversion publiée, pas le latest historique", () => {
+    // Vécu 10.0.0 : latest = 7.0.2 (publiée à la main), beta = 10.0.0-beta.9 (forge).
+    expect(
+      versionDeReference(
+        { latest: "7.0.2", beta: "10.0.0-beta.9", alpha: "10.0.0-beta.9" },
+        gt,
+      ),
+    ).toBe("10.0.0-beta.9");
+  });
+
+  it("prend latest quand c'est lui le plus récent", () => {
+    expect(
+      versionDeReference({ latest: "10.0.1", beta: "10.0.0-beta.9" }, gt),
+    ).toBe("10.0.1");
+  });
+
+  it("rend null pour un paquet sans version", () => {
+    expect(versionDeReference({}, gt)).toBeNull();
+    expect(versionDeReference(null, gt)).toBeNull();
   });
 });
 
