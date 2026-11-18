@@ -137,7 +137,7 @@ describe("la page versionnée du dépôt", () => {
     // une bêta. Une version littérale sur cette ligne serait donc refusée — et
     // `--basculer` la réécrirait en mensonge.
     const page = fs.readFileSync(path.join(ROOT, ...SOURCE.split("/")), "utf8");
-    const ligneAlpha = page.split("\n").find((l) => l.startsWith("| `alpha`"));
+    const ligneAlpha = page.split("\n").find((l) => /^\|[^|]*`alpha`/.test(l));
     expect(ligneAlpha, "la ligne de l'étiquette `alpha`").toBeDefined();
     expect(ligneAlpha).not.toMatch(/\d+\.\d+\.\d+-/);
   });

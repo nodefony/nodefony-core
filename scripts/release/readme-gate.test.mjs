@@ -16,6 +16,7 @@ import {
   confronterReadme,
   surfaceExportee,
   AJOUTES_DOFFICE,
+  reglesDuCanal,
 } from "./readme-gate.mjs";
 
 /** Le décor minimal : un paquet dont on connaît la surface et le tarball. */
@@ -209,5 +210,37 @@ describe("surfaceExportee — ce que l'index laisse atteindre", () => {
     expect(surfaceExportee("src/packages/@nodefony/security").defaut).toBe(
       true,
     );
+  });
+});
+
+describe("reglesDuCanal — le README est jugé pour la version qu'il ACCOMPAGNE", () => {
+  const VEILLE = { latest: "7.0.2", beta: "10.0.0-beta.9" };
+
+  it("exige le canal pendant les préversions — le manifeste porte une bêta", () => {
+    expect(reglesDuCanal(VEILLE, "10.0.0-beta.9")).toEqual({
+      exigeCanal: true,
+      aveugle: null,
+    });
+  });
+
+  it("🔴 n'exige plus le canal sur le commit ESTAMPILLÉ de la stable — sa page part dans le tarball de la 10.0.0", () => {
+    // Sans projection, la CI du commit tagué rougissait sur « npm create nodefony »
+    // et garde-main refusait de publier la stable : la prose juste était refusée.
+    expect(reglesDuCanal(VEILLE, "10.0.0")).toEqual({
+      exigeCanal: false,
+      aveugle: null,
+    });
+  });
+
+  it("n'exige plus le canal une fois `latest` sur la 10", () => {
+    expect(
+      reglesDuCanal({ latest: "10.0.0" }, "10.1.0-beta.1").exigeCanal,
+    ).toBe(false);
+  });
+
+  it("dit qu'il n'a pas pu juger sans dist-tags — jamais un silence", () => {
+    const r = reglesDuCanal(null, "10.0.0");
+    expect(r.exigeCanal).toBe(false);
+    expect(r.aveugle).toMatch(/aucun dist-tag/);
   });
 });

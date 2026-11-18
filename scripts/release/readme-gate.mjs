@@ -88,6 +88,7 @@ import {
   COMMANDE,
   ligneDe,
   lireDistTags,
+  projeter,
   zonesDeCode,
 } from "./accueil-gate.mjs";
 import { listWorkspaces } from "../lib/workspaces.mjs";
@@ -410,6 +411,32 @@ function confronterReadme({
 }
 
 /**
+ * Faut-il exiger un canal nommé dans les commandes des README ?
+ *
+ * Un README part dans le tarball de la version estampillée au manifeste : il se
+ * juge donc contre le registre d'APRÈS sa publication ({@link projeter}, la règle
+ * de la garde d'accueil). Sans cette projection, le commit estampillé de la
+ * stable — qui écrit `npm create nodefony`, juste dès qu'il sera publié —
+ * était refusé parce que `latest` servait encore la 7. Tant que `latest` ne
+ * sert pas la 10, toute commande nomme son canal ; la question se pose UNE fois,
+ * les paquets basculent ensemble. Fonction PURE.
+ *
+ * @param tags - dist-tags servis par le registre, ou `null` s'il est muet
+ * @param version - version estampillée au manifeste du paquet `nodefony`
+ * @returns `exigeCanal`, et `aveugle` quand la règle n'a pas pu s'appliquer
+ */
+function reglesDuCanal(tags, version) {
+  if (!tags?.latest)
+    return {
+      exigeCanal: false,
+      aveugle:
+        "le registre n'a rendu aucun dist-tag — la règle du canal n'a pas pu être appliquée",
+    };
+  const apres = projeter(tags, version);
+  return { exigeCanal: !apres.latest.startsWith("10."), aveugle: null };
+}
+
+/**
  * Lance le contrôle sur les README publiables du dépôt.
  *
  * @param argv - arguments de ligne de commande.
@@ -424,17 +451,11 @@ async function principal(argv) {
       : await lireDistTags("nodefony");
 
   const aveugles = [];
-  // `latest` sert-il déjà la 10 ? Tant que non, toute commande doit nommer son
-  // canal. La question se pose UNE fois : les quinze paquets basculent ensemble.
-  let exigeCanal = true;
-  if (!tags?.latest) {
-    exigeCanal = false;
-    aveugles.push(
-      "le registre n'a rendu aucun dist-tag — la règle du canal n'a pas pu être appliquée",
-    );
-  } else if (tags.latest.startsWith("10.")) {
-    exigeCanal = false;
-  }
+  const manifeste = JSON.parse(
+    fs.readFileSync(path.join(ROOT, "src", "nodefony", "package.json"), "utf8"),
+  );
+  const { exigeCanal, aveugle } = reglesDuCanal(tags, manifeste.version);
+  if (aveugle) aveugles.push(aveugle);
 
   const { publiables, prives } = paquetsPubliables(ROOT);
   const noms = new Set(publiables.map((p) => p.nom));
@@ -527,6 +548,7 @@ if (lanceDirectement) {
 
 export {
   confronterReadme,
+  reglesDuCanal,
   surfaceExportee,
   paquetsPubliables,
   fichiersDuTarball,

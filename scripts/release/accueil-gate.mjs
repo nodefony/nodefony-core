@@ -358,11 +358,11 @@ function confronterAccueil({ surfaces, distTags: servis, enCours = null }) {
   const pointe = pointeDeLaLigne(distTags);
 
   for (const surface of surfaces) {
-    const { chemin, contenu, exigeVersion } = surface;
+    const { chemin, contenu, exigeVersion, commandesSeules = false } = surface;
     let versionsVues = 0;
 
     // ── Les versions citées ────────────────────────────────────────────────
-    for (const m of contenu.matchAll(VERSION)) {
+    for (const m of commandesSeules ? [] : contenu.matchAll(VERSION)) {
       versionsVues++;
       const citee = `${m[1]}-${m[2]}.${m[3]}`;
       const canal = m[2];
@@ -401,7 +401,7 @@ function confronterAccueil({ surfaces, distTags: servis, enCours = null }) {
     }
 
     // Au cran stable, la page annonce `10.0.0` et plus aucune préversion.
-    if (latestEstLa10 && versionsVues === 0) {
+    if (!commandesSeules && latestEstLa10 && versionsVues === 0) {
       versionsVues = (contenu.match(VERSION_STABLE) ?? []).length;
     }
 
@@ -417,7 +417,7 @@ function confronterAccueil({ surfaces, distTags: servis, enCours = null }) {
     }
 
     // ── L'affirmation « rien n'est publié » ────────────────────────────────
-    const nie = NIE_LA_PUBLICATION.exec(contenu);
+    const nie = commandesSeules ? null : NIE_LA_PUBLICATION.exec(contenu);
     const quelqueChoseEstPublie = Object.keys(distTags).some(
       (t) => t !== "latest" || latestEstLa10,
     );
@@ -464,7 +464,9 @@ function confronterAccueil({ surfaces, distTags: servis, enCours = null }) {
       // Dans du CODE, tout ce qui s'affiche est prescrit ; dans du markdown,
       // seul un bloc clôturé l'est ({@link zonesDeCode}).
       if (!surface.code && !dansUneZone(zones, m.index)) continue;
-      if (m[2]) continue; // le canal est nommé
+      // Le canal est nommé — sauf `@latest`, qui n'en nomme aucun : tant que
+      // `latest` n'est pas la 10, il installe la 7 comme la forme nue.
+      if (m[2] && m[2] !== "@latest") continue;
       if (latestEstLa10) continue; // `latest` EST la 10 : la forme nue est juste
       ecarts.push({
         genre: "COMMANDE-SANS-CANAL",
@@ -587,7 +589,85 @@ function lireSurfaces() {
       code: decl.code === true,
     });
   }
+  const declarees = new Set(SURFACES.map((s) => s.chemin));
+  for (const chemin of listerCorpus()) {
+    if (declarees.has(chemin)) continue;
+    surfaces.push({
+      chemin,
+      contenu: fs.readFileSync(path.join(ROOT, ...chemin.split("/")), "utf8"),
+      exigeVersion: false,
+      code: false,
+      commandesSeules: true,
+    });
+  }
   return { surfaces, manquantes };
+}
+
+/**
+ * Ce qui entre au corpus de PROSE : la documentation vivante, et ce que les
+ * paquets emportent dans leur tarball (README, pages `docs/`, skills livrés).
+ *
+ * Ces pages PRESCRIVENT des commandes — un tutoriel, un guide de montée de
+ * version, le skill `nodefony-upgrade` qu'une application reçoit — et la
+ * stable les aurait publiées sur `@beta` : l'accueil seul était gardé. Elles
+ * ne sont jugées que sur leurs COMMANDES (`commandesSeules`) : une procédure
+ * qui cite `10.0.0-alpha.3` raconte, elle n'affirme pas l'état de publication.
+ * L'historique en est exclu — il cite légitimement les canaux d'hier.
+ */
+const CORPUS = [
+  /^SECURITY\.md$/,
+  /^docs\/.+\.md$/,
+  /^src\/nodefony\/docs\/.+\.md$/,
+  /^src\/packages\/(?:@nodefony\/)?[^/]+\/README\.md$/,
+  /^src\/packages\/@nodefony\/[^/]+\/(?:docs|skills)\/.+\.md$/,
+];
+
+/**
+ * L'historique et la mémoire d'atelier : ils citent les canaux d'hier, à raison.
+ * `docs/release/` est le plan d'exécution des publications : il ÉNONCE les règles
+ * de canal, exemples compris, et le site ne le publie pas.
+ */
+const HORS_CORPUS = [
+  /(?:^|\/)CHANGELOG\.md$/,
+  /(?:^|\/)(?:MEMORY|CLAUDE)\.md$/,
+  /^docs\/(?:archives|session-retros|adr|release)\//,
+  /\/(?:node_modules|dist)\//,
+];
+
+/**
+ * Un chemin appartient-il au corpus de prose ? Prédicat PUR, sur un chemin
+ * relatif écrit en `/` — normalisé AVANT d'être filtré.
+ *
+ * @param chemin - chemin relatif à la racine du dépôt
+ * @returns vrai si ses commandes sont jugées
+ */
+function estDansLeCorpus(chemin) {
+  const p = chemin.split("\\").join("/");
+  return CORPUS.some((r) => r.test(p)) && !HORS_CORPUS.some((r) => r.test(p));
+}
+
+/**
+ * Énumère le corpus de prose du dépôt, en chemins relatifs écrits en `/`.
+ *
+ * @returns les chemins, triés
+ */
+function listerCorpus() {
+  const trouves = [];
+  const parcourir = (relatif) => {
+    const abs = path.join(ROOT, ...relatif.split("/"));
+    if (!fs.existsSync(abs)) return;
+    for (const e of fs.readdirSync(abs, { withFileTypes: true })) {
+      if (e.name === "node_modules" || e.name === "dist") continue;
+      const enfant = `${relatif}/${e.name}`;
+      if (e.isDirectory()) parcourir(enfant);
+      else if (estDansLeCorpus(enfant)) trouves.push(enfant);
+    }
+  };
+  for (const racine of ["docs", "src/nodefony/docs", "src/packages"])
+    parcourir(racine);
+  if (fs.existsSync(path.join(ROOT, "SECURITY.md")))
+    trouves.push("SECURITY.md");
+  return trouves.sort();
 }
 
 /**
@@ -652,6 +732,8 @@ async function principal(argv) {
   if (basculer || argv.includes("--anticiper")) {
     const faits = [];
     for (const s of surfaces) {
+      // Le corpus de prose ne se bascule pas : ses versions racontent.
+      if (s.commandesSeules) continue;
       const { contenu, remplacements } = basculerVersions(s.contenu, cible);
       if (remplacements.length === 0) continue;
       if (basculer)
@@ -728,6 +810,8 @@ if (lanceDirectement) {
 
 export {
   confronterAccueil,
+  estDansLeCorpus,
+  lireSurfaces,
   basculerVersions,
   comparer,
   garderVersions,

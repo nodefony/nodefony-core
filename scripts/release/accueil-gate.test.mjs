@@ -15,7 +15,9 @@ import {
   basculerVersions,
   comparer,
   confronterAccueil,
+  estDansLeCorpus,
   garderVersions,
+  lireSurfaces,
   pointeDeLaLigne,
   projeter,
   SURFACES,
@@ -639,12 +641,14 @@ describe("--en-cours — la page du TARBALL annonce la version qu'il accompagne 
         enCours: "10.0.0",
       }),
     ).toEqual([]);
-    // Hors de la passe qui la publie, la même page est fausse : `latest` sert la 7.
+    // Hors de la passe qui la publie, la même page est fausse : `latest` sert la 7
+    // — `@latest` compris, qui ne nomme aucun canal et installe la 7 comme la
+    // forme nue.
     expect(
       genres(
         confronterAccueil({ surfaces: [surface(stable)], distTags: VEILLE }),
       ),
-    ).toEqual(["SURFACE-MUETTE", "COMMANDE-SANS-CANAL"]);
+    ).toEqual(["SURFACE-MUETTE", "COMMANDE-SANS-CANAL", "COMMANDE-SANS-CANAL"]);
   });
 });
 
@@ -720,5 +724,100 @@ describe("garderVersions — ce que le registre peut faire écrire dans l'accuei
     expect(garderVersions({ beta: "pas une version" })).toBeNull();
     expect(garderVersions(null)).toBeNull();
     expect(garderVersions("10.0.0")).toBeNull();
+  });
+});
+
+describe("le corpus de PROSE — les commandes qu'une page prescrit, hors de l'accueil", () => {
+  const STABLE = { latest: "10.0.0", beta: "10.0.0-beta.9" };
+  const prose = (contenu, chemin = "docs/guides/x.md") => ({
+    chemin,
+    contenu,
+    exigeVersion: false,
+    commandesSeules: true,
+  });
+
+  it("🔴 refuse un canal dépassé dans une page de doc — le tutoriel resté sur `@beta` le jour de la stable", () => {
+    const ecarts = confronterAccueil({
+      surfaces: [prose("```bash\nnpm create nodefony@beta mon-app\n```\n")],
+      distTags: STABLE,
+    });
+    expect(genres(ecarts)).toEqual(["CANAL-DEPASSE"]);
+  });
+
+  it("ne juge NI les versions citées NI « pas encore publié » — une procédure n'affirme pas l'état", () => {
+    const ecarts = confronterAccueil({
+      surfaces: [
+        prose(
+          "La `10.0.0-alpha.3` a introduit ce réglage. La migration n'est pas encore publiée.",
+        ),
+      ],
+      distTags: STABLE,
+    });
+    expect(ecarts).toEqual([]);
+  });
+
+  it("borne le corpus : la doc vivante, les README et skills des paquets — jamais l'historique", () => {
+    for (const chemin of [
+      "SECURITY.md",
+      "docs/tutoriels/premiere-application.md",
+      "src/packages/create-nodefony/README.md",
+      "src/packages/@nodefony/drizzle/README.md",
+      "src/packages/@nodefony/realtime/docs/cookbook-chat.md",
+      "src/packages/@nodefony/devkit/skills/nodefony-upgrade/SKILL.md",
+      "src/nodefony/docs/kernel.md",
+    ])
+      expect(estDansLeCorpus(chemin), chemin).toBe(true);
+    for (const chemin of [
+      "CHANGELOG.md",
+      "src/nodefony/CHANGELOG.md",
+      "docs/archives/migration-status-2026-09-19.md",
+      "docs/session-retros/2026-09-09.md",
+      "docs/adr/0026-service-grpc-declare-par-un-module.md",
+      "docs/release/nodefony-10.md",
+      "src/packages/@nodefony/http/MEMORY.md",
+      "src/packages/@nodefony/http/CLAUDE.md",
+      "src/packages/@nodefony/http/node_modules/x/README.md",
+      "src/packages/@nodefony/http/dist/README.md",
+      "src/nodefony/src/cli/README.md",
+    ])
+      expect(estDansLeCorpus(chemin), chemin).toBe(false);
+  });
+
+  it("découvre le corpus RÉEL — les pages qui ont porté `@beta` jusqu'à la stable y sont", () => {
+    // La VÉRITÉ du corpus se juge à la publication (`--en-cours`), pas ici :
+    // entre la prose de la stable et son tag, elle serait fausse contre le
+    // registre du jour. Ce test prouve que la découverte VOIT ces pages.
+    const { surfaces } = lireSurfaces();
+    const corpus = surfaces
+      .filter((s) => s.commandesSeules)
+      .map((s) => s.chemin);
+    expect(corpus.length).toBeGreaterThan(100);
+    expect(corpus).toEqual(
+      expect.arrayContaining([
+        "SECURITY.md",
+        "docs/tutoriels/premiere-application.md",
+        "src/packages/create-nodefony/README.md",
+        "src/packages/@nodefony/devkit/skills/nodefony-upgrade/SKILL.md",
+      ]),
+    );
+    expect(corpus.some((c) => /CHANGELOG|\/adr\/|archives/.test(c))).toBe(
+      false,
+    );
+  });
+
+  it("🔴 refuse `@latest` dans un bloc tant que `latest` sert la 7 — il ne nomme aucun canal", () => {
+    const ecarts = confronterAccueil({
+      surfaces: [prose("```bash\nnpm create nodefony@latest mon-app\n```\n")],
+      distTags: { latest: "7.0.2", beta: "10.0.0-beta.9" },
+    });
+    expect(genres(ecarts)).toEqual(["COMMANDE-SANS-CANAL"]);
+  });
+
+  it("…et l'accepte le jour où `latest` EST la 10", () => {
+    const ecarts = confronterAccueil({
+      surfaces: [prose("```bash\nnpm create nodefony@latest mon-app\n```\n")],
+      distTags: STABLE,
+    });
+    expect(ecarts).toEqual([]);
   });
 });
