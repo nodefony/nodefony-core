@@ -527,6 +527,45 @@ const tauxDe = (nom, cle) => {
  * dernier jeu de performance publié — jamais recopié : la vitrine change avec
  * la mesure, ou se tait si la pièce manque.
  */
+// Une stable s'installe par la forme NUE (`npm create nodefony`) : npm revérifie
+// le registre pour un nom seul ; `@latest` ne sert qu'au dépannage d'un
+// create-nodefony installé en global. Une préversion nomme son canal.
+const CANAL_SUFFIXE = (() => {
+  const canal = canalDeVersion(pkgCore.version ?? "");
+  return canal ? `@${canal}` : "";
+})();
+
+/**
+ * Les constantes d'un exemplaire, LUES dans la mesure de capacité publiée —
+ * jamais recopiées : écrites en dur, elles sont restées quatre mois sur une
+ * mesure périmée. Le coût d'une unité est l'inverse de son plafond (µs de
+ * boucle d'événements à 100 %). La section se tait si une pièce manque.
+ */
+const capacite = (() => {
+  const jeu = dernierJeu("docs/performance/data");
+  const c = jeu?.data?.capacity ?? null;
+  const plafond = (liste, label) =>
+    liste?.find((m) => m.label === label && m.valid)?.ceiling ?? null;
+  const us = (parSeconde) => (parSeconde ? 1e6 / parSeconde : null);
+  const ws = us(plafond(c?.ws, "ws (echo 1:1)"));
+  const h1 = us(plafond(c?.http, "http/1.1 (clair)"));
+  const h2 = us(plafond(c?.http, "h2 (multiplexé, 1 connexion)"));
+  const livraison = c?.fanout?.valid ? us(c.fanout.ceiling) : null;
+  const tas = (c?.ram ?? []).map((r) => r.heapKB).filter(Number.isFinite);
+  if (!ws || !h1 || !h2 || !livraison || tas.length === 0) return null;
+  return {
+    ws,
+    h1,
+    h2,
+    livraison,
+    tasMin: Math.min(...tas),
+    tasMax: Math.max(...tas),
+    measuredAt: c.measuredAt ?? null,
+    route: c.route ?? null,
+    version: jeu.version,
+  };
+})();
+
 const binaryRatio = (() => {
   const data = dernierJeu("docs/performance/data")?.data ?? null;
   const at16 = (camp) =>
@@ -572,7 +611,7 @@ ${cards([
 ])}
 
 <p>Le même serveur sert aussi des services gRPC, encore expérimentaux en 10.0. Pour essayer, comptez
-deux minutes : <code>npm create nodefony@${canalDeVersion(pkgCore.version ?? "") ?? "latest"} mon-app</code> pose une application complète — comptes, sécurité, temps réel, console
+deux minutes : <code>npm create nodefony${CANAL_SUFFIXE} mon-app</code> pose une application complète — comptes, sécurité, temps réel, console
 d'administration — sur SQLite. Ensuite, <a href="./docs/demarrer/">Par où commencer</a> vous
 guide.</p>
 <p class="dim">Version ${esc(pkgCore.version ?? "—")} · Node ${esc(
@@ -797,7 +836,7 @@ ${cards([
   {
     k: "Bout en bout",
     v: fmt.int(suites.natures.e2e.cas),
-    sub: `${fmt.int(suites.natures.e2e.fichiers)} suites : une application générée, démarrée, interrogée`,
+    sub: `${fmt.int(suites.natures.e2e.fichiers)} suites contre de vrais PostgreSQL et MySQL, et un vrai serveur temps réel`,
   },
   {
     k: "Charge & mémoire",
@@ -993,25 +1032,45 @@ corrélé, identifiant de requête, en-têtes de sécurité, contrôle CSRF, ré
 pare-feu. Comparer sans ce travail ne compare rien. Les constantes ci-dessous servent à
 <strong>dimensionner</strong>, pas à gagner un concours.</p>
 
-${barChart(
-  [
-    { label: "1 message WebSocket", value: 70 },
-    { label: "1 requête HTTP/2 (multiplexée)", value: 154 },
-    { label: "1 requête HTTP/1.1", value: 207 },
-  ],
-  { unit: "µs de boucle d'événements" },
-)}
+${
+  capacite
+    ? `${barChart(
+        [
+          {
+            label: "1 message WebSocket (écho)",
+            value: Math.round(capacite.ws),
+          },
+          {
+            label: "1 requête HTTP/2 (multiplexée)",
+            value: Math.round(capacite.h2),
+          },
+          { label: "1 requête HTTP/1.1", value: Math.round(capacite.h1) },
+        ],
+        { unit: "µs de boucle d'événements" },
+      )}
 
 ${cards([
   {
     k: "Coût d'une socket",
-    v: "17,5",
+    v: `${fmt.int(capacite.tasMin)} à ${fmt.int(capacite.tasMax)}`,
     unit: "Ko",
-    sub: "empreinte mémoire par connexion",
+    sub: "de tas par connexion, selon que TLS est terminé par Node ou par le répartiteur",
   },
-  { k: "Message WS", v: "3×", sub: "moins cher qu'une requête HTTP" },
-  { k: "Diffusion", v: "≈100×", sub: "moins chère qu'un aller-retour" },
+  {
+    k: "Message WS",
+    v: `≈ ${fmt.dec(capacite.h1 / capacite.ws, 1)}×`,
+    sub: "moins cher qu'une requête HTTP/1.1",
+  },
+  {
+    k: "Diffusion",
+    v: `≈ ${fmt.int(capacite.h1 / capacite.livraison)}×`,
+    sub: "moins chère, par abonné livré, qu'une requête HTTP/1.1",
+  },
 ])}
+
+<p class="dim">Mesuré${capacite.measuredAt ? ` le ${esc(capacite.measuredAt)}` : ""}, en production, sur un exemplaire saturé${capacite.route ? ` (route de banc <code>${esc(capacite.route)}</code>, dans la zone de la console d’administration)` : ""} — lu dans <a href="./performance/">la campagne ${esc(capacite.version)}</a>, avec sa machine et son protocole.</p>`
+    : `<p>Les constantes d'un exemplaire sont publiées avec leur décor dans <a href="./performance/">la campagne de performance</a>.</p>`
+}
 
 ${warn(`Ces constantes valent pour le pipeline nu, <strong>sans session ni base de données</strong>.
 Une route authentifiée paie en plus son magasin de sessions, qui domine tout le reste. La règle :

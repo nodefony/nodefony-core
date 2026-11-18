@@ -277,7 +277,7 @@ sur invitation, sonde industrielle, tableau de bord partagé, notification priv�
 
 JSON reste le format par défaut. Dès que des octets circulent — image, son, mesures de capteur,
 état d'une partie —, le serveur accepte **CBOR**, un JSON binaire. Nodefony embarque son propre
-codec : isomorphe, sans dépendance, environ 5,5 Ko compressés, et téléchargé seulement par la page
+codec : isomorphe, sans dépendance, environ 6 Ko compressés, et téléchargé seulement par la page
 qui l'importe. Il rend exactement ce que JSON rendrait, à une exception près : un `Uint8Array`
 voyage en octets et revient en `Uint8Array`. Un message ordinaire pèse 30 à 45 % de moins, et 64 Ko
 d'octets en occupent 65,6 au lieu des 87,4 du base64.
