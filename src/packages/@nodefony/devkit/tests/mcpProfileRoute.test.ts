@@ -237,7 +237,11 @@ describe("nodefony_profile_route — le tir", () => {
 
   it("un profil collecté APRÈS la réponse est attendu et retrouvé", async () => {
     const app = fakeApp({ collectDelayMs: 30 });
-    const result = await call(app.deps(), {
+    // Attendre le FAIT, pas parier sur une durée : la collecte est sondée toutes
+    // les 10 ms et s'arrête dès le profil trouvé — une marge large ne ralentit
+    // pas le vert. Avec 200 ms, la campagne du 2026-11-16 (suite entière +
+    // micro-bancs en parallèle) a vu le minuteur de 30 ms partir trop tard.
+    const result = await call(app.deps({ collectWaitMs: 4_000 }), {
       path: "/orders",
       count: 4,
       warmup: 0,

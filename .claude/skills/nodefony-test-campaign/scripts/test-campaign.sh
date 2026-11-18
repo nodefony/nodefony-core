@@ -4,15 +4,18 @@
 # `docs/qualite/data/<version>.json`, pour les étages qui se jouent sans
 # jugement, dans l'ordre du protocole (SKILL.md § « La matrice ») :
 #
-#   A   socle + dialectes, micro-bancs ouverts (C1 « se joue avec le socle »)
+#   A   socle + dialectes — SANS les micro-bancs (cf C1 plus bas)
 #   B   charge + mémoire
 #   C1c boot réel de la CLI           — serveur de dev ÉTEINT, après B
 #   C1b cluster e2e (fork de vrais process) — la machine pour lui seul
-#   C2  sondes de rupture WS          — épuisent les ports éphémères, isolées
+#   C2  sondes de rupture WS          — épuisent les ports éphémères, isolées ; serveur de dev DÉMARRÉ
 #   E   ce que le scaffold produit    — verify-generated --keep puis verify-runtime
 #   G   ce qu'un installeur reçoit    — release:pack puis release:smoke
 #
 # Ce qu'il ne joue PAS, et pourquoi :
+#   C1  micro-bancs (`NF_RUN_PERF`) : SEULS, machine au repos. Ouverts avec le
+#       socle (campagne du 2026-11-16), ils l'ont saturé — les tests de durée
+#       d'`Injector`/`Tools`, qui tournent TOUJOURS, sont tombés avec eux ;
 #   C3  arrête et relance des conteneurs : s'annonce, puis se contrôle après ;
 #   D   les bancs se jouent par LOTS, destructeurs en dernier, décor par banc ;
 #   F   un banc multi-pods se monte et se lit.
@@ -99,7 +102,7 @@ if ! npm run build >"$OUT/build.log" 2>&1; then
   log "❌ build en échec — campagne abandonnée (voir build.log)"; exit 1
 fi
 
-stage A env NF_RUN_PERF=1 npm run test:all -- --dialects
+stage A npm run test:all -- --dialects
 stage B npm run test:all -- --load
 stage C1c npm run test:boot
 
@@ -112,7 +115,11 @@ else
   want C1b && log "C1b ✗ SAUTÉ — variables Redis introuvables dans gates.ts"
 fi
 
-stage C2 bash .claude/skills/nodefony-load-test/scripts/run.sh load --rupture
+# C2 frappe le serveur de dev (`run.sh` : « Prérequis : serveur Nodefony dev
+# UP ») — or `stage` vient de l'ÉTEINDRE. Sans ce démarrage, C2 tombait en
+# 0 min sur ECONNREFUSED 127.0.0.1:5152 : un rouge de décor, pas du produit
+# (campagne du 2026-11-16). Le serveur s'éteint après, quel que soit le verdict.
+stage C2 bash -c 'bash .claude/skills/nodefony-start-server/start.sh || { echo "C2 : serveur de dev non démarré"; exit 69; }; bash .claude/skills/nodefony-load-test/scripts/run.sh load --rupture; rc=$?; node src/nodefony/bin/nodefony stop; exit $rc'
 
 # E : l'application témoin est GARDÉE par la première commande pour la seconde.
 stage E bash -c 'node .claude/skills/nodefony-devkit-bench/scripts/verify-generated.mjs --keep; g=$?; node .claude/skills/nodefony-devkit-bench/scripts/verify-runtime.mjs; r=$?; echo "verify-generated=$g verify-runtime=$r"; [ $g -eq 0 ] && [ $r -eq 0 ]'
@@ -121,4 +128,4 @@ stage G bash -c 'npm run release:pack && npm run release:smoke'
 
 # Un commit pendant la nuit, et le code testé n'est plus celui noté au départ.
 log "HEAD en fin de campagne : $(git rev-parse --short=8 HEAD)"
-log "campagne terminée — restent C3, D, F ; composer docs/qualite/data/<version>.json depuis $OUT"
+log "campagne terminée — restent C1, C3, D, F ; composer docs/qualite/data/<version>.json depuis $OUT"

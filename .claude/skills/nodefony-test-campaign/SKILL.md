@@ -121,13 +121,13 @@ rouges ne lui appartiennent pas. L'ordre des questions, du moins cher au plus ch
 Ils s'ouvrent **par familles**, jamais tous d'un coup : un run qui échoue pour quinze causes
 mélangées est ininterprétable.
 
-| Lot | Variables                                                        | Pourquoi séparé                                                                |
-| --- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| C1  | `NF_RUN_PERF=1`                                                  | non disruptif — se joue avec le socle                                          |
-| C1b | `NF_RUN_CLUSTER_E2E=1` + `npm run test:cluster`                  | fork de VRAIS process — exige la machine pour lui (voir ci-dessous)            |
-| C1c | `npm run test:boot` (`NF_RUN_CLI_BOOT=1`)                        | démarre de VRAIS serveurs sur 5151/5152 — serveur de dev ÉTEINT, après B       |
-| C2  | `NF_RUN_WS_RUPTURE=1`                                            | épuise les ports éphémères — isolé, via `run.sh load --rupture`                |
-| C3  | `NF_RUN_DB_OUTAGE=1` + `NF_DB_OUTAGE_{PG,MYSQL,MONGO}_CONTAINER` | **arrête et relance des conteneurs** — annoncer avant, contrôler l'infra après |
+| Lot | Variables                                                        | Pourquoi séparé                                                                   |
+| --- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| C1  | `NF_RUN_PERF=1`                                                  | SEUL, machine au repos — ouvert avec le socle, il le sature (durées d’`Injector`) |
+| C1b | `NF_RUN_CLUSTER_E2E=1` + `npm run test:cluster`                  | fork de VRAIS process — exige la machine pour lui (voir ci-dessous)               |
+| C1c | `npm run test:boot` (`NF_RUN_CLI_BOOT=1`)                        | démarre de VRAIS serveurs sur 5151/5152 — serveur de dev ÉTEINT, après B          |
+| C2  | `NF_RUN_WS_RUPTURE=1`                                            | épuise les ports éphémères — isolé, via `run.sh load --rupture`                   |
+| C3  | `NF_RUN_DB_OUTAGE=1` + `NF_DB_OUTAGE_{PG,MYSQL,MONGO}_CONTAINER` | **arrête et relance des conteneurs** — annoncer avant, contrôler l'infra après    |
 
 **C1b ne s'ouvre PAS dans la passe par défaut, et l'y remettre refabrique le rouge.**
 `clusterIpc.e2e` et `redisCluster.e2e` montent une topologie multi-process : chaque worker est

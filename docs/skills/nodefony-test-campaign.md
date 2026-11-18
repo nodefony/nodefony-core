@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-11-16
+updated: 2026-11-18
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-test-campaign/SKILL.md"
 ---
@@ -29,7 +29,7 @@ source: ".claude/skills/nodefony-test-campaign/SKILL.md"
 | Version | `1.1.0` |
 | Famille | Autres |
 | Corps | 235 lignes |
-| Coût d'activation | ~4 433 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~4 438 tokens (le corps est chargé à l'invocation) |
 | Description | 894 / 1024 caractères |
 | Déclencheurs | 10 |
 | Ressources `references/` | 1 page(s) |
@@ -42,7 +42,7 @@ Conduit une passe de test COMPLÈTE du dépôt Nodefony — toutes les suites, t
 
 ## Prérequis
 
-Ce que le décor doit fournir pour que ses scripts disent quelque chose : **docker** · **redis**.
+Ce que le décor doit fournir pour que ses scripts disent quelque chose : **docker** · **serveur UP** · **redis**.
 
 ## Skills voisins
 
