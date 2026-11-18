@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-11-18 15:58** (UTC).
+> Empreinte prise le **2026-11-18 20:39** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,8 +20,8 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 139 | 2 | 2026-12-06 |
-| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 11% | 7 | 59 | 2026-12-15 |
+| **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 100% | 141 | 0 | 2026-12-06 |
+| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 10% | 7 | 61 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 33 | — |
 | **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 8 | — |
 | **12.0.0** | ![12.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/5?style=flat-square&label=) `██░░░░░░░░` 15% | 2 | 11 | — |
@@ -30,16 +30,16 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#782 — chore(release): faire le point d'aptitude avant de publier la 10.0.0**
+**#83 — feat(notification): doter le framework de l'envoi de messages sortants**
 
-Ordre 59 · P1 — figé à la création · 1 j · jalon 10.0.0 · frise —
+Ordre 1 · P1 — figé à la création · 5.5 j · jalon 10.1.0 · frise 2026-11-16 → 12-15
 
-> Choisi dans le **jalon courant `10.0.0`**, qui a encore 2 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.1.0`**, qui a encore 61 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.1.0 — 59 ouverts
+## Jalon 10.1.0 — 61 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -102,6 +102,8 @@ Ordre 59 · P1 — figé à la création · 1 j · jalon 10.0.0 · frise —
 | 172.5 | P2 — décision | 2 | — | #751 | feat(http): mesurer l'aller-retour de chaque WebSocket au ping/pong |
 | 174 | P2 — décision | 2 | — | #743 | feat(http): compter les requêtes par route dans la supervision |
 | 913.6 | P2 — décision | 5 | — | #692 | perf(cli): faire porter Vite par le superviseur de développement |
+| 914 | P2 — décision | 1 | — | #793 | perf(http): expliquer l'écart de mesure HTTP/1.1 entre deux bancs |
+| 914.5 | P1 — figé à la création | 1 | — | #794 | fix(http): libérer à coup sûr le scope d'un HEAD en HTTP/2 |
 
 ## Jalon 13.0.0 — 1 ouverts
 
@@ -212,13 +214,6 @@ Ordre 59 · P1 — figé à la création · 1 j · jalon 10.0.0 · frise —
 | 163.7 | P3 — fin de cycle | — | — | #714 | feat(realtime): livrer les ajouts différés des ADR temps réel |
 | 163.71 | P3 — fin de cycle | 2 | — | #715 | feat(realtime): reprendre un abonnement depuis un curseur |
 | 163.72 | P3 — fin de cycle | 1 | — | #716 | feat(realtime): signaler la fin d'un canal par realtime:closed |
-
-## Jalon 10.0.0 — 2 ouverts
-
-| Ordre | Prio | Jours | Frise | Ticket | Titre |
-| --- | --- | ---: | --- | --- | --- |
-| 59 | P1 — figé à la création | 1 | — | #782 | chore(release): faire le point d'aptitude avant de publier la 10.0.0 |
-| 60 | P3 — fin de cycle | 1 | 2026-11-25 → 11-25 | #27 | chore(release): publier les paquets de la version 10 sur npm |
 
 ## Jalon 12.0.0 — 11 ouverts
 

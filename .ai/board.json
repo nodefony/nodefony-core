@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-18T15:58:31.448Z",
+  "generatedAt": "2026-11-18T20:39:12.674Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,17 +39,17 @@
       "title": "13.0.0"
     },
     {
-      "closed": 139,
+      "closed": 141,
       "dueOn": "2026-12-06T00:00:00Z",
       "number": 1,
-      "open": 2,
+      "open": 0,
       "title": "10.0.0"
     },
     {
       "closed": 7,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 59,
+      "open": 61,
       "title": "10.1.0"
     }
   ],
@@ -9164,8 +9164,8 @@
       "number": 782,
       "title": "chore(release): faire le point d'aptitude avant de publier la 10.0.0",
       "url": "https://github.com/nodefony/nodefony-core/issues/782",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -9178,8 +9178,8 @@
       "number": 27,
       "title": "chore(release): publier les paquets de la version 10 sur npm",
       "url": "https://github.com/nodefony/nodefony-core/issues/27",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P3 — fin de cycle",
       "jours": 1,
@@ -10968,6 +10968,34 @@
       "labels": [
         "backlog"
       ]
+    },
+    {
+      "number": 793,
+      "title": "perf(http): expliquer l'écart de mesure HTTP/1.1 entre deux bancs",
+      "url": "https://github.com/nodefony/nodefony-core/issues/793",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.1.0",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 914,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 794,
+      "title": "fix(http): libérer à coup sûr le scope d'un HEAD en HTTP/2",
+      "url": "https://github.com/nodefony/nodefony-core/issues/794",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 914.5,
+      "debut": null,
+      "cible": null,
+      "labels": []
     },
     {
       "number": 567,
