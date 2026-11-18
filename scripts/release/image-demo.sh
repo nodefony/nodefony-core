@@ -378,7 +378,13 @@ for depot in "${depots[@]}"; do
 done
 
 # Empreinte d'une référence telle que le registre la sert.
-empreinte() { docker buildx imagetools inspect "$1" | awk '/^Digest:/ { print $2; exit }'; }
+#
+# 🔴 `awk` lit TOUTE l'entrée — jamais `{ print $2; exit }`. Un lecteur qui sort
+# tôt ferme le tuyau ; si `imagetools inspect` écrit encore après, il sort en
+# 255 SANS UN MOT, et `pipefail` tue le script. Course pure : vert sur le poste,
+# rouge sur le runner de la 10.0.0-beta.9 — `:beta` poussé sur Docker Hub, GHCR
+# jamais atteint.
+empreinte() { docker buildx imagetools inspect "$1" | awk '/^Digest:/ && d == "" { d = $2 } END { print d }'; }
 
 for depot in "${depots[@]}"; do
   sources=()

@@ -338,6 +338,14 @@ jobs:
       # de la vitrine et de l'image, rouges toutes deux. On attend donc aussi
       # l'archive, sondée avec un paramètre de requête UNIQUE : une sonde sur l'URL
       # nue planterait elle-même le 404 en cache qu'on cherche à éviter.
+      # Mais l'archive servie à l'ORIGINE ne dit rien de l'URL NUE — celle que
+      # `npm install` demande. Vécu à la 10.0.0-beta.9 : sonde verte, puis 404 sur
+      # `nodefony-…tgz` nue, planté pendant la fenêtre de publication par un
+      # lecteur extérieur (scanner du registre, premier install venu) que rien
+      # n'empêche. Donc, SEULEMENT une fois l'origine constatée (la sonde ne peut
+      # plus planter de 404), l'URL nue doit répondre 200 à son tour : un 404 en
+      # cache s'attend (`max-age=300`, sous le délai du pas), il ne se découvre
+      # plus dans `npm install`.
       - name: Attendre que le registre SERVE les paquets publiés
         if: steps.v.outputs.publier == 'oui' && vars.NF_RELEASE_ARMED == 'true'
         timeout-minutes: 15
@@ -360,7 +368,9 @@ jobs:
                 if (!tarball) return n;
                 const t = await fetch(tarball + "?nf-probe=" + Date.now() + "-" + Math.random(),
                   { method: "HEAD" });
-                return t.ok ? null : n + " (archive " + t.status + ")";
+                if (!t.ok) return n + " (archive " + t.status + ")";
+                const nue = await fetch(tarball, { method: "HEAD" });
+                return nue.ok ? null : n + " (archive nue " + nue.status + ", cache du CDN)";
               })).then((m) => console.log(m.filter(Boolean).join(" ")));
             ' "$VERSION" $NOMS)"
             if [ -z "$manquants" ]; then

@@ -299,7 +299,15 @@ de `git log` : `git log -1 --format=%b <sha>` sur chaque commit `!` (le geste de
 correctifs d'une capacité NÉE dans la même fenêtre : jamais publiée, rien à corriger pour
 l'utilisateur. Contrôle final : tout sha cité appartient à `v<précédente>..HEAD`.
 
-Deux lectures que le brouillon ne fait pas à ta place :
+Quatre lectures que le brouillon ne fait pas à ta place :
+
+- **Un « membre requis ajouté » n'est une rupture que si l'UTILISATEUR implémente le type.**
+  `api-diff` le classe `(breaking)` par défaut ; sur un objet que le framework PRODUIT et que
+  l'utilisateur ne fait que lire (`SocketSnapshot`, rendu par `socketSnapshot()`), c'est un
+  `Added`. Trancher en cherchant QUI construit la valeur (`rg 'SocketSnapshot' src/` : un
+  constructeur du framework, aucun `implements` attendu côté application).
+- **La date du titre est celle d'`--write`, en UTC** : estampillé avant minuit UTC et tagué
+  après, le titre porte la veille. La corriger au jour de la publication en réécrivant le brouillon.
 
 - **Une rupture de COMPORTEMENT peut voyager dans un `feat` sans `!`.** Le cas type : une
   section de config qui passe de `$loose` à `$strict` (une clé inconnue arrête désormais le
@@ -447,9 +455,24 @@ par un sous-shell.
 - **Un 404 sur une ARCHIVE juste après `publier` est un cache NÉGATIF du CDN**, pas un
   paquet absent : `npm view` voit la version, l'URL nue du `.tgz` répond 404
   (`cache-control: max-age=300`), la même URL avec un paramètre de requête répond 200. Le
-  404 a été posé par le premier `npm install` venu trop tôt. Conduite : attendre que l'URL
+  404 est posé par n'importe quel lecteur venu pendant la fenêtre de publication (scanner du
+  registre, premier install) — on ne l'empêche pas, on l'attend. Conduite : attendre que l'URL
   nue réponde 200 (≤ 5 min), puis `gh run rerun <id> --failed` — `publier`, vert, ne repart
-  pas. L'attente du workflow sonde désormais aussi les archives, sans URL nue.
+  pas. L'attente du workflow sonde l'archive À L'ORIGINE (paramètre unique), PUIS l'URL nue :
+  sonder l'origine seule laissait passer le 404 en cache.
+- **Ne JAMAIS relancer le job `image` après un push partiel** : il REBÂTIT, et un nouveau
+  digest viendrait remplacer `<v>`, déjà tiré. Une étiquette manquante (`:beta` d'un dépôt) se
+  pose par COPIE de l'index vérifié, depuis le poste :
+  `docker buildx imagetools create -t ghcr.io/nodefony/nodefony:<canal> ghcr.io/nodefony/nodefony:<v>`,
+  puis comparer les deux digests (`imagetools inspect`). GHCR exige un jeton à portée
+  `write:packages` : `gh auth refresh -s write:packages` (code d'appareil affiché dans le
+  TERMINAL, jamais envoyé ailleurs), PUIS `gh auth token | docker login ghcr.io -u <login>
+--password-stdin` — Docker garde l'ancien jeton tant qu'on ne se reconnecte pas (403
+  « does not match expected scopes »).
+- **Sous `pipefail`, un lecteur qui sort tôt TUE son producteur en silence.** `docker …` dont le
+  lecteur (`awk '{…; exit}'`, `head`, `grep -m`) a fermé le tuyau sort en **255 sans message** ;
+  le script meurt. Course : vert sur le poste, rouge sur le runner. Lire TOUTE l'entrée
+  (`awk '… END { print d }'`) ou protéger d'un `|| true` là où l'échec n'importe pas.
 - **Une estampille rouge en forge : le job s'est ARRÊTÉ au premier échec.** Les étapes
   suivantes du même job n'ont jamais tourné sur ce commit : les rejouer en local, commandes
   lues dans le workflow, AVANT de relancer `--promouvoir` — sinon chaque gate muet coûte
