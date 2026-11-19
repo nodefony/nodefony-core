@@ -81,6 +81,15 @@ describe("login.css — la source des couleurs de la marque", () => {
     );
   });
 
+  it("l'image par défaut est un dégradé de la marque, sans fichier à servir (#797)", () => {
+    // Sans photo d'application, les habillages qui la placent (horizon,
+    // photo-card, panneau) montraient un aplat : un trou, pas un décor.
+    const image = dark["hero-image"] ?? "";
+    assert.match(image, /gradient\(/u);
+    assert.notInclude(image, "url(");
+    assert.include(image, dark["brand"] ?? "#");
+  });
+
   it("dessine les arcs de la jonction avec les couleurs du logo", () => {
     const arcs = decodeURIComponent(dark["arcs"] ?? "");
     const fills = [
