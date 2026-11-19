@@ -43,7 +43,7 @@ name: Tenue dans la durée (soak RSS)
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ⚠️ `schedule` et `workflow_dispatch` ne partent QUE depuis la branche par
-# défaut du dépôt (`main`) : tant que ce fichier n'y est pas, le rendez-vous
+# défaut du dépôt (`dev`) : tant que ce fichier n'y est pas, le rendez-vous
 # hebdomadaire ne se déclenchera jamais et le bouton n'existera pas — un
 # workflow qui ne tourne pas est une décoration. Le déclencheur `push`, lui,
 # part de la branche où il vit : c'est ce qui rend ce banc ÉPROUVÉ ici et

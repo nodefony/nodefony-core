@@ -35,7 +35,7 @@ name: Bancs sur infrastructure réelle
 
 on:
   push:
-    branches: ["main", "dev"]
+    branches: ["main", "dev", "release/**"]
     paths:
       - "src/packages/@nodefony/drizzle/**"
       - "src/packages/@nodefony/redis/**"
@@ -89,7 +89,7 @@ on:
       - "package-lock.json"
       - ".github/workflows/orm.yml"
   pull_request:
-    branches: ["main", "dev"]
+    branches: ["main", "dev", "release/**"]
     paths:
       - "src/packages/@nodefony/drizzle/**"
       - "src/packages/@nodefony/redis/**"

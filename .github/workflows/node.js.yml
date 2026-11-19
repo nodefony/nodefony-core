@@ -2,7 +2,7 @@ name: nodefony-core
 
 on:
   push:
-    branches: ["main", "dev"]
+    branches: ["main", "dev", "release/**"]
     paths-ignore: &prose
       # Ce workflow est le SEUL sans filtre, et il est le plus cher : 17 jobs
       # sur trois systèmes. Mesuré — le commit `90497f81`, qui ne touchait que
@@ -22,7 +22,7 @@ on:
       - ".ai/BOARD.md"
       - ".ai/board.json"
   pull_request:
-    branches: ["main", "dev"]
+    branches: ["main", "dev", "release/**"]
     paths-ignore: *prose
   workflow_dispatch:
 

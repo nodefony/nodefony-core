@@ -44,7 +44,7 @@ name: Charge et mémoire (pipeline)
 
 on:
   push:
-    branches: ["main", "dev"]
+    branches: ["main", "dev", "release/**"]
     paths:
       - "src/packages/@nodefony/http/**"
       - "src/packages/@nodefony/framework/**"
@@ -61,7 +61,7 @@ on:
       - ".github/workflows/memory.yml"
       - ".github/actions/nodefony-server/**"
   pull_request:
-    branches: ["main", "dev"]
+    branches: ["main", "dev", "release/**"]
     paths:
       - "src/packages/@nodefony/http/**"
       - "src/packages/@nodefony/framework/**"

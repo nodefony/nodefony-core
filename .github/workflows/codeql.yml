@@ -23,7 +23,7 @@ name: "CodeQL"
 #    c'est ce qui le rend coûteux.
 on:
   push:
-    branches: ["main", "dev"]
+    branches: ["main", "dev", "release/**"]
     paths:
       - "src/**"
       # `scripts/` est ANALYSÉ (rien ne l'exclut de la config) : sans lui ici,
@@ -33,7 +33,7 @@ on:
       - ".github/workflows/codeql.yml"
       - ".github/codeql-config.yml"
   pull_request:
-    branches: ["main", "dev"]
+    branches: ["main", "dev", "release/**"]
   schedule:
     - cron: "00 00 * * *"
 

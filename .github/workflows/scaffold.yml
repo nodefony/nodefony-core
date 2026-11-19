@@ -58,7 +58,7 @@ name: Code généré (3 systèmes)
 
 on:
   push:
-    branches: ["main", "dev"]
+    branches: ["main", "dev", "release/**"]
     paths-ignore: &prose
       # Même filtre que `node.js.yml`, et pour la même raison : ce job est cher
       # (une installation npm RÉELLE par système), il n'a rien à dire sur de la
@@ -74,7 +74,7 @@ on:
       - ".ai/BOARD.md"
       - ".ai/board.json"
   pull_request:
-    branches: ["main", "dev"]
+    branches: ["main", "dev", "release/**"]
     paths-ignore: *prose
   workflow_dispatch:
 
