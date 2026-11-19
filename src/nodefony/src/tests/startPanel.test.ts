@@ -11,7 +11,7 @@ const BASE: IStartPanelInput = {
   built: true,
   infra: null,
   migrationPending: false,
-  admin: { user: "admin", password: "abcd-ef23-ghjk" },
+  admin: { user: "admin", password: "mot-de-passe" },
   addFrontend: null,
   agent: { kind: "to-wire" },
   demo: { installed: false, command: "npm create nodefony essai -- --demo" },
@@ -37,7 +37,7 @@ describe("renderStartPanel — le bloc « Pour commencer » de create app", () =
     assert.include(out, "cd mon-app");
     assert.include(out, "npm run dev");
     // Le mot de passe sur SA ligne, en tête d'étape — plus en commentaire.
-    assert.match(out, /^ 2 {2}Se connecter +admin \/ abcd-ef23-ghjk /mu);
+    assert.match(out, /^ 2 {2}Se connecter +admin \/ mot-de-passe /mu);
     assert.include(out, "provisionUsers.ts");
     assert.include(out, `${BASE.commands.exec("nodefony")} ai:mcp`);
   });

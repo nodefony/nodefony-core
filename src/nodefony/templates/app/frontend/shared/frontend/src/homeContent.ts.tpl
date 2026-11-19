@@ -97,7 +97,9 @@ function rich(
   const out: IHomeText[] = [];
   strings.forEach((text, i) => {
     if (text !== "") out.push({ text, code: false });
-    const code = codes[i];
+    // `at()` : `undefined` après la dernière valeur, quelle que soit la
+    // configuration de l'index (`noUncheckedIndexedAccess`).
+    const code = codes.at(i);
     if (code !== undefined) out.push({ text: code, code: true });
   });
   return out;
