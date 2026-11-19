@@ -5,7 +5,7 @@ import {
   readFileSync,
   writeFileSync,
 } from "node:fs";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomInt } from "node:crypto";
 import path from "node:path";
 import { pointeursInstructions } from "../agentTargets";
 import { fileURLToPath } from "node:url";
@@ -73,16 +73,48 @@ const DEMO_VIDEO_ASSET = path.join("assets", "demo-video.mp4");
 const DEMO_VIDEO_FILE = path.join("media", "sample.mp4");
 
 /**
- * Mot de passe du compte `admin` qu'une application générée sème en développement.
- *
- * Seule source : chaque gabarit le rend par `<%= it.devAdminPassword %>` (injecté
- * par `renderLayer`), et `create app` l'annonce depuis cette constante. Recopiée
- * dans quinze gabarits, la valeur changeait dans le semis et restait l'ancienne
- * dans l'annonce, et l'utilisateur prenait un 401 dès sa première connexion.
- * Jamais « admin » : la politique de mots de passe refuse un mot de passe qui
- * contient l'identifiant.
+ * Lettres et chiffres du mot de passe de développement, sans les caractères
+ * qu'on confond en les recopiant (`0/o`, `1/l/i`).
  */
-export const DEV_ADMIN_PASSWORD = "nodefony-dev-42";
+const DEV_PASSWORD_LETTERS = "abcdefghjkmnpqrstuvwxyz";
+const DEV_PASSWORD_DIGITS = "23456789";
+
+/**
+ * Tire le mot de passe du compte `admin` qu'une application générée sème en
+ * développement — UNE fois, à `create app`, propre à chaque application.
+ *
+ * Une valeur fixe était publiée avec le framework, et un serveur démarré sans
+ * `NODE_ENV` tourne en développement (`engineEnvironment.ts#DEFAULT_ENGINE_ENVIRONMENT`) :
+ * il créait donc un compte administrateur dont tout le monde connaissait le mot
+ * de passe. Le tirage le rend propre à l'application, sans rien coûter au
+ * développeur, qui le lit sur l'accueil, dans le `.env` et dans le README.
+ *
+ * Forme `xxxx-xxxx-xxxx`, chaque groupe = trois lettres et UN chiffre à une
+ * place tirée (~52 bits) : il se TAPE au premier login, il doit donc se lire et
+ * se recopier sans ambiguïté. Le chiffre n'est pas décoratif : la politique
+ * refuse quatre touches consécutives (`abcd`, `2345`, `qsdf`), et un groupe
+ * de quatre lettres tirées au hasard en tombe une de temps en temps — l'app
+ * ne semait alors pas son compte. Aucune suite refusée ne mêle lettres et
+ * chiffres, donc aucun groupe n'en est une, sans recopier la règle ici.
+ * 14 caractères passent `minLength` (10) ; jamais « admin ».
+ *
+ * Seule source : chaque gabarit le rend par `<%= it.devAdminPassword %>`, et
+ * `create app` l'annonce depuis `IScaffoldResult.devAdminPassword`.
+ *
+ * @returns un mot de passe neuf à chaque appel
+ */
+export function drawDevAdminPassword(): string {
+  let out = "";
+  for (let group = 0; group < 3; group++) {
+    if (group > 0) out += "-";
+    const digitAt = randomInt(4);
+    for (let i = 0; i < 4; i++) {
+      const set = i === digitAt ? DEV_PASSWORD_DIGITS : DEV_PASSWORD_LETTERS;
+      out += set[randomInt(set.length)];
+    }
+  }
+  return out;
+}
 import { createAppCommand, NODE_ENGINE_LABEL } from "../installCommand";
 import { IMAGE_NODEFONY_BIN } from "../nodefonyBin";
 import { findProjectRoot } from "../projectRoot";
@@ -220,6 +252,11 @@ export interface IScaffoldResult {
   linked: string[];
   /** Points d'entrée utiles du scaffold (routes, canaux…) — affichés tels quels. */
   notes?: string[];
+  /**
+   * Mot de passe du compte `admin` de développement tiré pour CETTE application
+   * (`create app` seulement) — celui que `create app` annonce.
+   */
+  devAdminPassword?: string;
   /**
    * Dépendances AJOUTÉES au `package.json` du projet par cette génération.
    *
@@ -1180,9 +1217,6 @@ function renderLayer(
   tokens?: Record<string, string>,
 ): void {
   const entries = readdirSync(srcDir, { withFileTypes: true, recursive: true });
-  // Les constantes du scaffold d'abord : le contexte d'un générateur ne peut pas
-  // les masquer par oubli, seulement les surcharger exprès.
-  const scope = { devAdminPassword: DEV_ADMIN_PASSWORD, ...data };
   for (const entry of entries) {
     if (!entry.isFile() || !entry.name.endsWith(".tpl")) {
       continue;
@@ -1200,7 +1234,7 @@ function renderLayer(
     for (const [token, value] of Object.entries(tokens ?? {})) {
       rel = rel.replaceAll(token, value);
     }
-    const rendered = eta.renderString(readFileSync(abs, "utf8"), scope);
+    const rendered = eta.renderString(readFileSync(abs, "utf8"), data);
     // Garantie zéro résidu : un tag eta non fermé/écrit à la main qui survit au
     // rendu = template cassé, on refuse d'écrire un projet corrompu.
     if (rendered.includes("<%")) {
@@ -2449,6 +2483,10 @@ function dispatchScaffold(
     // PRÊT mais en commentaire dans `.env` : il ne sert qu'avec le pilote
     // `redis` (plusieurs exemplaires), inutile au poste mono-process.
     realtime: { backplaneSecret: randomBytes(32).toString("base64") },
+    // Compte `admin` de développement : tiré ICI, une fois par application
+    // (`drawDevAdminPassword`), rendu par le semis, le `.env`, le README et
+    // l'accueil, puis annoncé par `create app` via le résultat.
+    devAdminPassword: drawDevAdminPassword(),
     // Décor Keycloak du profil `keycloak` — lu par `.env` et `.env.example`.
     // Le realm d'import qui porte le même secret est écrit par la contribution
     // de `@nodefony/security` (`devClientSecret`, même règle, gardée par un
@@ -2761,7 +2799,12 @@ function dispatchScaffold(
       linkLocalPeers(demoDir, workspaces, writer, packageManager);
     }
   }
-  return { dest, files: written.sort(), linked };
+  return {
+    dest,
+    files: written.sort(),
+    linked,
+    devAdminPassword: data.devAdminPassword,
+  };
 }
 
 /**

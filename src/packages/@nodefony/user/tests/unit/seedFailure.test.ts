@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { drawDevAdminPassword } from "../../../../../nodefony/src/cli/scaffold/engine";
 
 import {
   describeSeedFailure,
@@ -141,19 +142,25 @@ describe("les mots de passe de fixture passent la politique par défaut", () => 
   };
 
   it("celui de l'application GÉNÉRÉE (gabarit `create app`)", async () => {
-    // La valeur vit dans le MOTEUR du scaffold, seule source : les gabarits n'en
-    // portent que le marqueur, et `devAdminPasswordParity.test.ts` (cœur)
-    // prouve que le rendu y injecte exactement cette constante.
-    const motDePasse = constanteDe(
-      "../../../../../nodefony/src/cli/scaffold/engine.ts",
-      "DEV_ADMIN_PASSWORD",
-    );
-    assert.equal(
-      await politique.violation(motDePasse, { identifier: "admin" }),
-      null,
-      `le défaut du gabarit est refusé par la politique — aucune application ` +
-        `générée ne sèmerait son compte admin`,
-    );
+    // La valeur est TIRÉE par le moteur du scaffold, une par application
+    // (`drawDevAdminPassword`) : un tirage refusé = une application qui ne
+    // sème pas son compte admin. On passe donc de NOMBREUX tirages à la vraie
+    // politique — vécu à l'écriture : des groupes de quatre lettres tombaient
+    // de temps en temps sur une suite de touches (`qsdf`, `wxcv`).
+    // `devAdminPasswordParity.test.ts` (cœur) prouve que le rendu injecte la
+    // valeur tirée.
+    for (let i = 0; i < 5000; i++) {
+      const motDePasse = drawDevAdminPassword();
+      const refus = await politique.violation(motDePasse, {
+        identifier: "admin",
+      });
+      assert.equal(
+        refus,
+        null,
+        `tirage refusé par la politique (${refus}) — aucune application ` +
+          `générée ne sèmerait son compte admin`,
+      );
+    }
   });
 
   it("celui du DÉPÔT de développement du framework", async () => {
