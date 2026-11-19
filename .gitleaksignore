@@ -63,3 +63,9 @@
 # Le commit suivant (`2af2cba38`) le TIRE à l'exécution ; l'historique d'une
 # branche publiée ne se réécrit pas pour une valeur inventée.
 7aec46ee73b1084f254b17fd8eb40781de9a6df5:.claude/skills/nodefony-load-test/scripts/micro/micro-backplane-envelope-ab.mjs:generic-api-key:39
+
+# Mot de passe d'EXEMPLE d'un test du bloc « Pour commencer » (#797), au commit
+# qui l'a introduit (`16d754dd`) : une chaîne factice qui avait la forme d'une
+# clé. Le commit `d469bc6a` l'a remplacée par un texte sans entropie ; la
+# branche étant publiée, l'historique ne se réécrit pas.
+16d754ddd3187d0b334536937e3a72946fb141c0:src/nodefony/src/tests/startPanel.test.ts:generic-api-key:14
