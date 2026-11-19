@@ -721,8 +721,16 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         path.join(dest, "nodefony", "controllers", "HomeController.ts"),
         "utf8",
       );
-      assert.include(home, 'this.renderJson({ app: "livefull" })');
+      // Négociation (#797) : un programme garde `{ app }`, un navigateur
+      // reçoit la page — ni l'un ni l'autre ne porte la version.
+      assert.include(home, 'this.renderJson({ app: "livefull" }, 200, vary)');
+      assert.include(home, "text\\/html");
       assert.notInclude(home, version);
+      const homePage = readFileSync(
+        path.join(dest, "nodefony", "home", "homePage.ts"),
+        "utf8",
+      );
+      assert.notInclude(homePage, version);
       // `/api` FERMÉ : `main` sans `anonymous`.
       const security = readFileSync(
         path.join(dest, "nodefony", "config", "security.ts"),

@@ -14,6 +14,7 @@ import assert from "node:assert";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { rolldown } from "rolldown";
 import { afterAll, beforeAll, describe, it } from "vitest";
 import { version } from "../../package.json";
@@ -60,7 +61,8 @@ describe("accueil généré — le contenu de développement ne part pas en prod
       );
       assert.ok(devAdminPassword, "mot de passe non tiré");
       const src = path.join(dest, "frontend", "src");
-      const devHome = readFileSync(path.join(src, "devHome.ts"), "utf8");
+      // Les textes vivent dans `homeContent.ts`, la garde dans `devHome.ts`.
+      const content = readFileSync(path.join(src, "homeContent.ts"), "utf8");
       // Témoin : le développement porte bien ce que la production doit perdre
       // — sans lui, un rendu vide passerait pour une garde qui tient.
       for (const witness of [
@@ -69,7 +71,7 @@ describe("accueil généré — le contenu de développement ne part pas en prod
         "Pour commencer",
       ]) {
         assert.ok(
-          devHome.includes(witness),
+          content.includes(witness),
           `témoin absent du rendu : ${witness}`,
         );
       }
@@ -93,4 +95,51 @@ describe("accueil généré — le contenu de développement ne part pas en prod
       }
     });
   }
+
+  // Sans front, la page est rendue par le SERVEUR : la garde est le drapeau
+  // `development` que lui passe `HomeController`. On appelle la page rendue
+  // telle quelle, en production puis en développement.
+  it("sans front : la page de production ne rend que le nom", async () => {
+    const dest = path.join(tmp, "none");
+    const { devAdminPassword } = runScaffold(
+      {
+        type: "app",
+        answers: { name: "guard", preset: "complete", frontend: "none" },
+        dir: dest,
+        force: false,
+      },
+      version,
+    );
+    assert.ok(devAdminPassword, "mot de passe non tiré");
+    const page = path.join(dest, "nodefony", "home", "homePage.ts");
+    const mod: unknown = await import(pathToFileURL(page).href);
+    assert.ok(
+      typeof mod === "object" && mod !== null && "renderHomePage" in mod,
+    );
+    const { renderHomePage } = mod;
+    assert.ok(typeof renderHomePage === "function");
+    const view = (development: boolean) => ({
+      appName: "guard",
+      development,
+      demo: null,
+      user: null,
+      loginHref: "/login",
+    });
+    const dev: unknown = renderHomePage(view(true));
+    const prod: unknown = renderHomePage(view(false));
+    assert.ok(typeof dev === "string" && typeof prod === "string");
+    // Témoin : le développement porte bien ce que la production doit perdre.
+    for (const witness of [
+      devAdminPassword,
+      'href="/nodefony"',
+      "Pour commencer",
+    ]) {
+      assert.ok(
+        dev.includes(witness),
+        `témoin absent en développement : ${witness}`,
+      );
+      assert.ok(!prod.includes(witness), `« ${witness} » rendu en production`);
+    }
+    assert.ok(prod.includes("<h1>guard</h1>"), "le nom de l'application");
+  });
 });

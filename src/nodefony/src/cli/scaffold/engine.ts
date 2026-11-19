@@ -1287,26 +1287,45 @@ function renderLayer(
     for (const [token, value] of Object.entries(tokens ?? {})) {
       rel = rel.replaceAll(token, value);
     }
-    const rendered = eta.renderString(readFileSync(abs, "utf8"), data);
-    // Garantie zéro résidu : un tag eta non fermé/écrit à la main qui survit au
-    // rendu = template cassé, on refuse d'écrire un projet corrompu.
-    if (rendered.includes("<%")) {
-      throw new Error(`tag eta résiduel dans ${rel}`);
-    }
-    // Un gabarit ENTIÈREMENT conditionnel s'enveloppe dans son `if` et ne rend
-    // rien quand la condition est fausse. Écrire le fichier vide poserait dans
-    // le projet un test qui ne teste rien, ou une config que rien ne lit — et
-    // personne ne saurait dire s'il est vide par erreur ou par conception.
-    // Un fichier vide n'ayant aucun usage légitime, l'absence est le bon rendu.
-    if (rendered.trim() === "") {
-      continue;
-    }
-    writer.write(path.join(destDir, rel), rendered);
-    // Un layer peut réécrire le fichier d'un précédent (`complete` remplace le
-    // `.env.example` de `base`) : un fichier, une ligne dans la liste annoncée.
-    if (!written.includes(rel)) {
-      written.push(rel);
-    }
+    renderTemplateFile(eta, abs, destDir, rel, data, written, writer);
+  }
+}
+
+/**
+ * Rend UN gabarit (`*.tpl`) vers `rel` sous `destDir` — le geste de chaque
+ * fichier d'un layer, appelable seul quand un gabarit partagé doit être posé
+ * ailleurs que dans son layer (la feuille de l'accueil d'une app sans front).
+ *
+ * @throws si un tag eta survit au rendu (gabarit cassé)
+ */
+function renderTemplateFile(
+  eta: Eta,
+  abs: string,
+  destDir: string,
+  rel: string,
+  data: Record<string, unknown>,
+  written: string[],
+  writer: ScaffoldWriter,
+): void {
+  const rendered = eta.renderString(readFileSync(abs, "utf8"), data);
+  // Garantie zéro résidu : un tag eta non fermé/écrit à la main qui survit au
+  // rendu = template cassé, on refuse d'écrire un projet corrompu.
+  if (rendered.includes("<%")) {
+    throw new Error(`tag eta résiduel dans ${rel}`);
+  }
+  // Un gabarit ENTIÈREMENT conditionnel s'enveloppe dans son `if` et ne rend
+  // rien quand la condition est fausse. Écrire le fichier vide poserait dans
+  // le projet un test qui ne teste rien, ou une config que rien ne lit — et
+  // personne ne saurait dire s'il est vide par erreur ou par conception.
+  // Un fichier vide n'ayant aucun usage légitime, l'absence est le bon rendu.
+  if (rendered.trim() === "") {
+    return;
+  }
+  writer.write(path.join(destDir, rel), rendered);
+  // Un layer peut réécrire le fichier d'un précédent (`complete` remplace le
+  // `.env.example` de `base`) : un fichier, une ligne dans la liste annoncée.
+  if (!written.includes(rel)) {
+    written.push(rel);
   }
 }
 
@@ -2602,6 +2621,30 @@ function dispatchScaffold(
   // Rendu SEULEMENT sans front — avec un front, `AppController` tient `/`.
   if (!front) {
     renderLayer(eta, path.join(templates, "home"), dest, data, written, writer);
+    // La MÊME feuille et les MÊMES textes que l'accueil des fronts — rendus
+    // depuis leurs gabarits partagés, jamais recopiés : la feuille servie à la
+    // racine par le framework, les textes à côté de la page serveur.
+    const shared = path.join(
+      templates,
+      "frontend",
+      "shared",
+      "frontend",
+      "src",
+    );
+    for (const [file, rel] of [
+      ["showcase.css.tpl", path.join("public", "showcase.css")],
+      ["homeContent.ts.tpl", path.join("nodefony", "home", "homeContent.ts")],
+    ] as const) {
+      renderTemplateFile(
+        eta,
+        path.join(shared, file),
+        dest,
+        rel,
+        data,
+        written,
+        writer,
+      );
+    }
   }
   // AUCUN contrôleur d'exemple (#746) : l'application générée est GÉNÉRIQUE.
   // Ce qu'elle contient, son utilisateur le garde ; ce qui MONTRE le framework
