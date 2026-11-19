@@ -134,7 +134,9 @@ button:focus-visible {
   outline-offset: 3px;
   border-radius: 4px;
 }
-code {
+/* Le code de l'ACCUEIL seulement : une pastille sur tout `code` de la page
+   imposerait son style aux pages que tu ajouteras (la démo a les siennes). */
+.nf-main code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.85em;
   padding: 1px 6px;

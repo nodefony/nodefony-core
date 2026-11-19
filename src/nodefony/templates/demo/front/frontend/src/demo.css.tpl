@@ -1,23 +1,15 @@
 /*
- * Feuille de la démo — reprise de la maquette validée (#747) : mêmes jetons
- * que l’accueil du cœur. Le logo arrive par `--demo-logo`, posé par la page
- * depuis le paquet (`brand.ts`) : jamais une copie embarquée ici.
- */
-/* Mise en page : celle de l'accueil du cœur (nodefony/views/index.eta), mêmes jetons ;
-   le catalogue des démos remplace les quatre fronts et Studio. */
-/*
- * Thème clair : les trois couleurs du LOGO (bleu #0067ba, cyan #00a0f2,
- * vert #448438) sur un fond teinté de leur bleu — jamais un blanc nu. Le bleu
- * est celui du logo, tel quel ; le cyan et le vert sont assombris juste assez
- * pour tenir 4,5:1 en texte sur le fond, la carte ET la bande douce.
+ * Feuille de la démo — reprise de la maquette validée (#747). Le logo arrive
+ * par `--demo-logo`, posé par la page depuis le paquet (`brand.ts`) : jamais
+ * une copie embarquée ici.
+ *
+ * Les jetons (couleurs des deux thèmes, ombres, ressort), la page (police,
+ * fond, liens, focus) et les effets de l'accueil viennent de `showcase.css`,
+ * la feuille de l'accueil de l'application, chargée AVANT celle-ci : une seule
+ * source, la démo et l'application ne peuvent plus diverger. Ne vivent ici que
+ * les jetons propres à la démo.
  */
 :root {
-  --blue: #0067ba;
-  /* Bleu d'un TEXTE (lien, bouton sans fond) : `--blue` remplit, et ne tient
-     pas 4,5:1 en texte sur le fond sombre. */
-  --link: var(--blue);
-  --cyan: #00699f;
-  --green: #3b7430;
   --amber: #8a5a10;
   --violet: #6b3fb0;
   /* Un refus, une erreur (leçon MCP) — jamais une série de graphe. */
@@ -29,36 +21,15 @@
   /* Séries des graphes du fil (validées CVD) : CBOR, texte. */
   --wire-cbor: #0067ba;
   --wire-text: #8a5a10;
-  --bg: #e9f0f8;
-  --bg-soft: #dde7f3;
-  --fg: #0a2440;
-  --muted: #3d5571;
-  --card: #f7fafd;
-  --border: #c4d4e6;
-  --code-bg: #0a2440;
-  --code-fg: #d9e6f5;
-  /* Le halo du haut de page : le bleu et le vert du logo. */
-  --wash-blue: rgba(0, 160, 242, 0.16);
-  --wash-green: rgba(68, 132, 56, 0.1);
   /* Le pied de page : un bandeau marine, celui du bleu du logo. */
   --footer-bg: #0a2440;
   --footer-fg: #c9d6e8;
   --footer-link: #8fcdf7;
-  --shadow:
-    0 1px 2px rgba(10, 36, 64, 0.06), 0 8px 24px rgba(0, 103, 186, 0.08);
-  --shadow-hover:
-    0 2px 4px rgba(10, 36, 64, 0.08), 0 14px 34px rgba(0, 103, 186, 0.2);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --blue: #096bbf;
-    --link: color-mix(in srgb, var(--blue) 50%, var(--fg));
-    --cyan: #1ea0ec;
-    --green: #4a8b3e;
     --amber: #b7791f;
     --violet: #7c4dbd;
-    --wash-blue: rgba(30, 160, 236, 0.08);
-    --wash-green: rgba(74, 139, 62, 0.06);
     --footer-bg: #060a14;
     --footer-fg: #c9d6e8;
     --footer-link: #8fcdf7;
@@ -67,74 +38,20 @@
     /* Ma bulle en sombre : l'accent DÉSATURÉ par la surface (Material, thème
        sombre) — plein, il éblouissait. Le blanc y garde un contraste élevé. */
     --accent-bubble: color-mix(in srgb, var(--blue) 30%, transparent);
-    --bg: #0a0f1c;
-    --bg-soft: #0e1524;
-    --fg: #e8edf6;
-    --muted: #93a1ba;
-    --card: #111828;
-    --border: #223046;
-    --code-bg: #0b1220;
-    --code-fg: #cfe0f2;
     --wire-cbor: #3d9be6;
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
-    --shadow-hover:
-      0 2px 4px rgba(0, 0, 0, 0.3), 0 14px 34px rgba(30, 160, 236, 0.18);
-    color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --blue: #096bbf;
-  --link: color-mix(in srgb, var(--blue) 50%, var(--fg));
-  --cyan: #1ea0ec;
-  --green: #4a8b3e;
   --amber: #b7791f;
   --violet: #7c4dbd;
-  --wash-blue: rgba(30, 160, 236, 0.08);
-  --wash-green: rgba(74, 139, 62, 0.06);
   --footer-bg: #060a14;
   --footer-fg: #c9d6e8;
   --footer-link: #8fcdf7;
   --wire-cbor: #3d9be6;
-  --bg: #0a0f1c;
   --danger: #e0646a;
   --on-danger: #1b0a0b;
   /* Ma bulle en sombre : un voile plus dense, toujours translucide. */
   --accent-bubble: color-mix(in srgb, var(--blue) 30%, transparent);
-  --bg-soft: #0e1524;
-  --fg: #e8edf6;
-  --muted: #93a1ba;
-  --card: #111828;
-  --border: #223046;
-  --code-bg: #0b1220;
-  --code-fg: #cfe0f2;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
-  --shadow-hover:
-    0 2px 4px rgba(0, 0, 0, 0.3), 0 14px 34px rgba(30, 160, 236, 0.18);
-  color-scheme: dark;
-}
-* {
-  box-sizing: border-box;
-}
-body {
-  margin: 0;
-  font-family:
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    Roboto,
-    sans-serif;
-  color: var(--fg);
-  background:
-    radial-gradient(
-      1100px 520px at 30% -12%,
-      var(--wash-blue),
-      transparent 62%
-    ),
-    radial-gradient(900px 460px at 78% -8%, var(--wash-green), transparent 60%),
-    var(--bg);
-  line-height: 1.6;
-  font-size: 15px;
 }
 body::before {
   content: "";
@@ -143,15 +60,6 @@ body::before {
   height: env(safe-area-inset-top, 0px);
   z-index: 30;
   background: var(--bg);
-}
-a {
-  color: var(--link);
-}
-a:focus-visible,
-button:focus-visible {
-  outline: 2px solid var(--cyan);
-  outline-offset: 3px;
-  border-radius: 4px;
 }
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -711,47 +619,17 @@ footer a,
 footer code {
   color: var(--footer-link);
 }
-/* Barre de debug (développement) : fixée en bas, elle publie sa hauteur dans
-   --nodefony-debugbar-height (0px réduite ou en haut) ; la page la réserve. */
-body {
-  padding-bottom: var(--nodefony-debugbar-height, 0px);
-}
-/* ═══ Effets — CSS natif, piloté par le défilement (aucun écouteur de scroll) ═══ */
-@property --spin {
-  syntax: "<angle>";
-  inherits: false;
-  initial-value: 0deg;
-}
-:root {
-  --spring: linear(
-    0,
-    0.009,
-    0.035 2.1%,
-    0.141 4.4%,
-    0.723 12.9%,
-    0.938 16.7%,
-    1.017 19.4%,
-    1.067,
-    1.084 26.3%,
-    1.077 29.4%,
-    1.006 41.1%,
-    0.993 46.5%,
-    1
-  );
-}
+/* ═══ Effets — CSS natif, piloté par le défilement (aucun écouteur de scroll).
+   `--spin`, `--spring` et la place de la barre de debug viennent de
+   `showcase.css`. ═══ */
 html {
   scroll-behavior: smooth;
   scroll-padding-top: 84px;
-  scrollbar-gutter: stable;
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--muted) 45%, transparent) transparent;
 }
 ::selection {
   background: color-mix(in srgb, var(--cyan) 30%, transparent);
-}
-p,
-li {
-  text-wrap: pretty;
 }
 pre {
   overscroll-behavior-x: contain;

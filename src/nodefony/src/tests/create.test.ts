@@ -3560,9 +3560,27 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // refusé en texte JSX.
       assert.include(app, `Node.js {"${NODE_ENGINE_LABEL}"}`);
       assert.notInclude(app, "npx nodefony create app");
+      // #797 — la démo charge la feuille de l'accueil AVANT la sienne : les
+      // jetons et les effets n'ont qu'une source, la démo n'en recopie aucun.
+      assert.isBelow(
+        app.indexOf('import "./showcase.css";'),
+        app.indexOf('import "./demo.css";'),
+      );
+      assert.isAbove(app.indexOf('import "./showcase.css";'), -1);
+      assert.notMatch(css, /^\s*--(?:bg|blue|fg|card|spring):/mu);
+      assert.notInclude(css, "@property --spin");
+      // Les gestes de l'accueil — thème, lumière, barre de debug — viennent
+      // du module partagé ; la marque mène à l'accueil de l'application ; UN
+      // bouton pour la barre de debug.
+      assert.include(app, 'from "./homeEffects"');
+      assert.include(app, '<a className="brand" href="/">');
+      assert.notInclude(app, "minimize");
+      assert.isFalse(
+        existsSync(path.join(mod, "frontend", "src", "debugBar.ts")),
+      );
       // Sans choix mémorisé, la démo suit le thème du système.
       assert.include(
-        lireMod("frontend", "src", "kit", "theme.ts"),
+        lireMod("frontend", "src", "homeEffects.ts"),
         'matchMedia("(prefers-color-scheme: dark)")',
       );
       // Type PARTAGÉ entre le contrôleur et la page.
