@@ -115,7 +115,11 @@ export function drawDevAdminPassword(): string {
   }
   return out;
 }
-import { createAppCommand, NODE_ENGINE_LABEL } from "../installCommand";
+import {
+  createAppCommand,
+  demoAppCommand,
+  NODE_ENGINE_LABEL,
+} from "../installCommand";
 import { IMAGE_NODEFONY_BIN } from "../nodefonyBin";
 import { findProjectRoot } from "../projectRoot";
 import {
@@ -2509,6 +2513,8 @@ function dispatchScaffold(
     // L'accueil de développement montre la commande d'installation et la plage
     // de Node — les MÊMES sources que la démo (`renderDemoFront`).
     installCommand: createAppCommand("", version),
+    // La démo non installée se nomme sur l’accueil de développement (#797).
+    learnCommand: demoAppCommand(version),
     nodeRange: NODE_ENGINE_LABEL,
     // Le sélecteur d'habillages de la page de connexion (accueil de
     // développement) : la liste du schéma `security.loginPage`, jamais une copie.
@@ -3863,6 +3869,8 @@ function renderDemoFront(
     // Ce que l'accueil de la démo affiche pour installer : la commande, canal
     // nommé tant que c’est une préversion, et la plage d'engines (#784).
     installCommand: createAppCommand("", version),
+    // La démo non installée se nomme sur l’accueil de développement (#797).
+    learnCommand: demoAppCommand(version),
     nodeRange: NODE_ENGINE_LABEL,
     // Le sélecteur d'habillages de la page de connexion (accueil de
     // développement) : la liste du schéma `security.loginPage`, jamais une copie.
@@ -7838,6 +7846,8 @@ function runFrontScaffold(
     // n'est PAS connu ici (tiré à `create app`) : la carte du compte renvoie
     // au fichier qui le porte.
     installCommand: createAppCommand("", nodefonyVersion),
+    // La démo non installée se nomme sur l’accueil de développement (#797).
+    learnCommand: demoAppCommand(nodefonyVersion),
     nodeRange: NODE_ENGINE_LABEL,
     loginPage: { path: LOGIN_PAGE_PATH, skins: LOGIN_PAGE_SKINS },
   };

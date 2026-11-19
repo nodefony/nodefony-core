@@ -209,6 +209,10 @@
         <div class="nf-cta">
           <a class="nf-btn nf-primary" href={demo}>{dev.demoLabel}</a>
         </div>
+      {:else}
+        <p class="nf-learn">
+          {dev.learn.label} : <code>{dev.learn.command}</code> — {dev.learn.note}
+        </p>
       {/if}
     {:else}
       <h1><%= it.appName %></h1>

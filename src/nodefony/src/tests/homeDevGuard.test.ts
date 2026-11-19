@@ -18,6 +18,7 @@ import { pathToFileURL } from "node:url";
 import { rolldown } from "rolldown";
 import { afterAll, beforeAll, describe, it } from "vitest";
 import { version } from "../../package.json";
+import { demoAppCommand } from "../cli/installCommand";
 import { runScaffold } from "../cli/scaffold/engine";
 
 /** Bundle de production du module, comme Vite le bâtit. */
@@ -69,6 +70,8 @@ describe("accueil généré — le contenu de développement ne part pas en prod
         devAdminPassword,
         '"/nodefony"',
         "Pour commencer",
+        // La démo non installée se nomme (#797) — en développement seulement.
+        demoAppCommand(version),
       ]) {
         assert.ok(
           content.includes(witness),
@@ -87,6 +90,7 @@ describe("accueil généré — le contenu de développement ne part pas en prod
         "/nodefony",
         "Pour commencer",
         "provisionUsers",
+        "-- --demo",
       ]) {
         assert.ok(
           !code.includes(leak),
@@ -133,6 +137,7 @@ describe("accueil généré — le contenu de développement ne part pas en prod
       devAdminPassword,
       'href="/nodefony"',
       "Pour commencer",
+      demoAppCommand(version),
     ]) {
       assert.ok(
         dev.includes(witness),
@@ -141,5 +146,10 @@ describe("accueil généré — le contenu de développement ne part pas en prod
       assert.ok(!prod.includes(witness), `« ${witness} » rendu en production`);
     }
     assert.ok(prod.includes("<h1>guard</h1>"), "le nom de l'application");
+    // Démo chargée : son bouton remplace la commande qui la nomme.
+    const withDemo: unknown = renderHomePage({ ...view(true), demo: "/demo" });
+    assert.ok(typeof withDemo === "string");
+    assert.ok(withDemo.includes('href="/demo"'), "bouton de la démo");
+    assert.ok(!withDemo.includes("-- --demo"), "commande de la démo en double");
   });
 });

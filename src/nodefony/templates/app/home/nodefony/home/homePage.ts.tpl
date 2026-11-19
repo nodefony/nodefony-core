@@ -133,7 +133,7 @@ export function renderHomePage(view: IHomePageView): string {
           dev.hero.install.arg,
         )}</b></span></div>` +
         (view.demo === null
-          ? ""
+          ? `<p class="nf-learn">${esc(dev.learn.label)} : <code>${esc(dev.learn.command)}</code> — ${esc(dev.learn.note)}</p>`
           : `<div class="nf-cta"><a class="nf-btn nf-primary" href="${esc(view.demo)}">${esc(dev.demoLabel)}</a></div>`);
   const sections = dev === null ? "" : dev.sections.map(section).join("");
   return `<!doctype html>

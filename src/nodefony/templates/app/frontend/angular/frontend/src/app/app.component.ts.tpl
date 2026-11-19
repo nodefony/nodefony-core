@@ -171,6 +171,11 @@ import "../accent.css";
                 dev.demoLabel
               }}</a>
             </div>
+          } @else {
+            <p class="nf-learn">
+              {{ dev.learn.label }} : <code>{{ dev.learn.command }}</code> —
+              {{ dev.learn.note }}
+            </p>
           }
         } @else {
           <h1><%= it.appName %></h1>

@@ -65,6 +65,15 @@ export interface IHomeContent {
   }[];
   /** Le bouton de la démo, montré seulement si elle est chargée. */
   readonly demoLabel: string;
+  /**
+   * Sinon, la démo se NOMME : la commande d'une application jetable qui la
+   * porte — la question de `create app` passe vite, cette page reste.
+   */
+  readonly learn: {
+    readonly label: string;
+    readonly command: string;
+    readonly note: string;
+  };
   readonly hero: {
     /** Le premier badge, mis en avant. */
     readonly lead: string;
@@ -109,6 +118,11 @@ export function homeContent(): IHomeContent {
       { label: "GitHub", href: "https://github.com/nodefony/nodefony-core" },
     ],
     demoLabel: "Voir les démos",
+    learn: {
+      label: "Pour apprendre",
+      command: "<%= it.learnCommand %>",
+      note: "une app jetable avec les démos commentées",
+    },
     hero: {
       lead: "Agentic ready",
       title: "Le framework Node.js fullstack",

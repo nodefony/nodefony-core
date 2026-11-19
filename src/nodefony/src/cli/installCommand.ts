@@ -105,3 +105,16 @@ export function createAppCommand(
     ? `npm create ${spec}`
     : `npm create ${spec} ${appName}`;
 }
+
+/**
+ * Commande qui crée une application JETABLE portant la démo :
+ * `npm create nodefony essai -- --demo`. La démo sert à apprendre, pas à
+ * rester — on ne l'ajoute pas à une application, on en crée une pour elle.
+ * Une seule règle pour la fin de `create app` et l'accueil de développement.
+ *
+ * @param version - version du framework ; défaut : celle du paquet qui tourne
+ * @returns la commande, prête à copier
+ */
+export function demoAppCommand(version: string = frameworkVersion): string {
+  return `${createAppCommand("essai", version)} -- --demo`;
+}

@@ -514,6 +514,14 @@ li {
   color: #8fd18a;
   font-weight: 600;
 }
+/* La démo non installée se nomme sous le haut de page : la commande d'une app
+   jetable qui la porte (développement seulement). */
+.nf-learn {
+  margin: 26px auto 0;
+  max-width: 640px;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
 .nf-cta {
   display: flex;
   gap: 12px;

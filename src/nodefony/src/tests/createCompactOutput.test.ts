@@ -151,11 +151,14 @@ describe("create app --yes : la sortie COURTE", () => {
     assert.equal(code, SysExit.OK);
     assert.match(out, /^ {2}nodefony\.config\.ts$/mu);
     assert.notMatch(out, /\d+ fichiers — /u);
+    // En sortie complète, la consigne vient après le journal, et le bloc
+    // « Pour commencer » ferme la sortie : c'est la dernière chose qu'on voit.
+    assert.isAbove(out.indexOf("Pour ton agent"), out.indexOf("🌱 git"));
     assert.isAbove(
+      out.indexOf("Pour commencer"),
       out.indexOf("Pour ton agent"),
-      out.indexOf("Prochaines étapes"),
-      "en sortie complète, la consigne reste après les prochaines étapes",
     );
+    assert.match(out.trimEnd(), /─+$/u);
   });
 });
 
@@ -169,8 +172,8 @@ describe("create app . : pas de « cd . »", () => {
         argv("create", "app", ".", "--yes", "--no-install", "--no-git"),
       ),
     );
-    assert.include(out, "Prochaines étapes");
-    assert.notMatch(out, /^ {2}cd /mu, out);
+    assert.include(out, "Pour commencer");
+    assert.notMatch(out, /\bcd /u, out);
   });
 });
 

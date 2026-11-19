@@ -213,6 +213,10 @@ onUnmounted(() => {
         <div v-if="demo !== null" class="nf-cta">
           <a class="nf-btn nf-primary" :href="demo">{{ dev.demoLabel }}</a>
         </div>
+        <p v-else class="nf-learn">
+          {{ dev.learn.label }} : <code>{{ dev.learn.command }}</code> —
+          {{ dev.learn.note }}
+        </p>
       </template>
       <h1 v-else><%= it.appName %></h1>
     </div>

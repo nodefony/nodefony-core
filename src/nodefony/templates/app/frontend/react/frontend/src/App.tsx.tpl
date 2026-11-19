@@ -314,12 +314,17 @@ export function App() {
                   {dev.hero.install.command} <b>{dev.hero.install.arg}</b>
                 </span>
               </div>
-              {demo !== null && (
+              {demo !== null ? (
                 <div className="nf-cta">
                   <a className="nf-btn nf-primary" href={demo}>
                     {dev.demoLabel}
                   </a>
                 </div>
+              ) : (
+                <p className="nf-learn">
+                  {dev.learn.label} : <code>{dev.learn.command}</code> —{" "}
+                  {dev.learn.note}
+                </p>
               )}
             </>
           ) : (
