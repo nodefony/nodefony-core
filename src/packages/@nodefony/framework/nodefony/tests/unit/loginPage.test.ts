@@ -497,6 +497,24 @@ describe("page de connexion — gabarit rendu", () => {
     expect(bare.querySelector(".nf-hero .nf-home")).toBeNull();
   });
 
+  it("la marque mène à l'accueil de l'application (/), sans piège au clavier dans le panneau masqué", () => {
+    const doc = render(PAGE);
+    for (const selector of [
+      ".nf-strip-brand",
+      ".nf-hero-brand",
+      ".nf-head .nf-brand",
+    ]) {
+      const brand = doc.querySelector(selector);
+      expect(brand?.tagName, selector).toBe("A");
+      expect(brand?.getAttribute("href"), selector).toBe("/");
+    }
+    // Le panneau est `aria-hidden` : un lien focalisable y serait un piège
+    // (axe `aria-hidden-focus`). Le clavier passe par la marque de la carte.
+    expect(doc.querySelector(".nf-hero-brand")?.getAttribute("tabindex")).toBe(
+      "-1",
+    );
+  });
+
   it("`footer: false` retire le pied de page", () => {
     expect(
       render({ ...PAGE, footer: false }).querySelector(".nf-foot"),

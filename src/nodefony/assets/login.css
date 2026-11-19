@@ -222,6 +222,16 @@ input {
   font-weight: 650;
   color: var(--nf-login-heading);
 }
+/* La marque mène à l'accueil de l'application (`/`), comme sur toutes ses
+   pages : un lien, sans l'habit d'un lien. */
+a.nf-strip-brand,
+a.nf-hero-brand,
+a.nf-brand {
+  text-decoration: none;
+}
+a.nf-hero-brand {
+  color: inherit;
+}
 .nf-sep {
   width: 1px;
   height: 18px;
