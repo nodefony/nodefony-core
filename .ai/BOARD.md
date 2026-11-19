@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-11-18 20:39** (UTC).
+> Empreinte prise le **2026-11-19 15:39** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,9 +20,16 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 100% | 141 | 0 | 2026-12-06 |
-| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 10% | 7 | 61 | 2026-12-15 |
-| **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 33 | — |
+| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `████░░░░░░` 35% | 7 | 13 | 2026-12-15 |
+| **10.0.1** | ![10.0.1](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/10?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 9 | — |
+| **10.0.2** | ![10.0.2](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/11?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 23 | — |
+| **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `█░░░░░░░░░` 11% | 1 | 8 | — |
+| **10.3.0** | ![10.3.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/12?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 9 | — |
+| **10.4.0** | ![10.4.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/13?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 8 | — |
+| **10.5.0** | ![10.5.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/14?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 6 | — |
+| **10.6.0** | ![10.6.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/15?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 4 | — |
+| **10.7.0** | ![10.7.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/16?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 2 | — |
+| **10.8.0** | ![10.8.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/17?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 3 | — |
 | **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 8 | — |
 | **12.0.0** | ![12.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/5?style=flat-square&label=) `██░░░░░░░░` 15% | 2 | 11 | — |
 | **13.0.0** | ![13.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/9?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 1 | — |
@@ -30,80 +37,27 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#83 — feat(notification): doter le framework de l'envoi de messages sortants**
+**#725 — feat(realtime): empêcher le rejeu d'une éjection sur un canal durable**
 
-Ordre 1 · P1 — figé à la création · 5.5 j · jalon 10.1.0 · frise 2026-11-16 → 12-15
+Ordre 3.96 · P2 — décision · 1 j · jalon 10.1.0 · frise —
 
-> Choisi dans le **jalon courant `10.1.0`**, qui a encore 61 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.1.0`**, qui a encore 13 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.1.0 — 61 ouverts
+## Jalon 10.4.0 — 8 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
 | 1 | P1 — figé à la création | 5.5 | 2026-11-16 → 12-15 | #83 | feat(notification): doter le framework de l'envoi de messages sortants |
-| 2 | P2 — décision | 1 | 2026-11-26 → 11-26 | #378 | feat(core): rendre traduisibles les textes du framework |
-| 3.93 | P1 — figé à la création | 5 | — | #268 | feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe |
-| 3.945 | P1 — figé à la création | 2 | — | #522 | feat(studio): ajouter un écran Identité pour les fournisseurs de connexion |
-| 3.95 | P2 — décision | 1 | — | #523 | feat(security): guider la connexion Keycloak et brancher plusieurs realms |
-| 3.955 | P2 — décision | 2 | — | #524 | feat(security): lier un compte existant à Keycloak et exporter les comptes |
-| 3.96 | P2 — décision | 1 | — | #725 | feat(realtime): empêcher le rejeu d'une éjection sur un canal durable |
-| 7.08 | P2 — décision | 11.25 | 2026-11-16 → 12-06 | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
-| 7.09 | P2 — décision | 3.25 | 2026-12-07 → 12-15 | #445 | test(ecosysteme): éprouver le framework par un module tiers temps réel |
-| 7.091 | P2 — décision | 0.25 | 2026-12-07 → 12-07 | #446 | test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation |
-| 7.092 | P2 — décision | 0.5 | 2026-12-08 → 12-08 | #447 | test(ecosysteme): journaliser pas à pas ce que fait l'agent |
-| 7.093 | P1 — figé à la création | 1 | 2026-12-09 → 12-09 | #448 | test(ecosysteme): jouer l'épreuve sans jamais guider l'agent |
-| 7.094 | P1 — figé à la création | 0.5 | 2026-12-10 → 12-10 | #449 | test(ecosysteme): trier ce qui remonte au cœur du framework |
-| 7.095 | P1 — figé à la création | 1 | 2026-12-11 → 12-11 | #450 | feat(ecosysteme): livrer le tableau blanc comme module installable |
-| 8.005 | P2 — décision | 5 | — | #694 | feat(http): servir des services gRPC dans le pipeline HTTP/2 |
 | 16.5 | P2 — décision | 0.5 | 2026-11-19 → 11-19 | #89 | docs(notification): faire la veille des canaux de communication attendus |
 | 17 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #84 | feat(mail): créer le module et son service d'envoi |
 | 18 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #85 | feat(mail): composer un courriel depuis un gabarit |
 | 19 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #86 | feat(mail): envoyer un courriel en ligne de commande |
 | 20 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #87 | test(mail): éprouver l'envoi contre un vrai serveur de test |
 | 21 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #88 | docs(mail): documenter la configuration et le premier envoi |
-| 46 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #349 | feat(cli): ajouter une brique à une application déjà générée |
-| 100 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #28 | feat(config): surcharger la config d'application par l'environnement |
-| 105.1 | P2 — décision | 2 | — | #745 | feat(realtime): s'abonner et publier sur un canal depuis un client gRPC |
-| 105.2 | P3 — fin de cycle | 1 | — | #697 | feat(http): exposer la réflexion et la santé gRPC standard |
-| 105.3 | P2 — décision | 2 | — | #764 | feat(cli): générer un service gRPC avec create controller --kind grpc |
-| 110 | P2 — décision | 3 | 2026-11-16 → 12-15 | #63 | test(bancs): rendre chaque banc indépendant du décor partagé |
-| 113 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #78 | test(core): remplacer les seuils absolus des tests de performance |
-| 115 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #66 | feat(orm): exposer et borner la taille du pool de connexions |
-| 116 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #67 | feat(orm): capturer le contexte des requêtes qui échouent |
-| 116.3 | P2 — décision | 1 | — | #662 | feat(studio): réserver la console d'administration à un déploiement dédié |
-| 116.5 | P2 — décision | 1 | 2026-11-16 → 12-15 | #321 | feat(scaffold): rendre l'application déployable en Kubernetes |
-| 120 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #72 | test(http): mesurer la tenue mémoire sur plusieurs heures |
-| 121 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #73 | perf(http): rejouer le profil processeur du chemin chaud |
 | 130 | P3 — fin de cycle | 1 | — | #70 | feat(webhooks): séparer les événements métier du journal d'audit |
-| 134 | P2 — décision | 1 | 2026-11-16 → 12-15 | #171 | ci(workflows): refuser une étape multi-commandes sans shell |
-| 135 | P2 — décision | 1 | 2026-11-16 → 12-15 | #172 | fix(pilotage): ne pas mettre « en cours » sur un commit de pilotage |
-| 139 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #195 | fix(cli): ne plus compter deux fois les fichiers d'une cible imbriquée |
-| 140 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #196 | fix(orm): ne proposer un geste que si l'on a constaté qu'il s'applique |
-| 141 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #216 | fix(bench): poser la base que trois bancs multi-pods exigent |
-| 142 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #217 | fix(bench): réparer trois bancs de charge hors service |
-| 142.5 | P2 — décision | 1 | — | #791 | test(realtime): mesurer la grâce de présence sur des comptes connectés |
-| 142.7 | P3 — fin de cycle | 1 | — | #792 | chore(test): préfixer NF_ les variables lues par les bancs |
-| 143 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #224 | feat(core): lire les secrets ailleurs que dans l'environnement |
-| 144 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #225 | feat(kernel): ouvrir un point d'accroche avant et après le drain |
-| 145 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #226 | feat(kernel): avertir quand l'arrêt gracieux ne pourra pas se faire |
-| 150.6 | P2 — décision | 1 | 2026-11-16 → 12-15 | #403 | test(perf): mesurer le banc ORM applicatif sur les trois dialectes |
-| 154 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #234 | fix(session): enregistrer le stockage Redis au demarrage |
-| 155 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #235 | feat(security): journaliser les evenements d'authentification |
-| 156 | P2 — décision | 1 | 2026-11-16 → 12-15 | #511 | perf(orm): préparer une fois les écritures du repository Drizzle |
-| 157 | P2 — décision | 0.5 | 2026-11-27 → 11-27 | #412 | fix(devkit-bench): faire entrer le motif d'une sonde dans son empreinte |
-| 157.5 | P1 — figé à la création | 1 | 2026-11-23 → 11-23 | #658 | test(devkit-bench): réenregistrer la référence du banc sur le modèle courant |
-| 158 | P1 — figé à la création | 1 | 2026-11-30 → 11-30 | #371 | test(devkit-bench): constater qu'un agent écrit hors de son décor |
-| 164 | P2 — décision | 1 | — | #557 | feat(studio): simuler les écrans de l'atelier IA d'après le livre blanc |
-| 171 | P2 — décision | 3 | — | #712 | perf(http): ne payer par requête que le travail que la route consomme |
-| 172 | P2 — décision | 2 | — | #717 | feat(realtime): rejouer les messages manqués à la reconnexion |
-| 172.5 | P2 — décision | 2 | — | #751 | feat(http): mesurer l'aller-retour de chaque WebSocket au ping/pong |
-| 174 | P2 — décision | 2 | — | #743 | feat(http): compter les requêtes par route dans la supervision |
-| 913.6 | P2 — décision | 5 | — | #692 | perf(cli): faire porter Vite par le superviseur de développement |
-| 914 | P2 — décision | 1 | — | #793 | perf(http): expliquer l'écart de mesure HTTP/1.1 entre deux bancs |
-| 914.5 | P1 — figé à la création | 1 | — | #794 | fix(http): libérer à coup sûr le scope d'un HEAD en HTTP/2 |
 
 ## Jalon 13.0.0 — 1 ouverts
 
@@ -131,13 +85,60 @@ Ordre 1 · P1 — figé à la création · 5.5 j · jalon 10.1.0 · frise 2026-1
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Backlog — aucune date promise · 41 ouverts
+## Jalon 10.7.0 — 2 ouverts
+
+| Ordre | Prio | Jours | Frise | Ticket | Titre |
+| --- | --- | ---: | --- | --- | --- |
+| 2 | P2 — décision | 1 | 2026-11-26 → 11-26 | #378 | feat(core): rendre traduisibles les textes du framework |
+| 12 | P2 — décision | 1 | — | #379 | feat(core): servir une application dans la langue du visiteur |
+
+## Jalon 10.2.0 — 8 ouverts
+
+| Ordre | Prio | Jours | Frise | Ticket | Titre |
+| --- | --- | ---: | --- | --- | --- |
+| 3.93 | P1 — figé à la création | 5 | — | #268 | feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe |
+| 3.945 | P1 — figé à la création | 2 | — | #522 | feat(studio): ajouter un écran Identité pour les fournisseurs de connexion |
+| 3.95 | P2 — décision | 1 | — | #523 | feat(security): guider la connexion Keycloak et brancher plusieurs realms |
+| 3.955 | P2 — décision | 2 | — | #524 | feat(security): lier un compte existant à Keycloak et exporter les comptes |
+| 117 | P3 — fin de cycle | 1 | — | #71 | feat(security): rendre la hiérarchie de rôles extensible |
+| 142 | P3 — fin de cycle | 1 | — | #50 | docs(tutoriels): écrire la partie 2, jusqu'au déploiement |
+| 143 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #224 | feat(core): lire les secrets ailleurs que dans l'environnement |
+| 155 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #235 | feat(security): journaliser les evenements d'authentification |
+
+## Jalon 10.1.0 — 13 ouverts
+
+| Ordre | Prio | Jours | Frise | Ticket | Titre |
+| --- | --- | ---: | --- | --- | --- |
+| 3.96 | P2 — décision | 1 | — | #725 | feat(realtime): empêcher le rejeu d'une éjection sur un canal durable |
+| 7.08 | P2 — décision | 11.25 | 2026-11-16 → 12-06 | #621 | feat(realtime): compléter le temps réel : binaire, canaux privés, voix |
+| 8.005 | P2 — décision | 5 | — | #694 | feat(http): servir des services gRPC dans le pipeline HTTP/2 |
+| 105.1 | P2 — décision | 2 | — | #745 | feat(realtime): s'abonner et publier sur un canal depuis un client gRPC |
+| 105.2 | P3 — fin de cycle | 1 | — | #697 | feat(http): exposer la réflexion et la santé gRPC standard |
+| 105.3 | P2 — décision | 2 | — | #764 | feat(cli): générer un service gRPC avec create controller --kind grpc |
+| 163.05 | P2 — décision | 1 | — | #239 | feat(realtime): declarer un canal parametre par un motif |
+| 163.7 | P3 — fin de cycle | — | — | #714 | feat(realtime): livrer les ajouts différés des ADR temps réel |
+| 163.71 | P3 — fin de cycle | 2 | — | #715 | feat(realtime): reprendre un abonnement depuis un curseur |
+| 163.72 | P3 — fin de cycle | 1 | — | #716 | feat(realtime): signaler la fin d'un canal par realtime:closed |
+| 172 | P2 — décision | 2 | — | #717 | feat(realtime): rejouer les messages manqués à la reconnexion |
+| 172.5 | P2 — décision | 2 | — | #751 | feat(http): mesurer l'aller-retour de chaque WebSocket au ping/pong |
+| 174 | P2 — décision | 2 | — | #743 | feat(http): compter les requêtes par route dans la supervision |
+
+## Backlog — aucune date promise · 50 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
 | 6.037 | P2 — décision | 1 | 2026-11-16 → 11-16 | #555 | feat(studio): montrer en direct la contre-pression du temps réel |
 | 6.11 | P1 — figé à la création | 1 | — | #513 | feat(scaffold): mettre les apps générées en quarantaine de 3 jours |
+| 7.09 | P2 — décision | 3.25 | 2026-12-07 → 12-15 | #445 | test(ecosysteme): éprouver le framework par un module tiers temps réel |
+| 7.091 | P2 — décision | 0.25 | 2026-12-07 → 12-07 | #446 | test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation |
+| 7.092 | P2 — décision | 0.5 | 2026-12-08 → 12-08 | #447 | test(ecosysteme): journaliser pas à pas ce que fait l'agent |
+| 7.093 | P1 — figé à la création | 1 | 2026-12-09 → 12-09 | #448 | test(ecosysteme): jouer l'épreuve sans jamais guider l'agent |
+| 7.094 | P1 — figé à la création | 0.5 | 2026-12-10 → 12-10 | #449 | test(ecosysteme): trier ce qui remonte au cœur du framework |
+| 7.095 | P1 — figé à la création | 1 | 2026-12-11 → 12-11 | #450 | feat(ecosysteme): livrer le tableau blanc comme module installable |
 | 7.56 | P2 — décision | 1 | — | #738 | docs(rfc): relire contre le code les nouvelles révisions d'OAuth 2.1 |
+| 157 | P2 — décision | 0.5 | 2026-11-27 → 11-27 | #412 | fix(devkit-bench): faire entrer le motif d'une sonde dans son empreinte |
+| 158 | P1 — figé à la création | 1 | 2026-11-30 → 11-30 | #371 | test(devkit-bench): constater qu'un agent écrit hors de son décor |
+| 164 | P2 — décision | 1 | — | #557 | feat(studio): simuler les écrans de l'atelier IA d'après le livre blanc |
 | 901 | P2 — décision | 0.5 | — | #387 | fix(test): sonder les deux ports avant de lancer le banc de démarrage |
 | 902 | P2 — décision | 1 | — | #422 | feat(ci): regarder l'écran d'une application générée à chaque publication |
 | 903 | P2 — décision | 1 | — | #423 | test(release): éprouver la surface npm telle que le registre la sert |
@@ -177,43 +178,89 @@ Ordre 1 · P1 — figé à la création · 5.5 j · jalon 10.1.0 · frise 2026-1
 | 926 | P1 — figé à la création | 0.5 | — | #541 | test(cli): valider le plein écran du serveur de dev sous Windows |
 | 927 | P3 — fin de cycle | 1 | — | #788 | ci(cli): éprouver sur GitLab l'image arm64 de la CI générée |
 
-## Jalon 10.2.0 — 33 ouverts
+## Jalon 10.5.0 — 6 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 12 | P2 — décision | 1 | — | #379 | feat(core): servir une application dans la langue du visiteur |
-| 101 | P3 — fin de cycle | 1 | — | #31 | chore: refermer les bogues résolus et les tests jamais lancés |
-| 111 | P3 — fin de cycle | 1 | — | #76 | test(bancs): constater le décor avant de lancer les suites |
-| 112 | P3 — fin de cycle | 1 | — | #77 | test(bancs): donner à chaque banc son propre compte |
-| 114 | P3 — fin de cycle | 1 | — | #64 | perf(dev): supprimer les 45 secondes de build au démarrage |
-| 117 | P3 — fin de cycle | 1 | — | #71 | feat(security): rendre la hiérarchie de rôles extensible |
-| 118 | P3 — fin de cycle | 1 | — | #79 | refactor(studio): dériver l'affichage des rôles servis par le serveur |
-| 119 | P3 — fin de cycle | 1 | — | #69 | feat(studio): signaler visiblement un serveur en dérogation |
-| 122 | P2 — décision | 1 | — | #75 | chore(core): trancher l'héritage des dépendances déclarées |
-| 123 | P2 — décision | 1 | — | #131 | refactor(frontend): composer les plugins Vite en un seul endroit |
+| 46 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #349 | feat(cli): ajouter une brique à une application déjà générée |
+| 115 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #66 | feat(orm): exposer et borner la taille du pool de connexions |
+| 116 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #67 | feat(orm): capturer le contexte des requêtes qui échouent |
 | 124 | P2 — décision | 1 | — | #161 | feat(devkit): mesurer si un agent clôt un ticket sans humain |
-| 131 | P3 — fin de cycle | 1 | — | #68 | feat(studio): garder les préférences d'affichage côté serveur |
-| 132 | P3 — fin de cycle | 1 | — | #74 | feat(studio): éditer la configuration d'un module à chaud |
-| 133 | P3 — fin de cycle | 1 | — | #65 | test(paquets): rapatrier les preuves de bout en bout dans leur paquet |
-| 137 | P2 — décision | 1 | — | #188 | test(mcp): dire POURQUOI l'outil de diagnostic n'a pas répondu |
-| 142 | P3 — fin de cycle | 1 | — | #50 | docs(tutoriels): écrire la partie 2, jusqu'au déploiement |
+| 152 | P2 — décision | 1 | — | #232 | feat(cli): compléter les commandes de module et leur couverture |
+| 162 | P2 — décision | 2 | — | #502 | feat(orm): propager la transaction en cours sans la passer à chaque dépôt |
+
+## Jalon 10.3.0 — 9 ouverts
+
+| Ordre | Prio | Jours | Frise | Ticket | Titre |
+| --- | --- | ---: | --- | --- | --- |
+| 100 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #28 | feat(config): surcharger la config d'application par l'environnement |
+| 116.3 | P2 — décision | 1 | — | #662 | feat(studio): réserver la console d'administration à un déploiement dédié |
+| 116.5 | P2 — décision | 1 | 2026-11-16 → 12-15 | #321 | feat(scaffold): rendre l'application déployable en Kubernetes |
+| 144 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #225 | feat(kernel): ouvrir un point d'accroche avant et après le drain |
+| 145 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #226 | feat(kernel): avertir quand l'arrêt gracieux ne pourra pas se faire |
 | 147 | P2 — décision | 1 | — | #228 | feat(observabilite): exposer les métriques au format Prometheus |
 | 148 | P3 — fin de cycle | 1 | — | #229 | feat(scaffold): livrer un Dockerfile de développement |
 | 151 | P2 — décision | 1 | — | #231 | feat(cli): interroger les journaux depuis un terminal |
-| 152 | P2 — décision | 1 | — | #232 | feat(cli): compléter les commandes de module et leur couverture |
 | 153 | P2 — décision | 1 | — | #233 | feat(kernel): faire tourner un travail batch et periodique sans serveur |
-| 156 | P2 — décision | 1 | — | #236 | feat(studio): livrer la vue Services et l'audit en direct |
+
+## Jalon 10.0.2 — 23 ouverts
+
+| Ordre | Prio | Jours | Frise | Ticket | Titre |
+| --- | --- | ---: | --- | --- | --- |
+| 101 | P3 — fin de cycle | 1 | — | #31 | chore: refermer les bogues résolus et les tests jamais lancés |
+| 110 | P2 — décision | 3 | 2026-11-16 → 12-15 | #63 | test(bancs): rendre chaque banc indépendant du décor partagé |
+| 111 | P3 — fin de cycle | 1 | — | #76 | test(bancs): constater le décor avant de lancer les suites |
+| 112 | P3 — fin de cycle | 1 | — | #77 | test(bancs): donner à chaque banc son propre compte |
+| 113 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #78 | test(core): remplacer les seuils absolus des tests de performance |
+| 114 | P3 — fin de cycle | 1 | — | #64 | perf(dev): supprimer les 45 secondes de build au démarrage |
+| 118 | P3 — fin de cycle | 1 | — | #79 | refactor(studio): dériver l'affichage des rôles servis par le serveur |
+| 120 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #72 | test(http): mesurer la tenue mémoire sur plusieurs heures |
+| 121 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #73 | perf(http): rejouer le profil processeur du chemin chaud |
+| 122 | P2 — décision | 1 | — | #75 | chore(core): trancher l'héritage des dépendances déclarées |
+| 123 | P2 — décision | 1 | — | #131 | refactor(frontend): composer les plugins Vite en un seul endroit |
+| 133 | P3 — fin de cycle | 1 | — | #65 | test(paquets): rapatrier les preuves de bout en bout dans leur paquet |
+| 134 | P2 — décision | 1 | 2026-11-16 → 12-15 | #171 | ci(workflows): refuser une étape multi-commandes sans shell |
+| 137 | P2 — décision | 1 | — | #188 | test(mcp): dire POURQUOI l'outil de diagnostic n'a pas répondu |
+| 142.5 | P2 — décision | 1 | — | #791 | test(realtime): mesurer la grâce de présence sur des comptes connectés |
+| 150.6 | P2 — décision | 1 | 2026-11-16 → 12-15 | #403 | test(perf): mesurer le banc ORM applicatif sur les trois dialectes |
+| 156 | P2 — décision | 1 | 2026-11-16 → 12-15 | #511 | perf(orm): préparer une fois les écritures du repository Drizzle |
 | 157 | P2 — décision | 1 | — | #237 | test(studio): eprouver la console d'administration de bout en bout |
+| 157.5 | P1 — figé à la création | 1 | 2026-11-23 → 11-23 | #658 | test(devkit-bench): réenregistrer la référence du banc sur le modèle courant |
 | 160 | P2 — décision | 1 | — | #240 | chore(frontend): trancher si frontend:create doit exister |
+| 171 | P2 — décision | 3 | — | #712 | perf(http): ne payer par requête que le travail que la route consomme |
+| 913.6 | P2 — décision | 5 | — | #692 | perf(cli): faire porter Vite par le superviseur de développement |
+| 914 | P2 — décision | 1 | — | #793 | perf(http): expliquer l'écart de mesure HTTP/1.1 entre deux bancs |
+
+## Jalon 10.6.0 — 4 ouverts
+
+| Ordre | Prio | Jours | Frise | Ticket | Titre |
+| --- | --- | ---: | --- | --- | --- |
+| 119 | P3 — fin de cycle | 1 | — | #69 | feat(studio): signaler visiblement un serveur en dérogation |
+| 131 | P3 — fin de cycle | 1 | — | #68 | feat(studio): garder les préférences d'affichage côté serveur |
+| 132 | P3 — fin de cycle | 1 | — | #74 | feat(studio): éditer la configuration d'un module à chaud |
+| 156 | P2 — décision | 1 | — | #236 | feat(studio): livrer la vue Services et l'audit en direct |
+
+## Jalon 10.0.1 — 9 ouverts
+
+| Ordre | Prio | Jours | Frise | Ticket | Titre |
+| --- | --- | ---: | --- | --- | --- |
+| 135 | P2 — décision | 1 | 2026-11-16 → 12-15 | #172 | fix(pilotage): ne pas mettre « en cours » sur un commit de pilotage |
+| 139 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #195 | fix(cli): ne plus compter deux fois les fichiers d'une cible imbriquée |
+| 140 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #196 | fix(orm): ne proposer un geste que si l'on a constaté qu'il s'applique |
+| 141 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #216 | fix(bench): poser la base que trois bancs multi-pods exigent |
+| 142 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #217 | fix(bench): réparer trois bancs de charge hors service |
+| 142.7 | P3 — fin de cycle | 1 | — | #792 | chore(test): préfixer NF_ les variables lues par les bancs |
+| 154 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #234 | fix(session): enregistrer le stockage Redis au demarrage |
 | 161 | P1 — figé à la création | 1 | — | #241 | fix(security): deriver le domaine des passkeys de l'hote valide |
-| 162 | P2 — décision | 2 | — | #502 | feat(orm): propager la transaction en cours sans la passer à chaque dépôt |
+| 914.5 | P1 — figé à la création | 1 | — | #794 | fix(http): libérer à coup sûr le scope d'un HEAD en HTTP/2 |
+
+## Jalon 10.8.0 — 3 ouverts
+
+| Ordre | Prio | Jours | Frise | Ticket | Titre |
+| --- | --- | ---: | --- | --- | --- |
 | 162.6 | P2 — décision | 1.5 | — | #624 | docs(adr): figer le contrat du modèle média partagé et de la capture |
-| 163.05 | P2 — décision | 1 | — | #239 | feat(realtime): declarer un canal parametre par un motif |
 | 163.3 | P2 — décision | 1 | — | #625 | feat(media): livrer le modèle média partagé, sans dépendance au navigateur |
 | 163.6 | P2 — décision | 3 | — | #626 | feat(realtime): transcrire la voix du navigateur sur la socket |
-| 163.7 | P3 — fin de cycle | — | — | #714 | feat(realtime): livrer les ajouts différés des ADR temps réel |
-| 163.71 | P3 — fin de cycle | 2 | — | #715 | feat(realtime): reprendre un abonnement depuis un curseur |
-| 163.72 | P3 — fin de cycle | 1 | — | #716 | feat(realtime): signaler la fin d'un canal par realtime:closed |
 
 ## Jalon 12.0.0 — 11 ouverts
 
