@@ -22,7 +22,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, it } from "vitest";
 import { version } from "../../package.json";
+import { packageManagerCommandLines } from "../cli/packageManager";
 import { drawDevAdminPassword, runScaffold } from "../cli/scaffold/engine";
+import { renderStartPanel } from "../cli/startPanel";
 
 /** L'ancienne valeur publiée : elle ne doit plus apparaître nulle part. */
 const PUBLISHED_PASSWORD = "nodefony-dev-42";
@@ -73,7 +75,22 @@ describe("mot de passe admin de développement — une seule source", () => {
     );
     assert.ok(!createSource.includes("admin/admin"));
     assert.ok(!createSource.includes(PUBLISHED_PASSWORD));
-    assert.ok(createSource.includes("admin / ${result.devAdminPassword}"));
+    // La valeur tirée part au bloc « Pour commencer », qui l'affiche telle quelle.
+    assert.ok(createSource.includes("password: result.devAdminPassword"));
+    const drawn = drawDevAdminPassword();
+    const panel = renderStartPanel({
+      relDest: "app",
+      commands: packageManagerCommandLines("npm"),
+      installed: true,
+      built: true,
+      infra: null,
+      migrationPending: false,
+      admin: { user: "admin", password: drawn },
+      addFrontend: null,
+      agent: { kind: "to-wire" },
+      demo: { installed: true },
+    });
+    assert.ok(panel.includes(`admin / ${drawn}`));
   });
 
   describe("le RENDU porte la valeur, partout où un gabarit la cite", () => {
