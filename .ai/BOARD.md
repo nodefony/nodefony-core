@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-11-19 21:03** (UTC).
+> Empreinte prise le **2026-11-19 21:12** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -252,7 +252,7 @@ Ordre 1.01 · P1 — figé à la création · 1 j · jalon 10.0.x · frise 2026-
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 90.01 | P1 — figé à la création | 2 | — | #796 | chore(pilotage): ouvrir une branche et une demande de fusion avant tout code |
+| 90.01 | P1 — figé à la création | 2 | 2026-11-23 → 11-24 | #796 | chore(pilotage): ouvrir une branche et une demande de fusion avant tout code |
 | 90.02 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90.03 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 | 90.04 | P3 — fin de cycle | 1 | — | #31 | chore: refermer les bogues résolus et les tests jamais lancés |
