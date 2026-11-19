@@ -2165,7 +2165,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         // importés (#526). Aucune copie dans `public/` que rien ne lirait.
         assert.include(
           readFileSync(path.join(dest, "frontend", "src", "brand.ts"), "utf8"),
-          'import logoUrl from "nodefony/assets/nodefony-logo.png";',
+          'import logoUrl from "nodefony/assets/nodefony-logo.svg";',
           fw,
         );
         assert.isFalse(
