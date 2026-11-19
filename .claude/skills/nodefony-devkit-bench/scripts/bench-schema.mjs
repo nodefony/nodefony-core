@@ -283,7 +283,7 @@ const DB_URL = {
  * partagent par l'environnement (`NF_ADMIN_PASSWORD`, que le semis lit).
  *
  * Le juge postait `admin`/`admin` : ce compte n'existe pas. Le semis de
- * développement pose `nodefony-dev-42` par défaut, et la politique refuse
+ * développement pose un mot de passe tiré à la création, et la politique refuse
  * `admin`, qui contient l'identifiant. Toutes les sondes authentifiées étaient
  * sautées, à chaque run. Dépendre du défaut du gabarit referait le même piège au
  * premier changement de ce défaut : le décor le fixe.

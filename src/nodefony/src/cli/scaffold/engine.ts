@@ -134,6 +134,7 @@ import type { PackageManagerName } from "../../Cli";
 // seconde lecture divergerait au premier alias ou au premier fichier ajouté.
 import { resolveInfra } from "../../config/infra";
 import { envFileOrder } from "../../runtime/loadEnv";
+import { LOGIN_PAGE_PATH, LOGIN_PAGE_SKINS } from "../../runtime/authRoutes";
 import { testDatabaseName, testDatabaseUrl } from "../../runtime/e2eDatabase";
 import { isPlainObject } from "../../runtime/isPlainObject";
 import { resolveModuleLayout, type IRootManifest } from "./moduleLayout";
@@ -384,6 +385,22 @@ interface IFrontendClientPort {
 }
 
 /**
+ * Badge d'un front sur l'accueil de développement : son nom, sa couleur de
+ * marque et son logo (tracé simple-icons, CC0), et de quoi lire sa version À
+ * L'EXÉCUTION — une version recopiée ici mentirait dès la mise à jour.
+ */
+interface IFrontendBadge {
+  name: string;
+  color: string;
+  /** Import qui fournit la version du moteur, rendu tel quel dans `devHome.ts`. */
+  versionImport: string;
+  /** Expression qui la lit (`version`, `VERSION.full`). */
+  versionExpr: string;
+  /** Tracé SVG (viewBox 0 0 24 24). */
+  logo: string;
+}
+
+/**
  * Paramètres frontend par framework — type registerEntry, entry, nœud de
  * montage, ET les dépendances npm (SOURCE UNIQUE : consommée par le
  * `package.json.tpl` de `create app` ET par `create front` qui les ajoute au
@@ -430,6 +447,10 @@ export const FRONTEND_PARAMS: Record<
     deps: Record<string, string>;
     devDeps: Record<string, string>;
     client: IFrontendClientPort;
+    /** Le fichier de la page d'accueil, relatif à la cible — nommé par l'accueil (« C'est ta page »). */
+    pageFile: string;
+    /** Badge du front sur l'accueil de développement (`devHome.ts`). */
+    badge: IFrontendBadge;
   }
 > = {
   react: {
@@ -453,6 +474,14 @@ export const FRONTEND_PARAMS: Record<
       doc: "react-hooks.md",
       marker: "react",
     },
+    pageFile: "frontend/src/App.tsx",
+    badge: {
+      name: "React",
+      color: "#61dafb",
+      versionImport: 'import { version } from "react";',
+      versionExpr: "version",
+      logo: "M14.23 12.004a2.236 2.236 0 0 1-2.235 2.236 2.236 2.236 0 0 1-2.236-2.236 2.236 2.236 0 0 1 2.235-2.236 2.236 2.236 0 0 1 2.236 2.236zm2.648-10.69c-1.346 0-3.107.96-4.888 2.622-1.78-1.653-3.542-2.602-4.887-2.602-.41 0-.783.093-1.106.278-1.375.793-1.683 3.264-.973 6.365C1.98 8.917 0 10.42 0 12.004c0 1.59 1.99 3.097 5.043 4.03-.704 3.113-.39 5.588.988 6.38.32.187.69.275 1.102.275 1.345 0 3.107-.96 4.888-2.624 1.78 1.654 3.542 2.603 4.887 2.603.41 0 .783-.09 1.106-.275 1.374-.792 1.683-3.263.973-6.365C22.02 15.096 24 13.59 24 12.004c0-1.59-1.99-3.097-5.043-4.032.704-3.11.39-5.587-.988-6.38-.318-.184-.688-.277-1.092-.278zm-.005 1.09v.006c.225 0 .406.044.558.127.666.382.955 1.835.73 3.704-.054.46-.142.945-.25 1.44-.96-.236-2.006-.417-3.107-.534-.66-.905-1.345-1.727-2.035-2.447 1.592-1.48 3.087-2.292 4.105-2.295zm-9.77.02c1.012 0 2.514.808 4.11 2.28-.686.72-1.37 1.537-2.02 2.442-1.107.117-2.154.298-3.113.538-.112-.49-.195-.964-.254-1.42-.23-1.868.054-3.32.714-3.707.19-.09.4-.127.563-.132zm4.882 3.05c.455.468.91.992 1.36 1.564-.44-.02-.89-.034-1.345-.034-.46 0-.915.01-1.36.034.44-.572.895-1.096 1.345-1.565zM12 8.1c.74 0 1.477.034 2.202.093.406.582.802 1.203 1.183 1.86.372.64.71 1.29 1.018 1.946-.308.655-.646 1.31-1.013 1.95-.38.66-.773 1.288-1.18 1.87-.728.063-1.466.098-2.21.098-.74 0-1.477-.035-2.202-.093-.406-.582-.802-1.204-1.183-1.86-.372-.64-.71-1.29-1.018-1.946.303-.657.646-1.313 1.013-1.954.38-.66.773-1.286 1.18-1.868.728-.064 1.466-.098 2.21-.098zm-3.635.254c-.24.377-.48.763-.704 1.16-.225.39-.435.782-.635 1.174-.265-.656-.49-1.31-.676-1.947.64-.15 1.315-.283 2.015-.386zm7.26 0c.695.103 1.365.23 2.006.387-.18.632-.405 1.282-.66 1.933-.2-.39-.41-.783-.64-1.174-.225-.392-.465-.774-.705-1.146zm3.063.675c.484.15.944.317 1.375.498 1.732.74 2.852 1.708 2.852 2.476-.005.768-1.125 1.74-2.857 2.475-.42.18-.88.342-1.355.493-.28-.958-.646-1.956-1.1-2.98.45-1.017.81-2.01 1.085-2.964zm-13.395.004c.278.96.645 1.957 1.1 2.98-.45 1.017-.812 2.01-1.086 2.964-.484-.15-.944-.318-1.37-.5-1.732-.737-2.852-1.706-2.852-2.474 0-.768 1.12-1.742 2.852-2.476.42-.18.88-.342 1.356-.494zm11.678 4.28c.265.657.49 1.312.676 1.948-.64.157-1.316.29-2.016.39.24-.375.48-.762.705-1.158.225-.39.435-.788.636-1.18zm-9.945.02c.2.392.41.783.64 1.175.23.39.465.772.705 1.143-.695-.102-1.365-.23-2.006-.386.18-.63.406-1.282.66-1.933zM17.92 16.32c.112.493.2.968.254 1.423.23 1.868-.054 3.32-.714 3.708-.147.09-.338.128-.563.128-1.012 0-2.514-.807-4.11-2.28.686-.72 1.37-1.536 2.02-2.44 1.107-.118 2.154-.3 3.113-.54zm-11.83.01c.96.234 2.006.415 3.107.532.66.905 1.345 1.727 2.035 2.446-1.595 1.483-3.092 2.295-4.11 2.295-.22-.005-.406-.05-.553-.132-.666-.38-.955-1.834-.73-3.703.054-.46.142-.944.25-1.438zm4.56.64c.44.02.89.034 1.345.034.46 0 .915-.01 1.36-.034-.44.572-.895 1.095-1.345 1.565-.455-.47-.91-.993-1.36-1.565z",
+    },
   },
   vue: {
     type: "vue3",
@@ -467,6 +496,14 @@ export const FRONTEND_PARAMS: Record<
       subpath: "nodefony/vue",
       doc: "vue-composables.md",
       marker: "vue",
+    },
+    pageFile: "frontend/src/App.vue",
+    badge: {
+      name: "Vue",
+      color: "#4fc08d",
+      versionImport: 'import { version } from "vue";',
+      versionExpr: "version",
+      logo: "M24,1.61H14.06L12,5.16,9.94,1.61H0L12,22.39ZM12,14.08,5.16,2.23H9.59L12,6.41l2.41-4.18h4.43Z",
     },
   },
   angular: {
@@ -494,6 +531,14 @@ export const FRONTEND_PARAMS: Record<
       doc: "angular-services.md",
       marker: "@angular/core",
     },
+    pageFile: "frontend/src/app/app.component.ts",
+    badge: {
+      name: "Angular",
+      color: "#dd0031",
+      versionImport: 'import { VERSION } from "@angular/core";',
+      versionExpr: "VERSION.full",
+      logo: "M16.712 17.711H7.288l-1.204 2.916L12 24l5.916-3.373-1.204-2.916ZM14.692 0l7.832 16.855.814-12.856L14.692 0ZM9.308 0 .662 3.999l.814 12.856L9.308 0Zm-.405 13.93h6.198L12 6.396 8.903 13.93Z",
+    },
   },
   svelte: {
     type: "svelte5",
@@ -513,6 +558,14 @@ export const FRONTEND_PARAMS: Record<
       subpath: "nodefony/svelte",
       doc: "svelte-reactivite.md",
       marker: "svelte",
+    },
+    pageFile: "frontend/src/App.svelte",
+    badge: {
+      name: "Svelte",
+      color: "#ff3e00",
+      versionImport: 'import { version } from "svelte/package.json";',
+      versionExpr: "version",
+      logo: "M10.354 21.125a4.44 4.44 0 0 1-4.765-1.767 4.109 4.109 0 0 1-.703-3.107 3.898 3.898 0 0 1 .134-.522l.105-.321.287.21a7.21 7.21 0 0 0 2.186 1.092l.208.063-.02.208a1.253 1.253 0 0 0 .226.83 1.337 1.337 0 0 0 1.435.533 1.231 1.231 0 0 0 .343-.15l5.59-3.562a1.164 1.164 0 0 0 .524-.778 1.242 1.242 0 0 0-.211-.937 1.338 1.338 0 0 0-1.435-.533 1.23 1.23 0 0 0-.343.15l-2.133 1.36a4.078 4.078 0 0 1-1.135.499 4.44 4.44 0 0 1-4.765-1.766 4.108 4.108 0 0 1-.702-3.108 3.855 3.855 0 0 1 1.742-2.582l5.589-3.563a4.072 4.072 0 0 1 1.135-.499 4.44 4.44 0 0 1 4.765 1.767 4.109 4.109 0 0 1 .703 3.107 3.943 3.943 0 0 1-.134.522l-.105.321-.286-.21a7.204 7.204 0 0 0-2.187-1.093l-.208-.063.02-.207a1.255 1.255 0 0 0-.226-.831 1.337 1.337 0 0 0-1.435-.532 1.231 1.231 0 0 0-.343.15L8.62 9.368a1.162 1.162 0 0 0-.524.778 1.24 1.24 0 0 0 .211.937 1.338 1.338 0 0 0 1.435.533 1.235 1.235 0 0 0 .344-.151l2.132-1.36a4.067 4.067 0 0 1 1.135-.498 4.44 4.44 0 0 1 4.765 1.766 4.108 4.108 0 0 1 .702 3.108 3.857 3.857 0 0 1-1.742 2.583l-5.589 3.562a4.072 4.072 0 0 1-1.135.499m10.358-17.95C18.484-.015 14.082-.96 10.9 1.068L5.31 4.63a6.412 6.412 0 0 0-2.896 4.295 6.753 6.753 0 0 0 .666 4.336 6.43 6.43 0 0 0-.96 2.396 6.833 6.833 0 0 0 1.168 5.167c2.229 3.19 6.63 4.135 9.812 2.108l5.59-3.562a6.41 6.41 0 0 0 2.896-4.295 6.756 6.756 0 0 0-.665-4.336 6.429 6.429 0 0 0 .958-2.396 6.831 6.831 0 0 0-1.167-5.168Z",
     },
   },
 };
@@ -2434,6 +2487,13 @@ function dispatchScaffold(
     pascal: toPascalCase(String(answers.name)),
     entryName: answers.name,
     nodefonyVersion: version,
+    // L'accueil de développement montre la commande d'installation et la plage
+    // de Node — les MÊMES sources que la démo (`renderDemoFront`).
+    installCommand: createAppCommand("", version),
+    nodeRange: NODE_ENGINE_LABEL,
+    // Le sélecteur d'habillages de la page de connexion (accueil de
+    // développement) : la liste du schéma `security.loginPage`, jamais une copie.
+    loginPage: { path: LOGIN_PAGE_PATH, skins: LOGIN_PAGE_SKINS },
     // Un audit et un exec ont une syntaxe par outil.
     pmAudit: packageManagerCommandLines(packageManager).audit,
     pmExec: packageManagerCommandLines(packageManager).exec,
@@ -3761,6 +3821,9 @@ function renderDemoFront(
     // nommé tant que c’est une préversion, et la plage d'engines (#784).
     installCommand: createAppCommand("", version),
     nodeRange: NODE_ENGINE_LABEL,
+    // Le sélecteur d'habillages de la page de connexion (accueil de
+    // développement) : la liste du schéma `security.loginPage`, jamais une copie.
+    loginPage: { path: LOGIN_PAGE_PATH, skins: LOGIN_PAGE_SKINS },
     nameClass: "DemoPageController",
     pascal: "Demo",
     kebab: DEMO_MODULE,
@@ -7728,6 +7791,12 @@ function runFrontScaffold(
     appName: target.name,
     // Même drapeau que `create app`, pour la même page (cf ci-dessus).
     complete,
+    // Même accueil de développement que `create app`. Le mot de passe admin
+    // n'est PAS connu ici (tiré à `create app`) : la carte du compte renvoie
+    // au fichier qui le porte.
+    installCommand: createAppCommand("", nodefonyVersion),
+    nodeRange: NODE_ENGINE_LABEL,
+    loginPage: { path: LOGIN_PAGE_PATH, skins: LOGIN_PAGE_SKINS },
   };
   const tokens = { __NAME__: nameClass, __PASCAL__: pascal };
   renderLayer(

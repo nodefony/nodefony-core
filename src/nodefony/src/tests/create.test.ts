@@ -5010,10 +5010,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // composants), dont seule la couleur du framework différait. La feuille
       // est désormais unique ; ce test vérifie les deux moitiés du contrat :
       // (a) la feuille est bien la même partout, (b) chaque accent définit
-      // TOUTES les variables qu'elle consomme — sinon la page part sans son
-      // logo animé et sans badge, silencieusement.
+      // TOUTES les variables qu'elle consomme — sinon le badge du front part
+      // sans sa couleur, silencieusement.
       const rendered = new Map<string, { showcase: string; accent: string }>();
-      for (const fw of ["react", "vue", "angular"]) {
+      for (const fw of ["react", "vue", "angular", "svelte"]) {
         const dest = path.join(tmp, `css-${fw}`);
         scaffold(dest, { name: `css-${fw}`, preset: "minimal", frontend: fw });
         const src = path.join(dest, "frontend", "src");
@@ -5048,15 +5048,11 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
             `${fw} ne définit pas ${variable}`,
           );
         }
-        // L'animation nommée par la variable doit exister LÀ où elle est posée
-        // (un `@keyframes` déclaré dans les styles d'un composant Angular est
-        // renommé par l'encapsulation — l'animation serait introuvable).
-        const anim = /--nf-logo-anim:\s*([\w-]+)/u.exec(accent)?.[1];
-        assert.isString(anim, `${fw} : animation du logo non nommée`);
+        // La couleur vient de la table des fronts du moteur, seule source.
         assert.include(
           accent,
-          `@keyframes ${anim}`,
-          `${fw} : ${anim} non déclarée`,
+          `--nf-front: ${FRONTEND_PARAMS[fw as keyof typeof FRONTEND_PARAMS].badge.color};`,
+          `${fw} : couleur du front recopiée`,
         );
       }
     });
