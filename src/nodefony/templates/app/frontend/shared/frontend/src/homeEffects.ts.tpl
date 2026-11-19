@@ -102,21 +102,14 @@ export function findDebugBar(): IDebugBarHandle | null {
 }
 
 /**
- * La démo est-elle chargée ? On le CONSTATE : sa page répond ou non. Suit donc
- * l'ajout ou le retrait du module, sans rien recopier.
+ * La page de la démo, si elle est chargée — CONSTATÉ par le serveur, qui la
+ * nomme dans la page (`<meta name="nodefony-demo">`, posée par
+ * `AppController`). Suit l'ajout ou le retrait du module, sans requête :
+ * une sonde HTTP qui échoue s'inscrit en erreur dans la console du navigateur.
  *
- * @param href - la page de la démo
- * @param signal - pour abandonner la sonde quand la page se démonte
- * @returns `true` si la page répond
+ * @returns l'adresse de la démo, ou `null` si elle n'est pas chargée
  */
-export async function probeDemo(
-  href: string,
-  signal: AbortSignal,
-): Promise<boolean> {
-  try {
-    const res = await fetch(href, { method: "HEAD", signal });
-    return res.ok;
-  } catch {
-    return false;
-  }
+export function findDemo(): string | null {
+  const meta = document.querySelector('meta[name="nodefony-demo"]');
+  return meta?.getAttribute("content") ?? null;
 }

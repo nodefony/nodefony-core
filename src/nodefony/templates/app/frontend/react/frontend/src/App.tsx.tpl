@@ -24,7 +24,7 @@ import {
 import {
   applyDarkTheme,
   findDebugBar,
-  probeDemo,
+  findDemo,
   readDarkTheme,
   startPointerLight,
   type IDebugBarHandle,
@@ -67,18 +67,6 @@ function useDarkTheme(): [boolean, () => void] {
     setDark(!dark);
   };
   return [dark, toggle];
-}
-
-/** La démo est-elle chargée ? Constaté à l'exécution, en développement seulement. */
-function useDemoPresent(): boolean {
-  const [present, setPresent] = useState(false);
-  useEffect(() => {
-    if (DEV_HOME === null) return;
-    const ctrl = new AbortController();
-    void probeDemo(DEV_HOME.demo.href, ctrl.signal).then(setPresent);
-    return () => ctrl.abort();
-  }, []);
-  return present;
 }
 
 /**
@@ -221,7 +209,8 @@ export function App() {
     if (providerLogout !== null) window.location.assign(providerLogout);
   };
 <% } %>  const [dark, toggleTheme] = useDarkTheme();
-  const demo = useDemoPresent();
+  // La démo est-elle chargée ? Le serveur le dit dans la page (développement).
+  const demo = DEV_HOME === null ? null : findDemo();
   useEffect(() => startPointerLight(".nf-card"), []);
   const dev = DEV_HOME;
   return (
@@ -325,10 +314,10 @@ export function App() {
                   {dev.hero.install.command} <b>{dev.hero.install.arg}</b>
                 </span>
               </div>
-              {demo && (
+              {demo !== null && (
                 <div className="nf-cta">
-                  <a className="nf-btn nf-primary" href={dev.demo.href}>
-                    {dev.demo.label}
+                  <a className="nf-btn nf-primary" href={demo}>
+                    {dev.demoLabel}
                   </a>
                 </div>
               )}

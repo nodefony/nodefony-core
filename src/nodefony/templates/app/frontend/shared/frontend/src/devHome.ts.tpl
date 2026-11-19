@@ -68,8 +68,8 @@ export interface IDevHome {
     readonly label: string;
     readonly href: string;
   }[];
-  /** La démo, montrée seulement si sa page répond (`probeDemo`). */
-  readonly demo: { readonly label: string; readonly href: string };
+  /** Le bouton de la démo, montré seulement si elle est chargée (`findDemo`). */
+  readonly demoLabel: string;
   readonly hero: {
     /** Le premier badge, mis en avant. */
     readonly lead: string;
@@ -113,7 +113,7 @@ export const DEV_HOME: IDevHome | null = import.meta.env.DEV
         { label: "Documentation", href: "https://nodefony.net/" },
         { label: "GitHub", href: "https://github.com/nodefony/nodefony-core" },
       ],
-      demo: { label: "Voir les démos", href: "/demo" },
+      demoLabel: "Voir les démos",
       hero: {
         lead: "Agentic ready",
         title: "Le framework Node.js fullstack",
