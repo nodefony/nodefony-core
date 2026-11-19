@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-19T21:22:19.690Z",
+  "generatedAt": "2026-11-19T23:43:00.865Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -35,7 +35,7 @@
       "closed": 0,
       "dueOn": "2026-11-27T00:00:00Z",
       "number": 18,
-      "open": 7,
+      "open": 9,
       "title": "10.0.x"
     },
     {
@@ -56,7 +56,7 @@
       "closed": 0,
       "dueOn": "2027-01-26T00:00:00Z",
       "number": 12,
-      "open": 11,
+      "open": 12,
       "title": "10.3.0"
     },
     {
@@ -399,6 +399,38 @@
       "debut": null,
       "cible": null,
       "labels": []
+    },
+    {
+      "number": 801,
+      "title": "fix(login): une seule page de connexion vue, celle de la console en secours",
+      "url": "https://github.com/nodefony/nodefony-core/issues/801",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.x",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 1.015,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "10.0.1"
+      ]
+    },
+    {
+      "number": 802,
+      "title": "chore(deps): monter les correctifs tiers en retard pour la 10.0.1",
+      "url": "https://github.com/nodefony/nodefony-core/issues/802",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.x",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 1.017,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "10.0.1"
+      ]
     },
     {
       "number": 275,
@@ -3850,6 +3882,20 @@
         "beta-4",
         "reportable"
       ]
+    },
+    {
+      "number": 800,
+      "title": "feat(http): servir HTTPS en production avec un certificat monté",
+      "url": "https://github.com/nodefony/nodefony-core/issues/800",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.3.0",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 4.045,
+      "debut": null,
+      "cible": null,
+      "labels": []
     },
     {
       "number": 50,

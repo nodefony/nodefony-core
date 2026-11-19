@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-11-19 21:22** (UTC).
+> Empreinte prise le **2026-11-19 23:43** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,10 +20,10 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.x** | ![10.0.x](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/18?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 7 | 2026-11-27 |
+| **10.0.x** | ![10.0.x](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/18?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 9 | 2026-11-27 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `███░░░░░░░` 32% | 7 | 15 | 2026-12-28 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `█░░░░░░░░░` 11% | 1 | 8 | 2027-01-11 |
-| **10.3.0** | ![10.3.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/12?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 11 | 2027-01-26 |
+| **10.3.0** | ![10.3.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/12?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 12 | 2027-01-26 |
 | **10.4.0** | ![10.4.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/13?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 8 | 2027-02-04 |
 | **10.5.0** | ![10.5.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/14?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 10 | 2027-02-25 |
 | **10.6.0** | ![10.6.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/15?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 5 | 2027-03-04 |
@@ -40,16 +40,18 @@
 
 Ordre 1.01 · P1 — figé à la création · 1 j · jalon 10.0.x · frise 2026-11-20 → 11-20
 
-> Choisi dans le **jalon courant `10.0.x`**, qui a encore 6 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.x`**, qui a encore 8 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.x — 6 ouverts
+## Jalon 10.0.x — 8 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
 | 1.01 | P1 — figé à la création | 1 | 2026-11-20 → 11-20 | #797 | fix(scaffold): réparer l'accueil généré et y guider la connexion |
+| 1.015 | P2 — décision | 1 | — | #801 | fix(login): une seule page de connexion vue, celle de la console en secours |
+| 1.017 | P2 — décision | 0.5 | — | #802 | chore(deps): monter les correctifs tiers en retard pour la 10.0.1 |
 | 1.02 | P1 — figé à la création | 1 | 2026-11-23 → 11-23 | #794 | fix(http): libérer à coup sûr le scope d'un HEAD en HTTP/2 |
 | 1.03 | P3 — fin de cycle | 1 | 2026-11-24 → 11-24 | #195 | fix(cli): ne plus compter deux fois les fichiers d'une cible imbriquée |
 | 1.04 | P1 — figé à la création | 1 | 2026-11-25 → 11-25 | #196 | fix(orm): ne proposer un geste que si l'on a constaté qu'il s'applique |
@@ -89,7 +91,7 @@ Ordre 1.01 · P1 — figé à la création · 1 j · jalon 10.0.x · frise 2026-
 | 3.07 | P1 — figé à la création | 1 | 2027-01-08 → 01-08 | #235 | feat(security): journaliser les événements d'authentification |
 | 3.08 | P2 — décision | 1 | 2027-01-11 → 01-11 | #244 | feat(security): trancher le serveur d'autorisation et le mTLS |
 
-## Jalon 10.3.0 — 11 ouverts
+## Jalon 10.3.0 — 12 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -97,6 +99,7 @@ Ordre 1.01 · P1 — figé à la création · 1 j · jalon 10.0.x · frise 2026-
 | 4.02 | P2 — décision | 1 | 2027-01-13 → 01-13 | #662 | feat(studio): réserver la console d'administration à un déploiement dédié |
 | 4.03 | P3 — fin de cycle | 1 | 2027-01-14 → 01-14 | #66 | feat(orm): exposer et borner la taille du pool de connexions |
 | 4.04 | P2 — décision | 1 | 2027-01-15 → 01-15 | #321 | feat(scaffold): rendre l'application déployable en Kubernetes |
+| 4.045 | P2 — décision | 2 | — | #800 | feat(http): servir HTTPS en production avec un certificat monté |
 | 4.05 | P3 — fin de cycle | 1 | 2027-01-18 → 01-18 | #50 | docs(tutoriels): écrire la partie 2, jusqu'au déploiement |
 | 4.06 | P1 — figé à la création | 1 | 2027-01-19 → 01-19 | #225 | feat(kernel): ouvrir un point d'accroche avant et après le drain |
 | 4.07 | P1 — figé à la création | 1 | 2027-01-20 → 01-20 | #226 | feat(kernel): avertir quand l'arrêt gracieux ne pourra pas se faire |
