@@ -10062,8 +10062,8 @@
       ],
       "description": "Conduire une publication npm de Nodefony (N paquets verrouillés sur la même version) : quelle commande lancer, dans quel ordre, ce que chaque garde refuse, comment lire un échec. La chaîne appartient au PRODUIT (`npm run release`, `release:pack`, `release:smoke`) ; ce skill porte le raisonnement — une version publiée est BRÛLÉE, npm ne connaît pas la transaction, et ce qu'un dépôt voit de lui-même n'est pas ce qu'un installeur reçoit. À charger AVANT de publier ou de toucher à la surface publiée (`exports`, `files`, `peerDependencies`, gabarits d'application). Plan : `docs/release/nodefony-10.md`. Déclencheurs : \"publier sur npm\", \"faire une release\", \"préparer la publication\", \"puis-je publier ?\", \"estampiller la version\", \"changelog de la release\", \"ordre de publication\", \"packager les paquets\", \"smoke test release\", \"tester l'installation depuis les tarballs\", \"est-ce que le paquet publié marche ?\", \"surface npm\", \"types publiés\", \"tarball\", \"trusted publishing\", \"ENEEDAUTH\", \"avant de publier\".",
       "cost": {
-        "bodyLines": 511,
-        "approxTokens": 10769
+        "bodyLines": 529,
+        "approxTokens": 11149
       },
       "requires": [],
       "resources": {
@@ -10165,7 +10165,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": false,
-            "detail": "511",
+            "detail": "529",
             "advisory": true
           }
         ]
@@ -10654,7 +10654,7 @@
       "description": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer : fermeture des tickets soldés, mémoire de reprise, commit. RESUME et START sont dans le corps ; END dans `references/`. Déclencheurs : \"reprends\", \"on en était où\", \"dernière session\", \"où en est la publication\", \"quels tickets restent\", \"prépare le contexte\", \"session sur <module>\", \"fin de session\", \"clôture la session\".",
       "cost": {
         "bodyLines": 211,
-        "approxTokens": 3469
+        "approxTokens": 4135
       },
       "requires": [
         "redis"

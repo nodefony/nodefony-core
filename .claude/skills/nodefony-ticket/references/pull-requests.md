@@ -73,8 +73,9 @@ reste (`FERME-PAS-DONE`, réparé par `--done`).
 ## 2 bis. Clore sans attendre la CI — `pr-finish.mjs`
 
 La CI d'une PR dure ~35 min : l'attendre au premier plan, c'est une session qui ne fait rien.
-`pr-finish.mjs` pousse la branche, passe la PR en « prête », puis choisit sa voie sur ce qu'il
-CONSTATE :
+`pr-finish.mjs` pousse la branche (sortie en direct, PUIS relit la PR : sa tête et ses commits
+sont ceux du push), passe la PR en « prête », puis choisit sa voie sur ce qu'il CONSTATE — checks
+exigés comptés sur la protection classique ET les rulesets (`countRequiredChecks`) :
 
 - **fusion automatique** (`gh pr merge --squash --delete-branch --auto`) si le dépôt l'autorise ET
   si la base exige des checks. ⚠️ Sans check exigé, `--auto` fusionne **immédiatement**, CI rouge
@@ -86,10 +87,35 @@ CONSTATE :
 
 Il REFUSE avant tout geste, avec la commande : une tête marquée skip-ci (aucun check ne tournerait),
 une PR en conflit avec sa base, et une PR qui EMBARQUE une `release/*` — la fusion arrière est un
-commit de fusion, l'affaire de `release-sync.mjs`.
+commit de fusion, l'affaire de `release-sync.mjs`. Les autres états de fusion se DISENT sans
+bloquer (`finishNotices`) : `BEHIND` (la CI a jugé l'ancienne base → `git merge origin/<base>`),
+`BLOCKED`, `UNSTABLE`, `UNKNOWN`. Un rouge de la surveillance rend le geste : `gh run rerun
+<id> --failed` pour un job instable, sinon corriger et pousser.
 
-Vers `release/*`, la fusion ne ferme PAS le ticket : la reprise le rattrape (« 🧾 PR fusionnée,
-ticket ouvert ») et le ferme `ticket-close.mjs`, avec son compte rendu. La branche de travail, elle,
+**Le message du squash** (`squashMessage`, montré par `--dry-run`) — c'est LE commit que lit le
+changelog :
+
+```text
+<titre de la PR> (#PR)
+
+- fix(cli): …            ← un commit de travail qui touche le périmètre PUBLIÉ
+- feat(http)!: …         ← `!` posé si le commit porte un pied BREAKING CHANGE
+
+Outillage du dépôt (hors paquets publiés) :
+  fix(pilotage): …       ← indenté : le changelog ne le lit pas
+
+Refs #N
+BREAKING CHANGE: …       ← pieds recopiés (ruptures, Closes #N)
+```
+
+Messages lus ENTIERS dans git (le titre de l'API est tronqué) ; commits d'ouverture et de mise de
+côté écartés sur leur SUJET ; fusions de la base écartées ; aucun marqueur skip-ci recopié.
+
+Vers `release/*`, la fusion ne ferme PAS le ticket : `pr-finish` le RAPPELLE avec la commande
+(`closeReminder`, lu sur `Refs #N`), la reprise le rattrape (« 🧾 PR fusionnée, ticket ouvert »), et
+`ticket-close.mjs` le ferme avec son compte rendu. Celui-ci trouve le travail fusionné d'où qu'on
+ferme (HEAD + branches longues d'origin) et ne retient que ce qui PORTE le ticket — `(#N)` en fin
+de sujet, composé compris (`(D7, #796)`), `Refs/Closes #N` — jamais une prose qui le cite. La branche de travail, elle,
 est finie : la reprise le dit, et rend le retour à la base.
 
 Dans les deux cas, on enchaîne aussitôt : `ticket-start <suivant>` part de `origin/<base>`, jamais
@@ -113,6 +139,12 @@ node .claude/skills/nodefony-ticket/scripts/ticket-start.mjs <autre>
 - **`stash` est refusé** : une remise est invisible, absente de la PR, et s'oublie.
 - **Changer de branche ne réinstalle rien** : `ticket-start` et la reprise comparent le verrou de
   la branche à ce que npm a posé (`install-drift.mjs`) et disent « npm ci » quand ils divergent.
+  `ticket-start` le contrôle AVANT tout commit ou push (le `pre-push` rebâtit) et s'arrête avec
+  `npm ci && npm run build` ; relancé, il reprend où il s'est arrêté.
+- **On ne quitte pas des commits non poussés** : `ticket-start` refuse de changer de branche tant
+  que des commits ne sont sur aucune référence d'origin (`leaveBlocker` → `git push`). Exception :
+  une branche dont la PR est FUSIONNÉE se quitte toujours — son squash a une autre empreinte, et
+  `git push` recréerait la branche supprimée.
 
 ## 3. Fusionner — deux gestes, deux méthodes
 

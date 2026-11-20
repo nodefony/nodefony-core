@@ -29,7 +29,7 @@ source: ".claude/skills/nodefony-session/SKILL.md"
 | Version | `1.1.0` |
 | Famille | Cycle de session |
 | Corps | 211 lignes |
-| Coût d'activation | ~3 469 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~4 135 tokens (le corps est chargé à l'invocation) |
 | Description | 581 / 1024 caractères |
 | Déclencheurs | 9 |
 | Ressources `references/` | 1 page(s) |
