@@ -165,20 +165,23 @@ commits mal écrits qui n'existent pas.
 commit dont aucun fichier n'atteint un installeur — ni `files` d'un paquet publiable, ni source
 compilée dans `dist` (tests et réglages de build exclus) — est écarté et compté avec les autres.
 L'outillage du dépôt, commité en `feat`/`fix` comme il se doit (`pilotage`, `devkit-bench`,
-`release`…), ne remonte donc plus.
+`release`…), ne remonte donc plus. Mesuré : alpha.3 rejouée 19 → 10 entrées ; alpha.9, 108 écartés
+sur 175. **Ce qui reste à l'auteur** : les commits qui touchent un fichier publié sans rien changer
+pour l'utilisateur. Le test, entrée par entrée : _décrit-elle quelque chose que l'utilisateur peut
+ATTEINDRE depuis `exports` ?_ Un export ajouté puis retiré dans la même fenêtre n'a jamais été
+publié — ni entrée, ni rupture (vérifier au `git log -S <symbole> -- <index.ts>`).
 
 **Un ticket = un squash : le changelog lit son CORPS.** Le sujet du squash est le titre de la PR
 (souvent `chore(…)`), écarté ; les entrées sont les lignes `- type(portée)!: …` en colonne 0 que
 `pr-finish.mjs#squashMessage` écrit — une par commit de travail PUBLIÉ (même `perimetrePublie`,
 jugé par commit), l'outillage partant dans un paragraphe indenté que le brouillon ne lit pas.
 Antériorité : release-please (« multiple changes in a single commit »). La puce `* ` du squash par
-défaut de GitHub n'est PAS lue : elle recopie tout, sans tri. Chaque pied `BREAKING CHANGE:` est une
-rupture, attachée à l'entrée marquée `!` (`pr-finish` pose le `!` sur la ligne de son commit).
-D'où la règle : **toute PR se ferme par `pr-finish`**, jamais par le bouton de fusion de GitHub. Mesuré : alpha.3 rejouée 19 → 10 entrées ; alpha.9, 108 écartés
-sur 175. **Ce qui reste à l'auteur** : les commits qui touchent un fichier publié sans rien changer
-pour l'utilisateur. Le test, entrée par entrée : _décrit-elle quelque chose que l'utilisateur peut
-ATTEINDRE depuis `exports` ?_ Un export ajouté puis retiré dans la même fenêtre n'a jamais été
-publié — ni entrée, ni rupture (vérifier au `git log -S <symbole> -- <index.ts>`).
+défaut de GitHub n'est PAS lue : elle recopie tout, sans tri — mais la répétition NOMME ces squash
+(`squashNonTries`), à relire à la main. Une rupture décrit son VOISIN, jamais une position : un pied
+`  BREAKING CHANGE: …` indenté sous une ligne `- type: …` décrit ce changement-là (`pr-finish`
+l'écrit ainsi, `!` posé sur la ligne) ; en colonne 0, le commit lui-même. Un `!` est une rupture
+quel que soit le type (`chore(deps)!: Node 24`). D'où la règle : **toute PR se ferme par
+`pr-finish`**, jamais par le bouton de fusion de GitHub.
 
 Deux cas limites qui se tranchent en ouvrant le commit, jamais sur son sujet : un **renommage
 d'identifiant** n'est une rupture que si le symbole est ré-exporté par l'`index.ts` (sinon il

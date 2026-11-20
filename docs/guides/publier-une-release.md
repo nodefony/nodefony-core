@@ -28,6 +28,7 @@ Depuis la branche d'où l'on publie — `dev` pour une mineure, `release/x.y.x` 
 correctif — sans jamais changer de branche :
 
 ```bash
+# (une mineure se prépare de même depuis dev : --branch dev)
 # 1. RÉPÉTITION — ne touche aucun fichier, dit ce qui changerait
 npm run release -- --version 10.0.1 --branch release/10.0.x
 
@@ -44,9 +45,10 @@ npm run release -- --version 10.0.1 --promouvoir
 git tag v10.0.1 <sha affiché> && git push origin v10.0.1
 ```
 
-Jamais `git commit` sur la branche longue, jamais `git push origin main --tags` : la
-garde de commit refuse le premier, et le second pousserait toutes les étiquettes locales
-sur un commit qu'aucune promotion n'a jugé. Une forge rouge à l'étape 4 se traite par un
+Jamais de commit à la main sur la branche longue, jamais `git push origin main --tags` :
+l'estampille, c'est `--promouvoir` qui la commite (la garde de commit n'admet là que
+`chore(release): …` et la fusion de rattrapage), et le second pousserait toutes les
+étiquettes locales sur un commit qu'aucune promotion n'a jugé. Une forge rouge à l'étape 4 se traite par un
 `gh run rerun --failed` (job instable) ou une PR de correctif, puis la même commande
 `--promouvoir`, qui rattrape seule la fusion.
 
@@ -85,7 +87,7 @@ autorité :
 
 Trois autres endroits, qu'il ne faut pas confondre :
 
-- **`.github/workflows/release.yml`** — la forge. Déclenchée par un tag `v<version>` (filtre `v[1-9][0-9]+.*` : toute majeure).
+- **`.github/workflows/release.yml`** — la forge. Déclenchée par un tag `v<version>` (filtre `v[1-9][0-9]+.*` : toute majeure à partir de la 10).
 - **`docs/release/nodefony-10.md`** — le **plan** : quoi publier, les décisions et leur pourquoi,
   ce qui reste à faire. Pas un mode d'emploi.
 - **`.claude/skills/nodefony-release/`** — la **méthode, pour un agent**. Chargée à la demande

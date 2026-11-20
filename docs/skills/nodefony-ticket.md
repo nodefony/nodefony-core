@@ -85,7 +85,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/github-issues.md` | Issues GitHub — sous-tickets, jalons, projets | 80 |
 | `references/gravite.md` | La gravité d'un défaut — une norme, jamais une impression | 107 |
 | `references/lexique.md` | Lexique des tickets — source unique | 145 |
-| `references/pull-requests.md` | Pull requests — la remplir, la relier, la fusionner | 176 |
+| `references/pull-requests.md` | Pull requests — la remplir, la relier, la fusionner | 177 |
 | `references/tableau-de-bord.md` | Le tableau de bord — labels, champs, ordre, et quand prendre un ticket | 291 |
 
 

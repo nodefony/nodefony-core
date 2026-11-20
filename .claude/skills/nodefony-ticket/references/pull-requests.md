@@ -100,12 +100,12 @@ changelog :
 
 - fix(cli): …            ← un commit de travail qui touche le périmètre PUBLIÉ
 - feat(http)!: …         ← `!` posé si le commit porte un pied BREAKING CHANGE
+  BREAKING CHANGE: …     ← SOUS sa ligne : le changelog l'attache à ce voisin
 
 Outillage du dépôt (hors paquets publiés) :
   fix(pilotage): …       ← indenté : le changelog ne le lit pas
 
-Refs #N
-BREAKING CHANGE: …       ← pieds recopiés (ruptures, Closes #N)
+Refs #N                  ← pieds : le ticket, puis les Closes #N des commits
 ```
 
 Messages lus ENTIERS dans git (le titre de l'API est tronqué) ; commits d'ouverture et de mise de
@@ -142,9 +142,10 @@ node .claude/skills/nodefony-ticket/scripts/ticket-start.mjs <autre>
   `ticket-start` le contrôle AVANT tout commit ou push (le `pre-push` rebâtit) et s'arrête avec
   `npm ci && npm run build` ; relancé, il reprend où il s'est arrêté.
 - **On ne quitte pas des commits non poussés** : `ticket-start` refuse de changer de branche tant
-  que des commits ne sont sur aucune référence d'origin (`leaveBlocker` → `git push`). Exception :
-  une branche dont la PR est FUSIONNÉE se quitte toujours — son squash a une autre empreinte, et
-  `git push` recréerait la branche supprimée.
+  que des commits ne sont ni sur une référence d'origin ni dans la tête d'une PR fusionnée de la
+  branche (`unpushedRevList`, `leaveBlocker` → `git push`). Une branche squashée se quitte donc —
+  son squash a une autre empreinte, et `git push` recréerait la branche supprimée — mais un commit
+  fait APRÈS la fusion reste compté.
 
 ## 3. Fusionner — deux gestes, deux méthodes
 
