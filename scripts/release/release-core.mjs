@@ -629,8 +629,8 @@ export const ORDRE_SECTIONS = ["Changed", "Added", "Removed", "Fixed"];
 
 /** En-tête Conventional Commits : type, portée, `!`, description. */
 const EN_TETE = /^(\w+)(?:\(([^)]*)\))?(!)?:[ \t]+(.+)$/;
-/** Le même, dans le corps d'un squash — puce `- ` ou `* ` (forme GitHub) admise. */
-const EN_TETE_CORPS = /^(?:[-*] )?(\w+)(?:\(([^)]*)\))?(!)?:[ \t]+(.+)$/;
+/** Le même, dans le corps d'un squash écrit par `pr-finish` : puce `- ` en colonne 0. */
+const EN_TETE_CORPS = /^- (\w+)(?:\(([^)]*)\))?(!)?:[ \t]+(.+)$/;
 
 /**
  * Lit des messages de commit ENTIERS et en tire les ruptures et les sections.
@@ -670,10 +670,17 @@ const EN_TETE_CORPS = /^(?:[-*] )?(\w+)(?:\(([^)]*)\))?(!)?:[ \t]+(.+)$/;
  * disparaissaient du brouillon, comptés parmi les « écartés » (revue #796, N1).
  * Antériorité : release-please lit les en-têtes conventionnels SUPPLÉMENTAIRES
  * écrits dans le corps (« represent multiple changes in a single commit »).
- * Même règle ici : toute ligne du corps de la forme `[- |* ]type(portée)!: texte`
- * dont le type a une section devient une entrée — `pr-finish.mjs#squashMessage`
- * les écrit ainsi. Un pied `BREAKING CHANGE:` est gardé même sous un sujet sans
- * section : une rupture ne se perd jamais à cause du type de son commit.
+ * Même règle ici, sur UNE forme : la ligne `- type(portée)!: texte` en colonne 0,
+ * qu'écrit `pr-finish.mjs#squashMessage` après avoir écarté l'outillage, les
+ * commits d'ouverture et de mise de côté. La puce `* ` du squash par défaut de
+ * GitHub n'est PAS lue : elle recopie TOUS les commits, sans ce tri — sur
+ * `v10.0.0..release/10.0.x`, elle faisait passer le brouillon de 2 à 20 entrées,
+ * commit d'ouverture et outillage compris (revue #796, R1).
+ *
+ * Chaque pied `BREAKING CHANGE:` est une rupture, tous gardés, même sous un
+ * sujet sans section. Le k-ième pied décrit la k-ième entrée marquée `!` (le
+ * squash de `pr-finish` pose le `!` sur la ligne du commit qui portait le
+ * pied) ; sans `!`, la première entrée — le cas d'un commit isolé.
  *
  * @param {Array<{sha?: string, message: string, fichiers?: string[]}>|string[]} commits — messages
  *        complets (sujet + corps), avec leur empreinte quand elle est connue,
@@ -717,12 +724,14 @@ export function analyserCommits(commits, { publie } = {}) {
       vus.add(cle);
       retenus.push(h);
     }
-    const pied = /^BREAKING[ -]CHANGE:[ \t]*(.+)$/m.exec(corps);
+    const pieds = [...corps.matchAll(/^BREAKING[ -]CHANGE:[ \t]*(.+)$/gm)].map(
+      (p) => p[1].trim(),
+    );
     // Un type CONVENTIONNEL mais sans effet pour l'utilisateur (`docs`, `ci`,
     // `chore`…) n'est pas « hors convention » : il est délibérément ÉCARTÉ.
     // Confondre les deux comptes donnerait à l'auteur un chiffre qui ne veut
     // rien dire — et lui ferait chercher des commits mal écrits qui n'existent pas.
-    if (retenus.length === 0 && !pied) {
+    if (retenus.length === 0 && pieds.length === 0) {
       ecartes++;
       continue;
     }
@@ -737,21 +746,22 @@ export function analyserCommits(commits, { publie } = {}) {
       continue;
     }
 
-    // Le pied décrit LA rupture du commit : il s'attache à la première entrée
-    // retenue (ou au sujet, si aucune n'a de section). Quand les deux formes
-    // coexistent, le pied fait foi pour la DESCRIPTION : la spec dit que le
-    // sujet ne sert de description de rupture que si le pied est omis (« MAY be
-    // omitted … and the commit description SHALL be used to describe the
-    // breaking change »).
-    if (pied) {
-      ruptures.push({
-        portee: (retenus[0] ?? m)[2] ?? "",
-        texte: pied[1].trim(),
-        sha,
-      });
-    }
-    retenus.forEach(([, type, portee, bang, texte], i) => {
-      const porteePied = Boolean(pied) && i === 0;
+    // Les entrées que les pieds décrivent : celles marquées `!`, dans l'ordre ;
+    // sans `!`, la première (ou le sujet, si aucune n'a de section). Quand les
+    // deux formes coexistent, le pied fait foi pour la DESCRIPTION : la spec dit
+    // que le sujet ne sert de description de rupture que si le pied est omis
+    // (« MAY be omitted … and the commit description SHALL be used to describe
+    // the breaking change »).
+    const marquees = retenus.filter((h) => h[3]);
+    const decrites = marquees.length ? marquees : retenus.slice(0, 1);
+    pieds.forEach((texte, k) => {
+      const h = decrites[k] ?? decrites[decrites.length - 1] ?? m;
+      ruptures.push({ portee: h[2] ?? "", texte, sha });
+    });
+    retenus.forEach((h) => {
+      const [, type, portee, bang, texte] = h;
+      const k = decrites.indexOf(h);
+      const porteePied = k >= 0 && k < pieds.length;
       if (bang && !porteePied) {
         ruptures.push({ portee: portee ?? "", texte, sha });
       }

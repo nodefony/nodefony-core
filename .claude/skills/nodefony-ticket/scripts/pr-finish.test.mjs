@@ -100,6 +100,12 @@ describe("squashMessage — LE commit que lira le changelog", () => {
     expect(body).toBe(
       "- feat(http)!: retirer y\n- fix(http): z\n\nRefs #794\nBREAKING CHANGE: y disparaît\nCloses #753",
     );
+    // Un pied sans « ! » au sujet : le « ! » est posé sur SA ligne.
+    const { body: b2 } = squashMessage({
+      ...pr,
+      commits: ["fix(http): a", "refactor(orm): c\n\nBREAKING CHANGE: c casse"],
+    });
+    expect(b2).toContain("- fix(http): a\n- refactor(orm)!: c");
   });
 });
 
@@ -219,6 +225,12 @@ describe("closeReminder — vers release/*, la fusion ne ferme rien (#796, revue
     });
     expect(r).toContain("ne ferme PAS #794");
     expect(r).toContain("ticket-close.mjs 794");
+  });
+
+  it("un corps en fins de ligne CRLF (édité sur le web) est lu aussi", () => {
+    expect(closeReminder({ body: "Ouverte.\r\n\r\nRefs #794\r\n" })).toContain(
+      "#794",
+    );
   });
 
   it("Closes #N (vers dev) → rien à rappeler", () => {

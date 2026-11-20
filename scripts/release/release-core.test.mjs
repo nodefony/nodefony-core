@@ -3114,6 +3114,30 @@ describe("analyserCommits — plusieurs changements dans un squash (#796, revue 
     expect(r2.ruptures.map((r) => r.texte)).toEqual(["le défaut s'inverse"]);
   });
 
+  it("la puce `* ` du squash par défaut de GitHub n'est PAS lue — elle recopie tout, sans tri (revue #796, R1)", () => {
+    const { groupes } = analyserCommits([
+      "fix(scaffold): réparer l'accueil (#799)\n\n* fix(scaffold): ouvrir la branche (#797)\n\n* feat(pilotage): outillage (#796)",
+    ]);
+    expect([...groupes.values()].flat().map((e) => e.texte)).toEqual([
+      "réparer l'accueil (#799)",
+    ]);
+  });
+
+  it("deux pieds BREAKING CHANGE : deux ruptures, chacune sur l'entrée marquée « ! » (revue #796, N4)", () => {
+    const r = analyserCommits([
+      "chore(x): t (#1)\n\n- fix(cli): a\n- feat(http)!: b\n- refactor(orm)!: c\n\nBREAKING CHANGE: b casse\nBREAKING CHANGE: c casse",
+    ]);
+    expect(r.ruptures).toEqual([
+      { portee: "http", texte: "b casse", sha: "" },
+      { portee: "orm", texte: "c casse", sha: "" },
+    ]);
+    const marques = [...r.groupes.values()]
+      .flat()
+      .filter((e) => e.rupture)
+      .map((e) => e.portee);
+    expect(marques.sort()).toEqual(["http", "orm"]);
+  });
+
   it("un en-tête répété (sujet = unique commit de la PR) n'entre qu'une fois", () => {
     const { groupes } = analyserCommits([
       "fix(http): libérer le scope\n\n- fix(http): libérer le scope",

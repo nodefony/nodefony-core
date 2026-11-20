@@ -139,7 +139,15 @@ export function squashMessage({ title, number, body, commits }) {
   const work = commits
     .map((c) => (typeof c === "string" ? { message: c, published: true } : c))
     .filter((c) => !isParkingSubject(c.message.split("\n", 1)[0]));
-  const headline = (c) => c.message.split("\n", 1)[0];
+  // Le `!` se pose sur la ligne du commit qui porte un pied de rupture : au
+  // squash, le pied part en fin de message, et c'est le `!` qui dit QUELLE
+  // entrée il décrit (`release-core.mjs#analyserCommits`).
+  const headline = (c) => {
+    const h = c.message.split("\n", 1)[0];
+    return /^BREAKING[ -]CHANGE: \S/mu.test(c.message)
+      ? h.replace(/^(\w+(?:\([^)]*\))?)(?!!):/u, "$1!:")
+      : h;
+  };
   const lines = work
     .filter((c) => c.published)
     .map((c) => `- ${headline(c)}`)
@@ -182,6 +190,8 @@ export function squashMessage({ title, number, body, commits }) {
  * @returns {string | null} la consigne, ou `null` si la fusion ferme d'elle-même
  */
 export function closeReminder({ body }) {
+  // Un corps édité sur le web arrive en CRLF : `$` (drapeau `m`) s’arrête
+  // aussi avant `\r`, rien à ajouter — le test le garde.
   const refs = [...(body ?? "").matchAll(/^Refs #(\d+)$/gmu)].map((m) => m[1]);
   if (refs.length === 0) return null;
   return (
@@ -268,7 +278,7 @@ export function finishNotices({ mergeStateStatus, base }) {
       ];
     case "UNSTABLE":
       return [
-        "des checks NON exigés sont rouges : la surveillance s'arrêtera dessus — les lire avant (gh pr checks)",
+        "des checks NON exigés sont rouges ou encore en cours : la surveillance attendra la fin et s'arrêtera au premier rouge — les lire (gh pr checks)",
       ];
     case "UNKNOWN":
       return [
@@ -378,7 +388,14 @@ function main() {
     sh("git", ["branch", "--show-current"]) === pr.headRefName &&
     sh("git", ["rev-parse", "HEAD"]) !== pr.headRefOid
   ) {
-    sh("git", ["push"]);
+    // Sortie en direct : le crochet `pre-push` rebâtit et parle beaucoup — en
+    // tube, il saturerait le tampon d'execFileSync (1 Mo) (revue #796, R5).
+    if (
+      spawnSync("git", ["push"], { cwd: ROOT, stdio: "inherit" }).status !== 0
+    )
+      throw new Error(
+        "git push refusé — lire la sortie ci-dessus, puis relancer",
+      );
     pr = viewPr();
   }
 
