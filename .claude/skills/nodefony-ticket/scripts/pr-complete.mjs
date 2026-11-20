@@ -9,9 +9,10 @@
  * dit pas quelle version elle prépare, et ne mène pas à son ticket.
  *
  * Ce que GitHub ne permet pas, le script le DIT au lieu de le taire : le lien
- * « Development » ne se pose que par un mot-clé de fermeture, et ce mot-clé
- * n'agit que vers la branche PAR DÉFAUT — une PR vers `release/*` ne fermera
- * jamais son ticket ; on le ferme à la main après fusion (`ticket-close.mjs`).
+ * « Development » se pose par un mot-clé de fermeture vers la branche PAR
+ * DÉFAUT seulement, à la main (colonne de droite du ticket) ailleurs, et par
+ * aucune API — une PR vers `release/*` ne fermera jamais son ticket ; on le
+ * ferme à la main après fusion (`ticket-close.mjs`).
  *
  * @usage node .claude/skills/nodefony-ticket/scripts/pr-complete.mjs 799
  * @usage node .claude/skills/nodefony-ticket/scripts/pr-complete.mjs 799 --dry-run
@@ -113,7 +114,7 @@ export function planPrCompletion({ pr, issues, defaultBranch, projectTitle }) {
         actions.push({ kind: "closes", value: `#${n}` });
     } else {
       notes.push(
-        `lien « Development » IMPOSSIBLE vers ${pr.baseRefName} : GitHub ne relie (et ne ferme) un ticket que pour une PR vers ${defaultBranch}. ` +
+        `lien « Development » À LA MAIN vers ${pr.baseRefName} : le mot-clé ne relie (et ne ferme) que vers ${defaultBranch}, et aucune API ne pose ce lien — clic depuis la colonne de droite du ticket (Development → la PR). ` +
           `Garder \`Refs ${unlinked.map((n) => `#${n}`).join(" ")}\` au corps, et fermer à la main après fusion (ticket-close.mjs).`,
       );
     }

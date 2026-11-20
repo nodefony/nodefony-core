@@ -33,7 +33,7 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 | Description | 949 / 1024 caractères |
 | Déclencheurs | 18 |
 | Ressources `references/` | 10 page(s) |
-| Scripts | 28 |
+| Scripts | 30 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -42,7 +42,7 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 
 ## Prérequis
 
-Ce que le décor doit fournir pour que ses scripts disent quelque chose : **redis** · **gh authentifié** · **droits d'écriture sur le dépôt et le tableau** · **droits d'écriture sur le dépôt et le tableau ; arbre propre**.
+Ce que le décor doit fournir pour que ses scripts disent quelque chose : **redis** · **gh authentifié** · **droits d'écriture sur le dépôt et le tableau** · **gh authentifié ; arbre propre** · **droits d'écriture sur le dépôt et le tableau ; arbre propre**.
 
 ## Skills voisins
 
@@ -85,7 +85,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/github-issues.md` | Issues GitHub — sous-tickets, jalons, projets | 80 |
 | `references/gravite.md` | La gravité d'un défaut — une norme, jamais une impression | 107 |
 | `references/lexique.md` | Lexique des tickets — source unique | 145 |
-| `references/pull-requests.md` | Pull requests — la remplir, la relier, la fusionner | 62 |
+| `references/pull-requests.md` | Pull requests — la remplir, la relier, la fusionner | 115 |
 | `references/tableau-de-bord.md` | Le tableau de bord — labels, champs, ordre, et quand prendre un ticket | 289 |
 
 
@@ -108,6 +108,8 @@ script, donc toujours à jour après régénération.
 | `scripts/pose-lexique.mjs` | Pose le bloc `Lexique` en tête du corps des tickets GitHub ouverts. | `--write` | — |
 | `scripts/pr-complete.mjs` | Remplit la colonne de droite d'une pull request : responsable, jalon, lots, tableau de bord et lien vers les tickets — ce que `gh pr create` laisse vide. | `--dry-run` | — |
 | `scripts/pr-complete.test.mjs` | — | — | — |
+| `scripts/pr-finish.mjs` | Clôt un ticket SANS attendre la CI : branche poussée, PR « prête », fusion confiée à GitHub. | `--dry-run` | — |
+| `scripts/pr-finish.test.mjs` | Éprouve la voie de fusion de `pr-finish.mjs` : la fusion automatique n'est prise que si elle ATTEND vraiment la CI — sans check exigé, `--auto` fusionnerait tout de suite, CI rouge comprise. / | — | — |
 | `scripts/proof-commands.mjs` | proof-commands.mjs — exécute les PREUVES écrites en commande dans un ticket. | — | — |
 | `scripts/proof-commands.test.mjs` | `proof-commands` — relancer les preuves d'ABSENCE écrites dans un ticket. | — | — |
 | `scripts/severity.mjs` | Gravité d'un défaut — lue, validée et calculée selon une NORME, jamais estimée à l'impression. | — | — |
@@ -132,6 +134,7 @@ node .claude/skills/nodefony-ticket/scripts/board-lint.mjs [--json] [--milestone
 node .claude/skills/nodefony-ticket/scripts/francise.mjs [--write]
 node .claude/skills/nodefony-ticket/scripts/pose-lexique.mjs [<numéro>…] [--write]
 node .claude/skills/nodefony-ticket/scripts/pr-complete.mjs 799
+node .claude/skills/nodefony-ticket/scripts/pr-finish.mjs            (PR de la branche courante)
 node .claude/skills/nodefony-ticket/scripts/ticket-anchor-migrate.mjs [<numéro>…]
 node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>] | --check <fichier>
 node .claude/skills/nodefony-ticket/scripts/ticket-effort.mjs [<numéro>…]
@@ -191,6 +194,19 @@ node .claude/skills/nodefony-ticket/scripts/pr-complete.mjs 799 --dry-run
 | Option | Rôle |
 | --- | --- |
 | `--dry-run` | rend le plan sans rien modifier |
+
+#### `scripts/pr-finish.mjs`
+
+Produit : la voie (auto ou surveillance), et la commande à lancer en arrière-plan le cas échéant
+
+```bash
+node .claude/skills/nodefony-ticket/scripts/pr-finish.mjs            (PR de la branche courante)
+node .claude/skills/nodefony-ticket/scripts/pr-finish.mjs <PR> [--dry-run]
+```
+
+| Option | Rôle |
+| --- | --- |
+| `--dry-run` | rend la voie choisie et ses raisons, sans rien modifier |
 
 #### `scripts/ticket-anchor-migrate.mjs`
 

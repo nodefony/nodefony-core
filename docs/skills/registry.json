@@ -11710,6 +11710,7 @@
         "redis",
         "gh authentifié",
         "droits d'écriture sur le dépôt et le tableau",
+        "gh authentifié ; arbre propre",
         "droits d'écriture sur le dépôt et le tableau ; arbre propre"
       ],
       "resources": {
@@ -11862,6 +11863,32 @@
           {
             "path": "scripts/pr-complete.test.mjs",
             "purpose": "",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/pr-finish.mjs",
+            "purpose": "Clôt un ticket SANS attendre la CI : branche poussée, PR « prête », fusion confiée à GitHub.",
+            "usage": [
+              "node .claude/skills/nodefony-ticket/scripts/pr-finish.mjs            (PR de la branche courante)",
+              "node .claude/skills/nodefony-ticket/scripts/pr-finish.mjs <PR> [--dry-run]"
+            ],
+            "options": [
+              {
+                "flag": "--dry-run",
+                "help": "rend la voie choisie et ses raisons, sans rien modifier"
+              }
+            ],
+            "env": [],
+            "output": "la voie (auto ou surveillance), et la commande à lancer en arrière-plan le cas échéant",
+            "selfDocumented": true
+          },
+          {
+            "path": "scripts/pr-finish.test.mjs",
+            "purpose": "Éprouve la voie de fusion de `pr-finish.mjs` : la fusion automatique n'est prise que si elle ATTEND vraiment la CI — sans check exigé, `--auto` fusionnerait tout de suite, CI rouge comprise. /",
             "usage": [],
             "options": [],
             "env": [],
