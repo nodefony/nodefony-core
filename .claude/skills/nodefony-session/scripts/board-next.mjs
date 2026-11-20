@@ -84,6 +84,64 @@ export function chooseNextTicket(openItems, milestones) {
   return orphelins.length ? { ticket: orphelins[0], milestone: null } : null;
 }
 
+/**
+ * La plus haute version FINALE étiquetée (`v10.0.1`, jamais `v10.1.0-beta.2`), sans son `v`.
+ *
+ * @param {Iterable<string>} tags - étiquettes git `v*`
+ * @param {string} [line] - restreint à une ligne `x.y` (`10.0`)
+ * @returns {string | null}
+ */
+export function newestStableVersion(tags, line) {
+  let best = null;
+  for (const tag of tags) {
+    const m = /^v(\d+\.\d+)\.\d+$/u.exec(tag);
+    if (m === null || (line !== undefined && m[1] !== line)) continue;
+    const v = tag.slice(1);
+    if (best === null || compareMilestoneTitles(v, best) > 0) best = v;
+  }
+  return best;
+}
+
+/**
+ * Ce qui reste à faire APRÈS une publication — PURE : les faits sont constatés.
+ *
+ * Trois oublis, chacun silencieux jusqu'à la publication suivante :
+ * l'estampille d'un correctif restée hors de `origin/release/x.y.x` (la
+ * suivante partirait de manifestes périmés) ; la fusion arrière vers `dev`
+ * pas faite (`refusDeMaintenance` refuserait la mineure, D9 de #796) ; npm
+ * dont `latest` désigne encore la version d'avant (un `npm install` sans
+ * version installerait l'ancienne).
+ *
+ * @param {object} facts
+ * @param {string | null} facts.newestStable - plus haute version finale étiquetée
+ * @param {string | null} facts.latest - étiquette npm `latest` de `nodefony`, `null` si non lue
+ * @param {Array<{ branch: string, version: string, inBranch: boolean, inDev: boolean }>} facts.maintenance -
+ *   par `release/x.y.x` distante : sa dernière version finale et où son étiquette est contenue
+ * @returns {string[]} une ligne par geste dû
+ */
+export function afterReleaseReminders({ newestStable, latest, maintenance }) {
+  const lines = [];
+  for (const m of maintenance) {
+    if (!m.inBranch)
+      lines.push(
+        `📮 estampille v${m.version} absente de origin/${m.branch} → git push origin ${m.branch} (la publication suivante partirait de manifestes périmés)`,
+      );
+    else if (!m.inDev)
+      lines.push(
+        `↩️ fusion arrière due : v${m.version} (${m.branch}) absente de dev → node .claude/skills/nodefony-ticket/scripts/release-sync.mjs`,
+      );
+  }
+  if (
+    newestStable !== null &&
+    latest !== null &&
+    compareMilestoneTitles(newestStable, latest) > 0
+  )
+    lines.push(
+      `🏷️ v${newestStable} étiquetée mais npm latest = ${latest} → publication incomplète ou dist-tag non posé (skill nodefony-release)`,
+    );
+  return lines;
+}
+
 /** Un nom de lot ou de jalon qui DÉSIGNE une version : `10.0.1`, `10.0.0-beta`. */
 const VERSION_NAME = /^(\d+\.\d+\.\d+)(?:-[0-9A-Za-z.-]+)?$/;
 

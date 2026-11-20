@@ -10636,8 +10636,8 @@
       ],
       "description": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer : fermeture des tickets soldés, mémoire de reprise, commit. RESUME et START sont dans le corps ; END dans `references/`. Déclencheurs : \"reprends\", \"on en était où\", \"dernière session\", \"où en est la publication\", \"quels tickets restent\", \"prépare le contexte\", \"session sur <module>\", \"fin de session\", \"clôture la session\".",
       "cost": {
-        "bodyLines": 210,
-        "approxTokens": 3348
+        "bodyLines": 211,
+        "approxTokens": 3469
       },
       "requires": [
         "redis"
@@ -10973,7 +10973,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "210",
+            "detail": "211",
             "advisory": true
           }
         ]

@@ -225,7 +225,7 @@ source: "docs/skills/index.md"
 | [`nodefony-rfc`](nodefony-rfc.md) | 1.12.0 | 390 | 0 | 7 | ✅ |
 | [`nodefony-roadmap`](nodefony-roadmap.md) | 2.1.0 | 122 | 0 | 0 | ✅ |
 | [`nodefony-security-review`](nodefony-security-review.md) | — | 401 | 0 | 0 | ✅ |
-| [`nodefony-session`](nodefony-session.md) | 1.1.0 | 210 | 1 | 17 | ✅ |
+| [`nodefony-session`](nodefony-session.md) | 1.1.0 | 211 | 1 | 17 | ✅ |
 | [`nodefony-skill`](nodefony-skill.md) | 1.2.0 | 298 | 0 | 5 | ✅ |
 | [`nodefony-start-server`](nodefony-start-server.md) | — | 270 | 0 | 2 | ✅ |
 | [`nodefony-studio-dev`](nodefony-studio-dev.md) | 2.1.0 | 145 | 6 | 0 | ✅ |

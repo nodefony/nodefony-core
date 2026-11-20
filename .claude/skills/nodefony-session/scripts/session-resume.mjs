@@ -21,8 +21,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {
+  afterReleaseReminders,
   chooseNextTicket,
   isOpenItem,
+  newestStableVersion,
   openItemsOf,
   versionsToRelease,
 } from "./board-next.mjs";
@@ -108,6 +110,14 @@ const online =
 // ── 1. Git : branche, avance/retard, arbre.
 if (online) git("fetch", "-q");
 const branch = git("branch", "--show-current").out;
+// L'étiquette npm `latest` part maintenant, lue au § des rappels d'après publication.
+const npmLatest = online
+  ? shAsync(
+      "npm",
+      ["view", "nodefony", "dist-tags.latest", "--workspaces=false"],
+      { timeout: 20_000 },
+    )
+  : Promise.resolve({ ok: false, out: "", err: "" });
 
 // Les quatre lectures réseau, lancées ENSEMBLE. Indépendantes : chacune
 // interroge GitHub (ou le dépôt mémoire) de son côté, aucune ne lit ce qu'une
@@ -380,6 +390,36 @@ if (tags.ok)
     say(
       `🚀 lot ${r.version} soldé (${r.closed} ticket(s) fermé(s)), v${r.version} non publiée → la publier AVANT le ticket suivant (skill nodefony-release)`,
     );
+// Après une publication : estampille poussée, fusion arrière, étiquette npm.
+// Les ancêtres se lisent sur les références DISTANTES, rafraîchies par le fetch.
+if (tags.ok) {
+  const allTags = tags.out.split("\n");
+  const maintenance = git("branch", "-r", "--list", "origin/release/*")
+    .out.split("\n")
+    .map((b) => b.trim().slice("origin/".length))
+    .flatMap((b) => {
+      const line = /^release\/(\d+\.\d+)\.x$/u.exec(b)?.[1];
+      const version = line && newestStableVersion(allTags, line);
+      if (!version) return [];
+      const inRef = (ref) =>
+        git("merge-base", "--is-ancestor", `v${version}`, ref).ok;
+      return [
+        {
+          branch: b,
+          version,
+          inBranch: inRef(`origin/${b}`),
+          inDev: inRef("origin/dev"),
+        },
+      ];
+    });
+  const latest = await npmLatest;
+  for (const line of afterReleaseReminders({
+    newestStable: newestStableVersion(allTags),
+    latest: latest.ok && latest.out ? latest.out : null,
+    maintenance,
+  }))
+    say(line);
+}
 const choice = chooseNextTicket(open, board.milestones);
 if (choice) {
   const ms = board.milestones.find((m) => m.title === choice.milestone);

@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
+  afterReleaseReminders,
   chooseNextTicket,
+  newestStableVersion,
   isOpenItem,
   sortMilestones,
   openItemsOf,
@@ -205,7 +207,96 @@ describe("versionsToRelease — un lot soldé réclame sa publication", () => {
     ]);
   });
 
+  // Décision de la revue « normes » (#796) : un Epic ouvert qui porte le label du
+  // lot le BLOQUE — un Epic se ferme quand ses enfants sont livrés, pas avant.
+  it("un Epic ouvert au label du lot le bloque", () => {
+    const items = [
+      ferme({ labels: ["10.0.1"] }),
+      ouvert({ labels: ["10.0.1", "Epic"] }),
+    ];
+    expect(versionsToRelease(items, [])).toEqual([]);
+  });
+
   it("un lot sans aucun ticket fermé ne réclame rien", () => {
     expect(versionsToRelease([], [])).toEqual([]);
+  });
+});
+
+describe("après une publication — afterReleaseReminders", () => {
+  const TAGS = [
+    "v10.0.0-beta.9",
+    "v10.0.0",
+    "v10.0.1",
+    "v10.1.0-beta.1",
+    "v9.9.10",
+  ];
+
+  it("la plus haute version FINALE, toutes lignes ou une seule", () => {
+    expect(newestStableVersion(TAGS)).toBe("10.0.1");
+    expect(newestStableVersion(TAGS, "10.0")).toBe("10.0.1");
+    expect(newestStableVersion(TAGS, "9.9")).toBe("9.9.10");
+    expect(newestStableVersion(TAGS, "10.1")).toBe(null);
+    expect(newestStableVersion(["v10.0.9", "v10.0.10"])).toBe("10.0.10");
+  });
+
+  const m = (extra) => ({
+    branch: "release/10.0.x",
+    version: "10.0.1",
+    inBranch: true,
+    inDev: true,
+    ...extra,
+  });
+
+  it("rien à dire quand tout est fait", () => {
+    expect(
+      afterReleaseReminders({
+        newestStable: "10.0.1",
+        latest: "10.0.1",
+        maintenance: [m()],
+      }),
+    ).toEqual([]);
+  });
+
+  // Vécu (revue de #796) : --promouvoir laissait l'estampille « partir avec le
+  // prochain push ordinaire » — il n'y en a plus en travail par PR.
+  it("l'estampille absente de la branche de maintenance, avant la fusion arrière", () => {
+    const [line, ...rest] = afterReleaseReminders({
+      newestStable: "10.0.1",
+      latest: "10.0.1",
+      maintenance: [m({ inBranch: false, inDev: false })],
+    });
+    expect(line).toContain("git push origin release/10.0.x");
+    expect(rest).toEqual([]);
+  });
+
+  it("la fusion arrière due nomme release-sync", () => {
+    expect(
+      afterReleaseReminders({
+        newestStable: "10.0.1",
+        latest: "10.0.1",
+        maintenance: [m({ inDev: false })],
+      })[0],
+    ).toContain("release-sync.mjs");
+  });
+
+  it("npm latest en retard sur la dernière version étiquetée", () => {
+    const [line] = afterReleaseReminders({
+      newestStable: "10.0.1",
+      latest: "10.0.0",
+      maintenance: [],
+    });
+    expect(line).toContain("npm latest = 10.0.0");
+  });
+
+  // PIÈGE : hors ligne, l'étiquette npm n'est pas lue — se taire, pas accuser.
+  it("se tait sur npm quand latest n'a pas été lue, ou est en avance", () => {
+    for (const latest of [null, "10.0.2"])
+      expect(
+        afterReleaseReminders({
+          newestStable: "10.0.1",
+          latest,
+          maintenance: [],
+        }),
+      ).toEqual([]);
   });
 });
