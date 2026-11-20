@@ -8,6 +8,31 @@ Les sections naissent d'un BROUILLON rendu par `npm run release` depuis les mess
 de commit, puis sont RÉÉCRITES à la main : un journal git est écrit pour l'auteur,
 un changelog pour celui qui met à jour.
 
+## 10.0.1 - 2026-11-20
+
+### Changed
+
+- **cli:** Générer les applications avec Angular `~22.3.0`, Vue `^3.5.46` et Svelte `^5.58.1` (#804) (ca744f226)
+- **scaffold:** Inscrire le logo SVG de l'accueil généré dans le bundle : la page s'affiche sans requête de plus (#797) (ba3b0a116)
+- **security:** Dépendre de `jose` 6.2.18 (#804) (ca744f226)
+- **studio:** Dépendre de `react-router` 8.5.2 (#804) (ca744f226)
+
+### Added
+
+- **cli:** Terminer la sortie de `create app` par un bloc « Pour commencer », qui nomme la démo quand elle est générée (#797) (ba3b0a116)
+
+### Fixed
+
+- **cli:** Nommer le caractère invisible et sa position quand `create` refuse un nom — typiquement une espace insécable laissée par un copier-coller (#796) (7a3193891)
+- **doctor:** Ne plus prendre une application homonyme de sa dépendance (une application nommée `nodefony`) pour un paquet frère à ordonner (#796) (7a3193891)
+- **login:** Conduire la console d'administration à la page de connexion de l'application, et garder la page de connexion de secours joignable en toute circonstance (#801) (f8615f70f)
+- **login:** Mener la marque des pages de connexion à l'accueil de l'application, avec une image par défaut aux couleurs de la marque, sans fichier (#797) (ba3b0a116)
+- **scaffold:** Réparer l'accueil généré : styles et guide de développement pour React, Vue, Angular et Svelte, et une page HTML pour l'application sans front, par négociation de contenu (#797) (ba3b0a116)
+- **scaffold:** Tirer un mot de passe d'administration de développement propre à chaque application générée (#797) (ba3b0a116)
+- **scaffold:** Charger la feuille de style de l'accueil dans la démo générée, n'y afficher qu'un bouton de debug, et faire passer son lint sans faux secret en test (#797) (ba3b0a116)
+
+<!-- Surface publique mesurée depuis 10.0.0 (npm) : 0 rupture, 0 changement expérimental ; 1 déclaration relue (`NODEFONY_CLIENT` : chemins d'import écrits sans extension, type identique). Détail : npm run release:api-diff -- --from 10.0.0 --details -->
+
 ## 10.0.0 - 2026-11-18
 
 _La première version stable de Nodefony 10 : le framework réécrit en TypeScript strict sur les serveurs natifs de Node (`node:http`, `node:http2`, WebSocket), où le WebSocket partage le pipeline, les routes et la sécurité du HTTP, et où chaque requête reçoit son propre conteneur de services. Seize paquets à la même version, sous le canal `latest` : `npm create nodefony mon-app` suffit, sans nommer de canal. Elle reprend la beta.9 sans rupture d'API mesurée ; les ruptures de la ligne 10 sont annoncées bêta par bêta ci-dessous, chacune avec son geste de migration. Une application de la série 7 (JavaScript, dépréciée) ne se monte pas : les deux API n'ont rien de commun._
