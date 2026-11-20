@@ -173,7 +173,7 @@ const pending = online
         "--limit",
         "15",
         "--json",
-        "number,body,headRefName",
+        "number,body,headRefName,baseRefName",
       ]),
       snapshot: shAsync(
         process.execPath,
@@ -312,6 +312,13 @@ if (online) {
     const list = JSON.parse(prs.out || "[]");
     // ── 4 bis. La branche courante, sa PR, ses fichiers ; les tickets mis de côté.
     const mine = list.find((p) => p.headRefName === branch) ?? null;
+    // Sans PR ouverte, une PR FUSIONNÉE de cette branche dit qu'elle est finie.
+    const mergedReply = mine ? null : await pending.merged;
+    const mergedMine = mergedReply?.ok
+      ? (JSON.parse(mergedReply.out || "[]").find(
+          (p) => p.headRefName === branch,
+        ) ?? null)
+      : null;
     const counts = mine
       ? git(
           "rev-list",
@@ -335,6 +342,7 @@ if (online) {
         : "",
       dirty: dirty.length - dirtyAi,
       parked: list.filter((p) => p.isDraft && p.headRefName !== branch),
+      merged: mergedMine,
     }))
       say(line);
     for (const p of list) {

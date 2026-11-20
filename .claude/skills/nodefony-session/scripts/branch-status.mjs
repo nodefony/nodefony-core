@@ -95,6 +95,9 @@ export function diffSummary(numstat, top = 5) {
  * @param {string} s.diff - `diffSummary` de la branche contre sa base
  * @param {number} s.dirty - fichiers non commités
  * @param {{ number: number, headRefName: string }[]} s.parked - PR en brouillon des AUTRES branches
+ * @param {{ number: number, baseRefName: string } | null} [s.merged] - la PR FUSIONNÉE de
+ *   cette branche, s'il y en a une : la branche est FINIE, et la rouvrir par
+ *   `ticket-start` y empilerait un second ticket sur un historique déjà squashé
  * @returns {string[]}
  */
 export function branchLines({
@@ -105,11 +108,20 @@ export function branchLines({
   diff,
   dirty,
   parked,
+  merged = null,
 }) {
   const lines = [];
   if (isLongBranch(branch)) {
     lines.push(
       `🌿 ${branch} = branche LONGUE — aucune branche de travail : \`ticket-start.mjs <N> --slug <sujet>\` avant tout code`,
+    );
+  } else if (!pr && merged) {
+    lines.push(
+      `🌿 ${branch} — PR #${merged.number} FUSIONNÉE dans ${merged.baseRefName} : branche FINIE → ` +
+        `git switch ${merged.baseRefName} && git pull --ff-only && git branch -D ${branch}` +
+        (dirty
+          ? ` · ⚠️ non commités : ${dirty} — à reporter sur une branche neuve (ticket-start) AVANT`
+          : ""),
     );
   } else if (!pr) {
     lines.push(

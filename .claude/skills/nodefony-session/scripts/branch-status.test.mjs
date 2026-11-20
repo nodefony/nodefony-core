@@ -75,6 +75,28 @@ describe("branchLines", () => {
     expect(lines[0]).toMatch(/AUCUNE PR/);
   });
 
+  it("branche dont la PR est FUSIONNÉE : la dit finie et rend le retour à la base, jamais ticket-start", () => {
+    const lines = branchLines({
+      ...base,
+      branch: "fix/794-x",
+      pr: null,
+      merged: { number: 803, baseRefName: "release/10.0.x" },
+    });
+    expect(lines[0]).toMatch(/PR #803 FUSIONNÉE dans release\/10\.0\.x/u);
+    expect(lines[0]).toContain(
+      "git switch release/10.0.x && git pull --ff-only && git branch -D fix/794-x",
+    );
+    expect(lines[0]).not.toContain("ticket-start");
+    const sale = branchLines({
+      ...base,
+      branch: "fix/794-x",
+      pr: null,
+      dirty: 2,
+      merged: { number: 803, baseRefName: "dev" },
+    });
+    expect(sale[0]).toContain("non commités : 2");
+  });
+
   it("branche avec PR rouge : base, avance, rouges nommés, fichiers, non poussée", () => {
     const lines = branchLines({
       branch: "fix/794-x",
