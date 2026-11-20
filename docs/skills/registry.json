@@ -2974,6 +2974,20 @@
       "testedBy": []
     },
     {
+      "path": "scripts/release/release-workflow.test.mjs",
+      "test": true,
+      "purpose": "Le déclencheur de la publication ne porte aucune majeure écrite en dur (#796).",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "release.yml",
+        "npm run test:release"
+      ],
+      "testedBy": []
+    },
+    {
       "path": "scripts/release/release.mjs",
       "test": false,
       "purpose": "release.mjs — PRÉPARE une release Nodefony, et refuse tout ce qui ne se rattrape pas.",

@@ -146,16 +146,67 @@ const SURFACES = [
   },
 ];
 
-/** Une version de préversion de la ligne 10, telle qu'elle s'écrit dans la prose. */
-const VERSION = /\b(10\.\d+\.\d+)-(alpha|beta|rc)\.(\d+)\b/g;
+/**
+ * Les motifs d'une LIGNE majeure — construits pour la ligne jugée, jamais écrits
+ * pour une version : la garde a été pensée pendant la 10, elle doit juger la 11
+ * à l'identique (revue #796, « c'est générique ? »).
+ *
+ * - `version` : une préversion de la ligne, telle qu'elle s'écrit dans la prose ;
+ * - `stable` : une version STABLE de la ligne (`10.0.0`), jamais le début d'une
+ *   préversion. Elle ne compte comme annonce de publication qu'une fois `latest`
+ *   sur la ligne : avant, ce n'est que le numéro du `package.json` que l'accueil
+ *   affiche ;
+ * - `nie` : les formules qui nient toute publication, au pluriel des tournures
+ *   réellement employées (celles de l'accueil d'avant la première alpha).
+ *
+ * @param {number} ligne - la majeure jugée
+ * @returns {{ version: RegExp, stable: RegExp, nie: RegExp }}
+ */
+function motifsDeLaLigne(ligne) {
+  return {
+    version: new RegExp(
+      `\\b(${ligne}\\.\\d+\\.\\d+)-(alpha|beta|rc)\\.(\\d+)\\b`,
+      "g",
+    ),
+    stable: new RegExp(`\\b${ligne}\\.\\d+\\.\\d+\\b(?![-.\\d])`, "g"),
+    nie: new RegExp(
+      `(pas encore publi|non publiée|aucun paquet\\s+.?${ligne}|rien n'est (?:encore )?(?:sur npm|publié))`,
+      "i",
+    ),
+  };
+}
 
 /**
- * Une version STABLE de la ligne 10 (`10.0.0`), jamais le début d'une
- * préversion. Elle ne compte comme annonce de publication qu'une fois `latest`
- * sur la 10 : avant, `10.0.0` n'est que le numéro du `package.json` que
- * l'accueil affiche.
+ * La majeure d'une version exacte, ou `null`.
+ *
+ * @param {string | null | undefined} v
+ * @returns {number | null}
  */
-const VERSION_STABLE = /\b10\.\d+\.\d+\b(?![-.\d])/g;
+function majeure(v) {
+  const m = typeof v === "string" ? VERSION_EXACTE.exec(v) : null;
+  return m ? Number(m[1]) : null;
+}
+
+/**
+ * La ligne qu'un accueil doit annoncer : la majeure de la version que la passe
+ * publie, sinon la plus haute majeure que le registre sert. Pendant les
+ * préversions de la 11, `latest` sert encore la 10 et `alpha` la 11 : la ligne
+ * est la 11, celle que la page doit annoncer.
+ *
+ * @param {Record<string, string>} distTags - étiquettes servies
+ * @param {string | null} enCours - version publiée par la passe
+ * @returns {number | null}
+ */
+function ligneCourante(distTags, enCours) {
+  const deLaPasse = majeure(enCours);
+  if (deLaPasse !== null) return deLaPasse;
+  let haute = null;
+  for (const v of Object.values(distTags)) {
+    const m = majeure(v);
+    if (m !== null && (haute === null || m > haute)) haute = m;
+  }
+  return haute;
+}
 
 /**
  * Une version EXACTE, rien autour : `10.0.0`, `10.0.0-beta.7`. Seule forme
@@ -165,14 +216,6 @@ const VERSION_EXACTE = /^(\d+)\.(\d+)\.(\d+)(?:-([a-z]+)\.(\d+))?$/;
 
 /** Un nom d'étiquette npm tel que le registre en sert (`latest`, `beta.0`). */
 const ETIQUETTE = /^[A-Za-z][\w.-]*$/;
-
-/**
- * Formules qui nient toute publication. Écrites au pluriel des tournures
- * réellement employées, pas d'une supposition : ce sont celles que l'accueil
- * portait avant la première alpha.
- */
-const NIE_LA_PUBLICATION =
-  /(pas encore publi|non publiée|aucun paquet\s+.?10|rien n'est (?:encore )?(?:sur npm|publié))/i;
 
 /**
  * Une commande qui installe le framework. Le groupe `tag` capte `@alpha` quand
@@ -243,17 +286,18 @@ function comparer(a, b) {
 const CANAUX_ANNONCABLES = new Set(["latest", "rc", "beta", "alpha"]);
 
 /**
- * La version la plus avancée de la ligne 10, parmi les canaux qu'une page
+ * La version la plus avancée d'une ligne, parmi les canaux qu'une page
  * peut annoncer ({@link CANAUX_ANNONCABLES}).
  *
  * @param distTags - les étiquettes servies par npm.
- * @returns `{ canal, version }`, ou `null` quand aucun canal ne sert la 10.
+ * @param ligne - la majeure jugée ({@link ligneCourante}).
+ * @returns `{ canal, version }`, ou `null` quand aucun canal ne sert la ligne.
  */
-function pointeDeLaLigne(distTags) {
+function pointeDeLaLigne(distTags, ligne) {
   let pointe = null;
   for (const [canal, version] of Object.entries(distTags)) {
     if (!CANAUX_ANNONCABLES.has(canal)) continue;
-    if (typeof version !== "string" || !version.startsWith("10.")) continue;
+    if (majeure(version) !== ligne) continue;
     if (pointe === null || comparer(version, pointe.version) > 0)
       pointe = { canal, version };
   }
@@ -349,20 +393,27 @@ function projeter(distTags, enCours) {
  *   l'annoncer, puisque son README part dans le tarball. Une reprise (canal
  *   servant déjà `enCours`) n'a besoin d'aucune tolérance : la page du commit
  *   tagué annonce déjà la version reprise.
+ * @param options.ligne - la majeure jugée ; par défaut {@link ligneCourante}.
  * @returns la liste des écarts, vide quand l'accueil dit vrai.
  */
-function confronterAccueil({ surfaces, distTags: servis, enCours = null }) {
+function confronterAccueil({
+  surfaces,
+  distTags: servis,
+  enCours = null,
+  ligne = ligneCourante(projeter(servis, enCours), enCours),
+}) {
   const ecarts = [];
   const distTags = projeter(servis, enCours);
-  const latestEstLa10 = (distTags.latest ?? "").startsWith("10.");
-  const pointe = pointeDeLaLigne(distTags);
+  const motifs = motifsDeLaLigne(ligne);
+  const latestEstLaLigne = majeure(distTags.latest) === ligne;
+  const pointe = pointeDeLaLigne(distTags, ligne);
 
   for (const surface of surfaces) {
     const { chemin, contenu, exigeVersion, commandesSeules = false } = surface;
     let versionsVues = 0;
 
     // ── Les versions citées ────────────────────────────────────────────────
-    for (const m of commandesSeules ? [] : contenu.matchAll(VERSION)) {
+    for (const m of commandesSeules ? [] : contenu.matchAll(motifs.version)) {
       versionsVues++;
       const citee = `${m[1]}-${m[2]}.${m[3]}`;
       const canal = m[2];
@@ -401,8 +452,8 @@ function confronterAccueil({ surfaces, distTags: servis, enCours = null }) {
     }
 
     // Au cran stable, la page annonce `10.0.0` et plus aucune préversion.
-    if (!commandesSeules && latestEstLa10 && versionsVues === 0) {
-      versionsVues = (contenu.match(VERSION_STABLE) ?? []).length;
+    if (!commandesSeules && latestEstLaLigne && versionsVues === 0) {
+      versionsVues = (contenu.match(motifs.stable) ?? []).length;
     }
 
     if (exigeVersion && versionsVues === 0) {
@@ -417,16 +468,16 @@ function confronterAccueil({ surfaces, distTags: servis, enCours = null }) {
     }
 
     // ── L'affirmation « rien n'est publié » ────────────────────────────────
-    const nie = commandesSeules ? null : NIE_LA_PUBLICATION.exec(contenu);
+    const nie = commandesSeules ? null : motifs.nie.exec(contenu);
     const quelqueChoseEstPublie = Object.keys(distTags).some(
-      (t) => t !== "latest" || latestEstLa10,
+      (t) => t !== "latest" || latestEstLaLigne,
     );
     if (nie && quelqueChoseEstPublie) {
       ecarts.push({
         genre: "RIEN-PUBLIE",
         chemin,
         ligne: ligneDe(contenu, nie.index),
-        message: `« ${nie[0]} » — des paquets de la ligne 10 sont publiés`,
+        message: `« ${nie[0]} » — des paquets de la ligne ${ligne} sont publiés`,
       });
     }
 
@@ -445,7 +496,7 @@ function confronterAccueil({ surfaces, distTags: servis, enCours = null }) {
       if (
         pointe !== null &&
         typeof servieParLui === "string" &&
-        servieParLui.startsWith("10.") &&
+        majeure(servieParLui) === ligne &&
         comparer(servieParLui, pointe.version) < 0
       ) {
         ecarts.push({
@@ -457,7 +508,7 @@ function confronterAccueil({ surfaces, distTags: servis, enCours = null }) {
             `« ${pointe.canal} » sert « ${pointe.version} » — la page prescrit un canal dépassé`,
           correction:
             pointe.canal === "latest"
-              ? `écrire la commande sans canal (latest EST la 10), et requalifier la prose du cran`
+              ? `écrire la commande sans canal (latest EST la ${ligne}), et requalifier la prose du cran`
               : `écrire ${m[0].replace(m[2], `@${pointe.canal}`)}`,
         });
       }
@@ -467,14 +518,14 @@ function confronterAccueil({ surfaces, distTags: servis, enCours = null }) {
       // Le canal est nommé — sauf `@latest`, qui n'en nomme aucun : tant que
       // `latest` n'est pas la 10, il installe la 7 comme la forme nue.
       if (m[2] && m[2] !== "@latest") continue;
-      if (latestEstLa10) continue; // `latest` EST la 10 : la forme nue est juste
+      if (latestEstLaLigne) continue; // `latest` EST la ligne : la forme nue est juste
       ecarts.push({
         genre: "COMMANDE-SANS-CANAL",
         chemin,
         ligne: ligneDe(contenu, m.index),
         message:
           `« ${m[0]} » ne nomme aucun canal, et « latest » sert encore ` +
-          `« ${distTags.latest ?? "?"} » — cette commande n'installe pas la 10`,
+          `« ${distTags.latest ?? "?"} » — cette commande n'installe pas la ${ligne}`,
         correction: m[0].startsWith("npx")
           ? "écrire `npm create nodefony@<canal> <app>` — hors d'une application, `npx` installe le `latest`"
           : `écrire ${m[0]}@<canal>`,
@@ -503,11 +554,17 @@ function confronterAccueil({ surfaces, distTags: servis, enCours = null }) {
  *
  * @param contenu - le markdown de la surface.
  * @param distTags - les étiquettes servies par npm.
+ * @param ligne - la majeure jugée ; par défaut {@link ligneCourante}.
  * @returns `{ contenu, remplacements }` — `remplacements` liste `de → vers`.
  */
-function basculerVersions(contenu, distTags) {
+function basculerVersions(
+  contenu,
+  distTags,
+  ligne = ligneCourante(distTags, null),
+) {
   const remplacements = [];
-  const sortie = contenu.replace(VERSION, (brut, base, canal, cran) => {
+  const motif = motifsDeLaLigne(ligne).version;
+  const sortie = contenu.replace(motif, (brut, base, canal, cran) => {
     const servie = distTags[canal];
     if (!servie) return brut;
     const citee = `${base}-${canal}.${cran}`;

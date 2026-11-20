@@ -50,7 +50,10 @@ on:
   # main, après que l'auteur a relu le changelog et le diff des versions — c'est
   # le seul point où quelqu'un voit ce qui va sortir sous son nom.
   push:
-    tags: ["v10.*"]
+    # Toute majeure à partir de la 10, sans en écrire aucune : à la 11, un filtre
+    # `v10.*` aurait laissé `v11.0.0` posé sans RIEN publier. Les étiquettes `v7`
+    # du dépôt historique restent hors du filtre (garde : release-workflow.test.mjs).
+    tags: ["v[1-9][0-9]+.*"]
   # Une répétition à la demande, qui ne publie RIEN : elle rejoue toutes les
   # gardes sur l'état courant. Utile avant de poser le tag.
   workflow_dispatch:

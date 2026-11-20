@@ -276,6 +276,12 @@ Suite du cœur de release — écrite pour FAIRE ÉCHOUER le script, pas pour l'
 - **Lancé par** : `npm run test:release`
 - **Utilise** : `lib/workspaces.mjs` · `deps/shims/deepmerge/index.d.ts` · `deps/shims/deepmerge/index.js` · `release/release-core.mjs` · `release/release.mjs`
 
+## [`release-workflow.test.mjs`](release-workflow.test.mjs)
+
+Le déclencheur de la publication ne porte aucune majeure écrite en dur (#796).
+
+- **Lancé par** : `release.yml` · `npm run test:release`
+
 ## [`release.mjs`](release.mjs)
 
 release.mjs — PRÉPARE une release Nodefony, et refuse tout ce qui ne se rattrape pas.

@@ -25,7 +25,7 @@
  * ── LE TAG EST LA CAUSE, PAS LA CONSÉQUENCE ─────────────────────────────────
  *
  * Ce script estampille, écrit un brouillon de changelog et empaquette. Il ne
- * pose PAS le tag : c'est le tag `v10.*` poussé à la main qui déclenche le flux
+ * pose PAS le tag : c'est le tag `v<version>` poussé à la main qui déclenche le flux
  * de publication. Inverser les deux enlève à l'auteur le seul point où il relit
  * ce qui va sortir sous son nom.
  *
