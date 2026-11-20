@@ -31,6 +31,22 @@ Suite du gate des promesses d'ADR — écrite pour le faire ÉCHOUER.
 - **Lancé par** : `npm run test:pilotage` · `npm run test:tooling`
 - **Utilise** : `gates/check-adr-deferrals.mjs`
 
+## [`check-bundle-syntax.mjs`](check-bundle-syntax.mjs)
+
+Gate : chaque fichier JavaScript d'un bundle de front BÂTI doit être lisible par V8.
+
+- **Usage** : `npm run check:bundles`
+- **Usage** : `npm run check:bundles -- <dossier> [<dossier>…] [--allow-empty]`
+- **Appelé par** : `npm run check:bundles`
+- **Testé par** : `gates/check-bundle-syntax.test.mjs`
+
+## [`check-bundle-syntax.test.mjs`](check-bundle-syntax.test.mjs)
+
+Éprouve le gate de syntaxe des bundles : il doit REFUSER un fichier que V8 ne lit pas, accepter l'ESM valide, trouver les dossiers de build sous les deux séparateurs, et ne jamais rendre vert sur zéro fichier. /
+
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `gates/check-bundle-syntax.mjs`
+
 ## [`check-externals.mjs`](check-externals.mjs)
 
 Audit de la dérive `external` ⇄ manifeste, sur TOUT le dépôt — core, packages ET modules.
