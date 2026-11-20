@@ -100,9 +100,8 @@ chevauchent, et l'on ne sait plus quel run juge quel commit. Donc :
 
 - **En session** : on pousse quand on a BESOIN d'un verdict de CI (un ticket à fermer, un rouge à
   instruire), pas à chaque commit — les commits s'accumulent en local, un push les porte tous.
-- **À la clôture** : on pousse TOUJOURS — `--verify` refuse un commit non poussé. Le commit
-  L'empreinte (`.ai/BOARD.md`, `.ai/board.json`) n'est pas versionnée (D7) : elle ne part dans
-  aucun commit.
+- **À la clôture** : on pousse TOUJOURS — `--verify` refuse un commit non poussé. L'empreinte
+  (`.ai/BOARD.md`, `.ai/board.json`) n'est pas versionnée (D7) : elle ne part dans aucun commit.
 
 ```bash
 git push                                    # le dépôt — commits + docs/ (cf règle ci-dessus)
