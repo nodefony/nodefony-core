@@ -1,18 +1,18 @@
 ---
 name: nodefony-ticket
 metadata:
-  version: 1.12.0
+  version: 1.13.0
 description: >
   Écrit et organise les tickets GitHub du dépôt Nodefony — titre Conventional Commits compréhensible
   sans connaître le dépôt, lexique, corps en quatre blocs avec preuve `<fichier>.ts#<Symbole>` et
-  critère de fin observable, gravité normée d'un défaut (CVSS 3.1 calculé, échelle IEEE 1044), parents
-  et sous-tickets, champs et DATES du tableau, le moment où un ticket se fait dans la foulée, et ce
-  qui fait qu'un ticket ACHÈTE du temps. À charger AVANT d'ouvrir une issue. Déclencheurs : "crée
-  un ticket", "ouvre une issue", "corrige les tickets", "ce titre est incompréhensible", "renomme
-  cette issue", "ticket parent", "découper cette issue", "estimer un ticket", "priorité d'un ticket", "quelle gravité pour
-  ce bug ?", "CVSS", "ce ticket est-il encore vrai ?", "ferme ce ticket", "quel ticket prendre
-  maintenant ?", "ce ticket est trop vague", "quels tickets parlent de ce que j'ai changé ?", "dater
-  les tickets", "recaler les estimations", "explique le ticket", "pour les nuls".
+  critère de fin observable, gravité normée (CVSS 3.1 calculé, IEEE 1044), parents et sous-tickets,
+  champs et dates du tableau, quand prendre un ticket, et la pull request qui le porte (colonne de
+  droite, lien, méthode de fusion). À charger AVANT d'ouvrir une issue ou une PR. Déclencheurs :
+  "crée un ticket", "ouvre une issue", "corrige les tickets", "renomme cette issue",
+  "ticket parent", "découper cette issue", "estimer un ticket", "quelle gravité pour ce bug ?",
+  "ce ticket est-il encore vrai ?", "ferme ce ticket", "quel ticket prendre maintenant ?", "ce
+  ticket est trop vague", "quels tickets parlent de ce que j'ai changé ?", "dater les tickets",
+  "explique le ticket", "pour les nuls", "la PR est à moitié remplie", "quand merger la PR sur dev ?".
 ---
 
 # nodefony-ticket — écrire un ticket qu'on comprend en dix secondes
@@ -446,20 +446,21 @@ réécrire ; un écart estimé/constaté ne veut rien dire sans savoir ce qu'on 
 d'aucun de ceux-ci. Le câblage npm ne décide pas du placement (`board:snapshot` vit dans
 `nodefony-session` et est appelé par npm).
 
-| Script                                                                   | Ce qu'il fait                                                                                                              | Appelé par                                              |
-| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| [`scripts/ticket-open.mjs`](scripts/ticket-open.mjs)                     | ouvre un ticket avec ordre dérivé du parent et champs du tableau                                                           | `npm run ticket:open`                                   |
-| [`scripts/ticket-reorder.mjs`](scripts/ticket-reorder.mjs)               | réordonne un lot : champ `Ordre` ET position sur la grille, chaînés après l’item précédent de l’empreinte                  | à la main, `--dry-run` d’abord                          |
-| [`scripts/ticket-progress.mjs`](scripts/ticket-progress.mjs)             | passe en `In Progress` les tickets qu'un commit cite sans les fermer                                                       | `.githooks/post-commit`                                 |
-| [`scripts/ticket-effort.mjs`](scripts/ticket-effort.mjs)                 | confronte `Jours` au travail constaté — en SÉANCES, par tranche d'estimation, plus le délai                                | à la main, au END de session                            |
-| [`scripts/board-lint.mjs`](scripts/board-lint.mjs)                       | confronte le TABLEAU DE BORD à ses propres règles — ce qui est absent, en double, ou se contredit                          | `npm run ticket:lint`, au RESUME et au END              |
-| [`scripts/ticket-verify.mjs`](scripts/ticket-verify.mjs)                 | confronte les tickets ouverts au code, et dit lesquels un commit rend faux                                                 | à la main, au END de session                            |
-| [`scripts/proof-commands.mjs`](scripts/proof-commands.mjs)               | relance les preuves `rg … rend 0` des corps (hors « Fini quand »), `rg` seul, sans shell — démentie ou cassée = sortie 1   | `ticket-verify.mjs`, mode par défaut                    |
-| [`scripts/ticket-anchor-migrate.mjs`](scripts/ticket-anchor-migrate.mjs) | convertit les ancres `fichier:ligne` des tickets ouverts en symboles, chacune lue dans le code de SA date ; liste le reste | à la main, quand `ANCRE-LIGNE` sonne ; `--apply` envoie |
-| [`scripts/ticket-close.mjs`](scripts/ticket-close.mjs)                   | compose le compte rendu de fermeture (commits + tests ; les deux blocs de jugement restent à l'auteur)                     | à la main, avant `gh issue close`                       |
-| [`scripts/github-limits.mjs`](scripts/github-limits.mjs)                 | la limite de taille de GitHub (65 536 caractères), vérifiée AVANT l’envoi d’un corps ou d’un commentaire                   | `ticket-open.mjs`, `ticket-close.mjs --check`           |
-| [`scripts/francise.mjs`](scripts/francise.mjs)                           | repère les tournures à franciser dans un corps de ticket                                                                   | à la main                                               |
-| [`scripts/pose-lexique.mjs`](scripts/pose-lexique.mjs)                   | insère le bloc **Lexique** des abréviations détectées                                                                      | à la main                                               |
+| Script                                                                   | Ce qu'il fait                                                                                                                   | Appelé par                                              |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| [`scripts/ticket-open.mjs`](scripts/ticket-open.mjs)                     | ouvre un ticket avec ordre dérivé du parent et champs du tableau                                                                | `npm run ticket:open`                                   |
+| [`scripts/ticket-reorder.mjs`](scripts/ticket-reorder.mjs)               | réordonne un lot : champ `Ordre` ET position sur la grille, chaînés après l’item précédent de l’empreinte                       | à la main, `--dry-run` d’abord                          |
+| [`scripts/ticket-progress.mjs`](scripts/ticket-progress.mjs)             | passe en `In Progress` les tickets qu'un commit cite sans les fermer                                                            | `.githooks/post-commit`                                 |
+| [`scripts/ticket-effort.mjs`](scripts/ticket-effort.mjs)                 | confronte `Jours` au travail constaté — en SÉANCES, par tranche d'estimation, plus le délai                                     | à la main, au END de session                            |
+| [`scripts/board-lint.mjs`](scripts/board-lint.mjs)                       | confronte le TABLEAU DE BORD à ses propres règles — ce qui est absent, en double, ou se contredit                               | `npm run ticket:lint`, au RESUME et au END              |
+| [`scripts/ticket-verify.mjs`](scripts/ticket-verify.mjs)                 | confronte les tickets ouverts au code, et dit lesquels un commit rend faux                                                      | à la main, au END de session                            |
+| [`scripts/proof-commands.mjs`](scripts/proof-commands.mjs)               | relance les preuves `rg … rend 0` des corps (hors « Fini quand »), `rg` seul, sans shell — démentie ou cassée = sortie 1        | `ticket-verify.mjs`, mode par défaut                    |
+| [`scripts/ticket-anchor-migrate.mjs`](scripts/ticket-anchor-migrate.mjs) | convertit les ancres `fichier:ligne` des tickets ouverts en symboles, chacune lue dans le code de SA date ; liste le reste      | à la main, quand `ANCRE-LIGNE` sonne ; `--apply` envoie |
+| [`scripts/ticket-close.mjs`](scripts/ticket-close.mjs)                   | compose le compte rendu de fermeture (commits + tests ; les deux blocs de jugement restent à l'auteur)                          | à la main, avant `gh issue close`                       |
+| [`scripts/github-limits.mjs`](scripts/github-limits.mjs)                 | la limite de taille de GitHub (65 536 caractères), vérifiée AVANT l’envoi d’un corps ou d’un commentaire                        | `ticket-open.mjs`, `ticket-close.mjs --check`           |
+| [`scripts/francise.mjs`](scripts/francise.mjs)                           | repère les tournures à franciser dans un corps de ticket                                                                        | à la main                                               |
+| [`scripts/pose-lexique.mjs`](scripts/pose-lexique.mjs)                   | insère le bloc **Lexique** des abréviations détectées                                                                           | à la main                                               |
+| [`scripts/pr-complete.mjs`](scripts/pr-complete.mjs)                     | remplit la colonne de droite d’une PR (responsable, jalon, lot, tableau, lien) depuis ses tickets, et dit ce qui ne se pose pas | à la main, après l’ouverture d’une PR                   |
 
 Les deux fonctions pures qui portent une règle — `deriveOrdre` (l'ordre d'un sous-ticket) et
 `parseTargets` (les tickets qu'un message de commit cite) — sont éprouvées par
@@ -484,13 +485,14 @@ périmètre qu'il balaye.
 
 ## Références (chargées à la demande)
 
-| Fichier                                                                    | Contenu                                                                                                                                                                |
-| -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`references/conventional-commits.md`](references/conventional-commits.md) | La spec 1.0.0 hors ligne : structure normative, table des types, règle `BREAKING CHANGE`, et ce que Nodefony ajoute par-dessus                                         |
-| [`references/economie.md`](references/economie.md)                         | Le ticket comme instrument d'économie : les six choses qui achètent du temps, ce qui se coupe, un avant/après, la borne                                                |
-| [`references/lexique.md`](references/lexique.md)                           | Le glossaire — source unique des définitions posées en tête des tickets, avec le motif de détection de chaque terme                                                    |
-| [`references/github-issues.md`](references/github-issues.md)               | Sous-tickets (limites 100 / 8 niveaux, `--add-sub-issue`, équivalent GraphQL), jalons, Projects v2 et ses pièges de ligne de commande                                  |
-| [`references/tableau-de-bord.md`](references/tableau-de-bord.md)           | Labels, jalons et backlog, champs `Jours`/`Priorité`/`Ordre`, dates de la frise, les contrôles de `ticket:lint`, le geste de création, et quand prendre un ticket      |
-| [`references/gravite.md`](references/gravite.md)                           | La gravité d'un défaut : faille (CVSS 3.1, vecteur calculé, choix de `AC`) ou échelle IEEE 1044, plancher de priorité, faille dans une version publiée                 |
-| [`references/fermeture.md`](references/fermeture.md)                       | Fermer : les trois recalages (code, tickets voisins, documentation), le compte rendu en quatre blocs, et la console d'administration comme référence de non-régression |
-| [`references/dates.md`](references/dates.md)                               | Poser `Début` / `Cible` à la main, régler la vue Roadmap (non pilotable par l'API), et ce que la pose révèle                                                           |
+| Fichier                                                                    | Contenu                                                                                                                                                                      |
+| -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`references/conventional-commits.md`](references/conventional-commits.md) | La spec 1.0.0 hors ligne : structure normative, table des types, règle `BREAKING CHANGE`, et ce que Nodefony ajoute par-dessus                                               |
+| [`references/economie.md`](references/economie.md)                         | Le ticket comme instrument d'économie : les six choses qui achètent du temps, ce qui se coupe, un avant/après, la borne                                                      |
+| [`references/lexique.md`](references/lexique.md)                           | Le glossaire — source unique des définitions posées en tête des tickets, avec le motif de détection de chaque terme                                                          |
+| [`references/github-issues.md`](references/github-issues.md)               | Sous-tickets (limites 100 / 8 niveaux, `--add-sub-issue`, équivalent GraphQL), jalons, Projects v2 et ses pièges de ligne de commande                                        |
+| [`references/tableau-de-bord.md`](references/tableau-de-bord.md)           | Labels, jalons et backlog, champs `Jours`/`Priorité`/`Ordre`, dates de la frise, les contrôles de `ticket:lint`, le geste de création, et quand prendre un ticket            |
+| [`references/gravite.md`](references/gravite.md)                           | La gravité d'un défaut : faille (CVSS 3.1, vecteur calculé, choix de `AC`) ou échelle IEEE 1044, plancher de priorité, faille dans une version publiée                       |
+| [`references/fermeture.md`](references/fermeture.md)                       | Fermer : les trois recalages (code, tickets voisins, documentation), le compte rendu en quatre blocs, et la console d'administration comme référence de non-régression       |
+| [`references/dates.md`](references/dates.md)                               | Poser `Début` / `Cible` à la main, régler la vue Roadmap (non pilotable par l'API), et ce que la pose révèle                                                                 |
+| [`references/pull-requests.md`](references/pull-requests.md)               | La PR : remplir sa colonne de droite depuis le ticket, le lien « Development » (seulement vers `dev`), squash pour un ticket, commit de fusion pour `release → dev` et quand |

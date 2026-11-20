@@ -311,6 +311,10 @@ const CASES = [
   ["mets un lexique dans les tickets", "nodefony-ticket"],
   ["corrige les titres des issues, on n'y comprend rien", "nodefony-ticket"],
   ["renomme cette issue en français", "nodefony-ticket"],
+  // Vécu : la colonne de droite de la PR #799 laissée vide (responsable, lot,
+  // tableau, lien), puis « à quel moment on merge sur dev ? ».
+  ["dans GitHub la PR est à moitié remplie", "nodefony-ticket"],
+  ["quand merger la PR sur dev ?", "nodefony-ticket"],
   ["ce ticket, on ne l'a pas déjà fait ?", "nodefony-ticket"],
   ["quel ticket prendre maintenant ?", "nodefony-ticket"],
 ];
