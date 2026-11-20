@@ -108,7 +108,7 @@ script, donc toujours à jour après régénération.
 | `scripts/pose-lexique.mjs` | Pose le bloc `Lexique` en tête du corps des tickets GitHub ouverts. | `--write` | — |
 | `scripts/pr-complete.mjs` | Remplit la colonne de droite d'une pull request : responsable, jalon, lots, tableau de bord et lien vers les tickets — ce que `gh pr create` laisse vide. | `--dry-run` | — |
 | `scripts/pr-complete.test.mjs` | — | — | — |
-| `scripts/pr-finish.mjs` | Clôt un ticket SANS attendre la CI : branche poussée, PR « prête », fusion confiée à GitHub. | `--dry-run` | — |
+| `scripts/pr-finish.mjs` | Clôt un ticket SANS attendre la CI : branche poussée, PR « prête », fusion confiée à GitHub. | `--dry-run` `--merge-when-green` | — |
 | `scripts/pr-finish.test.mjs` | Éprouve la voie de fusion de `pr-finish.mjs` : la fusion automatique n'est prise que si elle ATTEND vraiment la CI — sans check exigé, `--auto` fusionnerait tout de suite, CI rouge comprise. / | — | — |
 | `scripts/proof-commands.mjs` | proof-commands.mjs — exécute les PREUVES écrites en commande dans un ticket. | — | — |
 | `scripts/proof-commands.test.mjs` | `proof-commands` — relancer les preuves d'ABSENCE écrites dans un ticket. | — | — |
@@ -202,11 +202,13 @@ Produit : la voie (auto ou surveillance), et la commande à lancer en arrière-p
 ```bash
 node .claude/skills/nodefony-ticket/scripts/pr-finish.mjs            (PR de la branche courante)
 node .claude/skills/nodefony-ticket/scripts/pr-finish.mjs <PR> [--dry-run]
+node .claude/skills/nodefony-ticket/scripts/pr-finish.mjs <PR> --merge-when-green   (la surveillance, en arrière-plan)
 ```
 
 | Option | Rôle |
 | --- | --- |
 | `--dry-run` | rend la voie choisie et ses raisons, sans rien modifier |
+| `--merge-when-green` | attend les checks (arrêt au premier rouge) puis fusionne en squash avec le message composé |
 
 #### `scripts/ticket-anchor-migrate.mjs`
 

@@ -33,6 +33,17 @@ import { isLongBranch } from "../../.claude/skills/nodefony-session/scripts/bran
 const SKIP_MARKERS =
   /\[(?:skip ci|ci skip|no ci|skip actions|actions skip)\]/iu;
 
+/**
+ * Dit si un message de commit porte un marqueur qui coupe la CI GitHub.
+ *
+ * SEULE implémentation : la garde `commit-msg` et `pr-finish.mjs` (tête de PR,
+ * message de squash) l'appellent.
+ *
+ * @param {string} message - message complet, corps compris (GitHub lit tout)
+ * @returns {boolean}
+ */
+export const hasSkipMarker = (message) => SKIP_MARKERS.test(message);
+
 /** Sujets qui ont le droit de porter un marqueur skip-ci : mise de côté et ouverture. */
 const SKIP_ALLOWED =
   /^[a-z]+(?:\([^)]+\))?!?: (?:wip — |ouvrir le travail sur #\d+)/u;
@@ -67,7 +78,7 @@ export function commitGuard({ branch, message, allowLongBranch }) {
         "   Amorçage décidé par l'auteur seulement : NF_ALLOW_LONG_BRANCH_COMMIT=1 git commit …",
     );
   }
-  if (SKIP_MARKERS.test(text) && !SKIP_ALLOWED.test(subject)) {
+  if (hasSkipMarker(text) && !SKIP_ALLOWED.test(subject)) {
     reasons.push(
       "marqueur skip-ci dans un commit de travail : GitHub le lit dans TOUT le message, corps compris,\n" +
         "   et ne lancerait AUCUNE CI pour ce push ni pour la PR (vécu : PR #805, zéro check).\n" +

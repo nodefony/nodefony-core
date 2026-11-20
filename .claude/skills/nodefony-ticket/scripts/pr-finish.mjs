@@ -24,13 +24,24 @@
  * Vers `release/*`, la fusion ne ferme pas le ticket (`Closes` ne mord que vers
  * la branche par défaut) : la reprise rattrape « PR fusionnée, ticket ouvert ».
  *
+ * LE MESSAGE DU SQUASH EST ÉCRIT ICI, jamais laissé au réglage du dépôt : c'est
+ * LE commit que lira le changelog. Le défaut recopiait les messages des commits
+ * (dont le marqueur skip-ci du commit d'ouverture, qui coupait alors la CI de la
+ * branche longue), ou le corps d'ouverture de la PR. Voir {@link squashMessage}.
+ *
+ * REFUS AVANT TOUT GESTE : une tête de PR marquée skip-ci (aucun check ne
+ * tournera, l'attente serait sans fin) et une PR en conflit avec sa base.
+ *
  * @usage node .claude/skills/nodefony-ticket/scripts/pr-finish.mjs            (PR de la branche courante)
  * @usage node .claude/skills/nodefony-ticket/scripts/pr-finish.mjs <PR> [--dry-run]
+ * @usage node .claude/skills/nodefony-ticket/scripts/pr-finish.mjs <PR> --merge-when-green   (la surveillance, en arrière-plan)
  * @option --dry-run  rend la voie choisie et ses raisons, sans rien modifier
+ * @option --merge-when-green  attend les checks (arrêt au premier rouge) puis fusionne en squash avec le message composé
  * @requires gh authentifié ; arbre propre
  * @output la voie (auto ou surveillance), et la commande à lancer en arrière-plan le cas échéant
  */
 import { execFileSync, spawnSync } from "node:child_process";
+import { hasSkipMarker } from "../../../../scripts/repo/commit-guard.mjs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -76,7 +87,55 @@ export function mergePlan({ allowAutoMerge, requiredChecks }) {
  * @returns {string}
  */
 export function watchCommand(pr) {
-  return `gh pr checks ${pr} --watch --fail-fast && gh pr merge ${pr} --squash --delete-branch`;
+  return `node .claude/skills/nodefony-ticket/scripts/pr-finish.mjs ${pr} --merge-when-green`;
+}
+
+/** Ligne de ticket d'un corps de PR : `Closes #N` (vers `dev`) ou `Refs #N`. */
+const TICKET_LINE = /^(?:Closes|Refs) #\d+$/mu;
+
+/**
+ * Le message du commit de squash — PUR.
+ *
+ * Sujet = titre de la PR suivi de `(#PR)` (forme GitHub). Corps = les sujets
+ * des commits de TRAVAIL de la branche, puis la ligne de ticket du corps de la
+ * PR. Les commits d'ouverture et de mise de côté (porteurs du marqueur skip-ci)
+ * sont écartés : ils n'ont rien à dire au changelog, et leur marqueur, recopié,
+ * couperait la CI de la branche longue.
+ *
+ * @param {{ title: string, number: number, body: string, commits: string[] }} pr -
+ *   `commits` = messages des commits de la branche, dans l'ordre
+ * @returns {{ subject: string, body: string }}
+ */
+export function squashMessage({ title, number, body, commits }) {
+  const work = commits
+    .filter((m) => !hasSkipMarker(m))
+    .map((m) => `- ${m.split("\n", 1)[0]}`);
+  const ticket = TICKET_LINE.exec(body ?? "")?.[0];
+  const parts = [];
+  if (work.length) parts.push(work.join("\n"));
+  if (ticket) parts.push(ticket);
+  return { subject: `${title} (#${number})`, body: parts.join("\n\n") };
+}
+
+/**
+ * Ce qui interdit de clore la PR — PUR.
+ *
+ * @param {{ headMessage: string, mergeStateStatus: string }} pr
+ * @returns {string[]} les motifs ; vide = rien n'interdit
+ */
+export function finishBlockers({ headMessage, mergeStateStatus }) {
+  const reasons = [];
+  if (hasSkipMarker(headMessage))
+    reasons.push(
+      "la tête de la PR porte un marqueur skip-ci : aucun check ne tournera, l'attente serait sans fin.\n" +
+        "   → pousser d'abord un commit de TRAVAIL (le squash effacera le marqueur)",
+    );
+  if (mergeStateStatus === "DIRTY")
+    reasons.push(
+      "la PR est en CONFLIT avec sa base.\n" +
+        "   → git fetch && git merge origin/<base> sur la branche, résoudre, pousser — jamais de rebase d'une branche poussée",
+    );
+  return reasons;
 }
 
 const ROOT = path.resolve(
@@ -130,19 +189,40 @@ function main() {
       "arbre non propre — commiter d'abord : la PR prête doit porter tout le travail",
     );
   }
+  // Sans numéro, la PR de la BRANCHE courante : `gh pr view --repo` n'accepte
+  // pas l'absence de sélecteur (il ne déduit la branche que sans `--repo`).
+  const selector = asked ?? sh("git", ["branch", "--show-current"]);
+  if (!selector)
+    throw new Error("tête détachée et aucun numéro de PR — passer le numéro");
   const pr = JSON.parse(
     sh("gh", [
       "pr",
       "view",
-      ...(asked ? [asked] : []),
+      selector,
       "--repo",
       REPO,
       "--json",
-      "number,url,state,isDraft,baseRefName,headRefName",
+      "number,url,state,isDraft,baseRefName,headRefName,title,body,commits,mergeStateStatus",
     ]),
   );
   if (pr.state !== "OPEN")
     throw new Error(`PR #${pr.number} n'est pas ouverte (${pr.state})`);
+  const commitMessages = pr.commits.map((c) =>
+    [c.messageHeadline, c.messageBody].filter(Boolean).join("\n\n"),
+  );
+  const message = squashMessage({ ...pr, commits: commitMessages });
+
+  if (argv.includes("--merge-when-green")) {
+    mergeWhenGreen(pr.number, message);
+    return;
+  }
+  const blockers = finishBlockers({
+    headMessage: commitMessages.at(-1) ?? "",
+    mergeStateStatus: pr.mergeStateStatus,
+  });
+  if (blockers.length && !dryRun)
+    throw new Error(`PR #${pr.number} :\n  · ${blockers.join("\n  · ")}`);
+  for (const b of blockers) console.log(`⚠️ le geste réel le REFUSERA : ${b}`);
 
   const allowAutoMerge =
     sh("gh", ["api", `repos/${REPO}`, "--jq", ".allow_auto_merge"]) === "true";
@@ -175,6 +255,10 @@ function main() {
       "--squash",
       "--delete-branch",
       "--auto",
+      "--subject",
+      message.subject,
+      "--body",
+      message.body,
     ]);
     console.log(
       "  fusion automatique programmée — enchaîner sur le ticket suivant",
@@ -184,6 +268,38 @@ function main() {
       `  à lancer EN ARRIÈRE-PLAN (jamais au premier plan), puis enchaîner sur le ticket suivant :\n    ${watchCommand(pr.number)}`,
     );
   }
+}
+
+/**
+ * La surveillance : attend les checks (arrêt au premier rouge), puis fusionne en
+ * squash avec le message composé — arguments passés un par un, jamais par un
+ * shell, où un titre en français (apostrophes) se casserait.
+ *
+ * @param {number} number - numéro de la PR
+ * @param {{ subject: string, body: string }} message
+ */
+function mergeWhenGreen(number, message) {
+  const checks = spawnSync(
+    "gh",
+    ["pr", "checks", String(number), "--repo", REPO, "--watch", "--fail-fast"],
+    { cwd: ROOT, stdio: "inherit" },
+  );
+  if (checks.status !== 0)
+    throw new Error(`PR #${number} : checks NON verts — rien n'est fusionné`);
+  sh("gh", [
+    "pr",
+    "merge",
+    String(number),
+    "--repo",
+    REPO,
+    "--squash",
+    "--delete-branch",
+    "--subject",
+    message.subject,
+    "--body",
+    message.body,
+  ]);
+  console.log(`PR #${number} fusionnée — ${message.subject}`);
 }
 
 if (process.argv[1]?.endsWith("pr-finish.mjs")) {

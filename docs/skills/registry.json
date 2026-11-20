@@ -2075,7 +2075,8 @@
       ],
       "output": "",
       "calledBy": [
-        ".githooks/commit-msg"
+        ".githooks/commit-msg",
+        ".claude/skills/nodefony-ticket/scripts/pr-finish.mjs"
       ],
       "testedBy": [
         "scripts/repo/commit-guard.test.mjs"
@@ -10605,7 +10606,7 @@
       "description": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer : fermeture des tickets soldés, mémoire de reprise, commit. RESUME et START sont dans le corps ; END dans `references/`. Déclencheurs : \"reprends\", \"on en était où\", \"dernière session\", \"où en est la publication\", \"quels tickets restent\", \"prépare le contexte\", \"session sur <module>\", \"fin de session\", \"clôture la session\".",
       "cost": {
         "bodyLines": 210,
-        "approxTokens": 3336
+        "approxTokens": 3358
       },
       "requires": [
         "redis"
@@ -11927,12 +11928,17 @@
             "purpose": "Clôt un ticket SANS attendre la CI : branche poussée, PR « prête », fusion confiée à GitHub.",
             "usage": [
               "node .claude/skills/nodefony-ticket/scripts/pr-finish.mjs            (PR de la branche courante)",
-              "node .claude/skills/nodefony-ticket/scripts/pr-finish.mjs <PR> [--dry-run]"
+              "node .claude/skills/nodefony-ticket/scripts/pr-finish.mjs <PR> [--dry-run]",
+              "node .claude/skills/nodefony-ticket/scripts/pr-finish.mjs <PR> --merge-when-green   (la surveillance, en arrière-plan)"
             ],
             "options": [
               {
                 "flag": "--dry-run",
                 "help": "rend la voie choisie et ses raisons, sans rien modifier"
+              },
+              {
+                "flag": "--merge-when-green",
+                "help": "attend les checks (arrêt au premier rouge) puis fusionne en squash avec le message composé"
               }
             ],
             "env": [],
