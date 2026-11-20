@@ -69,6 +69,37 @@ export function mentionedTickets(text) {
   ];
 }
 
+/** Types Conventional Commits admis pour une branche de travail — décision 2 de #796. */
+export const BRANCH_TYPES = [
+  "feat",
+  "fix",
+  "perf",
+  "test",
+  "docs",
+  "refactor",
+  "ci",
+  "chore",
+  "build",
+];
+
+const WORK_BRANCH = new RegExp(`^(?:${BRANCH_TYPES.join("|")})/(\\d+)-`, "u");
+
+/**
+ * Le ticket qu'une branche de travail porte : `fix/794-http2-head-scope` → 794.
+ *
+ * Inverse de `ticket-start.mjs#branchName`, et SEULE lecture de ce nom : la
+ * mise en cours, le compte rendu de PR et la reprise l'appellent. Le type doit
+ * être l'un des {@link BRANCH_TYPES} — `wip/20-min-release-age` n'est pas la
+ * branche du ticket #20.
+ *
+ * @param {string | null | undefined} branch - nom court de la branche
+ * @returns {number | null} le numéro, ou `null` hors branche de travail
+ */
+export function ticketOfBranch(branch) {
+  const m = WORK_BRANCH.exec(branch ?? "");
+  return m ? Number(m[1]) : null;
+}
+
 /** « CodeQL » / « alerte(s) », règle facultative, puis une liste de `#N`. */
 const ALERT_LIST =
   /\b(?:CodeQL|alertes?)(?:\s+CodeQL)?(?:\s+[\w-]+\/[\w-]+)?\s*\(?\s*#\d+(?:\s*(?:,|et)\s*#\d+)*/giu;

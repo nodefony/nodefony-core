@@ -450,7 +450,7 @@ d'aucun de ceux-ci. Le câblage npm ne décide pas du placement (`board:snapshot
 | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
 | [`scripts/ticket-open.mjs`](scripts/ticket-open.mjs)                     | ouvre un ticket avec ordre dérivé du parent et champs du tableau                                                                | `npm run ticket:open`                                   |
 | [`scripts/ticket-reorder.mjs`](scripts/ticket-reorder.mjs)               | réordonne un lot : champ `Ordre` ET position sur la grille, chaînés après l’item précédent de l’empreinte                       | à la main, `--dry-run` d’abord                          |
-| [`scripts/ticket-progress.mjs`](scripts/ticket-progress.mjs)             | passe en `In Progress` les tickets qu'un commit cite sans les fermer                                                            | `.githooks/post-commit`                                 |
+| [`scripts/ticket-progress.mjs`](scripts/ticket-progress.mjs)             | passe en `In Progress` le ticket de la branche de travail (`<type>/<N>-…`) — jamais un ticket seulement cité                    | `.githooks/post-commit`                                 |
 | [`scripts/ticket-effort.mjs`](scripts/ticket-effort.mjs)                 | confronte `Jours` au travail constaté — en SÉANCES, par tranche d'estimation, plus le délai                                     | à la main, au END de session                            |
 | [`scripts/board-lint.mjs`](scripts/board-lint.mjs)                       | confronte le TABLEAU DE BORD à ses propres règles — ce qui est absent, en double, ou se contredit                               | `npm run ticket:lint`, au RESUME et au END              |
 | [`scripts/ticket-verify.mjs`](scripts/ticket-verify.mjs)                 | confronte les tickets ouverts au code, et dit lesquels un commit rend faux                                                      | à la main, au END de session                            |
@@ -463,7 +463,7 @@ d'aucun de ceux-ci. Le câblage npm ne décide pas du placement (`board:snapshot
 | [`scripts/pr-complete.mjs`](scripts/pr-complete.mjs)                     | remplit la colonne de droite d’une PR (responsable, jalon, lot, tableau, lien) depuis ses tickets, et dit ce qui ne se pose pas | à la main, après l’ouverture d’une PR                   |
 
 Les deux fonctions pures qui portent une règle — `deriveOrdre` (l'ordre d'un sous-ticket) et
-`parseTargets` (les tickets qu'un message de commit cite) — sont éprouvées par
+`ticketOfBranch` (le ticket d'une branche de travail, `commit-kind.mjs`) — sont éprouvées par
 [`scripts/ticket-open.test.mjs`](scripts/ticket-open.test.mjs) et
 [`scripts/ticket-progress.test.mjs`](scripts/ticket-progress.test.mjs) ; celles du compte rendu
 (`fichiersDeTest`, `composer`) par [`scripts/ticket-close.test.mjs`](scripts/ticket-close.test.mjs).

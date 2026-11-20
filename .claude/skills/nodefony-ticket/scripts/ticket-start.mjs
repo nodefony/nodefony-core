@@ -33,22 +33,10 @@ import { fileURLToPath } from "node:url";
 
 import { guardCli } from "../../nodefony-session/scripts/cli-guard.mjs";
 import { readInstallDrift } from "../../nodefony-session/scripts/install-drift.mjs";
+import { BRANCH_TYPES } from "./commit-kind.mjs";
 import { markInProgress } from "./ticket-progress.mjs";
 
 const REPO = "nodefony/nodefony-core";
-
-/** Types Conventional Commits admis pour une branche de travail — décision 2 de #796. */
-export const BRANCH_TYPES = [
-  "feat",
-  "fix",
-  "perf",
-  "test",
-  "docs",
-  "refactor",
-  "ci",
-  "chore",
-  "build",
-];
 
 /**
  * Le préfixe Conventional Commits d'un titre de ticket.

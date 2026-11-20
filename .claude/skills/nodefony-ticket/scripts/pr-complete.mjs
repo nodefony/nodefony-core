@@ -22,6 +22,7 @@
  */
 import { execFileSync } from "node:child_process";
 import { guardCli } from "../../nodefony-session/scripts/cli-guard.mjs";
+import { ticketOfBranch } from "./commit-kind.mjs";
 
 const OWNER = "nodefony";
 const REPO = "nodefony-core";
@@ -46,8 +47,8 @@ export function referencedIssues(pr) {
     add(Number(m[1]));
   }
   // `fix/797-generated-home-styles` : le ticket en tête du nom de branche.
-  const branch = /^[a-z]+\/(\d+)-/u.exec(pr.headRefName ?? "");
-  if (branch) add(Number(branch[1]));
+  const branch = ticketOfBranch(pr.headRefName);
+  if (branch !== null) add(branch);
   return found;
 }
 

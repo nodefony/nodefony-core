@@ -89,12 +89,12 @@ Le remède n'est jamais de tasser : un compte rendu de cette taille raconte au l
 détail va dans le message de commit ou un fichier versionné, et le ticket le **pointe** (§3).
 
 ⚠️ **Le message de commit doit CITER le ticket** (`#95`, ou `Closes #95` pour le dernier) — sinon
-la timeline reste vide, le bloc « Commits » sort vide, et `ticket-progress.mjs` ne marque rien.
+la timeline reste vide et le bloc « Commits » sort vide. La mise en cours, elle, ne lit pas le
+message : `ticket-progress.mjs` la déduit du NOM de la branche de travail (`fix/95-…`).
 
-⚠️ **`Closes #95` ne ferme RIEN depuis `dev`.** GitHub n'honore le mot-clé que sur la branche par
-DÉFAUT, et le développement de ce dépôt vit sur `dev` : pousser laisse donc les tickets ouverts,
-sans un mot. La fermeture est toujours un geste — `gh issue close` avec son compte rendu. Le
-mot-clé garde son intérêt (il lie le commit au ticket dans la timeline, et il fermera au merge).
+⚠️ **`Closes #95` ne ferme qu'à la fusion d'une PR vers la branche par DÉFAUT (`dev`).** Vers
+`release/x.y.x`, GitHub ignore le mot-clé : le ticket reste ouvert, sans un mot. La fermeture
+reste donc un geste — `ticket-close.mjs <N> --close compte-rendu.md`, qui pose aussi « Done ».
 
 ### 🔴 La console d'administration est la RÉFÉRENCE de non-régression
 

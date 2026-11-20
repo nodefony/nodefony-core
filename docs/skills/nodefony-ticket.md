@@ -29,7 +29,7 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 | Version | `1.13.0` |
 | Famille | Autres |
 | Corps | 483 lignes |
-| Coût d'activation | ~9 826 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~9 830 tokens (le corps est chargé à l'invocation) |
 | Description | 949 / 1024 caractères |
 | Déclencheurs | 18 |
 | Ressources `references/` | 10 page(s) |
@@ -119,7 +119,7 @@ script, donc toujours à jour après régénération.
 | `scripts/ticket-effort.mjs` | ticket-effort.mjs — confronte l'estimation d'un ticket à ce que le travail a RÉELLEMENT pris, mesuré sur ses commits. | `--format` `--grep` `--json` `--limit` `--paginate` `--since` `--slurp` `--state` | — |
 | `scripts/ticket-open.mjs` | Ouvre un ticket ET l'inscrit au tableau de bord, d'un seul geste. | `--title` `--body-file` `--milestone` `--label` `--jours` `--priorite` `--parent` `--ordre` `--backlog` `--type` `--gravite` `--cvss` | — |
 | `scripts/ticket-open.test.mjs` | Suite de la dérivation d'ordre d'un sous-ticket. | — | — |
-| `scripts/ticket-progress.mjs` | Passe en « In Progress » les tickets qu'un commit vient de citer sans les fermer. | `--field-id` `--format` `--id` `--owner` `--project-id` `--single-select-option-id` | — |
+| `scripts/ticket-progress.mjs` | Passe en « In Progress » le ticket de la branche de travail où l'on vient de commiter. | `--field-id` `--format` `--id` `--owner` `--project-id` `--show-current` `--single-select-option-id` | — |
 | `scripts/ticket-progress.test.mjs` | Suite du marquage automatique « In Progress ». | — | — |
 | `scripts/ticket-reorder.mjs` | Réordonne un lot de tickets au tableau de bord : pose le champ `Ordre` ET la position physique sur la grille (le champ seul ne trie pas la vue). | `--dry-run` `--help` | — |
 | `scripts/ticket-severity.mjs` | Pose la gravité d'un ticket existant : la colonne « Gravité » du tableau de bord (classe de l'IEEE 1044, SOURCE de la classe) et, au corps, la ligne du motif — plus la ligne CVSS 3.1, score CALCULÉ, quand le défaut est une faille. | `--cvss` | — |
@@ -139,7 +139,7 @@ node .claude/skills/nodefony-ticket/scripts/ticket-anchor-migrate.mjs [<numéro>
 node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>] | --check <fichier> | <numéro> --close <fichier> | <numéro> --done
 node .claude/skills/nodefony-ticket/scripts/ticket-effort.mjs [<numéro>…]
 node .claude/skills/nodefony-ticket/scripts/ticket-open.mjs --title "fix(x): …" --body-file corps.md [options]
-node .claude/skills/nodefony-ticket/scripts/ticket-progress.mjs [<sha>]   (défaut : HEAD)
+node .claude/skills/nodefony-ticket/scripts/ticket-progress.mjs
 node .claude/skills/nodefony-ticket/scripts/ticket-reorder.mjs 630=4.01 472=4.02 …
 node .claude/skills/nodefony-ticket/scripts/ticket-severity.mjs <N> "<Classe> — motif" [--cvss CVSS:3.1/…]
 node .claude/skills/nodefony-ticket/scripts/ticket-start.mjs <N> --slug <sujet-en-anglais>
@@ -269,7 +269,7 @@ node .claude/skills/nodefony-ticket/scripts/ticket-open.mjs --title "fix(x): …
 
 
 ```bash
-node .claude/skills/nodefony-ticket/scripts/ticket-progress.mjs [<sha>]   (défaut : HEAD)
+node .claude/skills/nodefony-ticket/scripts/ticket-progress.mjs
 ```
 
 #### `scripts/ticket-severity.mjs`
