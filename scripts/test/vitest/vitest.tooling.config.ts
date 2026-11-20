@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 import { tmpGuard } from "./tmp-guard.ts";
 
 /**
@@ -17,6 +17,11 @@ import { tmpGuard } from "./tmp-guard.ts";
 export default defineConfig({
   test: {
     globalSetup: tmpGuard(),
+    // `tmp/` porte des CLONES jetables du dépôt (essai sur clone neuf, worktree) :
+    // un filtre de chemin (`vitest run scripts/release/`) y mord aussi, et leurs
+    // suites tombent sur un `dist` absent — quatre rouges qui n'appartenaient à
+    // personne au premier `test:release` lancé après un essai de clone.
+    exclude: [...configDefaults.exclude, "tmp/**"],
     // Écrit, jamais laissé au défaut : vitest 5 ACTIVE ce cache, à la RACINE
     // (`node_modules/.vitest-cache`), partagé avec les suites lancées en même
     // temps — un nettoyage concurrent y a fait échouer un démarrage (ENOTEMPTY).
