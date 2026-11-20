@@ -147,6 +147,25 @@ describe("checkPackageDeps — un frère du dépôt doit être ORDONNÉ", () => 
    * `node_modules` arrive déjà construit. C'est ce qui la rend utilisable dans
    * une application, où `nodefony` n'est jamais un frère.
    */
+  /**
+   * L'application HOMONYME d'une de ses dépendances (la vitrine s'appelle
+   * `nodefony` et installe `nodefony`) : son nom désigne le paquet externe,
+   * et ses modules qui l'importent en peer n'ont rien à ordonner.
+   */
+  it("ignore l'homonymie d'une application avec la dépendance qu'elle installe", () => {
+    paquet("@nodefony/fixture-vitrine", {
+      dependencies: { "@nodefony/fixture-vitrine": "^1.0.0" },
+    });
+    paquet(
+      "@nodefony/fixture-demo",
+      { peerDependencies: { "@nodefony/fixture-vitrine": "*" } },
+      'import { z } from "@nodefony/fixture-vitrine";\nexport const x = z;\n',
+    );
+    assert.isEmpty(
+      analyse().findings.filter((x) => x.kind === "peer-only-sibling"),
+    );
+  });
+
   it("ignore un paquet qui n'est pas construit ici", () => {
     paquet(
       "@nodefony/fixture-outil",
