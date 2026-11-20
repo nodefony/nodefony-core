@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-11-20 12:11** (UTC).
+> Empreinte prise le **2026-11-20 12:43** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -32,25 +32,23 @@
 | **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 1 | — |
 | **12.0.0** | ![12.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/5?style=flat-square&label=) `██░░░░░░░░` 15% | 2 | 11 | — |
 | **13.0.0** | ![13.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/9?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 2 | — |
-| **outillage-agents** | ![outillage-agents](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/8?style=flat-square&label=) `██░░░░░░░░` 21% | 6 | 22 | — |
+| **outillage-agents** | ![outillage-agents](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/8?style=flat-square&label=) `██░░░░░░░░` 21% | 6 | 23 | — |
 
 ## ➡️ Le prochain dans l'ordre
 
-**#797 — fix(scaffold): réparer l'accueil généré et y guider la connexion**
+**#802 — chore(deps): monter les correctifs tiers en retard pour la 10.0.1**
 
-Ordre 1.01 · P1 — figé à la création · 1 j · jalon 10.0.x · frise 2026-11-20 → 11-20
+Ordre 1.017 · P2 — décision · 0.5 j · jalon 10.0.x · frise —
 
-> Choisi dans le **jalon courant `10.0.x`**, qui a encore 8 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.x`**, qui a encore 6 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.x — 8 ouverts
+## Jalon 10.0.x — 6 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 1.01 | P1 — figé à la création | 1 | 2026-11-20 → 11-20 | #797 | fix(scaffold): réparer l'accueil généré et y guider la connexion |
-| 1.015 | P2 — décision | 1 | — | #801 | fix(login): une seule page de connexion vue, celle de la console en secours |
 | 1.017 | P2 — décision | 0.5 | — | #802 | chore(deps): monter les correctifs tiers en retard pour la 10.0.1 |
 | 1.02 | P1 — figé à la création | 1 | 2026-11-23 → 11-23 | #794 | fix(http): libérer à coup sûr le scope d'un HEAD en HTTP/2 |
 | 1.03 | P3 — fin de cycle | 1 | 2026-11-24 → 11-24 | #195 | fix(cli): ne plus compter deux fois les fichiers d'une cible imbriquée |

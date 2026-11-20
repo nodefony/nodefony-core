@@ -33,7 +33,7 @@ source: ".claude/skills/nodefony-session/SKILL.md"
 | Description | 581 / 1024 caractères |
 | Déclencheurs | 9 |
 | Ressources `references/` | 1 page(s) |
-| Scripts | 15 |
+| Scripts | 17 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -92,6 +92,8 @@ script, donc toujours à jour après régénération.
 | `scripts/board-next.test.mjs` | Le décor est celui du 2026-09-08, à l'identique — c'est lui qui a produit le faux verdict : la reprise a annoncé #175 (jalon `beta`) comme « la prochaine chose » alors que neuf tickets `alpha` restaient ouverts. #175 portait l'ordre 2, #274 l'ordre 1.4 : le tri global les départageait BIEN, et c'est par cette chance que l'empreinte nommait le bon. Le décor ci-dessous retire la chance en donnant au ticket `beta` le rang le plus petit du tableau. / | — | — |
 | `scripts/board-snapshot.mjs` | Instantané du pilotage — projette les tickets GitHub DANS le dépôt. | `--check` `--force` `--readme` `--issue` `--dry-run` | — |
 | `scripts/board-snapshot.test.mjs` | Éprouve le maillon où une donnée du tableau de bord peut disparaître SANS ERREUR : la projection des nœuds GraphQL en items d'empreinte. | — | — |
+| `scripts/branch-status.mjs` | Ce que la reprise dit de la BRANCHE — règles pures, éprouvées sans réseau. | — | — |
+| `scripts/branch-status.test.mjs` | Éprouve les lignes « branche et PR » de la reprise (#796) : branche longue, branche sans PR, branche avec PR et checks rouges — et le rattrapage des PR fusionnées dont le ticket est resté ouvert. / | — | — |
 | `scripts/cli-guard.mjs` | Garde de ligne de commande des scripts de pilotage — lit l'en-tête du script appelant et applique {@link cliGate} : aide sur `--help`, refus (code 64) d'une option que l'en-tête ne déclare pas. | `--help` | — |
 | `scripts/install-drift.mjs` | L'installation (`node_modules`) correspond-elle au verrou (`package-lock.json`) de la branche courante ? | — | — |
 | `scripts/install-drift.test.mjs` | Éprouve la règle « installation périmée » : le CONTENU du verrou contre ce que npm a posé, jamais leurs dates. / | — | — |

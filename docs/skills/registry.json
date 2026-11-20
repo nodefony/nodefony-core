@@ -10645,6 +10645,24 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/branch-status.mjs",
+            "purpose": "Ce que la reprise dit de la BRANCHE — règles pures, éprouvées sans réseau.",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/branch-status.test.mjs",
+            "purpose": "Éprouve les lignes « branche et PR » de la reprise (#796) : branche longue, branche sans PR, branche avec PR et checks rouges — et le rattrapage des PR fusionnées dont le ticket est resté ouvert. /",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/cli-guard.mjs",
             "purpose": "Garde de ligne de commande des scripts de pilotage — lit l'en-tête du script appelant et applique {@link cliGate} : aide sur `--help`, refus (code 64) d'une option que l'en-tête ne déclare pas.",
             "usage": [

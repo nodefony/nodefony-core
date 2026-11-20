@@ -34,6 +34,12 @@ import {
 } from "./session-lib.mjs";
 import { guardCli } from "./cli-guard.mjs";
 import { readInstallDrift } from "./install-drift.mjs";
+import {
+  branchLines,
+  checksVerdict,
+  diffSummary,
+  mergedButOpen,
+} from "./branch-status.mjs";
 
 guardCli(import.meta.url);
 
@@ -139,7 +145,20 @@ const pending = online
         "--state",
         "open",
         "--json",
-        "number,title,baseRefName,author,statusCheckRollup",
+        "number,title,baseRefName,headRefName,isDraft,url,author,statusCheckRollup",
+      ]),
+      // Les PR fusionnées récentes : vers `release/*`, la fusion ne ferme pas
+      // le ticket — la reprise rattrape ce qui a fusionné pendant qu'on
+      // travaillait ailleurs (pr-finish ne l'attend pas).
+      merged: shAsync("gh", [
+        "pr",
+        "list",
+        "--state",
+        "merged",
+        "--limit",
+        "15",
+        "--json",
+        "number,body,headRefName",
       ]),
       snapshot: shAsync(
         process.execPath,
@@ -274,16 +293,44 @@ if (online) {
   }
   const prs = await pending.prs;
   if (!prs.ok) say("⚠️ PR NON lues — appel gh en échec");
-  else
-    for (const p of JSON.parse(prs.out || "[]")) {
-      const checks = p.statusCheckRollup ?? [];
-      const red = checks.filter((c) =>
-        ["FAILURE", "TIMED_OUT", "STARTUP_FAILURE"].includes(c.conclusion),
-      ).length;
+  else {
+    const list = JSON.parse(prs.out || "[]");
+    // ── 4 bis. La branche courante, sa PR, ses fichiers ; les tickets mis de côté.
+    const mine = list.find((p) => p.headRefName === branch) ?? null;
+    const counts = mine
+      ? git(
+          "rev-list",
+          "--left-right",
+          "--count",
+          `origin/${mine.baseRefName}...HEAD`,
+        ).out.split(/\s+/u)
+      : [];
+    for (const line of branchLines({
+      branch,
+      pr: mine,
+      vsBase:
+        counts.length === 2
+          ? { behind: Number(counts[0]), ahead: Number(counts[1]) }
+          : null,
+      pushed: ahead === "0",
+      diff: mine
+        ? diffSummary(
+            git("diff", "--numstat", `origin/${mine.baseRefName}...HEAD`).out,
+          )
+        : "",
+      dirty: dirty.length - dirtyAi,
+      parked: list.filter((p) => p.isDraft && p.headRefName !== branch),
+    }))
+      say(line);
+    for (const p of list) {
+      // Le verdict des checks a UNE règle (branch-status.mjs) : l'ancien
+      // calcul ne comptait que les rouges, et affichait ✅ sur 36 jobs en cours.
+      const v = checksVerdict(p.statusCheckRollup);
       say(
-        `PR #${p.number} → ${p.baseRefName} (${p.author.login}) ${red ? `❌ ${red}/${checks.length}` : "✅"} ${clip(p.title, 70)}`,
+        `PR #${p.number} → ${p.baseRefName} (${p.author.login}) ${v.icon}${v.red.length ? ` ${v.red.length}/${v.total}` : v.pending ? ` ${v.pending}/${v.total} en cours` : ""} ${clip(p.title, 70)}`,
       );
     }
+  }
 }
 
 // ── 5. Empreinte du tableau : LA voie de lecture, rafraîchie si on peut.
@@ -304,6 +351,14 @@ if (!online)
     `⚠️ GitHub injoignable — empreinte du ${board.generatedAt.slice(0, 10)} (il y a ${ageDays} j)`,
   );
 const open = board.items.filter(isOpenItem);
+if (pending) {
+  const merged = await pending.merged;
+  if (merged.ok)
+    for (const m of mergedButOpen(JSON.parse(merged.out || "[]"), board.items))
+      say(
+        `🧾 PR #${m.pr} fusionnée, #${m.ticket} encore ouvert → le fermer avec son compte rendu (ticket-close.mjs)`,
+      );
+}
 const choice = chooseNextTicket(open, board.milestones);
 if (choice) {
   const ms = board.milestones.find((m) => m.title === choice.milestone);
