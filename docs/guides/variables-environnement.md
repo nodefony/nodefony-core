@@ -90,7 +90,7 @@ les remplace. La colonne « Exigée » dit quand l'absence arrête le démarrage
 
 | Variable | Rôle | Exigée | Absente ⇒ | Où la poser |
 | --- | --- | --- | --- | --- |
-| `NF_ADMIN_PASSWORD` | Le compte « admin » est créé au premier démarrage avec ce mot de passe. En développement, un mot de passe connu s'applique si tu ne mets rien. En production, aucun : sans cette variable, aucun compte n'est créé. Une fois le compte créé, la variable ne sert plus. | non | nodefony-dev-42 en développement ; aucun en production | 🔒 gestionnaire de secrets |
+| `NF_ADMIN_PASSWORD` | Le compte « admin » est créé au premier démarrage avec ce mot de passe. En développement, le mot de passe tiré à la création de l'application s'applique si tu ne mets rien. En production, aucun : sans cette variable, aucun compte n'est créé. Une fois le compte créé, la variable ne sert plus. | non | tiré à la création (voir .env) en développement ; aucun en production | 🔒 gestionnaire de secrets |
 
 ### Clés et secrets
 

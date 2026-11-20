@@ -161,6 +161,14 @@ describe("newlyDone — fermés entre deux empreintes", () => {
     ];
     expect(newlyDone(before, after).map((i) => i.number)).toEqual([1]);
   });
+
+  it("compte un ticket FERMÉ à la main resté « In Progress » au tableau", () => {
+    const before = [{ number: 797, status: "In Progress", state: "OPEN" }];
+    const after = [
+      { number: 797, status: "In Progress", state: "CLOSED", title: "a" },
+    ];
+    expect(newlyDone(before, after).map((i) => i.number)).toEqual([797]);
+  });
 });
 
 describe("helpers de mémoire", () => {

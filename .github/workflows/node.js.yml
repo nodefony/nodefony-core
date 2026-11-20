@@ -15,12 +15,6 @@ on:
       # qu'on désactive en croyant économiser du runner est le pire des deux.
       - "docs/**"
       - "MIGRATION_STATUS.md"
-      # L'empreinte du tableau (`npm run board:snapshot`) : GÉNÉRÉE depuis les
-      # tickets, lue par aucune étape. Commitée seule à chaque fin de session,
-      # elle relançait toute la suite et prenait la file derrière la CI du vrai
-      # travail — runner brûlé pour rien, verdict attendu retardé d'autant.
-      - ".ai/BOARD.md"
-      - ".ai/board.json"
   pull_request:
     branches: ["main", "dev", "release/**"]
     paths-ignore: *prose
@@ -551,6 +545,15 @@ jobs:
       - name: Gate — budgets du bundle client (ADR-0007 D10)
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
         run: npm run size:check
+
+      # Chaque fichier JS des bundles de front BÂTIS plus haut (build + build:front)
+      # passe à `node --check` : un bundler peut produire du code invalide sans
+      # échouer. Vécu #802 : Vite bâtissait avec un rolldown hors de sa plage,
+      # build et 19 000 tests verts, page de connexion de Studio morte — seul le
+      # décor navigateur l'avait vu, 30 min plus tard. Ici, sans navigateur.
+      - name: Gate — bundles de front lisibles par V8
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
+        run: npm run check:bundles
 
       # Les ancres `fichier:ligne` de la doc, résolues contre le code RÉEL.
       #

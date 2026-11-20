@@ -418,8 +418,9 @@ function confronterReadme({
  * de la garde d'accueil). Sans cette projection, le commit estampillé de la
  * stable — qui écrit `npm create nodefony`, juste dès qu'il sera publié —
  * était refusé parce que `latest` servait encore la 7. Tant que `latest` ne
- * sert pas la 10, toute commande nomme son canal ; la question se pose UNE fois,
- * les paquets basculent ensemble. Fonction PURE.
+ * sert pas la MAJEURE de la version estampillée, toute commande nomme son canal ;
+ * la question se pose une fois par majeure (la 10 hier, la 11 demain — aucune
+ * majeure écrite en dur), les paquets basculent ensemble. Fonction PURE.
  *
  * @param tags - dist-tags servis par le registre, ou `null` s'il est muet
  * @param version - version estampillée au manifeste du paquet `nodefony`
@@ -433,7 +434,11 @@ function reglesDuCanal(tags, version) {
         "le registre n'a rendu aucun dist-tag — la règle du canal n'a pas pu être appliquée",
     };
   const apres = projeter(tags, version);
-  return { exigeCanal: !apres.latest.startsWith("10."), aveugle: null };
+  const majeure = (v) => /^(\d+)\./.exec(String(v ?? ""))?.[1] ?? null;
+  return {
+    exigeCanal: majeure(apres.latest) !== majeure(version),
+    aveugle: null,
+  };
 }
 
 /**

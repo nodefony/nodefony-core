@@ -48,6 +48,11 @@ import {
   refusDePublicationHorsBranche,
   avisDeBranche,
   planDePromotion,
+  refusDeMaintenance,
+  clotMaintenance,
+  estJalonDeCorrectif,
+  verdictDeBranchePublication,
+  verdictDeSynchro,
   verdictCiDuCommit,
   WORKFLOWS_NON_BLOQUANTS,
   MAX_BUFFER_GIT,
@@ -1464,11 +1469,12 @@ describe("avis de branche — ce que la RÉPÉTITION doit dire avant d'estampill
       contenue: false,
       avance: 100,
     });
-    expect(avis).toMatch(/n'appartient PAS à « main »/);
+    expect(avis).toMatch(/n'appartient pas encore à « main »/);
     expect(avis).toMatch(/100 commits d'avance/);
     // Un avertissement qui laisse chercher se contourne : il DOIT porter la
     // commande, et dire que le tag se pose sur la branche de publication.
-    expect(avis).toMatch(/git checkout main && git merge --ff-only dev/);
+    expect(avis).toMatch(/--branch dev --write/);
+    expect(avis).toMatch(/--promouvoir/);
     expect(avis).toMatch(/le tag doit être posé SUR main/);
   });
 
@@ -1516,6 +1522,21 @@ describe("avis de branche — ce que la RÉPÉTITION doit dire avant d'estampill
     expect(avis).toMatch(/git fetch origin main/);
   });
 
+  it("depuis release/x.y.x, il prescrit la PROMOTION d'ici — jamais « git checkout main » (revue #796, G4)", () => {
+    // Suivre l'ancien conseil sautait la poussée de la branche de maintenance :
+    // l'estampille n'atteignait pas origin/release/10.0.x.
+    const avis = avisDeBranche({
+      branche: "release/10.0.x",
+      branchePublication: "main",
+      brancheTrouvee: true,
+      contenue: false,
+      avance: 10,
+    });
+    expect(avis).not.toMatch(/checkout/);
+    expect(avis).toMatch(/--branch release\/10\.0\.x --write/);
+    expect(avis).toMatch(/pousse release\/10\.0\.x:main en avance rapide/);
+  });
+
   it("sur un HEAD détaché, l'avis ne prétend pas connaître de branche", () => {
     const avis = avisDeBranche({
       branche: null,
@@ -1525,6 +1546,7 @@ describe("avis de branche — ce que la RÉPÉTITION doit dire avant d'estampill
     });
     expect(avis).toMatch(/\(HEAD détaché\)/);
     expect(avis).not.toMatch(/« null »/);
+    expect(avis).toMatch(/git switch/);
   });
 });
 
@@ -2707,16 +2729,24 @@ describe("detecterContenuSuspect — ce que le CONTENU publié ne doit pas porte
 });
 
 describe("promotion — un seul push, jamais deux fois le même commit", () => {
-  it("depuis la branche de travail, ne pousse QUE la branche de publication", () => {
+  it("depuis une branche longue, pousse AUSSI cette branche — sinon l'estampille n'atteint jamais origin", () => {
+    // En travail par PR, aucune poussée ordinaire n'atteint plus une branche
+    // longue : la 10.0.2 serait partie d'une origin/release/10.0.x en 10.0.0.
+    expect(
+      planDePromotion({
+        branche: "release/10.0.x",
+        branchePublication: "main",
+      }),
+    ).toEqual({ refspecs: ["release/10.0.x:main", "release/10.0.x"] });
     expect(
       planDePromotion({ branche: "dev", branchePublication: "main" }),
-    ).toEqual({ refspec: "dev:main", brancheEnAttente: "dev" });
+    ).toEqual({ refspecs: ["dev:main", "dev"] });
   });
 
   it("depuis la branche de publication, la pousse telle quelle", () => {
     expect(
       planDePromotion({ branche: "main", branchePublication: "main" }),
-    ).toEqual({ refspec: "main", brancheEnAttente: null });
+    ).toEqual({ refspecs: ["main"] });
   });
 
   it("release.mjs ne pousse qu'UNE fois — la forge se déclenche sur main ET dev", () => {
@@ -2729,5 +2759,498 @@ describe("promotion — un seul push, jamais deux fois le même commit", () => {
     );
     const pushes = source.match(/git\(\s*"push"/g) ?? [];
     expect(pushes).toHaveLength(1);
+  });
+});
+
+describe("refusDeMaintenance — une release/x.y.x vivante (D9, #796)", () => {
+  const m = (extra) => ({
+    nom: "release/10.0.x",
+    fusionnee: true,
+    nonPublies: 0,
+    ...extra,
+  });
+
+  it("refuse de publier depuis dev tant qu'un correctif publiable attend sur release/x.y.x", () => {
+    const refus = refusDeMaintenance({
+      branche: "dev",
+      maintenance: [m({ nonPublies: 3, fusionnee: false })],
+    });
+    expect(refus).toContain("release/10.0.x porte 3 commit(s) publiable(s)");
+    expect(refus).toContain("D9");
+  });
+
+  it("refuse une fusion arrière oubliée, avec le geste", () => {
+    const refus = refusDeMaintenance({
+      branche: "dev",
+      maintenance: [m({ fusionnee: false })],
+    });
+    expect(refus).toContain("fusion arrière due");
+    expect(refus).toContain("commit de FUSION");
+  });
+
+  it("laisse passer une maintenance publiée et fusionnée, ou absente", () => {
+    expect(
+      refusDeMaintenance({ branche: "dev", maintenance: [m()] }),
+    ).toBeNull();
+    expect(refusDeMaintenance({ branche: "dev", maintenance: [] })).toBeNull();
+  });
+
+  it("ne s'applique pas à une publication depuis la maintenance elle-même", () => {
+    expect(
+      refusDeMaintenance({
+        branche: "release/10.0.x",
+        maintenance: [m({ nonPublies: 2, fusionnee: false })],
+      }),
+    ).toBeNull();
+  });
+
+  it("se tait sur un HEAD détaché : la branche est inconnue", () => {
+    expect(
+      refusDeMaintenance({
+        branche: null,
+        maintenance: [m({ nonPublies: 1 })],
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("verdictDeSynchro — estampiller ce qu'origin porte (#796, bloquants 1 et 2)", () => {
+  const e = (extra) => ({
+    branche: "release/10.0.x",
+    ecrire: true,
+    horsLigne: false,
+    fetchOk: true,
+    suivie: true,
+    avance: 0,
+    retard: 0,
+    arbrePropre: true,
+    ...extra,
+  });
+
+  it("se tait quand la branche est à jour, ou seulement en avance", () => {
+    expect(verdictDeSynchro(e()).geste).toBe("rien");
+    expect(verdictDeSynchro(e({ avance: 2 })).geste).toBe("rien");
+  });
+
+  it("RATTRAPE seule un retard pur, arbre propre, à l'estampille — et le dit", () => {
+    const v = verdictDeSynchro(e({ retard: 3 }));
+    expect(v.geste).toBe("avancer");
+    expect(v.texte).toContain("3 commits de retard");
+    expect(v.texte).toContain("git merge --ff-only origin/release/10.0.x");
+  });
+
+  it("PIÈGE : arbre sale → refus nommé, jamais une avance rapide qui échouerait", () => {
+    const v = verdictDeSynchro(e({ retard: 1, arbrePropre: false }));
+    expect(v.geste).toBe("refus");
+    expect(v.texte).toContain("git merge --ff-only origin/release/10.0.x");
+    expect(v.texte).toContain("jamais stash");
+  });
+
+  it("en répétition, un retard n'est qu'un avis — rien ne bouge", () => {
+    const v = verdictDeSynchro(e({ retard: 1, ecrire: false }));
+    expect(v.geste).toBe("avis");
+  });
+
+  it("refuse des branches DIVERGÉES, avec fusion et jamais rebase", () => {
+    const v = verdictDeSynchro(e({ retard: 2, avance: 1 }));
+    expect(v.geste).toBe("refus");
+    expect(v.texte).toContain("DIVERGÉ");
+    expect(v.texte).toContain("git merge origin/release/10.0.x");
+    expect(v.texte).toContain("JAMAIS rebase");
+  });
+
+  it("refuse d'estampiller sur un fetch échoué — le D9 lirait un état d'un autre jour", () => {
+    const v = verdictDeSynchro(e({ fetchOk: false }));
+    expect(v.geste).toBe("refus");
+    expect(v.texte).toContain("git fetch origin --prune");
+    expect(verdictDeSynchro(e({ fetchOk: false, ecrire: false })).geste).toBe(
+      "avis",
+    );
+  });
+
+  it("--offline : répétition permise (avis), estampille refusée", () => {
+    expect(verdictDeSynchro(e({ horsLigne: true, ecrire: false })).geste).toBe(
+      "avis",
+    );
+    const v = verdictDeSynchro(e({ horsLigne: true }));
+    expect(v.geste).toBe("refus");
+    expect(v.texte).toContain("retirer --offline");
+  });
+
+  it("une branche absente d'origin est un avis, jamais un refus", () => {
+    expect(verdictDeSynchro(e({ suivie: false })).geste).toBe("avis");
+  });
+
+  it("se tait sur un HEAD détaché : la forge publie un TAG", () => {
+    expect(verdictDeSynchro(e({ branche: null, fetchOk: false })).geste).toBe(
+      "rien",
+    );
+  });
+});
+
+describe("verdictDeBranchePublication — main en avance sur la branche d'où l'on publie (#796, bloquant 4)", () => {
+  const e = (extra) => ({
+    branche: "release/10.0.x",
+    branchePublication: "main",
+    ecrire: true,
+    retard: 0,
+    versionPublication: "10.0.1",
+    arbrePropre: true,
+    ...extra,
+  });
+
+  it("se tait sans retard, sur la branche de publication elle-même, ou HEAD détaché", () => {
+    expect(verdictDeBranchePublication(e()).geste).toBe("rien");
+    expect(
+      verdictDeBranchePublication(e({ branche: "main", retard: 3 })).geste,
+    ).toBe("rien");
+    expect(
+      verdictDeBranchePublication(e({ branche: null, retard: 3 })).geste,
+    ).toBe("rien");
+  });
+
+  it("INTÈGRE seul le commit d'accueil poussé sur main, à l'estampille, arbre propre", () => {
+    const v = verdictDeBranchePublication(e({ retard: 1 }));
+    expect(v.geste).toBe("fusionner");
+    expect(v.texte).toContain("git merge origin/main");
+    expect(v.texte).toContain(
+      "release/10.0.x:main redevient une avance rapide",
+    );
+  });
+
+  it("vaut aussi depuis dev : la règle porte sur la branche de publication, pas sur la maintenance", () => {
+    expect(
+      verdictDeBranchePublication(
+        e({ branche: "dev", retard: 1, versionPublication: "10.0.1" }),
+      ).geste,
+    ).toBe("fusionner");
+  });
+
+  it("en répétition, ou arbre sale : un AVIS qui dit que l'estampille s'en charge", () => {
+    const r = verdictDeBranchePublication(e({ retard: 2, ecrire: false }));
+    expect(r.geste).toBe("avis");
+    expect(r.texte).toContain("l'estampille (--write) les intègre");
+    const sale = verdictDeBranchePublication(
+      e({ retard: 2, arbrePropre: false }),
+    );
+    expect(sale.geste).toBe("avis");
+    expect(sale.texte).toContain("jamais stash");
+  });
+
+  it("REFUSE quand main porte déjà la mineure suivante — maintenance close (D8), même hors écriture sévère", () => {
+    const v = verdictDeBranchePublication(
+      e({ retard: 40, versionPublication: "10.1.0-alpha.1" }),
+    );
+    expect(v.geste).toBe("refus");
+    expect(v.texte).toContain("CLOSE (D8)");
+    expect(v.texte).toContain("git push origin --delete release/10.0.x");
+    expect(
+      verdictDeBranchePublication(
+        e({ retard: 40, versionPublication: "10.1.0", ecrire: false }),
+      ).geste,
+    ).toBe("avis");
+  });
+
+  it("une version de main illisible ne clôt rien — l'intégration reste le geste", () => {
+    expect(
+      verdictDeBranchePublication(e({ retard: 1, versionPublication: null }))
+        .geste,
+    ).toBe("fusionner");
+  });
+});
+
+describe("clotMaintenance — une version dépasse-t-elle la ligne x.y ? (#796, bloquant 3)", () => {
+  it("une préversion de la mineure suivante clôt déjà la ligne", () => {
+    expect(clotMaintenance("10.1.0-alpha.1", "release/10.0.x")).toBe(true);
+    expect(clotMaintenance("10.1.0", "10.0.x")).toBe(true);
+    expect(clotMaintenance("11.0.0", "10.9.2")).toBe(true);
+  });
+
+  it("PIÈGE : un correctif de la même ligne, ou une version plus ancienne, ne clôt rien", () => {
+    expect(clotMaintenance("10.0.3", "release/10.0.x")).toBe(false);
+    expect(clotMaintenance("10.0.0", "10.0.x")).toBe(false);
+    expect(clotMaintenance("9.9.0", "10.0.x")).toBe(false);
+  });
+
+  it("une entrée illisible ne clôt rien (jamais un refus inventé)", () => {
+    expect(clotMaintenance("", "10.0.x")).toBe(false);
+    expect(clotMaintenance("10.1.0", "outillage-agents")).toBe(false);
+  });
+
+  it("reconnaît les jalons de correctif, et eux seuls", () => {
+    expect(estJalonDeCorrectif("10.0.x")).toBe(true);
+    expect(estJalonDeCorrectif("10.0.2")).toBe(true);
+    expect(estJalonDeCorrectif("10.1.0")).toBe(false);
+    expect(estJalonDeCorrectif("outillage-agents")).toBe(false);
+  });
+});
+
+describe("refusDeMaintenance — un LOT de correctifs ouvert (#796, bloquant 3)", () => {
+  const propre = [{ nom: "release/10.0.x", fusionnee: true, nonPublies: 0 }];
+
+  it("refuse une préversion 10.1 tant que le lot 10.0.x a des tickets ouverts", () => {
+    const refus = refusDeMaintenance({
+      branche: "dev",
+      maintenance: propre,
+      version: "10.1.0-alpha.1",
+      lots: [{ titre: "10.0.x", ouverts: 5 }],
+    });
+    expect(refus).toContain("le lot 10.0.x a 5 ticket(s) ouvert(s)");
+    expect(refus).toContain("déplacer ses tickets vers le jalon de 10.1.0");
+  });
+
+  it("laisse passer un lot soldé, un lot d'une ligne non close, ou des lots non lus", () => {
+    const base = { branche: "dev", maintenance: propre, version: "10.1.0" };
+    expect(
+      refusDeMaintenance({ ...base, lots: [{ titre: "10.0.x", ouverts: 0 }] }),
+    ).toBeNull();
+    expect(
+      refusDeMaintenance({ ...base, lots: [{ titre: "10.1.1", ouverts: 3 }] }),
+    ).toBeNull();
+    expect(refusDeMaintenance({ ...base, lots: null })).toBeNull();
+  });
+
+  it("le remède d'un correctif en attente ne propose plus d'annuler des commits (la garde les compte)", () => {
+    const refus = refusDeMaintenance({
+      branche: "dev",
+      maintenance: [{ nom: "release/10.0.x", fusionnee: false, nonPublies: 2 }],
+    });
+    expect(refus).not.toContain("annuler");
+    expect(refus).toContain("supprimer origin/release/10.0.x (D8)");
+  });
+});
+
+describe("release.mjs — chaque constat de synchro est APPLIQUÉ en entier (#796, revue N2)", () => {
+  const source = readFileSync(
+    path.join(import.meta.dirname, "release.mjs"),
+    "utf8",
+  );
+
+  it("aucun appel de constaterSynchro hors d'appliquerSynchro — la promotion ignorait « avancer »", () => {
+    const calls = [...source.matchAll(/constaterSynchro\(/g)].length;
+    const applied = [
+      ...source.matchAll(/appliquerSynchro\(constaterSynchro\(/g),
+    ].length;
+    // La définition est une flèche (`const constaterSynchro = (…) =>`) : tout
+    // `constaterSynchro(` est un appel.
+    expect(applied).toBeGreaterThanOrEqual(2);
+    expect(calls).toBe(applied);
+  });
+
+  it("la promotion signale ce que le rattrapage apporte APRÈS la relecture du CHANGELOG (revue #796, N2)", () => {
+    expect(source).toMatch(
+      /appliquerSynchro\(constaterSynchro\(true\), true\)/,
+    );
+    expect(source).toMatch(/arrivés APRÈS la relecture du CHANGELOG/);
+  });
+
+  it("appliquerSynchro traite chaque geste que verdictDeSynchro peut rendre", () => {
+    const gestes = new Set();
+    for (const ecrire of [true, false])
+      for (const horsLigne of [true, false])
+        for (const fetchOk of [true, false])
+          for (const suivie of [true, false])
+            for (const [avance, retard] of [
+              [0, 0],
+              [1, 0],
+              [0, 1],
+              [1, 1],
+            ])
+              for (const arbrePropre of [true, false])
+                gestes.add(
+                  verdictDeSynchro({
+                    branche: "release/10.0.x",
+                    ecrire,
+                    horsLigne,
+                    fetchOk,
+                    suivie,
+                    avance,
+                    retard,
+                    arbrePropre,
+                  }).geste,
+                );
+    gestes.delete("rien");
+    const body = /const appliquerSynchro = [\s\S]*?\n};/.exec(source)?.[0];
+    expect(body, "appliquerSynchro introuvable dans release.mjs").toBeTruthy();
+    for (const g of gestes) expect(body).toContain(`"${g}"`);
+  });
+});
+
+describe("analyserCommits — plusieurs changements dans un squash (#796, revue N1)", () => {
+  // Le cas vécu : #805 squashée sous « chore(pilotage) » portait deux `fix`
+  // publiés — ils sortaient du brouillon 10.0.1, comptés parmi les écartés.
+  const squash = {
+    sha: "abc1234",
+    message:
+      "chore(pilotage): ouvrir une branche et une PR avant tout code (#805)\n\n" +
+      "- fix(cli): nommer le caractère invisible d'un nom refusé\n" +
+      "- fix(doctor): la vitrine n'est pas un frère\n" +
+      "- chore(pilotage): outillage\n\nRefs #796\nSquash-Of: #805",
+    fichiers: ["src/nodefony/src/cli/scaffold/engine.ts"],
+  };
+
+  it("chaque en-tête du corps dont le type a une section devient une entrée", () => {
+    const { groupes, ecartes } = analyserCommits([squash]);
+    expect(ecartes).toBe(0);
+    expect(groupes.get("Fixed")?.map((e) => e.portee)).toEqual([
+      "cli",
+      "doctor",
+    ]);
+    expect(groupes.get("Fixed")?.[0]?.sha).toBe("abc1234");
+  });
+
+  it("le périmètre publié juge toujours le COMMIT entier", () => {
+    const { groupes, ecartes } = analyserCommits(
+      [{ ...squash, fichiers: [".claude/skills/x.mjs"] }],
+      { publie: (f) => f.startsWith("src/") },
+    );
+    expect(ecartes).toBe(1);
+    expect(groupes.size).toBe(0);
+  });
+
+  it("une rupture du corps (`!`) survit au squash, et un pied BREAKING CHANGE sous un sujet chore n'est jamais perdu", () => {
+    const r1 = analyserCommits([
+      "chore(x): titre (#9)\n\n- feat(http)!: retirer y\n\nSquash-Of: #9",
+    ]);
+    expect(r1.ruptures).toEqual([
+      { portee: "http", texte: "retirer y", sha: "" },
+    ]);
+    const r2 = analyserCommits([
+      "chore(x): titre (#9)\n\nBREAKING CHANGE: le défaut s'inverse",
+    ]);
+    expect(r2.ruptures.map((r) => r.texte)).toEqual(["le défaut s'inverse"]);
+  });
+
+  it("la puce `* ` du squash par défaut de GitHub n'est PAS lue — elle recopie tout, sans tri (revue #796, R1)", () => {
+    const { groupes } = analyserCommits([
+      "fix(scaffold): réparer l'accueil (#799)\n\n* fix(scaffold): ouvrir la branche (#797)\n\n* feat(pilotage): outillage (#796)",
+    ]);
+    expect([...groupes.values()].flat().map((e) => e.texte)).toEqual([
+      "réparer l'accueil (#799)",
+    ]);
+  });
+
+  it("un squash par défaut de GitHub est SIGNALÉ, pas lu en silence (revue #796, R1)", () => {
+    const r = analyserCommits([
+      {
+        sha: "aaa",
+        message: "fix(scaffold): x (#799)\n\n* fix(login): y (#801)",
+      },
+      { sha: "bbb", message: "fix(http): z\n\n- fix(http): z" },
+    ]);
+    expect(r.squashNonTries).toEqual(["aaa"]);
+    // Sujet `chore` écarté, mais le corps porte un correctif publié : signalé.
+    expect(
+      analyserCommits([
+        {
+          sha: "ccc",
+          message:
+            "chore(deps): monter (#804)\n\n* fix(deps): rendre à Vite son rolldown",
+        },
+      ]).squashNonTries,
+    ).toEqual(["ccc"]);
+  });
+
+  it("chaque pied décrit son VOISIN — jamais par position (revue #796, N4)", () => {
+    const r = analyserCommits([
+      "chore(x): t (#1)\n\n- fix(cli): a\n- feat(http)!: b\n  BREAKING CHANGE: b casse\n- refactor(orm)!: c\n  BREAKING CHANGE: c casse\n\nSquash-Of: #1",
+    ]);
+    expect(r.ruptures).toEqual([
+      { portee: "http", texte: "b casse", sha: "" },
+      { portee: "orm", texte: "c casse", sha: "" },
+    ]);
+    const marques = [...r.groupes.values()]
+      .flat()
+      .filter((e) => e.rupture)
+      .map((e) => e.portee);
+    expect(marques.sort()).toEqual(["http", "orm"]);
+  });
+
+  it("les cas qui déjouaient l'appariement par position (revue #796, N4 — 3ᵉ revue)", () => {
+    const ruptures = (corps) =>
+      analyserCommits([
+        `chore(x): t (#1)\n\n${corps}\n\nSquash-Of: #1`,
+      ]).ruptures.map((r) => `${r.portee}:${r.texte}`);
+    // Type SANS section marqué « ! » : rupture sur LUI, jamais sur le voisin.
+    expect(ruptures("- chore(deps)!: monter node 24\n- feat(http): x")).toEqual(
+      ["deps:monter node 24"],
+    );
+    // « ! » sans pied avant un pied : chacun le sien.
+    expect(
+      ruptures(
+        "- docs(http)!: page\n- fix(orm)!: c\n  BREAKING CHANGE: c casse",
+      ),
+    ).toEqual(["http:page", "orm:c casse"]);
+    // Deux commits au même sujet, pieds différents : deux ruptures.
+    expect(
+      ruptures(
+        "- feat(a)!: x\n  BREAKING CHANGE: a1\n- feat(a)!: x\n  BREAKING CHANGE: a2\n- fix(orm): y",
+      ),
+    ).toEqual(["a:a1", "a:a2"]);
+    // Deux pieds d'un même commit : deux ruptures, même portée.
+    expect(
+      ruptures(
+        "- feat(http)!: x\n  BREAKING CHANGE: un\n  BREAKING CHANGE: deux",
+      ),
+    ).toEqual(["http:un", "http:deux"]);
+    // Le titre de PR (« … (#N) ») n'est pas un changement : pas de doublon.
+    const { groupes } = analyserCommits([
+      "fix(http): z (#5)\n\n- fix(http): z\n\nSquash-Of: #5",
+    ]);
+    expect(groupes.get("Fixed")).toHaveLength(1);
+  });
+
+  it("un en-tête répété (sujet = unique commit de la PR) n'entre qu'une fois", () => {
+    const { groupes } = analyserCommits([
+      "fix(http): libérer le scope\n\n- fix(http): libérer le scope",
+    ]);
+    expect(groupes.get("Fixed")).toHaveLength(1);
+  });
+});
+
+describe("analyserCommits — le squash se DÉCLARE (trailer Squash-Of), jamais ne se devine (#796, 4ᵉ revue)", () => {
+  const ruptures = (msg) =>
+    analyserCommits([msg]).ruptures.map((r) => `${r.portee}:${r.texte}`);
+
+  it("R-A — un commit ordinaire « (#N) » dont le corps a une puce « - mot: » garde SON entrée", () => {
+    const { groupes } = analyserCommits([
+      "fix(http): rendre la reconnexion SSE fiable (#559)\n\n- retry: 0 du serveur ignoré\n- core: détail",
+    ]);
+    expect([...groupes.values()].flat().map((e) => e.portee)).toEqual(["http"]);
+  });
+
+  it("R-B — le « ! » du TITRE d'un squash est une rupture écrite", () => {
+    const r = analyserCommits([
+      "feat(http)!: retirer y (#9)\n\n- fix(cli): a\n\nSquash-Of: #9",
+    ]);
+    expect(r.ruptures.map((x) => `${x.portee}:${x.texte}`)).toEqual([
+      "http:retirer y (#9)",
+    ]);
+    expect(
+      [...r.groupes.values()].flat().filter((e) => e.rupture),
+    ).toHaveLength(1);
+  });
+
+  it("une rupture d'un type SANS section s'ÉCRIT, sous « Changed »", () => {
+    const { groupes } = analyserCommits([
+      "build(engines)!: relever le plancher Node",
+    ]);
+    expect(groupes.get("Changed")?.[0]).toMatchObject({
+      portee: "engines",
+      rupture: true,
+    });
+  });
+
+  it("un pied sans voisin, ou en colonne 0 dans un squash, décrit le TITRE — jamais perdu", () => {
+    expect(
+      ruptures(
+        "chore(x): t (#1)\n\n  BREAKING CHANGE: orphelin\n\nSquash-Of: #1",
+      ),
+    ).toEqual(["x:orphelin"]);
+    expect(
+      ruptures(
+        "chore(x): t (#1)\n\n- fix(a): b\n\nBREAKING CHANGE: global\nSquash-Of: #1",
+      ),
+    ).toEqual(["x:global"]);
   });
 });

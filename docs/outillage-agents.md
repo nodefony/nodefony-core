@@ -76,7 +76,7 @@ serait sans effet à la régénération suivante.
 [
   { "icon": "🧭", "title": "session", "href": "skills/nodefony-session.md",
     "desc": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer : fermeture des tickets soldés, mémoire…",
-    "meta": "🟢 conforme v1.1.0 · ⚙️ 13 scripts · 📎 1 réf" },
+    "meta": "🟢 conforme v1.1.0 · ⚙️ 17 scripts · 📎 1 réf" },
   { "icon": "🧩", "title": "skill", "href": "skills/nodefony-skill.md",
     "desc": "Créer, éditer, fusionner, retirer ou auditer un skill du dépôt Nodefony. Dérive de `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils),…",
     "meta": "🟢 conforme v1.2.0 · ⚙️ 5 scripts" }
@@ -201,8 +201,8 @@ serait sans effet à la régénération suivante.
     "desc": "Conduit une passe de test COMPLÈTE du dépôt Nodefony — toutes les suites, tous les interrupteurs, tous les bancs — dans l'ordre où chacune ne fausse pas la suivante, et rend un verdict qui distingue une régression du produit d'un artefact de décor.",
     "meta": "🟢 conforme v1.1.0 · ⚙️ 1 script · 📎 1 réf" },
   { "icon": "🔧", "title": "ticket", "href": "skills/nodefony-ticket.md",
-    "desc": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre Conventional Commits compréhensible sans connaître le dépôt, lexique, corps en quatre blocs avec preuve `<fichier>.ts#<Symbole>` et critère de fin observable, gravité normée d'un défaut (CVSS 3.1 calculé, échelle IEEE 1044), parents…",
-    "meta": "🟢 conforme v1.12.0 · ⚙️ 24 scripts · 📎 9 réf" },
+    "desc": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre Conventional Commits compréhensible sans connaître le dépôt, lexique, corps en quatre blocs avec preuve `<fichier>.ts#<Symbole>` et critère de fin observable, gravité normée (CVSS 3.1 calculé, IEEE 1044), parents et sous-tickets,…",
+    "meta": "🟢 conforme v1.13.0 · ⚙️ 32 scripts · 📎 10 réf" },
   { "icon": "🔧", "title": "add-crud", "href": "skills/nodefony-add-crud.md",
     "desc": "Crée une ressource complète dans une application Nodefony — entité, schémas de validation, service CRUD, controller REST+WebSocket et tests — par le générateur `nodefony create entity`, sur SQL comme sur MongoDB.",
     "meta": "🟢 conforme" },

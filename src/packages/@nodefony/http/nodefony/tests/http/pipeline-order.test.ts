@@ -1,6 +1,7 @@
 /// <reference types="node" />
 import { expect } from "vitest";
 import https from "node:https";
+import { randomUUID } from "node:crypto";
 
 /**
  * ORDRE du pipeline — le hook `initialize()` d'un controller ne doit pas
@@ -21,6 +22,11 @@ import https from "node:https";
  * Le mouchard vit dans le module test (`nodefony/secure/initializeProbe.ts`),
  * écrit par `SecureController.initialize()` et lu par une route publique — la
  * seule lisible depuis un banc anonyme.
+ *
+ * Chaque cas porte SON témoin (`x-witness`, relu par `?witness=`) : les suites
+ * de `http` et de `framework` tournent en parallèle contre le même serveur et
+ * passent aussi par `SecureController` — un compteur global les additionnait
+ * (rouge intermittent : 2 passages vus pour 1 requête servie).
  *
  * Requiert : serveur 5152 + comptes `admin/secret-de-dev-42` (ROLE_ADMIN) et
  * `user/secret-de-dev-42` (ROLE_USER) du module test. Start : /start-server
@@ -58,29 +64,30 @@ const basic = (identifier: string, password: string) => ({
   Authorization: `Basic ${Buffer.from(`${identifier}:${password}`).toString("base64")}`,
 });
 
-async function resetProbe(): Promise<void> {
-  const res = await get(`${PROBE}/reset`);
+async function resetProbe(witness: string): Promise<void> {
+  const res = await get(`${PROBE}/reset?witness=${witness}`);
   expect(res.status, "la route de remise à zéro doit être publique").to.equal(
     200,
   );
 }
 
-async function readProbe(): Promise<Probe> {
-  const res = await get(PROBE);
+async function readProbe(witness: string): Promise<Probe> {
+  const res = await get(`${PROBE}?witness=${witness}`);
   expect(res.status, "la route de lecture doit être publique").to.equal(200);
   return res.body as Probe;
 }
 
 describe("Pipeline — `initialize()` ne tourne pas pour une requête rejetée", () => {
   it("le mouchard est bien câblé (contrôle positif : une requête ACCEPTÉE l'incrémente)", async () => {
-    await resetProbe();
-    const ok = await get(
-      "/nodefony/test/secure/ping",
-      basic("admin", "secret-de-dev-42"),
-    );
+    const witness = randomUUID();
+    await resetProbe(witness);
+    const ok = await get("/nodefony/test/secure/ping", {
+      ...basic("admin", "secret-de-dev-42"),
+      "x-witness": witness,
+    });
     expect(ok.status, "credential valide → 200").to.equal(200);
 
-    const probe = await readProbe();
+    const probe = await readProbe(witness);
     // Sans ce contrôle, les deux tests suivants pourraient passer parce que le
     // mouchard ne marche pas — et non parce que le pipeline s'est amélioré.
     expect(
@@ -94,11 +101,14 @@ describe("Pipeline — `initialize()` ne tourne pas pour une requête rejetée",
   });
 
   it("401 (firewall) — aucun code de controller ne s'exécute", async () => {
-    await resetProbe();
-    const denied = await get("/nodefony/test/secure/ping");
+    const witness = randomUUID();
+    await resetProbe(witness);
+    const denied = await get("/nodefony/test/secure/ping", {
+      "x-witness": witness,
+    });
     expect(denied.status, "aucune preuve → 401").to.equal(401);
 
-    const probe = await readProbe();
+    const probe = await readProbe(witness);
     expect(
       probe.runs,
       "un anonyme rejeté ne doit déclencher ni la résolution DI ni initialize()",
@@ -106,14 +116,15 @@ describe("Pipeline — `initialize()` ne tourne pas pour une requête rejetée",
   });
 
   it("403 (@IsGranted) — la garde court-circuite bien l'instanciation", async () => {
-    await resetProbe();
-    const denied = await get(
-      "/nodefony/test/secure/admin-only",
-      basic("user", "secret-de-dev-42"),
-    );
+    const witness = randomUUID();
+    await resetProbe(witness);
+    const denied = await get("/nodefony/test/secure/admin-only", {
+      ...basic("user", "secret-de-dev-42"),
+      "x-witness": witness,
+    });
     expect(denied.status, "authentifié mais sans le rôle → 403").to.equal(403);
 
-    const probe = await readProbe();
+    const probe = await readProbe(witness);
     expect(
       probe.runs,
       "la garde d'autorisation s'évalue AVANT newController (Zero Trust)",

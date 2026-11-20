@@ -55,10 +55,11 @@ User Core. `IUser` + base classes + encoders + `UserService`. Séparé de @nodef
 - **Les mots de passe de fixture passent la politique — et un test le PROUVE.** Dépôt :
   `DEV_FIXTURE_PASSWORD` (`nodefony/security/provisionUsers.ts`,
   `NF_ADMIN_PASSWORD`/`NF_USER_PASSWORD`). Application générée : `DEV_ADMIN_PASSWORD` =
-  `nodefony-dev-42` — `admin` était refusé par la règle de l'identifiant, une app neuve échouait
-  son propre seed ; les 4 vitrines frontend pré-remplissent cette valeur.
-  `seedFailure.test.ts` relit les deux constantes DANS leur fichier (jamais une copie) et les
-  confronte à `PasswordPolicy` : un durcissement de la règle tombe ici, pas chez l'utilisateur.
+  valeur TIRÉE par app à `create app` (`engine.ts#drawDevAdminPassword`, `xxxx-xxxx-xxxx`, un
+  chiffre par groupe : la règle des 4 touches consécutives refusait des tirages tout-lettres) ;
+  jamais une valeur fixe (publiée = compte admin connu de tous sur un serveur sans `NODE_ENV`).
+  `seedFailure.test.ts` relit la constante de fixture DANS son fichier, importe le tirage, et les
+  confronte à `PasswordPolicy` (5 000 tirages) : un durcissement de la règle tombe ici, pas chez l'utilisateur.
 - **`describeSeedFailure(cause, ctx)` — le message d'un semis raté.** L'information est coupée en
   deux : `WeakPasswordError` porte la règle et RIEN d'autre (elle finit dans un journal), l'appelant
   seul sait quel compte et d'où venait la valeur. Cette fonction les réunit — compte, règle, geste,

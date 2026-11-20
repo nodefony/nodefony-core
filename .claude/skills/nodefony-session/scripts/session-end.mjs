@@ -223,6 +223,14 @@ function prepare() {
           "nodefony-session/scripts/board-snapshot.mjs",
           ...(PUBLISH ? ["--readme", "--issue"] : []),
         );
+        // Le REPÈRE de la reprise : « fermés depuis la dernière fin de session »
+        // compare l'empreinte fraîche à cette copie (l'empreinte n'est plus
+        // versionnée, D7 — il n'y a plus de `HEAD:.ai/board.json` à relire).
+        if (snap.ok)
+          fs.copyFileSync(
+            path.join(ROOT, ".ai", "board.json"),
+            path.join(ROOT, ".ai", "board.end.json"),
+          );
         say(
           snap.ok
             ? `Empreinte ${PUBLISH ? "+ README + issue " : ""}✅`

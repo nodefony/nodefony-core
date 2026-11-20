@@ -166,7 +166,7 @@ interface IItem {
    * la MÊME garde pour les DEUX portes : en
    * HTTP `@IsGranted` refuse (403) AVANT l'action ; par la socket, le pont
    * `api.request` re-traverse le MÊME pipeline (le token du handshake voyage
-   * dans l'ALS) → même refus. En dev, `admin/<%= it.devAdminPassword %>` a le rôle.
+   * dans l'ALS) → même refus. En dev, le compte `admin` semé à la création (`nodefony/security/provisionUsers.ts`) a le rôle.
    */
   @route("<%= it.kebab %>-delete", {
     path: "/{id}",

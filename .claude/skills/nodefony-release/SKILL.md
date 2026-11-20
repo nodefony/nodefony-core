@@ -99,7 +99,8 @@ Le fait qui rouvrirait la question : une approbation GROUPÉE côté npm.
 ### Le tag est la CAUSE, pas la conséquence
 
 `release.mjs` estampille, écrit un brouillon de changelog et empaquette. Il **ne pose pas le tag** :
-c'est le tag `v10.*` poussé à la main qui déclenche la publication. Inverser les deux enlève à
+c'est le tag `v<version>` poussé à la main qui déclenche la publication (filtre `v[1-9][0-9]+.*` :
+toute majeure, aucune écrite en dur — gardé par `release-workflow.test.mjs`). Inverser les deux enlève à
 l'auteur le seul point où il relit ce qui sortira sous son nom.
 
 **Ce que le tag déclenche, dans l'ordre** (`release.yml`) : `epreuve` (les scénarios de smoke
@@ -122,11 +123,19 @@ d'estampiller est donc une attente sur un commit qui ne sera jamais publié.** L
 commise, et elle coûte un cycle de forge entier.
 
 L'ordre juste est : estampiller → relire le changelog → `--promouvoir`, qui commite, fait
-avancer la branche de publication (`push dev:main`, et **rien d'autre**) et attend le verdict
-**sur ce commit-là**. `dev` n'est PAS poussée : tous les workflows se déclenchent sur `main` ET
-`dev`, pousser les deux rejouait toute la CI sur le même sha. Elle part avec le push suivant. Une seule
+avancer la branche de publication (`push <branche>:main`, et **rien d'autre**) et attend le verdict
+**sur ce commit-là**. La branche d'où l'on publie (`dev`, `release/x.y.x`) part dans la MÊME
+poussée (`--atomic`) : en travail par PR, aucune autre poussée ne l'atteint, et une estampille restée
+locale fait partir le cran suivant de manifestes périmés (`planDePromotion`). Une seule
 attente, au seul endroit où elle prouve quelque chose. Ne pas retaper ces gestes à la main :
 leur ORDRE est ce qui compte, et c'est précisément ce qu'une consigne écrite ne garantit pas.
+
+**Forge rouge à la promotion — deux voies, la même commande ensuite.** Job instable →
+`gh run rerun <id> --failed`, même commit. Vrai défaut → branche de travail et PR vers la branche
+d'où l'on publie, JAMAIS un commit sur elle (la garde `commit-msg` le refuse). Puis relancer
+`--promouvoir` : il rattrape SEUL la fusion de la PR (avance rapide, `appliquerSynchro`) et nomme les
+commits arrivés APRÈS la relecture du changelog — leur ligne s'ajoute par la même voie, avant le
+tag. Une tête détachée est refusée d'emblée.
 
 ### Le format est [Common Changelog](https://common-changelog.org/), pas Keep a Changelog
 
@@ -161,6 +170,21 @@ sur 175. **Ce qui reste à l'auteur** : les commits qui touchent un fichier publ
 pour l'utilisateur. Le test, entrée par entrée : _décrit-elle quelque chose que l'utilisateur peut
 ATTEINDRE depuis `exports` ?_ Un export ajouté puis retiré dans la même fenêtre n'a jamais été
 publié — ni entrée, ni rupture (vérifier au `git log -S <symbole> -- <index.ts>`).
+
+**Un ticket = un squash : le changelog lit son CORPS.** Le squash se DÉCLARE par le trailer
+`Squash-Of: #N` que `pr-finish` écrit — jamais deviné à sa forme, qui prenait la prose de commits
+ordinaires pour des entrées. Son sujet est le titre de la PR (souvent `chore(…)`), qui n'est une
+entrée que s'il porte une rupture ; les entrées sont les lignes `- type(portée)!: …` en colonne 0 que
+`pr-finish.mjs#squashMessage` écrit — une par commit de travail PUBLIÉ (même `perimetrePublie`,
+jugé par commit), l'outillage partant dans un paragraphe indenté que le brouillon ne lit pas.
+Antériorité : release-please (« multiple changes in a single commit »). La puce `* ` du squash par
+défaut de GitHub n'est PAS lue : elle recopie tout, sans tri — mais la répétition NOMME ces squash
+(`squashNonTries`), à relire à la main. Une rupture décrit son VOISIN, jamais une position : un pied
+`  BREAKING CHANGE: …` indenté sous une ligne `- type: …` décrit ce changement-là (`pr-finish`
+l'écrit ainsi, `!` posé sur la ligne) ; en colonne 0, le commit lui-même. Un `!` est une rupture
+quel que soit le type, écrite sous « Changed » quand le type n'a pas de section
+(`build(engines)!: Node 24`). D'où la règle : **toute PR se ferme par
+`pr-finish`**, jamais par le bouton de fusion de GitHub.
 
 Deux cas limites qui se tranchent en ouvrant le commit, jamais sur son sujet : un **renommage
 d'identifiant** n'est une rupture que si le symbole est ré-exporté par l'`index.ts` (sinon il
@@ -201,7 +225,9 @@ est donc le cas normal, publier depuis `dev` ne l'est pas.
 
 **La répétition le DIT maintenant, et c'est le produit qui le dit.** Lancée hors de la branche de
 publication, elle rend l'avis avant tout geste — « HEAD « dev » n'appartient PAS à « main »
-(N commits d'avance) » — avec la commande exacte (`git checkout main && git merge --ff-only dev`).
+(N commits d'avance) » — avec le geste exact, depuis cette branche : `--write`, puis `--promouvoir`,
+qui pousse `<branche>:main` en avance rapide (jamais `git checkout main`, qui sautait la poussée de
+la branche publiée).
 C'est un avis, pas un refus : préparer d'ici est légitime, le découvrir après avoir estampillé
 tous les manifestes ne l'est pas. Auparavant les deux gardes ne parlaient qu'au moment d'AGIR, si
 bien qu'une répétition sur `dev` rendait un rapport tout vert et laissait croire la publication
@@ -265,9 +291,10 @@ règle, deux points d'entrée — le pack doit refuser tout seul, car il s'utili
 
 Payé à la `10.0.0-beta.1`, chaque ligne une fois :
 
-- **Avant d'estampiller : `git fetch` puis `origin/main` DANS `dev`.** Le job `accueil` pousse sur
-  `main` après chaque publication, sans redescendre dans `dev` : `--promouvoir` échoue alors sur un
-  push refusé (non-fast-forward). Fusionner `origin/main` dans `dev` d'abord.
+- **Le commit du job `accueil` sur `main` s'intègre SEUL** (`verdictDeBranchePublication`) à
+  l'estampille et à la promotion : avance rapide, sinon commit de fusion — la garde `commit-msg`
+  l'admet, puisqu'il n'intègre que de l'historique publié (`mergeHeadsArePublished`). À la main
+  seulement si la fusion entre en CONFLIT : le script s'arrête, arbre intact, et rend la commande.
 - **Changement de CANAL (alpha → beta → stable) : prose à la main, AVANT d'estampiller** — la
   répétition (`--anticiper`) la refuse, et une page restée sur `@beta` partirait dans le tarball
   de la stable. `accueil-gate --basculer`

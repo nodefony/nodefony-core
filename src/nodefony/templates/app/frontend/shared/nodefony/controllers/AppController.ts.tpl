@@ -2,6 +2,9 @@ import { Controller, route, controller } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
 import { FrontendService } from "@nodefony/frontend";
 
+/** L'entry Vite de cette page (`frontend.entries`). */
+const ENTRY_NAME = "<%= it.appName %>";
+
 /**
  * Sert la page de l'app <%= it.frontend %>. Le HTML ne vit PAS ici : c'est la
  * coquille `frontend/index.html` (TA page — meta, polices, externals), dans
@@ -28,14 +31,21 @@ class AppController extends Controller {
     if (!(svc instanceof FrontendService)) {
       return this.render("<!-- @nodefony/frontend not ready -->");
     }
+    // En développement, les URLs vers Vite sont relatives à la page
+    // (`/_vite/<famille>/…`, relayées par Nodefony) : un poste, un conteneur
+    // ou un téléphone chargent la MÊME page sans configuration.
+    const html = svc.renderDocument(ENTRY_NAME, this.context?.cspNonce);
+    // La démo est-elle chargée ? Le serveur le SAIT : il le dit dans la page,
+    // que l'accueil lit sans requête — une sonde `/demo` rendait 404 sans la
+    // démo, et le navigateur l'inscrivait en erreur de console. Module
+    // `policy: "dev"` : absent en production, la balise aussi.
     return this.render(
-      // En développement, les URLs vers Vite sont relatives à la page
-      // (`/_vite/<famille>/…`, relayées par Nodefony) : un poste, un conteneur
-      // ou un téléphone chargent la MÊME page sans configuration.
-      svc.renderDocument(
-        "<%= it.appName %>",
-        this.context?.cspNonce,
-      ),
+      this.kernel?.getModule("demo") === undefined
+        ? html
+        : html.replace(
+            "</head>",
+            '<meta name="nodefony-demo" content="/demo" />\n</head>',
+          ),
     );
   }
 }
