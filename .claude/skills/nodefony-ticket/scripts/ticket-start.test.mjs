@@ -156,4 +156,15 @@ describe("leaveBlocker — on ne quitte pas des commits non poussés (#796, revu
       leaveBlocker({ current: "", target: "fix/2-y", unpushed: 0 }),
     ).toBeNull();
   });
+
+  it("une branche dont la PR est fusionnée se quitte — le squash rend tous ses commits « non poussés » (revue #796, R2)", () => {
+    expect(
+      leaveBlocker({
+        current: "chore/796-x",
+        target: "fix/794-y",
+        unpushed: 47,
+        merged: true,
+      }),
+    ).toBeNull();
+  });
 });

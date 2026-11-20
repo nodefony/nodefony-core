@@ -107,7 +107,8 @@ export function fichiersDeTest(fichiers) {
  *
  * 🔴 **Ce qui PORTE le ticket, pas ce qui le CITE** (revue #796, B4) : un
  * commit qui raconte « vécu sur #802 » n'est pas du travail de #802. Comptent la
- * référence de sujet `(#N)` en fin de ligne et les mots-clés de GitHub
+ * référence de sujet en fin de ligne — `(#N)`, ou composée : `(D7, #796)`,
+ * `(#760, étape 4)`, `(#760 #747)` — et les mots-clés de GitHub
  * (`closes`, `fixes`, `resolves`, leurs flexions, et `Refs`) — forme du pied
  * qu'écrivent `ticket-start` et le squash de `pr-finish`.
  *
@@ -115,7 +116,7 @@ export function fichiersDeTest(fichiers) {
  * @returns le motif, en expression rationnelle POSIX étendue.
  */
 export function motifTicket(numero) {
-  return `(\\(#${numero}\\)$|([Cc]los(e|es|ed)|[Ff]ix(es|ed)?|[Rr]esolv(e|es|ed)|[Rr]efs) #${numero}([^0-9]|$))`;
+  return `(\\(([^)]*[^0-9])?#${numero}([^0-9)][^)]*)?\\)$|([Cc]los(e|es|ed)|[Ff]ix(es|ed)?|[Rr]esolv(e|es|ed)|[Rr]efs) #${numero}([^0-9]|$))`;
 }
 
 /**

@@ -201,12 +201,18 @@ export function ticketBranches(n, branches) {
  * sauvegarde : changer de branche les laisse derrière sans un mot, et le
  * marque-page d'un ticket mis de côté est un commit POUSSÉ.
  *
- * @param {{ current: string, target: string, unpushed: number }} facts -
- *   `unpushed` = commits de HEAD absents de toute branche d'origin
+ * Une branche dont la PR est FUSIONNÉE se quitte toujours : le squash a une
+ * autre empreinte et `--delete-branch` retire sa référence distante, donc
+ * TOUS ses commits paraissent « non poussés » — et `git push` recréerait la
+ * branche supprimée (revue #796, R2).
+ *
+ * @param {{ current: string, target: string, unpushed: number, merged?: boolean }} facts -
+ *   `unpushed` = commits de HEAD absents de toute branche d'origin ;
+ *   `merged` = la PR de la branche courante est fusionnée
  * @returns {string | null} le motif de refus, ou `null`
  */
-export function leaveBlocker({ current, target, unpushed }) {
-  if (!current || current === target || unpushed === 0) return null;
+export function leaveBlocker({ current, target, unpushed, merged = false }) {
+  if (!current || current === target || unpushed === 0 || merged) return null;
   return (
     `${current} porte ${unpushed} commit(s) NON poussé(s) — les quitter les laisserait sans CI ni sauvegarde.\n` +
     "  → git push   (puis relancer la même commande)"
@@ -337,6 +343,22 @@ function main() {
   const leave = leaveBlocker({
     current,
     target: name,
+    merged:
+      current !== "" &&
+      sh("gh", [
+        "pr",
+        "list",
+        "--repo",
+        REPO,
+        "--head",
+        current,
+        "--state",
+        "merged",
+        "--json",
+        "number",
+        "--jq",
+        "length",
+      ]) !== "0",
     unpushed: current
       ? Number(
           sh("git", [
@@ -382,7 +404,17 @@ function main() {
       openingCommitMessage(issue.title, n),
     ]);
   }
-  sh("git", ["push", "-u", "origin", name]);
+  // Sortie en direct : le crochet `pre-push` rebâtit et parle beaucoup — en
+  // tube, il saturerait le tampon d'execFileSync (1 Mo) (revue #796, R5).
+  if (
+    spawnSync("git", ["push", "-u", "origin", name], {
+      cwd: ROOT,
+      stdio: "inherit",
+    }).status !== 0
+  )
+    fail(
+      `git push de ${name} refusé — lire la sortie ci-dessus, puis relancer`,
+    );
 
   let pr = openPr;
   if (!pr) {

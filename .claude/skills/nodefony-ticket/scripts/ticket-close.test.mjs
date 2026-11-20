@@ -88,6 +88,9 @@ describe("les commits d'un ticket, contre un dépôt git réel", () => {
       "feat(c): troisième, cite #950",
       "docs(d): raconter — vécu sur #96",
       "fix(e): quatrième (#96)",
+      "chore(f): cinquième (D7, #97)",
+      "feat(g): sixième (#97, étape 4)",
+      "fix(h): septième (#970)",
     ]) {
       git(
         "-c",
@@ -125,6 +128,13 @@ describe("les commits d'un ticket, contre un dépôt git réel", () => {
   it("prend ce qui PORTE le ticket — (#N) en fin de sujet —, jamais une prose qui le cite (revue #796, B4)", () => {
     expect(sujets(96)).to.deep.equal(["fix(e): quatrième (#96)"]);
     expect(sujets(950)).to.deep.equal([]);
+  });
+
+  it("reconnaît la référence de sujet COMPOSÉE — (D7, #97), (#97, étape 4) — sans prendre #970 (revue #796, B4)", () => {
+    expect(sujets(97)).to.deep.equal([
+      "chore(f): cinquième (D7, #97)",
+      "feat(g): sixième (#97, étape 4)",
+    ]);
   });
 
   it("ne confond pas #9 avec #95 ni #950", () => {
