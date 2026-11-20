@@ -214,6 +214,7 @@ import {
   type IScaffoldQuestion,
 } from "./spec";
 import { openSiblingRoutes } from "./routePaths";
+import { describeInvisibleChars } from "./invisibleChars";
 import { nodefonyImports } from "../../kernel/checks/packageDeps";
 import { connectorVersionsMigrations } from "../../kernel/migrationsLayout";
 
@@ -1156,6 +1157,19 @@ export function linkLocalPeers(
 }
 
 /**
+ * La phrase qui nomme un caractère invisible d'une valeur refusée, précédée
+ * d'un point — chaîne vide quand il n'y en a pas. Un point, pas un saut de
+ * ligne : le rendu du refus replie le paragraphe, et y collerait la phrase.
+ *
+ * @param value - la valeur refusée
+ * @returns le complément du message de refus
+ */
+function invisibleNote(value: string): string {
+  const note = describeInvisibleChars(value);
+  return note === null ? "" : `. ${note}`;
+}
+
+/**
  * Complète et VALIDE des réponses partielles contre la spec d'un type : défauts
  * appliqués, patterns vérifiés, choix contraints à leur liste. Le contexte des
  * templates est donc complet PAR CONSTRUCTION (eta ne rend jamais un `undefined`
@@ -1202,12 +1216,14 @@ export function resolveAnswers(
     if (q.type === "choice") {
       if (!q.choices?.some((c) => c.value === str)) {
         const allowed = q.choices?.map((c) => c.value).join(" | ") ?? "";
-        throw new Error(`${q.key} invalide « ${str} » — attendu : ${allowed}`);
+        throw new Error(
+          `${q.key} invalide « ${str} » — attendu : ${allowed}${invisibleNote(str)}`,
+        );
       }
     }
     if (q.pattern && !new RegExp(q.pattern, "u").test(str)) {
       throw new Error(
-        `${q.key} invalide « ${str} » — ${q.patternHint ?? q.pattern}`,
+        `${q.key} invalide « ${str} » — ${q.patternHint ?? q.pattern}${invisibleNote(str)}`,
       );
     }
     answers[q.key] = str;
