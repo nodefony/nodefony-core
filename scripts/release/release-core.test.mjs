@@ -49,6 +49,8 @@ import {
   avisDeBranche,
   planDePromotion,
   refusDeMaintenance,
+  clotMaintenance,
+  estJalonDeCorrectif,
   verdictDeSynchro,
   verdictCiDuCommit,
   WORKFLOWS_NON_BLOQUANTS,
@@ -2865,5 +2867,66 @@ describe("verdictDeSynchro — estampiller ce qu'origin porte (#796, bloquants 1
     expect(verdictDeSynchro(e({ branche: null, fetchOk: false })).geste).toBe(
       "rien",
     );
+  });
+});
+
+describe("clotMaintenance — une version dépasse-t-elle la ligne x.y ? (#796, bloquant 3)", () => {
+  it("une préversion de la mineure suivante clôt déjà la ligne", () => {
+    expect(clotMaintenance("10.1.0-alpha.1", "release/10.0.x")).toBe(true);
+    expect(clotMaintenance("10.1.0", "10.0.x")).toBe(true);
+    expect(clotMaintenance("11.0.0", "10.9.2")).toBe(true);
+  });
+
+  it("PIÈGE : un correctif de la même ligne, ou une version plus ancienne, ne clôt rien", () => {
+    expect(clotMaintenance("10.0.3", "release/10.0.x")).toBe(false);
+    expect(clotMaintenance("10.0.0", "10.0.x")).toBe(false);
+    expect(clotMaintenance("9.9.0", "10.0.x")).toBe(false);
+  });
+
+  it("une entrée illisible ne clôt rien (jamais un refus inventé)", () => {
+    expect(clotMaintenance("", "10.0.x")).toBe(false);
+    expect(clotMaintenance("10.1.0", "outillage-agents")).toBe(false);
+  });
+
+  it("reconnaît les jalons de correctif, et eux seuls", () => {
+    expect(estJalonDeCorrectif("10.0.x")).toBe(true);
+    expect(estJalonDeCorrectif("10.0.2")).toBe(true);
+    expect(estJalonDeCorrectif("10.1.0")).toBe(false);
+    expect(estJalonDeCorrectif("outillage-agents")).toBe(false);
+  });
+});
+
+describe("refusDeMaintenance — un LOT de correctifs ouvert (#796, bloquant 3)", () => {
+  const propre = [{ nom: "release/10.0.x", fusionnee: true, nonPublies: 0 }];
+
+  it("refuse une préversion 10.1 tant que le lot 10.0.x a des tickets ouverts", () => {
+    const refus = refusDeMaintenance({
+      branche: "dev",
+      maintenance: propre,
+      version: "10.1.0-alpha.1",
+      lots: [{ titre: "10.0.x", ouverts: 5 }],
+    });
+    expect(refus).toContain("le lot 10.0.x a 5 ticket(s) ouvert(s)");
+    expect(refus).toContain("déplacer ses tickets vers le jalon de 10.1.0");
+  });
+
+  it("laisse passer un lot soldé, un lot d'une ligne non close, ou des lots non lus", () => {
+    const base = { branche: "dev", maintenance: propre, version: "10.1.0" };
+    expect(
+      refusDeMaintenance({ ...base, lots: [{ titre: "10.0.x", ouverts: 0 }] }),
+    ).toBeNull();
+    expect(
+      refusDeMaintenance({ ...base, lots: [{ titre: "10.1.1", ouverts: 3 }] }),
+    ).toBeNull();
+    expect(refusDeMaintenance({ ...base, lots: null })).toBeNull();
+  });
+
+  it("le remède d'un correctif en attente ne propose plus d'annuler des commits (la garde les compte)", () => {
+    const refus = refusDeMaintenance({
+      branche: "dev",
+      maintenance: [{ nom: "release/10.0.x", fusionnee: false, nonPublies: 2 }],
+    });
+    expect(refus).not.toContain("annuler");
+    expect(refus).toContain("supprimer origin/release/10.0.x (D8)");
   });
 });

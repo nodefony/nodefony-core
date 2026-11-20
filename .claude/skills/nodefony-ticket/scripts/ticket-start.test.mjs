@@ -73,6 +73,20 @@ describe("baseFor — jalon de correctif → release/x.y.x, sinon dev", () => {
   it("une branche de maintenance ABSENTE est une erreur, jamais un repli sur dev", () => {
     expect(() => baseFor("10.1.x", REMOTE)).toThrow(/release\/10\.1\.x/);
   });
+
+  it("refuse une maintenance que main a dépassée (#796, bloquant 3)", () => {
+    expect(() => baseFor("10.0.x", REMOTE, null, "10.1.0-alpha.1")).toThrow(
+      /maintenance 10\.0\.x est CLOSE/,
+    );
+    // Même ligne sur main (cas normal après un correctif) : la maintenance vit.
+    expect(baseFor("10.0.2", REMOTE, null, "10.0.1")).toBe("release/10.0.x");
+  });
+
+  it("le pilotage saute une maintenance close", () => {
+    const remote = ["dev", "main", "release/10.0.x", "release/10.1.x"];
+    expect(baseFor("x", remote, "pilotage", "10.1.0")).toBe("release/10.1.x");
+    expect(baseFor("x", remote, "pilotage", "10.2.0")).toBe("dev");
+  });
 });
 
 describe("prBody — Closes vers la branche par défaut, Refs ailleurs", () => {

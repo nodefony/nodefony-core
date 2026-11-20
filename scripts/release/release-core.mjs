@@ -1388,6 +1388,37 @@ export function verdictDeSynchro({
 }
 
 /**
+ * Une version CLÔT-elle la ligne de maintenance `x.y` ?
+ *
+ * Oui dès que sa mineure dépasse celle de la ligne — préversion comprise :
+ * `10.1.0-alpha.1` sur `main` clôt `10.0.x`, car `release/10.0.x:main` n'est
+ * plus une avance rapide et npm (≥ 11) refuse d'étiqueter `latest` une version
+ * inférieure. UNE règle, deux lecteurs : {@link refusDeMaintenance} (ne pas
+ * publier par-dessus un lot de correctifs ouvert) et `ticket-start#baseFor`
+ * (ne pas ouvrir un correctif sur une maintenance déjà close).
+ *
+ * Jugée sur la VERSION, jamais sur l'ascendance des commits : le commit du job
+ * `accueil` poussé sur `main` casse l'ascendance sans rien clore.
+ *
+ * @param {string} version - la version publiée ou à publier (`10.1.0-alpha.1`)
+ * @param {string} ligne - la ligne visée : `release/10.0.x`, `10.0.x` ou `10.0.2`
+ * @returns `true` si la ligne ne peut plus recevoir de correctif publiable
+ */
+export function clotMaintenance(version, ligne) {
+  const v = /^(\d+)\.(\d+)\./u.exec(version ?? "");
+  const l = /^(?:release\/)?(\d+)\.(\d+)\./u.exec(ligne ?? "");
+  if (v === null || l === null) return false;
+  const [vM, vm, lM, lm] = [v[1], v[2], l[1], l[2]].map(Number);
+  return vM > lM || (vM === lM && vm > lm);
+}
+
+/** Un titre de jalon de CORRECTIF : `x.y.x`, ou `x.y.z` avec z ≥ 1. */
+export function estJalonDeCorrectif(titre) {
+  const m = /^(\d+)\.(\d+)\.(x|\d+)$/u.exec(titre ?? "");
+  return m !== null && (m[3] === "x" || Number(m[3]) >= 1);
+}
+
+/**
  * Le refus de MAINTENANCE : ce qu'une branche `release/x.y.x` vivante interdit à
  * une publication faite depuis une AUTRE branche.
  *
@@ -1410,13 +1441,27 @@ export function verdictDeSynchro({
  * l'outillage de pilotage, qui part de la plus ancienne `release/*`, ne bloque
  * rien. Pure : l'état des branches est INJECTÉ.
  *
+ * Troisième motif (#796, bloquant 3) : un LOT de correctifs ouvert (jalon
+ * `x.y.x` ou `x.y.z` portant des tickets ouverts) que la version publiée
+ * clôturerait ({@link clotMaintenance}). Sans lui, une préversion de la mineure
+ * suivante passait tant qu'aucun commit n'avait encore atteint `release/x.y.x`
+ * — et les tickets du lot devenaient impubliables en x.y.z.
+ *
  * @param {object} etat
  * @param {string | null} etat.branche - la branche d'où l'on publie (`null` : HEAD détaché)
  * @param {Array<{ nom: string, fusionnee: boolean, nonPublies: number }>} etat.maintenance -
  *   par `origin/release/*` : contenue dans HEAD ?, et nombre de commits PUBLIABLES absents de `main`
+ * @param {string | null} [etat.version] - la version à publier (absente : motif 3 non jugé)
+ * @param {Array<{ titre: string, ouverts: number }> | null} [etat.lots] - jalons OUVERTS
+ *   et leurs tickets ouverts (`null` : non lus)
  * @returns le texte du refus, ou `null` s'il n'y a rien à refuser
  */
-export function refusDeMaintenance({ branche, maintenance }) {
+export function refusDeMaintenance({
+  branche,
+  maintenance,
+  version = null,
+  lots = null,
+}) {
   if (branche === null || branche.startsWith("release/")) return null;
   const motifs = [];
   for (const m of maintenance) {
@@ -1425,7 +1470,8 @@ export function refusDeMaintenance({ branche, maintenance }) {
         `${m.nom} porte ${m.nonPublies} commit(s) publiable(s) absent(s) de main.\n` +
           `    Publier depuis ${branche} fermerait la maintenance : ${m.nom}:main ne serait\n` +
           "    plus une avance rapide, et ces correctifs ne sortiraient qu'avec la mineure.\n" +
-          `    → publier d'abord le correctif depuis ${m.nom} (D9), ou y annuler ces commits.`,
+          `    → publier d'abord le correctif depuis ${m.nom} (D9) ; ou CLORE cette maintenance :\n` +
+          `      fusionner ${m.nom} dans ${branche} (release-sync), puis supprimer origin/${m.nom} (D8).`,
       );
     } else if (!m.fusionnee) {
       motifs.push(
@@ -1434,6 +1480,21 @@ export function refusDeMaintenance({ branche, maintenance }) {
           "    cette publication, et le changelog suivant se borne mal.\n" +
           `    → fusionner origin/main puis ${m.nom} dans ${branche} (commit de FUSION, pas de squash) :\n` +
           "      node .claude/skills/nodefony-ticket/scripts/release-sync.mjs",
+      );
+    }
+  }
+  for (const lot of lots ?? []) {
+    if (
+      lot.ouverts > 0 &&
+      estJalonDeCorrectif(lot.titre) &&
+      version !== null &&
+      clotMaintenance(version, lot.titre)
+    ) {
+      motifs.push(
+        `le lot ${lot.titre} a ${lot.ouverts} ticket(s) ouvert(s) : publier ${version} clôturerait sa maintenance,\n` +
+          "    et ces correctifs ne pourraient plus sortir qu'avec la mineure.\n" +
+          `    → publier d'abord ce lot ; ou déplacer ses tickets vers le jalon de ${version.replace(/-.*$/u, "")}\n` +
+          "      et clore la maintenance (D8).",
       );
     }
   }

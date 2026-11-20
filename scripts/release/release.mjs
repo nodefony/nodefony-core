@@ -126,6 +126,7 @@ import {
   phasesDeLaPasse,
   refusDePublicationHorsBranche,
   refusDeMaintenance,
+  estJalonDeCorrectif,
   verdictDeSynchro,
   avisDeBranche,
   planDePromotion,
@@ -803,12 +804,50 @@ const constaterSynchro = (ecrire) => {
   };
 };
 
+/**
+ * Les jalons de CORRECTIF ouverts et leurs tickets ouverts — la matière du
+ * troisième motif de {@link refusDeMaintenance}. `null` quand GitHub ne répond
+ * pas : on le DIT (avis), sans bloquer, car le motif des commits reste jugé.
+ *
+ * @returns {Array<{ titre: string, ouverts: number }> | null}
+ */
+const lireLotsOuverts = () => {
+  if (HORS_LIGNE || PUBLIER) return null;
+  const r = spawnSync(
+    "gh",
+    [
+      "api",
+      "repos/{owner}/{repo}/milestones?state=open&per_page=100",
+      "--jq",
+      '.[] | "\\(.title)\\t\\(.open_issues)"',
+    ],
+    { cwd: ROOT, encoding: "utf8" },
+  );
+  if (r.status !== 0) {
+    alerter(
+      "jalons GitHub non lus (gh) — un lot de correctifs ouvert ne serait pas vu.\n" +
+        "  Pour lire l'erreur :  gh api repos/{owner}/{repo}/milestones",
+    );
+    return null;
+  }
+  return r.stdout
+    .split("\n")
+    .filter(Boolean)
+    .map((l) => {
+      const [titre, ouverts] = l.split("\t");
+      return { titre, ouverts: Number(ouverts) };
+    })
+    .filter((l) => estJalonDeCorrectif(l.titre));
+};
+
 if (PROMOUVOIR) {
   etape = "promotion";
   {
     const refus = refusDeMaintenance({
       branche: git("rev-parse", "--abbrev-ref", "HEAD").trim(),
       maintenance: constaterMaintenance(),
+      version: VERSION ?? null,
+      lots: lireLotsOuverts(),
     });
     if (refus) echouer(refus);
   }
@@ -1199,6 +1238,8 @@ if (!PUBLIER) {
   const maintenance = refusDeMaintenance({
     branche: branche === "(HEAD détaché)" ? null : branche,
     maintenance: constaterMaintenance(),
+    version: VERSION ?? null,
+    lots: lireLotsOuverts(),
   });
   if (maintenance) (ECRIRE ? echouer : alerter)(maintenance);
 }

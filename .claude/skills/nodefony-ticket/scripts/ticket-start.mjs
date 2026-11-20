@@ -35,6 +35,10 @@ import { guardCli } from "../../nodefony-session/scripts/cli-guard.mjs";
 import { readInstallDrift } from "../../nodefony-session/scripts/install-drift.mjs";
 import { BRANCH_TYPES, ticketOfBranch } from "./commit-kind.mjs";
 import { markInProgress } from "./ticket-progress.mjs";
+import {
+  clotMaintenance,
+  estJalonDeCorrectif,
+} from "../../../../scripts/release/release-core.mjs";
 
 const REPO = "nodefony/nodefony-core";
 
@@ -99,20 +103,36 @@ export function branchName(title, n, slug) {
  * @param {string | null} milestone - titre du jalon du ticket
  * @param {string[]} remoteBranches - branches distantes, sans le préfixe `origin/`
  * @param {string | null} [scope] - scope du titre du ticket
+ * @param {string | null} [mainVersion] - version que porte `origin/main` (dernière publiée)
  * @returns {string}
- * @throws quand le jalon exige une branche de maintenance qui n'existe pas
+ * @throws quand le jalon exige une branche de maintenance absente, ou CLOSE
  */
-export function baseFor(milestone, remoteBranches, scope = null) {
+export function baseFor(
+  milestone,
+  remoteBranches,
+  scope = null,
+  mainVersion = null,
+) {
+  // Une maintenance que `main` a dépassée (`release-core#clotMaintenance`) ne
+  // peut plus rien publier : partir d'elle, c'est écrire un correctif qui ne
+  // sortira jamais (#796, bloquant 3).
+  const close = (b) => mainVersion !== null && clotMaintenance(mainVersion, b);
   if (scope === "pilotage") {
     const releases = remoteBranches
-      .filter((b) => /^release\/\d+\.\d+\.x$/u.test(b))
+      .filter((b) => /^release\/\d+\.\d+\.x$/u.test(b) && !close(b))
       .sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
     return releases[0] ?? "dev";
   }
-  const m = /^(\d+)\.(\d+)\.(x|\d+)$/u.exec(milestone ?? "");
-  const patch = m !== null && (m[3] === "x" || Number(m[3]) >= 1);
-  if (!patch) return "dev";
+  if (!estJalonDeCorrectif(milestone)) return "dev";
+  const m = /^(\d+)\.(\d+)\./u.exec(milestone);
   const release = `release/${m[1]}.${m[2]}.x`;
+  if (close(release)) {
+    throw new Error(
+      `jalon de correctif ${milestone}, mais la maintenance ${m[1]}.${m[2]}.x est CLOSE : main porte ${mainVersion}.\n` +
+        `  Un correctif parti de ${release} ne pourrait plus être publié.\n` +
+        `  → déplacer le ticket vers le jalon de la mineure suivante (il partira de dev), et supprimer ${release} (D8).`,
+    );
+  }
   if (!remoteBranches.includes(release)) {
     throw new Error(
       `jalon de correctif ${milestone}, mais aucune branche ${release} sur origin — la créer depuis le tag publié ; jamais de repli sur dev`,
@@ -181,6 +201,17 @@ const ROOT = path.resolve(
   "..",
   "..",
 );
+
+/** La version que porte `origin/main` (la dernière publiée), ou `null` si illisible. */
+function mainVersion() {
+  try {
+    return JSON.parse(
+      sh("git", ["show", "origin/main:src/nodefony/package.json"]),
+    ).version;
+  } catch {
+    return null;
+  }
+}
 
 function sh(cmd, args) {
   return execFileSync(cmd, args, {
@@ -278,7 +309,7 @@ function main() {
     : undefined;
   const base =
     openPr?.baseRefName ??
-    baseFor(milestone, remote, commitPrefix(issue.title).scope);
+    baseFor(milestone, remote, commitPrefix(issue.title).scope, mainVersion());
 
   console.log(
     `#${n} ${issue.title}\n  jalon ${milestone ?? "aucun (backlog)"} → base ${base}\n  branche ${name}${resuming ? " (existante : reprise)" : " (neuve)"}`,
