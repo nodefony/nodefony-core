@@ -161,11 +161,13 @@ describe("renderFrise", () => {
 });
 
 describe("unchangedOnDisk", () => {
-  // Le tableau réel du dépôt sert de décor : un rendu sur un objet minimal ne
+  // Décor : un extrait VERSIONNÉ du tableau réel (fermés, en cours, sans jalon,
+  // sans ordre, sans priorité, frise sur deux années) — un objet minimal ne
   // prouverait rien du gabarit Markdown, qui est la moitié de la comparaison.
+  // Jamais `.ai/board.json` : généré et ignoré par git (D7, #796), il manque en CI.
   const previous = JSON.parse(
     fs.readFileSync(
-      new URL("../../../../.ai/board.json", import.meta.url),
+      new URL("./board-snapshot.fixture.json", import.meta.url),
       "utf8",
     ),
   );
