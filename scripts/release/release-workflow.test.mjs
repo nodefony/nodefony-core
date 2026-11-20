@@ -37,7 +37,7 @@ function githubFilter(pattern) {
       const end = pattern.indexOf("]", i);
       re += pattern.slice(i, end + 1);
       i = end;
-    } else re += c.replace(/[.\\^$|?(){}]/u, "\\$&");
+    } else re += c.replace(/[.\\^$|?(){}]/gu, "\\$&");
   }
   return new RegExp(`^${re}$`, "u");
 }
