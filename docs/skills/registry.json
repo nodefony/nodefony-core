@@ -11996,7 +11996,7 @@
             "path": "scripts/ticket-close.mjs",
             "purpose": "Compose le COMPTE RENDU de fermeture d'un ticket — la moitié mécanique.",
             "usage": [
-              "node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>] | --check <fichier>"
+              "node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>] | --check <fichier> | <numéro> --close <fichier> | <numéro> --done"
             ],
             "options": [
               {
@@ -12006,6 +12006,14 @@
               {
                 "flag": "--check",
                 "help": "vérifie qu'un compte rendu tient dans un commentaire GitHub (65 536 caractères)"
+              },
+              {
+                "flag": "--close",
+                "help": "publie le compte rendu complété, ferme le ticket et pose « Done » au tableau"
+              },
+              {
+                "flag": "--done",
+                "help": "pose « Done » au tableau sur un ticket DÉJÀ fermé"
               }
             ],
             "env": [],

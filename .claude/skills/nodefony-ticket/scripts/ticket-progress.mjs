@@ -12,7 +12,10 @@
  * après, du code existe.
  *
  * Un commit qui FERME (`Closes #12`) est ignoré : GitHub ferme l'issue, et le
- * workflow natif du tableau de bord la passe à « Done » tout seul — vérifié.
+ * workflow natif du tableau de bord la passe à « Done ». Ce workflow ne couvre PAS
+ * toutes les fermetures — vécu, #797 et #801 fermés à la main et restés « In
+ * Progress » : la fermeture manuelle passe donc par `ticket-close.mjs`, qui pose
+ * « Done » elle-même, et `board-lint` signale le reste (`FERME-PAS-DONE`).
  *
  * CONTRAT : ce script ne doit JAMAIS faire échouer un commit ni le ralentir. Il est
  * lancé détaché par `.githooks/post-commit`, sort 0 quoi qu'il arrive, et se tait
@@ -69,17 +72,36 @@ async function main() {
 /**
  * Passe des tickets OUVERTS du tableau de bord en « In Progress » — sans rien lever.
  *
- * SEULE implémentation du geste : le crochet `post-commit` l'appelle par `main`,
- * `ticket-start.mjs` directement (son commit d'ouverture est un commit de
- * pilotage, que `parseTargets` écarte à raison). Un ticket fermé, hors tableau ou
- * déjà en cours est laissé tel quel ; une erreur sur UN ticket se tait, une
- * erreur de lecture du tableau remonte à l'appelant (qui décide de se taire).
+ * Le crochet `post-commit` l'appelle par `main`, `ticket-start.mjs`
+ * directement (son commit d'ouverture est un commit de pilotage, que
+ * `parseTargets` écarte à raison). Le geste lui-même est {@link setBoardStatus}.
  *
  * @param {(string|number)[]} targets - numéros de tickets
  * @returns {void}
  */
 export function markInProgress(targets) {
-  if (!targets.length) return;
+  setBoardStatus(targets, "In Progress", "OPEN");
+}
+
+/**
+ * Pose un statut du tableau de bord sur des tickets dans l'état attendu — sans rien lever.
+ *
+ * SEULE implémentation de l'écriture du champ « Status » : la mise en cours
+ * (`markInProgress`) et la clôture (`ticket-close.mjs`) l'appellent, aucune
+ * ne recopie la requête. L'état exigé (`OPEN` pour une
+ * mise en cours, `CLOSED` pour « Done ») est relu sur GitHub juste avant
+ * l'écriture : un ticket qui n'y est pas, hors tableau ou déjà au bon statut est
+ * laissé tel quel. Une erreur sur UN ticket se tait ; une erreur de lecture du
+ * tableau remonte à l'appelant (qui décide de se taire).
+ *
+ * @param {(string|number)[]} targets - numéros de tickets
+ * @param {string} statusName - option du champ « Status » (`In Progress`, `Done`)
+ * @param {"OPEN" | "CLOSED"} requiredState - état GitHub exigé du ticket
+ * @returns {(string|number)[]} les tickets effectivement modifiés
+ */
+export function setBoardStatus(targets, statusName, requiredState) {
+  const changed = [];
+  if (!targets.length) return changed;
 
   // Un seul aller-retour pour les identifiants, puis un par ticket. Si `gh` n'est
   // pas authentifié ou que le réseau est absent, on sort en silence.
@@ -106,8 +128,8 @@ export function markInProgress(targets) {
     ]),
   ).fields;
   const status = fields.find((f) => f.name === "Status");
-  const inProgress = status?.options?.find((o) => o.name === "In Progress");
-  if (!status || !inProgress) return;
+  const option = status?.options?.find((o) => o.name === statusName);
+  if (!status || !option) return changed;
 
   for (const n of targets) {
     try {
@@ -118,17 +140,17 @@ export function markInProgress(targets) {
         fieldValueByName(name:"Status"){... on ProjectV2ItemFieldSingleSelectValue{name}}}}}}}`;
       const issue = JSON.parse(sh("gh", ["api", "graphql", "-f", `query=${q}`]))
         .data.repository.issue;
-      if (issue?.state !== "OPEN") continue;
+      if (issue?.state !== requiredState) continue;
       const item = issue.projectItems.nodes.find(
         (i) => i.project.number === PROJECT,
       );
       // Un ticket hors tableau de bord est invisible du pilotage : l'y mettre est
-      // le vrai correctif, mais il n'appartient pas à un hook de le décider.
+      // le vrai correctif, mais il n'appartient pas à ce geste de le décider.
       if (!item) {
         console.error(`ticket-progress : #${n} n'est pas au tableau de bord`);
         continue;
       }
-      if (item.fieldValueByName?.name === "In Progress") continue;
+      if (item.fieldValueByName?.name === statusName) continue;
       sh("gh", [
         "project",
         "item-edit",
@@ -139,13 +161,15 @@ export function markInProgress(targets) {
         "--field-id",
         status.id,
         "--single-select-option-id",
-        inProgress.id,
+        option.id,
       ]);
-      console.error(`ticket-progress : #${n} → In Progress`);
+      changed.push(n);
+      console.error(`ticket-progress : #${n} → ${statusName}`);
     } catch {
       /* un ticket qui résiste ne doit pas empêcher les suivants */
     }
   }
+  return changed;
 }
 
 if (process.argv[1]?.endsWith("ticket-progress.mjs")) {

@@ -206,7 +206,8 @@ export function precedenceBroken(first, second) {
  * Chaque contrôle a un verdict binaire et une preuve : aucun n'exige de jugement,
  * c'est ce qui autorise un automate à les rendre tous.
  *
- * @param entree.items - items du tableau, `{ n, title, milestone, ordre, jours, prio, status, parent, type }`
+ * @param entree.items - items du tableau, `{ n, title, state, milestone, ordre, jours, prio, status, parent, type }` ;
+ *   les items FERMÉS n'y servent qu'au contrôle `FERME-PAS-DONE`, tous les autres ne voient que les ouverts
  * @param entree.issues - issues OUVERTES du dépôt, `{ n, title, milestone, labels, dependsOn }`
  * @param entree.commits - par numéro de ticket, les commits qui le citent `{ sha, date, subject }`
  * @param entree.publies - numéros N des `10.x.y-beta.N` déjà étiquetées (tags git), injectés
@@ -214,7 +215,7 @@ export function precedenceBroken(first, second) {
  * @returns les constats, erreurs d'abord, chacun avec son code, son ticket et son geste
  */
 export function lintBoard({
-  items,
+  items: tous,
   issues,
   commits = {},
   vitrine = [],
@@ -223,9 +224,30 @@ export function lintBoard({
   now = new Date(),
 }) {
   const findings = [];
-  const parItem = new Map(items.map((i) => [i.n, i]));
   const add = (severity, code, n, message, unlock) =>
     findings.push({ severity, code, n, message, unlock });
+
+  // E0 — un ticket FERMÉ dont le statut n'est pas « Done » se lit « encore
+  // ouvert » sur le tableau. Vécu : #797 et #801, fermés à la main vers
+  // `release/*` (aucun mot-clé n'y mord), restés « In Progress » — l'auteur les
+  // a crus ouverts après la clôture. Le workflow natif du tableau ne couvre pas
+  // toutes les fermetures : le contrôle ne lui fait pas confiance.
+  const items = [];
+  for (const item of tous) {
+    if (item.state !== "CLOSED") {
+      items.push(item);
+      continue;
+    }
+    if (item.status === "Done") continue;
+    add(
+      "erreur",
+      "FERME-PAS-DONE",
+      item.n,
+      `fermé mais « ${item.status ?? "sans statut"} » au tableau — se lit « encore ouvert »`,
+      `node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs ${item.n} --done`,
+    );
+  }
+  const parItem = new Map(items.map((i) => [i.n, i]));
 
   // E1 — un jalon promet une date ; hors tableau, personne ne voit la promesse.
   for (const issue of issues) {
@@ -845,30 +867,35 @@ function readItems() {
       `lecture TRONQUÉE : ${nodes.length} items reçus pour ${attendu} annoncés — ` +
         "ne pas décider sur cet inventaire",
     );
-  return nodes
-    .filter((node) => node.content?.number && node.content.state === "OPEN")
-    .map((node) => {
-      const f = Object.fromEntries(
-        node.fieldValues.nodes
-          .filter((v) => v.field?.name)
-          .map((v) => [v.field.name, v.number ?? v.name ?? v.date]),
-      );
-      return {
-        n: node.content.number,
-        title: node.content.title,
-        milestone: node.content.milestone?.title ?? null,
-        echeance: node.content.milestone?.dueOn ?? null,
-        parent: node.content.parent?.number ?? null,
-        type: node.content.issueType?.name ?? null,
-        ordre: typeof f.Ordre === "number" ? f.Ordre : undefined,
-        jours: typeof f.Jours === "number" ? f.Jours : undefined,
-        prio: f["Priorité"] ?? null,
-        gravite: f["Gravité"] ?? null,
-        status: f.Status ?? null,
-        debut: f["Début"] ?? null,
-        cible: f.Cible ?? null,
-      };
-    });
+  return (
+    nodes
+      // Fermés compris : `lintBoard` les écarte lui-même après le contrôle
+      // `FERME-PAS-DONE`, qui ne voit qu'eux.
+      .filter((node) => node.content?.number)
+      .map((node) => {
+        const f = Object.fromEntries(
+          node.fieldValues.nodes
+            .filter((v) => v.field?.name)
+            .map((v) => [v.field.name, v.number ?? v.name ?? v.date]),
+        );
+        return {
+          n: node.content.number,
+          title: node.content.title,
+          state: node.content.state,
+          milestone: node.content.milestone?.title ?? null,
+          echeance: node.content.milestone?.dueOn ?? null,
+          parent: node.content.parent?.number ?? null,
+          type: node.content.issueType?.name ?? null,
+          ordre: typeof f.Ordre === "number" ? f.Ordre : undefined,
+          jours: typeof f.Jours === "number" ? f.Jours : undefined,
+          prio: f["Priorité"] ?? null,
+          gravite: f["Gravité"] ?? null,
+          status: f.Status ?? null,
+          debut: f["Début"] ?? null,
+          cible: f.Cible ?? null,
+        };
+      })
+  );
 }
 
 /**
@@ -1124,8 +1151,9 @@ if (estAppelDirect) {
     items = items.filter((i) => i.milestone === filtre);
     issues = issues.filter((i) => i.milestone === filtre);
   }
+  const ouverts = items.filter((i) => i.state !== "CLOSED").length;
   const enCours = items
-    .filter((i) => i.status === "In Progress")
+    .filter((i) => i.state !== "CLOSED" && i.status === "In Progress")
     .map((i) => i.n);
   const findings = lintBoard({
     items,
@@ -1141,9 +1169,9 @@ if (estAppelDirect) {
     : null;
   if (json)
     console.log(
-      JSON.stringify({ total: items.length, findings, incidents }, null, 2),
+      JSON.stringify({ total: ouverts, findings, incidents }, null, 2),
     );
-  else console.log(render(findings, items.length, incidents));
+  else console.log(render(findings, ouverts, incidents));
 
   process.exit(findings.some((f) => f.severity === "erreur") ? 1 : 0);
 }

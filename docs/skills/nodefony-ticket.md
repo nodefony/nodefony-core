@@ -86,7 +86,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/gravite.md` | La gravité d'un défaut — une norme, jamais une impression | 107 |
 | `references/lexique.md` | Lexique des tickets — source unique | 145 |
 | `references/pull-requests.md` | Pull requests — la remplir, la relier, la fusionner | 115 |
-| `references/tableau-de-bord.md` | Le tableau de bord — labels, champs, ordre, et quand prendre un ticket | 289 |
+| `references/tableau-de-bord.md` | Le tableau de bord — labels, champs, ordre, et quand prendre un ticket | 290 |
 
 
 ## Scripts embarqués
@@ -114,7 +114,7 @@ script, donc toujours à jour après régénération.
 | `scripts/proof-commands.test.mjs` | `proof-commands` — relancer les preuves d'ABSENCE écrites dans un ticket. | — | — |
 | `scripts/severity.mjs` | Gravité d'un défaut — lue, validée et calculée selon une NORME, jamais estimée à l'impression. | — | — |
 | `scripts/ticket-anchor-migrate.mjs` | ticket-anchor-migrate.mjs — convertit les ancres `fichier:ligne` des tickets OUVERTS en ancres par symbole (`<fichier>.ts#<Symbole>`). | `--apply` | — |
-| `scripts/ticket-close.mjs` | Compose le COMPTE RENDU de fermeture d'un ticket — la moitié mécanique. | `--since` `--check` | — |
+| `scripts/ticket-close.mjs` | Compose le COMPTE RENDU de fermeture d'un ticket — la moitié mécanique. | `--since` `--check` `--close` `--done` | — |
 | `scripts/ticket-close.test.mjs` | Suite du compte rendu de fermeture. | — | — |
 | `scripts/ticket-effort.mjs` | ticket-effort.mjs — confronte l'estimation d'un ticket à ce que le travail a RÉELLEMENT pris, mesuré sur ses commits. | `--format` `--grep` `--json` `--limit` `--paginate` `--since` `--slurp` `--state` | — |
 | `scripts/ticket-open.mjs` | Ouvre un ticket ET l'inscrit au tableau de bord, d'un seul geste. | `--title` `--body-file` `--milestone` `--label` `--jours` `--priorite` `--parent` `--ordre` `--backlog` `--type` `--gravite` `--cvss` | — |
@@ -136,7 +136,7 @@ node .claude/skills/nodefony-ticket/scripts/pose-lexique.mjs [<numéro>…] [--w
 node .claude/skills/nodefony-ticket/scripts/pr-complete.mjs 799
 node .claude/skills/nodefony-ticket/scripts/pr-finish.mjs            (PR de la branche courante)
 node .claude/skills/nodefony-ticket/scripts/ticket-anchor-migrate.mjs [<numéro>…]
-node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>] | --check <fichier>
+node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>] | --check <fichier> | <numéro> --close <fichier> | <numéro> --done
 node .claude/skills/nodefony-ticket/scripts/ticket-effort.mjs [<numéro>…]
 node .claude/skills/nodefony-ticket/scripts/ticket-open.mjs --title "fix(x): …" --body-file corps.md [options]
 node .claude/skills/nodefony-ticket/scripts/ticket-progress.mjs [<sha>]   (défaut : HEAD)
@@ -224,13 +224,15 @@ node .claude/skills/nodefony-ticket/scripts/ticket-anchor-migrate.mjs --apply [<
 
 
 ```bash
-node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>] | --check <fichier>
+node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>] | --check <fichier> | <numéro> --close <fichier> | <numéro> --done
 ```
 
 | Option | Rôle |
 | --- | --- |
 | `--since` | début de la plage de commits du ticket |
 | `--check` | vérifie qu'un compte rendu tient dans un commentaire GitHub (65 536 caractères) |
+| `--close` | publie le compte rendu complété, ferme le ticket et pose « Done » au tableau |
+| `--done` | pose « Done » au tableau sur un ticket DÉJÀ fermé |
 
 #### `scripts/ticket-effort.mjs`
 

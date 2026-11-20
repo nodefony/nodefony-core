@@ -21,24 +21,38 @@
  * seuls qui valent d'être écrits à la main. Un script qui les inventerait rendrait
  * un compte rendu plausible et faux — pire que pas de compte rendu.
  *
- * Il n'écrit RIEN sur GitHub : il imprime le brouillon, l'auteur le complète, et
- * ferme lui-même. Fermer est irréversible aux yeux du pilotage ; cela ne se
- * délègue pas à un automate qui n'a pas lu le diff.
+ * Sans option, il n'écrit RIEN sur GitHub : il imprime le brouillon, l'auteur le
+ * complète. Fermer est irréversible aux yeux du pilotage ; cela ne se délègue pas
+ * à un automate qui n'a pas lu le diff — d'où `--close`, qui ne ferme que sur le
+ * compte rendu COMPLÉTÉ qu'on lui tend.
+ *
+ * FERMER = DEUX FAITS, UN SEUL GESTE
+ *
+ * Le ticket fermé ET son statut « Done » au tableau. Le workflow natif du tableau
+ * ne pose pas toujours le second — vécu, #797 et #801 fermés à la main restés
+ * « In Progress », vus « encore ouverts » par l'auteur. `--close` fait donc les
+ * deux ; `--done` répare un ticket déjà fermé, c'est le geste que `board-lint`
+ * donne pour `FERME-PAS-DONE`.
  *
  * Usage :
  *   node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs 95
  *   node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs 95 --since <sha>
  *
  *   node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs --check compte-rendu.md
+ *   node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs 95 --close compte-rendu.md
+ *   node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs 95 --done
  *
- * @usage  node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>] | --check <fichier>
+ * @usage  node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs <numéro> [--since <sha>] | --check <fichier> | <numéro> --close <fichier> | <numéro> --done
  * @option --since  début de la plage de commits du ticket
  * @option --check  vérifie qu'un compte rendu tient dans un commentaire GitHub (65 536 caractères)
+ * @option --close  publie le compte rendu complété, ferme le ticket et pose « Done » au tableau
+ * @option --done   pose « Done » au tableau sur un ticket DÉJÀ fermé
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { guardCli } from "../../nodefony-session/scripts/cli-guard.mjs";
 import { checkBodyLength } from "./github-limits.mjs";
+import { setBoardStatus } from "./ticket-progress.mjs";
 
 const sh = (cmd, args) => {
   try {
@@ -190,9 +204,19 @@ function main() {
   if (!numero || !/^\d+$/.test(numero)) {
     console.error(
       "usage : ticket-close.mjs <numéro> [--since <sha>] | --check <fichier>\n" +
-        "  imprime le brouillon de compte rendu ; n'écrit RIEN sur GitHub.",
+        "        ticket-close.mjs <numéro> --close <fichier> | <numéro> --done\n" +
+        "  sans option : imprime le brouillon de compte rendu, n'écrit RIEN sur GitHub.",
     );
     process.exit(2);
+  }
+  const closeAt = process.argv.indexOf("--close");
+  if (closeAt > 0) {
+    closeTicket(numero, process.argv[closeAt + 1]);
+    return;
+  }
+  if (process.argv.includes("--done")) {
+    markDone(numero);
+    return;
   }
   const i = process.argv.indexOf("--since");
   const depuis = i > 0 ? process.argv[i + 1] : undefined;
@@ -214,10 +238,82 @@ function main() {
   console.log(
     "  node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs --check compte-rendu.md",
   );
-  console.log(`  gh issue close ${numero} --comment "$(cat compte-rendu.md)"`);
+  console.log(
+    `  node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs ${numero} --close compte-rendu.md`,
+  );
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+/**
+ * Publie le compte rendu, ferme le ticket, puis pose « Done » au tableau.
+ *
+ * Le compte rendu part par `--body-file`, jamais en argument : une ligne de
+ * commande Windows plafonne à 32 767 caractères, un commentaire GitHub en admet
+ * 65 536. Une étape GitHub qui échoue arrête tout avec un code ≠ 0 et dit où
+ * l'on en est — le ticket resté ouvert ne doit jamais passer pour fermé.
+ *
+ * @param {string} numero - le numéro du ticket.
+ * @param {string | undefined} fichier - le compte rendu COMPLÉTÉ.
+ */
+function closeTicket(numero, fichier) {
+  if (!fichier) {
+    console.error("usage : ticket-close.mjs <numéro> --close <fichier>");
+    process.exit(2);
+  }
+  const verdict = checkBodyLength(readFileSync(fichier, "utf8"));
+  if (!verdict.ok) {
+    console.error(`refusé : ${verdict.reason}`);
+    process.exit(1);
+  }
+  const gh = (args) =>
+    execFileSync("gh", args, {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  try {
+    gh(["issue", "comment", numero, "--body-file", fichier]);
+  } catch (e) {
+    console.error(
+      `compte rendu NON publié, #${numero} reste ouvert : ${e.stderr ?? e}`,
+    );
+    process.exit(1);
+  }
+  try {
+    gh(["issue", "close", numero]);
+  } catch (e) {
+    console.error(
+      `compte rendu publié, mais #${numero} reste OUVERT : ${e.stderr ?? e}\n` +
+        `  → gh issue close ${numero}   puis   ticket-close.mjs ${numero} --done`,
+    );
+    process.exit(1);
+  }
+  console.log(`#${numero} fermé avec son compte rendu`);
+  markDone(numero);
+}
+
+/**
+ * Pose « Done » au tableau sur un ticket fermé, et dit ce qui s'est passé.
+ *
+ * @param {string} numero - le numéro du ticket.
+ */
+function markDone(numero) {
+  let changed;
+  try {
+    changed = setBoardStatus([numero], "Done", "CLOSED");
+  } catch {
+    console.error(
+      `⚠️ tableau injoignable — statut « Done » NON posé sur #${numero}\n` +
+        `  → ticket-close.mjs ${numero} --done`,
+    );
+    process.exit(1);
+  }
+  console.log(
+    changed.length
+      ? `#${numero} → « Done » au tableau`
+      : `#${numero} : statut inchangé (déjà « Done », hors tableau, ou ticket encore ouvert)`,
+  );
+}
+
+if (process.argv[1]?.endsWith("ticket-close.mjs")) {
   guardCli(import.meta.url);
   main();
 }
